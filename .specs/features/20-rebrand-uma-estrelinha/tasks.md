@@ -102,13 +102,13 @@ Antes da paleta, de propósito: re-tematizar código que vai ser apagado é trab
 T10 → T11 → T12 → T13 → T14 → T15 → T16
 ```
 
-### Fase 3 — Paleta e rename silencioso (7 tasks)
+### Fase 3 — Paleta e rename silencioso (8 tasks)
 
 A fase de maior risco. Errar aqui **não quebra nada** — por isso ela começa e termina construindo
 os juízes que não existem naturalmente.
 
 ```
-T17 → T18 → T19 → T20 → T21 → T22 → T23
+T17 → T18 → T19 → T20 → T21 → T22 → T22b → T23
 ```
 
 ### Fase 4 — Marca e ativos (5 tasks)
@@ -489,7 +489,9 @@ Materno, Dente de Leite, Pet, Maternidade, Masculina), mantendo a idempotência 
 **Done when**:
 - [ ] Os valores batem com os tokens do Paper e com `../landing-pages/src/styles/global.css`
 - [ ] `palette.test.ts` falha se um valor divergir entre os dois arquivos (provado invertendo um valor de propósito e revertendo)
-- [ ] `borderRadius` remapeado para a escala do DS (`sm 6 · md 12 · lg 20 · full 999`), com `button` permanecendo **a última chave** — o `tailwind-merge` não colapsa token custom contra t-shirt size e quem vence é a última no CSS
+- [ ] `borderRadius` remapeado para a escala do DS: `sm 6 · md 12 · lg 20 · full 999`
+- [ ] **A chave `button` (14px) é REMOVIDA.** Ela existia para contornar um conflito que não existe mais: o `<Button>` do shadcn traz `rounded-md` na base, e o `tailwind-merge` **não** colapsa token custom contra t-shirt size — mas colapsa dois t-shirt sizes. Medido em 2026-08-08 neste repositório: `twMerge('rounded-md','rounded-button')` → `"rounded-md rounded-button"` (as duas), enquanto `twMerge('rounded-md','rounded-sm')` → `"rounded-sm"`. Como o CTA da Uma Estrelinha é `rounded-sm` (6px, confirmado em `../landing-pages/src/components/CtaFinal.astro`), a maquinaria toda cai
+- [ ] `shared/ui/Button` **permanece** — ele carrega as variantes, os tamanhos e o `min-h-11` (alvo de toque de 44px), que nada disso vem do shadcn. Mas o comentário de topo dele, que hoje justifica a existência do componente pelo conflito de raio, **precisa ser reescrito**: aquela justificativa deixou de ser verdade, e comentário que mente custa mais caro que comentário nenhum
 - [ ] Sombras recalibradas do rosa para o slate
 
 **Tests**: unit · **Gate**: quick
@@ -597,6 +599,36 @@ Materno, Dente de Leite, Pet, Maternidade, Masculina), mantendo a idempotência 
 
 **Tests**: unit · **Gate**: full
 **Commit**: `refactor(ui): tokens do painel passam a --estrelinha-admin-*, valores intactos`
+
+---
+
+### T22b — Marca antiga fora das migrations legadas
+
+> **Nasceu de [`AD-017`](../../STATE.md)**, registrada depois da aprovação do plano. Não estava no
+> breakdown original: a spec dizia "zero ocorrência em `supabase/`" sem que ninguém tivesse olhado o
+> que havia nas migrations. Há — e não em comentário, em **dado**.
+
+**O quê**: as duas `*_create_store_settings.sql` passam a gravar os defaults da Uma Estrelinha, e a
+`20260801170000_rebrand_store_settings_nanita.sql` é **apagada** (existia só para consertar o valor
+daquelas duas).
+**Onde**: `supabase/migrations/20260416000000_create_store_settings.sql`,
+`supabase/migrations/20260417015945_create_store_settings.sql`,
+`supabase/migrations/20260801170000_rebrand_store_settings_nanita.sql` (delete),
+`supabase/migrations/20260727120100_customer_address_update_rls.sql` (só um comentário cita o
+contêiner antigo)
+**Depende de**: T22 · **Reusa**: — · **Requisito**: `REN-05` (habilita a AC 1 da T23)
+
+**Tools** — Skill: `supabase` · CLI: `supabase db reset` / `psql`
+
+**Done when**:
+- [ ] Zero `NanaPin` / `nanapin` / `nanita` em `supabase/migrations/**`
+- [ ] As duas `create_store_settings` continuam **duplicatas byte-a-byte** uma da outra — elas já eram, e divergi-las agora criaria um resultado que depende de qual das duas roda por último
+- [ ] `20260801170000_*` não existe mais
+- [ ] `supabase db reset` completa e um **probe confirma** que `store_settings.general->>'store_name'` já vale `Uma Estrelinha` **sem nenhuma migration de correção** (`AD-012`: prova de execução, não inspeção de tipo)
+- [ ] O comentário no topo da migration inicial registra que ela foi reescrita sob `AD-017`, e que a permissão **expira no primeiro `db push`**
+
+**Tests**: none (SQL) + probe · **Gate**: db + build
+**Commit**: `refactor(db): marca da Uma Estrelinha nas migrations legadas (AD-017)`
 
 ---
 
@@ -823,24 +855,28 @@ mudou, ajustar com decisão registrada.
 
 ---
 
-### T34 — `store_settings`: defaults e migration
+### T34 — `store_settings`: defaults em TypeScript
 
-**O quê**: defaults do TypeScript e migration condicionada ao valor antigo.
-**Onde**: `packages/supabase/src/types/settings.ts`, `supabase/migrations/<timestamp>_rebrand-store-settings.sql`
-**Depende de**: T18 (paleta declarada) · **Reusa**: molde de `20260801170000_rebrand_store_settings_nanita.sql`
-**Requisito**: `COP-01`, `COP-02`
+> **Encolhida por [`AD-017`](../../STATE.md).** Nasceu com uma migration de rebrand condicionada ao
+> valor antigo, no molde da `20260801170000`. Ela deixou de ser necessária: a **T22b** reescreveu os
+> defaults direto nas migrations legadas, então um `db reset` já nasce com os valores certos e não há
+> banco implantado com valor velho para corrigir. Sobrou o lado TypeScript.
 
-**Tools** — Skill: `supabase` · CLI: `supabase db reset` / `psql` (MCP do Supabase não autorizado nesta sessão)
+**O quê**: os defaults de `store_settings` no TypeScript passam a ser os da Uma Estrelinha.
+**Onde**: `packages/supabase/src/types/settings.ts`
+**Depende de**: T22b (que já corrigiu o lado SQL) · **Reusa**: —
+**Requisito**: `COP-01`
+
+**Tools** — MCP: nenhum · Skill: nenhuma
 
 **Done when**:
-- [ ] `store_name`, `email` e título de SEO da Uma Estrelinha nos defaults **e** no banco
-- [ ] Cada `UPDATE` condicionado ao valor antigo: idempotente e não sobrescreve edição da admin
-- [ ] Prefixo de timestamp maior que todos os existentes
-- [ ] **Probe contra o banco local prova a gravação** (`AD-012`)
-- [ ] Rodar a migration duas vezes não muda nada na segunda
+- [ ] `DEFAULT_GENERAL.store_name`, `.email` e `DEFAULT_SEO.title` são da Uma Estrelinha
+- [ ] Os valores do TypeScript são **idênticos** aos que as migrations gravam (um teste compara os dois; divergir aqui é o mesmo defeito da paleta em dois arquivos, e não quebra nada visível)
+- [ ] `whatsapp_message` no tom do negócio, sem linguagem festiva
+- [ ] Probe contra o banco local confirma que `store_settings` já contém os valores certos após `db reset` — sem migration nova (`AD-012`: prova de execução, não inspeção de tipo)
 
-**Tests**: unit (defaults) + probe (migration) · **Gate**: db + full
-**Commit**: `feat(db): store_settings da Uma Estrelinha`
+**Tests**: unit · **Gate**: full + db
+**Commit**: `feat: defaults de store_settings da Uma Estrelinha`
 
 ---
 
@@ -1003,7 +1039,7 @@ Fase 0 → Fase 1 → Fase 2 → Fase 3 → Fase 4 → Fase 5 → Fase 7
 Fase 0:  T1 → T2 → T3 → T4 → T5
 Fase 1:  T6 → T7 → T8 → T9
 Fase 2:  T10 → T11 → T12 → T13 → T14 → T15 → T16
-Fase 3:  T17 → T18 → T19 → T20 → T21 → T22 → T23
+Fase 3:  T17 → T18 → T19 → T20 → T21 → T22 → T22b → T23
 Fase 4:  T24 → T25 → T26 → T27 → T28
 Fase 5:  T29 → T30 → T31 → T32 → T33
 Fase 6:  T34 → T35 → T36 → T37 → T38
@@ -1019,11 +1055,11 @@ Execução é estritamente sequencial — não há paralelismo dentro de fase. A
 | --- | --- | --- |
 | 1 | 0 + 1 | T1–T9 (9) |
 | 2 | 2 | T10–T16 (7) |
-| 3 | 3 | T17–T23 (7) |
+| 3 | 3 | T17–T23 (8) |
 | 4 | 4 + 5 | T24–T33 (10) |
 | 5 | 6 + 7 | T34–T41 (8) |
 
-**5 lotes · 41 tasks.** Depois do último commit, um **Verifier** independente roda automaticamente
+**5 lotes · 42 tasks** (T22b entrou depois da aprovação, por `AD-017`). Depois do último commit, um **Verifier** independente roda automaticamente
 (autor ≠ verificador), com checagem ancorada na spec e sensor de discriminação, e escreve
 `validation.md`.
 
