@@ -65,7 +65,11 @@ export interface DbCategory {
 /** Como a loja decide se pode vender. `none` é o modo dos personalizados. */
 export type StockPolicy = 'track' | 'backorder' | 'none'
 
-/** De onde a imagem veio. Alimenta o selo `Mockup` da galeria (PMD-03). */
+/**
+ * De onde a imagem veio (PMD-03). É a origem gravada em `products.images`, não uma capacidade do
+ * produto: `mockup` sobrevive à remoção do estúdio (feature 20, PIN-01) porque descreve linhas que
+ * já existem — `normalizeImages` cai em `upload` para qualquer valor fora desta lista.
+ */
 export type ImageSource = 'upload' | 'mockup' | 'import'
 
 /** Os eixos desta variação: `{ Tamanho: '4,5 cm', Acabamento: 'Fosco' }`. */
@@ -365,10 +369,6 @@ export interface OrderItem {
   quantity: number
   unitPrice: number
 }
-
-// === Mockup templates ===
-
-export * from './mockup'
 
 // === Frete (Melhor Envio) ===
 
