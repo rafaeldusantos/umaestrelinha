@@ -271,7 +271,7 @@ const DeliveryBlock = ({ open, complete, onEdit, onContinue, canContinue }: Prop
         <button
           type="button"
           onClick={onEdit}
-          className="flex min-h-11 shrink-0 items-center rounded-button px-3 text-sm font-semibold text-nanita-jam hover:underline"
+          className="flex min-h-11 shrink-0 items-center rounded-sm px-3 text-sm font-semibold text-nanita-jam hover:underline"
         >
           {complete ? 'Alterar' : 'Preencher'}
         </button>
@@ -486,7 +486,7 @@ const DeliveryBlock = ({ open, complete, onEdit, onContinue, canContinue }: Prop
         type="button"
         disabled={!canContinue}
         onClick={onContinue}
-        className="min-h-11 self-start rounded-button border-2 border-nanita-ink bg-transparent px-7 font-heading text-[15px] font-semibold text-nanita-ink hover:bg-nanita-sugar"
+        className="min-h-11 self-start rounded-sm border-2 border-nanita-ink bg-transparent px-7 font-heading text-[15px] font-semibold text-nanita-ink hover:bg-nanita-sugar"
       >
         Continuar
       </Button>

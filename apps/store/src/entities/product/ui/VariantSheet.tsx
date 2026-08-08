@@ -96,7 +96,7 @@ const VariantSheet = ({
           // `w-full` é obrigatório: `<button>` faz shrink-to-fit com `width:auto` mesmo sendo
           // block-level por causa do `display:flex`. O pai aqui é bloco, então sem isto o CTA
           // encolhe até o texto.
-          className="mt-7 flex h-[54px] w-full items-center justify-center gap-2.5 rounded-button bg-nanita-jam font-display text-[17px] font-semibold tracking-[-0.01em] text-white transition-colors hover:bg-nanita-jam/90 disabled:bg-nanita-plum/40"
+          className="mt-7 flex h-[54px] w-full items-center justify-center gap-2.5 rounded-sm bg-nanita-jam font-display text-[17px] font-semibold tracking-[-0.01em] text-white transition-colors hover:bg-nanita-jam/90 disabled:bg-nanita-plum/40"
         >
           <ShoppingBag className="h-5 w-5" strokeWidth={1.6} />
           {canAdd ? `Adicionar à sacola · ${formatPrice(price)}` : 'Indisponível'}

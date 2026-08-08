@@ -4,11 +4,13 @@ import { dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 /**
- * Forma de ação é 14px (`rounded-button`). Pílula é RÓTULO.
+ * Forma de ação é `rounded-sm` (6px). Pílula é RÓTULO.
  *
  * Na v1 a pílula era a forma de quatro coisas diferentes — botão, badge, chip
  * de tema e campo de busca — e a cliente não tinha como saber qual delas
- * clica. A feature 19 separa: ação 14px, rótulo pílula, disco disco.
+ * clica. A feature 19 separou: ação, rótulo pílula, disco disco. A feature 20
+ * manteve a separação e só mudou o valor da ação, de 14px para os 6px do DS
+ * da Uma Estrelinha.
  *
  * Esta varredura é o que mantém a separação viva depois da feature. Um teste
  * de componente não serviria: ele assere nome de classe num componente por
@@ -110,12 +112,13 @@ describe('forma de ação — 14px, nunca pílula', () => {
     expect(button).not.toMatch(/rounded-pill/)
   })
 
-  it('`button` é a ÚLTIMA chave da escala de raio', () => {
-    // Não é organização: é o que faz `rounded-button` vencer. O Tailwind emite
-    // os utilitários na ordem das chaves, o `<Button>` do shadcn carrega
-    // `rounded-md` na base, e o tailwind-merge não colapsa token custom contra
-    // t-shirt size — as duas classes chegam juntas ao elemento e quem vence é
-    // a última no CSS. Declarada antes de `md`, a nossa perderia em silêncio.
+  it('a escala de raio não tem chave custom para ação', () => {
+    // A papelaria precisava de `button: 14px` declarada POR ÚLTIMO, porque o
+    // `<Button>` do shadcn carrega `rounded-md` na base e o tailwind-merge não
+    // colapsa token custom contra t-shirt size — as duas classes chegavam ao
+    // elemento e quem vencia era a última no CSS. Com a ação em 6px o valor
+    // cabe em `sm`, o merge resolve sozinho, e a chave saiu. Se ela voltar,
+    // volta junto a dependência de ordem de declaração que ninguém enxerga.
     const config = readFileSync(resolve(SRC, '../tailwind.config.ts'), 'utf8')
     const radiusBlock = config.slice(config.indexOf('borderRadius:'))
     const keys = [...radiusBlock.slice(0, radiusBlock.indexOf('},')).matchAll(/^\s*"?([a-z0-9]+)"?:\s*"/gm)].map(
@@ -123,6 +126,6 @@ describe('forma de ação — 14px, nunca pílula', () => {
     )
 
     expect(keys.length).toBeGreaterThan(3)
-    expect(keys[keys.length - 1]).toBe('button')
+    expect(keys).not.toContain('button')
   })
 })

@@ -175,7 +175,7 @@ const CheckoutPage = () => {
           </p>
           <Button
             onClick={() => openAuth({ returnTo: '/checkout' })}
-            className="rounded-button border-0 bg-nanita-jam text-white transition-all hover:scale-[1.02] hover:bg-nanita-jam hover:opacity-95"
+            className="rounded-sm border-0 bg-nanita-jam text-white transition-all hover:scale-[1.02] hover:bg-nanita-jam hover:opacity-95"
           >
             Entrar ou Criar Conta
           </Button>
@@ -509,7 +509,7 @@ const CheckoutPage = () => {
               <Button
                 onClick={() => void handleConfirm()}
                 disabled={flow.complete.length !== 3 || busy}
-                className="h-auto w-full gap-[11px] rounded-button border-0 bg-nanita-jam py-[19px] font-heading text-[17px] font-semibold text-white transition-all hover:bg-nanita-jam hover:opacity-95 disabled:opacity-50 lg:text-[19px]"
+                className="h-auto w-full gap-[11px] rounded-sm border-0 bg-nanita-jam py-[19px] font-heading text-[17px] font-semibold text-white transition-all hover:bg-nanita-jam hover:opacity-95 disabled:opacity-50 lg:text-[19px]"
               >
                 <Lock className="h-5 w-5" aria-hidden />
                 {ctaLabel}

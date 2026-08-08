@@ -33,7 +33,7 @@ const WishlistPage = () => {
           <p className="text-nanita-plum mb-6">
             Explore nossos bottons e salve seus favoritos clicando no coração!
           </p>
-          <Button asChild className="rounded-button bg-nanita-jam text-white border-0 hover:bg-nanita-jam hover:opacity-95">
+          <Button asChild className="rounded-sm bg-nanita-jam text-white border-0 hover:bg-nanita-jam hover:opacity-95">
             <Link to="/">Explorar Bottons</Link>
           </Button>
         </motion.div>

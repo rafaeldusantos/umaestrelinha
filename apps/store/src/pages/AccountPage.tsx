@@ -67,7 +67,7 @@ const OrderCard = ({ order }: { order: Order }) => {
             <Button
               size="sm"
               onClick={() => setPixOpen(true)}
-              className="rounded-button bg-nanita-jam text-white border-0 hover:bg-nanita-jam hover:opacity-95 transition-all gap-1.5"
+              className="rounded-sm bg-nanita-jam text-white border-0 hover:bg-nanita-jam hover:opacity-95 transition-all gap-1.5"
             >
               <QrCode className="w-4 h-4" /> Pagar com PIX
             </Button>

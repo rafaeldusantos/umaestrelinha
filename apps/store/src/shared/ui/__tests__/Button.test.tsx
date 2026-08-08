@@ -4,24 +4,24 @@ import { MemoryRouter, Link } from 'react-router-dom'
 import { Button } from '../Button'
 
 /**
- * O botão da loja, contra as ACs de `PAP-04`.
+ * O botão da loja, contra as ACs de `IDN-01`/`IDN-02`.
  *
- * O que estes testes protegem não é a aparência — é a **distinção de forma**:
- * ação é 14px, rótulo é pílula, disco é disco. Sem isso a loja volta a ter
- * quatro coisas diferentes com a mesma silhueta.
+ * O que estes testes protegem não é a aparência — é a **distinção de forma**
+ * (ação é `rounded-sm`, rótulo é pílula, disco é disco) e o **par de cores de
+ * cada superfície**, que é o que sustenta o contraste medido.
  */
 
 const VARIANTS = ['primary', 'secondary', 'onInk', 'inkSolid', 'ghost'] as const
 
 describe('Button — forma', () => {
-  it.each(VARIANTS)('a variante `%s` usa `rounded-button`', (variant) => {
+  it.each(VARIANTS)('a variante `%s` usa `rounded-sm`', (variant) => {
     render(<Button variant={variant}>Ação</Button>)
-    expect(screen.getByRole('button')).toHaveClass('rounded-button')
+    expect(screen.getByRole('button')).toHaveClass('rounded-sm')
   })
 
   it.each(VARIANTS)('a variante `%s` NÃO usa `rounded-pill`', (variant) => {
     // Pílula é rótulo (badge, chip, tag, campo de busca). Um botão em pílula
-    // é o defeito que a feature 19 existe para desfazer.
+    // é o defeito que a feature 19 desfez e a 20 mantém desfeito.
     render(<Button variant={variant}>Ação</Button>)
     expect(screen.getByRole('button')).not.toHaveClass('rounded-pill')
   })
@@ -31,7 +31,7 @@ describe('Button — forma', () => {
     expect(screen.getByRole('button')).toHaveClass('border-2', 'border-transparent')
 
     rerender(<Button variant="secondary">Ação</Button>)
-    expect(screen.getByRole('button')).toHaveClass('border-2', 'border-nanita-ink')
+    expect(screen.getByRole('button')).toHaveClass('border-2', 'border-estrelinha-ink')
   })
 
   it('o alvo de toque tem no mínimo 44px', () => {
@@ -46,40 +46,45 @@ describe('Button — forma', () => {
 })
 
 describe('Button — cor por variante', () => {
-  it('primário é Carmim com texto branco', () => {
-    // Prancha 20b: Carmim é "todo o dinheiro da tela".
+  it('primário é `primary` com texto `on-primary` (8,40:1)', () => {
     render(<Button variant="primary">Comprar</Button>)
-    expect(screen.getByRole('button')).toHaveClass('bg-nanita-jam', 'text-white')
+    expect(screen.getByRole('button')).toHaveClass(
+      'bg-estrelinha-primary',
+      'text-estrelinha-on-primary',
+    )
   })
 
-  it('secundário é contorno Grafite, sem fundo sólido', () => {
+  it('secundário é contorno `ink`, sem fundo sólido', () => {
     render(<Button variant="secondary">Criar o meu</Button>)
     const button = screen.getByRole('button')
-    expect(button).toHaveClass('border-nanita-ink', 'text-nanita-ink')
-    // Classe exata, não regex: `hover:bg-nanita-ink/[0.06]` é intencional — o
-    // que não pode existir é fundo sólido em repouso.
+    expect(button).toHaveClass('border-estrelinha-ink', 'text-estrelinha-ink')
+    // Classe exata, não regex: `hover:bg-estrelinha-ink/[0.06]` é intencional —
+    // o que não pode existir é fundo sólido em repouso.
     const classes = button.className.split(/\s+/)
-    expect(classes).not.toContain('bg-nanita-jam')
-    expect(classes).not.toContain('bg-nanita-ink')
-    expect(classes).not.toContain('bg-nanita-glaze')
+    expect(classes).not.toContain('bg-estrelinha-primary')
+    expect(classes).not.toContain('bg-estrelinha-ink')
+    expect(classes).not.toContain('bg-estrelinha-accent')
   })
 
-  it('sobre Grafite o botão é Carimbo com texto Grafite — nunca Carmim', () => {
-    // Carmim sobre Grafite lê a 2,18:1. Carimbo, a 5,22:1.
+  it('sobre superfície escura o botão é `accent` com texto `ink` — nunca `primary`', () => {
+    // `primary` sobre `ink` lê a 1,45:1 e some. `accent` sobre `ink`, 4,78:1.
     render(<Button variant="onInk">Ativar lembrete</Button>)
     const button = screen.getByRole('button')
-    expect(button).toHaveClass('bg-nanita-glaze', 'text-nanita-ink')
-    expect(button).not.toHaveClass('bg-nanita-jam')
+    expect(button).toHaveClass('bg-estrelinha-accent', 'text-estrelinha-ink')
+    expect(button).not.toHaveClass('bg-estrelinha-primary')
   })
 
-  it('sobre Carimbo o botão é Grafite com texto branco', () => {
+  it('sobre superfície de acento o botão é `ink` com texto `on-primary`', () => {
     render(<Button variant="inkSolid">Quero 10% OFF</Button>)
-    expect(screen.getByRole('button')).toHaveClass('bg-nanita-ink', 'text-white')
+    expect(screen.getByRole('button')).toHaveClass(
+      'bg-estrelinha-ink',
+      'text-estrelinha-on-primary',
+    )
   })
 })
 
 describe('Button — tipografia e comportamento', () => {
-  it('o rótulo sai em Fredoka 600', () => {
+  it('o rótulo sai na família de display, semibold', () => {
     render(<Button>Ação</Button>)
     expect(screen.getByRole('button')).toHaveClass('font-display', 'font-semibold')
   })
@@ -95,7 +100,7 @@ describe('Button — tipografia e comportamento', () => {
     )
 
     const link = screen.getByRole('link', { name: 'Explorar coleções' })
-    expect(link).toHaveClass('rounded-button', 'bg-nanita-jam')
+    expect(link).toHaveClass('rounded-sm', 'bg-estrelinha-primary')
     expect(screen.queryByRole('button')).toBeNull()
   })
 
@@ -114,6 +119,6 @@ describe('Button — tipografia e comportamento', () => {
   it('`className` do chamador entra sem derrubar a variante', () => {
     render(<Button className="mt-4">Ação</Button>)
     const button = screen.getByRole('button')
-    expect(button).toHaveClass('mt-4', 'bg-nanita-jam', 'rounded-button')
+    expect(button).toHaveClass('mt-4', 'bg-estrelinha-primary', 'rounded-sm')
   })
 })

@@ -96,7 +96,7 @@ const DropCountdown = () => {
           artboard desenha para separar o CTA da superfície. */}
       <button
         type="button"
-        className="relative flex items-center justify-center gap-1.5 rounded-button border border-white/20 bg-nanita-glaze px-[18px] py-2.5 font-display text-[13px] font-semibold text-nanita-ink transition-transform hover:scale-[1.03] active:scale-100 md:text-[15px]"
+        className="relative flex items-center justify-center gap-1.5 rounded-sm border border-white/20 bg-nanita-glaze px-[18px] py-2.5 font-display text-[13px] font-semibold text-nanita-ink transition-transform hover:scale-[1.03] active:scale-100 md:text-[15px]"
       >
         Ativar lembrete
         <Bell size={14} strokeWidth={2} aria-hidden />

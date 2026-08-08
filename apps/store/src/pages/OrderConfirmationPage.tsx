@@ -54,7 +54,7 @@ const OrderConfirmationPage = () => {
           </p>
           <Link
             to="/conta"
-            className="rounded-button border-2 border-nanita-ink px-7 py-4 font-heading text-[17px] font-semibold text-nanita-ink transition-all hover:scale-[1.02]"
+            className="rounded-sm border-2 border-nanita-ink px-7 py-4 font-heading text-[17px] font-semibold text-nanita-ink transition-all hover:scale-[1.02]"
           >
             Ir para Minha conta
           </Link>
@@ -111,14 +111,14 @@ const OrderConfirmationPage = () => {
         <div className="flex flex-col gap-3 sm:flex-row">
           <Link
             to="/conta"
-            className="flex flex-1 items-center justify-center gap-[10px] rounded-button bg-nanita-jam px-[30px] py-[19px] font-heading text-[17px] font-semibold text-white transition-all hover:opacity-95"
+            className="flex flex-1 items-center justify-center gap-[10px] rounded-sm bg-nanita-jam px-[30px] py-[19px] font-heading text-[17px] font-semibold text-white transition-all hover:opacity-95"
           >
             <PackageCheck className="h-[19px] w-[19px]" aria-hidden />
             Acompanhar pedido
           </Link>
           <Link
             to="/"
-            className="flex flex-1 items-center justify-center rounded-button border-2 border-nanita-ink px-7 py-[17px] font-heading text-[17px] font-semibold text-nanita-ink transition-all hover:scale-[1.02]"
+            className="flex flex-1 items-center justify-center rounded-sm border-2 border-nanita-ink px-7 py-[17px] font-heading text-[17px] font-semibold text-nanita-ink transition-all hover:scale-[1.02]"
           >
             Ver mais pins
           </Link>

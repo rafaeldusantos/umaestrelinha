@@ -58,7 +58,7 @@ const ProductBuyBar = ({ product, purchase }: Props) => {
           type="button"
           onClick={add}
           disabled={!canAdd}
-          className="flex h-11 grow items-center justify-center gap-1.5 rounded-button bg-nanita-jam font-display text-[15px] font-semibold text-white transition-transform active:scale-[0.99] disabled:opacity-50 disabled:active:scale-100"
+          className="flex h-11 grow items-center justify-center gap-1.5 rounded-sm bg-nanita-jam font-display text-[15px] font-semibold text-white transition-transform active:scale-[0.99] disabled:opacity-50 disabled:active:scale-100"
         >
           <ShoppingCart className="h-4 w-4 shrink-0" strokeWidth={2} aria-hidden />
           {canAdd ? 'Adicionar ao Carrinho' : 'Indisponível'}

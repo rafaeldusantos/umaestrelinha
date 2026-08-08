@@ -66,7 +66,7 @@ const QuickAddDrawer = ({ product, selected, onChange, onConfirm, onDismiss, pri
           type="button"
           disabled={!canAdd}
           onClick={onConfirm}
-          className="mt-3.5 flex h-11 w-full items-center justify-center rounded-button bg-nanita-jam font-display text-[15px] font-semibold tracking-[-0.01em] text-white transition-colors hover:bg-nanita-jam/90 disabled:bg-nanita-plum/40"
+          className="mt-3.5 flex h-11 w-full items-center justify-center rounded-sm bg-nanita-jam font-display text-[15px] font-semibold tracking-[-0.01em] text-white transition-colors hover:bg-nanita-jam/90 disabled:bg-nanita-plum/40"
         >
           {canAdd ? `Adicionar · ${formatPrice(price)}` : 'Indisponível'}
         </button>

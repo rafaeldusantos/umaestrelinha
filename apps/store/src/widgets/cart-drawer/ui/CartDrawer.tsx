@@ -122,7 +122,7 @@ const CartDrawer = () => {
             </div>
             <Button
               onClick={() => goTo('/')}
-              className="rounded-button border-0 bg-nanita-jam px-6 font-display font-semibold text-white hover:bg-nanita-jam hover:opacity-95"
+              className="rounded-sm border-0 bg-nanita-jam px-6 font-display font-semibold text-white hover:bg-nanita-jam hover:opacity-95"
             >
               Explorar bottons
             </Button>

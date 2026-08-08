@@ -18,6 +18,50 @@
  */
 
 :root {
+  /* ── Marca UMA ESTRELINHA — a paleta ──────────────────────────────────
+   * Valores exportados do arquivo do Paper "Uma Estrelinha" e idênticos aos
+   * de `../landing-pages/src/styles/global.css` (conferido em 2026-08-08).
+   * Contraste medido sobre `ground #FAF8F4`, WCAG 2.1 — ver `contrast.test.ts`.
+   *
+   * Esta declaração e a de `tailwind.config.ts` são a MESMA paleta escrita
+   * duas vezes. `palette.test.ts` lê as duas do disco e falha se divergirem:
+   * valor certo num lado e velho no outro não quebra build, tipo nem teste de
+   * componente — a loja renderiza duas paletas ao mesmo tempo e quem descobre
+   * é a cliente.
+   */
+
+  /* O chão da loja. Nunca texto (1,00:1 contra si mesmo). */
+  --estrelinha-ground: #faf8f4;
+  /* Faixa de seção e palco de foto — um degrau mais fundo, mesma família. */
+  --estrelinha-ground-deep: #f1ebe1;
+  /* O card. O branco é superfície, não chão. */
+  --estrelinha-surface: #ffffff;
+  /* Divisor e contorno de card (1,25:1). NUNCA borda de campo. */
+  --estrelinha-line: #e6dfd4;
+  /* Texto primário e superfície escura (12,73:1 ✓ AAA). */
+  --estrelinha-ink: #23303a;
+  /* Texto secundário (6,00:1 ✓ AA). É o piso de contraste da loja. */
+  --estrelinha-ink-soft: #54616b;
+  /* Ação, link, preço, aba ativa (8,76:1 ✓ AA). */
+  --estrelinha-primary: #34495e;
+  /* Hover / pressed do primário (11,03:1). */
+  --estrelinha-primary-strong: #283a4a;
+  /* Texto sobre superfície primary (8,40:1 sobre `primary`). */
+  --estrelinha-on-primary: #f7f3ec;
+  /* Preenchimento e detalhe (2,66:1 sobre ground). NUNCA texto sobre claro —
+   * o único uso de texto é sobre `ink`, onde mede 4,78:1 ✓ AA. */
+  --estrelinha-accent: #b8945f;
+  /* Detalhe gráfico ≥24px e borda decorativa (3,55:1). Não é texto de corpo. */
+  --estrelinha-accent-strong: #a07e4c;
+  /* Faixa e palco pontuais (1,19:1). Nunca texto. */
+  --estrelinha-serenity: #dce6ec;
+  /* Só o botão do WhatsApp. */
+  --estrelinha-whatsapp: #25d366;
+  /* Borda de input e de controle (3,63:1 ✓ WCAG 1.4.11). Nasceu nesta feature:
+   * o DS herdado das landing pages quase não tem formulário, e os dois
+   * candidatos existentes reprovam — `line` 1,25:1 e `accent` 2,66:1. */
+  --estrelinha-field: #8c8073;
+
   /* ── Marca Nanita v2 — paleta PAPELARIA ───────────────────────────────
    * Contraste medido sobre Papel #F9F1EE (o chão novo), WCAG 2.1.
    * Os nomes de token são os da v1 e viraram apelidos: o que manda é o papel
@@ -125,7 +169,7 @@
   --input: 15 16% 48%; /* Papelão #8F7268 */
   --ring: 343 65% 39%; /* Carmim  #A62348 */
 
-  --radius: 1rem; /* 16px — raio de CAMPO. Botão é 14px (`rounded-button`). */
+  --radius: 0.75rem; /* 12px — raio de CAMPO. Ação é 6px (`rounded-sm`). */
 }
 
 /* A loja é light-only na identidade Nanita. Se a classe `.dark` cair no

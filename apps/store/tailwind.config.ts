@@ -39,6 +39,39 @@ export default {
         body: ["DM Sans", "system-ui", "sans-serif"],
       },
       colors: {
+        // Paleta UMA ESTRELINHA. Contraste medido sobre `ground #FAF8F4`,
+        // WCAG 2.1. O papel de cada token está em `src/app/App.css`, e os dois
+        // arquivos são comparados do disco por `palette.test.ts`.
+        estrelinha: {
+          /** O chão da loja. Nunca texto. */
+          ground: "#FAF8F4",
+          /** Faixa de seção, palco de foto. */
+          "ground-deep": "#F1EBE1",
+          /** O card — o branco é superfície, não chão. */
+          surface: "#FFFFFF",
+          /** Divisor e contorno de card (1,25:1). Nunca borda de campo. */
+          line: "#E6DFD4",
+          /** Texto primário e superfície escura (12,73:1 ✓ AAA). */
+          ink: "#23303A",
+          /** Texto secundário (6,00:1 ✓ AA) — o piso. */
+          "ink-soft": "#54616B",
+          /** Ação, link, preço, aba ativa (8,76:1 ✓ AA). */
+          primary: "#34495E",
+          /** Hover / pressed do primário (11,03:1). */
+          "primary-strong": "#283A4A",
+          /** Texto sobre `primary` (8,40:1). */
+          "on-primary": "#F7F3EC",
+          /** Preenchimento e detalhe. Texto só sobre `ink` (4,78:1). */
+          accent: "#B8945F",
+          /** Detalhe gráfico ≥24px (3,55:1). Não é texto de corpo. */
+          "accent-strong": "#A07E4C",
+          /** Faixa e palco pontuais (1,19:1). Nunca texto. */
+          serenity: "#DCE6EC",
+          /** Só o botão do WhatsApp. */
+          whatsapp: "#25D366",
+          /** Borda de campo (3,63:1 ✓ WCAG 1.4.11). */
+          field: "#8C8073",
+        },
         // Paleta PAPELARIA. Contraste medido sobre Papel #F9F1EE, WCAG 2.1.
         // Os nomes vieram da v1 e viraram apelidos — o nome de desenho está no
         // comentário, e o papel de cada cor está em DESIGN.md §2.
@@ -76,39 +109,39 @@ export default {
         },
       },
       borderRadius: {
-        // Escala da papelaria. Cada raio nomeia UMA função — a v1 usava pílula
-        // para quatro coisas diferentes (botão, badge, chip, campo) e a cliente
-        // não tinha como saber qual delas clica.
+        // Escala do DS da Uma Estrelinha (`--radius-*` do arquivo do Paper).
         //
-        //   sm      8px   MIÚDO    thumbnail, selo retangular
-        //   button 14px   AÇÃO     botão, CTA, submit
-        //   md     16px   CAMPO    input, textarea, select
-        //   lg     24px   CAIXA    card de produto, card de seção, banner
-        //   pill  999px   RÓTULO   badge, chip de tema, tag, campo de busca
-        //   full    50%   DISCO    + do card, seta do carrossel, ícone, avatar
+        //   sm      6px   AÇÃO E MIÚDO   botão, CTA, thumbnail, selo
+        //   md     12px   CAMPO          input, textarea, select
+        //   lg     20px   CAIXA          card de produto, de seção, banner
+        //   pill  999px   RÓTULO         badge, chip de tema, tag, busca
+        //   full    50%   DISCO          ícone, avatar, seta de carrossel
         //
-        // O disco é a forma-assinatura da marca — o produto é redondo — e é a
-        // única exceção declarada à regra "ação é 14px".
+        // Ação é `rounded-sm`, rótulo é pílula, disco é disco — a separação da
+        // papelaria sobrevive, só mudou o valor da ação.
         //
-        // `button` é declarado POR ÚLTIMO de propósito. O Tailwind emite os
-        // utilitários na ordem das chaves, e o `<Button>` do shadcn carrega
-        // `rounded-md` na base — que o `tailwind-merge` NÃO colapsa contra um
-        // token custom (medido: devolve as duas classes). Com as duas no
-        // elemento, quem vence é a última no CSS. Declarado antes de `md`,
-        // `rounded-button` perderia em silêncio.
-        sm: "8px",
-        md: "16px",
-        lg: "24px",
-        xl: "24px",
-        "2xl": "24px",
+        // **A chave `button` (14px) SAIU.** Ela existia só para contornar um
+        // conflito: o `<Button>` do shadcn traz `rounded-md` na base e o
+        // `tailwind-merge` NÃO colapsa token custom contra t-shirt size —
+        // medido neste repositório, `twMerge('rounded-md','rounded-button')`
+        // devolve as DUAS classes, enquanto `twMerge('rounded-md','rounded-sm')`
+        // devolve só `rounded-sm`. Como a ação da Uma Estrelinha é 6px, ela
+        // cabe em `sm`, o merge resolve sozinho, e a maquinaria toda (chave
+        // custom + ordem de declaração) deixou de ter função.
+        sm: "6px",
+        md: "12px",
+        lg: "20px",
+        xl: "20px",
+        "2xl": "20px",
         pill: "999px",
-        button: "14px",
       },
       boxShadow: {
-        // Sombra só como elevação suave e rosada — nunca cinza neutro.
-        // Recalibrada do rosa velho (#FF51B9) para o Selo (#E93A6D) e do
-        // Grafite (#2E2028): sombra é elevação, não identidade, então o nome
-        // fica e o valor acompanha a paleta.
+        // Sombra é elevação, não identidade: o nome fica e o valor acompanha a
+        // paleta. Recalibrada do rosa (#E93A6D) para o slate — `primary`
+        // #34495E nas duas suaves e `ink` #23303A na de peso.
+        "estrelinha-soft": "0 14px 28px -10px rgba(52, 73, 94, 0.16)",
+        "estrelinha-lift": "0 26px 50px -12px rgba(52, 73, 94, 0.22)",
+        "estrelinha-ink": "0 16px 30px -8px rgba(35, 48, 58, 0.16)",
         "nanita-soft": "0 14px 28px -10px rgba(233, 58, 109, 0.18)",
         "nanita-lift": "0 26px 50px -12px rgba(233, 58, 109, 0.24)",
         "nanita-ink": "0 16px 30px -8px rgba(46, 32, 40, 0.16)",

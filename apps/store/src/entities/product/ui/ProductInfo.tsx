@@ -173,7 +173,7 @@ const ProductInfo = ({ product, categoryName, purchase }: Props) => {
           type="button"
           onClick={add}
           disabled={!canAdd}
-          className="flex h-12 flex-1 items-center justify-center gap-2 rounded-button bg-nanita-jam font-display text-[15px] font-semibold text-white transition-transform hover:scale-[1.01] disabled:scale-100 disabled:opacity-50"
+          className="flex h-12 flex-1 items-center justify-center gap-2 rounded-sm bg-nanita-jam font-display text-[15px] font-semibold text-white transition-transform hover:scale-[1.01] disabled:scale-100 disabled:opacity-50"
         >
           <ShoppingCart className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden />
           {canAdd ? 'Adicionar ao Carrinho' : 'Indisponível'}

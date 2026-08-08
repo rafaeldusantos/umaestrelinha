@@ -211,9 +211,9 @@ describe('OrderConfirmationPage — ações (CNF-05)', () => {
     const primary = screen.getByRole('link', { name: /acompanhar pedido/i })
     expect(primary).toHaveAttribute('href', '/conta')
     expect(primary.className).toContain('bg-nanita-jam')
-    // Forma de ação é 14px (`rounded-button`), não pílula — a pílula virou
+    // Forma de ação é 14px (`rounded-sm`), não pílula — a pílula virou
     // rótulo na identidade papelaria (feature 19, PAP-04).
-    expect(primary.className).toContain('rounded-button')
+    expect(primary.className).toContain('rounded-sm')
     expect(primary.className).not.toContain('rounded-pill')
   })
 
@@ -232,7 +232,7 @@ describe('OrderConfirmationPage — ações (CNF-05)', () => {
     const { container } = renderPage()
 
     const primaryActions = container.querySelectorAll(
-      '[class*="bg-nanita-jam"][class*="rounded-button"]',
+      '[class*="bg-nanita-jam"][class*="rounded-sm"]',
     )
     expect(primaryActions).toHaveLength(1)
     expect(primaryActions[0].textContent).toContain('Acompanhar pedido')

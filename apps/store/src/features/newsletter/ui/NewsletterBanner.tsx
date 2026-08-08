@@ -51,7 +51,7 @@ const NewsletterBanner = () => {
                 <form
                   noValidate
                   onSubmit={handleSubmit}
-                  className="flex flex-col gap-2 rounded-button bg-white p-1.5 sm:flex-row sm:items-center"
+                  className="flex flex-col gap-2 rounded-sm bg-white p-1.5 sm:flex-row sm:items-center"
                 >
                   <label htmlFor="newsletter-email" className="sr-only">
                     Seu e-mail
@@ -67,7 +67,7 @@ const NewsletterBanner = () => {
                   />
                   <button
                     type="submit"
-                    className="shrink-0 rounded-button bg-nanita-ink px-6 py-3.5 font-display text-[15px] font-semibold text-white transition-transform hover:scale-[1.03] active:scale-100 md:text-[16px]"
+                    className="shrink-0 rounded-sm bg-nanita-ink px-6 py-3.5 font-display text-[15px] font-semibold text-white transition-transform hover:scale-[1.03] active:scale-100 md:text-[16px]"
                   >
                     Quero 10% OFF
                   </button>

@@ -22,7 +22,7 @@ const AuthPage = () => {
       {!isOpen && (
         <Button
           onClick={() => openAuth()}
-          className="rounded-button bg-nanita-jam text-white border-0 hover:bg-nanita-jam hover:opacity-95 hover:scale-[1.02] transition-all"
+          className="rounded-sm bg-nanita-jam text-white border-0 hover:bg-nanita-jam hover:opacity-95 hover:scale-[1.02] transition-all"
         >
           Entrar ou criar conta
         </Button>

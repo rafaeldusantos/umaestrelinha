@@ -45,7 +45,7 @@ const AuthNameStep = () => {
         <Button
           type="submit"
           disabled={loading}
-          className="w-full rounded-button bg-nanita-jam text-white border-0 hover:bg-nanita-jam hover:opacity-95 transition-all"
+          className="w-full rounded-sm bg-nanita-jam text-white border-0 hover:bg-nanita-jam hover:opacity-95 transition-all"
         >
           {loading ? 'Salvando...' : 'Concluir cadastro'}
         </Button>

@@ -145,7 +145,7 @@ const HeroBanner = () => (
         <motion.div variants={item} className="flex flex-col gap-3.5 sm:flex-row">
           <Link
             to="/busca"
-            className="inline-flex items-center justify-center gap-2.5 rounded-button bg-nanita-jam px-6 py-3.5 font-display text-[15px] font-semibold text-white transition-transform hover:scale-[1.02] active:scale-100 md:px-[30px] md:py-[17px] md:text-[17px]"
+            className="inline-flex items-center justify-center gap-2.5 rounded-sm bg-nanita-jam px-6 py-3.5 font-display text-[15px] font-semibold text-white transition-transform hover:scale-[1.02] active:scale-100 md:px-[30px] md:py-[17px] md:text-[17px]"
           >
             Explorar coleções
             <ArrowRight size={16} strokeWidth={2.5} />

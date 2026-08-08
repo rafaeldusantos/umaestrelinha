@@ -63,7 +63,7 @@ describe('card de produto — superfícies', () => {
     renderCard(product())
     const add = screen.getByRole('button', { name: /adicionar ao carrinho/i })
     expect(add).toHaveClass('bg-nanita-ink', 'rounded-full')
-    expect(add).not.toHaveClass('rounded-button')
+    expect(add).not.toHaveClass('rounded-sm')
   })
 
   it('o disco de favoritar é branco', () => {

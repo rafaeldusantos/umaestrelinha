@@ -28,13 +28,13 @@ const NotFound = () => {
       <div className="flex flex-col gap-3 sm:flex-row">
         <Link
           to="/"
-          className="rounded-button bg-nanita-jam px-[30px] py-[15px] font-display text-[16px] font-semibold text-white transition-transform hover:scale-[1.02]"
+          className="rounded-sm bg-nanita-jam px-[30px] py-[15px] font-display text-[16px] font-semibold text-white transition-transform hover:scale-[1.02]"
         >
           Voltar pra home
         </Link>
         <Link
           to="/busca"
-          className="rounded-button border-2 border-nanita-ink px-7 py-3.5 font-display text-[16px] font-semibold text-nanita-ink transition-colors hover:bg-nanita-sugar"
+          className="rounded-sm border-2 border-nanita-ink px-7 py-3.5 font-display text-[16px] font-semibold text-nanita-ink transition-colors hover:bg-nanita-sugar"
         >
           Ver coleções
         </Link>

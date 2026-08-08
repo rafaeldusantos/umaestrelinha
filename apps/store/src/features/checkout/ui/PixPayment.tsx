@@ -113,7 +113,7 @@ const PixPayment = ({ orderId, amount, onApproved }: Props) => {
         <Button
           onClick={() => void generate()}
           variant="outline"
-          className="w-full rounded-button border-2 border-nanita-ink bg-transparent text-nanita-ink transition-all hover:bg-transparent hover:text-nanita-ink hover:scale-[1.02]"
+          className="w-full rounded-sm border-2 border-nanita-ink bg-transparent text-nanita-ink transition-all hover:bg-transparent hover:text-nanita-ink hover:scale-[1.02]"
         >
           Tentar novamente
         </Button>
@@ -141,7 +141,7 @@ const PixPayment = ({ orderId, amount, onApproved }: Props) => {
         <Button
           onClick={() => void generate()}
           variant="outline"
-          className="rounded-button border-2 border-nanita-ink bg-transparent text-nanita-ink transition-all hover:bg-transparent hover:text-nanita-ink hover:scale-[1.02] gap-2"
+          className="rounded-sm border-2 border-nanita-ink bg-transparent text-nanita-ink transition-all hover:bg-transparent hover:text-nanita-ink hover:scale-[1.02] gap-2"
         >
           <RefreshCw className="w-4 h-4" /> Gerar novo código
         </Button>

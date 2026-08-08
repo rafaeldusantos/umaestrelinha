@@ -187,7 +187,7 @@ const PaymentBlock = ({
         <button
           type="button"
           onClick={onEdit}
-          className="flex min-h-11 shrink-0 items-center rounded-button px-3 text-sm font-semibold text-nanita-jam hover:underline"
+          className="flex min-h-11 shrink-0 items-center rounded-sm px-3 text-sm font-semibold text-nanita-jam hover:underline"
         >
           {complete ? 'Alterar' : 'Preencher'}
         </button>
