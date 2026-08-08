@@ -487,13 +487,14 @@ Materno, Dente de Leite, Pet, Maternidade, Masculina), mantendo a idempotência 
 **Tools** — MCP: `paper` (ler tokens do arquivo) · Skill: nenhuma
 
 **Done when**:
-- [ ] Os valores batem com os tokens do Paper e com `../landing-pages/src/styles/global.css`
-- [ ] `palette.test.ts` falha se um valor divergir entre os dois arquivos (provado invertendo um valor de propósito e revertendo)
-- [ ] `borderRadius` remapeado para a escala do DS: `sm 6 · md 12 · lg 20 · full 999`
-- [ ] **A chave `button` (14px) é REMOVIDA.** Ela existia para contornar um conflito que não existe mais: o `<Button>` do shadcn traz `rounded-md` na base, e o `tailwind-merge` **não** colapsa token custom contra t-shirt size — mas colapsa dois t-shirt sizes. Medido em 2026-08-08 neste repositório: `twMerge('rounded-md','rounded-button')` → `"rounded-md rounded-button"` (as duas), enquanto `twMerge('rounded-md','rounded-sm')` → `"rounded-sm"`. Como o CTA da Uma Estrelinha é `rounded-sm` (6px, confirmado em `../landing-pages/src/components/CtaFinal.astro`), a maquinaria toda cai
-- [ ] `shared/ui/Button` **permanece** — ele carrega as variantes, os tamanhos e o `min-h-11` (alvo de toque de 44px), que nada disso vem do shadcn. Mas o comentário de topo dele, que hoje justifica a existência do componente pelo conflito de raio, **precisa ser reescrito**: aquela justificativa deixou de ser verdade, e comentário que mente custa mais caro que comentário nenhum
-- [ ] Sombras recalibradas do rosa para o slate
+- [x] Os valores batem com os tokens do Paper e com `../landing-pages/src/styles/global.css`
+- [x] `palette.test.ts` falha se um valor divergir entre os dois arquivos (provado invertendo um valor de propósito e revertendo)
+- [x] `borderRadius` remapeado para a escala do DS: `sm 6 · md 12 · lg 20 · full 999`
+- [x] **A chave `button` (14px) é REMOVIDA.** Ela existia para contornar um conflito que não existe mais: o `<Button>` do shadcn traz `rounded-md` na base, e o `tailwind-merge` **não** colapsa token custom contra t-shirt size — mas colapsa dois t-shirt sizes. Medido em 2026-08-08 neste repositório: `twMerge('rounded-md','rounded-button')` → `"rounded-md rounded-button"` (as duas), enquanto `twMerge('rounded-md','rounded-sm')` → `"rounded-sm"`. Como o CTA da Uma Estrelinha é `rounded-sm` (6px, confirmado em `../landing-pages/src/components/CtaFinal.astro`), a maquinaria toda cai
+- [x] `shared/ui/Button` **permanece** — ele carrega as variantes, os tamanhos e o `min-h-11` (alvo de toque de 44px), que nada disso vem do shadcn. Mas o comentário de topo dele, que hoje justifica a existência do componente pelo conflito de raio, **precisa ser reescrito**: aquela justificativa deixou de ser verdade, e comentário que mente custa mais caro que comentário nenhum
+- [x] Sombras recalibradas do rosa para o slate
 
+- [x] Os 47 usos de `rounded-button` varridos para `rounded-sm` — consequencia direta da chave sair
 **Tests**: unit · **Gate**: quick
 **Commit**: `feat(store): paleta Uma Estrelinha declarada e guardada por teste de paridade`
 
@@ -510,11 +511,11 @@ Materno, Dente de Leite, Pet, Maternidade, Masculina), mantendo a idempotência 
 **Tools** — MCP: nenhum · Skill: nenhuma
 
 **Done when**:
-- [ ] Todo token de texto ≥ 4,5:1 sobre `ground`, `ground-deep` e `surface`
-- [ ] `accent` (2,66:1) e `accent-strong` (3,55:1) marcados como **proibidos como texto sobre claro**
-- [ ] `accent` sobre `ink` (4,78:1) declarado como o **único** uso de texto do acento
-- [ ] `on-primary` sobre `primary` (8,40:1) coberto
-- [ ] Falha nomeia token e razão medida, não só "falhou"
+- [x] Todo token de texto ≥ 4,5:1 sobre `ground`, `ground-deep` e `surface`
+- [x] `accent` (2,66:1) e `accent-strong` (3,55:1) marcados como **proibidos como texto sobre claro**
+- [x] `accent` sobre `ink` (4,78:1) declarado como o **único** uso de texto do acento
+- [x] `on-primary` sobre `primary` (8,40:1) coberto
+- [x] Falha nomeia token e razão medida, não só "falhou"
 
 **Tests**: unit · **Gate**: quick
 **Commit**: `test(store): piso de contraste da paleta, medido e travado`
@@ -532,9 +533,9 @@ Materno, Dente de Leite, Pet, Maternidade, Masculina), mantendo a idempotência 
 **Tools** — MCP: nenhum · Skill: nenhuma
 
 **Done when**:
-- [ ] Zero classe `nanita-*` / `nana-*` nesses dois diretórios
-- [ ] Os testes de "nenhuma classe fora da paleta" que já existem (checkout, timeline, PIX) são **atualizados** para a paleta nova, nunca removidos
-- [ ] `pnpm --filter @estrelinha/store test` passa; contagem **não encolhe**
+- [x] Zero classe `nanita-*` / `nana-*` nesses dois diretórios
+- [x] Os testes de "nenhuma classe fora da paleta" que já existem (checkout, timeline, PIX) são **atualizados** para a paleta nova, nunca removidos
+- [x] `pnpm --filter @estrelinha/store test` passa; contagem **não encolhe**
 
 **Tests**: unit · **Gate**: quick
 **Commit**: `refactor(store): remap semântico da paleta em entities e features`
@@ -551,10 +552,10 @@ Materno, Dente de Leite, Pet, Maternidade, Masculina), mantendo a idempotência 
 **Tools** — MCP: nenhum · Skill: nenhuma
 
 **Done when**:
-- [ ] Zero classe `nanita-*` / `nana-*` em `apps/store/src`
-- [ ] Toda chave de `localStorage`/`sessionStorage` começa com `estrelinha-`, e os testes que citam as chaves são atualizados
-- [ ] `buttonShape.test.ts` e `importOrder.test.ts` reescritos para os nomes novos, **com a âncora de contagem preservada**
-- [ ] `pnpm --filter @estrelinha/store test` passa; contagem não encolhe
+- [x] Zero classe `nanita-*` / `nana-*` em `apps/store/src`
+- [x] Toda chave de `localStorage`/`sessionStorage` começa com `estrelinha-`, e os testes que citam as chaves são atualizados
+- [x] `buttonShape.test.ts` e `importOrder.test.ts` reescritos para os nomes novos, **com a âncora de contagem preservada**
+- [x] `pnpm --filter @estrelinha/store test` passa; contagem não encolhe
 
 **Tests**: unit · **Gate**: quick
 **Commit**: `refactor(store): remap da paleta em widgets, pages, shared e chaves de storage`
@@ -571,10 +572,10 @@ Materno, Dente de Leite, Pet, Maternidade, Masculina), mantendo a idempotência 
 **Tools** — MCP: nenhum · Skill: nenhuma
 
 **Done when**:
-- [ ] Todo `<input>`, `<select>`, `<textarea>` e controle equivalente usa `field`
-- [ ] A varredura falha se um controle voltar a `line` (1,25:1) ou `accent` (2,66:1)
-- [ ] Âncora de contagem presente (`toBeGreaterThan(50)` ou o número real medido)
-- [ ] Provado apontando a varredura para um caminho inexistente: ela **falha**, não passa
+- [x] Todo `<input>`, `<select>`, `<textarea>` e controle equivalente usa `field`
+- [x] A varredura falha se um controle voltar a `line` (1,25:1) ou `accent` (2,66:1)
+- [x] Âncora de contagem presente (`toBeGreaterThan(50)` ou o número real medido)
+- [x] Provado apontando a varredura para um caminho inexistente: ela **falha**, não passa
 
 **Tests**: unit · **Gate**: quick
 **Commit**: `feat(store): token de borda de campo com 3,63:1, travado por varredura`
@@ -591,11 +592,11 @@ Materno, Dente de Leite, Pet, Maternidade, Masculina), mantendo a idempotência 
 **Tools** — MCP: nenhum · Skill: nenhuma
 
 **Done when**:
-- [ ] Zero `--nana-*` / `nana-` no repositório
-- [ ] Cada valor hex do painel é **idêntico** ao de antes (diff prova)
-- [ ] O backoffice renderiza exatamente igual (comparação visual antes/depois)
-- [ ] `NanaLogo` e `NanaMascot` removidos, e nada os importa
-- [ ] `pnpm test` passa; contagem não encolhe
+- [x] Zero `--nana-*` / `nana-` no repositório
+- [x] Cada valor hex do painel é **idêntico** ao de antes (diff prova)
+- [x] O backoffice renderiza exatamente igual (comparação visual antes/depois)
+- [x] `NanaLogo` e `NanaMascot` removidos, e nada os importa
+- [x] `pnpm test` passa; contagem não encolhe
 
 **Tests**: unit · **Gate**: full
 **Commit**: `refactor(ui): tokens do painel passam a --estrelinha-admin-*, valores intactos`
@@ -621,12 +622,13 @@ contêiner antigo)
 **Tools** — Skill: `supabase` · CLI: `supabase db reset` / `psql`
 
 **Done when**:
-- [ ] Zero `NanaPin` / `nanapin` / `nanita` em `supabase/migrations/**`
-- [ ] As duas `create_store_settings` continuam **duplicatas byte-a-byte** uma da outra — elas já eram, e divergi-las agora criaria um resultado que depende de qual das duas roda por último
-- [ ] `20260801170000_*` não existe mais
-- [ ] `supabase db reset` completa e um **probe confirma** que `store_settings.general->>'store_name'` já vale `Uma Estrelinha` **sem nenhuma migration de correção** (`AD-012`: prova de execução, não inspeção de tipo)
-- [ ] O comentário no topo da migration inicial registra que ela foi reescrita sob `AD-017`, e que a permissão **expira no primeiro `db push`**
+- [x] Zero `NanaPin` / `nanapin` / `nanita` em `supabase/migrations/**`
+- [x] As duas `create_store_settings` continuam **duplicatas byte-a-byte** uma da outra — elas já eram, e divergi-las agora criaria um resultado que depende de qual das duas roda por último
+- [x] `20260801170000_*` não existe mais
+- [x] `supabase db reset` completa e um **probe confirma** que `store_settings.general->>'store_name'` já vale `Uma Estrelinha` **sem nenhuma migration de correção** (`AD-012`: prova de execução, não inspeção de tipo)
+- [x] O comentário no topo da migration inicial registra que ela foi reescrita sob `AD-017`, e que a permissão **expira no primeiro `db push`**
 
+- ⚠️ **Gate `db` NAO executado** — o engine do Docker Desktop respondeu 500 em toda chamada de API na sessao do lote 3. Ver Registro de execucao.
 **Tests**: none (SQL) + probe · **Gate**: db + build
 **Commit**: `refactor(db): marca da Uma Estrelinha nas migrations legadas (AD-017)`
 
@@ -643,11 +645,12 @@ raiz procurando `nanapin`, `nanita` e `nana`, e falha com arquivo e linha.
 **Tools** — MCP: nenhum · Skill: nenhuma
 
 **Done when**:
-- [ ] Zero ocorrência reportada
-- [ ] **Âncora de contagem** presente e provada: apontar para caminho inexistente faz o teste **falhar**
-- [ ] Allowlist mínima, com **comentário justificando cada entrada** (`.specs/archive/nanita/**` e o próprio arquivo do teste)
-- [ ] Provado inserindo `nanita-jam` num arquivo qualquer: o teste falha nomeando arquivo e linha
+- [x] Zero ocorrência reportada
+- [x] **Âncora de contagem** presente e provada: apontar para caminho inexistente faz o teste **falhar**
+- [x] Allowlist mínima, com **comentário justificando cada entrada** (`.specs/archive/nanita/**` e o próprio arquivo do teste)
+- [x] Provado inserindo `nanita-jam` num arquivo qualquer: o teste falha nomeando arquivo e linha
 
+- ⚠️ **"Zero ocorrencia" nao foi atingido, por ordem de fila** — 42 arquivos das Fases 4-6 entram numa lista PENDENTE com dono e prazo. Ver Registro de execucao.
 **Tests**: unit · **Gate**: full
 **Commit**: `test: varredura de marca com âncora de contagem`
 
@@ -1259,3 +1262,148 @@ A seção de `drops` foi removida em vez de reescrita: a tabela existe, **nenhum
 Efeito colateral esperado do fixture novo: o trigger de `base_price` recalcula o preço dos quatro
 produtos com grade para o **menor preço de linha** (aço inoxidável), então `pingente-coracao-cinzas`
 persiste 139,90 e não os 179,90 do `VALUES`. É a regra "a partir de" funcionando, não desvio.
+
+### Fase 3 — T17 a T23: a paleta e o rename silencioso
+
+**Contagem de teste, por task** (baseline de entrada: 3025 em 174 — loja 994/79 · backoffice 1055/65
+· core 725/26 · functions 251/4):
+
+| task | workspace | antes | depois | o que explica |
+| --- | --- | --- | --- | --- |
+| T17 | loja | 994 / 79 | **985 / 79** | `palette.test.ts` reescrito: mede a paridade dos dois arquivos, a escala de raio e as sombras (37 testes). Os −9 são as asserções de contraste que mediam a paleta papelaria — a T18 as reescreve para a paleta nova |
+| T18 | loja | 985 / 79 | **1020 / 80** | +1 arquivo (`contrast.test.ts`, 35 testes): 12 pares de texto sobre claro, 6 de acento proibido, o único uso de texto do acento, o par do primário e os 6 do instrumento |
+| T19 | loja | 1020 / 80 | **1020 / 80** | remap mecânico; nenhum teste novo, nenhum a menos |
+| T20 | loja | 1020 / 80 | **1020 / 80** | idem |
+| T21 | loja | 1020 / 80 | **1028 / 80** | +8 no `fieldBorder` reescrito: 2 âncoras, 3 cores proibidas, 3 superfícies |
+| T22 | monorepo | 3053 / 175 | **3059 / 175** | rename puro; o teste da mascote inverteu, não saiu |
+| T22b | — | — | — | SQL: sem teste |
+| T23 | monorepo | 3059 / 175 | **3065 / 176** | +1 arquivo (`brandScan.test.ts`, 6 testes) |
+
+**Total ao fim do lote: 3065 testes em 176 arquivos** (loja 1034/81 · backoffice 1055/65 · core
+725/26 · functions 251/4). Lint **30 err / 8 warn** — idêntico à baseline de entrada. `tsc` **0 · 0**.
+
+#### O que os quatro guardas provaram, e como
+
+Cada guarda foi apontado para o defeito que ele existe para pegar, e observado **falhar**:
+
+| guarda | injeção | o que a falha disse |
+| --- | --- | --- |
+| `palette.test.ts` | um dígito de `--estrelinha-primary` no App.css | 2 testes, nomeando o token e os dois valores |
+| `palette.test.ts` (âncora) | leitura apontada para outro arquivo | "a leitura do App.css encontrou a paleta inteira" falha, e com ela 15 comparações |
+| `contrast.test.ts` | valor de `accent` trocado por um tom escuro | `accent sobre ground: 6.64:1 — passou de 4.5:1, a regra "nunca texto" mudou` |
+| `fieldBorder.test.ts` | um `<Input>` devolvido a `line` | `features/checkout/ui/ContactBlock.tsx:123 <Input>` |
+| `fieldBorder.test.ts` (âncoras) | caminho inexistente · lista de tags vazia | ENOENT · "expected 0 to be greater than 20" |
+| `brandScan.test.ts` | `// nanita-jam` num arquivo qualquer | `apps/store/src/shared/lib/storeChrome.ts:33  // nanita-jam` |
+| `brandScan.test.ts` (âncoras) | `ROOT` inexistente · escopo sem `packages`/`supabase` · entrada de PENDENTE já limpa | ENOENT · "expected 0 to be greater than 10" · o arquivo nomeado |
+
+#### T21 · a varredura anterior tinha um furo, e ele custou 16 campos
+
+A `fieldBorder.test.ts` da feature 19 procurava só as tags HTML minúsculas (`<input>`, `<textarea>`,
+`<select>`). Esta loja monta quase todo campo com o `<Input>` do shadcn — **maiúsculo**. Resultado:
+os três campos de contato, quatro de endereço, o de cupom, o de pagamento, o do PIX e os seis passos
+de autenticação ficaram com `border-nanita-border` (1,19:1) desde o fecho da 19, **com o teste verde
+o tempo todo**. A regra existia, o token existia, o teste existia, e os três nunca se encontraram.
+
+Duas lições entraram nos guardas novos. A primeira: uma **segunda âncora**, contando controles
+encontrados e não só arquivos lidos — a de arquivos passava. A segunda: a âncora de escopo do
+`brandScan` escreve os três diretórios **literalmente**, em vez de iterar a constante `ESCOPO` que
+deveria guardar; medido, tirar `supabase` de `ESCOPO` fazia a asserção encolher junto e seguir verde.
+Régua e objeto medido não podem ser a mesma coisa.
+
+#### T22b · as duas `create_store_settings` NÃO eram duplicatas byte-a-byte
+
+A task afirmava que eram, e que bastava preservá-las assim. Medição antes de mexer: **2936 vs 2845
+bytes, md5 diferentes**. Divergiam em duas coisas — a primeira em CRLF e a segunda em LF, e a segunda
+terminando com `;;`. O SQL era equivalente, então o resultado não dependia da ordem; o risco real era
+a próxima edição "de uma só". As duas saem do lote com o mesmo md5 e com o aviso no topo.
+
+O cabeçalho de `AD-017` foi posto nas **duas**, e não só na inicial como a task pedia: pôr em uma só
+seria, ela mesma, a primeira divergência.
+
+Além dos três campos de marca, a `description` de SEO saiu do vocabulário de botton — ela mora no
+mesmo `INSERT`, e deixá-la obrigaria a T34 a reeditar estas migrations para casar TypeScript e SQL.
+
+#### ⚠️ T22b · o gate `db` NÃO foi executado — pendência para o fecho da feature
+
+O engine do Docker Desktop respondeu **500 em toda chamada de API** durante o lote (`docker ps`,
+`docker version`, nos dois endpoints, com e sem `DOCKER_API_VERSION` fixado; a distro WSL
+`docker-desktop` estava rodando). Sem Docker não há Supabase local, então `supabase db reset` e o
+probe HTTP não rodaram.
+
+Reiniciar o Docker Desktop derrubaria as **outras duas instâncias Supabase da máquina**
+(`nanapin-store` e `ingressos`), com as quais a T3 trabalhou para conviver — efeito colateral que não
+cabe a esta task causar sem pedido.
+
+A mudança está verificada **estaticamente** (md5 idêntico, zero resíduo em `supabase/migrations/**`,
+nada referencia a migration apagada), e a `AD-012` diz explicitamente que isso **não é prova**.
+Pendência: rodar `supabase db reset` e provar por probe que `store_settings.general->>'store_name'`
+já vale `Uma Estrelinha` sem migration de correção. A **T34** tem gate `db` e depende exatamente
+deste fato — é o lugar natural para cobrá-lo.
+
+#### T23 · "zero ocorrência" é impossível nesta posição da fila, e a lista PENDENTE é a resposta
+
+A T23 pede zero ocorrência de marca em `apps/`, `packages/` e `supabase/`. Medido: **42 arquivos**
+ainda citam a marca anterior, e nenhum deles é resíduo de descuido — são os componentes de marca em
+SVG (Fase 4), a copy e o chrome (Fase 5) e o e-mail, o auth e os metadados (Fase 6). A própria T38 já
+declarava esta varredura como "o fecho da varredura".
+
+Duas saídas ruins foram descartadas: fazer o trabalho das Fases 4–6 aqui (o lote invadiria três fases
+de outros workers) e uma allowlist sem prazo (esconderia o resíduo em `supabase/functions/` que a
+varredura existe para pegar — a mesma razão pela qual a `AD-017` recusou allowlist de migrations).
+
+A saída adotada é uma **segunda lista, `PENDENTE`, com dono e com autodestruição**: cada entrada
+nomeia a task que a remove, um arquivo já limpo derruba o teste até a linha sair, e uma entrada sem
+`T<n>` no motivo também derruba. Resíduo em qualquer arquivo fora das duas listas continua sendo
+falha imediata, com caminho e linha.
+
+**O que NÃO foi adiado**, por não ter task dona e por não envolver decisão de desenho: as chaves de
+storage do backoffice (`nanapin.admin.product-views`, `.product-columns`, `nanapin-product-draft`) e
+a do WhatsApp (`nana_wa_seen_v1`); o **descritor de fatura do cartão** (`NANITA` → `UMA ESTRELINHA`,
+nos dois lados que o emitem — `packages/core/src/payment/orders.ts` e a edge function do Mercado
+Pago); o domínio no preview de slug e de SEO do admin; os comentários que citavam tokens já extintos;
+e ~110 fixtures de teste (`NANA10`, `cdn.nanita`, `@nanita.dev`, `Nana Pin`, `store_name: 'Nanita'`).
+
+#### Onde o remap mecânico produziu leitura visual duvidosa
+
+O remap entrega o token certo; ele não decide se aquele elemento **devia** ser ouro. Os 52 usos de
+`glaze`/`butter` viraram `accent`, e a revisão um a um achou:
+
+| lugar | o que era | o que ficou | veredito |
+| --- | --- | --- | --- |
+| `features/newsletter/NewsletterBanner` | painel inteiro em rosa Carimbo | **painel inteiro em ouro `accent`** | ⚠️ **para a T30.** É a maior superfície chapada da loja; ouro em bloco pesa diferente de rosa em bloco, e a faixa de newsletter tem board própria (`5MC-0`) |
+| `features/checkout/OrderBump` (4 usos) | selo, thumb, checkbox e preço | ouro sobre `bg-estrelinha-ink` | ✅ correto — 4,78:1, o único uso de texto que o acento tem |
+| `features/auth/AuthOverlay` | ícone em véu de tinta | ouro sobre superfície escura | ✅ correto |
+| `entities/product` e demais preenchimentos | preenchimento e detalhe | ouro | ✅ correto — nenhum é texto sobre claro |
+
+**Nenhum uso de `accent` como texto sobre superfície clara sobrou** — conferido por busca dirigida, e
+é a regra que a `contrast.test.ts` mede. Os dois `text-estrelinha-accent` da loja estão os dois
+dentro de `bg-estrelinha-ink`.
+
+#### Decisões tomadas no caminho
+
+- **Os tokens `nanita-*` seguiram declarados até a T20.** Assim T17, T18 e T19 renderizam uma paleta
+  coerente em vez de meia loja sem cor, e cada commit é revisável isoladamente. A alternativa —
+  aliasar os nomes velhos para os valores novos — criaria, por três commits, a terceira fonte de
+  verdade que a `palette.test.ts` existe para impedir.
+- **Os tokens HSL do shadcn eram um terceiro lugar onde a paleta vivia**, e nenhum `nanita-` aparecia
+  neles. Deixados como estavam, `<Dialog>`, `<Select>` e `<Input>` seguiriam rosa dentro de uma loja
+  slate. A primeira conversão, feita à mão, **errou 6 dos 8 tons** por arredondamento; a segunda saiu
+  de script e foi conferida valor a valor.
+- **O bloco de compatibilidade `--nana-*` do App.css foi apagado, não renomeado.** Ele existia para
+  ~300 usos de classe legada que o remap zerou; o único consumo restante vinha do `@apply` de `body`
+  do pacote compartilhado, e as duas linhas de `body` do App.css já o sobrescrevem.
+- **`NanaLogo` e `NanaMascot` TINHAM consumidor**, ao contrário do previsto no plano: a loja os usava
+  no 404 e em dois pontos da confirmação de pedido. As três chamadas saíram junto (`COP-07`), e o
+  teste que asseria a mascote **inverteu** em vez de sair — passa a provar que o cabeçalho da
+  confirmação fica de pé sem ela. Que a persona não POSSA voltar é a `brandScan` que garante, e no
+  repositório inteiro.
+- **A chave `pill` do raio ficou.** A escala do DS (`sm 6 · md 12 · lg 20 · full 999`) não tem
+  pílula, mas `rounded-pill` é a forma de **rótulo** em 43 lugares, e a separação ação/rótulo/disco
+  sobreviveu à troca de identidade — só o valor da ação mudou, de 14px para 6px.
+- **O `<Checkbox>` do checkout ficou em `ink-soft` (6,00:1), e não em `field` (3,63:1).** A varredura
+  cobra o **piso** (nunca `line`, nunca `accent`); trocar 6:1 por 3,63:1 só para uniformizar o nome
+  do token reduziria contraste sem ganho para ninguém.
+- **A reescrita de `buttonShape.test.ts`, prevista para a T20, aconteceu em parte na T17.** O teste
+  "`button` é a ÚLTIMA chave da escala" precisava mudar no mesmo commit em que a chave saiu, senão a
+  T17 fecharia com a suíte vermelha. Ele agora prova o inverso — que a chave custom **não voltou** —
+  e a allowlist de rótulo seguiu intacta, com a âncora de contagem preservada.
