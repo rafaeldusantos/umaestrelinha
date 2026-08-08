@@ -189,10 +189,12 @@ faixa livre; `supabase start` sobe convivendo com as outras duas instâncias da 
 **Tools** — MCP: nenhum (MCP do Supabase não autorizado) · CLI: `supabase start` / `db reset` / `psql`
 
 **Done when**:
-- [ ] API 54341 · DB 54342 · shadow 54340 · pooler 54349 · Studio 54343 · Inbucket 54344 · analytics 54347 · `inspector_port` 8085
-- [ ] `supabase start` sobe **com `nanapin-store` e `ingressos` ativos**, sem colisão
-- [ ] `http://127.0.0.1:54341` responde
-- [ ] `additional_redirect_urls` apontam para 8082/8083
+- [x] API 54341 · DB 54342 · shadow 54340 · pooler 54349 · Studio 54343 · Inbucket 54344 · analytics 54347 · `inspector_port` 8085
+- [x] `supabase start` sobe **com `nanapin-store` e `ingressos` ativos**, sem colisão
+  — verificado com `nanapin-store` **em execução** (23 contêineres convivendo). O `ingressos` estava
+  **parado** na hora do teste; as faixas 54330–54339 e 54341–54349 são disjuntas por construção.
+- [x] `http://127.0.0.1:54341` responde
+- [x] `additional_redirect_urls` apontam para 8082/8083
 
 **Tests**: none · **Gate**: db
 **Commit**: `chore(supabase): instância local própria na faixa 54341-54349`
@@ -1112,3 +1114,14 @@ Nenhuma ❌ VIOLATION. Nenhum `Tests: none` justificado por "testado em outra ta
 
 > Preenchido durante o Execute: divergências deliberadas das boards, decisões tomadas no meio do
 > caminho, e contagens de teste por task.
+
+### T3 · `supabase db reset` falha no seed — defeito **herdado**, endereçado na T16
+
+`supabase start` sobe e semeia; `supabase db reset` aplica todas as 40 migrations e então falha em
+`Seeding data from supabase/seed.sql` com `ERROR: schema "pg_temp" does not exist (SQLSTATE 3F000)`.
+A causa é o próprio `seed.sql`, que declara `pg_temp.xesc` e `pg_temp.nana_marker` (linhas 27 e 34) —
+funções temporárias, ligadas à sessão, que não sobrevivem ao envio em lote da CLI.
+
+Não tem relação com a mudança de porta (uma falha de esquema não vem de `port =`), e a T16 já a
+prevê no seu "Done when": *"`supabase db reset` completa até o fim, sem depender de tabela temporária
+inexistente"*. Fica registrado aqui como **estado herdado conhecido**, não como regressão da T3.
