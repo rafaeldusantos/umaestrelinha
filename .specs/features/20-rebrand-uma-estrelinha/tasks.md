@@ -212,10 +212,10 @@ dos dev servers em 8082 (loja) e 8083 (backoffice).
 **Tools** — MCP: nenhum · Skill: nenhuma
 
 **Done when**:
-- [ ] `VITE_SUPABASE_URL` = `http://127.0.0.1:54341` nos dois apps
-- [ ] `pnpm dev` sobe a loja em 8082 e o backoffice em 8083
-- [ ] `.env.example` documenta **toda** credencial de produção pendente (`C-08`) com o passo de troca
-- [ ] Nenhum `.env` real entra no commit
+- [x] `VITE_SUPABASE_URL` = `http://127.0.0.1:54341` nos dois apps
+- [x] `pnpm dev` sobe a loja em 8082 e o backoffice em 8083
+- [x] `.env.example` documenta **toda** credencial de produção pendente (`C-08`) com o passo de troca
+- [x] Nenhum `.env` real entra no commit
 
 **Tests**: none · **Gate**: build
 **Commit**: `chore(env): aponta os dois apps para a instância local nova`

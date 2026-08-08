@@ -9,7 +9,7 @@ const root = path.resolve(__dirname, "../..");
 export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
-    port: 8081,
+    port: 8083,
     hmr: {
       overlay: false,
     },
