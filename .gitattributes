@@ -1,0 +1,25 @@
+# Fim de linha fixo em LF, na árvore de trabalho inclusive.
+#
+# Por que isto existe: a partir da Fase 3 esta feature enche o repositório de testes que leem
+# arquivo **do disco** e comparam conteúdo — `palette.test.ts` (compara os hex de App.css com os do
+# tailwind.config), `brandScan.test.ts` (varre o fonte procurando resíduo de marca),
+# `fieldBorder.test.ts` e `paths.test.ts` (compara o SVG da marca caractere a caractere).
+#
+# Com `core.autocrlf=true` (o default do Git for Windows, e o que está ligado nesta máquina), a
+# árvore de trabalho recebe CRLF no Windows e LF no Linux do CI. Uma comparação caractere a
+# caractere passa num lugar e falha no outro — e o pior caso é o inverso: passar nos dois por
+# acidente e deixar de detectar o que deveria.
+#
+# `eol=lf` normaliza a árvore de trabalho em toda plataforma, então o que o teste lê é o mesmo em
+# todo lugar.
+* text=auto eol=lf
+
+# Binários — nunca normalizar.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.webp binary
+*.ico  binary
+*.woff  binary
+*.woff2 binary
+*.pdf  binary
