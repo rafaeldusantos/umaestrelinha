@@ -337,11 +337,12 @@ o item de navegação — com `navItems.test.ts` continuando a bater a ordem das
 **Tools** — MCP: nenhum · Skill: nenhuma
 
 **Done when**:
-- [ ] Nenhum arquivo de mockup em `apps/backoffice/src`
-- [ ] `navItems.test.ts` passa — a ordem textual das rotas bate com `navGroups`
-- [ ] `/admin/mockups` responde a 404 do backoffice
-- [ ] O formulário de produto segue funcionando sem o botão do estúdio
-- [ ] `pnpm --filter @estrelinha/backoffice test` passa; contagem anotada
+- [x] Nenhum arquivo de mockup em `apps/backoffice/src`
+- [x] `navItems.test.ts` passa — a ordem textual das rotas bate com `navGroups`
+- [x] `/admin/mockups` responde a 404 do backoffice — sem rota declarada, cai no `path="*"`; asserido
+  em `navItems.test.ts`, que lê o `App.tsx` do disco
+- [x] O formulário de produto segue funcionando sem o botão do estúdio
+- [x] `pnpm --filter @estrelinha/backoffice test` passa; **1055 em 65 arquivos** (era 1102/68)
 
 **Tests**: unit · **Gate**: quick
 **Commit**: `refactor(backoffice): remove o Mockup Studio`
@@ -358,10 +359,11 @@ o item de navegação — com `navItems.test.ts` continuando a bater a ordem das
 **Tools** — MCP: nenhum · Skill: nenhuma
 
 **Done when**:
-- [ ] Nenhum módulo de mockup em `packages/`
-- [ ] `packages/core/src/index.ts` e `media/index.ts` não exportam nada de mockup
-- [ ] `npx tsc --noEmit` = 0 nos dois apps
-- [ ] `pnpm --filter @estrelinha/core test` passa; contagem anotada
+- [x] Nenhum módulo de mockup em `packages/`
+- [x] `packages/core/src/index.ts` e `media/index.ts` não exportam nada de mockup
+- [x] `npx tsc --noEmit` = 0 nos dois apps
+- [x] `pnpm --filter @estrelinha/core test` passa; **725 em 26 arquivos** (era 759/30)
+- ⚠️ **Executada DEPOIS da T12** — ver Registro de execução
 
 **Tests**: unit · **Gate**: full
 **Commit**: `refactor(core): remove o domínio de mockup dos pacotes`
@@ -378,10 +380,11 @@ apontavam para eles.
 **Tools** — MCP: nenhum · Skill: nenhuma
 
 **Done when**:
-- [ ] Os três diretórios/arquivos não existem
-- [ ] Nenhum link interno (header, footer, menu, mobile-nav) aponta para a rota removida
-- [ ] A rota antiga cai na 404 própria da loja, com teste
-- [ ] `pnpm --filter @estrelinha/store test` passa; contagem anotada
+- [x] Os três diretórios/arquivos não existem
+- [x] Nenhum link interno (header, footer, menu, mobile-nav) aponta para a rota removida
+- [x] A rota antiga cai na 404 própria da loja, com teste (`app/__tests__/routes.test.ts`)
+- [x] `pnpm --filter @estrelinha/store test` passa; **989 em 79 arquivos** (era 986/78)
+- ⚠️ **Executada ANTES da T11** — ver Registro de execução
 
 **Tests**: unit · **Gate**: quick
 **Commit**: `refactor(store): remove o kit de pins e a prévia de mockup`
@@ -397,11 +400,12 @@ apontavam para eles.
 **Tools** — Skill: `supabase` · CLI: `supabase db reset` / `psql` (MCP do Supabase não autorizado nesta sessão)
 
 **Done when**:
-- [ ] Prefixo de timestamp **maior que todos os existentes** (a CLI chaveia pela versão; prefixo repetido faz a migration ser pulada **em silêncio**)
-- [ ] `DROP ... IF EXISTS` em tudo: roda em banco que nunca teve e em banco que tinha
-- [ ] Nenhum objeto órfão sobra no storage após o `db reset`
-- [ ] Rodar duas vezes completa sem erro
-- [ ] **Probe contra o banco local prova a remoção** (`AD-012`) — não inspeção de tipo
+- [x] Prefixo de timestamp **maior que todos os existentes** — `20260808200541` (o topo era `20260803130200`)
+- [x] `DROP ... IF EXISTS` em tudo: roda em banco que nunca teve e em banco que tinha
+- [x] Nenhum objeto órfão sobra no storage após o `db reset` — objetos, bucket e as 4 policies saem
+- [x] Rodar duas vezes completa sem erro (exit 0 nas duas, por `psql`)
+- [x] **Probe contra o banco local prova a remoção** (`AD-012`): `to_regclass`/`to_regproc` nulos,
+  buckets/objetos/policies em 0, versão registrada em `schema_migrations`
 
 **Tests**: none (SQL) + probe · **Gate**: db + build
 **Commit**: `feat(db): remove a tabela e o bucket de mockup_templates`
@@ -419,10 +423,10 @@ apontavam para eles.
 **Tools** — MCP: nenhum · Skill: nenhuma
 
 **Done when**:
-- [ ] Nenhuma das três strings existe no fonte
-- [ ] Produto sem medida cadastrada mostra ficha **curta**, nunca inventada
-- [ ] Testes cobrem: com medida, sem medida, e sem nenhum dado (ficha vazia)
-- [ ] `pnpm --filter @estrelinha/store test` passa; contagem anotada
+- [x] Nenhuma das três strings existe no fonte
+- [x] Produto sem medida cadastrada mostra ficha **curta**, nunca inventada
+- [x] Testes cobrem: com medida, sem medida, e sem nenhum dado (ficha vazia)
+- [x] `pnpm --filter @estrelinha/store test` passa; **991 em 79 arquivos**
 
 **Tests**: unit · **Gate**: quick
 **Commit**: `refactor(store): ficha técnica sai do cadastro, sem verdades de botton`
@@ -439,10 +443,10 @@ produto que os consomem.
 **Tools** — MCP: nenhum · Skill: nenhuma
 
 **Done when**:
-- [ ] Nenhum depoimento fabricado é renderizado na loja
-- [ ] A página de produto continua íntegra sem o bloco (layout não colapsa)
-- [ ] Teste cobre a página de produto sem avaliações
-- [ ] `pnpm --filter @estrelinha/store test` passa; contagem anotada
+- [x] Nenhum depoimento fabricado é renderizado na loja
+- [x] A página de produto continua íntegra sem o bloco (layout não colapsa)
+- [x] Teste cobre a página de produto sem avaliações — ordem no documento + ausência de estrela e nota
+- [x] `pnpm --filter @estrelinha/store test` passa; **994 em 79 arquivos**
 
 **Tests**: unit · **Gate**: quick
 **Commit**: `refactor(store): remove as avaliações de demonstração`
@@ -460,11 +464,11 @@ Materno, Dente de Leite, Pet, Maternidade, Masculina), mantendo a idempotência 
 **Tools** — Skill: `supabase` · CLI: `supabase db reset` / `psql` (MCP do Supabase não autorizado nesta sessão)
 
 **Done when**:
-- [ ] Zero string do domínio anterior no arquivo
-- [ ] Hierarquia de categoria sobrevive ao `db reset` (`BL-003` é conhecido — o seed **não** pode deixar as categorias planas)
-- [ ] `supabase db reset` completa até o fim, sem depender de tabela temporária inexistente
-- [ ] Loja abre com produtos de joia e a home renderiza as coleções
-- [ ] Rodar o seed duas vezes não duplica
+- [x] Zero string do domínio anterior no arquivo — **exceto a lista de slugs que ele apaga** (ver Registro)
+- [x] Hierarquia de categoria sobrevive ao `db reset` (`BL-003`): raiz + 6 filhas, com `parent_id` também no `DO UPDATE`
+- [x] `supabase db reset` completa até o fim, sem objeto de sessão nenhum
+- [x] Loja abre com produtos de joia e a home renderiza as coleções — probe REST anônimo devolve o catálogo
+- [x] Rodar o seed duas vezes não duplica (contagens idênticas)
 
 **Tests**: none (SQL) + probe · **Gate**: db + build
 **Commit**: `feat(db): seed de desenvolvimento com joias afetivas`
@@ -1142,3 +1146,80 @@ fatiado.
 Aplicar o mesmo arquivo por `docker exec -i supabase_db_uma-estrelinha-store psql -U postgres -d
 postgres < supabase/seed.sql` — o fallback que o cabeçalho do próprio seed documenta — completa sem
 erro. Isso prova que o problema é o transporte da CLI, não o SQL. A correção é da T16.
+
+### Fase 2 - T10 a T16: a poda
+
+**Contagem de teste, por task** (baseline de entrada: 3098 em 180 — loja 986/78 · backoffice 1102/68
+· core 759/30 · functions 251/4):
+
+| task | workspace | antes | depois | o que explica |
+| --- | --- | --- | --- | --- |
+| T10 | backoffice | 1102 / 68 | **1055 / 65** | −3 arquivos de teste (`applyPlan`, `renderPlan`, `MockupStudioDialog`) foram junto com o módulo. Dentro do que fica: −1 (`Gerar mockup abre o estúdio`, do botão removido) e +1 (`Mockups saiu da navegação`) |
+| T12 | loja | 986 / 78 | **989 / 79** | +1 arquivo (`app/__tests__/routes.test.ts`, 3 testes). `custom-pin` e `mockup-preview` não tinham teste próprio |
+| T11 | core | 759 / 30 | **725 / 26** | −4 arquivos (`composeMockup`, `mockupGeometry`, `domeShading`, `loadImage`), −34 testes, todos dos módulos removidos |
+| T13 | — | — | — | SQL: sem teste, com probe |
+| T14 | loja | 989 / 79 | **991 / 79** | +2 ACs novas (as três frases não saem da função; ficha vazia) |
+| T15 | loja | 991 / 79 | **994 / 79** | +2 na `ProductPage` (integridade do layout, ausência de depoimento) e +1 na varredura de `routes.test.ts` |
+| T16 | — | — | — | SQL: sem teste, com probe |
+
+**Total ao fim do lote: 3025 testes em 174 arquivos** (loja 994/79 · backoffice 1055/65 · core
+725/26 · functions 251/4). Os **−73** são inteiramente dos 7 arquivos de teste que saíram junto com
+seus módulos; **nenhum teste de código que permanece encolheu** — os três que mudaram de asserção
+(`navItems`, `MobileMenu`, `Header`) inverteram o veredito porque o requisito inverteu: o item some,
+e o teste passa a provar que ele não voltou.
+
+Lint ao fim do lote: **30 err / 8 warn** (backoffice 28/7 · store 2/1) — um warning a menos que a
+baseline, de arquivo removido. `tsc` = **0 · 0**.
+
+#### T11 e T12 foram trocadas de ordem, de propósito
+
+`features/mockup-preview` e `CustomPinPage` (loja) importavam `useMockups` e `composeMockup` de
+`@estrelinha/core`. Executar a T11 antes da T12 deixaria o `tsc` da loja em erro — violando o
+terceiro "Done when" da **própria T11** ("`npx tsc --noEmit` = 0 nos dois apps"). A ordem executada
+foi T10 → **T12 → T11** → T13…, cada commit compilando por conta própria; o estado final é idêntico
+ao planejado. A alternativa — commitar uma árvore que não compila — não passaria no gate.
+
+#### `ImageSource` mantém `'mockup'`: decisão registrada
+
+A `PIN-01` enumera o que sai, e `ImageSource` (`'upload' | 'mockup' | 'import'`) não está na lista:
+ela descreve a **origem gravada** em `products.images`, não uma capacidade do produto. Tirar o valor
+obrigaria a reescrever o selo da galeria, o `summaryFacts` e seis testes de código que permanece —
+encolhimento de cobertura sem AC que o peça. O tipo ganhou o porquê no próprio comentário, e
+`normalizeImages` já cai em `'upload'` para qualquer valor fora da lista.
+
+#### T13 · o `DELETE` em `storage.objects` é bloqueado por trigger
+
+`storage.protect_delete()` é um trigger de statement que recusa DELETE direto nas tabelas de storage
+com `42501` ("Use the Storage API instead"). O destravamento é o mecanismo previsto pela própria
+função — ela lê a GUC `storage.allow_delete_query`. A migration usa `set` (e não `set local`: fora de
+bloco de transação o `set local` só emite WARNING e não vale) e `reset` no fim, devolvendo o
+guarda-corpo. Limite honesto, documentado no arquivo: o SQL apaga o **registro** do objeto; o blob no
+backend só sai pela Storage API — irrelevante no local, e o bucket nunca foi usado no hospedado.
+
+#### T14 · "de diâmetro" saiu junto, como quarta verdade de botton
+
+A task nomeia três strings. O rótulo `Tamanho: 3,8 cm de diâmetro` não estava na lista, mas afirma a
+**forma** do produto — só um disco tem diâmetro. Virou `Tamanho: 3,8 cm`. As asserções
+correspondentes mudaram de valor esperado porque o resultado esperado mudou; nenhuma foi
+enfraquecida — passaram de `toContain` para `toEqual` da lista inteira, que é mais estrito.
+
+Consequência do mesmo passe: com ficha possivelmente vazia, `ProductDetailsAccordion` deixa de montar
+a seção "Detalhes do Produto" quando não há nada a dizer (e abre "Cuidados"). O texto de "Cuidados"
+ainda fala em alfinete e metal — é **copy**, escopo da T38, e por isso não foi tocado aqui.
+
+#### T16 · o que sobrou de vocabulário antigo no seed, e por quê
+
+O arquivo tem duas ocorrências deliberadas do domínio anterior: a **lista de slugs que ele apaga**
+(`naruto-uzumaki`, `anime`, `kpop`…) e o comentário que explica a limpeza. Elas existem porque a
+migration inicial `20260414121021` carrega um seed **embutido** com 6 categorias e 12 bottons, e roda
+a cada `db reset`. Migration é história e não se reescreve; então o seed apaga aquelas linhas por
+lista explícita — e não por exclusão ("apaga o que não está aqui"), que levaria junto o produto que
+alguém cadastrou à mão para testar. Nenhuma ocorrência de `nanita` / `nanapin` / `nana` sobrou.
+
+A seção de `drops` foi removida em vez de reescrita: a tabela existe, **nenhum código a lê** (o
+`DropCountdown` calcula a data no próprio componente), e semear uma linha ali seria inventar um
+"lançamento" — vocabulário que não é desta loja.
+
+Efeito colateral esperado do fixture novo: o trigger de `base_price` recalcula o preço dos quatro
+produtos com grade para o **menor preço de linha** (aço inoxidável), então `pingente-coracao-cinzas`
+persiste 139,90 e não os 179,90 do `VALUES`. É a regra "a partir de" funcionando, não desvio.
