@@ -79,11 +79,16 @@ describe('navGroups — os quatro eixos', () => {
     expect(loja.items.map(i => i.to)).toEqual(['/admin/menu'])
 
     const catalogo = navGroups.find(g => g.label === 'Catálogo')!
-    expect(catalogo.items.map(i => i.to)).toEqual([
-      '/admin/produtos',
-      '/admin/categorias',
-      '/admin/mockups',
-    ])
+    expect(catalogo.items.map(i => i.to)).toEqual(['/admin/produtos', '/admin/categorias'])
+  })
+
+  it('Mockups saiu da navegação, e a rota não existe mais (PIN-01, PIN-03)', () => {
+    // O Mockup Studio compunha foto de botton (relevo, alfinete, cartela) — sem leitura possível no
+    // domínio de joia afetiva. Sem rota declarada, `/admin/mockups` cai no `path="*"` do `App.tsx`,
+    // que é a 404 do próprio backoffice.
+    expect(allItems.map(i => i.to)).not.toContain('/admin/mockups')
+    expect(allItems.map(i => i.label)).not.toContain('Mockups')
+    expect(appRoutePaths()).not.toContain('/admin/mockups')
   })
 
   it('nenhuma rota aparece em dois grupos', () => {

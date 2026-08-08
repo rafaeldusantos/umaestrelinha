@@ -11,7 +11,7 @@
 // explícita — declarada aqui em vez de silenciada.
 
 import { useEffect, useRef, useState } from 'react'
-import { ImagePlus, GripVertical, X, Sparkles, Wand2, Loader2 } from 'lucide-react'
+import { ImagePlus, GripVertical, X, Wand2, Loader2 } from 'lucide-react'
 import { Button } from '@estrelinha/ui/button'
 import { Input } from '@estrelinha/ui/input'
 import { Label } from '@estrelinha/ui/label'
@@ -29,7 +29,6 @@ interface Props {
   onChange: (next: ProductImage[]) => void
   /** Alimenta o `Gerar` do alt-text. Vazio ⇒ a ação fica desabilitada (PMD-01, edge case). */
   productName: string
-  onOpenStudio: () => void
   /** Avisa a página que há envio em curso — o cabeçalho desabilita o salvar enquanto isso. */
   onUploadingChange?: (uploading: boolean) => void
 }
@@ -41,7 +40,7 @@ const MB = 1024 * KB
 const formatFileSize = (bytes: number): string =>
   bytes >= MB ? `${(bytes / MB).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / KB))} KB`
 
-const ImageGallery = ({ images, onChange, productName, onOpenStudio, onUploadingChange }: Props) => {
+const ImageGallery = ({ images, onChange, productName, onUploadingChange }: Props) => {
   const [dragOver, setDragOver] = useState(false)
   const [dragIdx, setDragIdx] = useState<number | null>(null)
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null)
@@ -151,10 +150,6 @@ const ImageGallery = ({ images, onChange, productName, onOpenStudio, onUploading
     <div className="space-y-3" data-field="images" tabIndex={-1}>
       <div className="flex items-center justify-between">
         <Label>Imagens do Produto</Label>
-        {/* Estúdio de mockup: compõe a arte nos templates e anexa às imagens. */}
-        <Button type="button" variant="outline" size="sm" onClick={onOpenStudio}>
-          <Sparkles className="mr-1 h-4 w-4" /> Gerar mockup
-        </Button>
       </div>
 
       <div

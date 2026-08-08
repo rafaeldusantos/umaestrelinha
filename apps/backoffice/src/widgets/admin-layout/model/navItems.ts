@@ -1,4 +1,4 @@
-import { LayoutDashboard, Package, Percent, Tags, Menu, Sparkles, ShoppingCart, ShoppingBag, Ticket, Users, Settings } from 'lucide-react'
+import { LayoutDashboard, Package, Percent, Tags, Menu, ShoppingCart, ShoppingBag, Ticket, Users, Settings } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 export interface NavItem {
@@ -67,7 +67,6 @@ export const navGroups: NavGroup[] = [
     items: [
       { to: '/admin/produtos', icon: Package, label: 'Produtos' },
       { to: '/admin/categorias', icon: Tags, label: 'Categorias' },
-      { to: '/admin/mockups', icon: Sparkles, label: 'Mockups' },
     ],
   },
   {

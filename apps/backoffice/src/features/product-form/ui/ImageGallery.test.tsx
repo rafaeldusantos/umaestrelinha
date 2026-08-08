@@ -38,16 +38,14 @@ const fileOf = (name: string, type = 'image/png', size = 2 * 1024 * 1024): File 
 
 const setup = (over: Partial<React.ComponentProps<typeof ImageGallery>> = {}) => {
   const onChange = vi.fn()
-  const onOpenStudio = vi.fn()
   const props = {
     images: [] as ProductImage[],
     onChange,
     productName: 'Botton Sailor Moon',
-    onOpenStudio,
     ...over,
   }
   render(<ImageGallery {...props} />)
-  return { onChange, onOpenStudio }
+  return { onChange }
 }
 
 /** Cola: o ouvinte é de `window`, e jsdom não constrói `ClipboardEvent` com arquivos. */
@@ -295,16 +293,6 @@ describe('ImageGallery — envio (PMD-04)', () => {
   })
 })
 
-describe('ImageGallery — estúdio', () => {
-  it('`Gerar mockup` abre o estúdio', () => {
-    const { onOpenStudio } = setup()
-
-    fireEvent.click(screen.getByRole('button', { name: /Gerar mockup/ }))
-
-    expect(onOpenStudio).toHaveBeenCalledTimes(1)
-  })
-})
-
 /**
  * Renderiza a galeria como a página faz: o `onChange` volta como `images`. Sem isso, testar o
  * estado "alt preenchido pela ação" exigiria acreditar no componente em vez de observá-lo.
@@ -319,7 +307,6 @@ function renderControlled(initial: ProductImage[], productName: string) {
       images={current}
       onChange={onChange}
       productName={productName}
-      onOpenStudio={vi.fn()}
     />,
   )
   return {
@@ -330,7 +317,6 @@ function renderControlled(initial: ProductImage[], productName: string) {
           images={current}
           onChange={onChange}
           productName={productName}
-          onOpenStudio={vi.fn()}
         />,
       ),
   }

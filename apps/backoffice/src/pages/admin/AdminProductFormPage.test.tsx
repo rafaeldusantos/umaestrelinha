@@ -24,10 +24,6 @@ vi.mock('@/entities/category/api/useAdminCategories', () => ({
   useAdminCategories: () => ({ categories: [{ id: 'cat-anime', name: 'Anime' }] }),
 }))
 vi.mock('@/shared/ui/RichTextEditor', () => ({ default: () => <div>editor</div> }))
-vi.mock('@/features/mockup-studio', () => ({
-  MockupStudioDialog: () => null,
-  appendImages: (prev: string[], next: string[]) => [...prev, ...next],
-}))
 vi.mock('@estrelinha/ui/hooks/use-toast', () => ({ toast: vi.fn() }))
 
 import AdminProductFormPage from './AdminProductFormPage'

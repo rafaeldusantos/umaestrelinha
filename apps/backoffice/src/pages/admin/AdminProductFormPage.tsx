@@ -41,7 +41,6 @@ import VariantsTable, { type DeleteCheck } from '@/features/product-form/ui/Vari
 import OptionsEditor from '@/features/product-form/ui/OptionsEditor'
 import SeoPreview from '@/features/product-form/ui/SeoPreview'
 import RelatedProductsSelect from '@/features/product-form/ui/RelatedProductsSelect'
-import { MockupStudioDialog } from '@/features/mockup-studio'
 import { PageHeader, FormCard } from '@/shared/ui'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -80,7 +79,6 @@ const AdminProductFormPage = () => {
   // Só para travar o cabeçalho enquanto há envio em curso — o resto do estado de mídia é da
   // `ImageGallery` desde a T34.
   const [uploading, setUploading] = useState(false)
-  const [studioOpen, setStudioOpen] = useState(false)
   /** RFN-08 AC 1: `Descartar` era a única ação destrutiva do formulário sem confirmação. */
   const [discardOpen, setDiscardOpen] = useState(false)
   // Controlado (era `defaultValue`) porque o atalho do checklist precisa ABRIR a aba do campo
@@ -492,7 +490,6 @@ const AdminProductFormPage = () => {
                     })
                   }
                   productName={form.name}
-                  onOpenStudio={() => setStudioOpen(true)}
                   onUploadingChange={setUploading}
                 />
 
@@ -500,16 +497,6 @@ const AdminProductFormPage = () => {
                   <Label>Vídeo (URL YouTube/Vimeo)</Label>
                   <Input value={form.video_url} onChange={e => setField('video_url', e.target.value)} placeholder="https://youtube.com/watch?v=..." />
                 </div>
-
-                {/* T36: o estúdio devolve a galeria JÁ aplicada (anexar/substituir, principal,
-                    alt-text), não uma lista de URLs para a página recombinar. */}
-                <MockupStudioDialog
-                  open={studioOpen}
-                  onOpenChange={setStudioOpen}
-                  images={form.images}
-                  productName={form.name}
-                  onApply={next => setField('images', next)}
-                />
               </FormCard>
             </TabsContent>
 

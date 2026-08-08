@@ -11,7 +11,6 @@ import AdminDashboard from "@/pages/admin/AdminDashboard";
 import AdminProductsPage from "@/pages/admin/AdminProductsPage";
 import AdminProductFormPage from "@/pages/admin/AdminProductFormPage"
 import AdminQuickGridPage from '@/pages/admin/AdminQuickGridPage';
-import AdminMockupsPage from "@/pages/admin/AdminMockupsPage";
 import AdminOrdersPage from "@/pages/admin/AdminOrdersPage";
 import AdminCategoriesPage from "@/pages/admin/AdminCategoriesPage";
 import AdminMenuPage from "@/pages/admin/AdminMenuPage";
@@ -63,7 +62,6 @@ const App = () => (
             <Route path="/admin/produtos/novo" element={<AdminProductFormPage />} />
             <Route path="/admin/produtos/:id/editar" element={<AdminProductFormPage />} />
             <Route path="/admin/categorias" element={<AdminCategoriesPage />} />
-            <Route path="/admin/mockups" element={<AdminMockupsPage />} />
 
             {/* Loja — o que a cliente vê */}
             <Route path="/admin/menu" element={<AdminMenuPage />} />

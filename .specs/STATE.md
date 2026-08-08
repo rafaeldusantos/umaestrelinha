@@ -295,6 +295,29 @@
 - **Date**: 2026-08-08
 - **Status**: active
 
+### AD-017
+- **Decision**: **Enquanto este banco não for implantado, a história de migration pode ser reescrita.**
+  As duas `*_create_store_settings.sql` (duplicatas byte-a-byte uma da outra) passam a gravar os
+  defaults da Uma Estrelinha direto, e a `20260801170000_rebrand_store_settings_nanita.sql` — que
+  existia **só** para consertar o valor daquelas duas — é **apagada**. Consequência: a task de
+  rebrand de `store_settings` (`T34`) encolhe para os defaults em TypeScript, sem migration.
+  **Esta permissão expira no primeiro `supabase db push` para um projeto hospedado.** A partir daí
+  vale a regra normal: migration aplicada é imutável, e correção vem em migration nova.
+- **Reason**: O `project_id` virou `uma-estrelinha-store` em 2026-08-08 e nenhum `db push` foi feito.
+  Não existe `supabase_migrations.schema_migrations` remoto para divergir — a história só é
+  reproduzida do zero, por `db reset`. Nessas condições, carregar uma migration cujo propósito
+  inteiro é desfazer o valor da anterior é dívida sem contrapartida. E a alternativa (allowlist na
+  varredura de marca) tem custo real: uma allowlist de `supabase/migrations/` deixaria de detectar
+  resíduo numa migration **nova**, que é exatamente o caso que a varredura existe para pegar.
+- **Trade-off**: Perde-se o registro de que a loja já se chamou outra coisa nos defaults — mas esse
+  registro está preservado em `.specs/archive/nanita/` e nas decisões `AD-001`..`AD-015`. E cria-se
+  uma regra com data de validade, que é sempre pior do que uma regra estável: se alguém implantar o
+  banco e depois reescrever migration por hábito, o dano é silencioso. Por isso a expiração está
+  escrita na própria decisão e o `CLAUDE.md` (`T40`) a repete.
+- **Scope**: `supabase/migrations/**`
+- **Date**: 2026-08-08
+- **Status**: active
+
 ## Handoff
 
 ### ATUAL — 2026-08-04 · `19-identidade-papelaria` · **FEATURE FECHADA (32/32 tasks, 17 commits)**
