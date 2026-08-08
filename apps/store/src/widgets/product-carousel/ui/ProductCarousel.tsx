@@ -38,7 +38,7 @@ const ProductCarousel = ({ title, products, subtitle, badgeLabel, linkHref, link
               {linkHref && linkText && (
                 <Link
                   to={linkHref}
-                  className="hidden text-[15px] font-semibold text-nanita-jam transition-opacity hover:opacity-70 md:inline"
+                  className="hidden text-[15px] font-semibold text-estrelinha-primary transition-opacity hover:opacity-70 md:inline"
                 >
                   {linkText}
                 </Link>
@@ -46,14 +46,14 @@ const ProductCarousel = ({ title, products, subtitle, badgeLabel, linkHref, link
               {/* Par assimétrico: "voltar" é contorno, "avançar" é sólido. */}
               <button
                 onClick={() => scroll('left')}
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-nanita-border transition-colors hover:bg-nanita-sugar"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-estrelinha-line transition-colors hover:bg-estrelinha-ground-deep"
                 aria-label="Anterior"
               >
-                <ChevronLeft className="h-4 w-4 text-nanita-ink" strokeWidth={2.2} />
+                <ChevronLeft className="h-4 w-4 text-estrelinha-ink" strokeWidth={2.2} />
               </button>
               <button
                 onClick={() => scroll('right')}
-                className="flex h-10 w-10 items-center justify-center rounded-full bg-nanita-ink transition-transform hover:scale-105"
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-estrelinha-ink transition-transform hover:scale-105"
                 aria-label="Próximo"
               >
                 <ChevronRight className="h-4 w-4 text-white" strokeWidth={2.2} />

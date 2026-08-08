@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { readRecentSearches, pushRecentSearch, clearRecentSearches } from '../recentSearches'
 
-const KEY = 'nanapin-recent-searches'
+const KEY = 'estrelinha-recent-searches'
 
 beforeEach(() => localStorage.clear())
 afterEach(() => vi.restoreAllMocks())

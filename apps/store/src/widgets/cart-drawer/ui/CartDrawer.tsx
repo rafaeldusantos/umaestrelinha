@@ -82,15 +82,15 @@ const CartDrawer = () => {
            mantém a mesma acessibilidade. */
         /* `border-l` só a partir de `sm`: em tela cheia (mobile) ele vira um filete rosa solto na
            beirada esquerda, sem nada do outro lado para separar. */
-        className="flex w-full flex-col gap-0 border-l-0 bg-white p-0 sm:max-w-[440px] sm:border-l sm:border-nanita-border [&>button]:hidden"
+        className="flex w-full flex-col gap-0 border-l-0 bg-white p-0 sm:max-w-[440px] sm:border-l sm:border-estrelinha-line [&>button]:hidden"
       >
-        <SheetHeader className="flex shrink-0 flex-row items-center justify-between space-y-0 border-b border-nanita-border px-5 py-4 text-left md:px-6 md:py-5">
+        <SheetHeader className="flex shrink-0 flex-row items-center justify-between space-y-0 border-b border-estrelinha-line px-5 py-4 text-left md:px-6 md:py-5">
           <div className="flex items-center gap-2.5">
-            <SheetTitle className="font-heading text-[17px] font-bold leading-6 text-nanita-ink md:text-lg">
+            <SheetTitle className="font-heading text-[17px] font-bold leading-6 text-estrelinha-ink md:text-lg">
               Seu Carrinho
             </SheetTitle>
             {count > 0 && (
-              <span className="rounded-pill bg-nanita-jam px-2 py-0.5 text-xs font-bold leading-[18px] text-white md:px-2.5">
+              <span className="rounded-pill bg-estrelinha-primary px-2 py-0.5 text-xs font-bold leading-[18px] text-white md:px-2.5">
                 {count}
                 <span className="hidden md:inline"> {count === 1 ? 'item' : 'itens'}</span>
               </span>
@@ -101,7 +101,7 @@ const CartDrawer = () => {
           </SheetDescription>
           <SheetClose
             aria-label="Fechar carrinho"
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-nanita-sugar text-nanita-ink transition-colors hover:bg-nanita-border"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-estrelinha-ground-deep text-estrelinha-ink transition-colors hover:bg-estrelinha-line"
           >
             <X className="h-3.5 w-3.5" strokeWidth={2.5} />
           </SheetClose>
@@ -109,20 +109,20 @@ const CartDrawer = () => {
 
         {items.length === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-4 px-8 text-center">
-            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-nanita-sugar">
-              <ShoppingBag className="h-8 w-8 text-nanita-jam" strokeWidth={1.6} />
+            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-estrelinha-ground-deep">
+              <ShoppingBag className="h-8 w-8 text-estrelinha-primary" strokeWidth={1.6} />
             </div>
             <div>
-              <p className="font-heading text-lg font-semibold text-nanita-ink">
+              <p className="font-heading text-lg font-semibold text-estrelinha-ink">
                 Sua sacola está vazia
               </p>
-              <p className="mt-1 text-sm text-nanita-plum">
+              <p className="mt-1 text-sm text-estrelinha-ink-soft">
                 Escolhe uns bottons — a gente embala com carinho.
               </p>
             </div>
             <Button
               onClick={() => goTo('/')}
-              className="rounded-sm border-0 bg-nanita-jam px-6 font-display font-semibold text-white hover:bg-nanita-jam hover:opacity-95"
+              className="rounded-sm border-0 bg-estrelinha-primary px-6 font-display font-semibold text-white hover:bg-estrelinha-primary hover:opacity-95"
             >
               Explorar bottons
             </Button>
@@ -130,9 +130,9 @@ const CartDrawer = () => {
         ) : (
           <>
             {/* Faixa do frete grátis — o único bloco em açúcar acima da dobra. */}
-            <div className="flex shrink-0 flex-col gap-1.5 bg-nanita-sugar px-5 py-3 md:gap-2 md:px-6 md:py-4">
+            <div className="flex shrink-0 flex-col gap-1.5 bg-estrelinha-ground-deep px-5 py-3 md:gap-2 md:px-6 md:py-4">
               <div className="flex items-center justify-between gap-3">
-                <p className="text-xs font-semibold text-nanita-jam md:text-[13px]">
+                <p className="text-xs font-semibold text-estrelinha-primary md:text-[13px]">
                   {progress.reached ? (
                     <span className="inline-flex items-center gap-1.5">
                       <Truck className="h-3.5 w-3.5" aria-hidden /> Frete grátis liberado! 🎉
@@ -141,7 +141,7 @@ const CartDrawer = () => {
                     <>Faltam {formatPrice(progress.remaining)} para frete grátis!</>
                   )}
                 </p>
-                <span className="shrink-0 text-[11px] font-medium text-nanita-plum">
+                <span className="shrink-0 text-[11px] font-medium text-estrelinha-ink-soft">
                   {formatPrice(subtotal)} / {formatPrice(free_shipping_threshold)}
                 </span>
               </div>
@@ -154,7 +154,7 @@ const CartDrawer = () => {
                 aria-label="Progresso para o frete grátis"
               >
                 <motion.div
-                  className="h-full rounded-full bg-nanita-jam"
+                  className="h-full rounded-full bg-estrelinha-primary"
                   initial={false}
                   animate={{ width: `${progress.percent}%` }}
                   transition={{ duration: 0.4, ease: 'easeOut' }}
@@ -182,7 +182,7 @@ const CartDrawer = () => {
               {!progress.reached && <CrossSell products={suggestions} onNavigate={closeCart} />}
             </div>
 
-            <div className="shrink-0 border-t border-nanita-border pb-[env(safe-area-inset-bottom)]">
+            <div className="shrink-0 border-t border-estrelinha-line pb-[env(safe-area-inset-bottom)]">
               {/**
                * PRM-23 — o convite da próxima faixa.
                *
@@ -196,7 +196,7 @@ const CartDrawer = () => {
                * quando não há faixa acima da atual.
                */}
               {nextTier && (
-                <p className="border-b border-nanita-border bg-nanita-sugar px-5 py-2.5 text-xs font-semibold text-nanita-jam md:px-6 md:text-[13px]">
+                <p className="border-b border-estrelinha-line bg-estrelinha-ground-deep px-5 py-2.5 text-xs font-semibold text-estrelinha-primary md:px-6 md:text-[13px]">
                   {nextTier.missing === 1 ? 'Falta 1' : `Faltam ${nextTier.missing}`} para cada botton
                   sair a {formatPrice(nextTier.unitPrice)}
                 </p>
@@ -204,7 +204,7 @@ const CartDrawer = () => {
 
               {/* Sem padding aqui: a variante `drawer` do cupom traz a própria, porque a linha de
                   cupom aplicado é de borda a borda (board do checkout, grupo "Cupom Aplicado"). */}
-              <div className="border-b border-nanita-border">
+              <div className="border-b border-estrelinha-line">
                 <CouponInput
                   variant="drawer"
                   subtotal={subtotal}
@@ -214,38 +214,38 @@ const CartDrawer = () => {
 
               <dl className="flex flex-col gap-2 px-5 pt-3.5 md:px-6 md:pt-4">
                 <div className="flex items-center justify-between text-[13px]">
-                  <dt className="font-medium text-nanita-plum">
+                  <dt className="font-medium text-estrelinha-ink-soft">
                     Subtotal ({units} {units === 1 ? 'item' : 'itens'})
                   </dt>
-                  <dd className="font-semibold text-nanita-ink">{formatPrice(subtotal)}</dd>
+                  <dd className="font-semibold text-estrelinha-ink">{formatPrice(subtotal)}</dd>
                 </div>
                 {/* Sem faixa alcançada a linha simplesmente não existe: a gaveta não anuncia
                     "−R$ 0,00", que é anúncio de desconto nenhum. */}
                 {promotionDiscount > 0 && (
                   <div className="flex items-center justify-between text-[13px]">
-                    <dt className="font-medium text-nanita-plum">Desconto progressivo</dt>
-                    <dd className="font-semibold text-nanita-jam">
+                    <dt className="font-medium text-estrelinha-ink-soft">Desconto progressivo</dt>
+                    <dd className="font-semibold text-estrelinha-primary">
                       −{formatPrice(promotionDiscount)}
                     </dd>
                   </div>
                 )}
                 {discount > 0 && (
                   <div className="flex items-center justify-between text-[13px]">
-                    <dt className="font-medium text-nanita-plum">Cupom {applied?.code}</dt>
-                    <dd className="font-semibold text-nanita-jam">−{formatPrice(discount)}</dd>
+                    <dt className="font-medium text-estrelinha-ink-soft">Cupom {applied?.code}</dt>
+                    <dd className="font-semibold text-estrelinha-primary">−{formatPrice(discount)}</dd>
                   </div>
                 )}
                 <div className="flex items-center justify-between text-[13px]">
-                  <dt className="font-medium text-nanita-plum">Frete estimado</dt>
+                  <dt className="font-medium text-estrelinha-ink-soft">Frete estimado</dt>
                   {/* Estimativa da faixa padrão: o valor real sai da cotação por CEP, no checkout. */}
-                  <dd className={freeShipping ? 'font-bold text-nanita-jam' : 'font-semibold text-nanita-ink'}>
+                  <dd className={freeShipping ? 'font-bold text-estrelinha-primary' : 'font-semibold text-estrelinha-ink'}>
                     {freeShipping ? 'Grátis' : formatPrice(shipping)}
                   </dd>
                 </div>
-                <div className="h-px w-full bg-nanita-border" />
+                <div className="h-px w-full bg-estrelinha-line" />
                 <div className="flex items-center justify-between">
-                  <dt className="font-heading text-base font-bold text-nanita-ink">Total</dt>
-                  <dd className="font-heading text-lg font-extrabold text-nanita-ink">
+                  <dt className="font-heading text-base font-bold text-estrelinha-ink">Total</dt>
+                  <dd className="font-heading text-lg font-extrabold text-estrelinha-ink">
                     {formatPrice(total)}
                   </dd>
                 </div>
@@ -254,7 +254,7 @@ const CartDrawer = () => {
               <div className="px-5 pb-5 pt-3.5 md:px-6 md:pb-6 md:pt-4">
                 <Button
                   onClick={() => goTo('/checkout')}
-                  className="h-[52px] w-full gap-2.5 rounded-2xl border-0 bg-nanita-jam font-display text-[15px] font-bold text-white transition-transform hover:bg-nanita-jam hover:opacity-95 active:scale-[0.99]"
+                  className="h-[52px] w-full gap-2.5 rounded-2xl border-0 bg-estrelinha-primary font-display text-[15px] font-bold text-white transition-transform hover:bg-estrelinha-primary hover:opacity-95 active:scale-[0.99]"
                 >
                   <ShoppingBag className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden />
                   Finalizar Pedido

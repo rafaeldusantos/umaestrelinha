@@ -24,12 +24,12 @@ const CrossSell = ({ products, onNavigate }: Props) => {
   const cheapest = Math.min(...products.map((p) => p.price))
 
   return (
-    <section className="border-b border-nanita-border bg-nanita-sugar/40 px-5 py-3.5 md:px-6 md:py-4">
+    <section className="border-b border-estrelinha-line bg-estrelinha-ground-deep/40 px-5 py-3.5 md:px-6 md:py-4">
       <div className="mb-2.5 flex items-center justify-between gap-3 md:mb-3">
-        <h3 className="text-[11px] font-bold uppercase leading-4 tracking-[0.06em] text-nanita-jam md:text-xs">
+        <h3 className="text-[11px] font-bold uppercase leading-4 tracking-[0.06em] text-estrelinha-primary md:text-xs">
           Complete o frete grátis
         </h3>
-        <span className="hidden shrink-0 text-xs font-medium text-nanita-plum md:inline">
+        <span className="hidden shrink-0 text-xs font-medium text-estrelinha-ink-soft md:inline">
           A partir de {formatPrice(cheapest)}
         </span>
       </div>
@@ -42,14 +42,14 @@ const CrossSell = ({ products, onNavigate }: Props) => {
               key={product.id}
               /* O board mostra uma sugestão no mobile e duas no desktop: numa gaveta de 390px, o
                  segundo card empurra o rodapé para fora do primeiro scroll. */
-              className={`${index > 0 ? 'hidden md:flex' : 'flex'} items-center gap-2.5 rounded-xl border border-nanita-border bg-white p-2.5`}
+              className={`${index > 0 ? 'hidden md:flex' : 'flex'} items-center gap-2.5 rounded-xl border border-estrelinha-line bg-white p-2.5`}
             >
               <Link
                 to={`/produto/${product.slug}`}
                 onClick={onNavigate}
                 tabIndex={-1}
                 aria-hidden
-                className="h-11 w-11 shrink-0 overflow-hidden rounded-[10px] bg-nanita-sugar"
+                className="h-11 w-11 shrink-0 overflow-hidden rounded-[10px] bg-estrelinha-ground-deep"
               >
                 <img src={product.image_url} alt="" className="h-full w-full object-cover" />
               </Link>
@@ -59,18 +59,18 @@ const CrossSell = ({ products, onNavigate }: Props) => {
                   onClick={onNavigate}
                   /* Duas linhas, como no board: num card de ~190px o nome de um botton quase sempre
                      quebra, e cortar em uma linha vira "Botton I…" — o que não identifica nada. */
-                  className="line-clamp-2 text-xs font-semibold leading-4 text-nanita-ink transition-colors hover:text-nanita-jam"
+                  className="line-clamp-2 text-xs font-semibold leading-4 text-estrelinha-ink transition-colors hover:text-estrelinha-primary"
                 >
                   {product.name}
                 </Link>
-                <p className="text-xs font-bold leading-4 text-nanita-jam">{formatPrice(product.price)}</p>
+                <p className="text-xs font-bold leading-4 text-estrelinha-primary">{formatPrice(product.price)}</p>
               </div>
               {needsChoice ? (
                 <Link
                   to={`/produto/${product.slug}`}
                   onClick={onNavigate}
                   aria-label={`Escolher variação de ${product.name}`}
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-nanita-jam text-white transition-transform hover:scale-105 active:scale-95"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-estrelinha-primary text-white transition-transform hover:scale-105 active:scale-95"
                 >
                   <ChevronRight className="h-4 w-4" strokeWidth={2.4} />
                 </Link>
@@ -79,7 +79,7 @@ const CrossSell = ({ products, onNavigate }: Props) => {
                   type="button"
                   onClick={() => addItem(product)}
                   aria-label={`Adicionar ${product.name} ao carrinho`}
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-nanita-jam text-white transition-transform hover:scale-105 active:scale-95"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-estrelinha-primary text-white transition-transform hover:scale-105 active:scale-95"
                 >
                   <Plus className="h-4 w-4" strokeWidth={2.6} />
                 </button>

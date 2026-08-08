@@ -81,18 +81,18 @@ const TRUST_ITEMS = [
 ]
 
 const CheckoutHeader = () => (
-  <header className="border-b border-nanita-border bg-white">
+  <header className="border-b border-estrelinha-line bg-white">
     <div className="container flex items-center justify-between py-5">
       <Link to="/" aria-label="Nanita">
         <NanitaWordmark width={128} />
       </Link>
       <div className="flex items-center gap-5 text-sm font-medium">
-        <span className="flex items-center gap-[7px] text-nanita-ink">
-          <Lock className="h-[15px] w-[15px] text-nanita-jam" aria-hidden />
+        <span className="flex items-center gap-[7px] text-estrelinha-ink">
+          <Lock className="h-[15px] w-[15px] text-estrelinha-primary" aria-hidden />
           Ambiente seguro
         </span>
-        <span className="hidden h-[18px] w-px bg-nanita-border sm:block" />
-        <span className="hidden items-center gap-[7px] text-nanita-plum sm:flex">
+        <span className="hidden h-[18px] w-px bg-estrelinha-line sm:block" />
+        <span className="hidden items-center gap-[7px] text-estrelinha-ink-soft sm:flex">
           <MessageCircle className="h-[15px] w-[15px]" aria-hidden />
           Ajuda no WhatsApp
         </span>
@@ -159,7 +159,7 @@ const CheckoutPage = () => {
   }, [loading, user, openAuth])
 
   if (loading) {
-    return <div className="container py-20 text-center text-nanita-plum">Carregando...</div>
+    return <div className="container py-20 text-center text-estrelinha-ink-soft">Carregando...</div>
   }
 
   if (!user) {
@@ -167,15 +167,15 @@ const CheckoutPage = () => {
       <>
         <CheckoutHeader />
         <div className="container mx-auto max-w-md py-20 text-center">
-          <h1 className="mb-3 font-heading text-2xl font-bold text-nanita-ink">
+          <h1 className="mb-3 font-heading text-2xl font-bold text-estrelinha-ink">
             Faça login para continuar
           </h1>
-          <p className="mb-6 text-nanita-plum">
+          <p className="mb-6 text-estrelinha-ink-soft">
             Você precisa estar logada para finalizar a compra.
           </p>
           <Button
             onClick={() => openAuth({ returnTo: '/checkout' })}
-            className="rounded-sm border-0 bg-nanita-jam text-white transition-all hover:scale-[1.02] hover:bg-nanita-jam hover:opacity-95"
+            className="rounded-sm border-0 bg-estrelinha-primary text-white transition-all hover:scale-[1.02] hover:bg-estrelinha-primary hover:opacity-95"
           >
             Entrar ou Criar Conta
           </Button>
@@ -464,12 +464,12 @@ const CheckoutPage = () => {
                 type="button"
                 onClick={() => useCartUiStore.getState().openCart()}
                 aria-haspopup="dialog"
-                className="flex items-center gap-[6px] self-start text-sm font-medium text-nanita-plum hover:text-nanita-jam"
+                className="flex items-center gap-[6px] self-start text-sm font-medium text-estrelinha-ink-soft hover:text-estrelinha-primary"
               >
                 <ArrowLeft className="h-[14px] w-[14px]" aria-hidden />
                 Voltar ao carrinho
               </button>
-              <h1 className="font-heading text-3xl font-semibold tracking-[-0.03em] text-nanita-ink">
+              <h1 className="font-heading text-3xl font-semibold tracking-[-0.03em] text-estrelinha-ink">
                 Finalizar compra
               </h1>
             </div>
@@ -503,13 +503,13 @@ const CheckoutPage = () => {
             <OrderBump />
 
             {/* CHK-10: no mobile o CTA fica fixo no rodapé; no desktop segue no fluxo. */}
-            <div className="fixed inset-x-0 bottom-0 z-40 flex flex-col items-center gap-3 border-t border-nanita-border bg-white px-4 pb-6 pt-4 lg:static lg:border-0 lg:px-0 lg:pb-0 lg:pt-2">
+            <div className="fixed inset-x-0 bottom-0 z-40 flex flex-col items-center gap-3 border-t border-estrelinha-line bg-white px-4 pb-6 pt-4 lg:static lg:border-0 lg:px-0 lg:pb-0 lg:pt-2">
               {/* FLW-07: o gate é `complete`, não `open`. Com o Pagamento sempre aberto
                   (FLW-05), `open` nunca é `null` e olhar para ele travaria o CTA para sempre. */}
               <Button
                 onClick={() => void handleConfirm()}
                 disabled={flow.complete.length !== 3 || busy}
-                className="h-auto w-full gap-[11px] rounded-sm border-0 bg-nanita-jam py-[19px] font-heading text-[17px] font-semibold text-white transition-all hover:bg-nanita-jam hover:opacity-95 disabled:opacity-50 lg:text-[19px]"
+                className="h-auto w-full gap-[11px] rounded-sm border-0 bg-estrelinha-primary py-[19px] font-heading text-[17px] font-semibold text-white transition-all hover:bg-estrelinha-primary hover:opacity-95 disabled:opacity-50 lg:text-[19px]"
               >
                 <Lock className="h-5 w-5" aria-hidden />
                 {ctaLabel}
@@ -518,7 +518,7 @@ const CheckoutPage = () => {
                 {TRUST_ITEMS.map(({ icon: Icon, label }) => (
                   <span
                     key={label}
-                    className="flex items-center gap-[7px] text-xs font-medium text-nanita-plum"
+                    className="flex items-center gap-[7px] text-xs font-medium text-estrelinha-ink-soft"
                   >
                     <Icon className="h-4 w-4 shrink-0" aria-hidden />
                     {label}

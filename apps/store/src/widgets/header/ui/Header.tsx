@@ -55,7 +55,7 @@ const Header = () => {
       /* Branco chapado sobre o chão Papel — o artboard 23 não usa véu nem blur
          no topo. Com o chão deixando de ser branco, o header branco passou a se
          destacar sozinho; o blur existia para separar de um fundo da mesma cor. */
-      className={`sticky top-0 z-50 h-16 border-b border-nanita-border bg-white transition-transform duration-200 focus-within:translate-y-0 motion-reduce:transition-none md:translate-y-0 ${
+      className={`sticky top-0 z-50 h-16 border-b border-estrelinha-line bg-white transition-transform duration-200 focus-within:translate-y-0 motion-reduce:transition-none md:translate-y-0 ${
         hidden ? '-translate-y-full' : 'translate-y-0'
       }`}
     >
@@ -75,7 +75,7 @@ const Header = () => {
           <MegaMenu entries={entries} />
           <Link
             to="/sobre"
-            className="text-[15px] font-medium text-nanita-ink transition-colors hover:text-nanita-jam"
+            className="text-[15px] font-medium text-estrelinha-ink transition-colors hover:text-estrelinha-primary"
           >
             Sobre
           </Link>
@@ -87,12 +87,12 @@ const Header = () => {
           </div>
           <Link
             to="/favoritos"
-            className="relative rounded-full p-2 transition-colors before:absolute before:left-1/2 before:top-1/2 before:h-11 before:w-11 before:-translate-x-1/2 before:-translate-y-1/2 before:content-[''] hover:bg-nanita-sugar"
+            className="relative rounded-full p-2 transition-colors before:absolute before:left-1/2 before:top-1/2 before:h-11 before:w-11 before:-translate-x-1/2 before:-translate-y-1/2 before:content-[''] hover:bg-estrelinha-ground-deep"
             aria-label="Favoritos"
           >
-            <Heart className="h-5 w-5 text-nanita-ink" strokeWidth={1.8} />
+            <Heart className="h-5 w-5 text-estrelinha-ink" strokeWidth={1.8} />
             {wishlistCount > 0 && (
-              <span className="absolute -right-0.5 -top-0.5 flex h-[18px] w-[18px] items-center justify-center rounded-full bg-nanita-jam text-[10px] font-bold text-white">
+              <span className="absolute -right-0.5 -top-0.5 flex h-[18px] w-[18px] items-center justify-center rounded-full bg-estrelinha-primary text-[10px] font-bold text-white">
                 {wishlistCount}
               </span>
             )}
@@ -100,20 +100,20 @@ const Header = () => {
           {user ? (
             <Link
               to="/conta"
-              className="relative hidden rounded-full p-2 transition-colors before:absolute before:left-1/2 before:top-1/2 before:h-11 before:w-11 before:-translate-x-1/2 before:-translate-y-1/2 before:content-[''] hover:bg-nanita-sugar md:flex"
+              className="relative hidden rounded-full p-2 transition-colors before:absolute before:left-1/2 before:top-1/2 before:h-11 before:w-11 before:-translate-x-1/2 before:-translate-y-1/2 before:content-[''] hover:bg-estrelinha-ground-deep md:flex"
               aria-label="Minha conta"
             >
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-nanita-jam text-[9px] font-bold text-white">
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-estrelinha-primary text-[9px] font-bold text-white">
                 {initials}
               </span>
             </Link>
           ) : (
             <button
               onClick={() => openAuth()}
-              className="relative hidden rounded-full p-2 transition-colors before:absolute before:left-1/2 before:top-1/2 before:h-11 before:w-11 before:-translate-x-1/2 before:-translate-y-1/2 before:content-[''] hover:bg-nanita-sugar md:flex"
+              className="relative hidden rounded-full p-2 transition-colors before:absolute before:left-1/2 before:top-1/2 before:h-11 before:w-11 before:-translate-x-1/2 before:-translate-y-1/2 before:content-[''] hover:bg-estrelinha-ground-deep md:flex"
               aria-label="Entrar"
             >
-              <User className="h-5 w-5 text-nanita-ink" strokeWidth={1.8} />
+              <User className="h-5 w-5 text-estrelinha-ink" strokeWidth={1.8} />
             </button>
           )}
           {/* Carrinho só no desktop: no celular a aba do `MobileNav` é o gatilho da gaveta, e o
@@ -125,13 +125,13 @@ const Header = () => {
           {/* O botão só ABRE. Quem fecha é o X de dentro da folha, e o próprio `Sheet` no toque fora
               — um gatilho que alterna sob uma folha de tela cheia é um botão invisível. */}
           <button
-            className="relative rounded-full p-2 transition-colors before:absolute before:left-1/2 before:top-1/2 before:h-11 before:w-11 before:-translate-x-1/2 before:-translate-y-1/2 before:content-[''] hover:bg-nanita-sugar md:hidden"
+            className="relative rounded-full p-2 transition-colors before:absolute before:left-1/2 before:top-1/2 before:h-11 before:w-11 before:-translate-x-1/2 before:-translate-y-1/2 before:content-[''] hover:bg-estrelinha-ground-deep md:hidden"
             onClick={openMenu}
             aria-label="Abrir menu"
             aria-haspopup="dialog"
             aria-expanded={menuOpen}
           >
-            <Menu className="h-5 w-5 text-nanita-ink" />
+            <Menu className="h-5 w-5 text-estrelinha-ink" />
           </button>
         </div>
       </div>

@@ -45,20 +45,20 @@ const DropCountdown = () => {
   ]
 
   return (
-    <div className="relative flex w-full flex-col items-center gap-5 overflow-hidden rounded-xl bg-nanita-ink px-6 py-10 md:px-9">
+    <div className="relative flex w-full flex-col items-center gap-5 overflow-hidden rounded-xl bg-estrelinha-ink px-6 py-10 md:px-9">
       {/* Dois discos de rosa quase invisíveis dão profundidade sem virar cor. */}
       <span
-        className="pointer-events-none absolute -right-5 -top-5 h-[100px] w-[100px] rounded-full bg-nanita-jam/[0.15]"
+        className="pointer-events-none absolute -right-5 -top-5 h-[100px] w-[100px] rounded-full bg-estrelinha-primary/[0.15]"
         aria-hidden
       />
       <span
-        className="pointer-events-none absolute -bottom-2.5 -left-2.5 h-[60px] w-[60px] rounded-full bg-nanita-raspberry/20"
+        className="pointer-events-none absolute -bottom-2.5 -left-2.5 h-[60px] w-[60px] rounded-full bg-estrelinha-accent-strong/20"
         aria-hidden
       />
 
-      <div className="relative flex items-center gap-2.5 rounded-pill bg-nanita-glaze/[0.15] py-[5px] pl-3 pr-3.5">
-        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-nanita-glaze" />
-        <span className="nanita-eyebrow text-[12px] font-bold tracking-[0.12em] text-nanita-glaze">
+      <div className="relative flex items-center gap-2.5 rounded-pill bg-estrelinha-accent/[0.15] py-[5px] pl-3 pr-3.5">
+        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-estrelinha-accent" />
+        <span className="estrelinha-eyebrow text-[12px] font-bold tracking-[0.12em] text-estrelinha-accent">
           Drop nesta sexta
         </span>
       </div>
@@ -79,7 +79,7 @@ const DropCountdown = () => {
           >
             <span
               className={`font-display text-[24px] font-semibold leading-[1.25] tracking-[-0.02em] md:text-[30px] ${
-                b.live ? 'text-nanita-butter' : 'text-white'
+                b.live ? 'text-estrelinha-accent' : 'text-white'
               }`}
             >
               {String(b.value).padStart(2, '0')}
@@ -96,7 +96,7 @@ const DropCountdown = () => {
           artboard desenha para separar o CTA da superfície. */}
       <button
         type="button"
-        className="relative flex items-center justify-center gap-1.5 rounded-sm border border-white/20 bg-nanita-glaze px-[18px] py-2.5 font-display text-[13px] font-semibold text-nanita-ink transition-transform hover:scale-[1.03] active:scale-100 md:text-[15px]"
+        className="relative flex items-center justify-center gap-1.5 rounded-sm border border-white/20 bg-estrelinha-accent px-[18px] py-2.5 font-display text-[13px] font-semibold text-estrelinha-ink transition-transform hover:scale-[1.03] active:scale-100 md:text-[15px]"
       >
         Ativar lembrete
         <Bell size={14} strokeWidth={2} aria-hidden />

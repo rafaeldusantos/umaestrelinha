@@ -25,20 +25,20 @@ interface TestimonialCardProps {
 }
 
 const TestimonialCard = ({ quote, name, city, initial, tone }: TestimonialCardProps) => (
-  <div className="flex flex-col gap-3 rounded-md border border-nanita-border bg-white p-[18px]">
+  <div className="flex flex-col gap-3 rounded-md border border-estrelinha-line bg-white p-[18px]">
     <StarRow />
-    <p className="text-[14px] leading-[1.5] text-nanita-ink">{quote}</p>
+    <p className="text-[14px] leading-[1.5] text-estrelinha-ink">{quote}</p>
     <div className="flex items-center gap-2">
       <span
         className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
-          tone === "ink" ? "bg-nanita-ink text-white" : "bg-nanita-glaze text-nanita-ink"
+          tone === "ink" ? "bg-estrelinha-ink text-white" : "bg-estrelinha-accent text-estrelinha-ink"
         }`}
       >
         {initial}
       </span>
       <div className="flex flex-col">
-        <span className="font-display text-[13px] font-semibold text-nanita-ink">{name}</span>
-        <span className="text-[12px] text-nanita-plum">{city}</span>
+        <span className="font-display text-[13px] font-semibold text-estrelinha-ink">{name}</span>
+        <span className="text-[12px] text-estrelinha-ink-soft">{city}</span>
       </div>
     </div>
   </div>
@@ -47,17 +47,17 @@ const TestimonialCard = ({ quote, name, city, initial, tone }: TestimonialCardPr
 export const SocialProof = () => {
   return (
     <motion.div
-      className="flex flex-col gap-5 rounded-lg bg-nanita-sugar p-5 md:p-8"
+      className="flex flex-col gap-5 rounded-lg bg-estrelinha-ground-deep p-5 md:p-8"
       initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
       transition={{ duration: 0.5, ease: "easeOut" }}
     >
       <div className="flex flex-col gap-1">
-        <h3 className="font-display text-[22px] font-semibold tracking-[-0.02em] text-nanita-ink">
+        <h3 className="font-display text-[22px] font-semibold tracking-[-0.02em] text-estrelinha-ink">
           O que a galera diz
         </h3>
-        <p className="text-[14px] text-nanita-plum">+2.000 clientes felizes</p>
+        <p className="text-[14px] text-estrelinha-ink-soft">+2.000 clientes felizes</p>
       </div>
 
       <div className="flex flex-col gap-4">

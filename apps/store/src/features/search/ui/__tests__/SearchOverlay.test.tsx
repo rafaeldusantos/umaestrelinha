@@ -75,7 +75,7 @@ const type = (value: string) =>
 
 describe('SearchOverlay (board "Mobile Search Open - v3")', () => {
   it('parte de buscas recentes e coleções em alta, sem resultado nenhum', () => {
-    localStorage.setItem('nanapin-recent-searches', JSON.stringify(['gojo satoru']))
+    localStorage.setItem('estrelinha-recent-searches', JSON.stringify(['gojo satoru']))
     renderOverlay()
     expect(screen.getByText('gojo satoru')).toBeInTheDocument()
     expect(screen.getByText('Em alta agora')).toBeInTheDocument()
@@ -109,7 +109,7 @@ describe('SearchOverlay (board "Mobile Search Open - v3")', () => {
     fireEvent.submit(screen.getByLabelText('Buscar bottons').closest('form')!)
     expect(navigate).toHaveBeenCalledWith('/busca?q=naruto')
     expect(closeSearch).toHaveBeenCalled()
-    expect(JSON.parse(localStorage.getItem('nanapin-recent-searches')!)).toEqual(['naruto'])
+    expect(JSON.parse(localStorage.getItem('estrelinha-recent-searches')!)).toEqual(['naruto'])
   })
 
   it('não envia com menos de dois caracteres', () => {

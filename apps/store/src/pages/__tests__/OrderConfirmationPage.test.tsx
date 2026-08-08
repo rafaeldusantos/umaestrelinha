@@ -210,7 +210,7 @@ describe('OrderConfirmationPage — ações (CNF-05)', () => {
 
     const primary = screen.getByRole('link', { name: /acompanhar pedido/i })
     expect(primary).toHaveAttribute('href', '/conta')
-    expect(primary.className).toContain('bg-nanita-jam')
+    expect(primary.className).toContain('bg-estrelinha-primary')
     // Forma de ação é 14px (`rounded-sm`), não pílula — a pílula virou
     // rótulo na identidade papelaria (feature 19, PAP-04).
     expect(primary.className).toContain('rounded-sm')
@@ -223,8 +223,8 @@ describe('OrderConfirmationPage — ações (CNF-05)', () => {
 
     const secondary = screen.getByRole('link', { name: /ver mais pins/i })
     expect(secondary).toHaveAttribute('href', '/')
-    expect(secondary.className).toContain('border-nanita-ink')
-    expect(secondary.className).not.toContain('bg-nanita-jam')
+    expect(secondary.className).toContain('border-estrelinha-ink')
+    expect(secondary.className).not.toContain('bg-estrelinha-primary')
   })
 
   it('existe uma única ação em Carmim na tela', () => {
@@ -232,7 +232,7 @@ describe('OrderConfirmationPage — ações (CNF-05)', () => {
     const { container } = renderPage()
 
     const primaryActions = container.querySelectorAll(
-      '[class*="bg-nanita-jam"][class*="rounded-sm"]',
+      '[class*="bg-estrelinha-primary"][class*="rounded-sm"]',
     )
     expect(primaryActions).toHaveLength(1)
     expect(primaryActions[0].textContent).toContain('Acompanhar pedido')

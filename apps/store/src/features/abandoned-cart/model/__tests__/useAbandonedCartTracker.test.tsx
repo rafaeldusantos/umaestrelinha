@@ -64,7 +64,7 @@ const track = async () => {
 
 describe('useAbandonedCartTracker — caminho de escrita', () => {
   it('grava pela RPC track_abandoned_cart, não pela tabela', async () => {
-    sessionStorage.setItem('nanapin-guest-email', 'cliente@nanita.com.br')
+    sessionStorage.setItem('estrelinha-guest-email', 'cliente@nanita.com.br')
     useCartStore.getState().addItem(product(), '4,5 cm', 'Fosco')
 
     await track()
@@ -93,7 +93,7 @@ describe('useAbandonedCartTracker — caminho de escrita', () => {
   })
 
   it('não rastreia carrinho vazio', async () => {
-    sessionStorage.setItem('nanapin-guest-email', 'cliente@nanita.com.br')
+    sessionStorage.setItem('estrelinha-guest-email', 'cliente@nanita.com.br')
 
     await track()
 
@@ -103,7 +103,7 @@ describe('useAbandonedCartTracker — caminho de escrita', () => {
 
 describe('useAbandonedCartTracker — snapshot dos itens', () => {
   it('descarta imagem embutida em data: URI (botton personalizado)', async () => {
-    sessionStorage.setItem('nanapin-guest-email', 'cliente@nanita.com.br')
+    sessionStorage.setItem('estrelinha-guest-email', 'cliente@nanita.com.br')
     useCartStore.getState().addItem(
       product({
         id: 'custom-1785677864786',
@@ -122,7 +122,7 @@ describe('useAbandonedCartTracker — snapshot dos itens', () => {
   })
 
   it('preserva imagem hospedada', async () => {
-    sessionStorage.setItem('nanapin-guest-email', 'cliente@nanita.com.br')
+    sessionStorage.setItem('estrelinha-guest-email', 'cliente@nanita.com.br')
     useCartStore.getState().addItem(product(), '4,5 cm', 'Fosco')
 
     await track()
@@ -131,7 +131,7 @@ describe('useAbandonedCartTracker — snapshot dos itens', () => {
   })
 
   it('usa o preço congelado da linha, não o base do produto', async () => {
-    sessionStorage.setItem('nanapin-guest-email', 'cliente@nanita.com.br')
+    sessionStorage.setItem('estrelinha-guest-email', 'cliente@nanita.com.br')
     useCartStore.getState().addItem(product({ price: 5.9 }), '', '', {
       variantId: 'v1',
       variantLabel: '5,5 cm · Brilho',

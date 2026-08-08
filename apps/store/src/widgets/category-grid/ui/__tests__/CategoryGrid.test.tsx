@@ -52,18 +52,18 @@ describe('card de coleção — ritmo por posição', () => {
 
   it('o primeiro card é Carimbo', () => {
     renderGrid()
-    expect(cardOf('Anime')).toHaveClass('bg-nanita-glaze')
+    expect(cardOf('Anime')).toHaveClass('bg-estrelinha-accent')
   })
 
   it('o segundo card é Grafite', () => {
     renderGrid()
-    expect(cardOf('K-Pop')).toHaveClass('bg-nanita-ink')
+    expect(cardOf('K-Pop')).toHaveClass('bg-estrelinha-ink')
   })
 
   it('do terceiro em diante é Mata-borrão', () => {
     renderGrid()
-    expect(cardOf('Games')).toHaveClass('bg-nanita-sugar')
-    expect(cardOf('Filmes')).toHaveClass('bg-nanita-sugar')
+    expect(cardOf('Games')).toHaveClass('bg-estrelinha-ground-deep')
+    expect(cardOf('Filmes')).toHaveClass('bg-estrelinha-ground-deep')
   })
 
   it('o ritmo é de posição, não de categoria — a ordem é que decide a cor', () => {
@@ -77,10 +77,10 @@ describe('card de coleção — ritmo por posição', () => {
       .filter((a) => a.getAttribute('href')?.startsWith('/colecao/'))
 
     expect(cards).toHaveLength(4)
-    expect(cards[0]).toHaveClass('bg-nanita-glaze')
-    expect(cards[1]).toHaveClass('bg-nanita-ink')
-    expect(cards[2]).not.toHaveClass('bg-nanita-glaze', 'bg-nanita-ink')
-    expect(cards[3]).not.toHaveClass('bg-nanita-glaze', 'bg-nanita-ink')
+    expect(cards[0]).toHaveClass('bg-estrelinha-accent')
+    expect(cards[1]).toHaveClass('bg-estrelinha-ink')
+    expect(cards[2]).not.toHaveClass('bg-estrelinha-accent', 'bg-estrelinha-ink')
+    expect(cards[3]).not.toHaveClass('bg-estrelinha-accent', 'bg-estrelinha-ink')
   })
 })
 
@@ -89,15 +89,15 @@ describe('card de coleção — o texto acompanha o fundo', () => {
     // Carbono sobre Grafite dá 2,55:1. Dobra, 11,72:1.
     renderGrid()
     const card = cardOf('K-Pop')
-    expect(card.querySelector('.text-nanita-glaze')).not.toBeNull()
-    expect(card.querySelector('.text-nanita-border')).not.toBeNull()
+    expect(card.querySelector('.text-estrelinha-accent')).not.toBeNull()
+    expect(card.querySelector('.text-estrelinha-line')).not.toBeNull()
   })
 
   it('sobre Mata-borrão o título é Grafite e a contagem é Carbono', () => {
     renderGrid()
     const card = cardOf('Games')
-    expect(card.querySelector('.text-nanita-ink')).not.toBeNull()
-    expect(card.querySelector('.text-nanita-plum')).not.toBeNull()
+    expect(card.querySelector('.text-estrelinha-ink')).not.toBeNull()
+    expect(card.querySelector('.text-estrelinha-ink-soft')).not.toBeNull()
   })
 
   it('a inicial marca-d’água sai em Fredoka 700, não em fonte de logo', () => {

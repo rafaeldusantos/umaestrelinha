@@ -41,10 +41,10 @@ function TrendingTags() {
       transition={{ duration: 0.5 }}
     >
       <div className="flex flex-col gap-2">
-        <h2 className="font-display text-[22px] font-semibold leading-[1.27] tracking-[-0.03em] text-nanita-ink md:text-[44px] md:leading-[1.09]">
+        <h2 className="font-display text-[22px] font-semibold leading-[1.27] tracking-[-0.03em] text-estrelinha-ink md:text-[44px] md:leading-[1.09]">
           Explore por tema
         </h2>
-        <p className="text-[13px] text-nanita-plum md:text-[17px]">
+        <p className="text-[13px] text-estrelinha-ink-soft md:text-[17px]">
           Os fandoms mais pedidos, direto ao ponto
         </p>
       </div>
@@ -58,8 +58,8 @@ function TrendingTags() {
               to={`/busca?q=${tag.replace(/\s/g, '')}`}
               className={`inline-flex items-center rounded-pill px-4 py-2 text-[13px] font-semibold transition-transform hover:scale-[1.04] md:px-5 md:py-2.5 md:text-[14px] ${
                 hot
-                  ? 'bg-nanita-glaze text-nanita-ink'
-                  : 'border border-nanita-border bg-white text-nanita-ink'
+                  ? 'bg-estrelinha-accent text-estrelinha-ink'
+                  : 'border border-estrelinha-line bg-white text-estrelinha-ink'
               }`}
             >
               #{tag.replace(/\s/g, '')}
@@ -70,7 +70,7 @@ function TrendingTags() {
 
       <Link
         to="/busca"
-        className="inline-flex w-fit items-center gap-1.5 text-[13px] font-semibold text-nanita-jam transition-opacity hover:opacity-70 md:gap-2 md:text-[15px]"
+        className="inline-flex w-fit items-center gap-1.5 text-[13px] font-semibold text-estrelinha-primary transition-opacity hover:opacity-70 md:gap-2 md:text-[15px]"
       >
         Ver todos os temas
         <ArrowRight size={15} strokeWidth={2.2} />

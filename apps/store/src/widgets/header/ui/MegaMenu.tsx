@@ -25,7 +25,7 @@ const CLOSE_DELAY = 200
 const TRENDING_LIMIT = 3
 
 const EYEBROW =
-  'text-[11px] font-bold uppercase tracking-[0.08em] text-nanita-jam'
+  'text-[11px] font-bold uppercase tracking-[0.08em] text-estrelinha-primary'
 
 /**
  * A faixa "🔥 Em alta" — produtos em destaque da categoria.
@@ -42,7 +42,7 @@ const TrendingLane = ({ slug }: { slug: string }) => {
 
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-3 pt-4">
-      <p className={`${EYEBROW} text-nanita-plum`}>🔥 Em alta</p>
+      <p className={`${EYEBROW} text-estrelinha-ink-soft`}>🔥 Em alta</p>
       <div className="flex gap-3">
         {featured.map((product) => (
           <Link
@@ -50,7 +50,7 @@ const TrendingLane = ({ slug }: { slug: string }) => {
             to={`/produto/${product.slug}`}
             className="flex w-40 shrink-0 flex-col gap-2.5"
           >
-            <div className="flex h-40 w-40 items-center justify-center overflow-hidden rounded-md bg-nanita-sugar">
+            <div className="flex h-40 w-40 items-center justify-center overflow-hidden rounded-md bg-estrelinha-ground-deep">
               {product.image_url ? (
                 <img
                   src={product.image_url}
@@ -59,15 +59,15 @@ const TrendingLane = ({ slug }: { slug: string }) => {
                   className="h-full w-full object-cover"
                 />
               ) : (
-                <span aria-hidden className="font-display text-2xl text-nanita-glaze">
+                <span aria-hidden className="font-display text-2xl text-estrelinha-accent">
                   N
                 </span>
               )}
             </div>
-            <span className="text-[13px] font-semibold leading-[18px] text-nanita-ink">
+            <span className="text-[13px] font-semibold leading-[18px] text-estrelinha-ink">
               {product.name}
             </span>
-            <span className="font-display text-[13px] font-bold text-nanita-jam">
+            <span className="font-display text-[13px] font-bold text-estrelinha-primary">
               {formatPrice(product.price)}
             </span>
           </Link>
@@ -81,7 +81,7 @@ const TrendingLane = ({ slug }: { slug: string }) => {
 const PromoCard = ({ promo }: { promo: NonNullable<MenuEntry['promo']> }) => (
   <Link
     to={promo.href}
-    className="relative mt-4 flex h-[280px] w-[260px] shrink-0 flex-col justify-end overflow-hidden rounded-lg bg-nanita-jam p-4 transition-transform hover:scale-[1.01]"
+    className="relative mt-4 flex h-[280px] w-[260px] shrink-0 flex-col justify-end overflow-hidden rounded-lg bg-estrelinha-primary p-4 transition-transform hover:scale-[1.01]"
   >
     {promo.badge && (
       <span className="absolute right-3 top-3 rounded-pill bg-white/20 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.06em] text-white">
@@ -172,7 +172,7 @@ const MegaMenu = ({ entries }: { entries: MenuEntry[] }) => {
             aria-expanded={hasPanel(entry) ? openId === entry.id : undefined}
             aria-controls={hasPanel(entry) ? 'mega-menu-painel' : undefined}
             className={`text-[15px] font-medium transition-colors ${
-              openId === entry.id ? 'text-nanita-jam' : 'text-nanita-ink hover:text-nanita-jam'
+              openId === entry.id ? 'text-estrelinha-primary' : 'text-estrelinha-ink hover:text-estrelinha-primary'
             }`}
           >
             {entry.name}
@@ -185,7 +185,7 @@ const MegaMenu = ({ entries }: { entries: MenuEntry[] }) => {
           id="mega-menu-painel"
           data-testid="mega-menu-painel"
           onPointerEnter={() => clearTimeout(timer.current)}
-          className="absolute left-0 right-0 top-16 z-40 border-b border-nanita-border bg-white shadow-nanita-soft"
+          className="absolute left-0 right-0 top-16 z-40 border-b border-estrelinha-line bg-white shadow-estrelinha-soft"
         >
           <div className="container flex gap-5 pb-5">
             {open.children.length > 0 && (
@@ -196,7 +196,7 @@ const MegaMenu = ({ entries }: { entries: MenuEntry[] }) => {
                     key={child.id}
                     to={`/colecao/${child.slug}`}
                     onClick={() => close(false)}
-                    className="text-sm font-medium text-nanita-ink transition-colors hover:text-nanita-jam"
+                    className="text-sm font-medium text-estrelinha-ink transition-colors hover:text-estrelinha-primary"
                   >
                     {child.name}
                   </Link>
@@ -204,7 +204,7 @@ const MegaMenu = ({ entries }: { entries: MenuEntry[] }) => {
                 <Link
                   to={open.href}
                   onClick={() => close(false)}
-                  className="pt-1 text-sm font-semibold leading-7 text-nanita-jam hover:underline"
+                  className="pt-1 text-sm font-semibold leading-7 text-estrelinha-primary hover:underline"
                 >
                   Ver todos →
                 </Link>
@@ -212,7 +212,7 @@ const MegaMenu = ({ entries }: { entries: MenuEntry[] }) => {
             )}
 
             {open.children.length > 0 && (
-              <div className="w-px shrink-0 self-stretch bg-nanita-border" aria-hidden />
+              <div className="w-px shrink-0 self-stretch bg-estrelinha-line" aria-hidden />
             )}
 
             <TrendingLane slug={open.slug} />

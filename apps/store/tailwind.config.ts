@@ -2,16 +2,14 @@ import type { Config } from "tailwindcss";
 import preset from "../../packages/ui/tailwind.preset";
 
 /**
- * Tema Nanita — escopo: só a loja.
+ * Tema Uma Estrelinha — escopo: só a loja.
  *
- * O preset compartilhado continua servindo o backoffice com a paleta antiga.
- * Aqui sobrescrevemos os acentos `nana-*` (valores literais no preset, por isso
- * precisam ser redeclarados para que modificadores de opacidade como
- * `bg-nana-violet/10` continuem funcionando) e adicionamos o namespace
- * `nanita-*`, que é o que código novo deve usar.
+ * O preset compartilhado continua servindo o backoffice com a paleta dele.
+ * Aqui declaramos o namespace `estrelinha-*`, que é o único que código da loja
+ * deve usar. Os acentos legados do preset não são mais sobrescritos: o remap da
+ * feature 20 apagou o último uso deles na loja.
  *
- * Referência: boards "18 · Logotipo Nanita v2 + Paleta" e "20b · Onde cada cor
- * entrou na tela" (Paper) · ver DESIGN.md.
+ * Referência: arquivo do Paper "Uma Estrelinha" · ver DESIGN.md.
  *
  * Os valores aqui e os de `src/app/App.css` são a MESMA paleta declarada duas
  * vezes — `palette.test.ts` falha se divergirem. É o único jeito de o valor não
@@ -72,41 +70,6 @@ export default {
           /** Borda de campo (3,63:1 ✓ WCAG 1.4.11). */
           field: "#8C8073",
         },
-        // Paleta PAPELARIA. Contraste medido sobre Papel #F9F1EE, WCAG 2.1.
-        // Os nomes vieram da v1 e viraram apelidos — o nome de desenho está no
-        // comentário, e o papel de cada cor está em DESIGN.md §2.
-        nanita: {
-          /** Papel — o chão da loja. Substitui o branco. Nunca texto. */
-          paper: "#F9F1EE",
-          /** Carimbo — preenchimento, wordmark. 2,67:1. **Nunca texto.** */
-          glaze: "#F1678D",
-          /** Selo — dot, ícone, detalhe gráfico ≥24px. 3,56:1 ✓ lg. */
-          raspberry: "#E93A6D",
-          /** Carmim — preço, link, botão primário, aba ativa. AA 6,38:1. */
-          jam: "#A62348",
-          /** Grafite — texto primário e superfície escura. AAA 13,92:1. */
-          ink: "#2E2028",
-          /** Carbono — texto secundário. AA 5,46:1 — é o piso. */
-          plum: "#7E5769",
-          /** Mata-borrão — faixa de seção e palco de foto. Nunca texto. */
-          sugar: "#F7D6E0",
-          /** Dobra — divisor e contorno de card. Nunca borda de campo. */
-          border: "#EBDDD7",
-          /** Papelão — borda de input e de controle. 3,95:1 ✓ (WCAG 1.4.11). */
-          rule: "#8F7268",
-          /** Fita — badge. Só sobre Grafite (10,17:1), nunca sobre Papel. */
-          butter: "#FFC95C",
-        },
-        // Acentos legados remapeados na paleta papelaria (compatibilidade).
-        nana: {
-          violet: "#A62348",
-          pop: "#A62348",
-          pink: "#A62348",
-          sakura: "#E93A6D",
-          cyan: "#A62348",
-          yellow: "#FFC95C",
-          dark: "#2E2028",
-        },
       },
       borderRadius: {
         // Escala do DS da Uma Estrelinha (`--radius-*` do arquivo do Paper).
@@ -142,9 +105,6 @@ export default {
         "estrelinha-soft": "0 14px 28px -10px rgba(52, 73, 94, 0.16)",
         "estrelinha-lift": "0 26px 50px -12px rgba(52, 73, 94, 0.22)",
         "estrelinha-ink": "0 16px 30px -8px rgba(35, 48, 58, 0.16)",
-        "nanita-soft": "0 14px 28px -10px rgba(233, 58, 109, 0.18)",
-        "nanita-lift": "0 26px 50px -12px rgba(233, 58, 109, 0.24)",
-        "nanita-ink": "0 16px 30px -8px rgba(46, 32, 40, 0.16)",
       },
     },
   },

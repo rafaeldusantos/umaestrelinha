@@ -27,7 +27,7 @@ const FooterColumn = ({
   children: React.ReactNode
 }) => (
   <div className="flex flex-col gap-3.5">
-    <h4 className="nanita-eyebrow tracking-[0.1em] text-nanita-glaze">{title}</h4>
+    <h4 className="estrelinha-eyebrow tracking-[0.1em] text-estrelinha-accent">{title}</h4>
     <ul className="flex flex-col gap-3.5">{children}</ul>
   </div>
 )
@@ -36,7 +36,7 @@ const FooterLink = ({ to, children }: { to: string; children: React.ReactNode })
   <li>
     <Link
       to={to}
-      className="text-[13px] text-nanita-border transition-colors hover:text-nanita-glaze md:text-[15px]"
+      className="text-[13px] text-estrelinha-line transition-colors hover:text-estrelinha-accent md:text-[15px]"
     >
       {children}
     </Link>
@@ -47,7 +47,7 @@ const Footer = () => {
   const { data: categories } = useCategories()
 
   return (
-    <footer className="mt-16 bg-nanita-ink">
+    <footer className="mt-16 bg-estrelinha-ink">
       <div className="container pb-8 pt-14">
         <div className="flex flex-col gap-14 md:flex-row md:justify-between">
           <div className="flex max-w-[320px] flex-col gap-4">
@@ -76,7 +76,7 @@ const Footer = () => {
                   aria-label={label}
                   className="flex h-[38px] w-[38px] items-center justify-center rounded-full bg-white/[0.08] transition-colors hover:bg-white/[0.16]"
                 >
-                  <Icon className="h-[18px] w-[18px] text-nanita-glaze" strokeWidth={1.7} />
+                  <Icon className="h-[18px] w-[18px] text-estrelinha-accent" strokeWidth={1.7} />
                 </a>
               ))}
             </div>

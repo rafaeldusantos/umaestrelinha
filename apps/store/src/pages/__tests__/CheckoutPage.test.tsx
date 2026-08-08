@@ -1252,7 +1252,7 @@ describe('CheckoutPage — header, confiança e paleta (CHK-10, CHK-12)', () => 
     fillAll()
     const { container } = renderPage()
 
-    const jam = container.querySelectorAll('[class*="bg-nanita-jam"]')
+    const jam = container.querySelectorAll('[class*="bg-estrelinha-primary"]')
     expect(jam).toHaveLength(1)
     expect(jam[0].textContent).toMatch(/Pagar/)
   })

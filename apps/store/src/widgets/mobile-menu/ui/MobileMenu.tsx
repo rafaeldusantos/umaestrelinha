@@ -22,10 +22,10 @@ import { useAuthUiStore } from '@/features/auth'
 
 /** Rótulo dos atalhos, com o mesmo alvo mínimo de 44px das abas da `MobileNav`. */
 const CHIP =
-  'flex h-11 flex-1 items-center justify-center gap-1.5 rounded-pill bg-nanita-sugar px-3 text-[13px] font-semibold text-nanita-jam'
+  'flex h-11 flex-1 items-center justify-center gap-1.5 rounded-pill bg-estrelinha-ground-deep px-3 text-[13px] font-semibold text-estrelinha-primary'
 
 const ROW =
-  'flex w-full items-center justify-between gap-3 border-b border-nanita-border py-3 text-left'
+  'flex w-full items-center justify-between gap-3 border-b border-estrelinha-line py-3 text-left'
 
 const MobileMenu = () => {
   const open = useMenuUiStore((s) => s.open)
@@ -76,9 +76,9 @@ const MobileMenu = () => {
             type="button"
             onClick={closeMenu}
             aria-label="Fechar menu"
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-nanita-sugar"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-estrelinha-ground-deep"
           >
-            <X className="h-4 w-4 text-nanita-ink" strokeWidth={2.2} aria-hidden />
+            <X className="h-4 w-4 text-estrelinha-ink" strokeWidth={2.2} aria-hidden />
           </button>
         </header>
 
@@ -89,9 +89,9 @@ const MobileMenu = () => {
             type="button"
             onClick={() => leaveTo(openSearch)}
             aria-haspopup="dialog"
-            className="flex h-11 w-full items-center gap-2.5 rounded-pill bg-nanita-sugar px-4 text-left text-sm text-nanita-plum"
+            className="flex h-11 w-full items-center gap-2.5 rounded-pill bg-estrelinha-ground-deep px-4 text-left text-sm text-estrelinha-ink-soft"
           >
-            <Search className="h-4 w-4 shrink-0 text-nanita-jam" strokeWidth={2.2} aria-hidden />
+            <Search className="h-4 w-4 shrink-0 text-estrelinha-primary" strokeWidth={2.2} aria-hidden />
             Buscar pins, coleções...
           </button>
         </div>
@@ -109,8 +109,8 @@ const MobileMenu = () => {
 
           <Link to="/sobre" onClick={() => leaveTo()} className={`${ROW} min-h-11 border-b-0`}>
             <span className="flex items-center gap-2.5">
-              <Info className="h-4 w-4 shrink-0 text-nanita-plum" strokeWidth={2} aria-hidden />
-              <span className="text-base font-medium text-nanita-plum">Sobre</span>
+              <Info className="h-4 w-4 shrink-0 text-estrelinha-ink-soft" strokeWidth={2} aria-hidden />
+              <span className="text-base font-medium text-estrelinha-ink-soft">Sobre</span>
             </span>
           </Link>
         </nav>
@@ -159,7 +159,7 @@ const MobileMenu = () => {
             to={promo.href}
             onClick={() => leaveTo()}
             data-testid="mobile-menu-promo"
-            className="mx-5 mb-5 flex items-center gap-3 rounded-md bg-nanita-jam p-3"
+            className="mx-5 mb-5 flex items-center gap-3 rounded-md bg-estrelinha-primary p-3"
           >
             <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-white/20 text-2xl">
               🔥
@@ -192,13 +192,13 @@ const MobileMenuEntry = ({
   if (entry.children.length === 0) {
     return (
       <Link to={entry.href} onClick={onNavigate} className={`${ROW} min-h-11`}>
-        <span className="text-base font-semibold text-nanita-ink">{entry.name}</span>
+        <span className="text-base font-semibold text-estrelinha-ink">{entry.name}</span>
       </Link>
     )
   }
 
   return (
-    <div className="border-b border-nanita-border">
+    <div className="border-b border-estrelinha-line">
       <button
         type="button"
         onClick={onToggle}
@@ -206,14 +206,14 @@ const MobileMenuEntry = ({
         className="flex min-h-11 w-full items-center justify-between gap-3 py-3 text-left"
       >
         <span
-          className={`text-base font-semibold ${expanded ? 'text-nanita-jam' : 'text-nanita-ink'}`}
+          className={`text-base font-semibold ${expanded ? 'text-estrelinha-primary' : 'text-estrelinha-ink'}`}
         >
           {entry.name}
         </span>
         {expanded ? (
-          <ChevronUp className="h-4 w-4 shrink-0 text-nanita-jam" strokeWidth={2.5} aria-hidden />
+          <ChevronUp className="h-4 w-4 shrink-0 text-estrelinha-primary" strokeWidth={2.5} aria-hidden />
         ) : (
-          <ChevronDown className="h-4 w-4 shrink-0 text-nanita-ink" strokeWidth={2} aria-hidden />
+          <ChevronDown className="h-4 w-4 shrink-0 text-estrelinha-ink" strokeWidth={2} aria-hidden />
         )}
       </button>
 
@@ -224,7 +224,7 @@ const MobileMenuEntry = ({
               key={child.id}
               to={`/colecao/${child.slug}`}
               onClick={onNavigate}
-              className="min-h-11 py-1.5 text-sm font-medium leading-7 text-nanita-ink"
+              className="min-h-11 py-1.5 text-sm font-medium leading-7 text-estrelinha-ink"
             >
               {child.name}
             </Link>
@@ -232,7 +232,7 @@ const MobileMenuEntry = ({
           <Link
             to={entry.href}
             onClick={onNavigate}
-            className="min-h-11 py-1.5 text-sm font-semibold leading-7 text-nanita-jam"
+            className="min-h-11 py-1.5 text-sm font-semibold leading-7 text-estrelinha-primary"
           >
             Ver todos →
           </Link>

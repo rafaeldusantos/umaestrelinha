@@ -3,7 +3,7 @@ import { create } from 'zustand'
 /**
  * Abertura da gaveta do carrinho.
  *
- * Fora do `cartStore` de propósito: aquele é persistido em `localStorage` (`nanapin-cart`), e um
+ * Fora do `cartStore` de propósito: aquele é persistido em `localStorage` (`estrelinha-cart`), e um
  * booleano de UI ali reabriria a gaveta sozinha na visita seguinte. Este é efêmero.
  *
  * Mora em `entities/cart` — e não no widget — porque quem precisa abrir a gaveta está espalhado por

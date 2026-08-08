@@ -21,6 +21,6 @@ export const useWishlistStore = create<WishlistState>()(
       hasItem: (id) => get().items.includes(id),
       count: () => get().items.length,
     }),
-    { name: 'nanapin-wishlist' }
+    { name: 'estrelinha-wishlist' }
   )
 )

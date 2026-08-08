@@ -43,23 +43,23 @@ export function SectionHeading({
     <div className={cn('flex items-end justify-between gap-6', className)}>
       <div className="flex flex-col gap-2">
         <div className="flex items-center gap-3">
-          <h2 className="font-display text-[22px] font-semibold leading-[1.27] tracking-[-0.03em] text-nanita-ink md:text-[44px] md:leading-[1.09]">
+          <h2 className="font-display text-[22px] font-semibold leading-[1.27] tracking-[-0.03em] text-estrelinha-ink md:text-[44px] md:leading-[1.09]">
             {title}
           </h2>
           {badge && (
-            <span className="nanita-eyebrow rounded-pill bg-nanita-ink px-2.5 py-1 text-[11px] text-nanita-butter">
+            <span className="estrelinha-eyebrow rounded-pill bg-estrelinha-ink px-2.5 py-1 text-[11px] text-estrelinha-accent">
               {badge}
             </span>
           )}
         </div>
-        {subtitle && <p className="text-[13px] text-nanita-plum md:text-[17px]">{subtitle}</p>}
+        {subtitle && <p className="text-[13px] text-estrelinha-ink-soft md:text-[17px]">{subtitle}</p>}
       </div>
 
       {action ??
         (linkTo && (
           <Link
             to={linkTo}
-            className="flex shrink-0 items-center gap-1.5 pb-1 text-[13px] font-semibold text-nanita-jam transition-opacity hover:opacity-70 md:gap-2 md:text-[15px]"
+            className="flex shrink-0 items-center gap-1.5 pb-1 text-[13px] font-semibold text-estrelinha-primary transition-opacity hover:opacity-70 md:gap-2 md:text-[15px]"
           >
             {linkLabel}
             <ArrowRight size={15} strokeWidth={2.2} />

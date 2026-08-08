@@ -23,9 +23,9 @@ const MarkRow = ({ className = '' }: { className?: string }) => (
   <div className={`flex items-center gap-2 ${className}`} aria-hidden>
     {[0, 1, 2, 3, 4].map((i) =>
       i % 2 === 0 ? (
-        <span key={i} className="h-2 w-[22px] shrink-0 rounded-[2px] bg-nanita-glaze" />
+        <span key={i} className="h-2 w-[22px] shrink-0 rounded-[2px] bg-estrelinha-accent" />
       ) : (
-        <span key={i} className="h-[11px] w-[11px] shrink-0 rotate-45 bg-nanita-raspberry" />
+        <span key={i} className="h-[11px] w-[11px] shrink-0 rotate-45 bg-estrelinha-accent-strong" />
       ),
     )}
   </div>
@@ -44,12 +44,12 @@ const MarkRow = ({ className = '' }: { className?: string }) => (
 const HeroArt = () => (
   <div className="relative aspect-square w-full max-w-[440px]" aria-hidden>
     {/* A cartela: papel com picote, levemente torta */}
-    <div className="absolute left-[6.4%] top-[10%] h-[78.2%] w-[87.3%] -rotate-3 rounded-[28px] border-2 border-dashed border-nanita-rule bg-nanita-paper" />
+    <div className="absolute left-[6.4%] top-[10%] h-[78.2%] w-[87.3%] -rotate-3 rounded-[28px] border-2 border-dashed border-estrelinha-field bg-estrelinha-ground" />
 
     
     {/* Pin grande, Carimbo. As medidas de dentro são porcentagem DO PIN (184px
         no artboard), não do quadrado de 440: barra 26×9, losango 13×13, gap 10. */}
-    <div className="absolute left-[10%] top-[16.4%] flex h-[41.8%] w-[41.8%] items-center justify-center gap-[5.4%] rounded-full bg-nanita-glaze">
+    <div className="absolute left-[10%] top-[16.4%] flex h-[41.8%] w-[41.8%] items-center justify-center gap-[5.4%] rounded-full bg-estrelinha-accent">
       {[0, 1, 2, 3, 4].map((i) =>
         i % 2 === 0 ? (
           <span key={i} className="h-[4.9%] w-[14.1%] shrink-0 rounded-[2px] bg-white" />
@@ -60,28 +60,28 @@ const HeroArt = () => (
     </div>
 
     {/* Pin Grafite com losango Fita — o único lugar da arte com manteiga */}
-    <div className="absolute left-[57.3%] top-[14.1%] flex h-[25.5%] w-[25.5%] items-center justify-center rounded-full bg-nanita-ink">
-      <span className="h-[23%] w-[23%] rotate-45 bg-nanita-butter" />
+    <div className="absolute left-[57.3%] top-[14.1%] flex h-[25.5%] w-[25.5%] items-center justify-center rounded-full bg-estrelinha-ink">
+      <span className="h-[23%] w-[23%] rotate-45 bg-estrelinha-accent" />
     </div>
 
     {/* Pin com aro — a borda crimpada do produto de verdade */}
-    <div className="absolute left-[60.9%] top-[45.5%] flex h-[21.8%] w-[21.8%] items-center justify-center rounded-full border-[8px] border-nanita-glaze bg-white">
-      <span className="h-[10.5%] w-[31%] rounded-[2px] bg-nanita-glaze" />
+    <div className="absolute left-[60.9%] top-[45.5%] flex h-[21.8%] w-[21.8%] items-center justify-center rounded-full border-[8px] border-estrelinha-accent bg-white">
+      <span className="h-[10.5%] w-[31%] rounded-[2px] bg-estrelinha-accent" />
     </div>
 
     {/* Pin Mata-borrão com losango Selo */}
-    <div className="absolute left-[40%] top-[62.7%] flex h-[17.3%] w-[17.3%] items-center justify-center rounded-full bg-nanita-sugar">
-      <span className="h-[21%] w-[21%] rotate-45 bg-nanita-raspberry" />
+    <div className="absolute left-[40%] top-[62.7%] flex h-[17.3%] w-[17.3%] items-center justify-center rounded-full bg-estrelinha-ground-deep">
+      <span className="h-[21%] w-[21%] rotate-45 bg-estrelinha-accent-strong" />
     </div>
 
     {/* Pin Selo, chapado */}
-    <div className="absolute left-[20.9%] top-[64.5%] h-[10.9%] w-[10.9%] rounded-full bg-nanita-raspberry" />
+    <div className="absolute left-[20.9%] top-[64.5%] h-[10.9%] w-[10.9%] rounded-full bg-estrelinha-accent-strong" />
 
     {/* Selo "FEITO À MÃO" — Fita sobre Grafite, a única combinação em que a
         manteiga é legível (10,17:1). */}
-    <div className="absolute left-[56.8%] top-[75.9%] flex -rotate-[5deg] items-center gap-2 rounded-pill bg-nanita-ink px-3.5 py-2">
-      <span className="h-2 w-2 shrink-0 rotate-45 bg-nanita-butter" />
-      <span className="whitespace-nowrap text-[11px] font-semibold tracking-[0.16em] text-nanita-butter">
+    <div className="absolute left-[56.8%] top-[75.9%] flex -rotate-[5deg] items-center gap-2 rounded-pill bg-estrelinha-ink px-3.5 py-2">
+      <span className="h-2 w-2 shrink-0 rotate-45 bg-estrelinha-accent" />
+      <span className="whitespace-nowrap text-[11px] font-semibold tracking-[0.16em] text-estrelinha-accent">
         FEITO À MÃO
       </span>
     </div>
@@ -102,7 +102,7 @@ const HeroArt = () => (
 const HeroBanner = () => (
   /* Papel, o mesmo chão da página — medido nos dois artboards. O hero não é
      uma faixa de cor: quem carrega o peso aqui é o tipo, não o fundo. */
-  <section className="bg-nanita-paper">
+  <section className="bg-estrelinha-ground">
     <motion.div
       className="container flex flex-col items-center justify-between gap-12 pb-16 pt-12 md:flex-row md:gap-20 md:pb-20 md:pt-16"
       variants={container}
@@ -112,11 +112,11 @@ const HeroBanner = () => (
       {/* ESQUERDA — o peso está aqui: 82px de Fredoka contra tudo em 15–19px */}
       <div className="flex w-full flex-col gap-6 md:w-[640px] md:gap-8">
         <motion.div variants={item}>
-          <span className="inline-flex items-center gap-1.5 rounded-pill border border-nanita-glaze/40 bg-nanita-sugar px-3.5 py-1.5">
-            <span className="text-[13px] font-semibold tracking-[0.02em] text-nanita-jam">
+          <span className="inline-flex items-center gap-1.5 rounded-pill border border-estrelinha-accent/40 bg-estrelinha-ground-deep px-3.5 py-1.5">
+            <span className="text-[13px] font-semibold tracking-[0.02em] text-estrelinha-primary">
               Drop novo toda sexta
             </span>
-            <span aria-hidden className="text-[13px] text-nanita-jam">
+            <span aria-hidden className="text-[13px] text-estrelinha-primary">
               →
             </span>
           </span>
@@ -126,8 +126,8 @@ const HeroBanner = () => (
           variants={item}
           className="font-display text-[42px] font-semibold leading-[1.1] tracking-[-0.035em] md:text-[82px] md:leading-[1]"
         >
-          <span className="block text-nanita-ink">Cole no peito,</span>
-          <span className="block text-nanita-jam">carrega no coração.</span>
+          <span className="block text-estrelinha-ink">Cole no peito,</span>
+          <span className="block text-estrelinha-primary">carrega no coração.</span>
         </motion.h1>
 
         <motion.div variants={item}>
@@ -136,7 +136,7 @@ const HeroBanner = () => (
 
         <motion.p
           variants={item}
-          className="max-w-[280px] text-[15px] leading-[1.47] text-nanita-plum md:max-w-[530px] md:text-[19px] md:leading-[1.65]"
+          className="max-w-[280px] text-[15px] leading-[1.47] text-estrelinha-ink-soft md:max-w-[530px] md:text-[19px] md:leading-[1.65]"
         >
           Bottons de anime, K-Pop, games e tudo que você ama. Feitos à mão, um de cada vez, para
           gente que coleciona de verdade.
@@ -145,7 +145,7 @@ const HeroBanner = () => (
         <motion.div variants={item} className="flex flex-col gap-3.5 sm:flex-row">
           <Link
             to="/busca"
-            className="inline-flex items-center justify-center gap-2.5 rounded-sm bg-nanita-jam px-6 py-3.5 font-display text-[15px] font-semibold text-white transition-transform hover:scale-[1.02] active:scale-100 md:px-[30px] md:py-[17px] md:text-[17px]"
+            className="inline-flex items-center justify-center gap-2.5 rounded-sm bg-estrelinha-primary px-6 py-3.5 font-display text-[15px] font-semibold text-white transition-transform hover:scale-[1.02] active:scale-100 md:px-[30px] md:py-[17px] md:text-[17px]"
           >
             Explorar coleções
             <ArrowRight size={16} strokeWidth={2.5} />
@@ -157,7 +157,7 @@ const HeroBanner = () => (
             e dois CTAs disputando a primeira tela. */}
         <motion.div variants={item} className="hidden items-center gap-3.5 pt-2 md:flex">
           <div className="flex">
-            {['bg-nanita-glaze', 'bg-nanita-raspberry', 'bg-nanita-ink'].map((bg, i) => (
+            {['bg-estrelinha-accent', 'bg-estrelinha-accent-strong', 'bg-estrelinha-ink'].map((bg, i) => (
               <span
                 key={bg}
                 className={`inline-block h-[30px] w-[30px] shrink-0 rounded-full border-2 border-white ${bg}`}
@@ -165,7 +165,7 @@ const HeroBanner = () => (
               />
             ))}
           </div>
-          <span className="text-[15px] text-nanita-plum">+2.000 colecionadoras felizes</span>
+          <span className="text-[15px] text-estrelinha-ink-soft">+2.000 colecionadoras felizes</span>
         </motion.div>
       </div>
 

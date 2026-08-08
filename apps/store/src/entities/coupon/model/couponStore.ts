@@ -15,6 +15,6 @@ export const useCouponStore = create<CouponState>()(
       setCoupon: (c) => set({ applied: c }),
       clearCoupon: () => set({ applied: null }),
     }),
-    { name: 'nanapin-coupon' }
+    { name: 'estrelinha-coupon' }
   )
 )

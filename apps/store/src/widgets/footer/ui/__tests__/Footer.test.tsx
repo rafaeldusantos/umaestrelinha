@@ -23,7 +23,7 @@ vi.mock('@/entities/category', () => ({
   browseCategories: () => [],
 }))
 
-/** Grafite — o valor de `bg-nanita-ink`, que é a superfície do rodapé. */
+/** Grafite — o valor de `bg-estrelinha-ink`, que é a superfície do rodapé. */
 const INK = '#2E2028'
 
 const renderFooter = () => render(<MemoryRouter><Footer /></MemoryRouter>)
@@ -33,7 +33,7 @@ describe('Footer — a marca sobre Grafite', () => {
     // A premissa das asserções abaixo. Se o fundo do rodapé mudar, o tom da
     // marca tem de ser reavaliado junto — e é este teste que obriga.
     const { container } = renderFooter()
-    expect(container.querySelector('footer')).toHaveClass('bg-nanita-ink')
+    expect(container.querySelector('footer')).toHaveClass('bg-estrelinha-ink')
   })
 
   it('mostra o LOCKUP, não o wordmark sozinho', () => {

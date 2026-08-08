@@ -8,17 +8,17 @@ const items = [
 ]
 
 const TrustBar = () => (
-  <section className="border-y border-nanita-border bg-white">
+  <section className="border-y border-estrelinha-line bg-white">
     <div className="container py-4">
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         {items.map((item) => (
           <div key={item.label} className="flex items-center gap-3">
-            <div className="rounded-md bg-nanita-sugar p-2">
-              <item.icon className="h-4 w-4 text-nanita-jam" strokeWidth={1.8} aria-label={item.label} />
+            <div className="rounded-md bg-estrelinha-ground-deep p-2">
+              <item.icon className="h-4 w-4 text-estrelinha-primary" strokeWidth={1.8} aria-label={item.label} />
             </div>
             <div>
-              <p className="text-xs font-semibold text-nanita-ink">{item.label}</p>
-              <p className="text-[11px] text-nanita-plum">{item.desc}</p>
+              <p className="text-xs font-semibold text-estrelinha-ink">{item.label}</p>
+              <p className="text-[11px] text-estrelinha-ink-soft">{item.desc}</p>
             </div>
           </div>
         ))}

@@ -7,8 +7,9 @@ import { fileURLToPath } from 'node:url'
  * A loja e o backoffice convivem com paletas diferentes, e a única coisa que
  * separa as duas é a **ordem de dois imports** em `main.tsx`.
  *
- * `@estrelinha/ui/styles.css` traz os `--nana-*` do backoffice (roxo/rosa/navy).
- * `app/App.css` traz a papelaria e sobrescreve aqueles tokens. Como as duas
+ * `@estrelinha/ui/styles.css` traz os tokens do backoffice (roxo/rosa/navy).
+ * `app/App.css` traz a paleta da Uma Estrelinha e sobrescreve os tokens do
+ * shadcn (`--background`, `--primary`, `--border`, `--input`…). Como as duas
  * folhas declaram as mesmas custom properties com a mesma especificidade, quem
  * vence é a que vem depois.
  *

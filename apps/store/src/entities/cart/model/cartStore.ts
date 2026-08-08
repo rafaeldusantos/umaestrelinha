@@ -128,7 +128,7 @@ export const useCartStore = create<CartState>()(
       total: () => get().subtotal() + get().shippingCost(),
     }),
     {
-      name: 'nanapin-cart',
+      name: 'estrelinha-cart',
       version: 2,
       /**
        * O storage v1 é **descartado**, não convertido.

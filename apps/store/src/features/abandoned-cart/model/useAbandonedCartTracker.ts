@@ -6,7 +6,7 @@ import { useAuthContext } from '@estrelinha/auth'
 import { primaryImage } from '@estrelinha/core/media'
 import type { AbandonedCartItem } from '@estrelinha/supabase/types/abandonedCart'
 
-const STORAGE_KEY = 'nanapin-guest-email'
+const STORAGE_KEY = 'estrelinha-guest-email'
 
 /**
  * O botton personalizado é um produto sintético: a "imagem" dele é o PNG do canvas em
@@ -43,7 +43,7 @@ export function useAbandonedCartTracker() {
   useEffect(() => {
     // Determina email + consentimento
     const guestEmail = typeof window !== 'undefined' ? sessionStorage.getItem(STORAGE_KEY) : null
-    const guestConsentRaw = typeof window !== 'undefined' ? sessionStorage.getItem('nanapin-guest-consent') : null
+    const guestConsentRaw = typeof window !== 'undefined' ? sessionStorage.getItem('estrelinha-guest-consent') : null
 
     const email = customer?.email || user?.email || guestEmail || ''
     const name = customer?.name || null
@@ -118,12 +118,12 @@ export function setGuestEmail(email: string, consent: boolean) {
   if (typeof window === 'undefined') return
   if (email) {
     sessionStorage.setItem(STORAGE_KEY, email.toLowerCase().trim())
-    sessionStorage.setItem('nanapin-guest-consent', consent ? 'true' : 'false')
+    sessionStorage.setItem('estrelinha-guest-consent', consent ? 'true' : 'false')
   }
 }
 
 export function clearGuestEmail() {
   if (typeof window === 'undefined') return
   sessionStorage.removeItem(STORAGE_KEY)
-  sessionStorage.removeItem('nanapin-guest-consent')
+  sessionStorage.removeItem('estrelinha-guest-consent')
 }

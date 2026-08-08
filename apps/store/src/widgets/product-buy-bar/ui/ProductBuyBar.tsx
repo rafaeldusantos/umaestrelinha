@@ -40,16 +40,16 @@ const ProductBuyBar = ({ product, purchase }: Props) => {
       /* `z-50` como o `MobileNav` que ela substitui: são a mesma camada de moldura, e as duas nunca
          coexistem. Os overlays (gaveta, busca, auth, menu) são portais do Radix no fim do `body`,
          que ganham no empate de `z-index` pela ordem do DOM. */
-      className="fixed inset-x-0 bottom-0 z-50 border-t border-nanita-border bg-white pb-[env(safe-area-inset-bottom)] md:hidden"
+      className="fixed inset-x-0 bottom-0 z-50 border-t border-estrelinha-line bg-white pb-[env(safe-area-inset-bottom)] md:hidden"
     >
       <div className="flex items-center gap-2.5 px-5" style={{ height: BOTTOM_BAR_H }}>
         <div className="flex shrink-0 flex-col">
           {savings && (
-            <span className="text-[11px] leading-[14px] text-nanita-plum line-through">
+            <span className="text-[11px] leading-[14px] text-estrelinha-ink-soft line-through">
               {formatPrice(savings.compareAt)}
             </span>
           )}
-          <span className="font-display text-[22px] font-semibold leading-7 text-nanita-jam">
+          <span className="font-display text-[22px] font-semibold leading-7 text-estrelinha-primary">
             {formatPrice(price)}
           </span>
         </div>
@@ -58,7 +58,7 @@ const ProductBuyBar = ({ product, purchase }: Props) => {
           type="button"
           onClick={add}
           disabled={!canAdd}
-          className="flex h-11 grow items-center justify-center gap-1.5 rounded-sm bg-nanita-jam font-display text-[15px] font-semibold text-white transition-transform active:scale-[0.99] disabled:opacity-50 disabled:active:scale-100"
+          className="flex h-11 grow items-center justify-center gap-1.5 rounded-sm bg-estrelinha-primary font-display text-[15px] font-semibold text-white transition-transform active:scale-[0.99] disabled:opacity-50 disabled:active:scale-100"
         >
           <ShoppingCart className="h-4 w-4 shrink-0" strokeWidth={2} aria-hidden />
           {canAdd ? 'Adicionar ao Carrinho' : 'Indisponível'}
@@ -69,11 +69,11 @@ const ProductBuyBar = ({ product, purchase }: Props) => {
           onClick={() => toggleWishlist(product.id)}
           aria-label={isWishlisted ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
           className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-md border-2 transition-colors ${
-            isWishlisted ? 'border-nanita-jam bg-nanita-jam/[0.06]' : 'border-nanita-border'
+            isWishlisted ? 'border-estrelinha-primary bg-estrelinha-primary/[0.06]' : 'border-estrelinha-line'
           }`}
         >
           <Heart
-            className={`h-[18px] w-[18px] ${isWishlisted ? 'fill-nanita-jam text-nanita-jam' : 'text-nanita-plum'}`}
+            className={`h-[18px] w-[18px] ${isWishlisted ? 'fill-estrelinha-primary text-estrelinha-primary' : 'text-estrelinha-ink-soft'}`}
             strokeWidth={1.8}
           />
         </button>

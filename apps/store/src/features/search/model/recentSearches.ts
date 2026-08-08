@@ -3,14 +3,14 @@
 // No celular, redigitar "jujutsu kaisen" no teclado da tela é a diferença entre voltar à busca e
 // desistir dela. Por isso o histórico é persistido, não estado de sessão.
 //
-// Chave nova, prefixo `nanapin-` como as demais (`nanapin-cart`, `nanapin-wishlist`): o prefixo é o
-// identificador técnico do contrato com o navegador do cliente, e trocá-lo por `nanita-` só criaria
-// duas famílias de chave para a mesma loja.
+// Prefixo `estrelinha-` como as demais (`estrelinha-cart`, `estrelinha-wishlist`): o prefixo é o
+// identificador técnico do contrato com o navegador do cliente, e ter duas famílias de chave para a
+// mesma loja significaria carrinho e histórico morando em lugares diferentes.
 //
 // Todo acesso vai dentro de `try/catch`: `localStorage` lança em modo privado do Safari e com cookies
 // de terceiros bloqueados. Um histórico é conveniência — nunca pode derrubar a busca.
 
-const KEY = 'nanapin-recent-searches'
+const KEY = 'estrelinha-recent-searches'
 const MAX = 5
 
 const read = (): string[] => {

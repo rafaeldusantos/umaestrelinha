@@ -50,7 +50,7 @@ beforeEach(() => {
 })
 
 describe('checkoutStore — persistência', () => {
-  it('persiste em sessionStorage sob a chave nanapin-checkout', () => {
+  it('persiste em sessionStorage sob a chave estrelinha-checkout', () => {
     useCheckoutStore.getState().setContact({ email: 'marina@email.com' })
 
     const raw = sessionStorage.getItem(CHECKOUT_STORAGE_KEY)

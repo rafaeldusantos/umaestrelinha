@@ -53,8 +53,8 @@ const ProductPage = () => {
     if (isFetching) return <div className="container py-20" aria-busy="true" />
     return (
       <div className="container py-20 text-center">
-        <h1 className="font-heading text-2xl font-bold text-nanita-ink">Produto não encontrado</h1>
-        <Link to="/" className="text-nanita-jam hover:underline mt-4 inline-block">Voltar ao início</Link>
+        <h1 className="font-heading text-2xl font-bold text-estrelinha-ink">Produto não encontrado</h1>
+        <Link to="/" className="text-estrelinha-primary hover:underline mt-4 inline-block">Voltar ao início</Link>
       </div>
     )
   }
@@ -100,12 +100,12 @@ const ProductPageBody = ({
   const galleryBadges = (
     <>
       {purchase.savings && (
-        <span className="rounded-pill bg-nanita-jam px-2.5 py-1 text-[11px] font-bold leading-3 text-white">
+        <span className="rounded-pill bg-estrelinha-primary px-2.5 py-1 text-[11px] font-bold leading-3 text-white">
           -{purchase.savings.percent}%
         </span>
       )}
       {product.is_new && (
-        <span className="rounded-pill bg-nanita-ink px-2.5 py-1 text-[11px] font-bold leading-3 text-white">
+        <span className="rounded-pill bg-estrelinha-ink px-2.5 py-1 text-[11px] font-bold leading-3 text-white">
           Novo
         </span>
       )}
@@ -116,19 +116,19 @@ const ProductPageBody = ({
     <div className="container flex flex-col pb-16">
       <nav
         aria-label="Você está em"
-        className="flex flex-wrap items-center gap-1 py-4 text-[13px] text-nanita-plum md:py-5"
+        className="flex flex-wrap items-center gap-1 py-4 text-[13px] text-estrelinha-ink-soft md:py-5"
       >
-        <Link to="/" className="transition-colors hover:text-nanita-ink">Início</Link>
+        <Link to="/" className="transition-colors hover:text-estrelinha-ink">Início</Link>
         <ChevronRight className="h-3 w-3 shrink-0" aria-hidden />
         {category && (
           <>
-            <Link to={`/colecao/${category.slug}`} className="transition-colors hover:text-nanita-ink">
+            <Link to={`/colecao/${category.slug}`} className="transition-colors hover:text-estrelinha-ink">
               {category.name}
             </Link>
             <ChevronRight className="h-3 w-3 shrink-0" aria-hidden />
           </>
         )}
-        <span className="font-medium text-nanita-ink">{product.name}</span>
+        <span className="font-medium text-estrelinha-ink">{product.name}</span>
       </nav>
 
       <div className="grid gap-6 md:grid-cols-[minmax(0,600px)_minmax(0,1fr)] md:items-start md:gap-8">
@@ -151,7 +151,7 @@ const ProductPageBody = ({
                 className="flex h-11 w-11 items-center justify-center rounded-full bg-white/85 backdrop-blur"
               >
                 <Heart
-                  className={`h-4 w-4 ${isWishlisted ? 'fill-nanita-jam text-nanita-jam' : 'text-nanita-plum'}`}
+                  className={`h-4 w-4 ${isWishlisted ? 'fill-estrelinha-primary text-estrelinha-primary' : 'text-estrelinha-ink-soft'}`}
                   strokeWidth={1.8}
                 />
               </button>

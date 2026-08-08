@@ -18,24 +18,24 @@ import SectionHeading from '@/shared/ui/SectionHeading'
  */
 const SURFACES = [
   {
-    card: 'bg-nanita-glaze',
-    title: 'text-nanita-ink',
-    meta: 'text-nanita-ink/80',
+    card: 'bg-estrelinha-accent',
+    title: 'text-estrelinha-ink',
+    meta: 'text-estrelinha-ink/80',
     initial: 'text-white/35',
   },
   {
-    card: 'bg-nanita-ink',
-    title: 'text-nanita-glaze',
-    meta: 'text-nanita-border',
-    initial: 'text-nanita-plum',
+    card: 'bg-estrelinha-ink',
+    title: 'text-estrelinha-accent',
+    meta: 'text-estrelinha-line',
+    initial: 'text-estrelinha-ink-soft',
   },
 ] as const
 
 const SUGAR = {
-  card: 'bg-nanita-sugar',
-  title: 'text-nanita-ink',
-  meta: 'text-nanita-plum',
-  initial: 'text-nanita-glaze/40',
+  card: 'bg-estrelinha-ground-deep',
+  title: 'text-estrelinha-ink',
+  meta: 'text-estrelinha-ink-soft',
+  initial: 'text-estrelinha-accent/40',
 } as const
 
 const CategoryGrid = () => {

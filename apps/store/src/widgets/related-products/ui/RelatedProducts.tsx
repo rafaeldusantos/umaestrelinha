@@ -18,14 +18,14 @@ const RelatedProducts = ({ products, categorySlug }: Props) => {
   return (
     <section className="flex flex-col gap-4 pt-10 md:pt-12">
       <div className="flex items-baseline justify-between gap-4">
-        <h2 className="font-display text-[24px] font-semibold leading-[30px] tracking-[-0.02em] text-nanita-ink md:text-[30px]">
+        <h2 className="font-display text-[24px] font-semibold leading-[30px] tracking-[-0.02em] text-estrelinha-ink md:text-[30px]">
           Você também vai curtir
         </h2>
         {categorySlug && (
           <Link
             to={`/colecao/${categorySlug}`}
             /* `-my-2 py-2` dá 37px de alvo sem mexer no baseline que alinha o link ao título. */
-            className="-my-2 shrink-0 py-2 text-[14px] font-semibold text-nanita-jam hover:underline"
+            className="-my-2 shrink-0 py-2 text-[14px] font-semibold text-estrelinha-primary hover:underline"
           >
             Ver todos →
           </Link>

@@ -5,7 +5,7 @@ import { Truck } from 'lucide-react'
  * manteiga é legível. É o mesmo papel que ela tem no contador de drop e no selo
  * do kit: destaque temporal, nunca texto.
  */
-const Mark = () => <span className="block h-1.5 w-1.5 shrink-0 rounded-full bg-nanita-butter" aria-hidden />
+const Mark = () => <span className="block h-1.5 w-1.5 shrink-0 rounded-full bg-estrelinha-accent" aria-hidden />
 
 /** Régua vertical entre itens — véu de branco, não Dobra: aqui o fundo é escuro. */
 const Rule = () => <span className="block h-4 w-px shrink-0 bg-white/20" aria-hidden />
@@ -38,7 +38,7 @@ const items = [
  */
 function MarqueeBar() {
   return (
-    <div className="flex h-[44px] items-center overflow-hidden bg-nanita-ink md:h-14">
+    <div className="flex h-[44px] items-center overflow-hidden bg-estrelinha-ink md:h-14">
       <div
         className="flex animate-marquee items-center gap-8 whitespace-nowrap md:gap-12 hover:[animation-play-state:paused]"
         style={{ width: 'max-content' }}

@@ -48,7 +48,7 @@ const MobileNav = () => {
   // hierarquia em preto e branco, que é a última linha do checklist do
   // DESIGN.md.
   const tint = (active: boolean) =>
-    active ? 'text-nanita-jam font-semibold' : 'text-nanita-plum font-medium'
+    active ? 'text-estrelinha-primary font-semibold' : 'text-estrelinha-ink-soft font-medium'
 
   const iconProps = (active: boolean) => ({
     className: 'h-5 w-5',
@@ -64,7 +64,7 @@ const MobileNav = () => {
          indicador de home, uma barra de 64px cravada no `bottom-0` fica com a última linha de texto
          debaixo do indicador, e o toque na aba do meio abre o gesto do sistema. O `main` do
          `StoreLayout` reserva o mesmo `calc()`. */
-      className="fixed bottom-0 left-0 right-0 z-50 border-t border-nanita-border bg-white pb-[env(safe-area-inset-bottom)] md:hidden"
+      className="fixed bottom-0 left-0 right-0 z-50 border-t border-estrelinha-line bg-white pb-[env(safe-area-inset-bottom)] md:hidden"
     >
       <div className="flex h-16 items-center justify-around">
         {/* Início e Conta-logada seguem sendo `Link`: são rotas de verdade, e um `<button>` com
@@ -102,7 +102,7 @@ const MobileNav = () => {
             {uniqueItems > 0 && (
               <span
                 aria-hidden
-                className="absolute -right-2 -top-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-nanita-jam px-1 text-[9px] font-bold text-white"
+                className="absolute -right-2 -top-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-estrelinha-primary px-1 text-[9px] font-bold text-white"
               >
                 {uniqueItems}
               </span>

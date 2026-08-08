@@ -20,7 +20,7 @@ import {
   type ShippingDraft,
 } from '@estrelinha/core/checkout'
 
-export const CHECKOUT_STORAGE_KEY = 'nanapin-checkout'
+export const CHECKOUT_STORAGE_KEY = 'estrelinha-checkout'
 
 const emptyDraft = (): CheckoutDraft => ({
   contact: { name: '', email: '', whatsapp: '', consent: false },

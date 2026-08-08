@@ -35,17 +35,17 @@ const CartDrawerRow = ({ item, onNavigate }: Props) => {
   const setQty = (qty: number) => updateQuantity(product.id, size, finish, qty, variantId)
 
   return (
-    <li className="flex gap-3 border-b border-nanita-border px-5 py-3.5 md:gap-3.5 md:px-6 md:py-4">
+    <li className="flex gap-3 border-b border-estrelinha-line px-5 py-3.5 md:gap-3.5 md:px-6 md:py-4">
       <Link
         to={`/produto/${product.slug}`}
         onClick={onNavigate}
         tabIndex={-1}
         aria-hidden
-        className="relative h-[72px] w-[72px] shrink-0 overflow-hidden rounded-xl bg-nanita-sugar md:h-20 md:w-20 md:rounded-2xl"
+        className="relative h-[72px] w-[72px] shrink-0 overflow-hidden rounded-xl bg-estrelinha-ground-deep md:h-20 md:w-20 md:rounded-2xl"
       >
         <img src={product.image_url} alt="" className="h-full w-full object-cover" />
         {scarcity && (
-          <span className="absolute -right-0.5 -top-0.5 rounded-md bg-nanita-butter px-1.5 py-0.5 text-[9px] font-bold leading-[14px] text-nanita-ink">
+          <span className="absolute -right-0.5 -top-0.5 rounded-md bg-estrelinha-accent px-1.5 py-0.5 text-[9px] font-bold leading-[14px] text-estrelinha-ink">
             {scarcity}
           </span>
         )}
@@ -56,11 +56,11 @@ const CartDrawerRow = ({ item, onNavigate }: Props) => {
           <Link
             to={`/produto/${product.slug}`}
             onClick={onNavigate}
-            className="line-clamp-2 text-sm font-semibold leading-5 text-nanita-ink transition-colors hover:text-nanita-jam"
+            className="line-clamp-2 text-sm font-semibold leading-5 text-estrelinha-ink transition-colors hover:text-estrelinha-primary"
           >
             {product.name}
           </Link>
-          <span className="shrink-0 text-sm font-bold leading-5 text-nanita-jam">
+          <span className="shrink-0 text-sm font-bold leading-5 text-estrelinha-primary">
             {formatPrice(item.unitPrice * quantity)}
           </span>
         </div>
@@ -70,7 +70,7 @@ const CartDrawerRow = ({ item, onNavigate }: Props) => {
             {chips.map((chip) => (
               <span
                 key={chip}
-                className="rounded-md bg-nanita-sugar px-2 py-0.5 text-[11px] font-medium leading-4 text-nanita-jam"
+                className="rounded-md bg-estrelinha-ground-deep px-2 py-0.5 text-[11px] font-medium leading-4 text-estrelinha-primary"
               >
                 {chip}
               </span>
@@ -84,18 +84,18 @@ const CartDrawerRow = ({ item, onNavigate }: Props) => {
               type="button"
               onClick={() => setQty(quantity - 1)}
               aria-label={quantity === 1 ? `Remover ${product.name}` : `Diminuir ${product.name}`}
-              className={`${TAP} flex h-7 w-7 items-center justify-center rounded-lg bg-nanita-sugar text-nanita-ink transition-colors hover:bg-nanita-border`}
+              className={`${TAP} flex h-7 w-7 items-center justify-center rounded-lg bg-estrelinha-ground-deep text-estrelinha-ink transition-colors hover:bg-estrelinha-line`}
             >
               <Minus className="h-3.5 w-3.5" strokeWidth={2.4} />
             </button>
-            <span className="w-8 text-center text-sm font-bold text-nanita-ink" aria-live="polite">
+            <span className="w-8 text-center text-sm font-bold text-estrelinha-ink" aria-live="polite">
               {quantity}
             </span>
             <button
               type="button"
               onClick={() => setQty(quantity + 1)}
               aria-label={`Aumentar ${product.name}`}
-              className={`${TAP} flex h-7 w-7 items-center justify-center rounded-lg bg-nanita-sugar text-nanita-ink transition-colors hover:bg-nanita-border`}
+              className={`${TAP} flex h-7 w-7 items-center justify-center rounded-lg bg-estrelinha-ground-deep text-estrelinha-ink transition-colors hover:bg-estrelinha-line`}
             >
               <Plus className="h-3.5 w-3.5" strokeWidth={2.4} />
             </button>
@@ -107,7 +107,7 @@ const CartDrawerRow = ({ item, onNavigate }: Props) => {
               onClick={() => toggleWishlist(product.id)}
               aria-label={wishlisted ? `Remover ${product.name} dos favoritos` : `Favoritar ${product.name}`}
               aria-pressed={wishlisted}
-              className={`${TAP} text-nanita-raspberry transition-transform hover:scale-110`}
+              className={`${TAP} text-estrelinha-accent-strong transition-transform hover:scale-110`}
             >
               <Heart className="h-4 w-4" strokeWidth={2} fill={wishlisted ? 'currentColor' : 'none'} />
             </button>
@@ -115,7 +115,7 @@ const CartDrawerRow = ({ item, onNavigate }: Props) => {
               type="button"
               onClick={() => removeItem(product.id, size, finish, variantId)}
               aria-label={`Remover ${product.name} do carrinho`}
-              className={`${TAP} text-nanita-ink transition-colors hover:text-nanita-jam`}
+              className={`${TAP} text-estrelinha-ink transition-colors hover:text-estrelinha-primary`}
             >
               <Trash2 className="h-4 w-4" strokeWidth={2} />
             </button>

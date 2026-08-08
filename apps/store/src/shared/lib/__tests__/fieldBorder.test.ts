@@ -4,15 +4,15 @@ import { dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 /**
- * Borda de campo é Papelão (`nanita-rule`), nunca Dobra (`nanita-border`).
+ * Borda de campo é Papelão (`estrelinha-field`), nunca Dobra (`estrelinha-line`).
  *
  * A WCAG 1.4.11 pede 3:1 de contorno de controle. Sobre Papel, Dobra dá
  * **1,19:1** — o campo existe no DOM e não tem borda visível. É a razão de
- * `--nanita-rule` ser um token separado de `--nanita-border`: duas funções,
+ * `--estrelinha-field` ser um token separado de `--estrelinha-line`: duas funções,
  * dois valores.
  *
  * Esta varredura lê o fonte real. Um teste de componente não pegaria: ele
- * assere nome de classe, e `border-nanita-border` é um nome de classe válido.
+ * assere nome de classe, e `border-estrelinha-line` é um nome de classe válido.
  */
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -52,11 +52,11 @@ describe('borda de campo — Papelão, não Dobra', () => {
     expect(files.length).toBeGreaterThan(50)
   })
 
-  it('nenhum campo de formulário usa `border-nanita-border`', () => {
+  it('nenhum campo de formulário usa `border-estrelinha-line`', () => {
     const offenders = files.flatMap((file) => {
       const source = readFileSync(file, 'utf8')
       return fieldBlocks(source)
-        .filter((block) => /border-nanita-border/.test(block))
+        .filter((block) => /border-estrelinha-line/.test(block))
         .map(() => relative(SRC, file).replace(/\\/g, '/'))
     })
 
