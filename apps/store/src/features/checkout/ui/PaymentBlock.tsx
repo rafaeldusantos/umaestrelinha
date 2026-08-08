@@ -15,7 +15,7 @@
 // `PaymentStep.tsx:31-35`) e zera para `null` quando nenhum está habilitado — aí
 // `isPaymentComplete` fica falso e o CTA não habilita.
 //
-// Nenhum `bg-nanita-jam`: a única pílula geleia da tela é o CTA (CHK-04).
+// Nenhum `bg-estrelinha-primary`: a única pílula geleia da tela é o CTA (CHK-04).
 import { useEffect, useRef, useMemo } from 'react'
 import { Check, CreditCard, Info } from 'lucide-react'
 import { Input } from '@estrelinha/ui/input'
@@ -125,7 +125,7 @@ const PaymentBlock = ({
 
   const header = (
     <header className="flex items-center gap-3">
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-nanita-ink">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-estrelinha-ink">
         {complete && !open ? (
           <Check className="h-4 w-4 text-white" aria-label="Pagamento preenchido" />
         ) : (
@@ -133,10 +133,10 @@ const PaymentBlock = ({
         )}
       </span>
       <div className="flex grow flex-col gap-[2px]">
-        <h2 className="font-heading text-[21px] font-semibold tracking-[-0.02em] text-nanita-ink">
+        <h2 className="font-heading text-[21px] font-semibold tracking-[-0.02em] text-estrelinha-ink">
           Pagamento
         </h2>
-        <p className="text-[13px] text-nanita-plum">
+        <p className="text-[13px] text-estrelinha-ink-soft">
           Processado pelo Mercado Pago — seus dados não passam pela loja
         </p>
       </div>
@@ -150,7 +150,7 @@ const PaymentBlock = ({
     return (
       <section
         aria-label="Pagamento"
-        className="flex flex-col gap-5 rounded-lg border border-nanita-border bg-white p-4"
+        className="flex flex-col gap-5 rounded-lg border border-estrelinha-line bg-white p-4"
       >
         {header}
         <PixPayment orderId={orderId} amount={amount} onApproved={onApproved} />
@@ -162,9 +162,9 @@ const PaymentBlock = ({
     return (
       <section
         aria-label="Pagamento"
-        className="flex items-center gap-3 rounded-lg border border-nanita-border bg-white px-4 py-[22px]"
+        className="flex items-center gap-3 rounded-lg border border-estrelinha-line bg-white px-4 py-[22px]"
       >
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-nanita-ink">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-estrelinha-ink">
           {complete ? (
             <Check className="h-4 w-4 text-white" aria-label="Pagamento preenchido" />
           ) : (
@@ -172,12 +172,12 @@ const PaymentBlock = ({
           )}
         </span>
         <div className="flex min-w-0 grow flex-col gap-[3px]">
-          <span className="text-xs font-semibold uppercase tracking-[0.1em] text-nanita-plum">
+          <span className="text-xs font-semibold uppercase tracking-[0.1em] text-estrelinha-ink-soft">
             Pagamento
           </span>
           <span
             className={`truncate text-[15px] font-semibold ${
-              complete ? 'text-nanita-ink' : 'text-nanita-plum'
+              complete ? 'text-estrelinha-ink' : 'text-estrelinha-ink-soft'
             }`}
           >
             {collapsedSummary}
@@ -187,7 +187,7 @@ const PaymentBlock = ({
         <button
           type="button"
           onClick={onEdit}
-          className="flex min-h-11 shrink-0 items-center rounded-sm px-3 text-sm font-semibold text-nanita-jam hover:underline"
+          className="flex min-h-11 shrink-0 items-center rounded-sm px-3 text-sm font-semibold text-estrelinha-primary hover:underline"
         >
           {complete ? 'Alterar' : 'Preencher'}
         </button>
@@ -198,7 +198,7 @@ const PaymentBlock = ({
   return (
     <section
       aria-label="Pagamento"
-      className="flex flex-col gap-5 rounded-lg border border-nanita-border bg-white p-4"
+      className="flex flex-col gap-5 rounded-lg border border-estrelinha-line bg-white p-4"
     >
       {header}
 
@@ -214,22 +214,22 @@ const PaymentBlock = ({
             onClick={() => setPayment({ method: 'pix' })}
             className={`flex basis-0 grow flex-col gap-2 rounded-md border-2 p-[18px] text-left transition-colors ${
               payment.method === 'pix'
-                ? 'border-nanita-jam bg-nanita-sugar'
-                : 'border-nanita-border bg-white'
+                ? 'border-estrelinha-primary bg-estrelinha-ground-deep'
+                : 'border-estrelinha-line bg-white'
             }`}
           >
             <span className="flex w-full items-center gap-[10px]">
-              <PixIcon className="h-5 w-5 shrink-0 text-nanita-jam" aria-hidden />
-              <span className="grow font-heading text-[17px] font-semibold text-nanita-ink">
+              <PixIcon className="h-5 w-5 shrink-0 text-estrelinha-primary" aria-hidden />
+              <span className="grow font-heading text-[17px] font-semibold text-estrelinha-ink">
                 PIX
               </span>
               {pix_discount_percent > 0 && (
-                <span className="shrink-0 rounded-pill border border-nanita-jam px-[11px] py-[5px] text-xs font-bold tracking-[0.04em] text-nanita-jam">
+                <span className="shrink-0 rounded-pill border border-estrelinha-primary px-[11px] py-[5px] text-xs font-bold tracking-[0.04em] text-estrelinha-primary">
                   −{pix_discount_percent}%
                 </span>
               )}
             </span>
-            <span className="text-[13px] leading-[19px] text-nanita-plum">
+            <span className="text-[13px] leading-[19px] text-estrelinha-ink-soft">
               Aprovação na hora, direto do app do seu banco
             </span>
           </button>
@@ -242,17 +242,17 @@ const PaymentBlock = ({
             onClick={() => setPayment({ method: 'card' })}
             className={`flex basis-0 grow flex-col gap-2 rounded-md border-2 p-[18px] text-left transition-colors ${
               payment.method === 'card'
-                ? 'border-nanita-jam bg-nanita-sugar'
-                : 'border-nanita-border bg-white'
+                ? 'border-estrelinha-primary bg-estrelinha-ground-deep'
+                : 'border-estrelinha-line bg-white'
             }`}
           >
             <span className="flex w-full items-center gap-[10px]">
-              <CreditCard className="h-5 w-5 shrink-0 text-nanita-plum" aria-hidden />
-              <span className="grow font-heading text-[17px] font-semibold text-nanita-ink">
+              <CreditCard className="h-5 w-5 shrink-0 text-estrelinha-ink-soft" aria-hidden />
+              <span className="grow font-heading text-[17px] font-semibold text-estrelinha-ink">
                 Cartão de crédito
               </span>
             </span>
-            <span className="text-[13px] leading-[19px] text-nanita-plum">
+            <span className="text-[13px] leading-[19px] text-estrelinha-ink-soft">
               {installments
                 ? `Até ${installments.count}x de ${formatPrice(installments.value)} sem juros`
                 : `Até ${max_installments}x sem juros`}
@@ -262,7 +262,7 @@ const PaymentBlock = ({
       </div>
 
       {!pix_enabled && !card_enabled && (
-        <p role="alert" className="py-4 text-center text-sm text-nanita-plum">
+        <p role="alert" className="py-4 text-center text-sm text-estrelinha-ink-soft">
           {NO_METHOD_MESSAGE}
         </p>
       )}
@@ -273,7 +273,7 @@ const PaymentBlock = ({
         <>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
             <div className="flex flex-col gap-[7px] sm:w-[230px] sm:shrink-0">
-              <Label htmlFor="payment-cpf" className="text-[13px] font-semibold text-nanita-ink">
+              <Label htmlFor="payment-cpf" className="text-[13px] font-semibold text-estrelinha-ink">
                 {DOC_FIELD_LABEL}
               </Label>
               <Input
@@ -287,17 +287,17 @@ const PaymentBlock = ({
                 value={payment.cpf}
                 onChange={(e) => setPayment({ cpf: maskDocument(e.target.value) })}
                 placeholder="000.000.000-00"
-                className="border-nanita-border"
+                className="border-estrelinha-line"
               />
             </div>
-            <p className="flex items-center gap-2 pb-[2px] text-[13px] text-nanita-plum sm:pb-[15px]">
+            <p className="flex items-center gap-2 pb-[2px] text-[13px] text-estrelinha-ink-soft sm:pb-[15px]">
               <Info className="h-4 w-4 shrink-0" aria-hidden />
               {CPF_JUSTIFICATION}
             </p>
           </div>
 
           {documentInvalid && (
-            <p role="alert" className="text-[13px] font-medium text-nanita-jam">
+            <p role="alert" className="text-[13px] font-medium text-estrelinha-primary">
               {DOC_ERROR_MESSAGE}
             </p>
           )}

@@ -169,15 +169,15 @@ describe('OrderBump — paleta (DESIGN.md §8)', () => {
   it('superfície tinta, badge em manteiga sobre tinta e preço em glacê', () => {
     const { container } = render(<OrderBump />)
 
-    expect(container.querySelector('[class*="bg-nanita-ink"]')).not.toBeNull()
-    expect(screen.getByText('Só aqui')).toHaveClass('bg-nanita-butter')
-    expect(screen.getByText('R$ 12,45')).toHaveClass('text-nanita-glaze')
+    expect(container.querySelector('[class*="bg-estrelinha-ink"]')).not.toBeNull()
+    expect(screen.getByText('Só aqui')).toHaveClass('bg-estrelinha-accent')
+    expect(screen.getByText('R$ 12,45')).toHaveClass('text-estrelinha-accent')
   })
 
-  it('nenhum bg-nanita-jam e nenhuma cor fora da paleta', () => {
+  it('nenhum bg-estrelinha-primary e nenhuma cor fora da paleta', () => {
     const { container } = render(<OrderBump />)
 
-    expect(container.querySelectorAll('[class*="bg-nanita-jam"]')).toHaveLength(0)
+    expect(container.querySelectorAll('[class*="bg-estrelinha-primary"]')).toHaveLength(0)
     expect(container.innerHTML).not.toMatch(
       /bg-(yellow|blue|purple|green|red)-|text-(green|red|yellow|blue|purple)-[0-9]/,
     )

@@ -80,9 +80,9 @@ const PriceField = ({
   return (
     <label
       /* Papelão, não Dobra — borda de campo precisa dos 3:1 da WCAG 1.4.11. */
-      className={`flex flex-1 items-center gap-1 border-[1.5px] border-nanita-rule bg-white text-nanita-ink focus-within:border-nanita-jam ${className}`}
+      className={`flex flex-1 items-center gap-1 border-[1.5px] border-estrelinha-field bg-white text-estrelinha-ink focus-within:border-estrelinha-primary ${className}`}
     >
-      <span aria-hidden className="text-nanita-plum">
+      <span aria-hidden className="text-estrelinha-ink-soft">
         R$
       </span>
       <span className="sr-only">{label}</span>
@@ -107,8 +107,8 @@ const AVAILABILITY = [
 
 const CategoryFiltersPanel = ({ surface, filters, onChange, bounds, tags }: Props) => {
   const s = S[surface]
-  const legend = `font-body font-bold text-nanita-ink ${s.legend}`
-  const divider = 'border-b border-nanita-border last:border-b-0'
+  const legend = `font-body font-bold text-estrelinha-ink ${s.legend}`
+  const divider = 'border-b border-estrelinha-line last:border-b-0'
 
   return (
     <div className="flex flex-col">
@@ -126,7 +126,7 @@ const CategoryFiltersPanel = ({ surface, filters, onChange, bounds, tags }: Prop
               })
             }
           />
-          <span className="text-[13px] text-nanita-plum">—</span>
+          <span className="text-[13px] text-estrelinha-ink-soft">—</span>
           <PriceField
             className={s.input}
             label="Preço máximo"
@@ -146,7 +146,7 @@ const CategoryFiltersPanel = ({ surface, filters, onChange, bounds, tags }: Prop
           value={filters.priceRange}
           onValueChange={v => onChange({ ...filters, priceRange: v as [number, number] })}
           aria-label="Faixa de preço"
-          className="[&>span:first-child]:h-1 [&>span:first-child]:bg-nanita-border [&_[role=slider]]:h-4 [&_[role=slider]]:w-4 [&_[role=slider]]:border-2 [&_[role=slider]]:border-nanita-jam [&_[role=slider]]:bg-white"
+          className="[&>span:first-child]:h-1 [&>span:first-child]:bg-estrelinha-line [&_[role=slider]]:h-4 [&_[role=slider]]:w-4 [&_[role=slider]]:border-2 [&_[role=slider]]:border-estrelinha-primary [&_[role=slider]]:bg-white"
         />
       </section>
 
@@ -164,8 +164,8 @@ const CategoryFiltersPanel = ({ surface, filters, onChange, bounds, tags }: Prop
                   onClick={() => onChange(toggleTag(filters, tag))}
                   className={`font-body font-medium transition-colors ${s.chip} ${
                     on
-                      ? 'bg-nanita-jam font-semibold text-white'
-                      : `bg-nanita-sugar ${surface === 'sheet' ? 'text-nanita-jam' : 'text-nanita-plum'} hover:bg-nanita-border`
+                      ? 'bg-estrelinha-primary font-semibold text-white'
+                      : `bg-estrelinha-ground-deep ${surface === 'sheet' ? 'text-estrelinha-primary' : 'text-estrelinha-ink-soft'} hover:bg-estrelinha-line`
                   }`}
                 >
                   {on ? `${tag} ✕` : tag}
@@ -183,7 +183,7 @@ const CategoryFiltersPanel = ({ surface, filters, onChange, bounds, tags }: Prop
             const on = filters[item.key]
             return (
               <div key={item.key} className="flex items-center justify-between">
-                <span className={`font-body font-medium text-nanita-ink ${s.row}`}>
+                <span className={`font-body font-medium text-estrelinha-ink ${s.row}`}>
                   {item[surface]}
                 </span>
                 <button
@@ -199,7 +199,7 @@ const CategoryFiltersPanel = ({ surface, filters, onChange, bounds, tags }: Prop
                     )
                   }
                   className={`flex shrink-0 items-center rounded-pill p-0.5 transition-colors ${s.track} ${
-                    on ? 'bg-nanita-jam' : 'bg-nanita-border'
+                    on ? 'bg-estrelinha-primary' : 'bg-estrelinha-line'
                   }`}
                 >
                   <span

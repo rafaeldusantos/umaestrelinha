@@ -38,8 +38,8 @@ const AuthNewPasswordStep = () => {
   return (
     <div className="flex flex-col">
       <div className="space-y-1 mb-6">
-        <h2 className="font-heading text-2xl font-bold text-nanita-ink">Criar nova senha</h2>
-        <p className="text-sm text-nanita-plum">
+        <h2 className="font-heading text-2xl font-bold text-estrelinha-ink">Criar nova senha</h2>
+        <p className="text-sm text-estrelinha-ink-soft">
           Mínimo de {MIN_PASSWORD_LENGTH} caracteres. Você já entra na conta em seguida.
         </p>
       </div>
@@ -54,13 +54,13 @@ const AuthNewPasswordStep = () => {
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="rounded-xl border-nanita-border pr-10"
+              className="rounded-xl border-estrelinha-line pr-10"
             />
             <button
               type="button"
               onClick={() => setShowPassword((v) => !v)}
               aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-nanita-plum hover:text-nanita-ink"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-estrelinha-ink-soft hover:text-estrelinha-ink"
             >
               {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
@@ -75,7 +75,7 @@ const AuthNewPasswordStep = () => {
             placeholder="••••••••"
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
-            className="rounded-xl border-nanita-border"
+            className="rounded-xl border-estrelinha-line"
           />
         </div>
 
@@ -84,7 +84,7 @@ const AuthNewPasswordStep = () => {
         <Button
           type="submit"
           disabled={loading}
-          className="w-full rounded-sm bg-nanita-jam text-white border-0 hover:bg-nanita-jam hover:opacity-95 transition-all"
+          className="w-full rounded-sm bg-estrelinha-primary text-white border-0 hover:bg-estrelinha-primary hover:opacity-95 transition-all"
         >
           {loading ? 'Salvando...' : 'Salvar senha'}
         </Button>

@@ -106,14 +106,14 @@ const PixPayment = ({ orderId, amount, onApproved }: Props) => {
         {/* CNF-06: erro se distingue por superfície + geleia, não por vermelho fora da paleta. */}
         <p
           role="alert"
-          className="text-sm text-nanita-jam bg-nanita-sugar border border-nanita-jam/30 rounded-xl p-3"
+          className="text-sm text-estrelinha-primary bg-estrelinha-ground-deep border border-estrelinha-primary/30 rounded-xl p-3"
         >
           {error}
         </p>
         <Button
           onClick={() => void generate()}
           variant="outline"
-          className="w-full rounded-sm border-2 border-nanita-ink bg-transparent text-nanita-ink transition-all hover:bg-transparent hover:text-nanita-ink hover:scale-[1.02]"
+          className="w-full rounded-sm border-2 border-estrelinha-ink bg-transparent text-estrelinha-ink transition-all hover:bg-transparent hover:text-estrelinha-ink hover:scale-[1.02]"
         >
           Tentar novamente
         </Button>
@@ -123,7 +123,7 @@ const PixPayment = ({ orderId, amount, onApproved }: Props) => {
 
   if (generating || !pix) {
     return (
-      <div className="bg-nanita-sugar rounded-xl p-6 text-center text-sm text-nanita-plum">
+      <div className="bg-estrelinha-ground-deep rounded-xl p-6 text-center text-sm text-estrelinha-ink-soft">
         Gerando código PIX...
       </div>
     )
@@ -133,22 +133,22 @@ const PixPayment = ({ orderId, amount, onApproved }: Props) => {
 
   if (expired) {
     return (
-      <div className="bg-nanita-sugar rounded-xl p-6 text-center space-y-4">
-        <p className="font-heading font-bold text-nanita-ink">Código PIX expirado</p>
-        <p className="text-sm text-nanita-plum">
+      <div className="bg-estrelinha-ground-deep rounded-xl p-6 text-center space-y-4">
+        <p className="font-heading font-bold text-estrelinha-ink">Código PIX expirado</p>
+        <p className="text-sm text-estrelinha-ink-soft">
           Sem problema: gere um novo código para o mesmo pedido.
         </p>
         <Button
           onClick={() => void generate()}
           variant="outline"
-          className="rounded-sm border-2 border-nanita-ink bg-transparent text-nanita-ink transition-all hover:bg-transparent hover:text-nanita-ink hover:scale-[1.02] gap-2"
+          className="rounded-sm border-2 border-estrelinha-ink bg-transparent text-estrelinha-ink transition-all hover:bg-transparent hover:text-estrelinha-ink hover:scale-[1.02] gap-2"
         >
           <RefreshCw className="w-4 h-4" /> Gerar novo código
         </Button>
         {/* CNF-02: o pedido não se perde com o código — fica guardado na conta. */}
-        <p className="text-sm text-nanita-plum">
+        <p className="text-sm text-estrelinha-ink-soft">
           Pagou e o código expirou? O pedido fica guardado em{' '}
-          <a href="/conta" className="font-semibold text-nanita-jam hover:underline">
+          <a href="/conta" className="font-semibold text-estrelinha-primary hover:underline">
             Minha conta → Pedidos
           </a>{' '}
           e você gera um PIX novo de lá.
@@ -160,57 +160,57 @@ const PixPayment = ({ orderId, amount, onApproved }: Props) => {
   const min = Math.floor((secondsLeft ?? 0) / 60)
   const sec = (secondsLeft ?? 0) % 60
   // CNF-06: os últimos 5 minutos ganham geleia — urgência dentro da paleta, sem vermelho.
-  const timerColor = (secondsLeft ?? 0) < 300 ? 'text-nanita-jam' : 'text-nanita-ink'
+  const timerColor = (secondsLeft ?? 0) < 300 ? 'text-estrelinha-primary' : 'text-estrelinha-ink'
 
   return (
     <div className="space-y-4">
       {/* CNF-01: quanto sai da conta dela, em destaque, antes do QR. */}
       {amount !== undefined && (
         <div className="flex flex-col items-center gap-1">
-          <p className="font-heading text-[38px] font-semibold leading-none tracking-[-0.03em] text-nanita-ink">
+          <p className="font-heading text-[38px] font-semibold leading-none tracking-[-0.03em] text-estrelinha-ink">
             {formatPrice(amount)}
           </p>
           {settings.pix_discount_percent > 0 && (
-            <p className="text-sm font-medium text-nanita-jam">
+            <p className="text-sm font-medium text-estrelinha-primary">
               já com os {settings.pix_discount_percent}% de desconto do PIX
             </p>
           )}
         </div>
       )}
-      <div className="bg-nanita-sugar rounded-xl p-6 text-center">
+      <div className="bg-estrelinha-ground-deep rounded-xl p-6 text-center">
         <div className="w-48 h-48 mx-auto bg-white rounded-lg flex items-center justify-center mb-3 p-2">
           <QRCodeSVG value={pix.qr_code} size={176} aria-label="QR Code PIX" />
         </div>
         <p className={`font-heading font-bold text-lg ${timerColor}`}>
           {String(min).padStart(2, '0')}:{String(sec).padStart(2, '0')}
         </p>
-        <p className="text-xs text-nanita-plum mt-1">Tempo restante para pagamento</p>
+        <p className="text-xs text-estrelinha-ink-soft mt-1">Tempo restante para pagamento</p>
       </div>
       <div>
-        <Label className="text-xs text-nanita-plum">Código Copia e Cola</Label>
+        <Label className="text-xs text-estrelinha-ink-soft">Código Copia e Cola</Label>
         <div className="flex gap-2 mt-1">
           <Input readOnly value={pix.qr_code} className="text-xs font-mono" />
           <Button
             variant="outline"
             size="sm"
             onClick={copyPix}
-            className="rounded-lg border-nanita-border shrink-0"
+            className="rounded-lg border-estrelinha-line shrink-0"
           >
             {copied ? (
-              <Check className="w-4 h-4 text-nanita-jam" aria-label="Código copiado" />
+              <Check className="w-4 h-4 text-estrelinha-primary" aria-label="Código copiado" />
             ) : (
-              <Copy className="w-4 h-4 text-nanita-plum" aria-label="Copiar código" />
+              <Copy className="w-4 h-4 text-estrelinha-ink-soft" aria-label="Copiar código" />
             )}
           </Button>
         </div>
       </div>
-      <div className="bg-white rounded-xl p-4 text-sm text-nanita-plum space-y-1">
+      <div className="bg-white rounded-xl p-4 text-sm text-estrelinha-ink-soft space-y-1">
         <p>1. Abra o app do seu banco</p>
         <p>2. Escaneie o QR Code ou copie o código</p>
         <p>3. Confirme o pagamento — a tela avança sozinha</p>
       </div>
       {settings.pix_discount_percent > 0 && (
-        <p className="text-xs text-nanita-jam font-medium text-center">
+        <p className="text-xs text-estrelinha-primary font-medium text-center">
           {settings.pix_discount_percent}% de desconto no PIX aplicado!
         </p>
       )}

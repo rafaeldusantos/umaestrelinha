@@ -64,8 +64,8 @@ const ProductGallery = ({ images, name, focusUrl = null, badges, action }: Props
   // rebaixar para a URL da própria página e requisitar o HTML como imagem (VAR-11 AC 3).
   if (images.length === 0) {
     return (
-      <div className="flex aspect-square items-center justify-center rounded-xl bg-nanita-sugar">
-        <ImageOff className="h-10 w-10 text-nanita-plum" aria-hidden="true" />
+      <div className="flex aspect-square items-center justify-center rounded-xl bg-estrelinha-ground-deep">
+        <ImageOff className="h-10 w-10 text-estrelinha-ink-soft" aria-hidden="true" />
         <span className="sr-only">{name} sem imagem</span>
       </div>
     )
@@ -79,7 +79,7 @@ const ProductGallery = ({ images, name, focusUrl = null, badges, action }: Props
 
   return (
     <div className="flex flex-col gap-2 md:gap-3">
-      <div className="group relative aspect-square overflow-hidden rounded-xl bg-nanita-sugar">
+      <div className="group relative aspect-square overflow-hidden rounded-xl bg-estrelinha-ground-deep">
         {/* Desktop: a lupa do board é o próprio palco — `ImageZoom` amplia sob o cursor. */}
         <div
           className="hidden h-full w-full cursor-zoom-in md:block"
@@ -112,17 +112,17 @@ const ProductGallery = ({ images, name, focusUrl = null, badges, action }: Props
               type="button"
               onClick={() => step(-1)}
               aria-label="Imagem anterior"
-              className="absolute left-3 top-1/2 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/85 opacity-0 shadow-nanita-soft backdrop-blur transition-opacity group-hover:opacity-100 md:flex"
+              className="absolute left-3 top-1/2 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/85 opacity-0 shadow-estrelinha-soft backdrop-blur transition-opacity group-hover:opacity-100 md:flex"
             >
-              <ChevronLeft className="h-4 w-4 text-nanita-ink" />
+              <ChevronLeft className="h-4 w-4 text-estrelinha-ink" />
             </button>
             <button
               type="button"
               onClick={() => step(1)}
               aria-label="Próxima imagem"
-              className="absolute right-3 top-1/2 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/85 opacity-0 shadow-nanita-soft backdrop-blur transition-opacity group-hover:opacity-100 md:flex"
+              className="absolute right-3 top-1/2 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/85 opacity-0 shadow-estrelinha-soft backdrop-blur transition-opacity group-hover:opacity-100 md:flex"
             >
-              <ChevronRight className="h-4 w-4 text-nanita-ink" />
+              <ChevronRight className="h-4 w-4 text-estrelinha-ink" />
             </button>
 
             {/* Pontos: só mobile. No desktop a fita de 80px já diz quantas fotos existem.
@@ -134,7 +134,7 @@ const ProductGallery = ({ images, name, focusUrl = null, badges, action }: Props
                   key={`${img.url}-${i}`}
                   aria-hidden
                   className={`h-1.5 w-1.5 rounded-full transition-colors ${
-                    i === index ? 'bg-nanita-jam' : 'bg-nanita-ink/25'
+                    i === index ? 'bg-estrelinha-primary' : 'bg-estrelinha-ink/25'
                   }`}
                 />
               ))}
@@ -148,9 +148,9 @@ const ProductGallery = ({ images, name, focusUrl = null, badges, action }: Props
           aria-label="Ver imagem em tela cheia"
           /* 44px no celular (o alvo de toque mínimo do projeto), 36px no desktop, onde quem clica
              é o ponteiro. O board desenha 36 nos dois — medido em 390px, ficou pequeno demais. */
-          className="absolute bottom-3 right-3 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-white/85 shadow-nanita-soft backdrop-blur transition-transform hover:scale-105 md:h-9 md:w-9"
+          className="absolute bottom-3 right-3 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-white/85 shadow-estrelinha-soft backdrop-blur transition-transform hover:scale-105 md:h-9 md:w-9"
         >
-          <ZoomIn className="h-4 w-4 text-nanita-ink" />
+          <ZoomIn className="h-4 w-4 text-estrelinha-ink" />
         </button>
       </div>
 
@@ -164,7 +164,7 @@ const ProductGallery = ({ images, name, focusUrl = null, badges, action }: Props
               aria-label={`Ver imagem ${i + 1} de ${images.length}`}
               aria-current={i === index}
               className={`h-14 w-14 shrink-0 overflow-hidden rounded-sm border-2 transition-colors md:h-20 md:w-20 md:rounded-md ${
-                i === index ? 'border-nanita-jam' : 'border-transparent'
+                i === index ? 'border-estrelinha-primary' : 'border-transparent'
               }`}
             >
               {/* Miniatura é controle de navegação, não conteúdo: o `alt` do botão já está na

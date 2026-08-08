@@ -47,12 +47,12 @@ const AuthCodeStep = () => {
 
   return (
     <div className="flex flex-col items-center text-center">
-      <div className="w-16 h-16 rounded-2xl bg-nanita-jam/10 flex items-center justify-center mb-4">
-        <Mail className="w-7 h-7 text-nanita-jam" />
+      <div className="w-16 h-16 rounded-2xl bg-estrelinha-primary/10 flex items-center justify-center mb-4">
+        <Mail className="w-7 h-7 text-estrelinha-primary" />
       </div>
-      <h2 className="font-heading text-2xl font-bold text-nanita-ink">Digite o código</h2>
-      <p className="text-sm text-nanita-plum mt-1">Enviamos um código de 6 dígitos para</p>
-      <p className="text-sm font-bold text-nanita-ink">{email}</p>
+      <h2 className="font-heading text-2xl font-bold text-estrelinha-ink">Digite o código</h2>
+      <p className="text-sm text-estrelinha-ink-soft mt-1">Enviamos um código de 6 dígitos para</p>
+      <p className="text-sm font-bold text-estrelinha-ink">{email}</p>
 
       <form onSubmit={handleSubmit} className="w-full flex flex-col items-center mt-6 gap-4">
         <InputOTP maxLength={6} value={code} onChange={setCode}>
@@ -61,7 +61,7 @@ const AuthCodeStep = () => {
               <InputOTPSlot
                 key={i}
                 index={i}
-                className="w-12 h-14 text-xl rounded-xl border-nanita-border first:rounded-l-xl last:rounded-r-xl border-l"
+                className="w-12 h-14 text-xl rounded-xl border-estrelinha-line first:rounded-l-xl last:rounded-r-xl border-l"
               />
             ))}
           </InputOTPGroup>
@@ -72,19 +72,19 @@ const AuthCodeStep = () => {
         <Button
           type="submit"
           disabled={loading}
-          className="w-full rounded-sm bg-nanita-jam text-white border-0 hover:bg-nanita-jam hover:opacity-95 transition-all"
+          className="w-full rounded-sm bg-estrelinha-primary text-white border-0 hover:bg-estrelinha-primary hover:opacity-95 transition-all"
         >
           {loading ? 'Verificando...' : 'Verificar código'}
         </Button>
       </form>
 
       <div className="flex items-center gap-1.5 mt-4 text-sm">
-        <span className="text-nanita-plum">Não recebeu o código?</span>
+        <span className="text-estrelinha-ink-soft">Não recebeu o código?</span>
         <button
           type="button"
           onClick={handleResend}
           disabled={cooldown > 0}
-          className="font-semibold text-nanita-jam disabled:text-nanita-plum disabled:cursor-default hover:underline disabled:no-underline"
+          className="font-semibold text-estrelinha-primary disabled:text-estrelinha-ink-soft disabled:cursor-default hover:underline disabled:no-underline"
         >
           {cooldown > 0 ? `Reenviar em ${formatCooldown(cooldown)}` : 'Reenviar código'}
         </button>
@@ -93,7 +93,7 @@ const AuthCodeStep = () => {
       <button
         type="button"
         onClick={() => goTo('entry')}
-        className="text-sm text-nanita-jam font-medium mt-3 hover:underline"
+        className="text-sm text-estrelinha-primary font-medium mt-3 hover:underline"
       >
         Usar outro e-mail
       </button>

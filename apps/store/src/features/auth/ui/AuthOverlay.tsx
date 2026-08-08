@@ -37,7 +37,7 @@ const BENEFITS = ['Frete grátis acima de R$150', 'Drops exclusivos toda semana'
 const BrandPanel = () => (
   <div
     data-testid="auth-brand-panel"
-    className="flex w-[320px] shrink-0 flex-col justify-between bg-nanita-ink p-8 text-white"
+    className="flex w-[320px] shrink-0 flex-col justify-between bg-estrelinha-ink p-8 text-white"
   >
     <div>
       <NanitaWordmark width={180} />
@@ -46,7 +46,7 @@ const BrandPanel = () => (
     <ul className="space-y-3">
       {BENEFITS.map((b) => (
         <li key={b} className="flex items-center gap-2.5 text-sm text-white/85">
-          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-sm bg-white/[0.12] text-nanita-glaze">
+          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-sm bg-white/[0.12] text-estrelinha-accent">
             <Check className="w-3.5 h-3.5" />
           </span>
           {b}
@@ -81,7 +81,7 @@ const AuthOverlay = () => {
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="p-0 overflow-hidden max-w-[800px] gap-0 border-nanita-border">
+      <DialogContent className="p-0 overflow-hidden max-w-[800px] gap-0 border-estrelinha-line">
         <DialogTitle className="sr-only">Acesso à conta</DialogTitle>
         <div className="flex">
           <BrandPanel />

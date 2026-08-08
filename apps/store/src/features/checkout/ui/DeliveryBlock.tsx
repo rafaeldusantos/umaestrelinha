@@ -9,7 +9,7 @@
 // `isDeliveryComplete`). Cliente recorrente não redigita nem re-escolhe.
 //
 // Zero preço e zero prazo literais aqui: preço vem da cotação (ou de `default_shipping_cost`)
-// e a data vem de `formatEstimate`. Nenhum `bg-nanita-jam` — a única pílula geleia é o CTA.
+// e a data vem de `formatEstimate`. Nenhum `bg-estrelinha-primary` — a única pílula geleia é o CTA.
 import { useEffect, useMemo, useRef } from 'react'
 import { AlertTriangle, Check } from 'lucide-react'
 import { Button } from '@estrelinha/ui/button'
@@ -228,16 +228,16 @@ const DeliveryBlock = ({ open, complete, onEdit, onContinue, canContinue }: Prop
 
   const locked = !address.manual
   const lockedFieldClass = locked
-    ? 'border-nanita-border bg-nanita-sugar text-nanita-plum'
-    : 'border-nanita-border'
+    ? 'border-estrelinha-line bg-estrelinha-ground-deep text-estrelinha-ink-soft'
+    : 'border-estrelinha-line'
 
   if (!open) {
     return (
       <section
         aria-label="Entrega"
-        className="flex items-center gap-3 rounded-lg border border-nanita-border bg-white px-4 py-[22px]"
+        className="flex items-center gap-3 rounded-lg border border-estrelinha-line bg-white px-4 py-[22px]"
       >
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-nanita-ink">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-estrelinha-ink">
           {complete ? (
             <Check className="h-4 w-4 text-white" aria-label="Entrega preenchida" />
           ) : (
@@ -245,12 +245,12 @@ const DeliveryBlock = ({ open, complete, onEdit, onContinue, canContinue }: Prop
           )}
         </span>
         <div className="flex min-w-0 grow flex-col gap-[3px]">
-          <span className="text-xs font-semibold uppercase tracking-[0.1em] text-nanita-plum">
+          <span className="text-xs font-semibold uppercase tracking-[0.1em] text-estrelinha-ink-soft">
             Entrega
           </span>
           <span
             className={`truncate text-[15px] font-semibold ${
-              complete ? 'text-nanita-ink' : 'text-nanita-plum'
+              complete ? 'text-estrelinha-ink' : 'text-estrelinha-ink-soft'
             }`}
           >
             {/* BUG-20260728-bloco-vazio-parece-preenchido: sem dado não se monta a pontuação —
@@ -260,7 +260,7 @@ const DeliveryBlock = ({ open, complete, onEdit, onContinue, canContinue }: Prop
               : DELIVERY_EMPTY_SUMMARY}
           </span>
           {complete && shipping && (
-            <span className="truncate text-[13px] text-nanita-plum">
+            <span className="truncate text-[13px] text-estrelinha-ink-soft">
               {shipping.carrier} {shipping.serviceName} ·{' '}
               {shipping.cost === 0 ? 'Grátis' : formatPrice(shipping.cost)}
             </span>
@@ -271,7 +271,7 @@ const DeliveryBlock = ({ open, complete, onEdit, onContinue, canContinue }: Prop
         <button
           type="button"
           onClick={onEdit}
-          className="flex min-h-11 shrink-0 items-center rounded-sm px-3 text-sm font-semibold text-nanita-jam hover:underline"
+          className="flex min-h-11 shrink-0 items-center rounded-sm px-3 text-sm font-semibold text-estrelinha-primary hover:underline"
         >
           {complete ? 'Alterar' : 'Preencher'}
         </button>
@@ -282,22 +282,22 @@ const DeliveryBlock = ({ open, complete, onEdit, onContinue, canContinue }: Prop
   return (
     <section
       aria-label="Entrega"
-      className="flex flex-col gap-5 rounded-lg border border-nanita-border bg-white p-4"
+      className="flex flex-col gap-5 rounded-lg border border-estrelinha-line bg-white p-4"
     >
       <header className="flex items-center gap-3">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-nanita-ink font-heading text-base font-semibold text-white">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-estrelinha-ink font-heading text-base font-semibold text-white">
           2
         </span>
         <div className="flex grow flex-col gap-[2px]">
-          <h2 className="font-heading text-[21px] font-semibold tracking-[-0.02em] text-nanita-ink">
+          <h2 className="font-heading text-[21px] font-semibold tracking-[-0.02em] text-estrelinha-ink">
             Entrega
           </h2>
-          <p className="text-[13px] text-nanita-plum">Prazos e valores reais do Melhor Envio</p>
+          <p className="text-[13px] text-estrelinha-ink-soft">Prazos e valores reais do Melhor Envio</p>
         </div>
       </header>
 
       <div className="flex flex-col gap-[7px] sm:max-w-[200px]">
-        <Label htmlFor="delivery-cep" className="text-[13px] font-semibold text-nanita-ink">
+        <Label htmlFor="delivery-cep" className="text-[13px] font-semibold text-estrelinha-ink">
           CEP
         </Label>
         <Input
@@ -306,19 +306,19 @@ const DeliveryBlock = ({ open, complete, onEdit, onContinue, canContinue }: Prop
           value={address.cep}
           onChange={(e) => edit({ cep: maskCep(e.target.value) })}
           placeholder="00000-000"
-          className="border-nanita-border"
+          className="border-estrelinha-line"
         />
       </div>
 
       {address.manual && cepComplete && (
-        <p role="status" className="text-[13px] text-nanita-plum">
+        <p role="status" className="text-[13px] text-estrelinha-ink-soft">
           Não localizamos esse CEP. Preencha o endereço à mão — a cotação segue pelo CEP informado.
         </p>
       )}
 
       <div className="grid gap-4 sm:grid-cols-[1fr_120px]">
         <div className="flex flex-col gap-[7px]">
-          <Label htmlFor="delivery-street" className="text-[13px] font-semibold text-nanita-ink">
+          <Label htmlFor="delivery-street" className="text-[13px] font-semibold text-estrelinha-ink">
             Rua
           </Label>
           <Input
@@ -331,7 +331,7 @@ const DeliveryBlock = ({ open, complete, onEdit, onContinue, canContinue }: Prop
           />
         </div>
         <div className="flex flex-col gap-[7px]">
-          <Label htmlFor="delivery-number" className="text-[13px] font-semibold text-nanita-ink">
+          <Label htmlFor="delivery-number" className="text-[13px] font-semibold text-estrelinha-ink">
             Número
           </Label>
           <Input
@@ -339,7 +339,7 @@ const DeliveryBlock = ({ open, complete, onEdit, onContinue, canContinue }: Prop
             value={address.number}
             onChange={(e) => edit({ number: e.target.value })}
             placeholder="123"
-            className="border-nanita-border"
+            className="border-estrelinha-line"
           />
         </div>
       </div>
@@ -348,7 +348,7 @@ const DeliveryBlock = ({ open, complete, onEdit, onContinue, canContinue }: Prop
         <div className="flex flex-col gap-[7px]">
           <Label
             htmlFor="delivery-complement"
-            className="text-[13px] font-semibold text-nanita-ink"
+            className="text-[13px] font-semibold text-estrelinha-ink"
           >
             Complemento
           </Label>
@@ -357,13 +357,13 @@ const DeliveryBlock = ({ open, complete, onEdit, onContinue, canContinue }: Prop
             value={address.complement}
             onChange={(e) => edit({ complement: e.target.value })}
             placeholder="Apto, bloco…"
-            className="border-nanita-border"
+            className="border-estrelinha-line"
           />
         </div>
         <div className="flex flex-col gap-[7px]">
           <Label
             htmlFor="delivery-neighborhood"
-            className="text-[13px] font-semibold text-nanita-ink"
+            className="text-[13px] font-semibold text-estrelinha-ink"
           >
             Bairro
           </Label>
@@ -379,7 +379,7 @@ const DeliveryBlock = ({ open, complete, onEdit, onContinue, canContinue }: Prop
 
       <div className="grid gap-4 sm:grid-cols-[1fr_120px]">
         <div className="flex flex-col gap-[7px]">
-          <Label htmlFor="delivery-city" className="text-[13px] font-semibold text-nanita-ink">
+          <Label htmlFor="delivery-city" className="text-[13px] font-semibold text-estrelinha-ink">
             Cidade
           </Label>
           <Input
@@ -391,7 +391,7 @@ const DeliveryBlock = ({ open, complete, onEdit, onContinue, canContinue }: Prop
           />
         </div>
         <div className="flex flex-col gap-[7px]">
-          <Label htmlFor="delivery-state" className="text-[13px] font-semibold text-nanita-ink">
+          <Label htmlFor="delivery-state" className="text-[13px] font-semibold text-estrelinha-ink">
             UF
           </Label>
           <Input
@@ -406,24 +406,24 @@ const DeliveryBlock = ({ open, complete, onEdit, onContinue, canContinue }: Prop
       </div>
 
       <div className="flex flex-col gap-[10px] pt-[6px]">
-        <span className="text-[13px] font-semibold text-nanita-ink">Forma de envio</span>
+        <span className="text-[13px] font-semibold text-estrelinha-ink">Forma de envio</span>
 
         {!cepComplete && (
-          <p className="text-[13px] text-nanita-plum">
+          <p className="text-[13px] text-estrelinha-ink-soft">
             Informe o CEP para ver as opções de envio.
           </p>
         )}
 
         {cepComplete && quote.isLoading && (
-          <p className="text-[13px] text-nanita-plum">Consultando as transportadoras…</p>
+          <p className="text-[13px] text-estrelinha-ink-soft">Consultando as transportadoras…</p>
         )}
 
         {quoteFailed && (
           <p
             role="alert"
-            className="flex items-start gap-2 rounded-md bg-nanita-sugar p-3 text-[13px] text-nanita-ink"
+            className="flex items-start gap-2 rounded-md bg-estrelinha-ground-deep p-3 text-[13px] text-estrelinha-ink"
           >
-            <AlertTriangle className="mt-[1px] h-4 w-4 shrink-0 text-nanita-jam" aria-hidden />
+            <AlertTriangle className="mt-[1px] h-4 w-4 shrink-0 text-estrelinha-primary" aria-hidden />
             {QUOTE_UNAVAILABLE_MESSAGE}
           </p>
         )}
@@ -439,22 +439,22 @@ const DeliveryBlock = ({ open, complete, onEdit, onContinue, canContinue }: Prop
                 onClick={() => select(option)}
                 className={`flex w-full items-center gap-[14px] rounded-md border-2 p-3 text-left transition-colors ${
                   selected
-                    ? 'border-nanita-jam bg-nanita-sugar'
-                    : 'border-nanita-border bg-white hover:border-nanita-jam/40'
+                    ? 'border-estrelinha-primary bg-estrelinha-ground-deep'
+                    : 'border-estrelinha-line bg-white hover:border-estrelinha-primary/40'
                 }`}
               >
                 <span
                   className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
-                    selected ? 'border-nanita-jam' : 'border-nanita-border'
+                    selected ? 'border-estrelinha-primary' : 'border-estrelinha-line'
                   }`}
                 >
-                  {selected && <span className="h-[10px] w-[10px] rounded-full bg-nanita-ink" />}
+                  {selected && <span className="h-[10px] w-[10px] rounded-full bg-estrelinha-ink" />}
                 </span>
                 <span className="flex min-w-0 grow flex-col gap-[2px]">
-                  <span className="text-[15px] font-semibold text-nanita-ink">
+                  <span className="text-[15px] font-semibold text-estrelinha-ink">
                     {option.carrier} {option.serviceName}
                   </span>
-                  <span className="text-[13px] text-nanita-plum">
+                  <span className="text-[13px] text-estrelinha-ink-soft">
                     {option.estimateLabel
                       ? `Chega ${option.estimateLabel}`
                       : 'Prazo confirmado após a postagem'}
@@ -463,13 +463,13 @@ const DeliveryBlock = ({ open, complete, onEdit, onContinue, canContinue }: Prop
                 <span className="flex shrink-0 flex-col items-end gap-[2px]">
                   <span
                     className={`font-heading text-[17px] font-semibold ${
-                      option.free ? 'text-nanita-jam' : 'text-nanita-ink'
+                      option.free ? 'text-estrelinha-primary' : 'text-estrelinha-ink'
                     }`}
                   >
                     {option.free ? 'Grátis' : formatPrice(option.price)}
                   </span>
                   {option.free && (
-                    <span className="text-xs text-nanita-plum line-through">
+                    <span className="text-xs text-estrelinha-ink-soft line-through">
                       {formatPrice(option.price)}
                     </span>
                   )}
@@ -486,7 +486,7 @@ const DeliveryBlock = ({ open, complete, onEdit, onContinue, canContinue }: Prop
         type="button"
         disabled={!canContinue}
         onClick={onContinue}
-        className="min-h-11 self-start rounded-sm border-2 border-nanita-ink bg-transparent px-7 font-heading text-[15px] font-semibold text-nanita-ink hover:bg-nanita-sugar"
+        className="min-h-11 self-start rounded-sm border-2 border-estrelinha-ink bg-transparent px-7 font-heading text-[15px] font-semibold text-estrelinha-ink hover:bg-estrelinha-ground-deep"
       >
         Continuar
       </Button>

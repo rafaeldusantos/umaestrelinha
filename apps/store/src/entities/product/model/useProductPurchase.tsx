@@ -87,22 +87,22 @@ export const useProductPurchase = (
     for (let i = 0; i < qty; i++) addItem(product, '', '', input)
 
     toast.custom(() => (
-      <div className="flex items-center gap-3 rounded-md border border-nanita-border bg-white p-3 shadow-nanita-soft">
+      <div className="flex items-center gap-3 rounded-md border border-estrelinha-line bg-white p-3 shadow-estrelinha-soft">
         <img
           src={product.image_url}
           alt={product.name}
           className="h-12 w-12 rounded-sm object-cover"
         />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-nanita-ink">{product.name}</p>
-          <p className="text-xs text-nanita-plum">
+          <p className="truncate text-sm font-medium text-estrelinha-ink">{product.name}</p>
+          <p className="text-xs text-estrelinha-ink-soft">
             {qty}x adicionado ao carrinho
           </p>
         </div>
         <button
           type="button"
           onClick={() => useCartUiStore.getState().openCart()}
-          className="whitespace-nowrap text-xs font-semibold text-nanita-jam hover:underline"
+          className="whitespace-nowrap text-xs font-semibold text-estrelinha-primary hover:underline"
         >
           Ver carrinho
         </button>

@@ -37,23 +37,23 @@ const AuthEntry = () => {
   return (
     <div className="flex flex-col">
       <div className="space-y-1 mb-6">
-        <h2 className="font-heading text-2xl font-bold text-nanita-ink">Entrar ou criar conta</h2>
-        <p className="text-sm text-nanita-plum">Continue comprando seus pins favoritos</p>
+        <h2 className="font-heading text-2xl font-bold text-estrelinha-ink">Entrar ou criar conta</h2>
+        <p className="text-sm text-estrelinha-ink-soft">Continue comprando seus pins favoritos</p>
       </div>
 
       <Button
         type="button"
         variant="outline"
         onClick={loginWithGoogle}
-        className="w-full rounded-xl border-2 border-nanita-border hover:border-nanita-jam/30 hover:bg-nanita-sugar transition-all gap-2"
+        className="w-full rounded-xl border-2 border-estrelinha-line hover:border-estrelinha-primary/30 hover:bg-estrelinha-ground-deep transition-all gap-2"
       >
         <GoogleIcon />
         Continuar com Google
       </Button>
 
       <div className="relative my-5">
-        <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-nanita-border" /></div>
-        <div className="relative flex justify-center"><span className="bg-white px-3 text-xs text-nanita-plum">ou continue com e-mail</span></div>
+        <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-estrelinha-line" /></div>
+        <div className="relative flex justify-center"><span className="bg-white px-3 text-xs text-estrelinha-ink-soft">ou continue com e-mail</span></div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-2">
@@ -64,13 +64,13 @@ const AuthEntry = () => {
           placeholder="seu@email.com"
           value={email}
           onChange={(e) => setEmailLocal(e.target.value)}
-          className="rounded-xl border-nanita-border"
+          className="rounded-xl border-estrelinha-line"
         />
         {error && <p className="text-sm text-red-500" role="alert">{error}</p>}
         <Button
           type="submit"
           disabled={loading}
-          className="w-full rounded-sm bg-nanita-jam text-white border-0 hover:bg-nanita-jam hover:opacity-95 transition-all"
+          className="w-full rounded-sm bg-estrelinha-primary text-white border-0 hover:bg-estrelinha-primary hover:opacity-95 transition-all"
         >
           {loading ? 'Enviando...' : 'Enviar código'}
         </Button>
@@ -79,12 +79,12 @@ const AuthEntry = () => {
       <button
         type="button"
         onClick={() => { setEmail(email); goTo('password') }}
-        className="text-sm text-nanita-jam font-medium mt-4 mx-auto hover:underline"
+        className="text-sm text-estrelinha-primary font-medium mt-4 mx-auto hover:underline"
       >
         Prefere usar senha? Clique aqui
       </button>
 
-      <p className="text-xs text-nanita-plum text-center mt-5">
+      <p className="text-xs text-estrelinha-ink-soft text-center mt-5">
         Ao continuar, você concorda com os Termos de Uso e Política de Privacidade
       </p>
     </div>

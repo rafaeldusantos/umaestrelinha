@@ -25,12 +25,12 @@ const ProductDetailsAccordion = ({ product }: { product: Product }) => {
   return (
   <Accordion type="single" collapsible defaultValue={specs.length > 0 ? 'detalhes' : 'cuidados'} className="w-full">
     {specs.length > 0 && (
-    <AccordionItem value="detalhes" className="border-nanita-border">
-      <AccordionTrigger className="py-3.5 font-body text-[15px] font-bold leading-[18px] text-nanita-ink hover:no-underline">
+    <AccordionItem value="detalhes" className="border-estrelinha-line">
+      <AccordionTrigger className="py-3.5 font-body text-[15px] font-bold leading-[18px] text-estrelinha-ink hover:no-underline">
         Detalhes do Produto
       </AccordionTrigger>
       <AccordionContent className="pb-4">
-        <ul className="flex flex-col gap-1.5 text-[13px] leading-[20px] text-nanita-plum">
+        <ul className="flex flex-col gap-1.5 text-[13px] leading-[20px] text-estrelinha-ink-soft">
           {specs.map(spec => (
             <li key={spec}>• {spec}</li>
           ))}
@@ -39,12 +39,12 @@ const ProductDetailsAccordion = ({ product }: { product: Product }) => {
     </AccordionItem>
     )}
 
-    <AccordionItem value="cuidados" className="border-nanita-border">
-      <AccordionTrigger className="py-3.5 font-body text-[15px] font-bold leading-[18px] text-nanita-ink hover:no-underline">
+    <AccordionItem value="cuidados" className="border-estrelinha-line">
+      <AccordionTrigger className="py-3.5 font-body text-[15px] font-bold leading-[18px] text-estrelinha-ink hover:no-underline">
         Cuidados e Conservação
       </AccordionTrigger>
       <AccordionContent className="pb-4">
-        <ul className="flex flex-col gap-1.5 text-[13px] leading-[20px] text-nanita-plum">
+        <ul className="flex flex-col gap-1.5 text-[13px] leading-[20px] text-estrelinha-ink-soft">
           <li>• Limpe com pano seco e macio — nada de água nem produto abrasivo.</li>
           <li>• Guarde longe de umidade para o metal não manchar.</li>
           <li>• Evite prender em tecidos muito finos: o alfinete pode marcar.</li>
@@ -52,12 +52,12 @@ const ProductDetailsAccordion = ({ product }: { product: Product }) => {
       </AccordionContent>
     </AccordionItem>
 
-    <AccordionItem value="trocas" className="border-nanita-border">
-      <AccordionTrigger className="py-3.5 font-body text-[15px] font-bold leading-[18px] text-nanita-ink hover:no-underline">
+    <AccordionItem value="trocas" className="border-estrelinha-line">
+      <AccordionTrigger className="py-3.5 font-body text-[15px] font-bold leading-[18px] text-estrelinha-ink hover:no-underline">
         Política de Trocas
       </AccordionTrigger>
       <AccordionContent className="pb-4">
-        <ul className="flex flex-col gap-1.5 text-[13px] leading-[20px] text-nanita-plum">
+        <ul className="flex flex-col gap-1.5 text-[13px] leading-[20px] text-estrelinha-ink-soft">
           <li>• Você tem 7 dias corridos após o recebimento para desistir da compra.</li>
           <li>• Produto com defeito é trocado ou devolvido sem custo de frete.</li>
           <li>• Basta falar com a gente pelo WhatsApp ou pelo e-mail de contato.</li>
@@ -66,17 +66,17 @@ const ProductDetailsAccordion = ({ product }: { product: Product }) => {
     </AccordionItem>
 
     <AccordionItem value="faq" className="border-b-0">
-      <AccordionTrigger className="py-3.5 font-body text-[15px] font-bold leading-[18px] text-nanita-ink hover:no-underline">
+      <AccordionTrigger className="py-3.5 font-body text-[15px] font-bold leading-[18px] text-estrelinha-ink hover:no-underline">
         Perguntas Frequentes
       </AccordionTrigger>
       <AccordionContent className="pb-4">
-        <dl className="flex flex-col gap-3 text-[13px] leading-[20px] text-nanita-plum">
+        <dl className="flex flex-col gap-3 text-[13px] leading-[20px] text-estrelinha-ink-soft">
           <div>
-            <dt className="font-semibold text-nanita-ink">Em quanto tempo chega?</dt>
+            <dt className="font-semibold text-estrelinha-ink">Em quanto tempo chega?</dt>
             <dd>O prazo aparece no cálculo de frete acima, já com o tempo de produção.</dd>
           </div>
           <div>
-            <dt className="font-semibold text-nanita-ink">Dá para comprar em quantidade?</dt>
+            <dt className="font-semibold text-estrelinha-ink">Dá para comprar em quantidade?</dt>
             <dd>Dá — é só ajustar a quantidade antes de adicionar ao carrinho.</dd>
           </div>
         </dl>

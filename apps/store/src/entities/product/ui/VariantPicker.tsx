@@ -39,19 +39,19 @@ interface Props {
 const SURFACE = {
   card: {
     group: 'gap-1.5 pt-3 first:pt-0',
-    label: 'font-bold uppercase tracking-[0.12em] text-nanita-jam text-[11px] leading-[13px]',
+    label: 'font-bold uppercase tracking-[0.12em] text-estrelinha-primary text-[11px] leading-[13px]',
     row: 'gap-2',
     pill: 'h-10 flex-1 rounded-pill border text-[14px]',
   },
   sheet: {
     group: 'gap-2.5 pt-6 first:pt-0',
-    label: 'font-bold uppercase tracking-[0.12em] text-nanita-jam text-[11px] leading-[14px]',
+    label: 'font-bold uppercase tracking-[0.12em] text-estrelinha-primary text-[11px] leading-[14px]',
     row: 'gap-2.5',
     pill: 'h-12 flex-1 rounded-pill border text-[16px]',
   },
   page: {
     group: 'gap-2.5 pt-5 first:pt-0',
-    label: 'font-semibold text-nanita-ink text-[13px] leading-4',
+    label: 'font-semibold text-estrelinha-ink text-[13px] leading-4',
     // O board desenha 44×44 no chip de tamanho e um chip mais largo no de acabamento: é a mesma
     // caixa, com `px` e `min-w` de 44px — que é também o alvo de toque mínimo do mobile.
     row: 'flex-wrap gap-2',
@@ -69,9 +69,9 @@ const SURFACE = {
  * dois blocos chapados na mesma cor deixariam de existir uma ação primária (DESIGN.md §8).
  */
 const PICKED: Record<Surface, string> = {
-  card: 'border-nanita-jam bg-nanita-jam text-white',
-  sheet: 'border-nanita-jam bg-nanita-jam text-white',
-  page: 'border-nanita-jam bg-nanita-jam/[0.06] text-nanita-jam',
+  card: 'border-estrelinha-primary bg-estrelinha-primary text-white',
+  sheet: 'border-estrelinha-primary bg-estrelinha-primary text-white',
+  page: 'border-estrelinha-primary bg-estrelinha-primary/[0.06] text-estrelinha-primary',
 }
 
 const VariantPicker = ({ product, max, selected, onChange, surface = 'card' }: Props) => {
@@ -105,8 +105,8 @@ const VariantPicker = ({ product, max, selected, onChange, surface = 'card' }: P
                       isSelected
                         ? PICKED[surface]
                         : unavailable
-                          ? 'border-dashed border-nanita-border/70 font-medium text-nanita-plum/70'
-                          : 'border-nanita-border bg-nanita-sugar text-nanita-ink hover:border-nanita-jam/40'
+                          ? 'border-dashed border-estrelinha-line/70 font-medium text-estrelinha-ink-soft/70'
+                          : 'border-estrelinha-line bg-estrelinha-ground-deep text-estrelinha-ink hover:border-estrelinha-primary/40'
                     }`}
                   >
                     {value}

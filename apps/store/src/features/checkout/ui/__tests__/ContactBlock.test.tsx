@@ -227,15 +227,15 @@ describe('ContactBlock — colapsado (CHK-04)', () => {
 })
 
 describe('ContactBlock — paleta (CHK-04 / DESIGN.md §8)', () => {
-  it('aberto: nenhum elemento com bg-nanita-jam', () => {
+  it('aberto: nenhum elemento com bg-estrelinha-primary', () => {
     const { container } = renderOpen()
 
-    expect(container.querySelectorAll('[class*="bg-nanita-jam"]')).toHaveLength(0)
+    expect(container.querySelectorAll('[class*="bg-estrelinha-primary"]')).toHaveLength(0)
   })
 
-  it('colapsado: nenhum elemento com bg-nanita-jam', () => {
+  it('colapsado: nenhum elemento com bg-estrelinha-primary', () => {
     const { container } = renderCollapsed()
 
-    expect(container.querySelectorAll('[class*="bg-nanita-jam"]')).toHaveLength(0)
+    expect(container.querySelectorAll('[class*="bg-estrelinha-primary"]')).toHaveLength(0)
   })
 })

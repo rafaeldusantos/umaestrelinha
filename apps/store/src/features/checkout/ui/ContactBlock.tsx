@@ -4,7 +4,7 @@
 // `setGuestEmail` (captação de carrinho abandonado, CHK-11) e o checkbox de consentimento.
 // O CPF **não** está aqui — é dado do pagador e vive no bloco 3 (board `04`).
 //
-// Nenhum `bg-nanita-jam` neste arquivo: a única pílula geleia da tela é o CTA (CHK-04).
+// Nenhum `bg-estrelinha-primary` neste arquivo: a única pílula geleia da tela é o CTA (CHK-04).
 // Por isso o disco de "feito" é tinta, e não geleia como no board.
 import { useEffect, useRef } from 'react'
 import { Check } from 'lucide-react'
@@ -65,9 +65,9 @@ const ContactBlock = ({ open, complete, onEdit, onContinue, canContinue }: Props
     return (
       <section
         aria-label="Contato"
-        className="flex items-center gap-3 rounded-lg border border-nanita-border bg-white px-4 py-[22px]"
+        className="flex items-center gap-3 rounded-lg border border-estrelinha-line bg-white px-4 py-[22px]"
       >
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-nanita-ink">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-estrelinha-ink">
           {complete ? (
             <Check className="h-4 w-4 text-white" aria-label="Contato preenchido" />
           ) : (
@@ -75,10 +75,10 @@ const ContactBlock = ({ open, complete, onEdit, onContinue, canContinue }: Props
           )}
         </span>
         <div className="flex min-w-0 grow flex-col gap-[3px]">
-          <span className="text-xs font-semibold uppercase tracking-[0.1em] text-nanita-plum">
+          <span className="text-xs font-semibold uppercase tracking-[0.1em] text-estrelinha-ink-soft">
             Contato
           </span>
-          <span className="truncate text-[15px] font-semibold text-nanita-ink">
+          <span className="truncate text-[15px] font-semibold text-estrelinha-ink">
             {contact.name} · {contact.email}
           </span>
         </div>
@@ -88,7 +88,7 @@ const ContactBlock = ({ open, complete, onEdit, onContinue, canContinue }: Props
         <button
           type="button"
           onClick={onEdit}
-          className="flex min-h-11 shrink-0 items-center rounded-sm px-3 text-sm font-semibold text-nanita-jam hover:underline"
+          className="flex min-h-11 shrink-0 items-center rounded-sm px-3 text-sm font-semibold text-estrelinha-primary hover:underline"
         >
           Alterar
         </button>
@@ -99,17 +99,17 @@ const ContactBlock = ({ open, complete, onEdit, onContinue, canContinue }: Props
   return (
     <section
       aria-label="Contato"
-      className="flex flex-col gap-5 rounded-lg border border-nanita-border bg-white p-4"
+      className="flex flex-col gap-5 rounded-lg border border-estrelinha-line bg-white p-4"
     >
       <header className="flex items-center gap-3">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-nanita-ink font-heading text-base font-semibold text-white">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-estrelinha-ink font-heading text-base font-semibold text-white">
           1
         </span>
         <div className="flex grow flex-col gap-[2px]">
-          <h2 className="font-heading text-[21px] font-semibold tracking-[-0.02em] text-nanita-ink">
+          <h2 className="font-heading text-[21px] font-semibold tracking-[-0.02em] text-estrelinha-ink">
             Contato
           </h2>
-          <p className="text-[13px] text-nanita-plum">
+          <p className="text-[13px] text-estrelinha-ink-soft">
             Para o comprovante e os avisos de envio
           </p>
         </div>
@@ -117,7 +117,7 @@ const ContactBlock = ({ open, complete, onEdit, onContinue, canContinue }: Props
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-[7px]">
-          <Label htmlFor="contact-name" className="text-[13px] font-semibold text-nanita-ink">
+          <Label htmlFor="contact-name" className="text-[13px] font-semibold text-estrelinha-ink">
             Nome completo
           </Label>
           <Input
@@ -125,11 +125,11 @@ const ContactBlock = ({ open, complete, onEdit, onContinue, canContinue }: Props
             value={contact.name}
             onChange={(e) => edit({ name: e.target.value })}
             placeholder="Seu nome"
-            className="border-nanita-border"
+            className="border-estrelinha-line"
           />
         </div>
         <div className="flex flex-col gap-[7px]">
-          <Label htmlFor="contact-email" className="text-[13px] font-semibold text-nanita-ink">
+          <Label htmlFor="contact-email" className="text-[13px] font-semibold text-estrelinha-ink">
             E-mail
           </Label>
           <Input
@@ -138,13 +138,13 @@ const ContactBlock = ({ open, complete, onEdit, onContinue, canContinue }: Props
             value={contact.email}
             onChange={(e) => edit({ email: e.target.value })}
             placeholder="seu@email.com"
-            className="border-nanita-border"
+            className="border-estrelinha-line"
           />
         </div>
       </div>
 
       <div className="flex flex-col gap-[7px] sm:max-w-[260px]">
-        <Label htmlFor="contact-whatsapp" className="text-[13px] font-semibold text-nanita-ink">
+        <Label htmlFor="contact-whatsapp" className="text-[13px] font-semibold text-estrelinha-ink">
           WhatsApp
         </Label>
         <Input
@@ -152,15 +152,15 @@ const ContactBlock = ({ open, complete, onEdit, onContinue, canContinue }: Props
           value={contact.whatsapp}
           onChange={(e) => edit({ whatsapp: e.target.value })}
           placeholder="(11) 99999-9999"
-          className="border-nanita-border"
+          className="border-estrelinha-line"
         />
       </div>
 
-      <label className="flex cursor-pointer items-start gap-2 text-xs text-nanita-plum">
+      <label className="flex cursor-pointer items-start gap-2 text-xs text-estrelinha-ink-soft">
         <Checkbox
           checked={contact.consent}
           onCheckedChange={(v) => edit({ consent: v === true })}
-          className="mt-0.5 border-nanita-plum"
+          className="mt-0.5 border-estrelinha-ink-soft"
         />
         <span>
           Quero receber lembretes e novidades por e-mail. Você pode cancelar quando quiser.
@@ -173,7 +173,7 @@ const ContactBlock = ({ open, complete, onEdit, onContinue, canContinue }: Props
         type="button"
         disabled={!canContinue}
         onClick={onContinue}
-        className="min-h-11 self-start rounded-sm border-2 border-nanita-ink bg-transparent px-7 font-heading text-[15px] font-semibold text-nanita-ink hover:bg-nanita-sugar"
+        className="min-h-11 self-start rounded-sm border-2 border-estrelinha-ink bg-transparent px-7 font-heading text-[15px] font-semibold text-estrelinha-ink hover:bg-estrelinha-ground-deep"
       >
         Continuar
       </Button>

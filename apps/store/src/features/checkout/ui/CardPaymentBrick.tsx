@@ -79,7 +79,7 @@ const CardPaymentBrick = ({ amount, payerEmail, payerDocument, errorMessage }: P
       {errorMessage && (
         <p
           role="alert"
-          className="text-sm text-nanita-jam bg-nanita-sugar border border-nanita-jam/30 rounded-xl p-3"
+          className="text-sm text-estrelinha-primary bg-estrelinha-ground-deep border border-estrelinha-primary/30 rounded-xl p-3"
         >
           {errorMessage}
         </p>

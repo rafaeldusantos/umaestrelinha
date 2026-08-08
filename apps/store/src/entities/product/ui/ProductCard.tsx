@@ -33,8 +33,8 @@ import VariantSheet from './VariantSheet'
  */
 const CardBadge = ({ tone, children }: { tone: 'jam' | 'ink'; children: React.ReactNode }) => (
   <span
-    className={`nanita-eyebrow absolute left-3.5 top-3.5 z-10 rounded-pill px-2.5 py-1 text-[11px] font-bold text-white ${
-      tone === 'jam' ? 'bg-nanita-jam' : 'bg-nanita-ink'
+    className={`estrelinha-eyebrow absolute left-3.5 top-3.5 z-10 rounded-pill px-2.5 py-1 text-[11px] font-bold text-white ${
+      tone === 'jam' ? 'bg-estrelinha-primary' : 'bg-estrelinha-ink'
     }`}
   >
     {children}
@@ -128,16 +128,16 @@ const ProductCard = ({ product }: { product: Product }) => {
 
   const notifyAdded = () =>
     toast.custom(() => (
-      <div className="flex items-center gap-3 rounded-md border border-nanita-border bg-white p-3 shadow-nanita-soft">
+      <div className="flex items-center gap-3 rounded-md border border-estrelinha-line bg-white p-3 shadow-estrelinha-soft">
         <img src={product.image_url} alt={product.name} className="h-12 w-12 rounded-sm object-cover" />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-nanita-ink">{product.name}</p>
-          <p className="text-xs text-nanita-plum">Adicionado ao carrinho</p>
+          <p className="truncate text-sm font-medium text-estrelinha-ink">{product.name}</p>
+          <p className="text-xs text-estrelinha-ink-soft">Adicionado ao carrinho</p>
         </div>
         <button
           type="button"
           onClick={() => useCartUiStore.getState().openCart()}
-          className="whitespace-nowrap text-xs font-semibold text-nanita-jam hover:underline"
+          className="whitespace-nowrap text-xs font-semibold text-estrelinha-primary hover:underline"
         >
           Ver carrinho
         </button>
@@ -160,7 +160,7 @@ const ProductCard = ({ product }: { product: Product }) => {
     >
       <Link to={`/produto/${product.slug}`} className="block">
         {/* Palco do produto: quadrado em pó de açúcar. A foto é a única cor. */}
-        <div className="relative aspect-square overflow-hidden rounded-xl bg-nanita-sugar">
+        <div className="relative aspect-square overflow-hidden rounded-xl bg-estrelinha-ground-deep">
           {!imgLoaded && <Skeleton className="absolute inset-0 h-full w-full rounded-none" />}
           <img
             src={product.image_url}
@@ -189,7 +189,7 @@ const ProductCard = ({ product }: { product: Product }) => {
           >
             <Heart
               className={`h-4 w-4 transition-colors ${
-                isWishlisted ? 'fill-nanita-jam text-nanita-jam' : 'text-nanita-ink'
+                isWishlisted ? 'fill-estrelinha-primary text-estrelinha-primary' : 'text-estrelinha-ink'
               }`}
               strokeWidth={1.8}
             />
@@ -198,7 +198,7 @@ const ProductCard = ({ product }: { product: Product }) => {
           {!isOutOfStock && (
             <button
               onClick={handleAddToCart}
-              className="absolute bottom-3.5 right-3.5 z-10 flex h-[38px] w-[38px] items-center justify-center rounded-full bg-nanita-ink transition-transform hover:scale-110 active:scale-95"
+              className="absolute bottom-3.5 right-3.5 z-10 flex h-[38px] w-[38px] items-center justify-center rounded-full bg-estrelinha-ink transition-transform hover:scale-110 active:scale-95"
               aria-label="Adicionar ao carrinho"
             >
               <Plus className="h-[18px] w-[18px] text-white" strokeWidth={2.2} />
@@ -207,7 +207,7 @@ const ProductCard = ({ product }: { product: Product }) => {
 
           {isOutOfStock && (
             <div className="absolute inset-0 flex items-center justify-center bg-white/70 backdrop-blur-[2px]">
-              <span className="nanita-eyebrow rounded-pill bg-nanita-ink px-3 py-1.5 text-[11px] text-white">
+              <span className="estrelinha-eyebrow rounded-pill bg-estrelinha-ink px-3 py-1.5 text-[11px] text-white">
                 Esgotado
               </span>
             </div>
@@ -226,16 +226,16 @@ const ProductCard = ({ product }: { product: Product }) => {
         </div>
 
         <div className="mt-4 flex flex-col gap-[5px]">
-          {category && <p className="nanita-eyebrow text-nanita-plum">{category.name}</p>}
-          <h3 className="line-clamp-1 font-display text-[18px] font-medium leading-[1.39] text-nanita-ink transition-colors group-hover:text-nanita-jam">
+          {category && <p className="estrelinha-eyebrow text-estrelinha-ink-soft">{category.name}</p>}
+          <h3 className="line-clamp-1 font-display text-[18px] font-medium leading-[1.39] text-estrelinha-ink transition-colors group-hover:text-estrelinha-primary">
             {product.name}
           </h3>
           <div className="flex items-baseline gap-2">
-            <span className="font-display text-[20px] font-semibold leading-[1.2] text-nanita-jam">
+            <span className="font-display text-[20px] font-semibold leading-[1.2] text-estrelinha-primary">
               {formatPrice(product.price)}
             </span>
             {hasDiscount && (
-              <span className="text-[14px] font-medium text-nanita-plum line-through">
+              <span className="text-[14px] font-medium text-estrelinha-ink-soft line-through">
                 {formatPrice(product.compare_price!)}
               </span>
             )}

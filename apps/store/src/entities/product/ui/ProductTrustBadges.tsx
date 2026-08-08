@@ -58,13 +58,13 @@ const ProductTrustBadges = () => {
   if (items.length === 0) return null
 
   return (
-    <ul className="flex rounded-md bg-nanita-sugar p-3">
+    <ul className="flex rounded-md bg-estrelinha-ground-deep p-3">
       {items.map((item, i) => (
         <li key={item.key} className="flex flex-1 items-stretch">
-          {i > 0 && <span aria-hidden className="w-px shrink-0 bg-nanita-border" />}
+          {i > 0 && <span aria-hidden className="w-px shrink-0 bg-estrelinha-line" />}
           <span className="flex flex-1 flex-col items-center gap-1.5 px-1">
-            <item.icon className="h-5 w-5 shrink-0 text-nanita-jam" aria-hidden />
-            <span className="text-center text-[11px] font-semibold leading-[14px] text-nanita-ink">
+            <item.icon className="h-5 w-5 shrink-0 text-estrelinha-primary" aria-hidden />
+            <span className="text-center text-[11px] font-semibold leading-[14px] text-estrelinha-ink">
               {item.top}
               <br />
               {item.bottom}

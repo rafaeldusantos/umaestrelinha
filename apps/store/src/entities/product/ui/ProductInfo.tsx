@@ -28,8 +28,8 @@ interface Props {
  */
 const STOCK_TONE = {
   in: { dot: 'bg-[hsl(142_71%_45%)]', text: 'text-[hsl(142_71%_30%)]' },
-  low: { dot: 'bg-nanita-raspberry', text: 'text-nanita-jam' },
-  out: { dot: 'bg-nanita-plum', text: 'text-nanita-plum' },
+  low: { dot: 'bg-estrelinha-accent-strong', text: 'text-estrelinha-primary' },
+  out: { dot: 'bg-estrelinha-ink-soft', text: 'text-estrelinha-ink-soft' },
 } as const
 
 /**
@@ -65,32 +65,32 @@ const ProductInfo = ({ product, categoryName, purchase }: Props) => {
       {(categoryName || product.is_new) && (
         <div className="mb-3 flex flex-wrap items-center gap-2">
           {categoryName && (
-            <span className="rounded-pill border border-nanita-jam/25 bg-nanita-jam/[0.08] px-2.5 py-1 text-[12px] font-semibold leading-3 text-nanita-jam">
+            <span className="rounded-pill border border-estrelinha-primary/25 bg-estrelinha-primary/[0.08] px-2.5 py-1 text-[12px] font-semibold leading-3 text-estrelinha-primary">
               {categoryName}
             </span>
           )}
           {product.is_new && (
-            <span className="rounded-pill bg-nanita-ink px-2.5 py-1 text-[12px] font-semibold leading-3 text-white">
+            <span className="rounded-pill bg-estrelinha-ink px-2.5 py-1 text-[12px] font-semibold leading-3 text-white">
               Novo
             </span>
           )}
         </div>
       )}
 
-      <h1 className="font-display text-[28px] font-semibold leading-[34px] tracking-[-0.02em] text-nanita-ink md:text-[36px] md:leading-[42px]">
+      <h1 className="font-display text-[28px] font-semibold leading-[34px] tracking-[-0.02em] text-estrelinha-ink md:text-[36px] md:leading-[42px]">
         {product.name}
       </h1>
 
       <div className="mt-5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <span className="font-display text-[32px] font-semibold leading-[38px] text-nanita-jam">
+        <span className="font-display text-[32px] font-semibold leading-[38px] text-estrelinha-primary">
           {formatPrice(price)}
         </span>
         {savings && (
           <>
-            <span className="text-[16px] leading-5 text-nanita-plum line-through">
+            <span className="text-[16px] leading-5 text-estrelinha-ink-soft line-through">
               {formatPrice(savings.compareAt)}
             </span>
-            <span className="rounded-sm bg-nanita-jam/[0.09] px-2 py-0.5 text-[12px] font-bold leading-4 text-nanita-jam">
+            <span className="rounded-sm bg-estrelinha-primary/[0.09] px-2 py-0.5 text-[12px] font-bold leading-4 text-estrelinha-primary">
               Economize {formatPrice(savings.saved)}
             </span>
           </>
@@ -98,20 +98,20 @@ const ProductInfo = ({ product, categoryName, purchase }: Props) => {
       </div>
 
       {installments && installments.count > 1 && (
-        <p className="mt-1 text-[13px] leading-4 text-nanita-plum">
+        <p className="mt-1 text-[13px] leading-4 text-estrelinha-ink-soft">
           ou {installments.count}x de {formatPrice(installments.value)} sem juros
         </p>
       )}
 
       {product.description && (
-        <p className="mt-5 max-w-[520px] text-[15px] leading-[24px] text-nanita-plum">
+        <p className="mt-5 max-w-[520px] text-[15px] leading-[24px] text-estrelinha-ink-soft">
           {product.description}
         </p>
       )}
 
       {sellableGrid && (
         <>
-          <hr className="mt-5 border-nanita-border" />
+          <hr className="mt-5 border-estrelinha-line" />
           <div className="mt-4 flex flex-col">
             <VariantPicker
               product={product}
@@ -121,7 +121,7 @@ const ProductInfo = ({ product, categoryName, purchase }: Props) => {
               onChange={select}
             />
             {!canAdd && (
-              <p className="mt-3 text-[13px] font-medium text-nanita-jam">
+              <p className="mt-3 text-[13px] font-medium text-estrelinha-primary">
                 Essa combinação está indisponível no momento.
               </p>
             )}
@@ -129,7 +129,7 @@ const ProductInfo = ({ product, categoryName, purchase }: Props) => {
         </>
       )}
 
-      <hr className="mt-5 border-nanita-border" />
+      <hr className="mt-5 border-estrelinha-line" />
 
       <p className="mt-3 flex flex-wrap items-center gap-1.5 text-[13px] leading-4">
         <span
@@ -137,13 +137,13 @@ const ProductInfo = ({ product, categoryName, purchase }: Props) => {
           className={`h-2 w-2 shrink-0 rounded-full ${STOCK_TONE[stock.tone].dot}`}
         />
         <span className={`font-medium ${STOCK_TONE[stock.tone].text}`}>{stock.label}</span>
-        {stock.note && <span className="text-[12px] text-nanita-plum">{stock.note}</span>}
+        {stock.note && <span className="text-[12px] text-estrelinha-ink-soft">{stock.note}</span>}
       </p>
 
       {/* O CTA da coluna é escondido no mobile: lá quem compra é a barra fixa do rodapé, e dois
           "Adicionar ao Carrinho" na mesma tela é duas ações primárias (DESIGN.md §8). */}
       <div className="mt-3 hidden items-center gap-3 md:flex">
-        <div className="flex items-center rounded-md bg-nanita-sugar p-1">
+        <div className="flex items-center rounded-md bg-estrelinha-ground-deep p-1">
           <button
             type="button"
             onClick={() => setQty(qty - 1)}
@@ -151,11 +151,11 @@ const ProductInfo = ({ product, categoryName, purchase }: Props) => {
             aria-label="Diminuir quantidade"
             className="flex h-10 w-10 items-center justify-center rounded-sm transition-colors hover:bg-white disabled:opacity-40 disabled:hover:bg-transparent"
           >
-            <Minus className="h-4 w-4 text-nanita-ink" />
+            <Minus className="h-4 w-4 text-estrelinha-ink" />
           </button>
           <span
             aria-live="polite"
-            className="w-9 text-center font-display text-[15px] font-semibold text-nanita-ink"
+            className="w-9 text-center font-display text-[15px] font-semibold text-estrelinha-ink"
           >
             {qty}
           </span>
@@ -165,7 +165,7 @@ const ProductInfo = ({ product, categoryName, purchase }: Props) => {
             aria-label="Aumentar quantidade"
             className="flex h-10 w-10 items-center justify-center rounded-sm transition-colors hover:bg-white"
           >
-            <Plus className="h-4 w-4 text-nanita-ink" />
+            <Plus className="h-4 w-4 text-estrelinha-ink" />
           </button>
         </div>
 
@@ -173,7 +173,7 @@ const ProductInfo = ({ product, categoryName, purchase }: Props) => {
           type="button"
           onClick={add}
           disabled={!canAdd}
-          className="flex h-12 flex-1 items-center justify-center gap-2 rounded-sm bg-nanita-jam font-display text-[15px] font-semibold text-white transition-transform hover:scale-[1.01] disabled:scale-100 disabled:opacity-50"
+          className="flex h-12 flex-1 items-center justify-center gap-2 rounded-sm bg-estrelinha-primary font-display text-[15px] font-semibold text-white transition-transform hover:scale-[1.01] disabled:scale-100 disabled:opacity-50"
         >
           <ShoppingCart className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden />
           {canAdd ? 'Adicionar ao Carrinho' : 'Indisponível'}
@@ -185,12 +185,12 @@ const ProductInfo = ({ product, categoryName, purchase }: Props) => {
           aria-label={isWishlisted ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
           className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-md border-2 transition-colors ${
             isWishlisted
-              ? 'border-nanita-jam bg-nanita-jam/[0.06]'
-              : 'border-nanita-border hover:border-nanita-jam/50'
+              ? 'border-estrelinha-primary bg-estrelinha-primary/[0.06]'
+              : 'border-estrelinha-line hover:border-estrelinha-primary/50'
           }`}
         >
           <Heart
-            className={`h-5 w-5 ${isWishlisted ? 'fill-nanita-jam text-nanita-jam' : 'text-nanita-plum'}`}
+            className={`h-5 w-5 ${isWishlisted ? 'fill-estrelinha-primary text-estrelinha-primary' : 'text-estrelinha-ink-soft'}`}
             strokeWidth={1.8}
           />
         </button>
@@ -211,7 +211,7 @@ const ProductInfo = ({ product, categoryName, purchase }: Props) => {
           rel="noopener noreferrer"
           /* Link, e não o botão verde de antes: o board não tem segunda ação, e um bloco cheio de
              cor ao lado do CTA em geleia disputava a ação primária. */
-          className="mt-4 inline-flex items-center gap-1.5 self-start text-[13px] font-semibold text-nanita-jam hover:underline"
+          className="mt-4 inline-flex items-center gap-1.5 self-start text-[13px] font-semibold text-estrelinha-primary hover:underline"
         >
           <MessageCircle className="h-4 w-4" strokeWidth={1.8} aria-hidden />
           Tirar uma dúvida sobre este botton no WhatsApp

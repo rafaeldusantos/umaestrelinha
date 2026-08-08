@@ -591,16 +591,16 @@ describe('DeliveryBlock — o que suja o bloco (FLW-01, FLW-04)', () => {
 })
 
 describe('DeliveryBlock — paleta (CHK-04 / DESIGN.md §8)', () => {
-  it('nenhum elemento com bg-nanita-jam', () => {
+  it('nenhum elemento com bg-estrelinha-primary', () => {
     withCep()
     cepLookup(RESOLVED)
     quoteState({ data: [PAC, SEDEX] })
     const { container } = renderOpen()
 
-    expect(container.querySelectorAll('[class*="bg-nanita-jam"]')).toHaveLength(0)
+    expect(container.querySelectorAll('[class*="bg-estrelinha-primary"]')).toHaveLength(0)
   })
 
-  it('nenhuma classe de cor fora da paleta Nanita', () => {
+  it('nenhuma classe de cor fora da paleta Uma Estrelinha', () => {
     withCep()
     cepLookup(RESOLVED)
     quoteState({ isError: true })

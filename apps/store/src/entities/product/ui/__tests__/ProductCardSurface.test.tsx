@@ -54,7 +54,7 @@ const renderCard = (p: Product) =>
 describe('card de produto — superfícies', () => {
   it('o palco da foto é Mata-borrão', () => {
     const { container } = renderCard(product())
-    expect(container.querySelector('.bg-nanita-sugar')).not.toBeNull()
+    expect(container.querySelector('.bg-estrelinha-ground-deep')).not.toBeNull()
   })
 
   it('o disco de adicionar é Grafite e continua DISCO', () => {
@@ -62,7 +62,7 @@ describe('card de produto — superfícies', () => {
     // o produto é redondo. É a única exceção declarada da regra.
     renderCard(product())
     const add = screen.getByRole('button', { name: /adicionar ao carrinho/i })
-    expect(add).toHaveClass('bg-nanita-ink', 'rounded-full')
+    expect(add).toHaveClass('bg-estrelinha-ink', 'rounded-full')
     expect(add).not.toHaveClass('rounded-sm')
   })
 
@@ -76,12 +76,12 @@ describe('card de produto — só o desconto ganha cor de dinheiro', () => {
   it('o preço sai em Carmim', () => {
     // Prancha 20b: Carmim é "todo o dinheiro da tela".
     renderCard(product())
-    expect(screen.getByText('R$ 8,90')).toHaveClass('text-nanita-jam')
+    expect(screen.getByText('R$ 8,90')).toHaveClass('text-estrelinha-primary')
   })
 
   it('o selo de desconto é Carmim', () => {
     renderCard(product({ price: 7.5, compare_price: 8.9 }))
-    expect(screen.getByText('-16%')).toHaveClass('bg-nanita-jam')
+    expect(screen.getByText('-16%')).toHaveClass('bg-estrelinha-primary')
   })
 
   it.each([
@@ -91,13 +91,13 @@ describe('card de produto — só o desconto ganha cor de dinheiro', () => {
   ])('o selo "%s" é Grafite, não Carmim', (label, overrides) => {
     renderCard(product(overrides as Partial<Product>))
     const badge = screen.getByText(label)
-    expect(badge).toHaveClass('bg-nanita-ink')
-    expect(badge).not.toHaveClass('bg-nanita-jam')
+    expect(badge).toHaveClass('bg-estrelinha-ink')
+    expect(badge).not.toHaveClass('bg-estrelinha-primary')
   })
 
   it('o preço riscado é Carbono, não Carmim — dois vermelhos empatariam', () => {
     renderCard(product({ price: 7.5, compare_price: 8.9 }))
-    expect(screen.getByText('R$ 8,90')).toHaveClass('text-nanita-plum', 'line-through')
+    expect(screen.getByText('R$ 8,90')).toHaveClass('text-estrelinha-ink-soft', 'line-through')
   })
 })
 
@@ -107,7 +107,7 @@ describe('card de produto — tipografia', () => {
     expect(screen.getByRole('heading', { name: 'Botton Naruto Uzumaki' })).toHaveClass(
       'font-display',
       'font-medium',
-      'text-nanita-ink',
+      'text-estrelinha-ink',
     )
   })
 })

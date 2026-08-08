@@ -41,7 +41,7 @@ const QuickAddDrawer = ({ product, selected, onChange, onConfirm, onDismiss, pri
         type="button"
         aria-label="Fechar seleção de variações"
         onClick={onDismiss}
-        className="absolute inset-0 cursor-default bg-nanita-ink/[0.38]"
+        className="absolute inset-0 cursor-default bg-estrelinha-ink/[0.38]"
       />
 
       <motion.div
@@ -52,7 +52,7 @@ const QuickAddDrawer = ({ product, selected, onChange, onConfirm, onDismiss, pri
         // curva do drawer desencontra da curva da imagem e sobra uma lasca de fundo no canto.
         className="absolute inset-x-0 bottom-0 flex flex-col rounded-xl bg-white px-5 pb-4 pt-3"
       >
-        <span aria-hidden className="mx-auto mb-2.5 h-1 w-9 shrink-0 rounded-pill bg-nanita-border" />
+        <span aria-hidden className="mx-auto mb-2.5 h-1 w-9 shrink-0 rounded-pill bg-estrelinha-line" />
 
         <VariantPicker
           product={product}
@@ -66,7 +66,7 @@ const QuickAddDrawer = ({ product, selected, onChange, onConfirm, onDismiss, pri
           type="button"
           disabled={!canAdd}
           onClick={onConfirm}
-          className="mt-3.5 flex h-11 w-full items-center justify-center rounded-sm bg-nanita-jam font-display text-[15px] font-semibold tracking-[-0.01em] text-white transition-colors hover:bg-nanita-jam/90 disabled:bg-nanita-plum/40"
+          className="mt-3.5 flex h-11 w-full items-center justify-center rounded-sm bg-estrelinha-primary font-display text-[15px] font-semibold tracking-[-0.01em] text-white transition-colors hover:bg-estrelinha-primary/90 disabled:bg-estrelinha-ink-soft/40"
         >
           {canAdd ? `Adicionar · ${formatPrice(price)}` : 'Indisponível'}
         </button>

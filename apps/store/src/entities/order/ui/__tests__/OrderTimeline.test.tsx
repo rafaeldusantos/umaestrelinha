@@ -4,7 +4,7 @@ import OrderTimeline from '../OrderTimeline'
 
 // CNF-04: timeline de 4 estágios (`Pago · Em preparo · Postado · Entregue`) com o estágio atual
 //         destacado e a janela de entrega lida das colunas de estimativa do pedido (SHP-08).
-// CNF-06: os estados se distinguem por **forma** e pelos tokens `nanita-*` — preenchido =
+// CNF-06: os estados se distinguem por **forma** e pelos tokens `estrelinha-*` — preenchido =
 //         concluído, anel = atual, contorno = futuro. Nenhuma cor fora da paleta.
 
 const ESTIMATE = { min: '2026-08-04', max: '2026-08-06' }
@@ -17,7 +17,7 @@ const discShape = (index: number) => {
   const disc = screen.getAllByTestId('stage-disc')[index]
   return disc.className
     .split(/\s+/)
-    .filter((cls) => !/^(bg|text|border)-(nanita|white)/.test(cls))
+    .filter((cls) => !/^(bg|text|border)-(estrelinha|white)/.test(cls))
     .join(' ')
 }
 
@@ -134,7 +134,7 @@ describe('OrderTimeline — estados por forma e paleta (CNF-06)', () => {
     expect(discs[2].querySelector('svg')).not.toBeNull()
   })
 
-  it('nenhuma classe de cor fora da paleta Nanita em nenhum estado', () => {
+  it('nenhuma classe de cor fora da paleta Uma Estrelinha em nenhum estado', () => {
     const { container: paid } = render(
       <OrderTimeline status="pending" paidAt="2026-07-27T12:00:00Z" estimate={ESTIMATE} />,
     )

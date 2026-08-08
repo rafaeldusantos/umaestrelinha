@@ -214,16 +214,16 @@ describe('PixPayment — valor a pagar e saída para a conta (CNF-01, CNF-02)', 
   })
 })
 
-// CNF-06: os estados desta tela se distinguem por forma e pelos tokens `nanita-*`.
+// CNF-06: os estados desta tela se distinguem por forma e pelos tokens `estrelinha-*`.
 // O grep da spec (utilitários de vermelho/verde/azul/amarelo/roxo do Tailwind) volta zero.
-describe('PixPayment — estados na paleta Nanita (CNF-06)', () => {
+describe('PixPayment — estados na paleta Uma Estrelinha (CNF-06)', () => {
   it('erro na criação usa geleia sobre pó de açúcar, sem vermelho', async () => {
     mutateAsync.mockRejectedValue(new Error('Não foi possível iniciar o pagamento. Tente novamente.'))
     render(<PixPayment orderId="order-1" onApproved={onApproved} />)
 
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveClass('text-nanita-jam')
-    expect(alert).toHaveClass('bg-nanita-sugar')
+    expect(alert).toHaveClass('text-estrelinha-primary')
+    expect(alert).toHaveClass('bg-estrelinha-ground-deep')
   })
 
   it('contador nos últimos 5 minutos vira geleia em vez de vermelho', async () => {
@@ -235,7 +235,7 @@ describe('PixPayment — estados na paleta Nanita (CNF-06)', () => {
     render(<PixPayment orderId="order-1" onApproved={onApproved} />)
     await screen.findByTestId('qr')
 
-    expect(screen.getByText(/^0[01]:\d{2}$/)).toHaveClass('text-nanita-jam')
+    expect(screen.getByText(/^0[01]:\d{2}$/)).toHaveClass('text-estrelinha-primary')
   })
 
   it('confirmação de "copiado" usa geleia em vez de verde', async () => {
@@ -247,7 +247,7 @@ describe('PixPayment — estados na paleta Nanita (CNF-06)', () => {
     fireEvent.click(screen.getByLabelText('Copiar código'))
 
     const check = await screen.findByLabelText('Código copiado')
-    expect(check).toHaveClass('text-nanita-jam')
+    expect(check).toHaveClass('text-estrelinha-primary')
   })
 
   // `DESIGN.md` §8: uma única pílula geleia por tela. Esta superfície monta dentro do checkout,
@@ -257,9 +257,9 @@ describe('PixPayment — estados na paleta Nanita (CNF-06)', () => {
     const { container } = render(<PixPayment orderId="order-1" onApproved={onApproved} />)
 
     const retry = await screen.findByRole('button', { name: /tentar novamente/i })
-    expect(retry.className).toContain('border-nanita-ink')
-    expect(retry.className).not.toContain('bg-nanita-jam')
-    expect(container.querySelectorAll('[class*="bg-nanita-jam"]')).toHaveLength(0)
+    expect(retry.className).toContain('border-estrelinha-ink')
+    expect(retry.className).not.toContain('bg-estrelinha-primary')
+    expect(container.querySelectorAll('[class*="bg-estrelinha-primary"]')).toHaveLength(0)
   })
 
   it('o CTA de código expirado é secundário (contorno tinta), não uma segunda pílula geleia', async () => {
@@ -267,9 +267,9 @@ describe('PixPayment — estados na paleta Nanita (CNF-06)', () => {
     const { container } = render(<PixPayment orderId="order-1" onApproved={onApproved} />)
 
     const regenerate = await screen.findByRole('button', { name: /gerar novo código/i })
-    expect(regenerate.className).toContain('border-nanita-ink')
-    expect(regenerate.className).not.toContain('bg-nanita-jam')
-    expect(container.querySelectorAll('[class*="bg-nanita-jam"]')).toHaveLength(0)
+    expect(regenerate.className).toContain('border-estrelinha-ink')
+    expect(regenerate.className).not.toContain('bg-estrelinha-primary')
+    expect(container.querySelectorAll('[class*="bg-estrelinha-primary"]')).toHaveLength(0)
   })
 
   it('nenhuma classe de cor fora da paleta em nenhum estado renderizado', async () => {

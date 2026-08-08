@@ -18,8 +18,8 @@ const PREVIEW_LIMIT = 6
 /** Pílulas de "Em alta agora" — 8 preenche duas linhas de 390px sem estourar a terceira. */
 const TRENDING_LIMIT = 8
 
-const SECTION_LABEL = 'text-[11px] font-bold uppercase tracking-[0.08em] text-nanita-plum'
-const LINK_ACTION = 'text-[11px] font-semibold text-nanita-jam'
+const SECTION_LABEL = 'text-[11px] font-bold uppercase tracking-[0.08em] text-estrelinha-ink-soft'
+const LINK_ACTION = 'text-[11px] font-semibold text-estrelinha-primary'
 
 /**
  * Busca em tela cheia — board "Mobile Search Open - v3".
@@ -109,10 +109,10 @@ const SearchOverlay = () => {
             e.preventDefault()
             submit(query)
           }}
-          className="flex shrink-0 items-center gap-3 border-b border-nanita-border px-5 py-3.5"
+          className="flex shrink-0 items-center gap-3 border-b border-estrelinha-line px-5 py-3.5"
         >
-          <div className="flex flex-1 items-center gap-2.5 rounded-md border-2 border-nanita-jam bg-nanita-sugar px-3.5 py-2.5">
-            <Search className="h-4 w-4 shrink-0 text-nanita-jam" strokeWidth={2.5} aria-hidden />
+          <div className="flex flex-1 items-center gap-2.5 rounded-md border-2 border-estrelinha-primary bg-estrelinha-ground-deep px-3.5 py-2.5">
+            <Search className="h-4 w-4 shrink-0 text-estrelinha-primary" strokeWidth={2.5} aria-hidden />
             <input
               ref={inputRef}
               value={query}
@@ -130,7 +130,7 @@ const SearchOverlay = () => {
               autoCorrect="off"
               autoCapitalize="none"
               spellCheck={false}
-              className="min-w-0 flex-1 bg-transparent text-[15px] font-medium text-nanita-ink outline-none placeholder:font-normal placeholder:text-nanita-plum"
+              className="min-w-0 flex-1 bg-transparent text-[15px] font-medium text-estrelinha-ink outline-none placeholder:font-normal placeholder:text-estrelinha-ink-soft"
             />
             {query && (
               <button
@@ -142,8 +142,8 @@ const SearchOverlay = () => {
                 aria-label="Limpar busca"
                 className="-mr-1 flex h-8 w-8 shrink-0 items-center justify-center"
               >
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-nanita-border">
-                  <X className="h-3 w-3 text-nanita-jam" strokeWidth={3} aria-hidden />
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-estrelinha-line">
+                  <X className="h-3 w-3 text-estrelinha-primary" strokeWidth={3} aria-hidden />
                 </span>
               </button>
             )}
@@ -151,7 +151,7 @@ const SearchOverlay = () => {
           <button
             type="button"
             onClick={closeSearch}
-            className="-mr-1 flex h-11 shrink-0 items-center px-1 text-sm font-semibold text-nanita-jam"
+            className="-mr-1 flex h-11 shrink-0 items-center px-1 text-sm font-semibold text-estrelinha-primary"
           >
             Cancelar
           </button>
@@ -159,7 +159,7 @@ const SearchOverlay = () => {
 
         <div className="flex-1 overflow-y-auto overscroll-contain pb-[env(safe-area-inset-bottom)]">
           {searching && (
-            <section className="flex flex-col border-b border-nanita-border py-2">
+            <section className="flex flex-col border-b border-estrelinha-line py-2">
               <div className="flex items-center gap-2 px-5 py-2">
                 <h2 className={SECTION_LABEL}>Resultados para "{query.trim()}"</h2>
                 <div className="flex-1" />
@@ -172,10 +172,10 @@ const SearchOverlay = () => {
 
               {hits.length === 0 ? (
                 <div className="px-5 pb-4 pt-1">
-                  <p className="text-sm font-medium text-nanita-ink">
+                  <p className="text-sm font-medium text-estrelinha-ink">
                     Nenhum botton para "{query.trim()}" 😢
                   </p>
-                  <p className="mt-1 text-[13px] text-nanita-plum">
+                  <p className="mt-1 text-[13px] text-estrelinha-ink-soft">
                     Tenta o nome do anime, do grupo ou do personagem — ou olha as coleções em alta
                     aqui embaixo.
                   </p>
@@ -190,9 +190,9 @@ const SearchOverlay = () => {
                         <Link
                           to={`/produto/${product.slug}`}
                           onClick={() => remember(query)}
-                          className="flex items-center gap-3 px-5 py-2.5 active:bg-nanita-sugar"
+                          className="flex items-center gap-3 px-5 py-2.5 active:bg-estrelinha-ground-deep"
                         >
-                          <span className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-md bg-nanita-sugar">
+                          <span className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-md bg-estrelinha-ground-deep">
                             {product.image_url ? (
                               <img
                                 src={product.image_url}
@@ -201,18 +201,18 @@ const SearchOverlay = () => {
                                 className="h-full w-full object-cover"
                               />
                             ) : (
-                              <span className="font-display text-lg font-bold text-nanita-jam/25">N</span>
+                              <span className="font-display text-lg font-bold text-estrelinha-primary/25">N</span>
                             )}
                           </span>
                           <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                            <span className="truncate text-sm font-semibold text-nanita-ink">
+                            <span className="truncate text-sm font-semibold text-estrelinha-ink">
                               {product.name}
                             </span>
-                            <span className="truncate text-xs font-medium text-nanita-plum">
+                            <span className="truncate text-xs font-medium text-estrelinha-ink-soft">
                               {soldOut ? 'Esgotado' : trail || 'Nanita'}
                             </span>
                           </span>
-                          <span className="shrink-0 text-sm font-bold text-nanita-jam">
+                          <span className="shrink-0 text-sm font-bold text-estrelinha-primary">
                             {formatPrice(product.price)}
                           </span>
                         </Link>
@@ -225,7 +225,7 @@ const SearchOverlay = () => {
           )}
 
           {!searching && recent.length > 0 && (
-            <section className="flex flex-col border-b border-nanita-border px-5 py-3">
+            <section className="flex flex-col border-b border-estrelinha-line px-5 py-3">
               <div className="flex items-center justify-between pb-3">
                 <h2 className={SECTION_LABEL}>Buscas recentes</h2>
                 <button
@@ -244,8 +244,8 @@ const SearchOverlay = () => {
                       onClick={() => submit(term)}
                       className="flex w-full items-center gap-2.5 py-2.5 text-left"
                     >
-                      <Clock className="h-3.5 w-3.5 shrink-0 text-nanita-plum" strokeWidth={2} aria-hidden />
-                      <span className="truncate text-sm font-medium text-nanita-ink">{term}</span>
+                      <Clock className="h-3.5 w-3.5 shrink-0 text-estrelinha-ink-soft" strokeWidth={2} aria-hidden />
+                      <span className="truncate text-sm font-medium text-estrelinha-ink">{term}</span>
                     </button>
                   </li>
                 ))}
@@ -263,9 +263,9 @@ const SearchOverlay = () => {
                       to={`/colecao/${cat.slug}`}
                       onClick={closeSearch}
                       /* Duas tonalidades alternadas dão ritmo à nuvem sem inventar uma terceira cor:
-                         o board usava um lilás que não existe mais na paleta Nanita. */
-                      className={`flex items-center gap-1.5 rounded-pill px-3.5 py-2 text-[13px] font-semibold text-nanita-jam ${
-                        index % 2 === 0 ? 'bg-nanita-sugar' : 'bg-nanita-border'
+                         o board usava um lilás que não existe mais na paleta Uma Estrelinha. */
+                      className={`flex items-center gap-1.5 rounded-pill px-3.5 py-2 text-[13px] font-semibold text-estrelinha-primary ${
+                        index % 2 === 0 ? 'bg-estrelinha-ground-deep' : 'bg-estrelinha-line'
                       }`}
                     >
                       {cat.emoji && <span aria-hidden>{cat.emoji}</span>}

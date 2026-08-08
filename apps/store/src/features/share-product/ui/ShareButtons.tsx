@@ -30,28 +30,28 @@ const ShareButtons = ({ name, url }: Props) => {
 
   return (
     <div className="flex items-center gap-2">
-      <span className="text-xs text-nanita-plum">Compartilhar:</span>
+      <span className="text-xs text-estrelinha-ink-soft">Compartilhar:</span>
       <button
         onClick={handleWhatsApp}
-        className="p-2 rounded-full hover:bg-nanita-sugar transition-colors"
+        className="p-2 rounded-full hover:bg-estrelinha-ground-deep transition-colors"
         aria-label="Compartilhar no WhatsApp"
       >
-        <MessageCircle className="w-4 h-4 text-nanita-plum" />
+        <MessageCircle className="w-4 h-4 text-estrelinha-ink-soft" />
       </button>
       <button
         onClick={handleCopy}
-        className="p-2 rounded-full hover:bg-nanita-sugar transition-colors"
+        className="p-2 rounded-full hover:bg-estrelinha-ground-deep transition-colors"
         aria-label="Copiar link"
       >
-        <Copy className="w-4 h-4 text-nanita-plum" />
+        <Copy className="w-4 h-4 text-estrelinha-ink-soft" />
       </button>
       {typeof navigator !== 'undefined' && 'share' in navigator && (
         <button
           onClick={handleShare}
-          className="p-2 rounded-full hover:bg-nanita-sugar transition-colors"
+          className="p-2 rounded-full hover:bg-estrelinha-ground-deep transition-colors"
           aria-label="Compartilhar"
         >
-          <Share2 className="w-4 h-4 text-nanita-plum" />
+          <Share2 className="w-4 h-4 text-estrelinha-ink-soft" />
         </button>
       )}
     </div>

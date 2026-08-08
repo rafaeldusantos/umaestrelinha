@@ -540,7 +540,7 @@ describe('OrderSummary — faixa do cupom aplicado (RSM-02, RSM-03)', () => {
 
     const band = screen.getByText('NANA10 aplicado').parentElement!
     expect(band.className).toContain('border-y')
-    expect(within(band).getByText('−R$ 5,96').className).toContain('text-nanita-jam')
+    expect(within(band).getByText('−R$ 5,96').className).toContain('text-estrelinha-primary')
     expect(within(band).getByRole('button', { name: 'Remover cupom' })).toBeInTheDocument()
     // RSM-02 enumera cinco elementos, e o ícone de etiqueta é um deles — o board abre a faixa com
     // ele. Sem esta linha, remover o ícone não quebra teste nenhum.
@@ -640,11 +640,11 @@ describe('OrderSummary — paleta (DESIGN.md §8)', () => {
   it('nenhuma pílula geleia e nenhuma manteiga sobre branco', () => {
     const { container } = render(<OrderSummary variant="sidebar" />)
 
-    expect(container.querySelectorAll('[class*="bg-nanita-jam"]')).toHaveLength(0)
-    expect(container.querySelectorAll('[class*="nanita-butter"]')).toHaveLength(0)
+    expect(container.querySelectorAll('[class*="bg-estrelinha-primary"]')).toHaveLength(0)
+    expect(container.querySelectorAll('[class*="estrelinha-accent"]')).toHaveLength(0)
   })
 
-  it('nenhuma classe de cor fora da paleta Nanita', () => {
+  it('nenhuma classe de cor fora da paleta Uma Estrelinha', () => {
     const { container } = render(<OrderSummary variant="sidebar" />)
 
     expect(container.innerHTML).not.toMatch(

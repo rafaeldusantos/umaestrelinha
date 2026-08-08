@@ -118,8 +118,8 @@ describe('CardPaymentBrick — mensagem de erro por prop (PAY-02, CNF-06)', () =
 
     const alert = screen.getByRole('alert')
     expect(alert).toHaveTextContent('Saldo insuficiente no cartão.')
-    expect(alert).toHaveClass('text-nanita-jam')
-    expect(alert).toHaveClass('bg-nanita-sugar')
+    expect(alert).toHaveClass('text-estrelinha-primary')
+    expect(alert).toHaveClass('bg-estrelinha-ground-deep')
     expect(container.innerHTML).not.toMatch(
       /bg-(yellow|blue|purple|green|red)-|text-(green|red|yellow|blue|purple)-[0-9]/,
     )

@@ -74,7 +74,7 @@ const SearchDropdown = ({ onClose, mobile }: Props) => {
   return (
     <div ref={ref} className={`relative ${mobile ? 'w-full' : ''}`}>
       <form onSubmit={handleSubmit} className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-nanita-plum" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-estrelinha-ink-soft" />
         <input
           ref={inputRef}
           type="text"
@@ -82,9 +82,9 @@ const SearchDropdown = ({ onClose, mobile }: Props) => {
           onChange={(e) => { setQuery(e.target.value); setOpen(true) }}
           onFocus={() => setOpen(true)}
           placeholder="Buscar bottons..."
-          /* Borda de campo é Papelão (`nanita-rule`), não Dobra: a WCAG 1.4.11
+          /* Borda de campo é Papelão (`estrelinha-field`), não Dobra: a WCAG 1.4.11
              pede 3:1 de contorno de controle, e Dobra dá 1,19 sobre Papel. */
-          className="w-full pl-9 pr-8 py-2 text-sm rounded-full bg-white border border-nanita-rule focus:border-nanita-jam focus:outline-none focus:ring-2 focus:ring-nanita-jam/20 text-nanita-ink placeholder:text-nanita-plum transition-colors"
+          className="w-full pl-9 pr-8 py-2 text-sm rounded-full bg-white border border-estrelinha-field focus:border-estrelinha-primary focus:outline-none focus:ring-2 focus:ring-estrelinha-primary/20 text-estrelinha-ink placeholder:text-estrelinha-ink-soft transition-colors"
         />
         {query && (
           <button
@@ -92,7 +92,7 @@ const SearchDropdown = ({ onClose, mobile }: Props) => {
             onClick={() => { setQuery(''); inputRef.current?.focus() }}
             className="absolute right-3 top-1/2 -translate-y-1/2"
           >
-            <X className="w-4 h-4 text-nanita-plum hover:text-nanita-ink" />
+            <X className="w-4 h-4 text-estrelinha-ink-soft hover:text-estrelinha-ink" />
           </button>
         )}
       </form>
@@ -103,14 +103,14 @@ const SearchDropdown = ({ onClose, mobile }: Props) => {
             initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
-            className="absolute top-full mt-2 left-0 right-0 bg-white border border-nanita-border rounded-xl shadow-lg overflow-hidden z-50"
+            className="absolute top-full mt-2 left-0 right-0 bg-white border border-estrelinha-line rounded-xl shadow-lg overflow-hidden z-50"
           >
             {results.map((p) => (
               <Link
                 key={p.id}
                 to={`/produto/${p.slug}`}
                 onClick={() => { setOpen(false); onClose?.() }}
-                className="flex items-center gap-3 px-4 py-3 hover:bg-nanita-sugar transition-colors"
+                className="flex items-center gap-3 px-4 py-3 hover:bg-estrelinha-ground-deep transition-colors"
               >
                 <img
                   src={p.image_url}
@@ -118,15 +118,15 @@ const SearchDropdown = ({ onClose, mobile }: Props) => {
                   className="w-10 h-10 rounded-lg object-cover"
                 />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-nanita-ink truncate">{p.name}</p>
-                  <p className="text-xs text-nanita-plum">{formatPrice(p.price)}</p>
+                  <p className="text-sm font-medium text-estrelinha-ink truncate">{p.name}</p>
+                  <p className="text-xs text-estrelinha-ink-soft">{formatPrice(p.price)}</p>
                 </div>
               </Link>
             ))}
             <Link
               to={`/busca?q=${encodeURIComponent(query)}`}
               onClick={() => { setOpen(false); onClose?.() }}
-              className="block text-center text-xs font-medium text-nanita-jam py-3 border-t border-nanita-border hover:bg-nanita-sugar transition-colors"
+              className="block text-center text-xs font-medium text-estrelinha-primary py-3 border-t border-estrelinha-line hover:bg-estrelinha-ground-deep transition-colors"
             >
               Ver todos os resultados
             </Link>

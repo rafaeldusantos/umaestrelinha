@@ -79,7 +79,7 @@ function resolveStageProgress(
 const Card = ({ children }: { children: React.ReactNode }) => (
   <section
     aria-label="Onde seu pedido está"
-    className="flex flex-col gap-[22px] rounded-lg border border-nanita-border bg-white px-6 py-7 sm:px-8"
+    className="flex flex-col gap-[22px] rounded-lg border border-estrelinha-line bg-white px-6 py-7 sm:px-8"
   >
     {children}
   </section>
@@ -87,17 +87,17 @@ const Card = ({ children }: { children: React.ReactNode }) => (
 
 const Heading = ({ detail }: { detail?: string | null }) => (
   <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-    <h2 className="font-heading text-xl font-semibold tracking-[-0.02em] text-nanita-ink">
+    <h2 className="font-heading text-xl font-semibold tracking-[-0.02em] text-estrelinha-ink">
       Onde seu pedido está
     </h2>
-    {detail && <p className="text-sm font-medium text-nanita-plum">{detail}</p>}
+    {detail && <p className="text-sm font-medium text-estrelinha-ink-soft">{detail}</p>}
   </div>
 )
 
 const Connector = ({ filled }: { filled: boolean }) => (
   <span
     aria-hidden
-    className={`h-[3px] grow ${filled ? 'bg-nanita-jam' : 'bg-nanita-border'}`}
+    className={`h-[3px] grow ${filled ? 'bg-estrelinha-primary' : 'bg-estrelinha-line'}`}
   />
 )
 
@@ -106,7 +106,7 @@ const Disc = ({ state, Icon }: { state: OrderStageState; Icon: typeof Check }) =
     return (
       <span
         data-testid="stage-disc"
-        className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full bg-nanita-jam"
+        className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full bg-estrelinha-primary"
       >
         <Check className="h-[17px] w-[17px] text-white" strokeWidth={3.2} aria-hidden />
       </span>
@@ -117,9 +117,9 @@ const Disc = ({ state, Icon }: { state: OrderStageState; Icon: typeof Check }) =
     return (
       <span
         data-testid="stage-disc"
-        className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full border-[3px] border-nanita-jam bg-white"
+        className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full border-[3px] border-estrelinha-primary bg-white"
       >
-        <span className="h-[11px] w-[11px] rounded-full bg-nanita-jam" />
+        <span className="h-[11px] w-[11px] rounded-full bg-estrelinha-primary" />
       </span>
     )
   }
@@ -127,9 +127,9 @@ const Disc = ({ state, Icon }: { state: OrderStageState; Icon: typeof Check }) =
   return (
     <span
       data-testid="stage-disc"
-      className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full border-2 border-nanita-border bg-nanita-sugar"
+      className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full border-2 border-estrelinha-line bg-estrelinha-ground-deep"
     >
-      <Icon className="h-4 w-4 text-nanita-plum" aria-hidden />
+      <Icon className="h-4 w-4 text-estrelinha-ink-soft" aria-hidden />
     </span>
   )
 }
@@ -141,8 +141,8 @@ const OrderTimeline = ({ status, paidAt, estimate }: OrderTimelineProps) => {
       <Card>
         <Heading />
         <div className="flex flex-col gap-1">
-          <p className="font-heading text-lg font-semibold text-nanita-ink">Pedido cancelado</p>
-          <p className="text-sm text-nanita-plum">
+          <p className="font-heading text-lg font-semibold text-estrelinha-ink">Pedido cancelado</p>
+          <p className="text-sm text-estrelinha-ink-soft">
             Este pedido foi cancelado e não segue em preparo. Se você pagou, o valor é devolvido pelo
             Mercado Pago.
           </p>
@@ -199,8 +199,8 @@ const OrderTimeline = ({ status, paidAt, estimate }: OrderTimelineProps) => {
                 <span
                   className={`text-[15px] leading-[18px] ${
                     state === 'future'
-                      ? 'font-medium text-nanita-plum'
-                      : 'font-semibold text-nanita-ink'
+                      ? 'font-medium text-estrelinha-ink-soft'
+                      : 'font-semibold text-estrelinha-ink'
                   }`}
                 >
                   {label}
@@ -208,7 +208,7 @@ const OrderTimeline = ({ status, paidAt, estimate }: OrderTimelineProps) => {
                 {detail && (
                   <span
                     className={`text-[13px] leading-4 ${
-                      state === 'current' ? 'font-medium text-nanita-jam' : 'text-nanita-plum'
+                      state === 'current' ? 'font-medium text-estrelinha-primary' : 'text-estrelinha-ink-soft'
                     }`}
                   >
                     {detail}

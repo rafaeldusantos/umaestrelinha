@@ -359,13 +359,13 @@ describe('PaymentBlock — uma superfície por método (PGM-03, PGM-04, PGM-09)'
 })
 
 describe('PaymentBlock — paleta (CHK-04 / DESIGN.md §8)', () => {
-  it('aberto: nenhum elemento com bg-nanita-jam', () => {
+  it('aberto: nenhum elemento com bg-estrelinha-primary', () => {
     const { container } = renderBlock()
 
-    expect(container.querySelectorAll('[class*="bg-nanita-jam"]')).toHaveLength(0)
+    expect(container.querySelectorAll('[class*="bg-estrelinha-primary"]')).toHaveLength(0)
   })
 
-  it('CPF inválido: nenhuma classe de cor fora da paleta Nanita', () => {
+  it('CPF inválido: nenhuma classe de cor fora da paleta Uma Estrelinha', () => {
     const { container } = renderBlock()
     fireEvent.change(screen.getByLabelText(DOC_FIELD_LABEL), { target: { value: '11111111111' } })
 

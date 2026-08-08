@@ -55,10 +55,10 @@ const ShippingCalc = ({ product }: { product: Product }) => {
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-md bg-nanita-sugar p-5">
+    <div className="flex flex-col gap-3 rounded-md bg-estrelinha-ground-deep p-5">
       <div className="flex items-center gap-2">
-        <Truck className="h-[18px] w-[18px] shrink-0 text-nanita-jam" strokeWidth={1.8} aria-hidden />
-        <h2 className="text-[14px] font-bold leading-[18px] text-nanita-ink">
+        <Truck className="h-[18px] w-[18px] shrink-0 text-estrelinha-primary" strokeWidth={1.8} aria-hidden />
+        <h2 className="text-[14px] font-bold leading-[18px] text-estrelinha-ink">
           Calcular frete e prazo
         </h2>
       </div>
@@ -78,12 +78,12 @@ const ShippingCalc = ({ product }: { product: Product }) => {
           aria-label="CEP"
           aria-invalid={Boolean(error)}
           /* Papelão, não Dobra — borda de campo precisa dos 3:1 da WCAG 1.4.11. */
-          className="h-11 grow rounded-md border border-nanita-rule bg-white px-3.5 text-[13px] text-nanita-ink placeholder:text-nanita-plum focus:border-nanita-jam focus:outline-none"
+          className="h-11 grow rounded-md border border-estrelinha-field bg-white px-3.5 text-[13px] text-estrelinha-ink placeholder:text-estrelinha-ink-soft focus:border-estrelinha-primary focus:outline-none"
         />
         <button
           type="submit"
           disabled={loading}
-          className="flex h-11 shrink-0 items-center justify-center rounded-md border-2 border-nanita-jam px-5 text-[13px] font-semibold text-nanita-jam transition-colors hover:bg-nanita-jam/[0.06] disabled:opacity-60"
+          className="flex h-11 shrink-0 items-center justify-center rounded-md border-2 border-estrelinha-primary px-5 text-[13px] font-semibold text-estrelinha-primary transition-colors hover:bg-estrelinha-primary/[0.06] disabled:opacity-60"
         >
           {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-label="Calculando" /> : 'Calcular'}
         </button>
@@ -96,17 +96,17 @@ const ShippingCalc = ({ product }: { product: Product }) => {
           {quotes.map(q => (
             <li
               key={q.id}
-              className="flex items-center justify-between gap-3 rounded-sm border border-nanita-border bg-white px-3.5 py-2.5"
+              className="flex items-center justify-between gap-3 rounded-sm border border-estrelinha-line bg-white px-3.5 py-2.5"
             >
               <span className="flex min-w-0 flex-col gap-0.5">
-                <span className="truncate text-[13px] font-semibold leading-4 text-nanita-ink">
+                <span className="truncate text-[13px] font-semibold leading-4 text-estrelinha-ink">
                   {q.name} — {q.company}
                 </span>
-                <span className="text-[12px] leading-4 text-nanita-plum">
+                <span className="text-[12px] leading-4 text-estrelinha-ink-soft">
                   {q.delivery_range ? `${q.delivery_range.min}-${q.delivery_range.max}` : q.delivery_time} dias úteis
                 </span>
               </span>
-              <span className="shrink-0 font-display text-[16px] font-semibold leading-5 text-nanita-jam">
+              <span className="shrink-0 font-display text-[16px] font-semibold leading-5 text-estrelinha-primary">
                 {formatPrice(parseFloat(q.price))}
               </span>
             </li>

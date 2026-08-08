@@ -59,17 +59,17 @@ const OrderBump = () => {
       role="checkbox"
       aria-checked={bumpChecked}
       onClick={() => toggleBump()}
-      className="relative flex w-full items-center gap-5 overflow-hidden rounded-lg bg-nanita-ink px-4 py-[22px] text-left"
+      className="relative flex w-full items-center gap-5 overflow-hidden rounded-lg bg-estrelinha-ink px-4 py-[22px] text-left"
     >
       <span
         className={`flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-sm border-2 ${
-          bumpChecked ? 'border-nanita-glaze bg-nanita-glaze' : 'border-white/35'
+          bumpChecked ? 'border-estrelinha-accent bg-estrelinha-accent' : 'border-white/35'
         }`}
       >
-        {bumpChecked && <Check className="h-4 w-4 text-nanita-ink" aria-hidden />}
+        {bumpChecked && <Check className="h-4 w-4 text-estrelinha-ink" aria-hidden />}
       </span>
 
-      <span className="flex h-[62px] w-[62px] shrink-0 items-center justify-center overflow-hidden rounded-md bg-nanita-glaze">
+      <span className="flex h-[62px] w-[62px] shrink-0 items-center justify-center overflow-hidden rounded-md bg-estrelinha-accent">
         {product.image_url ? (
           <img src={product.image_url} alt="" className="h-full w-full object-cover" />
         ) : (
@@ -79,7 +79,7 @@ const OrderBump = () => {
 
       <span className="flex min-w-0 grow flex-col gap-1">
         <span className="flex flex-wrap items-center gap-[9px]">
-          <span className="shrink-0 rounded-pill bg-nanita-butter px-[10px] py-1 text-[11px] font-bold uppercase tracking-[0.08em] text-nanita-ink">
+          <span className="shrink-0 rounded-pill bg-estrelinha-accent px-[10px] py-1 text-[11px] font-bold uppercase tracking-[0.08em] text-estrelinha-ink">
             Só aqui
           </span>
           <span className="text-[13px] font-medium text-white/70">
@@ -92,7 +92,7 @@ const OrderBump = () => {
       </span>
 
       <span className="flex shrink-0 flex-col items-end gap-[2px]">
-        <span className="font-heading text-[22px] font-semibold text-nanita-glaze">
+        <span className="font-heading text-[22px] font-semibold text-estrelinha-accent">
           {formatPrice(discounted.unit_price)}
         </span>
         <span className="text-[13px] text-white/55 line-through">

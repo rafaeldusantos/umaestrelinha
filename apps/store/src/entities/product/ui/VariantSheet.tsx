@@ -46,26 +46,26 @@ const VariantSheet = ({
       <SheetContent
         side="bottom"
         hideClose
-        className="gap-0 rounded-t-lg border-0 bg-white p-0 px-5 pb-7 pt-3 shadow-nanita-lift"
+        className="gap-0 rounded-t-lg border-0 bg-white p-0 px-5 pb-7 pt-3 shadow-estrelinha-lift"
       >
-        <span aria-hidden className="mx-auto mb-[18px] h-1 w-10 shrink-0 rounded-pill bg-nanita-border" />
+        <span aria-hidden className="mx-auto mb-[18px] h-1 w-10 shrink-0 rounded-pill bg-estrelinha-line" />
 
         <div className="flex items-center gap-3.5">
           <img
             src={product.image_url}
             alt=""
-            className="h-16 w-16 shrink-0 rounded-md bg-nanita-sugar object-cover"
+            className="h-16 w-16 shrink-0 rounded-md bg-estrelinha-ground-deep object-cover"
           />
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
             {categoryName && (
-              <span className="truncate text-[12px] font-medium leading-4 text-nanita-plum">
+              <span className="truncate text-[12px] font-medium leading-4 text-estrelinha-ink-soft">
                 {categoryName}
               </span>
             )}
-            <SheetTitle className="truncate font-display text-[17px] font-semibold leading-[22px] tracking-[-0.01em] text-nanita-ink">
+            <SheetTitle className="truncate font-display text-[17px] font-semibold leading-[22px] tracking-[-0.01em] text-estrelinha-ink">
               {product.name}
             </SheetTitle>
-            <span className="font-display text-[15px] font-semibold leading-5 text-nanita-jam">
+            <span className="font-display text-[15px] font-semibold leading-5 text-estrelinha-primary">
               {formatPrice(price)}
             </span>
           </div>
@@ -73,7 +73,7 @@ const VariantSheet = ({
             type="button"
             aria-label="Fechar"
             onClick={() => onOpenChange(false)}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-nanita-sugar text-nanita-ink"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-estrelinha-ground-deep text-estrelinha-ink"
           >
             <X className="h-4 w-4" strokeWidth={1.8} />
           </button>
@@ -96,7 +96,7 @@ const VariantSheet = ({
           // `w-full` é obrigatório: `<button>` faz shrink-to-fit com `width:auto` mesmo sendo
           // block-level por causa do `display:flex`. O pai aqui é bloco, então sem isto o CTA
           // encolhe até o texto.
-          className="mt-7 flex h-[54px] w-full items-center justify-center gap-2.5 rounded-sm bg-nanita-jam font-display text-[17px] font-semibold tracking-[-0.01em] text-white transition-colors hover:bg-nanita-jam/90 disabled:bg-nanita-plum/40"
+          className="mt-7 flex h-[54px] w-full items-center justify-center gap-2.5 rounded-sm bg-estrelinha-primary font-display text-[17px] font-semibold tracking-[-0.01em] text-white transition-colors hover:bg-estrelinha-primary/90 disabled:bg-estrelinha-ink-soft/40"
         >
           <ShoppingBag className="h-5 w-5" strokeWidth={1.6} />
           {canAdd ? `Adicionar à sacola · ${formatPrice(price)}` : 'Indisponível'}

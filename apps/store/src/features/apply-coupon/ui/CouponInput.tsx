@@ -50,18 +50,18 @@ const CouponInput = ({ subtotal, shippingCost, customerEmail, variant = 'default
     // borda a borda, sem card. Dentro da gaveta, um cartão aqui competiria com as linhas de item.
     return (
       <div className="flex items-center gap-2.5 px-5 py-3.5 md:px-6">
-        <Tag className="h-4 w-4 shrink-0 text-nanita-jam" strokeWidth={2.2} />
-        <p className="min-w-0 flex-1 truncate text-sm font-semibold leading-[18px] text-nanita-ink">
+        <Tag className="h-4 w-4 shrink-0 text-estrelinha-primary" strokeWidth={2.2} />
+        <p className="min-w-0 flex-1 truncate text-sm font-semibold leading-[18px] text-estrelinha-ink">
           {applied.code} aplicado
         </p>
-        <span className="shrink-0 text-sm font-semibold leading-[18px] text-nanita-jam">
+        <span className="shrink-0 text-sm font-semibold leading-[18px] text-estrelinha-primary">
           {applied.freeShipping ? 'Frete grátis' : `−${formatPrice(applied.discount)}`}
         </span>
         <button
           type="button"
           onClick={remove}
           aria-label="Remover cupom"
-          className="relative shrink-0 text-nanita-plum transition-colors after:absolute after:-inset-2 after:content-[''] hover:text-nanita-jam"
+          className="relative shrink-0 text-estrelinha-ink-soft transition-colors after:absolute after:-inset-2 after:content-[''] hover:text-estrelinha-primary"
         >
           <X className="h-[15px] w-[15px]" strokeWidth={2.4} />
         </button>
@@ -71,12 +71,12 @@ const CouponInput = ({ subtotal, shippingCost, customerEmail, variant = 'default
 
   if (applied) {
     return (
-      <div className="flex items-center justify-between gap-2 bg-nanita-jam/5 border border-nanita-jam/30 rounded-xl p-3">
+      <div className="flex items-center justify-between gap-2 bg-estrelinha-primary/5 border border-estrelinha-primary/30 rounded-xl p-3">
         <div className="flex items-center gap-2 min-w-0">
-          <Check className="w-4 h-4 text-nanita-jam shrink-0" />
+          <Check className="w-4 h-4 text-estrelinha-primary shrink-0" />
           <div className="min-w-0">
-            <p className="text-sm font-medium text-nanita-ink truncate">{applied.code}</p>
-            <p className="text-xs text-nanita-plum">
+            <p className="text-sm font-medium text-estrelinha-ink truncate">{applied.code}</p>
+            <p className="text-xs text-estrelinha-ink-soft">
               {applied.freeShipping
                 ? 'Frete grátis'
                 : `Desconto de ${formatPrice(applied.discount)}`}
@@ -86,7 +86,7 @@ const CouponInput = ({ subtotal, shippingCost, customerEmail, variant = 'default
         <button
           onClick={remove}
           aria-label="Remover cupom"
-          className="text-nanita-plum hover:text-red-500 shrink-0"
+          className="text-estrelinha-ink-soft hover:text-red-500 shrink-0"
         >
           <X className="w-4 h-4" />
         </button>
@@ -97,7 +97,7 @@ const CouponInput = ({ subtotal, shippingCost, customerEmail, variant = 'default
   return (
     <div className={drawer ? 'flex gap-2 px-5 py-3 md:px-6 md:py-3.5' : 'flex gap-2'}>
       <div className="relative flex-1">
-        <Tag className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-nanita-jam" />
+        <Tag className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-estrelinha-primary" />
         <Input
           placeholder={drawer ? 'Código do cupom' : 'Cupom de desconto'}
           value={code}
@@ -105,7 +105,7 @@ const CouponInput = ({ subtotal, shippingCost, customerEmail, variant = 'default
           onKeyDown={(e) => e.key === 'Enter' && apply()}
           className={
             drawer
-              ? 'h-11 rounded-[10px] border border-dashed border-nanita-border bg-nanita-sugar/30 pl-9 text-[13px] uppercase text-nanita-ink placeholder:normal-case placeholder:text-nanita-plum'
+              ? 'h-11 rounded-[10px] border border-dashed border-estrelinha-line bg-estrelinha-ground-deep/30 pl-9 text-[13px] uppercase text-estrelinha-ink placeholder:normal-case placeholder:text-estrelinha-ink-soft'
               : 'pl-9 uppercase'
           }
         />
@@ -117,8 +117,8 @@ const CouponInput = ({ subtotal, shippingCost, customerEmail, variant = 'default
         variant={drawer ? 'default' : 'outline'}
         className={
           drawer
-            ? 'h-11 shrink-0 rounded-[10px] border-0 bg-nanita-jam px-4 text-[13px] font-bold text-white hover:bg-nanita-jam hover:opacity-95'
-            : 'rounded-md border-2 border-nanita-jam text-nanita-jam hover:bg-nanita-sugar shrink-0'
+            ? 'h-11 shrink-0 rounded-[10px] border-0 bg-estrelinha-primary px-4 text-[13px] font-bold text-white hover:bg-estrelinha-primary hover:opacity-95'
+            : 'rounded-md border-2 border-estrelinha-primary text-estrelinha-primary hover:bg-estrelinha-ground-deep shrink-0'
         }
       >
         {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Aplicar'}

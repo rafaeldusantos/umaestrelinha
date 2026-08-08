@@ -25,8 +25,8 @@ const AuthPasswordStep = () => {
   return (
     <div className="flex flex-col">
       <div className="space-y-1 mb-6">
-        <h2 className="font-heading text-2xl font-bold text-nanita-ink">Entrar com senha</h2>
-        <p className="text-sm text-nanita-plum">Bem-vinda de volta!</p>
+        <h2 className="font-heading text-2xl font-bold text-estrelinha-ink">Entrar com senha</h2>
+        <p className="text-sm text-estrelinha-ink-soft">Bem-vinda de volta!</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -38,7 +38,7 @@ const AuthPasswordStep = () => {
             placeholder="seu@email.com"
             value={email}
             onChange={(e) => setEmailLocal(e.target.value)}
-            className="rounded-xl border-nanita-border"
+            className="rounded-xl border-estrelinha-line"
           />
         </div>
         <div className="space-y-2">
@@ -50,13 +50,13 @@ const AuthPasswordStep = () => {
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="rounded-xl border-nanita-border pr-10"
+              className="rounded-xl border-estrelinha-line pr-10"
             />
             <button
               type="button"
               onClick={() => setShowPassword((v) => !v)}
               aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-nanita-plum hover:text-nanita-ink"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-estrelinha-ink-soft hover:text-estrelinha-ink"
             >
               {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
@@ -67,7 +67,7 @@ const AuthPasswordStep = () => {
           <button
             type="button"
             onClick={() => { setEmail(email); goTo('reset') }}
-            className="text-sm text-nanita-jam font-medium hover:underline"
+            className="text-sm text-estrelinha-primary font-medium hover:underline"
           >
             Esqueceu a senha?
           </button>
@@ -78,7 +78,7 @@ const AuthPasswordStep = () => {
         <Button
           type="submit"
           disabled={loading}
-          className="w-full rounded-sm bg-nanita-jam text-white border-0 hover:bg-nanita-jam hover:opacity-95 transition-all"
+          className="w-full rounded-sm bg-estrelinha-primary text-white border-0 hover:bg-estrelinha-primary hover:opacity-95 transition-all"
         >
           {loading ? 'Entrando...' : 'Entrar'}
         </Button>
@@ -87,7 +87,7 @@ const AuthPasswordStep = () => {
       <button
         type="button"
         onClick={() => { setEmail(email); goTo('entry') }}
-        className="text-sm text-nanita-plum mt-4 mx-auto hover:text-nanita-ink"
+        className="text-sm text-estrelinha-ink-soft mt-4 mx-auto hover:text-estrelinha-ink"
       >
         Sem senha? Receber código por e-mail
       </button>
