@@ -15,21 +15,29 @@ import { productSpecs } from '../lib/productFacts'
  *
  * Os bullets da primeira vêm de `productSpecs`, que lê as medidas do produto quando existem. As
  * outras três são política da loja, iguais para todo o catálogo — texto mesmo, não cadastro.
+ *
+ * Desde a `PIN-05` a ficha pode vir **vazia** (produto sem medida cadastrada): aí a seção inteira
+ * não é montada, e a que abre é "Cuidados". Uma seção aberta e vazia seria pior que ausente.
  */
-const ProductDetailsAccordion = ({ product }: { product: Product }) => (
-  <Accordion type="single" collapsible defaultValue="detalhes" className="w-full">
+const ProductDetailsAccordion = ({ product }: { product: Product }) => {
+  const specs = productSpecs(product)
+
+  return (
+  <Accordion type="single" collapsible defaultValue={specs.length > 0 ? 'detalhes' : 'cuidados'} className="w-full">
+    {specs.length > 0 && (
     <AccordionItem value="detalhes" className="border-nanita-border">
       <AccordionTrigger className="py-3.5 font-body text-[15px] font-bold leading-[18px] text-nanita-ink hover:no-underline">
         Detalhes do Produto
       </AccordionTrigger>
       <AccordionContent className="pb-4">
         <ul className="flex flex-col gap-1.5 text-[13px] leading-[20px] text-nanita-plum">
-          {productSpecs(product).map(spec => (
+          {specs.map(spec => (
             <li key={spec}>• {spec}</li>
           ))}
         </ul>
       </AccordionContent>
     </AccordionItem>
+    )}
 
     <AccordionItem value="cuidados" className="border-nanita-border">
       <AccordionTrigger className="py-3.5 font-body text-[15px] font-bold leading-[18px] text-nanita-ink hover:no-underline">
@@ -75,6 +83,7 @@ const ProductDetailsAccordion = ({ product }: { product: Product }) => (
       </AccordionContent>
     </AccordionItem>
   </Accordion>
-)
+  )
+}
 
 export default ProductDetailsAccordion

@@ -72,29 +72,35 @@ export const stockLineOf = (product: Product, variant: ProductVariant | null): S
 }
 
 /**
- * Os bullets de "Detalhes do Produto".
+ * Os bullets de "Detalhes do Produto" — **só o que está cadastrado** (`PIN-05`).
  *
- * O board lista tamanho, material, fixação, peso e autoria. Tamanho e peso **saem do cadastro**
- * quando existem (as mesmas colunas que alimentam a cotação de frete, SHP-02) — repetir "3,8 cm" à
- * mão numa loja que vende bottons de vários diâmetros é publicar uma medida errada. Sem cadastro, o
- * item some: uma ficha técnica curta e certa vale mais que uma completa e inventada.
+ * A ficha anterior afirmava três coisas à mão em todo produto: um material fixo (metal), uma
+ * fixação fixa (alfinete) e a autoria da arte pela loja. Eram verdades de **botton**, e numa joia
+ * de resina com material do cliente as três são falsas — material varia
+ * (prata 925, aço, folheado), não há alfinete, e a peça não é "arte exclusiva" da loja: o que a
+ * torna única é o que a cliente enviou.
+ *
+ * Não foram substituídas por três novas verdades escritas à mão: quem sabe o material daquela peça é
+ * o cadastro. Enquanto ele não tiver o campo, o bullet não existe — uma ficha curta e certa vale
+ * mais que uma completa e inventada, e é a mesma régua que já valia para as medidas.
+ *
+ * Tamanho e peso saem das colunas que alimentam a cotação de frete (`SHP-02`). Sem nenhuma das
+ * duas, a ficha volta **vazia**, e quem renderiza é que decide não mostrar a seção.
  */
 export const productSpecs = (product: Product): string[] => {
   const specs: string[] = []
 
-  const diameter = product.width_cm ?? product.height_cm
-  if (typeof diameter === 'number' && diameter > 0) {
-    specs.push(`Tamanho: ${formatCm(diameter)} cm de diâmetro`)
+  // `width_cm ?? height_cm`: a medida que houver, sem afirmar a forma. O rótulo dizia "de diâmetro",
+  // que só descreve um disco — a quarta verdade de botton da lista.
+  const size = product.width_cm ?? product.height_cm
+  if (typeof size === 'number' && size > 0) {
+    specs.push(`Tamanho: ${formatCm(size)} cm`)
   }
-
-  specs.push('Material: metal com acabamento premium')
-  specs.push('Fixação: alfinete com trava de segurança')
 
   if (typeof product.weight_kg === 'number' && product.weight_kg > 0) {
     specs.push(`Peso: ${Math.round(product.weight_kg * 1000)}g`)
   }
 
-  specs.push('Arte exclusiva Nanita')
   return specs
 }
 

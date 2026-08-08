@@ -124,20 +124,31 @@ describe('stockLineOf — o saldo que a página anuncia (PST-08)', () => {
 })
 
 describe('productSpecs — a ficha do acordeão', () => {
-  it('tira o diâmetro e o peso do cadastro, com vírgula decimal e gramas', () => {
+  it('tira a medida e o peso do cadastro, com vírgula decimal e gramas', () => {
     const specs = productSpecs(product({ width_cm: 3.8, weight_kg: 0.01 }))
-    expect(specs).toContain('Tamanho: 3,8 cm de diâmetro')
-    expect(specs).toContain('Peso: 10g')
+    expect(specs).toEqual(['Tamanho: 3,8 cm', 'Peso: 10g'])
   })
 
   it('sem medida cadastrada o item some — não se publica um 3,8 cm inventado', () => {
-    const specs = productSpecs(product())
+    const specs = productSpecs(product({ weight_kg: 0.01 }))
     expect(specs.some(s => s.startsWith('Tamanho:'))).toBe(false)
-    expect(specs.some(s => s.startsWith('Peso:'))).toBe(false)
-    expect(specs).toContain('Material: metal com acabamento premium')
+    expect(specs).toEqual(['Peso: 10g'])
   })
 
   it('cai em height_cm quando só ela está cadastrada', () => {
-    expect(productSpecs(product({ height_cm: 5 }))).toContain('Tamanho: 5 cm de diâmetro')
+    expect(productSpecs(product({ height_cm: 5 }))).toEqual(['Tamanho: 5 cm'])
+  })
+
+  // PIN-05: as três frases abaixo eram escritas à mão em TODO produto e são falsas numa joia de
+  // resina — o material varia, não há alfinete, e o que torna a peça única é o material da cliente.
+  it('não afirma material, fixação nem autoria — nenhuma delas vem do cadastro', () => {
+    const specs = productSpecs(product({ width_cm: 3.8, weight_kg: 0.01 }))
+    expect(specs.some(s => s.startsWith('Material:'))).toBe(false)
+    expect(specs.some(s => s.startsWith('Fixação:'))).toBe(false)
+    expect(specs.some(s => /Arte exclusiva/i.test(s))).toBe(false)
+  })
+
+  it('sem nenhum dado a ficha volta VAZIA — a seção não é montada', () => {
+    expect(productSpecs(product())).toEqual([])
   })
 })
