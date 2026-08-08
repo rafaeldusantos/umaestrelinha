@@ -1566,3 +1566,32 @@ numa asserção); T28 tirou `tailwind.config.ts`.
 **Uma entrada mudou de dono, não saiu:** `widgets/footer/ui/Footer.tsx` continua citando a marca
 anterior nas três URLs de rede social e em duas linhas de copy. Isso é trabalho da **T30**, e o
 motivo na lista passou a dizer isso.
+
+---
+
+### Gate `db` da T22b — executado em 2026-08-08 pelo orquestrador
+
+A T22b fechou com o gate `db` **pendente**: o engine do Docker respondia 500 durante todo o lote 3, e
+a `AD-012` é explícita em que verificação estática não é prova. O ambiente voltou; o gate rodou.
+
+**Fato descoberto ao rodar:** antes do `db reset`, o banco **ainda continha os valores velhos**
+(`Nanita`, `contato@nanita.com.br`) apesar de as migrations no disco já estarem corretas. Não é
+contradição — é o que "migration é replay" significa. As linhas vinham do conteúdo **antigo** da
+migration, gravadas antes da T22b. Um probe feito sem o reset teria concluído que a T22b falhou.
+
+**Depois de `supabase db reset` (exit 0):**
+
+| verificação | resultado |
+| --- | --- |
+| `store_settings.general->>'store_name'` **sem migration de correção** | `Uma Estrelinha` ✅ |
+| `store_settings.general->>'email'` | `contato@umaestrelinha.com.br` ✅ |
+| `store_settings.seo->>'title'` | `Uma Estrelinha - Joias afetivas artesanais em resina` ✅ |
+| `to_regclass('public.mockup_templates') is null` (fecha o gate da **T13**) | `t` ✅ |
+| catálogo do seed (fecha o gate da **T16**) | 7 categorias · 16 produtos · 24 variações ✅ |
+| duas instâncias Supabase no ar ao mesmo tempo (fecha a AC 7 da **T3**) | `nanapin-store` 11 contêineres + `uma-estrelinha-store` 12 · REST 200 em 54341 ✅ |
+
+A T3 tinha ficado com a convivência de portas provada só parcialmente (o `ingressos` estava parado).
+Agora há duas instâncias reais rodando lado a lado.
+
+**Consequência para a T34:** o lado SQL está provado. Sobra o lado TypeScript — os defaults e o teste
+de paridade entre eles e o que as migrations gravam.
