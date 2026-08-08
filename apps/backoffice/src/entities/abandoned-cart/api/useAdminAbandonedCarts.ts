@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { supabase } from '@nanapin/supabase/client'
-import type { DbAbandonedCart, AbandonedCartStatus } from '@nanapin/supabase/types/abandonedCart'
+import { supabase } from '@estrelinha/supabase/client'
+import type { DbAbandonedCart, AbandonedCartStatus } from '@estrelinha/supabase/types/abandonedCart'
 
 export const STATUS_LABELS: Record<AbandonedCartStatus, string> = {
   active: 'Ativo',

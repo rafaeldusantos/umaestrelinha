@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '@nanapin/supabase/client'
-import { useAuthContext } from '@nanapin/auth'
-import { Button } from '@nanapin/ui/button'
-import { Input } from '@nanapin/ui/input'
-import { Label } from '@nanapin/ui/label'
+import { supabase } from '@estrelinha/supabase/client'
+import { useAuthContext } from '@estrelinha/auth'
+import { Button } from '@estrelinha/ui/button'
+import { Input } from '@estrelinha/ui/input'
+import { Label } from '@estrelinha/ui/label'
 import { Pin, LogIn } from 'lucide-react'
 
 const AdminLoginPage = () => {

@@ -17,8 +17,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { DbCategory } from '@nanapin/supabase/types'
-import type { AdminPromotion } from '@nanapin/core/hooks/usePromotions'
+import type { DbCategory } from '@estrelinha/supabase/types'
+import type { AdminPromotion } from '@estrelinha/core/hooks/usePromotions'
 
 const db = vi.hoisted(() => ({
   /** `product_categories`: quem está em qual categoria. */
@@ -28,7 +28,7 @@ const db = vi.hoisted(() => ({
   askedCategoryIds: [] as string[],
 }))
 
-vi.mock('@nanapin/supabase/client', () => {
+vi.mock('@estrelinha/supabase/client', () => {
   const build = (table: string) => {
     const filters: Record<string, unknown> = {}
     const builder = {
@@ -77,16 +77,16 @@ const mutations = vi.hoisted(() => ({
   update: vi.fn().mockResolvedValue('promo-1'),
 }))
 
-vi.mock('@nanapin/core/hooks/usePromotions', () => ({
+vi.mock('@estrelinha/core/hooks/usePromotions', () => ({
   useAdminPromotions: () => ({ data: state.promotions, isLoading: state.isLoading }),
   useCreatePromotion: () => ({ mutateAsync: mutations.create, isPending: false }),
   useUpdatePromotion: () => ({ mutateAsync: mutations.update, isPending: false }),
 }))
 
-vi.mock('@nanapin/ui/hooks/use-toast', () => ({ toast: vi.fn() }))
+vi.mock('@estrelinha/ui/hooks/use-toast', () => ({ toast: vi.fn() }))
 
 import AdminPromotionFormPage from './AdminPromotionFormPage'
-import { toast } from '@nanapin/ui/hooks/use-toast'
+import { toast } from '@estrelinha/ui/hooks/use-toast'
 import { isoFromDateOnly } from '@/shared/lib/dateOnly'
 import {
   MIN_QTY_TOO_LOW,

@@ -4,8 +4,8 @@
 // aritmética com regra de negócio, e aritmética errada numa grade de 60 linhas é dinheiro. A UI
 // só chama e mostra.
 
-import { cartesian, diffGrid, optionValuesKey, skuFromParts } from '@nanapin/core/pricing'
-import type { OptionValues, ProductOption, ProductVariant } from '@nanapin/supabase/types'
+import { cartesian, diffGrid, optionValuesKey, skuFromParts } from '@estrelinha/core/pricing'
+import type { OptionValues, ProductOption, ProductVariant } from '@estrelinha/supabase/types'
 import { tempVariantId } from './persistProduct'
 
 /** Colunas numéricas que **Preencher coluna** sabe preencher. */

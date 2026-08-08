@@ -8,11 +8,11 @@
 // Por isso o disco de "feito" é tinta, e não geleia como no board.
 import { useEffect, useRef } from 'react'
 import { Check } from 'lucide-react'
-import { Button } from '@nanapin/ui/button'
-import { Input } from '@nanapin/ui/input'
-import { Label } from '@nanapin/ui/label'
-import { Checkbox } from '@nanapin/ui/checkbox'
-import { useAuthContext } from '@nanapin/auth'
+import { Button } from '@estrelinha/ui/button'
+import { Input } from '@estrelinha/ui/input'
+import { Label } from '@estrelinha/ui/label'
+import { Checkbox } from '@estrelinha/ui/checkbox'
+import { useAuthContext } from '@estrelinha/auth'
 import { setGuestEmail } from '@/features/abandoned-cart/model/useAbandonedCartTracker'
 import { useCheckoutStore } from '../model/checkoutStore'
 

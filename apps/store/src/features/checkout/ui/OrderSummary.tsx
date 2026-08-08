@@ -15,17 +15,17 @@
 // geleia só no texto (nenhuma pílula geleia: a única da tela é o CTA, CHK-04).
 import { useState } from 'react'
 import { Check, ChevronDown, ShoppingBag, Tag, X } from 'lucide-react'
-import { formatPrice } from '@nanapin/core/formatters'
+import { formatPrice } from '@estrelinha/core/formatters'
 import {
   usePaymentSettings,
   useShippingSettings,
-} from '@nanapin/core/hooks/useStoreSettings'
+} from '@estrelinha/core/hooks/useStoreSettings'
 import CouponInput from '@/features/apply-coupon/ui/CouponInput'
 import { useCouponStore } from '@/entities/coupon'
 import { NanitaMonogram } from '@/shared/ui/brand'
 import { useCheckoutStore } from '../model/checkoutStore'
 import { useCheckoutTotals } from '../model/useCheckoutTotals'
-import { resolveInstallments } from '@nanapin/core/payment/installments'
+import { resolveInstallments } from '@estrelinha/core/payment/installments'
 
 interface Props {
   variant: 'sidebar' | 'bar'

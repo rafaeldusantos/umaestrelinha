@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { MessageCircle, X } from 'lucide-react'
 import { useLocation } from 'react-router-dom'
-import { useGeneralSettings } from '@nanapin/core/hooks/useStoreSettings'
+import { useGeneralSettings } from '@estrelinha/core/hooks/useStoreSettings'
 
 const SEEN_KEY = 'nana_wa_seen_v1'
 

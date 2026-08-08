@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import { StrictMode } from 'react'
 import PixPayment from '../PixPayment'
-import { supabase } from '@nanapin/supabase/client'
+import { supabase } from '@estrelinha/supabase/client'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -23,14 +23,14 @@ const paymentSettings = {
   max_installments: 6,
   min_installment_value: 10,
 }
-vi.mock('@nanapin/core/hooks/useStoreSettings', () => ({
+vi.mock('@estrelinha/core/hooks/useStoreSettings', () => ({
   usePaymentSettings: () => paymentSettings,
 }))
 
 // Canal Realtime mockado: captura o filtro e o callback do postgres_changes.
 let realtimeHandler: ((payload: any) => void) | null = null
 let realtimeConfig: any = null
-vi.mock('@nanapin/supabase/client', () => ({
+vi.mock('@estrelinha/supabase/client', () => ({
   supabase: {
     channel: vi.fn(() => {
       const ch: any = {}

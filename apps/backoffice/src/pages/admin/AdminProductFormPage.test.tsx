@@ -6,7 +6,7 @@ import { MemoryRouter } from 'react-router-dom'
 // Relacionados — e a aba `Variações` SHALL não existir mais".
 // PFM-11 AC 2-3: badge de pendência por aba, e o clique leva ao primeiro campo inválido.
 
-vi.mock('@nanapin/supabase/client', () => ({
+vi.mock('@estrelinha/supabase/client', () => ({
   supabase: {
     from: () => ({
       select: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: null, error: null }) }) }),
@@ -28,7 +28,7 @@ vi.mock('@/features/mockup-studio', () => ({
   MockupStudioDialog: () => null,
   appendImages: (prev: string[], next: string[]) => [...prev, ...next],
 }))
-vi.mock('@nanapin/ui/hooks/use-toast', () => ({ toast: vi.fn() }))
+vi.mock('@estrelinha/ui/hooks/use-toast', () => ({ toast: vi.fn() }))
 
 import AdminProductFormPage from './AdminProductFormPage'
 

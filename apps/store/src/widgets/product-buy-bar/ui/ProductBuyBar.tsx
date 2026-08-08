@@ -1,6 +1,6 @@
 import { Heart, ShoppingCart } from 'lucide-react'
-import { formatPrice } from '@nanapin/core/formatters'
-import type { Product } from '@nanapin/supabase/types'
+import { formatPrice } from '@estrelinha/core/formatters'
+import type { Product } from '@estrelinha/supabase/types'
 import type { ProductPurchase } from '@/entities/product'
 import { useWishlistStore } from '@/entities/wishlist/model/wishlistStore'
 import { BOTTOM_BAR_H } from '@/shared/lib/storeChrome'

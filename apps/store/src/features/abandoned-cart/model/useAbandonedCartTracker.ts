@@ -1,10 +1,10 @@
 import { useEffect, useRef } from 'react'
-import { supabase } from '@nanapin/supabase/client'
+import { supabase } from '@estrelinha/supabase/client'
 import { useCartStore } from '@/entities/cart/model/cartStore'
 import { useCouponStore } from '@/entities/coupon/model/couponStore'
-import { useAuthContext } from '@nanapin/auth'
-import { primaryImage } from '@nanapin/core/media'
-import type { AbandonedCartItem } from '@nanapin/supabase/types/abandonedCart'
+import { useAuthContext } from '@estrelinha/auth'
+import { primaryImage } from '@estrelinha/core/media'
+import type { AbandonedCartItem } from '@estrelinha/supabase/types/abandonedCart'
 
 const STORAGE_KEY = 'nanapin-guest-email'
 

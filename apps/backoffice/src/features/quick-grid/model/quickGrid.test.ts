@@ -1,7 +1,7 @@
 // PLS-07 — o parse do Excel, a validação linha a linha e o lote de insert.
 
 import { describe, expect, it } from 'vitest'
-import type { ProductOption } from '@nanapin/supabase/types'
+import type { ProductOption } from '@estrelinha/supabase/types'
 
 import {
   buildInsertBatch,

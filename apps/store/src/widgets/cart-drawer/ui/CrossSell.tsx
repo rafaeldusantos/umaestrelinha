@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { ChevronRight, Plus } from 'lucide-react'
-import { formatPrice } from '@nanapin/core/formatters'
-import type { Product } from '@nanapin/supabase/types'
+import { formatPrice } from '@estrelinha/core/formatters'
+import type { Product } from '@estrelinha/supabase/types'
 import { useCartStore } from '@/entities/cart/model/cartStore'
 import { hasSellableGrid } from '@/entities/product/lib/variantSelection'
 

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, act } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import type { MenuEntry } from '@nanapin/core/menu'
+import type { MenuEntry } from '@estrelinha/core/menu'
 import MegaMenu from '../MegaMenu'
 
 // Feature 16 / T17 — board "Desktop Mega Menu Open - v3".

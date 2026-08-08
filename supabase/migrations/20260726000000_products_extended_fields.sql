@@ -2,7 +2,7 @@
 -- products: colunas estendidas usadas pelo formulário do backoffice
 -- =====================================================================
 -- A tabela `products` nasceu na migration inicial com o mínimo do catálogo,
--- mas o front (DbProduct em @nanapin/supabase/types + AdminProductFormPage)
+-- mas o front (DbProduct em @estrelinha/supabase/types + AdminProductFormPage)
 -- evoluiu para um schema bem maior. O PATCH do backoffice enviava colunas
 -- inexistentes e o PostgREST rejeitava com PGRST204
 -- ("Could not find the 'buy_together_ids' column of 'products'").

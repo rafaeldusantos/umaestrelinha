@@ -13,8 +13,8 @@
 // Falha aqui **bloqueia** a compra (design.md → Error Handling): seguir para o `create-payment`
 // emitiria um pagamento sem `payer.identification`.
 import { useMutation } from '@tanstack/react-query'
-import { supabase } from '@nanapin/supabase/client'
-import { isValidDocument, stripDocument } from '@nanapin/core/validators'
+import { supabase } from '@estrelinha/supabase/client'
+import { isValidDocument, stripDocument } from '@estrelinha/core/validators'
 
 export const INVALID_CPF_MESSAGE = 'CPF ou CNPJ inválido'
 export const CPF_SAVE_FAILED_MESSAGE = 'Não conseguimos salvar seus dados. Tente novamente.'

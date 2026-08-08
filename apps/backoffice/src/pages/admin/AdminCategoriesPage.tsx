@@ -17,11 +17,11 @@ import {
   CategoryBulkBar, CategoryDeleteDialog, CategoryInspector, CategoryMoveDialog, CategoryTable,
   type CategoryView,
 } from '@/features/category-list'
-import { Button } from '@nanapin/ui/button'
-import { Input } from '@nanapin/ui/input'
-import { toast } from '@nanapin/ui/hooks/use-toast'
-import { cn } from '@nanapin/ui/lib/utils'
-import type { DbCategory } from '@nanapin/supabase/types'
+import { Button } from '@estrelinha/ui/button'
+import { Input } from '@estrelinha/ui/input'
+import { toast } from '@estrelinha/ui/hooks/use-toast'
+import { cn } from '@estrelinha/ui/lib/utils'
+import type { DbCategory } from '@estrelinha/supabase/types'
 
 const VIEWS: { id: CategoryView; label: string }[] = [
   { id: 'todas', label: 'Todas' },

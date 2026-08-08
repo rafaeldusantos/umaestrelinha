@@ -2,18 +2,18 @@
 //
 // O que mudou na T35 é a CASCA: o painel sai de `max-w-3xl` (768 px) para os 1360 px do artboard,
 // em três colunas — origem/mockups (264 px), palco (452 px) e ajustes/saída (300 px). A engine de
-// composição (`@nanapin/core/mockup`, `renderPlan`) **não é tocada**: 1360 px é layout, não
+// composição (`@estrelinha/core/mockup`, `renderPlan`) **não é tocada**: 1360 px é layout, não
 // algoritmo, e é isso que torna esta task barata. Os 9 testes de `renderPlan` são o gate disso.
 
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@nanapin/ui/dialog'
-import { Button } from '@nanapin/ui/button'
-import { Slider } from '@nanapin/ui/slider'
-import { Switch } from '@nanapin/ui/switch'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@estrelinha/ui/dialog'
+import { Button } from '@estrelinha/ui/button'
+import { Slider } from '@estrelinha/ui/slider'
+import { Switch } from '@estrelinha/ui/switch'
 import { ImagePlus, Loader2, Check, Sparkles, AlertTriangle, ZoomIn, ZoomOut } from 'lucide-react'
-import { toast } from '@nanapin/ui/hooks/use-toast'
-import { useMockups, composeMockup, loadImage } from '@nanapin/core'
-import type { MockupTemplate, ProductImage } from '@nanapin/supabase/types'
+import { toast } from '@estrelinha/ui/hooks/use-toast'
+import { useMockups, composeMockup, loadImage } from '@estrelinha/core'
+import type { MockupTemplate, ProductImage } from '@estrelinha/supabase/types'
 import { uploadImageBlob, type ImageFormat } from '@/features/product-form/lib/uploadProductImage'
 import { summarizeUploads } from '../lib/renderPlan'
 import { applyPlan, estimateSeconds, type ApplyOpts, type RenderResult } from '../lib/applyPlan'

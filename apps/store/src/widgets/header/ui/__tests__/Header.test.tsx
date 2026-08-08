@@ -12,7 +12,7 @@ const { openSpy, openMenuSpy, menuState, authState } = vi.hoisted(() => ({
   authState: { user: null as any, customer: null as any },
 }))
 
-vi.mock('@nanapin/auth', () => ({ useAuthContext: () => authState }))
+vi.mock('@estrelinha/auth', () => ({ useAuthContext: () => authState }))
 vi.mock('@/features/auth', () => ({ useAuthUiStore: (sel: any) => sel({ open: openSpy }) }))
 vi.mock('@/entities/cart/model/cartStore', () => ({ useCartStore: (sel: any) => sel({ uniqueItemsCount: () => 0 }) }))
 vi.mock('@/entities/wishlist/model/wishlistStore', () => ({ useWishlistStore: (sel: any) => sel({ count: () => 0 }) }))

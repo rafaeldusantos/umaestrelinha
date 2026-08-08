@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { Truck, Loader2 } from 'lucide-react'
-import { formatPrice } from '@nanapin/core/formatters'
-import { supabase } from '@nanapin/supabase/client'
-import type { Product, ShippingQuote } from '@nanapin/supabase/types'
+import { formatPrice } from '@estrelinha/core/formatters'
+import { supabase } from '@estrelinha/supabase/client'
+import type { Product, ShippingQuote } from '@estrelinha/supabase/types'
 import { toQuotePayload } from '@/entities/cart'
 
 /**

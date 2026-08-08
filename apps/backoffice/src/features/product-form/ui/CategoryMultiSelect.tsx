@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Check, Plus, X } from 'lucide-react'
-import { Badge } from '@nanapin/ui/badge'
-import type { DbCategory } from '@nanapin/supabase/types'
+import { Badge } from '@estrelinha/ui/badge'
+import type { DbCategory } from '@estrelinha/supabase/types'
 import { categoryPath, depthOf, flattenTree, parentPath } from '@/entities/category'
 
 interface Props {

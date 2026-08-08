@@ -5,7 +5,7 @@ import TagInput from './TagInput'
 import { categoryPath, depthOf, flattenTree, parentPath } from '@/entities/category'
 import { findSimilarTag, isSameTag, normalizeTag, parseTags } from '../model/normalizeTag'
 import { MAX_TAGS, selectionLabel, tagCounterLabel } from '../model/taxonomyLabels'
-import type { DbCategory } from '@nanapin/supabase/types'
+import type { DbCategory } from '@estrelinha/supabase/types'
 
 // PFM-05 (P1.4 AC 1-4) e PFM-06 (AC 6-11): categorias múltiplas com chips, caminho hierárquico,
 // contagem e criar-inline; tags como tokens com dedupe TOLERANTE que sugere e não substitui.

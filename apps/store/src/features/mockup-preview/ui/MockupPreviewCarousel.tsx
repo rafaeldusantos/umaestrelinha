@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Carousel, CarouselContent, CarouselItem, CarouselPrevious, CarouselNext } from '@nanapin/ui/carousel'
+import { Carousel, CarouselContent, CarouselItem, CarouselPrevious, CarouselNext } from '@estrelinha/ui/carousel'
 import { Loader2 } from 'lucide-react'
-import { useMockups, composeMockup, loadImage } from '@nanapin/core'
+import { useMockups, composeMockup, loadImage } from '@estrelinha/core'
 
 interface Props {
   artDataUrl: string

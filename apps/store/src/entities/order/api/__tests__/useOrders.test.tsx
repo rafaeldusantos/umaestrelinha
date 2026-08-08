@@ -16,7 +16,7 @@ const { fromMock, orderInsert, itemsInsert } = vi.hoisted(() => ({
   itemsInsert: vi.fn(),
 }))
 
-vi.mock('@nanapin/supabase/client', () => ({ supabase: { from: fromMock } }))
+vi.mock('@estrelinha/supabase/client', () => ({ supabase: { from: fromMock } }))
 
 import { useCreateOrder, type CreateOrderInput } from '../useOrders'
 

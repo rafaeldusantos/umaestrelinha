@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { toImagePayload } from './imagePayload'
-import type { ProductImage } from '@nanapin/supabase/types'
+import type { ProductImage } from '@estrelinha/supabase/types'
 
 // VAR-11 AC 4: "o payload de `images` SHALL ser `jsonb` — SHALL não gravar `string[]` de volta".
 

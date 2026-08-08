@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import type { Product } from '@nanapin/supabase/types'
-import type { ShippingQuote } from '@nanapin/supabase/types/shipping'
+import type { Product } from '@estrelinha/supabase/types'
+import type { ShippingQuote } from '@estrelinha/supabase/types/shipping'
 import { useCartStore } from '@/entities/cart'
 import { useCouponStore } from '@/entities/coupon'
 import { useCheckoutStore } from '../../model/checkoutStore'
@@ -31,12 +31,12 @@ const shippingSettings = {
   origin_zip: '',
   handling_days: 2,
 }
-vi.mock('@nanapin/core/hooks/useStoreSettings', () => ({
+vi.mock('@estrelinha/core/hooks/useStoreSettings', () => ({
   useShippingSettings: () => shippingSettings,
 }))
 
 const authState: { customer: { id: string } | null } = { customer: { id: 'c1' } }
-vi.mock('@nanapin/auth', () => ({ useAuthContext: () => authState }))
+vi.mock('@estrelinha/auth', () => ({ useAuthContext: () => authState }))
 
 const cepLookupMock = vi.mocked(useCepLookup)
 const shippingQuoteMock = vi.mocked(useShippingQuote)

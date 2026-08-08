@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import SearchOverlay from '../SearchOverlay'
-import type { Product } from '@nanapin/supabase/types'
+import type { Product } from '@estrelinha/supabase/types'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 

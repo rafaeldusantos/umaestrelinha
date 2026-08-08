@@ -17,7 +17,7 @@ vi.mock('@/features/abandoned-cart/model/useAbandonedCartTracker', () => ({
 const authState: { customer: { id: string; name: string; email: string; phone?: string } | null } = {
   customer: null,
 }
-vi.mock('@nanapin/auth', () => ({ useAuthContext: () => authState }))
+vi.mock('@estrelinha/auth', () => ({ useAuthContext: () => authState }))
 
 const onEdit = vi.fn()
 const onContinue = vi.fn()

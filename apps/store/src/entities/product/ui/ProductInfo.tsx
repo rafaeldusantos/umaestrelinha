@@ -1,12 +1,12 @@
 import { useLocation } from 'react-router-dom'
 import { Heart, Minus, MessageCircle, Plus, ShoppingCart } from 'lucide-react'
-import { formatPrice } from '@nanapin/core/formatters'
-import { resolveInstallments } from '@nanapin/core/payment/installments'
+import { formatPrice } from '@estrelinha/core/formatters'
+import { resolveInstallments } from '@estrelinha/core/payment/installments'
 import {
   useGeneralSettings,
   usePaymentSettings,
-} from '@nanapin/core/hooks/useStoreSettings'
-import type { Product } from '@nanapin/supabase/types'
+} from '@estrelinha/core/hooks/useStoreSettings'
+import type { Product } from '@estrelinha/supabase/types'
 import { useWishlistStore } from '@/entities/wishlist/model/wishlistStore'
 import ShareButtons from '@/features/share-product/ui/ShareButtons'
 import RatingStars from '@/entities/review/ui/RatingStars'

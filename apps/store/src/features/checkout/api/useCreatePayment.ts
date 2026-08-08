@@ -1,6 +1,6 @@
 import { useMutation } from '@tanstack/react-query'
-import { supabase } from '@nanapin/supabase/client'
-import type { CardPaymentFormData, CreatePaymentResponse } from '@nanapin/supabase/types'
+import { supabase } from '@estrelinha/supabase/client'
+import type { CardPaymentFormData, CreatePaymentResponse } from '@estrelinha/supabase/types'
 
 export interface CreatePaymentInput {
   order_id: string

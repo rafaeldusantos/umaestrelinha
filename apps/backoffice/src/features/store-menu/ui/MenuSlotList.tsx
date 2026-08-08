@@ -9,9 +9,9 @@
 // duas telas é o mesmo defeito de novo.
 
 import { GripVertical, Lock, Star, Info } from 'lucide-react'
-import { Switch } from '@nanapin/ui/switch'
-import { cn } from '@nanapin/ui/lib/utils'
-import { MENU_SLOT_LIMIT, menuSlotRefusal, pathLabel, type MenuCategory } from '@nanapin/core/menu'
+import { Switch } from '@estrelinha/ui/switch'
+import { cn } from '@estrelinha/ui/lib/utils'
+import { MENU_SLOT_LIMIT, menuSlotRefusal, pathLabel, type MenuCategory } from '@estrelinha/core/menu'
 import type { AdminCategory } from '@/entities/category'
 
 /**

@@ -3,7 +3,7 @@ import {
   resolveItemPrice, isPriceError, isVariantAvailable, priceRange, variantLabel,
   type PricingContext, type PricedItem,
 } from '../index'
-import type { ProductOption, ProductVariant } from '@nanapin/supabase/types'
+import type { ProductOption, ProductVariant } from '@estrelinha/supabase/types'
 
 // Testes derivados de PST-01 (AC 6-9), PST-08, PFM-15 e do "Done when" da T9.
 //

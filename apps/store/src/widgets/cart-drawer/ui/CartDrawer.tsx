@@ -9,10 +9,10 @@ import {
   SheetDescription,
   SheetHeader,
   SheetTitle,
-} from '@nanapin/ui/sheet'
-import { Button } from '@nanapin/ui/button'
-import { formatPrice } from '@nanapin/core/formatters'
-import { useShippingSettings } from '@nanapin/core/hooks/useStoreSettings'
+} from '@estrelinha/ui/sheet'
+import { Button } from '@estrelinha/ui/button'
+import { formatPrice } from '@estrelinha/core/formatters'
+import { useShippingSettings } from '@estrelinha/core/hooks/useStoreSettings'
 import { useCartStore } from '@/entities/cart/model/cartStore'
 import { useCartPromotion } from '@/entities/cart/model/useCartPromotion'
 import { useCartUiStore } from '@/entities/cart/model/cartUiStore'

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook } from '@testing-library/react'
-import type { Product } from '@nanapin/supabase/types'
-import type { ProgressivePromotion } from '@nanapin/core/payment/pricing'
+import type { Product } from '@estrelinha/supabase/types'
+import type { ProgressivePromotion } from '@estrelinha/core/payment/pricing'
 import { useCartStore } from '@/entities/cart'
 import { useCouponStore } from '@/entities/coupon'
 import { useProductById } from '@/entities/product'
@@ -21,7 +21,7 @@ import { useCheckoutTotals } from '../useCheckoutTotals'
 vi.mock('@/entities/product/api/useProducts', () => ({ useProductById: vi.fn() }))
 
 const active: { data: (ProgressivePromotion & { name: string })[] } = { data: [] }
-vi.mock('@nanapin/core/hooks/usePromotions', () => ({
+vi.mock('@estrelinha/core/hooks/usePromotions', () => ({
   useActivePromotions: () => ({ data: active.data, isLoading: false }),
 }))
 
@@ -31,7 +31,7 @@ const checkoutSettings = {
   order_bump_product_id: null as string | null,
   order_bump_discount_percent: 50,
 }
-vi.mock('@nanapin/core/hooks/useStoreSettings', () => ({
+vi.mock('@estrelinha/core/hooks/useStoreSettings', () => ({
   usePaymentSettings: () => paymentSettings,
   useCheckoutSettings: () => checkoutSettings,
 }))

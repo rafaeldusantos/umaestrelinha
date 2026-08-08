@@ -1,5 +1,5 @@
 {
-  "name": "@nanapin/store",
+  "name": "@estrelinha/store",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -14,10 +14,10 @@
   },
   "dependencies": {
     "@mercadopago/sdk-react": "^1.0.7",
-    "@nanapin/auth": "workspace:*",
-    "@nanapin/core": "workspace:*",
-    "@nanapin/supabase": "workspace:*",
-    "@nanapin/ui": "workspace:*",
+    "@estrelinha/auth": "workspace:*",
+    "@estrelinha/core": "workspace:*",
+    "@estrelinha/supabase": "workspace:*",
+    "@estrelinha/ui": "workspace:*",
     "qrcode.react": "^4.2.0"
   }
 }

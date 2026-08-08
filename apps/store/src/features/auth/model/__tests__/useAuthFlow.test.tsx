@@ -18,7 +18,7 @@ const { mockCtx, navigate } = vi.hoisted(() => ({
   navigate: vi.fn(),
 }))
 
-vi.mock('@nanapin/auth', () => ({ useAuthContext: () => mockCtx }))
+vi.mock('@estrelinha/auth', () => ({ useAuthContext: () => mockCtx }))
 vi.mock('react-router-dom', () => ({ useNavigate: () => navigate }))
 
 const openWith = (returnTo: string | null, step: AuthStep = 'entry', email = '') =>

@@ -17,8 +17,8 @@ import {
   type PricingItem,
   type ProgressiveTier,
   type ProgressivePromotion,
-} from '@nanapin/core/payment/pricing'
-import { useActivePromotions } from '@nanapin/core/hooks/usePromotions'
+} from '@estrelinha/core/payment/pricing'
+import { useActivePromotions } from '@estrelinha/core/hooks/usePromotions'
 import { useCouponStore } from '@/entities/coupon'
 import { useCartStore } from './cartStore'
 

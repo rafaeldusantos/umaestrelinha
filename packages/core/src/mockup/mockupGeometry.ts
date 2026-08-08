@@ -1,4 +1,4 @@
-import type { ArtZone } from '@nanapin/supabase/types/mockup'
+import type { ArtZone } from '@estrelinha/supabase/types/mockup'
 import type { ArtTransform, PxZone } from './types'
 
 // Mapeia uma art-zone normalizada (0..1) para pixels do fundo. ENG-03.

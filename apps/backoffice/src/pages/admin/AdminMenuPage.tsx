@@ -12,14 +12,14 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { AlertTriangle, ExternalLink, Menu as MenuIcon, RefreshCw } from 'lucide-react'
-import { Button } from '@nanapin/ui/button'
-import { toast } from '@nanapin/ui/hooks/use-toast'
-import { menuEntries, type MenuCategory } from '@nanapin/core/menu'
+import { Button } from '@estrelinha/ui/button'
+import { toast } from '@estrelinha/ui/hooks/use-toast'
+import { menuEntries, type MenuCategory } from '@estrelinha/core/menu'
 import { reorderWithinParent } from '@/features/category-list'
 import { MenuBarPreview, MenuPromoEditor, MenuSlotList } from '@/features/store-menu'
 import { useAdminCategories } from '@/entities/category'
 import { PageHeader, TableSkeleton } from '@/shared/ui'
-import type { MenuPromo } from '@nanapin/supabase/types'
+import type { MenuPromo } from '@estrelinha/supabase/types'
 
 const AdminMenuPage = () => {
   const { categories, loading, error, fetchCategories, updateCategory, updateSortOrders } =

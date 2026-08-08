@@ -6,7 +6,7 @@ import AlertsPanel from '@/widgets/alerts-panel/ui/AlertsPanel'
 import TopProductsCard from '@/widgets/top-products/ui/TopProductsCard'
 import QuickActions from '@/widgets/quick-actions/ui/QuickActions'
 import { PageHeader, StatCard, AdminTable, type AdminColumn } from '@/shared/ui'
-import { formatPrice } from '@nanapin/core/formatters'
+import { formatPrice } from '@estrelinha/core/formatters'
 
 type RecentOrder = ReturnType<typeof useAdminStats>['stats']['recentOrders'][number]
 

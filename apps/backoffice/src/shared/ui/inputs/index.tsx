@@ -2,7 +2,7 @@ import {
   parseBRL, formatBRL,
   parseGrams, formatGrams,
   parseCm, formatCm,
-} from '@nanapin/core/formatters'
+} from '@estrelinha/core/formatters'
 import { MaskedNumberInput, type MaskedNumberInputProps } from './MaskedNumberInput'
 
 /**
@@ -13,7 +13,7 @@ import { MaskedNumberInput, type MaskedNumberInputProps } from './MaskedNumberIn
  * `features/`, os slices da `13` importariam de outro slice da mesma camada — cross-import que o
  * `eslint-plugin-boundaries` sinaliza (`AD-010`).
  *
- * Toda a aritmética de parse/format vive em `@nanapin/core/formatters`, testada lá como função
+ * Toda a aritmética de parse/format vive em `@estrelinha/core/formatters`, testada lá como função
  * pura. Aqui só o comportamento de campo.
  */
 type FieldProps = Omit<MaskedNumberInputProps, 'parse' | 'format' | 'prefix' | 'suffix'>

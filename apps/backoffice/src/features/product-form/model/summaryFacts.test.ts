@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { stockFact, type SummaryInput } from './summaryFacts'
-import type { ProductVariant } from '@nanapin/supabase/types'
+import type { ProductVariant } from '@estrelinha/supabase/types'
 
 // O estoque do card Resumo. `Não controla` vem de BUG-20260802: com a política *Não controlar*
 // marcada na aba Preços, o inspetor mostrava `0 un.` — esgotado, no único modo em que a loja nunca

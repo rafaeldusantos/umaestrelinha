@@ -7,7 +7,7 @@
  *
  * ─────────────────────────────────────────────────────────────────────────
  * TEMA NANITA — escopo: só a loja.
- * Carregado DEPOIS de `@nanapin/ui/styles.css` (ver `src/main.tsx`), então
+ * Carregado DEPOIS de `@estrelinha/ui/styles.css` (ver `src/main.tsx`), então
  * este arquivo sobrescreve os tokens `--nana-*` do pacote compartilhado sem
  * afetar o backoffice, que continua com a paleta antiga.
  *
@@ -144,7 +144,7 @@
 }
 
 /* Regras sem @layer de propósito: este arquivo não passa pelas diretivas
- * `@tailwind` (elas vivem em `@nanapin/ui/styles.css`). Como App.css é
+ * `@tailwind` (elas vivem em `@estrelinha/ui/styles.css`). Como App.css é
  * importado depois, a ordem já garante que estas regras vençam. */
 
 body {

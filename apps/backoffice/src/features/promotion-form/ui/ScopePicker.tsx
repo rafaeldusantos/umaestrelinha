@@ -6,11 +6,11 @@
 // feature. O board não muda; a tela deixa de prometer o que a spec não cobre.
 
 import { X } from 'lucide-react'
-import { Label } from '@nanapin/ui/label'
-import { cn } from '@nanapin/ui/lib/utils'
-import type { DbCategory } from '@nanapin/supabase/types'
+import { Label } from '@estrelinha/ui/label'
+import { cn } from '@estrelinha/ui/lib/utils'
+import type { DbCategory } from '@estrelinha/supabase/types'
 import { categoryPath, flattenTree } from '@/entities/category'
-import type { PromotionScope } from '@nanapin/supabase/types/promotion'
+import type { PromotionScope } from '@estrelinha/supabase/types/promotion'
 
 interface Props {
   scope: PromotionScope

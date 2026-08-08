@@ -1,13 +1,13 @@
 import * as React from 'react'
 import { Slot } from '@radix-ui/react-slot'
 import { cva, type VariantProps } from 'class-variance-authority'
-import { cn } from '@nanapin/ui/lib/utils'
+import { cn } from '@estrelinha/ui/lib/utils'
 
 /**
  * O botão da loja — identidade papelaria (artboards 22 e 23).
  *
  * **A loja tem o próprio botão em vez de usar o do shadcn por um motivo
- * mecânico**, não estético. O `<Button>` de `@nanapin/ui` carrega `rounded-md`
+ * mecânico**, não estético. O `<Button>` de `@estrelinha/ui` carrega `rounded-md`
  * na base da `cva` dele, e `packages/ui` é compartilhado com o backoffice —
  * não pode ser editado. Passar `className="rounded-button"` por cima não
  * resolve: o `tailwind-merge` classifica `rounded-*` por sufixos conhecidos

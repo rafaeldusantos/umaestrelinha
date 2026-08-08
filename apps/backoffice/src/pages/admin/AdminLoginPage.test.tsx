@@ -21,11 +21,11 @@ vi.mock('react-router-dom', async () => {
 const auth = vi.hoisted(() => ({
   signInWithPassword: vi.fn().mockResolvedValue({ error: null }),
 }))
-vi.mock('@nanapin/supabase/client', () => ({ supabase: { auth } }))
+vi.mock('@estrelinha/supabase/client', () => ({ supabase: { auth } }))
 
 /** O estado do contexto, trocável entre renders — é o que simula a resolução assíncrona do papel. */
 const ctx = vi.hoisted(() => ({ current: { user: null as unknown, isAdmin: false, loading: false } }))
-vi.mock('@nanapin/auth', () => ({ useAuthContext: () => ctx.current }))
+vi.mock('@estrelinha/auth', () => ({ useAuthContext: () => ctx.current }))
 
 import AdminLoginPage from './AdminLoginPage'
 

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { supabase } from '@nanapin/supabase/client'
-import type { Coupon, ValidateCouponInput, ValidateCouponResult } from '@nanapin/supabase/types/coupon'
+import { supabase } from '@estrelinha/supabase/client'
+import type { Coupon, ValidateCouponInput, ValidateCouponResult } from '@estrelinha/supabase/types/coupon'
 
 const TABLE = 'coupons'
 

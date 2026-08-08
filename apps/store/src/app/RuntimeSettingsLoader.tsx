@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
-import { useStoreSettings } from '@nanapin/core/hooks/useStoreSettings'
-import { setRuntimeShippingSettings } from '@nanapin/core/constants'
+import { useStoreSettings } from '@estrelinha/core/hooks/useStoreSettings'
+import { setRuntimeShippingSettings } from '@estrelinha/core/constants'
 
 /**
  * Componente invisível: ouve as configurações da loja e hidrata os

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import VariantsTable from './VariantsTable'
-import type { ProductOption, ProductVariant } from '@nanapin/supabase/types'
+import type { ProductOption, ProductVariant } from '@estrelinha/supabase/types'
 
 // PFM-08 (P1.3 AC 7-13) e PFM-15: colunas do artboard, agrupamento pelo 1º eixo com subtotal, linha
 // ativa sem preço em erro, rodapé com faixa ignorando pausadas, pausar sem apagar, e exclusão

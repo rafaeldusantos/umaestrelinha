@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-// Importado pelo barrel: prova que o campo único de documento sai de @nanapin/core/validators.
+// Importado pelo barrel: prova que o campo único de documento sai de @estrelinha/core/validators.
 import { documentLabel, isValidDocument, maskDocument, stripDocument } from '../index'
 
 // DOC-01: máscara 000.000.000-00 até 11 dígitos e 00.000.000/0000-00 a partir do 12º

@@ -8,7 +8,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const { uploadMock } = vi.hoisted(() => ({ uploadMock: vi.fn() }))
-vi.mock('@nanapin/supabase/client', () => ({
+vi.mock('@estrelinha/supabase/client', () => ({
   supabase: { storage: { from: () => ({ upload: uploadMock, remove: vi.fn() }) } },
 }))
 

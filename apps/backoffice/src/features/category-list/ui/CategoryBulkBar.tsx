@@ -8,7 +8,7 @@
 // conjunto que vai para o `update`, então a barra precisa dizer isso antes de o admin clicar.
 
 import { Eye, EyeOff, FolderInput, Trash2 } from 'lucide-react'
-import { Button } from '@nanapin/ui/button'
+import { Button } from '@estrelinha/ui/button'
 
 interface Props {
   count: number

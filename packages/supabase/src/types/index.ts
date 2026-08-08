@@ -7,7 +7,7 @@
  * digitada: link com typo deixa de ser possível e a contagem ("12 pins") sai da view
  * `category_product_counts`. O preço é que a referência mora dentro de jsonb, onde **não cabe FK** —
  * apagar o destino não dispara `on delete set null`. Por isso quem lê **precisa** resolver o destino
- * em runtime (`resolvePromo`, em `@nanapin/core/menu`); é critério de aceite, não zelo.
+ * em runtime (`resolvePromo`, em `@estrelinha/core/menu`); é critério de aceite, não zelo.
  *
  * `title` e `subtitle` ausentes caem no nome e na descrição da categoria de destino.
  */
@@ -285,7 +285,7 @@ export interface Product {
    * `products.images` é `jsonb [{url, alt, source}]` desde a migration `20260801120200`.
    * Era `string[]` aqui também; o tipo mudou de propósito na T17 para que **o compilador**
    * aponte cada leitor cru em vez de a tela mostrar `src="[object Object]"`.
-   * A conversão de qualquer forma de entrada é de `normalizeImages` (`@nanapin/core/media`).
+   * A conversão de qualquer forma de entrada é de `normalizeImages` (`@estrelinha/core/media`).
    */
   images: ProductImage[]
   /** Os eixos de escolha, na ordem de `position`. Vazio = produto sem grade. */

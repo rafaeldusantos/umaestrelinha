@@ -1,7 +1,7 @@
 // PMD-05 AC 6-8 — a regra de aplicação do estúdio, sem canvas.
 
 import { describe, expect, it } from 'vitest'
-import type { ProductImage } from '@nanapin/supabase/types'
+import type { ProductImage } from '@estrelinha/supabase/types'
 
 import { applyPlan, estimateSeconds, type ApplyOpts } from './applyPlan'
 import { buildAltText } from '@/features/product-form/lib/buildAltText'

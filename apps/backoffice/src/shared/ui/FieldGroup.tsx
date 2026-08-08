@@ -1,5 +1,5 @@
-import { Label } from '@nanapin/ui/label'
-import { Switch } from '@nanapin/ui/switch'
+import { Label } from '@estrelinha/ui/label'
+import { Switch } from '@estrelinha/ui/switch'
 
 interface FieldGroupProps {
   label: string

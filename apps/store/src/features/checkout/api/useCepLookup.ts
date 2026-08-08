@@ -4,7 +4,7 @@
 // O hook **nunca** lança: CEP inexistente, resposta inválida e falha de rede convergem para
 // `manual: true`, que é o sinal para o bloco Entrega destravar os campos.
 import { useQuery } from '@tanstack/react-query'
-import { stripCep } from '@nanapin/core/validators'
+import { stripCep } from '@estrelinha/core/validators'
 
 export const CEP_LOOKUP_KEY = 'cep-lookup'
 

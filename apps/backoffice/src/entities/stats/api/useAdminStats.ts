@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
-import { supabase } from '@nanapin/supabase/client'
-import type { DbOrder } from '@nanapin/supabase/types'
+import { supabase } from '@estrelinha/supabase/client'
+import type { DbOrder } from '@estrelinha/supabase/types'
 
 interface TopProduct {
   id: string

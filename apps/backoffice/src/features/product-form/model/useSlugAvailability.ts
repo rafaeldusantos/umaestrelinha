@@ -7,7 +7,7 @@
 // O `UNIQUE` continua sendo a rede de segurança. Ele deixa de ser o MECANISMO.
 
 import { useEffect, useState } from 'react'
-import { supabase } from '@nanapin/supabase/client'
+import { supabase } from '@estrelinha/supabase/client'
 
 export type SlugStatus = 'idle' | 'checking' | 'available' | 'taken' | 'invalid' | 'error'
 

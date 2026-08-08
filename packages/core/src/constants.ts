@@ -21,7 +21,7 @@ export const setRuntimeShippingSettings = (s: {
 
 /**
  * Espelha `minimum_password_length` em supabase/config.toml. Vive aqui (e não em
- * @nanapin/auth) para que a UI possa validar a senha sem arrastar o client do
+ * @estrelinha/auth) para que a UI possa validar a senha sem arrastar o client do
  * Supabase para dentro do bundle/teste do componente.
  */
 export const MIN_PASSWORD_LENGTH = 6

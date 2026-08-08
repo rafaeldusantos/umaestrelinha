@@ -1,9 +1,9 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
-import { Toaster as Sonner } from "@nanapin/ui/sonner";
-import { Toaster } from "@nanapin/ui/toaster";
-import { TooltipProvider } from "@nanapin/ui/tooltip";
-import { RequireAdmin } from "@nanapin/auth";
+import { Toaster as Sonner } from "@estrelinha/ui/sonner";
+import { Toaster } from "@estrelinha/ui/toaster";
+import { TooltipProvider } from "@estrelinha/ui/tooltip";
+import { RequireAdmin } from "@estrelinha/auth";
 
 import AdminLayout from "@/widgets/admin-layout/ui/AdminLayout";
 import AdminLoginPage from "@/pages/admin/AdminLoginPage";

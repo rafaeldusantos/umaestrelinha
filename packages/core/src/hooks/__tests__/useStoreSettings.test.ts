@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   DEFAULT_CHECKOUT,
   DEFAULT_SHIPPING,
-} from '@nanapin/supabase/types/settings'
+} from '@estrelinha/supabase/types/settings'
 
 // BMP-01: store_settings ganha a chave `checkout`; sem ela em DEFAULTS o `fetchAllSettings`
 //         descarta a linha (`useStoreSettings.ts` → `if (key in map)`).
@@ -14,7 +14,7 @@ import {
 
 const { selectMock } = vi.hoisted(() => ({ selectMock: vi.fn() }))
 
-vi.mock('@nanapin/supabase/client', () => ({
+vi.mock('@estrelinha/supabase/client', () => ({
   supabase: { from: () => ({ select: selectMock }) },
 }))
 

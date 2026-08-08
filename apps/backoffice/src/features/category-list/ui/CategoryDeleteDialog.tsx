@@ -7,10 +7,10 @@
 
 import { useEffect, useState } from 'react'
 import { AlertTriangle } from 'lucide-react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@nanapin/ui/dialog'
-import { Button } from '@nanapin/ui/button'
-import { Input } from '@nanapin/ui/input'
-import { Label } from '@nanapin/ui/label'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@estrelinha/ui/dialog'
+import { Button } from '@estrelinha/ui/button'
+import { Input } from '@estrelinha/ui/input'
+import { Label } from '@estrelinha/ui/label'
 import { CONFIRM_WORD, matchesConfirmWord, PREVIEW_LIMIT } from '@/features/bulk-edit/model/confirmDelete'
 import type { DeletionImpact } from '../model/categoryTree'
 

@@ -1,6 +1,6 @@
 // Feature 16 — o domínio do menu da loja.
 //
-// Puro: nada aqui sabe que existe React, Supabase ou tela. Vive em `@nanapin/core` porque **quatro
+// Puro: nada aqui sabe que existe React, Supabase ou tela. Vive em `@estrelinha/core` porque **quatro
 // superfícies em dois apps** consomem a mesma regra — a tela `/admin/menu`, o mega menu do desktop, a
 // folha do celular e a página da coleção. Duplicado, o admin mostraria uma coisa e a loja outra.
 //
@@ -11,7 +11,7 @@
 // "Bottons · Academia · Anime · K-Pop": o contêiner de tudo, mais uma filha que só chegou lá por
 // empatar em `sort_order = 0` com ele.
 
-import type { MenuPromo } from '@nanapin/supabase/types'
+import type { MenuPromo } from '@estrelinha/supabase/types'
 
 /**
  * A forma **mínima** que o domínio precisa.

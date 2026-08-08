@@ -3,7 +3,7 @@ import StarterKit from '@tiptap/starter-kit'
 import Link from '@tiptap/extension-link'
 import Image from '@tiptap/extension-image'
 import { Bold, Italic, Heading2, Heading3, List, ListOrdered, Link as LinkIcon, Image as ImageIcon, Undo, Redo } from 'lucide-react'
-import { Button } from '@nanapin/ui/button'
+import { Button } from '@estrelinha/ui/button'
 import { useEffect } from 'react'
 
 interface Props {

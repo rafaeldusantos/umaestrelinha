@@ -2,16 +2,16 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
-import type { Product } from '@nanapin/supabase/types'
+import type { Product } from '@estrelinha/supabase/types'
 import { useCartStore } from '@/entities/cart'
 import { useShippingQuote } from '../useShippingQuote'
-import { supabase } from '@nanapin/supabase/client'
+import { supabase } from '@estrelinha/supabase/client'
 
 // SHP-01: cota via `melhor-envio?action=quote` e devolve as opções reais.
 // SHP-03: CEP com menos de 8 dígitos não dispara cotação.
 // SHP-10: resposta de um CEP anterior nunca aparece como resultado do CEP atual.
 
-vi.mock('@nanapin/supabase/client', () => ({
+vi.mock('@estrelinha/supabase/client', () => ({
   supabase: { functions: { invoke: vi.fn() } },
 }))
 

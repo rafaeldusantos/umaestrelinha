@@ -3,7 +3,7 @@ import type { Config } from "tailwindcss";
 /**
  * Preset Tailwind compartilhado (design system do backoffice, tokens --nana-*).
  * Cada app estende este preset e define seu próprio `content`.
- * Os tokens `--nana-*` vivem em `@nanapin/ui/styles.css`.
+ * Os tokens `--nana-*` vivem em `@estrelinha/ui/styles.css`.
  */
 export default {
   darkMode: ["class"],

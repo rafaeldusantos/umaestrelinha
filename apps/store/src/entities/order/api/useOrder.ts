@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { supabase } from '@nanapin/supabase/client'
+import { supabase } from '@estrelinha/supabase/client'
 import type { Order } from './useOrders'
 
 /**

@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { ChevronRight, Loader2, Save, Trash2, Upload } from 'lucide-react'
-import { Button } from '@nanapin/ui/button'
-import { Badge } from '@nanapin/ui/badge'
+import { Button } from '@estrelinha/ui/button'
+import { Badge } from '@estrelinha/ui/badge'
 
 interface Props {
   productName: string

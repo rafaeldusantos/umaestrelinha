@@ -1,4 +1,4 @@
-// API pública inalterada: `@nanapin/core/formatters` segue exportando os dois nomes, para que o
+// API pública inalterada: `@estrelinha/core/formatters` segue exportando os dois nomes, para que o
 // split em `price.ts` / `date.ts` não toque em nenhum call site.
 export { formatPrice } from './price'
 export { formatRelativeDate } from './date'

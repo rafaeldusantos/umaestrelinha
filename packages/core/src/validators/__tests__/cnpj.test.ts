@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-// Importado pelo barrel: prova que maskCnpj/stripCnpj/isValidCnpj saem de @nanapin/core/validators.
+// Importado pelo barrel: prova que maskCnpj/stripCnpj/isValidCnpj saem de @estrelinha/core/validators.
 import { isValidCnpj, maskCnpj, stripCnpj } from '../index'
 
 // DOC-01: campo de documento com máscara 00.000.000/0000-00 a partir do 12º dígito

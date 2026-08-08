@@ -1,7 +1,7 @@
 import { ArrowLeft } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import { Button } from '@nanapin/ui/button'
-import { cn } from '@nanapin/ui/lib/utils'
+import { Button } from '@estrelinha/ui/button'
+import { cn } from '@estrelinha/ui/lib/utils'
 
 interface Props {
   title: string

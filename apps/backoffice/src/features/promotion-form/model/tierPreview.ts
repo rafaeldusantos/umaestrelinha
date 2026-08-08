@@ -10,7 +10,7 @@
 // cliente paga" — nem para "quantos por cento é isso". Daí a referência vir de
 // `useEligiblePreview` (a mediana dos elegíveis) e a prévia ficar em `—` enquanto não houver escopo.
 
-import { tierUnitPrice, type PromotionDiscountKind } from '@nanapin/core/payment/pricing'
+import { tierUnitPrice, type PromotionDiscountKind } from '@estrelinha/core/payment/pricing'
 
 export interface TierPreview {
   /** O que cada unidade passa a custar. */

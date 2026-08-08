@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Input } from '@nanapin/ui/input'
-import { cn } from '@nanapin/ui/lib/utils'
+import { Input } from '@estrelinha/ui/input'
+import { cn } from '@estrelinha/ui/lib/utils'
 
 /**
  * Base dos inputs mascarados. Não é exportada pelo barrel: os consumidores usam `MoneyInput`,

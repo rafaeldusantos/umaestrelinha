@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { supabase } from '@nanapin/supabase/client'
-import type { PaymentStatus } from '@nanapin/supabase/types'
+import { supabase } from '@estrelinha/supabase/client'
+import type { PaymentStatus } from '@estrelinha/supabase/types'
 
 export interface OrderItem {
   id: string

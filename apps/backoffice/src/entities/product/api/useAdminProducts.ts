@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { supabase } from '@nanapin/supabase/client'
-import { normalizeImages } from '@nanapin/core/media'
-import { normalizeOptions, normalizeVariants, toStockPolicy, categoryIdsFromLinks } from '@nanapin/core/product'
-import type { DbProduct } from '@nanapin/supabase/types'
+import { supabase } from '@estrelinha/supabase/client'
+import { normalizeImages } from '@estrelinha/core/media'
+import { normalizeOptions, normalizeVariants, toStockPolicy, categoryIdsFromLinks } from '@estrelinha/core/product'
+import type { DbProduct } from '@estrelinha/supabase/types'
 import {
   escapeSearchTerm,
   pageRange,

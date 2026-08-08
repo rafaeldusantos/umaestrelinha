@@ -5,9 +5,9 @@
 // sem montar a planilha é o que torna a task viável — e é onde um `1.234` virando `1,23` seria
 // pego antes de virar 20 produtos com preço errado.
 
-import { parseBRL } from '@nanapin/core/formatters'
-import { cartesian, skuFromParts } from '@nanapin/core/pricing'
-import type { OptionValues, ProductImage, ProductOption } from '@nanapin/supabase/types'
+import { parseBRL } from '@estrelinha/core/formatters'
+import { cartesian, skuFromParts } from '@estrelinha/core/pricing'
+import type { OptionValues, ProductImage, ProductOption } from '@estrelinha/supabase/types'
 
 /** A24: colar mais que isto trava a aba. Limitar com aviso é melhor que travar em silêncio. */
 export const MAX_ROWS = 200

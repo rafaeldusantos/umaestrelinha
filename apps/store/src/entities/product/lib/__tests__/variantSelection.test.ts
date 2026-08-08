@@ -12,7 +12,7 @@ import {
   visibleOptions,
   type GridProduct,
 } from '../variantSelection'
-import type { OptionValues, ProductOption, ProductVariant } from '@nanapin/supabase/types'
+import type { OptionValues, ProductOption, ProductVariant } from '@estrelinha/supabase/types'
 
 // PST-05: seletores gerados de `products.options` na ordem de `position` — até 3 na página, 2 no
 // card (A7). PST-08: disponibilidade respeita `stock_policy`. PST-10: variação ativa com `options`

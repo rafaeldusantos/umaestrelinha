@@ -1,5 +1,5 @@
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@nanapin/ui/card'
-import { cn } from '@nanapin/ui/lib/utils'
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@estrelinha/ui/card'
+import { cn } from '@estrelinha/ui/lib/utils'
 
 interface Props {
   title?: string

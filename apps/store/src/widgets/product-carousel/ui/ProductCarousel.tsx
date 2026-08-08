@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import ProductCard from '@/entities/product/ui/ProductCard'
 import SectionHeading from '@/shared/ui/SectionHeading'
-import type { Product } from '@nanapin/supabase/types'
+import type { Product } from '@estrelinha/supabase/types'
 
 interface Props {
   title: string

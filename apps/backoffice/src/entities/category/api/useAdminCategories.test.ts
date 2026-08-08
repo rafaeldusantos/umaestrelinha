@@ -9,7 +9,7 @@ import { act, renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const { fromMock } = vi.hoisted(() => ({ fromMock: vi.fn() }))
-vi.mock('@nanapin/supabase/client', () => ({ supabase: { from: fromMock } }))
+vi.mock('@estrelinha/supabase/client', () => ({ supabase: { from: fromMock } }))
 
 import { CATEGORY_SELECT, useAdminCategories } from './useAdminCategories'
 

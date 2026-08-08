@@ -5,7 +5,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 // insert), e 301 para produto já publicado.
 
 const { fromMock } = vi.hoisted(() => ({ fromMock: vi.fn() }))
-vi.mock('@nanapin/supabase/client', () => ({ supabase: { from: fromMock } }))
+vi.mock('@estrelinha/supabase/client', () => ({ supabase: { from: fromMock } }))
 
 import SlugField from './SlugField'
 import SlugReadonlyLine from './SlugReadonlyLine'

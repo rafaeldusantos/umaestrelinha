@@ -1,4 +1,4 @@
-import type { ArtZone, ArtZoneShape, MockupBlendMode } from '@nanapin/supabase/types/mockup'
+import type { ArtZone, ArtZoneShape, MockupBlendMode } from '@estrelinha/supabase/types/mockup'
 
 // Art-zone resolvida para pixels do fundo (via resolveArtZone).
 export interface PxZone {

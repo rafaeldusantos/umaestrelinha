@@ -8,7 +8,7 @@
 // A hierarquia se sustenta em preto e branco (checklist do `DESIGN.md` §8) e cada estágio expõe
 // `data-state`, para o estado ser legível sem depender de classe de cor.
 import { Check, Home, PackageCheck, Truck } from 'lucide-react'
-import { formatEstimate } from '@nanapin/core/shipping'
+import { formatEstimate } from '@estrelinha/core/shipping'
 
 export type OrderStageState = 'complete' | 'current' | 'future'
 

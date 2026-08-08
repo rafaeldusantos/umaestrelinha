@@ -1,4 +1,4 @@
-import type { PaymentStatus } from '@nanapin/supabase/types'
+import type { PaymentStatus } from '@estrelinha/supabase/types'
 
 export const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
   pending: 'Pendente',

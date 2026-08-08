@@ -3,7 +3,7 @@ import { Users, Eye } from 'lucide-react'
 import { useAdminCustomers } from '@/entities/customer/api/useAdminCustomers'
 import CustomerDetailDialog from '@/features/customer-detail/ui/CustomerDetailDialog'
 import { PageHeader, AdminTable, type AdminColumn } from '@/shared/ui'
-import { Button } from '@nanapin/ui/button'
+import { Button } from '@estrelinha/ui/button'
 import type { AdminCustomer } from '@/entities/customer/api/useAdminCustomers'
 
 const AdminClientsPage = () => {

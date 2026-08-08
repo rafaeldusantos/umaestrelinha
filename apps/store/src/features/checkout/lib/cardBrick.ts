@@ -4,7 +4,7 @@
 // "hides the payment button **and disables the onSubmit callback**". Com o botão próprio do Brick
 // escondido (PGM-05), `onSubmit` nunca dispara e o único caminho de submissão passa a ser o
 // controller global: `window.cardPaymentBrickController.getFormData()`.
-import type { CardPaymentFormData } from '@nanapin/supabase/types'
+import type { CardPaymentFormData } from '@estrelinha/supabase/types'
 
 declare global {
   interface Window {

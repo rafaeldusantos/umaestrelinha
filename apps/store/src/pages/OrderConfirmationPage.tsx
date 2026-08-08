@@ -9,9 +9,9 @@
 // fora de escopo (tabela Out of Scope da spec) — exige cobrar de novo sem novo checkout.
 import { Link, useParams } from 'react-router-dom'
 import { PackageCheck } from 'lucide-react'
-import { NanaMascot } from '@nanapin/ui/nana-mascot'
-import { formatPrice } from '@nanapin/core/formatters'
-import { formatEstimate } from '@nanapin/core/shipping'
+import { NanaMascot } from '@estrelinha/ui/nana-mascot'
+import { formatPrice } from '@estrelinha/core/formatters'
+import { formatEstimate } from '@estrelinha/core/shipping'
 import { OrderTimeline, useOrder } from '@/entities/order'
 
 const Shell = ({ children }: { children: React.ReactNode }) => (

@@ -11,12 +11,12 @@
 
 import { useEffect, useState } from 'react'
 import { X } from 'lucide-react'
-import { Button } from '@nanapin/ui/button'
-import { Input } from '@nanapin/ui/input'
-import { Label } from '@nanapin/ui/label'
-import { Switch } from '@nanapin/ui/switch'
-import { Textarea } from '@nanapin/ui/textarea'
-import type { DbCategory } from '@nanapin/supabase/types'
+import { Button } from '@estrelinha/ui/button'
+import { Input } from '@estrelinha/ui/input'
+import { Label } from '@estrelinha/ui/label'
+import { Switch } from '@estrelinha/ui/switch'
+import { Textarea } from '@estrelinha/ui/textarea'
+import type { DbCategory } from '@estrelinha/supabase/types'
 import type { AdminCategory } from '@/entities/category/api/useAdminCategories'
 import { eligibleParents } from '../model/categoryTree'
 

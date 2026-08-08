@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
-import { MIN_PASSWORD_LENGTH } from '@nanapin/core/constants'
-import { Button } from '@nanapin/ui/button'
-import { Input } from '@nanapin/ui/input'
-import { Label } from '@nanapin/ui/label'
+import { MIN_PASSWORD_LENGTH } from '@estrelinha/core/constants'
+import { Button } from '@estrelinha/ui/button'
+import { Input } from '@estrelinha/ui/input'
+import { Label } from '@estrelinha/ui/label'
 import { useAuthFlow } from '../../model/useAuthFlow'
 
 /**

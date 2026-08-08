@@ -17,7 +17,7 @@ vi.mock('@mercadopago/sdk-react', () => ({
   },
 }))
 
-vi.mock('@nanapin/core/hooks/useStoreSettings', () => ({
+vi.mock('@estrelinha/core/hooks/useStoreSettings', () => ({
   usePaymentSettings: () => ({
     pix_enabled: true,
     pix_discount_percent: 5,

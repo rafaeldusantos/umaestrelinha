@@ -6,7 +6,7 @@
 
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { MockupTemplate, ProductImage } from '@nanapin/supabase/types'
+import type { MockupTemplate, ProductImage } from '@estrelinha/supabase/types'
 
 const { useMockupsMock, composeMock, loadImageMock, uploadBlobMock } = vi.hoisted(() => ({
   useMockupsMock: vi.fn(),
@@ -15,13 +15,13 @@ const { useMockupsMock, composeMock, loadImageMock, uploadBlobMock } = vi.hoiste
   uploadBlobMock: vi.fn(),
 }))
 
-vi.mock('@nanapin/core', () => ({
+vi.mock('@estrelinha/core', () => ({
   useMockups: useMockupsMock,
   composeMockup: composeMock,
   loadImage: loadImageMock,
 }))
 vi.mock('@/features/product-form/lib/uploadProductImage', () => ({ uploadImageBlob: uploadBlobMock }))
-vi.mock('@nanapin/ui/hooks/use-toast', () => ({ toast: vi.fn() }))
+vi.mock('@estrelinha/ui/hooks/use-toast', () => ({ toast: vi.fn() }))
 
 import MockupStudioDialog from './MockupStudioDialog'
 

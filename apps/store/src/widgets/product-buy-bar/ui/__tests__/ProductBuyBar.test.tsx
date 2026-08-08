@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import type { OptionValues, Product, ProductOption, ProductVariant } from '@nanapin/supabase/types'
+import type { OptionValues, Product, ProductOption, ProductVariant } from '@estrelinha/supabase/types'
 import { useCartStore } from '@/entities/cart/model/cartStore'
 
 // Board "Mobile Product Detail - v3": a compra no celular acontece na barra fixa do rodapé, não na
@@ -10,7 +10,7 @@ import { useCartStore } from '@/entities/cart/model/cartStore'
 // prova aqui é que elas dividem um estado só: escolher o chip na coluna muda o que a barra cobra.
 
 vi.mock('sonner', () => ({ toast: { custom: vi.fn(), error: vi.fn(), success: vi.fn() } }))
-vi.mock('@nanapin/core/hooks/useStoreSettings', () => ({
+vi.mock('@estrelinha/core/hooks/useStoreSettings', () => ({
   useGeneralSettings: () => ({ whatsapp: '', store_name: 'Nanita' }),
   usePaymentSettings: () => ({
     max_installments: 6,

@@ -3,7 +3,7 @@
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Coupon } from '@nanapin/supabase/types/coupon'
+import type { Coupon } from '@estrelinha/supabase/types/coupon'
 
 const state = vi.hoisted(() => ({ coupons: [] as unknown[], isLoading: false }))
 
@@ -12,18 +12,18 @@ const hook = vi.hoisted(() => ({
   updateMutate: vi.fn().mockResolvedValue(undefined),
 }))
 
-vi.mock('@nanapin/supabase/client', () => ({ supabase: {} }))
+vi.mock('@estrelinha/supabase/client', () => ({ supabase: {} }))
 
-vi.mock('@nanapin/core/hooks/useCoupons', () => ({
+vi.mock('@estrelinha/core/hooks/useCoupons', () => ({
   useAdminCoupons: () => ({ data: state.coupons, isLoading: state.isLoading }),
   useCreateCoupon: () => ({ mutateAsync: hook.createMutate, isPending: false }),
   useUpdateCoupon: () => ({ mutateAsync: hook.updateMutate, isPending: false }),
 }))
 
-vi.mock('@nanapin/ui/hooks/use-toast', () => ({ toast: vi.fn() }))
+vi.mock('@estrelinha/ui/hooks/use-toast', () => ({ toast: vi.fn() }))
 
 import AdminCouponFormPage from './AdminCouponFormPage'
-import { toast } from '@nanapin/ui/hooks/use-toast'
+import { toast } from '@estrelinha/ui/hooks/use-toast'
 import { isoFromDateOnly } from '@/shared/lib/dateOnly'
 
 const LISTAGEM = 'LISTAGEM DE CUPONS'

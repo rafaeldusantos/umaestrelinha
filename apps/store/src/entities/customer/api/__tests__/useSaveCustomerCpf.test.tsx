@@ -16,7 +16,7 @@ const { fromMock, updateMock, eqMock, selectMock } = vi.hoisted(() => ({
   selectMock: vi.fn(),
 }))
 
-vi.mock('@nanapin/supabase/client', () => ({ supabase: { from: fromMock } }))
+vi.mock('@estrelinha/supabase/client', () => ({ supabase: { from: fromMock } }))
 
 import {
   CPF_SAVE_FAILED_MESSAGE,

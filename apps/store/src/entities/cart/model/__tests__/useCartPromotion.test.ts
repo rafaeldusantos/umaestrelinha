@@ -1,7 +1,7 @@
 import { act, renderHook } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Product } from '@nanapin/supabase/types'
-import type { ProgressivePromotion } from '@nanapin/core/payment/pricing'
+import type { Product } from '@estrelinha/supabase/types'
+import type { ProgressivePromotion } from '@estrelinha/core/payment/pricing'
 import { useCouponStore } from '@/entities/coupon'
 import { useCartStore } from '../cartStore'
 
@@ -14,7 +14,7 @@ import { useCartStore } from '../cartStore'
 
 const active: { data: ProgressivePromotion[] } = { data: [] }
 
-vi.mock('@nanapin/core/hooks/usePromotions', () => ({
+vi.mock('@estrelinha/core/hooks/usePromotions', () => ({
   useActivePromotions: () => ({ data: active.data, isLoading: false }),
 }))
 

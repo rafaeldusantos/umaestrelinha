@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
-import type { Product } from '@nanapin/supabase/types'
+import type { Product } from '@estrelinha/supabase/types'
 
 // PST-07: "WHEN a loja recebe `/produto/<slug-antigo>` E existe registro em `product_redirects`
 // THEN SHALL redirecionar para o slug atual do produto."

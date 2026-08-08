@@ -1,7 +1,7 @@
 import { ShoppingBag, X } from 'lucide-react'
-import type { Product, OptionValues } from '@nanapin/supabase/types'
-import { formatPrice } from '@nanapin/core/formatters'
-import { Sheet, SheetContent, SheetTitle } from '@nanapin/ui/sheet'
+import type { Product, OptionValues } from '@estrelinha/supabase/types'
+import { formatPrice } from '@estrelinha/core/formatters'
+import { Sheet, SheetContent, SheetTitle } from '@estrelinha/ui/sheet'
 import { CARD_MAX_AXES, canAddSelection } from '../lib/variantSelection'
 import VariantPicker from './VariantPicker'
 

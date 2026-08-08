@@ -7,7 +7,7 @@ import {
   generateSkus,
 } from './gridActions'
 import { isTempVariantId } from './persistProduct'
-import type { ProductOption, ProductVariant } from '@nanapin/supabase/types'
+import type { ProductOption, ProductVariant } from '@estrelinha/supabase/types'
 
 // PFM-08 AC 6, 9, 10 e 14: ações em massa só nas selecionadas, Preencher coluna nos 4 modos, e
 // Regerar mostrando o diff antes de aplicar sem destruir o que já existia.

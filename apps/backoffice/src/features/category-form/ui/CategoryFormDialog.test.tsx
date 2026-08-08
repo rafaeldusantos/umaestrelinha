@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import CategoryFormDialog from './CategoryFormDialog'
-import type { DbCategory } from '@nanapin/supabase/types'
+import type { DbCategory } from '@estrelinha/supabase/types'
 
 // O diálogo enxuto: nome, slug, pai, descrição e o interruptor. Cor, ordem, imagem e banner saíram —
 // todos já tinham outro dono (inspetor docado e arraste de reordenar), e o teste guarda a ausência

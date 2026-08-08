@@ -25,8 +25,8 @@ import {
   Trash2,
   TrendingDown,
 } from 'lucide-react'
-import { Button } from '@nanapin/ui/button'
-import { Badge } from '@nanapin/ui/badge'
+import { Button } from '@estrelinha/ui/button'
+import { Badge } from '@estrelinha/ui/badge'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,9 +36,9 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@nanapin/ui/alert-dialog'
-import { toast } from '@nanapin/ui/hooks/use-toast'
-import { formatPrice } from '@nanapin/core/formatters'
+} from '@estrelinha/ui/alert-dialog'
+import { toast } from '@estrelinha/ui/hooks/use-toast'
+import { formatPrice } from '@estrelinha/core/formatters'
 import {
   promotionCopyPayload,
   useAdminPromotions,
@@ -47,7 +47,7 @@ import {
   usePromotionStats,
   useUpdatePromotion,
   type AdminPromotion,
-} from '@nanapin/core/hooks/usePromotions'
+} from '@estrelinha/core/hooks/usePromotions'
 import { useAdminCategories } from '@/entities/category'
 import { validityLabel } from '@/shared/lib/vigencia'
 import {
@@ -180,7 +180,7 @@ const AdminPromotionsPage = () => {
   /**
    * PRM-22: duplicar.
    *
-   * O payload é `promotionCopyPayload` — a regra da cópia mora em `@nanapin/core`, ao lado dos tipos
+   * O payload é `promotionCopyPayload` — a regra da cópia mora em `@estrelinha/core`, ao lado dos tipos
    * que ela mapeia, e não aqui: `active: false` e `is_kit_showcase: false` são consequência das
    * colunas (default `true` numa, índice único parcial na outra), não decisão de tela.
    */

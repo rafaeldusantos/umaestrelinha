@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
-import { supabase } from '@nanapin/supabase/client'
-import type { MockupTemplate } from '@nanapin/supabase/types'
+import { supabase } from '@estrelinha/supabase/client'
+import type { MockupTemplate } from '@estrelinha/supabase/types'
 import { deleteMockupAsset } from '../lib/uploadMockupAsset'
 
 export type MockupTemplateInput = Omit<MockupTemplate, 'id' | 'created_at' | 'updated_at'>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-// Importado pelo barrel: prova que maskCpf/stripCpf/isValidCpf saem de @nanapin/core/validators.
+// Importado pelo barrel: prova que maskCpf/stripCpf/isValidCpf saem de @estrelinha/core/validators.
 import { isValidCpf, maskCpf, stripCpf } from '../index'
 
 // PGD-01: campo CPF com máscara 000.000.000-00

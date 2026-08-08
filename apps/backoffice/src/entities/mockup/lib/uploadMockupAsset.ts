@@ -1,4 +1,4 @@
-import { supabase } from '@nanapin/supabase/client'
+import { supabase } from '@estrelinha/supabase/client'
 
 const BUCKET = 'mockup-templates'
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://zwvrqtjvaltpbevjqzks.supabase.co'

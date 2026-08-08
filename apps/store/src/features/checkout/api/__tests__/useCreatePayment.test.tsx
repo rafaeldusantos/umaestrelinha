@@ -8,9 +8,9 @@ import {
   PAYMENT_TIMEOUT_MESSAGE,
   PAYMENT_TIMEOUT_MS,
 } from '../useCreatePayment'
-import { supabase } from '@nanapin/supabase/client'
+import { supabase } from '@estrelinha/supabase/client'
 
-vi.mock('@nanapin/supabase/client', () => ({
+vi.mock('@estrelinha/supabase/client', () => ({
   supabase: { functions: { invoke: vi.fn() } },
 }))
 

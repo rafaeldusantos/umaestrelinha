@@ -1,8 +1,8 @@
 import { createRoot } from "react-dom/client";
 import { initMercadoPago } from "@mercadopago/sdk-react";
-import { AuthProvider } from "@nanapin/auth";
+import { AuthProvider } from "@estrelinha/auth";
 import App from "./app/App.tsx";
-import "@nanapin/ui/styles.css";
+import "@estrelinha/ui/styles.css";
 import "./app/App.css";
 
 // Bricks do Mercado Pago — só inicializa com a public key presente

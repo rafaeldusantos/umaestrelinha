@@ -25,7 +25,7 @@
 // O que NÃO é mais decidido aqui: a base do cupom, o desconto do cupom, o desconto das faixas e o
 // veredito entre os dois. Tudo isso é `resolveOrderPricing`.
 import { useMemo } from 'react'
-import type { Product } from '@nanapin/supabase/types'
+import type { Product } from '@estrelinha/supabase/types'
 import {
   applyProgressiveDiscount,
   resolveOrderPricing,
@@ -33,12 +33,12 @@ import {
   type OrderPricingOutcome,
   type OrderTotals,
   type PricingItem,
-} from '@nanapin/core/payment/pricing'
-import { useActivePromotions } from '@nanapin/core/hooks/usePromotions'
+} from '@estrelinha/core/payment/pricing'
+import { useActivePromotions } from '@estrelinha/core/hooks/usePromotions'
 import {
   useCheckoutSettings,
   usePaymentSettings,
-} from '@nanapin/core/hooks/useStoreSettings'
+} from '@estrelinha/core/hooks/useStoreSettings'
 import { useCartStore, type CartItem } from '@/entities/cart'
 import { useCouponStore } from '@/entities/coupon'
 import { useProductById } from '@/entities/product'

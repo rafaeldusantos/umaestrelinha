@@ -33,7 +33,7 @@ const { db } = vi.hoisted(() => ({
   },
 }))
 
-vi.mock('@nanapin/supabase/client', () => ({
+vi.mock('@estrelinha/supabase/client', () => ({
   supabase: {
     from: (table: string) => {
       db.tables.push(table)

@@ -7,7 +7,7 @@ const sendOrderEmailMock = vi.fn<(orderId: string, type: string) => Promise<bool
 let updateResult: { error: unknown } = { error: null }
 const updateCalls: Array<{ table: string; values: Record<string, unknown> }> = []
 
-vi.mock('@nanapin/supabase/client', () => {
+vi.mock('@estrelinha/supabase/client', () => {
   // Cadeia mínima: só a superfície que `useAdminOrders` usa. Um dublê que imita o supabase-js
   // inteiro dá falso verde (mesma regra dos dublês das edge functions).
   function makeChain(table: string) {

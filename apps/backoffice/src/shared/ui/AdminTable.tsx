@@ -1,6 +1,6 @@
 import { ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import { cn } from '@nanapin/ui/lib/utils'
+import { cn } from '@estrelinha/ui/lib/utils'
 import EmptyState from './EmptyState'
 
 export interface AdminColumn<T> {

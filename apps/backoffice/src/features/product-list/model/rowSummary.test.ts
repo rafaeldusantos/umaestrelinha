@@ -1,7 +1,7 @@
 // PLS-04 — o que cada coluna mostra e o que dá para editar na linha.
 
 import { describe, expect, it } from 'vitest'
-import { formatPrice } from '@nanapin/core/formatters'
+import { formatPrice } from '@estrelinha/core/formatters'
 import type { AdminListRow } from '@/entities/product/api/productQuery'
 
 import {

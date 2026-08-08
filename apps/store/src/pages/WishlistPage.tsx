@@ -3,7 +3,7 @@ import { Heart } from 'lucide-react'
 import { useWishlistStore } from '@/entities/wishlist/model/wishlistStore'
 import { useAllProducts } from '@/entities/product/api/useProducts'
 import ProductCard from '@/entities/product/ui/ProductCard'
-import { Button } from '@nanapin/ui/button'
+import { Button } from '@estrelinha/ui/button'
 import { motion } from 'framer-motion'
 
 const WishlistPage = () => {

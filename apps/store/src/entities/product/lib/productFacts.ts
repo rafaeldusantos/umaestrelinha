@@ -7,7 +7,7 @@
 // aparecem em duas superfícies cada uma (coluna de informação e barra fixa do mobile; acordeão
 // desktop e mobile) — duas cópias seriam dois lugares para a regra divergir.
 
-import type { Product, ProductVariant } from '@nanapin/supabase/types'
+import type { Product, ProductVariant } from '@estrelinha/supabase/types'
 import { hasSellableGrid } from './variantSelection'
 
 /**

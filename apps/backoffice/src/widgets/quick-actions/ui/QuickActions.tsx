@@ -1,6 +1,6 @@
 import { Plus, ClipboardList, Tags, Users } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@nanapin/ui/card'
-import { Button } from '@nanapin/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@estrelinha/ui/card'
+import { Button } from '@estrelinha/ui/button'
 import { useNavigate } from 'react-router-dom'
 
 const QuickActions = () => {

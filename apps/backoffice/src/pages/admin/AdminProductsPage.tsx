@@ -18,7 +18,7 @@ import { buildDuplicates } from '@/features/bulk-edit/model/buildDuplicates'
 import { csvFileName, downloadCsv, toCsv, type ExportDetail } from '@/features/bulk-edit/model/exportCsv'
 import { isEmptyWrite, planCategoryWrites, splitCategoryPatches } from '@/features/bulk-edit/model/applyCategories'
 import { useUndoBuffer } from '@/features/bulk-edit/model/useUndoBuffer'
-import { Checkbox } from '@nanapin/ui/checkbox'
+import { Checkbox } from '@estrelinha/ui/checkbox'
 import {
   activeFilterCount,
   defaultQuery,
@@ -38,23 +38,23 @@ import { priceCell, rowBadges, statusCell, stockCell } from '@/features/product-
 import { LIST_COLUMNS, isVisible, useColumnPrefs } from '@/features/product-list/model/columns'
 import { useSavedViews } from '@/features/product-list/model/savedViews'
 import { PageHeader, AdminTable, Pagination, type AdminColumn } from '@/shared/ui'
-import { Button } from '@nanapin/ui/button'
-import { Input } from '@nanapin/ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@nanapin/ui/select'
+import { Button } from '@estrelinha/ui/button'
+import { Input } from '@estrelinha/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@estrelinha/ui/select'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
   DropdownMenuSeparator, DropdownMenuTrigger,
-} from '@nanapin/ui/dropdown-menu'
-import { formatPrice } from '@nanapin/core/formatters'
-import { primaryImage } from '@nanapin/core/media'
-import { toast } from '@nanapin/ui/hooks/use-toast'
-import { ToastAction } from '@nanapin/ui/toast'
-import type { DbProduct } from '@nanapin/supabase/types'
+} from '@estrelinha/ui/dropdown-menu'
+import { formatPrice } from '@estrelinha/core/formatters'
+import { primaryImage } from '@estrelinha/core/media'
+import { toast } from '@estrelinha/ui/hooks/use-toast'
+import { ToastAction } from '@estrelinha/ui/toast'
+import type { DbProduct } from '@estrelinha/supabase/types'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from '@nanapin/ui/alert-dialog'
-import { supabase } from '@nanapin/supabase/client'
+} from '@estrelinha/ui/alert-dialog'
+import { supabase } from '@estrelinha/supabase/client'
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50]
 

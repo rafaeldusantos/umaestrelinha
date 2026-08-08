@@ -4,9 +4,9 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@nanapin/ui/select'
+} from '@estrelinha/ui/select'
 import { availableValuesFor, visibleOptions, type GridProduct } from '../lib/variantSelection'
-import type { OptionValues } from '@nanapin/supabase/types'
+import type { OptionValues } from '@estrelinha/supabase/types'
 
 interface Props {
   product: GridProduct

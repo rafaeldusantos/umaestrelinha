@@ -4,7 +4,7 @@
 // funções decidem: quem é filha de quem, quantos produtos a linha representa, o que a busca mantém
 // visível, o que a seleção arrasta junto e o que o arraste grava.
 
-import { bySortOrder } from '@nanapin/core/menu'
+import { bySortOrder } from '@estrelinha/core/menu'
 import type { AdminCategory } from '@/entities/category/api/useAdminCategories'
 
 export type CategoryView = 'todas' | 'vitrine' | 'ocultas' | 'sem-produto'
@@ -31,7 +31,7 @@ export interface CategoryFilters {
 const fold = (value: string) =>
   value.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
 
-// `bySortOrder` mudou de casa para `@nanapin/core/menu` na feature 16: a loja passou a precisar da
+// `bySortOrder` mudou de casa para `@estrelinha/core/menu` na feature 16: a loja passou a precisar da
 // MESMA ordenação (é ela que impede uma filha empatada em `sort_order` de subir ao topo da barra), e
 // duas cópias da regra de ordem em dois apps é a divergência que a feature existe para fechar.
 

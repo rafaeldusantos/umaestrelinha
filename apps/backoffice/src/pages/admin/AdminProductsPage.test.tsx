@@ -33,8 +33,8 @@ vi.mock('@/entities/category/api/useAdminCategories', () => ({
   useAdminCategories: () => ({ categories: [{ id: 'cat-anime', name: 'Anime' }] }),
 }))
 vi.mock('@/features/csv-import/ui/CsvImportDialog', () => ({ default: () => null }))
-vi.mock('@nanapin/ui/hooks/use-toast', () => ({ toast: toastMock }))
-vi.mock('@nanapin/supabase/client', () => ({ supabase: { from: fromMock } }))
+vi.mock('@estrelinha/ui/hooks/use-toast', () => ({ toast: toastMock }))
+vi.mock('@estrelinha/supabase/client', () => ({ supabase: { from: fromMock } }))
 vi.mock('react-router-dom', async importOriginal => ({
   ...(await importOriginal<typeof import('react-router-dom')>()),
   useNavigate: () => navigateMock,

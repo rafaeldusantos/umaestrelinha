@@ -1,6 +1,6 @@
 import { Navigate } from 'react-router-dom'
 import { useAuthContext } from './AuthContext'
-import { Skeleton } from '@nanapin/ui/skeleton'
+import { Skeleton } from '@estrelinha/ui/skeleton'
 
 const RequireAdmin = ({
   children,

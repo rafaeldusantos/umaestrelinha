@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { formatPrice } from '@nanapin/core/formatters'
-import type { MenuEntry } from '@nanapin/core/menu'
+import { formatPrice } from '@estrelinha/core/formatters'
+import type { MenuEntry } from '@estrelinha/core/menu'
 import { useProducts } from '@/entities/product'
 
 /**

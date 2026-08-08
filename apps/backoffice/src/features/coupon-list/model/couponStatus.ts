@@ -10,7 +10,7 @@
 // desligado, e reativá-lo é o gesto que ela tentaria. Depois vem a vigência (o mundo mudou sozinho) e
 // por fim o teto de usos (a loja consumiu).
 
-import type { Coupon } from '@nanapin/supabase/types/coupon'
+import type { Coupon } from '@estrelinha/supabase/types/coupon'
 
 export type CouponStatus = 'active' | 'inactive' | 'expired' | 'exhausted'
 

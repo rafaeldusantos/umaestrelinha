@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
-import { composeMockup, clampArtZone } from '@nanapin/core'
-import type { ArtZone, MockupBlendMode } from '@nanapin/supabase/types'
+import { composeMockup, clampArtZone } from '@estrelinha/core'
+import type { ArtZone, MockupBlendMode } from '@estrelinha/supabase/types'
 
 interface Props {
   background: HTMLImageElement

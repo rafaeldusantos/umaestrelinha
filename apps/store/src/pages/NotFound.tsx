@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { useEffect } from "react";
-import { NanaMascot } from "@nanapin/ui/nana-mascot";
+import { NanaMascot } from "@estrelinha/ui/nana-mascot";
 
 const NotFound = () => {
   const location = useLocation();

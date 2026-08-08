@@ -8,7 +8,7 @@
 // primeiro a ordem editorial da loja, depois a ordem que o admin arrastou no formulário. Empate nos
 // dois cai no `category_id`, para o resultado ser determinístico em qualquer caso.
 
-import type { Category, ProductCategoryLink } from '@nanapin/supabase/types'
+import type { Category, ProductCategoryLink } from '@estrelinha/supabase/types'
 
 export interface DisplayCategoryProduct {
   category_links: readonly ProductCategoryLink[]

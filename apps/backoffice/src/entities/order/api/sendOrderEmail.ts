@@ -1,4 +1,4 @@
-import { supabase } from '@nanapin/supabase'
+import { supabase } from '@estrelinha/supabase'
 
 export type OrderEmailType = 'order_received' | 'order_paid' | 'order_shipped'
 

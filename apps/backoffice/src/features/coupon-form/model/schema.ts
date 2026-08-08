@@ -6,7 +6,7 @@
 // decisão de domínio, não de layout: ela precisa de um lugar onde possa ser provada sozinha.
 
 import { z } from 'zod'
-import type { Coupon, CouponType } from '@nanapin/supabase/types/coupon'
+import type { Coupon, CouponType } from '@estrelinha/supabase/types/coupon'
 import { dateOnlyFromIso, isoFromDateOnly } from '@/shared/lib/dateOnly'
 
 export const CODE_TOO_SHORT = 'O código precisa de ao menos 2 caracteres'

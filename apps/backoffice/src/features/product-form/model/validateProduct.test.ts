@@ -7,7 +7,7 @@ import {
   type FieldIssue,
 } from './validateProduct'
 import { emptyProductForm, type ProductFormState } from './useProductForm'
-import type { ProductVariant } from '@nanapin/supabase/types'
+import type { ProductVariant } from '@estrelinha/supabase/types'
 
 // PFM-11: "WHEN o admin salva com um campo obrigatório inválido em uma aba FECHADA THEN o sistema
 // SHALL bloquear o save e SHALL exibir o erro — SHALL não depender do `required` do input".

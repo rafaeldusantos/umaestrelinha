@@ -3,14 +3,14 @@ import { Slot } from "@radix-ui/react-slot";
 import { VariantProps, cva } from "class-variance-authority";
 import { PanelLeft } from "lucide-react";
 
-import { useIsMobile } from "@nanapin/ui/hooks/use-mobile";
-import { cn } from "@nanapin/ui/lib/utils";
-import { Button } from "@nanapin/ui/button";
-import { Input } from "@nanapin/ui/input";
-import { Separator } from "@nanapin/ui/separator";
-import { Sheet, SheetContent } from "@nanapin/ui/sheet";
-import { Skeleton } from "@nanapin/ui/skeleton";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@nanapin/ui/tooltip";
+import { useIsMobile } from "@estrelinha/ui/hooks/use-mobile";
+import { cn } from "@estrelinha/ui/lib/utils";
+import { Button } from "@estrelinha/ui/button";
+import { Input } from "@estrelinha/ui/input";
+import { Separator } from "@estrelinha/ui/separator";
+import { Sheet, SheetContent } from "@estrelinha/ui/sheet";
+import { Skeleton } from "@estrelinha/ui/skeleton";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@estrelinha/ui/tooltip";
 
 const SIDEBAR_COOKIE_NAME = "sidebar:state";
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;

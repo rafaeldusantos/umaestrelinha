@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { KeyRound } from 'lucide-react'
-import { Button } from '@nanapin/ui/button'
-import { InputOTP, InputOTPGroup, InputOTPSlot } from '@nanapin/ui/input-otp'
+import { Button } from '@estrelinha/ui/button'
+import { InputOTP, InputOTPGroup, InputOTPSlot } from '@estrelinha/ui/input-otp'
 import { useAuthFlow } from '../../model/useAuthFlow'
 
 const RESEND_SECONDS = 60

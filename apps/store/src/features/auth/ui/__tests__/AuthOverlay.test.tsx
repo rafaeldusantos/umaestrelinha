@@ -19,7 +19,7 @@ const { flow, isMobileRef } = vi.hoisted(() => ({
 }))
 
 vi.mock('../../model/useAuthFlow', () => ({ useAuthFlow: () => flow }))
-vi.mock('@nanapin/ui/hooks/use-mobile', () => ({ useIsMobile: () => isMobileRef.value }))
+vi.mock('@estrelinha/ui/hooks/use-mobile', () => ({ useIsMobile: () => isMobileRef.value }))
 
 beforeEach(() => {
   vi.clearAllMocks()

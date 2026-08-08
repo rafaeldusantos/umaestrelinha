@@ -8,11 +8,11 @@
 import { Fragment, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, ImagePlus, Loader2, Plus, Trash2, X } from 'lucide-react'
-import { Button } from '@nanapin/ui/button'
-import { Input } from '@nanapin/ui/input'
-import { Label } from '@nanapin/ui/label'
-import { Switch } from '@nanapin/ui/switch'
-import { toast } from '@nanapin/ui/hooks/use-toast'
+import { Button } from '@estrelinha/ui/button'
+import { Input } from '@estrelinha/ui/input'
+import { Label } from '@estrelinha/ui/label'
+import { Switch } from '@estrelinha/ui/switch'
+import { toast } from '@estrelinha/ui/hooks/use-toast'
 import { PageHeader, FormCard, MoneyInput, WeightInput } from '@/shared/ui'
 import OptionsEditor from '@/features/product-form/ui/OptionsEditor'
 import { useAdminProductList } from '@/entities/product/api/useAdminProducts'
@@ -32,7 +32,7 @@ import {
   type GridDefaults,
   type GridRow,
 } from '@/features/quick-grid/model/quickGrid'
-import { supabase } from '@nanapin/supabase/client'
+import { supabase } from '@estrelinha/supabase/client'
 import {
   uploadFailureMessage,
   uploadProductImages,

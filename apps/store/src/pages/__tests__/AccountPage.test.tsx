@@ -6,14 +6,14 @@ import AccountPage from '../AccountPage'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-vi.mock('@nanapin/supabase/client', () => ({ supabase: {} }))
+vi.mock('@estrelinha/supabase/client', () => ({ supabase: {} }))
 
 const { authState, openSpy } = vi.hoisted(() => ({
   authState: { user: null as any, customer: null as any, loading: false, signOut: vi.fn() },
   openSpy: vi.fn(),
 }))
 
-vi.mock('@nanapin/auth', () => ({ useAuthContext: () => authState }))
+vi.mock('@estrelinha/auth', () => ({ useAuthContext: () => authState }))
 vi.mock('@/features/auth', () => ({ useAuthUiStore: (sel: any) => sel({ open: openSpy }) }))
 
 vi.mock('@/features/checkout/ui/PixPayment', () => ({

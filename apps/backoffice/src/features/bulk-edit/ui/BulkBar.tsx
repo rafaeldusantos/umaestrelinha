@@ -5,7 +5,7 @@
 // inteira.
 
 import { CheckCircle2, Copy, Download, PauseCircle, SlidersHorizontal, Trash2 } from 'lucide-react'
-import { Button } from '@nanapin/ui/button'
+import { Button } from '@estrelinha/ui/button'
 
 interface Props {
   count: number

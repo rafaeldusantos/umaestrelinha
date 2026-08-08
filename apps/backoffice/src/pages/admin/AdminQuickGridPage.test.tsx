@@ -14,8 +14,8 @@ const { createBatchMock, toastMock, fromMock, selectMock } = vi.hoisted(() => ({
 vi.mock('@/entities/product/api/useAdminProducts', () => ({
   useAdminProductList: () => ({ createProductsBatch: createBatchMock }),
 }))
-vi.mock('@nanapin/ui/hooks/use-toast', () => ({ toast: toastMock }))
-vi.mock('@nanapin/supabase/client', () => ({ supabase: { from: fromMock } }))
+vi.mock('@estrelinha/ui/hooks/use-toast', () => ({ toast: toastMock }))
+vi.mock('@estrelinha/supabase/client', () => ({ supabase: { from: fromMock } }))
 vi.mock('@/features/product-form/ui/OptionsEditor', () => ({
   default: () => <div data-testid="options-editor" />,
 }))

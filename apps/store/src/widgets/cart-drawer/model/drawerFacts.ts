@@ -4,8 +4,8 @@
 // o que ela decide — quanto falta para o frete grátis, se um item está acabando, o que sugerir para
 // completar o pedido — merece prova sem DOM.
 
-import { isVariantAvailable } from '@nanapin/core/pricing'
-import type { Product } from '@nanapin/supabase/types'
+import { isVariantAvailable } from '@estrelinha/core/pricing'
+import type { Product } from '@estrelinha/supabase/types'
 import type { CartItem } from '@/entities/cart/model/cartStore'
 import { hasSellableGrid } from '@/entities/product/lib/variantSelection'
 

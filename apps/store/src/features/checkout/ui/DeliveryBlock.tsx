@@ -12,15 +12,15 @@
 // e a data vem de `formatEstimate`. Nenhum `bg-nanita-jam` — a única pílula geleia é o CTA.
 import { useEffect, useMemo, useRef } from 'react'
 import { AlertTriangle, Check } from 'lucide-react'
-import { Button } from '@nanapin/ui/button'
-import { Input } from '@nanapin/ui/input'
-import { Label } from '@nanapin/ui/label'
-import { formatPrice } from '@nanapin/core/formatters'
-import { maskCep, stripCep } from '@nanapin/core/validators'
-import { cheapestQuoteId, formatEstimate, quoteToEstimate } from '@nanapin/core/shipping'
-import { useShippingSettings } from '@nanapin/core/hooks/useStoreSettings'
-import { useAuthContext } from '@nanapin/auth'
-import type { ShippingDraft } from '@nanapin/core/checkout'
+import { Button } from '@estrelinha/ui/button'
+import { Input } from '@estrelinha/ui/input'
+import { Label } from '@estrelinha/ui/label'
+import { formatPrice } from '@estrelinha/core/formatters'
+import { maskCep, stripCep } from '@estrelinha/core/validators'
+import { cheapestQuoteId, formatEstimate, quoteToEstimate } from '@estrelinha/core/shipping'
+import { useShippingSettings } from '@estrelinha/core/hooks/useStoreSettings'
+import { useAuthContext } from '@estrelinha/auth'
+import type { ShippingDraft } from '@estrelinha/core/checkout'
 import { useCartStore } from '@/entities/cart'
 import { useCouponStore } from '@/entities/coupon'
 import { useDefaultAddress } from '@/entities/address'
@@ -101,7 +101,7 @@ const DeliveryBlock = ({ open, complete, onEdit, onContinue, canContinue }: Prop
   //
   // `defaultCep` guarda o CEP que veio do `is_default` e é o que autoriza a pré-seleção do frete
   // mais barato abaixo. Sem ela ADR-02 não se cumpria: colapsar o bloco exige `isDeliveryComplete`,
-  // que exige `shipping !== null` (`@nanapin/core/checkout`), então com 2+ opções cotadas o bloco
+  // que exige `shipping !== null` (`@estrelinha/core/checkout`), então com 2+ opções cotadas o bloco
   // abria expandido mesmo com o endereço preenchido. `null` = a cliente digitou o CEP dela.
   const seeded = useRef(false)
   const defaultCep = useRef<string | null>(null)

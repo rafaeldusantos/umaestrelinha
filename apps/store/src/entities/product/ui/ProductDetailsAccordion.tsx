@@ -3,8 +3,8 @@ import {
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-} from '@nanapin/ui/accordion'
-import type { Product } from '@nanapin/supabase/types'
+} from '@estrelinha/ui/accordion'
+import type { Product } from '@estrelinha/supabase/types'
 import { productSpecs } from '../lib/productFacts'
 
 /**

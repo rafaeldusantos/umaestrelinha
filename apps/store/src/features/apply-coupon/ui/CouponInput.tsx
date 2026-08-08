@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { Tag, X, Loader2, Check } from 'lucide-react'
-import { Button } from '@nanapin/ui/button'
-import { Input } from '@nanapin/ui/input'
+import { Button } from '@estrelinha/ui/button'
+import { Input } from '@estrelinha/ui/input'
 import { toast } from 'sonner'
-import { validateCoupon } from '@nanapin/core/hooks/useCoupons'
+import { validateCoupon } from '@estrelinha/core/hooks/useCoupons'
 import { useCouponStore } from '@/entities/coupon/model/couponStore'
-import { formatPrice } from '@nanapin/core/formatters'
+import { formatPrice } from '@estrelinha/core/formatters'
 
 interface Props {
   subtotal: number

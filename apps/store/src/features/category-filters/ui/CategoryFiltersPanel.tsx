@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Slider } from '@nanapin/ui/slider'
+import { Slider } from '@estrelinha/ui/slider'
 import {
   clearFilterChip,
   toggleTag,

@@ -1,7 +1,7 @@
 import { Clock, ArrowRight } from 'lucide-react'
 import { STATUS_LABELS } from '@/entities/order/api/useAdminOrders'
 import StatusBadge from './StatusBadge'
-import type { DbOrderStatusHistory } from '@nanapin/supabase/types'
+import type { DbOrderStatusHistory } from '@estrelinha/supabase/types'
 
 interface Props {
   history: DbOrderStatusHistory[]

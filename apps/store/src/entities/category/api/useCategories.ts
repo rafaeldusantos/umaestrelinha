@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
-import { supabase } from '@nanapin/supabase/client'
-import type { Category, MenuPromo } from '@nanapin/supabase/types'
+import { supabase } from '@estrelinha/supabase/client'
+import type { Category, MenuPromo } from '@estrelinha/supabase/types'
 
 /**
  * Uma linha crua de `categories`. O `select('*')` não é tipado pelo supabase-js, então a forma é

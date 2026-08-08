@@ -7,7 +7,7 @@
 // inglês, citando "magic link" num fluxo que manda código de 6 dígitos
 // (BUG-20260728-auth-local-so-entrega-ao-dono-do-resend).
 //
-// Por que em `core` e não em `@nanapin/auth`: `packages/auth/package.json` não tem bloco
+// Por que em `core` e não em `@estrelinha/auth`: `packages/auth/package.json` não tem bloco
 // `scripts`, então teste posto lá é invisível ao `pnpm test` (`turbo run test`). `core` já roda
 // vitest, e o precedente de constante compartilhada de auth morar aqui já existe
 // (`MIN_PASSWORD_LENGTH`, usado pelo mesmo `AuthContext`).

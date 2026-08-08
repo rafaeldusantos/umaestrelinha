@@ -1,5 +1,5 @@
 {
-  "name": "@nanapin/backoffice",
+  "name": "@estrelinha/backoffice",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -13,9 +13,9 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@nanapin/auth": "workspace:*",
-    "@nanapin/core": "workspace:*",
-    "@nanapin/supabase": "workspace:*",
-    "@nanapin/ui": "workspace:*"
+    "@estrelinha/auth": "workspace:*",
+    "@estrelinha/core": "workspace:*",
+    "@estrelinha/supabase": "workspace:*",
+    "@estrelinha/ui": "workspace:*"
   }
 }

@@ -5,13 +5,13 @@
 // de um produto que a loja cobra `R$ 14,90 – 18,40` é a mesma classe de mentira entre tela e
 // cobrança que o programa inteiro existiu para matar.
 
-import { priceRange } from '@nanapin/core/pricing'
+import { priceRange } from '@estrelinha/core/pricing'
 import type {
   ProductImage,
   ProductOption,
   ProductVariant,
   StockPolicy,
-} from '@nanapin/supabase/types'
+} from '@estrelinha/supabase/types'
 
 export interface SummaryInput {
   price: number

@@ -12,11 +12,11 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { ImagePlus, GripVertical, X, Sparkles, Wand2, Loader2 } from 'lucide-react'
-import { Button } from '@nanapin/ui/button'
-import { Input } from '@nanapin/ui/input'
-import { Label } from '@nanapin/ui/label'
-import { toast } from '@nanapin/ui/hooks/use-toast'
-import type { ProductImage } from '@nanapin/supabase/types'
+import { Button } from '@estrelinha/ui/button'
+import { Input } from '@estrelinha/ui/input'
+import { Label } from '@estrelinha/ui/label'
+import { toast } from '@estrelinha/ui/hooks/use-toast'
+import type { ProductImage } from '@estrelinha/supabase/types'
 import {
   uploadFailureMessage,
   uploadProductImages,
@@ -37,7 +37,7 @@ interface Props {
 const KB = 1024
 const MB = 1024 * KB
 
-/** Tamanho legível na linha de progresso. Uso único: mora aqui, não em `@nanapin/core`. */
+/** Tamanho legível na linha de progresso. Uso único: mora aqui, não em `@estrelinha/core`. */
 const formatFileSize = (bytes: number): string =>
   bytes >= MB ? `${(bytes / MB).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / KB))} KB`
 

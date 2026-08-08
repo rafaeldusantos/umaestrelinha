@@ -1,5 +1,5 @@
 import { hasSellableGrid } from './variantSelection'
-import type { Product } from '@nanapin/supabase/types'
+import type { Product } from '@estrelinha/supabase/types'
 
 /**
  * O produto está esgotado **para a vitrine**?

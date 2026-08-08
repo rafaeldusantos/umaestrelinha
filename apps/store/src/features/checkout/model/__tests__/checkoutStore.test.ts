@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import type { CheckoutDraft } from '@nanapin/core/checkout'
+import type { CheckoutDraft } from '@estrelinha/core/checkout'
 import { CHECKOUT_STORAGE_KEY, useCheckoutStore } from '../checkoutStore'
 
 // CHK-07: o `order_id` em curso sobrevive ao reload (sessionStorage) e é reusado sem edição.

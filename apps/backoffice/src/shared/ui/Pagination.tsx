@@ -1,6 +1,6 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react'
-import { Button } from '@nanapin/ui/button'
-import { cn } from '@nanapin/ui/lib/utils'
+import { Button } from '@estrelinha/ui/button'
+import { cn } from '@estrelinha/ui/lib/utils'
 import { getPageItems } from './paginationItems'
 
 interface Props {

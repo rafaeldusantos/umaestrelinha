@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
-import { supabase } from '@nanapin/supabase/client'
-import type { MockupTemplate } from '@nanapin/supabase/types'
+import { supabase } from '@estrelinha/supabase/client'
+import type { MockupTemplate } from '@estrelinha/supabase/types'
 
 async function fetchActiveMockups(): Promise<MockupTemplate[]> {
   const { data, error } = await supabase

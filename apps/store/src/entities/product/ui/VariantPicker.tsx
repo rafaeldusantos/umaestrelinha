@@ -1,5 +1,5 @@
 import { availableValuesFor, visibleOptions, type GridProduct } from '../lib/variantSelection'
-import type { OptionValues } from '@nanapin/supabase/types'
+import type { OptionValues } from '@estrelinha/supabase/types'
 
 /**
  * Escolha de variação em **pílulas**, um grupo por eixo (boards "Quick add com variações" e

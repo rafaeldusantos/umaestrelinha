@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import type { DbOrder } from '@nanapin/supabase/types'
+import type { DbOrder } from '@estrelinha/supabase/types'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -19,11 +19,11 @@ const toastError = vi.fn()
 
 vi.mock('sonner', () => ({ toast: { success: (m: string) => toastSuccess(m), error: (m: string) => toastError(m) } }))
 
-vi.mock('@nanapin/supabase/client', () => ({
+vi.mock('@estrelinha/supabase/client', () => ({
   supabase: { functions: { invoke: vi.fn() }, from: vi.fn(), channel: vi.fn(), removeChannel: vi.fn() },
 }))
 
-vi.mock('@nanapin/supabase', () => ({
+vi.mock('@estrelinha/supabase', () => ({
   supabase: { functions: { invoke: vi.fn() }, from: vi.fn(), channel: vi.fn(), removeChannel: vi.fn() },
 }))
 

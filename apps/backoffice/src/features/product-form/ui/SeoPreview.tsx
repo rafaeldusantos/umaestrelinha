@@ -1,6 +1,6 @@
-import { Input } from '@nanapin/ui/input'
-import { Label } from '@nanapin/ui/label'
-import { Textarea } from '@nanapin/ui/textarea'
+import { Input } from '@estrelinha/ui/input'
+import { Label } from '@estrelinha/ui/label'
+import { Textarea } from '@estrelinha/ui/textarea'
 
 interface Props {
   title: string

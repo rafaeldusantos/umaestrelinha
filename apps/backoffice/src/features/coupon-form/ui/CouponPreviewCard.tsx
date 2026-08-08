@@ -7,7 +7,7 @@
 // `AD-015` diz que cupom e promoção nunca somam no mesmo item, e essa é exatamente a surpresa que
 // apareceria depois, no relatório, se a tela não avisasse antes.
 
-import { formatPrice } from '@nanapin/core/formatters'
+import { formatPrice } from '@estrelinha/core/formatters'
 import type { CouponFormValues } from '../model/schema'
 
 interface Props {

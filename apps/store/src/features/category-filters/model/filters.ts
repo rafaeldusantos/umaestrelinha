@@ -5,7 +5,7 @@
 // superfícies (sidebar no desktop, bottom sheet no mobile) sobre exatamente este estado.
 
 import { isProductOutOfStock } from '@/entities/product/lib/availability'
-import type { Product } from '@nanapin/supabase/types'
+import type { Product } from '@estrelinha/supabase/types'
 
 export type SortOption = 'relevancia' | 'menor-preco' | 'maior-preco' | 'novidades'
 

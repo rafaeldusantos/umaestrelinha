@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@nanapin/ui/dialog'
-import { Button } from '@nanapin/ui/button'
-import { Input } from '@nanapin/ui/input'
-import { Textarea } from '@nanapin/ui/textarea'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@nanapin/ui/select'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@nanapin/ui/tabs'
-import { formatPrice } from '@nanapin/core/formatters'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@estrelinha/ui/dialog'
+import { Button } from '@estrelinha/ui/button'
+import { Input } from '@estrelinha/ui/input'
+import { Textarea } from '@estrelinha/ui/textarea'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@estrelinha/ui/select'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@estrelinha/ui/tabs'
+import { formatPrice } from '@estrelinha/core/formatters'
 import StatusBadge from '@/entities/order/ui/StatusBadge'
 import PaymentStatusBadge from '@/entities/order/ui/PaymentStatusBadge'
 import OrderTimeline from '@/entities/order/ui/OrderTimeline'
@@ -14,7 +14,7 @@ import { ORDER_STATUSES, STATUS_LABELS } from '@/entities/order/api/useAdminOrde
 import { Copy, Printer, XCircle } from 'lucide-react'
 import MelhorEnvioTab from './MelhorEnvioTab'
 import { toast } from 'sonner'
-import type { DbOrder, DbOrderItem, DbOrderStatusHistory, DbOrderNote } from '@nanapin/supabase/types'
+import type { DbOrder, DbOrderItem, DbOrderStatusHistory, DbOrderNote } from '@estrelinha/supabase/types'
 
 interface Props {
   open: boolean

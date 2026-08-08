@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
 import { LogOut, Pin, Store, Menu } from 'lucide-react'
-import { supabase } from '@nanapin/supabase/client'
-import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@nanapin/ui/sheet'
+import { supabase } from '@estrelinha/supabase/client'
+import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@estrelinha/ui/sheet'
 import { isNavActive } from '@/widgets/admin-layout/lib/isNavActive'
 import { navGroups, footerNavItems, type NavItem } from '@/widgets/admin-layout/model/navItems'
 

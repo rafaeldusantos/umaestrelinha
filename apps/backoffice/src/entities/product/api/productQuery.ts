@@ -8,7 +8,7 @@
 // exato com `Range`, `images=eq.[]`, `seo_title.eq.` (string vazia), dois `or=` no mesmo request
 // (que o PostgREST combina com AND) e `product_variants!inner` para casar SKU.
 
-import type { ProductImage, ProductOption, ProductVariant, StockPolicy } from '@nanapin/supabase/types'
+import type { ProductImage, ProductOption, ProductVariant, StockPolicy } from '@estrelinha/supabase/types'
 
 /** As visões fixas do artboard. Visões do usuário viram um `ProductFilters` salvo (A22). */
 export type ProductViewId =

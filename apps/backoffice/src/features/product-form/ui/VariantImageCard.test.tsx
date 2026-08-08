@@ -2,7 +2,7 @@
 
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import type { ProductImage, ProductOption, ProductVariant } from '@nanapin/supabase/types'
+import type { ProductImage, ProductOption, ProductVariant } from '@estrelinha/supabase/types'
 
 import VariantImageCard from './VariantImageCard'
 import StorefrontPreview from './StorefrontPreview'

@@ -15,7 +15,7 @@ import type {
   ProductOption,
   ProductVariant,
   StockPolicy,
-} from '@nanapin/supabase/types'
+} from '@estrelinha/supabase/types'
 
 const STOCK_POLICIES: readonly StockPolicy[] = ['track', 'backorder', 'none']
 

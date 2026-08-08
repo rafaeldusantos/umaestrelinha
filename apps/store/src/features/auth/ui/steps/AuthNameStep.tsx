@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { MapPin } from 'lucide-react'
-import { Button } from '@nanapin/ui/button'
-import { Input } from '@nanapin/ui/input'
-import { Label } from '@nanapin/ui/label'
+import { Button } from '@estrelinha/ui/button'
+import { Input } from '@estrelinha/ui/input'
+import { Label } from '@estrelinha/ui/label'
 import { useAuthFlow } from '../../model/useAuthFlow'
 
 const AuthNameStep = () => {

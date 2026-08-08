@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import PricingTab from './PricingTab'
 import { emptyProductForm, type ProductFormState } from '../../model/useProductForm'
-import type { ProductVariant } from '@nanapin/supabase/types'
+import type { ProductVariant } from '@estrelinha/supabase/types'
 
 // PFM-09 (P1.6 AC 7-11): política de estoque em 3 modos mutuamente exclusivos, `Não controlar`
 // desabilitando o saldo, e o prazo de produção que NÃO entra no frete.

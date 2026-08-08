@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { X, Search } from 'lucide-react'
-import { Input } from '@nanapin/ui/input'
-import { Badge } from '@nanapin/ui/badge'
+import { Input } from '@estrelinha/ui/input'
+import { Badge } from '@estrelinha/ui/badge'
 import type { AdminProduct } from '@/entities/product/api/useAdminProducts'
 
 interface Props {

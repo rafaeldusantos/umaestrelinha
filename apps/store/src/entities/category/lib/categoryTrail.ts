@@ -5,13 +5,13 @@
 // estar em ramos diferentes. A trilha é o que distingue.
 //
 // A subida da cadeia de pais **não vive mais aqui**: é `ancestorsOf` / `pathLabel` de
-// `@nanapin/core/menu` (feature 16). Havia três cópias da mesma caminhada nos dois apps — esta, o
+// `@estrelinha/core/menu` (feature 16). Havia três cópias da mesma caminhada nos dois apps — esta, o
 // `categoryPath` do formulário de produto e a que o menu precisava — cada uma com o seu limite de
 // profundidade (8, 5, 4) e a sua guarda de ciclo. Três implementações da mesma regra é onde a
 // divergência nasce. O que sobra aqui é só o formato que a busca da loja usa.
 
-import { ancestorsOf, pathLabel } from '@nanapin/core/menu'
-import type { Category } from '@nanapin/supabase/types'
+import { ancestorsOf, pathLabel } from '@estrelinha/core/menu'
+import type { Category } from '@estrelinha/supabase/types'
 
 /**
  * A categoria pode não estar em `categories` — a busca chama com o resultado de uma consulta

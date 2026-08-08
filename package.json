@@ -6,8 +6,8 @@
   "packageManager": "pnpm@11.11.0",
   "scripts": {
     "dev": "turbo run dev",
-    "dev:store": "pnpm --filter @nanapin/store dev",
-    "dev:backoffice": "pnpm --filter @nanapin/backoffice dev",
+    "dev:store": "pnpm --filter @estrelinha/store dev",
+    "dev:backoffice": "pnpm --filter @estrelinha/backoffice dev",
     "build": "turbo run build",
     "lint": "turbo run lint",
     "test": "turbo run test"

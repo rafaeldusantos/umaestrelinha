@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import type { ProductImage } from '@nanapin/supabase/types'
+import type { ProductImage } from '@estrelinha/supabase/types'
 
 // VAR-11 AC 2 e AC 3: a galeria recebe `ProductImage[]` (não `string[]`), usa o `alt` cadastrado
 // quando existe, e produto sem imagem não deixa `undefined` chegar em `src` — um `<img>` sem `src`

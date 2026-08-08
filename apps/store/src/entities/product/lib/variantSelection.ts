@@ -1,19 +1,19 @@
 // Casamento entre os eixos escolhidos na loja e a linha da grade que será vendida (PST-05, PST-08,
 // PST-10).
 //
-// Isto é domínio da **loja**, não de `@nanapin/core`: são as regras de qual seletor aparece, o que
+// Isto é domínio da **loja**, não de `@estrelinha/core`: são as regras de qual seletor aparece, o que
 // aparece habilitado e qual combinação começa selecionada. `core/pricing` responde "quanto custa" e
 // "esta linha pode ser vendida"; este módulo responde "qual linha o cliente escolheu".
 //
 // Tudo aqui é função pura, de propósito: o que precisa de prova é a regra, não o DOM.
 
-import { isVariantAvailable } from '@nanapin/core/pricing'
+import { isVariantAvailable } from '@estrelinha/core/pricing'
 import type {
   OptionValues,
   ProductOption,
   ProductVariant,
   StockPolicy,
-} from '@nanapin/supabase/types'
+} from '@estrelinha/supabase/types'
 
 /** O mínimo que uma superfície precisa saber do produto para montar seletores. */
 export interface GridProduct {

@@ -1,11 +1,11 @@
 import { useState, useRef } from 'react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@nanapin/ui/dialog'
-import { Button } from '@nanapin/ui/button'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@estrelinha/ui/dialog'
+import { Button } from '@estrelinha/ui/button'
 import { Upload, FileSpreadsheet, Loader2 } from 'lucide-react'
 import Papa from 'papaparse'
 import * as XLSX from 'xlsx'
-import { toast } from '@nanapin/ui/hooks/use-toast'
-import type { DbProduct } from '@nanapin/supabase/types'
+import { toast } from '@estrelinha/ui/hooks/use-toast'
+import type { DbProduct } from '@estrelinha/supabase/types'
 
 interface Props {
   open: boolean

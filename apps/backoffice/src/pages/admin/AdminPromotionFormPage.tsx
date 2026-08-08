@@ -12,18 +12,18 @@ import { useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Button } from '@nanapin/ui/button'
-import { Input } from '@nanapin/ui/input'
-import { Label } from '@nanapin/ui/label'
-import { toast } from '@nanapin/ui/hooks/use-toast'
+import { Button } from '@estrelinha/ui/button'
+import { Input } from '@estrelinha/ui/input'
+import { Label } from '@estrelinha/ui/label'
+import { toast } from '@estrelinha/ui/hooks/use-toast'
 import { DateField, FormCard, FormPageHeader, ToggleField } from '@/shared/ui'
 import {
   useAdminPromotions,
   useCreatePromotion,
   useUpdatePromotion,
-} from '@nanapin/core/hooks/usePromotions'
-import type { PromotionDiscountKind, PromotionScope } from '@nanapin/supabase/types/promotion'
-import type { MenuCategory } from '@nanapin/core/menu'
+} from '@estrelinha/core/hooks/usePromotions'
+import type { PromotionDiscountKind, PromotionScope } from '@estrelinha/supabase/types/promotion'
+import type { MenuCategory } from '@estrelinha/core/menu'
 import { useAdminCategories } from '@/entities/category'
 import {
   PromotionShowcaseCard,

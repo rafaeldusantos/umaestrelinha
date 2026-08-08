@@ -7,12 +7,12 @@
 
 import { Plus, Trash2 } from 'lucide-react'
 import { useFieldArray, type UseFormReturn } from 'react-hook-form'
-import { Button } from '@nanapin/ui/button'
-import { Input } from '@nanapin/ui/input'
-import { Label } from '@nanapin/ui/label'
-import { cn } from '@nanapin/ui/lib/utils'
-import { formatPrice } from '@nanapin/core/formatters'
-import type { PromotionDiscountKind } from '@nanapin/supabase/types/promotion'
+import { Button } from '@estrelinha/ui/button'
+import { Input } from '@estrelinha/ui/input'
+import { Label } from '@estrelinha/ui/label'
+import { cn } from '@estrelinha/ui/lib/utils'
+import { formatPrice } from '@estrelinha/core/formatters'
+import type { PromotionDiscountKind } from '@estrelinha/supabase/types/promotion'
 import { tierPreview } from '../model/tierPreview'
 import type { PromotionFormValues } from '../model/schema'
 

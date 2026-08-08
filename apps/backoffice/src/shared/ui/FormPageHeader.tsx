@@ -11,8 +11,8 @@
 
 import { useEffect } from 'react'
 import { ChevronRight, Loader2 } from 'lucide-react'
-import { Button } from '@nanapin/ui/button'
-import { Badge } from '@nanapin/ui/badge'
+import { Button } from '@estrelinha/ui/button'
+import { Badge } from '@estrelinha/ui/badge'
 
 interface Props {
   /** O primeiro nível da trilha — o grupo da sidebar. Não é link: o grupo não tem tela. */

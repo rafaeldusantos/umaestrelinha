@@ -4,8 +4,8 @@
 // propósito: um segundo caminho de upload teria a própria validação, o próprio progresso e a
 // própria chance de divergir do que a aba Mídia faz.
 
-import { variantLabel } from '@nanapin/core/pricing'
-import type { ProductImage, ProductOption, ProductVariant } from '@nanapin/supabase/types'
+import { variantLabel } from '@estrelinha/core/pricing'
+import type { ProductImage, ProductOption, ProductVariant } from '@estrelinha/supabase/types'
 
 interface Props {
   variants: ProductVariant[]

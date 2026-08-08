@@ -8,7 +8,7 @@
 // longo mais "Crie o Seu" e "Sobre", 1440px acaba — e o lugar de descobrir isso é aqui, não na loja.
 
 import { AlertTriangle } from 'lucide-react'
-import type { MenuEntry } from '@nanapin/core/menu'
+import type { MenuEntry } from '@estrelinha/core/menu'
 import { FIXED_ENTRIES } from './MenuSlotList'
 
 interface Props {

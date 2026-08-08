@@ -14,7 +14,7 @@
 // a escolha foi: **parar no primeiro erro, dizer qual passo falhou, e nunca reportar sucesso.** O
 // admin reabre o formulário e vê o que entrou; o alternativo é um "salvo!" mentiroso.
 
-import type { ProductCategoryLink, ProductVariant } from '@nanapin/supabase/types'
+import type { ProductCategoryLink, ProductVariant } from '@estrelinha/supabase/types'
 
 // --- Identidade de linha nova ------------------------------------------------------------------
 

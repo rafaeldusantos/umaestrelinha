@@ -6,8 +6,8 @@
 // componente compartilhado para o caso de uma tela só.
 
 import { ChevronDown, ChevronRight, GripVertical, MoreVertical } from 'lucide-react'
-import { Switch } from '@nanapin/ui/switch'
-import { cn } from '@nanapin/ui/lib/utils'
+import { Switch } from '@estrelinha/ui/switch'
+import { cn } from '@estrelinha/ui/lib/utils'
 import type { CategoryRow } from '../model/categoryTree'
 
 interface Props {

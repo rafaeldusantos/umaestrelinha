@@ -4,12 +4,12 @@
 // "reajustar o preço de 12 produtos" e "reescrever 12 produtos inteiros com o que estava na tela".
 
 import { useState } from 'react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@nanapin/ui/dialog'
-import { Button } from '@nanapin/ui/button'
-import { Input } from '@nanapin/ui/input'
-import { Switch } from '@nanapin/ui/switch'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@nanapin/ui/select'
-import { formatPrice } from '@nanapin/core/formatters'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@estrelinha/ui/dialog'
+import { Button } from '@estrelinha/ui/button'
+import { Input } from '@estrelinha/ui/input'
+import { Switch } from '@estrelinha/ui/switch'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@estrelinha/ui/select'
+import { formatPrice } from '@estrelinha/core/formatters'
 import { MoneyInput } from '@/shared/ui'
 import type { AdminListRow } from '@/entities/product/api/productQuery'
 import {

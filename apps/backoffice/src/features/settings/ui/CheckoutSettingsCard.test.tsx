@@ -1,6 +1,6 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { DEFAULT_CHECKOUT, type CheckoutSettings } from '@nanapin/supabase/types/settings'
+import { DEFAULT_CHECKOUT, type CheckoutSettings } from '@estrelinha/supabase/types/settings'
 import CheckoutSettingsCard, { DISCOUNT_RANGE_MESSAGE } from './CheckoutSettingsCard'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -13,7 +13,7 @@ const mutateAsync = vi.fn()
 const settingsData: { checkout: CheckoutSettings } = { checkout: { ...DEFAULT_CHECKOUT } }
 let settingsLoading = false
 
-vi.mock('@nanapin/core/hooks/useStoreSettings', () => ({
+vi.mock('@estrelinha/core/hooks/useStoreSettings', () => ({
   useStoreSettings: () => ({ data: settingsLoading ? undefined : settingsData, isLoading: settingsLoading }),
   useUpdateSettings: () => ({ mutateAsync, isPending: false }),
 }))
@@ -29,7 +29,7 @@ vi.mock('@/entities/product', () => ({
 }))
 
 const toastMock = vi.fn()
-vi.mock('@nanapin/ui/hooks/use-toast', () => ({ useToast: () => ({ toast: toastMock }) }))
+vi.mock('@estrelinha/ui/hooks/use-toast', () => ({ useToast: () => ({ toast: toastMock }) }))
 
 // O Select do shadcn é Radix + floating-ui. No jsdom ele precisa de três coisas que o ambiente
 // não tem: pointer capture, ResizeObserver e `PointerEvent` (o gatilho só abre com

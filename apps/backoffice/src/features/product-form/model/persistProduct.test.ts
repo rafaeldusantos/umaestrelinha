@@ -7,7 +7,7 @@ import {
   tempVariantId,
   type PersistClient,
 } from './persistProduct'
-import type { ProductVariant } from '@nanapin/supabase/types'
+import type { ProductVariant } from '@estrelinha/supabase/types'
 
 // T21b: PFM-05 AC 4 ("as categorias SHALL persistir em `product_categories` com `position` = ordem
 // de seleção"), PFM-07 AC 5 (a ordem dos eixos persiste) e a gravação da grade.

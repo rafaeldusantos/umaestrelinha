@@ -10,7 +10,7 @@
 //
 // Regra de ouro: NUNCA lança. Um produto com `images` corrompido perde as fotos, não a página.
 
-import type { ProductImage, ImageSource } from '@nanapin/supabase/types'
+import type { ProductImage, ImageSource } from '@estrelinha/supabase/types'
 
 const VALID_SOURCES: readonly ImageSource[] = ['upload', 'mockup', 'import']
 

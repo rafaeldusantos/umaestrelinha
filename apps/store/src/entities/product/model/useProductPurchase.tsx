@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { variantLabel } from '@nanapin/core/pricing'
-import type { OptionValues, Product, ProductVariant } from '@nanapin/supabase/types'
+import { variantLabel } from '@estrelinha/core/pricing'
+import type { OptionValues, Product, ProductVariant } from '@estrelinha/supabase/types'
 import { useCartStore } from '@/entities/cart/model/cartStore'
 import { useCartUiStore } from '@/entities/cart/model/cartUiStore'
 import {

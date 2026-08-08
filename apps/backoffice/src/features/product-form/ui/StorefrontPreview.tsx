@@ -8,9 +8,9 @@
 // errado junto.
 
 import { ImageOff } from 'lucide-react'
-import { formatPrice } from '@nanapin/core/formatters'
-import { priceRange } from '@nanapin/core/pricing'
-import type { ProductImage, ProductVariant } from '@nanapin/supabase/types'
+import { formatPrice } from '@estrelinha/core/formatters'
+import { priceRange } from '@estrelinha/core/pricing'
+import type { ProductImage, ProductVariant } from '@estrelinha/supabase/types'
 
 interface Props {
   name: string

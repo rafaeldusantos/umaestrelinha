@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import VariantsTable from './VariantsTable'
-import type { ProductOption, ProductVariant } from '@nanapin/supabase/types'
+import type { ProductOption, ProductVariant } from '@estrelinha/supabase/types'
 
 // PFM-08 AC 6, 9, 10, 14 na SUPERFÍCIE: a barra em massa só age nas selecionadas, Preencher coluna
 // respeita o modo, e Regerar mostra o diff ANTES de aplicar — cancelar não muda nada.

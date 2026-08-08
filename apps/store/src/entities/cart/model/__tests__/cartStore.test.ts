@@ -1,6 +1,6 @@
 import { describe, expect, it, beforeEach } from 'vitest'
 import { useCartStore, type CartVariantInput } from '../cartStore'
-import type { Product } from '@nanapin/supabase/types'
+import type { Product } from '@estrelinha/supabase/types'
 
 // Testes derivados de PST-04, PST-02 (AC 1-3) e do "Done when" da T11.
 //

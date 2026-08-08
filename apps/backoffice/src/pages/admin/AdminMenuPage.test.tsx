@@ -61,10 +61,10 @@ vi.mock('@/entities/category/api/useAdminCategories', () => ({
   }),
 }))
 
-vi.mock('@nanapin/ui/hooks/use-toast', () => ({ toast: vi.fn() }))
+vi.mock('@estrelinha/ui/hooks/use-toast', () => ({ toast: vi.fn() }))
 
 import AdminMenuPage from './AdminMenuPage'
-import { toast } from '@nanapin/ui/hooks/use-toast'
+import { toast } from '@estrelinha/ui/hooks/use-toast'
 
 const renderPage = (categories: AdminCategory[] = CATALOGO, over: Partial<typeof state> = {}) => {
   state.categories = categories

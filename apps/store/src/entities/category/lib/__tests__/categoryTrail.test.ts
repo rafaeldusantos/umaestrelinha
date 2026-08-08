@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { categoryTrail, categoryTrailLabel } from '../categoryTrail'
-import type { Category } from '@nanapin/supabase/types'
+import type { Category } from '@estrelinha/supabase/types'
 
 const cat = (id: string, name: string, parent_id: string | null = null): Category =>
   ({ id, name, slug: id, description: null, image_url: null, color_accent: null, emoji: '', parent_id, sort_order: 0 }) as Category

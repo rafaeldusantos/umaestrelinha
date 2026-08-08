@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { Button } from '@nanapin/ui/button'
+import { Button } from '@estrelinha/ui/button'
 import { useAuthUiStore } from '@/features/auth'
 
 /**

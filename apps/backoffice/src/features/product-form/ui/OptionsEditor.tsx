@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { ChevronDown, ChevronUp, GripVertical, Plus, X } from 'lucide-react'
-import { Button } from '@nanapin/ui/button'
-import { Input } from '@nanapin/ui/input'
-import { Label } from '@nanapin/ui/label'
-import { Badge } from '@nanapin/ui/badge'
-import { cartesian } from '@nanapin/core/pricing'
-import type { ProductOption } from '@nanapin/supabase/types'
+import { Button } from '@estrelinha/ui/button'
+import { Input } from '@estrelinha/ui/input'
+import { Label } from '@estrelinha/ui/label'
+import { Badge } from '@estrelinha/ui/badge'
+import { cartesian } from '@estrelinha/core/pricing'
+import type { ProductOption } from '@estrelinha/supabase/types'
 import { parseOptionValues } from '../model/parseOptionValues'
 
 /** O teto de eixos por produto (A7 na 07): 3 na página do produto, 2 no card da vitrine. */

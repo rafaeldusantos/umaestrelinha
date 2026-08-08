@@ -1,5 +1,5 @@
 import { SlidersHorizontal } from 'lucide-react'
-import { Sheet, SheetContent, SheetTitle } from '@nanapin/ui/sheet'
+import { Sheet, SheetContent, SheetTitle } from '@estrelinha/ui/sheet'
 import CategoryFiltersPanel from './CategoryFiltersPanel'
 import { defaultFilters, type CategoryFilters } from '../model/filters'
 

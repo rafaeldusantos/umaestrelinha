@@ -5,9 +5,9 @@
 // atual. Não há AbortController manual.
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { supabase } from '@nanapin/supabase/client'
-import type { ShippingQuote } from '@nanapin/supabase/types'
-import { stripCep } from '@nanapin/core/validators'
+import { supabase } from '@estrelinha/supabase/client'
+import type { ShippingQuote } from '@estrelinha/supabase/types'
+import { stripCep } from '@estrelinha/core/validators'
 import { toQuotePayload, useCartStore } from '@/entities/cart'
 
 export const SHIPPING_QUOTE_KEY = 'shipping-quote'

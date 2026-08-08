@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { displayCategory } from '../displayCategory'
-import type { Category } from '@nanapin/supabase/types'
+import type { Category } from '@estrelinha/supabase/types'
 
 // PST-06 AC 3: "a loja SHALL usar a de menor `categories.sort_order` entre as do produto; em
 // empate, a de menor `product_categories.position`".

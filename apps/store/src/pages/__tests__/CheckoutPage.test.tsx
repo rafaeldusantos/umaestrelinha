@@ -2,9 +2,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
-import type { Product } from '@nanapin/supabase/types'
-import type { ProgressivePromotion } from '@nanapin/core/payment/pricing'
-import type { ShippingQuote } from '@nanapin/supabase/types/shipping'
+import type { Product } from '@estrelinha/supabase/types'
+import type { ProgressivePromotion } from '@estrelinha/core/payment/pricing'
+import type { ShippingQuote } from '@estrelinha/supabase/types/shipping'
 import { useCartStore } from '@/entities/cart'
 import { useCouponStore } from '@/entities/coupon'
 import { useProductById } from '@/entities/product'
@@ -120,7 +120,7 @@ interface GridRow {
   product_variants: { is_active: boolean; price: number | null }[]
 }
 const gridRowsMock = vi.fn(() => ({ data: [] as GridRow[] }))
-vi.mock('@nanapin/supabase/client', () => ({
+vi.mock('@estrelinha/supabase/client', () => ({
   supabase: {
     from: () => ({
       select: () => ({ in: () => gridRowsMock() }),
@@ -146,7 +146,7 @@ const shippingSettings = {
   origin_zip: '',
   handling_days: 2,
 }
-vi.mock('@nanapin/core/hooks/useStoreSettings', () => ({
+vi.mock('@estrelinha/core/hooks/useStoreSettings', () => ({
   usePaymentSettings: () => paymentSettings,
   useCheckoutSettings: () => checkoutSettings,
   useShippingSettings: () => shippingSettings,
@@ -158,7 +158,7 @@ vi.mock('@nanapin/core/hooks/useStoreSettings', () => ({
 // pedido registra o desconto que a tela exibiu, porque `useCheckoutTotals` roda de verdade aqui.
 // A aritmética das faixas em si é provada em `useCartPromotion`, `CartDrawer` e `useCheckoutTotals`.
 const activePromotions: { data: (ProgressivePromotion & { name: string })[] } = { data: [] }
-vi.mock('@nanapin/core/hooks/usePromotions', () => ({
+vi.mock('@estrelinha/core/hooks/usePromotions', () => ({
   useActivePromotions: () => ({ data: activePromotions.data, isLoading: false }),
 }))
 
@@ -171,7 +171,7 @@ const authState: {
   customer: { id: 'c1', name: 'Marina Yamashita', email: 'marina@email.com' },
   loading: false,
 }
-vi.mock('@nanapin/auth', () => ({ useAuthContext: () => authState }))
+vi.mock('@estrelinha/auth', () => ({ useAuthContext: () => authState }))
 
 const productByIdMock = vi.mocked(useProductById)
 const cepLookupMock = vi.mocked(useCepLookup)

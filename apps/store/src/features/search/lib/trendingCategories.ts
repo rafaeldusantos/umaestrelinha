@@ -9,7 +9,7 @@
 // Numa árvore plana (nenhuma categoria com filhos) toda categoria é folha, e a função devolve todas
 // — então o desenho não depende de a loja ter hierarquia.
 
-import type { Category } from '@nanapin/supabase/types'
+import type { Category } from '@estrelinha/supabase/types'
 
 export const pickTrendingCategories = (
   categories: readonly Category[] | undefined,

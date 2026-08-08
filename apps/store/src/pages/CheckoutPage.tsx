@@ -1,7 +1,7 @@
 // Checkout one-page: três blocos, resumo persistente e um único CTA (CHK-01 … CHK-12).
 //
 // O passo "Revisão" não existe — o resumo assumiu o papel dele (CHK-05). A página é só
-// orquestração: as regras de completude/abertura vivem em `@nanapin/core/checkout`
+// orquestração: as regras de completude/abertura vivem em `@estrelinha/core/checkout`
 // (`resolveFlow`) e o rascunho no `checkoutStore`.
 //
 // FLW-01 … FLW-07: quem avança é a pessoa. `resolveFlow` separa completude de navegação; a página
@@ -14,19 +14,19 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Lock, MessageCircle, Package, RefreshCw, ShieldCheck } from 'lucide-react'
 import { toast } from 'sonner'
-import { Button } from '@nanapin/ui/button'
+import { Button } from '@estrelinha/ui/button'
 import { NanitaWordmark } from '@/shared/ui/brand'
-import { formatPrice } from '@nanapin/core/formatters'
-import { isValidDocument, stripCep } from '@nanapin/core/validators'
-import { applyOrderBump } from '@nanapin/core/payment/pricing'
-import { friendlyMessage } from '@nanapin/core/payment/status'
-import { primaryImage } from '@nanapin/core/media'
-import { normalizeOptions } from '@nanapin/core/product'
+import { formatPrice } from '@estrelinha/core/formatters'
+import { isValidDocument, stripCep } from '@estrelinha/core/validators'
+import { applyOrderBump } from '@estrelinha/core/payment/pricing'
+import { friendlyMessage } from '@estrelinha/core/payment/status'
+import { primaryImage } from '@estrelinha/core/media'
+import { normalizeOptions } from '@estrelinha/core/product'
 import { hasSellableGrid } from '@/entities/product/lib/variantSelection'
-import { resolveFlow, type BlockId } from '@nanapin/core/checkout'
-import { useAuthContext } from '@nanapin/auth'
-import { supabase } from '@nanapin/supabase/client'
-import type { CardPaymentFormData, CardPaymentResponse } from '@nanapin/supabase/types'
+import { resolveFlow, type BlockId } from '@estrelinha/core/checkout'
+import { useAuthContext } from '@estrelinha/auth'
+import { supabase } from '@estrelinha/supabase/client'
+import type { CardPaymentFormData, CardPaymentResponse } from '@estrelinha/supabase/types'
 import {
   findItemsMissingVariant,
   missingVariantMessage,

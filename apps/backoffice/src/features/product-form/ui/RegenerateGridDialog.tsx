@@ -1,4 +1,4 @@
-import { Button } from '@nanapin/ui/button'
+import { Button } from '@estrelinha/ui/button'
 import {
   Dialog,
   DialogContent,
@@ -6,9 +6,9 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@nanapin/ui/dialog'
-import { variantLabel } from '@nanapin/core/pricing'
-import type { ProductOption } from '@nanapin/supabase/types'
+} from '@estrelinha/ui/dialog'
+import { variantLabel } from '@estrelinha/core/pricing'
+import type { ProductOption } from '@estrelinha/supabase/types'
 import type { RegeneratePlan } from '../model/gridActions'
 
 interface Props {

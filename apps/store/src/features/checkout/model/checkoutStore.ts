@@ -1,7 +1,7 @@
 // Rascunho do checkout one-page (CHK-07, CHK-08).
 //
 // As regras não moram aqui: `blocks()` e `isStale()` delegam a `resolveBlocks`/`isOrderStale`
-// de `@nanapin/core/checkout`, que são domínio puro e já têm suíte própria. O store só guarda
+// de `@estrelinha/core/checkout`, que são domínio puro e já têm suíte própria. O store só guarda
 // estado e o repassa.
 //
 // Diferença deliberada em relação a `entities/cart/model/cartStore.ts` (que persiste em
@@ -18,7 +18,7 @@ import {
   type ContactDraft,
   type PaymentDraft,
   type ShippingDraft,
-} from '@nanapin/core/checkout'
+} from '@estrelinha/core/checkout'
 
 export const CHECKOUT_STORAGE_KEY = 'nanapin-checkout'
 

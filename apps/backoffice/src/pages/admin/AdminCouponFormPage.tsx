@@ -11,17 +11,17 @@ import { useEffect, useRef } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Button } from '@nanapin/ui/button'
-import { Input } from '@nanapin/ui/input'
-import { Label } from '@nanapin/ui/label'
-import { cn } from '@nanapin/ui/lib/utils'
-import { toast } from '@nanapin/ui/hooks/use-toast'
+import { Button } from '@estrelinha/ui/button'
+import { Input } from '@estrelinha/ui/input'
+import { Label } from '@estrelinha/ui/label'
+import { cn } from '@estrelinha/ui/lib/utils'
+import { toast } from '@estrelinha/ui/hooks/use-toast'
 import {
   useAdminCoupons,
   useCreateCoupon,
   useUpdateCoupon,
-} from '@nanapin/core/hooks/useCoupons'
-import type { CouponType } from '@nanapin/supabase/types/coupon'
+} from '@estrelinha/core/hooks/useCoupons'
+import type { CouponType } from '@estrelinha/supabase/types/coupon'
 import { DateField, FormCard, FormPageHeader, ToggleField } from '@/shared/ui'
 import {
   CouponPreviewCard,

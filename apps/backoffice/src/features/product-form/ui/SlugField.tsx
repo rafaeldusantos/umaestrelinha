@@ -1,8 +1,8 @@
 import { AlertTriangle, Check, Loader2, X } from 'lucide-react'
-import { Button } from '@nanapin/ui/button'
-import { Input } from '@nanapin/ui/input'
-import { Label } from '@nanapin/ui/label'
-import { Switch } from '@nanapin/ui/switch'
+import { Button } from '@estrelinha/ui/button'
+import { Input } from '@estrelinha/ui/input'
+import { Label } from '@estrelinha/ui/label'
+import { Switch } from '@estrelinha/ui/switch'
 import { useSlugAvailability } from '../model/useSlugAvailability'
 
 /** O domínio da loja, em slot fixo. Fora do input, como `R$` nos campos de moeda. */

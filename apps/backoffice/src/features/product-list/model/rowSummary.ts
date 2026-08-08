@@ -8,7 +8,7 @@
 // vendáveis, o `base_price` não é o que o caixa cobra (`07`/`resolveItemPrice`), e editar o campo
 // errado na listagem seria anunciar um valor que a loja não pratica.
 
-import { priceRange } from '@nanapin/core/pricing'
+import { priceRange } from '@estrelinha/core/pricing'
 import type { AdminListRow } from '@/entities/product/api/productQuery'
 
 /** Uma linha é vendável quando está ativa e tem preço. Mesma regra de `priceRange`. */

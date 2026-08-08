@@ -6,14 +6,14 @@
 
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ProductImage } from '@nanapin/supabase/types'
+import type { ProductImage } from '@estrelinha/supabase/types'
 
 const { uploadMock, toastMock } = vi.hoisted(() => ({ uploadMock: vi.fn(), toastMock: vi.fn() }))
 
-vi.mock('@nanapin/supabase/client', () => ({
+vi.mock('@estrelinha/supabase/client', () => ({
   supabase: { storage: { from: () => ({ upload: vi.fn(), remove: vi.fn() }) } },
 }))
-vi.mock('@nanapin/ui/hooks/use-toast', () => ({ toast: toastMock }))
+vi.mock('@estrelinha/ui/hooks/use-toast', () => ({ toast: toastMock }))
 // Só o envio é dublado. `uploadFailureMessage` continua sendo o real — a mensagem que o admin lê é
 // justamente o que esta task promete.
 vi.mock('../lib/uploadProductImage', async importOriginal => ({

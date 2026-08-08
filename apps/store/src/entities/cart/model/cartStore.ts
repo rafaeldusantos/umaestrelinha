@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { OptionValues, Product } from '@nanapin/supabase/types'
-import { FREE_SHIPPING_THRESHOLD, SHIPPING_COST } from '@nanapin/core/constants'
+import type { OptionValues, Product } from '@estrelinha/supabase/types'
+import { FREE_SHIPPING_THRESHOLD, SHIPPING_COST } from '@estrelinha/core/constants'
 
 /** O que a página do produto passa quando o cliente escolheu uma variação. */
 export interface CartVariantInput {

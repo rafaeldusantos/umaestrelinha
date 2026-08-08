@@ -9,11 +9,11 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { MoneyInput } from '@/shared/ui'
-import { Input } from '@nanapin/ui/input'
+import { Input } from '@estrelinha/ui/input'
 
 interface Props {
   value: number
-  /** `money` usa a máscara pt-BR de `@nanapin/core/formatters`; `integer` é estoque. */
+  /** `money` usa a máscara pt-BR de `@estrelinha/core/formatters`; `integer` é estoque. */
   kind: 'money' | 'integer'
   label: string
   disabled?: boolean

@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion'
-import type { Product, OptionValues } from '@nanapin/supabase/types'
-import { formatPrice } from '@nanapin/core/formatters'
+import type { Product, OptionValues } from '@estrelinha/supabase/types'
+import { formatPrice } from '@estrelinha/core/formatters'
 import { CARD_MAX_AXES, canAddSelection } from '../lib/variantSelection'
 import VariantPicker from './VariantPicker'
 

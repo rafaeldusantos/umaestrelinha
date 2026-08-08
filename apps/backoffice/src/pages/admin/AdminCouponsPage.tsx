@@ -28,8 +28,8 @@ import {
   Trash2,
   Truck,
 } from 'lucide-react'
-import { Button } from '@nanapin/ui/button'
-import { Badge } from '@nanapin/ui/badge'
+import { Button } from '@estrelinha/ui/button'
+import { Badge } from '@estrelinha/ui/badge'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -39,9 +39,9 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@nanapin/ui/alert-dialog'
-import { toast } from '@nanapin/ui/hooks/use-toast'
-import { cn } from '@nanapin/ui/lib/utils'
+} from '@estrelinha/ui/alert-dialog'
+import { toast } from '@estrelinha/ui/hooks/use-toast'
+import { cn } from '@estrelinha/ui/lib/utils'
 import {
   PageHeader,
   StatCard,
@@ -54,9 +54,9 @@ import {
   useAdminCoupons,
   useDeleteCoupon,
   useUpdateCoupon,
-} from '@nanapin/core/hooks/useCoupons'
-import type { Coupon, CouponType } from '@nanapin/supabase/types/coupon'
-import { formatPrice } from '@nanapin/core/formatters'
+} from '@estrelinha/core/hooks/useCoupons'
+import type { Coupon, CouponType } from '@estrelinha/supabase/types/coupon'
+import { formatPrice } from '@estrelinha/core/formatters'
 import { validityLabel } from '@/shared/lib/vigencia'
 import { couponStats, couponStatus, isExhausted } from '@/features/coupon-list'
 

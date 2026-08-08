@@ -8,13 +8,13 @@
 // A tolerância a dado torto é deliberada e segue a regra de `normalizeImages`: um `options`
 // corrompido faz o produto perder os seletores, não a página.
 
-import { normalizeImages, primaryImage } from '@nanapin/core/media'
-// Os normalizadores de forma do produto vivem em `@nanapin/core/product` desde a 11/T21: o
+import { normalizeImages, primaryImage } from '@estrelinha/core/media'
+// Os normalizadores de forma do produto vivem em `@estrelinha/core/product` desde a 11/T21: o
 // backoffice lê as MESMAS colunas para editar a grade, e se os dois lados discordassem sobre o que
 // é uma variação vendável, o lojista publicaria uma grade que a vitrine não mostra — sem erro em
 // lugar nenhum. Nasceram aqui na 07/T18 e foram promovidos, não copiados.
-import { normalizeCategoryLinks, normalizeOptions, normalizeVariants, toStockPolicy } from '@nanapin/core/product'
-import type { Product } from '@nanapin/supabase/types'
+import { normalizeCategoryLinks, normalizeOptions, normalizeVariants, toStockPolicy } from '@estrelinha/core/product'
+import type { Product } from '@estrelinha/supabase/types'
 
 /**
  * O `select` que traz tudo o que este mapper lê. Uma string só, para os 3 hooks não divergirem.

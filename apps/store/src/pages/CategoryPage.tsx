@@ -26,7 +26,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@nanapin/ui/select'
+} from '@estrelinha/ui/select'
 
 /**
  * Listagem de uma coleção — boards "Desktop Category Page - v3" e "Mobile Category Page - v3".

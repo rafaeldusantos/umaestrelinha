@@ -35,7 +35,7 @@
 -- `category_product_counts`, que já existe desde a `14`. O preço disso é que a referência mora
 -- dentro de jsonb, onde **não cabe FK**: apagar a categoria de destino não pode disparar
 -- `on delete set null`. Por isso a resolução é validada em runtime (`resolvePromo`, em
--- `@nanapin/core/menu`) e virou critério de aceite (`MENU-26`), não boa vontade.
+-- `@estrelinha/core/menu`) e virou critério de aceite (`MENU-26`), não boa vontade.
 
 alter table public.categories
 	add column if not exists show_in_menu boolean not null default false,

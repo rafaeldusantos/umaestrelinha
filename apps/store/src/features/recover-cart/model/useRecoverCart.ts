@@ -1,16 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
-import { supabase } from '@nanapin/supabase/client'
+import { supabase } from '@estrelinha/supabase/client'
 import { useCartStore } from '@/entities/cart/model/cartStore'
 import { useCouponStore } from '@/entities/coupon/model/couponStore'
-import { validateCoupon } from '@nanapin/core/hooks/useCoupons'
+import { validateCoupon } from '@estrelinha/core/hooks/useCoupons'
 // T18: era uma quarta cópia do mapper, e a única que já não trazia as dimensões de SHP-02 — um
 // carrinho recuperado cotava frete pelos fallbacks. Com a grade entrando no `Product`, a cópia
 // também deixaria o produto recuperado sem variação.
 import { mapDbToProduct, PRODUCT_SELECT } from '@/entities/product/lib/mapProduct'
-import type { DbAbandonedCart } from '@nanapin/supabase/types/abandonedCart'
-import type { Product } from '@nanapin/supabase/types'
+import type { DbAbandonedCart } from '@estrelinha/supabase/types/abandonedCart'
+import type { Product } from '@estrelinha/supabase/types'
 
 /** O recorte que `get_abandoned_cart` devolve — não a linha inteira. */
 type RecoverableCart = Pick<

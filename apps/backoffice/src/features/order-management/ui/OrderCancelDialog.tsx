@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@nanapin/ui/dialog'
-import { Button } from '@nanapin/ui/button'
-import { Textarea } from '@nanapin/ui/textarea'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@estrelinha/ui/dialog'
+import { Button } from '@estrelinha/ui/button'
+import { Textarea } from '@estrelinha/ui/textarea'
 import { AlertTriangle } from 'lucide-react'
 
 interface Props {

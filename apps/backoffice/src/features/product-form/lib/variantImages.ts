@@ -5,7 +5,7 @@
 // A regra da spec ("a variação volta a usar a principal, sem referência quebrada") tem de ser
 // aplicada por quem edita — aqui — e tolerada por quem lê, na loja.
 
-import type { ProductImage, ProductVariant } from '@nanapin/supabase/types'
+import type { ProductImage, ProductVariant } from '@estrelinha/supabase/types'
 
 /**
  * Limpa o `image_url` das variações cuja imagem saiu da galeria.

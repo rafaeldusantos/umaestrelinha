@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import OptionsEditor, { MAX_AXES } from './OptionsEditor'
 import { parseOptionValues } from '../model/parseOptionValues'
-import type { ProductOption } from '@nanapin/supabase/types'
+import type { ProductOption } from '@estrelinha/supabase/types'
 
 // PFM-07 (P1.3 AC 2-5): até 3 eixos, nome livre com presets, colar-por-vírgula, cabeçalho com a
 // conta do cruzamento, e reordenação que persiste em `position`.

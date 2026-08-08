@@ -1,5 +1,5 @@
-import { useToast } from "@nanapin/ui/hooks/use-toast";
-import { Toast, ToastClose, ToastDescription, ToastProvider, ToastTitle, ToastViewport } from "@nanapin/ui/toast";
+import { useToast } from "@estrelinha/ui/hooks/use-toast";
+import { Toast, ToastClose, ToastDescription, ToastProvider, ToastTitle, ToastViewport } from "@estrelinha/ui/toast";
 
 export function Toaster() {
   const { toasts } = useToast();

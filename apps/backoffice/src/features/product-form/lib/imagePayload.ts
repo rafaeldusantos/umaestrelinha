@@ -9,7 +9,7 @@
 // migration no primeiro save — ou zeraria o `alt` de todas as fotos num save que nem tocou em
 // imagem.
 
-import type { ImageSource, ProductImage } from '@nanapin/supabase/types'
+import type { ImageSource, ProductImage } from '@estrelinha/supabase/types'
 
 const FALLBACK_SOURCE: ImageSource = 'upload'
 

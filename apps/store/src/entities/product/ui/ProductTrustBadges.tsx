@@ -1,10 +1,10 @@
 import type { ComponentType } from 'react'
 import { RotateCcw, ShieldCheck, Truck } from 'lucide-react'
-import { formatPrice } from '@nanapin/core/formatters'
+import { formatPrice } from '@estrelinha/core/formatters'
 import {
   usePaymentSettings,
   useShippingSettings,
-} from '@nanapin/core/hooks/useStoreSettings'
+} from '@estrelinha/core/hooks/useStoreSettings'
 import PixIcon from '@/shared/ui/PixIcon'
 
 /**

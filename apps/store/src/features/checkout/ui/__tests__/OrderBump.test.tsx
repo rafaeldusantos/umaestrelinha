@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import type { Product } from '@nanapin/supabase/types'
+import type { Product } from '@estrelinha/supabase/types'
 import { useCartStore } from '@/entities/cart'
 import { useProductById } from '@/entities/product'
 import { useCheckoutStore } from '../../model/checkoutStore'
@@ -19,7 +19,7 @@ const checkoutSettings = {
   order_bump_product_id: 'bump-1',
   order_bump_discount_percent: 50,
 }
-vi.mock('@nanapin/core/hooks/useStoreSettings', () => ({
+vi.mock('@estrelinha/core/hooks/useStoreSettings', () => ({
   useCheckoutSettings: () => checkoutSettings,
 }))
 

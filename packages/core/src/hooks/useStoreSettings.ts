@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { supabase } from '@nanapin/supabase/client'
+import { supabase } from '@estrelinha/supabase/client'
 import {
   DEFAULT_GENERAL,
   DEFAULT_SHIPPING,
@@ -15,7 +15,7 @@ import {
   type CheckoutSettings,
   type SettingsKey,
   type SettingsMap,
-} from '@nanapin/supabase/types/settings'
+} from '@estrelinha/supabase/types/settings'
 
 // Toda chave nova precisa entrar aqui: `fetchAllSettings` descarta linha cuja key não esteja
 // em DEFAULTS (ver o `if (key in map)` abaixo).

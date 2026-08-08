@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
-import { supabase } from '@nanapin/supabase/client'
+import { supabase } from '@estrelinha/supabase/client'
 import { mapDbToProduct, PRODUCT_SELECT } from '../lib/mapProduct'
-import type { Product } from '@nanapin/supabase/types'
+import type { Product } from '@estrelinha/supabase/types'
 
 /**
  * O produto de um slug, resolvendo URL antiga por `product_redirects` (PST-07).

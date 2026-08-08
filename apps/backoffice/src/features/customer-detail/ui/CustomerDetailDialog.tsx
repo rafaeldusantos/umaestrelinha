@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@nanapin/ui/dialog'
-import { formatPrice } from '@nanapin/core/formatters'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@estrelinha/ui/dialog'
+import { formatPrice } from '@estrelinha/core/formatters'
 import StatusBadge from '@/entities/order/ui/StatusBadge'
 import type { AdminCustomer } from '@/entities/customer/api/useAdminCustomers'
-import type { DbOrder } from '@nanapin/supabase/types'
+import type { DbOrder } from '@estrelinha/supabase/types'
 
 interface Props {
   open: boolean

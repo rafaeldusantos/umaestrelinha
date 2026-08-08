@@ -1,15 +1,15 @@
 import { useState } from 'react'
-import { Button } from '@nanapin/ui/button'
-import { Input } from '@nanapin/ui/input'
+import { Button } from '@estrelinha/ui/button'
+import { Input } from '@estrelinha/ui/input'
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@nanapin/ui/select'
+} from '@estrelinha/ui/select'
 import { MoneyInput } from '@/shared/ui'
-import type { ProductOption, ProductVariant } from '@nanapin/supabase/types'
+import type { ProductOption, ProductVariant } from '@estrelinha/supabase/types'
 import {
   applyBulk,
   fillColumn,

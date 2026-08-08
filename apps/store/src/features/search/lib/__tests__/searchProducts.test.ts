@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { searchProducts, normalizeTerm, MIN_QUERY_LENGTH } from '../searchProducts'
-import type { Category, Product } from '@nanapin/supabase/types'
+import type { Category, Product } from '@estrelinha/supabase/types'
 
 const product = (over: Partial<Product> & { name: string }): Product =>
   ({

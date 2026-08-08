@@ -2,7 +2,7 @@
 // PAY-04: mapa explícito de transições; approved nunca regride.
 // PAY-02: mensagens amigáveis pt-BR mapeadas de status_detail do Mercado Pago.
 
-// Espelha PaymentStatus de @nanapin/supabase (duplicado aqui para o módulo ser
+// Espelha PaymentStatus de @estrelinha/supabase (duplicado aqui para o módulo ser
 // autocontido — a edge function Deno importa este arquivo por caminho relativo).
 export type PaymentStatus =
   | 'pending'

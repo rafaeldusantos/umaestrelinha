@@ -9,9 +9,9 @@
 // no resto. Nada de geleia — a única pílula geleia da tela é o CTA.
 import { useEffect } from 'react'
 import { Check } from 'lucide-react'
-import { formatPrice } from '@nanapin/core/formatters'
-import { applyOrderBump } from '@nanapin/core/payment/pricing'
-import { useCheckoutSettings } from '@nanapin/core/hooks/useStoreSettings'
+import { formatPrice } from '@estrelinha/core/formatters'
+import { applyOrderBump } from '@estrelinha/core/payment/pricing'
+import { useCheckoutSettings } from '@estrelinha/core/hooks/useStoreSettings'
 import { useCartStore } from '@/entities/cart'
 import { useProductById } from '@/entities/product'
 import { NanitaMonogram } from '@/shared/ui/brand'

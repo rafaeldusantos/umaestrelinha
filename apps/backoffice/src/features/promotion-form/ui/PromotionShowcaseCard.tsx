@@ -8,8 +8,8 @@
 // A faixa exibida é a de MAIOR quantidade entre as válidas, não a última linha: é a maior promessa da
 // regra, e o repetidor não obriga a preencher em ordem.
 
-import { formatPrice } from '@nanapin/core/formatters'
-import type { PromotionDiscountKind } from '@nanapin/supabase/types/promotion'
+import { formatPrice } from '@estrelinha/core/formatters'
+import type { PromotionDiscountKind } from '@estrelinha/supabase/types/promotion'
 import { tierPreview } from '../model/tierPreview'
 
 interface Props {

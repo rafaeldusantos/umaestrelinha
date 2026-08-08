@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const invoke = vi.fn()
 
-vi.mock('@nanapin/supabase', () => ({ supabase: { functions: { invoke: (...args: unknown[]) => invoke(...args) } } }))
+vi.mock('@estrelinha/supabase', () => ({ supabase: { functions: { invoke: (...args: unknown[]) => invoke(...args) } } }))
 
 import { sendOrderEmail } from './sendOrderEmail'
 

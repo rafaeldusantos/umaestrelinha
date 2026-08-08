@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { Product, ProductVariant } from '@nanapin/supabase/types'
+import type { Product, ProductVariant } from '@estrelinha/supabase/types'
 import { productSpecs, savingsOf, stockLineOf } from '../productFacts'
 
 const product = (overrides: Partial<Product> = {}): Product =>

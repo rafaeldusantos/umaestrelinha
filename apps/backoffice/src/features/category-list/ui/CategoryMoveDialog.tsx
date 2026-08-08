@@ -11,9 +11,9 @@
 
 import { useEffect, useState } from 'react'
 import { FolderInput } from 'lucide-react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@nanapin/ui/dialog'
-import { Button } from '@nanapin/ui/button'
-import { Label } from '@nanapin/ui/label'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@estrelinha/ui/dialog'
+import { Button } from '@estrelinha/ui/button'
+import { Label } from '@estrelinha/ui/label'
 import { PREVIEW_LIMIT } from '@/features/bulk-edit/model/confirmDelete'
 import type { CategoryRow } from '../model/categoryTree'
 

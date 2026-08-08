@@ -8,7 +8,7 @@
 // `addresses` é conveniência para a próxima compra. Por isso o hook **resolve** com
 // `{ saved: false }` e loga, em vez de rejeitar.
 import { useMutation } from '@tanstack/react-query'
-import { supabase } from '@nanapin/supabase/client'
+import { supabase } from '@estrelinha/supabase/client'
 
 export interface AddressFields {
   cep: string

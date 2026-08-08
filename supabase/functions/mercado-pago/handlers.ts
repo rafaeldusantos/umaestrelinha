@@ -355,7 +355,7 @@ export async function createPayment(deps: Deps, req: Request, body: any) {
 
   const pricingContext = { basePriceByProductId, variantById }
 
-  // Resolve o preço item a item por `resolveItemPrice` (@nanapin/core/pricing) — a MESMA função
+  // Resolve o preço item a item por `resolveItemPrice` (@estrelinha/core/pricing) — a MESMA função
   // pura que o admin e a loja usam, coberta por 36 testes em vitest. O que ela garante e o mapa
   // `priceById` de antes não garantia: o caminho de preço é o **gravado no item**, e preço não
   // resolvível vira ERRO, não o `unit_price` que veio do cliente.

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { cartesian, diffGrid, skuFromParts, optionValuesKey } from '../grid'
-import type { OptionValues, ProductOption } from '@nanapin/supabase/types'
+import type { OptionValues, ProductOption } from '@estrelinha/supabase/types'
 
 // Testes derivados de PFM-07 (AC 4), PFM-08 (AC 6, 14) e do "Done when" da T10.
 

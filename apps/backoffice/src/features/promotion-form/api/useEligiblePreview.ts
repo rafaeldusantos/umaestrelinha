@@ -16,8 +16,8 @@
 // `product_categories`.
 
 import { useQuery } from '@tanstack/react-query'
-import { supabase } from '@nanapin/supabase/client'
-import { descendantIds, type MenuCategory } from '@nanapin/core/menu'
+import { supabase } from '@estrelinha/supabase/client'
+import { descendantIds, type MenuCategory } from '@estrelinha/core/menu'
 
 export interface EligiblePreview {
   /** Produtos distintos alcançados pelo escopo. */

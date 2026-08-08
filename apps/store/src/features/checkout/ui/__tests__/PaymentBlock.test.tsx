@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import { isPaymentComplete } from '@nanapin/core/checkout'
+import { isPaymentComplete } from '@estrelinha/core/checkout'
 import { useCheckoutStore } from '../../model/checkoutStore'
 import PaymentBlock, {
   DOC_ERROR_MESSAGE,
@@ -42,12 +42,12 @@ const paymentSettings = {
   max_installments: 6,
   min_installment_value: 10,
 }
-vi.mock('@nanapin/core/hooks/useStoreSettings', () => ({
+vi.mock('@estrelinha/core/hooks/useStoreSettings', () => ({
   usePaymentSettings: () => paymentSettings,
 }))
 
 const authState: { customer: { id: string; cpf?: string } | null } = { customer: { id: 'c1' } }
-vi.mock('@nanapin/auth', () => ({ useAuthContext: () => authState }))
+vi.mock('@estrelinha/auth', () => ({ useAuthContext: () => authState }))
 
 const CPF_VALIDO = '390.533.447-05'
 
@@ -376,7 +376,7 @@ describe('PaymentBlock — paleta (CHK-04 / DESIGN.md §8)', () => {
 })
 
 // ── Correções do ciclo de QA 2026-07-28 ───────────────────────────────────────
-// `resolveInstallments` saiu daqui para `@nanapin/core/payment/installments` (a sub-linha do resumo
+// `resolveInstallments` saiu daqui para `@estrelinha/core/payment/installments` (a sub-linha do resumo
 // e a página do produto usam a mesma conta); a suíte dele mora em
 // `packages/core/src/payment/__tests__/installments.test.ts`.
 import { PAYMENT_EMPTY_SUMMARY } from '../PaymentBlock'

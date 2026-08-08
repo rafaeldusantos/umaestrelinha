@@ -1,6 +1,6 @@
 import { Truck } from 'lucide-react'
-import { formatPrice } from '@nanapin/core/formatters'
-import { useShippingSettings } from '@nanapin/core/hooks/useStoreSettings'
+import { formatPrice } from '@estrelinha/core/formatters'
+import { useShippingSettings } from '@estrelinha/core/hooks/useStoreSettings'
 
 const FreeShippingBar = ({ currentTotal }: { currentTotal: number }) => {
   const { free_shipping_threshold } = useShippingSettings()

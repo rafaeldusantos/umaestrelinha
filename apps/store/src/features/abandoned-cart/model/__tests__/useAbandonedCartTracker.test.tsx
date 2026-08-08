@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
-import type { Product } from '@nanapin/supabase/types'
+import type { Product } from '@estrelinha/supabase/types'
 
 // O que este arquivo protege, na ordem em que doeu:
 //
@@ -16,10 +16,10 @@ import type { Product } from '@nanapin/supabase/types'
 
 const { rpcMock } = vi.hoisted(() => ({ rpcMock: vi.fn() }))
 
-vi.mock('@nanapin/supabase/client', () => ({ supabase: { rpc: rpcMock } }))
+vi.mock('@estrelinha/supabase/client', () => ({ supabase: { rpc: rpcMock } }))
 
 const authState = { user: null as { id: string; email: string } | null, customer: null as unknown }
-vi.mock('@nanapin/auth', () => ({ useAuthContext: () => authState }))
+vi.mock('@estrelinha/auth', () => ({ useAuthContext: () => authState }))
 
 import { useCartStore } from '@/entities/cart/model/cartStore'
 import { useCouponStore } from '@/entities/coupon/model/couponStore'

@@ -279,36 +279,36 @@ importers:
 
   apps/backoffice:
     dependencies:
-      '@nanapin/auth':
+      '@estrelinha/auth':
         specifier: workspace:*
         version: link:../../packages/auth
-      '@nanapin/core':
+      '@estrelinha/core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@nanapin/supabase':
+      '@estrelinha/supabase':
         specifier: workspace:*
         version: link:../../packages/supabase
-      '@nanapin/ui':
+      '@estrelinha/ui':
         specifier: workspace:*
         version: link:../../packages/ui
 
   apps/store:
     dependencies:
+      '@estrelinha/auth':
+        specifier: workspace:*
+        version: link:../../packages/auth
+      '@estrelinha/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@estrelinha/supabase':
+        specifier: workspace:*
+        version: link:../../packages/supabase
+      '@estrelinha/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
       '@mercadopago/sdk-react':
         specifier: ^1.0.7
         version: 1.0.7(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@nanapin/auth':
-        specifier: workspace:*
-        version: link:../../packages/auth
-      '@nanapin/core':
-        specifier: workspace:*
-        version: link:../../packages/core
-      '@nanapin/supabase':
-        specifier: workspace:*
-        version: link:../../packages/supabase
-      '@nanapin/ui':
-        specifier: workspace:*
-        version: link:../../packages/ui
       qrcode.react:
         specifier: ^4.2.0
         version: 4.2.0(react@18.3.1)

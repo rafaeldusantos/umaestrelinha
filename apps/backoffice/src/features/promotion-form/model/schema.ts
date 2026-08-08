@@ -10,7 +10,7 @@
 // a tela é a explicação.
 
 import { z } from 'zod'
-import type { PromotionWriteInput } from '@nanapin/core/hooks/usePromotions'
+import type { PromotionWriteInput } from '@estrelinha/core/hooks/usePromotions'
 import { dateOnlyFromIso, isoFromDateOnly } from '@/shared/lib/dateOnly'
 
 export const SCOPE_WITHOUT_CATEGORY =

@@ -1,5 +1,5 @@
-import { bySortOrder } from '@nanapin/core/menu'
-import type { Category } from '@nanapin/supabase/types'
+import { bySortOrder } from '@estrelinha/core/menu'
+import type { Category } from '@estrelinha/supabase/types'
 
 /**
  * As categorias que a loja oferece para **navegar** — a grade "Coleções" da home e a coluna

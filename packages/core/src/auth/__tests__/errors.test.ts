@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-// Importado pelo barrel: prova que authErrorMessage sai de @nanapin/core/auth.
+// Importado pelo barrel: prova que authErrorMessage sai de @estrelinha/core/auth.
 import { AUTH_ERROR_FALLBACK, authErrorMessage } from '../index'
 import { MIN_PASSWORD_LENGTH } from '../../constants'
 

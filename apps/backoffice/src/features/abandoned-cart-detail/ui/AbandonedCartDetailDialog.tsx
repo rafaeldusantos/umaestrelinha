@@ -1,13 +1,13 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@nanapin/ui/dialog'
-import { Button } from '@nanapin/ui/button'
-import { Badge } from '@nanapin/ui/badge'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@estrelinha/ui/dialog'
+import { Button } from '@estrelinha/ui/button'
+import { Badge } from '@estrelinha/ui/badge'
 import { Mail, ShoppingBag, Clock, Tag, ExternalLink, Trash2, MailWarning, Link2, Check } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useState } from 'react'
-import { formatPrice, formatRelativeDate } from '@nanapin/core/formatters'
+import { formatPrice, formatRelativeDate } from '@estrelinha/core/formatters'
 import { STATUS_LABELS, STATUS_COLORS } from '@/entities/abandoned-cart/api/useAdminAbandonedCarts'
 import { toast } from 'sonner'
-import type { DbAbandonedCart } from '@nanapin/supabase/types/abandonedCart'
+import type { DbAbandonedCart } from '@estrelinha/supabase/types/abandonedCart'
 
 interface Props {
   cart: DbAbandonedCart | null

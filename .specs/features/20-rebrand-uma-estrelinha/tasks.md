@@ -289,11 +289,11 @@ nos `pnpm --filter` dos scripts da raiz, e `pnpm install` regerando `pnpm-lock.y
 **Tools** — MCP: nenhum · Skill: nenhuma
 
 **Done when**:
-- [ ] Zero ocorrência de `@nanapin/` no repositório
-- [ ] `pnpm install` resolve o workspace inteiro sem erro, com lockfile **regerado** (não editado)
-- [ ] `npx tsc --noEmit` = 0 nos dois apps — **este é o juiz desta fase**
-- [ ] `pnpm test` volta à contagem medida em T2, sem teste a menos
-- [ ] `pnpm dev:store` e `pnpm dev:backoffice` funcionam
+- [x] Zero ocorrência de `@nanapin/` no repositório
+- [x] `pnpm install` resolve o workspace inteiro sem erro, com lockfile **regerado** (não editado)
+- [x] `npx tsc --noEmit` = 0 nos dois apps — **este é o juiz desta fase**
+- [x] `pnpm test` volta à contagem medida em T2, sem teste a menos
+- [x] `pnpm dev:store` e `pnpm dev:backoffice` funcionam
 
 **Tests**: none (rename mecânico; o oráculo é `tsc` + a suíte existente) · **Gate**: build
 **Commit**: `refactor: todo import passa a @estrelinha/*, lockfile regerado`

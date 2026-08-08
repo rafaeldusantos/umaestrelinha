@@ -12,7 +12,7 @@
 --
 -- Daqui para frente a regra é dado: `promotions` (identidade e vigência) + `promotion_tiers` (as
 -- faixas) + `promotion_categories` (o escopo). A interpretação é função pura em
--- `@nanapin/core/payment/pricing`, chamada pelos dois lados.
+-- `@estrelinha/core/payment/pricing`, chamada pelos dois lados.
 
 -- ---------------------------------------------------------------------
 -- promotions — identidade, tipo de desconto, vigência
@@ -44,7 +44,7 @@ create table if not exists public.promotions (
 );
 
 comment on table public.promotions is
-	'Promoção de desconto progressivo por quantidade (feature 17). A regra que a interpreta é função pura em @nanapin/core/payment/pricing — nada de desconto é calculado inline em tela nem em edge function.';
+	'Promoção de desconto progressivo por quantidade (feature 17). A regra que a interpreta é função pura em @estrelinha/core/payment/pricing — nada de desconto é calculado inline em tela nem em edge function.';
 
 comment on column public.promotions.stacks_with_coupon is
 	'Opt-in por promoção (AD-015). Desligado (default) ⇒ vale o MELHOR dos dois, promoção ou cupom, comparado pelo total final. Ligado ⇒ o cupom incide sobre o subtotal já descontado.';

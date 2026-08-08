@@ -1,7 +1,7 @@
 // Preço e disponibilidade POR VARIAÇÃO — domínio puro (roda em Node, Deno e browser).
 //
 // ---------------------------------------------------------------------------------------------
-// Não confundir com `@nanapin/core/payment/pricing`. Os dois existem e fazem coisas diferentes:
+// Não confundir com `@estrelinha/core/payment/pricing`. Os dois existem e fazem coisas diferentes:
 //
 //   este módulo          →  QUANTO CUSTA ESTA LINHA?      resolve o unit_price de cada item
 //   payment/pricing.ts   →  QUANTO DÁ O PEDIDO INTEIRO?   soma, cupom, desconto PIX, order bump
@@ -22,7 +22,7 @@ import type {
   ProductOption,
   ProductVariant,
   StockPolicy,
-} from '@nanapin/supabase/types'
+} from '@estrelinha/supabase/types'
 
 // --- Resolução de preço do item ----------------------------------------------------------------
 
@@ -224,7 +224,7 @@ export const variantLabel = (
 //
 // `grid.ts` nasceu na 07/T10 e ficou sem ser reexportado aqui — não tinha consumidor fora do
 // próprio teste até a 11/T26 (`OptionsEditor`). O design da 11 lista `cartesian` e `diffGrid` como
-// vindos de `@nanapin/core/pricing`, então é aqui que eles pertencem.
+// vindos de `@estrelinha/core/pricing`, então é aqui que eles pertencem.
 //
 // A extensão `.ts` é OBRIGATÓRIA e não é estilo: este arquivo está no grafo de import do Deno
 // (`mercado-pago/handlers.ts` importa `pricing/index.ts` por caminho relativo). Sem ela o

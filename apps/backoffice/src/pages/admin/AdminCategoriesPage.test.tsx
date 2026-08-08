@@ -41,10 +41,10 @@ vi.mock('@/entities/category/api/useAdminCategories', () => ({
   }),
 }))
 
-vi.mock('@nanapin/ui/hooks/use-toast', () => ({ toast: vi.fn() }))
+vi.mock('@estrelinha/ui/hooks/use-toast', () => ({ toast: vi.fn() }))
 
 import AdminCategoriesPage from './AdminCategoriesPage'
-import { toast } from '@nanapin/ui/hooks/use-toast'
+import { toast } from '@estrelinha/ui/hooks/use-toast'
 
 beforeEach(() => {
   for (const fn of Object.values(hook)) fn.mockClear()

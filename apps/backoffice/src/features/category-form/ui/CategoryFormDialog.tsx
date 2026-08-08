@@ -21,14 +21,14 @@
 // default (`sort_order` é `DEFAULT 0`, as outras ficam nulas) e nada sobrescreve valor existente.
 
 import { useState, useEffect } from 'react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@nanapin/ui/dialog'
-import { Button } from '@nanapin/ui/button'
-import { Input } from '@nanapin/ui/input'
-import { Label } from '@nanapin/ui/label'
-import { Textarea } from '@nanapin/ui/textarea'
-import { Switch } from '@nanapin/ui/switch'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@nanapin/ui/select'
-import type { DbCategory } from '@nanapin/supabase/types'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@estrelinha/ui/dialog'
+import { Button } from '@estrelinha/ui/button'
+import { Input } from '@estrelinha/ui/input'
+import { Label } from '@estrelinha/ui/label'
+import { Textarea } from '@estrelinha/ui/textarea'
+import { Switch } from '@estrelinha/ui/switch'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@estrelinha/ui/select'
+import type { DbCategory } from '@estrelinha/supabase/types'
 
 interface Props {
   open: boolean

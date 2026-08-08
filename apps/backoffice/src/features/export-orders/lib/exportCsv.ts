@@ -1,4 +1,4 @@
-import type { DbOrder } from '@nanapin/supabase/types'
+import type { DbOrder } from '@estrelinha/supabase/types'
 import { STATUS_LABELS } from '@/entities/order/api/useAdminOrders'
 
 export const exportOrdersCsv = (orders: DbOrder[]) => {

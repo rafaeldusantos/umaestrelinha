@@ -1,4 +1,4 @@
-import { Skeleton } from '@nanapin/ui/skeleton'
+import { Skeleton } from '@estrelinha/ui/skeleton'
 
 interface TableSkeletonProps {
   rows?: number

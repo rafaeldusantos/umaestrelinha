@@ -11,11 +11,11 @@
 
 import { CalendarIcon, X } from 'lucide-react'
 import { ptBR } from 'date-fns/locale'
-import { Button } from '@nanapin/ui/button'
-import { Label } from '@nanapin/ui/label'
-import { Calendar } from '@nanapin/ui/calendar'
-import { Popover, PopoverContent, PopoverTrigger } from '@nanapin/ui/popover'
-import { cn } from '@nanapin/ui/lib/utils'
+import { Button } from '@estrelinha/ui/button'
+import { Label } from '@estrelinha/ui/label'
+import { Calendar } from '@estrelinha/ui/calendar'
+import { Popover, PopoverContent, PopoverTrigger } from '@estrelinha/ui/popover'
+import { cn } from '@estrelinha/ui/lib/utils'
 import { dateFromDateOnly, dateOnlyFromDate, formatDateOnly, type DateOnly } from '../lib/dateOnly'
 
 interface Props {

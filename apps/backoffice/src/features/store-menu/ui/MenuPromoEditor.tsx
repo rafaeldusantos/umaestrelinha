@@ -9,13 +9,13 @@
 // O admin só escreve quando quer divergir dela.
 
 import { AlertTriangle } from 'lucide-react'
-import { Input } from '@nanapin/ui/input'
-import { Label } from '@nanapin/ui/label'
-import { Switch } from '@nanapin/ui/switch'
-import { Textarea } from '@nanapin/ui/textarea'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@nanapin/ui/select'
-import { pathLabel, resolvePromo, type MenuCategory } from '@nanapin/core/menu'
-import type { MenuPromo } from '@nanapin/supabase/types'
+import { Input } from '@estrelinha/ui/input'
+import { Label } from '@estrelinha/ui/label'
+import { Switch } from '@estrelinha/ui/switch'
+import { Textarea } from '@estrelinha/ui/textarea'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@estrelinha/ui/select'
+import { pathLabel, resolvePromo, type MenuCategory } from '@estrelinha/core/menu'
+import type { MenuPromo } from '@estrelinha/supabase/types'
 import type { AdminCategory } from '@/entities/category'
 
 interface Props {

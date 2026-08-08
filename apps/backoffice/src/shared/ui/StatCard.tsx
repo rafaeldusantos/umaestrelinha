@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react'
-import { cn } from '@nanapin/ui/lib/utils'
+import { cn } from '@estrelinha/ui/lib/utils'
 
 interface Props {
   label: string

@@ -1,7 +1,7 @@
 // Feature 18 / T10 — DSC-06 AC 3-5.
 
 import { describe, expect, it } from 'vitest'
-import type { Coupon } from '@nanapin/supabase/types/coupon'
+import type { Coupon } from '@estrelinha/supabase/types/coupon'
 import { couponStats, couponStatus, isExhausted } from './couponStatus'
 
 const NOW = new Date('2026-08-03T12:00:00.000Z')

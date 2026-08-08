@@ -1,6 +1,6 @@
 import { Share2, Copy, MessageCircle } from 'lucide-react'
 import { toast } from 'sonner'
-import { Button } from '@nanapin/ui/button'
+import { Button } from '@estrelinha/ui/button'
 
 interface Props {
   name: string

@@ -122,8 +122,8 @@ export function applyOrderBump(
 //   2. Ela é vizinha natural do order bump: mesma forma (itens com preço cheio + config ⇒ itens com
 //      `unit_price` alterado), mesmo ponto do fluxo, mesmo contrato de pureza.
 //
-// Por isso também este arquivo NÃO importa de `@nanapin/supabase`: `PromotionDiscountKind` abaixo é
-// uma redeclaração deliberada do tipo que vive em `@nanapin/supabase/types/promotion`. Um import de
+// Por isso também este arquivo NÃO importa de `@estrelinha/supabase`: `PromotionDiscountKind` abaixo é
+// uma redeclaração deliberada do tipo que vive em `@estrelinha/supabase/types/promotion`. Um import de
 // pacote (bare specifier) não resolve no Deno sem import map. As duas declarações são idênticas de
 // propósito; a do pacote descreve a COLUNA, esta descreve o ARGUMENTO.
 

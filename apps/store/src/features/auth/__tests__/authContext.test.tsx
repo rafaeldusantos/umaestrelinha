@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, waitFor, act } from '@testing-library/react'
-import { AuthProvider, useAuthContext } from '@nanapin/auth'
+import { AuthProvider, useAuthContext } from '@estrelinha/auth'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -41,7 +41,7 @@ const { supabase, auth, fromResults, queries } = vi.hoisted(() => {
   return { supabase, auth, fromResults, queries }
 })
 
-vi.mock('@nanapin/supabase/client', () => ({ supabase }))
+vi.mock('@estrelinha/supabase/client', () => ({ supabase }))
 
 const mountAuth = async () => {
   const hook = renderHook(() => useAuthContext(), { wrapper: AuthProvider })

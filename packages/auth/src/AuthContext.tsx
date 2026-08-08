@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react'
-import { supabase } from '@nanapin/supabase/client'
-import { MIN_PASSWORD_LENGTH } from '@nanapin/core/constants'
-import { authErrorMessage } from '@nanapin/core/auth'
+import { supabase } from '@estrelinha/supabase/client'
+import { MIN_PASSWORD_LENGTH } from '@estrelinha/core/constants'
+import { authErrorMessage } from '@estrelinha/core/auth'
 import type { User } from '@supabase/supabase-js'
 
 interface Customer {

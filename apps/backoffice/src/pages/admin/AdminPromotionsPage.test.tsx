@@ -11,7 +11,7 @@
 import { MemoryRouter, Route, Routes, useParams } from 'react-router-dom'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { AdminPromotion } from '@nanapin/core/hooks/usePromotions'
+import type { AdminPromotion } from '@estrelinha/core/hooks/usePromotions'
 
 const state = vi.hoisted(() => ({
   promotions: [] as unknown[],
@@ -34,13 +34,13 @@ const hook = vi.hoisted(() => ({
 // O módulo real de `usePromotions` importa o client do Supabase no topo, e ele lança sem as env do
 // `.env`. Dublar o client é a convenção do repo (`useAdminCategories.test.ts`) e deixa o teste
 // independente de ambiente.
-vi.mock('@nanapin/supabase/client', () => ({ supabase: {} }))
+vi.mock('@estrelinha/supabase/client', () => ({ supabase: {} }))
 
 // `promotionCopyPayload` NÃO é dublado: ele é a regra da cópia (PRM-22) e está provado unitariamente
 // em `packages/core/src/hooks/__tests__/usePromotionsAdmin.test.ts`. Dublá-lo aqui deixaria de provar
 // que a tela manda o payload certo — que é justamente o que esta suíte cobre.
-vi.mock('@nanapin/core/hooks/usePromotions', async importOriginal => {
-  const real = await importOriginal<typeof import('@nanapin/core/hooks/usePromotions')>()
+vi.mock('@estrelinha/core/hooks/usePromotions', async importOriginal => {
+  const real = await importOriginal<typeof import('@estrelinha/core/hooks/usePromotions')>()
   return {
     promotionCopyPayload: real.promotionCopyPayload,
     useAdminPromotions: () => ({ data: state.promotions, isLoading: state.isLoading }),
@@ -55,9 +55,9 @@ vi.mock('@/entities/category', () => ({
   useAdminCategories: () => ({ categories: state.categories, loading: false, error: null }),
 }))
 
-vi.mock('@nanapin/ui/hooks/use-toast', () => ({ toast: vi.fn() }))
+vi.mock('@estrelinha/ui/hooks/use-toast', () => ({ toast: vi.fn() }))
 
-import { toast } from '@nanapin/ui/hooks/use-toast'
+import { toast } from '@estrelinha/ui/hooks/use-toast'
 
 import AdminPromotionsPage from './AdminPromotionsPage'
 

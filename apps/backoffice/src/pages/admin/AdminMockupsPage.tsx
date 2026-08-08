@@ -3,15 +3,15 @@ import { Plus, Pencil, Trash2, Sparkles, ImagePlus } from 'lucide-react'
 import { useAdminMockups, type MockupTemplateInput } from '@/entities/mockup'
 import { MockupTemplateDialog } from '@/features/mockup-studio'
 import { PageHeader, AdminTable, EmptyState, type AdminColumn } from '@/shared/ui'
-import { Button } from '@nanapin/ui/button'
-import { Badge } from '@nanapin/ui/badge'
-import { Switch } from '@nanapin/ui/switch'
-import { toast } from '@nanapin/ui/hooks/use-toast'
-import type { MockupTemplate } from '@nanapin/supabase/types'
+import { Button } from '@estrelinha/ui/button'
+import { Badge } from '@estrelinha/ui/badge'
+import { Switch } from '@estrelinha/ui/switch'
+import { toast } from '@estrelinha/ui/hooks/use-toast'
+import type { MockupTemplate } from '@estrelinha/supabase/types'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from '@nanapin/ui/alert-dialog'
+} from '@estrelinha/ui/alert-dialog'
 
 const AdminMockupsPage = () => {
   const { templates, loading, create, update, remove } = useAdminMockups()

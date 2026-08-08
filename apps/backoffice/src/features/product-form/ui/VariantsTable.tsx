@@ -1,16 +1,16 @@
 import { useState } from 'react'
 import { AlertCircle, ImageOff, Trash2 } from 'lucide-react'
-import { Button } from '@nanapin/ui/button'
-import { Input } from '@nanapin/ui/input'
-import { Switch } from '@nanapin/ui/switch'
-import { Checkbox } from '@nanapin/ui/checkbox'
-import { formatPrice } from '@nanapin/core/formatters'
-import { priceRange, variantLabel } from '@nanapin/core/pricing'
+import { Button } from '@estrelinha/ui/button'
+import { Input } from '@estrelinha/ui/input'
+import { Switch } from '@estrelinha/ui/switch'
+import { Checkbox } from '@estrelinha/ui/checkbox'
+import { formatPrice } from '@estrelinha/core/formatters'
+import { priceRange, variantLabel } from '@estrelinha/core/pricing'
 import { MoneyInput, WeightInput } from '@/shared/ui'
 import GridToolbar from './GridToolbar'
 import RegenerateGridDialog from './RegenerateGridDialog'
 import { applyRegenerate, buildRegeneratePlan } from '../model/gridActions'
-import type { ProductOption, ProductVariant, StockPolicy } from '@nanapin/supabase/types'
+import type { ProductOption, ProductVariant, StockPolicy } from '@estrelinha/supabase/types'
 
 // A grade de variações (PFM-08, PFM-15). Reescrita da tabela que editava o JSONB legado
 // `products.variants` — sem coluna de preço, que é exatamente o problema que este programa existe

@@ -1,9 +1,9 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronLeft, ChevronRight, ImageOff, ZoomIn } from 'lucide-react'
-import type { ProductImage } from '@nanapin/supabase/types'
+import type { ProductImage } from '@estrelinha/supabase/types'
 import ImageZoom from './ImageZoom'
-import { Dialog, DialogContent } from '@nanapin/ui/dialog'
+import { Dialog, DialogContent } from '@estrelinha/ui/dialog'
 
 interface Props {
   /** Já normalizadas por `normalizeImages` — a galeria não tolera `string[]`. */

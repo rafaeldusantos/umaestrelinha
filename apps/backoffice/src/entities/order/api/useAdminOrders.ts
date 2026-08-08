@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
-import { supabase } from '@nanapin/supabase/client'
-import type { DbOrder, DbOrderItem, DbOrderStatusHistory, DbOrderNote } from '@nanapin/supabase/types'
+import { supabase } from '@estrelinha/supabase/client'
+import type { DbOrder, DbOrderItem, DbOrderStatusHistory, DbOrderNote } from '@estrelinha/supabase/types'
 import { sendOrderEmail } from './sendOrderEmail'
 
 export const ORDER_STATUSES = ['pending', 'paid', 'separating', 'shipped', 'delivered', 'cancelled'] as const

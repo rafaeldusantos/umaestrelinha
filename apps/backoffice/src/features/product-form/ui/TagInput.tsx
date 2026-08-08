@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { AlertTriangle, X } from 'lucide-react'
-import { Badge } from '@nanapin/ui/badge'
-import { Button } from '@nanapin/ui/button'
-import { Input } from '@nanapin/ui/input'
+import { Badge } from '@estrelinha/ui/badge'
+import { Button } from '@estrelinha/ui/button'
+import { Input } from '@estrelinha/ui/input'
 import { findSimilarTag, isSameTag, parseTags } from '../model/normalizeTag'
 import { MAX_TAGS } from '../model/taxonomyLabels'
 

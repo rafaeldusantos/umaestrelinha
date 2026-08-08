@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { ArrowRight } from 'lucide-react'
-import { cn } from '@nanapin/ui/lib/utils'
+import { cn } from '@estrelinha/ui/lib/utils'
 
 export interface SectionHeadingProps {
   /** Título em Fredoka. É o maior tipo da seção — não competir com ele. */

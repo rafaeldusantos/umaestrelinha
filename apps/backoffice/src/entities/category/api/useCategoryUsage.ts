@@ -17,7 +17,7 @@
 // trocar.
 
 import { useEffect, useState } from 'react'
-import { supabase } from '@nanapin/supabase/client'
+import { supabase } from '@estrelinha/supabase/client'
 
 export type UsageCount = Record<string, number>
 

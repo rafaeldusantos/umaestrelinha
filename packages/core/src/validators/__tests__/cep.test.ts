@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-// Importado pelo barrel: prova que maskCep/stripCep saem de @nanapin/core/validators.
+// Importado pelo barrel: prova que maskCep/stripCep saem de @estrelinha/core/validators.
 import { maskCep, stripCep } from '../index'
 
 // Comportamento preservado de AddressStep.tsx:11 (a implementação subiu para o domínio).

@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { AppliedCoupon } from '@nanapin/supabase/types/coupon'
+import type { AppliedCoupon } from '@estrelinha/supabase/types/coupon'
 
 interface CouponState {
   applied: AppliedCoupon | null

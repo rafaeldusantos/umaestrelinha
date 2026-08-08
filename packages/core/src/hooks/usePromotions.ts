@@ -4,7 +4,7 @@
 // (`resolveOrderPricing`). Este arquivo é só a ponte de leitura — nenhuma aritmética de desconto
 // mora aqui, de propósito.
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
-import { supabase } from '@nanapin/supabase/client'
+import { supabase } from '@estrelinha/supabase/client'
 import type {
   DbPromotion,
   DbPromotionCategory,
@@ -12,7 +12,7 @@ import type {
   DbPromotionTier,
   PromotionDiscountKind,
   PromotionScope,
-} from '@nanapin/supabase/types/promotion'
+} from '@estrelinha/supabase/types/promotion'
 import type { ProgressivePromotion, ProgressiveTier } from '../payment/pricing'
 
 /**

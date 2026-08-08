@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { supabase } from '@nanapin/supabase/client'
-import type { DbCategory } from '@nanapin/supabase/types'
+import { supabase } from '@estrelinha/supabase/client'
+import type { DbCategory } from '@estrelinha/supabase/types'
 
 export interface AdminCategory extends DbCategory {
   product_count?: number

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import type { MenuEntry } from '@nanapin/core/menu'
+import type { MenuEntry } from '@estrelinha/core/menu'
 import MobileMenu from '../MobileMenu'
 
 // Feature 16 / T18 — board "Mobile Menu Open - v3".
@@ -18,7 +18,7 @@ const { openSearchSpy, openAuthSpy, closeMenuSpy, menuState, authState } = vi.ho
   authState: { user: null as any },
 }))
 
-vi.mock('@nanapin/auth', () => ({ useAuthContext: () => authState }))
+vi.mock('@estrelinha/auth', () => ({ useAuthContext: () => authState }))
 vi.mock('@/features/search', () => ({ useSearchUiStore: (sel: any) => sel({ openSearch: openSearchSpy }) }))
 vi.mock('@/features/auth', () => ({ useAuthUiStore: (sel: any) => sel({ open: openAuthSpy }) }))
 vi.mock('@/entities/category', () => ({

@@ -3,7 +3,7 @@
 // Separada do componente porque é regra (qual filtro vira chip, e o que o `x` remove), não
 // apresentação — e porque exportar função + componente do mesmo arquivo quebra o fast refresh.
 
-import { formatPrice } from '@nanapin/core/formatters'
+import { formatPrice } from '@estrelinha/core/formatters'
 import type { ProductFilters } from '@/entities/product/api/productQuery'
 
 export interface FilterChip {

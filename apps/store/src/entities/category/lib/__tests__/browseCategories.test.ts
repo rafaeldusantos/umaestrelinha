@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { browseCategories } from '../browseCategories'
-import type { Category } from '@nanapin/supabase/types'
+import type { Category } from '@estrelinha/supabase/types'
 
 // MENU-01 / MENU-02 — a grade "Coleções" da home e a coluna "Categorias" do rodapé.
 

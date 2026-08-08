@@ -4,7 +4,7 @@
   "outputDirectory": "dist",
   "installCommand": "cd ../.. && pnpm install --frozen-lockfile",
   "buildCommand": "pnpm build",
-  "ignoreCommand": "npx --yes turbo-ignore @nanapin/store --fallback=HEAD^",
+  "ignoreCommand": "npx --yes turbo-ignore @estrelinha/store --fallback=HEAD^",
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
   "headers": [
     {

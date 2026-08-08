@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom'
 import { Home, Search, ShoppingCart, User } from 'lucide-react'
-import { useAuthContext } from '@nanapin/auth'
+import { useAuthContext } from '@estrelinha/auth'
 import { useCartStore } from '@/entities/cart/model/cartStore'
 import { useCartUiStore } from '@/entities/cart/model/cartUiStore'
 import { useSearchUiStore } from '@/features/search'

@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import type { Product } from '@nanapin/supabase/types'
+import type { Product } from '@estrelinha/supabase/types'
 import ShippingCalc from '../ShippingCalc'
-import { supabase } from '@nanapin/supabase/client'
+import { supabase } from '@estrelinha/supabase/client'
 
 // SHP-02: a cotação da página de produto usa o MESMO mapper do checkout (`toQuotePayload`),
 // então as dimensões reais do produto vão no payload em vez dos fallbacks 11/2/16/0.1.
 
-vi.mock('@nanapin/supabase/client', () => ({
+vi.mock('@estrelinha/supabase/client', () => ({
   supabase: { functions: { invoke: vi.fn() } },
 }))
 

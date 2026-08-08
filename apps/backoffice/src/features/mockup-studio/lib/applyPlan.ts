@@ -4,7 +4,7 @@
 // testável sem canvas. A invariante que ela protege é a AC 8 — **nada** é gravado antes da ação
 // primária. O estúdio compõe em memória; fechar sem aplicar é uma operação sem efeito.
 
-import type { ProductImage } from '@nanapin/supabase/types'
+import type { ProductImage } from '@estrelinha/supabase/types'
 import { buildAltText } from '@/features/product-form/lib/buildAltText'
 
 /** Um render pronto: a URL já no Storage e o rótulo do mockup que o produziu. */

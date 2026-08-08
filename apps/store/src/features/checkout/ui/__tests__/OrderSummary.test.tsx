@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, within } from '@testing-library/react'
-import type { Product } from '@nanapin/supabase/types'
+import type { Product } from '@estrelinha/supabase/types'
 import {
   calculateOrderTotals,
   type ProgressivePromotion,
-} from '@nanapin/core/payment/pricing'
+} from '@estrelinha/core/payment/pricing'
 import { useCartStore } from '@/entities/cart'
 import { useCouponStore } from '@/entities/coupon'
 import { useProductById } from '@/entities/product'
@@ -42,14 +42,14 @@ const shippingSettings = {
   origin_zip: '',
   handling_days: 2,
 }
-vi.mock('@nanapin/core/hooks/useStoreSettings', () => ({
+vi.mock('@estrelinha/core/hooks/useStoreSettings', () => ({
   usePaymentSettings: () => paymentSettings,
   useCheckoutSettings: () => checkoutSettings,
   useShippingSettings: () => shippingSettings,
 }))
 
 const active: { data: (ProgressivePromotion & { name: string })[] } = { data: [] }
-vi.mock('@nanapin/core/hooks/usePromotions', () => ({
+vi.mock('@estrelinha/core/hooks/usePromotions', () => ({
   useActivePromotions: () => ({ data: active.data, isLoading: false }),
 }))
 

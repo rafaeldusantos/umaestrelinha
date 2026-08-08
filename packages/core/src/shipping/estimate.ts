@@ -3,7 +3,7 @@
 // SHP-06: a opção mais barata é a que recebe "Grátis" quando o threshold é atingido.
 // `today` é sempre parâmetro — nunca `new Date()` interno — para o cálculo ser determinístico.
 
-import type { ShippingQuote } from '@nanapin/supabase/types/shipping'
+import type { ShippingQuote } from '@estrelinha/supabase/types/shipping'
 
 export type { ShippingQuote }
 

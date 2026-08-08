@@ -9,20 +9,20 @@
 // depois, sobre esta base — a página não muda visualmente aqui.
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { supabase } from '@nanapin/supabase/client'
-import { normalizeImages } from '@nanapin/core/media'
+import { supabase } from '@estrelinha/supabase/client'
+import { normalizeImages } from '@estrelinha/core/media'
 import {
   categoryIdsFromLinks,
   normalizeOptions,
   normalizeVariants,
   toStockPolicy,
-} from '@nanapin/core/product'
+} from '@estrelinha/core/product'
 import type {
   ProductImage,
   ProductOption,
   ProductVariant,
   StockPolicy,
-} from '@nanapin/supabase/types'
+} from '@estrelinha/supabase/types'
 
 /**
  * O estado editável do formulário.

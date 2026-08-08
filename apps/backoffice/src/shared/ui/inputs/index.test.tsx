@@ -4,7 +4,7 @@ import { MoneyInput, WeightInput, DimensionInput } from './index'
 
 // Testes derivados de PFM-10 (UI) e do "Done when" da T27.
 //
-// A aritmética de parse/format é testada como função pura em `@nanapin/core/formatters`. O que se
+// A aritmética de parse/format é testada como função pura em `@estrelinha/core/formatters`. O que se
 // prova AQUI é o comportamento de campo: o que chega no `onChange`, o que aparece na tela, e o que
 // NÃO acontece quando a entrada é lixo.
 

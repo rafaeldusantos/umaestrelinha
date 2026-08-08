@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import type { Product, ProductVariant } from '@nanapin/supabase/types'
-import type { ProgressivePromotion } from '@nanapin/core/payment/pricing'
+import type { Product, ProductVariant } from '@estrelinha/supabase/types'
+import type { ProgressivePromotion } from '@estrelinha/core/payment/pricing'
 import { useCartStore } from '@/entities/cart/model/cartStore'
 import { useCartUiStore } from '@/entities/cart/model/cartUiStore'
 import { useCouponStore } from '@/entities/coupon'
@@ -14,11 +14,11 @@ import { useCouponStore } from '@/entities/coupon'
 // PRM-15: a linha de desconto progressivo. O dublê entrega as promoções vigentes; o valor exibido
 // tem de ser o que `useCartPromotion` calcula, nunca uma conta da tela.
 const active: { data: ProgressivePromotion[] } = { data: [] }
-vi.mock('@nanapin/core/hooks/usePromotions', () => ({
+vi.mock('@estrelinha/core/hooks/usePromotions', () => ({
   useActivePromotions: () => ({ data: active.data, isLoading: false }),
 }))
 
-vi.mock('@nanapin/core/hooks/useStoreSettings', () => ({
+vi.mock('@estrelinha/core/hooks/useStoreSettings', () => ({
   useShippingSettings: () => ({
     free_shipping_threshold: 150,
     default_shipping_cost: 9.9,

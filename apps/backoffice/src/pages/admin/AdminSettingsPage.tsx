@@ -1,16 +1,16 @@
 import { useEffect, useState } from 'react'
 import { Loader2, Save, Settings as SettingsIcon, ShoppingCart } from 'lucide-react'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@nanapin/ui/tabs'
-import { Input } from '@nanapin/ui/input'
-import { Button } from '@nanapin/ui/button'
-import { Textarea } from '@nanapin/ui/textarea'
-import { useToast } from '@nanapin/ui/hooks/use-toast'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@estrelinha/ui/tabs'
+import { Input } from '@estrelinha/ui/input'
+import { Button } from '@estrelinha/ui/button'
+import { Textarea } from '@estrelinha/ui/textarea'
+import { useToast } from '@estrelinha/ui/hooks/use-toast'
 import { PageHeader, FormCard, FieldGroup, ToggleField } from '@/shared/ui'
 import { CheckoutSettingsCard } from '@/features/settings'
 import {
   useStoreSettings,
   useUpdateSettings,
-} from '@nanapin/core/hooks/useStoreSettings'
+} from '@estrelinha/core/hooks/useStoreSettings'
 import {
   DEFAULT_GENERAL,
   DEFAULT_PAYMENT,
@@ -23,11 +23,11 @@ import {
   type ShippingSettings,
   type AbandonedCartSettings,
   type SettingsKey,
-} from '@nanapin/supabase/types/settings'
+} from '@estrelinha/supabase/types/settings'
 
 /**
  * Chaves salvas por **esta página**. Derivada da união canônica de
- * `@nanapin/supabase/types/settings` — nunca redeclarada — menos `checkout`, que é salva pelo
+ * `@estrelinha/supabase/types/settings` — nunca redeclarada — menos `checkout`, que é salva pelo
  * `CheckoutSettingsCard` (`features/settings`). Aqui existia uma união local duplicada sem
  * `'checkout'`: a chave nova ficava fora do tipo e não tinha como ser salva.
  */

@@ -1,7 +1,7 @@
 import { useMemo, useEffect } from 'react'
 import { CardPayment } from '@mercadopago/sdk-react'
-import { documentLabel, stripDocument } from '@nanapin/core/validators'
-import { usePaymentSettings } from '@nanapin/core/hooks/useStoreSettings'
+import { documentLabel, stripDocument } from '@estrelinha/core/validators'
+import { usePaymentSettings } from '@estrelinha/core/hooks/useStoreSettings'
 
 interface Props {
   amount: number

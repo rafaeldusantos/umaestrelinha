@@ -1,11 +1,11 @@
 import { useState } from 'react'
-import { Button } from '@nanapin/ui/button'
-import { Card } from '@nanapin/ui/card'
-import { supabase } from '@nanapin/supabase/client'
+import { Button } from '@estrelinha/ui/button'
+import { Card } from '@estrelinha/ui/card'
+import { supabase } from '@estrelinha/supabase/client'
 import { toast } from 'sonner'
 import { Truck, Printer, Package, RefreshCw, CheckCircle2, Loader2 } from 'lucide-react'
-import { formatPrice } from '@nanapin/core/formatters'
-import type { DbOrder, DbOrderItem } from '@nanapin/supabase/types'
+import { formatPrice } from '@estrelinha/core/formatters'
+import type { DbOrder, DbOrderItem } from '@estrelinha/supabase/types'
 
 interface ShippingQuote {
   id: number

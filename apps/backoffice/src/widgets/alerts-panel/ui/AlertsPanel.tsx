@@ -1,6 +1,6 @@
 import { AlertTriangle, Clock, Star } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@nanapin/ui/card'
-import { Badge } from '@nanapin/ui/badge'
+import { Card, CardContent, CardHeader, CardTitle } from '@estrelinha/ui/card'
+import { Badge } from '@estrelinha/ui/badge'
 import { Link } from 'react-router-dom'
 
 interface Props {

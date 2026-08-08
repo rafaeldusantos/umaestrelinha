@@ -31,7 +31,7 @@ const {
   insertSelectMock: vi.fn(),
 }))
 
-vi.mock('@nanapin/supabase/client', () => ({ supabase: { from: fromMock } }))
+vi.mock('@estrelinha/supabase/client', () => ({ supabase: { from: fromMock } }))
 
 import { useSaveAddress, type AddressFields } from '../useSaveAddress'
 

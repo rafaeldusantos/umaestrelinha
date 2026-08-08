@@ -1,5 +1,5 @@
 import { Trophy } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@nanapin/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@estrelinha/ui/card'
 
 interface TopProduct {
   id: string

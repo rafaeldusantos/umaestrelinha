@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { useAuthContext } from '@nanapin/auth'
+import { useAuthContext } from '@estrelinha/auth'
 import { useAuthUiStore } from './authUiStore'
 
 /**

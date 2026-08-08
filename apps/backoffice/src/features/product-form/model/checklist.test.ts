@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { buildChecklist, canPublish, computeMargin, pendingCount } from './checklist'
 import { emptyProductForm, type ProductFormState } from './useProductForm'
-import type { ProductVariant } from '@nanapin/supabase/types'
+import type { ProductVariant } from '@estrelinha/supabase/types'
 
 // PFM-14 (P1.7 AC 12-13): 6 itens com atalho; pendência bloqueia *Salvar e publicar* e libera
 // *Salvar rascunho*. PFM-12 (AC 4-5): margem só com `price > 0` — o defeito 11 renderizava

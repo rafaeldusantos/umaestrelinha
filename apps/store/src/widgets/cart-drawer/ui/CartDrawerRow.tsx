@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { Heart, Minus, Plus, Trash2 } from 'lucide-react'
-import { formatPrice } from '@nanapin/core/formatters'
+import { formatPrice } from '@estrelinha/core/formatters'
 import { useCartStore, type CartItem } from '@/entities/cart/model/cartStore'
 import { useWishlistStore } from '@/entities/wishlist/model/wishlistStore'
 import { lowStockLabel, variantChips } from '../model/drawerFacts'

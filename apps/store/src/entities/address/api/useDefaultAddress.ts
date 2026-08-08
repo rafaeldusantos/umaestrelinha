@@ -4,7 +4,7 @@
 // preenchido na segunda compra. Nunca rejeita — ausência de endereço e falha de leitura
 // convergem para `null`, e o bloco simplesmente abre vazio.
 import { useQuery } from '@tanstack/react-query'
-import { supabase } from '@nanapin/supabase/client'
+import { supabase } from '@estrelinha/supabase/client'
 import type { AddressFields } from './useSaveAddress'
 
 export const DEFAULT_ADDRESS_KEY = 'default-address'

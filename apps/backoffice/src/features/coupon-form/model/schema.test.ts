@@ -1,7 +1,7 @@
 // Feature 18 / T8 — o contrato do formulário de cupom, e a regra da cópia (DSC-08 AC 1-3).
 
 import { describe, expect, it } from 'vitest'
-import type { Coupon } from '@nanapin/supabase/types/coupon'
+import type { Coupon } from '@estrelinha/supabase/types/coupon'
 import { isoFromDateOnly } from '@/shared/lib/dateOnly'
 import {
   CODE_TOO_SHORT,

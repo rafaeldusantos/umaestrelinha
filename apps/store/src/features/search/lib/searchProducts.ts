@@ -14,7 +14,7 @@
 // Tag e categoria também entram na varredura: "kawaii" e "K-Pop" são como a cliente pensa no
 // catálogo, e nenhum dos dois está necessariamente no nome do produto.
 
-import type { Category, Product } from '@nanapin/supabase/types'
+import type { Category, Product } from '@estrelinha/supabase/types'
 
 /** Abaixo disso não se busca: uma letra casa com quase tudo e a lista vira ruído. */
 export const MIN_QUERY_LENGTH = 2

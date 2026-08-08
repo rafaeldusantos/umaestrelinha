@@ -15,7 +15,7 @@ const { fromMock, selectMock, eqMock, maybeSingleMock } = vi.hoisted(() => ({
   maybeSingleMock: vi.fn(),
 }))
 
-vi.mock('@nanapin/supabase/client', () => ({ supabase: { from: fromMock } }))
+vi.mock('@estrelinha/supabase/client', () => ({ supabase: { from: fromMock } }))
 
 import { useOrder } from '../useOrder'
 

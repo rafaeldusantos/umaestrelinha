@@ -14,7 +14,7 @@ const { openCart, openSearch, openAuth, authState, cartUi, searchUi } = vi.hoist
   searchUi: { open: false },
 }))
 
-vi.mock('@nanapin/auth', () => ({ useAuthContext: () => authState }))
+vi.mock('@estrelinha/auth', () => ({ useAuthContext: () => authState }))
 vi.mock('@/entities/cart/model/cartStore', () => ({
   useCartStore: (sel: any) => sel({ uniqueItemsCount: () => 2 }),
 }))

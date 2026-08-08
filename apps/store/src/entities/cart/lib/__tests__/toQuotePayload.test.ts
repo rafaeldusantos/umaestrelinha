@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { Product } from '@nanapin/supabase/types'
+import type { Product } from '@estrelinha/supabase/types'
 import type { CartItem } from '../../model/cartStore'
 import { toQuotePayload } from '../toQuotePayload'
 

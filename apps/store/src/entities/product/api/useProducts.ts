@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
-import { supabase } from '@nanapin/supabase/client'
-import { descendantIds, type MenuCategory } from '@nanapin/core/menu'
+import { supabase } from '@estrelinha/supabase/client'
+import { descendantIds, type MenuCategory } from '@estrelinha/core/menu'
 import { mapDbToProduct, PRODUCT_SELECT } from '../lib/mapProduct'
-import type { Product } from '@nanapin/supabase/types'
+import type { Product } from '@estrelinha/supabase/types'
 
 export const useProducts = (categorySlug?: string) =>
   useQuery({

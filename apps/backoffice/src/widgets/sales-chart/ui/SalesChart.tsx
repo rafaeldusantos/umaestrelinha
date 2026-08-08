@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-import { Card, CardContent, CardHeader, CardTitle } from '@nanapin/ui/card'
-import { Tabs, TabsList, TabsTrigger } from '@nanapin/ui/tabs'
-import { formatPrice } from '@nanapin/core/formatters'
+import { Card, CardContent, CardHeader, CardTitle } from '@estrelinha/ui/card'
+import { Tabs, TabsList, TabsTrigger } from '@estrelinha/ui/tabs'
+import { formatPrice } from '@estrelinha/core/formatters'
 
 interface Props {
   data: { date: string; revenue: number }[]

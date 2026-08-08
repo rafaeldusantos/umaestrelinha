@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import ProductCard from '@/entities/product/ui/ProductCard'
-import type { Product } from '@nanapin/supabase/types'
+import type { Product } from '@estrelinha/supabase/types'
 
 interface Props {
   products: Product[]
