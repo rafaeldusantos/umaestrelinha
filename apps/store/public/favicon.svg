@@ -1,26 +1,22 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Nanita">
-  <title>Nanita</title>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Uma Estrelinha">
+  <title>Uma Estrelinha</title>
   <!--
-    Base B · SQUIRCLE — a recomendação medida da prancha 19b do Paper.
+    A ABA — canto de 6% do lado.
 
-    O achado é de uma linha: a base só ganha haste ficando mais reta. Disco,
-    botton, adesivo e losango gastam área desenhando a própria borda, e quem
-    paga é o N. A 16px, com o piso de 2px (abaixo disso a haste sai cinza de
-    antialias, não Grafite):
+    O navegador NÃO recorta o favicon, então o ícone precisa do próprio canto
+    para não encostar na aba vizinha. Mas o canto aqui é pequeno de propósito:
+    o extremo deste desenho é a ponta da estrela, na diagonal, e um canto de
+    28% (o squircle da marca anterior) obrigaria a encolher a arte para 0,856 —
+    1,10px de traço a 16px, contra 1,28px assim.
 
-      A · disco             2,1px de haste    78% do quadrado pintado
-      B · squircle          2,5px             93%   ← esta arte
-      C · quadrado sangrado 2,6px            100%   ← apple-touch-icon
-      F · losango           1,4px             50%
+    O desenho é a REDUÇÃO da prancha 734-0, não o símbolo grande encolhido:
+    traço 8,0 em vez de 2,46, "quase 3x o traço do símbolo grande, e é
+    proposital". Abaixo de 32px o símbolo completo vira mancha.
 
-    Squircle na ABA porque ninguém recorta o favicon: ele precisa do próprio
-    canto para não encostar na aba vizinha.
-
-    O N é o MESMO path do lockup — nada foi redesenhado para caber em 16px.
-    Carimbo sobre Grafite lê a 5,22:1. Gerado por scratchpad/gen-favicon.mjs.
+    Gerado por .specs/brand/uma-estrelinha/_gen-favicon.mjs.
   -->
-  <rect width="64" height="64" rx="18" fill="#F1678D"/>
-  <g transform="translate(11.92 6.65) scale(0.31656)" fill="#2E2028">
-    <path fill-rule="evenodd" d="M0 0L0 159.25C2.86 160.32 0.23 160.17 2.46 160.17L20.46 160.15L29.46 160.13C31.96 160.13 28.78 160.34 31.59 159.46L31.59 54.25C34 55.77 31.69 52.43 33.17 55.25L37.9 63.25L49.13 82.25C59.87 99.74 70.28 117.5 80.61 135.25L88.78 149.25C90.82 152.96 92.75 156.93 95.46 160.13L126.87 160.13L126.87 1.25C123.92 -0.08 127.88 0.29 124.46 0.16L114.46 0.17L99.46 0.21C96.41 0.23 93.32 0.03 90.39 0.56L90.39 89.25C87.22 85.23 91.9 92.55 88.82 87.25L83.92 79.25C80.61 74.46 77.55 69.31 74.64 64.25C71.12 58.11 66.76 52.41 63.26 46.25C58.97 38.71 53.96 31.39 49.05 24.25C43.56 16.28 39.22 7.26 32.79 0L0 0Z"/>
+  <rect width="64" height="64" rx="3.84" fill="#283A4A"/>
+  <g transform="scale(0.64)">
+    <path d="M38.78 5.14 A46.14 46.14 0 1 0 95.19 59.85 A41.34 41.34 0 0 1 38.78 5.14 Z M76.02 4 Q84.27 15.73 96 23.98 Q84.27 32.24 76.02 43.96 Q67.76 32.24 56.04 23.98 Q67.76 15.73 76.02 4 Z" fill="none" stroke="#F7F3EC" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
   </g>
 </svg>

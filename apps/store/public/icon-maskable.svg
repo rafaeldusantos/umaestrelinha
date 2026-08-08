@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" role="img" aria-label="Uma Estrelinha">
+  <title>Uma Estrelinha</title>
+  <!--
+    O ATALHO DO iOS — sangrado, sem canto nenhum.
+
+    O iOS aplica a PRÓPRIA máscara ao ícone; arte pré-arredondada deixa uma
+    sobra entre o desenho e o corte. Quem decide o raio ali é o sistema.
+
+    Gerado por .specs/brand/uma-estrelinha/_gen-favicon.mjs.
+  -->
+  <rect width="180" height="180" fill="#283A4A"/>
+  <g transform="scale(1.8)">
+    <path d="M38.78 5.14 A46.14 46.14 0 1 0 95.19 59.85 A41.34 41.34 0 0 1 38.78 5.14 Z M76.02 4 Q84.27 15.73 96 23.98 Q84.27 32.24 76.02 43.96 Q67.76 32.24 56.04 23.98 Q67.76 15.73 76.02 4 Z" fill="none" stroke="#F7F3EC" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

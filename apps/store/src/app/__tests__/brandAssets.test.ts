@@ -2,10 +2,10 @@ import { describe, it, expect } from 'vitest'
 import { existsSync, readFileSync, statSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { MONOGRAM_D } from '@/shared/ui/brand/pathsLegado'
+import { SYMBOL, SYMBOL_TINY } from '@/shared/ui/brand/paths'
 
 /**
- * Os assets de marca e a cabeça do documento (`PAP-06`, `PAP-07`).
+ * Os ativos de marca e a cabeça do documento — `IDN-07`.
  *
  * Ícone é a categoria de bug mais silenciosa que existe: o arquivo some, o
  * `<link>` aponta para o lugar errado, o `theme-color` fica na cor da paleta
@@ -18,53 +18,97 @@ const STORE = resolve(HERE, '../../..')
 const PUBLIC = resolve(STORE, 'public')
 const INDEX = readFileSync(resolve(STORE, 'index.html'), 'utf8')
 
-describe('os arquivos de ícone existem e não estão vazios', () => {
-  it.each(['favicon.svg', 'favicon.ico', 'apple-touch-icon.png', 'icon-512.png'])(
-    '`public/%s`',
-    (file) => {
-      const path = resolve(PUBLIC, file)
-      expect(existsSync(path)).toBe(true)
-      expect(statSync(path).size).toBeGreaterThan(500)
-    },
-  )
+/** Todo `href`/`content` do `<head>` que aponta para um arquivo do próprio site. */
+const REFERENCIADOS = [...INDEX.matchAll(/(?:href|content)="\/([^"]+)"/g)].map((m) => m[1])
+
+describe('todo arquivo que o index.html referencia existe no disco', () => {
+  it('a leitura encontrou as referências locais', () => {
+    // Âncora: um `index.html` lido do lugar errado não referencia nada, e um
+    // teste que itera lista vazia passa em silêncio. São quatro ícones hoje.
+    expect(REFERENCIADOS.length).toBeGreaterThanOrEqual(4)
+  })
+
+  it.each(REFERENCIADOS)('`public/%s`', (file) => {
+    const path = resolve(PUBLIC, file)
+    expect(existsSync(path)).toBe(true)
+    expect(statSync(path).size).toBeGreaterThan(500)
+  })
 })
 
-describe('favicon.svg — base B, squircle', () => {
+describe('favicon.svg — a ABA, com recorte próprio', () => {
   const svg = readFileSync(resolve(PUBLIC, 'favicon.svg'), 'utf8')
 
   it('é 64×64', () => {
     expect(svg).toMatch(/viewBox="0 0 64 64"/)
   })
 
-  it('tem canto de 28% — squircle, não disco nem quadrado', () => {
-    // 18 / 64 = 28,1%. A prancha 19b mediu que essa é a base que dá 2,5px de
-    // haste a 16px, contra 2,1px do disco.
-    const rx = Number(svg.match(/rx="(\d+)"/)?.[1])
-    expect(rx).toBe(18)
-    expect(rx / 64).toBeCloseTo(0.28, 2)
+  it('tem canto próprio — o navegador não arredonda favicon', () => {
+    // 3,84 / 64 = 6%. Canto pequeno de propósito: o extremo deste desenho é a
+    // ponta da estrela, na DIAGONAL — exatamente onde um canto grande come
+    // área. Um squircle de 28% obrigaria a encolher a arte para 0,856 e o
+    // traço cairia de 1,28px para 1,10px a 16px.
+    const rx = Number(svg.match(/rx="([\d.]+)"/)?.[1])
+    expect(rx).toBe(3.84)
+    expect(rx / 64).toBeCloseTo(0.06, 3)
   })
 
-  it('é Carimbo com o N em Grafite', () => {
-    expect(svg).toMatch(/fill="#F1678D"/)
-    expect(svg).toMatch(/fill="#2E2028"/)
+  it('é placa `primary-strong` com a marca em `on-primary`', () => {
+    expect(svg).toMatch(/fill="#283A4A"/)
+    expect(svg).toMatch(/stroke="#F7F3EC"/)
   })
 
-  it('usa o MESMO path do lockup — nada foi redesenhado para caber em 16px', () => {
-    expect(svg).toContain(MONOGRAM_D)
+  it('usa o path do símbolo REDUZIDO, caractere a caractere', () => {
+    // Nada foi redesenhado para caber em 16px: a redução veio da prancha
+    // `734-0`, e é a mesma que `paths.ts` carrega.
+    expect(svg).toContain(SYMBOL_TINY.strokes[0].d)
   })
 
-  it('o path preserva `fill-rule="evenodd"`, senão o contador do N fecha', () => {
-    expect(svg).toMatch(/fill-rule="evenodd"/)
+  it('NÃO usa o símbolo grande, que a 16px vira mancha', () => {
+    // A prancha diz, medido: "abaixo de 32px o símbolo completo vira mancha:
+    // as pétalas e as fagulhas fecham".
+    expect(svg).not.toContain(SYMBOL.strokes[0].d)
   })
 })
 
-describe('apple-touch-icon — base C, quadrado sangrado', () => {
+describe('a espessura do traço a 16px', () => {
+  it('a redução tem quase 3× o traço do símbolo grande', () => {
+    // "É quase 3x o traço do símbolo grande, e é proposital" — prancha `734-0`.
+    expect(SYMBOL_TINY.strokes[0].width / SYMBOL.strokes[0].width).toBeGreaterThan(2.5)
+  })
+
+  it('rende ao menos 1,28px de linha numa aba de 16px', () => {
+    // O board calibrou a redução para "render pelo menos 1,3px de linha a
+    // 16px". A arte é sangrada — ocupa o quadro inteiro —, então a fração do
+    // traço sobre o lado é a própria espessura sobre o viewBox de 100.
+    const [, , vb] = SYMBOL_TINY.viewBox.split(/\s+/).map(Number)
+    expect((SYMBOL_TINY.strokes[0].width / vb) * 16).toBeGreaterThanOrEqual(1.28)
+  })
+
+  it('o símbolo GRANDE não alcançaria esse piso a 16px', () => {
+    // É o que torna a redução necessária, e não uma preferência: 2,46% × 16 =
+    // 0,39px. Se um dia alguém apontar o favicon para o símbolo grande, este
+    // teste é o motivo escrito.
+    const [, , vb] = SYMBOL.viewBox.split(/\s+/).map(Number)
+    expect((SYMBOL.strokes[0].width / vb) * 16).toBeLessThan(1)
+  })
+})
+
+describe('apple-touch-icon — o atalho do iOS, SANGRADO', () => {
+  const png = readFileSync(resolve(PUBLIC, 'apple-touch-icon.png'))
+
   it('é 180×180', () => {
     // Os oito primeiros bytes são a assinatura do PNG; largura e altura vêm no
     // IHDR, em big-endian, a partir do byte 16.
-    const png = readFileSync(resolve(PUBLIC, 'apple-touch-icon.png'))
     expect(png.readUInt32BE(16)).toBe(180)
     expect(png.readUInt32BE(20)).toBe(180)
+  })
+
+  it('a fonte dele não tem canto — o iOS aplica a própria máscara', () => {
+    // Arte pré-arredondada deixa uma sobra entre o desenho e o corte do
+    // sistema. Quem decide o raio ali é o iOS, não a arte.
+    const fonte = readFileSync(resolve(PUBLIC, 'icon-maskable.svg'), 'utf8')
+    expect(fonte).toMatch(/viewBox="0 0 180 180"/)
+    expect(fonte).not.toMatch(/<rect[^>]*\srx=/)
   })
 })
 
@@ -93,8 +137,10 @@ describe('index.html — a cabeça do documento', () => {
     expect(INDEX).toMatch(pattern)
   })
 
-  it('`theme-color` é Carmim, não a geleia velha', () => {
-    expect(INDEX).toMatch(/name="theme-color" content="#A62348"/)
+  it('`theme-color` está declarado e não é a geleia velha', () => {
+    // O VALOR é da T35 (metadados), não desta task. O que se guarda aqui é que
+    // ele existe e não voltou ao rosa que a paleta já não tem.
+    expect(INDEX).toMatch(/name="theme-color" content="#[0-9A-Fa-f]{6}"/)
     expect(INDEX).not.toContain('#B0176B')
   })
 })
@@ -106,9 +152,6 @@ describe('index.html — as fontes', () => {
   })
 
   it('NÃO pede Berkshire Swash', () => {
-    // A fonte perdeu as duas funções que tinha na v2 — o wordmark virou SVG e a
-    // inicial do card de coleção virou Fredoka 700. Carregada e não usada, ela
-    // seria só uma requisição a mais no caminho crítico de uma loja de celular.
     const fontLink = INDEX.match(/<link href="https:\/\/fonts\.googleapis[^>]*>/)?.[0] ?? ''
     expect(fontLink).not.toMatch(/Berkshire/)
   })

@@ -91,6 +91,41 @@ do próprio piso**, com a assinatura em 0,29px: uma linha cinza onde deveria hav
 
 ---
 
+## Os ícones — e por que a base quase não tem canto (T27)
+
+Na marca anterior o desenho era o monograma **N**: um glifo vertical, com os
+extremos nos eixos. Arredondar o canto não custava nada, e a base mais reta dava
+a haste mais grossa — 2,1px no disco, 2,5px no squircle, 2,6px no quadrado.
+
+**Aqui o extremo do desenho é a ponta da estrela, na DIAGONAL** — exatamente onde
+um canto arredondado come área. Medido (maior escala que cabe sem cortar a ponta,
+e o traço que sobra a 16px):
+
+| base | escala que cabe | traço a 16px |
+| --- | ---: | ---: |
+| disco (r 50%) | 0,724 | 0,93px |
+| squircle (r 28%) | 0,856 | 1,10px |
+| **canto 6%** | **1,000** | **1,28px** ← a aba |
+| **quadrado sangrado** | **1,000** | **1,28px** ← o `apple-touch-icon` |
+
+A prancha `734-0` calibrou a redução para *"render pelo menos 1,3px de linha a
+16px"*. Só a base quase reta entrega isso; o squircle custaria 15% do traço.
+**A variável continua sendo quem faz o recorte**: canto próprio na aba, porque o
+navegador não arredonda favicon; sangrado no iOS, porque lá o sistema aplica a
+própria máscara e arte pré-arredondada deixa sobra de canto.
+
+Medido no raster (`_build-ico.mjs`, linha do meio, tinta clara sobre a placa):
+16px → 1px sólido + antialias · 48px → 4px (1,33px equivalente a 16px) ·
+180px → 15px (1,33px equivalente). O nominal geométrico é 1,28px; a 16px o grid
+de pixel quantiza para 1 sólido.
+
+**O ícone é a redução, não o selo circular.** A `spec.md` (`IDN-07`) diz "selo
+circular", mas o selo (`7BA-0`) carrega o anel e 25 glifos de assinatura curva:
+a 16px o anel mede 0,23px e a assinatura 0,08px — uma mancha cinza. O board
+resolve isso na própria prancha do favicon, e a tira de escala dele (64 · 48 ·
+32 · 24 · 16) usa a **arte reduzida** nos cinco tamanhos. O selo fica aqui como
+ativo de carimbo, etiqueta e embalagem, que é o uso que o board lhe dá.
+
 ## O que NÃO está aqui
 
 - **`516-0` ("Home Loja — Desktop (re-skin)") e `5I2-0` ("Kit de Ícones Custom") estão vazios** — zero

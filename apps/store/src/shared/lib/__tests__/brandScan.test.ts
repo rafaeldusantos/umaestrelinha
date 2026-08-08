@@ -70,7 +70,6 @@ const PENDENTE: Record<string, string> = {
   'apps/backoffice/src/pages/admin/AdminLoginPage.tsx':                    'T38 - copy institucional e pontos de contato',
   'apps/backoffice/src/widgets/admin-layout/ui/AdminLayout.tsx':           'T38 - copy institucional e pontos de contato',
   'apps/store/index.html':                                                 'T35 - metadados da loja',
-  'apps/store/public/favicon.svg':                                         'T27 - favicon derivado do selo circular',
   'apps/store/src/entities/product/ui/ProductInfo.tsx':                    'T38 - copy institucional e pontos de contato',
   'apps/store/src/features/auth/ui/AuthOverlay.tsx':                       'T26 - consome um componente de marca que a T26 renomeia',
   'apps/store/src/features/checkout/ui/OrderBump.tsx':                     'T26 - consome um componente de marca que a T26 renomeia',
