@@ -575,7 +575,7 @@ describe('OrderSummary — faixa do cupom aplicado (RSM-02, RSM-03)', () => {
 })
 
 describe('OrderSummary — total e parcela (RSM-05, RSM-06)', () => {
-  it('o total é exibido em 32px, Fredoka, −0.03em (RSM-05)', () => {
+  it('o total é exibido em 32px, Libre Baskerville, −0.03em (RSM-05)', () => {
     render(<OrderSummary variant="sidebar" />)
 
     const total = screen.getByTestId('summary-total')

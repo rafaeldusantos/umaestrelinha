@@ -75,8 +75,8 @@ const CategoryGrid = () => {
                 className={`relative flex h-[120px] flex-col justify-end gap-0.5 overflow-hidden rounded-md p-3.5 transition-transform hover:-translate-y-0.5 md:h-[132px] md:gap-1.5 md:rounded-lg md:p-5 ${tone.card}`}
               >
                 {/* Inicial como marca d'água — o único ornamento do card.
-                    Fredoka 700 nos artboards 22/23: com o wordmark virando SVG,
-                    Berkshire Swash não tinha mais por que existir na loja. */}
+                    Usa a família de display, a mesma dos títulos: a marca é traço
+                    vetorial, então não há fonte de logotipo para usar aqui. */}
                 <span
                   className={`pointer-events-none absolute right-2.5 top-0.5 select-none font-display text-[68px] font-bold leading-[76px] tracking-[-0.03em] md:-top-[14px] md:right-4 md:text-[76px] md:leading-[96px] ${tone.initial}`}
                   aria-hidden

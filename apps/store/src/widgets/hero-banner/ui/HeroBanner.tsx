@@ -109,7 +109,7 @@ const HeroBanner = () => (
       initial="hidden"
       animate="show"
     >
-      {/* ESQUERDA — o peso está aqui: 82px de Fredoka contra tudo em 15–19px */}
+      {/* ESQUERDA — o peso está aqui: 82px de Libre Baskerville contra tudo em 15–19px */}
       <div className="flex w-full flex-col gap-6 md:w-[640px] md:gap-8">
         <motion.div variants={item}>
           <span className="inline-flex items-center gap-1.5 rounded-pill border border-estrelinha-accent/40 bg-estrelinha-ground-deep px-3.5 py-1.5">

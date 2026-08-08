@@ -3,9 +3,9 @@ import { ArrowRight } from 'lucide-react'
 import { cn } from '@estrelinha/ui/lib/utils'
 
 export interface SectionHeadingProps {
-  /** Título em Fredoka. É o maior tipo da seção — não competir com ele. */
+  /** Título em Libre Baskerville. É o maior tipo da seção — não competir com ele. */
   title: string
-  /** Linha de apoio em DM Sans/Carbono. Opcional. */
+  /** Linha de apoio em Outfit, na tinta secundária. Opcional. */
   subtitle?: string
   /** Selo colado no título (ex.: "HOT"). Fita sobre Grafite. */
   badge?: string
@@ -20,7 +20,7 @@ export interface SectionHeadingProps {
 /**
  * Cabeçalho de seção da loja.
  *
- * Uma só forma para toda a home e para as listagens: título grande em Fredoka
+ * Uma só forma para toda a home e para as listagens: título grande em Libre Baskerville
  * Grafite, apoio discreto em Carbono e um único link em Carmim. O contraste de
  * ESCALA — 44px contra 15–17px no desktop, 22 contra 13 no celular — é o que dá
  * hierarquia, não a cor. Um título grande em Grafite ao lado de um apoio

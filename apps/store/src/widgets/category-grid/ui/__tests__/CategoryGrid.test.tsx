@@ -100,9 +100,9 @@ describe('card de coleção — o texto acompanha o fundo', () => {
     expect(card.querySelector('.text-estrelinha-ink-soft')).not.toBeNull()
   })
 
-  it('a inicial marca-d’água sai em Fredoka 700, não em fonte de logo', () => {
-    // Berkshire Swash saiu da loja na v2 — o wordmark virou SVG e esta inicial
-    // é o único outro lugar onde ela existia.
+  it('a inicial marca-d’água sai na família de display, não em fonte de logo', () => {
+    // Não existe fonte de logotipo nesta loja: a marca é traço vetorial em
+    // `shared/ui/brand`. A inicial usa a mesma família dos títulos.
     renderGrid()
     const initial = cardOf('Anime').querySelector('[aria-hidden]')
     expect(initial).toHaveClass('font-display', 'font-bold')

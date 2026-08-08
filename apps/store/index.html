@@ -11,11 +11,15 @@
     <meta name="twitter:card" content="summary_large_image" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <!-- Fredoka = títulos, preços, rótulo de botão · DM Sans = corpo.
-         Berkshire Swash saiu na identidade v2: o wordmark virou SVG e a
-         inicial do card de coleção virou Fredoka 700 — a fonte ficou sem
-         nenhuma função, e uma fonte a menos é uma requisição a menos. -->
-    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <!-- Libre Baskerville = display e títulos · Outfit = corpo. São as duas
+         famílias do arquivo do Paper (`--font-display` e `--font-body`).
+
+         Os pesos são os que o DS declara, e só eles. Libre Baskerville
+         **existe em 400 e 700, mais o itálico de 400** — não há 500 nem 600
+         para pedir, e pedir peso que a família não tem faz o navegador
+         sintetizar (falso-negrito) em vez de baixar. Outfit é variável, então
+         vai como faixa `300..700`: uma requisição, cinco pesos do DS. -->
+    <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Outfit:wght@300..700&display=swap" rel="stylesheet" />
     <meta property="og:title" content="Nanita — Bottons Temáticos | K-Pop, Anime, Games &amp; Mais">
     <meta name="twitter:title" content="Nanita — Bottons Temáticos | K-Pop, Anime, Games &amp; Mais">
     <meta property="og:description" content="Bottons feitos à mão para gente que vive de cultura pop. Anime, K-Pop, games, filmes e séries. Um pin por vez, desde 2023.">

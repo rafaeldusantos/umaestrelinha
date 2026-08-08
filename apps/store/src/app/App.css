@@ -125,15 +125,19 @@ body {
   color: var(--estrelinha-ink);
 }
 
-/* Fredoka assina toda a hierarquia de títulos. */
+/* Libre Baskerville assina toda a hierarquia de títulos.
+ *
+ * **O peso é 700, e não 600.** A família só existe em 400 e 700; pedir 600 faz
+ * o navegador escolher 700 de qualquer jeito, e deixar o número mentindo aqui
+ * seria a próxima pessoa achar que existe um semibold para ajustar. */
 h1,
 h2,
 h3,
 h4,
 h5,
 h6 {
-  font-family: "Fredoka", system-ui, sans-serif;
-  font-weight: 600;
+  font-family: "Libre Baskerville", Georgia, serif;
+  font-weight: 700;
   letter-spacing: -0.02em;
 }
 
@@ -142,15 +146,14 @@ h6 {
   color: var(--estrelinha-ink);
 }
 
-/* Berkshire Swash saiu na v2 (feature 19). O wordmark deixou de ser texto e
- * virou SVG (`shared/ui/brand`), e a inicial marca-d'água do card de coleção
- * saiu em Fredoka 700 nos artboards 22/23 — a fonte perdeu as duas funções que
- * tinha. Fonte carregada e não usada é payload morto, então ela também saiu do
- * `<link>` do Google Fonts. */
+/* Nenhuma terceira família entra aqui. A marca é traço vetorial
+ * (`shared/ui/brand`), não texto, então não há "fonte do logotipo" para
+ * carregar — e fonte carregada sem função é payload morto no caminho crítico de
+ * uma loja que abre no celular. */
 
 /* Eyebrow / label em caixa alta com tracking aberto. */
 .estrelinha-eyebrow {
-  font-family: "DM Sans", system-ui, sans-serif;
+  font-family: "Outfit", system-ui, sans-serif;
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.1em;

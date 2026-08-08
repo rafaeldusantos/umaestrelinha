@@ -26,15 +26,17 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        // Duas famílias, e é tudo. Berkshire Swash saiu na v2: o wordmark virou
-        // SVG e a inicial do card de coleção virou Fredoka 700, então a fonte
-        // ficou sem nenhuma função. Onde havia um "N" em `font-logo`, hoje há o
-        // `NanitaMonogram` — que é o N de verdade da marca.
+        // Duas famílias, e é tudo — `--font-display` e `--font-body` do arquivo
+        // do Paper. A marca não usa fonte nenhuma: ela é traço vetorial em
+        // `shared/ui/brand`, então não existe "fonte do logotipo" para carregar.
         //
-        // Fredoka substitui Lilita One (display) e Outfit (heading).
-        display: ["Fredoka", "system-ui", "sans-serif"],
-        heading: ["Fredoka", "system-ui", "sans-serif"],
-        body: ["DM Sans", "system-ui", "sans-serif"],
+        // O fallback é serif no display e sans no corpo, e não `system-ui` nos
+        // dois: enquanto a webfont não chega, um título de Libre Baskerville
+        // caindo em system-ui muda de família E de largura, e a página inteira
+        // se remonta quando a fonte carrega.
+        display: ["Libre Baskerville", "Georgia", "serif"],
+        heading: ["Libre Baskerville", "Georgia", "serif"],
+        body: ["Outfit", "system-ui", "sans-serif"],
       },
       colors: {
         // Paleta UMA ESTRELINHA. Contraste medido sobre `ground #FAF8F4`,

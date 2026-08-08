@@ -77,7 +77,6 @@ const PENDENTE: Record<string, string> = {
   'apps/store/src/widgets/footer/ui/Footer.tsx':                           'T30 - copy e redes sociais do rodape; a marca em SVG ja saiu na T26',
   'apps/store/src/widgets/hero-banner/ui/HeroBanner.tsx':                  'T38 - copy institucional e pontos de contato',
   'apps/store/src/widgets/whatsapp-float/ui/WhatsAppFloat.tsx':            'T38 - copy institucional e pontos de contato',
-  'apps/store/tailwind.config.ts':                                         'T28 - o comentario de `fontFamily` cita o monograma que a T26 renomeia',
   'packages/supabase/src/types/settings.ts':                               'T34 - defaults de `store_settings` em TypeScript',
   'supabase/config.toml':                                                  'T36 - assuntos e remetente do auth',
   'supabase/functions/melhor-envio/index.ts':                              'T38 - `User-Agent` que a API do Melhor Envio exige',

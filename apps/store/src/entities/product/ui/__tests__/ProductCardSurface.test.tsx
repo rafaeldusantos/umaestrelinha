@@ -102,7 +102,7 @@ describe('card de produto — só o desconto ganha cor de dinheiro', () => {
 })
 
 describe('card de produto — tipografia', () => {
-  it('o nome sai em Fredoka 500 Grafite', () => {
+  it('o nome sai em Libre Baskerville 500 na tinta primária', () => {
     renderCard(product())
     expect(screen.getByRole('heading', { name: 'Botton Naruto Uzumaki' })).toHaveClass(
       'font-display',

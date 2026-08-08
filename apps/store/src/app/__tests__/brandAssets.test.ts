@@ -146,13 +146,42 @@ describe('index.html — a cabeça do documento', () => {
 })
 
 describe('index.html — as fontes', () => {
-  it('pede Fredoka e DM Sans', () => {
-    expect(INDEX).toMatch(/family=Fredoka/)
-    expect(INDEX).toMatch(/family=DM\+Sans/)
+  const fontLink = INDEX.match(/<link href="https:\/\/fonts\.googleapis[^>]*>/)?.[0] ?? ''
+
+  it('a leitura encontrou o `<link>` do Google Fonts', () => {
+    // Âncora: sem ela, as asserções de "não pede X" abaixo passariam sobre uma
+    // string vazia — que é exatamente o resultado de um regex que deixou de
+    // casar. Um `<link>` só, e é o que a loja carrega.
+    expect(fontLink).toMatch(/family=/)
   })
 
-  it('NÃO pede Berkshire Swash', () => {
-    const fontLink = INDEX.match(/<link href="https:\/\/fonts\.googleapis[^>]*>/)?.[0] ?? ''
-    expect(fontLink).not.toMatch(/Berkshire/)
+  it('pede Libre Baskerville e Outfit', () => {
+    expect(fontLink).toMatch(/family=Libre\+Baskerville/)
+    expect(fontLink).toMatch(/family=Outfit/)
+  })
+
+  it('pede os pesos que o DS declara, e só eles', () => {
+    // Libre Baskerville existe em 400, 700 e itálico de 400 — não há 500 nem
+    // 600. Pedir peso inexistente faz o navegador sintetizar falso-negrito.
+    expect(fontLink).toMatch(/Libre\+Baskerville:ital,wght@0,400;0,700;1,400/)
+    // Outfit é variável: uma faixa cobre os cinco pesos do DS (300..700).
+    expect(fontLink).toMatch(/Outfit:wght@300\.\.700/)
+  })
+
+  it.each(['Fredoka', 'DM+Sans', 'Berkshire', 'Lilita'])(
+    'NÃO pede `%s`, da identidade anterior',
+    (familia) => {
+      expect(fontLink).not.toContain(familia)
+    },
+  )
+
+  it('nenhuma outra origem de fonte é requisitada', () => {
+    // Uma segunda origem passaria despercebida: a página renderiza, e o custo
+    // aparece só no waterfall de quem abre no 4G.
+    const origens = [...INDEX.matchAll(/<link[^>]*href="(https?:\/\/[^/"]+)/g)].map((m) => m[1])
+    expect([...new Set(origens)].sort()).toEqual([
+      'https://fonts.googleapis.com',
+      'https://fonts.gstatic.com',
+    ])
   })
 })
