@@ -1,4 +1,4 @@
-import { MONOGRAM_D, MONOGRAM_RATIO } from './paths'
+import { MONOGRAM_D, MONOGRAM_RATIO } from './pathsLegado'
 import type { BrandTone } from './NanitaWordmark'
 
 const FILL: Record<BrandTone, string> = {

@@ -1,4 +1,4 @@
-import { MONOGRAM_D, MONOGRAM_RATIO, WORDMARK_D, WORDMARK_RATIO } from './paths'
+import { MONOGRAM_D, MONOGRAM_RATIO, WORDMARK_D, WORDMARK_RATIO } from './pathsLegado'
 
 /**
  * Cor do traço da marca — nunca a forma.

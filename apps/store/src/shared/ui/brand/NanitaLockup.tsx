@@ -1,4 +1,4 @@
-import { DESCRIPTOR_D, LOCKUP_RATIO, WORDMARK_D } from './paths'
+import { DESCRIPTOR_D, LOCKUP_RATIO, WORDMARK_D } from './pathsLegado'
 import { NanitaWordmark, type BrandTone } from './NanitaWordmark'
 
 /**

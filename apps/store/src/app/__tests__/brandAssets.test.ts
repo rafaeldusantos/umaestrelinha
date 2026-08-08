@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { existsSync, readFileSync, statSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { MONOGRAM_D } from '@/shared/ui/brand/paths'
+import { MONOGRAM_D } from '@/shared/ui/brand/pathsLegado'
 
 /**
  * Os assets de marca e a cabeça do documento (`PAP-06`, `PAP-07`).
