@@ -83,7 +83,7 @@ CREATE POLICY "users update own addresses"
 --      WHERE customer_id IN (SELECT id FROM public.customers WHERE user_id = '<A>');
 --   ROLLBACK;
 --
--- RESULTADO MEDIDO em 2026-07-27 no banco local (postgres 17, supabase_db_nanapin-store):
+-- RESULTADO MEDIDO em 2026-07-27 no banco local (postgres 17, supabase_db_uma-estrelinha-store):
 --   1)  UPDATE 0                                                    → USING barra
 --   2)  UPDATE 0                                                    → USING barra
 --   3)  ERROR 42501 new row violates RLS policy for table customers → WITH CHECK barra
