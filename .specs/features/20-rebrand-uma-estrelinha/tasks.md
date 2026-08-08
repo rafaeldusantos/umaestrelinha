@@ -54,13 +54,23 @@ ligar move a baseline.
 | **build** | Fim de fase, e toda task de config/migration | `pnpm test && pnpm lint && npx tsc --noEmit -p apps/store/tsconfig.app.json && npx tsc --noEmit -p apps/backoffice/tsconfig.app.json` |
 | **db** | Toda task com migration | `supabase db reset` completa **e** probe HTTP prova a gravação (`AD-012`) |
 
-**Baselines de referência** (herdadas; **T2 as remede** e o número medido passa a valer):
+**Baselines de referência** (herdadas; **T2 as remediu** — a coluna "medido" é a que vale):
 
-| | herdado |
-| --- | --- |
-| lint | 30 err / 9 warn (backoffice 28/7 · store 2/2) |
-| `tsc` | 0 · 0 |
-| testes da loja | 979 em 77 arquivos |
+| | herdado | **medido em T2 (2026-08-08)** |
+| --- | --- | --- |
+| lint | 30 err / 9 warn (backoffice 28/7 · store 2/2) | **30 err / 9 warn** (backoffice 28/7 · store 2/2) — idêntico |
+| `tsc` | 0 · 0 | **0 · 0** (store · backoffice) — idêntico |
+| testes da loja | 979 em 77 arquivos | **986 em 78 arquivos** |
+| testes do backoffice | — | **1102 em 68 arquivos** |
+| testes de `core` | — | **759 em 30 arquivos** |
+| testes de `functions` | — | **251 em 4 arquivos** |
+| **total do monorepo** | — | **3098 testes em 180 arquivos** |
+
+**Divergência registrada (T2):** a loja mede 986/78, e não 979/77. Hipótese: o número herdado foi
+anotado no `validation.md` da feature 19 **antes** dos últimos commits dela — os arquivos de teste
+mais recentes da árvore (`Footer.test.tsx`, `brand.test.tsx`) são de 2026-08-04, o mesmo dia do
+fecho. Diferença de +1 arquivo / +7 testes, toda ela **a mais**; nenhum teste desapareceu. O número
+medido passa a ser a baseline vigente.
 
 O gate de toda fase é **"sem erro novo"**, não "lint limpo".
 
@@ -140,9 +150,9 @@ T39 → T40 → T41
 **Tools** — MCP: nenhum · Skill: nenhuma
 
 **Done when**:
-- [ ] `git status` não lista `dist/`, `.turbo/`, `.playwright-cli/` nem `.env`
-- [ ] Commit inicial existe e a árvore está limpa
-- [ ] Mensagem registra que a baseline vem da Nanita e cita `AD-016`
+- [x] `git status` não lista `dist/`, `.turbo/`, `.playwright-cli/` nem `.env`
+- [x] Commit inicial existe e a árvore está limpa
+- [x] Mensagem registra que a baseline vem da Nanita e cita `AD-016`
 
 **Tests**: none · **Gate**: none
 **Commit**: `chore: baseline herdada da Nanita (ver AD-016)`
@@ -159,9 +169,9 @@ anotado no topo deste arquivo como baseline vigente.
 **Tools** — MCP: nenhum · Skill: nenhuma
 
 **Done when**:
-- [ ] `pnpm install` completa e `node_modules/` da raiz existe
-- [ ] `pnpm lint`, `npx tsc --noEmit` nos dois apps e `pnpm test` rodam e os números são **anotados**
-- [ ] Qualquer divergência das baselines herdadas é registrada com hipótese, não ignorada
+- [x] `pnpm install` completa e `node_modules/` da raiz existe
+- [x] `pnpm lint`, `npx tsc --noEmit` nos dois apps e `pnpm test` rodam e os números são **anotados**
+- [x] Qualquer divergência das baselines herdadas é registrada com hipótese, não ignorada
 
 **Tests**: none · **Gate**: build
 **Commit**: `chore: mede as baselines de lint, tipo e teste da cópia herdada`
