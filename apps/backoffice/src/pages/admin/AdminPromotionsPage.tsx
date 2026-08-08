@@ -384,7 +384,7 @@ const AdminPromotionsPage = () => {
           label="Promoções ativas"
           value={isLoading ? EM_DASH : activeCount}
           icon={Percent}
-          accent="text-nana-violet"
+          accent="text-estrelinha-admin-violet"
           subtitle={isLoading ? undefined : `de ${promotions.length} cadastradas`}
         />
         <StatCard
@@ -398,7 +398,7 @@ const AdminPromotionsPage = () => {
           label="Itens por pedido"
           value={itemsPerOrderLabel(stats.itemsWithPromotion, stats.itemsWithoutPromotion)}
           icon={ShoppingBasket}
-          accent="text-nana-cyan"
+          accent="text-estrelinha-admin-cyan"
           subtitle="com promoção vs sem promoção"
         />
       </div>

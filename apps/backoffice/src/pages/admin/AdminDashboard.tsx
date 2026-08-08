@@ -14,11 +14,11 @@ const AdminDashboard = () => {
   const { stats, loading } = useAdminStats()
 
   const statCards = [
-    { label: 'Pedidos Hoje', value: stats.ordersToday, icon: ShoppingCart, color: 'text-nana-pink' },
+    { label: 'Pedidos Hoje', value: stats.ordersToday, icon: ShoppingCart, color: 'text-estrelinha-admin-pink' },
     { label: 'Fat. Hoje', value: formatPrice(stats.revenueToday), icon: DollarSign, color: 'text-emerald-500' },
-    { label: 'Fat. do Mês', value: formatPrice(stats.monthRevenue), icon: TrendingUp, color: 'text-nana-violet' },
-    { label: 'Produtos Ativos', value: stats.activeProducts, icon: Package, color: 'text-nana-cyan' },
-    { label: 'Clientes Novos', value: stats.newCustomers, icon: Users, color: 'text-nana-yellow' },
+    { label: 'Fat. do Mês', value: formatPrice(stats.monthRevenue), icon: TrendingUp, color: 'text-estrelinha-admin-violet' },
+    { label: 'Produtos Ativos', value: stats.activeProducts, icon: Package, color: 'text-estrelinha-admin-cyan' },
+    { label: 'Clientes Novos', value: stats.newCustomers, icon: Users, color: 'text-estrelinha-admin-yellow' },
     { label: 'Pendentes', value: stats.pendingOrders, icon: Clock, color: 'text-amber-500' },
   ]
 

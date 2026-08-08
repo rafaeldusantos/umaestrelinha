@@ -24,8 +24,8 @@ const NavLink = ({ item, pathname, onNavigate }: NavLinkProps) => {
       onClick={onNavigate}
       className={`flex items-center gap-3 px-3 py-3 text-sm font-medium transition-colors ${
         active
-          ? 'bg-nana-elevated text-nana-violet font-semibold border-l-[3px] border-nana-violet rounded-r-xl'
-          : 'text-nana-text-secondary hover:bg-nana-bg hover:text-nana-text rounded-xl'
+          ? 'bg-estrelinha-admin-elevated text-estrelinha-admin-violet font-semibold border-l-[3px] border-estrelinha-admin-violet rounded-r-xl'
+          : 'text-estrelinha-admin-text-secondary hover:bg-estrelinha-admin-bg hover:text-estrelinha-admin-text rounded-xl'
       }`}
     >
       <item.icon className="w-4 h-4 shrink-0" />
@@ -42,12 +42,12 @@ interface NavProps {
 
 const NavContent = ({ pathname, onNavigate, onLogout }: NavProps) => (
   <div className="flex flex-col h-full">
-    <div className="p-4 border-b border-nana-border">
+    <div className="p-4 border-b border-estrelinha-admin-border">
       <Link to="/admin" onClick={onNavigate} className="flex items-center gap-2">
         <div className="w-8 h-8 rounded-full gradient-cta flex items-center justify-center">
           <Pin className="w-4 h-4 text-white" />
         </div>
-        <span className="font-heading text-lg font-semibold text-nana-text">Nanita</span>
+        <span className="font-heading text-lg font-semibold text-estrelinha-admin-text">Nanita</span>
       </Link>
     </div>
     <nav className="flex-1 p-3 overflow-auto">
@@ -60,7 +60,7 @@ const NavContent = ({ pathname, onNavigate, onLogout }: NavProps) => (
           {group.label && (
             <p
               id={groupId(group.label)}
-              className="px-3 pt-4 pb-1 text-xs font-semibold uppercase tracking-wide text-nana-text-secondary"
+              className="px-3 pt-4 pb-1 text-xs font-semibold uppercase tracking-wide text-estrelinha-admin-text-secondary"
             >
               {group.label}
             </p>
@@ -71,14 +71,14 @@ const NavContent = ({ pathname, onNavigate, onLogout }: NavProps) => (
         </div>
       ))}
     </nav>
-    <div className="p-3 border-t border-nana-border space-y-1">
+    <div className="p-3 border-t border-estrelinha-admin-border space-y-1">
       {footerNavItems.map((item) => (
         <NavLink key={item.to} item={item} pathname={pathname} onNavigate={onNavigate} />
       ))}
-      <Link to="/" onClick={onNavigate} className="flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium text-nana-text-secondary hover:bg-nana-bg hover:text-nana-text transition-colors">
+      <Link to="/" onClick={onNavigate} className="flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium text-estrelinha-admin-text-secondary hover:bg-estrelinha-admin-bg hover:text-estrelinha-admin-text transition-colors">
         <Store className="w-4 h-4" /> Ver Loja
       </Link>
-      <button onClick={onLogout} className="flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium text-nana-text-secondary hover:bg-nana-bg hover:text-nana-pink transition-colors w-full">
+      <button onClick={onLogout} className="flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium text-estrelinha-admin-text-secondary hover:bg-estrelinha-admin-bg hover:text-estrelinha-admin-pink transition-colors w-full">
         <LogOut className="w-4 h-4" /> Sair
       </button>
     </div>
@@ -96,16 +96,16 @@ const AdminLayout = () => {
   }
 
   return (
-    <div className="min-h-screen flex bg-nana-bg">
-      <aside className="w-60 bg-white border-r border-nana-border shrink-0 hidden md:block">
+    <div className="min-h-screen flex bg-estrelinha-admin-bg">
+      <aside className="w-60 bg-white border-r border-estrelinha-admin-border shrink-0 hidden md:block">
         <NavContent pathname={location.pathname} onLogout={handleLogout} />
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-14 border-b border-nana-border bg-white flex items-center gap-3 px-4 md:hidden">
+        <header className="h-14 border-b border-estrelinha-admin-border bg-white flex items-center gap-3 px-4 md:hidden">
           <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
             <SheetTrigger
-              className="p-2 -ml-2 rounded-lg text-nana-text-secondary hover:bg-nana-bg hover:text-nana-text transition-colors"
+              className="p-2 -ml-2 rounded-lg text-estrelinha-admin-text-secondary hover:bg-estrelinha-admin-bg hover:text-estrelinha-admin-text transition-colors"
               aria-label="Abrir menu"
             >
               <Menu className="w-5 h-5" />
@@ -119,7 +119,7 @@ const AdminLayout = () => {
               />
             </SheetContent>
           </Sheet>
-          <Link to="/admin" className="font-heading font-semibold text-nana-text">Nanita Admin</Link>
+          <Link to="/admin" className="font-heading font-semibold text-estrelinha-admin-text">Nanita Admin</Link>
         </header>
         <main className="flex-1 p-6 overflow-auto">
           <Outlet />

@@ -175,7 +175,7 @@ const OrderDetailDialog = ({
                   </div>
                 )}
                 {order.coupon_code && order.discount === 0 && (
-                  <div className="flex justify-between text-nana-violet">
+                  <div className="flex justify-between text-estrelinha-admin-violet">
                     <span>Cupom aplicado</span>
                     <span className="font-mono">{order.coupon_code}</span>
                   </div>

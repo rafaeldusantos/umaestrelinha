@@ -11,7 +11,7 @@ import OrderConfirmationPage from '../OrderConfirmationPage'
 
 // CNF-03: a confirmação é rota (`/pedido/:id`) — recompõe do banco, sobrevive ao reload e não
 //         depende de nenhum estado do checkout.
-// CNF-04: mascote `wink`, número do pedido, valor pago, e-mail da cliente e a timeline de 4
+// CNF-04: número do pedido, valor pago, e-mail da cliente e a timeline de 4
 //         estágios com a janela de entrega lida das colunas de estimativa (SHP-08).
 // CNF-05: **uma** ação primária ("Acompanhar pedido" → /conta, pílula geleia) e uma secundária
 //         ("Ver mais pins" → /, contorno tinta); carrinho e cupom limpos só na aprovação.
@@ -71,8 +71,8 @@ const renderPage = (id = 'order-1') =>
  * olho é o arco fechado. `happy`/`sad` renderizam dois; `heart`, `star` e `surprised`, nenhum.
  * A contagem de `rect` é, portanto, o discriminador de forma da expressão.
  */
-const mascotRects = () =>
-  screen.getByRole('img', { name: /Nana/i }).querySelectorAll('rect').length
+/** Toda ilustração de persona que já morou nesta tela. Deve dar zero. */
+const personaIllustrations = () => screen.queryAllByRole('img', { name: /Nana/i }).length
 
 beforeEach(() => {
   useOrderMock.mockReset()
@@ -121,11 +121,16 @@ describe('OrderConfirmationPage — o pedido é lido por id (CNF-03)', () => {
 })
 
 describe('OrderConfirmationPage — conteúdo da confirmação (CNF-04)', () => {
-  it('exibe a mascote Nana com a expressão wink', () => {
+  it('não exibe ilustração de persona nenhuma', () => {
+    // A `CNF-04` original pedia a mascote da loja anterior aqui, piscando. A
+    // persona saiu com o rebrand (`COP-07`), e o teste inverteu junto: ele
+    // deixou de provar que a ilustração aparece e passa a provar que ela não
+    // voltou. O cabeçalho da confirmação segue inteiro sem ela.
     mockOrder({ data: order() })
     renderPage()
 
-    expect(mascotRects()).toBe(1)
+    expect(personaIllustrations()).toBe(0)
+    expect(screen.getByText(/PEDIDO/)).toBeInTheDocument()
   })
 
   it('exibe o número do pedido', () => {

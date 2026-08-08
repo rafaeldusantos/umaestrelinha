@@ -29,7 +29,7 @@ const AdminAbandonedCartsPage = () => {
     {
       key: 'coupon_code', header: 'Cupom',
       cell: c => c.coupon_code ? (
-        <span className="inline-flex items-center rounded-md bg-nana-violet/10 text-nana-violet font-mono text-xs px-2 py-0.5 border border-nana-violet/20">
+        <span className="inline-flex items-center rounded-md bg-estrelinha-admin-violet/10 text-estrelinha-admin-violet font-mono text-xs px-2 py-0.5 border border-estrelinha-admin-violet/20">
           {c.coupon_code}
         </span>
       ) : <span className="text-muted-foreground">—</span>,
@@ -58,7 +58,7 @@ const AdminAbandonedCartsPage = () => {
 
       {/* Métricas */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard icon={ShoppingCart} label="Total capturados" value={metrics.total.toString()} accent="text-nana-violet" />
+        <StatCard icon={ShoppingCart} label="Total capturados" value={metrics.total.toString()} accent="text-estrelinha-admin-violet" />
         <StatCard
           icon={AlertCircle}
           label="Em aberto"
@@ -78,7 +78,7 @@ const AdminAbandonedCartsPage = () => {
           label="Receita recuperada"
           value={formatPrice(metrics.recoveredValue)}
           subtitle={metrics.avgTicket > 0 ? `Ticket médio ${formatPrice(metrics.avgTicket)}` : undefined}
-          accent="text-nana-pink"
+          accent="text-estrelinha-admin-pink"
         />
       </div>
 

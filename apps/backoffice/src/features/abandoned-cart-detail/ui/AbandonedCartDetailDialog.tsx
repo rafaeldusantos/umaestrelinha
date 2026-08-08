@@ -47,10 +47,10 @@ const AbandonedCartDetailDialog = ({ cart, open, onOpenChange, onDelete }: Props
 
         <div className="space-y-5 mt-2">
           {/* Cliente */}
-          <section className="bg-nana-elevated rounded-xl p-4 space-y-2">
+          <section className="bg-estrelinha-admin-elevated rounded-xl p-4 space-y-2">
             <h3 className="text-xs font-semibold uppercase text-muted-foreground">Cliente</h3>
             <div className="flex items-center gap-2 text-sm">
-              <Mail className="w-4 h-4 text-nana-violet" />
+              <Mail className="w-4 h-4 text-estrelinha-admin-violet" />
               <span className="font-medium">{cart.customer_email}</span>
             </div>
             {cart.customer_name && (
@@ -81,22 +81,22 @@ const AbandonedCartDetailDialog = ({ cart, open, onOpenChange, onDelete }: Props
               {cart.items.map((item, i) => (
                 <div
                   key={i}
-                  className="flex items-center gap-3 p-3 bg-white border border-nana-border rounded-xl"
+                  className="flex items-center gap-3 p-3 bg-white border border-estrelinha-admin-border rounded-xl"
                 >
                   {item.product_image ? (
                     <img
                       src={item.product_image}
                       alt={item.product_name}
-                      className="w-14 h-14 rounded-lg object-cover bg-nana-elevated"
+                      className="w-14 h-14 rounded-lg object-cover bg-estrelinha-admin-elevated"
                     />
                   ) : (
-                    <div className="w-14 h-14 rounded-lg bg-nana-elevated" />
+                    <div className="w-14 h-14 rounded-lg bg-estrelinha-admin-elevated" />
                   )}
                   <div className="flex-1 min-w-0">
                     <Link
                       to={`/produto/${item.product_slug}`}
                       target="_blank"
-                      className="font-medium text-nana-text hover:text-nana-violet line-clamp-1 flex items-center gap-1"
+                      className="font-medium text-estrelinha-admin-text hover:text-estrelinha-admin-violet line-clamp-1 flex items-center gap-1"
                     >
                       {item.product_name}
                       <ExternalLink className="w-3 h-3 shrink-0" />
@@ -109,7 +109,7 @@ const AbandonedCartDetailDialog = ({ cart, open, onOpenChange, onDelete }: Props
                       {item.quantity}x {formatPrice(item.unit_price)}
                     </div>
                   </div>
-                  <div className="font-semibold text-nana-text">
+                  <div className="font-semibold text-estrelinha-admin-text">
                     {formatPrice(item.unit_price * item.quantity)}
                   </div>
                 </div>
@@ -118,13 +118,13 @@ const AbandonedCartDetailDialog = ({ cart, open, onOpenChange, onDelete }: Props
           </section>
 
           {/* Resumo */}
-          <section className="bg-nana-elevated rounded-xl p-4 space-y-1">
+          <section className="bg-estrelinha-admin-elevated rounded-xl p-4 space-y-1">
             {cart.coupon_code && (
               <div className="flex justify-between text-sm">
                 <span className="flex items-center gap-1 text-muted-foreground">
                   <Tag className="w-3 h-3" /> Cupom aplicado
                 </span>
-                <span className="font-mono font-semibold text-nana-violet">{cart.coupon_code}</span>
+                <span className="font-mono font-semibold text-estrelinha-admin-violet">{cart.coupon_code}</span>
               </div>
             )}
             <div className="flex justify-between font-semibold text-base pt-1">
@@ -157,7 +157,7 @@ const AbandonedCartDetailDialog = ({ cart, open, onOpenChange, onDelete }: Props
           )}
 
           {/* Ações */}
-          <div className="flex gap-2 pt-2 border-t border-nana-border">
+          <div className="flex gap-2 pt-2 border-t border-estrelinha-admin-border">
             <Button
               variant="outline"
               className="flex-1"

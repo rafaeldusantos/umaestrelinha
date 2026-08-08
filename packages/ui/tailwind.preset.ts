@@ -1,9 +1,9 @@
 import type { Config } from "tailwindcss";
 
 /**
- * Preset Tailwind compartilhado (design system do backoffice, tokens --nana-*).
+ * Preset Tailwind compartilhado (design system do backoffice, tokens --estrelinha-admin-*).
  * Cada app estende este preset e define seu próprio `content`.
- * Os tokens `--nana-*` vivem em `@estrelinha/ui/styles.css`.
+ * Os tokens `--estrelinha-admin-*` vivem em `@estrelinha/ui/styles.css`.
  */
 export default {
   darkMode: ["class"],
@@ -57,17 +57,17 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        nana: {
-          bg: "var(--nana-bg)",
-          "bg-alt": "var(--nana-bg-alt)",
-          card: "var(--nana-card)",
-          "card-hover": "var(--nana-card-hover)",
-          elevated: "var(--nana-elevated)",
-          text: "var(--nana-text)",
-          "text-secondary": "var(--nana-text-secondary)",
-          muted: "var(--nana-text-muted)",
-          border: "var(--nana-border)",
-          "border-hover": "var(--nana-border-hover)",
+        "estrelinha-admin": {
+          bg: "var(--estrelinha-admin-bg)",
+          "bg-alt": "var(--estrelinha-admin-bg-alt)",
+          card: "var(--estrelinha-admin-card)",
+          "card-hover": "var(--estrelinha-admin-card-hover)",
+          elevated: "var(--estrelinha-admin-elevated)",
+          text: "var(--estrelinha-admin-text)",
+          "text-secondary": "var(--estrelinha-admin-text-secondary)",
+          muted: "var(--estrelinha-admin-text-muted)",
+          border: "var(--estrelinha-admin-border)",
+          "border-hover": "var(--estrelinha-admin-border-hover)",
           violet: "#6C3CE9",
           pop: "#A855F7",
           pink: "#FF3B7F",

@@ -58,10 +58,10 @@ const PricingTab = ({ form, setField, onGoToGrid }: Props) => {
       >
         {gridRules && (
           <div
-            className="flex flex-wrap items-center gap-3 rounded-xl border border-nana-violet/40 bg-nana-violet/5 p-3 text-sm"
+            className="flex flex-wrap items-center gap-3 rounded-xl border border-estrelinha-admin-violet/40 bg-estrelinha-admin-violet/5 p-3 text-sm"
             data-testid="grid-precedence-notice"
           >
-            <Info className="h-4 w-4 shrink-0 text-nana-violet" aria-hidden="true" />
+            <Info className="h-4 w-4 shrink-0 text-estrelinha-admin-violet" aria-hidden="true" />
             <span className="flex-1">
               Este produto tem {form.variants.length} variaç{form.variants.length === 1 ? 'ão' : 'ões'} —
               quem manda no preço cobrado é a grade abaixo. A vitrine mostra a partir de{' '}
@@ -135,8 +135,8 @@ const PricingTab = ({ form, setField, onGoToGrid }: Props) => {
                 onClick={() => setField('stock_policy', policy.id)}
                 className={`rounded-xl border p-3 text-left transition-colors ${
                   active
-                    ? 'border-nana-violet bg-nana-violet/5 ring-1 ring-nana-violet'
-                    : 'border-border hover:border-nana-violet/40'
+                    ? 'border-estrelinha-admin-violet bg-estrelinha-admin-violet/5 ring-1 ring-estrelinha-admin-violet'
+                    : 'border-border hover:border-estrelinha-admin-violet/40'
                 }`}
               >
                 <span className="block text-sm font-medium text-foreground">{policy.label}</span>

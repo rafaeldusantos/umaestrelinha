@@ -4,7 +4,7 @@
 // de salvar, que é o ponto (ver o preço mudar é o que evita publicar e conferir depois).
 //
 // O `ProductCard` da loja é referência **visual**, não import: são apps distintos, com temas
-// distintos (`nanita-*` lá, `nana-*` aqui — ver `DESIGN.md`). Importar entre apps traria o tema
+// distintos (`nanita-*` lá, `estrelinha-admin-*` aqui — ver `DESIGN.md`). Importar entre apps traria o tema
 // errado junto.
 
 import { ImageOff } from 'lucide-react'

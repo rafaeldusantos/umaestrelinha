@@ -239,8 +239,8 @@ const MelhorEnvioTab = ({ order, items, onUpdate }: Props) => {
               key={q.id}
               className={`p-3 cursor-pointer transition-all border-2 ${
                 selectedService === q.id
-                  ? 'border-nana-violet bg-nana-violet/5'
-                  : 'border-transparent hover:border-nana-border'
+                  ? 'border-estrelinha-admin-violet bg-estrelinha-admin-violet/5'
+                  : 'border-transparent hover:border-estrelinha-admin-border'
               }`}
               onClick={() => setSelectedService(q.id)}
             >
@@ -256,7 +256,7 @@ const MelhorEnvioTab = ({ order, items, onUpdate }: Props) => {
                       : `${q.delivery_time} dias úteis`}
                   </p>
                 </div>
-                <span className="text-sm font-bold text-nana-violet">
+                <span className="text-sm font-bold text-estrelinha-admin-violet">
                   {formatPrice(Number(q.price))}
                 </span>
               </div>

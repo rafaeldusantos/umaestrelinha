@@ -1,6 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
 import { useEffect } from "react";
-import { NanaMascot } from "@estrelinha/ui/nana-mascot";
 
 const NotFound = () => {
   const location = useLocation();
@@ -11,9 +10,6 @@ const NotFound = () => {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-white px-6 text-center">
-      {/* A Nana triste é a única ilustração da página — nada mais compete. */}
-      <NanaMascot size={132} expression="sad" />
-
       <div className="flex flex-col gap-2">
         <p className="estrelinha-eyebrow text-estrelinha-ink-soft">Erro 404</p>
         <h1 className="font-display text-[38px] font-semibold leading-[1.1] tracking-[-0.03em] text-estrelinha-ink md:text-[52px]">

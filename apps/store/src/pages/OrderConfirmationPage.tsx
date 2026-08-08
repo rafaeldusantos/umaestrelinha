@@ -9,7 +9,6 @@
 // fora de escopo (tabela Out of Scope da spec) — exige cobrar de novo sem novo checkout.
 import { Link, useParams } from 'react-router-dom'
 import { PackageCheck } from 'lucide-react'
-import { NanaMascot } from '@estrelinha/ui/nana-mascot'
 import { formatPrice } from '@estrelinha/core/formatters'
 import { formatEstimate } from '@estrelinha/core/shipping'
 import { OrderTimeline, useOrder } from '@/entities/order'
@@ -43,7 +42,6 @@ const OrderConfirmationPage = () => {
     return (
       <Shell>
         <div className="flex flex-col items-center gap-4 text-center">
-          <NanaMascot size={110} expression="sad" />
           <h1 className="font-heading text-3xl font-semibold tracking-[-0.03em] text-estrelinha-ink">
             {isError ? 'Não conseguimos abrir este pedido' : 'Pedido não encontrado'}
           </h1>
@@ -73,11 +71,6 @@ const OrderConfirmationPage = () => {
     <Shell>
       <div className="flex flex-col gap-10">
         <div className="flex flex-col items-center gap-5 text-center">
-          {/* CNF-04: a mascote pisca na confirmação — é a voz do estado (DESIGN.md §5). */}
-          <div className="flex items-center justify-center rounded-full bg-estrelinha-ground-deep p-[22px]">
-            <NanaMascot size={130} expression="wink" />
-          </div>
-
           <div className="flex flex-col items-center gap-[10px]">
             <p className="estrelinha-eyebrow text-estrelinha-ink-soft">
               PEDIDO {order.order_number} · {paidStamp(order.paid_at)}

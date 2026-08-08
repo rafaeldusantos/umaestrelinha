@@ -17,10 +17,10 @@ const OrderTimeline = ({ history, loading }: Props) => {
       {history.map((entry, i) => (
         <div key={entry.id} className="flex gap-3 pb-4 last:pb-0">
           <div className="flex flex-col items-center">
-            <div className="w-8 h-8 rounded-full bg-nana-elevated border border-nana-border flex items-center justify-center shrink-0">
-              <Clock className="w-4 h-4 text-nana-violet" />
+            <div className="w-8 h-8 rounded-full bg-estrelinha-admin-elevated border border-estrelinha-admin-border flex items-center justify-center shrink-0">
+              <Clock className="w-4 h-4 text-estrelinha-admin-violet" />
             </div>
-            {i < history.length - 1 && <div className="w-px flex-1 bg-nana-border mt-1" />}
+            {i < history.length - 1 && <div className="w-px flex-1 bg-estrelinha-admin-border mt-1" />}
           </div>
           <div className="flex-1 min-w-0 pt-0.5">
             <div className="flex items-center gap-2 flex-wrap">

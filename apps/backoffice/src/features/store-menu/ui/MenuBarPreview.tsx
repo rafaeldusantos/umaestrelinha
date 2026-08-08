@@ -1,7 +1,7 @@
 // A barra do topo como a cliente vai vê-la — esquemática, não pixel-perfect.
 //
 // **Por que não o componente real da loja**: `apps/backoffice` não importa `apps/store`. E mesmo se
-// importasse, não deveria: a loja usa os tokens `nanita-*` e esta tela usa os `--nana-*` do
+// importasse, não deveria: a loja usa os tokens `nanita-*` e esta tela usa os `--estrelinha-admin-*` do
 // backoffice, então o componente real chegaria aqui com a paleta errada.
 //
 // O que esta prévia precisa provar é **uma** coisa: se a barra estoura. Com quatro universos de nome

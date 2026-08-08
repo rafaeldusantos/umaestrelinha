@@ -147,7 +147,7 @@ const TagInput = ({ tags, onChange, suggestions = [], countByTag = {} }: Props) 
               key={suggestion}
               type="button"
               onClick={() => add([suggestion])}
-              className="rounded-pill border border-border px-2 py-0.5 text-xs text-muted-foreground hover:border-nana-violet/50 hover:text-foreground"
+              className="rounded-pill border border-border px-2 py-0.5 text-xs text-muted-foreground hover:border-estrelinha-admin-violet/50 hover:text-foreground"
             >
               {suggestion}
               {countByTag[suggestion] ? ` · ${countByTag[suggestion]}` : ''}

@@ -55,17 +55,17 @@ const AdminLoginPage = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-nana-bg p-4">
+    <div className="min-h-screen flex items-center justify-center bg-estrelinha-admin-bg p-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <div className="w-12 h-12 rounded-full gradient-cta flex items-center justify-center mx-auto mb-4">
             <Pin className="w-6 h-6 text-white" />
           </div>
-          <h1 className="font-heading text-2xl font-extrabold text-nana-text">Admin Nanita</h1>
-          <p className="text-sm text-nana-muted mt-1">Acesse o painel de gestão</p>
+          <h1 className="font-heading text-2xl font-extrabold text-estrelinha-admin-text">Admin Nanita</h1>
+          <p className="text-sm text-estrelinha-admin-muted mt-1">Acesse o painel de gestão</p>
         </div>
-        <form onSubmit={handleLogin} className="bg-white rounded-2xl border border-nana-border p-6 space-y-4">
-          {error && <p className="text-sm text-nana-pink bg-nana-pink/5 border border-nana-pink/20 rounded-lg p-3">{error}</p>}
+        <form onSubmit={handleLogin} className="bg-white rounded-2xl border border-estrelinha-admin-border p-6 space-y-4">
+          {error && <p className="text-sm text-estrelinha-admin-pink bg-estrelinha-admin-pink/5 border border-estrelinha-admin-pink/20 rounded-lg p-3">{error}</p>}
           <div>
             <Label htmlFor="email">E-mail</Label>
             <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required className="mt-1" />

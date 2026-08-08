@@ -40,7 +40,7 @@ const AdminOrdersPage = () => {
     {
       key: 'coupon_code', header: 'Cupom',
       cell: o => o.coupon_code ? (
-        <span className="inline-flex items-center rounded-md bg-nana-violet/10 text-nana-violet font-mono text-xs px-2 py-0.5 border border-nana-violet/20">
+        <span className="inline-flex items-center rounded-md bg-estrelinha-admin-violet/10 text-estrelinha-admin-violet font-mono text-xs px-2 py-0.5 border border-estrelinha-admin-violet/20">
           {o.coupon_code}
         </span>
       ) : <span className="text-muted-foreground">—</span>,

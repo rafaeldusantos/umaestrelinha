@@ -5,7 +5,7 @@ interface Props {
   label: string
   value: string | number
   icon?: LucideIcon
-  /** classe de cor do ícone, ex.: 'text-nana-violet' */
+  /** classe de cor do ícone, ex.: 'text-estrelinha-admin-violet' */
   accent?: string
   subtitle?: string
   className?: string

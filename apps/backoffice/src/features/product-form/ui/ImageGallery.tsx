@@ -282,7 +282,7 @@ const ImageGallery = ({ images, onChange, productName, onUploadingChange }: Prop
                       )}
                       {/* PMD-03: a origem vem de `images[].source`, não de heurística sobre a URL. */}
                       {image.source === 'mockup' && (
-                        <span className="rounded bg-nana-violet px-1.5 py-0.5 text-[10px] font-medium text-white">
+                        <span className="rounded bg-estrelinha-admin-violet px-1.5 py-0.5 text-[10px] font-medium text-white">
                           Mockup
                         </span>
                       )}

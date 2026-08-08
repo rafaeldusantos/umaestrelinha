@@ -7,36 +7,36 @@
 @layer base {
   :root {
     /* Nana backgrounds light mode */
-    --nana-bg: #FFF9F5;
-    --nana-bg-alt: #FFFFFF;
-    --nana-card: #FFFFFF;
-    --nana-card-hover: #FFF0F5;
-    --nana-elevated: #F3EFF8;
+    --estrelinha-admin-bg: #FFF9F5;
+    --estrelinha-admin-bg-alt: #FFFFFF;
+    --estrelinha-admin-card: #FFFFFF;
+    --estrelinha-admin-card-hover: #FFF0F5;
+    --estrelinha-admin-elevated: #F3EFF8;
 
     /* Nana texto light mode */
-    --nana-text: #1A0F2E;
-    --nana-text-secondary: #5A4E6F;
-    --nana-text-muted: #9B8EC4;
+    --estrelinha-admin-text: #1A0F2E;
+    --estrelinha-admin-text-secondary: #5A4E6F;
+    --estrelinha-admin-text-muted: #9B8EC4;
 
     /* Nana borders light mode */
-    --nana-border: #F0EAF5;
-    --nana-border-hover: rgba(108,60,233,0.3);
+    --estrelinha-admin-border: #F0EAF5;
+    --estrelinha-admin-border-hover: rgba(108,60,233,0.3);
 
     /* Acentos (iguais em light e dark) */
-    --nana-violet: #6C3CE9;
-    --nana-pop: #A855F7;
-    --nana-pink: #FF3B7F;
-    --nana-sakura: #FF4DCA;
-    --nana-cyan: #00E5FF;
-    --nana-yellow: #FFD23F;
-    --nana-dark: #1A0F2E;
-    --nana-muted: #8B7FB8;
+    --estrelinha-admin-violet: #6C3CE9;
+    --estrelinha-admin-pop: #A855F7;
+    --estrelinha-admin-pink: #FF3B7F;
+    --estrelinha-admin-sakura: #FF4DCA;
+    --estrelinha-admin-cyan: #00E5FF;
+    --estrelinha-admin-yellow: #FFD23F;
+    --estrelinha-admin-dark: #1A0F2E;
+    --estrelinha-admin-muted: #8B7FB8;
 
     /* Gradientes */
-    --nana-gradient-cta: linear-gradient(135deg, #FF3B7F, #6C3CE9);
-    --nana-gradient-hero: linear-gradient(135deg, rgba(255,59,127,0.04) 0%, rgba(108,60,233,0.04) 100%);
-    --nana-gradient-card: linear-gradient(145deg, #6C3CE9, #3A2578);
-    --nana-gradient-dark: linear-gradient(145deg, #1A0F2E, #2D1B69);
+    --estrelinha-admin-gradient-cta: linear-gradient(135deg, #FF3B7F, #6C3CE9);
+    --estrelinha-admin-gradient-hero: linear-gradient(135deg, rgba(255,59,127,0.04) 0%, rgba(108,60,233,0.04) 100%);
+    --estrelinha-admin-gradient-card: linear-gradient(145deg, #6C3CE9, #3A2578);
+    --estrelinha-admin-gradient-dark: linear-gradient(145deg, #1A0F2E, #2D1B69);
 
     /* shadcn tokens mapped */
     --background: 25 100% 98%;
@@ -80,16 +80,16 @@
   }
 
   .dark {
-    --nana-bg: #0F0D1A;
-    --nana-bg-alt: #1A1726;
-    --nana-card: #1A1726;
-    --nana-card-hover: #221F30;
-    --nana-elevated: #2A2640;
-    --nana-text: #E8E4F0;
-    --nana-text-secondary: #A99FCC;
-    --nana-text-muted: #7B6FA8;
-    --nana-border: #2A2640;
-    --nana-border-hover: rgba(108,60,233,0.4);
+    --estrelinha-admin-bg: #0F0D1A;
+    --estrelinha-admin-bg-alt: #1A1726;
+    --estrelinha-admin-card: #1A1726;
+    --estrelinha-admin-card-hover: #221F30;
+    --estrelinha-admin-elevated: #2A2640;
+    --estrelinha-admin-text: #E8E4F0;
+    --estrelinha-admin-text-secondary: #A99FCC;
+    --estrelinha-admin-text-muted: #7B6FA8;
+    --estrelinha-admin-border: #2A2640;
+    --estrelinha-admin-border-hover: rgba(108,60,233,0.4);
 
     --background: 250 40% 6%;
     --foreground: 260 20% 90%;
@@ -135,7 +135,7 @@
     @apply border-border;
   }
   body {
-    @apply bg-nana-bg text-nana-text font-body antialiased;
+    @apply bg-estrelinha-admin-bg text-estrelinha-admin-text font-body antialiased;
   }
   h1, h2, h3, h4, h5, h6 {
     @apply font-heading;
@@ -144,22 +144,22 @@
 
 @layer utilities {
   .gradient-cta {
-    background: var(--nana-gradient-cta);
+    background: var(--estrelinha-admin-gradient-cta);
   }
   .gradient-hero {
-    background: var(--nana-gradient-hero);
+    background: var(--estrelinha-admin-gradient-hero);
   }
   .gradient-card {
-    background: var(--nana-gradient-card);
+    background: var(--estrelinha-admin-gradient-card);
   }
   .text-gradient {
-    background: var(--nana-gradient-cta);
+    background: var(--estrelinha-admin-gradient-cta);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
   .gradient-dark {
-    background: var(--nana-gradient-dark);
+    background: var(--estrelinha-admin-gradient-dark);
   }
   .glow-violet {
     box-shadow: 0 0 20px rgba(108,60,233,0.25);

@@ -278,7 +278,7 @@ const AdminCouponsPage = () => {
           label="Cupons ativos"
           value={isLoading ? '—' : stats.active}
           icon={Ticket}
-          accent="text-nana-violet"
+          accent="text-estrelinha-admin-violet"
           subtitle={isLoading ? undefined : `de ${stats.total} cadastrados`}
         />
         <StatCard

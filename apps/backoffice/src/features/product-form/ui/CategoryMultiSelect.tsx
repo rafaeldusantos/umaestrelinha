@@ -136,7 +136,7 @@ const CategoryMultiSelect = ({
       <div
         onClick={() => inputRef.current?.focus()}
         className={`flex flex-wrap items-center gap-1.5 rounded-xl border bg-background p-2 transition-colors ${
-          open ? 'border-nana-violet ring-1 ring-nana-violet' : 'border-input'
+          open ? 'border-estrelinha-admin-violet ring-1 ring-estrelinha-admin-violet' : 'border-input'
         }`}
       >
         {selected.map(id => {
@@ -203,7 +203,7 @@ const CategoryMultiSelect = ({
                       aria-hidden="true"
                       className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
                         isSelected
-                          ? 'border-nana-violet bg-nana-violet text-white'
+                          ? 'border-estrelinha-admin-violet bg-estrelinha-admin-violet text-white'
                           : 'border-input'
                       }`}
                     >
@@ -241,11 +241,11 @@ const CategoryMultiSelect = ({
             <button
               type="button"
               onClick={create}
-              className="flex w-full items-center gap-2.5 border-t border-border bg-nana-violet/5 px-3 py-2.5 text-left hover:bg-nana-violet/10"
+              className="flex w-full items-center gap-2.5 border-t border-border bg-estrelinha-admin-violet/5 px-3 py-2.5 text-left hover:bg-estrelinha-admin-violet/10"
             >
-              <Plus className="h-4 w-4 shrink-0 text-nana-violet" aria-hidden="true" />
+              <Plus className="h-4 w-4 shrink-0 text-estrelinha-admin-violet" aria-hidden="true" />
               <span className="min-w-0 flex-1">
-                <span className="block text-sm font-semibold text-nana-violet">
+                <span className="block text-sm font-semibold text-estrelinha-admin-violet">
                   Criar categoria &quot;{query.trim()}&quot;
                 </span>
                 <span className="block text-xs text-muted-foreground">

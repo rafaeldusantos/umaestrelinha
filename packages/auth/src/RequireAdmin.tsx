@@ -13,11 +13,11 @@ const RequireAdmin = ({
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-nana-bg">
+      <div className="flex items-center justify-center min-h-screen bg-estrelinha-admin-bg">
         <div className="space-y-4 w-full max-w-md p-8">
-          <Skeleton className="h-8 w-48 bg-nana-border rounded" />
-          <Skeleton className="h-4 w-full bg-nana-border rounded" />
-          <Skeleton className="h-4 w-3/4 bg-nana-border rounded" />
+          <Skeleton className="h-8 w-48 bg-estrelinha-admin-border rounded" />
+          <Skeleton className="h-4 w-full bg-estrelinha-admin-border rounded" />
+          <Skeleton className="h-4 w-3/4 bg-estrelinha-admin-border rounded" />
         </div>
       </div>
     )
