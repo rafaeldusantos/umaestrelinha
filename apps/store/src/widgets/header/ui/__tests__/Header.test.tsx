@@ -125,10 +125,11 @@ describe('Header — as duas superfícies de menu (MENU-16)', () => {
     expect(screen.queryByText(/Buscar bottons/)).not.toBeInTheDocument()
   })
 
-  it('sem entradas (falha de consulta) a barra fica só com os itens fixos — sem quebrar (MENU-04)', () => {
+  it('sem entradas (falha de consulta) a barra fica só com o item fixo — sem quebrar (MENU-04)', () => {
     menuState.entries = []
     renderHeader()
-    expect(screen.getByText('Crie o seu')).toBeInTheDocument()
+    // "Crie o seu" saiu com a página de kit de pins (PIN-04); sobra "Sobre".
+    expect(screen.queryByText('Crie o seu')).not.toBeInTheDocument()
     expect(screen.getByText('Sobre')).toBeInTheDocument()
     expect(screen.getByTestId('mega-menu')).toHaveTextContent('')
   })

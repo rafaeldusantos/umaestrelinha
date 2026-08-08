@@ -3,7 +3,6 @@ import MarqueeBar from '@/widgets/home-sections/ui/MarqueeBar'
 import DropCountdown from '@/widgets/home-sections/ui/DropCountdown'
 import CategoryGrid from '@/widgets/category-grid/ui/CategoryGrid'
 import ProductCarousel from '@/widgets/product-carousel/ui/ProductCarousel'
-import MonteSeuKit from '@/features/custom-pin/ui/MonteSeuKit'
 import TrendingTags from '@/widgets/home-sections/ui/TrendingTags'
 import SocialProof from '@/widgets/home-sections/ui/SocialProof'
 import NewsletterBanner from '@/features/newsletter/ui/NewsletterBanner'
@@ -45,9 +44,6 @@ const HomePage = () => {
         linkHref="/busca"
         linkText="Ver tudo"
       />
-
-      {/* Monte seu Kit */}
-      <MonteSeuKit />
 
       {/* Fan picks */}
       <ProductCarousel

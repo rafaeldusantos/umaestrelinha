@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronDown, ChevronUp, Heart, Info, Package, Search, Star, User, X } from 'lucide-react'
+import { ChevronDown, ChevronUp, Heart, Info, Package, Search, User, X } from 'lucide-react'
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from '@estrelinha/ui/sheet'
 import { NanitaWordmark } from '@/shared/ui/brand'
 import { useAuthContext } from '@estrelinha/auth'
@@ -106,13 +106,6 @@ const MobileMenu = () => {
               onNavigate={() => leaveTo()}
             />
           ))}
-
-          <Link to="/crie-seu-botton" onClick={() => leaveTo()} className={`${ROW} min-h-11`}>
-            <span className="flex items-center gap-2.5">
-              <Star className="h-4 w-4 shrink-0 text-nanita-jam" strokeWidth={2} aria-hidden />
-              <span className="text-base font-semibold text-nanita-jam">Crie o Seu</span>
-            </span>
-          </Link>
 
           <Link to="/sobre" onClick={() => leaveTo()} className={`${ROW} min-h-11 border-b-0`}>
             <span className="flex items-center gap-2.5">

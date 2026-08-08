@@ -58,13 +58,14 @@ beforeEach(() => {
 })
 
 describe('MENU-16 — a folha inteira', () => {
-  it('tem logo, fechar, busca, universos, os dois fixos e os três atalhos', () => {
+  it('tem logo, fechar, busca, universos, o fixo e os três atalhos', () => {
     renderSheet()
     expect(screen.getByLabelText('Nanita — página inicial')).toBeInTheDocument()
     expect(screen.getByLabelText('Fechar menu')).toBeInTheDocument()
     expect(screen.getByText(/Buscar pins/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Anime' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Crie o Seu' })).toHaveAttribute('href', '/crie-seu-botton')
+    // "Crie o Seu" saiu com a página de kit de pins (PIN-04): a rota não existe mais.
+    expect(screen.queryByRole('link', { name: 'Crie o Seu' })).toBeNull()
     expect(screen.getByRole('link', { name: 'Sobre' })).toHaveAttribute('href', '/sobre')
     expect(screen.getByRole('button', { name: /Conta/ })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Wishlist/ })).toHaveAttribute('href', '/favoritos')

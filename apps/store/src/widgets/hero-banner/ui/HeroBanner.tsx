@@ -150,12 +150,6 @@ const HeroBanner = () => (
             Explorar coleções
             <ArrowRight size={16} strokeWidth={2.5} />
           </Link>
-          <Link
-            to="/crie-seu-botton"
-            className="inline-flex items-center justify-center rounded-button border-2 border-nanita-ink px-5 py-3 font-display text-[15px] font-semibold text-nanita-ink transition-colors hover:bg-nanita-ink/[0.06] md:px-7 md:py-4 md:text-[17px]"
-          >
-            Criar o meu
-          </Link>
         </motion.div>
 
         {/* Prova social só no desktop: no celular o artboard 23 corta para dar

@@ -19,7 +19,6 @@ import SearchPage from "@/pages/SearchPage";
 import AboutPage from "@/pages/AboutPage";
 import PoliciesPage from "@/pages/PoliciesPage";
 import AccountPage from "@/pages/AccountPage";
-import CustomPinPage from "@/pages/CustomPinPage";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -44,7 +43,6 @@ const App = () => (
             <Route path="/politicas" element={<PoliciesPage />} />
             <Route path="/conta" element={<AccountPage />} />
             <Route path="/favoritos" element={<WishlistPage />} />
-            <Route path="/crie-seu-botton" element={<CustomPinPage />} />
             <Route path="/entrar" element={<AuthPage />} />
           </Route>
 

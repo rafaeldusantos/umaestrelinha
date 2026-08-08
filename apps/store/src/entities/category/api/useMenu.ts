@@ -11,7 +11,7 @@ import { useCategories } from './useCategories'
  * promete são a mesma função.
  *
  * Falha de consulta devolve `[]` (o `useCategories` já engole o erro por design), e a barra renderiza
- * só os itens fixos — "Crie o Seu" e "Sobre" — em vez de uma barra quebrada (`MENU-04`).
+ * só o item fixo "Sobre" em vez de uma barra quebrada (`MENU-04`).
  */
 export const useMenu = (): { entries: MenuEntry[] } => {
   const { data: categories } = useCategories()

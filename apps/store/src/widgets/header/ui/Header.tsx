@@ -74,12 +74,6 @@ const Header = () => {
               com os dois itens fixos em vez de quebrar (MENU-04). */}
           <MegaMenu entries={entries} />
           <Link
-            to="/crie-seu-botton"
-            className="text-[15px] font-semibold text-nanita-jam transition-opacity hover:opacity-70"
-          >
-            Crie o seu
-          </Link>
-          <Link
             to="/sobre"
             className="text-[15px] font-medium text-nanita-ink transition-colors hover:text-nanita-jam"
           >

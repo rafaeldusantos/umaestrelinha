@@ -71,10 +71,6 @@ const ProductDetailsAccordion = ({ product }: { product: Product }) => (
             <dt className="font-semibold text-nanita-ink">Dá para comprar em quantidade?</dt>
             <dd>Dá — é só ajustar a quantidade antes de adicionar ao carrinho.</dd>
           </div>
-          <div>
-            <dt className="font-semibold text-nanita-ink">Posso pedir uma arte minha?</dt>
-            <dd>Pode: monte o seu na página “Crie o Seu”.</dd>
-          </div>
         </dl>
       </AccordionContent>
     </AccordionItem>

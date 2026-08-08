@@ -87,7 +87,6 @@ const Footer = () => {
               <FooterLink to="/busca?sort=novidades">Novidades</FooterLink>
               <FooterLink to="/busca?sort=populares">Em alta</FooterLink>
               <FooterLink to="/busca">Coleções</FooterLink>
-              <FooterLink to="/crie-seu-botton">Crie o seu</FooterLink>
             </FooterColumn>
 
             {/* Mesma regra da grade da home: pula o guarda-chuva (ver `browseCategories`). */}
