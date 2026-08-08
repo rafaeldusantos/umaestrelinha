@@ -1,17 +1,25 @@
 import { useState } from 'react'
+import { EstrelinhaSymbol } from '@/shared/ui/brand'
 
 /**
- * Banner do clube — artboards 22 e 23.
+ * A faixa da newsletter — board `67W-0`.
  *
- * É o único bloco da página inteiramente em CARIMBO: o "momento de cor" da
- * home, e o único lugar onde o rosa de preenchimento ocupa uma seção inteira.
- * Justamente por isso não leva mais nada colorido dentro — tipografia em
- * Grafite, campo branco, botão em Grafite, e um disco branco com o desconto em
- * Carmim.
+ * **O painel é `primary-strong`, não ouro.** O remap mecânico da Fase 3 trocou
+ * o rosa Carimbo por `accent` e deixou aqui a maior superfície chapada da loja
+ * em ouro — o lote 3 marcou isso para esta task, e o board responde: a banda é
+ * slate escuro, e o **ouro aparece só no botão**, que é o único elemento que
+ * precisa saltar. Ouro em bloco também não sustentaria texto: sobre `accent`,
+ * `ink` até lê, mas qualquer rótulo claro dentro dele reprovaria.
  *
- * O texto é Grafite CHAPADO, sem véu. Sobre Carimbo, Grafite lê a 5,22:1 e
- * qualquer opacidade come esse contraste; o véu só existe sobre superfícies
- * escuras, onde a base é branca.
+ * O botão é `accent` com texto **`ink`** (4,78:1), e não o `primary-strong`
+ * que o board escreve: aquele par mede 4,21:1 e reprova em AA num rótulo de
+ * 13px. É a única divergência de cor desta faixa, e está medida em
+ * `contrast.test.ts`.
+ *
+ * **Um campo só, e não os três do board.** A `5MC-0` desenha nome, telefone e
+ * e-mail; esta newsletter não tem destino nenhum para nome e telefone, e pedir
+ * dado que ninguém guarda é coleta sem finalidade. Quando houver lista de
+ * verdade, os campos nascem com ela.
  */
 const NewsletterBanner = () => {
   const [email, setEmail] = useState('')
@@ -25,70 +33,59 @@ const NewsletterBanner = () => {
   return (
     <section className="py-10 md:py-14">
       <div className="container">
-        <div className="flex flex-col items-center gap-8 rounded-[32px] bg-estrelinha-accent px-6 py-10 md:flex-row md:justify-between md:gap-12 md:px-16 md:py-14">
+        <div className="flex flex-col items-center gap-8 rounded-lg bg-estrelinha-primary-strong px-6 py-10 md:flex-row md:gap-14 md:px-16 md:py-11">
+          {/* O símbolo da marca ocupa a coluna que no board leva o selo
+              circular: `on-primary` sobre `primary-strong`, 9,60:1. */}
+          <EstrelinhaSymbol size={58} tone="onInk" className="shrink-0" />
+
           {submitted ? (
-            <div className="flex w-full flex-col items-center gap-2 py-4 text-center">
-              <span className="text-4xl" role="img" aria-label="Confete">
-                🎉
-              </span>
-              <p className="font-display text-[28px] font-semibold tracking-[-0.02em] text-estrelinha-ink">
+            <div className="flex w-full flex-col gap-1 text-center md:text-left">
+              <p className="font-display text-[23px] leading-7 text-estrelinha-on-primary">
                 Tudo certo!
               </p>
-              <p className="text-[16px] text-estrelinha-ink">
-                Você vai receber um cupom de 10% OFF no e-mail.
+              <p className="text-sm font-light text-estrelinha-on-primary/80">
+                Você vai receber as novidades da loja no seu e-mail.
               </p>
             </div>
           ) : (
-            <>
-              <div className="flex w-full flex-col gap-4 md:max-w-[560px]">
-                <h3 className="font-display text-[28px] font-semibold leading-[1.15] tracking-[-0.03em] text-estrelinha-ink md:text-[36px]">
-                  Entra no clube da Nana
+            <div className="flex w-full flex-col gap-4">
+              <div className="flex flex-col gap-1">
+                <h3 className="font-display text-[23px] leading-7 text-estrelinha-on-primary">
+                  Quer saber das novidades?
                 </h3>
-                <p className="text-[15px] leading-relaxed text-estrelinha-ink md:text-[17px]">
-                  Drops antes de todo mundo, promo secreta e 10% OFF no primeiro pedido.
-                </p>
-
-                <form
-                  noValidate
-                  onSubmit={handleSubmit}
-                  className="flex flex-col gap-2 rounded-sm bg-white p-1.5 sm:flex-row sm:items-center"
-                >
-                  <label htmlFor="newsletter-email" className="sr-only">
-                    Seu e-mail
-                  </label>
-                  <input
-                    id="newsletter-email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="seu@email.com"
-                    required
-                    className="min-w-0 flex-1 bg-transparent px-5 py-2.5 text-[15px] text-estrelinha-ink outline-none placeholder:text-estrelinha-ink-soft"
-                  />
-                  <button
-                    type="submit"
-                    className="shrink-0 rounded-sm bg-estrelinha-ink px-6 py-3.5 font-display text-[15px] font-semibold text-white transition-transform hover:scale-[1.03] active:scale-100 md:text-[16px]"
-                  >
-                    Quero 10% OFF
-                  </button>
-                </form>
-
-                <p className="text-[13px] text-estrelinha-ink">
-                  Sem spam. Só coisa boa. Cancele quando quiser.
+                <p className="text-sm font-light leading-[18px] text-estrelinha-on-primary/80">
+                  Cadastre-se e fique por dentro das novidades da loja.
                 </p>
               </div>
 
-              {/* Selo do desconto — disco branco, o respiro dentro do rosa. */}
-              <div
-                className="flex h-[150px] w-[150px] shrink-0 flex-col items-center justify-center rounded-full bg-white md:h-[196px] md:w-[196px]"
-                aria-hidden
+              <form
+                noValidate
+                onSubmit={handleSubmit}
+                className="flex flex-col gap-3 sm:flex-row sm:items-center"
               >
-                <span className="font-display text-[46px] font-semibold leading-none tracking-[-0.03em] text-estrelinha-primary md:text-[58px]">
-                  10%
-                </span>
-                <span className="mt-1 text-[12px] font-bold uppercase tracking-[0.18em] text-estrelinha-ink">off</span>
-              </div>
-            </>
+                <label htmlFor="newsletter-email" className="sr-only">
+                  Seu e-mail
+                </label>
+                {/* Sem `border`: o contorno do controle é o recorte do campo
+                    branco contra a banda `primary-strong` — 12,4:1, bem acima
+                    dos 3:1 da WCAG 1.4.11. */}
+                <input
+                  id="newsletter-email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="E-mail"
+                  required
+                  className="h-[50px] w-full min-w-0 rounded-sm sm:flex-1 bg-estrelinha-surface px-4 text-sm font-light text-estrelinha-ink outline-none placeholder:text-estrelinha-ink-soft focus:ring-2 focus:ring-estrelinha-accent"
+                />
+                <button
+                  type="submit"
+                  className="h-[50px] shrink-0 rounded-sm bg-estrelinha-accent px-8 text-[13px] font-semibold uppercase tracking-[0.06em] text-estrelinha-ink transition-colors hover:bg-estrelinha-on-primary"
+                >
+                  Me cadastrar
+                </button>
+              </form>
+            </div>
           )}
         </div>
       </div>
