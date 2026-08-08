@@ -15,10 +15,10 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
-      "@nanapin/ui": path.resolve(root, "packages/ui/src"),
-      "@nanapin/supabase": path.resolve(root, "packages/supabase/src"),
-      "@nanapin/auth": path.resolve(root, "packages/auth/src"),
-      "@nanapin/core": path.resolve(root, "packages/core/src"),
+      "@estrelinha/ui": path.resolve(root, "packages/ui/src"),
+      "@estrelinha/supabase": path.resolve(root, "packages/supabase/src"),
+      "@estrelinha/auth": path.resolve(root, "packages/auth/src"),
+      "@estrelinha/core": path.resolve(root, "packages/core/src"),
     },
   },
 });

@@ -11,7 +11,7 @@ export default defineConfig({
   resolve: {
     // Mesmo alias dos apps: o pacote é consumido como source, sem build step.
     alias: {
-      '@nanapin/supabase': path.resolve(root, 'packages/supabase/src'),
+      '@estrelinha/supabase': path.resolve(root, 'packages/supabase/src'),
     },
   },
 })

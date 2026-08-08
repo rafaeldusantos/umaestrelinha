@@ -271,8 +271,8 @@ apps) e o alias de `packages/core/vitest.config.ts`.
 **Tools** — MCP: nenhum · Skill: nenhuma
 
 **Done when**:
-- [ ] Os cinco configs resolvem `@estrelinha/*` e nenhum `@nanapin/*`
-- [ ] O `dedupe` do Vite da loja permanece intacto
+- [x] Os cinco configs resolvem `@estrelinha/*` e nenhum `@nanapin/*`
+- [x] O `dedupe` do Vite da loja permanece intacto
 
 **Tests**: none · **Gate**: none (idem T6)
 **Commit**: `refactor: aliases de Vite e Vitest apontam para @estrelinha/*`
