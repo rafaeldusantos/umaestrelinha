@@ -125,7 +125,7 @@ const ContactBlock = ({ open, complete, onEdit, onContinue, canContinue }: Props
             value={contact.name}
             onChange={(e) => edit({ name: e.target.value })}
             placeholder="Seu nome"
-            className="border-estrelinha-line"
+            className="border-estrelinha-field"
           />
         </div>
         <div className="flex flex-col gap-[7px]">
@@ -138,7 +138,7 @@ const ContactBlock = ({ open, complete, onEdit, onContinue, canContinue }: Props
             value={contact.email}
             onChange={(e) => edit({ email: e.target.value })}
             placeholder="seu@email.com"
-            className="border-estrelinha-line"
+            className="border-estrelinha-field"
           />
         </div>
       </div>
@@ -152,7 +152,7 @@ const ContactBlock = ({ open, complete, onEdit, onContinue, canContinue }: Props
           value={contact.whatsapp}
           onChange={(e) => edit({ whatsapp: e.target.value })}
           placeholder="(11) 99999-9999"
-          className="border-estrelinha-line"
+          className="border-estrelinha-field"
         />
       </div>
 

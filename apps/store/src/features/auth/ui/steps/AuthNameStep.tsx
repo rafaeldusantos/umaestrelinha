@@ -39,7 +39,7 @@ const AuthNameStep = () => {
           placeholder="Ex.: Maria Silva"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="rounded-xl border-estrelinha-line"
+          className="rounded-xl border-estrelinha-field"
         />
         {error && <p className="text-sm text-red-500" role="alert">{error}</p>}
         <Button

@@ -194,7 +194,7 @@ const PixPayment = ({ orderId, amount, onApproved }: Props) => {
             variant="outline"
             size="sm"
             onClick={copyPix}
-            className="rounded-lg border-estrelinha-line shrink-0"
+            className="rounded-lg border-estrelinha-field shrink-0"
           >
             {copied ? (
               <Check className="w-4 h-4 text-estrelinha-primary" aria-label="Código copiado" />

@@ -306,7 +306,7 @@ const DeliveryBlock = ({ open, complete, onEdit, onContinue, canContinue }: Prop
           value={address.cep}
           onChange={(e) => edit({ cep: maskCep(e.target.value) })}
           placeholder="00000-000"
-          className="border-estrelinha-line"
+          className="border-estrelinha-field"
         />
       </div>
 
@@ -339,7 +339,7 @@ const DeliveryBlock = ({ open, complete, onEdit, onContinue, canContinue }: Prop
             value={address.number}
             onChange={(e) => edit({ number: e.target.value })}
             placeholder="123"
-            className="border-estrelinha-line"
+            className="border-estrelinha-field"
           />
         </div>
       </div>
@@ -357,7 +357,7 @@ const DeliveryBlock = ({ open, complete, onEdit, onContinue, canContinue }: Prop
             value={address.complement}
             onChange={(e) => edit({ complement: e.target.value })}
             placeholder="Apto, bloco…"
-            className="border-estrelinha-line"
+            className="border-estrelinha-field"
           />
         </div>
         <div className="flex flex-col gap-[7px]">

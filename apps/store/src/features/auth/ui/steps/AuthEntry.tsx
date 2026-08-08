@@ -64,7 +64,7 @@ const AuthEntry = () => {
           placeholder="seu@email.com"
           value={email}
           onChange={(e) => setEmailLocal(e.target.value)}
-          className="rounded-xl border-estrelinha-line"
+          className="rounded-xl border-estrelinha-field"
         />
         {error && <p className="text-sm text-red-500" role="alert">{error}</p>}
         <Button

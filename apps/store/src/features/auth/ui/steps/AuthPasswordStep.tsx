@@ -38,7 +38,7 @@ const AuthPasswordStep = () => {
             placeholder="seu@email.com"
             value={email}
             onChange={(e) => setEmailLocal(e.target.value)}
-            className="rounded-xl border-estrelinha-line"
+            className="rounded-xl border-estrelinha-field"
           />
         </div>
         <div className="space-y-2">
@@ -50,7 +50,7 @@ const AuthPasswordStep = () => {
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="rounded-xl border-estrelinha-line pr-10"
+              className="rounded-xl border-estrelinha-field pr-10"
             />
             <button
               type="button"

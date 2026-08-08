@@ -287,7 +287,7 @@ const PaymentBlock = ({
                 value={payment.cpf}
                 onChange={(e) => setPayment({ cpf: maskDocument(e.target.value) })}
                 placeholder="000.000.000-00"
-                className="border-estrelinha-line"
+                className="border-estrelinha-field"
               />
             </div>
             <p className="flex items-center gap-2 pb-[2px] text-[13px] text-estrelinha-ink-soft sm:pb-[15px]">

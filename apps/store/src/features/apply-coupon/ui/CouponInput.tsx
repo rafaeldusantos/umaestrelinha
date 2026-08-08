@@ -105,7 +105,7 @@ const CouponInput = ({ subtotal, shippingCost, customerEmail, variant = 'default
           onKeyDown={(e) => e.key === 'Enter' && apply()}
           className={
             drawer
-              ? 'h-11 rounded-[10px] border border-dashed border-estrelinha-line bg-estrelinha-ground-deep/30 pl-9 text-[13px] uppercase text-estrelinha-ink placeholder:normal-case placeholder:text-estrelinha-ink-soft'
+              ? 'h-11 rounded-[10px] border border-dashed border-estrelinha-field bg-estrelinha-ground-deep/30 pl-9 text-[13px] uppercase text-estrelinha-ink placeholder:normal-case placeholder:text-estrelinha-ink-soft'
               : 'pl-9 uppercase'
           }
         />
