@@ -55,7 +55,7 @@ describe('AdminLoginPage', () => {
 
     // Credencial aceita, contexto ainda resolvendo: é exatamente o instante em que a versão antiga
     // navegava e era expulsa de volta.
-    ctx.current = { user: { id: 'nana' }, isAdmin: false, loading: true }
+    ctx.current = { user: { id: 'u-admin' }, isAdmin: false, loading: true }
     view.rerender(
       <MemoryRouter>
         <AdminLoginPage />
@@ -71,7 +71,7 @@ describe('AdminLoginPage', () => {
     await preencherEEnviar()
     await waitFor(() => expect(auth.signInWithPassword).toHaveBeenCalled())
 
-    ctx.current = { user: { id: 'nana' }, isAdmin: true, loading: false }
+    ctx.current = { user: { id: 'u-admin' }, isAdmin: true, loading: false }
     view.rerender(
       <MemoryRouter>
         <AdminLoginPage />

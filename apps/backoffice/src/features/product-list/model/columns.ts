@@ -24,7 +24,7 @@ export interface ColumnPrefs {
   density: Density
 }
 
-const STORAGE_KEY = 'nanapin.admin.product-columns'
+const STORAGE_KEY = 'estrelinha.admin.product-columns'
 
 export const defaultPrefs = (): ColumnPrefs => ({ hidden: [], density: 'confortavel' })
 

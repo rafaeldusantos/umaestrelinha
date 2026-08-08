@@ -9,7 +9,7 @@ const NOW = new Date('2026-08-03T12:00:00.000Z')
 const coupon = (over: Partial<Coupon> = {}): Coupon =>
   ({
     id: 'cup-1',
-    code: 'NANA10',
+    code: 'ESTRELA10',
     description: null,
     type: 'percent',
     value: 10,

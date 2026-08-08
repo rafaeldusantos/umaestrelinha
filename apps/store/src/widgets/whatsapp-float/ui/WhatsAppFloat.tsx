@@ -3,7 +3,7 @@ import { MessageCircle, X } from 'lucide-react'
 import { useLocation } from 'react-router-dom'
 import { useGeneralSettings } from '@estrelinha/core/hooks/useStoreSettings'
 
-const SEEN_KEY = 'nana_wa_seen_v1'
+const SEEN_KEY = 'estrelinha_wa_seen_v1'
 
 const WhatsAppFloat = () => {
   const { whatsapp, whatsapp_message, store_name } = useGeneralSettings()

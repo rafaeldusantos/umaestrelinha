@@ -209,7 +209,7 @@ export async function cancelPreviousOrder(
 //
 //   2b) DESCRITOR DE FATURA (ORD-03) — **CONFIRMADO em T16**: o MP aceita
 //      `statement_descriptor` dentro de `transactions.payments[0].payment_method` e o devolve
-//      na resposta (`"statement_descriptor": "NANITA"`). A posição do payload está certa.
+//      na resposta (`"statement_descriptor": "UMA ESTRELINHA"`). A posição do payload está certa.
 //
 //   3) PEDIDO SEM CPF (o defeito que esta feature veio corrigir)
 //      · `update customers set cpf=null where id=<customer>;`

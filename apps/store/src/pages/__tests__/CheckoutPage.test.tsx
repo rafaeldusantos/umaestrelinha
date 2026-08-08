@@ -1276,7 +1276,7 @@ describe('CheckoutPage — header, confiança e paleta (CHK-10, CHK-12)', () => 
     expect(column?.className).toMatch(/\bmin-w-0\b/)
   })
 
-  it('nenhuma classe de cor fora da paleta Nanita', () => {
+  it('nenhuma classe de cor fora da paleta Uma Estrelinha', () => {
     fillAll()
     const { container } = renderPage()
 

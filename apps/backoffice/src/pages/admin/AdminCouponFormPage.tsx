@@ -149,7 +149,7 @@ const AdminCouponFormPage = () => {
                 // Monospace porque é um código para copiar e conferir letra por letra — `0` e `O`
                 // são indistinguíveis na fonte de texto.
                 className="font-mono uppercase"
-                placeholder="NANA10"
+                placeholder="ESTRELA10"
                 {...codeField}
                 // O `ref` do `register` não pode ser perdido: é por ele que o RHF lê e foca o campo.
                 // Guardamos os dois — o dele e o nosso, que a duplicação usa para focar.

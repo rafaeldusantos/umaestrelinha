@@ -15,7 +15,7 @@ const ORDER_EXPIRATION_MINUTES = 30
 export const ORDER_EXPIRATION = `PT${ORDER_EXPIRATION_MINUTES}M`
 
 /** Texto que aparece na fatura do cartão. Constante da loja — por isso mora no domínio. */
-export const STATEMENT_DESCRIPTOR = 'NANITA'
+export const STATEMENT_DESCRIPTOR = 'UMA ESTRELINHA'
 
 export interface OrderCardMethod {
   id: string

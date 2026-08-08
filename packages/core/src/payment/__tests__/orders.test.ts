@@ -21,7 +21,7 @@ import type { Payer } from '../payer'
 
 const PAYER: Payer = {
   email: 'cliente@exemplo.com',
-  first_name: 'Nana',
+  first_name: 'Ana',
   last_name: 'Pin',
   identification: { type: 'CPF', number: '39053344705' },
 }
@@ -98,7 +98,7 @@ describe('buildOrderPayload — cartão (ORD-03)', () => {
       type: 'credit_card',
       token: 'tok_abc123',
       installments: 3,
-      statement_descriptor: 'NANITA',
+      statement_descriptor: 'UMA ESTRELINHA',
     })
   })
 

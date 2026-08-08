@@ -52,7 +52,7 @@ beforeEach(() => {
 
 describe('useCheckoutSettings', () => {
   it('devolve os defaults quando não existe linha `checkout` no banco', async () => {
-    rows([{ key: 'general', value: { store_name: 'Nanita' } }])
+    rows([{ key: 'general', value: { store_name: 'Uma Estrelinha' } }])
     const result = await loadSettings()
     expect(result.current.checkout).toEqual({
       order_bump_enabled: false,

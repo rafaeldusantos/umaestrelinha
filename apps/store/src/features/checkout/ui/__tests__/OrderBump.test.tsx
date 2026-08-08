@@ -28,7 +28,7 @@ const productByIdMock = vi.mocked(useProductById)
 const product = (overrides: Partial<Product> = {}): Product =>
   ({
     id: 'bump-1',
-    name: 'Porta-pins de feltro Nanita',
+    name: 'Caixinha de veludo',
     slug: 'porta-pins',
     price: 24.9,
     compare_price: null,
@@ -70,7 +70,7 @@ describe('OrderBump — condições de exibição (BMP-02)', () => {
   it('renderiza a oferta com as quatro condições satisfeitas', () => {
     render(<OrderBump />)
 
-    expect(screen.getByText('Porta-pins de feltro Nanita')).toBeInTheDocument()
+    expect(screen.getByText('Caixinha de veludo')).toBeInTheDocument()
     expect(screen.getByRole('checkbox')).toBeInTheDocument()
   })
 

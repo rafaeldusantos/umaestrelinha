@@ -15,7 +15,7 @@ interface Props {
 }
 
 /**
- * `Cupom NANA10 aplicado — 10% off`.
+ * `Cupom ESTRELA10 aplicado — 10% off`.
  *
  * Não exportada: um arquivo de componente que exporta função quebra o hot reload do Vite
  * (`react-refresh/only-export-components`), e esta frase não tem outro consumidor — ela é provada

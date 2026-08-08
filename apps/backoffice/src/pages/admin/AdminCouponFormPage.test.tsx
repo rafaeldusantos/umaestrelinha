@@ -30,8 +30,8 @@ const LISTAGEM = 'LISTAGEM DE CUPONS'
 
 const coupon = (over: Partial<Coupon> = {}): Coupon =>
   ({
-    id: 'cup-nana10',
-    code: 'NANA10',
+    id: 'cup-estrela10',
+    code: 'ESTRELA10',
     description: 'Boas-vindas',
     type: 'percent',
     value: 10,
@@ -100,10 +100,10 @@ describe('DSC-02 — a tela substitui a modal', () => {
   })
 
   it('editar carrega os campos gravados e titula com o código (AC 2)', () => {
-    renderAt('/admin/cupons/cup-nana10/editar', [coupon()])
+    renderAt('/admin/cupons/cup-estrela10/editar', [coupon()])
 
-    expect(screen.getByRole('heading', { name: 'NANA10' })).toBeInTheDocument()
-    expect(screen.getByLabelText('Código')).toHaveValue('NANA10')
+    expect(screen.getByRole('heading', { name: 'ESTRELA10' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Código')).toHaveValue('ESTRELA10')
     expect(screen.getByLabelText('Descrição')).toHaveValue('Boas-vindas')
     expect(screen.getByLabelText('Percentual')).toHaveValue(10)
     expect(screen.getByLabelText('Pedido mínimo (R$)')).toHaveValue(80)
@@ -124,7 +124,7 @@ describe('DSC-02 — a tela substitui a modal', () => {
   })
 
   it('enquanto a listagem carrega, a edição não decide que não achou', () => {
-    renderAt('/admin/cupons/cup-nana10/editar', [], { isLoading: true })
+    renderAt('/admin/cupons/cup-estrela10/editar', [], { isLoading: true })
 
     expect(screen.getByText('Carregando...')).toBeInTheDocument()
     expect(screen.queryByText('Cupom não encontrado')).not.toBeInTheDocument()
@@ -170,20 +170,20 @@ describe('DSC-02 — o desconto', () => {
 
   it('o código vai para o banco em maiúsculas (AC 6)', async () => {
     renderAt('/admin/cupons/novo')
-    type('Código', 'nana10')
+    type('Código', 'estrela10')
 
-    expect(screen.getByLabelText('Código')).toHaveValue('NANA10')
+    expect(screen.getByLabelText('Código')).toHaveValue('ESTRELA10')
     save()
 
     await waitFor(() => expect(hook.createMutate).toHaveBeenCalledTimes(1))
-    expect(hook.createMutate).toHaveBeenCalledWith(expect.objectContaining({ code: 'NANA10' }))
+    expect(hook.createMutate).toHaveBeenCalledWith(expect.objectContaining({ code: 'ESTRELA10' }))
   })
 })
 
 describe('DSC-02 AC 7 — o desfecho do save', () => {
   it('criar com sucesso navega para a listagem', async () => {
     renderAt('/admin/cupons/novo')
-    type('Código', 'NANA10')
+    type('Código', 'ESTRELA10')
 
     save()
 
@@ -192,12 +192,12 @@ describe('DSC-02 AC 7 — o desfecho do save', () => {
   })
 
   it('editar manda o `id` no update, não um insert novo', async () => {
-    renderAt('/admin/cupons/cup-nana10/editar', [coupon()])
+    renderAt('/admin/cupons/cup-estrela10/editar', [coupon()])
 
     save()
 
     await waitFor(() => expect(hook.updateMutate).toHaveBeenCalledTimes(1))
-    expect(hook.updateMutate).toHaveBeenCalledWith(expect.objectContaining({ id: 'cup-nana10' }))
+    expect(hook.updateMutate).toHaveBeenCalledWith(expect.objectContaining({ id: 'cup-estrela10' }))
     expect(hook.createMutate).not.toHaveBeenCalled()
   })
 
@@ -206,13 +206,13 @@ describe('DSC-02 AC 7 — o desfecho do save', () => {
       new Error('duplicate key value violates unique constraint "coupons_code_key"'),
     )
     renderAt('/admin/cupons/novo')
-    type('Código', 'NANA10')
+    type('Código', 'ESTRELA10')
 
     save()
 
     await waitFor(() => expect(hook.createMutate).toHaveBeenCalledTimes(1))
     expect(screen.queryByText(LISTAGEM)).not.toBeInTheDocument()
-    expect(screen.getByLabelText('Código')).toHaveValue('NANA10')
+    expect(screen.getByLabelText('Código')).toHaveValue('ESTRELA10')
     expect(vi.mocked(toast)).toHaveBeenCalledWith(
       expect.objectContaining({ title: 'Erro ao salvar cupom', variant: 'destructive' }),
     )
@@ -224,7 +224,7 @@ describe('DSC-03 — o cabeçalho', () => {
     renderAt('/admin/cupons/novo')
     expect(screen.queryByText('Alterações não salvas')).not.toBeInTheDocument()
 
-    type('Código', 'NANA10')
+    type('Código', 'ESTRELA10')
 
     expect(screen.getByText('Alterações não salvas')).toBeInTheDocument()
   })
@@ -240,7 +240,7 @@ describe('DSC-03 — o cabeçalho', () => {
 
   it('`Ctrl+S` submete', async () => {
     renderAt('/admin/cupons/novo')
-    type('Código', 'NANA10')
+    type('Código', 'ESTRELA10')
 
     fireEvent.keyDown(window, { key: 's', ctrlKey: true })
 
@@ -258,7 +258,7 @@ describe('DSC-05 — a vigência por calendário', () => {
   })
 
   it('limpar a data grava nulo', async () => {
-    renderAt('/admin/cupons/cup-nana10/editar', [coupon()])
+    renderAt('/admin/cupons/cup-estrela10/editar', [coupon()])
 
     fireEvent.click(screen.getByRole('button', { name: 'Limpar Válido até' }))
     save()
@@ -268,7 +268,7 @@ describe('DSC-05 — a vigência por calendário', () => {
   })
 
   it('o dia escolhido no calendário vai para o payload como o MESMO dia', async () => {
-    renderAt('/admin/cupons/cup-nana10/editar', [coupon()])
+    renderAt('/admin/cupons/cup-estrela10/editar', [coupon()])
 
     fireEvent.click(screen.getByRole('button', { name: 'Válido de' }))
     fireEvent.click(screen.getByRole('gridcell', { name: '15' }))
@@ -281,7 +281,7 @@ describe('DSC-05 — a vigência por calendário', () => {
 
 describe('DSC-08 — a cópia chega para ser batizada', () => {
   it('`?from=` traz tudo menos o código, e desligada (AC 1-3)', async () => {
-    renderAt('/admin/cupons/novo?from=cup-nana10', [coupon()])
+    renderAt('/admin/cupons/novo?from=cup-estrela10', [coupon()])
 
     expect(screen.getByLabelText('Código')).toHaveValue('')
     expect(screen.getByLabelText('Descrição')).toHaveValue('Boas-vindas')
@@ -294,21 +294,21 @@ describe('DSC-08 — a cópia chega para ser batizada', () => {
   })
 
   it('o campo de código chega focado — é a única decisão que falta', () => {
-    renderAt('/admin/cupons/novo?from=cup-nana10', [coupon()])
+    renderAt('/admin/cupons/novo?from=cup-estrela10', [coupon()])
 
     expect(screen.getByLabelText('Código')).toHaveFocus()
   })
 
   it('a cópia é um insert novo, e nada é escrito no original (AC 4)', async () => {
-    renderAt('/admin/cupons/novo?from=cup-nana10', [coupon()])
-    type('Código', 'NANA15')
+    renderAt('/admin/cupons/novo?from=cup-estrela10', [coupon()])
+    type('Código', 'ESTRELA15')
 
     save()
 
     await waitFor(() => expect(hook.createMutate).toHaveBeenCalledTimes(1))
     expect(hook.updateMutate).not.toHaveBeenCalled()
     expect(hook.createMutate).toHaveBeenCalledWith(
-      expect.objectContaining({ code: 'NANA15', active: false, min_order: 80, max_uses: 40 }),
+      expect.objectContaining({ code: 'ESTRELA15', active: false, min_order: 80, max_uses: 40 }),
     )
   })
 
@@ -323,10 +323,10 @@ describe('DSC-08 — a cópia chega para ser batizada', () => {
 describe('DSC-02 — o card "No checkout vai aparecer"', () => {
   it('monta a frase com o código e o efeito', () => {
     renderAt('/admin/cupons/novo')
-    type('Código', 'nana10')
+    type('Código', 'estrela10')
 
     expect(screen.getByTestId('checkout-linha')).toHaveTextContent(
-      'Cupom NANA10 aplicado — 10% off',
+      'Cupom ESTRELA10 aplicado — 10% off',
     )
   })
 
@@ -349,7 +349,7 @@ describe('DSC-02 — o card "No checkout vai aparecer"', () => {
   })
 
   it('diz o mínimo quando existe, e diz que não há quando é zero', () => {
-    renderAt('/admin/cupons/cup-nana10/editar', [coupon()])
+    renderAt('/admin/cupons/cup-estrela10/editar', [coupon()])
     expect(screen.getByText('Só a partir de R$ 80,00 em produtos.')).toBeInTheDocument()
 
     renderAt('/admin/cupons/novo')

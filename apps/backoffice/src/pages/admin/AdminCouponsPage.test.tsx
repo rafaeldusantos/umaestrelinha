@@ -31,8 +31,8 @@ import { isoFromDateOnly } from '@/shared/lib/dateOnly'
 
 const coupon = (over: Partial<Coupon> = {}): Coupon =>
   ({
-    id: 'cup-nana10',
-    code: 'NANA10',
+    id: 'cup-estrela10',
+    code: 'ESTRELA10',
     description: null,
     type: 'percent',
     value: 10,
@@ -143,15 +143,15 @@ describe('DSC-06 — a língua da listagem de promoções', () => {
   it('as ações vêm na ordem das promoções: pausar, duplicar, editar, excluir (AC 6)', () => {
     renderPage()
 
-    const acoes = within(rowOf('NANA10'))
+    const acoes = within(rowOf('ESTRELA10'))
       .getAllByRole('button')
       .map(button => button.getAttribute('aria-label'))
 
     expect(acoes).toEqual([
-      'Pausar NANA10',
-      'Duplicar NANA10',
-      'Editar NANA10',
-      'Excluir NANA10',
+      'Pausar ESTRELA10',
+      'Duplicar ESTRELA10',
+      'Editar ESTRELA10',
+      'Excluir ESTRELA10',
     ])
   })
 })
@@ -200,12 +200,12 @@ describe('DSC-07 — pausar sem abrir o formulário', () => {
   it('pausa gravando `active: false` e só isso (AC 2-3)', async () => {
     renderPage()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Pausar NANA10' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Pausar ESTRELA10' }))
 
     await waitFor(() => expect(hook.updateMutate).toHaveBeenCalledTimes(1))
     // O patch é exatamente `{ id, active }`: qualquer campo a mais reescreveria o cupom com o que
     // esta tela tem em cache, que pode estar velho.
-    expect(hook.updateMutate).toHaveBeenCalledWith({ id: 'cup-nana10', active: false })
+    expect(hook.updateMutate).toHaveBeenCalledWith({ id: 'cup-estrela10', active: false })
     expect(vi.mocked(toast)).toHaveBeenCalledWith(
       expect.objectContaining({
         title: 'Cupom pausado.',
@@ -217,10 +217,10 @@ describe('DSC-07 — pausar sem abrir o formulário', () => {
   it('o botão do cupom pausado reativa', async () => {
     renderPage([coupon({ active: false })])
 
-    fireEvent.click(screen.getByRole('button', { name: 'Reativar NANA10' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Reativar ESTRELA10' }))
 
     await waitFor(() => expect(hook.updateMutate).toHaveBeenCalledTimes(1))
-    expect(hook.updateMutate).toHaveBeenCalledWith({ id: 'cup-nana10', active: true })
+    expect(hook.updateMutate).toHaveBeenCalledWith({ id: 'cup-estrela10', active: true })
     expect(vi.mocked(toast)).toHaveBeenCalledWith(
       expect.objectContaining({ title: 'Cupom reativado.' }),
     )
@@ -229,15 +229,15 @@ describe('DSC-07 — pausar sem abrir o formulário', () => {
   it('o botão segue a coluna `active`, não o selo — expirado ainda é algo que se pausa', () => {
     renderPage([coupon({ valid_until: '2026-01-01T00:00:00.000Z' })])
 
-    expect(rowOf('NANA10')).toHaveTextContent('Expirado')
-    expect(screen.getByRole('button', { name: 'Pausar NANA10' })).toBeInTheDocument()
+    expect(rowOf('ESTRELA10')).toHaveTextContent('Expirado')
+    expect(screen.getByRole('button', { name: 'Pausar ESTRELA10' })).toBeInTheDocument()
   })
 
   it('falha ao pausar avisa e não finge que deu certo (AC 4)', async () => {
     hook.updateMutate.mockRejectedValue(new Error('permission denied'))
     renderPage()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Pausar NANA10' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Pausar ESTRELA10' }))
 
     await waitFor(() =>
       expect(vi.mocked(toast)).toHaveBeenCalledWith(
@@ -263,9 +263,9 @@ describe('DSC-08 AC 1 / DSC-02 — a listagem navega', () => {
   it('duplicar leva a `/admin/cupons/novo?from=<id>` — e não grava nada (AC 4)', () => {
     renderPage()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Duplicar NANA10' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Duplicar ESTRELA10' }))
 
-    expect(screen.getByText('NOVO from=cup-nana10')).toBeInTheDocument()
+    expect(screen.getByText('NOVO from=cup-estrela10')).toBeInTheDocument()
     // O original não sofre escrita nenhuma enquanto a cópia não é salva.
     expect(hook.updateMutate).not.toHaveBeenCalled()
   })
@@ -289,17 +289,17 @@ describe('excluir cupom', () => {
   it('confirmar chama a mutação com o id, e avisa que pedidos pagos não mudam', async () => {
     renderPage()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Excluir NANA10' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Excluir ESTRELA10' }))
     expect(screen.getByText(/mantêm o desconto que praticaram/)).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Excluir' }))
 
-    await waitFor(() => expect(hook.deleteMutate).toHaveBeenCalledWith('cup-nana10'))
+    await waitFor(() => expect(hook.deleteMutate).toHaveBeenCalledWith('cup-estrela10'))
   })
 
   it('cancelar não exclui', () => {
     renderPage()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Excluir NANA10' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Excluir ESTRELA10' }))
     fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
 
     expect(hook.deleteMutate).not.toHaveBeenCalled()

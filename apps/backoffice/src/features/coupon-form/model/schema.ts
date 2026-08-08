@@ -59,7 +59,7 @@ export const couponFormValues = (coupon: Coupon): CouponFormValues => ({
  * Duas ausências deliberadas, e nenhuma das duas é esquecimento:
  *
  * - **`code` fica vazio.** `coupons.code` é `UNIQUE`, então uma cópia com o mesmo código nem entra no
- *   banco; e inventar `NANA10-COPIA` publicaria um código que ninguém escolheu — o código é o texto
+ *   banco; e inventar `ESTRELA10-COPIA` publicaria um código que ninguém escolheu — o código é o texto
  *   que a cliente digita, não um identificador interno. Quem batiza é a pessoa, no campo focado.
  * - **`used_count` não existe aqui.** Ele é histórico do cupom antigo. Nem sequer é campo de
  *   formulário: a coluna tem `default 0` e a cópia nasce zerada pelo banco.

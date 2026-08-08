@@ -31,7 +31,7 @@ const product = (over: Partial<Product> = {}): Product =>
   ({
     id: 'p1', name: 'Botton Naruto', slug: 'naruto', price: 5.9, compare_price: null,
     category_id: 'c1', category_slug: 'anime', description: '', image_url: '',
-    images: [{ url: 'https://cdn.nanita/naruto.png', alt: '', source: 'upload' }],
+    images: [{ url: 'https://cdn.umaestrelinha/naruto.png', alt: '', source: 'upload' }],
     stock_total: 10, low_stock_threshold: 5,
     is_new: false, is_featured: false, tags: [],
     ...over,
@@ -64,7 +64,7 @@ const track = async () => {
 
 describe('useAbandonedCartTracker — caminho de escrita', () => {
   it('grava pela RPC track_abandoned_cart, não pela tabela', async () => {
-    sessionStorage.setItem('estrelinha-guest-email', 'cliente@nanita.com.br')
+    sessionStorage.setItem('estrelinha-guest-email', 'cliente@umaestrelinha.com.br')
     useCartStore.getState().addItem(product(), '4,5 cm', 'Fosco')
 
     await track()
@@ -74,12 +74,12 @@ describe('useAbandonedCartTracker — caminho de escrita', () => {
   })
 
   it('normaliza o e-mail e não manda customer_id no corpo', async () => {
-    authState.user = { id: 'u-1', email: '  Cliente@Nanita.COM.br ' }
+    authState.user = { id: 'u-1', email: '  Cliente@UmaEstrelinha.COM.br ' }
     useCartStore.getState().addItem(product(), '4,5 cm', 'Fosco')
 
     await track()
 
-    expect(lastPayload().p_email).toBe('cliente@nanita.com.br')
+    expect(lastPayload().p_email).toBe('cliente@umaestrelinha.com.br')
     expect(lastPayload()).not.toHaveProperty('customer_id')
     expect(lastPayload()).not.toHaveProperty('p_customer_id')
   })
@@ -93,7 +93,7 @@ describe('useAbandonedCartTracker — caminho de escrita', () => {
   })
 
   it('não rastreia carrinho vazio', async () => {
-    sessionStorage.setItem('estrelinha-guest-email', 'cliente@nanita.com.br')
+    sessionStorage.setItem('estrelinha-guest-email', 'cliente@umaestrelinha.com.br')
 
     await track()
 
@@ -103,7 +103,7 @@ describe('useAbandonedCartTracker — caminho de escrita', () => {
 
 describe('useAbandonedCartTracker — snapshot dos itens', () => {
   it('descarta imagem embutida em data: URI (botton personalizado)', async () => {
-    sessionStorage.setItem('estrelinha-guest-email', 'cliente@nanita.com.br')
+    sessionStorage.setItem('estrelinha-guest-email', 'cliente@umaestrelinha.com.br')
     useCartStore.getState().addItem(
       product({
         id: 'custom-1785677864786',
@@ -122,16 +122,16 @@ describe('useAbandonedCartTracker — snapshot dos itens', () => {
   })
 
   it('preserva imagem hospedada', async () => {
-    sessionStorage.setItem('estrelinha-guest-email', 'cliente@nanita.com.br')
+    sessionStorage.setItem('estrelinha-guest-email', 'cliente@umaestrelinha.com.br')
     useCartStore.getState().addItem(product(), '4,5 cm', 'Fosco')
 
     await track()
 
-    expect(lastPayload().p_items[0].product_image).toBe('https://cdn.nanita/naruto.png')
+    expect(lastPayload().p_items[0].product_image).toBe('https://cdn.umaestrelinha/naruto.png')
   })
 
   it('usa o preço congelado da linha, não o base do produto', async () => {
-    sessionStorage.setItem('estrelinha-guest-email', 'cliente@nanita.com.br')
+    sessionStorage.setItem('estrelinha-guest-email', 'cliente@umaestrelinha.com.br')
     useCartStore.getState().addItem(product({ price: 5.9 }), '', '', {
       variantId: 'v1',
       variantLabel: '5,5 cm · Brilho',

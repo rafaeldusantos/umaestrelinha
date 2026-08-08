@@ -161,7 +161,7 @@ describe('SlugReadonlyLine — a aba Geral não edita slug (PFM-02 AC 1, 3)', ()
 
     // O domínio e o slug são elementos separados — o artboard dá peso maior ao slug, que é a parte
     // que muda. A asserção é sobre a faixa inteira, não sobre um nó só.
-    expect(screen.getByText('nanita.com.br/produto/')).toBeInTheDocument()
+    expect(screen.getByText('umaestrelinha.com.br/produto/')).toBeInTheDocument()
     expect(screen.getByText('botton-sailor-moon')).toBeInTheDocument()
     expect(container.querySelector('input')).toBeNull()
   })

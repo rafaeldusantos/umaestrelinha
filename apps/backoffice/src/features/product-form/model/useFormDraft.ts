@@ -22,7 +22,7 @@ export interface FormDraft {
   form: ProductFormState
 }
 
-const PREFIX = 'nanapin-product-draft'
+const PREFIX = 'estrelinha-product-draft'
 
 /**
  * Uma chave por produto. Sem isso, abrir o produto B com rascunho pendente do produto A ofereceria

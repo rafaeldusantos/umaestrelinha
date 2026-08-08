@@ -8,7 +8,7 @@ import { useProducts } from '@/entities/product'
  * A barra de universos do desktop e o painel que ela abre — board "Desktop Mega Menu Open - v3".
  *
  * O board é da era v3 pop-culture (`Lilita One`, `#1A0F2E`, `#FF3B7F`). A **estrutura e o espaçamento**
- * dele são a entrega; a paleta e a tipografia vêm do tema Nanita, porque o `DESIGN.md` já aposentou as
+ * dele são a entrega; a paleta e a tipografia vêm do tema da loja, porque o `DESIGN.md` já aposentou as
  * três coisas. A coluna "Por estilo" do board ficou fora do escopo (eixo transversal, sem modelo de
  * dado) e os 160px dela sobraram para a faixa "Em alta", que segue com 3 cards.
  *

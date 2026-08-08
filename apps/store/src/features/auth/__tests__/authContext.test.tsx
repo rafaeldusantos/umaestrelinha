@@ -384,7 +384,7 @@ describe('AuthContext.signInWithGoogle (AUTH-05, AUTH-10)', () => {
 describe('AuthContext.loading durante a resolução de sessão', () => {
   /** Deixa o `setTimeout(0)` do `onAuthStateChange` disparar. */
   const tick = () => new Promise<void>((r) => setTimeout(r, 0))
-  const session = (id: string) => ({ user: { id, email: `${id}@nanita.dev` } })
+  const session = (id: string) => ({ user: { id, email: `${id}@umaestrelinha.dev` } })
 
   it('fica true enquanto resolve uma sessão nova e só fecha com papel e cliente em mãos', async () => {
     let emit: (event: string, s: any) => void = () => {}
@@ -407,7 +407,7 @@ describe('AuthContext.loading durante a resolução de sessão', () => {
     )
 
     await act(async () => {
-      emit('SIGNED_IN', session('nana'))
+      emit('SIGNED_IN', session('u-1'))
       // A resolução é agendada FORA do callback (`setTimeout(0)`, para não ler o banco de dentro do
       // `onAuthStateChange`); este tick é o que a faz começar.
       await tick()
@@ -433,14 +433,14 @@ describe('AuthContext.loading durante a resolução de sessão', () => {
     const { result } = await mountAuth()
 
     await act(async () => {
-      emit('SIGNED_IN', session('nana'))
+      emit('SIGNED_IN', session('u-1'))
       await tick()
     })
     await waitFor(() => expect(result.current.loading).toBe(false))
 
     const chamadasAntes = queries['user_roles'].select.mock.calls.length
     await act(async () => {
-      emit('TOKEN_REFRESHED', session('nana'))
+      emit('TOKEN_REFRESHED', session('u-1'))
       await tick()
     })
 

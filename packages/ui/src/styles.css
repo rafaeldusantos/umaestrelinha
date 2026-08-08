@@ -6,19 +6,19 @@
 
 @layer base {
   :root {
-    /* Nana backgrounds light mode */
+    /* Painel: backgrounds light mode */
     --estrelinha-admin-bg: #FFF9F5;
     --estrelinha-admin-bg-alt: #FFFFFF;
     --estrelinha-admin-card: #FFFFFF;
     --estrelinha-admin-card-hover: #FFF0F5;
     --estrelinha-admin-elevated: #F3EFF8;
 
-    /* Nana texto light mode */
+    /* Painel: texto light mode */
     --estrelinha-admin-text: #1A0F2E;
     --estrelinha-admin-text-secondary: #5A4E6F;
     --estrelinha-admin-text-muted: #9B8EC4;
 
-    /* Nana borders light mode */
+    /* Painel: borders light mode */
     --estrelinha-admin-border: #F0EAF5;
     --estrelinha-admin-border-hover: rgba(108,60,233,0.3);
 

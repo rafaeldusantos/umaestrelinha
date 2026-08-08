@@ -7,7 +7,7 @@
 import { useCallback, useState } from 'react'
 import type { ProductFilters } from '@/entities/product/api/productQuery'
 
-const STORAGE_KEY = 'nanapin.admin.product-views'
+const STORAGE_KEY = 'estrelinha.admin.product-views'
 
 export interface SavedView {
   id: string

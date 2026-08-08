@@ -71,8 +71,6 @@ const renderPage = (id = 'order-1') =>
  * olho é o arco fechado. `happy`/`sad` renderizam dois; `heart`, `star` e `surprised`, nenhum.
  * A contagem de `rect` é, portanto, o discriminador de forma da expressão.
  */
-/** Toda ilustração de persona que já morou nesta tela. Deve dar zero. */
-const personaIllustrations = () => screen.queryAllByRole('img', { name: /Nana/i }).length
 
 beforeEach(() => {
   useOrderMock.mockReset()
@@ -121,7 +119,7 @@ describe('OrderConfirmationPage — o pedido é lido por id (CNF-03)', () => {
 })
 
 describe('OrderConfirmationPage — conteúdo da confirmação (CNF-04)', () => {
-  it('não exibe ilustração de persona nenhuma', () => {
+  it('o cabeçalho fica de pé sem a ilustração de persona', () => {
     // A `CNF-04` original pedia a mascote da loja anterior aqui, piscando. A
     // persona saiu com o rebrand (`COP-07`), e o teste inverteu junto: ele
     // deixou de provar que a ilustração aparece e passa a provar que ela não
@@ -129,8 +127,11 @@ describe('OrderConfirmationPage — conteúdo da confirmação (CNF-04)', () => 
     mockOrder({ data: order() })
     renderPage()
 
-    expect(personaIllustrations()).toBe(0)
+    // Que a persona não POSSA voltar é a `brandScan.test.ts` que garante, e no
+    // repositório inteiro — aqui se prova o que é desta tela: o cabeçalho da
+    // confirmação continua de pé sem a ilustração que o sustentava no board.
     expect(screen.getByText(/PEDIDO/)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument()
   })
 
   it('exibe o número do pedido', () => {
@@ -250,7 +251,7 @@ describe('OrderConfirmationPage — ações (CNF-05)', () => {
         variantId: null, variantLabel: '', optionValues: {}, unitPrice: 10,
       }],
     })
-    useCouponStore.setState({ applied: { id: 'cp1', code: 'NANA10' } as any })
+    useCouponStore.setState({ applied: { id: 'cp1', code: 'ESTRELA10' } as any })
     mockOrder({ data: order() })
     renderPage()
 
@@ -258,7 +259,7 @@ describe('OrderConfirmationPage — ações (CNF-05)', () => {
     expect(useCouponStore.getState().applied).not.toBeNull()
   })
 
-  it('nenhuma classe de cor fora da paleta Nanita', () => {
+  it('nenhuma classe de cor fora da paleta Uma Estrelinha', () => {
     mockOrder({ data: order() })
     const { container } = renderPage()
 

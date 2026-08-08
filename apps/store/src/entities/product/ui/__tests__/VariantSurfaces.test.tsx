@@ -11,7 +11,7 @@ import { useCartStore } from '@/entities/cart/model/cartStore'
 vi.mock('sonner', () => ({ toast: { custom: vi.fn(), error: vi.fn(), success: vi.fn() } }))
 vi.mock('@/entities/category/api/useCategories', () => ({ useCategories: () => ({ data: [] }) }))
 vi.mock('@estrelinha/core/hooks/useStoreSettings', () => ({
-  useGeneralSettings: () => ({ whatsapp: '', store_name: 'Nanita' }),
+  useGeneralSettings: () => ({ whatsapp: '', store_name: 'Uma Estrelinha' }),
   usePaymentSettings: () => ({
     max_installments: 6,
     min_installment_value: 10,

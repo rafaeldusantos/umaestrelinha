@@ -111,7 +111,7 @@ function paymentRows(orderOverrides: Record<string, unknown> = {}) {
       id: ORDER_ID,
       customer_id: 'cust-1',
       customer_email: 'cliente@estrelinha.test',
-      customer_name: 'Nana Pin',
+      customer_name: 'Ana Souza',
       payment_status: 'pending',
       shipping_cost: 0,
       coupon_id: null,
@@ -218,7 +218,7 @@ describe('create-payment → POST /v1/orders (ORD-01…ORD-05)', () => {
     const call = fetchDouble.calls.at(-1)!
     expect(call.body.payer).toEqual({
       email: 'cliente@estrelinha.test',
-      // De `customers.name` ('Mariana Souza Lima'), não de `orders.customer_name` ('Nana Pin').
+      // De `customers.name` ('Mariana Souza Lima'), não de `orders.customer_name` ('Ana Souza').
       first_name: PAYER_FIRST_NAME,
       last_name: PAYER_LAST_NAME,
       identification: { type: 'CPF', number: ORDER_CPF },
@@ -247,7 +247,7 @@ describe('create-payment → POST /v1/orders (ORD-01…ORD-05)', () => {
       token: 'card-token-xyz',
       installments: 3,
       // No Orders o descritor de fatura vive aqui, não na raiz da order (ORD-03).
-      statement_descriptor: 'NANITA',
+      statement_descriptor: 'UMA ESTRELINHA',
     })
     // PGD-04: o CPF do pedido sobrescreve o que veio do Brick, e o payer fica na RAIZ da order.
     // `toEqual` do objeto inteiro: o nome também é do servidor, e o email do Brick é preservado.
@@ -2349,7 +2349,7 @@ function emailOrderRow(over: Record<string, unknown> = {}) {
   return {
     id: ORDER_ID,
     order_number: 'NP-EMAIL01',
-    customer_name: 'Nana Pin',
+    customer_name: 'Ana Souza',
     customer_email: 'cliente@estrelinha.test',
     status: 'pending',
     payment_status: 'pending',

@@ -6,7 +6,7 @@ import { Switch } from '@estrelinha/ui/switch'
 import { useSlugAvailability } from '../model/useSlugAvailability'
 
 /** O domínio da loja, em slot fixo. Fora do input, como `R$` nos campos de moeda. */
-export const STORE_URL_PREFIX = 'nanita.com.br/produto/'
+export const STORE_URL_PREFIX = 'umaestrelinha.com.br/produto/'
 
 interface Props {
   slug: string

@@ -14,7 +14,7 @@ import {
 const coupon = (over: Partial<Coupon> = {}): Coupon =>
   ({
     id: 'cup-1',
-    code: 'NANA10',
+    code: 'ESTRELA10',
     description: 'Boas-vindas',
     type: 'percent',
     value: 10,
@@ -39,14 +39,14 @@ describe('couponSchema', () => {
   })
 
   it('código válido passa', () => {
-    expect(couponSchema.safeParse({ code: 'NANA10', type: 'percent', value: 10 }).success).toBe(true)
+    expect(couponSchema.safeParse({ code: 'ESTRELA10', type: 'percent', value: 10 }).success).toBe(true)
   })
 })
 
 describe('couponFormValues', () => {
   it('traz o cupom gravado para o formulário, com as datas como dia', () => {
     expect(couponFormValues(coupon())).toEqual({
-      code: 'NANA10',
+      code: 'ESTRELA10',
       description: 'Boas-vindas',
       type: 'percent',
       value: 10,
@@ -78,8 +78,8 @@ describe('couponCopyValues (DSC-08)', () => {
 
   it('NÃO copia o código — `coupons.code` é UNIQUE e é o texto que a cliente digita (AC 2)', () => {
     expect(couponCopyValues(coupon()).code).toBe('')
-    // E nada de sufixo inventado: um `NANA10-COPIA` publicaria um código que ninguém escolheu.
-    expect(couponCopyValues(coupon()).code).not.toContain('NANA10')
+    // E nada de sufixo inventado: um `ESTRELA10-COPIA` publicaria um código que ninguém escolheu.
+    expect(couponCopyValues(coupon()).code).not.toContain('ESTRELA10')
   })
 
   it('nasce desligada, e o contador de usos do original não vem junto (AC 3)', () => {
@@ -94,7 +94,7 @@ describe('couponCopyValues (DSC-08)', () => {
 
 describe('toCouponPayload', () => {
   it('grava o código em maiúsculas e sem espaço (DSC-02 AC 6)', () => {
-    expect(toCouponPayload({ code: '  nana10 ', type: 'percent', value: 10 }).code).toBe('NANA10')
+    expect(toCouponPayload({ code: '  estrela10 ', type: 'percent', value: 10 }).code).toBe('ESTRELA10')
   })
 
   it('`frete grátis` grava valor zero, qualquer que seja o número no campo (AC 4)', () => {
@@ -103,7 +103,7 @@ describe('toCouponPayload', () => {
 
   it('limite de usos em branco vira `null`, e mínimo em branco vira zero', () => {
     const payload = toCouponPayload({
-      code: 'NANA10',
+      code: 'ESTRELA10',
       type: 'percent',
       value: 10,
       max_uses: null,
@@ -116,7 +116,7 @@ describe('toCouponPayload', () => {
 
   it('as datas viram ISO de meia-noite local, e a ausência vira `null`', () => {
     const payload = toCouponPayload({
-      code: 'NANA10',
+      code: 'ESTRELA10',
       type: 'percent',
       value: 10,
       valid_from: '2026-08-01',

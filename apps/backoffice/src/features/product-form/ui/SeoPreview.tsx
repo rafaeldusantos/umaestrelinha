@@ -18,7 +18,7 @@ interface Props {
 const SeoPreview = ({ title, description, slug, onTitleChange, onDescriptionChange }: Props) => {
   const displayTitle = title || 'Título do produto'
   const displayDesc = description || 'Descrição do produto para mecanismos de busca...'
-  const displayUrl = `nanita.com.br/produto/${slug || 'slug-do-produto'}`
+  const displayUrl = `umaestrelinha.com.br/produto/${slug || 'slug-do-produto'}`
 
   return (
     <div className="space-y-4">

@@ -129,7 +129,7 @@ describe('OrderSummary — linha de desconto PIX (PAY-14)', () => {
     useCheckoutStore.getState().setPayment({ method: 'pix' })
     useCouponStore.getState().setCoupon({
       id: 'c1',
-      code: 'NANA20',
+      code: 'ESTRELA20',
       type: 'fixed',
       value: 20,
       discount: 20,
@@ -205,7 +205,7 @@ describe('OrderSummary — linhas do resumo (CHK-05)', () => {
   it('exibe a linha do cupom COM O CÓDIGO e o desconto aplicado', () => {
     useCouponStore.getState().setCoupon({
       id: 'c1',
-      code: 'NANA10',
+      code: 'ESTRELA10',
       type: 'percent',
       value: 10,
       discount: 10,
@@ -215,7 +215,7 @@ describe('OrderSummary — linhas do resumo (CHK-05)', () => {
 
     // O valor aparece duas vezes (faixa do cupom + linha de totais): a asserção é escopada
     // na linha de totais, que é a que RSM-04 rotula.
-    const couponRow = screen.getByText('Cupom NANA10').closest('div')!
+    const couponRow = screen.getByText('Cupom ESTRELA10').closest('div')!
     expect(screen.queryByText('Cupom')).not.toBeInTheDocument()
     expect(within(couponRow).getByText('−R$ 10,00')).toBeInTheDocument()
   })
@@ -243,7 +243,7 @@ describe('OrderSummary — total vem de calculateOrderTotals (CHK-05, BMP-03)', 
     useCheckoutStore.getState().setPayment({ method: 'pix' })
     useCouponStore.getState().setCoupon({
       id: 'c1',
-      code: 'NANA10',
+      code: 'ESTRELA10',
       type: 'percent',
       value: 10,
       discount: 10,
@@ -290,7 +290,7 @@ describe('OrderSummary — total vem de calculateOrderTotals (CHK-05, BMP-03)', 
     useCheckoutStore.getState().toggleBump(true)
     useCouponStore.getState().setCoupon({
       id: 'c1',
-      code: 'NANA10',
+      code: 'ESTRELA10',
       type: 'percent',
       value: 10,
       discount: 10,
@@ -300,7 +300,7 @@ describe('OrderSummary — total vem de calculateOrderTotals (CHK-05, BMP-03)', 
     render(<OrderSummary variant="sidebar" />)
 
     // subtotal com bump = 112,45 → cupom 10% = 11,25 (e não 10,00 do subtotal sem bump)
-    const couponRow = screen.getByText('Cupom NANA10').closest('div')!
+    const couponRow = screen.getByText('Cupom ESTRELA10').closest('div')!
     expect(within(couponRow).getByText('−R$ 11,25')).toBeInTheDocument()
     expect(screen.getByText('R$ 101,20')).toBeInTheDocument()
   })
@@ -519,7 +519,7 @@ describe('OrderSummary — faixa do cupom aplicado (RSM-02, RSM-03)', () => {
   const applyCoupon = () =>
     useCouponStore.getState().setCoupon({
       id: 'c1',
-      code: 'NANA10',
+      code: 'ESTRELA10',
       type: 'fixed',
       value: 5.96,
       discount: 5.96,
@@ -530,7 +530,7 @@ describe('OrderSummary — faixa do cupom aplicado (RSM-02, RSM-03)', () => {
     applyCoupon()
     render(<OrderSummary variant="sidebar" />)
 
-    expect(screen.getByText('NANA10 aplicado')).toBeInTheDocument()
+    expect(screen.getByText('ESTRELA10 aplicado')).toBeInTheDocument()
     expect(screen.queryByTestId('coupon-input')).not.toBeInTheDocument()
   })
 
@@ -538,7 +538,7 @@ describe('OrderSummary — faixa do cupom aplicado (RSM-02, RSM-03)', () => {
     applyCoupon()
     render(<OrderSummary variant="sidebar" />)
 
-    const band = screen.getByText('NANA10 aplicado').parentElement!
+    const band = screen.getByText('ESTRELA10 aplicado').parentElement!
     expect(band.className).toContain('border-y')
     expect(within(band).getByText('−R$ 5,96').className).toContain('text-estrelinha-primary')
     expect(within(band).getByRole('button', { name: 'Remover cupom' })).toBeInTheDocument()
@@ -555,7 +555,7 @@ describe('OrderSummary — faixa do cupom aplicado (RSM-02, RSM-03)', () => {
 
     expect(useCouponStore.getState().applied).toBeNull()
     expect(screen.getByTestId('coupon-input')).toBeInTheDocument()
-    expect(screen.queryByText('NANA10 aplicado')).not.toBeInTheDocument()
+    expect(screen.queryByText('ESTRELA10 aplicado')).not.toBeInTheDocument()
   })
 
   it('sem cupom o campo de digitar continua no lugar (RSM-03)', () => {

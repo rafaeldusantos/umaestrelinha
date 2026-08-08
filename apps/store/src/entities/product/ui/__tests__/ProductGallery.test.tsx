@@ -35,14 +35,14 @@ describe('ProductGallery — leitores de images (VAR-11)', () => {
 
   it('renderiza a url do objeto em src — não o objeto inteiro', () => {
     const { container } = render(
-      <ProductGallery images={[image({ url: 'https://cdn.nanita/sailor.webp' })]} name="Botton" />,
+      <ProductGallery images={[image({ url: 'https://cdn.umaestrelinha/sailor.webp' })]} name="Botton" />,
     )
 
     // Miniatura tem `alt=""`, cujo role ARIA é `presentation` e não `img` — por isso a consulta é
     // pelo elemento, não pelo role: o que se afirma aqui é "todo `<img>` da árvore tem src bom".
     const sources = [...container.querySelectorAll('img')].map(img => img.getAttribute('src'))
     expect(sources.length).toBeGreaterThan(0)
-    sources.forEach(src => expect(src).toBe('https://cdn.nanita/sailor.webp'))
+    sources.forEach(src => expect(src).toBe('https://cdn.umaestrelinha/sailor.webp'))
   })
 
   it('produto sem imagem não renderiza nenhum <img> — zero src indefinido (AC 3)', () => {
