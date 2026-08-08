@@ -1,79 +1,103 @@
 -- =============================================================================
--- Nanita — Seed de desenvolvimento / testes
+-- Uma Estrelinha — Seed de desenvolvimento / testes
 -- =============================================================================
 -- Roda automaticamente em `supabase db reset` (config.toml → [db.seed]).
 -- Também pode ser executado avulso:
 --   docker exec -i supabase_db_uma-estrelinha-store psql -U postgres -d postgres < supabase/seed.sql
 --
--- É IDEMPOTENTE: upsert por `slug` (categorias/produtos), por `code` (cupons) e
--- por `email` (admin). Convive com o seed embutido na migration inicial —
--- re-executar apenas atualiza os registros existentes e insere os novos.
+-- É IDEMPOTENTE: upsert por `slug` (categorias/produtos), por `sku` (variações),
+-- por `code` (cupons) e por `email` (admin). Rodar duas vezes atualiza o que já
+-- existe e não duplica nada.
 --
 -- ACESSO AO BACKOFFICE (dev): admin@umaestrelinha.dev / admin123  (ver seção 6).
 --
--- IMAGENS DE MARCAÇÃO: em vez de fotos aleatórias, cada produto/categoria recebe
--- um placeholder SVG rotulado (nome + categoria) embutido como data-URI base64.
--- É auto-contido (funciona offline, sem CDN), na paleta da marca e com um
--- desenho de "botton". O app usa `images[0]` como imagem principal
--- (ver entities/product/api/useProducts.ts). Trocar por assets reais no
--- Storage em produção.
+-- -----------------------------------------------------------------------------
+-- SEM OBJETO DE SESSÃO — a razão de este arquivo ter sido reescrito
+-- -----------------------------------------------------------------------------
+-- A versão anterior declarava duas funções `pg_temp.*` e uma `CREATE TEMP TABLE
+-- _pal`. A CLI envia o seed em LOTES, e objeto temporário é ligado à sessão: o
+-- lote seguinte não o enxergava. O `db reset` quebrava ora com
+-- `schema "pg_temp" does not exist`, ora com `relation "_pal" does not exist`,
+-- conforme onde o corte caía — e o mesmo arquivo aplicado inteiro por
+-- `docker exec … psql` passava, o que provava que o defeito era o transporte.
+--
+-- Daqui em diante: **nada de `pg_temp.*`, nada de `CREATE TEMP TABLE`.** Tudo o
+-- que precisa ser reaproveitado vira CTE dentro da própria instrução, e a
+-- instrução é autossuficiente qualquer que seja o corte do lote.
+--
+-- IMAGENS DE MARCAÇÃO: cada produto/categoria recebe um placeholder SVG rotulado
+-- (nome + linha) embutido como data-URI base64 — auto-contido, sem CDN e sem
+-- rede. Fotos reais entram pelo Storage. O app usa `images[0]` como principal
+-- (ver entities/product/api/useProducts.ts).
+--
+-- CATÁLOGO: as seis linhas reais do negócio (Uma Estrelinha/cinzas, Leite
+-- Materno, Dente de Leite, Pet, Maternidade, Masculina), penduradas numa raiz
+-- "Joias Afetivas". A HIERARQUIA É PARTE DO FIXTURE (`BL-003`): o seed anterior
+-- deixava tudo plano e a árvore que o `CLAUDE.md` descreve só existia porque
+-- alguém a montou à mão — sumia no primeiro `db reset`.
+--
+-- TOM: o registro é sensível e memorial. Nada de trocadilho, de "corre" nem de
+-- linguagem de lançamento. Preço, prazo e material saem do vocabulário real do
+-- negócio (prata 925, aço inoxidável, folheado a ouro; até 30 dias úteis).
 -- =============================================================================
 
--- -----------------------------------------------------------------------------
--- Helpers (funções temporárias — somem no fim da sessão)
--- -----------------------------------------------------------------------------
-
--- Escapa caracteres especiais de XML no texto do SVG.
-CREATE OR REPLACE FUNCTION pg_temp.xesc(t text)
-RETURNS text LANGUAGE sql IMMUTABLE AS $$
-  SELECT replace(replace(replace(coalesce(t,''), '&', '&amp;'), '<', '&lt;'), '>', '&gt;')
-$$;
-
--- Gera um placeholder SVG (data-URI base64) com título, subtítulo e cor de fundo.
--- O tamanho da fonte do título se adapta ao comprimento do texto.
-CREATE OR REPLACE FUNCTION pg_temp.nana_marker(label text, sub text, bg text)
-RETURNS text LANGUAGE sql IMMUTABLE AS $$
-  SELECT 'data:image/svg+xml;base64,' || encode(convert_to(
-       '<svg xmlns="http://www.w3.org/2000/svg" width="600" height="600" '
-    || 'viewBox="0 0 600 600" font-family="Verdana,Geneva,sans-serif">'
-    || '<rect width="600" height="600" fill="' || bg || '"/>'
-    || '<circle cx="300" cy="278" r="165" fill="#FFFFFF" fill-opacity="0.12"/>'
-    || '<circle cx="300" cy="278" r="120" fill="none" stroke="#FFFFFF" '
-    ||   'stroke-opacity="0.25" stroke-width="4"/>'
-    || '<circle cx="300" cy="278" r="16" fill="#FFFFFF" fill-opacity="0.35"/>'
-    || '<text x="300" y="112" text-anchor="middle" font-size="24" letter-spacing="6" '
-    ||   'fill="#FFFFFF" fill-opacity="0.8">' || upper(pg_temp.xesc(sub)) || '</text>'
-    || '<text x="300" y="296" text-anchor="middle" font-weight="bold" fill="#FFFFFF" '
-    ||   'font-size="' || (CASE
-           WHEN char_length(label) > 15 THEN 34
-           WHEN char_length(label) > 10 THEN 42
-           ELSE 50 END) || '">' || pg_temp.xesc(label) || '</text>'
-    || '<text x="300" y="548" text-anchor="middle" font-size="20" '
-    ||   'fill="#FFFFFF" fill-opacity="0.65">Nanita · mock</text>'
-    || '</svg>', 'UTF8'), 'base64')
-$$;
-
--- Paleta por categoria (cor de fundo dos markers). Também alimenta o INSERT
--- de categorias e o de produtos (via JOIN por slug).
-DROP TABLE IF EXISTS _pal;
-CREATE TEMP TABLE _pal (slug text PRIMARY KEY, name text, description text, icon text, color text, sort_order int);
-INSERT INTO _pal (slug, name, description, icon, color, sort_order) VALUES
-  ('anime',  'Anime',  'Seus animes favoritos em botton!',     'flag',         '#B0176B', 1),
-  ('kpop',   'K-Pop',  'Idols e groups em bottons lindos',     'mic',          '#D93C8C', 2),
-  ('filmes', 'Filmes', 'Clássicos do cinema em pin',           'clapperboard', '#2B1622', 3),
-  ('bandas', 'Bandas', 'Rock, indie e mais',                   'guitar',       '#4A1E33', 4),
-  ('games',  'Games',  'Personagens icônicos',                 'gamepad-2',    '#7A2050', 5),
-  ('series', 'Séries', 'Suas séries favoritas',                'tv',           '#C42A7E', 6),
-  ('manga',  'Mangá',  'Capas e painéis icônicos em pin',      'book-open',    '#3B1A2B', 7),
-  ('kawaii', 'Kawaii', 'Fofura pura: mascotes e comidinhas',   'heart',        '#FF51B9', 8);
 
 -- -----------------------------------------------------------------------------
--- 1. CATEGORIAS
+-- 0. LIMPEZA DO CATÁLOGO DEMO HERDADO
 -- -----------------------------------------------------------------------------
-INSERT INTO public.categories (name, slug, description, icon, image_url, active, sort_order)
-SELECT name, slug, description, icon,
-       pg_temp.nana_marker(name, 'Coleção', color), true, sort_order
-FROM _pal
+-- A migration inicial (20260414121021) traz um seed EMBUTIDO com 6 categorias e
+-- 12 produtos de botton. Migration é história e história não se reescreve — mas
+-- ela roda a cada `db reset`, e sem esta limpeza a loja abriria com joia e pin
+-- lado a lado.
+--
+-- Lista explícita de slugs, e não "apaga o que não está no seed": um banco de
+-- desenvolvimento costuma ter produto cadastrado à mão, e uma limpeza por
+-- exclusão apagaria o trabalho de quem estava testando.
+--
+-- `product_variants`, `product_categories`, `wishlist`, `reviews` e
+-- `product_redirects` saem por `on delete cascade`. `order_items` não referencia
+-- `products` (o pedido guarda o snapshot), então histórico de pedido não é
+-- afetado. DELETE é idempotente por natureza: a segunda execução casa zero linha.
+DELETE FROM public.products WHERE slug IN (
+  'naruto-uzumaki','sailor-moon','bts-jungkook','blackpink-logo','darth-vader',
+  'harry-potter-hogwarts','arctic-monkeys','gojo-satoru','zelda-triforce',
+  'stranger-things','pikachu','tanjiro-kamado'
+);
+
+DELETE FROM public.categories WHERE slug IN (
+  'anime','kpop','filmes','bandas','games','series'
+);
+
+
+-- -----------------------------------------------------------------------------
+-- 1. CATEGORIAS  (raiz + as seis linhas, com hierarquia — BL-003)
+-- -----------------------------------------------------------------------------
+-- Duas instruções, e não uma: a raiz precisa existir para que as filhas possam
+-- resolver `parent_id` por slug. As duas são upsert por slug.
+--
+-- O marcador SVG é montado com `format()` — era o papel de uma função temporária,
+-- que deixou de existir junto com o resto dos objetos de sessão. Nas duas
+-- instruções de categoria o template é escrito inline (uma vez cada); no bloco de
+-- produtos, onde são dois marcadores por linha, ele é declarado uma vez num
+-- `VALUES` dentro do próprio `LATERAL`.
+-- `%1$s` fundo · `%2$s` rótulo do topo · `%3$s` corpo · `%4$s` corpo do texto.
+
+INSERT INTO public.categories (name, slug, description, icon, image_url, active, sort_order, show_in_menu)
+SELECT
+  'Joias Afetivas',
+  'joias-afetivas',
+  'Peças feitas à mão que guardam um material de quem você ama.',
+  'gem',
+  'data:image/svg+xml;base64,' || encode(convert_to(format(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="600" height="600" viewBox="0 0 600 600" '
+    || 'font-family="Georgia,serif"><rect width="600" height="600" fill="%1$s"/>'
+    || '<circle cx="300" cy="278" r="150" fill="#FFFFFF" fill-opacity="0.10"/>'
+    || '<circle cx="300" cy="278" r="104" fill="none" stroke="#FFFFFF" stroke-opacity="0.28" stroke-width="3"/>'
+    || '<text x="300" y="112" text-anchor="middle" font-size="22" letter-spacing="6" fill="#FFFFFF" fill-opacity="0.75">%2$s</text>'
+    || '<text x="300" y="292" text-anchor="middle" font-weight="bold" fill="#FFFFFF" font-size="40">%3$s</text>'
+    || '<text x="300" y="548" text-anchor="middle" font-size="19" fill="#FFFFFF" fill-opacity="0.6">Uma Estrelinha · imagem de marcação</text>'
+    || '</svg>', '#34495E', 'CATÁLOGO', 'Joias Afetivas'), 'UTF8'), 'base64'),
+  true, 0, false
 ON CONFLICT (slug) DO UPDATE SET
   name        = EXCLUDED.name,
   description = EXCLUDED.description,
@@ -82,168 +106,223 @@ ON CONFLICT (slug) DO UPDATE SET
   active      = EXCLUDED.active,
   sort_order  = EXCLUDED.sort_order;
 
+-- As seis linhas. `show_in_menu` marca QUATRO — é o `MENU_SLOT_LIMIT` da barra
+-- do topo (`@estrelinha/core/menu`), e marcar cinco faria o admin exibir
+-- "5 de 4" de propósito. A raiz fica fora da barra: ela é o contêiner, e
+-- `browseCategories` já pula guarda-chuva sozinho.
+INSERT INTO public.categories
+  (name, slug, description, icon, image_url, active, sort_order, parent_id, show_in_menu)
+SELECT
+  l.name, l.slug, l.description, l.icon,
+  'data:image/svg+xml;base64,' || encode(convert_to(format(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="600" height="600" viewBox="0 0 600 600" '
+    || 'font-family="Georgia,serif"><rect width="600" height="600" fill="%1$s"/>'
+    || '<circle cx="300" cy="278" r="150" fill="#FFFFFF" fill-opacity="0.10"/>'
+    || '<circle cx="300" cy="278" r="104" fill="none" stroke="#FFFFFF" stroke-opacity="0.28" stroke-width="3"/>'
+    || '<text x="300" y="112" text-anchor="middle" font-size="22" letter-spacing="6" fill="#FFFFFF" fill-opacity="0.75">%2$s</text>'
+    || '<text x="300" y="292" text-anchor="middle" font-weight="bold" fill="#FFFFFF" font-size="%4$s">%3$s</text>'
+    || '<text x="300" y="548" text-anchor="middle" font-size="19" fill="#FFFFFF" fill-opacity="0.6">Uma Estrelinha · imagem de marcação</text>'
+    || '</svg>',
+    l.color, 'LINHA', l.name,
+    CASE WHEN char_length(l.name) > 15 THEN 32 WHEN char_length(l.name) > 10 THEN 38 ELSE 46 END
+  ), 'UTF8'), 'base64'),
+  true, l.sort_order, root.id, l.in_menu
+FROM (VALUES
+  -- slug, nome, descrição, ícone, cor do marcador, ordem, na barra do topo
+  ('uma-estrelinha', 'Uma Estrelinha', 'Cinzas de cremação de quem partiu, guardadas em resina e prata.', 'star',       '#34495E', 1, true),
+  ('pet',            'Pet',            'Pelos, cinzas ou um dente do companheiro de todas as horas.',     'paw-print',  '#4A5C6A', 2, true),
+  ('leite-materno',  'Leite Materno',  'O leite da amamentação preservado numa joia que dura.',           'droplet',    '#8C8073', 3, true),
+  ('dente-de-leite', 'Dente de Leite', 'O primeiro dentinho, guardado sem caixinha de gaveta.',           'sparkle',    '#B8945F', 4, true),
+  ('maternidade',    'Maternidade',    'Coto umbilical, mecha de cabelo e as primeiras lembranças.',      'heart',      '#A07E4C', 5, false),
+  ('masculina',      'Masculina',      'Anéis e pingentes de linha mais reta, em prata e aço.',           'circle-dot', '#23303A', 6, false)
+) AS l(slug, name, description, icon, color, sort_order, in_menu)
+CROSS JOIN (SELECT id FROM public.categories WHERE slug = 'joias-afetivas') AS root
+ON CONFLICT (slug) DO UPDATE SET
+  name        = EXCLUDED.name,
+  description = EXCLUDED.description,
+  icon        = EXCLUDED.icon,
+  image_url   = EXCLUDED.image_url,
+  active      = EXCLUDED.active,
+  sort_order  = EXCLUDED.sort_order,
+  -- `parent_id` no upsert é o que faz a árvore sobreviver ao segundo reset, e
+  -- não só ao primeiro (BL-003).
+  parent_id    = EXCLUDED.parent_id,
+  show_in_menu = EXCLUDED.show_in_menu;
+
+-- 1b. Card promocional do menu.
+-- `menu_promo.category_id` mora em jsonb e NÃO tem FK: quem lê precisa resolver
+-- o destino em runtime (`resolvePromo`). Aqui ele é resolvido por slug para
+-- nunca nascer apontando para um id inventado.
+UPDATE public.categories AS c
+SET menu_promo = jsonb_build_object(
+      'category_id', alvo.id::text,
+      'badge',       'Feita à mão',
+      'title',       'Joias com cinzas de cremação',
+      'subtitle',    'Cada peça é única, como a história dela.'
+    )
+FROM (SELECT id FROM public.categories WHERE slug = 'uma-estrelinha') AS alvo
+WHERE c.slug = 'uma-estrelinha';
+
+
 -- -----------------------------------------------------------------------------
--- 2. PRODUTOS  (upsert por slug; category_id + cor resolvidos pelo slug da categoria)
+-- 2. PRODUTOS  (upsert por slug; category_id e cor resolvidos pelo slug da linha)
 -- -----------------------------------------------------------------------------
+-- Medidas e peso vão preenchidos porque a ficha técnica da página passou a sair
+-- SÓ do cadastro (`PIN-05`): produto sem medida mostra ficha curta, e um fixture
+-- inteiro sem medida esconderia a régua nova.
+--
+-- `production_lead_days = 30` é o prazo real do negócio (até 30 dias úteis após
+-- o material chegar) e entra na cotação de frete.
 INSERT INTO public.products
   (name, slug, description, base_price, original_price, category_id,
-   image_url, images, is_new, is_featured, is_promo, is_active, stock_total, low_stock_threshold, tags, sort_order)
+   image_url, images, is_new, is_featured, is_promo, is_active, stock_total,
+   low_stock_threshold, tags, sort_order, weight_kg, width_cm, height_cm,
+   production_lead_days)
 SELECT
   p.name, p.slug, p.description, p.base_price, p.original_price, c.id,
-  pg_temp.nana_marker(p.name, pal.name, pal.color),
-  -- `products.images` virou jsonb [{url, alt, source}] na migration
-  -- 20260801120200 (07/T3). Era `text[]`; um ARRAY[...] aqui agora estoura com
-  -- "column images is of type jsonb but expression is of type text[]".
-  -- O `alt` vem preenchido de propósito: a loja passa a usar images[].alt e um
-  -- fixture com alt nulo esconderia regressão de acessibilidade.
+  m.principal,
+  -- `products.images` é jsonb [{url, alt, source}] desde a migration
+  -- 20260801120200. O `alt` vem preenchido de propósito: a loja lê `images[].alt`
+  -- e um fixture com alt nulo esconderia regressão de acessibilidade.
   jsonb_build_array(
-    jsonb_build_object(
-      'url',    pg_temp.nana_marker(p.name, pal.name, pal.color),
-      'alt',    p.name || ' — botton ' || pal.name,
-      'source', 'upload'
-    ),
-    jsonb_build_object(
-      'url',    pg_temp.nana_marker(p.name, 'ângulo 2', pal.color),
-      'alt',    p.name || ' — segundo ângulo',
-      'source', 'upload'
-    )
+    jsonb_build_object('url', m.principal, 'alt', p.name || ' — ' || p.linha,       'source', 'upload'),
+    jsonb_build_object('url', m.detalhe,   'alt', p.name || ' — segundo ângulo',    'source', 'upload')
   ),
-  p.is_new, p.is_featured, p.is_promo, true, p.stock, 5, p.tags, p.sort_order
+  p.is_new, p.is_featured, p.is_promo, true, p.stock, 3, p.tags, p.sort_order,
+  p.weight_kg, p.width_cm, p.height_cm, 30
 FROM (VALUES
-  -- name, slug, description, base_price, original_price, cat_slug, is_new, is_featured, is_promo, stock, tags, sort_order
-  ('Naruto Uzumaki',       'naruto-uzumaki',       'Botton do Naruto em modo sábio, laranja vibrante. 3.8cm.',        5.90, 7.90,        'anime',  true,  true,  true,  23, ARRAY['naruto','shonen','ninja'],       1),
-  ('Sailor Moon',          'sailor-moon',          'Sailor Moon com acabamento holográfico.',                        6.90, NULL::NUMERIC,'anime',  false, true,  false, 15, ARRAY['sailormoon','mahou-shoujo'],     2),
-  ('Gojo Satoru',          'gojo-satoru',          'O sensei mais estiloso de Jujutsu Kaisen.',                      6.90, NULL::NUMERIC,'anime',  true,  true,  false, 8,  ARRAY['jjk','olhos'],                   3),
-  ('Tanjiro Kamado',       'tanjiro-kamado',       'Tanjiro com a marca na testa e haori xadrez.',                   6.90, NULL::NUMERIC,'anime',  false, true,  false, 10, ARRAY['demon-slayer','kimetsu'],        4),
-  ('Levi Ackerman',        'levi-ackerman',        'O soldado mais forte da humanidade. AoT.',                       6.90, 8.90,        'anime',  false, false, true,  9,  ARRAY['aot','shingeki'],                5),
-  ('Luffy Gear 5',         'luffy-gear-5',         'Joyboy desperto em botton premium metalizado.',                  7.90, NULL::NUMERIC,'anime',  true,  true,  false, 27, ARRAY['onepiece','luffy'],              6),
+  -- nome, slug, descrição, preço, preço de comparação, linha (slug), nome da linha, cor,
+  -- novo, destaque, promo, estoque, tags, ordem, peso kg, largura cm, altura cm
+  ('Pingente Coração com Cinzas',   'pingente-coracao-cinzas',   'Coração em prata 925 com uma pequena porção das cinzas guardada na resina. Feito à mão, um de cada vez.',            179.90, NULL::NUMERIC, 'uma-estrelinha', 'Uma Estrelinha', '#34495E', false, true,  false, 8,  ARRAY['cinzas','prata-925','pingente'],   1, 0.008, 2.0, 2.2),
+  ('Joia Esfera com Cinzas',        'joia-esfera-cinzas',        'Esfera translúcida com as cinzas suspensas no centro, engastada em prata 925.',                                     199.90, 229.90,        'uma-estrelinha', 'Uma Estrelinha', '#34495E', false, true,  true,  6,  ARRAY['cinzas','prata-925','esfera'],     2, 0.009, 1.8, 2.4),
+  ('Colar Gota Memória',            'colar-gota-memoria',        'Gota alongada com o material de quem partiu, em corrente de prata 925.',                                            219.90, NULL::NUMERIC, 'uma-estrelinha', 'Uma Estrelinha', '#34495E', true,  false, false, 5,  ARRAY['cinzas','colar','prata-925'],      3, 0.011, 1.4, 3.0),
+  ('Pulseira Esfera com Estrelas',  'pulseira-esfera-estrelas',  'Esfera com cinzas e microestrelas, montada em pulseira de prata 925.',                                              349.90, NULL::NUMERIC, 'uma-estrelinha', 'Uma Estrelinha', '#34495E', false, true,  false, 4,  ARRAY['cinzas','pulseira','prata-925'],   4, 0.016, 1.6, 1.6),
 
-  ('BTS Jungkook',         'bts-jungkook',         'Pin do Jungkook, design minimalista em roxo.',                   6.90, NULL::NUMERIC,'kpop',   true,  true,  false, 30, ARRAY['bts','army'],                    7),
-  ('BLACKPINK Logo',       'blackpink-logo',       'Logo oficial do BLACKPINK em rosa e preto.',                     5.90, NULL::NUMERIC,'kpop',   false, false, false, 20, ARRAY['blackpink','blink'],             8),
-  ('Stray Kids Skzoo',     'stray-kids-skzoo',     'Mascote Skzoo fofíssimo dos Stray Kids.',                        6.90, NULL::NUMERIC,'kpop',   true,  false, false, 18, ARRAY['skz','stay'],                    9),
-  ('NewJeans Bunny',       'newjeans-bunny',       'Bunny logo das NewJeans em azul baby.',                          5.90, 7.50,        'kpop',   false, true,  true,  22, ARRAY['newjeans','bunnies'],           10),
-  ('TWICE Candy',          'twice-candy',          'Paleta candy pop das TWICE.',                                    5.90, NULL::NUMERIC,'kpop',   false, false, false, 16, ARRAY['twice','once'],                 11),
+  ('Pingente Patinha com Pelos',    'pingente-patinha-pelos',    'Patinha em prata 925 guardando os pelos do seu melhor amigo.',                                                      169.90, NULL::NUMERIC, 'pet',            'Pet',            '#4A5C6A', false, true,  false, 10, ARRAY['pet','pelos','pingente'],          5, 0.007, 1.9, 2.0),
+  ('Coleira Memória com Cinzas',    'coleira-memoria-cinzas',    'Pingente de coleira com as cinzas do pet, em aço inoxidável.',                                                      189.90, 214.90,        'pet',            'Pet',            '#4A5C6A', true,  false, true,  7,  ARRAY['pet','cinzas','aco'],              6, 0.010, 2.2, 1.8),
+  ('Pirâmide Pet — O Último Passeio','piramide-pet-ultimo-passeio','Peça decorativa em resina com cinzas ou pelo, nome do pet gravado. Fica na estante, não no pescoço.',              619.90, NULL::NUMERIC, 'pet',            'Pet',            '#4A5C6A', false, true,  false, 2,  ARRAY['pet','decorativo','resina'],       7, 0.290, 8.0, 9.0),
 
-  ('Darth Vader',          'darth-vader',          'O lado sombrio da força em botton premium.',                     7.90, 9.90,        'filmes', false, true,  true,  12, ARRAY['starwars','sith'],              12),
-  ('Hogwarts',             'harry-potter-hogwarts','Brasão de Hogwarts com detalhes dourados.',                      6.90, NULL::NUMERIC,'filmes', false, false, false, 18, ARRAY['harrypotter','magia'],          13),
-  ('Toy Story Alien',      'toy-story-alien',      'Aliens de garra, ooooooh! Pixar.',                               5.90, NULL::NUMERIC,'filmes', true,  false, false, 24, ARRAY['pixar','toystory'],             14),
-  ('Spider-Verse',         'spider-verse',         'Miles Morales em estilo glitch comic.',                          7.90, NULL::NUMERIC,'filmes', true,  true,  false, 19, ARRAY['spiderman','marvel'],           15),
+  ('Pingente Redondo Leite Materno','pingente-redondo-leite',    'O leite da amamentação preservado em resina, com aro de prata 925.',                                                189.90, NULL::NUMERIC, 'leite-materno',  'Leite Materno',  '#8C8073', false, true,  false, 12, ARRAY['leite-materno','prata-925'],       8, 0.008, 2.0, 2.0),
+  ('Anel Leite Materno',            'anel-leite-materno',        'Anel com o leite materno na resina, aro em prata 925 ajustável.',                                                   239.90, NULL::NUMERIC, 'leite-materno',  'Leite Materno',  '#8C8073', true,  false, false, 6,  ARRAY['leite-materno','anel','prata-925'], 9, 0.006, 1.2, 1.2),
 
-  ('Arctic Monkeys',       'arctic-monkeys',       'Logo clássico do AM em preto e branco.',                         5.90, NULL::NUMERIC,'bandas', false, false, false, 25, ARRAY['indie','rock'],                 16),
-  ('Nirvana Smiley',       'nirvana-smiley',       'O smiley icônico do grunge.',                                    5.90, NULL::NUMERIC,'bandas', false, true,  false, 31, ARRAY['grunge','90s'],                 17),
-  ('Gorillaz',             'gorillaz',             'Arte dos Gorillaz em pin colorido.',                             6.90, 8.50,        'bandas', false, false, true,  13, ARRAY['gorillaz','alt'],               18),
+  ('Pingente Dente de Leite',       'pingente-dente-de-leite',   'O primeiro dentinho guardado na resina, com acabamento em prata 925.',                                              174.90, NULL::NUMERIC, 'dente-de-leite', 'Dente de Leite', '#B8945F', false, false, false, 9,  ARRAY['dente-de-leite','prata-925'],     10, 0.007, 1.8, 2.0),
+  ('Chaveiro Dente de Leite',       'chaveiro-dente-de-leite',   'Mesma peça em versão chaveiro, em aço inoxidável — para quem prefere levar na chave.',                              139.90, 159.90,        'dente-de-leite', 'Dente de Leite', '#B8945F', false, false, true,  14, ARRAY['dente-de-leite','chaveiro','aco'], 11, 0.022, 3.0, 3.4),
 
-  ('Zelda Triforce',       'zelda-triforce',       'Triforce dourada em fundo verde escuro.',                        6.90, 8.90,        'games',  false, true,  true,  14, ARRAY['zelda','nintendo'],             19),
-  ('Pikachu',              'pikachu',              'O Pokémon mais famoso do mundo, fofo demais.',                   5.90, NULL::NUMERIC,'games',  true,  false, false, 35, ARRAY['pokemon','eletrico'],           20),
-  ('Mario Mushroom',       'mario-mushroom',       'Super cogumelo 1-UP em pin retrô.',                              5.90, NULL::NUMERIC,'games',  false, true,  false, 28, ARRAY['mario','retro'],                21),
-  ('Among Us',             'among-us',             'Sus! Crewmate vermelho em botton.',                              4.90, 6.90,        'games',  false, false, true,  40, ARRAY['amongus','sus'],                22),
-  ('Minecraft Creeper',    'minecraft-creeper',    'Aw man... Creeper pixelado.',                                    5.90, NULL::NUMERIC,'games',  false, false, false, 33, ARRAY['minecraft','pixel'],            23),
+  ('Pingente Coto Umbilical',       'pingente-coto-umbilical',   'O coto umbilical do recém-nascido preservado em resina, com aro de prata 925.',                                     194.90, NULL::NUMERIC, 'maternidade',    'Maternidade',    '#A07E4C', true,  true,  false, 7,  ARRAY['maternidade','coto-umbilical'],   12, 0.008, 1.9, 2.1),
+  ('Pirâmide Árvore da Vida',       'piramide-arvore-da-vida',   'Peça decorativa em resina com o material afetivo e o nome gravado.',                                                419.90, NULL::NUMERIC, 'maternidade',    'Maternidade',    '#A07E4C', false, false, false, 3,  ARRAY['maternidade','decorativo','resina'], 13, 0.260, 7.5, 8.5),
 
-  ('Stranger Things',      'stranger-things',      'Logo com luzes do Mundo Invertido.',                             5.90, NULL::NUMERIC,'series', false, false, false, 22, ARRAY['strangerthings','80s'],         24),
-  ('The Office Dundie',    'the-office-dundie',    'Prêmio Dundie em versão pin.',                                   5.90, NULL::NUMERIC,'series', false, true,  false, 17, ARRAY['theoffice','sitcom'],           25),
-  ('Wednesday',            'wednesday',            'Wandinha Addams em preto gótico.',                               6.90, NULL::NUMERIC,'series', true,  true,  false, 21, ARRAY['wednesday','addams'],           26),
-
-  ('One Piece Cap 1000',   'one-piece-cap-1000',   'Capa comemorativa do capítulo 1000.',                            7.90, NULL::NUMERIC,'manga',  true,  false, false, 11, ARRAY['onepiece','manga'],             27),
-  ('Berserk Brand',        'berserk-brand',        'A Marca do Sacrifício. Para os corajosos.',                      7.90, 9.90,        'manga',  false, true,  true,  7,  ARRAY['berserk','dark'],               28),
-
-  ('Gato Pão',             'gato-pao',             'Gatinho virando pão. Fofura suprema.',                           4.90, NULL::NUMERIC,'kawaii', true,  true,  false, 50, ARRAY['gato','fofo'],                  29),
-  ('Sushi Feliz',          'sushi-feliz',          'Sushizinho sorridente em pin brilhante.',                        4.90, 5.90,        'kawaii', false, false, true,  45, ARRAY['comida','fofo'],                30),
-  ('Nuvem Sonolenta',      'nuvem-sonolenta',      'Nuvem fofa com carinha de sono.',                                4.90, NULL::NUMERIC,'kawaii', false, true,  false, 38, ARRAY['pastel','fofo'],                31),
-  ('Esgotado Teste',       'esgotado-teste',       'Produto sem estoque — para testar o estado "esgotado".',         5.90, NULL::NUMERIC,'kawaii', false, false, false, 0,  ARRAY['teste'],                        32)
-) AS p(name, slug, description, base_price, original_price, cat_slug, is_new, is_featured, is_promo, stock, tags, sort_order)
+  ('Anel Afetivo Masculino',        'anel-afetivo-masculino',    'Anel de linha reta em prata 925 ajustável, com o material afetivo na resina.',                                      424.90, NULL::NUMERIC, 'masculina',      'Masculina',      '#23303A', false, true,  false, 5,  ARRAY['masculina','anel','prata-925'],   14, 0.014, 1.0, 1.0),
+  ('Pingente Placa Masculina',      'pingente-placa-masculina',  'Placa reta em aço inoxidável com a resina afetiva e gravação opcional.',                                            209.90, NULL::NUMERIC, 'masculina',      'Masculina',      '#23303A', false, false, false, 8,  ARRAY['masculina','aco','pingente'],     15, 0.013, 1.6, 3.2),
+  -- Estoque zero de propósito: é o produto que exercita o estado "esgotado" da
+  -- vitrine e da página. Mantido em `stock_policy = 'track'` mais abaixo.
+  ('Colar Ponto de Luz',            'colar-ponto-de-luz',        'Ponto de luz com o material afetivo em prata 925. Produção em pausa — a próxima leva abre em breve.',                259.90, NULL::NUMERIC, 'uma-estrelinha', 'Uma Estrelinha', '#34495E', false, false, false, 0,  ARRAY['cinzas','colar','prata-925'],     16, 0.010, 1.2, 2.6)
+) AS p(name, slug, description, base_price, original_price, cat_slug, linha, color,
+       is_new, is_featured, is_promo, stock, tags, sort_order, weight_kg, width_cm, height_cm)
 JOIN public.categories c ON c.slug = p.cat_slug
-JOIN _pal pal            ON pal.slug = p.cat_slug
+CROSS JOIN LATERAL (
+  SELECT
+    'data:image/svg+xml;base64,' || encode(convert_to(format(t.svg, p.color, upper(p.linha), p.name,
+       CASE WHEN char_length(p.name) > 24 THEN 26 WHEN char_length(p.name) > 16 THEN 32 ELSE 38 END), 'UTF8'), 'base64') AS principal,
+    'data:image/svg+xml;base64,' || encode(convert_to(format(t.svg, p.color, 'SEGUNDO ÂNGULO', p.name,
+       CASE WHEN char_length(p.name) > 24 THEN 26 WHEN char_length(p.name) > 16 THEN 32 ELSE 38 END), 'UTF8'), 'base64') AS detalhe
+  FROM (VALUES (
+    '<svg xmlns="http://www.w3.org/2000/svg" width="600" height="600" viewBox="0 0 600 600" '
+    || 'font-family="Georgia,serif"><rect width="600" height="600" fill="%1$s"/>'
+    || '<circle cx="300" cy="278" r="150" fill="#FFFFFF" fill-opacity="0.10"/>'
+    || '<circle cx="300" cy="278" r="104" fill="none" stroke="#FFFFFF" stroke-opacity="0.28" stroke-width="3"/>'
+    || '<text x="300" y="112" text-anchor="middle" font-size="22" letter-spacing="6" fill="#FFFFFF" fill-opacity="0.75">%2$s</text>'
+    || '<text x="300" y="292" text-anchor="middle" font-weight="bold" fill="#FFFFFF" font-size="%4$s">%3$s</text>'
+    || '<text x="300" y="548" text-anchor="middle" font-size="19" fill="#FFFFFF" fill-opacity="0.6">Uma Estrelinha · imagem de marcação</text>'
+    || '</svg>'
+  )) AS t(svg)
+) AS m
 ON CONFLICT (slug) DO UPDATE SET
-  name           = EXCLUDED.name,
-  description    = EXCLUDED.description,
-  base_price     = EXCLUDED.base_price,
-  original_price = EXCLUDED.original_price,
-  category_id    = EXCLUDED.category_id,
-  image_url      = EXCLUDED.image_url,
-  images         = EXCLUDED.images,
-  is_new         = EXCLUDED.is_new,
-  is_featured    = EXCLUDED.is_featured,
-  is_promo       = EXCLUDED.is_promo,
-  is_active      = EXCLUDED.is_active,
-  stock_total    = EXCLUDED.stock_total,
-  tags           = EXCLUDED.tags,
-  sort_order     = EXCLUDED.sort_order;
+  name                 = EXCLUDED.name,
+  description          = EXCLUDED.description,
+  base_price           = EXCLUDED.base_price,
+  original_price       = EXCLUDED.original_price,
+  category_id          = EXCLUDED.category_id,
+  image_url            = EXCLUDED.image_url,
+  images               = EXCLUDED.images,
+  is_new               = EXCLUDED.is_new,
+  is_featured          = EXCLUDED.is_featured,
+  is_promo             = EXCLUDED.is_promo,
+  is_active            = EXCLUDED.is_active,
+  stock_total          = EXCLUDED.stock_total,
+  tags                 = EXCLUDED.tags,
+  sort_order           = EXCLUDED.sort_order,
+  weight_kg            = EXCLUDED.weight_kg,
+  width_cm             = EXCLUDED.width_cm,
+  height_cm            = EXCLUDED.height_cm,
+  production_lead_days = EXCLUDED.production_lead_days;
 
 -- -----------------------------------------------------------------------------
 -- 2b. PRODUTO × CATEGORIA  (N:N — a verdade desde 07/T4)
 -- -----------------------------------------------------------------------------
--- `products.category_id` virou LEGADO na migration 20260801120300. Quem manda é
--- `public.product_categories`, e é dela que a vitrine passa a ler (PST-06).
---
--- O backfill mora na migration, mas só alcança o que existe NO MOMENTO em que
--- ela roda — no `db reset`, isso são apenas os 12 produtos demo da migration
--- inicial. Os 20 que este seed acrescenta nasceriam sem categoria N:N, e a loja
--- local mostraria 12 de 32 produtos nas coleções.
+-- `products.category_id` é LEGADO desde a migration 20260801120300. Quem manda é
+-- `public.product_categories`, e é dela que a vitrine lê (PST-06). O backfill da
+-- migration só alcança o que existe no momento em que ela roda — os produtos
+-- deste seed nasceriam sem vínculo N:N e a loja mostraria coleção vazia.
 INSERT INTO public.product_categories (product_id, category_id, position)
 SELECT p.id, p.category_id, 0
 FROM public.products p
 WHERE p.category_id IS NOT NULL
 ON CONFLICT (product_id, category_id) DO NOTHING;
 
+
 -- -----------------------------------------------------------------------------
 -- 3. VARIAÇÕES  (grade real: eixos, preço por linha, estoque por linha)
 -- -----------------------------------------------------------------------------
--- Reescrito em 2026-08-01 pela feature 07. O formato anterior gravava
--- `{name, sku, price_override, stock}` sem `option_values` e sem `price`, e as linhas nasciam
--- ATIVAS — deixando 5 produtos com variação ativa e sem preço, que é exatamente o estado
--- "impagável" que a spec chama de indesejado (PST-10 trata em runtime, mas o fixture não deveria
--- produzi-lo).
+-- Os dois caminhos precisam existir no fixture: produto com grade e produto
+-- precificado por `base_price`. Aqui quatro peças ganham grade 3 × 2.
 --
--- `price_override` NÃO é mais usado: a coluna está deprecada e sua semântica no seed antigo era
--- ambígua (o '5.5 cm (grande)' tinha 2.00 contra base_price 4,90 — lia como delta, apesar do nome).
--- Agora cada linha tem `price` ABSOLUTO, que é o contrato da feature 07.
-
--- 3a. Eixos do produto. Cinco produtos ganham grade 3 × 2; o resto segue sem variação,
---     precificado por `base_price` — os dois caminhos precisam existir no fixture.
+-- Os eixos são os do negócio: o METAL muda o preço (aço < prata < folheado a
+-- ouro) e o ACABAMENTO não. Preço que cresce com a linha é o que distingue
+-- "cobrou pela variação" de "cobrou pelo base_price" — um fixture uniforme não
+-- distinguiria.
 UPDATE public.products
 SET options = '[
-      {"name": "Tamanho",    "values": ["3,5 cm", "4,5 cm", "5,5 cm"], "position": 0},
-      {"name": "Acabamento", "values": ["Brilhante", "Fosco"],          "position": 1}
+      {"name": "Metal",      "values": ["Aço inoxidável", "Prata 925", "Folheado a ouro"], "position": 0},
+      {"name": "Acabamento", "values": ["Polido", "Fosco"],                                 "position": 1}
     ]'::jsonb
-WHERE slug IN ('naruto-uzumaki','gojo-satoru','pikachu','darth-vader','gato-pao');
+WHERE slug IN ('pingente-coracao-cinzas','pingente-patinha-pelos','pingente-redondo-leite','anel-afetivo-masculino');
 
--- As TRÊS políticas de estoque precisam existir no fixture, senão o caminho do dinheiro só é
--- exercitado num modo. Os outros dois são marcados em produtos reais do catálogo:
+-- As TRÊS políticas de estoque existem no fixture, senão o caminho do dinheiro
+-- só é exercitado num modo.
 --
---   none      → nunca esgota, e a baixa de estoque tem de IGNORÁ-LO por completo. É o modo dos
---               personalizados e do sob demanda.
---   backorder → vende com saldo zero ou negativo, e a baixa PODE deixar o saldo negativo.
---
--- `esgotado-teste` fica em `track` de propósito: é o produto que testa o estado "esgotado", e
--- mudá-lo de política tiraria essa cobertura.
-UPDATE public.products SET stock_policy = 'none'      WHERE slug IN ('sushi-feliz');
-UPDATE public.products SET stock_policy = 'backorder' WHERE slug IN ('nuvem-sonolenta');
+--   none      → nunca esgota e a baixa de estoque IGNORA o saldo. É o modo certo
+--               para peça sob encomenda, que é a regra da casa: só começa a ser
+--               feita quando o material da cliente chega.
+--   backorder → vende com saldo zero ou negativo, e a baixa pode deixar negativo.
+--   track     → o padrão; `colar-ponto-de-luz` fica aqui com saldo 0 porque é o
+--               produto que exercita o estado "esgotado".
+UPDATE public.products SET stock_policy = 'none'      WHERE slug IN ('piramide-arvore-da-vida','piramide-pet-ultimo-passeio');
+UPDATE public.products SET stock_policy = 'backorder' WHERE slug IN ('anel-leite-materno');
 
--- 3b. A grade. Preço CRESCE com o tamanho — é o caso que motivou a feature inteira, e um fixture
---     com preço uniforme não distinguiria "cobrou pela variação" de "cobrou pelo base_price".
 INSERT INTO public.product_variants
   (product_id, name, sku, option_values, price, compare_price, stock, weight_kg, is_active, position)
 SELECT
   pr.id,
-  v.size || ' · ' || v.finish,
+  v.metal || ' · ' || v.acabamento,
   pr.slug || '-' || v.suffix,
-  jsonb_build_object('Tamanho', v.size, 'Acabamento', v.finish),
+  jsonb_build_object('Metal', v.metal, 'Acabamento', v.acabamento),
   round(pr.base_price + v.delta, 2),
-  CASE WHEN v.finish = 'Brilhante' THEN round(pr.base_price + v.delta + 3.00, 2) END,
+  CASE WHEN v.acabamento = 'Polido' THEN round(pr.base_price + v.delta + 30.00, 2) END,
   v.stock,
   v.weight_kg,
   v.is_active,
   v.position
 FROM (VALUES
-  ('3,5 cm', 'Brilhante', '35-bri', 0.00, 18,  0.016, true,  0),
-  ('3,5 cm', 'Fosco',     '35-fos', 0.00, 10,  0.016, true,  1),
-  ('4,5 cm', 'Brilhante', '45-bri', 2.00, 32,  0.018, true,  2),
-  ('4,5 cm', 'Fosco',     '45-fos', 2.00,  4,  0.018, true,  3),
-  ('5,5 cm', 'Brilhante', '55-bri', 3.50, 14,  0.022, true,  4),
+  ('Aço inoxidável',  'Polido', 'aco-pol',   -40.00, 12, 0.009, true,  0),
+  ('Aço inoxidável',  'Fosco',  'aco-fos',   -40.00,  6, 0.009, true,  1),
+  ('Prata 925',       'Polido', 'prata-pol',   0.00,  9, 0.008, true,  2),
+  ('Prata 925',       'Fosco',  'prata-fos',   0.00,  3, 0.008, true,  3),
+  ('Folheado a ouro', 'Polido', 'ouro-pol',   60.00,  4, 0.008, true,  4),
   -- Uma linha PAUSADA de propósito: a faixa de preço e a vitrine têm de ignorá-la.
-  ('5,5 cm', 'Fosco',     '55-fos', 3.50,  0,  0.022, false, 5)
-) AS v(size, finish, suffix, delta, stock, weight_kg, is_active, position)
-JOIN public.products pr ON pr.slug IN ('naruto-uzumaki','gojo-satoru','pikachu','darth-vader','gato-pao')
+  ('Folheado a ouro', 'Fosco',  'ouro-fos',   60.00,  0, 0.008, false, 5)
+) AS v(metal, acabamento, suffix, delta, stock, weight_kg, is_active, position)
+JOIN public.products pr
+  ON pr.slug IN ('pingente-coracao-cinzas','pingente-patinha-pelos','pingente-redondo-leite','anel-afetivo-masculino')
 ON CONFLICT (sku) DO UPDATE SET
   name          = EXCLUDED.name,
   option_values = EXCLUDED.option_values,
@@ -254,22 +333,19 @@ ON CONFLICT (sku) DO UPDATE SET
   is_active     = EXCLUDED.is_active,
   position      = EXCLUDED.position;
 
--- 3c. As linhas do formato ANTIGO (sufixos `-p38` / `-g55`) não são mais criadas. Se existirem de
---     um seed anterior, ficam pausadas e sem preço — nunca vendáveis, e sem sumir, porque
---     `order_items.variant_id` pode apontar para elas.
-UPDATE public.product_variants
-SET is_active = false, price = NULL
-WHERE sku LIKE '%-p38' OR sku LIKE '%-g55';
 
 -- -----------------------------------------------------------------------------
 -- 4. CUPONS  (para testar o fluxo de desconto no checkout)
 -- -----------------------------------------------------------------------------
+-- Os cinco formatos que o checkout precisa exercitar: percentual, valor fixo,
+-- percentual com teto de usos, frete grátis e um vencido (que tem de recusar).
+-- Os pisos de `min_order` acompanham a faixa de preço real do catálogo.
 INSERT INTO public.coupons (code, description, type, value, min_order, max_uses, active, valid_until) VALUES
-  ('NANA10',     '10% off em qualquer pedido',        'percent',       10, 0,  NULL, true, now() + interval '90 days'),
-  ('FRETE5',     'R$5 off acima de R$30',             'fixed',          5, 30, NULL, true, now() + interval '90 days'),
-  ('BEMVINDO',   '15% off acima de R$50 (100 usos)',  'percent',       15, 50, 100,  true, now() + interval '90 days'),
-  ('FRETEGRATIS','Frete grátis',                      'free_shipping',  0, 60, NULL, true, now() + interval '90 days'),
-  ('EXPIRADO',   'Cupom expirado — para testar erro', 'percent',       20, 0,  NULL, true, now() - interval '1 day')
+  ('ACOLHER10',   '10% off em qualquer pedido',           'percent',       10,   0, NULL, true, now() + interval '90 days'),
+  ('MEMORIA20',   'R$20 off acima de R$200',              'fixed',         20, 200, NULL, true, now() + interval '90 days'),
+  ('PRIMEIRA15',  '15% off acima de R$300 (100 usos)',    'percent',       15, 300,  100, true, now() + interval '90 days'),
+  ('ENVIOGRATIS', 'Frete grátis acima de R$250',          'free_shipping',  0, 250, NULL, true, now() + interval '90 days'),
+  ('VENCIDO',     'Cupom vencido — para testar a recusa', 'percent',       20,   0, NULL, true, now() - interval '1 day')
 ON CONFLICT (code) DO UPDATE SET
   description = EXCLUDED.description,
   type        = EXCLUDED.type,
@@ -279,17 +355,13 @@ ON CONFLICT (code) DO UPDATE SET
   active      = EXCLUDED.active,
   valid_until = EXCLUDED.valid_until;
 
--- -----------------------------------------------------------------------------
--- 5. DROP futuro  (para testar o DropCountdown na home)
--- -----------------------------------------------------------------------------
-INSERT INTO public.drops (title, description, image_url, drops_at, active)
-SELECT 'Drop Verão Kawaii', 'Coleção limitada chegando! Fique ligado 💜',
-       pg_temp.nana_marker('Drop Verão', 'Em breve', '#FF86B5'),
-       now() + interval '7 days', true
-WHERE NOT EXISTS (SELECT 1 FROM public.drops WHERE title = 'Drop Verão Kawaii');
+-- Sem seção de `drops`: a tabela existe, mas nenhum código a lê (o
+-- `DropCountdown` da home calcula a data no próprio componente). Semear uma
+-- linha ali era inventar um "lançamento" — vocabulário que não é desta loja.
+
 
 -- -----------------------------------------------------------------------------
--- 6. USUÁRIO ADMIN  (acesso ao backoffice — :8081 /admin/*)
+-- 5. USUÁRIO ADMIN  (acesso ao backoffice — :8083 /admin/*)
 -- -----------------------------------------------------------------------------
 -- admin@umaestrelinha.dev / admin123  — SOMENTE desenvolvimento local.
 --
@@ -322,7 +394,7 @@ BEGIN
       '00000000-0000-0000-0000-000000000000', v_id, 'authenticated', 'authenticated',
       v_email, extensions.crypt(v_pass, extensions.gen_salt('bf')), now(),
       '{"provider":"email","providers":["email"]}'::jsonb,
-      jsonb_build_object('name', 'Admin Nanita', 'email_verified', true),
+      jsonb_build_object('name', 'Admin Uma Estrelinha', 'email_verified', true),
       now(), now(), '', '', '', ''
     );
 
