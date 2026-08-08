@@ -20,13 +20,13 @@
     "noFallthroughCasesInSwitch": false,
     "baseUrl": ".",
     "paths": {
-      "@nanapin/ui": ["packages/ui/src/index.ts"],
-      "@nanapin/ui/*": ["packages/ui/src/*"],
-      "@nanapin/supabase": ["packages/supabase/src/index.ts"],
-      "@nanapin/supabase/*": ["packages/supabase/src/*"],
-      "@nanapin/auth": ["packages/auth/src/index.ts"],
-      "@nanapin/core": ["packages/core/src/index.ts"],
-      "@nanapin/core/*": ["packages/core/src/*"]
+      "@estrelinha/ui": ["packages/ui/src/index.ts"],
+      "@estrelinha/ui/*": ["packages/ui/src/*"],
+      "@estrelinha/supabase": ["packages/supabase/src/index.ts"],
+      "@estrelinha/supabase/*": ["packages/supabase/src/*"],
+      "@estrelinha/auth": ["packages/auth/src/index.ts"],
+      "@estrelinha/core": ["packages/core/src/index.ts"],
+      "@estrelinha/core/*": ["packages/core/src/*"]
     }
   }
 }

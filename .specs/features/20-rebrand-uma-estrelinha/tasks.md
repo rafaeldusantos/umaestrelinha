@@ -252,9 +252,9 @@ e `tsconfig.base.json` reescreve os `paths`.
 **Tools** — MCP: nenhum · Skill: nenhuma
 
 **Done when**:
-- [ ] Os cinco `name` são `@estrelinha/*`
-- [ ] `tsconfig.base.json` mapeia `@estrelinha/*` e nenhum `@nanapin/*`
-- [ ] `subpath exports` de `@estrelinha/core` e `@estrelinha/ui` preservados byte a byte
+- [x] Os cinco `name` são `@estrelinha/*`
+- [x] `tsconfig.base.json` mapeia `@estrelinha/*` e nenhum `@nanapin/*`
+- [x] `subpath exports` de `@estrelinha/core` e `@estrelinha/ui` preservados byte a byte
 
 **Tests**: none · **Gate**: none (o repositório fica quebrado até T8 — dependência declarada)
 **Commit**: `refactor: pacotes do workspace passam a @estrelinha/*`
