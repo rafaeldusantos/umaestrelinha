@@ -13,7 +13,6 @@ import ProductInfo from '@/entities/product/ui/ProductInfo'
 import ProductDetailsAccordion from '@/entities/product/ui/ProductDetailsAccordion'
 import { useWishlistStore } from '@/entities/wishlist/model/wishlistStore'
 import ShippingCalc from '@/features/shipping-calc/ui/ShippingCalc'
-import { ReviewList, summarizeReviews, useProductReviews } from '@/entities/review'
 import RelatedProducts from '@/widgets/related-products/ui/RelatedProducts'
 import { ProductBuyBar } from '@/widgets/product-buy-bar'
 
@@ -95,8 +94,6 @@ const ProductPageBody = ({
   onVariantImage,
 }: BodyProps) => {
   const purchase = useProductPurchase(product, v => onVariantImage(v?.image_url ?? null))
-  const reviews = useProductReviews(product.id)
-  const summary = summarizeReviews(reviews)
   const toggleWishlist = useWishlistStore(s => s.toggleItem)
   const isWishlisted = useWishlistStore(s => s.hasItem(product.id))
 
@@ -171,7 +168,6 @@ const ProductPageBody = ({
             product={product}
             categoryName={category?.name}
             purchase={purchase}
-            rating={summary ? { average: summary.average, count: summary.count } : null}
           />
         </motion.div>
       </div>
@@ -180,8 +176,6 @@ const ProductPageBody = ({
         <ShippingCalc product={product} />
         <ProductDetailsAccordion product={product} />
       </div>
-
-      <ReviewList reviews={reviews} limit={2} />
 
       <RelatedProducts products={related} categorySlug={category?.slug} />
 

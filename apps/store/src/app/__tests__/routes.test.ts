@@ -62,4 +62,16 @@ describe('a rota do kit de pins saiu (PIN-04)', () => {
 
     expect(offenders).toEqual([])
   })
+
+  // PIN-07, mesma mecânica: `entities/review` era depoimento fabricado, sem tabela por trás.
+  it('nada importa as avaliações de demonstração', () => {
+    const files = sourceFiles(SRC)
+    expect(files.length).toBeGreaterThan(100)
+
+    const offenders = files
+      .filter((file) => /entities\/review|useProductReviews|summarizeReviews/.test(readFileSync(file, 'utf8')))
+      .map((file) => relative(SRC, file))
+
+    expect(offenders).toEqual([])
+  })
 })

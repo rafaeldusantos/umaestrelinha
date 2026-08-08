@@ -16,7 +16,6 @@ vi.mock('@/entities/category/api/useCategories', () => ({ useCategories: () => (
 vi.mock('@/entities/product/ui/ProductGallery', () => ({ default: () => <div>galeria</div> }))
 vi.mock('@/entities/product/ui/ProductInfo', () => ({ default: () => <div>info</div> }))
 vi.mock('@/features/shipping-calc/ui/ShippingCalc', () => ({ default: () => null }))
-vi.mock('@/entities/review/ui/ReviewList', () => ({ default: () => null }))
 vi.mock('@/widgets/related-products/ui/RelatedProducts', () => ({ default: () => null }))
 
 import ProductPage from '../ProductPage'
@@ -122,5 +121,41 @@ describe('ProductPage — redirect de slug antigo (PST-07)', () => {
     renderAt('/produto/botton-sailor-moon')
 
     expect(screen.queryByText('Produto não encontrado')).not.toBeInTheDocument()
+  })
+})
+
+// PIN-07: as avaliações da página eram três depoimentos escritos à mão em `entities/review` — não
+// havia tabela, RLS nem moderação. Depoimento inventado sobre a morte de alguém não é a mesma coisa
+// que depoimento inventado sobre um pin, então a seção saiu inteira em vez de mudar de texto.
+//
+// O que precisa de prova aqui é que a PÁGINA sobreviveu à remoção: o bloco ficava entre a ficha
+// técnica e os relacionados, e tirar um filho do meio de uma coluna é onde o layout costuma
+// desmontar sem ninguém notar (a suíte de rota acima passaria igual).
+describe('ProductPage — sem as avaliações de demonstração (PIN-07)', () => {
+  beforeEach(() => {
+    useProductMock.mockReturnValue({ data: product('botton-sailor-moon'), isFetching: false })
+  })
+
+  it('o que vinha antes e depois do bloco continua montado, na ordem', () => {
+    renderAt('/produto/botton-sailor-moon')
+
+    const page = screen.getByText('galeria').closest('div.container')!
+    const marcos = ['galeria', 'info', 'Cuidados e Conservação', 'Perguntas Frequentes']
+    for (const marco of marcos) expect(screen.getByText(marco)).toBeInTheDocument()
+
+    // A ordem no documento é a do board menos o bloco removido — se a coluna tivesse desmontado, ou
+    // a ficha técnica tivesse subido para dentro da grade de cima, esta sequência mudaria.
+    const texto = page.textContent ?? ''
+    expect(texto.indexOf('galeria')).toBeLessThan(texto.indexOf('Cuidados e Conservação'))
+    expect(texto.indexOf('Cuidados e Conservação')).toBeLessThan(texto.indexOf('Perguntas Frequentes'))
+  })
+
+  it('nenhum depoimento fabricado, nota agregada ou estrela é renderizado', () => {
+    renderAt('/produto/botton-sailor-moon')
+
+    expect(screen.queryByRole('heading', { name: 'Avaliações' })).not.toBeInTheDocument()
+    expect(screen.queryByText(/Compra verificada/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/avaliaç(ão|ões)/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('img', { name: /de 5 estrelas/ })).not.toBeInTheDocument()
   })
 })

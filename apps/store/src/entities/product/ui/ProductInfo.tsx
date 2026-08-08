@@ -9,7 +9,6 @@ import {
 import type { Product } from '@estrelinha/supabase/types'
 import { useWishlistStore } from '@/entities/wishlist/model/wishlistStore'
 import ShareButtons from '@/features/share-product/ui/ShareButtons'
-import RatingStars from '@/entities/review/ui/RatingStars'
 import { PAGE_MAX_AXES } from '../lib/variantSelection'
 import type { ProductPurchase } from '../model/useProductPurchase'
 import ProductTrustBadges from './ProductTrustBadges'
@@ -20,13 +19,11 @@ interface Props {
   categoryName?: string
   /** O estado de compra, montado pela página e dividido com a barra fixa do mobile. */
   purchase: ProductPurchase
-  /** Resumo das avaliações — `null` quando o produto ainda não tem nenhuma. */
-  rating?: { average: number; count: number } | null
 }
 
 /**
- * Cor da linha de estoque. Verde só no "em estoque" — é semântica de estado, o mesmo verde do
- * "Compra verificada" da avaliação, e não faz parte da paleta de marca (DESIGN.md §7).
+ * Cor da linha de estoque. Verde só no "em estoque" — é semântica de estado e não faz parte da
+ * paleta de marca (DESIGN.md §7).
  * A escassez fala em geleia, e o esgotado em ameixa: nenhum dos dois é alarme.
  */
 const STOCK_TONE = {
@@ -39,14 +36,14 @@ const STOCK_TONE = {
  * A coluna de informação da página do produto — boards "Desktop Product Detail - v3" e
  * "Mobile Product Detail - v3".
  *
- * A ordem é a do board e é uma escada de decisão: **o que é** (selos, nome, nota) → **quanto custa**
+ * A ordem é a do board e é uma escada de decisão: **o que é** (selos, nome) → **quanto custa**
  * (preço, economia, parcela) → **qual** (acabamento, tamanho) → **tem?** (estoque) → **levar**
  * (quantidade + CTA). O que não decide compra — compartilhar e garantias — vem depois do CTA.
  *
  * Não guarda estado de compra: quem guarda é `useProductPurchase`, na página, porque a mesma escolha
  * alimenta a barra fixa do rodapé mobile.
  */
-const ProductInfo = ({ product, categoryName, purchase, rating = null }: Props) => {
+const ProductInfo = ({ product, categoryName, purchase }: Props) => {
   const { qty, setQty, selected, select, sellableGrid, price, savings, stock, canAdd, add } =
     purchase
   const toggleWishlist = useWishlistStore(s => s.toggleItem)
@@ -83,18 +80,6 @@ const ProductInfo = ({ product, categoryName, purchase, rating = null }: Props) 
       <h1 className="font-display text-[28px] font-semibold leading-[34px] tracking-[-0.02em] text-nanita-ink md:text-[36px] md:leading-[42px]">
         {product.name}
       </h1>
-
-      {rating && (
-        <div className="mt-3 flex items-center gap-2">
-          <RatingStars value={rating.average} size={16} />
-          <span className="text-[13px] font-semibold leading-4 text-nanita-ink">
-            {rating.average.toFixed(1)}
-          </span>
-          <span className="text-[13px] leading-4 text-nanita-plum">
-            ({rating.count} {rating.count === 1 ? 'avaliação' : 'avaliações'})
-          </span>
-        </div>
-      )}
 
       <div className="mt-5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <span className="font-display text-[32px] font-semibold leading-[38px] text-nanita-jam">
