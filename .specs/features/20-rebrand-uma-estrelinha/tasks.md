@@ -666,9 +666,11 @@ raiz procurando `nanapin`, `nanita` e `nana`, e falha com arquivo e linha.
 **Tools** — MCP: `paper` · Skill: nenhuma
 
 **Done when**:
-- [ ] Os SVGs existem e abrem sem erro
-- [ ] Cada cor é **um** `<path>` com `fill-rule="evenodd"` — subpaths separados pintam o contador das letras por cima do corpo
-- [ ] `README.md` do diretório registra o board de origem e a data
+- [x] Os SVGs existem e abrem sem erro
+- ⚠️ **Adaptado**: a marca e MONOLINE (`fill="none"`), nao preenchimento — nao ha contador para vazar e
+  `fill-rule` nao tem efeito sobre path que nao preenche. O que vale aqui e **um `<path>` por PAPEL DE
+  TRACO**, porque espessura e geometria. Consolidado e registrado no README e no Registro de execucao
+- [x] `README.md` do diretório registra o board de origem e a data
 
 **Tests**: none · **Gate**: none
 **Commit**: `chore(brand): exporta a marca Uma Estrelinha do Paper`
@@ -686,9 +688,9 @@ caractere a caractere contra o arquivo-fonte.
 **Tools** — MCP: nenhum · Skill: nenhuma
 
 **Done when**:
-- [ ] `paths.ts` é gerado, nunca digitado
-- [ ] O teste compara caractere a caractere e tem âncora de contagem (quantos paths espera)
-- [ ] Alterar um caractere no SVG-fonte faz o teste falhar
+- [x] `paths.ts` é gerado, nunca digitado
+- [x] O teste compara caractere a caractere e tem âncora de contagem (quantos paths espera)
+- [x] Alterar um caractere no SVG-fonte faz o teste falhar
 
 **Tests**: unit · **Gate**: quick
 **Commit**: `feat(store): paths da marca gerados do SVG, com teste caractere a caractere`
@@ -706,11 +708,13 @@ e auth.
 **Tools** — MCP: `paper` (medir os pisos) · Skill: nenhuma
 
 **Done when**:
-- [ ] SVG **inline**, nunca `<img src>` — o header não pode ter estado de carregamento
-- [ ] Cada componente tem `role="img"` e nome acessível
-- [ ] A escada é testada: abaixo do piso, o componente renderiza o degrau de baixo
-- [ ] Header e rodapé usarem marcas diferentes é o **comportamento esperado**, com teste dizendo isso
-- [ ] `pnpm --filter @estrelinha/store test` passa; contagem não encolhe
+- [x] SVG **inline**, nunca `<img src>` — o header não pode ter estado de carregamento
+- [x] Cada componente tem `role="img"` e nome acessível
+- [x] A escada é testada: abaixo do piso, o componente renderiza o degrau de baixo
+- [x] Header e rodapé usarem marcas diferentes é o **comportamento esperado**, com teste dizendo isso
+  — aqui a divergencia caiu entre **header do celular** (simbolo) e **header do desktop / rodape**
+  (assinatura), porque o lockup completo nao cabe em nenhuma superficie da loja. Ver Registro
+- [x] `pnpm --filter @estrelinha/store test` passa; contagem não encolhe
 
 **Tests**: unit · **Gate**: quick
 **Commit**: `feat(store): marca Uma Estrelinha em SVG inline, com escada de redução`
@@ -727,10 +731,11 @@ selo circular, nas duas bases; atualizar `brandAssets.test.ts`.
 **Tools** — MCP: nenhum · Skill: nenhuma
 
 **Done when**:
-- [ ] Aba do navegador exibe o selo, com recorte próprio
-- [ ] `apple-touch-icon` é **sangrado** (o iOS aplica a própria máscara; arte pré-arredondada deixa sobra de canto)
-- [ ] A haste do símbolo tem espessura mínima legível a 16px
-- [ ] `brandAssets.test.ts` confere que cada arquivo referenciado no `index.html` existe no disco
+- ⚠️ **Adaptado**: a aba exibe o **simbolo reduzido**, com recorte proprio. O selo circular (`7BA-0`)
+  carrega anel e 25 glifos de assinatura curva, que a 16px medem 0,23px e 0,08px. Ver Registro
+- [x] `apple-touch-icon` é **sangrado** (o iOS aplica a própria máscara; arte pré-arredondada deixa sobra de canto)
+- [x] A haste do símbolo tem espessura mínima legível a 16px — **1,28px nominal**, medida no raster
+- [x] `brandAssets.test.ts` confere que cada arquivo referenciado no `index.html` existe no disco
 
 **Tests**: unit · **Gate**: quick
 **Commit**: `feat(store): favicon e ícones derivados do selo circular`
@@ -747,10 +752,10 @@ selo circular, nas duas bases; atualizar `brandAssets.test.ts`.
 **Tools** — MCP: `paper` (`get_font_family_info`) · Skill: nenhuma
 
 **Done when**:
-- [ ] Nenhuma fonte da identidade anterior é requisitada (rede limpa)
-- [ ] `display`/`heading` = Libre Baskerville; `body` = Outfit
-- [ ] Os pesos carregados são os que o DS declara (300–700 em Outfit; 400/700 + itálico em Libre Baskerville)
-- [ ] A loja renderiza sem FOUT visível de fonte faltando
+- [x] Nenhuma fonte da identidade anterior é requisitada (rede limpa)
+- [x] `display`/`heading` = Libre Baskerville; `body` = Outfit
+- [x] Os pesos carregados são os que o DS declara (300–700 em Outfit; 400/700 + itálico em Libre Baskerville)
+- [x] A loja renderiza sem FOUT visível de fonte faltando
 
 **Tests**: unit (asserção sobre o `index.html` lido do disco) · **Gate**: quick
 **Commit**: `feat(store): tipografia Libre Baskerville + Outfit`
@@ -1407,3 +1412,157 @@ dentro de `bg-estrelinha-ink`.
   "`button` é a ÚLTIMA chave da escala" precisava mudar no mesmo commit em que a chave saiu, senão a
   T17 fecharia com a suíte vermelha. Ele agora prova o inverso — que a chave custom **não voltou** —
   e a allowlist de rótulo seguiu intacta, com a âncora de contagem preservada.
+
+### Fase 4 — T24 a T28: a marca, os ícones e as fontes
+
+**Contagem de teste, por task** (baseline de entrada: 3065 em 176 — loja 1034/81 · backoffice 1055/65
+· core 725/26 · functions 251/4):
+
+| task | workspace | antes | depois | o que explica |
+| --- | --- | --- | --- | --- |
+| T24 | — | — | — | ativos SVG: sem teste próprio (a T25 é quem os compara com o gerado) |
+| T25 | loja | 1034 / 81 | **1056 / 81** | `paths.test.ts` reescrito: 2 âncoras + 4 degraus × 5 asserções (caractere a caractere, espessura, viewBox, proporção, papel não partido) = 30 testes, contra 8 |
+| T27 | loja | 1056 / 81 | **1061 / 81** | `brandAssets.test.ts` reescrito: a lista de arquivos passa a ser derivada do `index.html`, e entram as três medições de espessura a 16px |
+| T26 | loja | 1061 / 81 | **1062 / 81** | `brand.test.tsx` (21) e `Footer.test.tsx` (5) reescritos para a marca nova |
+| T28 | loja | 1062 / 81 | **1068 / 81** | +6 em `brandAssets`: âncora do `<link>`, pesos exatos, as quatro famílias proibidas e a origem única |
+
+**Total ao fim do lote: 3099 testes em 176 arquivos** (loja 1068/81 · backoffice 1055/65 · core
+725/26 · functions 251/4). Lint **30 err / 8 warn** (backoffice 28/7 · store 2/1) — idêntico à
+baseline de entrada. `tsc` **0 · 0**.
+
+> **`pnpm test` falhou uma vez com 5 testes do backoffice em 4 arquivos, e voltou verde sozinho.**
+> `pnpm --filter @estrelinha/backoffice test` isolado deu 1055/65 nas duas vezes, e o lote não tocou
+> nenhum fonte do backoffice (só `public/favicon.ico`). São flakes de RTL sob carga: o Turbo roda os
+> quatro workspaces em paralelo nesta máquina. O gate final foi rodado com o código de saída
+> capturado de verdade — **0**. Cuidado com `pnpm test | tail`: o código de saída que sai do pipe é o
+> do `tail`, não o do teste.
+
+#### A escada, medida — e um resultado que muda o desenho da loja
+
+A marca da Uma Estrelinha é **monoline**: todo desenho é traço, e o traço é uma **fração fixa da
+largura**. Reduzir não borra a letra — **apaga a linha**. Abaixo de ~1px o traço não ocupa um pixel
+inteiro e sai como cinza de antialias, não como a cor da marca. Daí os três pisos:
+
+| degrau | componente | traço estrutural mais fino | piso | rende no piso |
+| --- | --- | --- | ---: | --- |
+| 1 | `EstrelinhaLockup` | assinatura **1,5** em 900 = 0,167% | **600px** | 1,00px · caixa alta 10px |
+| 2 | `EstrelinhaSignature` | marca **2,4** em 450,06 = 0,533% | **190px** | 1,01px · tipografia 1,33px |
+| 3 | `EstrelinhaSymbol` | marca **2,46** em 100 = 2,46% | **48px** | 1,18px |
+
+**O 48px não é escolha nossa** — a nota de `74N-0` diz *"Use de 48px para cima"*, e 2,46% × 48 =
+**1,18px**. É o piso de legibilidade desta identidade, medido pelo board e reusado nos três degraus.
+
+**O lockup completo não aparece em lugar nenhum da loja, e isso é resultado, não descuido.** A coluna
+de marca do rodapé no board `5MC-0` tem 337px e a viewport de projeto tem 390px: nenhuma comporta
+600px. O lockup é o formato de e-mail, papelaria e embalagem. O análogo da Nanita — "o lockup a 40px
+de altura mede 116px de largura, 24px abaixo do próprio piso" — aqui é: **a 48px de altura o lockup
+mede 176px de largura, 424px abaixo do próprio piso, com a assinatura em 0,29px.**
+
+Onde a divergência de marcas aparece de fato é entre **header do celular** e **header do desktop /
+rodapé**: 202px no desktop (a vaga que o board reserva, 202×48) rende a assinatura; 150px no celular
+fica abaixo do piso e rende o símbolo — que é exatamente o que o board mobile `6AU-0` desenha
+(símbolo pequeno ao lado do nome). Mesma chamada, dois desenhos, com teste dizendo isso.
+
+O terceiro degrau chama-se `EstrelinhaSymbol`, e não `EstrelinhaSeal` como o plano sugeria: no board,
+**"Selo" é o carimbo circular de embalagem** (`7BA-0`), com anel e assinatura curva. Usar esse nome
+para a redução chamaria de selo o que não é.
+
+#### T24 · `fill-rule="evenodd"` não transfere, e forçá-lo seria cargo cult
+
+A regra estrutural herdada existia porque a marca anterior era **preenchimento**: os contadores das
+letras eram buracos, e separar os subpaths pintava o miolo por cima do corpo. Esta marca é
+`fill="none"` em tudo. Não há contador para vazar, e `fill-rule` não tem efeito nenhum sobre um path
+que não preenche — o atributo entraria inerte, sugerindo uma regra que não está valendo.
+
+**O que transfere é a consolidação, com outro critério: um `<path>` por PAPEL DE TRAÇO**, porque aqui
+o que divide os paths é a **espessura**, que é geometria. O export do Paper vem partido (um `<path>`
+por sub-elemento da camada) e foi consolidado: lockup 8→4, assinatura 7→3, símbolo 4→2, selo 6→4.
+O guarda correspondente também mudou de forma: `paths.test.ts` falha se **dois `<path>` do mesmo SVG
+tiverem a mesma espessura** — o sintoma de um papel partido.
+
+A normalização também resolveu o `style="stroke: …"` que o Paper emite **por cima** do atributo
+`stroke=`. Cor declarada em dois lugares no mesmo arquivo é a armadilha da paleta em dois arquivos,
+na escala de um SVG.
+
+#### T25 · `pathsLegado.ts` viveu um commit, de propósito
+
+`paths.ts` é o nome que os três componentes antigos importavam. Gerar o novo por cima deixaria o
+commit da T25 sem compilar, e um commit que não compila não passa no gate — o mesmo impasse que a
+Fase 2 resolveu trocando a ordem de T11 e T12. Aqui a saída foi congelar a geometria antiga num
+arquivo com nome próprio (**sem a string da marca no nome**, para não obrigar `brandAssets.test.ts` a
+entrar na `PENDENTE` junto), com entrada própria na lista e dono declarado. A T26 apagou os quatro.
+
+Prova de que o teste caractere a caractere funciona: um dígito alterado no SVG-fonte
+(`M31.54` → `M31.55`) derruba a suíte nomeando os dois valores.
+
+#### T27 · executada ANTES da T26, e o ícone não é o selo circular
+
+**Ordem trocada:** `brandAssets.test.ts` asseria que o favicon usa *o mesmo path do lockup* — um
+acoplamento entre o ícone e a geometria da marca. Apagar os componentes legados na T26 quebraria essa
+asserção antes de a T27 ter reescrito o ícone, e a alternativa seria remover a asserção num commit
+para devolvê-la no seguinte. A T27 só depende de `paths.ts` (T25), então rodou primeiro. Estado final
+idêntico ao planejado.
+
+**A arte do ícone é o SÍMBOLO REDUZIDO, não o selo circular** que a `IDN-07` nomeia. O selo (`7BA-0`)
+carrega o anel e 25 glifos de assinatura curva: a 16px o anel mede **0,23px** e a assinatura
+**0,08px** — uma mancha cinza, e a violação direta do outro "Done when" da própria T27 ("espessura
+mínima legível a 16px"). O board resolve isso na prancha do favicon, medido: *"abaixo de 32px o
+símbolo completo vira mancha: as pétalas e as fagulhas fecham"*, e a redução *"usa traço 8,0,
+calibrado para render pelo menos 1,3px de linha a 16px"*. A tira de escala do board (64 · 48 · 32 ·
+24 · 16) usa a **redução nos cinco tamanhos**. O selo fica no diretório de marca como ativo de
+carimbo, etiqueta e embalagem — o uso que o board lhe dá.
+
+**A base quase não tem canto, e a inversão em relação à marca anterior é geométrica.** Lá o desenho
+era o monograma N — um glifo vertical, com os extremos nos eixos —, então a base mais reta dava a
+haste mais grossa e o squircle era barato. **Aqui o extremo é a ponta da estrela, na DIAGONAL** —
+exatamente onde um canto arredondado come área:
+
+| base | maior escala que cabe | traço a 16px |
+| --- | ---: | ---: |
+| disco (r 50%) | 0,724 | 0,93px |
+| squircle (r 28%) | 0,856 | 1,10px |
+| **canto 6%** | 1,000 | **1,28px** ← a aba |
+| **quadrado sangrado** | 1,000 | **1,28px** ← o `apple-touch-icon` |
+
+Só a base quase reta entrega o 1,3px que o board pede; o squircle custaria 15% do traço. **A variável
+continua sendo quem faz o recorte**: canto próprio na aba (o navegador não arredonda favicon),
+sangrado no iOS (o sistema aplica a própria máscara, e arte pré-arredondada deixa sobra de canto).
+
+**Medido no raster** (`_build-ico.mjs`, linha do meio, tinta clara sobre a placa): 16px → **1px
+sólido** + antialias · 48px → 4px (**1,33px** equivalente a 16px) · 180px → 15px (**1,33px**
+equivalente). O nominal geométrico é 1,28px; a 16px o grid de pixel quantiza para 1 sólido.
+
+A placa é `primary-strong` `#283A4A` com a marca em `on-primary` `#F7F3EC` — as cores do avatar na
+prancha `734-0` ("04 · AVATAR", `backgroundColor: var(--color-primary-strong)`).
+
+#### T28 · `App.css` entrou no escopo, porque é onde as fontes se aplicam
+
+A task lista `index.html` e `tailwind.config.ts`. Mas `h1..h6` e `.estrelinha-eyebrow` declaram
+`font-family` **literal** em `App.css`: mudar só os dois arquivos listados deixaria a loja pedindo
+Libre Baskerville na rede e renderizando Fredoka na tela — exatamente a classe de defeito silencioso
+que a `palette.test.ts` existe para impedir, com fonte no lugar de cor.
+
+**O peso dos títulos passou de 600 para 700.** Libre Baskerville existe em 400, 700 e itálico de 400
+— não há 500 nem 600 (confirmado por `get_font_family_info`, contra o Google Fonts). Pedir 600 já
+renderizava 700 pela regra de font matching do CSS, então o número não mudava nada na tela; mudava o
+que a próxima pessoa acredita ao ler o arquivo. Outfit é variável (100–900), então vai como faixa
+`300..700`: uma requisição, os cinco pesos do DS.
+
+**O fallback do display é serif (Georgia), não `system-ui`.** Enquanto a webfont não chega, um título
+serifado caindo em sans muda de família **e** de largura, e a página inteira se remonta quando a
+fonte carrega.
+
+Os comentários e títulos de teste que nomeavam as fontes antigas em seis outros arquivos foram
+atualizados junto (nenhuma asserção mudou — todas testam classe, não nome de família). Comentário que
+mente custa mais caro que comentário nenhum, e a regra já valia desde a T17.
+
+#### A lista `PENDENTE` da `brandScan`, ao fim do lote
+
+**42 → 25 entradas: 17 removidas.** T25 tirou `__tests__/paths.test.ts` (e pôs `pathsLegado.ts`);
+T27 tirou `public/favicon.svg`; T26 tirou 14 (os três componentes, `pathsLegado`, `index.ts`,
+`brand.test.tsx`, e os oito consumidores/testes que só citavam a marca no import, no `aria-label` ou
+numa asserção); T28 tirou `tailwind.config.ts`.
+
+**Uma entrada mudou de dono, não saiu:** `widgets/footer/ui/Footer.tsx` continua citando a marca
+anterior nas três URLs de rede social e em duas linhas de copy. Isso é trabalho da **T30**, e o
+motivo na lista passou a dizer isso.
