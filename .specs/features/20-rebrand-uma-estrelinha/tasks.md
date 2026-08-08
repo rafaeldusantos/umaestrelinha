@@ -232,9 +232,9 @@ dos dev servers em 8082 (loja) e 8083 (backoffice).
 **Tools** — MCP: nenhum · Skill: nenhuma
 
 **Done when**:
-- [ ] Nenhuma referência a `lovable-tagger` no repositório
-- [ ] `pnpm dev` e `pnpm build` funcionam nos dois apps
-- [ ] `pnpm install` regenera o lockfile sem o pacote
+- [x] Nenhuma referência a `lovable-tagger` no repositório
+- [x] `pnpm dev` e `pnpm build` funcionam nos dois apps
+- [x] `pnpm install` regenera o lockfile sem o pacote
 
 **Tests**: none · **Gate**: build
 **Commit**: `chore: remove o lovable-tagger, dependência de uma plataforma abandonada`
