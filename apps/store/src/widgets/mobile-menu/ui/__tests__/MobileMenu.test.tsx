@@ -62,7 +62,7 @@ describe('MENU-16 — a folha inteira', () => {
     renderSheet()
     expect(screen.getByLabelText('Uma Estrelinha — página inicial')).toBeInTheDocument()
     expect(screen.getByLabelText('Fechar menu')).toBeInTheDocument()
-    expect(screen.getByText(/Buscar pins/)).toBeInTheDocument()
+    expect(screen.getByText(/O que você está procurando/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Anime' })).toBeInTheDocument()
     // "Crie o Seu" saiu com a página de kit de pins (PIN-04): a rota não existe mais.
     expect(screen.queryByRole('link', { name: 'Crie o Seu' })).toBeNull()
@@ -124,7 +124,7 @@ describe('MENU-17 — um acordeão por vez', () => {
 describe('MENU-18 — a busca', () => {
   it('fecha a folha e abre o overlay — nunca um segundo campo de busca', () => {
     renderSheet()
-    fireEvent.click(screen.getByText(/Buscar pins/))
+    fireEvent.click(screen.getByText(/O que você está procurando/))
     expect(closeMenuSpy).toHaveBeenCalled()
     expect(openSearchSpy).toHaveBeenCalledTimes(1)
     // A folha não tem input: o gatilho é um `<button>`.
@@ -165,7 +165,7 @@ describe('MENU-20 — alvos de toque', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Anime' }))
     expect(screen.getByRole('link', { name: 'Naruto' }).className).toContain('min-h-11')
     expect(screen.getByRole('link', { name: /Wishlist/ }).className).toContain('h-11')
-    expect(screen.getByText(/Buscar pins/).className).toContain('h-11')
+    expect(screen.getByText(/O que você está procurando/).className).toContain('h-11')
   })
 })
 

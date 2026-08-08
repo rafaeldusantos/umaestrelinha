@@ -111,6 +111,19 @@ describe('contraste — o acento NUNCA é texto sobre claro', () => {
     expect(tetoDeNaoTexto('accent-strong', 'ink', 4.5)).toBe('accent-strong sobre ink: não é texto')
   })
 
+  it('rótulo DENTRO de `accent` é `ink`, e não `primary-strong` (IDN-09)', () => {
+    // As boards `5MC-0`/`6AU-0` desenham o contador do carrinho e o botão da
+    // newsletter com `primary-strong` sobre `accent`. Medido, esse par dá
+    // **4,21:1** — passa de 3, reprova em 4,5, e é rótulo de verdade nos dois
+    // lugares (contador de 10px, botão de 13px). `ink` sobre o mesmo ouro dá
+    // 4,78:1 e é o par que o DESIGN.md já nomeava. A divergência da board é
+    // deliberada e mora aqui, medida, para não voltar por engano.
+    expect(tetoDeNaoTexto('primary-strong', 'accent', 4.5)).toBe(
+      'primary-strong sobre accent: não é texto',
+    )
+    expect(pisoDeTexto('ink', 'accent', 4.5)).toBe('ink sobre accent: OK')
+  })
+
   it('`line` e `serenity` também não são texto em superfície nenhuma', () => {
     // 1,25:1 e 1,19:1 sobre o chão. Divisor e faixa — a diferença para o
     // acento é só de grau; a regra é a mesma.

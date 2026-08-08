@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ChevronDown, ChevronUp, Heart, Info, Package, Search, User, X } from 'lucide-react'
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from '@estrelinha/ui/sheet'
-import { EstrelinhaSignature } from '@/shared/ui/brand'
+import { EstrelinhaSignature, EstrelinhaSymbol } from '@/shared/ui/brand'
 import { useAuthContext } from '@estrelinha/auth'
 import type { MenuEntry } from '@estrelinha/core/menu'
 import { useMenu, useMenuUiStore } from '@/entities/category'
@@ -92,7 +92,9 @@ const MobileMenu = () => {
             className="flex h-11 w-full items-center gap-2.5 rounded-pill bg-estrelinha-ground-deep px-4 text-left text-sm text-estrelinha-ink-soft"
           >
             <Search className="h-4 w-4 shrink-0 text-estrelinha-primary" strokeWidth={2.2} aria-hidden />
-            Buscar pins, coleções...
+            {/* O texto é o da faixa de busca da board (`5MQ-0`), e não um convite
+                a "pins": o produto deixou de ser esse. */}
+            O que você está procurando?
           </button>
         </div>
 
@@ -161,8 +163,10 @@ const MobileMenu = () => {
             data-testid="mobile-menu-promo"
             className="mx-5 mb-5 flex items-center gap-3 rounded-md bg-estrelinha-primary p-3"
           >
-            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-white/20 text-2xl">
-              🔥
+            {/* O selo do destaque é o símbolo da marca — a chama que estava
+                aqui era vocabulário de "drop", que não é desta loja. */}
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-white/20">
+              <EstrelinhaSymbol size={28} tone="onInk" />
             </span>
             <span className="flex min-w-0 flex-col">
               <span className="truncate text-sm font-bold text-white">{promo.title}</span>

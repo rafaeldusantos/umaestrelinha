@@ -121,8 +121,10 @@ describe('Header — as duas superfícies de menu (MENU-16)', () => {
     expect(trigger).toHaveAttribute('aria-haspopup', 'dialog')
     fireEvent.click(trigger)
     expect(openMenuSpy).toHaveBeenCalledTimes(1)
-    // O acordeão inline não existe mais: nenhum campo de busca aparece dentro do header.
-    expect(screen.queryByText(/Buscar bottons/)).not.toBeInTheDocument()
+    // O acordeão inline não existe mais: nenhum campo próprio dentro do header — o único que
+    // existe é o `SearchDropdown`, que é `hidden md:block` e está dublado aqui.
+    const { container } = renderHeader()
+    expect(bar(container).querySelectorAll('input')).toHaveLength(0)
   })
 
   it('sem entradas (falha de consulta) a barra fica só com o item fixo — sem quebrar (MENU-04)', () => {
@@ -132,6 +134,59 @@ describe('Header — as duas superfícies de menu (MENU-16)', () => {
     expect(screen.queryByText('Crie o seu')).not.toBeInTheDocument()
     expect(screen.getByText('Sobre')).toBeInTheDocument()
     expect(screen.getByTestId('mega-menu')).toHaveTextContent('')
+  })
+})
+
+// ── O chrome das boards `5MC-0` / `6AU-0` — `IDN-09` ──────────────────────────
+// A moldura do topo deixou de ser branca. Os dois boards põem o header em
+// `primary-strong`, e o desktop acrescenta uma segunda faixa em `primary`.
+describe('Header — a moldura escura da identidade nova (IDN-09)', () => {
+  /** `--estrelinha-primary-strong`, que é a superfície do header. */
+  const PRIMARY_STRONG = '#283A4A'
+
+  it('a faixa do topo é `primary-strong`, e não mais branca', () => {
+    // Premissa das asserções abaixo: se a superfície mudar, o tom da marca e a
+    // cor dos ícones têm de ser reavaliados junto — e é este teste que obriga.
+    const { container } = renderHeader()
+    expect(bar(container)).toHaveClass('bg-estrelinha-primary-strong')
+    expect(bar(container).className).not.toContain('bg-white')
+  })
+
+  it('nenhum traço da marca sai na cor do próprio fundo', () => {
+    // O mesmo defeito que `Footer.test.tsx` congelou, do outro lado da página:
+    // pedir o tom `brand` (#283A4A) sobre `primary-strong` (#283A4A) dá 1,00:1
+    // — um header com um vazio no lugar do logo, sem erro em lugar nenhum.
+    renderHeader()
+    const marcas = screen.getAllByRole('img', { name: 'Uma Estrelinha' })
+    expect(marcas.length).toBeGreaterThan(0)
+    for (const marca of marcas) {
+      for (const path of marca.querySelectorAll('path')) {
+        expect(path).toHaveAttribute('stroke', '#F7F3EC')
+        expect(path.getAttribute('stroke')).not.toBe(PRIMARY_STRONG)
+      }
+    }
+  })
+
+  it('a segunda faixa é `primary` e só existe no desktop', () => {
+    // No celular a moldura continua com 64px de uma faixa só: a board mobile
+    // desenha 112px porque põe a busca no header, e aqui a busca é a aba do
+    // `MobileNav`. Empilhar as duas coisas comeria 48px do orçamento que a
+    // regra de barra única existe para proteger.
+    const { container } = renderHeader()
+    const faixa = container.querySelector('[aria-label="Departamentos"]')!.parentElement!
+    expect(faixa).toHaveClass('bg-estrelinha-primary')
+    expect(faixa).toHaveClass('hidden')
+    expect(faixa).toHaveClass('md:block')
+  })
+
+  it('nada dentro do `<header>` é `position: fixed`', () => {
+    // O header carrega `transform`, que cria containing block: um `fixed` aqui
+    // dentro passaria a se medir pelo header, não pela viewport. É por isso que
+    // o `MobileMenu` mora no `StoreLayout`.
+    const { container } = renderHeader()
+    for (const node of bar(container).querySelectorAll('*')) {
+      expect(node.className.toString()).not.toMatch(/(^|[\s:])fixed(\s|$)/)
+    }
   })
 })
 

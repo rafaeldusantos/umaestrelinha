@@ -136,7 +136,7 @@ describe('MENU-13 — a faixa "Em alta"', () => {
     products.data = [product('a'), product('b'), product('c'), product('d')]
     renderMenu()
     hover('Anime')
-    expect(screen.getByText('🔥 Em alta')).toBeInTheDocument()
+    expect(screen.getByText('Em destaque')).toBeInTheDocument()
     expect(screen.getByText('Pin a')).toBeInTheDocument()
     expect(screen.getByText('Pin c')).toBeInTheDocument()
     expect(screen.queryByText('Pin d')).toBeNull()
@@ -146,14 +146,14 @@ describe('MENU-13 — a faixa "Em alta"', () => {
     products.data = [product('comum', false)]
     renderMenu()
     hover('Anime')
-    expect(screen.queryByText('🔥 Em alta')).toBeNull()
+    expect(screen.queryByText('Em destaque')).toBeNull()
   })
 
   it('categoria sem produto em destaque não deixa a faixa vazia na tela', () => {
     products.data = []
     renderMenu()
     hover('Anime')
-    expect(screen.queryByText('🔥 Em alta')).toBeNull()
+    expect(screen.queryByText('Em destaque')).toBeNull()
     // …e o painel continua útil, com as subcategorias.
     expect(screen.getByTestId('mega-menu-painel')).toHaveTextContent('Naruto')
   })

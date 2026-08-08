@@ -73,28 +73,47 @@ const SearchDropdown = ({ onClose, mobile }: Props) => {
 
   return (
     <div ref={ref} className={`relative ${mobile ? 'w-full' : ''}`}>
-      <form onSubmit={handleSubmit} className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-estrelinha-ink-soft" />
+      {/* A faixa de busca do board `5MN-0`: pílula branca de 48px, texto à
+          esquerda e o disco de 38px em `accent` à direita.
+
+          **Sem `border`, e isso não fura a WCAG 1.4.11.** O contorno do
+          controle é o próprio recorte da pílula branca contra a faixa
+          `primary-strong` do header — 12,4:1, muito acima dos 3:1 que a regra
+          pede. Uma borda `field` aqui só desenharia uma segunda moldura dentro
+          da primeira. */}
+      <form
+        onSubmit={handleSubmit}
+        className={`relative flex items-center gap-2.5 rounded-pill bg-estrelinha-surface pl-4 focus-within:ring-2 focus-within:ring-estrelinha-accent ${
+          mobile ? 'h-11 pr-1.5' : 'h-12 pl-5 pr-1.5'
+        }`}
+      >
+        <Search className="h-[18px] w-[18px] shrink-0 text-estrelinha-ink-soft" strokeWidth={1.7} />
         <input
           ref={inputRef}
           type="text"
           value={query}
           onChange={(e) => { setQuery(e.target.value); setOpen(true) }}
           onFocus={() => setOpen(true)}
-          placeholder="Buscar bottons..."
-          /* Borda de campo é Papelão (`estrelinha-field`), não Dobra: a WCAG 1.4.11
-             pede 3:1 de contorno de controle, e Dobra dá 1,19 sobre Papel. */
-          className="w-full pl-9 pr-8 py-2 text-sm rounded-full bg-white border border-estrelinha-field focus:border-estrelinha-primary focus:outline-none focus:ring-2 focus:ring-estrelinha-primary/20 text-estrelinha-ink placeholder:text-estrelinha-ink-soft transition-colors"
+          placeholder="O que você está procurando?"
+          className="min-w-0 flex-1 bg-transparent text-[15px] font-light text-estrelinha-ink outline-none placeholder:text-estrelinha-ink-soft"
         />
         {query && (
           <button
             type="button"
             onClick={() => { setQuery(''); inputRef.current?.focus() }}
-            className="absolute right-3 top-1/2 -translate-y-1/2"
+            aria-label="Limpar busca"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
           >
-            <X className="w-4 h-4 text-estrelinha-ink-soft hover:text-estrelinha-ink" />
+            <X className="h-4 w-4 text-estrelinha-ink-soft hover:text-estrelinha-ink" />
           </button>
         )}
+        <button
+          type="submit"
+          aria-label="Buscar"
+          className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-full bg-estrelinha-accent transition-colors hover:bg-estrelinha-accent-strong"
+        >
+          <Search className="h-[18px] w-[18px] text-estrelinha-ink" strokeWidth={1.9} />
+        </button>
       </form>
 
       <AnimatePresence>

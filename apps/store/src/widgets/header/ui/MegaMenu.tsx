@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom'
 import { formatPrice } from '@estrelinha/core/formatters'
 import type { MenuEntry } from '@estrelinha/core/menu'
 import { useProducts } from '@/entities/product'
+import { EstrelinhaSymbol } from '@/shared/ui/brand'
+import { NAV_ITEM } from './navItem'
 
 /**
  * A barra de universos do desktop e o painel que ela abre — board "Desktop Mega Menu Open - v3".
@@ -10,7 +12,7 @@ import { useProducts } from '@/entities/product'
  * O board é da era v3 pop-culture (`Lilita One`, `#1A0F2E`, `#FF3B7F`). A **estrutura e o espaçamento**
  * dele são a entrega; a paleta e a tipografia vêm do tema da loja, porque o `DESIGN.md` já aposentou as
  * três coisas. A coluna "Por estilo" do board ficou fora do escopo (eixo transversal, sem modelo de
- * dado) e os 160px dela sobraram para a faixa "Em alta", que segue com 3 cards.
+ * dado) e os 160px dela sobraram para a faixa "Em destaque", que segue com 3 cards.
  *
  * O que decide o conteúdo é `useMenu` → `menuEntries`, a mesma função que a tela `/admin/menu` usa
  * para prometer. Antes, aqui, era `categories.slice(0, 4)` de uma lista chapada — e é assim que a
@@ -21,14 +23,15 @@ import { useProducts } from '@/entities/product'
 const OPEN_DELAY = 120
 const CLOSE_DELAY = 200
 
-/** Quantos produtos em destaque a faixa "Em alta" mostra. */
+/** Quantos produtos em destaque a faixa "Em destaque" mostra. */
 const TRENDING_LIMIT = 3
 
 const EYEBROW =
   'text-[11px] font-bold uppercase tracking-[0.08em] text-estrelinha-primary'
 
+
 /**
- * A faixa "🔥 Em alta" — produtos em destaque da categoria.
+ * A faixa "Em destaque" — produtos em destaque da categoria.
  *
  * Componente separado porque `useProducts` é um hook: chamá-lo por entrada da barra seria uma chamada
  * condicional. Montando só o painel aberto, a consulta acontece uma vez, e o React Query a mantém em
@@ -42,7 +45,7 @@ const TrendingLane = ({ slug }: { slug: string }) => {
 
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-3 pt-4">
-      <p className={`${EYEBROW} text-estrelinha-ink-soft`}>🔥 Em alta</p>
+      <p className={`${EYEBROW} text-estrelinha-ink-soft`}>Em destaque</p>
       <div className="flex gap-3">
         {featured.map((product) => (
           <Link
@@ -59,9 +62,9 @@ const TrendingLane = ({ slug }: { slug: string }) => {
                   className="h-full w-full object-cover"
                 />
               ) : (
-                <span aria-hidden className="font-display text-2xl text-estrelinha-accent">
-                  N
-                </span>
+                // O vazio da galeria é o SÍMBOLO da marca, e não uma letra: o
+                // "N" que estava aqui era a inicial da loja anterior.
+                <EstrelinhaSymbol size={48} className="opacity-30" />
               )}
             </div>
             <span className="text-[13px] font-semibold leading-[18px] text-estrelinha-ink">
@@ -143,6 +146,7 @@ const MegaMenu = ({ entries }: { entries: MenuEntry[] }) => {
 
   return (
     <div
+      className="flex h-full items-center"
       onPointerLeave={() => schedule(null, CLOSE_DELAY)}
       onKeyDown={(event) => {
         if (event.key === 'Escape' && openId) {
@@ -151,7 +155,7 @@ const MegaMenu = ({ entries }: { entries: MenuEntry[] }) => {
         }
       }}
     >
-      <nav aria-label="Universos" className="flex items-center gap-7">
+      <div className="flex h-full items-center gap-9">
         {entries.map((entry) => (
           <Link
             key={entry.id}
@@ -171,21 +175,25 @@ const MegaMenu = ({ entries }: { entries: MenuEntry[] }) => {
             onClick={() => close(false)}
             aria-expanded={hasPanel(entry) ? openId === entry.id : undefined}
             aria-controls={hasPanel(entry) ? 'mega-menu-painel' : undefined}
-            className={`text-[15px] font-medium transition-colors ${
-              openId === entry.id ? 'text-estrelinha-primary' : 'text-estrelinha-ink hover:text-estrelinha-primary'
+            className={`${NAV_ITEM} ${
+              openId === entry.id ? 'border-estrelinha-accent text-white' : 'border-transparent'
             }`}
           >
             {entry.name}
           </Link>
         ))}
-      </nav>
+      </div>
 
       {open && (
         <div
           id="mega-menu-painel"
           data-testid="mega-menu-painel"
           onPointerEnter={() => clearTimeout(timer.current)}
-          className="absolute left-0 right-0 top-16 z-40 border-b border-estrelinha-line bg-white shadow-estrelinha-soft"
+          /* `top-full`, e não `top-16`: o bloco de posicionamento é o `<header>`
+             (que é `sticky`, logo posicionado) e ele deixou de ter uma altura
+             só — no desktop são duas faixas, 84 + 52. Um número cravado
+             deixaria o painel atravessando a faixa de departamentos. */
+          className="absolute left-0 right-0 top-full z-40 border-b border-estrelinha-line bg-estrelinha-surface shadow-estrelinha-soft"
         >
           <div className="container flex gap-5 pb-5">
             {open.children.length > 0 && (
