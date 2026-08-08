@@ -14,7 +14,7 @@ import { applyOrderBump } from '@estrelinha/core/payment/pricing'
 import { useCheckoutSettings } from '@estrelinha/core/hooks/useStoreSettings'
 import { useCartStore } from '@/entities/cart'
 import { useProductById } from '@/entities/product'
-import { NanitaMonogram } from '@/shared/ui/brand'
+import { EstrelinhaSymbol } from '@/shared/ui/brand'
 import { useCheckoutStore } from '../model/checkoutStore'
 
 const OrderBump = () => {
@@ -73,7 +73,7 @@ const OrderBump = () => {
         {product.image_url ? (
           <img src={product.image_url} alt="" className="h-full w-full object-cover" />
         ) : (
-          <NanitaMonogram height={30} tone="ink" />
+          <EstrelinhaSymbol size={30} tone="brand" />
         )}
       </span>
 
@@ -104,7 +104,7 @@ const OrderBump = () => {
         aria-hidden
         className="pointer-events-none absolute -top-[38px] right-[-30px] opacity-10"
       >
-        <NanitaMonogram height={150} tone="brand" />
+        <EstrelinhaSymbol size={150} tone="onInk" />
       </span>
     </button>
   )

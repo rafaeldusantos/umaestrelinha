@@ -22,7 +22,7 @@ import {
 } from '@estrelinha/core/hooks/useStoreSettings'
 import CouponInput from '@/features/apply-coupon/ui/CouponInput'
 import { useCouponStore } from '@/entities/coupon'
-import { NanitaMonogram } from '@/shared/ui/brand'
+import { EstrelinhaSymbol } from '@/shared/ui/brand'
 import { useCheckoutStore } from '../model/checkoutStore'
 import { useCheckoutTotals } from '../model/useCheckoutTotals'
 import { resolveInstallments } from '@estrelinha/core/payment/installments'
@@ -92,7 +92,7 @@ const OrderSummary = ({ variant }: Props) => {
             {item.product.image_url ? (
               <img src={item.product.image_url} alt="" className="h-full w-full object-cover" />
             ) : (
-              <NanitaMonogram height={26} tone="brand" />
+              <EstrelinhaSymbol size={26} tone="brand" />
             )}
             <span className="absolute -right-[6px] -top-[6px] flex h-[22px] w-[22px] items-center justify-center rounded-full bg-estrelinha-ink text-xs font-bold text-white">
               {item.quantity}

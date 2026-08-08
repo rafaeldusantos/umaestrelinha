@@ -60,7 +60,7 @@ beforeEach(() => {
 describe('MENU-16 — a folha inteira', () => {
   it('tem logo, fechar, busca, universos, o fixo e os três atalhos', () => {
     renderSheet()
-    expect(screen.getByLabelText('Nanita — página inicial')).toBeInTheDocument()
+    expect(screen.getByLabelText('Uma Estrelinha — página inicial')).toBeInTheDocument()
     expect(screen.getByLabelText('Fechar menu')).toBeInTheDocument()
     expect(screen.getByText(/Buscar pins/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Anime' })).toBeInTheDocument()

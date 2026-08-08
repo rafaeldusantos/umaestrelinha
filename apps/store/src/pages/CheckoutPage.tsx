@@ -15,7 +15,7 @@ import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Lock, MessageCircle, Package, RefreshCw, ShieldCheck } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@estrelinha/ui/button'
-import { NanitaWordmark } from '@/shared/ui/brand'
+import { EstrelinhaSignature } from '@/shared/ui/brand'
 import { formatPrice } from '@estrelinha/core/formatters'
 import { isValidDocument, stripCep } from '@estrelinha/core/validators'
 import { applyOrderBump } from '@estrelinha/core/payment/pricing'
@@ -83,8 +83,8 @@ const TRUST_ITEMS = [
 const CheckoutHeader = () => (
   <header className="border-b border-estrelinha-line bg-white">
     <div className="container flex items-center justify-between py-5">
-      <Link to="/" aria-label="Nanita">
-        <NanitaWordmark width={128} />
+      <Link to="/" aria-label="Uma Estrelinha">
+        <EstrelinhaSignature width={200} />
       </Link>
       <div className="flex items-center gap-5 text-sm font-medium">
         <span className="flex items-center gap-[7px] text-estrelinha-ink">

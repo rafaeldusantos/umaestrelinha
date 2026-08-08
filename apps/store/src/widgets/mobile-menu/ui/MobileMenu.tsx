@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ChevronDown, ChevronUp, Heart, Info, Package, Search, User, X } from 'lucide-react'
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from '@estrelinha/ui/sheet'
-import { NanitaWordmark } from '@/shared/ui/brand'
+import { EstrelinhaSignature } from '@/shared/ui/brand'
 import { useAuthContext } from '@estrelinha/auth'
 import type { MenuEntry } from '@estrelinha/core/menu'
 import { useMenu, useMenuUiStore } from '@/entities/category'
@@ -69,8 +69,8 @@ const MobileMenu = () => {
         </SheetDescription>
 
         <header className="flex h-16 shrink-0 items-center justify-between px-5">
-          <Link to="/" onClick={() => leaveTo()} aria-label="Nanita — página inicial">
-            <NanitaWordmark width={128} />
+          <Link to="/" onClick={() => leaveTo()} aria-label="Uma Estrelinha — página inicial">
+            <EstrelinhaSignature width={200} />
           </Link>
           <button
             type="button"

@@ -1,158 +1,175 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { NanitaWordmark, NanitaLockup, NanitaMonogram, WORDMARK_FLOOR, LOCKUP_FLOOR } from '..'
+import {
+  EstrelinhaLockup,
+  EstrelinhaSignature,
+  EstrelinhaSymbol,
+  LOCKUP_FLOOR,
+  SIGNATURE_FLOOR,
+  SYMBOL_FLOOR,
+} from '..'
+import { LOCKUP, SIGNATURE, SYMBOL, SYMBOL_TINY } from '../paths'
 
 /**
- * A marca em vetor, contra as ACs de `PAP-05`.
+ * A marca em vetor, contra `IDN-05`.
  *
- * O que estes testes guardam é a **escada de redução** (prancha 21) e a cor do
- * descritor sobre Grafite. As duas coisas são invisíveis num code review: um
- * lockup a 90px renderiza sem erro nenhum e sai borrado, e um descritor em
- * Carbono sobre Grafite renderiza sem erro nenhum e sai invisível.
+ * O que estes testes guardam é a **escada de redução**. Ela é invisível num
+ * code review: uma assinatura pedida a 120px renderiza sem erro nenhum e sai
+ * com 0,64px de traço — uma linha cinza de antialias onde deveria estar a cor
+ * da marca. O componente não tem como avisar; o teste tem.
  */
 
-const svgOf = (label: string) => screen.getByRole('img', { name: label })
+const marca = () => screen.getByRole('img', { name: 'Uma Estrelinha' })
 
-describe('NanitaWordmark', () => {
-  it('é SVG inline com papel e nome acessível', () => {
-    // Inline e não `<img src>`: o wordmark do header não pode ter estado de
+describe('EstrelinhaSignature — o degrau do chrome', () => {
+  it('é SVG inline com nome acessível', () => {
+    // Inline e não `<img src>`: a marca do header não pode ter estado de
     // carregamento nem 404 possível, e `currentColor` só funciona inline.
-    render(<NanitaWordmark width={128} />)
-    const svg = svgOf('Nanita')
+    render(<EstrelinhaSignature width={202} />)
+    const svg = marca()
     expect(svg.tagName.toLowerCase()).toBe('svg')
-    expect(svg).toHaveAttribute('viewBox', '0 0 690.06 172.04')
+    expect(svg).toHaveAttribute('viewBox', SIGNATURE.viewBox)
   })
 
-  it('a altura sai da largura pela proporção 4,01:1', () => {
-    render(<NanitaWordmark width={160} />)
-    // 160 / (690.06/172.04) = 39,89
-    expect(Number(svgOf('Nanita').getAttribute('height'))).toBeCloseTo(39.89, 1)
+  it('a altura sai da largura pela proporção 4,61:1', () => {
+    render(<EstrelinhaSignature width={202} />)
+    // 202 / (450.06/97.64) = 43,82
+    expect(Number(marca().getAttribute('height'))).toBeCloseTo(43.82, 1)
+  })
+
+  it('emite um `<path>` por papel de traço, com a espessura do desenho', () => {
+    // A espessura é geometria nesta marca. Um `<path>` a menos apaga um pedaço
+    // inteiro do logo sem erro nenhum.
+    render(<EstrelinhaSignature width={202} />)
+    const paths = [...marca().querySelectorAll('path')]
+    expect(paths).toHaveLength(SIGNATURE.strokes.length)
+    expect(paths.map((p) => Number(p.getAttribute('stroke-width')))).toEqual(
+      SIGNATURE.strokes.map((s) => s.width),
+    )
+  })
+
+  it('todo traço é traço — `fill="none"`, nunca preenchimento', () => {
+    render(<EstrelinhaSignature width={202} />)
+    for (const path of marca().querySelectorAll('path')) {
+      expect(path).toHaveAttribute('fill', 'none')
+    }
   })
 
   it.each([
-    ['brand', '#F1678D'],
-    ['ink', '#2E2028'],
-    ['paper', '#F9F1EE'],
-    ['onInk', '#F1678D'],
+    ['brand', '#283A4A'],
+    ['onInk', '#F7F3EC'],
+    ['accent', '#B8945F'],
     ['mono', 'currentColor'],
-  ] as const)('o tom `%s` pinta o traço em %s', (tone, fill) => {
-    render(<NanitaWordmark width={128} tone={tone} />)
-    expect(svgOf('Nanita').querySelector('path')).toHaveAttribute('fill', fill)
+  ] as const)('o tom `%s` pinta o traço em %s', (tone, stroke) => {
+    render(<EstrelinhaSignature width={202} tone={tone} />)
+    for (const path of marca().querySelectorAll('path')) {
+      expect(path).toHaveAttribute('stroke', stroke)
+    }
   })
 
-  it(`abaixo de ${WORDMARK_FLOOR}px cai para o monograma`, () => {
-    // Prancha 21: quem quebra primeiro é a fileira de marcas, não a haste. A
-    // 90px as barras saem com 3,78px e os losangos viram manchas.
-    render(<NanitaWordmark width={90} />)
-    expect(svgOf('Nanita')).toHaveAttribute('viewBox', '0 0 126.87 160.18')
+  it(`em ${SIGNATURE_FLOOR}px ainda renderiza a assinatura`, () => {
+    render(<EstrelinhaSignature width={SIGNATURE_FLOOR} />)
+    expect(marca()).toHaveAttribute('viewBox', SIGNATURE.viewBox)
   })
 
-  it(`em ${WORDMARK_FLOOR}px ainda renderiza o wordmark`, () => {
-    render(<NanitaWordmark width={WORDMARK_FLOOR} />)
-    expect(svgOf('Nanita')).toHaveAttribute('viewBox', '0 0 690.06 172.04')
-  })
-})
-
-describe('NanitaLockup', () => {
-  it('tem wordmark E descritor, com nome acessível próprio', () => {
-    render(<NanitaLockup width={150} />)
-    const svg = svgOf('Nanita Personalizados')
-    expect(svg).toHaveAttribute('viewBox', '0 0 690.06 237.8')
-    expect(svg.querySelectorAll('path')).toHaveLength(2)
+  it(`abaixo de ${SIGNATURE_FLOOR}px cai para o símbolo`, () => {
+    // A 150px o traço da marca teria 0,80px e a linha viraria cinza. É o
+    // tamanho que o header do celular pede.
+    render(<EstrelinhaSignature width={150} />)
+    expect(marca()).toHaveAttribute('viewBox', SYMBOL.viewBox)
   })
 
-  it('sobre Papel o descritor é Carbono', () => {
-    render(<NanitaLockup width={150} tone="brand" />)
-    const paths = svgOf('Nanita Personalizados').querySelectorAll('path')
-    expect(paths[0]).toHaveAttribute('fill', '#F1678D')
-    expect(paths[1]).toHaveAttribute('fill', '#7E5769')
-  })
-
-  it('sobre Grafite o descritor vira Dobra — nunca Carbono', () => {
-    // Carbono sobre Grafite dá 2,55:1 e o descritor desaparece. Dobra, 11,72:1.
-    render(<NanitaLockup width={150} tone="onInk" />)
-    const paths = svgOf('Nanita Personalizados').querySelectorAll('path')
-    expect(paths[1]).toHaveAttribute('fill', '#EBDDD7')
-    expect(paths[1]).not.toHaveAttribute('fill', '#7E5769')
-  })
-
-  it('sobre Grafite o WORDMARK é Carimbo — nunca o próprio Grafite', () => {
-    // O defeito que este teste congela: o rodapé pedia `tone="ink"` lendo o nome
-    // como "sobre Grafite", e recebia a marca EM Grafite sobre fundo Grafite —
-    // 1,00:1. A loja mostrava "PERSONALIZADOS" com um vazio em cima, e a suíte
-    // passava porque só o descritor era verificado.
-    render(<NanitaLockup width={150} tone="onInk" />)
-    const paths = svgOf('Nanita Personalizados').querySelectorAll('path')
-    expect(paths[0]).toHaveAttribute('fill', '#F1678D')
-    expect(paths[0]).not.toHaveAttribute('fill', '#2E2028')
-  })
-
-  it('`ink` é superfície CLARA nos DOIS paths, não meio a meio', () => {
-    // A origem do bug era um tom que dizia tinta no wordmark e superfície no
-    // descritor. Um tom, um eixo.
-    render(<NanitaLockup width={150} tone="ink" />)
-    const paths = svgOf('Nanita Personalizados').querySelectorAll('path')
-    expect(paths[0]).toHaveAttribute('fill', '#2E2028')
-    expect(paths[1]).toHaveAttribute('fill', '#7E5769')
-  })
-
-  it(`abaixo de ${LOCKUP_FLOOR}px cai para o wordmark, sem descritor`, () => {
-    // O descritor tem 45 unidades de caixa alta em 690: abaixo de 140px ele cai
-    // para 9px e deixa de ser texto — vira textura.
-    render(<NanitaLockup width={120} />)
-    expect(svgOf('Nanita')).toHaveAttribute('viewBox', '0 0 690.06 172.04')
-  })
-
-  it('a queda é encadeada: pedir 60px chega no monograma', () => {
-    render(<NanitaLockup width={60} />)
-    expect(svgOf('Nanita')).toHaveAttribute('viewBox', '0 0 126.87 160.18')
+  it('a queda preserva a ALTURA, não a largura', () => {
+    // Passar a largura adiante devolveria um símbolo 4,6x mais alto que a
+    // assinatura que ele substitui, e o header pularia de altura.
+    render(<EstrelinhaSignature width={150} />)
+    // 150 / 4,61 = 32,54 — o símbolo é quadrado, então largura = altura.
+    expect(Number(marca().getAttribute('width'))).toBeCloseTo(32.54, 1)
   })
 })
 
-describe('nenhuma cor sai partida em vários `<path>`', () => {
-  /**
-   * O sintoma de subpath separado em elemento próprio é **dois `<path>` com o
-   * mesmo `fill` dentro do mesmo `<svg>`**. Aí o contador é pintado por cima do
-   * corpo, na mesma cor, e a letra sai maciça — com a geometria intacta.
-   *
-   * Vale sobre o RENDERIZADO e não sobre o fonte: `NanitaWordmark` tem dois
-   * `<path>` no arquivo, em ramos de retorno diferentes, que nunca aparecem
-   * juntos na tela.
-   */
-  const oneElementPerFill = (svg: Element) => {
-    const fills = [...svg.querySelectorAll('path')].map((p) => p.getAttribute('fill'))
-    expect(new Set(fills).size).toBe(fills.length)
-  }
+describe('EstrelinhaLockup — o degrau de e-mail e embalagem', () => {
+  const lockup = () => screen.getByRole('img', { name: 'Uma Estrelinha — Eternizando suas lembranças' })
 
-  it('no wordmark', () => {
-    render(<NanitaWordmark width={128} />)
-    oneElementPerFill(svgOf('Nanita'))
+  it('tem nome acessível próprio, que diz a assinatura', () => {
+    render(<EstrelinhaLockup width={LOCKUP_FLOOR} />)
+    expect(lockup()).toHaveAttribute('viewBox', LOCKUP.viewBox)
+    expect(lockup().querySelectorAll('path')).toHaveLength(LOCKUP.strokes.length)
   })
 
-  it('no lockup — duas cores, dois elementos', () => {
-    render(<NanitaLockup width={150} />)
-    const svg = svgOf('Nanita Personalizados')
-    expect(svg.querySelectorAll('path')).toHaveLength(2)
-    oneElementPerFill(svg)
+  it(`abaixo de ${LOCKUP_FLOOR}px cai para a assinatura, sem a linha de baixo`, () => {
+    // A assinatura tem traço 1,5 em 900 de largura: a 400px ela rende 0,67px e
+    // vira uma sombra cinza sob a tipografia.
+    render(<EstrelinhaLockup width={400} />)
+    expect(marca()).toHaveAttribute('viewBox', SIGNATURE.viewBox)
   })
 
-  it('no monograma', () => {
-    render(<NanitaMonogram height={32} />)
-    oneElementPerFill(svgOf('Nanita'))
+  it('a queda é encadeada: pedir 150px chega no símbolo', () => {
+    render(<EstrelinhaLockup width={150} />)
+    expect(marca()).toHaveAttribute('viewBox', SYMBOL.viewBox)
   })
 })
 
-describe('NanitaMonogram', () => {
-  it('a largura sai da altura, e o viewBox é o do N', () => {
-    render(<NanitaMonogram height={32} />)
-    const svg = svgOf('Nanita')
-    expect(svg).toHaveAttribute('viewBox', '0 0 126.87 160.18')
-    // 32 * (126.87/160.18) = 25,35
-    expect(Number(svg.getAttribute('width'))).toBeCloseTo(25.35, 1)
+describe('EstrelinhaSymbol — o degrau que troca de arte', () => {
+  it('a largura é o lado, e o viewBox é o do símbolo', () => {
+    render(<EstrelinhaSymbol size={64} />)
+    const svg = marca()
+    expect(svg).toHaveAttribute('viewBox', SYMBOL.viewBox)
+    expect(Number(svg.getAttribute('width'))).toBe(64)
+    expect(Number(svg.getAttribute('height'))).toBe(64)
+  })
+
+  it(`em ${SYMBOL_FLOOR}px ainda usa o símbolo completo`, () => {
+    // "Use de 48px para cima" — a nota da prancha `734-0`. A 48px o traço de
+    // 2,46% rende 1,18px, que é o piso de legibilidade desta identidade.
+    render(<EstrelinhaSymbol size={SYMBOL_FLOOR} />)
+    expect(marca().querySelectorAll('path')).toHaveLength(SYMBOL.strokes.length)
+  })
+
+  it(`abaixo de ${SYMBOL_FLOOR}px TROCA de arte, em vez de encolher`, () => {
+    // "Abaixo de 32px o símbolo completo vira mancha: as pétalas e as fagulhas
+    // fecham." A redução guarda lua e estrela, com traço 8,0.
+    render(<EstrelinhaSymbol size={30} />)
+    const paths = marca().querySelectorAll('path')
+    expect(paths).toHaveLength(SYMBOL_TINY.strokes.length)
+    expect(paths[0]).toHaveAttribute('d', SYMBOL_TINY.strokes[0].d)
+    expect(paths[0]).toHaveAttribute('stroke-width', String(SYMBOL_TINY.strokes[0].width))
+  })
+
+  it('a arte pequena não é a grande encolhida', () => {
+    render(<EstrelinhaSymbol size={30} />)
+    expect(marca().querySelector('path')).not.toHaveAttribute('d', SYMBOL.strokes[0].d)
   })
 
   it('herda a cor do contexto no tom `mono`', () => {
-    render(<NanitaMonogram height={32} tone="mono" />)
-    expect(svgOf('Nanita').querySelector('path')).toHaveAttribute('fill', 'currentColor')
+    render(<EstrelinhaSymbol size={64} tone="mono" />)
+    expect(marca().querySelector('path')).toHaveAttribute('stroke', 'currentColor')
+  })
+})
+
+describe('a escada é a razão de header e rodapé mostrarem marcas diferentes', () => {
+  it('a MESMA chamada, em duas larguras, rende dois desenhos', () => {
+    // É o comportamento esperado, não inconsistência: o header do celular pede
+    // 150px e o do desktop 202px, e só o segundo está acima do piso de 190.
+    const { unmount } = render(<EstrelinhaSignature width={150} />)
+    expect(marca()).toHaveAttribute('viewBox', SYMBOL.viewBox)
+    unmount()
+
+    render(<EstrelinhaSignature width={202} />)
+    expect(marca()).toHaveAttribute('viewBox', SIGNATURE.viewBox)
+  })
+
+  it('nenhum degrau renderiza a marca abaixo de 1px de traço', () => {
+    // A conta que define os três pisos, escrita uma vez: espessura sobre a
+    // largura do viewBox, vezes o piso, tem de dar pelo menos 1px.
+    const magro = (art: typeof LOCKUP) => Math.min(...art.strokes.map((s) => s.width))
+    const largura = (art: typeof LOCKUP) => Number(art.viewBox.split(/\s+/)[2])
+
+    // O lockup é medido pelo traço ESTRUTURAL mais fino, que é a assinatura.
+    expect((magro(LOCKUP) / largura(LOCKUP)) * LOCKUP_FLOOR).toBeGreaterThanOrEqual(1)
+    // Na assinatura os losangos são ornamento e o board os aceita sub-pixel; o
+    // que manda é a marca — o segundo traço mais fino.
+    expect((SIGNATURE.strokes[0].width / largura(SIGNATURE)) * SIGNATURE_FLOOR).toBeGreaterThanOrEqual(1)
+    expect((SYMBOL.strokes[0].width / largura(SYMBOL)) * SYMBOL_FLOOR).toBeGreaterThanOrEqual(1)
   })
 })

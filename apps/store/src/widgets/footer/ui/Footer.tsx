@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { Instagram, Music2, Twitter } from 'lucide-react'
 import { browseCategories, useCategories } from '@/entities/category'
-import { NanitaLockup } from '@/shared/ui/brand'
+import { EstrelinhaSignature } from '@/shared/ui/brand'
 
 const PAYMENTS = ['Pix', 'Visa', 'Master', 'Elo']
 
@@ -51,17 +51,18 @@ const Footer = () => {
       <div className="container pb-8 pt-14">
         <div className="flex flex-col gap-14 md:flex-row md:justify-between">
           <div className="flex max-w-[320px] flex-col gap-4">
-            {/* O rodapé é o lugar do LOCKUP na loja: em 150px está acima do
-                piso de 140, e ali o descritor ainda cumpre a única função que
-                tem — dizer o que a loja vende.
+            {/* **O lockup completo NÃO cabe no rodapé, e isso é medido.** O
+                piso dele é 600px — abaixo disso a linha "ETERNIZANDO SUAS
+                LEMBRANÇAS" (traço 1,5 em 900 de largura) rende menos de um
+                pixel e some. Esta coluna tem 320px. Pedir o lockup aqui só
+                renderizaria a assinatura visual com um passo a mais; então
+                pede-se a assinatura, que é o que de fato aparece.
 
-                O tom é `onInk` ("sobre Grafite"), NÃO `ink` ("em Grafite"):
-                sobre este fundo o wordmark sai em Carimbo (5,22:1) e o descritor
-                em Dobra (11,72:1). Com `ink` o wordmark recebia o próprio
-                #2E2028 do fundo — 1,00:1 — e a loja mostrava um rodapé com
-                "PERSONALIZADOS" e nenhum "Nanita" em cima. */}
-            <Link to="/" aria-label="Nanita — página inicial">
-              <NanitaLockup width={150} tone="onInk" />
+                O tom é `onInk` porque o fundo é `ink`: a marca sai em
+                `on-primary` #F7F3EC. `brand` pintaria #283A4A sobre #23303A —
+                1,15:1, um rodapé com um vazio no lugar da marca. */}
+            <Link to="/" aria-label="Uma Estrelinha — página inicial">
+              <EstrelinhaSignature width={240} tone="onInk" />
             </Link>
             <p className="text-[15px] leading-relaxed text-white/70">
               Bottons feitos à mão para gente que vive de cultura pop. Um pin por vez, desde 2023.

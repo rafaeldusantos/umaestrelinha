@@ -2,7 +2,7 @@ import { Check } from 'lucide-react'
 import { Dialog, DialogContent, DialogTitle } from '@estrelinha/ui/dialog'
 import { Drawer, DrawerContent, DrawerTitle } from '@estrelinha/ui/drawer'
 import { useIsMobile } from '@estrelinha/ui/hooks/use-mobile'
-import { NanitaWordmark } from '@/shared/ui/brand'
+import { EstrelinhaSignature } from '@/shared/ui/brand'
 import { useAuthUiStore } from '../model/authUiStore'
 import type { AuthStep } from '../model/authUiStore'
 import AuthEntry from './steps/AuthEntry'
@@ -40,7 +40,7 @@ const BrandPanel = () => (
     className="flex w-[320px] shrink-0 flex-col justify-between bg-estrelinha-ink p-8 text-white"
   >
     <div>
-      <NanitaWordmark width={180} />
+      <EstrelinhaSignature width={200} tone="onInk" />
       <p className="mt-1 text-sm text-white/70">Cole no peito, carrega no coração.</p>
     </div>
     <ul className="space-y-3">

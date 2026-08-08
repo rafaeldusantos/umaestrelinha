@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { User, Menu, Heart } from 'lucide-react'
-import { NanitaWordmark } from '@/shared/ui/brand'
+import { EstrelinhaSignature } from '@/shared/ui/brand'
 import { useWishlistStore } from '@/entities/wishlist/model/wishlistStore'
 import { useMenu, useMenuUiStore } from '@/entities/category'
 import SearchDropdown from '@/features/search/ui/SearchDropdown'
@@ -60,13 +60,23 @@ const Header = () => {
       }`}
     >
       <div className="container flex h-full items-center justify-between gap-6">
-        {/* A escada da prancha 21: 128px no celular, 160px no desktop — os dois
-            acima do piso de 110px. O lockup não cabe aqui (a 40px de altura ele
-            mede 116px de largura, 24px abaixo do próprio piso), e por isso a
-            marca do header é o wordmark e a do rodapé é o lockup. */}
-        <Link to="/" className="flex shrink-0 items-center" aria-label="Nanita — página inicial">
-          <NanitaWordmark width={128} className="md:hidden" />
-          <NanitaWordmark width={160} className="hidden md:block" />
+        {/* A escada: 202px no desktop — a vaga que o board `5MC-0` reserva para
+            a marca (202×48) —, e 150px no celular, que fica ABAIXO do piso de
+            190 e por isso rende o símbolo, na mesma altura. Não é acidente: a
+            190px a assinatura já está no limite (1,01px de traço), e a 150px
+            teria 0,80px — a linha viraria cinza de antialias. O board mobile
+            (`6AU-0`) desenha exatamente isso: símbolo pequeno ao lado do nome.
+
+            O lockup completo não aparece em lugar nenhum do chrome: o piso dele
+            é 600px, e nem a coluna do rodapé (337px) nem a viewport de projeto
+            (390px) comportam. Ele é o formato de e-mail e embalagem. */}
+        <Link
+          to="/"
+          className="flex shrink-0 items-center"
+          aria-label="Uma Estrelinha — página inicial"
+        >
+          <EstrelinhaSignature width={150} className="md:hidden" />
+          <EstrelinhaSignature width={202} className="hidden md:block" />
         </Link>
 
         <div className="hidden items-center gap-7 md:flex">
