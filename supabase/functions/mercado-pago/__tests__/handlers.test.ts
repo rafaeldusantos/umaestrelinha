@@ -110,7 +110,7 @@ function paymentRows(orderOverrides: Record<string, unknown> = {}) {
     orders: {
       id: ORDER_ID,
       customer_id: 'cust-1',
-      customer_email: 'nana@nanapin.test',
+      customer_email: 'cliente@estrelinha.test',
       customer_name: 'Nana Pin',
       payment_status: 'pending',
       shipping_cost: 0,
@@ -140,7 +140,7 @@ const cardBody = {
     payment_method_id: 'master',
     installments: 3,
     // CPF do Brick divergente do pedido — o do servidor tem de vencer (PGD-04).
-    payer: { email: 'brick@nanapin.test', identification: { type: 'CPF', number: '00000000191' } },
+    payer: { email: 'brick@estrelinha.test', identification: { type: 'CPF', number: '00000000191' } },
   },
 }
 
@@ -217,7 +217,7 @@ describe('create-payment → POST /v1/orders (ORD-01…ORD-05)', () => {
 
     const call = fetchDouble.calls.at(-1)!
     expect(call.body.payer).toEqual({
-      email: 'nana@nanapin.test',
+      email: 'cliente@estrelinha.test',
       // De `customers.name` ('Mariana Souza Lima'), não de `orders.customer_name` ('Nana Pin').
       first_name: PAYER_FIRST_NAME,
       last_name: PAYER_LAST_NAME,
@@ -252,7 +252,7 @@ describe('create-payment → POST /v1/orders (ORD-01…ORD-05)', () => {
     // PGD-04: o CPF do pedido sobrescreve o que veio do Brick, e o payer fica na RAIZ da order.
     // `toEqual` do objeto inteiro: o nome também é do servidor, e o email do Brick é preservado.
     expect(call.body.payer).toEqual({
-      email: 'brick@nanapin.test',
+      email: 'brick@estrelinha.test',
       first_name: PAYER_FIRST_NAME,
       last_name: PAYER_LAST_NAME,
       identification: { type: 'CPF', number: ORDER_CPF },
@@ -2350,7 +2350,7 @@ function emailOrderRow(over: Record<string, unknown> = {}) {
     id: ORDER_ID,
     order_number: 'NP-EMAIL01',
     customer_name: 'Nana Pin',
-    customer_email: 'nana@nanapin.test',
+    customer_email: 'cliente@estrelinha.test',
     status: 'pending',
     payment_status: 'pending',
     paid_at: null,
@@ -2425,7 +2425,7 @@ describe('create-payment — gatilho de e-mail (TRG-04, TRG-05, TRG-08, TRG-09, 
     const emails = resendCalls(fetchDouble)
     expect(emails).toHaveLength(1)
     expect(emails[0].body.subject).toBe('Pedido NP-EMAIL01 recebido — aguardando o PIX')
-    expect(emails[0].body.to).toBe('nana@nanapin.test')
+    expect(emails[0].body.to).toBe('cliente@estrelinha.test')
   })
 
   it('TRG-09: PIX sem qr_code → ZERO e-mails (não promete PIX que não existe)', async () => {

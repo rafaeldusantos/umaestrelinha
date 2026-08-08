@@ -3,13 +3,13 @@
 -- =============================================================================
 -- Roda automaticamente em `supabase db reset` (config.toml → [db.seed]).
 -- Também pode ser executado avulso:
---   docker exec -i supabase_db_nanapin-store psql -U postgres -d postgres < supabase/seed.sql
+--   docker exec -i supabase_db_uma-estrelinha-store psql -U postgres -d postgres < supabase/seed.sql
 --
 -- É IDEMPOTENTE: upsert por `slug` (categorias/produtos), por `code` (cupons) e
 -- por `email` (admin). Convive com o seed embutido na migration inicial —
 -- re-executar apenas atualiza os registros existentes e insere os novos.
 --
--- ACESSO AO BACKOFFICE (dev): admin@nanapin.dev / admin123  (ver seção 6).
+-- ACESSO AO BACKOFFICE (dev): admin@umaestrelinha.dev / admin123  (ver seção 6).
 --
 -- IMAGENS DE MARCAÇÃO: em vez de fotos aleatórias, cada produto/categoria recebe
 -- um placeholder SVG rotulado (nome + categoria) embutido como data-URI base64.
@@ -291,7 +291,7 @@ WHERE NOT EXISTS (SELECT 1 FROM public.drops WHERE title = 'Drop Verão Kawaii')
 -- -----------------------------------------------------------------------------
 -- 6. USUÁRIO ADMIN  (acesso ao backoffice — :8081 /admin/*)
 -- -----------------------------------------------------------------------------
--- admin@nanapin.dev / admin123  — SOMENTE desenvolvimento local.
+-- admin@umaestrelinha.dev / admin123  — SOMENTE desenvolvimento local.
 --
 -- Sem isto, um `supabase db reset` derruba a conta e o backoffice fica
 -- inacessível até alguém recriar o usuário na mão (a senha vira um hash bcrypt
@@ -302,7 +302,7 @@ WHERE NOT EXISTS (SELECT 1 FROM public.drops WHERE title = 'Drop Verão Kawaii')
 -- sem ela o login por senha falha.
 DO $$
 DECLARE
-  v_email text := 'admin@nanapin.dev';
+  v_email text := 'admin@umaestrelinha.dev';
   v_pass  text := 'admin123';
   v_id    uuid;
 BEGIN

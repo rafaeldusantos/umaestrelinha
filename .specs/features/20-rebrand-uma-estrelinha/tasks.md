@@ -311,10 +311,15 @@ fixtures de `supabase/functions/**/__tests__`
 **Tools** — MCP: nenhum · Skill: nenhuma
 
 **Done when**:
-- [ ] `name` da raiz é `uma-estrelinha-monorepo`
-- [ ] Admin de seed é `admin@umaestrelinha.dev`, e o teste de login usa o mesmo
-- [ ] `supabase db reset` completa e o login do admin funciona no backoffice
-- [ ] `pnpm test` sem teste a menos
+- [x] `name` da raiz é `uma-estrelinha-monorepo`
+- [x] Admin de seed é `admin@umaestrelinha.dev`, e o teste de login usa o mesmo
+- [x] `supabase db reset` completa e o login do admin funciona no backoffice
+  — **parcial**: o `reset` aplica as 40 migrations e falha no seed pelo defeito herdado (`pg_temp` /
+  tabela temporária `_pal`), que a T16 já prevê. O seed foi aplicado pelo fallback documentado no
+  próprio `seed.sql` (`docker exec … psql`), e o **login foi provado por probe HTTP** contra o banco
+  local (`AD-012`): token 200 para `admin@umaestrelinha.dev`, `has_role('admin', uid)` = `true`,
+  e `admin@nanapin.dev` devolvendo `400 invalid_credentials`.
+- [x] `pnpm test` sem teste a menos
 
 **Tests**: unit (os testes citados são atualizados junto) · **Gate**: full + db
 **Commit**: `refactor: identidade técnica do monorepo e do admin de seed`
@@ -1125,3 +1130,15 @@ funções temporárias, ligadas à sessão, que não sobrevivem ao envio em lote
 Não tem relação com a mudança de porta (uma falha de esquema não vem de `port =`), e a T16 já a
 prevê no seu "Done when": *"`supabase db reset` completa até o fim, sem depender de tabela temporária
 inexistente"*. Fica registrado aqui como **estado herdado conhecido**, não como regressão da T3.
+
+### T9 · o defeito do seed, medido
+
+A T3 registrou a falha; a T9 a delimitou. `supabase db reset` quebra em dois pontos distintos do
+`seed.sql` conforme o corte do lote da CLI — ora `schema "pg_temp" does not exist`, ora
+`relation "_pal" does not exist`. Os dois são o mesmo defeito: objetos de **sessão** (as funções
+`pg_temp.xesc` / `pg_temp.nana_marker` e a tabela temporária `_pal`) que não sobrevivem ao envio
+fatiado.
+
+Aplicar o mesmo arquivo por `docker exec -i supabase_db_uma-estrelinha-store psql -U postgres -d
+postgres < supabase/seed.sql` — o fallback que o cabeçalho do próprio seed documenta — completa sem
+erro. Isso prova que o problema é o transporte da CLI, não o SQL. A correção é da T16.

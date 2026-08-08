@@ -37,7 +37,7 @@ const montar = () =>
   )
 
 const preencherEEnviar = async () => {
-  fireEvent.change(screen.getByLabelText('E-mail'), { target: { value: 'admin@nanapin.dev' } })
+  fireEvent.change(screen.getByLabelText('E-mail'), { target: { value: 'admin@umaestrelinha.dev' } })
   fireEvent.change(screen.getByLabelText('Senha'), { target: { value: 'admin123' } })
   fireEvent.click(screen.getByRole('button', { name: /Entrar/ }))
 }

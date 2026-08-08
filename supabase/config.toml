@@ -203,7 +203,7 @@ otp_expiry = 600
 # SMTP via Resend — os e-mails de auth saem de verdade.
 # Com este bloco ligado, o Mailpit (http://127.0.0.1:54344) NÃO recebe nada de auth —
 # caixa vazia é o ESPERADO, não sintoma. O ponto de observação é
-# `docker logs supabase_auth_nanapin-store` (a falha de SMTP aparece como `gomail:`).
+# `docker logs supabase_auth_uma-estrelinha-store` (a falha de SMTP aparece como `gomail:`).
 # Para voltar a capturar e-mails localmente no Inbucket, basta comentar este bloco
 # inteiro e reiniciar (supabase stop && supabase start).
 [auth.email.smtp]
