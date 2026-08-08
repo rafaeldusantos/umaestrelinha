@@ -1,0 +1,13 @@
+{
+  "name": "@nanapin/functions",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "//": "Workspace declarado em supabase/ e NÃO em supabase/functions/ de propósito: o node_modules não pode nascer dentro do diretório que o edge runtime bind-monta arquivo por arquivo (ver AD-004 e o carry-forward do 503 Module not found).",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "vitest": "^3.2.7"
+  }
+}

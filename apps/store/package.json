@@ -1,0 +1,23 @@
+{
+  "name": "@nanapin/store",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "build:dev": "vite build --mode development",
+    "lint": "eslint .",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@mercadopago/sdk-react": "^1.0.7",
+    "@nanapin/auth": "workspace:*",
+    "@nanapin/core": "workspace:*",
+    "@nanapin/supabase": "workspace:*",
+    "@nanapin/ui": "workspace:*",
+    "qrcode.react": "^4.2.0"
+  }
+}

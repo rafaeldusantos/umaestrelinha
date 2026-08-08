@@ -1,0 +1,298 @@
+import { useMemo, useState } from 'react'
+import { Link, useParams } from 'react-router-dom'
+import { ArrowUpDown, LayoutGrid, Rows2, SlidersHorizontal } from 'lucide-react'
+import { useProducts } from '@/entities/product/api/useProducts'
+import { useCategoryBySlug } from '@/entities/category/api/useCategories'
+import ProductCard from '@/entities/product/ui/ProductCard'
+import {
+  CategoryFiltersPanel,
+  CategoryFiltersSheet,
+  SORT_LABELS,
+  activeFilterChips,
+  clearFilterChip,
+  collectTags,
+  defaultFilters,
+  filterProducts,
+  hasActiveFilters,
+  priceBounds,
+  sortProducts,
+  toggleTag,
+  type CategoryFilters,
+  type SortOption,
+} from '@/features/category-filters'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@nanapin/ui/select'
+
+/**
+ * Listagem de uma coleção — boards "Desktop Category Page - v3" e "Mobile Category Page - v3".
+ *
+ * As duas telas são o mesmo estado com duas embalagens: no desktop os filtros são uma sidebar
+ * permanente de 260px; no mobile viram um bottom sheet e uma faixa rolável de universos. O grid é
+ * o mesmo `ProductCard` da home — é lá, e não aqui, que mora o quick add de variações.
+ */
+const CategoryPage = () => {
+  const { slug } = useParams<{ slug: string }>()
+  const { data: category } = useCategoryBySlug(slug || '')
+  const { data: allProducts } = useProducts(slug)
+
+  const products = useMemo(() => allProducts ?? [], [allProducts])
+  const bounds = useMemo(() => priceBounds(products), [products])
+  const tags = useMemo(() => collectTags(products), [products])
+
+  const [sort, setSort] = useState<SortOption>('relevancia')
+  const [filters, setFilters] = useState<CategoryFilters>(() => defaultFilters(bounds))
+  const [sheetOpen, setSheetOpen] = useState(false)
+  const [dense, setDense] = useState(true)
+  // A coleção mudou de rota: o preço filtrado ainda é o da coleção anterior. Reancorar pela
+  // identidade da faixa (e não por `slug`) também cobre a primeira carga, quando `products` chega
+  // depois da montagem e os limites saem do palpite [0, 20].
+  const [anchor, setAnchor] = useState(bounds)
+  if (anchor[0] !== bounds[0] || anchor[1] !== bounds[1]) {
+    setAnchor(bounds)
+    setFilters(defaultFilters(bounds))
+  }
+
+  const visible = useMemo(
+    () => sortProducts(filterProducts(products, filters), sort),
+    [products, filters, sort],
+  )
+  const chips = activeFilterChips(filters)
+
+  if (!category) {
+    return (
+      <div className="container py-20 text-center">
+        <h1 className="font-heading text-2xl font-bold text-nanita-ink">Coleção não encontrada</h1>
+        <Link to="/" className="mt-4 inline-block text-nanita-jam hover:underline">
+          Voltar ao início
+        </Link>
+      </div>
+    )
+  }
+
+  const countLabel = `${visible.length} ${visible.length === 1 ? 'produto' : 'produtos'}`
+
+  const sortSelect = (
+    <Select value={sort} onValueChange={v => setSort(v as SortOption)}>
+      <SelectTrigger
+        aria-label="Ordenar por"
+        className="h-9 w-auto gap-1.5 rounded-[10px] border-0 bg-nanita-sugar px-3.5 text-[13px] font-medium text-nanita-ink focus:ring-0"
+      >
+        <ArrowUpDown className="h-3.5 w-3.5 shrink-0 text-nanita-plum" strokeWidth={2} />
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {(Object.keys(SORT_LABELS) as SortOption[]).map(key => (
+          <SelectItem key={key} value={key}>
+            {SORT_LABELS[key]}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  )
+
+  return (
+    <div className="flex flex-col">
+      {/* Faixa da coleção — sangra a largura toda, o conteúdo respeita o container. */}
+      <header className="relative overflow-hidden bg-nanita-glaze">
+        <span
+          aria-hidden
+          className="pointer-events-none absolute -right-2 top-5 h-20 w-20 rounded-full bg-white/[0.08] md:h-[120px] md:w-[120px]"
+        />
+        <span
+          aria-hidden
+          className="pointer-events-none absolute right-[70px] top-[50px] h-5 w-5 rounded-full bg-white/[0.06] md:h-[60px] md:w-[60px]"
+        />
+        <div className="container flex min-h-[130px] flex-col justify-end gap-2 pb-5 pt-4 md:min-h-40 md:pb-7">
+          <nav className="flex items-center gap-1.5 text-[12px] leading-3">
+            <Link to="/" className="text-nanita-ink/70 transition-colors hover:text-nanita-ink">
+              Início
+            </Link>
+            <span className="text-nanita-ink/45">/</span>
+            <span className="font-medium text-nanita-ink">{category.name}</span>
+          </nav>
+
+          <div className="flex flex-col gap-2 md:flex-row md:items-baseline md:gap-4">
+            <h1 className="font-display text-[32px] font-semibold leading-[38px] tracking-[-0.02em] text-nanita-ink md:text-[48px] md:leading-[56px]">
+              {category.name}
+            </h1>
+            <p className="text-[13px] leading-[18px] text-nanita-ink/[0.78]">
+              {countLabel} {visible.length === products.length ? 'encontrados' : `de ${products.length}`}
+            </p>
+          </div>
+
+          {category.description && (
+            <p className="hidden max-w-[480px] text-[14px] leading-[22px] text-nanita-ink/[0.78] md:block">
+              {category.description}
+            </p>
+          )}
+        </div>
+      </header>
+
+      {/* Barra de filtros — só mobile. No desktop tudo isto vive na sidebar. */}
+      <div className="container flex flex-col gap-3 py-3 md:hidden">
+        <div className="flex items-center justify-between gap-2">
+          {sortSelect}
+
+          <div className="flex gap-1">
+            <button
+              type="button"
+              aria-label="Ver em duas colunas"
+              aria-pressed={dense}
+              onClick={() => setDense(true)}
+              className={`flex h-9 w-9 items-center justify-center rounded-[10px] ${
+                dense ? 'bg-nanita-ink text-white' : 'bg-nanita-sugar text-nanita-plum'
+              }`}
+            >
+              <LayoutGrid className="h-4 w-4" strokeWidth={2} />
+            </button>
+            <button
+              type="button"
+              aria-label="Ver em uma coluna"
+              aria-pressed={!dense}
+              onClick={() => setDense(false)}
+              className={`flex h-9 w-9 items-center justify-center rounded-[10px] ${
+                dense ? 'bg-nanita-sugar text-nanita-plum' : 'bg-nanita-ink text-white'
+              }`}
+            >
+              <Rows2 className="h-4 w-4" strokeWidth={2} />
+            </button>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setSheetOpen(true)}
+            className="flex items-center gap-1.5 rounded-[10px] bg-nanita-jam px-3.5 py-2 text-[13px] font-semibold text-white"
+          >
+            <SlidersHorizontal className="h-3.5 w-3.5" strokeWidth={2} />
+            Filtros
+            {chips.length > 0 && (
+              <span className="flex h-4 min-w-4 items-center justify-center rounded-pill bg-white px-1 text-[10px] font-bold text-nanita-jam">
+                {chips.length}
+              </span>
+            )}
+          </button>
+        </div>
+
+        {tags.length > 0 && (
+          <div className="-mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <button
+              type="button"
+              onClick={() => setFilters({ ...filters, tags: [] })}
+              className={`shrink-0 rounded-pill px-3.5 py-1.5 text-[12px] leading-3 transition-colors ${
+                filters.tags.length === 0
+                  ? 'bg-nanita-jam font-semibold text-white'
+                  : 'bg-nanita-sugar font-medium text-nanita-plum'
+              }`}
+            >
+              Todos
+            </button>
+            {tags.map(tag => (
+              <button
+                key={tag}
+                type="button"
+                onClick={() => setFilters(toggleTag(filters, tag))}
+                className={`shrink-0 rounded-pill px-3.5 py-1.5 text-[12px] leading-3 transition-colors ${
+                  filters.tags.includes(tag)
+                    ? 'bg-nanita-jam font-semibold text-white'
+                    : 'bg-nanita-sugar font-medium text-nanita-plum'
+                }`}
+              >
+                {tag}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="container flex gap-8 pb-16 md:pt-8">
+        <aside className="hidden w-[260px] shrink-0 md:block">
+          <div className="flex items-center justify-between pb-5">
+            <div className="flex items-center gap-2">
+              <SlidersHorizontal className="h-4 w-4 text-nanita-ink" strokeWidth={2} />
+              <h2 className="font-body text-[16px] font-bold leading-5 text-nanita-ink">Filtros</h2>
+            </div>
+            {hasActiveFilters(filters, bounds) && (
+              <button
+                type="button"
+                onClick={() => setFilters(defaultFilters(bounds))}
+                className="text-[12px] font-semibold text-nanita-jam"
+              >
+                Limpar
+              </button>
+            )}
+          </div>
+          <CategoryFiltersPanel
+            surface="sidebar"
+            filters={filters}
+            onChange={setFilters}
+            bounds={bounds}
+            tags={tags}
+          />
+        </aside>
+
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div className="hidden items-center justify-between gap-4 pb-6 md:flex">
+            <div className="flex flex-wrap items-center gap-2">
+              {chips.map(chip => (
+                <button
+                  key={chip.key}
+                  type="button"
+                  onClick={() => setFilters(clearFilterChip(filters, chip.key))}
+                  className="flex items-center gap-1.5 rounded-pill bg-nanita-sugar px-3 py-1.5 text-[12px] font-medium text-nanita-jam transition-colors hover:bg-nanita-border"
+                >
+                  {chip.label}
+                  <span aria-hidden>✕</span>
+                  <span className="sr-only">Remover filtro</span>
+                </button>
+              ))}
+            </div>
+            {sortSelect}
+          </div>
+
+          {visible.length > 0 ? (
+            <div
+              className={`grid gap-4 md:grid-cols-3 md:gap-5 ${dense ? 'grid-cols-2' : 'grid-cols-1'}`}
+            >
+              {visible.map(p => (
+                <ProductCard key={p.id} product={p} />
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-3 py-16 text-center">
+              <p className="font-display text-[18px] font-medium text-nanita-ink">
+                Nenhum botton com esses filtros.
+              </p>
+              <p className="text-[14px] text-nanita-plum">
+                Tente afrouxar a faixa de preço ou tirar um universo.
+              </p>
+              <button
+                type="button"
+                onClick={() => setFilters(defaultFilters(bounds))}
+                className="mt-1 rounded-pill bg-nanita-jam px-5 py-2.5 text-[14px] font-semibold text-white"
+              >
+                Limpar filtros
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <CategoryFiltersSheet
+        open={sheetOpen}
+        onOpenChange={setSheetOpen}
+        filters={filters}
+        onChange={setFilters}
+        bounds={bounds}
+        tags={tags}
+        resultCount={visible.length}
+      />
+    </div>
+  )
+}
+
+export default CategoryPage

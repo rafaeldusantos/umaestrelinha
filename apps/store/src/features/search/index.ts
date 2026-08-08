@@ -1,0 +1,6 @@
+export { default as SearchDropdown } from './ui/SearchDropdown'
+export { default as SearchOverlay } from './ui/SearchOverlay'
+export { useSearchUiStore } from './model/searchUiStore'
+export { MIN_QUERY_LENGTH, normalizeTerm, searchProducts, type SearchHit } from './lib/searchProducts'
+export { pickTrendingCategories } from './lib/trendingCategories'
+export { clearRecentSearches, pushRecentSearch, readRecentSearches } from './model/recentSearches'

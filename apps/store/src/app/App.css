@@ -1,0 +1,216 @@
+/*
+ * App-level global styles da loja.
+ * (Os estilos default do template Vite — #root com max-width/padding/text-align
+ * que engaiolavam a loja em 1280px centralizados — foram removidos.
+ * Largura e centralização de conteúdo são responsabilidade da classe
+ * `.container` do preset Tailwind, aplicada por seção.)
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * TEMA NANITA — escopo: só a loja.
+ * Carregado DEPOIS de `@nanapin/ui/styles.css` (ver `src/main.tsx`), então
+ * este arquivo sobrescreve os tokens `--nana-*` do pacote compartilhado sem
+ * afetar o backoffice, que continua com a paleta antiga.
+ *
+ * Referência de design: boards "18 · Logotipo Nanita v2 + Paleta" e
+ * "20b · Onde cada cor entrou na tela" (Paper).
+ * Documentação das decisões: `DESIGN.md` na raiz do repo.
+ * ─────────────────────────────────────────────────────────────────────────
+ */
+
+:root {
+  /* ── Marca Nanita v2 — paleta PAPELARIA ───────────────────────────────
+   * Contraste medido sobre Papel #F9F1EE (o chão novo), WCAG 2.1.
+   * Os nomes de token são os da v1 e viraram apelidos: o que manda é o papel
+   * de cada cor, documentado em `DESIGN.md` §2. Trocar valor em vez de nome
+   * evita reescrever ~190 arquivos e deixar meia loja na paleta velha.
+   *
+   * O chão NÃO entra sozinho: `--nanita-sugar` na v1 (#FFEFF6) sobre Papel dá
+   * 1,00:1 — mesma luminância. Trocar o fundo sem trocar a faixa de seção
+   * apagaria toda superfície da loja. Ou entra junto, ou não entra.
+   */
+
+  /* Papel — o chão de toda a loja. Substitui o branco. Nunca texto. */
+  --nanita-paper: #f9f1ee;
+  /* Carimbo — preenchimento, wordmark, ilustração. NUNCA texto sobre Papel (2,67:1). */
+  --nanita-glaze: #f1678d;
+  /* Selo — dot de status, ícone, detalhe gráfico ≥24px (3,56:1 ✓ lg). */
+  --nanita-raspberry: #e93a6d;
+  /* Carmim — o rosa legível: preço, link, botão primário, aba ativa (6,38:1 ✓ AA). */
+  --nanita-jam: #a62348;
+  /* Grafite — texto primário e superfície escura (13,92:1 ✓ AAA). */
+  --nanita-ink: #2e2028;
+  /* Carbono — texto secundário (5,46:1 ✓ AA). É o piso de contraste. */
+  --nanita-plum: #7e5769;
+  /* Mata-borrão — faixa de seção e palco de foto. Nunca texto (1,20:1). */
+  --nanita-sugar: #f7d6e0;
+  /* Dobra — divisor e contorno de card. NUNCA borda de campo (1,19:1). */
+  --nanita-border: #ebddd7;
+  /* Papelão — borda de input e de controle. Existe porque a WCAG 1.4.11 pede
+   * 3:1 de contorno e nenhum tom claro chega lá sobre Papel (3,95:1 ✓). */
+  --nanita-rule: #8f7268;
+  /* Fita — badge de drop. Só sobre Grafite (10,17:1), nunca sobre Papel. */
+  --nanita-butter: #ffc95c;
+
+  /* Véus de tinta usados sobre fundo escuro (footer, drop card, faixa). */
+  --nanita-on-ink-strong: rgba(255, 255, 255, 0.8);
+  --nanita-on-ink: rgba(255, 255, 255, 0.62);
+  --nanita-on-ink-muted: rgba(255, 255, 255, 0.44);
+  --nanita-on-ink-surface: rgba(255, 255, 255, 0.08);
+  --nanita-on-ink-border: rgba(255, 255, 255, 0.12);
+
+  /* ── Remapeamento dos tokens legados --nana-* ─────────────────────────
+   * Mantidos por compatibilidade: ~300 usos espalhados pela loja passam a
+   * resolver na paleta Nanita sem precisar de edição pontual. Código novo
+   * deve preferir os utilitários `nanita-*`.
+   */
+  --nana-bg: var(--nanita-paper);
+  --nana-bg-alt: var(--nanita-sugar);
+  --nana-card: #ffffff;
+  --nana-card-hover: var(--nanita-sugar);
+  --nana-elevated: #ffffff;
+
+  --nana-text: var(--nanita-ink);
+  --nana-text-secondary: var(--nanita-plum);
+  --nana-text-muted: var(--nanita-plum);
+
+  --nana-border: var(--nanita-border);
+  --nana-border-hover: var(--nanita-glaze);
+
+  --nana-violet: var(--nanita-jam);
+  --nana-pop: var(--nanita-jam);
+  --nana-pink: var(--nanita-jam);
+  --nana-sakura: var(--nanita-raspberry);
+  --nana-cyan: var(--nanita-jam);
+  --nana-yellow: var(--nanita-butter);
+  --nana-dark: var(--nanita-ink);
+  --nana-muted: var(--nanita-plum);
+
+  /* Sem gradientes na identidade nova: cor chapada é a regra.
+   * As classes utilitárias legadas (.gradient-cta etc.) continuam existindo,
+   * mas resolvem para chapado — ver override em @layer utilities abaixo. */
+  --nana-gradient-cta: var(--nanita-jam);
+  --nana-gradient-hero: var(--nanita-sugar);
+  --nana-gradient-card: var(--nanita-ink);
+  --nana-gradient-dark: var(--nanita-ink);
+
+  /* ── shadcn: primário = Carmim, chão = Papel, card = branco ──────────── */
+  --background: 16 48% 96%; /* Papel   #F9F1EE */
+  --foreground: 326 18% 15%; /* Grafite #2E2028 */
+
+  /* O branco virou o CARD, não o chão — é a inversão que define a v2. */
+  --card: 0 0% 100%;
+  --card-foreground: 326 18% 15%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 326 18% 15%;
+
+  --primary: 343 65% 39%; /* Carmim #A62348 */
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 342 67% 90%; /* Mata-borrão #F7D6E0 */
+  --secondary-foreground: 326 18% 15%;
+
+  --muted: 342 67% 90%;
+  --muted-foreground: 332 18% 42%; /* Carbono #7E5769 */
+
+  --accent: 342 67% 90%;
+  --accent-foreground: 343 65% 39%;
+
+  --destructive: 0 72% 45%;
+  --destructive-foreground: 0 0% 100%;
+
+  /* Duas funções, dois valores: `--border` é divisor (Dobra) e `--input` é
+   * contorno de campo (Papelão). Dobra num input dá 1,19:1 e some. */
+  --border: 18 33% 88%; /* Dobra   #EBDDD7 */
+  --input: 15 16% 48%; /* Papelão #8F7268 */
+  --ring: 343 65% 39%; /* Carmim  #A62348 */
+
+  --radius: 1rem; /* 16px — raio de CAMPO. Botão é 14px (`rounded-button`). */
+}
+
+/* A loja é light-only na identidade Nanita. Se a classe `.dark` cair no
+ * documento por algum componente shadcn, os tokens acima seguem valendo. */
+.dark {
+  --nana-bg: var(--nanita-paper);
+  --nana-bg-alt: var(--nanita-sugar);
+  --nana-card: #ffffff;
+  --nana-card-hover: var(--nanita-sugar);
+  --nana-elevated: #ffffff;
+  --nana-text: var(--nanita-ink);
+  --nana-text-secondary: var(--nanita-plum);
+  --nana-text-muted: var(--nanita-plum);
+  --nana-border: var(--nanita-border);
+  --nana-border-hover: var(--nanita-glaze);
+}
+
+/* Regras sem @layer de propósito: este arquivo não passa pelas diretivas
+ * `@tailwind` (elas vivem em `@nanapin/ui/styles.css`). Como App.css é
+ * importado depois, a ordem já garante que estas regras vençam. */
+
+body {
+  background-color: var(--nana-bg);
+  color: var(--nana-text);
+}
+
+/* Fredoka assina toda a hierarquia de títulos. */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: "Fredoka", system-ui, sans-serif;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+::selection {
+  background-color: var(--nanita-glaze);
+  color: var(--nanita-ink);
+}
+
+/* Berkshire Swash saiu na v2 (feature 19). O wordmark deixou de ser texto e
+ * virou SVG (`shared/ui/brand`), e a inicial marca-d'água do card de coleção
+ * saiu em Fredoka 700 nos artboards 22/23 — a fonte perdeu as duas funções que
+ * tinha. Fonte carregada e não usada é payload morto, então ela também saiu do
+ * `<link>` do Google Fonts. */
+
+/* Eyebrow / label em caixa alta com tracking aberto. */
+.nanita-eyebrow {
+  font-family: "DM Sans", system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* Neutraliza os efeitos da identidade antiga (gradientes, glow, neon).
+ * Mantidos como no-ops de cor chapada para não quebrar telas ainda não
+ * revisitadas; código novo não deve usar nenhuma delas. */
+.gradient-card,
+.gradient-dark {
+  background: var(--nanita-ink);
+}
+.gradient-cta {
+  background: var(--nanita-jam);
+}
+.gradient-hero {
+  background: var(--nanita-sugar);
+}
+.text-gradient {
+  background: none;
+  -webkit-text-fill-color: currentColor;
+  color: var(--nanita-jam);
+}
+.glow-violet,
+.glow-pink,
+.glow-cyan {
+  /* Selo #E93A6D — a sombra acompanha o rosa novo. */
+  box-shadow: 0 14px 28px -10px rgba(233, 58, 109, 0.18);
+}
+.neon-text-violet,
+.neon-text-pink,
+.neon-text-cyan {
+  color: var(--nanita-jam);
+  text-shadow: none;
+}

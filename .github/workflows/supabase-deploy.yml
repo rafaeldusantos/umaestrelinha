@@ -1,0 +1,65 @@
+name: Supabase Deploy
+
+# Aplica no projeto Supabase hospedado o que foi mergeado na main:
+#   1. migrations pendentes  (supabase db push)
+#   2. edge functions        (supabase functions deploy)
+#
+# NÃO faz `supabase config push`. O supabase/config.toml é a configuração de
+# DESENVOLVIMENTO LOCAL (site_url = 127.0.0.1:8080, redirect urls de localhost,
+# SMTP com redirect de dev). Empurrá-lo derrubaria o auth de produção. Auth,
+# SMTP e templates do projeto hospedado são configurados no painel — ver
+# docs/DEPLOY.md.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "supabase/migrations/**"
+      - "supabase/functions/**"
+      - ".github/workflows/supabase-deploy.yml"
+  workflow_dispatch:
+    inputs:
+      deploy_functions:
+        description: "Fazer deploy das edge functions"
+        type: boolean
+        default: true
+      push_migrations:
+        description: "Aplicar migrations pendentes"
+        type: boolean
+        default: true
+
+# Nunca cancelar um deploy de banco no meio.
+concurrency:
+  group: supabase-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: link
+        run: supabase link --project-ref "$PROJECT_REF"
+
+      - name: migrations pendentes (dry run)
+        run: supabase migration list --linked
+
+      - name: db push
+        if: ${{ github.event_name == 'push' || inputs.push_migrations }}
+        run: supabase db push --linked
+
+      # `_shared` é ignorado pelo CLI (prefixo `_`). O verify_jwt de cada
+      # function vem de [functions.*] do config.toml.
+      - name: functions deploy
+        if: ${{ github.event_name == 'push' || inputs.deploy_functions }}
+        run: supabase functions deploy --project-ref "$PROJECT_REF"

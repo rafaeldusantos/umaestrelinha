@@ -1,0 +1,387 @@
+{
+  "schema": 1,
+  "promote_threshold": 2,
+  "window_days": 45,
+  "quarantine_threshold": 2,
+  "next_id": 22,
+  "lessons": [
+    {
+      "id": "L-001",
+      "key": "spec_precision_gap::when migrating admin pages to shadcn tokens retire only neutral surface text border nana classes brand accent hues have no shadcn equivalent and stay as accents",
+      "text": "When migrating admin pages to shadcn tokens, retire only neutral surface/text/border nana-* classes; brand-accent hues have no shadcn equivalent and stay as accents.",
+      "signal": "spec_precision_gap",
+      "scope": "backoffice",
+      "status": "candidate",
+      "features": [
+        "backoffice-ui-standardization"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "MIG-06 — AdminDashboard.tsx:17, AdminOrdersPage.tsx:43 (backoffice)"
+      ],
+      "created": "2026-07-28T15:05:24Z",
+      "last_seen": "2026-07-28T15:05:24Z"
+    },
+    {
+      "id": "L-002",
+      "key": "surviving_mutant::integration test the money path with the discount or promotion actually enabled a fixture with every offer switched off cannot detect a double applied discount",
+      "text": "Integration-test the money path with the discount or promotion actually enabled; a fixture with every offer switched off cannot detect a double-applied discount.",
+      "signal": "surviving_mutant",
+      "scope": "payment",
+      "status": "candidate",
+      "features": [
+        "09-checkout-orders-api"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "M6 — handlers.ts:353 (Verifier sensor, validation.md) (payment)"
+      ],
+      "created": "2026-07-28T15:05:38Z",
+      "last_seen": "2026-07-28T15:05:38Z"
+    },
+    {
+      "id": "L-003",
+      "key": "surviving_mutant::assert the full payer identity object sent to the payment gateway for every payment method not only the one where a value is overridden",
+      "text": "Assert the full payer identity object sent to the payment gateway for every payment method, not only the one where a value is overridden.",
+      "signal": "surviving_mutant",
+      "scope": "payment",
+      "status": "candidate",
+      "features": [
+        "09-checkout-orders-api"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "M9 — handlers.ts:401 (Verifier sensor, validation.md) (payment)"
+      ],
+      "created": "2026-07-28T15:05:38Z",
+      "last_seen": "2026-07-28T15:05:38Z"
+    },
+    {
+      "id": "L-004",
+      "key": "surviving_mutant::every guard that returns before an external call needs its own test asserting the status code and zero outbound calls",
+      "text": "Every guard that returns before an external call needs its own test asserting the status code and zero outbound calls.",
+      "signal": "surviving_mutant",
+      "scope": "payment",
+      "status": "candidate",
+      "features": [
+        "09-checkout-orders-api"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "M10 — handlers.ts:252 (Verifier sensor, validation.md) (payment)"
+      ],
+      "created": "2026-07-28T15:05:38Z",
+      "last_seen": "2026-07-28T15:05:38Z"
+    },
+    {
+      "id": "L-005",
+      "key": "spec_precision_gap::when an acceptance criterion lists several failure conditions that map to different status codes state which condition wins where two of them overlap",
+      "text": "When an acceptance criterion lists several failure conditions that map to different status codes, state which condition wins where two of them overlap.",
+      "signal": "spec_precision_gap",
+      "scope": "payment",
+      "status": "candidate",
+      "features": [
+        "09-checkout-orders-api"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "ORD-07 — handlers.ts:449 (Verifier spec-anchored check, validation.md) (payment)"
+      ],
+      "created": "2026-07-28T15:05:39Z",
+      "last_seen": "2026-07-28T15:05:39Z"
+    },
+    {
+      "id": "L-006",
+      "key": "spec_precision_gap::when an acceptance criterion requires a user facing message assert the message text for the specific detail value instead of asserting only that a fallback exists",
+      "text": "When an acceptance criterion requires a user-facing message, assert the message text for the specific detail value instead of asserting only that a fallback exists.",
+      "signal": "spec_precision_gap",
+      "scope": "payment",
+      "status": "candidate",
+      "features": [
+        "09-checkout-orders-api"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "STA-03 — status.ts:84, status.test.ts:135 (Verifier spec-anchored check, validation.md) (payment)"
+      ],
+      "created": "2026-07-28T15:05:39Z",
+      "last_seen": "2026-07-28T15:05:39Z"
+    },
+    {
+      "id": "L-007",
+      "key": "surviving_mutant::quando uma regra de dinheiro duplicada entre loja e servidor pares de linhas escritas m o teste de espelho n o protege o servidor cobrir uma inst ncia order bump n o cobre a classe cupom quantidade free shipping cada par loja servidor precisa de um teste no handler que assevere o valor cobrado n o s um teste da aritm tica num m dulo que produ o n o chama nesse caminho",
+      "text": "Quando uma regra de dinheiro é DUPLICADA entre loja e servidor (pares de linhas escritas à mão), teste de espelho não protege o servidor: cobrir uma instância (order bump) não cobre a classe (cupom × quantidade, free_shipping). Cada par loja↔servidor precisa de um teste no HANDLER que assevere o valor cobrado, não só um teste da aritmética num módulo que produção não chama nesse caminho.",
+      "signal": "surviving_mutant",
+      "scope": "packages/core/src/payment, supabase/functions",
+      "status": "candidate",
+      "features": [
+        "09-checkout-orders-api"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "V1/V2 @ handlers.ts:312,354 — iteração 2 do Verifier (packages/core/src/payment, supabase/functions)"
+      ],
+      "created": "2026-07-28T16:09:30Z",
+      "last_seen": "2026-07-28T16:09:30Z"
+    },
+    {
+      "id": "L-008",
+      "key": "spec_precision_gap::quando uma ac lista um item que a tabela out of scope da mesma spec exclui a exclusao explicita vence implemente o resto declare a divergencia no codigo e no validation md e nao invente a feature excluida",
+      "text": "Quando uma AC lista um item que a tabela Out of Scope da mesma spec exclui, a exclusao explicita vence — implemente o resto, declare a divergencia no codigo e no validation.md, e nao invente a feature excluida.",
+      "signal": "spec_precision_gap",
+      "scope": ".specs/features",
+      "status": "candidate",
+      "features": [
+        "12-product-media-studio"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "spec.md P2.4 AC 1 vs Out of Scope (.specs/features)"
+      ],
+      "created": "2026-08-01T21:54:17Z",
+      "last_seen": "2026-08-01T21:54:17Z"
+    },
+    {
+      "id": "L-009",
+      "key": "spec_precision_gap::quando a spec fixa uma string exata ou uma medida do artboard assere a frase inteira e a medida asserir so os fragmentos deixa a copy divergir do desenho sem quebrar teste",
+      "text": "Quando a spec fixa uma string exata ou uma medida do artboard, assere a frase inteira e a medida — asserir so os fragmentos deixa a copy divergir do desenho sem quebrar teste.",
+      "signal": "spec_precision_gap",
+      "scope": "apps/*/src/**/*.test.tsx",
+      "status": "candidate",
+      "features": [
+        "12-product-media-studio"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "spec.md P2.4 AC 6 · P3.1 AC 1 (apps/*/src/**/*.test.tsx)"
+      ],
+      "created": "2026-08-01T21:54:17Z",
+      "last_seen": "2026-08-01T21:54:17Z"
+    },
+    {
+      "id": "L-010",
+      "key": "ac_gap::ac que enumera uma lista de acoes ou colunas shall oferecer a b c d precisa de um item de verificacao por elemento implementar a maioria passa no gate e deixa a lacuna invisivel ate alguem usar a tela",
+      "text": "AC que enumera uma LISTA de acoes ou colunas ('SHALL oferecer A, B, C, D') precisa de um item de verificacao por elemento — implementar a maioria passa no gate e deixa a lacuna invisivel ate alguem usar a tela.",
+      "signal": "ac_gap",
+      "scope": ".specs/features",
+      "status": "candidate",
+      "features": [
+        "13-product-bulk-ops"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "PLS-05 AC 1 · PLS-06 AC 6-7 · PLS-07 AC 3 (.specs/features)"
+      ],
+      "created": "2026-08-01T23:07:28Z",
+      "last_seen": "2026-08-01T23:07:28Z"
+    },
+    {
+      "id": "L-011",
+      "key": "spec_deviation::funcao async nunca deve devolver um query builder do supabase js ele e thenable a promise o adota e o chamador recebe o resultado da consulta no lugar do builder embrulhe em builder",
+      "text": "Funcao async NUNCA deve devolver um query builder do supabase-js: ele e thenable, a promise o adota, e o chamador recebe o RESULTADO da consulta no lugar do builder. Embrulhe em { builder }.",
+      "signal": "spec_deviation",
+      "scope": "apps/**/api",
+      "status": "candidate",
+      "features": [
+        "13-product-bulk-ops"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "useAdminProducts.ts buildFilteredQuery (apps/**/api)"
+      ],
+      "created": "2026-08-01T23:07:28Z",
+      "last_seen": "2026-08-01T23:07:28Z"
+    },
+    {
+      "id": "L-012",
+      "key": "spec_deviation::handler entregue a um toast le o estado do render em que o toast foi montado anterior ao setstate que o alimenta estado consumido dentro de acao de toast precisa de ref senao a acao falha calada",
+      "text": "Handler entregue a um toast le o estado do render em que o toast foi montado — anterior ao setState que o alimenta. Estado consumido dentro de acao de toast precisa de ref, senao a acao falha calada.",
+      "signal": "spec_deviation",
+      "scope": "apps/**/model",
+      "status": "candidate",
+      "features": [
+        "13-product-bulk-ops"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "useUndoBuffer.ts take() (apps/**/model)"
+      ],
+      "created": "2026-08-01T23:07:28Z",
+      "last_seen": "2026-08-01T23:07:28Z"
+    },
+    {
+      "id": "L-013",
+      "key": "ac_gap::fixture em que os dois campos candidatos valem o mesmo n mero n o detecta leitura do campo errado quando um item tem pre o base e pre o de varia o o teste precisa faz los divergir e toda superf cie que calcula dinheiro precisa ler o mesmo campo",
+      "text": "Fixture em que os dois campos candidatos valem o MESMO número não detecta leitura do campo errado: quando um item tem preço base e preço de variação, o teste precisa fazê-los divergir, e toda superfície que calcula dinheiro precisa ler o mesmo campo.",
+      "signal": "ac_gap",
+      "scope": "packages/core/src/payment, apps/store",
+      "status": "candidate",
+      "features": [
+        "17-promocoes-desconto-progressivo"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "apps/store/src/features/checkout/model/useCheckoutTotals.ts:149 (edge case 'preço por variação' da spec) (packages/core/src/payment, apps/store)"
+      ],
+      "created": "2026-08-03T17:27:17Z",
+      "last_seen": "2026-08-03T17:27:17Z"
+    },
+    {
+      "id": "L-014",
+      "key": "spec_precision_gap::ac que descreve uma composi o de linhas na tela precisa somar exibir uma linha de desconto ao lado de um subtotal j l quido conta o desconto duas vezes para quem l confira a aritm tica da reda o antes de aceit la",
+      "text": "AC que descreve uma composição de linhas na tela precisa somar: exibir uma linha de desconto AO LADO de um subtotal já líquido conta o desconto duas vezes para quem lê — confira a aritmética da redação antes de aceitá-la.",
+      "signal": "spec_precision_gap",
+      "scope": ".specs/features",
+      "status": "candidate",
+      "features": [
+        "17-promocoes-desconto-progressivo"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "spec.md P1-C AC 1 (redação original) · validation.md gap 2 (.specs/features)"
+      ],
+      "created": "2026-08-03T17:27:17Z",
+      "last_seen": "2026-08-03T17:27:17Z"
+    },
+    {
+      "id": "L-015",
+      "key": "spec_precision_gap::teste de invariante entre dois lados tem de chamar a mesma fun o que produ o chama helper que remonta os passos m o fica cego assim que a produ o passa a ter um ponto nico prove a sensibilidade invertendo a decis o central e vendo o arquivo falhar",
+      "text": "Teste de invariante entre dois lados tem de chamar a MESMA função que produção chama; helper que remonta os passos à mão fica cego assim que a produção passa a ter um ponto único — prove a sensibilidade invertendo a decisão central e vendo o arquivo falhar.",
+      "signal": "spec_precision_gap",
+      "scope": "packages/core/**/__tests__",
+      "status": "candidate",
+      "features": [
+        "17-promocoes-desconto-progressivo"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "packages/core/src/payment/__tests__/displayedEqualsCharged.test.ts:66 e :82 · mutação C da pass 1 (packages/core/**/__tests__)"
+      ],
+      "created": "2026-08-03T17:27:17Z",
+      "last_seen": "2026-08-03T17:27:17Z"
+    },
+    {
+      "id": "L-016",
+      "key": "spec_deviation::coluna de fk deliberadamente anul vel quando h mais de um candidato n o serve de predicado para houve x neste registro pergunte pelo valor que registra o efeito n o pelo r tulo",
+      "text": "Coluna de FK deliberadamente anulável quando há mais de um candidato não serve de predicado para \"houve X neste registro?\" — pergunte pelo valor que registra o efeito, não pelo rótulo.",
+      "signal": "spec_deviation",
+      "scope": "packages/core/src/hooks",
+      "status": "candidate",
+      "features": [
+        "17-promocoes-desconto-progressivo"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "packages/core/src/hooks/usePromotions.ts:377 (packages/core/src/hooks)"
+      ],
+      "created": "2026-08-03T17:27:32Z",
+      "last_seen": "2026-08-03T17:27:32Z"
+    },
+    {
+      "id": "L-017",
+      "key": "spec_deviation::n o date um evento espec fico por updated at ele a ltima escrita qualquer e datar assim passa a mentir depois da primeira edi o n o relacionada sem coluna pr pria para o evento mostre o estado e n o a data",
+      "text": "Não date um evento específico por updated_at: ele é a última escrita QUALQUER, e datar assim passa a mentir depois da primeira edição não relacionada — sem coluna própria para o evento, mostre o estado e não a data.",
+      "signal": "spec_deviation",
+      "scope": "apps/backoffice/src/pages",
+      "status": "candidate",
+      "features": [
+        "17-promocoes-desconto-progressivo"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "apps/backoffice/src/pages/admin/AdminPromotionsPage.tsx:245 (apps/backoffice/src/pages)"
+      ],
+      "created": "2026-08-03T17:27:32Z",
+      "last_seen": "2026-08-03T17:27:32Z"
+    },
+    {
+      "id": "L-018",
+      "key": "spec_deviation::ndice nico parcial n o pode ser deferrable s constraint aceita deferrable e constraint n o aceita where ent o ligar um e desligar o outro n o cabe numa statement use duas na ordem desliga antes de ligar dentro da transa o",
+      "text": "Índice único PARCIAL não pode ser deferrable (só constraint aceita deferrable, e constraint não aceita where), então \"ligar um e desligar o outro\" não cabe numa statement: use duas na ordem desliga-antes-de-ligar dentro da transação.",
+      "signal": "spec_deviation",
+      "scope": "supabase/migrations",
+      "status": "candidate",
+      "features": [
+        "17-promocoes-desconto-progressivo"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "supabase/migrations/20260803130200_promotion-write-rpcs.sql:45 (supabase/migrations)"
+      ],
+      "created": "2026-08-03T17:27:32Z",
+      "last_seen": "2026-08-03T17:27:32Z"
+    },
+    {
+      "id": "L-019",
+      "key": "spec_precision_gap::ac de alvo de toque precisa nascer com recorte todo alvo de toque 44px junto de conforme os artboards pode ser autocontraditoria boards de e commerce desenham discos de card em 36 38px e a implementacao acaba tendo de escolher entre duas acs do mesmo spec escreva o recorte na propria ac ex navegacao primaria e acoes de tela cheia saida intermediaria util quando o conflito ja existe expandir a area de toque por pseudo elemento before h 11 before w 11 centrado que atende a regra sem mudar o tamanho visual que o board pede",
+      "text": "AC de alvo de toque precisa nascer com recorte. 'Todo alvo de toque >= 44px' junto de 'conforme os artboards' pode ser autocontraditoria: boards de e-commerce desenham discos de card em 36-38px, e a implementacao acaba tendo de escolher entre duas ACs do mesmo spec. Escreva o recorte na propria AC (ex.: 'navegacao primaria e acoes de tela cheia'). Saida intermediaria util quando o conflito ja existe: expandir a area de toque por pseudo-elemento (before:h-11 before:w-11 centrado), que atende a regra sem mudar o tamanho visual que o board pede.",
+      "signal": "spec_precision_gap",
+      "scope": "ui/design-specs",
+      "status": "candidate",
+      "features": [
+        "19-identidade-papelaria"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        ".specs/features/19-identidade-papelaria/validation.md#4 (ui/design-specs)"
+      ],
+      "created": "2026-08-04T04:08:20Z",
+      "last_seen": "2026-08-04T04:08:20Z"
+    },
+    {
+      "id": "L-020",
+      "key": "gate_fail::tailwind merge nao colapsa token custom de raio contra t shirt size twmerge rounded md rounded button devolve as duas classes com as duas no elemento vence quem o tailwind emitir por ultimo que e a ordem das chaves no borderradius do config consequencias 1 declare o token custom como ultima chave 2 para sobrescrever o raio de um componente shadcn prefira criar o proprio componente com o raio na base da cva ou use valor arbitrario rounded 14px que o twmerge reconhece vale para qualquer grupo de utilitario com escala custom nao so raio",
+      "text": "tailwind-merge NAO colapsa token custom de raio contra t-shirt size: twMerge('rounded-md','rounded-button') devolve AS DUAS classes. Com as duas no elemento, vence quem o Tailwind emitir por ultimo — que e a ordem das chaves no borderRadius do config. Consequencias: (1) declare o token custom como ULTIMA chave; (2) para sobrescrever o raio de um componente shadcn, prefira criar o proprio componente com o raio na base da cva, ou use valor arbitrario rounded-[14px], que o twMerge reconhece. Vale para qualquer grupo de utilitario com escala custom, nao so raio.",
+      "signal": "gate_fail",
+      "scope": "ui/tailwind",
+      "status": "candidate",
+      "features": [
+        "19-identidade-papelaria"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        ".specs/features/19-identidade-papelaria/tasks.md#desvios (ui/tailwind)"
+      ],
+      "created": "2026-08-04T04:08:41Z",
+      "last_seen": "2026-08-04T04:08:41Z"
+    },
+    {
+      "id": "L-021",
+      "key": "ac_gap::teste de varredura de fonte precisa de ancora de contagem um erro de caminho faz a varredura ler zero arquivo e passar em silencio que e a pior falha possivel nesse tipo de teste ele vira um no op verde toda varredura desta feature fieldborder buttonshape paths comeca com expect files length tobegreaterthan n segundo detalhe ao atribuir a tag jsx dona de uma classname ande para tras por coluna e nao por linha por linha o rounded pill de um span de badge e atribuido ao link que o envolve falso positivo real no megamenu",
+      "text": "Teste de varredura de fonte precisa de ANCORA DE CONTAGEM. Um erro de caminho faz a varredura ler zero arquivo e passar em silencio, que e a pior falha possivel nesse tipo de teste — ele vira um no-op verde. Toda varredura desta feature (fieldBorder, buttonShape, paths) comeca com expect(files.length).toBeGreaterThan(N). Segundo detalhe: ao atribuir a tag JSX dona de uma className, ande para tras POR COLUNA e nao por linha — por linha, o rounded-pill de um <span> de badge e atribuido ao <Link> que o envolve (falso positivo real no MegaMenu).",
+      "signal": "ac_gap",
+      "scope": "testing/sweeps",
+      "status": "candidate",
+      "features": [
+        "19-identidade-papelaria"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        ".specs/features/19-identidade-papelaria/validation.md#1 (testing/sweeps)"
+      ],
+      "created": "2026-08-04T04:08:41Z",
+      "last_seen": "2026-08-04T04:08:41Z"
+    }
+  ]
+}

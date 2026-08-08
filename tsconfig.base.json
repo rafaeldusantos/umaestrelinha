@@ -1,0 +1,32 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "useDefineForClassFields": true,
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "moduleDetection": "force",
+    "allowImportingTsExtensions": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "noEmit": true,
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": false,
+    "strictNullChecks": false,
+    "noImplicitAny": false,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noFallthroughCasesInSwitch": false,
+    "baseUrl": ".",
+    "paths": {
+      "@nanapin/ui": ["packages/ui/src/index.ts"],
+      "@nanapin/ui/*": ["packages/ui/src/*"],
+      "@nanapin/supabase": ["packages/supabase/src/index.ts"],
+      "@nanapin/supabase/*": ["packages/supabase/src/*"],
+      "@nanapin/auth": ["packages/auth/src/index.ts"],
+      "@nanapin/core": ["packages/core/src/index.ts"],
+      "@nanapin/core/*": ["packages/core/src/*"]
+    }
+  }
+}

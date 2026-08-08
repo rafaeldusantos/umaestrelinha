@@ -1,0 +1,18 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["vitest/globals"],
+    "baseUrl": "../..",
+    "paths": {
+      "@/*": ["apps/store/src/*"],
+      "@nanapin/ui": ["packages/ui/src/index.ts"],
+      "@nanapin/ui/*": ["packages/ui/src/*"],
+      "@nanapin/supabase": ["packages/supabase/src/index.ts"],
+      "@nanapin/supabase/*": ["packages/supabase/src/*"],
+      "@nanapin/auth": ["packages/auth/src/index.ts"],
+      "@nanapin/core": ["packages/core/src/index.ts"],
+      "@nanapin/core/*": ["packages/core/src/*"]
+    }
+  },
+  "include": ["src"]
+}

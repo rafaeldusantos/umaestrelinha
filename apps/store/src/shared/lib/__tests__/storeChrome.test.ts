@@ -1,0 +1,32 @@
+import { describe, expect, it } from 'vitest'
+import { BOTTOM_BAR_H, BOTTOM_BAR_RESERVE, ownsBottomBar } from '../storeChrome'
+
+describe('ownsBottomBar — quem dispensa o MobileNav', () => {
+  it('a página do produto traz a própria barra', () => {
+    expect(ownsBottomBar('/produto/botton-gojo-satoru')).toBe(true)
+  })
+
+  it('as demais rotas da loja seguem com as abas', () => {
+    for (const path of ['/', '/colecao/anime', '/carrinho', '/conta', '/busca', '/favoritos']) {
+      expect(ownsBottomBar(path)).toBe(false)
+    }
+  })
+
+  it('não confunde uma rota que só COMEÇA parecida', () => {
+    // Sem a barra final, `/produtos-novos` casaria com `startsWith('/produto')` e a página perderia
+    // as abas sem ter barra nenhuma no lugar.
+    expect(ownsBottomBar('/produtos-novos')).toBe(false)
+  })
+
+  it('a listagem sem slug não é página de produto', () => {
+    expect(ownsBottomBar('/produto')).toBe(false)
+  })
+})
+
+describe('altura da barra de rodapé', () => {
+  it('a reserva é a altura da barra mais a área segura do iPhone', () => {
+    // Se estes dois divergirem, o fim do documento fica atrás da barra num aparelho com indicador
+    // de home — o defeito que a mudança veio consertar.
+    expect(BOTTOM_BAR_RESERVE).toBe(`calc(${BOTTOM_BAR_H} + env(safe-area-inset-bottom))`)
+  })
+})

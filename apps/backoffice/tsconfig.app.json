@@ -1,0 +1,21 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": "../..",
+    // `import.meta.env` era o único conteúdo da dívida de tipos do backoffice (4 erros na baseline
+    // de 2026-08-01), e crescia a cada arquivo novo que lesse uma env. Declarar os tipos do Vite
+    // resolve a causa em vez de conviver com a contagem.
+    "types": ["vite/client"],
+    "paths": {
+      "@/*": ["apps/backoffice/src/*"],
+      "@nanapin/ui": ["packages/ui/src/index.ts"],
+      "@nanapin/ui/*": ["packages/ui/src/*"],
+      "@nanapin/supabase": ["packages/supabase/src/index.ts"],
+      "@nanapin/supabase/*": ["packages/supabase/src/*"],
+      "@nanapin/auth": ["packages/auth/src/index.ts"],
+      "@nanapin/core": ["packages/core/src/index.ts"],
+      "@nanapin/core/*": ["packages/core/src/*"]
+    }
+  },
+  "include": ["src"]
+}

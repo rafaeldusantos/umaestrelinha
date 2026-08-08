@@ -1,0 +1,101 @@
+import { Link } from 'react-router-dom'
+import { motion } from 'framer-motion'
+import { browseCategories, useCategories } from '@/entities/category'
+import { useProducts } from '@/entities/product/api/useProducts'
+import SectionHeading from '@/shared/ui/SectionHeading'
+
+/**
+ * Ritmo de cor dos cards, por POSIÇÃO — artboards 22 e 23.
+ *
+ * **1º Carimbo → 2º Grafite → demais Mata-borrão.** Duas superfícies carregam
+ * peso e o resto recua; é o que substituiu os seis gradientes coloridos da
+ * versão anterior, em que cada categoria escolhia a própria cor e nenhuma delas
+ * virava marca.
+ *
+ * A inicial marca-d'água é o único ornamento, e a cor dela muda com o fundo:
+ * véu de branco sobre Carimbo, Carbono CHAPADO sobre Grafite (véu de rosa ali
+ * sumiria), véu de Carimbo sobre Mata-borrão.
+ */
+const SURFACES = [
+  {
+    card: 'bg-nanita-glaze',
+    title: 'text-nanita-ink',
+    meta: 'text-nanita-ink/80',
+    initial: 'text-white/35',
+  },
+  {
+    card: 'bg-nanita-ink',
+    title: 'text-nanita-glaze',
+    meta: 'text-nanita-border',
+    initial: 'text-nanita-plum',
+  },
+] as const
+
+const SUGAR = {
+  card: 'bg-nanita-sugar',
+  title: 'text-nanita-ink',
+  meta: 'text-nanita-plum',
+  initial: 'text-nanita-glaze/40',
+} as const
+
+const CategoryGrid = () => {
+  const { data: categories } = useCategories()
+  const { data: products } = useProducts()
+
+  // A grade é "escolha seu fandom": uma subcategoria lado a lado com o contêiner que a agrupa não é
+  // escolha, é confusão — e um contêiner sozinho não é escolha nenhuma. Ver `browseCategories`.
+  const visible = browseCategories(categories).slice(0, 6)
+
+  if (visible.length === 0) return null
+
+  return (
+    <div className="flex flex-col gap-6">
+      <SectionHeading
+        title="Coleções"
+        subtitle="Escolha seu fandom. Ou leve todos."
+        linkTo="/busca"
+        linkLabel="Ver todas"
+      />
+
+      <div className="grid grid-cols-2 gap-2.5 md:grid-cols-3 md:gap-4">
+        {visible.map((cat, i) => {
+          const tone = SURFACES[i] ?? SUGAR
+          const productCount = products?.filter((p) => p.category_slug === cat.slug).length ?? 0
+
+          return (
+            <motion.div
+              key={cat.slug}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.05 }}
+            >
+              <Link
+                to={`/colecao/${cat.slug}`}
+                className={`relative flex h-[120px] flex-col justify-end gap-0.5 overflow-hidden rounded-md p-3.5 transition-transform hover:-translate-y-0.5 md:h-[132px] md:gap-1.5 md:rounded-lg md:p-5 ${tone.card}`}
+              >
+                {/* Inicial como marca d'água — o único ornamento do card.
+                    Fredoka 700 nos artboards 22/23: com o wordmark virando SVG,
+                    Berkshire Swash não tinha mais por que existir na loja. */}
+                <span
+                  className={`pointer-events-none absolute right-2.5 top-0.5 select-none font-display text-[68px] font-bold leading-[76px] tracking-[-0.03em] md:-top-[14px] md:right-4 md:text-[76px] md:leading-[96px] ${tone.initial}`}
+                  aria-hidden
+                >
+                  {cat.name.charAt(0)}
+                </span>
+                <span
+                  className={`font-display text-[18px] font-semibold leading-[1.22] tracking-[-0.02em] md:text-[21px] md:leading-[1.24] ${tone.title}`}
+                >
+                  {cat.name}
+                </span>
+                <span className={`text-[11px] font-medium md:text-[13px] ${tone.meta}`}>{productCount} pins</span>
+              </Link>
+            </motion.div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+export default CategoryGrid

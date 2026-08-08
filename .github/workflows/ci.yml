@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: test + build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        # versão vem do campo "packageManager" do package.json da raiz
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # --concurrency=1 de propósito: rodar store e backoffice em paralelo satura
+      # o runner de 2 vCPUs (jsdom pesado) e a suíte do backoffice fica flaky.
+      - name: test
+        run: pnpm exec turbo run test --concurrency=1
+
+      - name: build
+        run: pnpm build
+
+      # Lint e typecheck têm baseline de erros pré-existentes (ver CLAUDE.md →
+      # "Estado conhecido / dívidas"). Rodam para dar visibilidade, mas não
+      # bloqueiam o merge enquanto a baseline não for zerada.
+      - name: lint (não bloqueante — baseline conhecida)
+        run: pnpm lint
+        continue-on-error: true
+
+      - name: typecheck (não bloqueante — baseline conhecida)
+        run: |
+          npx tsc --noEmit -p apps/store/tsconfig.app.json
+          npx tsc --noEmit -p apps/backoffice/tsconfig.app.json
+        continue-on-error: true

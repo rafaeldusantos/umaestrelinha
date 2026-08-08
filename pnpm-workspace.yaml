@@ -1,0 +1,13 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+  # Runner de teste dos handlers da edge function (@nanapin/functions). Fica na raiz de supabase/
+  # e não em supabase/functions/ para o node_modules não cair no diretório bind-montado pelo
+  # edge runtime local.
+  - "supabase"
+verifyDepsBeforeRun: false
+strictDepBuilds: false
+onlyBuiltDependencies:
+  - "@swc/core"
+  - esbuild
+  - unrs-resolver
