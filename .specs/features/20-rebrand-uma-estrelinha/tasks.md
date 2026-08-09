@@ -773,11 +773,12 @@ selo circular, nas duas bases; atualizar `brandAssets.test.ts`.
 **Tools** — MCP: `paper` (`get_jsx`, `get_computed_styles`) · Skill: nenhuma
 
 **Done when**:
-- [ ] Valores tirados de `get_computed_styles`, **nunca lidos de screenshot**
-- [ ] O recolhimento do header no scroll segue funcionando (`sticky` + `translate`, nunca `fixed` nem desmontar)
-- [ ] Nada de `position: fixed` dentro do `<header>` — ele carrega `transform`, que cria containing block
-- [ ] Prova em 390×844 e em 1440
-- [ ] `pnpm --filter @estrelinha/store test` passa; contagem não encolhe
+- [x] Valores tirados de `get_computed_styles`, **nunca lidos de screenshot**
+- [x] O recolhimento do header no scroll segue funcionando (`sticky` + `translate`, nunca `fixed` nem desmontar)
+- [x] Nada de `position: fixed` dentro do `<header>` — ele carrega `transform`, que cria containing block
+  — asserido em `Header.test.tsx`, que varre todo descendente da barra
+- [x] Prova em 390×844 e em 1440
+- [x] `pnpm --filter @estrelinha/store test` passa; contagem não encolhe — **1072 em 81** (era 1068/81)
 
 **Tests**: unit · **Gate**: quick
 **Commit**: `feat(store): header e navegação na identidade Uma Estrelinha`
@@ -793,10 +794,11 @@ selo circular, nas duas bases; atualizar `brandAssets.test.ts`.
 **Tools** — MCP: `paper` · Skill: nenhuma
 
 **Done when**:
-- [ ] Faixa Instagram com `@umaestrelinha.adri`
-- [ ] "Entra no clube da Nana" e toda persona anterior removidas
-- [ ] A reserva de espaço da barra de rodapé continua **depois** do `<Footer/>`, não como `pb` do `main`
-- [ ] Prova em 390×844
+- [x] Faixa Instagram com `@umaestrelinha.adri`
+- [x] "Entra no clube da Nana" e toda persona anterior removidas
+- [x] A reserva de espaço da barra de rodapé continua **depois** do `<Footer/>`, não como `pb` do `main` — intocada
+- [x] Prova em 390×844
+- [x] `pnpm --filter @estrelinha/store test` passa; **1086 em 82**
 
 **Tests**: unit · **Gate**: quick
 **Commit**: `feat(store): rodapé e newsletter na identidade Uma Estrelinha`
@@ -813,10 +815,11 @@ mudou, ajustar com decisão registrada.
 **Tools** — MCP: `paper` · Skill: `playwright-cli` (evidência visual)
 
 **Done when**:
-- [ ] Cada uso de `accent` é **preenchimento ou detalhe**, nunca texto sobre claro
-- [ ] O hero não exibe mascote nem produto de pin
-- [ ] Cada divergência deliberada da board fica registrada no "Registro de execução" deste arquivo
-- [ ] Evidência em 390×844 e 1440 para as três telas
+- [x] Cada uso de `accent` é **preenchimento ou detalhe**, nunca texto sobre claro — travado por `accentText.test.ts`
+- [x] O hero não exibe mascote nem produto de pin
+- [x] Cada divergência deliberada da board fica registrada no "Registro de execução" deste arquivo
+- [x] Evidência em 390×844 e 1440 para as três telas
+- [x] `pnpm --filter @estrelinha/store test` passa; **1111 em 86**
 
 **Tests**: unit · **Gate**: quick
 **Commit**: `feat(store): passe visual em home, categoria e produto`
@@ -833,10 +836,10 @@ mudou, ajustar com decisão registrada.
 **Tools** — MCP: nenhum · Skill: `playwright-cli`
 
 **Done when**:
-- [ ] **Nenhum teste de dinheiro muda de resultado** — `pnpm --filter @estrelinha/core test` idêntico
-- [ ] Os testes de "nenhuma classe fora da paleta" do checkout passam na paleta nova
-- [ ] O checkout continua fora do `StoreLayout`, montando o próprio `AuthOverlay` e a própria gaveta
-- [ ] Evidência do fluxo completo em 390×844 (`CLAUDE.md`: fluxo de dinheiro se valida no celular primeiro)
+- [x] **Nenhum teste de dinheiro muda de resultado** — `@estrelinha/core` em **725 / 26**, idêntico
+- [x] Os testes de "nenhuma classe fora da paleta" do checkout passam na paleta nova
+- [x] O checkout continua fora do `StoreLayout`, montando o próprio `AuthOverlay` e a própria gaveta (`CheckoutPage.test.tsx`, CHK-10)
+- [x] Evidência do fluxo completo em 390×844 (`CLAUDE.md`: fluxo de dinheiro se valida no celular primeiro) — com sessão de verdade
 
 **Tests**: unit · **Gate**: full
 **Commit**: `feat(store): passe visual no carrinho, checkout e conta`
@@ -852,11 +855,11 @@ mudou, ajustar com decisão registrada.
 **Tools** — MCP: nenhum · Skill: `playwright-cli`
 
 **Done when**:
-- [ ] `body` **não** rola horizontalmente em nenhuma rota, em 390px
-- [ ] Nenhum alvo de toque abaixo de 44px
-- [ ] Texto não embrulha em duas linhas dentro de pílula ou badge
-- [ ] `ownsBottomBar` continua garantindo **uma** barra de rodapé por vez, e as duas têm a mesma altura
-- [ ] Evidência por rota
+- [x] `body` **não** rola horizontalmente em nenhuma rota, em 390px — 10 rotas, `scrollX = 0` em todas
+- [x] Nenhum alvo de toque abaixo de 44px — com a exceção registrada dos links de texto em fluxo
+- [x] Texto não embrulha em duas linhas dentro de pílula ou badge — o CTA da barra de compra embrulhava e foi corrigido
+- [x] `ownsBottomBar` continua garantindo **uma** barra de rodapé por vez, e as duas têm a mesma altura — `storeChrome` intocado
+- [x] Evidência por rota
 
 **Tests**: unit · **Gate**: full
 **Commit**: `fix(store): regressões mobile da identidade nova`
@@ -1595,3 +1598,157 @@ Agora há duas instâncias reais rodando lado a lado.
 
 **Consequência para a T34:** o lado SQL está provado. Sobra o lado TypeScript — os defaults e o teste
 de paridade entre eles e o que as migrations gravam.
+
+### Fase 5 — T29 a T33: o chrome e o passe visual
+
+**Contagem de teste, por task** (baseline de entrada: 3099 em 176 — loja 1068/81 · backoffice
+1055/65 · core 725/26 · functions 251/4):
+
+| task | workspace | antes | depois | o que explica |
+| --- | --- | --- | --- | --- |
+| T29 | loja | 1068 / 81 | **1072 / 81** | +4 no `Header.test.tsx` (superfície escura, tom da marca, a segunda faixa, e "nada `fixed` dentro do header") · +1 em `contrast.test.ts` (o par `primary-strong`/`accent` medido) · −1 vacuidade substituída |
+| T30 | loja | 1072 / 81 | **1086 / 82** | +1 arquivo (`NewsletterBanner.test.tsx`, 8) e +6 no `Footer.test.tsx` reescrito (faixa do Instagram e persona) |
+| T31 | loja | 1086 / 82 | **1111 / 86** | +4 arquivos: `accentText` (6), `HeroBanner` (9), `TrendingTags` (6), `homeComposition` (5) |
+| T32 | loja | 1111 / 86 | **1113 / 86** | +2 no `CartDrawer.test.tsx` (o coração diz o estado) |
+| T33 | loja | 1113 / 86 | **1119 / 87** | +1 arquivo (`touchTarget.test.ts`, 6) |
+
+**Total ao fim do lote: 3150 testes em 182 arquivos** (loja 1119/87 · backoffice 1055/65 · core
+**725/26** · functions 251/4). Lint **30 err / 8 warn** (backoffice 28/7 · store 2/1) — idêntico à
+baseline de entrada. `tsc` **0 · 0**.
+
+**`@estrelinha/core` fechou em 725 / 26, exatamente como entrou** — nenhum resultado de dinheiro
+mudou, que era a condição da T32.
+
+#### As divergências deliberadas das boards, e o motivo de cada uma
+
+| # | o que a board desenha | o que a loja faz | por quê |
+| --- | --- | --- | --- |
+| 1 | **Rótulo `primary-strong` sobre `accent`** (contador do carrinho `5N6-0`, botão `ME CADASTRAR` do `67W-0`, disco de busca) | rótulo em **`ink`** | Medido: `primary-strong` sobre `accent` dá **4,21:1** — passa de 3, **reprova em 4,5**, e nos três casos é rótulo de verdade (10px, 13px). `ink` sobre o mesmo ouro dá 4,78:1, que é o par que o `DESIGN.md` já nomeava. Congelado em `contrast.test.ts` |
+| 2 | **Header mobile de 112px**, com o campo de busca dentro (`6B6-0`) | uma faixa só, **64px** | A board é uma página de conteúdo **sem barra de abas**; esta loja tem a busca como aba do `MobileNav`, ao alcance do polegar. Adotar as duas custaria 48px do orçamento de 64px que a regra de barra única existe para proteger (`CLAUDE.md`: a moldura empilhada já somou 197px) |
+| 3 | **Bloco "DEPARTAMENTOS"** na faixa de nav (`5N9-0`) | não implementado | Ele abre um painel de *todos* os departamentos. Nesta loja **quem é departamento são as entradas de `menuEntries`**, cada uma já com o seu painel. Um quinto gatilho ao lado delas seria um botão sem destino próprio |
+| 4 | **Rodapé mobile em `ink`** (`6Q1-0`) contra **rodapé desktop em `ground`** (`68V-0`) | `ground` nos dois | A `6AU-0` não tem a faixa do Instagram nem a newsletter, e ali é o rodapé que carrega o fecho escuro sozinho. Como as duas bandas existem nesta loja **nos dois tamanhos**, o rodapé claro é o desenho coerente. Um rodapé que troca de superfície por breakpoint seria duas paletas para o mesmo bloco — o defeito que a `palette.test.ts` existe para impedir, em outra escala |
+| 5 | **Cinco redes sociais** na newsletter (`67W-0`) | **só o Instagram** | É a única rede da Adri que o board nomeia (`@umaestrelinha.adri`). Inventar um arroba de TikTok ou Twitter para preencher a fileira publicaria um link quebrado com cara de oficial |
+| 6 | **Três campos** na newsletter (nome, fone, e-mail) | **um**, o e-mail | Nome e telefone não têm destino nenhum: não há lista, não há tabela. Pedir dado que ninguém guarda é coleta sem finalidade |
+| 7 | Ordem **Instagram → Newsletter → Footer** | **Newsletter → Instagram → Footer** | A newsletter é seção de página (montada pela `HomePage`); o rodapé é chrome do layout. Pôr a faixa do Instagram dentro do `Footer` é o que a faz aparecer em coleção, produto, conta e políticas — que é onde a cliente passa. Ela é a banda global de fecho no board |
+
+#### Onde o remap mecânico tinha produzido leitura errada — **5 correções**
+
+O lote 3 já havia registrado uma suspeita (o painel da newsletter) e mandado olhá-la na T30. O passe
+achou mais quatro, **duas delas com defeito de contraste que nada acusava**:
+
+| # | lugar | o que o remap deixou | o que ficou | gravidade |
+| --- | --- | --- | --- | --- |
+| 1 | `features/newsletter/NewsletterBanner` | painel inteiro em ouro — a maior superfície chapada da loja | banda `primary-strong`, ouro **só no botão** | leitura |
+| 2 | `pages/CategoryPage` — faixa da coleção | `bg-accent` chapado **com o texto de apoio em `ink` com opacidade** | `ground-deep`, `ink`/`ink-soft` chapados | **contraste**: `ink` sobre `accent` é 4,78:1 CHEIO; a 78% cai para ~3,6:1 e a 45% para ~2,1:1 — trilha e contagem reprovavam a AA |
+| 3 | `widgets/category-grid` — rótulo do card de ouro | `text-ink/80` | `ink` chapado | **contraste**: ~3,7:1 |
+| 4 | `widgets/hero-banner` — a cartela de pins | os cinco discos pintados de ouro | símbolo da marca sobre palco `serenity` | leitura: um botton em ouro continua sendo um botton |
+| 5 | `widgets/cart-drawer/CartDrawerRow` — coração | ouro **sempre**, favoritado ou não | `ink-soft` desligado, `accent-strong` ligado | leitura: ao lado de uma lixeira `ink`, lia como "já está nos favoritos" |
+
+**Guarda novo para que a classe 2–3 não volte:** `accentText.test.ts` varre o fonte, cobra que todo
+arquivo que pinta texto de ouro esteja numa lista curta **com a superfície escrita**, e falha se
+alguém puser `ink` com opacidade dentro de uma superfície `accent`. É o outro lado da
+`contrast.test.ts`, que prova a aritmética mas não sabe onde as classes foram parar.
+
+#### O que saiu da home, e por que não tinha re-skin
+
+- **`DropCountdown`** — contagem regressiva para a "sexta do drop", título "Novos pins chegando!", e
+  a data calculada no próprio componente: um prazo que não existe, prometido na primeira dobra.
+  "Drop" não é vocabulário desta loja — a T16 já recusou semear a tabela `drops` pelo mesmo motivo.
+- **`SocialProof`** — dois depoimentos **inventados**, com nome e cidade inventados, e as estrelas
+  num hex cravado da paleta antiga (`#FFC95C`). É a mesma decisão que a `PIN-07` tomou para as
+  avaliações de demonstração, e aqui ela pesa mais: um elogio fabricado a uma homenagem fúnebre não
+  é enfeite de vitrine.
+- **Os doze fandoms de `TrendingTags`** (`NarutoClassic`, `BTS`, `StudioGhibli`…) apontavam para
+  `/busca?q=<texto>`. Nesta loja os doze devolvem **zero resultado**, com o link funcionando e a
+  página abrindo — nenhum teste pegaria. A lista passou a sair de `pickTrendingCategories`, a mesma
+  regra das pílulas da busca, e cada chip leva à **página** da coleção.
+
+Com as duas seções fora, a grade de coleções recuperou a largura inteira: ela dividia a linha com o
+contador.
+
+#### Regressão mobile — o que a auditoria mediu, e o que sobrou
+
+Auditoria de layout real (não jsdom) em **390×844**, em 10 rotas: `/`, `/colecao/:slug`,
+`/produto/:slug`, `/busca`, `/carrinho`, `/conta`, `/favoritos`, `/sobre`, `/politicas` e a 404.
+
+| item | resultado |
+| --- | --- |
+| `body` com rolagem horizontal | **0 em 10 rotas** (`scrollWidth − clientWidth = 0`) |
+| alvo de toque < 44px | **20+ controles corrigidos**; sobram só links de texto em fluxo |
+| texto em duas linhas dentro de pílula/badge | 1 achado, corrigido (o CTA da barra de compra) |
+| barra de rodapé única (`ownsBottomBar`) | intacta — `storeChrome` não foi tocado |
+
+**O CTA da barra de compra quebrava em DUAS LINHAS em 390px.** Sobram ~180px para ele (o preço come
+110 e o coração 44), e "Adicionar ao Carrinho" em 15px mede mais que isso: o rótulo transbordava por
+cima da borda de um botão de altura fixa. Passou a 14px com `whitespace-nowrap`, e o ícone some
+abaixo de 360px.
+
+**A exceção registrada:** links de **texto em fluxo** com rótulo curto ("Pet", "Início") ficam com
+44px de **altura** e a largura do próprio rótulo (19–30px). Esticar a largura de um link inline para
+44px separaria a palavra da linha em que ela está escrita; é a exceção de texto inline da própria
+WCAG 2.5.8, e o alvo no eixo que importa para o polegar — a altura da linha — está cumprido. Vale
+também para o nome do produto na linha da gaveta, que tem a miniatura de 72px ao lado apontando para
+o mesmo lugar.
+
+**O alvo de 44px virou `shared/lib/touchTarget`, com dois auxiliares e não um:**
+
+- `TAP_44` — 44×44 centrado, para disco de ícone e botão quadrado.
+- `TAP_ROW` — 44px de altura na largura do próprio rótulo, para texto em fluxo. Um quadrado de 44
+  centrado num link de 130px deixaria as pontas fora do alvo.
+
+O `TAP` local que a linha da gaveta tinha (`after:-inset-2`) saiu junto: ele dava 44 para o botão de
+28px e **32 para o de 16px** — alvo derivado do tamanho do desenho não converge para uma medida, e
+eram justamente o coração e a lixeira que ficavam de fora.
+
+`touchTarget.test.ts` trava a medida (44 num lugar só) e varre os controles menores que 44 que não
+adotaram o auxiliar, **com âncora dupla** — arquivos lidos E controles encontrados —, que é a lição
+que a `fieldBorder` pagou com 16 campos. Ele conta só `<button>`, `<a>` e `<Link>`: ícone, spinner e
+selo de passo têm o mesmo tamanho e não são alvo de nada, e varredura ruidosa é varredura que alguém
+desliga.
+
+#### Rotas com evidência capturada em 390×844
+
+`/` · `/colecao/leite-materno` · `/produto/joia-esfera-cinzas` · `/busca` · `/carrinho` (gaveta) ·
+`/checkout` (com sessão de verdade, três blocos e CTA fixo) · `/conta` · `/favoritos` · `/sobre` ·
+`/politicas` · 404. As três telas da T31 e o header do desktop também em **1440**.
+
+Para o checkout, a sessão foi criada de verdade: o SMTP local aponta para o Resend e o Mailpit fica
+vazio, então o login foi por **senha**, com o usuário provisionado pela admin API. O fluxo do PIX
+não foi disparado — cobrar de verdade não é prova de identidade visual, e a `handlers.test.ts` já
+guarda a aritmética.
+
+#### Duas trocas de escopo e uma correção retroativa
+
+- **A correção de contraste do par `accent`/`primary-strong` entrou no commit da T29**, e não no da
+  T30, porque foi a T29 que introduziu as três superfícies de ouro com rótulo (contador do carrinho,
+  avatar da conta, disco de busca). Corrigir na task seguinte deixaria um commit com defeito de
+  acessibilidade no meio da história.
+- **`SearchDropdown` (`features/search`) entrou no escopo da T29.** A faixa de busca é um nó da
+  board do header (`5MN-0`, 680×48) e o placeholder dela dizia "Buscar bottons...". Revestir o
+  header sem ela deixaria a peça central da faixa fora do passe.
+- **`CartButton` (`widgets/cart-drawer`) entrou no escopo da T29** pelo mesmo motivo, e por um mais
+  duro: ele era um disco `ink` sólido, que sobre o header `primary-strong` mede **1,08:1** —
+  desapareceria por completo. A T29 não podia fechar com o carrinho invisível.
+
+#### Vocabulário de botton removido no caminho (não era copy institucional, era rótulo de tela)
+
+`Escolhe uns bottons` e `Explorar bottons` (gaveta vazia), `para cada botton sair a` (convite de
+faixa progressiva), `já estamos separando seus pins` e `Ver mais pins` (confirmação de pedido),
+`Continue comprando seus pins favoritos` e os três benefícios do painel de auth, `Este botton está
+esgotado`, `Tirar uma dúvida sobre este botton no WhatsApp`, `Explorar Bottons` (favoritos vazios),
+`Buscar bottons...` e `Buscar pins, coleções...` (as duas buscas), e o `🎉` das duas barras de frete
+grátis. As asserções de teste que citavam essas frases foram **atualizadas para o resultado novo**,
+nunca enfraquecidas — as de faixa progressiva seguem comparando a string inteira, com o preço.
+
+O que **não** foi tocado, por ser da Fase 6: `SearchOverlay` e `SearchPage` (`Buscar bottons` no
+`aria-label`), `AboutPage`, `PoliciesPage`, 404, `WhatsAppFloat` e os textos de "Cuidados" do
+acordeão de produto.
+
+#### A lista `PENDENTE` da `brandScan`, ao fim do lote
+
+**25 → 21 entradas: 4 removidas.** T30 tirou `widgets/footer/ui/Footer.tsx` (a que tinha mudado de
+dono no lote 4a) e `features/newsletter/ui/NewsletterBanner.tsx`; T31 tirou
+`entities/product/ui/ProductInfo.tsx` e `widgets/hero-banner/ui/HeroBanner.tsx`.
+
+As 21 restantes são todas da **Fase 6** (T34–T38): metadados, `store_settings`, templates de auth,
+e-mail transacional e copy institucional. Nenhuma pertence à Fase 5.
