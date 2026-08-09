@@ -253,7 +253,8 @@ describe('MENU-24 / MENU-26 — o card promocional', () => {
     renderPage(
       CATALOGO.map(c => (c.id === 'anime' ? { ...c, menu_promo: { category_id: 'villains' } } : c)),
     )
-    expect(screen.getByText('/colecao/villains · 12 produtos')).toBeInTheDocument()
+    // `AD-018`: o link do card é a canônica do destino — "Villains" pende de "Anime".
+    expect(screen.getByText('/anime/villains · 12 produtos')).toBeInTheDocument()
   })
 
   it('título vazio mostra o nome do destino como placeholder — o valor herdado', () => {

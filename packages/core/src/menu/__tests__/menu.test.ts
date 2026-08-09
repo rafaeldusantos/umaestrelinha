@@ -1,8 +1,12 @@
 import { describe, it, expect } from 'vitest'
+import { readFileSync, readdirSync } from 'node:fs'
+import { dirname, join, relative, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import {
   MENU_SLOT_LIMIT,
   ancestorsOf,
   bySortOrder,
+  categoryHref,
   descendantIds,
   menuEntries,
   menuSlotRefusal,
@@ -110,6 +114,37 @@ describe('ancestorsOf e pathLabel', () => {
 })
 
 // ---------------------------------------------------------------------------
+// URL-03 — a URL canônica de uma categoria da árvore (feature 23, `AD-018`)
+// ---------------------------------------------------------------------------
+describe('categoryHref (URL-03)', () => {
+  it('categoria raiz sai na raiz do domínio, com um segmento', () => {
+    expect(categoryHref(REAL_TREE, 'bottons')).toBe('/bottons')
+  })
+
+  it('categoria filha sai com o pai na frente', () => {
+    expect(categoryHref(REAL_TREE, 'anime')).toBe('/bottons/anime')
+  })
+
+  it('árvore de TRÊS níveis para no pai imediato — a canônica tem no máximo dois segmentos', () => {
+    // "Naruto" pende de "Anime", que pende de "Bottons". O avô não entra.
+    const href = categoryHref(REAL_TREE, 'naruto')
+    expect(href).toBe('/anime/naruto')
+    expect(href.split('/').filter(Boolean)).toHaveLength(2)
+    expect(href).not.toContain('bottons')
+  })
+
+  it('id inexistente devolve `/` em vez de lançar', () => {
+    expect(() => categoryHref(REAL_TREE, 'fantasma')).not.toThrow()
+    expect(categoryHref(REAL_TREE, 'fantasma')).toBe('/')
+  })
+
+  it('pai ausente da lista cai na forma de um segmento (árvore parcial)', () => {
+    const orfa = [cat('naruto', 'Naruto', { parent_id: 'anime' })]
+    expect(categoryHref(orfa, 'naruto')).toBe('/naruto')
+  })
+})
+
+// ---------------------------------------------------------------------------
 // MENU-03 — roll-up da descendência
 // ---------------------------------------------------------------------------
 describe('descendantIds (MENU-03)', () => {
@@ -153,7 +188,8 @@ describe('menuEntries (MENU-05, MENU-10, MENU-14)', () => {
     expect(entries.map(e => e.name)).not.toContain('Bottons')
     expect(entries.map(e => e.name)).not.toContain('Academia')
     expect(entries[0].path).toBe('Bottons › Anime')
-    expect(entries[0].href).toBe('/colecao/anime')
+    // `AD-018`: o href é a canônica, e "Anime" é filha de "Bottons" — dois segmentos.
+    expect(entries[0].href).toBe('/bottons/anime')
   })
 
   it('aceita entrada em qualquer profundidade — os universos são filhas de "Bottons"', () => {
@@ -242,7 +278,7 @@ describe('resolvePromo (MENU-25, MENU-26)', () => {
   it('resolve destino, link e contagem', () => {
     const tree = REAL_TREE.map(c => (c.id === 'villains' ? { ...c, product_count: 12 } : c))
     const resolved = resolvePromo(tree, promo)!
-    expect(resolved.href).toBe('/colecao/villains')
+    expect(resolved.href).toBe('/anime/villains')
     expect(resolved.badge).toBe('NOVIDADE')
     expect(resolved.productCount).toBe(12)
   })
@@ -285,7 +321,7 @@ describe('resolvePromo (MENU-25, MENU-26)', () => {
   })
 
   it('promo apontando para a PRÓPRIA categoria é aceita', () => {
-    expect(resolvePromo(REAL_TREE, { category_id: 'anime' })?.href).toBe('/colecao/anime')
+    expect(resolvePromo(REAL_TREE, { category_id: 'anime' })?.href).toBe('/bottons/anime')
   })
 
   describe('jsonb malformado devolve null sem lançar', () => {
@@ -313,5 +349,80 @@ describe('resolvePromo (MENU-25, MENU-26)', () => {
 
     const destinoInativo = comPromo.map(c => (c.id === 'villains' ? { ...c, active: false } : c))
     expect(menuEntries(destinoInativo)[0].promo).toBeNull()
+  })
+
+  it('o href da promo é a canônica do DESTINO, não a de quem hospeda o card', () => {
+    const comPromo = REAL_TREE.map(c =>
+      c.id === 'kpop' ? { ...c, menu_promo: { category_id: 'villains' } } : c,
+    )
+    const kpop = menuEntries(comPromo).find(e => e.slug === 'kpop')!
+    expect(kpop.href).toBe('/bottons/kpop')
+    expect(kpop.promo?.href).toBe('/anime/villains')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// URL-03 — os dois chamadores passaram a montar o href pela árvore
+// ---------------------------------------------------------------------------
+describe('menuEntries e resolvePromo montam o href pela árvore (URL-03)', () => {
+  it('entrada RAIZ marcada sai com um segmento só', () => {
+    const tree = REAL_TREE.map(c => (c.id === 'bottons' ? { ...c, show_in_menu: true } : c))
+    const bottons = menuEntries(tree).find(e => e.slug === 'bottons')!
+    expect(bottons.href).toBe('/bottons')
+  })
+
+  it('entrada FILHA marcada sai com dois segmentos', () => {
+    const anime = menuEntries(REAL_TREE).find(e => e.slug === 'anime')!
+    expect(anime.href).toBe('/bottons/anime')
+  })
+
+  it('pai INATIVO não entra no href — a canônica que a loja serve é a de um segmento', () => {
+    // `menuEntries` monta o href sobre as categorias visíveis: um pai que a RLS esconde não pode
+    // aparecer numa URL que a cliente vai abrir.
+    const tree = REAL_TREE.map(c => (c.id === 'bottons' ? { ...c, active: false } : c))
+    expect(menuEntries(tree).find(e => e.slug === 'anime')!.href).toBe('/anime')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// URL-03 — o formato legado saiu do domínio do menu
+// ---------------------------------------------------------------------------
+describe('o caminho legado de coleção não é mais construído em core', () => {
+  const HERE = dirname(fileURLToPath(import.meta.url))
+  const CORE_SRC = resolve(HERE, '../..')
+
+  // Montado por junção **de propósito**: escrito por extenso, o próprio guarda apareceria na
+  // varredura e a régua viraria o objeto medido.
+  const LEGADO = ['/', 'colecao', '/'].join('')
+
+  const sourceFiles = (dir: string): string[] =>
+    readdirSync(dir, { withFileTypes: true }).flatMap(entry => {
+      const full = join(dir, entry.name)
+      if (entry.isDirectory()) {
+        // `routes/` é a exceção declarada: é lá que as formas legadas vivem COMO DADO
+        // (`LEGACY_REDIRECTS`), que é a finalidade do módulo. O que não pode existir é href montado
+        // à mão fora dele.
+        return entry.name === 'routes' ? [] : sourceFiles(full)
+      }
+      return entry.isFile() && /\.ts$/.test(entry.name) ? [full] : []
+    })
+
+  it('nenhum arquivo de core monta o caminho legado à mão — nem em comentário', () => {
+    const files = sourceFiles(CORE_SRC)
+    // Âncora dupla: a varredura leu arquivos DE VERDADE e alcançou o arquivo que ela existe para
+    // vigiar. Sem as duas, um caminho errado varre zero e passa em silêncio.
+    expect(files.length).toBeGreaterThan(15)
+    expect(files.map(f => relative(CORE_SRC, f).replace(/\\/g, '/'))).toContain('menu/menu.ts')
+
+    const offenders = files
+      .flatMap(file =>
+        readFileSync(file, 'utf8')
+          .split('\n')
+          .map((text, index) => ({ file, line: index + 1, text }))
+          .filter(entry => entry.text.includes(LEGADO)),
+      )
+      .map(entry => `${relative(CORE_SRC, entry.file)}:${entry.line} — ${entry.text.trim()}`)
+
+    expect(offenders).toEqual([])
   })
 })

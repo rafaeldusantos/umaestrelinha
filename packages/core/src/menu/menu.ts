@@ -12,6 +12,7 @@
 // empatar em `sort_order = 0` com ele.
 
 import type { MenuPromo } from '@estrelinha/supabase/types'
+import { categoryPath } from '../routes'
 
 /**
  * A forma **mínima** que o domínio precisa.
@@ -42,7 +43,7 @@ export interface ResolvedPromo {
   badge: string | null
   title: string
   subtitle: string | null
-  /** `/colecao/<slug do destino>`. */
+  /** A URL canônica do destino: `/<slug>` na raiz, `/<pai>/<slug>` na filha (`AD-018`). */
   href: string
   /** `null` quando quem chamou não trouxe `product_count`. */
   productCount: number | null
@@ -53,7 +54,7 @@ export interface MenuEntry {
   id: string
   name: string
   slug: string
-  /** `/colecao/<slug>`. */
+  /** A URL canônica da categoria: `/<slug>` na raiz, `/<pai>/<slug>` na filha (`AD-018`). */
   href: string
   /** `Bottons › Anime` — o admin precisa saber o que está pondo no menu. A loja mostra só `name`. */
   path: string
@@ -110,6 +111,30 @@ export const ancestorsOf = (
   return chain
 }
 
+/**
+ * A URL canônica de uma categoria da árvore — `AD-018`, e a **única** função que sabe montá-la.
+ *
+ * Raiz vira `/<slug>`; filha vira `/<pai imediato>/<slug>`. **No máximo dois segmentos**: uma árvore
+ * de três níveis (que o catálogo real não tem — medido, máximo 2) produz `/<pai>/<slug>` e nunca
+ * `/<avô>/<pai>/<slug>`, porque a canônica declarada pelo site em produção tem dois.
+ *
+ * Reusa `ancestorsOf`, que já é a única subida da cadeia de pais do projeto: uma segunda caminhada
+ * herdaria de novo a guarda de ciclo e o caso do pai fora da lista, e as duas divergiriam.
+ *
+ * `id` inexistente devolve `/` em vez de lançar — o chamador é uma renderização de link, e derrubar
+ * o header inteiro por causa de um card apontando para categoria apagada é pior que levar à home.
+ * Pai **ausente da lista** (árvore parcial, pai inativo que a RLS escondeu) cai na forma de um
+ * segmento, que resolve com 200 e declara a própria canônica.
+ */
+export const categoryHref = (categories: readonly MenuCategory[], id: string): string => {
+  const self = categories.find(c => c.id === id)
+  if (!self) return '/'
+
+  const chain = ancestorsOf(categories, id)
+  const parent = chain.length > 0 ? chain[chain.length - 1] : null
+  return categoryPath(self.slug, parent ? parent.slug : null)
+}
+
 /** `Bottons › Anime` — o caminho **com** a própria categoria. String vazia se o id não existe. */
 export const pathLabel = (
   categories: readonly MenuCategory[],
@@ -124,7 +149,7 @@ export const pathLabel = (
 /**
  * Toda a descendência de uma categoria, **incluindo ela própria**.
  *
- * É o que faz `/colecao/anime` mostrar os produtos de "Naruto". Sem isto, a página do universo lista
+ * É o que faz `/bottons/anime` mostrar os produtos de "Naruto". Sem isto, a página do universo lista
  * só os vínculos diretos — e o "Ver todos →" do mega menu levaria a uma tela sem os produtos que o
  * próprio menu acabou de listar, porque o `CategoryMultiSelect` do formulário de produto **não**
  * marca o pai automaticamente.
@@ -190,7 +215,7 @@ export const resolvePromo = (
     // quer divergir dela, e não é obrigado a repetir o nome para o card aparecer.
     title: trimmed(promo.title) ?? target.name,
     subtitle: trimmed(promo.subtitle) ?? trimmed(target.description),
-    href: `/colecao/${target.slug}`,
+    href: categoryHref(categories, target.id),
     productCount: typeof target.product_count === 'number' ? target.product_count : null,
   }
 }
@@ -214,7 +239,7 @@ export const menuEntries = (categories: readonly MenuCategory[]): MenuEntry[] =>
       id: entry.id,
       name: entry.name,
       slug: entry.slug,
-      href: `/colecao/${entry.slug}`,
+      href: categoryHref(visible, entry.id),
       path: pathLabel(categories, entry.id),
       children: visible.filter(c => c.parent_id === entry.id).sort(bySortOrder),
       promo: resolvePromo(visible, entry.menu_promo),

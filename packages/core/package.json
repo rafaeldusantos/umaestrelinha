@@ -18,7 +18,8 @@
     "./validators": "./src/validators/index.ts",
     "./shipping": "./src/shipping/index.ts",
     "./checkout": "./src/checkout/index.ts",
-    "./menu": "./src/menu/index.ts"
+    "./menu": "./src/menu/index.ts",
+    "./routes": "./src/routes/index.ts"
   },
   "scripts": {
     "test": "vitest run"
