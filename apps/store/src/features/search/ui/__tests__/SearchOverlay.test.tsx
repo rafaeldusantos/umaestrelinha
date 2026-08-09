@@ -71,7 +71,7 @@ beforeEach(() => {
 })
 
 const type = (value: string) =>
-  fireEvent.change(screen.getByLabelText('Buscar bottons'), { target: { value } })
+  fireEvent.change(screen.getByLabelText('Buscar joias'), { target: { value } })
 
 describe('SearchOverlay (board "Mobile Search Open - v3")', () => {
   it('parte de buscas recentes e coleções em alta, sem resultado nenhum', () => {
@@ -106,7 +106,7 @@ describe('SearchOverlay (board "Mobile Search Open - v3")', () => {
   it('enviar leva para a lista completa e guarda a busca', () => {
     renderOverlay()
     type('naruto')
-    fireEvent.submit(screen.getByLabelText('Buscar bottons').closest('form')!)
+    fireEvent.submit(screen.getByLabelText('Buscar joias').closest('form')!)
     expect(navigate).toHaveBeenCalledWith('/busca?q=naruto')
     expect(closeSearch).toHaveBeenCalled()
     expect(JSON.parse(localStorage.getItem('estrelinha-recent-searches')!)).toEqual(['naruto'])
@@ -115,14 +115,14 @@ describe('SearchOverlay (board "Mobile Search Open - v3")', () => {
   it('não envia com menos de dois caracteres', () => {
     renderOverlay()
     type('n')
-    fireEvent.submit(screen.getByLabelText('Buscar bottons').closest('form')!)
+    fireEvent.submit(screen.getByLabelText('Buscar joias').closest('form')!)
     expect(navigate).not.toHaveBeenCalled()
   })
 
   it('sem resultado, explica o que tentar em vez de só falhar', () => {
     renderOverlay()
     type('xyzabc')
-    expect(screen.getByText(/Nenhum botton para/)).toBeInTheDocument()
+    expect(screen.getByText(/Nada encontrado para/)).toBeInTheDocument()
     expect(screen.getByText('Em alta agora')).toBeInTheDocument()
   })
 

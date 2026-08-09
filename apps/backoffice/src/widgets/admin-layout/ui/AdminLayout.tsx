@@ -47,7 +47,7 @@ const NavContent = ({ pathname, onNavigate, onLogout }: NavProps) => (
         <div className="w-8 h-8 rounded-full gradient-cta flex items-center justify-center">
           <Pin className="w-4 h-4 text-white" />
         </div>
-        <span className="font-heading text-lg font-semibold text-estrelinha-admin-text">Nanita</span>
+        <span className="font-heading text-lg font-semibold text-estrelinha-admin-text">Uma Estrelinha</span>
       </Link>
     </div>
     <nav className="flex-1 p-3 overflow-auto">
@@ -119,7 +119,7 @@ const AdminLayout = () => {
               />
             </SheetContent>
           </Sheet>
-          <Link to="/admin" className="font-heading font-semibold text-estrelinha-admin-text">Nanita Admin</Link>
+          <Link to="/admin" className="font-heading font-semibold text-estrelinha-admin-text">Uma Estrelinha Admin</Link>
         </header>
         <main className="flex-1 p-6 overflow-auto">
           <Outlet />

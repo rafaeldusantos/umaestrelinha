@@ -61,7 +61,7 @@ const AdminLoginPage = () => {
           <div className="w-12 h-12 rounded-full gradient-cta flex items-center justify-center mx-auto mb-4">
             <Pin className="w-6 h-6 text-white" />
           </div>
-          <h1 className="font-heading text-2xl font-extrabold text-estrelinha-admin-text">Admin Nanita</h1>
+          <h1 className="font-heading text-2xl font-extrabold text-estrelinha-admin-text">Admin Uma Estrelinha</h1>
           <p className="text-sm text-estrelinha-admin-muted mt-1">Acesse o painel de gestão</p>
         </div>
         <form onSubmit={handleLogin} className="bg-white rounded-2xl border border-estrelinha-admin-border p-6 space-y-4">

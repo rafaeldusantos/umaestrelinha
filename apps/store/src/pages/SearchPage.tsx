@@ -61,8 +61,8 @@ const SearchPage = () => {
         <input
           value={query}
           onChange={(e) => commit(e.target.value)}
-          placeholder="Buscar bottons, coleções..."
-          aria-label="Buscar bottons"
+          placeholder="Buscar joias, coleções..."
+          aria-label="Buscar joias"
           type="text"
           inputMode="search"
           enterKeyHint="search"
@@ -102,7 +102,7 @@ const SearchPage = () => {
 
       {searching && results.length === 0 && (
         <div className="py-12 text-center">
-          <p className="font-medium text-estrelinha-ink">Nenhum botton encontrado 😢</p>
+          <p className="font-medium text-estrelinha-ink">Nada encontrado.</p>
           <p className="mx-auto mt-1 max-w-xs text-sm text-estrelinha-ink-soft">
             Tenta o nome do anime, do grupo ou do personagem.
           </p>

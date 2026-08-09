@@ -44,10 +44,15 @@ const ProductDetailsAccordion = ({ product }: { product: Product }) => {
         Cuidados e Conservação
       </AccordionTrigger>
       <AccordionContent className="pb-4">
+        {/* Cuidado de JOIA — prata 925, aço, folheado e resina. Até a feature 20 este bloco falava
+            em alfinete e em metal manchando: era cuidado de botton, e nenhuma peça daqui tem
+            alfinete. Resina não vai em ultrassom nem em produto de limpeza, e folheado sai com
+            perfume — são as três formas reais de a cliente estragar a homenagem que encomendou. */}
         <ul className="flex flex-col gap-1.5 text-[13px] leading-[20px] text-estrelinha-ink-soft">
-          <li>• Limpe com pano seco e macio — nada de água nem produto abrasivo.</li>
-          <li>• Guarde longe de umidade para o metal não manchar.</li>
-          <li>• Evite prender em tecidos muito finos: o alfinete pode marcar.</li>
+          <li>• Limpe com pano seco e macio. Nada de produto de limpeza, álcool ou ultrassom.</li>
+          <li>• Perfume, hidratante e cloro por último: espere secar antes de colocar a joia.</li>
+          <li>• Guarde separada de outras peças, longe de umidade e de sol direto.</li>
+          <li>• Prata escurece com o tempo — é natural, e volta com flanela própria para prata.</li>
         </ul>
       </AccordionContent>
     </AccordionItem>

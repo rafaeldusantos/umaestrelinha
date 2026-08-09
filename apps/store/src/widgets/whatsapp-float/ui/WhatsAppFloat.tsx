@@ -62,7 +62,7 @@ const WhatsAppFloat = () => {
   const phone = whatsapp.replace(/\D/g, '')
   const defaultMsg =
     whatsapp_message?.trim() ||
-    `Olá! Estou navegando no site da ${store_name || 'Nanita'} e gostaria de tirar uma dúvida.`
+    `Olá! Vim pelo site da ${store_name || 'Uma Estrelinha'} e gostaria de tirar uma dúvida.`
   const link = `https://wa.me/${phone}?text=${encodeURIComponent(defaultMsg)}`
 
   return (
@@ -80,7 +80,7 @@ const WhatsAppFloat = () => {
               </div>
               <div>
                 <p className="text-sm font-heading font-semibold text-estrelinha-ink leading-tight">
-                  {store_name || 'Nanita'}
+                  {store_name || 'Uma Estrelinha'}
                 </p>
                 <p className="text-[11px] text-estrelinha-ink-soft">Normalmente responde em minutos</p>
               </div>
@@ -94,7 +94,7 @@ const WhatsAppFloat = () => {
             </button>
           </div>
           <p className="text-xs text-estrelinha-ink-soft mb-3 leading-relaxed">
-            Oi! 👋 Tem alguma dúvida sobre os bottons, frete ou pedido? Fala com a gente no WhatsApp!
+            Alguma dúvida sobre as joias, o envio do material ou o seu pedido? A gente responde por aqui.
           </p>
           <a
             href={link}
@@ -118,10 +118,10 @@ const WhatsAppFloat = () => {
           aria-label="Abrir mensagem"
         >
           <p className="text-[11px] font-semibold text-[hsl(142_70%_38%)] mb-0.5">
-            {store_name || 'Nanita'}
+            {store_name || 'Uma Estrelinha'}
           </p>
           <p className="text-xs text-estrelinha-ink leading-snug">
-            Olá! 👋 Posso te ajudar com algo?
+            Olá! Posso te ajudar com alguma coisa?
           </p>
         </button>
       )}

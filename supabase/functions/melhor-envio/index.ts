@@ -20,7 +20,9 @@ function meHeaders() {
     Authorization: `Bearer ${ME_TOKEN}`,
     "Content-Type": "application/json",
     Accept: "application/json",
-    "User-Agent": "Nanita (contato@nanita.com.br)",
+    // A API do Melhor Envio EXIGE identificacao no User-Agent (nome + e-mail de contato);
+    // sem isso ela recusa a chamada. O e-mail e o mesmo do default de `store_settings.general`.
+    "User-Agent": "Uma Estrelinha (contato@umaestrelinha.com.br)",
   }
 }
 

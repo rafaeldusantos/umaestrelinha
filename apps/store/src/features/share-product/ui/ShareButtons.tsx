@@ -12,7 +12,7 @@ const ShareButtons = ({ name, url }: Props) => {
   const handleShare = async () => {
     if (navigator.share) {
       try {
-        await navigator.share({ title: name, text: `Olha esse botton: ${name}`, url })
+        await navigator.share({ title: name, text: `Olha essa joia: ${name}`, url })
       } catch {}
     }
   }
@@ -24,7 +24,7 @@ const ShareButtons = ({ name, url }: Props) => {
 
   const handleWhatsApp = () => {
     window.open(
-      `https://wa.me/?text=${encodeURIComponent(`Olha esse botton: ${name} - ${url}`)}`,
+      `https://wa.me/?text=${encodeURIComponent(`Olha essa joia: ${name} - ${url}`)}`,
       '_blank'
     )
   }

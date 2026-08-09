@@ -118,8 +118,8 @@ const SearchOverlay = () => {
               ref={inputRef}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Buscar bottons, coleções..."
-              aria-label="Buscar bottons"
+              placeholder="Buscar joias, coleções..."
+              aria-label="Buscar joias"
               /* `inputMode` + `enterKeyHint` põem a lupa no lugar do "enter" no teclado do celular;
                  sem `type="search"` para não herdar o "x" nativo do WebKit, que ficaria ao lado do
                  nosso. Corretor e capitalização desligados: nome de franquia não é palavra do
@@ -174,7 +174,7 @@ const SearchOverlay = () => {
               {hits.length === 0 ? (
                 <div className="px-5 pb-4 pt-1">
                   <p className="text-sm font-medium text-estrelinha-ink">
-                    Nenhum botton para "{query.trim()}" 😢
+                    Nada encontrado para "{query.trim()}".
                   </p>
                   <p className="mt-1 text-[13px] text-estrelinha-ink-soft">
                     Tenta o nome do anime, do grupo ou do personagem — ou olha as coleções em alta
@@ -210,7 +210,7 @@ const SearchOverlay = () => {
                               {product.name}
                             </span>
                             <span className="truncate text-xs font-medium text-estrelinha-ink-soft">
-                              {soldOut ? 'Esgotado' : trail || 'Nanita'}
+                              {soldOut ? 'Esgotado' : trail || 'Uma Estrelinha'}
                             </span>
                           </span>
                           <span className="shrink-0 text-sm font-bold text-estrelinha-primary">

@@ -13,11 +13,11 @@ const NotFound = () => {
       <div className="flex flex-col gap-2">
         <p className="estrelinha-eyebrow text-estrelinha-ink-soft">Erro 404</p>
         <h1 className="font-display text-[38px] font-semibold leading-[1.1] tracking-[-0.03em] text-estrelinha-ink md:text-[52px]">
-          Esse pin não existe.
+          Essa página não existe.
         </h1>
         <p className="mx-auto max-w-[420px] text-[16px] leading-relaxed text-estrelinha-ink-soft">
-          A página que você procurou saiu de catálogo ou nunca existiu. Bora achar outra coisa
-          para colecionar?
+          O endereço que você abriu saiu do catálogo ou nunca existiu. Vamos procurar a joia
+          certa juntas?
         </p>
       </div>
 
@@ -26,7 +26,7 @@ const NotFound = () => {
           to="/"
           className="rounded-sm bg-estrelinha-primary px-[30px] py-[15px] font-display text-[16px] font-semibold text-white transition-transform hover:scale-[1.02]"
         >
-          Voltar pra home
+          Voltar para o início
         </Link>
         <Link
           to="/busca"

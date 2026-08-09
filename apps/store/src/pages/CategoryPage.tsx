@@ -277,7 +277,7 @@ const CategoryPage = () => {
           ) : (
             <div className="flex flex-col items-center gap-3 py-16 text-center">
               <p className="font-display text-[18px] font-medium text-estrelinha-ink">
-                Nenhum botton com esses filtros.
+                Nenhuma joia com esses filtros.
               </p>
               <p className="text-[14px] text-estrelinha-ink-soft">
                 Tente afrouxar a faixa de preço ou tirar um universo.

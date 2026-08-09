@@ -65,13 +65,12 @@ const ALLOWLIST: Record<string, string> = {
  * comprovadamente, a uma task posterior desta feature.
  */
 const PENDENTE: Record<string, string> = {
-  'apps/backoffice/src/features/store-menu/ui/MenuBarPreview.tsx':         'T38 - copy institucional e pontos de contato',
-  'apps/backoffice/src/pages/admin/AdminLoginPage.tsx':                    'T38 - copy institucional e pontos de contato',
-  'apps/backoffice/src/widgets/admin-layout/ui/AdminLayout.tsx':           'T38 - copy institucional e pontos de contato',
-  'apps/store/src/features/search/ui/SearchOverlay.tsx':                   'T38 - copy institucional e pontos de contato',
-  'apps/store/src/pages/AboutPage.tsx':                                    'T38 - copy institucional e pontos de contato',
-  'apps/store/src/widgets/whatsapp-float/ui/WhatsAppFloat.tsx':            'T38 - copy institucional e pontos de contato',
-  'supabase/functions/melhor-envio/index.ts':                              'T38 - `User-Agent` que a API do Melhor Envio exige',
+  // VAZIA desde a T38, que fechou a varredura. Ela existiu porque este teste nasceu
+  // na Fase 3, com a marca em SVG, o chrome, o e-mail e a copy ainda por converter —
+  // 42 arquivos, cada um com dono declarado. Todos saíram.
+  //
+  // Entrada nova aqui exige uma task desta feature que ainda não rodou. Fora disso,
+  // resíduo é resíduo: conserte o arquivo.
 }
 
 function arquivos(dir: string): string[] {

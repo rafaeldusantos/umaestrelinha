@@ -41,7 +41,7 @@ const BrandPanel = () => (
   >
     <div>
       <EstrelinhaSignature width={200} tone="onInk" />
-      <p className="mt-1 text-sm text-white/70">Cole no peito, carrega no coração.</p>
+      <p className="mt-1 text-sm text-white/70">Eternizando suas lembranças.</p>
     </div>
     <ul className="space-y-3">
       {BENEFITS.map((b) => (

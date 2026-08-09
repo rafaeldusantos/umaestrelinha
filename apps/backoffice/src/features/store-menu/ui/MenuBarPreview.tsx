@@ -39,7 +39,7 @@ const MenuBarPreview = ({ entries }: Props) => (
           exatamente o que a prévia existe para mostrar. A barra da loja é uma linha só. */}
       <div className="overflow-x-auto rounded-xl border border-border bg-background px-4 py-3">
         <div className="flex min-w-max items-center gap-6">
-          <span className="font-heading text-sm font-bold text-primary">Nanita</span>
+          <span className="font-heading text-sm font-bold text-primary">Uma Estrelinha</span>
           {entries.map(entry => (
             <span key={entry.id} className="whitespace-nowrap text-[13px] font-medium text-foreground">
               {entry.name}
