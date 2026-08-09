@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import categories from '../../__fixtures__/categories.json' with { type: 'json' }
 import type { RawCategory } from '../../nuvemshop/types.ts'
-import { CURATED_INACTIVE, mapCategories } from '../category.ts'
+import { CURATED_EXCLUDED, CURATED_INACTIVE, mapCategories } from '../category.ts'
 
 const reais = categories as RawCategory[]
 
@@ -65,7 +65,8 @@ describe('mapCategories — ordem topológica (CAT-05)', () => {
 
   it('no catálogo real, nenhuma filha aparece antes da sua pai', () => {
     const rows = mapCategories(reais)
-    expect(rows).toHaveLength(39)
+    // 39 na origem menos as 2 de `CURATED_EXCLUDED` (feature `23`).
+    expect(rows).toHaveLength(37)
     const vistos = new Set<number>()
     for (const r of rows) {
       if (r.parent_nuvemshop_id !== null) {
@@ -108,28 +109,28 @@ describe('mapCategories — sort_order derivado (CAT-05)', () => {
   it('ordena as raízes pelo índice na resposta', () => {
     const rows = mapCategories(reais)
     const raizes = rows.filter(r => r.parent_nuvemshop_id === null)
-    expect(raizes).toHaveLength(10)
-    expect(raizes.map(r => r.sort_order)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+    // 10 raízes na origem menos as 2 excluídas, que eram raiz. A sequência segue CONTÍGUA: o corte
+    // acontece antes da derivação, então excluir não deixa buraco na ordem da vitrine.
+    expect(raizes).toHaveLength(8)
+    expect(raizes.map(r => r.sort_order)).toEqual([0, 1, 2, 3, 4, 5, 6, 7])
     expect(raizes[0].slug).toBe('joias-afetivas')
   })
 })
 
 describe('mapCategories — curadoria (CAT-11)', () => {
-  it('lista exatamente as quatro categorias decididas, uma verificação por elemento', () => {
-    expect(CURATED_INACTIVE.size).toBe(4)
+  it('lista exatamente as duas categorias desativadas, uma verificação por elemento', () => {
+    expect(CURATED_INACTIVE.size).toBe(2)
     expect(CURATED_INACTIVE.has(35119124)).toBe(true) // Black Friday
-    expect(CURATED_INACTIVE.has(32697621)).toBe(true) // Rastreio
-    expect(CURATED_INACTIVE.has(32509753)).toBe(true) // Brinquedos
     expect(CURATED_INACTIVE.has(34729760)).toBe(true) // Profissões
   })
 
-  it('desativa as quatro e nenhuma outra', () => {
+  it('desativa as duas e nenhuma outra', () => {
     const rows = mapCategories(reais)
     const inativas = rows.filter(r => !r.active).map(r => r.nuvemshop_id).sort((a, b) => a - b)
-    expect(inativas).toEqual([32509753, 32697621, 34729760, 35119124])
+    expect(inativas).toEqual([34729760, 35119124])
   })
 
-  it('preserva o slug das quatro — desativar não é apagar (CAT-02)', () => {
+  it('preserva o slug das duas — desativar não é apagar (CAT-02)', () => {
     const rows = mapCategories(reais)
     for (const id of CURATED_INACTIVE.keys()) {
       const row = rows.find(r => r.nuvemshop_id === id)!
@@ -147,6 +148,58 @@ describe('mapCategories — curadoria (CAT-11)', () => {
   it('mantém ativas as 35 restantes do catálogo real', () => {
     const rows = mapCategories(reais)
     expect(rows.filter(r => r.active)).toHaveLength(35)
+  })
+})
+
+// 23 · T19 — as excluídas, decisão do usuário em 2026-08-09.
+describe('mapCategories — categorias excluídas por curadoria', () => {
+  it('lista exatamente as duas categorias excluídas, uma verificação por elemento', () => {
+    expect(CURATED_EXCLUDED.size).toBe(2)
+    expect(CURATED_EXCLUDED.has(32509753)).toBe(true) // Brinquedos
+    expect(CURATED_EXCLUDED.has(32697621)).toBe(true) // Rastreio
+  })
+
+  it('as duas listas são disjuntas — excluir e desativar são desfechos diferentes', () => {
+    for (const id of CURATED_EXCLUDED.keys()) {
+      expect(CURATED_INACTIVE.has(id), `${id} está nas duas listas`).toBe(false)
+    }
+  })
+
+  it('a chave é `nuvemshop_id`: todo motivo é texto e toda chave é número', () => {
+    for (const [id, motivo] of CURATED_EXCLUDED) {
+      expect(typeof id).toBe('number')
+      expect(motivo).not.toBe('')
+    }
+  })
+
+  it('NÃO emite as excluídas — nem ativas, nem inativas', () => {
+    const emitidos = mapCategories(reais).map(r => r.nuvemshop_id)
+    for (const id of CURATED_EXCLUDED.keys()) {
+      expect(emitidos, `emitiu a categoria excluída ${id}`).not.toContain(id)
+    }
+  })
+
+  it('as duas EXISTEM na origem — sem isso o corte não estaria cortando nada', () => {
+    for (const id of CURATED_EXCLUDED.keys()) {
+      expect(reais.some(c => c.id === id), `${id} não está na fixture`).toBe(true)
+    }
+  })
+
+  it('nenhuma filha pende das excluídas na fixture — senão `parentOf` a promoveria a raiz em silêncio', () => {
+    for (const id of CURATED_EXCLUDED.keys()) {
+      const filhas = reais.filter(c => c.parent === id).map(c => c.id)
+      expect(filhas, `a categoria ${id} tem filhas na origem`).toEqual([])
+      expect(reais.find(c => c.id === id)!.subcategories).toEqual([])
+    }
+  })
+
+  it('quando a excluída TEM filha, a filha vira raiz — o comportamento declarado, provado', () => {
+    const rows = mapCategories([
+      cat({ id: 32509753, parent: 0, subcategories: [77] }),
+      cat({ id: 77, parent: 32509753 }),
+    ])
+    expect(rows.map(r => r.nuvemshop_id)).toEqual([77])
+    expect(rows[0].parent_nuvemshop_id).toBeNull()
   })
 })
 

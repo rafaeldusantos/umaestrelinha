@@ -9,7 +9,11 @@ import type { DbLike } from '../db.ts'
 
 const reais = categoriesFixture as RawCategory[]
 
-interface Operacao { tipo: 'select' | 'insert' | 'update'; tabela: string; payload?: Record<string, unknown> }
+interface Operacao {
+  tipo: 'select' | 'insert' | 'update' | 'delete'
+  tabela: string
+  payload?: Record<string, unknown>
+}
 
 /**
  * Dublê do `supabase-js`. Nenhum método devolve builder de dentro de função `async` — a `L-011`
@@ -46,26 +50,36 @@ const fakeDb = (existentes: Array<Record<string, unknown>> = []) => {
         in: async () => ({ data: null, error: null }),
       }),
       delete: () => ({
-        eq: async () => ({ data: null, error: null }),
+        eq: async (coluna: string, valor: unknown) => {
+          ops.push({ tipo: 'delete', tabela, payload: { coluna, valor } })
+          return { data: null, error: null }
+        },
         in: async () => ({ data: null, error: null }),
       }),
     }),
   }
 
-  return { db, ops, inserts: () => ops.filter(o => o.tipo === 'insert'), updates: () => ops.filter(o => o.tipo === 'update') }
+  return {
+    db,
+    ops,
+    inserts: () => ops.filter(o => o.tipo === 'insert'),
+    updates: () => ops.filter(o => o.tipo === 'update'),
+    deletes: () => ops.filter(o => o.tipo === 'delete'),
+  }
 }
 
 const rowsReais = () => mapCategories(reais)
 
 describe('writeCategories — criação (CAT-01, CAT-05)', () => {
-  it('cria as 39 categorias e devolve o mapa nuvemshop_id → uuid', async () => {
+  it('cria as 37 categorias e devolve o mapa nuvemshop_id → uuid', async () => {
     const { db } = fakeDb()
     const report = createReport()
     const mapa = await writeCategories(rowsReais(), { supabase: db, report })
 
-    expect(mapa.size).toBe(39)
+    // 39 na origem menos as 2 de `CURATED_EXCLUDED` (feature `23`).
+    expect(mapa.size).toBe(37)
     expect(report.data().entidades.categorias).toEqual({
-      lidos: 39, criados: 39, atualizados: 0, pulados: 0,
+      lidos: 37, criados: 37, atualizados: 0, pulados: 0,
     })
     expect(report.exitCode()).toBe(0)
   })
@@ -92,17 +106,76 @@ describe('writeCategories — criação (CAT-01, CAT-05)', () => {
 })
 
 describe('writeCategories — curadoria (CAT-11)', () => {
-  it('nomeia as quatro categorias desativadas no relatório', async () => {
+  it('nomeia as duas categorias desativadas no relatório', async () => {
     const { db } = fakeDb()
     const report = createReport()
     await writeCategories(rowsReais(), { supabase: db, report })
 
     const slugs = report.data().categoriasInativadas.map(c => c.slug).sort()
-    expect(slugs).toHaveLength(4)
-    expect(slugs).toContain('black-friday')
-    expect(slugs).toContain('rastreio')
-    expect(slugs).toContain('profissoes')
+    expect(slugs).toEqual(['black-friday', 'profissoes'])
     for (const c of report.data().categoriasInativadas) expect(c.motivo).not.toBe('')
+  })
+})
+
+// 23 · T19 — as excluídas: a linha que já existe no banco é APAGADA.
+describe('writeCategories — categorias excluídas por curadoria', () => {
+  const excluidasJaGravadas = [
+    { id: 'uuid-brinquedos', nuvemshop_id: 32509753, slug: 'slug-da-marca-anterior', active: false, sort_order: 8 },
+    { id: 'uuid-rastreio', nuvemshop_id: 32697621, slug: 'rastreio', active: false, sort_order: 9 },
+  ]
+
+  it('apaga pelo id as linhas cujo `nuvemshop_id` está na lista', async () => {
+    const { db, deletes } = fakeDb(excluidasJaGravadas)
+    await writeCategories(rowsReais(), { supabase: db, report: createReport() })
+
+    expect(deletes()).toHaveLength(2)
+    expect(deletes().map(o => o.payload)).toEqual([
+      { coluna: 'id', valor: 'uuid-brinquedos' },
+      { coluna: 'id', valor: 'uuid-rastreio' },
+    ])
+    for (const op of deletes()) expect(op.tabela).toBe('categories')
+  })
+
+  it('reporta as duas numa lista SEPARADA das desativadas', async () => {
+    const { db } = fakeDb(excluidasJaGravadas)
+    const report = createReport()
+    await writeCategories(rowsReais(), { supabase: db, report })
+
+    expect(report.data().categoriasExcluidas.map(c => c.nuvemshop_id).sort((a, b) => a - b))
+      .toEqual([32509753, 32697621])
+    for (const c of report.data().categoriasExcluidas) expect(c.motivo).not.toBe('')
+    // A outra lista continua sendo só das desativadas.
+    expect(report.data().categoriasInativadas.map(c => c.slug).sort())
+      .toEqual(['black-friday', 'profissoes'])
+  })
+
+  it('banco sem elas não gera delete nem linha de relatório', async () => {
+    const { db, deletes } = fakeDb()
+    const report = createReport()
+    await writeCategories(rowsReais(), { supabase: db, report })
+
+    expect(deletes()).toHaveLength(0)
+    expect(report.data().categoriasExcluidas).toEqual([])
+  })
+
+  it('apagar não entra na conferência de totais — elas não são leitura da origem', async () => {
+    const { db } = fakeDb(excluidasJaGravadas)
+    const report = createReport()
+    await writeCategories(rowsReais(), { supabase: db, report })
+
+    expect(report.data().entidades.categorias).toEqual({
+      lidos: 37, criados: 37, atualizados: 0, pulados: 0,
+    })
+    expect(report.exitCode()).toBe(0)
+  })
+
+  it('dry-run reporta a exclusão e NÃO apaga', async () => {
+    const { db, deletes } = fakeDb(excluidasJaGravadas)
+    const report = createReport()
+    await writeCategories(rowsReais(), { supabase: db, report, dryRun: true })
+
+    expect(deletes()).toHaveLength(0)
+    expect(report.data().categoriasExcluidas).toHaveLength(2)
   })
 })
 
@@ -153,7 +226,7 @@ describe('writeCategories — re-execução preserva a curadoria (CAT-12)', () =
     expect(report.data().vitrinePreservada.some(v => v.campo === 'sort_order')).toBe(true)
   })
 
-  it('segunda execução: zero criados, 39 atualizados, zero duplicata', async () => {
+  it('segunda execução: zero criados, 37 atualizados, zero duplicata', async () => {
     const jaGravadas = rowsReais().map((r, i) => ({
       id: `uuid-${i}`, nuvemshop_id: r.nuvemshop_id, slug: r.slug,
       active: r.active, sort_order: r.sort_order,
@@ -163,7 +236,7 @@ describe('writeCategories — re-execução preserva a curadoria (CAT-12)', () =
     await writeCategories(rowsReais(), { supabase: db, report })
 
     expect(report.data().entidades.categorias).toEqual({
-      lidos: 39, criados: 0, atualizados: 39, pulados: 0,
+      lidos: 37, criados: 0, atualizados: 37, pulados: 0,
     })
     expect(inserts()).toHaveLength(0)
     expect(report.data().vitrinePreservada).toEqual([])
@@ -192,6 +265,6 @@ describe('writeCategories — dry-run', () => {
     await writeCategories(rowsReais(), { supabase: db, report, dryRun: true })
 
     expect(ops.filter(o => o.tipo !== 'select')).toHaveLength(0)
-    expect(report.data().entidades.categorias.criados).toBe(39)
+    expect(report.data().entidades.categorias.criados).toBe(37)
   })
 })

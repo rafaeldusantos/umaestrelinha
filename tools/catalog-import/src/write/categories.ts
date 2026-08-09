@@ -1,5 +1,5 @@
 import type { CategoryRow } from '../map/category.ts'
-import { CURATED_INACTIVE } from '../map/category.ts'
+import { CURATED_EXCLUDED, CURATED_INACTIVE } from '../map/category.ts'
 import type { Report } from '../report.ts'
 import { type DbLike, selectAll, unwrap } from './db.ts'
 
@@ -53,6 +53,25 @@ export const writeCategories = async (
     existentes.filter(c => c.nuvemshop_id !== null).map(c => [c.nuvemshop_id as number, c]),
   )
   const porSlug = new Map(existentes.map(c => [c.slug, c]))
+
+  // As excluídas não chegam em `rows` — `mapCategories` já as cortou. Quem as apaga é este bloco, e
+  // ele olha para o que EXISTE no banco: uma execução anterior pode tê-las criado. Fora do laço
+  // principal de propósito, porque não são leitura da origem e não entram na conferência
+  // `lidos = criados + atualizados + pulados`.
+  for (const [nuvemshopId, motivo] of CURATED_EXCLUDED) {
+    const existente = porNuvemshop.get(nuvemshopId)
+    if (!existente) continue
+
+    report.categoryExcluded({ nuvemshop_id: nuvemshopId, slug: existente.slug, motivo })
+    if (!deps.dryRun) {
+      unwrap(
+        'apagar categoria excluída por curadoria',
+        await supabase.from('categories').delete().eq('id', existente.id),
+      )
+    }
+    porNuvemshop.delete(nuvemshopId)
+    porSlug.delete(existente.slug)
+  }
 
   const uuidPorNuvemshop = new Map<number, string>()
 

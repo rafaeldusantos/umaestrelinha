@@ -42,6 +42,12 @@ export interface ReportData {
   entidades: Record<Entity, EntityCounts>
   imagens: { novas: number; reusadas: number; falhadas: number }
   categoriasInativadas: CuratedCategory[]
+  /**
+   * Lista SEPARADA das desativadas de propósito: desativar preserva a linha e é reversível num
+   * clique; excluir apaga. Juntar as duas num campo só faria o relatório dizer "curada" para dois
+   * desfechos que exigem ações diferentes de quem lê.
+   */
+  categoriasExcluidas: CuratedCategory[]
   produtosPulados: SkippedProduct[]
   skusDescartados: SkuDiscard[]
   imagensFalhadas: FailedImage[]
@@ -76,6 +82,7 @@ export const createReport = () => {
     entidades: { categorias: zero(), produtos: zero(), variacoes: zero() },
     imagens: { novas: 0, reusadas: 0, falhadas: 0 },
     categoriasInativadas: [],
+    categoriasExcluidas: [],
     produtosPulados: [],
     skusDescartados: [],
     imagensFalhadas: [],
@@ -116,6 +123,7 @@ export const createReport = () => {
 
     skusDiscarded: (discards: readonly SkuDiscard[]) => { data.skusDescartados.push(...discards) },
     categoryCurated: (categoria: CuratedCategory) => { data.categoriasInativadas.push(categoria) },
+    categoryExcluded: (categoria: CuratedCategory) => { data.categoriasExcluidas.push(categoria) },
     showcasePreserved: (campo: PreservedShowcase) => { data.vitrinePreservada.push(campo) },
 
     /** Parada limpa (`CAT-06`): registra o motivo e garante saída diferente de zero. */
@@ -157,6 +165,10 @@ export const createReport = () => {
       if (data.categoriasInativadas.length > 0) {
         linhas.push('', 'categorias desativadas por curadoria:')
         for (const c of data.categoriasInativadas) linhas.push(`  ${c.slug} — ${c.motivo}`)
+      }
+      if (data.categoriasExcluidas.length > 0) {
+        linhas.push('', 'categorias excluídas por curadoria:')
+        for (const c of data.categoriasExcluidas) linhas.push(`  ${c.slug} — ${c.motivo}`)
       }
       if (data.produtosPulados.length > 0) {
         linhas.push('', 'produtos pulados:')

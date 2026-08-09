@@ -291,7 +291,8 @@ describe('run — dry-run (CAT-09)', () => {
     expect(ops).toHaveLength(0)
     expect(uploads).toHaveLength(0)
     expect(report.data().entidades.produtos.criados).toBe(5)
-    expect(report.data().entidades.categorias.criados).toBe(39)
+    // 39 na origem menos as 2 de `CURATED_EXCLUDED` (feature `23`).
+    expect(report.data().entidades.categorias.criados).toBe(37)
     expect(report.balances().every(b => b.confere)).toBe(true)
   })
 

@@ -91,8 +91,35 @@ describe('report — listas nominais', () => {
     r.categoryCurated({ nuvemshop_id: 32697621, slug: 'rastreio', motivo: 'não é categoria de produto' })
 
     expect(r.data().categoriasInativadas).toHaveLength(2)
+    expect(r.toText()).toContain('categorias desativadas por curadoria:')
     expect(r.toText()).toContain('black-friday — urgência fabricada')
     expect(r.toText()).toContain('rastreio — não é categoria de produto')
+  })
+
+  // 23 · T19 — desativar preserva a linha; excluir apaga. Quem lê o relatório precisa distinguir.
+  it('nomeia as categorias EXCLUÍDAS por curadoria, em seção separada', () => {
+    const r = createReport()
+    r.categoryExcluded({ nuvemshop_id: 32697621, slug: 'rastreio', motivo: 'não é categoria de produto' })
+
+    expect(r.data().categoriasExcluidas).toHaveLength(1)
+    expect(r.toText()).toContain('categorias excluídas por curadoria:')
+    expect(r.toText()).toContain('rastreio — não é categoria de produto')
+  })
+
+  it('excluída não entra na lista das desativadas, e vice-versa', () => {
+    const r = createReport()
+    r.categoryExcluded({ nuvemshop_id: 32697621, slug: 'rastreio', motivo: 'não é categoria' })
+    r.categoryCurated({ nuvemshop_id: 35119124, slug: 'black-friday', motivo: 'urgência fabricada' })
+
+    expect(r.data().categoriasExcluidas.map(c => c.slug)).toEqual(['rastreio'])
+    expect(r.data().categoriasInativadas.map(c => c.slug)).toEqual(['black-friday'])
+  })
+
+  it('sem exclusão nenhuma, a seção não aparece no texto', () => {
+    const r = createReport()
+    r.categoryCurated({ nuvemshop_id: 35119124, slug: 'black-friday', motivo: 'urgência fabricada' })
+
+    expect(r.toText()).not.toContain('categorias excluídas por curadoria:')
   })
 
   it('nomeia cada produto pulado com o motivo (CAT-08)', () => {
