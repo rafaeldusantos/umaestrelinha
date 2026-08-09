@@ -8,7 +8,8 @@ name: Supabase Deploy
 # DESENVOLVIMENTO LOCAL (site_url = 127.0.0.1:8080, redirect urls de localhost,
 # SMTP com redirect de dev). Empurrá-lo derrubaria o auth de produção. Auth,
 # SMTP e templates do projeto hospedado são configurados no painel — ver
-# docs/DEPLOY.md.
+# .specs/archive/nanita/DEPLOY.md (guia da loja anterior — o procedimento vale, os
+# identificadores de projeto nao).
 
 on:
   push:

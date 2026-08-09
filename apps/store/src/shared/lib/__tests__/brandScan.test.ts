@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { readFileSync, readdirSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -37,9 +37,22 @@ const ROOT = resolve(HERE, '../../../../../..')
 /** O que a varredura procura, sem distinguir maiúscula de minúscula. */
 const MARCA = /nanapin|nanita|nana/i
 
-/** Onde ela procura — `REN-05` AC 1. `.specs/` e `docs/` ficam de fora: são
- *  histórico, e a Fase 7 os move para `.specs/archive/nanita/`. */
+/**
+ * Onde ela procura — `REN-05` AC 1.
+ *
+ * `.specs/` fica **deliberadamente de fora**, e é o que faz as vezes de allowlist do arquivo
+ * (`DOC-03`): desde a T39, a documentação da loja anterior mora inteira em
+ * `.specs/archive/nanita/` e **precisa** citar a marca — ela é o assunto de lá. Uma allowlist
+ * arquivo a arquivo seriam ~200 entradas para dizer a mesma coisa que uma exclusão de diretório
+ * diz melhor. O que se perde é varrer `.specs/features/2x`, e o que se ganha é que nenhuma spec
+ * futura precise pedir licença para citar a história.
+ *
+ * O código, esse sim, é varrido inteiro — e é onde a marca não pode voltar.
+ */
 const ESCOPO = ['apps', 'packages', 'supabase']
+
+/** O arquivo do histórico, que a exclusão acima protege. Existe para o teste de escopo abaixo. */
+const ARQUIVO_DA_NANITA = '.specs/archive/nanita'
 const ARQUIVOS_DA_RAIZ = ['package.json', 'tsconfig.base.json', 'turbo.json', 'pnpm-workspace.yaml']
 
 /** Diretórios que não são fonte: artefato de build, dependência, runtime. */
@@ -135,6 +148,16 @@ describe('varredura de marca — âncora', () => {
       expect(arquivosVarridos.filter((f) => rel(f).startsWith(`${dir}/`)).length).toBeGreaterThan(10)
     }
     expect(arquivosVarridos.filter((f) => !rel(f).includes('/')).length).toBe(ARQUIVOS_DA_RAIZ.length)
+  })
+
+  it('não varre o arquivo da loja anterior — e ele existe (DOC-03)', () => {
+    // A exclusão só é uma DECISÃO enquanto o arquivo existir. Se alguém apagar
+    // `.specs/archive/nanita/`, a história some e este teste avisa; se alguém
+    // puser `.specs` no escopo, a varredura passa a acusar ~200 arquivos cujo
+    // assunto é justamente a marca anterior, e a saída fácil seria uma allowlist
+    // gigante. As duas metades precisam ser asseridas juntas.
+    expect(existsSync(join(ROOT, ARQUIVO_DA_NANITA, 'README.md'))).toBe(true)
+    expect(arquivosVarridos.filter((f) => rel(f).startsWith('.specs/'))).toEqual([])
   })
 })
 
