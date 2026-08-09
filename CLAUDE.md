@@ -39,6 +39,8 @@ packages/
   supabase/      @estrelinha/supabase    client (via env) + types de domínio
   auth/          @estrelinha/auth        AuthProvider, useAuthContext, useAuth, RequireAdmin
   core/          @estrelinha/core        formatters, pricing, menu, hooks cross-app
+tools/
+  catalog-import/ @estrelinha/catalog-import  importador one-shot da Nuvemshop (Node, à mão)
 supabase/        @estrelinha/functions   migrations + edge functions (backend compartilhado)
 eslint.fsd.mjs   fronteiras FSD compartilhadas (eslint-plugin-boundaries)
 tsconfig.base.json  base TS + paths dos @estrelinha/*
@@ -59,6 +61,20 @@ pnpm test               # vitest em todos
 pnpm lint               # eslint em todos
 pnpm --filter @estrelinha/store <script>    # rodar num workspace específico
 ```
+
+**Importar o catálogo real da Nuvemshop** (`tools/catalog-import`, executado à mão):
+
+```bash
+pnpm --filter @estrelinha/catalog-import import                      # import completo
+pnpm --filter @estrelinha/catalog-import import -- --dry-run         # lê e mapeia, não grava
+pnpm --filter @estrelinha/catalog-import import -- --limit=5         # ensaio com 5 produtos
+pnpm --filter @estrelinha/catalog-import import -- --stop-after=categorias
+pnpm --filter @estrelinha/catalog-import import -- --report=reports/import.json
+```
+
+Credenciais no `.env` da **raiz** (`NUVEMSHOP_*`, `SUPABASE_SERVICE_ROLE_KEY`) — ver `.env.example`.
+É **idempotente**: rodar de novo atualiza e cria zero duplicata. Exit ≠ 0 significa que os totais
+não fecharam ou que o import parou — não é aviso, é falha.
 
 **Supabase local roda na faixa 54341–54349**, escolhida para conviver com as outras instâncias da
 máquina (54320–54329 e 54330–54339 já estavam ocupadas):
@@ -92,10 +108,10 @@ Ao planejar/implementar features, use a Skill **`tlc-spec-driven`** com estas co
 
 ### O que vem a seguir
 
-- **`21-catalogo-nuvemshop`** — importação one-shot do catálogo real (hoje a loja roda com o
-  `seed.sql` de desenvolvimento: 7 categorias, 16 produtos, 24 variações).
 - **`22-material-afetivo`** — a página "Como enviar", os campos por item e o rastreio do material
-  dentro do pedido. É o que falta para a loja representar o que o negócio de fato faz.
+  dentro do pedido. É o que falta para a loja representar o que o negócio de fato faz. Inclui os
+  **redirects de `/produtos/:slug`** (o prefixo da Nuvemshop é plural; a loja serve `/produto/:slug`),
+  sem os quais o slug preservado pela `21` não faz a URL indexada resolver sozinho.
 
 ## Feature-Sliced Design (dentro de cada app)
 
@@ -385,6 +401,8 @@ passa em silêncio, que é a pior falha possível num teste desse tipo.
 | `paths.test.ts` | `shared/ui/brand/__tests__` | `paths.ts` divergir do SVG-fonte em um caractere; dois `<path>` do mesmo SVG com a mesma espessura |
 | `brandAssets.test.ts` | `app/__tests__` | ícone referenciado no `index.html` que não existe no disco; `theme-color` fora da paleta; `og:image` fora do projeto; fonte da identidade anterior no `<link>` |
 | `navItems.test.ts` | backoffice | ordem das rotas em `App.tsx` divergir de `navGroups` |
+| `apiShape.test.ts` | `tools/catalog-import` | a Nuvemshop mudar a forma de um campo que o mapeamento lê; a fixture perder um dos casos de borda; a origem passar a ter campo de ordenação de categoria |
+| `db.test.ts` (`selectAll`) | idem | uma leitura de "o que já existe" voltar a usar `select` simples e ser truncada em 1.000 linhas pelo PostgREST |
 
 **Nenhum deles é opcional, e nenhum se conserta afrouxando a asserção.** A `fieldBorder` já custou 16
 campos com contraste de 1,19:1 por varrer só as tags HTML minúsculas enquanto a loja monta quase todo
@@ -407,10 +425,14 @@ literalmente, em vez de iterar a constante que deveria guardar).
   verde **não** prova ausência de erro de tipo. Para checar de verdade:
   `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` — note o `tsconfig.app.json`, porque o
   `tsconfig.json` de cada app é solution-style (só `references`) e compila zero arquivo.
-  **Baseline de tipos: store 0 · backoffice 0. Zero é a baseline: qualquer erro de tipo é novo.**
-- **Baseline de testes (fecho da feature 20, medida com `turbo run test --force`): 3188 testes em
-  185 arquivos** — store 1150/90 · backoffice 1055/65 · core **725/26** · functions 258/4. O número de `core` é o mais importante da
-  lista: ele é o código de dinheiro, e **não deve mudar** por causa de identidade visual.
+  **Baseline de tipos: store 0 · backoffice 0 · catalog-import 0. Zero é a baseline: qualquer erro
+  de tipo é novo.** O importador tem `tsconfig.json` próprio (não é solution-style):
+  `npx tsc --noEmit -p tools/catalog-import/tsconfig.json`.
+- **Baseline de testes (fecho da feature 21, medida com `turbo run test --force`): 3442 testes em
+  200 arquivos** — store 1150/90 · backoffice 1055/65 · core **725/26** · functions 258/4 ·
+  catalog-import 254/15. O número de `core` é o mais importante da lista: ele é o código de dinheiro,
+  e **não deve mudar** por causa de identidade visual nem de importação de catálogo — a feature 21
+  fechou com ele intacto, assim como store, backoffice e functions.
   - `pnpm test` roda os quatro workspaces em paralelo e **já produziu flake de RTL sob carga** —
     falhas de timeout em suítes pesadas que passam isoladas e na segunda execução. Rode por workspace
     antes de investigar.
@@ -434,8 +456,15 @@ literalmente, em vez de iterar a constante que deveria guardar).
   demonstração foi **removido**: depoimento inventado sobre a morte de alguém tem peso ético
   diferente de depoimento inventado sobre um acessório. A mesma régua tirou da home o contador de
   "drop" e a prova social fabricada.
-- **A loja roda com catálogo de desenvolvimento** (`supabase/seed.sql`). O catálogo real entra na
-  feature `21`.
+- **O `seed.sql` não tem mais catálogo.** Depois de `supabase db reset` a loja fica **sem produto e
+  sem categoria** até `pnpm --filter @estrelinha/catalog-import import` rodar (feature `21`). Cupons
+  e usuário admin continuam no seed. A limpeza da seção 0 leva `AND nuvemshop_id IS NULL` em todo
+  `DELETE`: sem isso, executar o seed avulso **depois** do import apagaria a categoria real
+  `joias-afetivas` e, por cascade, os vínculos de produto dela.
+- **O catálogo real tem um resíduo da marca anterior, e ele é da Nuvemshop, não do código**: a
+  categoria "Brinquedos" da loja tem *handle* `nanita`. Ela entra `active = false` por curadoria,
+  com o slug preservado. Por isso a lista `CURATED_INACTIVE` é chaveada por `nuvemshop_id` e não por
+  slug — chavear por slug plantaria aquela string em código novo.
 
 ## Backend (supabase/)
 
