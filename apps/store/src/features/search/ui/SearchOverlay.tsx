@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { TAP_44 } from '@/shared/lib/touchTarget'
 import { Link, useNavigate } from 'react-router-dom'
 import { Clock, Search, X } from 'lucide-react'
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@estrelinha/ui/sheet'
@@ -140,7 +141,7 @@ const SearchOverlay = () => {
                   inputRef.current?.focus()
                 }}
                 aria-label="Limpar busca"
-                className="-mr-1 flex h-8 w-8 shrink-0 items-center justify-center"
+                className={`${TAP_44} -mr-1 flex h-8 w-8 shrink-0 items-center justify-center`}
               >
                 <span className="flex h-5 w-5 items-center justify-center rounded-full bg-estrelinha-line">
                   <X className="h-3 w-3 text-estrelinha-primary" strokeWidth={3} aria-hidden />

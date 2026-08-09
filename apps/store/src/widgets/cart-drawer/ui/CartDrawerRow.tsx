@@ -3,16 +3,18 @@ import { Heart, Minus, Plus, Trash2 } from 'lucide-react'
 import { formatPrice } from '@estrelinha/core/formatters'
 import { useCartStore, type CartItem } from '@/entities/cart/model/cartStore'
 import { useWishlistStore } from '@/entities/wishlist/model/wishlistStore'
+import { TAP_44 } from '@/shared/lib/touchTarget'
 import { lowStockLabel, variantChips } from '../model/drawerFacts'
 
 /**
  * Uma linha da gaveta. Não é card: no board as linhas são de borda a borda, separadas só por um
  * filete — o carrinho é uma lista, e caixa dentro de caixa dentro da gaveta vira ruído.
  *
- * `-inset-2` nos alvos de toque: o desenho pede botões de 28px, e a premissa mobile do projeto pede
- * 44px de alvo. O pseudo-elemento estica a área clicável sem mexer no layout.
+ * O alvo de toque vem de `TAP_44`: o desenho pede botões de 16 e 28px, e a premissa mobile do
+ * projeto pede 44. O `-inset-2` que estava aqui dava 44 para o botão de 28 e apenas 32 para o de
+ * 16 — um alvo derivado do tamanho do desenho não converge para uma medida, e era o coração e a
+ * lixeira que ficavam de fora.
  */
-const TAP = 'relative after:absolute after:-inset-2 after:content-[""]'
 
 interface Props {
   item: CartItem
@@ -84,7 +86,7 @@ const CartDrawerRow = ({ item, onNavigate }: Props) => {
               type="button"
               onClick={() => setQty(quantity - 1)}
               aria-label={quantity === 1 ? `Remover ${product.name}` : `Diminuir ${product.name}`}
-              className={`${TAP} flex h-7 w-7 items-center justify-center rounded-lg bg-estrelinha-ground-deep text-estrelinha-ink transition-colors hover:bg-estrelinha-line`}
+              className={`${TAP_44} flex h-7 w-7 items-center justify-center rounded-lg bg-estrelinha-ground-deep text-estrelinha-ink transition-colors hover:bg-estrelinha-line`}
             >
               <Minus className="h-3.5 w-3.5" strokeWidth={2.4} />
             </button>
@@ -95,7 +97,7 @@ const CartDrawerRow = ({ item, onNavigate }: Props) => {
               type="button"
               onClick={() => setQty(quantity + 1)}
               aria-label={`Aumentar ${product.name}`}
-              className={`${TAP} flex h-7 w-7 items-center justify-center rounded-lg bg-estrelinha-ground-deep text-estrelinha-ink transition-colors hover:bg-estrelinha-line`}
+              className={`${TAP_44} flex h-7 w-7 items-center justify-center rounded-lg bg-estrelinha-ground-deep text-estrelinha-ink transition-colors hover:bg-estrelinha-line`}
             >
               <Plus className="h-3.5 w-3.5" strokeWidth={2.4} />
             </button>
@@ -114,7 +116,7 @@ const CartDrawerRow = ({ item, onNavigate }: Props) => {
                  (3,85:1 sobre branco, acima dos 3:1 de objeto gráfico). O
                  `fill` continua sendo a segunda pista, para a diferença não
                  depender só de cor. */
-              className={`${TAP} transition-transform hover:scale-110 ${
+              className={`${TAP_44} transition-transform hover:scale-110 ${
                 wishlisted ? 'text-estrelinha-accent-strong' : 'text-estrelinha-ink-soft'
               }`}
             >
@@ -124,7 +126,7 @@ const CartDrawerRow = ({ item, onNavigate }: Props) => {
               type="button"
               onClick={() => removeItem(product.id, size, finish, variantId)}
               aria-label={`Remover ${product.name} do carrinho`}
-              className={`${TAP} text-estrelinha-ink transition-colors hover:text-estrelinha-primary`}
+              className={`${TAP_44} text-estrelinha-ink transition-colors hover:text-estrelinha-primary`}
             >
               <Trash2 className="h-4 w-4" strokeWidth={2} />
             </button>

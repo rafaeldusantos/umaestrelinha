@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { ArrowRight } from 'lucide-react'
 import { cn } from '@estrelinha/ui/lib/utils'
+import { TAP_ROW } from '@/shared/lib/touchTarget'
 
 export interface SectionHeadingProps {
   /** Título em Libre Baskerville. É o maior tipo da seção — não competir com ele. */
@@ -59,7 +60,7 @@ export function SectionHeading({
         (linkTo && (
           <Link
             to={linkTo}
-            className="flex shrink-0 items-center gap-1.5 pb-1 text-[13px] font-semibold text-estrelinha-primary transition-opacity hover:opacity-70 md:gap-2 md:text-[15px]"
+            className={`${TAP_ROW} shrink-0 gap-1.5 pb-1 text-[13px] font-semibold text-estrelinha-primary transition-opacity hover:opacity-70 md:gap-2 md:text-[15px]`}
           >
             {linkLabel}
             <ArrowRight size={15} strokeWidth={2.2} />

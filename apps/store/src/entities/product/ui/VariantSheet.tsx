@@ -1,4 +1,5 @@
 import { ShoppingBag, X } from 'lucide-react'
+import { TAP_44 } from '@/shared/lib/touchTarget'
 import type { Product, OptionValues } from '@estrelinha/supabase/types'
 import { formatPrice } from '@estrelinha/core/formatters'
 import { Sheet, SheetContent, SheetTitle } from '@estrelinha/ui/sheet'
@@ -73,7 +74,7 @@ const VariantSheet = ({
             type="button"
             aria-label="Fechar"
             onClick={() => onOpenChange(false)}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-estrelinha-ground-deep text-estrelinha-ink"
+            className={`${TAP_44} flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-estrelinha-ground-deep text-estrelinha-ink`}
           >
             <X className="h-4 w-4" strokeWidth={1.8} />
           </button>

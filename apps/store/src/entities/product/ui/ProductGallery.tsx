@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronLeft, ChevronRight, ImageOff, ZoomIn } from 'lucide-react'
 import type { ProductImage } from '@estrelinha/supabase/types'
 import ImageZoom from './ImageZoom'
+import { TAP_44 } from '@/shared/lib/touchTarget'
 import { Dialog, DialogContent } from '@estrelinha/ui/dialog'
 
 interface Props {
@@ -112,7 +113,7 @@ const ProductGallery = ({ images, name, focusUrl = null, badges, action }: Props
               type="button"
               onClick={() => step(-1)}
               aria-label="Imagem anterior"
-              className="absolute left-3 top-1/2 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/85 opacity-0 shadow-estrelinha-soft backdrop-blur transition-opacity group-hover:opacity-100 md:flex"
+              className={`${TAP_44} absolute left-3 top-1/2 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/85 opacity-0 shadow-estrelinha-soft backdrop-blur transition-opacity group-hover:opacity-100 md:flex`}
             >
               <ChevronLeft className="h-4 w-4 text-estrelinha-ink" />
             </button>
@@ -120,7 +121,7 @@ const ProductGallery = ({ images, name, focusUrl = null, badges, action }: Props
               type="button"
               onClick={() => step(1)}
               aria-label="Próxima imagem"
-              className="absolute right-3 top-1/2 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/85 opacity-0 shadow-estrelinha-soft backdrop-blur transition-opacity group-hover:opacity-100 md:flex"
+              className={`${TAP_44} absolute right-3 top-1/2 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/85 opacity-0 shadow-estrelinha-soft backdrop-blur transition-opacity group-hover:opacity-100 md:flex`}
             >
               <ChevronRight className="h-4 w-4 text-estrelinha-ink" />
             </button>
@@ -148,7 +149,7 @@ const ProductGallery = ({ images, name, focusUrl = null, badges, action }: Props
           aria-label="Ver imagem em tela cheia"
           /* 44px no celular (o alvo de toque mínimo do projeto), 36px no desktop, onde quem clica
              é o ponteiro. O board desenha 36 nos dois — medido em 390px, ficou pequeno demais. */
-          className="absolute bottom-3 right-3 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-white/85 shadow-estrelinha-soft backdrop-blur transition-transform hover:scale-105 md:h-9 md:w-9"
+          className={`${TAP_44} absolute bottom-3 right-3 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-white/85 shadow-estrelinha-soft backdrop-blur transition-transform hover:scale-105 md:h-9 md:w-9`}
         >
           <ZoomIn className="h-4 w-4 text-estrelinha-ink" />
         </button>
@@ -189,7 +190,7 @@ const ProductGallery = ({ images, name, focusUrl = null, badges, action }: Props
                   type="button"
                   onClick={() => step(-1)}
                   aria-label="Imagem anterior"
-                  className="absolute left-2 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/20 backdrop-blur"
+                  className={`${TAP_44} absolute left-2 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/20 backdrop-blur`}
                 >
                   <ChevronLeft className="h-5 w-5 text-white" />
                 </button>
@@ -197,7 +198,7 @@ const ProductGallery = ({ images, name, focusUrl = null, badges, action }: Props
                   type="button"
                   onClick={() => step(1)}
                   aria-label="Próxima imagem"
-                  className="absolute right-2 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/20 backdrop-blur"
+                  className={`${TAP_44} absolute right-2 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/20 backdrop-blur`}
                 >
                   <ChevronRight className="h-5 w-5 text-white" />
                 </button>

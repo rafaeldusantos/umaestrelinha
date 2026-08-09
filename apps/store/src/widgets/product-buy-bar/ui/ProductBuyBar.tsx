@@ -14,7 +14,7 @@ interface Props {
  * A barra de compra fixa do celular — board "Mobile Product Detail - v3".
  *
  * ~90% dos acessos vêm de mobile, e a página do produto tem 2000px de rolagem: sem esta barra o
- * "Adicionar ao Carrinho" fica a uma tela e meia de distância a partir do momento em que a cliente
+ * "Adicionar ao carrinho" fica a uma tela e meia de distância a partir do momento em que a cliente
  * lê as avaliações. Por isso ela é a **única** superfície de compra no mobile — o CTA da coluna de
  * informação some abaixo de `md`.
  *
@@ -58,10 +58,15 @@ const ProductBuyBar = ({ product, purchase }: Props) => {
           type="button"
           onClick={add}
           disabled={!canAdd}
-          className="flex h-11 grow items-center justify-center gap-1.5 rounded-sm bg-estrelinha-primary font-display text-[15px] font-semibold text-white transition-transform active:scale-[0.99] disabled:opacity-50 disabled:active:scale-100"
+          /* `whitespace-nowrap` e 14px: em 390px sobram ~180px para este botão
+             (o preço come 110 e o coração 44), e "Adicionar ao carrinho" em
+             15px mede mais que isso — o rótulo quebrava em DUAS LINHAS dentro
+             de um botão de altura fixa, transbordando por cima da borda. O
+             ícone some abaixo de 360px, que é onde nem 14px cabe. */
+          className="flex h-11 grow items-center justify-center gap-1.5 whitespace-nowrap rounded-sm bg-estrelinha-primary font-display text-[14px] font-semibold text-estrelinha-on-primary transition-transform active:scale-[0.99] disabled:opacity-50 disabled:active:scale-100"
         >
-          <ShoppingCart className="h-4 w-4 shrink-0" strokeWidth={2} aria-hidden />
-          {canAdd ? 'Adicionar ao Carrinho' : 'Indisponível'}
+          <ShoppingCart className="hidden h-4 w-4 shrink-0 min-[360px]:block" strokeWidth={2} aria-hidden />
+          {canAdd ? 'Adicionar ao carrinho' : 'Indisponível'}
         </button>
 
         <button

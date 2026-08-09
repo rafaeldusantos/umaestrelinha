@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { TAP_44 } from '@/shared/lib/touchTarget'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ShoppingBag, Truck, X } from 'lucide-react'
@@ -101,7 +102,7 @@ const CartDrawer = () => {
           </SheetDescription>
           <SheetClose
             aria-label="Fechar carrinho"
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-estrelinha-ground-deep text-estrelinha-ink transition-colors hover:bg-estrelinha-line"
+            className={`${TAP_44} flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-estrelinha-ground-deep text-estrelinha-ink transition-colors hover:bg-estrelinha-line`}
           >
             <X className="h-3.5 w-3.5" strokeWidth={2.5} />
           </SheetClose>

@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { TAP_44 } from '@/shared/lib/touchTarget'
 import { ChevronRight, Plus } from 'lucide-react'
 import { formatPrice } from '@estrelinha/core/formatters'
 import type { Product } from '@estrelinha/supabase/types'
@@ -70,7 +71,7 @@ const CrossSell = ({ products, onNavigate }: Props) => {
                   to={`/produto/${product.slug}`}
                   onClick={onNavigate}
                   aria-label={`Escolher variação de ${product.name}`}
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-estrelinha-primary text-white transition-transform hover:scale-105 active:scale-95"
+                  className={`${TAP_44} flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-estrelinha-primary text-white transition-transform hover:scale-105 active:scale-95`}
                 >
                   <ChevronRight className="h-4 w-4" strokeWidth={2.4} />
                 </Link>
@@ -79,7 +80,7 @@ const CrossSell = ({ products, onNavigate }: Props) => {
                   type="button"
                   onClick={() => addItem(product)}
                   aria-label={`Adicionar ${product.name} ao carrinho`}
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-estrelinha-primary text-white transition-transform hover:scale-105 active:scale-95"
+                  className={`${TAP_44} flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-estrelinha-primary text-white transition-transform hover:scale-105 active:scale-95`}
                 >
                   <Plus className="h-4 w-4" strokeWidth={2.6} />
                 </button>

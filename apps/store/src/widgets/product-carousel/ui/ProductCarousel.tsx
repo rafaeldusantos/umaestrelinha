@@ -1,4 +1,5 @@
 import { useRef } from 'react'
+import { TAP_44 } from '@/shared/lib/touchTarget'
 import { Link } from 'react-router-dom'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import ProductCard from '@/entities/product/ui/ProductCard'
@@ -46,14 +47,14 @@ const ProductCarousel = ({ title, products, subtitle, badgeLabel, linkHref, link
               {/* Par assimétrico: "voltar" é contorno, "avançar" é sólido. */}
               <button
                 onClick={() => scroll('left')}
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-estrelinha-line transition-colors hover:bg-estrelinha-ground-deep"
+                className={`${TAP_44} flex h-10 w-10 items-center justify-center rounded-full border border-estrelinha-line transition-colors hover:bg-estrelinha-ground-deep`}
                 aria-label="Anterior"
               >
                 <ChevronLeft className="h-4 w-4 text-estrelinha-ink" strokeWidth={2.2} />
               </button>
               <button
                 onClick={() => scroll('right')}
-                className="flex h-10 w-10 items-center justify-center rounded-full bg-estrelinha-ink transition-transform hover:scale-105"
+                className={`${TAP_44} flex h-10 w-10 items-center justify-center rounded-full bg-estrelinha-ink transition-transform hover:scale-105`}
                 aria-label="Próximo"
               >
                 <ChevronRight className="h-4 w-4 text-white" strokeWidth={2.2} />

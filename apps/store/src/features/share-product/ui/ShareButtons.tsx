@@ -1,4 +1,5 @@
 import { Share2, Copy, MessageCircle } from 'lucide-react'
+import { TAP_44 } from '@/shared/lib/touchTarget'
 import { toast } from 'sonner'
 import { Button } from '@estrelinha/ui/button'
 
@@ -33,14 +34,14 @@ const ShareButtons = ({ name, url }: Props) => {
       <span className="text-xs text-estrelinha-ink-soft">Compartilhar:</span>
       <button
         onClick={handleWhatsApp}
-        className="p-2 rounded-full hover:bg-estrelinha-ground-deep transition-colors"
+        className={`${TAP_44} p-2 rounded-full hover:bg-estrelinha-ground-deep transition-colors`}
         aria-label="Compartilhar no WhatsApp"
       >
         <MessageCircle className="w-4 h-4 text-estrelinha-ink-soft" />
       </button>
       <button
         onClick={handleCopy}
-        className="p-2 rounded-full hover:bg-estrelinha-ground-deep transition-colors"
+        className={`${TAP_44} p-2 rounded-full hover:bg-estrelinha-ground-deep transition-colors`}
         aria-label="Copiar link"
       >
         <Copy className="w-4 h-4 text-estrelinha-ink-soft" />
@@ -48,7 +49,7 @@ const ShareButtons = ({ name, url }: Props) => {
       {typeof navigator !== 'undefined' && 'share' in navigator && (
         <button
           onClick={handleShare}
-          className="p-2 rounded-full hover:bg-estrelinha-ground-deep transition-colors"
+          className={`${TAP_44} p-2 rounded-full hover:bg-estrelinha-ground-deep transition-colors`}
           aria-label="Compartilhar"
         >
           <Share2 className="w-4 h-4 text-estrelinha-ink-soft" />

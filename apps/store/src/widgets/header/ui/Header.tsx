@@ -105,7 +105,10 @@ const Header = () => {
             (390px) comportam. Ele é o formato de e-mail e embalagem. */}
         <Link
           to="/"
-          className="flex shrink-0 items-center"
+          /* `min-h-11`: a assinatura mede 33px de altura e o link tinha o
+             tamanho dela. É o alvo mais à esquerda da faixa, onde o polegar
+             chega torto. */
+          className="flex min-h-11 min-w-11 shrink-0 items-center"
           aria-label="Uma Estrelinha — página inicial"
         >
           {/* `onInk`: o fundo passou a ser `primary-strong`. O tom `brand`

@@ -120,7 +120,7 @@ describe('CartDrawer — o coração da linha diz o ESTADO (IDN-04)', () => {
   // Ele saía sempre em ouro, favoritado ou não. Ao lado de uma lixeira `ink`,
   // isso lia como "este item já está nos favoritos" — cor sem estado atrás.
   const addItem = () => {
-    act(() => useCartStore.getState().addItem(product(), 1))
+    act(() => useCartStore.getState().addItem(product()))
     open()
   }
 

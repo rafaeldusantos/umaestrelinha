@@ -151,7 +151,7 @@ const AccountPage = () => {
             <h1 className="font-heading text-xl font-bold text-estrelinha-ink">{customer?.name || 'Minha Conta'}</h1>
             <p className="text-sm text-estrelinha-ink-soft">{user.email}</p>
           </div>
-          <Button variant="outline" size="sm" onClick={signOut} className="rounded-xl border-2 border-estrelinha-primary text-estrelinha-primary hover:bg-estrelinha-ground-deep gap-1.5">
+          <Button variant="outline" size="sm" onClick={signOut} className="min-h-11 rounded-xl border-2 border-estrelinha-primary text-estrelinha-primary hover:bg-estrelinha-ground-deep gap-1.5">
             <LogOut className="w-4 h-4" /> Sair
           </Button>
         </div>
@@ -167,7 +167,7 @@ const AccountPage = () => {
         <div className="bg-white rounded-2xl border border-estrelinha-line p-8 text-center">
           <Package className="w-12 h-12 text-estrelinha-ink-soft mx-auto mb-3" />
           <p className="text-estrelinha-ink-soft">Você ainda não fez nenhum pedido.</p>
-          <Button asChild variant="outline" className="mt-4 rounded-xl border-2 border-estrelinha-primary text-estrelinha-primary hover:bg-estrelinha-ground-deep">
+          <Button asChild variant="outline" className="mt-4 min-h-11 rounded-xl border-2 border-estrelinha-primary text-estrelinha-primary hover:bg-estrelinha-ground-deep">
             <Link to="/"><Package className="w-4 h-4 mr-2" /> Continuar Comprando</Link>
           </Button>
         </div>

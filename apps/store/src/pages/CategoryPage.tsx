@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { TAP_44, TAP_ROW } from '@/shared/lib/touchTarget'
 import { Link, useParams } from 'react-router-dom'
 import { ArrowUpDown, LayoutGrid, Rows2, SlidersHorizontal } from 'lucide-react'
 import { useProducts } from '@/entities/product/api/useProducts'
@@ -80,7 +81,7 @@ const CategoryPage = () => {
     <Select value={sort} onValueChange={v => setSort(v as SortOption)}>
       <SelectTrigger
         aria-label="Ordenar por"
-        className="h-9 w-auto gap-1.5 rounded-[10px] border-0 bg-estrelinha-ground-deep px-3.5 text-[13px] font-medium text-estrelinha-ink focus:ring-0"
+        className={`${TAP_ROW} h-9 w-auto gap-1.5 rounded-[10px] border-0 bg-estrelinha-ground-deep px-3.5 text-[13px] font-medium text-estrelinha-ink focus:ring-0`}
       >
         <ArrowUpDown className="h-3.5 w-3.5 shrink-0 text-estrelinha-ink-soft" strokeWidth={2} />
         <SelectValue />
@@ -120,7 +121,7 @@ const CategoryPage = () => {
         />
         <div className="container flex min-h-[130px] flex-col justify-end gap-2 pb-5 pt-4 md:min-h-40 md:pb-7">
           <nav className="flex items-center gap-1.5 text-[12px] leading-3">
-            <Link to="/" className="text-estrelinha-ink-soft transition-colors hover:text-estrelinha-ink">
+            <Link to="/" className={`${TAP_ROW} text-estrelinha-ink-soft transition-colors hover:text-estrelinha-ink`}>
               Início
             </Link>
             <span className="text-estrelinha-ink-soft">/</span>
@@ -155,7 +156,7 @@ const CategoryPage = () => {
               aria-label="Ver em duas colunas"
               aria-pressed={dense}
               onClick={() => setDense(true)}
-              className={`flex h-9 w-9 items-center justify-center rounded-[10px] ${
+              className={`${TAP_44} flex h-9 w-9 items-center justify-center rounded-[10px] ${
                 dense ? 'bg-estrelinha-ink text-white' : 'bg-estrelinha-ground-deep text-estrelinha-ink-soft'
               }`}
             >
@@ -166,7 +167,7 @@ const CategoryPage = () => {
               aria-label="Ver em uma coluna"
               aria-pressed={!dense}
               onClick={() => setDense(false)}
-              className={`flex h-9 w-9 items-center justify-center rounded-[10px] ${
+              className={`${TAP_44} flex h-9 w-9 items-center justify-center rounded-[10px] ${
                 dense ? 'bg-estrelinha-ground-deep text-estrelinha-ink-soft' : 'bg-estrelinha-ink text-white'
               }`}
             >
@@ -177,7 +178,7 @@ const CategoryPage = () => {
           <button
             type="button"
             onClick={() => setSheetOpen(true)}
-            className="flex items-center gap-1.5 rounded-[10px] bg-estrelinha-primary px-3.5 py-2 text-[13px] font-semibold text-white"
+            className={`${TAP_ROW} gap-1.5 rounded-[10px] bg-estrelinha-primary px-3.5 py-2 text-[13px] font-semibold text-white`}
           >
             <SlidersHorizontal className="h-3.5 w-3.5" strokeWidth={2} />
             Filtros
@@ -194,7 +195,7 @@ const CategoryPage = () => {
             <button
               type="button"
               onClick={() => setFilters({ ...filters, tags: [] })}
-              className={`shrink-0 rounded-pill px-3.5 py-1.5 text-[12px] leading-3 transition-colors ${
+              className={`${TAP_ROW} shrink-0 rounded-pill px-3.5 py-1.5 text-[12px] leading-3 transition-colors ${
                 filters.tags.length === 0
                   ? 'bg-estrelinha-primary font-semibold text-white'
                   : 'bg-estrelinha-ground-deep font-medium text-estrelinha-ink-soft'
@@ -207,7 +208,7 @@ const CategoryPage = () => {
                 key={tag}
                 type="button"
                 onClick={() => setFilters(toggleTag(filters, tag))}
-                className={`shrink-0 rounded-pill px-3.5 py-1.5 text-[12px] leading-3 transition-colors ${
+                className={`${TAP_ROW} shrink-0 rounded-pill px-3.5 py-1.5 text-[12px] leading-3 transition-colors ${
                   filters.tags.includes(tag)
                     ? 'bg-estrelinha-primary font-semibold text-white'
                     : 'bg-estrelinha-ground-deep font-medium text-estrelinha-ink-soft'

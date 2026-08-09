@@ -1,4 +1,5 @@
 import { useLocation } from 'react-router-dom'
+import { TAP_44 } from '@/shared/lib/touchTarget'
 import { Heart, Minus, MessageCircle, Plus, ShoppingCart } from 'lucide-react'
 import { formatPrice } from '@estrelinha/core/formatters'
 import { resolveInstallments } from '@estrelinha/core/payment/installments'
@@ -141,7 +142,7 @@ const ProductInfo = ({ product, categoryName, purchase }: Props) => {
       </p>
 
       {/* O CTA da coluna é escondido no mobile: lá quem compra é a barra fixa do rodapé, e dois
-          "Adicionar ao Carrinho" na mesma tela é duas ações primárias (DESIGN.md §8). */}
+          "Adicionar ao carrinho" na mesma tela é duas ações primárias (DESIGN.md §8). */}
       <div className="mt-3 hidden items-center gap-3 md:flex">
         <div className="flex items-center rounded-md bg-estrelinha-ground-deep p-1">
           <button
@@ -149,7 +150,7 @@ const ProductInfo = ({ product, categoryName, purchase }: Props) => {
             onClick={() => setQty(qty - 1)}
             disabled={qty <= 1}
             aria-label="Diminuir quantidade"
-            className="flex h-10 w-10 items-center justify-center rounded-sm transition-colors hover:bg-white disabled:opacity-40 disabled:hover:bg-transparent"
+            className={`${TAP_44} flex h-10 w-10 items-center justify-center rounded-sm transition-colors hover:bg-white disabled:opacity-40 disabled:hover:bg-transparent`}
           >
             <Minus className="h-4 w-4 text-estrelinha-ink" />
           </button>
@@ -163,7 +164,7 @@ const ProductInfo = ({ product, categoryName, purchase }: Props) => {
             type="button"
             onClick={() => setQty(qty + 1)}
             aria-label="Aumentar quantidade"
-            className="flex h-10 w-10 items-center justify-center rounded-sm transition-colors hover:bg-white"
+            className={`${TAP_44} flex h-10 w-10 items-center justify-center rounded-sm transition-colors hover:bg-white`}
           >
             <Plus className="h-4 w-4 text-estrelinha-ink" />
           </button>
@@ -176,7 +177,7 @@ const ProductInfo = ({ product, categoryName, purchase }: Props) => {
           className="flex h-12 flex-1 items-center justify-center gap-2 rounded-sm bg-estrelinha-primary font-display text-[15px] font-semibold text-white transition-transform hover:scale-[1.01] disabled:scale-100 disabled:opacity-50"
         >
           <ShoppingCart className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden />
-          {canAdd ? 'Adicionar ao Carrinho' : 'Indisponível'}
+          {canAdd ? 'Adicionar ao carrinho' : 'Indisponível'}
         </button>
 
         <button

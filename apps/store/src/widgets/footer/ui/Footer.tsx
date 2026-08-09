@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { Instagram } from 'lucide-react'
 import { browseCategories, useCategories } from '@/entities/category'
 import { EstrelinhaSignature } from '@/shared/ui/brand'
+import { TAP_ROW } from '@/shared/lib/touchTarget'
 import InstagramStrip, { INSTAGRAM_URL } from './InstagramStrip'
 
 const PAYMENTS = ['Pix', 'Visa', 'Master', 'Elo']
@@ -30,7 +31,7 @@ const FooterColumn = ({
 }) => (
   <div className="flex flex-col gap-3.5">
     <h4 className="font-display text-[16px] leading-5 text-estrelinha-ink">{title}</h4>
-    <ul className="flex flex-col gap-3.5">{children}</ul>
+    <ul className="flex flex-col">{children}</ul>
   </div>
 )
 
@@ -38,7 +39,7 @@ const FooterLink = ({ to, children }: { to: string; children: React.ReactNode })
   <li>
     <Link
       to={to}
-      className="text-[13px] font-light text-estrelinha-ink-soft transition-colors hover:text-estrelinha-primary md:text-[13.5px]"
+      className={`${TAP_ROW} text-[13px] font-light text-estrelinha-ink-soft transition-colors hover:text-estrelinha-primary md:text-[13.5px]`}
     >
       {children}
     </Link>

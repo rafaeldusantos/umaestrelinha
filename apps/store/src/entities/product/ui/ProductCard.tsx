@@ -5,6 +5,7 @@ import { Heart, Plus } from 'lucide-react'
 import type { Product } from '@estrelinha/supabase/types'
 import { useCategories } from '@/entities/category/api/useCategories'
 import { formatPrice } from '@estrelinha/core/formatters'
+import { TAP_44 } from '@/shared/lib/touchTarget'
 import { variantLabel } from '@estrelinha/core/pricing'
 import { useCartStore } from '@/entities/cart/model/cartStore'
 import { useCartUiStore } from '@/entities/cart/model/cartUiStore'
@@ -184,7 +185,7 @@ const ProductCard = ({ product }: { product: Product }) => {
 
           <button
             onClick={handleWishlist}
-            className="absolute right-3.5 top-3.5 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white transition-transform hover:scale-110"
+            className={`${TAP_44} absolute right-3.5 top-3.5 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white transition-transform hover:scale-110`}
             aria-label={isWishlisted ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
           >
             <Heart
@@ -198,7 +199,7 @@ const ProductCard = ({ product }: { product: Product }) => {
           {!isOutOfStock && (
             <button
               onClick={handleAddToCart}
-              className="absolute bottom-3.5 right-3.5 z-10 flex h-[38px] w-[38px] items-center justify-center rounded-full bg-estrelinha-ink transition-transform hover:scale-110 active:scale-95"
+              className={`${TAP_44} absolute bottom-3.5 right-3.5 z-10 flex h-[38px] w-[38px] items-center justify-center rounded-full bg-estrelinha-ink transition-transform hover:scale-110 active:scale-95`}
               aria-label="Adicionar ao carrinho"
             >
               <Plus className="h-[18px] w-[18px] text-white" strokeWidth={2.2} />

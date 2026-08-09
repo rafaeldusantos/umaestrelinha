@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { TAP_ROW } from '@/shared/lib/touchTarget'
 import ProductCard from '@/entities/product/ui/ProductCard'
 import type { Product } from '@estrelinha/supabase/types'
 
@@ -25,7 +26,7 @@ const RelatedProducts = ({ products, categorySlug }: Props) => {
           <Link
             to={`/colecao/${categorySlug}`}
             /* `-my-2 py-2` dá 37px de alvo sem mexer no baseline que alinha o link ao título. */
-            className="-my-2 shrink-0 py-2 text-[14px] font-semibold text-estrelinha-primary hover:underline"
+            className={`${TAP_ROW} shrink-0 text-[14px] font-semibold text-estrelinha-primary hover:underline`}
           >
             Ver todos →
           </Link>

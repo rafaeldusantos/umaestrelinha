@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { TAP_ROW } from '@/shared/lib/touchTarget'
 import { useParams, Link, Navigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { ChevronRight, Heart } from 'lucide-react'
@@ -118,11 +119,11 @@ const ProductPageBody = ({
         aria-label="Você está em"
         className="flex flex-wrap items-center gap-1 py-4 text-[13px] text-estrelinha-ink-soft md:py-5"
       >
-        <Link to="/" className="transition-colors hover:text-estrelinha-ink">Início</Link>
+        <Link to="/" className={`${TAP_ROW} transition-colors hover:text-estrelinha-ink`}>Início</Link>
         <ChevronRight className="h-3 w-3 shrink-0" aria-hidden />
         {category && (
           <>
-            <Link to={`/colecao/${category.slug}`} className="transition-colors hover:text-estrelinha-ink">
+            <Link to={`/colecao/${category.slug}`} className={`${TAP_ROW} transition-colors hover:text-estrelinha-ink`}>
               {category.name}
             </Link>
             <ChevronRight className="h-3 w-3 shrink-0" aria-hidden />

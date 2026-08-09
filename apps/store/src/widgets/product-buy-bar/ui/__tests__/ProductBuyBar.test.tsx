@@ -85,7 +85,7 @@ const Page = ({ value }: { value: Product }) => {
 }
 
 /** O CTA da barra fixa. `getAllBy` porque a coluna tem o dela — escondida por CSS, não removida. */
-const barCta = () => screen.getAllByRole('button', { name: /Adicionar ao Carrinho|Indisponível/ }).at(-1)!
+const barCta = () => screen.getAllByRole('button', { name: /Adicionar ao carrinho|Indisponível/ }).at(-1)!
 
 beforeEach(() => {
   useCartStore.setState({ items: [] })

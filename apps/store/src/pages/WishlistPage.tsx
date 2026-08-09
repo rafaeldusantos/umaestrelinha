@@ -33,8 +33,8 @@ const WishlistPage = () => {
           <p className="text-estrelinha-ink-soft mb-6">
             Explore nossos bottons e salve seus favoritos clicando no coração!
           </p>
-          <Button asChild className="rounded-sm bg-estrelinha-primary text-white border-0 hover:bg-estrelinha-primary hover:opacity-95">
-            <Link to="/">Explorar Bottons</Link>
+          <Button asChild className="min-h-11 rounded-sm bg-estrelinha-primary text-white border-0 hover:bg-estrelinha-primary hover:opacity-95">
+            <Link to="/">Explorar joias</Link>
           </Button>
         </motion.div>
       ) : (

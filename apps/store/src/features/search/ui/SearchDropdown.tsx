@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
+import { TAP_44 } from '@/shared/lib/touchTarget'
 import { Link, useNavigate } from 'react-router-dom'
 import { Search, X } from 'lucide-react'
 import { useAllProducts } from '@/entities/product/api/useProducts'
@@ -102,7 +103,7 @@ const SearchDropdown = ({ onClose, mobile }: Props) => {
             type="button"
             onClick={() => { setQuery(''); inputRef.current?.focus() }}
             aria-label="Limpar busca"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
+            className={`${TAP_44} flex h-9 w-9 shrink-0 items-center justify-center rounded-full`}
           >
             <X className="h-4 w-4 text-estrelinha-ink-soft hover:text-estrelinha-ink" />
           </button>

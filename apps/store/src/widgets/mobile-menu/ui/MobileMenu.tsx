@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { TAP_44 } from '@/shared/lib/touchTarget'
 import { Link } from 'react-router-dom'
 import { ChevronDown, ChevronUp, Heart, Info, Package, Search, User, X } from 'lucide-react'
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from '@estrelinha/ui/sheet'
@@ -76,7 +77,7 @@ const MobileMenu = () => {
             type="button"
             onClick={closeMenu}
             aria-label="Fechar menu"
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-estrelinha-ground-deep"
+            className={`${TAP_44} flex h-9 w-9 items-center justify-center rounded-full bg-estrelinha-ground-deep`}
           >
             <X className="h-4 w-4 text-estrelinha-ink" strokeWidth={2.2} aria-hidden />
           </button>
