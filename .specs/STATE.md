@@ -349,16 +349,17 @@
 
 ## Handoff
 
-### ATUAL — 2026-08-09 · `23-urls-e-seo` · **IMPLEMENTADA (T1–T20)**, aguardando Verifier
+### ATUAL — 2026-08-09 · `23-urls-e-seo` **FECHADA** · `22-material-afetivo` **destravada, pronta para Design**
 
-**Estado**: implementação completa e na **árvore de trabalho, sem commit** — a convenção do projeto
-(`CLAUDE.md`) manda gerar os commits completos de uma vez, depois da conclusão. Executada em **3 lotes
-sequenciais** de sub-agente: Fases 1–2 (T1–T10), Fases 3–4 (T11–T15), Fases 5–6 (T16–T20).
+**Estado**: nada em andamento. Árvore limpa, gate verde, **9 commits** desta sessão — 7 da `23` mais 2
+da reescrita da spec da `22`.
 
-**O que a feature resolveu.** No go-live o domínio passa a apontar para a loja nova, e **toda URL
-indexada quebrava** — não pelo slug, que a `21` já preservava, mas pelo **caminho**. Medição do
-`<link rel="canonical">` do site real em 2026-08-09 mostrou três formatos indexados, nenhum servido
-pela loja nova. `AD-018` decidiu adotar o formato de produção em vez de redirecionar tudo.
+---
+
+#### `23-urls-e-seo` — fechada e validada
+
+No go-live o domínio passa a apontar para a loja nova, e **toda URL indexada quebrava** — não pelo
+slug, que a `21` já preservava, mas pelo **caminho**. `AD-018` decidiu adotar o formato de produção.
 
 | conteúdo | canônica agora | também resolve |
 | --- | --- | --- |
@@ -366,90 +367,95 @@ pela loja nova. `AD-018` decidiu adotar o formato de produção em vez de redire
 | categoria raiz | `/:slug` | `/colecao/:slug`, `/categoria/:slug` — **301** |
 | subcategoria | `/:pai/:filha` | `/:filha` — **200** com canonical para a de dois |
 
-**Gate de fecho MEDIDO** (`turbo run test --force`, exit 0 capturado de verdade — não por `| tail`):
+**Gate de fecho medido** (`turbo run test --force`, exit 0 capturado de verdade, nunca por `| tail`):
 
 | | valor |
 | --- | ---: |
 | Testes | **3.672** em **211** arquivos |
 | store · backoffice · core · functions · catalog-import | 1256/98 · 1090/67 · **799/27** · 258/4 · 269/15 |
-| Lint | **30 erros / 8 warnings** (backoffice 28/7 · store 2/1) — baseline exata, **zero novo** |
+| Lint | **30 erros / 8 warnings** — baseline exata, zero novo |
 | Tipos | store **0** · backoffice **0** · catalog-import **0** |
 
-**`packages/core/src/payment/` intocado** — `git status` do diretório sai vazio. O crescimento de
-`core` (725 → 799) veio de `routes/` e de `categoryHref`, exatamente como o `design.md` previu.
+`packages/core/src/payment/` **intocado**. Verifier independente: **8/8 ACs**, **13 mutações, 13
+mortas**. Prova em navegador headless (`vite preview` + Chromium, 390×844 e 1440×900, catálogo real):
+10 URLs, `overflow-x = 0` em todas — está em [`23/validation.md`](./features/23-urls-e-seo/validation.md).
 
-#### O que mudou de contrato
+**Contratos novos que valem para toda feature futura:**
 
 - **`@estrelinha/core/routes` é a fonte única do endereçamento**: `ROUTE_SLUGS`, `INFRA_SLUGS`,
   `RESERVED_SLUGS`, `isReservedSlug`, `reservedSlugRefusal`, `productPath`, `categoryPath`,
   `LEGACY_REDIRECTS`, `legacyRedirectTo`. Módulo puro, sem dependência, para os guardas poderem
-  importá-lo dentro de um teste que lê arquivo do disco.
+  importá-lo de dentro de um teste que lê arquivo do disco.
+- **Rota nova de um segmento precisa entrar em `ROUTE_SLUGS`**, senão `reservedSlugs.test.ts` quebra —
+  e é ele que impede a rota de encobrir uma categoria homônima. Vale já para
+  `/como-enviar-o-material`, da `22`.
 - **`categoryHref(categories, id)`** (`@estrelinha/core/menu`) é a única função que transforma
-  categoria em URL canônica. Sobe até o **pai imediato** e para: no máximo dois segmentos, mesmo em
-  árvore de três níveis. Substituiu todo literal `/colecao/` do código.
-- **`RelatedProducts` mudou de assinatura**: recebe `category` + `categories`, não mais `categorySlug`
-  — sem a árvore não há como montar a canônica de uma filha.
-- **`useProducts(slug, { enabled })`**, e slug desconhecido devolve `[]` em vez do catálogo inteiro.
-  Com categoria na raiz, toda URL errada passaria por ali — 689 produtos antes de mostrar 404, que é
-  literalmente o que `URL-04` proíbe.
-- **`category_redirects`** (migration `20260810120000`) espelha `product_redirects`: `from_slug` PK,
-  FK `ON DELETE CASCADE`, leitura pública e escrita de admin. Escrita em `persistCategoryRedirect`,
-  leitura em `useCategoryRedirect`.
-- **Importador**: `CURATED_EXCLUDED` (Brinquedos e Rastreio, por `nuvemshop_id`) — o catálogo passou
-  de **39 para 37** categorias, e o relatório ganhou seção própria para excluídas.
+  categoria em URL canônica. No máximo dois segmentos, com o pai imediato.
+- **`RelatedProducts`** recebe `category` + `categories`, não mais `categorySlug`.
+- **`useProducts(slug, { enabled })`**, e slug desconhecido devolve `[]`, nunca o catálogo inteiro.
+- **`category_redirects`** (migration `20260810120000`) espelha `product_redirects`. Escrita em
+  `persistCategoryRedirect`, leitura em `useCategoryRedirect`.
+- **Importador**: `CURATED_EXCLUDED` por `nuvemshop_id` — o catálogo passou de **39 para 37**
+  categorias.
 
-#### Dois guardas novos, e por que cada um existe
+**O que ficou por medir, e está declarado**: o **301 por HTTP**. Não existe projeto Vercel da Uma
+Estrelinha (`C-08`); o que está provado é a configuração, presa a `LEGACY_REDIRECTS` por guarda que lê
+o `vercel.json` do disco, mais o espelho client-side. A virada de DNS é operação.
 
-- **`reservedSlugs.test.ts`** — lê `apps/store/src/app/App.tsx` do disco e compara **nos dois
-  sentidos** com `ROUTE_SLUGS`. Rota nova fora da lista quebra; entrada morta na lista também. As duas
-  direções importam: a lista recusa slug de categoria, e uma entrada morta recusaria um nome livre.
-- **`vercelRedirects.test.ts`** — lê `apps/store/vercel.json` do disco e o prende a
-  `LEGACY_REDIRECTS`, com âncora dupla (arquivo não-vazio **e** nº de redirects igual ao da lista).
-  Assere `statusCode: 301` por entrada e que **nenhum** redirect usa `permanent`, que produziria 308.
+---
 
-#### O que a execução descobriu, e vale para a próxima feature
+#### `22-material-afetivo` — spec reescrita, **zero pergunta aberta**, próximo passo é **Design**
 
-1. **Critério de "zero literal" alcança COMENTÁRIO.** Explicar um defeito citando a string da marca
-   anterior derruba a própria `brandScan`. O caminho legado se descreve sem se escrever — regra que
-   agora está no `CLAUDE.md` junto de `CURATED_EXCLUDED`.
-2. **Teste que renderiza o `App` inteiro precisa dublar TODO hook de dado novo.** `routing.test.tsx`
-   ficou vermelha ao ganhar `useCategoryRedirect` real: sem dublê, a asserção de 404 media uma
-   consulta pendurada e não o roteador. Nenhuma asserção foi alterada — só o harness.
-3. **A tag canônica é injetada por JS, e `curl` não executa JS.** O Success Criteria da spec pedia
-   "medida com `curl` + `canonical`"; a medição teve de ser **partida em duas** (`curl -I` para
-   status/`Location`, navegador headless para a canônica). Declarado como método, não escondido.
+As três perguntas bloqueantes foram respondidas pela Adri em 2026-08-09, e **medir o catálogo antes de
+escrever derrubou duas suposições** que a primeira redação tinha como certas. As duas estão
+registradas dentro da própria spec, na seção *O que a medição mudou* — não apagadas.
 
-#### Provas contra o banco de verdade (`AD-012`)
+| | o que a spec dizia | o que o catálogo mostrou |
+| --- | --- | --- |
+| Material | a cliente escolhe na página do produto | **zero eixo de material** em 3.356 variações; o material está no NOME (169 leite · 127 cinzas · 85 cabelo · 51 coto). Uma peça exige **dois**. Virou propriedade do produto |
+| Gravação | campo novo a construir | **já é eixo de variação** — 35 produtos, 626 variações, 3º maior do catálogo — e **33 dos 35 cobram a mais** (mediana R$ 42, até R$ 112) |
 
-- `category_redirects` aplicada por `supabase migration up` (exit 0) — **não** por `db reset`, que
-  apagaria os 689 produtos e as 3.660 imagens do Storage e exigiria reimport. A migration é a última
-  da fila, então aplicar por cima e replayar do zero são o mesmo caminho para ela.
-- **RLS provada por HTTP**: insert com service role **201**; `select` anônimo devolve a linha **200**;
-  insert anônimo **401 / 42501**. E o caminho real do admin (login → `PATCH` do slug → `DELETE` do
-  conflito → `upsert` do slug antigo) fecha com **200 / 204 / 201**, com a loja anônima lendo a linha.
-- Banco **restaurado ao estado anterior**: 37 categorias, `category_redirects` vazia.
+**Respostas da Adri, todas fechadas:**
 
-#### Pendências abertas
+1. As peças de um pedido **chegam juntas** ⇒ rastreio **por pedido**.
+2. Peça de material livre: a escolha é **pelo WhatsApp**, fora da loja. A loja nunca pergunta.
+3. Gravação é opção por produto, e **o limite de caracteres é editável no painel**.
+4. Material chegando errado ou insuficiente: **não acontece** — sem estado extra.
+5. A cliente informa o **rastreio da remessa dela** em `/pedido/:id`, **opcional**; a Adri também pode
+   informar pelo painel (é o caso do WhatsApp).
+6. Endereço de envio **na página de compra**. Mandar por WhatsApp virou `BL-00Z`.
 
-- **Verifier independente da `23`** (autor ≠ verificador) — é o próximo passo, com checagem ancorada
-  na spec e sensor de discriminação, escrevendo `23-urls-e-seo/validation.md`. **Ainda não rodou.**
-- **Commits da `23` não foram criados** — a árvore está suja de propósito.
-- **Não há projeto Vercel nem Supabase hospedado.** Os 301 do edge estão configurados e guardados por
-  teste, mas não medidos contra produção. A virada é operação (`C-08`).
-- **`AD-017` continua válida**: nenhum `db push` foi feito. A migration nova desta feature **não** a
-  invocou — tabela nova é migration nova, e a permissão de reescrever história é para desfazer dívida.
+**Três coisas que o Design precisa tratar e que não são óbvias:**
+
+- **`orders` NÃO tem policy de `UPDATE` para cliente, de propósito** (PAY-10 — para ninguém adulterar
+  `payment_status`). Então `MAT-11` **não é um `PATCH`**: é RPC `security definer` que escreve só o
+  campo de rastreio, no molde de `apply_payment_approval` e `claim_order_email`.
+- **"Exige material" e "quais materiais" são DOIS dados.** Lista vazia não pode significar "não
+  exige" — é justamente a peça de material livre, que exige e entra na fila sem saber qual.
+- **`material_enviado` é estado opcional**, então `aguardando_material → material_recebido` **direto**
+  é transição obrigatória, não atalho.
+
+**11 requisitos** (`MAT-01`..`MAT-11`), todos `Pending`. `MAT-11` é novo; `MAT-02`, `MAT-03`, `MAT-04`
+e `MAT-06` mudaram de conteúdo mantendo o ID.
+
+---
+
+**Bloqueios conhecidos**:
 - **Resend**: `send.umaestrelinha.com.br` não verificado (403 medido em 2026-08-08). SMTP do auth
-  desligado de propósito, e-mail de dev no Mailpit.
-- **`show_in_menu = 0` em todas as categorias** — a barra do topo segue vazia. É curadoria da dona, em
-  `/admin/menu` (`admin@umaestrelinha.dev` / `admin123`, porta 8083), 4 vagas.
-- **62+ commits locais sem push** para `github.com/rafaeldusantos/umaestrelinha`.
+  desligado de propósito, e-mail de dev no Mailpit. Pendência declarada pelo usuário — e a `22`
+  acrescenta um tipo de e-mail (`material_received`), que vai cair no Mailpit como os outros.
+- **71 commits locais sem push.** O remoto `origin` está configurado
+  (`github.com/rafaeldusantos/umaestrelinha`) e nenhuma branch remota é conhecida localmente.
 
-**Próximo passo recomendado**, depois do Verifier: **`BL-007` — sitemap e dados estruturados**. A spec
-da `23` os pôs fora de escopo justamente até o endereçamento fechar, e ele fechou. Depois deles, a
-**`22-material-afetivo`**, que continua bloqueada por três respostas da Adri (rastreio do material por
-pedido ou por item, o enum de material, e o limite de caracteres da gravação).
+**Curadoria pendente, que é decisão da dona e não código**: `show_in_menu = 0` nas 37 categorias, então
+a barra do topo está vazia. São 4 vagas (`MENU_SLOT_LIMIT`), válidas em qualquer profundidade, em
+`/admin/menu` (`admin@umaestrelinha.dev` / `admin123`, porta 8083).
 
-**Ambiente**: Supabase local de pé na faixa 54341–54349, respondendo em `http://127.0.0.1:54341`.
+**Backlog aberto**: `BL-007` (sitemap e dados estruturados — o passo seguinte natural da `23`),
+`BL-00Z` (endereço por WhatsApp), mais os anteriores.
+
+**Ambiente**: Supabase local de pé na faixa 54341–54349, catálogo real no banco (689 produtos · 3.356
+variações · **37 categorias** · 3.660 imagens no Storage).
 
 ---
 

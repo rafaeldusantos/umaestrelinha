@@ -108,6 +108,7 @@ Uma regra de dinheiro escrita com uma palavra a mais quebraria 33 produtos.
 | --- | --- | --- | --- |
 | Granularidade do rastreio | **Por pedido** | As peças de um pedido chegam na mesma remessa | **y** — Adri, 2026-08-09 |
 | Quem determina o material | **O produto**, no cadastro | Ver *[O que a medição mudou](#o-que-a-medição-mudou)* | **y** — medido |
+| Peça que aceita **qualquer** material | O produto **exige material sem dizer qual**; a escolha acontece **no WhatsApp**, fora da loja | Adri, 2026-08-09. A loja nunca pergunta — mas a peça continua entrando na fila | **y** |
 | Enum de material | `leite_materno`, `cabelo`, `cinzas`, `pelo_pet`, `dente_leite`, `coto_umbilical`, `placenta`, `flores`, `penas`, `outro` | Derivado das fichas da board `5MC-0` **mais** os nomes reais do catálogo — `coto_umbilical` (51 produtos) e `penas` não estavam na lista original | **y** — Adri + medido |
 | Um produto pode exigir **mais de um** material | Sim — é lista, não valor único | "Árvore da Vida com Cabelo **e** Coto Umbilical" exige os dois | **y** — medido |
 | "Aceita gravação" | **Derivado da variação escolhida** (`Com gravação: Sim`), não coluna nova | O eixo já existe em 35 produtos e já precifica | **y** — medido |
@@ -122,15 +123,23 @@ Uma regra de dinheiro escrita com uma palavra a mais quebraria 33 produtos.
 | E-mail de material recebido | Tipo novo `material_received`, no contrato dirigido por estado do `AD-007` | `{ type, order_id }`, a function relê o pedido e recusa 422 se o estado não casar; idempotência por `order_emails` (`AD-006`) | n — validar na Design |
 | Página "Como enviar" | Rota `/como-enviar-o-material` | Slug descritivo e indexável. **Entra em `ROUTE_SLUGS`** (`AD-018`): com categoria na raiz do domínio, rota nova sem reserva é colisão esperando acontecer | n — validar na Design |
 
-**Open question — uma só, e não bloqueia o desenho:**
+**Open questions:** nenhuma. A última — a peça que aceita qualquer material — foi respondida pela
+Adri em 2026-08-09: **a escolha acontece pelo WhatsApp**, fora da loja.
 
-> **Existe peça que aceita QUALQUER material, em que a cliente é quem decide?** As fichas da board
-> `5MC-0` falam em "Grupo Simples", o que sugere que sim. Enquanto não confirmado, o default é **o
-> produto sempre declara** o que exige, e a cliente nunca escolhe.
+E isso tem uma consequência de modelo que precisa estar escrita, porque ela não é óbvia:
+
+> **"Exige material" e "quais materiais" são DOIS dados, não um.** A leitura preguiçosa seria "lista
+> vazia ⇒ não exige", e ela apaga exatamente esta peça: a que exige material, entra na fila, e ainda
+> não sabe qual. São três situações distintas, e o modelo precisa distinguir as três:
 >
-> Se existir, **não é o mesmo formato**: hoje a lista do produto significa "mande todos estes"; o caso
-> aberto significaria "mande um destes, você escolhe". São semânticas diferentes sobre a mesma lista,
-> e por isso a distinção precisa de resposta antes de virar código — não depois.
+> | situação | exige material | lista de materiais | o que a loja diz |
+> | --- | :---: | --- | --- |
+> | Corrente, acessório | **não** | — | nada; compra segue o fluxo normal |
+> | Árvore da Vida | **sim** | `cabelo`, `coto_umbilical` | "você vai enviar cabelo e coto umbilical" |
+> | Peça de material livre | **sim** | **vazia** | "o material será combinado com a Adri pelo WhatsApp" |
+>
+> A loja **nunca pergunta** qual material — nem nesta terceira linha. O que ela faz é dizer que a
+> combinação vem por WhatsApp, e o pedido nasce em `aguardando_material` como qualquer outro.
 
 ---
 
@@ -163,12 +172,16 @@ compra o que preciso enviar e como preparar, para não descobrir depois que falt
 1. WHEN a cliente abre `/como-enviar-o-material` THEN SHALL ver a página derivada das boards `5MC-0`
    (desktop) e `6AU-0` (mobile): passos, **fichas por material**, preparo especial, postagem,
    **endereço de envio** e checklist.
-2. WHEN um produto exige material afetivo THEN a página do produto SHALL **declarar quais materiais**
-   serão necessários e SHALL levar à ficha correspondente — em **ambas** as superfícies de compra
-   (coluna de informação e barra fixa do mobile), que compartilham o mesmo estado. A compra **não**
-   SHALL exigir escolha de material: o produto já determina.
+2. WHEN um produto exige material afetivo **e diz quais** THEN a página do produto SHALL declarar os
+   materiais e SHALL levar à ficha correspondente — em **ambas** as superfícies de compra (coluna de
+   informação e barra fixa do mobile), que compartilham o mesmo estado. A compra **não** SHALL exigir
+   escolha de material: o produto já determina.
+2b. WHEN um produto exige material **sem dizer qual** THEN a página SHALL declarar que o material será
+   **combinado com a Adri pelo WhatsApp**, e a compra SHALL seguir sem passo extra. A loja **nunca**
+   SHALL pedir que a cliente escolha o material.
 3. WHEN um produto **não** exige material THEN nenhum aviso de material SHALL ser exibido, e a compra
-   SHALL seguir o fluxo atual sem passo extra.
+   SHALL seguir o fluxo atual sem passo extra. "Não exige" e "exige sem dizer qual" SHALL ser estados
+   **distintos** no cadastro — lista vazia sozinha não pode significar as duas coisas.
 4. WHEN a variação escolhida tem `Com gravação: Sim` THEN um campo de texto SHALL aparecer, com
    **limite vindo do cadastro daquele produto**, contador visível, envio bloqueado acima do limite, e
    texto só de espaços tratado como vazio. WHEN a variação tem `Com gravação: Não` THEN o campo
@@ -196,7 +209,8 @@ posso produzir, para parar de rastrear isso em conversa de WhatsApp.
 **Acceptance Criteria**:
 
 1. WHEN um pedido contém ao menos um item que exige material THEN SHALL nascer em
-   `aguardando_material`.
+   `aguardando_material` — **inclusive quando o item exige material sem dizer qual**. A fila é sobre
+   "algo está a caminho", não sobre saber o quê.
 2. WHEN um pedido não contém item que exige material THEN SHALL nascer em `nao_aplicavel` e não SHALL
    aparecer na fila de material.
 3. WHEN a admin marca o material como recebido THEN o pedido SHALL transicionar para
@@ -260,6 +274,8 @@ mudar; pelo painel, informar outro código num segundo pedido e ver o mesmo resu
   **um** — ele só avança quando toda a remessa chegou.
 - WHEN a admin tenta marcar recebimento de um pedido `nao_aplicavel` THEN SHALL ser recusado com
   motivo, não silenciosamente ignorado.
+- WHEN um produto exige material **sem dizer qual** THEN o pedido SHALL entrar na fila normalmente, e
+  o admin SHALL exibir "a combinar" — nunca uma lista vazia, que se lê como "nenhum material".
 - WHEN o e-mail `material_received` é disparado duas vezes para o mesmo pedido THEN SHALL sair uma
   vez só.
 - WHEN o pedido é cancelado antes de o material chegar THEN o estado de material SHALL parar de
@@ -277,7 +293,7 @@ mudar; pelo painel, informar outro código num segundo pedido e ver o mesmo resu
 | ID | História | Fase | Status |
 | --- | --- | --- | --- |
 | MAT-01 | P1 · Página "Como enviar o material", com fichas e endereço (AC 1) | Specify | Pending |
-| MAT-02 | P1 · Material é propriedade do produto, declarada nas duas superfícies (AC 2, 3) | Specify | Pending |
+| MAT-02 | P1 · Material é propriedade do produto; "exige" e "quais" são dados distintos (AC 2, 2b, 3) | Specify | Pending |
 | MAT-03 | P1 · Gravação derivada da variação, com limite por produto (AC 4) | Specify | Pending |
 | MAT-04 | P1 · Chave do item distingue o texto de gravação (AC 5) | Specify | Pending |
 | MAT-05 | P1 · Persistência no pedido, admin e e-mail (AC 6) | Specify | Pending |
