@@ -323,3 +323,33 @@ erro em lista vazia.
 
 **O que falta para virar feature**: estado de erro na home, na gaveta do carrinho e na busca — três
 superfícies, cada uma com desenho próprio. O código dos hooks é a parte fácil.
+
+---
+
+## BL-00Z — Endereço de envio do material pelo WhatsApp da cliente
+
+- **Status**: adiado · **Registrado em**: 2026-08-09 · **Origem**: decisão do usuário na abertura da `22`
+
+Depois da compra de uma peça que exige material afetivo, mandar o **endereço de envio pelo WhatsApp
+da cliente**, além de ele estar na página de compra e na `/como-enviar-o-material` (que é o que a `22`
+entrega).
+
+**Por que fica fora da `22`**: o endereço na página resolve o problema declarado — a cliente saber
+para onde mandar. O WhatsApp é um **canal novo**, e canal novo traz consigo tudo que a `22` não tem:
+provedor (API oficial da Meta, ou intermediário), número verificado, template aprovado pela Meta,
+consentimento explícito, e um caminho de falha que não existe hoje — mensagem não entregue não pode
+travar pedido, pela mesma regra do `AD-008`.
+
+**O que precisa de resposta antes de virar feature**:
+
+1. Qual provedor, e quem paga a conversa. Template de utilidade é cobrado por janela.
+2. O telefone já é coletado no checkout — mas **consentimento para receber mensagem** não é o mesmo
+   que informar telefone para entrega. Onde a cliente aceita?
+3. A mensagem sai no `create-payment` (pedido criado, ainda não pago) ou na aprovação? O material só
+   faz sentido depois de pago, mas o PIX pode demorar.
+4. Falha de envio é silenciosa como a de e-mail (`AD-008`), ou a Adri precisa ver que não entregou?
+5. O e-mail transacional já tem motor, templates e idempotência por `order_emails` (`AD-006`).
+   **Vale reusar `order_emails` para "mensagem já enviada"**, ou o canal pede tabela própria?
+
+**Tamanho estimado**: médio, e quase todo ele fora do código — a aprovação de template pela Meta é o
+caminho crítico.
