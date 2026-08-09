@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { contrastRatio, parseHex, relativeLuminance } from '../contrast'
+import { paletteFromSource } from '@/test/paletteFromSource'
 
 /**
  * O piso de contraste da paleta Uma Estrelinha, medido — `IDN-02`.
@@ -17,25 +18,23 @@ import { contrastRatio, parseHex, relativeLuminance } from '../contrast'
  * — é o instrumento, não a medida.
  */
 
-/** Os valores canônicos. A paridade com App.css/Tailwind é `palette.test.ts`. */
-const P = {
-  ground: '#FAF8F4',
-  'ground-deep': '#F1EBE1',
-  surface: '#FFFFFF',
-  line: '#E6DFD4',
-  ink: '#23303A',
-  'ink-soft': '#54616B',
-  primary: '#34495E',
-  'primary-strong': '#283A4A',
-  'on-primary': '#F7F3EC',
-  accent: '#B8945F',
-  'accent-strong': '#A07E4C',
-  serenity: '#DCE6EC',
-  whatsapp: '#25D366',
-  field: '#8C8073',
-} as const
+/**
+ * A paleta lida **do disco**, de `App.css`.
+ *
+ * Aqui havia uma cópia dos catorze hexes, com o comentário "a paridade com
+ * App.css/Tailwind é `palette.test.ts`". A premissa era falsa: aquele arquivo
+ * compara App.css e Tailwind contra a constante **dele**, e nunca olhou para
+ * esta. O Verifier da feature 20 provou a consequência — trocando
+ * `--estrelinha-ink-soft` de `#54616B` para `#B0B8BE` nas três declarações (o
+ * que alguém faz ao mudar a paleta de propósito), estes testes seguiam verdes
+ * medindo a cor velha, com o piso de texto da loja em **1,90:1**.
+ *
+ * Medir uma cópia é medir o que a loja **não** renderiza. Ver
+ * `src/test/paletteFromSource.ts`.
+ */
+const P = paletteFromSource()
 
-type Token = keyof typeof P
+type Token = string
 
 /** As três superfícies claras da loja — chão, faixa e card. */
 const CLARAS: Token[] = ['ground', 'ground-deep', 'surface']

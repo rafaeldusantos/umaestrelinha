@@ -3,6 +3,7 @@ import { readFileSync, readdirSync } from 'node:fs'
 import { dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { contrastRatio } from '../contrast'
+import { paletteToken } from '@/test/paletteFromSource'
 
 /**
  * Borda de controle é `field`, nunca `line` — `IDN-03`.
@@ -130,11 +131,14 @@ describe('borda de campo — `field`, nunca `line`', () => {
 })
 
 describe('borda de campo — por que `field`, e não outra cor', () => {
-  const FIELD = '#8C8073'
+  // Lido do disco, não copiado: um hex escrito aqui mediria uma cor que a loja
+  // talvez não renderize mais. Ver `src/test/paletteFromSource.ts` — foi o
+  // mutante que sobreviveu à validação da feature 20.
+  const FIELD = paletteToken('field')
   const SUPERFICIES = {
-    ground: '#FAF8F4',
-    'ground-deep': '#F1EBE1',
-    surface: '#FFFFFF',
+    ground: paletteToken('ground'),
+    'ground-deep': paletteToken('ground-deep'),
+    surface: paletteToken('surface'),
   }
 
   it.each(Object.entries(SUPERFICIES))(
@@ -150,13 +154,13 @@ describe('borda de campo — por que `field`, e não outra cor', () => {
 
   it('os dois candidatos que o DS já tinha reprovam — é por isso que o token nasceu', () => {
     // Congela a decisão D2 do design com os números, e não com uma afirmação.
-    expect(contrastRatio('#E6DFD4', SUPERFICIES.ground)).toBeLessThan(3) // line   1,25
-    expect(contrastRatio('#B8945F', SUPERFICIES.ground)).toBeLessThan(3) // accent 2,66
+    expect(contrastRatio(paletteToken('line'), SUPERFICIES.ground)).toBeLessThan(3) // 1,25
+    expect(contrastRatio(paletteToken('accent'), SUPERFICIES.ground)).toBeLessThan(3) // 2,66
   })
 
   it('`accent-strong` passaria no número, e mesmo assim não é a escolha', () => {
     // 3,55:1. Passa a régua e reprova no papel: usá-lo em toda borda de input
     // gastaria o acento da marca no elemento mais repetido da loja.
-    expect(contrastRatio('#A07E4C', SUPERFICIES.ground)).toBeGreaterThanOrEqual(3)
+    expect(contrastRatio(paletteToken('accent-strong'), SUPERFICIES.ground)).toBeGreaterThanOrEqual(3)
   })
 })
