@@ -136,20 +136,13 @@ recebimento e ver o e-mail no Mailpit.
 
 ---
 
-### P3: As URLs indexadas continuam resolvendo
-
-**User Story**: Como Adri, quero que quem chegar pelo Google num endereço antigo caia no produto
-certo, para não perder o tráfego que as landing pages vêm construindo.
-
-**Why P3**: Só passa a valer no go-live, que depende de decisão de DNS ainda não tomada (`C-08`).
-
-**Acceptance Criteria**:
-
-1. WHEN uma URL de produto não corresponde a nenhum slug atual THEN o sistema SHALL resolver o
-   redirect por `product_redirects` e responder o produto correto.
-2. WHEN uma URL de categoria antiga é acessada THEN SHALL resolver por uma tabela de redirect de
-   categoria equivalente, criada nesta feature — hoje só existe a de produto (`20260801120300`).
-3. WHEN nenhum redirect casa THEN a loja SHALL responder a 404 própria, nunca uma tela em branco.
+> **O bloco `P3` saiu daqui.** Ele descrevia "slug antigo -> slug novo", e a medicao feita no fecho da
+> [`21`](../21-catalogo-nuvemshop/spec.md) mostrou que o problema real e outro: o **caminho** difere
+> (`/produtos/<slug>/` e `/<categoria>/` no site atual, contra `/produto/:slug` e `/colecao/:slug` na
+> loja nova), e categoria na raiz faz o namespace de categoria e o de rota virarem o mesmo. Isso e
+> desenho de enderecamento, nao tabela de redirect — e virou a feature
+> [`23-urls-e-seo`](../23-urls-e-seo/spec.md), que pode ir ANTES desta por ser pre-requisito de
+> go-live.
 
 ---
 
@@ -184,11 +177,8 @@ certo, para não perder o tráfego que as landing pages vêm construindo.
 | MAT-08 | P2 · Transições guardadas, idempotentes, independentes do pagamento (AC 3, 4, 5) | Specify | Pending |
 | MAT-09 | P2 · E-mail `material_received` contido (AC 6, 7) | Specify | Pending |
 | MAT-10 | P2 · Filtro e fila de material no admin (AC 8) | Specify | Pending |
-| SEO-01 | P3 · Redirect de produto por `product_redirects` | Specify | Pending |
-| SEO-02 | P3 · Redirect de categoria (tabela nova) | Specify | Pending |
-| SEO-03 | P3 · 404 própria quando nenhum redirect casa | Specify | Pending |
 
-**Cobertura:** 13 requisitos · aguardando o fecho das features `20` e `21`.
+**Cobertura:** 10 requisitos · aguardando o fecho das features `20` e `21`.
 
 ---
 

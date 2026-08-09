@@ -228,3 +228,58 @@ por ganho estético.
 3. **Vale o custo?** ~30 telas, com os testes de cada uma.
 
 **Tamanho estimado**: grande e inteiramente opcional.
+
+---
+
+## BL-00X — Peso da listagem de produto (3,1 MB por página de categoria)
+
+- **Status**: adiado · **Registrado em**: 2026-08-09 · **Origem**: medição no conserto do `BUG-20260809`
+
+**O que é.** `/colecao/joias-afetivas` carrega **3,1 MB** para 503 produtos, e leva 7,3 s até
+`networkidle` no local. Numa loja em que ~90% dos acessos vêm de celular, isso é problema por si.
+
+Medido, por campo:
+
+| campo | peso | o card renderiza? |
+| --- | ---: | --- |
+| `description` | **1.154 KB** | **não** |
+| `product_variants` | 770 KB | sim (faixa de preço) |
+| `images` | 532 KB | sim (a primeira) |
+| resto + `seo_*` + vínculos | 623 KB | em parte |
+
+**Por que o corte óbvio não serve.** Tirar `description` da listagem economizaria 37% — mas
+**a busca pontua por ele** (`apps/store/src/features/search/lib/searchProducts.ts:76`, peso 5), e
+`useAllProducts` alimenta a busca. Cortar degradaria a relevância **em silêncio**, que é a classe de
+defeito que este projeto mais paga caro.
+
+**O que precisa ser decidido antes de virar feature:**
+
+1. **Busca no servidor ou no cliente?** Se a busca migrar para `websearch_to_tsquery` no Postgres, a
+   listagem para de precisar de `description` e as duas coisas se resolvem juntas.
+2. **Paginação de categoria**: página numerada, "carregar mais" ou scroll infinito. Muda a UX e o SEO.
+3. **`select` de listagem separado do de detalhe** — dois `PRODUCT_SELECT`, com o risco de divergirem.
+4. **Filtros client-side**: hoje faixa de preço, tags e disponibilidade filtram sobre a lista já
+   carregada. Com paginação, precisam ir para o servidor, senão passam a filtrar só a página atual —
+   e o cliente vê "3 de 12" quando existem 400.
+
+**Tamanho estimado**: feature média. O item 4 é o que dá o trabalho, e é o que ninguém lembra.
+
+---
+
+## BL-00Y — Quatro consultas de catálogo engolem erro
+
+- **Status**: adiado · **Registrado em**: 2026-08-09 · **Origem**: `BUG-20260809`
+
+`useAllProducts`, `useFeaturedProducts`, `useNewProducts` e `useProductById` fazem
+`if (error || !data) return []`. A de categoria foi corrigida; estas quatro não.
+
+**Não é cosmético.** Com `return []`, o React Query guarda o vazio como **sucesso** — e não repete a
+tentativa. Um blip de rede na home deixa a loja vazia até o cliente recarregar à mão, sem nenhum sinal
+de que algo falhou.
+
+Terceira ocorrência do padrão no projeto (`AD-014` registrou a primeira em `useAdminCollections`;
+`BUG-20260809` a segunda). Candidato a **decisão de projeto**: consulta de listagem não transforma
+erro em lista vazia.
+
+**O que falta para virar feature**: estado de erro na home, na gaveta do carrinho e na busca — três
+superfícies, cada uma com desenho próprio. O código dos hooks é a parte fácil.
