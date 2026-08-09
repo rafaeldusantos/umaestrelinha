@@ -200,48 +200,77 @@ otp_length = 6
 # 10 min — é o prazo que os templates de e-mail informam ao usuário.
 otp_expiry = 600
 
-# SMTP via Resend — os e-mails de auth saem de verdade.
-# Com este bloco ligado, o Mailpit (http://127.0.0.1:54344) NÃO recebe nada de auth —
-# caixa vazia é o ESPERADO, não sintoma. O ponto de observação é
-# `docker logs supabase_auth_uma-estrelinha-store` (a falha de SMTP aparece como `gomail:`).
-# Para voltar a capturar e-mails localmente no Inbucket, basta comentar este bloco
-# inteiro e reiniciar (supabase stop && supabase start).
-[auth.email.smtp]
-enabled = true
-host = "smtp.resend.com"
-port = 465
-user = "resend"
-pass = "env(RESEND_API_KEY)"
-# Remetente dos e-mails de AUTH. Endereço NU — o nome de exibição vem de `sender_name`,
-# e o GoTrue monta `From: "Nanita" <acesso@send.nanita.com.br>`.
-# NÃO reusar RESEND_FROM aqui: aquele valor é RFC 5322 (`Nome <addr>`) e viraria
-# `"Nanita" <Nanita Store<loja@…>>` — malformado, TODO envio de auth falharia.
-# `loja@` é o remetente dos transacionais (edge function send-email, API HTTP);
-# `acesso@` é o do auth. Mesmo domínio verificado, streams separados: reputação de
-# entrega é por domínio da assinatura DKIM (d=), então separar o local-part não custa
-# entrega e deixa o stream de login filtrável no painel do Resend.
-# send.nanita.com.br verificado no Resend em 2026-08-02. Antes disso o remetente
-# compartilhado onboarding@resend.dev só entregava para o dono da conta, e todo login
-# de terceiro morria com `550 You can only send testing emails to your own address`
-# (BUG-20260728-auth-local-so-entrega-ao-dono-do-resend).
-admin_email = "acesso@send.nanita.com.br"
-sender_name = "Nanita"
+# ─────────────────────────────────────────────────────────────────────────────
+# SMTP do auth — DESLIGADO, e isso é uma decisão, não um esquecimento (T36).
+#
+# Sem este bloco, quem entrega o e-mail de auth é o Mailpit local
+# (http://127.0.0.1:54344): o login por código funciona de ponta a ponta em
+# desenvolvimento, sem depender de rede nem de domínio verificado.
+#
+# ## Por que o remetente NÃO foi trocado junto com a marca
+#
+# O remetente do auth precisa de um domínio VERIFICADO no Resend. Medido em
+# 2026-08-08, com a chave deste projeto:
+#
+#   from acesso@send.umaestrelinha.com.br  →  403 "This API key is not
+#                                             authorized to send emails from
+#                                             send.umaestrelinha.com.br"
+#   from acesso@send.<domínio anterior>    →  200
+#
+# Trocar o endereço para um domínio não verificado derruba TODO login por
+# código — já derrubou uma vez (BUG-20260728). E manter o domínio da marca
+# anterior enviando e-mail assinado por esta loja é pior ainda. Com o SMTP
+# desligado, nenhuma das duas coisas acontece.
+#
+# ## O passo exato de troca, quando o domínio for verificado
+#
+#  1. Verificar `send.umaestrelinha.com.br` no Resend (DKIM + SPF no DNS) e
+#     conferir com:
+#       curl -s -X POST https://api.resend.com/emails \
+#            -H "Authorization: Bearer $RESEND_API_KEY" \
+#            -H "Content-Type: application/json" \
+#            -d '{"from":"Uma Estrelinha <acesso@send.umaestrelinha.com.br>",
+#                 "to":["delivered@resend.dev"],"subject":"probe","text":"probe"}'
+#     — 200 = liberado; 403 = ainda não.
+#  2. Descomentar o bloco abaixo, EXATAMENTE como está.
+#  3. `supabase stop && supabase start` — mudança em config.toml exige;
+#     `db reset` NÃO recarrega o auth.
+#  4. Pedir um código de acesso na loja e conferir a chegada.
+#
+# `admin_email` é endereço NU: o nome de exibição vem de `sender_name`, e o
+# GoTrue monta `From: "Uma Estrelinha" <acesso@send.umaestrelinha.com.br>`.
+# NUNCA reusar RESEND_FROM aqui — aquele valor já é RFC 5322 (`Nome <addr>`) e
+# o resultado seria `"Uma Estrelinha" <Uma Estrelinha <loja@…>>`: malformado,
+# e todo envio de auth falha. `loja@` é dos transacionais (edge function
+# send-email, API HTTP); `acesso@` é do auth. Mesmo domínio, streams separados:
+# reputação de entrega é por domínio da assinatura DKIM (d=), então separar o
+# local-part não custa entrega e deixa o login filtrável no painel do Resend.
+#
+# [auth.email.smtp]
+# enabled = true
+# host = "smtp.resend.com"
+# port = 465
+# user = "resend"
+# pass = "env(RESEND_API_KEY)"
+# admin_email = "acesso@send.umaestrelinha.com.br"
+# sender_name = "Uma Estrelinha"
+# ─────────────────────────────────────────────────────────────────────────────
 
-# Templates com a identidade Nanita (ver DESIGN.md).
+# Templates com a identidade Uma Estrelinha (ver DESIGN.md).
 # magic_link E confirmation são ambos necessários: signInWithOtp({ shouldCreateUser: true })
 # dispara o fluxo de signup (confirmation) para e-mail novo e o magic_link para
 # e-mail já existente. Configurar só um deixa metade dos casos no template padrão,
 # que entrega um link em vez do código de 6 dígitos.
 [auth.email.template.magic_link]
-subject = "Seu código de acesso Nanita"
+subject = "Seu código de acesso — Uma Estrelinha"
 content_path = "./supabase/templates/magic_link.html"
 
 [auth.email.template.confirmation]
-subject = "Seu código de acesso Nanita"
+subject = "Seu código de acesso — Uma Estrelinha"
 content_path = "./supabase/templates/confirmation.html"
 
 [auth.email.template.recovery]
-subject = "Redefinir sua senha Nanita"
+subject = "Redefinir sua senha — Uma Estrelinha"
 content_path = "./supabase/templates/recovery.html"
 
 [auth.sms]

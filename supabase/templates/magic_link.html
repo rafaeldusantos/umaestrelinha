@@ -1,39 +1,50 @@
 <!--
-  Nanita — código de acesso (usuário já existente).
-  Identidade Nanita (DESIGN.md): tinta #2B1622, glacê #FF86B5, geleia #B0176B,
-  ameixa #7A5C6B, açúcar #FFEFF6, contorno #FFD7E7. Sem gradiente.
-  Restrições de e-mail: tudo inline, layout em <table>, sem webfont (as famílias
-  Berkshire Swash / Fredoka / DM Sans não carregam em Gmail/Outlook — o que
-  renderiza é o fallback, por isso a pilha de fontes é a decisão de design).
+  Uma Estrelinha — código de acesso (usuário já existente).
+
+  Paleta da loja (DESIGN.md): chão #FAF8F4, cartão #FFFFFF, divisor #E6DFD4,
+  tinta #23303A, tinta suave #54616B, primário #34495E, negativo #F7F3EC,
+  acento #B8945F.
+
+  Restrições de e-mail, que valem para os três templates:
+  · tudo INLINE — Gmail e Outlook descartam <style> e classe;
+  · layout em <table>, não em flex/grid;
+  · SEM webfont. Libre Baskerville e Outfit não carregam em cliente de e-mail
+    nenhum, então o que renderiza é a PILHA DE FALLBACK — ela é a decisão de
+    design, não um detalhe. Georgia no display (serifado como o display da
+    loja: cair de serifa para sans muda família e largura) e Helvetica/Arial
+    no corpo.
+  · O acento #B8945F NUNCA é texto sobre claro (2,66:1 sobre o chão). Aqui ele
+    é só o fio sob a marca, dentro da faixa escura.
 -->
-<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#FFEFF6;padding:32px 12px;">
+<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#FAF8F4;padding:32px 12px;">
   <tr>
     <td align="center">
-      <table width="560" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;width:100%;background:#FFFFFF;border:1px solid #FFD7E7;border-radius:24px;">
+      <table width="560" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;width:100%;background:#FFFFFF;border:1px solid #E6DFD4;border-radius:20px;">
         <tr>
-          <td style="background:#2B1622;padding:24px 32px;border-radius:24px 24px 0 0;">
-            <span style="font-family:'Berkshire Swash',Georgia,'Times New Roman',serif;font-size:32px;line-height:1.1;color:#FF86B5;">Nanita</span>
+          <td align="center" style="background:#283A4A;padding:28px 32px;border-radius:20px 20px 0 0;">
+            <span style="font-family:Georgia,'Times New Roman',serif;font-size:26px;letter-spacing:0.14em;line-height:1.2;color:#F7F3EC;">UMA ESTRELINHA</span>
+            <div style="width:48px;height:1px;background:#B8945F;margin:12px auto 0;line-height:1px;font-size:1px;">&nbsp;</div>
           </td>
         </tr>
         <tr>
-          <td style="padding:32px;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
-            <h1 style="margin:0 0 8px;font-family:'Fredoka','Trebuchet MS',Verdana,sans-serif;font-size:26px;font-weight:600;line-height:1.25;color:#2B1622;">Seu código de acesso</h1>
-            <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#7A5C6B;">Use o código abaixo para entrar na sua conta. Ele expira em 10 minutos.</p>
+          <td style="padding:32px;font-family:Helvetica,Arial,sans-serif;">
+            <h1 style="margin:0 0 8px;font-family:Georgia,'Times New Roman',serif;font-size:24px;font-weight:normal;line-height:1.3;color:#23303A;">Seu código de acesso</h1>
+            <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#54616B;">Use o código abaixo para entrar na sua conta. Ele expira em 10 minutos.</p>
 
-            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#FFEFF6;border:1px solid #FFD7E7;border-radius:16px;">
+            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#F1EBE1;border:1px solid #E6DFD4;border-radius:12px;">
               <tr>
                 <td align="center" style="padding:20px;">
-                  <span style="font-family:'Fredoka','Trebuchet MS',Verdana,sans-serif;font-size:36px;font-weight:600;letter-spacing:0.18em;color:#B0176B;">{{ .Token }}</span>
+                  <span style="font-family:Georgia,'Times New Roman',serif;font-size:34px;letter-spacing:0.18em;color:#34495E;">{{ .Token }}</span>
                 </td>
               </tr>
             </table>
 
-            <p style="margin:24px 0 0;font-size:13px;line-height:1.6;color:#7A5C6B;">Não pediu este código? Pode ignorar este e-mail — nada acontece sem ele.</p>
+            <p style="margin:24px 0 0;font-size:13px;line-height:1.6;color:#54616B;">Não pediu este código? Pode ignorar este e-mail — nada acontece sem ele.</p>
           </td>
         </tr>
         <tr>
-          <td style="padding:0 32px 28px;font-family:'DM Sans',Helvetica,Arial,sans-serif;font-size:12px;line-height:1.6;color:#7A5C6B;">
-            Nanita — cole no peito, carrega no coração.
+          <td style="padding:0 32px 28px;font-family:Helvetica,Arial,sans-serif;font-size:12px;line-height:1.6;color:#54616B;">
+            Uma Estrelinha — eternizando suas lembranças.
           </td>
         </tr>
       </table>

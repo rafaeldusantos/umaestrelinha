@@ -71,7 +71,7 @@ const PENDENTE: Record<string, string> = {
   'apps/store/src/features/search/ui/SearchOverlay.tsx':                   'T38 - copy institucional e pontos de contato',
   'apps/store/src/pages/AboutPage.tsx':                                    'T38 - copy institucional e pontos de contato',
   'apps/store/src/widgets/whatsapp-float/ui/WhatsAppFloat.tsx':            'T38 - copy institucional e pontos de contato',
-  'supabase/config.toml':                                                  'T36 - assuntos e remetente do auth',
+  'supabase/config.toml':                                                  'T37 - RESEND_FROM nos comentarios de [edge_runtime.secrets]',
   'supabase/functions/melhor-envio/index.ts':                              'T38 - `User-Agent` que a API do Melhor Envio exige',
   'supabase/functions/mercado-pago/__tests__/fakes.ts':                    'T37 - `RESEND_FROM` de exemplo, distinto do remetente do auth',
   'supabase/functions/mercado-pago/index.ts':                              'T37 - `RESEND_FROM` de exemplo, distinto do remetente do auth',
@@ -80,9 +80,6 @@ const PENDENTE: Record<string, string> = {
   'supabase/functions/send-email/index.ts':                                'T37 - e-mail transacional',
   'supabase/functions/send-email/layout.ts':                               'T37 - e-mail transacional',
   'supabase/functions/send-email/sender.ts':                               'T37 - e-mail transacional',
-  'supabase/templates/confirmation.html':                                  'T36 - templates de auth',
-  'supabase/templates/magic_link.html':                                    'T36 - templates de auth',
-  'supabase/templates/recovery.html':                                      'T36 - templates de auth',
 }
 
 function arquivos(dir: string): string[] {
@@ -103,12 +100,28 @@ function rel(caminho: string): string {
   return relative(ROOT, caminho).replace(/\\/g, '/')
 }
 
-/** Toda ocorrência, com caminho e linha — a falha precisa dizer ONDE. */
+/**
+ * Toda ocorrência, com caminho e linha — a falha precisa dizer ONDE.
+ *
+ * Memorizado porque quatro testes perguntam pelos MESMOS arquivos: sem o cache
+ * são 400+ leituras síncronas vezes três, e sob `pnpm test` (quatro workspaces
+ * em paralelo nesta máquina) isso estourou o limite de 5s do vitest — uma
+ * varredura vermelha por lentidão, não por resíduo.
+ */
+const cache = new Map<string, string[]>()
 function ocorrencias(caminho: string): string[] {
-  return readFileSync(caminho, 'utf8')
+  const guardado = cache.get(caminho)
+  if (guardado) return guardado
+  const achados = readFileSync(caminho, 'utf8')
     .split('\n')
     .flatMap((linha, i) => (MARCA.test(linha) ? [`${rel(caminho)}:${i + 1}  ${linha.trim().slice(0, 90)}`] : []))
+  cache.set(caminho, achados)
+  return achados
 }
+
+/** Ler 400+ arquivos do disco leva segundos; o default de 5s é para teste de
+ *  unidade, não para varredura de repositório. Nenhuma asserção muda com isto. */
+const LIMITE_DA_VARREDURA = 60_000
 
 const arquivosVarridos = alvos()
 
@@ -141,7 +154,7 @@ describe('varredura de marca — resíduo', () => {
       .flatMap(ocorrencias)
 
     expect(encontrados).toEqual([])
-  })
+  }, LIMITE_DA_VARREDURA)
 
   it('nenhuma entrada de PENDENTE ficou obsoleta', () => {
     // É o que faz a lista se autodestruir. Sem isto, um arquivo já convertido
@@ -152,7 +165,7 @@ describe('varredura de marca — resíduo', () => {
     })
 
     expect(limpos).toEqual([])
-  })
+  }, LIMITE_DA_VARREDURA)
 
   it('nenhuma entrada de ALLOWLIST ficou obsoleta', () => {
     const limpos = Object.keys(ALLOWLIST).filter((f) => ocorrencias(join(ROOT, f)).length === 0)

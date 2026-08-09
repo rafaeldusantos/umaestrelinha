@@ -127,7 +127,10 @@ describe('defaults de store_settings — tom do negócio', () => {
   it('a mensagem do WhatsApp não usa linguagem festiva', () => {
     // A loja vende homenagem a quem morreu, leite materno e dente de leite.
     // A mensagem padrão é o primeiro texto que a cliente vê no WhatsApp.
-    expect(DEFAULT_GENERAL.whatsapp_message).not.toMatch(/[🎉🥳✨💖]|drop|pin|botton/i)
+    // Alternância, e não classe de caractere: emoji é par substituto, e dentro
+    // de `[...]` o ESLint (no-misleading-character-class) recusa — com razão,
+    // porque a classe casaria as METADES do par, não o emoji.
+    expect(DEFAULT_GENERAL.whatsapp_message).not.toMatch(/🎉|🥳|✨|💖|drop|pin|botton/i)
     expect(DEFAULT_GENERAL.whatsapp_message.length).toBeGreaterThan(10)
   })
 })
