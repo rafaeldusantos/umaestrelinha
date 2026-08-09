@@ -2,9 +2,46 @@
 
 - **Achado em**: 2026-08-09, na validação da feature [`21-catalogo-nuvemshop`](../../../.specs/features/21-catalogo-nuvemshop/spec.md) (`T17`)
 - **Severidade**: alta — a maior categoria da loja não mostra produto nenhum
-- **Onde**: `apps/store/src/entities/product/api/useProducts.ts:47` e `:51`
-- **Escopo**: código da loja (feature `20`), **não** do importador. Registrado e **não corrigido**
-  dentro da `21` de propósito — ver *Por que não foi consertado aqui*.
+- **Onde**: `apps/store/src/entities/product/api/useProducts.ts`
+- **Status**: ✅ **CORRIGIDO** em 2026-08-09, na mesma sessão, depois de registrado
+
+## Como ficou
+
+- **Filtro no servidor, por embed aliased** (`PRODUCT_SELECT_BY_CATEGORY`): o que viaja na URL passou
+  a ser a árvore de **categorias** (dezenas, limitada pela profundidade) em vez da lista de
+  **produtos** (centenas, limitada pelo catálogo). O alias existe porque `product_categories!inner`
+  filtrado **trunca o embed**, e `category_links` alimenta o selo do card (`displayCategory`, PST-06)
+  e a busca — truncar mudaria o selo em silêncio. Medido contra o banco real: 46 produtos, 5 vínculos
+  em `product_categories` e 1 em `filtro`, nos 46.
+- **O erro sobe** (`ProductQueryError`) em vez de virar `[]`, e a `CategoryPage` mostra estado de
+  falha próprio — não mais "Nenhuma joia com esses filtros", que mandava mexer em filtro inocente.
+- **Uma consulta a menos**: eram três (árvore → vínculos → produtos), agora são duas.
+
+**Verificado em 390×844 com o catálogo real**: `503 produtos encontrados`, 503 cards, zero requisição
+falhada, 7,3 s até `networkidle`. As imagens abaixo da dobra são `loading="lazy"` (26 carregadas,
+48 depois de rolar) — comportamento correto, não defeito.
+
+**Testes**: os 6 que assertavam o mecanismo antigo foram reescritos contra o comportamento, com
+autorização explícita — nenhuma garantia se perdeu (roll-up de descendência, dedupe, folha, sem N+1).
+Mais três novos: a regressão da URL congelada (nenhum filtro por id de produto; o galho enviado cabe
+em 4 ids mesmo com 500 produtos na categoria) e as duas falhas que agora sobem.
+
+---
+
+## O que NÃO foi corrigido, e fica para outra rodada
+
+1. **A listagem carrega 3,1 MB** para 503 produtos. `description` é 1,15 MB (37%) e o card não o
+   renderiza — mas **a busca pontua por ele** (`searchProducts.ts:76`), então cortá-lo degradaria a
+   busca em silêncio. Resolver de verdade é `select` de listagem + paginação + busca no servidor.
+2. **Outras quatro consultas ainda engolem erro**: `useAllProducts`, `useFeaturedProducts`,
+   `useNewProducts`, `useProductById`. **O dano não é só cosmético**: com `return []`, o React Query
+   guarda o vazio como **sucesso** e não repete a tentativa — um blip de rede na home deixa a loja
+   vazia até o cliente recarregar à mão. Corrigir exige estado de erro na home, na gaveta do carrinho
+   e na busca.
+
+---
+
+## Registro original (mantido)
 
 ## O que acontece
 
@@ -32,37 +69,10 @@ São **dois** defeitos que se escondem um ao outro.
    defeito que `AD-014` registrou em `useAdminCollections` (`PGRST205` engolido ⇒ grade vazia para
    sempre) — segunda ocorrência do padrão no projeto.
 
-## Por que nenhum gate pegou
+## Por que ele nao foi consertado DENTRO da feature 21
 
-- `pnpm test` passa: os testes de `useProducts` mockam o client, e mock não tem limite de URL.
-- `tsc` e `build` passam: não há erro de tipo.
-- O seed de desenvolvimento **não tinha volume** — a maior categoria tinha 4 produtos.
+A `21` importa catalogo; este defeito e da leitura da loja. Ele foi registrado no fecho da `21` e
+corrigido em seguida, em trabalho proprio, com os testes reescritos sob autorizacao explicita — e nao
+como remendo no fim da outra feature.
 
-É a mesma família dos três defeitos que o `T17` expôs no importador: **só existe em escala.**
-
-## Terceiro problema, que aparece assim que os dois primeiros forem consertados
-
-A consulta **não tem `limit` nem `range`**. Mesmo com o filtro corrigido, ela tentaria trazer 508
-produtos com todas as variações numa resposta só — e o PostgREST corta em 1.000 linhas de qualquer
-forma. Numa loja em que ~90% dos acessos vêm de celular, carregar a categoria inteira de uma vez é
-problema por si.
-
-## Forma sugerida do conserto (não implementada)
-
-1. **Filtrar no servidor**, sem trafegar uuid: `product_categories!inner(category_id)` com
-   `.in('product_categories.category_id', branch)`. A lista de ids sai da URL — passam a viajar só os
-   ids das categorias da descendência (dezenas, não centenas).
-2. **Parar de engolir o erro**: distinguir "vazio" de "falhou" e mostrar estado de erro.
-3. **Paginar** a listagem de categoria.
-
-Os três merecem teste próprio, e o (1) mexe na consulta que também lê preço e variação — caminho de
-dinheiro. Por isso não entrou como remendo no fim de outra feature.
-
-## Por que não foi consertado aqui
-
-A feature `21` importa catálogo; este defeito é da leitura da loja. O conserto certo muda a consulta
-que carrega preço e variação, e pede paginação — trabalho com escopo, desenho e testes próprios.
-Emendá-lo no fecho do import trocaria um defeito visível por um risco invisível no caminho do dinheiro.
-
-**O que a `21` entrega apesar disto**: home e página de produto renderizam com o catálogo real, com
-foto servida pelo Storage. O dado está correto no banco — o defeito é de leitura, não de gravação.
+**O dado sempre esteve certo no banco**: o defeito era de leitura, nunca de gravacao.

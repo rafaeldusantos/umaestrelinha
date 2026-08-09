@@ -39,7 +39,7 @@ import {
 const CategoryPage = () => {
   const { slug } = useParams<{ slug: string }>()
   const { data: category } = useCategoryBySlug(slug || '')
-  const { data: allProducts } = useProducts(slug)
+  const { data: allProducts, isError: falhouAoCarregar } = useProducts(slug)
 
   const products = useMemo(() => allProducts ?? [], [allProducts])
   const bounds = useMemo(() => priceBounds(products), [products])
@@ -273,6 +273,27 @@ const CategoryPage = () => {
               {visible.map(p => (
                 <ProductCard key={p.id} product={p} />
               ))}
+            </div>
+          ) : falhouAoCarregar ? (
+            /*
+             * `BUG-20260809`: a consulta falhava e a página dizia "Nenhuma joia com esses filtros",
+             * mandando quem chegasse mexer em filtro que não tinha nada a ver. Vazio e falha são
+             * estados diferentes, e a tela precisa saber dizer qual é qual.
+             */
+            <div className="flex flex-col items-center gap-3 py-16 text-center">
+              <p className="font-display text-[18px] font-medium text-estrelinha-ink">
+                Não conseguimos carregar as joias desta coleção.
+              </p>
+              <p className="text-[14px] text-estrelinha-ink-soft">
+                A falha é nossa, não sua — os filtros estão como você deixou.
+              </p>
+              <button
+                type="button"
+                onClick={() => window.location.reload()}
+                className="mt-1 rounded-sm bg-estrelinha-primary px-5 py-2.5 text-[14px] font-semibold text-white"
+              >
+                Tentar de novo
+              </button>
             </div>
           ) : (
             <div className="flex flex-col items-center gap-3 py-16 text-center">

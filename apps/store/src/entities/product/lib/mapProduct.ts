@@ -28,6 +28,33 @@ import type { Product } from '@estrelinha/supabase/types'
 export const PRODUCT_SELECT =
   '*, categories!products_category_id_fkey(slug, name), product_variants(*), product_categories(category_id, position)'
 
+/**
+ * O mesmo `select`, mais um embed **aliased** só para filtrar por categoria no servidor.
+ *
+ * ## Por que o alias, e não `product_categories!inner`
+ *
+ * Filtrar direto no embed existente resolveria a consulta e **quebraria o selo do card**: quando o
+ * PostgREST aplica um filtro sobre um embed `!inner`, ele devolve **apenas as linhas que casam**.
+ * `category_links` deixaria de ser "todas as categorias do produto" e passaria a ser "as da árvore
+ * que estou navegando" — e `displayCategory` (PST-06), que escolhe o selo pela menor
+ * `categories.sort_order` entre TODAS, passaria a escolher outro. Silenciosamente.
+ *
+ * Com o alias, `product_categories` volta completo e só `filtro` é truncado. Medido contra o banco
+ * real: 46 produtos, 5 vínculos em `product_categories` e 1 em `filtro`, nos 46.
+ *
+ * ## Por que não `in('id', [...])`
+ *
+ * Era como funcionava até `BUG-20260809`: buscava os `product_id` da árvore e mandava a lista de
+ * uuids na URL. Com o catálogo real isso virou uma URL de **14.309 caracteres** para
+ * `/colecao/joias-afetivas`, recusada antes de chegar ao PostgREST — e a página mostrava
+ * "0 produtos encontrados". Funcionava no seed porque a maior categoria tinha 4 produtos.
+ */
+export const PRODUCT_SELECT_BY_CATEGORY =
+  `${PRODUCT_SELECT}, filtro:product_categories!inner(category_id)`
+
+/** A coluna do embed aliased, para o `.in()` do filtro. */
+export const CATEGORY_FILTER_COLUMN = 'filtro.category_id'
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export const mapDbToProduct = (p: any): Product => ({
   id: p.id,

@@ -265,56 +265,71 @@ describe('useProducts — filtro por categoria N:N (PST-06 AC 4)', () => {
     rows: unknown[],
     tree = TREE,
   ) => {
-    const inLinksSpy = vi.fn()
-    const inProductsSpy = vi.fn()
+    const filtroSpy = vi.fn()
     let categoriesSelects = 0
-    let linkSelects = 0
+    let productSelects = 0
 
     fromMock.mockImplementation((table: string) => {
       if (table === 'categories') {
         categoriesSelects += 1
         return { select: () => Promise.resolve({ data: tree, error: null }) }
       }
-      if (table === 'product_categories') {
-        linkSelects += 1
-        return {
-          select: () => ({
-            in: (column: string, values: string[]) => {
-              inLinksSpy(column, values)
-              const ids = values.flatMap(id => linksByCategory[id] ?? [])
-              return Promise.resolve({ data: ids.map(product_id => ({ product_id })) })
-            },
-          }),
-        }
-      }
+      // `product_categories` NÃO é mais consultada em separado: o filtro roda dentro da consulta de
+      // produto, por embed aliased. Se alguém voltar a consultá-la, o teste de N+1 acusa.
+      productSelects += 1
       return {
         select: () => ({
           in: (column: string, values: string[]) => {
-            inProductsSpy(column, values)
-            return Promise.resolve({ data: rows, error: null })
+            filtroSpy(column, values)
+            // Encena o servidor: devolve os produtos vinculados a qualquer categoria do galho, sem
+            // repetir — que é o que o inner join do PostgREST faz.
+            const ids = [...new Set(values.flatMap(id => linksByCategory[id] ?? []))]
+            return Promise.resolve({ data: ids.length > 0 ? rows : [], error: null })
           },
         }),
       }
     })
     return {
-      inLinksSpy,
-      inProductsSpy,
-      counts: () => ({ categoriesSelects, linkSelects }),
+      filtroSpy,
+      /** O galho de categorias enviado ao servidor — o que de fato viaja na URL. */
+      galhoEnviado: () => filtroSpy.mock.calls[0]?.[1] as string[] | undefined,
+      counts: () => ({ categoriesSelects, productSelects }),
     }
   }
 
-  it('busca os product_id em product_categories e filtra os produtos por esses ids', async () => {
-    const { inLinksSpy, inProductsSpy } = respondForCategory(
-      { 'cat-anime': ['prod-1', 'prod-9'] },
+  it('filtra no SERVIDOR pela categoria, por embed aliased de product_categories', async () => {
+    const { filtroSpy } = respondForCategory({ 'cat-anime': ['prod-1', 'prod-9'] }, [dbRow()])
+
+    const { result } = renderHook(() => useProducts('anime'), { wrapper })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    expect(filtroSpy).toHaveBeenCalledWith('filtro.category_id', expect.arrayContaining(['cat-anime']))
+    expect(result.current.data).toHaveLength(1)
+  })
+
+  it('BUG-20260809: o que viaja na URL e a arvore de CATEGORIAS, nunca a lista de produtos', async () => {
+    /*
+     * A regressao que derrubou a maior categoria da loja, congelada.
+     *
+     * A implementacao anterior buscava os `product_id` do galho e os mandava de volta num
+     * `.in('id', [...])`. Com 508 produtos a URL passou de 14.000 caracteres e o gateway recusou —
+     * a pagina mostrava "0 produtos encontrados", sem erro. O tamanho do que viaja tem de depender
+     * da PROFUNDIDADE da arvore, nao do tamanho do catalogo.
+     */
+    const { filtroSpy, galhoEnviado } = respondForCategory(
+      { 'cat-anime': Array.from({ length: 500 }, (_, i) => `prod-${i}`) },
       [dbRow()],
     )
 
     const { result } = renderHook(() => useProducts('anime'), { wrapper })
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
 
-    expect(inLinksSpy).toHaveBeenCalledWith('category_id', expect.arrayContaining(['cat-anime']))
-    expect(inProductsSpy).toHaveBeenCalledWith('id', ['prod-1', 'prod-9'])
-    expect(result.current.data).toHaveLength(1)
+    for (const [coluna] of filtroSpy.mock.calls) {
+      expect(coluna, 'nenhum filtro pode ser por id de produto').not.toBe('id')
+    }
+    // 500 produtos na categoria, e o que sobe sao 2 ids de categoria (`anime` + a neta `naruto`).
+    expect(galhoEnviado()!.length).toBeLessThanOrEqual(4)
+    expect(galhoEnviado()).toEqual(expect.arrayContaining(['cat-anime']))
   })
 
   it('o mesmo produto aparece em outra categoria — o vínculo é que decide, não products.category_id', async () => {
@@ -343,7 +358,7 @@ describe('useProducts — filtro por categoria N:N (PST-06 AC 4)', () => {
       // Nada vinculado a "Bottons" diretamente: tudo mora nas filhas e netas. Sob o filtro antigo
       // (`.eq('category_id', 'cat-bottons')`) esta página vinha VAZIA — era o bug real, em que
       // `/colecao/bottons` listava 4 produtos num catálogo de 32.
-      const { inLinksSpy } = respondForCategory(
+      const { galhoEnviado } = respondForCategory(
         { 'cat-anime': ['prod-anime'], 'cat-naruto': ['prod-naruto'], 'cat-kpop': ['prod-kpop'] },
         [dbRow()],
       )
@@ -351,23 +366,22 @@ describe('useProducts — filtro por categoria N:N (PST-06 AC 4)', () => {
       const { result } = renderHook(() => useProducts('bottons'), { wrapper })
       await waitFor(() => expect(result.current.isSuccess).toBe(true))
 
-      const [, branch] = inLinksSpy.mock.calls[0]
-      expect(branch).toEqual(
+      expect(galhoEnviado()).toEqual(
         expect.arrayContaining(['cat-bottons', 'cat-anime', 'cat-kpop', 'cat-naruto']),
       )
     })
 
     it('folha continua idêntica ao comportamento anterior — só o próprio id', async () => {
-      const { inLinksSpy } = respondForCategory({ 'cat-naruto': ['prod-naruto'] }, [dbRow()])
+      const { filtroSpy } = respondForCategory({ 'cat-naruto': ['prod-naruto'] }, [dbRow()])
 
       const { result } = renderHook(() => useProducts('naruto'), { wrapper })
       await waitFor(() => expect(result.current.isSuccess).toBe(true))
 
-      expect(inLinksSpy).toHaveBeenCalledWith('category_id', ['cat-naruto'])
+      expect(filtroSpy).toHaveBeenCalledWith('filtro.category_id', ['cat-naruto'])
     })
 
     it('produto vinculado ao pai E à filha entra UMA vez só', async () => {
-      const { inProductsSpy } = respondForCategory(
+      respondForCategory(
         { 'cat-anime': ['prod-dupla'], 'cat-naruto': ['prod-dupla'] },
         [dbRow({ id: 'prod-dupla' })],
       )
@@ -375,10 +389,12 @@ describe('useProducts — filtro por categoria N:N (PST-06 AC 4)', () => {
       const { result } = renderHook(() => useProducts('anime'), { wrapper })
       await waitFor(() => expect(result.current.isSuccess).toBe(true))
 
-      expect(inProductsSpy).toHaveBeenCalledWith('id', ['prod-dupla'])
+      // Antes a deduplicacao era do cliente (`Set` sobre os vinculos); agora e do inner join. A
+      // garantia e a mesma e continua asserida: o produto aparece UMA vez na listagem.
+      expect(result.current.data!.map(p => p.id)).toEqual(['prod-dupla'])
     })
 
-    it('sem N+1: UMA leitura da árvore e UMA de vínculos, qualquer que seja a descendência', async () => {
+    it('sem N+1: UMA leitura da arvore e UMA de produtos, qualquer que seja a descendencia', async () => {
       const { counts } = respondForCategory(
         { 'cat-anime': ['prod-anime'], 'cat-naruto': ['prod-naruto'] },
         [dbRow()],
@@ -387,12 +403,13 @@ describe('useProducts — filtro por categoria N:N (PST-06 AC 4)', () => {
       const { result } = renderHook(() => useProducts('bottons'), { wrapper })
       await waitFor(() => expect(result.current.isSuccess).toBe(true))
 
-      // "Bottons" tem 3 descendentes; uma implementação por-descendente faria 3 leituras de vínculo.
-      expect(counts()).toEqual({ categoriesSelects: 1, linkSelects: 1 })
+      // "Bottons" tem 3 descendentes; uma implementacao por-descendente faria 3 leituras.
+      // Sao DUAS consultas agora, nao tres: a de vinculos deixou de existir.
+      expect(counts()).toEqual({ categoriesSelects: 1, productSelects: 1 })
     })
 
     it('slug inexistente não filtra nada — devolve a listagem completa, como antes', async () => {
-      const { inProductsSpy } = respondForCategory({}, [dbRow()])
+      const { filtroSpy } = respondForCategory({}, [dbRow()])
       fromMock.mockImplementation((table: string) => {
         if (table === 'categories') return { select: () => Promise.resolve({ data: TREE, error: null }) }
         return { select: () => Promise.resolve({ data: [dbRow()], error: null }) }
@@ -401,8 +418,45 @@ describe('useProducts — filtro por categoria N:N (PST-06 AC 4)', () => {
       const { result } = renderHook(() => useProducts('fantasma'), { wrapper })
       await waitFor(() => expect(result.current.isSuccess).toBe(true))
 
-      expect(inProductsSpy).not.toHaveBeenCalled()
+      expect(filtroSpy).not.toHaveBeenCalled()
       expect(result.current.data).toHaveLength(1)
+    })
+
+    it('BUG-20260809: falha da consulta SOBE, em vez de virar lista vazia', async () => {
+      /*
+       * A segunda metade do defeito. `if (error) return []` transformava a falha em
+       * "0 produtos encontrados", e a tela mandava quem chegasse mexer em filtro que nao tinha nada
+       * a ver. Pior: React Query guardava o vazio como SUCESSO — sem nova tentativa.
+       *
+       * Mesma forma que AD-014 registrou em `useAdminCollections` (PGRST205 engolido, grade vazia
+       * para sempre). Vazio e falha sao estados diferentes.
+       */
+      fromMock.mockImplementation((table: string) => {
+        if (table === 'categories') return { select: () => Promise.resolve({ data: TREE, error: null }) }
+        return {
+          select: () => ({
+            in: () => Promise.resolve({ data: null, error: { message: 'URI too long' } }),
+          }),
+        }
+      })
+
+      const { result } = renderHook(() => useProducts('anime'), { wrapper })
+      await waitFor(() => expect(result.current.isError).toBe(true))
+
+      expect(result.current.data).toBeUndefined()
+      expect(result.current.isSuccess).toBe(false)
+      expect((result.current.error as Error).message).toContain('URI too long')
+    })
+
+    it('falha ao ler a arvore de categorias tambem sobe', async () => {
+      fromMock.mockImplementation(() => ({
+        select: () => Promise.resolve({ data: null, error: { message: 'sem conexao' } }),
+      }))
+
+      const { result } = renderHook(() => useProducts('anime'), { wrapper })
+      await waitFor(() => expect(result.current.isError).toBe(true))
+
+      expect((result.current.error as Error).message).toContain('sem conexao')
     })
 
     it('árvore com ciclo termina em vez de travar a página', async () => {
