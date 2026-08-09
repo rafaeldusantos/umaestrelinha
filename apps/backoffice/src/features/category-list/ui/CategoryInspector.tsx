@@ -16,6 +16,8 @@ import { Input } from '@estrelinha/ui/input'
 import { Label } from '@estrelinha/ui/label'
 import { Switch } from '@estrelinha/ui/switch'
 import { Textarea } from '@estrelinha/ui/textarea'
+import { categoryHref } from '@estrelinha/core/menu'
+import { reservedSlugRefusal } from '@estrelinha/core/routes'
 import type { DbCategory } from '@estrelinha/supabase/types'
 import type { AdminCategory } from '@/entities/category/api/useAdminCategories'
 import { eligibleParents } from '../model/categoryTree'
@@ -64,8 +66,34 @@ const CategoryInspector = ({
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm(current => ({ ...current, [key]: value }))
 
-  const handleSave = () =>
-    onSave(category.id, {
+  // `URL-05`: com categoria na raiz do domínio (`AD-018`), rota e slug de categoria dividem o mesmo
+  // namespace, e o React Router ranqueia por especificidade — a rota vence e a categoria some sem
+  // aviso. Aqui o slug é digitado à mão; no diálogo de criar ele nasce do nome. Os dois caminhos
+  // precisam do mesmo guarda.
+  const slugRefusal = reservedSlugRefusal(form.slug)
+
+  /**
+   * O prefixo da URL pública, com o pai **do formulário** — não o que está salvo.
+   *
+   * Trocar o pai no `<select>` muda o endereço da categoria, e quem escolhe precisa ver isso antes
+   * de salvar. Por isso a árvore é projetada com o rascunho antes de perguntar a `categoryHref`, que
+   * é a única função do projeto que sabe montar a canônica (`AD-018`).
+   *
+   * Ela devolve o endereço INTEIRO (`/pai/slug`); o campo ao lado edita o último segmento, então o
+   * rótulo fica com tudo menos ele. Antes daqui havia um prefixo fixo de categoria, escrito à mão,
+   * que **nunca respondeu nesta loja** — nem na rota antiga, nem na nova.
+   */
+  const projected = allCategories.map(c =>
+    c.id === category.id ? { ...c, parent_id: form.parent_id || null } : c,
+  )
+  const canonical = categoryHref(projected, category.id)
+  const urlPrefix = `umaestrelinha.com.br${canonical.slice(0, canonical.lastIndexOf('/') + 1)}`
+
+  const handleSave = () => {
+    // No handler, e não num `disabled` do botão — o motivo já registrado em `MenuSlotList`: o
+    // `disabled` some num atalho de teclado ou numa chamada direta, e o veredito é do domínio.
+    if (slugRefusal) return undefined
+    return onSave(category.id, {
       name: form.name,
       slug: form.slug,
       description: form.description || null,
@@ -73,6 +101,7 @@ const CategoryInspector = ({
       parent_id: form.parent_id || null,
       active: form.active,
     })
+  }
 
   return (
     <aside
@@ -104,7 +133,7 @@ const CategoryInspector = ({
         <div className="space-y-1.5">
           <Label htmlFor="cat-slug">URL da categoria</Label>
           <div className="flex items-center gap-1 rounded-lg border border-border bg-muted/40 px-2.5">
-            <span className="shrink-0 text-[12px] text-muted-foreground">/categoria/</span>
+            <span className="shrink-0 text-[12px] text-muted-foreground">{urlPrefix}</span>
             <Input
               id="cat-slug"
               value={form.slug}
@@ -112,6 +141,11 @@ const CategoryInspector = ({
               className="border-0 bg-transparent px-0 focus-visible:ring-0"
             />
           </div>
+          {slugRefusal && (
+            <p role="alert" className="text-xs font-medium text-destructive">
+              {slugRefusal}
+            </p>
+          )}
         </div>
 
         <div className="space-y-1.5">

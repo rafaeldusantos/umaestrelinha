@@ -28,6 +28,7 @@ import { Label } from '@estrelinha/ui/label'
 import { Textarea } from '@estrelinha/ui/textarea'
 import { Switch } from '@estrelinha/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@estrelinha/ui/select'
+import { reservedSlugRefusal } from '@estrelinha/core/routes'
 import type { DbCategory } from '@estrelinha/supabase/types'
 
 interface Props {
@@ -63,12 +64,22 @@ const CategoryFormDialog = ({ open, onOpenChange, category, onSave, allCategorie
 
   const parentOptions = allCategories.filter(c => !c.parent_id && c.id !== category?.id)
 
+  // O slug que SERIA gravado — não o que está no campo. Quem cadastra digita o nome e nunca toca no
+  // campo de slug, então conferir `form.slug` deixaria justamente o caminho mais comum sem guarda.
+  const effectiveSlug = form.slug || slugify(form.name)
+  // `URL-05`: com categoria na raiz do domínio (`AD-018`), rota e slug dividem o namespace e a rota
+  // sempre vence o ranqueamento do React Router. A categoria nasceria e nunca abriria.
+  const slugRefusal = reservedSlugRefusal(effectiveSlug)
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    // A recusa vive no handler, e não num `disabled`: `disabled` some num atalho de teclado, num
+    // submit programático e numa chamada direta — o mesmo motivo já registrado em `MenuSlotList`.
+    if (slugRefusal) return
     setSaving(true)
     await onSave({
       name: form.name,
-      slug: form.slug || slugify(form.name),
+      slug: effectiveSlug,
       description: form.description || null,
       active: form.active,
       parent_id: form.parent_id || null,
@@ -100,6 +111,11 @@ const CategoryFormDialog = ({ open, onOpenChange, category, onSave, allCategorie
               value={form.slug}
               onChange={e => setForm(f => ({ ...f, slug: e.target.value }))}
             />
+            {slugRefusal && (
+              <p role="alert" className="text-xs font-medium text-destructive">
+                {slugRefusal}
+              </p>
+            )}
           </div>
           <div className="space-y-1.5">
             <Label>Categoria pai (Universo)</Label>

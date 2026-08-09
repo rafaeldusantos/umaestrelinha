@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom'
 import { useState } from 'react'
 import { formatPrice, formatRelativeDate } from '@estrelinha/core/formatters'
 import { STATUS_LABELS, STATUS_COLORS } from '@/entities/abandoned-cart/api/useAdminAbandonedCarts'
+import { storeUrlFor } from '@/features/product-form/lib/storeUrl'
 import { toast } from 'sonner'
 import type { DbAbandonedCart } from '@estrelinha/supabase/types/abandonedCart'
 
@@ -78,7 +79,14 @@ const AbandonedCartDetailDialog = ({ cart, open, onOpenChange, onDelete }: Props
               Itens ({cart.items.length})
             </h3>
             <div className="space-y-2">
-              {cart.items.map((item, i) => (
+              {cart.items.map((item, i) => {
+                // O link é para a LOJA, e por isso é `<a href>` e não `<Link to>`. Com `<Link>` o
+                // React Router do painel tentava casar o caminho do produto contra as rotas de
+                // `/admin/*`, não achava nenhuma e entregava a 404 **do painel** — nunca a loja.
+                // Sem `VITE_STORE_URL` não há loja para onde ir: o nome vira texto, nunca link morto.
+                const storeHref = storeUrlFor(item.product_slug)
+
+                return (
                 <div
                   key={i}
                   className="flex items-center gap-3 p-3 bg-white border border-estrelinha-admin-border rounded-xl"
@@ -93,14 +101,21 @@ const AbandonedCartDetailDialog = ({ cart, open, onOpenChange, onDelete }: Props
                     <div className="w-14 h-14 rounded-lg bg-estrelinha-admin-elevated" />
                   )}
                   <div className="flex-1 min-w-0">
-                    <Link
-                      to={`/produto/${item.product_slug}`}
-                      target="_blank"
-                      className="font-medium text-estrelinha-admin-text hover:text-estrelinha-admin-violet line-clamp-1 flex items-center gap-1"
-                    >
-                      {item.product_name}
-                      <ExternalLink className="w-3 h-3 shrink-0" />
-                    </Link>
+                    {storeHref ? (
+                      <a
+                        href={storeHref}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="font-medium text-estrelinha-admin-text hover:text-estrelinha-admin-violet line-clamp-1 flex items-center gap-1"
+                      >
+                        {item.product_name}
+                        <ExternalLink className="w-3 h-3 shrink-0" />
+                      </a>
+                    ) : (
+                      <span className="font-medium text-estrelinha-admin-text line-clamp-1">
+                        {item.product_name}
+                      </span>
+                    )}
                     <div className="text-xs text-muted-foreground mt-0.5">
                       {item.size && `${item.size}`}
                       {item.size && item.finish && ' · '}
@@ -113,7 +128,8 @@ const AbandonedCartDetailDialog = ({ cart, open, onOpenChange, onDelete }: Props
                     {formatPrice(item.unit_price * item.quantity)}
                   </div>
                 </div>
-              ))}
+                )
+              })}
             </div>
           </section>
 

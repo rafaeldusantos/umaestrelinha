@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { reservedSlugRefusal } from '@estrelinha/core/routes'
 import CategoryFormDialog from './CategoryFormDialog'
 import type { DbCategory } from '@estrelinha/supabase/types'
 
@@ -115,6 +116,71 @@ describe('CategoryFormDialog — o payload', () => {
     fireEvent.submit(screen.getByLabelText('Nome').closest('form')!)
 
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
+  })
+})
+
+/**
+ * `URL-05` — o slug reservado recusado na CRIAÇÃO.
+ *
+ * Com categoria na raiz do domínio (`AD-018`), o namespace de rota e o de slug de categoria são o
+ * mesmo, e o React Router ranqueia por especificidade: a rota **sempre** vence. Uma categoria
+ * chamada "Sobre" nasceria no banco, apareceria no menu do admin e **nunca abriria** na loja — quem
+ * responde `/sobre` é a página institucional. Não há erro em lugar nenhum: só uma categoria morta.
+ *
+ * Este diálogo é o caminho mais provável do defeito, porque **o slug sai do nome sozinho**: quem
+ * cadastra digita "Sobre" e nunca toca no campo de slug.
+ */
+describe('CategoryFormDialog — slug reservado é recusado (URL-05)', () => {
+  it('digitar `Sobre` no nome deriva `sobre` e a tela recusa, com a lista visível', () => {
+    renderDialog()
+
+    fireEvent.change(screen.getByLabelText('Nome'), { target: { value: 'Sobre' } })
+
+    // O caminho real: ninguém digitou slug nenhum, ele veio do nome.
+    expect(screen.getByLabelText('Slug')).toHaveValue('sobre')
+
+    const alerta = screen.getByRole('alert')
+    expect(alerta).toHaveTextContent(reservedSlugRefusal('sobre'))
+    // "com a lista visível" (AC 5): sem os outros nomes na tela, quem cadastra tenta o próximo
+    // reservado no escuro.
+    expect(alerta).toHaveTextContent('checkout')
+    expect(alerta).toHaveTextContent('favoritos')
+  })
+
+  it('o submit não chega em `onSave` — e o diálogo não fecha', () => {
+    const { onSave, onOpenChange } = renderDialog()
+
+    fireEvent.change(screen.getByLabelText('Nome'), { target: { value: 'Sobre' } })
+    // `submit` no formulário, e não clique no botão: assim a prova é a recusa no handler, e não um
+    // `disabled` — que some num atalho de teclado ou numa chamada direta.
+    fireEvent.submit(screen.getByLabelText('Nome').closest('form')!)
+
+    expect(onSave).not.toHaveBeenCalled()
+    expect(onOpenChange).not.toHaveBeenCalled()
+  })
+
+  it('o slug digitado à mão também é conferido, não só o derivado do nome', () => {
+    const { onSave } = renderDialog()
+
+    fireEvent.change(screen.getByLabelText('Nome'), { target: { value: 'Ajuda rápida' } })
+    fireEvent.change(screen.getByLabelText('Slug'), { target: { value: 'checkout' } })
+    fireEvent.submit(screen.getByLabelText('Nome').closest('form')!)
+
+    expect(screen.getByRole('alert')).toHaveTextContent(reservedSlugRefusal('checkout'))
+    expect(onSave).not.toHaveBeenCalled()
+  })
+
+  it('slug livre continua salvando, e nenhum aviso aparece', async () => {
+    const { onSave } = renderDialog()
+
+    fireEvent.change(screen.getByLabelText('Nome'), { target: { value: 'Joias de leite' } })
+
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+
+    fireEvent.submit(screen.getByLabelText('Nome').closest('form')!)
+
+    await waitFor(() => expect(onSave).toHaveBeenCalled())
+    expect(onSave.mock.calls[0][0].slug).toBe('joias-de-leite')
   })
 })
 

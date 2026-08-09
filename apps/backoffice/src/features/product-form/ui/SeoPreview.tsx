@@ -1,6 +1,7 @@
 import { Input } from '@estrelinha/ui/input'
 import { Label } from '@estrelinha/ui/label'
 import { Textarea } from '@estrelinha/ui/textarea'
+import { productPath } from '@estrelinha/core/routes'
 
 interface Props {
   title: string
@@ -18,7 +19,9 @@ interface Props {
 const SeoPreview = ({ title, description, slug, onTitleChange, onDescriptionChange }: Props) => {
   const displayTitle = title || 'Título do produto'
   const displayDesc = description || 'Descrição do produto para mecanismos de busca...'
-  const displayUrl = `umaestrelinha.com.br/produto/${slug || 'slug-do-produto'}`
+  // A prévia promete o que o Google vai mostrar: o caminho tem de ser o canônico (`URL-01`), não o
+  // legado que responde por 301.
+  const displayUrl = `umaestrelinha.com.br${productPath(slug || 'slug-do-produto')}`
 
   return (
     <div className="space-y-4">

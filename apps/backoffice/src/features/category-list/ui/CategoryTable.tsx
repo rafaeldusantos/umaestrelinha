@@ -8,6 +8,7 @@
 import { ChevronDown, ChevronRight, GripVertical, MoreVertical } from 'lucide-react'
 import { Switch } from '@estrelinha/ui/switch'
 import { cn } from '@estrelinha/ui/lib/utils'
+import { categoryHref } from '@estrelinha/core/menu'
 import type { CategoryRow } from '../model/categoryTree'
 
 interface Props {
@@ -32,6 +33,12 @@ const CategoryTable = ({
 }: Props) => {
   const selected = new Set(selectedIds)
   const collapsed = new Set(collapsedIds)
+
+  // `URL-03`: a linha exibia um prefixo fixo de categoria mais o slug — endereço que nunca
+  // respondeu nesta loja, nem na rota antiga nem na nova. A
+  // canônica depende do pai (`AD-018`), e `rows` já traz a árvore inteira — é dela que `categoryHref`
+  // resolve o pai, sem uma segunda consulta nem uma segunda caminhada.
+  const allCategories = rows.map(row => row.category)
 
   // Uma filha de categoria colapsada não é desenhada — nem a neta dela, que não tem como aparecer
   // sob uma mãe que sumiu. As linhas vêm em pré-ordem, então marcar o ramo inteiro é uma passada.
@@ -158,7 +165,7 @@ const CategoryTable = ({
                   </span>
                 )}
               </span>
-              <span className="truncate text-[10.5px] text-muted-foreground">/categoria/{category.slug}</span>
+              <span className="truncate text-[10.5px] text-muted-foreground">{categoryHref(allCategories, category.id)}</span>
             </button>
 
             <span className="flex w-20 shrink-0 items-baseline gap-1.5">

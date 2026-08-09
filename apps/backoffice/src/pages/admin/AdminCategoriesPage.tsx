@@ -13,10 +13,11 @@ import { useAdminCategories, type AdminCategory } from '@/entities/category/api/
 import CategoryFormDialog from '@/features/category-form/ui/CategoryFormDialog'
 import {
   buildCategoryTree, cascadeSelection, deletionImpact, filterCategoryRows, moveDestinations,
-  moveSelection, planMove, reorderWithinParent,
+  moveSelection, persistCategoryRedirect, planMove, reorderWithinParent,
   CategoryBulkBar, CategoryDeleteDialog, CategoryInspector, CategoryMoveDialog, CategoryTable,
-  type CategoryView,
+  type CategoryRedirectClient, type CategoryView,
 } from '@/features/category-list'
+import { supabase } from '@estrelinha/supabase/client'
 import { Button } from '@estrelinha/ui/button'
 import { Input } from '@estrelinha/ui/input'
 import { toast } from '@estrelinha/ui/hooks/use-toast'
@@ -95,8 +96,32 @@ const AdminCategoriesPage = () => {
   const handleToggleActive = (id: string, value: boolean) =>
     run(() => updateCategory(id, { active: value }), value ? 'Categoria na vitrine' : 'Categoria oculta')
 
-  const handleSaveInspector = async (id: string, updates: Partial<DbCategory>) =>
-    run(() => updateCategory(id, updates), 'Categoria salva')
+  const handleSaveInspector = async (id: string, updates: Partial<DbCategory>) => {
+    // O slug que estava no banco, lido ANTES do update — depois dele a lista já foi refetchada e a
+    // pergunta "qual era o endereço antigo?" não tem mais resposta.
+    const previousSlug = categories.find(c => c.id === id)?.slug ?? ''
+
+    const salvou = await run(() => updateCategory(id, updates), 'Categoria salva')
+    if (!salvou) return
+
+    // `SEO-02`: com a categoria na raiz do domínio (`AD-018`), renomear o slug mata todo link
+    // indexado. Depois do save e nunca antes: um redirect apontando para um slug que não chegou a
+    // ser gravado levaria a lugar nenhum.
+    const redirect = await persistCategoryRedirect(supabase as unknown as CategoryRedirectClient, {
+      categoryId: id,
+      previousSlug,
+      nextSlug: String(updates.slug ?? ''),
+    })
+    // Falha do redirect não derruba o save da categoria — ela já está gravada. A tela avisa, em vez
+    // de fingir que tudo deu certo ou de desfazer o que deu.
+    if (redirect.written === false && redirect.reason === 'error') {
+      toast({
+        title: 'A categoria foi salva, mas o redirecionamento da URL antiga não',
+        description: redirect.message,
+        variant: 'destructive',
+      })
+    }
+  }
 
   const handleBulkVisibility = (value: boolean) =>
     run(

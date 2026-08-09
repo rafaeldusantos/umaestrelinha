@@ -128,6 +128,26 @@ describe('CategoryTable — a contagem que a linha mostra (T55)', () => {
   })
 })
 
+/**
+ * `URL-03` — a listagem mostrava o mesmo prefixo mentiroso do inspetor: um segmento fixo de
+ * categoria escrito à mão, endereço que nunca respondeu nesta loja. É a superfície mais vista das
+ * duas — a lista aparece toda vez que se abre Categorias, e o inspetor só quando alguém clica.
+ */
+describe('CategoryTable — a linha mostra a URL pública real (URL-03)', () => {
+  it('raiz sai com um segmento e filha com dois — a canônica de `AD-018`', () => {
+    setup()
+
+    expect(screen.getByText('/anime')).toBeInTheDocument()
+    expect(screen.getByText('/anime/sailor')).toBeInTheDocument()
+  })
+
+  it('nenhuma linha exibe o prefixo antigo de categoria', () => {
+    setup()
+
+    expect(screen.queryByText(/\/categoria\//)).not.toBeInTheDocument()
+  })
+})
+
 describe('CategoryTable — modo Reordenar (T58 AC 1, desenhado aqui)', () => {
   it('fora do modo Reordenar a linha não é arrastável', () => {
     setup()

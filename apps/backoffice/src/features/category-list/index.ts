@@ -4,6 +4,12 @@ export { default as CategoryBulkBar } from './ui/CategoryBulkBar'
 export { default as CategoryDeleteDialog } from './ui/CategoryDeleteDialog'
 export { default as CategoryMoveDialog } from './ui/CategoryMoveDialog'
 export {
+  persistCategoryRedirect,
+  type CategoryRedirectClient,
+  type CategoryRedirectInput,
+  type CategoryRedirectResult,
+} from './model/persistCategoryRedirect'
+export {
   buildCategoryTree,
   cascadeSelection,
   deletionImpact,

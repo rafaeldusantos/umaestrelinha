@@ -3,10 +3,17 @@ import { Button } from '@estrelinha/ui/button'
 import { Input } from '@estrelinha/ui/input'
 import { Label } from '@estrelinha/ui/label'
 import { Switch } from '@estrelinha/ui/switch'
+import { productPath } from '@estrelinha/core/routes'
 import { useSlugAvailability } from '../model/useSlugAvailability'
 
-/** O domínio da loja, em slot fixo. Fora do input, como `R$` nos campos de moeda. */
-export const STORE_URL_PREFIX = 'umaestrelinha.com.br/produto/'
+/**
+ * O domínio da loja, em slot fixo. Fora do input, como `R$` nos campos de moeda.
+ *
+ * O caminho sai de `productPath` (`URL-01`) e não de um literal: este prefixo é o endereço que a
+ * admin lê na tela e cola no Instagram. Se ele divergir do que a loja serve, o link postado passa a
+ * depender de um 301 — e ninguém descobre, porque o 301 funciona.
+ */
+export const STORE_URL_PREFIX = `umaestrelinha.com.br${productPath('')}`
 
 interface Props {
   slug: string

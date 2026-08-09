@@ -19,7 +19,9 @@ const CATALOGO = [
   cat({ id: 'anime', name: 'Anime', sort_order: 1, product_count: 6 }),
   cat({ id: 'sailor', name: 'Sailor Moon', parent_id: 'anime', sort_order: 1, product_count: 12 }),
   cat({ id: 'chainsaw', name: 'Chainsaw Man', parent_id: 'anime', sort_order: 2, product_count: 9 }),
-  cat({ id: 'kpop', name: 'K-Pop', sort_order: 2, product_count: 5, active: false }),
+  // Slug DIFERENTE do id de propósito: é o que faz o teste do redirect distinguir
+  // `from_slug` de `category_id` (T17). Com os dois iguais, trocar um pelo outro passaria.
+  cat({ id: 'kpop', name: 'K-Pop', slug: 'k-pop', sort_order: 2, product_count: 5, active: false }),
 ]
 
 const hook = vi.hoisted(() => ({
@@ -43,12 +45,41 @@ vi.mock('@/entities/category/api/useAdminCategories', () => ({
 
 vi.mock('@estrelinha/ui/hooks/use-toast', () => ({ toast: vi.fn() }))
 
+// T17 — o client que `persistCategoryRedirect` recebe da página. Registra a chamada em vez de
+// devolver só `{ error: null }`: o que a AC pede provar é a LINHA gravada, não que houve escrita.
+interface RedirectCall { table: string; op: string; payload?: unknown; options?: unknown }
+const redirect = vi.hoisted(() => ({
+  calls: [] as RedirectCall[],
+  falhaNoUpsert: null as string | null,
+}))
+
+vi.mock('@estrelinha/supabase/client', () => ({
+  supabase: {
+    from: (table: string) => ({
+      upsert: (rows: unknown, options: unknown) => {
+        redirect.calls.push({ table, op: 'upsert', payload: rows, options })
+        return Promise.resolve({
+          error: redirect.falhaNoUpsert ? { message: redirect.falhaNoUpsert } : null,
+        })
+      },
+      delete: () => ({
+        eq: (column: string, value: string) => {
+          redirect.calls.push({ table, op: 'delete', payload: { column, value } })
+          return Promise.resolve({ error: null })
+        },
+      }),
+    }),
+  },
+}))
+
 import AdminCategoriesPage from './AdminCategoriesPage'
 import { toast } from '@estrelinha/ui/hooks/use-toast'
 
 beforeEach(() => {
   for (const fn of Object.values(hook)) fn.mockClear()
   vi.mocked(toast).mockClear()
+  redirect.calls.length = 0
+  redirect.falhaNoUpsert = null
 })
 
 const drop = (targetTestId: string, draggedId: string) => {
@@ -224,5 +255,63 @@ describe('AdminCategoriesPage — busca e visões (T58)', () => {
 
     expect(screen.getByTestId('categoria-kpop')).toBeInTheDocument()
     expect(screen.queryByTestId('categoria-anime')).toBeNull()
+  })
+})
+
+// 23 · T17 — `SEO-02` (spec AC 8): "WHEN o slug de uma categoria muda THEN o anterior SHALL
+// resolver por uma tabela equivalente". A função é testada em `persistCategoryRedirect.test.ts`;
+// aqui prova-se que a TELA a chama, com o slug que estava no banco antes do save.
+describe('AdminCategoriesPage — o slug antigo vira redirect no save (SEO-02)', () => {
+  const renomearKPop = (novoSlug: string) => {
+    render(<AdminCategoriesPage />)
+    fireEvent.click(screen.getByText('K-Pop'))
+    fireEvent.change(screen.getByLabelText('URL da categoria'), { target: { value: novoSlug } })
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar' }))
+  }
+
+  it('renomear o slug grava o ANTERIOR apontando para a categoria', async () => {
+    renomearKPop('k-pop-br')
+
+    await waitFor(() => expect(redirect.calls.find(c => c.op === 'upsert')).toBeDefined())
+    const upsert = redirect.calls.find(c => c.op === 'upsert')!
+    expect(upsert.table).toBe('category_redirects')
+    expect(upsert.payload).toEqual([{ from_slug: 'k-pop', category_id: 'kpop' }])
+  })
+
+  it('o redirect é gravado DEPOIS do save — endereço antigo só aponta para slug que existe', async () => {
+    renomearKPop('k-pop-br')
+
+    await waitFor(() => expect(hook.updateCategory).toHaveBeenCalledWith(
+      'kpop',
+      expect.objectContaining({ slug: 'k-pop-br' }),
+    ))
+    await waitFor(() => expect(redirect.calls.some(c => c.op === 'upsert')).toBe(true))
+  })
+
+  it('salvar sem mexer no slug não grava redirect nenhum', async () => {
+    render(<AdminCategoriesPage />)
+    fireEvent.click(screen.getByText('K-Pop'))
+    fireEvent.change(screen.getByLabelText('Nome'), { target: { value: 'K-Pop BR' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar' }))
+
+    await waitFor(() => expect(hook.updateCategory).toHaveBeenCalled())
+    expect(redirect.calls).toEqual([])
+  })
+
+  it('falha na gravação do redirect avisa e NÃO desfaz o save da categoria', async () => {
+    redirect.falhaNoUpsert = 'new row violates row-level security policy'
+
+    renomearKPop('k-pop-br')
+
+    await waitFor(() => expect(toast).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'A categoria foi salva, mas o redirecionamento da URL antiga não',
+        description: 'new row violates row-level security policy',
+      }),
+    ))
+    expect(hook.updateCategory).toHaveBeenCalledWith(
+      'kpop',
+      expect.objectContaining({ slug: 'k-pop-br' }),
+    )
   })
 })

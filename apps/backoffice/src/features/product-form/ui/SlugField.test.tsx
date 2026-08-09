@@ -1,3 +1,6 @@
+import { readFileSync, readdirSync } from 'node:fs'
+import { dirname, join, relative, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 
@@ -7,8 +10,10 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 const { fromMock } = vi.hoisted(() => ({ fromMock: vi.fn() }))
 vi.mock('@estrelinha/supabase/client', () => ({ supabase: { from: fromMock } }))
 
-import SlugField from './SlugField'
+import SlugField, { STORE_URL_PREFIX } from './SlugField'
 import SlugReadonlyLine from './SlugReadonlyLine'
+import SeoPreview from './SeoPreview'
+import { storeUrlFor } from '../lib/storeUrl'
 import { blocksSave, suggestSlug } from '../model/useSlugAvailability'
 import { persistRedirect } from '../model/persistRedirect'
 import type { PersistClient } from '../model/persistProduct'
@@ -161,7 +166,7 @@ describe('SlugReadonlyLine — a aba Geral não edita slug (PFM-02 AC 1, 3)', ()
 
     // O domínio e o slug são elementos separados — o artboard dá peso maior ao slug, que é a parte
     // que muda. A asserção é sobre a faixa inteira, não sobre um nó só.
-    expect(screen.getByText('umaestrelinha.com.br/produto/')).toBeInTheDocument()
+    expect(screen.getByText('umaestrelinha.com.br/produtos/')).toBeInTheDocument()
     expect(screen.getByText('botton-sailor-moon')).toBeInTheDocument()
     expect(container.querySelector('input')).toBeNull()
   })
@@ -294,5 +299,82 @@ describe('persistRedirect — a gravação (PFM-04 AC 7, 9, 10)', () => {
       reason: 'error',
       message: 'permission denied',
     })
+  })
+})
+
+/**
+ * `URL-01` — as três superfícies do backoffice que escrevem a URL da loja.
+ *
+ * O caminho canônico do produto passou a ser `/produtos/:slug` (`AD-018`), que é o que a loja em
+ * produção publica e o que o Google indexou. O singular continua respondendo — com **301** no edge —,
+ * e é justamente por isso que um resíduo aqui não quebraria nada: o link postado abriria, com um
+ * salto a mais, e a admin nunca saberia que copiou o endereço errado do próprio produto.
+ */
+describe('a URL da loja no painel (URL-01)', () => {
+  it('`STORE_URL_PREFIX` é o caminho publicado', () => {
+    expect(STORE_URL_PREFIX).toBe('umaestrelinha.com.br/produtos/')
+  })
+
+  it('a prévia do Google promete exatamente o mesmo endereço', () => {
+    render(
+      <SeoPreview
+        title="Joia de leite"
+        description=""
+        slug="joia-de-leite"
+        onTitleChange={vi.fn()}
+        onDescriptionChange={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText('umaestrelinha.com.br/produtos/joia-de-leite')).toBeInTheDocument()
+  })
+
+  it('`storeUrlFor` monta o caminho canônico sobre a origem da loja', () => {
+    expect(storeUrlFor('joia-de-leite', 'https://umaestrelinha.com.br')).toBe(
+      'https://umaestrelinha.com.br/produtos/joia-de-leite',
+    )
+  })
+
+  it('sem loja configurada não há link — melhor que apontar para nada', () => {
+    expect(storeUrlFor('joia-de-leite', '')).toBeNull()
+  })
+
+  it('nenhum arquivo do backoffice escreve o caminho legado do produto', () => {
+    // O caminho por extenso: a régua não pode ser o objeto medido.
+    const HERE = dirname(fileURLToPath(import.meta.url))
+    const ROOT = resolve(HERE, '../../../../../..')
+    const SRC = join(ROOT, 'apps/backoffice/src')
+
+    const arquivos = (dir: string): string[] =>
+      readdirSync(dir, { withFileTypes: true }).flatMap(entry => {
+        const full = join(dir, entry.name)
+        if (entry.isDirectory()) return arquivos(full)
+        return entry.isFile() && /\.tsx?$/.test(entry.name) ? [full] : []
+      })
+
+    const files = arquivos(SRC)
+    // Âncora dupla: leu arquivos de verdade E alcançou as superfícies que montam o endereço.
+    expect(files.length).toBeGreaterThan(100)
+    for (const alvo of [
+      'features/product-form/lib/storeUrl.ts',
+      'features/product-form/ui/SeoPreview.tsx',
+      'features/abandoned-cart-detail/ui/AbandonedCartDetailDialog.tsx',
+    ]) {
+      expect(files.some(file => file.replace(/\\/g, '/').endsWith(alvo))).toBe(true)
+    }
+
+    // `/produtos/` NÃO casa com isto — depois de `produto` vem `s`, e não a barra.
+    const LEGADO = '/produto/'
+    const offenders = files
+      .flatMap(file =>
+        readFileSync(file, 'utf8')
+          .split('\n')
+          .map((text, index) => ({ file, line: index + 1, text }))
+          // Este arquivo cita a string que procura; sem a exceção ele se acusa.
+          .filter(entry => entry.text.includes(LEGADO) && !entry.file.endsWith('SlugField.test.tsx')),
+      )
+      .map(entry => `${relative(SRC, entry.file).replace(/\\/g, '/')}:${entry.line} — ${entry.text.trim()}`)
+
+    expect(offenders).toEqual([])
   })
 })
