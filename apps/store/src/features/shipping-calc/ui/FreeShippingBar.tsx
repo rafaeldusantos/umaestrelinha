@@ -11,7 +11,7 @@ const FreeShippingBar = ({ currentTotal }: { currentTotal: number }) => {
     return (
       <div className="bg-estrelinha-primary/10 border border-estrelinha-primary/30 rounded-xl p-3 flex items-center gap-2">
         <Truck className="w-4 h-4 text-estrelinha-primary" />
-        <span className="text-sm font-medium text-estrelinha-primary">Frete grátis! 🎉</span>
+        <span className="text-sm font-medium text-estrelinha-primary">Frete grátis!</span>
       </div>
     )
   }

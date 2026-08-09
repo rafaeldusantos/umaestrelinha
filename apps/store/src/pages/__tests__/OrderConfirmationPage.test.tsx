@@ -14,7 +14,7 @@ import OrderConfirmationPage from '../OrderConfirmationPage'
 // CNF-04: número do pedido, valor pago, e-mail da cliente e a timeline de 4
 //         estágios com a janela de entrega lida das colunas de estimativa (SHP-08).
 // CNF-05: **uma** ação primária ("Acompanhar pedido" → /conta, pílula geleia) e uma secundária
-//         ("Ver mais pins" → /, contorno tinta); carrinho e cupom limpos só na aprovação.
+//         ("Ver mais joias" → /, contorno tinta); carrinho e cupom limpos só na aprovação.
 
 vi.mock('@/entities/order/api/useOrder', async () => {
   const actual = await vi.importActual<typeof import('@/entities/order/api/useOrder')>(
@@ -223,11 +223,11 @@ describe('OrderConfirmationPage — ações (CNF-05)', () => {
     expect(primary.className).not.toContain('rounded-pill')
   })
 
-  it('"Ver mais pins" é secundária em contorno tinta e aponta para a home', () => {
+  it('"Ver mais joias" é secundária em contorno tinta e aponta para a home', () => {
     mockOrder({ data: order() })
     renderPage()
 
-    const secondary = screen.getByRole('link', { name: /ver mais pins/i })
+    const secondary = screen.getByRole('link', { name: /ver mais joias/i })
     expect(secondary).toHaveAttribute('href', '/')
     expect(secondary.className).toContain('border-estrelinha-ink')
     expect(secondary.className).not.toContain('bg-estrelinha-primary')

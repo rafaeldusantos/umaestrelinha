@@ -32,7 +32,7 @@ const StepView = ({ step }: { step: AuthStep }) => {
   }
 }
 
-const BENEFITS = ['Frete grátis acima de R$150', 'Drops exclusivos toda semana', '+2.000 colecionadores felizes']
+const BENEFITS = ['Frete grátis acima de R$150', 'Peça única, feita à mão', 'Acompanhe seu pedido do início ao fim']
 
 const BrandPanel = () => (
   <div

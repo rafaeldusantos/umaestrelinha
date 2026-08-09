@@ -34,7 +34,7 @@ export const freeShippingProgress = (
 
 /**
  * O estoque que **esta linha** consome: a variação escolhida, ou o `stock_total` legado quando o
- * produto não tem grade. Somar os dois contaria o mesmo botton duas vezes.
+ * produto não tem grade. Somar os dois contaria a mesma joia duas vezes.
  */
 const stockOf = (item: CartItem): number => {
   if (item.variantId) {
@@ -67,7 +67,7 @@ const isSuggestable = (product: Product): boolean => {
 }
 
 /**
- * As sugestões de "complete o frete grátis": os bottons mais baratos que ainda não estão na sacola.
+ * As sugestões de "complete o frete grátis": as joias mais baratas que ainda não estão na sacola.
  *
  * Barato primeiro, como no board — o rótulo "A partir de R$ X" é o preço da primeira. Não filtramos
  * por "fecha a diferença": quem está a R$ 15,30 do frete grátis aceita bem duas peças de R$ 12,90, e

@@ -38,7 +38,7 @@ const AuthEntry = () => {
     <div className="flex flex-col">
       <div className="space-y-1 mb-6">
         <h2 className="font-heading text-2xl font-bold text-estrelinha-ink">Entrar ou criar conta</h2>
-        <p className="text-sm text-estrelinha-ink-soft">Continue comprando seus pins favoritos</p>
+        <p className="text-sm text-estrelinha-ink-soft">Para acompanhar seus pedidos e favoritos</p>
       </div>
 
       <Button

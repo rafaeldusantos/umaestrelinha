@@ -117,14 +117,14 @@ const CartDrawer = () => {
                 Sua sacola está vazia
               </p>
               <p className="mt-1 text-sm text-estrelinha-ink-soft">
-                Escolhe uns bottons — a gente embala com carinho.
+                Escolha uma peça — a gente embala com carinho.
               </p>
             </div>
             <Button
               onClick={() => goTo('/')}
               className="rounded-sm border-0 bg-estrelinha-primary px-6 font-display font-semibold text-white hover:bg-estrelinha-primary hover:opacity-95"
             >
-              Explorar bottons
+              Explorar joias
             </Button>
           </div>
         ) : (
@@ -135,7 +135,7 @@ const CartDrawer = () => {
                 <p className="text-xs font-semibold text-estrelinha-primary md:text-[13px]">
                   {progress.reached ? (
                     <span className="inline-flex items-center gap-1.5">
-                      <Truck className="h-3.5 w-3.5" aria-hidden /> Frete grátis liberado! 🎉
+                      <Truck className="h-3.5 w-3.5" aria-hidden /> Frete grátis liberado
                     </span>
                   ) : (
                     <>Faltam {formatPrice(progress.remaining)} para frete grátis!</>
@@ -197,7 +197,7 @@ const CartDrawer = () => {
                */}
               {nextTier && (
                 <p className="border-b border-estrelinha-line bg-estrelinha-ground-deep px-5 py-2.5 text-xs font-semibold text-estrelinha-primary md:px-6 md:text-[13px]">
-                  {nextTier.missing === 1 ? 'Falta 1' : `Faltam ${nextTier.missing}`} para cada botton
+                  {nextTier.missing === 1 ? 'Falta 1' : `Faltam ${nextTier.missing}`} para cada peça
                   sair a {formatPrice(nextTier.unitPrice)}
                 </p>
               )}

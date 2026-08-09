@@ -107,7 +107,16 @@ const CartDrawerRow = ({ item, onNavigate }: Props) => {
               onClick={() => toggleWishlist(product.id)}
               aria-label={wishlisted ? `Remover ${product.name} dos favoritos` : `Favoritar ${product.name}`}
               aria-pressed={wishlisted}
-              className={`${TAP} text-estrelinha-accent-strong transition-transform hover:scale-110`}
+              /* **A cor é o ESTADO, não o enfeite.** O coração saía sempre em
+                 ouro, favoritado ou não — ao lado de uma lixeira `ink`, isso
+                 lia como "este item já está nos favoritos". Desligado ele vai
+                 de `ink-soft` (6,00:1) e só o ligado recebe `accent-strong`
+                 (3,85:1 sobre branco, acima dos 3:1 de objeto gráfico). O
+                 `fill` continua sendo a segunda pista, para a diferença não
+                 depender só de cor. */
+              className={`${TAP} transition-transform hover:scale-110 ${
+                wishlisted ? 'text-estrelinha-accent-strong' : 'text-estrelinha-ink-soft'
+              }`}
             >
               <Heart className="h-4 w-4" strokeWidth={2} fill={wishlisted ? 'currentColor' : 'none'} />
             </button>

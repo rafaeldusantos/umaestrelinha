@@ -116,6 +116,36 @@ describe('CartDrawer — quem abre', () => {
   })
 })
 
+describe('CartDrawer — o coração da linha diz o ESTADO (IDN-04)', () => {
+  // Ele saía sempre em ouro, favoritado ou não. Ao lado de uma lixeira `ink`,
+  // isso lia como "este item já está nos favoritos" — cor sem estado atrás.
+  const addItem = () => {
+    act(() => useCartStore.getState().addItem(product(), 1))
+    open()
+  }
+
+  it('desligado, vai de `ink-soft` e sem preenchimento', () => {
+    renderDrawer()
+    addItem()
+
+    const botao = firstRow().getByRole('button', { name: /Favoritar/ })
+    expect(botao.className).toContain('text-estrelinha-ink-soft')
+    expect(botao.className).not.toContain('text-estrelinha-accent-strong')
+    expect(botao.querySelector('svg')).toHaveAttribute('fill', 'none')
+  })
+
+  it('ligado, vai de `accent-strong` E preenchido — a diferença não é só de cor', () => {
+    renderDrawer()
+    addItem()
+
+    fireEvent.click(firstRow().getByRole('button', { name: /Favoritar/ }))
+
+    const botao = firstRow().getByRole('button', { name: /Remover .* dos favoritos/ })
+    expect(botao.className).toContain('text-estrelinha-accent-strong')
+    expect(botao.querySelector('svg')).toHaveAttribute('fill', 'currentColor')
+  })
+})
+
 describe('CartDrawer — sacola vazia', () => {
   it('mostra o convite e nenhum CTA de finalizar', () => {
     renderDrawer()
@@ -280,7 +310,7 @@ describe('CartDrawer — desconto progressivo (PRM-15)', () => {
   describe('convite para a próxima faixa (PRM-23)', () => {
     /** O texto do convite, com o NBSP de `formatPrice` normalizado. */
     const invitation = () =>
-      screen.queryByText(/para cada botton sair a/)?.textContent?.replace(/\u00a0/g, ' ')
+      screen.queryByText(/para cada peça sair a/)?.textContent?.replace(/\u00a0/g, ' ')
 
     it('faltando 1 unidade, o convite sai no singular com o preço da faixa', () => {
       active.data = [kit()]
@@ -288,7 +318,7 @@ describe('CartDrawer — desconto progressivo (PRM-15)', () => {
       renderDrawer()
       open()
 
-      expect(invitation()).toBe('Falta 1 para cada botton sair a R$ 5,00')
+      expect(invitation()).toBe('Falta 1 para cada peça sair a R$ 5,00')
     })
 
     it('faltando mais de 1, o convite sai no plural e aponta a faixa ACIMA da atual', () => {
@@ -304,7 +334,7 @@ describe('CartDrawer — desconto progressivo (PRM-15)', () => {
       renderDrawer()
       open()
 
-      expect(invitation()).toBe('Faltam 2 para cada botton sair a R$ 4,60')
+      expect(invitation()).toBe('Faltam 2 para cada peça sair a R$ 4,60')
     })
 
     it('na última faixa o convite desaparece — não há o que convidar', () => {
@@ -331,7 +361,7 @@ describe('CartDrawer — desconto progressivo (PRM-15)', () => {
       open()
 
       // round2(8,90 × 0,80) = 7,12 — o mesmo `tierUnitPrice` que o servidor usa.
-      expect(invitation()).toBe('Falta 1 para cada botton sair a R$ 7,12')
+      expect(invitation()).toBe('Falta 1 para cada peça sair a R$ 7,12')
     })
 
     it('subir a quantidade até a faixa troca o convite pela linha de desconto no mesmo render', () => {
@@ -339,7 +369,7 @@ describe('CartDrawer — desconto progressivo (PRM-15)', () => {
       fillCart(2)
       renderDrawer()
       open()
-      expect(invitation()).toBe('Falta 1 para cada botton sair a R$ 5,00')
+      expect(invitation()).toBe('Falta 1 para cada peça sair a R$ 5,00')
 
       fireEvent.click(screen.getByLabelText('Aumentar Pin Gojo Satoru'))
 

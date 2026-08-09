@@ -83,7 +83,7 @@ const OrderConfirmationPage = () => {
                 de aprovação só sai quando o pagamento cai. */}
             <p className="max-w-[480px] text-lg leading-[28px] text-estrelinha-ink-soft">
               {paid
-                ? 'Pagamento confirmado — já estamos separando seus pins. Enviamos o comprovante para '
+                ? 'Pagamento confirmado — já estamos preparando sua joia. Enviamos o comprovante para '
                 : 'Estamos aguardando a confirmação do pagamento. Avisamos por e-mail assim que ele cair, em '}
               <strong className="font-semibold text-estrelinha-ink">{order.customer_email}</strong>. Este
               pedido também fica guardado em Minha conta → Pedidos.
@@ -113,7 +113,7 @@ const OrderConfirmationPage = () => {
             to="/"
             className="flex flex-1 items-center justify-center rounded-sm border-2 border-estrelinha-ink px-7 py-[17px] font-heading text-[17px] font-semibold text-estrelinha-ink transition-all hover:scale-[1.02]"
           >
-            Ver mais pins
+            Ver mais joias
           </Link>
         </div>
       </div>

@@ -79,7 +79,7 @@ export interface CheckoutTotals {
    */
   applied: OrderPricingOutcome['applied']
   /**
-   * Nome da campanha, para a frase de PRM-17 — "a promoção **Kit de bottons** desconta mais".
+   * Nome da campanha, para a frase de PRM-17 — "a promoção **Kit de joias** desconta mais".
    *
    * Sai de `applyProgressiveDiscount`, a MESMA função pura do desconto, e não do `applied` do
    * outcome: quando o cupom vence, `resolveOrderPricing` devolve o caminho do cupom, cujo `applied`

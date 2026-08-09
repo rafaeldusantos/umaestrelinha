@@ -39,8 +39,8 @@ describe('AuthOverlay (AUTH-01, AUTH-09)', () => {
     useAuthUiStore.setState({ isOpen: true, step: 'entry' })
     render(<AuthOverlay />)
     expect(screen.getByText('Frete grátis acima de R$150')).toBeInTheDocument()
-    expect(screen.getByText('Drops exclusivos toda semana')).toBeInTheDocument()
-    expect(screen.getByText('+2.000 colecionadores felizes')).toBeInTheDocument()
+    expect(screen.getByText('Peça única, feita à mão')).toBeInTheDocument()
+    expect(screen.getByText('Acompanhe seu pedido do início ao fim')).toBeInTheDocument()
   })
 
   it('routes to the current step (code)', () => {

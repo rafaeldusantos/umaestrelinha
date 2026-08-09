@@ -57,8 +57,8 @@ const CrossSell = ({ products, onNavigate }: Props) => {
                 <Link
                   to={`/produto/${product.slug}`}
                   onClick={onNavigate}
-                  /* Duas linhas, como no board: num card de ~190px o nome de um botton quase sempre
-                     quebra, e cortar em uma linha vira "Botton I…" — o que não identifica nada. */
+                  /* Duas linhas, como no board: num card de ~190px o nome de uma joia quase sempre
+                     quebra, e cortar em uma linha vira "Pingente C…" — o que não identifica nada. */
                   className="line-clamp-2 text-xs font-semibold leading-4 text-estrelinha-ink transition-colors hover:text-estrelinha-primary"
                 >
                   {product.name}
