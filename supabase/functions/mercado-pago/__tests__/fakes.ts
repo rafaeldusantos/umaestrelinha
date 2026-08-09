@@ -32,8 +32,8 @@ export const TEST_ENV: Deps['env'] = {
 /** Env do e-mail transacional (feature 10). Separado de `TEST_ENV`, que é sobre o Mercado Pago. */
 export const TEST_EMAIL_ENV: Deps['email'] = {
   resendApiKey: 're_test_key',
-  resendFrom: 'Nanita <onboarding@resend.dev>',
-  storePublicUrl: 'https://nanita.com.br',
+  resendFrom: 'Uma Estrelinha <onboarding@resend.dev>',
+  storePublicUrl: 'https://umaestrelinha.com.br',
 }
 
 export function createDeps(

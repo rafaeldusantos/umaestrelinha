@@ -432,14 +432,15 @@ RESEND_API_KEY = "env(RESEND_API_KEY)"
 # (`loja@` aqui, `acesso@` lá), um domínio verificado.
 # Formato RFC 5322: `Nome <e@dominio>` ou só `e@dominio`.
 # Um valor malformado é 422 em TODOS os envios (apagão silencioso), então a function valida o formato
-# antes de tentar enviar. Default do código: "Nanita <onboarding@resend.dev>".
+# antes de tentar enviar. Default do código: "Uma Estrelinha <onboarding@resend.dev>".
+# Valor alvo, quando o domínio for verificado: "Uma Estrelinha <loja@send.umaestrelinha.com.br>".
 RESEND_FROM = "env(RESEND_FROM)"
 # Origem DA LOJA (ex.: http://localhost:8082 em dev), NÃO a do Supabase — é a base do link `/conta`
 # dos e-mails. Fácil de errar porque toda outra env de URL deste arquivo aponta para o Supabase.
 STORE_PUBLIC_URL = "env(STORE_PUBLIC_URL)"
 # Só dev: redireciona TODO destinatário para este endereço e prefixa o assunto com o real.
-# Com send.nanita.com.br verificado (2026-08-02) isto virou OPT-IN, não o padrão: o envio para
-# terceiros já funciona. Serve para quem estiver com uma chave sem domínio verificado, onde
+# Enquanto `send.umaestrelinha.com.br` não estiver verificado (403 medido em 2026-08-08), o
+# remetente possível é o compartilhado `onboarding@resend.dev`, onde
 # `onboarding@resend.dev` devolve 403 validation_error para qualquer destinatário que não seja o
 # dono da conta. Deixar VAZIA no dia a dia e em produção — preenchida, ela sequestra todo
 # destinatário e nenhuma cliente recebe e-mail.

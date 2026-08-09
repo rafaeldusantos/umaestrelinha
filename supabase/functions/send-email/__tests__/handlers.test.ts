@@ -9,8 +9,8 @@ const ANON_JWT = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.anon-sem-sub.assinatura'
 
 const ENV: EmailEnv = {
   resendApiKey: 're_test_key',
-  resendFrom: 'Nanita <onboarding@resend.dev>',
-  storePublicUrl: 'https://nanita.com.br',
+  resendFrom: 'Uma Estrelinha <onboarding@resend.dev>',
+  storePublicUrl: 'https://umaestrelinha.com.br',
 }
 
 const OK_ROUTE: FetchRoute = { match: 'api.resend.com', body: { id: 'msg-abc-123' } }
@@ -260,7 +260,7 @@ describe('EML-05 / EML-06 — validação do payload', () => {
     expect(response.status).toBe(200)
     const sent = fetchDouble.calls[0].body
     expect(sent.to).toBe('mariana@example.com')
-    expect(sent.from).toBe('Nanita <onboarding@resend.dev>')
+    expect(sent.from).toBe('Uma Estrelinha <onboarding@resend.dev>')
     expect(sent.subject).not.toContain('injetado')
     expect(sent.html).not.toContain('corpo injetado')
   })
@@ -385,7 +385,7 @@ describe('EML-11 — sucesso', () => {
     await send(deps, request(paidBody), paidBody)
 
     const sent = fetchDouble.calls[0].body
-    expect(sent.from).toBe('Nanita <onboarding@resend.dev>')
+    expect(sent.from).toBe('Uma Estrelinha <onboarding@resend.dev>')
     expect(sent.to).toBe('mariana@example.com')
     expect(sent.subject).toBe('Pagamento aprovado — pedido NP-ABC123')
     expect(sent.html).toContain('Pagamento aprovado!')
@@ -487,7 +487,7 @@ describe('EML-12 / RSD-01 / RSD-02 — desfechos de falha do provedor', () => {
 
 describe('CFG-03 / CFG-04 — env', () => {
   it('CFG-03: RESEND_FROM malformado não envia nada — apagão silencioso é pior que erro visível', async () => {
-    const { deps, fetchDouble, supabase } = setup({ env: { resendFrom: 'Nanita <sem-arroba>' } })
+    const { deps, fetchDouble, supabase } = setup({ env: { resendFrom: 'Uma Estrelinha <sem-arroba>' } })
 
     const response = await send(deps, request(paidBody), paidBody)
 
@@ -497,12 +497,12 @@ describe('CFG-03 / CFG-04 — env', () => {
   })
 
   it('CFG-04: RESEND_DEV_REDIRECT_TO troca o destinatário e prefixa o assunto com o real', async () => {
-    const { deps, fetchDouble } = setup({ env: { resendDevRedirectTo: 'dev@nanita.com.br' } })
+    const { deps, fetchDouble } = setup({ env: { resendDevRedirectTo: 'dev@umaestrelinha.com.br' } })
 
     await send(deps, request(paidBody), paidBody)
 
     const sent = fetchDouble.calls[0].body
-    expect(sent.to).toBe('dev@nanita.com.br')
+    expect(sent.to).toBe('dev@umaestrelinha.com.br')
     expect(sent.subject).toBe('[dev → mariana@example.com] Pagamento aprovado — pedido NP-ABC123')
   })
 

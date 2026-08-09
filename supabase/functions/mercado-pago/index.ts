@@ -45,7 +45,7 @@ const deps: Deps = {
   // motor de `send-email/sender.ts` no mesmo processo (AD-005) — daí precisar do env de e-mail aqui.
   email: {
     resendApiKey: Deno.env.get("RESEND_API_KEY")!,
-    resendFrom: envOr("RESEND_FROM", "Nanita <onboarding@resend.dev>"),
+    resendFrom: envOr("RESEND_FROM", "Uma Estrelinha <onboarding@resend.dev>"),
     storePublicUrl: envOr("STORE_PUBLIC_URL", "http://localhost:8080"),
     resendDevRedirectTo: envOptional("RESEND_DEV_REDIRECT_TO"),
   },

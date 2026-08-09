@@ -148,7 +148,7 @@ export function classifyResendFailure(status: number, name: string | null): stri
 //      curl -s -o /tmp/r.json -w '%{http_code}\n' -X POST https://api.resend.com/emails \
 //        -H "Authorization: Bearer $KEY" -H 'Content-Type: application/json' \
 //        -H 'Idempotency-Key: roteiro-manual-1' \
-//        -d '{"from":"Nanita <onboarding@resend.dev>","to":"<dono-da-conta>","subject":"probe","text":"probe"}'
+//        -d '{"from":"Uma Estrelinha <onboarding@resend.dev>","to":"<dono-da-conta>","subject":"probe","text":"probe"}'
 //      Anotar: o status devolvido (200? 201?) e o corpo (`{"id":"..."}`).
 //
 //   2) ERRO 403 DE SANDBOX — fecha a assumption (B) e confirma o texto que NÃO pode ir para o log.

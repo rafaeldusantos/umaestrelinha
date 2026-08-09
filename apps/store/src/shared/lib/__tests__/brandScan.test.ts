@@ -71,15 +71,7 @@ const PENDENTE: Record<string, string> = {
   'apps/store/src/features/search/ui/SearchOverlay.tsx':                   'T38 - copy institucional e pontos de contato',
   'apps/store/src/pages/AboutPage.tsx':                                    'T38 - copy institucional e pontos de contato',
   'apps/store/src/widgets/whatsapp-float/ui/WhatsAppFloat.tsx':            'T38 - copy institucional e pontos de contato',
-  'supabase/config.toml':                                                  'T37 - RESEND_FROM nos comentarios de [edge_runtime.secrets]',
   'supabase/functions/melhor-envio/index.ts':                              'T38 - `User-Agent` que a API do Melhor Envio exige',
-  'supabase/functions/mercado-pago/__tests__/fakes.ts':                    'T37 - `RESEND_FROM` de exemplo, distinto do remetente do auth',
-  'supabase/functions/mercado-pago/index.ts':                              'T37 - `RESEND_FROM` de exemplo, distinto do remetente do auth',
-  'supabase/functions/send-email/__tests__/handlers.test.ts':              'T37 - e-mail transacional',
-  'supabase/functions/send-email/__tests__/templates.test.ts':             'T37 - e-mail transacional',
-  'supabase/functions/send-email/index.ts':                                'T37 - e-mail transacional',
-  'supabase/functions/send-email/layout.ts':                               'T37 - e-mail transacional',
-  'supabase/functions/send-email/sender.ts':                               'T37 - e-mail transacional',
 }
 
 function arquivos(dir: string): string[] {

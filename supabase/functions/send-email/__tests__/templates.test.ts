@@ -11,7 +11,7 @@ import {
 // Escape explícito, não o caractere literal: o ICU separa "R$" do número com NBSP (U+00A0), e um
 // espaço comum invisível no source passaria por NBSP na leitura e falharia na execução.
 const NBSP = ' '
-const STORE = 'https://nanita.com.br'
+const STORE = 'https://umaestrelinha.com.br'
 
 function orderFixture(over: Partial<EmailOrder> = {}): EmailOrder {
   return {
@@ -183,13 +183,13 @@ describe('TPL-06 — CTA vai para /conta e sobrevive à barra final', () => {
   it.each(ALL)('%s aponta para <STORE_PUBLIC_URL>/conta, nunca /pedido/', (_type, render) => {
     const { html } = render()
 
-    expect(html).toContain('href="https://nanita.com.br/conta"')
+    expect(html).toContain('href="https://umaestrelinha.com.br/conta"')
     expect(html).not.toContain('/pedido/')
   })
 
   it('STORE_PUBLIC_URL com e sem barra final produzem href idêntico', () => {
-    const withSlash = renderOrderPaid(orderFixture(), 'https://nanita.com.br/').html
-    const without = renderOrderPaid(orderFixture(), 'https://nanita.com.br').html
+    const withSlash = renderOrderPaid(orderFixture(), 'https://umaestrelinha.com.br/').html
+    const without = renderOrderPaid(orderFixture(), 'https://umaestrelinha.com.br').html
 
     expect(withSlash).toBe(without)
     expect(withSlash).not.toContain('.br//conta')
@@ -207,7 +207,7 @@ describe('TPL-06 — CTA vai para /conta e sobrevive à barra final', () => {
   })
 
   it('o texto também carrega o link', () => {
-    expect(renderOrderPaid(orderFixture(), STORE).text).toContain('https://nanita.com.br/conta')
+    expect(renderOrderPaid(orderFixture(), STORE).text).toContain('https://umaestrelinha.com.br/conta')
   })
 })
 
@@ -247,22 +247,54 @@ describe('TPL-07 — e-mail autossuficiente', () => {
   })
 })
 
-describe('TPL-08 — identidade Nanita', () => {
+describe('TPL-08 — identidade Uma Estrelinha', () => {
   it.each(ALL)('%s usa a paleta, o wordmark e o rodapé', (_type, render) => {
     const { html } = render()
 
-    for (const hex of ['#2B1622', '#FF86B5', '#B0176B', '#7A5C6B', '#FFEFF6', '#FFD7E7']) {
+    for (const hex of ['#23303A', '#54616B', '#34495E', '#283A4A', '#F7F3EC', '#FAF8F4', '#E6DFD4']) {
       expect(html).toContain(hex)
     }
-    expect(html).toContain('>Nanita<')
-    expect(html).toContain('Nanita — cole no peito, carrega no coração.')
+    expect(html).toContain('>UMA ESTRELINHA<')
+    expect(html).toContain('Uma Estrelinha — eternizando suas lembranças.')
   })
 
-  it('o card tem 560px e o raio de 24px do template de auth', () => {
+  it.each(ALL)('%s não usa o acento como TEXTO — ele mede 2,66:1 sobre claro', (_type, render) => {
+    const { html } = render()
+
+    // O acento #B8945F entra só como fio de 1px sob o wordmark. Qualquer `color:`
+    // com ele seria texto ouro — reprovado em toda superfície clara da loja, e a
+    // mesma classe de defeito que a `accentText.test.ts` guarda no lado da loja.
+    expect(html).toContain('background:#B8945F')
+    expect(html).not.toContain('color:#B8945F')
+  })
+
+  it.each(ALL)('%s não pede webfont nem recurso externo', (_type, render) => {
+    const { html } = render()
+
+    // Gmail e Outlook não carregam webfont: o que renderiza é a pilha de
+    // fallback, e um <link>/@font-face aqui é peso morto que alguns clientes
+    // ainda usam para rastrear abertura.
+    expect(html).not.toContain('@font-face')
+    expect(html).not.toContain('fonts.googleapis')
+    expect(html).not.toContain('Libre Baskerville')
+    expect(html).not.toContain('Outfit')
+    expect(html).not.toMatch(/<link|<style|background-image/)
+  })
+
+  it('o card tem 560px e o raio de 20px do template de auth', () => {
     const { html } = renderOrderPaid(orderFixture(), STORE)
 
+    // Os dois envelopes chegam na MESMA caixa de entrada. Divergir de raio e
+    // largura faria a loja falar com duas vozes sem nada quebrar.
     expect(html).toContain('max-width:560px')
-    expect(html).toContain('border-radius:24px')
+    expect(html).toContain('border-radius:20px')
+  })
+
+  it('a ação é retângulo de 6px, não pílula — pílula virou forma de rótulo', () => {
+    const { html } = renderOrderPaid(orderFixture(), STORE)
+
+    expect(html).toContain('border-radius:6px')
+    expect(html).not.toContain('border-radius:999px')
   })
 })
 
@@ -301,21 +333,21 @@ describe('order_received / order_shipped — regras próprias', () => {
 describe('CFG-03 — formato do RESEND_FROM', () => {
   it.each([
     'onboarding@resend.dev',
-    'Nanita <onboarding@resend.dev>',
-    'Nanita <pedidos@nanita.com.br>',
-    '"Loja, Nanita" <pedidos@nanita.com.br>',
+    'Uma Estrelinha <onboarding@resend.dev>',
+    'Uma Estrelinha <loja@send.umaestrelinha.com.br>',
+    '"Loja, Uma Estrelinha" <loja@send.umaestrelinha.com.br>',
   ])('aceita %s', (from) => {
     expect(isValidFrom(from)).toBe(true)
   })
 
   it.each([
     ['vazio', ''],
-    ['sem arroba', 'nanita.com.br'],
+    ['sem arroba', 'umaestrelinha.com.br'],
     ['sem domínio', 'pedidos@'],
-    ['sem TLD', 'Nanita <pedidos@localhost>'],
-    ['ângulo não fechado', 'Nanita <pedidos@nanita.com.br'],
-    ['vírgula no display name sem aspas', 'Loja, Nanita <pedidos@nanita.com.br>'],
-    ['ângulo vazio', 'Nanita <>'],
+    ['sem TLD', 'Uma Estrelinha <loja@localhost>'],
+    ['ângulo não fechado', 'Uma Estrelinha <loja@send.umaestrelinha.com.br'],
+    ['vírgula no display name sem aspas', 'Loja, Uma Estrelinha <loja@send.umaestrelinha.com.br>'],
+    ['ângulo vazio', 'Uma Estrelinha <>'],
   ])('rejeita %s', (_label, from) => {
     expect(isValidFrom(from)).toBe(false)
   })
