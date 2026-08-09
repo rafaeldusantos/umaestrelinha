@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { act, render, screen, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import Header from '../Header'
+import { EstrelinhaSignature, SIGNATURE_FLOOR } from '@/shared/ui/brand'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -165,6 +166,32 @@ describe('Header — a moldura escura da identidade nova (IDN-09)', () => {
         expect(path.getAttribute('stroke')).not.toBe(PRIMARY_STRONG)
       }
     }
+  })
+
+  it('a marca do topo é UMA só, a assinatura, e igual no celular e no desktop', () => {
+    // Decisão de produto: a marca da loja é a mesma em toda superfície de tela.
+    //
+    // **A forma de quebrar isto é silenciosa**, e é por isso que o teste existe.
+    // `EstrelinhaSignature` cai para o símbolo abaixo do piso de 190px — de
+    // propósito, para nunca renderizar uma marca apagada. Logo, baixar a largura
+    // para 150 (como era antes) devolve o símbolo: nenhum erro, nenhum warning,
+    // nenhum teste vermelho, e o nome da loja some do topo no celular.
+    //
+    // Duas asserções, e as duas são necessárias: a contagem pega a volta da
+    // variante por breakpoint (que renderizava dois elementos, um escondido por
+    // CSS que o jsdom não aplica), e o `viewBox` pega a queda para o símbolo —
+    // o papel é diferente, então a caixa é diferente.
+    renderHeader()
+
+    const marcas = screen.getAllByRole('img', { name: 'Uma Estrelinha' })
+    expect(marcas).toHaveLength(1)
+
+    const [marca] = marcas
+    expect(marca).toHaveAttribute('width', '202')
+    expect(Number(marca.getAttribute('width'))).toBeGreaterThanOrEqual(SIGNATURE_FLOOR)
+    expect(marca.getAttribute('viewBox')).toBe(
+      render(<EstrelinhaSignature width={202} />).container.querySelector('svg')!.getAttribute('viewBox'),
+    )
   })
 
   it('a segunda faixa é `primary` e só existe no desktop', () => {

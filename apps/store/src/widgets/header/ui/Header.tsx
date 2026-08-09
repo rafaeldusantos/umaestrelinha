@@ -93,16 +93,32 @@ const Header = () => {
       }`}
     >
       <div className="container flex h-16 items-center justify-between gap-4 md:h-[84px] md:gap-8">
-        {/* A escada: 202px no desktop — a vaga que o board `5MC-0` reserva para
-            a marca (202×48) —, e 150px no celular, que fica ABAIXO do piso de
-            190 e por isso rende o símbolo, na mesma altura. Não é acidente: a
-            190px a assinatura já está no limite (1,01px de traço), e a 150px
-            teria 0,80px — a linha viraria cinza de antialias. O board mobile
-            (`6AU-0`) desenha exatamente isso: símbolo pequeno ao lado do nome.
+        {/* **A MESMA assinatura nas duas larguras** — 202px, a vaga que o board
+            `5MC-0` reserva para a marca (202×48). Um elemento só, sem variante
+            por breakpoint.
 
-            O lockup completo não aparece em lugar nenhum do chrome: o piso dele
-            é 600px, e nem a coluna do rodapé (337px) nem a viewport de projeto
-            (390px) comportam. Ele é o formato de e-mail e embalagem. */}
+            Antes eram dois: 202px no desktop e 150px no celular. Os 150 ficavam
+            ABAIXO do piso de 190 da assinatura, então o componente caía para o
+            símbolo — a escada funcionando, e o que o board `6AU-0` desenha.
+            Trocado por decisão do produto: a marca da loja é uma só em toda
+            superfície de tela, e um símbolo sozinho no topo não diz o nome de
+            quem está vendendo.
+
+            **Coube porque foi medido, não porque pareceu caber.** Em 390px o
+            `container` tira 32 de padding, os dois ícones do celular somam 80
+            (`p-2` + ícone de 20px — o alvo de 44px é `::before` e não ocupa
+            largura) e o `gap-4` tira 16: sobram **262px** para a marca. No
+            iPhone SE de 375px sobram 247. Os 202 entram com folga nos dois, e
+            `touchTarget.test.ts` mais a varredura de scroll horizontal da T33
+            continuam guardando o resto da faixa.
+
+            E 202 é melhor que 190 aqui: a 190px a assinatura está no limite do
+            traço (1,01px), e abaixo disso a linha vira o cinza do antialias —
+            é exatamente por isso que o piso existe.
+
+            O lockup completo segue fora de todo o chrome: o piso dele é 600px, e
+            nem a coluna do rodapé (337px) nem a viewport de projeto (390px)
+            comportam. Ele é o formato de e-mail e embalagem. */}
         <Link
           to="/"
           /* `min-h-11`: a assinatura mede 33px de altura e o link tinha o
@@ -114,8 +130,7 @@ const Header = () => {
           {/* `onInk`: o fundo passou a ser `primary-strong`. O tom `brand`
               pintaria #283A4A sobre #283A4A — 1,00:1, um header com um vazio no
               lugar da marca. É o mesmo defeito que `Footer.test.tsx` congelou. */}
-          <EstrelinhaSignature width={150} tone="onInk" className="md:hidden" />
-          <EstrelinhaSignature width={202} tone="onInk" className="hidden md:block" />
+          <EstrelinhaSignature width={202} tone="onInk" />
         </Link>
 
         {/* A busca é o centro da faixa no board (`5MN-0`, 680×48): `flex-1` com
