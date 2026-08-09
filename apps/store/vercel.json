@@ -5,6 +5,12 @@
   "installCommand": "cd ../.. && pnpm install --frozen-lockfile",
   "buildCommand": "pnpm build",
   "ignoreCommand": "npx --yes turbo-ignore @estrelinha/store --fallback=HEAD^",
+  "trailingSlash": false,
+  "redirects": [
+    { "source": "/produto/:slug", "destination": "/produtos/:slug", "statusCode": 301 },
+    { "source": "/colecao/:slug", "destination": "/:slug", "statusCode": 301 },
+    { "source": "/categoria/:slug", "destination": "/:slug", "statusCode": 301 }
+  ],
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
   "headers": [
     {
