@@ -59,15 +59,18 @@ alguém acrescentar a rota `/ajuda` existindo a categoria `ajuda`, **uma das dua
 | O que fazer com `/produto/:slug` e `/colecao/:slug` | **301** para o canônico novo | n — validar na Design |
 | Barra final (`/produtos/x/` vs `/produtos/x`) | Aceitar as duas, canonicalizar numa | n — validar na Design |
 
-**Open questions:**
+**Decisões do usuário — 2026-08-09** (fecham as duas perguntas que estavam abertas):
 
-1. **A rota raiz de categoria vale a pena?** Ela é a que traz o custo do namespace compartilhado. A
-   alternativa é servir `/produtos/:slug` (barato) e **redirecionar** as URLs de categoria para
-   `/colecao/:slug`, aceitando um 301 em toda categoria indexada. Perde-se menos do que parece: 301
-   preserva ranking. Decisão de produto, a tomar na Design.
-2. **Subcategoria fora da árvore.** `/joias-afetivas/joia-de-leite-materno/` é canônico hoje, mas a
-   mesma filha também responde em `/joia-de-leite-materno/`. Se a loja nova adotar só a forma de dois
-   segmentos, a de um segmento precisa de 301 — e vice-versa.
+1. **A loja nova adota o formato da loja em produção, incluindo a rota de categoria na raiz.** Não se
+   troca por `/colecao/:slug` com 301. O custo — namespace de categoria e de rota compartilhados — é
+   **aceito de propósito**, e é exatamente por isso que `URL-05` e `URL-06` existem: a lista de
+   palavras reservadas deixa de ser zelo e passa a ser a contrapartida desta escolha.
+2. **As duas formas de subcategoria continuam respondendo**, e a **canônica é a de dois segmentos**
+   (`/joias-afetivas/joia-de-leite-materno/`) — a mesma que o site atual declara. A forma de um
+   segmento resolve e aponta canonical para a de dois; se em algum momento for preciso escolher uma
+   só, fica a de dois.
+
+**Open questions:** nenhuma sem registro.
 
 ---
 
@@ -80,8 +83,13 @@ alguém acrescentar a rota `/ajuda` existindo a categoria `ajuda`, **uma das dua
 1. WHEN `/produtos/<slug>` é acessado THEN SHALL responder o produto, e SHALL ser a URL canônica.
 2. WHEN `/produto/<slug>` (singular, formato da loja nova hoje) é acessado THEN SHALL responder **301**
    para `/produtos/<slug>`.
-3. WHEN uma URL de categoria indexada é acessada THEN SHALL responder a categoria, no formato decidido
-   na Design, com as demais formas respondendo 301.
+3. WHEN `/<slug>` de uma categoria **raiz** é acessado THEN SHALL responder a categoria, e SHALL ser a
+   URL canônica dela.
+3b. WHEN `/<pai>/<filha>` é acessado THEN SHALL responder a subcategoria, e SHALL ser a URL canônica
+   dela; `/<filha>` sozinha SHALL responder a mesma página, apontando canonical para a de dois
+   segmentos.
+3c. WHEN `/colecao/<slug>` é acessado THEN SHALL responder **301** para a forma canônica — a rota
+   atual da loja nova deixa de ser canônica, mas continua resolvendo.
 4. WHEN um slug não corresponde a nada THEN SHALL responder a **404 própria**, nunca tela branca nem
    listagem completa do catálogo.
 

@@ -318,7 +318,87 @@
 - **Date**: 2026-08-08
 - **Status**: active
 
+### AD-018
+- **Decision**: **As URLs da loja nova seguem o formato da loja em produção**, e não o inverso.
+  Produto em `/produtos/:slug`; categoria **raiz na raiz do domínio** (`/:slug`); subcategoria em
+  `/:pai/:filha`, que é a forma canônica. `/produto/:slug` e `/colecao/:slug` continuam resolvendo,
+  com **301** para o canônico. **Consequência que vale para toda feature futura: o namespace de rota
+  e o de slug de categoria são o MESMO.** Toda rota nova de um segmento tem de ser conferida contra
+  os slugs de categoria, e todo slug de categoria contra as rotas — por lista de palavras reservadas
+  validada no cadastro, com teste que quebra quando a lista e as rotas divergirem.
+- **Reason**: O tráfego orgânico que as landing pages construíram aponta para os endereços atuais, e
+  medição do `<link rel="canonical">` do site real (2026-08-09) mostrou **três** formatos indexados —
+  nenhum deles servido pela loja nova. Preservar o *slug*, que a `21` entrega, é necessário e
+  **insuficiente**: o que quebra é o caminho. A alternativa (servir `/colecao/:slug` e redirecionar
+  tudo com 301) removeria o custo do namespace compartilhado e foi apresentada; o usuário escolheu
+  manter o padrão de produção em 2026-08-09.
+- **Trade-off**: Categoria na raiz é a fonte do custo. Uma categoria chamada "sobre", ou uma rota
+  `/ajuda` criada existindo categoria homônima, faz **uma das duas sumir sem aviso** — e some em
+  produção, não em teste. A lista de reservadas é a contrapartida obrigatória dessa escolha, não um
+  refinamento: sem ela a decisão é uma armadilha com prazo indeterminado. Aceita-se também servir a
+  subcategoria em duas formas (um e dois segmentos), com canonical apontando para a de dois.
+- **Scope**: `apps/store/src/app/App.tsx`, `.specs/features/23-urls-e-seo`, cadastro de categoria no
+  backoffice
+- **Date**: 2026-08-09
+- **Status**: active
+
 ## Handoff
+
+### ATUAL — 2026-08-09 · `21-catalogo-nuvemshop` **FECHADA** + `BUG-20260809` corrigido
+
+**Estado**: nada em andamento. Árvore limpa, gate verde, 8 commits da `21` + 2 do conserto do bug.
+
+**O catálogo real está no banco**: 689 produtos · 3.356 variações · 39 categorias · 3.660 imagens no
+Storage. Import idempotente (`pnpm --filter @estrelinha/catalog-import import`), exit 0, relatório
+conferindo com o previsto. Os 689 slugs são idênticos aos da Nuvemshop.
+
+**Gate medido no fecho** (`turbo run test --force`, exit 0 capturado de verdade):
+
+| | valor |
+| --- | ---: |
+| Testes | **3.445** em 200 arquivos |
+| store · backoffice · core · functions · catalog-import | 1153 · 1055 · **725** · 258 · 254 |
+| Lint | 30 erros / 8 warnings — baseline, zero novos |
+| Tipos | store 0 · backoffice 0 · catalog-import 0 |
+
+`core` intacto: nem o import nem o conserto tocaram o código de dinheiro.
+
+**Quatro defeitos que só a execução real expôs** (todos corrigidos e cobertos por teste): pool que não
+cancelava na falha; blip de rede matando o import; **PostgREST truncando `select` em 1.000 linhas**, o
+mais grave, que quebrava a idempotência na segunda execução; e `products.stock_total` nunca escrito,
+deixando 60 produtos com estoque real como "Indisponível".
+
+**Próximo passo recomendado**: **feature `23-urls-e-seo`** — Design → Tasks → Execute. Ela está
+**destravada**: as duas perguntas abertas foram respondidas em 2026-08-09 e viraram `AD-018`. É
+pré-requisito de go-live, e a `22` não é.
+
+**Bloqueios conhecidos**:
+- A **`22`** precisa de três respostas da Adri antes de implementar: rastreio do material por pedido
+  ou por item, o enum de material, e o limite de caracteres da gravação.
+- **Resend**: `send.umaestrelinha.com.br` não verificado (403 medido em 2026-08-08). SMTP do auth
+  desligado de propósito, e-mail de dev no Mailpit. Pendência declarada pelo usuário.
+- **62 commits locais sem push.** O remoto `origin` está configurado
+  (`github.com/rafaeldusantos/umaestrelinha`) e nenhuma branch remota é conhecida localmente.
+
+**Curadoria pendente, que é decisão da dona e não código**: `show_in_menu = 0` nas 39 categorias, então
+a barra do topo está vazia. São 4 vagas (`MENU_SLOT_LIMIT`), válidas em qualquer profundidade, em
+`/admin/menu` (`admin@umaestrelinha.dev` / `admin123`, porta 8083).
+
+**Backlog aberto pela sessão**: peso da listagem de categoria (3,1 MB — e por que cortar
+`description` degradaria a busca em silêncio) e as quatro consultas de catálogo que ainda engolem
+erro (React Query guarda o vazio como sucesso e não repete a tentativa).
+
+**Ambiente**: Supabase local de pé na faixa 54341–54349. `supabase_vector` em `Restarting` — condição
+pré-existente, não introduzida por esta sessão.
+
+---
+
+## Handoff — histórico
+
+As entradas abaixo são os snapshots das sessões anteriores, preservados. A seção `## Handoff` acima
+carrega **só o estado atual**; este apêndice existe porque as sessões anteriores acumulavam, e apagar
+o que outra pessoa guardou de propósito não é decisão de quem passou por último.
+
 
 ### ATUAL — 2026-08-08 · `20-rebrand-uma-estrelinha` · **FASES 6 e 7 FECHADAS (T34–T41)**
 
