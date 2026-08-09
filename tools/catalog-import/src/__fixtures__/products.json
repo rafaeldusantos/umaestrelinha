@@ -1,0 +1,2848 @@
+[
+  {
+    "id": 279680049,
+    "name": {
+      "pt": "Corrente Singapura em Prata 925"
+    },
+    "description": {
+      "pt": "<h2>Corrente Singapura em Prata 925 — a base ideal para usar com seu pingente afetivo</h2><p>Corrente singapura em Prata 925, pensada para dar suporte ao seu pingente ou joia afetiva Uma Estrelinha no dia a dia.</p><h3>Especificações</h3><ul><li>Tipo: Corrente</li><li>Modelo: Singapura</li><li>Material: Prata 925</li><li>Tamanho: 45cm</li></ul><h3>Perguntas frequentes</h3><p><strong>Essa corrente combina com os pingentes afetivos da Uma Estrelinha?</strong><br>Sim! Essa corrente foi pensada para usar com pingentes e joias afetivas da Uma Estrelinha, mas também pode ser usada sozinha.</p><p><strong>O pingente já vem incluso?</strong><br>Não — essa corrente é vendida separadamente do pingente, para você escolher a combinação que preferir.</p><p><strong>A prata pode escurecer ou perder o brilho?</strong><br>É normal que a Prata 925 oxide levemente com o tempo e o uso — isso não afeta a durabilidade da peça, apenas o brilho superficial, que pode ser recuperado com uma limpeza simples.</p><h3>Observações importantes</h3><ul><li>A peça exibida nas fotos é ilustrativa e pode apresentar pequenas variações de tom ou textura.</li></ul>"
+    },
+    "handle": {
+      "pt": "corrente-singapura-em-prata-925"
+    },
+    "attributes": [],
+    "published": true,
+    "free_shipping": false,
+    "requires_shipping": true,
+    "canonical_url": "https://umaestrelinha.com.br/produtos/corrente-singapura-em-prata-925/",
+    "video_url": null,
+    "seo_title": {
+      "pt": "Corrente Singapura em Prata 925 | UE"
+    },
+    "seo_description": {
+      "pt": "Corrente Singapura em Prata 925, 45cm. Ideal para usar com pingentes afetivos."
+    },
+    "brand": "",
+    "has_stock": true,
+    "is_kit": false,
+    "visibility": "visible",
+    "created_at": "2025-07-03T00:52:19+0000",
+    "updated_at": "2025-10-26T13:47:12+0000",
+    "invalid_at": null,
+    "variants": [
+      {
+        "id": 1250310075,
+        "image_id": 920635454,
+        "product_id": 279680049,
+        "position": 1,
+        "price": "84.00",
+        "price_without_taxes": null,
+        "compare_at_price": "84.00",
+        "promotional_price": "64.90",
+        "stock_management": true,
+        "stock": 10,
+        "weight": "0.030",
+        "width": "2.00",
+        "height": "2.00",
+        "depth": "2.00",
+        "sku": "0WS51yT",
+        "values": [],
+        "barcode": null,
+        "mpn": null,
+        "age_group": null,
+        "gender": null,
+        "created_at": "2025-07-03T00:52:19+0000",
+        "updated_at": "2025-10-26T13:47:11+0000",
+        "cost": null,
+        "visible": true,
+        "inventory_levels": [
+          {
+            "id": 880044629,
+            "variant_id": 1250310075,
+            "location_id": "01JP1AG11Z639MND13T5PK8Z8A",
+            "stock": 10
+          }
+        ]
+      }
+    ],
+    "tags": "Corrente, Prata925",
+    "images": [
+      {
+        "id": 1230884211,
+        "product_id": 279680049,
+        "src": "https://acdn-us.mitiendanube.com/stores/005/943/282/products/chatgpt-image-11_07_2026-14_13_33-e538f7bc846244be6617837900244333-1024-1024.png",
+        "position": 1,
+        "alt": {
+          "pt": ""
+        },
+        "height": 1402,
+        "width": 1122,
+        "thumbnails_generated": 2,
+        "created_at": "2026-07-11T17:13:44+0000",
+        "updated_at": "2026-07-11T17:14:01+0000",
+        "store_media_uuid": null
+      },
+      {
+        "id": 1230884212,
+        "product_id": 279680049,
+        "src": "https://acdn-us.mitiendanube.com/stores/005/943/282/products/chatgpt-image-11_07_2026-14_13_28-535539c58828bd73e517837900245469-1024-1024.png",
+        "position": 2,
+        "alt": {
+          "pt": ""
+        },
+        "height": 1448,
+        "width": 1086,
+        "thumbnails_generated": 2,
+        "created_at": "2026-07-11T17:13:44+0000",
+        "updated_at": "2026-07-11T17:14:00+0000",
+        "store_media_uuid": null
+      },
+      {
+        "id": 920635505,
+        "product_id": 279680049,
+        "src": "https://acdn-us.mitiendanube.com/stores/005/943/282/products/2ccr3viec4rgbwxjqo6p3rnl4dvbqx-1c228832a7f7ecb35d17515039466707-1024-1024.jpg",
+        "position": 3,
+        "alt": {
+          "pt": ""
+        },
+        "height": 1080,
+        "width": 1080,
+        "thumbnails_generated": 2,
+        "created_at": "2025-07-03T00:52:27+0000",
+        "updated_at": "2026-07-11T17:13:54+0000",
+        "store_media_uuid": null
+      }
+    ],
+    "videos": [],
+    "categories": [
+      {
+        "id": 32376553,
+        "name": {
+          "pt": "Joias afetivas"
+        },
+        "description": {
+          "pt": ""
+        },
+        "handle": {
+          "pt": "joias-afetivas"
+        },
+        "parent": null,
+        "subcategories": [
+          32668248,
+          32376556,
+          32376552,
+          32376549,
+          32668246,
+          32668247,
+          32519345,
+          32376547,
+          32510036,
+          40271295,
+          35213798
+        ],
+        "seo_title": {
+          "pt": ""
+        },
+        "seo_description": {
+          "pt": ""
+        },
+        "google_shopping_category": "Vestuário e acessórios > Joias e bijuterias",
+        "created_at": "2025-07-03T00:41:41+0000",
+        "updated_at": "2026-07-19T18:35:29+0000"
+      },
+      {
+        "id": 35213798,
+        "name": {
+          "pt": "Correntes e Pingentes"
+        },
+        "description": {
+          "pt": ""
+        },
+        "handle": {
+          "pt": "correntes-e-pingentes"
+        },
+        "parent": 32376553,
+        "subcategories": [],
+        "seo_title": {
+          "pt": ""
+        },
+        "seo_description": {
+          "pt": ""
+        },
+        "google_shopping_category": "Vestuário e acessórios > Joias e bijuterias",
+        "created_at": "2025-11-18T23:02:34+0000",
+        "updated_at": "2026-08-08T00:56:52+0000"
+      },
+      {
+        "id": 32931728,
+        "name": {
+          "pt": "Joias e acessórios"
+        },
+        "description": {
+          "pt": ""
+        },
+        "handle": {
+          "pt": "joias-e-acessorios"
+        },
+        "parent": null,
+        "subcategories": [
+          36604582,
+          32930962,
+          32930952,
+          32930947,
+          36604161,
+          32930935,
+          32930961,
+          32931445,
+          36615793,
+          36615797
+        ],
+        "seo_title": {
+          "pt": ""
+        },
+        "seo_description": {
+          "pt": ""
+        },
+        "google_shopping_category": "Vestuário e acessórios > Joias e bijuterias",
+        "created_at": "2025-07-30T00:17:52+0000",
+        "updated_at": "2026-08-08T00:56:52+0000"
+      },
+      {
+        "id": 32930947,
+        "name": {
+          "pt": "Colar e correntes"
+        },
+        "description": {
+          "pt": ""
+        },
+        "handle": {
+          "pt": "colar-e-correntes"
+        },
+        "parent": 32931728,
+        "subcategories": [],
+        "seo_title": {
+          "pt": ""
+        },
+        "seo_description": {
+          "pt": ""
+        },
+        "google_shopping_category": "Vestuário e acessórios > Joias e bijuterias > Colares",
+        "created_at": "2025-07-29T23:25:24+0000",
+        "updated_at": "2026-08-08T00:56:51+0000"
+      },
+      {
+        "id": 36604161,
+        "name": {
+          "pt": "Corrente"
+        },
+        "description": {
+          "pt": ""
+        },
+        "handle": {
+          "pt": "corrente"
+        },
+        "parent": 32931728,
+        "subcategories": [],
+        "seo_title": {
+          "pt": ""
+        },
+        "seo_description": {
+          "pt": ""
+        },
+        "google_shopping_category": "Vestuário e acessórios > Joias e bijuterias > Colares",
+        "created_at": "2026-02-03T18:33:19+0000",
+        "updated_at": "2026-08-08T00:56:52+0000"
+      },
+      {
+        "id": 35119124,
+        "name": {
+          "pt": "Black Friday"
+        },
+        "description": {
+          "pt": ""
+        },
+        "handle": {
+          "pt": "black-friday"
+        },
+        "parent": null,
+        "subcategories": [],
+        "seo_title": {
+          "pt": ""
+        },
+        "seo_description": {
+          "pt": ""
+        },
+        "google_shopping_category": "Vestuário e acessórios > Joias e bijuterias",
+        "created_at": "2025-11-14T12:44:36+0000",
+        "updated_at": "2026-08-08T00:56:52+0000"
+      }
+    ]
+  },
+  {
+    "id": 281139144,
+    "name": {
+      "pt": "Corrente Veneziana em Aço Inoxidável"
+    },
+    "description": {
+      "pt": "<h2>Corrente Veneziana em Aço Inoxidável — a base ideal para usar com seu pingente afetivo</h2><p>Corrente veneziana em Aço Inoxidável, pensada para dar suporte ao seu pingente ou joia afetiva Uma Estrelinha no dia a dia.</p><h3>Especificações</h3><ul><li>Tipo: Corrente</li><li>Modelo: Veneziana</li><li>Material: Aço Inoxidável</li><li>Tamanho: 45cm</li></ul><h3>Perguntas frequentes</h3><p><strong>Essa corrente combina com os pingentes afetivos da Uma Estrelinha?</strong><br>Sim! Essa corrente foi pensada para usar com pingentes e joias afetivas da Uma Estrelinha, mas também pode ser usada sozinha.</p><p><strong>O pingente já vem incluso?</strong><br>Não — essa corrente é vendida separadamente do pingente, para você escolher a combinação que preferir.</p><p><strong>O Aço Inoxidável escurece com o uso?</strong><br>Não — o Aço Inoxidável é resistente à oxidação e não escurece com o tempo, mantendo o brilho por muito mais tempo que outros metais.</p><h3>Observações importantes</h3><ul><li>A peça exibida nas fotos é ilustrativa e pode apresentar pequenas variações de tom ou textura.</li></ul>"
+    },
+    "handle": {
+      "pt": "corrente-veneziana-em-aco-inoxidavel"
+    },
+    "attributes": [],
+    "published": true,
+    "free_shipping": false,
+    "requires_shipping": true,
+    "canonical_url": "https://umaestrelinha.com.br/produtos/corrente-veneziana-em-aco-inoxidavel/",
+    "video_url": null,
+    "seo_title": {
+      "pt": "Corrente Veneziana em Aço Inoxidável | UE"
+    },
+    "seo_description": {
+      "pt": "Corrente Veneziana em Aço Inoxidável, 45cm. Ideal para usar com pingentes afetivos."
+    },
+    "brand": "",
+    "has_stock": true,
+    "is_kit": false,
+    "visibility": "visible",
+    "created_at": "2025-07-10T23:14:43+0000",
+    "updated_at": "2026-07-14T16:10:33+0000",
+    "invalid_at": null,
+    "variants": [
+      {
+        "id": 1256909254,
+        "image_id": null,
+        "product_id": 281139144,
+        "position": 1,
+        "price": "39.90",
+        "price_without_taxes": null,
+        "compare_at_price": "39.90",
+        "promotional_price": null,
+        "stock_management": true,
+        "stock": 2,
+        "weight": "0.030",
+        "width": "2.00",
+        "height": "2.00",
+        "depth": "2.00",
+        "sku": "0WS51yT",
+        "values": [],
+        "barcode": null,
+        "mpn": null,
+        "age_group": null,
+        "gender": null,
+        "created_at": "2025-07-10T23:33:26+0000",
+        "updated_at": "2026-07-14T16:10:27+0000",
+        "cost": null,
+        "visible": true,
+        "inventory_levels": [
+          {
+            "id": 886670546,
+            "variant_id": 1256909254,
+            "location_id": "01JP1AG11Z639MND13T5PK8Z8A",
+            "stock": 2
+          }
+        ]
+      }
+    ],
+    "tags": "Corrente",
+    "images": [
+      {
+        "id": 1230888867,
+        "product_id": 281139144,
+        "src": "https://acdn-us.mitiendanube.com/stores/005/943/282/products/chatgpt-image-11_07_2026-14_26_25-1a96a59b855505181617837907967998-1024-1024.png",
+        "position": 1,
+        "alt": {
+          "pt": ""
+        },
+        "height": 1402,
+        "width": 1122,
+        "thumbnails_generated": 2,
+        "created_at": "2026-07-11T17:26:37+0000",
+        "updated_at": "2026-07-11T17:26:52+0000",
+        "store_media_uuid": null
+      }
+    ],
+    "videos": [],
+    "categories": [
+      {
+        "id": 32376553,
+        "name": {
+          "pt": "Joias afetivas"
+        },
+        "description": {
+          "pt": ""
+        },
+        "handle": {
+          "pt": "joias-afetivas"
+        },
+        "parent": null,
+        "subcategories": [
+          32668248,
+          32376556,
+          32376552,
+          32376549,
+          32668246,
+          32668247,
+          32519345,
+          32376547,
+          32510036,
+          40271295,
+          35213798
+        ],
+        "seo_title": {
+          "pt": ""
+        },
+        "seo_description": {
+          "pt": ""
+        },
+        "google_shopping_category": "Vestuário e acessórios > Joias e bijuterias",
+        "created_at": "2025-07-03T00:41:41+0000",
+        "updated_at": "2026-07-19T18:35:29+0000"
+      },
+      {
+        "id": 35213798,
+        "name": {
+          "pt": "Correntes e Pingentes"
+        },
+        "description": {
+          "pt": ""
+        },
+        "handle": {
+          "pt": "correntes-e-pingentes"
+        },
+        "parent": 32376553,
+        "subcategories": [],
+        "seo_title": {
+          "pt": ""
+        },
+        "seo_description": {
+          "pt": ""
+        },
+        "google_shopping_category": "Vestuário e acessórios > Joias e bijuterias",
+        "created_at": "2025-11-18T23:02:34+0000",
+        "updated_at": "2026-08-08T00:56:52+0000"
+      },
+      {
+        "id": 32931728,
+        "name": {
+          "pt": "Joias e acessórios"
+        },
+        "description": {
+          "pt": ""
+        },
+        "handle": {
+          "pt": "joias-e-acessorios"
+        },
+        "parent": null,
+        "subcategories": [
+          36604582,
+          32930962,
+          32930952,
+          32930947,
+          36604161,
+          32930935,
+          32930961,
+          32931445,
+          36615793,
+          36615797
+        ],
+        "seo_title": {
+          "pt": ""
+        },
+        "seo_description": {
+          "pt": ""
+        },
+        "google_shopping_category": "Vestuário e acessórios > Joias e bijuterias",
+        "created_at": "2025-07-30T00:17:52+0000",
+        "updated_at": "2026-08-08T00:56:52+0000"
+      },
+      {
+        "id": 32930947,
+        "name": {
+          "pt": "Colar e correntes"
+        },
+        "description": {
+          "pt": ""
+        },
+        "handle": {
+          "pt": "colar-e-correntes"
+        },
+        "parent": 32931728,
+        "subcategories": [],
+        "seo_title": {
+          "pt": ""
+        },
+        "seo_description": {
+          "pt": ""
+        },
+        "google_shopping_category": "Vestuário e acessórios > Joias e bijuterias > Colares",
+        "created_at": "2025-07-29T23:25:24+0000",
+        "updated_at": "2026-08-08T00:56:51+0000"
+      },
+      {
+        "id": 36604161,
+        "name": {
+          "pt": "Corrente"
+        },
+        "description": {
+          "pt": ""
+        },
+        "handle": {
+          "pt": "corrente"
+        },
+        "parent": 32931728,
+        "subcategories": [],
+        "seo_title": {
+          "pt": ""
+        },
+        "seo_description": {
+          "pt": ""
+        },
+        "google_shopping_category": "Vestuário e acessórios > Joias e bijuterias > Colares",
+        "created_at": "2026-02-03T18:33:19+0000",
+        "updated_at": "2026-08-08T00:56:52+0000"
+      }
+    ]
+  },
+  {
+    "id": 282224981,
+    "name": {
+      "pt": "Pingente Pata Coleção Fragmentos"
+    },
+    "description": {
+      "pt": "<h2>Pingente Pata Coleção Fragmentos — peça simbólica da Uma Estrelinha, feita em Folheado a Ouro para acompanhar seu dia a dia</h2><p>Peça simbólica com pata, ideal para uso diário ou para presentear com significado.</p><h3>Especificações</h3><ul><li>Tipo: Pingente decorativo</li><li>Design: Pata</li><li>Tamanho: Sob consulta no anúncio</li><li>Material base: Folheado a Ouro</li></ul><h3>Perguntas frequentes</h3><p><strong>Esse pingente combina com a coleção Fragmentos?</strong><br>Sim — foi desenhado para compor colares e pulseiras junto aos demais pingentes da coleção Fragmentos.</p><p><strong>Essa peça acompanha corrente?</strong><br>Consulte a ficha do produto: alguns modelos já incluem corrente veneziana folheada a ouro, outros são vendidos apenas com o pingente.</p><p><strong>As joias são realmente feitas à mão?</strong><br>Sim — todas as peças da Uma Estrelinha são produzidas artesanalmente pela Adri Muniz, com cuidado e respeito a cada detalhe.</p><h3>Observações importantes</h3><ul><li>A peça exibida nas fotos é ilustrativa e pode apresentar pequenas variações de tom ou textura.</li><li>As peças possuem garantia de 1 ano apenas na folheação.</li></ul>"
+    },
+    "handle": {
+      "pt": "pingente-pata-colecao-fragmentos"
+    },
+    "attributes": [],
+    "published": true,
+    "free_shipping": false,
+    "requires_shipping": true,
+    "canonical_url": "https://umaestrelinha.com.br/produtos/pingente-pata-colecao-fragmentos/",
+    "video_url": null,
+    "seo_title": {
+      "pt": "Pingente Pata Coleção Fragmentos | Uma Estrelinha"
+    },
+    "seo_description": {
+      "pt": "Pingente Pata Coleção Fragmentos — peça simbólica artesanal da Uma Estrelinha. Compre online."
+    },
+    "brand": null,
+    "has_stock": true,
+    "is_kit": false,
+    "visibility": "visible",
+    "created_at": "2025-07-17T02:52:42+0000",
+    "updated_at": "2025-07-20T00:19:49+0000",
+    "invalid_at": null,
+    "variants": [
+      {
+        "id": 1262253736,
+        "image_id": 931105486,
+        "product_id": 282224981,
+        "position": 1,
+        "price": "22.90",
+        "price_without_taxes": null,
+        "compare_at_price": "22.90",
+        "promotional_price": null,
+        "stock_management": false,
+        "stock": null,
+        "weight": "0.020",
+        "width": "5.00",
+        "height": "2.00",
+        "depth": "5.00",
+        "sku": null,
+        "values": [],
+        "barcode": null,
+        "mpn": null,
+        "age_group": null,
+        "gender": null,
+        "created_at": "2025-07-17T02:52:42+0000",
+        "updated_at": "2025-07-20T00:19:48+0000",
+        "cost": null,
+        "visible": true,
+        "inventory_levels": [
+          {
+            "id": 892038793,
+            "variant_id": 1262253736,
+            "location_id": "01JP1AG11Z639MND13T5PK8Z8A",
+            "stock": null
+          }
+        ]
+      }
+    ],
+    "tags": "",
+    "images": [
+      {
+        "id": 1229933116,
+        "product_id": 282224981,
+        "src": "https://acdn-us.mitiendanube.com/stores/005/943/282/products/chatgpt-image-10_07_2026-00_18_10-35a9ba19b795dbb2d717836534990445-1024-1024.png",
+        "position": 1,
+        "alt": {
+          "pt": ""
+        },
+        "height": 1448,
+        "width": 1086,
+        "thumbnails_generated": 2,
+        "created_at": "2026-07-10T03:18:19+0000",
+        "updated_at": "2026-07-10T03:18:30+0000",
+        "store_media_uuid": null
+      }
+    ],
+    "videos": [],
+    "categories": [
+      {
+        "id": 34728735,
+        "name": {
+          "pt": "Personalizados"
+        },
+        "description": {
+          "pt": ""
+        },
+        "handle": {
+          "pt": "personalizados"
+        },
+        "parent": null,
+        "subcategories": [
+          34728740,
+          34729765,
+          34729753,
+          34729762,
+          34729761,
+          34729764,
+          34729763,
+          34729760
+        ],
+        "seo_title": {
+          "pt": ""
+        },
+        "seo_description": {
+          "pt": ""
+        },
+        "google_shopping_category": "Vestuário e acessórios > Joias e bijuterias",
+        "created_at": "2025-10-26T12:43:19+0000",
+        "updated_at": "2026-08-08T00:56:52+0000"
+      },
+      {
+        "id": 32668523,
+        "name": {
+          "pt": "Coleção Fragmentos"
+        },
+        "description": {
+          "pt": ""
+        },
+        "handle": {
+          "pt": "colecao-fragmentos"
+        },
+        "parent": null,
+        "subcategories": [],
+        "seo_title": {
+          "pt": ""
+        },
+        "seo_description": {
+          "pt": ""
+        },
+        "google_shopping_category": "Vestuário e acessórios > Joias e bijuterias",
+        "created_at": "2025-07-17T02:46:28+0000",
+        "updated_at": "2026-08-08T00:56:51+0000"
+      }
+    ]
+  },
+  {
+    "id": 282225744,
+    "name": {
+      "pt": "Pingente Figa Coleção Fragmentos"
+    },
+    "description": {
+      "pt": "<h2>Pingente Figa Coleção Fragmentos — peça simbólica da Uma Estrelinha, feita em Folheado a Ouro para acompanhar seu dia a dia</h2><p>Peça simbólica com figa, ideal para uso diário ou para presentear com significado.</p><h3>Especificações</h3><ul><li>Tipo: Pingente decorativo</li><li>Design: Figa</li><li>Tamanho: Sob consulta no anúncio</li><li>Material base: Folheado a Ouro</li></ul><h3>Perguntas frequentes</h3><p><strong>O que a figa significa?</strong><br>A figa é um amuleto tradicional brasileiro de proteção contra mau-olhado e energias negativas.</p><p><strong>Essa peça acompanha corrente?</strong><br>Consulte a ficha do produto: alguns modelos já incluem corrente veneziana folheada a ouro, outros são vendidos apenas com o pingente.</p><p><strong>As joias são realmente feitas à mão?</strong><br>Sim — todas as peças da Uma Estrelinha são produzidas artesanalmente pela Adri Muniz, com cuidado e respeito a cada detalhe.</p><h3>Observações importantes</h3><ul><li>A peça exibida nas fotos é ilustrativa e pode apresentar pequenas variações de tom ou textura.</li><li>As peças possuem garantia de 1 ano apenas na folheação.</li></ul>"
+    },
+    "handle": {
+      "pt": "pingente-figa-colecao-fragmentos"
+    },
+    "attributes": [],
+    "published": false,
+    "free_shipping": false,
+    "requires_shipping": true,
+    "canonical_url": "https://umaestrelinha.com.br/produtos/pingente-figa-colecao-fragmentos/",
+    "video_url": null,
+    "seo_title": {
+      "pt": "Pingente Figa Coleção Fragmentos | Uma Estrelinha"
+    },
+    "seo_description": {
+      "pt": "Pingente Figa Coleção Fragmentos — peça simbólica artesanal da Uma Estrelinha. Compre online."
+    },
+    "brand": null,
+    "has_stock": true,
+    "is_kit": false,
+    "visibility": "hidden",
+    "created_at": "2025-07-17T02:57:08+0000",
+    "updated_at": "2025-07-17T02:57:15+0000",
+    "invalid_at": null,
+    "variants": [
+      {
+        "id": 1262262206,
+        "image_id": null,
+        "product_id": 282225744,
+        "position": 1,
+        "price": null,
+        "price_without_taxes": null,
+        "compare_at_price": null,
+        "promotional_price": null,
+        "stock_management": false,
+        "stock": null,
+        "weight": "0.020",
+        "width": "5.00",
+        "height": "2.00",
+        "depth": "5.00",
+        "sku": "",
+        "values": [],
+        "barcode": null,
+        "mpn": null,
+        "age_group": null,
+        "gender": null,
+        "created_at": "2025-07-17T02:57:08+0000",
+        "updated_at": "2025-07-17T02:57:08+0000",
+        "cost": null,
+        "visible": true,
+        "inventory_levels": [
+          {
+            "id": 892047264,
+            "variant_id": 1262262206,
+            "location_id": "01JP1AG11Z639MND13T5PK8Z8A",
+            "stock": null
+          }
+        ]
+      }
+    ],
+    "tags": "",
+    "images": [],
+    "videos": [],
+    "categories": [
+      {
+        "id": 34728735,
+        "name": {
+          "pt": "Personalizados"
+        },
+        "description": {
+          "pt": ""
+        },
+        "handle": {
+          "pt": "personalizados"
+        },
+        "parent": null,
+        "subcategories": [
+          34728740,
+          34729765,
+          34729753,
+          34729762,
+          34729761,
+          34729764,
+          34729763,
+          34729760
+        ],
+        "seo_title": {
+          "pt": ""
+        },
+        "seo_description": {
+          "pt": ""
+        },
+        "google_shopping_category": "Vestuário e acessórios > Joias e bijuterias",
+        "created_at": "2025-10-26T12:43:19+0000",
+        "updated_at": "2026-08-08T00:56:52+0000"
+      },
+      {
+        "id": 32668523,
+        "name": {
+          "pt": "Coleção Fragmentos"
+        },
+        "description": {
+          "pt": ""
+        },
+        "handle": {
+          "pt": "colecao-fragmentos"
+        },
+        "parent": null,
+        "subcategories": [],
+        "seo_title": {
+          "pt": ""
+        },
+        "seo_description": {
+          "pt": ""
+        },
+        "google_shopping_category": "Vestuário e acessórios > Joias e bijuterias",
+        "created_at": "2025-07-17T02:46:28+0000",
+        "updated_at": "2026-08-08T00:56:51+0000"
+      }
+    ]
+  },
+  {
+    "id": 302963015,
+    "name": {
+      "pt": "Pingente Complementar"
+    },
+    "description": {
+      "pt": "<p>D&ecirc; ainda mais significado &agrave; sua <strong data-start=\"258\" data-end=\"274\">Joia Afetiva</strong> com os <strong data-start=\"282\" data-end=\"310\">Pingentes Complementares</strong>, criados para expressar hist&oacute;rias &uacute;nicas e sentimentos eternos. Cada pingente &eacute; um s&iacute;mbolo de amor, mem&oacute;ria e conex&atilde;o &mdash; um detalhe que transforma sua joia em uma pe&ccedil;a verdadeiramente pessoal.<br /><br /></p>\n<p data-start=\"506\" data-end=\"975\">Com delicadeza e sofistica&ccedil;&atilde;o, nossos pingentes representam aquilo que mais importa para voc&ecirc;:<br data-start=\"600\" data-end=\"603\" /><strong data-start=\"605\" data-end=\"628\">Pingentes de Filhos</strong>, que eternizam a maternidade e o amor incondicional;<br data-start=\"681\" data-end=\"684\" /><strong data-start=\"687\" data-end=\"707\">Pingentes de Pet</strong>, feitos com amor para homenagear seu companheiro de quatro patas;<br data-start=\"773\" data-end=\"776\" /><strong data-start=\"779\" data-end=\"815\">Pingentes com Cinzas de Crema&ccedil;&atilde;o</strong>, uma forma sens&iacute;vel e eterna de manter viva a lembran&ccedil;a de quem partiu;<br data-start=\"887\" data-end=\"890\" data-is-only-node=\"\" /><strong data-start=\"893\" data-end=\"924\">Pingentes com Leite Materno</strong>, s&iacute;mbolo de v&iacute;nculo, cuidado e o mais puro amor.</p>\n<p>&nbsp;</p>\n<p data-start=\"977\" data-end=\"1108\">Cada detalhe &eacute; feito &agrave; m&atilde;o, com carinho e t&eacute;cnica, garantindo uma joia afetiva &uacute;nica &mdash; que guarda mem&oacute;rias e emo&ccedil;&otilde;es para sempre.</p>"
+    },
+    "handle": {
+      "pt": "pingente-complementar"
+    },
+    "attributes": [
+      {
+        "pt": "Modelo"
+      }
+    ],
+    "published": false,
+    "free_shipping": false,
+    "requires_shipping": true,
+    "canonical_url": "https://umaestrelinha.com.br/produtos/pingente-complementar/",
+    "video_url": null,
+    "seo_title": {
+      "pt": "Pingentes Afetivos Personalizados | Joias com Significado"
+    },
+    "seo_description": {
+      "pt": "Pingentes afetivos de filhos, pets, leite materno e cinzas. Personalize sua joia com amor, memória e elegância."
+    },
+    "brand": null,
+    "has_stock": true,
+    "is_kit": false,
+    "visibility": "hidden",
+    "created_at": "2025-10-25T13:00:04+0000",
+    "updated_at": "2025-11-18T22:16:24+0000",
+    "invalid_at": null,
+    "variants": [
+      {
+        "id": 1348422724,
+        "image_id": 1016090550,
+        "product_id": 302963015,
+        "position": 1,
+        "price": "15.00",
+        "price_without_taxes": null,
+        "compare_at_price": "15.00",
+        "promotional_price": null,
+        "stock_management": true,
+        "stock": 1,
+        "weight": "0.020",
+        "width": "5.00",
+        "height": "1.00",
+        "depth": "5.00",
+        "sku": null,
+        "values": [
+          {
+            "pt": "Menina - Folheado a Ouro"
+          }
+        ],
+        "barcode": null,
+        "mpn": null,
+        "age_group": null,
+        "gender": null,
+        "created_at": "2025-10-25T13:00:05+0000",
+        "updated_at": "2025-10-27T02:51:54+0000",
+        "cost": null,
+        "visible": true,
+        "inventory_levels": [
+          {
+            "id": 979498380,
+            "variant_id": 1348422724,
+            "location_id": "01JP1AG11Z639MND13T5PK8Z8A",
+            "stock": 1
+          }
+        ]
+      },
+      {
+        "id": 1348422726,
+        "image_id": 1016090549,
+        "product_id": 302963015,
+        "position": 2,
+        "price": "24.00",
+        "price_without_taxes": null,
+        "compare_at_price": "24.00",
+        "promotional_price": null,
+        "stock_management": true,
+        "stock": 1,
+        "weight": "0.020",
+        "width": "5.00",
+        "height": "1.00",
+        "depth": "5.00",
+        "sku": null,
+        "values": [
+          {
+            "pt": "Menina 1 - Folheado a Ouro"
+          }
+        ],
+        "barcode": null,
+        "mpn": null,
+        "age_group": null,
+        "gender": null,
+        "created_at": "2025-10-25T13:00:05+0000",
+        "updated_at": "2025-10-27T02:51:54+0000",
+        "cost": null,
+        "visible": true,
+        "inventory_levels": [
+          {
+            "id": 979498382,
+            "variant_id": 1348422726,
+            "location_id": "01JP1AG11Z639MND13T5PK8Z8A",
+            "stock": 1
+          }
+        ]
+      },
+      {
+        "id": 1348422728,
+        "image_id": 1016090559,
+        "product_id": 302963015,
+        "position": 3,
+        "price": "18.00",
+        "price_without_taxes": null,
+        "compare_at_price": "18.00",
+        "promotional_price": null,
+        "stock_management": true,
+        "stock": 1,
+        "weight": "0.020",
+        "width": "5.00",
+        "height": "1.00",
+        "depth": "5.00",
+        "sku": null,
+        "values": [
+          {
+            "pt": "Menina 2 - Folheado a Ouro"
+          }
+        ],
+        "barcode": null,
+        "mpn": null,
+        "age_group": null,
+        "gender": null,
+        "created_at": "2025-10-25T13:00:05+0000",
+        "updated_at": "2025-10-27T02:51:54+0000",
+        "cost": null,
+        "visible": true,
+        "inventory_levels": [
+          {
+            "id": 979498384,
+            "variant_id": 1348422728,
+            "location_id": "01JP1AG11Z639MND13T5PK8Z8A",
+            "stock": 1
+          }
+        ]
+      },
+      {
+        "id": 1348422729,
+        "image_id": 1016090544,
+        "product_id": 302963015,
+        "position": 4,
+        "price": "20.00",
+        "price_without_taxes": null,
+        "compare_at_price": "20.00",
+        "promotional_price": null,
+        "stock_management": true,
+        "stock": 4,
+        "weight": "0.020",
+        "width": "5.00",
+        "height": "1.00",
+        "depth": "5.00",
+        "sku": null,
+        "values": [
+          {
+            "pt": "Menina 3 - Folheado a Ouro"
+          }
+        ],
+        "barcode": null,
+        "mpn": null,
+        "age_group": null,
+        "gender": null,
+        "created_at": "2025-10-25T13:00:05+0000",
+        "updated_at": "2025-10-27T02:51:54+0000",
+        "cost": null,
+        "visible": true,
+        "inventory_levels": [
+          {
+            "id": 979498385,
+            "variant_id": 1348422729,
+            "location_id": "01JP1AG11Z639MND13T5PK8Z8A",
+            "stock": 4
+          }
+        ]
+      },
+      {
+        "id": 1348422731,
+        "image_id": 1016090546,
+        "product_id": 302963015,
+        "position": 5,
+        "price": "35.00",
+        "price_without_taxes": null,
+        "compare_at_price": "35.00",
+        "promotional_price": null,
+        "stock_management": true,
+        "stock": 1,
+        "weight": "0.020",
+        "width": "5.00",
+        "height": "1.00",
+        "depth": "5.00",
+        "sku": null,
+        "values": [
+          {
+            "pt": "Menina 4 - Folheado a Ouro"
+          }
+        ],
+        "barcode": null,
+        "mpn": null,
+        "age_group": null,
+        "gender": null,
+        "created_at": "2025-10-25T13:00:05+0000",
+        "updated_at": "2025-10-27T02:51:54+0000",
+        "cost": null,
+        "visible": true,
+        "inventory_levels": [
+          {
+            "id": 979498387,
+            "variant_id": 1348422731,
+            "location_id": "01JP1AG11Z639MND13T5PK8Z8A",
+            "stock": 1
+          }
+        ]
+      },
+      {
+        "id": 1348422733,
+        "image_id": 1016090543,
+        "product_id": 302963015,
+        "position": 6,
+        "price": "60.00",
+        "price_without_taxes": null,
+        "compare_at_price": "60.00",
+        "promotional_price": null,
+        "stock_management": true,
+        "stock": 2,
+        "weight": "0.020",
+        "width": "5.00",
+        "height": "1.00",
+        "depth": "5.00",
+        "sku": null,
+        "values": [
+          {
+            "pt": "Menina 5 - Folheado a Ouro"
+          }
+        ],
+        "barcode": null,
+        "mpn": null,
+        "age_group": null,
+        "gender": null,
+        "created_at": "2025-10-25T13:00:06+0000",
+        "updated_at": "2025-10-27T02:51:55+0000",
+        "cost": null,
+        "visible": true,
+        "inventory_levels": [
+          {
+            "id": 979498389,
+            "variant_id": 1348422733,
+            "location_id": "01JP1AG11Z639MND13T5PK8Z8A",
+            "stock": 2
+          }
+        ]
+      },
+      {
+        "id": 1348422734,
+        "image_id": 1016090562,
+        "product_id": 302963015,
+        "position": 7,
+        "price": "64.00",
+        "price_without_taxes": null,
+        "compare_at_price": "64.00",
+        "promotional_price": null,
+        "stock_management": true,
+        "stock": 3,
+        "weight": "0.020",
+        "width": "5.00",
+        "height": "1.00",
+        "depth": "5.00",
+        "sku": null,
+        "values": [
+          {
+            "pt": "Menina 6 - Prata 925"
+          }
+        ],
+        "barcode": null,
+        "mpn": null,
+        "age_group": null,
+        "gender": null,
+        "created_at": "2025-10-25T13:00:06+0000",
+        "updated_at": "2025-10-27T02:51:55+0000",
+        "cost": null,
+        "visible": true,
+        "inventory_levels": [
+          {
+            "id": 979498390,
+            "variant_id": 1348422734,
+            "location_id": "01JP1AG11Z639MND13T5PK8Z8A",
+            "stock": 3
+          }
+        ]
+      },
+      {
+        "id": 1348422737,
+        "image_id": 1016090565,
+        "product_id": 302963015,
+        "position": 8,
+        "price": "15.00",
+        "price_without_taxes": null,
+        "compare_at_price": "15.00",
+        "promotional_price": null,
+        "stock_management": true,
+        "stock": 0,
+        "weight": "0.020",
+        "width": "5.00",
+        "height": "1.00",
+        "depth": "5.00",
+        "sku": null,
+        "values": [
+          {
+            "pt": "Menino 1 - Folheado a ouro e prata"
+          }
+        ],
+        "barcode": null,
+        "mpn": null,
+        "age_group": null,
+        "gender": null,
+        "created_at": "2025-10-25T13:00:06+0000",
+        "updated_at": "2025-10-27T02:51:55+0000",
+        "cost": null,
+        "visible": true,
+        "inventory_levels": [
+          {
+            "id": 979498393,
+            "variant_id": 1348422737,
+            "location_id": "01JP1AG11Z639MND13T5PK8Z8A",
+            "stock": 0
+          }
+        ]
+      },
+      {
+        "id": 1348422738,
+        "image_id": 1016090556,
+        "product_id": 302963015,
+        "position": 9,
+        "price": "20.00",
+        "price_without_taxes": null,
+        "compare_at_price": "20.00",
+        "promotional_price": null,
+        "stock_management": true,
+        "stock": 6,
+        "weight": "0.020",
+        "width": "5.00",
+        "height": "1.00",
+        "depth": "5.00",
+        "sku": null,
+        "values": [
+          {
+            "pt": "Menino 2 - Folheado a ouro"
+          }
+        ],
+        "barcode": null,
+        "mpn": null,
+        "age_group": null,
+        "gender": null,
+        "created_at": "2025-10-25T13:00:06+0000",
+        "updated_at": "2025-10-27T02:51:55+0000",
+        "cost": null,
+        "visible": true,
+        "inventory_levels": [
+          {
+            "id": 979498394,
+            "variant_id": 1348422738,
+            "location_id": "01JP1AG11Z639MND13T5PK8Z8A",
+            "stock": 6
+          }
+        ]
+      },
+      {
+        "id": 1348422740,
+        "image_id": 1016090564,
+        "product_id": 302963015,
+        "position": 10,
+        "price": "24.00",
+        "price_without_taxes": null,
+        "compare_at_price": "24.00",
+        "promotional_price": null,
+        "stock_management": true,
+        "stock": 1,
+        "weight": "0.020",
+        "width": "5.00",
+        "height": "1.00",
+        "depth": "5.00",
+        "sku": null,
+        "values": [
+          {
+            "pt": "Menino 3 - Folheado a ouro"
+          }
+        ],
+        "barcode": null,
+        "mpn": null,
+        "age_group": null,
+        "gender": null,
+        "created_at": "2025-10-25T13:00:06+0000",
+        "updated_at": "2025-10-27T02:51:55+0000",
+        "cost": null,
+        "visible": true,
+        "inventory_levels": [
+          {
+            "id": 979498396,
+            "variant_id": 1348422740,
+            "location_id": "01JP1AG11Z639MND13T5PK8Z8A",
+            "stock": 1
+          }
+        ]
+      },
+      {
+        "id": 1348422741,
+        "image_id": 1016090542,
+        "product_id": 302963015,
+        "position": 11,
+        "price": "20.00",
+        "price_without_taxes": null,
+        "compare_at_price": "20.00",
+        "promotional_price": null,
+        "stock_management": true,
+        "stock": 2,
+        "weight": "0.020",
+        "width": "5.00",
+        "height": "1.00",
+        "depth": "5.00",
+        "sku": null,
+        "values": [
+          {
+            "pt": "Menino 4 - Folheado a ouro"
+          }
+        ],
+        "barcode": null,
+        "mpn": null,
+        "age_group": null,
+        "gender": null,
+        "created_at": "2025-10-25T13:00:06+0000",
+        "updated_at": "2025-10-27T02:51:55+0000",
+        "cost": null,
+        "visible": true,
+        "inventory_levels": [
+          {
+            "id": 979498397,
+            "variant_id": 1348422741,
+            "location_id": "01JP1AG11Z639MND13T5PK8Z8A",
+            "stock": 2
+          }
+        ]
+      },
+      {
+        "id": 1348422743,
+        "image_id": 1016090558,
+        "product_id": 302963015,
+        "position": 12,
+        "price": "25.00",
+        "price_without_taxes": null,
+        "compare_at_price": "25.00",
+        "promotional_price": null,
+        "stock_management": true,
+        "stock": 5,
+        "weight": "0.020",
+        "width": "5.00",
+        "height": "1.00",
+        "depth": "5.00",
+        "sku": null,
+        "values": [
+          {
+            "pt": "Menino 5 - Folheado a ouro"
+          }
+        ],
+        "barcode": null,
+        "mpn": null,
+        "age_group": null,
+        "gender": null,
+        "created_at": "2025-10-25T13:00:06+0000",
+        "updated_at": "2025-10-27T02:51:55+0000",
+        "cost": null,
+        "visible": true,
+        "inventory_levels": [
+          {
+            "id": 979498399,
+            "variant_id": 1348422743,
+            "location_id": "01JP1AG11Z639MND13T5PK8Z8A",
+            "stock": 5
+          }
+        ]
+      },
+      {
+        "id": 1348422746,
+        "image_id": 1016090571,
+        "product_id": 302963015,
+        "position": 13,
+        "price": "32.00",
+        "price_without_taxes": null,
+        "compare_at_price": "32.00",
+        "promotional_price": null,
+        "stock_management": true,
+        "stock": 3,
+        "weight": "0.020",
+        "width": "5.00",
+        "height": "1.00",
+        "depth": "5.00",
+        "sku": null,
+        "values": [
+          {
+            "pt": "Menino 6 - Prata 925"
+          }
+        ],
+        "barcode": null,
+        "mpn": null,
+        "age_group": null,
+        "gender": null,
+        "created_at": "2025-10-25T13:00:07+0000",
+        "updated_at": "2025-10-27T02:51:55+0000",
+        "cost": null,
+        "visible": true,
+        "inventory_levels": [
+          {
+            "id": 979498402,
+            "variant_id": 1348422746,
+            "location_id": "01JP1AG11Z639MND13T5PK8Z8A",
+            "stock": 3
+          }
+        ]
+      },
+      {
+        "id": 1348422748,
+        "image_id": 1016090574,
+        "product_id": 302963015,
+        "position": 14,
+        "price": "36.00",
+        "price_without_taxes": null,
+        "compare_at_price": "36.00",
+        "promotional_price": null,
+        "stock_management": true,
+        "stock": 10,
+        "weight": "0.020",
+        "width": "5.00",
+        "height": "1.00",
+        "depth": "5.00",
+        "sku": null,
+        "values": [
+          {
+            "pt": "Menino 7 - Prata 925"
+          }
+        ],
+        "barcode": null,
+        "mpn": null,
+        "age_group": null,
+        "gender": null,
+        "created_at": "2025-10-25T13:00:07+0000",
+        "updated_at": "2025-10-27T02:51:55+0000",
+        "cost": null,
+        "visible": true,
+        "inventory_levels": [
+          {
+            "id": 979498404,
+            "variant_id": 1348422748,
+            "location_id": "01JP1AG11Z639MND13T5PK8Z8A",
+            "stock": 10
+          }
+        ]
+      },
+      {
+        "id": 1348422750,
+        "image_id": 1016090557,
+        "product_id": 302963015,
+        "position": 15,
+        "price": "36.00",
+        "price_without_taxes": null,
+        "compare_at_price": "36.00",
+        "promotional_price": null,
+        "stock_management": true,
+        "stock": 2,
+        "weight": "0.020",
+        "width": "5.00",
+        "height": "1.00",
+        "depth": "5.00",
+        "sku": null,
+        "values": [
+          {
+            "pt": "Menino 8 - Prata 925"
+          }
+        ],
+        "barcode": null,
+        "mpn": null,
+        "age_group": null,
+        "gender": null,
+        "created_at": "2025-10-25T13:00:07+0000",
+        "updated_at": "2025-10-27T02:51:55+0000",
+        "cost": null,
+        "visible": true,
+        "inventory_levels": [
+          {
+            "id": 979498406,
+            "variant_id": 1348422750,
+            "location_id": "01JP1AG11Z639MND13T5PK8Z8A",
+            "stock": 2
+          }
+        ]
+      },
+      {
+        "id": 1348422751,
+        "image_id": 1016090547,
+        "product_id": 302963015,
+        "position": 16,
+        "price": "40.00",
+        "price_without_taxes": null,
+        "compare_at_price": "40.00",
+        "promotional_price": null,
+        "stock_management": true,
+        "stock": 2,
+        "weight": "0.020",
+        "width": "5.00",
+        "height": "1.00",
+        "depth": "5.00",
+        "sku": null,
+        "values": [
+          {
+            "pt": "Menino 9 - Folheado a ouro"
+          }
+        ],
+        "barcode": null,
+        "mpn": null,
+        "age_group": null,
+        "gender": null,
+        "created_at": "2025-10-25T13:00:07+0000",
+        "updated_at": "2025-10-27T02:51:55+0000",
+        "cost": null,
+        "visible": true,
+        "inventory_levels": [
+          {
+            "id": 979498407,
+            "variant_id": 1348422751,
+            "location_id": "01JP1AG11Z639MND13T5PK8Z8A",
+            "stock": 2
+          }
+        ]
+      },
+      {
+        "id": 1348422753,
+        "image_id": 1016090555,
+        "product_id": 302963015,
+        "position": 17,
+        "price": "64.00",
+        "price_without_taxes": null,
+        "compare_at_price": "64.00",
+        "promotional_price": null,
+        "stock_management": true,
+        "stock": 3,
+        "weight": "0.020",
+        "width": "5.00",
+        "height": "1.00",
+        "depth": "5.00",
+        "sku": null,
+        "values": [
+          {
+            "pt": "Menino 10 - Prata 925"
+          }
+        ],
+        "barcode": null,
+        "mpn": null,
+        "age_group": null,
+        "gender": null,
+        "created_at": "2025-10-25T13:00:07+0000",
+        "updated_at": "2025-10-27T02:51:55+0000",
+        "cost": null,
+        "visible": true,
+        "inventory_levels": [
+          {
+            "id": 979498409,
+            "variant_id": 1348422753,
+            "location_id": "01JP1AG11Z639MND13T5PK8Z8A",
+            "stock": 3
+          }
+        ]
+      },
+      {
+        "id": 1348422756,
+        "image_id": 1016090552,
+        "product_id": 302963015,
+        "position": 18,
+        "price": "10.00",
+        "price_without_taxes": null,
+        "compare_at_price": "10.00",
+        "promotional_price": null,
+        "stock_management": true,
+        "stock": 3,
+        "weight": "0.020",
+        "width": "5.00",
+        "height": "1.00",
+        "depth": "5.00",
+        "sku": null,
+        "values": [
+          {
+            "pt": "Anjinho - Folheada a Ouro"
+          }
+        ],
+        "barcode": null,
+        "mpn": null,
+        "age_group": null,
+        "gender": null,
+        "created_at": "2025-10-25T13:00:07+0000",
+        "updated_at": "2025-10-27T02:51:55+0000",
+        "cost": null,
+        "visible": true,
+        "inventory_levels": [
+          {
+            "id": 979498412,
+            "variant_id": 1348422756,
+            "location_id": "01JP1AG11Z639MND13T5PK8Z8A",
+            "stock": 3
+          }
+        ]
+      },
+      {
+        "id": 1348422757,
+        "image_id": 1016090567,
+        "product_id": 302963015,
+        "position": 19,
+        "price": "32.00",
+        "price_without_taxes": null,
+        "compare_at_price": "32.00",
+        "promotional_price": null,
+        "stock_management": true,
+        "stock": 8,
+        "weight": "0.020",
+        "width": "5.00",
+        "height": "1.00",
+        "depth": "5.00",
+        "sku": null,
+        "values": [
+          {
+            "pt": "Anjinho 2 - Prata"
+          }
+        ],
+        "barcode": null,
+        "mpn": null,
+        "age_group": null,
+        "gender": null,
+        "created_at": "2025-10-25T13:00:08+0000",
+        "updated_at": "2025-10-27T02:51:55+0000",
+        "cost": null,
+        "visible": true,
+        "inventory_levels": [
+          {
+            "id": 979498413,
+            "variant_id": 1348422757,
+            "location_id": "01JP1AG11Z639MND13T5PK8Z8A",
+            "stock": 8
+          }
+        ]
+      },
+      {
+        "id": 1348422760,
+        "image_id": 1016090572,
+        "product_id": 302963015,
+        "position": 20,
+        "price": "10.00",
+        "price_without_taxes": null,
+        "compare_at_price": "10.00",
+        "promotional_price": null,
+        "stock_management": true,
+        "stock": 3,
+        "weight": "0.020",
+        "width": "5.00",
+        "height": "1.00",
+        "depth": "5.00",
+        "sku": null,
+        "values": [
+          {
+            "pt": "Pet Patinha - Folheada a Ouro"
+          }
+        ],
+        "barcode": null,
+        "mpn": null,
+        "age_group": null,
+        "gender": null,
+        "created_at": "2025-10-25T13:00:08+0000",
+        "updated_at": "2025-10-27T02:51:55+0000",
+        "cost": null,
+        "visible": true,
+        "inventory_levels": [
+          {
+            "id": 979498416,
+            "variant_id": 1348422760,
+            "location_id": "01JP1AG11Z639MND13T5PK8Z8A",
+            "stock": 3
+          }
+        ]
+      },
+      {
+        "id": 1348422762,
+        "image_id": 1016090545,
+        "product_id": 302963015,
+        "position": 21,
+        "price": "25.00",
+        "price_without_taxes": null,
+        "compare_at_price": "25.00",
+        "promotional_price": null,
+        "stock_management": true,
+        "stock": 2,
+        "weight": "0.020",
+        "width": "5.00",
+        "height": "1.00",
+        "depth": "5.00",
+        "sku": null,
+        "values": [
+          {
+            "pt": "Pet Patinha 2 - Folheada a Ouro"
+          }
+        ],
+        "barcode": null,
+        "mpn": null,
+        "age_group": null,
+        "gender": null,
+        "created_at": "2025-10-25T13:00:08+0000",
+        "updated_at": "2025-10-27T02:51:56+0000",
+        "cost": null,
+        "visible": true,
+        "inventory_levels": [
+          {
+            "id": 979498418,
+            "variant_id": 1348422762,
+            "location_id": "01JP1AG11Z639MND13T5PK8Z8A",
+            "stock": 2
+          }
+        ]
+      },
+      {
+        "id": 1348422764,
+        "image_id": 1016090560,
+        "product_id": 302963015,
+        "position": 22,
+        "price": "14.00",
+        "price_without_taxes": null,
+        "compare_at_price": "14.00",
+        "promotional_price": null,
+        "stock_management": true,
+        "stock": 3,
+        "weight": "0.020",
+        "width": "5.00",
+        "height": "1.00",
+        "depth": "5.00",
+        "sku": null,
+        "values": [
+          {
+            "pt": "Pet Ossinho - Folheado a Ouro"
+          }
+        ],
+        "barcode": null,
+        "mpn": null,
+        "age_group": null,
+        "gender": null,
+        "created_at": "2025-10-25T13:00:08+0000",
+        "updated_at": "2025-10-27T02:51:56+0000",
+        "cost": null,
+        "visible": true,
+        "inventory_levels": [
+          {
+            "id": 979498420,
+            "variant_id": 1348422764,
+            "location_id": "01JP1AG11Z639MND13T5PK8Z8A",
+            "stock": 3
+          }
+        ]
+      },
+      {
+        "id": 1348422765,
+        "image_id": 1016090554,
+        "product_id": 302963015,
+        "position": 23,
+        "price": "20.00",
+        "price_without_taxes": null,
+        "compare_at_price": "20.00",
+        "promotional_price": null,
+        "stock_management": true,
+        "stock": 2,
+        "weight": "0.020",
+        "width": "5.00",
+        "height": "1.00",
+        "depth": "5.00",
+        "sku": null,
+        "values": [
+          {
+            "pt": "Pet Ossinho 2 - Folheado a ouro"
+          }
+        ],
+        "barcode": null,
+        "mpn": null,
+        "age_group": null,
+        "gender": null,
+        "created_at": "2025-10-25T13:00:08+0000",
+        "updated_at": "2025-10-27T02:51:56+0000",
+        "cost": null,
+        "visible": true,
+        "inventory_levels": [
+          {
+            "id": 979498421,
+            "variant_id": 1348422765,
+            "location_id": "01JP1AG11Z639MND13T5PK8Z8A",
+            "stock": 2
+          }
+        ]
+      },
+      {
+        "id": 1348424881,
+        "image_id": 1016090561,
+        "product_id": 302963015,
+        "position": 24,
+        "price": "36.00",
+        "price_without_taxes": null,
+        "compare_at_price": "36.00",
+        "promotional_price": null,
+        "stock_management": true,
+        "stock": 6,
+        "weight": "0.020",
+        "width": "5.00",
+        "height": "1.00",
+        "depth": "5.00",
+        "sku": null,
+        "values": [
+          {
+            "pt": "Pet Ossinho 3 - Prata 925"
+          }
+        ],
+        "barcode": null,
+        "mpn": null,
+        "age_group": null,
+        "gender": null,
+        "created_at": "2025-10-25T13:07:30+0000",
+        "updated_at": "2025-10-27T02:51:56+0000",
+        "cost": null,
+        "visible": true,
+        "inventory_levels": [
+          {
+            "id": 979500540,
+            "variant_id": 1348424881,
+            "location_id": "01JP1AG11Z639MND13T5PK8Z8A",
+            "stock": 6
+          }
+        ]
+      },
+      {
+        "id": 1348422767,
+        "image_id": 1016090568,
+        "product_id": 302963015,
+        "position": 25,
+        "price": "60.00",
+        "price_without_taxes": null,
+        "compare_at_price": "60.00",
+        "promotional_price": null,
+        "stock_management": true,
+        "stock": 4,
+        "weight": "0.020",
+        "width": "5.00",
+        "height": "1.00",
+        "depth": "5.00",
+        "sku": null,
+        "values": [
+          {
+            "pt": "Pet Patinha com Ossinho - Prata 925"
+          }
+        ],
+        "barcode": null,
+        "mpn": null,
+        "age_group": null,
+        "gender": null,
+        "created_at": "2025-10-25T13:00:08+0000",
+        "updated_at": "2025-10-27T02:51:56+0000",
+        "cost": null,
+        "visible": true,
+        "inventory_levels": [
+          {
+            "id": 979498423,
+            "variant_id": 1348422767,
+            "location_id": "01JP1AG11Z639MND13T5PK8Z8A",
+            "stock": 4
+          }
+        ]
+      },
+      {
+        "id": 1348422770,
+        "image_id": 1016090566,
+        "product_id": 302963015,
+        "position": 26,
+        "price": "25.00",
+        "price_without_taxes": null,
+        "compare_at_price": "25.00",
+        "promotional_price": null,
+        "stock_management": true,
+        "stock": 4,
+        "weight": "0.020",
+        "width": "5.00",
+        "height": "1.00",
+        "depth": "5.00",
+        "sku": null,
+        "values": [
+          {
+            "pt": "Pet Cachorro Coração - Folheada a Ouro"
+          }
+        ],
+        "barcode": null,
+        "mpn": null,
+        "age_group": null,
+        "gender": null,
+        "created_at": "2025-10-25T13:00:09+0000",
+        "updated_at": "2025-10-27T02:51:56+0000",
+        "cost": null,
+        "visible": true,
+        "inventory_levels": [
+          {
+            "id": 979498426,
+            "variant_id": 1348422770,
+            "location_id": "01JP1AG11Z639MND13T5PK8Z8A",
+            "stock": 4
+          }
+        ]
+      },
+      {
+        "id": 1348422771,
+        "image_id": 1016090553,
+        "product_id": 302963015,
+        "position": 27,
+        "price": "25.00",
+        "price_without_taxes": null,
+        "compare_at_price": "25.00",
+        "promotional_price": null,
+        "stock_management": true,
+        "stock": 4,
+        "weight": "0.020",
+        "width": "5.00",
+        "height": "1.00",
+        "depth": "5.00",
+        "sku": null,
+        "values": [
+          {
+            "pt": "Pet Gato Coração - Folheada a Ouro"
+          }
+        ],
+        "barcode": null,
+        "mpn": null,
+        "age_group": null,
+        "gender": null,
+        "created_at": "2025-10-25T13:00:09+0000",
+        "updated_at": "2025-10-27T02:51:56+0000",
+        "cost": null,
+        "visible": true,
+        "inventory_levels": [
+          {
+            "id": 979498427,
+            "variant_id": 1348422771,
+            "location_id": "01JP1AG11Z639MND13T5PK8Z8A",
+            "stock": 4
+          }
+        ]
+      },
+      {
+        "id": 1348425536,
+        "image_id": 1016090548,
+        "product_id": 302963015,
+        "position": 28,
+        "price": "24.00",
+        "price_without_taxes": null,
+        "compare_at_price": "24.00",
+        "promotional_price": null,
+        "stock_management": true,
+        "stock": 2,
+        "weight": "0.020",
+        "width": "5.00",
+        "height": "1.00",
+        "depth": "5.00",
+        "sku": null,
+        "values": [
+          {
+            "pt": "Pet Patinha com Coração - Prata 925"
+          }
+        ],
+        "barcode": null,
+        "mpn": null,
+        "age_group": null,
+        "gender": null,
+        "created_at": "2025-10-25T13:09:44+0000",
+        "updated_at": "2025-10-27T02:51:56+0000",
+        "cost": null,
+        "visible": true,
+        "inventory_levels": [
+          {
+            "id": 979501197,
+            "variant_id": 1348425536,
+            "location_id": "01JP1AG11Z639MND13T5PK8Z8A",
+            "stock": 2
+          }
+        ]
+      }
+    ],
+    "tags": "",
+    "images": [
+      {
+        "id": 1016090572,
+        "product_id": 302963015,
+        "src": "https://acdn-us.mitiendanube.com/stores/005/943/282/products/pingente-pet-patinha-folheada-a-ouro-c152b2f0afafc145df17613967106317-1024-1024.webp",
+        "position": 1,
+        "alt": [],
+        "height": 640,
+        "width": 640,
+        "thumbnails_generated": 2,
+        "created_at": "2025-10-25T12:51:50+0000",
+        "updated_at": "2025-10-25T13:00:14+0000",
+        "store_media_uuid": null
+      },
+      {
+        "id": 1016090545,
+        "product_id": 302963015,
+        "src": "https://acdn-us.mitiendanube.com/stores/005/943/282/products/pingente-pet-patinha-2-folheada-a-ouro-2d67d4f2ed5751014d17613967098196-1024-1024.webp",
+        "position": 2,
+        "alt": [],
+        "height": 640,
+        "width": 640,
+        "thumbnails_generated": 2,
+        "created_at": "2025-10-25T12:51:49+0000",
+        "updated_at": "2025-10-25T13:00:14+0000",
+        "store_media_uuid": null
+      },
+      {
+        "id": 1016090568,
+        "product_id": 302963015,
+        "src": "https://acdn-us.mitiendanube.com/stores/005/943/282/products/pingente-pet-patinha-com-ossinho-prata-048935a28f85dcbfae17613967104744-1024-1024.webp",
+        "position": 3,
+        "alt": [],
+        "height": 640,
+        "width": 640,
+        "thumbnails_generated": 2,
+        "created_at": "2025-10-25T12:51:50+0000",
+        "updated_at": "2025-10-25T13:00:14+0000",
+        "store_media_uuid": null
+      },
+      {
+        "id": 1016090548,
+        "product_id": 302963015,
+        "src": "https://acdn-us.mitiendanube.com/stores/005/943/282/products/pingente-pet-patinha-coracao-folheada-a-ouro-d8dc4375e84951e5bf17613967099615-1024-1024.webp",
+        "position": 4,
+        "alt": [],
+        "height": 640,
+        "width": 640,
+        "thumbnails_generated": 2,
+        "created_at": "2025-10-25T12:51:50+0000",
+        "updated_at": "2025-10-25T13:00:15+0000",
+        "store_media_uuid": null
+      },
+      {
+        "id": 1016090552,
+        "product_id": 302963015,
+        "src": "https://acdn-us.mitiendanube.com/stores/005/943/282/products/pingente-anjinho-folheada-a-ouro-f076338de8f984ed4617613967100431-1024-1024.webp",
+        "position": 5,
+        "alt": [],
+        "height": 640,
+        "width": 640,
+        "thumbnails_generated": 2,
+        "created_at": "2025-10-25T12:51:50+0000",
+        "updated_at": "2025-10-25T13:00:14+0000",
+        "store_media_uuid": null
+      },
+      {
+        "id": 1016090567,
+        "product_id": 302963015,
+        "src": "https://acdn-us.mitiendanube.com/stores/005/943/282/products/pingente-anjinho-prata-008918b6c853ff42a017613967104189-1024-1024.webp",
+        "position": 6,
+        "alt": [],
+        "height": 640,
+        "width": 640,
+        "thumbnails_generated": 2,
+        "created_at": "2025-10-25T12:51:50+0000",
+        "updated_at": "2025-10-25T13:00:14+0000",
+        "store_media_uuid": null
+      },
+      {
+        "id": 1016090559,
+        "product_id": 302963015,
+        "src": "https://acdn-us.mitiendanube.com/stores/005/943/282/products/pingente-de-menina-2-folheado-a-ouro-687b4aec412bc9cb4c17613967101105-1024-1024.webp",
+        "position": 7,
+        "alt": [],
+        "height": 640,
+        "width": 640,
+        "thumbnails_generated": 2,
+        "created_at": "2025-10-25T12:51:50+0000",
+        "updated_at": "2025-10-25T13:00:14+0000",
+        "store_media_uuid": null
+      },
+      {
+        "id": 1016090544,
+        "product_id": 302963015,
+        "src": "https://acdn-us.mitiendanube.com/stores/005/943/282/products/pingente-de-menina-3-folheado-a-ouro-4b493e384bb6ea33fa17613967097802-1024-1024.webp",
+        "position": 8,
+        "alt": [],
+        "height": 640,
+        "width": 640,
+        "thumbnails_generated": 2,
+        "created_at": "2025-10-25T12:51:49+0000",
+        "updated_at": "2025-10-25T13:00:14+0000",
+        "store_media_uuid": null
+      },
+      {
+        "id": 1016090546,
+        "product_id": 302963015,
+        "src": "https://acdn-us.mitiendanube.com/stores/005/943/282/products/pingente-de-menina-4-folheado-a-ouro-a855b77e060b720a6217613967098683-1024-1024.webp",
+        "position": 9,
+        "alt": [],
+        "height": 640,
+        "width": 640,
+        "thumbnails_generated": 2,
+        "created_at": "2025-10-25T12:51:50+0000",
+        "updated_at": "2025-10-25T13:00:14+0000",
+        "store_media_uuid": null
+      },
+      {
+        "id": 1016090550,
+        "product_id": 302963015,
+        "src": "https://acdn-us.mitiendanube.com/stores/005/943/282/products/pingente-menina-folheado-a-ouro-d6712f08081d742fe917613967100116-1024-1024.webp",
+        "position": 10,
+        "alt": [],
+        "height": 640,
+        "width": 640,
+        "thumbnails_generated": 2,
+        "created_at": "2025-10-25T12:51:50+0000",
+        "updated_at": "2025-10-25T13:00:14+0000",
+        "store_media_uuid": null
+      },
+      {
+        "id": 1016090549,
+        "product_id": 302963015,
+        "src": "https://acdn-us.mitiendanube.com/stores/005/943/282/products/pingente-menina-4-folheado-a-ouro-9f779e215ce7d05d9817613967099444-1024-1024.webp",
+        "position": 11,
+        "alt": [],
+        "height": 640,
+        "width": 640,
+        "thumbnails_generated": 2,
+        "created_at": "2025-10-25T12:51:50+0000",
+        "updated_at": "2025-10-25T13:00:14+0000",
+        "store_media_uuid": null
+      },
+      {
+        "id": 1016090543,
+        "product_id": 302963015,
+        "src": "https://acdn-us.mitiendanube.com/stores/005/943/282/products/pingente-menina-5-folheado-a-ouro-cfa76d44f194afdfec17613967097859-1024-1024.webp",
+        "position": 12,
+        "alt": [],
+        "height": 640,
+        "width": 640,
+        "thumbnails_generated": 2,
+        "created_at": "2025-10-25T12:51:49+0000",
+        "updated_at": "2025-10-25T13:00:14+0000",
+        "store_media_uuid": null
+      },
+      {
+        "id": 1016090562,
+        "product_id": 302963015,
+        "src": "https://acdn-us.mitiendanube.com/stores/005/943/282/products/pingente-menina-6-prata-e07ca0723117a453f617613967102070-1024-1024.webp",
+        "position": 13,
+        "alt": [],
+        "height": 640,
+        "width": 640,
+        "thumbnails_generated": 2,
+        "created_at": "2025-10-25T12:51:50+0000",
+        "updated_at": "2025-10-25T13:00:14+0000",
+        "store_media_uuid": null
+      },
+      {
+        "id": 1016090555,
+        "product_id": 302963015,
+        "src": "https://acdn-us.mitiendanube.com/stores/005/943/282/products/pingente-menina-10-prata-925-e6fa0deb46f325052f17613967100910-1024-1024.webp",
+        "position": 14,
+        "alt": [],
+        "height": 640,
+        "width": 640,
+        "thumbnails_generated": 2,
+        "created_at": "2025-10-25T12:51:50+0000",
+        "updated_at": "2025-10-25T13:00:15+0000",
+        "store_media_uuid": null
+      },
+      {
+        "id": 1016090565,
+        "product_id": 302963015,
+        "src": "https://acdn-us.mitiendanube.com/stores/005/943/282/products/pingente-menino-1-folheado-a-ouro-e-prata-f212952aa18311912617613967103906-1024-1024.webp",
+        "position": 15,
+        "alt": [],
+        "height": 640,
+        "width": 640,
+        "thumbnails_generated": 2,
+        "created_at": "2025-10-25T12:51:50+0000",
+        "updated_at": "2025-10-25T13:00:15+0000",
+        "store_media_uuid": null
+      },
+      {
+        "id": 1016090556,
+        "product_id": 302963015,
+        "src": "https://acdn-us.mitiendanube.com/stores/005/943/282/products/pingente-menino-2-folheado-a-ouro-6be369b3b5c6e0bf4d17613967100707-1024-1024.webp",
+        "position": 16,
+        "alt": [],
+        "height": 640,
+        "width": 640,
+        "thumbnails_generated": 2,
+        "created_at": "2025-10-25T12:51:50+0000",
+        "updated_at": "2025-10-25T13:00:14+0000",
+        "store_media_uuid": null
+      },
+      {
+        "id": 1016090564,
+        "product_id": 302963015,
+        "src": "https://acdn-us.mitiendanube.com/stores/005/943/282/products/pingente-menino-3-folheado-a-ouro-5c2128dfc6cb50422a17613967102739-1024-1024.webp",
+        "position": 17,
+        "alt": [],
+        "height": 640,
+        "width": 640,
+        "thumbnails_generated": 2,
+        "created_at": "2025-10-25T12:51:50+0000",
+        "updated_at": "2025-10-25T13:00:14+0000",
+        "store_media_uuid": null
+      },
+      {
+        "id": 1016090542,
+        "product_id": 302963015,
+        "src": "https://acdn-us.mitiendanube.com/stores/005/943/282/products/pingente-menino-4-folheado-a-ouro-b585ee52867367f09917613967098184-1024-1024.webp",
+        "position": 18,
+        "alt": [],
+        "height": 640,
+        "width": 640,
+        "thumbnails_generated": 2,
+        "created_at": "2025-10-25T12:51:49+0000",
+        "updated_at": "2025-10-25T13:00:15+0000",
+        "store_media_uuid": null
+      },
+      {
+        "id": 1016090558,
+        "product_id": 302963015,
+        "src": "https://acdn-us.mitiendanube.com/stores/005/943/282/products/pingente-menino-5-folheado-a-ouro-a589829bbe872357df17613967100935-1024-1024.webp",
+        "position": 19,
+        "alt": [],
+        "height": 640,
+        "width": 640,
+        "thumbnails_generated": 2,
+        "created_at": "2025-10-25T12:51:50+0000",
+        "updated_at": "2025-10-25T13:00:15+0000",
+        "store_media_uuid": null
+      },
+      {
+        "id": 1016090571,
+        "product_id": 302963015,
+        "src": "https://acdn-us.mitiendanube.com/stores/005/943/282/products/pingente-menino-6-prata-925-d16d41f6e17c07358c17613967104929-1024-1024.webp",
+        "position": 20,
+        "alt": [],
+        "height": 640,
+        "width": 640,
+        "thumbnails_generated": 2,
+        "created_at": "2025-10-25T12:51:50+0000",
+        "updated_at": "2025-10-25T13:00:14+0000",
+        "store_media_uuid": null
+      },
+      {
+        "id": 1016090574,
+        "product_id": 302963015,
+        "src": "https://acdn-us.mitiendanube.com/stores/005/943/282/products/pingente-menino-7-prata-925-af09ab9796e4acc85917613967107502-1024-1024.webp",
+        "position": 21,
+        "alt": [],
+        "height": 640,
+        "width": 640,
+        "thumbnails_generated": 2,
+        "created_at": "2025-10-25T12:51:50+0000",
+        "updated_at": "2025-10-25T13:00:14+0000",
+        "store_media_uuid": null
+      },
+      {
+        "id": 1016090557,
+        "product_id": 302963015,
+        "src": "https://acdn-us.mitiendanube.com/stores/005/943/282/products/pingente-menino-8-prata-925-a67a96ad04c77adb6a17613967100620-1024-1024.webp",
+        "position": 22,
+        "alt": [],
+        "height": 640,
+        "width": 640,
+        "thumbnails_generated": 2,
+        "created_at": "2025-10-25T12:51:50+0000",
+        "updated_at": "2025-10-25T13:00:16+0000",
+        "store_media_uuid": null
+      },
+      {
+        "id": 1016090547,
+        "product_id": 302963015,
+        "src": "https://acdn-us.mitiendanube.com/stores/005/943/282/products/pingente-menino-9-folheado-a-ouro-e-prata-2228e3c625c77c18e717613967099371-1024-1024.webp",
+        "position": 23,
+        "alt": [],
+        "height": 640,
+        "width": 640,
+        "thumbnails_generated": 2,
+        "created_at": "2025-10-25T12:51:50+0000",
+        "updated_at": "2025-10-25T13:00:16+0000",
+        "store_media_uuid": null
+      },
+      {
+        "id": 1016090566,
+        "product_id": 302963015,
+        "src": "https://acdn-us.mitiendanube.com/stores/005/943/282/products/pingente-pet-coracao-folheada-a-ouro-b5257db7601efcdb2317613967104064-1024-1024.webp",
+        "position": 24,
+        "alt": [],
+        "height": 640,
+        "width": 640,
+        "thumbnails_generated": 2,
+        "created_at": "2025-10-25T12:51:50+0000",
+        "updated_at": "2025-10-25T13:00:14+0000",
+        "store_media_uuid": null
+      },
+      {
+        "id": 1016090553,
+        "product_id": 302963015,
+        "src": "https://acdn-us.mitiendanube.com/stores/005/943/282/products/pingente-pet-gato-coracao-folheada-a-ouro-9f09744df34c0d6ca817613967100264-1024-1024.webp",
+        "position": 25,
+        "alt": [],
+        "height": 640,
+        "width": 640,
+        "thumbnails_generated": 2,
+        "created_at": "2025-10-25T12:51:50+0000",
+        "updated_at": "2025-10-25T13:00:14+0000",
+        "store_media_uuid": null
+      },
+      {
+        "id": 1016090560,
+        "product_id": 302963015,
+        "src": "https://acdn-us.mitiendanube.com/stores/005/943/282/products/pingente-pet-ossinho-folheado-a-ouro-67cc8a4762e63a5bfd17613967100708-1024-1024.webp",
+        "position": 26,
+        "alt": [],
+        "height": 640,
+        "width": 640,
+        "thumbnails_generated": 2,
+        "created_at": "2025-10-25T12:51:50+0000",
+        "updated_at": "2025-10-25T13:00:14+0000",
+        "store_media_uuid": null
+      },
+      {
+        "id": 1016090554,
+        "product_id": 302963015,
+        "src": "https://acdn-us.mitiendanube.com/stores/005/943/282/products/pingente-pet-ossinho-2-folheado-a-ouro-c5a18ae9cdd278341417613967100229-1024-1024.webp",
+        "position": 27,
+        "alt": [],
+        "height": 640,
+        "width": 640,
+        "thumbnails_generated": 2,
+        "created_at": "2025-10-25T12:51:50+0000",
+        "updated_at": "2025-10-25T13:00:14+0000",
+        "store_media_uuid": null
+      },
+      {
+        "id": 1016090561,
+        "product_id": 302963015,
+        "src": "https://acdn-us.mitiendanube.com/stores/005/943/282/products/pingente-pet-ossinho-3-prata-3120f02765f7934c3b17613967101020-1024-1024.webp",
+        "position": 28,
+        "alt": [],
+        "height": 640,
+        "width": 640,
+        "thumbnails_generated": 2,
+        "created_at": "2025-10-25T12:51:50+0000",
+        "updated_at": "2025-10-25T13:00:14+0000",
+        "store_media_uuid": null
+      }
+    ],
+    "videos": [],
+    "categories": []
+  },
+  {
+    "id": 302967873,
+    "name": {
+      "pt": "Joia Afetiva Gota com Leite Materno, Cabelo e Desenho 2,5cm em Prata 925"
+    },
+    "description": {
+      "pt": "<h2>Joia Afetiva Gota com Leite Materno, Cabelo e Desenho em Prata 925 &mdash; eternize diferentes mem&oacute;rias em uma s&oacute; joia com esse design de gota com moldura (sem fundo)</h2>\n<p>Uma gota em Prata 925 sem fundo, dispon&iacute;vel em 2 tamanhos, que guarda o leite materno e o cabelo do seu filho &mdash; e ainda pode trazer um desenho personalizado.</p>\n<h3>Especifica&ccedil;&otilde;es</h3>\n<ul>\n<li>Tipo: Joia afetiva personalizada</li>\n<li>Design: Gota com moldura (sem fundo)</li>\n<li>Tamanho: 2,5 cm</li>\n<li>Material base: Prata 925</li>\n<li>Aceita: leite materno, cabelo e desenho personalizado</li>\n</ul>\n<h3>Perguntas frequentes</h3>\n<p><strong>Como envio meu material de DNA?</strong><br />Ap&oacute;s a compra, voc&ecirc; recebe as instru&ccedil;&otilde;es para enviar seu material com seguran&ccedil;a. Cada pe&ccedil;a &eacute; feita &agrave; m&atilde;o, com cuidado e respeito. Envio para todo o Brasil.</p>\n<p><strong>Quais materiais posso usar nessa joia?</strong><br />Essa pe&ccedil;a aceita leite materno, cabelo e desenho personalizado.</p>\n<p><strong>Posso combinar mais de um material afetivo na mesma joia?</strong><br />Sim! Essa pe&ccedil;a aceita combina&ccedil;&otilde;es como leite materno, cabelo e desenho personalizado, ent&atilde;o voc&ecirc; pode unir diferentes mem&oacute;rias em uma s&oacute; joia.</p>\n<p><strong>Quanto tempo leva para ficar pronta a joia?</strong><br />O prazo de produ&ccedil;&atilde;o do fabricante do anel &eacute; de 45 dias &uacute;teis; ap&oacute;s o recebimento do anel, o prazo para produ&ccedil;&atilde;o com o material afetivo em m&atilde;os &eacute; de mais 20 dias.</p>\n<p><strong>A joia acompanha corrente ou pulseira?</strong><br />N&atilde;o &mdash; essa pe&ccedil;a &eacute; vendida separadamente da corrente ou pulseira, para voc&ecirc; escolher o comprimento e o material que preferir.</p>\n<p><strong>A prata pode escurecer ou perder o brilho?</strong><br />&Eacute; normal que a Prata 925 oxide levemente com o tempo e o uso &mdash; isso n&atilde;o afeta a durabilidade da pe&ccedil;a, apenas o brilho superficial, que pode ser recuperado com uma limpeza simples.</p>\n<p><strong>As joias s&atilde;o realmente feitas &agrave; m&atilde;o?</strong><br />Apenas as partes que envolve o DNA e a resina. As pe&ccedil;as em prata 925, ou folheadas s&atilde;o encomendadas para o fabricante.</p>\n<p><strong>O banho de ouro ou prata pode desbotar?</strong><br />Sim &mdash; o banho &eacute; uma fina camada depositada na superf&iacute;cie e pode desbotar com o tempo devido &agrave; oxida&ccedil;&atilde;o natural do uso.</p>\n<h3>Observa&ccedil;&otilde;es importantes</h3>\n<ul>\n<li>A joia exibida nas fotos &eacute; ilustrativa. Cada pe&ccedil;a &eacute; &uacute;nica, feita &agrave; m&atilde;o com todo carinho, e pode apresentar varia&ccedil;&otilde;es de tom ou textura.</li>\n</ul>"
+    },
+    "handle": {
+      "pt": "joia-afetiva-gota-com-leite-materno-cabelo-e-desenho-em-prata-925"
+    },
+    "attributes": [
+      {
+        "pt": "Com Base"
+      },
+      {
+        "pt": "Cor"
+      },
+      {
+        "pt": "Com gravação"
+      }
+    ],
+    "published": true,
+    "free_shipping": false,
+    "requires_shipping": true,
+    "canonical_url": "https://umaestrelinha.com.br/produtos/joia-afetiva-gota-com-leite-materno-cabelo-e-desenho-em-prata-925/",
+    "video_url": null,
+    "seo_title": {
+      "pt": "Joia Afetiva Gota com Leite Materno em Prata 925"
+    },
+    "seo_description": {
+      "pt": "Joia afetiva gota com leite materno, cabelo e desenho em Prata 925. Envio p/ todo o Brasil."
+    },
+    "brand": "Ateliê da Prata",
+    "has_stock": true,
+    "is_kit": false,
+    "visibility": "visible",
+    "created_at": "2025-10-25T13:39:21+0000",
+    "updated_at": "2026-07-20T18:38:25+0000",
+    "invalid_at": null,
+    "variants": [
+      {
+        "id": 1348437201,
+        "image_id": 1217733178,
+        "product_id": 302967873,
+        "position": 2,
+        "price": "397.00",
+        "price_without_taxes": null,
+        "compare_at_price": "397.00",
+        "promotional_price": null,
+        "stock_management": false,
+        "stock": null,
+        "weight": "0.300",
+        "width": "15.00",
+        "height": "6.00",
+        "depth": "15.00",
+        "sku": "37JFeY5",
+        "values": [
+          {
+            "pt": "Não"
+          },
+          {
+            "pt": "Prata 925"
+          },
+          {
+            "pt": "Não"
+          }
+        ],
+        "barcode": null,
+        "mpn": null,
+        "age_group": null,
+        "gender": null,
+        "created_at": "2025-10-25T13:39:22+0000",
+        "updated_at": "2026-06-18T23:31:20+0000",
+        "cost": null,
+        "visible": true,
+        "inventory_levels": [
+          {
+            "id": 979512865,
+            "variant_id": 1348437201,
+            "location_id": "01JP1AG11Z639MND13T5PK8Z8A",
+            "stock": null
+          }
+        ]
+      },
+      {
+        "id": 1348437208,
+        "image_id": 1217733178,
+        "product_id": 302967873,
+        "position": 3,
+        "price": "439.00",
+        "price_without_taxes": null,
+        "compare_at_price": "439.00",
+        "promotional_price": null,
+        "stock_management": false,
+        "stock": null,
+        "weight": "0.300",
+        "width": "15.00",
+        "height": "6.00",
+        "depth": "15.00",
+        "sku": "37JFeY5",
+        "values": [
+          {
+            "pt": "Não"
+          },
+          {
+            "pt": "Prata 925"
+          },
+          {
+            "pt": "Sim"
+          }
+        ],
+        "barcode": null,
+        "mpn": null,
+        "age_group": null,
+        "gender": null,
+        "created_at": "2025-10-25T13:39:22+0000",
+        "updated_at": "2026-06-18T23:31:20+0000",
+        "cost": null,
+        "visible": true,
+        "inventory_levels": [
+          {
+            "id": 979512873,
+            "variant_id": 1348437208,
+            "location_id": "01JP1AG11Z639MND13T5PK8Z8A",
+            "stock": null
+          }
+        ]
+      },
+      {
+        "id": 1348437210,
+        "image_id": 1217733184,
+        "product_id": 302967873,
+        "position": 4,
+        "price": "432.00",
+        "price_without_taxes": null,
+        "compare_at_price": "432.00",
+        "promotional_price": null,
+        "stock_management": false,
+        "stock": null,
+        "weight": "0.300",
+        "width": "15.00",
+        "height": "6.00",
+        "depth": "15.00",
+        "sku": "37JFeY5",
+        "values": [
+          {
+            "pt": "Não"
+          },
+          {
+            "pt": "Prata 925 Folheado a Ouro"
+          },
+          {
+            "pt": "Não"
+          }
+        ],
+        "barcode": null,
+        "mpn": null,
+        "age_group": null,
+        "gender": null,
+        "created_at": "2025-10-25T13:39:23+0000",
+        "updated_at": "2026-06-18T23:31:20+0000",
+        "cost": null,
+        "visible": true,
+        "inventory_levels": [
+          {
+            "id": 979512874,
+            "variant_id": 1348437210,
+            "location_id": "01JP1AG11Z639MND13T5PK8Z8A",
+            "stock": null
+          }
+        ]
+      },
+      {
+        "id": 1348437212,
+        "image_id": 1217733184,
+        "product_id": 302967873,
+        "position": 5,
+        "price": "474.00",
+        "price_without_taxes": null,
+        "compare_at_price": "474.00",
+        "promotional_price": null,
+        "stock_management": false,
+        "stock": null,
+        "weight": "0.300",
+        "width": "15.00",
+        "height": "6.00",
+        "depth": "15.00",
+        "sku": "37JFeY5",
+        "values": [
+          {
+            "pt": "Não"
+          },
+          {
+            "pt": "Prata 925 Folheado a Ouro"
+          },
+          {
+            "pt": "Sim"
+          }
+        ],
+        "barcode": null,
+        "mpn": null,
+        "age_group": null,
+        "gender": null,
+        "created_at": "2025-10-25T13:39:23+0000",
+        "updated_at": "2026-06-18T23:31:20+0000",
+        "cost": null,
+        "visible": true,
+        "inventory_levels": [
+          {
+            "id": 979512877,
+            "variant_id": 1348437212,
+            "location_id": "01JP1AG11Z639MND13T5PK8Z8A",
+            "stock": null
+          }
+        ]
+      },
+      {
+        "id": 1348437217,
+        "image_id": 1217733183,
+        "product_id": 302967873,
+        "position": 6,
+        "price": "432.00",
+        "price_without_taxes": null,
+        "compare_at_price": "432.00",
+        "promotional_price": null,
+        "stock_management": false,
+        "stock": null,
+        "weight": "0.300",
+        "width": "15.00",
+        "height": "6.00",
+        "depth": "15.00",
+        "sku": "37JFeY5",
+        "values": [
+          {
+            "pt": "Não"
+          },
+          {
+            "pt": "Prata 925 Folheado a Ouro Rose"
+          },
+          {
+            "pt": "Não"
+          }
+        ],
+        "barcode": null,
+        "mpn": null,
+        "age_group": null,
+        "gender": null,
+        "created_at": "2025-10-25T13:39:23+0000",
+        "updated_at": "2026-06-18T23:31:20+0000",
+        "cost": null,
+        "visible": true,
+        "inventory_levels": [
+          {
+            "id": 979512880,
+            "variant_id": 1348437217,
+            "location_id": "01JP1AG11Z639MND13T5PK8Z8A",
+            "stock": null
+          }
+        ]
+      },
+      {
+        "id": 1348437219,
+        "image_id": 1217733183,
+        "product_id": 302967873,
+        "position": 7,
+        "price": "474.00",
+        "price_without_taxes": null,
+        "compare_at_price": "474.00",
+        "promotional_price": null,
+        "stock_management": false,
+        "stock": null,
+        "weight": "0.300",
+        "width": "15.00",
+        "height": "6.00",
+        "depth": "15.00",
+        "sku": "37JFeY5",
+        "values": [
+          {
+            "pt": "Não"
+          },
+          {
+            "pt": "Prata 925 Folheado a Ouro Rose"
+          },
+          {
+            "pt": "Sim"
+          }
+        ],
+        "barcode": null,
+        "mpn": null,
+        "age_group": null,
+        "gender": null,
+        "created_at": "2025-10-25T13:39:23+0000",
+        "updated_at": "2026-06-18T23:31:20+0000",
+        "cost": null,
+        "visible": true,
+        "inventory_levels": [
+          {
+            "id": 979512883,
+            "variant_id": 1348437219,
+            "location_id": "01JP1AG11Z639MND13T5PK8Z8A",
+            "stock": null
+          }
+        ]
+      }
+    ],
+    "tags": "Afetivo, Ateliê da Prata, Pingente Afetivo",
+    "images": [
+      {
+        "id": 1217733178,
+        "product_id": 302967873,
+        "src": "https://acdn-us.mitiendanube.com/stores/005/943/282/products/chatgpt-image-18_06_2026-20_27_36-3663d1a6b56f5f6a4e17818252730218-1024-1024.png",
+        "position": 1,
+        "alt": {
+          "pt": ""
+        },
+        "height": 1450,
+        "width": 1085,
+        "thumbnails_generated": 2,
+        "created_at": "2026-06-18T23:27:53+0000",
+        "updated_at": "2026-06-18T23:31:36+0000",
+        "store_media_uuid": null
+      },
+      {
+        "id": 1217735511,
+        "product_id": 302967873,
+        "src": "https://acdn-us.mitiendanube.com/stores/005/943/282/products/chatgpt-image-18_06_2026-20_30_38-9370d2fe03249a1ec217818254500484-1024-1024.png",
+        "position": 2,
+        "alt": {
+          "pt": ""
+        },
+        "height": 1451,
+        "width": 1084,
+        "thumbnails_generated": 2,
+        "created_at": "2026-06-18T23:30:50+0000",
+        "updated_at": "2026-06-18T23:31:36+0000",
+        "store_media_uuid": null
+      },
+      {
+        "id": 1016117540,
+        "product_id": 302967873,
+        "src": "https://acdn-us.mitiendanube.com/stores/005/943/282/products/design-sem-nome-14-3c7663930e998e81ae17613995677610-1024-1024.png",
+        "position": 3,
+        "alt": {
+          "pt": ""
+        },
+        "height": 1280,
+        "width": 1024,
+        "thumbnails_generated": 1,
+        "created_at": "2025-10-25T13:39:29+0000",
+        "updated_at": "2026-06-18T23:31:19+0000",
+        "store_media_uuid": null
+      },
+      {
+        "id": 1016117559,
+        "product_id": 302967873,
+        "src": "https://acdn-us.mitiendanube.com/stores/005/943/282/products/design-sem-nome-16-8c2f49c7c3cff921bb17613995697971-1024-1024.png",
+        "position": 4,
+        "alt": {
+          "pt": ""
+        },
+        "height": 1280,
+        "width": 1024,
+        "thumbnails_generated": 1,
+        "created_at": "2025-10-25T13:39:31+0000",
+        "updated_at": "2026-06-18T23:31:19+0000",
+        "store_media_uuid": null
+      },
+      {
+        "id": 1217733184,
+        "product_id": 302967873,
+        "src": "https://acdn-us.mitiendanube.com/stores/005/943/282/products/chatgpt-image-18_06_2026-20_25_34-ee382413cb09b2d47a17818252731641-1024-1024.png",
+        "position": 5,
+        "alt": {
+          "pt": ""
+        },
+        "height": 1450,
+        "width": 1085,
+        "thumbnails_generated": 2,
+        "created_at": "2026-06-18T23:27:53+0000",
+        "updated_at": "2026-06-18T23:31:36+0000",
+        "store_media_uuid": null
+      },
+      {
+        "id": 1217733183,
+        "product_id": 302967873,
+        "src": "https://acdn-us.mitiendanube.com/stores/005/943/282/products/chatgpt-image-18_06_2026-20_25_08-9c4490e2dc677007e617818252732234-1024-1024.png",
+        "position": 6,
+        "alt": {
+          "pt": ""
+        },
+        "height": 1450,
+        "width": 1085,
+        "thumbnails_generated": 2,
+        "created_at": "2026-06-18T23:27:53+0000",
+        "updated_at": "2026-06-18T23:31:36+0000",
+        "store_media_uuid": null
+      },
+      {
+        "id": 1016117589,
+        "product_id": 302967873,
+        "src": "https://acdn-us.mitiendanube.com/stores/005/943/282/products/design-sem-nome-17-1efc28f2aff352646717613995720755-1024-1024.png",
+        "position": 7,
+        "alt": {
+          "pt": ""
+        },
+        "height": 1280,
+        "width": 1024,
+        "thumbnails_generated": 1,
+        "created_at": "2025-10-25T13:39:34+0000",
+        "updated_at": "2026-06-18T23:31:19+0000",
+        "store_media_uuid": null
+      },
+      {
+        "id": 1016117511,
+        "product_id": 302967873,
+        "src": "https://acdn-us.mitiendanube.com/stores/005/943/282/products/design-sem-nome-15-9a4baafe0c71c6d62917613995655747-1024-1024.png",
+        "position": 8,
+        "alt": {
+          "pt": ""
+        },
+        "height": 1280,
+        "width": 1024,
+        "thumbnails_generated": 1,
+        "created_at": "2025-10-25T13:39:27+0000",
+        "updated_at": "2026-06-18T23:31:19+0000",
+        "store_media_uuid": null
+      },
+      {
+        "id": 1016117615,
+        "product_id": 302967873,
+        "src": "https://acdn-us.mitiendanube.com/stores/005/943/282/products/design-sem-nome-18-a612b32411a421109617613995742536-1024-1024.png",
+        "position": 9,
+        "alt": {
+          "pt": ""
+        },
+        "height": 1280,
+        "width": 1024,
+        "thumbnails_generated": 1,
+        "created_at": "2025-10-25T13:39:36+0000",
+        "updated_at": "2026-06-18T23:31:19+0000",
+        "store_media_uuid": null
+      },
+      {
+        "id": 1016117636,
+        "product_id": 302967873,
+        "src": "https://acdn-us.mitiendanube.com/stores/005/943/282/products/design-sem-nome-19-af8f5a089ab84a8e4a17613995764505-1024-1024.png",
+        "position": 10,
+        "alt": {
+          "pt": ""
+        },
+        "height": 1280,
+        "width": 1024,
+        "thumbnails_generated": 1,
+        "created_at": "2025-10-25T13:39:38+0000",
+        "updated_at": "2026-06-18T23:31:19+0000",
+        "store_media_uuid": null
+      }
+    ],
+    "videos": [],
+    "categories": [
+      {
+        "id": 32376553,
+        "name": {
+          "pt": "Joias afetivas"
+        },
+        "description": {
+          "pt": ""
+        },
+        "handle": {
+          "pt": "joias-afetivas"
+        },
+        "parent": null,
+        "subcategories": [
+          32668248,
+          32376556,
+          32376552,
+          32376549,
+          32668246,
+          32668247,
+          32519345,
+          32376547,
+          32510036,
+          40271295,
+          35213798
+        ],
+        "seo_title": {
+          "pt": ""
+        },
+        "seo_description": {
+          "pt": ""
+        },
+        "google_shopping_category": "Vestuário e acessórios > Joias e bijuterias",
+        "created_at": "2025-07-03T00:41:41+0000",
+        "updated_at": "2026-07-19T18:35:29+0000"
+      },
+      {
+        "id": 32376556,
+        "name": {
+          "pt": "Linha Maternidade"
+        },
+        "description": {
+          "pt": ""
+        },
+        "handle": {
+          "pt": "linha-maternidade"
+        },
+        "parent": 32376553,
+        "subcategories": [],
+        "seo_title": {
+          "pt": ""
+        },
+        "seo_description": {
+          "pt": ""
+        },
+        "google_shopping_category": "Vestuário e acessórios > Joias e bijuterias",
+        "created_at": "2025-07-03T00:41:43+0000",
+        "updated_at": "2026-07-19T19:00:37+0000"
+      },
+      {
+        "id": 32376547,
+        "name": {
+          "pt": "Linha Prata 925"
+        },
+        "description": {
+          "pt": ""
+        },
+        "handle": {
+          "pt": "joia-afetiva-linha-prata-925"
+        },
+        "parent": 32376553,
+        "subcategories": [],
+        "seo_title": {
+          "pt": ""
+        },
+        "seo_description": {
+          "pt": ""
+        },
+        "google_shopping_category": "Vestuário e acessórios > Joias e bijuterias",
+        "created_at": "2025-07-03T00:41:35+0000",
+        "updated_at": "2026-07-19T18:34:07+0000"
+      },
+      {
+        "id": 32931728,
+        "name": {
+          "pt": "Joias e acessórios"
+        },
+        "description": {
+          "pt": ""
+        },
+        "handle": {
+          "pt": "joias-e-acessorios"
+        },
+        "parent": null,
+        "subcategories": [
+          36604582,
+          32930962,
+          32930952,
+          32930947,
+          36604161,
+          32930935,
+          32930961,
+          32931445,
+          36615793,
+          36615797
+        ],
+        "seo_title": {
+          "pt": ""
+        },
+        "seo_description": {
+          "pt": ""
+        },
+        "google_shopping_category": "Vestuário e acessórios > Joias e bijuterias",
+        "created_at": "2025-07-30T00:17:52+0000",
+        "updated_at": "2026-08-08T00:56:52+0000"
+      },
+      {
+        "id": 36604582,
+        "name": {
+          "pt": "Pingentes afetivos"
+        },
+        "description": {
+          "pt": ""
+        },
+        "handle": {
+          "pt": "pingentes-afetivos"
+        },
+        "parent": 32931728,
+        "subcategories": [],
+        "seo_title": {
+          "pt": ""
+        },
+        "seo_description": {
+          "pt": ""
+        },
+        "google_shopping_category": "Vestuário e acessórios > Joias e bijuterias > Berloques e pingentes",
+        "created_at": "2026-02-03T18:45:10+0000",
+        "updated_at": "2026-08-08T00:56:52+0000"
+      }
+    ]
+  }
+]

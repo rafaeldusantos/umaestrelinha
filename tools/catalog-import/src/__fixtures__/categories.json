@@ -1,0 +1,1009 @@
+[
+  {
+    "id": 32376553,
+    "parent": 0,
+    "subcategories": [
+      32668248,
+      32376556,
+      32376552,
+      32376549,
+      32668246,
+      32668247,
+      32519345,
+      32376547,
+      32510036,
+      40271295,
+      35213798
+    ],
+    "google_shopping_category": "Vestuário e acessórios > Joias e bijuterias",
+    "created_at": "2025-07-03T00:41:41+00:00",
+    "updated_at": "2026-07-19T18:35:29+00:00",
+    "visibility": "visible",
+    "visibility_updated_at": null,
+    "name": {
+      "pt": "Joias afetivas"
+    },
+    "handle": {
+      "pt": "joias-afetivas"
+    },
+    "description": {
+      "pt": ""
+    },
+    "seo_title": {
+      "pt": ""
+    },
+    "seo_description": {
+      "pt": ""
+    }
+  },
+  {
+    "id": 32668248,
+    "parent": 32376553,
+    "subcategories": [],
+    "google_shopping_category": "Vestuário e acessórios > Joias e bijuterias",
+    "created_at": "2025-07-17T02:28:20+00:00",
+    "updated_at": "2026-07-19T18:34:20+00:00",
+    "visibility": "visible",
+    "visibility_updated_at": null,
+    "name": {
+      "pt": "Linha Leite Materno"
+    },
+    "handle": {
+      "pt": "joia-de-leite-materno"
+    },
+    "description": {
+      "pt": ""
+    },
+    "seo_title": {
+      "pt": ""
+    },
+    "seo_description": {
+      "pt": ""
+    }
+  },
+  {
+    "id": 32376556,
+    "parent": 32376553,
+    "subcategories": [],
+    "google_shopping_category": "Vestuário e acessórios > Joias e bijuterias",
+    "created_at": "2025-07-03T00:41:43+00:00",
+    "updated_at": "2026-07-19T19:00:37+00:00",
+    "visibility": "visible",
+    "visibility_updated_at": null,
+    "name": {
+      "pt": "Linha Maternidade"
+    },
+    "handle": {
+      "pt": "linha-maternidade"
+    },
+    "description": {
+      "pt": ""
+    },
+    "seo_title": {
+      "pt": ""
+    },
+    "seo_description": {
+      "pt": ""
+    }
+  },
+  {
+    "id": 32376552,
+    "parent": 32376553,
+    "subcategories": [],
+    "google_shopping_category": "Vestuário e acessórios > Joias e bijuterias",
+    "created_at": "2025-07-03T00:41:40+00:00",
+    "updated_at": "2026-07-19T19:00:04+00:00",
+    "visibility": "visible",
+    "visibility_updated_at": null,
+    "name": {
+      "pt": "Linha Pet"
+    },
+    "handle": {
+      "pt": "joia-afetiva-linha-pet"
+    },
+    "description": {
+      "pt": ""
+    },
+    "seo_title": {
+      "pt": ""
+    },
+    "seo_description": {
+      "pt": ""
+    }
+  },
+  {
+    "id": 32376549,
+    "parent": 32376553,
+    "subcategories": [],
+    "google_shopping_category": "Vestuário e acessórios > Joias e bijuterias",
+    "created_at": "2025-07-03T00:41:37+00:00",
+    "updated_at": "2026-07-19T19:00:39+00:00",
+    "visibility": "visible",
+    "visibility_updated_at": null,
+    "name": {
+      "pt": "Linha Uma Estrelinha"
+    },
+    "handle": {
+      "pt": "linha-uma-estrelinha"
+    },
+    "description": {
+      "pt": ""
+    },
+    "seo_title": {
+      "pt": ""
+    },
+    "seo_description": {
+      "pt": ""
+    }
+  },
+  {
+    "id": 32668246,
+    "parent": 32376553,
+    "subcategories": [],
+    "google_shopping_category": "Vestuário e acessórios > Joias e bijuterias",
+    "created_at": "2025-07-17T02:28:20+00:00",
+    "updated_at": "2026-07-19T18:34:18+00:00",
+    "visibility": "visible",
+    "visibility_updated_at": null,
+    "name": {
+      "pt": "Linha Dente de Leite"
+    },
+    "handle": {
+      "pt": "joia-afetiva-linha-dente-de-leite"
+    },
+    "description": {
+      "pt": ""
+    },
+    "seo_title": {
+      "pt": ""
+    },
+    "seo_description": {
+      "pt": ""
+    }
+  },
+  {
+    "id": 32668247,
+    "parent": 32376553,
+    "subcategories": [],
+    "google_shopping_category": "Vestuário e acessórios > Joias e bijuterias",
+    "created_at": "2025-07-17T02:28:20+00:00",
+    "updated_at": "2026-07-19T19:00:05+00:00",
+    "visibility": "visible",
+    "visibility_updated_at": null,
+    "name": {
+      "pt": "Linha Masculina"
+    },
+    "handle": {
+      "pt": "joia-afetiva-linha-masculina"
+    },
+    "description": {
+      "pt": ""
+    },
+    "seo_title": {
+      "pt": ""
+    },
+    "seo_description": {
+      "pt": ""
+    }
+  },
+  {
+    "id": 32519345,
+    "parent": 32376553,
+    "subcategories": [],
+    "google_shopping_category": "Casa e jardim > Decoração",
+    "created_at": "2025-07-10T14:52:23+00:00",
+    "updated_at": "2026-07-19T19:00:40+00:00",
+    "visibility": "visible",
+    "visibility_updated_at": null,
+    "name": {
+      "pt": "Decorativos"
+    },
+    "handle": {
+      "pt": "decorativos"
+    },
+    "description": {
+      "pt": ""
+    },
+    "seo_title": {
+      "pt": ""
+    },
+    "seo_description": {
+      "pt": ""
+    }
+  },
+  {
+    "id": 32376547,
+    "parent": 32376553,
+    "subcategories": [],
+    "google_shopping_category": "Vestuário e acessórios > Joias e bijuterias",
+    "created_at": "2025-07-03T00:41:35+00:00",
+    "updated_at": "2026-07-19T18:34:07+00:00",
+    "visibility": "visible",
+    "visibility_updated_at": null,
+    "name": {
+      "pt": "Linha Prata 925"
+    },
+    "handle": {
+      "pt": "joia-afetiva-linha-prata-925"
+    },
+    "description": {
+      "pt": ""
+    },
+    "seo_title": {
+      "pt": ""
+    },
+    "seo_description": {
+      "pt": ""
+    }
+  },
+  {
+    "id": 32510036,
+    "parent": 32376553,
+    "subcategories": [],
+    "google_shopping_category": "Vestuário e acessórios > Joias e bijuterias",
+    "created_at": "2025-07-10T01:00:11+00:00",
+    "updated_at": "2026-07-19T19:00:06+00:00",
+    "visibility": "visible",
+    "visibility_updated_at": null,
+    "name": {
+      "pt": "Linha em Aço"
+    },
+    "handle": {
+      "pt": "aco-inoxidavel"
+    },
+    "description": {
+      "pt": ""
+    },
+    "seo_title": {
+      "pt": ""
+    },
+    "seo_description": {
+      "pt": ""
+    }
+  },
+  {
+    "id": 40271295,
+    "parent": 32376553,
+    "subcategories": [],
+    "google_shopping_category": "",
+    "created_at": "2026-08-08T00:56:45+00:00",
+    "updated_at": "2026-08-08T00:56:45+00:00",
+    "visibility": "visible",
+    "visibility_updated_at": null,
+    "name": {
+      "pt": "Linha Folheados"
+    },
+    "handle": {
+      "pt": "linha-folheados"
+    },
+    "description": {
+      "pt": ""
+    },
+    "seo_title": {
+      "pt": ""
+    },
+    "seo_description": {
+      "pt": ""
+    }
+  },
+  {
+    "id": 35213798,
+    "parent": 32376553,
+    "subcategories": [],
+    "google_shopping_category": "Vestuário e acessórios > Joias e bijuterias",
+    "created_at": "2025-11-18T23:02:34+00:00",
+    "updated_at": "2026-08-08T00:56:52+00:00",
+    "visibility": "visible",
+    "visibility_updated_at": null,
+    "name": {
+      "pt": "Correntes e Pingentes"
+    },
+    "handle": {
+      "pt": "correntes-e-pingentes"
+    },
+    "description": {
+      "pt": ""
+    },
+    "seo_title": {
+      "pt": ""
+    },
+    "seo_description": {
+      "pt": ""
+    }
+  },
+  {
+    "id": 34728735,
+    "parent": 0,
+    "subcategories": [
+      34728740,
+      34729765,
+      34729753,
+      34729762,
+      34729761,
+      34729764,
+      34729763,
+      34729760
+    ],
+    "google_shopping_category": "Vestuário e acessórios > Joias e bijuterias",
+    "created_at": "2025-10-26T12:43:19+00:00",
+    "updated_at": "2026-08-08T00:56:52+00:00",
+    "visibility": "visible",
+    "visibility_updated_at": null,
+    "name": {
+      "pt": "Personalizados"
+    },
+    "handle": {
+      "pt": "personalizados"
+    },
+    "description": {
+      "pt": ""
+    },
+    "seo_title": {
+      "pt": ""
+    },
+    "seo_description": {
+      "pt": ""
+    }
+  },
+  {
+    "id": 34728740,
+    "parent": 34728735,
+    "subcategories": [],
+    "google_shopping_category": "Vestuário e acessórios > Joias e bijuterias",
+    "created_at": "2025-10-26T12:43:54+00:00",
+    "updated_at": "2026-08-08T00:56:52+00:00",
+    "visibility": "visible",
+    "visibility_updated_at": null,
+    "name": {
+      "pt": "Iniciais"
+    },
+    "handle": {
+      "pt": "iniciais"
+    },
+    "description": {
+      "pt": ""
+    },
+    "seo_title": {
+      "pt": ""
+    },
+    "seo_description": {
+      "pt": ""
+    }
+  },
+  {
+    "id": 34729765,
+    "parent": 34728735,
+    "subcategories": [],
+    "google_shopping_category": "Vestuário e acessórios > Joias e bijuterias",
+    "created_at": "2025-10-26T14:57:12+00:00",
+    "updated_at": "2026-08-08T00:56:52+00:00",
+    "visibility": "visible",
+    "visibility_updated_at": null,
+    "name": {
+      "pt": "Nomes"
+    },
+    "handle": {
+      "pt": "nomes"
+    },
+    "description": {
+      "pt": ""
+    },
+    "seo_title": {
+      "pt": ""
+    },
+    "seo_description": {
+      "pt": ""
+    }
+  },
+  {
+    "id": 34729753,
+    "parent": 34728735,
+    "subcategories": [],
+    "google_shopping_category": "Vestuário e acessórios > Joias e bijuterias",
+    "created_at": "2025-10-26T14:55:49+00:00",
+    "updated_at": "2026-08-08T00:56:52+00:00",
+    "visibility": "visible",
+    "visibility_updated_at": null,
+    "name": {
+      "pt": "Nascimento"
+    },
+    "handle": {
+      "pt": "nascimento"
+    },
+    "description": {
+      "pt": ""
+    },
+    "seo_title": {
+      "pt": ""
+    },
+    "seo_description": {
+      "pt": ""
+    }
+  },
+  {
+    "id": 34729762,
+    "parent": 34728735,
+    "subcategories": [],
+    "google_shopping_category": "Vestuário e acessórios > Joias e bijuterias",
+    "created_at": "2025-10-26T14:57:12+00:00",
+    "updated_at": "2026-08-08T00:56:52+00:00",
+    "visibility": "visible",
+    "visibility_updated_at": null,
+    "name": {
+      "pt": "Eternize"
+    },
+    "handle": {
+      "pt": "eternize"
+    },
+    "description": {
+      "pt": ""
+    },
+    "seo_title": {
+      "pt": ""
+    },
+    "seo_description": {
+      "pt": ""
+    }
+  },
+  {
+    "id": 34729761,
+    "parent": 34728735,
+    "subcategories": [],
+    "google_shopping_category": "Vestuário e acessórios > Joias e bijuterias",
+    "created_at": "2025-10-26T14:57:12+00:00",
+    "updated_at": "2026-08-08T00:56:52+00:00",
+    "visibility": "visible",
+    "visibility_updated_at": null,
+    "name": {
+      "pt": "Pets"
+    },
+    "handle": {
+      "pt": "pets"
+    },
+    "description": {
+      "pt": ""
+    },
+    "seo_title": {
+      "pt": ""
+    },
+    "seo_description": {
+      "pt": ""
+    }
+  },
+  {
+    "id": 34729764,
+    "parent": 34728735,
+    "subcategories": [],
+    "google_shopping_category": "Vestuário e acessórios > Joias e bijuterias",
+    "created_at": "2025-10-26T14:57:12+00:00",
+    "updated_at": "2026-08-08T00:56:52+00:00",
+    "visibility": "visible",
+    "visibility_updated_at": null,
+    "name": {
+      "pt": "Família"
+    },
+    "handle": {
+      "pt": "familia"
+    },
+    "description": {
+      "pt": ""
+    },
+    "seo_title": {
+      "pt": ""
+    },
+    "seo_description": {
+      "pt": ""
+    }
+  },
+  {
+    "id": 34729763,
+    "parent": 34728735,
+    "subcategories": [],
+    "google_shopping_category": "Vestuário e acessórios > Joias e bijuterias",
+    "created_at": "2025-10-26T14:57:12+00:00",
+    "updated_at": "2026-08-08T00:56:52+00:00",
+    "visibility": "visible",
+    "visibility_updated_at": null,
+    "name": {
+      "pt": "Avós"
+    },
+    "handle": {
+      "pt": "avos"
+    },
+    "description": {
+      "pt": ""
+    },
+    "seo_title": {
+      "pt": ""
+    },
+    "seo_description": {
+      "pt": ""
+    }
+  },
+  {
+    "id": 34729760,
+    "parent": 34728735,
+    "subcategories": [],
+    "google_shopping_category": "Vestuário e acessórios > Joias e bijuterias",
+    "created_at": "2025-10-26T14:57:12+00:00",
+    "updated_at": "2026-08-08T00:56:52+00:00",
+    "visibility": "visible",
+    "visibility_updated_at": null,
+    "name": {
+      "pt": "Profissões"
+    },
+    "handle": {
+      "pt": "profissoes"
+    },
+    "description": {
+      "pt": ""
+    },
+    "seo_title": {
+      "pt": ""
+    },
+    "seo_description": {
+      "pt": ""
+    }
+  },
+  {
+    "id": 32509987,
+    "parent": 0,
+    "subcategories": [],
+    "google_shopping_category": "Vestuário e acessórios > Joias e bijuterias",
+    "created_at": "2025-07-10T00:57:16+00:00",
+    "updated_at": "2026-08-08T00:56:51+00:00",
+    "visibility": "visible",
+    "visibility_updated_at": null,
+    "name": {
+      "pt": "Coleção Amuletos"
+    },
+    "handle": {
+      "pt": "amuletos"
+    },
+    "description": {
+      "pt": ""
+    },
+    "seo_title": {
+      "pt": ""
+    },
+    "seo_description": {
+      "pt": ""
+    }
+  },
+  {
+    "id": 32509957,
+    "parent": 0,
+    "subcategories": [],
+    "google_shopping_category": "Vestuário e acessórios > Joias e bijuterias",
+    "created_at": "2025-07-10T00:55:43+00:00",
+    "updated_at": "2026-08-08T00:56:51+00:00",
+    "visibility": "visible",
+    "visibility_updated_at": null,
+    "name": {
+      "pt": "Coleção Código Morse"
+    },
+    "handle": {
+      "pt": "joias-codigo-morse"
+    },
+    "description": {
+      "pt": ""
+    },
+    "seo_title": {
+      "pt": ""
+    },
+    "seo_description": {
+      "pt": ""
+    }
+  },
+  {
+    "id": 32668523,
+    "parent": 0,
+    "subcategories": [],
+    "google_shopping_category": "Vestuário e acessórios > Joias e bijuterias",
+    "created_at": "2025-07-17T02:46:28+00:00",
+    "updated_at": "2026-08-08T00:56:51+00:00",
+    "visibility": "visible",
+    "visibility_updated_at": null,
+    "name": {
+      "pt": "Coleção Fragmentos"
+    },
+    "handle": {
+      "pt": "colecao-fragmentos"
+    },
+    "description": {
+      "pt": ""
+    },
+    "seo_title": {
+      "pt": ""
+    },
+    "seo_description": {
+      "pt": ""
+    }
+  },
+  {
+    "id": 32509282,
+    "parent": 0,
+    "subcategories": [],
+    "google_shopping_category": "Vestuário e acessórios > Joias e bijuterias",
+    "created_at": "2025-07-10T00:33:53+00:00",
+    "updated_at": "2026-08-08T00:56:50+00:00",
+    "visibility": "visible",
+    "visibility_updated_at": null,
+    "name": {
+      "pt": "Coleção Botânicas"
+    },
+    "handle": {
+      "pt": "botanicas"
+    },
+    "description": {
+      "pt": ""
+    },
+    "seo_title": {
+      "pt": ""
+    },
+    "seo_description": {
+      "pt": ""
+    }
+  },
+  {
+    "id": 32509753,
+    "parent": 0,
+    "subcategories": [],
+    "google_shopping_category": "",
+    "created_at": "2025-07-10T00:47:05+00:00",
+    "updated_at": "2026-08-08T00:56:51+00:00",
+    "visibility": "visible",
+    "visibility_updated_at": null,
+    "name": {
+      "pt": "Brinquedos"
+    },
+    "handle": {
+      "pt": "nanita"
+    },
+    "description": {
+      "pt": ""
+    },
+    "seo_title": {
+      "pt": ""
+    },
+    "seo_description": {
+      "pt": ""
+    }
+  },
+  {
+    "id": 32931728,
+    "parent": 0,
+    "subcategories": [
+      36604582,
+      32930962,
+      32930952,
+      32930947,
+      36604161,
+      32930935,
+      32930961,
+      32931445,
+      36615793,
+      36615797
+    ],
+    "google_shopping_category": "Vestuário e acessórios > Joias e bijuterias",
+    "created_at": "2025-07-30T00:17:52+00:00",
+    "updated_at": "2026-08-08T00:56:52+00:00",
+    "visibility": "visible",
+    "visibility_updated_at": null,
+    "name": {
+      "pt": "Joias e acessórios"
+    },
+    "handle": {
+      "pt": "joias-e-acessorios"
+    },
+    "description": {
+      "pt": ""
+    },
+    "seo_title": {
+      "pt": ""
+    },
+    "seo_description": {
+      "pt": ""
+    }
+  },
+  {
+    "id": 36604582,
+    "parent": 32931728,
+    "subcategories": [],
+    "google_shopping_category": "Vestuário e acessórios > Joias e bijuterias > Berloques e pingentes",
+    "created_at": "2026-02-03T18:45:10+00:00",
+    "updated_at": "2026-08-08T00:56:52+00:00",
+    "visibility": "visible",
+    "visibility_updated_at": null,
+    "name": {
+      "pt": "Pingentes afetivos"
+    },
+    "handle": {
+      "pt": "pingentes-afetivos"
+    },
+    "description": {
+      "pt": ""
+    },
+    "seo_title": {
+      "pt": ""
+    },
+    "seo_description": {
+      "pt": ""
+    }
+  },
+  {
+    "id": 32930962,
+    "parent": 32931728,
+    "subcategories": [],
+    "google_shopping_category": "Vestuário e acessórios > Joias e bijuterias > Anéis",
+    "created_at": "2025-07-29T23:26:19+00:00",
+    "updated_at": "2026-08-08T00:56:51+00:00",
+    "visibility": "visible",
+    "visibility_updated_at": null,
+    "name": {
+      "pt": "Anéis"
+    },
+    "handle": {
+      "pt": "aneis"
+    },
+    "description": {
+      "pt": ""
+    },
+    "seo_title": {
+      "pt": ""
+    },
+    "seo_description": {
+      "pt": ""
+    }
+  },
+  {
+    "id": 32930952,
+    "parent": 32931728,
+    "subcategories": [],
+    "google_shopping_category": "Vestuário e acessórios > Joias e bijuterias > Brincos",
+    "created_at": "2025-07-29T23:25:44+00:00",
+    "updated_at": "2026-08-08T00:56:51+00:00",
+    "visibility": "visible",
+    "visibility_updated_at": null,
+    "name": {
+      "pt": "Brincos"
+    },
+    "handle": {
+      "pt": "brincos1"
+    },
+    "description": {
+      "pt": ""
+    },
+    "seo_title": {
+      "pt": ""
+    },
+    "seo_description": {
+      "pt": ""
+    }
+  },
+  {
+    "id": 32930947,
+    "parent": 32931728,
+    "subcategories": [],
+    "google_shopping_category": "Vestuário e acessórios > Joias e bijuterias > Colares",
+    "created_at": "2025-07-29T23:25:24+00:00",
+    "updated_at": "2026-08-08T00:56:51+00:00",
+    "visibility": "visible",
+    "visibility_updated_at": null,
+    "name": {
+      "pt": "Colar e correntes"
+    },
+    "handle": {
+      "pt": "colar-e-correntes"
+    },
+    "description": {
+      "pt": ""
+    },
+    "seo_title": {
+      "pt": ""
+    },
+    "seo_description": {
+      "pt": ""
+    }
+  },
+  {
+    "id": 36604161,
+    "parent": 32931728,
+    "subcategories": [],
+    "google_shopping_category": "Vestuário e acessórios > Joias e bijuterias > Colares",
+    "created_at": "2026-02-03T18:33:19+00:00",
+    "updated_at": "2026-08-08T00:56:52+00:00",
+    "visibility": "visible",
+    "visibility_updated_at": null,
+    "name": {
+      "pt": "Corrente"
+    },
+    "handle": {
+      "pt": "corrente"
+    },
+    "description": {
+      "pt": ""
+    },
+    "seo_title": {
+      "pt": ""
+    },
+    "seo_description": {
+      "pt": ""
+    }
+  },
+  {
+    "id": 32930935,
+    "parent": 32931728,
+    "subcategories": [],
+    "google_shopping_category": "Vestuário e acessórios > Joias e bijuterias > Berloques e pingentes",
+    "created_at": "2025-07-29T23:24:22+00:00",
+    "updated_at": "2026-08-08T00:56:51+00:00",
+    "visibility": "visible",
+    "visibility_updated_at": null,
+    "name": {
+      "pt": "Pingentes"
+    },
+    "handle": {
+      "pt": "pingentes1"
+    },
+    "description": {
+      "pt": ""
+    },
+    "seo_title": {
+      "pt": ""
+    },
+    "seo_description": {
+      "pt": ""
+    }
+  },
+  {
+    "id": 32930961,
+    "parent": 32931728,
+    "subcategories": [],
+    "google_shopping_category": "Vestuário e acessórios > Joias e bijuterias > Pulseiras",
+    "created_at": "2025-07-29T23:26:19+00:00",
+    "updated_at": "2026-08-08T00:56:51+00:00",
+    "visibility": "visible",
+    "visibility_updated_at": null,
+    "name": {
+      "pt": "Pulseiras"
+    },
+    "handle": {
+      "pt": "pulseiras1"
+    },
+    "description": {
+      "pt": ""
+    },
+    "seo_title": {
+      "pt": ""
+    },
+    "seo_description": {
+      "pt": ""
+    }
+  },
+  {
+    "id": 32931445,
+    "parent": 32931728,
+    "subcategories": [],
+    "google_shopping_category": "Vestuário e acessórios > Joias e bijuterias > Berloques e pingentes",
+    "created_at": "2025-07-29T23:58:19+00:00",
+    "updated_at": "2026-08-08T00:56:51+00:00",
+    "visibility": "visible",
+    "visibility_updated_at": null,
+    "name": {
+      "pt": "Berloques"
+    },
+    "handle": {
+      "pt": "berloques"
+    },
+    "description": {
+      "pt": ""
+    },
+    "seo_title": {
+      "pt": ""
+    },
+    "seo_description": {
+      "pt": ""
+    }
+  },
+  {
+    "id": 36615793,
+    "parent": 32931728,
+    "subcategories": [],
+    "google_shopping_category": "Vestuário e acessórios > Joias e bijuterias > Pulseiras",
+    "created_at": "2026-02-03T23:55:31+00:00",
+    "updated_at": "2026-08-08T00:56:52+00:00",
+    "visibility": "visible",
+    "visibility_updated_at": null,
+    "name": {
+      "pt": "Pulseiras Afetivas"
+    },
+    "handle": {
+      "pt": "pulseiras-afetivas"
+    },
+    "description": {
+      "pt": ""
+    },
+    "seo_title": {
+      "pt": ""
+    },
+    "seo_description": {
+      "pt": ""
+    }
+  },
+  {
+    "id": 36615797,
+    "parent": 32931728,
+    "subcategories": [],
+    "google_shopping_category": "Vestuário e acessórios > Joias e bijuterias > Colares",
+    "created_at": "2026-02-03T23:55:51+00:00",
+    "updated_at": "2026-08-08T00:56:52+00:00",
+    "visibility": "visible",
+    "visibility_updated_at": null,
+    "name": {
+      "pt": "Colares Afetivos"
+    },
+    "handle": {
+      "pt": "colares-afetivos"
+    },
+    "description": {
+      "pt": ""
+    },
+    "seo_title": {
+      "pt": ""
+    },
+    "seo_description": {
+      "pt": ""
+    }
+  },
+  {
+    "id": 35119124,
+    "parent": 0,
+    "subcategories": [],
+    "google_shopping_category": "Vestuário e acessórios > Joias e bijuterias",
+    "created_at": "2025-11-14T12:44:36+00:00",
+    "updated_at": "2026-08-08T00:56:52+00:00",
+    "visibility": "visible",
+    "visibility_updated_at": null,
+    "name": {
+      "pt": "Black Friday"
+    },
+    "handle": {
+      "pt": "black-friday"
+    },
+    "description": {
+      "pt": ""
+    },
+    "seo_title": {
+      "pt": ""
+    },
+    "seo_description": {
+      "pt": ""
+    }
+  },
+  {
+    "id": 32697621,
+    "parent": 0,
+    "subcategories": [],
+    "google_shopping_category": "",
+    "created_at": "2025-07-18T14:04:11+00:00",
+    "updated_at": "2026-08-08T00:56:51+00:00",
+    "visibility": "visible",
+    "visibility_updated_at": null,
+    "name": {
+      "pt": "Rastreio"
+    },
+    "handle": {
+      "pt": "rastreio"
+    },
+    "description": {
+      "pt": ""
+    },
+    "seo_title": {
+      "pt": ""
+    },
+    "seo_description": {
+      "pt": ""
+    }
+  }
+]

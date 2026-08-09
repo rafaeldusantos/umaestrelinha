@@ -1,6 +1,9 @@
 packages:
   - "apps/*"
   - "packages/*"
+  # Ferramentas de operação executadas à mão (importador de catálogo). Não são consumidas pelos
+  # apps: ficam fora de `packages/*` justamente para não parecerem importáveis por alias.
+  - "tools/*"
   # Runner de teste dos handlers da edge function (@estrelinha/functions). Fica na raiz de supabase/
   # e não em supabase/functions/ para o node_modules não cair no diretório bind-montado pelo
   # edge runtime local.
@@ -11,3 +14,6 @@ onlyBuiltDependencies:
   - "@swc/core"
   - esbuild
   - unrs-resolver
+allowBuilds:
+  # Chegou com o `tsx` do @estrelinha/catalog-import. Já estava aprovado em onlyBuiltDependencies.
+  esbuild: true

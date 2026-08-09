@@ -1,0 +1,19 @@
+{
+  "name": "@estrelinha/catalog-import",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "//": "Ferramenta de operação, não biblioteca. Mora em tools/ e não em packages/ de propósito: packages/* é consumido pelos apps por alias do Vite e do tsconfig, e um CLI ali pareceria importável.",
+  "scripts": {
+    "test": "vitest run",
+    "lint": "eslint .",
+    "import": "tsx src/cli.ts"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.103.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2",
+    "vitest": "^3.2.7"
+  }
+}

@@ -1,0 +1,6 @@
+# Bytes das imagens baixadas do CDN da Nuvemshop. Existe para que uma re-execução depois de
+# `supabase db reset` não precise refazer 3.660 downloads — o Storage é recriado, o cache não.
+.cache/
+
+# Relatórios de execução (`--report`). São saída de operação, não fonte.
+reports/
