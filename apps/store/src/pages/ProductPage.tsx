@@ -84,7 +84,7 @@ interface BodyProps {
  * `useProductPurchase` precisa do produto carregado, e hook não pode viver atrás de um `return`.
  *
  * O `key={product.id}` no chamador é o que reseta quantidade e variação ao trocar de produto: sem
- * ele, navegar de um botton para outro carregaria a quantidade 3 escolhida no anterior.
+ * ele, navegar de uma joia para outra carregaria a quantidade 3 escolhida na anterior.
  */
 const ProductPageBody = ({
   product,

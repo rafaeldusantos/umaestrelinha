@@ -1,74 +1,71 @@
 import HeroBanner from '@/widgets/hero-banner/ui/HeroBanner'
 import MarqueeBar from '@/widgets/home-sections/ui/MarqueeBar'
-import DropCountdown from '@/widgets/home-sections/ui/DropCountdown'
 import CategoryGrid from '@/widgets/category-grid/ui/CategoryGrid'
 import ProductCarousel from '@/widgets/product-carousel/ui/ProductCarousel'
 import TrendingTags from '@/widgets/home-sections/ui/TrendingTags'
-import SocialProof from '@/widgets/home-sections/ui/SocialProof'
 import NewsletterBanner from '@/features/newsletter/ui/NewsletterBanner'
 import { useFeaturedProducts, useAllProducts } from '@/entities/product/api/useProducts'
 
+/**
+ * A home — `IDN-04` / `IDN-09`.
+ *
+ * O board `516-0` ("Home Loja — re-skin") está **vazio**, e o `design.md`
+ * declara a home fora do redesenho: ela recebe paleta e chrome, não desenho
+ * novo. O passe da Fase 5 é sobre o que **não podia ficar**, e duas seções
+ * inteiras saíram por não terem re-skin possível:
+ *
+ * - **`DropCountdown`** — contagem regressiva para a "sexta do drop", com o
+ *   título "Novos pins chegando!". "Drop" não é vocabulário desta loja (a T16
+ *   já tinha recusado semear a tabela `drops` pelo mesmo motivo), e a data era
+ *   calculada no próprio componente: um prazo que não existe, prometido na
+ *   primeira dobra.
+ * - **`SocialProof`** — dois depoimentos **inventados**, com nome e cidade
+ *   inventados. É a mesma decisão que a `PIN-07` tomou para as avaliações de
+ *   demonstração, e aqui ela pesa mais: um elogio fabricado a uma homenagem
+ *   fúnebre não é um enfeite de vitrine.
+ *
+ * Com as duas fora, a grade de coleções recupera a largura inteira — ela estava
+ * dividindo a linha com o contador.
+ */
 const HomePage = () => {
   const { data: featured } = useFeaturedProducts()
   const { data: allProducts } = useAllProducts()
-  const trending = allProducts?.slice(0, 8) ?? []
+  const novidades = allProducts?.slice(0, 8) ?? []
 
   return (
     <div>
-      {/* Hero */}
       <HeroBanner />
 
-      {/* Marquee trust bar */}
       <MarqueeBar />
 
-      {/* Drop countdown + Categories — side by side on desktop */}
       <section className="py-12">
         <div className="container">
-          <div className="flex flex-col md:flex-row gap-6 items-start">
-            <div className="w-full md:w-[460px] shrink-0">
-              <DropCountdown />
-            </div>
-            <div className="flex-1 min-w-0">
-              <CategoryGrid />
-            </div>
-          </div>
+          <CategoryGrid />
         </div>
       </section>
 
-      {/* Trending products */}
       <ProductCarousel
-        title="Tá bombando"
-        subtitle="O que saiu mais essa semana"
-        products={trending}
-        badgeLabel="Hot"
+        title="Novidades"
+        subtitle="As últimas peças que saíram do ateliê"
+        products={novidades}
         linkHref="/busca"
         linkText="Ver tudo"
       />
 
-      {/* Fan picks */}
       <ProductCarousel
-        title="A galera ama"
-        subtitle="As mais bem avaliadas da loja"
+        title="Em destaque"
+        subtitle="As escolhas da Adri"
         products={(featured ?? []).slice(0, 8)}
         linkHref="/busca"
         linkText="Ver todos"
       />
 
-      {/* Tags + Social Proof — side by side on desktop */}
       <section className="py-12">
         <div className="container">
-          <div className="flex flex-col md:flex-row gap-8 items-start">
-            <div className="flex-1 min-w-0">
-              <TrendingTags />
-            </div>
-            <div className="w-full md:w-[480px] shrink-0">
-              <SocialProof />
-            </div>
-          </div>
+          <TrendingTags />
         </div>
       </section>
 
-      {/* Newsletter */}
       <NewsletterBanner />
     </div>
   )

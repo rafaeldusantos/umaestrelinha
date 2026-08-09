@@ -1,9 +1,8 @@
 import { Truck } from 'lucide-react'
 
 /**
- * Marcador de item — Fita sobre Grafite (10,17:1), a única superfície onde a
- * manteiga é legível. É o mesmo papel que ela tem no contador de drop e no selo
- * do kit: destaque temporal, nunca texto.
+ * Marcador de item — ponto `accent` sobre `ink`. Preenchimento de 6px: objeto
+ * gráfico, nunca texto.
  */
 const Mark = () => <span className="block h-1.5 w-1.5 shrink-0 rounded-full bg-estrelinha-accent" aria-hidden />
 
@@ -23,7 +22,10 @@ const items = [
   { id: 'pix', content: 'Pix com 5% OFF' },
   { id: 'parcelas', content: 'Parcele em 12×' },
   { id: 'troca', content: 'Troca em 7 dias' },
-  { id: 'drops', content: 'Drops toda sexta' },
+  // "Drops toda sexta" saiu: era promessa de calendário que esta loja não
+  // tem, e as outras quatro linhas são fatos verificáveis (`store_settings`
+  // traz frete grátis em 150 e PIX com 5%).
+  { id: 'artesanal', content: 'Feito à mão sob encomenda' },
 ]
 
 /**

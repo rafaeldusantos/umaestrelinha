@@ -20,7 +20,9 @@ const SURFACES = [
   {
     card: 'bg-estrelinha-accent',
     title: 'text-estrelinha-ink',
-    meta: 'text-estrelinha-ink/80',
+    // `ink` CHAPADO, não a 80%: sobre `accent` o cheio já é 4,78:1, e a 80%
+    // cai para ~3,7:1 — o rótulo de contagem reprovaria a AA sem nada acusar.
+    meta: 'text-estrelinha-ink',
     initial: 'text-white/35',
   },
   {
@@ -42,7 +44,7 @@ const CategoryGrid = () => {
   const { data: categories } = useCategories()
   const { data: products } = useProducts()
 
-  // A grade é "escolha seu fandom": uma subcategoria lado a lado com o contêiner que a agrupa não é
+  // A grade é "escolha a sua linha": uma subcategoria lado a lado com o contêiner que a agrupa não é
   // escolha, é confusão — e um contêiner sozinho não é escolha nenhuma. Ver `browseCategories`.
   const visible = browseCategories(categories).slice(0, 6)
 
@@ -52,7 +54,7 @@ const CategoryGrid = () => {
     <div className="flex flex-col gap-6">
       <SectionHeading
         title="Coleções"
-        subtitle="Escolha seu fandom. Ou leve todos."
+        subtitle="Cada linha nasce de um material diferente"
         linkTo="/busca"
         linkLabel="Ver todas"
       />

@@ -71,7 +71,7 @@ export const useProductPurchase = (
       toast.error(
         sellableGrid
           ? 'Essa combinação está indisponível. Escolha outra.'
-          : 'Este botton está esgotado.',
+          : 'Esta joia está esgotada.',
       )
       return
     }

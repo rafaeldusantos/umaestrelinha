@@ -97,22 +97,33 @@ const CategoryPage = () => {
 
   return (
     <div className="flex flex-col">
-      {/* Faixa da coleção — sangra a largura toda, o conteúdo respeita o container. */}
-      <header className="relative overflow-hidden bg-estrelinha-accent">
+      {/* Faixa da coleção — sangra a largura toda, o conteúdo respeita o container.
+
+          **Ela era `accent` chapado, e isso era um defeito de leitura E de
+          contraste** (`IDN-04`). O remap mecânico trouxe o rosa Carimbo para
+          ouro e deixou aqui a segunda maior superfície chapada da loja; pior,
+          todo o texto de apoio estava em `ink` com opacidade — e `ink` sobre
+          `accent` já mede 4,78:1 CHEIO. A 78% cai para ~3,6:1 e a 45% para
+          ~2,1:1: a trilha e a contagem reprovavam a AA sem nada acusar.
+
+          `ground-deep` é o palco de seção da paleta, o texto volta a ser `ink`
+          chapado (12,73:1) e o ouro fica onde ele funciona: nos dois discos de
+          ornamento, que são objeto gráfico. */}
+      <header className="relative overflow-hidden border-b border-estrelinha-line bg-estrelinha-ground-deep">
         <span
           aria-hidden
-          className="pointer-events-none absolute -right-2 top-5 h-20 w-20 rounded-full bg-white/[0.08] md:h-[120px] md:w-[120px]"
+          className="pointer-events-none absolute -right-2 top-5 h-20 w-20 rounded-full bg-estrelinha-accent/15 md:h-[120px] md:w-[120px]"
         />
         <span
           aria-hidden
-          className="pointer-events-none absolute right-[70px] top-[50px] h-5 w-5 rounded-full bg-white/[0.06] md:h-[60px] md:w-[60px]"
+          className="pointer-events-none absolute right-[70px] top-[50px] h-5 w-5 rounded-full bg-estrelinha-accent/10 md:h-[60px] md:w-[60px]"
         />
         <div className="container flex min-h-[130px] flex-col justify-end gap-2 pb-5 pt-4 md:min-h-40 md:pb-7">
           <nav className="flex items-center gap-1.5 text-[12px] leading-3">
-            <Link to="/" className="text-estrelinha-ink/70 transition-colors hover:text-estrelinha-ink">
+            <Link to="/" className="text-estrelinha-ink-soft transition-colors hover:text-estrelinha-ink">
               Início
             </Link>
-            <span className="text-estrelinha-ink/45">/</span>
+            <span className="text-estrelinha-ink-soft">/</span>
             <span className="font-medium text-estrelinha-ink">{category.name}</span>
           </nav>
 
@@ -120,13 +131,13 @@ const CategoryPage = () => {
             <h1 className="font-display text-[32px] font-semibold leading-[38px] tracking-[-0.02em] text-estrelinha-ink md:text-[48px] md:leading-[56px]">
               {category.name}
             </h1>
-            <p className="text-[13px] leading-[18px] text-estrelinha-ink/[0.78]">
+            <p className="text-[13px] leading-[18px] text-estrelinha-ink-soft">
               {countLabel} {visible.length === products.length ? 'encontrados' : `de ${products.length}`}
             </p>
           </div>
 
           {category.description && (
-            <p className="hidden max-w-[480px] text-[14px] leading-[22px] text-estrelinha-ink/[0.78] md:block">
+            <p className="hidden max-w-[480px] text-[14px] leading-[22px] text-estrelinha-ink-soft md:block">
               {category.description}
             </p>
           )}

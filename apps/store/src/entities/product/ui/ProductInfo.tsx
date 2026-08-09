@@ -57,7 +57,7 @@ const ProductInfo = ({ product, categoryName, purchase }: Props) => {
 
   const phone = whatsapp?.replace(/\D/g, '') || ''
   const hasWhatsApp = phone.length >= 10
-  const waMessage = `Olá! Tenho interesse no botton "${product.name}" (${formatPrice(price)}) da ${store_name || 'Nanita'}. Pode me ajudar?\n\n${currentUrl}`
+  const waMessage = `Olá! Tenho interesse na joia "${product.name}" (${formatPrice(price)}) da ${store_name || 'Uma Estrelinha'}. Pode me ajudar?\n\n${currentUrl}`
   const waLink = `https://wa.me/${phone}?text=${encodeURIComponent(waMessage)}`
 
   return (
@@ -214,7 +214,7 @@ const ProductInfo = ({ product, categoryName, purchase }: Props) => {
           className="mt-4 inline-flex items-center gap-1.5 self-start text-[13px] font-semibold text-estrelinha-primary hover:underline"
         >
           <MessageCircle className="h-4 w-4" strokeWidth={1.8} aria-hidden />
-          Tirar uma dúvida sobre este botton no WhatsApp
+          Tirar uma dúvida sobre esta joia no WhatsApp
         </a>
       )}
     </div>

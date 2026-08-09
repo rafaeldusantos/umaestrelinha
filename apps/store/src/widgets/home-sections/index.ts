@@ -1,6 +1,3 @@
-export { default as DropCountdown } from './ui/DropCountdown'
 export { default as MarqueeBar } from './ui/MarqueeBar'
-export { default as SocialProof } from './ui/SocialProof'
-export * from './ui/SocialProof'
 export { default as TrendingTags } from './ui/TrendingTags'
 export { default as TrustBar } from './ui/TrustBar'
