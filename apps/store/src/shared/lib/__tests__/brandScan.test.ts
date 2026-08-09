@@ -49,14 +49,21 @@ const MARCA = /nanapin|nanita|nana/i
  *
  * O código, esse sim, é varrido inteiro — e é onde a marca não pode voltar.
  */
-const ESCOPO = ['apps', 'packages', 'supabase']
+const ESCOPO = ['apps', 'packages', 'supabase', 'tools']
 
 /** O arquivo do histórico, que a exclusão acima protege. Existe para o teste de escopo abaixo. */
 const ARQUIVO_DA_NANITA = '.specs/archive/nanita'
 const ARQUIVOS_DA_RAIZ = ['package.json', 'tsconfig.base.json', 'turbo.json', 'pnpm-workspace.yaml']
 
 /** Diretórios que não são fonte: artefato de build, dependência, runtime. */
-const IGNORADOS = new Set(['node_modules', 'dist', '.turbo', '.temp', 'coverage', '.git'])
+const IGNORADOS = new Set([
+  'node_modules', 'dist', '.turbo', '.temp', 'coverage', '.git',
+  // Saída do importador de catálogo (feature 21), ambos gitignorados: `reports` guarda o relatório
+  // de cada execução e `.cache` os bytes das imagens baixadas. O relatório NOMEIA as categorias
+  // desativadas por curadoria, e uma delas tem a marca anterior como slug na loja de origem — então
+  // varrer a saída acusaria o dado do negócio, não resíduo no código.
+  'reports', '.cache',
+])
 
 /** Só arquivos de texto que a equipe edita. */
 const EXTENSOES = ['.ts', '.tsx', '.js', '.mjs', '.cjs', '.json', '.css', '.html', '.sql', '.toml', '.md', '.svg', '.yaml', '.yml']
@@ -70,6 +77,14 @@ const ALLOWLIST: Record<string, string> = {
   // Este arquivo cita as strings que procura. Sem a exceção, ele se acusa.
   'apps/store/src/shared/lib/__tests__/brandScan.test.ts':
     'A varredura precisa nomear o que procura.',
+  // Captura literal da resposta da API da Nuvemshop (feature 21). A loja REAL tem uma categoria
+  // "Brinquedos" cujo handle é a marca anterior — o resíduo está no catálogo do negócio, não no
+  // código. Editar a fixture para calar a varredura destruiria a única coisa que ela vale: ser
+  // idêntica ao que o servidor devolve. O importador desativa essa categoria por curadoria, e a
+  // lista `CURATED_INACTIVE` é chaveada por `nuvemshop_id` justamente para que a string não
+  // precise aparecer em nenhum `.ts` de produção.
+  'tools/catalog-import/src/__fixtures__/categories.json':
+    'Captura da API real: a marca é o dado devolvido pelo servidor, não resíduo do repositório.',
 }
 
 /**
@@ -137,14 +152,18 @@ describe('varredura de marca — âncora', () => {
     expect(arquivosVarridos.length).toBeGreaterThan(400)
   })
 
-  it('varre os três diretórios do escopo e os arquivos da raiz', () => {
+  it('varre os quatro diretórios do escopo e os arquivos da raiz', () => {
     // Os nomes estão escritos AQUI de propósito, e não lidos de `ESCOPO`.
     // Uma âncora que itera a mesma constante que deveria guardar encolhe junto
     // com ela: tirar `supabase` do escopo faria a asserção parar de exigi-lo, e
     // a varredura passaria a ignorar todo o backend em silêncio. É a mesma
     // forma do furo que a `fieldBorder` tinha — a régua e o objeto medido não
     // podem ser a mesma coisa.
-    for (const dir of ['apps', 'packages', 'supabase']) {
+    //
+    // `tools` entrou na feature 21, que criou um QUARTO diretório de fonte. Um
+    // ponto cego aberto por uma feature é dívida dessa feature: sem esta linha,
+    // o importador — que grava no banco com service role — não seria varrido.
+    for (const dir of ['apps', 'packages', 'supabase', 'tools']) {
       expect(arquivosVarridos.filter((f) => rel(f).startsWith(`${dir}/`)).length).toBeGreaterThan(10)
     }
     expect(arquivosVarridos.filter((f) => !rel(f).includes('/')).length).toBe(ARQUIVOS_DA_RAIZ.length)
