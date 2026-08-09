@@ -881,10 +881,10 @@ mudou, ajustar com decisão registrada.
 **Tools** — MCP: nenhum · Skill: nenhuma
 
 **Done when**:
-- [ ] `DEFAULT_GENERAL.store_name`, `.email` e `DEFAULT_SEO.title` são da Uma Estrelinha
-- [ ] Os valores do TypeScript são **idênticos** aos que as migrations gravam (um teste compara os dois; divergir aqui é o mesmo defeito da paleta em dois arquivos, e não quebra nada visível)
-- [ ] `whatsapp_message` no tom do negócio, sem linguagem festiva
-- [ ] Probe contra o banco local confirma que `store_settings` já contém os valores certos após `db reset` — sem migration nova (`AD-012`: prova de execução, não inspeção de tipo)
+- [x] `DEFAULT_GENERAL.store_name`, `.email` e `DEFAULT_SEO.title` são da Uma Estrelinha
+- [x] Os valores do TypeScript são **idênticos** aos que as migrations gravam (um teste compara os dois; divergir aqui é o mesmo defeito da paleta em dois arquivos, e não quebra nada visível)
+- [x] `whatsapp_message` no tom do negócio, sem linguagem festiva
+- [x] Probe contra o banco local confirma que `store_settings` já contém os valores certos após `db reset` — sem migration nova (`AD-012`: prova de execução, não inspeção de tipo)
 
 **Tests**: unit · **Gate**: full + db
 **Commit**: `feat: defaults de store_settings da Uma Estrelinha`
@@ -901,11 +901,11 @@ do projeto.
 **Tools** — MCP: nenhum · Skill: nenhuma
 
 **Done when**:
-- [ ] Nenhuma menção à marca anterior
-- [ ] `og:image` é ativo do projeto, nunca o CDN herdado do template
-- [ ] `theme-color` é um token da paleta nova
-- [ ] Backoffice segue `noindex, nofollow`
-- [ ] Teste lê os dois `index.html` do disco e confere
+- [x] Nenhuma menção à marca anterior
+- [x] `og:image` é ativo do projeto, nunca o CDN herdado do template
+- [x] `theme-color` é um token da paleta nova
+- [x] Backoffice segue `noindex, nofollow`
+- [x] Teste lê os dois `index.html` do disco e confere
 
 **Tests**: unit · **Gate**: quick
 **Commit**: `feat: metadados dos dois apps na identidade Uma Estrelinha`
@@ -923,12 +923,12 @@ verificado no Resend.
 **Tools** — Skill: `supabase` · CLI: `supabase db reset` / `psql` (MCP do Supabase não autorizado nesta sessão)
 
 **Done when**:
-- [ ] Tudo inline, layout em `<table>`, **sem webfont** — a pilha de fallback é a decisão de design
-- [ ] Os três usam `{{ .Token }}` (código de 6 dígitos), nunca link
-- [ ] `magic_link` **e** `confirmation` configurados — `signInWithOtp({shouldCreateUser:true})` dispara um para e-mail novo e outro para existente
-- [ ] Remetente: se o domínio ainda não estiver verificado, o valor **não muda** e a pendência fica registrada com o passo exato de troca
-- [ ] `supabase stop && supabase start` (mudança em `config.toml` exige; `db reset` não recarrega auth)
-- [ ] Login por código funciona de ponta a ponta e o e-mail chega
+- [x] Tudo inline, layout em `<table>`, **sem webfont** — a pilha de fallback é a decisão de design
+- [x] Os três usam `{{ .Token }}` (código de 6 dígitos), nunca link
+- [x] `magic_link` **e** `confirmation` configurados — `signInWithOtp({shouldCreateUser:true})` dispara um para e-mail novo e outro para existente
+- [x] Remetente: se o domínio ainda não estiver verificado, o valor **não muda** e a pendência fica registrada com o passo exato de troca
+- [x] `supabase stop && supabase start` (mudança em `config.toml` exige; `db reset` não recarrega auth)
+- [x] Login por código funciona de ponta a ponta e o e-mail chega
 
 **Tests**: none (HTML/config) + prova manual · **Gate**: db + build
 **Commit**: `feat(auth): templates e assuntos na identidade Uma Estrelinha`
@@ -946,11 +946,11 @@ verificado no Resend.
 **Tools** — MCP: nenhum · Skill: nenhuma
 
 **Done when**:
-- [ ] Paleta do e-mail = paleta da loja, com o contraste medido (glacê e acento **nunca** texto sobre claro)
-- [ ] Rodapé e wordmark da Uma Estrelinha
-- [ ] `RESEND_FROM` em RFC 5322 e **distinto** do `admin_email` do auth — confundir os dois é a causa raiz do `BUG-20260728`
-- [ ] `pnpm --filter @estrelinha/functions test` passa; contagem não encolhe
-- [ ] Teste de identidade dos templates atualizado, não removido
+- [x] Paleta do e-mail = paleta da loja, com o contraste medido (glacê e acento **nunca** texto sobre claro)
+- [x] Rodapé e wordmark da Uma Estrelinha
+- [x] `RESEND_FROM` em RFC 5322 e **distinto** do `admin_email` do auth — confundir os dois é a causa raiz do `BUG-20260728`
+- [x] `pnpm --filter @estrelinha/functions test` passa; contagem não encolhe
+- [x] Teste de identidade dos templates atualizado, não removido
 
 **Tests**: unit · **Gate**: full
 **Commit**: `feat(email): identidade Uma Estrelinha nos transacionais`
@@ -969,11 +969,11 @@ verificado no Resend.
 **Tools** — MCP: nenhum · Skill: nenhuma
 
 **Done when**:
-- [ ] Nenhuma persona da loja anterior sobrevive — inclusive no 404 e nos estados vazios
-- [ ] WhatsApp lê `store_name` de `store_settings`, com fallback `Uma Estrelinha`
-- [ ] `User-Agent` da `melhor-envio` identifica a Uma Estrelinha (a API exige)
-- [ ] A `brandScan.test.ts` (T23) passa — **este é o fecho da varredura**
-- [ ] `pnpm test` passa; contagem não encolhe
+- [x] Nenhuma persona da loja anterior sobrevive — inclusive no 404 e nos estados vazios
+- [x] WhatsApp lê `store_name` de `store_settings`, com fallback `Uma Estrelinha`
+- [x] `User-Agent` da `melhor-envio` identifica a Uma Estrelinha (a API exige)
+- [x] A `brandScan.test.ts` (T23) passa — **este é o fecho da varredura**
+- [x] `pnpm test` passa; contagem não encolhe
 
 **Tests**: unit · **Gate**: full
 **Commit**: `feat: copy institucional e pontos de contato da Uma Estrelinha`
@@ -990,10 +990,10 @@ preservando as decisões `AD-001`..`AD-015` no `STATE.md`.
 **Tools** — MCP: nenhum · Skill: nenhuma
 
 **Done when**:
-- [ ] As 19 specs, os bugs de QA e o `.lovable` estão sob `.specs/archive/nanita/`
-- [ ] `AD-001`..`AD-016` permanecem no `STATE.md`
-- [ ] `README.md` do arquivo explica o que é aquilo e por que foi preservado
-- [ ] A allowlist da `brandScan.test.ts` cobre o diretório arquivado, com justificativa
+- [x] As 19 specs, os bugs de QA e o `.lovable` estão sob `.specs/archive/nanita/`
+- [x] `AD-001`..`AD-016` permanecem no `STATE.md`
+- [x] `README.md` do arquivo explica o que é aquilo e por que foi preservado
+- [x] A allowlist da `brandScan.test.ts` cobre o diretório arquivado, com justificativa
 
 **Tests**: unit (a varredura confirma a allowlist) · **Gate**: quick
 **Commit**: `docs: arquiva o histórico de specs e QA da Nanita`
@@ -1010,11 +1010,11 @@ preservando as decisões `AD-001`..`AD-015` no `STATE.md`.
 **Tools** — MCP: nenhum · Skill: nenhuma
 
 **Done when**:
-- [ ] Stack, comandos, portas, FSD e convenções refletem o repositório real
-- [ ] O escopo `@estrelinha/*` e os tokens `--estrelinha-*` documentados
-- [ ] A revogação da regra de `nanapin` explicada, apontando para `AD-016`
-- [ ] As features `21` e `22` citadas como o que vem a seguir
-- [ ] Nenhuma instrução contradiz o estado do repositório
+- [x] Stack, comandos, portas, FSD e convenções refletem o repositório real
+- [x] O escopo `@estrelinha/*` e os tokens `--estrelinha-*` documentados
+- [x] A revogação da regra de `nanapin` explicada, apontando para `AD-016`
+- [x] As features `21` e `22` citadas como o que vem a seguir
+- [x] Nenhuma instrução contradiz o estado do repositório
 
 **Tests**: none · **Gate**: none
 **Commit**: `docs: instruções do projeto passam a descrever a Uma Estrelinha`
@@ -1031,10 +1031,10 @@ travam; e as baselines finais de lint, tipo e teste registradas no `CLAUDE.md`.
 **Tools** — MCP: nenhum · Skill: nenhuma
 
 **Done when**:
-- [ ] Cada token com valor, papel e **razão de contraste medida**
-- [ ] As três proibições documentadas: `accent` nunca texto sobre claro; `line` nunca borda de campo; `accent` só é texto sobre `ink`
-- [ ] Baselines finais medidas e registradas (lint, `tsc`, contagem de testes por workspace)
-- [ ] `Handoff` do `STATE.md` atualizado com o fecho da feature
+- [x] Cada token com valor, papel e **razão de contraste medida**
+- [x] As três proibições documentadas: `accent` nunca texto sobre claro; `line` nunca borda de campo; `accent` só é texto sobre `ink`
+- [x] Baselines finais medidas e registradas (lint, `tsc`, contagem de testes por workspace)
+- [x] `Handoff` do `STATE.md` atualizado com o fecho da feature
 
 **Tests**: none · **Gate**: build
 **Commit**: `docs: DESIGN.md da Uma Estrelinha e baselines remedidas`
@@ -1752,3 +1752,140 @@ dono no lote 4a) e `features/newsletter/ui/NewsletterBanner.tsx`; T31 tirou
 
 As 21 restantes são todas da **Fase 6** (T34–T38): metadados, `store_settings`, templates de auth,
 e-mail transacional e copy institucional. Nenhuma pertence à Fase 5.
+
+### Fases 6 e 7 — T34 a T41: a comunicação escrita e a documentação
+
+**Contagem de teste, por task** (baseline de entrada: 3150 em 182 — loja 1119/87 · backoffice 1055/65
+· core 725/26 · functions 251/4):
+
+| task | workspace | antes | depois | o que explica |
+| --- | --- | --- | --- | --- |
+| T34 | loja | 1119 / 87 | **1128 / 88** | +1 arquivo (`storeSettingsDefaults.test.ts`, 9): 3 âncoras + 5 comparações SQL↔TS + 1 de tom |
+| T35 | loja | 1128 / 88 | **1137 / 88** | +9 em `brandAssets.test.ts`: os metadados dos DOIS `index.html`, a `og:image` e o `theme-color` lido do App.css |
+| T36 | — | — | — | HTML/config: sem teste, com prova de ponta a ponta no Mailpit |
+| T37 | functions | 251 / 4 | **258 / 4** | +7 em `templates.test.ts`: acento nunca como `color:`, zero webfont, ação não volta a pílula |
+| T38 | loja | 1137 / 88 | **1149 / 90** | +2 arquivos: `WhatsAppFloat.test.tsx` (5, `COP-08`) e `copyInstitucional.test.tsx` (7, `COP-07`) |
+| T39 | loja | 1149 / 90 | **1150 / 90** | +1 na `brandScan`: o arquivo existe E `.specs/` não é varrido |
+| T40, T41 | — | — | — | documentação |
+
+**Total ao fim do lote: 3188 testes em 185 arquivos** (loja 1150/90 · backoffice 1055/65 · core
+**725/26** · functions 258/4). Lint **30 err / 8 warn** — baseline exata. `tsc` **0 · 0**.
+`turbo run build` exit 0. `supabase db reset` exit 0 com probe.
+
+**`@estrelinha/core` fechou em 725 / 26, idêntico à entrada** — nenhum resultado de dinheiro mudou.
+
+#### T36 · o remetente do auth NÃO foi trocado, e o SMTP foi desligado
+
+A T36 previa "se o domínio não estiver verificado, o valor não muda". Medido contra a API do Resend,
+com a chave deste projeto:
+
+```
+from acesso@send.umaestrelinha.com.br  ->  403 "This API key is not authorized to send emails from..."
+from acesso@send.<domínio anterior>    ->  200
+```
+
+Mas "não mudar o valor" colidia com o fecho da varredura: o endereço antigo carrega a marca anterior
+dentro do `config.toml`, e a T38 exige zero ocorrência. As três saídas foram pesadas:
+
+| saída | por que não |
+| --- | --- |
+| trocar o endereço | domínio não verificado ⇒ **todo login por código morre** (`BUG-20260728`) |
+| manter o endereço antigo + allowlist | a loja passaria a enviar e-mail assinado por outra marca, e a allowlist isentaria o `config.toml` inteiro para sempre |
+| mover para `env()` | env ausente ⇒ remetente literal `env(...)`, que falha em silêncio no primeiro envio real |
+
+A saída adotada é **desligar o SMTP** (bloco comentado, com o passo exato de troca e o `curl` de
+verificação). O e-mail de auth volta ao **Mailpit**, que é exatamente o que o edge case da spec pede:
+*"o ambiente local SHALL seguir capturando no Mailpit"*. Nenhum dos três riscos acontece.
+
+**Prova de ponta a ponta**, depois de `supabase stop && supabase start` (`db reset` não recarrega
+auth):
+
+| fluxo | HTTP | token | `verifyOtp` |
+| --- | --- | --- | --- |
+| `confirmation` (e-mail novo) | 200 | 325325 | — |
+| `magic_link` (e-mail existente) | 200 | 915400 | **200, sessão** |
+| `recovery` | 200 | 686252 | **200, sessão** |
+
+Os três corpos: marca nova presente, zero string da marca anterior, zero webfont, zero recurso http
+externo.
+
+#### T34 · a descrição de SEO ganhou acentos nas DUAS migrations
+
+Para o TypeScript e o SQL dizerem a mesma coisa, um dos lados tinha de mover. O SQL escrevia
+`Joias feitas a mao em resina com o material que voce envia` — sem acento. Fazer o TypeScript adotar
+isso seria gravar copy errada no default que a loja mostra antes de a linha chegar do banco. As duas
+`create_store_settings` foram editadas **juntas** (md5 idêntico depois, como a `AD-017` exige), e o
+probe confirmou o valor acentuado no banco após `db reset`.
+
+#### T35 · a `og:image` é o único lugar do produto onde o lockup cabe
+
+A escada de marca da Fase 4 mediu o piso do lockup em **600px de largura**, e registrou que nenhuma
+superfície de tela da loja comporta isso. O card social tem **1200×630**: a marca entra a 720px, com o
+traço estrutural rendendo 4,82px. `_build-og.ps1` usa a mesma toolchain do `_raster-icons.ps1` (WPF,
+Pen e não Brush, porque esta marca é traço).
+
+A URL é **absoluta** de propósito — o rastreador do Facebook não resolve caminho relativo, e uma
+`og:image` que ele não resolve não vira card nenhum.
+
+#### T38 · o que a varredura de marca não sabe ver
+
+`brandScan` fechou em **zero ocorrência, com a `PENDENTE` vazia** — 42 entradas ao nascer, 21 na
+entrada deste lote, 0 na saída.
+
+Mas ela procura **nome**, e o que sobrava era **vocabulário**: "Buscar bottons" no `aria-label`,
+"Nenhum botton com esses filtros", "Explore nossos bottons", "Olha esse botton" no compartilhar, "cole
+no peito, carrega no coração" no painel de auth, e o texto de "Cuidados" falando em alfinete e em
+metal manchando. Nada disso derruba a varredura, e tudo isso é a loja anterior falando.
+
+Os dois arquivos de teste novos cobrem justamente essa lacuna — e **não repetem a regex da marca**:
+fazê-lo obrigaria os dois a entrar na `ALLOWLIST`, e arquivo em allowlist deixa de ser varrido para
+sempre.
+
+#### T39 · o que foi arquivado além do que a task listava
+
+A task nomeia `.specs/features/01-19`, `docs/qa/` e `.lovable/`. Este último **não existia** nesta
+cópia. Foram junto, por serem histórico da mesma loja e por descreverem coisas que hoje são falsas:
+
+- `.specs/project/` (`PROJECT.md`, `PRD-REVISAO.md` e um `STATE.md` de programa) — o `CLAUDE.md`
+  herdado apontava para o `PROJECT.md` como "contexto adicional", e ele abre com o nome e o produto
+  anteriores;
+- `.specs/brand/nanita-v2/` — a identidade da feature 19;
+- `docs/DEPLOY.md` — descreve o projeto Supabase e os dois projetos Vercel da loja anterior, e a Uma
+  Estrelinha **não tem nenhum dos três**. O procedimento vale, os identificadores não; está dito no
+  README do arquivo e no comentário do workflow que o citava.
+
+A "allowlist do arquivo" que a `DOC-03` pede **já existia por construção**: `.specs/` nunca esteve no
+escopo da varredura. O que faltava era isso ser uma decisão em vez de um acidente — virou comentário
+e teste, que assere as duas metades juntas (o arquivo existe **e** nenhum arquivo de `.specs/` é
+varrido).
+
+#### Três defeitos de gate que este lote descobriu
+
+1. **`Tests: unit` + gate `full` não cobre lint.** A T34 fechou com `pnpm test` verde e três erros de
+   lint novos (emoji dentro de classe de caractere — `no-misleading-character-class`, que tem razão:
+   a classe casaria as metades do par substituto). Só apareceram no gate de build da T36.
+2. **A `brandScan` estourou o timeout de 5s do vitest sob carga**, lendo 400+ arquivos com os quatro
+   workspaces em paralelo. Vermelha por lentidão, não por resíduo. Resolvido com memorização da
+   leitura e limite próprio — **nenhuma asserção mudou**.
+3. **`routes.test.ts` falhou uma vez com `UNKNOWN: unknown error, read`** e passou na execução
+   seguinte: erro transitório de I/O do Windows sob carga, não regressão.
+
+#### Uma alteração externa entrou na árvore durante o lote
+
+`widgets/header/ui/Header.tsx` e o teste dele foram modificados **por fora deste lote**, durante a
+execução da T34 (a árvore estava limpa no início). O conteúdo é coerente e passa nos gates: o header
+deixa de cair para o símbolo em 150px e passa a renderizar a assinatura em 202px nas duas larguras.
+Foi **commitado em separado** (`7a1c39c`), para não contaminar o commit atômico da task — e vale
+registrar que isso **muda a divergência de marcas** que a T26 tinha documentado entre header mobile e
+desktop.
+
+#### `DESIGN.md` — os números foram medidos, não copiados
+
+A tabela de contraste do documento saiu de um script que lê os hex do `App.css` e calcula WCAG 2.1,
+não das anotações anteriores. Uma divergência apareceu: o comentário de `contrast.test.ts` dizia que
+`primary-strong` sobre `accent` mede **4,21:1**; medido, são **4,15:1**. A asserção não muda (o teste
+cobra "< 4,5", e o par reprova nos dois números), mas o comentário foi corrigido — comentário que
+mente custa mais caro que comentário nenhum.
+
+Ficou documentado com medição própria o defeito mais traiçoeiro da paleta: `ink` **com opacidade**
+dentro de superfície `accent` — 4,78:1 chapado, **3,50:1 a 80%** e **1,95:1 a 45%**.

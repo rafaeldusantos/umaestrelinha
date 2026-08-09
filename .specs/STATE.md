@@ -320,52 +320,92 @@
 
 ## Handoff
 
-### ATUAL — 2026-08-04 · `19-identidade-papelaria` · **FEATURE FECHADA (32/32 tasks, 17 commits)**
+### ATUAL — 2026-08-08 · `20-rebrand-uma-estrelinha` · **FASES 6 e 7 FECHADAS (T34–T41)**
 
-A loja adotou a identidade Nanita v2 ("papelaria") das pranchas 18 · 19b · 20b · 21 · 22 · 23 do
-Paper. Escopo: `apps/store` inteira. Backoffice **intacto** (zero linha em `apps/backoffice/` e em
-`packages/` no recorte `016d902..HEAD`).
+O repositório deixou de ser a loja anterior **em todas as superfícies**: código, schema, ativos,
+e-mail, copy e documentação. `AD-016` e `AD-017` são as decisões que governam isso.
 
-**O que mudou, em ordem de consequência:**
+**Números medidos no fecho** (`turbo run test --force`, exit 0 capturado de verdade):
 
-1. **O chão deixou de ser branco.** Papel `#F9F1EE` é o fundo da página, e o branco virou o **card**.
-   Os dez tokens trocaram de valor mantendo o nome (`glaze`→Carimbo, `raspberry`→Selo, `jam`→Carmim,
-   `ink`→Grafite, `plum`→Carbono, `sugar`→Mata-borrão, `border`→Dobra, `butter`→Fita inalterado) e
-   dois nasceram: `--nanita-paper` e `--nanita-rule`.
-2. **Botão é 14px, não pílula** — o inverso da v1. Pílula virou forma de **rótulo**; o disco segue
-   sendo a assinatura. 35 elementos migrados, com varredura de fonte que impede a volta.
-3. **A marca é SVG.** `shared/ui/brand` com a escada da prancha 21. Berkshire Swash saiu da loja
-   inteira, inclusive do `<link>` do Google Fonts.
-4. **O favicon é o monograma N** — squircle na aba, quadrado sangrado no iPhone.
-5. **A home** foi revestida seção a seção contra os artboards 22 e 23, com o hero passando a mostrar
-   a cartela de pins no lugar do rosto da mascote.
+| | valor |
+| --- | --- |
+| testes | **3188 em 185 arquivos** — store 1150/90 · backoffice 1055/65 · core **725/26** · functions 258/4 |
+| lint | **30 err / 8 warn** (backoffice 28/7 · store 2/1) — baseline exata, zero erro novo |
+| `tsc` | **0 · 0** |
+| `turbo run build` | exit 0 |
+| `supabase db reset` | exit 0, com probe |
 
-**Números:** 841 → **979 testes** na loja (+138), e 77 arquivos de teste (+10). `tsc` = 0 nos dois apps. Lint da loja em
-**2 err / 2 warn** — a baseline exata, sem erro novo. Baseline global do `CLAUDE.md` (30 err / 9
-warn) **inalterada**.
+**`@estrelinha/core` fechou em 725/26, exatamente como entrou na feature** — nenhum resultado de
+dinheiro mudou em nenhuma das sete fases.
 
-**As três armadilhas que esta feature descobriu, e que valem para a próxima:**
+#### O que as duas fases entregaram
 
-- **`tailwind-merge` não colapsa token custom de raio contra t-shirt size.**
-  `twMerge('rounded-md','rounded-button')` devolve as DUAS classes, e aí vence quem o Tailwind emitir
-  por último — que é a ordem das chaves do `borderRadius` no config. Por isso `button` é a última
-  chave, e por isso a loja tem o próprio `Button` em vez de passar `className` por cima do shadcn.
-- **A paleta mora em dois arquivos e divergir não quebra nada visível.** Nem build, nem tipo, nem
-  teste de componente — a loja só renderiza duas paletas ao mesmo tempo. `palette.test.ts` lê os dois
-  do disco e compara.
-- **Teste de varredura precisa de âncora de contagem.** Um erro de caminho faz a varredura varrer
-  zero arquivo e passar em silêncio, que é a pior falha possível num teste desse tipo. As três
-  varreduras desta feature (`fieldBorder`, `buttonShape`, `paths`) têm essa âncora.
+1. **`store_settings` deixou de mentir** (T34). O SQL já estava certo desde a T22b; o TypeScript ainda
+   dizia o nome antigo. `storeSettingsDefaults.test.ts` lê as duas migrations do disco e compara campo
+   a campo — mesma classe de defeito da paleta em dois arquivos, e igualmente invisível.
+2. **`og:image` saiu do CDN do template original** (T35) e virou `public/og-image.png`, gerado do
+   **lockup** por `_build-og.ps1`. É a única superfície do produto onde o degrau 1 da escada de marca
+   cabe: piso de 600px de largura, card de 1200.
+3. **Os cinco e-mails vestiram a identidade** (T36, T37) — três de auth e três transacionais, todos
+   inline, em `<table>`, **sem webfont**, com Georgia no display e Helvetica/Arial no corpo.
+4. **A varredura de marca fechou em ZERO** (T38), com a lista `PENDENTE` vazia. Junto foram as três
+   pendências herdadas: os `aria-label` de busca, o texto de "Cuidados" (que ainda falava em alfinete e
+   metal) e toda persona da loja anterior.
+5. **O histórico foi arquivado, não apagado** (T39): 19 features, a árvore de QA, os docs de programa,
+   a identidade v2 e o `DEPLOY.md` estão em `.specs/archive/nanita/`, com um README explicando o que
+   ali ainda vale e o que não vale mais.
+6. **`CLAUDE.md` e `DESIGN.md` foram reescritos** (T40, T41) contra o estado real do repositório —
+   cada porta, cada chave de storage e cada razão de contraste foi conferida no fonte ou medida antes
+   de ser escrita.
 
-**Divergências deliberadas dos artboards**, todas registradas em `tasks.md` §"Registro de execução":
-a aba do `MobileNav` segue "Carrinho" e não "Sacola"; os alvos de toque do card de produto e dos
-chips continuam em 36–38px porque é o que os boards desenham (os do **header** foram levados a 44px
-por pseudo-elemento, sem mudar o tamanho visual).
+#### A decisão mais consequente do lote: o SMTP do auth ficou DESLIGADO
 
-**Pendências abertas** (nenhuma bloqueia):
-- `og:image` continua apontando para um bucket externo com a arte da v1. Gerar arte social nova é
-  trabalho de marca.
-- `BL-002` do `BACKLOG.md` segue de pé: `pnpm lint` não olha `packages/`.
+Probe contra a API do Resend, com a chave deste projeto, em 2026-08-08:
+
+```
+from acesso@send.umaestrelinha.com.br  →  403 "not authorized to send"
+from acesso@send.<domínio anterior>    →  200
+```
+
+Trocar o remetente para um domínio não verificado derruba **todo** o login por código — já derrubou
+uma vez (`BUG-20260728`). Manter o domínio da marca anterior assinando e-mail desta loja é pior. Com
+o bloco `[auth.email.smtp]` **comentado**, o Mailpit local entrega e nenhuma das duas coisas acontece
+— e é o que a própria spec pede no edge case "domínio ainda não verificado".
+
+Provado de ponta a ponta depois de `supabase stop && supabase start`: `confirmation` (e-mail novo),
+`magic_link` (e-mail existente) e `recovery` chegaram no Mailpit com a identidade nova, e os dois
+`verifyOtp` devolveram sessão. O passo exato de troca (com o `curl` de verificação) está no
+`config.toml` e no `.env.example`.
+
+#### Três defeitos que os gates pegaram, e valem para a próxima feature
+
+1. **`pnpm test` não é o mesmo juiz que `pnpm lint`.** A T34 fechou com a suíte verde e introduziu 3
+   erros de lint (emoji em classe de caractere) que só apareceram no gate de build da T36. Task com
+   gate `full` não cobre lint.
+2. **Varredura de repositório estoura o timeout de 5s do vitest sob carga.** A `brandScan` lê 400+
+   arquivos e ficou vermelha por lentidão, não por resíduo, com os quatro workspaces rodando em
+   paralelo. Resolvido com memorização da leitura + limite próprio — **nenhuma asserção mudou**.
+3. **Teste de copy não pode repetir a regex da marca.** Os dois arquivos novos da T38 se acusavam na
+   própria varredura, e a saída fácil seria pô-los na allowlist — que os isentaria para sempre. Eles
+   provam o que a `brandScan` não sabe ver: vocabulário e tom.
+
+#### Pendências abertas (nenhuma bloqueia o desenvolvimento)
+
+- **`send.umaestrelinha.com.br` não verificado no Resend** (`C-08`). Enquanto isso: SMTP do auth
+  desligado, `RESEND_FROM` vazio, e-mail no Mailpit. Passo de troca documentado nos dois arquivos.
+- **Sem projeto Supabase hospedado e sem projeto Vercel.** `AD-017` (reescrever migration) **continua
+  válida até o primeiro `db push`** — e o `CLAUDE.md` manda apagar o parágrafo quando isso acontecer.
+- **`BL-002`**: `pnpm lint` não olha `packages/`, e `payment/pricing.ts` — o código de dinheiro —
+  nunca passa por ESLint.
+- **Catálogo é o `seed.sql` de desenvolvimento** (7 categorias, 16 produtos, 24 variações).
+
+#### Próximo passo
+
+1. **Verifier independente** da feature 20 (autor ≠ verificador), com checagem ancorada na spec e
+   sensor de discriminação, escrevendo `20-rebrand-uma-estrelinha/validation.md`.
+2. **`21-catalogo-nuvemshop`** — importação one-shot do catálogo real, com imagens no Storage.
+3. **`22-material-afetivo`** — página "Como enviar", campos por item e rastreio do material no pedido.
+   É o que falta para a loja representar o que o negócio de fato faz.
 
 ### ANTERIOR — 2026-08-03 · `17-promocoes-desconto-progressivo` · **FEATURE FECHADA (24/24 tasks + 4 fixes, Verifier PASS)**
 

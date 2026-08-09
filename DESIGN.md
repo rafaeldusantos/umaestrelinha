@@ -1,112 +1,117 @@
-# DESIGN.md — Identidade Nanita (v2 · papelaria)
+# DESIGN.md — Identidade Uma Estrelinha
 
-Sistema visual da **loja pública** (`apps/store`). Deriva das pranchas
-`18 · Logotipo Nanita v2 (vetor) + Paleta`, `19b · Favicon — variações de base`,
-`20b · Onde cada cor entrou na tela`, `21 · Wordmark para o header`,
-`22 · Home Desktop` e `23 · Home Mobile`, no Paper.
+Sistema visual da **loja pública** (`apps/store`). Deriva dos tokens do arquivo Paper
+"Uma Estrelinha" — os mesmos de `../landing-pages/src/styles/global.css` — e dos boards
+`5MC-0` (chrome desktop), `6AU-0` (chrome mobile), `78R-0` (marca) e `734-0` (avatar e favicon).
 
-> **Escopo.** Este documento descreve apenas a loja. O backoffice
-> (`apps/backoffice`) continua na paleta antiga `--nana-*` definida em
-> `@nanapin/ui/styles.css` — ver [Escopo e convivência](#7-escopo-e-convivência).
+> **Escopo.** Este documento descreve **apenas a loja**. O backoffice (`apps/backoffice`) continua na
+> paleta roxo/rosa/navy herdada, agora sob os tokens `--estrelinha-admin-*` de
+> `@estrelinha/ui/styles.css`, com **valores inalterados** — ver
+> [Escopo e convivência](#7-escopo-e-convivência).
 
 ---
 
-## 1. A decisão central: papel, não branco
+## 1. A decisão central: o que a loja vende muda como ela pode falar
 
-A v1 já tinha resolvido o problema de ter cor demais: seis matizes concorrentes
-viraram uma família de rosa. A v2 resolve o problema seguinte — **o chão**.
+A loja transforma cinzas de cremação, leite materno, mecha de cabelo, pelo de pet e dente de leite em
+joia. Quem abre esta página muitas vezes acabou de perder alguém.
 
-Com fundo branco, a loja tinha um único tom de superfície (`#FFEFF6`) que quase
-não se distinguia do fundo, e nenhum neutro que servisse de borda. O resultado
-era uma página que só existia em duas camadas: branco e rosa.
+Isso é **restrição de desenho**, não tom de marketing:
 
-A papelaria troca isso por **papel de chão, branco de card e um neutro quente**:
+- **Nada grita.** A cor de ação é um azul-ardósia profundo, não uma cor quente saturada. O ouro é
+  detalhe, nunca superfície inteira.
+- **Nada apressa.** Sem contagem regressiva, sem "últimas unidades", sem selo de urgência.
+- **Nada comemora.** Sem emoji comemorativo, sem confete, sem exclamação de festa.
+- **Hierarquia vem de escala e de peso, não de cor.** Um título serifado grande em `ink` ao lado de
+  um corpo em `ink-soft` já resolve; pintar de ouro para "destacar" é o erro típico aqui, e ele
+  reprova em contraste (2,66:1).
 
-```
-Papel        →   Folha nova   →   Mata-borrão   +   Papelão   +   Grafite
-(o chão)         (o card)         (a faixa)         (a borda)     (o peso)
-```
-
-Regra que resume tudo: **o branco virou o card, não o chão. A fita só aparece
-sobre grafite.**
-
-### O achado que obriga a mexer em tudo junto
-
-`--nanita-sugar` na v1 era `#FFEFF6`, que sobre Papel `#F9F1EE` dá **1,00:1** —
-mesma luminância. Trocar o chão sem trocar a faixa de seção apaga toda superfície
-da loja: a regra continua no CSS e simplesmente não aparece na tela.
-
-**O chão novo não é uma troca isolada.** Ou entra junto com Mata-borrão e Dobra,
-ou não entra. `shared/lib/__tests__/palette.test.ts` guarda isso com uma AC
-própria (`sugar × paper ≥ 1,15`) e um segundo teste que prova que o valor da v1
-falharia.
+A base é **quente e clara**: um chão de papel levemente creme, o branco como card e um neutro terroso
+para contorno de controle. O peso vem do azul-ardósia, e o ouro entra em fio, moldura e preenchimento
+pequeno.
 
 ---
 
 ## 2. Paleta
 
-Contraste medido sobre **Papel `#F9F1EE`**, WCAG 2.1. Os nomes de token vieram da
-v1 e viraram apelidos: o que manda é o **papel** de cada cor.
+**Todos os números abaixo foram medidos** (WCAG 2.1) a partir dos hex de `app/App.css`, e são os
+mesmos que `shared/lib/__tests__/contrast.test.ts` afere a cada execução da suíte.
 
-| Token | Nome | Hex | Sobre Papel | Papel na tela | Proibido |
-|---|---|---|---|---|---|
-| `nanita-paper` | **Papel** | `#F9F1EE` | — | Chão de toda a loja | Nunca texto |
-| — | **Folha nova** | `#FFFFFF` | 1,11 | Card, pílula, barra de navegação, campo | Nunca texto |
-| `nanita-sugar` | **Mata-borrão** | `#F7D6E0` | 1,20 | Faixa de seção, palco de foto | Nunca texto |
-| `nanita-border` | **Dobra** | `#EBDDD7` | 1,19 | Divisor, contorno de card, texto sobre Grafite | **Nunca borda de campo** |
-| `nanita-rule` | **Papelão** | `#8F7268` | 3,95 ✓ | Borda de input e de controle | Nunca texto de corpo |
-| `nanita-glaze` | **Carimbo** | `#F1678D` | 2,67 ✗ | Preenchimento, wordmark, CTA sobre Grafite | **Nunca texto sobre Papel** |
-| `nanita-raspberry` | **Selo** | `#E93A6D` | 3,56 ✓ lg | Dot de status, ícone, detalhe gráfico ≥24px | Nunca corpo pequeno |
-| `nanita-jam` | **Carmim** | `#A62348` | 6,38 ✓ AA | Preço, link, botão primário, aba ativa | — |
-| `nanita-plum` | **Carbono** | `#7E5769` | 5,46 ✓ AA | Texto secundário. **É o piso de contraste** | Não usar tom mais claro para texto |
-| `nanita-ink` | **Grafite** | `#2E2028` | 13,92 ✓ AAA | Texto primário, superfície escura, estrutura | — |
-| `nanita-butter` | **Fita** | `#FFC95C` | 1,37 ✗ | Badge, destaque temporal | **Só sobre Grafite** (10,17:1) |
+### Sobre o chão `ground #FAF8F4`
 
-### Por que `border` e `rule` são dois tokens
+| Token | Hex | Sobre `ground` | Papel na tela | Proibido |
+|---|---|---:|---|---|
+| `ground` | `#FAF8F4` | — | Chão de toda a loja | Nunca texto |
+| `ground-deep` | `#F1EBE1` | 1,12 | Faixa de seção, palco de foto | Nunca texto |
+| `surface` | `#FFFFFF` | 1,06 | Card, painel, campo | Nunca texto |
+| `line` | `#E6DFD4` | 1,25 | Divisor, contorno de card | **Nunca borda de campo** |
+| `field` | `#8C8073` | **3,63 ✓** | **Borda de input e de controle** | Nunca texto de corpo |
+| `ink` | `#23303A` | **12,73 ✓ AAA** | Texto primário, superfície escura | — |
+| `ink-soft` | `#54616B` | **6,00 ✓ AA** | Texto secundário — **é o piso** | — |
+| `primary` | `#34495E` | **8,76 ✓ AA** | Ação, link, preço, aba ativa | — |
+| `primary-strong` | `#283A4A` | **11,03 ✓ AAA** | Hover/pressed, faixa do header | — |
+| `on-primary` | `#F7F3EC` | 1,04 | Texto **sobre** `primary` (8,40 ✓) | Nunca sobre claro |
+| `accent` | `#B8945F` | **2,66 ✗** | Preenchimento, fio, moldura, ícone | **Nunca texto sobre claro** |
+| `accent-strong` | `#A07E4C` | 3,55 | Detalhe gráfico ≥24px, borda decorativa | Nunca corpo |
+| `serenity` | `#DCE6EC` | 1,19 | Faixa e palco pontuais | Nunca texto |
+| `whatsapp` | `#25D366` | 1,87 | **Só** o botão do WhatsApp | Nunca texto |
 
-Borda de controle precisa de 3:1 (WCAG 1.4.11) e **nenhum tom claro chega lá**
-sobre Papel: Dobra dá 1,19 e `#C4A79D` dá 2,01. Duas funções, dois valores.
+### Dentro de superfície escura e de superfície `primary`
 
-Na prática: `--border` (Dobra) é divisor e contorno de card; `--input` (Papelão)
-é contorno de campo. `shared/lib/__tests__/fieldBorder.test.ts` varre o fonte e
-falha se um `<input>` voltar a usar Dobra.
+| Par | Razão | Veredito |
+|---|---:|---|
+| `on-primary` sobre `primary` | **8,40** | ✓ AA — é o rótulo do botão primário |
+| `accent` sobre `ink` | **4,78** | ✓ AA — **o único uso de texto do acento em toda a loja** |
+| `accent-strong` sobre `ink` | 3,59 | ✗ — não herda a licença do irmão |
+| `primary` sobre `ink` | **1,45** | ✗ — um CTA `primary` no rodapé escuro **desaparece** |
+| `ground` / `on-primary` sobre `ink` | 12,73 / 12,21 | ✓ AAA |
+| `ink` sobre `accent` | **4,78** | ✓ AA — é o rótulo dentro de superfície ouro |
+| `primary-strong` sobre `accent` | **4,15** | ✗ — passa de 3, **reprova em 4,5** |
 
-### Onde cada cor entrou (prancha 20b)
+### As três proibições, e por que cada uma existe
 
-Esta é a régua que decide as dúvidas caso a caso:
+**1. `accent` nunca é texto sobre claro.** 2,66:1. Ele é preenchimento, fio, moldura e ícone. O único
+lugar onde ele é texto é **sobre `ink`** (4,78:1). `accent-strong` melhora para 3,55 e continua fora:
+3:1 só vale para elemento gráfico e texto ≥24px em negrito.
 
-- **Carimbo** — wordmark, botton na foto, CTA dentro da faixa Grafite. Nunca texto sobre Papel.
-- **Selo** — contador da sacola e os dots. O que o Carimbo perderia por contraste.
-- **Carmim** — preço, "Ver tudo", aba ativa, botão do hero. **Todo o dinheiro da tela.**
-- **Carbono** — texto de apoio, placeholder, rótulo da nav, descritor do lockup sobre Papel.
-- **Grafite** — títulos, disco da sacola, faixa do kit, selos de badge.
-- **Fita** — "3 por R$ 25", "−20%", "ÚLTIMAS 4", eyebrow do kit. Sempre sobre Grafite.
+**2. `accent` com OPACIDADE dentro de superfície `accent` também reprova.** Este foi defeito real,
+achado no passe visual da feature 20 — e é o mais traiçoeiro dos três, porque a classe parece
+inofensiva. Medido, `ink` sobre uma superfície `accent`:
 
-### Como escolher
+| opacidade | razão |
+|---:|---:|
+| 100% (`text-estrelinha-ink`) | **4,78 ✓** |
+| 80% (`text-estrelinha-ink/80`) | **3,50 ✗** |
+| 45% (`text-estrelinha-ink/45`) | **1,95 ✗** |
 
-1. **Precisa ser lido?** → Carmim, Grafite ou Carbono. Ponto.
-2. **É preenchimento?** → Carimbo ou Selo.
-3. **É borda de campo?** → Papelão. Nunca Dobra.
-4. **É destaque temporal (drop, contagem, oferta)?** → Fita, e só sobre Grafite.
-5. **Na dúvida** → Papel de chão, branco no card, Grafite no texto, Carmim na ação.
+Dentro de uma banda ouro, **texto é chapado**. `accentText.test.ts` varre o fonte e falha quando
+aparece `ink` com opacidade dentro de superfície `accent`, e quando texto ouro aparece fora de uma
+lista curta com a superfície escrita ao lado.
 
-### Véus sobre Grafite
+**3. Borda de controle é `field`, nunca `line`.** A WCAG 1.4.11 pede **3:1** de contorno de controle
+e `line` mede **1,25:1** — é divisor, não borda. `field #8C8073` nasceu nesta identidade justamente
+porque o DS herdado das landing pages quase não tem formulário e os dois candidatos existentes
+reprovavam (`line` 1,25 e `accent` 2,66). `fieldBorder.test.ts` varre `<input>`, `<textarea>`,
+`<select>` **e o `<Input>` do shadcn** — foi varrer só as tags minúsculas que deixou 16 campos com
+1,19:1 em produção por uma feature inteira, com o teste verde o tempo todo.
 
-Sobre `nanita-ink` a paleta clara não se usa como texto: usam-se **Dobra** (para
-o que precisa ser lido) e véus de branco (para hierarquia).
+### O chão não entra sozinho
 
-| Uso | Valor |
-|---|---|
-| Texto de leitura sobre Grafite | `text-nanita-border` (Dobra, 11,72:1) |
-| Texto de apoio | `text-white/70` |
-| Legenda / metadados | `text-white/50` |
-| Superfície elevada | `bg-white/10` |
-| Divisória | `border-white/[0.12]` |
+Trocar o fundo da loja sem remedir a faixa de seção **apaga toda seção**: a regra continua no CSS e
+não aparece na tela. `ground-deep` sobre `ground` mede **1,12:1** — pouco, e é o mínimo que separa
+duas superfícies claras; `contrast.test.ts` congela o caso: a faixa da identidade anterior sobre este
+chão daria **1,00:1**, luminância idêntica.
 
-Os acentos coloridos permitidos sobre Grafite são **Carimbo** (5,22:1 — títulos
-de coluna do rodapé, CTA, wordmark) e **Fita** (10,17:1 — badge). **Carmim sobre
-Grafite lê a 2,18:1 e é proibido** — é por isso que a variante escura do botão é
-Carimbo.
+### A paleta mora em DOIS arquivos
+
+`app/App.css` (as variáveis) e `tailwind.config.ts` (as classes). Divergir **não quebra nada**: não
+quebra build, não quebra tipo, não quebra teste de componente — a loja renderiza duas paletas ao mesmo
+tempo. `palette.test.ts` lê os dois do disco e compara token a token.
+
+Há ainda um **terceiro** lugar onde a cor vive: os tokens HSL do shadcn, no mesmo `App.css`. Eles não
+carregam o prefixo da marca, então nenhuma busca por nome os encontra — e foi assim que `<Dialog>`,
+`<Select>` e `<Input>` continuaram rosa dentro de uma loja ardósia até alguém abrir uma modal. Ao
+mexer na paleta, **converta os três**.
 
 ---
 
@@ -114,36 +119,21 @@ Carimbo.
 
 Duas famílias, com papéis que não se sobrepõem.
 
-| Família | Classe | Papel | Regra |
+| Família | Classe | Papel | Pesos |
 |---|---|---|---|
-| **Fredoka** | `font-display` / `font-heading` | Títulos, preços, rótulos de botão, números grandes, a inicial marca-d'água | Peso 500–700. Tracking negativo em tamanho grande |
-| **DM Sans** | `font-body` (padrão do `body`) | Corpo, navegação, metadados, formulários, eyebrow | Peso 400–700 |
+| **Libre Baskerville** | `font-display` / `font-heading` | Títulos, hero, números grandes | **400 e 700, mais o itálico de 400** |
+| **Outfit** | `font-body` (padrão do `body`) | Corpo, navegação, metadados, formulários, eyebrow | 300–700 (variável) |
 
-### Berkshire Swash saiu
+**Libre Baskerville não tem 500 nem 600.** Pedir um peso que a família não tem faz o navegador
+sintetizar falso-negrito em vez de baixar. Título é **700**.
 
-Na v1 ela tinha duas funções: o wordmark "Nanita" e a inicial marca-d'água do
-card de coleção. A v2 tirou as duas — **o wordmark virou SVG**
-(`shared/ui/brand`) e a inicial saiu em **Fredoka 700** nos artboards 22/23.
-Fonte carregada e não usada é payload morto, então ela também saiu do `<link>`
-do Google Fonts. Onde havia um "N" em `font-logo`, hoje há o `NanitaMonogram`.
+**O fallback do display é SERIFADO (Georgia), não `system-ui`.** Enquanto a webfont não chega, um
+título serifado caindo em sans muda de família **e** de largura, e a página inteira se remonta quando
+a fonte carrega. É a mesma razão pela qual os cinco templates de e-mail usam Georgia: caixa de entrada
+não carrega webfont, então a pilha de fallback **é** a decisão de design.
 
-### Escala
-
-| Papel | Desktop | Celular | Peso | Tracking | Família |
-|---|---|---|---|---|---|
-| Hero | 82px | 42px | 600 | `-0.035em` | Fredoka |
-| Título de seção | 44px | 22px | 600 | `-0.03em` | Fredoka |
-| Título de bloco | 26–30px | 24px | 600 | `-0.02em` | Fredoka |
-| Título de card | 18–21px | 18px | 500–600 | `-0.02em` | Fredoka |
-| Preço | 20px | 20px | 600 | — | Fredoka |
-| Rótulo de botão | 15–17px | 15px | 600 | — | Fredoka |
-| Corpo grande (subtítulo do hero) | 19px / 1.65 | 15px / 1.47 | 400 | — | DM Sans |
-| Corpo | 15–17px | 13–15px | 400 | — | DM Sans |
-| Eyebrow (`.nanita-eyebrow`) | 12px | 11px | 600–700 | `0.1em`, caixa alta | DM Sans |
-| Metadado | 12–13px | 11px | 400–500 | — | DM Sans |
-
-**Hierarquia vem de escala, não de cor.** Um título de 44px em Grafite ao lado de
-um subtítulo de 17px em Carbono já resolve.
+**Nenhuma fonte é a marca.** O logotipo é traço vetorial (`shared/ui/brand`), então não existe "fonte
+do logotipo" para carregar — uma requisição a menos no 4G de quem abre a loja no celular.
 
 Piso: **nada abaixo de 11px**, e 11–12px só em caixa alta com tracking aberto.
 
@@ -153,232 +143,152 @@ Piso: **nada abaixo de 11px**, e 11–12px só em caixa alta com tracking aberto
 
 ### Raio — cada valor nomeia UMA função
 
-Sobrescrito no `tailwind.config.ts` da loja para valer também nos componentes shadcn.
-
 | Classe | Valor | Função | Uso |
 |---|---|---|---|
-| `rounded-sm` | 8px | **miúdo** | Thumbnail, selo retangular |
-| `rounded-button` | **14px** | **ação** | Botão, CTA, submit |
-| `rounded-md` | 16px | **campo** | Input, textarea, select |
-| `rounded-lg` / `rounded-xl` | 24px | **caixa** | Card de produto, card de seção, banner |
+| `rounded-sm` | **6px** | **ação e miúdo** | Botão, CTA, submit, thumbnail, selo |
+| `rounded-md` | 12px | **campo** | Input, textarea, select |
+| `rounded-lg` | 20px | **caixa** | Card de produto, card de seção, banner |
 | `rounded-pill` | 999px | **rótulo** | Badge, chip de tema, tag, campo de busca |
-| `rounded-full` | 50% | **disco** | `+` do card, seta do carrossel, avatar, ícone |
+| `rounded-full` | 50% | **disco** | Ícone, avatar, seta de carrossel |
 
-**Botão é 14px. Pílula é rótulo.** Isto é o inverso da v1, que dizia "todo botão
-é pílula" — e o motivo da troca é que pílula era a forma de *quatro* coisas
-diferentes ao mesmo tempo, e a cliente não tinha como saber qual delas clica.
+**Ação é retângulo de 6px; pílula é rótulo.** A separação ação/rótulo/disco sobreviveu à troca de
+identidade — só o valor da ação mudou. `buttonShape.test.ts` varre o fonte e falha quando
+`rounded-pill` aparece num elemento de ação; a allowlist tem o motivo escrito em cada entrada, e existe
+para **forçar quem puser uma pílula numa ação a dizer por que aquilo é rótulo**.
 
-**O disco sobrevive** e continua sendo a forma-assinatura — o produto é redondo.
-É a única exceção declarada à regra de ação.
-
-`shared/ui/__tests__/buttonShape.test.ts` varre o fonte e falha quando
-`rounded-pill` aparece num elemento de ação. A allowlist tem cinco arquivos, cada
-um com o motivo escrito — ela existe para **forçar quem puser uma pílula numa
-ação a dizer por que aquilo é rótulo**, não para amansar o teste.
-
-> ⚠️ **`button` é a última chave da escala de raio, e isso é funcional.** O
-> Tailwind emite os utilitários na ordem das chaves; o `<Button>` do shadcn traz
-> `rounded-md` na base, e o `tailwind-merge` **não** colapsa token custom contra
-> t-shirt size (medido: `twMerge('rounded-md','rounded-button')` devolve as duas).
-> Com as duas classes no elemento, vence a última no CSS.
+> **A chave custom `button` (14px) não existe mais, e não deve voltar.** Ela nasceu para contornar um
+> conflito com o `<Button>` do shadcn, que traz `rounded-md` na base: o `tailwind-merge` **não**
+> colapsa token custom contra t-shirt size (medido: `twMerge('rounded-md','rounded-button')` devolve
+> as duas classes), mas **colapsa dois t-shirt sizes** (`twMerge('rounded-md','rounded-sm')` → `sm`).
+> Como a ação virou `rounded-sm`, a maquinaria inteira caiu.
+>
+> `shared/ui/Button` **permanece** — ele carrega as variantes, os tamanhos e o `min-h-11` (o alvo de
+> toque de 44px), e nada disso vem do shadcn.
 
 ### Sombra
 
-Nunca cinza neutro. Só elevação rosada (Selo) ou de Grafite.
+Nunca cinza neutro: elevação em ardósia.
 
-| Classe | Uso |
-|---|---|
-| `shadow-nanita-soft` | Card elevado, pin secundário |
-| `shadow-nanita-lift` | Ilustração do hero |
-| `shadow-nanita-ink` | Elemento sobre Grafite |
+| Classe | Valor | Uso |
+|---|---|---|
+| `shadow-estrelinha-soft` | `0 14px 28px -10px rgba(52,73,94,.16)` | Card elevado |
+| `shadow-estrelinha-lift` | `0 26px 50px -12px rgba(52,73,94,.22)` | Palco do hero |
+| `shadow-estrelinha-ink` | `0 16px 30px -8px rgba(35,48,58,.16)` | Elemento sobre superfície escura |
 
-**Não existem gradientes na identidade.** Cor chapada é a regra.
+**Não existem gradientes na identidade da loja.** Cor chapada é a regra. (O `gradient-cta` do
+backoffice é outra paleta e outro escopo.)
 
 ---
 
-## 5. Componentes
+## 5. A marca
 
-### Botão — `shared/ui/Button`
+`shared/ui/brand` — SVG **inline**, nunca `<img src>`: o header não pode ter estado de carregamento.
 
-A loja tem o **próprio** botão, e o motivo é mecânico: o `<Button>` do shadcn traz
-`rounded-md` na base da `cva` e mora em `packages/ui`, compartilhado com o
-backoffice. Aqui o raio está na base da nossa `cva`, então não há conflito para o
-`tailwind-merge` resolver.
+### A escada, medida
 
-| Variante | Fundo | Texto | Borda | Quando |
-|---|---|---|---|---|
-| `primary` | `bg-nanita-jam` | branco | — | A ação principal. **Uma por tela** |
-| `secondary` | transparente | Grafite | `border-2 border-nanita-ink` | Alternativa ao primário |
-| `onInk` | `bg-nanita-glaze` | Grafite | — | Dentro de superfície Grafite |
-| `inkSolid` | `bg-nanita-ink` | branco | — | Sobre superfície Carimbo (newsletter) |
-| `ghost` | transparente | Grafite | — | Ação terciária |
+A marca é **monoline**: todo desenho é traço, e o traço é uma **fração fixa da largura**. Reduzir não
+borra a letra — **apaga a linha**. Abaixo de ~1px o traço não ocupa um pixel inteiro e sai como cinza
+de antialias, não como a cor da marca. Daí os três pisos:
 
-Tamanhos `sm` · `md` · `lg`, rótulo em **Fredoka 600**, `min-h-11` (44px de alvo
-de toque) em todos. Hover é `opacity`/`scale`, nunca mudança de matiz.
+| degrau | componente | traço mais fino | piso | rende no piso |
+|---|---|---|---:|---|
+| 1 | `EstrelinhaLockup` | assinatura 1,5 em 900 = 0,167% | **600px** | 1,00px |
+| 2 | `EstrelinhaSignature` | marca 2,4 em 450 = 0,533% | **190px** | 1,01px |
+| 3 | `EstrelinhaSymbol` | marca 2,46 em 100 = 2,46% | **48px** | 1,18px |
 
-Todas as variantes carregam `border-2 border-transparent`: assim `secondary` só
-troca a cor da borda e contorno e sólido ficam exatamente da mesma altura.
+Cada degrau **cai para o de baixo abaixo do próprio piso** — nunca renderiza uma marca apagada.
 
-### Card de produto
+**O lockup completo não aparece em nenhuma tela da loja, e isso é resultado, não descuido.** A coluna
+de marca do rodapé tem 337px e a viewport de projeto tem 390: nenhuma comporta 600px. A 48px de altura
+o lockup mediria 176px de largura, **424px abaixo do próprio piso**, com a assinatura em 0,29px. Ele é
+o formato de e-mail, papelaria, embalagem — e do `og-image.png`, o único lugar do produto onde ele
+cabe (1200×630, marca a 720px).
 
-```
-┌──────────────────────┐
-│ [selo]          [♡]  │  palco quadrado em MATA-BORRÃO, rounded-lg
-│                      │  foto = única cor do card
-│                 (+)  │  disco de GRAFITE, canto inferior direito
-└──────────────────────┘
-CATEGORIA                 eyebrow, Carbono
-Nome do botton            Fredoka 18/500, Grafite
-R$ 8,90   R$ 10,00        Fredoka 20/600 CARMIM + DM Sans 14 Carbono riscado
-```
+O piso de 48px do símbolo **não é escolha nossa**: a nota do board diz *"use de 48px para cima"*, e
+2,46% × 48 = 1,18px.
 
-**Só o desconto ganha cor de dinheiro.** "Novo", "Últimas" e "Destaque" são
-Grafite — senão a vitrine vira um mostruário de etiquetas coloridas disputando
-atenção. Congelado em `ProductCardSurface.test.tsx`.
+### `paths.ts` é gerado, nunca digitado
 
-### Card de coleção
+`_gen-paths.mjs` lê os SVGs de `.specs/brand/uma-estrelinha/` e gera o arquivo; um teste compara
+**caractere a caractere** contra o SVG-fonte. São 10KB de coordenada — transcrever à mão só deforma a
+letra sem quebrar nada visível.
 
-Ritmo fixo, **por posição**: **1º Carimbo → 2º Grafite → demais Mata-borrão**.
-A inicial da categoria aparece em **Fredoka 700** como marca d'água translúcida
-no canto superior direito, e a cor dela muda com o fundo (véu de branco sobre
-Carimbo, Carbono chapado sobre Grafite, véu de Carimbo sobre Mata-borrão).
-
-É regra de posição, não de categoria — `CategoryGrid.test.tsx` tem uma asserção
-só para isso, porque um mapa `{ anime: rosa }` passaria em todas as outras.
-
-### Cabeçalho de seção — `shared/ui/SectionHeading`
-
-Uma só forma para a home e as listagens: título Fredoka Grafite (44/22),
-subtítulo em Carbono, um link em Carmim à direita. Aceita `badge` (pílula Fita
-sobre Grafite) e `action` (slot para as setas do carrossel).
-
-### Superfícies não-Papel
-
-Cinco blocos saem do chão, e é intencional que sejam poucos:
-
-1. **Faixa de benefícios** (marquee) — Grafite. Separa o hero do resto.
-2. **Card de contagem do drop** — Grafite, com Fita no dígito vivo.
-3. **Tier destacado do kit** — Grafite, com número, preço e CTA em Carimbo.
-4. **Newsletter** — Carimbo. O único bloco inteiramente rosa.
-5. **Rodapé** — Grafite. Fecha a página.
-
-### A marca — `shared/ui/brand`
-
-A escada de redução da prancha 21, medida por rasterização:
-
-| Componente | Piso | Onde |
-|---|---|---|
-| `NanitaLockup` | ≥ **140px** de largura | **Rodapé** da loja, papelaria, e-mail |
-| `NanitaWordmark` | ≥ **110px** | **Header**, folha do menu, checkout, overlay de auth |
-| `NanitaMonogram` | ≤ **48px** | Favicon, avatar, selo, marca d'água |
-
-Cada um cai para o degrau de baixo quando pedem menos que o piso. Header e rodapé
-usarem marcas diferentes **é a escada funcionando**: na altura de 40px o lockup
-mede 116px de largura, 24px abaixo do próprio piso.
-
-**SVG inline, nunca `<img src>`** — o wordmark do header não pode ter estado de
-carregamento nem 404 possível, e `currentColor` só funciona inline.
-
-**Sobre Grafite o descritor é Dobra**, não Carbono (2,55:1 ali, some).
-
-**Cada cor é UM `<path>` com `fill-rule="evenodd"`.** É requisito, não estilo:
-separar os subpaths pinta o miolo do `a`, do `P`, do `R`, do `O`, do `A` e do `D`
-por cima do corpo, na mesma cor, e as letras saem maciças com a geometria intacta.
+**Um `<path>` por PAPEL DE TRAÇO.** Aqui o que divide os paths é a **espessura**, que é geometria; o
+export do Paper vem partido por sub-elemento e é consolidado (lockup 8→4, assinatura 7→3, símbolo 4→2,
+selo 6→4). `paths.test.ts` falha se **dois `<path>` do mesmo SVG tiverem a mesma espessura** — o
+sintoma de um papel partido. `fill-rule="evenodd"` **não** se aplica: nada nesta marca preenche
+(`fill="none"`), e o atributo entraria inerte sugerindo uma regra que não está valendo.
 
 ### Favicon
 
-| Base | Haste a 16px | Destino |
-|---|---|---|
-| **B · squircle** (canto 28%) | 2,5px | `favicon.svg`, `favicon.ico`, `icon-512.png` |
-| **C · quadrado sangrado** | 2,6px | `apple-touch-icon.png` (180×180) |
+O ícone é o **símbolo reduzido**, em duas bases:
 
-Duas bases para o mesmo N, e a variável é **quem faz o recorte**: o navegador não
-recorta o favicon (ele precisa do próprio canto para não encostar na aba
-vizinha), e o iOS aplica a própria máscara (arte pré-arredondada deixa sobra de
-canto).
+| base | escala que cabe | traço a 16px | onde |
+|---|---:|---:|---|
+| disco (r 50%) | 0,724 | 0,93px | — |
+| squircle (r 28%) | 0,856 | 1,10px | — |
+| **canto 6%** | 1,000 | **1,28px** | `favicon.svg` / `.ico` / `icon-512` |
+| **quadrado sangrado** | 1,000 | **1,28px** | `apple-touch-icon` |
 
-### Mascote — `NanaMascot`
+**A variável é quem faz o recorte**: canto próprio na aba, porque o navegador não arredonda favicon;
+sangrado no iOS, porque o sistema aplica a própria máscara e arte pré-arredondada deixa sobra de canto.
+O canto é quase reto porque o extremo deste desenho é a **ponta da estrela, na diagonal** — exatamente
+onde um canto arredondado come área. Um squircle custaria 15% do traço.
 
-A mascote é a **persona da criadora**, não a marca. Segue no 404, nos estados
-vazios e na página Sobre. O que saiu na v2 foi o rosto dela do hero (que passou a
-mostrar o produto) e da aba do navegador (que passou a mostrar o N).
+**O selo circular NÃO é o favicon**, apesar de a spec o nomear: ele carrega anel e 25 glifos de
+assinatura curva, que a 16px medem 0,23px e 0,08px — mancha cinza. O selo é ativo de carimbo, etiqueta
+e embalagem.
 
 ---
 
-## 6. Espaçamento
+## 6. Chrome e espaçamento
 
-Escala do board: **4 · 8 · 16 · 24 · 40 · 64 · 96**.
-
-| Contexto | Valor |
-|---|---|
-| Padding de seção | `py-10 md:py-14` |
-| Gap entre título e conteúdo | 24px (16px no celular) |
-| Gap dentro de um grupo | 4–8px |
-| Gap entre grupos | 16–24px |
-| Gap hero (texto ↔ arte) | 80px |
-| Padding de card | 14px celular · 20–24px desktop |
-| Padding de card destacado | 36–40px |
-
-Aperte para agrupar, abra para respirar.
+- **Uma barra de rodapé por vez.** Header + barra de compra + `MobileNav` empilhados somavam 197px —
+  30% de um iPhone SE. `ownsBottomBar(pathname)` decide quem ocupa o rodapé; as duas barras têm a
+  mesma altura (`BOTTOM_BAR_H`), e a reserva de espaço fica **depois do `<Footer/>`**.
+- **O header se recolhe no scroll para baixo**, só no mobile, com `sticky` + `translate` — nunca
+  `fixed`, nunca desmontar: assim ele segue ocupando os 64px no fluxo e esconder/mostrar **não causa
+  reflow**. **A barra de compra nunca se esconde**: o CTA é a finalidade da página.
+- **Alvo de toque ≥44px**, com dois auxiliares (`shared/lib/touchTarget`): `TAP_44` (44×44 centrado,
+  para disco e botão quadrado) e `TAP_ROW` (44px de altura na largura do próprio rótulo, para texto em
+  fluxo). A exceção declarada são links de texto em fluxo com rótulo curto — esticar a largura de um
+  link inline separaria a palavra da linha em que ela está escrita; é a exceção de texto inline da
+  própria WCAG 2.5.8, e o eixo que importa para o polegar (a altura) está cumprido.
+- **`body` nunca rola horizontalmente.** Conteúdo largo (tabela, lane, diagrama) scrolla dentro do
+  próprio container.
 
 ---
 
 ## 7. Escopo e convivência
 
-| Onde | O quê | Quem consome |
+A loja e o painel usam **duas paletas ao mesmo tempo, no mesmo monorepo**:
+
+| | loja | backoffice |
 |---|---|---|
-| `packages/ui/src/styles.css` | `--nana-*` originais (roxo/rosa/navy) | **backoffice** |
-| `apps/store/src/app/App.css` | `--nanita-*` + remapeamento dos `--nana-*` | **loja** |
-| `apps/store/tailwind.config.ts` | namespace `nanita-*`, fontes, raios, sombras | **loja** |
+| tokens | `--estrelinha-*` | `--estrelinha-admin-*` |
+| onde | `apps/store/src/app/App.css` + `apps/store/tailwind.config.ts` | `packages/ui/src/styles.css` + `packages/ui/tailwind.preset.ts` |
+| valores | esta identidade | roxo/rosa/navy herdado, **inalterado** |
 
-**A paleta é declarada em dois arquivos, e eles precisam concordar.** Um valor
-certo num lado e velho no outro não quebra build, nem tipo, nem teste de
-componente: a loja renderiza duas paletas ao mesmo tempo e quem descobre é a
-cliente. `palette.test.ts` lê os dois do disco e compara.
+O sufixo `admin` existe para deixar claro que aquele namespace **não é a marca da loja** — evita que
+código novo os use por engano. Re-skin do painel está fora de escopo: painel interno não carrega marca.
 
-`App.css` é importado **depois** de `@nanapin/ui/styles.css` em
-[main.tsx](apps/store/src/main.tsx). Inverter devolve a loja inteira à paleta do
-backoffice — `importOrder.test.ts` guarda isso.
-
-### Camada de compatibilidade
-
-Os tokens `--nana-*` continuam definidos na loja, apontando para a papelaria:
-
-```
---nana-violet → Carmim      --nana-bg      → Papel
---nana-pink   → Carmim      --nana-bg-alt  → Mata-borrão
---nana-sakura → Selo        --nana-card    → branco
---nana-yellow → Fita        --nana-text    → Grafite
---nana-dark   → Grafite     --nana-muted   → Carbono
-```
-
-As classes utilitárias antigas (`.gradient-cta`, `.glow-*`, `.neon-text-*`)
-resolvem para cor chapada. **Código novo não deve usar nenhuma delas.**
-
-### Cores que não são marca
-
-`pages/CustomPinPage.tsx` mantém uma paleta ampla (roxo, ciano, arco-íris). Isso
-é **conteúdo do cliente**, não identidade. Não normalizar.
-
-O verde do WhatsApp em `WhatsAppFloat` também fica — é cor de marca de terceiro.
+**A separação depende da ordem de dois imports** em `apps/store/src/main.tsx`: `App.css` **depois** de
+`@estrelinha/ui/styles.css`. Inverter devolve a loja inteira à paleta do painel **sem quebrar nada** —
+`importOrder.test.ts` guarda isso.
 
 ---
 
 ## 8. Checklist de revisão
 
-Antes de considerar uma tela pronta:
+Antes de abrir PR de UI da loja:
 
-- [ ] Existe **uma** ação primária em Carmim? Não duas.
-- [ ] Algum texto está em **Carimbo, Mata-borrão ou Dobra** sobre Papel ou branco? Se sim, é bug de contraste.
-- [ ] **Fita** aparece fora de superfície Grafite? Não pode.
-- [ ] **Carmim** aparece sobre Grafite? Não pode — lê a 2,18:1. Use Carimbo.
-- [ ] Borda de campo está em **Papelão**? Dobra num input dá 1,19 e não aparece.
-- [ ] Algum botão ficou em **pílula**? Ação é 14px; pílula é rótulo.
-- [ ] Algum disco virou 14px? O disco é a assinatura — `+`, setas e ícones ficam redondos.
-- [ ] A hierarquia se sustenta em preto e branco? Se não, ela depende de cor demais.
-- [ ] Berkshire Swash ou `font-logo` aparecem em algum lugar? Saíram na v2.
-- [ ] Algum texto abaixo de 11px, ou 11–12px sem caixa alta?
-- [ ] Títulos em Fredoka 600, corpo em DM Sans?
-- [ ] Sombra cinza neutra em algum lugar?
-- [ ] Sobrou algum `bg-nana-*` / `gradient-cta` em código novo?
-- [ ] A tela foi vista em **390×844** antes de 1440?
+- [ ] Nenhum texto em `accent` sobre superfície clara — e nenhum `ink` **com opacidade** dentro de
+      superfície `accent`.
+- [ ] Todo controle de formulário com borda `field`, nunca `line`.
+- [ ] Ação em `rounded-sm`; pílula só onde é rótulo.
+- [ ] Token novo declarado nos **dois** arquivos (e nos HSL do shadcn, se for cor de componente).
+- [ ] Alvo de toque ≥44px, via `TAP_44` ou `TAP_ROW`.
+- [ ] Prova em **390×844** antes de qualquer ajuste de 1440.
+- [ ] `body` sem rolagem horizontal na rota nova.
+- [ ] Nenhuma linguagem festiva, de urgência ou de trocadilho — ver §1.
+- [ ] `pnpm --filter @estrelinha/store test` verde: os guardas de identidade estão todos lá.

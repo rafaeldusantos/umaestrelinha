@@ -114,7 +114,7 @@ describe('contraste — o acento NUNCA é texto sobre claro', () => {
   it('rótulo DENTRO de `accent` é `ink`, e não `primary-strong` (IDN-09)', () => {
     // As boards `5MC-0`/`6AU-0` desenham o contador do carrinho e o botão da
     // newsletter com `primary-strong` sobre `accent`. Medido, esse par dá
-    // **4,21:1** — passa de 3, reprova em 4,5, e é rótulo de verdade nos dois
+    // **4,15:1** — passa de 3, reprova em 4,5, e é rótulo de verdade nos dois
     // lugares (contador de 10px, botão de 13px). `ink` sobre o mesmo ouro dá
     // 4,78:1 e é o par que o DESIGN.md já nomeava. A divergência da board é
     // deliberada e mora aqui, medida, para não voltar por engano.

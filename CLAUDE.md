@@ -408,8 +408,8 @@ literalmente, em vez de iterar a constante que deveria guardar).
   `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` — note o `tsconfig.app.json`, porque o
   `tsconfig.json` de cada app é solution-style (só `references`) e compila zero arquivo.
   **Baseline de tipos: store 0 · backoffice 0. Zero é a baseline: qualquer erro de tipo é novo.**
-- **Baseline de testes (fecho da feature 20): 3188 testes em 183 arquivos** — store 1150/90 ·
-  backoffice 1055/65 · core **725/26** · functions 258/4. O número de `core` é o mais importante da
+- **Baseline de testes (fecho da feature 20, medida com `turbo run test --force`): 3188 testes em
+  185 arquivos** — store 1150/90 · backoffice 1055/65 · core **725/26** · functions 258/4. O número de `core` é o mais importante da
   lista: ele é o código de dinheiro, e **não deve mudar** por causa de identidade visual.
   - `pnpm test` roda os quatro workspaces em paralelo e **já produziu flake de RTL sob carga** —
     falhas de timeout em suítes pesadas que passam isoladas e na segunda execução. Rode por workspace
