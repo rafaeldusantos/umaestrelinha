@@ -140,6 +140,24 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: .specs/features/19-identidade-papelaria/validation.md#1 (testing/sweeps)
 - last seen: 2026-08-04T04:08:41Z
 
+### L-022 — A guard test that measures design-token values must read them from the declared source files, never from a private copy of the same values.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `apps/store/src/shared/lib` · harmful: 0
+- features: 20-rebrand-uma-estrelinha
+- evidence: validation.md sensor #9 — apps/store/src/shared/lib/__tests__/contrast.test.ts:21 (apps/store/src/shared/lib)
+- last seen: 2026-08-09T02:46:06Z
+
+### L-023 — Specify an icon or asset by the measured legibility floor it must meet, not by naming one art variant, or the measurement can disprove the criterion itself.
+- signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `design-system` · harmful: 0
+- features: 20-rebrand-uma-estrelinha
+- evidence: spec.md P2 AC7 (IDN-07) (design-system)
+- last seen: 2026-08-09T02:46:14Z
+
+### L-024 — An acceptance criterion that says a screen follows a design board must name the measurable values it fixes, otherwise deliberate divergences cannot be judged.
+- signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `design-system` · harmful: 0
+- features: 20-rebrand-uma-estrelinha
+- evidence: spec.md P2 AC9 (IDN-09) (design-system)
+- last seen: 2026-08-09T02:46:15Z
+
 ## Quarantined (failed when applied — ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.

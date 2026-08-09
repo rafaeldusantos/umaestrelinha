@@ -3,7 +3,7 @@
   "promote_threshold": 2,
   "window_days": 45,
   "quarantine_threshold": 2,
-  "next_id": 22,
+  "next_id": 25,
   "lessons": [
     {
       "id": "L-001",
@@ -382,6 +382,60 @@
       ],
       "created": "2026-08-04T04:08:41Z",
       "last_seen": "2026-08-04T04:08:41Z"
+    },
+    {
+      "id": "L-022",
+      "key": "surviving_mutant::a guard test that measures design token values must read them from the declared source files never from a private copy of the same values",
+      "text": "A guard test that measures design-token values must read them from the declared source files, never from a private copy of the same values.",
+      "signal": "surviving_mutant",
+      "scope": "apps/store/src/shared/lib",
+      "status": "candidate",
+      "features": [
+        "20-rebrand-uma-estrelinha"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "validation.md sensor #9 — apps/store/src/shared/lib/__tests__/contrast.test.ts:21 (apps/store/src/shared/lib)"
+      ],
+      "created": "2026-08-09T02:46:06Z",
+      "last_seen": "2026-08-09T02:46:06Z"
+    },
+    {
+      "id": "L-023",
+      "key": "spec_precision_gap::specify an icon or asset by the measured legibility floor it must meet not by naming one art variant or the measurement can disprove the criterion itself",
+      "text": "Specify an icon or asset by the measured legibility floor it must meet, not by naming one art variant, or the measurement can disprove the criterion itself.",
+      "signal": "spec_precision_gap",
+      "scope": "design-system",
+      "status": "candidate",
+      "features": [
+        "20-rebrand-uma-estrelinha"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "spec.md P2 AC7 (IDN-07) (design-system)"
+      ],
+      "created": "2026-08-09T02:46:14Z",
+      "last_seen": "2026-08-09T02:46:14Z"
+    },
+    {
+      "id": "L-024",
+      "key": "spec_precision_gap::an acceptance criterion that says a screen follows a design board must name the measurable values it fixes otherwise deliberate divergences cannot be judged",
+      "text": "An acceptance criterion that says a screen follows a design board must name the measurable values it fixes, otherwise deliberate divergences cannot be judged.",
+      "signal": "spec_precision_gap",
+      "scope": "design-system",
+      "status": "candidate",
+      "features": [
+        "20-rebrand-uma-estrelinha"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "spec.md P2 AC9 (IDN-09) (design-system)"
+      ],
+      "created": "2026-08-09T02:46:15Z",
+      "last_seen": "2026-08-09T02:46:15Z"
     }
   ]
 }
