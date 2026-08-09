@@ -99,7 +99,7 @@ INSERT INTO public.store_settings (key, value) VALUES
   )),
   ('seo', jsonb_build_object(
     'title', 'Uma Estrelinha - Joias afetivas artesanais em resina',
-    'description', 'Joias feitas a mao em resina com o material que voce envia: cinzas, leite materno, dente de leite e mecha de cabelo.',
+    'description', 'Joias feitas à mão em resina com o material que você envia: cinzas, leite materno, dente de leite e mecha de cabelo.',
     'og_image', ''
   ))
 ON CONFLICT (key) DO NOTHING;

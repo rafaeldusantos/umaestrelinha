@@ -43,11 +43,19 @@ export interface AbandonedCartSettings {
   reminder_coupon_code: string
 }
 
+/**
+ * Os defaults abaixo precisam dizer o MESMO que as duas migrations
+ * `*_create_store_settings.sql` gravam. Divergir não quebra build, tipo nem
+ * teste de componente — a loja só passa a mostrar um nome antes de a linha
+ * chegar do banco e outro depois. É o mesmo defeito da paleta declarada em dois
+ * arquivos, e o guarda é `storeSettingsDefaults.test.ts`, que lê as migrations
+ * do disco e compara campo a campo.
+ */
 export const DEFAULT_GENERAL: GeneralSettings = {
-  store_name: 'Nanita',
+  store_name: 'Uma Estrelinha',
   whatsapp: '',
-  whatsapp_message: 'Olá! Estou navegando no site e gostaria de tirar uma dúvida.',
-  email: 'contato@nanita.com.br',
+  whatsapp_message: 'Olá! Vim pelo site e gostaria de tirar uma dúvida.',
+  email: 'contato@umaestrelinha.com.br',
   instagram: '',
   tiktok: '',
 }
@@ -74,8 +82,9 @@ export const DEFAULT_PAYMENT: PaymentSettings = {
 }
 
 export const DEFAULT_SEO: SeoSettings = {
-  title: 'Nanita — Bottons temáticos de pop culture',
-  description: 'Bottons únicos de anime, K-pop, filmes, séries, games e bandas. Drops semanais.',
+  title: 'Uma Estrelinha - Joias afetivas artesanais em resina',
+  description:
+    'Joias feitas à mão em resina com o material que você envia: cinzas, leite materno, dente de leite e mecha de cabelo.',
   og_image: '',
 }
 

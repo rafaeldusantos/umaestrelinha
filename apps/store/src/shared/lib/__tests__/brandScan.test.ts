@@ -73,7 +73,6 @@ const PENDENTE: Record<string, string> = {
   'apps/store/src/features/search/ui/SearchOverlay.tsx':                   'T38 - copy institucional e pontos de contato',
   'apps/store/src/pages/AboutPage.tsx':                                    'T38 - copy institucional e pontos de contato',
   'apps/store/src/widgets/whatsapp-float/ui/WhatsAppFloat.tsx':            'T38 - copy institucional e pontos de contato',
-  'packages/supabase/src/types/settings.ts':                               'T34 - defaults de `store_settings` em TypeScript',
   'supabase/config.toml':                                                  'T36 - assuntos e remetente do auth',
   'supabase/functions/melhor-envio/index.ts':                              'T38 - `User-Agent` que a API do Melhor Envio exige',
   'supabase/functions/mercado-pago/__tests__/fakes.ts':                    'T37 - `RESEND_FROM` de exemplo, distinto do remetente do auth',
