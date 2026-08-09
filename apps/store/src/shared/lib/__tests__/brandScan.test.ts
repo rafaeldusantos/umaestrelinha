@@ -65,11 +65,9 @@ const ALLOWLIST: Record<string, string> = {
  * comprovadamente, a uma task posterior desta feature.
  */
 const PENDENTE: Record<string, string> = {
-  'apps/backoffice/index.html':                                            'T35 - metadados do painel',
   'apps/backoffice/src/features/store-menu/ui/MenuBarPreview.tsx':         'T38 - copy institucional e pontos de contato',
   'apps/backoffice/src/pages/admin/AdminLoginPage.tsx':                    'T38 - copy institucional e pontos de contato',
   'apps/backoffice/src/widgets/admin-layout/ui/AdminLayout.tsx':           'T38 - copy institucional e pontos de contato',
-  'apps/store/index.html':                                                 'T35 - metadados da loja',
   'apps/store/src/features/search/ui/SearchOverlay.tsx':                   'T38 - copy institucional e pontos de contato',
   'apps/store/src/pages/AboutPage.tsx':                                    'T38 - copy institucional e pontos de contato',
   'apps/store/src/widgets/whatsapp-float/ui/WhatsAppFloat.tsx':            'T38 - copy institucional e pontos de contato',

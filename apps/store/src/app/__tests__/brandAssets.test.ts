@@ -185,3 +185,94 @@ describe('index.html — as fontes', () => {
     ])
   })
 })
+
+/**
+ * Os metadados dos DOIS apps — `COP-03`.
+ *
+ * O `<head>` é a única parte da loja que a cliente vê **sem abrir a loja**: a
+ * aba do navegador, o resultado da busca e o card que ela manda para a irmã no
+ * WhatsApp saem daqui. Nada disso passa por componente, então nenhum teste de
+ * render alcança — e um título com a marca errada sobrevive a build, tipo e
+ * suíte inteira.
+ */
+const ADMIN_INDEX = readFileSync(resolve(STORE, '../backoffice/index.html'), 'utf8')
+
+function meta(html: string, nome: string): string | undefined {
+  return html.match(new RegExp(`(?:name|property)="${nome}" content="([^"]*)"`))?.[1]
+}
+
+describe('index.html — os metadados dos dois apps (COP-03)', () => {
+  it('a leitura encontrou os dois documentos', () => {
+    // Âncora: um caminho errado devolveria string vazia, e `not.toContain`
+    // sobre string vazia passa sempre.
+    expect(INDEX).toContain('<title>')
+    expect(ADMIN_INDEX).toContain('<title>')
+  })
+
+  it('a loja se apresenta como Uma Estrelinha no título e no autor', () => {
+    expect(INDEX).toMatch(/<title>Uma Estrelinha[^<]*<\/title>/)
+    expect(meta(INDEX, 'author')).toBe('Uma Estrelinha')
+  })
+
+  it('título e descrição são os mesmos no documento, no OG e no Twitter', () => {
+    // Três lugares para o mesmo texto: divergir dá um card que promete uma
+    // coisa e uma aba que diz outra, sem erro em lugar nenhum.
+    const titulo = INDEX.match(/<title>([^<]*)<\/title>/)?.[1]
+    expect(meta(INDEX, 'og:title')).toBe(titulo)
+    expect(meta(INDEX, 'twitter:title')).toBe(titulo)
+
+    const descricao = meta(INDEX, 'description')
+    expect(descricao).toMatch(/resina/)
+    expect(meta(INDEX, 'og:description')).toBe(descricao)
+    expect(meta(INDEX, 'twitter:description')).toBe(descricao)
+  })
+
+  it('a `og:image` é ativo do PRÓPRIO projeto, e o arquivo existe no disco', () => {
+    // Ela apontava para `storage.googleapis.com/gpt-engineer-file-uploads/…`,
+    // o CDN do template de origem: arte de outro produto, num host que ninguém
+    // deste projeto controla e que pode sumir sem aviso.
+    const og = meta(INDEX, 'og:image') ?? ''
+    expect(og).not.toContain('gpt-engineer')
+    expect(og).not.toContain('storage.googleapis.com')
+
+    // Absoluta de propósito — o rastreador do Facebook não resolve relativa.
+    expect(og).toMatch(/^https:\/\/umaestrelinha\.com\.br\//)
+    expect(meta(INDEX, 'twitter:image')).toBe(og)
+
+    const arquivo = og.slice(og.lastIndexOf('/') + 1)
+    expect(existsSync(resolve(PUBLIC, arquivo))).toBe(true)
+    expect(statSync(resolve(PUBLIC, arquivo)).size).toBeGreaterThan(5000)
+  })
+
+  it('as dimensões declaradas do card são as do arquivo gerado', () => {
+    // 1200×630 é o que `_build-og.ps1` rende. Declarar outra medida faz o
+    // rastreador recortar por conta própria.
+    expect(meta(INDEX, 'og:image:width')).toBe('1200')
+    expect(meta(INDEX, 'og:image:height')).toBe('630')
+
+    const png = readFileSync(resolve(PUBLIC, 'og-image.png'))
+    expect(png.readUInt32BE(16)).toBe(1200)
+    expect(png.readUInt32BE(20)).toBe(630)
+  })
+
+  it('`theme-color` é um token da paleta nova, lido do App.css', () => {
+    // "É uma cor" não basta: qualquer hex passaria. O valor tem de estar
+    // DECLARADO na paleta — senão o topo do navegador no celular fica numa cor
+    // que não existe em lugar nenhum da loja.
+    const cor = meta(INDEX, 'theme-color') ?? ''
+    const appCss = readFileSync(resolve(STORE, 'src/app/App.css'), 'utf8')
+    expect(cor).toMatch(/^#[0-9A-Fa-f]{6}$/)
+    // O App.css escreve o hex em minúsculas; o `<head>` não é obrigado a isso.
+    expect(appCss.toLowerCase()).toContain(`--estrelinha-primary-strong: ${cor.toLowerCase()}`)
+  })
+
+  it('o backoffice se apresenta como Uma Estrelinha e continua fora dos buscadores', () => {
+    expect(ADMIN_INDEX).toMatch(/<title>Uma Estrelinha[^<]*Backoffice<\/title>/)
+    expect(meta(ADMIN_INDEX, 'robots')).toBe('noindex, nofollow')
+  })
+
+  it('o painel não declara card social — não é superfície de compartilhamento', () => {
+    expect(ADMIN_INDEX).not.toContain('og:')
+    expect(ADMIN_INDEX).not.toContain('twitter:')
+  })
+})
