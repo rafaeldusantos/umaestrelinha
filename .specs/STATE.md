@@ -340,11 +340,126 @@
 - **Scope**: `apps/store/src/app/App.tsx`, `.specs/features/23-urls-e-seo`, cadastro de categoria no
   backoffice
 - **Date**: 2026-08-09
-- **Status**: active
+- **Status**: active — **implementada pela feature [`23-urls-e-seo`](./features/23-urls-e-seo/spec.md)
+  em 2026-08-09** (T1–T20). A fonte única virou `@estrelinha/core/routes`; a contrapartida obrigatória
+  (lista de reservadas + guarda bidirecional contra o `App.tsx`) está de pé em `reservedSlugs.test.ts`,
+  e o `vercel.json` está preso a `LEGACY_REDIRECTS` por `vercelRedirects.test.ts`. O que fica por
+  medir é a implantação, não a decisão: **não há projeto Vercel da Uma Estrelinha** (`C-08`), então os
+  301 se provam pela configuração lida do disco e pelo espelho no router.
 
 ## Handoff
 
-### ATUAL — 2026-08-09 · `21-catalogo-nuvemshop` **FECHADA** + `BUG-20260809` corrigido
+### ATUAL — 2026-08-09 · `23-urls-e-seo` · **IMPLEMENTADA (T1–T20)**, aguardando Verifier
+
+**Estado**: implementação completa e na **árvore de trabalho, sem commit** — a convenção do projeto
+(`CLAUDE.md`) manda gerar os commits completos de uma vez, depois da conclusão. Executada em **3 lotes
+sequenciais** de sub-agente: Fases 1–2 (T1–T10), Fases 3–4 (T11–T15), Fases 5–6 (T16–T20).
+
+**O que a feature resolveu.** No go-live o domínio passa a apontar para a loja nova, e **toda URL
+indexada quebrava** — não pelo slug, que a `21` já preservava, mas pelo **caminho**. Medição do
+`<link rel="canonical">` do site real em 2026-08-09 mostrou três formatos indexados, nenhum servido
+pela loja nova. `AD-018` decidiu adotar o formato de produção em vez de redirecionar tudo.
+
+| conteúdo | canônica agora | também resolve |
+| --- | --- | --- |
+| produto | `/produtos/:slug` | `/produto/:slug` — **301** |
+| categoria raiz | `/:slug` | `/colecao/:slug`, `/categoria/:slug` — **301** |
+| subcategoria | `/:pai/:filha` | `/:filha` — **200** com canonical para a de dois |
+
+**Gate de fecho MEDIDO** (`turbo run test --force`, exit 0 capturado de verdade — não por `| tail`):
+
+| | valor |
+| --- | ---: |
+| Testes | **3.672** em **211** arquivos |
+| store · backoffice · core · functions · catalog-import | 1256/98 · 1090/67 · **799/27** · 258/4 · 269/15 |
+| Lint | **30 erros / 8 warnings** (backoffice 28/7 · store 2/1) — baseline exata, **zero novo** |
+| Tipos | store **0** · backoffice **0** · catalog-import **0** |
+
+**`packages/core/src/payment/` intocado** — `git status` do diretório sai vazio. O crescimento de
+`core` (725 → 799) veio de `routes/` e de `categoryHref`, exatamente como o `design.md` previu.
+
+#### O que mudou de contrato
+
+- **`@estrelinha/core/routes` é a fonte única do endereçamento**: `ROUTE_SLUGS`, `INFRA_SLUGS`,
+  `RESERVED_SLUGS`, `isReservedSlug`, `reservedSlugRefusal`, `productPath`, `categoryPath`,
+  `LEGACY_REDIRECTS`, `legacyRedirectTo`. Módulo puro, sem dependência, para os guardas poderem
+  importá-lo dentro de um teste que lê arquivo do disco.
+- **`categoryHref(categories, id)`** (`@estrelinha/core/menu`) é a única função que transforma
+  categoria em URL canônica. Sobe até o **pai imediato** e para: no máximo dois segmentos, mesmo em
+  árvore de três níveis. Substituiu todo literal `/colecao/` do código.
+- **`RelatedProducts` mudou de assinatura**: recebe `category` + `categories`, não mais `categorySlug`
+  — sem a árvore não há como montar a canônica de uma filha.
+- **`useProducts(slug, { enabled })`**, e slug desconhecido devolve `[]` em vez do catálogo inteiro.
+  Com categoria na raiz, toda URL errada passaria por ali — 689 produtos antes de mostrar 404, que é
+  literalmente o que `URL-04` proíbe.
+- **`category_redirects`** (migration `20260810120000`) espelha `product_redirects`: `from_slug` PK,
+  FK `ON DELETE CASCADE`, leitura pública e escrita de admin. Escrita em `persistCategoryRedirect`,
+  leitura em `useCategoryRedirect`.
+- **Importador**: `CURATED_EXCLUDED` (Brinquedos e Rastreio, por `nuvemshop_id`) — o catálogo passou
+  de **39 para 37** categorias, e o relatório ganhou seção própria para excluídas.
+
+#### Dois guardas novos, e por que cada um existe
+
+- **`reservedSlugs.test.ts`** — lê `apps/store/src/app/App.tsx` do disco e compara **nos dois
+  sentidos** com `ROUTE_SLUGS`. Rota nova fora da lista quebra; entrada morta na lista também. As duas
+  direções importam: a lista recusa slug de categoria, e uma entrada morta recusaria um nome livre.
+- **`vercelRedirects.test.ts`** — lê `apps/store/vercel.json` do disco e o prende a
+  `LEGACY_REDIRECTS`, com âncora dupla (arquivo não-vazio **e** nº de redirects igual ao da lista).
+  Assere `statusCode: 301` por entrada e que **nenhum** redirect usa `permanent`, que produziria 308.
+
+#### O que a execução descobriu, e vale para a próxima feature
+
+1. **Critério de "zero literal" alcança COMENTÁRIO.** Explicar um defeito citando a string da marca
+   anterior derruba a própria `brandScan`. O caminho legado se descreve sem se escrever — regra que
+   agora está no `CLAUDE.md` junto de `CURATED_EXCLUDED`.
+2. **Teste que renderiza o `App` inteiro precisa dublar TODO hook de dado novo.** `routing.test.tsx`
+   ficou vermelha ao ganhar `useCategoryRedirect` real: sem dublê, a asserção de 404 media uma
+   consulta pendurada e não o roteador. Nenhuma asserção foi alterada — só o harness.
+3. **A tag canônica é injetada por JS, e `curl` não executa JS.** O Success Criteria da spec pedia
+   "medida com `curl` + `canonical`"; a medição teve de ser **partida em duas** (`curl -I` para
+   status/`Location`, navegador headless para a canônica). Declarado como método, não escondido.
+
+#### Provas contra o banco de verdade (`AD-012`)
+
+- `category_redirects` aplicada por `supabase migration up` (exit 0) — **não** por `db reset`, que
+  apagaria os 689 produtos e as 3.660 imagens do Storage e exigiria reimport. A migration é a última
+  da fila, então aplicar por cima e replayar do zero são o mesmo caminho para ela.
+- **RLS provada por HTTP**: insert com service role **201**; `select` anônimo devolve a linha **200**;
+  insert anônimo **401 / 42501**. E o caminho real do admin (login → `PATCH` do slug → `DELETE` do
+  conflito → `upsert` do slug antigo) fecha com **200 / 204 / 201**, com a loja anônima lendo a linha.
+- Banco **restaurado ao estado anterior**: 37 categorias, `category_redirects` vazia.
+
+#### Pendências abertas
+
+- **Verifier independente da `23`** (autor ≠ verificador) — é o próximo passo, com checagem ancorada
+  na spec e sensor de discriminação, escrevendo `23-urls-e-seo/validation.md`. **Ainda não rodou.**
+- **Commits da `23` não foram criados** — a árvore está suja de propósito.
+- **Não há projeto Vercel nem Supabase hospedado.** Os 301 do edge estão configurados e guardados por
+  teste, mas não medidos contra produção. A virada é operação (`C-08`).
+- **`AD-017` continua válida**: nenhum `db push` foi feito. A migration nova desta feature **não** a
+  invocou — tabela nova é migration nova, e a permissão de reescrever história é para desfazer dívida.
+- **Resend**: `send.umaestrelinha.com.br` não verificado (403 medido em 2026-08-08). SMTP do auth
+  desligado de propósito, e-mail de dev no Mailpit.
+- **`show_in_menu = 0` em todas as categorias** — a barra do topo segue vazia. É curadoria da dona, em
+  `/admin/menu` (`admin@umaestrelinha.dev` / `admin123`, porta 8083), 4 vagas.
+- **62+ commits locais sem push** para `github.com/rafaeldusantos/umaestrelinha`.
+
+**Próximo passo recomendado**, depois do Verifier: **`BL-007` — sitemap e dados estruturados**. A spec
+da `23` os pôs fora de escopo justamente até o endereçamento fechar, e ele fechou. Depois deles, a
+**`22-material-afetivo`**, que continua bloqueada por três respostas da Adri (rastreio do material por
+pedido ou por item, o enum de material, e o limite de caracteres da gravação).
+
+**Ambiente**: Supabase local de pé na faixa 54341–54349, respondendo em `http://127.0.0.1:54341`.
+
+---
+
+## Handoff — histórico
+
+As entradas abaixo são os snapshots das sessões anteriores, preservados. A seção `## Handoff` acima
+carrega **só o estado atual**; este apêndice existe porque as sessões anteriores acumulavam, e apagar
+o que outra pessoa guardou de propósito não é decisão de quem passou por último.
+
+### ANTERIOR — 2026-08-09 · `21-catalogo-nuvemshop` **FECHADA** + `BUG-20260809` corrigido
 
 **Estado**: nada em andamento. Árvore limpa, gate verde, 8 commits da `21` + 2 do conserto do bug.
 
@@ -391,16 +506,7 @@ erro (React Query guarda o vazio como sucesso e não repete a tentativa).
 **Ambiente**: Supabase local de pé na faixa 54341–54349. `supabase_vector` em `Restarting` — condição
 pré-existente, não introduzida por esta sessão.
 
----
-
-## Handoff — histórico
-
-As entradas abaixo são os snapshots das sessões anteriores, preservados. A seção `## Handoff` acima
-carrega **só o estado atual**; este apêndice existe porque as sessões anteriores acumulavam, e apagar
-o que outra pessoa guardou de propósito não é decisão de quem passou por último.
-
-
-### ATUAL — 2026-08-08 · `20-rebrand-uma-estrelinha` · **FASES 6 e 7 FECHADAS (T34–T41)**
+### 2026-08-08 · `20-rebrand-uma-estrelinha` · **FASES 6 e 7 FECHADAS (T34–T41)**
 
 O repositório deixou de ser a loja anterior **em todas as superfícies**: código, schema, ativos,
 e-mail, copy e documentação. `AD-016` e `AD-017` são as decisões que governam isso.

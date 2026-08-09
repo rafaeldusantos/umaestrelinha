@@ -266,6 +266,46 @@ defeito que este projeto mais paga caro.
 
 ---
 
+## BL-007 — Sitemap e dados estruturados
+
+- **Status**: aberto, **destravado** · **Registrado em**: 2026-08-09 · **Decisão**: [`AD-018`](./STATE.md)
+- **Origem**: `Out of Scope` da [`23-urls-e-seo`](./features/23-urls-e-seo/spec.md), que os adiou com
+  motivo explícito: *"só fazem sentido depois de o endereçamento estar decidido"*.
+
+**O que é.** Duas coisas que a loja não tem e que um e-commerce indexado precisa:
+
+1. **`sitemap.xml`** — a lista das URLs canônicas de produto e de categoria, para o Google não
+   depender de descobrir tudo por link. Hoje seria adivinhação: a loja publicava três formatos e
+   nenhum era o indexado.
+2. **Dados estruturados** (JSON-LD) — `Product` com preço, disponibilidade e imagem; `BreadcrumbList`
+   com a trilha `raiz › filha`. É o que produz rich result na busca.
+
+**Por que agora está destravado.** A `23` fechou o endereçamento: existe **uma** canônica por
+conteúdo (`productPath`, `categoryHref`), ela é construída por função única, e o formato está
+travado por teste. Sitemap é literalmente a enumeração dessas funções sobre o catálogo — antes da
+`23` não havia o que enumerar.
+
+**O que precisa ser decidido antes de virar feature:**
+
+1. **Onde o sitemap é gerado.** A loja é SPA sem SSR: um arquivo estático no `public/` fica velho no
+   primeiro produto novo. As opções reais são um passo de build que lê o Supabase, ou uma edge
+   function que responde `/sitemap.xml` a partir do banco. A segunda não tem passo de deploy para
+   esquecer; a primeira não paga cold start.
+2. **A canônica é a mesma para o Googlebot e para a cliente?** Sim por construção — mas o sitemap
+   precisa importar `productPath`/`categoryHref` em vez de montar string própria, senão nasce a
+   quarta cópia da regra.
+3. **JSON-LD com SPA tem o mesmo problema da tag canônica**: é injetado por JS, e `curl` não o vê. O
+   Googlebot renderiza; validadores que não renderizam, não. Precisa estar escrito **antes** de
+   alguém medir com a ferramenta errada e concluir que quebrou.
+4. **Categoria inativa e produto sem estoque entram?** Categoria inativa não é servida (a RLS a
+   esconde) e não pode entrar. Produto indisponível é decisão de produto, não técnica.
+5. **`category_redirects` e `product_redirects` NUNCA entram no sitemap** — sitemap é lista de
+   canônicas, e slug antigo é o oposto disso.
+
+**Tamanho estimado**: pequeno-médio. O código é pouco; o item 1 é a decisão que dá o trabalho.
+
+---
+
 ## BL-00Y — Quatro consultas de catálogo engolem erro
 
 - **Status**: adiado · **Registrado em**: 2026-08-09 · **Origem**: `BUG-20260809`

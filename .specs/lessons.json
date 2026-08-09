@@ -3,7 +3,7 @@
   "promote_threshold": 2,
   "window_days": 45,
   "quarantine_threshold": 2,
-  "next_id": 25,
+  "next_id": 28,
   "lessons": [
     {
       "id": "L-001",
@@ -436,6 +436,60 @@
       ],
       "created": "2026-08-09T02:46:15Z",
       "last_seen": "2026-08-09T02:46:15Z"
+    },
+    {
+      "id": "L-025",
+      "key": "spec_precision_gap::quando a camada que redireciona nao conhece a arvore de dados a ac deve dizer redireciona para a forma que resolve e declara a canonica nunca redireciona para a canonica",
+      "text": "Quando a camada que redireciona nao conhece a arvore de dados, a AC deve dizer 'redireciona para a forma que resolve e declara a canonica', nunca 'redireciona para a canonica'.",
+      "signal": "spec_precision_gap",
+      "scope": "routes",
+      "status": "candidate",
+      "features": [
+        "23-urls-e-seo"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "spec.md AC 3c — validation.md nota 1 (routes)"
+      ],
+      "created": "2026-08-09T17:58:55Z",
+      "last_seen": "2026-08-09T17:58:55Z"
+    },
+    {
+      "id": "L-026",
+      "key": "spec_deviation::todo desvio do design inclusive acrescentar export a um modulo cuja interface o design enumera leva marcador spec deviation no codigo registrar so no handoff nao e rastreavel por grep",
+      "text": "Todo desvio do design, inclusive acrescentar export a um modulo cuja interface o design enumera, leva marcador // SPEC_DEVIATION no codigo — registrar so no handoff nao e rastreavel por grep.",
+      "signal": "spec_deviation",
+      "scope": "repo",
+      "status": "candidate",
+      "features": [
+        "23-urls-e-seo"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "packages/core/src/routes/routes.ts:118 — funcao ausente da interface do design.md, sem marcador (repo)"
+      ],
+      "created": "2026-08-09T17:59:07Z",
+      "last_seen": "2026-08-09T17:59:07Z"
+    },
+    {
+      "id": "L-027",
+      "key": "spec_deviation::espelho de redirect de edge no roteador nao pode ser condicionado a dado que o edge nao tem condicionar faz dev e producao divergirem exatamente no caso de erro",
+      "text": "Espelho de redirect de edge no roteador nao pode ser condicionado a dado que o edge nao tem: condicionar faz dev e producao divergirem exatamente no caso de erro.",
+      "signal": "spec_deviation",
+      "scope": "routes",
+      "status": "candidate",
+      "features": [
+        "23-urls-e-seo"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "apps/store/src/pages/CategoryPage.tsx:52 — SPEC_DEVIATION do modo legacy (routes)"
+      ],
+      "created": "2026-08-09T17:59:07Z",
+      "last_seen": "2026-08-09T17:59:07Z"
     }
   ]
 }

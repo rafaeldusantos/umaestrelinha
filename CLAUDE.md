@@ -10,7 +10,7 @@ alguém. Isso não é tom de marketing — é restrição de produto: nada de li
 emoji comemorativo, nada de trocadilho, nada de urgência fabricada ("últimas unidades", contagem
 regressiva). Vocabulário de referência: `../landing-pages/src/content/categorias/uma-estrelinha.json`.
 
-Contexto adicional: `DESIGN.md` (identidade e paleta) e `.specs/STATE.md` (decisões `AD-001`..`AD-017`
+Contexto adicional: `DESIGN.md` (identidade e paleta) e `.specs/STATE.md` (decisões `AD-001`..`AD-018`
 e handoff).
 
 > **Este repositório foi a loja Nanita** — bottons de cultura pop —, convertido pela feature
@@ -109,9 +109,10 @@ Ao planejar/implementar features, use a Skill **`tlc-spec-driven`** com estas co
 ### O que vem a seguir
 
 - **`22-material-afetivo`** — a página "Como enviar", os campos por item e o rastreio do material
-  dentro do pedido. É o que falta para a loja representar o que o negócio de fato faz. Inclui os
-  **redirects de `/produtos/:slug`** (o prefixo da Nuvemshop é plural; a loja serve `/produto/:slug`),
-  sem os quais o slug preservado pela `21` não faz a URL indexada resolver sozinho.
+  dentro do pedido. É o que falta para a loja representar o que o negócio de fato faz. **O bloco de
+  redirects saiu daqui**: o endereçamento inteiro virou a feature `23`, já fechada.
+- **Sitemap e dados estruturados** (`BL-007`) — o passo seguinte da `23`. Ficaram fora dela de
+  propósito: só fazem sentido depois de a URL canônica de cada conteúdo estar decidida, e agora está.
 
 ## Feature-Sliced Design (dentro de cada app)
 
@@ -287,12 +288,55 @@ Cada slice tem um barrel `index.ts` (public API). **Novo código deve importar d
     reabre subindo o limite, expirado se prorroga mudando a data. A regra é
     `features/coupon-list/model/couponStatus`, e `!active` vence tudo porque é a única decisão
     explícita da dona.
-- **Conjunto de produtos é CATEGORIA — só ela** (`AD-014`). Na loja, "coleção" já é a categoria:
-  `/colecao/:slug` renderiza `CategoryPage` a partir de `categories`, o widget da home se chama
-  "Coleções" e o 404 diz "Coleção não encontrada". A tabela `collections` **nunca existiu em migration
-  nenhuma** (`PGRST205`), o hook engolia o erro e a tela mostrava grade vazia para sempre. **Não
-  recriar**: `categories` já faz tudo — vínculo N:N ordenado (`product_categories.position`),
-  hierarquia (`parent_id`) e página de verdade.
+- **A URL da loja tem UM formato, e ele é o da loja em produção** (`AD-018`, feature `23`):
+
+  | conteúdo | canônica | também resolve |
+  | --- | --- | --- |
+  | produto | `/produtos/:slug` | `/produto/:slug` — **301** |
+  | categoria raiz | `/:slug` | `/colecao/:slug` e `/categoria/:slug` — **301** |
+  | subcategoria | `/:pai/:filha` | `/:filha` sozinha — **200**, com canonical para a de dois |
+
+  - **A fonte é uma só: `@estrelinha/core/routes`** — `ROUTE_SLUGS`, `INFRA_SLUGS`, `RESERVED_SLUGS`,
+    `productPath`, `categoryPath` e `LEGACY_REDIRECTS`. Módulo puro, sem React nem Supabase, porque os
+    guardas precisam importá-lo dentro de um teste que lê arquivo do disco. Quem monta a canônica de
+    uma categoria é `categoryHref` (`@estrelinha/core/menu`), que sobe até o **pai imediato** e para
+    ali: a canônica tem no máximo **dois** segmentos, mesmo numa árvore de três níveis.
+  - **Categoria na raiz significa que o namespace de rota e o de slug de categoria são O MESMO.** Uma
+    categoria chamada "sobre" encobriria `/sobre`; uma rota `/ajuda` nova encobriria a categoria
+    `ajuda`. O React Router **ranqueia por especificidade, não pela ordem das linhas**, então quem
+    vence é sempre a rota e quem some é sempre a categoria — em silêncio, e em produção. Por isso a
+    lista de reservadas **não é zelo, é a contrapartida obrigatória da escolha**: `reservedSlugRefusal`
+    recusa no cadastro (nas **duas** superfícies, porque criar deriva o slug do nome e editar aceita
+    digitação livre) e `reservedSlugs.test.ts` impede a lista de divergir do `App.tsx`.
+  - **A barra final não é canônica**: `trailingSlash: false` no `vercel.json`. Os `<Link>`, o router, a
+    tag canônica e o destino do 301 concordam numa forma só; a URL indexada com barra paga **um** salto
+    308 antes do 301. Aceitar as duas sem canonicalizar seria conteúdo duplicado.
+  - **O 301 mora no edge, com espelho no router.** Só o edge devolve status HTTP de verdade — que é o
+    que preserva link equity e o que `curl -I` mede. O espelho existe porque `pnpm dev` e o vitest não
+    têm Vercel na frente: sem ele a rota legada só quebraria no dia do cutover. As duas pontas leem
+    `LEGACY_REDIRECTS`, e `vercelRedirects.test.ts` compara o `vercel.json` do disco com ela.
+    `statusCode: 301`, nunca `permanent: true` — este produz **308**, e os dois campos não coexistem.
+  - **O destino do 301 de categoria tem UM segmento**, não dois: o edge não conhece a árvore e não tem
+    como saber de que pai a filha pende. A forma de um segmento resolve com 200 e declara canonical
+    para a de dois, então o legado chega ao conteúdo em um salto.
+  - **Slug renomeado não perde a página**: `product_redirects` e `category_redirects`. A precedência é
+    fixa e vale nas duas pontas — **conteúdo vivo > redirect > 404** —, e a escrita **apaga** o
+    redirect cujo `from_slug` virou slug ativo (`persistRedirect`, `persistCategoryRedirect`). Sem
+    isso a mesma URL seria conteúdo e redirect ao mesmo tempo, e a resposta dependeria da ordem da
+    consulta. A leitura do redirect só sai **depois** de o slug falhar, nas duas entidades.
+  - **URL desconhecida não baixa o catálogo.** `useProducts(undefined)` devolve a loja inteira; com a
+    categoria na raiz, toda URL errada passaria por ali. `useProducts` tem `enabled`, ligado só quando
+    a rota resolve, e slug desconhecido devolve `[]`. O 404 é o `NotFound` do projeto nas duas páginas
+    de catálogo — nunca tela branca, nunca a listagem completa.
+  - **A tag canônica é injetada por JS** (`useCanonical`), e `curl` não a vê: a loja é SPA sem SSR. A
+    verificação é partida — `curl -I` prova status e `Location`; a canônica se prova em navegador
+    headless. Não é falha escondida, é o método.
+- **Conjunto de produtos é CATEGORIA — só ela** (`AD-014`). Na loja, "coleção" já é a categoria: a
+  `CategoryPage` é renderizada a partir de `categories` (hoje em `/:slug` e `/:pai/:filha` — ver o
+  bloco de URLs acima), o widget da home se chama "Coleções" e o 404 diz "Coleção não encontrada". A
+  tabela `collections` **nunca existiu em migration nenhuma** (`PGRST205`), o hook engolia o erro e a
+  tela mostrava grade vazia para sempre. **Não recriar**: `categories` já faz tudo — vínculo N:N
+  ordenado (`product_categories.position`), hierarquia (`parent_id`) e página de verdade.
 - **O menu da loja é um recorte de `categories`, não uma árvore própria.** Duas colunas mandam:
   `show_in_menu` (a vaga na barra do topo, **válida em qualquer profundidade**) e `menu_promo jsonb`
   (`{ category_id, badge?, title?, subtitle? }`, nulo = sem card). A curadoria é `/admin/menu`; a
@@ -397,6 +441,8 @@ passa em silêncio, que é a pior falha possível num teste desse tipo.
 | `brandScan.test.ts` | idem | **qualquer** ocorrência da marca anterior em `apps/`, `packages/`, `supabase/` ou nas configs da raiz |
 | `storeSettingsDefaults.test.ts` | idem | os defaults do TypeScript divergirem do que as migrations gravam |
 | `importOrder.test.ts` | idem | `App.css` importado **antes** de `@estrelinha/ui/styles.css` no `main.tsx` |
+| `reservedSlugs.test.ts` | idem | rota nova no `App.tsx` que não entrou em `ROUTE_SLUGS`; entrada de `ROUTE_SLUGS` que deixou de ser rota. **Bidirecional**: a lista recusa slug de categoria, e entrada morta recusaria nome que já está livre |
+| `vercelRedirects.test.ts` | idem | `vercel.json` divergir de `LEGACY_REDIRECTS` em `source`, `destination` ou status; `trailingSlash` deixar de ser `false`; qualquer redirect usar `permanent` (que produz 308) |
 | `buttonShape.test.ts` | `shared/ui/__tests__` | ação voltar a pílula; a chave custom de raio voltar ao config |
 | `paths.test.ts` | `shared/ui/brand/__tests__` | `paths.ts` divergir do SVG-fonte em um caractere; dois `<path>` do mesmo SVG com a mesma espessura |
 | `brandAssets.test.ts` | `app/__tests__` | ícone referenciado no `index.html` que não existe no disco; `theme-color` fora da paleta; `og:image` fora do projeto; fonte da identidade anterior no `<link>` |
@@ -413,8 +459,9 @@ literalmente, em vez de iterar a constante que deveria guardar).
 
 ## Estado conhecido / dívidas
 
-- **Baseline de lint vigente (fecho da feature 20, 2026-08-08): 30 erros / 8 warnings** — backoffice
-  28/7 · store 2/1. São erros **pré-existentes**, em boa parte `@typescript-eslint/no-explicit-any`
+- **Baseline de lint vigente (medida de novo no fecho da feature 23, 2026-08-09): 30 erros / 8
+  warnings** — backoffice 28/7 · store 2/1. Igual à do fecho da `20`: zero erro novo em três features
+  seguidas. São erros **pré-existentes**, em boa parte `@typescript-eslint/no-explicit-any`
   nos hooks admin (`entities/*/api/useAdmin*`). O gate de qualquer feature é **"sem erros novos"**,
   não "lint limpo": compare contra este número e atualize-o aqui quando ele mudar de verdade.
   - **Atenção: `pnpm lint` não olha `packages/`.** Nenhum dos pacotes tem script `lint`, e
@@ -428,11 +475,14 @@ literalmente, em vez de iterar a constante que deveria guardar).
   **Baseline de tipos: store 0 · backoffice 0 · catalog-import 0. Zero é a baseline: qualquer erro
   de tipo é novo.** O importador tem `tsconfig.json` próprio (não é solution-style):
   `npx tsc --noEmit -p tools/catalog-import/tsconfig.json`.
-- **Baseline de testes (fecho da feature 21, medida com `turbo run test --force`): 3442 testes em
-  200 arquivos** — store 1150/90 · backoffice 1055/65 · core **725/26** · functions 258/4 ·
-  catalog-import 254/15. O número de `core` é o mais importante da lista: ele é o código de dinheiro,
-  e **não deve mudar** por causa de identidade visual nem de importação de catálogo — a feature 21
-  fechou com ele intacto, assim como store, backoffice e functions.
+- **Baseline de testes (fecho da feature 23, medida com `turbo run test --force`, exit 0 capturado de
+  verdade): 3672 testes em 211 arquivos** — store 1256/98 · backoffice 1090/67 · core **799/27** ·
+  functions 258/4 · catalog-import 269/15.
+  - **`core` subiu de 725 para 799, e isso é esperado**: o crescimento veio de `routes/` (o módulo
+    novo de endereçamento) e de `menu/` (`categoryHref`). O que **não pode** mudar é o código de
+    dinheiro — `packages/core/src/payment/**` fechou a feature 23 sem uma linha alterada, conferido
+    por `git status` no gate. Continua valendo: identidade visual e importação de catálogo não têm
+    por que mexer em `core`.
   - `pnpm test` roda os quatro workspaces em paralelo e **já produziu flake de RTL sob carga** —
     falhas de timeout em suítes pesadas que passam isoladas e na segunda execução. Rode por workspace
     antes de investigar.
@@ -461,10 +511,23 @@ literalmente, em vez de iterar a constante que deveria guardar).
   e usuário admin continuam no seed. A limpeza da seção 0 leva `AND nuvemshop_id IS NULL` em todo
   `DELETE`: sem isso, executar o seed avulso **depois** do import apagaria a categoria real
   `joias-afetivas` e, por cascade, os vínculos de produto dela.
-- **O catálogo real tem um resíduo da marca anterior, e ele é da Nuvemshop, não do código**: a
-  categoria "Brinquedos" da loja tem *handle* `nanita`. Ela entra `active = false` por curadoria,
-  com o slug preservado. Por isso a lista `CURATED_INACTIVE` é chaveada por `nuvemshop_id` e não por
-  slug — chavear por slug plantaria aquela string em código novo.
+- **O catálogo real tinha um resíduo da marca anterior, e ele é da Nuvemshop, não do código**: a
+  categoria "Brinquedos" da loja usa como *handle* o nome da marca anterior. **Ela não é mais
+  importada** (feature `23`): entrou em `CURATED_EXCLUDED`, junto de "Rastreio", que não é categoria
+  de produto. O catálogo passou de **39 para 37 categorias**.
+  - **São duas listas de curadoria, com desfechos diferentes.** `CURATED_INACTIVE` (Black Friday e
+    Profissões) preserva a linha desativada, e reativar é um clique em `/admin/categorias`;
+    `CURATED_EXCLUDED` não emite a linha **e apaga** a que já existir no banco. O relatório do import
+    tem uma seção para cada — juntá-las diria "curada" para dois desfechos que exigem ações
+    diferentes de quem lê.
+  - **As duas listas são chaveadas por `nuvemshop_id`, nunca por slug**, por dois motivos
+    independentes: slug muda na origem (curadoria presa a um slug renomeado deixa de aplicar, em
+    silêncio), e um daqueles slugs **é a marca anterior** — chavear por slug plantaria aquela string
+    em código novo e derrubaria a `brandScan`. Vale para o comentário também: descrever o caso sem
+    escrever a string faz parte da regra.
+  - **Filha de categoria excluída viraria raiz em silêncio** (é como `parentOf` trata pai ausente). As
+    duas excluídas são folhas, e o teste assere isso **na fixture** em vez de assumir. O corte
+    acontece antes de qualquer derivação, então a `sort_order` das raízes continua contígua.
 
 ## Backend (supabase/)
 

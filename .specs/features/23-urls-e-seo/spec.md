@@ -88,8 +88,16 @@ alguém acrescentar a rota `/ajuda` existindo a categoria `ajuda`, **uma das dua
 3b. WHEN `/<pai>/<filha>` é acessado THEN SHALL responder a subcategoria, e SHALL ser a URL canônica
    dela; `/<filha>` sozinha SHALL responder a mesma página, apontando canonical para a de dois
    segmentos.
-3c. WHEN `/colecao/<slug>` é acessado THEN SHALL responder **301** para a forma canônica — a rota
-   atual da loja nova deixa de ser canônica, mas continua resolvendo.
+3c. WHEN `/colecao/<slug>` é acessado THEN SHALL responder **301** para `/<slug>` — a forma servida na
+   raiz. Para categoria **raiz** esse destino já é a canônica; para **filha** ele resolve com 200 e
+   declara canonical para a de dois segmentos, exatamente como a AC 3b manda. A rota atual da loja
+   nova deixa de ser canônica, mas continua resolvendo.
+
+   > **Precisão fechada na verificação (2026-08-09).** A primeira redação dizia "301 para a forma
+   > canônica", o que só é literalmente verdade para categoria raiz. O 301 mora no edge, e **o edge
+   > não conhece a árvore** — não tem como saber de que pai a filha pende. Um salto para um segmento
+   > mais o canonical na resposta é o caminho mais curto que a Vercel pode declarar sem consultar o
+   > banco, e é o que `AD-018` já decidia. A AC era menos precisa que a decisão; passou a acompanhá-la.
 4. WHEN um slug não corresponde a nada THEN SHALL responder a **404 própria**, nunca tela branca nem
    listagem completa do catálogo.
 
@@ -116,14 +124,19 @@ alguém acrescentar a rota `/ajuda` existindo a categoria `ajuda`, **uma das dua
 
 | ID | História | Fase | Status |
 | --- | --- | --- | --- |
-| URL-01 | P1 · `/produtos/:slug` canônico (AC 1) | Specify | Pending |
-| URL-02 | P1 · 301 do singular para o plural (AC 2) | Specify | Pending |
-| URL-03 | P1 · Categoria no formato indexado, demais com 301 (AC 3) | Specify | Pending |
-| URL-04 | P1 · 404 própria, nunca tela branca nem catálogo inteiro (AC 4) | Specify | Pending |
-| URL-05 | P1 · Slug reservado recusado no cadastro (AC 5) | Specify | Pending |
-| URL-06 | P1 · Guarda entre rotas e lista de reservadas (AC 6) | Specify | Pending |
-| SEO-01 | P2 · Redirect de produto por `product_redirects` (AC 7) | Specify | Pending |
-| SEO-02 | P2 · Redirect de categoria, tabela nova (AC 8) | Specify | Pending |
+| URL-01 | P1 · `/produtos/:slug` canônico (AC 1) | Execute · T1, T7, T8, T9, T15 | **Done** |
+| URL-02 | P1 · 301 do singular para o plural (AC 2) | Execute · T1, T7, T8, T11 | **Done** |
+| URL-03 | P1 · Categoria no formato indexado, demais com 301 (AC 3) | Execute · T2, T3, T6, T8, T10, T14 | **Done** |
+| URL-04 | P1 · 404 própria, nunca tela branca nem catálogo inteiro (AC 4) | Execute · T3, T5, T6, T7, T8 | **Done** |
+| URL-05 | P1 · Slug reservado recusado no cadastro (AC 5) | Execute · T1, T13 | **Done** |
+| URL-06 | P1 · Guarda entre rotas e lista de reservadas (AC 6) | Execute · T12 | **Done** |
+| SEO-01 | P2 · Redirect de produto por `product_redirects` (AC 7) | Execute · T7 (já existia — só mudou o caminho) | **Done** |
+| SEO-02 | P2 · Redirect de categoria, tabela nova (AC 8) | Execute · T16, T17, T18 | **Done** |
+
+**Fecho medido em 2026-08-09** (`turbo run test --force`, exit 0): 3.672 testes em 211 arquivos ·
+lint 30 err / 8 warn (baseline exata, zero novo) · `tsc` 0 · 0 · 0 · `packages/core/src/payment/`
+intocado. Os 301 do edge estão configurados e presos a `LEGACY_REDIRECTS` por teste de disco, mas
+**não medidos contra produção**: não há projeto Vercel da Uma Estrelinha (`C-08`).
 
 **Cobertura:** 8 requisitos. `SEO-01` e `SEO-02` vieram da `22`, onde estavam mal enquadrados;
 `SEO-03` (404 própria) virou `URL-04`, porque é do endereçamento e não do redirect.

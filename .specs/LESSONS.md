@@ -158,6 +158,24 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: spec.md P2 AC9 (IDN-09) (design-system)
 - last seen: 2026-08-09T02:46:15Z
 
+### L-025 — Quando a camada que redireciona nao conhece a arvore de dados, a AC deve dizer 'redireciona para a forma que resolve e declara a canonica', nunca 'redireciona para a canonica'.
+- signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `routes` · harmful: 0
+- features: 23-urls-e-seo
+- evidence: spec.md AC 3c — validation.md nota 1 (routes)
+- last seen: 2026-08-09T17:58:55Z
+
+### L-026 — Todo desvio do design, inclusive acrescentar export a um modulo cuja interface o design enumera, leva marcador // SPEC_DEVIATION no codigo — registrar so no handoff nao e rastreavel por grep.
+- signal: `spec_deviation` · recurrence: 1 feature(s) · scope: `repo` · harmful: 0
+- features: 23-urls-e-seo
+- evidence: packages/core/src/routes/routes.ts:118 — funcao ausente da interface do design.md, sem marcador (repo)
+- last seen: 2026-08-09T17:59:07Z
+
+### L-027 — Espelho de redirect de edge no roteador nao pode ser condicionado a dado que o edge nao tem: condicionar faz dev e producao divergirem exatamente no caso de erro.
+- signal: `spec_deviation` · recurrence: 1 feature(s) · scope: `routes` · harmful: 0
+- features: 23-urls-e-seo
+- evidence: apps/store/src/pages/CategoryPage.tsx:52 — SPEC_DEVIATION do modo legacy (routes)
+- last seen: 2026-08-09T17:59:07Z
+
 ## Quarantined (failed when applied — ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.
