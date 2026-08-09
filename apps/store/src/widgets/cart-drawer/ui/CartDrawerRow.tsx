@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { Heart, Minus, Plus, Trash2 } from 'lucide-react'
 import { formatPrice } from '@estrelinha/core/formatters'
+import { productPath } from '@estrelinha/core/routes'
 import { useCartStore, type CartItem } from '@/entities/cart/model/cartStore'
 import { useWishlistStore } from '@/entities/wishlist/model/wishlistStore'
 import { TAP_44 } from '@/shared/lib/touchTarget'
@@ -39,7 +40,7 @@ const CartDrawerRow = ({ item, onNavigate }: Props) => {
   return (
     <li className="flex gap-3 border-b border-estrelinha-line px-5 py-3.5 md:gap-3.5 md:px-6 md:py-4">
       <Link
-        to={`/produto/${product.slug}`}
+        to={productPath(product.slug)}
         onClick={onNavigate}
         tabIndex={-1}
         aria-hidden
@@ -56,7 +57,7 @@ const CartDrawerRow = ({ item, onNavigate }: Props) => {
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div className="flex items-start justify-between gap-3">
           <Link
-            to={`/produto/${product.slug}`}
+            to={productPath(product.slug)}
             onClick={onNavigate}
             className="line-clamp-2 text-sm font-semibold leading-5 text-estrelinha-ink transition-colors hover:text-estrelinha-primary"
           >

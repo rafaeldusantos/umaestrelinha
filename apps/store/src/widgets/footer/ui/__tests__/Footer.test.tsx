@@ -20,9 +20,14 @@ import Footer from '../Footer'
  * nas duas direções.
  */
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+const { categorias } = vi.hoisted(() => ({ categorias: { data: [] as any[] } }))
+
 vi.mock('@/entities/category', () => ({
-  useCategories: () => ({ data: [] }),
-  browseCategories: () => [],
+  useCategories: () => categorias,
+  // Passa a lista adiante: o recorte de `browseCategories` tem teste próprio, e o que se mede aqui
+  // é o ENDEREÇO que o rodapé escreve.
+  browseCategories: (list: any[]) => list ?? [],
 }))
 
 /** `--estrelinha-ground`, que é a superfície do rodapé. */
@@ -124,5 +129,42 @@ describe('Footer — a persona da loja anterior não sobreviveu (COP-07)', () =>
     expect(container.textContent).toMatch(
       new RegExp(`© ${new Date().getFullYear()} Uma Estrelinha`),
     )
+  })
+})
+
+/**
+ * `URL-03` — o endereço que a coluna "Categorias" escreve.
+ *
+ * A canônica de uma categoria **raiz** é a raiz do domínio (`AD-018`). Errar aqui não quebra nada:
+ * o link continua abrindo, porque a forma antiga passa a responder 301 — e o rodapé vira a
+ * superfície que manda toda a loja pagar um salto a mais.
+ */
+describe('Footer — a coluna de categorias no formato canônico', () => {
+  const cat = (id: string, slug: string, name: string, parent_id: string | null = null) =>
+    ({ id, slug, name, parent_id, sort_order: 0, active: true }) as any
+
+  it('categoria RAIZ sai com UM segmento', () => {
+    categorias.data = [cat('c-raiz', 'joias-afetivas', 'Joias afetivas')]
+    renderFooter()
+
+    expect(screen.getByRole('link', { name: 'Joias afetivas' })).toHaveAttribute(
+      'href',
+      '/joias-afetivas',
+    )
+    categorias.data = []
+  })
+
+  it('subcategoria sai com o pai na frente', () => {
+    categorias.data = [
+      cat('c-raiz', 'joias-afetivas', 'Joias afetivas'),
+      cat('c-filha', 'joia-de-leite-materno', 'Joia de leite materno', 'c-raiz'),
+    ]
+    renderFooter()
+
+    expect(screen.getByRole('link', { name: 'Joia de leite materno' })).toHaveAttribute(
+      'href',
+      '/joias-afetivas/joia-de-leite-materno',
+    )
+    categorias.data = []
   })
 })

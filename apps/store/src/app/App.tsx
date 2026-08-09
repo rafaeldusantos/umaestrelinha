@@ -32,10 +32,31 @@ const App = () => (
       <BrowserRouter>
         <AbandonedCartTracker />
         <Routes>
+          {/*
+            A tabela de rotas de `AD-018` — o formato que a loja em produção publica e que o Google
+            indexou: produto em `/produtos/:slug`, categoria **na raiz do domínio** (`/:slug`) e
+            subcategoria em `/:pai/:filha`.
+
+            **O React Router v6 ranqueia por ESPECIFICIDADE, não pela ordem destas linhas**: segmento
+            estático pontua acima de dinâmico, e dinâmico acima de splat. É por isso que `/conta`
+            vence `/:slug`, `/produtos/:slug` vence `/:parentSlug/:slug` e `path="*"` só pega o que
+            sobra — reordenar este arquivo não muda nada, e apagar `/conta` daqui faria a rota virar
+            uma categoria em silêncio.
+
+            **E é exatamente essa a armadilha que `AD-018` registra**: com categoria na raiz, o
+            namespace de rota e o de slug de categoria são o MESMO. Rota nova de um segmento entra em
+            `ROUTE_SLUGS` (`@estrelinha/core/routes`), senão uma categoria homônima some sem aviso.
+
+            As três rotas legadas navegam para o canônico (`legacy`). Em produção quem responde é o
+            301 do edge, antes da SPA carregar; aqui é o espelho para `pnpm dev` e para o vitest, que
+            não têm edge nenhum — sem ele a rota legada só quebraria no dia do cutover.
+          */}
           <Route element={<StoreLayout />}>
             <Route path="/" element={<HomePage />} />
-            <Route path="/colecao/:slug" element={<CategoryPage />} />
-            <Route path="/produto/:slug" element={<ProductPage />} />
+            <Route path="/produtos/:slug" element={<ProductPage />} />
+            <Route path="/produto/:slug" element={<ProductPage legacy />} />
+            <Route path="/colecao/:slug" element={<CategoryPage legacy />} />
+            <Route path="/categoria/:slug" element={<CategoryPage legacy />} />
             <Route path="/carrinho" element={<CartPage />} />
             <Route path="/pedido/:id" element={<OrderConfirmationPage />} />
             <Route path="/busca" element={<SearchPage />} />
@@ -44,6 +65,8 @@ const App = () => (
             <Route path="/conta" element={<AccountPage />} />
             <Route path="/favoritos" element={<WishlistPage />} />
             <Route path="/entrar" element={<AuthPage />} />
+            <Route path="/:slug" element={<CategoryPage />} />
+            <Route path="/:parentSlug/:slug" element={<CategoryPage />} />
           </Route>
 
           {/*

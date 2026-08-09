@@ -1,13 +1,16 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import type { Product } from '@estrelinha/supabase/types'
 
-// PST-07: "WHEN a loja recebe `/produto/<slug-antigo>` E existe registro em `product_redirects`
+// PST-07: "WHEN a loja recebe `/produtos/<slug-antigo>` E existe registro em `product_redirects`
 // THEN SHALL redirecionar para o slug atual do produto."
 //
 // `useProduct` devolve o produto com o slug ATUAL; a página compara com o slug da URL e navega.
 // Por isso o teste da página mede a URL final — é ela que a cliente vê e compartilha.
+//
+// A feature 23 muda o CAMINHO, não o mecanismo: o canônico passa a ser `/produtos/:slug` (`URL-01`,
+// `AD-018`) e o singular vira rota legada com espelho de 301 (`URL-02`).
 
 const { useProductMock } = vi.hoisted(() => ({ useProductMock: vi.fn() }))
 vi.mock('@/entities/product/api/useProduct', () => ({ useProduct: useProductMock }))
@@ -49,78 +52,122 @@ const UrlProbe = () => <span>url:{useLocation().pathname}</span>
 const renderAt = (path: string) =>
   render(
     <MemoryRouter initialEntries={[path]}>
+      <UrlProbe />
       <Routes>
-        <Route
-          path="/produto/:slug"
-          element={
-            <>
-              <UrlProbe />
-              <ProductPage />
-            </>
-          }
-        />
+        {/* O espelho da rota legada, igual ao que o `App.tsx` monta — em produção quem responde
+            este salto é o 301 do edge. */}
+        <Route path="/produto/:slug" element={<ProductPage legacy />} />
+        <Route path="/produtos/:slug" element={<ProductPage />} />
       </Routes>
     </MemoryRouter>,
   )
+
+const canonical = () =>
+  document.head.querySelector<HTMLLinkElement>('link[rel="canonical"]')?.getAttribute('href') ?? null
 
 beforeEach(() => {
   useProductMock.mockReset()
 })
 
-describe('ProductPage — redirect de slug antigo (PST-07)', () => {
+afterEach(() => {
+  for (const link of Array.from(document.head.querySelectorAll('link[rel="canonical"]'))) {
+    link.remove()
+  }
+})
+
+describe('ProductPage — redirect de slug antigo (PST-07, agora em /produtos)', () => {
   it('slug antigo com registro em product_redirects vai para o slug atual', () => {
+    useProductMock.mockReturnValue({ data: product('botton-sailor-moon'), isFetching: false })
+
+    renderAt('/produtos/sailor-moon-antigo')
+
+    expect(screen.getByText('url:/produtos/botton-sailor-moon')).toBeInTheDocument()
+  })
+
+  it('a URL LEGADA com slug antigo chega ao caminho novo com o slug atual', () => {
+    // Os dois saltos que a feature 23 encadeia: `/produto/<antigo>` → `/produtos/<antigo>` (espelho
+    // do 301 do edge) → `/produtos/<atual>` (`product_redirects`).
     useProductMock.mockReturnValue({ data: product('botton-sailor-moon'), isFetching: false })
 
     renderAt('/produto/sailor-moon-antigo')
 
-    expect(screen.getByText('url:/produto/botton-sailor-moon')).toBeInTheDocument()
+    expect(screen.getByText('url:/produtos/botton-sailor-moon')).toBeInTheDocument()
+    expect(screen.getByText('galeria')).toBeInTheDocument()
   })
 
   it('depois de redirecionar, a página RENDERIZA o produto — sem segundo salto', () => {
     useProductMock.mockReturnValue({ data: product('botton-sailor-moon'), isFetching: false })
 
-    renderAt('/produto/sailor-moon-antigo')
+    renderAt('/produtos/sailor-moon-antigo')
 
     // O slug da URL agora casa com o do produto, então a condição de redirect é falsa e a página
     // monta. Se houvesse loop, `galeria` nunca apareceria.
     expect(screen.getByText('galeria')).toBeInTheDocument()
-    expect(screen.getByText('url:/produto/botton-sailor-moon')).toBeInTheDocument()
+    expect(screen.getByText('url:/produtos/botton-sailor-moon')).toBeInTheDocument()
   })
 
   it('slug atual não redireciona — a URL fica onde está', () => {
     useProductMock.mockReturnValue({ data: product('botton-sailor-moon'), isFetching: false })
 
-    renderAt('/produto/botton-sailor-moon')
+    renderAt('/produtos/botton-sailor-moon')
 
-    expect(screen.getByText('url:/produto/botton-sailor-moon')).toBeInTheDocument()
+    expect(screen.getByText('url:/produtos/botton-sailor-moon')).toBeInTheDocument()
     expect(screen.getByText('galeria')).toBeInTheDocument()
   })
 
-  it('slug inexistente e sem redirect mantém o 404, na mesma URL', () => {
+  it('slug inexistente e sem redirect cai na 404 PRÓPRIA da loja, na mesma URL (URL-04)', () => {
     useProductMock.mockReturnValue({ data: null, isFetching: false })
 
-    renderAt('/produto/nao-existe')
+    renderAt('/produtos/nao-existe')
 
-    expect(screen.getByText('Produto não encontrado')).toBeInTheDocument()
-    expect(screen.getByText('url:/produto/nao-existe')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Essa página não existe.' })).toBeInTheDocument()
+    expect(screen.getByText('url:/produtos/nao-existe')).toBeInTheDocument()
+  })
+
+  it('o bloco "Produto não encontrado" deixou de existir', () => {
+    useProductMock.mockReturnValue({ data: null, isFetching: false })
+
+    renderAt('/produtos/nao-existe')
+
+    expect(screen.queryByText('Produto não encontrado')).not.toBeInTheDocument()
   })
 
   it('redirect que aponta para produto deletado cai no 404, sem loop', () => {
     // `useProduct` devolve `null` quando o alvo do redirect já não existe.
     useProductMock.mockReturnValue({ data: null, isFetching: false })
 
-    renderAt('/produto/slug-de-produto-apagado')
+    renderAt('/produtos/slug-de-produto-apagado')
 
-    expect(screen.getByText('Produto não encontrado')).toBeInTheDocument()
-    expect(screen.getByText('url:/produto/slug-de-produto-apagado')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Essa página não existe.' })).toBeInTheDocument()
+    expect(screen.getByText('url:/produtos/slug-de-produto-apagado')).toBeInTheDocument()
   })
 
   it('enquanto a consulta corre, o 404 NÃO pisca', () => {
     useProductMock.mockReturnValue({ data: undefined, isFetching: true })
 
-    renderAt('/produto/botton-sailor-moon')
+    const { container } = renderAt('/produtos/botton-sailor-moon')
 
-    expect(screen.queryByText('Produto não encontrado')).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Essa página não existe.' })).not.toBeInTheDocument()
+    expect(container.querySelector('[aria-busy="true"]')).not.toBeNull()
+  })
+})
+
+// URL-01 — uma URL canônica por conteúdo.
+describe('ProductPage — a tag canônica (URL-01)', () => {
+  it('declara `/produtos/<slug atual>` no <head>', () => {
+    useProductMock.mockReturnValue({ data: product('botton-sailor-moon'), isFetching: false })
+
+    renderAt('/produtos/botton-sailor-moon')
+
+    expect(canonical()).toBe(`${window.location.origin}/produtos/botton-sailor-moon`)
+  })
+
+  it('produto inexistente não declara canônica nenhuma', () => {
+    useProductMock.mockReturnValue({ data: null, isFetching: false })
+
+    renderAt('/produtos/nao-existe')
+
+    expect(canonical()).toBeNull()
   })
 })
 
@@ -137,7 +184,7 @@ describe('ProductPage — sem as avaliações de demonstração (PIN-07)', () =>
   })
 
   it('o que vinha antes e depois do bloco continua montado, na ordem', () => {
-    renderAt('/produto/botton-sailor-moon')
+    renderAt('/produtos/botton-sailor-moon')
 
     const page = screen.getByText('galeria').closest('div.container')!
     const marcos = ['galeria', 'info', 'Cuidados e Conservação', 'Perguntas Frequentes']
@@ -151,7 +198,7 @@ describe('ProductPage — sem as avaliações de demonstração (PIN-07)', () =>
   })
 
   it('nenhum depoimento fabricado, nota agregada ou estrela é renderizado', () => {
-    renderAt('/produto/botton-sailor-moon')
+    renderAt('/produtos/botton-sailor-moon')
 
     expect(screen.queryByRole('heading', { name: 'Avaliações' })).not.toBeInTheDocument()
     expect(screen.queryByText(/Compra verificada/)).not.toBeInTheDocument()

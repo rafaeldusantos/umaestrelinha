@@ -4,10 +4,12 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Clock, Search, X } from 'lucide-react'
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@estrelinha/ui/sheet'
 import { formatPrice } from '@estrelinha/core/formatters'
+import { productPath } from '@estrelinha/core/routes'
 import { useAllProducts } from '@/entities/product/api/useProducts'
 import { displayCategory } from '@/entities/product/lib/displayCategory'
 import { isProductOutOfStock } from '@/entities/product/lib/availability'
 import { useCategories } from '@/entities/category/api/useCategories'
+import { categoryHref } from '@estrelinha/core/menu'
 import { categoryTrailLabel } from '@/entities/category/lib/categoryTrail'
 import { MIN_QUERY_LENGTH, searchProducts } from '../lib/searchProducts'
 import { pickTrendingCategories } from '../lib/trendingCategories'
@@ -189,7 +191,7 @@ const SearchOverlay = () => {
                     return (
                       <li key={product.id}>
                         <Link
-                          to={`/produto/${product.slug}`}
+                          to={productPath(product.slug)}
                           onClick={() => remember(query)}
                           className="flex items-center gap-3 px-5 py-2.5 active:bg-estrelinha-ground-deep"
                         >
@@ -261,7 +263,7 @@ const SearchOverlay = () => {
                 {trending.map((cat, index) => (
                   <li key={cat.id}>
                     <Link
-                      to={`/colecao/${cat.slug}`}
+                      to={categoryHref(categories ?? [], cat.id)}
                       onClick={closeSearch}
                       /* Duas tonalidades alternadas dão ritmo à nuvem sem inventar uma terceira cor:
                          o board usava um lilás que não existe mais na paleta Uma Estrelinha. */

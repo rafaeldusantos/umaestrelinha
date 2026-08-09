@@ -94,7 +94,7 @@ describe('Button — tipografia e comportamento', () => {
     render(
       <MemoryRouter>
         <Button asChild variant="primary">
-          <Link to="/colecao/anime">Explorar coleções</Link>
+          <Link to="/joias-afetivas">Explorar coleções</Link>
         </Button>
       </MemoryRouter>,
     )

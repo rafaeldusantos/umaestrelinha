@@ -30,11 +30,12 @@ describe('TrendingTags — a lista vem do catálogo', () => {
     categorias.data = [cat('leite-materno', 'Leite Materno'), cat('pet', 'Pet')]
     renderTags()
 
+    // `AD-018`: as duas são raiz, então a canônica é a de um segmento.
     expect(screen.getByRole('link', { name: 'Leite Materno' })).toHaveAttribute(
       'href',
-      '/colecao/leite-materno',
+      '/leite-materno',
     )
-    expect(screen.getByRole('link', { name: 'Pet' })).toHaveAttribute('href', '/colecao/pet')
+    expect(screen.getByRole('link', { name: 'Pet' })).toHaveAttribute('href', '/pet')
   })
 
   it('pula o guarda-chuva: só folhas da árvore viram chip', () => {
@@ -47,7 +48,8 @@ describe('TrendingTags — a lista vem do catálogo', () => {
     renderTags()
 
     expect(screen.queryByRole('link', { name: 'Joias afetivas' })).toBeNull()
-    expect(screen.getByRole('link', { name: 'Pet' })).toBeInTheDocument()
+    // E a folha sai com a canônica de DOIS segmentos, com o pai que ela acabou de pular.
+    expect(screen.getByRole('link', { name: 'Pet' })).toHaveAttribute('href', '/joias-afetivas/pet')
   })
 
   it('sem categoria nenhuma a seção não renderiza título órfão', () => {

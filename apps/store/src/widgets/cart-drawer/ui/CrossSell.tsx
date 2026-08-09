@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { TAP_44 } from '@/shared/lib/touchTarget'
 import { ChevronRight, Plus } from 'lucide-react'
 import { formatPrice } from '@estrelinha/core/formatters'
+import { productPath } from '@estrelinha/core/routes'
 import type { Product } from '@estrelinha/supabase/types'
 import { useCartStore } from '@/entities/cart/model/cartStore'
 import { hasSellableGrid } from '@/entities/product/lib/variantSelection'
@@ -46,7 +47,7 @@ const CrossSell = ({ products, onNavigate }: Props) => {
               className={`${index > 0 ? 'hidden md:flex' : 'flex'} items-center gap-2.5 rounded-xl border border-estrelinha-line bg-white p-2.5`}
             >
               <Link
-                to={`/produto/${product.slug}`}
+                to={productPath(product.slug)}
                 onClick={onNavigate}
                 tabIndex={-1}
                 aria-hidden
@@ -56,7 +57,7 @@ const CrossSell = ({ products, onNavigate }: Props) => {
               </Link>
               <div className="min-w-0 flex-1">
                 <Link
-                  to={`/produto/${product.slug}`}
+                  to={productPath(product.slug)}
                   onClick={onNavigate}
                   /* Duas linhas, como no board: num card de ~190px o nome de uma joia quase sempre
                      quebra, e cortar em uma linha vira "Pingente C…" — o que não identifica nada. */
@@ -68,7 +69,7 @@ const CrossSell = ({ products, onNavigate }: Props) => {
               </div>
               {needsChoice ? (
                 <Link
-                  to={`/produto/${product.slug}`}
+                  to={productPath(product.slug)}
                   onClick={onNavigate}
                   aria-label={`Escolher variação de ${product.name}`}
                   className={`${TAP_44} flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-estrelinha-primary text-white transition-transform hover:scale-105 active:scale-95`}

@@ -408,18 +408,31 @@ describe('useProducts — filtro por categoria N:N (PST-06 AC 4)', () => {
       expect(counts()).toEqual({ categoriesSelects: 1, productSelects: 1 })
     })
 
-    it('slug inexistente não filtra nada — devolve a listagem completa, como antes', async () => {
-      const { filtroSpy } = respondForCategory({}, [dbRow()])
+    it('URL-04: slug inexistente devolve VAZIO — nunca a listagem completa do catálogo', async () => {
+      /*
+       * Este teste media o comportamento ANTERIOR ("devolve a listagem completa, como antes"), que
+       * fazia sentido enquanto categoria vivia em `/colecao/:slug`. Com a categoria na raiz do
+       * domínio (`AD-018`), toda URL errada da loja passa por aqui — e `URL-04` diz, com todas as
+       * letras, "nunca tela branca nem listagem completa do catálogo".
+       */
+      const catalogoCompletoSpy = vi.fn()
       fromMock.mockImplementation((table: string) => {
         if (table === 'categories') return { select: () => Promise.resolve({ data: TREE, error: null }) }
-        return { select: () => Promise.resolve({ data: [dbRow()], error: null }) }
+        return {
+          select: () => {
+            catalogoCompletoSpy()
+            return Promise.resolve({ data: [dbRow()], error: null })
+          },
+        }
       })
 
       const { result } = renderHook(() => useProducts('fantasma'), { wrapper })
       await waitFor(() => expect(result.current.isSuccess).toBe(true))
 
-      expect(filtroSpy).not.toHaveBeenCalled()
-      expect(result.current.data).toHaveLength(1)
+      expect(result.current.data).toEqual([])
+      // A prova de que os 689 produtos não foram baixados é a consulta NÃO ter acontecido — o
+      // resultado vazio sozinho não distinguiria "não buscou" de "buscou e filtrou".
+      expect(catalogoCompletoSpy).not.toHaveBeenCalled()
     })
 
     it('BUG-20260809: falha da consulta SOBE, em vez de virar lista vazia', async () => {
@@ -457,6 +470,49 @@ describe('useProducts — filtro por categoria N:N (PST-06 AC 4)', () => {
       await waitFor(() => expect(result.current.isError).toBe(true))
 
       expect((result.current.error as Error).message).toContain('sem conexao')
+    })
+
+    // URL-04 — o interruptor que impede a consulta de sair antes de a rota resolver.
+    describe('enabled', () => {
+      it('`enabled: false` não dispara consulta nenhuma', async () => {
+        respondForCategory({ 'cat-anime': ['prod-1'] }, [dbRow()])
+
+        const { result } = renderHook(() => useProducts('anime', { enabled: false }), { wrapper })
+
+        expect(fromMock).not.toHaveBeenCalled()
+        expect(result.current.fetchStatus).toBe('idle')
+        expect(result.current.data).toBeUndefined()
+      })
+
+      it('`enabled: true` dispara normalmente', async () => {
+        respondForCategory({ 'cat-anime': ['prod-1'] }, [dbRow()])
+
+        const { result } = renderHook(() => useProducts('anime', { enabled: true }), { wrapper })
+        await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+        expect(result.current.data).toHaveLength(1)
+      })
+
+      it('sem `options` o padrão continua sendo ligado — as telas antigas não mudam', async () => {
+        respondForCategory({ 'cat-anime': ['prod-1'] }, [dbRow()])
+
+        const { result } = renderHook(() => useProducts('anime'), { wrapper })
+        await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+        expect(result.current.data).toHaveLength(1)
+      })
+    })
+
+    it('SEM slug o catálogo inteiro continua vindo — outras telas dependem disso', async () => {
+      // Regressão: o corte de `URL-04` é do ramo "slug informado que não casa". A chamada sem slug
+      // é a da home e da busca, e ela não muda.
+      respondWith([dbRow(), dbRow({ id: 'prod-2' })])
+
+      const { result } = renderHook(() => useProducts(), { wrapper })
+      await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+      expect(result.current.data).toHaveLength(2)
+      expect(fromMock).toHaveBeenCalledWith('products')
     })
 
     it('árvore com ciclo termina em vez de travar a página', async () => {

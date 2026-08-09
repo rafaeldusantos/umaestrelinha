@@ -1,9 +1,13 @@
 import { useState } from 'react'
 import { TAP_ROW } from '@/shared/lib/touchTarget'
-import { useParams, Link, Navigate } from 'react-router-dom'
+import { useParams, Link, Navigate, useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { ChevronRight, Heart } from 'lucide-react'
 import type { Category, Product } from '@estrelinha/supabase/types'
+import { legacyRedirectTo, productPath } from '@estrelinha/core/routes'
+import { categoryHref } from '@estrelinha/core/menu'
+import { useCanonical } from '@/shared/lib/useCanonical'
+import NotFound from '@/pages/NotFound'
 import { useProduct } from '@/entities/product/api/useProduct'
 import { useProducts } from '@/entities/product/api/useProducts'
 import { useCategories } from '@/entities/category/api/useCategories'
@@ -27,8 +31,18 @@ import { ProductBuyBar } from '@/widgets/product-buy-bar'
  * O estado de compra é montado aqui, uma vez, e desce para as duas superfícies (`ProductInfo` e
  * `ProductBuyBar`): duas cópias dariam duas quantidades e dois preços na mesma tela.
  */
-const ProductPage = () => {
+interface ProductPageProps {
+  /**
+   * Rota legada `/produto/:slug` (singular): navega para o destino de `LEGACY_REDIRECTS` em vez de
+   * renderizar. Espelho do 301 do edge para `pnpm dev` e para o vitest — o singular **nunca foi
+   * canônico**, nem na loja em produção, que já respondia 301 para o plural.
+   */
+  legacy?: boolean
+}
+
+const ProductPage = ({ legacy = false }: ProductPageProps) => {
   const { slug } = useParams<{ slug: string }>()
+  const { pathname } = useLocation()
   const { data: product, isFetching } = useProduct(slug || '')
   // PMD-06 AC 3: o seletor vive no `ProductInfo` e a galeria é irmã dele — o estado da linha
   // escolhida precisa estar no pai comum para a imagem em destaque acompanhar a escolha.
@@ -40,24 +54,27 @@ const ProductPage = () => {
   const category = product ? displayCategory(product, categories) : null
   const { data: categoryProducts } = useProducts(category?.slug)
 
+  // `URL-01`: a canônica do produto é `/produtos/<slug>` — o formato que a loja em produção publica
+  // e que o Google indexou. Sai do `<head>` quando a página desmonta.
+  useCanonical(product ? productPath(product.slug) : null)
+
+  if (legacy) return <Navigate to={legacyRedirectTo(pathname) ?? '/'} replace />
+
   // PST-07: a URL antiga chega aqui, `useProduct` resolve por `product_redirects`, e o slug que
   // volta é o ATUAL. Trocar a URL preserva o link que a cliente salvou e evita que a página fique
   // sob um endereço que já não é o do produto. `replace` para o botão "voltar" não reentrar na
   // URL morta. Sem redirect os dois slugs coincidem — nunca há um segundo salto.
   if (product && slug && product.slug !== slug) {
-    return <Navigate to={`/produto/${product.slug}`} replace />
+    return <Navigate to={productPath(product.slug)} replace />
   }
 
   if (!product) {
     // Enquanto a consulta corre, `data` é `undefined`: mostrar "não encontrado" aqui piscaria o 404
     // em toda abertura de página, inclusive na do produto que existe.
     if (isFetching) return <div className="container py-20" aria-busy="true" />
-    return (
-      <div className="container py-20 text-center">
-        <h1 className="font-heading text-2xl font-bold text-estrelinha-ink">Produto não encontrado</h1>
-        <Link to="/" className="text-estrelinha-primary hover:underline mt-4 inline-block">Voltar ao início</Link>
-      </div>
-    )
+    // `URL-04`: a 404 é a **própria** da loja. Dois blocos avulsos com textos diferentes para a
+    // mesma situação era a divergência que esta feature existe para fechar.
+    return <NotFound />
   }
 
   return (
@@ -65,6 +82,7 @@ const ProductPage = () => {
       key={product.id}
       product={product}
       category={category}
+      categories={categories ?? []}
       related={(categoryProducts ?? []).filter(p => p.id !== product.id).slice(0, 4)}
       variantImage={variantImage}
       onVariantImage={setVariantImage}
@@ -75,6 +93,8 @@ const ProductPage = () => {
 interface BodyProps {
   product: Product
   category: Category | null
+  /** A árvore: a canônica da categoria depende do pai, que só sai dela (`AD-018`). */
+  categories: readonly Category[]
   related: Product[]
   variantImage: string | null
   onVariantImage: (url: string | null) => void
@@ -90,6 +110,7 @@ interface BodyProps {
 const ProductPageBody = ({
   product,
   category,
+  categories,
   related,
   variantImage,
   onVariantImage,
@@ -123,7 +144,7 @@ const ProductPageBody = ({
         <ChevronRight className="h-3 w-3 shrink-0" aria-hidden />
         {category && (
           <>
-            <Link to={`/colecao/${category.slug}`} className={`${TAP_ROW} transition-colors hover:text-estrelinha-ink`}>
+            <Link to={categoryHref(categories, category.id)} className={`${TAP_ROW} transition-colors hover:text-estrelinha-ink`}>
               {category.name}
             </Link>
             <ChevronRight className="h-3 w-3 shrink-0" aria-hidden />
@@ -178,7 +199,7 @@ const ProductPageBody = ({
         <ProductDetailsAccordion product={product} />
       </div>
 
-      <RelatedProducts products={related} categorySlug={category?.slug} />
+      <RelatedProducts products={related} category={category} categories={categories} />
 
       {/* A folga do rodapé fixo é do `StoreLayout`, depois do `Footer` — que é o fim real do
           documento. Um espaçador aqui reservaria espaço antes do rodapé, não depois dele. */}

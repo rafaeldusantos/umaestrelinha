@@ -5,6 +5,7 @@ import { Heart, Plus } from 'lucide-react'
 import type { Product } from '@estrelinha/supabase/types'
 import { useCategories } from '@/entities/category/api/useCategories'
 import { formatPrice } from '@estrelinha/core/formatters'
+import { productPath } from '@estrelinha/core/routes'
 import { TAP_44 } from '@/shared/lib/touchTarget'
 import { variantLabel } from '@estrelinha/core/pricing'
 import { useCartStore } from '@/entities/cart/model/cartStore'
@@ -114,7 +115,7 @@ const ProductCard = ({ product }: { product: Product }) => {
     if (isOutOfStock) return
 
     if (goToPage) {
-      navigate(`/produto/${product.slug}`)
+      navigate(productPath(product.slug))
       return
     }
 
@@ -159,7 +160,7 @@ const ProductCard = ({ product }: { product: Product }) => {
       transition={{ duration: 0.3 }}
       className="group cursor-pointer"
     >
-      <Link to={`/produto/${product.slug}`} className="block">
+      <Link to={productPath(product.slug)} className="block">
         {/* Palco do produto: quadrado em pó de açúcar. A foto é a única cor. */}
         <div className="relative aspect-square overflow-hidden rounded-xl bg-estrelinha-ground-deep">
           {!imgLoaded && <Skeleton className="absolute inset-0 h-full w-full rounded-none" />}

@@ -17,7 +17,8 @@ const child = (id: string, name: string) => ({ id, name, slug: id }) as MenuEntr
 
 const entry = (over: Partial<MenuEntry> & { id: string; name: string }): MenuEntry => ({
   slug: over.id,
-  href: `/colecao/${over.id}`,
+  // `AD-018`: o href da entrada é a canônica que `menuEntries` monta — raiz, um segmento.
+  href: `/${over.id}`,
   path: `Bottons › ${over.name}`,
   children: [],
   promo: null,
@@ -70,14 +71,17 @@ describe('MENU-11 — hover abre o painel', () => {
     expect(painel).toHaveTextContent('Villains')
     expect(screen.getByRole('link', { name: 'Ver todos →' })).toHaveAttribute(
       'href',
-      '/colecao/anime',
+      '/anime',
     )
   })
 
-  it('as subcategorias levam à própria página de coleção', () => {
+  it('as subcategorias levam à própria página de coleção, com o pai na frente (AD-018)', () => {
+    // A canônica de uma subcategoria tem DOIS segmentos, e o pai é a própria entrada do painel.
+    // Com um segmento só o link resolveria, mas apontaria para a forma secundária.
     renderMenu()
     hover('Anime')
-    expect(screen.getByRole('link', { name: 'Naruto' })).toHaveAttribute('href', '/colecao/naruto')
+    expect(screen.getByRole('link', { name: 'Naruto' })).toHaveAttribute('href', '/anime/naruto')
+    expect(screen.getByRole('link', { name: 'Villains' })).toHaveAttribute('href', '/anime/villains')
   })
 
   it('não abre no primeiro pixel: a espera de intenção evita quatro painéis ao atravessar a barra', () => {
@@ -170,14 +174,14 @@ describe('MENU-14 — entrada sem painel é link direto', () => {
     renderMenu()
     const trigger = screen.getByRole('link', { name: 'K-Pop' })
     expect(trigger).not.toHaveAttribute('aria-expanded')
-    expect(trigger).toHaveAttribute('href', '/colecao/kpop')
+    expect(trigger).toHaveAttribute('href', '/kpop')
   })
 
   it('só com promo (sem filhas) o painel ABRE — o card é conteúdo suficiente', () => {
     const soPromo = entry({
       id: 'games',
       name: 'Games',
-      promo: { badge: null, title: 'Drop', subtitle: null, href: '/colecao/x', productCount: null },
+      promo: { badge: null, title: 'Drop', subtitle: null, href: '/x', productCount: null },
     })
     renderMenu([soPromo])
     hover('Games')
@@ -213,7 +217,7 @@ describe('MENU-27 / MENU-28 — o card promocional', () => {
       badge: 'NOVIDADE',
       title: 'Coleção Anime Villains',
       subtitle: '12 pins exclusivos dos melhores vilões.',
-      href: '/colecao/villains',
+      href: '/anime/villains',
       productCount: 12,
     },
   })
@@ -222,7 +226,7 @@ describe('MENU-27 / MENU-28 — o card promocional', () => {
     renderMenu([comPromo])
     hover('Anime')
     const card = screen.getByRole('link', { name: /Coleção Anime Villains/ })
-    expect(card).toHaveAttribute('href', '/colecao/villains')
+    expect(card).toHaveAttribute('href', '/anime/villains')
     expect(card).toHaveTextContent('NOVIDADE')
     expect(card).toHaveTextContent('12 pins exclusivos')
   })

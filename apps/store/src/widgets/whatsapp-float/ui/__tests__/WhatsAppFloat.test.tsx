@@ -17,9 +17,9 @@ vi.mock('@estrelinha/core/hooks/useStoreSettings', () => ({
   useGeneralSettings: () => settings,
 }))
 
-function renderFloat() {
+function renderFloat(path = '/') {
   return render(
-    <MemoryRouter initialEntries={['/']}>
+    <MemoryRouter initialEntries={[path]}>
       <WhatsAppFloat />
     </MemoryRouter>,
   )
@@ -81,5 +81,26 @@ describe('WhatsAppFloat — o nome da loja (COP-08)', () => {
     fireEvent.click(screen.getByLabelText('Abrir conversa no WhatsApp'))
 
     expect(screen.queryByText(/botton|pin/i)).not.toBeInTheDocument()
+  })
+})
+
+/**
+ * `URL-01` — o caminho do produto virou `/produtos/:slug` (`AD-018`).
+ *
+ * O FAB é `bottom-20` com 56px de lado: na página do produto ele nasceria exatamente sobre o botão
+ * de favoritos da barra de compra. A regra de esconder existia com o prefixo antigo, e um prefixo
+ * esquecido a desligaria em silêncio — o widget voltaria a aparecer, sobreposto.
+ */
+describe('WhatsAppFloat — some na página do produto, pelo caminho novo', () => {
+  it('não renderiza em `/produtos/:slug`', () => {
+    const { container } = renderFloat('/produtos/joia-de-leite-materno')
+
+    expect(container).toBeEmptyDOMElement()
+  })
+
+  it('continua renderizando numa categoria de dois segmentos', () => {
+    renderFloat('/joias-afetivas/joia-de-leite-materno')
+
+    expect(screen.getByLabelText('Abrir conversa no WhatsApp')).toBeInTheDocument()
   })
 })

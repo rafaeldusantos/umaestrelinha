@@ -1,19 +1,27 @@
 import { Link } from 'react-router-dom'
 import { TAP_ROW } from '@/shared/lib/touchTarget'
+import { categoryHref, type MenuCategory } from '@estrelinha/core/menu'
 import ProductCard from '@/entities/product/ui/ProductCard'
-import type { Product } from '@estrelinha/supabase/types'
+import type { Category, Product } from '@estrelinha/supabase/types'
 
 interface Props {
   products: Product[]
   /** Coleção para onde o "Ver todos" leva. Sem ela o link não aparece — não se cria link morto. */
-  categorySlug?: string
+  category?: Category | null
+  /**
+   * A árvore, e **não só o slug**: a canônica de uma subcategoria tem dois segmentos
+   * (`/<pai>/<filha>`, `AD-018`), e o pai só sai da árvore. Com o slug sozinho o link levaria à
+   * forma de um segmento — que resolve, mas não é a canônica, e o "Ver todos" da página do produto
+   * viraria a única superfície da loja apontando para a forma secundária.
+   */
+  categories?: readonly MenuCategory[]
 }
 
 /**
  * "Você também vai curtir" — boards de Produto: 4 colunas no desktop, 2 no mobile, com o link da
  * coleção à direita do título.
  */
-const RelatedProducts = ({ products, categorySlug }: Props) => {
+const RelatedProducts = ({ products, category, categories }: Props) => {
   if (products.length === 0) return null
 
   return (
@@ -22,9 +30,9 @@ const RelatedProducts = ({ products, categorySlug }: Props) => {
         <h2 className="font-display text-[24px] font-semibold leading-[30px] tracking-[-0.02em] text-estrelinha-ink md:text-[30px]">
           Você também vai curtir
         </h2>
-        {categorySlug && (
+        {category && (
           <Link
-            to={`/colecao/${categorySlug}`}
+            to={categoryHref(categories ?? [], category.id)}
             /* `-my-2 py-2` dá 37px de alvo sem mexer no baseline que alinha o link ao título. */
             className={`${TAP_ROW} shrink-0 text-[14px] font-semibold text-estrelinha-primary hover:underline`}
           >

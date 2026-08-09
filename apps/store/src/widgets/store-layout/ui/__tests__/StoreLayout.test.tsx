@@ -25,8 +25,8 @@ const renderAt = (path: string) =>
       <Routes>
         <Route element={<StoreLayout />}>
           <Route path="/" element={<div>home</div>} />
-          <Route path="/colecao/:slug" element={<div>colecao</div>} />
-          <Route path="/produto/:slug" element={<div>produto</div>} />
+          <Route path="/:slug" element={<div>colecao</div>} />
+          <Route path="/produtos/:slug" element={<div>produto</div>} />
         </Route>
       </Routes>
     </MemoryRouter>,
@@ -34,7 +34,7 @@ const renderAt = (path: string) =>
 
 describe('StoreLayout — uma barra de rodapé por vez', () => {
   it('na página do produto o MobileNav sai de cena — a barra de compra ocupa o lugar', () => {
-    renderAt('/produto/botton-gojo-satoru')
+    renderAt('/produtos/joia-de-leite-materno')
 
     expect(screen.queryByTestId('mobile-nav')).not.toBeInTheDocument()
     expect(screen.getByText('produto')).toBeInTheDocument()
@@ -46,7 +46,7 @@ describe('StoreLayout — uma barra de rodapé por vez', () => {
   })
 
   it('a listagem de coleção mantém as abas', () => {
-    renderAt('/colecao/anime')
+    renderAt('/joias-afetivas')
     expect(screen.getByTestId('mobile-nav')).toBeInTheDocument()
   })
 })
@@ -79,7 +79,7 @@ describe('StoreLayout — a folga da barra fixa fica no fim do documento', () =>
 
   it('a reserva existe também na página do produto, onde a barra é a de compra', () => {
     // A altura é a mesma nas duas barras, e é isso que deixa a reserva ser incondicional.
-    renderAt('/produto/botton-gojo-satoru')
+    renderAt('/produtos/joia-de-leite-materno')
 
     expect(screen.getByTestId('bottom-bar-reserve')).toBeInTheDocument()
   })

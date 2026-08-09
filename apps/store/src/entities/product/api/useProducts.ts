@@ -23,7 +23,15 @@ const fail = (operacao: string, error: { message?: string }): never => {
   throw new ProductQueryError(`${operacao}: ${error.message ?? 'erro desconhecido'}`)
 }
 
-export const useProducts = (categorySlug?: string) =>
+/**
+ * Os produtos de uma categoria — ou o catálogo inteiro quando não há slug.
+ *
+ * `enabled` entra com `URL-04`: com a categoria servida na **raiz do domínio** (`AD-018`), toda URL
+ * errada passa por esta página, e sem o interruptor a loja baixaria 689 produtos antes de mostrar a
+ * 404. Quem liga é a `CategoryPage`, e só quando a resolução da rota é `ok`. Mesmo padrão de
+ * `useAllProducts`, logo abaixo.
+ */
+export const useProducts = (categorySlug?: string, options?: { enabled?: boolean }) =>
   useQuery({
     queryKey: ['products', categorySlug],
     queryFn: async (): Promise<Product[]> => {
@@ -42,14 +50,19 @@ export const useProducts = (categorySlug?: string) =>
 
       const rows = (tree ?? []) as { id: string; parent_id: string | null; slug: string }[]
       const self = rows.find(c => c.slug === categorySlug)
-      // Slug que não casa com categoria nenhuma segue sem filtrar, como sempre foi — quem responde
-      // pelo "não encontrada" é a página, por `useCategoryBySlug`. Preservado de propósito: mudar
-      // isto aqui seria alterar comportamento que este conserto não precisa tocar.
-      if (!self) {
-        const { data, error } = await supabase.from('products').select(PRODUCT_SELECT)
-        if (error) fail('carregar produtos', error)
-        return (data ?? []).map(mapDbToProduct)
-      }
+      /*
+       * **Slug informado que não casa com categoria nenhuma devolve VAZIO — e essa é a virada de
+       * `URL-04`.**
+       *
+       * Até a feature 23 este ramo seguia sem filtrar e devolvia o catálogo completo. Fazia sentido
+       * enquanto categoria morava em `/colecao/:slug`: quem chegava ali tinha digitado um endereço
+       * de coleção, e quem respondia pelo "não encontrada" era a página, por `useCategoryBySlug`.
+       *
+       * Com a categoria na raiz do domínio, **qualquer** URL errada da loja cai nesta consulta —
+       * e devolver o catálogo inteiro é literalmente o que `URL-04` proíbe ("nunca tela branca nem
+       * listagem completa do catálogo"), além de baixar 689 produtos para mostrar uma 404.
+       */
+      if (!self) return []
 
       /*
        * **Roll-up da descendência.** `/colecao/joias-afetivas` tem de mostrar os produtos das
@@ -80,6 +93,7 @@ export const useProducts = (categorySlug?: string) =>
 
       return (data ?? []).map(mapDbToProduct)
     },
+    enabled: options?.enabled ?? true,
   })
 
 /**

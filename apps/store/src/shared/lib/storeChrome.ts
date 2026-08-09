@@ -1,3 +1,5 @@
+import { productPath } from '@estrelinha/core/routes'
+
 // Quem manda no rodapé fixo da loja no celular.
 //
 // A loja tem DUAS barras candidatas ao rodapé: o `MobileNav` (as quatro abas) e a barra de compra da
@@ -19,6 +21,17 @@ export const BOTTOM_BAR_H = '4rem'
 export const BOTTOM_BAR_RESERVE = `calc(${BOTTOM_BAR_H} + env(safe-area-inset-bottom))`
 
 /**
+ * O prefixo da página de produto, derivado do **mesmo construtor** que monta os links
+ * (`@estrelinha/core/routes`).
+ *
+ * Escrever `'/produtos/'` à mão aqui seria a segunda cópia do formato da URL: a feature 23 mudou o
+ * caminho de `/produto/` para `/produtos/` (`AD-018`), e uma cópia esquecida faria o `MobileNav` e a
+ * barra de compra aparecerem **juntos** — o empilhamento de 197px que esta regra existe para
+ * impedir.
+ */
+const PRODUCT_PREFIX = productPath('')
+
+/**
  * Esta rota traz a **própria** barra de rodapé, e portanto dispensa o `MobileNav`?
  *
  * Predicado puro, e não um `useLocation` escondido dentro do `MobileNav` (como faz o
@@ -28,4 +41,4 @@ export const BOTTOM_BAR_RESERVE = `calc(${BOTTOM_BAR_H} + env(safe-area-inset-bo
  *
  * `/checkout` não entra na lista porque nem chega aqui: mora fora do `StoreLayout`.
  */
-export const ownsBottomBar = (pathname: string): boolean => pathname.startsWith('/produto/')
+export const ownsBottomBar = (pathname: string): boolean => pathname.startsWith(PRODUCT_PREFIX)

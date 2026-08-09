@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { formatPrice } from '@estrelinha/core/formatters'
+import { categoryPath, productPath } from '@estrelinha/core/routes'
 import type { MenuEntry } from '@estrelinha/core/menu'
 import { useProducts } from '@/entities/product'
 import { EstrelinhaSymbol } from '@/shared/ui/brand'
@@ -50,7 +51,7 @@ const TrendingLane = ({ slug }: { slug: string }) => {
         {featured.map((product) => (
           <Link
             key={product.id}
-            to={`/produto/${product.slug}`}
+            to={productPath(product.slug)}
             className="flex w-40 shrink-0 flex-col gap-2.5"
           >
             <div className="flex h-40 w-40 items-center justify-center overflow-hidden rounded-md bg-estrelinha-ground-deep">
@@ -202,7 +203,7 @@ const MegaMenu = ({ entries }: { entries: MenuEntry[] }) => {
                 {open.children.map((child) => (
                   <Link
                     key={child.id}
-                    to={`/colecao/${child.slug}`}
+                    to={categoryPath(child.slug, open.slug)}
                     onClick={() => close(false)}
                     className="text-sm font-medium text-estrelinha-ink transition-colors hover:text-estrelinha-primary"
                   >

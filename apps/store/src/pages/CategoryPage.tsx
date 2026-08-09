@@ -1,9 +1,14 @@
 import { useMemo, useState } from 'react'
 import { TAP_44, TAP_ROW } from '@/shared/lib/touchTarget'
-import { Link, useParams } from 'react-router-dom'
+import { Link, Navigate, useLocation, useParams } from 'react-router-dom'
 import { ArrowUpDown, LayoutGrid, Rows2, SlidersHorizontal } from 'lucide-react'
+import { legacyRedirectTo } from '@estrelinha/core/routes'
 import { useProducts } from '@/entities/product/api/useProducts'
-import { useCategoryBySlug } from '@/entities/category/api/useCategories'
+import { useCategories } from '@/entities/category/api/useCategories'
+import { useCategoryRedirect } from '@/entities/category/api/useCategoryRedirect'
+import { resolveCategoryRoute } from '@/entities/category/lib/resolveCategoryRoute'
+import { useCanonical } from '@/shared/lib/useCanonical'
+import NotFound from '@/pages/NotFound'
 import ProductCard from '@/entities/product/ui/ProductCard'
 import {
   CategoryFiltersPanel,
@@ -36,10 +41,74 @@ import {
  * permanente de 260px; no mobile viram um bottom sheet e uma faixa rolável de universos. O grid é
  * o mesmo `ProductCard` da home — é lá, e não aqui, que mora o quick add de variações.
  */
-const CategoryPage = () => {
-  const { slug } = useParams<{ slug: string }>()
-  const { data: category } = useCategoryBySlug(slug || '')
-  const { data: allProducts, isError: falhouAoCarregar } = useProducts(slug)
+interface Props {
+  /**
+   * Rota legada (`/colecao/:slug`, `/categoria/:slug`): navega para o destino de
+   * `LEGACY_REDIRECTS` em vez de renderizar.
+   *
+   * É o **espelho do edge** para `pnpm dev` e para o vitest, que não têm Vercel nenhuma na frente —
+   * sem ele a rota legada só quebraria no dia do cutover.
+   *
+   * SPEC_DEVIATION: o `design.md` condiciona a navegação a "quando a resolução é `ok`".
+   * Reason: o edge redireciona **sem conhecer a árvore** — `/colecao/qualquer-coisa` vira
+   * `/qualquer-coisa` mesmo quando não é categoria. Condicionar aqui faria dev e produção
+   * divergirem justamente no caso errado (a 404 apareceria sob a URL legada em dev e sob a nova em
+   * produção) e obrigaria a esperar a consulta de categorias antes de um salto que não depende
+   * dela. Quem decide 200 ou 404 é a página de destino.
+   */
+  legacy?: boolean
+}
+
+const CategoryPage = ({ legacy = false }: Props) => {
+  const { slug, parentSlug } = useParams<{ slug: string; parentSlug: string }>()
+  const { pathname } = useLocation()
+  // A árvore inteira, e não `useCategoryBySlug`: o header já a carrega em toda rota, e é dela que o
+  // resolver tira o pai para montar a canônica. Uma consulta por slug seria uma segunda ida ao banco
+  // para responder o que o cache já tem.
+  const { data: categories, isFetching: carregandoCategorias } = useCategories()
+
+  // Primeira passada, só com a árvore. É ela que decide se vale perguntar por redirect: enquanto o
+  // slug for categoria viva, `category_redirects` não é consultada (`SEO-02`).
+  const semRedirect = useMemo(
+    () =>
+      resolveCategoryRoute({
+        slug: slug ?? '',
+        parentSlug,
+        categories: categories ?? [],
+      }),
+    [slug, parentSlug, categories],
+  )
+
+  // `!carregandoCategorias` importa: com a árvore ainda vindo, a primeira passada responde
+  // `notfound` para TUDO — perguntar aí dispararia a leitura em toda abertura de categoria, que é
+  // exatamente o que o `enabled` existe para evitar.
+  const { data: redirectTo, isFetching: carregandoRedirect } = useCategoryRedirect(slug ?? '', {
+    enabled: !carregandoCategorias && semRedirect.kind === 'notfound',
+  })
+
+  // Segunda passada, agora com o destino do redirect. Quem decide se ele vira navegação ou 404 é o
+  // resolver — destino apagado ou escondido pela RLS cai em `notfound`, nunca em salto para lugar
+  // nenhum. Depois de navegar, o slug casa com categoria viva e não há laço.
+  const route = useMemo(
+    () =>
+      redirectTo
+        ? resolveCategoryRoute({
+            slug: slug ?? '',
+            parentSlug,
+            categories: categories ?? [],
+            redirectTo,
+          })
+        : semRedirect,
+    [slug, parentSlug, categories, redirectTo, semRedirect],
+  )
+  const category = route.kind === 'ok' ? route.category : null
+
+  // `URL-04`: com a categoria na raiz do domínio, toda URL errada da loja passa por aqui. Sem o
+  // interruptor, mostrar a 404 custaria o download do catálogo inteiro.
+  const { data: allProducts, isError: falhouAoCarregar } = useProducts(category?.slug, {
+    enabled: route.kind === 'ok',
+  })
+  useCanonical(route.kind === 'ok' ? route.canonical : null)
 
   const products = useMemo(() => allProducts ?? [], [allProducts])
   const bounds = useMemo(() => priceBounds(products), [products])
@@ -64,15 +133,20 @@ const CategoryPage = () => {
   )
   const chips = activeFilterChips(filters)
 
+  if (legacy) return <Navigate to={legacyRedirectTo(pathname) ?? '/'} replace />
+
+  // Pai errado na URL: a barra se corrige sozinha e o conteúdo continua com um endereço só.
+  if (route.kind === 'redirect') return <Navigate to={route.to} replace />
+
   if (!category) {
-    return (
-      <div className="container py-20 text-center">
-        <h1 className="font-heading text-2xl font-bold text-estrelinha-ink">Coleção não encontrada</h1>
-        <Link to="/" className="mt-4 inline-block text-estrelinha-primary hover:underline">
-          Voltar ao início
-        </Link>
-      </div>
-    )
+    // A guarda de carregamento vem ANTES do 404 — mesmo tratamento de `ProductPage`. Enquanto a
+    // consulta corre, `categories` é `undefined` e o resolver responde `notfound`: sem esta linha a
+    // 404 piscaria em TODA abertura de categoria, porque agora elas moram na raiz do domínio.
+    // A do redirect entra pelo mesmo motivo: o slug antigo ainda pode virar navegação.
+    if (carregandoCategorias || carregandoRedirect) {
+      return <div className="container py-20" aria-busy="true" />
+    }
+    return <NotFound />
   }
 
   const countLabel = `${visible.length} ${visible.length === 1 ? 'produto' : 'produtos'}`

@@ -6,6 +6,7 @@ import { Sheet, SheetContent, SheetTitle, SheetDescription } from '@estrelinha/u
 import { EstrelinhaSignature, EstrelinhaSymbol } from '@/shared/ui/brand'
 import { useAuthContext } from '@estrelinha/auth'
 import type { MenuEntry } from '@estrelinha/core/menu'
+import { categoryPath } from '@estrelinha/core/routes'
 import { useMenu, useMenuUiStore } from '@/entities/category'
 import { useSearchUiStore } from '@/features/search'
 import { useAuthUiStore } from '@/features/auth'
@@ -227,7 +228,7 @@ const MobileMenuEntry = ({
           {entry.children.map((child) => (
             <Link
               key={child.id}
-              to={`/colecao/${child.slug}`}
+              to={categoryPath(child.slug, entry.slug)}
               onClick={onNavigate}
               className="min-h-11 py-1.5 text-sm font-medium leading-7 text-estrelinha-ink"
             >

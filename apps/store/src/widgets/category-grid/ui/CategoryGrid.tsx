@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { browseCategories, useCategories } from '@/entities/category'
+import { categoryHref } from '@estrelinha/core/menu'
 import { useProducts } from '@/entities/product/api/useProducts'
 import SectionHeading from '@/shared/ui/SectionHeading'
 
@@ -73,7 +74,7 @@ const CategoryGrid = () => {
               transition={{ delay: i * 0.05 }}
             >
               <Link
-                to={`/colecao/${cat.slug}`}
+                to={categoryHref(categories ?? [], cat.id)}
                 className={`relative flex h-[120px] flex-col justify-end gap-0.5 overflow-hidden rounded-md p-3.5 transition-transform hover:-translate-y-0.5 md:h-[132px] md:gap-1.5 md:rounded-lg md:p-5 ${tone.card}`}
               >
                 {/* Inicial como marca d'água — o único ornamento do card.

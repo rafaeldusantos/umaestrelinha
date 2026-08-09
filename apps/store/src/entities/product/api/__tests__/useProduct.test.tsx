@@ -143,7 +143,7 @@ describe('useProduct — leitura de images (VAR-11)', () => {
   })
 })
 
-// PST-07: "WHEN a loja recebe `/produto/<slug-antigo>` E existe registro em `product_redirects`
+// PST-07: "WHEN a loja recebe `/produtos/<slug-antigo>` E existe registro em `product_redirects`
 // THEN SHALL redirecionar para o slug atual do produto." O hook resolve; a `ProductPage` navega.
 describe('useProduct — resolução de slug antigo (PST-07)', () => {
   it('slug morto com redirect devolve o produto ATUAL, com o slug novo', async () => {

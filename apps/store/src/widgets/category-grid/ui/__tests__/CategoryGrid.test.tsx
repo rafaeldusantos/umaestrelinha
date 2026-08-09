@@ -70,11 +70,14 @@ describe('card de coleção — ritmo por posição', () => {
     // Sem esta asserção, um mapa `{ anime: rosa, kpop: grafite }` passaria nos
     // três testes acima e reintroduziria a cor-por-categoria que a v1 matou.
     //
-    // `/colecao/` filtra o "Ver todas" do cabeçalho, que também é `<a>`.
+    // As quatro categorias da fixture são RAIZ, então cada card sai com a canônica de um
+    // segmento (`AD-018`). Filtrar por essa lista também tira o "Ver todas" do cabeçalho, que
+    // aponta para `/busca` e também é `<a>`.
     renderGrid()
+    const HREFS = ['/anime', '/k-pop', '/games', '/filmes']
     const cards = screen
       .getAllByRole('link')
-      .filter((a) => a.getAttribute('href')?.startsWith('/colecao/'))
+      .filter((a) => HREFS.includes(a.getAttribute('href') ?? ''))
 
     expect(cards).toHaveLength(4)
     expect(cards[0]).toHaveClass('bg-estrelinha-accent')

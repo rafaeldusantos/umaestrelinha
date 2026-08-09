@@ -63,6 +63,65 @@ describe('a rota do kit de pins saiu (PIN-04)', () => {
     expect(offenders).toEqual([])
   })
 
+  /**
+   * `URL-01` — todo link de produto passa por `productPath`.
+   *
+   * O caminho canônico virou `/produtos/:slug` (`AD-018`). Um literal esquecido não quebra build,
+   * tipo nem teste de componente: ele leva a cliente para a rota **legada**, que responde com um
+   * salto a mais em dev e com 301 em produção. É o tipo de defeito que só aparece no relatório de
+   * Search Console, meses depois.
+   */
+  it('nenhum arquivo monta link de produto com o caminho legado', () => {
+    const files = sourceFiles(SRC).filter(
+      // `App.tsx` é a exceção declarada: é lá que a rota legada é DECLARADA, para redirecionar.
+      (file) => !file.endsWith('App.tsx'),
+    )
+    // Âncora dupla: a varredura leu arquivos de verdade E alcançou o arquivo que constrói o link.
+    expect(files.length).toBeGreaterThan(100)
+    expect(
+      files.some((file) => file.replace(/\\/g, '/').endsWith('entities/product/ui/ProductCard.tsx')),
+    ).toBe(true)
+
+    const offenders = files
+      .flatMap((file) =>
+        readFileSync(file, 'utf8')
+          .split('\n')
+          .map((text, index) => ({ file, line: index + 1, text }))
+          // As duas formas que constroem endereço: template com interpolação e string literal.
+          .filter((entry) => /`\/produto\/\$\{|['"]\/produto\//.test(entry.text)),
+      )
+      .map((entry) => `${relative(SRC, entry.file)}:${entry.line} — ${entry.text.trim()}`)
+
+    expect(offenders).toEqual([])
+  })
+
+  /**
+   * `URL-03` — todo link de categoria passa por `categoryHref`/`categoryPath`.
+   *
+   * A canônica virou `/<slug>` na raiz e `/<pai>/<filha>` na subcategoria (`AD-018`). Um literal
+   * `/colecao/<slug>` esquecido **continua abrindo a página**, porque o edge responde 301 — e é
+   * justamente por isso que ninguém percebe: a loja passa a mandar a cliente por um salto a mais e
+   * declara canônica diferente do link que ela clicou.
+   */
+  it('nenhum arquivo monta link de categoria com o caminho legado', () => {
+    const files = sourceFiles(SRC).filter((file) => !file.endsWith('App.tsx'))
+    expect(files.length).toBeGreaterThan(100)
+    expect(
+      files.some((file) => file.replace(/\\/g, '/').endsWith('widgets/footer/ui/Footer.tsx')),
+    ).toBe(true)
+
+    const offenders = files
+      .flatMap((file) =>
+        readFileSync(file, 'utf8')
+          .split('\n')
+          .map((text, index) => ({ file, line: index + 1, text }))
+          .filter((entry) => /`\/colecao\/\$\{|['"]\/colecao\//.test(entry.text)),
+      )
+      .map((entry) => `${relative(SRC, entry.file)}:${entry.line} — ${entry.text.trim()}`)
+
+    expect(offenders).toEqual([])
+  })
+
   // PIN-07, mesma mecânica: `entities/review` era depoimento fabricado, sem tabela por trás.
   it('nada importa as avaliações de demonstração', () => {
     const files = sourceFiles(SRC)

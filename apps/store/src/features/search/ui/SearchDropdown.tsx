@@ -5,6 +5,7 @@ import { Search, X } from 'lucide-react'
 import { useAllProducts } from '@/entities/product/api/useProducts'
 import { useCategories } from '@/entities/category/api/useCategories'
 import { formatPrice } from '@estrelinha/core/formatters'
+import { productPath } from '@estrelinha/core/routes'
 import { motion, AnimatePresence } from 'framer-motion'
 import { pushRecentSearch } from '../model/recentSearches'
 import { MIN_QUERY_LENGTH, searchProducts } from '../lib/searchProducts'
@@ -128,7 +129,7 @@ const SearchDropdown = ({ onClose, mobile }: Props) => {
             {results.map((p) => (
               <Link
                 key={p.id}
-                to={`/produto/${p.slug}`}
+                to={productPath(p.slug)}
                 onClick={() => { setOpen(false); onClose?.() }}
                 className="flex items-center gap-3 px-4 py-3 hover:bg-estrelinha-ground-deep transition-colors"
               >

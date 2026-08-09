@@ -80,8 +80,10 @@ describe('SearchOverlay (board "Mobile Search Open - v3")', () => {
     expect(screen.getByText('gojo satoru')).toBeInTheDocument()
     expect(screen.getByText('Em alta agora')).toBeInTheDocument()
     // Folhas viram pílula: "Naruto" e "K-Pop" sim, "Anime" (que tem filha) não.
-    expect(screen.getByRole('link', { name: 'Naruto' })).toHaveAttribute('href', '/colecao/naruto')
-    expect(screen.getByRole('link', { name: /K-Pop/ })).toHaveAttribute('href', '/colecao/k-pop')
+    // `AD-018`: "Naruto" pende de "Anime" — a canônica dela tem DOIS segmentos.
+    expect(screen.getByRole('link', { name: 'Naruto' })).toHaveAttribute('href', '/anime/naruto')
+    // "K-Pop" é raiz: um segmento.
+    expect(screen.getByRole('link', { name: /K-Pop/ })).toHaveAttribute('href', '/k-pop')
     expect(screen.queryByRole('link', { name: /🌸/ })).not.toBeInTheDocument()
   })
 
@@ -89,7 +91,7 @@ describe('SearchOverlay (board "Mobile Search Open - v3")', () => {
     renderOverlay()
     type('naruto')
     const row = screen.getByRole('link', { name: /Pin Naruto Sennin/ })
-    expect(row).toHaveAttribute('href', '/produto/pin-naruto-sennin')
+    expect(row).toHaveAttribute('href', '/produtos/pin-naruto-sennin')
     expect(row).toHaveTextContent('Anime · Naruto')
     expect(row).toHaveTextContent('R$ 14,90')
   })

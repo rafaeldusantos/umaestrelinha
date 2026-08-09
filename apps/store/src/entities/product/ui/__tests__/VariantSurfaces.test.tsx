@@ -83,7 +83,7 @@ const renderCard = (p: Product) =>
     <MemoryRouter initialEntries={['/']}>
       <Routes>
         <Route path="/" element={<ProductCard product={p} />} />
-        <Route path="/produto/:slug" element={<div>rota-produto</div>} />
+        <Route path="/produtos/:slug" element={<div>rota-produto</div>} />
       </Routes>
     </MemoryRouter>,
   )

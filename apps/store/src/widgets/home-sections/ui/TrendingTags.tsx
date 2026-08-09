@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { ArrowRight } from 'lucide-react'
 import { useCategories } from '@/entities/category'
+import { categoryHref } from '@estrelinha/core/menu'
 import { pickTrendingCategories } from '@/features/search/lib/trendingCategories'
 
 /**
@@ -56,7 +57,7 @@ function TrendingTags() {
         {temas.map((tema, i) => (
           <Link
             key={tema.slug}
-            to={`/colecao/${tema.slug}`}
+            to={categoryHref(categories ?? [], tema.id)}
             /* Preenchido: ouro com texto `ink` — 4,78:1, o único uso de texto
                que o acento tem. Os demais são superfície branca com contorno
                `line`, que é divisor e não borda de controle. */

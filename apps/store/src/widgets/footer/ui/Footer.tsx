@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { Instagram } from 'lucide-react'
 import { browseCategories, useCategories } from '@/entities/category'
+import { categoryHref } from '@estrelinha/core/menu'
 import { EstrelinhaSignature } from '@/shared/ui/brand'
 import { TAP_ROW } from '@/shared/lib/touchTarget'
 import InstagramStrip, { INSTAGRAM_URL } from './InstagramStrip'
@@ -123,7 +124,7 @@ const Footer = () => {
             {/* Mesma regra da grade da home: pula o guarda-chuva (ver `browseCategories`). */}
             <FooterColumn title="Categorias">
               {browseCategories(categories).slice(0, 4).map((cat) => (
-                <FooterLink key={cat.slug} to={`/colecao/${cat.slug}`}>
+                <FooterLink key={cat.slug} to={categoryHref(categories ?? [], cat.id)}>
                   {cat.name}
                 </FooterLink>
               ))}

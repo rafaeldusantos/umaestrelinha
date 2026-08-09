@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { MessageCircle, X } from 'lucide-react'
 import { useLocation } from 'react-router-dom'
 import { useGeneralSettings } from '@estrelinha/core/hooks/useStoreSettings'
+import { productPath } from '@estrelinha/core/routes'
 
 const SEEN_KEY = 'estrelinha_wa_seen_v1'
 
@@ -56,7 +57,7 @@ const WhatsAppFloat = () => {
   // FAB não cabe. Ele é `bottom-20` com 56px de lado, então nasceria exatamente sobre o botão de
   // favoritos da barra de compra. Preventivo — hoje o WhatsApp não está configurado e o componente
   // nem renderiza. A página tem o link "Tirar uma dúvida no WhatsApp" abaixo das garantias.
-  if (location.pathname.startsWith('/produto/')) return null
+  if (location.pathname.startsWith(productPath(''))) return null
   if (!whatsapp || whatsapp.replace(/\D/g, '').length < 10) return null
 
   const phone = whatsapp.replace(/\D/g, '')

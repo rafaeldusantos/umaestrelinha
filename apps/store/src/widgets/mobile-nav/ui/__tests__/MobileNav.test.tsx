@@ -57,7 +57,7 @@ describe('MobileNav — comportamento das abas', () => {
   })
 
   it('Conta deslogada abre o overlay de auth, sem sair da página', () => {
-    renderNav('/colecao/anime')
+    renderNav('/joias-afetivas')
     const tab = screen.getByLabelText('Entrar')
     expect(tab.tagName).toBe('BUTTON')
     fireEvent.click(tab)

@@ -109,8 +109,8 @@ describe('Header sem os duplicados do MobileNav', () => {
 describe('Header — as duas superfícies de menu (MENU-16)', () => {
   it('a barra do topo é alimentada por useMenu, não por um slice de categorias', () => {
     menuState.entries = [
-      { id: 'anime', name: 'Anime', slug: 'anime', href: '/colecao/anime', path: 'Bottons › Anime', children: [], promo: null },
-      { id: 'kpop', name: 'K-Pop', slug: 'kpop', href: '/colecao/kpop', path: 'Bottons › K-Pop', children: [], promo: null },
+      { id: 'anime', name: 'Anime', slug: 'anime', href: '/anime', path: 'Bottons › Anime', children: [], promo: null },
+      { id: 'kpop', name: 'K-Pop', slug: 'kpop', href: '/kpop', path: 'Bottons › K-Pop', children: [], promo: null },
     ]
     renderHeader()
     expect(screen.getByTestId('mega-menu')).toHaveTextContent('Anime,K-Pop')

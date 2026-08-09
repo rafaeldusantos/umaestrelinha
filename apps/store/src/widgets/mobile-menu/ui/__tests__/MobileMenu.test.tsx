@@ -32,7 +32,8 @@ const child = (id: string, name: string) => ({ id, name, slug: id })
 const entry = (over: Record<string, unknown> & { id: string; name: string }): MenuEntry =>
   ({
     slug: over.id,
-    href: `/colecao/${over.id}`,
+    // `AD-018`: o href da entrada é a canônica de `menuEntries` — raiz, um segmento.
+    href: `/${over.id}`,
     path: `Bottons › ${over.name}`,
     children: [],
     promo: null,
@@ -92,8 +93,9 @@ describe('MENU-17 — um acordeão por vez', () => {
   it('abrir um universo mostra as filhas e o "Ver todos"', () => {
     renderSheet()
     fireEvent.click(screen.getByRole('button', { name: 'Anime' }))
-    expect(screen.getByRole('link', { name: 'Naruto' })).toHaveAttribute('href', '/colecao/naruto')
-    expect(screen.getByRole('link', { name: 'Ver todos →' })).toHaveAttribute('href', '/colecao/anime')
+    // A filha sai com o pai na frente (dois segmentos); a entrada, com um.
+    expect(screen.getByRole('link', { name: 'Naruto' })).toHaveAttribute('href', '/anime/naruto')
+    expect(screen.getByRole('link', { name: 'Ver todos →' })).toHaveAttribute('href', '/anime')
   })
 
   it('abrir o segundo RECOLHE o primeiro', () => {
@@ -116,7 +118,7 @@ describe('MENU-17 — um acordeão por vez', () => {
 
   it('universo sem filhas é link direto, não acordeão (MENU-14)', () => {
     renderSheet()
-    expect(screen.getByRole('link', { name: 'Games' })).toHaveAttribute('href', '/colecao/games')
+    expect(screen.getByRole('link', { name: 'Games' })).toHaveAttribute('href', '/games')
     expect(screen.queryByRole('button', { name: 'Games' })).toBeNull()
   })
 })
@@ -174,14 +176,14 @@ describe('MENU-27 — a faixa promocional', () => {
     badge: 'NOVIDADE',
     title: 'Drop da semana: Anime Villains',
     subtitle: '12 pins novos — confira antes que acabe!',
-    href: '/colecao/villains',
+    href: '/anime/villains',
     productCount: 12,
   }
 
   it('renderiza título, texto e leva ao destino', () => {
     renderSheet([entry({ ...ANIME, promo }), KPOP])
     const faixa = screen.getByTestId('mobile-menu-promo')
-    expect(faixa).toHaveAttribute('href', '/colecao/villains')
+    expect(faixa).toHaveAttribute('href', '/anime/villains')
     expect(faixa).toHaveTextContent('Drop da semana')
     expect(faixa).toHaveTextContent('12 pins novos')
   })
