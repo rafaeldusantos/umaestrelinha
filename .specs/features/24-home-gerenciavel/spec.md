@@ -63,14 +63,14 @@ Há dois efeitos colaterais concretos disso, e não são hipotéticos:
 | Mosaico no celular | Empilha em coluna, largura cheia; mosaico só no desktop | Mosaico proporcional de 4 daria **82px** por célula em 390px, e a arte tem texto embutido | **y** — medido |
 | Prévia | Esquemática, no painel, com textos e imagens reais | Render real dos widgets traria os tokens da loja para dentro do backoffice, que tem paleta própria e teste guardando a separação | **y** |
 | Item curado que saiu do ar | A loja pula o item; o painel avisa na linha | Nunca vazio na vitrine, nunca link quebrado; e não entra na Home item que a dona não escolheu | **y** |
-| O que é "Destaque em coleções" | Faixa larga com **uma** coleção: imagem, título, texto curto e CTA — distinta da grade de fileiras | Interpretação do agente, apresentada na discussão e não contestada | n — confirmar na Design |
+| O que é "Destaque em coleções" | Faixa larga com **uma** coleção: imagem, título, texto curto e CTA — distinta da grade de fileiras | Interpretação do agente, apresentada na discussão e não contestada | **y** — fechado na Design (2026-08-15): nenhum dos 5 boards o desenha, então vale a forma da spec; é `collection_feature`, um item com FK, título/texto vazios caindo no nome e na descrição da coleção |
 | Onde entra na sidebar | Grupo `Loja`, ao lado de "Menu da loja" | O CLAUDE.md já reservou o lugar: *"é o grupo onde entram banners da home, destaques e faixa de avisos"* | n — decisão do agente |
 | Teto de seções na Home | 30 | Impede a Home de virar página infinita por acidente; folgado o bastante para nunca ser sentido | n — decisão do agente |
 | Proporção da imagem | Declarada pela fileira; painel avisa quando o arquivo divergir, nunca recorta em silêncio | `object-cover` numa proporção diferente **corta o texto que está dentro da arte** | **y** |
-| Trabalho não commitado no disco | `HomePage.tsx` modificado + `widgets/home-banners` e `widgets/home-collections` **untracked** entram em commit **antes** da primeira task | Senão o diff da 24 mistura com o passe visual, e a faixa de diff do Verifier não mede nada | n — **ação do usuário** |
+| Trabalho não commitado no disco | `HomePage.tsx` modificado + `widgets/home-banners` e `widgets/home-collections` **untracked** entram em commit **antes** da primeira task | Senão o diff da 24 mistura com o passe visual, e a faixa de diff do Verifier não mede nada | **y** — feito em 2026-08-15: os 103 arquivos pendentes (features 22 e 23 + o passe visual) foram em **5 commits** (`226ddb1` ícones · `4152b18` material · `1770560` home · `8754d05` specs · `e22f368` chore), com o gate medido antes: 4019 testes / 225 arquivos, exit 0 |
 
-**Open questions:** duas, ambas marcadas acima e resolvíveis na Design sem bloquear: a forma exata do
-"Destaque em coleções" e o commit do trabalho em curso.
+**Open questions: nenhuma.** As duas que existiam foram fechadas na Design — a forma do "Destaque em
+coleções" e o commit do trabalho em curso, ambas marcadas acima.
 
 ---
 
@@ -336,18 +336,20 @@ onde eu quiser na Home.
 
 ## Requirement Traceability
 
-| ID | Story | Fase | Status |
-| --- | --- | --- | --- |
-| HOME-01..07 | P1: A Home passa a ser dado | Design | Pending |
-| HOME-08..15 | P1: `/admin/home` | Design | Pending |
-| HOME-16..21 | P1: Hero editável | Design | Pending |
-| HOME-22..30 | P1: Grade de banners com banner livre | Design | Pending |
-| HOME-31..36 | P2: Override de curadoria | Design | Pending |
-| HOME-37..40 | P2: Destaque em coleção | Design | Pending |
-| HOME-41..44 | P2: Textos e limites | Design | Pending |
-| HOME-45..47 | P3: Carrossel e grade como blocos | — | Pending |
+| ID | Story | Fase | Tasks | Status |
+| --- | --- | --- | --- | --- |
+| HOME-01..07 | P1: A Home passa a ser dado | Tasks | T1–T12, T17, T18 | Pending |
+| HOME-08..15 | P1: `/admin/home` | Tasks | T4, T5, T7, T21–T25, T30 | Pending |
+| HOME-16..21 | P1: Hero editável | Tasks | T6, T13, T27 | Pending |
+| HOME-22..30 | P1: Grade de banners com banner livre | Tasks | T6, T7, T15, T26, T28 | Pending |
+| HOME-31..36 | P2: Override de curadoria | Tasks | T5, T16, T31 | Pending |
+| HOME-37..40 | P2: Destaque em coleção | Tasks | T32, T33 | Pending |
+| HOME-41..44 | P2: Textos e limites | Tasks | T14, T16, T29 | Pending |
+| HOME-45..47 | P3: Carrossel e grade como blocos | — | **deferido** | Deferred |
 
-**Coverage:** 47 requisitos, 0 mapeados em tasks (Design pendente).
+**Coverage:** 47 requisitos · **44 mapeados em 34 tasks** ([`tasks.md`](./tasks.md)) · 3 deferidos de
+forma explícita (P3 — os dois tipos entram no catálogo, sem renderer nem editor, e aparecem na
+bandeja do painel como "em breve").
 
 ---
 
