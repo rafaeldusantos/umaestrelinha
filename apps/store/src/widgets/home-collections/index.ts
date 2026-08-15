@@ -1,4 +1,4 @@
-export { default as HomeCollections } from './ui/HomeCollections'
+export { default as HomeCollections, type HomeCollectionItem } from './ui/HomeCollections'
 export {
   pickHomeCollections,
   HOME_COLLECTION_ROWS,

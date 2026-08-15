@@ -46,7 +46,15 @@ const HomePage = () => {
   const { data: categories } = useCategories()
   // A mesma regra que a `HomeCollections` aplica, e por isso o `exclude` bate: uma segunda regra
   // aqui divergiria da primeira no dia em que uma das duas mudasse.
-  const emFileira = pickHomeCollections(categories).map((c) => c.id)
+  const fileiras = pickHomeCollections(categories, conteudo('collection_rows').limit).map((c) => ({
+    id: c.id,
+    label: c.name,
+    slug: c.slug,
+    description: c.description,
+    href: c.href,
+    imageUrl: c.bannerUrl,
+  }))
+  const emFileira = fileiras.map((c) => c.id)
 
   // Provisório da feature 24, junto com `conteudo`: a T18 troca isto pelo `derive` do
   // `resolveHomeSections`, que é quem passará a montar a lista das duas seções que têm uma.
@@ -64,7 +72,11 @@ const HomePage = () => {
 
       <HomeBannerGrid banners={banners} layout={layout} />
 
-      <HomeCollections interlude={<BrandStatement content={conteudo('brand_statement')} />} />
+      <HomeCollections
+        collections={fileiras}
+        interlude={<BrandStatement content={conteudo('brand_statement')} />}
+        interludeAfter={conteudo('brand_statement').interlude_after ?? undefined}
+      />
 
       <TrendingTags content={conteudo('trending_tags')} />
 
