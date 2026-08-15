@@ -170,12 +170,13 @@ describe('core/home — módulo puro', () => {
         'catalog.ts',
         'defaults.ts',
         'index.ts',
+        'layout.ts',
         'order.ts',
         'refusals.ts',
         'types.ts',
       ]),
     )
-    expect(FONTES.length).toBeGreaterThanOrEqual(6)
+    expect(FONTES.length).toBeGreaterThanOrEqual(8)
   })
 
   it('nenhum arquivo importa React nem Supabase', () => {

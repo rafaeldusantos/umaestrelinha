@@ -1,5 +1,6 @@
 import { INFRA_SLUGS, ROUTE_SLUGS } from '../routes'
 import { sectionMeta } from './catalog'
+import type { SlotSpec } from './layout'
 import type { HomeSection, HomeSectionConfig, HomeSectionItem, HomeSectionType } from './types'
 
 /**
@@ -144,12 +145,6 @@ export const configRefusal = (
   }
 
   return altRefusal(cfg.image_url, cfg.image_alt)
-}
-
-/** A vaga que a fileira declara — é dela que sai a medida recomendada. */
-export interface SlotSpec {
-  width: number
-  height: number
 }
 
 /**

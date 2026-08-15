@@ -1,12 +1,12 @@
 import HeroBanner from '@/widgets/hero-banner/ui/HeroBanner'
 import TrustBar from '@/widgets/home-sections/ui/TrustBar'
-import { HomeBannerGrid } from '@/widgets/home-banners'
+import { HomeBannerGrid, pickHomeBanners } from '@/widgets/home-banners'
 import { HomeCollections, pickHomeCollections } from '@/widgets/home-collections'
 import BrandStatement from '@/widgets/home-sections/ui/BrandStatement'
 import TrendingTags from '@/widgets/home-sections/ui/TrendingTags'
 import NewsletterBanner from '@/features/newsletter/ui/NewsletterBanner'
 import { useCategories } from '@/entities/category'
-import { DEFAULT_HOME_COMPOSITION } from '@estrelinha/core/home'
+import { DEFAULT_HOME_COMPOSITION, layoutSlots } from '@estrelinha/core/home'
 
 /**
  * Provisório da feature 24: o conteúdo das seções já vem de `DEFAULT_HOME_COMPOSITION`, mas ainda é
@@ -48,13 +48,21 @@ const HomePage = () => {
   // aqui divergiria da primeira no dia em que uma das duas mudasse.
   const emFileira = pickHomeCollections(categories).map((c) => c.id)
 
+  // Provisório da feature 24, junto com `conteudo`: a T18 troca isto pelo `derive` do
+  // `resolveHomeSections`, que é quem passará a montar a lista das duas seções que têm uma.
+  const layout = conteudo('banner_grid').layout
+  const banners = pickHomeBanners(categories, {
+    exclude: emFileira,
+    limit: layoutSlots(layout),
+  }).map((b) => ({ id: b.id, href: b.href, label: b.name, imageUrl: b.bannerUrl }))
+
   return (
     <div>
       <HeroBanner content={conteudo('hero')} />
 
       <TrustBar />
 
-      <HomeBannerGrid exclude={emFileira} />
+      <HomeBannerGrid banners={banners} layout={layout} />
 
       <HomeCollections interlude={<BrandStatement content={conteudo('brand_statement')} />} />
 
