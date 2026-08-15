@@ -3,9 +3,10 @@
 // Fora do componente porque exportar função + componente do mesmo arquivo quebra o fast refresh.
 
 import { productPath } from '@estrelinha/core/routes'
-
-/** A loja em que o link cai. Sem env definida o link não aparece — melhor que apontar para nada. */
-const STORE_URL: string | undefined = import.meta.env.VITE_STORE_URL
+// A env tem **um leitor** (feature 25, `shared/lib/storeOrigin`): a prévia real precisa da mesma
+// `VITE_STORE_URL`, e dois `import.meta.env` do mesmo valor discordariam no dia em que um deles
+// ganhasse normalização e o outro não.
+import { STORE_URL } from '@/shared/lib/storeOrigin'
 
 /**
  * O caminho vem de `productPath` (`URL-01`), e não de um literal: este link é aberto pela admin para

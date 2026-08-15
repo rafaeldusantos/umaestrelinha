@@ -15,7 +15,7 @@
 // modal": sobrevive ao F5, é compartilhável) sem o preço que ele costuma cobrar, que aqui seria
 // apagar a prévia justamente enquanto a dona edita olhando para ela.
 
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { AlertTriangle, ExternalLink, House, Plus, RefreshCw } from 'lucide-react'
 import { Button } from '@estrelinha/ui/button'
@@ -27,9 +27,10 @@ import { useAdminProducts } from '@/entities/product'
 import { useAdminHomeSections } from '@/entities/home'
 import {
   HomeBlockTray,
-  HomePreview,
+  HomeLivePreview,
   HomeSectionEditor,
   HomeSectionList,
+  applyDraft,
   itemsChanged,
   toNewItems,
   useAdminResolvedHome,
@@ -66,8 +67,25 @@ const AdminHomePage = () => {
   // ser compartilhável. Id que não existe mais (seção apagada, link velho) cai na lista — a coluna
   // da esquerda volta a ser a lista, sem tela de erro para um endereço que já não aponta a nada.
   const emEdicao = sectionId ? resolved.find(e => e.section.id === sectionId) : null
-  // O contorno na prévia acompanha o editor. Sem seção aberta, nada é contornado.
-  const selecionada = emEdicao ? emEdicao.section.id : null
+
+  // Feature 25 — o que a prévia contorna e o que ela desenha.
+  //
+  // O contorno tem duas origens e uma precedência: a seção **em edição** vence a que está sob o
+  // cursor. Sem isso, passar o mouse pela lista apagaria o contorno da seção que a dona está editando
+  // — justamente enquanto ela olha para a prévia para conferir o que digitou.
+  const [apontada, setApontada] = useState<string | null>(null)
+  const selecionada = emEdicao ? emEdicao.section.id : apontada
+
+  // O rascunho da seção aberta, para a prévia mostrar o que ainda não foi salvo (`PRV-09`).
+  const [rascunho, setRascunho] = useState<SectionSaveDraft | null>(null)
+  // Trocar de seção zera o rascunho. Sem isto, abrir a seção B mostraria por um quadro o rascunho da
+  // A aplicado sobre a B — o `key` do editor recomeça o formulário, mas este estado é da página.
+  useEffect(() => setRascunho(null), [sectionId])
+
+  const previa = useMemo(
+    () => applyDraft(sections, emEdicao?.section.id ?? null, rascunho),
+    [sections, emEdicao, rascunho],
+  )
 
   const avisar = (titulo: string, erro: { message: string } | null) => {
     if (erro) toast({ title: titulo, description: erro.message, variant: 'destructive' })
@@ -201,10 +219,19 @@ const AdminHomePage = () => {
             ))}
           </div>
 
-          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
+          {/*
+            Feature 25 — **as larguras invertidas**. Antes: lista 748 e prévia 380, num 1440. Nenhuma
+            representação de desktop cabe em 380px, e a prévia atual nem tentava. Agora o rail é a
+            coluna estreita e a prévia é o palco, que é o modelo de toda ferramenta que faz isto
+            (Shopify, Nuvemshop, o Customizer do WordPress).
+
+            `items-start` some aqui de propósito: o palco precisa de **altura** para escalar o quadro,
+            e `h-[calc(100vh-…)]` é o que a dá sem inventar um número fixo.
+          */}
+          <div className="grid gap-6 lg:h-[calc(100vh-11rem)] lg:grid-cols-[380px_minmax(0,1fr)]">
             <div
               data-testid="coluna-secoes"
-              className={cn('min-w-0', aba !== 'secoes' && 'hidden lg:block')}
+              className={cn('min-w-0 lg:overflow-y-auto', aba !== 'secoes' && 'hidden lg:block')}
             >
               {emEdicao ? (
                 // `key` na seção: trocar de seção pela prévia ou pela URL recomeça o rascunho. Sem
@@ -217,6 +244,7 @@ const AdminHomePage = () => {
                   saving={saving}
                   onCancel={() => navigate('/admin/home')}
                   onSave={draft => handleSave(emEdicao.section.id, draft)}
+                  onDraftChange={setRascunho}
                 />
               ) : (
                 <HomeSectionList
@@ -224,6 +252,7 @@ const AdminHomePage = () => {
                   onToggle={handleToggle}
                   onOpen={id => navigate(`/admin/home/${id}`)}
                   onReorder={handleReorder}
+                  onHover={setApontada}
                   footer={
                     <div id="blocos">
                       <HomeBlockTray sections={sections} onAdd={handleAdd} />
@@ -235,9 +264,16 @@ const AdminHomePage = () => {
 
             <div
               data-testid="coluna-previa"
-              className={cn('min-w-0', aba !== 'previa' && 'hidden lg:block')}
+              className={cn('min-h-0 min-w-0', aba !== 'previa' && 'hidden lg:block')}
             >
-              <HomePreview resolved={resolved} highlightId={selecionada} />
+              {/* Montado FORA do ramo do editor de propósito: é o que faz o iframe não remontar ao
+                  abrir uma seção (`PRV-13`). Trocar de coluna aqui recarregaria o documento da loja e
+                  apagaria a prévia justamente enquanto a dona edita olhando para ela. */}
+              <HomeLivePreview
+                sections={previa}
+                highlightId={selecionada}
+                onSelect={id => navigate(`/admin/home/${id}`)}
+              />
             </div>
           </div>
         </>

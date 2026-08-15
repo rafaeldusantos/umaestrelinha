@@ -73,6 +73,33 @@ vi.mock('@/entities/product', () => ({
 
 vi.mock('@estrelinha/ui/hooks/use-toast', () => ({ toast: toastMock }))
 
+/**
+ * O palco, dublado — e é o dublê que torna as ACs da prévia **mais** verificáveis do que eram.
+ *
+ * Antes da feature 25 a prévia era um desenho do painel, e dava para asserir o contorno pela classe
+ * CSS. Agora ela é a loja num iframe, e jsdom não carrega o documento dele: asserir o contorno aqui
+ * seria asserir dentro de outro app. A responsabilidade **desta página** é outra e é exatamente esta
+ * — entregar ao palco a composição certa e o realce certo. Quem prova que o `postMessage` sai com a
+ * origem certa é `usePreviewBridge.test.tsx`; quem prova que a loja desenha o contorno é
+ * `HomeRendererPreview.test.tsx`, na loja.
+ */
+vi.mock('@/features/home-composition/ui/HomeLivePreview', () => ({
+  default: ({
+    sections,
+    highlightId,
+  }: {
+    sections: { id: string; config?: { title_line1?: string; title?: string } }[]
+    highlightId: string | null
+  }) => (
+    <div
+      data-testid="palco-previa"
+      data-highlight={highlightId ?? ''}
+      data-secoes={sections.map(s => s.id).join(',')}
+      data-titulos={sections.map(s => s.config?.title_line1 ?? s.config?.title ?? '').join('|')}
+    />
+  ),
+}))
+
 import AdminHomePage from './AdminHomePage'
 
 /**
@@ -103,7 +130,19 @@ describe('AdminHomePage — a tela junta lista, bandeja e prévia', () => {
   it('mostra as duas colunas, cada uma com o próprio conteúdo', () => {
     renderPage()
     expect(within(screen.getByTestId('coluna-secoes')).getByText('Seções da Home')).toBeInTheDocument()
-    expect(within(screen.getByTestId('coluna-previa')).getByText('Prévia da Home')).toBeInTheDocument()
+    expect(within(screen.getByTestId('coluna-previa')).getByTestId('palco-previa')).toBeInTheDocument()
+  })
+
+  // PRV-12 — a inversão. As larguras de antes eram lista 748 / prévia 380, e é o número da prévia
+  // que impedia qualquer representação de desktop.
+  it('o rail tem 380px e vem PRIMEIRO; o palco ocupa o resto', () => {
+    const { container } = renderPage()
+    const grade = container.querySelector('.grid') as HTMLElement
+
+    expect(grade.className).toContain('lg:grid-cols-[380px_minmax(0,1fr)]')
+    const colunas = Array.from(grade.children)
+    expect(colunas[0]).toBe(screen.getByTestId('coluna-secoes'))
+    expect(colunas[1]).toBe(screen.getByTestId('coluna-previa'))
   })
 
   it('a bandeja fica DENTRO do cartão da lista, não num modal', () => {
@@ -205,26 +244,87 @@ describe('AdminHomePage — o que chega ao banco', () => {
   })
 })
 
-describe('AdminHomePage — a prévia acompanha a seleção', () => {
-  it('clicar numa linha contorna o bloco correspondente na prévia', () => {
+describe('AdminHomePage — a prévia acompanha a seleção (PRV-11)', () => {
+  it('o cursor sobre uma linha aponta o bloco dela', () => {
     renderPage()
+    fireEvent.mouseEnter(screen.getByTestId('secao-trending_tags'))
+    expect(screen.getByTestId('palco-previa')).toHaveAttribute('data-highlight', 'trending_tags')
+  })
+
+  it('sair da linha apaga o realce', () => {
+    renderPage()
+    fireEvent.mouseEnter(screen.getByTestId('secao-trending_tags'))
+    fireEvent.mouseLeave(screen.getByTestId('secao-trending_tags'))
+    expect(screen.getByTestId('palco-previa')).toHaveAttribute('data-highlight', '')
+  })
+
+  it('sem cursor e sem editor, nada é apontado', () => {
+    renderPage()
+    expect(screen.getByTestId('palco-previa')).toHaveAttribute('data-highlight', '')
+  })
+
+  it('a seção EM EDIÇÃO vence a que está sob o cursor', () => {
+    renderPage('/admin/home/newsletter')
+    expect(screen.getByTestId('palco-previa')).toHaveAttribute('data-highlight', 'newsletter')
+  })
+
+  it('PRV-10 — o palco recebe um `onSelect` que abre o editor daquela seção', () => {
+    renderPage()
+    // O caminho de volta da prévia é o mesmo da lista: navegar para `/admin/home/:id`. Provado aqui
+    // pela porta que a página oferece, e não pelo `postMessage` — esse é de `usePreviewBridge`.
     fireEvent.click(screen.getByRole('button', { name: /Abrir Chips de tema/ }))
-    expect(screen.getByTestId('previa-trending_tags').closest('.ring-2')).not.toBeNull()
+    expect(screen.getByTestId('editor-secao')).toHaveAttribute('data-section', 'trending_tags')
+  })
+})
+
+describe('PRV-09 — a prévia recebe o RASCUNHO, não o que está salvo', () => {
+  it('sem editor aberto, a composição é a do banco', () => {
+    renderPage()
+    const palco = screen.getByTestId('palco-previa')
+    expect(palco.getAttribute('data-secoes')?.split(',')).toEqual(
+      DEFAULT_HOME_COMPOSITION.map(s => s.id),
+    )
+  })
+
+  it('digitar no hero muda o que o palco recebe ANTES de salvar', () => {
+    renderPage('/admin/home/hero')
+    const campo = screen.getByLabelText(/1ª linha/i)
+
+    fireEvent.change(campo, { target: { value: 'O que você guarda,' } })
+
+    expect(screen.getByTestId('palco-previa').getAttribute('data-titulos')).toContain(
+      'O que você guarda,',
+    )
+    // E nada foi gravado — o rascunho é da tela, não do banco.
+    expect(hook.updateSectionConfig).not.toHaveBeenCalled()
+  })
+
+  it('trocar de seção zera o rascunho — a seção B não herda o que foi digitado na A', () => {
+    const { unmount } = renderPage('/admin/home/hero')
+    fireEvent.change(screen.getByLabelText(/1ª linha/i), { target: { value: 'Rascunho da A' } })
+    unmount()
+
+    renderPage('/admin/home/newsletter')
+
+    expect(screen.getByTestId('palco-previa').getAttribute('data-titulos')).not.toContain(
+      'Rascunho da A',
+    )
   })
 })
 
 describe('T30 — o editor é rota, e a prévia não paga por isso', () => {
-  it('a PRÉVIA NÃO REMONTA ao entrar no editor — é a razão de a rota ter este formato', () => {
+  it('a PRÉVIA NÃO REMONTA ao entrar no editor — é a razão de a rota ter este formato (PRV-13)', () => {
     renderPage()
     // O nó do DOM guardado ANTES da navegação. Se `AdminHomePage` desmontasse, o React criaria
-    // outro nó para o mesmo bloco e a identidade se perderia — que é exatamente o custo que o
-    // editor-como-página-inteira cobraria.
-    const antes = screen.getByTestId('previa-hero')
+    // outro nó e a identidade se perderia — que é exatamente o custo que o editor-como-página-inteira
+    // cobraria. Com a prévia sendo um **iframe**, o preço subiu: remontar recarregaria o documento da
+    // loja e apagaria o rascunho já entregue.
+    const antes = screen.getByTestId('palco-previa')
 
     fireEvent.click(screen.getByRole('button', { name: /Abrir Chips de tema/ }))
 
     expect(screen.getByTestId('editor-secao')).toBeInTheDocument()
-    expect(screen.getByTestId('previa-hero')).toBe(antes)
+    expect(screen.getByTestId('palco-previa')).toBe(antes)
   })
 
   it('a rota troca SÓ a coluna da esquerda: a lista sai, a prévia fica', () => {
@@ -234,13 +334,12 @@ describe('T30 — o editor é rota, e a prévia não paga por isso', () => {
     const esquerda = screen.getByTestId('coluna-secoes')
     expect(within(esquerda).getByTestId('editor-secao')).toBeInTheDocument()
     expect(within(esquerda).queryByText('Seções da Home')).toBeNull()
-    expect(within(screen.getByTestId('coluna-previa')).getByText('Prévia da Home')).toBeInTheDocument()
+    expect(within(screen.getByTestId('coluna-previa')).getByTestId('palco-previa')).toBeInTheDocument()
   })
 
-  it('o bloco em edição aparece contornado na prévia', () => {
+  it('o bloco em edição é o apontado na prévia', () => {
     renderPage('/admin/home/newsletter')
-    expect(screen.getByTestId('previa-newsletter').closest('.ring-2')).not.toBeNull()
-    expect(screen.getByTestId('previa-hero').closest('.ring-2')).toBeNull()
+    expect(screen.getByTestId('palco-previa')).toHaveAttribute('data-highlight', 'newsletter')
   })
 
   it('sobrevive ao F5: abrir a URL direto já mostra o editor daquela seção', () => {

@@ -14,6 +14,7 @@ export {
   type SectionEditorEntry,
 } from './ui/sectionEditors'
 export {
+  applyDraft,
   draftKey,
   emptyDraftItem,
   itemsChanged,
@@ -21,6 +22,10 @@ export {
   toNewItems,
   type DraftItem,
 } from './model/sectionDraft'
-export { default as HomePreview } from './ui/HomePreview'
+// A prévia é a LOJA, num iframe (feature 25). O `HomePreview` esquemático — 277 linhas redesenhando
+// à mão o que `apps/store/src/widgets/home-renderer` já desenha — foi removido junto com o segundo
+// desenho da Home.
+export { default as HomeLivePreview } from './ui/HomeLivePreview'
+export { usePreviewBridge } from './model/usePreviewBridge'
 export { default as HomeSectionList } from './ui/HomeSectionList'
 export { default as HomeSectionRow } from './ui/HomeSectionRow'

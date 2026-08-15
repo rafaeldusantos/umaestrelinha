@@ -18,6 +18,8 @@ interface Props {
   onReorder: (moves: { id: string; position: number }[]) => void
   /** A bandeja de blocos, no rodapé do cartão. */
   footer?: ReactNode
+  /** O cursor apontou uma linha — a prévia contorna o bloco dela (feature 25, `PRV-11`). */
+  onHover?: (sectionId: string | null) => void
 }
 
 /**
@@ -47,7 +49,7 @@ const aninhadas = (resolved: readonly ResolvedSection[]): Set<string> => {
   return dentro
 }
 
-const HomeSectionList = ({ resolved, onToggle, onOpen, onReorder, footer }: Props) => {
+const HomeSectionList = ({ resolved, onToggle, onOpen, onReorder, footer, onHover }: Props) => {
   const dentro = aninhadas(resolved)
   const noAr = resolved.filter(e => e.section.active).length
 
@@ -81,6 +83,7 @@ const HomeSectionList = ({ resolved, onToggle, onOpen, onReorder, footer }: Prop
             onToggle={onToggle}
             onOpen={onOpen}
             onDrop={handleDrop}
+            onHover={onHover}
           />
         ))}
       </ul>

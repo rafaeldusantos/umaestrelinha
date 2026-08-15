@@ -12,7 +12,7 @@
 // O rascunho vive aqui e não no que veio do banco: é o que faz `HOME-14` valer — gravação recusada
 // **preserva o que a dona preencheu**, porque o preenchido está neste estado e não numa releitura.
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { TriangleAlert } from 'lucide-react'
 import { sectionMeta, type HomeSectionConfig, type ResolvedSection } from '@estrelinha/core/home'
 import type { AdminCategory } from '@/entities/category'
@@ -37,9 +37,25 @@ interface Props {
   onCancel: () => void
   /** Devolve o motivo da falha, ou `null` quando gravou. Mesmo formato das recusas do domínio. */
   onSave: (draft: SectionSaveDraft) => Promise<string | null>
+  /**
+   * O rascunho corrente, a cada mudança (feature 25).
+   *
+   * É o que faz a prévia mostrar o que a dona está digitando **antes de salvar**. Sobe o rascunho e
+   * não o `postMessage` inteiro: o editor não pode conhecer iframe, origem nem debounce — quem
+   * conhece é a ponte, e um editor que postasse direto seria o segundo dono do contrato.
+   */
+  onDraftChange?: (draft: SectionSaveDraft) => void
 }
 
-const HomeSectionEditor = ({ entry, categories, products, saving, onCancel, onSave }: Props) => {
+const HomeSectionEditor = ({
+  entry,
+  categories,
+  products,
+  saving,
+  onCancel,
+  onSave,
+  onDraftChange,
+}: Props) => {
   const { section } = entry
   const meta = sectionMeta(section.type)
   const editor = SECTION_EDITORS[section.type]
@@ -52,6 +68,16 @@ const HomeSectionEditor = ({ entry, categories, products, saving, onCancel, onSa
   const [problema, setProblema] = useState<string | null>(null)
 
   const alterado = draftChanged(section, config, items)
+
+  // Sobe o rascunho a cada mudança — inclusive na montagem, e é de propósito: ao abrir o editor a
+  // prévia já precisa estar mostrando **esta** seção com os valores dela, senão o primeiro caractere
+  // digitado é que faria a prévia "acordar".
+  useEffect(() => {
+    onDraftChange?.({ config, items })
+    // `onDraftChange` fica fora das deps de propósito: quem monta este componente costuma passar uma
+    // função nova a cada render, e incluí-la aqui daria um envio por render — o oposto do debounce.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config, items])
 
   const handleSave = async () => {
     // A recusa vem do editor daquele tipo: só ele sabe se falta `alt`, se falta destino ou se o

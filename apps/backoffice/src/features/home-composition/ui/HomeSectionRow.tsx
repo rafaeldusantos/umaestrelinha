@@ -120,9 +120,16 @@ interface Props {
   /** `draggedId` sai do `dataTransfer`, e não de um estado da lista: o arraste do HTML já carrega o
    *  dado, e guardá-lo em paralelo abriria a chance de os dois discordarem. */
   onDrop: (targetId: string, draggedId: string) => void
+  /**
+   * O cursor entrou (`id`) ou saiu (`null`) — a linha aponta o bloco na prévia (feature 25).
+   *
+   * Sai da linha inteira e não do botão do nome: o alvo do apontamento é a seção, e limitar ao rótulo
+   * faria o contorno piscar ao atravessar a alça ou o interruptor.
+   */
+  onHover?: (sectionId: string | null) => void
 }
 
-const HomeSectionRow = ({ entry, nested = false, onToggle, onOpen, onDrop }: Props) => {
+const HomeSectionRow = ({ entry, nested = false, onToggle, onOpen, onDrop, onHover }: Props) => {
   const { section, renders, hiddenReason } = entry
   const meta = sectionMeta(section.type)
   const Icon = ICONS[section.type] ?? LayoutGrid
@@ -140,6 +147,10 @@ const HomeSectionRow = ({ entry, nested = false, onToggle, onOpen, onDrop }: Pro
     <li
       data-testid={`secao-${section.id}`}
       draggable
+      onMouseEnter={() => onHover?.(section.id)}
+      onMouseLeave={() => onHover?.(null)}
+      onFocusCapture={() => onHover?.(section.id)}
+      onBlurCapture={() => onHover?.(null)}
       onDragStart={e => e.dataTransfer.setData('text/plain', section.id)}
       onDragOver={e => e.preventDefault()}
       onDrop={e => {
@@ -188,7 +199,11 @@ const HomeSectionRow = ({ entry, nested = false, onToggle, onOpen, onDrop }: Pro
           <span className="line-clamp-2 text-xs text-muted-foreground">{resumo(entry)}</span>
         </button>
 
-        <span className="hidden shrink-0 text-xs font-medium text-muted-foreground sm:inline">
+        {/* Feature 25: a palavra saiu de vista e ficou na árvore de acessibilidade. O rail tem
+            **380px** desde a inversão do layout, e esses ~50px são do nome da seção — que truncava.
+            Visualmente a posição do interruptor e a opacidade da linha já dizem o mesmo; para quem
+            usa leitor de tela, o texto continua sendo a resposta em palavras. */}
+        <span className="sr-only">
           {indelevel ? 'Sempre no ar' : section.active ? 'No ar' : 'Desligada'}
         </span>
 

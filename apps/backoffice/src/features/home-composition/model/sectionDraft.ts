@@ -73,3 +73,42 @@ export const draftChanged = (section: HomeSection, config: HomeSectionConfig, it
 /** A curadoria mudou? Só então vale apagar e reescrever a lista inteira. */
 export const itemsChanged = (section: HomeSection, items: readonly DraftItem[]): boolean =>
   JSON.stringify(toNewItems(items)) !== JSON.stringify(toNewItems(toDraftItems(section.items)))
+
+/**
+ * A composição **como a prévia deve mostrá-la** — o que está no banco, com o rascunho por cima
+ * (feature 25, `PRV-09`).
+ *
+ * Vive aqui, junto do rascunho, e não na página: é a tradução de `DraftItem` (forma de tela) para
+ * `HomeSectionItem` (forma que a loja lê), e ela precisa de teste próprio. A `position` sai do índice
+ * porque é a ordem da lista arrastável que manda, e o `id` sai da `key` porque a loja só o usa como
+ * chave de React — **nenhum id de rascunho chega ao banco**, quem grava é `curateSection`.
+ *
+ * Sem seção aberta ou sem rascunho devolve a lista intacta: a prévia mostra o que está salvo.
+ */
+export const applyDraft = (
+  sections: readonly HomeSection[],
+  sectionId: string | null,
+  draft: { config: HomeSectionConfig; items: readonly DraftItem[] } | null,
+): HomeSection[] => {
+  if (!sectionId || !draft) return [...sections]
+
+  return sections.map(section =>
+    section.id === sectionId
+      ? {
+          ...section,
+          config: draft.config,
+          items: draft.items.map((item, index) => ({
+            id: item.key,
+            section_id: section.id,
+            position: index,
+            category_id: item.category_id,
+            product_id: item.product_id,
+            href: item.href,
+            image_url: item.image_url,
+            alt: item.alt,
+            label_snapshot: item.label_snapshot,
+          })) as HomeSectionItem[],
+        }
+      : section,
+  )
+}
