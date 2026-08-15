@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import type { HomeSectionConfig } from '@estrelinha/core/home'
 import { EstrelinhaStarIcon } from '@/shared/ui/icons'
 import { TAP_ROW } from '@/shared/lib/touchTarget'
 
@@ -13,26 +14,34 @@ import { TAP_ROW } from '@/shared/lib/touchTarget'
  *
  * Sobre `ink`, `on-primary` mede 12,21:1 e `ground` 12,73:1. `primary` mediria 1,45:1 e sumiria —
  * por isso o link de escape é sublinhado em `on-primary`, não um CTA azul.
+ *
+ * **O texto vem por prop, e não há fallback literal aqui** (feature 24, emenda `E1`): um default
+ * dentro do widget seria um segundo dono dos mesmos textos, e a faixa continuaria dizendo a versão
+ * antiga depois de a dona editar a nova. Quem guarda a composição de hoje é
+ * `DEFAULT_HOME_COMPOSITION`; quem prova que a página não mudou é `homeComposition.test.tsx`.
  */
-const BrandStatement = () => {
+interface Props {
+  /** O `config` da seção `brand_statement` (`HOME-43`). */
+  content: HomeSectionConfig
+}
+
+const BrandStatement = ({ content }: Props) => {
   return (
     <section className="bg-estrelinha-ink">
       <div className="container flex flex-col gap-10 py-14 md:flex-row md:items-start md:gap-24 md:py-24">
         <div className="flex flex-col gap-4 md:w-[44%] md:shrink-0">
           <p className="estrelinha-eyebrow flex items-center gap-3 text-estrelinha-accent">
             <span aria-hidden className="block h-px w-7 bg-estrelinha-accent" />
-            Feito à mão, uma por vez
+            {content.eyebrow}
           </p>
           <h2 className="font-display text-[26px] font-semibold leading-[1.28] tracking-[-0.02em] text-estrelinha-on-primary md:text-[34px] md:leading-[1.4]">
-            Cada joia é uma memória eternizada à mão
+            {content.title}
           </h2>
         </div>
 
         <div className="flex flex-col gap-7 md:flex-1 md:pt-1.5">
           <p className="text-[15px] font-light leading-[28px] text-estrelinha-ground md:text-[17px] md:leading-[32px]">
-            Trabalhamos com leite materno, cinzas de cremação, coto umbilical, cabelo, pelo de pet,
-            dente de leite e flores para criar peças únicas em resina, prata 925 e aço inoxidável.
-            Nada é produzido em série: cada história que chega até o ateliê vira uma peça só sua.
+            {content.paragraph}
           </p>
 
           <div className="flex items-center gap-4">
@@ -44,22 +53,24 @@ const BrandStatement = () => {
             </span>
             <span className="flex flex-col gap-0.5">
               <span className="font-display text-[18px] leading-6 text-estrelinha-on-primary">
-                Adri Muniz
+                {content.author_name}
               </span>
-              {/* A cidade é fato do negócio, não configuração: `GeneralSettings` não tem endereço,
-                  e a `AboutPage` já a escreve do mesmo jeito. */}
               <span className="text-[13px] font-light text-estrelinha-ground">
-                artesã · Porto Alegre/RS
+                {content.author_role}
               </span>
             </span>
           </div>
 
-          <Link
-            to="/sobre"
-            className={`${TAP_ROW} self-start text-[14px] font-semibold text-estrelinha-on-primary underline underline-offset-4 transition-opacity hover:opacity-70`}
-          >
-            Conheça o ateliê
-          </Link>
+          {/* Sem rótulo OU sem destino, o link de escape não sai: `<Link to={undefined}>` derrubaria
+              a Home inteira, e um destino inventado mandaria a cliente para outro lugar em silêncio. */}
+          {content.link_label && content.link_href && (
+            <Link
+              to={content.link_href}
+              className={`${TAP_ROW} self-start text-[14px] font-semibold text-estrelinha-on-primary underline underline-offset-4 transition-opacity hover:opacity-70`}
+            >
+              {content.link_label}
+            </Link>
+          )}
         </div>
       </div>
     </section>

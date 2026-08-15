@@ -211,6 +211,27 @@ describe('Home — os literais dos chips e da newsletter (HOME-04)', () => {
     expect(screen.getByText('As linhas mais procuradas, direto ao ponto')).toBeInTheDocument()
   })
 
+  it('mantém o "ver todos" dos chips, com rótulo e destino', () => {
+    // **Emenda `E2`.** A primeira versão deste arquivo congelou título e subtítulo dos chips e
+    // esqueceu o link — então a task que trocasse o texto do widget por prop poderia removê-lo e
+    // nada acusaria, que é exatamente a classe de falha que este arquivo existe para pegar. O link
+    // entra na composição como `link_label`/`link_href`, e aqui está o congelamento dele.
+    renderHome()
+
+    expect(screen.getByRole('link', { name: /Ver todos os temas/ })).toHaveAttribute('href', '/busca')
+  })
+
+  it('a seção dos chips mantém o chão `surface` e o respiro de hoje', () => {
+    // A moldura da seção mora hoje na `HomePage` e vai migrar para o widget quando a composição
+    // virar dado. Sem congelar o chão, a migração podia deixar os chips sobre `ground` — uma faixa
+    // a menos no ritmo da página, sem nada quebrar.
+    renderHome()
+
+    const secao = screen.getByRole('heading', { name: 'Explore por tema' }).closest('section')!
+    expect(secao.className).toContain('bg-estrelinha-surface')
+    expect(secao.className).toContain('py-12')
+  })
+
   it('mantém título, subtítulo e o rótulo do botão da newsletter', () => {
     renderHome()
 

@@ -303,7 +303,10 @@ from (values
 	('banner_grid', 3, true, '{"layout":"hero_pair"}'::jsonb),
 	('collection_rows', 4, true, '{"limit":4}'::jsonb),
 	('brand_statement', 5, true, '{"eyebrow":"Feito à mão, uma por vez","title":"Cada joia é uma memória eternizada à mão","paragraph":"Trabalhamos com leite materno, cinzas de cremação, coto umbilical, cabelo, pelo de pet, dente de leite e flores para criar peças únicas em resina, prata 925 e aço inoxidável. Nada é produzido em série: cada história que chega até o ateliê vira uma peça só sua.","author_name":"Adri Muniz","author_role":"artesã · Porto Alegre/RS","link_label":"Conheça o ateliê","link_href":"/sobre","interlude_after":0}'::jsonb),
-	('trending_tags', 6, true, '{"title":"Explore por tema","subtitle":"As linhas mais procuradas, direto ao ponto","limit":12}'::jsonb),
+	-- `link_label`/`link_href` são o "ver todos" dos chips (emenda `E2` da feature 24): o widget o
+	-- renderiza desde sempre e `HOME-41` o torna editável, então ele precisa nascer na semente — sem
+	-- isso a Home semeada perderia o link no dia da virada.
+	('trending_tags', 6, true, '{"title":"Explore por tema","subtitle":"As linhas mais procuradas, direto ao ponto","link_label":"Ver todos os temas","link_href":"/busca","limit":12}'::jsonb),
 	('newsletter', 7, true, '{"title":"Quer saber das novidades?","subtitle":"Cadastre-se e fique por dentro das novidades da loja.","cta_label":"Me cadastrar"}'::jsonb)
 ) as s(tipo, pos, ligada, conf)
 where not exists (select 1 from public.home_sections);

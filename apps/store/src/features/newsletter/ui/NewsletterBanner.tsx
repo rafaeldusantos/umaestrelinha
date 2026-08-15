@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import type { HomeSectionConfig } from '@estrelinha/core/home'
 import { EstrelinhaSymbol } from '@/shared/ui/brand'
 
 /**
@@ -20,8 +21,19 @@ import { EstrelinhaSymbol } from '@/shared/ui/brand'
  * e-mail; esta newsletter não tem destino nenhum para nome e telefone, e pedir
  * dado que ninguém guarda é coleta sem finalidade. Quando houver lista de
  * verdade, os campos nascem com ela.
+ *
+ * **O texto vem por prop, sem fallback literal** (feature 24, emenda `E1`): um
+ * default aqui dentro seria um segundo dono dos mesmos textos, e a faixa diria
+ * a versão antiga depois de a dona editar a nova. A confirmação do envio **não**
+ * é editável — ela não é chamada de marketing, é o retorno de uma ação, e
+ * deixá-la em branco tiraria a única resposta que a cliente recebe.
  */
-const NewsletterBanner = () => {
+interface Props {
+  /** O `config` da seção `newsletter` (`HOME-41`). */
+  content: HomeSectionConfig
+}
+
+const NewsletterBanner = ({ content }: Props) => {
   const [email, setEmail] = useState('')
   const [submitted, setSubmitted] = useState(false)
 
@@ -51,10 +63,10 @@ const NewsletterBanner = () => {
             <div className="flex w-full flex-col gap-4">
               <div className="flex flex-col gap-1">
                 <h3 className="font-display text-[23px] leading-7 text-estrelinha-on-primary">
-                  Quer saber das novidades?
+                  {content.title}
                 </h3>
                 <p className="text-sm font-light leading-[18px] text-estrelinha-on-primary/80">
-                  Cadastre-se e fique por dentro das novidades da loja.
+                  {content.subtitle}
                 </p>
               </div>
 
@@ -82,7 +94,7 @@ const NewsletterBanner = () => {
                   type="submit"
                   className="h-[50px] shrink-0 rounded-sm bg-estrelinha-accent px-8 text-[13px] font-semibold uppercase tracking-[0.06em] text-estrelinha-ink transition-colors hover:bg-estrelinha-on-primary"
                 >
-                  Me cadastrar
+                  {content.cta_label}
                 </button>
               </form>
             </div>

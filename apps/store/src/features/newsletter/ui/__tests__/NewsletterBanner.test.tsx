@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
+import { DEFAULT_HOME_COMPOSITION, type HomeSectionConfig } from '@estrelinha/core/home'
 import NewsletterBanner from '../NewsletterBanner'
 
 /**
@@ -14,7 +15,10 @@ import NewsletterBanner from '../NewsletterBanner'
  * `primary-strong`, e o ouro cabe **só** no botão.
  */
 
-const renderBanner = () => render(<NewsletterBanner />)
+const CONTEUDO_DE_HOJE = DEFAULT_HOME_COMPOSITION.find((s) => s.type === 'newsletter')!.config
+
+const renderBanner = (content: HomeSectionConfig = CONTEUDO_DE_HOJE) =>
+  render(<NewsletterBanner content={content} />)
 const painel = (container: HTMLElement) =>
   container.querySelector('section > div > div') as HTMLElement
 
@@ -67,6 +71,36 @@ describe('Newsletter — a persona e a promessa antigas saíram (COP-07)', () =>
     const campos = container.querySelectorAll('input')
     expect(campos).toHaveLength(1)
     expect(campos[0]).toHaveAttribute('type', 'email')
+  })
+})
+
+describe('Newsletter — o texto vem do conteúdo, não do arquivo (HOME-41)', () => {
+  it('desenha título, subtítulo e o rótulo do botão que a prop traz', () => {
+    // Com fallback literal dentro do widget, este teste passaria mostrando os textos antigos — o
+    // segundo dono que a emenda `E1` fecha.
+    renderBanner({
+      title: 'Receba as novidades do ateliê',
+      subtitle: 'Uma mensagem por mês, sem promoção inventada.',
+      cta_label: 'Quero receber',
+    })
+
+    expect(
+      screen.getByRole('heading', { name: 'Receba as novidades do ateliê' }),
+    ).toBeInTheDocument()
+    expect(screen.getByText('Uma mensagem por mês, sem promoção inventada.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Quero receber' })).toBeInTheDocument()
+  })
+
+  it('a confirmação do envio NÃO é editável', () => {
+    // Ela não é chamada de marketing, é o retorno de uma ação: deixá-la em branco tiraria a única
+    // resposta que a cliente recebe depois de se cadastrar.
+    renderBanner({ title: 'Outro título', cta_label: 'Enviar' })
+    fireEvent.change(screen.getByLabelText('Seu e-mail'), {
+      target: { value: 'adri@umaestrelinha.com.br' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Enviar' }))
+
+    expect(screen.getByText('Tudo certo!')).toBeInTheDocument()
   })
 })
 

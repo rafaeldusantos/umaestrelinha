@@ -90,6 +90,11 @@ export const DEFAULT_HOME_COMPOSITION: readonly HomeSection[] = [
     config: {
       title: 'Explore por tema',
       subtitle: 'As linhas mais procuradas, direto ao ponto',
+      // O "ver todos" dos chips — **emenda `E2`**. A tabela de `config` do design o esqueceu, mas o
+      // widget o renderiza desde sempre e `HOME-41` o torna editável; sem ele aqui, a virada para
+      // prop o apagaria da Home e nada acusaria.
+      link_label: 'Ver todos os temas',
+      link_href: '/busca',
       // Acima de 12 a nuvem de chips vira parede.
       limit: 12,
     },

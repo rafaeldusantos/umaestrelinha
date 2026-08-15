@@ -22,7 +22,10 @@ import type { HomeSectionType } from '../types'
  * fecha. Quem assume o papel é `homeComposition.test.tsx`, estritamente mais forte: assere o **DOM
  * renderizado** ao fim do pipe inteiro, não o texto de um arquivo.
  *
- * Aposentado até aqui: **o hero** (a T13 tirou os seis literais do `HeroBanner`).
+ * **A comparação virou o INVERSO dela mesma**: em vez de conferir que o literal está nos dois
+ * lugares, o teste passa a exigir que ele **não** esteja mais no widget. É a mesma leitura de
+ * arquivo, com a asserção trocada de sinal — e continua sendo a única coisa que pega um fallback
+ * literal reintroduzido por distração.
  */
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -33,6 +36,7 @@ const ROOT = resolve(HERE, '../../../../..')
  * faria a varredura encolher junto com o que ela deveria guardar.
  */
 const FONTES = {
+  hero: 'apps/store/src/widgets/hero-banner/ui/HeroBanner.tsx',
   brandStatement: 'apps/store/src/widgets/home-sections/ui/BrandStatement.tsx',
   trendingTags: 'apps/store/src/widgets/home-sections/ui/TrendingTags.tsx',
   newsletter: 'apps/store/src/features/newsletter/ui/NewsletterBanner.tsx',
@@ -40,15 +44,27 @@ const FONTES = {
 } as const
 
 /**
- * O JSX quebra texto longo em várias linhas e o React o entrega com um espaço só. Sem normalizar, o
- * parágrafo do hero nunca casaria — e a falha pareceria divergência de conteúdo quando é só recuo.
+ * **Comentário não é código**, e aqui isso decide o resultado: o cabeçalho do `TrendingTags` cita
+ * "Explore por tema" para contar a história do widget, e sem tirar os comentários a asserção de
+ * ausência acusaria um literal que não renderiza nada. Mesma limpeza que `homeSections.test.ts` faz
+ * antes de medir a migration.
+ *
+ * Só comentário de linha INTEIRA em `//`: `https://…` dentro de uma string tem duas barras e não é
+ * comentário nenhum.
+ */
+const semComentarios = (fonte: string): string =>
+  fonte.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/^[ \t]*\/\/[^\n]*/gm, ' ')
+
+/**
+ * O JSX quebra texto longo em várias linhas e o React o entrega com um espaço só. Sem normalizar, um
+ * parágrafo nunca casaria — e a falha pareceria divergência de conteúdo quando é só recuo.
  */
 const normalizado = (fonte: string): string => fonte.replace(/\s+/g, ' ')
 
 const LIDOS = Object.fromEntries(
   Object.entries(FONTES).map(([chave, caminho]) => [
     chave,
-    normalizado(readFileSync(join(ROOT, caminho), 'utf8')),
+    normalizado(semComentarios(readFileSync(join(ROOT, caminho), 'utf8'))),
   ]),
 ) as Record<keyof typeof FONTES, string>
 
@@ -104,7 +120,14 @@ describe('DEFAULT_HOME_COMPOSITION — os limites e o aninhamento', () => {
 
   it('os chips de tema nascem com o limite de hoje', () => {
     expect(secao('trending_tags').config.limit).toBe(12)
-    expect(LIDOS.trendingTags).toMatch(/const LIMIT = 12\b/)
+  })
+
+  it('os chips de tema nascem com o "ver todos" de hoje (emenda E2)', () => {
+    // O design esqueceu estes dois campos, e a T1 não os havia congelado — então a virada para prop
+    // teria apagado o link da Home sem nada acusar. Hoje o congelamento está nos dois lugares: aqui,
+    // e no DOM, em `homeComposition.test.tsx`.
+    expect(secao('trending_tags').config.link_label).toBe('Ver todos os temas')
+    expect(secao('trending_tags').config.link_href).toBe('/busca')
   })
 
   it('a faixa institucional entra depois da 1ª fileira, e é ela quem carrega o campo', () => {
@@ -118,51 +141,50 @@ describe('DEFAULT_HOME_COMPOSITION — os limites e o aninhamento', () => {
   })
 })
 
-describe('DEFAULT_HOME_COMPOSITION — os literais batem com o disco', () => {
-  it('âncora: leu os quatro fontes de verdade', () => {
-    // Sem esta âncora, um caminho errado leria string vazia, todas as comparações abaixo falhariam
-    // por um motivo enganoso — ou, se fossem escritas ao contrário, passariam em silêncio.
+describe('DEFAULT_HOME_COMPOSITION — os literais NÃO moram mais nos widgets (emenda E1)', () => {
+  it('âncora: leu os cinco fontes de verdade', () => {
+    // Sem esta âncora, um caminho errado leria string vazia e **todas** as asserções de ausência
+    // abaixo passariam em silêncio — que é a pior falha possível num teste que lê arquivo, e a
+    // razão de a asserção ter mudado de sinal sem perder a âncora.
     for (const [chave, caminho] of Object.entries(FONTES)) {
       expect(LIDOS[chave as keyof typeof FONTES].length, caminho).toBeGreaterThan(500)
     }
-    expect(Object.keys(FONTES)).toHaveLength(4)
+    expect(Object.keys(FONTES)).toHaveLength(5)
   })
 
-  it('o `HeroBanner` NÃO carrega mais os literais: eles são prop obrigatória', () => {
-    // O par da aposentadoria acima. Um fallback literal que voltasse ao widget seria um segundo dono
-    // dos mesmos textos, e a Home mostraria a versão antiga enquanto a dona edita a nova.
-    const hero = normalizado(
-      readFileSync(join(ROOT, 'apps/store/src/widgets/hero-banner/ui/HeroBanner.tsx'), 'utf8'),
-    )
+  it('o `HeroBanner` não carrega os seis campos: eles são prop obrigatória', () => {
     const { config } = secao('hero')
-
-    expect(hero.length).toBeGreaterThan(500)
-    expect(hero).not.toContain(config.title_line1)
-    expect(hero).not.toContain(config.paragraph)
-    expect(hero).not.toContain(config.cta_label)
+    expect(LIDOS.hero).not.toContain(config.eyebrow)
+    expect(LIDOS.hero).not.toContain(config.title_line1)
+    expect(LIDOS.hero).not.toContain(config.title_line2)
+    expect(LIDOS.hero).not.toContain(config.paragraph)
+    expect(LIDOS.hero).not.toContain(config.cta_label)
+    expect(LIDOS.hero).not.toContain(`to="${config.cta_href}"`)
   })
 
-  it('os sete campos da faixa institucional saem do `BrandStatement`', () => {
+  it('o `BrandStatement` não carrega os sete campos da faixa institucional', () => {
     const { config } = secao('brand_statement')
-    expect(LIDOS.brandStatement).toContain(config.eyebrow)
-    expect(LIDOS.brandStatement).toContain(config.title)
-    expect(LIDOS.brandStatement).toContain(config.paragraph)
-    expect(LIDOS.brandStatement).toContain(config.author_name)
-    expect(LIDOS.brandStatement).toContain(config.author_role)
-    expect(LIDOS.brandStatement).toContain(config.link_label)
-    expect(LIDOS.brandStatement).toContain(`to="${config.link_href}"`)
+    expect(LIDOS.brandStatement).not.toContain(config.eyebrow)
+    expect(LIDOS.brandStatement).not.toContain(config.title)
+    expect(LIDOS.brandStatement).not.toContain(config.paragraph)
+    expect(LIDOS.brandStatement).not.toContain(config.author_name)
+    expect(LIDOS.brandStatement).not.toContain(config.author_role)
+    expect(LIDOS.brandStatement).not.toContain(config.link_label)
+    expect(LIDOS.brandStatement).not.toContain(`to="${config.link_href}"`)
   })
 
-  it('título e subtítulo dos chips saem do `TrendingTags`', () => {
+  it('o `TrendingTags` não carrega título, subtítulo nem o "ver todos"', () => {
     const { config } = secao('trending_tags')
-    expect(LIDOS.trendingTags).toContain(config.title)
-    expect(LIDOS.trendingTags).toContain(config.subtitle)
+    expect(LIDOS.trendingTags).not.toContain(config.title)
+    expect(LIDOS.trendingTags).not.toContain(config.subtitle)
+    expect(LIDOS.trendingTags).not.toContain(config.link_label)
+    expect(LIDOS.trendingTags).not.toContain(`to="${config.link_href}"`)
   })
 
-  it('título, subtítulo e rótulo do botão saem do `NewsletterBanner`', () => {
+  it('o `NewsletterBanner` não carrega título, subtítulo nem o rótulo do botão', () => {
     const { config } = secao('newsletter')
-    expect(LIDOS.newsletter).toContain(config.title)
-    expect(LIDOS.newsletter).toContain(config.subtitle)
-    expect(LIDOS.newsletter).toContain(config.cta_label)
+    expect(LIDOS.newsletter).not.toContain(config.title)
+    expect(LIDOS.newsletter).not.toContain(config.subtitle)
+    expect(LIDOS.newsletter).not.toContain(config.cta_label)
   })
 })

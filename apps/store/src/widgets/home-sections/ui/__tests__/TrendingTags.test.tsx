@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
+import { DEFAULT_HOME_COMPOSITION, type HomeSectionConfig } from '@estrelinha/core/home'
 import TrendingTags from '../TrendingTags'
 
 /**
@@ -23,7 +24,14 @@ vi.mock('@/entities/category', () => ({ useCategories: () => categorias }))
 const cat = (id: string, name: string, parent_id: string | null = null) =>
   ({ id, name, slug: id, parent_id }) as any
 
-const renderTags = () => render(<MemoryRouter><TrendingTags /></MemoryRouter>)
+const CONTEUDO_DE_HOJE = DEFAULT_HOME_COMPOSITION.find((s) => s.type === 'trending_tags')!.config
+
+const renderTags = (content: HomeSectionConfig = CONTEUDO_DE_HOJE) =>
+  render(
+    <MemoryRouter>
+      <TrendingTags content={content} />
+    </MemoryRouter>,
+  )
 
 describe('TrendingTags — a lista vem do catálogo', () => {
   it('mostra as categorias reais, e cada chip leva à coleção', () => {
@@ -82,5 +90,50 @@ describe('TrendingTags — a forma e a cor', () => {
     categorias.data = [cat('pet', 'Pet')]
     renderTags()
     expect(screen.getByRole('link', { name: 'Pet' }).className).toContain('min-h-11')
+  })
+})
+
+describe('TrendingTags — o texto vem do conteúdo, não do arquivo (HOME-41)', () => {
+  it('desenha o título, o subtítulo e o "ver todos" que a prop traz', () => {
+    // Textos diferentes dos de hoje de propósito: com fallback literal dentro do widget este teste
+    // passaria mostrando os antigos, que é o segundo dono que a emenda `E1` fecha.
+    categorias.data = [cat('pet', 'Pet')]
+    renderTags({
+      title: 'Escolha pelo material',
+      subtitle: 'O que mais chega ao ateliê',
+      link_label: 'Ver tudo',
+      link_href: '/busca',
+    })
+
+    expect(screen.getByRole('heading', { name: 'Escolha pelo material' })).toBeInTheDocument()
+    expect(screen.getByText('O que mais chega ao ateliê')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Ver tudo/ })).toHaveAttribute('href', '/busca')
+  })
+
+  it('o limite de chips sai do conteúdo (HOME-42)', () => {
+    categorias.data = ['a', 'b', 'c', 'd'].map((s) => cat(s, s.toUpperCase()))
+    renderTags({ title: 'Temas', limit: 2 })
+
+    expect(screen.getAllByRole('link')).toHaveLength(2)
+    expect(screen.queryByRole('link', { name: 'C' })).toBeNull()
+  })
+
+  it('sem rótulo ou sem destino, o "ver todos" não é desenhado e os chips ficam', () => {
+    categorias.data = [cat('pet', 'Pet')]
+    renderTags({ title: 'Temas', link_label: 'Ver tudo' })
+
+    expect(screen.getByRole('link', { name: 'Pet' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /Ver tudo/ })).toBeNull()
+  })
+
+  it('a moldura da seção mora aqui: chão `surface` e o respiro de hoje', () => {
+    // Ela estava na `HomePage`; uma composição vinda do banco não tem onde guardar moldura de uma
+    // seção específica. `homeComposition.test.tsx` congela o resultado disso na página.
+    categorias.data = [cat('pet', 'Pet')]
+    const { container } = renderTags()
+
+    const secao = container.querySelector('section')!
+    expect(secao.className).toContain('bg-estrelinha-surface')
+    expect(secao.className).toContain('py-12')
   })
 })

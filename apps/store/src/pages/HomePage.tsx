@@ -9,11 +9,11 @@ import { useCategories } from '@/entities/category'
 import { DEFAULT_HOME_COMPOSITION } from '@estrelinha/core/home'
 
 /**
- * Provisório da feature 24: o conteúdo do hero já vem de `DEFAULT_HOME_COMPOSITION`, mas ainda é
- * lido daqui e não do banco. A T18 troca a página inteira por hook → resolve → render, e esta
- * constante some junto com o resto da composição escrita em JSX.
+ * Provisório da feature 24: o conteúdo das seções já vem de `DEFAULT_HOME_COMPOSITION`, mas ainda é
+ * lido daqui e não do banco. A T18 troca a página inteira por hook → resolve → render, e estas
+ * constantes somem junto com o resto da composição escrita em JSX.
  */
-const heroContent = DEFAULT_HOME_COMPOSITION.find((s) => s.type === 'hero')!.config
+const conteudo = (type: string) => DEFAULT_HOME_COMPOSITION.find((s) => s.type === type)!.config
 
 /**
  * A home — board `7CF-0` ("Loja — Home (Desktop)"), que reconstruiu a página da loja em produção
@@ -50,21 +50,17 @@ const HomePage = () => {
 
   return (
     <div>
-      <HeroBanner content={heroContent} />
+      <HeroBanner content={conteudo('hero')} />
 
       <TrustBar />
 
       <HomeBannerGrid exclude={emFileira} />
 
-      <HomeCollections interlude={<BrandStatement />} />
+      <HomeCollections interlude={<BrandStatement content={conteudo('brand_statement')} />} />
 
-      <section className="bg-estrelinha-surface py-12 md:py-16">
-        <div className="container">
-          <TrendingTags />
-        </div>
-      </section>
+      <TrendingTags content={conteudo('trending_tags')} />
 
-      <NewsletterBanner />
+      <NewsletterBanner content={conteudo('newsletter')} />
     </div>
   )
 }
