@@ -597,6 +597,33 @@ Três coisas ficaram sem dono declarado e cairiam em duas telas cada, divergindo
 menu. `layoutSlots` é o caso mais claro — sem ele, "quantos banners cabem em `hero_pair`" seria
 respondido por um widget da loja e por um editor do painel, separadamente.
 
+### E4 — Ordenar no PostgREST seria um segundo dono (correção que veio da Fase 3)
+
+Este design escrevia `.select('*, items:home_section_items(*)').order('position')`. A Fase 3 não pôs
+o `.order`, com marcador `SPEC_DEVIATION`, e **o worker tem razão**: a ordem da Home tem um dono,
+`orderSections`, que é quem desempata `position` igual por `id` (`HOME-12`). A ordenação do PostgREST
+**não desempata** — duas seções empatadas voltariam em ordem arbitrária a cada carregamento, que é
+exatamente o defeito que `HOME-12` existe para impedir. Pedir a ordem nas duas pontas daria duas
+respostas para a mesma pergunta, e a do banco seria a errada.
+
+**O design passa a ser: a consulta não ordena; `orderSections` ordena.**
+
+### E5 — Destino de PRODUTO ainda não resolve na loja, e isso tem dono
+
+A Fase 3 marcou item com `product_id` como "destino fora do ar" (`SPEC_DEVIATION` em
+`useResolvedHome.ts:96`). O motivo é correto — montar o caminho canônico de um produto exige o
+**slug**, e a linha guarda só o id; `useProducts(undefined)` baixaria o catálogo inteiro na Home, que
+é o defeito que a feature `23` fechou.
+
+Hoje isso **não alcança dado real** (nenhuma seção nasce com itens, e o único editor que cria destino
+de produto é a T28). Mas `HOME-23` promete que o destino pode ser um produto, e se a T28 entregar só
+o editor, a dona gravaria um banner que **nunca apareceria na loja** — sem erro em lugar nenhum.
+
+**Solução declarada, para a T28 fechar as duas pontas**: a consulta de `useHomeSections` embute o
+slug pela relação, `items:home_section_items(*, product:products(slug))`. Uma consulta só, sem tabela
+nova, sem coluna redundante, e sem baixar catálogo. A T28 não está fechada enquanto o banner de
+produto não renderizar na loja.
+
 ### Achados que **não** viram emenda
 
 - **Âncora de `catalog.test.ts` afrouxada de `>= 3` num módulo de seis**: corrigida direto (piso = 6,

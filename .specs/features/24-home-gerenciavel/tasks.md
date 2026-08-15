@@ -140,13 +140,39 @@ desliga normalmente; `insert` anônimo 42501; `select` anônimo devolve 6 de 7 s
 > 2. **`insert` em lote exige as mesmas chaves em todos os objetos** (`PGRST102`). Item com destino de
 >    categoria e item com destino de `href` precisam mandar as outras colunas como `null` explícito.
 
-### Fase 3 — A loja passa a ler do banco (7 tasks)
+### Fase 3 — A loja passa a ler do banco (7 tasks) — ✅ **FECHADA** (2026-08-15)
 
 ```
 T12 → T13 → T14 → T15 → T16 → T17 → T18
 ```
 
-> **T1 tem de continuar verde ao fim da T18.** É o gate desta fase inteira.
+| Task | Commit | Entregou |
+| --- | --- | --- |
+| T12 | `ac1e6ef` | `useHomeSections` — erro, lista vazia **e o instante antes da resposta** caem no piso semeado |
+| T13 | `2abde75` | hero com texto por prop e foto opcional na mesma vaga de proporção da arte |
+| T14 | `79523f6` | faixa, chips e newsletter por prop; `link_label`/`link_href` na composição e na semente |
+| T15 | `18b20e6` | `layoutSlots`/`layoutRatios` em `core/home` (**E3**) + os quatro arranjos |
+| T16 | `6fb5482` | fileiras com lista resolvida e `interludeAfter` por prop |
+| T17 | `3f37c99` | registro tipo → componente, aninhamento e o contexto com a derivação injetada |
+| T18 | `0c9af43` | `HomePage` = hook → renderizador; nenhum nome de seção sobra no `.tsx` |
+
+**`HOME-04` cumprido, e medido no diff — não no relato.** A T1 foi de **9 para 14 asserções**;
+`git diff --numstat` da fase inteira sobre o arquivo dá **56 linhas adicionadas, 0 removidas**. A
+regra da emenda E2 ("não perde asserção — só ganha") valeu na prática.
+
+**Verificado pelo orquestrador**: `pnpm test` exit 0 — store **1530/115** · core **1029/34** ·
+backoffice 1145/70 · functions 279/4 · catalog-import 276/15 = **4259/238**. `tsc` 0/0. Lint 30/8.
+`payment/**` **0 arquivos**. Árvore limpa.
+
+**Dois `SPEC_DEVIATION` novos, os dois aceitos:**
+1. `useHomeSections` **não** ordena no PostgREST — virou a emenda **E4**, porque o worker tem razão:
+   a ordem tem um dono (`orderSections`) e a do banco **não desempata**.
+2. Destino de **produto** ainda não resolve na loja — virou a emenda **E5**, com dono na **T28** e a
+   solução nomeada (embutir o slug pela relação).
+
+**Correção do orquestrador na fase anterior que se confirmou útil**: a âncora de `catalog.test.ts`
+subiu sozinha de 6 para 8 quando `layout.ts` entrou — que é exatamente o comportamento que o
+comentário dela promete.
 
 ### Fase 4 — O painel: lista, ordem, liga/desliga, prévia (7 tasks)
 
@@ -839,6 +865,13 @@ abas `Seções | Prévia` em 390px.
 **Done when**:
 - [ ] 1 a 4 banners; cada um exige imagem, `alt` e destino **para salvar**
 - [ ] Destino é coleção **ou** produto **ou** caminho da loja — exatamente um gravado
+- [ ] **O banner de PRODUTO tem de RENDERIZAR NA LOJA** (**emenda E5**). A Fase 3 marcou
+      `product_id` como "destino fora do ar" porque a linha guarda o id e o caminho canônico exige o
+      **slug**. Entregar só o editor faria a dona gravar um banner que **nunca apareceria**, sem erro
+      em lugar nenhum. Solução: embutir o slug na consulta de `useHomeSections` —
+      `items:home_section_items(*, product:products(slug))`. Uma consulta, sem coluna redundante e
+      sem baixar catálogo. **A T28 não fecha enquanto isso não renderizar**, e o `SPEC_DEVIATION` em
+      `useResolvedHome.ts` sai junto
 - [ ] Destino apagado mostra **qual** se perdeu (via `label_snapshot`) e a arte **continua guardada**
 - [ ] Aviso de proporção mostra o tamanho recomendado em px e **não recorta**
 - [ ] Sem banner próprio, o cartão explica que a grade cai na derivação por Categorias
