@@ -212,11 +212,45 @@ não com fixture.
 > O desvio nº 2 (44px físicos em vez de `TAP_44`) foi **aceito**: o auxiliar mora no `shared/` do
 > outro app, e copiá-lo criaria o segundo dono da medida que `touchTarget.test.ts` existe para impedir.
 
-### Fase 5 — Editores de seção (5 tasks)
+### Fase 5 — Editores de seção (5 tasks) — ✅ **FECHADA** (2026-08-15)
+
+**Ordem executada** (a corrigida pelo cross-check, não a numérica):
 
 ```
-T26 → T27 → T28 → T29 → T30
+T26 → T30 → T27 → T28 → T29
 ```
+
+| Task | Commit | Entregou |
+| --- | --- | --- |
+| T26 | `ae9d3fd` | `uploadImageBlob` com `{bucket, folder}` — default asserido nos dois lados; `uploadHomeImage` mede a proporção **antes** de comprimir |
+| T30 | `da41aba` | `/admin/home/:sectionId` no **mesmo** componente; `FormPageHeader` com trilha e `⌘S`; `SECTION_EDITORS` como registro |
+| T27 | `66acea5` | `HeroEditor` — seis campos, `alt` obrigatório, destino validado, remover foto volta à arte |
+| T28 | `f9f86c6` | `BannerGridEditor` — 4 arranjos, vagas de `layoutSlots`, `label_snapshot`, aviso que não bloqueia **+ a emenda E5 nas duas pontas** |
+| T29 | `8d429ad` | `TextSectionEditor` para 4 tipos; `trust_bar` sem campo, apontando para Configurações |
+
+**A emenda E5 fechou de verdade, e eu conferi no código** — não no relato:
+`useHomeSections` e `useAdminHomeSections` embutem `product:products(slug)`;
+`HomeRenderer.test.tsx:230` assere `href="/produtos/pingente-gota"` no DOM, e a linha 235 cobre o
+produto despublicado saindo de cena. O `SPEC_DEVIATION` de `useResolvedHome.ts` **saiu** (grep = 0).
+
+O worker fez **probe HTTP antes de escrever código**: produto publicado devolve
+`{"product":{"slug":…}}` para anônimo; despublicado devolve `{"product":null}` com `product_id`
+intacto — "saiu do ar" é **resposta da RLS**, não filtro do cliente. Banco restaurado ao estado
+anterior.
+
+**A prévia não remonta, e a prova é boa**: identidade do nó do DOM —
+`const antes = getByTestId('previa-hero')` → navega → `expect(getByTestId('previa-hero')).toBe(antes)`.
+Remontar criaria outro nó e a asserção cai.
+
+**Verificado pelo orquestrador**: **4434/248** (+80/+4) · `tsc` 0 · lint 30/8 · `payment/**` **0
+arquivos** · **guarda da T1 com ZERO linha no diff do lote** · árvore limpa.
+
+**Desvios aceitos**: (1) o cartão "Arte" do hero ficou na coluna da esquerda, não onde o board o põe
+— a decisão da T30 ("a rota troca só a coluna da lista") manda sobre a posição do board; (2) o teto
+de banners é `layoutSlots(arranjo)`, e item excedente é **denunciado** em vez de descartado, porque a
+grade da loja faz `.slice(0, vagas)` e o 4º sumiria em silêncio; (3) `HERO_ART_SLOT` **não** alimenta
+`aspectRatioWarning` de propósito — a foto do hero é fotografia e aceita recorte; quem ganha aviso é
+o banner de campanha, que tem texto dentro da arte.
 
 ### Fase 6 — P2: curadoria, destaque e fecho (5 tasks)
 
