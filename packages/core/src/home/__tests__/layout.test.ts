@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { DEFAULT_BANNER_LAYOUT, layoutRatios, layoutSlots } from '../layout'
+import { DEFAULT_BANNER_LAYOUT, HERO_ART_SLOT, layoutRatios, layoutSlots } from '../layout'
 import { DEFAULT_HOME_COMPOSITION } from '../defaults'
 import type { HomeBannerLayout } from '../types'
 
@@ -99,5 +99,24 @@ describe('layoutRatios — o que não pode acontecer', () => {
   it('a medida devolvida é CÓPIA: mutar o retorno não contamina a tabela', () => {
     layoutRatios('hero_pair')[0].width = 1
     expect(layoutRatios('hero_pair')[0].width).toBe(1176)
+  })
+})
+
+describe('HERO_ART_SLOT — a vaga da figura do hero', () => {
+  it('tem a proporção que a loja desenha (`aspect-[350/260]`), em pixels de densidade 2×', () => {
+    // A tela do painel não pode inventar o tamanho recomendado, e a loja não pode desenhar outra
+    // proporção: o número mora aqui uma vez só. A tolerância é a mesma do aviso de proporção (2%),
+    // que é o que separa divergência real de ruído de exportação.
+    const desenho = 350 / 260
+    expect(HERO_ART_SLOT.width / HERO_ART_SLOT.height).toBeCloseTo(desenho, 2)
+    expect(HERO_ART_SLOT).toEqual({ width: 1200, height: 890 })
+  })
+
+  it('não é uma das vagas da grade de banners — são perguntas diferentes', () => {
+    // A figura do hero é fotografia e aceita recorte; o banner de campanha tem texto dentro da arte
+    // e por isso ganha aviso. Confundir as duas medidas devolveria aviso onde não cabe.
+    for (const layout of ['single', 'pair', 'hero_pair', 'quad'] as HomeBannerLayout[]) {
+      expect(layoutRatios(layout)).not.toContainEqual(HERO_ART_SLOT)
+    }
   })
 })

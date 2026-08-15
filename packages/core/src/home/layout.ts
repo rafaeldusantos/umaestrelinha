@@ -45,6 +45,19 @@ const LAYOUTS: Record<HomeBannerLayout, readonly SlotSpec[]> = {
 }
 
 /**
+ * A vaga da figura do hero — **medida recomendada, e nada mais**.
+ *
+ * A loja desenha essa figura em `aspect-[350/260]` (`HeroBanner`), que é esta proporção; os pixels
+ * são a densidade 2× do desenho, e é o número que a dona precisa para exportar a foto.
+ *
+ * **Não alimenta `aspectRatioWarning`, e isso é decisão do widget, não esquecimento**: a foto do
+ * hero é fotografia de uma peça real, e `object-cover` cortando as bordas dela é aceitável. Quem
+ * ganha aviso é o banner de campanha, que tem **texto dentro da arte** — cortar ali apaga a
+ * mensagem. Ter as duas medidas no mesmo lugar é o que impede a tela de inventar a sua.
+ */
+export const HERO_ART_SLOT: SlotSpec = { width: 1200, height: 890 }
+
+/**
  * O arranjo de quem não declara um.
  *
  * `hero_pair` **é a grade de hoje** — um grande à esquerda e dois empilhados à direita —, e é o
