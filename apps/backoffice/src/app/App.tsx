@@ -67,6 +67,12 @@ const App = () => (
             {/* Loja — o que a cliente vê. A ordem segue `navGroups`, e `navItems.test.ts` lê este
                 arquivo do disco para provar que segue. */}
             <Route path="/admin/home" element={<AdminHomePage />} />
+            {/* O editor de seção é a MESMA tela: a rota troca só a coluna da esquerda e conserva a
+                prévia à direita. Duas rotas irmãs com o mesmo `element` mantêm `AdminHomePage`
+                montado — o react-router reconcilia por posição, e a prévia não pisca ao abrir uma
+                seção. `/admin/home/:sectionId` não entra em `navGroups`: não é destino de primeiro
+                nível, mesma régua da grade rápida. */}
+            <Route path="/admin/home/:sectionId" element={<AdminHomePage />} />
             <Route path="/admin/menu" element={<AdminMenuPage />} />
 
             <Route path="/admin/configuracoes" element={<AdminSettingsPage />} />

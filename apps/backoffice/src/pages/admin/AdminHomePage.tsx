@@ -8,20 +8,32 @@
 // Duas colunas no desktop e **duas abas em 390px**: lista e prévia não cabem lado a lado num
 // celular, e espremê-las daria duas colunas ilegíveis em vez de uma legível. ~90% dos acessos da
 // LOJA vêm do celular; o painel é usado nos dois, e a dona confere a vitrine com o telefone na mão.
+//
+// **`/admin/home/:sectionId` monta ESTA MESMA tela** (T30). Editar uma seção troca a coluna da
+// esquerda — a lista vira o formulário — e a prévia da direita continua sendo a mesma árvore de
+// React, com o bloco em edição contornado. É o precedente dos Descontos ("editor é TELA, não
+// modal": sobrevive ao F5, é compartilhável) sem o preço que ele costuma cobrar, que aqui seria
+// apagar a prévia justamente enquanto a dona edita olhando para ela.
 
 import { useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 import { AlertTriangle, ExternalLink, House, Plus, RefreshCw } from 'lucide-react'
 import { Button } from '@estrelinha/ui/button'
 import { cn } from '@estrelinha/ui/lib/utils'
 import { toast } from '@estrelinha/ui/hooks/use-toast'
 import type { HomeSectionType } from '@estrelinha/core/home'
 import { useAdminCategories } from '@/entities/category'
+import { useAdminProducts } from '@/entities/product'
 import { useAdminHomeSections } from '@/entities/home'
 import {
   HomeBlockTray,
   HomePreview,
+  HomeSectionEditor,
   HomeSectionList,
+  itemsChanged,
+  toNewItems,
   useAdminResolvedHome,
+  type SectionSaveDraft,
 } from '@/features/home-composition'
 import { PageHeader, TableSkeleton } from '@/shared/ui'
 
@@ -34,18 +46,28 @@ const AdminHomePage = () => {
     error,
     fetchSections,
     createSection,
+    updateSectionConfig,
     setSectionActive,
     reorderSectionsTo,
+    curateSection,
   } = useAdminHomeSections()
   const { categories, loading: loadingCategorias } = useAdminCategories()
+  const { products } = useAdminProducts()
+
+  const navigate = useNavigate()
+  const { sectionId } = useParams()
 
   const [aba, setAba] = useState<Aba>('secoes')
-  // Clicar numa linha contorna o bloco correspondente na prévia. É a metade do gesto que a T30
-  // completa: lá o clique abre o editor na coluna da esquerda, e o contorno continua sendo o que
-  // liga as duas colunas.
-  const [selecionada, setSelecionada] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
 
   const resolved = useAdminResolvedHome(sections, categories)
+
+  // A seção em edição sai da URL, não de um estado paralelo: é o que faz a tela sobreviver ao F5 e
+  // ser compartilhável. Id que não existe mais (seção apagada, link velho) cai na lista — a coluna
+  // da esquerda volta a ser a lista, sem tela de erro para um endereço que já não aponta a nada.
+  const emEdicao = sectionId ? resolved.find(e => e.section.id === sectionId) : null
+  // O contorno na prévia acompanha o editor. Sem seção aberta, nada é contornado.
+  const selecionada = emEdicao ? emEdicao.section.id : null
 
   const avisar = (titulo: string, erro: { message: string } | null) => {
     if (erro) toast({ title: titulo, description: erro.message, variant: 'destructive' })
@@ -62,11 +84,46 @@ const AdminHomePage = () => {
   const handleAdd = async (type: HomeSectionType) => {
     const { error: erro, id } = await createSection(type)
     avisar('Não foi possível acrescentar a seção', erro)
-    if (!erro && id) setSelecionada(id)
+    // Seção nova nasce desligada e vazia: abrir o editor dela é o passo seguinte óbvio, e é lá que
+    // ela ganha o conteúdo que a fará valer a pena ligar.
+    if (!erro && id) navigate(`/admin/home/${id}`)
+  }
+
+  /**
+   * A gravação do editor.
+   *
+   * Devolve **o motivo da falha, ou `null`** — o editor precisa dele para dizer o que não foi salvo
+   * sem limpar o formulário (`HOME-14`). Por isso não é um `toast` e pronto: o toast some, e o que
+   * a dona precisa é continuar vendo o que digitou.
+   *
+   * A curadoria só é reescrita quando **mudou**: `curateSection` apaga e reinsere a lista inteira,
+   * e pagar isso ao salvar só um título trocaria todos os ids de item sem motivo.
+   */
+  const handleSave = async (id: string, draft: SectionSaveDraft): Promise<string | null> => {
+    const alvo = sections.find(s => s.id === id)
+    setSaving(true)
+    try {
+      const falha = await updateSectionConfig(id, draft.config)
+      if (falha) return falha.message
+
+      if (alvo && itemsChanged(alvo, draft.items)) {
+        const falhaItens = await curateSection(id, toNewItems(draft.items))
+        if (falhaItens) return falhaItens.message
+      }
+
+      navigate('/admin/home')
+      return null
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
     <div>
+      {/* No editor o cabeçalho é o do formulário — trilha `Loja / Home / <seção>`, selo de
+          pendência e `Salvar ⌘S`. Dois cabeçalhos empilhados dariam dois títulos e dois pares de
+          ações competindo pela mesma decisão. */}
+      {!emEdicao && (
       <PageHeader
         title="Home"
         subtitle="O que a cliente vê ao abrir a loja, na ordem em que ela vê."
@@ -89,6 +146,7 @@ const AdminHomePage = () => {
           </>
         }
       />
+      )}
 
       {/* Falha de leitura é superfície EXPLÍCITA, não lista vazia. Foi engolir este erro que fez a
           tela de Coleções parecer "sem conteúdo" por meses, em cima de uma tabela inexistente. */}
@@ -148,17 +206,31 @@ const AdminHomePage = () => {
               data-testid="coluna-secoes"
               className={cn('min-w-0', aba !== 'secoes' && 'hidden lg:block')}
             >
-              <HomeSectionList
-                resolved={resolved}
-                onToggle={handleToggle}
-                onOpen={setSelecionada}
-                onReorder={handleReorder}
-                footer={
-                  <div id="blocos">
-                    <HomeBlockTray sections={sections} onAdd={handleAdd} />
-                  </div>
-                }
-              />
+              {emEdicao ? (
+                // `key` na seção: trocar de seção pela prévia ou pela URL recomeça o rascunho. Sem
+                // ele o formulário da seção anterior sobreviveria com os valores dela.
+                <HomeSectionEditor
+                  key={emEdicao.section.id}
+                  entry={emEdicao}
+                  categories={categories}
+                  products={products}
+                  saving={saving}
+                  onCancel={() => navigate('/admin/home')}
+                  onSave={draft => handleSave(emEdicao.section.id, draft)}
+                />
+              ) : (
+                <HomeSectionList
+                  resolved={resolved}
+                  onToggle={handleToggle}
+                  onOpen={id => navigate(`/admin/home/${id}`)}
+                  onReorder={handleReorder}
+                  footer={
+                    <div id="blocos">
+                      <HomeBlockTray sections={sections} onAdd={handleAdd} />
+                    </div>
+                  }
+                />
+              )}
             </div>
 
             <div

@@ -8,7 +8,7 @@
 // O dublê do hook é o que permite provar **o que foi para o banco** sem subir Supabase.
 
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { DEFAULT_HOME_COMPOSITION } from '@estrelinha/core/home'
 import type { AdminCategory } from '@/entities/category/api/useAdminCategories'
@@ -67,14 +67,28 @@ vi.mock('@/entities/category', () => ({
   useAdminCategories: () => ({ categories: CATALOGO, loading: false, error: null }),
 }))
 
+vi.mock('@/entities/product', () => ({
+  useAdminProducts: () => ({ products: [{ id: 'p1', name: 'Pingente Gota' }], loading: false }),
+}))
+
 vi.mock('@estrelinha/ui/hooks/use-toast', () => ({ toast: toastMock }))
 
 import AdminHomePage from './AdminHomePage'
 
-const renderPage = () =>
+/**
+ * As DUAS rotas, montando o MESMO componente (T30).
+ *
+ * É assim que a tela roda de verdade, e é a única montagem em que a AC central do editor pode ser
+ * provada: se o teste montasse `AdminHomePage` solto, a navegação não trocaria coluna nenhuma e a
+ * pergunta "a prévia remonta?" não teria como ser feita.
+ */
+const renderPage = (initial = '/admin/home') =>
   render(
-    <MemoryRouter>
-      <AdminHomePage />
+    <MemoryRouter initialEntries={[initial]}>
+      <Routes>
+        <Route path="/admin/home" element={<AdminHomePage />} />
+        <Route path="/admin/home/:sectionId" element={<AdminHomePage />} />
+      </Routes>
     </MemoryRouter>,
   )
 
@@ -196,6 +210,105 @@ describe('AdminHomePage — a prévia acompanha a seleção', () => {
     renderPage()
     fireEvent.click(screen.getByRole('button', { name: /Abrir Chips de tema/ }))
     expect(screen.getByTestId('previa-trending_tags').closest('.ring-2')).not.toBeNull()
+  })
+})
+
+describe('T30 — o editor é rota, e a prévia não paga por isso', () => {
+  it('a PRÉVIA NÃO REMONTA ao entrar no editor — é a razão de a rota ter este formato', () => {
+    renderPage()
+    // O nó do DOM guardado ANTES da navegação. Se `AdminHomePage` desmontasse, o React criaria
+    // outro nó para o mesmo bloco e a identidade se perderia — que é exatamente o custo que o
+    // editor-como-página-inteira cobraria.
+    const antes = screen.getByTestId('previa-hero')
+
+    fireEvent.click(screen.getByRole('button', { name: /Abrir Chips de tema/ }))
+
+    expect(screen.getByTestId('editor-secao')).toBeInTheDocument()
+    expect(screen.getByTestId('previa-hero')).toBe(antes)
+  })
+
+  it('a rota troca SÓ a coluna da esquerda: a lista sai, a prévia fica', () => {
+    renderPage()
+    fireEvent.click(screen.getByRole('button', { name: /Abrir Chips de tema/ }))
+
+    const esquerda = screen.getByTestId('coluna-secoes')
+    expect(within(esquerda).getByTestId('editor-secao')).toBeInTheDocument()
+    expect(within(esquerda).queryByText('Seções da Home')).toBeNull()
+    expect(within(screen.getByTestId('coluna-previa')).getByText('Prévia da Home')).toBeInTheDocument()
+  })
+
+  it('o bloco em edição aparece contornado na prévia', () => {
+    renderPage('/admin/home/newsletter')
+    expect(screen.getByTestId('previa-newsletter').closest('.ring-2')).not.toBeNull()
+    expect(screen.getByTestId('previa-hero').closest('.ring-2')).toBeNull()
+  })
+
+  it('sobrevive ao F5: abrir a URL direto já mostra o editor daquela seção', () => {
+    renderPage('/admin/home/trending_tags')
+    expect(screen.getByTestId('editor-secao')).toHaveAttribute('data-section', 'trending_tags')
+    expect(screen.getByRole('heading', { level: 1, name: 'Chips de tema' })).toBeInTheDocument()
+  })
+
+  it('a trilha volta para a Home, e `Cancelar` também', () => {
+    renderPage('/admin/home/newsletter')
+    expect(screen.getByLabelText('Trilha')).toHaveTextContent('Loja')
+    expect(screen.getByLabelText('Trilha')).toHaveTextContent('Home')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
+    expect(screen.getByText('Seções da Home')).toBeInTheDocument()
+    expect(screen.queryByTestId('editor-secao')).toBeNull()
+  })
+
+  it('id que não existe mais cai na lista — link velho não vira tela quebrada', () => {
+    renderPage('/admin/home/secao-apagada')
+    expect(screen.getByText('Seções da Home')).toBeInTheDocument()
+    expect(screen.queryByTestId('editor-secao')).toBeNull()
+  })
+
+  it('acrescentar um bloco abre o editor dele', async () => {
+    hook.createSection.mockResolvedValueOnce({ error: null, id: 'newsletter' })
+    renderPage()
+    fireEvent.click(screen.getByTestId('bloco-collection_feature'))
+    await waitFor(() => expect(screen.getByTestId('editor-secao')).toBeInTheDocument())
+  })
+
+  it('o cabeçalho da tela dá lugar ao do formulário — não há dois títulos', () => {
+    renderPage('/admin/home/newsletter')
+    expect(screen.queryByRole('button', { name: /Adicionar seção/ })).toBeNull()
+    expect(screen.getByRole('button', { name: /Salvar seção/ })).toBeInTheDocument()
+  })
+})
+
+describe('T30 — a gravação do editor (HOME-14)', () => {
+  it('salvar grava o `config` da seção e volta para a lista', async () => {
+    renderPage('/admin/home/newsletter')
+    fireEvent.click(screen.getByRole('button', { name: /Salvar seção/ }))
+
+    await waitFor(() => expect(hook.updateSectionConfig).toHaveBeenCalled())
+    const [id, config] = hook.updateSectionConfig.mock.calls[0] as [string, Record<string, unknown>]
+    expect(id).toBe('newsletter')
+    expect(config).toMatchObject({ title: 'Quer saber das novidades?' })
+    await waitFor(() => expect(screen.getByText('Seções da Home')).toBeInTheDocument())
+  })
+
+  it('curadoria intocada NÃO é reescrita — `curateSection` apaga e reinsere a lista inteira', async () => {
+    renderPage('/admin/home/newsletter')
+    fireEvent.click(screen.getByRole('button', { name: /Salvar seção/ }))
+
+    await waitFor(() => expect(hook.updateSectionConfig).toHaveBeenCalled())
+    expect(hook.curateSection).not.toHaveBeenCalled()
+  })
+
+  it('falha de gravação diz o motivo E preserva o formulário — o editor não fecha', async () => {
+    hook.updateSectionConfig.mockResolvedValueOnce({ message: 'permission denied' })
+    renderPage('/admin/home/newsletter')
+    fireEvent.click(screen.getByRole('button', { name: /Salvar seção/ }))
+
+    await waitFor(() =>
+      expect(screen.getByTestId('editor-recusa')).toHaveTextContent('permission denied'),
+    )
+    expect(screen.getByTestId('editor-secao')).toBeInTheDocument()
+    expect(screen.queryByText('Seções da Home')).toBeNull()
   })
 })
 
