@@ -12,8 +12,14 @@ import type { ComponentType } from 'react'
 import type { HomeSection, HomeSectionConfig, HomeSectionType } from '@estrelinha/core/home'
 import type { AdminCategory } from '@/entities/category'
 import type { DraftItem } from '../model/sectionDraft'
-import { bannerGridEditorEntry } from './BannerGridEditor'
-import { heroEditorEntry } from './HeroEditor'
+import {
+  bannerGridRefusal,
+  heroRefusal,
+  textSectionRefusal,
+} from '../model/sectionRefusals'
+import BannerGridEditor from './BannerGridEditor'
+import HeroEditor from './HeroEditor'
+import TextSectionEditor from './TextSectionEditor'
 
 /** Um produto, como o seletor de destino precisa dele. `AdminProduct` satisfaz. */
 export interface EditorProduct {
@@ -45,6 +51,13 @@ export interface SectionEditorEntry {
 }
 
 export const SECTION_EDITORS: Partial<Record<HomeSectionType, SectionEditorEntry>> = {
-  hero: heroEditorEntry,
-  banner_grid: bannerGridEditorEntry,
+  hero: { Body: HeroEditor, refusal: heroRefusal },
+  banner_grid: { Body: BannerGridEditor, refusal: bannerGridRefusal },
+  // Quatro tipos, UM editor: a faixa institucional, os chips, a newsletter e a faixa de vantagens
+  // fazem a mesma pergunta, e o que muda entre elas é a lista de campos — que é dado. A recusa
+  // recebe o tipo por fora porque a faixa aceita de `limit` é de cada um.
+  trust_bar: { Body: TextSectionEditor, refusal: textSectionRefusal('trust_bar') },
+  brand_statement: { Body: TextSectionEditor, refusal: textSectionRefusal('brand_statement') },
+  trending_tags: { Body: TextSectionEditor, refusal: textSectionRefusal('trending_tags') },
+  newsletter: { Body: TextSectionEditor, refusal: textSectionRefusal('newsletter') },
 }

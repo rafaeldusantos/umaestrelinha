@@ -17,17 +17,12 @@ import { Button } from '@estrelinha/ui/button'
 import { Input } from '@estrelinha/ui/input'
 import { Textarea } from '@estrelinha/ui/textarea'
 import { Label } from '@estrelinha/ui/label'
-import {
-  configRefusal,
-  ctaHrefRefusal,
-  HERO_ART_SLOT,
-  type HomeSectionConfig,
-} from '@estrelinha/core/home'
+import { HERO_ART_SLOT } from '@estrelinha/core/home'
 import { bySortOrder, categoryHref } from '@estrelinha/core/menu'
 import type { AdminCategory } from '@/entities/category'
 import { FormCard } from '@/shared/ui'
 import { uploadHomeImage } from '../lib/uploadHomeImage'
-import type { SectionEditorEntry, SectionEditorProps } from './sectionEditors'
+import type { SectionEditorProps } from './sectionEditors'
 
 /** O teto do parágrafo. Acima disso a primeira dobra vira bloco de texto e o CTA cai. */
 const PARAGRAFO_MAX = 240
@@ -278,17 +273,5 @@ const HeroEditor = ({ config, onConfigChange, categories }: SectionEditorProps) 
     </>
   )
 }
-
-/**
- * A recusa do hero.
- *
- * `configRefusal` cobra o `alt` (`HOME-18`) e `ctaHrefRefusal` cobra o destino (`HOME-20`), as duas
- * de `@estrelinha/core/home`. Nenhuma regra nova nasce aqui: o formulário sabe **quais** perguntas
- * fazer, não **qual** é a resposta certa.
- */
-export const heroRefusal = (config: HomeSectionConfig): string | null =>
-  configRefusal('hero', config) ?? ctaHrefRefusal(config.cta_href ?? '')
-
-export const heroEditorEntry: SectionEditorEntry = { Body: HeroEditor, refusal: heroRefusal }
 
 export default HeroEditor

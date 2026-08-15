@@ -22,20 +22,18 @@ import { Input } from '@estrelinha/ui/input'
 import { Label } from '@estrelinha/ui/label'
 import { cn } from '@estrelinha/ui/lib/utils'
 import {
-  configRefusal,
-  destinationRefusal,
   layoutRatios,
   layoutSlots,
   DEFAULT_BANNER_LAYOUT,
   type HomeBannerLayout,
-  type HomeSectionConfig,
 } from '@estrelinha/core/home'
 import { bySortOrder } from '@estrelinha/core/menu'
 import type { AdminCategory } from '@/entities/category'
 import { FormCard } from '@/shared/ui'
 import { uploadHomeImage } from '../lib/uploadHomeImage'
 import { emptyDraftItem, type DraftItem } from '../model/sectionDraft'
-import type { EditorProduct, SectionEditorEntry, SectionEditorProps } from './sectionEditors'
+import { ordinal } from '../model/sectionRefusals'
+import type { EditorProduct, SectionEditorProps } from './sectionEditors'
 
 /** Os quatro arranjos, com o nome que a dona lê. O desenho de cada um é a contagem de vagas. */
 const ARRANJOS: { layout: HomeBannerLayout; label: string }[] = [
@@ -46,7 +44,6 @@ const ARRANJOS: { layout: HomeBannerLayout; label: string }[] = [
 ]
 
 const OUTRO = '__outro'
-const ordinal = (n: number) => `${n}º`
 
 /**
  * O destino de um banner — coleção, produto ou caminho da loja, **exatamente um** (`HOME-23`).
@@ -380,34 +377,6 @@ const BannerGridEditor = ({ config, onConfigChange, items, onItemsChange, catego
       </FormCard>
     </>
   )
-}
-
-/**
- * A recusa da grade.
- *
- * **Lista vazia NÃO é erro**: é a grade caindo na derivação por Categorias, que é o comportamento de
- * hoje (`HOME-25`). O que se cobra é de cada banner que existe — arte, descrição e destino — e a
- * cobrança de destino e de `alt` vem de `destinationRefusal`, a mesma de `core/home`. O número do
- * banner entra na frente porque uma tela com quatro linhas iguais precisa dizer **qual**.
- */
-export const bannerGridRefusal = (
-  config: HomeSectionConfig,
-  items: readonly DraftItem[],
-): string | null => {
-  for (let i = 0; i < items.length; i += 1) {
-    const item = items[i]
-    if (!item.image_url?.trim()) {
-      return `${ordinal(i + 1)} banner: envie a arte. Sem imagem não há banner.`
-    }
-    const motivo = destinationRefusal(item)
-    if (motivo) return `${ordinal(i + 1)} banner: ${motivo}`
-  }
-  return configRefusal('banner_grid', config)
-}
-
-export const bannerGridEditorEntry: SectionEditorEntry = {
-  Body: BannerGridEditor,
-  refusal: bannerGridRefusal,
 }
 
 export default BannerGridEditor
