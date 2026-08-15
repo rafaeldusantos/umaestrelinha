@@ -24,7 +24,7 @@ import { documentLabel, isValidDocument, maskDocument } from '@estrelinha/core/v
 import { formatPrice } from '@estrelinha/core/formatters'
 import { usePaymentSettings } from '@estrelinha/core/hooks/useStoreSettings'
 import { useAuthContext } from '@estrelinha/auth'
-import PixIcon from '@/shared/ui/PixIcon'
+import { PixIcon } from '@/shared/ui/icons'
 import { useCheckoutStore } from '../model/checkoutStore'
 import { resolveInstallments } from '@estrelinha/core/payment/installments'
 import CardPaymentBrick from './CardPaymentBrick'
