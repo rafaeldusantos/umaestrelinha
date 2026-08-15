@@ -1,4 +1,4 @@
-import { LayoutDashboard, Package, Percent, Tags, Menu, ShoppingCart, ShoppingBag, Ticket, Users, Settings } from 'lucide-react'
+import { House, LayoutDashboard, Package, Percent, Tags, Menu, ShoppingCart, ShoppingBag, Ticket, Users, Settings } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 export interface NavItem {
@@ -34,13 +34,17 @@ export interface NavGroup {
  * O grupo fica **entre** `Vendas` e `Catálogo`: desconto ainda é decisão comercial, mais próxima da
  * venda do que do cadastro.
  *
- * `Loja` tem um item só (`Menu da loja`), e isso é de propósito: ele não é cadastro. Enquanto morava
- * em `Catálogo`, a vizinhança sugeria que era mais uma coisa a *cadastrar* — e não é, é curadoria de
- * vitrine sobre o que já está cadastrado. O grupo é o lugar do que a cliente **vê**, e é onde entram
- * as próximas telas desse eixo (banners da home, destaques, faixa de avisos).
+ * `Loja` é o lugar do que a cliente **vê** — não é cadastro. Enquanto o `Menu da loja` morava em
+ * `Catálogo`, a vizinhança sugeria que era mais uma coisa a *cadastrar*, e não é: é curadoria de
+ * vitrine sobre o que já está cadastrado.
+ *
+ * **`Home` entra ACIMA de `Menu da loja`** (feature 24): a Home é a superfície maior e a mais
+ * curada — sete seções com texto, arte e ordem —, e a barra do topo é ajuste pontual de quatro
+ * vagas. Numa lista de dois, o primeiro é onde se vai mais vezes.
  *
  * `/admin/produtos/grade-rapida` não entra: é uma tela alcançada de dentro de Produtos, não um
- * destino de primeiro nível.
+ * destino de primeiro nível. **`/admin/home/:sectionId` não entra pela mesma régua** — o editor de
+ * uma seção se alcança de dentro da Home, e pô-lo na sidebar exigiria um id em código.
  */
 export const navGroups: NavGroup[] = [
   {
@@ -71,7 +75,10 @@ export const navGroups: NavGroup[] = [
   },
   {
     label: 'Loja',
-    items: [{ to: '/admin/menu', icon: Menu, label: 'Menu da loja' }],
+    items: [
+      { to: '/admin/home', icon: House, label: 'Home' },
+      { to: '/admin/menu', icon: Menu, label: 'Menu da loja' },
+    ],
   },
 ]
 

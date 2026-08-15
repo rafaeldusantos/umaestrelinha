@@ -76,10 +76,31 @@ describe('navGroups — os quatro eixos', () => {
     // Enquanto morava em `Catálogo`, a vizinhança sugeria que era mais uma coisa a cadastrar. É
     // curadoria de vitrine sobre o que já está cadastrado.
     const loja = navGroups.find(g => g.label === 'Loja')!
-    expect(loja.items.map(i => i.to)).toEqual(['/admin/menu'])
+    expect(loja.items.map(i => i.to)).toEqual(['/admin/home', '/admin/menu'])
 
     const catalogo = navGroups.find(g => g.label === 'Catálogo')!
     expect(catalogo.items.map(i => i.to)).toEqual(['/admin/produtos', '/admin/categorias'])
+  })
+
+  it('`Home` vem ACIMA de `Menu da loja` no grupo Loja (feature 24)', () => {
+    // A Home é a superfície maior e a mais curada — sete seções com texto, arte e ordem. A barra do
+    // topo é ajuste pontual de quatro vagas. Numa lista de dois, o primeiro é onde se vai mais
+    // vezes. A ordem das rotas em `App.tsx` acompanha, e o teste acima (PRM-20) prova que acompanha.
+    const loja = navGroups.find(g => g.label === 'Loja')!
+    expect(loja.items.map(i => i.label)).toEqual(['Home', 'Menu da loja'])
+  })
+
+  it('`/admin/home` está registrada em `App.tsx`, antes de `/admin/menu`', () => {
+    const rotas = appRoutePaths()
+    expect(rotas).toContain('/admin/home')
+    expect(rotas.indexOf('/admin/home')).toBeLessThan(rotas.indexOf('/admin/menu'))
+  })
+
+  it('o editor de seção NÃO é destino de primeiro nível — mesma régua da grade rápida', () => {
+    // `/admin/home/:sectionId` se alcança de dentro da Home. Pô-lo na sidebar exigiria um id em
+    // código, que é a definição de destino que não existe sozinho.
+    expect(allItems.map(i => i.to)).not.toContain('/admin/home/:sectionId')
+    expect(allItems.map(i => i.to).some(to => to.startsWith('/admin/home/'))).toBe(false)
   })
 
   it('Mockups saiu da navegação, e a rota não existe mais (PIN-01, PIN-03)', () => {

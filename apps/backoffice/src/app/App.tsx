@@ -13,6 +13,7 @@ import AdminProductFormPage from "@/pages/admin/AdminProductFormPage"
 import AdminQuickGridPage from '@/pages/admin/AdminQuickGridPage';
 import AdminOrdersPage from "@/pages/admin/AdminOrdersPage";
 import AdminCategoriesPage from "@/pages/admin/AdminCategoriesPage";
+import AdminHomePage from "@/pages/admin/AdminHomePage";
 import AdminMenuPage from "@/pages/admin/AdminMenuPage";
 import AdminClientsPage from "@/pages/admin/AdminClientsPage";
 import AdminSettingsPage from "@/pages/admin/AdminSettingsPage";
@@ -63,7 +64,9 @@ const App = () => (
             <Route path="/admin/produtos/:id/editar" element={<AdminProductFormPage />} />
             <Route path="/admin/categorias" element={<AdminCategoriesPage />} />
 
-            {/* Loja — o que a cliente vê */}
+            {/* Loja — o que a cliente vê. A ordem segue `navGroups`, e `navItems.test.ts` lê este
+                arquivo do disco para provar que segue. */}
+            <Route path="/admin/home" element={<AdminHomePage />} />
             <Route path="/admin/menu" element={<AdminMenuPage />} />
 
             <Route path="/admin/configuracoes" element={<AdminSettingsPage />} />
