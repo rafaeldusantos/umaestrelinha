@@ -5,8 +5,8 @@
 // carrega a **recusa** do tipo, porque quem sabe o que aquele formulário exige é o próprio
 // formulário — o casco não pode adivinhar se falta `alt`, se falta destino ou se o limite estourou.
 //
-// **Tipo sem editor não é erro**: `collection_rows` (T31), `collection_feature` (T33) e os dois de
-// P3 chegam depois ou nunca. O casco desenha um cartão dizendo isso, em vez de uma tela em branco.
+// **Tipo sem editor não é erro**: `collection_feature` (T33) e os dois de P3 chegam depois ou nunca.
+// O casco desenha um cartão dizendo isso, em vez de uma tela em branco.
 
 import type { ComponentType } from 'react'
 import type { HomeSection, HomeSectionConfig, HomeSectionType } from '@estrelinha/core/home'
@@ -14,10 +14,12 @@ import type { AdminCategory } from '@/entities/category'
 import type { DraftItem } from '../model/sectionDraft'
 import {
   bannerGridRefusal,
+  collectionRowsRefusal,
   heroRefusal,
   textSectionRefusal,
 } from '../model/sectionRefusals'
 import BannerGridEditor from './BannerGridEditor'
+import CollectionRowsEditor from './CollectionRowsEditor'
 import HeroEditor from './HeroEditor'
 import TextSectionEditor from './TextSectionEditor'
 
@@ -53,6 +55,7 @@ export interface SectionEditorEntry {
 export const SECTION_EDITORS: Partial<Record<HomeSectionType, SectionEditorEntry>> = {
   hero: { Body: HeroEditor, refusal: heroRefusal },
   banner_grid: { Body: BannerGridEditor, refusal: bannerGridRefusal },
+  collection_rows: { Body: CollectionRowsEditor, refusal: collectionRowsRefusal },
   // Quatro tipos, UM editor: a faixa institucional, os chips, a newsletter e a faixa de vantagens
   // fazem a mesma pergunta, e o que muda entre elas é a lista de campos — que é dado. A recusa
   // recebe o tipo por fora porque a faixa aceita de `limit` é de cada um.
