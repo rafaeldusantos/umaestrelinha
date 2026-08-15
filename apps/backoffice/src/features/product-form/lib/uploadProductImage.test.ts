@@ -7,9 +7,17 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { uploadMock } = vi.hoisted(() => ({ uploadMock: vi.fn() }))
+// `from` é espionado, e não uma seta anônima: desde a feature 24 `uploadImageBlob` aceita bucket, e
+// o argumento passou a ser um comportamento a provar — não mais uma constante do módulo.
+const { uploadMock, fromMock } = vi.hoisted(() => {
+  const uploadMock = vi.fn()
+  return {
+    uploadMock,
+    fromMock: vi.fn(() => ({ upload: uploadMock, remove: vi.fn() })),
+  }
+})
 vi.mock('@estrelinha/supabase/client', () => ({
-  supabase: { storage: { from: () => ({ upload: uploadMock, remove: vi.fn() }) } },
+  supabase: { storage: { from: fromMock } },
 }))
 
 import {
@@ -52,6 +60,7 @@ class ImageStub {
 
 beforeEach(() => {
   uploadMock.mockReset().mockResolvedValue({ error: null })
+  fromMock.mockClear()
   sourceSize = { width: 800, height: 600 }
   lastCanvas = null
 
@@ -196,6 +205,29 @@ describe('compressão — PMD-02 AC 5: WebP de 1600 px', () => {
     expect(uploadMock).toHaveBeenCalledTimes(1)
     // O blob enviado é o WebP comprimido, não o original.
     expect(uploadMock.mock.calls[0][2]).toMatchObject({ contentType: 'image/webp' })
+  })
+
+  it('o destino padrão continua `product-images/products` (feature 24 — T26)', async () => {
+    // `uploadImageBlob` ganhou `{ bucket, folder }` para a Home poder gravar em `home-images`. O
+    // default é exatamente o que estava cravado antes, e este teste é o que impede a generalização
+    // de mover a arte de três chamadores sem que nada acuse.
+    await uploadImageBlob(new Blob(['raw'], { type: 'image/png' }))
+
+    expect(fromMock).toHaveBeenCalledWith('product-images')
+    expect(uploadMock.mock.calls[0][0]).toMatch(/^products\/[0-9a-f-]+\.webp$/)
+  })
+
+  it('bucket e pasta explícitos mandam no `from`, no caminho e na URL pública', async () => {
+    const url = await uploadImageBlob(new Blob(['raw'], { type: 'image/png' }), {
+      bucket: 'home-images',
+      folder: 'sections',
+    })
+
+    expect(fromMock).toHaveBeenCalledWith('home-images')
+    expect(uploadMock.mock.calls[0][0]).toMatch(/^sections\/[0-9a-f-]+\.webp$/)
+    expect(url).toMatch(
+      /\/storage\/v1\/object\/public\/home-images\/sections\/[0-9a-f-]+\.webp$/,
+    )
   })
 
   it('respeita a resolução e o formato pedidos pelo estúdio (PMD-05 AC 5)', async () => {

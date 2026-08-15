@@ -1,6 +1,14 @@
 import { supabase } from '@estrelinha/supabase/client'
 
 const BUCKET = 'product-images'
+/**
+ * A pasta padrão dentro de `product-images`.
+ *
+ * Existe como constante desde a feature 24, quando `uploadImageBlob` passou a aceitar bucket e pasta
+ * (a Home grava em `home-images`). **Os dois defaults são exatamente o que estava cravado antes**, e
+ * é isso que faz nenhum chamador existente mudar de comportamento.
+ */
+const FOLDER = 'products'
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://zwvrqtjvaltpbevjqzks.supabase.co'
 /**
  * PMD-02 AC 5: era 1200 px — pequeno demais para o zoom de uma vitrine que vende detalhe de
@@ -60,6 +68,16 @@ export interface UploadOptions {
   maxDimension?: number
   /** Default WebP. O estúdio pode pedir PNG. */
   format?: ImageFormat
+  /**
+   * O bucket do Storage. Default `product-images`.
+   *
+   * A arte da Home mora em `home-images` (feature 24): bucket próprio porque a policy, o ciclo de
+   * vida e quem apaga são outros — um banner de campanha não é foto de produto, e misturá-los faria
+   * a limpeza de um alcançar o outro.
+   */
+  bucket?: string
+  /** A pasta dentro do bucket. Default `products`. */
+  folder?: string
 }
 
 /**
@@ -107,18 +125,27 @@ const compressImage = (
  * As opções existem porque o estúdio deixa o admin escolher resolução e formato (PMD-05 AC 5).
  * Sem elas o seletor seria decorativo: qualquer escolha viraria WebP de 1600 px no Storage — a
  * mesma classe de mentira entre tela e código que esta feature existe para matar.
+ *
+ * **`bucket` e `folder` têm default, e o default é o que estava cravado** (feature 24): o destino
+ * era `product-images/products` em duas linhas literais — a do `upload` e a que monta a URL pública.
+ * Generalizar sem default mudaria o comportamento de três chamadores para acrescentar um quarto.
  */
 export const uploadImageBlob = async (
   blob: Blob,
-  { maxDimension = MAX_DIMENSION, format = 'image/webp' }: UploadOptions = {},
+  {
+    maxDimension = MAX_DIMENSION,
+    format = 'image/webp',
+    bucket = BUCKET,
+    folder = FOLDER,
+  }: UploadOptions = {},
 ): Promise<string | null> => {
   try {
     const compressed = await compressImage(blob, maxDimension, format)
     const fileName = `${crypto.randomUUID()}.${format === 'image/png' ? 'png' : 'webp'}`
-    const filePath = `products/${fileName}`
+    const filePath = `${folder}/${fileName}`
 
     const { error } = await supabase.storage
-      .from(BUCKET)
+      .from(bucket)
       .upload(filePath, compressed, {
         contentType: format,
         cacheControl: '3600',
@@ -130,7 +157,7 @@ export const uploadImageBlob = async (
       return null
     }
 
-    return `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${filePath}`
+    return `${SUPABASE_URL}/storage/v1/object/public/${bucket}/${filePath}`
   } catch (err) {
     console.error('Compression error:', err)
     return null
