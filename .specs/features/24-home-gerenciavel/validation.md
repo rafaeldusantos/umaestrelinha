@@ -1,7 +1,231 @@
 # 24 · Home gerenciável — Validação
 
-**Data**: 2026-08-15
 **Spec**: [`spec.md`](./spec.md) · **Design**: [`design.md`](./design.md) (emendas `E1`–`E5`)
+
+| Iteração | Data | HEAD | Verificador | Veredito |
+| --- | --- | --- | --- | --- |
+| 1 | 2026-08-15 | `185d01b` | sub-agente independente | ❌ **FAIL** — 2 lacunas |
+| 2 | 2026-08-15 | `7aa0111` | **outro** sub-agente independente | ✅ **PASS** |
+
+---
+
+# Iteração 2 — re-verificação da correção `7aa0111`
+
+**Data**: 2026-08-15
+**Faixa de diff**: `83a3853..7aa0111` (correção: `185d01b..7aa0111`)
+**Verifier**: sub-agente novo e independente — não herdou o modelo mental de quem escreveu o código
+nem de quem escreveu a correção. Toda evidência abaixo é `file:line` localizado nesta passagem.
+
+**Veredito: ✅ PASS.** As duas lacunas fecharam com asserção própria, as duas correções morrem sob
+mutação, a varredura da mesma classe de defeito não achou uma terceira ocorrência, e os quatro
+portões seguem nas baselines.
+
+---
+
+## I2.1 · As duas lacunas da iteração 1
+
+### Lacuna 1 — o destino livre de um banner não era validado — ✅ **FECHADA**
+
+**A correção**: `packages/core/src/home/refusals.ts:110-111`, dentro de `destinationRefusal`:
+
+```ts
+const caminho = ctaHrefRefusal(vazio(item.href) ? '' : item.href)
+if (caminho) return caminho
+```
+
+**Onde ela foi feita importa, e está certo.** A correção entrou em `destinationRefusal` e **não** em
+`bannerGridRefusal` (`apps/backoffice/src/features/home-composition/model/sectionRefusals.ts:64`),
+que segue apenas delegando. Quem **possui** a pergunta "este destino serve?" passa a respondê-la
+inteira; consertar no chamador teria deixado a armadilha armada para a quarta superfície. O comentário
+de `:96-109` registra o argumento, incluindo o porquê de FK ficar de fora.
+
+**FK continua fora da régua de caminho, de propósito** (`:108-109`): `category_id` e `product_id` são
+chave estrangeira e o banco já garante que apontam para linha que existe. Isso não é omissão — é
+asserido em `packages/core/src/home/__tests__/refusals.test.ts:167-170`
+(`expect(destinationRefusal({ category_id: 'c1' })).toBeNull()`).
+
+**Asserções novas** — `refusals.test.ts:135-171`, cinco casos, todos com a frase inteira:
+
+| `file:line` | Asserção |
+| --- | --- |
+| `:137-139` | `destinationRefusal({ href: 'https://instagram.com/umaestrelinha' })` → `'O endereço precisa começar com “/”: a loja só aponta para páginas dela.'` |
+| `:143-145` | `/assets/banner.png` → `'“/assets” é reservado da infraestrutura e não chega à loja. Escolha outro endereço.'` |
+| `:149-151` | `/joias/leite-materno/pingentes` → `'Este endereço não existe na loja: coleção tem no máximo dois níveis.'` |
+| `:154-158` | `/leite-materno` → `toBeNull()` — a régua **não** pode ser `ROUTE_SLUGS` no primeiro segmento (`AD-018`) |
+| `:162-164` | `expect(destinationRefusal({href})).toBe(ctaHrefRefusal(href))` — **a mesma régua, um dono só**. É esta que impede as duas voltarem a divergir |
+| `:167-170` | FK não passa pela régua |
+
+**A entrega até a tela está guardada, por outra via.** O commit não acrescentou teste no
+`BannerGridEditor`, e medi o efeito disso: com a linha `:110-111` removida, os 19 testes de
+`BannerGridEditor.test.tsx` continuam passando. Não é lacuna — é a régua morando na camada certa. Os
+**dois** elos que poderiam quebrar são guardados independentemente:
+
+- `bannerGridRefusal` → `destinationRefusal` → tela: `BannerGridEditor.test.tsx:148-157` prova que a
+  frase de `destinationRefusal` chega à tela com o prefixo `1º banner:` e `onSave` não é chamado;
+  `:159-168` prova o mesmo para a **última** linha da função (`altRefusal`), o que exercita a
+  delegação inteira **depois** da linha nova;
+- `destinationRefusal` → `ctaHrefRefusal`: os cinco casos acima.
+
+### Lacuna 2 — a metade desktop de `HOME-26` não tinha asserção — ✅ **FECHADA**
+
+`apps/store/src/widgets/home-banners/ui/__tests__/HomeBannerGrid.test.tsx`, três testes novos, e as
+asserções agora são **positivas**:
+
+| `file:line` | Asserção |
+| --- | --- |
+| `:117-122` | `hero_pair` — `expect(grade.className).toContain('md:flex-row')` |
+| `:124-133` | `it.each(['pair','quad'])` — `toContain('md:grid')` **e** `toContain('md:grid-cols-2')` |
+| `:135-140` | `single` — `expect(grade.className).not.toContain('md:grid')` (o caso negativo legítimo: uma vaga só não é mosaico) |
+
+As negações de mobile de `:90-104` continuam intactas, e é a convivência das duas que fecha a AC: a
+negação garante que o `grid` não vale **antes** do `md`, a positiva garante que ele existe **depois**.
+
+---
+
+## I2.2 · Varredura da mesma classe de defeito
+
+A lacuna 1 é da classe **"regra de `core` aplicada numa superfície e esquecida na irmã"**. Varri as
+duas formas em que ela poderia reaparecer.
+
+### (a) Campo livre que não passa pela régua
+
+Levantei todo campo de **caminho livre** da feature — `grep` por `cta_href|link_href|\bhref\b` nos
+editores e no `HomeSectionConfig` (`packages/core/src/home/types.ts:68-92`, `:145`). São **três**
+superfícies, e as três passam por `ctaHrefRefusal`:
+
+| Superfície | Campo | Caminho até a régua | `file:line` |
+| --- | --- | --- | --- |
+| hero | `config.cta_href` | `heroRefusal` → `ctaHrefRefusal` | `sectionRefusals.ts:46` |
+| grade de banners | `item.href` | `bannerGridRefusal` → `destinationRefusal` → `ctaHrefRefusal` | `sectionRefusals.ts:64` + `refusals.ts:110` |
+| 4 seções de texto | `config.link_href` | `textSectionRefusal(type)` → `ctaHrefRefusal` | `sectionRefusals.ts:130` |
+
+**A quarta candidata não é uma:** `collection_feature` tem `cta_label` mas **não** tem `cta_href` —
+o destino do CTA é a própria coleção, derivada da FK (`CollectionFeature.tsx:92` usa
+`collection.href`, montado por `categoryHref`). `CollectionFeatureEditor.tsx` não tem campo de
+endereço (só `title`, `text`, `cta_label`, arte e `alt`). Não há superfície com campo livre fora da
+régua.
+
+**As duas outras regras de `core` também foram varridas nas quatro superfícies**:
+
+- `altRefusal` — alcança item (via `destinationRefusal:113`) **e** `config` (via `configRefusal:179`).
+  Os quatro editores com arte chamam um dos dois: hero e destaque via `configRefusal`, banner via
+  `destinationRefusal`, e o banner também via `configRefusal('banner_grid', …)`.
+- `configRefusal` (limite) — os **10** tipos do catálogo chegam a ela: `sectionEditors.tsx:58-68`
+  mapeia `refusal` para os 8 tipos com editor, e as 4 de texto compartilham `textSectionRefusal(type)`
+  com o tipo por fora. Nenhum tipo com editor ficou sem `refusal`.
+
+**Observação declarada (não é lacuna, é dívida estrutural)**: o `href` de **item** agora tem dono
+único, mas o de **`config`** (`cta_href`, `link_href`) continua sendo chamado por cada `*Refusal`.
+`configRefusal` não valida caminho. Se um tipo novo ganhar uma chave de endereço em `config` e a
+recusa dele esquecer `ctaHrefRefusal`, o defeito volta — e nada acusa. Não é gap de hoje (nenhum tipo
+assim existe), mas é a mesma armadilha, uma camada acima. Registrado como lição `L-028`.
+
+### (b) Par mobile/desktop com asserção só de um lado
+
+Levantei toda AC responsiva da spec (`grep "desktop\|390"` em `spec.md`): **`HOME-15`** (:155),
+**`HOME-21`** (:183), **`HOME-26`** (:212-213) e **`HOME-40`** (:272).
+
+**`HOME-26` é a única AC com metade desktop explícita** — "WHEN vista em desktop THEN SHALL formar o
+mosaico" (`spec.md:213`). As outras três são mobile-only por redação da spec, então não têm metade
+faltando. Ainda assim conferi as três, e nenhuma é unilateral por acidente:
+
+| AC | Teste | Cobre |
+| --- | --- | --- |
+| `HOME-15` | `AdminHomePage.test.tsx:143-167` | os **dois** lados — abas `lg:hidden` e `coluna-previa` `hidden lg:block` |
+| `HOME-21` | `HeroBanner.test.tsx:171-198` | mobile-only por AC; a ordem do DOM é a prova, e vale nos dois |
+| `HOME-40` | `CollectionFeature.test.tsx:117-124` | `toContain('flex-col')` **e** `toContain('md:flex-row')` — já era bilateral |
+
+Não há segundo par unilateral. A metade desktop de `HOME-26` era a única.
+
+---
+
+## I2.3 · Portões (medidos nesta iteração, exit code de verdade)
+
+| Portão | Comando | Resultado | Baseline | Res. |
+| --- | --- | --- | --- | --- |
+| Testes | `pnpm test` (exit capturado **sem** `\| tail`) | **exit 0** · **4498 / 251 arquivos** — core 1066/37 · store 1532/113 · backoffice 1345/82 · functions 279/4 · catalog-import 276/15 | 4488/251 na it. 1 | ✅ **+10, zero removido** (core +6, store +4) |
+| Tipos | `npx tsc --noEmit -p apps/{store,backoffice}/tsconfig.app.json` + `tools/catalog-import/tsconfig.json` | `STORE=0` · `BACKOFFICE=0` · `IMPORT=0` | 0 · 0 · 0 | ✅ |
+| Lint | `pnpm lint` | backoffice **28 erros / 7 warnings**, store **2 / 1** = **30 / 8** | 30/8 | ✅ zero erro novo |
+| Dinheiro intacto | `git diff --name-only 83a3853..HEAD -- packages/core/src/payment` | saída **vazia** (`wc -l` = 0) | exigido | ✅ |
+| `HOME-04` só ganha asserção | `git diff --numstat 83a3853..HEAD -- apps/store/src/pages/__tests__/homeComposition.test.tsx` | **`302  0`** — 302 adicionadas, **0 removidas**; e o arquivo não foi tocado pela correção (`git log` sobre ele para em `0c9af43`) | 0 removidas | ✅ |
+
+---
+
+## I2.4 · Sensor de discriminação — iteração 2
+
+Sete mutações, todas em estado descartável, revertidas com `git checkout --` e conferidas com
+`git status --porcelain` entre cada uma. As cinco primeiras são as pedidas no gate; as duas últimas
+saíram da varredura (a), para provar que as superfícies **irmãs** também estão guardadas.
+
+| # | Alvo | Mutação | Testes rodados | Resultado |
+| --- | --- | --- | --- | --- |
+| M14 | `refusals.ts:110-111` | remove a chamada de `ctaHrefRefusal` dentro de `destinationRefusal` | `refusals.test.ts` | ✅ **morta** — 4 falharam (`:136`, `:142`, `:148`, `:160`) |
+| M15 | `refusals.ts:110` | `destinationRefusal` valida **`category_id`/`product_id`** como se fossem caminho | `refusals.test.ts` | ✅ **morta** — 6 falharam, incluindo o teste dedicado `:167` ("FK não passa pela régua") |
+| M16 | `HomeBannerGrid.tsx:132` | remove `md:grid-cols-2` | `HomeBannerGrid.test.tsx` | ✅ **morta** — 2 falharam (`pair`, `quad`) |
+| M17 | `HomeBannerGrid.tsx:102` | remove `md:flex-row` do arranjo `hero_pair` | `HomeBannerGrid.test.tsx` | ✅ **morta** — exatamente 1, o teste novo `:117` |
+| M18 | `HomeBannerGrid.tsx:132` | inverte o caso `single` (`length > 1` → `>= 1`: uma vaga vira grade) | `HomeBannerGrid.test.tsx` | ✅ **morta** — 1, o caso negativo `:135` |
+| M19 | `sectionRefusals.ts:130` | `textSectionRefusal` deixa de validar `link_href` (a **superfície irmã**) | `src/features/home-composition` inteiro | ✅ **morta** — 1/152 (`TextSectionEditor.test.tsx`, `HOME-43`) |
+| M20 | `sectionRefusals.ts:46` | `heroRefusal` deixa de validar `cta_href` (a **outra irmã**) | `HeroEditor.test.tsx` | ✅ **morta** — 2/16 (`HOME-20`) |
+
+**Profundidade**: P0-full. **Resultado: 7/7 mortas, 0 sobreviventes.** Somadas às 13 da iteração 1:
+**20/20**.
+
+**Medição adicional, registrada por honestidade** (não é sobrevivente): com M14 aplicada,
+`BannerGridEditor.test.tsx` passa 19/19. É esperado — a régua mora em `core` e é lá que é asserida; a
+entrega até a tela está guardada por `:148-157` e `:159-168`, como detalhado em I2.1.
+
+**Estado da árvore ao fim das mutações**: `git status --porcelain` vazio · `git log --oneline -1` =
+`7aa0111`.
+
+---
+
+## I2.5 · Traceabilidade atualizada
+
+| Requisito | It. 1 | It. 2 |
+| --- | --- | --- |
+| `HOME-23` | ❌ Precisa de correção | ✅ **Verificado** — `refusals.ts:110-111` + `refusals.test.ts:135-171` |
+| `HOME-26` | ⚠️ metade desktop sem asserção | ✅ **Verificado** — `HomeBannerGrid.test.tsx:117-140` |
+| Edge case "destino de banner reservado ou inexistente é recusado usando `core/routes`" | ❌ sem `file:line` | ✅ **Verificado** — `refusals.test.ts:143-145` (`INFRA_SLUGS`) e `:149-151` (inexistente) |
+| Demais 42 ACs | ✅ Verificado | ✅ mantido — a correção não tocou nenhuma superfície delas (4 arquivos, **437 inserções, 0 remoções**) |
+
+**Resumo da checagem ancorada: 44/44 ACs com desfecho idêntico ao da spec · 0 defeitos · 0 gaps de
+precisão da spec.**
+
+---
+
+## I2.6 · Lições registradas
+
+Autorizado nesta iteração e executado. `python3` não existe nesta máquina; `python` (3.13.14) roda.
+
+| ID | Sinal | Escopo | Lição |
+| --- | --- | --- | --- |
+| `L-028` | `ac_gap` | `core/validation` | Regra de validação de um campo mora na função que **possui** a pergunta, nunca replicada em cada chamador: replicada por superfície, a próxima nasce sem ela e nada acusa |
+| `L-029` | `ac_gap` | `testing/responsive` | AC com duas metades, mobile **e** desktop, precisa de asserção **positiva** nas duas: negação desenhada para tolerar o prefixo `md:` não prova que o `md:` existe |
+
+Ambas nascem `candidate` (o limiar de promoção são 2 features distintas). A iteração 2 em si não
+gerou sinal novo — 7/7 mortas, 0 gaps —, então nada mais foi gravado, que é o comportamento correto.
+
+---
+
+## I2.7 · Resumo da iteração 2
+
+**Geral**: ✅ **Pronta.**
+
+**Lacunas da it. 1**: as **duas** fechadas, com asserção própria e discriminação provada por mutação.
+**Varredura da mesma classe**: 3 superfícies de caminho livre (todas cobertas), 4 ACs responsivas
+(só `HOME-26` tinha metade desktop, agora coberta), 3 regras de `core` rastreadas até os 10 tipos do
+catálogo — **nenhuma terceira ocorrência**. Uma dívida estrutural declarada (`href` de `config`
+ainda depende do chamador), virada em lição.
+**Portões**: 4498 testes / exit 0 · tipos 0/0/0 · lint 30/8 · `core/src/payment` intacto ·
+`homeComposition.test.tsx` 302/0.
+**Sensor**: 7 mutações, 7 mortas, 0 sobreviventes (20/20 no acumulado da feature).
+
+---
+---
+
+# Iteração 1 — relatório original (`185d01b`, ❌ FAIL)
+
+**Data**: 2026-08-15
 **Faixa de diff**: `83a3853..185d01b` — 35 commits, 6 fases, 98 arquivos
 **Verifier**: sub-agente independente (autor ≠ verificador), cobertura re-derivada do zero por
 `evidence-or-zero`
@@ -9,6 +233,9 @@
 **Veredito: ❌ FAIL** — por **um** defeito de comportamento (edge case declarado da spec não
 implementado) e **uma** metade de AC sem asserção. Tudo o mais fecha: 44 ACs rastreadas, 13/13
 mutações mortas, os quatro portões verdes nas baselines declaradas.
+
+> As duas lacunas da seção 6 foram corrigidas no commit `7aa0111` e re-verificadas acima. O texto
+> abaixo é preservado como está — é o registro de como o defeito foi achado.
 
 ---
 

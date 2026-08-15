@@ -176,6 +176,18 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: apps/store/src/pages/CategoryPage.tsx:52 — SPEC_DEVIATION do modo legacy (routes)
 - last seen: 2026-08-09T17:59:07Z
 
+### L-028 — Regra de validacao de um campo mora na funcao que POSSUI a pergunta, nunca replicada em cada chamador: replicada por superficie, a proxima superfice nasce sem ela e nada acusa.
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `core/validation` · harmful: 0
+- features: 24-home-gerenciavel
+- evidence: HOME-23 + packages/core/src/home/refusals.ts:110 (core/validation)
+- last seen: 2026-08-15T18:37:39Z
+
+### L-029 — AC com duas metades, mobile E desktop, precisa de assercao POSITIVA nas duas: negacao desenhada para tolerar o prefixo md: nao prova que o md: existe.
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `testing/responsive` · harmful: 0
+- features: 24-home-gerenciavel
+- evidence: HOME-26 + apps/store/src/widgets/home-banners/ui/__tests__/HomeBannerGrid.test.tsx:117 (testing/responsive)
+- last seen: 2026-08-15T18:37:47Z
+
 ## Quarantined (failed when applied — ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.

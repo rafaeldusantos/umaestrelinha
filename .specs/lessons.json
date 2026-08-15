@@ -3,7 +3,7 @@
   "promote_threshold": 2,
   "window_days": 45,
   "quarantine_threshold": 2,
-  "next_id": 28,
+  "next_id": 30,
   "lessons": [
     {
       "id": "L-001",
@@ -490,6 +490,42 @@
       ],
       "created": "2026-08-09T17:59:07Z",
       "last_seen": "2026-08-09T17:59:07Z"
+    },
+    {
+      "id": "L-028",
+      "key": "ac_gap::regra de validacao de um campo mora na funcao que possui a pergunta nunca replicada em cada chamador replicada por superficie a proxima superfice nasce sem ela e nada acusa",
+      "text": "Regra de validacao de um campo mora na funcao que POSSUI a pergunta, nunca replicada em cada chamador: replicada por superficie, a proxima superfice nasce sem ela e nada acusa.",
+      "signal": "ac_gap",
+      "scope": "core/validation",
+      "status": "candidate",
+      "features": [
+        "24-home-gerenciavel"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "HOME-23 + packages/core/src/home/refusals.ts:110 (core/validation)"
+      ],
+      "created": "2026-08-15T18:37:39Z",
+      "last_seen": "2026-08-15T18:37:39Z"
+    },
+    {
+      "id": "L-029",
+      "key": "ac_gap::ac com duas metades mobile e desktop precisa de assercao positiva nas duas negacao desenhada para tolerar o prefixo md nao prova que o md existe",
+      "text": "AC com duas metades, mobile E desktop, precisa de assercao POSITIVA nas duas: negacao desenhada para tolerar o prefixo md: nao prova que o md: existe.",
+      "signal": "ac_gap",
+      "scope": "testing/responsive",
+      "status": "candidate",
+      "features": [
+        "24-home-gerenciavel"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "HOME-26 + apps/store/src/widgets/home-banners/ui/__tests__/HomeBannerGrid.test.tsx:117 (testing/responsive)"
+      ],
+      "created": "2026-08-15T18:37:47Z",
+      "last_seen": "2026-08-15T18:37:47Z"
     }
   ]
 }

@@ -9,8 +9,18 @@ flow and Critical Rules.** Do not search for skill files by filesystem path.
 
 ---
 
-**Design**: [`design.md`](./design.md) · **Spec**: [`spec.md`](./spec.md)
-**Status**: Draft
+**Design**: [`design.md`](./design.md) · **Spec**: [`spec.md`](./spec.md) · **Validação**: [`validation.md`](./validation.md)
+**Status**: ✅ **Done** — 35/35 tasks, 6 fases, Verifier **PASS** na iteração 2 (2026-08-15)
+
+| Fecho | Medido |
+| --- | --- |
+| Testes | **4498 / 251** (baseline de abertura 4019/225 — **+479**) |
+| Tipos | **0** · store · backoffice · catalog-import |
+| Lint | **30 / 8** — a baseline exata, zero erro novo |
+| `packages/core/src/payment/**` | **0 arquivos alterados** na feature inteira |
+| Guarda da T1 (`HOME-04`) | **302 linhas adicionadas, 0 removidas** |
+| Sensor de discriminação | **20 mutações, 20 mortas, 0 sobreviventes** |
+| Rastreabilidade | **44/44 ACs** (P1+P2) · `HOME-45..47` deferidos de propósito |
 
 ### Pré-condições
 
