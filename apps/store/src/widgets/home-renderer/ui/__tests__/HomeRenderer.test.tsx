@@ -2,7 +2,8 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { DEFAULT_HOME_COMPOSITION, type HomeSection } from '@estrelinha/core/home'
-import HomeRenderer, { HOME_SECTION_RENDERERS } from '../HomeRenderer'
+import HomeRenderer from '../HomeRenderer'
+import { HOME_SECTION_RENDERERS } from '../sectionRenderers'
 
 /**
  * O renderizador dirigido por tipo — `HOME-02`, `HOME-03`.

@@ -1,4 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -240,6 +243,38 @@ describe('Home — os literais dos chips e da newsletter (HOME-04)', () => {
       screen.getByText('Cadastre-se e fique por dentro das novidades da loja.'),
     ).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Me cadastrar' })).toBeInTheDocument()
+  })
+})
+
+describe('Home — a página não conhece seção nenhuma (HOME-02)', () => {
+  // Lê o fonte do disco, e não a árvore renderizada: o que se mede aqui é a **página**, não a
+  // saída dela. Uma `HomePage` que voltasse a montar widget a widget passaria em todas as
+  // asserções de DOM acima — e a composição teria deixado de ser dado sem nada acusar.
+  const FONTE = readFileSync(
+    join(dirname(fileURLToPath(import.meta.url)), '../HomePage.tsx'),
+    'utf8',
+  )
+
+  it('âncora: leu a `HomePage` de verdade', () => {
+    // Sem a âncora, um caminho errado leria string vazia e as duas asserções abaixo passariam em
+    // silêncio — a pior falha possível num teste que lê arquivo.
+    expect(FONTE.length).toBeGreaterThan(200)
+    expect(FONTE).toContain('const HomePage')
+  })
+
+  it('nenhum widget de seção é importado pela página', () => {
+    const importados = [...FONTE.matchAll(/from\s+'([^']+)'/g)].map(m => m[1])
+
+    for (const alvo of importados) {
+      expect(alvo, `a página importa ${alvo}`).not.toMatch(
+        /hero-banner|home-sections|home-banners|home-collections|newsletter/,
+      )
+    }
+  })
+
+  it('a página monta a partir das seções lidas, e nada mais', () => {
+    expect(FONTE).toContain('useHomeSections')
+    expect(FONTE).toContain('HomeRenderer')
   })
 })
 
