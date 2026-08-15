@@ -103,6 +103,42 @@ describe('HomeBannerGrid — o celular empilha tudo (HOME-26)', () => {
     },
   )
 
+  /**
+   * A METADE DESKTOP precisa de asserção POSITIVA — achado do Verifier no fecho da feature.
+   *
+   * As asserções acima são todas de negação (`not.toMatch(/grid/)`), desenhadas para tolerar o
+   * `md:grid` que só vale do breakpoint para cima. Mas negação sozinha não prova que o mosaico
+   * existe: apagar `md:flex-row` ou `md:grid md:grid-cols-2` deixaria a grade em **coluna única no
+   * desktop** com a suíte inteira verde.
+   *
+   * `HOME-26` tem duas metades ("empilha em 390px" **e** "forma o mosaico no desktop"), e as duas
+   * precisam de guarda. Lição que vale para todo par mobile/desktop desta loja.
+   */
+  it('`hero_pair` vira DUAS COLUNAS do `md` para cima — o grande ao lado dos dois de apoio', () => {
+    const { container } = renderGrade([1, 2, 3].map(n => banner(n)), 'hero_pair')
+
+    const grade = container.querySelector('section > div')!
+    expect(grade.className).toContain('md:flex-row')
+  })
+
+  it.each(['pair', 'quad'] as const)(
+    'em `%s` o mosaico do desktop é uma grade de 2 colunas',
+    layout => {
+      const { container } = renderGrade([1, 2, 3, 4].map(n => banner(n)), layout)
+
+      const grade = container.querySelector('section > div')!
+      expect(grade.className).toContain('md:grid')
+      expect(grade.className).toContain('md:grid-cols-2')
+    },
+  )
+
+  it('`single` NÃO vira grade no desktop: uma vaga só não é mosaico', () => {
+    const { container } = renderGrade([banner(1)], 'single')
+
+    const grade = container.querySelector('section > div')!
+    expect(grade.className).not.toContain('md:grid')
+  })
+
   it('a ordem no celular é a da fileira: a chamada vem antes do apoio', () => {
     renderGrade([1, 2, 3].map(n => banner(n)), 'hero_pair')
 

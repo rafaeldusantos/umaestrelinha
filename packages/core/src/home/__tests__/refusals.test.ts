@@ -119,6 +119,57 @@ describe('destinationRefusal — exatamente um destino para salvar (HOME-22, HOM
   })
 })
 
+/**
+ * O caminho livre de um ITEM é validado, e não só contado (`HOME-23` + o edge case da spec:
+ * "destino de banner reservado ou inexistente SHALL ser recusado, usando `core/routes`").
+ *
+ * Achado pelo Verifier no fecho da feature: `bannerGridRefusal` chamava `destinationRefusal`, que
+ * contava **quantos** destinos havia e cobrava o `alt`, mas nunca olhava o valor do `href`. O hero e
+ * as seções de texto chamavam `ctaHrefRefusal` cada um por conta própria; a grade de banners — a
+ * terceira superfície com destino livre — ficou de fora.
+ *
+ * O defeito não era teórico: o `<Link to>` do react-router trata `https://…` como caminho
+ * **relativo**, então um banner apontando para o Instagram levaria a cliente a uma 404 da própria
+ * loja, sem erro no cadastro nem na tela.
+ */
+describe('destinationRefusal — o caminho livre também precisa servir (HOME-23)', () => {
+  it('recusa endereço externo, que o `<Link to>` trataria como caminho relativo', () => {
+    expect(destinationRefusal({ href: 'https://instagram.com/umaestrelinha' })).toBe(
+      'O endereço precisa começar com “/”: a loja só aponta para páginas dela.',
+    )
+  })
+
+  it('recusa caminho de infraestrutura, que não chega ao React Router', () => {
+    expect(destinationRefusal({ href: '/assets/banner.png' })).toBe(
+      '“/assets” é reservado da infraestrutura e não chega à loja. Escolha outro endereço.',
+    )
+  })
+
+  it('recusa três níveis, porque a canônica de coleção tem no máximo dois', () => {
+    expect(destinationRefusal({ href: '/joias/leite-materno/pingentes' })).toBe(
+      'Este endereço não existe na loja: coleção tem no máximo dois níveis.',
+    )
+  })
+
+  it('aceita o caminho de uma coleção de raiz — a régua não é `ROUTE_SLUGS` no primeiro segmento', () => {
+    // Com a categoria servida na raiz do domínio (`AD-018`), recusar por `ROUTE_SLUGS` recusaria
+    // `/leite-materno`, que é uma coleção de verdade.
+    expect(destinationRefusal({ href: '/leite-materno' })).toBeNull()
+  })
+
+  it('a mesma régua vale para o hero e para o banner — uma recusa, um dono', () => {
+    // Antes da correção, `heroRefusal` recusava e `bannerGridRefusal` aceitava o MESMO endereço.
+    expect(destinationRefusal({ href: 'https://instagram.com/x' })).toBe(
+      ctaHrefRefusal('https://instagram.com/x'),
+    )
+  })
+
+  it('FK não passa pela régua de caminho: o banco já garante que a linha existe', () => {
+    expect(destinationRefusal({ category_id: 'c1' })).toBeNull()
+    expect(destinationRefusal({ product_id: 'p1' })).toBeNull()
+  })
+})
+
 describe('ctaHrefRefusal — o destino do CTA (HOME-20)', () => {
   it('campo vazio não é erro: obrigatoriedade é do formulário', () => {
     expect(ctaHrefRefusal('')).toBeNull()

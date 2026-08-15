@@ -93,6 +93,23 @@ export const destinationRefusal = (item: Partial<HomeSectionItem>): string | nul
     return 'Escolha o destino: uma coleção, um produto ou um caminho da loja.'
   }
 
+  // O CAMINHO LIVRE também é validado, e é aqui que isso mora — não em cada chamador.
+  //
+  // Contar destinos não diz se o destino serve: `href: 'https://instagram.com/x'` é **um** destino e
+  // passava. O `<Link to>` do react-router trata `https://…` como caminho **relativo**, então a
+  // cliente cairia numa 404 da própria loja — sem erro em lugar nenhum, nem no cadastro nem na tela.
+  //
+  // A verificação fica em `destinationRefusal` e não em `bannerGridRefusal` porque quem **possui** a
+  // pergunta "este destino serve?" é esta função. O hero e as seções de texto já chamavam
+  // `ctaHrefRefusal` cada um por sua conta, e a grade de banners — a terceira superfície com destino
+  // livre — ficou de fora justamente por isso. Consertar no chamador deixaria a mesma armadilha
+  // armada para a quarta.
+  //
+  // `category_id` e `product_id` não passam por aqui de propósito: são FK, e o banco já garante que
+  // apontam para linha que existe.
+  const caminho = ctaHrefRefusal(vazio(item.href) ? '' : item.href)
+  if (caminho) return caminho
+
   return altRefusal(item.image_url, item.alt)
 }
 
