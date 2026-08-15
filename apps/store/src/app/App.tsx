@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { isPreviewWindow } from "@estrelinha/core/home";
 import { Toaster as Sonner } from "@estrelinha/ui/sonner";
 import { Toaster } from "@estrelinha/ui/toaster";
 import { TooltipProvider } from "@estrelinha/ui/tooltip";
@@ -24,6 +25,16 @@ import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
 
+/**
+ * Feature 25 — a loja dentro do iframe de `/admin/home`.
+ *
+ * Lido aqui, do `window`, e não por `useSearchParams`: este componente está **acima** das `Routes`.
+ * A mesma função responde no `useHomePreview`, então as duas pontas não podem divergir.
+ */
+const previewMode =
+  typeof window !== "undefined" &&
+  isPreviewWindow(window.location.search, window.parent !== window);
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -31,7 +42,12 @@ const App = () => (
       <Sonner />
       <RuntimeSettingsLoader />
       <BrowserRouter>
-        <AbandonedCartTracker />
+        {/*
+          Navegar a prévia não pode virar carrinho abandonado: a dona conferindo a vitrine dispararia
+          rastreio de uma sessão que não é de cliente nenhuma, e o e-mail de recuperação sairia para
+          o endereço dela (`PRV-05`).
+        */}
+        {!previewMode && <AbandonedCartTracker />}
         <Routes>
           {/*
             A tabela de rotas de `AD-018` — o formato que a loja em produção publica e que o Google

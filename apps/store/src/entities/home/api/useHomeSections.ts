@@ -63,9 +63,17 @@ const mapSection = (row: DbHomeSection): HomeSection => ({
   items: (row.items ?? []).map(mapItem),
 })
 
-export const useHomeSections = () =>
+/**
+ * `enabled: false` **desliga a consulta**, e não filtra o resultado depois (`PRV-02`).
+ *
+ * É o que o modo prévia da feature 25 usa: lá a composição chega por `postMessage` do painel, e uma
+ * consulta viva em paralelo daria à mesma página **duas fontes** para a mesma pergunta — com a do
+ * banco chegando depois e sobrescrevendo o rascunho que a dona está digitando.
+ */
+export const useHomeSections = ({ enabled = true }: { enabled?: boolean } = {}) =>
   useQuery({
     queryKey: ['home-sections'],
+    enabled,
     // O piso enquanto carrega, e não `undefined`: `HOME-07` diz "nunca página em branco", e a
     // primeira pintura da Home é justamente onde o branco apareceria. `placeholderData` e não
     // `initialData` porque isto não é dado do servidor e não pode ser gravado no cache.
