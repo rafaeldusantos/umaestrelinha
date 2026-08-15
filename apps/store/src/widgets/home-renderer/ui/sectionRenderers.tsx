@@ -6,6 +6,7 @@ import BrandStatement from '@/widgets/home-sections/ui/BrandStatement'
 import TrendingTags from '@/widgets/home-sections/ui/TrendingTags'
 import { HomeBannerGrid } from '@/widgets/home-banners'
 import { HomeCollections } from '@/widgets/home-collections'
+import { CollectionFeature } from '@/widgets/collection-feature'
 import NewsletterBanner from '@/features/newsletter/ui/NewsletterBanner'
 
 /**
@@ -27,9 +28,9 @@ export interface SectionRenderProps {
 /**
  * **Tipo sem renderer é `null`, e ser pulado é o comportamento certo.**
  *
- * Os dois de P3 (`product_carousel`, `category_grid`) entram no catálogo sem desenho, e o
- * `collection_feature` chega na T32. Uma linha gravada com um deles — ou com um tipo de uma versão
- * mais nova — **não pode derrubar a Home**: a página inteira sumiria por causa de um bloco.
+ * Os dois de P3 (`product_carousel`, `category_grid`) entram no catálogo sem desenho. Uma linha
+ * gravada com um deles — ou com um tipo de uma versão mais nova — **não pode derrubar a Home**: a
+ * página inteira sumiria por causa de um bloco.
  */
 export const HOME_SECTION_RENDERERS: Record<
   HomeSectionType,
@@ -52,7 +53,12 @@ export const HOME_SECTION_RENDERERS: Record<
   brand_statement: ({ section }) => <BrandStatement content={section.config} />,
   trending_tags: ({ section }) => <TrendingTags content={section.config} />,
   newsletter: ({ section }) => <NewsletterBanner content={section.config} />,
-  collection_feature: null,
+  // A coleção escolhida chega já resolvida, e **só chega quando está no ar**: coleção despublicada
+  // ou apagada devolve `null` em `resolveItem`, a seção fica sem item e `resolveHomeSections` a
+  // esconde com motivo (`HOME-39`). O guarda aqui é para o caso de a lista chegar vazia por outro
+  // caminho — desenhar uma faixa sem destino seria um CTA para lugar nenhum.
+  collection_feature: ({ section, items }) =>
+    items[0] ? <CollectionFeature content={section.config} collection={items[0]} /> : null,
   product_carousel: null,
   category_grid: null,
 }

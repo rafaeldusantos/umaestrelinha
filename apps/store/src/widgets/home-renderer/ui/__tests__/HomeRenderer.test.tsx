@@ -77,12 +77,15 @@ describe('HomeRenderer — o registro tipo → componente', () => {
     expect(news.compareDocumentPosition(hero) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
-  it('os dois tipos de P3 e o destaque em coleção ainda não têm desenho', () => {
+  it('os dois tipos de P3 ainda não têm desenho', () => {
     // A ausência é declarada, não acidental: eles entram no catálogo (a bandeja os mostra como "em
     // breve") e ganham renderer quando ganharem tela.
     expect(HOME_SECTION_RENDERERS.product_carousel).toBeNull()
     expect(HOME_SECTION_RENDERERS.category_grid).toBeNull()
-    expect(HOME_SECTION_RENDERERS.collection_feature).toBeNull()
+  })
+
+  it('o destaque em coleção ganhou desenho na T32 — e é o único dos três que ganhou', () => {
+    expect(HOME_SECTION_RENDERERS.collection_feature).not.toBeNull()
   })
 
   it('tipo sem renderer é pulado e NÃO quebra a página', () => {
