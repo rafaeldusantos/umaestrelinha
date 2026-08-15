@@ -13,6 +13,16 @@ import type { HomeSectionType } from '../types'
  * limites) e o texto. A segunda é a que ninguém veria falhar — um parágrafo quase igual, uma vírgula
  * a menos, e a Home semeada mostraria outra coisa sem build, `tsc` ou teste de widget reclamar. Por
  * isso os literais são comparados com o **fonte dos widgets no disco**.
+ *
+ * **A comparação com o disco se APOSENTA à medida que cada widget passa a receber o texto por prop**
+ * (feature 24, emenda `E1`). O motivo é o contrário de descuido: enquanto o literal vive nos dois
+ * lugares, compará-los é o que impede a divergência; depois que o widget exige o conteúdo por prop
+ * **sem fallback**, não há segundo lugar — e manter aqui uma leitura do arquivo obrigaria alguém a
+ * deixar o literal lá dentro só para o teste achar, que é justamente o segundo dono que a emenda
+ * fecha. Quem assume o papel é `homeComposition.test.tsx`, estritamente mais forte: assere o **DOM
+ * renderizado** ao fim do pipe inteiro, não o texto de um arquivo.
+ *
+ * Aposentado até aqui: **o hero** (a T13 tirou os seis literais do `HeroBanner`).
  */
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -23,7 +33,6 @@ const ROOT = resolve(HERE, '../../../../..')
  * faria a varredura encolher junto com o que ela deveria guardar.
  */
 const FONTES = {
-  hero: 'apps/store/src/widgets/hero-banner/ui/HeroBanner.tsx',
   brandStatement: 'apps/store/src/widgets/home-sections/ui/BrandStatement.tsx',
   trendingTags: 'apps/store/src/widgets/home-sections/ui/TrendingTags.tsx',
   newsletter: 'apps/store/src/features/newsletter/ui/NewsletterBanner.tsx',
@@ -110,23 +119,27 @@ describe('DEFAULT_HOME_COMPOSITION — os limites e o aninhamento', () => {
 })
 
 describe('DEFAULT_HOME_COMPOSITION — os literais batem com o disco', () => {
-  it('âncora: leu os cinco fontes de verdade', () => {
+  it('âncora: leu os quatro fontes de verdade', () => {
     // Sem esta âncora, um caminho errado leria string vazia, todas as comparações abaixo falhariam
     // por um motivo enganoso — ou, se fossem escritas ao contrário, passariam em silêncio.
     for (const [chave, caminho] of Object.entries(FONTES)) {
       expect(LIDOS[chave as keyof typeof FONTES].length, caminho).toBeGreaterThan(500)
     }
-    expect(Object.keys(FONTES)).toHaveLength(5)
+    expect(Object.keys(FONTES)).toHaveLength(4)
   })
 
-  it('os seis campos do hero saem do `HeroBanner`', () => {
+  it('o `HeroBanner` NÃO carrega mais os literais: eles são prop obrigatória', () => {
+    // O par da aposentadoria acima. Um fallback literal que voltasse ao widget seria um segundo dono
+    // dos mesmos textos, e a Home mostraria a versão antiga enquanto a dona edita a nova.
+    const hero = normalizado(
+      readFileSync(join(ROOT, 'apps/store/src/widgets/hero-banner/ui/HeroBanner.tsx'), 'utf8'),
+    )
     const { config } = secao('hero')
-    expect(LIDOS.hero).toContain(config.eyebrow)
-    expect(LIDOS.hero).toContain(config.title_line1)
-    expect(LIDOS.hero).toContain(config.title_line2)
-    expect(LIDOS.hero).toContain(config.paragraph)
-    expect(LIDOS.hero).toContain(config.cta_label)
-    expect(LIDOS.hero).toContain(`to="${config.cta_href}"`)
+
+    expect(hero.length).toBeGreaterThan(500)
+    expect(hero).not.toContain(config.title_line1)
+    expect(hero).not.toContain(config.paragraph)
+    expect(hero).not.toContain(config.cta_label)
   })
 
   it('os sete campos da faixa institucional saem do `BrandStatement`', () => {

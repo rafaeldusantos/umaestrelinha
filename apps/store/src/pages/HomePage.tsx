@@ -6,6 +6,14 @@ import BrandStatement from '@/widgets/home-sections/ui/BrandStatement'
 import TrendingTags from '@/widgets/home-sections/ui/TrendingTags'
 import NewsletterBanner from '@/features/newsletter/ui/NewsletterBanner'
 import { useCategories } from '@/entities/category'
+import { DEFAULT_HOME_COMPOSITION } from '@estrelinha/core/home'
+
+/**
+ * Provisório da feature 24: o conteúdo do hero já vem de `DEFAULT_HOME_COMPOSITION`, mas ainda é
+ * lido daqui e não do banco. A T18 troca a página inteira por hook → resolve → render, e esta
+ * constante some junto com o resto da composição escrita em JSX.
+ */
+const heroContent = DEFAULT_HOME_COMPOSITION.find((s) => s.type === 'hero')!.config
 
 /**
  * A home — board `7CF-0` ("Loja — Home (Desktop)"), que reconstruiu a página da loja em produção
@@ -42,7 +50,7 @@ const HomePage = () => {
 
   return (
     <div>
-      <HeroBanner />
+      <HeroBanner content={heroContent} />
 
       <TrustBar />
 

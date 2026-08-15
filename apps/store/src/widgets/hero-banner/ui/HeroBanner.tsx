@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { motion, type Variants } from 'framer-motion'
 import { ArrowRight } from 'lucide-react'
+import type { HomeSectionConfig } from '@estrelinha/core/home'
 import { EstrelinhaSymbol } from '@/shared/ui/brand'
 
 const container: Variants = {
@@ -42,8 +43,17 @@ const Eyebrow = ({ children }: { children: React.ReactNode }) => (
  * palco —, e é o lugar certo: 1,19:1 sobre o chão, então nada de texto vive
  * aqui dentro além da etiqueta, que tem superfície própria.
  */
+/**
+ * A vaga da figura, e ela é **a mesma para a arte da marca e para a foto da dona**.
+ *
+ * É o que faz `HOME-19` ("remover a foto não deixa buraco") ser estrutural em vez de sorte: a caixa
+ * já reserva a proporção, então trocar o conteúdo dela não move um pixel do que vem abaixo. Também é
+ * o que atende `HOME-21` no celular — a altura da figura é conhecida antes de a imagem carregar.
+ */
+const ART_SLOT = 'aspect-[350/260] w-full max-w-[440px] rounded-lg bg-estrelinha-serenity'
+
 const HeroArt = () => (
-  <div className="relative flex aspect-[350/260] w-full max-w-[440px] items-center justify-center rounded-lg bg-estrelinha-serenity">
+  <div className={`relative flex items-center justify-center ${ART_SLOT}`}>
     <EstrelinhaSymbol size={200} className="max-w-[52%]" />
 
     <div className="absolute bottom-5 left-5 flex -rotate-[2.5deg] flex-col gap-[3px] rounded-sm bg-estrelinha-surface px-3.5 py-2.5 shadow-estrelinha-soft">
@@ -54,6 +64,24 @@ const HeroArt = () => (
         uma peça por vez
       </span>
     </div>
+  </div>
+)
+
+/**
+ * A foto que a dona subiu, quando há uma (`HOME-18`).
+ *
+ * Foto de peça **real** não tem o defeito que a feature 20 recusou: o que estava proibido era
+ * ilustração genérica prometendo um modelo que o catálogo não tem. Uma peça que existe é o oposto
+ * disso.
+ *
+ * `object-cover` dentro da vaga de proporção fixa: a foto preenche sem esticar, e o que sobra é
+ * cortado nas bordas — aqui o corte é aceitável porque a foto é fotografia, não arte com texto
+ * embutido (é por isso que o banner de campanha, que tem texto dentro, ganha aviso de proporção em
+ * vez de recorte silencioso).
+ */
+const HeroPhoto = ({ src, alt }: { src: string; alt: string }) => (
+  <div className={`relative overflow-hidden ${ART_SLOT}`}>
+    <img src={src} alt={alt} className="h-full w-full object-cover" />
   </div>
 )
 
@@ -71,8 +99,19 @@ const HeroArt = () => (
  * O título sai em **duas cores**: a primeira linha em `ink` e a segunda em
  * `primary`. Não é decoração — é o que dá o pico de contraste sem precisar de
  * um terceiro tamanho de fonte.
+ *
+ * **O texto vem por prop, e não há fallback literal aqui** (feature 24, emenda `E1`). Um default
+ * dentro do widget seria um **segundo dono** dos mesmos textos: a dona editaria a chamada no painel
+ * e o código continuaria carregando a versão antiga, sem nada acusar. Quem guarda a composição de
+ * hoje é `DEFAULT_HOME_COMPOSITION`, e quem prova que a página não mudou é
+ * `homeComposition.test.tsx`, que assere o DOM ao fim do pipe inteiro.
  */
-const HeroBanner = () => (
+interface Props {
+  /** O `config` da seção `hero` — os seis campos de texto mais a foto opcional. */
+  content: HomeSectionConfig
+}
+
+const HeroBanner = ({ content }: Props) => (
   /* `ground`, o mesmo chão da página. O hero não é uma faixa de cor: quem
      carrega o peso aqui é o tipo, não o fundo. */
   <section className="bg-estrelinha-ground">
@@ -85,43 +124,55 @@ const HeroBanner = () => (
       {/* ESQUERDA — o peso está aqui: 72px de Libre Baskerville contra tudo em 15–19px */}
       <div className="flex w-full flex-col gap-6 md:w-[600px] md:gap-8">
         <motion.div variants={item}>
-          <Eyebrow>Joias afetivas artesanais</Eyebrow>
+          <Eyebrow>{content.eyebrow}</Eyebrow>
         </motion.div>
 
         <motion.h1
           variants={item}
           className="font-display text-[38px] leading-[1.12] tracking-[-0.03em] md:text-[64px] md:leading-[1.06]"
         >
-          <span className="block text-estrelinha-ink">O que você ama,</span>
-          <span className="block text-estrelinha-primary">eternizado em joia.</span>
+          <span className="block text-estrelinha-ink">{content.title_line1}</span>
+          <span className="block text-estrelinha-primary">{content.title_line2}</span>
         </motion.h1>
 
         <motion.p
           variants={item}
           className="max-w-[320px] text-[15px] font-light leading-[1.5] text-estrelinha-ink-soft md:max-w-[520px] md:text-[19px] md:leading-[1.6]"
         >
-          Peças feitas à mão em resina com o seu material — leite materno, cabelos, pelos de pet,
-          dentinhos ou cinzas. Cada joia é única, porque cada história é.
+          {content.paragraph}
         </motion.p>
 
-        <motion.div variants={item} className="flex flex-col gap-3.5 sm:flex-row">
-          <Link
-            to="/busca"
-            className="inline-flex min-h-11 items-center justify-center gap-2.5 rounded-sm bg-estrelinha-primary px-6 py-3.5 font-display text-[15px] font-bold text-estrelinha-on-primary transition-colors hover:bg-estrelinha-primary-strong md:px-[30px] md:py-[17px] md:text-[17px]"
-          >
-            Explorar coleções
-            <ArrowRight size={16} strokeWidth={2.5} />
-          </Link>
-        </motion.div>
+        {/* Sem rótulo OU sem destino, o botão não sai. Um `<Link to={undefined}>` derrubaria a Home
+            inteira, e um destino inventado ("/") mandaria a cliente para outro lugar em silêncio —
+            das três saídas, não desenhar o CTA é a única que não mente. */}
+        {content.cta_label && content.cta_href && (
+          <motion.div variants={item} className="flex flex-col gap-3.5 sm:flex-row">
+            <Link
+              to={content.cta_href}
+              className="inline-flex min-h-11 items-center justify-center gap-2.5 rounded-sm bg-estrelinha-primary px-6 py-3.5 font-display text-[15px] font-bold text-estrelinha-on-primary transition-colors hover:bg-estrelinha-primary-strong md:px-[30px] md:py-[17px] md:text-[17px]"
+            >
+              {content.cta_label}
+              <ArrowRight size={16} strokeWidth={2.5} />
+            </Link>
+          </motion.div>
+        )}
       </div>
 
       {/* DIREITA — a figura aparece nos dois tamanhos, porque deixou de ser uma
-          cartela de 440px e cabe em 390 sem espremer o texto. */}
+          cartela de 440px e cabe em 390 sem espremer o texto.
+
+          Ela vem DEPOIS do texto no documento, e é isso que atende `HOME-21`: em 390px as duas
+          colunas empilham na ordem do DOM, então a foto nasce abaixo do CTA e não tem como
+          empurrá-lo abaixo da dobra, seja qual for a altura dela. */}
       <motion.div
         variants={item}
         className="flex w-full justify-center md:w-[440px] md:shrink-0"
       >
-        <HeroArt />
+        {content.image_url ? (
+          <HeroPhoto src={content.image_url} alt={content.image_alt ?? ''} />
+        ) : (
+          <HeroArt />
+        )}
       </motion.div>
     </motion.div>
   </section>
