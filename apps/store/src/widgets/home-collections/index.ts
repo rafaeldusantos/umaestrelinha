@@ -1,6 +1,4 @@
 export { default as HomeCollections, type HomeCollectionItem } from './ui/HomeCollections'
-export {
-  pickHomeCollections,
-  HOME_COLLECTION_ROWS,
-  type HomeCollection,
-} from './model/pickHomeCollections'
+
+// `pickHomeCollections`, `HOME_COLLECTION_ROWS` e `HomeCollection` moram em `@estrelinha/core/home`
+// desde a T35 da feature 24 — a derivação tem um dono só, lido pela loja e pelo painel.

@@ -1,6 +1,15 @@
 import { describe, it, expect } from 'vitest'
-import { pickTrendingCategories } from '../trendingCategories'
-import type { Category } from '@estrelinha/supabase/types'
+import { pickTrendingCategories } from '../derive'
+import type { MenuCategory } from '../../menu'
+
+/**
+ * **Veio inteiro de `apps/store` na T35**, com os cinco casos intactos. A fixture era anotada com
+ * `Category` de `@estrelinha/supabase/types`; `core` não importa Supabase, e a função passou a ser
+ * genérica sobre o que recebe — então o tipo local é o bastante e o retorno continua sendo o próprio
+ * tipo de entrada.
+ */
+
+type Category = MenuCategory & { image_url?: string | null; color_accent?: string | null; emoji?: string }
 
 const cat = (id: string, parent_id: string | null = null): Category =>
   ({ id, name: id, slug: id, description: null, image_url: null, color_accent: null, emoji: '', parent_id, sort_order: 0 }) as Category

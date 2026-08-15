@@ -1,24 +1,22 @@
 // O contexto de `resolveHomeSections` visto do PAINEL (feature 24).
 //
-// A loja monta o dela com `pickHomeBanners` / `pickHomeCollections` / `pickTrendingCategories`
-// (`store/widgets/home-*/model` e `features/search/lib`). O painel precisa da MESMA resposta — é o
-// que faz a linha dizer "não vai aparecer" pelo mesmo motivo que a loja não desenha —, mas
-// `apps/backoffice` não importa `apps/store`.
+// O painel precisa da MESMA resposta que a loja — é o que faz a linha dizer "não vai aparecer" pelo
+// mesmo motivo que a Home não desenha.
 //
-// SPEC_DEVIATION: a derivação abaixo é uma segunda escrita das três regras da loja.
-// Reason: as três são funções puras que vivem em `apps/store/src/widgets/**`, e o backoffice não
-// tem como importá-las — não há alias entre os dois apps, e criar um traria os tokens e a árvore de
-// dependências da loja junto. Movê-las para `@estrelinha/core/home` é a correção certa e está FORA
-// do escopo desta task: mexeria em três widgets da loja, nos testes deles e nos barrels — o tipo de
-// refatoração que a T25 não pode carregar sem virar outra coisa. **Registrado para o orquestrador**:
-// enquanto as duas cópias existirem, um ajuste na derivação da loja pode fazer o painel prometer
-// uma seção que a Home não desenha. As regras estão transcritas com o porquê de cada uma, e os
-// primitivos compartilhados (`bySortOrder`, `categoryHref`) vêm de `@estrelinha/core/menu` — o que
-// diverge é a seleção, não a ordenação nem o destino.
+// **E agora ela vem da mesma função** (T35). Até a Fase 4 as três derivações viviam em
+// `apps/store/src/widgets/**`, e como `apps/backoffice` não importa `apps/store`, este arquivo
+// carregava uma **segunda escrita** delas: mesmos filtros, mesma ordenação, mesmo `slice`, em ~40
+// linhas paralelas. Era o "defeito 01" do projeto no lugar mais caro — duas cópias divergentes
+// fariam o painel prometer uma seção que a Home não renderiza —, e a deriva já havia começado (a
+// cópia daqui usava `limit ?? 4` literal onde a loja usava `HOME_COLLECTION_ROWS`). As três foram
+// movidas para `@estrelinha/core/home`, que é onde as duas pontas as leem.
 
 import { useMemo } from 'react'
 import {
   layoutSlots,
+  pickHomeBanners,
+  pickHomeCollections,
+  pickTrendingCategories,
   resolveHomeSections,
   type HomeSection,
   type HomeSectionItem,
@@ -26,7 +24,7 @@ import {
   type ResolvedItem,
   type ResolvedSection,
 } from '@estrelinha/core/home'
-import { bySortOrder, categoryHref, type MenuCategory } from '@estrelinha/core/menu'
+import { categoryHref, type MenuCategory } from '@estrelinha/core/menu'
 import { productPath } from '@estrelinha/core/routes'
 import type { AdminCategory } from '@/entities/category'
 
@@ -53,31 +51,6 @@ const daCategoria = (
   ...over,
 })
 
-/** Só RAIZ vira fileira: pai e filha na mesma página mostrariam os mesmos produtos duas vezes. */
-const fileiras = (categories: readonly Candidata[], limit?: number): Candidata[] =>
-  [...categories].filter(c => c.active && c.parent_id === null).sort(bySortOrder).slice(0, limit ?? 4)
-
-/** A curadoria da grade é a IMAGEM: quem subiu `banner_url` está dizendo "esta merece vitrine". */
-const banners = (
-  categories: readonly Candidata[],
-  limit: number,
-  exclude: readonly string[],
-): Candidata[] => {
-  const fora = new Set(exclude)
-  return [...categories]
-    .filter(c => c.active !== false && !!c.banner_url?.trim() && !fora.has(c.id))
-    .sort(bySortOrder)
-    .slice(0, limit)
-}
-
-/** Chip é FOLHA, não raiz: ninguém busca a categoria que contém tudo, busca o tema. */
-const folhas = (categories: readonly Candidata[], limit?: number): Candidata[] => {
-  const pais = new Set(categories.map(c => c.parent_id).filter(Boolean))
-  const leaves = categories.filter(c => !pais.has(c.id))
-  const lista = leaves.length > 0 ? leaves : [...categories]
-  return typeof limit === 'number' ? lista.slice(0, limit) : lista
-}
-
 export const useAdminResolvedHome = (
   sections: readonly HomeSection[],
   categories: readonly AdminCategory[],
@@ -93,7 +66,7 @@ export const useAdminResolvedHome = (
       ? []
       : secaoFileiras.items?.length
         ? secaoFileiras.items.map(i => i.category_id).filter((id): id is string => !!id)
-        : fileiras(pool, secaoFileiras.config?.limit).map(c => c.id)
+        : pickHomeCollections(pool, secaoFileiras.config?.limit).map(c => c.id)
 
     const ctx: ResolveContext = {
       resolveItem: (item: HomeSectionItem): ResolvedItem | null => {
@@ -150,16 +123,33 @@ export const useAdminResolvedHome = (
       derive: (section: HomeSection): ResolvedItem[] => {
         const limit = section.config?.limit
 
+        // As três derivações são as MESMAS da loja, lidas de `core/home`. O que o painel faz de
+        // diferente é só a forma de saída: ele precisa de `ResolvedItem` para a prévia e para o
+        // resumo da linha, então cada uma volta à categoria de origem por id.
+        const daId = (id: string): ResolvedItem | null => {
+          const categoria = pool.find(c => c.id === id)
+          return categoria ? daCategoria(pool, categoria) : null
+        }
+        const resolvidas = (ids: string[]): ResolvedItem[] =>
+          ids.map(daId).filter((item): item is ResolvedItem => item !== null)
+
         if (section.type === 'banner_grid') {
-          return banners(pool, layoutSlots(section.config?.layout), emFileira).map(c =>
-            daCategoria(pool, c),
+          return resolvidas(
+            pickHomeBanners(pool, {
+              limit: layoutSlots(section.config?.layout),
+              exclude: emFileira,
+            }).map(b => b.id),
           )
         }
         if (section.type === 'collection_rows') {
-          return fileiras(pool, limit).map(c => daCategoria(pool, c))
+          return resolvidas(pickHomeCollections(pool, limit).map(c => c.id))
         }
         if (section.type === 'trending_tags') {
-          return folhas(pool, limit).map(c => daCategoria(pool, c))
+          // Sem limite declarado a derivação **não corta**: quem corta é o `limit` da seção. Cortar
+          // aqui por um número inventado seria um terceiro dono — a mesma leitura que a loja faz.
+          return resolvidas(
+            pickTrendingCategories(pool, limit ?? pool.length).map(c => c.id),
+          )
         }
         return []
       },

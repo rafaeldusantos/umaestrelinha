@@ -1,6 +1,9 @@
 import { useMemo } from 'react'
 import {
   layoutSlots,
+  pickHomeBanners,
+  pickHomeCollections,
+  pickTrendingCategories,
   resolveHomeSections,
   type HomeSection,
   type HomeSectionItem,
@@ -11,18 +14,18 @@ import { categoryHref } from '@estrelinha/core/menu'
 import { productPath } from '@estrelinha/core/routes'
 import type { Category } from '@estrelinha/supabase/types'
 import { useCategories } from '@/entities/category'
-import { pickHomeBanners } from '@/widgets/home-banners'
-import { pickHomeCollections } from '@/widgets/home-collections'
-import { pickTrendingCategories } from '@/features/search/lib/trendingCategories'
 
 /**
  * O contexto de `resolveHomeSections`, montado com o catálogo da loja.
  *
- * **A derivação de hoje não é reescrita aqui, é injetada.** `pickHomeBanners`, `pickHomeCollections`
- * e `pickTrendingCategories` já têm teste próprio e já carregam decisões medidas (só raiz vira
- * fileira; quem virou fileira sai da grade; chip é folha da árvore). Copiá-las para dentro de `core`
- * criaria uma segunda cópia da mesma regra, e `core/home` precisa continuar **sem React e sem
- * Supabase** — o guarda que lê a migration do disco o importa de dentro de um teste de arquivo.
+ * **A derivação de hoje não é reescrita aqui, é injetada** — e desde a T35 ela vem de
+ * `@estrelinha/core/home`, onde tem um dono só. `pickHomeBanners`, `pickHomeCollections` e
+ * `pickTrendingCategories` carregam decisões medidas (só raiz vira fileira; quem virou fileira sai
+ * da grade; chip é folha da árvore), e o painel lê exatamente as mesmas — é o que faz a linha dele
+ * dizer "não vai aparecer" pelo mesmo motivo que a Home não desenha.
+ *
+ * O que continua injetado é `resolveItem`: dizer se a coleção de destino ainda está publicada exige
+ * o catálogo, e o catálogo é de quem chama.
  */
 
 const daCategoria = (

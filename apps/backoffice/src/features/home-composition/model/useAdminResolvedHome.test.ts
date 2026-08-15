@@ -4,9 +4,12 @@
 // mostrar. As duas só são verdade se o painel derivar as mesmas listas que a loja: se aqui a grade
 // de banners achasse uma categoria que lá não entra, o painel diria "3 banners" e a cliente veria 2.
 //
-// Este arquivo é o par do `SPEC_DEVIATION` declarado em `useAdminResolvedHome.ts`: enquanto
-// `pickHomeBanners` / `pickHomeCollections` / `pickTrendingCategories` viverem em `apps/store`, o
-// que impede as duas cópias de divergirem em silêncio é uma suíte que cobra cada regra pelo nome.
+// Este arquivo nasceu como o par de um `SPEC_DEVIATION`: o painel tinha uma **segunda escrita** das
+// três derivações da loja, e uma suíte cobrando cada regra pelo nome era o que impedia as cópias de
+// divergirem em silêncio. A T35 tirou a causa — `pickHomeBanners` / `pickHomeCollections` /
+// `pickTrendingCategories` moram em `@estrelinha/core/home` e as duas pontas leem a mesma função.
+// A suíte **fica**: agora ela prova que o painel usa a derivação certa em cada tipo de seção, que é
+// a metade que continua sendo escolha deste arquivo.
 
 import { renderHook } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'

@@ -12,7 +12,7 @@ import { useCategories } from '@/entities/category/api/useCategories'
 import { categoryHref } from '@estrelinha/core/menu'
 import { categoryTrailLabel } from '@/entities/category/lib/categoryTrail'
 import { MIN_QUERY_LENGTH, searchProducts } from '../lib/searchProducts'
-import { pickTrendingCategories } from '../lib/trendingCategories'
+import { pickTrendingCategories } from '@estrelinha/core/home'
 import { useSearchUiStore } from '../model/searchUiStore'
 import { clearRecentSearches, pushRecentSearch, readRecentSearches } from '../model/recentSearches'
 

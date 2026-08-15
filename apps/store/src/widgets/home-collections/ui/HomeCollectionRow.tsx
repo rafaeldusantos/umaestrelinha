@@ -1,6 +1,6 @@
 import { useProducts } from '@/entities/product/api/useProducts'
 import ProductCarousel, { type CarouselTone } from '@/widgets/product-carousel/ui/ProductCarousel'
-import type { HomeCollection } from '../model/pickHomeCollections'
+import type { HomeCollection } from '@estrelinha/core/home'
 
 /** Quantas peças a fileira mostra. Com banner, o card dele ocupa a primeira das quatro vagas. */
 const CARDS = 4

@@ -40,7 +40,9 @@ const FONTES = {
   brandStatement: 'apps/store/src/widgets/home-sections/ui/BrandStatement.tsx',
   trendingTags: 'apps/store/src/widgets/home-sections/ui/TrendingTags.tsx',
   newsletter: 'apps/store/src/features/newsletter/ui/NewsletterBanner.tsx',
-  colecoes: 'apps/store/src/widgets/home-collections/model/pickHomeCollections.ts',
+  // Mudou de casa na T35: a derivação passou a ter um dono, e o número que a semente copia mora
+  // agora em `core/home`. O caminho é o do arquivo de verdade — a leitura falha se ele sumir.
+  colecoes: 'packages/core/src/home/derive.ts',
 } as const
 
 /**

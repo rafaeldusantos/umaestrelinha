@@ -193,6 +193,7 @@ describe('core/home — módulo puro', () => {
       expect.arrayContaining([
         'catalog.ts',
         'defaults.ts',
+        'derive.ts',
         'index.ts',
         'layout.ts',
         'order.ts',
@@ -200,7 +201,7 @@ describe('core/home — módulo puro', () => {
         'types.ts',
       ]),
     )
-    expect(FONTES.length).toBeGreaterThanOrEqual(8)
+    expect(FONTES.length).toBeGreaterThanOrEqual(9)
   })
 
   it('nenhum arquivo importa React nem Supabase', () => {

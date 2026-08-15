@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { Category } from '@estrelinha/supabase/types'
-import { HOME_COLLECTION_ROWS, pickHomeCollections } from '../pickHomeCollections'
+import type { MenuCategory } from '../../menu'
+import { HOME_COLLECTION_ROWS, pickHomeCollections } from '../derive'
 
 /**
  * Quais coleções viram fileira na home — board `7CF-0`.
@@ -8,7 +8,18 @@ import { HOME_COLLECTION_ROWS, pickHomeCollections } from '../pickHomeCollection
  * A regra existe para que **nenhuma coleção seja escolhida em código**. Cravar quatro slugs no
  * `HomePage` seria repetir o defeito que a feature 16 tirou do `Header` (`categories.slice(0, 4)` de
  * uma lista chapada): a home passaria a discordar do que a dona vê em `/admin/categorias`.
+ *
+ * **Veio inteiro de `apps/store` na T35**, com os casos intactos. O único ajuste é o da camada: a
+ * fixture era anotada com `Category` de `@estrelinha/supabase/types`, e `core` não importa Supabase
+ * — a forma é a mesma, estrutural.
  */
+
+type Category = MenuCategory & {
+  image_url?: string | null
+  banner_url?: string | null
+  color_accent?: string | null
+  emoji?: string
+}
 
 const category = (over: Partial<Category> & Pick<Category, 'id' | 'name' | 'slug'>): Category => ({
   description: null,

@@ -29,12 +29,11 @@ export interface ResolvedItem {
 /**
  * O que quem chama precisa fornecer.
  *
- * **A derivação de hoje não é reescrita aqui, é injetada.** `pickHomeBanners`,
- * `pickHomeCollections` e `pickTrendingCategories` vivem na loja, já têm teste próprio e já
- * carregam decisões medidas (só raiz vira fileira; quem virou fileira sai da grade; chip é folha da
- * árvore). Copiá-las para dentro de `core` criaria uma segunda cópia da mesma regra — o "defeito 01"
- * do projeto — e este módulo precisa continuar **sem React e sem Supabase**, o que o impede de
- * importá-las de dentro do app.
+ * **A derivação não é reescrita aqui, é injetada** — mesmo depois de a T35 tê-la trazido para
+ * `core/home` (`derive.ts`). Continua injetada porque quem chama precisa dizer **qual** derivação
+ * cada seção usa e com que catálogo: a loja e o painel montam listas de forma diferente (a loja
+ * desenha, o painel resume), e resolver isso aqui dentro obrigaria este módulo a conhecer os tipos
+ * de seção duas vezes.
  *
  * Pelo mesmo motivo `resolveItem` é injetado: dizer se a coleção de destino ainda está publicada
  * exige o catálogo, e o catálogo é de quem chama.

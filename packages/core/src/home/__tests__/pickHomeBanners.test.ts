@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { Category } from '@estrelinha/supabase/types'
-import { HOME_BANNER_SLOTS, pickHomeBanners } from '../pickHomeBanners'
+import type { MenuCategory } from '../../menu'
+import { HOME_BANNER_SLOTS, pickHomeBanners } from '../derive'
 
 /**
  * A curadoria da grade de banners da home.
@@ -8,7 +8,17 @@ import { HOME_BANNER_SLOTS, pickHomeBanners } from '../pickHomeBanners'
  * A regra é a mesma escolha do menu (feature 16): **quem cura é o dado que já existe**, aqui o
  * `banner_url` da categoria, não uma coluna `home_banner` nova. Um segundo dono para "esta linha
  * aparece na home" divergiria do primeiro no primeiro ajuste.
+ *
+ * **Veio inteiro de `apps/store` na T35**, com os casos intactos — só a anotação da fixture mudou,
+ * porque `core` não importa Supabase.
  */
+
+type Category = MenuCategory & {
+  image_url?: string | null
+  banner_url?: string | null
+  color_accent?: string | null
+  emoji?: string
+}
 
 const category = (over: Partial<Category> & Pick<Category, 'id' | 'name' | 'slug'>): Category => ({
   description: null,

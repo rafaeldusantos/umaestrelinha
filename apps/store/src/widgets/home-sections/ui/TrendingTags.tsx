@@ -3,8 +3,7 @@ import { motion } from 'framer-motion'
 import { ArrowRight } from 'lucide-react'
 import { useCategories } from '@/entities/category'
 import { categoryHref } from '@estrelinha/core/menu'
-import type { HomeSectionConfig } from '@estrelinha/core/home'
-import { pickTrendingCategories } from '@/features/search/lib/trendingCategories'
+import { pickTrendingCategories, type HomeSectionConfig } from '@estrelinha/core/home'
 
 /**
  * Chips de tema — "Explore por tema".
