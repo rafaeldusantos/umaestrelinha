@@ -353,3 +353,29 @@ travar pedido, pela mesma regra do `AD-008`.
 
 **Tamanho estimado**: médio, e quase todo ele fora do código — a aprovação de template pela Meta é o
 caminho crítico.
+
+---
+
+## BL-008 — `fetchStatusCounts` lê `orders` sem paginação (teto de 1.000 do PostgREST)
+
+- **Status**: aberto · **Registrado em**: 2026-08-09 · **Origem**: feature `22`, ao acrescentar as contagens de material
+
+`useAdminOrders.fetchStatusCounts` faz `supabase.from('orders').select('status, material_status')` —
+**sem `range`**. O PostgREST devolve no máximo **1.000 linhas** por resposta, então a partir do
+milésimo pedido as contagens da faixa de filtros (status **e** material) param de crescer e passam a
+mentir, em silêncio.
+
+**Não foi introduzido pela `22`**: a leitura de `status` já era assim. A feature só acrescentou
+`material_status` à mesma consulta — de propósito, para não dobrar o tráfego com uma segunda ida ao
+banco. O que a `22` acrescenta é **um segundo consumidor do mesmo teto**.
+
+**É o mesmo defeito que quebrou o importador na `21`**, e lá custou caro: o `select` truncado fazia
+toda variação além da 1.000ª parecer nova, e a idempotência quebrava justamente na segunda execução.
+A correção lá foi `selectAll` (paginação por `range`), em `tools/catalog-import/src/write/db.ts`.
+
+**O que falta**: ou paginar como o importador, ou — melhor — trocar a contagem no cliente por
+`select('status', { count: 'exact', head: true })` por estado, ou uma view de agregação. A segunda
+opção é uma consulta por estado (9 hoje); a terceira é uma migration.
+
+**Urgência real**: baixa. A loja não tem 1.000 pedidos. Mas o dano é **silencioso** e aparece como
+"a fila diz 40 e eu vejo 60" — o tipo de erro que se atribui a bug de tela por semanas.

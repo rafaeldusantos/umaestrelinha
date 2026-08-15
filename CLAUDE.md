@@ -108,11 +108,13 @@ Ao planejar/implementar features, use a Skill **`tlc-spec-driven`** com estas co
 
 ### O que vem a seguir
 
-- **`22-material-afetivo`** — a página "Como enviar", os campos por item e o rastreio do material
-  dentro do pedido. É o que falta para a loja representar o que o negócio de fato faz. **O bloco de
-  redirects saiu daqui**: o endereçamento inteiro virou a feature `23`, já fechada.
+- **Curadoria do material, que é decisão da dona e não código.** A `22` semeou os 689 produtos por
+  inferência do nome; a Adri revisa em `/admin/produtos` (aba Geral). Enquanto `show_in_menu = 0` nas
+  37 categorias, a barra do topo também segue vazia.
 - **Sitemap e dados estruturados** (`BL-007`) — o passo seguinte da `23`. Ficaram fora dela de
   propósito: só fazem sentido depois de a URL canônica de cada conteúdo estar decidida, e agora está.
+- **`BL-008`** — `fetchStatusCounts` lê `orders` sem paginação e herda o teto de 1.000 do PostgREST.
+  As contagens da fila de material entram no mesmo teto; corretas até 1.000 pedidos.
 
 ## Feature-Sliced Design (dentro de cada app)
 
@@ -175,6 +177,37 @@ Cada slice tem um barrel `index.ts` (public API). **Novo código deve importar d
     1.4.11 pede 3:1 de contorno de controle e nenhum tom claro chega lá sobre o chão.
   - **Botão é `rounded-sm` (6px); pílula é forma de RÓTULO** (badge, chip, tag, campo de busca), e o
     **disco** (`rounded-full`) segue sendo assinatura de ação circular.
+- **Ícone da loja tem UMA porta: `@/shared/ui/icons`.** A biblioteca guarda os desenhos que vieram
+  dos boards do Paper e que o lucide não tem vocabulário para dizer — corrente, pingente, gravação,
+  gota afetiva, os passos do guia de material. O que o lucide já resolve (seta, coração, `+`, lupa)
+  **continua vindo de lá**: duplicar ícone genérico só cria um segundo lugar para consertar.
+  - **Uma grade e um traço**: `viewBox="0 0 24 24"` e traço **efetivo 1,5**. Os desenhos que nasceram
+    na grade de 40 entram num `<g transform="scale(0.6)">` com traço 2,5 (2,5 × 0,6 = 1,5) — em vez
+    de reescrever coordenada a coordenada, que deforma o desenho sem quebrar nada visível.
+  - **Contorno em `currentColor`, realce em `accent-strong`.** O contorno acompanha o texto ao lado;
+    o realce é ouro fixo, e é `accent-strong` (3,55:1) porque `accent` (2,66:1) reprova até como
+    elemento gráfico, onde a régua é 3:1.
+  - `PixIcon` mora lá mas **fora do conjunto**: é a marca oficial do arranjo (grade de 16,
+    preenchida), não um monoline nosso. Fica exportada, fora do registro `ESTRELINHA_ICONS`.
+  - **Ligar ícone a categoria ainda não existe.** O board mostra um por vaga do menu; escolher qual é
+    curadoria da dona, da mesma natureza do `show_in_menu`, e pede coluna própria — não um mapa de
+    slug em código nem inferência em runtime.
+- **A home é DERIVADA de `categories`, não escolhida em código** (board `7CF-0`). Nenhum slug de
+  coleção aparece no `HomePage`: as fileiras saem de `pickHomeCollections` (raízes ativas, na
+  `sort_order` que a dona já arrasta em `/admin/categorias`) e a grade de banners de
+  `pickHomeBanners` (quem tem `banner_url`). Reordenar a home é reordenar categoria — cravar quatro
+  slugs seria repetir o `categories.slice(0, 4)` que a feature 16 tirou do `Header`.
+  - **Só RAIZ vira fileira.** `useProducts(slug)` faz roll-up da descendência, então pai e filha na
+    mesma página mostrariam os mesmos produtos duas vezes.
+  - **A mesma arte não aparece duas vezes**: a fileira abre com o banner da própria categoria, e
+    quem virou fileira sai da grade (`exclude`) — conteúdo tem prioridade sobre campanha. Com a
+    grade vazia ela some inteira, e isso é o certo.
+  - **Todo número da faixa de vantagens sai das settings**, nunca do JSX. A `MarqueeBar` que ela
+    substituiu prometia "Pix com 5% OFF" e "Parcele em 12×" em texto fixo enquanto
+    `max_installments` já era 6: a home dizia uma coisa e o caixa cobrava outra, sem nada acusar. O
+    mesmo vale para as linhas de Pix e parcela do card de produto.
+  - `widgets/category-grid` **continua no repositório mas não é montado**: a grade de tiles saiu da
+    home quando a grade de banners tomou o lugar dela no board.
 - **A marca é SVG inline, nunca `<img src>`** — o header não pode ter estado de carregamento.
   `shared/ui/brand` traz a escada medida, e cada degrau **cai para o de baixo abaixo do próprio piso**:
 
@@ -331,6 +364,53 @@ Cada slice tem um barrel `index.ts` (public API). **Novo código deve importar d
   - **A tag canônica é injetada por JS** (`useCanonical`), e `curl` não a vê: a loja é SPA sem SSR. A
     verificação é partida — `curl -I` prova status e `Location`; a canônica se prova em navegador
     headless. Não é falha escondida, é o método.
+- **O material afetivo é propriedade do PRODUTO, e "exige" e "quais" são DOIS dados** (feature `22`).
+  Medido no catálogo real: **zero** das 3.356 variações tem eixo de material — ele está no **nome**
+  (169 dizem "leite", 127 "cinzas", 85 "cabelo", 51 "coto"), e existe peça que exige **dois**. Pedir
+  que a cliente escolha seria pedir que repita o que já escolheu ao clicar no produto.
+
+  | `products.requires_material` | `material_kinds` | o que a loja diz |
+  | --- | --- | --- |
+  | `false` / `null` | — | nada; a compra segue igual |
+  | `true` | `cabelo`, `coto_umbilical` | "você envia cabelo e coto umbilical", com link para a ficha |
+  | `true` | **vazia** | "o material é combinado com a gente" — e o pedido **entra na fila igual** |
+
+  - **`null` é o terceiro estado de `requires_material`, e significa "nunca decidido".** É o marcador
+    que deixa o importador semear os 689 produtos sem apagar a curadoria da dona na execução
+    seguinte: a semente (`inferMaterial`, do nome) entra no INSERT e, no update, **só onde a coluna
+    ainda é `null`**. Ninguém compara a coluna crua — todo consumidor passa por `requiresMaterial()`,
+    onde `null` é `false`.
+  - **Lista vazia NUNCA se lê como "não exige"**: é a peça de material livre, e quem a renderiza usa
+    `materialSummary`, que devolve **`a combinar`**. Lista vazia em tela se lê como "nenhum material",
+    que é o oposto.
+  - **`orders.material_tracking_code` NÃO é `orders.tracking_code`.** A primeira é a remessa **de
+    entrada** (cliente → ateliê, o envelope com o material); a segunda é a **de saída** e alimenta o
+    e-mail `order_shipped`. Reusar aquela faria "postamos sua joia" sair com o código do envelope que
+    a cliente mandou.
+  - **A máquina de estado tem um salto obrigatório**: `aguardando_material → material_recebido`
+    **direto**, porque informar o rastreio é **opcional** e a maioria dos pedidos nunca passa por
+    `material_enviado`. `nao_aplicavel` é terminal. Transição para o próprio estado é **sucesso** —
+    é o que faz duas admins clicando ao mesmo tempo convergirem.
+  - **Escrita de estado só existe por RPC.** `orders` não tem policy de `UPDATE` para cliente, de
+    propósito (PAY-10), e abrir uma exporia `payment_status` e os valores. `set_material_status`
+    (admin) e `set_material_tracking` (dona do pedido **ou** admin) são `security definer` e escrevem
+    o campo e nada mais. **A mesma RPC de rastreio serve às duas pontas** — duas seriam duas máquinas
+    de estado que divergem no primeiro ajuste.
+  - **A regra vive em `@estrelinha/core/material`** e tem uma cópia deliberada em SQL (o `where` da
+    RPC): só o banco impede requisição forjada, e só o TypeScript produz o motivo legível que a AC
+    exige. As duas são presas por `materialTransitions.test.ts`, que lê a migration do disco.
+  - **Gravação é VARIAÇÃO, não coluna nova**: o eixo `Com gravação` já existe em 35 produtos (626
+    variações, o 3º maior do catálogo) e **33 deles cobram a mais** (mediana R$ 42). O que a feature
+    acrescentou foi o **texto** e o **limite por produto** (`engraving_max_chars`, `null` cai em 20 —
+    nunca "sem limite"). O campo deriva da **variação escolhida**, não do produto: o mesmo produto tem
+    linha `Sim` e linha `Não`, e trocar para `Não` **limpa** o texto.
+  - **O texto de gravação compõe a chave da linha do carrinho.** Duas unidades da mesma variação com
+    gravações diferentes são **duas linhas** — colapsá-las mandaria um nome só para a bancada. Mesma
+    armadilha que o `variantId` já custou à loja anterior, em duas telas.
+  - **O pedido é snapshot**: `order_items` repete `requires_material`, `material_kinds` e
+    `engraving_text` de propósito. Mudar o cadastro não altera pedido já criado.
+  - **Nenhuma decisão de dinheiro depende do material.** `create-payment` não lê nenhuma coluna nova,
+    e `packages/core/src/payment/**` fechou a feature `22` **sem uma linha alterada**.
 - **Conjunto de produtos é CATEGORIA — só ela** (`AD-014`). Na loja, "coleção" já é a categoria: a
   `CategoryPage` é renderizada a partir de `categories` (hoje em `/:slug` e `/:pai/:filha` — ver o
   bloco de URLs acima), o widget da home se chama "Coleções" e o 404 diz "Coleção não encontrada". A
@@ -443,7 +523,9 @@ passa em silêncio, que é a pior falha possível num teste desse tipo.
 | `importOrder.test.ts` | idem | `App.css` importado **antes** de `@estrelinha/ui/styles.css` no `main.tsx` |
 | `reservedSlugs.test.ts` | idem | rota nova no `App.tsx` que não entrou em `ROUTE_SLUGS`; entrada de `ROUTE_SLUGS` que deixou de ser rota. **Bidirecional**: a lista recusa slug de categoria, e entrada morta recusaria nome que já está livre |
 | `vercelRedirects.test.ts` | idem | `vercel.json` divergir de `LEGACY_REDIRECTS` em `source`, `destination` ou status; `trailingSlash` deixar de ser `false`; qualquer redirect usar `permanent` (que produz 308) |
+| `materialTransitions.test.ts` | idem | a máquina de estado do material em **SQL** divergir da em **TypeScript** — lê a migration do disco e compara origem a origem, alvo a alvo; `set_material_tracking` passar a escrever qualquer coluna além do rastreio e do estado; a migration abrir policy de `UPDATE` em `orders` ou conceder `execute` a `anon` |
 | `buttonShape.test.ts` | `shared/ui/__tests__` | ação voltar a pílula; a chave custom de raio voltar ao config |
+| `icons.test.ts` | `shared/ui/icons/__tests__` | ícone da biblioteca fora da grade `0 0 24 24`; traço fora de `ICON_STROKE`/`ICON_STROKE_G40` (o efetivo é sempre 1,5); cor em hex/rgb ou `var(--…)` fora de `ICON_ACCENT`; forma preenchida numa família monoline; ícone com `width`/`height` próprios; ícone que não chegou ao barrel ou ao registro |
 | `paths.test.ts` | `shared/ui/brand/__tests__` | `paths.ts` divergir do SVG-fonte em um caractere; dois `<path>` do mesmo SVG com a mesma espessura |
 | `brandAssets.test.ts` | `app/__tests__` | ícone referenciado no `index.html` que não existe no disco; `theme-color` fora da paleta; `og:image` fora do projeto; fonte da identidade anterior no `<link>` |
 | `navItems.test.ts` | backoffice | ordem das rotas em `App.tsx` divergir de `navGroups` |
@@ -459,9 +541,9 @@ literalmente, em vez de iterar a constante que deveria guardar).
 
 ## Estado conhecido / dívidas
 
-- **Baseline de lint vigente (medida de novo no fecho da feature 23, 2026-08-09): 30 erros / 8
-  warnings** — backoffice 28/7 · store 2/1. Igual à do fecho da `20`: zero erro novo em três features
-  seguidas. São erros **pré-existentes**, em boa parte `@typescript-eslint/no-explicit-any`
+- **Baseline de lint vigente (medida de novo no fecho da feature 22, 2026-08-09): 30 erros / 8
+  warnings** — backoffice 28/7 · store 2/1. Igual à do fecho da `20`: zero erro novo em **quatro**
+  features seguidas. São erros **pré-existentes**, em boa parte `@typescript-eslint/no-explicit-any`
   nos hooks admin (`entities/*/api/useAdmin*`). O gate de qualquer feature é **"sem erros novos"**,
   não "lint limpo": compare contra este número e atualize-o aqui quando ele mudar de verdade.
   - **Atenção: `pnpm lint` não olha `packages/`.** Nenhum dos pacotes tem script `lint`, e
@@ -475,14 +557,17 @@ literalmente, em vez de iterar a constante que deveria guardar).
   **Baseline de tipos: store 0 · backoffice 0 · catalog-import 0. Zero é a baseline: qualquer erro
   de tipo é novo.** O importador tem `tsconfig.json` próprio (não é solution-style):
   `npx tsc --noEmit -p tools/catalog-import/tsconfig.json`.
-- **Baseline de testes (fecho da feature 23, medida com `turbo run test --force`, exit 0 capturado de
-  verdade): 3672 testes em 211 arquivos** — store 1256/98 · backoffice 1090/67 · core **799/27** ·
-  functions 258/4 · catalog-import 269/15.
-  - **`core` subiu de 725 para 799, e isso é esperado**: o crescimento veio de `routes/` (o módulo
-    novo de endereçamento) e de `menu/` (`categoryHref`). O que **não pode** mudar é o código de
-    dinheiro — `packages/core/src/payment/**` fechou a feature 23 sem uma linha alterada, conferido
-    por `git status` no gate. Continua valendo: identidade visual e importação de catálogo não têm
-    por que mexer em `core`.
+- **Baseline de testes (home do board `7CF-0`, medida por workspace): 4019 testes em 225 arquivos** —
+  store **1401/108** · backoffice 1145/70 · core 918/28 · functions 279/4 · catalog-import 276/15.
+  - O store subiu 36 (1365 → 1401) em quatro arquivos novos: o guarda da biblioteca de ícones (11),
+    a curadoria da grade de banners (10), a das fileiras de coleção (8) e a faixa de vantagens (7).
+    Nenhum outro workspace mudou — `packages/core/src/payment/**` fechou este passe sem uma linha
+    alterada.
+  - **`core` subiu de 799 para 918, e isso é esperado**: o crescimento veio de `material/` (o módulo
+    novo — enum, máquina de estado, gravação e a inferência do catálogo) mais 1 do contador de rotas.
+    O que **não pode** mudar é o código de dinheiro — `packages/core/src/payment/**` fechou as
+    features 22 **e** 23 sem uma linha alterada, conferido por `git status` no gate. Continua
+    valendo: identidade visual e importação de catálogo não têm por que mexer em `core`.
   - `pnpm test` roda os quatro workspaces em paralelo e **já produziu flake de RTL sob carga** —
     falhas de timeout em suítes pesadas que passam isoladas e na segunda execução. Rode por workspace
     antes de investigar.

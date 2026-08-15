@@ -349,7 +349,151 @@
 
 ## Handoff
 
-### ATUAL — 2026-08-09 · `23-urls-e-seo` **FECHADA** · `22-material-afetivo` **destravada, pronta para Design**
+### ATUAL — 2026-08-09 · `22-material-afetivo` **IMPLEMENTADA** (T1–T21) · falta o **Verifier**
+
+**Estado**: árvore **suja de propósito** (convenção de commit do projeto: os commits vêm de uma vez,
+depois da verificação). Gate verde, medido de verdade. **Nada em andamento.**
+
+---
+
+#### O que a `22` entrega
+
+A loja passou a representar o que o negócio de fato faz: uma joia afetiva **exige que a cliente envie
+pelo correio um material insubstituível**, e agora isso está escrito antes da compra, registrado no
+pedido e visível numa fila. Antes era combinado por WhatsApp e não existia tela que respondesse
+"quais pedidos ainda esperam material?".
+
+| | onde |
+| --- | --- |
+| `/como-enviar-o-material` — 4 passos, **10 fichas** com âncora, endereço e checklist | `pages/HowToSendMaterialPage.tsx` + `widgets/material-guide` |
+| Aviso de material nas **duas** superfícies de compra, cada material levando à ficha dele | `entities/product/ui/MaterialNotice.tsx` |
+| Campo de gravação com limite do cadastro, contador e bloqueio | `entities/product/ui/EngravingField.tsx` |
+| Gravação na **chave da linha** do carrinho | `entities/cart/model/cartStore.ts` (v2 → **v3**, preservando a sacola) |
+| Snapshot no pedido + estado inicial da fila | `CheckoutPage` + `useCreateOrder` |
+| Rastreio da remessa **da cliente**, por RPC | `/pedido/:id` → `widgets/order-material` |
+| Fila, filtro e card no admin | `AdminOrdersPage` + `features/order-management/ui/OrderMaterialCard.tsx` |
+| 5º e-mail transacional (`material_received`) | `supabase/functions/send-email` |
+| Cadastro do material no produto e endereço do ateliê em Configurações | `features/product-form/ui/MaterialCard.tsx` · aba `Material` |
+| **Semente** dos 689 produtos do catálogo real | `tools/catalog-import` + `inferMaterial` |
+
+**Gate de fecho medido** (`turbo run test --force`, exit 0 capturado de verdade, nunca por `| tail`):
+
+| | valor |
+| --- | ---: |
+| Testes | **3.983** em **221** arquivos |
+| store · backoffice · core · functions · catalog-import | 1365/104 · 1145/70 · **918/28** · 279/4 · 276/15 |
+| Lint | **30 erros / 8 warnings** — baseline exata, zero novo |
+| Tipos | store **0** · backoffice **0** · catalog-import **0** |
+
+`packages/core/src/payment/` **intocado** (`git status` limpo naquele diretório). Nenhuma decisão de
+dinheiro passou a depender do material.
+
+**A semente foi medida contra os 689 nomes reais do banco, não contra fixture:**
+
+| | |
+| --- | ---: |
+| produtos que passam a exigir material | **422 de 689 (61%)** |
+| com **dois ou mais** materiais | **62** |
+| leite materno · cinzas · cabelo · coto · pet · dente · flores · penas | 147 · 127 · 85 · 51 · 49 · 25 · 10 · 2 |
+
+Bate com a medição da spec em cinzas (127), cabelo (85), coto (51) e dente (25). **Duas divergências
+são deliberadas e vieram de olhar os nomes:**
+
+- **`flores` dá 10, não os 25 do `ilike '%flor%'`** — porque no catálogo real *flor é FORMA* antes de
+  ser material: "Berloque Afetivo Flor Lisa", "Pingente Menina Com Flor" e, o caso decisivo, **"Joia
+  Afetiva Flor com Cinzas de Cremação"**, onde o material é cinzas. A regra exige plural ou o
+  qualificador *natural*. Errar para menos é barato: quase todo produto de flor declara outro
+  material junto e entra na fila do mesmo jeito.
+- **`penas` dá 2 porque a regra passou a aceitar o SINGULAR** — os dois produtos dizem "Pena de
+  Pássaro". A primeira versão só casava plural e perdia os dois. O `\b` inicial é o que impede
+  "apenas" de casar.
+
+---
+
+#### Os cinco contratos que valem para toda feature futura
+
+1. **"Exige material" e "quais materiais" são DOIS dados**, e `products.requires_material` é
+   **nullable**: `null` = "nunca decidido". É o marcador que deixa o importador semear sem apagar a
+   curadoria da dona. Ninguém compara a coluna crua — todo consumidor passa por `requiresMaterial()`.
+   Lista vazia com `true` é a **peça de material livre**, e a tela diz `a combinar`, nunca vazio.
+2. **`orders.material_tracking_code` ≠ `orders.tracking_code`.** Entrada × saída. Reusar a segunda
+   faria "postamos sua joia" sair com o código do envelope que a cliente mandou.
+3. **Escrita de estado só por RPC.** `set_material_status` (admin) e `set_material_tracking` (dona do
+   pedido **ou** admin) são `security definer` e escrevem um campo. **Nenhuma policy de `UPDATE` em
+   `orders` foi aberta** — PAY-10 segue intacta, e há teste que assere isso lendo a migration.
+4. **O salto `aguardando_material → material_recebido` é obrigatório**, não atalho: informar o
+   rastreio é opcional e a maioria dos pedidos nunca passa por `material_enviado`.
+5. **Gravação é variação, não coluna nova.** O eixo `Com gravação` já precificava (33 de 35 produtos
+   cobram a mais). A feature acrescentou o texto e o teto por produto — e o texto entrou na **chave da
+   linha do carrinho**, senão duas gravações viram quantidade 2.
+
+---
+
+#### O que a execução expôs, e que vale registrar
+
+- **A varredura de forma (`buttonShape`) e a de fronteira FSD pegaram duas coisas de verdade.** Os
+  chips de material entraram na allowlist de pílula com motivo escrito (mesmo precedente da nuvem de
+  categorias da busca); o teste que importava `widgets` de dentro de `entities` foi **partido em
+  dois** — a prova da barra fixa mora em `widgets/product-buy-bar`, que é onde ela pertence.
+- **Um `useMutation` dentro de um widget condicional obriga toda página que o monta a ter
+  `QueryClientProvider`.** O `OrderMaterialBlock` chamava a mutação **antes** do `return null`, e
+  isso derrubou 17 testes da confirmação de pedido que nunca precisaram de provider. O formulário
+  virou componente próprio, e o bloco sai antes de qualquer hook de dados.
+- **Dublê de hook que devolve objeto literal novo a cada render causa laço infinito** quando a página
+  tem `useEffect([data])`. O teste da aba Material travou sem mensagem nenhuma até a referência ficar
+  estável. Vale para qualquer teste de `AdminSettingsPage`.
+- **`vi.hoisted` roda antes dos imports** — o corpo dele não pode ler constante importada.
+- **`fireEvent.click` não troca aba do Radix**; é `mouseDown`.
+- **O Postgres local segfaulta** com `set local role anon` + chamada a função `security definer`
+  revogada — e **reproduz com a `claim_order_email`, que é anterior a esta feature**. É artefato do
+  probe por `psql`, não do produto: pelo caminho real (PostgREST) as duas RPCs devolvem **401
+  permission denied** e o banco não cai. Provado nas duas formas.
+
+---
+
+#### Pendências desta feature
+
+- **O Verifier independente ainda não rodou** (autor ≠ verificador), e `22/validation.md` não existe.
+  É o próximo passo, com checagem ancorada na spec e sensor de discriminação.
+- **Os commits ainda não foram criados** — a árvore está suja de T1 a T21, pela convenção do projeto.
+- **A curadoria do material é decisão da dona.** A semente inferiu do nome; a Adri revisa em
+  `/admin/produtos`. Editar um produto grava `true`/`false` e tira a linha de `null` para sempre.
+- **O endereço do ateliê está vazio** (`store_settings.material`). Enquanto estiver, a página "Como
+  enviar" **não mostra endereço nenhum** — mostra o convite a falar pela loja. É de propósito:
+  endereço pela metade é material insubstituível postado para lugar nenhum.
+
+---
+
+**Bloqueios conhecidos**:
+- **Resend**: `send.umaestrelinha.com.br` não verificado (403 medido em 2026-08-08). SMTP do auth
+  desligado de propósito, e-mail de dev no Mailpit. O `material_received` cai no Mailpit como os
+  outros quatro.
+- **71 commits locais sem push** (os desta sessão ainda não existem). O remoto `origin` está
+  configurado (`github.com/rafaeldusantos/umaestrelinha`) e nenhuma branch remota é conhecida
+  localmente.
+
+**Curadoria pendente, que é decisão da dona e não código**: `show_in_menu = 0` nas 37 categorias,
+então a barra do topo está vazia. São 4 vagas (`MENU_SLOT_LIMIT`), válidas em qualquer profundidade,
+em `/admin/menu` (`admin@umaestrelinha.dev` / `admin123`, porta 8083).
+
+**Backlog aberto**: `BL-007` (sitemap e dados estruturados), **`BL-008`** (o teto de 1.000 do
+PostgREST em `fetchStatusCounts` — herdado, agora com um segundo consumidor), `BL-00Z` (endereço por
+WhatsApp), mais os anteriores.
+
+**Ambiente**: Supabase local de pé na faixa 54341–54349, catálogo real no banco (689 produtos · 3.356
+variações · 37 categorias · 3.660 imagens no Storage). A migration `20260811120000` foi aplicada
+**por `psql`**, não por `db reset`, para não destruir o catálogo importado — e registrada em
+`supabase_migrations.schema_migrations`. Um `db reset` a reproduz do zero.
+
+---
+
+## Handoff — histórico
+
+As entradas abaixo são os snapshots das sessões anteriores, preservados. A seção `## Handoff` acima
+carrega **só o estado atual**; este apêndice existe porque as sessões anteriores acumulavam, e apagar
+o que outra pessoa guardou de propósito não é decisão de quem passou por último.
+
+### ANTERIOR — 2026-08-09 · `23-urls-e-seo` **FECHADA** — foi este fecho que destravou a `22`
 
 **Estado**: nada em andamento. Árvore limpa, gate verde, **9 commits** desta sessão — 7 da `23` mais 2
 da reescrita da spec da `22`.
@@ -459,11 +603,6 @@ variações · **37 categorias** · 3.660 imagens no Storage).
 
 ---
 
-## Handoff — histórico
-
-As entradas abaixo são os snapshots das sessões anteriores, preservados. A seção `## Handoff` acima
-carrega **só o estado atual**; este apêndice existe porque as sessões anteriores acumulavam, e apagar
-o que outra pessoa guardou de propósito não é decisão de quem passou por último.
 
 ### ANTERIOR — 2026-08-09 · `21-catalogo-nuvemshop` **FECHADA** + `BUG-20260809` corrigido
 

@@ -290,19 +290,23 @@ mudar; pelo painel, informar outro código num segundo pedido e ver o mesmo resu
 
 ## Requirement Traceability
 
-| ID | História | Fase | Status |
-| --- | --- | --- | --- |
-| MAT-01 | P1 · Página "Como enviar o material", com fichas e endereço (AC 1) | Specify | Pending |
-| MAT-02 | P1 · Material é propriedade do produto; "exige" e "quais" são dados distintos (AC 2, 2b, 3) | Specify | Pending |
-| MAT-03 | P1 · Gravação derivada da variação, com limite por produto (AC 4) | Specify | Pending |
-| MAT-04 | P1 · Chave do item distingue o texto de gravação (AC 5) | Specify | Pending |
-| MAT-05 | P1 · Persistência no pedido, admin e e-mail (AC 6) | Specify | Pending |
-| MAT-06 | P1 · Material não altera preço; gravação altera **via variação** (AC 7) | Specify | Pending |
-| MAT-07 | P2 · Estado inicial do material por pedido (AC 1, 2) | Specify | Pending |
-| MAT-08 | P2 · Transições guardadas, idempotentes, independentes do pagamento (AC 3, 4, 5) | Specify | Pending |
-| MAT-09 | P2 · E-mail `material_received` contido (AC 6, 7) | Specify | Pending |
-| MAT-10 | P2 · Filtro e fila de material no admin (AC 8) | Specify | Pending |
-| MAT-11 | P2 · Rastreio da remessa da cliente, por RPC, opcional nas duas pontas (AC 9, 10, 11, 12) | Specify | Pending |
+| ID | História | Fase | Status | Tasks |
+| --- | --- | --- | --- | --- |
+| MAT-01 | P1 · Página "Como enviar o material", com fichas e endereço (AC 1) | Execute | **Implemented** | T4, T6 |
+| MAT-02 | P1 · Material é propriedade do produto; "exige" e "quais" são dados distintos (AC 2, 2b, 3) | Execute | **Implemented** | T1, T2, T5, T8, T9, T20 |
+| MAT-03 | P1 · Gravação derivada da variação, com limite por produto (AC 4) | Execute | **Implemented** | T1, T2, T5, T7, T8, T9 |
+| MAT-04 | P1 · Chave do item distingue o texto de gravação (AC 5) | Execute | **Implemented** | T7, T10, T11 |
+| MAT-05 | P1 · Persistência no pedido, admin e e-mail (AC 6) | Execute | **Implemented** | T2, T11, T12, T19 |
+| MAT-06 | P1 · Material não altera preço; gravação altera **via variação** (AC 7) | Execute | **Implemented** | T12 |
+| MAT-07 | P2 · Estado inicial do material por pedido (AC 1, 2) | Execute | **Implemented** | T1, T2, T12 |
+| MAT-08 | P2 · Transições guardadas, idempotentes, independentes do pagamento (AC 3, 4, 5) | Execute | **Implemented** | T1, T2, T3, T17, T19 |
+| MAT-09 | P2 · E-mail `material_received` contido (AC 6, 7) | Execute | **Implemented** | T2, T13, T14, T17 |
+| MAT-10 | P2 · Filtro e fila de material no admin (AC 8) | Execute | **Implemented** | T17, T18, T19 |
+| MAT-11 | P2 · Rastreio da remessa da cliente, por RPC, opcional nas duas pontas (AC 9, 10, 11, 12) | Execute | **Implemented** | T2, T3, T15, T16, T19 |
+
+> **`Implemented` não é `Verified`.** Os 11 requisitos têm implementação e teste, e o gate fechou
+> verde; o **Verifier independente** (autor ≠ verificador, com sensor de discriminação) ainda não
+> rodou, e `validation.md` não existe. É o próximo passo.
 
 **Cobertura:** 11 requisitos. `MAT-11` nasceu da resposta da Adri em 2026-08-09; `MAT-02`, `MAT-03`,
 `MAT-04` e `MAT-06` mudaram de conteúdo pela medição do catálogo, mantendo o ID.
