@@ -270,3 +270,115 @@ describe('writeProductImages', () => {
     expect(ops).toHaveLength(0)
   })
 })
+
+// =================================================================================================
+// Feature 22 — a semente de material afetivo
+// =================================================================================================
+//
+// Ela existe para a feature não nascer inerte: o catálogo real tem ZERO eixo de material em 3.356
+// variações, e o material está no NOME. Sem semear, a fila `aguardando_material` ficaria vazia até
+// alguém editar centenas de produtos à mão.
+//
+// E ela tem uma obrigação simétrica, que é o que estes testes guardam de verdade: **nunca
+// sobrescrever o que a dona decidiu**.
+
+describe('semente de material (feature 22)', () => {
+  const comNome = (nome: string): ProductItem => {
+    const base = itens()[0]
+    return { product: { ...base.product, name: nome }, variants: [] }
+  }
+
+  it('produto NOVO nasce com o material inferido do nome', async () => {
+    const { db, of } = fakeDb()
+    const report = createReport()
+
+    await writeProducts([comNome('Pingente com cinzas')], categoryUuids, { supabase: db, report })
+
+    const insert = of('insert', 'products')[0].payload as Record<string, unknown>
+    expect(insert.requires_material).toBe(true)
+    expect(insert.material_kinds).toEqual(['cinzas'])
+    expect(report.data().materialSemeado).toBe(1)
+  })
+
+  it('produto novo SEM material afetivo no nome nasce com `false` e lista vazia', async () => {
+    const { db, of } = fakeDb()
+    const report = createReport()
+
+    await writeProducts([comNome('Corrente de prata 925')], categoryUuids, { supabase: db, report })
+
+    const insert = of('insert', 'products')[0].payload as Record<string, unknown>
+    expect(insert.requires_material).toBe(false)
+    expect(insert.material_kinds).toEqual([])
+  })
+
+  it('produto EXISTENTE com `requires_material: null` é semeado', async () => {
+    const item = comNome('Pingente com leite materno')
+    const { db, of } = fakeDb({
+      products: [{
+        id: 'p-1', nuvemshop_id: item.product.nuvemshop_id, slug: item.product.slug,
+        is_active: true, requires_material: null,
+      }],
+    })
+    const report = createReport()
+
+    await writeProducts([item], categoryUuids, { supabase: db, report })
+
+    const update = of('update', 'products')[0].payload as Record<string, unknown>
+    expect(update.requires_material).toBe(true)
+    expect(update.material_kinds).toEqual(['leite_materno'])
+    expect(report.data().materialSemeado).toBe(1)
+  })
+
+  it.each([true, false])(
+    'produto existente com `requires_material: %s` NÃO é tocado — decisão da dona é preservada',
+    async (decidido) => {
+      // Esta é a razão de a coluna ser nullable. Sem o terceiro estado, a sincronização do catálogo
+      // apagaria a curadoria a cada execução, e ninguém veria: o dano só aparece na fila da Adri.
+      const item = comNome('Pingente com cinzas')
+      const { db, of } = fakeDb({
+        products: [{
+          id: 'p-1', nuvemshop_id: item.product.nuvemshop_id, slug: item.product.slug,
+          is_active: true, requires_material: decidido,
+        }],
+      })
+      const report = createReport()
+
+      await writeProducts([item], categoryUuids, { supabase: db, report })
+
+      const update = of('update', 'products')[0].payload as Record<string, unknown>
+      expect(update).not.toHaveProperty('requires_material')
+      expect(update).not.toHaveProperty('material_kinds')
+      expect(report.data().materialSemeado).toBe(0)
+    },
+  )
+
+  it('a semente NÃO entra em `catalogoDoProduto` — o update normal não a reescreve', async () => {
+    // Se ela entrasse, todo import sobrescreveria a curadoria; o teste acima passaria a falhar.
+    const item = comNome('Pingente com cinzas')
+    const { db, of } = fakeDb({
+      products: [{
+        id: 'p-1', nuvemshop_id: item.product.nuvemshop_id, slug: item.product.slug,
+        is_active: true, requires_material: false,
+      }],
+    })
+
+    await writeProducts([item], categoryUuids, { supabase: db, report: createReport() })
+
+    const update = of('update', 'products')[0].payload as Record<string, unknown>
+    expect(Object.keys(update)).not.toContain('requires_material')
+    // e o resto do catálogo continua sendo atualizado normalmente
+    expect(update.name).toBe('Pingente com cinzas')
+  })
+
+  it('`--dry-run` conta sem gravar', async () => {
+    const { db, of } = fakeDb()
+    const report = createReport()
+
+    await writeProducts([comNome('Pingente com cinzas')], categoryUuids, {
+      supabase: db, report, dryRun: true,
+    })
+
+    expect(of('insert', 'products')).toHaveLength(0)
+    expect(report.data().materialSemeado).toBe(0)
+  })
+})

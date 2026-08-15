@@ -44,6 +44,10 @@ const ROTULO: Record<string, string> = {
     'Chips de tema ("Explore por tema"). Pílula é a forma deles no artboard 22.',
   'widgets/mobile-menu/ui/MobileMenu.tsx':
     'Gatilho da busca na folha do celular: é um CAMPO de busca com aparência de campo, não um botão.',
+  'entities/product/ui/MaterialNotice.tsx':
+    'Chips que NOMEIAM os materiais da peça ("Mecha de cabelo", "Cinzas") e levam à ficha de preparo de cada um. São rótulos de conteúdo na mesma linguagem da nuvem de categorias da busca — não CTAs. O CTA da página segue sendo o "Adicionar ao carrinho", em `rounded-sm`.',
+  'widgets/order-material/ui/OrderMaterialBlock.tsx':
+    'Os mesmos chips de material, agora listando o que ESTE pedido espera. Mantê-los em pílula é o que faz a cliente reconhecer na confirmação exatamente o que leu na página do produto; a ação do bloco é o botão "Registrar", em `rounded-sm`.',
 }
 
 function tsxFiles(dir: string): string[] {

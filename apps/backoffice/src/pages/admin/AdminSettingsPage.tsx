@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Loader2, Save, Settings as SettingsIcon, ShoppingCart } from 'lucide-react'
+import { Loader2, PackageOpen, Save, Settings as SettingsIcon, ShoppingCart } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@estrelinha/ui/tabs'
 import { Input } from '@estrelinha/ui/input'
 import { Button } from '@estrelinha/ui/button'
@@ -17,11 +17,13 @@ import {
   DEFAULT_SEO,
   DEFAULT_SHIPPING,
   DEFAULT_ABANDONED_CART,
+  DEFAULT_MATERIAL,
   type GeneralSettings,
   type PaymentSettings,
   type SeoSettings,
   type ShippingSettings,
   type AbandonedCartSettings,
+  type MaterialSettings,
   type SettingsKey,
 } from '@estrelinha/supabase/types/settings'
 
@@ -43,6 +45,7 @@ const AdminSettingsPage = () => {
   const [payment, setPayment] = useState<PaymentSettings>(DEFAULT_PAYMENT)
   const [seo, setSeo] = useState<SeoSettings>(DEFAULT_SEO)
   const [abandonedCart, setAbandonedCart] = useState<AbandonedCartSettings>(DEFAULT_ABANDONED_CART)
+  const [material, setMaterial] = useState<MaterialSettings>(DEFAULT_MATERIAL)
 
   useEffect(() => {
     if (!data) return
@@ -51,6 +54,7 @@ const AdminSettingsPage = () => {
     setPayment(data.payment)
     setSeo(data.seo)
     setAbandonedCart(data.abandoned_cart)
+    setMaterial(data.material)
   }, [data])
 
   const save = async (key: PageSettingsKey) => {
@@ -60,6 +64,7 @@ const AdminSettingsPage = () => {
         key === 'shipping' ? shipping :
         key === 'payment' ? payment :
         key === 'seo' ? seo :
+        key === 'material' ? material :
         abandonedCart
       await update.mutateAsync({ key, value } as Parameters<typeof update.mutateAsync>[0])
       toast({ title: 'Configurações salvas', description: 'As alterações já estão valendo na loja.' })
@@ -85,13 +90,14 @@ const AdminSettingsPage = () => {
       <PageHeader
         icon={SettingsIcon}
         title="Configurações da Loja"
-        subtitle="Centralize aqui dados de contato, frete, pagamento, checkout e SEO."
+        subtitle="Centralize aqui dados de contato, frete, material, pagamento, checkout e SEO."
       />
 
       <Tabs defaultValue="general" className="w-full">
-        <TabsList className="grid grid-cols-3 w-full max-w-2xl sm:grid-cols-6">
+        <TabsList className="grid grid-cols-3 w-full max-w-2xl sm:grid-cols-7">
           <TabsTrigger value="general">Geral</TabsTrigger>
           <TabsTrigger value="shipping">Frete</TabsTrigger>
+          <TabsTrigger value="material">Material</TabsTrigger>
           <TabsTrigger value="payment">Pagamento</TabsTrigger>
           <TabsTrigger value="checkout">Checkout</TabsTrigger>
           <TabsTrigger value="seo">SEO</TabsTrigger>
@@ -167,6 +173,114 @@ const AdminSettingsPage = () => {
               />
             </FieldGroup>
             <SaveButton loading={update.isPending} onClick={() => save('shipping')} />
+          </FormCard>
+        </TabsContent>
+
+        {/*
+          MATERIAL — para onde a cliente posta o material afetivo.
+
+          Fica aqui, e não no código, porque mudar de endereço é operação da dona; com o endereço em
+          `.tsx` ela viraria um deploy. E é OUTRA remessa: o CEP da aba Frete é a origem da cotação
+          do Melhor Envio (ateliê → cliente), esta é a chegada (cliente → ateliê).
+
+          Enquanto o logradouro estiver vazio, a página "Como enviar" NÃO mostra endereço nenhum —
+          mostra o convite a falar pela loja. Endereço pela metade é material insubstituível postado
+          para lugar nenhum, e não há segunda via.
+        */}
+        <TabsContent value="material" className="mt-4">
+          <FormCard>
+            <div className="flex items-start gap-3 p-3 rounded-xl bg-muted">
+              <PackageOpen className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+              <p className="text-xs text-muted-foreground">
+                Este endereço aparece na página <strong>Como enviar o material</strong>. Enquanto o
+                logradouro estiver vazio, a loja não mostra endereço nenhum — pede que a cliente
+                combine o envio com você.
+              </p>
+            </div>
+
+            <FieldGroup
+              label="Destinatário"
+              hint="A quem endereçar o envelope. Sem isto a cliente escreve só o nome da loja."
+            >
+              <Input
+                value={material.recipient}
+                onChange={(e) => setMaterial({ ...material, recipient: e.target.value })}
+                placeholder="Adri Muniz"
+              />
+            </FieldGroup>
+
+            <div className="grid sm:grid-cols-[1fr_140px] gap-4">
+              <FieldGroup label="Logradouro">
+                <Input
+                  value={material.street}
+                  onChange={(e) => setMaterial({ ...material, street: e.target.value })}
+                  placeholder="Rua …"
+                />
+              </FieldGroup>
+              <FieldGroup label="Número">
+                <Input
+                  value={material.number}
+                  onChange={(e) => setMaterial({ ...material, number: e.target.value })}
+                />
+              </FieldGroup>
+            </div>
+
+            <div className="grid sm:grid-cols-2 gap-4">
+              <FieldGroup label="Complemento">
+                <Input
+                  value={material.complement}
+                  onChange={(e) => setMaterial({ ...material, complement: e.target.value })}
+                  placeholder="Apto, sala, referência"
+                />
+              </FieldGroup>
+              <FieldGroup label="Bairro">
+                <Input
+                  value={material.neighborhood}
+                  onChange={(e) => setMaterial({ ...material, neighborhood: e.target.value })}
+                />
+              </FieldGroup>
+            </div>
+
+            <div className="grid sm:grid-cols-[1fr_100px_160px] gap-4">
+              <FieldGroup label="Cidade">
+                <Input
+                  value={material.city}
+                  onChange={(e) => setMaterial({ ...material, city: e.target.value })}
+                />
+              </FieldGroup>
+              <FieldGroup label="UF">
+                <Input
+                  value={material.state}
+                  onChange={(e) =>
+                    setMaterial({ ...material, state: e.target.value.toUpperCase().slice(0, 2) })
+                  }
+                  placeholder="RS"
+                />
+              </FieldGroup>
+              <FieldGroup label="CEP">
+                <Input
+                  value={material.zip}
+                  onChange={(e) =>
+                    setMaterial({ ...material, zip: e.target.value.replace(/\D/g, '').slice(0, 8) })
+                  }
+                  placeholder="00000000"
+                />
+              </FieldGroup>
+            </div>
+
+            <FieldGroup
+              label="Observação para quem envia"
+              hint="Aparece junto do endereço. Ex.: horário de recebimento, como embalar."
+            >
+              <Textarea
+                value={material.notes}
+                rows={3}
+                maxLength={400}
+                onChange={(e) => setMaterial({ ...material, notes: e.target.value })}
+              />
+            </FieldGroup>
+
+            <SaveButton loading={update.isPending} onClick={() => save('material')} />
           </FormCard>
         </TabsContent>
 

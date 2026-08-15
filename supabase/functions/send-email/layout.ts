@@ -127,6 +127,12 @@ export interface EmailOrder {
   address_city: string | null
   address_state: string | null
   address_zip: string | null
+  /**
+   * Feature 22. Lido pela pré-condição de `material_received` (`AD-007`): o servidor RELÊ o pedido e
+   * exige que o estado case com o tipo, senão qualquer bug de chamador faria a loja avisar que
+   * recebeu um material que não chegou — sobre a morte de alguém.
+   */
+  material_status?: string | null
   order_items: EmailOrderItem[]
 }
 

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
+import { cleanup, render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import type { Product } from '@estrelinha/supabase/types'
@@ -731,6 +731,12 @@ describe('CheckoutPage — criação do pedido (CHK-07, CHK-08)', () => {
       price_source: 'base',
       variant_label: null,
       variant_options: null,
+      // Feature 22: o bump nunca é peça de material — a oferta aponta para um `product_id` avulso,
+      // fora do fluxo de curadoria. Declarado explicitamente para o dia em que apontar para uma joia
+      // afetiva não passar batido.
+      requires_material: false,
+      material_kinds: [],
+      engraving_text: null,
     })
     // itens do carrinho seguem com o preço cheio
     expect(payload.items[0].unit_price).toBe(50)
@@ -1293,5 +1299,95 @@ describe('CheckoutPage — carrinho vazio (edge case)', () => {
 
     expect(screen.getByText('rota-carrinho')).toBeInTheDocument()
     expect(screen.queryByRole('region', { name: 'Contato' })).not.toBeInTheDocument()
+  })
+})
+
+// =================================================================================================
+// Feature 22 — o pedido carrega o material, e o dinheiro não muda por causa dele
+// =================================================================================================
+
+describe('CheckoutPage — material afetivo no pedido (MAT-05, MAT-06, MAT-07)', () => {
+  const comMaterial = (over: Partial<Product> = {}) =>
+    product({ requires_material: true, material_kinds: ['cabelo', 'coto_umbilical'], ...over })
+
+  const carrinhoCom = (p: Product, engravingText: string | null = null) => {
+    useCartStore.setState({
+      items: [{
+        product: p, size: '', finish: '', quantity: 2,
+        variantId: null, variantLabel: '', optionValues: {}, unitPrice: 50,
+        engravingText,
+      }],
+      clearCart: clearCartSpy,
+    })
+  }
+
+  const criarPedido = async () => {
+    fillAll()
+    renderPage()
+    fireEvent.click(cta())
+    await waitFor(() => expect(createOrderMutateAsync).toHaveBeenCalledTimes(1))
+    return createOrderMutateAsync.mock.calls[0][0]
+  }
+
+  it('MAT-05: o item leva o material exigido e o texto de gravação', async () => {
+    carrinhoCom(comMaterial(), 'Ana')
+    const payload = await criarPedido()
+
+    expect(payload.items[0].requires_material).toBe(true)
+    expect(payload.items[0].material_kinds).toEqual(['cabelo', 'coto_umbilical'])
+    expect(payload.items[0].engraving_text).toBe('Ana')
+  })
+
+  it('MAT-07: um item que exige põe o pedido em `aguardando_material`', async () => {
+    carrinhoCom(comMaterial())
+    const payload = await criarPedido()
+
+    expect(payload.material_status).toBe('aguardando_material')
+  })
+
+  it('MAT-07: exige SEM dizer qual também entra na fila', async () => {
+    // A fila é sobre "algo está a caminho", não sobre saber o quê. Ler "lista vazia ⇒ não exige"
+    // apagaria exatamente a peça de material livre.
+    carrinhoCom(comMaterial({ material_kinds: [] }))
+    const payload = await criarPedido()
+
+    expect(payload.material_status).toBe('aguardando_material')
+    expect(payload.items[0].requires_material).toBe(true)
+    expect(payload.items[0].material_kinds).toEqual([])
+  })
+
+  it('MAT-07: nenhum item que exige ⇒ `nao_aplicavel`', async () => {
+    carrinhoCom(product({ requires_material: false }))
+    const payload = await criarPedido()
+
+    expect(payload.material_status).toBe('nao_aplicavel')
+    expect(payload.items[0].requires_material).toBe(false)
+  })
+
+  it('`requires_material: null` (nunca decidido) não põe o pedido na fila', async () => {
+    carrinhoCom(product({ requires_material: null }))
+    const payload = await criarPedido()
+
+    expect(payload.material_status).toBe('nao_aplicavel')
+  })
+
+  it('MAT-06: os totais são IDÊNTICOS com e sem material no item', async () => {
+    // A regra de dinheiro é a que esta feature não pode tocar. Material não altera valor; a
+    // gravação altera, mas pelo caminho que já existia (`product_variants` → `unitPrice`), que o
+    // servidor recalcula. Nada aqui é calculado no front.
+    carrinhoCom(product({ requires_material: false }))
+    const sem = await criarPedido()
+
+    createOrderMutateAsync.mockClear()
+    cleanup()
+    useCheckoutStore.getState().reset()
+    carrinhoCom(comMaterial(), 'Ana')
+    const com = await criarPedido()
+
+    expect(com.subtotal).toBe(sem.subtotal)
+    expect(com.total).toBe(sem.total)
+    expect(com.discount).toBe(sem.discount)
+    expect(com.promotion_discount).toBe(sem.promotion_discount)
+    expect(com.items[0].unit_price).toBe(sem.items[0].unit_price)
   })
 })

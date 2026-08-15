@@ -9,8 +9,10 @@
     "lint": "eslint .",
     "import": "tsx src/cli.ts"
   },
+  "//core": "Feature 22: `@estrelinha/core` entra nas dependências porque a inferência de material afetivo (`inferMaterial`) é a MESMA regra que a loja e o admin leem. Declarada, e não só resolvida por hoisting, porque dependência implícita quebra no dia em que o node-linker mudar. O comentário fica AQUI, fora de `dependencies`: uma chave `//` lá dentro seria lida como o nome de um pacote.",
   "dependencies": {
-    "@supabase/supabase-js": "^2.103.0"
+    "@supabase/supabase-js": "^2.103.0",
+    "@estrelinha/core": "workspace:*"
   },
   "devDependencies": {
     "tsx": "^4.19.2",

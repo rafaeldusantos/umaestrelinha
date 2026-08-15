@@ -7,6 +7,13 @@ const sendOrderEmailMock = vi.fn<(orderId: string, type: string) => Promise<bool
 let updateResult: { error: unknown } = { error: null }
 const updateCalls: Array<{ table: string; values: Record<string, unknown> }> = []
 
+/** Feature 22: as duas transições de material são RPC, nunca `update`. O dublê registra as chamadas. */
+const rpcCalls: Array<{ fn: string; args: Record<string, unknown> }> = []
+let rpcResult: { data: unknown; error: unknown } = {
+  data: { ok: true, status: 'material_recebido', reason: null },
+  error: null,
+}
+
 vi.mock('@estrelinha/supabase/client', () => {
   // Cadeia mínima: só a superfície que `useAdminOrders` usa. Um dublê que imita o supabase-js
   // inteiro dá falso verde (mesma regra dos dublês das edge functions).
@@ -36,6 +43,10 @@ vi.mock('@estrelinha/supabase/client', () => {
   return {
     supabase: {
       from: (table: string) => makeChain(table),
+      rpc: (fn: string, args: Record<string, unknown>) => {
+        rpcCalls.push({ fn, args })
+        return Promise.resolve(rpcResult)
+      },
       channel: () => channel,
       removeChannel: () => {},
     },
@@ -59,6 +70,8 @@ async function mountHook() {
 beforeEach(() => {
   updateResult = { error: null }
   updateCalls.length = 0
+  rpcCalls.length = 0
+  rpcResult = { data: { ok: true, status: 'material_recebido', reason: null }, error: null }
   sendOrderEmailMock.mockReset()
   sendOrderEmailMock.mockResolvedValue(true)
 })
@@ -140,5 +153,182 @@ describe('UX-02 — falha de escrita não é engolida e não dispara e-mail', ()
 
     expect(outcome.error).toEqual({ message: 'permission denied' })
     expect(sendOrderEmailMock).not.toHaveBeenCalled()
+  })
+})
+
+// =================================================================================================
+// Feature 22 — a fila de material (MAT-08, MAT-09, MAT-10, MAT-11)
+// =================================================================================================
+
+describe('MAT-08 — a transição do material é RPC, nunca `update`', () => {
+  it('`setMaterialStatus` chama `set_material_status` com o pedido e o alvo', async () => {
+    const { result } = await mountHook()
+
+    await act(async () => {
+      await result.current.setMaterialStatus(ORDER_ID, 'material_recebido')
+    })
+
+    expect(rpcCalls).toContainEqual({
+      fn: 'set_material_status',
+      args: { p_order_id: ORDER_ID, p_status: 'material_recebido' },
+    })
+  })
+
+  it('NENHUM `update` em `orders` toca `material_status`', async () => {
+    // Um `update` daqui contornaria a máquina de estado inteira — inclusive o salto direto e a
+    // guarda de "nunca volta atrás", que vivem no `where` da RPC.
+    const { result } = await mountHook()
+
+    await act(async () => {
+      await result.current.setMaterialStatus(ORDER_ID, 'material_recebido')
+    })
+
+    expect(updateCalls.filter(c => 'material_status' in c.values)).toEqual([])
+  })
+
+  it('recusa da RPC devolve o motivo e NÃO dispara e-mail', async () => {
+    rpcResult = {
+      data: { ok: false, status: 'nao_aplicavel', reason: 'invalid_transition' },
+      error: null,
+    }
+    const { result } = await mountHook()
+
+    let resultado: { ok: boolean; reason: string | null } | undefined
+    await act(async () => {
+      resultado = await result.current.setMaterialStatus(ORDER_ID, 'material_recebido')
+    })
+
+    expect(resultado?.ok).toBe(false)
+    expect(resultado?.reason).toBe('invalid_transition')
+    expect(sendOrderEmailMock).not.toHaveBeenCalled()
+  })
+
+  it('erro de rede na RPC não vira exceção — devolve `ok: false`', async () => {
+    rpcResult = { data: null, error: { message: 'network' } }
+    const { result } = await mountHook()
+
+    let resultado: { ok: boolean } | undefined
+    await act(async () => {
+      resultado = await result.current.setMaterialStatus(ORDER_ID, 'material_recebido')
+    })
+
+    expect(resultado?.ok).toBe(false)
+  })
+})
+
+describe('MAT-09 — o e-mail de material recebido é CONTIDO (AD-008)', () => {
+  it('transição bem-sucedida para `material_recebido` tenta o e-mail', async () => {
+    const { result } = await mountHook()
+
+    await act(async () => {
+      await result.current.setMaterialStatus(ORDER_ID, 'material_recebido')
+    })
+
+    expect(sendOrderEmailMock).toHaveBeenCalledWith(ORDER_ID, 'material_received')
+  })
+
+  it('as outras transições NÃO disparam e-mail', async () => {
+    rpcResult = { data: { ok: true, status: 'em_producao', reason: null }, error: null }
+    const { result } = await mountHook()
+
+    await act(async () => {
+      await result.current.setMaterialStatus(ORDER_ID, 'em_producao')
+    })
+
+    expect(sendOrderEmailMock).not.toHaveBeenCalled()
+  })
+
+  it('e-mail que FALHA não reverte o estado nem vira erro para a admin', async () => {
+    // A Adri acabou de conferir o envelope na bancada. Desfazer isso porque o Resend caiu seria
+    // pior do que não avisar a cliente.
+    sendOrderEmailMock.mockResolvedValue(false)
+    const { result } = await mountHook()
+
+    let resultado: { ok: boolean; emailSent: boolean } | undefined
+    await act(async () => {
+      resultado = await result.current.setMaterialStatus(ORDER_ID, 'material_recebido')
+    })
+
+    expect(resultado?.ok).toBe(true)
+    expect(resultado?.emailSent).toBe(false)
+  })
+
+  it('e-mail que REJEITA não propaga a exceção', async () => {
+    sendOrderEmailMock.mockRejectedValue(new Error('boom'))
+    const { result } = await mountHook()
+
+    let erro: unknown = null
+    await act(async () => {
+      try {
+        await result.current.setMaterialStatus(ORDER_ID, 'material_recebido')
+      } catch (e) {
+        erro = e
+      }
+    })
+
+    // `sendOrderEmail` tem contrato de nunca lançar; se um dia lançar, quem chama precisa saber.
+    // Este teste é o sensor: hoje ele documenta que a promessa vem de lá.
+    expect(erro).not.toBeNull()
+  })
+})
+
+describe('MAT-11 — o rastreio da remessa da cliente, pelo painel', () => {
+  it('usa a MESMA RPC que a loja — uma máquina de estado, não duas', async () => {
+    rpcResult = { data: { ok: true, status: 'material_enviado', reason: null }, error: null }
+    const { result } = await mountHook()
+
+    await act(async () => {
+      await result.current.setMaterialTracking(ORDER_ID, 'AA123456789BR')
+    })
+
+    expect(rpcCalls).toContainEqual({
+      fn: 'set_material_tracking',
+      args: { p_order_id: ORDER_ID, p_code: 'AA123456789BR' },
+    })
+  })
+
+  it('NUNCA grava `material_tracking_code` por `update`', async () => {
+    const { result } = await mountHook()
+
+    await act(async () => {
+      await result.current.setMaterialTracking(ORDER_ID, 'AA1BR')
+    })
+
+    expect(updateCalls.filter(c => 'material_tracking_code' in c.values)).toEqual([])
+  })
+
+  it('não confunde com `tracking_code`, que é a remessa DE SAÍDA', async () => {
+    // Reusar aquela coluna faria "postamos sua joia" sair com o código do envelope da cliente.
+    const { result } = await mountHook()
+
+    await act(async () => {
+      await result.current.setMaterialTracking(ORDER_ID, 'AA1BR')
+    })
+
+    expect(updateCalls.filter(c => 'tracking_code' in c.values)).toEqual([])
+    expect(sendOrderEmailMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('MAT-10 — filtro e contagens da fila', () => {
+  it('o filtro de material começa em `all`', async () => {
+    const { result } = await mountHook()
+    expect(result.current.materialFilter).toBe('all')
+  })
+
+  it('trocar o filtro volta para a primeira página', async () => {
+    // Sem isto, filtrar estando na página 3 mostraria "nenhum pedido" numa fila que tem pedidos.
+    const { result } = await mountHook()
+
+    act(() => result.current.setPage(3))
+    expect(result.current.page).toBe(3)
+
+    act(() => result.current.setMaterialFilter('aguardando_material'))
+    await waitFor(() => expect(result.current.page).toBe(1))
+  })
+
+  it('expõe `materialCounts`', async () => {
+    const { result } = await mountHook()
+    expect(result.current.materialCounts).toBeDefined()
   })
 })

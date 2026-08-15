@@ -10,6 +10,10 @@ export interface OrderItem {
   finish: string | null
   quantity: number
   unit_price: number
+  /** Feature 22 — snapshot do que a linha exigiu e do que vai gravado (`MAT-05`). */
+  requires_material?: boolean | null
+  material_kinds?: string[] | null
+  engraving_text?: string | null
 }
 
 export interface Order {
@@ -119,7 +123,24 @@ export interface CreateOrderInput {
     /** Snapshot legível: `4,5 cm · Fosco`. O histórico não depende de join. */
     variant_label?: string | null
     variant_options?: Record<string, string> | null
+    /**
+     * Feature 22 — o que esta linha exigiu e o que vai gravado, **congelados no pedido**.
+     *
+     * Redundante em relação a `products` de propósito: mudar a exigência no cadastro **não** pode
+     * alterar pedido já criado (`MAT-05`), e ler do produto na hora da consulta faria o pedido de
+     * ontem mudar de conteúdo hoje. Mesma regra de `variant_label`.
+     */
+    requires_material?: boolean
+    material_kinds?: string[]
+    engraving_text?: string | null
   }[]
+  /**
+   * `MAT-07`: o pedido nasce na fila ou fora dela, derivado dos itens por `initialMaterialStatus`.
+   *
+   * Daqui em diante o estado **só muda por RPC guardada** (`set_material_status`,
+   * `set_material_tracking`) — `orders` não tem policy de `UPDATE` para cliente (PAY-10).
+   */
+  material_status?: string
 }
 
 export const useCreateOrder = () => {
@@ -156,6 +177,10 @@ export const useCreateOrder = () => {
           coupon_id: input.coupon_id || null,
           promotion_id: input.promotion_id || null,
           promotion_discount: input.promotion_discount ?? 0,
+          // MAT-07. Derivado dos itens que a loja acabou de montar, não de uma releitura do catálogo:
+          // o pedido é foto. `nao_aplicavel` é o default da coluna, então mandá-lo explícito só
+          // torna visível o que já aconteceria.
+          material_status: input.material_status ?? 'nao_aplicavel',
         })
         .select()
         .single()

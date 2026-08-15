@@ -1,6 +1,11 @@
 import { supabase } from '@estrelinha/supabase'
 
-export type OrderEmailType = 'order_received' | 'order_paid' | 'order_shipped'
+export type OrderEmailType =
+  | 'order_received'
+  | 'order_paid'
+  | 'order_shipped'
+  /** Feature 22: o material chegou ao ateliê. Mesma contenção dos outros três (`AD-008`). */
+  | 'material_received'
 
 /**
  * Pede à edge function `send-email` que dispare o e-mail transacional de um pedido.

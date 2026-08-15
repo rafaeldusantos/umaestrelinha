@@ -169,17 +169,142 @@ describe('migração do storage', () => {
     expect(migrate(v1, 1)).toEqual({ items: [] })
   })
 
-  it('storage v2 é preservado intacto', () => {
+  it('storage v2 é preservado — só ganha `engravingText: null` (feature 22)', () => {
+    // Este teste dizia "intacto" enquanto a v2 era a corrente. A v3 acrescentou a gravação à
+    // identidade da linha, e a migração PRESERVA a sacola em vez de descartá-la: o que falta é um
+    // campo opcional de default conhecido, não a variação (que é o que tornava a v1 impagável).
     const v2 = {
       items: [{
         product: product(), size: '', finish: '', quantity: 2,
         variantId: 'v1', variantLabel: '4,5 cm · Fosco', optionValues: {}, unitPrice: 7.9,
       }],
     }
-    expect(migrate(v2, 2)).toEqual(v2)
+    expect(migrate(v2, 2)).toEqual({
+      items: [{ ...v2.items[0], engravingText: null }],
+    })
   })
 
-  it('a versão declarada é 2', () => {
-    expect(useCartStore.persist.getOptions().version).toBe(2)
+  it('storage v3 é preservado intacto', () => {
+    const v3 = {
+      items: [{
+        product: product(), size: '', finish: '', quantity: 2,
+        variantId: 'v1', variantLabel: '4,5 cm · Fosco', optionValues: {}, unitPrice: 7.9,
+        engravingText: 'Ana',
+      }],
+    }
+    expect(migrate(v3, 3)).toEqual(v3)
+  })
+
+  it('a versão declarada é 3', () => {
+    expect(useCartStore.persist.getOptions().version).toBe(3)
+  })
+})
+
+// =================================================================================================
+// MAT-04 — a gravação faz parte da identidade da linha (feature 22)
+// =================================================================================================
+//
+// Duas unidades do mesmo produto e da MESMA variação, com gravações diferentes, são dois pedidos
+// diferentes para a bancada. Colapsá-las em quantidade 2 faria a Adri gravar um nome só em duas
+// peças — e é a mesma armadilha que a chave de `variantId` já custou à loja anterior, em duas telas.
+
+describe('identidade da linha — gravação (MAT-04)', () => {
+  it('mesma variação com gravações DIFERENTES = 2 linhas', () => {
+    const p = product()
+    useCartStore.getState().addItem(p, '', '', variant(), 'Ana')
+    useCartStore.getState().addItem(p, '', '', variant(), 'Léo')
+
+    expect(items()).toHaveLength(2)
+    expect(items().map(i => i.engravingText)).toEqual(['Ana', 'Léo'])
+  })
+
+  it('mesma variação com a MESMA gravação = 1 linha, quantity 2', () => {
+    const p = product()
+    useCartStore.getState().addItem(p, '', '', variant(), 'Ana')
+    useCartStore.getState().addItem(p, '', '', variant(), 'Ana')
+
+    expect(items()).toHaveLength(1)
+    expect(items()[0].quantity).toBe(2)
+  })
+
+  it('com gravação e sem gravação são linhas distintas', () => {
+    const p = product()
+    useCartStore.getState().addItem(p, '', '', variant(), 'Ana')
+    useCartStore.getState().addItem(p, '', '', variant())
+
+    expect(items()).toHaveLength(2)
+    expect(items().map(i => i.engravingText)).toEqual(['Ana', null])
+  })
+
+  it('a chave vale também para produto SEM grade', () => {
+    const p = product()
+    useCartStore.getState().addItem(p, '', '', undefined, 'Ana')
+    useCartStore.getState().addItem(p, '', '', undefined, 'Léo')
+
+    expect(items()).toHaveLength(2)
+  })
+
+  it('`removeItem` tira a linha certa quando há duas gravações', () => {
+    // É aqui que a chave errada custa caro: remover "Ana" apagando "Léo" (ou nada) é o defeito que
+    // a loja anterior teve em duas telas.
+    const p = product()
+    useCartStore.getState().addItem(p, '', '', variant(), 'Ana')
+    useCartStore.getState().addItem(p, '', '', variant(), 'Léo')
+
+    useCartStore.getState().removeItem(p.id, '', '', 'v1', 'Ana')
+
+    expect(items()).toHaveLength(1)
+    expect(items()[0].engravingText).toBe('Léo')
+  })
+
+  it('`updateQuantity` acerta a linha certa quando há duas gravações', () => {
+    const p = product()
+    useCartStore.getState().addItem(p, '', '', variant(), 'Ana')
+    useCartStore.getState().addItem(p, '', '', variant(), 'Léo')
+
+    useCartStore.getState().updateQuantity(p.id, '', '', 5, 'v1', 'Léo')
+
+    expect(items().find(i => i.engravingText === 'Léo')?.quantity).toBe(5)
+    expect(items().find(i => i.engravingText === 'Ana')?.quantity).toBe(1)
+  })
+
+  it('gravação não altera o subtotal — quem precifica é a variação', () => {
+    // MAT-06: material e texto não mexem em dinheiro. O acréscimo de gravação vem de
+    // `product_variants`, pelo caminho que o servidor recalcula.
+    const p = product()
+    useCartStore.getState().addItem(p, '', '', variant({ unitPrice: 7.9 }), 'Ana')
+
+    expect(useCartStore.getState().subtotal()).toBe(7.9)
+  })
+})
+
+describe('persistência — v2 → v3 PRESERVA a sacola', () => {
+  it('item sem `engravingText` vira item com `null`, e continua no carrinho', () => {
+    // Diferente do salto v1 → v2, que descartava: lá faltava a variação, e um pedido sem
+    // `variant_id` o servidor recusa a pagar. Aqui falta um campo opcional cujo default é conhecido.
+    const persistido = {
+      items: [
+        {
+          product: product(), size: '', finish: '', variantId: 'v1',
+          variantLabel: '4,5 cm', optionValues: {}, unitPrice: 7.9, quantity: 2,
+        },
+      ],
+    }
+
+    const migrado = (useCartStore.persist.getOptions().migrate as
+      (p: unknown, v: number) => { items: { engravingText: string | null; quantity: number }[] })(
+      persistido, 2,
+    )
+
+    expect(migrado.items).toHaveLength(1)
+    expect(migrado.items[0].engravingText).toBeNull()
+    expect(migrado.items[0].quantity).toBe(2)
+  })
+
+  it('sacola v1 continua sendo DESCARTADA — ali faltava a variação', () => {
+    const migrado = (useCartStore.persist.getOptions().migrate as
+      (p: unknown, v: number) => { items: unknown[] })({ items: [{ product: product() }] }, 1)
+
+    expect(migrado.items).toEqual([])
   })
 })

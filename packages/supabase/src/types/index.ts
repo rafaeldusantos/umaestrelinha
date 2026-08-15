@@ -228,6 +228,22 @@ export interface DbOrder {
   coupon_code: string | null
   coupon_id: string | null
   created_at: string
+  /**
+   * Feature 22 — o estado do material, **independente** do de pagamento (`MAT-08 AC 5`).
+   *
+   * Só muda por RPC guardada (`set_material_status`, `set_material_tracking`). Um `update` direto
+   * nesta coluna pelo backoffice contornaria a máquina de estado inteira.
+   */
+  material_status?: string
+  /**
+   * A remessa **DE ENTRADA** (cliente → ateliê): o envelope com o material.
+   *
+   * ⚠️ **Não confundir com `tracking_code`**, que é a de saída (ateliê → cliente) e alimenta o
+   * e-mail `order_shipped`. Trocar as duas faria "postamos sua joia" sair com o código do envelope
+   * que a cliente mandou.
+   */
+  material_tracking_code?: string | null
+  material_received_at?: string | null
 }
 
 export interface DbOrderStatusHistory {
@@ -270,6 +286,14 @@ export interface DbOrderItem {
   variant_options: OptionValues | null
   quantity: number
   unit_price: number
+  /**
+   * Feature 22 — **snapshot**, redundante em relação a `products` de propósito: mudar a exigência no
+   * cadastro não pode alterar pedido já criado (`MAT-05`).
+   */
+  requires_material?: boolean
+  material_kinds?: string[]
+  /** O texto pedido para gravar. Sobrevive a uma mudança do limite no cadastro. */
+  engraving_text?: string | null
 }
 
 // === Frontend types (used by storefront components) ===
@@ -313,6 +337,30 @@ export interface Product {
   width_cm?: number
   height_cm?: number
   length_cm?: number
+  /**
+   * Feature 22 — o material afetivo é propriedade do PRODUTO, não escolha de compra.
+   *
+   * **`requires_material` e `material_kinds` são DOIS dados.** Lista vazia com `requires_material`
+   * verdadeiro é a peça de material livre: exige, entra na fila, e a escolha acontece no WhatsApp.
+   * Ler "lista vazia ⇒ não exige" apagaria exatamente essa peça — use `requiresMaterial()` e
+   * `materialSummary()` de `@estrelinha/core/material`, nunca comparação crua.
+   *
+   * `null` em `requires_material` significa "nunca decidido" e lê como `false`.
+   *
+   * `material_kinds` é `string[]`, e **não** o union `MaterialKind[]`, de propósito: tipá-lo aqui
+   * faria `@estrelinha/supabase` importar de `@estrelinha/core`, que já importa daqui — ciclo entre
+   * pacotes por causa de um tipo. A lista chega normalizada por `toMaterialKinds` no mapeador da
+   * loja, e as funções de `@estrelinha/core/material` aceitam `readonly string[]` e filtram o que
+   * não reconhecem.
+   *
+   * Os três são **opcionais** no tipo, como `weight_kg` e as dimensões já eram: ausente e `null`
+   * significam a mesma coisa aqui ("não exige" / "sem teto declarado"), e todo consumidor passa por
+   * `requiresMaterial()`, `materialKindsOf()` ou `engravingLimit()`, que tratam os dois casos.
+   */
+  requires_material?: boolean | null
+  material_kinds?: string[]
+  /** Teto do texto de gravação desta peça. Ausente ou `null` cai em `DEFAULT_ENGRAVING_MAX_CHARS`. */
+  engraving_max_chars?: number | null
 }
 
 /** Um vínculo produto↔categoria. `position` é a ordem que o admin arrastou (PST-06 AC 3). */
@@ -327,6 +375,14 @@ export interface Category {
   slug: string
   description: string | null
   image_url: string | null
+  /**
+   * A imagem larga da categoria. Na loja ela é a **curadoria da grade de banners da home**: quem
+   * sobe um banner em `/admin/categorias` está dizendo que aquela linha merece vitrine.
+   *
+   * A coluna existe desde `20260801150000_categories-hierarchy-and-counts.sql` e o admin já a
+   * grava; ela só não chegava à loja porque o mapper de `useCategories` a descartava.
+   */
+  banner_url: string | null
   color_accent: string | null
   emoji: string
   parent_id: string | null

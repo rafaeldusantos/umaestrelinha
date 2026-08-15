@@ -18,6 +18,7 @@ import AuthPage from "@/pages/AuthPage";
 import SearchPage from "@/pages/SearchPage";
 import AboutPage from "@/pages/AboutPage";
 import PoliciesPage from "@/pages/PoliciesPage";
+import HowToSendMaterialPage from "@/pages/HowToSendMaterialPage";
 import AccountPage from "@/pages/AccountPage";
 import NotFound from "@/pages/NotFound";
 
@@ -62,6 +63,7 @@ const App = () => (
             <Route path="/busca" element={<SearchPage />} />
             <Route path="/sobre" element={<AboutPage />} />
             <Route path="/politicas" element={<PoliciesPage />} />
+            <Route path="/como-enviar-o-material" element={<HowToSendMaterialPage />} />
             <Route path="/conta" element={<AccountPage />} />
             <Route path="/favoritos" element={<WishlistPage />} />
             <Route path="/entrar" element={<AuthPage />} />

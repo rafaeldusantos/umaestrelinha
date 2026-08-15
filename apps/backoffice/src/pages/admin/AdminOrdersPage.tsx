@@ -4,6 +4,20 @@ import { useAdminOrders, ORDER_STATUSES, STATUS_LABELS } from '@/entities/order/
 import OrderDetailDialog from '@/features/order-management/ui/OrderDetailDialog'
 import StatusBadge from '@/entities/order/ui/StatusBadge'
 import PaymentStatusBadge from '@/entities/order/ui/PaymentStatusBadge'
+import MaterialStatusBadge from '@/entities/order/ui/MaterialStatusBadge'
+import { MATERIAL_STATUS_LABELS, type MaterialStatus } from '@estrelinha/core/material'
+
+/**
+ * Os estados que valem como filtro de fila. **`nao_aplicavel` fica de fora de propósito**: filtrar
+ * "pedidos sem material" não responde nenhuma pergunta da operação, e ocuparia a vaga do que
+ * responde. Quem quer ver tudo usa `Todos`.
+ */
+const MATERIAL_QUEUE_FILTERS: readonly MaterialStatus[] = [
+  'aguardando_material',
+  'material_enviado',
+  'material_recebido',
+  'em_producao',
+]
 import { PageHeader, AdminTable, Pagination, type AdminColumn } from '@/shared/ui'
 import { Button } from '@estrelinha/ui/button'
 import { Input } from '@estrelinha/ui/input'
@@ -22,10 +36,12 @@ const AdminOrdersPage = () => {
     searchQuery, setSearchQuery,
     dateFrom, setDateFrom, dateTo, setDateTo,
     paymentFilter, setPaymentFilter,
+    materialFilter, setMaterialFilter,
     page, setPage, totalPages, totalCount,
-    statusCounts,
+    statusCounts, materialCounts,
     getOrderItems, updateStatus, getStatusHistory, getNotes,
     cancelOrder, addTrackingCode, addNote,
+    setMaterialStatus, setMaterialTracking,
   } = useAdminOrders()
   const [selected, setSelected] = useState<DbOrder | null>(null)
 
@@ -45,6 +61,10 @@ const AdminOrdersPage = () => {
         </span>
       ) : <span className="text-muted-foreground">—</span>,
     },
+    // MAT-10. Coluna própria, e não misturada com `status`: as duas máquinas são independentes —
+    // um pedido pago pode estar esperando material, e um pedido com material recebido pode ainda
+    // não ter sido postado.
+    { key: 'material_status', header: 'Material', align: 'center', cell: o => <MaterialStatusBadge status={o.material_status} /> },
     { key: 'tracking_code', header: 'Rastreio', cell: o => <span className="text-muted-foreground font-mono text-xs">{o.tracking_code ?? '—'}</span> },
     { key: 'created_at', header: 'Data', align: 'right', cell: o => <span className="text-muted-foreground">{new Date(o.created_at).toLocaleDateString('pt-BR')}</span> },
     {
@@ -144,6 +164,41 @@ const AdminOrdersPage = () => {
         ))}
       </div>
 
+      {/*
+        MAT-10 — a fila de material, alcançável em UM clique.
+
+        Faixa própria, abaixo da de status, porque as duas máquinas são independentes: um pedido pago
+        pode estar esperando material, e um com material recebido pode ainda não ter sido postado.
+        Cruzar as duas num seletor só obrigaria a Adri a escolher qual pergunta responder.
+
+        Ela mora aqui, e **não** vira item de sidebar: `navItems.test.ts` lê o `App.tsx` do disco e
+        compara a ordem das rotas com `navGroups` — um item novo pediria reordenar rotas sem ganho, e
+        `Pedidos` já é onde ela olha. `aguardando_material` é o eixo que ACUMULA, o mesmo critério
+        que põe `Vendas` no topo da sidebar.
+      */}
+      <div className="flex gap-2 mb-4 flex-wrap" aria-label="Filtrar por material">
+        <span className="self-center text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Material
+        </span>
+        <Button
+          size="sm"
+          variant={materialFilter === 'all' ? 'default' : 'outline'}
+          onClick={() => setMaterialFilter('all')}
+        >
+          Todos
+        </Button>
+        {MATERIAL_QUEUE_FILTERS.map(s => (
+          <Button
+            key={s}
+            size="sm"
+            variant={materialFilter === s ? 'default' : 'outline'}
+            onClick={() => setMaterialFilter(s)}
+          >
+            {MATERIAL_STATUS_LABELS[s]} ({materialCounts[s] ?? 0})
+          </Button>
+        ))}
+      </div>
+
       {loading ? (
         <div className="p-12 text-center text-muted-foreground">Carregando...</div>
       ) : (
@@ -167,6 +222,8 @@ const AdminOrdersPage = () => {
         onCancel={cancelOrder}
         onAddTracking={addTrackingCode}
         onAddNote={addNote}
+        onSetMaterialStatus={setMaterialStatus}
+        onSetMaterialTracking={setMaterialTracking}
       />
     </div>
   )

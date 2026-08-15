@@ -44,6 +44,28 @@ export interface AbandonedCartSettings {
 }
 
 /**
+ * Para onde a cliente posta o material afetivo (`MAT-01`).
+ *
+ * É **configuração**, não literal em `.tsx`, por um motivo prático: mudar de endereço é operação da
+ * dona, e com o endereço no código ela viraria um deploy. `ShippingSettings.origin_zip` não serve —
+ * é o CEP de origem da cotação do Melhor Envio, que é a remessa **de saída**; esta é a **de entrada**,
+ * e precisa do endereço por extenso, com destinatário, para caber numa etiqueta escrita à mão.
+ */
+export interface MaterialSettings {
+  /** A quem endereçar o envelope. Sem isto a cliente escreve o nome da loja e o correio devolve. */
+  recipient: string
+  street: string
+  number: string
+  complement: string
+  neighborhood: string
+  city: string
+  state: string
+  zip: string
+  /** Observação livre da dona: horário de recebimento, aviso de embalagem, o que for. */
+  notes: string
+}
+
+/**
  * Os defaults abaixo precisam dizer o MESMO que as duas migrations
  * `*_create_store_settings.sql` gravam. Divergir não quebra build, tipo nem
  * teste de componente — a loja só passa a mostrar um nome antes de a linha
@@ -95,6 +117,30 @@ export const DEFAULT_ABANDONED_CART: AbandonedCartSettings = {
   reminder_coupon_code: '',
 }
 
+/**
+ * **Nasce com todos os campos vazios, e isso é a decisão.**
+ *
+ * Um endereço inventado como default é pior do que endereço nenhum quando o que viaja é
+ * insubstituível: a cliente posta cinzas para um lugar que não existe e não há segunda via. Por isso
+ * a página "Como enviar" **não renderiza** o bloco de endereço enquanto `street` estiver vazio —
+ * mostra o convite a falar com a Adri no lugar.
+ *
+ * Também por isso esta chave **não tem seed em migration**: não há valor a semear, logo não há o que
+ * divergir. `storeSettingsDefaults.test.ts` segue guardando as quatro chaves que **têm** valor no
+ * SQL, e não é afrouxado para caber esta.
+ */
+export const DEFAULT_MATERIAL: MaterialSettings = {
+  recipient: '',
+  street: '',
+  number: '',
+  complement: '',
+  neighborhood: '',
+  city: '',
+  state: '',
+  zip: '',
+  notes: '',
+}
+
 export type SettingsKey =
   | 'general'
   | 'shipping'
@@ -102,6 +148,7 @@ export type SettingsKey =
   | 'seo'
   | 'abandoned_cart'
   | 'checkout'
+  | 'material'
 
 export interface SettingsMap {
   general: GeneralSettings
@@ -110,4 +157,5 @@ export interface SettingsMap {
   seo: SeoSettings
   abandoned_cart: AbandonedCartSettings
   checkout: CheckoutSettings
+  material: MaterialSettings
 }

@@ -24,7 +24,9 @@ import { isPersistFailure, isTempVariantId, persistProductRelations, type Persis
 import PublishChecklist from '@/features/product-form/ui/PublishChecklist'
 import PricingTab from '@/features/product-form/ui/tabs/PricingTab'
 import CategoryMultiSelect from '@/features/product-form/ui/CategoryMultiSelect'
+import MaterialCard from '@/features/product-form/ui/MaterialCard'
 import TagInput from '@/features/product-form/ui/TagInput'
+import { hasEngravingAxis } from '@estrelinha/core/material'
 import { selectionLabel, tagCounterLabel } from '@/features/product-form/model/taxonomyLabels'
 import SlugField from '@/features/product-form/ui/SlugField'
 import SlugReadonlyLine from '@/features/product-form/ui/SlugReadonlyLine'
@@ -195,6 +197,11 @@ const AdminProductFormPage = () => {
       options: form.options,
       stock_policy: form.stock_policy,
       production_lead_days: form.production_lead_days,
+      // Feature 22: material afetivo. Salvar SEMPRE grava um booleano — é o que tira a linha do
+      // estado `null` ("nunca decidido") e faz o importador parar de semeá-la.
+      requires_material: form.requires_material === true,
+      material_kinds: form.material_kinds,
+      engraving_max_chars: form.engraving_max_chars,
     }
 
     let err: { message: string } | null = null
@@ -472,6 +479,17 @@ const AdminProductFormPage = () => {
                   countByTag={countByTag}
                 />
               </FormCard>
+
+              {/* Feature 22 — o que a cliente precisa enviar pelo correio. `offersEngraving` sai dos
+                  eixos do produto (aba Preços & variações): o limite só faz sentido para os 35
+                  produtos de 689 que de fato oferecem gravação. */}
+              <MaterialCard
+                requiresMaterial={form.requires_material}
+                materialKinds={form.material_kinds}
+                engravingMaxChars={form.engraving_max_chars}
+                offersEngraving={hasEngravingAxis(form.options)}
+                onChange={patch => setFields(patch)}
+              />
             </TabsContent>
 
             {/* MÍDIA */}

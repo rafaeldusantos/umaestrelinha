@@ -22,6 +22,11 @@ import { applyOrderBump } from '@estrelinha/core/payment/pricing'
 import { friendlyMessage } from '@estrelinha/core/payment/status'
 import { primaryImage } from '@estrelinha/core/media'
 import { normalizeOptions } from '@estrelinha/core/product'
+import {
+  initialMaterialStatus,
+  materialKindsOf,
+  requiresMaterial,
+} from '@estrelinha/core/material'
 import { hasSellableGrid } from '@/entities/product/lib/variantSelection'
 import { resolveFlow, type BlockId } from '@estrelinha/core/checkout'
 import { useAuthContext } from '@estrelinha/auth'
@@ -340,6 +345,12 @@ const CheckoutPage = () => {
           // pode ter sido pausada ou reeditada depois da compra.
           variant_label: item.variantLabel || null,
           variant_options: Object.keys(item.optionValues ?? {}).length ? item.optionValues : null,
+          // MAT-05: o material exigido e o texto gravado, congelados NO PEDIDO. Saem do snapshot do
+          // produto que está no carrinho, não de uma releitura do catálogo — mudar a exigência no
+          // cadastro depois não pode alterar pedido já criado.
+          requires_material: requiresMaterial(item.product),
+          material_kinds: materialKindsOf(item.product),
+          engraving_text: item.engravingText ?? null,
         })),
         ...(bumpProduct
           ? [
@@ -357,6 +368,12 @@ const CheckoutPage = () => {
                 price_source: 'base' as const,
                 variant_label: null,
                 variant_options: null,
+                // O bump nunca é peça de material: a oferta do lojista aponta para um `product_id`
+                // avulso, fora do fluxo de curadoria. Se um dia apontar para uma joia afetiva, esta
+                // linha precisa passar a ler o produto — está declarado aqui para não passar batido.
+                requires_material: false,
+                material_kinds: [],
+                engraving_text: null,
               },
             ]
           : []),
@@ -399,6 +416,9 @@ const CheckoutPage = () => {
             // coluna é FK única e a verdade de "quanto" fica em `promotion_discount`.
             promotion_id: applied.length === 1 ? applied[0].promotion_id : null,
             promotion_discount: promotionDiscount,
+            // MAT-07: um item que exige material põe o pedido inteiro na fila — inclusive quando
+            // exige SEM dizer qual. A fila é sobre "algo está a caminho", não sobre saber o quê.
+            material_status: initialMaterialStatus(orderItems),
             items: orderItems,
           })
           const newOrderId = (order as { id?: string } | null)?.id

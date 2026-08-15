@@ -3,6 +3,7 @@ import { addressLines, type EmailOrder, escapeHtml, firstName, isValidFrom, stor
 import {
   EMAIL_TYPES,
   renderEmail,
+  renderMaterialReceived,
   renderOrderPaid,
   renderOrderReceived,
   renderOrderShipped,
@@ -43,10 +44,14 @@ function orderFixture(over: Partial<EmailOrder> = {}): EmailOrder {
 const shippedFixture = (over: Partial<EmailOrder> = {}) =>
   orderFixture({ tracking_code: 'NA123456789BR', shipping_carrier: 'Correios', ...over })
 
+const materialFixture = (over: Partial<EmailOrder> = {}) =>
+  orderFixture({ material_status: 'material_recebido', ...over })
+
 const ALL = [
   ['order_received', () => renderOrderReceived(orderFixture(), STORE)],
   ['order_paid', () => renderOrderPaid(orderFixture(), STORE)],
   ['order_shipped', () => renderOrderShipped(shippedFixture(), STORE)],
+  ['material_received', () => renderMaterialReceived(materialFixture(), STORE)],
 ] as const
 
 describe('TPL-01 — shape do retorno', () => {
@@ -58,8 +63,15 @@ describe('TPL-01 — shape do retorno', () => {
     expect(email.text.length).toBeGreaterThan(0)
   })
 
-  it('EMAIL_TYPES é o allow-list dos três tipos, e renderEmail atende todos', () => {
-    expect(EMAIL_TYPES).toEqual(['order_received', 'order_paid', 'order_shipped'])
+  it('EMAIL_TYPES é o allow-list dos quatro tipos, e renderEmail atende todos', () => {
+    // O quarto entrou na feature 22 (`material_received`). Esta lista é a fonte única que o handler
+    // consulta antes de tocar no banco — tipo fora dela é 400, não 500.
+    expect(EMAIL_TYPES).toEqual([
+      'order_received',
+      'order_paid',
+      'order_shipped',
+      'material_received',
+    ])
 
     for (const type of EMAIL_TYPES) {
       expect(renderEmail(type, shippedFixture(), STORE).subject).toContain('NP-ABC123')
@@ -350,5 +362,62 @@ describe('CFG-03 — formato do RESEND_FROM', () => {
     ['ângulo vazio', 'Uma Estrelinha <>'],
   ])('rejeita %s', (_label, from) => {
     expect(isValidFrom(from)).toBe(false)
+  })
+})
+
+// =================================================================================================
+// MAT-09 — `material_received`, o e-mail mais delicado da loja
+// =================================================================================================
+
+describe('material_received — tom e conteúdo', () => {
+  const rendered = () => renderMaterialReceived(materialFixture(), STORE)
+
+  it('entra no allow-list, e ele continua sendo a fonte única do handler', () => {
+    expect(EMAIL_TYPES).toContain('material_received')
+    expect(EMAIL_TYPES).toHaveLength(4)
+  })
+
+  it('`renderEmail` roteia para ele', () => {
+    expect(renderEmail('material_received', materialFixture(), STORE).subject).toBe(
+      rendered().subject,
+    )
+  })
+
+  it('o assunto traz o número do pedido e diz o que aconteceu', () => {
+    expect(rendered().subject).toContain('NP-ABC123')
+    expect(rendered().subject).toMatch(/recebemos seu material/i)
+  })
+
+  it('NÃO comemora: sem exclamação no assunto, no título e no texto', () => {
+    // Os outros quatro e-mails abrem com "!". Este confirma o recebimento de cinzas de cremação, de
+    // leite materno, do cacho de cabelo de quem morreu — e o tom é decisão de produto, não estilo.
+    const { subject, html, text } = rendered()
+    expect(subject).not.toContain('!')
+    expect(text).not.toContain('!')
+    expect(html).not.toMatch(/<[^>]*>[^<]*![^<]*<\/(h1|p)>/)
+  })
+
+  it('não usa emoji', () => {
+    const { subject, html, text } = rendered()
+    for (const parte of [subject, html, text]) {
+      expect(parte).not.toMatch(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u)
+    }
+  })
+
+  it('diz que a produção começou e que o excedente volta', () => {
+    // As duas informações que a operação de fato responde por WhatsApp hoje.
+    const { text } = rendered()
+    expect(text).toMatch(/produção/i)
+    expect(text).toMatch(/excedente volta/i)
+  })
+
+  it('não empresta o destaque grande do rastreio — isto é confirmação, não anúncio', () => {
+    expect(rendered().html).not.toContain('Código de rastreio')
+  })
+
+  it('continua autossuficiente: itens, totais e endereço no corpo', () => {
+    const { html } = rendered()
+    expect(html).toContain('Botton Naruto')
+    expect(html).toContain('Rua das Flores')
   })
 })

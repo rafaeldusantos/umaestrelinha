@@ -1,3 +1,4 @@
+import { inferMaterial } from '@estrelinha/core/material'
 import type { ProductRow } from '../map/product.ts'
 import type { VariantRow } from '../map/variant.ts'
 import type { Report } from '../report.ts'
@@ -19,6 +20,11 @@ interface ExistingProduct {
   nuvemshop_id: number | null
   slug: string
   is_active: boolean
+  /**
+   * Feature 22. `null` = **ninguém decidiu ainda**, e é a única condição em que a semente escreve.
+   * `true`/`false` é decisão da dona e nunca é sobrescrita.
+   */
+  requires_material: boolean | null
 }
 
 interface ExistingVariant {
@@ -64,6 +70,27 @@ const catalogoDoProduto = (row: ProductRow) => ({
   length_cm: row.length_cm,
 })
 
+/**
+ * A **semente** de material afetivo (feature 22), inferida do NOME do produto.
+ *
+ * Por que ela existe: o catálogo real tem **zero eixo de material** em 3.356 variações — o material
+ * está no nome, em massa (169 dizem "leite", 127 "cinzas", 85 "cabelo", 51 "coto"). Sem semear, a
+ * fila `aguardando_material` nasceria vazia e ficaria assim até alguém editar centenas de produtos
+ * à mão. Feature que nasce inerte já aconteceu duas vezes neste repositório, e as duas passaram
+ * meses sem ninguém notar.
+ *
+ * **Deliberadamente FORA de `catalogoDoProduto`.** Aquele objeto é o que o update reescreve a cada
+ * execução; material aqui dentro apagaria a curadoria da dona toda vez que o catálogo sincronizasse.
+ * A semente entra no INSERT, e nas linhas já existentes só onde `requires_material is null`.
+ *
+ * É **inferência, não verdade**: quem decide é a dona, no cadastro. A regra é a mesma função pura
+ * que a loja e o admin leem (`@estrelinha/core/material`), e não uma segunda cópia em SQL.
+ */
+const sementeDeMaterial = (row: ProductRow) => {
+  const { requires, kinds } = inferMaterial(row.name)
+  return { requires_material: requires, material_kinds: kinds }
+}
+
 const linhaDaVariacao = (variant: VariantRow, productId: string) => ({
   product_id: productId,
   nuvemshop_id: variant.nuvemshop_id,
@@ -98,7 +125,7 @@ export const writeProducts = async (
   // segunda execução, que é onde ela precisa funcionar.
   const produtosExistentes = await selectAll<ExistingProduct>(
     supabase.from('products'),
-    'id, nuvemshop_id, slug, is_active',
+    'id, nuvemshop_id, slug, is_active, requires_material',
     'ler produtos existentes',
   )
 
@@ -140,12 +167,19 @@ export const writeProducts = async (
         })
       }
       productId = existente.id
+      // A semente entra no update **só quando ninguém decidiu ainda**. `true`/`false` gravado é
+      // decisão da dona: reescrevê-lo apagaria a curadoria a cada sincronização do catálogo.
+      const semente = existente.requires_material === null ? sementeDeMaterial(product) : null
       if (!deps.dryRun) {
         unwrap(
           'atualizar produto',
-          await supabase.from('products').update(catalogoDoProduto(product)).eq('id', productId),
+          await supabase
+            .from('products')
+            .update({ ...catalogoDoProduto(product), ...(semente ?? {}) })
+            .eq('id', productId),
         )
       }
+      if (semente) report.materialSeeded()
       report.updated('produtos')
     } else {
       const colisao = porSlug.get(product.slug)
@@ -172,6 +206,7 @@ export const writeProducts = async (
           .from('products')
           .insert<{ id: string }>({
             ...catalogoDoProduto(product),
+            ...sementeDeMaterial(product),
             base_price: product.base_price,
             is_active: product.is_active,
           })
@@ -180,8 +215,10 @@ export const writeProducts = async (
       )
       productId = criado.id
       porSlug.set(product.slug, {
-        id: productId, nuvemshop_id: product.nuvemshop_id, slug: product.slug, is_active: product.is_active,
+        id: productId, nuvemshop_id: product.nuvemshop_id, slug: product.slug,
+        is_active: product.is_active, requires_material: sementeDeMaterial(product).requires_material,
       })
+      report.materialSeeded()
       report.created('produtos')
     }
 

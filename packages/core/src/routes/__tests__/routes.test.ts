@@ -19,8 +19,11 @@ import {
  * medido — comparar `ROUTE_SLUGS` com um `map` derivado dele mesmo passaria com a lista vazia.
  */
 describe('ROUTE_SLUGS — o primeiro segmento de toda rota declarada em App.tsx', () => {
-  it('tem exatamente os 13 segmentos estáticos das rotas da loja', () => {
-    expect(ROUTE_SLUGS).toHaveLength(13)
+  it('tem exatamente os 14 segmentos estáticos das rotas da loja', () => {
+    // 13 até a feature 23; o 14º é `como-enviar-o-material`, da 22. **Esta contagem falhar quando
+    // uma rota entra é o comportamento correto**: com categoria na raiz do domínio (`AD-018`), rota
+    // nova que não passe por aqui encobre em silêncio uma categoria homônima.
+    expect(ROUTE_SLUGS).toHaveLength(14)
   })
 
   it.each([
@@ -33,6 +36,7 @@ describe('ROUTE_SLUGS — o primeiro segmento de toda rota declarada em App.tsx'
     ['busca'],
     ['sobre'],
     ['politicas'],
+    ['como-enviar-o-material'],
     ['conta'],
     ['favoritos'],
     ['entrar'],
@@ -59,12 +63,12 @@ describe('INFRA_SLUGS — o que é do host/build e não aparece no App.tsx', () 
 })
 
 describe('RESERVED_SLUGS — a união das duas, sem duplicata', () => {
-  it('tem 16 entradas: 13 rotas + 3 de infraestrutura', () => {
-    expect(RESERVED_SLUGS).toHaveLength(16)
+  it('tem 17 entradas: 14 rotas + 3 de infraestrutura', () => {
+    expect(RESERVED_SLUGS).toHaveLength(17)
   })
 
   it('não repete nenhuma entrada', () => {
-    expect(new Set(RESERVED_SLUGS).size).toBe(16)
+    expect(new Set(RESERVED_SLUGS).size).toBe(17)
   })
 
   it.each([

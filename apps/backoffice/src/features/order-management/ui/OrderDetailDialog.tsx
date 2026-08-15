@@ -15,6 +15,7 @@ import { Copy, Printer, XCircle } from 'lucide-react'
 import MelhorEnvioTab from './MelhorEnvioTab'
 import { toast } from 'sonner'
 import type { DbOrder, DbOrderItem, DbOrderStatusHistory, DbOrderNote } from '@estrelinha/supabase/types'
+import OrderMaterialCard from './OrderMaterialCard'
 
 interface Props {
   open: boolean
@@ -27,12 +28,30 @@ interface Props {
   onCancel: (id: string, reason: string) => Promise<any>
   onAddTracking: (id: string, code: string, carrier: string) => Promise<any>
   onAddNote: (orderId: string, note: string) => Promise<any>
+  /**
+   * Feature 22. Opcionais para o dialog seguir montável sem elas nos testes existentes — o card de
+   * material simplesmente não aparece. Quem passa as duas é a `AdminOrdersPage`.
+   *
+   * **Tipadas, e não `Promise<any>` como as vizinhas.** O `any` das outras é dívida herdada; repetir
+   * o padrão aqui apagaria justamente o que importa neste retorno: `ok` decide se houve transição, e
+   * `reason` é o motivo que a AC 3 exige que apareça na tela. Um `any` deixaria "esqueci de ler o
+   * motivo" compilar.
+   */
+  onSetMaterialStatus?: (
+    id: string,
+    status: string,
+  ) => Promise<{ ok: boolean; reason: string | null; emailSent?: boolean }>
+  onSetMaterialTracking?: (
+    id: string,
+    code: string,
+  ) => Promise<{ ok: boolean; reason: string | null }>
 }
 
 const OrderDetailDialog = ({
   open, onOpenChange, order,
   onStatusChange, getItems, getStatusHistory, getNotes,
   onCancel, onAddTracking, onAddNote,
+  onSetMaterialStatus, onSetMaterialTracking,
 }: Props) => {
   const [items, setItems] = useState<DbOrderItem[]>([])
   const [history, setHistory] = useState<DbOrderStatusHistory[]>([])
@@ -164,6 +183,18 @@ const OrderDetailDialog = ({
                     </div>
                   ))}
                 </div>
+              )}
+
+              {/* Feature 22 — o que este pedido espera, e se já dá para produzir. Vem DEPOIS dos
+                  itens e ANTES dos totais: é operação, não dinheiro. Some sozinho quando o pedido
+                  não exige material. */}
+              {onSetMaterialStatus && onSetMaterialTracking && (
+                <OrderMaterialCard
+                  order={order}
+                  items={items}
+                  onSetStatus={onSetMaterialStatus}
+                  onSetTracking={onSetMaterialTracking}
+                />
               )}
 
               <div className="border-t border-border pt-3 space-y-1 text-sm">

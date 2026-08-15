@@ -59,7 +59,7 @@ export interface SendOptions {
 const ORDER_COLUMNS = `
   id, order_number, customer_name, customer_email,
   status, payment_status, paid_at, mp_order_id,
-  tracking_code, shipping_carrier,
+  tracking_code, shipping_carrier, material_status,
   subtotal, shipping_cost, discount, pix_discount, total,
   address_street, address_number, address_complement, address_neighborhood,
   address_city, address_state, address_zip,
@@ -90,6 +90,13 @@ export function preconditionFailure(type: EmailType, order: Record<string, unkno
     case 'order_shipped':
       if (order.status !== 'shipped') return 'order_not_shipped'
       if (String(order.tracking_code ?? '').trim() === '') return 'no_tracking_code'
+      return null
+    // MAT-09. Aqui a pré-condição vale ainda mais do que nas outras: um bug de chamador faria a loja
+    // dizer "recebemos suas cinzas" para quem ainda não postou nada. `material_status` é escrito
+    // SOMENTE pela RPC guardada `set_material_status`, então este é o estado de verdade — não há um
+    // segundo caminho por onde ele possa ter sido gravado errado.
+    case 'material_received':
+      if (order.material_status !== 'material_recebido') return 'material_not_received'
       return null
   }
 }

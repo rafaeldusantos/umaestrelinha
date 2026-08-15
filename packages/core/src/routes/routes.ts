@@ -29,6 +29,9 @@ export const ROUTE_SLUGS: readonly string[] = [
   'busca',
   'sobre',
   'politicas',
+  // Feature 22. Entra aqui **junto** com a rota no `App.tsx`, nunca depois: com categoria na raiz do
+  // domínio, uma rota de um segmento que não seja reservada encobre em silêncio a categoria homônima.
+  'como-enviar-o-material',
   'conta',
   'favoritos',
   'entrar',

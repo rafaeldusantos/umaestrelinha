@@ -28,14 +28,18 @@ const CartDrawerRow = ({ item, onNavigate }: Props) => {
   const toggleWishlist = useWishlistStore((s) => s.toggleItem)
   const wishlisted = useWishlistStore((s) => s.items.includes(item.product.id))
 
-  const { product, size, finish, variantId, quantity } = item
+  const { product, size, finish, variantId, quantity, engravingText } = item
   const scarcity = lowStockLabel(item)
   const chips = variantChips(item)
 
   // O `variantId` faz parte da identidade da linha (`cartStore.itemKey`). Omiti-lo — como as duas
   // telas antigas faziam — monta a chave legada `p:id-size-finish` e a remoção não casa com nada:
   // o item de grade era imexível.
-  const setQty = (qty: number) => updateQuantity(product.id, size, finish, qty, variantId)
+  //
+  // Desde a feature 22 o **texto de gravação** também compõe a chave (MAT-04): sem passá-lo, mexer
+  // na quantidade de "Ana" acertaria a linha de "Léo" — a mesma classe de defeito, de novo.
+  const setQty = (qty: number) =>
+    updateQuantity(product.id, size, finish, qty, variantId, engravingText)
 
   return (
     <li className="flex gap-3 border-b border-estrelinha-line px-5 py-3.5 md:gap-3.5 md:px-6 md:py-4">
@@ -79,6 +83,18 @@ const CartDrawerRow = ({ item, onNavigate }: Props) => {
               </span>
             ))}
           </div>
+        )}
+
+        {/* MAT-04: sem isto, duas linhas com gravações diferentes ficam visualmente IDÊNTICAS, e a
+            cliente não tem como saber qual está removendo. `truncate` + `title`: em 390px o nome
+            longo empurraria o preço para fora da largura. */}
+        {engravingText && (
+          <p
+            title={engravingText}
+            className="truncate text-[11px] leading-4 text-estrelinha-ink-soft"
+          >
+            Gravação: <span className="font-medium text-estrelinha-ink">{engravingText}</span>
+          </p>
         )}
 
         <div className="flex items-center justify-between pt-1">
@@ -125,7 +141,7 @@ const CartDrawerRow = ({ item, onNavigate }: Props) => {
             </button>
             <button
               type="button"
-              onClick={() => removeItem(product.id, size, finish, variantId)}
+              onClick={() => removeItem(product.id, size, finish, variantId, engravingText)}
               aria-label={`Remover ${product.name} do carrinho`}
               className={`${TAP_44} text-estrelinha-ink transition-colors hover:text-estrelinha-primary`}
             >

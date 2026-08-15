@@ -25,16 +25,31 @@ export const useAdminOrders = () => {
   const [dateFrom, setDateFrom] = useState<Date | undefined>()
   const [dateTo, setDateTo] = useState<Date | undefined>()
   const [paymentFilter, setPaymentFilter] = useState<string>('all')
+  const [materialFilter, setMaterialFilter] = useState<string>('all')
   const [page, setPage] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
   const [statusCounts, setStatusCounts] = useState<Record<string, number>>({})
+  const [materialCounts, setMaterialCounts] = useState<Record<string, number>>({})
 
   const fetchStatusCounts = useCallback(async () => {
-    const { data } = await supabase.from('orders').select('status')
+    // As duas contagens saem da MESMA leitura: uma segunda consulta só para o material dobraria o
+    // tráfego para responder a mesma pergunta.
+    //
+    // ⚠️ Herda o teto de 1.000 linhas do PostgREST (`select` sem paginação) — o mesmo defeito que
+    // quebrou a idempotência do importador na feature 21. Não foi introduzido aqui e não foi
+    // corrigido aqui para não misturar escopo; está registrado no `BACKLOG.md`. As contagens ficam
+    // certas até 1.000 pedidos.
+    const { data } = await supabase.from('orders').select('status, material_status')
     if (data) {
       const counts: Record<string, number> = {}
-      data.forEach(o => { counts[o.status] = (counts[o.status] || 0) + 1 })
+      const material: Record<string, number> = {}
+      data.forEach(o => {
+        counts[o.status] = (counts[o.status] || 0) + 1
+        const m = (o as { material_status?: string }).material_status ?? 'nao_aplicavel'
+        material[m] = (material[m] || 0) + 1
+      })
       setStatusCounts(counts)
+      setMaterialCounts(material)
     }
   }, [])
 
@@ -44,6 +59,9 @@ export const useAdminOrders = () => {
 
     if (statusFilter !== 'all') query = query.eq('status', statusFilter)
     if (paymentFilter !== 'all') query = query.eq('payment_method', paymentFilter)
+    // MAT-10: no servidor, e não filtrando a página já carregada — a fila precisa atravessar a
+    // paginação, senão "aguardando material" mostraria só o que coube nos 20 primeiros pedidos.
+    if (materialFilter !== 'all') query = query.eq('material_status', materialFilter)
     if (dateFrom) query = query.gte('created_at', dateFrom.toISOString())
     if (dateTo) {
       const end = new Date(dateTo)
@@ -66,9 +84,9 @@ export const useAdminOrders = () => {
       setTotalCount(count ?? 0)
     }
     setLoading(false)
-  }, [statusFilter, paymentFilter, dateFrom, dateTo, searchQuery, page])
+  }, [statusFilter, paymentFilter, materialFilter, dateFrom, dateTo, searchQuery, page])
 
-  useEffect(() => { setPage(1) }, [statusFilter, paymentFilter, dateFrom, dateTo, searchQuery])
+  useEffect(() => { setPage(1) }, [statusFilter, paymentFilter, materialFilter, dateFrom, dateTo, searchQuery])
 
   useEffect(() => {
     fetchOrders()
@@ -149,6 +167,59 @@ export const useAdminOrders = () => {
     return { error: null, emailSent }
   }
 
+  /**
+   * MAT-08 — a transição do material. **Só por RPC**, nunca `update` direto.
+   *
+   * `set_material_status` guarda os estados de origem permitidos no próprio `where`, o que a torna
+   * idempotente sob concorrência: duas admins clicando ao mesmo tempo convergem para o resultado de
+   * uma só. Um `update` daqui contornaria a máquina de estado inteira.
+   */
+  const setMaterialStatus = async (id: string, status: string) => {
+    const { data, error } = await supabase.rpc('set_material_status', {
+      p_order_id: id,
+      p_status: status,
+    })
+    if (error) return { ok: false, reason: 'rpc_failed', emailSent: false }
+
+    const resultado = (data ?? {}) as { ok?: boolean; reason?: string | null }
+    if (resultado.ok !== true) {
+      return { ok: false, reason: resultado.reason ?? 'invalid_transition', emailSent: false }
+    }
+
+    // MAT-09 + AD-008: o e-mail é contido. `sendOrderEmail` devolve booleano e NUNCA lança — falha
+    // de envio não reverte o estado nem vira erro para a admin. Ela acabou de conferir o envelope na
+    // bancada; desfazer isso porque o Resend caiu seria pior do que não avisar a cliente.
+    const emailSent =
+      status === 'material_recebido' ? await sendOrderEmail(id, 'material_received') : false
+
+    await fetchOrders()
+    await fetchStatusCounts()
+    return { ok: true, reason: null, emailSent }
+  }
+
+  /**
+   * MAT-11 — o rastreio da remessa da cliente, registrado pela Adri (o caso do WhatsApp).
+   *
+   * A **mesma** RPC que a loja chama: cliente e admin fazem a mesma coisa, e duas funções seriam
+   * duas máquinas de estado que divergem no primeiro ajuste.
+   */
+  const setMaterialTracking = async (id: string, code: string) => {
+    const { data, error } = await supabase.rpc('set_material_tracking', {
+      p_order_id: id,
+      p_code: code,
+    })
+    if (error) return { ok: false, reason: 'rpc_failed' }
+
+    const resultado = (data ?? {}) as { ok?: boolean; reason?: string | null }
+    if (resultado.ok !== true) {
+      return { ok: false, reason: resultado.reason ?? 'not_allowed' }
+    }
+
+    await fetchOrders()
+    await fetchStatusCounts()
+    return { ok: true, reason: null }
+  }
+
   const addNote = async (orderId: string, note: string) => {
     const { error } = await supabase.from('order_notes').insert({ order_id: orderId, note })
     return error
@@ -161,9 +232,11 @@ export const useAdminOrders = () => {
     searchQuery, setSearchQuery,
     dateFrom, setDateFrom, dateTo, setDateTo,
     paymentFilter, setPaymentFilter,
+    materialFilter, setMaterialFilter,
     page, setPage, totalPages, totalCount,
-    statusCounts,
+    statusCounts, materialCounts,
     fetchOrders, getOrderItems, updateStatus,
     getStatusHistory, getNotes, cancelOrder, addTrackingCode, addNote,
+    setMaterialStatus, setMaterialTracking,
   }
 }

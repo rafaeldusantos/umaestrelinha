@@ -14,6 +14,7 @@ import { normalizeImages, primaryImage } from '@estrelinha/core/media'
 // é uma variação vendável, o lojista publicaria uma grade que a vitrine não mostra — sem erro em
 // lugar nenhum. Nasceram aqui na 07/T18 e foram promovidos, não copiados.
 import { normalizeCategoryLinks, normalizeOptions, normalizeVariants, toStockPolicy } from '@estrelinha/core/product'
+import { toMaterialKinds } from '@estrelinha/core/material'
 import type { Product } from '@estrelinha/supabase/types'
 
 /**
@@ -83,5 +84,12 @@ export const mapDbToProduct = (p: any): Product => ({
   width_cm: p.width_cm ?? undefined,
   height_cm: p.height_cm ?? undefined,
   length_cm: p.length_cm ?? undefined,
+  // Feature 22. **Sem `?? false`**: `null` é o marcador de "nunca decidido", e coalescer aqui o
+  // apagaria — `requiresMaterial()` já trata `null` como "não exige", que é o comportamento seguro.
+  requires_material:
+    typeof p.requires_material === 'boolean' ? p.requires_material : null,
+  material_kinds: toMaterialKinds(p.material_kinds),
+  engraving_max_chars:
+    typeof p.engraving_max_chars === 'number' ? p.engraving_max_chars : null,
 })
 /* eslint-enable @typescript-eslint/no-explicit-any */

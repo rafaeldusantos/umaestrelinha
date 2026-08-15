@@ -10,6 +10,11 @@ import type { Order } from './useOrders'
  */
 export interface OrderDetail extends Order {
   paid_at: string | null
+  /** Feature 22 — o estado do material, **independente** do de pagamento (`MAT-08 AC 5`). */
+  material_status?: string | null
+  /** A remessa DE ENTRADA (cliente → ateliê). **Não** é `tracking_code`, que é a de saída. */
+  material_tracking_code?: string | null
+  material_received_at?: string | null
 }
 
 /**

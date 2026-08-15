@@ -52,6 +52,13 @@ export interface ReportData {
   skusDescartados: SkuDiscard[]
   imagensFalhadas: FailedImage[]
   vitrinePreservada: PreservedShowcase[]
+  /**
+   * Feature 22 — quantos produtos receberam a **semente** de material afetivo, inferida do nome.
+   *
+   * Sai no relatório porque número que ninguém vê é número que ninguém confere: sem esta linha, a
+   * diferença entre "semeou 400 produtos" e "semeou zero porque a regex quebrou" é invisível.
+   */
+  materialSemeado: number
   parouPorErro: string | null
 }
 
@@ -87,6 +94,7 @@ export const createReport = () => {
     skusDescartados: [],
     imagensFalhadas: [],
     vitrinePreservada: [],
+    materialSemeado: 0,
     parouPorErro: null,
   }
 
@@ -125,6 +133,7 @@ export const createReport = () => {
     categoryCurated: (categoria: CuratedCategory) => { data.categoriasInativadas.push(categoria) },
     categoryExcluded: (categoria: CuratedCategory) => { data.categoriasExcluidas.push(categoria) },
     showcasePreserved: (campo: PreservedShowcase) => { data.vitrinePreservada.push(campo) },
+    materialSeeded: (n = 1) => { data.materialSemeado += n },
 
     /** Parada limpa (`CAT-06`): registra o motivo e garante saída diferente de zero. */
     aborted: (motivo: string) => { data.parouPorErro = motivo },
@@ -161,6 +170,7 @@ export const createReport = () => {
       }
       linhas.push('')
       linhas.push(`imagens       novas ${data.imagens.novas} · reusadas ${data.imagens.reusadas} · falhadas ${data.imagens.falhadas}`)
+      linhas.push(`material      semeado em ${data.materialSemeado} produto(s) que ainda não tinham decisão`)
 
       if (data.categoriasInativadas.length > 0) {
         linhas.push('', 'categorias desativadas por curadoria:')

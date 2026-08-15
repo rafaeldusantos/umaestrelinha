@@ -17,6 +17,7 @@ import {
   normalizeVariants,
   toStockPolicy,
 } from '@estrelinha/core/product'
+import { type MaterialKind, toMaterialKinds } from '@estrelinha/core/material'
 import type {
   ProductImage,
   ProductOption,
@@ -69,6 +70,21 @@ export interface ProductFormState {
   scheduled_at: string
   related_product_ids: string[]
   buy_together_ids: string[]
+  /**
+   * Feature 22 — o material afetivo é propriedade do PRODUTO.
+   *
+   * `requires_material` é **três estados**: `null` = ninguém decidiu ainda. É o marcador que permite
+   * ao importador semear os 689 produtos do catálogo real sem apagar, na execução seguinte, o que a
+   * dona decidiu. Salvar o formulário sempre grava `true`/`false`, então editar um produto é o que o
+   * tira de `null` para sempre.
+   *
+   * `material_kinds` **vazia com `requires_material: true` é estado válido** — é a peça de material
+   * livre, combinada no WhatsApp. Não confundir "não exige" com "exige e ainda não sabe qual".
+   */
+  requires_material: boolean | null
+  material_kinds: MaterialKind[]
+  /** `null` cai em `DEFAULT_ENGRAVING_MAX_CHARS`. Nunca significa "sem limite". */
+  engraving_max_chars: number | null
 }
 
 /**
@@ -105,6 +121,11 @@ export const emptyProductForm = (): ProductFormState => ({
   scheduled_at: '',
   related_product_ids: [],
   buy_together_ids: [],
+  // Produto NOVO nasce com `null`, não `false`: quem acabou de abrir o formulário ainda não decidiu
+  // nada, e é o save que registra a decisão. Nascer `false` faria o importador nunca semear a linha.
+  requires_material: null,
+  material_kinds: [],
+  engraving_max_chars: null,
 })
 
 /** O `select` da carga do formulário. Traz a grade da TABELA e os vínculos N:N. */
@@ -153,6 +174,12 @@ export const productRowToForm = (row: any, opts: { asCopy?: boolean } = {}): Pro
   scheduled_at: row.scheduled_at ? String(row.scheduled_at).slice(0, 16) : '',
   related_product_ids: row.related_product_ids ?? [],
   buy_together_ids: row.buy_together_ids ?? [],
+  // SEM `?? false`: `null` é informação, não ausência de valor. Coalescer aqui apagaria o marcador
+  // de "nunca decidido" na primeira abertura do formulário, e o importador pararia de semear.
+  requires_material: typeof row.requires_material === 'boolean' ? row.requires_material : null,
+  material_kinds: toMaterialKinds(row.material_kinds),
+  engraving_max_chars:
+    typeof row.engraving_max_chars === 'number' ? row.engraving_max_chars : null,
 })
 /* eslint-enable @typescript-eslint/no-explicit-any */
 

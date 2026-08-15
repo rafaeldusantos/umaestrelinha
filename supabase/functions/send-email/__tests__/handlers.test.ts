@@ -289,6 +289,12 @@ describe('EML-07 / EML-09 / EML-10 — estado do pedido manda', () => {
     ['order_shipped', 'status não é shipped', { status: 'paid', tracking_code: 'NA1' }, 'order_not_shipped'],
     ['order_shipped', 'sem rastreio', { status: 'shipped', tracking_code: null }, 'no_tracking_code'],
     ['order_shipped', 'rastreio em branco', { status: 'shipped', tracking_code: '   ' }, 'no_tracking_code'],
+    // MAT-09 — a pré-condição mais consequente da loja: um bug de chamador aqui faria a loja dizer
+    // "recebemos suas cinzas" para quem ainda não postou nada.
+    ['material_received', 'ainda aguardando', { material_status: 'aguardando_material' }, 'material_not_received'],
+    ['material_received', 'a caminho', { material_status: 'material_enviado' }, 'material_not_received'],
+    ['material_received', 'pedido sem material', { material_status: 'nao_aplicavel' }, 'material_not_received'],
+    ['material_received', 'coluna ausente', { material_status: null }, 'material_not_received'],
   ])('%s com %s → 422 (%s), SEM linha de claim e sem chamada ao Resend', async (type, _label, over, expected) => {
     const { deps, fetchDouble, supabase } = setup({ order: orderRow(over) })
     const body = { type, order_id: ORDER_ID }
@@ -306,6 +312,7 @@ describe('EML-07 / EML-09 / EML-10 — estado do pedido manda', () => {
     ['order_paid', { paid_at: '2026-07-30T12:00:00Z' }],
     ['order_received', { payment_status: 'pending', mp_order_id: 'ORDTST01', paid_at: null }],
     ['order_shipped', { status: 'shipped', tracking_code: 'NA123456789BR' }],
+    ['material_received', { material_status: 'material_recebido' }],
   ])('%s com o estado exigido → 200 e um envio', async (type, over) => {
     const { deps, fetchDouble } = setup({ order: orderRow(over) })
     const body = { type, order_id: ORDER_ID }

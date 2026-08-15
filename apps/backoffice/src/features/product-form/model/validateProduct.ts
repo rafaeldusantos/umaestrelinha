@@ -7,6 +7,7 @@
 //
 // Sendo pura e sobre o objeto inteiro, a validação não sabe nem se importa qual aba está aberta.
 
+import { MATERIAL_KINDS } from '@estrelinha/core/material'
 import type { ProductFormState } from './useProductForm'
 
 /** As 5 abas do formulário depois da T25. `variacoes` deixou de existir. */
@@ -44,6 +45,41 @@ export const validateProduct = (form: ProductFormState): FieldIssue[] => {
       field: 'name',
       tab: 'geral',
       message: 'O nome do produto é obrigatório.',
+      severity: 'error',
+    })
+  }
+
+  // --- Material afetivo (feature 22) ----------------------------------------------------------
+  //
+  // Repare no que NÃO está aqui: exigir material sem marcar nenhum tipo **não** é erro. É a peça de
+  // material livre, cuja escolha acontece no WhatsApp — bloquear o save ali obrigaria a dona a
+  // inventar um material para conseguir publicar.
+  //
+  // O que é erro é o que o banco recusaria: um limite fora de 1..200 volta `check_violation` como
+  // "erro ao salvar produto", sem dizer qual campo. O `check` continua existindo — esta validação é
+  // a que produz mensagem acionável antes da viagem.
+  if (
+    form.engraving_max_chars !== null &&
+    (!Number.isInteger(form.engraving_max_chars) ||
+      form.engraving_max_chars < 1 ||
+      form.engraving_max_chars > 200)
+  ) {
+    issues.push({
+      field: 'engraving_max_chars',
+      tab: 'geral',
+      message: 'O limite de caracteres da gravação precisa ser um número inteiro entre 1 e 200.',
+      severity: 'error',
+    })
+  }
+
+  const materiaisInvalidos = form.material_kinds.filter(
+    kind => !(MATERIAL_KINDS as readonly string[]).includes(kind),
+  )
+  if (materiaisInvalidos.length > 0) {
+    issues.push({
+      field: 'material_kinds',
+      tab: 'geral',
+      message: `Material desconhecido: ${materiaisInvalidos.join(', ')}.`,
       severity: 'error',
     })
   }

@@ -12,6 +12,8 @@ import { useWishlistStore } from '@/entities/wishlist/model/wishlistStore'
 import ShareButtons from '@/features/share-product/ui/ShareButtons'
 import { PAGE_MAX_AXES } from '../lib/variantSelection'
 import type { ProductPurchase } from '../model/useProductPurchase'
+import EngravingField from './EngravingField'
+import MaterialNotice from './MaterialNotice'
 import ProductTrustBadges from './ProductTrustBadges'
 import VariantPicker from './VariantPicker'
 
@@ -129,6 +131,13 @@ const ProductInfo = ({ product, categoryName, purchase }: Props) => {
           </div>
         </>
       )}
+
+      {/* MAT-02/MAT-03 — o que a cliente precisa enviar, e o que vai gravado. Vêm ANTES do CTA de
+          propósito: a escada de decisão da coluna é "o que é → quanto custa → qual → tem? → levar",
+          e descobrir depois de comprar que faltava enviar algo é o defeito que esta feature fecha.
+          Os dois lêem o MESMO `purchase` que a barra fixa do mobile — nunca um segundo estado. */}
+      <MaterialNotice product={product} />
+      <EngravingField purchase={purchase} />
 
       <hr className="mt-5 border-estrelinha-line" />
 

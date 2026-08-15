@@ -268,3 +268,66 @@ describe('OrderConfirmationPage — ações (CNF-05)', () => {
     )
   })
 })
+
+// =================================================================================================
+// Feature 22 — o bloco de material na confirmação (MAT-11)
+// =================================================================================================
+
+describe('OrderConfirmationPage — bloco de material', () => {
+  it('pedido sem material NÃO monta o bloco — nem a consulta que ele faria', () => {
+    // É o que mantém esta página montável sem `QueryClientProvider` para o pedido comum: a mutação
+    // do rastreio vive no formulário, que só existe quando há material a caminho.
+    useOrderMock.mockReturnValue({
+      data: order({ material_status: 'nao_aplicavel' }),
+      isLoading: false,
+      isError: false,
+    } as any)
+    renderPage()
+
+    expect(screen.queryByText('Material da sua joia')).not.toBeInTheDocument()
+  })
+
+  it('pedido cujo material já chegou mostra o bloco, sem pedir código de novo', () => {
+    useOrderMock.mockReturnValue({
+      data: order({
+        material_status: 'material_recebido',
+        material_tracking_code: 'AA123456789BR',
+        order_items: [
+          { id: 'i1', product_name: 'Árvore da Vida', product_image: null, size: null,
+            finish: null, quantity: 1, unit_price: 100,
+            requires_material: true, material_kinds: ['cabelo'], engraving_text: null },
+        ],
+      }),
+      isLoading: false,
+      isError: false,
+    } as any)
+    renderPage()
+
+    expect(screen.getByText('Material da sua joia')).toBeInTheDocument()
+    expect(screen.getByText('Material recebido')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Mecha de cabelo' })).toBeInTheDocument()
+    expect(screen.queryByLabelText(/registre o código/i)).not.toBeInTheDocument()
+  })
+
+  it('os materiais vêm do SNAPSHOT dos itens, sem repetir quando duas linhas pedem o mesmo', () => {
+    useOrderMock.mockReturnValue({
+      data: order({
+        material_status: 'material_recebido',
+        order_items: [
+          { id: 'i1', product_name: 'A', product_image: null, size: null, finish: null,
+            quantity: 1, unit_price: 50, requires_material: true,
+            material_kinds: ['cabelo'], engraving_text: null },
+          { id: 'i2', product_name: 'B', product_image: null, size: null, finish: null,
+            quantity: 1, unit_price: 50, requires_material: true,
+            material_kinds: ['cabelo', 'cinzas'], engraving_text: null },
+        ],
+      }),
+      isLoading: false,
+      isError: false,
+    } as any)
+    renderPage()
+
+    expect(screen.getAllByRole('link', { name: 'Mecha de cabelo' })).toHaveLength(1)
+    expect(screen.getByRole('link', { name: 'Cinzas' })).toBeInTheDocument()
+  })
+})

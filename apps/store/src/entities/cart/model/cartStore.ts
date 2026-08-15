@@ -32,14 +32,35 @@ export interface CartItem {
    */
   unitPrice: number
   quantity: number
+  /**
+   * O texto que a cliente pediu para gravar, **já normalizado** (`null` quando vazio ou só espaços).
+   *
+   * Faz parte da **identidade da linha** — ver `itemKey`. Duas unidades da mesma variação com
+   * gravações diferentes são dois pedidos diferentes para a bancada, não quantidade 2.
+   *
+   * Opcional no tipo porque **ausente e `null` são o mesmo caso** — sem gravação —, e é assim que
+   * `keyOf` e o checkout o leem. Não há um segundo caminho de entrada no carrinho: `addItem` é o
+   * único, e o parâmetro tem default.
+   */
+  engravingText?: string | null
 }
 
 interface CartState {
   items: CartItem[]
-  addItem: (product: Product, size?: string, finish?: string, variant?: CartVariantInput) => void
-  removeItem: (productId: string, size?: string, finish?: string, variantId?: string | null) => void
+  addItem: (
+    product: Product,
+    size?: string,
+    finish?: string,
+    variant?: CartVariantInput,
+    engravingText?: string | null,
+  ) => void
+  removeItem: (
+    productId: string, size?: string, finish?: string, variantId?: string | null,
+    engravingText?: string | null,
+  ) => void
   updateQuantity: (
     productId: string, size: string, finish: string, quantity: number, variantId?: string | null,
+    engravingText?: string | null,
   ) => void
   clearCart: () => void
   uniqueItemsCount: () => number
@@ -62,17 +83,26 @@ interface CartState {
  */
 const itemKey = (
   productId: string, size: string, finish: string, variantId?: string | null,
-) => (variantId ? `v:${variantId}` : `p:${productId}-${size}-${finish}`)
+  engravingText?: string | null,
+) => {
+  const base = variantId ? `v:${variantId}` : `p:${productId}-${size}-${finish}`
+  // MAT-04: a gravação entra na identidade da linha. Sem isto, duas unidades do mesmo produto e da
+  // mesma variação com gravações **diferentes** colapsariam em quantidade 2, e a bancada receberia
+  // um pedido de dois nomes com um nome só. É a mesma armadilha que a chave de `variantId` já custou
+  // à loja anterior, em duas telas.
+  return engravingText ? `${base}|e:${engravingText}` : base
+}
 
-const keyOf = (i: CartItem) => itemKey(i.product.id, i.size, i.finish, i.variantId)
+const keyOf = (i: CartItem) =>
+  itemKey(i.product.id, i.size, i.finish, i.variantId, i.engravingText)
 
 export const useCartStore = create<CartState>()(
   persist(
     (set, get) => ({
       items: [],
-      addItem: (product, size = '', finish = '', variant) =>
+      addItem: (product, size = '', finish = '', variant, engravingText = null) =>
         set((state) => {
-          const key = itemKey(product.id, size, finish, variant?.variantId)
+          const key = itemKey(product.id, size, finish, variant?.variantId, engravingText)
           const existing = state.items.find((i) => keyOf(i) === key)
           if (existing) {
             return {
@@ -96,19 +126,20 @@ export const useCartStore = create<CartState>()(
                   variant?.variantLabel ?? [size, finish].filter(Boolean).join(' · '),
                 optionValues: variant?.optionValues ?? {},
                 unitPrice: variant?.unitPrice ?? product.price,
+                engravingText: engravingText || null,
               },
             ],
           }
         }),
-      removeItem: (productId, size = '', finish = '', variantId = null) =>
+      removeItem: (productId, size = '', finish = '', variantId = null, engravingText = null) =>
         set((state) => ({
           items: state.items.filter(
-            (i) => keyOf(i) !== itemKey(productId, size, finish, variantId),
+            (i) => keyOf(i) !== itemKey(productId, size, finish, variantId, engravingText),
           ),
         })),
-      updateQuantity: (productId, size, finish, quantity, variantId = null) =>
+      updateQuantity: (productId, size, finish, quantity, variantId = null, engravingText = null) =>
         set((state) => {
-          const key = itemKey(productId, size, finish, variantId)
+          const key = itemKey(productId, size, finish, variantId, engravingText)
           return {
             items:
               quantity <= 0
@@ -129,7 +160,7 @@ export const useCartStore = create<CartState>()(
     }),
     {
       name: 'estrelinha-cart',
-      version: 2,
+      version: 3,
       /**
        * O storage v1 é **descartado**, não convertido.
        *
@@ -140,6 +171,14 @@ export const useCartStore = create<CartState>()(
        */
       migrate: (persisted, version) => {
         if (version < 2) return { items: [] }
+        // v2 → v3 **preserva**, ao contrário do salto v1 → v2 logo acima. A diferença é o que
+        // faltava: um item v1 não tinha variação, e um pedido sem `variant_id` o servidor recusa a
+        // pagar — beco sem saída. Aqui falta um campo opcional cujo default correto é conhecido, e
+        // descartar a sacola por causa dele seria dano gratuito.
+        if (version < 3) {
+          const items = (persisted as { items?: CartItem[] })?.items ?? []
+          return { items: items.map((i) => ({ ...i, engravingText: i.engravingText ?? null })) }
+        }
         return persisted as { items: CartItem[] }
       },
     },

@@ -7,12 +7,14 @@ import {
   DEFAULT_SEO,
   DEFAULT_ABANDONED_CART,
   DEFAULT_CHECKOUT,
+  DEFAULT_MATERIAL,
   type GeneralSettings,
   type ShippingSettings,
   type PaymentSettings,
   type SeoSettings,
   type AbandonedCartSettings,
   type CheckoutSettings,
+  type MaterialSettings,
   type SettingsKey,
   type SettingsMap,
 } from '@estrelinha/supabase/types/settings'
@@ -26,6 +28,7 @@ const DEFAULTS: SettingsMap = {
   seo: DEFAULT_SEO,
   abandoned_cart: DEFAULT_ABANDONED_CART,
   checkout: DEFAULT_CHECKOUT,
+  material: DEFAULT_MATERIAL,
 }
 
 async function fetchAllSettings(): Promise<SettingsMap> {
@@ -84,6 +87,17 @@ export function useAbandonedCartSettings(): AbandonedCartSettings {
 export function useCheckoutSettings(): CheckoutSettings {
   const { data } = useStoreSettings()
   return data?.checkout ?? DEFAULT_CHECKOUT
+}
+
+/**
+ * Endereço do ateliê para onde a cliente posta o material (`MAT-01`).
+ *
+ * O default é vazio de propósito — quem consome **precisa** checar `street` antes de desenhar o
+ * bloco. Endereço pela metade, aqui, é material insubstituível postado para lugar nenhum.
+ */
+export function useMaterialSettings(): MaterialSettings {
+  const { data } = useStoreSettings()
+  return data?.material ?? DEFAULT_MATERIAL
 }
 
 type UpdateInput = { [K in SettingsKey]: { key: K; value: SettingsMap[K] } }[SettingsKey]

@@ -12,6 +12,23 @@ import { PackageCheck } from 'lucide-react'
 import { formatPrice } from '@estrelinha/core/formatters'
 import { formatEstimate } from '@estrelinha/core/shipping'
 import { OrderTimeline, useOrder } from '@/entities/order'
+import { OrderMaterialBlock } from '@/widgets/order-material'
+
+/**
+ * Os materiais do pedido, do **snapshot dos itens** — nunca de uma releitura do catálogo.
+ *
+ * Mudar a exigência no cadastro não pode alterar pedido já criado (`MAT-05`), e um pedido que exige
+ * dois materiais lista os dois, sem repetir quando duas linhas pedem o mesmo.
+ */
+const materiaisDoPedido = (items: { material_kinds?: string[] | null }[] = []): string[] => {
+  const vistos: string[] = []
+  for (const item of items ?? []) {
+    for (const kind of item.material_kinds ?? []) {
+      if (!vistos.includes(kind)) vistos.push(kind)
+    }
+  }
+  return vistos
+}
 
 const Shell = ({ children }: { children: React.ReactNode }) => (
   <div className="container mx-auto max-w-3xl py-14 md:py-20">{children}</div>
@@ -99,6 +116,17 @@ const OrderConfirmationPage = () => {
         </div>
 
         <OrderTimeline status={order.status} paidAt={order.paid_at} estimate={estimate} />
+
+        {/* MAT-11. Fica DEPOIS da linha do tempo e antes dos CTAs: a linha do tempo é sobre o
+            pagamento e a entrega — duas máquinas de estado independentes desta. O bloco some sozinho
+            quando o pedido não espera material. */}
+        <OrderMaterialBlock
+          orderId={order.id}
+          materialStatus={order.material_status}
+          trackingCode={order.material_tracking_code}
+          kinds={materiaisDoPedido(order.order_items)}
+          cancelled={order.status === 'cancelled'}
+        />
 
         {/* CNF-05: uma única pílula geleia — "Acompanhar pedido". A outra é contorno tinta. */}
         <div className="flex flex-col gap-3 sm:flex-row">

@@ -132,6 +132,10 @@ const Footer = () => {
 
             <FooterColumn title="Ajuda">
               <FooterLink to="/conta">Meus pedidos</FooterLink>
+              {/* Feature 22: a pergunta que a operação mais responde. Fica em "Ajuda", e não em
+                  "Institucional", porque é instrução de uso — a cliente procura isso com o envelope
+                  na mão, não navegando pela loja. */}
+              <FooterLink to="/como-enviar-o-material">Como enviar o material</FooterLink>
               <FooterLink to="/politicas#trocas">Trocas e devoluções</FooterLink>
               <FooterLink to="/politicas">Políticas</FooterLink>
               <FooterLink to="/sobre">Contato</FooterLink>

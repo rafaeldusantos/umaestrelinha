@@ -21,10 +21,15 @@ import {
   totalsTable,
 } from './layout.ts'
 
-export type EmailType = 'order_received' | 'order_paid' | 'order_shipped'
+export type EmailType = 'order_received' | 'order_paid' | 'order_shipped' | 'material_received'
 
 /** Fonte única do allow-list — o handler valida `type` contra isto antes de tocar no banco. */
-export const EMAIL_TYPES: readonly EmailType[] = ['order_received', 'order_paid', 'order_shipped']
+export const EMAIL_TYPES: readonly EmailType[] = [
+  'order_received',
+  'order_paid',
+  'order_shipped',
+  'material_received',
+]
 
 export interface RenderedEmail {
   subject: string
@@ -37,6 +42,18 @@ const CTA_LABEL = 'Acompanhar em Minha conta'
 function greet(order: EmailOrder): string {
   const name = firstName(order.customer_name)
   return name === '' ? '' : `Oi, ${name}! `
+}
+
+/**
+ * O mesmo cumprimento, **sem a exclamação**.
+ *
+ * Existe para `material_received`, e a diferença de um caractere é a decisão: os outros quatro
+ * e-mails celebram um pedido feito, um pagamento aprovado, uma joia postada. Este confirma que
+ * chegaram ao ateliê as cinzas de alguém. "Oi, Mariana!" ali soa a festa.
+ */
+function greetCalm(order: EmailOrder): string {
+  const name = firstName(order.customer_name)
+  return name === '' ? '' : `Oi, ${name}. `
 }
 
 function commonBody(order: EmailOrder, href: string, prefix = ''): string {
@@ -110,6 +127,30 @@ export function renderOrderShipped(order: EmailOrder, storeUrl: string): Rendere
   })
 }
 
+/**
+ * O material chegou ao ateliê (`MAT-09`).
+ *
+ * **É o e-mail mais delicado da loja, e o tom é a decisão de produto.** Ele confirma o recebimento
+ * de cinzas de cremação, de leite materno, de um cacho de cabelo de quem morreu. Os outros quatro
+ * e-mails abrem com exclamação ("Recebemos seu pedido!"); este **não** — nem exclamação, nem
+ * "chegou aqui!", nem qualquer coisa que soe a comemoração. O que a cliente precisa saber é que o
+ * material está em segurança e que a produção começou.
+ *
+ * Sem `highlightBox`: o destaque grande em geleia é o desenho do código de rastreio, e emprestá-lo a
+ * "recebemos suas cinzas" transformaria a confirmação em anúncio.
+ */
+export function renderMaterialReceived(order: EmailOrder, storeUrl: string): RenderedEmail {
+  return compose(order, storeUrl, {
+    subject: `Recebemos seu material — pedido ${order.order_number}`,
+    heading: 'Seu material chegou até nós',
+    lead: `${greetCalm(order)}Seu material chegou em segurança ao ateliê e já está guardado com cuidado. A partir de agora, sua joia entra em produção — e a gente avisa assim que ela for postada.`,
+    extra: [
+      'Status: material recebido — em produção',
+      'Usamos apenas a quantidade necessária, e todo o excedente volta junto com a sua joia.',
+    ],
+  })
+}
+
 export function renderEmail(type: EmailType, order: EmailOrder, storeUrl: string): RenderedEmail {
   switch (type) {
     case 'order_received':
@@ -118,5 +159,7 @@ export function renderEmail(type: EmailType, order: EmailOrder, storeUrl: string
       return renderOrderPaid(order, storeUrl)
     case 'order_shipped':
       return renderOrderShipped(order, storeUrl)
+    case 'material_received':
+      return renderMaterialReceived(order, storeUrl)
   }
 }
