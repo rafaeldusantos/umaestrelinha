@@ -19,6 +19,13 @@ export interface ProductRow {
   seo_title: string | null
   seo_description: string | null
   video_url: string | null
+  /**
+   * As tags da origem, já em array. `[]` quando não há — nunca `null`, nunca `['']`.
+   *
+   * A loja **já filtra por elas** (`features/category-filters`), e o filtro nasceu morto: 0 de 680
+   * produtos tinham tag gravada porque este mapeamento não lia o campo.
+   */
+  tags: string[]
   options: ProductOption[]
   stock_policy: 'track' | 'backorder' | 'none'
   /** Semente para o `NOT NULL`. Depois do insert das variações, o trigger do banco é o dono. */
@@ -87,6 +94,25 @@ const buildOptions = (raw: RawProduct): ProductOption[] =>
 const stockPolicy = (raw: RawProduct): 'track' | 'none' =>
   raw.variants.every(v => v.stock_management === false) ? 'none' : 'track'
 
+/**
+ * As tags do produto, a partir da **string separada por vírgula** que a origem entrega.
+ *
+ * `RawProduct.tags` é `"Afetivo, Ateliê da Prata, Pingente Afetivo"` — uma string, não um array.
+ * Gravá-la crua num `TEXT[]` daria **uma** tag com vírgulas dentro, e o filtro da loja ofereceria
+ * essa linha inteira como se fosse um tema.
+ *
+ * A ordem é a de **aparição**, e não alfabética: é a ordem em que a Adri escreveu. Por isso a
+ * deduplicação mantém a PRIMEIRA ocorrência.
+ */
+const parseTags = (raw: string | null | undefined): string[] => {
+  const tags: string[] = []
+  for (const parte of (raw ?? '').split(',')) {
+    const tag = parte.trim()
+    if (tag !== '' && !tags.includes(tag)) tags.push(tag)
+  }
+  return tags
+}
+
 export const mapProduct = (raw: RawProduct): ProductMapping => {
   const slug = loc(raw.handle)
   const name = loc(raw.name)
@@ -116,6 +142,7 @@ export const mapProduct = (raw: RawProduct): ProductMapping => {
       seo_title: loc(raw.seo_title) || null,
       seo_description: loc(raw.seo_description) || null,
       video_url: raw.video_url || null,
+      tags: parseTags(raw.tags),
       options: buildOptions(raw),
       stock_policy: stockPolicy(raw),
       base_price: Math.min(...precos),

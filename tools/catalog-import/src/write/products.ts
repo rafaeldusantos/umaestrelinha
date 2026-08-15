@@ -61,6 +61,13 @@ const catalogoDoProduto = (row: ProductRow) => ({
   seo_title: row.seo_title,
   seo_description: row.seo_description,
   video_url: row.video_url,
+  /**
+   * DENTRO de `catalogoDoProduto`, e não ao lado como a semente de material — a divergência é
+   * deliberada (`COR-08`). Material tem tela de curadoria e a dona decide; **tag não tem**: a origem
+   * é a única dona. "Só semeia se estiver vazio" congelaria a primeira importação para sempre, e
+   * renomear uma tag na Nuvemshop nunca chegaria à loja.
+   */
+  tags: row.tags,
   options: row.options,
   stock_policy: row.stock_policy,
   stock_total: row.stock_total,
@@ -294,6 +301,51 @@ export const writeProducts = async (
   }
 
   return uuidPorNuvemshop
+}
+
+/**
+ * Grava a foto de cada variação (`COR-01`), resolvendo `image_nuvemshop_id` → URL do Storage.
+ *
+ * ## Por que ela existe
+ *
+ * `VariantRow.image_nuvemshop_id` era mapeado desde o primeiro import, com o comentário *"vira URL
+ * do Storage na fase de imagens"* — e **nada** implementava essa frase. Medido em 2026-08-15:
+ * `product_variants.image_url` estava `null` em **3.245 de 3.245**. Terceira ocorrência da classe do
+ * `AD-012`, com o agravante de o comentário descrever um comportamento inexistente.
+ *
+ * ## Por que grava até quando não há foto
+ *
+ * A escrita é **incondicional**, inclusive com `null`. Pular a variação sem foto preservaria uma URL
+ * antiga de uma imagem que a origem trocou — e `COR-04` pede que a segunda execução **corrija**, não
+ * que conserve. `null` é o valor certo nos dois casos de `COR-02`: variação sem `image_id` na origem
+ * e variação cujo upload falhou (a imagem não entra no mapa). **Nunca a capa e nunca a foto de outra
+ * cor**: três cores mostrando a mesma peça é pior que nenhuma miniatura, porque a cliente conclui
+ * que a cor não muda nada.
+ *
+ * Casa por `nuvemshop_id` da variação, que é `UNIQUE` global.
+ */
+export const writeVariantImages = async (
+  variants: readonly VariantRow[],
+  storageUrls: ReadonlyMap<number, string>,
+  deps: ProductWriteDeps,
+): Promise<void> => {
+  if (deps.dryRun) return
+
+  for (const variant of variants) {
+    const url = variant.image_nuvemshop_id === null
+      ? null
+      : storageUrls.get(variant.image_nuvemshop_id) ?? null
+
+    unwrap(
+      'gravar foto da variação',
+      await deps.supabase.from('product_variants')
+        .update({ image_url: url })
+        .eq('nuvemshop_id', variant.nuvemshop_id),
+    )
+
+    if (url === null) deps.report.variantPhotoMissing()
+    else deps.report.variantPhotoSet()
+  }
 }
 
 /** Grava a galeria depois que as imagens estão no Storage. Separado porque depende da fase 3. */

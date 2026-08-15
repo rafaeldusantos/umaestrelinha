@@ -77,10 +77,21 @@ describe('forma do produto', () => {
       for (const key of [
         'id', 'name', 'handle', 'description', 'published', 'visibility',
         'attributes', 'variants', 'images', 'categories', 'seo_title', 'seo_description', 'video_url',
+        'tags',
       ]) {
         expect(hasKey(p, key), `produto ${p.id} sem ${key}`).toBe(true)
       }
     }
+  })
+
+  it('entrega `tags` como STRING separada por vírgula, nunca como array', () => {
+    // Feature 26: o mapeamento passou a ler este campo. Se a origem trocar a forma, gravaríamos uma
+    // tag só com vírgulas dentro — e o filtro da loja ofereceria a linha inteira como tema.
+    for (const p of prods) {
+      expect(Array.isArray(p.tags), `produto ${p.id} passou a mandar tags como array`).toBe(false)
+      expect(typeof p.tags, `produto ${p.id}`).toBe('string')
+    }
+    expect(prods.filter(p => p.tags.includes(',')).length).toBeGreaterThan(0)
   })
 
   it('tem um valor por eixo em toda variação', () => {

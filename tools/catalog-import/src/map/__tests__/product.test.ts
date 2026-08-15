@@ -226,6 +226,49 @@ describe('mapProduct — vínculo de categoria (CAT-05)', () => {
   })
 })
 
+// =================================================================================================
+// Feature 26 — as tags do produto (COR-06, COR-07)
+// =================================================================================================
+//
+// A loja já filtra por tag desde sempre (`features/category-filters`), e o filtro nasceu MORTO: 0 de
+// 680 produtos tinham tag gravada, porque este mapeamento não lia `RawProduct.tags`. Ele é uma
+// STRING separada por vírgula, não um array.
+
+describe('mapProduct — tags (COR-06)', () => {
+  const comTags = (tags: string) =>
+    mapped({ ...bySlug('pingente-pata-colecao-fragmentos'), tags } as RawProduct).tags
+
+  it('separa a string por vírgula, preservando o texto de cada tag', () => {
+    expect(comTags('Leite Materno, Cinzas')).toEqual(['Leite Materno', 'Cinzas'])
+  })
+
+  it('faz trim, descarta as vazias e remove duplicata mantendo a ordem de aparição', () => {
+    expect(comTags(' a , , b , a ')).toEqual(['a', 'b'])
+  })
+
+  it('lê as tags REAIS do catálogo, na ordem em que a origem as publica', () => {
+    const row = mapped(bySlug('joia-afetiva-gota-com-leite-materno-cabelo-e-desenho-em-prata-925'))
+    expect(row.tags).toEqual(['Afetivo', 'Ateliê da Prata', 'Pingente Afetivo'])
+  })
+})
+
+describe('mapProduct — tags ausentes (COR-07)', () => {
+  it('grava `[]` para produto sem tag — nunca `[\'\']`', () => {
+    const row = mapped({ ...bySlug('pingente-pata-colecao-fragmentos'), tags: '' } as RawProduct)
+    expect(row.tags).toEqual([])
+    expect(row.tags).not.toContain('')
+  })
+
+  it('nunca emite `null`: os 5 produtos aceitos do recorte real saem com array', () => {
+    const rows = reais.map(mapProduct).flatMap(o => (o.kind === 'product' ? [o.row] : []))
+    expect(rows).toHaveLength(5)
+    for (const row of rows) {
+      expect(Array.isArray(row.tags), `${row.slug} não emitiu array`).toBe(true)
+      expect(row.tags).not.toContain('')
+    }
+  })
+})
+
 describe('mapProduct — o que NÃO é escrito (CAT-12)', () => {
   it('não emite campo de vitrine: is_featured, is_new, is_promo e sort_order são da loja', () => {
     const row = mapped(bySlug('pingente-pata-colecao-fragmentos'))

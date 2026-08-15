@@ -41,6 +41,14 @@ export interface PreservedShowcase {
 export interface ReportData {
   entidades: Record<Entity, EntityCounts>
   imagens: { novas: number; reusadas: number; falhadas: number }
+  /**
+   * Feature 26 (`COR-03`) — quantas variações receberam foto própria e quantas ficaram sem.
+   *
+   * **Os dois números, separados.** Só "N com foto" não permite conferir o total: a diferença entre
+   * "gravou 3.245" e "gravou 12 porque o vínculo da origem não é o que se supunha" fica invisível.
+   * Antes desta feature a coluna estava `null` em 3.245 de 3.245.
+   */
+  fotosDeVariacao: { com: number; sem: number }
   categoriasInativadas: CuratedCategory[]
   /**
    * Lista SEPARADA das desativadas de propósito: desativar preserva a linha e é reversível num
@@ -88,6 +96,7 @@ export const createReport = () => {
   const data: ReportData = {
     entidades: { categorias: zero(), produtos: zero(), variacoes: zero() },
     imagens: { novas: 0, reusadas: 0, falhadas: 0 },
+    fotosDeVariacao: { com: 0, sem: 0 },
     categoriasInativadas: [],
     categoriasExcluidas: [],
     produtosPulados: [],
@@ -128,6 +137,9 @@ export const createReport = () => {
       data.imagens.falhadas += 1
       data.imagensFalhadas.push(falha)
     },
+
+    variantPhotoSet: () => { data.fotosDeVariacao.com += 1 },
+    variantPhotoMissing: () => { data.fotosDeVariacao.sem += 1 },
 
     skusDiscarded: (discards: readonly SkuDiscard[]) => { data.skusDescartados.push(...discards) },
     categoryCurated: (categoria: CuratedCategory) => { data.categoriasInativadas.push(categoria) },
@@ -170,6 +182,7 @@ export const createReport = () => {
       }
       linhas.push('')
       linhas.push(`imagens       novas ${data.imagens.novas} · reusadas ${data.imagens.reusadas} · falhadas ${data.imagens.falhadas}`)
+      linhas.push(`variações     com foto ${data.fotosDeVariacao.com} · sem foto ${data.fotosDeVariacao.sem}`)
       linhas.push(`material      semeado em ${data.materialSemeado} produto(s) que ainda não tinham decisão`)
 
       if (data.categoriasInativadas.length > 0) {

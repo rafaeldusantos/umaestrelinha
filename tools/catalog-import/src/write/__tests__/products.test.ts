@@ -2,15 +2,23 @@ import { describe, expect, it } from 'vitest'
 
 import productsFixture from '../../__fixtures__/products.json' with { type: 'json' }
 import { mapProduct } from '../../map/product.ts'
-import { mapVariants } from '../../map/variant.ts'
+import { mapVariants, type VariantRow } from '../../map/variant.ts'
 import type { RawProduct } from '../../nuvemshop/types.ts'
 import { createReport } from '../../report.ts'
 import type { DbLike } from '../db.ts'
-import { CAMPOS_DE_VITRINE, writeProducts, writeProductImages, type ProductItem } from '../products.ts'
+import {
+  CAMPOS_DE_VITRINE, writeProducts, writeProductImages, writeVariantImages, type ProductItem,
+} from '../products.ts'
 
 const reais = productsFixture as RawProduct[]
 
-interface Operacao { tipo: 'select' | 'insert' | 'update' | 'delete'; tabela: string; payload?: Record<string, unknown> }
+interface Operacao {
+  tipo: 'select' | 'insert' | 'update' | 'delete'
+  tabela: string
+  payload?: Record<string, unknown>
+  /** Qual linha a operação alcançou. Sem isto não dá para provar QUAL variação recebeu qual foto. */
+  filtro?: { coluna: string; valor: unknown }
+}
 
 const fakeDb = (tabelas: Record<string, Array<Record<string, unknown>>> = {}) => {
   const ops: Operacao[] = []
@@ -36,12 +44,16 @@ const fakeDb = (tabelas: Record<string, Array<Record<string, unknown>>> = {}) =>
         return { data: null, error: null }
       },
       update: (values: unknown) => ({
-        eq: async () => {
-          ops.push({ tipo: 'update', tabela, payload: values as Record<string, unknown> })
+        eq: async (coluna: string, valor: unknown) => {
+          ops.push({
+            tipo: 'update', tabela, payload: values as Record<string, unknown>, filtro: { coluna, valor },
+          })
           return { data: null, error: null }
         },
-        in: async () => {
-          ops.push({ tipo: 'update', tabela, payload: values as Record<string, unknown> })
+        in: async (coluna: string, valores: readonly unknown[]) => {
+          ops.push({
+            tipo: 'update', tabela, payload: values as Record<string, unknown>, filtro: { coluna, valor: valores },
+          })
           return { data: null, error: null }
         },
       }),
@@ -268,6 +280,194 @@ describe('writeProductImages', () => {
     const { db, ops } = fakeDb()
     await writeProductImages('p-1', [], { supabase: db, report: createReport(), dryRun: true })
     expect(ops).toHaveLength(0)
+  })
+})
+
+// =================================================================================================
+// Feature 26 — as tags da origem (COR-06, COR-07, COR-08)
+// =================================================================================================
+//
+// A loja já filtra por tag, e o filtro nasceu morto: 0 de 680 produtos tinham tag gravada. Aqui a
+// obrigação é a SIMÉTRICA da semente de material logo abaixo — tag **é** sobrescrita, porque não há
+// tela de curadoria de tag nesta loja e a origem é a única dona.
+
+describe('tags da origem (feature 26)', () => {
+  const comTags = (tags: string[]): ProductItem => {
+    const base = itens()[0]
+    return { product: { ...base.product, tags }, variants: [] }
+  }
+
+  it('o INSERT de produto novo carrega as tags (COR-06)', async () => {
+    const { db, of } = fakeDb()
+    await writeProducts([comTags(['Afetivo', 'Pingente Afetivo'])], categoryUuids, {
+      supabase: db, report: createReport(),
+    })
+
+    const insert = of('insert', 'products')[0].payload as Record<string, unknown>
+    expect(insert.tags).toEqual(['Afetivo', 'Pingente Afetivo'])
+  })
+
+  it('o UPDATE de produto existente SOBRESCREVE as tags anteriores (COR-08)', async () => {
+    const item = comTags(['Renomeada'])
+    const { db, of } = fakeDb({
+      products: [{
+        id: 'p-1', nuvemshop_id: item.product.nuvemshop_id, slug: item.product.slug,
+        is_active: true, requires_material: true, tags: ['Nome Velho'],
+      }],
+    })
+    await writeProducts([item], categoryUuids, { supabase: db, report: createReport() })
+
+    const update = of('update', 'products')[0].payload as Record<string, unknown>
+    expect(update.tags).toEqual(['Renomeada'])
+  })
+
+  it('origem que removeu todas as tags grava `[]`, e o update apaga o que havia (COR-07, COR-08)', async () => {
+    const item = comTags([])
+    const { db, of } = fakeDb({
+      products: [{
+        id: 'p-1', nuvemshop_id: item.product.nuvemshop_id, slug: item.product.slug,
+        is_active: true, requires_material: true, tags: ['Tema Antigo'],
+      }],
+    })
+    await writeProducts([item], categoryUuids, { supabase: db, report: createReport() })
+
+    const update = of('update', 'products')[0].payload as Record<string, unknown>
+    expect(update.tags).toEqual([])
+  })
+
+  it('as tags dos 5 produtos REAIS chegam ao insert, sem `null` em nenhum', async () => {
+    const { db, of } = fakeDb()
+    await writeProducts(itens(), categoryUuids, { supabase: db, report: createReport() })
+
+    const inserts = of('insert', 'products')
+    expect(inserts).toHaveLength(5)
+    for (const op of inserts) {
+      expect(Array.isArray(op.payload!.tags), `produto sem array de tags`).toBe(true)
+    }
+    const todas = inserts.flatMap(op => op.payload!.tags as string[])
+    expect(todas).toContain('Ateliê da Prata')
+    expect(todas).not.toContain('')
+  })
+})
+
+// =================================================================================================
+// Feature 26 — a foto de cada variação (COR-01, COR-02, COR-04, COR-05)
+// =================================================================================================
+//
+// `image_url` estava `null` em 3.245 de 3.245 variações. O `image_nuvemshop_id` era mapeado desde o
+// primeiro import, com um comentário dizendo que "vira URL do Storage na fase de imagens" — e nada
+// implementava a frase.
+
+describe('writeVariantImages (feature 26)', () => {
+  const CAPA = 'http://local/storage/nuvemshop/10/900.webp'
+  const AZUL = 'http://local/storage/nuvemshop/10/901.webp'
+  const ROSA = 'http://local/storage/nuvemshop/10/902.webp'
+
+  const variacao = (over: Partial<VariantRow>): VariantRow => ({
+    nuvemshop_id: 1, product_nuvemshop_id: 10, name: null, sku: null, price: 10,
+    compare_price: null, stock: 0, option_values: {}, weight_kg: null, is_active: true,
+    position: 1, image_nuvemshop_id: null, ...over,
+  })
+
+  /** `nuvemshop_id` da variação → o `image_url` que a escrita mandou para ela. */
+  const gravadas = (of: ReturnType<typeof fakeDb>['of']) =>
+    new Map(of('update', 'product_variants').map(op => {
+      expect(op.filtro!.coluna).toBe('nuvemshop_id')
+      return [op.filtro!.valor as number, op.payload!.image_url as string | null]
+    }))
+
+  const mapa = new Map([[900, CAPA], [901, AZUL], [902, ROSA]])
+
+  it('a variação com vínculo resolvido recebe a URL do Storage daquela imagem (COR-01)', async () => {
+    const { db, of } = fakeDb()
+    await writeVariantImages(
+      [variacao({ nuvemshop_id: 11, image_nuvemshop_id: 901 }),
+        variacao({ nuvemshop_id: 12, image_nuvemshop_id: 902 })],
+      mapa,
+      { supabase: db, report: createReport() },
+    )
+
+    expect(gravadas(of).get(11)).toBe(AZUL)
+    expect(gravadas(of).get(12)).toBe(ROSA)
+  })
+
+  it('a variação SEM `image_id` na origem fica `null` — nunca a capa (COR-02)', async () => {
+    const { db, of } = fakeDb()
+    await writeVariantImages(
+      [variacao({ nuvemshop_id: 13, image_nuvemshop_id: null })],
+      mapa,
+      { supabase: db, report: createReport() },
+    )
+
+    expect(gravadas(of).get(13)).toBeNull()
+  })
+
+  it('vínculo cuja imagem falhou no upload fica `null` — nunca a capa nem a foto de outra cor (COR-02)', async () => {
+    // A imagem 903 não está no mapa porque o upload dela falhou. Herdar a capa faria três cores da
+    // mesma peça mostrarem a mesma foto: a cliente concluiria que a cor não muda a peça.
+    const { db, of } = fakeDb()
+    await writeVariantImages(
+      [variacao({ nuvemshop_id: 14, image_nuvemshop_id: 903 })],
+      mapa,
+      { supabase: db, report: createReport() },
+    )
+
+    const escrito = gravadas(of).get(14)
+    expect(escrito).toBeNull()
+    expect([CAPA, AZUL, ROSA]).not.toContain(escrito)
+  })
+
+  it('vínculo que mudou na origem é CORRIGIDO, não preservado (COR-04)', async () => {
+    const { db, of } = fakeDb({
+      product_variants: [{ id: 'v-1', nuvemshop_id: 15, product_id: 'p-1', image_url: AZUL }],
+    })
+    await writeVariantImages(
+      [variacao({ nuvemshop_id: 15, image_nuvemshop_id: 902 })],
+      mapa,
+      { supabase: db, report: createReport() },
+    )
+
+    expect(gravadas(of).get(15)).toBe(ROSA)
+  })
+
+  it('escreve para TODA variação, inclusive as sem foto — é o que impede URL velha de sobreviver (COR-04)', async () => {
+    const { db, of } = fakeDb()
+    const variantes = [
+      variacao({ nuvemshop_id: 21, image_nuvemshop_id: 901 }),
+      variacao({ nuvemshop_id: 22, image_nuvemshop_id: null }),
+      variacao({ nuvemshop_id: 23, image_nuvemshop_id: 999 }),
+    ]
+    await writeVariantImages(variantes, mapa, { supabase: db, report: createReport() })
+
+    expect(of('update', 'product_variants')).toHaveLength(3)
+    expect([...gravadas(of).entries()]).toEqual([[21, AZUL], [22, null], [23, null]])
+  })
+
+  it('alimenta os contadores do relatório: com foto e sem foto (COR-03)', async () => {
+    const { db } = fakeDb()
+    const report = createReport()
+    await writeVariantImages(
+      [variacao({ nuvemshop_id: 31, image_nuvemshop_id: 901 }),
+        variacao({ nuvemshop_id: 32, image_nuvemshop_id: 902 }),
+        variacao({ nuvemshop_id: 33, image_nuvemshop_id: null })],
+      mapa,
+      { supabase: db, report },
+    )
+
+    expect(report.data().fotosDeVariacao).toEqual({ com: 2, sem: 1 })
+  })
+
+  it('não grava nada em dry-run (COR-05)', async () => {
+    const { db, ops } = fakeDb()
+    const report = createReport()
+    await writeVariantImages(
+      [variacao({ nuvemshop_id: 41, image_nuvemshop_id: 901 })],
+      mapa,
+      { supabase: db, report, dryRun: true },
+    )
+
+    expect(ops).toHaveLength(0)
+    expect(report.data().fotosDeVariacao).toEqual({ com: 0, sem: 0 })
   })
 })
 

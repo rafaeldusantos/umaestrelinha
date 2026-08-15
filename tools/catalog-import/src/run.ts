@@ -8,7 +8,7 @@ import { createReport, type Report } from './report.ts'
 import type { BytesCache } from './write/cache.ts'
 import { writeCategories } from './write/categories.ts'
 import { type DbLike, selectAll } from './write/db.ts'
-import { writeProductImages, writeProducts, type ProductImageRow, type ProductItem } from './write/products.ts'
+import { writeProductImages, writeProducts, writeVariantImages, type ProductImageRow, type ProductItem } from './write/products.ts'
 import { ensureImage, existingPaths, type StorageClientLike } from './write/storage.ts'
 
 /**
@@ -185,6 +185,11 @@ export const run = async (deps: RunDeps, options: RunOptions = {}): Promise<Repo
       const jaNoStorage = await existingPaths(item.product.nuvemshop_id, storageDeps)
 
       const galeria: ProductImageRow[] = []
+      // `images[].id` da origem → URL do Storage. É a chave que `VariantRow.image_nuvemshop_id`
+      // usa, e é o que dá a foto de cada cor ao card da loja (`COR-01`). Imagem `failed` **não**
+      // entra aqui, de propósito: é a ausência no mapa que produz o `null` de `COR-02`.
+      const urlPorImagem = new Map<number, string>()
+
       for (const plan of planImages(item.raw)) {
         const outcome = await ensureImage(plan, storageDeps, jaNoStorage)
 
@@ -197,9 +202,11 @@ export const run = async (deps: RunDeps, options: RunOptions = {}): Promise<Repo
         if (outcome.kind === 'new') report.imageNew()
         else report.imageReused()
         galeria.push({ url: outcome.url, alt: plan.alt, source: 'import' })
+        urlPorImagem.set(plan.nuvemshop_id, outcome.url)
       }
 
       await writeProductImages(productId, galeria, writeDeps)
+      await writeVariantImages(item.variants, urlPorImagem, writeDeps)
     })
 
     log('fase 4 · relatório')

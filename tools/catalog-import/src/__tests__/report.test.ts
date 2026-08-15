@@ -84,6 +84,24 @@ describe('report — imagens (CAT-03, CAT-07)', () => {
   })
 })
 
+describe('report — fotos de variação (COR-03)', () => {
+  it('conta as com foto e as sem foto separadamente', () => {
+    const r = createReport()
+    r.variantPhotoSet(); r.variantPhotoSet(); r.variantPhotoSet()
+    r.variantPhotoMissing()
+
+    expect(r.data().fotosDeVariacao).toEqual({ com: 3, sem: 1 })
+  })
+
+  it('mostra OS DOIS números, em linha própria — só "N com foto" não permite conferir o total', () => {
+    const r = createReport()
+    r.variantPhotoSet()
+    r.variantPhotoMissing(); r.variantPhotoMissing()
+
+    expect(r.toText()).toContain('variações     com foto 1 · sem foto 2')
+  })
+})
+
 describe('report — listas nominais', () => {
   it('nomeia as categorias desativadas por curadoria (CAT-11)', () => {
     const r = createReport()

@@ -9,7 +9,13 @@ import { createMemoryCache } from '../write/cache.ts'
 const cats = categoriesFixture as RawCategory[]
 const prods = productsFixture as RawProduct[]
 
-interface Op { tipo: string; tabela: string; payload?: Record<string, unknown> }
+interface Op {
+  tipo: string
+  tabela: string
+  payload?: Record<string, unknown>
+  /** Qual linha a operação alcançou — sem isto não dá para provar QUAL variação recebeu qual foto. */
+  filtro?: { coluna: string; valor: unknown }
+}
 
 const harness = (over: Partial<RunDeps> = {}, uploadError: unknown = null) => {
   const ops: Op[] = []
@@ -30,7 +36,10 @@ const harness = (over: Partial<RunDeps> = {}, uploadError: unknown = null) => {
         return { data: null, error: null }
       },
       update: (values: unknown) => ({
-        eq: async () => { ops.push({ tipo: 'update', tabela, payload: values as Record<string, unknown> }); return { data: null, error: null } },
+        eq: async (coluna: string, valor: unknown) => {
+          ops.push({ tipo: 'update', tabela, payload: values as Record<string, unknown>, filtro: { coluna, valor } })
+          return { data: null, error: null }
+        },
         in: async () => ({ data: null, error: null }),
       }),
       delete: () => ({
@@ -202,6 +211,69 @@ describe('run — imagens (CAT-03, CAT-07)', () => {
     expect(report.data().imagens.novas).toBe(0)
     // Imagem perdida não derruba o import.
     expect(report.exitCode()).toBe(0)
+  })
+})
+
+// =================================================================================================
+// Feature 26 — a foto de cada variação, ponta a ponta (COR-01, COR-02, COR-05)
+// =================================================================================================
+//
+// O elo que faltava: a fase 3 subia as imagens e gravava `products.images`, e o
+// `variant.image_nuvemshop_id` mapeado desde sempre morria ali. Medido no catálogo real:
+// `product_variants.image_url` null em 3.245 de 3.245.
+
+describe('run — a foto de cada variação (COR-01, COR-02)', () => {
+  /** `nuvemshop_id` da variação → o `image_url` que a fase 3 mandou para ela. */
+  const fotos = (of: (t: string, tab: string) => Op[]) =>
+    new Map(of('update', 'product_variants')
+      .filter(o => Object.prototype.hasOwnProperty.call(o.payload ?? {}, 'image_url'))
+      .map(o => [o.filtro!.valor as number, o.payload!.image_url as string | null]))
+
+  it('resolve `variants[].image_id` → `images[].id` e grava a URL do Storage daquela imagem', async () => {
+    const { deps, of } = harness()
+    const report = await run(deps)
+
+    // `joia-afetiva-gota…` (produto 302967873): duas variações apontam para imagens DIFERENTES da
+    // própria galeria — é isso que prova que o casamento é por id, e não "a primeira foto".
+    expect(fotos(of).get(1348437201)).toBe(
+      'http://127.0.0.1:54341/storage/v1/object/public/product-images/nuvemshop/302967873/1217733178.webp',
+    )
+    expect(fotos(of).get(1348437210)).toBe(
+      'http://127.0.0.1:54341/storage/v1/object/public/product-images/nuvemshop/302967873/1217733184.webp',
+    )
+
+    // Recorte real: 34 das 37 variações gravadas têm o vínculo resolvível na própria galeria.
+    expect(report.data().fotosDeVariacao).toEqual({ com: 34, sem: 3 })
+  })
+
+  it('vínculo que não existe na galeria do produto fica `null` — nunca a capa (COR-02)', async () => {
+    // Caso REAL do recorte: `corrente-singapura` tem `image_id: 920635454` e a galeria dela traz
+    // 920635505. Herdar a capa mostraria a peça errada como se fosse a cor escolhida.
+    const { deps, of } = harness()
+    await run(deps)
+
+    expect(fotos(of).get(1250310075)).toBeNull()
+  })
+
+  it('imagem que FALHOU não entra no mapa: toda variação daquele produto fica `null` (COR-02)', async () => {
+    const { deps, of } = harness({
+      fetch: (async () => ({ ok: false, status: 403, headers: { get: () => null } })) as unknown as typeof globalThis.fetch,
+    })
+    const report = await run(deps)
+
+    const escritos = [...fotos(of).values()]
+    expect(escritos).toHaveLength(37)
+    expect(escritos.every(u => u === null), JSON.stringify(escritos.filter(u => u !== null))).toBe(true)
+    expect(report.data().fotosDeVariacao).toEqual({ com: 0, sem: 37 })
+    expect(report.data().imagens.falhadas).toBeGreaterThan(0)
+  })
+
+  it('`--dry-run` não escreve `image_url` em variação nenhuma (COR-05)', async () => {
+    const { deps, of } = harness()
+    const report = await run(deps, { dryRun: true })
+
+    expect([...fotos(of).keys()]).toHaveLength(0)
+    expect(report.data().fotosDeVariacao).toEqual({ com: 0, sem: 0 })
   })
 })
 
