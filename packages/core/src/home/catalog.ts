@@ -61,6 +61,19 @@ export interface SectionMeta {
   unique: boolean
   /** `null` quando o tipo não tem `limit` editável. */
   limit: SectionLimit | null
+  /**
+   * O tipo está no catálogo mas **ainda não tem renderer nem editor** (P3).
+   *
+   * Mora aqui e não na bandeja (emenda `E3`): quem precisa da resposta são **duas** superfícies — a
+   * bandeja, que o mostra esmaecido com "em breve", e o renderizador da loja, que o pula sem quebrar
+   * a página. Respondido em cada tela, os dois divergiriam no dia em que o primeiro P3 ganhar
+   * renderer e alguém esquecer a outra ponta.
+   *
+   * A alternativa — deixar os dois fora do catálogo até existirem — foi recusada porque o `check`
+   * da migration já os aceita, e um tipo aceito pelo banco e desconhecido do TypeScript é
+   * exatamente a divergência que `HOME-06` existe para impedir.
+   */
+  comingSoon: boolean
 }
 
 /**
@@ -97,6 +110,15 @@ const LIMITS: Partial<Record<HomeSectionType, SectionLimit>> = {
 }
 
 /**
+ * Os tipos de P3 — no catálogo, **sem renderer e sem editor**.
+ *
+ * `HOME-45`..`HOME-47` ficaram fora do plano de propósito. Eles existem aqui porque o `check` da
+ * migration os aceita e o catálogo do TypeScript não pode divergir dele (`HOME-06`); a bandeja os
+ * mostra esmaecidos, dizendo "em breve", em vez de prometer o que não existe.
+ */
+const COMING_SOON: readonly HomeSectionType[] = ['product_carousel', 'category_grid']
+
+/**
  * O que o painel precisa saber sobre um tipo — ou `null` quando o tipo não existe.
  *
  * Devolve `null` em vez de lançar porque o consumidor é uma tela caminhando uma lista que veio do
@@ -110,5 +132,6 @@ export const sectionMeta = (type: HomeSectionType): SectionMeta | null => {
     label: LABELS[type],
     unique: UNIQUE_SECTION_TYPES.includes(type),
     limit: LIMITS[type] ?? null,
+    comingSoon: COMING_SOON.includes(type),
   }
 }

@@ -130,6 +130,30 @@ describe('sectionMeta — rótulo, unicidade e a faixa de limite', () => {
   })
 })
 
+describe('sectionMeta — os tipos de P3 são "em breve" (emenda E3)', () => {
+  it('carrossel de produtos e grade de coleções são os dois `comingSoon`', () => {
+    // Estão no catálogo porque o `check` da migration os aceita e o TypeScript não pode divergir
+    // dele (`HOME-06`) — mas não têm renderer nem editor. A bandeja os mostra esmaecidos em vez de
+    // prometer o que não existe.
+    const emBreve = HOME_SECTION_TYPES.filter(t => sectionMeta(t)!.comingSoon)
+    expect(emBreve).toEqual(['product_carousel', 'category_grid'])
+  })
+
+  it('os outros oito NÃO são "em breve" — os sete de hoje mais o destaque em coleção', () => {
+    const prontos = HOME_SECTION_TYPES.filter(t => !sectionMeta(t)!.comingSoon)
+    expect(prontos).toEqual([
+      'hero',
+      'trust_bar',
+      'banner_grid',
+      'collection_rows',
+      'brand_statement',
+      'trending_tags',
+      'newsletter',
+      'collection_feature',
+    ])
+  })
+})
+
 describe('MAX_HOME_SECTIONS — o teto', () => {
   it('a Home aceita no máximo 30 seções', () => {
     expect(MAX_HOME_SECTIONS).toBe(30)

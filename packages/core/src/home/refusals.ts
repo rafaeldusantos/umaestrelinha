@@ -1,5 +1,5 @@
 import { INFRA_SLUGS, ROUTE_SLUGS } from '../routes'
-import { sectionMeta } from './catalog'
+import { MAX_HOME_SECTIONS, sectionMeta } from './catalog'
 import type { SlotSpec } from './layout'
 import type { HomeSection, HomeSectionConfig, HomeSectionItem, HomeSectionType } from './types'
 
@@ -48,6 +48,21 @@ export const uniqueTypeRefusal = (
   if (!meta || !meta.unique) return null
   if (!sections.some(s => s.type === type)) return null
   return `“${meta.label}” já está na Home. Este bloco só pode existir uma vez.`
+}
+
+/**
+ * Por que a Home não aceita mais uma seção — ou `null` quando aceita.
+ *
+ * Mora em `core` e não na bandeja (emenda `E3`): é o mesmo argumento de `menuEntries`. O teto é
+ * regra da Home, e uma tela que o recalculasse seria o segundo dono de um número — que é como
+ * `MENU_SLOT_LIMIT` acabou dizendo "4" na barra e `.slice(0, 4)` no `Header`.
+ *
+ * O teto não trunca nem esconde: **recusa dizendo o número**. Uma bandeja que simplesmente parasse
+ * de responder ao clique deixaria a dona sem saber se o problema é dela, do bloco ou da tela.
+ */
+export const sectionCapRefusal = (sections: readonly HomeSection[]): string | null => {
+  if (sections.length < MAX_HOME_SECTIONS) return null
+  return `A Home já tem ${MAX_HOME_SECTIONS} seções. Remova uma antes de acrescentar outra.`
 }
 
 /**

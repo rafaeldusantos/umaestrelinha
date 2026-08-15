@@ -4,8 +4,10 @@ import {
   configRefusal,
   ctaHrefRefusal,
   destinationRefusal,
+  sectionCapRefusal,
   uniqueTypeRefusal,
 } from '../refusals'
+import { MAX_HOME_SECTIONS } from '../catalog'
 import { INFRA_SLUGS } from '../../routes'
 import type { HomeSection } from '../types'
 
@@ -37,6 +39,29 @@ describe('uniqueTypeRefusal — tipo que só existe uma vez', () => {
 
   it('nunca recusa tipo repetível, mesmo com um já na lista', () => {
     expect(uniqueTypeRefusal('banner_grid', [secao('b', 'banner_grid')])).toBeNull()
+  })
+})
+
+describe('sectionCapRefusal — o teto de 30 (emenda E3)', () => {
+  const nSecoes = (n: number): HomeSection[] =>
+    Array.from({ length: n }, (_, i) => secao(`s${i}`, 'banner_grid'))
+
+  it('libera enquanto a Home tem menos de 30 seções', () => {
+    expect(sectionCapRefusal(nSecoes(MAX_HOME_SECTIONS - 1))).toBeNull()
+  })
+
+  it('recusa a 31ª DIZENDO o teto — a bandeja não pode só parar de responder', () => {
+    expect(sectionCapRefusal(nSecoes(MAX_HOME_SECTIONS))).toBe(
+      'A Home já tem 30 seções. Remova uma antes de acrescentar outra.',
+    )
+  })
+
+  it('continua recusando acima do teto (estado alcançável por escrita direta)', () => {
+    expect(sectionCapRefusal(nSecoes(MAX_HOME_SECTIONS + 5))).toContain('30 seções')
+  })
+
+  it('Home vazia libera', () => {
+    expect(sectionCapRefusal([])).toBeNull()
   })
 })
 
