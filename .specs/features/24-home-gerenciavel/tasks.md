@@ -109,11 +109,36 @@ tocados** · árvore limpa.
 > passa. Congelar o comportamento atual **antes** de tocar em qualquer widget é o que torna
 > `HOME-04` verificável em vez de opinável.
 
-### Fase 2 — Banco (5 tasks)
+### Fase 2 — Banco (5 tasks) — ✅ **FECHADA** (2026-08-15)
 
 ```
 T7 → T8 → T9 → T10 → T11
 ```
+
+| Task | Commit | Entregou |
+| --- | --- | --- |
+| T7 | `e5dbd10` | as duas tabelas, CHECK de 10 tipos, unique parcial dos 6 únicos, FK de destino em `SET NULL`, CHECK `num_nonnulls <= 1`, trigger do hero |
+| T8 | `069c331` | RLS das duas tabelas + bucket `home-images` |
+| T9 | `9408504` | semente das 7 seções, reexecutável (2ª execução: `INSERT 0 0`) |
+| T10 | `6c8c2d5` | `homeSections.test.ts` — 54 testes, âncora em **todo** parser; **5 mutações injetadas no arquivo real derrubaram a suíte** |
+| T11 | `e984577` | `DbHomeSection`/`DbHomeSectionItem`, derivados do `information_schema` |
+
+**O probe da T11 provou as duas decisões estruturais de uma vez.** Apagar a categoria e o produto de
+destino devolveu **204**, e os três itens **sobreviveram** com a arte intacta e o destino nulo — que é
+`SET NULL` funcionando **e** a prova de que o CHECK precisava ser `<= 1`: com `= 1`, esse `DELETE`
+teria falhado. Também conferidos: hero recusa `active=false` e `DELETE` (23514) enquanto a newsletter
+desliga normalmente; `insert` anônimo 42501; `select` anônimo devolve 6 de 7 seções.
+
+**Verificado pelo orquestrador**: store **1464/110** (+54) · `tsc` store 0 · backoffice 0 ·
+`payment/**` **0 arquivos** · árvore limpa.
+
+> **Dois achados que a T21 tem de respeitar** (medidos no probe, anotados em
+> `packages/supabase/src/types/home.ts`):
+> 1. **O upsert de reordenação precisa mandar `type` junto.** `{ id, position }` sozinho devolve
+>    `23502 null value in column "type"` — o upsert do PostgREST é `insert … on conflict`, e `type` é
+>    `not null` sem default. `{ id, type, position }` funciona e é idempotente.
+> 2. **`insert` em lote exige as mesmas chaves em todos os objetos** (`PGRST102`). Item com destino de
+>    categoria e item com destino de `href` precisam mandar as outras colunas como `null` explícito.
 
 ### Fase 3 — A loja passa a ler do banco (7 tasks)
 

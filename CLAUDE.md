@@ -65,12 +65,19 @@ pnpm --filter @estrelinha/store <script>    # rodar num workspace específico
 **Importar o catálogo real da Nuvemshop** (`tools/catalog-import`, executado à mão):
 
 ```bash
-pnpm --filter @estrelinha/catalog-import import                      # import completo
-pnpm --filter @estrelinha/catalog-import import -- --dry-run         # lê e mapeia, não grava
-pnpm --filter @estrelinha/catalog-import import -- --limit=5         # ensaio com 5 produtos
-pnpm --filter @estrelinha/catalog-import import -- --stop-after=categorias
-pnpm --filter @estrelinha/catalog-import import -- --report=reports/import.json
+pnpm --filter @estrelinha/catalog-import run import                      # import completo
+pnpm --filter @estrelinha/catalog-import run import -- --dry-run        # lê e mapeia, não grava
+pnpm --filter @estrelinha/catalog-import run import -- --limit=5        # ensaio com 5 produtos
+pnpm --filter @estrelinha/catalog-import run import -- --stop-after=categorias
+pnpm --filter @estrelinha/catalog-import run import -- --report=reports/import.json
 ```
+
+**O `run` não é opcional aqui, e omiti-lo não dá erro de script — dá erro de flag.** `import` é
+**comando embutido do pnpm** (o que traz lockfile de outro gerenciador), então
+`pnpm --filter … import --dry-run` é lido como o embutido e falha com
+`Unknown options: 'dry-run', 'recursive'` — mensagem que não menciona o importador e manda procurar
+no lugar errado. `run import` desambigua. Nenhum outro script do repositório precisa disso; este
+precisa por causa do nome.
 
 Credenciais no `.env` da **raiz** (`NUVEMSHOP_*`, `SUPABASE_SERVICE_ROLE_KEY`) — ver `.env.example`.
 É **idempotente**: rodar de novo atualiza e cria zero duplicata. Exit ≠ 0 significa que os totais
@@ -592,7 +599,7 @@ literalmente, em vez de iterar a constante que deveria guardar).
   diferente de depoimento inventado sobre um acessório. A mesma régua tirou da home o contador de
   "drop" e a prova social fabricada.
 - **O `seed.sql` não tem mais catálogo.** Depois de `supabase db reset` a loja fica **sem produto e
-  sem categoria** até `pnpm --filter @estrelinha/catalog-import import` rodar (feature `21`). Cupons
+  sem categoria** até `pnpm --filter @estrelinha/catalog-import run import` rodar (feature `21`). Cupons
   e usuário admin continuam no seed. A limpeza da seção 0 leva `AND nuvemshop_id IS NULL` em todo
   `DELETE`: sem isso, executar o seed avulso **depois** do import apagaria a categoria real
   `joias-afetivas` e, por cascade, os vínculos de produto dela.
