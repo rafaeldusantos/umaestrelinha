@@ -48,6 +48,9 @@ const mapItem = (row: DbHomeSectionItem): HomeSectionItem => ({
   position: typeof row.position === 'number' ? row.position : 0,
   category_id: row.category_id ?? null,
   product_id: row.product_id ?? null,
+  // Emenda `E5`, o mesmo embed da loja: o painel precisa dizer a verdade sobre o que a Home
+  // desenha, e sem o slug ele marcaria todo banner de produto como "destino fora do ar".
+  product_slug: row.product?.slug ?? null,
   href: row.href ?? null,
   image_url: row.image_url ?? null,
   alt: row.alt ?? null,
@@ -91,7 +94,7 @@ export const useAdminHomeSections = () => {
     // PostgREST daria uma segunda resposta para a mesma pergunta, e a do banco não desempata.
     const { data, error: readError } = await supabase
       .from('home_sections')
-      .select('*, items:home_section_items(*)')
+      .select('*, items:home_section_items(*, product:products(slug))')
 
     if (readError || !data) {
       setRows([])

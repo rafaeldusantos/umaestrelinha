@@ -127,3 +127,50 @@ describe('useAdminResolvedHome — curadoria por cima da derivação', () => {
     expect(entry.hiddenReason).toBe('Não vai aparecer: o item escolhido saiu do ar.')
   })
 })
+
+describe('useAdminResolvedHome — destino de PRODUTO (emenda E5)', () => {
+  const comProduto = (product_slug: string | null): HomeSection[] =>
+    DEFAULT_HOME_COMPOSITION.map(s =>
+      s.type === 'banner_grid'
+        ? {
+            ...s,
+            items: [
+              {
+                id: 'i1',
+                section_id: s.id,
+                position: 1,
+                category_id: null,
+                product_id: 'prod-1',
+                product_slug,
+                href: null,
+                image_url: 'https://cdn/campanha.webp',
+                alt: 'Pingente com leite materno',
+                label_snapshot: 'Pingente Gota',
+              },
+            ],
+          }
+        : s,
+    )
+
+  it('com o slug embutido, o painel resolve o banner e monta o caminho canônico', () => {
+    // O painel tem de dizer a MESMA coisa que a Home desenha. Enquanto o produto era tratado como
+    // "fora do ar", a linha da lista prometia uma ausência que a loja não teria.
+    const entry = de('banner_grid', comProduto('pingente-gota'))
+
+    expect(entry.renders).toBe(true)
+    expect(entry.droppedCount).toBe(0)
+    expect(entry.items[0]).toMatchObject({
+      productId: 'prod-1',
+      href: '/produtos/pingente-gota',
+      curated: true,
+    })
+  })
+
+  it('sem slug (produto despublicado ou apagado) o banner sai de cena e é contado', () => {
+    const entry = de('banner_grid', comProduto(null))
+
+    expect(entry.renders).toBe(false)
+    expect(entry.droppedCount).toBe(1)
+    expect(entry.hiddenReason).toBe('Não vai aparecer: o item escolhido saiu do ar.')
+  })
+})

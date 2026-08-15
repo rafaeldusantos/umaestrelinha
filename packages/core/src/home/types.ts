@@ -128,6 +128,20 @@ export interface HomeSectionItem {
    */
   category_id: string | null
   product_id: string | null
+  /**
+   * O slug do produto de destino, **embutido pela consulta** — emenda `E5`.
+   *
+   * A linha guarda o id, e o caminho canônico de um produto exige o slug (`/produtos/:slug`).
+   * Consultar `products` por id a partir da Home seria uma segunda ida ao banco; `useProducts()`
+   * baixaria o catálogo inteiro, que é o defeito que a feature 23 fechou. A relação embutida
+   * (`items:home_section_items(*, product:products(slug))`) resolve numa consulta só, sem coluna
+   * redundante.
+   *
+   * **Ausente significa "fora do ar", e quem decide isso é a RLS** — medido no probe de 2026-08-15:
+   * produto despublicado volta com `product: null` e o `product_id` intacto. É `HOME-24` valendo no
+   * banco em vez de num filtro do cliente.
+   */
+  product_slug?: string | null
   href: string | null
   /** Arte própria (banner livre). Sem imagem, a seção deriva a arte do destino. */
   image_url: string | null

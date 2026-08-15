@@ -114,4 +114,15 @@ export interface DbHomeSectionItem {
    */
   label_snapshot: string | null
   created_at: string
+  /**
+   * O produto de destino, embutido pela consulta — emenda `E5` da feature 24.
+   *
+   * Só vem quando a leitura pede a relação
+   * (`items:home_section_items(*, product:products(slug))`). Conferido por probe HTTP contra o banco
+   * local em 2026-08-15, e o que ele mostrou é a parte que importa: com o produto **publicado** o
+   * embed devolve `{"product": {"slug": "…"}}`; com o produto **despublicado** devolve
+   * `{"product": null}` com o `product_id` intacto. Ou seja, "o destino saiu do ar" é resposta da
+   * RLS, não filtro do cliente — que é como `HOME-24` tem de funcionar.
+   */
+  product?: { slug: string } | null
 }

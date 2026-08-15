@@ -8,6 +8,7 @@ import {
   type ResolvedSection,
 } from '@estrelinha/core/home'
 import { categoryHref } from '@estrelinha/core/menu'
+import { productPath } from '@estrelinha/core/routes'
 import type { Category } from '@estrelinha/supabase/types'
 import { useCategories } from '@/entities/category'
 import { pickHomeBanners } from '@/widgets/home-banners'
@@ -79,6 +80,34 @@ export const useResolvedHome = (sections: readonly HomeSection[]): ResolvedSecti
         })
       }
 
+      /**
+       * Destino de PRODUTO — emenda `E5`, fechada na T28.
+       *
+       * O slug chega **embutido na mesma consulta** (`product:products(slug)`): a linha guarda o id,
+       * e `/produtos/:slug` precisa do slug. Uma segunda consulta por id daria dois estados de
+       * carregamento numa página só, e `useProducts(undefined)` baixaria o catálogo inteiro na Home
+       * — o defeito que a feature 23 fechou.
+       *
+       * **Sem slug é fora do ar, e quem decide é a RLS**: produto despublicado ou apagado volta com
+       * `product: null` e o `product_id` intacto (medido em probe), então o banner sai de cena e
+       * entra em `droppedCount` — nunca vira link para 404 (`HOME-24`).
+       */
+      if (item.product_id) {
+        const slug = item.product_slug?.trim()
+        if (!slug) return null
+        return {
+          id: item.id,
+          categoryId: null,
+          productId: item.product_id,
+          slug,
+          label: item.alt?.trim() ?? '',
+          description: null,
+          href: productPath(slug),
+          imageUrl: item.image_url?.trim() || null,
+          curated: true,
+        }
+      }
+
       if (item.href?.trim()) {
         return {
           id: item.id,
@@ -93,12 +122,8 @@ export const useResolvedHome = (sections: readonly HomeSection[]): ResolvedSecti
         }
       }
 
-      // SPEC_DEVIATION: item com `product_id` é tratado como destino fora do ar.
-      // Reason: montar o caminho canônico de um produto exige o SLUG, e a linha guarda só o id — a
-      // loja teria de consultar `products` por id, e nenhuma task desta fase define esse hook.
-      // `useProducts(undefined)` não serve: baixaria o catálogo inteiro na Home (o defeito que a
-      // feature 23 fechou). Hoje isto não alcança nenhum dado real — nenhuma seção nasce com itens e
-      // o único editor que cria destino de produto é a T28. Registrado para a T28 trazer o par.
+      // Zero destinos: o estado órfão que o `on delete set null` produz. A loja pula; quem nomeia o
+      // que se perdeu é o painel, pelo `label_snapshot`.
       return null
     }
 

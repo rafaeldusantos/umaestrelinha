@@ -79,7 +79,12 @@ describe('useHomeSections — uma consulta só, com a curadoria embutida', () =>
     expect(fromMock).toHaveBeenCalledTimes(1)
     expect(fromMock).toHaveBeenCalledWith('home_sections')
     expect(selectMock).toHaveBeenCalledTimes(1)
-    expect(selectMock).toHaveBeenCalledWith('*, items:home_section_items(*)')
+    // O slug do produto vem embutido na MESMA ida (emenda `E5`): a linha guarda o id, e
+    // `/produtos/:slug` precisa do slug. Uma segunda consulta daria dois carregamentos numa página
+    // só, e `useProducts()` baixaria o catálogo inteiro — o defeito que a feature 23 fechou.
+    expect(selectMock).toHaveBeenCalledWith(
+      '*, items:home_section_items(*, product:products(slug))',
+    )
   })
 })
 
@@ -115,6 +120,7 @@ describe('useHomeSections — o que o banco devolve chega mapeado', () => {
         image_url: 'https://cdn.test/campanha.webp',
         alt: 'Campanha de outono',
         label_snapshot: 'Prata 925',
+        product_slug: null,
       },
     ])
   })
@@ -176,5 +182,46 @@ describe('useHomeSections — o piso semeado (HOME-07)', () => {
     result.current.data[0].position = 99
 
     expect(DEFAULT_HOME_COMPOSITION[0].position).toBe(1)
+  })
+})
+
+describe('useHomeSections — o slug do produto de destino (emenda E5)', () => {
+  it('o slug embutido chega no item, para o banner de produto ter caminho canônico', async () => {
+    respondeCom([
+      linhaDoBanco({
+        items: [
+          itemDoBanco({
+            category_id: null,
+            product_id: 'prod-1',
+            product: { slug: 'pingente-gota' },
+          }),
+        ],
+      }),
+    ])
+
+    const result = await ler()
+
+    expect(result.current.data[0].items[0]).toMatchObject({
+      product_id: 'prod-1',
+      product_slug: 'pingente-gota',
+    })
+  })
+
+  it('produto despublicado volta sem a relação, e o slug cai em `null` — é a RLS decidindo', async () => {
+    // Medido em probe contra o banco local: produto com `is_active = false` devolve
+    // `{"product": null}` com o `product_id` intacto. "Saiu do ar" é resposta do banco, não filtro
+    // do cliente — que é como `HOME-24` tem de funcionar.
+    respondeCom([
+      linhaDoBanco({
+        items: [itemDoBanco({ category_id: null, product_id: 'prod-1', product: null })],
+      }),
+    ])
+
+    const result = await ler()
+
+    expect(result.current.data[0].items[0]).toMatchObject({
+      product_id: 'prod-1',
+      product_slug: null,
+    })
   })
 })

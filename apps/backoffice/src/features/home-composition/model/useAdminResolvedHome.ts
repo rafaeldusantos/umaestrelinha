@@ -27,6 +27,7 @@ import {
   type ResolvedSection,
 } from '@estrelinha/core/home'
 import { bySortOrder, categoryHref, type MenuCategory } from '@estrelinha/core/menu'
+import { productPath } from '@estrelinha/core/routes'
 import type { AdminCategory } from '@/entities/category'
 
 type Candidata = MenuCategory & {
@@ -109,6 +110,26 @@ export const useAdminResolvedHome = (
           })
         }
 
+        // Destino de PRODUTO (emenda `E5`): o slug vem embutido na consulta, igual ao da loja. Sem
+        // slug o produto está despublicado ou apagado, e a linha entra em `droppedCount` — é o que
+        // faz o painel dizer a MESMA coisa que a Home desenha, em vez de prometer um banner que
+        // nunca aparece.
+        if (item.product_id) {
+          const slug = item.product_slug?.trim()
+          if (!slug) return null
+          return {
+            id: item.id,
+            categoryId: null,
+            productId: item.product_id,
+            slug,
+            label: item.alt?.trim() || item.label_snapshot?.trim() || slug,
+            description: null,
+            href: productPath(slug),
+            imageUrl: item.image_url?.trim() || null,
+            curated: true,
+          }
+        }
+
         if (item.href?.trim()) {
           return {
             id: item.id,
@@ -123,9 +144,6 @@ export const useAdminResolvedHome = (
           }
         }
 
-        // Destino de produto ainda não resolve — o par da emenda `E5`, com dono na T28. Enquanto o
-        // slug não vier embutido na consulta, o painel trata como fora do ar, que é o mesmo que a
-        // loja faz: as duas pontas erram junto em vez de discordarem.
         return null
       },
 

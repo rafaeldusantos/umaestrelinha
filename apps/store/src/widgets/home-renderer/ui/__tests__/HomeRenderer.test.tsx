@@ -198,3 +198,45 @@ describe('HomeRenderer — a derivação de hoje continua valendo (HOME-25, HOME
     categorias.data = antes
   })
 })
+
+describe('HomeRenderer — banner com destino de PRODUTO (emenda E5)', () => {
+  /** Um banner curado apontando para um produto. O slug vem embutido na leitura. */
+  const comProduto = (product_slug: string | null): HomeSection =>
+    secao('banner_grid', {
+      position: 1,
+      config: { layout: 'single' },
+      items: [
+        {
+          id: 'i1',
+          section_id: 'banner_grid',
+          position: 1,
+          category_id: null,
+          product_id: 'prod-1',
+          product_slug,
+          href: null,
+          image_url: 'https://cdn.test/campanha.webp',
+          alt: 'Pingente com leite materno',
+          label_snapshot: 'Pingente Gota',
+        },
+      ],
+    })
+
+  it('renderiza o banner no caminho canônico do produto — não some da loja', () => {
+    // Sem isto, a dona gravaria no painel um banner que NUNCA apareceria, e nada acusaria: era o
+    // `SPEC_DEVIATION` da Fase 3, e a emenda `E5` deu dono a ele nesta task.
+    const { container } = renderHome([comProduto('pingente-gota')])
+
+    const grade = container.querySelectorAll('section')[0]
+    expect(grade.querySelector('a')).toHaveAttribute('href', '/produtos/pingente-gota')
+    expect(grade.querySelector('img')).toHaveAttribute('alt', 'Pingente com leite materno')
+    expect(grade.querySelector('img')).toHaveAttribute('src', 'https://cdn.test/campanha.webp')
+  })
+
+  it('produto despublicado não vem com slug, e o banner SAI DE CENA — nunca link para 404', () => {
+    // A relação embutida devolve `product: null` quando a RLS não alcança o produto. Todos os
+    // escolhidos fora do ar ⇒ a seção inteira não renderiza (`HOME-24`, `HOME-36`).
+    const { container } = renderHome([comProduto(null)])
+
+    expect(container.querySelectorAll('section')).toHaveLength(0)
+  })
+})

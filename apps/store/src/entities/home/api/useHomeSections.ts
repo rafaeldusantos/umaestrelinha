@@ -34,6 +34,10 @@ const mapItem = (row: DbHomeSectionItem): HomeSectionItem => ({
   position: typeof row.position === 'number' ? row.position : 0,
   category_id: row.category_id ?? null,
   product_id: row.product_id ?? null,
+  // Emenda `E5`: o slug vem embutido, e ausente significa **fora do ar** — produto despublicado
+  // volta com `product: null` e o `product_id` intacto (medido em probe). Sem ele o banner de
+  // produto nunca renderizaria, porque `/produtos/:slug` precisa do slug.
+  product_slug: row.product?.slug ?? null,
   href: row.href ?? null,
   image_url: row.image_url ?? null,
   alt: row.alt ?? null,
@@ -74,7 +78,7 @@ export const useHomeSections = () =>
       // arbitrária a cada carregamento.
       const { data, error } = await supabase
         .from('home_sections')
-        .select('*, items:home_section_items(*)')
+        .select('*, items:home_section_items(*, product:products(slug))')
 
       // Erro **e** lista vazia caem no mesmo piso. Vazio não é "Home sem seções": é banco novo, ou
       // uma leitura que a RLS recortou inteira — e nos dois casos a página de hoje é a resposta

@@ -12,6 +12,7 @@ import type { ComponentType } from 'react'
 import type { HomeSection, HomeSectionConfig, HomeSectionType } from '@estrelinha/core/home'
 import type { AdminCategory } from '@/entities/category'
 import type { DraftItem } from '../model/sectionDraft'
+import { bannerGridEditorEntry } from './BannerGridEditor'
 import { heroEditorEntry } from './HeroEditor'
 
 /** Um produto, como o seletor de destino precisa dele. `AdminProduct` satisfaz. */
@@ -45,4 +46,5 @@ export interface SectionEditorEntry {
 
 export const SECTION_EDITORS: Partial<Record<HomeSectionType, SectionEditorEntry>> = {
   hero: heroEditorEntry,
+  banner_grid: bannerGridEditorEntry,
 }
