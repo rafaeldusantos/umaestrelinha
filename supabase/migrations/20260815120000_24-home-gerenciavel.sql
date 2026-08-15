@@ -273,3 +273,37 @@ using (
 	bucket_id = 'home-images'
 	and public.has_role(auth.uid(), 'admin')
 );
+
+-- ---------------------------------------------------------------------
+-- 6 · A semente — a Home de HOJE, no banco (HOME-04)
+-- ---------------------------------------------------------------------
+--
+-- **Este bloco é o que faz a virada não mudar nada.** Mover sete seções da ordem do JSX para dado é
+-- a chance de a Home mudar de cara em silêncio — build passa, `tsc` passa, teste de componente
+-- passa, e quem descobre é a cliente. As sete linhas abaixo são a composição de hoje, com os mesmos
+-- textos, os mesmos limites e a mesma ordem.
+--
+-- ⚠️ Estas linhas são o PAR de `DEFAULT_HOME_COMPOSITION` (`@estrelinha/core/home`), que é a mesma
+-- constante que a loja usa como piso quando a leitura falha (HOME-07). `homeSections.test.ts` lê
+-- ESTE ARQUIVO DO DISCO e compara tipo, posição, estado e o `config` inteiro, chave a chave. Editar
+-- um texto aqui sem editar o core (ou o contrário) derruba a suíte — que é o ponto.
+--
+-- `where not exists (select 1 from public.home_sections)` é o que a torna reexecutável: é um empurrão
+-- inicial de UMA vez, não uma regra. Depois desta linha a fonte de verdade é /admin/home, e rodar a
+-- migration de novo não duplica nem desfaz curadoria feita à mão. Molde do backfill seed-shaped da
+-- feature 16. (Não dá para chegar a zero linhas por engano depois: o hero é indelével.)
+--
+-- Todas nascem `active = true` — o default da tabela é `false`, e ele vale para seção que a dona
+-- cria, não para a Home que já está no ar.
+insert into public.home_sections (type, position, active, config)
+select s.tipo, s.pos, s.ligada, s.conf
+from (values
+	('hero', 1, true, '{"eyebrow":"Joias afetivas artesanais","title_line1":"O que você ama,","title_line2":"eternizado em joia.","paragraph":"Peças feitas à mão em resina com o seu material — leite materno, cabelos, pelos de pet, dentinhos ou cinzas. Cada joia é única, porque cada história é.","cta_label":"Explorar coleções","cta_href":"/busca"}'::jsonb),
+	('trust_bar', 2, true, '{}'::jsonb),
+	('banner_grid', 3, true, '{"layout":"hero_pair"}'::jsonb),
+	('collection_rows', 4, true, '{"limit":4}'::jsonb),
+	('brand_statement', 5, true, '{"eyebrow":"Feito à mão, uma por vez","title":"Cada joia é uma memória eternizada à mão","paragraph":"Trabalhamos com leite materno, cinzas de cremação, coto umbilical, cabelo, pelo de pet, dente de leite e flores para criar peças únicas em resina, prata 925 e aço inoxidável. Nada é produzido em série: cada história que chega até o ateliê vira uma peça só sua.","author_name":"Adri Muniz","author_role":"artesã · Porto Alegre/RS","link_label":"Conheça o ateliê","link_href":"/sobre","interlude_after":0}'::jsonb),
+	('trending_tags', 6, true, '{"title":"Explore por tema","subtitle":"As linhas mais procuradas, direto ao ponto","limit":12}'::jsonb),
+	('newsletter', 7, true, '{"title":"Quer saber das novidades?","subtitle":"Cadastre-se e fique por dentro das novidades da loja.","cta_label":"Me cadastrar"}'::jsonb)
+) as s(tipo, pos, ligada, conf)
+where not exists (select 1 from public.home_sections);
