@@ -76,7 +76,11 @@ confere por `git status` no gate final.
 
 ## Execution Plan
 
-Fases ordenadas e sequenciais. **34 tasks em 6 fases** — empacotam em ~5 lotes de sub-agente.
+Fases ordenadas e sequenciais. **35 tasks em 6 fases** — empacotadas em **6 lotes** de sub-agente.
+
+> Nasceu com 34 em 5 lotes. A **`T35`** entrou depois do lote 4 (a Fase 4 revelou a derivação
+> reescrita no painel), e a Fase 5 passou a ser lote próprio para nenhum lote estourar o orçamento
+> de ~7 tasks.
 
 ### Fase 1 — Congelar a Home de hoje, depois o domínio (6 tasks) — ✅ **FECHADA** (2026-08-15)
 
@@ -174,11 +178,39 @@ backoffice 1145/70 · functions 279/4 · catalog-import 276/15 = **4259/238**. `
 subiu sozinha de 6 para 8 quando `layout.ts` entrou — que é exatamente o comportamento que o
 comentário dela promete.
 
-### Fase 4 — O painel: lista, ordem, liga/desliga, prévia (7 tasks)
+### Fase 4 — O painel: lista, ordem, liga/desliga, prévia (7 tasks) — ✅ **FECHADA** (2026-08-15)
 
 ```
 T19 → T20 → T21 → T22 → T23 → T24 → T25
 ```
+
+| Task | Commit | Entregou |
+| --- | --- | --- |
+| T19 | `0591271` | `--input` separado de `--border`: contorno a 3:1, divisórias intactas |
+| T20 | `2f6cd53` | `Home` acima de `Menu da loja`; `navItems.test.ts` **ganhou** 3 casos |
+| T21 | `9a540a1` | CRUD — nasce `active:false`, toggle manda só `{active}`, upsert leva `type` |
+| T22 | `b585240` | lista arrastável: hero indelével, motivo na linha, faixa recuada, 44px por controle |
+| T23 | `8544d19` | bandeja no rodapé + **E3** (`comingSoon` e `sectionCapRefusal` em `core/home`) |
+| T24 | `a6cdfba` | prévia esquemática, com guarda de disco provando que nenhum token da loja atravessa |
+| T25 | `a04fe7f` | `/admin/home` — erro com "Tentar de novo", abas em 390px |
+
+**T19 conferido no diff**: só `--input` mudou, nos dois temas, com o contraste **medido** escrito no
+comentário — `#9086B4` ⇒ `253 23% 62%`, 3,15:1 sobre o fundo e 3,29:1 sobre o card; par escuro
+`253 20% 48%`, 3,03–3,57:1. `--border`, `--sidebar-border` e `--ring` intactos.
+
+**Verificado pelo orquestrador**: `pnpm test` exit 0 — **4354/244** (+95/+6) · `tsc` 0 · lint 30/8 ·
+`payment/**` **0 arquivos** · árvore limpa.
+
+**Achado em tela, com dado real**: a grade de banners aparece como "não vai aparecer" porque
+**nenhuma** categoria do catálogo real tem `banner_url` — `HOME-09` funcionando com dado de verdade,
+não com fixture.
+
+> **O desvio nº 1 do lote virou a task `T35`, não um comentário.** O backoffice não pode importar de
+> `apps/store`, então a Fase 4 **reescreveu** as três derivações (~40 linhas). É o "defeito 01" no
+> lugar mais caro: o trabalho do painel é dizer a verdade sobre o que a loja desenha.
+>
+> O desvio nº 2 (44px físicos em vez de `TAP_44`) foi **aceito**: o auxiliar mora no `shared/` do
+> outro app, e copiá-lo criaria o segundo dono da medida que `touchTarget.test.ts` existe para impedir.
 
 ### Fase 5 — Editores de seção (5 tasks)
 
@@ -186,11 +218,15 @@ T19 → T20 → T21 → T22 → T23 → T24 → T25
 T26 → T27 → T28 → T29 → T30
 ```
 
-### Fase 6 — P2: curadoria, destaque e fecho (4 tasks)
+### Fase 6 — P2: curadoria, destaque e fecho (5 tasks)
 
 ```
-T31 → T32 → T33 → T34
+T31 → T32 → T33 → T35 → T34
 ```
+
+> **`T35` entrou depois do lote 4**, quando a Fase 4 revelou a derivação reescrita no painel. Fica
+> **antes** da T34 porque o fecho tem de medir a baseline com a duplicação já resolvida — e **depois**
+> da T31, para não mexer em arquivo que a curadoria está usando.
 
 **P3 (`HOME-45`..`HOME-47`) fica fora deste plano**, como a tabela de rastreabilidade da spec já
 declara. Carrossel de produtos e grade de coleções entram como tipos no catálogo (T2) mas **sem
@@ -989,6 +1025,42 @@ aviso de quem saiu do ar.
 
 **Tests**: unit · **Gate**: quick
 **Commit**: `feat(admin): editor do destaque em colecao`
+
+---
+
+### T35: A derivação tem UM dono — mover para `@estrelinha/core/home`
+
+**What**: Mover `pickHomeCollections`, `pickHomeBanners` e `pickTrendingCategories` para
+`packages/core/src/home/derive.ts`, e fazer a loja **e** o painel lerem de lá.
+**Where**: `packages/core/src/home/derive.ts` (novo) · `apps/store/src/widgets/home-{banners,collections}/model/*` ·
+`apps/store/src/features/search/lib/trendingCategories.ts` · os barrels ·
+`apps/backoffice/src/features/home-composition/model/useAdminResolvedHome.ts`
+**Depends on**: T31 (nada nesta fase depende dela; entra depois para não mexer em arquivo que a T31 usa)
+**Reuses**: as três funções, movidas **sem reescrever a regra**
+**Requirement**: critérios de sucesso da spec — *"toda seção que não vai aparecer está marcada no
+painel com o motivo"*
+
+**Tools**: MCP: NONE · Skill: NONE
+
+**Por que isto virou task** (achado do lote 4, `useAdminResolvedHome.ts:55-75`): o backoffice **não
+pode importar de `apps/store`**, então a Fase 4 **reescreveu as três derivações** — mesmos filtros,
+mesma ordenação, mesmo `slice`, em ~40 linhas paralelas. É o "defeito 01" do projeto instalado no
+lugar mais caro possível: o trabalho do painel é **dizer a verdade sobre o que a loja desenha**. Se as
+duas cópias divergirem, o painel promete uma seção que a Home não renderiza — e é justamente o que
+esta feature existe para eliminar. A deriva já começou: a cópia do painel usa `limit ?? 4` literal
+onde a loja usa `HOME_COLLECTION_ROWS`.
+
+**Done when**:
+- [ ] As três funções vivem em `core/home`; loja e painel importam **a mesma**
+- [ ] **A regra não é reescrita, é movida** — o diff mostra deslocamento, não redação nova
+- [ ] `useAdminResolvedHome` perde as cópias e o comentário que as justificava
+- [ ] Os testes que já existiam para as três **acompanham o movimento**, sem perder caso
+- [ ] `HOME_COLLECTION_ROWS` e `HOME_BANNER_SLOTS` passam a ter um lugar só
+- [ ] Nenhuma violação nova de fronteira FSD
+- [ ] Gate **build**
+
+**Tests**: unit · **Gate**: build
+**Commit**: `refactor(home): a derivacao passa a ter um dono, em core/home`
 
 ---
 
