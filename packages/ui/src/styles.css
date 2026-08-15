@@ -64,7 +64,16 @@
     --destructive-foreground: 0 0% 100%;
 
     --border: 270 30% 94%;
-    --input: 270 30% 94%;
+    /* Contorno de CONTROLE, e por isso separado de `--border` (feature 24, T19).
+       Os dois nasceram com o mesmo valor (270 30% 94% = #F0EAF5), e nesse valor a borda de um
+       `<Input>` mede 1,15:1 sobre o fundo de campo — a WCAG 1.4.11 pede 3:1 de contorno de
+       controle. Divisória de card, de tabela e de sidebar continua em `--border`: lá a régua é
+       outra, porque separar duas superfícies não é a mesma coisa que dizer onde se digita.
+       É a mesma divisão `field`/`line` que a loja já força por `fieldBorder.test.ts`.
+       Valor do board `24 · Painel Home` (contorno de rádio, do stepper e dos botões de contorno):
+       #9086B4 ⇒ hsl(253 23% 62%). MEDIDO: 3,15:1 sobre `--background` (#FFF9F5) e 3,29:1 sobre
+       o branco do card. */
+    --input: 253 23% 62%;
     --ring: 255 83% 57%;
 
     --radius: 0.75rem;
@@ -116,7 +125,10 @@
     --destructive-foreground: 0 0% 100%;
 
     --border: 250 30% 18%;
-    --input: 250 30% 18%;
+    /* O par escuro do de cima: a mesma matiz (253), clareada até passar da régua sobre o fundo
+       escuro em vez de escurecida. MEDIDO: 3,37:1 sobre `--card` (#141122), 3,57:1 sobre
+       `--background` (#0B0915) e 3,03:1 sobre `--muted`. `--border` continua em 250 30% 18%. */
+    --input: 253 20% 48%;
     --ring: 255 83% 57%;
 
     --sidebar-background: 250 35% 8%;
