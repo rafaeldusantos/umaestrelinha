@@ -549,6 +549,64 @@ escrita sem `has_role` e que nenhuma concede a `anon` — mesma âncora que
 
 ---
 
+## Emendas — achados da Fase 1 (2026-08-15)
+
+O lote 1 devolveu sete achados. Três apontam **defeitos deste design**, não do trabalho, e ficam
+registrados aqui em vez de virarem improviso de um worker adiante.
+
+### E1 — Os literais têm UM dono, e a Fase 3 tem de escolher qual
+
+`defaults.test.ts` (T3) compara `DEFAULT_HOME_COMPOSITION` com os literais **lidos do fonte dos
+widgets**. Isso é certo hoje e vira armadilha na T14: depois que os widgets recebem conteúdo por
+prop, um fallback literal dentro deles é um **segundo dono dos mesmos textos** — o "defeito 01" do
+projeto, plantado por um teste que eu mesmo pedi.
+
+**Decisão**: a partir da T14 os literais vivem **só** em `DEFAULT_HOME_COMPOSITION`. Os widgets
+passam a exigir o conteúdo por prop, sem fallback. A comparação com o disco em `defaults.test.ts`
+**se aposenta na T14**, e quem assume o papel é a T1 — que é estritamente mais forte, porque assere o
+**DOM renderizado** ao fim do pipe inteiro, não o texto de um arquivo.
+
+**Consequência para a AC da T14**: onde ela dizia *"sem conteúdo, os literais de hoje"*, passa a
+dizer *"conteúdo é prop obrigatória; sem ele o widget não renderiza"*.
+
+### E2 — `trending_tags` perdeu o "ver todos", e a T1 não o congelou
+
+A tabela de `config` deste design omitiu `link_label` / `link_href` em `trending_tags`. Mas o widget
+**hoje** renderiza "Ver todos os temas" → `/busca`, e `HOME-41` torna esse link editável. Pior: a T1
+congelou título e subtítulo dos chips e **não** o link — então uma T14 desatenta o removeria e nada
+acusaria, que é exatamente a classe de falha que a T1 existe para impedir.
+
+**Decisão**: `trending_tags.config` ganha `link_label` e `link_href`. **Antes** de tocar no widget, a
+T14 estende `homeComposition.test.tsx` para congelar também esse link.
+
+**Regra do gate da T18, corrigida**: era *"T1 continua verde sem alteração no arquivo de teste"*.
+Passa a ser **"a T1 não perde asserção — só ganha"**. Acrescentar cobertura é legítimo; afrouxar ou
+remover, não. A distinção importa porque a redação anterior proibiria justamente esta correção.
+
+### E3 — Medida de vaga e "em breve" são domínio, não tela
+
+Três coisas ficaram sem dono declarado e cairiam em duas telas cada, divergindo no primeiro ajuste:
+
+| O quê | Onde ficava | Onde passa a ficar | Quem lê |
+| --- | --- | --- | --- |
+| Quantas vagas e que proporção cada `layout` tem | implícito na T15 e na T28 | **`core/home`**: `layoutSlots(layout)`, `layoutRatios(layout)` | `HomeBannerGrid` (T15) **e** `BannerGridEditor` (T28) |
+| Os dois tipos de P3 aparecerem como "em breve" | texto na T23 | **`core/home`**: `sectionMeta().comingSoon` | bandeja (T23) e renderizador (T17) |
+| O teto de 30 | "recusa na tela" | **`core/home`**: `sectionCapRefusal(sections)` | bandeja (T23) |
+
+É o mesmo argumento de `menuEntries`: foi ter a regra em cada tela que produziu o defeito original do
+menu. `layoutSlots` é o caso mais claro — sem ele, "quantos banners cabem em `hero_pair`" seria
+respondido por um widget da loja e por um editor do painel, separadamente.
+
+### Achados que **não** viram emenda
+
+- **Âncora de `catalog.test.ts` afrouxada de `>= 3` num módulo de seis**: corrigida direto (piso = 6,
+  os seis arquivos nomeados). A justificativa do worker para não fixar a lista inteira é boa e foi
+  preservada — o que estava errado era o piso, não a forma.
+- **`tasks.md` não editado pelo worker**: correto. Atualizar o estado das tasks é papel do
+  orquestrador, não de quem executa.
+
+---
+
 ## Pergunta aberta que este design fecha
 
 **A forma do "Destaque em coleção" (`HOME-37`..`HOME-40`).** Nenhum dos cinco boards o desenha — ele

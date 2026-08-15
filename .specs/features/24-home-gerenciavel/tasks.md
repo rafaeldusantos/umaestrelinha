@@ -78,11 +78,31 @@ confere por `git status` no gate final.
 
 Fases ordenadas e sequenciais. **34 tasks em 6 fases** — empacotam em ~5 lotes de sub-agente.
 
-### Fase 1 — Congelar a Home de hoje, depois o domínio (6 tasks)
+### Fase 1 — Congelar a Home de hoje, depois o domínio (6 tasks) — ✅ **FECHADA** (2026-08-15)
 
 ```
 T1 → T2 → T3 → T4 → T5 → T6
 ```
+
+| Task | Commit | Entregou |
+| --- | --- | --- |
+| T1 | `e0c5a17` | congela a Home atual pelo **DOM renderizado** — sequência, literais, limites 3/4/12, as duas cores do título |
+| T2 | `e4f0d2d` | catálogo: 10 tipos, 6 únicos, `sectionMeta`, `MAX_HOME_SECTIONS`, pureza asserida |
+| T3 | `a277f04` | `DEFAULT_HOME_COMPOSITION` — 7 seções, comparadas com o fonte dos widgets |
+| T4 | `17de2e3` | `orderSections` + `reorderSections`, idempotência asserida |
+| T5 | `53c5eb6` | `resolveHomeSections` com `hiddenReason`, `droppedCount` e o aninhamento |
+| T6 | `8dd62ce` | as cinco recusas, todas `string | null` |
+
+**Verificado de forma independente pelo orquestrador** (não pelo relato do worker): core
+**1014/33** (+96) · store **1410/109** (+9) · `tsc` store **0** · `payment/**` **0 arquivos
+tocados** · árvore limpa.
+
+**Duas correções do orquestrador sobre o entregue:**
+1. A âncora de `catalog.test.ts` vinha com piso `>= 3` num módulo de **seis** arquivos — uma
+   varredura que devolvesse metade passaria. Piso elevado a 6, com os seis nomeados. A forma que o
+   worker escolheu (nomear em vez de fixar a lista, para arquivo novo entrar sozinho) foi preservada.
+2. Três achados viraram **emendas de design** (`E1`, `E2`, `E3` em `design.md`), com as ACs de T14,
+   T15, T18 e T23 reescritas — em vez de deixar um worker adiante improvisar.
 
 > **T1 vem antes de tudo, e não é cerimônia.** O risco nº 1 desta feature é a Home mudar de cara
 > numa refatoração de composição — e nada acusaria: build passa, `tsc` passa, teste de componente
@@ -460,9 +480,16 @@ texto, não redesenho
 **Tools**: MCP: NONE · Skill: NONE
 
 **Done when**:
-- [ ] Os três renderizam o conteúdo recebido; sem conteúdo, os literais de hoje
+- [ ] **PRIMEIRO**, antes de tocar em widget: estender `homeComposition.test.tsx` para congelar o
+      link "Ver todos os temas" → `/busca` dos chips (**emenda E2** — a T1 não o congelou, e sem isso
+      removê-lo não acusaria)
+- [ ] `trending_tags.config` ganha `link_label` e `link_href` em `DEFAULT_HOME_COMPOSITION`
+- [ ] Os três exigem o conteúdo por **prop obrigatória** — **sem fallback literal** (**emenda E1**:
+      um fallback dentro do widget seria um segundo dono dos mesmos textos)
+- [ ] A comparação com o disco em `defaults.test.ts` **se aposenta aqui**, com o motivo no arquivo:
+      quem assume o papel é a T1, que assere o DOM ao fim do pipe inteiro
 - [ ] `accentText.test.ts` e `contrast.test.ts` continuam verdes
-- [ ] **T1 continua verde**
+- [ ] **T1 não perde asserção — só ganha**
 - [ ] Gate quick · store **+N**
 
 **Tests**: unit · **Gate**: quick
@@ -482,11 +509,14 @@ texto, não redesenho
 **Tools**: MCP: `paper` · Skill: NONE
 
 **Done when**:
+- [ ] **`layoutSlots(layout)` e `layoutRatios(layout)` nascem em `packages/core/src/home/`**, não no
+      widget (**emenda E3**): a T28 lê as mesmas medidas, e "quantos banners cabem em `hero_pair`"
+      respondido em dois lugares divergiria no primeiro ajuste
 - [ ] Em 390px **todo** arranjo empilha em coluna de largura cheia, na ordem da fileira
 - [ ] Imagem que não carrega mantém a proporção reservada e **nada abaixo se desloca**
 - [ ] Banner órfão não é renderizado
-- [ ] **T1 continua verde** (`hero_pair` idêntico ao de hoje)
-- [ ] Gate quick · store **+N**
+- [ ] **T1 não perde asserção** (`hero_pair` idêntico ao de hoje)
+- [ ] Gate quick · core **+N** · store **+N**
 
 **Tests**: unit · **Gate**: quick
 **Commit**: `feat(home): grade de banners com quatro arranjos e banner proprio`
@@ -549,8 +579,9 @@ aninhamento da faixa.
 **Tools**: MCP: NONE · Skill: NONE
 
 **Done when**:
-- [ ] **T1 passa sem uma única alteração no arquivo de teste.** Se ele precisar mudar, a composição
-      mudou — e isso é a falha que `HOME-04` existe para pegar
+- [ ] **A T1 não perde asserção — só ganha** (**emenda E2**). Se uma asserção precisar ser removida
+      ou afrouxada, a composição mudou — e isso é a falha que `HOME-04` existe para pegar.
+      Acrescentar cobertura (como a T14 faz com o link dos chips) é legítimo
 - [ ] Nenhum import de widget de seção sobra na página
 - [ ] Gate **build** (fecho de fase) · **4019 + N testes**, zero erro de tipo novo, lint ≤ 30/8
 
@@ -666,11 +697,13 @@ aparecer", e a faixa institucional **recuada** sob as fileiras.
 **Tools**: MCP: `paper` · Skill: NONE
 
 **Done when**:
+- [ ] **`sectionMeta().comingSoon` e `sectionCapRefusal(sections)` nascem em `core/home`**, não na
+      tela (**emenda E3**) — mesma régua de `menuEntries`
 - [ ] Tipo único que já está na lista aparece **esmaecido, dizendo que já está** — responde a
       pergunta **antes** de a dona clicar e ser recusada
 - [ ] Os dois tipos de P3 aparecem como "em breve", sem prometer o que não existe
 - [ ] A 31ª seção é recusada, dizendo o teto
-- [ ] Gate quick · backoffice **+N**
+- [ ] Gate quick · core **+N** · backoffice **+N**
 
 **Tests**: unit · **Gate**: quick
 **Commit**: `feat(admin): bandeja de blocos no rodape da lista, com os unicos ja marcados`

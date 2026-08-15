@@ -159,9 +159,23 @@ describe('core/home — módulo puro', () => {
     // A âncora nomeia os arquivos que **têm** de estar lá em vez de fixar a lista inteira: a varredura
     // abaixo é `readdirSync`, então todo arquivo novo do módulo já entra na medição sozinho. Fixar a
     // lista faria cada arquivo novo pedir uma edição neste teste, que é churn sem ganho de guarda.
+    //
+    // Mas o PISO tem de valer alguma coisa: com `>= 3` num módulo de seis, uma varredura que
+    // devolvesse só metade dos arquivos passaria — e é justamente a varredura quebrada que esta
+    // âncora existe para pegar. O piso é o tamanho real do módulo; arquivo novo o eleva, arquivo
+    // removido ou renomeado derruba a suíte, que é quando se quer ser avisado.
     const nomes = FONTES.map(f => f.nome)
-    expect(nomes).toEqual(expect.arrayContaining(['catalog.ts', 'index.ts', 'types.ts']))
-    expect(FONTES.length).toBeGreaterThanOrEqual(3)
+    expect(nomes).toEqual(
+      expect.arrayContaining([
+        'catalog.ts',
+        'defaults.ts',
+        'index.ts',
+        'order.ts',
+        'refusals.ts',
+        'types.ts',
+      ]),
+    )
+    expect(FONTES.length).toBeGreaterThanOrEqual(6)
   })
 
   it('nenhum arquivo importa React nem Supabase', () => {
