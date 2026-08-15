@@ -155,7 +155,13 @@ describe('core/home — módulo puro', () => {
   it('âncora: varreu os arquivos do módulo de verdade', () => {
     // Sem esta âncora, um caminho errado varreria zero arquivo e a suíte passaria em silêncio — que é
     // a pior falha possível num teste que lê o disco.
-    expect(FONTES.map(f => f.nome).sort()).toEqual(['catalog.ts', 'index.ts', 'types.ts'])
+    //
+    // A âncora nomeia os arquivos que **têm** de estar lá em vez de fixar a lista inteira: a varredura
+    // abaixo é `readdirSync`, então todo arquivo novo do módulo já entra na medição sozinho. Fixar a
+    // lista faria cada arquivo novo pedir uma edição neste teste, que é churn sem ganho de guarda.
+    const nomes = FONTES.map(f => f.nome)
+    expect(nomes).toEqual(expect.arrayContaining(['catalog.ts', 'index.ts', 'types.ts']))
+    expect(FONTES.length).toBeGreaterThanOrEqual(3)
   })
 
   it('nenhum arquivo importa React nem Supabase', () => {
