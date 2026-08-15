@@ -349,7 +349,126 @@
 
 ## Handoff
 
-### ATUAL — 2026-08-09 · `22-material-afetivo` **IMPLEMENTADA** (T1–T21) · falta o **Verifier**
+### ATUAL — 2026-08-15 · `24-home-gerenciavel` **IMPLEMENTADA** (T1–T35) · falta o **Verifier**
+
+**Estado**: árvore **limpa**, 35 tasks em 6 fases, **um commit atômico por task** (mais os fechos de
+fase). Gate verde, medido de verdade. **Nada em andamento.**
+
+---
+
+#### O que a `24` entrega
+
+A composição da Home saiu do `.tsx` e virou **dado**. Antes, mudar a ordem dos blocos, o texto do
+hero ou a arte de um banner era edição de código; e reordenar a vitrine mexia na **barra do topo**,
+porque as duas liam `categories.sort_order`. Agora a Home mora em `home_sections` +
+`home_section_items`, e `/admin/home` é onde a dona arrasta, liga, desliga e edita.
+
+| | onde |
+| --- | --- |
+| Domínio da composição — catálogo de 10 tipos, semente, ordem, resolução, recusas, arranjos, derivação | `packages/core/src/home/**` |
+| As duas tabelas, RLS, trigger do hero indelével, bucket `home-images` | `supabase/migrations/*_24-home-gerenciavel.sql` |
+| A loja lê do banco, com `DEFAULT_HOME_COMPOSITION` como piso | `entities/home` + `widgets/home-renderer` |
+| Hero com foto opcional, grade de banners com 4 arranjos e banner livre | `widgets/hero-banner` · `widgets/home-banners` |
+| Destaque em coleção (tipo novo, com desenho) | `widgets/collection-feature` |
+| `/admin/home` — lista arrastável, bandeja de blocos, prévia esquemática | `features/home-composition` |
+| Editor de seção como **rota** (`/admin/home/:sectionId`), trocando só a coluna da lista | `pages/admin/AdminHomePage.tsx` |
+| Cinco editores: hero, grade de banners, seções de texto, fileiras de coleção, destaque | `features/home-composition/ui/*Editor.tsx` |
+
+**Gate de fecho medido** (por workspace, exit 0 capturado de verdade, nunca por `| tail`):
+
+| | valor |
+| --- | ---: |
+| Testes | **4.488** em **251** arquivos |
+| store · backoffice · core · functions · catalog-import | 1528/113 · 1345/82 · **1060/37** · 279/4 · 276/15 |
+| Lint | **30 erros / 8 warnings** — baseline exata, zero novo |
+| Tipos | store **0** · backoffice **0** · catalog-import **0** |
+
+`packages/core/src/payment/` **intocado** — `git diff --name-only 83a3853..HEAD -- packages/core/src/payment`
+devolve **vazio**. Nenhuma decisão de dinheiro passou a depender da composição da Home.
+
+---
+
+#### Os seis contratos que valem para toda feature futura
+
+1. **Curadoria é a PRESENÇA de itens, não uma flag.** Ter itens é o override; não ter é a derivação.
+   "Voltar ao automático" é um `delete`. Uma flag `auto`/`manual` seria dois donos do mesmo dado, com
+   um estado (`manual` + zero itens) que a loja não sabe distinguir de automático.
+2. **A vaga que sobra fica VAZIA.** Escolhida fora do ar é pulada e **não** é substituída pela
+   derivação. A loja pula, o painel avisa com o número ("1 das 3 saiu do ar") e marca a linha.
+3. **Reordenar a Home não toca em `categories.sort_order`.** Era metade do problema que abriu a
+   feature. A ordem da Home é `position`, nas duas tabelas.
+4. **A derivação tem UM dono: `@estrelinha/core/home/derive.ts`.** `pickHomeCollections`,
+   `pickHomeBanners` e `pickTrendingCategories` saíram de `apps/store` na T35, porque o painel havia
+   sido obrigado a reescrevê-las (o backoffice não importa de `apps/store`) e a deriva já começara.
+5. **Erro de leitura cai no piso semeado, nunca em página em branco.** `DEFAULT_HOME_COMPOSITION` é
+   ao mesmo tempo a semente da migration e o fallback do hook — e `homeSections.test.ts` prende os
+   dois um ao outro, lendo a migration do disco.
+6. **Editor de seção é ROTA, e ela troca só a coluna da lista.** A prévia continua sendo a mesma
+   árvore de React e **não remonta** — asserido por identidade do nó do DOM, porque é a razão de a
+   rota existir neste formato.
+
+---
+
+#### O que a execução expôs, e que vale registrar
+
+- **Congelar a Home ANTES de mexer nela foi o que tornou `HOME-04` verificável.** A T1 assere o
+  **DOM renderizado** — sequência, literais, limites, as duas cores do título — e a regra do gate é
+  "não perde asserção, só ganha". Ela foi de 9 para 14 asserções ao longo da feature, com **56 linhas
+  adicionadas e 0 removidas** na fase que reescreveu a página inteira.
+- **O upsert de reordenação precisa mandar `type` junto**: `{ id, position }` devolve
+  `23502 null value in column "type"`, porque o upsert do PostgREST é `insert … on conflict`.
+- **`insert` em lote exige as mesmas chaves em todos os objetos** (`PGRST102`).
+- **O CHECK de destino é `<= 1`, não `= 1`** — provado no probe: com `= 1`, apagar a categoria de
+  destino faria o `DELETE` **falhar** em vez de esvaziar a FK.
+- **"Saiu do ar" é resposta da RLS, não filtro do cliente**: produto despublicado volta com
+  `product: null` e o `product_id` intacto.
+- **A grade de banners aparece como "não vai aparecer" com dado REAL** — nenhuma das 37 categorias do
+  catálogo importado tem `banner_url`.
+
+---
+
+#### Pendências desta feature
+
+- **O Verifier independente ainda não rodou** (autor ≠ verificador), e `24/validation.md` não existe.
+  É o próximo passo, com checagem ancorada na spec e sensor de discriminação.
+- **A curadoria da Home é decisão da dona**, como a do material. A composição semeada é a de hoje;
+  subir arte em `/admin/categorias` é o que acende a grade de banners.
+- **Os dois blocos de P3** (`product_carousel`, `category_grid`) estão no catálogo **sem renderer e
+  sem editor**, esmaecidos na bandeja com "em breve". A ausência é declarada.
+- **`BL-012` precisa de decisão do usuário**: o `CLAUDE.md` pede commits agrupados no fim da
+  implementação e a Skill `tlc-spec-driven` exige um commit atômico por task. As features `20`..`24`
+  seguiram a Skill — a regra do arquivo não vem sendo praticada há cinco features, e isso é pior que
+  qualquer uma das duas isolada. **Não foi alterada por conta própria.**
+
+---
+
+**Bloqueios conhecidos**:
+- **Resend**: `send.umaestrelinha.com.br` não verificado (403 medido em 2026-08-08). SMTP do auth
+  desligado de propósito, e-mail de dev no Mailpit.
+- Commits locais sem push. O remoto `origin` está configurado
+  (`github.com/rafaeldusantos/umaestrelinha`) e nenhuma branch remota é conhecida localmente.
+
+**Curadoria pendente, que é decisão da dona e não código**: `show_in_menu = 0` nas 37 categorias,
+então a barra do topo está vazia (`/admin/menu`); nenhuma categoria tem `banner_url`, então a grade
+de banners da Home não desenha (`/admin/categorias`). Admin local:
+`admin@umaestrelinha.dev` / `admin123`, porta 8083.
+
+**Backlog aberto**: `BL-007` (sitemap e dados estruturados), `BL-008` (teto de 1.000 do PostgREST em
+`fetchStatusCounts`), **`BL-009`** (`SUPABASE_URL` com fallback de outro projeto), **`BL-010`**
+(consolidar as duas reordenações), **`BL-011`** (imagem órfã no Storage), **`BL-012`** (a divergência
+de convenção de commits), `BL-00Z` (endereço por WhatsApp), mais os anteriores.
+
+**Ambiente**: Supabase local de pé na faixa 54341–54349, catálogo real no banco (689 produtos · 3.356
+variações · 37 categorias · 3.660 imagens no Storage), mais as 7 seções semeadas da Home.
+
+
+## Handoff — histórico
+
+As entradas abaixo são os snapshots das sessões anteriores, preservados. A seção `## Handoff` acima
+carrega **só o estado atual**; este apêndice existe porque as sessões anteriores acumulavam, e apagar
+o que outra pessoa guardou de propósito não é decisão de quem passou por último.
+
+### ANTERIOR — 2026-08-09 · `22-material-afetivo` implementada (T1–T21)
 
 **Estado**: árvore **suja de propósito** (convenção de commit do projeto: os commits vêm de uma vez,
 depois da verificação). Gate verde, medido de verdade. **Nada em andamento.**
@@ -487,11 +606,7 @@ variações · 37 categorias · 3.660 imagens no Storage). A migration `20260811
 
 ---
 
-## Handoff — histórico
-
-As entradas abaixo são os snapshots das sessões anteriores, preservados. A seção `## Handoff` acima
-carrega **só o estado atual**; este apêndice existe porque as sessões anteriores acumulavam, e apagar
-o que outra pessoa guardou de propósito não é decisão de quem passou por último.
+---
 
 ### ANTERIOR — 2026-08-09 · `23-urls-e-seo` **FECHADA** — foi este fecho que destravou a `22`
 

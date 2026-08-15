@@ -122,6 +122,16 @@ Ao planejar/implementar features, use a Skill **`tlc-spec-driven`** com estas co
   propósito: só fazem sentido depois de a URL canônica de cada conteúdo estar decidida, e agora está.
 - **`BL-008`** — `fetchStatusCounts` lê `orders` sem paginação e herda o teto de 1.000 do PostgREST.
   As contagens da fila de material entram no mesmo teto; corretas até 1.000 pedidos.
+- **Curadoria da Home, que também é decisão da dona.** A `24` semeou a composição de hoje e entregou
+  `/admin/home`. A grade de banners aparece como "não vai aparecer" **com dado real** — nenhuma das
+  37 categorias do catálogo importado tem `banner_url` —, e as fileiras dependem das mesmas
+  categorias. Subir arte em `/admin/categorias` é o que acende a vitrine.
+- **Os dois blocos de P3 da `24`** (`product_carousel`, `category_grid`) estão no catálogo **sem
+  renderer e sem editor**, esmaecidos na bandeja com "em breve". A ausência é declarada, e o
+  renderizador os pula sem quebrar a página.
+- **`BL-009`..`BL-012`** — as quatro dívidas que a `24` deixou registradas, entre elas o
+  `SUPABASE_URL` com fallback hard-coded de outro projeto em `uploadProductImage.ts` e a divergência
+  de convenção de commits entre este arquivo e a Skill `tlc-spec-driven`.
 
 ## Feature-Sliced Design (dentro de cada app)
 
@@ -199,20 +209,57 @@ Cada slice tem um barrel `index.ts` (public API). **Novo código deve importar d
   - **Ligar ícone a categoria ainda não existe.** O board mostra um por vaga do menu; escolher qual é
     curadoria da dona, da mesma natureza do `show_in_menu`, e pede coluna própria — não um mapa de
     slug em código nem inferência em runtime.
-- **A home é DERIVADA de `categories`, não escolhida em código** (board `7CF-0`). Nenhum slug de
-  coleção aparece no `HomePage`: as fileiras saem de `pickHomeCollections` (raízes ativas, na
-  `sort_order` que a dona já arrasta em `/admin/categorias`) e a grade de banners de
-  `pickHomeBanners` (quem tem `banner_url`). Reordenar a home é reordenar categoria — cravar quatro
-  slugs seria repetir o `categories.slice(0, 4)` que a feature 16 tirou do `Header`.
+- **A HOME É DADO, e a composição inteira mora no banco** (feature `24`). `home_sections` +
+  `home_section_items` guardam quais blocos existem, em que ordem, com que texto, com que arte e com
+  que limite; `/admin/home` é onde a dona os arrasta, liga, desliga e edita. A `HomePage` encolheu
+  para **hook → resolve → render** e **não conhece seção nenhuma**: quem caminha a lista é o
+  `HomeRenderer`, por um registro `tipo → componente`.
+  - **A virada não mudou um pixel, e isso é medido.** `homeComposition.test.tsx` (T1) congelou a Home
+    antiga pelo **DOM renderizado** — sequência, literais, limites, as duas cores do título — **antes**
+    de qualquer refatoração, e a regra do gate é **"a T1 não perde asserção, só ganha"**. É o único
+    jeito de `HOME-04` ser verificável em vez de opinável: build, `tsc` e teste de componente passam
+    todos com a home de cara trocada.
+  - **Erro de leitura cai em `DEFAULT_HOME_COMPOSITION`, nunca em página em branco.** A composição de
+    hoje existe como dado em `@estrelinha/core/home` e é ao mesmo tempo a **semente** da migration e o
+    **piso** do hook. Lista vazia cai no mesmo piso.
+  - **Curadoria é a PRESENÇA de itens, não uma flag.** Ter itens é o override; não ter é a derivação
+    de sempre. "Voltar ao automático" é um `delete`, não `mode: 'auto'` — uma flag seria dois donos do
+    mesmo dado, e `manual` com zero itens é um estado que a loja não sabe distinguir de `auto`.
+  - **A vaga que sobra fica VAZIA.** Escolhida que saiu do ar é pulada e **não** é substituída pela
+    derivação: entraria na vitrine algo que a dona não escolheu, justamente na seção onde ela pediu
+    para escolher. A loja **pula**, o painel **avisa** ("1 das 3 saiu do ar", com a linha marcada).
+  - **Reordenar a Home não mexe em `categories.sort_order`.** Era um dos dois problemas que abriram a
+    feature: mudar a vitrine mexia na barra do topo porque os dois liam a mesma coluna. A ordem da
+    Home agora é `home_sections.position` e `home_section_items.position`.
+  - **A derivação tem UM dono: `@estrelinha/core/home` (`derive.ts`).** `pickHomeCollections`,
+    `pickHomeBanners` e `pickTrendingCategories` viviam em `apps/store`, e como o backoffice não
+    importa de lá, o painel chegou a carregar uma **segunda escrita** delas. Duas cópias divergentes
+    fazem o painel prometer uma seção que a Home não renderiza — que é justamente o que esta feature
+    existe para eliminar. Loja e painel leem a mesma função.
   - **Só RAIZ vira fileira.** `useProducts(slug)` faz roll-up da descendência, então pai e filha na
     mesma página mostrariam os mesmos produtos duas vezes.
   - **A mesma arte não aparece duas vezes**: a fileira abre com o banner da própria categoria, e
     quem virou fileira sai da grade (`exclude`) — conteúdo tem prioridade sobre campanha. Com a
     grade vazia ela some inteira, e isso é o certo.
-  - **Todo número da faixa de vantagens sai das settings**, nunca do JSX. A `MarqueeBar` que ela
-    substituiu prometia "Pix com 5% OFF" e "Parcele em 12×" em texto fixo enquanto
-    `max_installments` já era 6: a home dizia uma coisa e o caixa cobrava outra, sem nada acusar. O
-    mesmo vale para as linhas de Pix e parcela do card de produto.
+  - **Todo número da faixa de vantagens sai das settings**, nunca do JSX — e o editor dela **não tem
+    campo de texto**, ele aponta para Configurações. A `MarqueeBar` que ela substituiu prometia "Pix
+    com 5% OFF" e "Parcele em 12×" em texto fixo enquanto `max_installments` já era 6: a home dizia
+    uma coisa e o caixa cobrava outra, sem nada acusar. Dar campo de texto aqui reintroduziria o
+    defeito, com a diferença de que agora quem digitaria o número errado seria a dona.
+  - **Nenhum tipo de contagem regressiva nem de prova social entra no catálogo, e a ausência é
+    asserida.** Os dois saíram na feature 20 por decisão ética, e um catálogo genérico de blocos é
+    exatamente a porta por onde voltariam — com a dona clicando, sem ninguém decidir nada.
+  - **O hero é indelével**: sem controle de desligar na lista **e** com trigger na migration. Os dois
+    precisam existir — sem o trigger a regra morre num `PATCH` direto; sem o controle escondido, a
+    dona clica e leva um erro do banco.
+  - **Escrita só admin, leitura pública só de seção ativa**, nas duas tabelas — `anon` não alcança
+    escrita em nada. A arte da Home tem bucket próprio (`home-images`), separado de `product-images`:
+    banner de campanha **sobrevive** à coleção que ele apontava (é o que faz o painel poder dizer "a
+    arte fica guardada aqui"), e uma limpeza futura de imagem órfã de produto não pode alcançá-lo.
+  - **Editor de seção é ROTA, e ela troca só a coluna da lista** (`/admin/home/:sectionId`). O
+    precedente dos Descontos ("editor é tela, não modal": sobrevive ao F5, é compartilhável) sem o
+    preço que ele costuma cobrar — que aqui seria apagar a prévia justamente enquanto a dona edita
+    olhando para ela. **A prévia não remonta**, e isso é asserido por identidade do nó do DOM.
   - `widgets/category-grid` **continua no repositório mas não é montado**: a grade de tiles saiu da
     home quando a grade de banners tomou o lugar dela no board.
 - **A marca é SVG inline, nunca `<img src>`** — o header não pode ter estado de carregamento.
@@ -531,6 +578,9 @@ passa em silêncio, que é a pior falha possível num teste desse tipo.
 | `reservedSlugs.test.ts` | idem | rota nova no `App.tsx` que não entrou em `ROUTE_SLUGS`; entrada de `ROUTE_SLUGS` que deixou de ser rota. **Bidirecional**: a lista recusa slug de categoria, e entrada morta recusaria nome que já está livre |
 | `vercelRedirects.test.ts` | idem | `vercel.json` divergir de `LEGACY_REDIRECTS` em `source`, `destination` ou status; `trailingSlash` deixar de ser `false`; qualquer redirect usar `permanent` (que produz 308) |
 | `materialTransitions.test.ts` | idem | a máquina de estado do material em **SQL** divergir da em **TypeScript** — lê a migration do disco e compara origem a origem, alvo a alvo; `set_material_tracking` passar a escrever qualquer coluna além do rastreio e do estado; a migration abrir policy de `UPDATE` em `orders` ou conceder `execute` a `anon` |
+| `homeSections.test.ts` | idem | o catálogo de tipos do TypeScript divergir do `check` da migration; a semente divergir de `DEFAULT_HOME_COMPOSITION`; entrar tipo de contagem regressiva ou de prova social; policy de escrita sem `has_role`; qualquer `grant` alcançar `anon`; o trigger do hero indelével sumir; a FK de destino virar `cascade` |
+| `homeComposition.test.tsx` | `pages/__tests__` | a Home mudar de cara — sequência das seções, literais de cada uma, limites 3/4/12 e as duas cores do título, tudo pelo **DOM renderizado**. **Não perde asserção, só ganha**: se uma precisou ser afrouxada, a composição mudou |
+| `catalog.test.ts` · `defaults.test.ts` | `packages/core/src/home/__tests__` | um arquivo de `core/home` importar React ou Supabase; a varredura do módulo render menos de 9 arquivos; a semente divergir do que a loja desenha; um literal de texto voltar para dentro de um widget de seção |
 | `buttonShape.test.ts` | `shared/ui/__tests__` | ação voltar a pílula; a chave custom de raio voltar ao config |
 | `icons.test.ts` | `shared/ui/icons/__tests__` | ícone da biblioteca fora da grade `0 0 24 24`; traço fora de `ICON_STROKE`/`ICON_STROKE_G40` (o efetivo é sempre 1,5); cor em hex/rgb ou `var(--…)` fora de `ICON_ACCENT`; forma preenchida numa família monoline; ícone com `width`/`height` próprios; ícone que não chegou ao barrel ou ao registro |
 | `paths.test.ts` | `shared/ui/brand/__tests__` | `paths.ts` divergir do SVG-fonte em um caractere; dois `<path>` do mesmo SVG com a mesma espessura |
@@ -548,9 +598,9 @@ literalmente, em vez de iterar a constante que deveria guardar).
 
 ## Estado conhecido / dívidas
 
-- **Baseline de lint vigente (medida de novo no fecho da feature 22, 2026-08-09): 30 erros / 8
-  warnings** — backoffice 28/7 · store 2/1. Igual à do fecho da `20`: zero erro novo em **quatro**
-  features seguidas. São erros **pré-existentes**, em boa parte `@typescript-eslint/no-explicit-any`
+- **Baseline de lint vigente (medida de novo no fecho da feature 24, 2026-08-15): 30 erros / 8
+  warnings** — backoffice 28/7 · store 2/1. Igual à do fecho da `20`, da `22` e da `23`: zero erro
+  novo em **seis** features seguidas. São erros **pré-existentes**, em boa parte `@typescript-eslint/no-explicit-any`
   nos hooks admin (`entities/*/api/useAdmin*`). O gate de qualquer feature é **"sem erros novos"**,
   não "lint limpo": compare contra este número e atualize-o aqui quando ele mudar de verdade.
   - **Atenção: `pnpm lint` não olha `packages/`.** Nenhum dos pacotes tem script `lint`, e
@@ -564,18 +614,21 @@ literalmente, em vez de iterar a constante que deveria guardar).
   **Baseline de tipos: store 0 · backoffice 0 · catalog-import 0. Zero é a baseline: qualquer erro
   de tipo é novo.** O importador tem `tsconfig.json` próprio (não é solution-style):
   `npx tsc --noEmit -p tools/catalog-import/tsconfig.json`.
-- **Baseline de testes (home do board `7CF-0`, medida por workspace): 4019 testes em 225 arquivos** —
-  store **1401/108** · backoffice 1145/70 · core 918/28 · functions 279/4 · catalog-import 276/15.
-  - O store subiu 36 (1365 → 1401) em quatro arquivos novos: o guarda da biblioteca de ícones (11),
-    a curadoria da grade de banners (10), a das fileiras de coleção (8) e a faixa de vantagens (7).
-    Nenhum outro workspace mudou — `packages/core/src/payment/**` fechou este passe sem uma linha
-    alterada.
-  - **`core` subiu de 799 para 918, e isso é esperado**: o crescimento veio de `material/` (o módulo
-    novo — enum, máquina de estado, gravação e a inferência do catálogo) mais 1 do contador de rotas.
-    O que **não pode** mudar é o código de dinheiro — `packages/core/src/payment/**` fechou as
-    features 22 **e** 23 sem uma linha alterada, conferido por `git status` no gate. Continua
-    valendo: identidade visual e importação de catálogo não têm por que mexer em `core`.
-  - `pnpm test` roda os quatro workspaces em paralelo e **já produziu flake de RTL sob carga** —
+- **Baseline de testes (fecho da feature 24, medida por workspace): 4488 testes em 251 arquivos** —
+  store **1528/113** · backoffice **1345/82** · core **1060/37** · functions 279/4 ·
+  catalog-import 276/15.
+  - A feature `24` somou **469 testes em 26 arquivos**, quase todos da Home gerenciável: o domínio em
+    `core/home` (catálogo, semente, ordem, resolução, recusas, arranjos), o guarda que lê a migration
+    do disco, os widgets da loja por prop, e as sete telas do painel.
+  - **O store CAIU 23 e isso é o certo**: a T35 moveu `pickHomeCollections`, `pickHomeBanners` e
+    `pickTrendingCategories` para `core/home`, e os três arquivos de teste foram junto, com os casos
+    intactos (store 1551 → 1528, core 1037 → 1060). Queda de contagem só é aceitável quando o mesmo
+    número reaparece do outro lado — em qualquer outro caso é deleção silenciosa.
+  - O que **não pode** mudar é o código de dinheiro — `packages/core/src/payment/**` fechou as
+    features 22, 23 **e** 24 sem uma linha alterada, conferido por `git diff --name-only` no gate.
+    Continua valendo: identidade visual, importação de catálogo e composição de home não têm por que
+    mexer em `payment/`.
+  - `pnpm test` roda os cinco workspaces em paralelo e **já produziu flake de RTL sob carga** —
     falhas de timeout em suítes pesadas que passam isoladas e na segunda execução. Rode por workspace
     antes de investigar.
   - **Cuidado com `pnpm test | tail`**: o código de saída que sai do pipe é o do `tail`, não o do

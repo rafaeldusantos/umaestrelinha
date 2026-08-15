@@ -379,3 +379,108 @@ opção é uma consulta por estado (9 hoje); a terceira é uma migration.
 
 **Urgência real**: baixa. A loja não tem 1.000 pedidos. Mas o dano é **silencioso** e aparece como
 "a fila diz 40 e eu vejo 60" — o tipo de erro que se atribui a bug de tela por semanas.
+
+---
+
+## BL-009 — `SUPABASE_URL` com fallback hard-coded de OUTRO projeto
+
+- **Status**: aberto · **Registrado em**: 2026-08-15 · **Origem**: feature `24`, T26 (generalização do upload)
+
+`apps/backoffice/src/features/product-form/lib/uploadProductImage.ts:12` monta a URL pública da
+imagem com um `||` cujo lado direito é a URL literal de **um projeto Supabase hospedado que não é
+este** (o `.env.example` deste repositório aponta para `http://127.0.0.1:54341`). A URL não é
+transcrita aqui de propósito — copiá-la para a documentação a espalharia para um terceiro arquivo.
+
+Enquanto a env estiver definida, nada acontece — e é exatamente por isso que o defeito é perigoso:
+ele só aparece no dia em que a env faltar, e o sintoma não é um erro, é **imagem que não carrega**
+apontando para a infraestrutura de outra loja. O upload em si funciona (quem grava é o client, que já tem a URL certa); o que sai errado
+é a URL pública gravada em `products.image_url` — ou seja, o dano **fica no banco**.
+
+**Por que ficou fora da `24`**: a T26 tinha um "done when" explícito de *nenhum chamador existente
+muda*, e trocar o comportamento de um fallback é mudar o chamador. O arquivo foi tocado para ganhar
+`{ bucket, folder }`, e o achado é dessa leitura.
+
+**O que falta**: decidir entre (a) derivar a URL pública de `supabase.storage.from(b).getPublicUrl()`,
+que é a forma que não tem fallback nenhum, ou (b) lançar erro na ausência da env, como
+`@estrelinha/supabase` já faz para o client. A (a) é a correção certa e alcança os dois buckets.
+
+---
+
+## BL-010 — `reorderWithinParent` e `reorderSections` são a mesma função
+
+- **Status**: aberto · **Registrado em**: 2026-08-15 · **Origem**: feature `24`, T4 (o design já previu)
+
+Duas implementações de "mover um item de uma posição para outra e devolver só as linhas que mudaram":
+
+| Onde | Quem usa |
+| --- | --- |
+| `apps/backoffice/src/features/category-list/model/categoryTree.ts:370` (`reorderWithinParent`) | arrastar categoria |
+| `packages/core/src/home/order.ts` (`reorderSections`) | arrastar seção da Home |
+
+A `24` **não** importou a primeira: ela vive em `apps/backoffice`, e `core/home` não pode importar de
+um app — a mesma restrição que criou a T35. O design registrou a duplicação como conhecida e
+deliberada, com o molde copiado e o porquê escrito.
+
+**O que falta**: extrair um `reorderByIndex<T>(items, from, to)` genérico em `@estrelinha/core` e
+fazer as duas lerem dele. É o mesmo movimento que a T35 fez com a derivação, e pela mesma razão —
+com a diferença de que aqui as duas cópias **ainda não divergiram**, então a urgência é menor.
+
+**Cuidado ao fazer**: as duas devolvem **posições absolutas só das linhas alteradas**, e é isso que
+faz o upsert ser barato e idempotente. Um genérico que devolvesse a lista inteira reescreveria toda
+categoria a cada arraste.
+
+---
+
+## BL-011 — Imagem órfã no Storage quando uma seção da Home é apagada
+
+- **Status**: aberto · **Registrado em**: 2026-08-15 · **Origem**: dívida declarada na spec da `24`
+
+Apagar uma seção da Home apaga a linha (e os itens, por `on delete cascade`), mas **não** apaga a
+arte no bucket `home-images`. Trocar a foto do hero também deixa a anterior lá. O mesmo já vale para
+`product-images`.
+
+**Não é vazamento de dado** — o bucket é público de leitura e a arte é material de vitrine —, é
+**custo de armazenamento que só cresce**.
+
+**Por que não foi feito junto**: apagar arquivo no momento errado é pior que deixá-lo. A mesma URL
+pode estar em duas seções (a dona duplicou um banner), e `home-images` foi separado de
+`product-images` justamente porque a arte da Home **sobrevive** à coleção que ela apontava. Uma
+limpeza ingênua no `delete` da seção apagaria a arte de um banner que outra seção ainda usa.
+
+**O que falta**: decidir entre (a) varredura periódica que compara o bucket com as URLs referenciadas
+(mais seguro, roda fora do caminho da dona), ou (b) contagem de referências na hora do delete (mais
+imediato, e precisa considerar `config.image_url` **e** `home_section_items.image_url`). A (a) é a
+que não tem como apagar arte viva.
+
+---
+
+## BL-012 — Convenção de commits: o `CLAUDE.md` e a Skill `tlc-spec-driven` discordam
+
+- **Status**: aberto, **precisa de decisão do usuário** · **Registrado em**: 2026-08-15 · **Origem**: feature `24`, T34
+
+As duas regras estão escritas, e são incompatíveis:
+
+| Fonte | Regra |
+| --- | --- |
+| `CLAUDE.md`, seção *Workflow de specs* | *"**não** criar commits atômicos em pequenos pedaços durante a implementação. Aguardar a conclusão e gerar os commits completos da implementação de uma vez"* — declarado explicitamente como sobreposição do comportamento padrão da Skill |
+| Skill `tlc-spec-driven`, `implement.md` passo 7 | *"Each task gets its own commit immediately after verification. Never batch multiple tasks into one commit."* — e o gate por task depende disso |
+
+**A feature `24` seguiu a Skill**: 35 commits, um por task, mais os de fecho de fase. As features
+`20`..`23` também. Ou seja, **a regra do `CLAUDE.md` não vem sendo praticada há quatro features** —
+e isso é pior que qualquer uma das duas regras isolada, porque quem ler o arquivo vai fazer o
+contrário do que o repositório mostra.
+
+**Não foi resolvido por conta própria de propósito.** Alterar a regra do `CLAUDE.md` é decisão do
+usuário: ela foi escrita como sobreposição deliberada, e um worker apagá-la seria exatamente o tipo
+de "while I'm here" que o guardrail de escopo proíbe.
+
+**As duas saídas**:
+
+1. **Manter a Skill e ajustar o `CLAUDE.md`** — reconhece a prática de quatro features. O commit
+   atômico por task é o que torna o gate verificável e o `git bisect` útil; batelar tasks apaga a
+   correspondência entre commit e "done when".
+2. **Manter o `CLAUDE.md` e instruir a Skill** — exige um passo de squash no fim de cada fase, e o
+   histórico perde a rastreabilidade task ⇄ commit que a `24` usou o tempo todo (cada fase fechou
+   citando os hashes por task).
+
+A recomendação, com o lastro das cinco features, é a **(1)**.
