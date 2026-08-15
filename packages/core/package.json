@@ -20,7 +20,8 @@
     "./checkout": "./src/checkout/index.ts",
     "./menu": "./src/menu/index.ts",
     "./routes": "./src/routes/index.ts",
-    "./material": "./src/material/index.ts"
+    "./material": "./src/material/index.ts",
+    "./home": "./src/home/index.ts"
   },
   "scripts": {
     "test": "vitest run"
