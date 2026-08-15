@@ -433,3 +433,7 @@ export * from './shipping'
 // === Promoções (desconto progressivo por quantidade) ===
 
 export * from './promotion'
+
+// === Home gerenciável (a composição da Home como dado) ===
+
+export * from './home'
