@@ -168,3 +168,108 @@ drop trigger if exists trg_home_sections_updated_at on public.home_sections;
 create trigger trg_home_sections_updated_at
 	before update on public.home_sections
 	for each row execute function public.update_updated_at_column();
+
+-- ---------------------------------------------------------------------
+-- 4 · RLS (HOME-05)
+-- ---------------------------------------------------------------------
+--
+-- **Habilitar RLS aqui é obrigatório, e não zelo.** `20260801130000_public_schema_grants.sql`
+-- concede `all on all tables` a `anon`/`authenticated` e repete o mesmo default privilege para toda
+-- tabela nova — a postura padrão do Supabase, em que o gate é o RLS e não o grant. Tabela nova que
+-- nascesse sem RLS estaria escancarada, com escrita anônima inclusive.
+--
+-- Sem RPC, de propósito: estas são tabelas de CONTEÚDO, não de dinheiro nem de estado de pedido. O
+-- argumento que obrigou `set_material_status` a existir (`orders` não pode ter policy de UPDATE para
+-- não expor `payment_status` e os valores — PAY-10) não se aplica. Policy com
+-- `has_role(auth.uid(), 'admin')` é a superfície certa, e é a que /admin/categorias já usa.
+
+alter table public.home_sections      enable row level security;
+alter table public.home_section_items enable row level security;
+
+-- A loja vê SÓ o que está ligado. É isto que faz "desligar uma seção" ser uma decisão de verdade e
+-- não um `display: none` — a linha inativa nem sequer trafega para o navegador da cliente.
+drop policy if exists "public read active home sections" on public.home_sections;
+create policy "public read active home sections" on public.home_sections
+	for select to public
+	using (active = true);
+
+-- O item segue o estado da seção-mãe. Sem este `exists`, a curadoria de uma seção desligada ficaria
+-- legível — que é o mesmo vazamento, uma tabela ao lado.
+drop policy if exists "public read items of active home sections" on public.home_section_items;
+create policy "public read items of active home sections" on public.home_section_items
+	for select to public
+	using (exists (
+		select 1 from public.home_sections s
+		where s.id = home_section_items.section_id
+		  and s.active = true
+	));
+
+-- `to authenticated` + `has_role` no `using` **e** no `with check`.
+--
+-- Os dois lados são necessários e testam coisas diferentes: o `using` decide quais linhas a pessoa
+-- ALCANÇA (update/delete), o `with check` decide o que ela pode DEIXAR GRAVADO (insert/update). Só o
+-- `using` deixaria um não-admin inserir livremente, porque `insert` não tem linha antiga para o
+-- `using` filtrar.
+drop policy if exists "admin full home sections" on public.home_sections;
+create policy "admin full home sections" on public.home_sections
+	for all to authenticated
+	using (public.has_role(auth.uid(), 'admin'))
+	with check (public.has_role(auth.uid(), 'admin'));
+
+drop policy if exists "admin full home section items" on public.home_section_items;
+create policy "admin full home section items" on public.home_section_items
+	for all to authenticated
+	using (public.has_role(auth.uid(), 'admin'))
+	with check (public.has_role(auth.uid(), 'admin'));
+
+-- Nenhum `grant` a `anon` é emitido por esta migration, e nenhuma policy de escrita alcança `anon`:
+-- as duas de escrita são `to authenticated`, e `anon` não é `authenticated`. `homeSections.test.ts`
+-- assere as duas coisas lendo este arquivo do disco.
+
+-- ---------------------------------------------------------------------
+-- 5 · Bucket `home-images` (HOME-05)
+-- ---------------------------------------------------------------------
+--
+-- **Bucket PRÓPRIO, e não uma pasta dentro de `product-images`.** A spec declara como dívida a
+-- limpeza de imagem órfã (apagar a seção apaga as linhas, não os arquivos). Quando essa varredura
+-- existir, ela precisa poder passar sobre a arte da Home sem chegar perto de imagem de produto —
+-- com uma pasta compartilhada, um prefixo errado apagaria a foto de 689 produtos.
+--
+-- Molde de `mockup-templates`, e não do `product-images` legado: aquele libera escrita a qualquer
+-- `authenticated`. Aqui a escrita exige `has_role(auth.uid(), 'admin')`.
+insert into storage.buckets (id, name, public)
+values ('home-images', 'home-images', true)
+on conflict (id) do nothing;
+
+drop policy if exists "Public read access to home images" on storage.objects;
+create policy "Public read access to home images"
+on storage.objects for select to public
+using (bucket_id = 'home-images');
+
+drop policy if exists "Admins can upload home images" on storage.objects;
+create policy "Admins can upload home images"
+on storage.objects for insert to authenticated
+with check (
+	bucket_id = 'home-images'
+	and public.has_role(auth.uid(), 'admin')
+);
+
+drop policy if exists "Admins can update home images" on storage.objects;
+create policy "Admins can update home images"
+on storage.objects for update to authenticated
+using (
+	bucket_id = 'home-images'
+	and public.has_role(auth.uid(), 'admin')
+)
+with check (
+	bucket_id = 'home-images'
+	and public.has_role(auth.uid(), 'admin')
+);
+
+drop policy if exists "Admins can delete home images" on storage.objects;
+create policy "Admins can delete home images"
+on storage.objects for delete to authenticated
+using (
+	bucket_id = 'home-images'
+	and public.has_role(auth.uid(), 'admin')
+);
