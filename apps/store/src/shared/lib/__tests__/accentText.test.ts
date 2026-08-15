@@ -45,6 +45,8 @@ const PERMITIDOS: Record<string, string> = {
     'ÍCONE de favorito (coração de 16px), não texto: `accent-strong` sobre branco mede 3,85:1, acima dos 3:1 que a WCAG 1.4.11 pede para objeto gráfico.',
   'widgets/category-grid/ui/CategoryGrid.tsx':
     'Título do card de tinta (ouro sobre `ink`, 4,78:1) e a inicial marca-d’água a 40%, que é ornamento e não carrega informação.',
+  'widgets/home-sections/ui/BrandStatement.tsx':
+    'A faixa institucional da home é `bg-estrelinha-ink` inteira: o eyebrow e o fio ao lado dele medem 4,78:1 ali. O título e o corpo NÃO são ouro — saem em `on-primary` e `ground`, que passam de 12:1.',
 }
 
 function tsxFiles(dir: string): string[] {

@@ -12,6 +12,7 @@ interface CategoryRow {
   slug: string
   description?: string | null
   image_url?: string | null
+  banner_url?: string | null
   color_accent?: string | null
   emoji?: string | null
   parent_id?: string | null
@@ -39,6 +40,9 @@ const mapCategory = (row: CategoryRow): Category => ({
   slug: row.slug,
   description: row.description ?? null,
   image_url: row.image_url ?? null,
+  // A grade de banners da home lê daqui (`pickHomeBanners`). Ausente é "sem vitrine", nunca `''`:
+  // string vazia passaria pelo `!!` de quem filtra e renderizaria um `<img>` quebrado.
+  banner_url: row.banner_url ?? null,
   color_accent: row.color_accent ?? null,
   emoji: row.emoji ?? '',
   parent_id: row.parent_id ?? null,

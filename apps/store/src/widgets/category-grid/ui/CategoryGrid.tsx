@@ -91,7 +91,13 @@ const CategoryGrid = () => {
                 >
                   {cat.name}
                 </span>
-                <span className={`text-[11px] font-medium md:text-[13px] ${tone.meta}`}>{productCount} pins</span>
+                {/* "pins" era o produto da loja anterior, e sobreviveu ao rebrand porque
+                    `brandScan` varre o NOME da marca, não o vocabulário dela. Aqui é "peça", com
+                    singular de verdade: "1 peças" na categoria com um item só é o tipo de detalhe
+                    que a cliente lê antes de qualquer um de nós. */}
+                <span className={`text-[11px] font-medium md:text-[13px] ${tone.meta}`}>
+                  {productCount} {productCount === 1 ? 'peça' : 'peças'}
+                </span>
               </Link>
             </motion.div>
           )

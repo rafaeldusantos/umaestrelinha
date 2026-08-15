@@ -11,6 +11,7 @@ const category = (id: string, sort_order: number, name = id): Category => ({
   slug: id,
   description: null,
   image_url: null,
+  banner_url: null,
   color_accent: null,
   emoji: '',
   parent_id: null,

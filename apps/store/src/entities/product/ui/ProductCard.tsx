@@ -5,6 +5,8 @@ import { Heart, Plus } from 'lucide-react'
 import type { Product } from '@estrelinha/supabase/types'
 import { useCategories } from '@/entities/category/api/useCategories'
 import { formatPrice } from '@estrelinha/core/formatters'
+import { resolveInstallments } from '@estrelinha/core/payment/installments'
+import { usePaymentSettings } from '@estrelinha/core/hooks/useStoreSettings'
 import { productPath } from '@estrelinha/core/routes'
 import { TAP_44 } from '@/shared/lib/touchTarget'
 import { variantLabel } from '@estrelinha/core/pricing'
@@ -57,6 +59,8 @@ const ProductCard = ({ product }: { product: Product }) => {
   const [selected, setSelected] = useState(() => initialSelection(product, CARD_MAX_AXES))
   const [imgLoaded, setImgLoaded] = useState(false)
   const { data: categories } = useCategories()
+  const { pix_enabled, pix_discount_percent, max_installments, min_installment_value } =
+    usePaymentSettings()
 
   // PST-10: variação ativa com `options` vazio é grade meio-cadastrada — o produto vale como
   // simples, precificado por `base_price` e com saldo em `stock_total`.
@@ -84,6 +88,12 @@ const ProductCard = ({ product }: { product: Product }) => {
   const discountPercent = hasDiscount
     ? Math.round((1 - product.price / product.compare_price!) * 100)
     : 0
+
+  const pixPrice =
+    pix_enabled && pix_discount_percent > 0
+      ? Math.round(product.price * (1 - pix_discount_percent / 100) * 100) / 100
+      : null
+  const installments = resolveInstallments(product.price, max_installments, min_installment_value)
 
   // O CTA do drawer/sheet mostra o preço da LINHA escolhida, não o `price` da vitrine — é o valor
   // que vai ser cobrado, e é ele que muda quando o cliente troca de tamanho.
@@ -161,8 +171,14 @@ const ProductCard = ({ product }: { product: Product }) => {
       className="group cursor-pointer"
     >
       <Link to={productPath(product.slug)} className="block">
-        {/* Palco do produto: quadrado em pó de açúcar. A foto é a única cor. */}
-        <div className="relative aspect-square overflow-hidden rounded-xl bg-estrelinha-ground-deep">
+        {/*
+          Palco do produto: **retrato 4:5**, em pó de açúcar. A foto é a única cor.
+
+          Era quadrado. O catálogo real é de joia fotografada de pé — pingente na corrente, pirâmide,
+          placa —, e o quadrado cortava a peça em cima e embaixo para caber. O retrato é a moldura da
+          loja em produção, e é a do board `7CF-0`.
+        */}
+        <div className="relative aspect-[4/5] overflow-hidden rounded-xl bg-estrelinha-ground-deep">
           {!imgLoaded && <Skeleton className="absolute inset-0 h-full w-full rounded-none" />}
           <img
             src={product.image_url}
@@ -242,6 +258,23 @@ const ProductCard = ({ product }: { product: Product }) => {
               </span>
             )}
           </div>
+
+          {/*
+            Pix e parcela na vitrine — board `7CF-0`, e o que a loja em produção mostra em todo card.
+            É a informação pela qual quem parcela decide, e ela vem das MESMAS settings que o caixa
+            aplica (`resolveInstallments`, `pix_discount_percent`). Cravar "8%" ou "4x" aqui faria a
+            vitrine prometer uma regra que o checkout não pratica.
+          */}
+          {(pixPrice !== null || installments) && (
+            <div className="flex flex-col text-[13px] leading-[19px] text-estrelinha-ink-soft">
+              {pixPrice !== null && <span>{formatPrice(pixPrice)} com Pix</span>}
+              {installments && installments.count > 1 && (
+                <span>
+                  {installments.count}x de {formatPrice(installments.value)} sem juros
+                </span>
+              )}
+            </div>
+          )}
         </div>
       </Link>
 

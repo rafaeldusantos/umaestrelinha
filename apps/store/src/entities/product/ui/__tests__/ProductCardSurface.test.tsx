@@ -2,6 +2,20 @@ import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import type { Product } from '@estrelinha/supabase/types'
+
+// O card lê `usePaymentSettings` desde que passou a mostrar Pix e parcela na vitrine (board
+// `7CF-0`). São os MESMOS valores que o caixa cobra, então o mock repete os defaults de
+// `DEFAULT_PAYMENT` — um mock com número inventado aqui provaria uma tela que não existe.
+vi.mock('@estrelinha/core/hooks/useStoreSettings', () => ({
+  usePaymentSettings: () => ({
+    pix_enabled: true,
+    pix_discount_percent: 5,
+    card_enabled: true,
+    max_installments: 6,
+    min_installment_value: 10,
+  }),
+}))
+
 import ProductCard from '../ProductCard'
 
 /**
