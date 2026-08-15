@@ -27,6 +27,9 @@ import type { DraftItem } from './sectionDraft'
  */
 export const ordinal = (n: number): string => `${n}º`
 
+/** Campo em branco é campo vazio — um `alt` ou um rótulo com um espaço não descreve nada. */
+const vazioNaTela = (valor: string | null | undefined): boolean => (valor ?? '').trim() === ''
+
 /**
  * O mesmo número, no feminino — “3ª fileira”, “3ª coleção”.
  *
@@ -91,6 +94,29 @@ export const collectionRowsRefusal = (
       : `${ordinalF(i + 1)} fileira: escolha a coleção.`
   }
   return configRefusal('collection_rows', config)
+}
+
+/**
+ * O destaque em coleção.
+ *
+ * **A coleção é obrigatória** (`HOME-37`), e é a única cobrança que este editor faz por conta
+ * própria: sem destino a faixa não tem o que mostrar nem para onde levar, e `resolveHomeSections` a
+ * esconderia sem a dona entender por quê.
+ *
+ * **Coleção fora do ar não é recusa** (`HOME-39`): a loja pula e o painel avisa. É a mesma régua das
+ * fileiras — travar a gravação obrigaria a dona a mexer na vitrine para poder corrigir um texto.
+ */
+export const collectionFeatureRefusal = (
+  config: HomeSectionConfig,
+  items: readonly DraftItem[],
+): string | null => {
+  const item = items[0]
+  if (!item || (!item.category_id && vazioNaTela(item.label_snapshot))) {
+    return 'Escolha a coleção deste destaque: sem ela a faixa não aparece na loja.'
+  }
+  // Destino apagado: quem sabe **nomear** o que se perdeu é `destinationRefusal`, pelo rótulo
+  // congelado na escolha. Reescrever a frase aqui daria duas versões da mesma notícia.
+  return destinationRefusal(item) ?? configRefusal('collection_feature', config)
 }
 
 /**
