@@ -347,9 +347,99 @@
   medir é a implantação, não a decisão: **não há projeto Vercel da Uma Estrelinha** (`C-08`), então os
   301 se provam pela configuração lida do disco e pelo espelho no router.
 
+### AD-019
+- **Decision**: **A prévia da Home no painel é a LOJA, carregada num `<iframe>`** em `?preview=1`, com
+  o rascunho não salvo entregue por `postMessage`. O painel **não desenha seção da Home** — nem
+  esquema, nem mini-mapa, nem "só um fallback para quando o iframe não carrega". O contrato das
+  mensagens tem um dono, `@estrelinha/core/home/preview.ts`, e o guarda `previaUnica.test.ts` impede a
+  volta de um segundo desenho.
+- **Reason**: A `24` eliminou a segunda escrita da **derivação** movendo `pickHomeCollections` e
+  companhia para `core/home` — e deixou viva a segunda escrita do **desenho**: `HomePreview.tsx`, 277
+  linhas no backoffice redesenhando o que `widgets/home-renderer` (130 linhas) já desenhava, em apps
+  que não se importam. A divergência **não quebra nada**: build, `tsc` e teste de componente passam com
+  o painel prometendo um arranjo que a loja não renderiza — que é exatamente o defeito que a `24`
+  existiu para eliminar, sobrevivendo num outro arquivo. Dois sintomas mediram o custo: a prévia tinha
+  **380px de 1440** (nenhuma representação de desktop cabe ali) e não havia alternador de dispositivo
+  numa loja com ~90% de acessos móveis. O iframe resolve os três de uma vez, e resolve de graça um
+  quarto: **a separação de tokens** — renderizar widget da loja dentro do painel traria
+  `--estrelinha-*` para o documento de `--estrelinha-admin-*`, que é o que `importOrder.test.ts` e
+  `palette.test.ts` guardam. Outro documento, outra folha.
+- **Trade-off**: A prévia passa a **depender da loja estar no ar** e de `VITE_STORE_URL` — sem ela o
+  palco mostra estado vazio declarado, e a lista segue funcionando. Em produção exige
+  `frame-ancestors` (`BL-013`), e o modo de falhar é **quadro branco sem erro**, porque a recusa é do
+  navegador. E jsdom não carrega o documento do iframe: a cobertura se parte — o **contrato** em
+  `core`, o **desenho** na loja, a **ponte** no painel. Aceito porque o alternativo é manter dois
+  desenhos divergindo em silêncio, que foi o que a feature mediu.
+- **Scope**: `packages/core/src/home/preview.ts`, `apps/store/src/{entities/home,widgets/home-renderer,pages/HomePage.tsx,app/App.tsx}`,
+  `apps/backoffice/src/features/home-composition`, `apps/backoffice/src/shared/lib/storeOrigin.ts`
+- **Date**: 2026-08-15
+- **Status**: active — **implementada pela feature [`25-previa-real-da-home`](./features/25-previa-real-da-home/spec.md)**
+  em 2026-08-15 (T1–T14).
+
 ## Handoff
 
-### ATUAL — 2026-08-15 · `24-home-gerenciavel` **IMPLEMENTADA** (T1–T35) · falta o **Verifier**
+### ATUAL — 2026-08-15 · `25-previa-real-da-home` **IMPLEMENTADA** (T1–T14)
+
+**Estado**: 14 tasks em 5 fases. **Commits agrupados no fim** — e essa é a primeira feature assim,
+pela decisão que fechou a `BL-012` (o `CLAUDE.md` manda; as `20`..`24` tinham praticado o contrário).
+Gate verde, medido por workspace com exit code capturado de verdade. **Nada em andamento.**
+
+#### O que a `25` entrega
+
+A prévia de `/admin/home` deixou de ser um desenho do painel e passou a ser **a loja**, num iframe,
+mostrando o rascunho ainda não salvo. `HomePreview.tsx` (277 linhas) foi apagado: a Home tem um
+desenho só, e ele mora em `apps/store`. Ver `AD-019`.
+
+| | onde |
+| --- | --- |
+| O contrato das 4 mensagens + `isPreviewWindow`, `parsePreviewMessage`, `previewScale` | `packages/core/src/home/preview.ts` |
+| Modo prévia da loja (consulta desligada, clique que seleciona, sem rastreador) | `entities/home/model/useHomePreview.ts` · `pages/HomePage.tsx` · `app/App.tsx` |
+| Invólucro e contorno, **só em modo prévia** | `widgets/home-renderer/ui/PreviewSectionFrame.tsx` |
+| A ponte (origem exata, dupla checagem de remetente, debounce) | `features/home-composition/model/usePreviewBridge.ts` |
+| O palco: barra, alternador Celular/Computador, escala, estado vazio | `features/home-composition/ui/HomeLivePreview.tsx` |
+| Layout invertido (rail 380 + palco), rascunho ao vivo, realce por cursor | `pages/admin/AdminHomePage.tsx` |
+| Um leitor só de `VITE_STORE_URL` | `shared/lib/storeOrigin.ts` |
+
+**Gate de fecho medido**:
+
+| | valor |
+| --- | ---: |
+| Testes | **4.595** em **259** arquivos |
+| store · backoffice · core · functions · catalog-import | 1562/116 · 1388/86 · 1090/38 · 279/4 · 276/15 |
+| Lint | **30 erros / 8 warnings** — baseline exata, zero novo |
+| Tipos | store **0** · backoffice **0** |
+
+`packages/core/src/payment/` **intocado** — quarta feature seguida.
+
+#### A contabilidade de testes, declarada
+
+Entraram **121**, saíram **14**. Os 14 eram de `HomePreview.test.tsx` e mediam "a prévia mostra a
+ordem e os textos reais" — asserção que virou **verdadeira por construção** e que
+`homeComposition.test.tsx` já mede na loja. É a exceção à regra de "queda só vale se o número
+reaparece do outro lado", e está declarada no `CLAUDE.md` em vez de escondida no líquido.
+
+#### O que a execução expôs
+
+- **Cinco asserções da `24` apontavam para o esquema apagado.** Foram **reescritas contra a nova
+  superfície, não afrouxadas**: o contorno virou `data-highlight` no palco dublado, a
+  não-remontagem virou identidade do nó do palco, e o `postMessage` ganhou teste próprio em
+  `usePreviewBridge.test.tsx`. `AdminHomePage.test.tsx` foi de 26 para 34.
+- **`@testing-library/user-event` não é dependência do backoffice** — os testes de lá usam `fireEvent`.
+- **A palavra de estado da linha virou `sr-only`**: com o rail em 380px ela custava ~50px do nome da
+  seção, que truncava. `HomeSectionList.test.tsx` continua medindo por texto, porque `sr-only` não tira
+  do DOM.
+
+#### Pendências
+
+- **O Verifier independente**: nesta sessão sub-agentes são proibidos, então rodou como passe
+  standalone (`validate.md`) — o relatório está em `25-previa-real-da-home/validation.md`.
+- **A `24` ainda não tem `validation.md`.** Continua pendente, como estava.
+- **`BL-013`** — `frame-ancestors` em produção, bloqueado por `C-08`.
+- **`VITE_STORE_URL`** precisa ser preenchida no `.env` local do backoffice para a prévia acender.
+
+---
+
+### 2026-08-15 · `24-home-gerenciavel` **IMPLEMENTADA** (T1–T35) · falta o **Verifier**
 
 **Estado**: árvore **limpa**, 35 tasks em 6 fases, **um commit atômico por task** (mais os fechos de
 fase). Gate verde, medido de verdade. **Nada em andamento.**

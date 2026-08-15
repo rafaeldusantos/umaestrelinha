@@ -112,6 +112,11 @@ Ao planejar/implementar features, use a Skill **`tlc-spec-driven`** com estas co
 - **Commits**: **não** criar commits atômicos em pequenos pedaços durante a implementação. Aguardar
   a conclusão e gerar os commits completos da implementação de uma vez (isso sobrepõe o
   comportamento padrão de commits atômicos da Skill).
+  - **`BL-012` está FECHADO, e foi por aqui** (decisão do usuário, 2026-08-15). As features `20`..`24`
+    tinham praticado o contrário — um commit por task, seguindo a Skill —, e a divergência entre a
+    regra escrita e a prática era pior que qualquer uma das duas. A partir da `25` vale o que está
+    escrito acima. **O custo é conhecido e aceito**: perde-se a correspondência 1:1 entre commit e
+    "done when", e o `git bisect` passa a apontar para um commit que contém várias tasks.
 
 ### O que vem a seguir
 
@@ -129,9 +134,14 @@ Ao planejar/implementar features, use a Skill **`tlc-spec-driven`** com estas co
 - **Os dois blocos de P3 da `24`** (`product_carousel`, `category_grid`) estão no catálogo **sem
   renderer e sem editor**, esmaecidos na bandeja com "em breve". A ausência é declarada, e o
   renderizador os pula sem quebrar a página.
-- **`BL-009`..`BL-012`** — as quatro dívidas que a `24` deixou registradas, entre elas o
-  `SUPABASE_URL` com fallback hard-coded de outro projeto em `uploadProductImage.ts` e a divergência
-  de convenção de commits entre este arquivo e a Skill `tlc-spec-driven`.
+- **`BL-009`..`BL-011`** — as dívidas que a `24` deixou registradas, entre elas o `SUPABASE_URL` com
+  fallback hard-coded de outro projeto em `uploadProductImage.ts`. A `BL-012` (convenção de commits)
+  foi **fechada** na `25`, pela decisão do usuário: vale o que este arquivo manda.
+- **`BL-013`** — a prévia real da `25` funciona em dev sem nenhuma configuração, e **não vai funcionar
+  em produção sozinha**: a loja precisa mandar `Content-Security-Policy: frame-ancestors <painel>`.
+  Fica bloqueada por `C-08` (não há projeto Vercel), e o modo de falhar é quadro branco sem erro.
+- **`VITE_STORE_URL` no `.env` do backoffice** é o que acende a prévia. Sem ela o painel funciona
+  igual, com o palco mostrando o passo de configuração — mas ninguém vê a loja.
 
 ## Feature-Sliced Design (dentro de cada app)
 
@@ -262,6 +272,53 @@ Cada slice tem um barrel `index.ts` (public API). **Novo código deve importar d
     olhando para ela. **A prévia não remonta**, e isso é asserido por identidade do nó do DOM.
   - `widgets/category-grid` **continua no repositório mas não é montado**: a grade de tiles saiu da
     home quando a grade de banners tomou o lugar dela no board.
+- **A PRÉVIA DE `/admin/home` É A LOJA, num iframe** (feature `25`). Não é mais um desenho: o painel
+  carrega `<loja>/?preview=1` e manda o **rascunho ainda não salvo** por `postMessage`. **A Home tem um
+  desenho só, e ele mora em `apps/store`.**
+  - **O que isso apagou**: `HomePreview.tsx`, 277 linhas do painel redesenhando à mão o que
+    `widgets/home-renderer` (130 linhas) já desenhava. Duas escritas do mesmo desenho, em apps que não
+    se importam, divergindo **sem quebrar nada** — build, `tsc` e teste de componente passavam com o
+    painel prometendo um arranjo que a loja não renderiza. A `24` matou a segunda escrita da
+    *derivação* (`core/home/derive.ts`); a `25` matou a do *desenho*. `previaUnica.test.ts` impede a
+    volta.
+  - **O iframe é também o que preserva a separação de tokens.** Renderizar widget da loja dentro do
+    painel traria `--estrelinha-*` para o documento de `--estrelinha-admin-*` — o defeito que
+    `importOrder.test.ts` e `palette.test.ts` existem para pegar. Outro documento, outra folha.
+  - **O contrato tem UM dono: `@estrelinha/core/home/preview.ts`** — quatro mensagens (`ready`,
+    `draft`, `highlight`, `select`), `isPreviewWindow`, `parsePreviewMessage`, `previewScale`. Módulo
+    puro, porque as duas pontas o leem.
+  - **O modo prévia exige `?preview=1` E estar dentro de um iframe.** O parâmetro sozinho não basta:
+    ele é adivinhável e viraliza por link compartilhado, e uma cliente cairia numa página esperando
+    uma mensagem que nunca chega.
+  - **As duas pontas confiam de formas diferentes, e a assimetria é a regra.** O painel **age**
+    (navega, abre editor), então exige origem exata **e** a janela do próprio iframe. A loja só
+    **desenha**, então basta ser `window.parent`. O `draft` sai com `targetOrigin` exato — **nunca
+    `'*'`**, porque leva conteúdo não publicado. Errar a origem **não dá erro**: o navegador descarta
+    em silêncio e a prévia "não atualiza".
+  - **Em modo prévia a consulta é DESLIGADA (`enabled: false`), não filtrada depois.** Uma leitura
+    viva em paralelo daria à página duas fontes, e a do banco chegaria depois — sobrescrevendo o que a
+    dona está digitando. Pelo mesmo motivo `sections` começa `[]` e **não** cai em
+    `DEFAULT_HOME_COMPOSITION`: o piso existe para **erro de leitura**, e ali não há leitura.
+  - **Clique na prévia não navega, seleciona.** Captura (não bolha — o `<Link>` navega no handler
+    dele), `preventDefault`, e o id do bloco volta como `select`. Sem isso, clicar num produto tiraria
+    o iframe da home e a dona perderia a tela que estava conferindo.
+  - **O `AbandonedCartTracker` não é montado em modo prévia**: a dona conferindo a vitrine dispararia
+    rastreio de uma sessão que não é de cliente nenhuma.
+  - **O invólucro `data-home-section-id` só existe em modo prévia.** Em modo normal cada seção segue
+    saindo num `Fragment`, porque `homeComposition.test.tsx` mede o DOM renderizado — e um invólucro
+    por seção mudaria a árvore sem mudar um estilo.
+  - **O layout inverteu**: rail de **380px** à esquerda (lista ⇄ editor) e o palco da prévia ocupando o
+    resto. Era o contrário (lista 748 / prévia 380), e nenhuma representação de desktop cabe em 380px.
+  - **O alternador abre em Celular**, e as duas medidas são reais: **390 × 844** e **1024 × 768** (o
+    `lg`, o desktop mais estreito que existe). A redução é `transform: scale` sobre um iframe de
+    largura **de verdade** — encolher o `width` faria o botão "Computador" mostrar o layout de celular,
+    porque é o `width` que a loja mede para escolher as media queries. A barra mostra a escala.
+  - **Trocar de dispositivo não pode tocar no `src`**: cada clique remontaria o documento e perderia o
+    rascunho já entregue. Recarregar remonta de propósito, por `key`.
+  - **Sem `VITE_STORE_URL` a ausência é declarada**: o palco mostra o passo de configuração e a lista
+    segue funcionando. A env tem **um leitor**, `shared/lib/storeOrigin.ts`.
+  - **Em produção a loja precisa autorizar ser embutida** (`frame-ancestors`, `BL-013`). Em dev
+    funciona sem nada: o Vite não manda `X-Frame-Options`.
 - **A marca é SVG inline, nunca `<img src>`** — o header não pode ter estado de carregamento.
   `shared/ui/brand` traz a escada medida, e cada degrau **cai para o de baixo abaixo do próprio piso**:
 
@@ -580,6 +637,8 @@ passa em silêncio, que é a pior falha possível num teste desse tipo.
 | `materialTransitions.test.ts` | idem | a máquina de estado do material em **SQL** divergir da em **TypeScript** — lê a migration do disco e compara origem a origem, alvo a alvo; `set_material_tracking` passar a escrever qualquer coluna além do rastreio e do estado; a migration abrir policy de `UPDATE` em `orders` ou conceder `execute` a `anon` |
 | `homeSections.test.ts` | idem | o catálogo de tipos do TypeScript divergir do `check` da migration; a semente divergir de `DEFAULT_HOME_COMPOSITION`; entrar tipo de contagem regressiva ou de prova social; policy de escrita sem `has_role`; qualquer `grant` alcançar `anon`; o trigger do hero indelével sumir; a FK de destino virar `cascade` |
 | `homeComposition.test.tsx` | `pages/__tests__` | a Home mudar de cara — sequência das seções, literais de cada uma, limites 3/4/12 e as duas cores do título, tudo pelo **DOM renderizado**. **Não perde asserção, só ganha**: se uma precisou ser afrouxada, a composição mudou |
+| `HomeRendererPreview.test.tsx` | `widgets/home-renderer/ui/__tests__` | o invólucro da prévia vazar para o **modo normal** — a árvore da loja tem de ficar idêntica, nó a nó, sem a prop `preview` |
+| `previaUnica.test.ts` | backoffice, `features/home-composition/__tests__` | um segundo desenho da Home voltar ao painel: `HomePreview` reaparecer, um segundo arquivo `…Preview` surgir, o palco ramificar por tipo de seção, ou o painel importar de `apps/store` |
 | `catalog.test.ts` · `defaults.test.ts` | `packages/core/src/home/__tests__` | um arquivo de `core/home` importar React ou Supabase; a varredura do módulo render menos de 9 arquivos; a semente divergir do que a loja desenha; um literal de texto voltar para dentro de um widget de seção |
 | `buttonShape.test.ts` | `shared/ui/__tests__` | ação voltar a pílula; a chave custom de raio voltar ao config |
 | `icons.test.ts` | `shared/ui/icons/__tests__` | ícone da biblioteca fora da grade `0 0 24 24`; traço fora de `ICON_STROKE`/`ICON_STROKE_G40` (o efetivo é sempre 1,5); cor em hex/rgb ou `var(--…)` fora de `ICON_ACCENT`; forma preenchida numa família monoline; ícone com `width`/`height` próprios; ícone que não chegou ao barrel ou ao registro |
@@ -598,9 +657,9 @@ literalmente, em vez de iterar a constante que deveria guardar).
 
 ## Estado conhecido / dívidas
 
-- **Baseline de lint vigente (medida de novo no fecho da feature 24, 2026-08-15): 30 erros / 8
-  warnings** — backoffice 28/7 · store 2/1. Igual à do fecho da `20`, da `22` e da `23`: zero erro
-  novo em **seis** features seguidas. São erros **pré-existentes**, em boa parte `@typescript-eslint/no-explicit-any`
+- **Baseline de lint vigente (medida de novo no fecho da feature 25, 2026-08-15): 30 erros / 8
+  warnings** — backoffice 28/7 · store 2/1. Igual à do fecho da `20`, da `22`, da `23` e da `24`:
+  zero erro novo em **sete** features seguidas. São erros **pré-existentes**, em boa parte `@typescript-eslint/no-explicit-any`
   nos hooks admin (`entities/*/api/useAdmin*`). O gate de qualquer feature é **"sem erros novos"**,
   não "lint limpo": compare contra este número e atualize-o aqui quando ele mudar de verdade.
   - **Atenção: `pnpm lint` não olha `packages/`.** Nenhum dos pacotes tem script `lint`, e
@@ -614,20 +673,23 @@ literalmente, em vez de iterar a constante que deveria guardar).
   **Baseline de tipos: store 0 · backoffice 0 · catalog-import 0. Zero é a baseline: qualquer erro
   de tipo é novo.** O importador tem `tsconfig.json` próprio (não é solution-style):
   `npx tsc --noEmit -p tools/catalog-import/tsconfig.json`.
-- **Baseline de testes (fecho da feature 24, medida por workspace): 4488 testes em 251 arquivos** —
-  store **1528/113** · backoffice **1345/82** · core **1060/37** · functions 279/4 ·
+- **Baseline de testes (fecho da feature 25, medida por workspace): 4595 testes em 259 arquivos** —
+  store **1562/116** · backoffice **1388/86** · core **1090/38** · functions 279/4 ·
   catalog-import 276/15.
-  - A feature `24` somou **469 testes em 26 arquivos**, quase todos da Home gerenciável: o domínio em
-    `core/home` (catálogo, semente, ordem, resolução, recusas, arranjos), o guarda que lê a migration
-    do disco, os widgets da loja por prop, e as sete telas do painel.
-  - **O store CAIU 23 e isso é o certo**: a T35 moveu `pickHomeCollections`, `pickHomeBanners` e
-    `pickTrendingCategories` para `core/home`, e os três arquivos de teste foram junto, com os casos
-    intactos (store 1551 → 1528, core 1037 → 1060). Queda de contagem só é aceitável quando o mesmo
-    número reaparece do outro lado — em qualquer outro caso é deleção silenciosa.
+  - A feature `25` somou **107 líquidos**, e o líquido esconde o que importa: entraram **121** e
+    saíram **14**. Os 14 eram de `HomePreview.test.tsx`, que foi apagado junto com o componente.
+  - **Esta é a exceção à regra de "queda só vale se o número reaparece do outro lado", e ela é
+    declarada.** Os 14 mediam "a prévia mostra a ordem e os textos reais" — asserção que deixou de
+    fazer sentido porque virou **verdadeira por construção**: a prévia É a loja. Quem a mede agora é
+    `homeComposition.test.tsx`, que já existia. O que entrou cobre coisa diferente (a ponte, o modo
+    prévia, o alternador, o estado vazio, a não-remontagem), e por isso não é o mesmo número
+    reaparecendo — é outro. Em qualquer outro caso, queda continua sendo deleção silenciosa.
+  - A feature `24` havia somado **469 testes em 26 arquivos** (store 1551 → 1528 na T35, quando
+    `pickHomeCollections` e companhia foram para `core/home` com os casos intactos).
   - O que **não pode** mudar é o código de dinheiro — `packages/core/src/payment/**` fechou as
-    features 22, 23 **e** 24 sem uma linha alterada, conferido por `git diff --name-only` no gate.
-    Continua valendo: identidade visual, importação de catálogo e composição de home não têm por que
-    mexer em `payment/`.
+    features 22, 23, 24 **e** 25 sem uma linha alterada, conferido por `git diff --name-only` no gate.
+    Continua valendo: identidade visual, importação de catálogo, composição de home e prévia não têm
+    por que mexer em `payment/`.
   - `pnpm test` roda os cinco workspaces em paralelo e **já produziu flake de RTL sob carga** —
     falhas de timeout em suítes pesadas que passam isoladas e na segunda execução. Rode por workspace
     antes de investigar.

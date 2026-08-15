@@ -456,7 +456,15 @@ que não tem como apagar arte viva.
 
 ## BL-012 — Convenção de commits: o `CLAUDE.md` e a Skill `tlc-spec-driven` discordam
 
-- **Status**: aberto, **precisa de decisão do usuário** · **Registrado em**: 2026-08-15 · **Origem**: feature `24`, T34
+- **Status**: **FECHADO em 2026-08-15** pela decisão do usuário na feature `25` — vale a saída **(2)**:
+  o `CLAUDE.md` continua mandando, e a Skill passa a agrupar os commits no fim da implementação.
+  A `25` foi a primeira feature executada assim. · **Registrado em**: 2026-08-15 · **Origem**: feature `24`, T34
+
+> **Decisão registrada**: commits **agrupados no fim**, não um por task. O custo aceito está escrito
+> abaixo e é real — perde-se a correspondência 1:1 entre commit e "done when", e o `git bisect` passa
+> a apontar para um commit que contém várias tasks. Em troca, o histórico fica legível como unidade de
+> trabalho, que é o que o usuário quer ler. **A recomendação abaixo era a (1); o usuário escolheu a
+> (2) com a alternativa à vista.** O texto original fica preservado para quem reabrir o assunto.
 
 As duas regras estão escritas, e são incompatíveis:
 
@@ -484,3 +492,37 @@ de "while I'm here" que o guardrail de escopo proíbe.
    citando os hashes por task).
 
 A recomendação, com o lastro das cinco features, é a **(1)**.
+
+---
+
+## BL-013 — A loja precisa autorizar ser embutida pelo painel (`frame-ancestors`)
+
+- **Status**: aberto, **bloqueado por `C-08`** · **Registrado em**: 2026-08-15 · **Origem**: feature `25`, T13
+
+A prévia real de `/admin/home` carrega a loja num `<iframe>`. Em **dev isso já funciona**: o servidor
+do Vite não manda `X-Frame-Options` nem `Content-Security-Policy`, então `localhost:8083` embute
+`localhost:8082` sem nenhuma configuração.
+
+**Em produção não vai funcionar sozinho.** Assim que a loja for implantada atrás de um host que mande
+`X-Frame-Options: DENY` (ou um CSP sem `frame-ancestors`), o iframe fica em branco — e **em branco sem
+erro visível**, porque a recusa é do navegador e não da aplicação. O sintoma para a dona vai ser "a
+prévia sumiu", sem nada nos logs.
+
+O que fazer quando o projeto Vercel existir:
+
+```jsonc
+// apps/store/vercel.json
+{ "headers": [{ "source": "/(.*)", "headers": [
+  { "key": "Content-Security-Policy", "value": "frame-ancestors 'self' https://<origem-do-painel>" }
+]}]}
+```
+
+**`frame-ancestors` e não `X-Frame-Options: ALLOW-FROM`**: este último foi removido de todos os
+navegadores modernos e é ignorado em silêncio, que é a pior forma de uma diretiva de segurança falhar.
+
+Não foi implementado agora porque **não há projeto Vercel da Uma Estrelinha** (`C-08`): escrever o
+header contra uma origem inventada seria configuração não verificável, e a origem do painel é
+justamente o valor que ainda não existe.
+
+**Como verificar no dia**: `curl -I https://<loja>` tem de mostrar o `frame-ancestors` com a origem do
+painel, e `/admin/home` tem de mostrar a loja em vez do quadro branco.
