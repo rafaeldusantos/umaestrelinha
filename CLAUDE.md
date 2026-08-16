@@ -319,6 +319,50 @@ Cada slice tem um barrel `index.ts` (public API). **Novo código deve importar d
     segue funcionando. A env tem **um leitor**, `shared/lib/storeOrigin.ts`.
   - **Em produção a loja precisa autorizar ser embutida** (`frame-ancestors`, `BL-013`). Em dev
     funciona sem nada: o Vite não manda `X-Frame-Options`.
+- **A DESCRIÇÃO DO PRODUTO É HTML, e ela mora no acordeão** (feature `27`). Medido no banco: 679 dos
+  680 produtos têm descrição e **100% delas trazem tag** (`li`, `p`, `strong`, `h3`, `br`, `ul`, `h2`
+  — e **zero atributo**), com mediana de 2.271 caracteres. Até a `27` a loja imprimia o campo como
+  texto puro entre o preço e o seletor: a cliente lia `Cora&ccedil;&otilde;es` na tela.
+  - **Render passa por `shared/lib/sanitizeHtml`, sempre.** Allowlist por **árvore** (`DOMParser` em
+    `text/html`, que não executa script nem baixa recurso), nunca regex sobre HTML. Tag fora da lista
+    **desembrulha** preservando o texto; `script`/`style`/`iframe`/`object`/`embed`/`noscript`/
+    `template` somem **com o conteúdo** — desembrulhar um `<script>` imprimiria o código na tela.
+    Atributo zero, exceto `href` de `<a>` validado por `new URL` (nunca `startsWith`, que
+    `java&#9;script:` engana), e o `<a>` sobrevivente ganha `rel="noopener noreferrer"`.
+  - **Quem monta o `dangerouslySetInnerHTML` é quem sanitiza** (`ProductDescription`), para o
+    componente ser seguro venha de onde vier a chamada. O acordeão chama a **mesma** função só para
+    perguntar "sobra alguma coisa?" — a decisão de montar a seção olha o **sanitizado**, não o campo
+    cru, senão uma descrição só com `<script>` abriria uma seção em branco.
+  - **`h1`/`h2`/`h3` viram `h4`**: o `AccordionPrimitive.Header` do shadcn já renderiza `<h3>`, e
+    1.358 descrições abrem com um `<h2>` que repete o nome do produto — que a página já tem como
+    `<h1>`.
+  - **Não se usa `prose`**, embora `@tailwindcss/typography` esteja no preset: o plugin traz a
+    própria paleta (`--tw-prose-*`), que `contrast.test.ts` não mede. Seletor de filho explícito
+    mantém toda cor em token auditável.
+- **O preço com Pix tem UM dono: `@estrelinha/core/payment/pix`** (feature `27`) — e a forma da conta
+  é a **do caixa**. `resolveOrderPricing` cobra `subtotal − round2(subtotal × pct/100)`: arredonda o
+  **desconto** e subtrai. A expressão que vivia inline no `ProductCard` arredondava o **preço final**,
+  e as duas **não dão o mesmo número**: com o `pix_discount_percent = 5` de hoje, **81 dos 259 preços
+  distintos do catálogo (31%)** divergiam em 1 centavo — a vitrine prometia R$ 7,51 onde a cobrança é
+  R$ 7,50. A direção era a favor da cliente, e por isso sobreviveu sem queixa.
+  `displayedEqualsCharged.test.ts` — o arquivo que já carregava essa invariante — agora compara
+  `pixPrice` com o total de `resolveOrderPricing` por valor.
+- **A variação com foto é regra medida, não lista de nomes de eixo** (feature `27`). `axisPhotos`
+  qualifica um eixo quando **≥2 valores têm foto E as fotos presentes são todas distintas entre si**;
+  eixo reprovado continua em pílula com o nome, como sempre.
+  - **A segunda condição é o que faz a regra dizer a verdade.** No catálogo real (686 eixos com ≥2
+    valores) ela aceita **540** — `Cor` (352), `Tipos de elo` e suas quatro grafias (150), `Modelo`
+    (27) — e recusa exatamente os eixos onde **todos os valores apontam para a mesma foto**:
+    `Com gravação` (36), `Com Base` (20), `Letra` (11) e 29 dos 32 `Tamanho`. Quatro vagas idênticas
+    diriam à cliente que a escolha não muda a peça — é o `COR-02` aplicado à decisão de *usar* foto.
+  - **O nome do valor vai para o CABEÇALHO** (`Cor: Aço Inoxidável Folheado a Ouro Rose`), nunca sob
+    a vaga: o rótulo tem mediana 15 e **máximo 40** caracteres, que não cabe sob 56px em 390 de
+    viewport. Cada vaga leva `aria-label` com o valor.
+  - **Vaga de 56px, e por isso SEM `TAP_44`**: o auxiliar existe para desenho **menor** que o alvo, e
+    a varredura de `touchTarget.test.ts` só o cobra de `h-8`/`h-9`/`h-10`/`38px`.
+  - **Foto só em `surface="page"`.** O card tem a placa de cor da feature 26 (`colorPreview`, restrita
+    a `Cor`, com contador de overflow) e o sheet é painel estreito — são outra superfície e outra
+    regra. `colorPreview` **continua existindo e intocado**; `axisPhotos` não o substitui.
 - **A marca é SVG inline, nunca `<img src>`** — o header não pode ter estado de carregamento.
   `shared/ui/brand` traz a escada medida, e cada degrau **cai para o de baixo abaixo do próprio piso**:
 
@@ -657,9 +701,9 @@ literalmente, em vez de iterar a constante que deveria guardar).
 
 ## Estado conhecido / dívidas
 
-- **Baseline de lint vigente (medida de novo no fecho da feature 25, 2026-08-15): 30 erros / 8
-  warnings** — backoffice 28/7 · store 2/1. Igual à do fecho da `20`, da `22`, da `23` e da `24`:
-  zero erro novo em **sete** features seguidas. São erros **pré-existentes**, em boa parte `@typescript-eslint/no-explicit-any`
+- **Baseline de lint vigente (medida de novo no fecho da feature 27, 2026-08-15): 30 erros / 8
+  warnings** — backoffice 28/7 · store 2/1. Igual à do fecho da `20`, da `22`, da `23`, da `24` e da
+  `25`: zero erro novo em **oito** features seguidas. São erros **pré-existentes**, em boa parte `@typescript-eslint/no-explicit-any`
   nos hooks admin (`entities/*/api/useAdmin*`). O gate de qualquer feature é **"sem erros novos"**,
   não "lint limpo": compare contra este número e atualize-o aqui quando ele mudar de verdade.
   - **Atenção: `pnpm lint` não olha `packages/`.** Nenhum dos pacotes tem script `lint`, e
@@ -673,9 +717,18 @@ literalmente, em vez de iterar a constante que deveria guardar).
   **Baseline de tipos: store 0 · backoffice 0 · catalog-import 0. Zero é a baseline: qualquer erro
   de tipo é novo.** O importador tem `tsconfig.json` próprio (não é solution-style):
   `npx tsc --noEmit -p tools/catalog-import/tsconfig.json`.
-- **Baseline de testes (fecho da feature 25, medida por workspace): 4595 testes em 259 arquivos** —
-  store **1562/116** · backoffice **1388/86** · core **1090/38** · functions 279/4 ·
-  catalog-import 276/15.
+- **Baseline de testes (fecho da feature 27, medida por workspace): 4788 testes em 266 arquivos** —
+  store **1709/122** · backoffice **1388/86** · core **1113/39** · functions 279/4 ·
+  catalog-import **299/15**.
+  - A feature `27` somou **+193 testes e +7 arquivos**, sem apagar nenhum.
+  - **Duas divergências medidas no fecho da `27`, ambas alheias a ela e nenhuma investigada:**
+    - `catalog-import` mede **299** e a baseline anterior dizia **276**, com o mesmo número de
+      arquivos. Aquele workspace não foi tocado.
+    - `backoffice` falha **1** teste (`shared/lib/__tests__/storeOrigin.test.ts`) em máquina que tenha
+      `VITE_STORE_URL` no `.env`. Causa: `storeOrigin(base = STORE_URL)` usa **parâmetro default**,
+      então `storeOrigin(undefined)` cai na env. O teste da feature 25 só passa em máquina **sem** a
+      variável — que é justamente a que este arquivo manda configurar para acender a prévia. Provado
+      nos dois sentidos: sem a env passa 4/4, com ela falha.
   - A feature `25` somou **107 líquidos**, e o líquido esconde o que importa: entraram **121** e
     saíram **14**. Os 14 eram de `HomePreview.test.tsx`, que foi apagado junto com o componente.
   - **Esta é a exceção à regra de "queda só vale se o número reaparece do outro lado", e ela é
@@ -705,6 +758,19 @@ literalmente, em vez de iterar a constante que deveria guardar).
   Ao mexer numa tela que grava, **prove que ela grava**: probe HTTP contra o banco local, não
   inspeção de tipo. Segunda ocorrência: `DbAbandonedCart` descrevia uma tabela que não existia em
   migration nenhuma.
+- **TODA página de produto tem SCROLL HORIZONTAL no celular, e a culpa é da `ProductGallery`.**
+  Medido em navegador real no fecho da `27`: `scrollWidth` **634** numa viewport de **390**. `/`,
+  `/busca` e `/politicas` medem 390 — só `/produtos/:slug` estoura. Isolado removendo nós em runtime:
+  sem a descrição 634, sem as vagas de variação 634, **sem a galeria 390**. A trilha do grid mede
+  358px e o item da galeria mede 614: o `minmax(0,…)` que conteria o estouro só existe a partir de
+  `md`, então no mobile a largura mínima de conteúdo da faixa de miniaturas (`overflow-x-auto`) infla
+  a trilha. Numa loja com ~90% de acessos móveis isso é o primeiro item da lista de "o que quebra
+  primeiro no mobile" deste arquivo, **quebrado**. É **anterior à `27`** (o arquivo não está no diff
+  dela) e ficou **por corrigir**. Efeito colateral já medido: as vagas de foto da variação não quebram
+  linha porque herdam o container inflado — com a largura correta elas quebram em 2 linhas e param em
+  328px.
+- **`PoliciesPage` ainda crava "R$ 150" de frete grátis**, embora `free_shipping_threshold` exista nas
+  settings. Mesma classe do `5%` do Pix que a `27` fechou na mesma página; ficou fora do escopo dela.
 - Fronteiras FSD em `warn`: há 1 violação conhecida no store (`entities/product/ProductInfo` importa
   `features/share-product`). Corrigir extraindo a interação para uma feature.
 - Imports ainda usam caminhos profundos em muitos lugares (pré-barrel). Migrar para os barrels de
