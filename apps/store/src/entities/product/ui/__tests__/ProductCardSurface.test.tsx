@@ -320,6 +320,21 @@ describe('card de produto — o preço acompanha a cor escolhida (COR-12)', () =
     expect(screen.getByText('6x de R$ 33,33 sem juros')).toBeInTheDocument()
   })
 
+  /**
+   * `PDP-15` — o valor do card é o que o CAIXA cobra.
+   *
+   * R$ 100 e R$ 200 (o caso acima) dão o mesmo número nas duas fórmulas possíveis, então aquele
+   * teste passaria mesmo com a conta errada. Este preço discrimina: a expressão que vivia inline
+   * aqui arredondava o preço final e produzia R$ 7,51; `resolveOrderPricing` arredonda o desconto e
+   * cobra R$ 7,50. Eram 81 dos 259 preços distintos do catálogo (31%) a 5%.
+   */
+  it('o Pix mostra o valor cobrado, e não o da fórmula que arredondava o preço final', () => {
+    renderCard(product({ price: 7.9 }))
+
+    expect(screen.getByText('R$ 7,50 com Pix')).toBeInTheDocument()
+    expect(screen.queryByText('R$ 7,51 com Pix')).toBeNull()
+  })
+
   it('o "de" riscado também segue a variação — senão a % do selo mistura duas linhas', () => {
     renderCard(
       product({

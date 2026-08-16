@@ -1,9 +1,27 @@
-import { describe, it, expect } from 'vitest'
+import { beforeEach, describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
+
+/**
+ * A Políticas deixou de ser sem estado na feature 27: o percentual do Pix passou a vir das settings
+ * (`PDP-24`), em vez de cravado no texto. As outras duas páginas seguem sem dado nenhum.
+ */
+const { settingsPagamento } = vi.hoisted(() => ({
+  settingsPagamento: { pix_enabled: true, pix_discount_percent: 5 },
+}))
+
+vi.mock('@estrelinha/core/hooks/useStoreSettings', () => ({
+  usePaymentSettings: () => settingsPagamento,
+}))
+
 import AboutPage from '../AboutPage'
 import NotFound from '../NotFound'
 import PoliciesPage from '../PoliciesPage'
+
+beforeEach(() => {
+  settingsPagamento.pix_enabled = true
+  settingsPagamento.pix_discount_percent = 5
+})
 
 /**
  * A copy institucional — `COP-07`.
@@ -86,5 +104,35 @@ describe('Políticas — o texto que a cliente lê antes de enviar o material (C
 
     const texto = document.body.textContent ?? ''
     expect(texto).not.toMatch(PRODUTO_ANTERIOR)
+  })
+
+  /**
+   * `PDP-24` — o percentual do Pix vem das settings.
+   *
+   * A página cravava "5% de desconto no PIX!" enquanto o resto da loja lia
+   * `pix_discount_percent`: mudar o número no painel deixava esta página mentindo em silêncio.
+   */
+  it('o percentual do Pix vem das settings, e não do texto', () => {
+    settingsPagamento.pix_discount_percent = 7
+    renderPagina(<PoliciesPage />)
+
+    expect(screen.getByText(/7% de desconto no PIX!/)).toBeInTheDocument()
+    expect(screen.queryByText(/5% de desconto no PIX!/)).toBeNull()
+  })
+
+  it('com o Pix desligado, a promessa de desconto não aparece', () => {
+    settingsPagamento.pix_enabled = false
+    renderPagina(<PoliciesPage />)
+
+    expect(screen.queryByText(/desconto no PIX/)).toBeNull()
+    // O meio de pagamento continua anunciado — o que sai é só a promessa do desconto.
+    expect(screen.getByText(/Aceitamos Pix e cartão de crédito/)).toBeInTheDocument()
+  })
+
+  it('com percentual zerado, a promessa de desconto não aparece', () => {
+    settingsPagamento.pix_discount_percent = 0
+    renderPagina(<PoliciesPage />)
+
+    expect(screen.queryByText(/desconto no PIX/)).toBeNull()
   })
 })

@@ -6,6 +6,7 @@ import type { Product } from '@estrelinha/supabase/types'
 import { useCategories } from '@/entities/category/api/useCategories'
 import { formatPrice } from '@estrelinha/core/formatters'
 import { resolveInstallments } from '@estrelinha/core/payment/installments'
+import { pixPrice } from '@estrelinha/core/payment/pix'
 import { usePaymentSettings } from '@estrelinha/core/hooks/useStoreSettings'
 import { productPath } from '@estrelinha/core/routes'
 import { TAP_44 } from '@/shared/lib/touchTarget'
@@ -118,10 +119,17 @@ const ProductCard = ({ product }: { product: Product }) => {
     ? Math.round((1 - selectedPrice / selectedCompare!) * 100)
     : 0
 
-  const pixPrice =
-    pix_enabled && pix_discount_percent > 0
-      ? Math.round(selectedPrice * (1 - pix_discount_percent / 100) * 100) / 100
-      : null
+  /*
+    A conta saiu daqui na feature 27 e virou `@estrelinha/core/payment/pix`, junto com a página do
+    produto, que passou a mostrar o mesmo número.
+
+    A mudança não foi só de lugar: a expressão que vivia aqui arredondava o PREÇO FINAL
+    (`round2(a × (1 − pct/100))`), e `resolveOrderPricing` arredonda o DESCONTO e subtrai. Medido no
+    catálogo real com o `pix_discount_percent = 5` de hoje, **81 dos 259 preços distintos (31%)**
+    saíam 1 centavo acima do que o caixa cobra — a vitrine prometia R$ 7,51 onde a cobrança é
+    R$ 7,50. A direção era a favor da cliente, e por isso ninguém reclamou.
+  */
+  const precoPix = pix_enabled ? pixPrice(selectedPrice, pix_discount_percent) : null
   const installments = resolveInstallments(selectedPrice, max_installments, min_installment_value)
 
   const imagemEmDestaque = corEscolhida ?? product.image_url
@@ -328,9 +336,9 @@ const ProductCard = ({ product }: { product: Product }) => {
             aplica (`resolveInstallments`, `pix_discount_percent`). Cravar "8%" ou "4x" aqui faria a
             vitrine prometer uma regra que o checkout não pratica.
           */}
-          {(pixPrice !== null || installments) && (
+          {(precoPix !== null || installments) && (
             <div className="flex flex-col text-[13px] leading-[19px] text-estrelinha-ink-soft">
-              {pixPrice !== null && <span>{formatPrice(pixPrice)} com Pix</span>}
+              {precoPix !== null && <span>{formatPrice(precoPix)} com Pix</span>}
               {installments && installments.count > 1 && (
                 <span>
                   {installments.count}x de {formatPrice(installments.value)} sem juros

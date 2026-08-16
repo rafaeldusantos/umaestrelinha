@@ -3,6 +3,7 @@ import { TAP_44 } from '@/shared/lib/touchTarget'
 import { Heart, Minus, MessageCircle, Plus, ShoppingCart } from 'lucide-react'
 import { formatPrice } from '@estrelinha/core/formatters'
 import { resolveInstallments } from '@estrelinha/core/payment/installments'
+import { pixPrice } from '@estrelinha/core/payment/pix'
 import {
   useGeneralSettings,
   usePaymentSettings,
@@ -16,6 +17,7 @@ import EngravingField from './EngravingField'
 import MaterialNotice from './MaterialNotice'
 import ProductTrustBadges from './ProductTrustBadges'
 import VariantPicker from './VariantPicker'
+import { PixIcon } from '@/shared/ui/icons'
 
 interface Props {
   product: Product
@@ -53,10 +55,14 @@ const ProductInfo = ({ product, categoryName, purchase }: Props) => {
   const isWishlisted = useWishlistStore(s => s.hasItem(product.id))
   const location = useLocation()
   const { whatsapp, store_name } = useGeneralSettings()
-  const { max_installments, min_installment_value } = usePaymentSettings()
+  const { max_installments, min_installment_value, pix_enabled, pix_discount_percent } =
+    usePaymentSettings()
 
   const currentUrl = `${window.location.origin}${location.pathname}`
   const installments = resolveInstallments(price, max_installments, min_installment_value)
+  // `price` é o da variação escolhida (`purchase.price`), nunca `product.price` — com grade, o
+  // preço muda com a variação em 7 de cada 10 produtos com eixo de cor (`COR-12`).
+  const pix = pix_enabled ? pixPrice(price, pix_discount_percent) : null
 
   const phone = whatsapp?.replace(/\D/g, '') || ''
   const hasWhatsApp = phone.length >= 10
@@ -100,17 +106,29 @@ const ProductInfo = ({ product, categoryName, purchase }: Props) => {
         )}
       </div>
 
+      {/* PDP-11: o desconto do Pix chega à tela onde a compra se decide. A vitrine já mostrava o
+          número em cada card; a página do produto, não — e é aqui que a cliente escolhe.
+          O valor sai de `pixPrice`, a MESMA função que o card chama e que casa com o total que
+          `resolveOrderPricing` cobra (`displayedEqualsCharged.test.ts`). */}
+      {pix !== null && (
+        <p className="mt-1.5 flex items-center gap-1.5 text-[15px] leading-5">
+          <PixIcon className="h-[15px] w-[15px] shrink-0 text-estrelinha-primary" aria-hidden />
+          <span className="font-semibold text-estrelinha-ink">{formatPrice(pix)}</span>
+          <span className="text-estrelinha-ink-soft">com Pix</span>
+        </p>
+      )}
+
       {installments && installments.count > 1 && (
         <p className="mt-1 text-[13px] leading-4 text-estrelinha-ink-soft">
           ou {installments.count}x de {formatPrice(installments.value)} sem juros
         </p>
       )}
 
-      {product.description && (
-        <p className="mt-5 max-w-[520px] text-[15px] leading-[24px] text-estrelinha-ink-soft">
-          {product.description}
-        </p>
-      )}
+      {/* A descrição NÃO mora aqui desde a feature 27 — ela é o corpo da seção "Detalhes do
+          Produto" (`ProductDetailsAccordion`), abaixo da dobra. Duas razões medidas: 100% das
+          descrições do catálogo são HTML, que este `<p>` imprimia como texto cru na tela; e a
+          mediana de 2.271 caracteres empurrava o seletor de variação e o CTA para fora da primeira
+          tela do celular, que é de onde vêm ~90% dos acessos. */}
 
       {sellableGrid && (
         <>

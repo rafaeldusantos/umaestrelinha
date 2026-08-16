@@ -8,6 +8,7 @@ import {
   type PricingItem,
   type ProgressivePromotion,
 } from '../pricing'
+import { pixPrice } from '../pix'
 
 // BMP-04 / Success Criterion central da 08: "o total no rótulo do CTA é igual ao `total` que a
 // edge function persiste em `orders`" — asseverado **por valor**, não por inspeção visual.
@@ -432,5 +433,49 @@ describe('resolveCouponDiscount — a base é arredondada antes do percentual', 
     expect(resolveCouponDiscount(89.7, { type: 'free_shipping', value: 0 })).toBe(0)
     expect(resolveCouponDiscount(89.7, null)).toBe(0)
     expect(resolveCouponDiscount(89.7, undefined)).toBe(0)
+  })
+})
+
+// --- feature 27: o preço com PIX da VITRINE é o mesmo que o caixa cobra ---------------------------
+//
+// PDP-14/PDP-15. A vitrine (card e página do produto) anuncia "R$ X com Pix" **antes** de haver
+// carrinho, então ela não passa por `resolveOrderPricing` — ela chama `pixPrice`. São dois caminhos
+// de código para o mesmo número, que é exatamente a forma de defeito que este arquivo existe para
+// travar.
+//
+// E eles JÁ divergiam. A versão anterior, inline em `ProductCard.tsx`, arredondava o preço final em
+// vez do desconto; com o `pix_discount_percent = 5` de hoje, **81 dos 259 preços distintos do
+// catálogo (31%)** saíam 1 centavo acima do cobrado. Ao contrário do defeito de 2026-07 registrado no
+// topo deste arquivo, a direção era a FAVOR da cliente — e é por isso que sobreviveu sem queixa.
+describe('preço com PIX da vitrine = total cobrado por uma unidade', () => {
+  /** O que o caixa cobra por 1 unidade daquele preço, sem cupom e sem frete, pagando no PIX. */
+  const cobrado = (unitPrice: number, pct: number) =>
+    resolveOrderPricing({
+      items: [{ product_id: 'p-1', unit_price: unitPrice, quantity: 1 }],
+      shipping: 0,
+      pixDiscountPercent: pct,
+      method: 'pix',
+      coupon: null,
+      promotions: [],
+    }).totals.total
+
+  // Os quatro preços medidos no catálogo real que divergiam a 5%, mais um que não divergia.
+  const precos = [7.9, 22.9, 64.9, 74.9, 289.9, 100]
+
+  it.each(precos)('R$ %s a 5%%: a vitrine anuncia o que o caixa cobra', unitPrice => {
+    expect(pixPrice(unitPrice, 5)).toBe(cobrado(unitPrice, 5))
+  })
+
+  it.each(precos)('R$ %s a 7%%: idem', unitPrice => {
+    expect(pixPrice(unitPrice, 7)).toBe(cobrado(unitPrice, 7))
+  })
+
+  it('o caso de R$ 7,90 é o que divergia — e o valor certo é o menor', () => {
+    // Sem esta asserção o `it.each` acima passaria mesmo se as duas pontas voltassem juntas para a
+    // fórmula errada. Ela crava o número que o caixa cobra.
+    expect(cobrado(7.9, 5)).toBe(7.5)
+    expect(pixPrice(7.9, 5)).toBe(7.5)
+    // A fórmula anterior, escrita por extenso: é o valor que NÃO pode voltar.
+    expect(Math.round(7.9 * (1 - 5 / 100) * 100) / 100).toBe(7.51)
   })
 })
