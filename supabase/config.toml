@@ -479,3 +479,14 @@ verify_jwt = false
 # 401 (sem/JWT inválido) ou 403 (autenticado sem papel). Ver o cabeçalho de handlers.ts.
 [functions.send-email]
 verify_jwt = false
+
+# Quem busca o feed é o rastreador do Google, que não manda JWT nenhum — não há o que autenticar, e
+# o conteúdo servido é o mesmo catálogo que a vitrine já publica. O que controla o acesso é o
+# INTERRUPTOR: com `store_settings.google_shopping.enabled = false` a function responde 404.
+[functions.google-feed]
+verify_jwt = false
+
+# Quem chega aqui é a cliente ou o rastreador do Google, e o conteúdo é a mesma página pública que a
+# loja já serve. Não há sessão a exigir — exigir JWT aqui derrubaria a página de produto.
+[functions.product-page]
+verify_jwt = false
