@@ -178,6 +178,15 @@ Cada slice tem um barrel `index.ts` (public API). **Novo código deve importar d
     linhas dentro de pílula ou badge, linha de itens/lanes que estoura a largura, CTA fixo brigando
     com a barra de navegação do sistema, alvo de toque abaixo de 44px, e scroll horizontal do body
     (nunca deve existir — conteúdo largo scrolla dentro do próprio container).
+  - **Grade com item largo precisa de `minmax(0, …)` NO MOBILE, não só a partir de `md`.** Sem ele a
+    coluna implícita é `auto`, cujo mínimo automático é o **min-content do item** — e `overflow-x-auto`
+    dentro do item não salva ninguém, porque quem não pode encolher é a trilha. Custou caro: a
+    `ProductPage` declarava `minmax(0,…)` só no `md:` e, por isso, **toda página de produto rolava na
+    horizontal no celular** (`scrollWidth` 634 numa viewport de 390), empurrada pela fita de
+    miniaturas da galeria. Sobreviveu porque nada quebra: build, `tsc` e teste de componente passam,
+    e jsdom devolve 0 para toda medida de layout. Achado só em navegador real, na auditoria da
+    feature `27`, e corrigido lá. `ProductPage.test.tsx` trava a classe como **proxy**, e a medida de
+    verdade continua sendo a auditoria em 390×844.
   - **O alvo de 44px tem DOIS auxiliares, e escolher errado quebra o outro** (`shared/lib/touchTarget`):
     `TAP_44` é 44×44 centrado, para disco de ícone e botão quadrado; `TAP_ROW` é 44px de **altura** na
     largura do próprio rótulo, para texto em fluxo. Um quadrado de 44 centrado num link de 130px
@@ -717,18 +726,21 @@ literalmente, em vez de iterar a constante que deveria guardar).
   **Baseline de tipos: store 0 · backoffice 0 · catalog-import 0. Zero é a baseline: qualquer erro
   de tipo é novo.** O importador tem `tsconfig.json` próprio (não é solution-style):
   `npx tsc --noEmit -p tools/catalog-import/tsconfig.json`.
-- **Baseline de testes (fecho da feature 27, medida por workspace): 4788 testes em 266 arquivos** —
-  store **1709/122** · backoffice **1388/86** · core **1113/39** · functions 279/4 ·
-  catalog-import **299/15**.
-  - A feature `27` somou **+193 testes e +7 arquivos**, sem apagar nenhum.
-  - **Duas divergências medidas no fecho da `27`, ambas alheias a ela e nenhuma investigada:**
-    - `catalog-import` mede **299** e a baseline anterior dizia **276**, com o mesmo número de
-      arquivos. Aquele workspace não foi tocado.
-    - `backoffice` falha **1** teste (`shared/lib/__tests__/storeOrigin.test.ts`) em máquina que tenha
-      `VITE_STORE_URL` no `.env`. Causa: `storeOrigin(base = STORE_URL)` usa **parâmetro default**,
-      então `storeOrigin(undefined)` cai na env. O teste da feature 25 só passa em máquina **sem** a
-      variável — que é justamente a que este arquivo manda configurar para acender a prévia. Provado
-      nos dois sentidos: sem a env passa 4/4, com ela falha.
+- **Baseline de testes (fecho da feature 27, medida por workspace): 4794 testes em 266 arquivos** —
+  store **1712/122** · backoffice **1391/86** · core **1113/39** · functions 279/4 ·
+  catalog-import **299/15**. Os cinco workspaces passam limpos.
+  - A feature `27` somou **+199 testes e +7 arquivos**, sem apagar nenhum.
+  - **A baseline de `catalog-import` estava velha, e a diferença está explicada**: a anterior dizia
+    276 e foi registrada em `d1d877f` (fecho da `25`); o commit `ce143f2` (a foto de variação no
+    importador) entrou **depois** e acrescentou **exatamente 23** testes — 23 `it(` adicionados, 0
+    removidos — sem atualizar o número. 276 + 23 = 299. Nenhum teste fantasma.
+  - **Teste que lê `import.meta.env` mede a MÁQUINA, não o código.** `storeOrigin.test.ts` afirmava
+    "sem env devolve `null`" chamando `storeOrigin(undefined)`, que cai no **parâmetro default**
+    `base = STORE_URL` — lido de `import.meta.env` no carregamento do módulo. O arquivo passava em
+    quem não tinha `VITE_STORE_URL` e **falhava em quem tinha**, que é justamente a configuração que
+    este arquivo manda fazer para acender a prévia da `25`. Corrigido na `27` com `vi.stubEnv` +
+    `vi.resetModules()` + import dinâmico, e os dois lados passaram a ser asseverados (sem a
+    variável, `null`; com ela, a origem dela).
   - A feature `25` somou **107 líquidos**, e o líquido esconde o que importa: entraram **121** e
     saíram **14**. Os 14 eram de `HomePreview.test.tsx`, que foi apagado junto com o componente.
   - **Esta é a exceção à regra de "queda só vale se o número reaparece do outro lado", e ela é
@@ -758,19 +770,6 @@ literalmente, em vez de iterar a constante que deveria guardar).
   Ao mexer numa tela que grava, **prove que ela grava**: probe HTTP contra o banco local, não
   inspeção de tipo. Segunda ocorrência: `DbAbandonedCart` descrevia uma tabela que não existia em
   migration nenhuma.
-- **TODA página de produto tem SCROLL HORIZONTAL no celular, e a culpa é da `ProductGallery`.**
-  Medido em navegador real no fecho da `27`: `scrollWidth` **634** numa viewport de **390**. `/`,
-  `/busca` e `/politicas` medem 390 — só `/produtos/:slug` estoura. Isolado removendo nós em runtime:
-  sem a descrição 634, sem as vagas de variação 634, **sem a galeria 390**. A trilha do grid mede
-  358px e o item da galeria mede 614: o `minmax(0,…)` que conteria o estouro só existe a partir de
-  `md`, então no mobile a largura mínima de conteúdo da faixa de miniaturas (`overflow-x-auto`) infla
-  a trilha. Numa loja com ~90% de acessos móveis isso é o primeiro item da lista de "o que quebra
-  primeiro no mobile" deste arquivo, **quebrado**. É **anterior à `27`** (o arquivo não está no diff
-  dela) e ficou **por corrigir**. Efeito colateral já medido: as vagas de foto da variação não quebram
-  linha porque herdam o container inflado — com a largura correta elas quebram em 2 linhas e param em
-  328px.
-- **`PoliciesPage` ainda crava "R$ 150" de frete grátis**, embora `free_shipping_threshold` exista nas
-  settings. Mesma classe do `5%` do Pix que a `27` fechou na mesma página; ficou fora do escopo dela.
 - Fronteiras FSD em `warn`: há 1 violação conhecida no store (`entities/product/ProductInfo` importa
   `features/share-product`). Corrigir extraindo a interação para uma feature.
 - Imports ainda usam caminhos profundos em muitos lugares (pré-barrel). Migrar para os barrels de

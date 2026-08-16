@@ -87,7 +87,10 @@ vagas) e `perto-acordeao.png` (descrição formatada: `h4`, parágrafo, "Especif
 
 ---
 
-## 4. Achados fora de escopo (surgidos na validação, **não** corrigidos)
+## 4. Achados fora de escopo (surgidos na validação) — **todos corrigidos depois**
+
+> **Estado**: os quatro foram levados ao usuário como achados alheios ao escopo e ele mandou
+> corrigir. Esta seção descreve o que foi encontrado; a §7 descreve o que foi feito.
 
 ### 4.1 `ProductGallery` estoura a viewport no mobile — **pré-existente, e é sério**
 
@@ -165,3 +168,59 @@ sobrevive **e** nem `<script>` nem `<img onerror>` dentro dele passam, o que val
 | --- | --- | --- | --- |
 | PDP-14/15 | `round2(a × (1 − p/100))`; "valor idêntico ao de hoje" | `round2(a − round2(a × p/100))`; "igual ao total cobrado" | A fórmula da spec era a **do card**, e ela diverge do caixa em 31% dos preços a 5%. Congelar era congelar o defeito. |
 | PDP-23 | "alvo de 44×44 via `TAP_44`" | "≥44 pela própria caixa de 56px" | `TAP_44` existe para desenho **menor** que o alvo; a varredura de `touchTarget.test.ts` só o cobra de `h-8`/`h-9`/`h-10`/`38px`. |
+
+---
+
+## 7. Correção dos achados da §4 (rodada seguinte, a pedido do usuário)
+
+### 7.1 O estouro horizontal — **corrigido**
+
+Três candidatos testados em navegador, com CSS injetado em runtime antes de escolher:
+
+| Candidato | `body` | item |
+| --- | ---: | ---: |
+| base (defeito) | 634 | 614 |
+| A) `min-width: 0` nos itens do grid | **390** ✅ | 358 |
+| B) `min-width: 0` na raiz da galeria | 634 ❌ | 614 |
+| C) `grid-template-columns: minmax(0,1fr)` no mobile | **390** ✅ | 358 |
+
+Escolhido **C**, aplicado às **duas** grades da `ProductPage`: é literalmente o mesmo idioma que o
+autor já usava no `md:`, conserta a **trilha** (que é onde está a restrição) em vez de remendar cada
+item, e é uma classe por grade em vez de uma por item. **B falhou** e o porquê importa: quem não pode
+encolher é o item do grid, não a galeria — `min-width` na raiz dela não alcança a restrição.
+
+**Verificado em navegador, 5 páginas × 2 viewports, todas ✅**, incluindo o efeito colateral previsto:
+as 7 vagas de foto passaram de 1 linha estourando para **2 linhas com borda direita em 328px**.
+
+Guarda: `ProductPage.test.tsx` trava as duas classes, com âncora de contagem (`>= 2` grades) e um
+comentário dizendo que é **proxy** — jsdom devolve 0 para layout, e a medida real é a auditoria.
+
+### 7.2 `storeOrigin.test.ts` — **corrigido**
+
+`vi.stubEnv` + `vi.resetModules()` + import dinâmico, com `afterEach` desfazendo. O teste passou a
+asseverar **os dois lados** (sem a variável ⇒ `null`; com ela ⇒ a origem dela; inválida ⇒ `null`), e
+o caso de argumento explícito ficou separado do caso de default. **4 → 7 testes**, nenhuma asserção
+perdida. Verificado nos dois cenários: com e sem `VITE_STORE_URL` no `.env`, 7/7 nas duas.
+
+### 7.3 `PoliciesPage` cravando "R$ 150" — **corrigido**
+
+Passa a ler `free_shipping_threshold`, e a promessa some com o teto zerado — mesmo tratamento que o
+Pix recebeu na `PDP-24`. **+2 testes.** A pontuação do texto foi mantida como estava: trocar "!" por
+"." seria edição de copy que ninguém pediu, e `copyInstitucional.test.tsx` mostra que o guarda de tom
+do projeto não olha pontuação (só emoji e vocabulário).
+
+### 7.4 A contagem do `catalog-import` — **explicada, não era defeito**
+
+`git show --stat ce143f2 -- tools/catalog-import` mostra **23 `it(` adicionados e 0 removidos**, e
+`276 + 23 = 299`. A baseline foi registrada em `d1d877f` (fecho da `25`) e `ce143f2` entrou depois sem
+atualizá-la. Nenhum teste fantasma; o número foi corrigido no `CLAUDE.md` com a origem documentada.
+
+### 7.5 Estado final
+
+| Régua | Resultado |
+| --- | --- |
+| store · backoffice · core · functions · catalog-import | ✅ **1712 · 1391 · 1113 · 279 · 299** — os cinco limpos |
+| Total | **4794 testes / 266 arquivos** (+199 sobre a baseline anterior) |
+| `tsc` store · backoffice | ✅ 0 · 0 |
+| `pnpm lint` | ✅ 30 erros / 8 warnings — baseline exata |
+| `pnpm build` | ✅ verde nos dois apps |
