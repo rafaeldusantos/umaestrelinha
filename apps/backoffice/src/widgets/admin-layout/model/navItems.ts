@@ -1,4 +1,4 @@
-import { HelpCircle, House, LayoutDashboard, Package, Percent, Tags, Menu, ShoppingCart, ShoppingBag, Ticket, Users, Settings } from 'lucide-react'
+import { HelpCircle, House, LayoutDashboard, Package, Percent, Tags, Menu, ShoppingCart, ShoppingBag, Store, Ticket, Users, Settings } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 export interface NavItem {
@@ -47,6 +47,11 @@ export interface NavGroup {
  * porque é o que se visita menos: produto e categoria se cadastram toda semana, a biblioteca de
  * perguntas se ajusta de vez em quando.
  *
+ * **`Google Shopping` entra em `Loja`, depois de `Menu da loja`** (feature 30): é o que a cliente vê
+ * **antes** de chegar — mesma família de Home e Menu, que é curadoria de vitrine e não cadastro. É
+ * também o item que se visita menos dos três: a Home se ajusta toda semana, o menu de vez em quando,
+ * e o feed do Google se liga uma vez e se confere quando algo estranha.
+ *
  * `/admin/produtos/grade-rapida` não entra: é uma tela alcançada de dentro de Produtos, não um
  * destino de primeiro nível. **`/admin/home/:sectionId` não entra pela mesma régua** — o editor de
  * uma seção se alcança de dentro da Home, e pô-lo na sidebar exigiria um id em código.
@@ -84,6 +89,7 @@ export const navGroups: NavGroup[] = [
     items: [
       { to: '/admin/home', icon: House, label: 'Home' },
       { to: '/admin/menu', icon: Menu, label: 'Menu da loja' },
+      { to: '/admin/google-shopping', icon: Store, label: 'Google Shopping' },
     ],
   },
 ]

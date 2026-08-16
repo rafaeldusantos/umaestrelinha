@@ -45,6 +45,7 @@ import RichTextEditor from '@/shared/ui/RichTextEditor'
 import VariantsTable, { type DeleteCheck } from '@/features/product-form/ui/VariantsTable'
 import OptionsEditor from '@/features/product-form/ui/OptionsEditor'
 import SeoPreview from '@/features/product-form/ui/SeoPreview'
+import { GoogleShoppingCard } from '@/features/product-form/ui/GoogleShoppingCard'
 import RelatedProductsSelect from '@/features/product-form/ui/RelatedProductsSelect'
 import { PageHeader, FormCard } from '@/shared/ui'
 import {
@@ -199,6 +200,14 @@ const AdminProductFormPage = () => {
       length_cm: form.length_cm || null,
       seo_title: form.seo_title || null,
       seo_description: form.seo_description || null,
+      // Feature 30 (`GSH-20`): vazio grava `null`, nunca string vazia. O feed omite a tag do campo
+      // nulo; com string vazia ele emitiria `<g:brand></g:brand>`, que reprova a oferta.
+      brand: form.brand || null,
+      mpn: form.mpn || null,
+      age_group: form.age_group || null,
+      gender: form.gender || null,
+      google_product_category: form.google_product_category || null,
+      identifier_exists: form.identifier_exists,
       scheduled_at: form.scheduled_at || null,
       related_product_ids: relatedIds,
       buy_together_ids: buyTogetherIds,
@@ -617,6 +626,11 @@ const AdminProductFormPage = () => {
                   onDescriptionChange={v => setField('seo_description', v)}
                 />
               </FormCard>
+
+              <GoogleShoppingCard
+                form={form}
+                onChange={(campo, valor) => setField(campo, valor as never)}
+              />
             </TabsContent>
 
             {/* RELACIONADOS */}

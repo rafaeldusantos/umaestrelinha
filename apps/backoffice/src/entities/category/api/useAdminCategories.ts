@@ -23,6 +23,8 @@ export const CATEGORY_SELECT = [
   // HTTP antes de existirem em tipo — `PATCH` com `Prefer: return=representation` devolvendo os
   // valores persistidos (`AD-012`).
   'show_in_menu', 'menu_promo',
+  // Feature 30 (`GSH-23`): a taxonomia do Google herdada pelos produtos desta categoria.
+  'google_product_category',
   'created_at', 'updated_at',
 ].join(', ')
 
