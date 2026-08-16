@@ -1,14 +1,20 @@
-import { usePaymentSettings } from '@estrelinha/core/hooks/useStoreSettings'
+import { formatPrice } from '@estrelinha/core/formatters'
+import {
+  usePaymentSettings,
+  useShippingSettings,
+} from '@estrelinha/core/hooks/useStoreSettings'
 
 /**
- * `PDP-24` — o percentual do Pix sai das settings, não do JSX.
+ * `PDP-24` — **todo número desta página sai das settings**, nenhum do JSX.
  *
- * O texto cravava "5% de desconto no PIX!" enquanto todo o resto da loja já lia
- * `pix_discount_percent`. Mudar o número no painel deixava esta página mentindo, sem nada acusar —
- * o mesmo defeito que a `MarqueeBar` da home custou na feature 24.
+ * O texto cravava "5% de desconto no PIX!" e "acima de R$ 150" enquanto o resto da loja já lia
+ * `pix_discount_percent` e `free_shipping_threshold`. Mudar qualquer um dos dois no painel deixava
+ * esta página mentindo, sem nada acusar — o mesmo defeito que a `MarqueeBar` da home custou na
+ * feature 24, e a razão de o editor da faixa de vantagens não ter campo de texto.
  */
 const PoliciesPage = () => {
   const { pix_enabled, pix_discount_percent } = usePaymentSettings()
+  const { free_shipping_threshold } = useShippingSettings()
   const temPix = pix_enabled && pix_discount_percent > 0
 
   return (
@@ -18,7 +24,11 @@ const PoliciesPage = () => {
       <section>
         <h2 className="font-heading font-bold text-lg text-estrelinha-ink mb-2">Envio</h2>
         <p>Enviamos para todo o Brasil via Correios. Prazo de postagem: até 3 dias úteis após confirmação do pagamento.</p>
-        <p className="mt-1">Frete grátis para compras acima de R$ 150!</p>
+        {free_shipping_threshold > 0 && (
+          <p className="mt-1">
+            Frete grátis para compras acima de {formatPrice(free_shipping_threshold)}!
+          </p>
+        )}
       </section>
       <section>
         <h2 className="font-heading font-bold text-lg text-estrelinha-ink mb-2">Pagamento</h2>

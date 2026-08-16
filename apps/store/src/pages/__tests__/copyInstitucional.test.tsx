@@ -6,12 +6,14 @@ import { MemoryRouter } from 'react-router-dom'
  * A Políticas deixou de ser sem estado na feature 27: o percentual do Pix passou a vir das settings
  * (`PDP-24`), em vez de cravado no texto. As outras duas páginas seguem sem dado nenhum.
  */
-const { settingsPagamento } = vi.hoisted(() => ({
+const { settingsPagamento, settingsFrete } = vi.hoisted(() => ({
   settingsPagamento: { pix_enabled: true, pix_discount_percent: 5 },
+  settingsFrete: { free_shipping_threshold: 150 },
 }))
 
 vi.mock('@estrelinha/core/hooks/useStoreSettings', () => ({
   usePaymentSettings: () => settingsPagamento,
+  useShippingSettings: () => settingsFrete,
 }))
 
 import AboutPage from '../AboutPage'
@@ -21,6 +23,7 @@ import PoliciesPage from '../PoliciesPage'
 beforeEach(() => {
   settingsPagamento.pix_enabled = true
   settingsPagamento.pix_discount_percent = 5
+  settingsFrete.free_shipping_threshold = 150
 })
 
 /**
@@ -134,5 +137,28 @@ describe('Políticas — o texto que a cliente lê antes de enviar o material (C
     renderPagina(<PoliciesPage />)
 
     expect(screen.queryByText(/desconto no PIX/)).toBeNull()
+  })
+
+  /**
+   * O teto do frete grátis também vem das settings.
+   *
+   * Cravava "R$ 150" no texto enquanto `free_shipping_threshold` já existia e já alimentava os selos
+   * da página do produto — mesma classe do `5%` acima, na mesma página.
+   */
+  it('o teto do frete grátis vem das settings, e não do texto', () => {
+    settingsFrete.free_shipping_threshold = 199.9
+    renderPagina(<PoliciesPage />)
+
+    expect(screen.getByText(/acima de R\$ 199,90/)).toBeInTheDocument()
+    expect(screen.queryByText(/acima de R\$ 150/)).toBeNull()
+  })
+
+  it('com o frete grátis desligado, a promessa não aparece', () => {
+    settingsFrete.free_shipping_threshold = 0
+    renderPagina(<PoliciesPage />)
+
+    expect(screen.queryByText(/Frete grátis/)).toBeNull()
+    // A seção de envio continua existindo — o que sai é só a promessa.
+    expect(screen.getByRole('heading', { name: 'Envio' })).toBeInTheDocument()
   })
 })
