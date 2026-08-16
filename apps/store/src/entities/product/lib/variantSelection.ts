@@ -209,14 +209,17 @@ export const colorAxis = (options: readonly ProductOption[]): ProductOption | nu
   orderedOptions(options).find(o => o.name.trim().toLowerCase() === 'cor') ?? null
 
 /**
- * A foto daquela cor: a primeira variação da cor, por `position`, que TENHA foto.
+ * A foto daquele valor de eixo: a primeira variação com aquele valor, por `position`, que TENHA foto.
  *
- * Com dois eixos a mesma cor aparece em várias linhas (uma por tamanho) e nem todas trazem foto —
- * por isso a busca não para na primeira linha da cor, e sim na primeira COM imagem. Nenhuma com
- * foto devolve `null`: `COR-02` proíbe cair na capa do produto ou na foto de outra cor, porque três
- * cores mostrando a mesma imagem dizem à cliente que a cor não muda a peça.
+ * Com dois eixos o mesmo valor aparece em várias linhas (uma por tamanho) e nem todas trazem foto —
+ * por isso a busca não para na primeira linha do valor, e sim na primeira COM imagem. Nenhuma com
+ * foto devolve `null`: `COR-02` proíbe cair na capa do produto ou na foto de outro valor, porque três
+ * vagas mostrando a mesma imagem dizem à cliente que a escolha não muda a peça.
+ *
+ * Chamava-se `colorImage` até a feature 27. A conta nunca foi sobre cor — é "a foto deste valor" — e
+ * a página do produto passou a precisar dela para `Tipos de elo` e `Modelo` também.
  */
-const colorImage = (
+const valueImage = (
   variants: readonly ProductVariant[],
   axis: string,
   value: string,
@@ -251,11 +254,58 @@ export const colorPreview = (
   return {
     thumbs: axis.values.slice(0, shown).map(value => ({
       value,
-      imageUrl: colorImage(product.variants, axis.name, value),
+      imageUrl: valueImage(product.variants, axis.name, value),
       active: value === chosen,
     })),
     overflow: axis.values.length - shown,
   }
+}
+
+/** Uma vaga de foto de um eixo na PÁGINA do produto (`PDP-16`..`PDP-20`). */
+export interface AxisPhoto {
+  value: string
+  /** `null` quando nenhuma variação daquele valor tem foto. Nunca a foto de outro valor. */
+  imageUrl: string | null
+  active: boolean
+}
+
+/**
+ * As vagas de foto de um eixo, ou `null` quando o eixo **não** se escolhe por foto (`PDP-16`).
+ *
+ * Qualifica quando **≥2 valores têm foto** e as fotos presentes são **todas distintas entre si**.
+ *
+ * A segunda condição é o que faz a regra dizer a verdade, e ela é medida. No catálogo real (686
+ * eixos com ao menos dois valores) a regra aceita 540 — `Cor` (352), `Tipos de elo` e suas quatro
+ * grafias (150), `Modelo` (27) — e recusa exatamente os eixos onde **todos os valores apontam para a
+ * mesma foto**: `Com gravação` (36 produtos), `Com Base` (20), `Letra` (11) e 29 dos 32 `Tamanho`.
+ * Mostrar quatro vagas idênticas ali diria à cliente que a escolha não muda a peça — é o mesmo
+ * raciocínio do `COR-02`, aplicado à decisão de *usar* foto em vez de *qual* foto usar.
+ *
+ * Não confundir com `colorPreview`: aquele é a placa do CARD, restrita a `Cor` e com contador de
+ * overflow, porque lá a fileira compete por espaço com a foto do produto. Aqui é a escolha em si, na
+ * página, e todo valor aparece.
+ *
+ * O eixo recusado volta a ser pílula com o nome, que é o desenho de sempre (`PDP-17`).
+ */
+export const axisPhotos = (
+  product: GridProduct,
+  axis: ProductOption,
+  selected: OptionValues,
+): AxisPhoto[] | null => {
+  if (!hasSellableGrid(product)) return null
+  if (axis.values.length < 2) return null
+
+  const vagas = axis.values.map(value => ({
+    value,
+    imageUrl: valueImage(product.variants, axis.name, value),
+    active: selected[axis.name] === value,
+  }))
+
+  const fotos = vagas.map(v => v.imageUrl).filter(Boolean) as string[]
+  if (fotos.length < 2) return null
+  if (new Set(fotos).size !== fotos.length) return null
+
+  return vagas
 }
 
 /**

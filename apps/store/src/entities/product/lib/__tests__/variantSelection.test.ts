@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   availableValuesFor,
+  axisPhotos,
   canAddSelection,
   CARD_MAX_AXES,
   colorAxis,
@@ -455,5 +456,138 @@ describe('colorPreview — a cor escolhida (COR-14)', () => {
   it('sem cor escolhida, nenhuma vaga fica ativa', () => {
     const preview = colorPreview(comCor(['Prata', 'Ouro']), {}, VAGAS_4)
     expect(preview?.thumbs.map(t => t.active)).toEqual([false, false])
+  })
+})
+
+// --- feature 27: o eixo que se escolhe por FOTO na página do produto -----------------------------
+
+/**
+ * Um eixo qualquer com foto por valor. `fotos` diz qual imagem cada valor recebe — `null` é valor
+ * sem foto, e repetir a mesma string é o caso "todas as vagas mostrariam a mesma peça".
+ */
+const comEixo = (
+  nome: string,
+  values: string[],
+  fotos: (string | null)[],
+  over: Partial<GridProduct> = {},
+): GridProduct => ({
+  options: [option(nome, values, 0)],
+  variants: values.map((v, i) => variant({ [nome]: v }, { image_url: fotos[i] })),
+  stock_policy: 'track',
+  ...over,
+})
+
+const eixoDe = (product: GridProduct): ProductOption => product.options[0]
+
+describe('axisPhotos — quando o eixo vira foto (PDP-16)', () => {
+  it('qualifica com duas fotos distintas', () => {
+    const p = comEixo('Cor', ['Prata', 'Ouro'], ['prata.webp', 'ouro.webp'])
+    expect(axisPhotos(p, eixoDe(p), {})).toHaveLength(2)
+  })
+
+  it('qualifica um eixo que NÃO é cor — `Tipos de elo` são 150 eixos do catálogo', () => {
+    const p = comEixo(
+      'Tipos de elo',
+      ['Português', 'Cadeado', 'Veneziana'],
+      ['pt.webp', 'cad.webp', 'ven.webp'],
+    )
+    expect(axisPhotos(p, eixoDe(p), {})?.map(v => v.value)).toEqual([
+      'Português',
+      'Cadeado',
+      'Veneziana',
+    ])
+  })
+
+  it('RECUSA quando todas as fotos são iguais — o caso `Com gravação`', () => {
+    // 36 produtos do catálogo. Duas vagas idênticas diriam que a escolha não muda a peça.
+    const p = comEixo('Com gravação', ['Sim', 'Não'], ['mesma.webp', 'mesma.webp'])
+    expect(axisPhotos(p, eixoDe(p), {})).toBeNull()
+  })
+
+  it('RECUSA quando só um valor tem foto', () => {
+    const p = comEixo('Cor', ['Prata', 'Ouro'], ['prata.webp', null])
+    expect(axisPhotos(p, eixoDe(p), {})).toBeNull()
+  })
+
+  it('RECUSA quando nenhum valor tem foto — o caso `Tamanho da corrente`', () => {
+    const p = comEixo('Tamanho da corrente', ['40cm', '45cm'], [null, null])
+    expect(axisPhotos(p, eixoDe(p), {})).toBeNull()
+  })
+
+  it('RECUSA eixo de um valor só — não há escolha a mostrar', () => {
+    const p = comEixo('Cor', ['Prata'], ['prata.webp'])
+    expect(axisPhotos(p, eixoDe(p), {})).toBeNull()
+  })
+
+  it('RECUSA produto sem grade vendável', () => {
+    const p = comEixo('Cor', ['Prata', 'Ouro'], ['prata.webp', 'ouro.webp'], { variants: [] })
+    expect(axisPhotos(p, eixoDe(p), {})).toBeNull()
+  })
+
+  it('aceita 3 valores com 2 fotos distintas e uma vaga vazia', () => {
+    // A regra exige ≥2 fotos, não que todos os valores tenham. É a mesma tolerância da placa do
+    // card (`COR-15`); divergir dela seria a única inconsistência entre as duas superfícies.
+    const p = comEixo('Cor', ['Prata', 'Ouro', 'Ródio'], ['prata.webp', 'ouro.webp', null])
+    expect(axisPhotos(p, eixoDe(p), {})).toHaveLength(3)
+  })
+
+  it('RECUSA quando as duas fotos presentes são a mesma, mesmo com uma vaga vazia', () => {
+    const p = comEixo('Cor', ['Prata', 'Ouro', 'Ródio'], ['mesma.webp', 'mesma.webp', null])
+    expect(axisPhotos(p, eixoDe(p), {})).toBeNull()
+  })
+})
+
+describe('axisPhotos — o conteúdo das vagas (PDP-20)', () => {
+  it('cada vaga leva a foto do PRÓPRIO valor', () => {
+    const p = comEixo('Cor', ['Prata', 'Ouro'], ['prata.webp', 'ouro.webp'])
+    expect(axisPhotos(p, eixoDe(p), {})).toEqual([
+      { value: 'Prata', imageUrl: 'prata.webp', active: false },
+      { value: 'Ouro', imageUrl: 'ouro.webp', active: false },
+    ])
+  })
+
+  it('valor sem foto vem com `null` — nunca a foto de outro valor', () => {
+    const p = comEixo('Cor', ['Prata', 'Ouro', 'Ródio'], ['prata.webp', 'ouro.webp', null])
+    expect(axisPhotos(p, eixoDe(p), {})?.map(v => v.imageUrl)).toEqual([
+      'prata.webp',
+      'ouro.webp',
+      null,
+    ])
+  })
+
+  it('a foto sai da primeira variação COM imagem, não da primeira linha do valor', () => {
+    // Com dois eixos, a mesma cor aparece em várias linhas e nem todas trazem foto.
+    const p: GridProduct = {
+      options: [option('Cor', ['Prata', 'Ouro'], 0), option('Tamanho', ['P', 'G'], 1)],
+      variants: [
+        variant({ Cor: 'Prata', Tamanho: 'P' }, { image_url: null, position: 0 }),
+        variant({ Cor: 'Prata', Tamanho: 'G' }, { image_url: 'prata.webp', position: 1 }),
+        variant({ Cor: 'Ouro', Tamanho: 'P' }, { image_url: 'ouro.webp', position: 2 }),
+      ],
+      stock_policy: 'track',
+    }
+    expect(axisPhotos(p, p.options[0], {})?.map(v => v.imageUrl)).toEqual([
+      'prata.webp',
+      'ouro.webp',
+    ])
+  })
+
+  it('só a vaga do valor escolhido vem `active`', () => {
+    const p = comEixo('Cor', ['Prata', 'Ouro', 'Ródio'], ['a.webp', 'b.webp', 'c.webp'])
+    expect(axisPhotos(p, eixoDe(p), { Cor: 'Ouro' })?.map(v => v.active)).toEqual([
+      false,
+      true,
+      false,
+    ])
+  })
+
+  it('sem escolha, nenhuma vaga fica ativa', () => {
+    const p = comEixo('Cor', ['Prata', 'Ouro'], ['a.webp', 'b.webp'])
+    expect(axisPhotos(p, eixoDe(p), {})?.map(v => v.active)).toEqual([false, false])
+  })
+
+  it('a ordem das vagas é a de `axis.values`', () => {
+    const p = comEixo('Modelo', ['Coração', 'Árvore', 'Gota'], ['c.webp', 'a.webp', 'g.webp'])
+    expect(axisPhotos(p, eixoDe(p), {})?.map(v => v.value)).toEqual(['Coração', 'Árvore', 'Gota'])
   })
 })
