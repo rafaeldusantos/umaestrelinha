@@ -153,7 +153,21 @@ const ProductPageBody = ({
         <span className="font-medium text-estrelinha-ink">{product.name}</span>
       </nav>
 
-      <div className="grid gap-6 md:grid-cols-[minmax(0,600px)_minmax(0,1fr)] md:items-start md:gap-8">
+      {/*
+        `grid-cols-[minmax(0,1fr)]` também no MOBILE, e não só a partir de `md`.
+
+        Sem ele a coluna implícita é `auto`, cujo mínimo automático é o min-content do item — e o
+        item é a galeria, cuja fita de miniaturas soma a largura de todas as fotos. Medido em
+        2026-08-15, num iPhone de 390px: a trilha do grid media 358px e o item, **614**. O `body`
+        inteiro rolava na horizontal (`scrollWidth` 634), em TODA página de produto, numa loja em que
+        ~90% dos acessos vêm de celular — o primeiro item da lista de "o que quebra primeiro no
+        mobile" do `CLAUDE.md`.
+
+        O `minmax(0, …)` é o que permite a trilha encolher abaixo do min-content, e daí o
+        `overflow-x-auto` da fita finalmente rolar dentro do próprio container em vez de empurrar a
+        página. É o mesmo recurso que o `md:` abaixo já usava — faltava no tamanho que importa.
+      */}
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-6 md:grid-cols-[minmax(0,600px)_minmax(0,1fr)] md:items-start md:gap-8">
         <motion.div
           initial={{ opacity: 0, scale: 0.98 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -194,7 +208,9 @@ const ProductPageBody = ({
         </motion.div>
       </div>
 
-      <div className="grid gap-6 pt-8 md:grid-cols-[minmax(0,600px)_minmax(0,1fr)] md:items-start md:gap-8 md:pt-10">
+      {/* Mesma trilha da grade de cima, pelo mesmo motivo: aqui mora a descrição, que é HTML de
+          origem externa e pode trazer um `<li>` longo sem espaço. */}
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-6 pt-8 md:grid-cols-[minmax(0,600px)_minmax(0,1fr)] md:items-start md:gap-8 md:pt-10">
         <ShippingCalc product={product} />
         <ProductDetailsAccordion product={product} />
       </div>

@@ -206,3 +206,35 @@ describe('ProductPage — sem as avaliações de demonstração (PIN-07)', () =>
     expect(screen.queryByRole('img', { name: /de 5 estrelas/ })).not.toBeInTheDocument()
   })
 })
+
+/**
+ * As duas grades da página **encolhem** no mobile.
+ *
+ * Sem `minmax(0, …)` a coluna implícita é `auto`, cujo mínimo automático é o min-content do item — e
+ * o item é a galeria, cuja fita de miniaturas soma a largura de todas as fotos. Medido em navegador
+ * a 390px antes da correção: trilha de 358px, item de **614**, `body` rolando na horizontal
+ * (`scrollWidth` 634) em TODA página de produto.
+ *
+ * **Esta asserção é um PROXY, e isso é declarado.** A medida de verdade é de layout e só existe no
+ * navegador — jsdom devolve 0 para tudo. O que dá para travar em unidade é a classe que produz o
+ * comportamento; a prova de que ela chega à tela é a auditoria em 390×844 registrada no
+ * `validation.md` da feature 27. Mesmo arranjo do `touchTarget.test.ts`, e pelo mesmo motivo.
+ */
+describe('ProductPage — as grades encolhem no mobile (sem scroll horizontal)', () => {
+  beforeEach(() => {
+    useProductMock.mockReturnValue({ data: product('botton-sailor-moon'), isFetching: false })
+  })
+
+  it('as duas grades declaram `minmax(0,1fr)` já no mobile, e não só a partir de `md`', () => {
+    const { container } = renderAt('/produtos/botton-sailor-moon')
+    const grades = Array.from(container.querySelectorAll('div.grid'))
+
+    // Âncora: sem ela um seletor errado varre zero grade e o teste passa em silêncio.
+    expect(grades.length).toBeGreaterThanOrEqual(2)
+
+    for (const grade of grades) {
+      expect(grade.className).toContain('grid-cols-[minmax(0,1fr)]')
+      expect(grade.className).toContain('md:grid-cols-[minmax(0,600px)_minmax(0,1fr)]')
+    }
+  })
+})
