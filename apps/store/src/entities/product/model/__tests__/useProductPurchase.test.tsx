@@ -189,3 +189,67 @@ describe('adicionar ao carrinho com gravação (MAT-03, MAT-04)', () => {
     expect(useCartStore.getState().items).toHaveLength(2)
   })
 })
+
+// ---------------------------------------------------------------------------------------------
+// Feature 30 · GSH-10 — a variação anunciada na Google Shopping abre selecionada
+// ---------------------------------------------------------------------------------------------
+
+describe('useProductPurchase — semente vinda do ?variant=', () => {
+  const grade = (): Product =>
+    ({
+      id: 'p1', name: 'Pulseira', slug: 'pulseira', price: 19.9, compare_price: null,
+      category_id: 'c1', category_slug: 'joias', description: '', image_url: '', images: [],
+      stock_total: 10, low_stock_threshold: 5, is_new: false, is_featured: false, tags: [],
+      stock_policy: 'track', category_links: [],
+      options: [{ name: 'Tamanho', values: ['P', 'G'], position: 0 }],
+      variants: [
+        variante({ id: 'v-p', option_values: { Tamanho: 'P' }, price: 19.9, position: 0 }),
+        variante({ id: 'v-g', option_values: { Tamanho: 'G' }, price: 24.9, position: 1 }),
+      ],
+    }) as Product
+
+  it('com initialVariant, abre naquela linha e naquele preço', () => {
+    const p = grade()
+    const { result } = renderHook(() => useProductPurchase(p, undefined, p.variants[1]))
+    expect(result.current.selected).toEqual({ Tamanho: 'G' })
+    expect(result.current.variant?.id).toBe('v-g')
+    expect(result.current.price).toBe(24.9)
+  })
+
+  it('SEM initialVariant, o comportamento é exatamente o de antes', () => {
+    const p = grade()
+    const { result } = renderHook(() => useProductPurchase(p))
+    expect(result.current.selected).toEqual({ Tamanho: 'P' })
+    expect(result.current.price).toBe(19.9)
+  })
+
+  it('initialVariant null cai na seleção padrão, sem erro', () => {
+    const p = grade()
+    const { result } = renderHook(() => useProductPurchase(p, undefined, null))
+    expect(result.current.selected).toEqual({ Tamanho: 'P' })
+  })
+
+  it('linha que não cobre os eixos cai na seleção padrão', () => {
+    const p = grade()
+    const solta = variante({ id: 'v-x', option_values: {}, price: 999 })
+    const { result } = renderHook(() => useProductPurchase(p, undefined, solta))
+    expect(result.current.selected).toEqual({ Tamanho: 'P' })
+    expect(result.current.price).toBe(19.9)
+  })
+
+  it('produto simples ignora o initialVariant sem efeito', () => {
+    const p = grade()
+    const simples = { ...p, options: [], variants: [] } as Product
+    const { result } = renderHook(() => useProductPurchase(simples, undefined, p.variants[1]))
+    expect(result.current.variant).toBeNull()
+    expect(result.current.price).toBe(19.9)
+  })
+
+  it('a semente não trava a escolha: trocar de eixo continua funcionando', () => {
+    const p = grade()
+    const { result } = renderHook(() => useProductPurchase(p, undefined, p.variants[1]))
+    act(() => result.current.select({ Tamanho: 'P' }))
+    expect(result.current.variant?.id).toBe('v-p')
+    expect(result.current.price).toBe(19.9)
+  })
+})
