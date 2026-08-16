@@ -115,7 +115,26 @@ describe('normalizeVariants', () => {
       image_url: 'v.webp',
       is_active: true,
       position: 1,
+      // Feature 30: a identidade pública da linha. A asserção foi reescrita porque a spec mudou o
+      // comportamento — e segue sendo IGUALDADE EXATA, que é o que impede um campo entrar no
+      // mapeamento sem ninguém decidir. Ganhou os casos abaixo em vez de ser afrouxada.
+      nuvemshop_id: null,
     })
+  })
+
+  it('nuvemshop_id do banco é preservado — é o offer_id que o Google indexou (GSH-10)', () => {
+    expect(normalizeVariants([row({ nuvemshop_id: 1259936246 })], 'p1')[0].nuvemshop_id).toBe(
+      1259936246,
+    )
+  })
+
+  it('nuvemshop_id ausente vira null — linha criada no admin nunca esteve no Google', () => {
+    expect(normalizeVariants([row()], 'p1')[0].nuvemshop_id).toBeNull()
+  })
+
+  it('nuvemshop_id ilegível vira null, nunca NaN', () => {
+    expect(normalizeVariants([row({ nuvemshop_id: '1259936246' })], 'p1')[0].nuvemshop_id).toBeNull()
+    expect(normalizeVariants([row({ nuvemshop_id: Number.NaN })], 'p1')[0].nuvemshop_id).toBeNull()
   })
 
   it('linha sem id é descartada — o variant_id do pedido vem dela', () => {

@@ -10,7 +10,7 @@
 // | Coleção Código Morse  | `O que está escrito em código Morse nesse colar?` |        100% |
 // | Nomes                 | `Posso escolher o nome que será gravado na peça?` |        100% |
 
-import type { FaqCategoryUsage, FaqUsage } from './types'
+import type { FaqCategoryUsage, FaqUsage } from './types.ts'
 
 /**
  * Cinco, e o número é medido — é o joelho da curva.

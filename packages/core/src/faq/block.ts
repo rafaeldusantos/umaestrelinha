@@ -26,8 +26,8 @@
 // Uma implementação por árvore não serviria às três pontas, e duas implementações seriam duas
 // fronteiras.
 
-import { decodeHtmlEntities, faqQuestionKey } from './faq'
-import type { FaqPair } from './types'
+import { decodeHtmlEntities, faqQuestionKey } from './faq.ts'
+import type { FaqPair } from './types.ts'
 
 /**
  * O título do bloco, na forma normalizada por `faqQuestionKey`.
@@ -39,13 +39,23 @@ import type { FaqPair } from './types'
  */
 export const FAQ_HEADING_KEY = 'perguntas frequentes'
 
-/** Tag some, entidade vira caractere, espaço colapsa. **Nesta ordem.** */
-const toText = (html: string): string =>
+/**
+ * Tag some, entidade vira caractere, espaço colapsa. **Nesta ordem.**
+ *
+ * Exportado na feature 30 (`GSH-08`): o `<g:description>` do feed é texto, e precisa exatamente
+ * desta redução. Reimplementá-la em `core/shopping` seria a segunda escrita de "HTML vira texto" —
+ * o defeito que esta arquitetura existe para não ter. Continua sendo **extração**, nunca
+ * sanitização: a saída nunca volta para o DOM, e quem monta `dangerouslySetInnerHTML` segue sendo
+ * `sanitizeHtml`, que não mudou.
+ */
+export const htmlToText = (html: string): string =>
   // Tirar a tag ANTES de decodificar é o que impede um `&lt;script&gt;` escrito como literal pela
   // dona de virar `<script>` e ser removido como se fosse marcação de verdade.
   decodeHtmlEntities(String(html ?? '').replace(/<[^>]*>/g, ' '))
     .replace(/\s+/g, ' ')
     .trim()
+
+const toText = htmlToText
 
 interface Heading {
   level: number

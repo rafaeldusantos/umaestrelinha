@@ -7,6 +7,7 @@ import {
   DEFAULT_SEO,
   DEFAULT_ABANDONED_CART,
   DEFAULT_CHECKOUT,
+  DEFAULT_GOOGLE_SHOPPING,
   DEFAULT_MATERIAL,
   type GeneralSettings,
   type ShippingSettings,
@@ -14,6 +15,7 @@ import {
   type SeoSettings,
   type AbandonedCartSettings,
   type CheckoutSettings,
+  type GoogleShoppingSettings,
   type MaterialSettings,
   type SettingsKey,
   type SettingsMap,
@@ -29,6 +31,7 @@ const DEFAULTS: SettingsMap = {
   abandoned_cart: DEFAULT_ABANDONED_CART,
   checkout: DEFAULT_CHECKOUT,
   material: DEFAULT_MATERIAL,
+  google_shopping: DEFAULT_GOOGLE_SHOPPING,
 }
 
 async function fetchAllSettings(): Promise<SettingsMap> {
@@ -98,6 +101,17 @@ export function useCheckoutSettings(): CheckoutSettings {
 export function useMaterialSettings(): MaterialSettings {
   const { data } = useStoreSettings()
   return data?.material ?? DEFAULT_MATERIAL
+}
+
+/**
+ * O interruptor do feed do Google Shopping (`GSH-15`).
+ *
+ * Como toda chave, precisa estar em `DEFAULTS` acima: `fetchAllSettings` **descarta** linha cuja
+ * `key` não esteja lá, e a tela abriria dizendo "desligado" com o feed ligado no banco.
+ */
+export function useGoogleShoppingSettings(): GoogleShoppingSettings {
+  const { data } = useStoreSettings()
+  return data?.google_shopping ?? DEFAULT_GOOGLE_SHOPPING
 }
 
 type UpdateInput = { [K in SettingsKey]: { key: K; value: SettingsMap[K] } }[SettingsKey]
