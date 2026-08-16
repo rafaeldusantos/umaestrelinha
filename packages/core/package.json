@@ -21,7 +21,8 @@
     "./menu": "./src/menu/index.ts",
     "./routes": "./src/routes/index.ts",
     "./material": "./src/material/index.ts",
-    "./home": "./src/home/index.ts"
+    "./home": "./src/home/index.ts",
+    "./faq": "./src/faq/index.ts"
   },
   "scripts": {
     "test": "vitest run"
