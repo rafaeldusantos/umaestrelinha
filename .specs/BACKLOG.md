@@ -526,3 +526,85 @@ justamente o valor que ainda não existe.
 
 **Como verificar no dia**: `curl -I https://<loja>` tem de mostrar o `frame-ancestors` com a origem do
 painel, e `/admin/home` tem de mostrar a loja em vez do quadro branco.
+
+---
+
+## BL-014 — Geração de perguntas frequentes por IA
+
+- **Status**: adiado · **Registrado em**: 2026-08-16 · **Origem**: feature `28`, decisão do usuário
+- **Relacionado**: [`BL-001`](#bl-001--geração-de-texto-por-ia-no-cadastro-de-produto) (mesma natureza,
+  mesmas 6 perguntas em aberto) · [`AD-011`](./STATE.md)
+
+**O que é.** No cadastro do produto, um botão que gera perguntas e respostas novas — em vez de apenas
+ranquear as que já existem na biblioteca.
+
+**Por que ficou de fora.** Perguntado ao usuário em 2026-08-16, com as duas opções na mesa; a escolha
+foi **"determinística agora, IA depois"**. A sugestão determinística que entrou na `28` ranqueia por
+co-ocorrência de categoria e mede **84,0% de acerto / 83,5% de cobertura** no top-5 do catálogo real —
+sem provedor, sem chave, sem custo por chamada, sem latência no caminho do save, e **testável com dado
+real**, que uma chamada a LLM não é.
+
+**O que a `28` deixa pronto para o dia em que isto virar feature:**
+
+- a biblioteca (`faqs`) e o vínculo (`product_faqs`) já existem, então o texto gerado tem onde cair;
+- `faqQuestionKey` já impede que a IA crie uma entrada que é a que já existe com outra grafia;
+- `rankFaqSuggestions` continua sendo o piso — a IA seria uma **segunda fonte** de sugestão, não a
+  substituição de uma que mede 84%.
+
+**O que precisa ser decidido antes de virar feature.** As mesmas 6 perguntas da `BL-001` (provedor e
+modelo, onde roda, custo e teto, latência, fallback quando a API cai, rascunho × definitivo), **mais
+uma específica desta**: a pergunta gerada entra na biblioteca compartilhada — onde vai valer para
+outros produtos — ou nasce como resposta própria do produto? A primeira polui a biblioteca de 67
+entradas curadas; a segunda desperdiça o reuso que é o ponto da biblioteca.
+
+**Tamanho estimado**: pequena depois que a `BL-001` decidir provedor e hospedagem — as duas devem ser
+resolvidas juntas, porque a resposta de infraestrutura é a mesma.
+
+---
+
+## BL-015 — `material_kinds` diz menos que a descrição do produto
+
+- **Status**: aberto · **Registrado em**: 2026-08-16 · **Origem**: feature `28`, medição do catálogo
+- **Relacionado**: feature [`22-material-afetivo`](./features/22-material-afetivo/spec.md)
+
+**O que é.** A `22` semeou `products.material_kinds` por **inferência do nome** do produto
+(`inferMaterial`), e declarou desde o início que era "inferência, não verdade". A medição da `28`
+mostra **de quanto** é a diferença: as descrições enumeram os materiais aceitos em texto, e o texto
+diz mais que a coluna.
+
+Amostra medida no banco local em 2026-08-16, comparando a resposta de `Quais materiais posso usar
+nessa joia?` com a coluna:
+
+| `requires_material` | `material_kinds` | o que a descrição diz |
+| --- | --- | --- |
+| `true` | `{cinzas}` | "aceita cinzas de cremação (humana ou pet), leite materno, cabelo, pelo ou coto umbilical" |
+| `true` | `{cinzas}` | "aceita leite materno, cabelo, coto umbilical, pelo, ou cinzas de cremação" |
+| `true` | `{pelo_pet}` | "aceita pelo, bigode e cinzas de cremação" |
+| **`false`** | `{}` | "aceita coto umbilical, cabelo" |
+| **`false`** | `{}` | "aceita sangue desidratado — do casal, da menarca…" |
+
+A última linha traz um material que **não existe** em `MATERIAL_KINDS` (`sangue`), e as duas de
+`requires_material = false` são peças que a loja hoje trata como "não exige material" enquanto a
+própria descrição instrui a cliente a enviar material.
+
+**Por que não foi corrigido na `28`.** Duas razões independentes. (1) É **curadoria de material**, do
+domínio da `22`, e não de FAQ — a `28` não altera nenhuma decisão de material, e a resposta da
+pergunta continua sendo texto por produto, exatamente como está escrito hoje. (2) A correção óbvia —
+inferir `material_kinds` da descrição em vez do nome — **não é obviamente certa**: a descrição é texto
+livre da dona, e uma segunda inferência automática por cima de uma curadoria que ela pode já ter feito
+em `/admin/produtos` apagaria decisão humana com heurística. O `null` de `requires_material` protege a
+curadoria da execução **do importador**, não de uma migração de correção.
+
+**O que precisa ser decidido antes de virar feature:**
+
+1. `sangue` entra em `MATERIAL_KINDS`? Precisa de ficha própria em `/como-enviar-o-material`, que é
+   onde cada material ganha instrução de coleta e de envio.
+2. A inferência pela descrição roda **uma vez** (migração de correção, revisável em tela) ou vira
+   parte do importador? A primeira é reversível e auditável; a segunda reintroduz o risco de sobrescrever.
+3. Quem ganha quando descrição e coluna discordam num produto que a dona **já editou**? Precisa de um
+   marcador de "revisado por humano" que hoje não existe — `requires_material` deixou de ser `null` no
+   primeiro save, mas isso não distingue "a Adri decidiu" de "o importador semeou e alguém salvou a tela".
+
+**Como medir hoje**: comparar a resposta extraída de `Quais materiais posso usar nessa joia?` (453
+produtos) com `material_kinds`. A `28` deixa esses textos em `product_faqs.answer_override`, o que
+torna a comparação uma consulta em vez de um parser.

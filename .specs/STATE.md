@@ -378,7 +378,97 @@
 
 ## Handoff
 
-### ATUAL — 2026-08-15 · `25-previa-real-da-home` **IMPLEMENTADA** (T1–T14)
+### ATUAL — 2026-08-16 · `28-perguntas-frequentes` **IMPLEMENTADA** (T1–T28)
+
+**Estado**: 28 tasks em 6 fases, todas fechadas. **Commits agrupados no fim**, pela convenção do
+`CLAUDE.md` (`BL-012`). Gate verde, medido por workspace com exit code capturado de verdade.
+**Nada em andamento.** Falta o **Verifier** independente (`validation.md`).
+
+#### O que a `28` entrega
+
+A seção "Perguntas Frequentes" da página do produto era um `<dl>` cravado com **duas perguntas
+genéricas**, iguais nos 691 produtos. As perguntas reais — **3.476 pares em 687 produtos (99,4%)** —
+estavam presas dentro de `products.description`. Agora são cadastro: biblioteca compartilhada,
+vínculo ordenado por produto, resposta própria quando a peça responde diferente, e sugestão
+determinística por categoria.
+
+| | onde |
+| --- | --- |
+| Domínio puro — chave, resolução, fronteira do bloco, ranking | `packages/core/src/faq/**` |
+| As duas tabelas, as duas views, RLS | `supabase/migrations/20260816120000_28-perguntas-frequentes.sql` |
+| A loja lê e para de repetir | `entities/product/{api/useProductFaqs,ui/ProductFaq}` · `ProductDescription` |
+| A semente do catálogo | `tools/catalog-import/src/write/faqs.ts` |
+| `/admin/perguntas` — biblioteca, uso, lote por categoria | `features/faq-library/**` |
+| Aba `Perguntas` do produto, com sugestões | `features/product-form/ui/tabs/FaqTab.tsx` |
+| O aviso do bloco que a loja não mostra | `features/product-form/ui/DescriptionFaqNotice.tsx` |
+
+**Gate de fecho medido**:
+
+| | valor |
+| --- | ---: |
+| Testes | **5.101** em **285** arquivos |
+| store · backoffice · core · functions · catalog-import | 1784/127 · 1496/94 · 1218/44 · 279/4 · 324/16 |
+| Lint | **30 erros / 8 warnings** — store 2/1 · backoffice 28/7 — baseline exata, zero novo |
+| Tipos | store **0** · backoffice **0** · catalog-import **0** |
+
+`packages/core/src/payment/` **intocado** — `git status --porcelain` naquele diretório devolve vazio.
+
+#### As três decisões do usuário, e o que cada uma custou
+
+| Pergunta | Escolha | Consequência paga |
+| --- | --- | --- |
+| O bloco de FAQ que sobra na descrição | **A loja filtra no render** | O painel mostra texto que a loja não exibe. Pago por `DescriptionFaqNotice`: aviso com contagem + botão de remoção por clique da dona |
+| A "inteligência" da sugestão | **Determinística agora, IA depois** | `BL-014`. Em troca, uma régua que **mede**: 84,0% / 83,5% no top-5, com sensor que reprova a fórmula errada |
+| A mesma pergunta com respostas diferentes | **67 entradas + `answer_override`** | Um leitor único (`resolveProductFaqs`) e a regra de que override idêntico ao padrão vira `null` |
+
+#### O que a execução expôs, e que vale registrar
+
+- **Um produto do catálogo repete a mesma pergunta na descrição.** `Anel Afetivo Aliança com Coto
+  Umbilical em Prata 925` traz "As joias são realmente feitas à mão?" duas vezes, e a PK
+  `(product_id, faq_id)` recusou o lote inteiro — a primeira execução real caiu com `23505`
+  **depois** de gravar 2.500 vínculos. O plano passou a deduplicar por produto (vence a primeira
+  aparição), com contador próprio no relatório. **Nenhum teste de unidade pegaria**: só o dado real
+  tem o caso.
+- **Dois números da spec estavam medidos com régua diferente da do código**, e foram corrigidos com
+  a explicação: 3.476 → **3.475** vínculos (a duplicata) e 1.044 → **977** respostas próprias (a spec
+  comparou a resposta **crua**; o extrator compara a **normalizada**). Replicar a normalização do
+  extrator em SQL devolve exatamente 977.
+- **Guarda que varre o próprio fonte reprova o próprio comentário.** Três asserções quebraram porque
+  o comentário do arquivo cita, de propósito, o literal que a varredura proíbe. Virou
+  `apps/store/src/test/sourceScan.ts` — a varredura mede **o que roda**, não o que explica.
+- **`Select` do Radix não abre no jsdom sem `PointerEvent`.** Dois arquivos de teste já carregavam a
+  própria cópia do stub; virou `apps/backoffice/src/test/radix.ts`.
+- **A armadilha do `QueryClientProvider` voltou, duas vezes.** `ProductPage.test.tsx` e
+  `AdminProductFormPage.test.tsx` dublam hooks em vez de prover o client — a segunda ficou **verde
+  com 14 erros não tratados e exit 1**, que é o modo de falhar mais fácil de ignorar.
+
+#### ⚠️ A árvore tem trabalho de OUTRA feature, e ele NÃO foi commitado aqui
+
+Durante esta sessão apareceu a feature **`29-pagina-sobre`** na mesma árvore: `spec.md`,
+`AboutPage.tsx`, `EstrelinhaStarIcon.tsx`, `AboutPage.test.tsx` novo e edições em
+`copyInstitucional.test.tsx` e `accentText.test.ts`. **Os commits da `28` deixaram tudo isso de
+fora** — está intacto na árvore, sem stage.
+
+Duas consequências, declaradas em vez de escondidas:
+
+1. **A baseline do store (1784/127) inclui os testes da `29`.** A contribuição da `28` ao store são
+   ~55 testes em 4 arquivos novos, mais 6 em `ProductDetailsAccordion.test.tsx` e 1 em
+   `ProductPage.test.tsx`. Reconferir quando a `29` fechar. Os outros quatro workspaces são só da `28`.
+2. **`AboutPage.test.tsx` reprova 1 de 16 isolada, agora.** É a `29` em andamento, não flake — e não é
+   defeito da `28`. Numa das medições do gate isso foi lido como flake de RTL; a leitura estava
+   errada e está corrigida aqui e no `CLAUDE.md`.
+
+#### Pendências desta feature
+
+- **O Verifier independente não rodou** (autor ≠ verificador): sub-agentes são proibidos nesta
+  sessão, então cabe o passe standalone de `validate.md`. `28/validation.md` não existe.
+- **A `24` e a `27` seguem sem `validation.md`.** Continuam pendentes, como estavam.
+- **A curadoria das perguntas é decisão da dona**, como a do material e a da Home.
+- **`BL-015`** nasceu aqui: `material_kinds` diz menos que a descrição.
+
+---
+
+### 2026-08-15 · `25-previa-real-da-home` **IMPLEMENTADA** (T1–T14)
 
 **Estado**: 14 tasks em 5 fases. **Commits agrupados no fim** — e essa é a primeira feature assim,
 pela decisão que fechou a `BL-012` (o `CLAUDE.md` manda; as `20`..`24` tinham praticado o contrário).

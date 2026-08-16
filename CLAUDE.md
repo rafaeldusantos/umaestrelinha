@@ -69,6 +69,7 @@ pnpm --filter @estrelinha/catalog-import run import                      # impor
 pnpm --filter @estrelinha/catalog-import run import -- --dry-run        # lê e mapeia, não grava
 pnpm --filter @estrelinha/catalog-import run import -- --limit=5        # ensaio com 5 produtos
 pnpm --filter @estrelinha/catalog-import run import -- --stop-after=categorias
+pnpm --filter @estrelinha/catalog-import run import -- --stop-after=perguntas   # para antes das imagens
 pnpm --filter @estrelinha/catalog-import run import -- --report=reports/import.json
 ```
 
@@ -134,6 +135,17 @@ Ao planejar/implementar features, use a Skill **`tlc-spec-driven`** com estas co
 - **Os dois blocos de P3 da `24`** (`product_carousel`, `category_grid`) estão no catálogo **sem
   renderer e sem editor**, esmaecidos na bandeja com "em breve". A ausência é declarada, e o
   renderizador os pula sem quebrar a página.
+- **A curadoria das perguntas frequentes, que também é decisão da dona.** A `28` semeou 67 entradas e
+  3.475 vínculos a partir das descrições; a Adri revisa em `/admin/perguntas` e na aba `Perguntas` de
+  cada produto. **A descrição continua trazendo o bloco antigo** — a loja o filtra no render, e a aba
+  Geral avisa com o botão de remover. O importador **não** remove: quem decide é ela.
+- **`BL-014`** — geração de pergunta por IA, adiada por decisão do usuário em 2026-08-16. Irmã da
+  `BL-001`, e as duas devem ser resolvidas juntas (a resposta de infraestrutura é a mesma).
+- **`BL-015`** — **`material_kinds` diz menos que a descrição.** Achado ao medir a `28`: há produto com
+  `material_kinds = {cinzas}` cuja descrição enumera cinco materiais, produto com
+  `requires_material = false` cuja descrição manda enviar coto e cabelo, e um material (`sangue`) fora
+  de `MATERIAL_KINDS`. É curadoria da `22`, e por isso a `28` **proíbe** derivar a resposta "Quais
+  materiais posso usar?" da coluna: derivar faria a loja dizer **menos** do que já diz.
 - **`BL-009`..`BL-011`** — as dívidas que a `24` deixou registradas, entre elas o `SUPABASE_URL` com
   fallback hard-coded de outro projeto em `uploadProductImage.ts`. A `BL-012` (convenção de commits)
   foi **fechada** na `25`, pela decisão do usuário: vale o que este arquivo manda.
@@ -372,6 +384,60 @@ Cada slice tem um barrel `index.ts` (public API). **Novo código deve importar d
   - **Foto só em `surface="page"`.** O card tem a placa de cor da feature 26 (`colorPreview`, restrita
     a `Cor`, com contador de overflow) e o sheet é painel estreito — são outra superfície e outra
     regra. `colorPreview` **continua existindo e intocado**; `axisPhotos` não o substitui.
+- **A PERGUNTA FREQUENTE É CADASTRO, e ela mora numa biblioteca compartilhada** (feature `28`). Até
+  aqui a seção "Perguntas Frequentes" da página do produto era um `<dl>` cravado com **duas perguntas
+  genéricas**, iguais nos 691 produtos, enquanto as perguntas de verdade — **3.476 pares em 687
+  produtos (99,4%)** — estavam presas dentro de `products.description`, saindo como texto corrido no
+  meio das especificações. Agora são `faqs` + `product_faqs`, e `/admin/perguntas` é onde a dona as
+  edita.
+  - **67 entradas, 3.475 vínculos, 687 produtos** — semeados pelo importador a partir das descrições.
+    977 vínculos (28%) carregam resposta própria; os outros usam o padrão da biblioteca.
+  - **"Qual a pergunta" e "qual a resposta AQUI" são dois dados.** `faqs.answer` é o padrão;
+    `product_faqs.answer_override` é a resposta daquela peça, e é **nullable** — mesmo molde de
+    `engraving_max_chars`. Ninguém compara a coluna crua: **`resolveProductFaqs` é o leitor único**, e
+    é ele que também ordena por `position` e **pula** vínculo cuja entrada saiu do ar.
+  - **Resposta própria idêntica ao padrão é gravada como `null`** (`faqOverrideOf`). Guardar o
+    idêntico daria dois donos do mesmo texto: editar a biblioteca deixaria de alcançar aquele produto
+    e nada na tela diria por quê.
+  - **A vaga que sobra fica VAZIA.** `product_faqs` é lido publicamente **sem condição**, de propósito:
+    assim o vínculo para entrada inativa chega ao navegador com `faq: null` e o ramo de "pular" roda
+    em produção. Fechá-lo na policy faria o código existir sem nada exercitá-lo.
+  - **A descrição para de exibir o bloco que virou cadastro** — `ProductDescription` chama
+    `sanitizeHtml(stripFaqBlock(html))`. A descrição **não** é alterada no banco (decisão do usuário:
+    nada é destruído, e a origem na Nuvemshop segue intacta). O preço é que o painel mostra um texto
+    que a loja filtra, e a contrapartida obrigatória é `DescriptionFaqNotice`: a aba Geral avisa
+    quantas perguntas há ali e oferece **remover o bloco** por clique da dona.
+  - **A fronteira do bloco tem UM dono, e três consumidores em dois runtimes**: `faqBlockRange` /
+    `extractFaqPairs` / `stripFaqBlock`, em `@estrelinha/core/faq/block.ts`. O importador (Node)
+    extrai, a loja (browser) filtra, o painel avisa e remove.
+    - **Aqui regex sobre HTML é permitido, e só aqui.** A regra do projeto é sobre **sanitizar**, e
+      `sanitizeHtml` não mudou. Isto **localiza** um heading num corpus medido como regular (687 de
+      687 usam `<h3>Perguntas frequentes</h3>`), o que sobra continua passando pelo sanitizador, e a
+      resposta extraída é renderizada como **texto**. Node não tem `DOMParser`: por árvore não
+      serviria às três pontas.
+    - **São DOIS arranjos de HTML, não um.** 617 produtos usam um `<p>` por par; **70 põem todos os
+      pares num `<p>` só**, separados por `<br />`. A leitura ingênua perde **312 pares** em silêncio.
+    - `stripFaqBlock` **só age quando houve par extraível**: heading com prosa solta é texto da dona.
+  - **A resposta é TEXTO, nunca HTML** — medido: **0 de 3.476** respostas do catálogo contêm tag
+    (3.170 contêm entidade, que a extração decodifica). Nenhum `dangerouslySetInnerHTML` na seção.
+  - **A sugestão por categoria é determinística, e a fórmula é PROPORÇÃO** (`rankFaqSuggestions`):
+    `usos na categoria ÷ produtos com FAQ na categoria`, tomando a **maior** entre as categorias do
+    produto. Medido no catálogo real, top-5: **84,0% de precisão e 83,5% de cobertura**, 3 produtos
+    sem acerto. Por **contagem bruta** cai para **61,1% / 56,1%** e 52 sem acerto — `Joias e
+    acessórios`, com 634 produtos, decide o ranking de todo mundo. Categoria com menos de **3**
+    produtos com FAQ é ignorada (com 2 vizinhos, 100% é acidente com cara de certeza).
+    - **O recuo para a frequência global é tudo-ou-nada**: completar as vagas que faltam com
+      perguntas globais mudaria a medição de 84% sem ninguém perceber.
+    - **IA ficou de fora por decisão do usuário** (2026-08-16), e virou `BL-014`. A `AD-011` continua
+      valendo.
+  - **Apagar entrada em uso é recusado pelo BANCO** (`on delete restrict`), e o caminho reversível é
+    `is_active = false`. Apagar removeria a pergunta de até 453 páginas em silêncio.
+  - **A contagem de uso é VIEW, não coluna** (`faq_usage`): materializá-la daria um segundo dono do
+    número, que o importador desatualizaria ao gravar 3.475 vínculos de uma vez.
+  - **A aba `Perguntas` fica logo depois de `Geral`** no formulário do produto — a pergunta é a
+    continuação da descrição, e é essa relação que o aviso da `FAQ-27` torna visível.
+  - **`/admin/perguntas` é do grupo `Catálogo`**, depois de Categorias: é conteúdo de catálogo, não
+    curadoria de vitrine (que é o grupo `Loja`).
 - **A marca é SVG inline, nunca `<img src>`** — o header não pode ter estado de carregamento.
   `shared/ui/brand` traz a escada medida, e cada degrau **cai para o de baixo abaixo do próprio piso**:
 
@@ -689,6 +755,10 @@ passa em silêncio, que é a pior falha possível num teste desse tipo.
 | `vercelRedirects.test.ts` | idem | `vercel.json` divergir de `LEGACY_REDIRECTS` em `source`, `destination` ou status; `trailingSlash` deixar de ser `false`; qualquer redirect usar `permanent` (que produz 308) |
 | `materialTransitions.test.ts` | idem | a máquina de estado do material em **SQL** divergir da em **TypeScript** — lê a migration do disco e compara origem a origem, alvo a alvo; `set_material_tracking` passar a escrever qualquer coluna além do rastreio e do estado; a migration abrir policy de `UPDATE` em `orders` ou conceder `execute` a `anon` |
 | `homeSections.test.ts` | idem | o catálogo de tipos do TypeScript divergir do `check` da migration; a semente divergir de `DEFAULT_HOME_COMPOSITION`; entrar tipo de contagem regressiva ou de prova social; policy de escrita sem `has_role`; qualquer `grant` alcançar `anon`; o trigger do hero indelével sumir; a FK de destino virar `cascade` |
+| `faqSchema.test.ts` | idem | a migration da `28` afrouxar: `grant` a `anon`; policy de escrita sem `has_role`; `faq_id` deixar de ser `on delete restrict`; sumirem os `check` de 160/600; a view perder `security_invoker`. Compara os limites do TypeScript com os números lidos do `.sql` |
+| `faqNoDuplicate.test.tsx` | `entities/product/ui/__tests__` | a descrição voltar a exibir uma pergunta que já está na seção de FAQ — medido sobre uma descrição **real** do catálogo, cruzando as duas superfícies |
+| `faqSuggestion.test.ts` | `packages/core/src/faq/__tests__` | a sugestão cair abaixo de **80%** de precisão ou cobertura contra a distribuição real do catálogo (fixture de 687 produtos × 36 categorias × 67 perguntas, leave-one-out). Carrega o **sensor embutido**: assere que ranquear por contagem bruta **reprova** na mesma régua |
+| `block.test.ts` | idem | o extrator perder um dos **dois** arranjos de HTML medidos; a fronteira do bloco comer `Observações importantes`; `stripFaqBlock` remover bloco sem par extraível |
 | `homeComposition.test.tsx` | `pages/__tests__` | a Home mudar de cara — sequência das seções, literais de cada uma, limites 3/4/12 e as duas cores do título, tudo pelo **DOM renderizado**. **Não perde asserção, só ganha**: se uma precisou ser afrouxada, a composição mudou |
 | `HomeRendererPreview.test.tsx` | `widgets/home-renderer/ui/__tests__` | o invólucro da prévia vazar para o **modo normal** — a árvore da loja tem de ficar idêntica, nó a nó, sem a prop `preview` |
 | `previaUnica.test.ts` | backoffice, `features/home-composition/__tests__` | um segundo desenho da Home voltar ao painel: `HomePreview` reaparecer, um segundo arquivo `…Preview` surgir, o palco ramificar por tipo de seção, ou o painel importar de `apps/store` |
@@ -726,9 +796,29 @@ literalmente, em vez de iterar a constante que deveria guardar).
   **Baseline de tipos: store 0 · backoffice 0 · catalog-import 0. Zero é a baseline: qualquer erro
   de tipo é novo.** O importador tem `tsconfig.json` próprio (não é solution-style):
   `npx tsc --noEmit -p tools/catalog-import/tsconfig.json`.
-- **Baseline de testes (fecho da feature 27, medida por workspace): 4794 testes em 266 arquivos** —
-  store **1712/122** · backoffice **1391/86** · core **1113/39** · functions 279/4 ·
-  catalog-import **299/15**. Os cinco workspaces passam limpos.
+- **Baseline de testes (fecho da feature 28, medida por workspace): 5101 testes em 285 arquivos** —
+  store **1784/127** · backoffice **1496/94** · core **1218/44** · functions 279/4 ·
+  catalog-import **324/16**. Os cinco workspaces passam limpos.
+  - A feature `28` somou **+307 testes e +19 arquivos**, sem apagar nenhum.
+  - **Duas asserções foram reescritas porque a spec mudou o comportamento, e as duas GANHARAM
+    vizinhas**: `ProductDetailsAccordion.test.tsx` (a seção de FAQ deixou de existir sempre e passou a
+    depender de o produto ter pergunta) e `navItems.test.ts` (o grupo `Catálogo` foi de 2 para 3
+    itens). Nenhuma foi afrouxada — a primeira ganhou 4 casos e a segunda 1.
+  - ⚠️ **O número do store inclui trabalho de OUTRA feature em andamento.** Durante a execução da `28`,
+    a árvore recebeu a feature **`29-pagina-sobre`** (spec, `AboutPage.tsx`, `EstrelinhaStarIcon.tsx`,
+    `AboutPage.test.tsx` e edições em `copyInstitucional.test.ts`/`accentText.test.ts`) — trabalho de
+    outra pessoa, **não commitado pela `28`**. A contribuição da `28` ao store são **~55 testes** em 4
+    arquivos novos (`faqSchema` 19 · `faqNoDuplicate` 11 · `useProductFaqs` 9 · `ProductFaq` 9) mais 6
+    em `ProductDetailsAccordion.test.tsx` e 1 em `ProductPage.test.tsx`. **Reconferir a baseline do
+    store quando a `29` fechar.**
+  - **Contagem de teste do store é estável; o que varia são falhas.** Duas execuções seguidas deram
+    `numTotalTests = 1784` nas duas, com 2 falhas na primeira e 0 na segunda. Conferido com
+    `--reporter=json` comparando a contagem **por arquivo**: nenhum arquivo mudou de contagem.
+    **Cuidado com a atribuição**: `PixPayment.test.tsx` é flake de verdade (passa isolado), mas as
+    falhas de `AboutPage.test.tsx` são da `29` em andamento — uma delas reprova **isolada**. Chamar
+    tudo de flake foi erro de leitura desta sessão, corrigido aqui.
+- **Baseline anterior (fecho da 27): 4794 em 266** — store 1712/122 · backoffice 1391/86 ·
+  core 1113/39 · functions 279/4 · catalog-import 299/15.
   - A feature `27` somou **+199 testes e +7 arquivos**, sem apagar nenhum.
   - **A baseline de `catalog-import` estava velha, e a diferença está explicada**: a anterior dizia
     276 e foi registrada em `d1d877f` (fecho da `25`); o commit `ce143f2` (a foto de variação no
