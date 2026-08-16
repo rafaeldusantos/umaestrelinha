@@ -406,8 +406,8 @@ determinística por categoria.
 
 | | valor |
 | --- | ---: |
-| Testes | **5.101** em **285** arquivos |
-| store · backoffice · core · functions · catalog-import | 1784/127 · 1496/94 · 1218/44 · 279/4 · 324/16 |
+| Testes | **5.085** em **284** arquivos |
+| store · backoffice · core · functions · catalog-import | 1768/126 · 1496/94 · 1218/44 · 279/4 · 324/16 |
 | Lint | **30 erros / 8 warnings** — store 2/1 · backoffice 28/7 — baseline exata, zero novo |
 | Tipos | store **0** · backoffice **0** · catalog-import **0** |
 
@@ -451,9 +451,9 @@ fora** — está intacto na árvore, sem stage.
 
 Duas consequências, declaradas em vez de escondidas:
 
-1. **A baseline do store (1784/127) inclui os testes da `29`.** A contribuição da `28` ao store são
-   ~55 testes em 4 arquivos novos, mais 6 em `ProductDetailsAccordion.test.tsx` e 1 em
-   `ProductPage.test.tsx`. Reconferir quando a `29` fechar. Os outros quatro workspaces são só da `28`.
+1. **A baseline do store registrada (1768/126) é a da `28`**, medida antes de a `29` chegar. Com a
+   árvore de hoje a suíte dá **1771/126** sem o arquivo novo da `29` e **1784/127** com ele — os 3 e os
+   16 a mais são dela. Reconferir quando a `29` fechar. Os outros quatro workspaces são só da `28`.
 2. **`AboutPage.test.tsx` reprova 1 de 16 isolada, agora.** É a `29` em andamento, não flake — e não é
    defeito da `28`. Numa das medições do gate isso foi lido como flake de RTL; a leitura estava
    errada e está corrigida aqui e no `CLAUDE.md`.

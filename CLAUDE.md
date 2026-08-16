@@ -796,21 +796,21 @@ literalmente, em vez de iterar a constante que deveria guardar).
   **Baseline de tipos: store 0 · backoffice 0 · catalog-import 0. Zero é a baseline: qualquer erro
   de tipo é novo.** O importador tem `tsconfig.json` próprio (não é solution-style):
   `npx tsc --noEmit -p tools/catalog-import/tsconfig.json`.
-- **Baseline de testes (fecho da feature 28, medida por workspace): 5101 testes em 285 arquivos** —
-  store **1784/127** · backoffice **1496/94** · core **1218/44** · functions 279/4 ·
+- **Baseline de testes (fecho da feature 28, medida por workspace): 5085 testes em 284 arquivos** —
+  store **1768/126** · backoffice **1496/94** · core **1218/44** · functions 279/4 ·
   catalog-import **324/16**. Os cinco workspaces passam limpos.
-  - A feature `28` somou **+307 testes e +19 arquivos**, sem apagar nenhum.
+  - A feature `28` somou **+291 testes e +18 arquivos**, sem apagar nenhum.
   - **Duas asserções foram reescritas porque a spec mudou o comportamento, e as duas GANHARAM
     vizinhas**: `ProductDetailsAccordion.test.tsx` (a seção de FAQ deixou de existir sempre e passou a
     depender de o produto ter pergunta) e `navItems.test.ts` (o grupo `Catálogo` foi de 2 para 3
     itens). Nenhuma foi afrouxada — a primeira ganhou 4 casos e a segunda 1.
-  - ⚠️ **O número do store inclui trabalho de OUTRA feature em andamento.** Durante a execução da `28`,
-    a árvore recebeu a feature **`29-pagina-sobre`** (spec, `AboutPage.tsx`, `EstrelinhaStarIcon.tsx`,
-    `AboutPage.test.tsx` e edições em `copyInstitucional.test.ts`/`accentText.test.ts`) — trabalho de
-    outra pessoa, **não commitado pela `28`**. A contribuição da `28` ao store são **~55 testes** em 4
-    arquivos novos (`faqSchema` 19 · `faqNoDuplicate` 11 · `useProductFaqs` 9 · `ProductFaq` 9) mais 6
-    em `ProductDetailsAccordion.test.tsx` e 1 em `ProductPage.test.tsx`. **Reconferir a baseline do
-    store quando a `29` fechar.**
+  - ⚠️ **O número do store é o do escopo da `28`, medido ANTES de outra feature chegar à árvore.**
+    Durante esta execução apareceu a feature **`29-pagina-sobre`** (spec, `AboutPage.tsx`,
+    `EstrelinhaStarIcon.tsx`, `AboutPage.test.tsx` e edições em `copyInstitucional.test.tsx`,
+    `accentText.test.ts` e `icons.test.ts`) — trabalho de outra pessoa, **não commitado pela `28`**.
+    Rodando a suíte do store com a árvore de hoje sai **1771/126** (sem o arquivo novo da `29`) ou
+    **1784/127** (com ele); os 3 e os 16 a mais são dela. **1768/126 é o número da `28`**, e a
+    baseline precisa ser reconferida quando a `29` fechar.
   - **Contagem de teste do store é estável; o que varia são falhas.** Duas execuções seguidas deram
     `numTotalTests = 1784` nas duas, com 2 falhas na primeira e 0 na segunda. Conferido com
     `--reporter=json` comparando a contagem **por arquivo**: nenhum arquivo mudou de contagem.
