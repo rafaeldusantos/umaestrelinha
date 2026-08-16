@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import type { Product } from '@estrelinha/supabase/types'
 
@@ -15,6 +15,24 @@ import type { Product } from '@estrelinha/supabase/types'
 const { useProductMock } = vi.hoisted(() => ({ useProductMock: vi.fn() }))
 vi.mock('@/entities/product/api/useProduct', () => ({ useProduct: useProductMock }))
 vi.mock('@/entities/product/api/useProducts', () => ({ useProducts: () => ({ data: [] }) }))
+// Feature 28: a página passou a ler as perguntas do produto. Este arquivo dubla os hooks de dados
+// em vez de embrulhar tudo num `QueryClientProvider` — sem o dublê, o `useQuery` de verdade sobe
+// "No QueryClient set" e derruba 8 testes que nada têm a ver com FAQ.
+//
+// O dublê devolve UMA pergunta, e não lista vazia: a seção "Perguntas Frequentes" é marco de ordem
+// no teste da PIN-07 logo abaixo, e ela só é montada quando o produto tem pergunta (`FAQ-02`).
+vi.mock('@/entities/product/api/useProductFaqs', () => ({
+  useProductFaqs: () => ({
+    data: [
+      {
+        id: 'faq-1',
+        question: 'Como envio meu material de DNA?',
+        answer: 'Após a compra você recebe as instruções.',
+        overridden: false,
+      },
+    ],
+  }),
+}))
 vi.mock('@/entities/category/api/useCategories', () => ({ useCategories: () => ({ data: [] }) }))
 vi.mock('@/entities/product/ui/ProductGallery', () => ({ default: () => <div>galeria</div> }))
 vi.mock('@/entities/product/ui/ProductInfo', () => ({ default: () => <div>info</div> }))
@@ -195,6 +213,17 @@ describe('ProductPage — sem as avaliações de demonstração (PIN-07)', () =>
     const texto = page.textContent ?? ''
     expect(texto.indexOf('galeria')).toBeLessThan(texto.indexOf('Cuidados e Conservação'))
     expect(texto.indexOf('Cuidados e Conservação')).toBeLessThan(texto.indexOf('Perguntas Frequentes'))
+  })
+
+  // `FAQ-01`: a página é quem consulta as perguntas e as repassa ao acordeão. Sem esta asserção, o
+  // encanamento poderia se romper (prop esquecida) e só o marco de ordem acima reprovaria — por um
+  // motivo que não diria qual é o defeito.
+  it('as perguntas lidas pela página chegam ao acordeão', () => {
+    renderAt('/produtos/botton-sailor-moon')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Perguntas Frequentes' }))
+    expect(screen.getByText('Como envio meu material de DNA?')).toBeInTheDocument()
+    expect(screen.getByText('Após a compra você recebe as instruções.')).toBeInTheDocument()
   })
 
   it('nenhum depoimento fabricado, nota agregada ou estrela é renderizado', () => {

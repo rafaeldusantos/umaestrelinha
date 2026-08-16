@@ -1,3 +1,4 @@
+import { stripFaqBlock } from '@estrelinha/core/faq'
 import { sanitizeHtml } from '@/shared/lib/sanitizeHtml'
 
 /**
@@ -14,9 +15,21 @@ import { sanitizeHtml } from '@/shared/lib/sanitizeHtml'
  * que sobrescrever a paleta do plugin, e cada cor continua sendo um token auditável.
  *
  * O `dangerouslySetInnerHTML` recebe **só** o que `sanitizeHtml` devolveu.
+ *
+ * **O bloco de perguntas frequentes sai antes** (`FAQ-05`, feature 28). Medido: 687 das 691
+ * descrições trazem um `<h3>Perguntas frequentes</h3>` com 3.476 pares dentro, e desde a 28 essas
+ * perguntas são cadastro — vivem em `faqs` + `product_faqs` e saem na seção própria do acordeão.
+ * Sem a remoção, a cliente leria as mesmas perguntas **duas vezes** na mesma página.
+ *
+ * A remoção vem **antes** da sanitização, sobre o HTML cru: depois, os `h3` já teriam virado `h4`
+ * (`PDP-09`) e a fronteira do bloco mudaria de forma. E ela é conservadora — `stripFaqBlock` só age
+ * quando o bloco produziu par extraível, então heading com prosa solta embaixo continua na tela.
+ *
+ * O custo desta escolha está declarado na spec: a descrição **não** é alterada no banco, então o
+ * painel segue mostrando o texto inteiro. Quem avisa a dona é `DescriptionFaqNotice`, na aba Geral.
  */
 const ProductDescription = ({ html }: { html: string }) => {
-  const limpo = sanitizeHtml(html)
+  const limpo = sanitizeHtml(stripFaqBlock(html))
 
   // `PDP-10`: a decisão olha o SANITIZADO, não o campo cru — uma descrição que só tinha `<script>`
   // chega aqui como string vazia, e a seção não deve abrir um bloco em branco.

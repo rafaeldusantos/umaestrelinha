@@ -9,6 +9,7 @@ import { categoryHref } from '@estrelinha/core/menu'
 import { useCanonical } from '@/shared/lib/useCanonical'
 import NotFound from '@/pages/NotFound'
 import { useProduct } from '@/entities/product/api/useProduct'
+import { useProductFaqs } from '@/entities/product/api/useProductFaqs'
 import { useProducts } from '@/entities/product/api/useProducts'
 import { useCategories } from '@/entities/category/api/useCategories'
 import { displayCategory } from '@/entities/product/lib/displayCategory'
@@ -116,6 +117,14 @@ const ProductPageBody = ({
   onVariantImage,
 }: BodyProps) => {
   const purchase = useProductPurchase(product, v => onVariantImage(v?.image_url ?? null))
+  /**
+   * `FAQ-01`/`FAQ-09` — as perguntas do produto, lidas AQUI e passadas por prop.
+   *
+   * O hook não mora dentro do `ProductDetailsAccordion` de propósito: um `useQuery` num componente
+   * que outras telas montam obrigaria todas elas a ter `QueryClientProvider` — foi o que derrubou 17
+   * testes da confirmação de pedido na feature 22.
+   */
+  const { data: faqs } = useProductFaqs(product.id)
   const toggleWishlist = useWishlistStore(s => s.toggleItem)
   const isWishlisted = useWishlistStore(s => s.hasItem(product.id))
 
@@ -212,7 +221,7 @@ const ProductPageBody = ({
           origem externa e pode trazer um `<li>` longo sem espaço. */}
       <div className="grid grid-cols-[minmax(0,1fr)] gap-6 pt-8 md:grid-cols-[minmax(0,600px)_minmax(0,1fr)] md:items-start md:gap-8 md:pt-10">
         <ShippingCalc product={product} />
-        <ProductDetailsAccordion product={product} />
+        <ProductDetailsAccordion product={product} faqs={faqs ?? []} />
       </div>
 
       <RelatedProducts products={related} category={category} categories={categories} />

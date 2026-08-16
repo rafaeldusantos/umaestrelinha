@@ -6,9 +6,11 @@ import {
   AccordionTrigger,
 } from '@estrelinha/ui/accordion'
 import type { Product } from '@estrelinha/supabase/types'
+import type { ResolvedFaq } from '@estrelinha/core/faq'
 import { sanitizeHtml } from '@/shared/lib/sanitizeHtml'
 import { productSpecs } from '../lib/productFacts'
 import ProductDescription from './ProductDescription'
+import ProductFaq from './ProductFaq'
 
 /**
  * "Detalhes do Produto / Cuidados / Trocas / Perguntas Frequentes" — boards de Produto.
@@ -25,8 +27,19 @@ import ProductDescription from './ProductDescription'
  * Desde a `PIN-05` a seção pode vir **vazia** (produto sem medida cadastrada): aí ela não é montada,
  * e a que abre é "Cuidados". Uma seção aberta e vazia seria pior que ausente. A `PDP-10` mantém a
  * regra e só acrescenta a descrição à conta do que é "vazia".
+ *
+ * **`faqs` chega por PROP, e não de um hook aqui dentro** (`FAQ-01`). Um `useQuery` dentro de um
+ * componente que várias telas montam obrigaria todas elas a ter `QueryClientProvider` — foi
+ * exatamente o que derrubou 17 testes da confirmação de pedido na feature 22. Quem consulta é a
+ * `ProductPage`; este componente continua apresentacional e testável sem provider.
  */
-const ProductDetailsAccordion = ({ product }: { product: Product }) => {
+const ProductDetailsAccordion = ({
+  product,
+  faqs = [],
+}: {
+  product: Product
+  faqs?: readonly ResolvedFaq[]
+}) => {
   const specs = productSpecs(product)
 
   /**
@@ -78,7 +91,10 @@ const ProductDetailsAccordion = ({ product }: { product: Product }) => {
       </AccordionContent>
     </AccordionItem>
 
-    <AccordionItem value="trocas" className="border-estrelinha-line">
+    {/* A última seção visível não leva risco embaixo. Com o FAQ agora condicional, quem é a última
+        deixou de ser fixo — sem isto, o produto sem pergunta ganharia um risco solto no rodapé do
+        acordeão. */}
+    <AccordionItem value="trocas" className={faqs.length > 0 ? 'border-estrelinha-line' : 'border-b-0'}>
       <AccordionTrigger className="py-3.5 font-body text-[15px] font-bold leading-[18px] text-estrelinha-ink hover:no-underline">
         Política de Trocas
       </AccordionTrigger>
@@ -91,23 +107,23 @@ const ProductDetailsAccordion = ({ product }: { product: Product }) => {
       </AccordionContent>
     </AccordionItem>
 
+    {/* `FAQ-02`: a seção mostra as perguntas DAQUELE produto, e some quando ele não tem nenhuma.
+        Até a feature 28 havia aqui um `<dl>` cravado com "Em quanto tempo chega?" e "Dá para
+        comprar em quantidade?" — duas perguntas iguais nos 691 produtos, enquanto as 3.476 reais
+        estavam presas dentro de `products.description`. As duas viraram entradas da biblioteca, e a
+        dona as vincula a quem quiser (inclusive em lote, por categoria).
+
+        Uma seção vazia seria pior que ausente, pela mesma régua da `PIN-05` logo acima. */}
+    {faqs.length > 0 && (
     <AccordionItem value="faq" className="border-b-0">
       <AccordionTrigger className="py-3.5 font-body text-[15px] font-bold leading-[18px] text-estrelinha-ink hover:no-underline">
         Perguntas Frequentes
       </AccordionTrigger>
       <AccordionContent className="pb-4">
-        <dl className="flex flex-col gap-3 text-[13px] leading-[20px] text-estrelinha-ink-soft">
-          <div>
-            <dt className="font-semibold text-estrelinha-ink">Em quanto tempo chega?</dt>
-            <dd>O prazo aparece no cálculo de frete acima, já com o tempo de produção.</dd>
-          </div>
-          <div>
-            <dt className="font-semibold text-estrelinha-ink">Dá para comprar em quantidade?</dt>
-            <dd>Dá — é só ajustar a quantidade antes de adicionar ao carrinho.</dd>
-          </div>
-        </dl>
+        <ProductFaq items={faqs} />
       </AccordionContent>
     </AccordionItem>
+    )}
   </Accordion>
   )
 }
