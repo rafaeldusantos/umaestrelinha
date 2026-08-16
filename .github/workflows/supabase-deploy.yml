@@ -1,6 +1,6 @@
 name: Supabase Deploy
 
-# Aplica no projeto Supabase hospedado o que foi mergeado na main:
+# Aplica no projeto Supabase hospedado o que foi mergeado na master:
 #   1. migrations pendentes  (supabase db push)
 #   2. edge functions        (supabase functions deploy)
 #
@@ -13,7 +13,7 @@ name: Supabase Deploy
 
 on:
   push:
-    branches: [main]
+    branches: [master]
     paths:
       - "supabase/migrations/**"
       - "supabase/functions/**"
@@ -51,6 +51,39 @@ jobs:
 
       - name: link
         run: supabase link --project-ref "$PROJECT_REF"
+
+      # `functions deploy` sobe o código mesmo sem secret nenhum, e a falha só
+      # aparece na PRIMEIRA CHAMADA — no caso da `mercado-pago`, com a cliente na
+      # frente do checkout. Conferir antes é o que transforma um apagão silencioso
+      # em um deploy que recusa subir.
+      #
+      # `secrets list` imprime NOME + DIGEST, nunca o valor — não há o que vazar no log.
+      # Roda ANTES do `db push` de propósito: falhando aqui, nada foi aplicado.
+      #
+      # RESEND_DEV_REDIRECT_TO fica de fora porque NÃO pode existir em produção —
+      # preenchida, ela desvia todo transacional e nenhum cliente recebe e-mail.
+      # STRICT_VARIANT_PRICING também fica de fora: é opcional e o default é `true`.
+      - name: conferir secrets das edge functions
+        if: ${{ github.event_name == 'push' || inputs.deploy_functions }}
+        run: |
+          lista="$(supabase secrets list --project-ref "$PROJECT_REF")"
+          faltando=""
+          for nome in \
+            MERCADO_PAGO_ACCESS_TOKEN \
+            MERCADO_PAGO_WEBHOOK_SECRET \
+            RESEND_API_KEY \
+            RESEND_FROM \
+            STORE_PUBLIC_URL
+          do
+            grep -qw "$nome" <<<"$lista" || faltando="$faltando $nome"
+          done
+          if [ -n "$faltando" ]; then
+            echo "::error::secrets ausentes no projeto hospedado:$faltando"
+            echo "Definir uma vez, à mão (os valores nunca entram no repositório):"
+            echo "  supabase secrets set NOME=valor --project-ref <ref>"
+            exit 1
+          fi
+          echo "Os 5 secrets obrigatórios estão presentes."
 
       - name: migrations pendentes (dry run)
         run: supabase migration list --linked
