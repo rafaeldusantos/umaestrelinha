@@ -620,8 +620,18 @@ torna a comparação uma consulta em vez de um parser.
 
 ## BL-016 — O host das duas rotas do Google Shopping é um marcador
 
-- **Status**: aberto, **bloqueado por `C-08`** · **Registrado em**: 2026-08-16 · **Origem**: feature
+- **Status**: **FECHADO em 2026-08-16** — o projeto Supabase hospedado foi criado
+  (`hgkrsfpupypxtygjgthf`) e as duas linhas do `apps/store/vercel.json` receberam o ref real. A
+  asserção de marcador do `vercelRedirects.test.ts` se aposentou sozinha, como estava previsto: o host
+  não tem mais maiúscula. · **Registrado em**: 2026-08-16 · **Origem**: feature
   [`30-google-shopping`](./features/30-google-shopping/spec.md), tarefa T14
+
+> **Falta a metade da verificação, e ela não é opcional.** O ref estar escrito prova que o arquivo
+> aponta para um projeto que existe — **não** prova que as duas rotas respondem. As edge functions
+> `google-feed` e `product-page` ainda não foram implantadas no projeto hospedado. Enquanto não
+> forem, `/produtos/:slug` continua fora do ar em produção pelo mesmo motivo descrito abaixo — o
+> rewrite tira a rota do catch-all do SPA e o destino devolve erro. **Rodar o `curl -I` das duas
+> antes de ligar o interruptor em `/admin/google-shopping`.**
 
 O `apps/store/vercel.json` expõe as duas edge functions da `30` sob o domínio da loja:
 

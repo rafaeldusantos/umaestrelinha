@@ -4,7 +4,6 @@
   "outputDirectory": "dist",
   "installCommand": "cd ../.. && pnpm install --frozen-lockfile",
   "buildCommand": "pnpm build",
-  "ignoreCommand": "npx --yes turbo-ignore @estrelinha/store --fallback=HEAD^",
   "trailingSlash": false,
   "redirects": [
     { "source": "/produto/:slug", "destination": "/produtos/:slug", "statusCode": 301 },
@@ -19,11 +18,11 @@
   "rewrites": [
     {
       "source": "/feeds/google-shopping.xml",
-      "destination": "https://PROJECT-REF.supabase.co/functions/v1/google-feed"
+      "destination": "https://hgkrsfpupypxtygjgthf.supabase.co/functions/v1/google-feed"
     },
     {
       "source": "/produtos/:slug",
-      "destination": "https://PROJECT-REF.supabase.co/functions/v1/product-page?slug=:slug"
+      "destination": "https://hgkrsfpupypxtygjgthf.supabase.co/functions/v1/product-page?slug=:slug"
     },
     { "source": "/(.*)", "destination": "/index.html" }
   ],
