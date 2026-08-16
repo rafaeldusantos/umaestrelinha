@@ -24,6 +24,7 @@ import type {
   ProductVariant,
   StockPolicy,
 } from '@estrelinha/supabase/types'
+import type { ProductFaqSelection } from './planFaqLinks'
 
 /**
  * O estado editável do formulário.
@@ -85,6 +86,13 @@ export interface ProductFormState {
   material_kinds: MaterialKind[]
   /** `null` cai em `DEFAULT_ENGRAVING_MAX_CHARS`. Nunca significa "sem limite". */
   engraving_max_chars: number | null
+  /**
+   * As perguntas frequentes do produto, na ordem (feature 28).
+   *
+   * Mora no estado do formulário — e não em `useState` da página — para entrar de graça no rascunho
+   * do `useFormDraft` e no `replaceForm` da restauração. Vínculo perdido num F5 é trabalho refeito.
+   */
+  faqs: ProductFaqSelection[]
 }
 
 /**
@@ -126,11 +134,12 @@ export const emptyProductForm = (): ProductFormState => ({
   requires_material: null,
   material_kinds: [],
   engraving_max_chars: null,
+  faqs: [],
 })
 
 /** O `select` da carga do formulário. Traz a grade da TABELA e os vínculos N:N. */
 export const PRODUCT_FORM_SELECT =
-  '*, product_variants(*), product_categories(category_id, position)'
+  '*, product_variants(*), product_categories(category_id, position), product_faqs(faq_id, position, answer_override)'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
@@ -180,6 +189,17 @@ export const productRowToForm = (row: any, opts: { asCopy?: boolean } = {}): Pro
   material_kinds: toMaterialKinds(row.material_kinds),
   engraving_max_chars:
     typeof row.engraving_max_chars === 'number' ? row.engraving_max_chars : null,
+  // A ordem vem do banco, mas a lista chega **sem ordenar** — o PostgREST não garante ordem de
+  // embed. Ordenar aqui é o que faz a aba abrir na ordem que a loja mostra.
+  faqs: Array.isArray(row.product_faqs)
+    ? [...row.product_faqs]
+        .sort((a: any, b: any) => (a?.position ?? 0) - (b?.position ?? 0))
+        .map((link: any) => ({
+          faq_id: String(link?.faq_id ?? ''),
+          answer_override: link?.answer_override ?? null,
+        }))
+        .filter((link: { faq_id: string }) => link.faq_id !== '')
+    : [],
 })
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
@@ -199,12 +219,13 @@ export interface UseProductFormResult {
     categoryIds: string[]
     variants: ProductVariant[]
     slug: string
+    faqIds: string[]
   }) => void
   /**
    * O que estava no banco na última carga (ou no último save). É contra isto que o diff da grade e
    * das categorias é calculado (T21b) — sem snapshot, "o que mudou?" não é respondível.
    */
-  savedSnapshot: { categoryIds: string[]; variants: ProductVariant[]; slug: string }
+  savedSnapshot: { categoryIds: string[]; variants: ProductVariant[]; slug: string; faqIds: string[] }
   /**
    * Troca o formulário inteiro. É o que a oferta de restauração de rascunho (T24) chama.
    * Nasce **sujo**: o conteúdo restaurado difere do que está no banco, e é isso que o badge
@@ -229,10 +250,11 @@ export const useProductForm = (
   const [loading, setLoading] = useState(!!productId || !!copyFromId)
   const [isDirty, setIsDirty] = useState(false)
   const [savedSnapshot, setSavedSnapshot] = useState<{
+    faqIds: string[]
     categoryIds: string[]
     variants: ProductVariant[]
     slug: string
-  }>({ categoryIds: [], variants: [], slug: '' })
+  }>({ categoryIds: [], variants: [], slug: '', faqIds: [] })
   // A carga escreve no estado sem sujar o formulário. Sem esta distinção, abrir um produto e sair
   // sem tocar em nada dispararia a guarda de saída da T24 e o badge "Alterações não salvas".
   const loadingRef = useRef(false)
@@ -266,6 +288,7 @@ export const useProductForm = (
               categoryIds: loaded.category_ids,
               variants: loaded.variants,
               slug: loaded.slug,
+              faqIds: loaded.faqs.map(f => f.faq_id),
             })
           }
         }
@@ -292,7 +315,7 @@ export const useProductForm = (
   )
 
   const markSaved = useCallback(
-    (snapshot?: { categoryIds: string[]; variants: ProductVariant[]; slug: string }) => {
+    (snapshot?: { categoryIds: string[]; variants: ProductVariant[]; slug: string; faqIds: string[] }) => {
       setIsDirty(false)
       if (snapshot) setSavedSnapshot(snapshot)
     },

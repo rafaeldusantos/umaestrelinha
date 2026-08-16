@@ -23,6 +23,21 @@ vi.mock('@/entities/product/api/useAdminProducts', () => ({
 vi.mock('@/entities/category/api/useAdminCategories', () => ({
   useAdminCategories: () => ({ categories: [{ id: 'cat-anime', name: 'Anime' }] }),
 }))
+// Feature 28: a página passou a ler a biblioteca de perguntas. O dublê de supabase deste arquivo
+// não conhece `faqs` nem `faq_usage`, e sem este mock o `useAdminFaqs` real sobe 14 erros não
+// tratados (`.order is not a function`) — a suíte fica verde e o processo sai 1.
+vi.mock('@/features/faq-library/api/useAdminFaqs', () => ({
+  useAdminFaqs: () => ({
+    faqs: [],
+    loading: false,
+    error: null,
+    refetch: vi.fn(),
+    create: vi.fn(async () => null),
+    update: vi.fn(async () => null),
+    toggle: vi.fn(async () => null),
+    remove: vi.fn(async () => null),
+  }),
+}))
 vi.mock('@/shared/ui/RichTextEditor', () => ({ default: () => <div>editor</div> }))
 vi.mock('@estrelinha/ui/hooks/use-toast', () => ({ toast: vi.fn() }))
 
@@ -39,20 +54,31 @@ beforeEach(() => {
   window.sessionStorage.clear()
 })
 
-describe('AdminProductFormPage — as 5 abas (PFM-01)', () => {
-  it('exibe exatamente 5 abas, com os rótulos da spec', async () => {
+describe('AdminProductFormPage — as abas (PFM-01, FAQ-16)', () => {
+  it('exibe exatamente 6 abas, com os rótulos da spec', async () => {
     renderPage()
     await waitFor(() => expect(screen.getByRole('tab', { name: /Geral/ })).toBeInTheDocument())
 
     const tabs = screen.getAllByRole('tab')
-    expect(tabs).toHaveLength(5)
+    expect(tabs).toHaveLength(6)
     expect(tabs.map(t => t.textContent?.replace(/\d+$/, '').trim())).toEqual([
       'Geral',
+      'Perguntas',
       'Mídia',
       'Preços & variações',
       'SEO',
       'Relacionados',
     ])
+  })
+
+  // A pergunta é a continuação da descrição, que está em `Geral`. Separá-las por três abas
+  // esconderia a relação que o aviso da `FAQ-27` existe para tornar visível.
+  it('`Perguntas` fica logo depois de `Geral` (FAQ-16)', async () => {
+    renderPage()
+    await waitFor(() => expect(screen.getByRole('tab', { name: /Geral/ })).toBeInTheDocument())
+
+    const rotulos = screen.getAllByRole('tab').map(t => t.textContent?.replace(/\d+$/, '').trim())
+    expect(rotulos.indexOf('Perguntas')).toBe(rotulos.indexOf('Geral') + 1)
   })
 
   it('a aba Variações NÃO existe mais', async () => {

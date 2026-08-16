@@ -15,6 +15,7 @@
 // admin reabre o formulário e vê o que entrou; o alternativo é um "salvo!" mentiroso.
 
 import type { ProductCategoryLink, ProductVariant } from '@estrelinha/supabase/types'
+import { planFaqLinks, type ProductFaqSelection } from './planFaqLinks'
 
 // --- Identidade de linha nova ------------------------------------------------------------------
 
@@ -117,7 +118,7 @@ export const planVariants = (
 // --- Execução ----------------------------------------------------------------------------------
 
 /** Qual escrita falhou. Vai para a mensagem que o admin lê — "erro ao salvar" não é acionável. */
-export type PersistStep = 'categorias' | 'grade'
+export type PersistStep = 'categorias' | 'perguntas' | 'grade'
 
 export interface PersistFailure {
   ok: false
@@ -167,8 +168,16 @@ export interface PersistClient {
 export const persistProductRelations = async (
   client: PersistClient,
   productId: string,
-  input: { categoryIds: readonly string[]; variants: readonly ProductVariant[] },
-  saved: { categoryIds: readonly string[]; variants: readonly ProductVariant[] },
+  input: {
+    categoryIds: readonly string[]
+    variants: readonly ProductVariant[]
+    faqs?: readonly ProductFaqSelection[]
+  },
+  saved: {
+    categoryIds: readonly string[]
+    variants: readonly ProductVariant[]
+    faqs?: readonly string[]
+  },
 ): Promise<PersistResult> => {
   const categories = planCategoryLinks(input.categoryIds, saved.categoryIds)
 
@@ -187,6 +196,32 @@ export const persistProductRelations = async (
       { onConflict: 'product_id,category_id' },
     )
     if (error) return { ok: false, step: 'categorias', message: error.message }
+  }
+
+  // Perguntas frequentes (feature 28) — mesmo molde das categorias, e no mesmo bloco de propósito:
+  // são as duas tabelas de vínculo do produto, e separá-las daria dois lugares para esquecer o diff.
+  //
+  // `input.faqs` **undefined** significa "esta tela não edita perguntas", e não "apague todas". A
+  // distinção existe porque a grade rápida e a edição em massa também chamam esta função.
+  if (input.faqs !== undefined) {
+    const faqs = planFaqLinks(input.faqs, saved.faqs ?? [])
+
+    if (faqs.toDelete.length > 0) {
+      const { error } = await client
+        .from('product_faqs')
+        .delete()
+        .eq('product_id', productId)
+        .in('faq_id', faqs.toDelete)
+      if (error) return { ok: false, step: 'perguntas', message: error.message }
+    }
+
+    if (faqs.toUpsert.length > 0) {
+      const { error } = await client.from('product_faqs').upsert(
+        faqs.toUpsert.map(link => ({ ...link, product_id: productId })),
+        { onConflict: 'product_id,faq_id' },
+      )
+      if (error) return { ok: false, step: 'perguntas', message: error.message }
+    }
   }
 
   const grid = planVariants(input.variants, saved.variants)

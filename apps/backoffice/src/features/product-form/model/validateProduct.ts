@@ -11,9 +11,9 @@ import { MATERIAL_KINDS } from '@estrelinha/core/material'
 import type { ProductFormState } from './useProductForm'
 
 /** As 5 abas do formulário depois da T25. `variacoes` deixou de existir. */
-export type TabId = 'geral' | 'midia' | 'precos' | 'seo' | 'relacionados'
+export type TabId = 'geral' | 'perguntas' | 'midia' | 'precos' | 'seo' | 'relacionados'
 
-export const TAB_IDS: readonly TabId[] = ['geral', 'midia', 'precos', 'seo', 'relacionados']
+export const TAB_IDS: readonly TabId[] = ['geral', 'perguntas', 'midia', 'precos', 'seo', 'relacionados']
 
 /**
  * `error` bloqueia *Salvar e publicar*. `warning` é informação — a vitrine fica estranha, mas o

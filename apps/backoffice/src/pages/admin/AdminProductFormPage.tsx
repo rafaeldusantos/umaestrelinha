@@ -23,6 +23,9 @@ import { useFormDraft } from '@/features/product-form/model/useFormDraft'
 import { isPersistFailure, isTempVariantId, persistProductRelations, type PersistClient } from '@/features/product-form/model/persistProduct'
 import PublishChecklist from '@/features/product-form/ui/PublishChecklist'
 import PricingTab from '@/features/product-form/ui/tabs/PricingTab'
+import FaqTab from '@/features/product-form/ui/tabs/FaqTab'
+import DescriptionFaqNotice from '@/features/product-form/ui/DescriptionFaqNotice'
+import { useAdminFaqs } from '@/features/faq-library/api/useAdminFaqs'
 import CategoryMultiSelect from '@/features/product-form/ui/CategoryMultiSelect'
 import MaterialCard from '@/features/product-form/ui/MaterialCard'
 import TagInput from '@/features/product-form/ui/TagInput'
@@ -54,6 +57,10 @@ import { storeUrlFor } from '@/features/product-form/lib/storeUrl'
 /** As 5 abas de PFM-01. `variacoes` não existe mais: a grade mora em `precos`. */
 const TABS: { id: TabId; label: string }[] = [
   { id: 'geral', label: 'Geral' },
+  // Feature 28: logo depois de `Geral` porque a pergunta é a continuação da descrição, que mora
+  // lá. Separá-las por três abas de preço e mídia esconderia justamente a relação que o aviso da
+  // `FAQ-27` precisa tornar visível.
+  { id: 'perguntas', label: 'Perguntas' },
   { id: 'midia', label: 'Mídia' },
   { id: 'precos', label: 'Preços & variações' },
   { id: 'seo', label: 'SEO' },
@@ -86,6 +93,9 @@ const AdminProductFormPage = () => {
   // Controlado (era `defaultValue`) porque o atalho do checklist precisa ABRIR a aba do campo
   // pendente — sem isso o clique focaria um elemento que o Radix ainda não montou.
   const [activeTab, setActiveTab] = useState<TabId>('geral')
+  // A biblioteca inteira: a aba precisa dela para resolver o texto de cada vínculo e para a busca.
+  // São 67 entradas no catálogo real — leitura pequena, e a mesma que /admin/perguntas faz.
+  const { faqs: faqLibrary, create: createFaq } = useAdminFaqs()
   const [selectedVariantIds, setSelectedVariantIds] = useState<string[]>([])
   // A19: contagens vêm de consulta agregada, nunca de `select('*')` no catálogo.
   const { countByCategory } = useCategoryUsage()
@@ -245,8 +255,8 @@ const AdminProductFormPage = () => {
       const relations = await persistProductRelations(
         supabase as unknown as PersistClient,
         savedId,
-        { categoryIds: form.category_ids, variants: form.variants },
-        savedSnapshot,
+        { categoryIds: form.category_ids, variants: form.variants, faqs: form.faqs },
+        { ...savedSnapshot, faqs: savedSnapshot.faqIds },
       )
       if (isPersistFailure(relations)) {
         // Nomeia o passo. Não diz "salvo": as colunas do produto entraram, as relações não, e
@@ -266,7 +276,7 @@ const AdminProductFormPage = () => {
     // save faria a próxima abertura oferecer de volta um estado que já é o do banco.
     draft.discard()
     savedSlugRef.current = nextSlug
-    markSaved({ categoryIds: form.category_ids, variants: form.variants, slug: nextSlug })
+    markSaved({ categoryIds: form.category_ids, variants: form.variants, slug: nextSlug, faqIds: form.faqs.map(f => f.faq_id) })
     navigate('/admin/produtos')
     setSaving(false)
   }
@@ -430,6 +440,13 @@ const AdminProductFormPage = () => {
                 <div className="space-y-1.5">
                   <Label>Descrição</Label>
                   <RichTextEditor content={form.description} onChange={v => setField('description', v)} />
+                  {/* `FAQ-27`/`FAQ-28`: a descrição importada ainda traz o bloco de perguntas, e a
+                      loja o filtra no render. Sem este aviso a dona editaria um texto invisível. */}
+                  <DescriptionFaqNotice
+                    description={form.description}
+                    onRemove={texto => setField('description', texto)}
+                    onGoToFaqTab={() => setActiveTab('perguntas')}
+                  />
                 </div>
               </FormCard>
 
@@ -493,6 +510,16 @@ const AdminProductFormPage = () => {
             </TabsContent>
 
             {/* MÍDIA */}
+            <TabsContent value="perguntas">
+              <FaqTab
+                value={form.faqs}
+                onChange={proximo => setField('faqs', proximo)}
+                library={faqLibrary}
+                categoryIds={form.category_ids}
+                onCreate={createFaq}
+              />
+            </TabsContent>
+
             <TabsContent value="midia">
               <FormCard title="Mídia" description="Imagens e vídeo do produto.">
                 {/* PMD-01/03/04: a galeria virou componente próprio na T34 — alt-text com estado,
