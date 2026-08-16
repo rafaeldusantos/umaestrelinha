@@ -27,6 +27,17 @@ export const CARD_MAX_AXES = 2
 export const PAGE_MAX_AXES = 3
 
 /**
+ * Vagas da placa de cor do card (`COR-12`). Quatro a partir de `md`, três abaixo.
+ *
+ * Não é preferência: em 220px — a largura real do card no carrossel — quatro vagas medem 160px e o
+ * botão "+" começa em 168px a partir da esquerda, então elas SOBREPÕEM. Três medem 122px e sobram
+ * 32px. Com mediana de 3 cores no catálogo real, o mobile mostra todas as cores em 305 dos 385
+ * produtos que têm o eixo.
+ */
+export const COLOR_SLOTS_MOBILE = 3
+export const COLOR_SLOTS_DESKTOP = 4
+
+/**
  * Os eixos na ordem de `position`. Empate resolve por `name`, para a ordem ser estável entre
  * renders — dois eixos com `position: 0` são um cadastro possível, e um seletor que troca de lugar
  * a cada render é pior que uma ordem arbitrária mas fixa.
@@ -145,6 +156,83 @@ export const initialSelection = (product: GridProduct, max: number): OptionValue
   return Object.fromEntries(
     visibleOptions(product.options, max).map(o => [o.name, o.values[0]]),
   ) as OptionValues
+}
+
+/** Uma vaga da placa de cor — o valor do eixo, a foto daquela cor e se ela é a escolhida. */
+export interface ColorThumb {
+  value: string
+  /** `null` quando nenhuma variação daquela cor tem foto (`COR-15`). Nunca a foto de outra cor. */
+  imageUrl: string | null
+  active: boolean
+}
+
+/** O que a placa desenha: as vagas preenchidas e quantas cores ficaram de fora. */
+export interface ColorPreview {
+  thumbs: ColorThumb[]
+  overflow: number
+}
+
+/**
+ * O eixo de cor do produto, ou `null`.
+ *
+ * O casamento é pelo NOME do eixo, normalizado (`trim` + minúsculas), e é **igualdade exata a
+ * "cor"** — não prefixo. Medido no catálogo real: 385 produtos têm o eixo `Cor`, e outros quatro
+ * têm `Cor do quadrinho` / `Cor do quadro`, que são a cor de um acessório e não a da peça. Prefixo
+ * os arrastaria para dentro da placa sem ninguém decidir isso.
+ *
+ * `orderedOptions` já descarta eixo sem valor, então o que sai daqui sempre tem ao menos um.
+ */
+export const colorAxis = (options: readonly ProductOption[]): ProductOption | null =>
+  orderedOptions(options).find(o => o.name.trim().toLowerCase() === 'cor') ?? null
+
+/**
+ * A foto daquela cor: a primeira variação da cor, por `position`, que TENHA foto.
+ *
+ * Com dois eixos a mesma cor aparece em várias linhas (uma por tamanho) e nem todas trazem foto —
+ * por isso a busca não para na primeira linha da cor, e sim na primeira COM imagem. Nenhuma com
+ * foto devolve `null`: `COR-02` proíbe cair na capa do produto ou na foto de outra cor, porque três
+ * cores mostrando a mesma imagem dizem à cliente que a cor não muda a peça.
+ */
+const colorImage = (
+  variants: readonly ProductVariant[],
+  axis: string,
+  value: string,
+): string | null =>
+  [...variants]
+    .sort((a, b) => a.position - b.position)
+    .find(v => v.option_values?.[axis] === value && !!v.image_url)?.image_url ?? null
+
+/**
+ * As vagas da placa de cor do card (`COR-10`..`COR-15`), ou `null` quando não há placa.
+ *
+ * Não há placa em três casos, e os três são o caso comum do catálogo: produto sem grade vendável
+ * (120 de 680), produto com grade e sem eixo de cor (175) e eixo de cor com um valor só — onde não
+ * há escolha a mostrar.
+ *
+ * Quando as cores não cabem, a ÚLTIMA vaga vira contador: com `slots = 4` e cinco cores saem três
+ * miniaturas e `overflow = 2`, não quatro e `+1`. O contador ocupa vaga, não se pendura ao lado.
+ */
+export const colorPreview = (
+  product: GridProduct,
+  selected: OptionValues,
+  slots: number,
+): ColorPreview | null => {
+  if (!hasSellableGrid(product)) return null
+
+  const axis = colorAxis(product.options)
+  if (!axis || axis.values.length < 2) return null
+
+  const shown = axis.values.length <= slots ? axis.values.length : slots - 1
+  const chosen = selected[axis.name]
+
+  return {
+    thumbs: axis.values.slice(0, shown).map(value => ({
+      value,
+      imageUrl: colorImage(product.variants, axis.name, value),
+      active: value === chosen,
+    })),
+    overflow: axis.values.length - shown,
+  }
 }
 
 /**

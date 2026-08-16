@@ -3,6 +3,10 @@ import {
   availableValuesFor,
   canAddSelection,
   CARD_MAX_AXES,
+  colorAxis,
+  colorPreview,
+  COLOR_SLOTS_DESKTOP,
+  COLOR_SLOTS_MOBILE,
   findVariant,
   hasSellableGrid,
   initialSelection,
@@ -275,5 +279,154 @@ describe('canAddSelection — o que pode entrar no carrinho (AC 16)', () => {
   it('combinação inexistente não entra', () => {
     const product = grid({ variants: [variant({ Tamanho: '3,5 cm', Acabamento: 'Fosco' })] })
     expect(canAddSelection(product, { Tamanho: '5,5 cm', Acabamento: 'Fosco' })).toBe(false)
+  })
+})
+
+// COR-10..COR-15 — a regra pura da placa de cor do card. Quem a desenha é `ui/ColorPreview.tsx`, e
+// a prova de superfície está em `ui/__tests__/ProductCardSurface.test.tsx`.
+
+/** Uma peça com eixo de cor de verdade: as três cores mais comuns do catálogo importado. */
+const cores = (values: string[], position = 0): ProductOption => option('Cor', values, position)
+
+const comCor = (values: string[], over: Partial<GridProduct> = {}): GridProduct => ({
+  options: [cores(values)],
+  variants: values.map(v => variant({ Cor: v }, { image_url: `${v}.webp` })),
+  stock_policy: 'track',
+  ...over,
+})
+
+describe('colorAxis — qual eixo é o de cor (COR-10)', () => {
+  it('acha o eixo `Cor` entre os outros do produto', () => {
+    expect(
+      colorAxis([option('Modelo', ['Coração'], 0), cores(['Prata 925', 'Folheado a Ouro'], 1)])?.name,
+    ).toBe('Cor')
+  })
+
+  it('produto sem eixo de cor devolve null', () => {
+    expect(colorAxis([option('Tamanho', ['45 cm'], 0), option('Modelo', ['Gota'], 1)])).toBeNull()
+  })
+
+  it('o casamento é exato — `Cor do quadrinho` NÃO é o eixo de cor da peça', () => {
+    // Quatro produtos do catálogo têm esse eixo, e ele é a cor de um acessório. Casar por prefixo
+    // os arrastaria para a placa sem ninguém decidir isso.
+    expect(colorAxis([option('Cor do quadrinho', ['Preto', 'Branco'], 0)])).toBeNull()
+  })
+
+  it('o nome vem digitado à mão no painel, então caixa e espaço não decidem nada', () => {
+    expect(colorAxis([option(' COR ', ['Prata 925', 'Folheado a Ouro'], 0)])?.name).toBe(' COR ')
+  })
+})
+
+describe('colorPreview — quando NÃO há placa (COR-10)', () => {
+  it('eixo de cor com um valor só: sem placa — não há escolha a mostrar', () => {
+    expect(colorPreview(comCor(['Prata 925']), {}, COLOR_SLOTS_DESKTOP)).toBeNull()
+  })
+
+  it('produto sem grade vendável: sem placa', () => {
+    expect(
+      colorPreview({ options: [], variants: [], stock_policy: 'track' }, {}, COLOR_SLOTS_DESKTOP),
+    ).toBeNull()
+  })
+
+  it('produto com grade e SEM eixo de cor: sem placa', () => {
+    const semCor = grid({ variants: [variant({ Tamanho: '4,5 cm', Acabamento: 'Fosco' })] })
+    expect(colorPreview(semCor, {}, COLOR_SLOTS_DESKTOP)).toBeNull()
+  })
+})
+
+describe('colorPreview — quantas vagas, e o contador na última (COR-12)', () => {
+  it('as vagas são 4 a partir de `md` e 3 abaixo', () => {
+    expect(COLOR_SLOTS_DESKTOP).toBe(4)
+    expect(COLOR_SLOTS_MOBILE).toBe(3)
+  })
+
+  it('duas cores — o mínimo que acende a placa — saem as duas, sem contador', () => {
+    const preview = colorPreview(comCor(['Prata 925', 'Folheado a Ouro']), {}, COLOR_SLOTS_DESKTOP)
+    expect(preview?.thumbs.map(t => t.value)).toEqual(['Prata 925', 'Folheado a Ouro'])
+    expect(preview?.overflow).toBe(0)
+  })
+
+  it('3 cores em 3 vagas: as três aparecem e o contador não existe', () => {
+    const preview = colorPreview(comCor(['Ouro', 'Ouro Branco', 'Ródio']), {}, COLOR_SLOTS_MOBILE)
+    expect(preview?.thumbs.map(t => t.value)).toEqual(['Ouro', 'Ouro Branco', 'Ródio'])
+    expect(preview?.overflow).toBe(0)
+  })
+
+  it('5 cores em 4 vagas: 3 miniaturas e `+2` — o contador OCUPA a última vaga', () => {
+    const preview = colorPreview(
+      comCor(['Prata', 'Ouro', 'Ouro Branco', 'Ródio', 'Rose']),
+      {},
+      COLOR_SLOTS_DESKTOP,
+    )
+    expect(preview?.thumbs.map(t => t.value)).toEqual(['Prata', 'Ouro', 'Ouro Branco'])
+    expect(preview?.overflow).toBe(2)
+  })
+
+  it('4 cores em 3 vagas: 2 miniaturas e `+2` — a mesma peça encolhe no celular', () => {
+    const preview = colorPreview(
+      comCor(['Prata', 'Ouro', 'Ouro Branco', 'Ródio']),
+      {},
+      COLOR_SLOTS_MOBILE,
+    )
+    expect(preview?.thumbs.map(t => t.value)).toEqual(['Prata', 'Ouro'])
+    expect(preview?.overflow).toBe(2)
+  })
+})
+
+describe('colorPreview — a foto de cada cor (COR-15)', () => {
+  it('cada vaga traz a foto da SUA cor', () => {
+    const preview = colorPreview(comCor(['Prata', 'Ouro']), {}, COLOR_SLOTS_DESKTOP)
+    expect(preview?.thumbs.map(t => t.imageUrl)).toEqual(['Prata.webp', 'Ouro.webp'])
+  })
+
+  it('cor sem foto vem com `imageUrl` null — nunca a foto de outra cor', () => {
+    // 193 das 3.245 variações do catálogo real não têm foto: é caminho normal, não borda.
+    const product: GridProduct = {
+      options: [cores(['Prata', 'Ouro'])],
+      variants: [
+        variant({ Cor: 'Prata' }, { image_url: 'prata.webp' }),
+        variant({ Cor: 'Ouro' }, { image_url: null }),
+      ],
+      stock_policy: 'track',
+    }
+    const preview = colorPreview(product, {}, COLOR_SLOTS_DESKTOP)
+
+    expect(preview?.thumbs[1].imageUrl).toBeNull()
+    expect(preview?.thumbs.map(t => t.imageUrl)).toEqual(['prata.webp', null])
+  })
+
+  it('com dois eixos, a foto da cor é a da primeira LINHA daquela cor que tenha foto', () => {
+    // A grade repete a cor uma vez por tamanho, e nem toda linha traz foto. Parar na primeira linha
+    // da cor devolveria `null` para uma cor que tem foto na linha seguinte.
+    const product: GridProduct = {
+      options: [cores(['Prata', 'Ouro']), option('Tamanho', ['45 cm', '50 cm'], 1)],
+      variants: [
+        variant({ Cor: 'Prata', Tamanho: '45 cm' }, { position: 0, image_url: null }),
+        variant({ Cor: 'Prata', Tamanho: '50 cm' }, { position: 1, image_url: 'prata.webp' }),
+        variant({ Cor: 'Ouro', Tamanho: '45 cm' }, { position: 2, image_url: 'ouro.webp' }),
+      ],
+      stock_policy: 'track',
+    }
+
+    expect(colorPreview(product, {}, COLOR_SLOTS_DESKTOP)?.thumbs.map(t => t.imageUrl)).toEqual([
+      'prata.webp',
+      'ouro.webp',
+    ])
+  })
+})
+
+describe('colorPreview — a cor escolhida (COR-14)', () => {
+  it('a vaga da cor em `selected` vem `active`, e só ela', () => {
+    const preview = colorPreview(
+      comCor(['Prata', 'Ouro', 'Ródio']),
+      { Cor: 'Ouro' },
+      COLOR_SLOTS_DESKTOP,
+    )
+    expect(preview?.thumbs.map(t => t.active)).toEqual([false, true, false])
+  })
+
+  it('sem cor escolhida, nenhuma vaga fica ativa', () => {
+    const preview = colorPreview(comCor(['Prata', 'Ouro']), {}, COLOR_SLOTS_DESKTOP)
+    expect(preview?.thumbs.map(t => t.active)).toEqual([false, false])
   })
 })

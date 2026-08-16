@@ -25,6 +25,7 @@ import {
   needsProductPage,
 } from '../lib/variantSelection'
 import { displayCategory } from '../lib/displayCategory'
+import ColorPreview from './ColorPreview'
 import QuickAddDrawer from './QuickAddDrawer'
 import VariantSheet from './VariantSheet'
 
@@ -223,6 +224,17 @@ const ProductCard = ({ product }: { product: Product }) => {
             </button>
           )}
 
+          {/*
+            A placa de cores (`COR-10`..`COR-15`). Ela abre o MESMO caminho do "+" — `handleAddToCart`
+            —, que já faz `preventDefault` + `stopPropagation` dentro do `<Link>` e já decide entre
+            drawer, sheet e página do produto. Passar outro handler aqui seria uma terceira
+            superfície de escolha de variação.
+
+            Ela nunca disputa espaço com o véu de "Esgotado": a placa exige grade vendável, e com
+            grade vendável `isOutOfStock` é sempre falso (é a mesma condição, negada).
+          */}
+          <ColorPreview product={product} selected={selected} onOpen={handleAddToCart} />
+
           {isOutOfStock && (
             <div className="absolute inset-0 flex items-center justify-center bg-white/70 backdrop-blur-[2px]">
               <span className="estrelinha-eyebrow rounded-pill bg-estrelinha-ink px-3 py-1.5 text-[11px] text-white">
@@ -245,7 +257,17 @@ const ProductCard = ({ product }: { product: Product }) => {
 
         <div className="mt-4 flex flex-col gap-[5px]">
           {category && <p className="estrelinha-eyebrow text-estrelinha-ink-soft">{category.name}</p>}
-          <h3 className="line-clamp-1 font-display text-[18px] font-medium leading-[1.39] text-estrelinha-ink transition-colors group-hover:text-estrelinha-primary">
+          {/*
+            `COR-09`: 14px em duas linhas, com os 40px reservados.
+
+            O preço é a primeira coisa que a cliente lê no card, e com o nome em 18px ele vinha
+            depois de um bloco maior que ele. O clamp de DUAS linhas reconcilia uma divergência que
+            já existia — o board sempre desenhou duas e o código sempre truncou em uma; reduzir a
+            fonte sem trocar o clamp deixaria o nome cortado, só que menor. O `min-h` é o que faz os
+            preços de uma fileira empatarem na mesma linha quando um nome cabe em uma linha e o
+            vizinho, em duas.
+          */}
+          <h3 className="line-clamp-2 min-h-[40px] font-display text-[14px] font-medium leading-[20px] text-estrelinha-ink transition-colors group-hover:text-estrelinha-primary">
             {product.name}
           </h3>
           <div className="flex items-baseline gap-2">

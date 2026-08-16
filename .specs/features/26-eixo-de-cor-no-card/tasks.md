@@ -119,7 +119,7 @@ compara sem saber.
 
 ## Fase 4 · Loja — o card (`COR-09`..`COR-15`)
 
-### T7 — a regra pura: qual eixo é cor, e quantas vagas
+### T7 — a regra pura: qual eixo é cor, e quantas vagas ✅
 - **Arquivos**: `apps/store/src/entities/product/lib/variantSelection.ts`
 - **Fazer**: duas funções puras no módulo que **já é dono** desta classe de regra
   (`orderedOptions`, `visibleOptions` moram ali, e o docblock diz que é domínio da loja, não de
@@ -135,7 +135,7 @@ compara sem saber.
   - a thumb da cor em `selected` vem `active: true` (`COR-14`)
 - **Verificar**: `pnpm --filter @estrelinha/store test`
 
-### T8 — o componente da placa
+### T8 — o componente da placa ✅
 - **Arquivos**: `apps/store/src/entities/product/ui/ColorPreview.tsx` (novo)
 - **Fazer**: **um** `<button>` contendo as miniaturas. Miniatura é `<div>`/`<img>`, nunca controle
   (`COR-11`).
@@ -147,7 +147,7 @@ compara sem saber.
   - o `+N` ocupa a última vaga, no mesmo tamanho
 - **Verificar**: `pnpm --filter @estrelinha/store test`
 
-### T9 — integrar no `ProductCard`
+### T9 — integrar no `ProductCard` ✅
 - **Arquivos**: `apps/store/src/entities/product/ui/ProductCard.tsx`
 - **Fazer**: (a) título `text-[14px] leading-[20px] line-clamp-2` (`COR-09`); (b) a placa dentro do
   palco, `absolute bottom-3.5 left-3.5`, abrindo o mesmo seletor que o `+` abre.
@@ -158,7 +158,7 @@ compara sem saber.
   - produto sem eixo de cor não renderiza a placa e o palco fica idêntico ao de hoje (`COR-10`)
 - **Verificar**: `pnpm --filter @estrelinha/store test`
 
-### T10 — testes de superfície
+### T10 — testes de superfície ✅
 - **Arquivos**: `apps/store/src/entities/product/ui/__tests__/ProductCardSurface.test.tsx`
 - **Done when**:
   - `COR-12` tem asserção **positiva nas duas metades** — a classe de mobile **e** a com prefixo
@@ -178,3 +178,70 @@ compara sem saber.
 3. `pnpm lint` — comparar com 30/8, não exigir limpo
 4. `git diff --name-only` sem nada em `packages/core/src/payment/**`
 5. Prova em viewport móvel 390×844 — `CLAUDE.md` exige, e `COR-12` é metade regra de mobile
+
+---
+
+## Prova em navegador — 2026-08-15, Chrome, loja em dev contra o Supabase local
+
+Medida com o catálogo real importado. Cada número abaixo saiu de `getBoundingClientRect` /
+`getComputedStyle` na página, não de leitura de classe.
+
+### O que a placa mede, em tela (`COR-13`, `COR-14`)
+
+| medida | board | medido |
+| --- | ---: | ---: |
+| altura da placa | 44px | **44px** |
+| inset esquerdo · inferior | 14 · 14 | **14 · 14** |
+| raio da placa · da miniatura | 12 · 6 | **12px · 6px** |
+| borda da placa | 1px `#8C8073` | **1px `rgb(140,128,115)`** |
+| fundo da placa | `surface` | **`rgb(255,255,255)`** |
+| padding · gap | 6 · 6 | **6px · 6px** |
+| miniatura | 32×32 | **32×32** |
+| borda da escolhida | 2px `ink` | **2px `rgb(35,48,58)`** |
+| nome do produto | 14 / 20 / 40 | **14px / 20px / `min-height` 40px, clamp 2** |
+
+### As duas metades de `COR-12`, com produto real
+
+| largura | superfície | card | vagas visíveis |
+| ---: | --- | ---: | --- |
+| 390 | home, carrossel | 220px | **3** — 3 fotos (mediana do catálogo) |
+| 390 | categoria, grade 2 col. | 171px | **3** — 2 fotos + `+2` (4 cores) · 2 fotos + `+3` (5 cores) |
+| 768 · 1024 · 1440 | categoria | 134,7 · 220 · 305,3 | **4** — 4 fotos (4 cores) · 3 fotos + `+2` (5 cores) |
+
+- `COR-10`: `pingente-afetivo-cabelo-livre-com-coto-umbilical` (grade sem eixo de cor) renderiza
+  **sem placa**, com o palco `aspect-[4/5] rounded-xl bg-estrelinha-ground-deep` intacto.
+- `COR-15`: `colar-gravata-mae-de-menino` — a cor `Folheado a Ouro` não tem foto na origem e sai como
+  palco vazio `rgb(241,235,225)` (`ground-deep`), **sem `<img>`**; as outras duas carregam
+  (`complete: true`). Zero `<img>` sem `src`.
+- `COR-11`: clique na placa em 390 abre o `VariantSheet` com os três chips de cor e o CTA
+  `Adicionar à sacola · R$ 169,90`, e a URL **continua** `/personalizados` — não navegou.
+- Scroll horizontal do body: **390 → 390** (home e categoria) e **1440 → 1440**. Sem regressão.
+
+### Dois achados PRÉ-EXISTENTES, provados por medição na árvore limpa
+
+Nenhum dos dois é desta feature; os dois foram confirmados com `git stash` e nova medição.
+
+1. **O `+` e o favorito do card não são `absolute`, e por isso não aparecem.** `TAP_44` começa com
+   `relative`, e o Tailwind emite `.relative` **depois** de `.absolute` na folha — então
+   `${TAP_44} absolute …` resolve para `position: relative` e os dois botões caem no fluxo, dentro
+   de um palco `overflow-hidden`, invisíveis. Medido em `getComputedStyle`: `relative` nos dois,
+   **com e sem** esta feature aplicada. Vale para `ProductCard.tsx` (favorito e "+").
+2. **`storeOrigin.test.ts` do backoffice falha quando `VITE_STORE_URL` existe no `.env`.** O caso
+   "sem env devolve `null`" chama `storeOrigin(undefined)`, e o parâmetro **default** faz `undefined`
+   cair em `STORE_URL` — que a env preenche. Falha idêntica na árvore limpa. É da feature 25.
+
+### O que a medição em tela mostrou sobre `COR-12`, e que a spec não previu
+
+A conta de largura de `COR-12` usou os **220px do carrossel da home**. Nas outras duas superfícies o
+card é mais estreito, e as quatro vagas (**160px**) não cabem:
+
+| largura | card | placa termina em | onde o "+" começaria (se fosse `absolute`) | veredito |
+| ---: | ---: | ---: | ---: | --- |
+| 768 (categoria, com o trilho de filtros) | 134,7px | 174px | 82,7px | placa **maior que o card** |
+| 1024 | 220px | 174px | 168px | **6px de sobreposição** |
+| 1440 | 305,3px | 174px | 253,3px | 79px de folga |
+
+Hoje nada disso aparece, porque o "+" está no fluxo (achado 1). **No dia em que o achado 1 for
+corrigido, 768 e 1024 passam a mostrar placa por cima do "+".** A AC foi implementada como escrita —
+4 vagas a partir de `md` — e a divergência fica registrada aqui em vez de resolvida por conta
+própria: mudar o ponto de corte é decisão de spec.
