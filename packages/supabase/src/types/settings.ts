@@ -141,6 +141,63 @@ export const DEFAULT_MATERIAL: MaterialSettings = {
   notes: '',
 }
 
+/**
+ * O interruptor do feed do Google Shopping (`GSH-15`, `GSH-16`).
+ *
+ * **`enabled` nasce `false`, e isso não é conservadorismo — é a ordem do cutover.** Enquanto o DNS de
+ * `umaestrelinha.com.br` aponta para a loja antiga, a Content API do app da Nuvemshop ainda alimenta
+ * a conta `685367464`. Uma segunda fonte publicando os mesmos `offer_id` no mesmo rótulo `BR`
+ * disputaria item a item com ela.
+ */
+export interface GoogleShoppingSettings {
+  /** Ligado por ato explícito da dona, depois do cutover. Desligado ⇒ o feed responde 404. */
+  enabled: boolean
+  /**
+   * Já esteve ligado alguma vez?
+   *
+   * É o que faz o desligar **exigir confirmação**: antes de o Google já ter buscado, desligar é
+   * inofensivo; depois, é remover os produtos do Shopping. Um booleano só não distingue os dois, e a
+   * tela precisa distinguir para poder avisar.
+   */
+  ever_enabled: boolean
+  /** Só exibição, para a dona conferir contra o painel do Google. O feed não o usa. */
+  merchant_id: string
+  /** Recuo de `products.google_product_category`. */
+  default_product_category: string
+  /** Escrito pela edge function a cada resposta 200. `null` = o Google ainda não buscou. */
+  last_fetched_at: string | null
+}
+
+/**
+ * Os vocabulários do **Google**, não os nossos (`GSH-20`).
+ *
+ * Existem em TypeScript e em `check` nomeado na migration `20260816130000`, e os dois precisam
+ * concordar: divergir faz a tela oferecer um valor que o banco recusa (a dona descobre no save) ou o
+ * banco aceitar um valor que o Merchant Center recusa (a dona descobre dias depois, item a item).
+ * `googleShoppingSchema.test.ts` lê o `.sql` do disco e compara.
+ */
+export const GOOGLE_AGE_GROUPS = ['newborn', 'infant', 'toddler', 'kids', 'adult'] as const
+export const GOOGLE_GENDERS = ['male', 'female', 'unisex'] as const
+
+export type GoogleAgeGroup = (typeof GOOGLE_AGE_GROUPS)[number]
+export type GoogleGender = (typeof GOOGLE_GENDERS)[number]
+
+/**
+ * O default do interruptor.
+ *
+ * Precisa dizer o MESMO que a migration `20260816130000_30-google-shopping.sql` grava —
+ * `storeSettingsDefaults.test.ts` lê o `.sql` do disco e compara campo a campo. Divergir não quebra
+ * build, tipo nem teste de componente: a tela só mostraria um estado antes de a linha chegar do
+ * banco e outro depois, e o estado em questão é "o feed está ligado?".
+ */
+export const DEFAULT_GOOGLE_SHOPPING: GoogleShoppingSettings = {
+  enabled: false,
+  ever_enabled: false,
+  merchant_id: '685367464',
+  default_product_category: 'Apparel & Accessories > Jewelry',
+  last_fetched_at: null,
+}
+
 export type SettingsKey =
   | 'general'
   | 'shipping'
@@ -149,6 +206,7 @@ export type SettingsKey =
   | 'abandoned_cart'
   | 'checkout'
   | 'material'
+  | 'google_shopping'
 
 export interface SettingsMap {
   general: GeneralSettings
@@ -158,4 +216,5 @@ export interface SettingsMap {
   abandoned_cart: AbandonedCartSettings
   checkout: CheckoutSettings
   material: MaterialSettings
+  google_shopping: GoogleShoppingSettings
 }

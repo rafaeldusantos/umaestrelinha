@@ -16,7 +16,17 @@
       "statusCode": 301
     }
   ],
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
+  "rewrites": [
+    {
+      "source": "/feeds/google-shopping.xml",
+      "destination": "https://PROJECT-REF.supabase.co/functions/v1/google-feed"
+    },
+    {
+      "source": "/produtos/:slug",
+      "destination": "https://PROJECT-REF.supabase.co/functions/v1/product-page?slug=:slug"
+    },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ],
   "headers": [
     {
       "source": "/assets/(.*)",

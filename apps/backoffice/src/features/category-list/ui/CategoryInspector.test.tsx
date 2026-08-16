@@ -61,6 +61,9 @@ describe('CategoryInspector — Salvar grava o que a T52 criou (T56 AC 1)', () =
     fireEvent.click(screen.getByLabelText('Mostrar na vitrine'))
     fireEvent.click(screen.getByRole('button', { name: 'Salvar' }))
 
+    // Feature 30: o payload ganhou `google_product_category`. A asserção foi reescrita porque a
+    // spec mudou o comportamento — e ela continua sendo IGUALDADE EXATA, que é o que impede um
+    // campo novo de entrar na gravação sem ninguém decidir.
     expect(onSave).toHaveBeenCalledWith('anime', {
       name: 'Animê',
       slug: 'anime-br',
@@ -68,6 +71,7 @@ describe('CategoryInspector — Salvar grava o que a T52 criou (T56 AC 1)', () =
       banner_url: null,
       parent_id: null,
       active: false,
+      google_product_category: null,
     })
   })
 
@@ -83,6 +87,36 @@ describe('CategoryInspector — Salvar grava o que a T52 criou (T56 AC 1)', () =
     expect(onSave).toHaveBeenCalledWith('anime', expect.objectContaining({
       description: null,
       banner_url: null,
+    }))
+  })
+
+  it('a categoria do Google preenchida é gravada (GSH-23)', () => {
+    const { onSave } = setup()
+
+    fireEvent.change(screen.getByLabelText('Categoria do Google'), {
+      target: { value: 'Apparel & Accessories > Jewelry > Bracelets' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar' }))
+
+    expect(onSave).toHaveBeenCalledWith('anime', expect.objectContaining({
+      google_product_category: 'Apparel & Accessories > Jewelry > Bracelets',
+    }))
+  })
+
+  it('categoria do Google vazia grava `null`, não string vazia', () => {
+    const { onSave } = setup({
+      category: cat({
+        id: 'anime',
+        name: 'Anime',
+        google_product_category: 'Algo',
+      } as never),
+    })
+
+    fireEvent.change(screen.getByLabelText('Categoria do Google'), { target: { value: '' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar' }))
+
+    expect(onSave).toHaveBeenCalledWith('anime', expect.objectContaining({
+      google_product_category: null,
     }))
   })
 })
@@ -272,5 +306,30 @@ describe('CategoryInspector — trocar de categoria (T56)', () => {
     )
 
     expect(screen.getByLabelText('Nome')).toHaveValue('K-Pop')
+  })
+})
+
+// Feature 30 · GSH-23 — a taxonomia do Google por categoria
+describe('categoria do Google', () => {
+  it('o campo existe no inspetor', () => {
+    setup()
+    expect(screen.getByLabelText('Categoria do Google')).toBeTruthy()
+  })
+
+  it('mostra o valor gravado', () => {
+    setup({ category: cat({ id: 'anime', name: 'Anime', google_product_category: 'Apparel & Accessories > Jewelry' } as never) })
+    expect((screen.getByLabelText('Categoria do Google') as HTMLInputElement).value).toBe(
+      'Apparel & Accessories > Jewelry',
+    )
+  })
+
+  it('vazio quando a categoria não define — herda o padrão da loja', () => {
+    setup()
+    expect((screen.getByLabelText('Categoria do Google') as HTMLInputElement).value).toBe('')
+  })
+
+  it('explica que os produtos herdam', () => {
+    setup()
+    expect(screen.getByText(/herdam esta taxonomia/i)).toBeTruthy()
   })
 })

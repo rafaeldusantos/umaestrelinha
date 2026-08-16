@@ -86,6 +86,13 @@ export const normalizeVariants = (raw: unknown, productId: string): ProductVaria
       // sem que alguém tenha dito que ela entra.
       is_active: v.is_active === true,
       position: typeof v.position === 'number' && Number.isFinite(v.position) ? v.position : 0,
+      // Feature 30: é o `offer_id` que o Merchant Center indexou, e é o valor do `?variant=` que
+      // chega da Shopping. Sem ele aqui, a loja recebe a linha sem identidade pública e o clique no
+      // anúncio abre a página na variação errada — com o preço errado.
+      nuvemshop_id:
+        typeof v.nuvemshop_id === 'number' && Number.isFinite(v.nuvemshop_id)
+          ? v.nuvemshop_id
+          : null,
     })
   }
   return out

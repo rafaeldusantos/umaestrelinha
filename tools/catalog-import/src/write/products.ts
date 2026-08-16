@@ -25,6 +25,7 @@ interface ExistingProduct {
    * `true`/`false` é decisão da dona e nunca é sobrescrita.
    */
   requires_material: boolean | null
+  brand: string | null
 }
 
 interface ExistingVariant {
@@ -98,6 +99,17 @@ const sementeDeMaterial = (row: ProductRow) => {
   return { requires_material: requires, material_kinds: kinds }
 }
 
+/**
+ * A **semente de marca** (feature 30, `GSH-21`).
+ *
+ * Mesma disciplina de `sementeDeMaterial`, e pelo mesmo motivo: fora de `catalogoDoProduto`, porque
+ * aquele objeto é reescrito a cada execução. Marca ali dentro apagaria, a cada sincronização, a
+ * curadoria que a dona tivesse feito em `/admin/produtos`.
+ *
+ * Origem sem marca **não zera** a curada: `null` na origem simplesmente não semeia nada.
+ */
+const sementeDeMarca = (row: ProductRow) => (row.brand ? { brand: row.brand } : null)
+
 const linhaDaVariacao = (variant: VariantRow, productId: string) => ({
   product_id: productId,
   nuvemshop_id: variant.nuvemshop_id,
@@ -132,7 +144,7 @@ export const writeProducts = async (
   // segunda execução, que é onde ela precisa funcionar.
   const produtosExistentes = await selectAll<ExistingProduct>(
     supabase.from('products'),
-    'id, nuvemshop_id, slug, is_active, requires_material',
+    'id, nuvemshop_id, slug, is_active, requires_material, brand',
     'ler produtos existentes',
   )
 
@@ -177,12 +189,14 @@ export const writeProducts = async (
       // A semente entra no update **só quando ninguém decidiu ainda**. `true`/`false` gravado é
       // decisão da dona: reescrevê-lo apagaria a curadoria a cada sincronização do catálogo.
       const semente = existente.requires_material === null ? sementeDeMaterial(product) : null
+      // `GSH-21`: só onde ninguém decidiu ainda. Marca gravada é decisão da dona.
+      const marca = existente.brand === null ? sementeDeMarca(product) : null
       if (!deps.dryRun) {
         unwrap(
           'atualizar produto',
           await supabase
             .from('products')
-            .update({ ...catalogoDoProduto(product), ...(semente ?? {}) })
+            .update({ ...catalogoDoProduto(product), ...(semente ?? {}), ...(marca ?? {}) })
             .eq('id', productId),
         )
       }
@@ -214,6 +228,7 @@ export const writeProducts = async (
           .insert<{ id: string }>({
             ...catalogoDoProduto(product),
             ...sementeDeMaterial(product),
+            ...(sementeDeMarca(product) ?? {}),
             base_price: product.base_price,
             is_active: product.is_active,
           })
@@ -224,6 +239,7 @@ export const writeProducts = async (
       porSlug.set(product.slug, {
         id: productId, nuvemshop_id: product.nuvemshop_id, slug: product.slug,
         is_active: product.is_active, requires_material: sementeDeMaterial(product).requires_material,
+        brand: product.brand,
       })
       report.materialSeeded()
       report.created('produtos')

@@ -268,7 +268,14 @@ defeito que este projeto mais paga caro.
 
 ## BL-007 — Sitemap e dados estruturados
 
-- **Status**: aberto, **destravado** · **Registrado em**: 2026-08-09 · **Decisão**: [`AD-018`](./STATE.md)
+> **Metade FECHADA pela feature [`30-google-shopping`](./features/30-google-shopping/spec.md)**
+> (2026-08-16). Os **dados estruturados** de produto saíram: `Product` + `Offer` em JSON-LD,
+> servidos no HTML pela edge function `product-page` — e **não** injetados por JS, justamente
+> porque o rastreador do Merchant Center compara o preço da landing page com o do feed. Fica em
+> aberto o **`sitemap.xml`** e o `BreadcrumbList`; a decisão "onde o sitemap é gerado" (item 1
+> abaixo) ganhou precedente: edge function do Supabase exposta por `rewrite` do `vercel.json`.
+
+- **Status**: **parcialmente fechado** (dados estruturados ✓, sitemap em aberto) · **Registrado em**: 2026-08-09 · **Decisão**: [`AD-018`](./STATE.md)
 - **Origem**: `Out of Scope` da [`23-urls-e-seo`](./features/23-urls-e-seo/spec.md), que os adiou com
   motivo explícito: *"só fazem sentido depois de o endereçamento estar decidido"*.
 
@@ -608,3 +615,36 @@ curadoria da execução **do importador**, não de uma migração de correção.
 **Como medir hoje**: comparar a resposta extraída de `Quais materiais posso usar nessa joia?` (453
 produtos) com `material_kinds`. A `28` deixa esses textos em `product_faqs.answer_override`, o que
 torna a comparação uma consulta em vez de um parser.
+
+---
+
+## BL-016 — O host das duas rotas do Google Shopping é um marcador
+
+- **Status**: aberto, **bloqueado por `C-08`** · **Registrado em**: 2026-08-16 · **Origem**: feature
+  [`30-google-shopping`](./features/30-google-shopping/spec.md), tarefa T14
+
+O `apps/store/vercel.json` expõe as duas edge functions da `30` sob o domínio da loja:
+
+| rota | destino |
+| --- | --- |
+| `/feeds/google-shopping.xml` | `https://PROJECT-REF.supabase.co/functions/v1/google-feed` |
+| `/produtos/:slug` | `https://PROJECT-REF.supabase.co/functions/v1/product-page?slug=:slug` |
+
+**`PROJECT-REF` é marcador, não configuração.** Não existe projeto Supabase hospedado da Uma
+Estrelinha (`C-08`), então não há ref real a escrever. Inventar um plausível seria pior: o arquivo
+pareceria configurado.
+
+**O modo de falhar é caro e silencioso.** Com o marcador no ar, `/produtos/:slug` deixa de resolver —
+e não é "a página fica sem JSON-LD": é a **página de produto inteira** fora do ar, porque o rewrite
+tira a rota do catch-all do SPA. O feed responderia o mesmo erro, e o Merchant Center leria isso como
+catálogo indisponível.
+
+**O que fecha isto**: criar o projeto Supabase, trocar `PROJECT-REF` pelo ref real nas duas linhas, e
+conferir com `curl -I` que as duas respondem antes de ligar o interruptor em `/admin/google-shopping`.
+
+**Rastreado por teste**: `vercelRedirects.test.ts` exige que, enquanto o host tiver maiúscula (a
+assinatura do marcador), este item exista no backlog com o host escrito. Substituído pelo ref real, a
+asserção se aposenta sozinha.
+
+**Irmão da `BL-013`**: as duas são pendências de implantação que só se resolvem quando a
+infraestrutura existir, e as duas têm quadro branco como sintoma.

@@ -8,6 +8,7 @@
 // Tudo aqui é função pura, de propósito: o que precisa de prova é a regra, não o DOM.
 
 import { isVariantAvailable } from '@estrelinha/core/pricing'
+import { variantByPublicId } from '@estrelinha/core/shopping'
 import type {
   OptionValues,
   ProductOption,
@@ -179,6 +180,45 @@ export const initialSelection = (product: GridProduct, max: number): OptionValue
   return Object.fromEntries(
     visibleOptions(product.options, max).map(o => [o.name, o.values[0]]),
   ) as OptionValues
+}
+
+/**
+ * A linha apontada por um `?variant=` da URL, ou `null` (`GSH-10`, `GSH-11`).
+ *
+ * **O casamento não é escrito aqui.** Quem responde "que id público é este?" é
+ * `variantByPublicId` de `@estrelinha/core/shopping` — a mesma função que produziu o `<g:id>` do
+ * feed. Uma segunda regra de casamento aqui faria a loja abrir uma variação diferente da que o
+ * anúncio prometeu, e o Merchant Center reprovaria o item por preço incompatível.
+ *
+ * O que este arquivo acrescenta é a parte que é da **loja**: recusar linha pausada. Uma variação
+ * inativa não está à venda, e abri-la selecionada mostraria um preço que o carrinho não aceita.
+ * Id desconhecido, malformado ou de outro produto também devolvem `null` — os três levam ao mesmo
+ * lugar, que é a seleção padrão de sempre.
+ */
+export const findVariantByPublicId = (
+  product: GridProduct,
+  id: string | null | undefined,
+): ProductVariant | null => {
+  const achada = variantByPublicId(product.variants, id) as ProductVariant | null
+  return achada && achada.is_active ? achada : null
+}
+
+/**
+ * Os eixos visíveis, já preenchidos com os valores de uma linha específica.
+ *
+ * `null` quando a linha não cobre todos os eixos visíveis — aí não há seleção coerente a montar, e
+ * quem chama recua para `initialSelection`.
+ */
+export const selectionForVariant = (
+  product: GridProduct,
+  variant: ProductVariant | null,
+  max: number,
+): OptionValues | null => {
+  if (!variant) return null
+  const axes = visibleOptions(product.options, max).map(o => o.name)
+  if (axes.length === 0) return null
+  if (!axes.every(axis => typeof variant.option_values?.[axis] === 'string')) return null
+  return Object.fromEntries(axes.map(axis => [axis, variant.option_values[axis]])) as OptionValues
 }
 
 /** Uma vaga da placa de cor — o valor do eixo, a foto daquela cor e se ela é a escolhida. */

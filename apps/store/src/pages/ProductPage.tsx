@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { TAP_ROW } from '@/shared/lib/touchTarget'
-import { useParams, Link, Navigate, useLocation } from 'react-router-dom'
+import { useParams, Link, Navigate, useLocation, useSearchParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { ChevronRight, Heart } from 'lucide-react'
 import type { Category, Product } from '@estrelinha/supabase/types'
@@ -13,6 +13,7 @@ import { useProductFaqs } from '@/entities/product/api/useProductFaqs'
 import { useProducts } from '@/entities/product/api/useProducts'
 import { useCategories } from '@/entities/category/api/useCategories'
 import { displayCategory } from '@/entities/product/lib/displayCategory'
+import { findVariantByPublicId } from '@/entities/product/lib/variantSelection'
 import { useProductPurchase } from '@/entities/product/model/useProductPurchase'
 import ProductGallery from '@/entities/product/ui/ProductGallery'
 import ProductInfo from '@/entities/product/ui/ProductInfo'
@@ -116,7 +117,26 @@ const ProductPageBody = ({
   variantImage,
   onVariantImage,
 }: BodyProps) => {
-  const purchase = useProductPurchase(product, v => onVariantImage(v?.image_url ?? null))
+  /**
+   * `GSH-10` — a variação anunciada na Google Shopping.
+   *
+   * O `?variant=` do link do feed carrega o **mesmo número** que o `<g:id>` da oferta. Ignorá-lo faz
+   * a cliente clicar num preço no anúncio e chegar noutro na página; do lado do Google, faz o
+   * Merchant Center medir a landing page contra o feed e reprovar o item por incompatibilidade.
+   *
+   * Lido uma vez, na montagem: é semente, não estado sincronizado. Trocar de eixo depois disso é
+   * escolha da cliente e não tem por que mexer na URL.
+   */
+  const [searchParams] = useSearchParams()
+  const [variantFromUrl] = useState(() =>
+    findVariantByPublicId(product, searchParams.get('variant')),
+  )
+
+  const purchase = useProductPurchase(
+    product,
+    v => onVariantImage(v?.image_url ?? null),
+    variantFromUrl,
+  )
   /**
    * `FAQ-01`/`FAQ-09` — as perguntas do produto, lidas AQUI e passadas por prop.
    *

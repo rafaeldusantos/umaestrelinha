@@ -68,6 +68,16 @@ export interface ProductFormState {
   length_cm: number
   seo_title: string
   seo_description: string
+  // Feature 30 — o que o feed do Google Shopping emite por produto (`GSH-19`). Vazio grava `null`:
+  // uma tag `<g:brand></g:brand>` reprova a oferta, e string vazia no banco é indistinguível de
+  // "preenchi com nada".
+  brand: string
+  mpn: string
+  age_group: string
+  gender: string
+  google_product_category: string
+  /** `null` = nunca decidido, herda o padrão da loja (sem identificador). */
+  identifier_exists: boolean | null
   scheduled_at: string
   related_product_ids: string[]
   buy_together_ids: string[]
@@ -126,6 +136,12 @@ export const emptyProductForm = (): ProductFormState => ({
   length_cm: 16,
   seo_title: '',
   seo_description: '',
+  brand: '',
+  mpn: '',
+  age_group: '',
+  gender: '',
+  google_product_category: '',
+  identifier_exists: null,
   scheduled_at: '',
   related_product_ids: [],
   buy_together_ids: [],
@@ -180,6 +196,13 @@ export const productRowToForm = (row: any, opts: { asCopy?: boolean } = {}): Pro
   length_cm: row.length_cm ?? 16,
   seo_title: row.seo_title ?? '',
   seo_description: row.seo_description ?? '',
+  brand: row.brand ?? '',
+  mpn: row.mpn ?? '',
+  age_group: row.age_group ?? '',
+  gender: row.gender ?? '',
+  google_product_category: row.google_product_category ?? '',
+  identifier_exists:
+    typeof row.identifier_exists === 'boolean' ? row.identifier_exists : null,
   scheduled_at: row.scheduled_at ? String(row.scheduled_at).slice(0, 16) : '',
   related_product_ids: row.related_product_ids ?? [],
   buy_together_ids: row.buy_together_ids ?? [],

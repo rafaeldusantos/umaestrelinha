@@ -126,8 +126,73 @@ describe('vercel.json — barra final e o que já existia', () => {
     expect(CONFIG.trailingSlash).toBe(false)
   })
 
-  it('o rewrite do SPA fica intacto — sem ele nenhuma rota profunda responde no F5', () => {
-    expect(CONFIG.rewrites).toEqual([{ source: '/(.*)', destination: '/index.html' }])
+  /**
+   * Feature 30 (`GSH-03`, `GSH-12`): esta asserção foi **reescrita porque a spec mudou o
+   * comportamento**, e ela GANHOU vizinhas em vez de ser afrouxada. Até a `30` o array tinha um
+   * elemento só; agora tem três, e o que precisa ser guardado deixou de ser a igualdade e passou a
+   * ser a **ordem**.
+   */
+  it('o rewrite do SPA continua existindo — sem ele nenhuma rota profunda responde no F5', () => {
+    expect(CONFIG.rewrites).toContainEqual({ source: '/(.*)', destination: '/index.html' })
+  })
+
+  it('o catch-all é o ÚLTIMO — a Vercel avalia rewrites por ordem', () => {
+    // Um catch-all na frente engoliria o feed e a página servida **sem erro nenhum**: as duas rotas
+    // passariam a devolver o `index.html` do SPA, o Merchant Center leria HTML no lugar do RSS e a
+    // landing page voltaria a não ter JSON-LD. Nada quebraria; só pararia de funcionar.
+    const ultimo = CONFIG.rewrites[CONFIG.rewrites.length - 1]
+    expect(ultimo).toEqual({ source: '/(.*)', destination: '/index.html' })
+    expect(CONFIG.rewrites.filter((r) => r.source === '/(.*)')).toHaveLength(1)
+  })
+})
+
+describe('vercel.json — as duas rotas do Google Shopping (feature 30)', () => {
+  const porSource = (source: string) => CONFIG.rewrites.find((r) => r.source === source)
+
+  it('o feed é exposto sob o domínio da loja', () => {
+    const feed = porSource('/feeds/google-shopping.xml')
+    expect(feed).toBeDefined()
+    expect(feed.destination).toMatch(/\/functions\/v1\/google-feed$/)
+  })
+
+  it('a página do produto passa pela function que injeta o JSON-LD', () => {
+    const pagina = porSource('/produtos/:slug')
+    expect(pagina).toBeDefined()
+    expect(pagina.destination).toMatch(/\/functions\/v1\/product-page\?slug=:slug$/)
+  })
+
+  it('as duas vêm ANTES do catch-all', () => {
+    const i = (source: string) => CONFIG.rewrites.findIndex((r) => r.source === source)
+    const catchAll = i('/(.*)')
+    expect(i('/feeds/google-shopping.xml')).toBeLessThan(catchAll)
+    expect(i('/produtos/:slug')).toBeLessThan(catchAll)
+  })
+
+  it('as duas apontam para o MESMO host — meia configuração é pior que nenhuma', () => {
+    const host = (source: string) => new URL(porSource(source).destination).host
+    expect(host('/feeds/google-shopping.xml')).toBe(host('/produtos/:slug'))
+  })
+
+  it('o host é um projeto Supabase', () => {
+    for (const source of ['/feeds/google-shopping.xml', '/produtos/:slug']) {
+      expect(new URL(porSource(source).destination).host).toMatch(/\.supabase\.co$/)
+    }
+  })
+
+  /**
+   * **Não há projeto Supabase hospedado da Uma Estrelinha** (`C-08`), então o host das duas rotas é
+   * um marcador. Um marcador que ninguém rastreia é uma armadilha com prazo indeterminado — o mesmo
+   * defeito que a lista de slugs reservados existe para conter. Este teste transforma a pendência em
+   * item rastreado: enquanto o marcador estiver no arquivo, ele **precisa** estar declarado no
+   * backlog. Substituído pelo ref real, o teste sai de cena sozinho.
+   */
+  it('enquanto o host for marcador, a pendência está declarada no BACKLOG', () => {
+    const host = new URL(porSource('/produtos/:slug').destination).host
+    const ehMarcador = /[A-Z]/.test(host)
+    if (!ehMarcador) return
+    const backlog = readFileSync(join(ROOT, '.specs/BACKLOG.md'), 'utf8')
+    expect(backlog).toContain('BL-016')
+    expect(backlog).toContain(host)
   })
 
   it('os headers existentes ficam intactos', () => {

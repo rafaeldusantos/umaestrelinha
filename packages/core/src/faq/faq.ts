@@ -8,7 +8,7 @@
 // O registro do negócio é memorial. Todo texto daqui aparece em tela, e nenhum usa linguagem
 // festiva, eufemismo ou diminutivo.
 
-import type { FaqEntry, ProductFaqLink, ResolvedFaq } from './types'
+import type { FaqEntry, ProductFaqLink, ResolvedFaq } from './types.ts'
 
 // ---------------------------------------------------------------------------------------------
 // Entidades HTML — o corpus é cheio delas

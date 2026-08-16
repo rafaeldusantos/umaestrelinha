@@ -16,6 +16,7 @@ import {
   findVariant,
   hasSellableGrid,
   initialSelection,
+  selectionForVariant,
 } from '../lib/variantSelection'
 import { savingsOf, stockLineOf, type StockLine } from '../lib/productFacts'
 
@@ -62,10 +63,20 @@ export interface ProductPurchase {
 export const useProductPurchase = (
   product: Product,
   onVariantChange?: (variant: ProductVariant | null) => void,
+  initialVariant?: ProductVariant | null,
 ): ProductPurchase => {
   const [qty, setQty] = useState(1)
   // PST-05 AC 1: até 3 seletores, gerados de `products.options` na ordem de `position`.
-  const [selected, setSelected] = useState(() => initialSelection(product, PAGE_MAX_AXES))
+  //
+  // `GSH-10`: quando a URL traz `?variant=`, a semente é a linha anunciada — a cliente clicou num
+  // preço específico na Google Shopping e precisa encontrar aquele preço na tela. O que muda é a
+  // **semente**, nunca o algoritmo: sem parâmetro, ou com um que não resolve, `initialSelection`
+  // decide como sempre.
+  const [selected, setSelected] = useState(
+    () =>
+      selectionForVariant(product, initialVariant ?? null, PAGE_MAX_AXES) ??
+      initialSelection(product, PAGE_MAX_AXES),
+  )
   const [engraving, setEngravingText] = useState('')
   const addItem = useCartStore(s => s.addItem)
 

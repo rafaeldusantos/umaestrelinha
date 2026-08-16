@@ -277,3 +277,36 @@ describe('mapProduct — o que NÃO é escrito (CAT-12)', () => {
     }
   })
 })
+
+// Feature 30 · GSH-21 — a marca da origem
+//
+// A fixture tem os três casos reais medidos: string vazia, `null` e marca preenchida. O vazio é o
+// que importa — descer `''` para o banco faria o feed emitir `<g:brand></g:brand>`, e a oferta é
+// recusada por tag vazia, não por marca ausente.
+
+describe('brand', () => {
+  const doRaw = (brand: string | null) => mapped({ ...reais[0], brand } as RawProduct).brand
+
+  it('marca preenchida desce como está', () => {
+    expect(doRaw('Ateliê da Prata')).toBe('Ateliê da Prata')
+  })
+
+  it('string vazia vira null — tag vazia reprova a oferta', () => {
+    expect(doRaw('')).toBeNull()
+  })
+
+  it('só espaços vira null', () => {
+    expect(doRaw('   ')).toBeNull()
+  })
+
+  it('null continua null', () => {
+    expect(doRaw(null)).toBeNull()
+  })
+
+  it('a fixture cobre os três casos que o catálogo real tem', () => {
+    const marcas = reais.map(p => p.brand)
+    expect(marcas).toContain('')
+    expect(marcas).toContain(null)
+    expect(marcas.some(m => typeof m === 'string' && m.trim() !== '')).toBe(true)
+  })
+})

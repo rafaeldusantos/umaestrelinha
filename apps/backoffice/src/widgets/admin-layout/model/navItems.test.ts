@@ -76,7 +76,14 @@ describe('navGroups — os quatro eixos', () => {
     // Enquanto morava em `Catálogo`, a vizinhança sugeria que era mais uma coisa a cadastrar. É
     // curadoria de vitrine sobre o que já está cadastrado.
     const loja = navGroups.find(g => g.label === 'Loja')!
-    expect(loja.items.map(i => i.to)).toEqual(['/admin/home', '/admin/menu'])
+    // Feature 30: o grupo foi de dois para TRÊS itens. A asserção foi reescrita porque a spec mudou
+    // o comportamento — e ela ganhou vizinha (o caso do Google Shopping, logo abaixo) em vez de ter
+    // sido afrouxada para `toContain`.
+    expect(loja.items.map(i => i.to)).toEqual([
+      '/admin/home',
+      '/admin/menu',
+      '/admin/google-shopping',
+    ])
 
     const catalogo = navGroups.find(g => g.label === 'Catálogo')!
     expect(catalogo.items.map(i => i.to)).toEqual([
@@ -106,7 +113,24 @@ describe('navGroups — os quatro eixos', () => {
     // topo é ajuste pontual de quatro vagas. Numa lista de dois, o primeiro é onde se vai mais
     // vezes. A ordem das rotas em `App.tsx` acompanha, e o teste acima (PRM-20) prova que acompanha.
     const loja = navGroups.find(g => g.label === 'Loja')!
-    expect(loja.items.map(i => i.label)).toEqual(['Home', 'Menu da loja'])
+    expect(loja.items.map(i => i.label)).toEqual(['Home', 'Menu da loja', 'Google Shopping'])
+  })
+
+  it('`Google Shopping` fecha o grupo Loja (feature 30)', () => {
+    // É vitrine, não cadastro: o que a cliente vê **antes** de chegar. E é o item que se visita
+    // menos dos três — a Home se ajusta toda semana, o menu de vez em quando, e o feed se liga uma
+    // vez e se confere quando algo estranha.
+    const loja = navGroups.find(g => g.label === 'Loja')!
+    expect(loja.items[loja.items.length - 1].to).toBe('/admin/google-shopping')
+
+    const catalogo = navGroups.find(g => g.label === 'Catálogo')!
+    expect(catalogo.items.map(i => i.to)).not.toContain('/admin/google-shopping')
+  })
+
+  it('`/admin/google-shopping` está registrada em `App.tsx`, depois de `/admin/menu`', () => {
+    const rotas = appRoutePaths()
+    expect(rotas).toContain('/admin/google-shopping')
+    expect(rotas.indexOf('/admin/menu')).toBeLessThan(rotas.indexOf('/admin/google-shopping'))
   })
 
   it('`/admin/home` está registrada em `App.tsx`, antes de `/admin/menu`', () => {

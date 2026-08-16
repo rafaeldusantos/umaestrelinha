@@ -16,6 +16,7 @@ import AdminCategoriesPage from "@/pages/admin/AdminCategoriesPage";
 import AdminFaqsPage from "@/pages/admin/AdminFaqsPage";
 import AdminHomePage from "@/pages/admin/AdminHomePage";
 import AdminMenuPage from "@/pages/admin/AdminMenuPage";
+import AdminGoogleShoppingPage from "@/pages/admin/AdminGoogleShoppingPage";
 import AdminClientsPage from "@/pages/admin/AdminClientsPage";
 import AdminSettingsPage from "@/pages/admin/AdminSettingsPage";
 import AdminCouponsPage from "@/pages/admin/AdminCouponsPage";
@@ -76,6 +77,7 @@ const App = () => (
                 nível, mesma régua da grade rápida. */}
             <Route path="/admin/home/:sectionId" element={<AdminHomePage />} />
             <Route path="/admin/menu" element={<AdminMenuPage />} />
+            <Route path="/admin/google-shopping" element={<AdminGoogleShoppingPage />} />
 
             <Route path="/admin/configuracoes" element={<AdminSettingsPage />} />
           </Route>

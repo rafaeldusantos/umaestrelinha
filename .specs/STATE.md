@@ -376,9 +376,94 @@
 - **Status**: active — **implementada pela feature [`25-previa-real-da-home`](./features/25-previa-real-da-home/spec.md)**
   em 2026-08-15 (T1–T14).
 
+### AD-020
+- **Decision**: **Superfície que o Google lê é SERVIDA, não renderizada no cliente — e o preço que
+  ela declara vem da MESMA função que o feed.** O catálogo do Google Shopping tem um dono só,
+  `@estrelinha/core/shopping`, e as duas serializações (`renderFeedXml` para o Merchant Center,
+  `productJsonLd` para a landing page) partem do mesmo `ShoppingOffer`. A página do produto passa por
+  uma edge function que injeta o JSON-LD no `index.html` antes de responder; o feed é servido pela
+  function irmã. As duas ficam sob o domínio da loja por `rewrites` do `vercel.json`, com o catch-all
+  do SPA obrigatoriamente por último.
+- **Reason**: O Merchant Center **compara o preço do feed com o preço da landing page** e reprova o
+  item quando discordam. A loja é SPA sem SSR: o que o rastreador encontrava em `/produtos/<slug>` era
+  `<div id="root"></div>`, sem preço, sem disponibilidade e sem canônica. Com 3.233 ofertas apontando
+  para lá, o resultado do cutover não seria "sem dado estruturado" — seria reprovação em massa,
+  descoberta um dia depois. E duas escritas da mesma oferta seriam duas chances de produzir
+  exatamente essa divergência **sem quebrar nada**: build, `tsc` e teste de componente passam com o
+  feed anunciando um número e a página mostrando outro. É o defeito que a `24` matou na derivação da
+  Home e a `25` no desenho da prévia, aplicado a um lugar onde o custo é externo e lento de descobrir.
+  `shoppingParity.test.ts` mede a igualdade pelas **serializações reais** e carrega sensor embutido.
+- **Trade-off**: A `product-page` entra no caminho crítico de **toda** visita a produto, não só a do
+  rastreador — antes era arquivo estático, que não tem como cair. Mitigado por cache de borda
+  (`s-maxage=300, stale-while-revalidate=86400`), e **não** por condicionar o rewrite ao `User-Agent`:
+  servir HTML diferente para o Googlebot é cloaking. Fica uma incerteza declarada — **não confirmei
+  que a Vercel cacheia proxy para host externo**, e se não cachear a decisão precisa ser revista antes
+  do cutover. O shell é **buscado** do deploy vivo, nunca embutido: o Vite emite asset com hash a cada
+  build e um shell velho responde 200 apontando para um `<script>` que já não existe — quadro branco
+  sem erro em lugar nenhum.
+- **Scope**: `packages/core/src/shopping/**`, `supabase/functions/{google-feed,product-page}/**`,
+  `apps/store/{vercel.json,src/pages/ProductPage.tsx,src/entities/product/lib/variantSelection.ts}`,
+  `apps/backoffice/src/{pages/admin/AdminGoogleShoppingPage.tsx,features/google-shopping}`
+- **Date**: 2026-08-16
+- **Status**: active — **implementada pela feature [`30-google-shopping`](./features/30-google-shopping/spec.md)**
+  em 2026-08-16 (T0–T25). Falta a implantação: o host das duas rotas no `vercel.json` é marcador
+  (`BL-016`, bloqueado por `C-08`).
+
 ## Handoff
 
-### ATUAL — 2026-08-16 · `28-perguntas-frequentes` **IMPLEMENTADA** (T1–T28)
+### ATUAL — 2026-08-16 · `30-google-shopping` **IMPLEMENTADA** (T0–T25)
+
+**Estado**: 26 tasks em 8 fases, todas fechadas. **Commits agrupados no fim**, pela convenção do
+`CLAUDE.md` (`BL-012`). Gate verde, medido por workspace com exit code capturado.
+**Nada em andamento.** `validation.md` escrito — ver a ressalva sobre o Verifier abaixo.
+
+#### O que a `30` entrega
+
+A conta Merchant Center `685367464` tem **3.235 ofertas aprovadas**, alimentadas pela Content API do
+app da Nuvemshop. No cutover de DNS aquela fonte morre. A `30` põe o feed em casa, com os **mesmos
+`offer_id`**, e faz a landing page provar o preço que o feed anuncia.
+
+| | onde |
+| --- | --- |
+| Domínio puro — a oferta e as duas serializações | `packages/core/src/shopping/**` |
+| Feed RSS 2.0 do Merchant Center | `supabase/functions/google-feed/**` |
+| Página servida com JSON-LD no `<head>` | `supabase/functions/product-page/**` |
+| `?variant=` na loja | `entities/product/lib/variantSelection` · `model/useProductPurchase` · `ProductPage` |
+| Interruptor, cutover e diagnóstico | `apps/backoffice/src/{pages/admin/AdminGoogleShoppingPage,features/google-shopping}` |
+| Colunas e o interruptor no banco | `supabase/migrations/20260816130000_30-google-shopping.sql` |
+
+**Prova de ponta a ponta, contra o catálogo real**: `HTTP 200 · 6,99 MB · 3.233 <item> · 3.233 ids
+únicos · 0 duplicados · XML bem-formado por parser`. Contra as 3.237 do Merchant Center — a diferença
+de 4 **fica em aberto**, e só se reconcilia com o export da conta.
+
+#### O que NÃO está pronto, e é o que trava a virada
+
+1. **`BL-016` — o host das duas rotas no `vercel.json` é marcador** (`PROJECT-REF.supabase.co`).
+   Bloqueado por `C-08` (não há projeto Supabase hospedado). **Com o marcador no ar,
+   `/produtos/:slug` fica FORA DO AR** — o rewrite tira a rota do catch-all do SPA. Rastreado por
+   teste.
+2. **O cache de borda da Vercel em rewrite para host externo NÃO está confirmado.** Se não cachear, a
+   `product-page` vira o caminho quente de toda visita a produto. Registrado no `design.md` e no
+   `AD-020`.
+3. **A diferença de 4 ofertas** (3.233 nossas × 3.237 no Google) não foi explicada item a item.
+4. **A prova em viewport móvel da T17 não foi executada** — o `?variant=` não acrescenta nó ao DOM,
+   mas isso é raciocínio, não medida.
+5. **Validação sem Verifier independente.** Esta sessão não autoriza sub-agentes, então rodou o
+   *standalone fallback*: mesmo autor, com **sensor de discriminação determinístico — 13 mutantes,
+   13 mortos**. O sensor é o que dá peso ao relatório; um Verifier fresco continua desejável.
+
+#### A ordem do cutover (a tela `/admin/google-shopping` a repete)
+
+DNS → ligar o interruptor → desconectar o app Google na Nuvemshop → **excluir a fonte `Content API`**
+no Merchant Center → criar a busca agendada. Errar a ordem faz as duas fontes disputarem os mesmos
+`offer_id`.
+
+**Ambiente**: Supabase local de pé em 54341–54349, catálogo real no banco, migration da `30` aplicada
+à mão (sem `db reset`, que apagaria os 680 produtos importados). Interruptor **desligado** no banco.
+
+---
+
+### ANTERIOR — 2026-08-16 · `28-perguntas-frequentes` **IMPLEMENTADA** (T1–T28)
 
 **Estado**: 28 tasks em 6 fases, todas fechadas. **Commits agrupados no fim**, pela convenção do
 `CLAUDE.md` (`BL-012`). Gate verde, medido por workspace com exit code capturado de verdade.

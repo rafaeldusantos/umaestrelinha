@@ -582,3 +582,97 @@ describe('semente de material (feature 22)', () => {
     expect(report.data().materialSemeado).toBe(0)
   })
 })
+
+// =================================================================================================
+// Feature 30 — a semente de MARCA
+// =================================================================================================
+//
+// `RawProduct.brand` sempre existiu na API da Nuvemshop e o mapeamento a ignorava. O feed do Google
+// emite `<g:brand>`, e sem semear a coluna nasceria vazia nos 689 produtos.
+//
+// A obrigação simétrica é a mesma da semente de material, e é o que estes testes guardam: **nunca
+// sobrescrever o que a dona decidiu**. Sem isso, toda sincronização do catálogo desfaria a curadoria
+// de marca, e ninguém veria — o dano só apareceria no feed.
+
+describe('semente de marca (feature 30 · GSH-21)', () => {
+  const comMarca = (brand: string | null): ProductItem => {
+    const base = itens()[0]
+    return { product: { ...base.product, brand }, variants: [] }
+  }
+
+  it('produto NOVO nasce com a marca da origem', async () => {
+    const { db, of } = fakeDb()
+    await writeProducts([comMarca('Uma Estrelinha')], categoryUuids, {
+      supabase: db,
+      report: createReport(),
+    })
+    const insert = of('insert', 'products')[0].payload as Record<string, unknown>
+    expect(insert.brand).toBe('Uma Estrelinha')
+  })
+
+  it('origem SEM marca não grava campo nenhum — nada de string vazia', async () => {
+    const { db, of } = fakeDb()
+    await writeProducts([comMarca(null)], categoryUuids, {
+      supabase: db,
+      report: createReport(),
+    })
+    const insert = of('insert', 'products')[0].payload as Record<string, unknown>
+    expect(insert).not.toHaveProperty('brand')
+  })
+
+  it('produto EXISTENTE com `brand: null` é semeado', async () => {
+    const item = comMarca('Uma Estrelinha')
+    const { db, of } = fakeDb({
+      products: [{
+        id: 'p-1', nuvemshop_id: item.product.nuvemshop_id, slug: item.product.slug,
+        is_active: true, requires_material: true, brand: null,
+      }],
+    })
+    await writeProducts([item], categoryUuids, { supabase: db, report: createReport() })
+    const update = of('update', 'products')[0].payload as Record<string, unknown>
+    expect(update.brand).toBe('Uma Estrelinha')
+  })
+
+  it('marca já CURADA não é sobrescrita, mesmo com a origem divergente', async () => {
+    // O valor da origem difere do curado de propósito: fixtures em que os dois lados valem o mesmo
+    // não detectam sobrescrita.
+    const item = comMarca('Marca Da Origem')
+    const { db, of } = fakeDb({
+      products: [{
+        id: 'p-1', nuvemshop_id: item.product.nuvemshop_id, slug: item.product.slug,
+        is_active: true, requires_material: true, brand: 'Marca Curada Pela Dona',
+      }],
+    })
+    await writeProducts([item], categoryUuids, { supabase: db, report: createReport() })
+    const update = of('update', 'products')[0].payload as Record<string, unknown>
+    expect(update).not.toHaveProperty('brand')
+  })
+
+  it('origem sem marca NÃO zera a curada', async () => {
+    const item = comMarca(null)
+    const { db, of } = fakeDb({
+      products: [{
+        id: 'p-1', nuvemshop_id: item.product.nuvemshop_id, slug: item.product.slug,
+        is_active: true, requires_material: true, brand: 'Marca Curada Pela Dona',
+      }],
+    })
+    await writeProducts([item], categoryUuids, { supabase: db, report: createReport() })
+    const update = of('update', 'products')[0].payload as Record<string, unknown>
+    expect(update).not.toHaveProperty('brand')
+  })
+
+  it('a marca NÃO entra em `catalogoDoProduto` — o update normal não a reescreve', async () => {
+    const item = comMarca('Marca Da Origem')
+    const { db, of } = fakeDb({
+      products: [{
+        id: 'p-1', nuvemshop_id: item.product.nuvemshop_id, slug: item.product.slug,
+        is_active: true, requires_material: true, brand: 'Curada',
+      }],
+    })
+    await writeProducts([item], categoryUuids, { supabase: db, report: createReport() })
+    const update = of('update', 'products')[0].payload as Record<string, unknown>
+    // O update normal continua acontecendo — o que não pode é levar `brand` junto.
+    expect(Object.keys(update).length).toBeGreaterThan(3)
+    expect(update).not.toHaveProperty('brand')
+  })
+})

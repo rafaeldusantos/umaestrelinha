@@ -41,6 +41,16 @@ export interface DbCategory {
   /** Ocupa uma das 4 vagas da barra do topo da loja. Vale em qualquer profundidade da árvore. */
   show_in_menu: boolean
   menu_promo: MenuPromo | null
+  /**
+   * A taxonomia do Google herdada pelos produtos desta categoria (feature 30, `GSH-23`).
+   *
+   * `null` = não define; o produto cai no padrão da loja. Precedência: produto > categoria > loja,
+   * aplicada por `resolveOffer` — ninguém lê a coluna crua.
+   *
+   * **Provada por probe HTTP contra o banco antes de existir aqui** (`AD-012`): tipo escrito à mão é
+   * afirmação, e `DbCategory` já custou `PGRST204` em toda gravação de categoria uma vez.
+   */
+  google_product_category?: string | null
 }
 
 // `DbCollection` e `CollectionRule` foram removidos na feature 16.
@@ -110,6 +120,14 @@ export interface ProductVariant {
   image_url: string | null
   is_active: boolean
   position: number
+  /**
+   * O id da variação na Nuvemshop. `null` = linha criada no admin.
+   *
+   * É a **identidade pública** da linha (feature 30): o `<g:id>` do feed do Google Shopping e o
+   * valor do `?variant=` que a cliente traz ao clicar num anúncio. Quem a lê é
+   * `publicVariantId` (`@estrelinha/core/shopping`), nunca a coluna crua.
+   */
+  nuvemshop_id?: number | null
 }
 
 export interface DbProduct {

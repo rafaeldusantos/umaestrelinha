@@ -38,6 +38,8 @@ interface FormState {
   banner_url: string
   parent_id: string
   active: boolean
+  /** Feature 30 (`GSH-23`). Vazio grava `null`: string vazia reprovaria a oferta no feed. */
+  google_product_category: string
 }
 
 const toForm = (category: AdminCategory): FormState => ({
@@ -47,6 +49,8 @@ const toForm = (category: AdminCategory): FormState => ({
   banner_url: category.banner_url ?? category.image_url ?? '',
   parent_id: category.parent_id ?? '',
   active: category.active === true,
+  google_product_category: (category as { google_product_category?: string | null })
+    .google_product_category ?? '',
 })
 
 const CategoryInspector = ({
@@ -100,6 +104,9 @@ const CategoryInspector = ({
       banner_url: form.banner_url || null,
       parent_id: form.parent_id || null,
       active: form.active,
+      // `GSH-23`: vazio grava `null`. String vazia faria o feed emitir uma tag vazia, que o
+      // Merchant Center recusa — e é indistinguível de "preenchi com nada".
+      google_product_category: form.google_product_category || null,
     })
   }
 
@@ -173,6 +180,23 @@ const CategoryInspector = ({
             value={form.description}
             onChange={e => set('description', e.target.value)}
           />
+        </div>
+
+        {/* Feature 30 · `GSH-23`. Fica aqui, e não numa tela própria, porque é propriedade da
+            categoria: a alternativa é a dona repetir a escolha em 689 produtos. A precedência é
+            produto > categoria > padrão da loja, e quem a aplica é `resolveOffer`. */}
+        <div className="space-y-1.5">
+          <Label htmlFor="cat-google">Categoria do Google</Label>
+          <Input
+            id="cat-google"
+            value={form.google_product_category}
+            onChange={e => set('google_product_category', e.target.value)}
+            placeholder="Apparel &amp; Accessories &gt; Jewelry"
+          />
+          <p className="text-xs text-muted-foreground">
+            Os produtos desta categoria herdam esta taxonomia no feed do Google, salvo os que
+            definirem a própria.
+          </p>
         </div>
 
         <div className="space-y-1.5">

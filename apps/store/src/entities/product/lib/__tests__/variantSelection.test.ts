@@ -10,10 +10,12 @@ import {
   COLOR_SLOTS_MAX,
   COLOR_THUMB_PX,
   findVariant,
+  findVariantByPublicId,
   hasSellableGrid,
   initialSelection,
   needsProductPage,
   orderedOptions,
+  selectionForVariant,
   PAGE_MAX_AXES,
   visibleOptions,
   type GridProduct,
@@ -589,5 +591,104 @@ describe('axisPhotos — o conteúdo das vagas (PDP-20)', () => {
   it('a ordem das vagas é a de `axis.values`', () => {
     const p = comEixo('Modelo', ['Coração', 'Árvore', 'Gota'], ['c.webp', 'a.webp', 'g.webp'])
     expect(axisPhotos(p, eixoDe(p), {})?.map(v => v.value)).toEqual(['Coração', 'Árvore', 'Gota'])
+  })
+})
+
+// ---------------------------------------------------------------------------------------------
+// Feature 30 · GSH-10, GSH-11 — a linha apontada pelo `?variant=` que chega da Google Shopping
+// ---------------------------------------------------------------------------------------------
+
+describe('findVariantByPublicId', () => {
+  const grade = (): GridProduct => ({
+    options: [option('Tamanho', ['P', 'G'], 0)],
+    variants: [
+      variant({ Tamanho: 'P' }, { id: 'uuid-p', nuvemshop_id: 1259936246, price: 19.9 }),
+      variant({ Tamanho: 'G' }, { id: 'uuid-g', nuvemshop_id: 1259936247, price: 24.9 }),
+    ],
+    stock_policy: 'track',
+  })
+
+  it('casa por nuvemshop_id — é o id que o Merchant Center indexou', () => {
+    expect(findVariantByPublicId(grade(), '1259936246')?.id).toBe('uuid-p')
+  })
+
+  it('casa por UUID e chega na MESMA linha, sem segundo caminho de código', () => {
+    expect(findVariantByPublicId(grade(), 'uuid-p')?.id).toBe('uuid-p')
+  })
+
+  it('distingue as duas linhas do mesmo produto', () => {
+    expect(findVariantByPublicId(grade(), '1259936247')?.id).toBe('uuid-g')
+  })
+
+  it('id desconhecido devolve null', () => {
+    expect(findVariantByPublicId(grade(), '999999')).toBeNull()
+  })
+
+  it('id malformado devolve null, sem lançar', () => {
+    expect(findVariantByPublicId(grade(), '%%%')).toBeNull()
+  })
+
+  it('id vazio, nulo e indefinido devolvem null', () => {
+    expect(findVariantByPublicId(grade(), '')).toBeNull()
+    expect(findVariantByPublicId(grade(), null)).toBeNull()
+    expect(findVariantByPublicId(grade(), undefined)).toBeNull()
+  })
+
+  it('id de variação de OUTRO produto devolve null — a busca é dentro deste produto', () => {
+    const outro: GridProduct = {
+      ...grade(),
+      variants: [variant({ Tamanho: 'P' }, { id: 'uuid-x', nuvemshop_id: 8888888 })],
+    }
+    expect(findVariantByPublicId(outro, '1259936246')).toBeNull()
+  })
+
+  it('variação INATIVA devolve null — não está à venda, e abri-la mostraria um preço não vendável', () => {
+    const pausada: GridProduct = {
+      ...grade(),
+      variants: [variant({ Tamanho: 'P' }, { id: 'uuid-p', nuvemshop_id: 1259936246, is_active: false })],
+    }
+    expect(findVariantByPublicId(pausada, '1259936246')).toBeNull()
+  })
+})
+
+describe('selectionForVariant', () => {
+  const doisEixos = (): GridProduct => ({
+    options: [option('Tamanho', ['P', 'G'], 0), option('Cor', ['Ouro', 'Prata'], 1)],
+    variants: [variant({ Tamanho: 'G', Cor: 'Ouro' }, { id: 'uuid-go' })],
+    stock_policy: 'track',
+  })
+
+  it('devolve os eixos visíveis preenchidos com os valores da linha', () => {
+    const p = doisEixos()
+    expect(selectionForVariant(p, p.variants[0], PAGE_MAX_AXES)).toEqual({
+      Tamanho: 'G',
+      Cor: 'Ouro',
+    })
+  })
+
+  it('respeita o teto de eixos da superfície', () => {
+    const p = doisEixos()
+    expect(Object.keys(selectionForVariant(p, p.variants[0], 1) ?? {})).toEqual(['Tamanho'])
+  })
+
+  it('linha nula devolve null', () => {
+    expect(selectionForVariant(doisEixos(), null, PAGE_MAX_AXES)).toBeNull()
+  })
+
+  it('produto sem eixo devolve null', () => {
+    const simples: GridProduct = { options: [], variants: [variant({})], stock_policy: 'track' }
+    expect(selectionForVariant(simples, simples.variants[0], PAGE_MAX_AXES)).toBeNull()
+  })
+
+  it('linha que não cobre todos os eixos visíveis devolve null — não há seleção coerente', () => {
+    const p = doisEixos()
+    const incompleta = variant({ Tamanho: 'G' }, { id: 'uuid-inc' })
+    expect(selectionForVariant(p, incompleta, PAGE_MAX_AXES)).toBeNull()
+  })
+
+  it('o resultado é uma seleção que findVariant resolve de volta para a MESMA linha', () => {
+    const p = doisEixos()
+    const sel = selectionForVariant(p, p.variants[0], PAGE_MAX_AXES)!
+    expect(findVariant(p.variants, sel)?.id).toBe('uuid-go')
   })
 })

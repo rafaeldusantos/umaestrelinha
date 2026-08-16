@@ -4,6 +4,7 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
   DEFAULT_GENERAL,
+  DEFAULT_GOOGLE_SHOPPING,
   DEFAULT_PAYMENT,
   DEFAULT_SEO,
   DEFAULT_SHIPPING,
@@ -61,6 +62,17 @@ const seoSql = bloco(sql[0], 'seo')
 const shippingSql = bloco(sql[0], 'shipping')
 const paymentSql = bloco(sql[0], 'payment')
 
+/**
+ * A chave `google_shopping` nasceu na feature 30, então ela não está nas duas migrations
+ * originais — mora na sua própria (`GSH-15`). O mesmo parser vale porque a migration 30
+ * escreve o INSERT na mesma forma, de propósito.
+ */
+const SQL_GOOGLE = readFileSync(
+  `${MIGRATIONS}/20260816130000_30-google-shopping.sql`,
+  'utf8',
+)
+const googleSql = bloco(SQL_GOOGLE, 'google_shopping')
+
 describe('defaults de store_settings — âncoras', () => {
   it('leu as duas migrations do disco', () => {
     // Sem esta âncora, um caminho errado faz o parser devolver `{}` para tudo,
@@ -78,6 +90,46 @@ describe('defaults de store_settings — âncoras', () => {
 
   it('as duas migrations continuam idênticas uma à outra', () => {
     expect(sql[0]).toBe(sql[1])
+  })
+
+  it('leu a migration da 30 e extraiu o bloco do Google Shopping', () => {
+    expect(SQL_GOOGLE).toContain('jsonb_build_object')
+    expect(Object.keys(googleSql).length).toBeGreaterThanOrEqual(4)
+  })
+})
+
+describe('google_shopping — o interruptor diz o mesmo nos dois lados', () => {
+  it('nasce desligado no SQL e no TypeScript', () => {
+    expect(DEFAULT_GOOGLE_SHOPPING.enabled).toBe(false)
+    expect(googleSql.enabled).toBe(false)
+  })
+
+  it('nasce sem histórico de ter sido ligado', () => {
+    expect(DEFAULT_GOOGLE_SHOPPING.ever_enabled).toBe(false)
+    expect(googleSql.ever_enabled).toBe(false)
+  })
+
+  it('o ID do Merchant Center é o da conta real, nos dois lados', () => {
+    expect(DEFAULT_GOOGLE_SHOPPING.merchant_id).toBe('685367464')
+    expect(googleSql.merchant_id).toBe(DEFAULT_GOOGLE_SHOPPING.merchant_id)
+  })
+
+  it('a categoria padrão do Google é a mesma nos dois lados', () => {
+    expect(googleSql.default_product_category).toBe(
+      DEFAULT_GOOGLE_SHOPPING.default_product_category,
+    )
+  })
+
+  it('todo campo literal do SQL tem o mesmo valor no TypeScript', () => {
+    const divergentes: string[] = []
+    const doTs = DEFAULT_GOOGLE_SHOPPING as unknown as Record<string, unknown>
+    for (const [campo, valor] of Object.entries(googleSql)) {
+      if (!(campo in doTs)) continue
+      if (doTs[campo] !== valor) {
+        divergentes.push(`google_shopping.${campo}: SQL ${JSON.stringify(valor)} ≠ TS ${JSON.stringify(doTs[campo])}`)
+      }
+    }
+    expect(divergentes).toEqual([])
   })
 })
 

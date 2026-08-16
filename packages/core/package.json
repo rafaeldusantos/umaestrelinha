@@ -22,7 +22,8 @@
     "./routes": "./src/routes/index.ts",
     "./material": "./src/material/index.ts",
     "./home": "./src/home/index.ts",
-    "./faq": "./src/faq/index.ts"
+    "./faq": "./src/faq/index.ts",
+    "./shopping": "./src/shopping/index.ts"
   },
   "scripts": {
     "test": "vitest run"
