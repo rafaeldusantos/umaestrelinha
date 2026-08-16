@@ -79,7 +79,26 @@ describe('navGroups — os quatro eixos', () => {
     expect(loja.items.map(i => i.to)).toEqual(['/admin/home', '/admin/menu'])
 
     const catalogo = navGroups.find(g => g.label === 'Catálogo')!
-    expect(catalogo.items.map(i => i.to)).toEqual(['/admin/produtos', '/admin/categorias'])
+    expect(catalogo.items.map(i => i.to)).toEqual([
+      '/admin/produtos',
+      '/admin/categorias',
+      '/admin/perguntas',
+    ])
+    // A afirmação que importa aqui, e que a lista acima só ilustra.
+    expect(catalogo.items.map(i => i.to)).not.toContain('/admin/menu')
+  })
+
+  it('`Perguntas frequentes` entra em Catálogo, por último (feature 28)', () => {
+    // Conteúdo de catálogo, não curadoria de vitrine — o que separa este grupo de `Loja`. Por último
+    // porque é o que se visita menos: produto e categoria se cadastram toda semana.
+    const catalogo = navGroups.find(g => g.label === 'Catálogo')!
+    const ultimo = catalogo.items[catalogo.items.length - 1]
+
+    expect(ultimo.to).toBe('/admin/perguntas')
+    expect(ultimo.label).toBe('Perguntas frequentes')
+
+    const loja = navGroups.find(g => g.label === 'Loja')!
+    expect(loja.items.map(i => i.to)).not.toContain('/admin/perguntas')
   })
 
   it('`Home` vem ACIMA de `Menu da loja` no grupo Loja (feature 24)', () => {

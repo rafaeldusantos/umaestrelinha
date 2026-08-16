@@ -1,4 +1,4 @@
-import { House, LayoutDashboard, Package, Percent, Tags, Menu, ShoppingCart, ShoppingBag, Ticket, Users, Settings } from 'lucide-react'
+import { HelpCircle, House, LayoutDashboard, Package, Percent, Tags, Menu, ShoppingCart, ShoppingBag, Ticket, Users, Settings } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 export interface NavItem {
@@ -42,6 +42,11 @@ export interface NavGroup {
  * curada — sete seções com texto, arte e ordem —, e a barra do topo é ajuste pontual de quatro
  * vagas. Numa lista de dois, o primeiro é onde se vai mais vezes.
  *
+ * **`Perguntas frequentes` entra em `Catálogo`, depois de Categorias** (feature 28): é conteúdo de
+ * catálogo, e não curadoria de vitrine — o que separa este grupo de `Loja`. Fica por último dos três
+ * porque é o que se visita menos: produto e categoria se cadastram toda semana, a biblioteca de
+ * perguntas se ajusta de vez em quando.
+ *
  * `/admin/produtos/grade-rapida` não entra: é uma tela alcançada de dentro de Produtos, não um
  * destino de primeiro nível. **`/admin/home/:sectionId` não entra pela mesma régua** — o editor de
  * uma seção se alcança de dentro da Home, e pô-lo na sidebar exigiria um id em código.
@@ -71,6 +76,7 @@ export const navGroups: NavGroup[] = [
     items: [
       { to: '/admin/produtos', icon: Package, label: 'Produtos' },
       { to: '/admin/categorias', icon: Tags, label: 'Categorias' },
+      { to: '/admin/perguntas', icon: HelpCircle, label: 'Perguntas frequentes' },
     ],
   },
   {
