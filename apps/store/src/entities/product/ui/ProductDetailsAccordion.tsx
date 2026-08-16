@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import {
   Accordion,
   AccordionContent,
@@ -5,7 +6,9 @@ import {
   AccordionTrigger,
 } from '@estrelinha/ui/accordion'
 import type { Product } from '@estrelinha/supabase/types'
+import { sanitizeHtml } from '@/shared/lib/sanitizeHtml'
 import { productSpecs } from '../lib/productFacts'
+import ProductDescription from './ProductDescription'
 
 /**
  * "Detalhes do Produto / Cuidados / Trocas / Perguntas Frequentes" — boards de Produto.
@@ -13,28 +16,46 @@ import { productSpecs } from '../lib/productFacts'
  * Quatro seções, a primeira aberta: é a única que traz dado do cadastro, e deixar tudo fechado
  * esconderia a ficha técnica atrás de um clique que quase toda visita dá.
  *
- * Os bullets da primeira vêm de `productSpecs`, que lê as medidas do produto quando existem. As
- * outras três são política da loja, iguais para todo o catálogo — texto mesmo, não cadastro.
+ * A primeira traz a **descrição completa** e, abaixo dela, os bullets de `productSpecs` (as medidas
+ * do produto, quando existem). A descrição chegou aqui na feature 27: ela vivia entre o preço e o
+ * seletor de variação, e com mediana de 2.271 caracteres empurrava o CTA para fora da primeira tela.
+ * As outras três seções são política da loja, iguais para todo o catálogo — texto mesmo, não
+ * cadastro.
  *
- * Desde a `PIN-05` a ficha pode vir **vazia** (produto sem medida cadastrada): aí a seção inteira
- * não é montada, e a que abre é "Cuidados". Uma seção aberta e vazia seria pior que ausente.
+ * Desde a `PIN-05` a seção pode vir **vazia** (produto sem medida cadastrada): aí ela não é montada,
+ * e a que abre é "Cuidados". Uma seção aberta e vazia seria pior que ausente. A `PDP-10` mantém a
+ * regra e só acrescenta a descrição à conta do que é "vazia".
  */
 const ProductDetailsAccordion = ({ product }: { product: Product }) => {
   const specs = productSpecs(product)
 
+  /**
+   * A mesma função que o `ProductDescription` chama, e de propósito.
+   *
+   * Quem monta o `dangerouslySetInnerHTML` **tem** de ser quem sanitiza — é o que faz o componente
+   * ser seguro venha de onde vier a chamada. Aqui a pergunta é outra: "sobra alguma coisa?", e ela
+   * precisa ser respondida antes de decidir montar a seção. Uma descrição que só tinha `<script>`
+   * abriria uma seção em branco se a decisão olhasse o campo cru.
+   */
+  const temDescricao = useMemo(() => sanitizeHtml(product.description) !== '', [product.description])
+  const temDetalhes = temDescricao || specs.length > 0
+
   return (
-  <Accordion type="single" collapsible defaultValue={specs.length > 0 ? 'detalhes' : 'cuidados'} className="w-full">
-    {specs.length > 0 && (
+  <Accordion type="single" collapsible defaultValue={temDetalhes ? 'detalhes' : 'cuidados'} className="w-full">
+    {temDetalhes && (
     <AccordionItem value="detalhes" className="border-estrelinha-line">
       <AccordionTrigger className="py-3.5 font-body text-[15px] font-bold leading-[18px] text-estrelinha-ink hover:no-underline">
         Detalhes do Produto
       </AccordionTrigger>
       <AccordionContent className="pb-4">
-        <ul className="flex flex-col gap-1.5 text-[13px] leading-[20px] text-estrelinha-ink-soft">
-          {specs.map(spec => (
-            <li key={spec}>• {spec}</li>
-          ))}
-        </ul>
+        <ProductDescription html={product.description} />
+        {specs.length > 0 && (
+          <ul className="mt-4 flex flex-col gap-1.5 text-[13px] leading-[20px] text-estrelinha-ink-soft first:mt-0">
+            {specs.map(spec => (
+              <li key={spec}>• {spec}</li>
+            ))}
+          </ul>
+        )}
       </AccordionContent>
     </AccordionItem>
     )}
