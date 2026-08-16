@@ -8,6 +8,7 @@ import { createReport, type Report } from './report.ts'
 import type { BytesCache } from './write/cache.ts'
 import { writeCategories } from './write/categories.ts'
 import { type DbLike, selectAll } from './write/db.ts'
+import { writeFaqs } from './write/faqs.ts'
 import { writeProductImages, writeProducts, writeVariantImages, type ProductImageRow, type ProductItem } from './write/products.ts'
 import { ensureImage, existingPaths, type StorageClientLike } from './write/storage.ts'
 
@@ -21,7 +22,7 @@ import { ensureImage, existingPaths, type StorageClientLike } from './write/stor
  * Reason: `only` prometia isolamento que as dependências entre fases tornam impossível; o nome novo
  * descreve o que a flag de fato faz.
  */
-export type StopAfter = 'categorias' | 'produtos' | 'imagens'
+export type StopAfter = 'categorias' | 'produtos' | 'perguntas' | 'imagens'
 
 export interface RunOptions {
   dryRun?: boolean
@@ -155,6 +156,27 @@ export const run = async (deps: RunDeps, options: RunOptions = {}): Promise<Repo
 
     const productUuids = await writeProducts(paraGravar, categoryUuids, writeDeps)
     if (stopAfter === 'produtos') return report
+
+    // ---- 2b · perguntas frequentes (feature 28) --------------------------
+    //
+    // Depois dos produtos porque precisa dos uuids, e ANTES das imagens porque é barata (duas
+    // leituras e dois lotes de insert) e a fase de imagem é a longa: um erro de FAQ aparece em
+    // segundos em vez de depois de 3.660 downloads.
+    //
+    // A descrição vem do MAPEAMENTO, e não de uma releitura do banco: é o mesmo texto que
+    // `writeProducts` acabou de gravar, e reler custaria uma varredura de 691 linhas para chegar ao
+    // mesmo lugar.
+    log('fase 2b · perguntas frequentes')
+    await writeFaqs(
+      paraGravar
+        .map(item => ({
+          id: productUuids.get(item.product.nuvemshop_id) ?? '',
+          description: item.product.description ?? null,
+        }))
+        .filter(p => p.id !== ''),
+      writeDeps,
+    )
+    if (stopAfter === 'perguntas') return report
 
     // ---- 3 · imagens -----------------------------------------------------
     if (dryRun) {

@@ -67,7 +67,33 @@ export interface ReportData {
    * diferença entre "semeou 400 produtos" e "semeou zero porque a regex quebrou" é invisível.
    */
   materialSemeado: number
+  /**
+   * Feature 28 — a semente das perguntas frequentes.
+   *
+   * **Cinco números, e não um.** "criou 3.476 vínculos" não diz se a execução fez trabalho ou se
+   * pulou tudo: `produtosPulados` (já tinham curadoria) e `produtosSemBloco` (a descrição não traz
+   * FAQ) são desfechos legítimos e diferentes entre si, e sem eles a segunda execução — que grava
+   * zero de propósito — pareceria uma falha silenciosa.
+   */
+  faq: FaqSeedCounts
   parouPorErro: string | null
+}
+
+export interface FaqSeedCounts {
+  entradasCriadas: number
+  vinculosCriados: number
+  vinculosComRespostaPropria: number
+  produtosPulados: number
+  produtosSemBloco: number
+  /**
+   * Pares descartados por repetirem, no MESMO produto, uma pergunta que ele já tinha.
+   *
+   * Existe porque aconteceu: um produto do catálogo repete "As joias são realmente feitas à mão?"
+   * na descrição, e a PK `(product_id, faq_id)` recusa o lote inteiro. Sem esta linha, o descarte
+   * seria silencioso — e "3.475 em vez de 3.476" é exatamente o tipo de diferença que ninguém
+   * investiga sem um número que a nomeie.
+   */
+  duplicadasNoProduto: number
 }
 
 export interface Balance {
@@ -104,6 +130,14 @@ export const createReport = () => {
     imagensFalhadas: [],
     vitrinePreservada: [],
     materialSemeado: 0,
+    faq: {
+      entradasCriadas: 0,
+      vinculosCriados: 0,
+      vinculosComRespostaPropria: 0,
+      produtosPulados: 0,
+      produtosSemBloco: 0,
+      duplicadasNoProduto: 0,
+    },
     parouPorErro: null,
   }
 
@@ -146,6 +180,7 @@ export const createReport = () => {
     categoryExcluded: (categoria: CuratedCategory) => { data.categoriasExcluidas.push(categoria) },
     showcasePreserved: (campo: PreservedShowcase) => { data.vitrinePreservada.push(campo) },
     materialSeeded: (n = 1) => { data.materialSemeado += n },
+    faqSeeded: (counts: FaqSeedCounts) => { data.faq = { ...counts } },
 
     /** Parada limpa (`CAT-06`): registra o motivo e garante saída diferente de zero. */
     aborted: (motivo: string) => { data.parouPorErro = motivo },
@@ -184,6 +219,14 @@ export const createReport = () => {
       linhas.push(`imagens       novas ${data.imagens.novas} · reusadas ${data.imagens.reusadas} · falhadas ${data.imagens.falhadas}`)
       linhas.push(`variações     com foto ${data.fotosDeVariacao.com} · sem foto ${data.fotosDeVariacao.sem}`)
       linhas.push(`material      semeado em ${data.materialSemeado} produto(s) que ainda não tinham decisão`)
+      linhas.push('')
+      linhas.push('perguntas frequentes:')
+      linhas.push(`  entradas criadas na biblioteca ....... ${data.faq.entradasCriadas}`)
+      linhas.push(`  vínculos criados .................... ${data.faq.vinculosCriados}`)
+      linhas.push(`  desses, com resposta própria ........ ${data.faq.vinculosComRespostaPropria}`)
+      linhas.push(`  produtos pulados (já tinham) ........ ${data.faq.produtosPulados}`)
+      linhas.push(`  produtos sem bloco na descrição ..... ${data.faq.produtosSemBloco}`)
+      linhas.push(`  pares repetidos no mesmo produto .... ${data.faq.duplicadasNoProduto}`)
 
       if (data.categoriasInativadas.length > 0) {
         linhas.push('', 'categorias desativadas por curadoria:')
