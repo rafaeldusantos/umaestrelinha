@@ -6,14 +6,20 @@ import { MemoryRouter } from 'react-router-dom'
  * A Políticas deixou de ser sem estado na feature 27: o percentual do Pix passou a vir das settings
  * (`PDP-24`), em vez de cravado no texto. As outras duas páginas seguem sem dado nenhum.
  */
-const { settingsPagamento, settingsFrete } = vi.hoisted(() => ({
+const { settingsPagamento, settingsFrete, settingsGeral } = vi.hoisted(() => ({
   settingsPagamento: { pix_enabled: true, pix_discount_percent: 5 },
   settingsFrete: { free_shipping_threshold: 150 },
+  // Feature 29: a Sobre passou a ler `whatsapp` das settings para decidir se a ação "Falar com a
+  // Adri" existe. O mock deste arquivo substitui o módulo inteiro, então um hook novo consumido
+  // por qualquer uma das três páginas precisa aparecer aqui — senão o render estoura antes de
+  // qualquer asserção de copy.
+  settingsGeral: { whatsapp: '', store_name: 'Uma Estrelinha' },
 }))
 
 vi.mock('@estrelinha/core/hooks/useStoreSettings', () => ({
   usePaymentSettings: () => settingsPagamento,
   useShippingSettings: () => settingsFrete,
+  useGeneralSettings: () => settingsGeral,
 }))
 
 import AboutPage from '../AboutPage'

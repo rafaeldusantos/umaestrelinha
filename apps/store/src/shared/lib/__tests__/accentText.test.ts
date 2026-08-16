@@ -45,6 +45,8 @@ const PERMITIDOS: Record<string, string> = {
     'ÍCONE de favorito (coração de 16px), não texto: `accent-strong` sobre branco mede 3,85:1, acima dos 3:1 que a WCAG 1.4.11 pede para objeto gráfico.',
   'widgets/category-grid/ui/CategoryGrid.tsx':
     'Título do card de tinta (ouro sobre `ink`, 4,78:1) e a inicial marca-d’água a 40%, que é ornamento e não carrega informação.',
+  'pages/AboutPage.tsx':
+    'ÍCONE em três lugares, e texto em nenhum: a estrela decorativa sai `accent-strong` sobre `ground-deep` (3,17:1) e `accent` sobre `primary` (3,33:1) — os dois acima dos 3:1 de objeto gráfico. O versalete da assinatura, que o artboard pedia em ouro, saiu em `ink-soft` justamente porque ali é TEXTO.',
   'widgets/home-sections/ui/BrandStatement.tsx':
     'A faixa institucional da home é `bg-estrelinha-ink` inteira: o eyebrow e o fio ao lado dele medem 4,78:1 ali. O título e o corpo NÃO são ouro — saem em `on-primary` e `ground`, que passam de 12:1.',
 }

@@ -188,6 +188,12 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: HOME-26 + apps/store/src/widgets/home-banners/ui/__tests__/HomeBannerGrid.test.tsx:117 (testing/responsive)
 - last seen: 2026-08-15T18:37:47Z
 
+### L-030 — vi.mock que substitui um modulo INTEIRO (sem importOriginal) quebra no primeiro hook novo que qualquer pagina coberta por ele passar a consumir — o erro aparece no render, nao na assercao; antes de afirmar 'o guarda passa sem edicao', liste os mocks totais dos testes que montam a pagina alterada.
+- signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `apps/store/src/pages/__tests__` · harmful: 0
+- features: 29-pagina-sobre
+- evidence: AC-9 / apps/store/src/pages/__tests__/copyInstitucional.test.tsx:14 (apps/store/src/pages/__tests__)
+- last seen: 2026-08-16T16:22:29Z
+
 ## Quarantined (failed when applied — ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.

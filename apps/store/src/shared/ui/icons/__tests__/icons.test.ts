@@ -153,3 +153,38 @@ describe('biblioteca de ícones — contrato de uso', () => {
     }
   })
 })
+
+/**
+ * Feature 29 / `SOB-13` — a estrela da loja é o **ornamento do logotipo**.
+ *
+ * Era uma estrela genérica de cinco pontas, e a diferença não é decorativa: a faísca da marca tem
+ * quatro pontas e os lados **côncavos**, com a concavidade em 8,7% da meia-extensão. Trocar as
+ * curvas por retas devolve um losango, e nada mais nesta suíte acusaria — traço, grade e cor
+ * continuariam certos.
+ */
+describe('estrela — o ornamento do logotipo (SOB-13)', () => {
+  const fonte = read('EstrelinhaStarIcon.tsx')
+
+  it('é a faísca de quatro pontas, com os lados curvos', () => {
+    // Quatro curvas quadráticas fechando o contorno: uma por lado.
+    const curvas = fonte.match(/\sQ[\d.]+ [\d.]+ [\d.]+ [\d.]+/g) ?? []
+    expect(curvas).toHaveLength(4)
+    // E nenhuma reta: `L` no meio do contorno seria o losango.
+    expect(fonte).not.toMatch(/d="[^"]*\sL[\d.]/)
+  })
+
+  it('as pontas caem nos eixos da grade de 24, centradas', () => {
+    // Topo, direita, base e esquerda a 9 de distância do centro (12,12).
+    expect(fonte).toContain('M12 3')
+    expect(fonte).toContain('21 12')
+    expect(fonte).toContain('12 21')
+    expect(fonte).toContain('3 12')
+  })
+
+  it('a concavidade é simétrica nos quatro lados', () => {
+    // Os quatro controles são as combinações de 8,28 e 15,72 — o par que põe o controle a 8,7% da
+    // meia-extensão em direção ao centro. Assimetria aqui entorta a faísca sem quebrar mais nada.
+    const controles = (fonte.match(/(8\.28|15\.72)/g) ?? []).length
+    expect(controles).toBe(8)
+  })
+})

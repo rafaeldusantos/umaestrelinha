@@ -3,7 +3,7 @@
   "promote_threshold": 2,
   "window_days": 45,
   "quarantine_threshold": 2,
-  "next_id": 30,
+  "next_id": 31,
   "lessons": [
     {
       "id": "L-001",
@@ -526,6 +526,24 @@
       ],
       "created": "2026-08-15T18:37:47Z",
       "last_seen": "2026-08-15T18:37:47Z"
+    },
+    {
+      "id": "L-030",
+      "key": "spec_precision_gap::vi mock que substitui um modulo inteiro sem importoriginal quebra no primeiro hook novo que qualquer pagina coberta por ele passar a consumir o erro aparece no render nao na assercao antes de afirmar o guarda passa sem edicao liste os mocks totais dos testes que montam a pagina alterada",
+      "text": "vi.mock que substitui um modulo INTEIRO (sem importOriginal) quebra no primeiro hook novo que qualquer pagina coberta por ele passar a consumir — o erro aparece no render, nao na assercao; antes de afirmar 'o guarda passa sem edicao', liste os mocks totais dos testes que montam a pagina alterada.",
+      "signal": "spec_precision_gap",
+      "scope": "apps/store/src/pages/__tests__",
+      "status": "candidate",
+      "features": [
+        "29-pagina-sobre"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "AC-9 / apps/store/src/pages/__tests__/copyInstitucional.test.tsx:14 (apps/store/src/pages/__tests__)"
+      ],
+      "created": "2026-08-16T16:22:29Z",
+      "last_seen": "2026-08-16T16:22:29Z"
     }
   ]
 }
