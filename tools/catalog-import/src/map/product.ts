@@ -46,6 +46,14 @@ export interface ProductRow {
   width_cm: number | null
   height_cm: number | null
   length_cm: number | null
+  /**
+   * A marca da origem (feature 30, `GSH-21`).
+   *
+   * `RawProduct.brand` sempre existiu na API e este mapeamento a ignorava. O feed do Google emite
+   * `<g:brand>` quando ela existe, e omite a tag quando não — string vazia reprovaria a oferta, por
+   * isso o vazio vira `null` aqui e não desce como `''`.
+   */
+  brand: string | null
   /** Ids da Nuvemshop; o layer de escrita resolve para uuid e grava em `product_categories`. */
   category_nuvemshop_ids: number[]
 }
@@ -155,6 +163,7 @@ export const mapProduct = (raw: RawProduct): ProductMapping => {
       width_cm: decimal(primeira?.width),
       height_cm: decimal(primeira?.height),
       length_cm: decimal(primeira?.depth),
+      brand: (raw.brand ?? '').trim() || null,
       category_nuvemshop_ids: raw.categories.map(c => c.id),
     },
   }
