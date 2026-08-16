@@ -796,27 +796,27 @@ literalmente, em vez de iterar a constante que deveria guardar).
   **Baseline de tipos: store 0 · backoffice 0 · catalog-import 0. Zero é a baseline: qualquer erro
   de tipo é novo.** O importador tem `tsconfig.json` próprio (não é solution-style):
   `npx tsc --noEmit -p tools/catalog-import/tsconfig.json`.
-- **Baseline de testes (fecho da feature 28, medida por workspace): 5085 testes em 284 arquivos** —
-  store **1768/126** · backoffice **1496/94** · core **1218/44** · functions 279/4 ·
+- **Baseline de testes (fecho das features 28 e 29, medida por workspace): 5110 testes em 285
+  arquivos** — store **1793/127** · backoffice **1496/94** · core **1218/44** · functions 279/4 ·
   catalog-import **324/16**. Os cinco workspaces passam limpos.
-  - A feature `28` somou **+291 testes e +18 arquivos**, sem apagar nenhum.
+  - As duas features fecharam na mesma árvore e a baseline é a soma delas. A `28` somou **+291 testes
+    e +18 arquivos** (store 1768/126 sozinha); a `29` somou os **+25 e +1** restantes no store.
   - **Duas asserções foram reescritas porque a spec mudou o comportamento, e as duas GANHARAM
     vizinhas**: `ProductDetailsAccordion.test.tsx` (a seção de FAQ deixou de existir sempre e passou a
     depender de o produto ter pergunta) e `navItems.test.ts` (o grupo `Catálogo` foi de 2 para 3
     itens). Nenhuma foi afrouxada — a primeira ganhou 4 casos e a segunda 1.
-  - ⚠️ **O número do store é o do escopo da `28`, medido ANTES de outra feature chegar à árvore.**
-    Durante esta execução apareceu a feature **`29-pagina-sobre`** (spec, `AboutPage.tsx`,
-    `EstrelinhaStarIcon.tsx`, `AboutPage.test.tsx` e edições em `copyInstitucional.test.tsx`,
-    `accentText.test.ts` e `icons.test.ts`) — trabalho de outra pessoa, **não commitado pela `28`**.
-    Rodando a suíte do store com a árvore de hoje sai **1771/126** (sem o arquivo novo da `29`) ou
-    **1784/127** (com ele); os 3 e os 16 a mais são dela. **1768/126 é o número da `28`**, e a
-    baseline precisa ser reconferida quando a `29` fechar.
+  - **As duas features fecharam em paralelo na mesma árvore**, e por isso o store tem dois números.
+    **1768/126 é o da `28` sozinha** (medido antes de a `29` chegar); **1793/127 é o das duas**, que é
+    a baseline acima. A `29` entrou com `AboutPage.tsx`, `EstrelinhaStarIcon.tsx`,
+    `AboutPage.test.tsx` e edições em `copyInstitucional.test.tsx`, `accentText.test.ts` e
+    `icons.test.ts`. Os outros quatro workspaces são só da `28`.
   - **Contagem de teste do store é estável; o que varia são falhas.** Duas execuções seguidas deram
     `numTotalTests = 1784` nas duas, com 2 falhas na primeira e 0 na segunda. Conferido com
     `--reporter=json` comparando a contagem **por arquivo**: nenhum arquivo mudou de contagem.
-    **Cuidado com a atribuição**: `PixPayment.test.tsx` é flake de verdade (passa isolado), mas as
-    falhas de `AboutPage.test.tsx` são da `29` em andamento — uma delas reprova **isolada**. Chamar
-    tudo de flake foi erro de leitura desta sessão, corrigido aqui.
+    **Cuidado com a atribuição**: `PixPayment.test.tsx` e `homeComposition.test.tsx` são flake de
+    verdade (passam isolados), mas as falhas que `AboutPage.test.tsx` acusou durante a sessão eram da
+    `29` **em andamento** — uma delas reprovava isolada, e sumiu quando a feature fechou. Chamar tudo
+    de flake foi erro de leitura, corrigido aqui: **teste que reprova isolado nunca é flake**.
 - **Baseline anterior (fecho da 27): 4794 em 266** — store 1712/122 · backoffice 1391/86 ·
   core 1113/39 · functions 279/4 · catalog-import 299/15.
   - A feature `27` somou **+199 testes e +7 arquivos**, sem apagar nenhum.
