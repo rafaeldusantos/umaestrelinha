@@ -19,10 +19,12 @@ import { toast } from 'sonner'
 import {
   CARD_MAX_AXES,
   canAddSelection,
+  colorAxis,
   findVariant,
   hasSellableGrid,
   initialSelection,
   needsProductPage,
+  type ColorThumb,
 } from '../lib/variantSelection'
 import { displayCategory } from '../lib/displayCategory'
 import ColorPreview from './ColorPreview'
@@ -59,6 +61,15 @@ const ProductCard = ({ product }: { product: Product }) => {
   // combinação disponível, para o "+" não abrir num tamanho esgotado.
   const [selected, setSelected] = useState(() => initialSelection(product, CARD_MAX_AXES))
   const [imgLoaded, setImgLoaded] = useState(false)
+  /*
+    COR-11: a foto que a cliente escolheu na fileira de cores. `null` = ninguém escolheu ainda, e o
+    palco mostra a capa do produto.
+
+    Guarda a URL em vez de derivá-la de `selected`: a miniatura já resolveu QUAL foto representa
+    aquela cor (a primeira variação da cor que tem imagem — nem toda linha tem), e re-derivar aqui
+    seria uma segunda escrita da mesma busca, livre para divergir do que a cliente clicou.
+  */
+  const [corEscolhida, setCorEscolhida] = useState<string | null>(null)
   const { data: categories } = useCategories()
   const { pix_enabled, pix_discount_percent, max_installments, min_installment_value } =
     usePaymentSettings()
@@ -76,8 +87,6 @@ const ProductCard = ({ product }: { product: Product }) => {
     product.stock_policy === 'track' &&
     product.stock_total > 0 &&
     product.stock_total <= product.low_stock_threshold
-  const hasDiscount = product.compare_price && product.compare_price > product.price
-
   // PST-06 AC 3: o selo é a categoria de menor `sort_order` entre as do produto, com desempate por
   // `position` do vínculo. `category_slug` (a coluna legada) guardava só uma das N.
   const category = displayCategory(product, categories)
@@ -86,20 +95,48 @@ const ProductCard = ({ product }: { product: Product }) => {
   // terceiro pelo cliente — então o "+" leva para a página do produto (PST-05 AC 2).
   const goToPage = sellableGrid && needsProductPage(product.options)
 
-  const discountPercent = hasDiscount
-    ? Math.round((1 - product.price / product.compare_price!) * 100)
-    : 0
-
-  const pixPrice =
-    pix_enabled && pix_discount_percent > 0
-      ? Math.round(product.price * (1 - pix_discount_percent / 100) * 100) / 100
-      : null
-  const installments = resolveInstallments(product.price, max_installments, min_installment_value)
-
   // O CTA do drawer/sheet mostra o preço da LINHA escolhida, não o `price` da vitrine — é o valor
   // que vai ser cobrado, e é ele que muda quando o cliente troca de tamanho.
   const selectedVariant = sellableGrid ? findVariant(product.variants, selected) : null
   const selectedPrice = selectedVariant?.price ?? product.price
+
+  /*
+    COR-12: TODO número desta vitrine sai da variação escolhida, não do produto.
+
+    Medido em 2026-08-15: em 271 dos 385 produtos com eixo de cor (70%) o preço muda com a cor.
+    Como a cliente agora troca a cor no próprio card (`COR-11`), ler `product.price` aqui deixaria a
+    foto de uma cor ao lado do preço de outra em 7 de cada 10 produtos — a vitrine prometendo um
+    valor que o caixa não cobra.
+
+    O "de" riscado acompanha pelo mesmo motivo: com o preço seguindo a variação e o `compare_price`
+    ficando no produto, a porcentagem do selo sairia calculada entre duas linhas diferentes.
+  */
+  const selectedCompare = selectedVariant?.compare_price ?? product.compare_price
+  const hasDiscount = selectedCompare && selectedCompare > selectedPrice
+
+  const discountPercent = hasDiscount
+    ? Math.round((1 - selectedPrice / selectedCompare!) * 100)
+    : 0
+
+  const pixPrice =
+    pix_enabled && pix_discount_percent > 0
+      ? Math.round(selectedPrice * (1 - pix_discount_percent / 100) * 100) / 100
+      : null
+  const installments = resolveInstallments(selectedPrice, max_installments, min_installment_value)
+
+  const imagemEmDestaque = corEscolhida ?? product.image_url
+
+  /**
+   * `COR-11`: escolher a cor troca a imagem em destaque e a cor escolhida — e não navega nem abre
+   * o seletor. Cor **sem foto** mantém a imagem atual: esvaziar o palco por causa de um cadastro
+   * incompleto seria punir a cliente por um dado que falta em 9 dos 385 produtos.
+   */
+  const pickColor = (thumb: ColorThumb) => {
+    const axis = colorAxis(product.options)
+    if (!axis) return
+    setSelected(prev => ({ ...prev, [axis.name]: thumb.value }))
+    if (thumb.imageUrl) setCorEscolhida(thumb.imageUrl)
+  }
 
   const addSelectionToCart = () => {
     if (sellableGrid) {
@@ -179,10 +216,14 @@ const ProductCard = ({ product }: { product: Product }) => {
           placa —, e o quadrado cortava a peça em cima e embaixo para caber. O retrato é a moldura da
           loja em produção, e é a do board `7CF-0`.
         */}
-        <div className="relative aspect-[4/5] overflow-hidden rounded-xl bg-estrelinha-ground-deep">
+        {/*
+          `@container`: a fileira de cor decide quantas vagas mostra pela largura do CARD, e ela não
+          acompanha a viewport — em 1024 o card da categoria tem 220px e o da home, 230px (`COR-16`).
+        */}
+        <div className="@container relative aspect-[4/5] overflow-hidden rounded-xl bg-estrelinha-ground-deep">
           {!imgLoaded && <Skeleton className="absolute inset-0 h-full w-full rounded-none" />}
           <img
-            src={product.image_url}
+            src={imagemEmDestaque}
             alt={product.name}
             className={`h-full w-full object-cover transition-all duration-300 group-hover:scale-[1.04] ${
               imgLoaded ? 'opacity-100' : 'opacity-0'
@@ -233,7 +274,7 @@ const ProductCard = ({ product }: { product: Product }) => {
             Ela nunca disputa espaço com o véu de "Esgotado": a placa exige grade vendável, e com
             grade vendável `isOutOfStock` é sempre falso (é a mesma condição, negada).
           */}
-          <ColorPreview product={product} selected={selected} onOpen={handleAddToCart} />
+          <ColorPreview product={product} selected={selected} onPick={pickColor} />
 
           {isOutOfStock && (
             <div className="absolute inset-0 flex items-center justify-center bg-white/70 backdrop-blur-[2px]">
@@ -272,11 +313,11 @@ const ProductCard = ({ product }: { product: Product }) => {
           </h3>
           <div className="flex items-baseline gap-2">
             <span className="font-display text-[20px] font-semibold leading-[1.2] text-estrelinha-primary">
-              {formatPrice(product.price)}
+              {formatPrice(selectedPrice)}
             </span>
             {hasDiscount && (
               <span className="text-[14px] font-medium text-estrelinha-ink-soft line-through">
-                {formatPrice(product.compare_price!)}
+                {formatPrice(selectedCompare!)}
               </span>
             )}
           </div>

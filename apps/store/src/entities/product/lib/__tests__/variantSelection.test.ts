@@ -5,8 +5,9 @@ import {
   CARD_MAX_AXES,
   colorAxis,
   colorPreview,
-  COLOR_SLOTS_DESKTOP,
-  COLOR_SLOTS_MOBILE,
+  COLOR_SLOT_TIERS,
+  COLOR_SLOTS_MAX,
+  COLOR_THUMB_PX,
   findVariant,
   hasSellableGrid,
   initialSelection,
@@ -282,7 +283,10 @@ describe('canAddSelection — o que pode entrar no carrinho (AC 16)', () => {
   })
 })
 
-// COR-10..COR-15 — a regra pura da placa de cor do card. Quem a desenha é `ui/ColorPreview.tsx`, e
+/** As três faixas, lidas da fonte — nomeá-las à mão criaria um segundo dono do mesmo número. */
+const [VAGAS_2, VAGAS_3, VAGAS_4] = COLOR_SLOT_TIERS.map(t => t.slots)
+
+// COR-10..COR-16 — a regra pura da fileira de cor do card. Quem a desenha é `ui/ColorPreview.tsx`, e
 // a prova de superfície está em `ui/__tests__/ProductCardSurface.test.tsx`.
 
 /** Uma peça com eixo de cor de verdade: as três cores mais comuns do catálogo importado. */
@@ -319,35 +323,58 @@ describe('colorAxis — qual eixo é o de cor (COR-10)', () => {
 
 describe('colorPreview — quando NÃO há placa (COR-10)', () => {
   it('eixo de cor com um valor só: sem placa — não há escolha a mostrar', () => {
-    expect(colorPreview(comCor(['Prata 925']), {}, COLOR_SLOTS_DESKTOP)).toBeNull()
+    expect(colorPreview(comCor(['Prata 925']), {}, VAGAS_4)).toBeNull()
   })
 
   it('produto sem grade vendável: sem placa', () => {
     expect(
-      colorPreview({ options: [], variants: [], stock_policy: 'track' }, {}, COLOR_SLOTS_DESKTOP),
+      colorPreview({ options: [], variants: [], stock_policy: 'track' }, {}, VAGAS_4),
     ).toBeNull()
   })
 
   it('produto com grade e SEM eixo de cor: sem placa', () => {
     const semCor = grid({ variants: [variant({ Tamanho: '4,5 cm', Acabamento: 'Fosco' })] })
-    expect(colorPreview(semCor, {}, COLOR_SLOTS_DESKTOP)).toBeNull()
+    expect(colorPreview(semCor, {}, VAGAS_4)).toBeNull()
   })
 })
 
-describe('colorPreview — quantas vagas, e o contador na última (COR-12)', () => {
-  it('as vagas são 4 a partir de `md` e 3 abaixo', () => {
-    expect(COLOR_SLOTS_DESKTOP).toBe(4)
-    expect(COLOR_SLOTS_MOBILE).toBe(3)
+describe('colorPreview — quantas vagas, e o contador na última (COR-16)', () => {
+  it('as faixas são 2/3/4 vagas, com piso em 162/213/264px de CARD', () => {
+    // Não é preferência: `n` miniaturas medem `51n − 6` (45px do desktop + gap 6) e precisam caber
+    // em `card − 66` (inset 14 + botão "+" de 38 + folga 14). Errar o piso devolve a sobreposição
+    // que a medição de 2026-08-15 encontrou.
+    expect(COLOR_SLOT_TIERS.map(t => [t.minCardPx, t.slots])).toEqual([
+      [162, 2],
+      [213, 3],
+      [264, 4],
+    ])
+    expect(COLOR_SLOTS_MAX).toBe(4)
+  })
+
+  it('o piso é dimensionado pelo lado MAIOR da miniatura, não pelo do celular', () => {
+    // A miniatura cresce por VIEWPORT e as vagas por largura de CARD — eixos diferentes. Um card de
+    // 220px aparece nas duas larguras de miniatura, então dimensionar pelo lado de 40 deixaria o
+    // desktop estourando exatamente onde a conta dissesse que cabe.
+    expect(COLOR_THUMB_PX).toEqual({ base: 40, desktop: 45 })
+    for (const { minCardPx, slots } of COLOR_SLOT_TIERS) {
+      expect((COLOR_THUMB_PX.desktop + 6) * slots - 6).toBeLessThanOrEqual(minCardPx - 66)
+    }
+  })
+
+  it('2 vagas: 3 cores saem como 1 miniatura e `+2` — a faixa mais estreita', () => {
+    const preview = colorPreview(comCor(['Prata', 'Ouro', 'Ródio']), {}, VAGAS_2)
+    expect(preview?.thumbs.map(t => t.value)).toEqual(['Prata'])
+    expect(preview?.overflow).toBe(2)
   })
 
   it('duas cores — o mínimo que acende a placa — saem as duas, sem contador', () => {
-    const preview = colorPreview(comCor(['Prata 925', 'Folheado a Ouro']), {}, COLOR_SLOTS_DESKTOP)
+    const preview = colorPreview(comCor(['Prata 925', 'Folheado a Ouro']), {}, VAGAS_4)
     expect(preview?.thumbs.map(t => t.value)).toEqual(['Prata 925', 'Folheado a Ouro'])
     expect(preview?.overflow).toBe(0)
   })
 
   it('3 cores em 3 vagas: as três aparecem e o contador não existe', () => {
-    const preview = colorPreview(comCor(['Ouro', 'Ouro Branco', 'Ródio']), {}, COLOR_SLOTS_MOBILE)
+    const preview = colorPreview(comCor(['Ouro', 'Ouro Branco', 'Ródio']), {}, VAGAS_3)
     expect(preview?.thumbs.map(t => t.value)).toEqual(['Ouro', 'Ouro Branco', 'Ródio'])
     expect(preview?.overflow).toBe(0)
   })
@@ -356,7 +383,7 @@ describe('colorPreview — quantas vagas, e o contador na última (COR-12)', () 
     const preview = colorPreview(
       comCor(['Prata', 'Ouro', 'Ouro Branco', 'Ródio', 'Rose']),
       {},
-      COLOR_SLOTS_DESKTOP,
+      VAGAS_4,
     )
     expect(preview?.thumbs.map(t => t.value)).toEqual(['Prata', 'Ouro', 'Ouro Branco'])
     expect(preview?.overflow).toBe(2)
@@ -366,7 +393,7 @@ describe('colorPreview — quantas vagas, e o contador na última (COR-12)', () 
     const preview = colorPreview(
       comCor(['Prata', 'Ouro', 'Ouro Branco', 'Ródio']),
       {},
-      COLOR_SLOTS_MOBILE,
+      VAGAS_3,
     )
     expect(preview?.thumbs.map(t => t.value)).toEqual(['Prata', 'Ouro'])
     expect(preview?.overflow).toBe(2)
@@ -375,7 +402,7 @@ describe('colorPreview — quantas vagas, e o contador na última (COR-12)', () 
 
 describe('colorPreview — a foto de cada cor (COR-15)', () => {
   it('cada vaga traz a foto da SUA cor', () => {
-    const preview = colorPreview(comCor(['Prata', 'Ouro']), {}, COLOR_SLOTS_DESKTOP)
+    const preview = colorPreview(comCor(['Prata', 'Ouro']), {}, VAGAS_4)
     expect(preview?.thumbs.map(t => t.imageUrl)).toEqual(['Prata.webp', 'Ouro.webp'])
   })
 
@@ -389,7 +416,7 @@ describe('colorPreview — a foto de cada cor (COR-15)', () => {
       ],
       stock_policy: 'track',
     }
-    const preview = colorPreview(product, {}, COLOR_SLOTS_DESKTOP)
+    const preview = colorPreview(product, {}, VAGAS_4)
 
     expect(preview?.thumbs[1].imageUrl).toBeNull()
     expect(preview?.thumbs.map(t => t.imageUrl)).toEqual(['prata.webp', null])
@@ -408,7 +435,7 @@ describe('colorPreview — a foto de cada cor (COR-15)', () => {
       stock_policy: 'track',
     }
 
-    expect(colorPreview(product, {}, COLOR_SLOTS_DESKTOP)?.thumbs.map(t => t.imageUrl)).toEqual([
+    expect(colorPreview(product, {}, VAGAS_4)?.thumbs.map(t => t.imageUrl)).toEqual([
       'prata.webp',
       'ouro.webp',
     ])
@@ -420,13 +447,13 @@ describe('colorPreview — a cor escolhida (COR-14)', () => {
     const preview = colorPreview(
       comCor(['Prata', 'Ouro', 'Ródio']),
       { Cor: 'Ouro' },
-      COLOR_SLOTS_DESKTOP,
+      VAGAS_4,
     )
     expect(preview?.thumbs.map(t => t.active)).toEqual([false, true, false])
   })
 
   it('sem cor escolhida, nenhuma vaga fica ativa', () => {
-    const preview = colorPreview(comCor(['Prata', 'Ouro']), {}, COLOR_SLOTS_DESKTOP)
+    const preview = colorPreview(comCor(['Prata', 'Ouro']), {}, VAGAS_4)
     expect(preview?.thumbs.map(t => t.active)).toEqual([false, false])
   })
 })

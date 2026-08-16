@@ -151,47 +151,97 @@ reservada de **40px** para que os preços fiquem na mesma linha entre os cards d
 
 **User Story**: Como cliente, quero ver de relance em que cores a peça existe, sem abrir o produto.
 
+> **Revisão de 2026-08-15 (`COR-11`..`COR-14`)** — decisão do usuário depois de ver a feature
+> rodando. A placa branca sai, as miniaturas crescem e passam a ser **controles que trocam a imagem
+> em destaque**. As ACs abaixo já estão na forma revisada; a forma anterior está no histórico do
+> git (`bfdb42c`). O que motivou cada mudança está anotado sob a AC correspondente.
+
 ### COR-10
-WHEN o produto tem um eixo de cor com **2 ou mais** valores THEN o card SHALL exibir uma placa
-sobreposta no **canto inferior esquerdo do palco da imagem**, com uma miniatura por cor. WHEN o
-produto não tem eixo de cor, ou o eixo tem menos de 2 valores, THEN o card SHALL **não** exibir a
-placa e o palco SHALL ficar idêntico ao de hoje.
+WHEN o produto tem um eixo de cor com **2 ou mais** valores THEN o card SHALL exibir a fileira de
+miniaturas no **canto inferior esquerdo do palco da imagem**. WHEN o produto não tem eixo de cor, ou
+o eixo tem menos de 2 valores, THEN o card SHALL **não** exibir a fileira e o palco SHALL ficar
+idêntico ao de hoje.
 
 ### COR-11
-A placa SHALL ser **um único controle**, e clicá-la SHALL abrir o mesmo seletor de variação que o
-botão `+` já abre (`QuickAddDrawer` no desktop, `VariantSheet` no mobile), sem navegar para a página
-do produto. As miniaturas **não** SHALL ser controles individuais.
+Cada miniatura SHALL ser um **controle próprio**. WHEN a cliente aciona a miniatura de uma cor THEN
+o card SHALL trocar a **imagem em destaque** pela imagem daquela variação, marcar aquela cor como
+escolhida, e **não** navegar para a página do produto nem abrir o seletor de variação.
 
-> Três razões independentes, e a terceira é um guarda deste repositório. (1) A miniatura mede 32px e
-> o passo entre elas é 38px — dar `TAP_44` a cada uma criaria alvos de 44px **sobrepostos**, e um
-> toque na fronteira acertaria a vizinha. (2) `touchTarget.test.ts` varre `<button|a|Link>` com
-> `h-8 w-8` e exige o auxiliar: miniatura-como-botão ou quebra o guarda ou o satisfaz criando a
-> sobreposição de (1). (3) O seletor de variação **já existe em duas superfícies** — um terceiro
-> lugar que escolhe cor é a terceira escrita da mesma regra. O pedido era **preview**, e preview é o
-> que esta placa é.
+WHEN a variação daquela cor não tem `image_url` THEN o card SHALL **manter** a imagem em destaque
+atual — nunca esvaziar o palco.
+
+> Reverte a AC anterior, que fazia da fileira um controle único abrindo o seletor. A troca é
+> possível sem quebrar o guarda de toque porque a miniatura cresceu (`COR-13`): com 40px de desenho
+> e `gap` de 6px o passo é **46px**, então cada alvo `TAP_44` de 44px cabe **sem sobrepor** o
+> vizinho — que era a objeção que sustentava a AC anterior. `touchTarget.test.ts` é satisfeito pelo
+> caminho que ele existe para induzir (caixa pintada do tamanho do board, retângulo de toque de 44),
+> não contornado.
 
 ### COR-12
-A placa SHALL mostrar até **4** miniaturas a partir de `md` e até **3** abaixo de `md`. WHEN há mais
-cores que vagas THEN a última vaga SHALL ser um contador `+N`, onde N é o número de cores não
-mostradas.
+Cada miniatura SHALL manter o preço do card coerente com a cor exibida: ao trocar a cor, o card
+SHALL exibir o preço, o valor com Pix e a parcela **da variação escolhida**, não os do produto.
 
-> As duas metades precisam de asserção positiva — a de mobile e a de `md:` (lição `L-029`).
-> Em 220px (largura real do card no carrossel, `ProductCarousel.tsx:119`) quatro vagas medem 160px
-> e o botão `+` começa em 168px a partir da esquerda: **sobrepõem**. Três vagas medem 122px e
-> sobram 32px. Com mediana de 3 cores, o mobile mostra todas as cores em 305 dos 385 produtos.
+> **Medido em 2026-08-15: em 271 dos 385 produtos com eixo de cor (70%) o preço muda com a cor.**
+> Trocar só a imagem deixaria a foto de uma cor ao lado do preço de outra em 7 de cada 10 produtos —
+> a vitrine prometendo um valor que o caixa não cobra, que é o defeito que tirou a `MarqueeBar` da
+> home. O card já calcula `selectedPrice` para o CTA do seletor; a AC liga a exibição nele.
 
 ### COR-13
-Medidas fixadas pelo board, todas verificáveis: miniatura **32×32** com raio **6px**; `gap` **6px**;
-`padding` da placa **6px**; placa em `--color-surface` com borda **1px `#8C8073`** e raio **12px**;
-inset de **14px** das bordas esquerda e inferior do palco; altura resultante da placa **44px**.
+Medidas: miniatura **40×40 abaixo de `md`** e **45×45 a partir de `md`**, com raio **6px**; `gap`
+**6px**; inset de **14px** das bordas esquerda e inferior do palco. **Não há placa** — as miniaturas
+assentam direto sobre a foto. Cada miniatura SHALL usar o auxiliar `TAP_44`, e o passo de 46px SHALL
+manter os alvos sem sobreposição.
 
-> A borda é `#8C8073` (o token `field`, 3,63:1) e não `--color-line` porque a placa é **controle**,
-> e a WCAG 1.4.11 pede 3:1 de contorno. Medido no board: placa branca sobre palco branco (seção
-> "Decorativos Afetivos") desaparece sem ela.
+> **O tamanho varia por viewport e a quantidade de vagas, por largura de card** — eixos diferentes de
+> propósito: quanto cabe é espaço disponível, e o dedo precisa de mais alvo que o mouse. A
+> consequência é que um card de 220px aparece nas **duas** larguras de miniatura, e por isso os pisos
+> de `COR-16` são dimensionados pelo lado **maior** (45): dimensionar pelo de 40 deixaria o desktop
+> estourando exatamente onde a conta dissesse que cabe.
+
+A imagem dentro da miniatura SHALL ser recortada com **`object-cover` e ampliação de 1,6×** a partir
+do centro.
+
+> Duas razões para a ampliação, as duas medidas neste catálogo: a foto é de joia pequena sobre fundo
+> branco, então uma miniatura da foto inteira é quase toda fundo — foi a queixa que abriu esta
+> revisão. É recorte central por heurística, não detecção de objeto: a peça está centrada na
+> esmagadora maioria das fotos, e não há dado que diga onde ela está.
 
 ### COR-14
-A miniatura da cor **atualmente selecionada** SHALL ter borda **2px `--color-ink`**; as demais,
-**1px `#8C8073`**.
+A miniatura da cor **escolhida** SHALL ter borda **2px `--color-ink`**; as demais, **1px `#8C8073`**.
+As duas SHALL ocupar a mesma caixa de 40px (`box-border`), para a troca de escolha não deslocar a
+fileira.
+
+> A borda é `#8C8073` (o token `field`, 3,63:1) e não `--color-line`, porque a miniatura é
+> **controle** e a WCAG 1.4.11 pede 3:1 de contorno. Sem a placa branca por baixo, o contorno é a
+> única coisa que separa a miniatura da foto.
+
+### COR-16
+O número de miniaturas visíveis SHALL ser decidido pela **largura do próprio card**, não pela
+largura da viewport:
+
+| largura do card | vagas |
+| --- | ---: |
+| abaixo de **162px** | **nenhuma** — a fileira não é exibida |
+| 162px a 212px | **2** |
+| 213px a 263px | **3** |
+| **264px** ou mais | **4** |
+
+WHEN há mais cores que vagas THEN a última vaga SHALL ser um contador `+N`, onde N é o número de
+cores não mostradas.
+
+> Substitui a regra por breakpoint da AC anterior, que a medição derrubou. **As larguras de card
+> medidas no navegador em 2026-08-15 não acompanham a viewport**: 768 categoria → 134,7px ·
+> 390 categoria → 171px · 390 home e 1024 categoria → 220px · 1024 home → 230px · 1440 → 294–305px.
+> Em 1024 o card da categoria é **menor** que o da home. Qualquer regra por breakpoint erra em pelo
+> menos uma superfície real — foi a lacuna `G1` do Verifier. Os cortes acima saem da aritmética:
+> `n` miniaturas medem `51n − 6`, e precisam caber em `card − 66` (inset de 14 + o botão `+` de 38 +
+> folga de 14). Com o lado de **45px** (o do desktop, que é o que aperta), `n=2` exige 162px, `n=3`
+> exige 213 e `n=4` exige 264.
+>
+> **Abaixo de 162px a fileira some inteira, e isso é resultado da conta, não desistência**: no card
+> de 134,7px do 768-categoria nem duas miniaturas cabem ao lado do `+`. Hoje aquela largura já
+> **recorta** a placa pelo `overflow-hidden` do palco (achado independente do Verifier) — ou seja, o
+> caso já estava quebrado; a AC passa a declará-lo em vez de deixá-lo acontecer.
 
 ### COR-15
 WHEN a variação daquela cor não tem `image_url` THEN a miniatura SHALL renderizar o palco vazio

@@ -17,6 +17,7 @@ vi.mock('@estrelinha/core/hooks/useStoreSettings', () => ({
 }))
 
 import ProductCard from '../ProductCard'
+import { COLOR_SLOT_TIERS, COLOR_THUMB_PX } from '../../lib/variantSelection'
 
 /**
  * A superfície do card de produto na identidade papelaria (`PAP-08`).
@@ -117,9 +118,16 @@ const comCor = (cores: string[], fotos?: (string | null)[]): Product =>
     ),
   })
 
-/** A placa é UM controle — por isso ela se acha pelo papel, e as vagas são os filhos dela. */
-const placa = () => screen.getByRole('button', { name: 'Escolher a cor' })
-const vagas = () => Array.from(placa().children)
+/**
+ * A fileira não é mais um controle: cada miniatura é o seu (`COR-11`, revisão de 2026-08-15). Por
+ * isso ela se acha pelo papel de grupo, e as vagas são os filhos dela.
+ */
+const fileira = () => screen.getByRole('group', { name: 'Cores disponíveis' })
+const semFileira = () => screen.queryByRole('group', { name: 'Cores disponíveis' })
+const vagas = () => Array.from(fileira().children)
+const miniatura = (cor: string) => screen.getByRole('button', { name: `Ver na cor ${cor}` })
+/** A foto em destaque do palco — é ela que a escolha de cor troca. */
+const emDestaque = () => screen.getByAltText('Botton Naruto Uzumaki') as HTMLImageElement
 
 describe('card de produto — superfícies', () => {
   it('o palco da foto é Mata-borrão', () => {
@@ -205,159 +213,265 @@ describe('card de produto — tipografia', () => {
  * A regra pura vive em `lib/variantSelection` e tem prova própria; aqui se mede o que só a tela
  * responde: quais classes chegam ao DOM, quantas vagas cada largura mostra e o que o clique faz.
  */
-describe('card de produto — quando a placa de cores existe (COR-10)', () => {
-  it('produto com duas ou mais cores mostra a placa', () => {
+describe('card de produto — quando a fileira de cores existe (COR-10)', () => {
+  it('produto com duas ou mais cores mostra a fileira', () => {
     renderCard(comCor(['Prata 925', 'Folheado a Ouro']))
-    expect(placa()).toBeInTheDocument()
+    expect(fileira()).toBeInTheDocument()
   })
 
-  it('produto SEM grade não mostra placa, e o palco fica idêntico ao de hoje', () => {
+  it('produto SEM grade não mostra fileira, e o palco fica idêntico ao de hoje', () => {
     const { container } = renderCard(product())
 
-    expect(screen.queryByRole('button', { name: 'Escolher a cor' })).toBeNull()
+    expect(semFileira()).toBeNull()
     expect(container.querySelector('.aspect-\\[4\\/5\\].rounded-xl.bg-estrelinha-ground-deep')).not.toBeNull()
   })
 
-  it('produto com grade e SEM eixo de cor não mostra placa', () => {
+  it('produto com grade e SEM eixo de cor não mostra fileira', () => {
     renderCard(
       product({
         options: [option('Tamanho', ['45 cm', '50 cm'], 0)],
         variants: [variant({ Tamanho: '45 cm' }), variant({ Tamanho: '50 cm' })],
       }),
     )
-    expect(screen.queryByRole('button', { name: 'Escolher a cor' })).toBeNull()
+    expect(semFileira()).toBeNull()
   })
 
-  it('eixo de cor com UM valor só não mostra placa — não há escolha a mostrar', () => {
+  it('eixo de cor com UM valor só não mostra fileira — não há escolha a mostrar', () => {
     renderCard(comCor(['Prata 925']))
-    expect(screen.queryByRole('button', { name: 'Escolher a cor' })).toBeNull()
+    expect(semFileira()).toBeNull()
   })
 })
 
-describe('card de produto — a placa é um controle só, e abre o seletor que já existe (COR-11)', () => {
-  it('as miniaturas não são controles — a placa é o único botão ali dentro', () => {
+describe('card de produto — cada miniatura troca a imagem em destaque (COR-11)', () => {
+  it('cada cor é um controle próprio — a fileira não é mais um botão só', () => {
     renderCard(comCor(['Prata 925', 'Folheado a Ouro', 'Ouro Rose']))
 
-    expect(placa().querySelectorAll('button, a, [role="button"]')).toHaveLength(0)
-    expect(placa().querySelectorAll('img')).toHaveLength(3)
+    expect(fileira().querySelectorAll('button')).toHaveLength(3)
+    expect(screen.queryByRole('button', { name: 'Escolher a cor' })).toBeNull()
   })
 
-  it('no desktop o clique abre o QuickAddDrawer e NÃO navega para a página do produto', () => {
-    setViewport(1024)
+  it('clicar numa cor põe a foto DELA no palco, no lugar da capa', () => {
     renderCard(comCor(['Prata 925', 'Folheado a Ouro']))
+    expect(emDestaque().getAttribute('src')).toBe('')
 
-    fireEvent.click(placa())
+    fireEvent.click(miniatura('Folheado a Ouro'))
 
-    expect(screen.getByRole('button', { name: 'Fechar seleção de variações' })).toBeInTheDocument()
-    expect(screen.queryByText('rota-produto')).toBeNull()
+    expect(emDestaque()).toHaveAttribute('src', 'Folheado a Ouro.webp')
   })
 
-  it('no celular o clique abre o mesmo bottom sheet que o "+" abre', () => {
-    setViewport(390)
+  it('clicar NÃO navega para a página do produto e NÃO abre o seletor', () => {
     renderCard(comCor(['Prata 925', 'Folheado a Ouro']))
 
-    fireEvent.click(placa())
+    fireEvent.click(miniatura('Folheado a Ouro'))
 
-    expect(screen.getByRole('button', { name: /^Adicionar à sacola/ })).toBeInTheDocument()
     expect(screen.queryByText('rota-produto')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Fechar seleção de variações' })).toBeNull()
+  })
+
+  it('cor SEM foto mantém a imagem atual — não esvazia o palco', () => {
+    renderCard(comCor(['Prata', 'Ouro'], ['prata.webp', null]))
+    fireEvent.click(miniatura('Prata'))
+    expect(emDestaque()).toHaveAttribute('src', 'prata.webp')
+
+    fireEvent.click(miniatura('Ouro'))
+
+    expect(emDestaque()).toHaveAttribute('src', 'prata.webp')
+  })
+
+  it('a cor clicada passa a ser a escolhida, e a anterior deixa de ser', () => {
+    renderCard(comCor(['Prata', 'Ouro']))
+    expect(miniatura('Prata')).toHaveAttribute('aria-pressed', 'true')
+
+    fireEvent.click(miniatura('Ouro'))
+
+    expect(miniatura('Ouro')).toHaveAttribute('aria-pressed', 'true')
+    expect(miniatura('Prata')).toHaveAttribute('aria-pressed', 'false')
   })
 })
 
-describe('card de produto — quantas vagas em cada largura (COR-12)', () => {
-  it('3 cores — a mediana do catálogo — cabem inteiras nas duas larguras, sem contador', () => {
-    renderCard(comCor(['Folheado a Ouro', 'Folheado a Ouro Branco', 'Folheado a Ródio']))
-
-    expect(vagas()).toHaveLength(3)
-    // `classList`, não `className`: `overflow-hidden` contém "hidden" e faria a asserção mentir.
-    expect(vagas().filter(v => v.classList.contains('hidden'))).toEqual([])
-    expect(placa()).toHaveTextContent('')
+describe('card de produto — o preço acompanha a cor escolhida (COR-12)', () => {
+  /** 70% dos produtos com eixo de cor mudam de preço com a cor — medido em 2026-08-15. */
+  const precoPorCor = product({
+    options: [option('Cor', ['Prata', 'Ouro'], 0)],
+    variants: [
+      variant({ Cor: 'Prata' }, { position: 0, price: 100, image_url: 'prata.webp' }),
+      variant({ Cor: 'Ouro' }, { position: 1, price: 200, image_url: 'ouro.webp' }),
+    ],
   })
 
-  it('4 cores: as quatro a partir de `md`; abaixo de `md`, duas e o contador `+2`', () => {
-    renderCard(comCor(['Prata', 'Ouro', 'Ouro Branco', 'Ródio']))
-    const [um, dois, tres, quatro, contador] = vagas()
+  it('trocar a cor troca o preço exibido — a foto e o valor são da MESMA variação', () => {
+    renderCard(precoPorCor)
+    expect(screen.getByText('R$ 100,00')).toBeInTheDocument()
 
-    expect(vagas()).toHaveLength(5)
-    // A metade do celular: as duas primeiras vagas e o contador aparecem sem prefixo.
-    expect(um).toHaveClass('block')
-    expect(dois).toHaveClass('block')
-    expect(contador).toHaveTextContent('+2')
-    expect(contador).toHaveClass('flex', 'md:hidden')
-    // A metade de `md`: as duas últimas miniaturas só existem a partir do prefixo.
-    expect(tres).toHaveClass('hidden', 'md:block')
-    expect(quatro).toHaveClass('hidden', 'md:block')
+    fireEvent.click(miniatura('Ouro'))
+
+    expect(screen.getByText('R$ 200,00')).toBeInTheDocument()
+    expect(screen.queryByText('R$ 100,00')).toBeNull()
   })
 
-  it('5 cores: `+2` a partir de `md` e `+3` abaixo — o contador ocupa a última vaga', () => {
-    renderCard(comCor(['Prata', 'Ouro', 'Ouro Branco', 'Ródio', 'Rose']))
-    const [, , terceira, contadorMd, contadorCelular] = vagas()
+  it('o Pix e a parcela saem do preço da cor escolhida, não do produto', () => {
+    renderCard(precoPorCor)
+    // 5% de desconto e 6x, os mesmos valores que o caixa aplica.
+    expect(screen.getByText('R$ 95,00 com Pix')).toBeInTheDocument()
 
-    expect(vagas()).toHaveLength(5)
-    expect(terceira).toHaveClass('hidden', 'md:block')
-    expect(contadorMd).toHaveTextContent('+2')
-    expect(contadorMd).toHaveClass('hidden', 'md:flex')
-    expect(contadorCelular).toHaveTextContent('+3')
-    expect(contadorCelular).toHaveClass('flex', 'md:hidden')
+    fireEvent.click(miniatura('Ouro'))
+
+    expect(screen.getByText('R$ 190,00 com Pix')).toBeInTheDocument()
+    expect(screen.getByText('6x de R$ 33,33 sem juros')).toBeInTheDocument()
+  })
+
+  it('o "de" riscado também segue a variação — senão a % do selo mistura duas linhas', () => {
+    renderCard(
+      product({
+        options: [option('Cor', ['Prata', 'Ouro'], 0)],
+        variants: [
+          variant({ Cor: 'Prata' }, { position: 0, price: 100, compare_price: 200, image_url: 'p.webp' }),
+          variant({ Cor: 'Ouro' }, { position: 1, price: 300, compare_price: 400, image_url: 'o.webp' }),
+        ],
+      }),
+    )
+    expect(screen.getByText('-50%')).toBeInTheDocument()
+
+    fireEvent.click(miniatura('Ouro'))
+
+    expect(screen.getByText('-25%')).toBeInTheDocument()
+    expect(screen.getByText('R$ 400,00')).toBeInTheDocument()
   })
 })
 
 describe('card de produto — as medidas do board (COR-13)', () => {
-  it('a placa mede 44px de altura, com padding e gap de 6px, raio 12px e contorno `field`', () => {
+  it('a fileira fica a 14px das bordas esquerda e inferior, com gap de 6px e SEM placa', () => {
     renderCard(comCor(['Prata', 'Ouro']))
 
-    expect(placa()).toHaveClass(
-      'h-11',
-      'p-1.5',
-      'gap-1.5',
-      'rounded-md',
-      'border',
-      'border-estrelinha-field',
-      'bg-estrelinha-surface',
-    )
+    expect(fileira()).toHaveClass('absolute', 'bottom-3.5', 'left-3.5', 'gap-1.5')
+    // A placa branca saiu na revisão de 2026-08-15: as miniaturas assentam direto sobre a foto.
+    expect(fileira()).not.toHaveClass('bg-estrelinha-surface')
+    expect(fileira()).not.toHaveClass('h-11')
   })
 
-  it('a placa fica a 14px das bordas esquerda e inferior do palco', () => {
-    renderCard(comCor(['Prata', 'Ouro']))
-    expect(placa()).toHaveClass('absolute', 'bottom-3.5', 'left-3.5')
-  })
-
-  it('a miniatura é 32×32 com raio 6px, e o contador ocupa vaga do mesmo tamanho', () => {
+  it('a miniatura é 40×40 no celular e 45×45 no desktop, com raio 6px — contador incluído', () => {
     renderCard(comCor(['Prata', 'Ouro', 'Ouro Branco', 'Ródio', 'Rose']))
     const todas = vagas()
 
-    expect(todas.filter(v => v.classList.contains('h-8') && v.classList.contains('w-8'))).toHaveLength(
-      todas.length,
-    )
-    expect(todas.filter(v => v.classList.contains('rounded-sm'))).toHaveLength(todas.length)
+    // 3 miniaturas (o máximo que a faixa mais larga mostra) + 1 contador por faixa.
+    expect(todas).toHaveLength(6)
+    // As DUAS metades, positivas (lição `L-029`): o lado do celular e o do desktop.
+    for (const vaga of todas) {
+      expect(vaga).toHaveClass('h-10', 'w-10', 'md:h-[45px]', 'md:w-[45px]', 'rounded-sm')
+    }
+  })
+
+  it('cada miniatura carrega o alvo de toque de 44px — passo de 46px, sem sobreposição', () => {
+    renderCard(comCor(['Prata', 'Ouro', 'Ródio']))
+
+    // É o que torna a reversão de `COR-11` possível: 40 de desenho + 6 de gap = 46 > 44.
+    for (const cor of ['Prata', 'Ouro', 'Ródio']) {
+      expect(miniatura(cor)).toHaveClass('before:h-11', 'before:w-11', 'relative')
+    }
+  })
+
+  it('a foto da miniatura é recortada com zoom de 1,6× — a peça é pequena sobre fundo branco', () => {
+    renderCard(comCor(['Prata', 'Ouro']))
+    const fotos = Array.from(fileira().querySelectorAll('img'))
+
+    expect(fotos).toHaveLength(2)
+    expect(fotos.filter(f => f.classList.contains('scale-[1.6]'))).toHaveLength(2)
+    expect(fotos.filter(f => f.classList.contains('object-cover'))).toHaveLength(2)
+  })
+})
+
+describe('card de produto — quantas vagas em cada largura de CARD (COR-16)', () => {
+  it('abaixo de 162px de card a fileira inteira some — nem duas miniaturas cabem', () => {
+    renderCard(comCor(['Prata', 'Ouro']))
+    // A ausência é declarada por container query, e não por recorte do `overflow-hidden` do palco.
+    expect(fileira()).toHaveClass('hidden', '@[162px]:flex')
+  })
+
+  it('os pisos escritos no CSS são os mesmos de `COLOR_SLOT_TIERS` — dois donos, um número', () => {
+    renderCard(comCor(['Prata', 'Ouro', 'Ouro Branco', 'Ródio', 'Rose']))
+    const literais = new Set<number>()
+    for (const el of [fileira(), ...vagas()]) {
+      for (const c of Array.from(el.classList)) {
+        const m = /^@\[(\d+)px\]:/.exec(c)
+        if (m) literais.add(Number(m[1]))
+      }
+    }
+
+    // Âncora: sem ela, um seletor errado varreria zero classe e o teste passaria vazio.
+    expect(literais.size).toBe(COLOR_SLOT_TIERS.length)
+    expect([...literais].sort((a, b) => a - b)).toEqual(COLOR_SLOT_TIERS.map(t => t.minCardPx))
+  })
+
+  it('os pisos comportam o lado MAIOR da miniatura, que é o do desktop', () => {
+    // A miniatura cresce por viewport e as vagas por largura de card: um card de 220px aparece nas
+    // duas larguras de miniatura, então o piso tem de valer para a de 45.
+    for (const { minCardPx, slots } of COLOR_SLOT_TIERS) {
+      const passo = COLOR_THUMB_PX.desktop + 6
+      expect(passo * slots - 6).toBeLessThanOrEqual(minCardPx - 66)
+    }
+  })
+
+  it('3 cores — a mediana do catálogo — cabem inteiras a partir de 200px, sem contador', () => {
+    renderCard(comCor(['Folheado a Ouro', 'Folheado a Ouro Branco', 'Folheado a Ródio']))
+    const [uma, duas, tres] = vagas()
+
+    expect(vagas()).toHaveLength(4)
+    // `classList`, não `className`: `overflow-hidden` contém "hidden" e faria a asserção mentir.
+    expect(uma.classList.contains('hidden')).toBe(false)
+    expect(duas).toHaveClass('hidden', '@[213px]:block')
+    expect(tres).toHaveClass('hidden', '@[213px]:block')
+    // Na faixa de 2 vagas sobra uma cor, e ela vira contador só naquela faixa.
+    expect(vagas()[3]).toHaveTextContent('+2')
+    expect(vagas()[3]).toHaveClass('hidden', '@[162px]:flex', '@[213px]:hidden')
+  })
+
+  it('4 cores: as quatro só a partir de 248px — nas faixas menores a última vaga é contador', () => {
+    renderCard(comCor(['Prata', 'Ouro', 'Ouro Branco', 'Ródio']))
+    const [uma, duas, tres, quatro] = vagas()
+
+    expect(uma.classList.contains('hidden')).toBe(false)
+    expect(duas).toHaveClass('hidden', '@[213px]:block')
+    // A 3ª só aparece em 248: na faixa de 3 vagas ela cede o lugar ao `+2`, porque o contador
+    // OCUPA vaga em vez de se pendurar ao lado.
+    expect(tres).toHaveClass('hidden', '@[264px]:block')
+    expect(quatro).toHaveClass('hidden', '@[264px]:block')
+  })
+
+  it('5 cores: um contador por faixa, e só o da faixa vigente aparece', () => {
+    renderCard(comCor(['Prata', 'Ouro', 'Ouro Branco', 'Ródio', 'Rose']))
+    const contadores = vagas().filter(v => /^\+\d+$/.test(v.textContent ?? ''))
+
+    expect(contadores.map(c => c.textContent)).toEqual(['+4', '+3', '+2'])
+    expect(contadores[0]).toHaveClass('hidden', '@[162px]:flex', '@[213px]:hidden')
+    expect(contadores[1]).toHaveClass('hidden', '@[213px]:flex', '@[264px]:hidden')
+    expect(contadores[2]).toHaveClass('hidden', '@[264px]:flex')
   })
 })
 
 describe('card de produto — a cor escolhida (COR-14)', () => {
   it('a escolhida tem contorno de 2px em `ink`; as demais, 1px `field`', () => {
     renderCard(comCor(['Prata', 'Ouro', 'Ródio']))
-    const [escolhida, outra] = vagas()
 
-    expect(escolhida).toHaveClass('border-2', 'border-estrelinha-ink')
-    expect(outra).toHaveClass('border', 'border-estrelinha-field')
-    expect(outra).not.toHaveClass('border-2')
+    expect(miniatura('Prata')).toHaveClass('border-2', 'border-estrelinha-ink')
+    expect(miniatura('Ouro')).toHaveClass('border', 'border-estrelinha-field')
+    expect(miniatura('Ouro')).not.toHaveClass('border-2')
   })
 })
 
 describe('card de produto — cor sem foto (COR-15)', () => {
   it('a cor sem foto vira palco vazio, sem `<img>` — nunca a foto de outra cor', () => {
     renderCard(comCor(['Prata', 'Ouro'], ['prata.webp', null]))
-    const [comFoto, semFoto] = vagas()
 
-    expect(comFoto.querySelector('img')).toHaveAttribute('src', 'prata.webp')
-    expect(semFoto.querySelector('img')).toBeNull()
-    expect(semFoto).toHaveClass('bg-estrelinha-ground-deep')
+    expect(miniatura('Prata').querySelector('img')).toHaveAttribute('src', 'prata.webp')
+    expect(miniatura('Ouro').querySelector('img')).toBeNull()
+    expect(miniatura('Ouro')).toHaveClass('bg-estrelinha-ground-deep')
   })
 
-  it('nenhuma `<img>` da placa fica sem `src` — é o modo de falha que a AC descreve', () => {
+  it('nenhuma `<img>` da fileira fica sem `src` — é o modo de falha que a AC descreve', () => {
     renderCard(comCor(['Prata', 'Ouro', 'Ródio'], ['prata.webp', null, null]))
-    const imagens = Array.from(placa().querySelectorAll('img'))
+    const imagens = Array.from(fileira().querySelectorAll('img'))
 
-    // Âncora: sem ela, uma placa que parasse de renderizar imagem passaria com a lista vazia.
+    // Âncora: sem ela, uma fileira que parasse de renderizar imagem passaria com a lista vazia.
     expect(imagens).toHaveLength(1)
     expect(imagens.filter(img => !img.getAttribute('src'))).toEqual([])
   })

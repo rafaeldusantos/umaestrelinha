@@ -158,5 +158,13 @@ export default {
       },
     },
   },
-  plugins: [require("tailwindcss-animate"), require("@tailwindcss/typography")],
+  // `container-queries` existe por uma medida, não por gosto: quantas miniaturas de cor cabem no
+  // card do produto depende da largura do CARD, e ela não acompanha a viewport — em 1024 o card da
+  // categoria tem 220px e o da home 230px; em 768 a categoria cai para 134,7px. Toda regra por
+  // breakpoint erra em pelo menos uma dessas superfícies (`COR-16`).
+  plugins: [
+    require("tailwindcss-animate"),
+    require("@tailwindcss/typography"),
+    require("@tailwindcss/container-queries"),
+  ],
 } satisfies Config;

@@ -245,3 +245,46 @@ Hoje nada disso aparece, porque o "+" está no fluxo (achado 1). **No dia em que
 corrigido, 768 e 1024 passam a mostrar placa por cima do "+".** A AC foi implementada como escrita —
 4 vagas a partir de `md` — e a divergência fica registrada aqui em vez de resolvida por conta
 própria: mudar o ponto de corte é decisão de spec.
+
+---
+
+## Revisão pós-uso — 2026-08-15 (decisão do usuário, vendo a feature rodando)
+
+Quatro pedidos, e um deles reverte uma AC que o Verifier já tinha aprovado:
+
+1. **Tirar a placa branca** que envolvia as miniaturas
+2. **Aumentar as miniaturas** (32 → 40px; depois → 45px a partir de `md`)
+3. **Dar zoom na foto**, porque a cor não se distinguia
+4. **Clicar numa cor troca a imagem em destaque** — reverte `COR-11`
+
+### O que a revisão obrigou, além do pedido
+
+- **O preço passou a seguir a cor** (`COR-12`, novo). Medido no banco: em **271 dos 385** produtos
+  com eixo de cor (70%) o preço muda com a cor. Trocar só a imagem deixaria a foto de uma cor ao
+  lado do preço de outra em 7 de cada 10 produtos. Pix, parcela e o "de" riscado seguem junto —
+  senão a % do selo sairia calculada entre duas linhas diferentes.
+- **A reversão de `COR-11` só coube porque a miniatura cresceu.** Com 40px e `gap` 6 o passo é 46px,
+  então os alvos `TAP_44` de 44px não se sobrepõem — que era a objeção que sustentava a AC anterior.
+  `touchTarget.test.ts` é satisfeito pelo caminho que ele existe para induzir.
+- **As vagas passaram a ser container query** (`COR-16`), fechando a lacuna `G1` do Verifier.
+  Medido no navegador: a largura do card **não acompanha a viewport** — em 1024 a categoria tem
+  220px e a home 230px. Entrou `@tailwindcss/container-queries`.
+- **Os pisos são dimensionados pelo lado de 45px**, não pelo de 40: o tamanho varia por viewport e a
+  quantidade de vagas por largura de card, então um card de 220px aparece nas duas larguras.
+
+### Prova em navegador — Chromium, dado real do catálogo
+
+| superfície | card | o que aparece | lado |
+| --- | ---: | --- | ---: |
+| 390 home (carrossel) | 220px | 3 fotos | 40px |
+| 390 categoria | 171px | 1 foto + `+2` | 40px |
+| 768 categoria | 134,7px | **fileira oculta** — nem 2 cabem | — |
+| 1024 home | 230px | 3 fotos | **45px** |
+| 1440 home | 294px | 3 fotos | 45px |
+| 1440 categoria | 305,3px | 3 fotos | 45px |
+
+Zero colisão com o `+` em todas; zero scroll horizontal do body (o de 768 é o rodapé, pré-existente).
+
+### Gates da revisão
+store **1608 testes / 116 arquivos** · `tsc` 0 · lint **30/8** (baseline exata) ·
+`packages/core/src/payment/**` sem diff.

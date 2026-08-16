@@ -27,15 +27,38 @@ export const CARD_MAX_AXES = 2
 export const PAGE_MAX_AXES = 3
 
 /**
- * Vagas da placa de cor do card (`COR-12`). Quatro a partir de `md`, três abaixo.
+ * Vagas da fileira de cor do card (`COR-16`), por faixa de largura **do card**.
  *
- * Não é preferência: em 220px — a largura real do card no carrossel — quatro vagas medem 160px e o
- * botão "+" começa em 168px a partir da esquerda, então elas SOBREPÕEM. Três medem 122px e sobram
- * 32px. Com mediana de 3 cores no catálogo real, o mobile mostra todas as cores em 305 dos 385
- * produtos que têm o eixo.
+ * A largura que decide é a do card, e ela **não acompanha a viewport** — medido no navegador em
+ * 2026-08-15: 768 categoria → 134,7px · 390 categoria → 171px · 390 home e 1024 categoria → 220px ·
+ * 1024 home → 230px · 1440 → 294–305px. Em 1024 o card da categoria é MENOR que o da home. Por isso
+ * quem lê a largura é container query, não breakpoint: a primeira redação usava `md:` e errava em
+ * duas das cinco superfícies medidas.
+ *
+ * Os pisos saem da aritmética, não de gosto: `n` miniaturas medem `n·(lado + 6) − 6` e precisam
+ * caber em `card − 66` (inset 14 + botão "+" de 38 + folga 14).
+ *
+ * **A conta usa o lado MAIOR (45px, o do desktop), não o de 40.** A miniatura cresce a partir de
+ * `md` — decisão de conforto de ponteiro, que é de viewport — enquanto a quantidade de vagas é
+ * decisão de espaço, que é do card. As duas variam por eixos diferentes, então um card de 220px
+ * pode aparecer nas duas larguras de miniatura; dimensionar o piso pelo lado menor deixaria o
+ * desktop estourando exatamente onde a conta dissesse que cabe. Daí 51n − 6 ≤ card − 66:
+ * 162 / 213 / 264.
+ *
+ * **Abaixo do primeiro piso a fileira some inteira**: no card de 134,7px nem duas miniaturas cabem
+ * ao lado do "+". A ausência é declarada em vez de recortada pelo `overflow-hidden` do palco.
  */
-export const COLOR_SLOTS_MOBILE = 3
-export const COLOR_SLOTS_DESKTOP = 4
+export const COLOR_SLOT_TIERS = [
+  { minCardPx: 162, slots: 2 },
+  { minCardPx: 213, slots: 3 },
+  { minCardPx: 264, slots: 4 },
+] as const
+
+/** O lado da miniatura, em px: 40 abaixo de `md`, 45 a partir dele. É o par que os pisos supõem. */
+export const COLOR_THUMB_PX = { base: 40, desktop: 45 } as const
+
+/** O maior número de vagas que qualquer faixa mostra — o tamanho da lista que o componente monta. */
+export const COLOR_SLOTS_MAX = COLOR_SLOT_TIERS[COLOR_SLOT_TIERS.length - 1].slots
 
 /**
  * Os eixos na ordem de `position`. Empate resolve por `name`, para a ordem ser estável entre
