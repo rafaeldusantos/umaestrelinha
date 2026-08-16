@@ -641,6 +641,55 @@ Cada slice tem um barrel `index.ts` (public API). **Novo código deve importar d
     `engraving_text` de propósito. Mudar o cadastro não altera pedido já criado.
   - **Nenhuma decisão de dinheiro depende do material.** `create-payment` não lê nenhuma coluna nova,
     e `packages/core/src/payment/**` fechou a feature `22` **sem uma linha alterada**.
+- **O GUIA DE MATERIAL É `/como-enviar-seu-material-de-dna`, e ele é composição** (feature `31`). O
+  desenho é o dos artboards `5MC-0` (desktop) e `6AU-0` (mobile). A página resolve **três** coisas —
+  canônica, viewport e qual vídeo está aberto — e o resto é o slice `widgets/material-guide`:
+  conteúdo em `model/guide.ts`, desenho em nove componentes.
+  - **O endereço antigo (`/como-enviar-o-material`) responde 301**, no edge e no espelho do router, e
+    **continua em `ROUTE_SLUGS`**. As duas metades importam: sem o redirect, a URL que está no rodapé
+    de todo e-mail já enviado vira 404; sem a reserva, uma categoria ocuparia o slug e engoliria o
+    redirect. É a primeira entrada de `LEGACY_REDIRECTS` **sem `:slug`** — caminho inteiro e fixo —, e
+    `legacyRedirectTo` casa a forma exata **antes** de procurar por prefixo: cair na busca por padrão
+    faria `/como-enviar-o-material/qualquer-coisa` produzir um destino com `:slug` literal na URL.
+  - **A âncora de todo `MaterialKind` é contrato, e tem guarda.** A página do produto monta
+    `#cinzas` desde a `22`, e âncora quebrada **não dá 404**: a página abre, não rola, e ninguém
+    descobre. `MATERIAIS_SEM_ANCORA` reprova a falta **antes** do render, e um teste confere que todo
+    atalho do seletor aponta para um `id` que existe. `flores` e `outro` ganharam cartão por isso — o
+    board não os cobre, e sem eles dois links já publicados cairiam no vazio.
+  - **O caminho mora em `@estrelinha/core/routes`** (`MATERIAL_GUIDE_PATH`, `materialGuideHref`), não
+    no slice: quem linka para o guia é `entities`/`widgets`, que pela regra de camadas não podem
+    importar de outro widget. O endereço já mudou uma vez; a âncora, não.
+  - **`model/fichas.ts` foi APAGADO.** Ele era a segunda escrita do mesmo guia, e duas fontes do
+    mesmo dado é o "defeito 01" do projeto.
+  - **Três desvios do board, todos por contraste medido.** O selo numerado dos passos sai `ink` sobre
+    ouro (4,78:1) e não creme (2,52:1); os algarismos do preparo em casa saem `on-primary` e não ouro
+    (3,26:1); e o versalete de cada seção sai `ink-soft`, com o ouro no **fio** ao lado — a mesma
+    decisão que a `AboutPage` tomou na assinatura. O ouro que sobrou é ícone, com uma exceção
+    declarada: os algarismos `01`..`04` dos passos, que passam por serem texto **grande** (3,17:1
+    contra a régua de 3:1). Tudo isso está escrito em `accentText.test.ts`, entrada por entrada.
+  - **O iframe do YouTube só existe depois do clique**, no domínio `youtube-nocookie`. Cinco players
+    embutidos carregariam o script do YouTube em quem só passou pela página; e o `Dialog` do Radix
+    desmonta o conteúdo ao fechar, o que também **para o som** — player escondido continuaria tocando.
+  - **A capa é `hqdefault` e `object-cover` sozinho basta.** São 480×360 com o quadro 16:9 no meio:
+    exatamente 45px de tarja em cima e 45 embaixo, que cobrir um container 16:9 remove. Um `scale` por
+    cima não removia tarja nenhuma e **cortava as laterais**, comendo a última palavra do título que a
+    Adri escreveu na arte. Pelo mesmo motivo o disco de play fica no **canto**, não no centro.
+  - **A duração dos vídeos está vazia de propósito.** O board mostra `1:48`, `2:05` e `1:32`, mas
+    aqueles são números de vagas de desenho — os vídeos reais são outros e o repositório não tem como
+    medi-los. `VideoDePreparo.duracao` é opcional e a legenda acende sozinha quando for preenchida.
+  - **As fichas ricas são acordeão no celular e abertas no computador**, decidido UMA vez pela página
+    (`useCompactViewport`) e distribuído. O hook usa `useSyncExternalStore`, e não `useState` +
+    `useEffect`: o par tradicional começa em `false` e descobre a verdade no efeito, o que no celular
+    faria as fichas nascerem abertas e **colapsarem na frente da cliente**.
+  - **O bloco de endereço (`MaterialAddress`) sobreviveu ao redesenho.** O board não o desenha — nele
+    o endereço chega por WhatsApp depois do pagamento —, mas o componente lê `store_settings` e **não
+    renderiza endereço pela metade**. Apagá-lo trocaria informação que a loja já sabe dar por
+    informação que a cliente teria de pedir.
+  - **A biblioteca de ícones ganhou duas grades de origem** (48 e 120, além da de 40), com a
+    invariante de sempre: escala × traço = **1,5** na grade de 24. `icons.test.ts` assere a
+    invariante de cada grade **e** que o par (escala, traço) anda junto — `scale(0.5)` com o traço da
+    grade de 40 renderiza 1,25, um oitavo mais fino que o vizinho, invisível em review e visível na
+    tela.
 - **Conjunto de produtos é CATEGORIA — só ela** (`AD-014`). Na loja, "coleção" já é a categoria: a
   `CategoryPage` é renderizada a partir de `categories` (hoje em `/:slug` e `/:pai/:filha` — ver o
   bloco de URLs acima), o widget da home se chama "Coleções" e o 404 diz "Coleção não encontrada". A
@@ -796,9 +845,28 @@ literalmente, em vez de iterar a constante que deveria guardar).
   **Baseline de tipos: store 0 · backoffice 0 · catalog-import 0. Zero é a baseline: qualquer erro
   de tipo é novo.** O importador tem `tsconfig.json` próprio (não é solution-style):
   `npx tsc --noEmit -p tools/catalog-import/tsconfig.json`.
-- **Baseline de testes (fecho da feature 30, medida por workspace): 5445 testes em 300 arquivos** —
-  store **1858/129** · backoffice **1556/97** · core **1359/52** · functions **337/6** ·
+- **Baseline de testes (fecho da feature 31, medida por workspace): 5465 testes em 300 arquivos** —
+  store **1874/129** · backoffice **1556/97** · core **1363/52** · functions **337/6** ·
   catalog-import **335/16**. Os cinco workspaces passam limpos.
+  - A feature `31` somou **+20 líquidos** (store +16, core +4) **sem nenhum arquivo novo**, e o
+    líquido esconde o que importa: entraram **+34** e saíram **14**. Os 14 eram de
+    `HowToSendMaterialPage.test.tsx`, que foi **reescrito** — a página trocou de desenho, de endereço
+    e de estrutura de dado, e as asserções antigas mediam um layout que não existe mais.
+  - **É a segunda exceção declarada à regra de "queda só vale se o número reaparece do outro lado"**
+    (a primeira foi a `25`, com o `HomePreview`). O arquivo não encolheu: foi de 14 para 34 casos no
+    mesmo lugar. O que caiu foi a contagem de `MATERIAL_FICHAS`, que era percorrida por
+    `it.each(MATERIAL_KINDS)` sobre um dado que a `31` apagou (`model/fichas.ts` era a segunda escrita
+    do guia). A cobertura equivalente ficou **mais forte**: `MATERIAIS_SEM_ANCORA` reprova material
+    sem destino **antes** do render, e um caso novo confere que todo atalho do seletor aponta para uma
+    âncora que existe.
+  - **Três asserções de guarda foram reescritas porque a régua ganhou casos, e as três GANHARAM
+    vizinhas**: `routes.test.ts` (14→15 slugs, 3→4 redirects, mais os dois casos de
+    `materialGuideHref` e o de caminho fixo que não sequestra rota mais funda),
+    `vercelRedirects.test.ts` (o quarto redirect, com asserção própria) e `icons.test.ts` (passou a
+    asserir a **invariante de cada grade de origem** — escala × traço = 1,5 — e que o par
+    (escala, traço) anda junto). Nenhuma foi afrouxada.
+  - **Baseline anterior (fecho da feature 30): 5445 testes em 300 arquivos** — store 1858/129 ·
+    backoffice 1556/97 · core 1359/52 · functions 337/6 · catalog-import 335/16.
   - A feature `30` somou **+335 testes e +15 arquivos**, sem apagar nenhum.
   - **Cinco asserções foram reescritas porque a spec mudou o comportamento, e as cinco GANHARAM
     vizinhas**: `vercelRedirects.test.ts` (o array de `rewrites` foi de 1 para 3 elementos — a
