@@ -796,9 +796,19 @@ literalmente, em vez de iterar a constante que deveria guardar).
   **Baseline de tipos: store 0 · backoffice 0 · catalog-import 0. Zero é a baseline: qualquer erro
   de tipo é novo.** O importador tem `tsconfig.json` próprio (não é solution-style):
   `npx tsc --noEmit -p tools/catalog-import/tsconfig.json`.
-- **Baseline de testes (fecho das features 28 e 29, medida por workspace): 5110 testes em 285
-  arquivos** — store **1793/127** · backoffice **1496/94** · core **1218/44** · functions 279/4 ·
-  catalog-import **324/16**. Os cinco workspaces passam limpos.
+- **Baseline de testes (fecho da feature 30, medida por workspace): 5445 testes em 300 arquivos** —
+  store **1858/129** · backoffice **1556/97** · core **1359/52** · functions **337/6** ·
+  catalog-import **335/16**. Os cinco workspaces passam limpos.
+  - A feature `30` somou **+335 testes e +15 arquivos**, sem apagar nenhum.
+  - **Cinco asserções foram reescritas porque a spec mudou o comportamento, e as cinco GANHARAM
+    vizinhas**: `vercelRedirects.test.ts` (o array de `rewrites` foi de 1 para 3 elementos — a
+    igualdade exata virou asserção de **ordem por índice**, que é o que de fato importa),
+    `navItems.test.ts` (o grupo `Loja` foi de 2 para 3 itens), `CategoryInspector.test.tsx` e
+    `core/product/index.test.ts` (os dois payloads ganharam um campo, e **seguem em igualdade
+    exata** — é o que impede campo novo entrar na gravação sem ninguém decidir) e
+    `googleShoppingSchema.test.ts`. Nenhuma foi afrouxada.
+  - **Baseline anterior (fecho das features 28 e 29): 5110 testes em 285 arquivos** — store
+    1793/127 · backoffice 1496/94 · core 1218/44 · functions 279/4 · catalog-import 324/16.
   - As duas features fecharam na mesma árvore e a baseline é a soma delas. A `28` somou **+291 testes
     e +18 arquivos** (store 1768/126 sozinha); a `29` somou os **+25 e +1** restantes no store.
   - **Duas asserções foram reescritas porque a spec mudou o comportamento, e as duas GANHARAM
