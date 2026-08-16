@@ -9,6 +9,7 @@ import {
   toMaterialStatus,
   type MaterialKind,
 } from '@estrelinha/core/material'
+import { MATERIAL_GUIDE_PATH, materialGuideHref } from '@estrelinha/core/routes'
 import { materialTrackingMessage, useSetMaterialTracking } from '@/entities/order'
 import { TAP_ROW } from '@/shared/lib/touchTarget'
 
@@ -72,7 +73,7 @@ const OrderMaterialBlock = ({
           {materiais.map((kind: MaterialKind) => (
             <li key={kind}>
               <Link
-                to={`/como-enviar-o-material#${materialAnchor(kind)}`}
+                to={materialGuideHref(materialAnchor(kind))}
                 className={`${TAP_ROW} rounded-pill border border-estrelinha-field bg-white px-3 py-1 text-[13px] font-medium leading-5 text-estrelinha-ink transition-colors hover:border-estrelinha-primary`}
               >
                 {materialKindLabel(kind)}
@@ -183,7 +184,7 @@ const MaterialTrackingForm = ({ orderId }: { orderId: string }) => {
         >
           É opcional. Se preferir, avise a gente e registramos para você.{' '}
           <Link
-            to="/como-enviar-o-material"
+            to={MATERIAL_GUIDE_PATH}
             className={`${TAP_ROW} font-semibold text-estrelinha-primary hover:underline`}
           >
             Como enviar o material

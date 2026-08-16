@@ -7,6 +7,7 @@ import {
   materialSummary,
   requiresMaterial,
 } from '@estrelinha/core/material'
+import { MATERIAL_GUIDE_PATH, materialGuideHref } from '@estrelinha/core/routes'
 import type { Product } from '@estrelinha/supabase/types'
 import { TAP_ROW } from '@/shared/lib/touchTarget'
 
@@ -32,8 +33,9 @@ interface Props {
  * peça que exige **dois** ("Árvore da Vida com Cabelo e Coto Umbilical") — ali "escolha o material"
  * não é incompleto, é errado.
  *
- * O link vai para a **ficha correspondente** (`/como-enviar-o-material#cinzas`), não para o topo da
- * página: preparar leite materno não é preparar cinzas não é preparar cabelo.
+ * O link vai para a **ficha correspondente** (`/como-enviar-seu-material-de-dna#cinzas`), não para o
+ * topo da página: preparar leite materno não é preparar cinzas não é preparar cabelo. O endereço sai
+ * de `@estrelinha/core/routes`, e não escrito aqui — a feature 31 já o mudou uma vez.
  */
 const MaterialNotice = ({ product, variant = 'page' }: Props) => {
   const exige = requiresMaterial(product)
@@ -72,7 +74,7 @@ const MaterialNotice = ({ product, variant = 'page' }: Props) => {
             {kinds.map(kind => (
               <li key={kind}>
                 <Link
-                  to={`/como-enviar-o-material#${materialAnchor(kind)}`}
+                  to={materialGuideHref(materialAnchor(kind))}
                   className={`${TAP_ROW} rounded-pill border border-estrelinha-field bg-white px-3 py-1 text-[13px] font-medium leading-5 text-estrelinha-ink transition-colors hover:border-estrelinha-primary`}
                 >
                   {materialKindLabel(kind)}
@@ -92,7 +94,7 @@ const MaterialNotice = ({ product, variant = 'page' }: Props) => {
       )}
 
       <Link
-        to="/como-enviar-o-material"
+        to={MATERIAL_GUIDE_PATH}
         className={`${TAP_ROW} mt-3 font-semibold text-estrelinha-primary hover:underline`}
       >
         Como enviar o material

@@ -61,7 +61,8 @@ describe('vercel.json — âncora da leitura', () => {
 
     // E o tamanho da própria régua está escrito aqui: esvaziar `LEGACY_REDIRECTS` tornaria a
     // comparação acima verdadeira contra um `redirects: []`, que é exatamente o defeito a evitar.
-    expect(LEGACY_REDIRECTS.length).toBe(3)
+    // Três padrões de categoria/produto (feature 23) + o caminho fixo do guia (feature 31).
+    expect(LEGACY_REDIRECTS.length).toBe(4)
   })
 })
 
@@ -87,6 +88,15 @@ describe('vercel.json — os 301 das URLs legadas (URL-02)', () => {
     const entry = bySource('/categoria/:slug')
     expect(entry).toBeDefined()
     expect(entry.destination).toBe('/:slug')
+    expect(entry.statusCode).toBe(301)
+  })
+
+  it('`/como-enviar-o-material` → o guia novo com 301 (feature 31)', () => {
+    // Caminho INTEIRO, sem `:slug`: a feature 31 trocou o endereço do guia de material, e não há
+    // nada de variável para casar. É a URL que está no rodapé de todo e-mail já enviado.
+    const entry = bySource('/como-enviar-o-material')
+    expect(entry).toBeDefined()
+    expect(entry.destination).toBe('/como-enviar-seu-material-de-dna')
     expect(entry.statusCode).toBe(301)
   })
 

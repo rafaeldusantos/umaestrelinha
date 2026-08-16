@@ -9,7 +9,12 @@
   "redirects": [
     { "source": "/produto/:slug", "destination": "/produtos/:slug", "statusCode": 301 },
     { "source": "/colecao/:slug", "destination": "/:slug", "statusCode": 301 },
-    { "source": "/categoria/:slug", "destination": "/:slug", "statusCode": 301 }
+    { "source": "/categoria/:slug", "destination": "/:slug", "statusCode": 301 },
+    {
+      "source": "/como-enviar-o-material",
+      "destination": "/como-enviar-seu-material-de-dna",
+      "statusCode": 301
+    }
   ],
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
   "headers": [

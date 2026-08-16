@@ -82,7 +82,7 @@ describe('MaterialNotice — as três situações (MAT-02)', () => {
 
     expect(screen.getByRole('link', { name: 'Leite materno' })).toHaveAttribute(
       'href',
-      '/como-enviar-o-material#leite-materno',
+      '/como-enviar-seu-material-de-dna#leite-materno',
     )
   })
 

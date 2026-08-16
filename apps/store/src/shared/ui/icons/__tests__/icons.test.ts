@@ -2,7 +2,18 @@ import { describe, it, expect } from 'vitest'
 import { readFileSync, readdirSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { ESTRELINHA_ICONS, ICON_ACCENT, ICON_STROKE, ICON_VIEW_BOX } from '..'
+import {
+  ESTRELINHA_ICONS,
+  ICON_ACCENT,
+  ICON_SCALE_G40,
+  ICON_SCALE_G48,
+  ICON_SCALE_G120,
+  ICON_STROKE,
+  ICON_STROKE_G40,
+  ICON_STROKE_G48,
+  ICON_STROKE_G120,
+  ICON_VIEW_BOX,
+} from '..'
 
 /**
  * O guarda da biblioteca de ícones.
@@ -73,18 +84,54 @@ describe('biblioteca de ícones — uma grade e um traço', () => {
 
   it('todo traço sai por constante, e as constantes rendem 1,5 na grade de 24', () => {
     expect(ICON_STROKE).toBe(1.5)
-    // O grupo dos desenhos que nasceram na grade de 40: 2,5 × 0,6 = 1,5.
-    expect(2.5 * 0.6).toBeCloseTo(ICON_STROKE, 5)
+
+    // A invariante de cada grade de origem, e não a lista de constantes: um par novo só é legítimo
+    // se multiplicar para o traço da família. É isto que impede "grade nova" de virar a porta por
+    // onde um peso diferente entra — o defeito que não quebra nada e só fica feio.
+    const GRADES: readonly [string, number, number][] = [
+      ['40', ICON_STROKE_G40, ICON_SCALE_G40],
+      ['48', ICON_STROKE_G48, ICON_SCALE_G48],
+      ['120', ICON_STROKE_G120, ICON_SCALE_G120],
+    ]
+    for (const [grade, traco, escala] of GRADES) {
+      expect(traco * escala, `a grade de ${grade} não rende ${ICON_STROKE}`).toBeCloseTo(
+        ICON_STROKE,
+        5,
+      )
+    }
 
     let comTraco = 0
     for (const file of CONJUNTO) {
       const src = read(file)
       const literais = src.match(/strokeWidth="[^"]*"/g) ?? []
       expect(literais, `${file} declara strokeWidth literal: ${literais.join(', ')}`).toHaveLength(0)
-      if (/strokeWidth=\{ICON_STROKE(_G40)?\}/.test(src)) comTraco += 1
+      if (/strokeWidth=\{ICON_STROKE(_G40|_G48|_G120)?\}/.test(src)) comTraco += 1
     }
     // Âncora: todo ícone do conjunto é monoline, então todo ícone tem traço.
     expect(comTraco).toBe(CONJUNTO.length)
+  })
+
+  it('desenho em grupo escalado usa o traço daquela grade, e nunca o de outra', () => {
+    // O par (escala, traço) tem de andar junto: `scale(0.5)` com `ICON_STROKE_G40` renderiza 1,25 —
+    // um oitavo mais fino que o vizinho, invisível em review e visível na tela.
+    const PARES: readonly [string, string][] = [
+      ['ICON_SCALE_G40', 'ICON_STROKE_G40'],
+      ['ICON_SCALE_G48', 'ICON_STROKE_G48'],
+      ['ICON_SCALE_G120', 'ICON_STROKE_G120'],
+    ]
+    let comGrupo = 0
+    for (const file of CONJUNTO) {
+      const src = read(file)
+      if (!src.includes('transform={`scale(')) continue
+      comGrupo += 1
+      const par = PARES.find(([escala]) => src.includes(`scale(\${${escala}})`))
+      expect(par, `${file} escala por algo que não é constante de grade`).toBeDefined()
+      expect(src, `${file} escala em ${par[0]} mas não declara ${par[1]}`).toContain(
+        `strokeWidth={${par[1]}}`,
+      )
+    }
+    // Âncora: as grades de origem do Paper existem de verdade neste conjunto.
+    expect(comGrupo).toBeGreaterThanOrEqual(5)
   })
 
   it('nenhum ícone preenche — a família inteira é monoline', () => {

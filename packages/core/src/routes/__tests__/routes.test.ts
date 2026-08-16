@@ -2,11 +2,13 @@ import { describe, expect, it } from 'vitest'
 import {
   INFRA_SLUGS,
   LEGACY_REDIRECTS,
+  MATERIAL_GUIDE_PATH,
   RESERVED_SLUGS,
   ROUTE_SLUGS,
   categoryPath,
   isReservedSlug,
   legacyRedirectTo,
+  materialGuideHref,
   productPath,
   reservedSlugRefusal,
 } from '../routes'
@@ -19,11 +21,14 @@ import {
  * medido — comparar `ROUTE_SLUGS` com um `map` derivado dele mesmo passaria com a lista vazia.
  */
 describe('ROUTE_SLUGS — o primeiro segmento de toda rota declarada em App.tsx', () => {
-  it('tem exatamente os 14 segmentos estáticos das rotas da loja', () => {
-    // 13 até a feature 23; o 14º é `como-enviar-o-material`, da 22. **Esta contagem falhar quando
-    // uma rota entra é o comportamento correto**: com categoria na raiz do domínio (`AD-018`), rota
-    // nova que não passe por aqui encobre em silêncio uma categoria homônima.
-    expect(ROUTE_SLUGS).toHaveLength(14)
+  it('tem exatamente os 15 segmentos estáticos das rotas da loja', () => {
+    // 13 até a feature 23; o 14º é `como-enviar-o-material`, da 22. O 15º é
+    // `como-enviar-seu-material-de-dna`, da 31 — e o 14º **continua aqui**, agora como rota de
+    // redirect: apagá-lo liberaria o slug para uma categoria, que engoliria o 301 das URLs já
+    // compartilhadas. **Esta contagem falhar quando uma rota entra é o comportamento correto**: com
+    // categoria na raiz do domínio (`AD-018`), rota nova que não passe por aqui encobre em silêncio
+    // uma categoria homônima.
+    expect(ROUTE_SLUGS).toHaveLength(15)
   })
 
   it.each([
@@ -37,6 +42,7 @@ describe('ROUTE_SLUGS — o primeiro segmento de toda rota declarada em App.tsx'
     ['sobre'],
     ['politicas'],
     ['como-enviar-o-material'],
+    ['como-enviar-seu-material-de-dna'],
     ['conta'],
     ['favoritos'],
     ['entrar'],
@@ -63,12 +69,12 @@ describe('INFRA_SLUGS — o que é do host/build e não aparece no App.tsx', () 
 })
 
 describe('RESERVED_SLUGS — a união das duas, sem duplicata', () => {
-  it('tem 17 entradas: 14 rotas + 3 de infraestrutura', () => {
-    expect(RESERVED_SLUGS).toHaveLength(17)
+  it('tem 18 entradas: 15 rotas + 3 de infraestrutura', () => {
+    expect(RESERVED_SLUGS).toHaveLength(18)
   })
 
   it('não repete nenhuma entrada', () => {
-    expect(new Set(RESERVED_SLUGS).size).toBe(17)
+    expect(new Set(RESERVED_SLUGS).size).toBe(18)
   })
 
   it.each([
@@ -196,8 +202,9 @@ describe('categoryPath — a categoria na raiz do domínio (URL-03)', () => {
 })
 
 describe('LEGACY_REDIRECTS — as formas legadas, em dado (URL-02, AC 3c)', () => {
-  it('tem exatamente 3 entradas', () => {
-    expect(LEGACY_REDIRECTS).toHaveLength(3)
+  it('tem exatamente 4 entradas', () => {
+    // Três padrões `prefixo/:slug` da feature 23 + o caminho fixo do guia de material, da 31.
+    expect(LEGACY_REDIRECTS).toHaveLength(4)
   })
 
   it('o singular do produto aponta para o plural — nunca foi canônico', () => {
@@ -210,6 +217,29 @@ describe('LEGACY_REDIRECTS — as formas legadas, em dado (URL-02, AC 3c)', () =
 
   it('`/categoria/:slug` — forma que a Nuvemshop aceita — aponta para a raiz do domínio', () => {
     expect(LEGACY_REDIRECTS[2]).toEqual({ from: '/categoria/:slug', to: '/:slug' })
+  })
+
+  it('o guia de material aponta para o endereço novo — caminho INTEIRO, sem `:slug`', () => {
+    expect(LEGACY_REDIRECTS[3]).toEqual({
+      from: '/como-enviar-o-material',
+      to: '/como-enviar-seu-material-de-dna',
+    })
+  })
+
+  it('`legacyRedirectTo` resolve o caminho fixo, e só ele', () => {
+    // As duas metades. Sem a primeira, a URL que está no rodapé de todo e-mail já enviado vira 404
+    // em `pnpm dev` e no vitest. Sem a segunda, `/como-enviar-o-material/x` casaria pelo prefixo e
+    // produziria um destino com `:slug` literal dentro da URL.
+    expect(legacyRedirectTo('/como-enviar-o-material')).toBe('/como-enviar-seu-material-de-dna')
+    expect(legacyRedirectTo('/como-enviar-o-material/qualquer-coisa')).toBeNull()
+  })
+
+  it('`materialGuideHref` monta o guia com e sem âncora', () => {
+    expect(materialGuideHref()).toBe(MATERIAL_GUIDE_PATH)
+    expect(materialGuideHref('cinzas')).toBe(`${MATERIAL_GUIDE_PATH}#cinzas`)
+    // Vazio e espaço em branco caem no guia sem âncora, e não numa URL terminada em `#`.
+    expect(materialGuideHref('   ')).toBe(MATERIAL_GUIDE_PATH)
+    expect(materialGuideHref(null)).toBe(MATERIAL_GUIDE_PATH)
   })
 
   describe('legacyRedirectTo — o espelho que o roteador da loja usa', () => {

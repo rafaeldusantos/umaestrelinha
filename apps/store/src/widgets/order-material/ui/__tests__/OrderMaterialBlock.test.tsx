@@ -72,7 +72,7 @@ describe('OrderMaterialBlock — quando aparece', () => {
     montar({ kinds: ['leite_materno'] })
     expect(screen.getByRole('link', { name: 'Leite materno' })).toHaveAttribute(
       'href',
-      '/como-enviar-o-material#leite-materno',
+      '/como-enviar-seu-material-de-dna#leite-materno',
     )
   })
 })

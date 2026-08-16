@@ -48,6 +48,8 @@ const ROTULO: Record<string, string> = {
     'Chips que NOMEIAM os materiais da peça ("Mecha de cabelo", "Cinzas") e levam à ficha de preparo de cada um. São rótulos de conteúdo na mesma linguagem da nuvem de categorias da busca — não CTAs. O CTA da página segue sendo o "Adicionar ao carrinho", em `rounded-sm`.',
   'widgets/order-material/ui/OrderMaterialBlock.tsx':
     'Os mesmos chips de material, agora listando o que ESTE pedido espera. Mantê-los em pílula é o que faz a cliente reconhecer na confirmação exatamente o que leu na página do produto; a ação do bloco é o botão "Registrar", em `rounded-sm`.',
+  'widgets/material-guide/ui/MaterialShortcuts.tsx':
+    'Os atalhos por material no topo do guia. É o TERCEIRO lugar onde a mesma espécie de chip aparece — página do produto, confirmação do pedido e agora o guia —, e mantê-los idênticos é o que faz a cliente reconhecer o mesmo objeto nas três telas. São âncoras da própria página, não CTAs: as ações do guia (ver o vídeo, falar com a Adri) saem em `rounded-sm`.',
 }
 
 function tsxFiles(dir: string): string[] {

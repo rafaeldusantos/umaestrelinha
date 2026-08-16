@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { isPreviewWindow } from "@estrelinha/core/home";
 import { Toaster as Sonner } from "@estrelinha/ui/sonner";
 import { Toaster } from "@estrelinha/ui/toaster";
@@ -79,7 +79,21 @@ const App = () => (
             <Route path="/busca" element={<SearchPage />} />
             <Route path="/sobre" element={<AboutPage />} />
             <Route path="/politicas" element={<PoliciesPage />} />
-            <Route path="/como-enviar-o-material" element={<HowToSendMaterialPage />} />
+            <Route
+              path="/como-enviar-seu-material-de-dna"
+              element={<HowToSendMaterialPage />}
+            />
+            {/*
+              Feature 31: o guia mudou de endereço e o antigo continua resolvendo. Em produção quem
+              responde é o 301 do edge (`vercel.json`), antes de a SPA carregar; isto é o espelho para
+              `pnpm dev` e para o vitest, que não têm edge nenhum — sem ele a URL que está no rodapé
+              de todo e-mail já enviado só quebraria no dia do cutover. `replace` para o botão
+              "voltar" não cair de novo no redirect.
+            */}
+            <Route
+              path="/como-enviar-o-material"
+              element={<Navigate to="/como-enviar-seu-material-de-dna" replace />}
+            />
             <Route path="/conta" element={<AccountPage />} />
             <Route path="/favoritos" element={<WishlistPage />} />
             <Route path="/entrar" element={<AuthPage />} />

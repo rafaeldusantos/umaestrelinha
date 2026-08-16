@@ -31,7 +31,13 @@ export const ROUTE_SLUGS: readonly string[] = [
   'politicas',
   // Feature 22. Entra aqui **junto** com a rota no `App.tsx`, nunca depois: com categoria na raiz do
   // domínio, uma rota de um segmento que não seja reservada encobre em silêncio a categoria homônima.
+  //
+  // Feature 31: deixou de renderizar página e virou **301** para `como-enviar-seu-material-de-dna`.
+  // Continua aqui — e continua reservada — porque continua sendo uma rota declarada no `App.tsx`, e
+  // porque uma categoria que ocupasse este slug engoliria o redirect das URLs já compartilhadas.
   'como-enviar-o-material',
+  // Feature 31 — o guia de material redesenhado (artboards `5MC-0` e `6AU-0`).
+  'como-enviar-seu-material-de-dna',
   'conta',
   'favoritos',
   'entrar',
@@ -95,6 +101,28 @@ export const categoryPath = (slug: string, parentSlug?: string | null): string =
 }
 
 /**
+ * O guia de envio de material (feature 31).
+ *
+ * Mora aqui, e não no slice que o desenha, porque **quem linka para ele não é quem o renderiza**: o
+ * aviso de material da página do produto e o bloco do pedido são `entities`/`widgets` que, pela regra
+ * de camadas do FSD, não podem importar de outro widget. Com o endereço em `core/routes` as três
+ * pontas leem a mesma string — e quando ele mudar de novo, muda em um lugar.
+ */
+export const MATERIAL_GUIDE_PATH = '/como-enviar-seu-material-de-dna'
+
+/**
+ * `/como-enviar-seu-material-de-dna#cinzas` — o guia, opcionalmente já no material da cliente.
+ *
+ * A âncora vem de `materialAnchor` (`@estrelinha/core/material`), que não é importado aqui de
+ * propósito: este módulo é sem dependência para que os guardas que leem `App.tsx` e `vercel.json` do
+ * disco possam consumi-lo dentro de um teste de arquivo.
+ */
+export const materialGuideHref = (anchor?: string | null): string => {
+  const alvo = typeof anchor === 'string' ? anchor.trim() : ''
+  return alvo === '' ? MATERIAL_GUIDE_PATH : `${MATERIAL_GUIDE_PATH}#${alvo}`
+}
+
+/**
  * As formas legadas que continuam resolvendo, **em dado**.
  *
  * Duas pontas leem esta mesma lista: o `vercel.json` (301 no edge, que é o que preserva link equity e
@@ -104,11 +132,21 @@ export const categoryPath = (slug: string, parentSlug?: string | null): string =
  * **O destino de categoria é UM segmento, não dois**: o edge não conhece a árvore e não tem como
  * saber de que pai a filha pende. A forma de um segmento resolve com 200 e declara canonical para a
  * de dois (`AD-018`), então o legado chega ao conteúdo certo em um salto só.
+ *
+ * **Há duas formas de entrada, e a diferença é `:slug`.** As três primeiras são *padrões* — um
+ * prefixo com um slug variável atrás. A quarta é um caminho **inteiro e fixo**: a feature 31 trocou
+ * o endereço do guia de material, e não há nada de variável para casar. `legacyRedirectTo` distingue
+ * as duas pela presença do `:slug`, e a Vercel aceita as duas no mesmo array.
  */
 export const LEGACY_REDIRECTS: readonly { from: string; to: string }[] = [
   { from: '/produto/:slug', to: '/produtos/:slug' },
   { from: '/colecao/:slug', to: '/:slug' },
   { from: '/categoria/:slug', to: '/:slug' },
+  // Feature 31. O guia da 22 vivia aqui e foi redesenhado a partir dos artboards; o endereço mudou
+  // junto. O 301 existe porque a URL antiga está no rodapé de todo e-mail já enviado e no link que a
+  // Adri manda por WhatsApp desde a feature 22 — quebrá-la manda a cliente para um 404 no momento em
+  // que ela foi procurar como não estragar o material.
+  { from: '/como-enviar-o-material', to: '/como-enviar-seu-material-de-dna' },
 ]
 
 /**
@@ -125,9 +163,15 @@ export const LEGACY_REDIRECTS: readonly { from: string; to: string }[] = [
  * projeto —, e a primeira forma legada nova divergiria num deles em silêncio.
  */
 export const legacyRedirectTo = (pathname: string): string | null => {
+  // Caminho fixo primeiro: `/como-enviar-o-material` também tem um "prefixo", e cair na busca por
+  // padrão faria a entrada de caminho inteiro nunca ser alcançada — ou, pior, casar por engano com
+  // `/como-enviar-o-material/qualquer-coisa` e produzir um destino com `:slug` literal na URL.
+  const exata = LEGACY_REDIRECTS.find(r => !r.from.includes(':slug') && r.from === pathname)
+  if (exata) return exata.to
+
   const [, prefix, slug] = pathname.split('/')
   if (!prefix || !slug) return null
 
-  const entry = LEGACY_REDIRECTS.find(r => r.from.split('/')[1] === prefix)
+  const entry = LEGACY_REDIRECTS.find(r => r.from.includes(':slug') && r.from.split('/')[1] === prefix)
   return entry ? entry.to.replace(':slug', slug) : null
 }

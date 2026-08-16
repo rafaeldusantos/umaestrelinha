@@ -49,6 +49,20 @@ const PERMITIDOS: Record<string, string> = {
     'ÍCONE em três lugares, e texto em nenhum: a estrela decorativa sai `accent-strong` sobre `ground-deep` (3,17:1) e `accent` sobre `primary` (3,33:1) — os dois acima dos 3:1 de objeto gráfico. O versalete da assinatura, que o artboard pedia em ouro, saiu em `ink-soft` justamente porque ali é TEXTO.',
   'widgets/home-sections/ui/BrandStatement.tsx':
     'A faixa institucional da home é `bg-estrelinha-ink` inteira: o eyebrow e o fio ao lado dele medem 4,78:1 ali. O título e o corpo NÃO são ouro — saem em `on-primary` e `ground`, que passam de 12:1.',
+
+  // Feature 31 — o guia de material. Nas cinco entradas o ouro é ÍCONE, com uma exceção declarada
+  // (os algarismos dos passos), e o versalete de cada seção — que o board pede em ouro — sai em
+  // `ink-soft`, pelo mesmo motivo que a assinatura da `AboutPage` saiu: ali é texto de corpo.
+  'widgets/material-guide/ui/GuideChecklist.tsx':
+    'ÍCONE: o tique de 14px dentro da caixinha de conferência, sobre a superfície branca do cartão. `accent-strong` mede 3,85:1 no branco, acima dos 3:1 de objeto gráfico. O texto do item sai em `ink`.',
+  'widgets/material-guide/ui/GuideSteps.tsx':
+    'TEXTO, e a exceção está medida: os algarismos `01`..`04` saem `accent-strong` sobre `ground-deep`, 3,17:1. Passam porque são texto GRANDE pela WCAG 1.4.3 — 24px bold no mobile e 28px no desktop, acima dos 18,66px bold que baixam a régua para 3:1. Título e corpo do passo não são ouro.',
+  'widgets/material-guide/ui/HomePrepSection.tsx':
+    'ÍCONE: o `i` do aviso de cada bloco, dentro da faixa `primary`. `accent` sobre `primary` mede 3,26:1 — objeto gráfico. Os algarismos dos passos, que o board pinta de ouro, saíram em `on-primary` justamente porque ali é texto (8,40:1).',
+  'widgets/material-guide/ui/MaterialFicha.tsx':
+    'ÍCONE: o tique de 18px da lista de recipientes, sobre `ground`. `accent-strong` mede 3,55:1 ali. O selo numerado dos passos é `ink` sobre `accent` (4,78:1), e não o creme do board, que mediria 2,52:1.',
+  'widgets/material-guide/ui/MaterialShortcuts.tsx':
+    'ÍCONE: o triângulo de 12px que marca os atalhos com ficha rica. `accent-strong` mede 3,17:1 sobre `ground-deep` e 3,55:1 sobre branco — objeto gráfico nos dois. O rótulo do atalho sai em `ink` ou `ink-soft`.',
 }
 
 function tsxFiles(dir: string): string[] {

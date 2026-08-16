@@ -58,7 +58,12 @@ export const MATERIAL_KIND_LABELS: Record<MaterialKind, string> = {
   outro: 'Outro material',
 }
 
-/** O `id` da âncora da ficha em `/como-enviar-o-material`. É o enum com hífen, e nada mais. */
+/**
+ * O `id` da âncora da ficha no guia de envio. É o enum com hífen, e nada mais.
+ *
+ * O caminho do guia é `MATERIAL_GUIDE_PATH` (`@estrelinha/core/routes`) — ele já mudou uma vez
+ * (feature 31), e a âncora não.
+ */
 export const materialAnchor = (kind: MaterialKind): string => kind.replace(/_/g, '-')
 
 export const isMaterialKind = (value: unknown): value is MaterialKind =>

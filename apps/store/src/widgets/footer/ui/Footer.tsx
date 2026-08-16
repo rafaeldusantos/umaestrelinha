@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { Instagram } from 'lucide-react'
 import { browseCategories, useCategories } from '@/entities/category'
 import { categoryHref } from '@estrelinha/core/menu'
+import { MATERIAL_GUIDE_PATH } from '@estrelinha/core/routes'
 import { EstrelinhaSignature } from '@/shared/ui/brand'
 import { TAP_ROW } from '@/shared/lib/touchTarget'
 import InstagramStrip, { INSTAGRAM_URL } from './InstagramStrip'
@@ -135,7 +136,7 @@ const Footer = () => {
               {/* Feature 22: a pergunta que a operação mais responde. Fica em "Ajuda", e não em
                   "Institucional", porque é instrução de uso — a cliente procura isso com o envelope
                   na mão, não navegando pela loja. */}
-              <FooterLink to="/como-enviar-o-material">Como enviar o material</FooterLink>
+              <FooterLink to={MATERIAL_GUIDE_PATH}>Como enviar o material</FooterLink>
               <FooterLink to="/politicas#trocas">Trocas e devoluções</FooterLink>
               <FooterLink to="/politicas">Políticas</FooterLink>
               <FooterLink to="/sobre">Contato</FooterLink>

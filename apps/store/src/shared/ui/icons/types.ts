@@ -31,6 +31,28 @@ export const ICON_STROKE_G40 = 2.5
 export const ICON_SCALE_G40 = 0.6
 
 /**
+ * Feature 31 — mais duas grades de origem, pelo mesmo motivo da de 40.
+ *
+ * O guia de material do Paper (`5MC-0`) desenha em **três** grades: 24 (os miúdos), 48 (os passos de
+ * preparo) e 120 (os cabeçalhos de ficha). Reescrever coordenada por coordenada deforma o desenho sem
+ * quebrar nada visível — a lição que o `paths.ts` da marca já cobrou —, então cada desenho entra num
+ * grupo com a escala da grade dele e o traço que **rende 1,5 na grade de 24**:
+ *
+ * | grade | escala | traço declarado | efetivo |
+ * | ---: | ---: | ---: | ---: |
+ * |  40 | 0,6 | 2,5 | 1,5 |
+ * |  48 | 0,5 | 3,0 | 1,5 |
+ * | 120 | 0,2 | 7,5 | 1,5 |
+ *
+ * A invariante — e não a lista de constantes — é o que `icons.test.ts` assere: cada par multiplica
+ * para `ICON_STROKE`. Grade nova só entra somando um par que respeite isso.
+ */
+export const ICON_STROKE_G48 = 3
+export const ICON_SCALE_G48 = 0.5
+export const ICON_STROKE_G120 = 7.5
+export const ICON_SCALE_G120 = 0.2
+
+/**
  * O detalhe dourado é **fixo**, e é `accent-strong`, não `accent`.
  *
  * O contorno estrutural herda `currentColor` (o ícone acompanha o texto ao lado), mas o realce sai
