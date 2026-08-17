@@ -383,15 +383,15 @@ completo (framework, `installCommand` na raiz do monorepo, headers de cache e de
 - **`supabase/.temp/project-ref` diz `zwvrqtjvaltpbevjqzks`, que NÃO é o projeto do vercel.json.** É
   link velho do CLI e é armadilha: um `supabase db push` **local** daqui vai para o projeto errado.
   Confira com `supabase projects list` e re-linke antes de qualquer comando que escreva no hospedado.
-  (O CI não usa este arquivo: ele linka pelo secret `SUPABASE_PROJECT_REF`.)
-- **`AD-017` tem data de validade, e ela AGORA VENCE SOZINHA.** Enquanto este banco não for
-  implantado, a história de migration pode ser reescrita — foi assim que os defaults de
-  `store_settings` passaram a nascer corretos, sem migration de correção. **A permissão expira no
-  primeiro `supabase db push` bem-sucedido**, e desde a `supabase-deploy.yml` isso **não é mais um
-  comando que alguém decide rodar**: é o próximo merge em `master` depois que o secret
-  `SUPABASE_PROJECT_REF` for preenchido. A partir daí vale a regra normal — migration aplicada é
-  imutável, correção vem em migration nova. **Quando o primeiro push passar, apague este item**;
-  deixá-lo é convidar alguém a reescrever história já aplicada.
+  (O CI não usa este arquivo: ele linka pela **variable** `SUPABASE_PROJECT_REF` do environment
+  `production` — variable e não secret, porque o ref não é segredo e mascará-lo em log só atrapalha
+  quem estiver depurando.)
+- **`AD-017` VENCEU em 2026-08-17.** O `Supabase Deploy` aplicou as 44 migrations no projeto
+  hospedado `hgkrsfpupypxtygjgthf` (run do commit `bf2537e`, `Finished supabase db push.`). **A
+  permissão de reescrever história de migration acabou ali.** Daqui em diante vale a regra normal, sem
+  exceção: **migration aplicada é imutável, e correção vem em migration nova**. Reescrever um arquivo
+  já aplicado faz o banco local e o hospedado divergirem em silêncio — o `db push` só olha o que
+  falta, nunca o que mudou no que já passou.
 - **O guia de deploy em `.specs/archive/nanita/DEPLOY.md` é da loja anterior**: o *procedimento* vale,
   os identificadores não.
 

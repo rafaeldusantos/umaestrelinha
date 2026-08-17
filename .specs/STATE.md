@@ -316,7 +316,12 @@
   escrita na própria decisão e o `CLAUDE.md` (`T40`) a repete.
 - **Scope**: `supabase/migrations/**`
 - **Date**: 2026-08-08
-- **Status**: active
+- **Status**: **EXPIRADA em 2026-08-17**, exatamente pela condição escrita na própria decisão. O
+  `Supabase Deploy` (commit `bf2537e`) aplicou as 44 migrations no projeto `hgkrsfpupypxtygjgthf` —
+  `Finished supabase db push.`. A partir daí vale a regra normal, **sem exceção**: migration aplicada
+  é imutável, correção vem em migration nova. A decisão fica registrada porque explica por que a
+  `20260801170000_rebrand_store_settings_nanita.sql` não existe; a **permissão** que ela concedia
+  acabou.
 
 ### AD-018
 - **Decision**: **As URLs da loja nova seguem o formato da loja em produção**, e não o inverso.
@@ -1104,8 +1109,14 @@ Provado de ponta a ponta depois de `supabase stop && supabase start`: `confirmat
 
 - **`send.umaestrelinha.com.br` não verificado no Resend** (`C-08`). Enquanto isso: SMTP do auth
   desligado, `RESEND_FROM` vazio, e-mail no Mailpit. Passo de troca documentado nos dois arquivos.
-- **Sem projeto Supabase hospedado e sem projeto Vercel.** `AD-017` (reescrever migration) **continua
-  válida até o primeiro `db push`** — e o `CLAUDE.md` manda apagar o parágrafo quando isso acontecer.
+- **A infraestrutura EXISTE desde 2026-08-16/17**: projeto Supabase `hgkrsfpupypxtygjgthf` (schema
+  aplicado) e dois projetos Vercel — `umaestrelinha-store-five` e `umaestrelinha-backoffice`. Com
+  isso, `AD-017` **expirou** e as `BL-013` e `BL-016` fecharam.
+- **As edge functions ainda NÃO foram implantadas**, e isso tem consequência visível: `product-page`
+  é o destino do `rewrite` de `/produtos/:slug`, então a página de produto está **fora do ar em
+  produção**. O deploy delas está bloqueado pela guarda dos cinco secrets do projeto hospedado
+  (`MERCADO_PAGO_ACCESS_TOKEN`, `MERCADO_PAGO_WEBHOOK_SECRET`, `RESEND_API_KEY`, `RESEND_FROM`,
+  `STORE_PUBLIC_URL`), que ainda não existem.
 - **`BL-002`**: `pnpm lint` não olha `packages/`, e `payment/pricing.ts` — o código de dinheiro —
   nunca passa por ESLint.
 - **Catálogo é o `seed.sql` de desenvolvimento** (7 categorias, 16 produtos, 24 variações).

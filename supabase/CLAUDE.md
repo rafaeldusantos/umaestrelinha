@@ -35,13 +35,14 @@ ausente seria indistinguível de run quebrado na aba Actions.
 ## O estado do hospedado, antes de qualquer comando que escreva
 
 - **O projeto hospedado é `hgkrsfpupypxtygjgthf`** — é o que está nos `rewrites` do
-  `apps/store/vercel.json`. No CI ele vem do secret `SUPABASE_PROJECT_REF`.
+  `apps/store/vercel.json`. No CI ele vem da **variable** `SUPABASE_PROJECT_REF` do environment
+  `production` (variable, não secret: o ref já é público neste repositório, e mascará-lo faria toda
+  mensagem de erro do deploy dizer `***` no lugar da informação que interessa).
 - **`supabase/.temp/project-ref` diz `zwvrqtjvaltpbevjqzks`, que NÃO é ele.** É link velho do CLI, e é
   armadilha: um `supabase db push` **local** daqui vai para o projeto errado. Confira com
   `supabase projects list` e re-linke antes de escrever no hospedado.
-- **Nenhum `db push` completou ainda** — o run de 2026-08-16 falhou por `SUPABASE_PROJECT_REF` ausente
-  no environment `production`. É isso, e só isso, que mantém a `AD-017` viva: **assim que o secret
-  entrar, o próximo merge em `master` a expira sozinho.**
+- **O schema ESTÁ implantado.** O run do commit `bf2537e` (2026-08-17) aplicou as 44 migrations —
+  `Finished supabase db push.`. Foi ele que expirou a `AD-017`.
 - **As functions `google-feed` e `product-page` não foram implantadas.** Enquanto não forem,
   `/produtos/:slug` fica **fora do ar em produção**: o `rewrite` tira a rota do catch-all do SPA e o
   destino devolve erro. `curl -I` nas duas é o que fecha a `BL-016`.
@@ -50,13 +51,14 @@ ausente seria indistinguível de run quebrado na aba Actions.
 
 44 arquivos em `migrations/`. **Nenhuma credencial no código.**
 
-- **`AD-017` — a história de migration ainda pode ser reescrita, e a permissão vence sozinha.**
-  Enquanto o banco não for implantado, corrigir uma migration no lugar é permitido — foi assim que os
-  defaults de `store_settings` passaram a nascer corretos, sem migration de correção. **A permissão
-  expira no primeiro `supabase db push` bem-sucedido**, e com a `supabase-deploy.yml` no ar isso não é
-  mais um comando que alguém decide rodar: é o próximo merge em `master` depois que o secret entrar. A
-  partir daí, migration aplicada é imutável e correção vem em migration nova. **Quando o primeiro push
-  passar, apague este item e o correspondente no `CLAUDE.md` da raiz.**
+- **`AD-017` VENCEU em 2026-08-17, e a regra agora é a normal: migration aplicada é IMUTÁVEL.**
+  Até o primeiro `db push` bem-sucedido era permitido corrigir uma migration no lugar — foi assim que
+  os defaults de `store_settings` passaram a nascer corretos, sem migration de correção. Isso acabou.
+  **Correção vem em migration nova, sempre.**
+  - **O modo de falhar é silencioso**, e é por isso que a regra é dura: o `db push` compara a lista de
+    arquivos com o que já foi aplicado, e **não reexamina o conteúdo do que já passou**. Reescrever um
+    arquivo aplicado deixa o banco local (que veio de `db reset`) e o hospedado divergirem sem que
+    nada acuse — nem o push, nem o build, nem o teste.
 - **`supabase db reset` NÃO recarrega auth.** Mudança em `config.toml` exige
   `supabase stop && supabase start`.
 - **`db reset` apaga o catálogo real.** O `seed.sql` não tem mais produto nem categoria (feature `21`)
