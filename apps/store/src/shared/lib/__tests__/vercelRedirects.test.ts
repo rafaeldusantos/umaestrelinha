@@ -207,7 +207,50 @@ describe('vercel.json — as duas rotas do Google Shopping (feature 30)', () => 
     expect(seguranca.headers.map((header) => header.key)).toEqual([
       'X-Content-Type-Options',
       'Referrer-Policy',
-      'X-Frame-Options',
+      'Content-Security-Policy',
     ])
+  })
+})
+
+/**
+ * `BL-013` — a loja autoriza ser embutida **pelo painel**, e só por ele.
+ *
+ * A prévia real de `/admin/home` (feature `25`) carrega a loja num `<iframe>`. Em dev funciona sem
+ * nada, porque o Vite não manda header nenhum; em produção quem decide é o edge. Enquanto a loja
+ * mandou `X-Frame-Options: SAMEORIGIN`, a prévia em produção era **quadro branco sem erro** — a
+ * recusa é do navegador, não da aplicação, e não aparece em log nenhum.
+ *
+ * O header foi **substituído**, não acompanhado: `X-Frame-Options` não tem sintaxe para autorizar
+ * outra origem (`ALLOW-FROM` foi removido de todos os navegadores modernos e é ignorado em
+ * silêncio). Manter os dois deixaria uma política com **dois donos** e um caminho de falha em que o
+ * mais fraco vence — exatamente o quadro branco que este item existe para eliminar.
+ */
+describe('vercel.json — a loja autoriza ser embutida pelo painel (BL-013)', () => {
+  const seguranca = CONFIG.headers.find((entry) => entry.source === '/(.*)')
+  const csp = seguranca.headers.find((header) => header.key === 'Content-Security-Policy')
+
+  /**
+   * A origem escrita por extenso, e não lida de env nem derivada do próprio arquivo: a régua nunca
+   * pode ser o objeto medido. Trocar o domínio do painel no `vercel.json` sem passar por aqui é
+   * precisamente o erro que este teste existe para pegar.
+   */
+  const PAINEL = 'https://umaestrelinha-backoffice.vercel.app'
+
+  it('declara `frame-ancestors` com a origem do painel', () => {
+    expect(csp).toBeDefined()
+    expect(csp.value).toContain('frame-ancestors')
+    expect(csp.value).toContain(PAINEL)
+  })
+
+  it('`X-Frame-Options` não coexiste — o enquadramento tem UM dono', () => {
+    const chaves = seguranca.headers.map((header) => header.key)
+    expect(chaves).not.toContain('X-Frame-Options')
+  })
+
+  it('a autorização é por origem EXATA, nunca curinga', () => {
+    // `https://*.vercel.app` seria a "correção" tentadora para fazer os deploys de preview do painel
+    // enquadrarem a loja. Ela liberaria **qualquer** projeto hospedado em vercel.app a embutir a
+    // loja — inclusive o de um terceiro —, que é um vetor de clickjacking sobre o checkout.
+    expect(csp.value).not.toContain('*')
   })
 })

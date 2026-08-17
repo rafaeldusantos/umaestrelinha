@@ -10,14 +10,31 @@ alguém. Isso não é tom de marketing — é restrição de produto: nada de li
 emoji comemorativo, nada de trocadilho, nada de urgência fabricada ("últimas unidades", contagem
 regressiva). Vocabulário de referência: `../landing-pages/src/content/categorias/uma-estrelinha.json`.
 
-Contexto adicional: `DESIGN.md` (identidade e paleta) e `.specs/STATE.md` (decisões `AD-001`..`AD-018`
-e handoff).
-
 > **Este repositório foi a loja Nanita** — bottons de cultura pop —, convertido pela feature
 > [`20-rebrand-uma-estrelinha`](.specs/features/20-rebrand-uma-estrelinha/spec.md) sob a decisão
 > `AD-016`. A documentação da loja anterior está preservada em
 > [`.specs/archive/nanita/`](.specs/archive/nanita/README.md); o **código não tem mais nada dela**, e
-> um teste garante isso (ver *Os guardas*, abaixo).
+> um teste garante isso (`brandScan.test.ts`).
+
+## Mapa da documentação — leia o arquivo do módulo antes de mexer nele
+
+Este arquivo carrega o que vale em **todo** o repositório. O que é específico de um módulo mora no
+`CLAUDE.md` dele, e **não está repetido aqui de propósito**: regra escrita em dois lugares é o
+"defeito 01" do projeto (abaixo) aplicado à documentação — as duas cópias divergem sem nada quebrar.
+
+| Ao mexer em | Leia primeiro | O que ele cobre |
+| --- | --- | --- |
+| `apps/store/**` | [`apps/store/CLAUDE.md`](apps/store/CLAUDE.md) | tokens da loja, ícones, marca, home, página do produto, carrinho, checkout, URLs, guia de material |
+| `apps/backoffice/**` | [`apps/backoffice/CLAUDE.md`](apps/backoffice/CLAUDE.md) | sidebar, molde dos formulários, editores de desconto, `/admin/home` e a ponte da prévia, perguntas, Google Shopping |
+| `packages/core/**` | [`packages/core/CLAUDE.md`](packages/core/CLAUDE.md) | a regra pura de cada domínio, e por que ela mora lá e não na tela |
+| `packages/ui/**` | [`packages/ui/CLAUDE.md`](packages/ui/CLAUDE.md) | shadcn, preset Tailwind, tokens `--estrelinha-admin-*` |
+| `supabase/**` | [`supabase/CLAUDE.md`](supabase/CLAUDE.md) | migrations, RLS, edge functions, auth, e-mail, secrets |
+| `tools/catalog-import/**` | [`tools/catalog-import/CLAUDE.md`](tools/catalog-import/CLAUDE.md) | o importador da Nuvemshop |
+| UI da loja (qualquer) | [`DESIGN.md`](DESIGN.md) | identidade, paleta, tipografia |
+
+Contexto de decisão: [`.specs/STATE.md`](.specs/STATE.md) (decisões `AD-001`..`AD-020` e handoff),
+[`.specs/BACKLOG.md`](.specs/BACKLOG.md) (`BL-001`..`BL-016`),
+[`.specs/LESSONS.md`](.specs/LESSONS.md).
 
 ## Stack
 
@@ -38,9 +55,9 @@ packages/
   ui/            @estrelinha/ui          shadcn/ui + preset Tailwind + tokens (styles.css)
   supabase/      @estrelinha/supabase    client (via env) + types de domínio
   auth/          @estrelinha/auth        AuthProvider, useAuthContext, useAuth, RequireAdmin
-  core/          @estrelinha/core        formatters, pricing, menu, hooks cross-app
+  core/          @estrelinha/core        TODA regra que dois consumidores compartilham
 tools/
-  catalog-import/ @estrelinha/catalog-import  importador one-shot da Nuvemshop (Node, à mão)
+  catalog-import/ @estrelinha/catalog-import  importador da Nuvemshop (Node, à mão)
 supabase/        @estrelinha/functions   migrations + edge functions (backend compartilhado)
 eslint.fsd.mjs   fronteiras FSD compartilhadas (eslint-plugin-boundaries)
 tsconfig.base.json  base TS + paths dos @estrelinha/*
@@ -62,27 +79,17 @@ pnpm lint               # eslint em todos
 pnpm --filter @estrelinha/store <script>    # rodar num workspace específico
 ```
 
-**Importar o catálogo real da Nuvemshop** (`tools/catalog-import`, executado à mão):
+**Três armadilhas de medição, e nenhuma delas grita:**
 
-```bash
-pnpm --filter @estrelinha/catalog-import run import                      # import completo
-pnpm --filter @estrelinha/catalog-import run import -- --dry-run        # lê e mapeia, não grava
-pnpm --filter @estrelinha/catalog-import run import -- --limit=5        # ensaio com 5 produtos
-pnpm --filter @estrelinha/catalog-import run import -- --stop-after=categorias
-pnpm --filter @estrelinha/catalog-import run import -- --stop-after=perguntas   # para antes das imagens
-pnpm --filter @estrelinha/catalog-import run import -- --report=reports/import.json
-```
-
-**O `run` não é opcional aqui, e omiti-lo não dá erro de script — dá erro de flag.** `import` é
-**comando embutido do pnpm** (o que traz lockfile de outro gerenciador), então
-`pnpm --filter … import --dry-run` é lido como o embutido e falha com
-`Unknown options: 'dry-run', 'recursive'` — mensagem que não menciona o importador e manda procurar
-no lugar errado. `run import` desambigua. Nenhum outro script do repositório precisa disso; este
-precisa por causa do nome.
-
-Credenciais no `.env` da **raiz** (`NUVEMSHOP_*`, `SUPABASE_SERVICE_ROLE_KEY`) — ver `.env.example`.
-É **idempotente**: rodar de novo atualiza e cria zero duplicata. Exit ≠ 0 significa que os totais
-não fecharam ou que o import parou — não é aviso, é falha.
+- **`pnpm build` não faz typecheck** — é `vite build` puro e o esbuild remove tipos sem checar. Build
+  verde **não** prova ausência de erro de tipo. Para checar de verdade:
+  `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` — note o `tsconfig.app.json`, porque o
+  `tsconfig.json` de cada app é solution-style (só `references`) e compila **zero** arquivo.
+- **`pnpm lint` não olha `packages/`** — nenhum pacote tem script `lint`, e `pnpm lint` é
+  `turbo run lint`. `payment/pricing.ts`, o código de dinheiro do projeto, é type-checado e testado
+  mas **nunca passa por ESLint** (`BL-002`).
+- **`pnpm test | tail` esconde a falha** — o código de saída que sai do pipe é o do `tail`. Capture o
+  de verdade.
 
 **Supabase local roda na faixa 54341–54349**, escolhida para conviver com as outras instâncias da
 máquina (54320–54329 e 54330–54339 já estavam ocupadas):
@@ -107,6 +114,10 @@ Ao planejar/implementar features, use a Skill **`tlc-spec-driven`** com estas co
   e é imutável: features concluídas ou abandonadas mantêm o número, e a próxima continua a contagem.
   Ao criar uma nova, conferir o maior número existente e somar 1 — **incluindo o que está em
   `.specs/archive/nanita/features/`**, que vai de `01` a `19`. A contagem é uma só.
+  - **A `31` está OCUPADA e não tem spec** (o guia de material, commit `fcd3942`). O número foi
+    consumido pelo trabalho que está no código e documentado em `apps/store/CLAUDE.md`; pela regra de
+    imutabilidade acima ele não volta. **A próxima feature é a `32`.** A spec ausente está registrada
+    em *Estado conhecido*, abaixo.
 - **Numeração dos itens**: dentro da feature, prefixar os itens de implementação (tasks/entregas) com
   número sequencial de dois dígitos e nome descritivo em kebab-case — `01-nome-implementacao`,
   `02-nome-implementacao`, etc.
@@ -118,42 +129,9 @@ Ao planejar/implementar features, use a Skill **`tlc-spec-driven`** com estas co
     regra escrita e a prática era pior que qualquer uma das duas. A partir da `25` vale o que está
     escrito acima. **O custo é conhecido e aceito**: perde-se a correspondência 1:1 entre commit e
     "done when", e o `git bisect` passa a apontar para um commit que contém várias tasks.
-
-### O que vem a seguir
-
-- **Curadoria do material, que é decisão da dona e não código.** A `22` semeou os 689 produtos por
-  inferência do nome; a Adri revisa em `/admin/produtos` (aba Geral). Enquanto `show_in_menu = 0` nas
-  37 categorias, a barra do topo também segue vazia.
-- **Sitemap e dados estruturados** (`BL-007`) — o passo seguinte da `23`. Ficaram fora dela de
-  propósito: só fazem sentido depois de a URL canônica de cada conteúdo estar decidida, e agora está.
-- **`BL-008`** — `fetchStatusCounts` lê `orders` sem paginação e herda o teto de 1.000 do PostgREST.
-  As contagens da fila de material entram no mesmo teto; corretas até 1.000 pedidos.
-- **Curadoria da Home, que também é decisão da dona.** A `24` semeou a composição de hoje e entregou
-  `/admin/home`. A grade de banners aparece como "não vai aparecer" **com dado real** — nenhuma das
-  37 categorias do catálogo importado tem `banner_url` —, e as fileiras dependem das mesmas
-  categorias. Subir arte em `/admin/categorias` é o que acende a vitrine.
-- **Os dois blocos de P3 da `24`** (`product_carousel`, `category_grid`) estão no catálogo **sem
-  renderer e sem editor**, esmaecidos na bandeja com "em breve". A ausência é declarada, e o
-  renderizador os pula sem quebrar a página.
-- **A curadoria das perguntas frequentes, que também é decisão da dona.** A `28` semeou 67 entradas e
-  3.475 vínculos a partir das descrições; a Adri revisa em `/admin/perguntas` e na aba `Perguntas` de
-  cada produto. **A descrição continua trazendo o bloco antigo** — a loja o filtra no render, e a aba
-  Geral avisa com o botão de remover. O importador **não** remove: quem decide é ela.
-- **`BL-014`** — geração de pergunta por IA, adiada por decisão do usuário em 2026-08-16. Irmã da
-  `BL-001`, e as duas devem ser resolvidas juntas (a resposta de infraestrutura é a mesma).
-- **`BL-015`** — **`material_kinds` diz menos que a descrição.** Achado ao medir a `28`: há produto com
-  `material_kinds = {cinzas}` cuja descrição enumera cinco materiais, produto com
-  `requires_material = false` cuja descrição manda enviar coto e cabelo, e um material (`sangue`) fora
-  de `MATERIAL_KINDS`. É curadoria da `22`, e por isso a `28` **proíbe** derivar a resposta "Quais
-  materiais posso usar?" da coluna: derivar faria a loja dizer **menos** do que já diz.
-- **`BL-009`..`BL-011`** — as dívidas que a `24` deixou registradas, entre elas o `SUPABASE_URL` com
-  fallback hard-coded de outro projeto em `uploadProductImage.ts`. A `BL-012` (convenção de commits)
-  foi **fechada** na `25`, pela decisão do usuário: vale o que este arquivo manda.
-- **`BL-013`** — a prévia real da `25` funciona em dev sem nenhuma configuração, e **não vai funcionar
-  em produção sozinha**: a loja precisa mandar `Content-Security-Policy: frame-ancestors <painel>`.
-  Fica bloqueada por `C-08` (não há projeto Vercel), e o modo de falhar é quadro branco sem erro.
-- **`VITE_STORE_URL` no `.env` do backoffice** é o que acende a prévia. Sem ela o painel funciona
-  igual, com o palco mostrando o passo de configuração — mas ninguém vê a loja.
+- **Ao fechar uma feature, atualize as baselines** deste arquivo (lint, tipos, testes) e o
+  `CLAUDE.md` do módulo que ela mexeu. Baseline velha é pior que baseline nenhuma: ela faz o gate da
+  feature seguinte comparar contra um número que já não existe.
 
 ## Feature-Sliced Design (dentro de cada app)
 
@@ -171,297 +149,72 @@ importa de camadas **estritamente abaixo**. Cross-import na mesma camada é tole
 Cada slice tem um barrel `index.ts` (public API). **Novo código deve importar do slice**
 (`@/entities/product`) e não de caminhos profundos.
 
+**Quando um widget precisa de algo que outro widget tem, a resposta é `packages/core`, não um
+import lateral.** Foi assim que `MATERIAL_GUIDE_PATH` acabou em `@estrelinha/core/routes`: quem linka
+para o guia é `entities`/`widgets`, e pela regra de camadas eles não podem importar de outro widget.
+
 ### Alias de import
 - `@/*` → `src/*` do app atual.
 - `@estrelinha/ui`, `@estrelinha/supabase`, `@estrelinha/auth`, `@estrelinha/core` → pacotes
   (consumidos como source via alias do Vite/tsconfig; sem build step por pacote).
 - Componentes shadcn por subpath: `@estrelinha/ui/button`, `@estrelinha/ui/dialog`, etc.
   `cn` em `@estrelinha/ui/lib/utils`.
+- **As edge functions não usam alias nenhum**: Deno resolve por caminho relativo com extensão
+  explícita (`../../../packages/core/src/shopping/identity.ts`). Ver `supabase/CLAUDE.md`.
 
-## Convenções
+## O "defeito 01": dois donos do mesmo dado
+
+**É o erro que mais custou a este projeto, e o que mais features existiram para desfazer.** Vale a
+pena reconhecê-lo antes de escrever qualquer linha, porque a propriedade que o torna caro é sempre a
+mesma: **duas escritas da mesma regra não quebram nada**. Build, `tsc` e teste de componente passam
+com as duas cópias divergindo, e quem descobre é a cliente ou o Google.
+
+| Feature | O que tinha dois donos | Como ficou |
+| --- | --- | --- |
+| `16` | a regra do menu, uma cópia por tela | `@estrelinha/core/menu` |
+| `24` | a **derivação** da home, uma na loja e outra no painel | `@estrelinha/core/home/derive.ts` |
+| `25` | o **desenho** da home, `HomePreview.tsx` redesenhando o `home-renderer` | a prévia É a loja, num iframe |
+| `27` | o preço com Pix, arredondado de dois jeitos | `@estrelinha/core/payment/pix` |
+| `30` | a oferta do Google, uma no feed e outra na landing page | `@estrelinha/core/shopping` |
+| `31` | o conteúdo do guia de material (`model/fichas.ts`) | `widgets/material-guide/model/guide.ts` |
+
+Consequências práticas, nesta ordem:
+
+1. **Se dois consumidores leem a mesma regra, ela vai para `packages/core`** — mesmo que hoje só um
+   leia, quando o segundo é previsível.
+2. **Uma coluna nova que já é derivável de outra é um segundo dono.** Foi por isso que o menu não
+   ganhou `menu_order` (usa a `sort_order` que já existia) e que a curadoria da home é a **presença**
+   de itens, não uma flag `mode: 'auto' | 'manual'`.
+3. **Cópia deliberada existe, mas vem com guarda que lê os dois do disco e compara.** A máquina de
+   estado do material vive em TypeScript **e** em SQL porque só o banco impede requisição forjada e
+   só o TypeScript produz motivo legível — e `materialTransitions.test.ts` lê a migration e compara
+   transição a transição.
+
+## Convenções que valem em todo o repositório
 
 - **Mobile é o caso principal, não o responsivo.** **~90% dos acessos da loja vêm de celular.**
   Isso é premissa de projeto, não detalhe de implementação — vale para desenho, código, teste e QA:
   - **Desenhar e implementar do mobile para cima.** O layout de 390px é o alvo; desktop é a
     adaptação. Quando os dois brigam, o mobile ganha.
   - **Toda tela nova precisa de prova em viewport móvel** — não basta o teste de componente passar
-    em jsdom sem viewport. QA e UAT começam em 390×844 e só depois vão para 1440.
+    em jsdom sem viewport. **jsdom devolve 0 para toda medida de layout**, então nenhum teste de
+    componente encosta em largura, scroll ou sobreposição. QA e UAT começam em 390×844 e só depois
+    vão para 1440.
   - **O que quebra primeiro no mobile** e deve ser conferido sempre: texto que embrulha em duas
     linhas dentro de pílula ou badge, linha de itens/lanes que estoura a largura, CTA fixo brigando
     com a barra de navegação do sistema, alvo de toque abaixo de 44px, e scroll horizontal do body
     (nunca deve existir — conteúdo largo scrolla dentro do próprio container).
   - **Grade com item largo precisa de `minmax(0, …)` NO MOBILE, não só a partir de `md`.** Sem ele a
     coluna implícita é `auto`, cujo mínimo automático é o **min-content do item** — e `overflow-x-auto`
-    dentro do item não salva ninguém, porque quem não pode encolher é a trilha. Custou caro: a
-    `ProductPage` declarava `minmax(0,…)` só no `md:` e, por isso, **toda página de produto rolava na
-    horizontal no celular** (`scrollWidth` 634 numa viewport de 390), empurrada pela fita de
-    miniaturas da galeria. Sobreviveu porque nada quebra: build, `tsc` e teste de componente passam,
-    e jsdom devolve 0 para toda medida de layout. Achado só em navegador real, na auditoria da
-    feature `27`, e corrigido lá. `ProductPage.test.tsx` trava a classe como **proxy**, e a medida de
-    verdade continua sendo a auditoria em 390×844.
-  - **O alvo de 44px tem DOIS auxiliares, e escolher errado quebra o outro** (`shared/lib/touchTarget`):
-    `TAP_44` é 44×44 centrado, para disco de ícone e botão quadrado; `TAP_ROW` é 44px de **altura** na
-    largura do próprio rótulo, para texto em fluxo. Um quadrado de 44 centrado num link de 130px
-    deixaria as pontas fora do alvo. Alvo derivado do tamanho do desenho (`after:-inset-2`) **não
-    converge**: dava 44 para o botão de 28px e 32 para o de 16px.
+    dentro do item não salva ninguém, porque quem não pode encolher é a trilha. Custou **toda página
+    de produto rolando na horizontal no celular** (`scrollWidth` 634 numa viewport de 390), achado só
+    em navegador real na auditoria da `27`. Detalhe em `apps/store/CLAUDE.md`.
   - **Fluxos de dinheiro no mobile primeiro.** Checkout, PIX e confirmação são validados em celular
     antes de qualquer ajuste de desktop.
-- **Design system.** Leia `DESIGN.md` na raiz antes de mexer em UI da loja. O resumo operacional:
-  - **A loja (`apps/store`) usa os tokens `--estrelinha-*`** (`app/App.css` + `tailwind.config.ts`),
-    e o **backoffice usa `--estrelinha-admin-*`** (`packages/ui/src/styles.css` +
-    `packages/ui/tailwind.preset.ts`) — que são o roxo/rosa/navy herdado, com **valores inalterados**.
-    O sufixo `admin` existe para deixar claro que aquele namespace **não é a marca da loja**. Re-skin
-    do painel está fora de escopo (`C-05`): painel interno não carrega marca.
-  - A separação depende da **ordem de dois imports** em `main.tsx` (`App.css` **depois** de
-    `@estrelinha/ui/styles.css`); inverter devolve a loja inteira à paleta do painel sem quebrar nada
-    — `importOrder.test.ts` guarda isso.
-  - **A paleta é declarada em DOIS arquivos e eles precisam concordar.** Valor certo num lado e velho
-    no outro não quebra build, tipo nem teste de componente: a loja renderiza duas paletas ao mesmo
-    tempo e quem descobre é a cliente. `palette.test.ts` lê os dois do disco e compara.
-  - **`accent` (#B8945F) nunca é texto sobre claro** — 2,66:1. O único uso de texto dele é sobre
-    `ink`, onde mede 4,78:1. **Nem com opacidade**: `ink/80` dentro de uma superfície `accent` cai
-    para ~3,6:1, e a 45% para ~2,1:1 — foi defeito real, achado na Fase 5 da feature 20.
-  - **Borda de controle é `field` (#8C8073, 3,63:1), nunca `line`** (1,25:1, que é divisor). A WCAG
-    1.4.11 pede 3:1 de contorno de controle e nenhum tom claro chega lá sobre o chão.
-  - **Botão é `rounded-sm` (6px); pílula é forma de RÓTULO** (badge, chip, tag, campo de busca), e o
-    **disco** (`rounded-full`) segue sendo assinatura de ação circular.
-- **Ícone da loja tem UMA porta: `@/shared/ui/icons`.** A biblioteca guarda os desenhos que vieram
-  dos boards do Paper e que o lucide não tem vocabulário para dizer — corrente, pingente, gravação,
-  gota afetiva, os passos do guia de material. O que o lucide já resolve (seta, coração, `+`, lupa)
-  **continua vindo de lá**: duplicar ícone genérico só cria um segundo lugar para consertar.
-  - **Uma grade e um traço**: `viewBox="0 0 24 24"` e traço **efetivo 1,5**. Os desenhos que nasceram
-    na grade de 40 entram num `<g transform="scale(0.6)">` com traço 2,5 (2,5 × 0,6 = 1,5) — em vez
-    de reescrever coordenada a coordenada, que deforma o desenho sem quebrar nada visível.
-  - **Contorno em `currentColor`, realce em `accent-strong`.** O contorno acompanha o texto ao lado;
-    o realce é ouro fixo, e é `accent-strong` (3,55:1) porque `accent` (2,66:1) reprova até como
-    elemento gráfico, onde a régua é 3:1.
-  - `PixIcon` mora lá mas **fora do conjunto**: é a marca oficial do arranjo (grade de 16,
-    preenchida), não um monoline nosso. Fica exportada, fora do registro `ESTRELINHA_ICONS`.
-  - **Ligar ícone a categoria ainda não existe.** O board mostra um por vaga do menu; escolher qual é
-    curadoria da dona, da mesma natureza do `show_in_menu`, e pede coluna própria — não um mapa de
-    slug em código nem inferência em runtime.
-- **A HOME É DADO, e a composição inteira mora no banco** (feature `24`). `home_sections` +
-  `home_section_items` guardam quais blocos existem, em que ordem, com que texto, com que arte e com
-  que limite; `/admin/home` é onde a dona os arrasta, liga, desliga e edita. A `HomePage` encolheu
-  para **hook → resolve → render** e **não conhece seção nenhuma**: quem caminha a lista é o
-  `HomeRenderer`, por um registro `tipo → componente`.
-  - **A virada não mudou um pixel, e isso é medido.** `homeComposition.test.tsx` (T1) congelou a Home
-    antiga pelo **DOM renderizado** — sequência, literais, limites, as duas cores do título — **antes**
-    de qualquer refatoração, e a regra do gate é **"a T1 não perde asserção, só ganha"**. É o único
-    jeito de `HOME-04` ser verificável em vez de opinável: build, `tsc` e teste de componente passam
-    todos com a home de cara trocada.
-  - **Erro de leitura cai em `DEFAULT_HOME_COMPOSITION`, nunca em página em branco.** A composição de
-    hoje existe como dado em `@estrelinha/core/home` e é ao mesmo tempo a **semente** da migration e o
-    **piso** do hook. Lista vazia cai no mesmo piso.
-  - **Curadoria é a PRESENÇA de itens, não uma flag.** Ter itens é o override; não ter é a derivação
-    de sempre. "Voltar ao automático" é um `delete`, não `mode: 'auto'` — uma flag seria dois donos do
-    mesmo dado, e `manual` com zero itens é um estado que a loja não sabe distinguir de `auto`.
-  - **A vaga que sobra fica VAZIA.** Escolhida que saiu do ar é pulada e **não** é substituída pela
-    derivação: entraria na vitrine algo que a dona não escolheu, justamente na seção onde ela pediu
-    para escolher. A loja **pula**, o painel **avisa** ("1 das 3 saiu do ar", com a linha marcada).
-  - **Reordenar a Home não mexe em `categories.sort_order`.** Era um dos dois problemas que abriram a
-    feature: mudar a vitrine mexia na barra do topo porque os dois liam a mesma coluna. A ordem da
-    Home agora é `home_sections.position` e `home_section_items.position`.
-  - **A derivação tem UM dono: `@estrelinha/core/home` (`derive.ts`).** `pickHomeCollections`,
-    `pickHomeBanners` e `pickTrendingCategories` viviam em `apps/store`, e como o backoffice não
-    importa de lá, o painel chegou a carregar uma **segunda escrita** delas. Duas cópias divergentes
-    fazem o painel prometer uma seção que a Home não renderiza — que é justamente o que esta feature
-    existe para eliminar. Loja e painel leem a mesma função.
-  - **Só RAIZ vira fileira.** `useProducts(slug)` faz roll-up da descendência, então pai e filha na
-    mesma página mostrariam os mesmos produtos duas vezes.
-  - **A mesma arte não aparece duas vezes**: a fileira abre com o banner da própria categoria, e
-    quem virou fileira sai da grade (`exclude`) — conteúdo tem prioridade sobre campanha. Com a
-    grade vazia ela some inteira, e isso é o certo.
-  - **Todo número da faixa de vantagens sai das settings**, nunca do JSX — e o editor dela **não tem
-    campo de texto**, ele aponta para Configurações. A `MarqueeBar` que ela substituiu prometia "Pix
-    com 5% OFF" e "Parcele em 12×" em texto fixo enquanto `max_installments` já era 6: a home dizia
-    uma coisa e o caixa cobrava outra, sem nada acusar. Dar campo de texto aqui reintroduziria o
-    defeito, com a diferença de que agora quem digitaria o número errado seria a dona.
-  - **Nenhum tipo de contagem regressiva nem de prova social entra no catálogo, e a ausência é
-    asserida.** Os dois saíram na feature 20 por decisão ética, e um catálogo genérico de blocos é
-    exatamente a porta por onde voltariam — com a dona clicando, sem ninguém decidir nada.
-  - **O hero é indelével**: sem controle de desligar na lista **e** com trigger na migration. Os dois
-    precisam existir — sem o trigger a regra morre num `PATCH` direto; sem o controle escondido, a
-    dona clica e leva um erro do banco.
-  - **Escrita só admin, leitura pública só de seção ativa**, nas duas tabelas — `anon` não alcança
-    escrita em nada. A arte da Home tem bucket próprio (`home-images`), separado de `product-images`:
-    banner de campanha **sobrevive** à coleção que ele apontava (é o que faz o painel poder dizer "a
-    arte fica guardada aqui"), e uma limpeza futura de imagem órfã de produto não pode alcançá-lo.
-  - **Editor de seção é ROTA, e ela troca só a coluna da lista** (`/admin/home/:sectionId`). O
-    precedente dos Descontos ("editor é tela, não modal": sobrevive ao F5, é compartilhável) sem o
-    preço que ele costuma cobrar — que aqui seria apagar a prévia justamente enquanto a dona edita
-    olhando para ela. **A prévia não remonta**, e isso é asserido por identidade do nó do DOM.
-  - `widgets/category-grid` **continua no repositório mas não é montado**: a grade de tiles saiu da
-    home quando a grade de banners tomou o lugar dela no board.
-- **A PRÉVIA DE `/admin/home` É A LOJA, num iframe** (feature `25`). Não é mais um desenho: o painel
-  carrega `<loja>/?preview=1` e manda o **rascunho ainda não salvo** por `postMessage`. **A Home tem um
-  desenho só, e ele mora em `apps/store`.**
-  - **O que isso apagou**: `HomePreview.tsx`, 277 linhas do painel redesenhando à mão o que
-    `widgets/home-renderer` (130 linhas) já desenhava. Duas escritas do mesmo desenho, em apps que não
-    se importam, divergindo **sem quebrar nada** — build, `tsc` e teste de componente passavam com o
-    painel prometendo um arranjo que a loja não renderiza. A `24` matou a segunda escrita da
-    *derivação* (`core/home/derive.ts`); a `25` matou a do *desenho*. `previaUnica.test.ts` impede a
-    volta.
-  - **O iframe é também o que preserva a separação de tokens.** Renderizar widget da loja dentro do
-    painel traria `--estrelinha-*` para o documento de `--estrelinha-admin-*` — o defeito que
-    `importOrder.test.ts` e `palette.test.ts` existem para pegar. Outro documento, outra folha.
-  - **O contrato tem UM dono: `@estrelinha/core/home/preview.ts`** — quatro mensagens (`ready`,
-    `draft`, `highlight`, `select`), `isPreviewWindow`, `parsePreviewMessage`, `previewScale`. Módulo
-    puro, porque as duas pontas o leem.
-  - **O modo prévia exige `?preview=1` E estar dentro de um iframe.** O parâmetro sozinho não basta:
-    ele é adivinhável e viraliza por link compartilhado, e uma cliente cairia numa página esperando
-    uma mensagem que nunca chega.
-  - **As duas pontas confiam de formas diferentes, e a assimetria é a regra.** O painel **age**
-    (navega, abre editor), então exige origem exata **e** a janela do próprio iframe. A loja só
-    **desenha**, então basta ser `window.parent`. O `draft` sai com `targetOrigin` exato — **nunca
-    `'*'`**, porque leva conteúdo não publicado. Errar a origem **não dá erro**: o navegador descarta
-    em silêncio e a prévia "não atualiza".
-  - **Em modo prévia a consulta é DESLIGADA (`enabled: false`), não filtrada depois.** Uma leitura
-    viva em paralelo daria à página duas fontes, e a do banco chegaria depois — sobrescrevendo o que a
-    dona está digitando. Pelo mesmo motivo `sections` começa `[]` e **não** cai em
-    `DEFAULT_HOME_COMPOSITION`: o piso existe para **erro de leitura**, e ali não há leitura.
-  - **Clique na prévia não navega, seleciona.** Captura (não bolha — o `<Link>` navega no handler
-    dele), `preventDefault`, e o id do bloco volta como `select`. Sem isso, clicar num produto tiraria
-    o iframe da home e a dona perderia a tela que estava conferindo.
-  - **O `AbandonedCartTracker` não é montado em modo prévia**: a dona conferindo a vitrine dispararia
-    rastreio de uma sessão que não é de cliente nenhuma.
-  - **O invólucro `data-home-section-id` só existe em modo prévia.** Em modo normal cada seção segue
-    saindo num `Fragment`, porque `homeComposition.test.tsx` mede o DOM renderizado — e um invólucro
-    por seção mudaria a árvore sem mudar um estilo.
-  - **O layout inverteu**: rail de **380px** à esquerda (lista ⇄ editor) e o palco da prévia ocupando o
-    resto. Era o contrário (lista 748 / prévia 380), e nenhuma representação de desktop cabe em 380px.
-  - **O alternador abre em Celular**, e as duas medidas são reais: **390 × 844** e **1024 × 768** (o
-    `lg`, o desktop mais estreito que existe). A redução é `transform: scale` sobre um iframe de
-    largura **de verdade** — encolher o `width` faria o botão "Computador" mostrar o layout de celular,
-    porque é o `width` que a loja mede para escolher as media queries. A barra mostra a escala.
-  - **Trocar de dispositivo não pode tocar no `src`**: cada clique remontaria o documento e perderia o
-    rascunho já entregue. Recarregar remonta de propósito, por `key`.
-  - **Sem `VITE_STORE_URL` a ausência é declarada**: o palco mostra o passo de configuração e a lista
-    segue funcionando. A env tem **um leitor**, `shared/lib/storeOrigin.ts`.
-  - **Em produção a loja precisa autorizar ser embutida** (`frame-ancestors`, `BL-013`). Em dev
-    funciona sem nada: o Vite não manda `X-Frame-Options`.
-- **A DESCRIÇÃO DO PRODUTO É HTML, e ela mora no acordeão** (feature `27`). Medido no banco: 679 dos
-  680 produtos têm descrição e **100% delas trazem tag** (`li`, `p`, `strong`, `h3`, `br`, `ul`, `h2`
-  — e **zero atributo**), com mediana de 2.271 caracteres. Até a `27` a loja imprimia o campo como
-  texto puro entre o preço e o seletor: a cliente lia `Cora&ccedil;&otilde;es` na tela.
-  - **Render passa por `shared/lib/sanitizeHtml`, sempre.** Allowlist por **árvore** (`DOMParser` em
-    `text/html`, que não executa script nem baixa recurso), nunca regex sobre HTML. Tag fora da lista
-    **desembrulha** preservando o texto; `script`/`style`/`iframe`/`object`/`embed`/`noscript`/
-    `template` somem **com o conteúdo** — desembrulhar um `<script>` imprimiria o código na tela.
-    Atributo zero, exceto `href` de `<a>` validado por `new URL` (nunca `startsWith`, que
-    `java&#9;script:` engana), e o `<a>` sobrevivente ganha `rel="noopener noreferrer"`.
-  - **Quem monta o `dangerouslySetInnerHTML` é quem sanitiza** (`ProductDescription`), para o
-    componente ser seguro venha de onde vier a chamada. O acordeão chama a **mesma** função só para
-    perguntar "sobra alguma coisa?" — a decisão de montar a seção olha o **sanitizado**, não o campo
-    cru, senão uma descrição só com `<script>` abriria uma seção em branco.
-  - **`h1`/`h2`/`h3` viram `h4`**: o `AccordionPrimitive.Header` do shadcn já renderiza `<h3>`, e
-    1.358 descrições abrem com um `<h2>` que repete o nome do produto — que a página já tem como
-    `<h1>`.
-  - **Não se usa `prose`**, embora `@tailwindcss/typography` esteja no preset: o plugin traz a
-    própria paleta (`--tw-prose-*`), que `contrast.test.ts` não mede. Seletor de filho explícito
-    mantém toda cor em token auditável.
-- **O preço com Pix tem UM dono: `@estrelinha/core/payment/pix`** (feature `27`) — e a forma da conta
-  é a **do caixa**. `resolveOrderPricing` cobra `subtotal − round2(subtotal × pct/100)`: arredonda o
-  **desconto** e subtrai. A expressão que vivia inline no `ProductCard` arredondava o **preço final**,
-  e as duas **não dão o mesmo número**: com o `pix_discount_percent = 5` de hoje, **81 dos 259 preços
-  distintos do catálogo (31%)** divergiam em 1 centavo — a vitrine prometia R$ 7,51 onde a cobrança é
-  R$ 7,50. A direção era a favor da cliente, e por isso sobreviveu sem queixa.
-  `displayedEqualsCharged.test.ts` — o arquivo que já carregava essa invariante — agora compara
-  `pixPrice` com o total de `resolveOrderPricing` por valor.
-- **A variação com foto é regra medida, não lista de nomes de eixo** (feature `27`). `axisPhotos`
-  qualifica um eixo quando **≥2 valores têm foto E as fotos presentes são todas distintas entre si**;
-  eixo reprovado continua em pílula com o nome, como sempre.
-  - **A segunda condição é o que faz a regra dizer a verdade.** No catálogo real (686 eixos com ≥2
-    valores) ela aceita **540** — `Cor` (352), `Tipos de elo` e suas quatro grafias (150), `Modelo`
-    (27) — e recusa exatamente os eixos onde **todos os valores apontam para a mesma foto**:
-    `Com gravação` (36), `Com Base` (20), `Letra` (11) e 29 dos 32 `Tamanho`. Quatro vagas idênticas
-    diriam à cliente que a escolha não muda a peça — é o `COR-02` aplicado à decisão de *usar* foto.
-  - **O nome do valor vai para o CABEÇALHO** (`Cor: Aço Inoxidável Folheado a Ouro Rose`), nunca sob
-    a vaga: o rótulo tem mediana 15 e **máximo 40** caracteres, que não cabe sob 56px em 390 de
-    viewport. Cada vaga leva `aria-label` com o valor.
-  - **Vaga de 56px, e por isso SEM `TAP_44`**: o auxiliar existe para desenho **menor** que o alvo, e
-    a varredura de `touchTarget.test.ts` só o cobra de `h-8`/`h-9`/`h-10`/`38px`.
-  - **Foto só em `surface="page"`.** O card tem a placa de cor da feature 26 (`colorPreview`, restrita
-    a `Cor`, com contador de overflow) e o sheet é painel estreito — são outra superfície e outra
-    regra. `colorPreview` **continua existindo e intocado**; `axisPhotos` não o substitui.
-- **A PERGUNTA FREQUENTE É CADASTRO, e ela mora numa biblioteca compartilhada** (feature `28`). Até
-  aqui a seção "Perguntas Frequentes" da página do produto era um `<dl>` cravado com **duas perguntas
-  genéricas**, iguais nos 691 produtos, enquanto as perguntas de verdade — **3.476 pares em 687
-  produtos (99,4%)** — estavam presas dentro de `products.description`, saindo como texto corrido no
-  meio das especificações. Agora são `faqs` + `product_faqs`, e `/admin/perguntas` é onde a dona as
-  edita.
-  - **67 entradas, 3.475 vínculos, 687 produtos** — semeados pelo importador a partir das descrições.
-    977 vínculos (28%) carregam resposta própria; os outros usam o padrão da biblioteca.
-  - **"Qual a pergunta" e "qual a resposta AQUI" são dois dados.** `faqs.answer` é o padrão;
-    `product_faqs.answer_override` é a resposta daquela peça, e é **nullable** — mesmo molde de
-    `engraving_max_chars`. Ninguém compara a coluna crua: **`resolveProductFaqs` é o leitor único**, e
-    é ele que também ordena por `position` e **pula** vínculo cuja entrada saiu do ar.
-  - **Resposta própria idêntica ao padrão é gravada como `null`** (`faqOverrideOf`). Guardar o
-    idêntico daria dois donos do mesmo texto: editar a biblioteca deixaria de alcançar aquele produto
-    e nada na tela diria por quê.
-  - **A vaga que sobra fica VAZIA.** `product_faqs` é lido publicamente **sem condição**, de propósito:
-    assim o vínculo para entrada inativa chega ao navegador com `faq: null` e o ramo de "pular" roda
-    em produção. Fechá-lo na policy faria o código existir sem nada exercitá-lo.
-  - **A descrição para de exibir o bloco que virou cadastro** — `ProductDescription` chama
-    `sanitizeHtml(stripFaqBlock(html))`. A descrição **não** é alterada no banco (decisão do usuário:
-    nada é destruído, e a origem na Nuvemshop segue intacta). O preço é que o painel mostra um texto
-    que a loja filtra, e a contrapartida obrigatória é `DescriptionFaqNotice`: a aba Geral avisa
-    quantas perguntas há ali e oferece **remover o bloco** por clique da dona.
-  - **A fronteira do bloco tem UM dono, e três consumidores em dois runtimes**: `faqBlockRange` /
-    `extractFaqPairs` / `stripFaqBlock`, em `@estrelinha/core/faq/block.ts`. O importador (Node)
-    extrai, a loja (browser) filtra, o painel avisa e remove.
-    - **Aqui regex sobre HTML é permitido, e só aqui.** A regra do projeto é sobre **sanitizar**, e
-      `sanitizeHtml` não mudou. Isto **localiza** um heading num corpus medido como regular (687 de
-      687 usam `<h3>Perguntas frequentes</h3>`), o que sobra continua passando pelo sanitizador, e a
-      resposta extraída é renderizada como **texto**. Node não tem `DOMParser`: por árvore não
-      serviria às três pontas.
-    - **São DOIS arranjos de HTML, não um.** 617 produtos usam um `<p>` por par; **70 põem todos os
-      pares num `<p>` só**, separados por `<br />`. A leitura ingênua perde **312 pares** em silêncio.
-    - `stripFaqBlock` **só age quando houve par extraível**: heading com prosa solta é texto da dona.
-  - **A resposta é TEXTO, nunca HTML** — medido: **0 de 3.476** respostas do catálogo contêm tag
-    (3.170 contêm entidade, que a extração decodifica). Nenhum `dangerouslySetInnerHTML` na seção.
-  - **A sugestão por categoria é determinística, e a fórmula é PROPORÇÃO** (`rankFaqSuggestions`):
-    `usos na categoria ÷ produtos com FAQ na categoria`, tomando a **maior** entre as categorias do
-    produto. Medido no catálogo real, top-5: **84,0% de precisão e 83,5% de cobertura**, 3 produtos
-    sem acerto. Por **contagem bruta** cai para **61,1% / 56,1%** e 52 sem acerto — `Joias e
-    acessórios`, com 634 produtos, decide o ranking de todo mundo. Categoria com menos de **3**
-    produtos com FAQ é ignorada (com 2 vizinhos, 100% é acidente com cara de certeza).
-    - **O recuo para a frequência global é tudo-ou-nada**: completar as vagas que faltam com
-      perguntas globais mudaria a medição de 84% sem ninguém perceber.
-    - **IA ficou de fora por decisão do usuário** (2026-08-16), e virou `BL-014`. A `AD-011` continua
-      valendo.
-  - **Apagar entrada em uso é recusado pelo BANCO** (`on delete restrict`), e o caminho reversível é
-    `is_active = false`. Apagar removeria a pergunta de até 453 páginas em silêncio.
-  - **A contagem de uso é VIEW, não coluna** (`faq_usage`): materializá-la daria um segundo dono do
-    número, que o importador desatualizaria ao gravar 3.475 vínculos de uma vez.
-  - **A aba `Perguntas` fica logo depois de `Geral`** no formulário do produto — a pergunta é a
-    continuação da descrição, e é essa relação que o aviso da `FAQ-27` torna visível.
-  - **`/admin/perguntas` é do grupo `Catálogo`**, depois de Categorias: é conteúdo de catálogo, não
-    curadoria de vitrine (que é o grupo `Loja`).
-- **A marca é SVG inline, nunca `<img src>`** — o header não pode ter estado de carregamento.
-  `shared/ui/brand` traz a escada medida, e cada degrau **cai para o de baixo abaixo do próprio piso**:
-
-  | degrau | componente | piso | onde aparece |
-  | --- | --- | ---: | --- |
-  | 1 | `EstrelinhaLockup` | **600px** | e-mail, papelaria, embalagem, `og-image.png` |
-  | 2 | `EstrelinhaSignature` | **190px** | header (202px), rodapé, menu, checkout, auth |
-  | 3 | `EstrelinhaSymbol` | **48px** | favicon, selo, superfície pequena |
-
-  **O lockup completo não cabe em nenhuma tela da loja, e isso é resultado medido, não descuido**: a
-  marca é monoline, o traço é fração fixa da largura, e a 48px de altura o lockup mediria 176px de
-  largura com a assinatura em 0,29px — abaixo de 1px o traço vira cinza de antialias. A coluna de
-  marca do rodapé tem 337px e a viewport de projeto, 390.
-  `paths.ts` é **gerado** dos SVGs de `.specs/brand/uma-estrelinha/` (`_gen-paths.mjs`) e um teste
-  compara caractere a caractere. **Um `<path>` por PAPEL DE TRAÇO** — aqui o que divide os paths é a
-  espessura, que é geometria; `fill-rule="evenodd"` não se aplica, porque nada nesta marca preenche.
-- **Favicon é o SÍMBOLO REDUZIDO, em duas bases**: canto de 6% na aba (o navegador não arredonda
-  favicon) e **quadrado sangrado** no `apple-touch-icon` (o iOS aplica a própria máscara, e arte
-  pré-arredondada deixa sobra de canto). O canto é quase reto porque o extremo deste desenho é a
-  **ponta da estrela, na diagonal** — squircle de 28% custaria 15% da espessura do traço, e o board
-  pede ao menos 1,3px de linha a 16px.
 - **A marca é Uma Estrelinha, e o identificador técnico é `estrelinha`.** Não há mais nome herdado
   para preservar em lugar nenhum — escopo npm, tokens, `project_id`, chaves de storage e e-mails de
-  fixture foram todos convertidos.
+  fixture foram todos convertidos. `brandScan.test.ts` recusa **qualquer** ocorrência da marca
+  anterior em `apps/`, `packages/`, `supabase/` ou nas configs da raiz.
   - **A regra que proibia renomear o identificador antigo foi REVOGADA** (`AD-016`), e o porquê
     importa: ela existia para proteger o `localStorage` de clientes **vivos** da loja anterior —
     renomear a chave do carrinho descarta em silêncio a sacola de quem já visitou. A Uma Estrelinha
@@ -471,328 +224,41 @@ Cada slice tem um barrel `index.ts` (public API). **Novo código deve importar d
   - Chaves em uso hoje: `estrelinha-cart`, `estrelinha-wishlist`, `estrelinha-coupon`,
     `estrelinha-checkout` (**`sessionStorage`**), `estrelinha-guest-consent`, `estrelinha-guest-email`,
     `estrelinha-recent-searches`, `estrelinha-product-draft`, `estrelinha.admin.*`.
-- **`AD-017` tem data de validade, e ela ainda não venceu.** Enquanto este banco **não for
-  implantado**, a história de migration pode ser reescrita — foi assim que os defaults de
-  `store_settings` passaram a nascer corretos, sem migration de correção. **A permissão expira no
-  primeiro `supabase db push` para um projeto hospedado.** A partir daí vale a regra normal:
-  migration aplicada é imutável, e correção vem em migration nova. Se você implantar o banco,
-  **apague este parágrafo** — deixá-lo é convidar alguém a reescrever história já aplicada.
-- **Supabase**: sem credenciais no código. Cada app tem `.env` (gitignored) com
-  `VITE_SUPABASE_URL` e `VITE_SUPABASE_PUBLISHABLE_KEY` (ver `.env.example`). O client
-  (`@estrelinha/supabase`) lança erro se faltarem.
-- **Auth**: `AuthProvider` (de `@estrelinha/auth`) envolve cada app no `main.tsx`. Store usa login de
-  cliente + admin; backoffice usa `RequireAdmin` (prop `loginPath`, default `/login`).
-  - **Loja**: overlay único (`features/auth`) com steps entry → code → name, mais password,
-    reset → reset-code → new-password. Login por **código de 6 dígitos** (`signInWithOtp`/
-    `verifyOtp`) e **Google** (`signInWithOAuth`). Reset de senha também é por código
-    (`verifyOtp` com `type: 'recovery'` + `updateUser({ password })`) — não por link, para não
-    depender do `code_verifier` do PKCE ficar no mesmo navegador.
-  - **Configuração de auth é versionada**, não é painel: `[auth.external.google]` e
-    `[auth.email.template.*]` em `supabase/config.toml`, com os templates em
-    `supabase/templates/*.html` (todos usam `{{ .Token }}`). Mudança em `config.toml` exige
-    `supabase stop && supabase start` — **`db reset` não recarrega auth**.
-  - **`magic_link` E `confirmation` são ambos necessários**: `signInWithOtp({shouldCreateUser:true})`
-    dispara o de signup para e-mail novo e o magic link para e-mail existente. Configurar só um deixa
-    metade dos casos no template padrão, que entrega **link** em vez do código.
-- **O SMTP do auth está DESLIGADO de propósito, e o remetente é uma pendência declarada.**
-  - Hoje o e-mail de login cai no **Mailpit** (`http://127.0.0.1:54344`), e é assim que se testa.
-  - O remetente de produção seria `acesso@send.umaestrelinha.com.br`, mas o domínio **ainda não está
-    verificado no Resend** — medido em 2026-08-08: envio a partir dele devolve **403 "not authorized
-    to send"**. Ligar o SMTP nessas condições derruba **todo** o login por código, e já derrubou uma
-    vez (`BUG-20260728`). O bloco `[auth.email.smtp]` está no `config.toml`, **comentado**, com o
-    passo exato de troca (incluindo o `curl` de verificação); a mesma pendência está no `.env.example`.
-  - **São DOIS remetentes, dois lugares, um domínio.** O do auth é `admin_email` em
-    `[auth.email.smtp]` — endereço **nu**, porque o nome de exibição vem de `sender_name` e o GoTrue
-    monta `From: "Nome" <addr>`. O dos transacionais é a env `RESEND_FROM`, em **RFC 5322**
-    (`Nome <addr>`). **Reusar `RESEND_FROM` no `admin_email` produz `"Nome" <Nome <addr>>` —
-    malformado, e todo envio de auth falha.** Confundir os dois é a causa raiz do `BUG-20260728`.
-- **O Resend tem DOIS usos, com uma chave.** (1) **SMTP do auth** — quem envia é o GoTrue; templates
-  em `supabase/templates/*.html`. (2) **API HTTP transacional** — quem envia é a edge function
-  `send-email`, via `POST https://api.resend.com/emails`; templates em
-  `supabase/functions/send-email/{layout,templates}.ts`. Não confundir: mexer nos e-mails de pedido
-  **não** é mexer em `supabase/templates/`. `RESEND_DEV_REDIRECT_TO` é válvula de dev **só dos
-  transacionais** (o GoTrue não tem equivalente) e hoje fica vazia.
-- **E-mail não carrega webfont, e a pilha de fallback É a decisão de design.** Gmail e Outlook não
-  baixam fonte: os cinco templates (três de auth, três transacionais) usam **Georgia** no display —
-  serifado como o display da loja, porque cair de serifa para sans muda família e largura de uma vez
-  — e **Helvetica/Arial** no corpo. Tudo inline, layout em `<table>`, sem `<style>`, sem `<link>`,
-  sem `background-image`.
-- **Rotas do backoffice**: mantêm o prefixo `/admin/*` (ex.: `/admin/produtos`). Simplificar para a
-  raiz é um trabalho futuro (exigiria reescrever navegação interna).
-- **A sidebar do admin tem quatro eixos, ordenados por FILA** — não pelo ciclo de vida do produto:
-  **Vendas** (Pedidos, Carrinhos abandonados, Clientes) → **Descontos** (Cupons, Promoções) →
-  **Catálogo** (Produtos, Categorias) → **Loja** (Menu da loja). Dashboard fica sem cabeçalho no topo
-  e Configurações no rodapé, fora dos grupos. `Vendas` vem primeiro porque é o único eixo que
-  **acumula**: pedido esperando envio, carrinho esfriando, cliente esperando resposta. Cadastrar e
-  curar vitrine são trabalho de quando não há fila — nada piora enquanto esperam. `navGroups`
-  (`widgets/admin-layout/model/navItems.ts`) é a fonte, **e as rotas de `app/App.tsx` seguem a mesma
-  sequência** — o teste `navItems.test.ts` **lê o `App.tsx` do disco** e compara a ordem textual das
-  rotas com a lista; mover um item de grupo sem reordenar as rotas quebra ali.
-  - `Loja` tem um item só de propósito: curadoria de vitrine não é cadastro, e dentro de `Catálogo` a
-    vizinhança sugeria que era. É o grupo onde entram banners da home, destaques e faixa de avisos.
-- **Editor de desconto é TELA, não modal.** Cupom e promoção se cadastram em rota própria —
-  `/admin/{cupons,promocoes}/novo` e `/:id/editar` —, no mesmo molde de `/admin/produtos/novo`. A rota
-  é compartilhável e sobrevive ao F5; com modal, recarregar perdia o que estava sendo editado.
-  - **As duas telas compartilham a moldura**: `shared/ui/FormPageHeader` (trilha
-    `Descontos / <listagem> / <registro>`, selo `Alterações não salvas`, `Cancelar` + primário com
-    `⌘S`) e o corpo em coluna principal + aside de 330. O que diverge é o que TEM de divergir: cupom
-    tem código, promoção tem faixas.
-  - **`<input type="date">` não é usado em Descontos** — `shared/ui/DateField` (`Popover` + `Calendar`
-    + `ptBR`) é. O nativo é um controle diferente em cada navegador, e no Firefox do Windows não abre
-    calendário nenhum. O vazio diz o que significa (`Vale desde já` / `Sem fim`), nunca a data de hoje.
-  - **A tradução dia ⇄ ISO é UMA**, em `shared/lib/dateOnly`. Existiam duas discordantes — iguais em
-    fuso negativo, um dia erradas em qualquer fuso positivo.
-  - **Duplicar cupom NÃO grava**: abre `/admin/cupons/novo?from=<id>` com tudo copiado menos o código
-    (vazio e focado) e nasce pausado. `coupons.code` é `UNIQUE` **e** é o texto que a cliente digita.
-    Duplicar **promoção** grava na hora, porque `promotions.name` é decorativo e não colide.
-  - **Pausar cupom manda `{ id, active }` e nada mais.** Acrescentar campos reescreveria o cupom com o
-    que a listagem tem em cache, que pode estar velho.
-  - **`Expirado` e `Esgotado` não são a mesma cor** — o remédio de cada um é diferente: esgotado se
-    reabre subindo o limite, expirado se prorroga mudando a data. A regra é
-    `features/coupon-list/model/couponStatus`, e `!active` vence tudo porque é a única decisão
-    explícita da dona.
-- **A URL da loja tem UM formato, e ele é o da loja em produção** (`AD-018`, feature `23`):
-
-  | conteúdo | canônica | também resolve |
-  | --- | --- | --- |
-  | produto | `/produtos/:slug` | `/produto/:slug` — **301** |
-  | categoria raiz | `/:slug` | `/colecao/:slug` e `/categoria/:slug` — **301** |
-  | subcategoria | `/:pai/:filha` | `/:filha` sozinha — **200**, com canonical para a de dois |
-
-  - **A fonte é uma só: `@estrelinha/core/routes`** — `ROUTE_SLUGS`, `INFRA_SLUGS`, `RESERVED_SLUGS`,
-    `productPath`, `categoryPath` e `LEGACY_REDIRECTS`. Módulo puro, sem React nem Supabase, porque os
-    guardas precisam importá-lo dentro de um teste que lê arquivo do disco. Quem monta a canônica de
-    uma categoria é `categoryHref` (`@estrelinha/core/menu`), que sobe até o **pai imediato** e para
-    ali: a canônica tem no máximo **dois** segmentos, mesmo numa árvore de três níveis.
-  - **Categoria na raiz significa que o namespace de rota e o de slug de categoria são O MESMO.** Uma
-    categoria chamada "sobre" encobriria `/sobre`; uma rota `/ajuda` nova encobriria a categoria
-    `ajuda`. O React Router **ranqueia por especificidade, não pela ordem das linhas**, então quem
-    vence é sempre a rota e quem some é sempre a categoria — em silêncio, e em produção. Por isso a
-    lista de reservadas **não é zelo, é a contrapartida obrigatória da escolha**: `reservedSlugRefusal`
-    recusa no cadastro (nas **duas** superfícies, porque criar deriva o slug do nome e editar aceita
-    digitação livre) e `reservedSlugs.test.ts` impede a lista de divergir do `App.tsx`.
-  - **A barra final não é canônica**: `trailingSlash: false` no `vercel.json`. Os `<Link>`, o router, a
-    tag canônica e o destino do 301 concordam numa forma só; a URL indexada com barra paga **um** salto
-    308 antes do 301. Aceitar as duas sem canonicalizar seria conteúdo duplicado.
-  - **O 301 mora no edge, com espelho no router.** Só o edge devolve status HTTP de verdade — que é o
-    que preserva link equity e o que `curl -I` mede. O espelho existe porque `pnpm dev` e o vitest não
-    têm Vercel na frente: sem ele a rota legada só quebraria no dia do cutover. As duas pontas leem
-    `LEGACY_REDIRECTS`, e `vercelRedirects.test.ts` compara o `vercel.json` do disco com ela.
-    `statusCode: 301`, nunca `permanent: true` — este produz **308**, e os dois campos não coexistem.
-  - **O destino do 301 de categoria tem UM segmento**, não dois: o edge não conhece a árvore e não tem
-    como saber de que pai a filha pende. A forma de um segmento resolve com 200 e declara canonical
-    para a de dois, então o legado chega ao conteúdo em um salto.
-  - **Slug renomeado não perde a página**: `product_redirects` e `category_redirects`. A precedência é
-    fixa e vale nas duas pontas — **conteúdo vivo > redirect > 404** —, e a escrita **apaga** o
-    redirect cujo `from_slug` virou slug ativo (`persistRedirect`, `persistCategoryRedirect`). Sem
-    isso a mesma URL seria conteúdo e redirect ao mesmo tempo, e a resposta dependeria da ordem da
-    consulta. A leitura do redirect só sai **depois** de o slug falhar, nas duas entidades.
-  - **URL desconhecida não baixa o catálogo.** `useProducts(undefined)` devolve a loja inteira; com a
-    categoria na raiz, toda URL errada passaria por ali. `useProducts` tem `enabled`, ligado só quando
-    a rota resolve, e slug desconhecido devolve `[]`. O 404 é o `NotFound` do projeto nas duas páginas
-    de catálogo — nunca tela branca, nunca a listagem completa.
-  - **A tag canônica é injetada por JS** (`useCanonical`), e `curl` não a vê: a loja é SPA sem SSR. A
-    verificação é partida — `curl -I` prova status e `Location`; a canônica se prova em navegador
-    headless. Não é falha escondida, é o método.
-- **O material afetivo é propriedade do PRODUTO, e "exige" e "quais" são DOIS dados** (feature `22`).
-  Medido no catálogo real: **zero** das 3.356 variações tem eixo de material — ele está no **nome**
-  (169 dizem "leite", 127 "cinzas", 85 "cabelo", 51 "coto"), e existe peça que exige **dois**. Pedir
-  que a cliente escolha seria pedir que repita o que já escolheu ao clicar no produto.
-
-  | `products.requires_material` | `material_kinds` | o que a loja diz |
-  | --- | --- | --- |
-  | `false` / `null` | — | nada; a compra segue igual |
-  | `true` | `cabelo`, `coto_umbilical` | "você envia cabelo e coto umbilical", com link para a ficha |
-  | `true` | **vazia** | "o material é combinado com a gente" — e o pedido **entra na fila igual** |
-
-  - **`null` é o terceiro estado de `requires_material`, e significa "nunca decidido".** É o marcador
-    que deixa o importador semear os 689 produtos sem apagar a curadoria da dona na execução
-    seguinte: a semente (`inferMaterial`, do nome) entra no INSERT e, no update, **só onde a coluna
-    ainda é `null`**. Ninguém compara a coluna crua — todo consumidor passa por `requiresMaterial()`,
-    onde `null` é `false`.
-  - **Lista vazia NUNCA se lê como "não exige"**: é a peça de material livre, e quem a renderiza usa
-    `materialSummary`, que devolve **`a combinar`**. Lista vazia em tela se lê como "nenhum material",
-    que é o oposto.
-  - **`orders.material_tracking_code` NÃO é `orders.tracking_code`.** A primeira é a remessa **de
-    entrada** (cliente → ateliê, o envelope com o material); a segunda é a **de saída** e alimenta o
-    e-mail `order_shipped`. Reusar aquela faria "postamos sua joia" sair com o código do envelope que
-    a cliente mandou.
-  - **A máquina de estado tem um salto obrigatório**: `aguardando_material → material_recebido`
-    **direto**, porque informar o rastreio é **opcional** e a maioria dos pedidos nunca passa por
-    `material_enviado`. `nao_aplicavel` é terminal. Transição para o próprio estado é **sucesso** —
-    é o que faz duas admins clicando ao mesmo tempo convergirem.
-  - **Escrita de estado só existe por RPC.** `orders` não tem policy de `UPDATE` para cliente, de
-    propósito (PAY-10), e abrir uma exporia `payment_status` e os valores. `set_material_status`
-    (admin) e `set_material_tracking` (dona do pedido **ou** admin) são `security definer` e escrevem
-    o campo e nada mais. **A mesma RPC de rastreio serve às duas pontas** — duas seriam duas máquinas
-    de estado que divergem no primeiro ajuste.
-  - **A regra vive em `@estrelinha/core/material`** e tem uma cópia deliberada em SQL (o `where` da
-    RPC): só o banco impede requisição forjada, e só o TypeScript produz o motivo legível que a AC
-    exige. As duas são presas por `materialTransitions.test.ts`, que lê a migration do disco.
-  - **Gravação é VARIAÇÃO, não coluna nova**: o eixo `Com gravação` já existe em 35 produtos (626
-    variações, o 3º maior do catálogo) e **33 deles cobram a mais** (mediana R$ 42). O que a feature
-    acrescentou foi o **texto** e o **limite por produto** (`engraving_max_chars`, `null` cai em 20 —
-    nunca "sem limite"). O campo deriva da **variação escolhida**, não do produto: o mesmo produto tem
-    linha `Sim` e linha `Não`, e trocar para `Não` **limpa** o texto.
-  - **O texto de gravação compõe a chave da linha do carrinho.** Duas unidades da mesma variação com
-    gravações diferentes são **duas linhas** — colapsá-las mandaria um nome só para a bancada. Mesma
-    armadilha que o `variantId` já custou à loja anterior, em duas telas.
-  - **O pedido é snapshot**: `order_items` repete `requires_material`, `material_kinds` e
-    `engraving_text` de propósito. Mudar o cadastro não altera pedido já criado.
-  - **Nenhuma decisão de dinheiro depende do material.** `create-payment` não lê nenhuma coluna nova,
-    e `packages/core/src/payment/**` fechou a feature `22` **sem uma linha alterada**.
-- **O GUIA DE MATERIAL É `/como-enviar-seu-material-de-dna`, e ele é composição** (feature `31`). O
-  desenho é o dos artboards `5MC-0` (desktop) e `6AU-0` (mobile). A página resolve **três** coisas —
-  canônica, viewport e qual vídeo está aberto — e o resto é o slice `widgets/material-guide`:
-  conteúdo em `model/guide.ts`, desenho em nove componentes.
-  - **O endereço antigo (`/como-enviar-o-material`) responde 301**, no edge e no espelho do router, e
-    **continua em `ROUTE_SLUGS`**. As duas metades importam: sem o redirect, a URL que está no rodapé
-    de todo e-mail já enviado vira 404; sem a reserva, uma categoria ocuparia o slug e engoliria o
-    redirect. É a primeira entrada de `LEGACY_REDIRECTS` **sem `:slug`** — caminho inteiro e fixo —, e
-    `legacyRedirectTo` casa a forma exata **antes** de procurar por prefixo: cair na busca por padrão
-    faria `/como-enviar-o-material/qualquer-coisa` produzir um destino com `:slug` literal na URL.
-  - **A âncora de todo `MaterialKind` é contrato, e tem guarda.** A página do produto monta
-    `#cinzas` desde a `22`, e âncora quebrada **não dá 404**: a página abre, não rola, e ninguém
-    descobre. `MATERIAIS_SEM_ANCORA` reprova a falta **antes** do render, e um teste confere que todo
-    atalho do seletor aponta para um `id` que existe. `flores` e `outro` ganharam cartão por isso — o
-    board não os cobre, e sem eles dois links já publicados cairiam no vazio.
-  - **O caminho mora em `@estrelinha/core/routes`** (`MATERIAL_GUIDE_PATH`, `materialGuideHref`), não
-    no slice: quem linka para o guia é `entities`/`widgets`, que pela regra de camadas não podem
-    importar de outro widget. O endereço já mudou uma vez; a âncora, não.
-  - **`model/fichas.ts` foi APAGADO.** Ele era a segunda escrita do mesmo guia, e duas fontes do
-    mesmo dado é o "defeito 01" do projeto.
-  - **Três desvios do board, todos por contraste medido.** O selo numerado dos passos sai `ink` sobre
-    ouro (4,78:1) e não creme (2,52:1); os algarismos do preparo em casa saem `on-primary` e não ouro
-    (3,26:1); e o versalete de cada seção sai `ink-soft`, com o ouro no **fio** ao lado — a mesma
-    decisão que a `AboutPage` tomou na assinatura. O ouro que sobrou é ícone, com uma exceção
-    declarada: os algarismos `01`..`04` dos passos, que passam por serem texto **grande** (3,17:1
-    contra a régua de 3:1). Tudo isso está escrito em `accentText.test.ts`, entrada por entrada.
-  - **O iframe do YouTube só existe depois do clique**, no domínio `youtube-nocookie`. Cinco players
-    embutidos carregariam o script do YouTube em quem só passou pela página; e o `Dialog` do Radix
-    desmonta o conteúdo ao fechar, o que também **para o som** — player escondido continuaria tocando.
-  - **A capa é `hqdefault` e `object-cover` sozinho basta.** São 480×360 com o quadro 16:9 no meio:
-    exatamente 45px de tarja em cima e 45 embaixo, que cobrir um container 16:9 remove. Um `scale` por
-    cima não removia tarja nenhuma e **cortava as laterais**, comendo a última palavra do título que a
-    Adri escreveu na arte. Pelo mesmo motivo o disco de play fica no **canto**, não no centro.
-  - **A duração dos vídeos está vazia de propósito.** O board mostra `1:48`, `2:05` e `1:32`, mas
-    aqueles são números de vagas de desenho — os vídeos reais são outros e o repositório não tem como
-    medi-los. `VideoDePreparo.duracao` é opcional e a legenda acende sozinha quando for preenchida.
-  - **As fichas ricas são acordeão no celular e abertas no computador**, decidido UMA vez pela página
-    (`useCompactViewport`) e distribuído. O hook usa `useSyncExternalStore`, e não `useState` +
-    `useEffect`: o par tradicional começa em `false` e descobre a verdade no efeito, o que no celular
-    faria as fichas nascerem abertas e **colapsarem na frente da cliente**.
-  - **O bloco de endereço (`MaterialAddress`) sobreviveu ao redesenho.** O board não o desenha — nele
-    o endereço chega por WhatsApp depois do pagamento —, mas o componente lê `store_settings` e **não
-    renderiza endereço pela metade**. Apagá-lo trocaria informação que a loja já sabe dar por
-    informação que a cliente teria de pedir.
-  - **A biblioteca de ícones ganhou duas grades de origem** (48 e 120, além da de 40), com a
-    invariante de sempre: escala × traço = **1,5** na grade de 24. `icons.test.ts` assere a
-    invariante de cada grade **e** que o par (escala, traço) anda junto — `scale(0.5)` com o traço da
-    grade de 40 renderiza 1,25, um oitavo mais fino que o vizinho, invisível em review e visível na
-    tela.
-- **Conjunto de produtos é CATEGORIA — só ela** (`AD-014`). Na loja, "coleção" já é a categoria: a
-  `CategoryPage` é renderizada a partir de `categories` (hoje em `/:slug` e `/:pai/:filha` — ver o
-  bloco de URLs acima), o widget da home se chama "Coleções" e o 404 diz "Coleção não encontrada". A
-  tabela `collections` **nunca existiu em migration nenhuma** (`PGRST205`), o hook engolia o erro e a
-  tela mostrava grade vazia para sempre. **Não recriar**: `categories` já faz tudo — vínculo N:N
-  ordenado (`product_categories.position`), hierarquia (`parent_id`) e página de verdade.
-- **O menu da loja é um recorte de `categories`, não uma árvore própria.** Duas colunas mandam:
-  `show_in_menu` (a vaga na barra do topo, **válida em qualquer profundidade**) e `menu_promo jsonb`
-  (`{ category_id, badge?, title?, subtitle? }`, nulo = sem card). A curadoria é `/admin/menu`; a
-  **ordem é a `sort_order` que já existia** — sem coluna `menu_order`, porque dois donos do mesmo dado
-  é o "defeito 01" do projeto.
-  - A regra vive em `@estrelinha/core/menu` (`menuEntries`, `menuSlotRefusal`, `resolvePromo`,
-    `descendantIds`, `bySortOrder`) e é consumida pelas **quatro** superfícies nos dois apps. Foi ter
-    a regra em cada tela que produziu o bug original: o `Header` fazia `.slice(0, 4)` de uma lista
-    chapada e a barra do topo mostrava o contêiner de tudo mais uma filha que empatou em
-    `sort_order = 0`. Por isso `bySortOrder` desempata por nome: sem isso a barra muda entre dois
-    carregamentos.
-  - **`menu_promo.category_id` não tem FK** (mora em jsonb): apagar o destino não dispara
-    `on delete set null`. Quem lê **precisa** de `resolvePromo`, que devolve `null` para destino
-    inexistente ou inativo. É AC, não zelo.
-  - **`menuEntries` não trunca em `MENU_SLOT_LIMIT`.** Cinco marcadas devolvem cinco, e o contador do
-    admin mostra "5 de 4". Truncar esconderia a quinta da única tela onde ela pode ser desmarcada.
-  - **`browseCategories`** (grade da home, rodapé) **pula o guarda-chuva**: uma raiz sozinha é
-    contêiner, não escolha. Não confundir com `pickTrendingCategories`, que é deliberadamente
-    **folha** — as pílulas de "Em alta agora" são sobre o que bomba, não sobre como navegar.
-  - **`useProducts(slug)` faz roll-up da descendência** (`descendantIds`): sem isso o "Ver todos →" do
-    menu levaria a uma página sem os produtos que o menu acabou de listar.
-- **O carrinho é a gaveta, e só ela.** `widgets/cart-drawer` é a única superfície de sacola. Todo
-  caminho que levava a `/carrinho` **abre a gaveta**: header, aba da `MobileNav`, o "Ver carrinho" do
-  toast, e o "Voltar ao carrinho" do checkout. A rota `/carrinho` sobrevive como **atalho** — recupera
-  o `?recover=<id>` dos e-mails de carrinho abandonado, abre a gaveta e redireciona para `/`. Quem
-  abre é o `cartUiStore` (Zustand **efêmero**, em `entities/cart` — fora do `cartStore`, que é
-  persistido, porque um booleano de UI ali reabriria a gaveta na visita seguinte). **Não recriar uma
-  página de carrinho**: duas superfícies para a mesma lista significavam dois lugares para consertar
-  cada regra — foi assim que a remoção de item com variação ficou quebrada nas duas.
-- **Na página do produto, quem compra no celular é a barra fixa.** O CTA da coluna de informação é
-  `hidden md:flex` e o `widgets/product-buy-bar` é `md:hidden`: **nunca os dois**. O estado de compra
-  é um só, `entities/product/model/useProductPurchase`, montado pela `ProductPage` e passado às duas.
-  Os eixos de variação saem em **chips** (`VariantPicker surface="page"`), não em `<select>`.
-- **Uma barra de rodapé por vez, e a moldura do topo se recolhe** (`shared/lib/storeChrome`,
-  `shared/lib/useScrollDirection`). Header + barra de compra + `MobileNav` empilhados somavam
-  **197px — 30% de um iPhone SE**. Duas regras desfazem isso:
-  - **`ownsBottomBar(pathname)`** decide quem ocupa o rodapé. Onde a página traz a própria barra
-    (hoje só `/produto/*`), o `StoreLayout` **não monta o `MobileNav`**. É um **predicado puro
-    compartilhado**, e não um `useLocation` dentro do `MobileNav`, porque a resposta tem consequência
-    em dois arquivos.
-  - **As duas barras têm a mesma altura** (`BOTTOM_BAR_H`), e é isso que deixa a reserva de espaço ser
-    incondicional. Essa reserva fica **depois do `<Footer/>`**, não como `pb` do `main`: reservar
-    antes dele deixava a última faixa do rodapé atrás da barra.
-  - **O header se recolhe no scroll para baixo e volta no scroll para cima**, só no mobile
-    (`md:translate-y-0` trava o desktop). `sticky` + `translate`, nunca `fixed` nem desmontar: assim
-    ele segue ocupando os 64px no fluxo e esconder/mostrar **não causa reflow**. **A barra de compra
-    nunca se esconde** — o CTA é a finalidade da página.
-  - Cuidado ao pôr `position: fixed` dentro do `<header>`: ele carrega `transform`, que cria
-    containing block — o elemento passaria a se medir pelo header, não pela viewport. É por isso que
-    `MobileMenu` mora no `StoreLayout`.
-- **Checkout é one-page**: três blocos numa única tela — `1 Contato`, `2 Entrega`, `3 Pagamento` —
-  com resumo persistente e **um único CTA**. Não existe passo "Revisão". As regras de completude,
-  bloco aberto e invalidação do pedido são domínio puro em `@estrelinha/core/checkout`
-  (`resolveBlocks`, `isOrderStale`); o rascunho + o `order_id` em curso vivem no `checkoutStore`
-  (Zustand em **`sessionStorage`**). A rota `/checkout` fica **fora do `StoreLayout`** (header próprio
-  + CTA fixo no rodapé) e por isso monta o `AuthOverlay` por conta própria. A confirmação é a rota
-  `/pedido/:id` (lê o pedido do banco), nunca estado interno da página — assim ela sobrevive ao
-  reload; o carrinho e o cupom são limpos **só** na aprovação.
-- **Desconto por item é server-side, sempre.** `mercado-pago/index.ts` recalcula `unit_price` a
-  partir de `products.base_price` e **descarta** o valor enviado pelo cliente. Logo, qualquer desconto
-  por item calculado no front seria **exibido e não cobrado**. O order bump aplica o desconto dentro
-  de `calculateOrderTotals` (`@estrelinha/core/payment/pricing`), a mesma função que a edge function
-  usa. A loja e o servidor passam **preço cheio + o objeto `bump`** — nunca uma lista já descontada
-  (`applyOrderBump` não é idempotente por composição).
-- **Desconto por quantidade é PROMOÇÃO CADASTRADA, não constante de código.** As faixas vivem em
-  `promotions` + `promotion_tiers`, com escopo por `promotion_categories` (FK real — array e jsonb não
-  têm). A regra é pura, e o ponto de entrada único é **`resolveOrderPricing`**: a loja
-  (`useCheckoutTotals`, `useCartPromotion`) e a `mercado-pago/handlers.ts` chamam a MESMA função.
-  - **`AD-015` — desconto por item nunca soma.** Duas regras no mesmo item ⇒ vence o **menor preço**
-    (`perItemMin`, calculado a partir do preço cheio nas duas pontas, o que torna o resultado
-    independente da ordem de aplicação). Entre promoção e cupom ⇒ vence o **menor total final** —
-    pelo total e não pelo desconto, porque cupom `free_shipping` mexe no frete. Empilhar é opt-in por
-    promoção (`stacks_with_coupon`), nunca o default.
-  - **Elegibilidade sai da view `promotion_eligible_products`** (categoria + descendência), nos dois
-    lados. **Nunca de `Product.category_links`**: aquele campo vem do snapshot do carrinho em
-    `localStorage` e pode ter dias.
-  - **O pedido registra o desconto exibido** (`orders.promotion_discount`), e ele é **teto, não
-    valor**: `create-payment` cobra sempre o próprio recálculo e devolve **422
-    `promotion_no_longer_valid`** quando o recalculado é MENOR que o exibido — cobrar mais caro do que
-    a tela prometeu é o que essa guarda existe para impedir.
-  - **`orders.promotion_id` é `null` de propósito quando duas promoções aplicam** (FK única não
-    representa "duas"). Logo "este pedido teve promoção?" se pergunta por `promotion_discount > 0`.
-  - **Todo item que entra na conta usa `cartItem.unitPrice`** (preço da variação), nunca
-    `product.price`. Com grade, usar a base fazia a loja exibir e gravar um valor que o servidor não
-    cobrava — o defeito está **congelado** por teste em `handlers.test.ts`.
+- **Sem credenciais no código.** Cada app tem `.env` (gitignored) com `VITE_SUPABASE_URL` e
+  `VITE_SUPABASE_PUBLISHABLE_KEY` (ver `.env.example`); o client (`@estrelinha/supabase`) lança erro
+  se faltarem. Secrets de servidor ficam no `.env` da **raiz**. Detalhe em `supabase/CLAUDE.md`.
+- **`strictNullChecks` está `false`** em `tsconfig.base.json`, e nesse modo **união discriminada por
+  literal booleano não estreita**: com `{ ok: true } | { ok: false; reason: string }`, ler
+  `verdict.reason` no ramo do `else` é erro de compilação (TS2339). Para veredito com motivo, devolva
+  `string | null` — não tem ramo para esquecer — ou discrimine por literal de **string**. É o formato
+  de `menuSlotRefusal` e `reservedSlugRefusal`.
+- **Tipo escrito à mão é afirmação, não verificação** (`AD-012`). `DbCategory` declarava três colunas
+  que o banco não tinha, e **toda gravação de categoria falhava com `PGRST204`** — nada pegava: o
+  build não checa tipo, o `tsc` achava o código certo (o tipo mentia), e os testes mockavam o client.
+  Ao mexer numa tela que grava, **prove que ela grava**: probe HTTP contra o banco local, não
+  inspeção de tipo. Segunda ocorrência: `DbAbandonedCart` descrevia uma tabela que não existia em
+  migration nenhuma.
+- **Avaliações não existem.** Não há tabela `product_reviews`, e o módulo de avaliações de
+  demonstração foi **removido**: depoimento inventado sobre a morte de alguém tem peso ético
+  diferente de depoimento inventado sobre um acessório. A mesma régua tirou da home o contador de
+  "drop" e a prova social fabricada, e `homeSections.test.ts` **assere a ausência** — nenhum tipo de
+  contagem regressiva ou de prova social entra no catálogo de blocos.
 
 ## Os guardas — o que trava o quê
 
 A identidade tem uma propriedade ruim: **errar nela não quebra nada**. Uma classe que deixou de
 existir sai sem cor, um token divergente renderiza duas paletas, um remap que virou texto ouro sobre
-claro passa em build, `tsc` e teste de componente. Por isso a loja carrega testes que leem o **fonte
-do disco**, e cada um tem **âncora de contagem** — sem ela, um caminho errado varre zero arquivo e
-passa em silêncio, que é a pior falha possível num teste desse tipo.
+claro passa em build, `tsc` e teste de componente. Por isso o repositório carrega testes que leem o
+**fonte do disco**, e cada um tem **âncora de contagem** — sem ela, um caminho errado varre zero
+arquivo e passa em silêncio, que é a pior falha possível num teste desse tipo.
+
+A maioria mora em `apps/store/src/shared/lib/__tests__` por acidente de origem, **não** porque
+guardem só a loja: `materialTransitions`, `homeSections`, `faqSchema` e `googleShoppingSchema` leem
+migrations, e `vercelRedirects` lê o `vercel.json`.
 
 | Guarda | Onde | O que derruba a suíte |
 | --- | --- | --- |
-| `palette.test.ts` | `shared/lib/__tests__` | `App.css` e `tailwind.config.ts` divergirem num único token; a escala de raio mudar |
+| `palette.test.ts` | store `shared/lib/__tests__` | `App.css` e `tailwind.config.ts` divergirem num único token; a escala de raio mudar |
 | `contrast.test.ts` | idem | qualquer token de texto abaixo de 4,5:1 sobre `ground`/`ground-deep`/`surface`; `accent` deixar de ser proibido como texto |
 | `fieldBorder.test.ts` | idem | um `<input>`/`<Input>`/`<select>`/`<textarea>` voltar a `line` ou `accent` |
 | `accentText.test.ts` | idem | texto ouro fora da lista curta; `ink` **com opacidade** dentro de superfície `accent` |
@@ -800,25 +266,31 @@ passa em silêncio, que é a pior falha possível num teste desse tipo.
 | `brandScan.test.ts` | idem | **qualquer** ocorrência da marca anterior em `apps/`, `packages/`, `supabase/` ou nas configs da raiz |
 | `storeSettingsDefaults.test.ts` | idem | os defaults do TypeScript divergirem do que as migrations gravam |
 | `importOrder.test.ts` | idem | `App.css` importado **antes** de `@estrelinha/ui/styles.css` no `main.tsx` |
-| `reservedSlugs.test.ts` | idem | rota nova no `App.tsx` que não entrou em `ROUTE_SLUGS`; entrada de `ROUTE_SLUGS` que deixou de ser rota. **Bidirecional**: a lista recusa slug de categoria, e entrada morta recusaria nome que já está livre |
-| `vercelRedirects.test.ts` | idem | `vercel.json` divergir de `LEGACY_REDIRECTS` em `source`, `destination` ou status; `trailingSlash` deixar de ser `false`; qualquer redirect usar `permanent` (que produz 308) |
-| `materialTransitions.test.ts` | idem | a máquina de estado do material em **SQL** divergir da em **TypeScript** — lê a migration do disco e compara origem a origem, alvo a alvo; `set_material_tracking` passar a escrever qualquer coluna além do rastreio e do estado; a migration abrir policy de `UPDATE` em `orders` ou conceder `execute` a `anon` |
-| `homeSections.test.ts` | idem | o catálogo de tipos do TypeScript divergir do `check` da migration; a semente divergir de `DEFAULT_HOME_COMPOSITION`; entrar tipo de contagem regressiva ou de prova social; policy de escrita sem `has_role`; qualquer `grant` alcançar `anon`; o trigger do hero indelével sumir; a FK de destino virar `cascade` |
-| `faqSchema.test.ts` | idem | a migration da `28` afrouxar: `grant` a `anon`; policy de escrita sem `has_role`; `faq_id` deixar de ser `on delete restrict`; sumirem os `check` de 160/600; a view perder `security_invoker`. Compara os limites do TypeScript com os números lidos do `.sql` |
-| `faqNoDuplicate.test.tsx` | `entities/product/ui/__tests__` | a descrição voltar a exibir uma pergunta que já está na seção de FAQ — medido sobre uma descrição **real** do catálogo, cruzando as duas superfícies |
-| `faqSuggestion.test.ts` | `packages/core/src/faq/__tests__` | a sugestão cair abaixo de **80%** de precisão ou cobertura contra a distribuição real do catálogo (fixture de 687 produtos × 36 categorias × 67 perguntas, leave-one-out). Carrega o **sensor embutido**: assere que ranquear por contagem bruta **reprova** na mesma régua |
-| `block.test.ts` | idem | o extrator perder um dos **dois** arranjos de HTML medidos; a fronteira do bloco comer `Observações importantes`; `stripFaqBlock` remover bloco sem par extraível |
-| `homeComposition.test.tsx` | `pages/__tests__` | a Home mudar de cara — sequência das seções, literais de cada uma, limites 3/4/12 e as duas cores do título, tudo pelo **DOM renderizado**. **Não perde asserção, só ganha**: se uma precisou ser afrouxada, a composição mudou |
-| `HomeRendererPreview.test.tsx` | `widgets/home-renderer/ui/__tests__` | o invólucro da prévia vazar para o **modo normal** — a árvore da loja tem de ficar idêntica, nó a nó, sem a prop `preview` |
-| `previaUnica.test.ts` | backoffice, `features/home-composition/__tests__` | um segundo desenho da Home voltar ao painel: `HomePreview` reaparecer, um segundo arquivo `…Preview` surgir, o palco ramificar por tipo de seção, ou o painel importar de `apps/store` |
-| `catalog.test.ts` · `defaults.test.ts` | `packages/core/src/home/__tests__` | um arquivo de `core/home` importar React ou Supabase; a varredura do módulo render menos de 9 arquivos; a semente divergir do que a loja desenha; um literal de texto voltar para dentro de um widget de seção |
-| `buttonShape.test.ts` | `shared/ui/__tests__` | ação voltar a pílula; a chave custom de raio voltar ao config |
-| `icons.test.ts` | `shared/ui/icons/__tests__` | ícone da biblioteca fora da grade `0 0 24 24`; traço fora de `ICON_STROKE`/`ICON_STROKE_G40` (o efetivo é sempre 1,5); cor em hex/rgb ou `var(--…)` fora de `ICON_ACCENT`; forma preenchida numa família monoline; ícone com `width`/`height` próprios; ícone que não chegou ao barrel ou ao registro |
-| `paths.test.ts` | `shared/ui/brand/__tests__` | `paths.ts` divergir do SVG-fonte em um caractere; dois `<path>` do mesmo SVG com a mesma espessura |
-| `brandAssets.test.ts` | `app/__tests__` | ícone referenciado no `index.html` que não existe no disco; `theme-color` fora da paleta; `og:image` fora do projeto; fonte da identidade anterior no `<link>` |
-| `navItems.test.ts` | backoffice | ordem das rotas em `App.tsx` divergir de `navGroups` |
-| `apiShape.test.ts` | `tools/catalog-import` | a Nuvemshop mudar a forma de um campo que o mapeamento lê; a fixture perder um dos casos de borda; a origem passar a ter campo de ordenação de categoria |
-| `db.test.ts` (`selectAll`) | idem | uma leitura de "o que já existe" voltar a usar `select` simples e ser truncada em 1.000 linhas pelo PostgREST |
+| `reservedSlugs.test.ts` | idem | rota nova no `App.tsx` que não entrou em `ROUTE_SLUGS`; entrada de `ROUTE_SLUGS` que deixou de ser rota. **Bidirecional** |
+| `vercelRedirects.test.ts` | idem | `vercel.json` divergir de `LEGACY_REDIRECTS`; `trailingSlash` deixar de ser `false`; redirect usando `permanent` (que produz 308); o catch-all do SPA sair do fim da lista de `rewrites`; os headers de segurança mudarem |
+| `materialTransitions.test.ts` | idem | a máquina de estado do material em **SQL** divergir da em **TypeScript**; `set_material_tracking` escrever coluna além do rastreio e do estado; a migration abrir policy de `UPDATE` em `orders` ou conceder `execute` a `anon` |
+| `homeSections.test.ts` | idem | o catálogo de tipos divergir do `check` da migration; a semente divergir de `DEFAULT_HOME_COMPOSITION`; entrar tipo de contagem regressiva ou de prova social; policy de escrita sem `has_role`; `grant` alcançar `anon`; o trigger do hero indelével sumir |
+| `faqSchema.test.ts` | idem | a migration da `28` afrouxar: `grant` a `anon`; policy sem `has_role`; `faq_id` deixar de ser `on delete restrict`; sumirem os `check` de 160/600; a view perder `security_invoker` |
+| `googleShoppingSchema.test.ts` | idem | a migration da `30` afrouxar; o interruptor do feed nascer ligado; os limites do TypeScript divergirem do `.sql` |
+| `sanitizeHtml.test.ts` | idem | a allowlist aceitar atributo, `href` deixar de passar por `new URL`, ou `script`/`style`/`iframe` voltarem a desembrulhar em vez de sumir |
+| `routes.test.ts` | store `app/__tests__` | `ROUTE_SLUGS`/`LEGACY_REDIRECTS` divergirem das rotas; `legacyRedirectTo` deixar de casar caminho fixo antes de prefixo |
+| `brandAssets.test.ts` | idem | ícone referenciado no `index.html` que não existe no disco; `theme-color` fora da paleta; `og:image` fora do projeto |
+| `homeComposition.test.tsx` | store `pages/__tests__` | a Home mudar de cara — sequência, literais, limites e as duas cores do título, pelo **DOM renderizado**. **Não perde asserção, só ganha** |
+| `copyInstitucional.test.tsx` | idem | copy institucional voltar a prometer o que a loja não cumpre |
+| `HomeRendererPreview.test.tsx` | store `widgets/home-renderer` | o invólucro da prévia vazar para o **modo normal** |
+| `faqNoDuplicate.test.tsx` | store `entities/product/ui/__tests__` | a descrição voltar a exibir uma pergunta que já está na seção de FAQ |
+| `buttonShape.test.ts` | store `shared/ui/__tests__` | ação voltar a pílula; a chave custom de raio voltar ao config |
+| `icons.test.ts` | store `shared/ui/icons/__tests__` | ícone fora da grade `0 0 24 24`; escala × traço ≠ 1,5; cor fora de `ICON_ACCENT`; ícone que não chegou ao barrel |
+| `paths.test.ts` | store `shared/ui/brand/__tests__` | `paths.ts` divergir do SVG-fonte em um caractere; dois `<path>` do mesmo SVG com a mesma espessura |
+| `previaUnica.test.ts` | backoffice `features/home-composition` | um segundo desenho da Home voltar ao painel; o painel importar de `apps/store` |
+| `navItems.test.ts` | backoffice `widgets/admin-layout` | ordem das rotas em `App.tsx` divergir de `navGroups` |
+| `faqSuggestion.test.ts` | `packages/core/src/faq/__tests__` | a sugestão cair abaixo de **80%** de precisão ou cobertura contra a distribuição real do catálogo. Carrega **sensor embutido**: assere que contagem bruta **reprova** na mesma régua |
+| `block.test.ts` | idem | o extrator perder um dos **dois** arranjos de HTML medidos; `stripFaqBlock` remover bloco sem par extraível |
+| `shoppingParity.test.ts` | `packages/core/src/shopping/__tests__` | o feed e o JSON-LD divergirem em preço ou disponibilidade, medidos pelas **serializações reais**. Sensor embutido |
+| `purity.test.ts` | idem | um arquivo de `core/shopping` importar React, Supabase ou Deno |
+| `catalog.test.ts` · `defaults.test.ts` | `packages/core/src/home/__tests__` | um arquivo de `core/home` importar React ou Supabase; a varredura render menos de 9 arquivos; a semente divergir do que a loja desenha |
+| `apiShape.test.ts` | `tools/catalog-import` | a Nuvemshop mudar a forma de um campo que o mapeamento lê; a fixture perder um caso de borda |
+| `db.test.ts` (`selectAll`) | idem | uma leitura de "o que já existe" voltar a `select` simples e ser truncada em 1.000 linhas pelo PostgREST |
 
 **Nenhum deles é opcional, e nenhum se conserta afrouxando a asserção.** A `fieldBorder` já custou 16
 campos com contraste de 1,19:1 por varrer só as tags HTML minúsculas enquanto a loja monta quase todo
@@ -827,184 +299,144 @@ se encontraram. Lição que virou padrão: **âncora dupla** (arquivos lidos **e
 e a régua nunca pode ser o objeto medido (a âncora de escopo do `brandScan` escreve os diretórios
 literalmente, em vez de iterar a constante que deveria guardar).
 
+## Baselines — o gate de qualquer feature
+
+O gate é **"sem regressão"**, não "tudo limpo": compare contra estes números e **atualize-os aqui**
+quando mudarem de verdade.
+
+| Medida | Baseline | Como medir |
+| --- | --- | --- |
+| **Lint** | **30 erros / 8 warnings** — backoffice 28/7 · store 2/1 | `pnpm lint` |
+| **Tipos** | **0 · 0 · 0** (store · backoffice · catalog-import) | `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` |
+| **Testes** | **5465 em 300 arquivos** — store 1874/129 · backoffice 1556/97 · core 1363/52 · functions 337/6 · catalog-import 335/16 | `pnpm --filter @estrelinha/<w> test` |
+
+Medido de novo em **2026-08-16**, por workspace, com exit code capturado. Os cinco passam limpos.
+Os erros de lint são **pré-existentes**, em boa parte `@typescript-eslint/no-explicit-any` nos hooks
+admin (`entities/*/api/useAdmin*`). **Zero é a baseline de tipos: qualquer erro de tipo é novo.**
+
+**Regras de leitura da baseline de testes:**
+
+- **Queda só vale se o número reaparece do outro lado.** Duas exceções foram declaradas até hoje: a
+  `25` (os 14 casos de `HomePreview.test.tsx`, que viraram verdadeiros por construção quando a prévia
+  passou a ser a loja) e a `31` (os 14 de `HowToSendMaterialPage.test.tsx`, reescrito de 14 para 34
+  no mesmo lugar). Fora dessas, queda é deleção silenciosa.
+- **Asserção de guarda pode ser reescrita quando a régua ganha casos, nunca afrouxada** — e a
+  reescrita tem de **ganhar vizinha**. Se uma precisou ser enfraquecida, o comportamento mudou.
+- **Teste que reprova isolado nunca é flake.** `pnpm test` roda os cinco workspaces em paralelo e já
+  produziu falha de timeout de RTL sob carga (medida hoje: `AdminCouponFormPage.test.tsx` reprovou no
+  paralelo e passou isolada, com os 1556 verdes). **Rode por workspace antes de investigar** — mas
+  se reprovar sozinho, é defeito.
+- **O código de dinheiro não muda por acaso.** `packages/core/src/payment/**` fechou as features 22,
+  23, 24 e 25 **sem uma linha alterada**, conferido por `git diff --name-only` no gate. Identidade
+  visual, importação de catálogo, composição de home e prévia não têm por que mexer em `payment/`.
+- **Teste que lê `import.meta.env` mede a MÁQUINA, não o código.** Duas ocorrências, e a segunda só
+  apareceu quando houve CI:
+  - `storeOrigin.test.ts` afirmava "sem env devolve `null`" chamando `storeOrigin(undefined)`, que cai
+    no **parâmetro default** lido de `import.meta.env` no carregamento do módulo: passava em quem não
+    tinha `VITE_STORE_URL` e falhava em quem tinha. Corrigido na `27` com `vi.stubEnv` +
+    `vi.resetModules()` + import dinâmico.
+  - **O client de `@estrelinha/supabase` LANÇA no carregamento do módulo** sem `VITE_SUPABASE_URL` e
+    `VITE_SUPABASE_PUBLISHABLE_KEY` — de propósito, para que falta de configuração não vire fallback
+    silencioso. Mas o `.env` é gitignored: quem fornecia os valores era a máquina de quem já tinha
+    rodado a loja. A suíte passava local e **morria no CI, em 8 arquivos, antes da primeira
+    asserção**. Os dois `vitest.config.ts` agora fixam os valores em `test.env`. No backoffice a
+    fixação é **preventiva**: ele passa hoje só porque 109 arquivos mockam o client à mão, o que é
+    coincidência mantida a dedo, não propriedade do app.
+
+## CI e deploy
+
+Dois workflows em `.github/workflows/`, os dois disparando em push para `master`:
+
+| Workflow | Quando | O que faz |
+| --- | --- | --- |
+| `ci.yml` | PR **e** push em `master` | `turbo run test --concurrency=1`, depois `pnpm build`. Lint e typecheck rodam com `continue-on-error` |
+| `supabase-deploy.yml` | push em `master` (sem filtro de `paths`) | `supabase db push --linked` e, condicionalmente, `supabase functions deploy` |
+
+- **`--concurrency=1` no CI é de propósito**: rodar store e backoffice em paralelo satura o runner de
+  2 vCPUs (jsdom é pesado) e a suíte do backoffice fica flaky. É a mesma flake que se vê localmente.
+- **Lint e typecheck NÃO bloqueiam o merge** enquanto a baseline não for zerada. Rodam para dar
+  visibilidade. O gate de verdade é *teste + build*.
+- **O deploy do Supabase roda sem filtro de `paths`**, e isso é decisão declarada: com filtro, um push
+  que não tocasse `supabase/**` não gerava execução nenhuma — e **run ausente é indistinguível de run
+  quebrado** na aba Actions. O custo de rodar sempre fica contido no passo `mudou`, que só deploya as
+  functions quando `supabase/functions/**` mudou de fato.
+- **`db push` NÃO é condicionado por diff, e a assimetria é deliberada**: sem migration pendente ele
+  já é no-op, e decidir por diff arriscaria pular uma migration que ficou para trás num push que
+  falhou. **Estado de banco se decide pelo estado, nunca pelo diff.**
+
+## Estado da infraestrutura
+
+**O projeto Supabase hospedado é `hgkrsfpupypxtygjgthf`** — criado em 2026-08-16, é o que está nos
+`rewrites` do `apps/store/vercel.json` e o que fechou a `BL-016`. Os dois apps têm `vercel.json`
+completo (framework, `installCommand` na raiz do monorepo, headers de cache e de segurança).
+
+**Ainda assim, quase nada está no ar, e é isso que importa saber antes de confiar num endereço:**
+
+- **O schema NÃO foi enviado para o hospedado.** Nenhum `supabase db push` completou — o run de
+  2026-08-16 (commit `9fb5dde`) falhou com `SUPABASE_PROJECT_REF` ausente no environment
+  `production`. Dev roda contra o Supabase local (`http://127.0.0.1:54341`).
+- **As edge functions `google-feed` e `product-page` não foram implantadas.** Enquanto não forem,
+  `/produtos/:slug` fica **fora do ar em produção**: o `rewrite` tira a rota do catch-all do SPA e o
+  destino devolve erro. Metade da `BL-016` continua aberta por isso — o ref estar escrito prova que o
+  arquivo aponta para um projeto que existe, não que as rotas respondem. **Rodar o `curl -I` das duas
+  é o que fecha.**
+- **`supabase/.temp/project-ref` diz `zwvrqtjvaltpbevjqzks`, que NÃO é o projeto do vercel.json.** É
+  link velho do CLI e é armadilha: um `supabase db push` **local** daqui vai para o projeto errado.
+  Confira com `supabase projects list` e re-linke antes de qualquer comando que escreva no hospedado.
+  (O CI não usa este arquivo: ele linka pelo secret `SUPABASE_PROJECT_REF`.)
+- **`AD-017` tem data de validade, e ela AGORA VENCE SOZINHA.** Enquanto este banco não for
+  implantado, a história de migration pode ser reescrita — foi assim que os defaults de
+  `store_settings` passaram a nascer corretos, sem migration de correção. **A permissão expira no
+  primeiro `supabase db push` bem-sucedido**, e desde a `supabase-deploy.yml` isso **não é mais um
+  comando que alguém decide rodar**: é o próximo merge em `master` depois que o secret
+  `SUPABASE_PROJECT_REF` for preenchido. A partir daí vale a regra normal — migration aplicada é
+  imutável, correção vem em migration nova. **Quando o primeiro push passar, apague este item**;
+  deixá-lo é convidar alguém a reescrever história já aplicada.
+- **O guia de deploy em `.specs/archive/nanita/DEPLOY.md` é da loja anterior**: o *procedimento* vale,
+  os identificadores não.
+
 ## Estado conhecido / dívidas
 
-- **Baseline de lint vigente (medida de novo no fecho da feature 27, 2026-08-15): 30 erros / 8
-  warnings** — backoffice 28/7 · store 2/1. Igual à do fecho da `20`, da `22`, da `23`, da `24` e da
-  `25`: zero erro novo em **oito** features seguidas. São erros **pré-existentes**, em boa parte `@typescript-eslint/no-explicit-any`
-  nos hooks admin (`entities/*/api/useAdmin*`). O gate de qualquer feature é **"sem erros novos"**,
-  não "lint limpo": compare contra este número e atualize-o aqui quando ele mudar de verdade.
-  - **Atenção: `pnpm lint` não olha `packages/`.** Nenhum dos pacotes tem script `lint`, e
-    `pnpm lint` é `turbo run lint` — então `payment/pricing.ts`, que é o código de dinheiro do
-    projeto, é type-checado e testado mas **nunca passa por ESLint**. Registrado como `BL-002` no
-    `BACKLOG.md`: ligar o lint ali move a baseline.
-- **`pnpm build` não faz typecheck**: é `vite build` puro e o esbuild remove tipos sem checar. Build
-  verde **não** prova ausência de erro de tipo. Para checar de verdade:
-  `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` — note o `tsconfig.app.json`, porque o
-  `tsconfig.json` de cada app é solution-style (só `references`) e compila zero arquivo.
-  **Baseline de tipos: store 0 · backoffice 0 · catalog-import 0. Zero é a baseline: qualquer erro
-  de tipo é novo.** O importador tem `tsconfig.json` próprio (não é solution-style):
-  `npx tsc --noEmit -p tools/catalog-import/tsconfig.json`.
-- **Baseline de testes (fecho da feature 31, medida por workspace): 5465 testes em 300 arquivos** —
-  store **1874/129** · backoffice **1556/97** · core **1363/52** · functions **337/6** ·
-  catalog-import **335/16**. Os cinco workspaces passam limpos.
-  - A feature `31` somou **+20 líquidos** (store +16, core +4) **sem nenhum arquivo novo**, e o
-    líquido esconde o que importa: entraram **+34** e saíram **14**. Os 14 eram de
-    `HowToSendMaterialPage.test.tsx`, que foi **reescrito** — a página trocou de desenho, de endereço
-    e de estrutura de dado, e as asserções antigas mediam um layout que não existe mais.
-  - **É a segunda exceção declarada à regra de "queda só vale se o número reaparece do outro lado"**
-    (a primeira foi a `25`, com o `HomePreview`). O arquivo não encolheu: foi de 14 para 34 casos no
-    mesmo lugar. O que caiu foi a contagem de `MATERIAL_FICHAS`, que era percorrida por
-    `it.each(MATERIAL_KINDS)` sobre um dado que a `31` apagou (`model/fichas.ts` era a segunda escrita
-    do guia). A cobertura equivalente ficou **mais forte**: `MATERIAIS_SEM_ANCORA` reprova material
-    sem destino **antes** do render, e um caso novo confere que todo atalho do seletor aponta para uma
-    âncora que existe.
-  - **Três asserções de guarda foram reescritas porque a régua ganhou casos, e as três GANHARAM
-    vizinhas**: `routes.test.ts` (14→15 slugs, 3→4 redirects, mais os dois casos de
-    `materialGuideHref` e o de caminho fixo que não sequestra rota mais funda),
-    `vercelRedirects.test.ts` (o quarto redirect, com asserção própria) e `icons.test.ts` (passou a
-    asserir a **invariante de cada grade de origem** — escala × traço = 1,5 — e que o par
-    (escala, traço) anda junto). Nenhuma foi afrouxada.
-  - **Baseline anterior (fecho da feature 30): 5445 testes em 300 arquivos** — store 1858/129 ·
-    backoffice 1556/97 · core 1359/52 · functions 337/6 · catalog-import 335/16.
-  - A feature `30` somou **+335 testes e +15 arquivos**, sem apagar nenhum.
-  - **Cinco asserções foram reescritas porque a spec mudou o comportamento, e as cinco GANHARAM
-    vizinhas**: `vercelRedirects.test.ts` (o array de `rewrites` foi de 1 para 3 elementos — a
-    igualdade exata virou asserção de **ordem por índice**, que é o que de fato importa),
-    `navItems.test.ts` (o grupo `Loja` foi de 2 para 3 itens), `CategoryInspector.test.tsx` e
-    `core/product/index.test.ts` (os dois payloads ganharam um campo, e **seguem em igualdade
-    exata** — é o que impede campo novo entrar na gravação sem ninguém decidir) e
-    `googleShoppingSchema.test.ts`. Nenhuma foi afrouxada.
-  - **Baseline anterior (fecho das features 28 e 29): 5110 testes em 285 arquivos** — store
-    1793/127 · backoffice 1496/94 · core 1218/44 · functions 279/4 · catalog-import 324/16.
-  - As duas features fecharam na mesma árvore e a baseline é a soma delas. A `28` somou **+291 testes
-    e +18 arquivos** (store 1768/126 sozinha); a `29` somou os **+25 e +1** restantes no store.
-  - **Duas asserções foram reescritas porque a spec mudou o comportamento, e as duas GANHARAM
-    vizinhas**: `ProductDetailsAccordion.test.tsx` (a seção de FAQ deixou de existir sempre e passou a
-    depender de o produto ter pergunta) e `navItems.test.ts` (o grupo `Catálogo` foi de 2 para 3
-    itens). Nenhuma foi afrouxada — a primeira ganhou 4 casos e a segunda 1.
-  - **As duas features fecharam em paralelo na mesma árvore**, e por isso o store tem dois números.
-    **1768/126 é o da `28` sozinha** (medido antes de a `29` chegar); **1793/127 é o das duas**, que é
-    a baseline acima. A `29` entrou com `AboutPage.tsx`, `EstrelinhaStarIcon.tsx`,
-    `AboutPage.test.tsx` e edições em `copyInstitucional.test.tsx`, `accentText.test.ts` e
-    `icons.test.ts`. Os outros quatro workspaces são só da `28`.
-  - **Contagem de teste do store é estável; o que varia são falhas.** Duas execuções seguidas deram
-    `numTotalTests = 1784` nas duas, com 2 falhas na primeira e 0 na segunda. Conferido com
-    `--reporter=json` comparando a contagem **por arquivo**: nenhum arquivo mudou de contagem.
-    **Cuidado com a atribuição**: `PixPayment.test.tsx` e `homeComposition.test.tsx` são flake de
-    verdade (passam isolados), mas as falhas que `AboutPage.test.tsx` acusou durante a sessão eram da
-    `29` **em andamento** — uma delas reprovava isolada, e sumiu quando a feature fechou. Chamar tudo
-    de flake foi erro de leitura, corrigido aqui: **teste que reprova isolado nunca é flake**.
-- **Baseline anterior (fecho da 27): 4794 em 266** — store 1712/122 · backoffice 1391/86 ·
-  core 1113/39 · functions 279/4 · catalog-import 299/15.
-  - A feature `27` somou **+199 testes e +7 arquivos**, sem apagar nenhum.
-  - **A baseline de `catalog-import` estava velha, e a diferença está explicada**: a anterior dizia
-    276 e foi registrada em `d1d877f` (fecho da `25`); o commit `ce143f2` (a foto de variação no
-    importador) entrou **depois** e acrescentou **exatamente 23** testes — 23 `it(` adicionados, 0
-    removidos — sem atualizar o número. 276 + 23 = 299. Nenhum teste fantasma.
-  - **Teste que lê `import.meta.env` mede a MÁQUINA, não o código.** `storeOrigin.test.ts` afirmava
-    "sem env devolve `null`" chamando `storeOrigin(undefined)`, que cai no **parâmetro default**
-    `base = STORE_URL` — lido de `import.meta.env` no carregamento do módulo. O arquivo passava em
-    quem não tinha `VITE_STORE_URL` e **falhava em quem tinha**, que é justamente a configuração que
-    este arquivo manda fazer para acender a prévia da `25`. Corrigido na `27` com `vi.stubEnv` +
-    `vi.resetModules()` + import dinâmico, e os dois lados passaram a ser asseverados (sem a
-    variável, `null`; com ela, a origem dela).
-  - A feature `25` somou **107 líquidos**, e o líquido esconde o que importa: entraram **121** e
-    saíram **14**. Os 14 eram de `HomePreview.test.tsx`, que foi apagado junto com o componente.
-  - **Esta é a exceção à regra de "queda só vale se o número reaparece do outro lado", e ela é
-    declarada.** Os 14 mediam "a prévia mostra a ordem e os textos reais" — asserção que deixou de
-    fazer sentido porque virou **verdadeira por construção**: a prévia É a loja. Quem a mede agora é
-    `homeComposition.test.tsx`, que já existia. O que entrou cobre coisa diferente (a ponte, o modo
-    prévia, o alternador, o estado vazio, a não-remontagem), e por isso não é o mesmo número
-    reaparecendo — é outro. Em qualquer outro caso, queda continua sendo deleção silenciosa.
-  - A feature `24` havia somado **469 testes em 26 arquivos** (store 1551 → 1528 na T35, quando
-    `pickHomeCollections` e companhia foram para `core/home` com os casos intactos).
-  - O que **não pode** mudar é o código de dinheiro — `packages/core/src/payment/**` fechou as
-    features 22, 23, 24 **e** 25 sem uma linha alterada, conferido por `git diff --name-only` no gate.
-    Continua valendo: identidade visual, importação de catálogo, composição de home e prévia não têm
-    por que mexer em `payment/`.
-  - `pnpm test` roda os cinco workspaces em paralelo e **já produziu flake de RTL sob carga** —
-    falhas de timeout em suítes pesadas que passam isoladas e na segunda execução. Rode por workspace
-    antes de investigar.
-  - **Cuidado com `pnpm test | tail`**: o código de saída que sai do pipe é o do `tail`, não o do
-    teste. Capture o de verdade.
-- **`strictNullChecks` está `false`** em `tsconfig.base.json`, e nesse modo **união discriminada por
-  literal booleano não estreita**: com `{ ok: true } | { ok: false; reason: string }`, ler
-  `verdict.reason` no ramo do `else` é erro de compilação (TS2339). Para veredito com motivo, devolva
-  `string | null` — não tem ramo para esquecer — ou discrimine por literal de **string**.
-- **Tipo escrito à mão é afirmação, não verificação** (`AD-012`). `DbCategory` declarava três colunas
-  que o banco não tinha, e **toda gravação de categoria falhava com `PGRST204`** — nada pegava: o
-  build não checa tipo, o `tsc` achava o código certo (o tipo mentia), e os testes mockavam o client.
-  Ao mexer numa tela que grava, **prove que ela grava**: probe HTTP contra o banco local, não
-  inspeção de tipo. Segunda ocorrência: `DbAbandonedCart` descrevia uma tabela que não existia em
-  migration nenhuma.
-- Fronteiras FSD em `warn`: há 1 violação conhecida no store (`entities/product/ProductInfo` importa
+- **A feature `31` não tem spec.** O guia de material foi implementado no commit `fcd3942` e está
+  documentado em `apps/store/CLAUDE.md`, mas não existe `.specs/features/31-*` nem handoff na
+  `STATE.md`. O número segue consumido; a próxima é a `32`.
+- **`STATE.md` e `BACKLOG.md` discordam sobre a `BL-016`.** O `BACKLOG.md` a dá como fechada com o
+  ref real; a `AD-020` e o handoff da `30` ainda dizem "o host é marcador, bloqueado por `C-08`".
+  Vale o `BACKLOG.md` — mas com a ressalva das functions não implantadas, acima.
+- **`BL-013` está FECHADO** (2026-08-16). A loja passou a mandar `Content-Security-Policy:
+  frame-ancestors 'self' https://umaestrelinha-backoffice.vercel.app`, **no lugar** do
+  `X-Frame-Options: SAMEORIGIN` — aquele header não tem sintaxe para autorizar outra origem, e manter
+  os dois deixaria a política com dois donos. `vercelRedirects.test.ts` ganhou três asserções: origem
+  exata, ausência de `X-Frame-Options`, e recusa de curinga. **A origem é literal nos dois lados**, e
+  trocar o domínio do painel exige mexer no `vercel.json` e no teste — sob pena de a prévia voltar a
+  ser quadro branco sem erro.
+- **`BL-007`** — sitemap. A `30` levou a metade do dado estruturado; a do sitemap segue aberta.
+- **`BL-008`** — `fetchStatusCounts` lê `orders` sem paginação e herda o teto de 1.000 do PostgREST.
+  As contagens da fila de material entram no mesmo teto; corretas até 1.000 pedidos.
+- **`BL-009`..`BL-011`** — dívidas da `24`, entre elas o `SUPABASE_URL` com fallback hard-coded de
+  outro projeto em `uploadProductImage.ts`.
+- **`BL-014`** — geração de pergunta por IA, adiada por decisão do usuário em 2026-08-16. Irmã da
+  `BL-001`, e as duas devem ser resolvidas juntas (a resposta de infraestrutura é a mesma).
+- **`BL-015`** — **`material_kinds` diz menos que a descrição.** Há produto com `material_kinds =
+  {cinzas}` cuja descrição enumera cinco materiais, produto com `requires_material = false` cuja
+  descrição manda enviar coto e cabelo, e um material (`sangue`) fora de `MATERIAL_KINDS`. É curadoria
+  da `22`, e por isso a `28` **proíbe** derivar a resposta "Quais materiais posso usar?" da coluna.
+- **Fronteiras FSD em `warn`**: 1 violação conhecida no store (`entities/product/ProductInfo` importa
   `features/share-product`). Corrigir extraindo a interação para uma feature.
-- Imports ainda usam caminhos profundos em muitos lugares (pré-barrel). Migrar para os barrels de
-  slice incrementalmente.
-- **Avaliações não existem.** Não há tabela `product_reviews`, e o módulo de avaliações de
-  demonstração foi **removido**: depoimento inventado sobre a morte de alguém tem peso ético
-  diferente de depoimento inventado sobre um acessório. A mesma régua tirou da home o contador de
-  "drop" e a prova social fabricada.
+- **Imports profundos** (pré-barrel) em muitos lugares. Migrar para os barrels de slice
+  incrementalmente.
 - **O `seed.sql` não tem mais catálogo.** Depois de `supabase db reset` a loja fica **sem produto e
-  sem categoria** até `pnpm --filter @estrelinha/catalog-import run import` rodar (feature `21`). Cupons
-  e usuário admin continuam no seed. A limpeza da seção 0 leva `AND nuvemshop_id IS NULL` em todo
-  `DELETE`: sem isso, executar o seed avulso **depois** do import apagaria a categoria real
-  `joias-afetivas` e, por cascade, os vínculos de produto dela.
-- **O catálogo real tinha um resíduo da marca anterior, e ele é da Nuvemshop, não do código**: a
-  categoria "Brinquedos" da loja usa como *handle* o nome da marca anterior. **Ela não é mais
-  importada** (feature `23`): entrou em `CURATED_EXCLUDED`, junto de "Rastreio", que não é categoria
-  de produto. O catálogo passou de **39 para 37 categorias**.
-  - **São duas listas de curadoria, com desfechos diferentes.** `CURATED_INACTIVE` (Black Friday e
-    Profissões) preserva a linha desativada, e reativar é um clique em `/admin/categorias`;
-    `CURATED_EXCLUDED` não emite a linha **e apaga** a que já existir no banco. O relatório do import
-    tem uma seção para cada — juntá-las diria "curada" para dois desfechos que exigem ações
-    diferentes de quem lê.
-  - **As duas listas são chaveadas por `nuvemshop_id`, nunca por slug**, por dois motivos
-    independentes: slug muda na origem (curadoria presa a um slug renomeado deixa de aplicar, em
-    silêncio), e um daqueles slugs **é a marca anterior** — chavear por slug plantaria aquela string
-    em código novo e derrubaria a `brandScan`. Vale para o comentário também: descrever o caso sem
-    escrever a string faz parte da regra.
-  - **Filha de categoria excluída viraria raiz em silêncio** (é como `parentOf` trata pai ausente). As
-    duas excluídas são folhas, e o teste assere isso **na fixture** em vez de assumir. O corte
-    acontece antes de qualquer derivação, então a `sort_order` das raízes continua contígua.
+  sem categoria** até o importador rodar. Cupons e usuário admin continuam no seed. Ver
+  `tools/catalog-import/CLAUDE.md`.
 
-## Backend (supabase/)
+### O que espera decisão da dona, não código
 
-- `supabase/migrations/*` — schema. `supabase/functions/melhor-envio` — edge function de frete (a API
-  **exige** identificação no `User-Agent`).
-- `supabase/functions/mercado-pago` — edge function de pagamento (**API de Orders**: `POST /v1/orders`,
-  `GET /v1/orders/{id}`, `POST /v1/orders/{id}/cancel` — a API de Pagamentos `/v1/payments` não é
-  usada em código novo, ver `AD-001`). `index.ts` é só wiring (env + client + `Deno.serve`); a lógica
-  vive em `handlers.ts` com dependências injetadas, testada em `@estrelinha/functions` (`AD-004`).
-  Actions `create-payment` (auth manual + recálculo server-side) e `webhook` (`type: "order"`,
-  assinatura HMAC, transições idempotentes via RPC `apply_payment_approval`). A URL de notificação
-  fica **só no painel do MP** — a Orders API valida o corpo por schema fechado e recusa
-  `notification_url`. Secrets `MERCADO_PAGO_ACCESS_TOKEN` e `MERCADO_PAGO_WEBHOOK_SECRET` no `.env` da
-  **raiz**, resolvidos no local por `[edge_runtime.secrets]` do `config.toml` (`env()`, exige
-  `supabase stop && supabase start`); no hospedado, `supabase secrets set`.
-- `supabase/functions/send-email` — edge function de **e-mail transacional** pela API HTTP do Resend.
-  Três tipos: `order_received` (PIX criado), `order_paid` (aprovação), `order_shipped` (postado com
-  rastreio).
-  - **Contrato dirigido por estado** (`AD-007`): o corpo aceita **só** `{ type, order_id }`. O
-    destinatário vem de `orders.customer_email` lido com a service role, e a function **relê** o
-    pedido e exige que o estado case com o tipo — `order_paid` só sai com `paid_at` preenchido (a RPC
-    `apply_payment_approval` **não** toca `orders.status`, então `status='paid'` seria a condição
-    errada). Estado incompatível ⇒ 422, sem efeito e retentável.
-  - **Duas portas, um motor** (`AD-005`): a porta HTTP (`?action=send`, `verify_jwt=false` + papel
-    admin manual via `has_role`) é do **backoffice**. A `mercado-pago` importa `sender.ts` **direto,
-    no mesmo processo** — sem hop HTTP, para não inventar auth interna nem pagar um segundo cold start
-    no caminho do PIX.
-  - **Idempotência é do banco** (`AD-006`): tabela `order_emails` + RPC `claim_order_email`, que
-    reivindica o par `(order_id, type)` numa única statement (`on conflict … do update … where
-    status <> 'sent'`). Índice único **não parcial** — um índice `where status='sent'` só detectaria a
-    colisão **depois** da entrega. `supabase-js` não expressa esse `on conflict`.
-  - **Falha de e-mail nunca altera o pagamento**: a chamada é `await` limitado por `AbortController`
-    (2500ms do `create-payment`, 8000ms do webhook — nunca trabalho em background, `AD-008`) e vive
-    dentro de `try/catch`. Um throw ali viraria **500 na cobrança**.
-  - Secrets: `RESEND_API_KEY`, `RESEND_FROM`, `STORE_PUBLIC_URL` (origem **da loja**, não do Supabase)
-    e `RESEND_DEV_REDIRECT_TO`.
-- Dev local roda contra Supabase local (`http://127.0.0.1:54341`) conforme `.env` dos apps. **Não há
-  projeto Supabase hospedado nem projeto Vercel da Uma Estrelinha** — o guia de deploy em
-  `.specs/archive/nanita/DEPLOY.md` descreve a infraestrutura da loja anterior: o *procedimento* vale,
-  os identificadores não.
+Quatro curadorias estão semeadas e esperando a Adri. Nenhuma é bug, e nenhuma se resolve escrevendo
+código — mas todas explicam por que uma tela parece vazia:
+
+| O que | Onde ela decide | Por que a tela parece vazia hoje |
+| --- | --- | --- |
+| Material de cada produto | `/admin/produtos`, aba Geral | a `22` semeou 689 produtos por inferência do nome |
+| Vagas do menu | `/admin/menu` | `show_in_menu = 0` nas 37 categorias ⇒ barra do topo vazia |
+| Arte da vitrine | `/admin/categorias` | nenhuma das 37 categorias tem `banner_url` ⇒ a grade de banners não aparece |
+| Perguntas frequentes | `/admin/perguntas` e a aba `Perguntas` do produto | a `28` semeou 67 entradas e 3.475 vínculos das descrições |

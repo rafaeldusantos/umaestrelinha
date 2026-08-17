@@ -504,7 +504,22 @@ A recomendação, com o lastro das cinco features, é a **(1)**.
 
 ## BL-013 — A loja precisa autorizar ser embutida pelo painel (`frame-ancestors`)
 
-- **Status**: aberto, **bloqueado por `C-08`** · **Registrado em**: 2026-08-15 · **Origem**: feature `25`, T13
+- **Status**: **FECHADO em 2026-08-16** — os dois projetos Vercel existem, e o `vercel.json` da loja
+  passou a mandar `Content-Security-Policy: frame-ancestors 'self'
+  https://umaestrelinha-backoffice.vercel.app`. O `X-Frame-Options: SAMEORIGIN` foi **substituído**,
+  não acompanhado: manter os dois deixaria a política com dois donos e um caminho em que o mais fraco
+  vence. Preso por `vercelRedirects.test.ts`, que ganhou três asserções (origem exata, ausência de
+  `X-Frame-Options`, e recusa de curinga). · **Registrado em**: 2026-08-15 · **Origem**: feature `25`, T13
+
+> **Duas limitações declaradas, porque nenhuma delas dá erro visível.**
+>
+> 1. **Deploy de preview do painel não enquadra a loja.** A autorização é por origem exata, e as URLs
+>    de preview da Vercel mudam a cada branch. A "correção" tentadora — `https://*.vercel.app` — libera
+>    **qualquer** projeto hospedado em vercel.app a embutir a loja, inclusive o de um terceiro, e isso
+>    é vetor de clickjacking sobre o checkout. O teste recusa curinga de propósito.
+> 2. **Domínio próprio exige mexer aqui de novo.** No dia em que o painel deixar de ser
+>    `umaestrelinha-backoffice.vercel.app`, a prévia volta a ser quadro branco sem erro até o
+>    `vercel.json` **e** o literal do teste serem atualizados.
 
 A prévia real de `/admin/home` carrega a loja num `<iframe>`. Em **dev isso já funciona**: o servidor
 do Vite não manda `X-Frame-Options` nem `Content-Security-Policy`, então `localhost:8083` embute

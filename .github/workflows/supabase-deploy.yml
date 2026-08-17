@@ -11,13 +11,16 @@ name: Supabase Deploy
 # .specs/archive/nanita/DEPLOY.md (guia da loja anterior — o procedimento vale, os
 # identificadores de projeto nao).
 
+# SEM filtro de `paths` de propósito. Com ele, um push que não tocasse `supabase/**` não gerava
+# execução nenhuma — e run ausente é **indistinguível** de run quebrado na aba Actions. Custou uma
+# investigação no primeiro deploy: o que tinha falhado era um secret, mas a leitura foi "o workflow
+# não roda". Rodando sempre, master == produção é uma afirmação verificável.
+#
+# O custo de rodar sempre é contido dentro do job, no passo `mudou`: o deploy das functions só
+# acontece quando `supabase/functions/**` mudou de fato.
 on:
   push:
     branches: [master]
-    paths:
-      - "supabase/migrations/**"
-      - "supabase/functions/**"
-      - ".github/workflows/supabase-deploy.yml"
   workflow_dispatch:
     inputs:
       deploy_functions:
@@ -43,11 +46,68 @@ jobs:
       SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
       PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
     steps:
+      # `fetch-depth: 0` porque o passo `mudou` compara com o commit anterior ao push. O default
+      # (profundidade 1) traz um único commit, e o `git diff` contra a base falharia.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Redeployar as 5 functions a cada commit de documentação reinicia a `mercado-pago`, que
+      # atende o webhook de pagamento. Então o deploy delas é condicionado ao que mudou.
+      #
+      # `db push` NÃO recebe o mesmo tratamento, e a assimetria é deliberada: sem migration
+      # pendente ele já é no-op, e decidir por diff arriscaria pular uma migration que ficou para
+      # trás num push anterior que falhou. Estado de banco se decide pelo estado, nunca pelo diff.
+      #
+      # Na dúvida, DEPLOYA: branch nova, force-push ou histórico sem base comum caem no ramo
+      # permissivo. Um deploy a mais é barato; uma function velha em produção não é.
+      - name: houve mudança em functions?
+        id: mudou
+        run: |
+          if [ "${{ github.event_name }}" != 'push' ]; then
+            # workflow_dispatch: quem decide é o input, não o diff.
+            echo "functions=${{ inputs.deploy_functions }}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          antes="${{ github.event.before }}"
+          if [ -z "$antes" ] \
+             || [ "$antes" = "0000000000000000000000000000000000000000" ] \
+             || ! git cat-file -e "$antes^{commit}" 2>/dev/null; then
+            echo "Sem base de comparação confiável — deploya por precaução."
+            echo "functions=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if git diff --name-only "$antes" "${{ github.sha }}" | grep -q '^supabase/functions/'; then
+            echo "Houve mudança em supabase/functions/ — as functions vão subir."
+            echo "functions=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Nada mudou em supabase/functions/ — deploy das functions pulado."
+            echo "functions=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - uses: supabase/setup-cli@v1
         with:
           version: latest
+
+      # Secret ausente chega ao step como string VAZIA — o GitHub não avisa, e a falha aparece
+      # como erro da CLI: `required flag(s) "project-ref" not set`. A mensagem fala do comando e
+      # manda procurar no lugar errado; o que faltou foi a configuração do repositório.
+      #
+      # Já custou um deploy (run de 2026-08-16, commit 9fb5dde): o environment tinha
+      # SUPABASE_ACCESS_TOKEN e SUPABASE_DB_PASSWORD, e faltava SUPABASE_PROJECT_REF.
+      #
+      # `[ -n "$X" ]` não imprime valor nenhum — e o GitHub mascara secret no log de qualquer forma.
+      - name: conferir os secrets do deploy
+        run: |
+          faltando=""
+          [ -n "$SUPABASE_ACCESS_TOKEN" ] || faltando="$faltando SUPABASE_ACCESS_TOKEN"
+          [ -n "$SUPABASE_DB_PASSWORD" ]  || faltando="$faltando SUPABASE_DB_PASSWORD"
+          [ -n "$PROJECT_REF" ]           || faltando="$faltando SUPABASE_PROJECT_REF"
+          if [ -n "$faltando" ]; then
+            echo "::error::secrets ausentes no environment \`production\` do repositório:$faltando"
+            echo "Settings → Environments → production → Add environment secret"
+            exit 1
+          fi
 
       - name: link
         run: supabase link --project-ref "$PROJECT_REF"
@@ -64,7 +124,7 @@ jobs:
       # preenchida, ela desvia todo transacional e nenhum cliente recebe e-mail.
       # STRICT_VARIANT_PRICING também fica de fora: é opcional e o default é `true`.
       - name: conferir secrets das edge functions
-        if: ${{ github.event_name == 'push' || inputs.deploy_functions }}
+        if: ${{ steps.mudou.outputs.functions == 'true' }}
         run: |
           lista="$(supabase secrets list --project-ref "$PROJECT_REF")"
           faltando=""
@@ -95,5 +155,5 @@ jobs:
       # `_shared` é ignorado pelo CLI (prefixo `_`). O verify_jwt de cada
       # function vem de [functions.*] do config.toml.
       - name: functions deploy
-        if: ${{ github.event_name == 'push' || inputs.deploy_functions }}
+        if: ${{ steps.mudou.outputs.functions == 'true' }}
         run: supabase functions deploy --project-ref "$PROJECT_REF"

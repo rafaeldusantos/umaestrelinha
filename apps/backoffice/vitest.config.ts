@@ -11,6 +11,19 @@ export default defineConfig({
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
     include: ["src/**/*.{test,spec}.{ts,tsx}"],
+    /**
+     * Mesma fixação que `apps/store/vitest.config.ts` — aqui **preventiva**, não corretiva.
+     *
+     * A suíte do backoffice passa hoje no CI porque todo teste que chega perto do banco mocka
+     * `@estrelinha/supabase`. Isso não é uma propriedade do app, é uma coincidência mantida à mão
+     * em 109 arquivos: o primeiro teste que renderizar uma tela sem mockar o client cai no mesmo
+     * `throw` de carregamento de módulo que derrubou 8 arquivos da loja — e vai cair **só no CI**,
+     * porque na máquina de quem desenvolve o `.env` existe.
+     */
+    env: {
+      VITE_SUPABASE_URL: "http://127.0.0.1:54341",
+      VITE_SUPABASE_PUBLISHABLE_KEY: "test-publishable-key",
+    },
   },
   resolve: {
     alias: {
