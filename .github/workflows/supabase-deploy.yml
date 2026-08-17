@@ -44,7 +44,14 @@ jobs:
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-      PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+      # `vars`, não `secrets`, e a distinção é de CLASSIFICAÇÃO, não de conveniência: o ref do
+      # projeto **não é segredo**. Ele já está versionado neste repositório, em
+      # `apps/store/vercel.json`, e o navegador de toda cliente o resolve em cada request.
+      #
+      # Guardá-lo como secret teria um custo concreto: o GitHub mascara secret em log, então o ref
+      # sairia como `***` em toda mensagem de erro — justamente onde ele é a informação que
+      # interessa para depurar.
+      PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
     steps:
       # `fetch-depth: 0` porque o passo `mudou` compara com o commit anterior ao push. O default
       # (profundidade 1) traz um único commit, e o `git diff` contra a base falharia.
@@ -97,15 +104,23 @@ jobs:
       # SUPABASE_ACCESS_TOKEN e SUPABASE_DB_PASSWORD, e faltava SUPABASE_PROJECT_REF.
       #
       # `[ -n "$X" ]` não imprime valor nenhum — e o GitHub mascara secret no log de qualquer forma.
-      - name: conferir os secrets do deploy
+      - name: conferir a configuração do deploy
         run: |
           faltando=""
-          [ -n "$SUPABASE_ACCESS_TOKEN" ] || faltando="$faltando SUPABASE_ACCESS_TOKEN"
-          [ -n "$SUPABASE_DB_PASSWORD" ]  || faltando="$faltando SUPABASE_DB_PASSWORD"
-          [ -n "$PROJECT_REF" ]           || faltando="$faltando SUPABASE_PROJECT_REF"
+          [ -n "$SUPABASE_ACCESS_TOKEN" ] || faltando="$faltando SUPABASE_ACCESS_TOKEN(secret)"
+          [ -n "$SUPABASE_DB_PASSWORD" ]  || faltando="$faltando SUPABASE_DB_PASSWORD(secret)"
+          [ -n "$PROJECT_REF" ]           || faltando="$faltando SUPABASE_PROJECT_REF(variable)"
           if [ -n "$faltando" ]; then
-            echo "::error::secrets ausentes no environment \`production\` do repositório:$faltando"
-            echo "Settings → Environments → production → Add environment secret"
+            echo "::error::configuração ausente no environment \`production\`:$faltando"
+            echo "Settings → Environments → production — secrets em Secrets, variables em Variables."
+            exit 1
+          fi
+          # O ref é o subdomínio NU, não a URL. `https://<ref>.supabase.co` é o que se copia da
+          # barra de endereço, e é o engano natural — a CLI recusa com uma mensagem sobre formato
+          # de flag, que não diz onde o valor foi digitado errado. 20 caracteres, minúsculos.
+          if ! printf '%s' "$PROJECT_REF" | grep -qE '^[a-z0-9]{20}$'; then
+            echo "::error::SUPABASE_PROJECT_REF não parece um ref de projeto: '$PROJECT_REF'"
+            echo "Esperado o subdomínio nu (20 caracteres), sem 'https://' e sem '.supabase.co'."
             exit 1
           fi
 
