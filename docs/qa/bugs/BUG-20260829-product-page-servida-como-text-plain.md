@@ -77,9 +77,40 @@ a máquina e total para o humano.
    e some junto a incerteza que a `AD-020` declarou e nunca confirmou (*"não confirmei que a Vercel
    cacheia proxy para host externo"*). Custo: uma segunda implementação do mesmo passo, e `AD-020`
    precisa ser revista para o dono continuar sendo `@estrelinha/core/shopping`.
-3. **Forçar o header no `vercel.json`** para o caminho `/produtos/:slug`. É o mais barato, e é o
-   **menos provável de funcionar**: exige que a Vercel sobrescreva o `Content-Type` de uma resposta
-   proxiada. **Não testado** — e testar exige um deploy.
+3. **Forçar o header no `vercel.json`** para o caminho `/produtos/:slug`. É o mais barato, e exige
+   que a Vercel sobrescreva o `Content-Type` de uma resposta proxiada. **Implementado, ainda não
+   provado** — ver a medição abaixo.
+
+## O que a medição de 2026-08-29 diz sobre o caminho 3
+
+Duas medições, e elas **discordam** — o que por si só é o achado mais útil aqui.
+
+**`vercel dev` (local, com o `vercel.json` novo):** a rota proxiada voltou `text/plain` e **sem
+nenhum header do `vercel.json`** — nem o `Referrer-Policy`, nem o CSP da regra global. As rotas não
+proxiadas (`/`, `/sobre`) receberam os três normalmente. Sinal: no emulador, header de config não
+alcança resposta proxiada.
+
+**Produção (com o `vercel.json` ANTIGO, sem a regra nova):** a mesma rota proxiada voltou **com**
+`Content-Security-Policy`, `Referrer-Policy` e `X-Content-Type-Options` da regra global — e com
+`Content-Type: text/plain` do upstream.
+
+```
+HTTP/1.1 200 OK                                    ← produção, /produtos/:slug
+Content-Security-Policy: frame-ancestors 'self' …  ← veio do vercel.json
+Referrer-Policy: strict-origin-when-cross-origin   ← veio do vercel.json
+Content-Type: text/plain                           ← veio do upstream
+```
+
+**Conclusão, e o limite dela.** Em produção a Vercel **aplica** headers de config a respostas
+proxiadas — então o caminho 3 não está descartado. O que continua sem resposta é a pergunta
+específica: **`Content-Type` é sobrescrevível, ou é reservado e o upstream sempre vence?** Nenhuma
+das duas medições responde, porque a produção nunca rodou a regra nova.
+
+**E `vercel dev` NÃO serve para decidir isto.** Ele diverge da produção exatamente nesta dimensão —
+usá-lo como prova daria a resposta errada. Registrado porque a tentação de confiar nele é grande e
+custaria uma decisão de arquitetura tomada sobre emulador.
+
+**O que fecha**: publicar o `vercel.json` novo e medir `Content-Type` na rota. Um deploy.
 
 ## Estado deixado
 

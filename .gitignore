@@ -34,3 +34,6 @@ dist-ssr
 # QA living docs — views geradas e evidência volumosa (fonte: docs/qa/scenarios/ etc.)
 docs/qa/state.csv
 docs/qa/evidence/
+
+# Vercel CLI — link local do projeto, nunca versionado
+.vercel
