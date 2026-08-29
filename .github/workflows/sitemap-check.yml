@@ -1,0 +1,97 @@
+# Feature 33 — a rotina que prova a ENTREGA do sitemap.
+#
+# ---------------------------------------------------------------------------------------------
+# POR QUE ISTO EXISTE, E POR QUE NÃO REGENERA NADA
+# ---------------------------------------------------------------------------------------------
+# O sitemap é servido AO VIVO por uma edge function: produto ou categoria cadastrada no painel
+# aparece na requisição seguinte, sem deploy e sem regeneração. Não há artefato para envelhecer,
+# então não há o que um cron reconstruir.
+#
+# O que um cron pode fazer aqui — e é o único mecanismo do projeto capaz disso — é provar que o que
+# é **entregue** continua sendo um sitemap. Esta rota falha em silêncio: o `BUG-20260829` devolvia
+# 200, corpo certo e JSON-LD certo, com a página quebrada, e o ritual de fecho que o repositório
+# prescrevia (`curl -I`) teria declarado verde. Nenhum teste do repositório alcança isso, porque a
+# asserção e a entrega têm donos diferentes: os testes medem o `Response` que a function CONSTRÓI, e
+# quem reescreve o `Content-Type` é o gateway.
+#
+# E não é hipótese: medido em 2026-08-29, o gateway `*.supabase.co` entrega `application/xml` como
+# `text/plain`. Quem desfaz isso é um header do `vercel.json` — comportamento não documentado da
+# Vercel, do qual esta rota passou a depender.
+#
+# DIÁRIO, e não semanal: a verificação custa duas requisições HTTP e nenhuma credencial, e o que se
+# compra com a frequência é o teto do tempo em que uma quebra passa despercebida — 24 h em vez de
+# "até alguém abrir o Search Console".
+
+name: Sitemap check
+
+on:
+  schedule:
+    # 06:40 UTC (03:40 em Porto Alegre). Fora da hora cheia de propósito: o agendador do GitHub
+    # atrasa runs de minuto redondo quando a fila está cheia.
+    - cron: '40 6 * * *'
+  workflow_dispatch:
+
+jobs:
+  entrega:
+    name: o que é servido continua sendo um sitemap
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: conferir a entrega
+        env:
+          # `vars`, não `secrets`: a origem pública da loja não é segredo, e mascará-la no log só
+          # atrapalharia quem estivesse depurando. O default é a loja provisória — trocar aqui faz
+          # parte do mesmo passo de cutover que troca `STORE_PUBLIC_URL` e a linha do `robots.txt`.
+          ORIGEM: ${{ vars.STORE_PUBLIC_URL || 'https://umaestrelinha-store-five.vercel.app' }}
+          # Âncora de contagem, no molde dos guardas de varredura do repositório: o catálogo tinha
+          # 719 URLs em 2026-08-29. É PISO, não igualdade — o catálogo cresce por curadoria, e um
+          # teste que reprovasse por crescimento seria desligado na primeira semana.
+          PISO: '700'
+        run: |
+          set -euo pipefail
+          echo "origem: $ORIGEM"
+
+          # 1. O tipo ENTREGUE. É a prova, e não o status code (AD-021).
+          tipo=$(curl -sS -o sitemap.xml -D - -m 30 "$ORIGEM/sitemap.xml" \
+                 | tr -d '\r' | awk 'BEGIN{IGNORECASE=1} /^content-type:/{print tolower($2)}')
+          echo "content-type entregue: $tipo"
+          case "$tipo" in
+            *xml*) ;;
+            *) echo "::error::/sitemap.xml entregue como '$tipo' — precisa ser XML. text/html significa que o catch-all do vercel.json voltou a engolir a rota; text/plain significa que o header do vercel.json sumiu e o gateway da Supabase reescreveu o tipo."; exit 1 ;;
+          esac
+
+          # 2. O corpo abre como XML e PARSEIA. Um `&` cru numa <loc> passaria por qualquer grep.
+          head -c 5 sitemap.xml | grep -q '<?xml' \
+            || { echo "::error::o corpo não abre em <?xml — provavelmente é o shell da SPA"; exit 1; }
+          python3 -c "import xml.etree.ElementTree as ET; ET.parse('sitemap.xml')" \
+            || { echo "::error::o documento não é XML bem-formado"; exit 1; }
+
+          # 3. Contagem contra a âncora.
+          total=$(grep -c '<loc>' sitemap.xml)
+          echo "URLs no documento: $total (piso $PISO)"
+          [ "$total" -ge "$PISO" ] \
+            || { echo "::error::apenas $total URLs, abaixo do piso de $PISO — leitura truncada ou catálogo parcial"; exit 1; }
+
+          # 4. O robots.txt aponta para o MESMO host. É a contenção do segundo dono da origem: a
+          #    linha do robots.txt é literal, o host das <loc> vem de STORE_PUBLIC_URL, e o Google
+          #    IGNORA referência de sitemap entre domínios — divergir apaga a descoberta em silêncio.
+          curl -sS -m 30 "$ORIGEM/robots.txt" -o robots.txt
+          linhas=$(grep -ci '^sitemap:' robots.txt || true)
+          [ "$linhas" = "1" ] \
+            || { echo "::error::robots.txt tem $linhas linhas 'Sitemap:', esperado exatamente 1"; exit 1; }
+
+          anunciado=$(grep -i '^sitemap:' robots.txt | head -1 | sed 's/^[Ss]itemap:[[:space:]]*//' | tr -d '\r')
+          host_anunciado=$(echo "$anunciado" | awk -F/ '{print $3}')
+          host_servido=$(echo "$ORIGEM" | awk -F/ '{print $3}')
+          echo "robots.txt anuncia: $anunciado"
+          [ "$host_anunciado" = "$host_servido" ] \
+            || { echo "::error::o robots.txt aponta para $host_anunciado, mas quem serve é $host_servido — o Google ignora sitemap de outro domínio"; exit 1; }
+
+          # 5. Uma <loc> do documento responde 200. Sitemap que lista URL morta é pior que curto.
+          amostra=$(grep -o '<loc>[^<]*</loc>' sitemap.xml | sed 's/<[^>]*>//g' | grep '/produtos/' | head -1)
+          echo "amostra: $amostra"
+          status=$(curl -sS -o /dev/null -w '%{http_code}' -m 30 "$amostra")
+          [ "$status" = "200" ] \
+            || { echo "::error::a URL de amostra respondeu $status: $amostra"; exit 1; }
+
+          echo "OK — $total URLs, tipo $tipo, robots.txt coerente, amostra 200."

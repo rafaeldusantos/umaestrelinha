@@ -229,7 +229,8 @@ describe('vercel.json — as duas rotas do Google Shopping (feature 30)', () => 
   it('os headers existentes ficam intactos', () => {
     // Âncora de contagem: sem ela, uma entrada some por edição e as duas buscas abaixo seguem
     // achando o que procuram, com o arquivo já pela metade.
-    expect(CONFIG.headers).toHaveLength(3)
+    // Feature 33: subiu de 3 para 4 com o `Content-Type` de `/sitemap.xml`.
+    expect(CONFIG.headers).toHaveLength(4)
 
     const assets = CONFIG.headers.find((entry) => entry.source === '/assets/(.*)')
     expect(assets).toBeDefined()
@@ -243,6 +244,63 @@ describe('vercel.json — as duas rotas do Google Shopping (feature 30)', () => 
       'X-Content-Type-Options',
       'Referrer-Policy',
       'Content-Security-Policy',
+    ])
+  })
+})
+
+/**
+ * Feature 33 (`SMP-01`, `SMP-26`) — o sitemap.
+ *
+ * As asserções desta seção **ganharam vizinhas**; nenhuma existente foi afrouxada. A âncora de
+ * `headers` subiu de 3 para 4 e a de `rewrites` passou a ser conferida, que é o oposto de afrouxar.
+ */
+describe('vercel.json — o sitemap (feature 33)', () => {
+  const porSource = (source: string) => CONFIG.rewrites.find((r) => r.source === source)
+
+  it('`/sitemap.xml` é exposto sob o domínio da loja', () => {
+    // Hoje a rota cai no catch-all e devolve **200 com o HTML da SPA** — medido em 2026-08-29:
+    // `Content-Type: text/html`, 3.945 bytes abrindo em `<!doctype html>`. Um rastreador que pede o
+    // sitemap recebe a home, e nenhuma checagem de status code acusa.
+    const sitemap = porSource('/sitemap.xml')
+    expect(sitemap).toBeDefined()
+    expect(sitemap.destination).toMatch(/\/functions\/v1\/sitemap$/)
+  })
+
+  it('vem ANTES do catch-all', () => {
+    const i = (source: string) => CONFIG.rewrites.findIndex((r) => r.source === source)
+    expect(i('/sitemap.xml')).toBeLessThan(i('/(.*)'))
+  })
+
+  it('aponta para o MESMO host das outras duas rotas servidas', () => {
+    const host = (source: string) => new URL(porSource(source).destination).host
+    expect(host('/sitemap.xml')).toBe(host('/produtos/:slug'))
+  })
+
+  it('âncora de contagem dos rewrites: são 4, e o último é o catch-all', () => {
+    // Sem a âncora, uma entrada removida por edição deixaria as buscas acima achando o que procuram
+    // num arquivo já pela metade.
+    expect(CONFIG.rewrites).toHaveLength(4)
+    expect(CONFIG.rewrites[3]).toEqual({ source: '/(.*)', destination: '/index.html' })
+  })
+
+  /**
+   * **Este header é CARGA, não zelo — e agora está medido.**
+   *
+   * Em 2026-08-29, contra o projeto hospedado, a function respondeu
+   * `Content-Type: application/xml; charset=utf-8` e o gateway `*.supabase.co` entregou
+   * **`text/plain`**, com `nosniff` acrescentado e o `Cache-Control` intacto. É a **mesma
+   * assinatura** do `BUG-20260829`, que trocou `text/html` por `text/plain`: os headers da function
+   * são respeitados, e só o tipo é reescrito.
+   *
+   * A pergunta que a `AD-021` deixou aberta — *"`application/xml` atravessa?"* — está respondida:
+   * **não atravessa**. Sem esta linha, `/sitemap.xml` responde 200 com XML correto no corpo e
+   * `text/plain` na entrega, que é a forma de quebrar que este projeto mais paga caro.
+   */
+  it('reimpõe application/xml em /sitemap.xml — a Supabase troca por text/plain (medido)', () => {
+    const rota = CONFIG.headers.find((entry) => entry.source === '/sitemap.xml')
+    expect(rota).toBeDefined()
+    expect(rota.headers).toEqual([
+      { key: 'Content-Type', value: 'application/xml; charset=utf-8' },
     ])
   })
 })

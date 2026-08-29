@@ -12,3 +12,5 @@ Allow: /
 
 User-agent: *
 Allow: /
+
+Sitemap: https://umaestrelinha-store-five.vercel.app/sitemap.xml
