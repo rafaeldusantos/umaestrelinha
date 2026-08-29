@@ -707,11 +707,19 @@ Nesta ordem.
 | A `AD-020` declarou não saber se a Vercel cacheia proxy para host externo, e ninguém confirmou | Não há proxy: a função é da própria Vercel |
 | O shell é buscado do deploy vivo, e um shell velho aponta para um `<script>` que já não existe | A função viaja **no mesmo build** do shell — envelhecer deixa de ser possível |
 
-**O custo, medido e não estimado.** `@estrelinha/core` exporta **TypeScript-fonte**
+**O custo — e ele ENCOLHEU quando foi medido.** `@estrelinha/core` exporta **TypeScript-fonte**
 (`"./shopping": "./src/shopping/index.ts"`, sem build step), e `apps/store` o consome por
-`workspace:*`. **Nada prova hoje que o builder Node da Vercel resolva um pacote de workspace cujo
-`exports` aponta para `.ts`.** É o risco principal do item, e é o que precisa ser provado antes de
-qualquer estimativa — não depois.
+`workspace:*`. A primeira redação deste item dizia que nada provava que aquilo fosse resolvível fora
+do Vite. **Provou-se em 2026-08-29, e resolve**: `node` v24, rodando de dentro de `apps/store`,
+importa `@estrelinha/core/shopping` direto do fonte e devolve os **20 exports** — `productJsonLd` e
+`renderFeedXml` entre eles — por type-stripping nativo, sem bundler e sem build step.
+
+**O que continua não provado é só a última milha**: o builder `@vercel/node` **compila e traceia** o
+entrypoint em vez de apenas executá-lo, e ninguém verificou que ele siga um `exports` para `.ts`
+dentro de `node_modules` (que, no pnpm, é link para `packages/core`). Se não seguir, as saídas são
+conhecidas e baratas — fixar o runtime `nodejs22.x`/`nodejs24.x`, ou importar por caminho relativo
+como as edge functions do Deno já fazem. **O risco deixou de ser estrutural e virou detalhe de
+configuração.**
 
 **O que NÃO muda.** O dono da oferta continua sendo `@estrelinha/core/shopping`, e as duas
 serializações continuam partindo dele. Muda o **transporte**, não o domínio — `shoppingParity.test.ts`

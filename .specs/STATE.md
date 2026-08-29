@@ -439,9 +439,11 @@
   injeção para dentro do deploy da Vercel** (`BL-017`), o que resolve de vez três coisas de uma só:
   o tipo passa a ser nosso, some o `rewrite` para host externo — e com ele a incerteza de cache que
   a `AD-020` declarou e nunca confirmou —, e o shell deixa de poder envelhecer, porque passa a
-  viajar no mesmo build. O custo dessa saída é real e está medido: `@estrelinha/core` exporta
-  **TypeScript-fonte** (`"./shopping": "./src/shopping/index.ts"`), e nada prova hoje que o builder
-  Node da Vercel resolva isso a partir de um pacote de workspace.
+  viajar no mesmo build. **O custo dessa saída foi medido no mesmo dia e é menor do que esta decisão
+  supôs na primeira redação**: `node` v24 importa `@estrelinha/core/shopping` direto do
+  TypeScript-fonte, de dentro de `apps/store`, devolvendo os 20 exports sem bundler. Resta provar só
+  a última milha — se o builder `@vercel/node`, que **compila** em vez de executar, segue um
+  `exports` para `.ts`. Ver `BL-017`.
 - **Scope**: `apps/store/vercel.json`, `apps/store/src/shared/lib/__tests__/vercelRedirects.test.ts`,
   `supabase/functions/product-page/**`, `docs/qa/bugs/BUG-20260829-*.md`
 - **Date**: 2026-08-29
