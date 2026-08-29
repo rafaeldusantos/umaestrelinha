@@ -233,7 +233,15 @@ por ganho estético.
 
 ## BL-00X — Peso da listagem de produto (3,1 MB por página de categoria)
 
-- **Status**: adiado · **Registrado em**: 2026-08-09 · **Origem**: medição no conserto do `BUG-20260809`
+- **Status**: **aberto, com o item 2 resolvido** · **Registrado em**: 2026-08-09 · **Origem**: medição
+  no conserto do `BUG-20260809`
+
+> **O item 2 (a escolha de paginação) foi decidido e implementado pela feature
+> [`32`](./features/32-rolagem-infinita-da-categoria/spec.md)**, em 2026-08-17: **rolagem infinita**,
+> 24 por vez, com botão manual para teclado. **Isso NÃO fecha este item** — e a distinção é a parte
+> que importa. A `32` corta **DOM**, não **rede**: a consulta continua trazendo a coleção inteira,
+> os 3,1 MB continuam viajando e o teto de 1.000 do PostgREST continua de pé. Os itens **1**, **3**
+> e **4** abaixo seguem intocados, e é neles que está o peso.
 
 **O que é.** `/colecao/joias-afetivas` carrega **3,1 MB** para 503 produtos, e leva 7,3 s até
 `networkidle` no local. Numa loja em que ~90% dos acessos vêm de celular, isso é problema por si.
@@ -256,7 +264,9 @@ defeito que este projeto mais paga caro.
 
 1. **Busca no servidor ou no cliente?** Se a busca migrar para `websearch_to_tsquery` no Postgres, a
    listagem para de precisar de `description` e as duas coisas se resolvem juntas.
-2. **Paginação de categoria**: página numerada, "carregar mais" ou scroll infinito. Muda a UX e o SEO.
+2. ~~**Paginação de categoria**: página numerada, "carregar mais" ou scroll infinito.~~ **Decidido e
+   implementado pela `32`**: rolagem infinita sobre a lista já em memória. A URL não ganhou estado,
+   então o SEO não mudou.
 3. **`select` de listagem separado do de detalhe** — dois `PRODUCT_SELECT`, com o risco de divergirem.
 4. **Filtros client-side**: hoje faixa de preço, tags e disponibilidade filtram sobre a lista já
    carregada. Com paginação, precisam ir para o servidor, senão passam a filtrar só a página atual —

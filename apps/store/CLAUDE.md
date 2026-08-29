@@ -142,6 +142,48 @@ marca. Leia [`../../CLAUDE.md`](../../CLAUDE.md) (regras do repositório) e
   encontrada". A tabela `collections` **nunca existiu em migration nenhuma** (`PGRST205`), o hook
   engolia o erro e a tela mostrava grade vazia para sempre. **Não recriar.**
 
+## A listagem de categoria
+
+A `CategoryPage` **filtra, ordena e conta no cliente**: `useProducts(slug)` traz a categoria inteira
+(com roll-up da descendência) e `priceBounds`, `collectTags` e o "N produtos" do cabeçalho leem a
+coleção toda. Quem pagina é a **janela** (`shared/lib/useInfiniteWindow`), não a consulta.
+
+- **A rolagem infinita corta DOM, não rede.** Uma coleção de 508 peças montava 508 `ProductCard` de
+  uma vez, num público que é ~90% celular; agora abre `PRODUCTS_PER_PAGE` (24) por vez. **A consulta
+  não mudou**: continua trazendo a categoria toda e continua presa ao teto de 1.000 linhas do
+  PostgREST (`BL-008`). Paginar no servidor exigiria mover filtro e ordenação para lá junto — senão a
+  faixa de preço passa a descrever só as páginas baixadas e "menor preço" ordena um pedaço.
+- **A chave da janela é `string`, e isso é cicatriz.** A primeira versão comparava a IDENTIDADE do
+  array de `visible`. Funciona enquanto o `data` do React Query for referencialmente estável e
+  **explode em "Too many re-renders"** quando não for — `routing.test.tsx` usa
+  `useProducts: () => ({ data: [] })` e um literal ali derrubava a rota inteira. A reancoragem é
+  `setState` durante o render (mesmo padrão do `anchor`), então régua de identidade é laço infinito
+  esperando um consumidor descuidado.
+- **A sentinela carrega, o botão existe mesmo assim.** `IntersectionObserver` com `rootMargin` de
+  600px abre a leva antes de a cliente chegar nela; o `<button>` "Carregar mais joias" é o caminho de
+  teclado e o que sobra onde não há a API. Medido em 390×844: 24 → 96 → 164 em duas rolagens.
+  - **O observer é RECRIADO a cada leva** (`count` nas dependências do efeito). Ele avisa em
+    *transição*, e numa tela alta a sentinela pode seguir visível depois de acrescentar 24 cards — sem
+    recriar, a lista pararia no meio com a sentinela parada na frente da cliente.
+- **A grade é `md:grid-cols-3 lg:grid-cols-4`, e o `lg` não é preguiça.** A sidebar come 260px + 32 de
+  gap; em `md` (container de 768) sobram 444px, e quatro colunas dariam cards de 96px. Medido em
+  navegador: **224px em 1440**, **160px em 1024**, **134,7px em 768** (três colunas).
+- **A grade tem UM dono** (`gridClass` na página), porque duas superfícies a desenham: os cards e o
+  esqueleto. String repetida faria o esqueleto anunciar uma grade que o conteúdo não usa.
+- **O esqueleto (`ProductCardSkeleton`) espelha a ALTURA do card, não o conteúdo** — medido em
+  navegador, 431px dos dois lados, salto zero. As medidas são uma segunda escrita das do
+  `ProductCard` e **nenhum teste de componente pega a divergência**: jsdom devolve 0 para toda medida
+  de layout. Ao mexer na tipografia do card, meça os dois de novo.
+- **Carregando é o TERCEIRO estado da listagem**, ao lado de vazio e de falha. Até aqui a página
+  dizia "Nenhuma joia com esses filtros" durante a primeira carga, mandando a cliente mexer em filtro
+  que ela não tocou — mesma família do `BUG-20260809`, que já tinha separado vazio de falha. O
+  cabeçalho também não afirma "0 produtos" enquanto carrega.
+- **`isLoading`, nunca `isPending`.** Com o interruptor de `URL-04` desligado a consulta fica pendente
+  para sempre, e o esqueleto pulsaria embaixo da 404 até a cliente sair da página.
+- **Sabido e em aberto**: enquanto carrega não há como saber se a coleção tem universos, então a
+  faixa de chips aparece só depois — a grade desce ~48px nesse momento. Reservar a faixa trocaria
+  esse salto por outro nas coleções sem tag.
+
 ## A Home é dado (feature `24`)
 
 `home_sections` + `home_section_items` guardam quais blocos existem, em que ordem, com que texto, com

@@ -416,7 +416,94 @@
 
 ## Handoff
 
-### ATUAL — 2026-08-16 · `30-google-shopping` **IMPLEMENTADA** (T0–T25)
+### ATUAL — 2026-08-29 · `32-rolagem-infinita-da-categoria` **COMMITADA**
+
+**Estado**: implementada em **2026-08-17**, ficou 12 dias na árvore **sem commit**, e foi commitada
+hoje com spec retroativa. **Nada em andamento.** Sem `validation.md` — ver pendências.
+
+#### O que a `32` entrega
+
+A `CategoryPage` montava **508 `ProductCard`** de uma vez em `joias-afetivas`, num público que é ~90%
+celular; e enquanto a consulta corria ela dizia *"Nenhuma joia com esses filtros."*, mandando a
+cliente mexer em filtro que não tocou. Agora a listagem abre **24 por vez** e **carregando é o
+terceiro estado**, ao lado de vazio e de falha.
+
+| | onde |
+| --- | --- |
+| A janela, e a cicatriz da chave `string` | `apps/store/src/shared/lib/useInfiniteWindow.ts` |
+| O esqueleto com a altura do card | `apps/store/src/entities/product/ui/ProductCardSkeleton.tsx` |
+| Sentinela, botão manual, `aria-live`, grade de um dono | `apps/store/src/pages/CategoryPage.tsx` |
+
+**A rolagem infinita corta DOM, não rede.** A consulta não mudou: continua trazendo a categoria toda
+e continua presa ao teto de 1.000 do PostgREST (`BL-008`). Responde ao **item 2** do `BL-00X` — a
+escolha de UX entre página numerada, "carregar mais" e scroll infinito — e **não fecha** o item: os
+3,1 MB seguem viajando.
+
+#### A baseline do store estava errada, e a correção é o achado desta sessão
+
+O `CLAUDE.md` registrava **1874/129** no fecho da `31`. Medido por `git stash` em 2026-08-29, o HEAD
+da `31` tem **1877/129**. Nada foi removido: o fecho da `31` anotou um número que não era o da
+árvore. Consequências corrigidas no `CLAUDE.md`: o delta da `32` é **+24** (não +27), e o total sai
+de **5468** (não 5465) para **5492**.
+
+**Baseline anotada de memória mente sem quebrar nada.** É a mesma propriedade do "defeito 01"
+aplicada à medição — as duas cópias divergem e tudo continua verde.
+
+#### Gate de fecho (medido hoje, por workspace, exit code capturado)
+
+| | valor |
+| --- | ---: |
+| Testes | **5492** em **301** arquivos |
+| store · backoffice · core · functions · catalog-import | 1901/130 · 1556/97 · 1363/52 · 337/6 · 335/16 |
+| Lint | **30 erros / 8 warnings** — store 2/1 · backoffice 28/7 — baseline exata, zero novo |
+| Tipos | store **0** · backoffice **0** · catalog-import **0** |
+
+`packages/core/src/payment/` **intocado**.
+
+**Um teste reprovou no gate e é flake conhecido**: `AdminPromotionFormPage.test.tsx > T18 — Vitrine
+do kit`, timeout de 5000ms sob carga. Isolado: **49/49 verdes**. Vale registrar que agora são **duas**
+suítes do backoffice com esse comportamento (a outra é `AdminCouponFormPage`) — o item passou de
+ocorrência a sintoma recorrente.
+
+#### O que esta sessão mediu contra o projeto hospedado, e contradiz o `CLAUDE.md`
+
+1. **As edge functions `google-feed` e `product-page` ESTÃO implantadas.** O `CLAUDE.md` dizia que
+   não. As duas respondem com mensagem do próprio código: `google-feed` → **404 `integração
+   desligada`** (interruptor desligado, como a `30` projetou) e `product-page` → **502 `página
+   indisponível`**. O feed lendo `config.enabled` do banco confirma de lado que as 44 migrations
+   estão aplicadas.
+2. **`product-page` está QUEBRADA, não ausente — e é pior que o marcador.** O 502 é o único ramo que
+   produz aquela string: falha de `fetchShell()`. Testado com slug real
+   (`pingente-figa-colecao-fragmentos`): também 502. Com o `rewrite` valendo, **toda visita a
+   `/produtos/:slug` responde 502**. A causa é `STORE_PUBLIC_URL` apontando para host que não serve
+   `/index.html` — não há domínio Vercel da loja em lugar nenhum do repositório, e
+   `umaestrelinha.com.br` ainda é a **Nuvemshop** (CSP `mitiendanube`).
+3. **O guarda do CI não pega isso**: o passo `conferir secrets` do `supabase-deploy.yml` prova que o
+   **nome** existe, nunca que o **host responde**. É `AD-012` de novo — afirmação, não verificação.
+
+#### Pendências
+
+- **Sem `validation.md`** e sem Verifier independente. O código é sólido e os 24 testes carregam o
+  sensor da cicatriz (`LST-04`), mas ninguém verificou a feature contra a spec com olhos frescos.
+- **`LST-06` não tem prova automatizada** — `IntersectionObserver` não é mensurável em jsdom.
+  Declarado na spec; a prova é a medição em 390×844 (`24 → 96 → 164`).
+- **A `22` e a `28` seguem sem `validation.md`.** O `tasks.md` da `28` ainda diz `Status: Approved`.
+- **A `26`, a `27`, a `29` e a `31` não têm handoff aqui.** A `31` não tem spec nenhuma.
+
+#### Próximo passo
+
+Nesta ordem, e o primeiro é o que trava a virada:
+
+1. Publicar a loja num domínio real, `supabase secrets set STORE_PUBLIC_URL=<origem>`, redeploy da
+   `product-page`, e fechar com `curl -I` nas duas rotas **pelo domínio da loja**.
+2. Endurecer o passo `conferir secrets` para provar que `STORE_PUBLIC_URL` **responde**.
+3. `validation.md` da `22` e da `28`, com Verifier independente.
+
+**Branch**: `feat/32-rolagem-infinita-categoria` (não commitado em `master`).
+
+---
+
+### ANTERIOR — 2026-08-16 · `30-google-shopping` **IMPLEMENTADA** (T0–T25)
 
 **Estado**: 26 tasks em 8 fases, todas fechadas. **Commits agrupados no fim**, pela convenção do
 `CLAUDE.md` (`BL-012`). Gate verde, medido por workspace com exit code capturado.

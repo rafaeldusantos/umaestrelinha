@@ -116,8 +116,11 @@ Ao planejar/implementar features, use a Skill **`tlc-spec-driven`** com estas co
   `.specs/archive/nanita/features/`**, que vai de `01` a `19`. A contagem é uma só.
   - **A `31` está OCUPADA e não tem spec** (o guia de material, commit `fcd3942`). O número foi
     consumido pelo trabalho que está no código e documentado em `apps/store/CLAUDE.md`; pela regra de
-    imutabilidade acima ele não volta. **A próxima feature é a `32`.** A spec ausente está registrada
-    em *Estado conhecido*, abaixo.
+    imutabilidade acima ele não volta. A spec ausente está registrada em *Estado conhecido*, abaixo.
+  - **A `32` foi escrita RETROATIVAMENTE** (rolagem infinita da categoria): o código ficou 12 dias na
+    árvore sem commit, e a spec nasceu dele, não antes dele. É a saída correta quando isso acontece —
+    a `31` mostrou o que custa a alternativa —, mas **não** vira precedente para inverter a ordem.
+    **A próxima feature é a `33`.**
 - **Numeração dos itens**: dentro da feature, prefixar os itens de implementação (tasks/entregas) com
   número sequencial de dois dígitos e nome descritivo em kebab-case — `01-nome-implementacao`,
   `02-nome-implementacao`, etc.
@@ -308,9 +311,18 @@ quando mudarem de verdade.
 | --- | --- | --- |
 | **Lint** | **30 erros / 8 warnings** — backoffice 28/7 · store 2/1 | `pnpm lint` |
 | **Tipos** | **0 · 0 · 0** (store · backoffice · catalog-import) | `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` |
-| **Testes** | **5465 em 300 arquivos** — store 1874/129 · backoffice 1556/97 · core 1363/52 · functions 337/6 · catalog-import 335/16 | `pnpm --filter @estrelinha/<w> test` |
+| **Testes** | **5492 em 301 arquivos** — store 1901/130 · backoffice 1556/97 · core 1363/52 · functions 337/6 · catalog-import 335/16 | `pnpm --filter @estrelinha/<w> test` |
 
-Medido de novo em **2026-08-16**, por workspace, com exit code capturado. Os cinco passam limpos.
+Os cinco workspaces foram remedidos em **2026-08-29**, por workspace e com exit code capturado, e os
+cinco passam limpos. O store subiu para **1901/130** pela feature `32` (rolagem infinita da página de
+categoria); os outros quatro não mudaram desde **2026-08-16**.
+
+> **A baseline anterior do store estava 3 testes curta, e o erro era de bookkeeping.** Ela dizia
+> **1874/129**; o número medido no HEAD da `31`, por `git stash` em 2026-08-29, é **1877/129**. Nada
+> havia sido removido — o fecho da `31` simplesmente registrou um número que não era o da árvore. O
+> delta da `32` é **+24**, não os +27 que a diferença contra o número errado sugeria, e o total sai
+> de 5468 (não 5465) para 5492. **A lição vale mais que a correção: baseline anotada de memória, ou
+> de uma execução anterior à última alteração, mente sem quebrar nada** — meça na hora de escrever.
 Os erros de lint são **pré-existentes**, em boa parte `@typescript-eslint/no-explicit-any` nos hooks
 admin (`entities/*/api/useAdmin*`). **Zero é a baseline de tipos: qualquer erro de tipo é novo.**
 
@@ -399,7 +411,10 @@ completo (framework, `installCommand` na raiz do monorepo, headers de cache e de
 
 - **A feature `31` não tem spec.** O guia de material foi implementado no commit `fcd3942` e está
   documentado em `apps/store/CLAUDE.md`, mas não existe `.specs/features/31-*` nem handoff na
-  `STATE.md`. O número segue consumido; a próxima é a `32`.
+  `STATE.md`. O número segue consumido; a próxima é a `33`.
+- **A `32` não tem `validation.md`** e não passou por Verifier independente. Os 24 testes cobrem os
+  requisitos que jsdom alcança e carregam o sensor da cicatriz da chave (`LST-04`), mas ninguém
+  conferiu a feature contra a spec com olhos frescos. Mesma pendência da `22` e da `28`.
 - **`STATE.md` e `BACKLOG.md` discordam sobre a `BL-016`.** O `BACKLOG.md` a dá como fechada com o
   ref real; a `AD-020` e o handoff da `30` ainda dizem "o host é marcador, bloqueado por `C-08`".
   Vale o `BACKLOG.md` — mas com a ressalva das functions não implantadas, acima.
