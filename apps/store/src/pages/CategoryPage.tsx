@@ -8,8 +8,10 @@ import { useCategories } from '@/entities/category/api/useCategories'
 import { useCategoryRedirect } from '@/entities/category/api/useCategoryRedirect'
 import { resolveCategoryRoute } from '@/entities/category/lib/resolveCategoryRoute'
 import { useCanonical } from '@/shared/lib/useCanonical'
+import { PRODUCTS_PER_PAGE, useInfiniteWindow } from '@/shared/lib/useInfiniteWindow'
 import NotFound from '@/pages/NotFound'
 import ProductCard from '@/entities/product/ui/ProductCard'
+import ProductCardSkeleton from '@/entities/product/ui/ProductCardSkeleton'
 import {
   CategoryFiltersPanel,
   CategoryFiltersSheet,
@@ -33,6 +35,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@estrelinha/ui/select'
+import { Skeleton } from '@estrelinha/ui/skeleton'
 
 /**
  * Listagem de uma coleção — boards "Desktop Category Page - v3" e "Mobile Category Page - v3".
@@ -105,7 +108,16 @@ const CategoryPage = ({ legacy = false }: Props) => {
 
   // `URL-04`: com a categoria na raiz do domínio, toda URL errada da loja passa por aqui. Sem o
   // interruptor, mostrar a 404 custaria o download do catálogo inteiro.
-  const { data: allProducts, isError: falhouAoCarregar } = useProducts(category?.slug, {
+  /*
+   * `isLoading` (React Query v5) é `isPending && isFetching` — ou seja, **primeira** busca em curso.
+   * Não é `isPending` sozinho: com o interruptor de `URL-04` desligado a consulta fica pendente para
+   * sempre, e o esqueleto pulsaria embaixo da 404 até a cliente sair da página.
+   */
+  const {
+    data: allProducts,
+    isError: falhouAoCarregar,
+    isLoading: carregandoProdutos,
+  } = useProducts(category?.slug, {
     enabled: route.kind === 'ok',
   })
   useCanonical(route.kind === 'ok' ? route.canonical : null)
@@ -133,6 +145,18 @@ const CategoryPage = ({ legacy = false }: Props) => {
   )
   const chips = activeFilterChips(filters)
 
+  /*
+   * A janela da rolagem infinita.
+   *
+   * A chave é o que DEFINE a lista — coleção, ordenação e filtros —, não a identidade do array de
+   * `visible`. Passar o array parecia mais direto e é uma armadilha: ele só é estável enquanto o
+   * `data` do React Query também for, e um dublê que devolve `[]` literal a cada render (é o caso de
+   * `routing.test.tsx`) faz a reancoragem disparar para sempre. Chave de valor não tem esse modo de
+   * falhar.
+   */
+  const listKey = `${category?.slug ?? ''}|${sort}|${JSON.stringify(filters)}`
+  const { visibleCount, hasMore, loadMore, sentinelRef } = useInfiniteWindow(visible.length, listKey)
+
   if (legacy) return <Navigate to={legacyRedirectTo(pathname) ?? '/'} replace />
 
   // Pai errado na URL: a barra se corrige sozinha e o conteúdo continua com um endereço só.
@@ -150,6 +174,19 @@ const CategoryPage = ({ legacy = false }: Props) => {
   }
 
   const countLabel = `${visible.length} ${visible.length === 1 ? 'produto' : 'produtos'}`
+
+  /*
+   * A grade tem UM dono, porque duas superfícies a desenham: os cards e o esqueleto. Repetir a
+   * string faria o esqueleto anunciar uma grade que o conteúdo não usa — o "defeito 01" no tamanho
+   * de uma classe, e sem nada quebrar.
+   *
+   * **`lg:grid-cols-4`, não `md:`.** A sidebar de filtros come 260px + 32 de gap, então em `md`
+   * (container de 768) sobram 444px para a listagem: quatro colunas dariam cards de 96px. Em `lg` a
+   * conta fecha em 160px e em `xl`, em 224px — que é onde a maioria dos desktops está.
+   */
+  const gridClass = `grid gap-4 md:grid-cols-3 md:gap-5 lg:grid-cols-4 ${
+    dense ? 'grid-cols-2' : 'grid-cols-1'
+  }`
 
   const sortSelect = (
     <Select value={sort} onValueChange={v => setSort(v as SortOption)}>
@@ -206,9 +243,18 @@ const CategoryPage = ({ legacy = false }: Props) => {
             <h1 className="font-display text-[32px] font-semibold leading-[38px] tracking-[-0.02em] text-estrelinha-ink md:text-[48px] md:leading-[56px]">
               {category.name}
             </h1>
-            <p className="text-[13px] leading-[18px] text-estrelinha-ink-soft">
-              {countLabel} {visible.length === products.length ? 'encontrados' : `de ${products.length}`}
-            </p>
+            {/*
+              Com a consulta correndo a contagem diria "0 produtos encontrados" — que é a frase do
+              vazio, não a do carregando. Uma barra no lugar dela não afirma nada.
+            */}
+            {carregandoProdutos ? (
+              <Skeleton className="h-[13px] w-36 rounded-pill bg-estrelinha-line" />
+            ) : (
+              <p className="text-[13px] leading-[18px] text-estrelinha-ink-soft">
+                {countLabel}{' '}
+                {visible.length === products.length ? 'encontrados' : `de ${products.length}`}
+              </p>
+            )}
           </div>
 
           {category.description && (
@@ -340,14 +386,58 @@ const CategoryPage = ({ legacy = false }: Props) => {
             {sortSelect}
           </div>
 
-          {visible.length > 0 ? (
-            <div
-              className={`grid gap-4 md:grid-cols-3 md:gap-5 ${dense ? 'grid-cols-2' : 'grid-cols-1'}`}
-            >
-              {visible.map(p => (
-                <ProductCard key={p.id} product={p} />
+          {carregandoProdutos ? (
+            /*
+             * Uma leva inteira de esqueletos, na MESMA grade dos cards. Menos que isso deixaria a
+             * dobra vazia; e como o esqueleto tem a altura do card, a chegada dos produtos não
+             * empurra nada.
+             */
+            <div className={gridClass} aria-busy="true" aria-label="Carregando as joias da coleção">
+              {Array.from({ length: PRODUCTS_PER_PAGE }, (_, i) => (
+                <ProductCardSkeleton key={i} />
               ))}
             </div>
+          ) : visible.length > 0 ? (
+            <>
+              <div className={gridClass}>
+                {visible.slice(0, visibleCount).map(p => (
+                  <ProductCard key={p.id} product={p} />
+                ))}
+              </div>
+
+              {/*
+                Quem carrega a próxima leva é a sentinela — mas o BOTÃO é real e recebe foco.
+                Rolagem infinita sem controle manual é armadilha de teclado (não há como "rolar até"
+                sem ponteiro) e morre silenciosamente onde não há `IntersectionObserver`. Na prática a
+                cliente quase nunca chega a clicá-lo: o observer abre a leva 600px antes.
+              */}
+              {hasMore && (
+                <div ref={sentinelRef} className="flex justify-center pt-10">
+                  {/*
+                    `py-3` e **nenhum auxiliar de toque**: com a borda a caixa PINTADA mede 47px, e
+                    `TAP_44`/`TAP_ROW` existem para desenho menor que 44 — pendurar um pseudo de 44
+                    num controle que já é maior não acrescenta alvo nenhum. Foi o que a primeira
+                    versão fez, e ela saiu com 23px de altura visível: o alvo estava certo e o botão
+                    parecia um fio.
+                  */}
+                  <button
+                    type="button"
+                    onClick={loadMore}
+                    className="rounded-sm border border-estrelinha-field px-6 py-3 text-[14px] font-semibold text-estrelinha-primary transition-colors hover:bg-estrelinha-ground-deep"
+                  >
+                    Carregar mais joias
+                  </button>
+                </div>
+              )}
+
+              {/*
+                A leva nova não muda o foco nem a URL: sem isto, quem usa leitor de tela não tem como
+                saber que a lista cresceu. Invisível — a contagem visível já está no cabeçalho.
+              */}
+              <p aria-live="polite" className="sr-only">
+                Mostrando {visibleCount} de {visible.length} produtos
+              </p>
+            </>
           ) : falhouAoCarregar ? (
             /*
              * `BUG-20260809`: a consulta falhava e a página dizia "Nenhuma joia com esses filtros",
