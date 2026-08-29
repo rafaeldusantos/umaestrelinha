@@ -43,9 +43,11 @@ ausente seria indistinguível de run quebrado na aba Actions.
   `supabase projects list` e re-linke antes de escrever no hospedado.
 - **O schema ESTÁ implantado.** O run do commit `bf2537e` (2026-08-17) aplicou as 44 migrations —
   `Finished supabase db push.`. Foi ele que expirou a `AD-017`.
-- **As functions `google-feed` e `product-page` não foram implantadas.** Enquanto não forem,
-  `/produtos/:slug` fica **fora do ar em produção**: o `rewrite` tira a rota do catch-all do SPA e o
-  destino devolve erro. `curl -I` nas duas é o que fecha a `BL-016`.
+- **As TRÊS functions públicas estão implantadas** — `google-feed` e `product-page` desde
+  2026-08-29, `sitemap` no mesmo dia (feature `33`). **E `curl -I` NÃO fecha nada**: foi exatamente
+  o ritual que teria declarado o `BUG-20260829` verde. O que fecha é o `Content-Type` **entregue** e
+  o corpo (`AD-021`):
+  `curl -sD - -o /dev/null <url> | grep -i content-type`.
 
 ## Migrations
 
@@ -109,6 +111,7 @@ assere.
 | `send-email` | `false` | e-mail transacional pela API HTTP do Resend |
 | `google-feed` | `false` | o feed RSS 2.0 do Merchant Center |
 | `product-page` | `false` | a página do produto servida com JSON-LD no `<head>` |
+| `sitemap` | `false` | `/sitemap.xml` — 719 URLs canônicas, lidas com a chave **publicável** |
 
 **`verify_jwt = true` seria teatro de segurança** onde está `false`: a anon key publicada no `.env` da
 loja é um JWT válido que qualquer pessoa lê no bundle. Onde há papel a exigir, a checagem é **manual**
@@ -172,6 +175,26 @@ obrigatoriamente por último** — `vercelRedirects.test.ts` assere a ordem por 
 - **Prova de ponta a ponta contra o catálogo real**: `HTTP 200 · 6,99 MB · 3.233 <item> · 3.233 ids
   únicos · 0 duplicados · XML bem-formado por parser`. Contra as 3.237 do Merchant Center, a diferença
   de 4 **fica em aberto** e só se reconcilia com o export da conta.
+
+### `sitemap` (feature `33`, `AD-022`)
+
+Irmã das duas acima, exposta pelo mesmo mecanismo. **Duas diferenças, e as duas são desenho:**
+
+- **Lê com a chave PUBLICÁVEL**, não com service role — é a única function do projeto que faz isso.
+  Com ela a visibilidade do sitemap **é** a RLS (`is_active`/`active`); com service role a function
+  teria de repetir os dois predicados num `.eq()`, e essa segunda escrita da política divergiria da
+  primeira sem quebrar nada.
+- **Não tem interruptor.** O da `google-feed` existe porque feed vazio no Merchant Center **remove**
+  catálogo; sitemap ausente só adia descoberta. Um estado a menos para alguém esquecer ligado.
+
+**Todo caminho degradado é 5xx com corpo `text/plain`** — leitura truncada, zero produtos, origem
+ausente ou malformada. Nenhum deles devolve `<urlset>`: um sitemap parcial não parece parcial,
+parece uma loja menor. `handlers.test.ts` assere a ausência do elemento em cada caminho.
+
+**O `Content-Type` é reimposto no `vercel.json`, e isso é carga.** Medido em 2026-08-29 contra o
+hospedado: a function responde `application/xml; charset=utf-8` e o gateway entrega **`text/plain`**,
+com `nosniff` e o `Cache-Control` intacto. **A reescrita do gateway não é específica de `text/html`**
+— era a pergunta que a `AD-021` deixou aberta, e a resposta é essa.
 
 ## Auth
 

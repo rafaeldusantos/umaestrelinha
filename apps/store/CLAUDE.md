@@ -142,6 +142,49 @@ marca. Leia [`../../CLAUDE.md`](../../CLAUDE.md) (regras do repositório) e
   encontrada". A tabela `collections` **nunca existiu em migration nenhuma** (`PGRST205`), o hook
   engolia o erro e a tela mostrava grade vazia para sempre. **Não recriar.**
 
+## Sitemap — `/sitemap.xml` (feature `33`, `AD-022`)
+
+**É servido ao vivo por uma edge function** (`supabase/functions/sitemap`), exposta por `rewrite` do
+`vercel.json`. Produto, categoria ou página cadastrada no painel entra na **requisição seguinte** —
+não há artefato de build para envelhecer, e é por isso que a saída "gerar no build" foi recusada: a
+curadoria da Adri acontece no painel, que não faz deploy.
+
+- **A regra é pura e mora em `@estrelinha/core/sitemap`** (`sitemapUrls`, `renderSitemapXml`,
+  `originRefusal`). A function é wiring. Quem monta a URL é `productPath` e `categoryHref` —
+  **jamais** concatenação local: `categoryHref` é a **mesma** função que `resolveCategoryRoute` usa
+  para declarar a canônica da página, então sitemap e `<link rel="canonical">` não podem divergir.
+- **A function lê com a chave PUBLICÁVEL, não com service role** — é a única diferença deliberada
+  em relação à `google-feed`. Com ela, a visibilidade do sitemap **é** a RLS (`is_active`/`active`);
+  com service role seria preciso repetir os dois predicados num `.eq()`, e essa segunda escrita
+  divergiria da primeira sem quebrar nada.
+- **Todo caminho degradado é 5xx sem corpo de sitemap**: leitura truncada (o teto de 1.000 do
+  PostgREST, via `readAllPages`), zero produtos, ou origem ausente/malformada. Um sitemap parcial não
+  parece parcial — **parece uma loja menor**, e o rastreador acredita.
+- **O `Content-Type` de `/sitemap.xml` é reimposto no `vercel.json`, e isso é CARGA.** Medido em
+  2026-08-29: a function responde `application/xml; charset=utf-8` e o gateway `*.supabase.co`
+  entrega **`text/plain`**, com `nosniff`, e o `Cache-Control` intacto — assinatura idêntica à do
+  `BUG-20260829`. Não é específico de `text/html`. Sem o header, a rota devolve 200 com XML correto
+  e entrega inutilizável.
+- **A linha `Sitemap:` do `robots.txt` é o SEGUNDO dono da origem**, e foi assumido de propósito. O
+  primeiro é o secret `STORE_PUBLIC_URL`. Servir o `robots.txt` pela function daria um dono só e foi
+  **recusado por assimetria de dano**: `robots.txt` em 5xx faz o Google parar de rastrear o site
+  inteiro, e sitemap em 5xx custa uma releitura. A contenção é dupla — `robotsSource.test.ts` fixa a
+  forma da linha, e `sitemap-check.yml` confere todo dia que o **host** dela é o host que serve.
+  - **No cutover de domínio, três coisas mudam juntas**: o secret `STORE_PUBLIC_URL`, a linha do
+    `robots.txt` e a variável `STORE_PUBLIC_URL` do workflow. Trocar só uma apaga a descoberta em
+    silêncio — o Google **ignora** referência de sitemap entre domínios.
+- **Rota nova precisa ser classificada.** `SITEMAP_STATIC_PATHS` e `NON_INDEXABLE_PATHS`
+  (`@estrelinha/core/routes`) mais as dinâmicas e as legadas têm de cobrir o `App.tsx` inteiro, nas
+  duas direções (`sitemapRoutes.test.ts`). Sem isso a próxima página pública nasceria fora do sitemap
+  por esquecimento, e nada quebraria.
+- **A prova de que está de pé nunca é o status code** (`AD-021`): é o `Content-Type` **entregue**, o
+  documento parseando e a contagem batendo o catálogo.
+  ```bash
+  curl -sD - -o /tmp/s.xml <origem>/sitemap.xml | grep -i content-type   # tem de conter "xml"
+  grep -c '<loc>' /tmp/s.xml                                             # 719 em 2026-08-29
+  curl -s <origem>/robots.txt | grep -ci '^Sitemap:'                     # exatamente 1
+  ```
+
 ## A listagem de categoria
 
 A `CategoryPage` **filtra, ordena e conta no cliente**: `useProducts(slug)` traz a categoria inteira

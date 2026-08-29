@@ -120,7 +120,7 @@ Ao planejar/implementar features, use a Skill **`tlc-spec-driven`** com estas co
   - **A `32` foi escrita RETROATIVAMENTE** (rolagem infinita da categoria): o código ficou 12 dias na
     árvore sem commit, e a spec nasceu dele, não antes dele. É a saída correta quando isso acontece —
     a `31` mostrou o que custa a alternativa —, mas **não** vira precedente para inverter a ordem.
-    **A próxima feature é a `33`.**
+    **A `33` (sitemap) e a `34` (painel de vendas) já existem; a próxima é a `35`.**
 - **Numeração dos itens**: dentro da feature, prefixar os itens de implementação (tasks/entregas) com
   número sequencial de dois dígitos e nome descritivo em kebab-case — `01-nome-implementacao`,
   `02-nome-implementacao`, etc.
@@ -164,6 +164,15 @@ para o guia é `entities`/`widgets`, e pela regra de camadas eles não podem imp
   `cn` em `@estrelinha/ui/lib/utils`.
 - **As edge functions não usam alias nenhum**: Deno resolve por caminho relativo com extensão
   explícita (`../../../packages/core/src/shopping/identity.ts`). Ver `supabase/CLAUDE.md`.
+- **Um módulo de `core` só é alcançável fora do Vite quando TODO especificador relativo do grafo dele
+  tem `.ts` explícito — e isso inclui `import type`.** Medido na feature `33`: `core/shopping` era
+  importável por `node` e por Deno; `core/menu` **não era**, porque o barrel fazia `export * from
+  './menu'`. Nada acusava, porque Vite e vitest resolvem as duas formas. Pior: o Deno resolve o grafo
+  de **tipos** também, e um `import type { X } from '@estrelinha/supabase/types'` derrubava o worker
+  com `Failed resolving types` **antes da primeira linha rodar**. Por isso `MenuPromo` passou a ser
+  declarado em `core/menu` e **reexportado** por `@estrelinha/supabase/types`, e não o contrário: quem
+  usa o tipo é a regra, e o pacote de tipos só descreve a coluna. **Ao criar módulo em `core` que uma
+  edge function possa vir a consumir, escreva a extensão desde o primeiro import.**
 
 ## O "defeito 01": dois donos do mesmo dado
 
@@ -180,6 +189,7 @@ com as duas cópias divergindo, e quem descobre é a cliente ou o Google.
 | `27` | o preço com Pix, arredondado de dois jeitos | `@estrelinha/core/payment/pix` |
 | `30` | a oferta do Google, uma no feed e outra na landing page | `@estrelinha/core/shopping` |
 | `31` | o conteúdo do guia de material (`model/fichas.ts`) | `widgets/material-guide/model/guide.ts` |
+| `33` | o escape de XML e a leitura completa paginada, cada um com um consumidor prestes a virar dois | `@estrelinha/core/xml` e `@estrelinha/core/paging` |
 
 Consequências práticas, nesta ordem:
 
@@ -270,12 +280,14 @@ migrations, e `vercelRedirects` lê o `vercel.json`.
 | `storeSettingsDefaults.test.ts` | idem | os defaults do TypeScript divergirem do que as migrations gravam |
 | `importOrder.test.ts` | idem | `App.css` importado **antes** de `@estrelinha/ui/styles.css` no `main.tsx` |
 | `reservedSlugs.test.ts` | idem | rota nova no `App.tsx` que não entrou em `ROUTE_SLUGS`; entrada de `ROUTE_SLUGS` que deixou de ser rota. **Bidirecional** |
-| `vercelRedirects.test.ts` | idem | `vercel.json` divergir de `LEGACY_REDIRECTS`; `trailingSlash` deixar de ser `false`; redirect usando `permanent` (que produz 308); o catch-all do SPA sair do fim da lista de `rewrites`; os headers de segurança mudarem |
+| `vercelRedirects.test.ts` | idem | `vercel.json` divergir de `LEGACY_REDIRECTS`; `trailingSlash` deixar de ser `false`; redirect usando `permanent` (que produz 308); o catch-all do SPA sair do fim da lista de `rewrites`; os headers de segurança mudarem; o `rewrite` ou o `Content-Type` de `/sitemap.xml` sumirem |
+| `robotsSource.test.ts` | idem | `public/robots.txt` perder a linha `Sitemap:`, ganhar uma segunda, declará-la relativa, ou apontar fora de `/sitemap.xml`; uma diretiva `Disallow` entrar de carona |
 | `materialTransitions.test.ts` | idem | a máquina de estado do material em **SQL** divergir da em **TypeScript**; `set_material_tracking` escrever coluna além do rastreio e do estado; a migration abrir policy de `UPDATE` em `orders` ou conceder `execute` a `anon` |
 | `homeSections.test.ts` | idem | o catálogo de tipos divergir do `check` da migration; a semente divergir de `DEFAULT_HOME_COMPOSITION`; entrar tipo de contagem regressiva ou de prova social; policy de escrita sem `has_role`; `grant` alcançar `anon`; o trigger do hero indelével sumir |
 | `faqSchema.test.ts` | idem | a migration da `28` afrouxar: `grant` a `anon`; policy sem `has_role`; `faq_id` deixar de ser `on delete restrict`; sumirem os `check` de 160/600; a view perder `security_invoker` |
 | `googleShoppingSchema.test.ts` | idem | a migration da `30` afrouxar; o interruptor do feed nascer ligado; os limites do TypeScript divergirem do `.sql` |
 | `sanitizeHtml.test.ts` | idem | a allowlist aceitar atributo, `href` deixar de passar por `new URL`, ou `script`/`style`/`iframe` voltarem a desembrulhar em vez de sumir |
+| `sitemapRoutes.test.ts` | store `app/__tests__` | rota nova no `App.tsx` que não entrou em `SITEMAP_STATIC_PATHS` nem em `NON_INDEXABLE_PATHS`; entrada classificada que deixou de ser rota. **Bidirecional**, e provado nos dois sentidos |
 | `routes.test.ts` | store `app/__tests__` | `ROUTE_SLUGS`/`LEGACY_REDIRECTS` divergirem das rotas; `legacyRedirectTo` deixar de casar caminho fixo antes de prefixo |
 | `brandAssets.test.ts` | idem | ícone referenciado no `index.html` que não existe no disco; `theme-color` fora da paleta; `og:image` fora do projeto |
 | `homeComposition.test.tsx` | store `pages/__tests__` | a Home mudar de cara — sequência, literais, limites e as duas cores do título, pelo **DOM renderizado**. **Não perde asserção, só ganha** |
@@ -291,9 +303,12 @@ migrations, e `vercelRedirects` lê o `vercel.json`.
 | `block.test.ts` | idem | o extrator perder um dos **dois** arranjos de HTML medidos; `stripFaqBlock` remover bloco sem par extraível |
 | `shoppingParity.test.ts` | `packages/core/src/shopping/__tests__` | o feed e o JSON-LD divergirem em preço ou disponibilidade, medidos pelas **serializações reais**. Sensor embutido |
 | `purity.test.ts` | idem | um arquivo de `core/shopping` importar React, Supabase ou Deno |
+| `urls.test.ts` · `render.test.ts` | `packages/core/src/sitemap/__tests__` | produto fora de `/produtos/:slug`; subcategoria em um segmento; `<loc>` relativa, com barra final ou com query; forma legada presente; `changefreq`/`priority` voltarem; o escape sair na ordem errada. Carrega **sensor embutido**: assere que um gerador ingênuo (`'/' + slug`) **reprova** na mesma régua |
+| `readAll.test.ts` | `packages/core/src/paging/__tests__` | leitura truncada aceita; total lido divergir da contagem e passar; página vazia não interromper o laço |
 | `catalog.test.ts` · `defaults.test.ts` | `packages/core/src/home/__tests__` | um arquivo de `core/home` importar React ou Supabase; a varredura render menos de 9 arquivos; a semente divergir do que a loja desenha |
 | `apiShape.test.ts` | `tools/catalog-import` | a Nuvemshop mudar a forma de um campo que o mapeamento lê; a fixture perder um caso de borda |
 | `db.test.ts` (`selectAll`) | idem | uma leitura de "o que já existe" voltar a `select` simples e ser truncada em 1.000 linhas pelo PostgREST |
+| `handlers.test.ts` (sitemap) | `supabase/functions/sitemap/__tests__` | um caminho degradado responder 200; **um corpo de erro carregar `<urlset>`**; o `Content-Type` da resposta boa deixar de ser `application/xml` |
 
 **Nenhum deles é opcional, e nenhum se conserta afrouxando a asserção.** A `fieldBorder` já custou 16
 campos com contraste de 1,19:1 por varrer só as tags HTML minúsculas enquanto a loja monta quase todo
@@ -311,12 +326,13 @@ quando mudarem de verdade.
 | --- | --- | --- |
 | **Lint** | **30 erros / 8 warnings** — backoffice 28/7 · store 2/1 | `pnpm lint` |
 | **Tipos** | **0 · 0 · 0** (store · backoffice · catalog-import) | `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` |
-| **Testes** | **5494 em 301 arquivos** — store 1903/130 · backoffice 1556/97 · core 1363/52 · functions 337/6 · catalog-import 335/16 | `pnpm --filter @estrelinha/<w> test` |
+| **Testes** | **5581 em 307 arquivos** — store 1922/132 · backoffice 1556/97 · core 1418/55 · functions 350/7 · catalog-import 335/16 | `pnpm --filter @estrelinha/<w> test` |
 
 Os cinco workspaces foram remedidos em **2026-08-29**, por workspace e com exit code capturado, e os
-cinco passam limpos. O store subiu para **1903/130**: **+24** pela feature `32` (rolagem infinita da
-página de categoria) e **+2** pelo guarda do `BUG-20260829` em `vercelRedirects.test.ts`. Os outros
-quatro não mudaram desde **2026-08-16**.
+cinco passam limpos. A feature `33` (sitemap) somou **+87** em três deles: **core +55** (a regra pura
+do sitemap, a paginação extraída e a classificação de rota), **functions +13** (a function nova) e
+**store +19** (`sitemapRoutes` e `robotsSource`, mais as vizinhas do `vercelRedirects`). Backoffice e
+catalog-import não mudaram — e é isso que se espera de uma feature que não encosta neles.
 
 > **A baseline anterior do store estava 3 testes curta, e o erro era de bookkeeping.** Ela dizia
 > **1874/129**; o número medido no HEAD da `31`, por `git stash` em 2026-08-29, é **1877/129**. Nada
@@ -358,12 +374,13 @@ admin (`entities/*/api/useAdmin*`). **Zero é a baseline de tipos: qualquer erro
 
 ## CI e deploy
 
-Dois workflows em `.github/workflows/`, os dois disparando em push para `master`:
+Três workflows em `.github/workflows/`:
 
 | Workflow | Quando | O que faz |
 | --- | --- | --- |
 | `ci.yml` | PR **e** push em `master` | `turbo run test --concurrency=1`, depois `pnpm build`. Lint e typecheck rodam com `continue-on-error` |
 | `supabase-deploy.yml` | push em `master` (sem filtro de `paths`) | `supabase db push --linked` e, condicionalmente, `supabase functions deploy` |
+| `sitemap-check.yml` | **cron diário** + `workflow_dispatch` | Prova a **entrega** de `/sitemap.xml`: tipo entregue, documento parseando, contagem acima do piso, `robots.txt` coerente e uma `<loc>` respondendo 200. Não regenera nada — o sitemap é servido ao vivo |
 
 - **`--concurrency=1` no CI é de propósito**: rodar store e backoffice em paralelo satura o runner de
   2 vCPUs (jsdom é pesado) e a suíte do backoffice fica flaky. É a mesma flake que se vê localmente.
@@ -388,7 +405,8 @@ completo (framework, `installCommand` na raiz do monorepo, headers de cache e de
 - **O schema ESTÁ aplicado.** `supabase migration list --linked`: **44 de 44**, `local` == `remote`,
   zero pendente. E o **catálogo está lá**: 680 produtos (todos ativos), 3.245 variações, 35
   categorias, 67 perguntas e 3.475 vínculos, 7 seções de home, Storage servindo imagem real.
-- **As duas edge functions ESTÃO implantadas**, e a loja provisória está no ar em
+- **As TRÊS edge functions estão implantadas** (`google-feed`, `product-page` e, desde 2026-08-29, a
+  `sitemap` da feature `33`), e a loja provisória está no ar em
   `umaestrelinha-store-five.vercel.app` (o painel, em `umaestrelinha-backoffice.vercel.app`).
   `STORE_PUBLIC_URL` aponta para a loja provisória — **valor que tem de mudar antes de ligar o
   feed**, senão os `<g:link>` das 3.233 ofertas nascem apontando para o `.vercel.app`.
@@ -400,6 +418,11 @@ completo (framework, `installCommand` na raiz do monorepo, headers de cache e de
   cada, apesar do `s-maxage=300`. Toda visita a produto atravessa a edge function, que busca o shell
   e consulta o banco. Era a incerteza que a `AD-020` declarou; a condição de revisão que ela mesma
   escreveu foi atingida, e a saída é a `BL-017`.
+- **`application/xml` TAMBÉM é reescrito pelo gateway `*.supabase.co`.** Medido em 2026-08-29 contra
+  a function `sitemap`: ela responde `application/xml; charset=utf-8` e chega **`text/plain`**, com
+  `nosniff` acrescentado e o `Cache-Control` intacto — **assinatura idêntica à do `BUG-20260829`**. A
+  pergunta que a `AD-021` deixou aberta está respondida: **a reescrita não é específica de
+  `text/html`**. Quem desfaz é o header do `vercel.json`, agora em duas rotas.
 - **A prova de que uma rota servida está de pé é o `Content-Type` ENTREGUE, nunca o status.** O
   `curl -I` que este arquivo prescrevia teria declarado o `BUG-20260829` verde — status 200, corpo
   certo, entrega inutilizável. Confira o tipo e a presença do JSON-LD no corpo:
@@ -427,10 +450,17 @@ completo (framework, `installCommand` na raiz do monorepo, headers de cache e de
 
 - **A feature `31` não tem spec.** O guia de material foi implementado no commit `fcd3942` e está
   documentado em `apps/store/CLAUDE.md`, mas não existe `.specs/features/31-*` nem handoff na
-  `STATE.md`. O número segue consumido; a próxima é a `33`.
+  `STATE.md`. O número segue consumido.
 - **A `32` não tem `validation.md`** e não passou por Verifier independente. Os 24 testes cobrem os
   requisitos que jsdom alcança e carregam o sensor da cicatriz da chave (`LST-04`), mas ninguém
   conferiu a feature contra a spec com olhos frescos. Mesma pendência da `22` e da `28`.
+- **A `33` tem `validation.md`, mas o autor é o verificador.** A execução foi inline, e o relatório
+  declara isso no topo. A evidência é toda medida e os dois guardas novos tiveram a sensibilidade
+  provada por injeção de falha — o que reduz o viés, não o elimina. Entra na mesma fila acima.
+- **A `33` está implementada e o `rewrite` ainda não foi publicado.** A edge function `sitemap` **já
+  está no ar** no projeto hospedado (deploy aditivo, feito para medir o `Content-Type`), mas até o
+  push da loja `/sitemap.xml` continua devolvendo o shell da SPA. A prova de fecho é o `curl` do
+  `validation.md`, nunca o status code.
 - **`STATE.md` e `BACKLOG.md` discordam sobre a `BL-016`.** O `BACKLOG.md` a dá como fechada com o
   ref real; a `AD-020` e o handoff da `30` ainda dizem "o host é marcador, bloqueado por `C-08`".
   Vale o `BACKLOG.md` — mas com a ressalva das functions não implantadas, acima.

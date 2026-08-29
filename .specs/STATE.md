@@ -457,9 +457,100 @@
   resto do `AD-020` continua valendo: a oferta tem um dono (`@estrelinha/core/shopping`) e as duas
   serializações partem dele. O que muda é o **transporte**, não o domínio.
 
+### AD-022
+- **Decision**: **O sitemap é SERVIDO ao vivo por edge function, e a regra que decide quais URLs
+  existem continua sendo `@estrelinha/core`.** `/sitemap.xml` é um `rewrite` do `vercel.json` para
+  `supabase/functions/sitemap`, que lê o catálogo a cada requisição com a **chave publicável** e
+  serializa por `sitemapUrls` + `renderSitemapXml` (`@estrelinha/core/sitemap`). Nenhuma URL é
+  montada por concatenação: produto vem de `productPath` e categoria de `categoryHref` — a **mesma**
+  função que `resolveCategoryRoute` usa para declarar a canônica da página. O cron que acompanha a
+  feature **não regenera nada**: ele prova, todo dia, que o que é *entregue* continua sendo um
+  sitemap.
+- **Reason**: O critério do usuário foi frescor — *"mudanças ou cadastros de novos produtos e
+  categorias e páginas devem atualizar o sitemap"*. A curadoria da Adri acontece no painel, que não
+  faz deploy, então um artefato de build só seria verdade no dia em que alguém empurrasse código.
+  Servir ao vivo satisfaz a exigência **por construção**: não existe intermediário para envelhecer.
+  A alternativa medida (gerar em `dist/`) tinha três vantagens reais — a Vercel serve arquivo do
+  filesystem **antes** do catch-all, com `X-Vercel-Cache: HIT` e `Content-Type` próprio, tudo
+  confirmado no `/robots.txt` da própria loja — e uma desvantagem que o usuário considerou decisiva.
+  Duas consequências de desenho vieram junto: a **chave publicável** em vez de service role, que faz
+  a visibilidade do sitemap **ser** a RLS em vez de uma cópia dela; e a recusa de servir o
+  `robots.txt` pela mesma function, porque `robots.txt` em 5xx faz o Google parar de rastrear o site
+  inteiro, enquanto sitemap em 5xx custa uma releitura.
+- **Trade-off**: Três custos, os três medidos e aceitos. **(1)** A Vercel **não cacheia** `rewrite`
+  para host externo (4 batidas, 4 `MISS`) — irrelevante para uma rota que só rastreador busca.
+  **(2)** É o **terceiro** `rewrite` para `*.supabase.co`, exatamente enquanto a `BL-017` existe para
+  remover os dois que já há; contido por toda a regra ser pura em `core/sitemap`, de modo que mudar
+  o transporte não toca em regra nenhuma. **(3)** A linha `Sitemap:` do `robots.txt` é um **segundo
+  dono da origem**, ao lado do secret `STORE_PUBLIC_URL` — aceito porque a alternativa era o modo de
+  falha que apaga a loja da busca, e contido por `robotsSource.test.ts` (a forma) mais a rotina
+  diária (o host). **No cutover, os três valores mudam juntos.**
+- **Scope**: `packages/core/src/{sitemap,paging,xml}/**`, `packages/core/src/{routes,menu}/**`,
+  `supabase/functions/sitemap/**`, `apps/store/{vercel.json,public/robots.txt}`,
+  `.github/workflows/sitemap-check.yml`
+- **Date**: 2026-08-29
+- **Status**: active — **implementada pela feature
+  [`33-sitemap-da-loja`](./features/33-sitemap-da-loja/spec.md)** em 2026-08-29 (T01–T16). Fecha a
+  parte do sitemap da `BL-007`; o `BreadcrumbList` continua aberto.
+
+  **Uma medição desta feature supera uma pendência da `AD-021`**: o gateway `*.supabase.co`
+  reescreve **`application/xml`** para `text/plain` do mesmo jeito que reescreve `text/html`,
+  acrescentando `nosniff` e deixando o `Cache-Control` intacto. A reescrita **não é específica de
+  `text/html`** — o `vercel.json` reimpõe o tipo em duas rotas agora, e o header deixou de ser rede
+  extra para virar carga.
+
 ## Handoff
 
-### ATUAL — 2026-08-29 · `32-rolagem-infinita-da-categoria` **COMMITADA**
+### ATUAL — 2026-08-29 · `33-sitemap-da-loja` **IMPLEMENTADA, não commitada**
+
+**Estado**: T01–T16 feitas, gate limpo, **sem commit**. Sem `validation.md` — ver pendências.
+Decisão: [`AD-022`](#ad-022). Fecha a parte do sitemap da [`BL-007`](./BACKLOG.md).
+
+#### O que a `33` entrega
+
+`/sitemap.xml` devolvia **200 com o HTML da SPA** — o catch-all do `vercel.json` engolia a rota, e o
+rastreador que pedia o sitemap recebia a home. Agora é servido por uma edge function irmã da
+`google-feed`, com **719 URLs canônicas** (680 produtos + 35 categorias + 4 institucionais), medidas
+contra o banco local e contra o hospedado.
+
+| | onde |
+| --- | --- |
+| A regra pura (URLs, documento, validação de origem) | `packages/core/src/sitemap/**` |
+| A leitura completa conferida contra a contagem | `packages/core/src/paging/readAll.ts` (extraído da `google-feed`) |
+| O escape de XML, agora com dois consumidores | `packages/core/src/xml/escape.ts` (movido de `shopping`) |
+| A classificação de rota, obrigatória e bidirecional | `packages/core/src/routes/routes.ts` + `apps/store/src/app/__tests__/sitemapRoutes.test.ts` |
+| A function | `supabase/functions/sitemap/**` |
+| A borda | `apps/store/{vercel.json,public/robots.txt}` |
+| A prova diária de entrega | `.github/workflows/sitemap-check.yml` |
+
+#### Três coisas que esta feature MEDIU e que valem além dela
+
+1. **`application/xml` também é reescrito pelo gateway `*.supabase.co`** — chega `text/plain`, com
+   `nosniff`, `Cache-Control` intacto. Assinatura idêntica à do `BUG-20260829`. A reescrita **não é
+   específica de `text/html`**, que era a pergunta que a `AD-021` deixou aberta. O header do
+   `vercel.json` é carga, não zelo.
+2. **Um módulo de `core` só é alcançável fora do Vite com extensão `.ts` explícita em todo o grafo —
+   inclusive em `import type`.** `core/menu` não era, e o Deno derrubava o worker com
+   `Failed resolving types` antes da primeira linha. `MenuPromo` passou a ser declarado em
+   `core/menu` e **reexportado** por `@estrelinha/supabase/types` — a inversão, e não uma cópia.
+3. **A alternativa de gerar no build era melhor em três eixos e foi recusada por um.** Arquivo do
+   `dist/` vence o catch-all, é cacheado (`X-Vercel-Cache: HIT`) e tem `Content-Type` próprio —
+   provado no `/robots.txt` da própria loja. Perdeu por frescor, que foi o critério do usuário.
+
+#### O que falta, e o que muda no cutover
+
+- **Commit e push.** Há também `b3bc06e` local não enviado.
+- **A function `sitemap` JÁ está implantada** no projeto hospedado (deploy aditivo de 2026-08-29,
+  feito para a medição). O `rewrite` **não** está publicado: até o push da loja, `/sitemap.xml`
+  continua devolvendo o shell da SPA.
+- **No cutover de domínio, TRÊS valores mudam juntos**: o secret `STORE_PUBLIC_URL`, a linha
+  `Sitemap:` de `apps/store/public/robots.txt`, e a variável `STORE_PUBLIC_URL` do
+  `sitemap-check.yml`. Trocar só um apaga a descoberta em silêncio — o Google **ignora** referência
+  de sitemap entre domínios. A rotina diária acusa exatamente esse caso.
+
+---
+
+### 2026-08-29 · `32-rolagem-infinita-da-categoria` **COMMITADA**
 
 **Estado**: implementada em **2026-08-17**, ficou 12 dias na árvore **sem commit**, e foi commitada
 hoje com spec retroativa. **Nada em andamento.** Sem `validation.md` — ver pendências.

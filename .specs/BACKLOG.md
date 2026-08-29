@@ -278,14 +278,22 @@ defeito que este projeto mais paga caro.
 
 ## BL-007 — Sitemap e dados estruturados
 
-> **Metade FECHADA pela feature [`30-google-shopping`](./features/30-google-shopping/spec.md)**
-> (2026-08-16). Os **dados estruturados** de produto saíram: `Product` + `Offer` em JSON-LD,
-> servidos no HTML pela edge function `product-page` — e **não** injetados por JS, justamente
-> porque o rastreador do Merchant Center compara o preço da landing page com o do feed. Fica em
-> aberto o **`sitemap.xml`** e o `BreadcrumbList`; a decisão "onde o sitemap é gerado" (item 1
-> abaixo) ganhou precedente: edge function do Supabase exposta por `rewrite` do `vercel.json`.
+> **Duas de três partes FECHADAS.** Os **dados estruturados** de produto saíram na
+> [`30-google-shopping`](./features/30-google-shopping/spec.md) (2026-08-16): `Product` + `Offer` em
+> JSON-LD, servidos no HTML pela edge function `product-page` — e **não** injetados por JS,
+> justamente porque o rastreador do Merchant Center compara o preço da landing page com o do feed.
+> O **`sitemap.xml`** saiu na [`33-sitemap-da-loja`](./features/33-sitemap-da-loja/spec.md)
+> (2026-08-29): edge function irmã, 719 URLs canônicas, `robots.txt` apontando para ela, e uma
+> rotina diária provando a entrega. **Fica em aberto só o `BreadcrumbList`.**
+>
+> **O que a `33` respondeu dos itens abaixo**: (1) onde é gerado — edge function, decisão do usuário,
+> pelo frescor: cadastro no painel entra na requisição seguinte, sem deploy; (2) sim, importa
+> `productPath`/`categoryHref` — `categoryHref` é a **mesma** função que declara a canônica da
+> página, então não há como divergir; (4) categoria inativa não entra **e não por código**: a
+> function lê com a chave publicável e a RLS filtra; (5) redirects não entram, e há guarda.
+> O item (3) — JSON-LD injetado por JS — continua valendo como está escrito, e é da parte que sobrou.
 
-- **Status**: **parcialmente fechado** (dados estruturados ✓, sitemap em aberto) · **Registrado em**: 2026-08-09 · **Decisão**: [`AD-018`](./STATE.md)
+- **Status**: **parcialmente fechado** (dados estruturados ✓, sitemap ✓, `BreadcrumbList` em aberto) · **Registrado em**: 2026-08-09 · **Decisão**: [`AD-018`](./STATE.md), [`AD-022`](./STATE.md)
 - **Origem**: `Out of Scope` da [`23-urls-e-seo`](./features/23-urls-e-seo/spec.md), que os adiou com
   motivo explícito: *"só fazem sentido depois de o endereçamento estar decidido"*.
 
@@ -389,6 +397,11 @@ banco. O que a `22` acrescenta é **um segundo consumidor do mesmo teto**.
 **É o mesmo defeito que quebrou o importador na `21`**, e lá custou caro: o `select` truncado fazia
 toda variação além da 1.000ª parecer nova, e a idempotência quebrava justamente na segunda execução.
 A correção lá foi `selectAll` (paginação por `range`), em `tools/catalog-import/src/write/db.ts`.
+
+**A feature `33` não piorou isto, e mostrou a saída.** O sitemap lê `products` e `categories`
+inteiras e **confere contra a contagem exata** (`readAllPages`, em `@estrelinha/core/paging`, extraído
+da `google-feed`). É o mesmo mecanismo que falta aqui, agora disponível como função pura com
+dependências injetadas — `fetchStatusCounts` pode consumi-lo sem inventar nada.
 
 **O que falta**: ou paginar como o importador, ou — melhor — trocar a contagem no cliente por
 `select('status', { count: 'exact', head: true })` por estado, ou uma view de agregação. A segunda
