@@ -11,8 +11,29 @@
 // "Bottons · Academia · Anime · K-Pop": o contêiner de tudo, mais uma filha que só chegou lá por
 // empatar em `sort_order = 0` com ele.
 
-import type { MenuPromo } from '@estrelinha/supabase/types'
-import { categoryPath } from '../routes'
+import { categoryPath } from '../routes/index.ts'
+
+/**
+ * O card promocional do menu, como gravado em `categories.menu_promo` (jsonb).
+ *
+ * **Declarado aqui, e reexportado por `@estrelinha/supabase/types`** — a inversão é da feature 33.
+ * O tipo morava lá e era importado por este arquivo, o que tornava `core/menu` inalcançável pelo
+ * **Deno**: ele resolve o grafo de TIPOS também, e um especificador nu derruba o worker com
+ * `Failed resolving types` antes da primeira linha rodar (medido em 2026-08-29, na primeira execução
+ * da function do sitemap). Quem precisa alcançar este módulo de lá é o sitemap, porque `categoryHref`
+ * — o dono da canônica de categoria — mora aqui.
+ *
+ * `category_id` é obrigatório porque o card aponta para uma categoria de verdade, não para uma URL
+ * digitada; a referência mora dentro de jsonb, onde não cabe FK, e por isso quem lê resolve o
+ * destino em runtime (`resolvePromo`, abaixo). `title` e `subtitle` ausentes caem no nome e na
+ * descrição da categoria de destino.
+ */
+export interface MenuPromo {
+  category_id: string
+  badge?: string
+  title?: string
+  subtitle?: string
+}
 
 /**
  * A forma **mínima** que o domínio precisa.

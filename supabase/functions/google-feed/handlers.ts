@@ -27,9 +27,19 @@ import {
   type OfferInputVariant,
   type ShoppingOffer,
 } from '../../../packages/core/src/shopping/index.ts'
+import {
+  POSTGREST_PAGE_SIZE,
+  readAllPages,
+} from '../../../packages/core/src/paging/index.ts'
 
-/** O PostgREST devolve no máximo 1.000 linhas por requisição, e não avisa quando trunca. */
-export const FEED_PAGE_SIZE = 1000
+/**
+ * O PostgREST devolve no máximo 1.000 linhas por requisição, e não avisa quando trunca.
+ *
+ * Feature 33: o número passou a ter um dono só (`@estrelinha/core/paging`), porque a function do
+ * sitemap virou o segundo consumidor do mesmo teto. O nome local continua exportado — é o que os
+ * testes desta function medem, e renomeá-lo não acrescentaria nada.
+ */
+export const FEED_PAGE_SIZE = POSTGREST_PAGE_SIZE
 
 /** Uma variação com o produto dela, como o join do PostgREST devolve. */
 export interface FeedRow {
@@ -70,23 +80,16 @@ const log = (entry: Record<string, unknown>): void => console.log(JSON.stringify
  * leitura foi truncada. Devolver o que veio seria publicar um feed que instrui o Google a remover o
  * que faltou.
  */
-export const readAllRows = async (deps: FeedDeps): Promise<FeedRow[]> => {
-  const total = await deps.countRows()
-  const linhas: FeedRow[] = []
-
-  for (let from = 0; from < total; from += FEED_PAGE_SIZE) {
-    const pagina = await deps.readPage(from, from + FEED_PAGE_SIZE - 1)
-    if (pagina.length === 0) break
-    linhas.push(...pagina)
-  }
-
-  if (linhas.length !== total) {
-    throw new Error(
-      `leitura incompleta do catálogo: ${linhas.length} de ${total} linhas — feed parcial instrui o Google a remover o que falta`,
-    )
-  }
-  return linhas
-}
+export const readAllRows = async (deps: FeedDeps): Promise<FeedRow[]> =>
+  await readAllPages<FeedRow>({
+    total: await deps.countRows(),
+    readPage: deps.readPage,
+    pageSize: FEED_PAGE_SIZE,
+    label: 'catálogo',
+    // A consequência é do FEED, não da paginação — e por isso viaja como parâmetro em vez de ficar
+    // embutida na função compartilhada: o sitemap trunca com o mesmo mecanismo e outro custo.
+    consequence: 'feed parcial instrui o Google a remover o que falta',
+  })
 
 /** As ofertas elegíveis, na ordem em que vieram. A regra de inclusão tem um dono: `feedExclusion`. */
 export const toOffers = (

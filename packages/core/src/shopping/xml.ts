@@ -13,25 +13,19 @@
 // recuperável dentro do serializador.
 
 import type { ShoppingOffer } from './types.ts'
+import { escapeXml } from '../xml/escape.ts'
 
 const NS = 'http://base.google.com/ns/1.0'
 
 /**
- * Escape de conteúdo textual de XML.
+ * O escape de XML mudou de casa na feature 33 e continua exportado **daqui**.
  *
- * Os caracteres de controle C0 (exceto tab, LF e CR) **não têm representação** em XML 1.0 — nem
- * escapados. Removê-los é a única saída que produz documento bem-formado, e a descrição de 679
- * produtos vem de uma origem que não os proíbe.
+ * Ele vive em `core/xml/escape.ts` desde que o sitemap virou o segundo consumidor — a regra do
+ * repositório é que regra com dois leitores tem um dono só. A reexportação não é cortesia: o barrel
+ * de `shopping` é a superfície que `supabase/functions/google-feed` importa por caminho relativo, e
+ * tirá-la daqui quebraria a function sem quebrar teste nenhum de `packages/`.
  */
-export const escapeXml = (value: string): string =>
-  String(value ?? '')
-    // eslint-disable-next-line no-control-regex
-    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;')
+export { escapeXml }
 
 /** Preço no formato que o Google lê: duas casas e a moeda. */
 export const formatFeedPrice = (value: number): string => `${value.toFixed(2)} BRL`

@@ -3,6 +3,8 @@ import {
   INFRA_SLUGS,
   LEGACY_REDIRECTS,
   MATERIAL_GUIDE_PATH,
+  NON_INDEXABLE_PATHS,
+  SITEMAP_STATIC_PATHS,
   RESERVED_SLUGS,
   ROUTE_SLUGS,
   categoryPath,
@@ -272,5 +274,53 @@ describe('LEGACY_REDIRECTS — as formas legadas, em dado (URL-02, AC 3c)', () =
     for (const entry of LEGACY_REDIRECTS) {
       expect(ROUTE_SLUGS).toContain(entry.from.split('/')[1])
     }
+  })
+})
+
+describe('a classificação de rota do sitemap (SMP-04, SMP-24)', () => {
+  it('as duas listas são disjuntas — uma rota não pode ser indexável e não-indexável', () => {
+    // Sobreposição não quebraria nada: o gerador emitiria a URL e a lista de exclusão diria o
+    // contrário, e a intenção ficaria indecidível para quem lesse depois.
+    const foraDoSitemap = new Set(NON_INDEXABLE_PATHS.map((entry) => entry.path))
+    for (const path of SITEMAP_STATIC_PATHS) {
+      expect(foraDoSitemap.has(path)).toBe(false)
+    }
+  })
+
+  it('todo caminho das duas listas é absoluto', () => {
+    for (const path of [...SITEMAP_STATIC_PATHS, ...NON_INDEXABLE_PATHS.map((e) => e.path)]) {
+      expect(path.startsWith('/')).toBe(true)
+    }
+  })
+
+  it('nenhuma entrada se repete dentro da própria lista', () => {
+    expect(new Set(SITEMAP_STATIC_PATHS).size).toBe(SITEMAP_STATIC_PATHS.length)
+    const fora = NON_INDEXABLE_PATHS.map((e) => e.path)
+    expect(new Set(fora).size).toBe(fora.length)
+  })
+
+  it('o guia de material entra pelo `MATERIAL_GUIDE_PATH`, não por literal repetido', () => {
+    // O endereço do guia já mudou uma vez (feature 31). Uma segunda escrita dele aqui sairia do
+    // lugar sem quebrar nada — e o sitemap passaria a anunciar uma URL que só responde 301.
+    expect(SITEMAP_STATIC_PATHS).toContain(MATERIAL_GUIDE_PATH)
+  })
+
+  it('toda exclusão carrega motivo escrito', () => {
+    // `reason` é dado, não comentário: exclusão sem motivo é decisão que ninguém consegue revisar.
+    for (const entry of NON_INDEXABLE_PATHS) {
+      expect(entry.reason.trim().length).toBeGreaterThan(10)
+    }
+  })
+
+  it('nenhuma forma legada entra no sitemap — sitemap é lista de canônicas', () => {
+    for (const entry of LEGACY_REDIRECTS) {
+      expect(SITEMAP_STATIC_PATHS).not.toContain(entry.from)
+    }
+  })
+
+  it('âncora de tamanho: 4 institucionais e 7 excluídas', () => {
+    // Sem a âncora, esvaziar uma das listas tornaria as asserções acima verdadeiras por vacuidade.
+    expect(SITEMAP_STATIC_PATHS).toHaveLength(4)
+    expect(NON_INDEXABLE_PATHS).toHaveLength(7)
   })
 })

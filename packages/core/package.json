@@ -23,7 +23,10 @@
     "./material": "./src/material/index.ts",
     "./home": "./src/home/index.ts",
     "./faq": "./src/faq/index.ts",
-    "./shopping": "./src/shopping/index.ts"
+    "./shopping": "./src/shopping/index.ts",
+    "./xml": "./src/xml/index.ts",
+    "./paging": "./src/paging/index.ts",
+    "./sitemap": "./src/sitemap/index.ts"
   },
   "scripts": {
     "test": "vitest run"

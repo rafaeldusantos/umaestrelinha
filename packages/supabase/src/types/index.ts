@@ -3,6 +3,16 @@
 /**
  * O card promocional do menu, como gravado em `categories.menu_promo` (jsonb).
  *
+ * **A declaração mora em `@estrelinha/core/menu` e é reexportada aqui** (feature 33). O tipo estava
+ * neste arquivo e era importado por `core/menu/menu.ts` — o que tornava `core/menu` **inalcançável
+ * pelo Deno**: ele resolve o grafo de tipos também, e um especificador nu (`@estrelinha/supabase/...`)
+ * derruba o worker com `Failed resolving types` antes da primeira linha rodar. Medido em 2026-08-29,
+ * na primeira execução da function do sitemap.
+ *
+ * A inversão é a resposta certa e não um contorno: quem **usa** este tipo é a regra do menu, que
+ * vive em `core`; este pacote só descreve a coluna que o guarda. Duplicá-lo aqui daria dois donos ao
+ * mesmo formato, que é o "defeito 01" do projeto.
+ *
  * `category_id` é obrigatório porque o card **aponta para uma coleção de verdade**, não para uma URL
  * digitada: link com typo deixa de ser possível e a contagem ("12 pins") sai da view
  * `category_product_counts`. O preço é que a referência mora dentro de jsonb, onde **não cabe FK** —
@@ -11,12 +21,8 @@
  *
  * `title` e `subtitle` ausentes caem no nome e na descrição da categoria de destino.
  */
-export interface MenuPromo {
-  category_id: string
-  badge?: string
-  title?: string
-  subtitle?: string
-}
+export type { MenuPromo } from '../../../core/src/menu/menu.ts'
+import type { MenuPromo } from '../../../core/src/menu/menu.ts'
 
 /**
  * `show_in_menu` e `menu_promo` nasceram na migration `20260803120000_16-store-menu.sql`, e a

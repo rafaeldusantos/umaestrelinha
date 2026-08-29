@@ -123,6 +123,45 @@ export const materialGuideHref = (anchor?: string | null): string => {
 }
 
 /**
+ * As rotas FIXAS que entram no sitemap (feature 33, `SMP-04`).
+ *
+ * São as únicas rotas de caminho fixo do `App.tsx` que servem conteúdo público e estável. Produto e
+ * categoria não estão aqui de propósito — eles vêm do catálogo, e quem monta a URL deles é
+ * `productPath`/`categoryHref`.
+ *
+ * `MATERIAL_GUIDE_PATH` é reaproveitado em vez de reescrito: o endereço do guia já mudou uma vez
+ * (feature 31), e uma segunda escrita dele aqui sairia do lugar sem quebrar nada.
+ */
+export const SITEMAP_STATIC_PATHS: readonly string[] = [
+  '/',
+  '/sobre',
+  '/politicas',
+  MATERIAL_GUIDE_PATH,
+]
+
+/**
+ * As rotas declaradas que ficam **deliberadamente fora** do sitemap, cada uma com o motivo.
+ *
+ * Esta lista não existe para ser lida em runtime — existe para que a classificação seja
+ * **obrigatória**. `sitemapRoutes.test.ts` lê o `App.tsx` do disco e exige que toda rota esteja em
+ * exatamente um de quatro conjuntos: aqui, em `SITEMAP_STATIC_PATHS`, entre as dinâmicas, ou em
+ * `LEGACY_REDIRECTS`. Sem isso a próxima página pública nasceria fora do sitemap por esquecimento —
+ * e ninguém descobriria, porque nada quebra.
+ *
+ * O `reason` é parte do dado, não comentário: uma entrada sem motivo escrito é uma exclusão que
+ * ninguém pode revisar depois.
+ */
+export const NON_INDEXABLE_PATHS: readonly { path: string; reason: string }[] = [
+  { path: '/carrinho', reason: 'estado do navegador, não conteúdo — muda a cada visitante' },
+  { path: '/checkout', reason: 'transacional; nada a indexar e tudo a não expor' },
+  { path: '/pedido/:id', reason: 'privado — é o pedido de uma pessoa' },
+  { path: '/conta', reason: 'privado, atrás de autenticação' },
+  { path: '/favoritos', reason: 'privado, por navegador' },
+  { path: '/entrar', reason: 'autenticação' },
+  { path: '/busca', reason: 'espaço de rastreio infinito: uma URL por combinação de parâmetro' },
+]
+
+/**
  * As formas legadas que continuam resolvendo, **em dado**.
  *
  * Duas pontas leem esta mesma lista: o `vercel.json` (301 no edge, que é o que preserva link equity e
