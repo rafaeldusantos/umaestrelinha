@@ -490,3 +490,11 @@ verify_jwt = false
 # loja já serve. Não há sessão a exigir — exigir JWT aqui derrubaria a página de produto.
 [functions.product-page]
 verify_jwt = false
+
+# Feature 33 — o sitemap. Quem busca é rastreador, que não manda JWT nenhum, e o conteúdo é a lista
+# de endereços que a vitrine já publica. Diferente das irmãs em UM ponto: a function lê com a chave
+# PUBLICÁVEL, não com service role, para que a visibilidade do sitemap seja a própria RLS em vez de
+# uma segunda cópia dela. Não há interruptor — sitemap ausente só adia descoberta, ao contrário do
+# feed do Merchant Center, cuja ausência REMOVE catálogo.
+[functions.sitemap]
+verify_jwt = false
