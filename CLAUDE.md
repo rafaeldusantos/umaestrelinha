@@ -311,11 +311,12 @@ quando mudarem de verdade.
 | --- | --- | --- |
 | **Lint** | **30 erros / 8 warnings** — backoffice 28/7 · store 2/1 | `pnpm lint` |
 | **Tipos** | **0 · 0 · 0** (store · backoffice · catalog-import) | `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` |
-| **Testes** | **5492 em 301 arquivos** — store 1901/130 · backoffice 1556/97 · core 1363/52 · functions 337/6 · catalog-import 335/16 | `pnpm --filter @estrelinha/<w> test` |
+| **Testes** | **5494 em 301 arquivos** — store 1903/130 · backoffice 1556/97 · core 1363/52 · functions 337/6 · catalog-import 335/16 | `pnpm --filter @estrelinha/<w> test` |
 
 Os cinco workspaces foram remedidos em **2026-08-29**, por workspace e com exit code capturado, e os
-cinco passam limpos. O store subiu para **1901/130** pela feature `32` (rolagem infinita da página de
-categoria); os outros quatro não mudaram desde **2026-08-16**.
+cinco passam limpos. O store subiu para **1903/130**: **+24** pela feature `32` (rolagem infinita da
+página de categoria) e **+2** pelo guarda do `BUG-20260829` em `vercelRedirects.test.ts`. Os outros
+quatro não mudaram desde **2026-08-16**.
 
 > **A baseline anterior do store estava 3 testes curta, e o erro era de bookkeeping.** Ela dizia
 > **1874/129**; o número medido no HEAD da `31`, por `git stash` em 2026-08-29, é **1877/129**. Nada
@@ -382,22 +383,32 @@ Dois workflows em `.github/workflows/`, os dois disparando em push para `master`
 `rewrites` do `apps/store/vercel.json` e o que fechou a `BL-016`. Os dois apps têm `vercel.json`
 completo (framework, `installCommand` na raiz do monorepo, headers de cache e de segurança).
 
-**Ainda assim, quase nada está no ar, e é isso que importa saber antes de confiar num endereço:**
+**Medido em 2026-08-29 contra o projeto hospedado — o que está de pé e o que não está:**
 
-- **O schema NÃO foi enviado para o hospedado.** Nenhum `supabase db push` completou — o run de
-  2026-08-16 (commit `9fb5dde`) falhou com `SUPABASE_PROJECT_REF` ausente no environment
-  `production`. Dev roda contra o Supabase local (`http://127.0.0.1:54341`).
-- **As edge functions `google-feed` e `product-page` não foram implantadas.** Enquanto não forem,
-  `/produtos/:slug` fica **fora do ar em produção**: o `rewrite` tira a rota do catch-all do SPA e o
-  destino devolve erro. Metade da `BL-016` continua aberta por isso — o ref estar escrito prova que o
-  arquivo aponta para um projeto que existe, não que as rotas respondem. **Rodar o `curl -I` das duas
-  é o que fecha.**
-- **`supabase/.temp/project-ref` diz `zwvrqtjvaltpbevjqzks`, que NÃO é o projeto do vercel.json.** É
-  link velho do CLI e é armadilha: um `supabase db push` **local** daqui vai para o projeto errado.
-  Confira com `supabase projects list` e re-linke antes de qualquer comando que escreva no hospedado.
-  (O CI não usa este arquivo: ele linka pela **variable** `SUPABASE_PROJECT_REF` do environment
-  `production` — variable e não secret, porque o ref não é segredo e mascará-lo em log só atrapalha
-  quem estiver depurando.)
+- **O schema ESTÁ aplicado.** `supabase migration list --linked`: **44 de 44**, `local` == `remote`,
+  zero pendente. E o **catálogo está lá**: 680 produtos (todos ativos), 3.245 variações, 35
+  categorias, 67 perguntas e 3.475 vínculos, 7 seções de home, Storage servindo imagem real.
+- **As duas edge functions ESTÃO implantadas**, e a loja provisória está no ar em
+  `umaestrelinha-store-five.vercel.app` (o painel, em `umaestrelinha-backoffice.vercel.app`).
+  `STORE_PUBLIC_URL` aponta para a loja provisória — **valor que tem de mudar antes de ligar o
+  feed**, senão os `<g:link>` das 3.233 ofertas nascem apontando para o `.vercel.app`.
+- **`/produtos/:slug` responde 200 e continua QUEBRADA** (`BUG-20260829`): a Supabase reescreve
+  `text/html` para `text/plain` no domínio compartilhado, e o navegador exibe o código-fonte como
+  texto. Ver `AD-021`.
+- **A prova de que uma rota servida está de pé é o `Content-Type` ENTREGUE, nunca o status.** O
+  `curl -I` que este arquivo prescrevia teria declarado o `BUG-20260829` verde — status 200, corpo
+  certo, entrega inutilizável. Confira o tipo e a presença do JSON-LD no corpo:
+  `curl -sD - -o /dev/null <url> | grep -i content-type`.
+- **O banco local e o hospedado NÃO compartilham identidade.** Mesmo slug, UUID diferente; mesmo
+  `type` de seção, id diferente. Qualquer cópia de dado entre os dois é por **slug/tipo**, jamais por
+  id — e `home_section_items` carrega `image_url` apontando para o Storage **local**, que em produção
+  vira banner quebrado.
+- **`supabase/.temp/project-ref` foi corrigido** para `hgkrsfpupypxtygjgthf` em 2026-08-29 (dizia
+  `zwvrqtjvaltpbevjqzks`, um ref que **nem existe na conta** — link morto). A armadilha continua
+  valendo como regra: confira com `supabase projects list` e re-linke antes de qualquer comando que
+  escreva no hospedado. (O CI não usa este arquivo: ele linka pela **variable**
+  `SUPABASE_PROJECT_REF` do environment `production` — variable e não secret, porque o ref não é
+  segredo e mascará-lo em log só atrapalha quem estiver depurando.)
 - **`AD-017` VENCEU em 2026-08-17.** O `Supabase Deploy` aplicou as 44 migrations no projeto
   hospedado `hgkrsfpupypxtygjgthf` (run do commit `bf2537e`, `Finished supabase db push.`). **A
   permissão de reescrever história de migration acabou ali.** Daqui em diante vale a regra normal, sem

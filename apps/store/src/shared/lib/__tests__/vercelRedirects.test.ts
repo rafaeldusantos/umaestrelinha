@@ -195,7 +195,42 @@ describe('vercel.json — as duas rotas do Google Shopping (feature 30)', () => 
     expect(backlog).toContain(host)
   })
 
+  /**
+   * `BUG-20260829` — a plataforma da Supabase **reescreve `text/html` para `text/plain`** no domínio
+   * compartilhado `*.supabase.co`, e acrescenta `nosniff`. Medido: a `google-feed` define
+   * `text/plain; charset=utf-8` e chega idêntica; a `product-page` define `text/html; charset=utf-8`
+   * e chega `text/plain`. O `Cache-Control` da mesma resposta atravessa intacto — só o `text/html` é
+   * trocado.
+   *
+   * O efeito é a pior forma de quebrar: **HTTP 200, corpo correto, JSON-LD correto**, e o navegador
+   * mostrando o código-fonte como texto. Toda checagem de status code passa.
+   *
+   * Este header é a tentativa de reimpor o tipo na borda da Vercel. **Ele não prova a entrega** — só
+   * um `curl` contra o deploy prova, e por isso a asserção viva mora no arquivo do bug, não aqui. O
+   * que este teste garante é que a linha não seja removida por limpeza sem ninguém ler o bug.
+   */
+  it('reimpõe text/html em /produtos/:slug — a Supabase troca por text/plain (BUG-20260829)', () => {
+    const rota = CONFIG.headers.find((entry) => entry.source === '/produtos/:slug')
+    expect(rota).toBeDefined()
+    expect(rota.headers).toEqual([{ key: 'Content-Type', value: 'text/html; charset=utf-8' }])
+  })
+
+  it('enquanto o override existir, o bug que o explica está registrado', () => {
+    const rota = CONFIG.headers.find((entry) => entry.source === '/produtos/:slug')
+    if (!rota) return
+    const bug = readFileSync(
+      join(ROOT, 'docs/qa/bugs/BUG-20260829-product-page-servida-como-text-plain.md'),
+      'utf8',
+    )
+    expect(bug).toContain('text/plain')
+    expect(bug).toContain('/produtos/:slug')
+  })
+
   it('os headers existentes ficam intactos', () => {
+    // Âncora de contagem: sem ela, uma entrada some por edição e as duas buscas abaixo seguem
+    // achando o que procuram, com o arquivo já pela metade.
+    expect(CONFIG.headers).toHaveLength(3)
+
     const assets = CONFIG.headers.find((entry) => entry.source === '/assets/(.*)')
     expect(assets).toBeDefined()
     expect(assets.headers).toEqual([

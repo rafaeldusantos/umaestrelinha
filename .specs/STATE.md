@@ -414,6 +414,41 @@
   em 2026-08-16 (T0–T25). Falta a implantação: o host das duas rotas no `vercel.json` é marcador
   (`BL-016`, bloqueado por `C-08`).
 
+### AD-021
+- **Decision**: **A prova de que uma rota servida está de pé é o `Content-Type` entregue, nunca o
+  status code.** O ritual de fecho da `30` — *"rodar o `curl -I` das duas é o que fecha"* — é
+  **insuficiente e fica revogado nessa forma**: passa a exigir o tipo entregue e a presença do
+  JSON-LD no corpo. E, enquanto a `product-page` viver em `*.supabase.co`, o `vercel.json` reimpõe
+  `Content-Type: text/html; charset=utf-8` em `/produtos/:slug`.
+- **Reason**: A plataforma da Supabase **reescreve `text/html` para `text/plain`** no domínio
+  compartilhado, e acrescenta `nosniff` — proteção anti-XSS de domínio de terceiros. Medido em
+  2026-08-29 contra o projeto hospedado, com as duas functions irmãs isolando a variável: a
+  `google-feed` define `text/plain; charset=utf-8` e chega **idêntica**; a `product-page` define
+  `text/html; charset=utf-8` e chega **`text/plain`** sem charset. O `Cache-Control` da mesma
+  resposta atravessa intacto — logo os headers da function são respeitados e **só o `text/html` é
+  trocado**. O efeito é a pior forma de quebrar que este projeto já encontrou: **HTTP 200, corpo
+  correto, JSON-LD correto**, e o navegador exibindo o código-fonte como texto. Nenhum teste do
+  repositório podia pegar — todos medem o `Response` que a function **constrói**, e quem reescreve é
+  o gateway; a asserção e a entrega têm donos diferentes, e só a asserção era testada. O `curl -I`
+  prescrito teria declarado verde.
+- **Trade-off**: O override no `vercel.json` **é uma tentativa, não uma garantia**, e está declarado
+  como tal: depende de a Vercel sobrescrever o `Content-Type` de uma resposta proxiada, que não é
+  comportamento documentado. Se funcionar, o catálogo inteiro passa a depender disso — por isso a
+  verificação obrigatória é do tipo entregue, e o guarda `vercelRedirects.test.ts` amarra a linha ao
+  arquivo do bug para que ninguém a remova por limpeza. **Se não funcionar, a saída é mover a
+  injeção para dentro do deploy da Vercel** (`BL-017`), o que resolve de vez três coisas de uma só:
+  o tipo passa a ser nosso, some o `rewrite` para host externo — e com ele a incerteza de cache que
+  a `AD-020` declarou e nunca confirmou —, e o shell deixa de poder envelhecer, porque passa a
+  viajar no mesmo build. O custo dessa saída é real e está medido: `@estrelinha/core` exporta
+  **TypeScript-fonte** (`"./shopping": "./src/shopping/index.ts"`), e nada prova hoje que o builder
+  Node da Vercel resolva isso a partir de um pacote de workspace.
+- **Scope**: `apps/store/vercel.json`, `apps/store/src/shared/lib/__tests__/vercelRedirects.test.ts`,
+  `supabase/functions/product-page/**`, `docs/qa/bugs/BUG-20260829-*.md`
+- **Date**: 2026-08-29
+- **Status**: active — **supera a parte do `AD-020` que assumia que a function podia servir HTML.** O
+  resto do `AD-020` continua valendo: a oferta tem um dono (`@estrelinha/core/shopping`) e as duas
+  serializações partem dele. O que muda é o **transporte**, não o domínio.
+
 ## Handoff
 
 ### ATUAL — 2026-08-29 · `32-rolagem-infinita-da-categoria` **COMMITADA**

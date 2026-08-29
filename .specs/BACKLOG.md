@@ -683,3 +683,39 @@ asserção se aposenta sozinha.
 
 **Irmão da `BL-013`**: as duas são pendências de implantação que só se resolvem quando a
 infraestrutura existir, e as duas têm quadro branco como sintoma.
+
+---
+
+## BL-017 — Mover a injeção do JSON-LD para dentro do deploy da Vercel
+
+- **Status**: aberto, **condicional** · **Registrado em**: 2026-08-29 · **Decisão**:
+  [`AD-021`](./STATE.md) · **Origem**: [`BUG-20260829`](../docs/qa/bugs/BUG-20260829-product-page-servida-como-text-plain.md)
+
+**O que é.** Hoje `/produtos/:slug` é um `rewrite` da Vercel para uma edge function da Supabase, que
+busca o shell da loja por HTTP e injeta o JSON-LD. Este item é a alternativa: a injeção passa a ser
+uma função **dentro do deploy da loja**, e o `rewrite` para host externo desaparece.
+
+**Condicional de propósito.** Só vira trabalho se o override de `Content-Type` no `vercel.json`
+(`AD-021`) **não** funcionar. Medir isso custa um deploy e um `curl`; reescrever custa uma feature.
+Nesta ordem.
+
+**O que ele resolve, e são três coisas de uma vez:**
+
+| Hoje | Depois |
+| --- | --- |
+| A Supabase troca `text/html` por `text/plain` e a página vira texto (`BUG-20260829`) | O tipo é nosso |
+| A `AD-020` declarou não saber se a Vercel cacheia proxy para host externo, e ninguém confirmou | Não há proxy: a função é da própria Vercel |
+| O shell é buscado do deploy vivo, e um shell velho aponta para um `<script>` que já não existe | A função viaja **no mesmo build** do shell — envelhecer deixa de ser possível |
+
+**O custo, medido e não estimado.** `@estrelinha/core` exporta **TypeScript-fonte**
+(`"./shopping": "./src/shopping/index.ts"`, sem build step), e `apps/store` o consome por
+`workspace:*`. **Nada prova hoje que o builder Node da Vercel resolva um pacote de workspace cujo
+`exports` aponta para `.ts`.** É o risco principal do item, e é o que precisa ser provado antes de
+qualquer estimativa — não depois.
+
+**O que NÃO muda.** O dono da oferta continua sendo `@estrelinha/core/shopping`, e as duas
+serializações continuam partindo dele. Muda o **transporte**, não o domínio — `shoppingParity.test.ts`
+segue valendo palavra por palavra.
+
+**O que fecha isto**: `/produtos/:slug` entregando `Content-Type: text/html` com o JSON-LD no corpo,
+verificado no deploy — nunca por status code (`AD-021`).
