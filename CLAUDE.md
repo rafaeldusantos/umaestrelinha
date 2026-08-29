@@ -392,9 +392,14 @@ completo (framework, `installCommand` na raiz do monorepo, headers de cache e de
   `umaestrelinha-store-five.vercel.app` (o painel, em `umaestrelinha-backoffice.vercel.app`).
   `STORE_PUBLIC_URL` aponta para a loja provisória — **valor que tem de mudar antes de ligar o
   feed**, senão os `<g:link>` das 3.233 ofertas nascem apontando para o `.vercel.app`.
-- **`/produtos/:slug` responde 200 e continua QUEBRADA** (`BUG-20260829`): a Supabase reescreve
-  `text/html` para `text/plain` no domínio compartilhado, e o navegador exibe o código-fonte como
-  texto. Ver `AD-021`.
+- **`/produtos/:slug` FUNCIONA** desde 2026-08-29: 200 com `text/html; charset=utf-8` e o JSON-LD no
+  `<head>`, conferido em três produtos. A Supabase reescreve `text/html` para `text/plain` no domínio
+  compartilhado (`BUG-20260829`), e quem desfaz isso é um header no `vercel.json` — **comportamento
+  não documentado da Vercel, do qual o catálogo inteiro agora depende** (`AD-021`).
+- **A Vercel NÃO cacheia `rewrite` para host externo** — 4 batidas, 4 `X-Vercel-Cache: MISS`, ~1s
+  cada, apesar do `s-maxage=300`. Toda visita a produto atravessa a edge function, que busca o shell
+  e consulta o banco. Era a incerteza que a `AD-020` declarou; a condição de revisão que ela mesma
+  escreveu foi atingida, e a saída é a `BL-017`.
 - **A prova de que uma rota servida está de pé é o `Content-Type` ENTREGUE, nunca o status.** O
   `curl -I` que este arquivo prescrevia teria declarado o `BUG-20260829` verde — status 200, corpo
   certo, entrega inutilizável. Confira o tipo e a presença do JSON-LD no corpo:

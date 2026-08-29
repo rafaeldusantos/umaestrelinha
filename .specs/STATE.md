@@ -410,9 +410,14 @@
   `apps/store/{vercel.json,src/pages/ProductPage.tsx,src/entities/product/lib/variantSelection.ts}`,
   `apps/backoffice/src/{pages/admin/AdminGoogleShoppingPage.tsx,features/google-shopping}`
 - **Date**: 2026-08-16
-- **Status**: active — **implementada pela feature [`30-google-shopping`](./features/30-google-shopping/spec.md)**
-  em 2026-08-16 (T0–T25). Falta a implantação: o host das duas rotas no `vercel.json` é marcador
-  (`BL-016`, bloqueado por `C-08`).
+- **Status**: active, **com a incerteza declarada agora RESOLVIDA — e no sentido ruim.** Implementada
+  pela feature [`30-google-shopping`](./features/30-google-shopping/spec.md) em 2026-08-16 (T0–T25);
+  implantada e servindo desde 2026-08-29. A decisão dizia: *"não confirmei que a Vercel cacheia
+  proxy para host externo, e se não cachear a decisão precisa ser revista antes do cutover"*.
+  **Medido em 2026-08-29: não cacheia.** Quatro batidas seguidas na mesma URL, quatro
+  `X-Vercel-Cache: MISS`, ~1s cada, apesar do `s-maxage=300`. A condição que a própria decisão pôs
+  **foi atingida**, e a revisão é a [`BL-017`](./BACKLOG.md). O `AD-021` já substituiu a parte que
+  supunha poder servir HTML de `*.supabase.co`.
 
 ### AD-021
 - **Decision**: **A prova de que uma rota servida está de pé é o `Content-Type` entregue, nunca o
@@ -431,9 +436,10 @@
   repositório podia pegar — todos medem o `Response` que a function **constrói**, e quem reescreve é
   o gateway; a asserção e a entrega têm donos diferentes, e só a asserção era testada. O `curl -I`
   prescrito teria declarado verde.
-- **Trade-off**: O override no `vercel.json` **é uma tentativa, não uma garantia**, e está declarado
-  como tal: depende de a Vercel sobrescrever o `Content-Type` de uma resposta proxiada, que não é
-  comportamento documentado. Se funcionar, o catálogo inteiro passa a depender disso — por isso a
+- **Trade-off**: O override no `vercel.json` era uma tentativa quando esta decisão foi escrita.
+  **Provou-se em produção no mesmo dia**: `/produtos/:slug` devolve `Content-Type: text/html;
+  charset=utf-8` em três produtos conferidos. A Vercel **sobrescreve** o tipo de resposta proxiada.
+  Fica o custo: o catálogo inteiro depende de um comportamento que não é documentado — por isso a
   verificação obrigatória é do tipo entregue, e o guarda `vercelRedirects.test.ts` amarra a linha ao
   arquivo do bug para que ninguém a remova por limpeza. **Se não funcionar, a saída é mover a
   injeção para dentro do deploy da Vercel** (`BL-017`), o que resolve de vez três coisas de uma só:

@@ -6,7 +6,19 @@
 - **Severidade**: **alta** — atinge as 3.233 ofertas do Google Shopping e toda visita humana a
   `/produtos/:slug` depois do cutover
 - **Onde**: `supabase/functions/product-page` + a decisão [`AD-020`](../../../.specs/STATE.md)
-- **Status**: 🔴 **ABERTO** — precisa de decisão de arquitetura, não de conserto de código
+- **Status**: ✅ **CORRIGIDO** em 2026-08-29, no mesmo dia, pelo override de `Content-Type` no
+  `vercel.json` (`AD-021`). **Medido em produção** depois do deploy `dabe2a6`:
+
+  ```
+  HTTP/1.1 200 OK
+  Content-Type: text/html; charset=utf-8      ← era text/plain
+  Content-Security-Policy: frame-ancestors 'self' …
+  Referrer-Policy: strict-origin-when-cross-origin
+  ```
+
+  Conferido em **três** produtos, com corpos de tamanhos diferentes (4816b · 4790b · 5649b — o
+  JSON-LD varia por produto), e o shell servido é o do build novo (`index-DwSK8A-F.js`).
+  **A Vercel sobrescreve sim o `Content-Type` de resposta proxiada.**
 
 ## O sintoma
 
@@ -110,7 +122,30 @@ das duas medições responde, porque a produção nunca rodou a regra nova.
 usá-lo como prova daria a resposta errada. Registrado porque a tentação de confiar nele é grande e
 custaria uma decisão de arquitetura tomada sobre emulador.
 
-**O que fecha**: publicar o `vercel.json` novo e medir `Content-Type` na rota. Um deploy.
+**O que fechou**: publicar o `vercel.json` novo e medir. **O caminho 3 funciona** — ver o Status no
+topo. `vercel dev` teria feito descartá-lo.
+
+## O que a mesma medição descobriu de quebra: o cache não existe
+
+Quatro batidas seguidas na mesma URL, depois do conserto:
+
+```
+batida 1: 1,185s  X-Vercel-Cache: MISS
+batida 2: 1,744s  X-Vercel-Cache: MISS
+batida 3: 0,870s  X-Vercel-Cache: MISS
+batida 4: 1,270s  X-Vercel-Cache: MISS
+```
+
+**A Vercel não cacheia `rewrite` para host externo**, apesar do `s-maxage=300` que a function
+manda. É exatamente a incerteza que a `AD-020` declarou por escrito — *"não confirmei que a Vercel
+cacheia proxy para host externo, e se não cachear a decisão precisa ser revista antes do cutover"* —
+e a condição que ela mesma pôs **foi atingida**.
+
+Consequência real: **toda visita a produto paga ~1s** e atravessa a edge function, que por sua vez
+busca o shell e consulta o banco. Não é só o rastreador do Google. Isso não é regressão deste
+conserto — era assim antes, e só agora foi medido —, mas é o argumento que faltava para a
+[`BL-017`](../../../.specs/BACKLOG.md): uma função **da própria Vercel** é cacheada nativamente, e o
+proxy externo deixa de existir.
 
 ## Estado deixado
 

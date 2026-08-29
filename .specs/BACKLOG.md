@@ -695,16 +695,23 @@ infraestrutura existir, e as duas têm quadro branco como sintoma.
 busca o shell da loja por HTTP e injeta o JSON-LD. Este item é a alternativa: a injeção passa a ser
 uma função **dentro do deploy da loja**, e o `rewrite` para host externo desaparece.
 
-**Condicional de propósito.** Só vira trabalho se o override de `Content-Type` no `vercel.json`
-(`AD-021`) **não** funcionar. Medir isso custa um deploy e um `curl`; reescrever custa uma feature.
-Nesta ordem.
+**Deixou de ser condicional, e a razão MUDOU.** A condição original era o override de
+`Content-Type` falhar. **Ele não falhou** — foi medido em produção em 2026-08-29 e funciona
+(`BUG-20260829`). O que segura este item agora é outra coisa, descoberta na mesma medição: **a
+Vercel não cacheia `rewrite` para host externo.** Quatro batidas seguidas na mesma URL, quatro
+`X-Vercel-Cache: MISS`, ~1s cada, apesar do `s-maxage=300` que a function manda.
+
+Isto **atinge a condição que a `AD-020` pôs por escrito** — *"se não cachear, a decisão precisa ser
+revista antes do cutover"*. Toda visita a produto paga ~1s e atravessa a edge function, que por sua
+vez busca o shell e consulta o banco; não é só o rastreador. Uma função **da própria Vercel** é
+cacheada nativamente.
 
 **O que ele resolve, e são três coisas de uma vez:**
 
 | Hoje | Depois |
 | --- | --- |
-| A Supabase troca `text/html` por `text/plain` e a página vira texto (`BUG-20260829`) | O tipo é nosso |
-| A `AD-020` declarou não saber se a Vercel cacheia proxy para host externo, e ninguém confirmou | Não há proxy: a função é da própria Vercel |
+| A Supabase troca `text/html` por `text/plain` — **já contornado** por um header no `vercel.json`, que é comportamento não documentado do qual o catálogo inteiro passou a depender | O tipo é nosso, sem depender de proxy |
+| **A Vercel NÃO cacheia proxy para host externo — medido**: 4 batidas, 4 `MISS`, ~1s cada. Toda visita a produto atravessa a function | Função da própria Vercel, cacheada nativamente |
 | O shell é buscado do deploy vivo, e um shell velho aponta para um `<script>` que já não existe | A função viaja **no mesmo build** do shell — envelhecer deixa de ser possível |
 
 **O custo — e ele ENCOLHEU quando foi medido.** `@estrelinha/core` exporta **TypeScript-fonte**
