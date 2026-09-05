@@ -194,6 +194,18 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: AC-9 / apps/store/src/pages/__tests__/copyInstitucional.test.tsx:14 (apps/store/src/pages/__tests__)
 - last seen: 2026-08-16T16:22:29Z
 
+### L-031 — Guarda que varre disco e remove comentario precisa normalizar CRLF ANTES: em JavaScript o ponto nao casa \r e o $ sem flag m nao ancora antes dele, entao num checkout Windows o stripper de linha fica inerte e o guarda acusa a prosa que explica o defeito.
+- signal: `gate_fail` · recurrence: 1 feature(s) · scope: `apps/**/__tests__ (guardas que varrem disco)` · harmful: 0
+- features: 37-frete-gratis-configuravel
+- evidence: freeShippingSingleOwner.test.ts:semComentarios (apps/**/__tests__ (guardas que varrem disco))
+- last seen: 2026-09-05T14:17:53Z
+
+### L-032 — Antes de trocar a regra de um valor cobrado, verifique se a funcao que o calcula tem teste: cartStore.shippingCost() era um dos quatro caminhos que zeravam frete e nao tinha nenhum.
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `apps/store/src/entities/cart` · harmful: 0
+- features: 37-frete-gratis-configuravel
+- evidence: apps/store/src/entities/cart/model/cartStore.ts:shippingCost (apps/store/src/entities/cart)
+- last seen: 2026-09-05T14:17:53Z
+
 ## Quarantined (failed when applied — ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.

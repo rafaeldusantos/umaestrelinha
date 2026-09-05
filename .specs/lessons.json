@@ -3,7 +3,7 @@
   "promote_threshold": 2,
   "window_days": 45,
   "quarantine_threshold": 2,
-  "next_id": 31,
+  "next_id": 33,
   "lessons": [
     {
       "id": "L-001",
@@ -544,6 +544,42 @@
       ],
       "created": "2026-08-16T16:22:29Z",
       "last_seen": "2026-08-16T16:22:29Z"
+    },
+    {
+      "id": "L-031",
+      "key": "gate_fail::guarda que varre disco e remove comentario precisa normalizar crlf antes em javascript o ponto nao casa r e o sem flag m nao ancora antes dele entao num checkout windows o stripper de linha fica inerte e o guarda acusa a prosa que explica o defeito",
+      "text": "Guarda que varre disco e remove comentario precisa normalizar CRLF ANTES: em JavaScript o ponto nao casa \\r e o $ sem flag m nao ancora antes dele, entao num checkout Windows o stripper de linha fica inerte e o guarda acusa a prosa que explica o defeito.",
+      "signal": "gate_fail",
+      "scope": "apps/**/__tests__ (guardas que varrem disco)",
+      "status": "candidate",
+      "features": [
+        "37-frete-gratis-configuravel"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "freeShippingSingleOwner.test.ts:semComentarios (apps/**/__tests__ (guardas que varrem disco))"
+      ],
+      "created": "2026-09-05T14:17:53Z",
+      "last_seen": "2026-09-05T14:17:53Z"
+    },
+    {
+      "id": "L-032",
+      "key": "ac_gap::antes de trocar a regra de um valor cobrado verifique se a funcao que o calcula tem teste cartstore shippingcost era um dos quatro caminhos que zeravam frete e nao tinha nenhum",
+      "text": "Antes de trocar a regra de um valor cobrado, verifique se a funcao que o calcula tem teste: cartStore.shippingCost() era um dos quatro caminhos que zeravam frete e nao tinha nenhum.",
+      "signal": "ac_gap",
+      "scope": "apps/store/src/entities/cart",
+      "status": "candidate",
+      "features": [
+        "37-frete-gratis-configuravel"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "apps/store/src/entities/cart/model/cartStore.ts:shippingCost (apps/store/src/entities/cart)"
+      ],
+      "created": "2026-09-05T14:17:53Z",
+      "last_seen": "2026-09-05T14:17:53Z"
     }
   ]
 }

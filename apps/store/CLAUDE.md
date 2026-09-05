@@ -142,6 +142,41 @@ marca. Leia [`../../CLAUDE.md`](../../CLAUDE.md) (regras do repositório) e
   encontrada". A tabela `collections` **nunca existiu em migration nenhuma** (`PGRST205`), o hook
   engolia o erro e a tela mostrava grade vazia para sempre. **Não recriar.**
 
+### A rolagem ao trocar de página — `app/ScrollToTop.tsx`
+
+Numa SPA o documento **não recarrega**: o `pushState` troca o conteúdo e o navegador mantém a posição
+de rolagem em que a pessoa estava. Sem isto, quem clicava num produto no meio de uma categoria longa
+aterrissava no meio da página do produto — sem foto, sem preço, sem nome. É pior no celular, que é
+~90% dos acessos, porque a viewport curta esconde qualquer referência de onde se está.
+
+O componente é montado uma vez em `App.tsx`, **dentro do `BrowserRouter` e fora das `Routes`** — no
+`StoreLayout` ele deixaria o checkout e o 404 de fora, que vivem fora do layout. `useLayoutEffect`,
+não `useEffect`: corrigir depois da pintura é um flash visível justamente no aparelho lento.
+
+**As três coisas que ele NÃO faz são a parte que importa**, porque cada uma seria uma regressão:
+
+- **Botão voltar (`POP`) não rola.** Restaurar a posição de uma entrada de histórico é do navegador
+  (`history.scrollRestoration === 'auto'`), e ele já faz. Rolar aqui devolveria a cliente ao começo da
+  categoria toda vez que ela voltasse de um produto — o gesto exato de quem está garimpando.
+- **Mudança só de query string não rola.** A `SearchPage` reescreve `?q=` a cada tecla
+  (`setParams(..., { replace: true })`), e um pulo por caractere é pior que o defeito original. O
+  gatilho é o **destino** (`pathname` + `hash`), guardado num `ref` — sem ele, o primeiro `replace` da
+  busca troca o `navigationType` de `POP` para `REPLACE`, o efeito reroda e a página salta sem que
+  endereço nenhum tenha mudado.
+- **Âncora de outra página vai até o alvo, não ao topo.** Os `<a href="#...">` do guia de material são
+  do mesmo documento e o navegador os resolve sozinho (âncora não dispara `popstate`, então o router
+  nem enxerga o clique). O caso **sem dono nenhum** é o `Link to="/politicas#trocas"` do rodapé: troca
+  de página, e aí ninguém rola até o fragmento. Com alvo existente vai até ele; **sem alvo, topo**.
+  - **E hoje os três `#` do rodapé não casam com `id` nenhum**: `PoliciesPage` não tem um `id`
+    sequer, então `#trocas`, `#termos` e `#privacidade` caem no topo da política. É melhor que o meio
+    da página, mas continua sendo âncora morta — e `#termos` nem tem seção correspondente, então
+    consertar exige decisão de conteúdo, não `id`.
+
+`scrollToTop.test.tsx` (`app/__tests__`) mede os seis casos navegando de verdade, e carrega a guarda
+de que o componente está **montado** — existir sem ninguém montar passaria em build, `tsc` e em todos
+os outros testes. **jsdom devolve 0 para toda medida de layout e não implementa rolagem**: o que se
+assere é a chamada, nunca a posição. A prova de que a página abre no topo é de navegador, em 390.
+
 ## Sitemap — `/sitemap.xml` (feature `33`, `AD-022`)
 
 **É servido ao vivo por uma edge function** (`supabase/functions/sitemap`), exposta por `rewrite` do
@@ -461,6 +496,46 @@ Quatro faixas de largura cheia, nesta ordem e com estas cores dos artboards: `1 
 - **Preço, desconto e promoção são de `@estrelinha/core`, não daqui.** A loja **exibe**; quem calcula
   é `resolveOrderPricing`, a mesma função que a edge function do Mercado Pago chama. Ver
   [`../../packages/core/CLAUDE.md`](../../packages/core/CLAUDE.md).
+
+## Frete grátis — um interruptor e um dono só (feature `37`)
+
+**A loja não pratica frete grátis por padrão.** `store_settings.shipping.free_shipping_enabled` nasce
+`false`, e ligar é ato explícito da dona em `/admin/configuracoes` → aba Frete. **Isso é passo de
+operação, não detalhe de configuração**: sem ele a loja fica sem frete grátis indefinidamente e
+ninguém é avisado.
+
+- **Ninguém lê `free_shipping_threshold`.** Quem responde "esta loja pratica frete grátis, e falta
+  quanto?" é `freeShippingState` (`@estrelinha/core/shipping`), alcançado pelas telas por
+  **`useFreeShipping(subtotal)`**. `freeShippingSingleOwner.test.ts` derruba a suíte se alguma tela
+  voltar a ler o campo cru — o allowlist tem **dois** arquivos e está escrito literalmente lá.
+- **A invariante que carrega tudo é `active === false ⇒ reached === false`.** As quatro superfícies
+  que zeram frete perguntam "atingiu?"; se `reached` pudesse ser verdadeiro com a funcionalidade
+  desligada, o defeito volta pela porta dos fundos, o texto some da tela e o dinheiro continua saindo.
+- **O que custava dinheiro, e por que nada gritava**: sete superfícies liam o mesmo campo e se
+  dividiam em dois grupos. Com a faixa em zero, três escondiam o texto (`threshold > 0`) e quatro
+  **zeravam o frete** (`subtotal >= threshold`, sempre verdadeiro contra zero). Zerar o campo no
+  painel — o caminho óbvio para desligar — escondia o anúncio e liberava frete grátis para todo
+  mundo no caixa. Build, `tsc` e teste de componente passavam com as duas leituras convivendo.
+- **Cupom `free_shipping` NÃO é governado pelo interruptor** (decisão do usuário). Ele é ato
+  explícito da dona em `/admin/cupons`, vive em `resolveOrderPricing`, e **nenhuma linha de
+  `packages/core/src/payment/**` nem de `supabase/functions/**` foi tocada por esta feature.** Com o
+  interruptor desligado e um cupom aplicado, o frete é zero e nenhuma copy de faixa aparece.
+- **O que some quando desliga**: a segunda linha do item de envio da `TrustBar` vira `para todo o
+  Brasil` (o item **não** some — enviar para o Brasil é verdade dos dois jeitos), o selo da
+  `ProductTrustBadges`, o parágrafo da `PoliciesPage`, o item do `AuthOverlay`, a faixa de progresso
+  **e a `CrossSell`** da gaveta, e a faixa do `OrderSummary` com o sufixo ` · frete grátis` da barra
+  mobile.
+- **`freeShippingProgress` e `FreeShippingBar` foram APAGADOS.** A primeira era a regra escrita uma
+  segunda vez, com o caso de borda invertido; o segundo era um componente **sem consumidor nenhum**
+  que dividia por `threshold` sem guarda. Os dois nomes são recusados pelo guarda.
+- **`cartStore` não pode chamar hook** (zustand, fora do React), então lê `runtimeFreeShippingConfig()`
+  de `@estrelinha/core/constants`, hidratado pelo `RuntimeSettingsLoader` — mas chama a **mesma**
+  `freeShippingState`. `RuntimeSettingsLoader` hidrata os **três** campos juntos: hidratar só a faixa
+  deixaria uma janela com o interruptor velho e a faixa nova.
+- **Guarda de comentário: a régua lê CÓDIGO, não prosa.** `freeShippingSingleOwner` remove comentários
+  antes de varrer, e **normaliza CRLF primeiro** — em JavaScript `.` não casa `\r`, então num
+  checkout Windows o stripper de linha ficava inerte e o guarda acusava o comentário que explica o
+  defeito. O conserto "óbvio" seria apagar o comentário em vez de consertar o código.
 
 ## Menu (consumo)
 

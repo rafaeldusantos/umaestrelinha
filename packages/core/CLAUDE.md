@@ -44,7 +44,8 @@ sem ela a varredura passa com zero arquivo lido, que é a pior falha possível n
 | `./material` | máquina de estado, `requiresMaterial()`, `materialSummary` | loja, painel, RPC (cópia em SQL) |
 | `./shopping` | `ShoppingOffer` e as duas serializações | `google-feed`, `product-page`, loja, painel |
 | `./checkout` | `resolveBlocks`, `isOrderStale` | loja |
-| `./shipping` · `./validators` · `./product` · `./media` · `./auth` | utilitários de domínio | vários |
+| `./shipping` | `freeShippingState` + `freeShippingRefusal` (o frete grátis tem **um** dono), `estimate.ts` | 8 superfícies nos 2 apps |
+| `./validators` · `./product` · `./media` · `./auth` | utilitários de domínio | vários |
 | `./hooks/*` | **exceção declarada** — `useStoreSettings`, `useCoupons` tocam Supabase | os dois apps |
 
 ## Dinheiro — a regra que não muda por acaso
