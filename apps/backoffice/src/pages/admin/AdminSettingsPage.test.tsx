@@ -27,7 +27,8 @@ const state = vi.hoisted(() => {
       email: '', instagram: '', tiktok: '',
     },
     shipping: {
-      free_shipping_threshold: 150, default_shipping_cost: 9.9, origin_zip: '', handling_days: 2,
+      free_shipping_enabled: true, free_shipping_threshold: 150,
+      default_shipping_cost: 9.9, origin_zip: '', handling_days: 2,
     },
     payment: {
       pix_enabled: true, pix_discount_percent: 5, card_enabled: true,
@@ -142,5 +143,128 @@ describe('Configurações › Material (MAT-01)', () => {
     // É a regra que impede material insubstituível de ser postado para um endereço pela metade.
     abrirMaterial()
     expect(screen.getByText(/não mostra endereço nenhum/i)).toBeInTheDocument()
+  })
+})
+
+/**
+ * Feature 37 — a aba **Frete** ganhou interruptor (`FRG-02`, `FRG-12`).
+ *
+ * Antes so existia o campo do valor, e zera-lo era a unica saida aparente para desligar o
+ * beneficio. Nao desligava: tres superficies da loja liam o zero como "nao temos frete gratis" e
+ * escondiam o texto, enquanto quatro faziam `subtotal >= 0` — sempre verdadeiro — e ZERAVAM O
+ * FRETE no caixa.
+ */
+const abrirFrete = () => {
+  render(<AdminSettingsPage />)
+  fireEvent.mouseDown(screen.getByRole('tab', { name: 'Frete' }))
+}
+
+const interruptor = () => screen.getByRole('switch', { name: /Oferecer frete grátis/i })
+const campoValor = () => screen.getByLabelText('Frete grátis a partir de (R$)')
+const salvarFrete = () => fireEvent.click(screen.getAllByRole('button', { name: /Salvar/i })[0])
+
+describe('Configurações › Frete — o interruptor (FRG-02)', () => {
+  it('o interruptor existe e reflete o valor gravado', () => {
+    abrirFrete()
+    expect(interruptor()).toBeChecked()
+  })
+
+  it('nasce DESLIGADO quando o banco diz desligado', () => {
+    state.data = { ...state.montar({ ...DEFAULT_MATERIAL }) }
+    state.data.shipping = { ...state.data.shipping, free_shipping_enabled: false }
+    abrirFrete()
+    expect(interruptor()).not.toBeChecked()
+  })
+
+  it('desligar PRESERVA o valor da faixa, e o campo fica desabilitado exibindo o numero', () => {
+    // Desligar nao apaga a configuracao dela: a Adri precisa ver o numero guardado para decidir se
+    // quer religar com ele.
+    abrirFrete()
+    fireEvent.click(interruptor())
+
+    expect(campoValor()).toBeDisabled()
+    expect(campoValor()).toHaveValue(150)
+  })
+
+  it('desligar e salvar manda `free_shipping_enabled: false` COM o threshold intacto', async () => {
+    abrirFrete()
+    fireEvent.click(interruptor())
+    salvarFrete()
+
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalled())
+    expect(mutateAsync).toHaveBeenCalledWith({
+      key: 'shipping',
+      value: expect.objectContaining({
+        free_shipping_enabled: false,
+        free_shipping_threshold: 150,
+      }),
+    })
+  })
+
+  it('religar e salvar manda `free_shipping_enabled: true`', async () => {
+    state.data = { ...state.montar({ ...DEFAULT_MATERIAL }) }
+    state.data.shipping = { ...state.data.shipping, free_shipping_enabled: false }
+    abrirFrete()
+    fireEvent.click(interruptor())
+    salvarFrete()
+
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalled())
+    expect(mutateAsync).toHaveBeenCalledWith({
+      key: 'shipping',
+      value: expect.objectContaining({ free_shipping_enabled: true }),
+    })
+  })
+})
+
+describe('Configurações › Frete — ligado sem faixa e RECUSADO (FRG-12)', () => {
+  it('ligado com o valor zerado nao chega a escrever no banco', async () => {
+    abrirFrete()
+    fireEvent.change(campoValor(), { target: { value: '0' } })
+    salvarFrete()
+
+    // A prova e a AUSENCIA de escrita, nao o toast: um toast de erro com o upsert acontecendo
+    // atras deixaria o banco com a configuracao impossivel gravada.
+    await waitFor(() => expect(toast).toHaveBeenCalled())
+    expect(mutateAsync).not.toHaveBeenCalled()
+  })
+
+  it('a recusa explica o motivo, sem linguagem festiva', async () => {
+    abrirFrete()
+    fireEvent.change(campoValor(), { target: { value: '0' } })
+    salvarFrete()
+
+    await waitFor(() => expect(toast).toHaveBeenCalled())
+    const chamada = toast.mock.calls[0][0]
+    expect(chamada.variant).toBe('destructive')
+    expect(chamada.description).toMatch(/valor/i)
+    expect(chamada.description).not.toMatch(/🎉|corra|agora/i)
+  })
+
+  it('DESLIGADO com o valor zerado e gravavel — a faixa nao importa quando nao ha faixa', async () => {
+    abrirFrete()
+    fireEvent.click(interruptor())
+    fireEvent.change(campoValor(), { target: { value: '0' } })
+    salvarFrete()
+
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalled())
+    expect(mutateAsync).toHaveBeenCalledWith({
+      key: 'shipping',
+      value: expect.objectContaining({ free_shipping_enabled: false }),
+    })
+  })
+
+  it('ligado com valor valido grava normalmente', async () => {
+    abrirFrete()
+    fireEvent.change(campoValor(), { target: { value: '199.9' } })
+    salvarFrete()
+
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalled())
+    expect(mutateAsync).toHaveBeenCalledWith({
+      key: 'shipping',
+      value: expect.objectContaining({
+        free_shipping_enabled: true,
+        free_shipping_threshold: 199.9,
+      }),
+    })
   })
 })

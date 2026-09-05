@@ -11,6 +11,7 @@ import {
   useStoreSettings,
   useUpdateSettings,
 } from '@estrelinha/core/hooks/useStoreSettings'
+import { freeShippingRefusal } from '@estrelinha/core/shipping'
 import {
   DEFAULT_GENERAL,
   DEFAULT_PAYMENT,
@@ -58,6 +59,25 @@ const AdminSettingsPage = () => {
   }, [data])
 
   const save = async (key: PageSettingsKey) => {
+    /**
+     * `FRG-12` — a aba Frete recusa "ligado, a partir de R$ 0" **antes** de qualquer escrita.
+     *
+     * Sem esta guarda o painel exibiria "frete grátis ligado" enquanto a loja se comporta como
+     * desligada (`freeShippingState` trata faixa ≤ 0 como inativa). Divergência silenciosa entre o
+     * que a dona lê e o que a cliente vive é a família de defeito que a feature 37 existe para
+     * fechar — deixá-la entrar pela porta do editor seria trocar um segundo dono por outro.
+     *
+     * O veredito é `string | null`, e não união discriminada por booleano: com
+     * `strictNullChecks: false` aquela forma não estreita. Mesmo formato de `reservedSlugRefusal`.
+     */
+    if (key === 'shipping') {
+      const motivo = freeShippingRefusal(shipping)
+      if (motivo) {
+        toast({ title: 'Frete grátis sem valor mínimo', description: motivo, variant: 'destructive' })
+        return
+      }
+    }
+
     try {
       const value =
         key === 'general' ? general :
@@ -145,12 +165,40 @@ const AdminSettingsPage = () => {
         {/* FRETE */}
         <TabsContent value="shipping" className="mt-4">
           <FormCard>
+            {/*
+              FRG-02 — o interruptor do frete grátis.
+
+              Antes da feature 37 só existia o campo do valor, e zerá-lo era a única saída aparente
+              para desligar o benefício. Não desligava: três superfícies da loja liam o zero como
+              "não temos frete grátis" e escondiam o texto, enquanto quatro faziam
+              `subtotal >= 0` — sempre verdadeiro — e ZERAVAM O FRETE. Zerar o campo escondia o
+              anúncio e liberava frete grátis para todo mundo no caixa.
+
+              O campo do valor fica DESABILITADO e não escondido: a Adri precisa ver o número que
+              está guardado para decidir se quer religar com ele. Desligar não apaga a configuração.
+            */}
+            <ToggleField
+              label="Oferecer frete grátis"
+              description="Quando desligado, a loja não anuncia frete grátis em nenhuma tela e o frete é cobrado normalmente. Cupons de frete grátis continuam valendo."
+              checked={shipping.free_shipping_enabled}
+              onChange={(v) => setShipping({ ...shipping, free_shipping_enabled: v })}
+            />
             <div className="grid sm:grid-cols-2 gap-4">
-              <FieldGroup label="Frete grátis a partir de (R$)">
+              <FieldGroup
+                label="Frete grátis a partir de (R$)"
+                htmlFor="free-shipping-threshold"
+                hint={
+                  shipping.free_shipping_enabled
+                    ? undefined
+                    : 'Guardado. Volta a valer quando você ligar o frete grátis.'
+                }
+              >
                 <Input
+                  id="free-shipping-threshold"
                   type="number"
                   step="0.01"
                   min={0}
+                  disabled={!shipping.free_shipping_enabled}
                   value={shipping.free_shipping_threshold}
                   onChange={(e) => setShipping({ ...shipping, free_shipping_threshold: Number(e.target.value) || 0 })}
                 />

@@ -29,6 +29,9 @@ export const ToggleField = ({ label, description, checked, onChange }: ToggleFie
       <p className="text-sm font-medium text-foreground">{label}</p>
       {description && <p className="text-xs text-muted-foreground">{description}</p>}
     </div>
-    <Switch checked={checked} onCheckedChange={onChange} />
+    {/* O rótulo é um `<p>`, não um `<Label htmlFor>`, então o switch nascia SEM NOME ACESSÍVEL: um
+        leitor de tela anunciava "interruptor, ligado" e nada mais, em todos os toggles do painel.
+        `aria-label` é o mínimo que dá nome ao controle sem mexer no desenho. */}
+    <Switch aria-label={label} checked={checked} onCheckedChange={onChange} />
   </div>
 )
