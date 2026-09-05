@@ -606,6 +606,47 @@
 - **Date**: 2026-09-05
 - **Status**: active
 
+### AD-028
+- **Decision**: **O menu da loja passa a ser inteiramente configurável, curado POR DISPOSITIVO, e
+  sem nenhum item escrito no código.** Quatro partes: (1) `categories.show_in_menu` vira
+  `menu_desktop` + `menu_mobile`, e `show_in_menu` volta como **coluna gerada**
+  (`menu_desktop or menu_mobile`) que nenhuma tela pode ler; (2) o **papel** de cada categoria —
+  entrada da barra ou item do painel — é **derivado da árvore** (filha marcada de pai marcado é item
+  de painel), nunca gravado; (3) o menu ganha **item de link** (rótulo + destino + ícone, sem
+  painel), guardado em `store_settings.menu_links`, e as entradas fixas do JSX (`Header`,
+  `MobileMenu`, `FIXED_ENTRIES`) **deixam de existir**; (4) `menu_promo` vira **`menu_banners`**: até
+  dois banners por entrada **por dispositivo**, com arte própria por dispositivo e destino de
+  categoria, produto ou endereço digitado. Saem: `MENU_SLOT_LIMIT`/`menuSlotRefusal` (**não há teto
+  de itens**), a faixa "Em destaque" de 3 produtos automáticos, e `MenuBarPreview.tsx`.
+  Implementação: feature `39`.
+- **Reason**: a curadoria de hoje é um booleano só, que liga nos dois dispositivos ao mesmo tempo; o
+  painel despeja **todas** as filhas ativas (com 12 filhas é ilegível); e três itens do menu estão em
+  JSX — um deles, o `/crie-seu-botton` que o painel promete em `FIXED_ENTRIES`, **não é rota
+  declarada** e cairia em 404. Derivar o papel em vez de gravá-lo é a regra 2 do "defeito 01": a
+  árvore já responde "quem é pai de quem", e um `menu_role` dessincronizaria no primeiro "mover
+  categoria". Gerar `show_in_menu` em vez de apagá-la é o que impede a loja publicada de quebrar na
+  janela entre o `db push` e o deploy da Vercel, que rodam em paralelo — e, sendo gerada, ela não
+  pode divergir.
+- **Trade-off**: três custos aceitos, e o primeiro é o maior. (a) **Relaxa a `AD-014` no ponto em que
+  ela era mais rígida** — "o card aponta para uma coleção de verdade, nunca para uma URL digitada".
+  Foi decisão do usuário com o custo na mesa (`.specs/features/39-menu-configuravel/context.md` Q3):
+  endereço digitado reabre a porta do link com typo, num lugar visível. A contenção é validar na
+  gravação contra `ROUTE_SLUGS` (interno) e exigir `https://` + `rel="noopener noreferrer"`
+  (externo), com **um** validador servindo link e banner; **não há como impedir que uma URL certa
+  hoje vire 404 amanhã**, e isso fica como limitação, não como dívida. (b) **Sem teto**, a barra do
+  desktop pode não caber: a resposta é **rolar na horizontal** dentro da faixa (nunca `flex-wrap`,
+  que esconderia o estouro; nunca no `body`), e quem mostra isso é a prévia. (c) A biblioteca de
+  ícones **muda de casa** para `@estrelinha/ui/icons` (30 arquivos movidos, 15 imports da loja
+  trocados), porque o seletor do painel precisa desenhar o mesmo glifo que a loja e
+  `apps/backoffice` não importa de `apps/store`. Some ainda a faixa "Em destaque" — uma superfície
+  da loja, com a contagem de testes dela.
+- **Scope**: `packages/core/src/menu/**`, `packages/ui/src/icons/**`,
+  `packages/supabase/src/types/**`, `public.categories`, `store_settings.menu_links`,
+  `apps/backoffice/src/{pages/admin/AdminMenuPage.tsx,features/store-menu/**}`,
+  `apps/store/src/{entities/category/**,widgets/header/**,widgets/mobile-menu/**,shared/ui/icons/**}`
+- **Date**: 2026-09-05
+- **Status**: active
+
 ## Handoff
 
 ### ATUAL — 2026-09-05 · `37-frete-gratis-configuravel` **IMPLEMENTADA**
