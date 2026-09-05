@@ -1,3 +1,13 @@
+/**
+ * O caminho é **relativo e com `.ts` explícito**, e isso é carregável, não cosmético (feature 33).
+ *
+ * O Deno das edge functions resolve o grafo de **tipos** junto, e um especificador nu
+ * (`@estrelinha/core/menu`) derruba o worker com `Failed resolving types` antes da primeira linha
+ * rodar. `index.ts` deste mesmo diretório já importa `MenuPromo` e `MenuBanners` assim.
+ */
+export type { MenuLink } from '../../../core/src/menu/menu.ts'
+import type { MenuLink } from '../../../core/src/menu/menu.ts'
+
 export interface GeneralSettings {
   store_name: string
   whatsapp: string
@@ -245,6 +255,39 @@ export const DEFAULT_GOOGLE_SHOPPING: GoogleShoppingSettings = {
   last_fetched_at: null,
 }
 
+/**
+ * Os itens de **link** do menu (feature 39, `NAV-08`).
+ *
+ * **Por que aqui, e não em `categories`.** Link não é conjunto de produtos: não tem página de
+ * categoria, não tem filha e não tem produto. Pela `AD-014` — "conjunto de produtos é categoria; o
+ * menu é um recorte dela" — ele não pode entrar naquela tabela sem virar categoria fantasma, com
+ * slug reservado, contagem zero e uma página que não deve existir. E uma tabela própria para 1–3
+ * linhas custaria RLS, policies, migrations e um CRUD inteiro para guardar o que cabe num jsonb ao
+ * lado das outras chaves de configuração da loja.
+ *
+ * **A forma de `MenuLink` mora em `@estrelinha/core/menu`**, não aqui — mesma inversão de
+ * `MenuPromo` e `MenuBanner` (feature 33): quem usa o tipo é a regra, que roda em Node, em Deno e no
+ * browser; este arquivo só descreve o que está gravado na linha.
+ */
+export interface MenuSettings {
+  links: MenuLink[]
+}
+
+/**
+ * O default de `store_settings.menu`.
+ *
+ * **Vazio, e não com o "Sobre" dentro.** A migration `20260905130000_39-menu-configuravel.sql`
+ * **semeia** o "Sobre" com `on conflict (key) do nothing`, porque hoje ele está escrito no JSX do
+ * `Header` e a tarefa que o tira de lá o faria sumir da loja. Repetir a semente aqui daria dois
+ * donos ao conteúdo inicial: a Adri apaga o link no painel, a linha do banco fica com `links: []`, e
+ * o "Sobre" **reapareceria** em toda tela que caísse no default antes de a linha chegar — um item de
+ * menu ressuscitando sozinho, sem nada quebrar.
+ *
+ * O default responde outra pergunta: "e enquanto a linha não chega?". A resposta certa para isso é
+ * **nenhum link**, nunca um link inventado.
+ */
+export const DEFAULT_MENU: MenuSettings = { links: [] }
+
 export type SettingsKey =
   | 'general'
   | 'shipping'
@@ -254,6 +297,7 @@ export type SettingsKey =
   | 'checkout'
   | 'material'
   | 'google_shopping'
+  | 'menu'
 
 export interface SettingsMap {
   general: GeneralSettings
@@ -264,4 +308,5 @@ export interface SettingsMap {
   checkout: CheckoutSettings
   material: MaterialSettings
   google_shopping: GoogleShoppingSettings
+  menu: MenuSettings
 }

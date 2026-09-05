@@ -19,8 +19,15 @@ const category = (over: Partial<DbCategory> = {}): DbCategory => ({
   active: true,
   sort_order: 0,
   parent_id: null,
+  // Feature 39 — a curadoria do menu virou duas booleanas por superfície, e `show_in_menu` passou a
+  // ser DERIVADA delas no banco. A fixture escreve as três porque o tipo descreve a **linha**, e a
+  // linha traz a derivada junto; nenhuma tela grava `show_in_menu` (o banco recusa: `428C9`).
+  menu_desktop: false,
+  menu_mobile: false,
   show_in_menu: false,
   menu_promo: null,
+  menu_banners: null,
+  icon: null,
   ...over,
 })
 

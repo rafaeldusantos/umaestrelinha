@@ -25,6 +25,22 @@ export type { MenuPromo } from '../../../core/src/menu/menu.ts'
 import type { MenuPromo } from '../../../core/src/menu/menu.ts'
 
 /**
+ * Os banners do painel do menu, como gravados em `categories.menu_banners` (jsonb) — feature 39.
+ *
+ * **Mesma inversão do `MenuPromo` acima, e pelo mesmo motivo**: a declaração mora em
+ * `@estrelinha/core/menu` (`banners.ts`) e é só reexportada daqui. Quem **usa** a forma é a regra
+ * (`resolveMenuBanners`), que roda em Node, em Deno e no browser; este pacote apenas descreve a
+ * coluna. Declarar aqui e importar de lá tornaria `core/menu` inalcançável pelo Deno, que resolve o
+ * grafo de tipos junto e derruba o worker com `Failed resolving types`.
+ *
+ * Substituem `MenuPromo`, que continua exportado logo acima **de propósito**: a coluna `menu_promo`
+ * não foi apagada (o painel publicado a grava durante a janela entre o `db push` e o deploy da
+ * Vercel), e o painel desta feature ainda a importa até a fase que o reescreve.
+ */
+export type { MenuBanner, MenuBanners } from '../../../core/src/menu/banners.ts'
+import type { MenuBanners } from '../../../core/src/menu/banners.ts'
+
+/**
  * `show_in_menu` e `menu_promo` nasceram na migration `20260803120000_16-store-menu.sql`, e a
  * gravação das duas foi **provada por probe HTTP** antes desta linha existir (`AD-012`): `PATCH` com
  * `Prefer: return=representation` devolvendo os valores persistidos, não `PGRST204`.
@@ -44,9 +60,70 @@ export interface DbCategory {
   active: boolean
   sort_order: number
   parent_id: string | null
-  /** Ocupa uma das 4 vagas da barra do topo da loja. Vale em qualquer profundidade da árvore. */
+  /**
+   * A categoria aparece no menu do **computador** (feature 39).
+   *
+   * Vale em qualquer profundidade da árvore, e o **papel não mora aqui**: marcada com o pai também
+   * marcado na mesma superfície, ela é item do painel do pai; marcada com o pai fora, é entrada da
+   * barra. Quem deriva isso é `menuItems`, em `@estrelinha/core/menu` — uma coluna de papel seria um
+   * segundo dono de algo que a árvore já responde, e dessincronizaria no primeiro "mover categoria".
+   *
+   * **Provada por probe HTTP antes desta linha existir** (`AD-012`, `validation.md` § Probes):
+   * `PATCH` com `Prefer: return=representation` devolvendo `HTTP 200` com o valor persistido.
+   */
+  menu_desktop: boolean
+  /**
+   * A categoria aparece no menu do **celular** (feature 39).
+   *
+   * Independente de `menu_desktop` de propósito: ~90% dos acessos da loja vêm daqui, e o que cabe na
+   * gaveta não é o que cabe na barra do topo. Duas booleanas explícitas, e não "a lista vazia" nem
+   * campo dentro de blob — é `AD-027` aplicado.
+   */
+  menu_mobile: boolean
+  /**
+   * **DERIVADA** (`menu_desktop or menu_mobile`) desde a feature 39 — o banco **recusa** escrita
+   * nela com `428C9 · column "show_in_menu" can only be updated to DEFAULT`, medido no probe.
+   *
+   * Ela sobrevive por uma razão só: o JS **publicado** da loja continua lendo esta coluna durante a
+   * janela entre o `db push` e o deploy da Vercel, que rodam em paralelo — e derivada ela continua
+   * respondendo a verdade ("esta categoria está em alguma superfície?"). **Nenhuma tela nova deve
+   * lê-la**: quem decide o menu é `menuItems`.
+   */
   show_in_menu: boolean
+  /**
+   * **LEGADO** — o card da feature 16, substituído por `menu_banners` na 39.
+   *
+   * Preservada de propósito, no molde de `shipping.origin_zip`: apagar a coluna faria o painel
+   * publicado morrer com `PGRST204` em toda gravação de categoria durante a mesma janela de deploy.
+   * Nenhuma tela pode voltar a lê-la.
+   */
   menu_promo: MenuPromo | null
+  /**
+   * Os banners do painel do menu (feature 39): até 2 por superfície, com destino, textos e arte.
+   *
+   * O destino mora dentro do jsonb, onde **não cabe FK** — apagar a categoria ou o produto de
+   * destino não dispara `on delete set null`. Por isso quem lê **resolve em runtime**
+   * (`resolveMenuBanners`), e o que não resolve não renderiza. Mesma regra que o `menu_promo`
+   * carregava, com o alcance maior.
+   *
+   * **Provada por probe HTTP** antes desta linha: o jsonb volta do `PATCH` na forma exata que
+   * `menuBannerSlots` lê (`{ desktop: [], mobile: [] }`).
+   */
+  menu_banners: MenuBanners | null
+  /**
+   * A chave do ícone desta categoria no menu (`MENU_ICON_KEYS`, em `@estrelinha/core/menu`).
+   *
+   * **Coluna reusada, não coluna nova.** Ela existe desde a migration inicial, guardava emoji do
+   * catálogo anterior e não era lida por tela nenhuma; a migration da 39 zerou o que não casa com
+   * `^[a-z][a-z0-9-]*$`. Uma `menu_icon` ao lado dela seria um segundo dono de "o ícone desta
+   * categoria".
+   *
+   * Não há `check` em SQL de propósito: copiar o catálogo para o banco daria duas listas, e a de SQL
+   * ficaria para trás na primeira chave nova. Valor fora do catálogo degrada para "sem ícone"
+   * (`menuIconKey` devolve `null`), que é a resposta certa para um ícone — não é dinheiro nem
+   * segurança.
+   */
+  icon: string | null
   /**
    * A taxonomia do Google herdada pelos produtos desta categoria (feature 30, `GSH-23`).
    *

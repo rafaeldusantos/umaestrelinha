@@ -9,6 +9,7 @@ import {
   DEFAULT_CHECKOUT,
   DEFAULT_GOOGLE_SHOPPING,
   DEFAULT_MATERIAL,
+  DEFAULT_MENU,
   type GeneralSettings,
   type ShippingSettings,
   type PaymentSettings,
@@ -32,6 +33,10 @@ const DEFAULTS: SettingsMap = {
   checkout: DEFAULT_CHECKOUT,
   material: DEFAULT_MATERIAL,
   google_shopping: DEFAULT_GOOGLE_SHOPPING,
+  // Feature 39 — os itens de link do menu. A loja passa a ler esta chave **sem consulta nova**:
+  // ela já vem no mesmo `select` das outras sete, e é isso que permite fundir categorias e links
+  // no header sem custo de rede.
+  menu: DEFAULT_MENU,
 }
 
 async function fetchAllSettings(): Promise<SettingsMap> {

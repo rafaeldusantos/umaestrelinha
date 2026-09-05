@@ -21,8 +21,13 @@ const category = (id: string, name: string, parent_id: string | null = null): Db
   active: true,
   sort_order: 0,
   parent_id,
+  // Feature 39 — as duas booleanas por superfície e a derivada. Ver `CategoryFormDialog.test.tsx`.
+  menu_desktop: false,
+  menu_mobile: false,
   show_in_menu: false,
   menu_promo: null,
+  menu_banners: null,
+  icon: null,
 })
 
 const CATEGORIES = [
