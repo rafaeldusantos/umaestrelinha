@@ -14,6 +14,10 @@ const RuntimeSettingsLoader = () => {
   useEffect(() => {
     if (!data) return
     setRuntimeShippingSettings({
+      // `free_shipping_enabled` junto dos outros dois, e não depois: o `cartStore` decide frete pelo
+      // par (interruptor, faixa), e hidratar só a faixa deixaria uma janela em que ele enxerga a
+      // faixa nova com o interruptor velho — frete zerado numa loja que já desligou o benefício.
+      free_shipping_enabled: data.shipping.free_shipping_enabled,
       free_shipping_threshold: data.shipping.free_shipping_threshold,
       default_shipping_cost: data.shipping.default_shipping_cost,
     })

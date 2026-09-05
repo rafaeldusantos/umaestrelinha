@@ -1,0 +1,54 @@
+-- =====================================================================
+-- 37 · store_settings.shipping ganha `free_shipping_enabled` (FRG-01, FRG-10)
+--
+-- O QUE ESTAVA ERRADO ANTES DESTA MIGRATION
+--
+-- A loja anunciava e concedia frete gratis sempre, e nao havia interruptor. O
+-- caminho obvio -- zerar `free_shipping_threshold` -- era pior que nao ter
+-- saida, porque o valor 0 significava COISAS OPOSTAS em arquivos diferentes:
+-- tres superficies liam `threshold > 0` e escondiam o texto, e quatro faziam
+-- `subtotal >= threshold`, que com 0 e sempre verdadeiro e ZERAVA O FRETE.
+-- Zerar o campo escondia o anuncio e liberava frete gratis para todo mundo no
+-- caixa, sem nada em tela dizendo por que.
+--
+-- Este campo e o interruptor explicito. Quem responde "esta ligado, e falta
+-- quanto?" passa a ser `freeShippingState` em `@estrelinha/core/shipping`, dono
+-- unico, e `freeShippingSingleOwner.test.ts` derruba a suite se alguma tela
+-- voltar a ler os campos crus.
+--
+-- POR QUE NASCE `false`
+--
+-- Decisao do usuario (`.specs/features/37-*/context.md`, Q1). O custo e visivel
+-- em producao: no deploy a loja PARA de anunciar e de conceder frete gratis ate
+-- a Adri ligar em /admin/configuracoes -> aba Frete. A alternativa (nascer
+-- `true`, preservando o comportamento de hoje) foi oferecida e recusada. Mesmo
+-- molde do `google_shopping.enabled`, que tambem exige ato explicito da dona.
+--
+-- POR QUE MIGRATION NOVA, E NAO EDICAO DAS EXISTENTES
+--
+-- `AD-017` venceu em 2026-08-17, quando as 44 migrations foram aplicadas ao
+-- projeto hospedado `hgkrsfpupypxtygjgthf`. Migration aplicada e imutavel:
+-- reescrever um arquivo que ja passou faz o banco local e o hospedado
+-- divergirem em silencio, porque o `db push` so olha o que falta, nunca o que
+-- mudou no que ja passou.
+--
+-- IDEMPOTENTE POR CONSTRUCAO -- molde de 20260727120200_store_settings_checkout,
+-- que acrescentou `handling_days` do mesmo jeito:
+--   · `||` e ADITIVO: preserva free_shipping_threshold, default_shipping_cost,
+--     origin_zip e handling_days na mesma linha;
+--   · `NOT value ? 'free_shipping_enabled'` faz a segunda execucao afetar 0
+--     linhas e nem disparar o trigger de updated_at. Isso importa mais aqui do
+--     que importou para `handling_days`: sem essa guarda, todo `db push` futuro
+--     DESLIGARIA o frete gratis que a Adri tivesse ligado.
+--
+-- O default do TypeScript (`DEFAULT_SHIPPING.free_shipping_enabled`) tem de
+-- dizer o MESMO que a linha abaixo. Divergir nao quebra build, tipo nem teste de
+-- componente -- a loja so mostraria um estado antes de a linha chegar do banco e
+-- outro depois. `storeSettingsDefaults.test.ts` le ESTE arquivo do disco e
+-- compara.
+-- =====================================================================
+
+UPDATE public.store_settings
+   SET value = value || jsonb_build_object('free_shipping_enabled', false)
+ WHERE key = 'shipping'
+   AND NOT value ? 'free_shipping_enabled';

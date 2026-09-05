@@ -8,6 +8,21 @@ export interface GeneralSettings {
 }
 
 export interface ShippingSettings {
+  /**
+   * A loja pratica frete grátis por valor de compra? (`FRG-01`)
+   *
+   * **É booleano próprio, e não `free_shipping_threshold > 0`.** A regra do `CLAUDE.md` contra
+   * coluna derivável não alcança este caso: reusar o número como interruptor faria a dona **perder
+   * o valor configurado** ao desligar — ela desliga em março e em maio precisa lembrar que era 150.
+   * O precedente dentro deste mesmo objeto é unânime: `pix_enabled`+`pix_discount_percent`,
+   * `card_enabled`+`max_installments`, `order_bump_enabled`+`order_bump_product_id`,
+   * `google_shopping.enabled` — interruptor explícito ao lado do parâmetro.
+   *
+   * Quem responde "está ligado, e falta quanto?" é `freeShippingState` de
+   * `@estrelinha/core/shipping`, e **nenhuma tela lê os dois campos por conta própria** —
+   * `freeShippingSingleOwner.test.ts` derruba a suíte se alguma voltar a ler.
+   */
+  free_shipping_enabled: boolean
   free_shipping_threshold: number
   default_shipping_cost: number
   origin_zip: string
@@ -82,7 +97,25 @@ export const DEFAULT_GENERAL: GeneralSettings = {
   tiktok: '',
 }
 
+/**
+ * **`free_shipping_enabled` nasce `false`, e isso é decisão do usuário, não conservadorismo.**
+ *
+ * O custo é visível em produção: no primeiro deploy desta feature a loja **para** de anunciar e de
+ * conceder frete grátis, até a Adri ligar em `/admin/configuracoes` → aba Frete. A alternativa
+ * (nascer `true`, preservando o comportamento de hoje) foi oferecida e recusada — mesmo molde do
+ * `google_shopping.enabled`, que também exige ato explícito da dona.
+ *
+ * Ele é lido pela migration `20260905120000_37-frete-gratis-configuravel.sql`, que o acrescenta à
+ * chave `shipping` sem tocar nos outros campos. `storeSettingsDefaults.test.ts` lê esse `.sql` do
+ * disco e compara: divergir não quebra build, tipo nem teste de componente — a loja só mostraria um
+ * estado antes de a linha chegar do banco e outro depois, e o estado em questão é "esta loja dá
+ * frete grátis?".
+ *
+ * `free_shipping_threshold` continua **150** e é preservado quando o interruptor desliga: o número é
+ * a configuração dela, não um efeito colateral do estado ligado.
+ */
 export const DEFAULT_SHIPPING: ShippingSettings = {
+  free_shipping_enabled: false,
   free_shipping_threshold: 150,
   default_shipping_cost: 9.9,
   origin_zip: '',

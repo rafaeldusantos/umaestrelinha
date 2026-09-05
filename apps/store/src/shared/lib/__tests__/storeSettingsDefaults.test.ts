@@ -73,6 +73,34 @@ const SQL_GOOGLE = readFileSync(
 )
 const googleSql = bloco(SQL_GOOGLE, 'google_shopping')
 
+/**
+ * `FRG-11` — a chave `shipping` ganhou `free_shipping_enabled` na feature 37, e o campo **não** está
+ * nas duas migrations originais: ele mora na sua própria, no molde **aditivo** de `handling_days`
+ * (`AD-017` venceu, então correção vem em migration nova, nunca em edição de arquivo já aplicado).
+ *
+ * O parser `bloco` acima não serve aqui, e a diferença não é cosmética: aquele lê um **INSERT**
+ * (`('chave', jsonb_build_object(…))`), e este arquivo escreve um **UPDATE**
+ * (`SET value = value || jsonb_build_object(…)`). Reusar `bloco` devolveria `{}` e o teste passaria
+ * comparando vazio com vazio — a pior falha possível num teste que lê disco.
+ */
+const SQL_FRETE_GRATIS = readFileSync(
+  `${MIGRATIONS}/20260905120000_37-frete-gratis-configuravel.sql`,
+  'utf8',
+)
+
+/** Extrai o literal de `jsonb_build_object('<campo>', <literal>)` de um UPDATE aditivo. */
+function campoAditivo(fonte: string, campo: string): string | number | boolean | undefined {
+  const re = new RegExp(
+    `jsonb_build_object\\(\\s*'${campo}',\\s*(?:'((?:[^']|'')*)'|(-?\\d+(?:\\.\\d+)?)|(true|false))\\s*\\)`,
+  )
+  const m = re.exec(fonte)
+  if (!m) return undefined
+  const [, texto, numero, booleano] = m
+  if (texto !== undefined) return texto.replace(/''/g, "'")
+  if (numero !== undefined) return Number(numero)
+  return booleano === 'true'
+}
+
 describe('defaults de store_settings — âncoras', () => {
   it('leu as duas migrations do disco', () => {
     // Sem esta âncora, um caminho errado faz o parser devolver `{}` para tudo,
@@ -184,5 +212,46 @@ describe('defaults de store_settings — tom do negócio', () => {
     // porque a classe casaria as METADES do par, não o emoji.
     expect(DEFAULT_GENERAL.whatsapp_message).not.toMatch(/🎉|🥳|✨|💖|drop|pin|botton/i)
     expect(DEFAULT_GENERAL.whatsapp_message.length).toBeGreaterThan(10)
+  })
+})
+
+describe('free_shipping_enabled — o interruptor diz o mesmo nos dois lados (FRG-11)', () => {
+  it('leu a migration da 37 do disco', () => {
+    // Âncora: sem ela, um caminho errado faria `campoAditivo` devolver `undefined` para tudo, e as
+    // comparações abaixo passariam a comparar indefinido com indefinido.
+    expect(SQL_FRETE_GRATIS).toContain('store_settings')
+    expect(SQL_FRETE_GRATIS).toContain('jsonb_build_object')
+  })
+
+  it('o parser DISCRIMINA — campo ausente devolve undefined', () => {
+    // Sensor embutido. Sem ele, um `campoAditivo` que devolvesse sempre `false` faria a asserção
+    // seguinte passar por acidente, e o teste inteiro viraria decoração.
+    expect(campoAditivo(SQL_FRETE_GRATIS, 'campo_que_nao_existe')).toBeUndefined()
+    expect(campoAditivo(SQL_FRETE_GRATIS, 'free_shipping_enabled')).toBeDefined()
+  })
+
+  it('nasce DESLIGADO no SQL e no TypeScript', () => {
+    // Decisão do usuário: o interruptor exige ato explícito da dona. Trocar um dos dois lados para
+    // `true` reprova aqui — que é o ponto, porque divergir não quebraria mais nada.
+    expect(DEFAULT_SHIPPING.free_shipping_enabled).toBe(false)
+    expect(campoAditivo(SQL_FRETE_GRATIS, 'free_shipping_enabled')).toBe(false)
+    expect(campoAditivo(SQL_FRETE_GRATIS, 'free_shipping_enabled')).toBe(
+      DEFAULT_SHIPPING.free_shipping_enabled,
+    )
+  })
+
+  it('a migration é ADITIVA — não apaga os outros campos da chave `shipping`', () => {
+    // `SET value = jsonb_build_object(…)` sem o `value ||` trocaria a linha inteira, apagando
+    // free_shipping_threshold, default_shipping_cost, origin_zip e handling_days de uma vez.
+    expect(SQL_FRETE_GRATIS).toMatch(/SET\s+value\s*=\s*value\s*\|\|\s*jsonb_build_object/i)
+  })
+
+  it('a migration é IDEMPOTENTE — a segunda execução não desliga o que a dona ligou', () => {
+    // Sem esta guarda, todo `db push` futuro sobrescreveria a escolha da Adri com `false`.
+    expect(SQL_FRETE_GRATIS).toMatch(/NOT\s+value\s*\?\s*'free_shipping_enabled'/i)
+  })
+
+  it('a migration alcança a chave `shipping`, e só ela', () => {
+    expect(SQL_FRETE_GRATIS).toMatch(/WHERE\s+key\s*=\s*'shipping'/i)
   })
 })
