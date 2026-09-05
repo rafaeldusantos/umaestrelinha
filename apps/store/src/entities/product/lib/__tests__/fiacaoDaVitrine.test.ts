@@ -67,9 +67,11 @@ const semComentarios = (fonte: string): string =>
 
 const CATEGORY_PAGE = 'pages/CategoryPage.tsx'
 const USE_PRODUCT = 'entities/product/api/useProduct.ts'
+const GALLERY = 'entities/product/ui/ProductGallery.tsx'
 
 const categoria = semComentarios(ler(CATEGORY_PAGE))
 const useProduct = semComentarios(ler(USE_PRODUCT))
+const galeria = semComentarios(ler(GALLERY))
 
 describe('a varredura leu os arquivos que diz ler', () => {
   it('a CategoryPage foi lida e tem corpo', () => {
@@ -182,5 +184,68 @@ describe('o removedor de comentário não engole URL', () => {
   it('funciona com CRLF e com LF', () => {
     expect(semComentarios('const a = 1 // nota\r\nconst b = 2')).toContain('const b = 2')
     expect(semComentarios('const a = 1 // nota\nconst b = 2')).toContain('const b = 2')
+  })
+})
+
+/**
+ * **O `sizes` do palco tem UM dono, e é `GALLERY_STAGE_SIZES`** — `PRF-06` AC 5.
+ *
+ * Terceira lacuna da mesma família, achada na iteração 3 da verificação: trocar
+ * `sizes={GALLERY_STAGE_SIZES}` pelo literal **idêntico** em `ProductGallery.tsx` não derruba um
+ * único teste. Hoje não muda comportamento nenhum — é um mutante equivalente —, e é exatamente por
+ * isso que ele é perigoso: **nada amarra a galeria à constante**.
+ *
+ * O estrago vem depois. A edge function `product-page` injeta
+ * `<link rel="preload" imagesizes="…">` a partir de `GALLERY_STAGE_SIZES`. Com a galeria presa a um
+ * literal, mudar a constante move o `preload` e **não** move a galeria — e aí o navegador escolhe um
+ * candidato do `srcset` para o preload e **outro** para o `<img>`, e baixa as **duas** fotos. É
+ * pior que não ter preload, e é o defeito que o comentário de produção do próprio arquivo avisa.
+ *
+ * O teste da edge function chamado *"o `imagesizes` é o MESMO `sizes` que a galeria declara — um
+ * dono só"* **nunca lê a galeria**: ele usa a constante como régua de si mesma. Este guarda é a
+ * ponta que faltava.
+ *
+ * `renditionSingleOwner.test.ts` não cobre isto: o escopo dele é a construção de **URL**
+ * (`render/image`, `width=`, `quality=`), nunca o `sizes`.
+ */
+describe('o `sizes` do palco vem da constante, não de um literal (PRF-06 AC 5)', () => {
+  it('a galeria importa `GALLERY_STAGE_SIZES`', () => {
+    expect(galeria).toMatch(/import\s*\{[^}]*\bGALLERY_STAGE_SIZES\b[^}]*\}\s*from/)
+  })
+
+  it('e o `sizes` do palco É a constante — nunca uma string literal', () => {
+    expect(galeria).toMatch(/sizes=\{\s*GALLERY_STAGE_SIZES\s*\}/)
+  })
+
+  it('nenhum `sizes` do palco é literal com media query — o literal é o defeito', () => {
+    // As vagas de tamanho fixo (miniatura, amostra) podem ser literais: elas não têm par do outro
+    // lado. O que não pode ser literal é o `sizes` que a edge function espelha.
+    const literaisComMediaQuery = [...galeria.matchAll(/sizes="([^"]*min-width[^"]*)"/g)]
+    expect(literaisComMediaQuery.map((m) => m[1])).toEqual([])
+  })
+
+  describe('sensores — a régua reprova a troca que a verificação fez', () => {
+    const DONO = /sizes=\{\s*GALLERY_STAGE_SIZES\s*\}/
+    const LITERAL_COM_MQ = /sizes="([^"]*min-width[^"]*)"/
+
+    it('o literal idêntico à constante é REPROVADO', () => {
+      const mutado = 'sizes="(min-width: 768px) 50vw, 100vw"'
+      expect(mutado).not.toMatch(DONO)
+      expect(mutado).toMatch(LITERAL_COM_MQ)
+    })
+
+    it('a constante PASSA', () => {
+      expect('sizes={GALLERY_STAGE_SIZES}').toMatch(DONO)
+      expect('sizes={GALLERY_STAGE_SIZES}').not.toMatch(LITERAL_COM_MQ)
+    })
+
+    it('a régua tolera espaço dentro das chaves', () => {
+      expect('sizes={ GALLERY_STAGE_SIZES }').toMatch(DONO)
+    })
+
+    it('e NÃO acusa vaga de tamanho fixo, que legitimamente é literal', () => {
+      expect('sizes="80px"').not.toMatch(LITERAL_COM_MQ)
+      expect('sizes="220px"').not.toMatch(LITERAL_COM_MQ)
+    })
   })
 })

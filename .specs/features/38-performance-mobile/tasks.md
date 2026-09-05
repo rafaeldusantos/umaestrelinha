@@ -10,7 +10,7 @@ flow and Critical Rules.** Do not search for skill files by filesystem path.
 ---
 
 **Design**: `.specs/features/38-performance-mobile/design.md`
-**Status**: **T1–T18 executadas e commitadas** · T19 pendente de decisão do usuário
+**Status**: **T1–T18 executadas e commitadas** · T19 **adiada por decisão do usuário** (2026-09-05) → `BL-026`
 
 ---
 
@@ -25,7 +25,7 @@ flow and Critical Rules.** Do not search for skill files by filesystem path.
 | 3 | T14–T17 | `2099684` | store →2184 · chunk de entrada 278,4 → 117,2 KB brotli |
 | — | correção | `92fadbf` | store →2204 · o select pedia `products.stock`, que não existe |
 | 4 | T18 | `6fe260e` | store →2234 |
-| 4 | T19 | — | **não executada**: passe de `cacheControl` custa 410 MB de upload e espera decisão |
+| 4 | T19 | — | **adiada** por decisão do usuário → `BL-026`. Sem `updateMetadata` no storage-js instalado, o passe custa 410 MB de reenvio — e compra velocidade de revisita, não dinheiro |
 
 **Medido contra o banco hospedado, por sonda HTTP** (a prescrição do `AD-012`, não inspeção de tipo):
 
@@ -37,14 +37,24 @@ flow and Critical Rules.** Do not search for skill files by filesystem path.
 
 | — | correções do Verifier | `a1d465d` | store →2259 · functions →370 · as três lacunas e o interruptor da busca |
 
-Baselines finais, **conferidas pelo Verifier na iteração 2**: store **2259/152** · core **1524/61** ·
-functions **370/7** · catalog-import **512/23** · backoffice **1789/109** = **6454 em 352 arquivos**.
-Lint **27/5** e tipos **0 · 0 · 0**, os dois iguais à baseline de entrada.
+| — | `L-05` medida e fechada | `(este commit)` | store →2270 · o `sizes` do palco ganha dono provado |
 
-> **A primeira escrita desta linha dizia `6127 em 351`, e estava errada por duas razões ao mesmo
-> tempo**: era anterior aos dois últimos commits **e** a soma estava errada (os números daquele
-> momento davam 6427, não 6127). O Verifier pegou. É exatamente o que o `CLAUDE.md` avisa —
-> *baseline anotada de memória mente sem quebrar nada*.
+Baselines finais, medidas **uma por vez e com exit code capturado sem pipe**: store **2270/152** ·
+core **1524/61** · functions **370/7** · catalog-import **512/23** · backoffice **1789/109** =
+**6465 em 352 arquivos**. Contra a entrada de 6139/334: **+326 testes em +18 arquivos**, sem uma
+única perda. Lint **27/5** e tipos **0 · 0 · 0**, os dois iguais à baseline de entrada.
+
+> **Esta linha já esteve errada duas vezes, e as duas ficam registradas** — é a lição que o
+> `CLAUDE.md` escreve como *baseline anotada de memória mente sem quebrar nada*:
+>
+> 1. Dizia `6127 em 351` — desatualizada **e** mal somada (os números daquele momento davam 6427).
+> 2. Corrigida para `6454 em 352`, ficou velha de novo em 4 testes no commit seguinte.
+>
+> As duas foram pegas pelo Verifier, nenhuma por mim. A terceira escrita é medida na hora.
+
+**O flake do backoffice, resolvido:** `CategoryInspector.test.tsx` estourou o teto de 5 s durante a
+suíte cheia (5.993 ms) e **passa isolado — 22/22, exit 0**. É a saturação que o `CLAUDE.md`
+documenta, no mesmo arquivo que já oscilou antes. Nenhum arquivo dele foi tocado por esta feature.
 
 ### A correção fora de fase, e por que ela existe
 
