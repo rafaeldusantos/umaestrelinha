@@ -12,12 +12,13 @@ const cat = (id: string, name: string, over: Partial<Category> = {}): Category =
     description: null,
     image_url: null,
     color_accent: null,
-    emoji: '',
+    icon: null,
     parent_id: null,
     sort_order: 0,
     active: true,
-    show_in_menu: false,
-    menu_promo: null,
+    menu_desktop: false,
+    menu_mobile: false,
+    menu_banners: null,
     ...over,
   }) as Category
 

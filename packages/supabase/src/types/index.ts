@@ -581,7 +581,6 @@ export interface Category {
    */
   banner_url: string | null
   color_accent: string | null
-  emoji: string
   parent_id: string | null
   /** Ordem editorial da categoria. É o **primeiro** critério da categoria de exibição (PST-06). */
   sort_order: number
@@ -593,9 +592,33 @@ export interface Category {
    * categoria que ninguém mais vê. Filtrar no domínio faz as duas sessões enxergarem o mesmo menu.
    */
   active: boolean
-  /** Ocupa uma vaga na barra do topo (feature 16). Curadoria em `/admin/menu`. */
-  show_in_menu: boolean
-  menu_promo: MenuPromo | null
+  /**
+   * A chave do ícone do menu (feature 39) — uma de `MENU_ICON_KEYS`, ou `null`.
+   *
+   * É `string` e não `MenuIconKey` de propósito: este tipo descreve **a coluna**, e a coluna não tem
+   * `check`. Quem julga o valor é `menuIconKey`, na leitura, e o que não é do catálogo degrada para
+   * "sem ícone" (`NAV-19`).
+   */
+  icon: string | null
+  /**
+   * A curadoria do menu, por dispositivo (feature 39).
+   *
+   * **São duas, e não uma**: uma categoria de nome longo que cabe em 1440 e estoura em 390 tem de
+   * poder estar só num dos dois. `show_in_menu` continua existindo no banco como coluna **gerada**
+   * (`menu_desktop or menu_mobile`), mas não chega até aqui — quem responde "está no menu?" é
+   * `menuItems(…, surface)`, porque a resposta depende do dispositivo.
+   */
+  menu_desktop: boolean
+  menu_mobile: boolean
+  /**
+   * Os banners do painel do menu, crus como o jsonb os guarda (feature 39).
+   *
+   * `unknown` de propósito: a referência de destino mora dentro de jsonb, onde não cabe FK, então
+   * destino pendurado é estado alcançável do banco. Quem valida campo a campo — e descarta o que não
+   * resolve — é `resolveMenuBanners`, na leitura. Tipá-lo aqui como `MenuBanners` seria afirmar uma
+   * forma que o banco não garante (`AD-012`).
+   */
+  menu_banners: unknown
 }
 
 export interface CartItem {

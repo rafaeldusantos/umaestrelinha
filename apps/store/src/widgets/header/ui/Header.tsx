@@ -9,7 +9,6 @@ import { useAuthUiStore } from '@/features/auth'
 import CartButton from '@/widgets/cart-drawer/ui/CartButton'
 import { useScrollDirection } from '@/shared/lib/useScrollDirection'
 import MegaMenu from './MegaMenu'
-import { NAV_ITEM } from './navItem'
 
 /**
  * Alvo de toque dos ícones da faixa escura.
@@ -69,7 +68,11 @@ const Header = () => {
   const wishlistCount = useWishlistStore((s) => s.count())
   const { user, customer } = useAuthContext()
   const openAuth = useAuthUiStore((s) => s.open)
-  const { entries } = useMenu()
+  // `'desktop'` cravado, e não derivado da largura: a faixa de departamentos é `hidden md:block`,
+  // então o que ela desenha é sempre a curadoria do computador. Quem lê a do celular é a folha do
+  // `mobile-menu`, que também pede a dela por nome. Escolher por viewport faria o hook responder
+  // uma coisa no servidor de prévia e outra no navegador da cliente.
+  const { items } = useMenu('desktop')
   const { direction, atTop } = useScrollDirection()
   const hidden = direction === 'down' && !atTop
 
@@ -179,24 +182,48 @@ const Header = () => {
         </div>
       </div>
 
-      {/* A segunda faixa — `5N8-0`. Só no desktop: no celular o caminho para as
-          coleções é a folha de tela cheia do `mobile-menu`, e uma barra de
-          departamentos em 390px caberia com três itens e meio.
+      {/* A segunda faixa — boards `5N8-0` e `DDR-0`. Só no desktop: no celular o
+          caminho para as coleções é a folha de tela cheia do `mobile-menu`, e
+          uma barra de departamentos em 390px caberia com três itens e meio.
 
           O bloco "DEPARTAMENTOS" da board ficou de fora: ele abre um painel de
           todos os departamentos, e nesta loja QUEM é departamento são as
-          próprias entradas de `menuEntries` — cada uma já com o seu painel. Um
-          quinto gatilho ao lado delas seria um botão sem destino próprio. */}
-      <div className="hidden bg-estrelinha-primary md:block">
-        <nav aria-label="Departamentos" className="container flex h-[52px] items-center gap-9">
-          {/* Falha de consulta devolve `entries: []` e o `MegaMenu` não renderiza nada — a barra
-              fica com o item fixo em vez de quebrar (MENU-04). */}
-          <MegaMenu entries={entries} />
-          <Link to="/sobre" className={`${NAV_ITEM} border-transparent`}>
-            Sobre
-          </Link>
-        </nav>
-      </div>
+          próprias entradas do menu — cada uma já com o seu painel. Um quinto
+          gatilho ao lado delas seria um botão sem destino próprio.
+
+          **Nenhum item de menu é escrito aqui** (`NAV-14`). O `<Link to="/sobre">`
+          que morava neste JSX saiu na feature 39: quem põe o "Sobre" na barra é
+          a Adri, e ele agora é um **item de link** de `store_settings.menu`,
+          semeado pela migration. Um item em código é um item que ela não pode
+          tirar, mover nem trocar — e `menuSemItemFixo.test.ts` recusa a volta.
+
+          **Faixa vazia não renderiza** (caso de borda da spec): sem item nenhum
+          na superfície, ou com a consulta falhando, o header fica com marca,
+          busca e ações em vez de uma barra escura de 52px vazia. */}
+      {items.length > 0 && (
+        <div className="hidden bg-estrelinha-primary md:block">
+          {/* `overflow-x-auto` aqui e `min-w-max` no `MegaMenu` — **NAV-04**, e é a resposta ao
+              fim do teto de itens.
+
+              Rolar, e nunca `flex-wrap`: embrulhar em duas linhas ESCONDE o estouro, que é
+              justamente o que a dona precisa ver. É a decisão que este repositório já tomou duas
+              vezes (o `overflow-x-auto` da prévia do painel, e a regra de mobile do `CLAUDE.md`:
+              conteúdo largo rola dentro do próprio container, o `body` nunca).
+
+              O painel do mega menu **não é cortado por este scroll**, e isso não é sorte: ele é
+              `position: absolute` e o bloco que o contém é o `<header>` (que é `sticky`, logo
+              posicionado). Um abspos cujo containing block é ancestral do container de rolagem não
+              é clipado por ele. Pôr `relative` neste `<nav>` ou no `div` de `min-w-max` mudaria o
+              containing block e o painel passaria a viver dentro da faixa de 52px — sem erro
+              nenhum, com o mega menu virando uma tira ilegível. */}
+          <nav
+            aria-label="Departamentos"
+            className="container flex h-[52px] items-center overflow-x-auto"
+          >
+            <MegaMenu items={items} />
+          </nav>
+        </div>
+      )}
     </header>
   )
 }

@@ -271,7 +271,10 @@ const SearchOverlay = () => {
                         index % 2 === 0 ? 'bg-estrelinha-ground-deep' : 'bg-estrelinha-line'
                       }`}
                     >
-                      {cat.emoji && <span aria-hidden>{cat.emoji}</span>}
+                      {/* O emoji que ficava aqui era campo FANTASMA: `CategoryRow` o declarava,
+                          o mapper fazia `row.emoji ?? ''` e **nenhuma migration criava a coluna** —
+                          o `&&` nunca era verdadeiro e nada nunca foi desenhado. Saiu na feature 39,
+                          junto do campo (terceira ocorrência do `AD-012`). */}
                       {cat.name}
                     </Link>
                   </li>

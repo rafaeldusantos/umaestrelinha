@@ -63,13 +63,32 @@ const PERMITIDOS: Record<string, string> = {
     'ÍCONE: o tique de 18px da lista de recipientes, sobre `ground`. `accent-strong` mede 3,55:1 ali. O selo numerado dos passos é `ink` sobre `accent` (4,78:1), e não o creme do board, que mediria 2,52:1.',
   'widgets/material-guide/ui/MaterialShortcuts.tsx':
     'ÍCONE: o triângulo de 12px que marca os atalhos com ficha rica. `accent-strong` mede 3,17:1 sobre `ground-deep` e 3,55:1 sobre branco — objeto gráfico nos dois. O rótulo do atalho sai em `ink` ou `ink-soft`.',
+
+  // Feature 39 — o ícone do item de menu, nas duas superfícies. Nos dois casos é ÍCONE, e o tom do
+  // ouro MUDA com o fundo: é a mesma medida chegando a respostas opostas, e por isso os dois têm
+  // entrada própria em vez de um token só.
+  'widgets/header/ui/navItem.ts':
+    'ÍCONE de 16px na faixa de departamentos, que é `primary`. Ali `accent` (#B8945F) mede 3,26:1 — acima dos 3:1 que a WCAG 1.4.11 pede para objeto gráfico. O RÓTULO continua em `on-primary`: ouro como texto sobre `primary` reprovaria os 4,5:1, e quem marca o item aberto é a régua de 2px, não a cor da palavra.',
+  'widgets/mobile-menu/ui/MobileMenu.tsx':
+    'ÍCONE de 20px na folha do celular, que é BRANCA — e por isso o tom é `accent-strong` (3,85:1) e não `accent`, que ali mediria 2,82:1 e reprovaria até como objeto gráfico. O board `DGK-0` pinta os dois com o mesmo token; a paleta não deixa. O rótulo da linha sai em `ink`, e o selo do banner em `ink-soft`.',
 }
 
+/**
+ * `.tsx` **e** `.ts` — a extensão entrou na feature 39, e o buraco era real.
+ *
+ * A varredura só olhava `.tsx`, então uma classe de ouro declarada num módulo
+ * de constantes escapava inteira. E é exatamente onde a barra de departamentos
+ * a declara: `widgets/header/ui/navItem.ts` guarda a forma do item porque dois
+ * consumidores a leem, e um `text-estrelinha-accent` ali chegaria à tela sem
+ * passar por lista nenhuma. Régua que não alcança onde a classe mora é régua
+ * que ninguém está aplicando — a lição da `fieldBorder`, de novo.
+ */
 function tsxFiles(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
     const full = join(dir, entry.name)
     if (entry.isDirectory()) return entry.name === '__tests__' ? [] : tsxFiles(full)
-    return entry.isFile() && entry.name.endsWith('.tsx') ? [full] : []
+    const fonte = entry.isFile() && (entry.name.endsWith('.tsx') || entry.name.endsWith('.ts'))
+    return fonte ? [full] : []
   })
 }
 
@@ -90,6 +109,14 @@ describe('acento como texto — âncoras', () => {
     // nome, a varredura acha zero, não tem o que reprovar, e volta a passar
     // por estar vazia. É o furo exato que a `fieldBorder` tinha.
     expect(comOuro.length).toBeGreaterThan(3)
+  })
+
+  it('a varredura alcança `.ts`, e não só `.tsx` — a extensão faz parte da régua', () => {
+    // Sensor da mudança da feature 39: restringir a varredura de volta a `.tsx` deixaria
+    // `navItem.ts` fora, e o guarda passaria a aprovar por não enxergar. É a falha mais cara de
+    // todas neste tipo de teste, porque ela é silenciosa.
+    expect(arquivos.some((f) => f.endsWith('.ts'))).toBe(true)
+    expect(comOuro.map(rel)).toContain('widgets/header/ui/navItem.ts')
   })
 })
 

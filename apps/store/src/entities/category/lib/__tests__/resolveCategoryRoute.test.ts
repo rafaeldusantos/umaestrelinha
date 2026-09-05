@@ -16,12 +16,13 @@ const cat = (id: string, slug: string, parent_id: string | null = null): Categor
     description: null,
     image_url: null,
     color_accent: null,
-    emoji: '',
+    icon: null,
     parent_id,
     sort_order: 0,
     active: true,
-    show_in_menu: false,
-    menu_promo: null,
+    menu_desktop: false,
+    menu_mobile: false,
+    menu_banners: null,
   }) as Category
 
 const TREE: Category[] = [

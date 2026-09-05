@@ -31,9 +31,9 @@ const product = (name: string, over: Partial<Product> = {}): Product =>
   }) as Product
 
 const categories = [
-  { id: 'anime', name: 'Anime', slug: 'anime', parent_id: null, sort_order: 0, emoji: '🌸' },
-  { id: 'naruto', name: 'Naruto', slug: 'naruto', parent_id: 'anime', sort_order: 1, emoji: '' },
-  { id: 'kpop', name: 'K-Pop', slug: 'k-pop', parent_id: null, sort_order: 2, emoji: '🎤' },
+  { id: 'anime', name: 'Anime', slug: 'anime', parent_id: null, sort_order: 0 },
+  { id: 'naruto', name: 'Naruto', slug: 'naruto', parent_id: 'anime', sort_order: 1 },
+  { id: 'kpop', name: 'K-Pop', slug: 'k-pop', parent_id: null, sort_order: 2 },
 ]
 
 vi.mock('react-router-dom', async () => ({
@@ -84,7 +84,10 @@ describe('SearchOverlay (board "Mobile Search Open - v3")', () => {
     expect(screen.getByRole('link', { name: 'Naruto' })).toHaveAttribute('href', '/anime/naruto')
     // "K-Pop" é raiz: um segmento.
     expect(screen.getByRole('link', { name: /K-Pop/ })).toHaveAttribute('href', '/k-pop')
-    expect(screen.queryByRole('link', { name: /🌸/ })).not.toBeInTheDocument()
+    // E a categoria COM filha não vira pílula. A asserção citava o emoji do fixture; o campo era
+    // FANTASMA (nenhuma migration criava a coluna) e saiu na feature 39, junto do tipo — a regra
+    // medida aqui continua sendo a mesma: só folha entra na nuvem.
+    expect(screen.queryByRole('link', { name: 'Anime' })).not.toBeInTheDocument()
   })
 
   it('mostra o produto com a trilha de categoria e o preço', () => {

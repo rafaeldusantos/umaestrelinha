@@ -6,10 +6,11 @@ import { EstrelinhaSignature, SIGNATURE_FLOOR } from '@/shared/ui/brand'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-const { openSpy, openMenuSpy, menuState, authState } = vi.hoisted(() => ({
+const { openSpy, openMenuSpy, surfaceSpy, menuState, authState } = vi.hoisted(() => ({
   openSpy: vi.fn(),
   openMenuSpy: vi.fn(),
-  menuState: { entries: [] as any[] },
+  surfaceSpy: vi.fn(),
+  menuState: { items: [] as any[] },
   authState: { user: null as any, customer: null as any },
 }))
 
@@ -18,7 +19,10 @@ vi.mock('@/features/auth', () => ({ useAuthUiStore: (sel: any) => sel({ open: op
 vi.mock('@/entities/cart/model/cartStore', () => ({ useCartStore: (sel: any) => sel({ uniqueItemsCount: () => 0 }) }))
 vi.mock('@/entities/wishlist/model/wishlistStore', () => ({ useWishlistStore: (sel: any) => sel({ count: () => 0 }) }))
 vi.mock('@/entities/category', () => ({
-  useMenu: () => menuState,
+  useMenu: (surface: string) => {
+    surfaceSpy(surface)
+    return menuState
+  },
   useMenuUiStore: (sel: any) => sel({ open: false, openMenu: openMenuSpy }),
 }))
 vi.mock('@/widgets/cart-drawer/ui/CartButton', () => ({ default: () => <div data-testid="cart-button" /> }))
@@ -26,12 +30,26 @@ vi.mock('@/features/search/ui/SearchDropdown', () => ({ default: () => <div data
 // O painel do mega menu tem teste próprio (`MegaMenu.test.tsx`); aqui interessa só que o header o
 // alimenta com o que `useMenu` devolveu.
 vi.mock('../MegaMenu', () => ({
-  default: ({ entries }: { entries: { name: string }[] }) => (
-    <div data-testid="mega-menu">{entries.map(e => e.name).join(',')}</div>
+  default: ({ items }: { items: { name: string }[] }) => (
+    <div data-testid="mega-menu">{items.map(i => i.name).join(',')}</div>
   ),
 }))
 
 const renderHeader = () => render(<MemoryRouter><Header /></MemoryRouter>)
+
+/** Um `MenuItem` de categoria, na forma exata em que `menuItems` o devolve. */
+const item = (id: string, name: string) => ({
+  kind: 'category',
+  id,
+  name,
+  slug: id,
+  href: `/${id}`,
+  path: name,
+  icon: null,
+  sortOrder: 0,
+  children: [],
+  hasPanel: false,
+})
 
 /** O `<header>` — a asserção do recolhimento é sobre a classe dele. */
 const bar = (container: HTMLElement) => container.querySelector('header')!
@@ -48,7 +66,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   authState.user = null
   authState.customer = null
-  menuState.entries = []
+  menuState.items = []
   // rAF síncrono: o `useScrollDirection` agenda a medição num frame, e sem isso nada acontece
   // dentro de um `act` do teste.
   vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
@@ -108,12 +126,19 @@ describe('Header sem os duplicados do MobileNav', () => {
 // busca em tela cheia" mudou de casa para `MobileMenu.test.tsx`, com a mesma asserção.
 describe('Header — as duas superfícies de menu (MENU-16)', () => {
   it('a barra do topo é alimentada por useMenu, não por um slice de categorias', () => {
-    menuState.entries = [
-      { id: 'anime', name: 'Anime', slug: 'anime', href: '/anime', path: 'Bottons › Anime', children: [], promo: null },
-      { id: 'kpop', name: 'K-Pop', slug: 'kpop', href: '/kpop', path: 'Bottons › K-Pop', children: [], promo: null },
-    ]
+    menuState.items = [item('anime', 'Anime'), item('kpop', 'K-Pop')]
     renderHeader()
     expect(screen.getByTestId('mega-menu')).toHaveTextContent('Anime,K-Pop')
+  })
+
+  it('pede o menu do COMPUTADOR por nome — a faixa é `hidden md:block` (NAV-01)', () => {
+    // Escolher a superfície por largura de tela faria o hook responder uma coisa na prévia do
+    // painel e outra no navegador da cliente. A faixa só existe no desktop, então o que ela
+    // desenha é sempre a curadoria do computador — e ela é pedida por nome.
+    menuState.items = [item('anime', 'Anime')]
+    renderHeader()
+    expect(surfaceSpy).toHaveBeenCalledWith('desktop')
+    expect(surfaceSpy).not.toHaveBeenCalledWith('mobile')
   })
 
   it('o botão de menu do celular ABRE a folha — não alterna', () => {
@@ -128,13 +153,63 @@ describe('Header — as duas superfícies de menu (MENU-16)', () => {
     expect(bar(container).querySelectorAll('input')).toHaveLength(0)
   })
 
-  it('sem entradas (falha de consulta) a barra fica só com o item fixo — sem quebrar (MENU-04)', () => {
-    menuState.entries = []
+  it('sem item nenhum, a faixa de departamentos NÃO está no DOM (NAV-15)', () => {
+    // Antes da 39 ela sobrevivia porque tinha o "Sobre" escrito em JSX: uma faixa escura de 52px
+    // com um item só, aparecendo mesmo quando a consulta morria. Sem item de código, faixa vazia
+    // é faixa que não renderiza — o header fica com marca, busca e ações.
+    menuState.items = []
+    const { container } = renderHeader()
+    expect(container.querySelector('[aria-label="Departamentos"]')).toBeNull()
+    expect(screen.queryByTestId('mega-menu')).toBeNull()
+  })
+})
+
+// ── Feature 39 — nada do menu mora no código, e a faixa rola em vez de embrulhar ────────────
+describe('Header — nenhum item de menu escrito em código (NAV-14)', () => {
+  it('o link "Sobre" saiu do JSX — quem o põe no menu agora é a Adri', () => {
+    // Ele não sumiu da loja: virou item de LINK em `store_settings.menu`, semeado pela migration.
+    // O que sumiu é a impossibilidade de tirá-lo, movê-lo ou trocar o destino sem mexer em código.
+    menuState.items = [item('anime', 'Anime')]
+    const { container } = renderHeader()
+
+    const faixa = container.querySelector('[aria-label="Departamentos"]')!
+    expect(faixa.querySelector('a[href="/sobre"]')).toBeNull()
+    // E o único filho da faixa é o mega menu: nenhum item solto ao lado dele.
+    expect(screen.getByTestId('mega-menu').parentElement).toBe(faixa)
+  })
+
+  it('a faixa mostra EXATAMENTE o que `useMenu` devolveu, sem acrescentar nada', () => {
+    menuState.items = [item('anime', 'Anime'), item('sobre', 'Sobre')]
     renderHeader()
-    // "Crie o seu" saiu com a página de kit de pins (PIN-04); sobra "Sobre".
-    expect(screen.queryByText('Crie o seu')).not.toBeInTheDocument()
-    expect(screen.getByText('Sobre')).toBeInTheDocument()
-    expect(screen.getByTestId('mega-menu')).toHaveTextContent('')
+    expect(screen.getByTestId('mega-menu')).toHaveTextContent('Anime,Sobre')
+  })
+})
+
+describe('Header — a faixa rola em vez de embrulhar (NAV-04)', () => {
+  // jsdom devolve 0 para toda medida de layout, então o estouro NÃO é provável aqui: o que se
+  // assere é a **forma** que produz a rolagem, e a medida fica para o navegador real no UAT.
+  const faixa = () => {
+    menuState.items = [item('anime', 'Anime')]
+    const { container } = renderHeader()
+    return container.querySelector('[aria-label="Departamentos"]')!
+  }
+
+  it('a faixa é um container de rolagem horizontal', () => {
+    expect(faixa().className).toContain('overflow-x-auto')
+  })
+
+  it('e NÃO embrulha em duas linhas — embrulhar ESCONDE o estouro', () => {
+    // É a decisão que este repositório já tomou duas vezes: a prévia do painel usa `overflow-x-auto`
+    // "porque embrulhar em duas linhas ESCONDERIA o estouro", e a regra de mobile do `CLAUDE.md`
+    // manda conteúdo largo rolar dentro do próprio container — o `body` nunca.
+    expect(faixa().className).not.toContain('flex-wrap')
+  })
+
+  it('a faixa não é posicionada — se fosse, o painel do mega menu seria cortado por ela', () => {
+    // O painel é `absolute` e o bloco que o contém é o `<header>` (que é `sticky`). Um abspos cujo
+    // containing block é ancestral do container de rolagem escapa do clip. Pôr `relative` aqui
+    // mudaria o containing block e o mega menu viraria uma tira de 52px — sem erro nenhum.
+    expect(faixa().className).not.toMatch(/(^|\s)(relative|absolute|fixed|sticky)(\s|$)/)
   })
 })
 
@@ -199,6 +274,10 @@ describe('Header — a moldura escura da identidade nova (IDN-09)', () => {
     // desenha 112px porque põe a busca no header, e aqui a busca é a aba do
     // `MobileNav`. Empilhar as duas coisas comeria 48px do orçamento que a
     // regra de barra única existe para proteger.
+    //
+    // Com item nenhum a faixa deixou de renderizar (`NAV-15`), então o caso tem de ter menu:
+    // o que se mede aqui é a COR e o breakpoint dela, não a presença.
+    menuState.items = [item('anime', 'Anime')]
     const { container } = renderHeader()
     const faixa = container.querySelector('[aria-label="Departamentos"]')!.parentElement!
     expect(faixa).toHaveClass('bg-estrelinha-primary')

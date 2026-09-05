@@ -13,12 +13,13 @@ const category = (id: string, sort_order: number, name = id): Category => ({
   image_url: null,
   banner_url: null,
   color_accent: null,
-  emoji: '',
+  icon: null,
   parent_id: null,
   sort_order,
   active: true,
-  show_in_menu: false,
-  menu_promo: null,
+  menu_desktop: false,
+  menu_mobile: false,
+  menu_banners: null,
 })
 
 const ANIME = category('anime', 1, 'Anime')

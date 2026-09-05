@@ -26,7 +26,7 @@ const product = (over: Partial<Product> & { name: string }): Product =>
   }) as Product
 
 const cat = (id: string, name: string): Category =>
-  ({ id, name, slug: id, description: null, image_url: null, color_accent: null, emoji: '', parent_id: null, sort_order: 0 }) as Category
+  ({ id, name, slug: id, description: null, image_url: null, color_accent: null, icon: null, parent_id: null, sort_order: 0 }) as Category
 
 const names = (hits: ReturnType<typeof searchProducts>) => hits.map((h) => h.product.name)
 

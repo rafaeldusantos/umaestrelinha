@@ -59,8 +59,8 @@ catalog-import 509/23**. Quedas declaradas e permitidas: `TrendingLane`, `MenuBa
 | Lote | Fases | Tasks | Estado | Commit | Medição |
 | --- | --- | --- | --- | --- | --- |
 | 1 | 1 | T1–T5 | ✅ completo | `5dffb6b` | core **1705/66** (+212/+6) · tsc 0 · 0 |
-| 2 | 2 + 3 | T6–T11 | ✅ completo | banco + ícones | store **2046/137** (+45/+2) · core 1705/66 · backoffice 1786/109 · tsc 0 · 0 · build ✅ |
-| 3 | 4 | T12–T18 | — | — | — |
+| 2 | 2 + 3 | T6–T11 | ✅ completo | `3c00b09` · `1b97a38` | store **2046/137** (+45/+2) · core 1705/66 · backoffice 1786/109 · lint 27/5 (=) · tsc 0 · 0 · build ✅ |
+| 3 | 4 | T12–T18 | ✅ completo | (dois commits ao fim do lote) | store **2140/142** (+94/+5) · core 1705/66 (=) · backoffice 1786/109 (=) · lint 27/5 (=) · tsc 0 · 0 |
 | 4 | 5 | T19–T26 | — | — | — |
 | 5 | 6 + 7 | T27–T32 | — | — | — |
 
@@ -98,6 +98,54 @@ catalog-import 509/23**. Quedas declaradas e permitidas: `TrendingLane`, `MenuBa
 - **Duas fixtures do painel ganharam os campos novos** (`CategoryFormDialog.test.tsx`,
   `Taxonomy.test.tsx`): `DbCategory` descreve a linha, e a linha traz as colunas novas. A alternativa
   — declará-las opcionais no tipo — seria o `AD-012` de novo, com o tipo dizendo menos que o banco.
+
+**Desvios aceitos no lote 3** (todos documentados no código):
+
+- **A superfície é pedida por nome, e `useMenu` mudou de assinatura** — `useMenu('desktop')` no
+  `Header`, `useMenu('mobile')` na folha. Derivar por largura de tela faria o hook responder uma
+  coisa na prévia do painel e outra no navegador da cliente.
+- **`Category` (o tipo da loja) PERDEU `emoji`, `show_in_menu` e `menu_promo`** e ganhou `icon`,
+  `menu_desktop`, `menu_mobile` e `menu_banners`. O design só mandava mexer em `CategoryRow`, mas
+  o mapper devolve `Category`: manter os campos no tipo com o mapper sem produzi-los seria o
+  `AD-012` de novo. Consequência obrigatória: `SearchOverlay.tsx` perdeu o `{cat.emoji && …}`,
+  que **nunca renderizou nada** — a coluna não existe em migration nenhuma.
+- **Os banners chegam às telas por `useMenuBanners(categoryId, surface)`**, e não pelo `MenuItem`:
+  `MenuCategoryItem` não carrega o jsonb cru, e passar `categories` pelas props do header faria a
+  linha crua viajar por três componentes. O hook mora ao lado de `useMenuTargets` (T17).
+- **O selo do banner sai em `ink-soft`, e não no ouro do board.** `accent-strong` sobre `ground`
+  mede 3,55:1 e o selo é texto de 11px (desktop) e 10px (celular) — reprova os 4,5:1. Mesmo desvio
+  que a `31` já declarou três vezes.
+- **O ícone muda de tom com o fundo**: `accent` na faixa `primary` do desktop (3,26:1) e
+  `accent-strong` na folha branca do celular (3,85:1). O board pinta os dois com o mesmo token;
+  `accent` sobre branco mede 2,82:1 e reprova até como objeto gráfico.
+- **`accentText.test.ts` passou a varrer `.ts`, e não só `.tsx`.** `navItem.ts` guarda a forma do
+  item e declara o ouro do ícone — a régua não alcançava onde a classe mora. Sensor por mutação
+  registrado no próprio arquivo.
+- **Os dois guardas da T18 carregam uma lista de DÍVIDA EM TRÂNSITO do painel** (4 arquivos em
+  `menuSurfaceSingleOwner`, 3 em `menuSemItemFixo`), porque a fase 5 ainda não rodou. Cada entrada
+  nomeia a task que a remove, e uma asserção exige que ela **ainda case**: no dia em que a T21
+  apagar a leitura, o guarda reprova até a entrada sair. A loja tem **zero** entradas, escrito
+  literalmente.
+- **`renditionUrl` não foi usado na arte do banner**: o módulo da feature 38 não existe neste
+  ramo. A arte sai em `<img loading="lazy">`; trocar para rendition é um `s/src/srcSet/` quando as
+  duas features se encontrarem.
+
+**Quedas declaradas do lote 3** (as duas são superfícies que deixaram de existir, e o número
+reaparece do outro lado na mesma reescrita):
+
+- `MegaMenu.test.tsx` foi de **19 para 31**: saem os **3** casos de `MENU-13` (a faixa
+  `TrendingLane`, 3 produtos automáticos por `is_featured`) e os **3** de `MENU-27/28` (o card
+  `menu_promo`, retângulo de cor sem imagem); entram 18 dos banners, do ícone, das colunas e do
+  item de link.
+- `MobileMenu.test.tsx` foi de **15 para 30**: saem os **3** casos de `MENU-27` (a faixa
+  promocional do rodapé da folha, que mostrava o promo da *primeira* entrada que tivesse um);
+  entram 18, com o banner **dentro** do acordeão e a prova de que ele é daquela entrada.
+
+**Lacuna conhecida do lote 2, para o Verifier e para o UAT**: a migration foi exercida **três vezes
+sobre o banco local com catálogo importado**, nunca a partir do zero. `supabase db reset` não foi
+rodado **de propósito** — o `seed.sql` não tem mais catálogo, e resetar destruiria os 680 produtos
+importados nesta máquina. O caminho "banco novo" continua **não provado**, e é o que o CI exerce no
+projeto hospedado. Quem fechar isto precisa de um banco descartável, não do local.
 
 ---
 

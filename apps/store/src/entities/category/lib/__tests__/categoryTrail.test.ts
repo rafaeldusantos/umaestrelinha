@@ -3,7 +3,7 @@ import { categoryTrail, categoryTrailLabel } from '../categoryTrail'
 import type { Category } from '@estrelinha/supabase/types'
 
 const cat = (id: string, name: string, parent_id: string | null = null): Category =>
-  ({ id, name, slug: id, description: null, image_url: null, color_accent: null, emoji: '', parent_id, sort_order: 0 }) as Category
+  ({ id, name, slug: id, description: null, image_url: null, color_accent: null, icon: null, parent_id, sort_order: 0 }) as Category
 
 const anime = cat('anime', 'Anime')
 const naruto = cat('naruto', 'Naruto', 'anime')

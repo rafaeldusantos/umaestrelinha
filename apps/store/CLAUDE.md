@@ -76,9 +76,17 @@ marca. Leia [`../../CLAUDE.md`](../../CLAUDE.md) (regras do repositório) e
     elemento gráfico, onde a régua é 3:1.
   - `PixIcon` mora lá mas **fora do conjunto**: é a marca oficial do arranjo (grade de 16,
     preenchida), não um monoline nosso. Fica exportada, fora do registro `ESTRELINHA_ICONS`.
-  - **Ligar ícone a categoria ainda não existe.** O board mostra um por vaga do menu; escolher qual é
-    curadoria da dona, da mesma natureza do `show_in_menu`, e pede coluna própria — não um mapa de
-    slug em código nem inferência em runtime.
+  - **Ligar ícone a categoria EXISTE desde a feature 39**, e a coluna é `categories.icon` — reusada,
+    não criada: ela guardava emoji do catálogo anterior e não era lida por tela nenhuma. Uma
+    `menu_icon` ao lado dela seria o segundo dono de "o ícone desta categoria". Valor fora de
+    `MENU_ICON_KEYS` degrada para **sem ícone**, sem erro (`menuIconKey`): ícone não é dinheiro nem
+    segurança, e a resposta certa para "não reconheço este valor" é o item sem desenho, não a barra
+    quebrada.
+  - **O tom do ouro MUDA com o fundo, e o board pinta os dois igual.** Na faixa `primary` do desktop
+    o ícone sai `accent` (3,26:1); na folha branca do celular sai `accent-strong` (3,85:1), porque
+    `accent` sobre branco mede 2,82:1 e reprova até os 3:1 de objeto gráfico. As duas entradas estão
+    em `accentText.test.ts`, com a medida escrita — e **a varredura dele passou a alcançar `.ts`**,
+    porque `navItem.ts` é onde a classe do ícone mora.
 - **A marca é SVG inline, nunca `<img src>`** — o header não pode ter estado de carregamento.
   `shared/ui/brand` traz a escada medida, e cada degrau **cai para o de baixo abaixo do próprio piso**:
 
@@ -549,10 +557,41 @@ ninguém é avisado.
 
 ## Menu (consumo)
 
-- A regra vive em `@estrelinha/core/menu` (`menuEntries`, `menuSlotRefusal`, `resolvePromo`,
-  `descendantIds`, `bySortOrder`). Foi ter a regra em cada tela que produziu o bug original: o
-  `Header` fazia `.slice(0, 4)` de uma lista chapada e a barra do topo mostrava o contêiner de tudo
-  mais uma filha que empatou em `sort_order = 0`.
+- **A porta é UMA: `menuItems(input, surface)`** (`@estrelinha/core/menu`), alcançada pela loja por
+  `useMenu('desktop')` e `useMenu('mobile')`. Nenhuma tela filtra, ordena ou trunca por conta.
+  Foi ter a regra em cada tela que produziu o bug original: o `Header` fazia `.slice(0, 4)` de uma
+  lista chapada e a barra do topo mostrava o contêiner de tudo mais uma filha que empatou em
+  `sort_order = 0`. `descendantIds` e `bySortOrder` continuam sendo do mesmo módulo.
+- **O menu não é responsivo: são DUAS curadorias.** A superfície é pedida **por nome**, nunca
+  derivada de largura de tela — a mesma loja pode ter "Personalizados" só no computador e 5 das 12
+  subcategorias no celular. Derivar por viewport faria o hook responder uma coisa na prévia do
+  painel e outra no navegador da cliente.
+- **Nada do menu mora no código** (`NAV-14`). O `<Link to="/sobre">` do `Header` e a linha "Sobre"
+  do `MobileMenu` saíram: o "Sobre" é um **item de link** de `store_settings.menu`, semeado pela
+  migration, e a Adri pode movê-lo, trocá-lo ou tirá-lo. O conceito de "entrada fixa" deixou de
+  existir — e com ele o `/crie-seu-botton`, que o painel anunciava na lista **e na prévia** sem
+  nunca ter sido rota declarada. `menuSemItemFixo.test.ts` recusa a volta: `FIXED_ENTRIES`, o slug
+  morto, e qualquer destino literal nas quatro superfícies do menu que não seja `/`, `/conta` ou
+  `/favoritos` (chrome, não menu).
+- **Ninguém lê `show_in_menu` nem `menu_promo`.** A primeira virou **coluna gerada**
+  (`menu_desktop or menu_mobile`) e a segunda é legado não lido — as duas continuam no banco de
+  propósito, para a loja publicada não quebrar na janela entre o `db push` e o deploy da Vercel,
+  que rodam em paralelo. `menuSurfaceSingleOwner.test.ts` derruba a suíte se alguma tela voltar a
+  lê-las; a loja tem **zero** entradas no allowlist, e as do painel expiram na fase 5.
+- **Não há teto de itens, e a resposta ao estouro é ROLAR.** A faixa do desktop é
+  `overflow-x-auto` (no `<nav>` do `Header`) com `min-w-max` (na fila do `MegaMenu`), e **nunca**
+  `flex-wrap`: embrulhar em duas linhas esconderia o estouro, que é o que a dona precisa ver.
+  **O `<nav>` não pode ser posicionado**: o painel é `absolute` e escapa do clip da rolagem porque
+  o bloco que o contém é o `<header>`; um `relative` ali dentro mudaria o containing block e o mega
+  menu viraria uma tira de 52px — sem erro nenhum. jsdom devolve 0 para largura, então o que os
+  testes provam é a forma; a medida é de navegador, em 390 e 1440.
+- **Os banners do painel chegam por `useMenuBanners(categoryId, surface)`** (`entities/menu`), que
+  resolve **tarde**: sem banner de produto não há consulta nenhuma, e enquanto a lista de produtos
+  não chega o banner **não renderiza** — "ainda não sei" não é "existe". Destino apagado ou
+  inativo some e o painel encolhe; no celular o banner mora **dentro do acordeão** da entrada.
+- **A faixa "Em destaque" (`TrendingLane`) e o card `menu_promo` SAÍRAM.** Eram 3 produtos
+  automáticos que a dona não escolhia nem via (mais uma consulta de catálogo por painel aberto) e
+  um retângulo de cor sem imagem, numa loja que vende peça que se compra pelo olho.
 - **`browseCategories`** (grade da home, rodapé) **pula o guarda-chuva**: uma raiz sozinha é
   contêiner, não escolha. Não confundir com `pickTrendingCategories`, que é deliberadamente **folha**.
 - **`useProducts(slug)` faz roll-up da descendência** (`descendantIds`): sem isso o "Ver todos →" do

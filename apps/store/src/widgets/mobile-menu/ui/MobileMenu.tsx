@@ -1,33 +1,48 @@
 import { useState } from 'react'
 import { TAP_44 } from '@/shared/lib/touchTarget'
 import { Link } from 'react-router-dom'
-import { ChevronDown, ChevronUp, Heart, Info, Package, Search, User, X } from 'lucide-react'
+import { ChevronDown, ChevronUp, Heart, Package, Search, User, X } from 'lucide-react'
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from '@estrelinha/ui/sheet'
-import { EstrelinhaSignature, EstrelinhaSymbol } from '@/shared/ui/brand'
+import { MENU_ICON_COMPONENTS } from '@estrelinha/ui/icons'
+import { EstrelinhaSignature } from '@/shared/ui/brand'
 import { useAuthContext } from '@estrelinha/auth'
-import type { MenuEntry } from '@estrelinha/core/menu'
+import type { MenuItem, ResolvedMenuBanner } from '@estrelinha/core/menu'
 import { categoryPath } from '@estrelinha/core/routes'
 import { useMenu, useMenuUiStore } from '@/entities/category'
+import { useMenuBanners } from '@/entities/menu'
 import { useSearchUiStore } from '@/features/search'
 import { useAuthUiStore } from '@/features/auth'
 
 /**
- * O menu do celular — board "Mobile Menu Open - v3". **Folha de tela cheia**, não acordeão.
+ * O menu do celular — boards "Mobile Menu Open - v3" e `DGK-0`. **Folha de tela cheia**.
  *
- * O que havia antes era um `AnimatePresence` de 80 linhas dentro do `Header`, empurrando a lista de
- * categorias para baixo da barra de 64px. Três problemas que a folha resolve: a lista competia com o
- * conteúdo da página por espaço vertical, os atalhos de conta/favoritos/pedidos não caberam em lugar
- * nenhum, e o topo da tela — onde o polegar não chega — era onde tudo acontecia.
+ * ~90% dos acessos da loja vêm de celular, então esta é a navegação principal, não a versão
+ * reduzida do desktop. E a curadoria daqui **não é a mesma** do computador (feature 39): a Adri liga
+ * cada categoria nas duas superfícies separadamente, e o painel de uma entrada pode mostrar 5
+ * subcategorias aqui e 12 lá. Por isso o hook é pedido por nome — `useMenu('mobile')` —, e não
+ * derivado de largura de tela.
  *
- * ~90% dos acessos da loja vêm de celular, então esta é a navegação principal, não a versão reduzida.
+ * **Nenhum item de menu é escrito neste arquivo** (`NAV-14`). O `<Link to="/sobre">` que morava no
+ * fim da lista saiu: o "Sobre" agora é um **item de link** de `store_settings.menu`, semeado pela
+ * migration, e a Adri pode movê-lo, trocá-lo ou tirá-lo sem ninguém mexer em código.
+ *
+ * **A faixa promocional do rodapé saiu junto.** Ela mostrava o promo da *primeira* entrada que
+ * tivesse um — a ordem da árvore decidindo o destaque, sem ninguém escolher. O banner agora mora
+ * **dentro do acordeão** da entrada a que pertence (`NAV-36`), que é onde a cliente está olhando
+ * quando decide para onde ir.
  */
 
 /** Rótulo dos atalhos, com o mesmo alvo mínimo de 44px das abas da `MobileNav`. */
 const CHIP =
   'flex h-11 flex-1 items-center justify-center gap-1.5 rounded-pill bg-estrelinha-ground-deep px-3 text-[13px] font-semibold text-estrelinha-primary'
 
-const ROW =
-  'flex w-full items-center justify-between gap-3 border-b border-estrelinha-line py-3 text-left'
+/**
+ * Uma linha da folha — 56px de altura, board `DGK-0`.
+ *
+ * `min-h-[56px]` e não `h-[56px]`: nome de coleção longo embrulha em duas linhas em 390px, e uma
+ * altura fixa cortaria a segunda. O piso de 44px do projeto está coberto com folga.
+ */
+const ROW = 'flex w-full min-h-[56px] items-center gap-3 border-b border-estrelinha-line py-3 text-left'
 
 const MobileMenu = () => {
   const open = useMenuUiStore((s) => s.open)
@@ -36,15 +51,23 @@ const MobileMenu = () => {
   const openSearch = useSearchUiStore((s) => s.openSearch)
   const openAuth = useAuthUiStore((s) => s.open)
   const { user } = useAuthContext()
-  const { entries } = useMenu()
+  const { items } = useMenu('mobile')
 
   /**
    * Um acordeão aberto por vez.
    *
-   * Com quatro universos de 5–7 subcategorias cada, permitir dois abertos põe os atalhos e a faixa
-   * promo abaixo de duas telas de scroll — e eles são o motivo de a folha existir.
+   * Com entradas de 5–12 subcategorias cada, permitir dois abertos põe os atalhos abaixo de duas
+   * telas de scroll — e eles são parte do motivo de a folha existir.
    */
   const [expandedId, setExpandedId] = useState<string | null>(null)
+
+  /**
+   * Os banners do acordeão aberto — resolvidos **uma vez**, aqui, e não dentro de cada linha.
+   *
+   * Chamar o hook por linha faria a folha resolver o destino de todos os banners de todas as
+   * entradas só para desenhar a lista. Como há um acordeão aberto por vez, um id basta.
+   */
+  const banners = useMenuBanners(expandedId, 'mobile')
 
   /** Todo caminho que leva a outra superfície fecha a folha primeiro: duas camadas abertas no
       celular deixam a cliente sem saber o que o "voltar" está fechando. */
@@ -52,8 +75,6 @@ const MobileMenu = () => {
     closeMenu()
     action?.()
   }
-
-  const promo = entries.find((e) => e.promo !== null)?.promo ?? null
 
   return (
     <Sheet open={open} onOpenChange={setMenuOpen}>
@@ -67,7 +88,7 @@ const MobileMenu = () => {
       >
         <SheetTitle className="sr-only">Menu</SheetTitle>
         <SheetDescription className="sr-only">
-          Universos da loja, atalhos da sua conta e o destaque da semana.
+          As coleções da loja e os atalhos da sua conta.
         </SheetDescription>
 
         <header className="flex h-16 shrink-0 items-center justify-between px-5">
@@ -100,24 +121,22 @@ const MobileMenu = () => {
           </button>
         </div>
 
-        <nav aria-label="Universos" className="flex flex-col px-5 pt-3">
-          {entries.map((entry) => (
-            <MobileMenuEntry
-              key={entry.id}
-              entry={entry}
-              expanded={expandedId === entry.id}
-              onToggle={() => setExpandedId(expandedId === entry.id ? null : entry.id)}
-              onNavigate={() => leaveTo()}
-            />
-          ))}
-
-          <Link to="/sobre" onClick={() => leaveTo()} className={`${ROW} min-h-11 border-b-0`}>
-            <span className="flex items-center gap-2.5">
-              <Info className="h-4 w-4 shrink-0 text-estrelinha-ink-soft" strokeWidth={2} aria-hidden />
-              <span className="text-base font-medium text-estrelinha-ink-soft">Sobre</span>
-            </span>
-          </Link>
-        </nav>
+        {/* Lista vazia não deixa `<nav>` vazio no DOM: sem item na superfície do celular, ou com a
+            consulta falhando, a folha vai direto da busca para os atalhos. */}
+        {items.length > 0 && (
+          <nav aria-label="Coleções" className="flex flex-col px-5 pt-3">
+            {items.map((item) => (
+              <MobileMenuEntry
+                key={item.id}
+                item={item}
+                expanded={expandedId === item.id}
+                banners={expandedId === item.id ? banners : []}
+                onToggle={() => setExpandedId(expandedId === item.id ? null : item.id)}
+                onNavigate={() => leaveTo()}
+              />
+            ))}
+          </nav>
+        )}
 
         <div className="flex gap-2.5 px-5 py-4">
           {/* Deslogada, "Conta" abre o overlay de auth NO LUGAR. Navegar para `/conta` sem sessão
@@ -155,66 +174,148 @@ const MobileMenu = () => {
             </button>
           )}
         </div>
-
-        {/* Promo nula não reserva espaço (MENU-27): a folha simplesmente termina nos atalhos.
-            `mb-5` e não `mt-auto` — colada no rodapé ela brigaria com a `MobileNav` do sistema. */}
-        {promo && (
-          <Link
-            to={promo.href}
-            onClick={() => leaveTo()}
-            data-testid="mobile-menu-promo"
-            className="mx-5 mb-5 flex items-center gap-3 rounded-md bg-estrelinha-primary p-3"
-          >
-            {/* O selo do destaque é o símbolo da marca — a chama que estava
-                aqui era vocabulário de "drop", que não é desta loja. */}
-            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-white/20">
-              <EstrelinhaSymbol size={28} tone="onInk" />
-            </span>
-            <span className="flex min-w-0 flex-col">
-              <span className="truncate text-sm font-bold text-white">{promo.title}</span>
-              {promo.subtitle && (
-                <span className="truncate text-xs text-white/85">{promo.subtitle}</span>
-              )}
-            </span>
-          </Link>
-        )}
       </SheetContent>
     </Sheet>
   )
 }
 
-/** Uma linha de universo: acordeão quando tem filhas, link direto quando não tem (MENU-14). */
+/**
+ * O ícone de uma linha — ou nada.
+ *
+ * 20px, board `DGK-0`. **`accent-strong` e não `accent`**, e a diferença é medida: a folha é branca,
+ * onde `accent` (#B8945F) mede 2,82:1 e **reprova** até como objeto gráfico, que pede 3:1;
+ * `accent-strong` (#A07E4C) mede 3,85:1 e passa. Na barra escura do desktop a escolha é a inversa,
+ * pelo mesmo motivo. O board pinta os dois com o mesmo token; a paleta não deixa.
+ *
+ * Ausente é **nada**, não uma vaga vazia (`NAV-18`).
+ */
+const EntryIcon = ({ icon }: { icon: MenuItem['icon'] }) => {
+  if (!icon) return null
+  const Icon = MENU_ICON_COMPONENTS[icon]
+  return <Icon className="h-5 w-5 shrink-0 text-estrelinha-accent-strong" aria-hidden />
+}
+
+/** O banner dentro do acordeão — board `DGK-0`, arte 1:1 de 104px à esquerda do texto. */
+const MobileBanner = ({
+  banner,
+  onNavigate,
+}: {
+  banner: ResolvedMenuBanner
+  onNavigate: () => void
+}) => {
+  const conteudo = (
+    <>
+      {/* Sem arte, o card é só o texto — nenhum quadro vazio reservado (`NAV-32`). */}
+      {banner.image && (
+        <img
+          src={banner.image}
+          alt=""
+          loading="lazy"
+          className="h-[104px] w-[104px] shrink-0 object-cover"
+        />
+      )}
+      <div className="flex min-w-0 flex-col justify-center gap-1 px-3.5 py-3">
+        {banner.badge && (
+          <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-estrelinha-ink-soft">
+            {banner.badge}
+          </span>
+        )}
+        {banner.title && (
+          <span className="font-display text-[15px] leading-[21px] text-estrelinha-ink">
+            {banner.title}
+          </span>
+        )}
+        {banner.subtitle && (
+          <span className="text-xs leading-[17px] text-estrelinha-ink-soft">{banner.subtitle}</span>
+        )}
+      </div>
+    </>
+  )
+
+  const classe =
+    'mb-3.5 flex overflow-hidden rounded-md border border-estrelinha-line bg-estrelinha-ground'
+
+  // Destino de fora da loja não passa pelo React Router (`NAV-11`).
+  if (banner.external) {
+    return (
+      <a
+        href={banner.href}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={onNavigate}
+        data-testid="mobile-menu-banner"
+        className={classe}
+      >
+        {conteudo}
+      </a>
+    )
+  }
+
+  return (
+    <Link to={banner.href} onClick={onNavigate} data-testid="mobile-menu-banner" className={classe}>
+      {conteudo}
+    </Link>
+  )
+}
+
+/**
+ * Uma linha da folha: acordeão quando há painel, link direto quando não há (`NAV-25`).
+ *
+ * "Há painel" é `hasPanel`, calculado por `menuItems`: subcategoria curada **para o celular** ou
+ * banner configurado nesta superfície. Uma entrada com banner e sem filha abre acordeão — o banner é
+ * conteúdo suficiente.
+ */
 const MobileMenuEntry = ({
-  entry,
+  item,
   expanded,
+  banners,
   onToggle,
   onNavigate,
 }: {
-  entry: MenuEntry
+  item: MenuItem
   expanded: boolean
+  banners: ResolvedMenuBanner[]
   onToggle: () => void
   onNavigate: () => void
 }) => {
-  if (entry.children.length === 0) {
+  const rotulo = (
+    <>
+      <EntryIcon icon={item.icon} />
+      <span className="min-w-0 flex-1 text-base font-semibold text-estrelinha-ink">{item.name}</span>
+    </>
+  )
+
+  if (item.kind === 'link') {
+    // Item de link é link direto — sem painel, sem seta, sem subcategoria, sem banner (`NAV-12`).
+    return item.external ? (
+      <a href={item.href} target="_blank" rel="noopener noreferrer" className={ROW}>
+        {rotulo}
+      </a>
+    ) : (
+      <Link to={item.href} onClick={onNavigate} className={ROW}>
+        {rotulo}
+      </Link>
+    )
+  }
+
+  if (!item.hasPanel) {
     return (
-      <Link to={entry.href} onClick={onNavigate} className={`${ROW} min-h-11`}>
-        <span className="text-base font-semibold text-estrelinha-ink">{entry.name}</span>
+      <Link to={item.href} onClick={onNavigate} className={ROW}>
+        {rotulo}
       </Link>
     )
   }
 
   return (
     <div className="border-b border-estrelinha-line">
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-expanded={expanded}
-        className="flex min-h-11 w-full items-center justify-between gap-3 py-3 text-left"
-      >
+      <button type="button" onClick={onToggle} aria-expanded={expanded} className={`${ROW} border-b-0`}>
+        <EntryIcon icon={item.icon} />
         <span
-          className={`text-base font-semibold ${expanded ? 'text-estrelinha-primary' : 'text-estrelinha-ink'}`}
+          className={`min-w-0 flex-1 text-base font-semibold ${
+            expanded ? 'text-estrelinha-primary' : 'text-estrelinha-ink'
+          }`}
         >
-          {entry.name}
+          {item.name}
         </span>
         {expanded ? (
           <ChevronUp className="h-4 w-4 shrink-0 text-estrelinha-primary" strokeWidth={2.5} aria-hidden />
@@ -224,24 +325,42 @@ const MobileMenuEntry = ({
       </button>
 
       {expanded && (
-        <div className="flex flex-col pb-3 pl-3">
-          {entry.children.map((child) => (
+        /* A indentação alinha as filhas com o RÓTULO do pai, não com a borda: 22px da vaga do ícone
+           mais os 12px de respiro do board. Sem ícone não há vaga, então o recuo cai para o mínimo —
+           é a contrapartida de `NAV-18` no arranjo. */
+        <div className={`flex flex-col pb-3.5 ${item.icon ? 'pl-[34px]' : 'pl-3'}`}>
+          {item.children.map((filha) => (
             <Link
-              key={child.id}
-              to={categoryPath(child.slug, entry.slug)}
+              key={filha.id}
+              to={categoryPath(filha.slug, item.slug)}
               onClick={onNavigate}
-              className="min-h-11 py-1.5 text-sm font-medium leading-7 text-estrelinha-ink"
+              className="min-h-11 py-1.5 text-[15px] leading-[32px] text-estrelinha-ink"
             >
-              {child.name}
+              {filha.name}
             </Link>
           ))}
-          <Link
-            to={entry.href}
-            onClick={onNavigate}
-            className="min-h-11 py-1.5 text-sm font-semibold leading-7 text-estrelinha-primary"
-          >
-            Ver todos →
-          </Link>
+
+          {/* `NAV-26` — a canônica da entrada. Só quando há filha: numa entrada que abriu o acordeão
+              só por causa do banner, "ver tudo em X" duplicaria o toque na própria linha. */}
+          {item.children.length > 0 && (
+            <Link
+              to={item.href}
+              onClick={onNavigate}
+              className="min-h-11 py-1.5 text-[15px] font-semibold leading-[32px] text-estrelinha-primary"
+            >
+              ver tudo em {item.name} →
+            </Link>
+          )}
+
+          {/* O banner mora AQUI, dentro do acordeão da entrada a que pertence (`NAV-36`) — e não uma
+              vez só no fim da folha, como o promo antigo fazia. */}
+          {banners.map((banner, indice) => (
+            <MobileBanner
+              key={`${banner.href}-${indice}`}
+              banner={banner}
+              onNavigate={onNavigate}
+            />
+          ))}
         </div>
       )}
     </div>
