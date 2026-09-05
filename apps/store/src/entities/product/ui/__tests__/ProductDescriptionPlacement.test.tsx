@@ -22,7 +22,7 @@ vi.mock('@estrelinha/core/hooks/useStoreSettings', () => ({
     pix_enabled: true,
     pix_discount_percent: 5,
   }),
-  useShippingSettings: () => ({ free_shipping_threshold: 150 }),
+  useShippingSettings: () => ({ free_shipping_enabled: true, free_shipping_threshold: 150 }),
 }))
 vi.mock('@/features/share-product/ui/ShareButtons', () => ({ default: () => null }))
 

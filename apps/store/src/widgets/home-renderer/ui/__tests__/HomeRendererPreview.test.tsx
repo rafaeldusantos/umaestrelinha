@@ -28,7 +28,7 @@ vi.mock('@/entities/product/ui/ProductCard', () => ({
 }))
 vi.mock('@estrelinha/core/hooks/useStoreSettings', () => ({
   usePaymentSettings: () => ({ pix_enabled: true, pix_discount_percent: 5, max_installments: 6 }),
-  useShippingSettings: () => ({ free_shipping_threshold: 150 }),
+  useShippingSettings: () => ({ free_shipping_enabled: true, free_shipping_threshold: 150 }),
 }))
 
 const categoria = (slug: string, name: string, sort_order: number) => ({

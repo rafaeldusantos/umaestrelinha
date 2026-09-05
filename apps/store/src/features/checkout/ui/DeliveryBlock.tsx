@@ -19,6 +19,7 @@ import { formatPrice } from '@estrelinha/core/formatters'
 import { maskCep, stripCep } from '@estrelinha/core/validators'
 import { cheapestQuoteId, formatEstimate, quoteToEstimate } from '@estrelinha/core/shipping'
 import { useShippingSettings } from '@estrelinha/core/hooks/useStoreSettings'
+import { useFreeShipping } from '@estrelinha/core/hooks/useFreeShipping'
 import { useAuthContext } from '@estrelinha/auth'
 import type { ShippingDraft } from '@estrelinha/core/checkout'
 import { useCartStore } from '@/entities/cart'
@@ -88,7 +89,15 @@ const DeliveryBlock = ({ open, complete, onEdit, onContinue, canContinue }: Prop
 
   const subtotal = useCartStore((s) => s.subtotal())
   const coupon = useCouponStore((s) => s.applied)
-  const { free_shipping_threshold, default_shipping_cost, handling_days } = useShippingSettings()
+  const { default_shipping_cost, handling_days } = useShippingSettings()
+  /**
+   * `FRG-07` — SHP-06 passa a depender do interruptor.
+   *
+   * Era `subtotal >= free_shipping_threshold`, e com a faixa em zero isso é **sempre verdadeiro**:
+   * a opção mais barata saía zerada em toda cotação, numa loja que já não anunciava frete grátis.
+   * Era o caminho por onde o defeito custava dinheiro de verdade.
+   */
+  const freteGratis = useFreeShipping(subtotal)
 
   const { data: defaultAddress } = useDefaultAddress(customer?.id)
   const cepLookup = useCepLookup(address.cep)
@@ -171,7 +180,8 @@ const DeliveryBlock = ({ open, complete, onEdit, onContinue, canContinue }: Prop
     }
 
     const cheapest = cheapestQuoteId(quotes)
-    const thresholdReached = subtotal >= free_shipping_threshold
+    // `reached` já é `false` com o interruptor desligado (invariante 1). Nenhuma checagem a mais.
+    const thresholdReached = freteGratis.reached
 
     return quotes.map((q) => {
       const { min, max } = quoteToEstimate(q, handling_days, today)
@@ -197,9 +207,11 @@ const DeliveryBlock = ({ open, complete, onEdit, onContinue, canContinue }: Prop
     quotes,
     coupon?.freeShipping,
     default_shipping_cost,
-    free_shipping_threshold,
+    // `subtotal` sai das dependências: ele já está embutido em `freteGratis`, que é memoizado pelas
+    // primitivas. Mantê-lo faria o memo refazer as opções em toda mudança de carrinho que não muda
+    // o veredito do frete grátis.
+    freteGratis.reached,
     handling_days,
-    subtotal,
     today,
   ])
 

@@ -13,7 +13,7 @@ vi.mock('sonner', () => ({ toast: { custom: vi.fn(), error: vi.fn(), success: vi
 vi.mock('@estrelinha/core/hooks/useStoreSettings', () => ({
   useGeneralSettings: () => ({ whatsapp: '', store_name: 'Uma Estrelinha' }),
   usePaymentSettings: () => ({ max_installments: 6, min_installment_value: 10, pix_enabled: true, pix_discount_percent: 5 }),
-  useShippingSettings: () => ({ free_shipping_threshold: 150 }),
+  useShippingSettings: () => ({ free_shipping_enabled: true, free_shipping_threshold: 150 }),
 }))
 vi.mock('@/features/share-product/ui/ShareButtons', () => ({ default: () => null }))
 vi.mock('../ImageZoom', () => ({

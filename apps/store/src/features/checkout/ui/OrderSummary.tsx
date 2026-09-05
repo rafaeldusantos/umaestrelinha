@@ -16,10 +16,8 @@
 import { useState } from 'react'
 import { Check, ChevronDown, ShoppingBag, Tag, X } from 'lucide-react'
 import { formatPrice } from '@estrelinha/core/formatters'
-import {
-  usePaymentSettings,
-  useShippingSettings,
-} from '@estrelinha/core/hooks/useStoreSettings'
+import { usePaymentSettings } from '@estrelinha/core/hooks/useStoreSettings'
+import { useFreeShipping } from '@estrelinha/core/hooks/useFreeShipping'
 import CouponInput from '@/features/apply-coupon/ui/CouponInput'
 import { useCouponStore } from '@/entities/coupon'
 import { EstrelinhaSymbol } from '@/shared/ui/brand'
@@ -48,13 +46,18 @@ const OrderSummary = ({ variant }: Props) => {
   const contactEmail = useCheckoutStore((s) => s.contact.email)
   const coupon = useCouponStore((s) => s.applied)
   const clearCoupon = useCouponStore((s) => s.clearCoupon)
-  const { free_shipping_threshold } = useShippingSettings()
+  /**
+   * `FRG-06` — o estado do frete grátis vem de `@estrelinha/core/shipping`, dono único.
+   *
+   * Era `cartSubtotal >= free_shipping_threshold`, e com a faixa em zero isso é **sempre
+   * verdadeiro**: o resumo anunciava "Frete grátis liberado" numa loja que já não prometia frete
+   * grátis em nenhuma outra tela.
+   */
+  const freteGratis = useFreeShipping(cartSubtotal)
   const { card_enabled, max_installments, min_installment_value } = usePaymentSettings()
   const [expanded, setExpanded] = useState(false)
 
   const unitCount = items.reduce((sum, item) => sum + item.quantity, 0) + (bumpProduct ? 1 : 0)
-  const freeShippingReached = cartSubtotal >= free_shipping_threshold
-  const missingForFreeShipping = Math.max(0, free_shipping_threshold - cartSubtotal)
 
   /**
    * RSM-06: a parcela sai do **total do cartão**, não do total exibido. Com PIX selecionado os
@@ -64,9 +67,11 @@ const OrderSummary = ({ variant }: Props) => {
   const cardInstallments = resolveInstallments(cardTotal, max_installments, min_installment_value)
   const showInstallments = card_enabled && !!cardInstallments && cardInstallments.count >= 2
 
-  const freeShippingBand = (
+  // Some inteira com o interruptor desligado: a faixa é o anúncio do benefício, e sem benefício ela
+  // não tem o que dizer. O resumo abre direto nos itens.
+  const freeShippingBand = freteGratis.active ? (
     <div className="flex items-center gap-[9px] bg-estrelinha-ground-deep px-6 py-3">
-      {freeShippingReached ? (
+      {freteGratis.reached ? (
         <>
           <Check className="h-4 w-4 shrink-0 text-estrelinha-primary" aria-hidden />
           <span className="text-sm font-semibold leading-[18px] text-estrelinha-primary">
@@ -75,11 +80,11 @@ const OrderSummary = ({ variant }: Props) => {
         </>
       ) : (
         <span className="text-sm leading-[18px] text-estrelinha-ink">
-          Faltam {formatPrice(missingForFreeShipping)} para o frete grátis
+          Faltam {formatPrice(freteGratis.remaining)} para o frete grátis
         </span>
       )}
     </div>
-  )
+  ) : null
 
   const itemLines = (
     <div className="flex flex-col gap-4 px-6 py-5">
@@ -293,7 +298,10 @@ const OrderSummary = ({ variant }: Props) => {
               encolha em vez de embrulhar em duas linhas. */}
           <span className="min-w-0 grow truncate text-sm font-semibold leading-[18px] text-estrelinha-ink">
             Resumo · {unitCount} {unitCount === 1 ? 'item' : 'itens'}
-            {freeShippingReached ? ' · frete grátis' : ''}
+            {/* `reached` já é `false` com o interruptor desligado (invariante 1 de
+                `freeShippingState`) — não precisa de segunda checagem, e não pode ter uma: seria a
+                nona escrita da mesma regra. */}
+            {freteGratis.reached ? ' · frete grátis' : ''}
           </span>
           <span className="shrink-0 font-heading text-[17px] font-semibold leading-[22px] text-estrelinha-ink">
             {formatPrice(totals.total)}

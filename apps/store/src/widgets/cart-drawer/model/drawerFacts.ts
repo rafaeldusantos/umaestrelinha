@@ -9,28 +9,16 @@ import type { Product } from '@estrelinha/supabase/types'
 import type { CartItem } from '@/entities/cart/model/cartStore'
 import { hasSellableGrid } from '@/entities/product/lib/variantSelection'
 
-export interface FreeShippingProgress {
-  /** Quanto falta em reais. `0` quando a faixa já foi atingida. */
-  remaining: number
-  /** 0–100, já limitado — a barra nunca passa do fim. */
-  percent: number
-  reached: boolean
-}
-
-export const freeShippingProgress = (
-  subtotal: number,
-  threshold: number,
-): FreeShippingProgress => {
-  // Faixa desligada (0 ou negativa) = frete grátis sempre; dividir por ela daria `Infinity`/`NaN` na
-  // largura da barra.
-  if (!(threshold > 0)) return { remaining: 0, percent: 100, reached: true }
-  const remaining = Math.max(threshold - subtotal, 0)
-  return {
-    remaining,
-    percent: Math.min((subtotal / threshold) * 100, 100),
-    reached: remaining <= 0,
-  }
-}
+// `freeShippingProgress` MOROU AQUI, e foi apagada na feature 37 (`FRG-03`).
+//
+// Ela era a regra do frete grátis escrita uma segunda vez, e o caso de borda estava **invertido**:
+// faixa zerada devolvia `reached: true` ("frete grátis sempre"), enquanto três superfícies da
+// vitrine liam o mesmo zero como "não temos frete grátis" e escondiam o texto. Zerar o campo no
+// painel escondia o anúncio e liberava frete grátis para todo mundo no caixa.
+//
+// Hoje quem responde é `freeShippingState` em `@estrelinha/core/shipping`, dono único, e a gaveta a
+// alcança por `useFreeShipping`. Os três casos de teste desta função migraram para
+// `packages/core/src/shipping/__tests__/freeShipping.test.ts`.
 
 /**
  * O estoque que **esta linha** consome: a variação escolhida, ou o `stock_total` legado quando o

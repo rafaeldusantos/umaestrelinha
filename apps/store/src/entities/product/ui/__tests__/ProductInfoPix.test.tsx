@@ -27,7 +27,7 @@ const { settings } = vi.hoisted(() => ({
 vi.mock('@estrelinha/core/hooks/useStoreSettings', () => ({
   useGeneralSettings: () => ({ whatsapp: '', store_name: 'Uma Estrelinha' }),
   usePaymentSettings: () => settings,
-  useShippingSettings: () => ({ free_shipping_threshold: 150 }),
+  useShippingSettings: () => ({ free_shipping_enabled: true, free_shipping_threshold: 150 }),
 }))
 
 import { useProductPurchase } from '../../model/useProductPurchase'

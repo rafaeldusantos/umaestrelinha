@@ -1,8 +1,6 @@
 import type { ComponentType } from 'react'
-import {
-  usePaymentSettings,
-  useShippingSettings,
-} from '@estrelinha/core/hooks/useStoreSettings'
+import { usePaymentSettings } from '@estrelinha/core/hooks/useStoreSettings'
+import { useFreeShipping } from '@estrelinha/core/hooks/useFreeShipping'
 import { AtendimentoIcon, EnvioIcon, ParcelasIcon, PixIcon } from '@/shared/ui/icons'
 
 /**
@@ -27,7 +25,7 @@ interface Vantagem {
 
 const TrustBar = () => {
   const { pix_enabled, pix_discount_percent, max_installments } = usePaymentSettings()
-  const { free_shipping_threshold } = useShippingSettings()
+  const freteGratis = useFreeShipping()
 
   const items = [
     max_installments > 1 && {
@@ -46,12 +44,11 @@ const TrustBar = () => {
       key: 'envio',
       icon: EnvioIcon,
       top: 'Envio garantido',
-      // `free_shipping_threshold` decide a segunda linha em vez de sumir com o item: envio para todo
-      // o Brasil é verdade com ou sem frete grátis, e é a promessa que a cliente precisa ler.
-      bottom:
-        free_shipping_threshold > 0
-          ? `grátis acima de R$ ${free_shipping_threshold}`
-          : 'para todo o Brasil',
+      // O interruptor decide a segunda linha em vez de sumir com o item: envio para todo o Brasil é
+      // verdade com ou sem frete grátis, e é a promessa que a cliente precisa ler.
+      bottom: freteGratis.active
+        ? `grátis acima de R$ ${freteGratis.threshold}`
+        : 'para todo o Brasil',
     },
     pix_enabled &&
       pix_discount_percent > 0 && {

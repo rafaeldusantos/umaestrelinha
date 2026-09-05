@@ -1,7 +1,8 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { OptionValues, Product } from '@estrelinha/supabase/types'
-import { FREE_SHIPPING_THRESHOLD, SHIPPING_COST } from '@estrelinha/core/constants'
+import { SHIPPING_COST, runtimeFreeShippingConfig } from '@estrelinha/core/constants'
+import { freeShippingState } from '@estrelinha/core/shipping'
 
 /** O que a página do produto passa quando o cliente escolheu uma variação. */
 export interface CartVariantInput {
@@ -153,8 +154,14 @@ export const useCartStore = create<CartState>()(
       // mostrar na tela um total diferente do que o servidor vai cobrar.
       subtotal: () => get().items.reduce((sum, i) => sum + i.unitPrice * i.quantity, 0),
       shippingCost: () => {
-        const sub = get().subtotal()
-        return sub >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_COST
+        // `FRG-07` — a MESMA função que as telas chamam, e não uma comparação própria.
+        //
+        // Era `sub >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_COST`, e com a faixa em zero isso é
+        // sempre verdadeiro: o carrinho zerava o frete numa loja que já não anunciava frete grátis
+        // em lugar nenhum. Zustand não pode chamar hook, então a configuração hidratada vem de
+        // `runtimeFreeShippingConfig()` — mas quem decide continua sendo `freeShippingState`.
+        const estado = freeShippingState(runtimeFreeShippingConfig(), get().subtotal())
+        return estado.reached ? 0 : SHIPPING_COST
       },
       total: () => get().subtotal() + get().shippingCost(),
     }),

@@ -18,15 +18,29 @@ vi.mock('@estrelinha/core/hooks/usePromotions', () => ({
   useActivePromotions: () => ({ data: active.data, isLoading: false }),
 }))
 
-vi.mock('@estrelinha/core/hooks/useStoreSettings', () => ({
-  useShippingSettings: () => ({
+/**
+ * Feature 37: o frete grátis virou interruptor (`free_shipping_enabled`), e a gaveta o lê por
+ * `useFreeShipping` — que consome estas mesmas settings. Mockar aqui exercita a regra de verdade,
+ * não um dublê dela.
+ */
+const shipping = vi.hoisted(() => ({
+  value: {
+    free_shipping_enabled: true,
     free_shipping_threshold: 150,
     default_shipping_cost: 9.9,
     origin_zip: '',
     handling_days: 2,
-  }),
+  },
 }))
-vi.mock('@/entities/product/api/useProducts', () => ({ useAllProducts: () => ({ data: [] }) }))
+
+vi.mock('@estrelinha/core/hooks/useStoreSettings', () => ({
+  useShippingSettings: () => shipping.value,
+}))
+/** Catálogo das sugestões da faixa "Complete o frete grátis". Vazio por padrão, como antes. */
+const catalogo = vi.hoisted(() => ({ data: [] as unknown[] }))
+vi.mock('@/entities/product/api/useProducts', () => ({
+  useAllProducts: () => ({ data: catalogo.data }),
+}))
 vi.mock('@/features/apply-coupon/ui/CouponInput', () => ({ default: () => null }))
 
 import CartDrawer from '../CartDrawer'
@@ -101,6 +115,14 @@ beforeEach(() => {
   useCartUiStore.setState({ open: false })
   useCouponStore.getState().clearCoupon()
   active.data = []
+  catalogo.data = []
+  shipping.value = {
+    free_shipping_enabled: true,
+    free_shipping_threshold: 150,
+    default_shipping_cost: 9.9,
+    origin_zip: '',
+    handling_days: 2,
+  }
 })
 
 describe('CartDrawer — quem abre', () => {
@@ -403,5 +425,82 @@ describe('CartDrawer — desconto progressivo (PRM-15)', () => {
     expect(summaryValue('Desconto progressivo')).toBe('−R$ 11,70')
     expect(screen.queryByText('Cupom BEMVINDA')).not.toBeInTheDocument()
     expect(summaryValue('Total')).toBe('R$ 24,90')
+  })
+})
+
+/**
+ * `FRG-05` — a gaveta respeita o interruptor do frete gratis.
+ *
+ * Antes da feature 37 a faixa lia `freeShippingProgress(subtotal, threshold)`, que com a faixa em
+ * zero devolvia `reached: true`: a gaveta anunciava "Frete gratis liberado" numa loja que nao
+ * oferecia nada. Agora ela le `useFreeShipping`, e desligado significa desligado.
+ */
+describe('CartDrawer - o interruptor do frete gratis (FRG-05)', () => {
+  const encher = () => act(() => useCartStore.getState().addItem(product({ price: 8.9 })))
+
+  const sugestao = () =>
+    product({ id: 'p2', slug: 'outra-joia', name: 'Outra joia', price: 4.9 })
+
+  it('LIGADO: a faixa de progresso aparece, com a barra e o quanto falta', () => {
+    encher()
+    renderDrawer()
+    open()
+
+    expect(screen.getByRole('progressbar', { name: 'Progresso para o frete grátis' })).toBeInTheDocument()
+    expect(screen.getByText(/Faltam .* para frete grátis!/)).toBeInTheDocument()
+  })
+
+  it('DESLIGADO: a faixa some inteira - barra, texto e o par subtotal/faixa', () => {
+    shipping.value = { ...shipping.value, free_shipping_enabled: false }
+    encher()
+    renderDrawer()
+    open()
+
+    expect(screen.queryByRole('progressbar')).toBeNull()
+    expect(screen.queryByText(/para frete grátis/)).toBeNull()
+    expect(screen.queryByText(/Frete grátis liberado/)).toBeNull()
+    // O numero guardado (150) nao vaza para a tela.
+    expect(screen.queryByText(/150/)).toBeNull()
+  })
+
+  it('DESLIGADO com subtotal acima da faixa guardada: nada de "Frete grátis liberado"', () => {
+    // O caso que custava dinheiro. Subtotal 8,90 x 20 = 178, acima dos 150 guardados.
+    shipping.value = { ...shipping.value, free_shipping_enabled: false }
+    for (let i = 0; i < 20; i++) encher()
+    renderDrawer()
+    open()
+
+    expect(screen.queryByText(/Frete grátis liberado/)).toBeNull()
+    expect(screen.queryByRole('progressbar')).toBeNull()
+  })
+
+  it('LIGADO e faltando frete: a faixa "Complete o frete grátis" aparece', () => {
+    catalogo.data = [sugestao()]
+    encher()
+    renderDrawer()
+    open()
+
+    expect(screen.getByText('Complete o frete grátis')).toBeInTheDocument()
+  })
+
+  it('DESLIGADO: a faixa "Complete o frete grátis" some junto (decisao do usuario, Q3)', () => {
+    shipping.value = { ...shipping.value, free_shipping_enabled: false }
+    catalogo.data = [sugestao()]
+    encher()
+    renderDrawer()
+    open()
+
+    expect(screen.queryByText('Complete o frete grátis')).toBeNull()
+  })
+
+  it('interruptor LIGADO com faixa zerada nao vira "frete gratis para todos"', () => {
+    // Configuracao invalida (FRG-12 impede de gravar). A leitura antiga devolvia `reached: true`.
+    shipping.value = { ...shipping.value, free_shipping_enabled: true, free_shipping_threshold: 0 }
+    encher()
+    renderDrawer()
+    open()
+
+    expect(screen.queryByText(/Frete grátis liberado/)).toBeNull()
+    expect(screen.queryByRole('progressbar')).toBeNull()
   })
 })

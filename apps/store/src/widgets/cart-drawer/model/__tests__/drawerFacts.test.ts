@@ -1,12 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import type { Product, ProductVariant } from '@estrelinha/supabase/types'
 import type { CartItem } from '@/entities/cart/model/cartStore'
-import {
-  freeShippingProgress,
-  lowStockLabel,
-  pickCrossSell,
-  variantChips,
-} from '../drawerFacts'
+import { lowStockLabel, pickCrossSell, variantChips } from '../drawerFacts'
+
+/**
+ * Os 3 casos de `freeShippingProgress` SAÍRAM daqui na feature 37 e reapareceram em
+ * `packages/core/src/shipping/__tests__/freeShipping.test.ts`, onde a regra passou a morar.
+ *
+ * É a migração de asserção prevista pelo `CLAUDE.md` — "queda só vale se o número reaparece do outro
+ * lado" —, e o terceiro deles teve o **veredito invertido de propósito**: a função antiga tratava
+ * faixa zerada como "frete grátis sempre", que era a leitura que custava dinheiro.
+ */
 
 let seq = 0
 const variant = (overrides: Partial<ProductVariant> = {}): ProductVariant => ({
@@ -58,27 +62,6 @@ const item = (overrides: Partial<CartItem> = {}): CartItem => ({
   unitPrice: 14.9,
   quantity: 1,
   ...overrides,
-})
-
-describe('freeShippingProgress', () => {
-  it('mede quanto falta e a fração já percorrida', () => {
-    const p = freeShippingProgress(134.7, 150)
-    expect(p.remaining).toBeCloseTo(15.3, 2)
-    expect(p.percent).toBeCloseTo(89.8, 2)
-    expect(p.reached).toBe(false)
-  })
-
-  it('atingida a faixa, não falta nada e a barra para em 100', () => {
-    const p = freeShippingProgress(200, 150)
-    expect(p.reached).toBe(true)
-    expect(p.remaining).toBe(0)
-    expect(p.percent).toBe(100)
-  })
-
-  it('faixa zerada (frete grátis sempre) não vira NaN nem Infinity na largura da barra', () => {
-    const p = freeShippingProgress(30, 0)
-    expect(p).toEqual({ remaining: 0, percent: 100, reached: true })
-  })
 })
 
 describe('lowStockLabel', () => {

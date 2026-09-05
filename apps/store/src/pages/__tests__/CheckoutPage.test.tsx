@@ -141,6 +141,7 @@ const checkoutSettings = {
   order_bump_discount_percent: 50,
 }
 const shippingSettings = {
+  free_shipping_enabled: true,
   free_shipping_threshold: 150,
   default_shipping_cost: 9.9,
   origin_zip: '',
@@ -343,6 +344,7 @@ beforeEach(() => {
   paymentSettings.pix_discount_percent = 5
   checkoutSettings.order_bump_enabled = false
   checkoutSettings.order_bump_product_id = null
+  shippingSettings.free_shipping_enabled = true
   shippingSettings.free_shipping_threshold = 150
   activePromotions.data = []
 

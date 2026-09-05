@@ -1,10 +1,8 @@
 import type { ComponentType } from 'react'
 import { RotateCcw, ShieldCheck, Truck } from 'lucide-react'
 import { formatPrice } from '@estrelinha/core/formatters'
-import {
-  usePaymentSettings,
-  useShippingSettings,
-} from '@estrelinha/core/hooks/useStoreSettings'
+import { usePaymentSettings } from '@estrelinha/core/hooks/useStoreSettings'
+import { useFreeShipping } from '@estrelinha/core/hooks/useFreeShipping'
 import { PixIcon } from '@/shared/ui/icons'
 
 /**
@@ -24,18 +22,18 @@ const shortPrice = (value: number) =>
   Number.isInteger(value) ? `R$ ${value}` : formatPrice(value)
 
 const ProductTrustBadges = () => {
-  const { free_shipping_threshold } = useShippingSettings()
+  const freteGratis = useFreeShipping()
   const { pix_enabled, pix_discount_percent } = usePaymentSettings()
 
   const items = [
-    free_shipping_threshold > 0 && {
+    freteGratis.active && {
       key: 'frete',
       icon: Truck,
       top: 'Frete grátis',
       // "+R$ 150" e não "acima de R$ 150,00": medido em 390px, a coluna tem ~78px e o texto longo
       // quebrava em três linhas, deixando as quatro colunas com alturas diferentes. É a mesma
       // abreviação do board mobile.
-      bottom: `+${shortPrice(free_shipping_threshold)}`,
+      bottom: `+${shortPrice(freteGratis.threshold)}`,
     },
     { key: 'segura', icon: ShieldCheck, top: 'Compra', bottom: 'segura' },
     { key: 'troca', icon: RotateCcw, top: 'Troca em', bottom: '7 dias' },

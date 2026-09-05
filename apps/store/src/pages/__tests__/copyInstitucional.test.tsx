@@ -8,7 +8,9 @@ import { MemoryRouter } from 'react-router-dom'
  */
 const { settingsPagamento, settingsFrete, settingsGeral } = vi.hoisted(() => ({
   settingsPagamento: { pix_enabled: true, pix_discount_percent: 5 },
-  settingsFrete: { free_shipping_threshold: 150 },
+  // Feature 37: o interruptor é campo próprio. A faixa guardada (150) **sobrevive** ao desligar —
+  // por isso os testes abaixo alternam `free_shipping_enabled`, e não zeram o número.
+  settingsFrete: { free_shipping_enabled: true, free_shipping_threshold: 150 },
   // Feature 29: a Sobre passou a ler `whatsapp` das settings para decidir se a ação "Falar com a
   // Adri" existe. O mock deste arquivo substitui o módulo inteiro, então um hook novo consumido
   // por qualquer uma das três páginas precisa aparecer aqui — senão o render estoura antes de
@@ -29,6 +31,7 @@ import PoliciesPage from '../PoliciesPage'
 beforeEach(() => {
   settingsPagamento.pix_enabled = true
   settingsPagamento.pix_discount_percent = 5
+  settingsFrete.free_shipping_enabled = true
   settingsFrete.free_shipping_threshold = 150
 })
 
@@ -159,12 +162,26 @@ describe('Políticas — o texto que a cliente lê antes de enviar o material (C
     expect(screen.queryByText(/acima de R\$ 150/)).toBeNull()
   })
 
-  it('com o frete grátis desligado, a promessa não aparece', () => {
+  it('com o interruptor DESLIGADO, a promessa não aparece', () => {
+    settingsFrete.free_shipping_enabled = false
+    renderPagina(<PoliciesPage />)
+
+    expect(screen.queryByText(/Frete grátis/)).toBeNull()
+    // A faixa segue 150 no banco, e a página não a menciona — o número guardado não vaza (FRG-03,
+    // invariante 3).
+    expect(screen.queryByText(/R\$ 150/)).toBeNull()
+    // A seção de envio continua existindo — o que sai é só a promessa.
+    expect(screen.getByRole('heading', { name: 'Envio' })).toBeInTheDocument()
+  })
+
+  it('interruptor LIGADO com faixa zerada também não promete nada', () => {
+    // Configuração inválida (`FRG-12` impede de gravar). O que importa aqui é que ela não vire
+    // "frete grátis para compras acima de R$ 0,00".
+    settingsFrete.free_shipping_enabled = true
     settingsFrete.free_shipping_threshold = 0
     renderPagina(<PoliciesPage />)
 
     expect(screen.queryByText(/Frete grátis/)).toBeNull()
-    // A seção de envio continua existindo — o que sai é só a promessa.
     expect(screen.getByRole('heading', { name: 'Envio' })).toBeInTheDocument()
   })
 })

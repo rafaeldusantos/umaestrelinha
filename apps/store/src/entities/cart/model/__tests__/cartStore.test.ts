@@ -1,5 +1,6 @@
 import { describe, expect, it, beforeEach } from 'vitest'
 import { useCartStore, type CartVariantInput } from '../cartStore'
+import { setRuntimeShippingSettings } from '@estrelinha/core/constants'
 import type { Product } from '@estrelinha/supabase/types'
 
 // Testes derivados de PST-04, PST-02 (AC 1-3) e do "Done when" da T11.
@@ -306,5 +307,68 @@ describe('persistência — v2 → v3 PRESERVA a sacola', () => {
       (p: unknown, v: number) => { items: unknown[] })({ items: [{ product: product() }] }, 1)
 
     expect(migrado.items).toEqual([])
+  })
+})
+
+/**
+ * `FRG-07` (AC 13) — o frete do carrinho respeita o interruptor.
+ *
+ * `shippingCost()` NAO TINHA TESTE NENHUM ate a feature 37, e fazia
+ * `sub >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_COST`. Com a faixa em zero isso e sempre
+ * verdadeiro: o carrinho zerava o frete numa loja que ja nao anunciava frete gratis em tela
+ * nenhuma. Zustand nao pode chamar hook, entao a configuracao chega por
+ * `setRuntimeShippingSettings` (hidratada pelo `RuntimeSettingsLoader`) — mas quem decide e a
+ * mesma `freeShippingState` que as telas usam.
+ */
+describe('cartStore.shippingCost — o interruptor do frete gratis', () => {
+  const encher = (unidades: number) => {
+    useCartStore.setState({ items: [] })
+    for (let i = 0; i < unidades; i++) {
+      useCartStore.getState().addItem(product({ id: `p${i}`, price: 20 }))
+    }
+  }
+
+  beforeEach(() => {
+    setRuntimeShippingSettings({
+      free_shipping_enabled: true,
+      free_shipping_threshold: 150,
+      default_shipping_cost: 9.9,
+    })
+  })
+
+  it('LIGADO e acima da faixa: frete zerado', () => {
+    encher(10) // 200
+    expect(useCartStore.getState().shippingCost()).toBe(0)
+    expect(useCartStore.getState().total()).toBe(200)
+  })
+
+  it('LIGADO e abaixo da faixa: cobra o custo padrao', () => {
+    encher(5) // 100
+    expect(useCartStore.getState().shippingCost()).toBe(9.9)
+  })
+
+  it('DESLIGADO e acima da faixa guardada: COBRA o frete', () => {
+    setRuntimeShippingSettings({ free_shipping_enabled: false })
+    encher(10) // 200, acima dos 150 guardados
+    expect(useCartStore.getState().shippingCost()).toBe(9.9)
+    expect(useCartStore.getState().total()).toBe(209.9)
+  })
+
+  it('DESLIGADO com faixa em ZERO nao vira frete gratis para todos', () => {
+    // O caso exato do defeito: `sub >= 0` e sempre verdadeiro.
+    setRuntimeShippingSettings({ free_shipping_enabled: false, free_shipping_threshold: 0 })
+    encher(1) // 20
+    expect(useCartStore.getState().shippingCost()).toBe(9.9)
+  })
+
+  it('LIGADO com faixa em ZERO (config invalida) tambem cobra', () => {
+    setRuntimeShippingSettings({ free_shipping_enabled: true, free_shipping_threshold: 0 })
+    encher(1)
+    expect(useCartStore.getState().shippingCost()).toBe(9.9)
+  })
+
+  it('carrinho vazio cobra o frete padrao, com o interruptor ligado', () => {
+    useCartStore.setState({ items: [] })
+    expect(useCartStore.getState().shippingCost()).toBe(9.9)
   })
 })

@@ -19,7 +19,12 @@ const payment = vi.hoisted(() => ({
     min_installment_value: 10,
   },
 }))
-const shipping = vi.hoisted(() => ({ value: { free_shipping_threshold: 150 } }))
+// `free_shipping_enabled` entra aqui e NÃO é substituído por `threshold: 0` (feature 37): o
+// interruptor é campo próprio, e a faixa guardada sobrevive a ele. O componente lê `useFreeShipping`,
+// que consome estas mesmas settings — mockar aqui exercita a regra de verdade, não um dublê dela.
+const shipping = vi.hoisted(() => ({
+  value: { free_shipping_enabled: true, free_shipping_threshold: 150 },
+}))
 
 vi.mock('@estrelinha/core/hooks/useStoreSettings', () => ({
   usePaymentSettings: () => payment.value,
@@ -36,7 +41,7 @@ beforeEach(() => {
     max_installments: 6,
     min_installment_value: 10,
   }
-  shipping.value = { free_shipping_threshold: 150 }
+  shipping.value = { free_shipping_enabled: true, free_shipping_threshold: 150 }
 })
 
 describe('TrustBar — os números saem das settings', () => {
@@ -56,7 +61,7 @@ describe('TrustBar — os números saem das settings', () => {
   })
 
   it('o limiar de frete grátis vira a segunda linha do envio', () => {
-    shipping.value = { free_shipping_threshold: 199 }
+    shipping.value = { free_shipping_enabled: true, free_shipping_threshold: 199 }
     render(<TrustBar />)
     expect(screen.getByText('grátis acima de R$ 199')).toBeInTheDocument()
   })
@@ -85,11 +90,23 @@ describe('TrustBar — o que some quando a loja desliga', () => {
     expect(screen.queryByText(/sem juros/)).toBeNull()
   })
 
-  it('sem frete grátis, o envio continua prometendo o Brasil inteiro', () => {
+  it('com o interruptor DESLIGADO, o envio continua prometendo o Brasil inteiro', () => {
     // O item NÃO some: enviar para todo o Brasil é verdade com ou sem frete grátis, e é a promessa
     // que a cliente precisa ler antes de comprar.
-    shipping.value = { free_shipping_threshold: 0 }
+    shipping.value = { free_shipping_enabled: false, free_shipping_threshold: 150 }
     render(<TrustBar />)
     expect(screen.getByText('para todo o Brasil')).toBeInTheDocument()
+    // E o número guardado NÃO vaza: a faixa segue 150 no banco, e a home não a menciona.
+    expect(screen.queryByText(/grátis acima de/)).toBeNull()
+    expect(screen.queryByText(/150/)).toBeNull()
+  })
+
+  it('interruptor LIGADO com faixa zerada não vira promessa de graça para todos', () => {
+    // Configuração inválida (`FRG-12` a impede de ser gravada). Antes da feature 37, a leitura
+    // `subtotal >= 0` que outras superfícies faziam liberava frete grátis para todo mundo.
+    shipping.value = { free_shipping_enabled: true, free_shipping_threshold: 0 }
+    render(<TrustBar />)
+    expect(screen.getByText('para todo o Brasil')).toBeInTheDocument()
+    expect(screen.queryByText(/grátis acima de/)).toBeNull()
   })
 })

@@ -26,6 +26,7 @@ vi.mock('../../api/useShippingQuote', () => ({ useShippingQuote: vi.fn() }))
 vi.mock('@/entities/address/api/useDefaultAddress', () => ({ useDefaultAddress: vi.fn() }))
 
 const shippingSettings = {
+  free_shipping_enabled: true,
   free_shipping_threshold: 150,
   default_shipping_cost: 9.9,
   origin_zip: '',
@@ -138,6 +139,7 @@ beforeEach(() => {
   sessionStorage.clear()
   onEdit.mockClear()
   onContinue.mockClear()
+  shippingSettings.free_shipping_enabled = true
   shippingSettings.free_shipping_threshold = 150
   shippingSettings.default_shipping_cost = 9.9
   shippingSettings.handling_days = 2
@@ -609,5 +611,104 @@ describe('DeliveryBlock — paleta (CHK-04 / DESIGN.md §8)', () => {
     expect(container.innerHTML).not.toMatch(
       /bg-(yellow|blue|purple|green|red)-|text-(green|red|yellow|blue|purple)-[0-9]/,
     )
+  })
+})
+
+/**
+ * `FRG-07` — o interruptor do frete gratis governa SHP-06.
+ *
+ * Este e o caminho que custava DINHEIRO. Ate a feature 37, `thresholdReached` era
+ * `subtotal >= free_shipping_threshold`; com a faixa em zero isso e sempre verdadeiro, e a opcao
+ * mais barata saia zerada em toda cotacao — numa loja que ja nao anunciava frete gratis em tela
+ * nenhuma. Esconder o texto e continuar zerando o frete e o defeito de hoje, invertido.
+ */
+describe('DeliveryBlock — o interruptor do frete gratis (FRG-07)', () => {
+  it('DESLIGADO: subtotal MUITO acima da faixa guardada nao zera opcao nenhuma', () => {
+    shippingSettings.free_shipping_enabled = false
+    shippingSettings.free_shipping_threshold = 150
+    setCartSubtotal(10_000)
+    withCep()
+    cepLookup(RESOLVED)
+    quoteState({ data: [SEDEX, PAC] })
+    renderOpen()
+
+    expect(screen.queryByText('Grátis')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('Correios PAC'))
+    expect(useCheckoutStore.getState().shipping?.cost).toBe(14.9)
+  })
+
+  it('DESLIGADO: subtotal exatamente na faixa guardada tambem nao zera', () => {
+    shippingSettings.free_shipping_enabled = false
+    shippingSettings.free_shipping_threshold = 150
+    setCartSubtotal(150)
+    withCep()
+    cepLookup(RESOLVED)
+    quoteState({ data: [SEDEX, PAC] })
+    renderOpen()
+
+    expect(screen.queryByText('Grátis')).not.toBeInTheDocument()
+  })
+
+  it('DESLIGADO com faixa em ZERO: nao vira frete gratis para todo mundo', () => {
+    // A leitura antiga (`subtotal >= 0`) zerava a mais barata em 100% das cotacoes.
+    shippingSettings.free_shipping_enabled = false
+    shippingSettings.free_shipping_threshold = 0
+    setCartSubtotal(1)
+    withCep()
+    cepLookup(RESOLVED)
+    quoteState({ data: [SEDEX, PAC] })
+    renderOpen()
+
+    expect(screen.queryByText('Grátis')).not.toBeInTheDocument()
+  })
+
+  it('LIGADO com faixa em ZERO (config invalida) tambem nao zera', () => {
+    shippingSettings.free_shipping_enabled = true
+    shippingSettings.free_shipping_threshold = 0
+    setCartSubtotal(1)
+    withCep()
+    cepLookup(RESOLVED)
+    quoteState({ data: [SEDEX, PAC] })
+    renderOpen()
+
+    expect(screen.queryByText('Grátis')).not.toBeInTheDocument()
+  })
+
+  it('DESLIGADO: o cupom de frete gratis CONTINUA zerando todas (AC 14)', () => {
+    // Decisao do usuario (Q2): o interruptor governa so a faixa automatica por valor de compra.
+    // Cupom e ato explicito da dona, criado um a um em /admin/cupons.
+    shippingSettings.free_shipping_enabled = false
+    useCouponStore.getState().setCoupon({
+      id: 'cp1',
+      code: 'FRETEGRATIS',
+      discount: 0,
+      freeShipping: true,
+    } as any)
+    setCartSubtotal(50)
+    withCep()
+    cepLookup(RESOLVED)
+    quoteState({ data: [PAC, SEDEX] })
+    renderOpen()
+
+    expect(screen.getAllByText('Grátis')).toHaveLength(2)
+
+    fireEvent.click(screen.getByText('Correios PAC'))
+    expect(useCheckoutStore.getState().shipping?.cost).toBe(0)
+  })
+
+  it('DESLIGADO: o fallback "Frete padrao" cobra o custo padrao mesmo com subtotal alto', () => {
+    // SHP-05 nunca dependeu do threshold — o fallback ja cobrava `default_shipping_cost` sempre.
+    // O caso existe para provar que o interruptor nao introduziu um caminho novo de zerar frete.
+    shippingSettings.free_shipping_enabled = false
+    setCartSubtotal(10_000)
+    withCep()
+    cepLookup(RESOLVED)
+    quoteState({ isError: true })
+    renderOpen()
+
+    expect(screen.getByText('Correios Frete padrão')).toBeInTheDocument()
+    expect(screen.queryByText('Grátis')).not.toBeInTheDocument()
+    expect(useCheckoutStore.getState().shipping?.cost).toBe(9.9)
   })
 })

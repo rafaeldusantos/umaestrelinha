@@ -1,8 +1,6 @@
 import { formatPrice } from '@estrelinha/core/formatters'
-import {
-  usePaymentSettings,
-  useShippingSettings,
-} from '@estrelinha/core/hooks/useStoreSettings'
+import { usePaymentSettings } from '@estrelinha/core/hooks/useStoreSettings'
+import { useFreeShipping } from '@estrelinha/core/hooks/useFreeShipping'
 
 /**
  * `PDP-24` — **todo número desta página sai das settings**, nenhum do JSX.
@@ -14,7 +12,7 @@ import {
  */
 const PoliciesPage = () => {
   const { pix_enabled, pix_discount_percent } = usePaymentSettings()
-  const { free_shipping_threshold } = useShippingSettings()
+  const freteGratis = useFreeShipping()
   const temPix = pix_enabled && pix_discount_percent > 0
 
   return (
@@ -24,9 +22,9 @@ const PoliciesPage = () => {
       <section>
         <h2 className="font-heading font-bold text-lg text-estrelinha-ink mb-2">Envio</h2>
         <p>Enviamos para todo o Brasil via Correios. Prazo de postagem: até 3 dias úteis após confirmação do pagamento.</p>
-        {free_shipping_threshold > 0 && (
+        {freteGratis.active && (
           <p className="mt-1">
-            Frete grátis para compras acima de {formatPrice(free_shipping_threshold)}!
+            Frete grátis para compras acima de {formatPrice(freteGratis.threshold)}!
           </p>
         )}
       </section>

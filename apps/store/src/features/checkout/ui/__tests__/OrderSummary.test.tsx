@@ -37,6 +37,7 @@ const checkoutSettings = {
   order_bump_discount_percent: 50,
 }
 const shippingSettings = {
+  free_shipping_enabled: true,
   free_shipping_threshold: 150,
   default_shipping_cost: 9.9,
   origin_zip: '',
@@ -118,6 +119,7 @@ beforeEach(() => {
   checkoutSettings.order_bump_enabled = false
   checkoutSettings.order_bump_product_id = null
   checkoutSettings.order_bump_discount_percent = 50
+  shippingSettings.free_shipping_enabled = true
   shippingSettings.free_shipping_threshold = 150
   active.data = []
   productByIdMock.mockReturnValue({ data: null, isError: false } as any)
@@ -455,6 +457,57 @@ describe('OrderSummary — faixa de frete grátis', () => {
 
     expect(screen.getByText('Frete grátis liberado')).toBeInTheDocument()
     expect(screen.queryByText(/faltam/i)).not.toBeInTheDocument()
+  })
+
+  /**
+   * `FRG-06` — o interruptor governa a faixa inteira.
+   *
+   * Era `cartSubtotal >= free_shipping_threshold`: com a faixa em zero, sempre verdadeiro, e o
+   * resumo anunciava "Frete grátis liberado" numa loja que já não prometia nada em tela nenhuma.
+   */
+  it('DESLIGADO: a faixa some inteira, nos dois estados que ela teria', () => {
+    shippingSettings.free_shipping_enabled = false
+    shippingSettings.free_shipping_threshold = 100
+    render(<OrderSummary variant="sidebar" />)
+
+    expect(screen.queryByText('Frete grátis liberado')).toBeNull()
+    expect(screen.queryByText(/para o frete grátis/)).toBeNull()
+    // O resumo continua de pé — o que sai é só a faixa.
+    expect(screen.getByTestId('summary-total')).toBeInTheDocument()
+  })
+
+  it('DESLIGADO com subtotal acima da faixa guardada: nada de "liberado"', () => {
+    shippingSettings.free_shipping_enabled = false
+    shippingSettings.free_shipping_threshold = 1
+    render(<OrderSummary variant="sidebar" />)
+
+    expect(screen.queryByText('Frete grátis liberado')).toBeNull()
+  })
+
+  it('LIGADO com faixa zerada (config inválida) não anuncia liberado', () => {
+    shippingSettings.free_shipping_enabled = true
+    shippingSettings.free_shipping_threshold = 0
+    render(<OrderSummary variant="sidebar" />)
+
+    expect(screen.queryByText('Frete grátis liberado')).toBeNull()
+    expect(screen.queryByText(/para o frete grátis/)).toBeNull()
+  })
+
+  it('DESLIGADO: a barra colapsada do mobile perde o sufixo " · frete grátis"', () => {
+    shippingSettings.free_shipping_enabled = false
+    shippingSettings.free_shipping_threshold = 1
+    render(<OrderSummary variant="bar" />)
+
+    expect(screen.getByRole('button', { expanded: false })).not.toHaveTextContent('frete grátis')
+  })
+
+  it('LIGADO e atingido: a barra colapsada do mobile MANTÉM o sufixo', () => {
+    // O par do caso acima — sem ele, remover o sufixo de vez passaria na régua.
+    shippingSettings.free_shipping_enabled = true
+    shippingSettings.free_shipping_threshold = 1
+    render(<OrderSummary variant="bar" />)
+
+    expect(screen.getByRole('button', { expanded: false })).toHaveTextContent('frete grátis')
   })
 })
 

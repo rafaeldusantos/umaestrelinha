@@ -14,13 +14,14 @@ import {
 import { Button } from '@estrelinha/ui/button'
 import { formatPrice } from '@estrelinha/core/formatters'
 import { useShippingSettings } from '@estrelinha/core/hooks/useStoreSettings'
+import { useFreeShipping } from '@estrelinha/core/hooks/useFreeShipping'
 import { useCartStore } from '@/entities/cart/model/cartStore'
 import { useCartPromotion } from '@/entities/cart/model/useCartPromotion'
 import { useCartUiStore } from '@/entities/cart/model/cartUiStore'
 import { useCouponStore } from '@/entities/coupon/model/couponStore'
 import { useAllProducts } from '@/entities/product/api/useProducts'
 import CouponInput from '@/features/apply-coupon/ui/CouponInput'
-import { freeShippingProgress, pickCrossSell } from '../model/drawerFacts'
+import { pickCrossSell } from '../model/drawerFacts'
 import CartDrawerRow from './CartDrawerRow'
 import CrossSell from './CrossSell'
 
@@ -41,16 +42,27 @@ const CartDrawer = () => {
   const subtotal = useCartStore((s) => s.subtotal())
   const count = useCartStore((s) => s.uniqueItemsCount())
   const applied = useCouponStore((s) => s.applied)
-  const { free_shipping_threshold, default_shipping_cost } = useShippingSettings()
+  const { default_shipping_cost } = useShippingSettings()
   const { promotionDiscount, totals, nextTier } = useCartPromotion()
 
-  const progress = freeShippingProgress(subtotal, free_shipping_threshold)
+  /**
+   * `FRG-05` — o estado do frete grátis vem de `@estrelinha/core/shipping`, dono único.
+   *
+   * Antes da feature 37 era `freeShippingProgress(subtotal, free_shipping_threshold)`, uma segunda
+   * escrita da regra com o caso de borda invertido: faixa zerada devolvia `reached: true`, e a
+   * gaveta anunciava "Frete grátis liberado" numa loja que já não oferecia nada.
+   */
+  const progress = useFreeShipping(subtotal)
 
   // O catálogo só é buscado com a gaveta aberta e faltando frete — a gaveta vive montada em toda
   // rota, e uma query de catálogo inteiro na montagem seria trabalho que ninguém pediu. A chave é a
   // mesma de `useAllProducts` em outras telas, então quando já há cache não há requisição nova.
+  //
+  // Com o frete grátis DESLIGADO a busca também não acontece: a faixa de sugestões existe para
+  // "completar o frete", e sem frete grátis ela não é renderizada (decisão do usuário, `context.md`
+  // Q3). Uma requisição a menos, de graça.
   const { data: catalog } = useAllProducts({
-    enabled: open && items.length > 0 && !progress.reached,
+    enabled: open && items.length > 0 && progress.active && !progress.reached,
   })
   const suggestions = useMemo(() => pickCrossSell(catalog, items), [catalog, items])
 
@@ -130,38 +142,43 @@ const CartDrawer = () => {
           </div>
         ) : (
           <>
-            {/* Faixa do frete grátis — o único bloco em açúcar acima da dobra. */}
-            <div className="flex shrink-0 flex-col gap-1.5 bg-estrelinha-ground-deep px-5 py-3 md:gap-2 md:px-6 md:py-4">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-xs font-semibold text-estrelinha-primary md:text-[13px]">
-                  {progress.reached ? (
-                    <span className="inline-flex items-center gap-1.5">
-                      <Truck className="h-3.5 w-3.5" aria-hidden /> Frete grátis liberado
-                    </span>
-                  ) : (
-                    <>Faltam {formatPrice(progress.remaining)} para frete grátis!</>
-                  )}
-                </p>
-                <span className="shrink-0 text-[11px] font-medium text-estrelinha-ink-soft">
-                  {formatPrice(subtotal)} / {formatPrice(free_shipping_threshold)}
-                </span>
+            {/* Faixa do frete grátis — o único bloco em açúcar acima da dobra.
+                Some inteira com o interruptor desligado (`FRG-05`): sem ela, a gaveta abre com a
+                lista de itens colada no cabeçalho, que é o layout correto para uma loja que não
+                oferece frete grátis. */}
+            {progress.active && (
+              <div className="flex shrink-0 flex-col gap-1.5 bg-estrelinha-ground-deep px-5 py-3 md:gap-2 md:px-6 md:py-4">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs font-semibold text-estrelinha-primary md:text-[13px]">
+                    {progress.reached ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        <Truck className="h-3.5 w-3.5" aria-hidden /> Frete grátis liberado
+                      </span>
+                    ) : (
+                      <>Faltam {formatPrice(progress.remaining)} para frete grátis!</>
+                    )}
+                  </p>
+                  <span className="shrink-0 text-[11px] font-medium text-estrelinha-ink-soft">
+                    {formatPrice(subtotal)} / {formatPrice(progress.threshold)}
+                  </span>
+                </div>
+                <div
+                  className="h-1.5 w-full overflow-hidden rounded-full bg-white"
+                  role="progressbar"
+                  aria-valuenow={Math.round(progress.percent)}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-label="Progresso para o frete grátis"
+                >
+                  <motion.div
+                    className="h-full rounded-full bg-estrelinha-primary"
+                    initial={false}
+                    animate={{ width: `${progress.percent}%` }}
+                    transition={{ duration: 0.4, ease: 'easeOut' }}
+                  />
+                </div>
               </div>
-              <div
-                className="h-1.5 w-full overflow-hidden rounded-full bg-white"
-                role="progressbar"
-                aria-valuenow={Math.round(progress.percent)}
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-label="Progresso para o frete grátis"
-              >
-                <motion.div
-                  className="h-full rounded-full bg-estrelinha-primary"
-                  initial={false}
-                  animate={{ width: `${progress.percent}%` }}
-                  transition={{ duration: 0.4, ease: 'easeOut' }}
-                />
-              </div>
-            </div>
+            )}
 
             {/* Lista + sugestões rolam juntas; o rodapé fica fixo. */}
             <div className="flex-1 overflow-y-auto overscroll-contain">
@@ -180,7 +197,11 @@ const CartDrawer = () => {
                   ))}
                 </AnimatePresence>
               </ul>
-              {!progress.reached && <CrossSell products={suggestions} onNavigate={closeCart} />}
+              {/* `active` além de `!reached`: o título da faixa é literalmente "Complete o frete
+                  grátis", e sem faixa ele promete o que a loja não faz (decisão do usuário, Q3). */}
+              {progress.active && !progress.reached && (
+                <CrossSell products={suggestions} onNavigate={closeCart} />
+              )}
             </div>
 
             <div className="shrink-0 border-t border-estrelinha-line pb-[env(safe-area-inset-bottom)]">
