@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import type { HomeSectionConfig } from '@estrelinha/core/home'
-import { EstrelinhaStarIcon } from '@/shared/ui/icons'
+import { EstrelinhaStarIcon } from '@estrelinha/ui/icons'
 import { TAP_ROW } from '@/shared/lib/touchTarget'
 
 /**

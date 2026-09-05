@@ -54,6 +54,53 @@ catalog-import 509/23**. Quedas declaradas e permitidas: `TrendingLane`, `MenuBa
 
 ---
 
+## Progresso
+
+| Lote | Fases | Tasks | Estado | Commit | Medição |
+| --- | --- | --- | --- | --- | --- |
+| 1 | 1 | T1–T5 | ✅ completo | `5dffb6b` | core **1705/66** (+212/+6) · tsc 0 · 0 |
+| 2 | 2 + 3 | T6–T11 | ✅ completo | banco + ícones | store **2046/137** (+45/+2) · core 1705/66 · backoffice 1786/109 · tsc 0 · 0 · build ✅ |
+| 3 | 4 | T12–T18 | — | — | — |
+| 4 | 5 | T19–T26 | — | — | — |
+| 5 | 6 + 7 | T27–T32 | — | — | — |
+
+**Desvios aceitos no lote 1** (todos documentados no código):
+
+- **T4 antes de T1** — a dependência declarada estava invertida: `MenuItem.icon` é `MenuIconKey` e
+  `menuItems` chama `menuIconKey` para cumprir NAV-19.
+- **`menuBannerSlots` mora em `menu.ts`**, não em `banners.ts`: `hasPanel` precisa saber se há banner,
+  e `banners.ts → target.ts → menu.ts` fecharia **ciclo de import** — que o Vite tolera e o Deno da
+  function do sitemap não. O primitivo da forma ficou em `menu.ts`, a resolução em `banners.ts`.
+- **`hasPanel` conta a presença do banner, não o resolvido** — destino de produto só resolve quando o
+  painel abre (T17), e esperar por ele faria a seta aparecer depois do primeiro hover.
+- **`resolveMenuBanners` trunca em 2 na leitura.** Diverge do princípio de `menuEntries` ("nunca
+  trunca, o contador acusa"). Aceito porque o terceiro banner só chega por SQL na mão — **mas a
+  contrapartida entra na T25**: o editor tem de *acusar* o excedente, senão ele fica invisível e
+  indeletável.
+- `MenuCategory` ganhou os campos novos como **opcionais** e `show_in_menu` virou opcional/legado —
+  sem isso os ~15 consumidores atuais parariam de compilar antes da T12. Nada foi removido.
+
+**Desvios aceitos no lote 2** (todos documentados no código):
+
+- **`icons.test.ts` NÃO foi para `packages/ui`, e `paths.test.ts` não se moveu.** A T10 mandava mover
+  os dois junto com a biblioteca. `packages/ui` **não tem script `test` nem `vitest.config.ts`**:
+  um teste ali dentro nunca rodaria, e guarda que não roda é pior que guarda nenhum, porque parece
+  estar de pé. `icons.test.ts` ficou na suíte da loja (`shared/lib/__tests__`), varrendo
+  `packages/ui/src/icons` — a mesma solução que `materialTransitions`, `homeSections` e
+  `vercelRedirects` já usam para ler migrations e o `vercel.json`. E `paths.test.ts` guarda
+  `shared/ui/brand/paths.ts`, que **não** faz parte da biblioteca de ícones e não mudou de casa.
+- **A migration acrescentou `not null` à coluna gerada**, que o design não pedia: sem ele
+  `show_in_menu` viraria nullable e `DbCategory.show_in_menu` deixaria de ser `boolean`. As duas
+  fontes são `not null`, então a derivada nunca é nula.
+- **Os backfills e a conversão vivem num `do $$` guardado por `attgenerated = ''`.** O design escrevia
+  os comandos soltos; soltos, a segunda execução leria a coluna já DERIVADA e ligaria nas duas
+  superfícies tudo que estivesse ligado em uma — apagando a curadoria da Adri em silêncio.
+- **Duas fixtures do painel ganharam os campos novos** (`CategoryFormDialog.test.tsx`,
+  `Taxonomy.test.tsx`): `DbCategory` descreve a linha, e a linha traz as colunas novas. A alternativa
+  — declará-las opcionais no tipo — seria o `AD-012` de novo, com o tipo dizendo menos que o banco.
+
+---
+
 ## Execution Plan
 
 ```
@@ -210,11 +257,11 @@ T30 → T31 → T32
 **Tools**: MCP NONE (o servidor `supabase` **não está autorizado nesta sessão** — usar CLI e `curl`) · Skill `supabase`
 
 **Done when**:
-- [ ] `supabase db reset` roda limpo; segunda execução da migration afeta 0 linhas
-- [ ] `menu_promo` **não** é apagada; `show_in_menu` existe e é gerada
-- [ ] O índice parcial existe depois da recriação
-- [ ] `store_settings` ganha a chave `menu` só se ela não existir
-- [ ] Gate: build
+- [x] `supabase db reset` roda limpo; segunda execução da migration afeta 0 linhas
+- [x] `menu_promo` **não** é apagada; `show_in_menu` existe e é gerada
+- [x] O índice parcial existe depois da recriação
+- [x] `store_settings` ganha a chave `menu` só se ela não existir
+- [x] Gate: build
 
 **Tests**: none (o guarda é T9) · **Gate**: build · **Commit**: `feat(39): o banco do menu configurável`
 
@@ -228,9 +275,9 @@ T30 → T31 → T32
 **Requirement**: NAV-08
 
 **Done when**:
-- [ ] `PATCH` de `menu_desktop`/`menu_mobile`/`menu_banners`/`icon` devolve os valores persistidos
-- [ ] `PATCH` de `show_in_menu` **falha** (coluna gerada) — a mensagem fica registrada
-- [ ] Nenhum tipo foi escrito antes desta prova
+- [x] `PATCH` de `menu_desktop`/`menu_mobile`/`menu_banners`/`icon` devolve os valores persistidos
+- [x] `PATCH` de `show_in_menu` **falha** (coluna gerada) — a mensagem fica registrada
+- [x] Nenhum tipo foi escrito antes desta prova
 
 **Tests**: none (probe) · **Gate**: build · **Commit**: `feat(39): o banco do menu configurável`
 
@@ -245,8 +292,8 @@ T30 → T31 → T32
 **Requirement**: NAV-08
 
 **Done when**:
-- [ ] `npx tsc --noEmit` limpo nos dois apps
-- [ ] `MenuPromo` deixa de ser exportado; nada mais o importa
+- [x] `npx tsc --noEmit` limpo nos dois apps
+- [x] `MenuPromo` deixa de ser exportado; nada mais o importa
 
 **Tests**: none (build gate) · **Gate**: build · **Commit**: `feat(39): o banco do menu configurável`
 
@@ -261,10 +308,10 @@ T30 → T31 → T32
 **Requirement**: NAV-08
 
 **Done when**:
-- [ ] **Âncora dupla**: o teste assere que leu o arquivo **e** que achou as três colunas
-- [ ] Assere: `show_in_menu` gerada; índice parcial presente; `on conflict (key) do nothing`; `NOT value ?`/`do nothing` na semeadura; nenhum `grant` alcançando `anon`; o "Sobre" semeado
-- [ ] **Sensor por mutação**: uma asserção provada por injeção de falha, registrada no `validation.md`
-- [ ] Gate: quick (store)
+- [x] **Âncora dupla**: o teste assere que leu o arquivo **e** que achou as três colunas
+- [x] Assere: `show_in_menu` gerada; índice parcial presente; `on conflict (key) do nothing`; `NOT value ?`/`do nothing` na semeadura; nenhum `grant` alcançando `anon`; o "Sobre" semeado
+- [x] **Sensor por mutação**: uma asserção provada por injeção de falha, registrada no `validation.md`
+- [x] Gate: quick (store)
 
 **Tests**: unit · **Gate**: quick (store) · **Commit**: `feat(39): o banco do menu configurável`
 
@@ -278,10 +325,10 @@ T30 → T31 → T32
 **Requirement**: NAV-21
 
 **Done when**:
-- [ ] O barrel antigo **não existe mais** (dois caminhos para o mesmo ícone é o defeito 01)
-- [ ] `icons.test.ts` e `paths.test.ts` rodam no novo lugar, com as âncoras de contagem intactas
-- [ ] `MENU_ICON_COMPONENTS` cobre **toda** chave de `MENU_ICON_KEYS`
-- [ ] Gate: full
+- [x] O barrel antigo **não existe mais** (dois caminhos para o mesmo ícone é o defeito 01)
+- [x] `icons.test.ts` e `paths.test.ts` rodam no novo lugar, com as âncoras de contagem intactas
+- [x] `MENU_ICON_COMPONENTS` cobre **toda** chave de `MENU_ICON_KEYS`
+- [x] Gate: full
 
 **Tests**: unit · **Gate**: full · **Commit**: `refactor(39): os ícones passam a ser dos dois apps`
 
@@ -295,9 +342,9 @@ T30 → T31 → T32
 **Requirement**: NAV-21
 
 **Done when**:
-- [ ] Zero ocorrência de `shared/ui/icons` em `apps/store`
-- [ ] O guarda tem **âncora de contagem** e falha se uma chave ficar sem componente
-- [ ] Gate: full
+- [x] Zero ocorrência de `shared/ui/icons` em `apps/store`
+- [x] O guarda tem **âncora de contagem** e falha se uma chave ficar sem componente
+- [x] Gate: full
 
 **Tests**: unit · **Gate**: full · **Commit**: `refactor(39): os ícones passam a ser dos dois apps`
 
@@ -531,6 +578,9 @@ T30 → T31 → T32
 
 **Done when**:
 - [ ] Terceiro banner recusado com motivo
+- [ ] **Excedente gravado à mão é ACUSADO** — se o jsonb trouxer 3, a tela diz "3 gravados, 2 cabem" e
+      deixa apagar o excedente. Contrapartida do desvio do lote 1: `resolveMenuBanners` trunca na
+      leitura, e sem este aviso o terceiro ficaria invisível e indeletável
 - [ ] A tela diz qual arte falta, e avisa quando está reaproveitando a do outro dispositivo
 - [ ] Gate: quick (painel)
 

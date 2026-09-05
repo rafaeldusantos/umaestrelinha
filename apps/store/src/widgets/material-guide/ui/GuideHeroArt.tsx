@@ -1,7 +1,7 @@
 /**
  * A caixa aberta do hero (`5MC-0` / `6AU-0`).
  *
- * **Não é ícone, e por isso não mora em `@/shared/ui/icons`.** A biblioteca guarda pictogramas: uma
+ * **Não é ícone, e por isso não mora em `@estrelinha/ui/icons`.** A biblioteca guarda pictogramas: uma
  * grade só, um traço só, tamanho vindo do `className`. Isto é uma **cena** — 300×230 no board, com
  * quatro pesos de traço, um vinco tracejado, a fita em ouro sólido e uma etiqueta de papel por cima.
  * Forçá-la na grade de 24 apagaria o vinco e a fita; deixá-la na biblioteca obrigaria o guarda dos

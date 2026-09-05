@@ -1,5 +1,5 @@
 import { CheckCircle2, XCircle } from 'lucide-react'
-import { ESTRELINHA_ICONS } from '@/shared/ui/icons'
+import { ESTRELINHA_ICONS } from '@estrelinha/ui/icons'
 import {
   AVISO_SEM_RASTREIO,
   DECLARACAO,

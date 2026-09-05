@@ -1,7 +1,7 @@
 import type { ComponentType } from 'react'
 import { usePaymentSettings } from '@estrelinha/core/hooks/useStoreSettings'
 import { useFreeShipping } from '@estrelinha/core/hooks/useFreeShipping'
-import { AtendimentoIcon, EnvioIcon, ParcelasIcon, PixIcon } from '@/shared/ui/icons'
+import { AtendimentoIcon, EnvioIcon, ParcelasIcon, PixIcon } from '@estrelinha/ui/icons'
 
 /**
  * A faixa de vantagens logo abaixo do hero — board `7CF-0`.

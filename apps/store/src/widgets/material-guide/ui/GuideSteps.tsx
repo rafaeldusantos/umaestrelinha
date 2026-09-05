@@ -1,4 +1,4 @@
-import { ESTRELINHA_ICONS } from '@/shared/ui/icons'
+import { ESTRELINHA_ICONS } from '@estrelinha/ui/icons'
 import { PASSOS_DO_ENVIO } from '../model/guide'
 import GuideHeading from './GuideHeading'
 import GuideSection from './GuideSection'

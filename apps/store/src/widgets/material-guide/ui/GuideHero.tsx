@@ -1,5 +1,5 @@
 import { Clock, ListOrdered } from 'lucide-react'
-import { AtendimentoIcon } from '@/shared/ui/icons'
+import { AtendimentoIcon } from '@estrelinha/ui/icons'
 import GuideHeroArt from './GuideHeroArt'
 import { GUIDE_COLUMN } from './GuideSection'
 

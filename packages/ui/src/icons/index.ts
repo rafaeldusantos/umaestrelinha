@@ -6,13 +6,20 @@
  * O que o lucide já resolve bem (seta, coração, `+`, lupa) continua vindo de lá — duplicar um ícone
  * genérico só cria um segundo lugar para consertar.
  *
- * **Esta é a única porta.** Importe daqui (`@/shared/ui/icons`), nunca do arquivo do componente:
+ * **Esta é a única porta.** Importe daqui (`@estrelinha/ui/icons`), nunca do arquivo do componente:
  * dois caminhos para o mesmo ícone é o "defeito 01" do projeto em miniatura. O `PixIcon` morava
  * solto em `shared/ui/` e foi trazido para cá pelo mesmo motivo.
  *
- * Regras do conjunto (presas por `__tests__/icons.test.tsx`): grade `0 0 24 24`, traço efetivo
- * **1,5**, contorno em `currentColor` e realce em `accent-strong` — ver `types.ts` para o porquê de
- * cada uma.
+ * **A biblioteca morava em `apps/store/src/shared/ui/icons` e mudou de casa na feature 39.** O
+ * motivo é uma consequência de outra regra: o seletor de ícone do painel tem de desenhar o **mesmo
+ * glifo** que a loja, e `apps/backoffice` não importa de `apps/store` (`previaUnica.test.ts`
+ * derruba a suíte se importar). Sem a mudança, a alternativa real não era "reusar", era **copiar** —
+ * e a cliente veria um glifo na barra e a Adri outro na tela onde o escolheu. O barrel antigo **não
+ * ficou reexportando**: dois caminhos para o mesmo ícone é o defeito que o parágrafo acima descreve.
+ *
+ * Regras do conjunto (presas por `icons.test.ts`, que ficou na suíte da loja porque `packages/ui`
+ * não tem runner de teste): grade `0 0 24 24`, traço efetivo **1,5**, contorno em `currentColor` e
+ * realce em `accent-strong` — ver `types.ts` para o porquê de cada uma.
  */
 export type { IconProps } from './types'
 export {
@@ -87,6 +94,7 @@ import SacoIdentificadoIcon from './SacoIdentificadoIcon'
 import TampaVedadaIcon from './TampaVedadaIcon'
 import UnhaIcon from './UnhaIcon'
 import type { IconProps } from './types'
+import type { MenuIconKey } from '@estrelinha/core/menu'
 
 /**
  * Registro por nome — para quem escolhe o ícone a partir de **dado**, não de código: o item de menu
@@ -127,3 +135,23 @@ export const ESTRELINHA_ICONS = {
 } satisfies Record<string, (props: IconProps) => JSX.Element>
 
 export type EstrelinhaIconName = keyof typeof ESTRELINHA_ICONS
+
+/**
+ * O desenho de cada chave do catálogo do menu (feature 39) — a outra metade de
+ * `MENU_ICON_KEYS`, que mora em `@estrelinha/core/menu`.
+ *
+ * **A divisão não é arrumação.** A chave é dado: ela vem de `categories.icon`, é gravada pelo painel
+ * e lida pela loja, e por isso precisa viver num pacote que rode em Node, em Deno e no browser —
+ * `core` não pode ter um `import React` no grafo, porque isso derruba a edge function em runtime, e
+ * não em build. O desenho é React e vive aqui. `MENU_ICON_COMPONENTS` é o único ponto onde os dois
+ * se encontram.
+ *
+ * `Record<MenuIconKey, …>` é o que **prova** a cobertura em tempo de compilação: chave nova em
+ * `MENU_ICON_KEYS` sem desenho aqui não compila. O guarda `menuIconCatalog.test.ts` fecha o outro
+ * sentido — desenho aqui sem chave lá.
+ *
+ * É `ESTRELINHA_ICONS` reapresentado sob o tipo do catálogo, e não uma segunda tabela: duas listas
+ * do mesmo mapeamento divergiriam no primeiro ícone novo, em silêncio.
+ */
+export const MENU_ICON_COMPONENTS: Record<MenuIconKey, (props: IconProps) => JSX.Element> =
+  ESTRELINHA_ICONS

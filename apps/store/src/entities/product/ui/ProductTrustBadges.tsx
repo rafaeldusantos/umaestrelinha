@@ -3,7 +3,7 @@ import { RotateCcw, ShieldCheck, Truck } from 'lucide-react'
 import { formatPrice } from '@estrelinha/core/formatters'
 import { usePaymentSettings } from '@estrelinha/core/hooks/useStoreSettings'
 import { useFreeShipping } from '@estrelinha/core/hooks/useFreeShipping'
-import { PixIcon } from '@/shared/ui/icons'
+import { PixIcon } from '@estrelinha/ui/icons'
 
 /**
  * A faixa de quatro garantias da página do produto (boards de Produto, desktop e mobile).

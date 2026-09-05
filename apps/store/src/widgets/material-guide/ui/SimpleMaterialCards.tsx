@@ -1,4 +1,4 @@
-import { ESTRELINHA_ICONS } from '@/shared/ui/icons'
+import { ESTRELINHA_ICONS } from '@estrelinha/ui/icons'
 import { CARTOES_DE_MATERIAL } from '../model/guide'
 
 /**

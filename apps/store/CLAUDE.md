@@ -51,10 +51,20 @@ marca. Leia [`../../CLAUDE.md`](../../CLAUDE.md) (regras do repositório) e
 
 ## Ícones e marca
 
-- **Ícone da loja tem UMA porta: `@/shared/ui/icons`.** A biblioteca guarda os desenhos que vieram dos
-  boards do Paper e que o lucide não tem vocabulário para dizer — corrente, pingente, gravação, gota
-  afetiva, os passos do guia de material. O que o lucide já resolve (seta, coração, `+`, lupa)
+- **Ícone da loja tem UMA porta: `@estrelinha/ui/icons`.** A biblioteca guarda os desenhos que vieram
+  dos boards do Paper e que o lucide não tem vocabulário para dizer — corrente, pingente, gravação,
+  gota afetiva, os passos do guia de material. O que o lucide já resolve (seta, coração, `+`, lupa)
   **continua vindo de lá**: duplicar ícone genérico só cria um segundo lugar para consertar.
+  - **Ela morava em `@/shared/ui/icons` e mudou de casa na feature 39** — para `packages/ui/src/icons`.
+    O motivo é consequência de outra regra: o seletor de ícone do painel tem de desenhar o **mesmo**
+    glifo que a loja, e `apps/backoffice` não importa de `apps/store` (`previaUnica.test.ts`). Sem a
+    mudança, a alternativa real não era reusar, era copiar. **O barrel antigo não ficou
+    reexportando**, e o guarda `icons.test.ts` continua rodando na suíte da loja (`packages/ui` não
+    tem runner), varrendo o diretório novo.
+  - **A chave e o desenho são de donos diferentes, de propósito**: `MENU_ICON_KEYS` vive em
+    `@estrelinha/core/menu` (é dado — vem de `categories.icon`, roda em Node e em Deno) e
+    `MENU_ICON_COMPONENTS` vive em `@estrelinha/ui/icons` (é React). `Record<MenuIconKey, …>` prova a
+    cobertura em compilação; `menuIconCatalog.test.ts` fecha o sentido inverso.
   - **Uma grade e um traço**: `viewBox="0 0 24 24"` e traço **efetivo 1,5**. Desenhos que nasceram em
     outra grade entram num `<g transform="scale(…)">` com o traço compensado — **escala × traço =
     1,5**, sempre. Há três grades de origem em uso (40, 48 e 120), e `icons.test.ts` assere a

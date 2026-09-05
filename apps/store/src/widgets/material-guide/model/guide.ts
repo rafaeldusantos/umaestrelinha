@@ -17,7 +17,7 @@
 
 import { MATERIAL_KINDS, materialAnchor, type MaterialKind } from '@estrelinha/core/material'
 import { MATERIAL_GUIDE_PATH, materialGuideHref } from '@estrelinha/core/routes'
-import type { EstrelinhaIconName } from '@/shared/ui/icons'
+import type { EstrelinhaIconName } from '@estrelinha/ui/icons'
 
 /**
  * O caminho canônico da página, reexportado de `@estrelinha/core/routes`.

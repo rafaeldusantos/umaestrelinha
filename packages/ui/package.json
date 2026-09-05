@@ -9,6 +9,7 @@
     ".": "./src/index.ts",
     "./styles.css": "./src/styles.css",
     "./tailwind.preset": "./tailwind.preset.ts",
+    "./icons": "./src/icons/index.ts",
     "./lib/*": "./src/lib/*",
     "./hooks/*": "./src/hooks/*",
     "./*": "./src/*"

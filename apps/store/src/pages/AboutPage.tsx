@@ -17,7 +17,7 @@
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useGeneralSettings } from '@estrelinha/core/hooks/useStoreSettings'
-import { EstrelinhaStarIcon } from '@/shared/ui/icons'
+import { EstrelinhaStarIcon } from '@estrelinha/ui/icons'
 import { EstrelinhaSymbol } from '@/shared/ui/brand'
 import { useCanonical } from '@/shared/lib/useCanonical'
 import { TAP_ROW } from '@/shared/lib/touchTarget'

@@ -1,5 +1,5 @@
 import { Info } from 'lucide-react'
-import { ESTRELINHA_ICONS } from '@/shared/ui/icons'
+import { ESTRELINHA_ICONS } from '@estrelinha/ui/icons'
 import { PREPARO_EM_CASA } from '../model/guide'
 import GuideHeading from './GuideHeading'
 import GuideSection from './GuideSection'

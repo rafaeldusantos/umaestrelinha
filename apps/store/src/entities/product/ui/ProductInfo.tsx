@@ -17,7 +17,7 @@ import EngravingField from './EngravingField'
 import MaterialNotice from './MaterialNotice'
 import ProductTrustBadges from './ProductTrustBadges'
 import VariantPicker from './VariantPicker'
-import { PixIcon } from '@/shared/ui/icons'
+import { PixIcon } from '@estrelinha/ui/icons'
 
 interface Props {
   product: Product

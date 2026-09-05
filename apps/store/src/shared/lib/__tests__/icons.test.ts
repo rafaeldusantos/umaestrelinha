@@ -13,7 +13,7 @@ import {
   ICON_STROKE_G48,
   ICON_STROKE_G120,
   ICON_VIEW_BOX,
-} from '..'
+} from '@estrelinha/ui/icons'
 
 /**
  * O guarda da biblioteca de ícones.
@@ -25,10 +25,24 @@ import {
  *
  * Por isso a régua é lida do **fonte no disco**, e cada asserção tem âncora de contagem: sem ela um
  * caminho errado varre zero arquivo e o teste fica verde por não ter olhado nada.
+ *
+ * **A biblioteca mudou de casa na feature 39** (`apps/store/src/shared/ui/icons` →
+ * `packages/ui/src/icons`), e este guarda **não** foi junto. Não é descuido: `packages/ui` não tem
+ * script `test` nem `vitest.config.ts`, então um teste lá dentro **nunca rodaria** — e guarda que
+ * não roda é pior que guarda nenhum, porque parece estar de pé. Ele fica na suíte da loja, varrendo
+ * o diretório novo, como `materialTransitions` e `homeSections` leem migrations e `vercelRedirects`
+ * lê o `vercel.json`: o `CLAUDE.md` da raiz já registra que esses guardas moram aqui por acidente de
+ * origem, e não porque guardem só a loja.
  */
 
 const HERE = dirname(fileURLToPath(import.meta.url))
-const ICONS_DIR = resolve(HERE, '..')
+const ROOT = resolve(HERE, '../../../../../..')
+/**
+ * Âncora de caminho: apontar para o diretório **antigo** faz `readdirSync` lançar `ENOENT` em vez de
+ * devolver lista vazia. A varredura silenciosamente vazia — a pior falha deste tipo de teste — não é
+ * alcançável por engano de caminho aqui.
+ */
+const ICONS_DIR = resolve(ROOT, 'packages/ui/src/icons')
 
 /**
  * A marca oficial do arranjo Pix, que **não** obedece às regras do conjunto: grade de 16,

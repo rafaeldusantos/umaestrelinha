@@ -1,6 +1,6 @@
 import { ChevronDown, Check, Play } from 'lucide-react'
 import { materialAnchor } from '@estrelinha/core/material'
-import { ESTRELINHA_ICONS } from '@/shared/ui/icons'
+import { ESTRELINHA_ICONS } from '@estrelinha/ui/icons'
 import { TAP_ROW } from '@/shared/lib/touchTarget'
 import type { AvisoDaFicha, FichaDeMaterial } from '../model/guide'
 import { videoDoMaterial } from '../model/videos'
