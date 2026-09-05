@@ -20,6 +20,11 @@ vi.mock('@estrelinha/supabase/client', () => ({
   supabase: { storage: { from: fromMock } },
 }))
 
+import { readFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { STORAGE_CACHE_CONTROL } from '@estrelinha/core/media'
+
 import {
   ACCEPTED_TYPES,
   MAX_FILE_BYTES,
@@ -297,5 +302,42 @@ describe('uploadProductImages — falha parcial não cancela o lote', () => {
       { file: 'ok.png', size: 3 * MB, status: 'done' },
       { file: 'nao.gif', size: 1 * MB, status: 'error', reason: 'type' },
     ])
+  })
+})
+
+/**
+ * `PRF-05` (AC 1, 2) — um ano de cache, com um dono só.
+ *
+ * O caminho do objeto carrega um UUID, então ele é imutável: a foto gravada nunca muda de conteúdo
+ * sob a mesma URL. Uma hora de cache era desperdício puro — e, depois da feature 38, também fazia
+ * cada revisita repetir a transformação do `render/image`, que é o que custa dinheiro.
+ *
+ * O literal `'3600'` estava escrito AQUI e no importador (`tools/catalog-import/src/write/storage.ts`).
+ * Duas escritas do mesmo número, em workspaces diferentes, que divergem sem nada quebrar.
+ */
+describe('uploadImageBlob — o cacheControl (PRF-05)', () => {
+  it('grava com UM ANO, e o valor vem do dono em `@estrelinha/core/media`', async () => {
+    await uploadImageBlob(new Blob(['x'], { type: 'image/png' }))
+
+    const [, , opcoes] = uploadMock.mock.calls[0]
+    expect(opcoes.cacheControl).toBe(STORAGE_CACHE_CONTROL)
+    expect(Number(STORAGE_CACHE_CONTROL)).toBe(365 * 24 * 3600)
+  })
+
+  it('`upsert: false` continua — o caminho tem UUID, colidir seria defeito, não rotina', async () => {
+    await uploadImageBlob(new Blob(['x'], { type: 'image/png' }))
+
+    expect(uploadMock.mock.calls[0][2].upsert).toBe(false)
+  })
+
+  it('o arquivo NÃO contém mais o literal `3600` — lido do disco', () => {
+    // A asserção acima passaria com o literal de volta, desde que ele valesse o mesmo. Esta é a que
+    // impede o segundo dono de renascer: o valor tem de VIR do módulo, não estar escrito aqui.
+    const aqui = dirname(fileURLToPath(import.meta.url))
+    const fonte = readFileSync(resolve(aqui, 'uploadProductImage.ts'), 'utf8')
+
+    expect(fonte).toContain("from '@estrelinha/core/media'")
+    expect(fonte).toContain('cacheControl: STORAGE_CACHE_CONTROL')
+    expect(fonte).not.toMatch(/cacheControl:\s*'\d+'/)
   })
 })

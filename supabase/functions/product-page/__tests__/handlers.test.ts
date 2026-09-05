@@ -1,9 +1,19 @@
+import { readFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it, vi } from 'vitest'
+import {
+  GALLERY_STAGE_SIZES,
+  RENDITION_WIDTHS,
+} from '../../../../packages/core/src/media/rendition.ts'
+import { escapeXml } from '../../../../packages/core/src/xml/escape.ts'
+import { productJsonLd } from '../../../../packages/core/src/shopping/index.ts'
 import { renderFeedXml, resolveOffer } from '../../../../packages/core/src/shopping/index.ts'
 import {
   SHELL_TTL_MS,
   createShellCache,
   handleProductPage,
+  imagePreloadLink,
   injectIntoHead,
   jsonLdScript,
   type ProductPageData,
@@ -92,7 +102,22 @@ describe('handleProductPage — o bloco é injetado', () => {
     const corpo = await (
       await handleProductPage(deps(), url('?slug=pulseira-7-nos-ajustavel-protecao-kabbalah'))
     ).text()
-    expect(corpo.replace(/<script type="application\/ld\+json">[\s\S]*?<\/script>/, '')).toBe(SHELL)
+    // A function injeta exatamente DUAS coisas: o `preload` da foto principal (`PRF-06`) e o
+    // JSON-LD. Retirar as duas tem de devolver o shell byte a byte — é o que prova que nada mais
+    // no documento foi tocado. A asserção não afrouxou: ganhou a segunda injeção a descontar.
+    const semInjecao = corpo
+      .replace(/<link rel="preload"[^>]*>/, '')
+      .replace(/<script type="application\/ld\+json">[\s\S]*?<\/script>/, '')
+    expect(semInjecao).toBe(SHELL)
+  })
+
+  it('são DUAS injeções, e só duas — a vizinha da asserção acima', async () => {
+    const corpo = await (
+      await handleProductPage(deps(), url('?slug=pulseira-7-nos-ajustavel-protecao-kabbalah'))
+    ).text()
+    // Sem esta, o `replace` acima poderia estar descontando algo que não deveria existir.
+    expect(corpo.match(/<link rel="preload"/g)).toHaveLength(1)
+    expect(corpo.match(/<script type="application\/ld\+json">/g)).toHaveLength(1)
   })
 
   it('declara Product com nome, imagem, sku e oferta', async () => {
@@ -340,5 +365,193 @@ describe('paridade: a página declara o que o feed anuncia', () => {
     const corpo = await (await handleProductPage(deps({}, d), url('?slug=x&variant=1259936246'))).text()
     const oferta = resolveOffer(d.product, d.variants[0], { origin: ORIGEM })
     expect(ld(corpo)!.offers.url).toBe(oferta.link)
+  })
+})
+
+/**
+ * `PRF-06` — o `<link rel="preload" as="image">` da foto principal.
+ *
+ * A maior imagem da página do produto é a foto do palco, e sem o preload o navegador só descobre
+ * que ela existe **depois** de baixar o bundle, interpretá-lo e montar a árvore. O preload no
+ * `<head>` a coloca na fila junto com o JavaScript, em vez de atrás dele.
+ *
+ * A régua aqui é o par `imagesrcset`/`imagesizes`: divergir do que a galeria declara é PIOR que não
+ * ter preload, porque o navegador escolheria um candidato para cada um e baixaria as duas fotos.
+ */
+describe('handleProductPage — o preload da foto principal (PRF-06)', () => {
+  /** A forma real de um objeto público do Storage deste projeto — a única que vira rendição. */
+  const STORAGE =
+    'https://hgkrsfpupypxtygjgthf.supabase.co/storage/v1/object/public/product-images/pulseira.webp'
+
+  const comFoto = (u: string) => dados({ product: { ...dados().product, images: [{ url: u }] } })
+  const semFoto = () => dados({ product: { ...dados().product, images: [] } })
+
+  const corpoDe = async (d: ProductPageData) =>
+    await (await handleProductPage(deps({}, d), url('?slug=x'))).text()
+
+  const linkDe = (corpo: string) => corpo.match(/<link rel="preload"[^>]*>/)?.[0] ?? ''
+
+  it('produto com foto do Storage: o preload aponta para a rendição de 720', async () => {
+    const link = linkDe(await corpoDe(comFoto(STORAGE)))
+
+    expect(link).toContain('as="image"')
+    expect(link).toContain('/storage/v1/render/image/public/product-images/pulseira.webp')
+    expect(link).toContain('width=720')
+    expect(link).toContain('quality=75')
+  })
+
+  it('o `imagesrcset` traz as três larguras que a galeria pede', async () => {
+    // Coerência com T3: `ProductGallery` declara `renditionSrcSet(active.url)`, que é o mesmo
+    // conjunto. Uma largura a mais ou a menos aqui e o preload deixa de ser reaproveitado.
+    const link = linkDe(await corpoDe(comFoto(STORAGE)))
+
+    expect(link).toContain('imagesrcset="')
+    for (const w of RENDITION_WIDTHS) expect(link).toContain(String(w) + 'w')
+  })
+
+  it('o `imagesizes` é o MESMO `sizes` que a galeria declara — um dono só', () => {
+    // `GALLERY_STAGE_SIZES` mora em `core/media/rendition.ts` justamente para não haver duas
+    // escritas desta string. Lê-la aqui é o que torna a coerência verificável, e não uma promessa.
+    expect(imagePreloadLink(STORAGE)).toContain('imagesizes="' + escapeXml(GALLERY_STAGE_SIZES) + '"')
+  })
+
+  it('pede prioridade alta — é o LCP da página do produto', async () => {
+    expect(linkDe(await corpoDe(comFoto(STORAGE)))).toContain('fetchpriority="high"')
+  })
+
+  it('o `&` da query sai ESCAPADO — `&` cru em atributo é o defeito silencioso', async () => {
+    // A URL da rendição carrega `?width=720&quality=75`. Concatenado cru, o `&quality` viraria uma
+    // referência de entidade malformada, e o documento deixaria de validar.
+    const link = linkDe(await corpoDe(comFoto(STORAGE)))
+
+    expect(link).toContain('&amp;quality=75')
+    expect(link).not.toMatch(/[^;]&quality=75/)
+  })
+
+  it('foto em host de terceiro sai sem `imagesrcset`, com a URL intacta', async () => {
+    // Não há rendição a pedir de um host que não é o nosso: reescrever a URL inventaria um
+    // endpoint. E um `imagesrcset` vazio faria o navegador ignorar o preload inteiro.
+    const link = linkDe(await corpoDe(comFoto('https://cdn.terceiro.example/p1.jpg')))
+
+    expect(link).toContain('href="https://cdn.terceiro.example/p1.jpg"')
+    expect(link).not.toContain('imagesrcset')
+    expect(link).not.toContain('/render/image/')
+  })
+
+  it('produto SEM foto não ganha preload nenhum', async () => {
+    expect(await corpoDe(semFoto())).not.toContain('rel="preload"')
+  })
+
+  it('produto SEM foto responde o que respondia antes desta feature — byte a byte', async () => {
+    // A prova de que a injeção é ADITIVA: sem foto, a resposta é exatamente o shell mais o JSON-LD,
+    // que é o que a feature 30 entregava.
+    const d = semFoto()
+    const corpo = await corpoDe(d)
+
+    const oferta = resolveOffer(d.product, d.variants[0], { origin: ORIGEM })
+    expect(corpo).toBe(injectIntoHead(SHELL, jsonLdScript(productJsonLd(oferta))))
+  })
+
+  it('o preload vem antes do JSON-LD, e os dois dentro do `<head>`', async () => {
+    const corpo = await corpoDe(comFoto(STORAGE))
+
+    expect(corpo.indexOf('rel="preload"')).toBeLessThan(corpo.indexOf('application/ld+json'))
+    expect(corpo.indexOf('application/ld+json')).toBeLessThan(corpo.indexOf('</head>'))
+  })
+
+  it('o `Content-Type` continua `text/html; charset=utf-8` (AD-021)', async () => {
+    // O gateway `*.supabase.co` reescreve para `text/plain`, e quem desfaz isso é um header do
+    // `vercel.json`. Se a function deixar de declarar `text/html`, o conserto de lá para de valer.
+    const res = await handleProductPage(deps({}, comFoto(STORAGE)), url('?slug=x'))
+
+    expect(res.headers.get('Content-Type')).toBe('text/html; charset=utf-8')
+  })
+
+  it('o JSON-LD continua idêntico com e sem preload', async () => {
+    // O preload não pode ter mexido no dado estruturado: é ele que o Merchant Center rastreia.
+    const com = ld(await corpoDe(comFoto(STORAGE)))!
+    const sem = ld(await corpoDe(comFoto('https://cdn.terceiro.example/p1.jpg')))!
+
+    expect(com['@type']).toBe(sem['@type'])
+    expect(com.offers).toEqual(sem.offers)
+  })
+
+  it('URL vazia devolve string vazia, e não um `<link>` sem destino', () => {
+    expect(imagePreloadLink('')).toBe('')
+    expect(imagePreloadLink('   ')).toBe('')
+  })
+})
+
+/**
+ * A fumaça de Deno, feita por leitura de disco.
+ *
+ * O `deno check` seria o instrumento certo, e o CLI do Deno **não está instalado nesta máquina**.
+ * O que este bloco mede é exatamente o modo de falha que ele pegaria, e que já custou uma feature
+ * (a `33`): o Deno resolve o grafo de TIPOS por caminho relativo com extensão explícita. Um
+ * `import type { X } from '@estrelinha/supabase/types'` em qualquer arquivo alcançável daqui
+ * derruba o worker com `Failed resolving types` **antes da primeira linha rodar** — e nada acusa,
+ * porque Vite e vitest resolvem as duas formas.
+ */
+describe('fumaça de Deno — o grafo de imports desta function resolve fora do Vite', () => {
+  const AQUI = dirname(fileURLToPath(import.meta.url))
+
+  /** Todo especificador de `import`/`export ... from` do arquivo, incluindo `import type`. */
+  const especificadores = (fonte: string): string[] =>
+    [...fonte.matchAll(/(?:^|\n)\s*(?:import|export)[\s\S]*?from\s+['"]([^'"]+)['"]/g)].map(
+      (m) => m[1],
+    )
+
+  const visitados = new Map<string, string[]>()
+
+  const andar = (arquivo: string): void => {
+    if (visitados.has(arquivo)) return
+    const fonte = readFileSync(arquivo, 'utf8')
+    const specs = especificadores(fonte)
+    visitados.set(arquivo, specs)
+    for (const spec of specs) {
+      // Só o que é do repositório: `https://esm.sh/...` e pacote npm não são grafo local.
+      if (spec.startsWith('.')) andar(resolve(dirname(arquivo), spec))
+    }
+  }
+
+  andar(resolve(AQUI, '../handlers.ts'))
+
+  const todos = [...visitados.values()].flat()
+
+  it('a varredura andou o grafo de verdade — âncora dupla', () => {
+    // Sem as duas metades, um caminho errado leria um arquivo, não acharia import nenhum, e toda
+    // asserção abaixo passaria por vacuidade.
+    expect(visitados.size).toBeGreaterThanOrEqual(5)
+    expect(todos.length).toBeGreaterThanOrEqual(5)
+  })
+
+  it('o `rendition.ts` é alcançado por ARQUIVO, nunca pelo barrel de `core/media`', () => {
+    // O barrel importa `@estrelinha/supabase/types`. Passar por ele é a armadilha da `33`.
+    const caminhos = [...visitados.keys()].map((p) => p.split('\\').join('/'))
+    expect(caminhos.some((p) => p.endsWith('packages/core/src/media/rendition.ts'))).toBe(true)
+    expect(caminhos.some((p) => p.endsWith('packages/core/src/media/index.ts'))).toBe(false)
+  })
+
+  it('todo especificador relativo do grafo tem extensão `.ts` explícita', () => {
+    const semExtensao = todos.filter((s) => s.startsWith('.') && !s.endsWith('.ts'))
+    expect(semExtensao).toEqual([])
+  })
+
+  it('nenhum arquivo do grafo importa pacote com alias `@estrelinha/`', () => {
+    // Inclui `import type`: o Deno resolve o grafo de tipos, e o alias não existe para ele.
+    expect(todos.filter((s) => s.startsWith('@estrelinha/'))).toEqual([])
+  })
+
+  it('a régua DE FATO pegaria as duas formas — sensor por mutação', () => {
+    const sintetico = [
+      "import { x } from './sem-extensao'",
+      "import type { Y } from '@estrelinha/supabase/types'",
+      "export * from './outro.ts'",
+    ].join('\n')
+    const specs = especificadores(sintetico)
+
+    expect(specs).toEqual(['./sem-extensao', '@estrelinha/supabase/types', './outro.ts'])
+    expect(specs.filter((s) => s.startsWith('.') && !s.endsWith('.ts'))).toEqual(['./sem-extensao'])
+    expect(specs.filter((s) => s.startsWith('@estrelinha/'))).toHaveLength(1)
   })
 })

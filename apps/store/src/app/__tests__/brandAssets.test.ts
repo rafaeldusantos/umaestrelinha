@@ -276,3 +276,59 @@ describe('index.html — os metadados dos dois apps (COP-03)', () => {
     expect(ADMIN_INDEX).not.toContain('twitter:')
   })
 })
+
+/**
+ * `PRF-04` — a conexão com o Supabase é aberta enquanto o bundle ainda baixa.
+ *
+ * Medido em 2026-09-05 em perfil móvel: a primeira requisição de dados só saía DEPOIS de o bundle
+ * baixar e interpretar, e o aperto de mão (DNS + TCP + TLS) custava de 300 a 600 ms em série. O
+ * `preconnect` paga esse custo em paralelo.
+ *
+ * Este guarda existe porque a regressão é invisível: apagar a linha não quebra build, tipo nem
+ * teste de componente. A loja continua funcionando — só mais devagar, e só para quem está no 4G.
+ */
+describe('index.html — o `preconnect` do Supabase (PRF-04)', () => {
+  const ENV_EXAMPLE = readFileSync(resolve(STORE, '.env.example'), 'utf8')
+  const preconnects = [...INDEX.matchAll(/<link rel="preconnect"[^>]*>/g)].map((m) => m[0])
+
+  it('a leitura encontrou os `preconnect` do documento — âncora', () => {
+    // Sem esta âncora, um regex que deixasse de casar faria toda asserção abaixo passar sobre uma
+    // lista vazia. São três hoje: o do Supabase e os dois do Google Fonts.
+    expect(preconnects).toHaveLength(3)
+  })
+
+  it('declara `preconnect` para o Supabase, com `crossorigin`', () => {
+    // `crossorigin` não é enfeite: as requisições ao Supabase saem em modo CORS, que usa um pool
+    // de conexão SEPARADO. Sem o atributo, o navegador aquece a conexão errada e abre outra.
+    const supabase = preconnects.filter((l) => l.includes('VITE_SUPABASE_URL'))
+    expect(supabase).toHaveLength(1)
+    expect(supabase[0]).toMatch(/crossorigin/)
+  })
+
+  it('a origem vem da variável que o `.env.example` declara — um dono só', () => {
+    // O host NÃO é escrito no HTML. Cravá-lo criaria um segundo dono de "onde fica o Supabase", e
+    // o dia em que o projeto mudasse a loja aqueceria a conexão de um host que ninguém usa. Ler o
+    // `.env.example` do disco é o que faz um RENOME da variável derrubar a suíte.
+    expect(ENV_EXAMPLE).toMatch(/^VITE_SUPABASE_URL=/m)
+    expect(INDEX).toContain('href="%VITE_SUPABASE_URL%"')
+  })
+
+  it('vem ANTES do `<script type="module">` — senão não adianta nada', () => {
+    // O ganho inteiro é abrir a conexão ENQUANTO o bundle baixa. Depois do script, o navegador já
+    // teria começado a pedir dados por conta própria, e o `preconnect` viraria enfeite.
+    const preconnect = INDEX.indexOf('href="%VITE_SUPABASE_URL%"')
+    const script = INDEX.indexOf('<script type="module"')
+    expect(preconnect).toBeGreaterThan(-1)
+    expect(script).toBeGreaterThan(-1)
+    expect(preconnect).toBeLessThan(script)
+  })
+
+  it('as três declarações de fonte de hoje continuam intactas', () => {
+    // T18 é quem mexe nelas. Esta task só ACRESCENTA uma origem, e o par desta asserção é o
+    // `nenhuma outra origem de fonte é requisitada`, acima, que continua fechado nas duas do Google.
+    expect(preconnects.filter((l) => l.includes('fonts.googleapis.com'))).toHaveLength(1)
+    expect(preconnects.filter((l) => l.includes('fonts.gstatic.com'))).toHaveLength(1)
+    expect(INDEX).toMatch(/<link href="https:\/\/fonts\.googleapis\.com\/css2\?family=/)
+  })
+})
+

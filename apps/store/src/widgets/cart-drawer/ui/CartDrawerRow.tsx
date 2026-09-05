@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { Heart, Minus, Plus, Trash2 } from 'lucide-react'
 import { formatPrice } from '@estrelinha/core/formatters'
 import { productPath } from '@estrelinha/core/routes'
+import { renditionUrl } from '@estrelinha/core/media'
 import { useCartStore, type CartItem } from '@/entities/cart/model/cartStore'
 import { useWishlistStore } from '@/entities/wishlist/model/wishlistStore'
 import { TAP_44 } from '@/shared/lib/touchTarget'
@@ -50,7 +51,13 @@ const CartDrawerRow = ({ item, onNavigate }: Props) => {
         aria-hidden
         className="relative h-[72px] w-[72px] shrink-0 overflow-hidden rounded-xl bg-estrelinha-ground-deep md:h-20 md:w-20 md:rounded-2xl"
       >
-        <img src={product.image_url} alt="" className="h-full w-full object-cover" />
+        {/* `PRF-02`: vaga de 72px (80 no md). 160 cobre DPR 2 com folga, e o original de
+            1024px chegava inteiro a cada abertura da gaveta. */}
+        <img
+          src={renditionUrl(product.image_url, 160)}
+          alt=""
+          className="h-full w-full object-cover"
+        />
         {scarcity && (
           <span className="absolute -right-0.5 -top-0.5 rounded-md bg-estrelinha-accent px-1.5 py-0.5 text-[9px] font-bold leading-[14px] text-estrelinha-ink">
             {scarcity}

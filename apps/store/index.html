@@ -3,6 +3,23 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- `PRF-04`: DNS, TCP e TLS do Supabase acontecem EM PARALELO com o
+         download do bundle, em vez de depois dele.
+
+         Toda a loja — catálogo, configurações, fotos do Storage — vem deste
+         host, e a primeira requisição só sai depois que o bundle interpreta.
+         Em 4G, abrir a conexão custa de 300 a 600 ms que hoje são pagos em
+         série. `crossorigin` é obrigatório: as requisições saem em modo CORS, e
+         sem o atributo o navegador aqueceria a conexão ERRADA e abriria outra.
+
+         A origem NÃO está escrita aqui, e isso é o ponto: quem a declara é
+         `VITE_SUPABASE_URL`, a mesma variável de `.env.example` que o client de
+         `@estrelinha/supabase` lê. Cravar o host produziria um segundo dono
+         que diverge em silêncio no dia em que o projeto mudar — e o sintoma
+         seria uma conexão aquecida para um host que ninguém usa. O Vite
+         substitui `%VITE_...%` no HTML em dev e no build. -->
+    <link rel="preconnect" href="%VITE_SUPABASE_URL%" crossorigin />
     <title>Uma Estrelinha - Joias afetivas artesanais em resina</title>
     <meta name="description" content="Joias feitas à mão em resina com o material que você envia: cinzas, leite materno, dente de leite e mecha de cabelo. Feitas por Adri Muniz, em Porto Alegre.">
     <meta name="author" content="Uma Estrelinha" />

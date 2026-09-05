@@ -504,3 +504,47 @@ describe('CartDrawer - o interruptor do frete gratis (FRG-05)', () => {
     expect(screen.queryByRole('progressbar')).toBeNull()
   })
 })
+
+/**
+ * `PRF-02` (AC 5) — a gaveta pede a foto do tamanho da vaga.
+ *
+ * A linha tem 72px (80 no `md`) e a sugestão tem 44px. Até a feature 38 as duas recebiam o objeto
+ * original de 1024px, e o carrinho é a superfície que a cliente abre mais vezes por visita.
+ */
+describe('CartDrawer — a foto pede o tamanho da vaga (PRF-02 AC 5)', () => {
+  /** A forma real de um objeto público do Storage deste projeto. */
+  const STORAGE =
+    'https://hgkrsfpupypxtygjgthf.supabase.co/storage/v1/object/public/product-images/pingente.webp'
+
+  it('a linha do carrinho busca a rendição de 160, e não o objeto original', () => {
+    act(() => useCartStore.getState().addItem(product({ image_url: STORAGE })))
+    renderDrawer()
+    open()
+
+    const foto = screen.getAllByRole('listitem')[0].querySelector('img')
+    expect(foto?.getAttribute('src')).toContain('/render/image/public/')
+    expect(foto?.getAttribute('src')).toContain('width=160')
+    expect(foto?.getAttribute('src')).not.toContain('/object/public/')
+  })
+
+  it('a sugestão de "Complete o frete grátis" busca 120 — a vaga dela tem 44px', () => {
+    catalogo.data = [product({ id: 'p2', slug: 'outra-joia', name: 'Outra joia', price: 4.9, image_url: STORAGE })]
+    act(() => useCartStore.getState().addItem(product({ price: 8.9 })))
+    renderDrawer()
+    open()
+
+    const faixa = screen.getByText('Complete o frete grátis').closest('section')!
+    const foto = faixa.querySelector('img')
+    expect(foto?.getAttribute('src')).toContain('width=120')
+    expect(foto?.getAttribute('src')).not.toContain('/object/public/')
+  })
+
+  it('produto sem foto não vira `<img src="undefined">` — a URL vazia volta vazia', () => {
+    // `renditionUrl('')` devolve `''`: a linha continua com o palco de fundo, como hoje.
+    act(() => useCartStore.getState().addItem(product()))
+    renderDrawer()
+    open()
+
+    expect(screen.getAllByRole('listitem')[0].querySelector('img')).toHaveAttribute('src', '')
+  })
+})

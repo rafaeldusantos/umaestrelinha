@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronLeft, ChevronRight, ImageOff, ZoomIn } from 'lucide-react'
 import type { ProductImage } from '@estrelinha/supabase/types'
-import { renditionSrcSet, renditionUrl } from '@estrelinha/core/media'
+import { GALLERY_STAGE_SIZES, renditionSrcSet, renditionUrl } from '@estrelinha/core/media'
 import ImageZoom from './ImageZoom'
 import { TAP_44 } from '@/shared/lib/touchTarget'
 import { Dialog, DialogContent } from '@estrelinha/ui/dialog'
@@ -118,7 +118,7 @@ const ProductGallery = ({ images, name, focusUrl = null, badges, action }: Props
               key={index}
               src={renditionUrl(active.url, PALCO_PX)}
               srcSet={renditionSrcSet(active.url) || undefined}
-              sizes="(min-width: 768px) 50vw, 100vw"
+              sizes={GALLERY_STAGE_SIZES}
               loading="eager"
               {...({ fetchpriority: 'high' } as Record<string, string>)}
               alt={altOf(active, name, index)}

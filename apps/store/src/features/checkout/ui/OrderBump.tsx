@@ -10,6 +10,7 @@
 import { useEffect } from 'react'
 import { Check } from 'lucide-react'
 import { formatPrice } from '@estrelinha/core/formatters'
+import { renditionUrl } from '@estrelinha/core/media'
 import { applyOrderBump } from '@estrelinha/core/payment/pricing'
 import { useCheckoutSettings } from '@estrelinha/core/hooks/useStoreSettings'
 import { useCartStore } from '@/entities/cart'
@@ -71,7 +72,12 @@ const OrderBump = () => {
 
       <span className="flex h-[62px] w-[62px] shrink-0 items-center justify-center overflow-hidden rounded-md bg-estrelinha-accent">
         {product.image_url ? (
-          <img src={product.image_url} alt="" className="h-full w-full object-cover" />
+          /* Vaga de 62px. */
+          <img
+            src={renditionUrl(product.image_url, 160)}
+            alt=""
+            className="h-full w-full object-cover"
+          />
         ) : (
           <EstrelinhaSymbol size={30} tone="brand" />
         )}

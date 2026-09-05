@@ -183,3 +183,28 @@ describe('OrderBump — paleta (DESIGN.md §8)', () => {
     )
   })
 })
+
+/**
+ * `PRF-02` (AC 5) — a vaga de 62px da oferta pede rendição.
+ */
+describe('OrderBump — a foto pede o tamanho da vaga (PRF-02 AC 5)', () => {
+  const STORAGE =
+    'https://hgkrsfpupypxtygjgthf.supabase.co/storage/v1/object/public/product-images/pingente.webp'
+
+  it('a vaga de 62px busca a rendição de 160, e não o objeto original', () => {
+    resolves(product({ image_url: STORAGE }))
+    const { container } = render(<OrderBump />)
+
+    const foto = container.querySelector('img')
+    expect(foto?.getAttribute('src')).toContain('/render/image/public/')
+    expect(foto?.getAttribute('src')).toContain('width=160')
+    expect(foto?.getAttribute('src')).not.toContain('/object/public/')
+  })
+
+  it('oferta sem foto continua no símbolo da marca, sem `<img>` nenhum', () => {
+    resolves(product({ image_url: '' }))
+    const { container } = render(<OrderBump />)
+
+    expect(container.querySelectorAll('img')).toHaveLength(0)
+  })
+})

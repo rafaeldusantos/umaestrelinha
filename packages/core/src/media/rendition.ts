@@ -51,6 +51,17 @@ export const RENDITION_MAX_WIDTH = 2500
 export const STORAGE_CACHE_CONTROL = '31536000'
 
 /**
+ * O `sizes` do palco da galeria do produto.
+ *
+ * Mora aqui, e não dentro de `ProductGallery`, porque a partir da `PRF-06` ele tem **dois**
+ * leitores: a galeria e o `<link rel="preload" as="image">` que a edge function `product-page`
+ * injeta no `<head>`. O navegador escolhe o candidato do `srcset` pelo `sizes` — com os dois
+ * divergindo, ele escolhe uma largura no preload e OUTRA na galeria, e **baixa as duas fotos**.
+ * Fica pior do que sem preload nenhum, e nada acusa: a página funciona, só pesa o dobro.
+ */
+export const GALLERY_STAGE_SIZES = '(min-width: 768px) 50vw, 100vw'
+
+/**
  * Quantos itens da primeira leva nascem ansiosos.
  *
  * Seis cobre três linhas de duas colunas em 390px — a primeira dobra da categoria no celular.

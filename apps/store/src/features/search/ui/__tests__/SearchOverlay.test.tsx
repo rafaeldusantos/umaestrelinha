@@ -49,7 +49,10 @@ vi.mock('../../model/searchUiStore', () => ({
 vi.mock('@/entities/product/api/useProducts', () => ({
   useAllProducts: () => ({
     data: [
-      product('Pin Naruto Sennin'),
+      product('Pin Naruto Sennin', {
+        image_url:
+          'https://hgkrsfpupypxtygjgthf.supabase.co/storage/v1/object/public/product-images/naruto.webp',
+      }),
       product('Pin Pokémon Pikachu', { category_links: [] }),
       product('Pin Esgotado', { stock_policy: 'track', stock_total: 0 }),
     ],
@@ -132,5 +135,31 @@ describe('SearchOverlay (board "Mobile Search Open - v3")', () => {
     renderOverlay()
     fireEvent.click(screen.getByText('Cancelar'))
     expect(closeSearch).toHaveBeenCalled()
+  })
+})
+
+/**
+ * `PRF-02` (AC 5) — o resultado da busca pede rendição.
+ *
+ * A vaga tem 48px e a lista mostra vários resultados a cada tecla. Servir o original de 1024px
+ * fazia a busca baixar o catálogo em fotos enquanto a cliente ainda digitava.
+ */
+describe('SearchOverlay — a foto do resultado pede o tamanho da vaga (PRF-02 AC 5)', () => {
+  it('a vaga de 48px busca a rendição de 160, e não o objeto original', () => {
+    renderOverlay()
+    type('naruto')
+
+    const foto = screen.getByRole('link', { name: /Pin Naruto Sennin/ }).querySelector('img')
+    expect(foto?.getAttribute('src')).toContain('/render/image/public/')
+    expect(foto?.getAttribute('src')).toContain('width=160')
+    expect(foto?.getAttribute('src')).not.toContain('/object/public/')
+  })
+
+  it('resultado sem foto continua na inicial desenhada, sem `<img>` nenhum', () => {
+    renderOverlay()
+    type('pikachu')
+
+    const item = screen.getByRole('link', { name: /Pin Pokémon Pikachu/ })
+    expect(item.querySelectorAll('img')).toHaveLength(0)
   })
 })

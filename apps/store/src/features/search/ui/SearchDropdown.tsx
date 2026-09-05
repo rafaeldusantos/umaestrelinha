@@ -6,6 +6,7 @@ import { useAllProducts } from '@/entities/product/api/useProducts'
 import { useCategories } from '@/entities/category/api/useCategories'
 import { formatPrice } from '@estrelinha/core/formatters'
 import { productPath } from '@estrelinha/core/routes'
+import { renditionUrl } from '@estrelinha/core/media'
 import { motion, AnimatePresence } from 'framer-motion'
 import { pushRecentSearch } from '../model/recentSearches'
 import { MIN_QUERY_LENGTH, searchProducts } from '../lib/searchProducts'
@@ -133,8 +134,10 @@ const SearchDropdown = ({ onClose, mobile }: Props) => {
                 onClick={() => { setOpen(false); onClose?.() }}
                 className="flex items-center gap-3 px-4 py-3 hover:bg-estrelinha-ground-deep transition-colors"
               >
+                {/* `PRF-02`: resultado de busca em vaga de 40px. O original de 1024px vinha
+                    por resultado, e a busca mostra vários de uma vez. */}
                 <img
-                  src={p.image_url}
+                  src={renditionUrl(p.image_url, 160)}
                   alt={p.name}
                   className="w-10 h-10 rounded-lg object-cover"
                 />

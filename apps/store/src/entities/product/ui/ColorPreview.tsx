@@ -1,5 +1,6 @@
 import type { OptionValues } from '@estrelinha/supabase/types'
 import { TAP_44 } from '@/shared/lib/touchTarget'
+import { renditionUrl } from '@estrelinha/core/media'
 import {
   COLOR_SLOTS_MAX,
   COLOR_SLOT_TIERS,
@@ -91,7 +92,10 @@ const Miniatura = ({
     */}
     {thumb.imageUrl && (
       <img
-        src={thumb.imageUrl}
+        // `PRF-02`: a vaga tem 40px, mas o `scale-[1.6]` de `COR-13` amplia a foto — a conta é
+        // 40 x 1,6 x DPR 2 = 128, e 120 é a rendição que a cobre. O original de 1024px numa
+        // amostra de cor era o pior caso da loja inteira.
+        src={renditionUrl(thumb.imageUrl, 120)}
         alt=""
         loading="lazy"
         // COR-13: a peça é pequena sobre fundo branco, então a foto inteira em 40px é quase toda

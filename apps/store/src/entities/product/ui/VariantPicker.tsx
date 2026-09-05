@@ -6,6 +6,7 @@ import {
   type GridProduct,
 } from '../lib/variantSelection'
 import type { OptionValues } from '@estrelinha/supabase/types'
+import { renditionUrl } from '@estrelinha/core/media'
 
 /**
  * Escolha de variação em **pílulas**, um grupo por eixo (boards "Quick add com variações" e
@@ -130,7 +131,8 @@ const VagaFoto = ({
   >
     {foto.imageUrl && (
       <img
-        src={foto.imageUrl}
+        // Mesma conta da amostra do card, com a vaga maior: 56 x 1,6 x DPR 2 = 179.
+        src={renditionUrl(foto.imageUrl, 180)}
         alt=""
         loading="lazy"
         // Recorte central por heurística, como na placa do card: a peça é pequena sobre fundo

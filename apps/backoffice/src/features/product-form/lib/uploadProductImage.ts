@@ -1,4 +1,5 @@
 import { supabase } from '@estrelinha/supabase/client'
+import { STORAGE_CACHE_CONTROL } from '@estrelinha/core/media'
 
 const BUCKET = 'product-images'
 /**
@@ -159,7 +160,10 @@ export const uploadImageBlob = async (
       .from(bucket)
       .upload(filePath, compressed, {
         contentType: format,
-        cacheControl: '3600',
+        // `PRF-05`: um ano, do dono único em `@estrelinha/core/media`. O caminho carrega um UUID,
+        // então o objeto é imutável — uma hora de cache era desperdício puro, e ainda fazia cada
+        // revisita repetir a transformação do `render/image`.
+        cacheControl: STORAGE_CACHE_CONTROL,
         upsert: false,
       })
 

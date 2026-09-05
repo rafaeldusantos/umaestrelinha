@@ -1,10 +1,11 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { isPreviewWindow } from "@estrelinha/core/home";
 import { Toaster as Sonner } from "@estrelinha/ui/sonner";
 import { Toaster } from "@estrelinha/ui/toaster";
 import { TooltipProvider } from "@estrelinha/ui/tooltip";
 import RuntimeSettingsLoader from "@/app/RuntimeSettingsLoader";
+import { createQueryClient } from "@/app/queryClient";
 import ScrollToTop from "@/app/ScrollToTop";
 import AbandonedCartTracker from "@/features/abandoned-cart/ui/AbandonedCartTracker";
 
@@ -24,7 +25,11 @@ import HowToSendMaterialPage from "@/pages/HowToSendMaterialPage";
 import AccountPage from "@/pages/AccountPage";
 import NotFound from "@/pages/NotFound";
 
-const queryClient = new QueryClient();
+/**
+ * `PRF-07`: o cliente nasce com `staleTime` de 5 minutos, e o porquê está em `queryClient.ts`.
+ * Sem ele, toda consulta nascia velha e voltar a uma categoria já vista refazia 307 KB de JSON.
+ */
+const queryClient = createQueryClient();
 
 /**
  * Feature 25 — a loja dentro do iframe de `/admin/home`.

@@ -3,6 +3,7 @@ import { TAP_44 } from '@/shared/lib/touchTarget'
 import { ChevronRight, Plus } from 'lucide-react'
 import { formatPrice } from '@estrelinha/core/formatters'
 import { productPath } from '@estrelinha/core/routes'
+import { renditionUrl } from '@estrelinha/core/media'
 import type { Product } from '@estrelinha/supabase/types'
 import { useCartStore } from '@/entities/cart/model/cartStore'
 import { hasSellableGrid } from '@/entities/product/lib/variantSelection'
@@ -53,7 +54,12 @@ const CrossSell = ({ products, onNavigate }: Props) => {
                 aria-hidden
                 className="h-11 w-11 shrink-0 overflow-hidden rounded-[10px] bg-estrelinha-ground-deep"
               >
-                <img src={product.image_url} alt="" className="h-full w-full object-cover" />
+                {/* Vaga de 44px: 120 cobre DPR 2 com margem. */}
+                <img
+                  src={renditionUrl(product.image_url, 120)}
+                  alt=""
+                  className="h-full w-full object-cover"
+                />
               </Link>
               <div className="min-w-0 flex-1">
                 <Link
