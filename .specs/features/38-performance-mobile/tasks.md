@@ -10,11 +10,62 @@ flow and Critical Rules.** Do not search for skill files by filesystem path.
 ---
 
 **Design**: `.specs/features/38-performance-mobile/design.md`
-**Status**: Draft
+**Status**: **T1–T18 executadas e commitadas** · T19 pendente de decisão do usuário
 
 ---
 
-## ⚠️ Bloqueio de estado antes da T1
+## Execução — o que foi feito
+
+| Fase | Tasks | Commit | Resultado |
+| --- | --- | --- | --- |
+| — | spec | `fd4d121` | os quatro documentos |
+| 1A | T1–T5 | `5c6fa32` | core 1493→1524 · store 2001→2056 |
+| 1B | T6–T10 | `7ef8ab1` | store →2088 · functions 350→368 · catalog-import 509→512 · backoffice 1786→1789 |
+| 2 | T11–T13 | `c952f7e` | store →2133 |
+| 3 | T14–T17 | `2099684` | store →2184 · chunk de entrada 278,4 → 117,2 KB brotli |
+| — | correção | `92fadbf` | store →2204 · o select pedia `products.stock`, que não existe |
+| 4 | T18 | `6fe260e` | store →2234 |
+| 4 | T19 | — | **não executada**: passe de `cacheControl` custa 410 MB de upload e espera decisão |
+
+**Medido contra o banco hospedado, por sonda HTTP** (a prescrição do `AD-012`, não inspeção de tipo):
+
+| Medida | Antes | Depois |
+| --- | --- | --- |
+| Catálogo inteiro, brotli | 1.449 KB | **214 KB** |
+| Categoria `colar-e-correntes` (147 produtos), brotli | 307 KB | **50 KB** |
+| Chunk de entrada, brotli | 278,4 KB | **117,2 KB** |
+
+Baselines finais: store **2234/151** · core **1524/61** · functions **368/7** ·
+catalog-import **512/23** · backoffice **1789/109** = **6127 em 351 arquivos**.
+Lint **27/5** e tipos **0 · 0 · 0**, os dois iguais à baseline de entrada.
+
+### A correção fora de fase, e por que ela existe
+
+`c952f7e` introduziu `PRODUCT_CARD_SELECT` nomeando a coluna `stock`. **Ela não existe** — virou
+`stock_total` na migration `20260726000000`, e o que restou no `mapDbToProduct` é o fallback
+`p.stock ?? p.stock_total` de intervalo de deploy. O PostgREST responde
+`400 · column products.stock does not exist`, e **toda vitrine da loja ficaria vazia em produção**.
+
+Nada pegou: `tsc` não checa string, `vite build` não checa tipo, e os testes de hook mockam o
+client. É o `AD-012` na íntegra, do lado da leitura. O guarda `renamedColumns.test.ts` lê os
+`RENAME COLUMN` das migrations do disco e é **por tabela** — `product_variants.stock` nunca foi
+renomeada e segue legítima.
+
+### Decisões pendentes do usuário
+
+1. **A busca deixou de casar termo que só aparece na descrição.** `searchProducts` pontua
+   `description` como último desempate (peso 5), e ela saiu do select enxuto. Nenhum teste falha,
+   porque os testes de busca recebem `Product` pronto. Trazê-la de volta custa **+430 KB brotli em
+   toda página** — o `SearchDropdown` fica no header e baixa o catálogo sem interruptor em qualquer
+   rota. Contradiz o critério "nenhuma mudança visível de comportamento" da spec.
+2. **T19**, o passe de `cacheControl` sobre os 3.618 objetos já no Storage.
+
+---
+
+## ⚠️ Bloqueio de estado antes da T1 *(resolvido em 2026-09-05)*
+
+Resolvido: as features `34`, `35` e `36` — que nunca haviam sido commitadas — entraram em
+`146561e`, e a `38` nasceu em branch próprio a partir dali.
 
 **A árvore tem 101 arquivos não commitados no branch `feat/37-frete-gratis-configuravel`**, medido em
 2026-09-05. Entre eles há **arquivos novos que ninguém commitou**: `packages/core/src/color/`,

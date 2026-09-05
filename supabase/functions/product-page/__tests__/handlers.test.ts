@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   GALLERY_STAGE_SIZES,
   RENDITION_WIDTHS,
+  renditionUrl,
 } from '../../../../packages/core/src/media/rendition.ts'
 import { escapeXml } from '../../../../packages/core/src/xml/escape.ts'
 import { productJsonLd } from '../../../../packages/core/src/shopping/index.ts'
@@ -391,13 +392,48 @@ describe('handleProductPage — o preload da foto principal (PRF-06)', () => {
 
   const linkDe = (corpo: string) => corpo.match(/<link rel="preload"[^>]*>/)?.[0] ?? ''
 
-  it('produto com foto do Storage: o preload aponta para a rendição de 720', async () => {
+  /**
+   * O `href` isolado do `<link>`, e **não** o `<link>` inteiro.
+   *
+   * A primeira escrita destes testes media com `expect(link).toContain(...)` sobre a string do
+   * elemento — e passava com o `href` apontando para **qualquer** coisa, porque o `imagesrcset`
+   * do mesmo elemento carrega as três rendições e satisfazia todos os `toContain`. O Verifier
+   * provou: apontando o `href` para a URL original, e depois para a rendição de 360, a suíte
+   * passou nas duas vezes.
+   *
+   * É a regra de payload deste projeto: a asserção tem de mirar **o campo**, nunca o elemento
+   * que o contém. `href` é o que o navegador de fato baixa — errar nele é baixar a foto errada
+   * com o preload dizendo que está certo.
+   */
+  const hrefDe = (link: string) => link.match(/\shref="([^"]*)"/)?.[1] ?? ''
+
+  it('produto com foto do Storage: o `href` do preload É a rendição de 720', async () => {
     const link = linkDe(await corpoDe(comFoto(STORAGE)))
+    const href = hrefDe(link)
 
     expect(link).toContain('as="image"')
-    expect(link).toContain('/storage/v1/render/image/public/product-images/pulseira.webp')
-    expect(link).toContain('width=720')
-    expect(link).toContain('quality=75')
+    // Igualdade, não `toContain`: a URL inteira, montada pelo dono único.
+    expect(href).toBe(renditionUrl(STORAGE, 720).replace(/&/g, '&amp;'))
+    expect(href).toContain('/storage/v1/render/image/public/product-images/pulseira.webp')
+    expect(href).toContain('width=720')
+    expect(href).toContain('quality=75')
+  })
+
+  it('o `href` NÃO é a URL original — o sensor da lacuna que o Verifier achou', async () => {
+    const href = hrefDe(linkDe(await corpoDe(comFoto(STORAGE))))
+
+    expect(href).not.toBe(STORAGE)
+    expect(href).toContain('/render/image/')
+    expect(href).not.toMatch(/\/object\/public\//)
+  })
+
+  it('o `href` NÃO é nenhuma das outras larguras do `imagesrcset`', async () => {
+    const href = hrefDe(linkDe(await corpoDe(comFoto(STORAGE))))
+
+    // 360 e 480 estão no `imagesrcset` do MESMO elemento. É exatamente por isso que uma asserção
+    // sobre o elemento inteiro não distinguia: as três larguras estão todas ali dentro.
+    expect(href).not.toContain('width=360')
+    expect(href).not.toContain('width=480')
   })
 
   it('o `imagesrcset` traz as três larguras que a galeria pede', async () => {

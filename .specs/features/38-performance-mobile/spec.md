@@ -149,8 +149,14 @@ que não acontece.
 2. **PRF-05** — WHEN o valor de `cacheControl` é escrito THEN ele SHALL vir de uma **constante única
    em `@estrelinha/core`**, lida pelos dois gravadores. Hoje o literal `'3600'` está escrito duas
    vezes, em dois workspaces, e é o "defeito 01" em miniatura.
-3. **PRF-05** — WHEN o passe de atualização roda sobre os objetos já existentes THEN ele SHALL ser
-   **idempotente** e SHALL NOT reenviar bytes: só metadados mudam.
+3. ~~**PRF-05** — WHEN o passe de atualização roda sobre os objetos já existentes THEN ele SHALL ser
+   **idempotente** e SHALL NOT reenviar bytes: só metadados mudam.~~ **ADIADA** (decisão do usuário,
+   2026-09-05, feita depois da medição). Duas coisas mudaram a conta durante o design: o
+   `@supabase/storage-js` **2.110.7 instalado não tem `updateMetadata`** — conferido no
+   `dist/index.d.mts` do pacote —, então "só metadados mudam" **é impossível** e o passe custaria
+   ~410 MB de reenvio; e a transformação é cobrada por **imagem distinta por mês**, não por batida,
+   então o passe compra velocidade de revisita, **não dinheiro**. As fotos novas já nascem com um
+   ano. As 3.618 antigas seguem em uma hora, e o passe vira `BL-021`.
 4. **PRF-07** — WHEN o `QueryClient` da loja é criado THEN ele SHALL declarar `staleTime` padrão de
    **5 minutos**, para que voltar a uma categoria já visitada não refaça a consulta.
 5. **PRF-07** — WHEN uma consulta já declara `staleTime` próprio — `store_settings`, promoções —
@@ -316,7 +322,19 @@ tinha extensões ativas, e o próprio relatório avisa que isso inflou os númer
       **abaixo de 20 KB** (hoje 1,49 MB).
 - [ ] **Sem regressão** contra as baselines do `CLAUDE.md`: lint 27/5, tipos 0·0·0, e a contagem de
       testes só sobe.
-- [ ] **Nenhuma mudança visível** de layout, cópia ou comportamento — esta feature é invisível para
-      quem já achava a loja rápida.
+- [ ] **Nenhuma mudança visível** de layout, cópia ou comportamento, **com duas exceções declaradas
+      e assinadas pelo usuário em 2026-09-05**, as duas achadas por medição e não por acaso:
+  1. **A busca deixou de casar termo que só aparece na descrição do produto.** `searchProducts`
+     pontua `description` como último desempate (peso 5), e ela saiu do select enxuto que alimenta
+     as três superfícies de busca. Trazê-la de volta custa **+430 KB brotli em toda página**. Em
+     troca, o `SearchDropdown` — que fica no header, em toda rota — ganhou o `enabled` que o
+     `SearchOverlay` já tinha, e **deixou de baixar o catálogo de quem só abriu a página**: 214 KB
+     a menos por página, contra um desempate de busca que quase nunca decide. A busca por descrição
+     volta com `BL-020`, que é busca no servidor.
+  2. **A lupa de passar o mouse no desktop amplia 720 px, não 1024.** A galeria renderiza os dois
+     palcos ao mesmo tempo, e imagem escondida por CSS **continua sendo baixada** — dar 1024 ao
+     desktop e 720 ao celular faria o celular baixar as duas. O original segue na tela cheia, que é
+     onde a spec localiza a lupa. É o caso principal ganhando do responsivo, com ~90% dos acessos
+     em celular.
 - [ ] O custo de transformação do primeiro mês é medido e registrado no `STATE.md`, para que a
       assunção de teto (~US$ 20) deixe de ser estimativa.
