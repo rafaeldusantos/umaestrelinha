@@ -10,3 +10,6 @@
 // Vite e vitest resolvem as duas formas, então nada acusa a ausência. `core/shopping` e
 // `core/routes` já nasceram assim, pelo mesmo motivo.
 export * from './menu.ts'
+export * from './icons.ts'
+export * from './target.ts'
+export * from './banners.ts'
