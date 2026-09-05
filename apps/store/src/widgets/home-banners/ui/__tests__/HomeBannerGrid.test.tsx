@@ -189,3 +189,51 @@ describe('HomeBannerGrid — arte que não carrega e banner órfão (HOME-25, HO
     )
   })
 })
+
+/**
+ * `PRF-02` (AC 4) — a arte da grade chega no tamanho da vaga.
+ *
+ * A grade é a segunda dobra da home, e cada vaga é uma foto de campanha inteira. Servida no
+ * original, ela sozinha custava mais que todo o resto da página somado.
+ */
+const STORAGE_BANNER =
+  'https://hgkrsfpupypxtygjgthf.supabase.co/storage/v1/object/public/home/campanha.webp'
+const RENDER_BANNER =
+  'https://hgkrsfpupypxtygjgthf.supabase.co/storage/v1/render/image/public/home/campanha.webp'
+
+describe('HomeBannerGrid — a arte no tamanho da vaga (PRF-02 AC 4)', () => {
+  it('declara `srcset` com as três larguras e um `sizes` que descreve a vaga', () => {
+    renderGrade([banner(1, { imageUrl: STORAGE_BANNER })], 'single')
+    const arte = screen.getAllByRole('img')[0]
+
+    expect(arte.getAttribute('srcset')).toBe(
+      `${RENDER_BANNER}?width=360&quality=75 360w, ` +
+        `${RENDER_BANNER}?width=480&quality=75 480w, ` +
+        `${RENDER_BANNER}?width=720&quality=75 720w`,
+    )
+    // Largura cheia em 390px, metade da linha a partir do `md` — é o que os quatro arranjos fazem.
+    expect(arte.getAttribute('sizes')).toBe('(min-width: 768px) 50vw, 100vw')
+  })
+
+  it('o `src` é a rendição média, nunca o original', () => {
+    // Navegador sem `srcset` usa o `src`. Apontá-lo ao original faria o caso legado pagar o pior
+    // preço da página.
+    renderGrade([banner(1, { imageUrl: STORAGE_BANNER })], 'single')
+
+    expect(screen.getAllByRole('img')[0]).toHaveAttribute(
+      'src',
+      `${RENDER_BANNER}?width=480&quality=75`,
+    )
+  })
+
+  it('arte de host externo passa inalterada e SEM `srcset` (a fixture desta suíte é uma)', () => {
+    // Banner de campanha pode apontar para CDN de terceiro. Reescrever a URL dele seria inventar
+    // um endpoint que não existe — e a asserção de `src` do teste de `HOME-29` acima já depende
+    // disto continuar verdadeiro.
+    renderGrade([banner(1)], 'single')
+    const arte = screen.getAllByRole('img')[0]
+
+    expect(arte).toHaveAttribute('src', 'https://cdn.test/campanha-1.webp')
+    expect(arte.hasAttribute('srcset')).toBe(false)
+  })
+})

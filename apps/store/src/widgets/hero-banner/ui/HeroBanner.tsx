@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { motion, type Variants } from 'framer-motion'
 import { ArrowRight } from 'lucide-react'
 import type { HomeSectionConfig } from '@estrelinha/core/home'
+import { renditionSrcSet, renditionUrl } from '@estrelinha/core/media'
 import { EstrelinhaSymbol } from '@/shared/ui/brand'
 
 const container: Variants = {
@@ -81,7 +82,18 @@ const HeroArt = () => (
  */
 const HeroPhoto = ({ src, alt }: { src: string; alt: string }) => (
   <div className={`relative overflow-hidden ${ART_SLOT}`}>
-    <img src={src} alt={alt} className="h-full w-full object-cover" />
+    {/* O LCP da home quando a dona subiu foto: `eager` e `fetchpriority="high"`, e nenhuma das
+        duas dicas vale nada sem a rendição — a foto é a maior imagem da primeira dobra.
+        A grafia minúscula sai por spread porque o React 18.3 não conhece `fetchPriority`. */}
+    <img
+      src={renditionUrl(src, 480)}
+      srcSet={renditionSrcSet(src) || undefined}
+      sizes="(min-width: 768px) 440px, 100vw"
+      loading="eager"
+      {...({ fetchpriority: 'high' } as Record<string, string>)}
+      alt={alt}
+      className="h-full w-full object-cover"
+    />
   </div>
 )
 

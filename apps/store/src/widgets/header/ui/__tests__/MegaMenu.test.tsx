@@ -251,3 +251,42 @@ describe('barra vazia', () => {
     expect(container).toBeEmptyDOMElement()
   })
 })
+
+/**
+ * `PRF-02` (AC 5) — a faixa "Em destaque" pede rendição pequena.
+ *
+ * A vaga mede 160px fixos. O painel serve **três** cards e a cliente pode nunca abri-lo: no
+ * original eram ~340 KB baixados por um menu que talvez não seja usado.
+ */
+const STORAGE_MENU =
+  'https://hgkrsfpupypxtygjgthf.supabase.co/storage/v1/object/public/product-images/destaque.webp'
+const RENDER_MENU =
+  'https://hgkrsfpupypxtygjgthf.supabase.co/storage/v1/render/image/public/product-images/destaque.webp'
+
+const comFoto = (id: string, url: string) =>
+  ({ id, name: `Pingente ${id}`, slug: id, price: 289, image_url: url, is_featured: true }) as never
+
+describe('MegaMenu — o destaque pede rendição pequena (PRF-02 AC 5)', () => {
+  it('a foto sai em 320px, com `srcset` das duas larguras da vaga', () => {
+    products.data = [comFoto('a', STORAGE_MENU)]
+    renderMenu()
+    hover('Anime')
+
+    const foto = screen.getByRole('img', { name: 'Pingente a' })
+    expect(foto).toHaveAttribute('src', `${RENDER_MENU}?width=320&quality=75`)
+    expect(foto.getAttribute('srcset')).toBe(
+      `${RENDER_MENU}?width=160&quality=75 160w, ${RENDER_MENU}?width=320&quality=75 320w`,
+    )
+    expect(foto.getAttribute('sizes')).toBe('160px')
+  })
+
+  it('foto de host externo passa inalterada e SEM `srcset`', () => {
+    products.data = [comFoto('b', 'https://cdn.parceiro.example/peca.jpg')]
+    renderMenu()
+    hover('Anime')
+
+    const foto = screen.getByRole('img', { name: 'Pingente b' })
+    expect(foto).toHaveAttribute('src', 'https://cdn.parceiro.example/peca.jpg')
+    expect(foto.hasAttribute('srcset')).toBe(false)
+  })
+})

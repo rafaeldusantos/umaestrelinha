@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { ArrowRight } from 'lucide-react'
 import type { HomeSectionConfig } from '@estrelinha/core/home'
+import { renditionSrcSet, renditionUrl } from '@estrelinha/core/media'
 
 /**
  * O destaque em coleção — a faixa larga que dá a uma coleção só o espaço de uma página inteira
@@ -63,8 +64,12 @@ const CollectionFeature = ({ content, collection }: Props) => {
         {imagem && (
           <div className="w-full md:w-[46%] md:shrink-0">
             <Link to={collection.href} className={`group ${ART_SLOT}`}>
+              {/* 46% da linha a partir do `md`, largura cheia em 390px — a mesma vaga que o
+                  `ART_SLOT` reserva. A proporção segue no link, não na imagem (`HOME-29`). */}
               <img
-                src={imagem}
+                src={renditionUrl(imagem, 480)}
+                srcSet={renditionSrcSet(imagem) || undefined}
+                sizes="(min-width: 768px) 46vw, 100vw"
                 alt={alt}
                 loading="lazy"
                 className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"

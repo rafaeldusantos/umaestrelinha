@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { formatPrice } from '@estrelinha/core/formatters'
 import { categoryPath, productPath } from '@estrelinha/core/routes'
 import type { MenuEntry } from '@estrelinha/core/menu'
+import { renditionSrcSet, renditionUrl } from '@estrelinha/core/media'
 import { useProducts } from '@/entities/product'
 import { EstrelinhaSymbol } from '@/shared/ui/brand'
 import { NAV_ITEM } from './navItem'
@@ -56,8 +57,12 @@ const TrendingLane = ({ slug }: { slug: string }) => {
           >
             <div className="flex h-40 w-40 items-center justify-center overflow-hidden rounded-md bg-estrelinha-ground-deep">
               {product.image_url ? (
+                /* Vaga de 160px fixos: 320 cobre DPR 2, e o original de 1024px eram 113 KB por
+                   card num painel que a cliente pode nem abrir. */
                 <img
-                  src={product.image_url}
+                  src={renditionUrl(product.image_url, 320)}
+                  srcSet={renditionSrcSet(product.image_url, [160, 320]) || undefined}
+                  sizes="160px"
                   alt={product.name}
                   loading="lazy"
                   className="h-full w-full object-cover"

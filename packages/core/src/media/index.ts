@@ -63,3 +63,13 @@ export const normalizeImages = (raw: unknown): ProductImage[] => {
 /** A primeira imagem válida — a "principal" da vitrine. `null` quando não há nenhuma. */
 export const primaryImage = (raw: unknown): ProductImage | null =>
   normalizeImages(raw)[0] ?? null
+
+// "Como se pede uma imagem" — o vizinho puro deste barrel.
+//
+// A EXTENSÃO `.ts` É OBRIGATÓRIA (regra da feature `33`): sem ela o módulo deixa de ser alcançável
+// fora do Vite, e nada acusa — Vite e vitest resolvem as duas formas.
+//
+// As edge functions **não** passam por aqui: este arquivo importa `@estrelinha/supabase/types`, e o
+// Deno morre nesse `import type` antes da primeira linha rodar. Elas importam
+// `packages/core/src/media/rendition.ts` direto, por caminho relativo.
+export * from './rendition.ts'

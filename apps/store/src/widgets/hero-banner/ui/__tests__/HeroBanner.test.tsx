@@ -197,3 +197,48 @@ describe('Hero em 390px — a foto não empurra o CTA (HOME-21)', () => {
     ).toContain('object-cover')
   })
 })
+
+/**
+ * `PRF-02` (AC 4) e `PRF-03` (AC 1) — a foto do hero é o LCP da home quando a dona subiu uma.
+ *
+ * É a maior imagem da primeira dobra, e não há nada acima dela competindo. Sem `eager` +
+ * `fetchpriority`, o navegador a descobre depois do bundle inteiro.
+ */
+const STORAGE_HERO =
+  'https://hgkrsfpupypxtygjgthf.supabase.co/storage/v1/object/public/home/peca.webp'
+const RENDER_HERO =
+  'https://hgkrsfpupypxtygjgthf.supabase.co/storage/v1/render/image/public/home/peca.webp'
+
+const heroComFoto = (url: string): HomeSectionConfig => ({
+  ...CONTEUDO_DE_HOJE,
+  image_url: url,
+  image_alt: 'Pingente de resina com mecha de cabelo',
+})
+
+describe('HeroBanner — a foto do hero é o LCP da home (PRF-03 AC 1)', () => {
+  it('é `eager` com `fetchpriority="high"`', () => {
+    renderHero(heroComFoto(STORAGE_HERO))
+    const foto = screen.getByRole('img', { name: 'Pingente de resina com mecha de cabelo' })
+
+    expect(foto.getAttribute('loading')).toBe('eager')
+    expect(foto.getAttribute('fetchpriority')).toBe('high')
+  })
+
+  it('declara `srcset` e um `sizes` com os 440px da vaga no desktop', () => {
+    renderHero(heroComFoto(STORAGE_HERO))
+    const foto = screen.getByRole('img', { name: 'Pingente de resina com mecha de cabelo' })
+
+    expect(foto.getAttribute('srcset')).toContain(`${RENDER_HERO}?width=720&quality=75 720w`)
+    expect(foto.getAttribute('sizes')).toBe('(min-width: 768px) 440px, 100vw')
+    expect(foto).toHaveAttribute('src', `${RENDER_HERO}?width=480&quality=75`)
+  })
+
+  it('foto de host externo passa inalterada e SEM `srcset`', () => {
+    // É a fixture do teste de `HOME-18` acima, e a asserção de `src` dele depende disto.
+    renderHero(heroComFoto('https://cdn.test/peca.webp'))
+    const foto = screen.getByRole('img', { name: 'Pingente de resina com mecha de cabelo' })
+
+    expect(foto).toHaveAttribute('src', 'https://cdn.test/peca.webp')
+    expect(foto.hasAttribute('srcset')).toBe(false)
+  })
+})

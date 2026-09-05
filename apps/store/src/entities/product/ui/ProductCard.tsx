@@ -5,6 +5,7 @@ import { Heart, Plus } from 'lucide-react'
 import type { Product } from '@estrelinha/supabase/types'
 import { useCategories } from '@/entities/category/api/useCategories'
 import { formatPrice } from '@estrelinha/core/formatters'
+import { imagePriority, renditionSrcSet, renditionUrl } from '@estrelinha/core/media'
 import { resolveInstallments } from '@estrelinha/core/payment/installments'
 import { pixPrice } from '@estrelinha/core/payment/pix'
 import { usePaymentSettings } from '@estrelinha/core/hooks/useStoreSettings'
@@ -49,7 +50,14 @@ const CardBadge = ({ tone, children }: { tone: 'jam' | 'ink'; children: React.Re
   </span>
 )
 
-const ProductCard = ({ product }: { product: Product }) => {
+/**
+ * A posição do card na listagem, quando há uma.
+ *
+ * Só quem desenha uma LISTA passa o índice — é ele que decide qual foto o navegador busca primeiro
+ * (`PRF-03`). Card sem índice (relacionados, favoritos, resultado de busca) cai no ramo preguiçoso
+ * de `imagePriority`, que é exatamente o comportamento de hoje: o padrão seguro é não priorizar.
+ */
+const ProductCard = ({ product, index }: { product: Product; index?: number }) => {
   const addItem = useCartStore((s) => s.addItem)
   const toggleWishlist = useWishlistStore((s) => s.toggleItem)
   const isWishlisted = useWishlistStore((s) => s.hasItem(product.id))
@@ -134,6 +142,26 @@ const ProductCard = ({ product }: { product: Product }) => {
 
   const imagemEmDestaque = corEscolhida ?? product.image_url
 
+  /*
+    `PRF-03`: quem decide é `imagePriority`, e não um `index < 6` escrito aqui.
+
+    A régua repetida em cada vitrine é o "defeito 01" outra vez — a sétima superfície nasce sem ela
+    e nada acusa, porque o sintoma é lentidão, não erro. Os TRÊS mecanismos que escondiam a foto do
+    medidor de LCP saem juntos daqui: o `loading="lazy"`, o `initial={{ opacity: 0 }}` do Framer e o
+    `opacity-0` que espera o `onLoad`. Enquanto a imagem está invisível, o navegador não a conta.
+  */
+  const prioridade = imagePriority(index)
+
+  /*
+    React 18.3 não conhece `fetchPriority`: ele avisa no console e pede a grafia minúscula. O
+    atributo sai certo de qualquer forma, mas o aviso apareceria em TODA vitrine da loja em
+    desenvolvimento. O spread entrega a grafia que o navegador lê sem passar pela lista de props
+    conhecidas do React, e some inteiro quando não há dica a dar.
+  */
+  const dicaLcp = (
+    prioridade.fetchPriority ? { fetchpriority: prioridade.fetchPriority } : {}
+  ) as Record<string, string>
+
   /**
    * `COR-11`: escolher a cor troca a imagem em destaque e a cor escolhida — e não navega nem abre
    * o seletor. Cor **sem foto** mantém a imagem atual: esvaziar o palco por causa de um cadastro
@@ -210,8 +238,8 @@ const ProductCard = ({ product }: { product: Product }) => {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      whileInView={{ opacity: 1, y: 0 }}
+      initial={prioridade.animateIn ? { opacity: 0, y: 20 } : false}
+      whileInView={prioridade.animateIn ? { opacity: 1, y: 0 } : undefined}
       viewport={{ once: true }}
       transition={{ duration: 0.3 }}
       className="group cursor-pointer"
@@ -230,13 +258,27 @@ const ProductCard = ({ product }: { product: Product }) => {
         */}
         <div className="@container relative aspect-[4/5] overflow-hidden rounded-xl bg-estrelinha-ground-deep">
           {!imgLoaded && <Skeleton className="absolute inset-0 h-full w-full rounded-none" />}
+          {/*
+            `PRF-02`: a foto chega no tamanho da vaga. O card mede 171px em 390 (≈342 em DPR 2), e
+            até aqui a loja servia o original de 1024px — 113 KB de média, com casos de 530 KB.
+
+            O `src` aponta para a rendição de 480, e não para o original: ele é o que navegador sem
+            `srcset` usa, e mandá-lo ao original faria o caso legado pagar o PIOR preço.
+
+            Imagem que não é objeto do Storage (banner de host externo) volta inalterada de
+            `renditionUrl` e faz `renditionSrcSet` devolver `''` — daí o `|| undefined`, que omite o
+            atributo em vez de emitir um `srcset` de uma URL só.
+          */}
           <img
-            src={imagemEmDestaque}
+            src={renditionUrl(imagemEmDestaque, 480)}
+            srcSet={renditionSrcSet(imagemEmDestaque) || undefined}
+            sizes="(min-width: 1024px) 25vw, (min-width: 768px) 33vw, 50vw"
             alt={product.name}
             className={`h-full w-full object-cover transition-all duration-300 group-hover:scale-[1.04] ${
-              imgLoaded ? 'opacity-100' : 'opacity-0'
+              imgLoaded || !prioridade.animateIn ? 'opacity-100' : 'opacity-0'
             }`}
-            loading="lazy"
+            loading={prioridade.loading}
+            {...dicaLcp}
             onLoad={() => setImgLoaded(true)}
           />
 

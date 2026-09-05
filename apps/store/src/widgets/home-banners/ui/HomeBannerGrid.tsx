@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { DEFAULT_BANNER_LAYOUT, layoutSlots, type HomeBannerLayout } from '@estrelinha/core/home'
+import { renditionSrcSet, renditionUrl } from '@estrelinha/core/media'
 
 /**
  * A grade de banners logo abaixo da faixa de vantagens — board `7CF-0`.
@@ -60,8 +61,12 @@ const BannerLink = ({
     to={href}
     className={`group relative block w-full overflow-hidden rounded-lg bg-estrelinha-ground-deep ${ratio}`}
   >
+    {/* Largura cheia em 390px, metade da linha a partir do `md`. O `bg-estrelinha-ground-deep`
+        e a proporção continuam no LINK (`HOME-29`): quem segura o layout não é a imagem. */}
     <img
-      src={src}
+      src={renditionUrl(src, 480)}
+      srcSet={renditionSrcSet(src) || undefined}
+      sizes="(min-width: 768px) 50vw, 100vw"
       alt={alt}
       loading="lazy"
       className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
