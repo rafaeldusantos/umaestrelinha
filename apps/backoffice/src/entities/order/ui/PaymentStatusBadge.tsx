@@ -1,13 +1,9 @@
 import type { PaymentStatus } from '@estrelinha/supabase/types'
+// O mapa mora em `entities/order/api/orderQuery`, com um dono só (feature 34). Reexportado aqui
+// porque três arquivos já o importavam deste caminho.
+import { PAYMENT_STATUS_LABELS } from '../api/orderQuery'
 
-export const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
-  pending: 'Pendente',
-  approved: 'Aprovado',
-  rejected: 'Recusado',
-  refunded: 'Estornado',
-  expired: 'Expirado',
-  cancelled: 'Cancelado',
-}
+export { PAYMENT_STATUS_LABELS }
 
 // 6 estados, cores distintas (PAY-17)
 const statusStyles: Record<PaymentStatus, string> = {

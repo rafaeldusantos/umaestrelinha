@@ -138,6 +138,23 @@ jobs:
       # RESEND_DEV_REDIRECT_TO fica de fora porque NÃO pode existir em produção —
       # preenchida, ela desvia todo transacional e nenhum cliente recebe e-mail.
       # STRICT_VARIANT_PRICING também fica de fora: é opcional e o default é `true`.
+      #
+      # As duas MELHOR_ENVIO_* entraram em 2026-09-05, e não por precaução: a loja rodou
+      # meses sem elas. `melhor-envio?action=quote` respondia 500
+      # {"message":"Unauthenticated."} em produção, `DeliveryBlock` convertia a falha na
+      # opção única "Frete padrão" (SHP-05), e o checkout cobrava `default_shipping_cost`
+      # fixo para todo CEP e todo peso — sob um cabeçalho que diz "valores reais do Melhor
+      # Envio". Nada acusou: os 46 testes do caminho de frete mockam o client e passam
+      # verdes. É exatamente o apagão silencioso que este passo existe para recusar.
+      #
+      # MELHOR_ENVIO_ENV fica de fora por ser opcional COM DEFAULT SEGURO: ausente, a
+      # function cai em sandbox. Um deploy sem ela não cobra frete errado — deixa de cotar
+      # de verdade, que é o modo de falha barato dos dois.
+      #
+      # ⚠️ Sandbox e produção são CONTAS SEPARADAS no Melhor Envio, sem importação de dados
+      # entre elas. O token do projeto hospedado tem de ser o de PRODUÇÃO, com
+      # MELHOR_ENVIO_ENV=production ao lado — token de sandbox aqui faria a loja cotar
+      # contra um ambiente que só simula Correios e Jadlog.
       - name: conferir secrets das edge functions
         if: ${{ steps.mudou.outputs.functions == 'true' }}
         run: |
@@ -148,7 +165,9 @@ jobs:
             MERCADO_PAGO_WEBHOOK_SECRET \
             RESEND_API_KEY \
             RESEND_FROM \
-            STORE_PUBLIC_URL
+            STORE_PUBLIC_URL \
+            MELHOR_ENVIO_TOKEN \
+            MELHOR_ENVIO_SENDER_JSON
           do
             grep -qw "$nome" <<<"$lista" || faltando="$faltando $nome"
           done
@@ -158,7 +177,7 @@ jobs:
             echo "  supabase secrets set NOME=valor --project-ref <ref>"
             exit 1
           fi
-          echo "Os 5 secrets obrigatórios estão presentes."
+          echo "Os 7 secrets obrigatórios estão presentes."
 
       - name: migrations pendentes (dry run)
         run: supabase migration list --linked

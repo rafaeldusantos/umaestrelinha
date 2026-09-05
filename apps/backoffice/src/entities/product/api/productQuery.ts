@@ -78,27 +78,15 @@ export const SORT_COLUMN: Record<ProductSortKey, string> = {
   created: 'created_at',
 }
 
-/** `(inicio, fim)` do `.range()` — 1-indexed na tela, 0-indexed no PostgREST. */
-export const pageRange = (page: number, pageSize: number): [number, number] => {
-  const safePage = Math.max(1, Math.floor(page))
-  const from = (safePage - 1) * pageSize
-  return [from, from + pageSize - 1]
-}
-
-/** O `X–Y de N` do rodapé. `total` vem do `count` do servidor, nunca do tamanho do array. */
-export const rangeLabel = (page: number, pageSize: number, total: number): string => {
-  if (total === 0) return '0 de 0'
-  const [from] = pageRange(page, pageSize)
-  return `${from + 1}–${Math.min(from + pageSize, total)} de ${total}`
-}
-
 /**
- * O termo de busca escapado para o `or=(…)` do PostgREST.
+ * Aritmética de página e escape de busca — **reexportados de `@estrelinha/core/paging`**.
  *
- * Vírgula e parêntese fecham a lista de condições: sem escapar, buscar por `Naruto, o filme`
- * viraria três condições quebradas em vez de um termo.
+ * Moravam aqui, com um consumidor só. A feature 34 trouxe o segundo (as listagens de pedidos e de
+ * clientes fazem a mesma conta), e pela consequência 1 do defeito 01 do repositório a regra passou
+ * a ter dono único. A reexportação existe para que `AdminProductsPage` e os testes desta listagem
+ * sigam importando daqui, sem alteração.
  */
-export const escapeSearchTerm = (term: string): string => term.replace(/[(),]/g, ' ').trim()
+export { pageRange, rangeLabel, escapeSearchTerm } from '@estrelinha/core/paging'
 
 export interface AdminListRow {
   id: string

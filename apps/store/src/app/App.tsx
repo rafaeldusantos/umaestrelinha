@@ -5,6 +5,7 @@ import { Toaster as Sonner } from "@estrelinha/ui/sonner";
 import { Toaster } from "@estrelinha/ui/toaster";
 import { TooltipProvider } from "@estrelinha/ui/tooltip";
 import RuntimeSettingsLoader from "@/app/RuntimeSettingsLoader";
+import ScrollToTop from "@/app/ScrollToTop";
 import AbandonedCartTracker from "@/features/abandoned-cart/ui/AbandonedCartTracker";
 
 import StoreLayout from "@/widgets/store-layout/ui/StoreLayout";
@@ -42,6 +43,11 @@ const App = () => (
       <Sonner />
       <RuntimeSettingsLoader />
       <BrowserRouter>
+        {/*
+          Página nova abre no topo. Fica aqui, e não no `StoreLayout`, porque o checkout e o 404
+          estão fora dele — dentro do layout, as duas rotas herdariam a rolagem da página anterior.
+        */}
+        <ScrollToTop />
         {/*
           Navegar a prévia não pode virar carrinho abandonado: a dona conferindo a vitrine dispararia
           rastreio de uma sessão que não é de cliente nenhuma, e o e-mail de recuperação sairia para

@@ -29,14 +29,20 @@ describe('report — conferência de totais (CAT-08)', () => {
     expect(r.exitCode()).toBe(1)
   })
 
-  it('confere as três entidades de forma independente', () => {
+  it('confere as cinco entidades de forma independente', () => {
+    // Eram três até a feature 35, que acrescentou `pedidos` e `itens`. A asserção GANHOU casos:
+    // continuar exigindo exatamente três esconderia um `balance` novo que não fecha.
     const r = createReport()
     r.read('categorias', 39); r.created('categorias', 39)
     r.read('produtos', 2); r.created('produtos', 1)
     r.read('variacoes', 5); r.created('variacoes', 5)
+    r.read('pedidos', 35); r.created('pedidos', 35)
+    r.read('itens', 59); r.created('itens', 58)
 
     const por = Object.fromEntries(r.balances().map(b => [b.entidade, b.confere]))
-    expect(por).toEqual({ categorias: true, produtos: false, variacoes: true })
+    expect(por).toEqual({
+      categorias: true, produtos: false, variacoes: true, pedidos: true, itens: false,
+    })
     expect(r.exitCode()).toBe(1)
   })
 
@@ -207,5 +213,94 @@ describe('report — texto para o operador', () => {
     const r = createReport()
     r.read('produtos', 1); r.created('produtos', 1)
     expect(r.toText()).toMatch(/produtos.*sim/)
+  })
+})
+
+describe('report — pedidos e clientes (feature 35)', () => {
+  it('a distribuição observada acumula a mesma tripla e soma o total de pedidos', () => {
+    const r = createReport()
+    r.read('pedidos', 3); r.created('pedidos', 3)
+    r.observedTriple('Aberto | Confirmado | Entregue', 'delivered', 'approved')
+    r.observedTriple('Aberto | Confirmado | Entregue', 'delivered', 'approved')
+    r.observedTriple('Arquivado | Recusado | Não está embalado', 'pending', 'expired')
+
+    const d = r.data().pedidos.distribuicao
+    expect(d).toHaveLength(2)
+    expect(d.find(x => x.tripla.startsWith('Aberto'))?.vezes).toBe(2)
+    expect(d.reduce((a, x) => a + x.vezes, 0)).toBe(r.data().entidades.pedidos.lidos)
+  })
+
+  it('a taxa de casamento é null sem item — zero itens não é 0%', () => {
+    expect(createReport().matchRate()).toBeNull()
+  })
+
+  it('item órfão é contado E nomeado', () => {
+    const r = createReport()
+    r.itemMatched(true, 'Casou')
+    r.itemMatched(false, 'Pirâmide com cabelo')
+    expect(r.matchRate()).toBe(0.5)
+    expect(r.data().pedidos.itensOrfaos).toEqual([{ nome: 'Pirâmide com cabelo', sugestao: null }])
+  })
+
+  it('taxa ABAIXO do piso derruba o código de saída, mesmo com tudo fechando', () => {
+    const r = createReport()
+    r.read('itens', 5); r.created('itens', 5)
+    r.itemMatched(true, 'a')
+    for (const nome of ['b', 'c', 'd', 'e']) r.itemMatched(false, nome)
+    expect(r.balances().every(b => b.confere)).toBe(true)
+    expect(r.matchRate()).toBe(0.2)
+    expect(r.exitCode()).toBe(1)
+  })
+
+  it('SENSOR: exatamente no piso, sai zero', () => {
+    // Prova que o teste acima mede o piso, e não "qualquer órfão derruba". O piso é detector de
+    // ordem errada (catálogo vazio ⇒ 0%), não alvo de qualidade: a taxa real medida é 40,7%.
+    const r = createReport()
+    r.read('itens', 4); r.created('itens', 4)
+    r.itemMatched(true, 'a')
+    for (const nome of ['b', 'c', 'd']) r.itemMatched(false, nome)
+    expect(r.matchRate()).toBe(0.25)
+    expect(r.exitCode()).toBe(0)
+  })
+
+  it('a sugestão por SKU acompanha o órfão, e sai marcada como NÃO aplicada', () => {
+    const r = createReport()
+    r.read('pedidos', 1); r.created('pedidos', 1)
+    r.read('itens', 1); r.created('itens', 1)
+    r.itemMatched(false, 'Corrente Veneziana de Prata 925 (45cm)', 'Corrente Singapura em Prata 925')
+    expect(r.data().pedidos.itensOrfaos[0].sugestao).toBe('Corrente Singapura em Prata 925')
+    expect(r.toText()).toContain('o SKU sugeriria: Corrente Singapura em Prata 925  (NÃO aplicado)')
+    expect(r.toText()).toContain('confira à mão antes de ligar')
+  })
+
+  it('o texto traz a distribuição, a fila nominal e o aviso de piso', () => {
+    const r = createReport()
+    r.read('pedidos', 1); r.created('pedidos', 1)
+    r.read('itens', 2); r.created('itens', 2)
+    r.observedTriple('Aberto | Confirmado | Não está embalado', 'paid', 'approved')
+    r.itemMatched(false, 'Órfão um'); r.itemMatched(false, 'Órfão dois')
+    r.materialQueued({ order_number: 'NS-163', cliente: 'Fulana', criadoEm: '2026-07-13T00:00:00-03:00', itens: 6 })
+    r.outOfRange(35)
+
+    const texto = r.toText()
+    expect(texto).toContain('distribuição observada do de-para (soma 1)')
+    expect(texto).toContain('NS-163')
+    expect(texto).toContain('ABAIXO DO PISO')
+    expect(texto).toContain('fora do recorte (loja anterior) ..... 35')
+  })
+
+  it('sem pedidos lidos e sem recorte, a seção não aparece', () => {
+    expect(createReport().toText()).not.toContain('pedidos e clientes')
+  })
+
+  it('o que foi sobrescrito por flag é NOMEADO, não só contado', () => {
+    const r = createReport()
+    r.read('pedidos', 1); r.created('pedidos', 1)
+    r.stateResynced('NS-165')
+    r.itemsReimported('NS-166')
+    const texto = r.toText()
+    expect(texto).toContain('estado operacional SOBRESCRITO pela origem (1)')
+    expect(texto).toContain('NS-165')
+    expect(texto).toContain('NS-166')
   })
 })

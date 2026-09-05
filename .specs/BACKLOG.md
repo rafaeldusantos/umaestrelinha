@@ -381,9 +381,26 @@ caminho crítico.
 
 ---
 
-## BL-008 — `fetchStatusCounts` lê `orders` sem paginação (teto de 1.000 do PostgREST)
+## BL-008 — leituras do painel sem paginação (teto de 1.000 do PostgREST)
 
-- **Status**: aberto · **Registrado em**: 2026-08-09 · **Origem**: feature `22`, ao acrescentar as contagens de material
+- **Status**: **REDUZIDA** em 2026-08-29 pela feature `34` · **Registrado em**: 2026-08-09 · **Origem**: feature `22`, ao acrescentar as contagens de material
+
+> **O caso que dava nome a esta dívida está FECHADO.** `fetchStatusCounts` **deixou de existir**: as
+> contagens de aba e de contador agora são `select('id', { count: 'exact', head: true })`, uma por
+> eixo, com os filtros ativos aplicados. O PostgREST responde **só o cabeçalho `Content-Range`** — o
+> servidor conta e nenhuma linha atravessa a rede, então não há teto a herdar. A listagem em si passou
+> a usar `range` + `count: 'exact'`, e as leituras completas (CSV, "selecionar os N do filtro")
+> passam por `readAllPages`, que **falha** quando o total lido não bate com a contagem.
+>
+> `useAdminCustomers.fetchCustomers` — o outro caso citado abaixo — também saiu do caminho da
+> listagem: a tela de Clientes lê `customer_list` paginada. O hook continua existindo para a ficha.
+>
+> **O que mantém a dívida aberta**: as outras leituras sem `range` do painel, que ninguém enumerou
+> ainda. A régua para fechá-la de vez é varrer `apps/backoffice/src/**` atrás de `.select(` sem
+> `range` nem `head`, e decidir caso a caso.
+
+### O registro original
+
 
 `useAdminOrders.fetchStatusCounts` faz `supabase.from('orders').select('status, material_status')` —
 **sem `range`**. O PostgREST devolve no máximo **1.000 linhas** por resposta, então a partir do
@@ -747,3 +764,144 @@ segue valendo palavra por palavra.
 
 **O que fecha isto**: `/produtos/:slug` entregando `Content-Type: text/html` com o JSON-LD no corpo,
 verificado no deploy — nunca por status code (`AD-021`).
+
+---
+
+## BL-018 — Os 13 endereços que a Nuvemshop indexou e a loja nova não tem
+
+- **Status**: aberto, **bloqueia o cutover** · **Registrado em**: 2026-08-30 · **Origem**: auditoria
+  de SEO da feature [`36`](./features/36-metadados-e-dados-estruturados/spec.md), `Out of Scope`
+
+**O que é.** Diferença dos dois sitemaps, medida em 2026-08-30: as 730 URLs únicas (sem query) da
+Nuvemshop contra as 719 da loja nova. **681 de 681 produtos batem 1:1** e as categorias batem menos
+duas — `AD-018` fez o trabalho e pagou. Sobram **13 endereços indexados que respondem 404** na loja
+nova:
+
+```
+/sobre-a-loja-de-joias-afetivas     /politicas-de-trocas-e-devolucoes
+/politicas-de-frete-e-entrega       /politica-de-privacidade
+/como-comprar-uma-joia-afetiva      /cuidados-com-sua-joia-afetiva
+/contato                            /rastreio        /rastrear
+/black-friday                       /produtos
+/personalizados/profissoes          /nanita
+```
+
+**Por que ninguém pegou antes.** `LEGACY_REDIRECTS` (`@estrelinha/core/routes`) cobre as formas da
+loja **anterior (Nanita)** — `/produto/:slug`, `/colecao/:slug`, `/categoria/:slug` — e uma da
+feature `31`. Nenhuma das 13 acima está lá, porque nenhuma delas jamais existiu neste repositório:
+elas existem **só na Nuvemshop**, que é o site que ranqueia. A lista de legado foi montada olhando
+para o código, e o que importa é o que o Google indexou.
+
+**O que precisa ser decidido.** Cada uma das 13 precisa de destino, e três grupos têm respostas
+diferentes:
+
+1. **As institucionais com equivalente** (`/sobre-a-loja-de-joias-afetivas` → `/sobre`; as três de
+   política → `/politicas` ou uma âncora dela). 301 direto.
+2. **As que não têm equivalente** (`/contato`, `/rastreio`, `/rastrear`,
+   `/como-comprar-uma-joia-afetiva`, `/cuidados-com-sua-joia-afetiva`). Ou a loja ganha a página, ou
+   o 301 aponta para a mais próxima. **Redirecionar tudo para a home é a saída ruim** — o Google
+   trata redirect em massa para a raiz como soft-404 e descarta o sinal.
+3. **As de campanha e as órfãs** (`/black-friday`, `/nanita`, `/produtos`,
+   `/personalizados/profissoes`). Precisam de decisão da Adri sobre se voltam a existir.
+
+**O que fecha isto**: as 13 respondendo 301 (nunca 302, nunca 308 acidental) para um destino que
+responde 200, conferido por `curl` uma a uma **depois** do cutover — e as entradas vivendo em
+`LEGACY_REDIRECTS`, lidas pelo `vercel.json` e pelo roteador, como as quatro atuais.
+
+---
+
+## BL-019 — O domínio provisório é indexável e o sitemap convida o Google a indexá-lo
+
+- **Status**: aberto, **bloqueia o cutover** · **Registrado em**: 2026-08-30 · **Origem**: auditoria
+  de SEO da feature [`36`](./features/36-metadados-e-dados-estruturados/spec.md), `Out of Scope` ·
+  **Decisão**: [`AD-022`](./STATE.md)
+
+**O que é.** `umaestrelinha-store-five.vercel.app` não tem `noindex` em lugar nenhum, o
+`public/robots.txt` declara `Sitemap: https://umaestrelinha-store-five.vercel.app/sitemap.xml`, e o
+gerador emite as **719 `<loc>` naquele host** (medido em 2026-08-30, direto na edge function). Quando
+o `rewrite` de `/sitemap.xml` subir, a loja passa a **convidar ativamente** o Google a indexar o
+domínio provisório — que então concorre com o definitivo pelas mesmas 719 páginas.
+
+**Por que não é o mesmo item que a BL-018.** Aquela é sobre endereços que morrem; esta é sobre
+endereços que **nascem no host errado**. Uma some com 301, a outra some com `noindex` mais a troca
+de origem.
+
+**Os três valores mudam juntos, e a `AD-022` já avisou disso por escrito**: o secret
+`STORE_PUBLIC_URL` (que a function do sitemap lê), a linha `Sitemap:` do `robots.txt` e o domínio da
+Vercel. A `AD-022` aceitou o segundo dono da origem justamente porque a alternativa era
+`robots.txt` em 5xx, que faz o Google parar de rastrear o site inteiro. **O custo desse aceite é
+este item.**
+
+**O que fecha isto**: `curl` no domínio provisório devolvendo `X-Robots-Tag: noindex`, o
+`robots.txt` do domínio definitivo apontando para o sitemap **dele**, e uma `<loc>` do sitemap
+respondendo 200 no host novo — a mesma prova que o `sitemap-check.yml` já roda todo dia, apontada
+para o alvo certo.
+
+---
+
+## BL-020 — Curadoria de SEO das 35 categorias
+
+- **Status**: aberto, **espera a Adri, não código** · **Registrado em**: 2026-08-30 · **Origem**:
+  auditoria de SEO da feature [`36`](./features/36-metadados-e-dados-estruturados/spec.md)
+
+**O que é.** Medido no banco hospedado em 2026-08-30: **676 dos 680 produtos** têm `seo_title` e
+`seo_description` curados, importados da Nuvemshop. As **35 categorias não têm nem `description`
+preenchida** — a coluna existe e é `null` em todas —, e não têm coluna de SEO nenhuma.
+
+A feature `36` **deriva** o metadado da categoria do nome dela, de propósito: criar coluna que
+ninguém preenche é dar um segundo dono a um dado que não existe. Este item é o passo seguinte —
+copy própria para as 35 vitrines, que são as páginas que competem por termo genérico
+("joia de leite materno", "pingente com cinzas") em vez de por nome de produto.
+
+**Vira a quinta curadoria da fila** que espera a dona, ao lado de material por produto, vagas do
+menu, arte da vitrine e perguntas frequentes (ver `CLAUDE.md`, *O que espera decisão da dona*).
+
+**O que precisa ser decidido antes de virar feature**: se a copy vive em coluna nova
+(`categories.seo_title`/`seo_description`, com editor no painel) ou se as 35 são poucas o bastante
+para viver como dado em `@estrelinha/core`. A primeira dá autonomia à Adri; a segunda não cria
+coluna que pode ficar vazia — e a `36` já provou que a derivação por nome funciona como piso.
+
+---
+
+## BL-021 — Image sitemap
+
+- **Status**: aberto · **Registrado em**: 2026-08-30 · **Origem**: auditoria de SEO da feature
+  [`36`](./features/36-metadados-e-dados-estruturados/spec.md), `Out of Scope` · **Decisão**:
+  [`AD-022`](./STATE.md)
+
+**O que é.** A Nuvemshop declara **3.618 `<image:loc>`** no sitemap dela (medido em 2026-08-30); a
+loja nova, zero. Para um catálogo de joia — onde a decisão de compra é visual e a busca por imagem é
+canal real — isso é tráfego que não está sendo pedido.
+
+**Por que não entrou na `36`.** Aquela feature mexe no `<head>` das páginas; esta mexe no
+`core/sitemap`, que a `33` acabou de fechar com guardas próprios (`urls.test.ts`, `render.test.ts`,
+ambos com sensor embutido). Entrar de carona misturaria dois conjuntos de asserções sem necessidade.
+
+**O que precisa ser decidido**: se a imagem declarada é a primária ou todas (o catálogo tem 5 por
+produto em média, e 680 × 5 aproxima o teto de 50.000 do protocolo que `SITEMAP_MAX_URLS` já
+guarda), e se a URL é a do Storage ou a transformada.
+
+---
+
+## BL-022 — Peso do bundle da loja: 1,17 MB num chunk só
+
+- **Status**: aberto · **Registrado em**: 2026-08-30 · **Origem**: auditoria de SEO da feature
+  [`36`](./features/36-metadados-e-dados-estruturados/spec.md), `Out of Scope`
+
+**O que é.** `apps/store/dist/assets` emite **um** `index-*.js` de **1.167.848 bytes** e um
+`index-*.css` de 121.536 — sem `React.lazy`, sem `Suspense` nas rotas, sem `manualChunks`. Toda
+visita baixa o checkout, o Mercado Pago, o guia de material e o cálculo de frete para ver a home.
+
+**Por que importa mais aqui do que na média dos projetos.** O `CLAUDE.md` registra que **~90% dos
+acessos vêm de celular**, e isso é premissa de projeto. LCP e INP em 3G/4G são medidos com o bundle
+inteiro no caminho crítico.
+
+**O que já está bom e não precisa de trabalho**: as imagens de produto já são WebP e leves (~20 KB
+medidos), já têm `loading="lazy"` abaixo da dobra, e o endpoint `storage/v1/render/image` responde
+transformação (11 KB a 400px) — `srcset` está a um passo.
+
+**O que precisa ser decidido**: onde cortar. O checkout é o candidato óbvio (rota própria, fora do
+`StoreLayout`, e a maioria das visitas não chega lá). `@mercadopago/sdk-react` e `qrcode.react` só
+existem para ele.
+
+**Irmã da `BL-00X`** (peso da listagem de produto), que mede o outro lado do mesmo problema.

@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -65,7 +65,16 @@ const main = async () => {
   const limite = valor('limit')
   const concorrencia = valor('concurrency')
 
+  // Feature 35 — os CSV são lidos como BYTES, nunca como texto. O arquivo é Latin-1 e não declara
+  // isso; quem decide o encoding é `decodificar`, num lugar só.
+  const caminhoVendas = valor('vendas')
+  const caminhoClientes = valor('clientes')
+  const vendas = caminhoVendas ? await readFile(resolve(caminhoVendas)) : undefined
+  const clientes = caminhoClientes ? await readFile(resolve(caminhoClientes)) : undefined
+
   console.log(`\nImport do catálogo Nuvemshop → ${supabaseUrl}${dryRun ? '  [DRY-RUN]' : ''}\n`)
+  if (vendas) console.log(`  vendas:   ${resolve(caminhoVendas as string)}`)
+  if (clientes) console.log(`  clientes: ${resolve(caminhoClientes as string)}\n`)
 
   const report = await run(
     {
@@ -81,6 +90,11 @@ const main = async () => {
       stopAfter: valor('stop-after') as StopAfter | undefined,
       limit: limite ? Number(limite) : undefined,
       concurrency: concorrencia ? Number(concorrencia) : undefined,
+      vendas,
+      clientes,
+      ressincronizarEstado: flag('ressincronizar-estado'),
+      reimportarItens: flag('reimportar-itens'),
+      somentePedidos: flag('somente-pedidos'),
     },
   )
 

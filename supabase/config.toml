@@ -445,6 +445,24 @@ STORE_PUBLIC_URL = "env(STORE_PUBLIC_URL)"
 # dono da conta. Deixar VAZIA no dia a dia e em produção — preenchida, ela sequestra todo
 # destinatário e nenhuma cliente recebe e-mail.
 RESEND_DEV_REDIRECT_TO = "env(RESEND_DEV_REDIRECT_TO)"
+# Melhor Envio — cotacao de frete da loja e etiquetas do painel.
+#
+# AS TRES SAO OBRIGATORIAS, e a ausencia de cada uma falha de um jeito diferente:
+#   · TOKEN ausente  -> `Deno.env.get(...)!` devolve undefined, o header sai
+#     `Bearer undefined` e a API responde 500 {"message":"Unauthenticated."}.
+#     O `!` do TypeScript e assercao de tipo, nao garantia de runtime.
+#   · SENDER_JSON ausente -> `from.postal_code` fica undefined e o
+#     JSON.stringify APAGA a chave: a API recebe `"from":{}` e recusa por 422.
+#     Corrigir so o token troca um erro por outro.
+#   · ENV ausente -> cai em sandbox (qualquer valor != "production" e sandbox).
+#
+# NENHUMA DAS TRES ACUSA EM TELA. `DeliveryBlock` converte a falha na opcao
+# unica "Frete padrao" (SHP-05) e a loja passa a cobrar `default_shipping_cost`
+# fixo para todo CEP e todo peso, sob um cabecalho que diz "valores reais do
+# Melhor Envio". Foi o estado da loja ate 2026-09-05.
+MELHOR_ENVIO_TOKEN = "env(MELHOR_ENVIO_TOKEN)"
+MELHOR_ENVIO_ENV = "env(MELHOR_ENVIO_ENV)"
+MELHOR_ENVIO_SENDER_JSON = "env(MELHOR_ENVIO_SENDER_JSON)"
 
 [analytics]
 enabled = true

@@ -1,5 +1,13 @@
+import { lerClientes, lerVendas } from './csv/parse.ts'
+import { aplicarRecorte } from './csv/recorte.ts'
+import {
+  type ProdutoLocal,
+  type VariacaoLocal,
+  buildIndex,
+} from './map/catalogMatch.ts'
 import { mapCategories } from './map/category.ts'
 import { planImages } from './map/image.ts'
+import { mapOrder } from './map/order.ts'
 import { mapProduct } from './map/product.ts'
 import { dedupeSkus } from './map/sku.ts'
 import { mapVariants } from './map/variant.ts'
@@ -10,6 +18,7 @@ import { writeCategories } from './write/categories.ts'
 import { type DbLike, selectAll } from './write/db.ts'
 import { writeFaqs } from './write/faqs.ts'
 import { writeProductImages, writeProducts, writeVariantImages, type ProductImageRow, type ProductItem } from './write/products.ts'
+import { writeOrders } from './write/orders.ts'
 import { ensureImage, existingPaths, type StorageClientLike } from './write/storage.ts'
 
 /**
@@ -22,7 +31,7 @@ import { ensureImage, existingPaths, type StorageClientLike } from './write/stor
  * Reason: `only` prometia isolamento que as dependências entre fases tornam impossível; o nome novo
  * descreve o que a flag de fato faz.
  */
-export type StopAfter = 'categorias' | 'produtos' | 'perguntas' | 'imagens'
+export type StopAfter = 'categorias' | 'produtos' | 'perguntas' | 'imagens' | 'pedidos'
 
 export interface RunOptions {
   dryRun?: boolean
@@ -31,6 +40,30 @@ export interface RunOptions {
   limit?: number
   /** Imagens em paralelo. Ver `DEFAULT_CONCURRENCY` — o gargalo é o Storage, não o CDN. */
   concurrency?: number
+  /**
+   * Feature 35 — os dois CSV exportados do painel da Nuvemshop.
+   *
+   * Ausentes, a fase 4 **não roda**: ela é opcional porque o catálogo (fases 1–3) é útil sozinho, e
+   * porque o arquivo é exportado à mão e nem sempre está à mão.
+   */
+  vendas?: Buffer
+  clientes?: Buffer
+  /** Sobrescreve o estado operacional dos pedidos já importados. Ver `write/orders.ts`. */
+  ressincronizarEstado?: boolean
+  /** Apaga e regrava os itens dos pedidos já importados. */
+  reimportarItens?: boolean
+  /**
+   * Roda **só** a fase 4, pulando o catálogo inteiro.
+   *
+   * O `--only` genérico foi rejeitado (ver `StopAfter`) porque as fases 1–3 passam resultado em
+   * memória umas para as outras: produtos precisam do mapa de uuid das categorias, imagens precisam
+   * do uuid do produto. **A fase 4 é diferente, e é a única**: ela lê o catálogo do BANCO, não da
+   * fase anterior. Então ela é a única que pode rodar sozinha sem fingir independência.
+   *
+   * Existe porque a razão de re-execução é assimétrica: o catálogo muda raramente, e os pedidos
+   * mudam a cada export. Sem isto, reimportar pedidos custaria 3.660 uploads de imagem.
+   */
+  somentePedidos?: boolean
 }
 
 export interface RunDeps {
@@ -106,11 +139,19 @@ const pool = async <T>(items: readonly T[], limit: number, worker: (item: T) => 
  */
 export const run = async (deps: RunDeps, options: RunOptions = {}): Promise<Report> => {
   const report = createReport()
-  const { dryRun = false, stopAfter = 'imagens', limit, concurrency = DEFAULT_CONCURRENCY } = options
+  // O default é a ÚLTIMA fase, e mudou de `imagens` para `pedidos` na feature 35. Tivesse ficado em
+  // `imagens`, a fase 4 nunca rodaria sem alguém passar `--stop-after=pedidos` — e não rodar é
+  // indistinguível de rodar sem achar nada.
+  const { dryRun = false, stopAfter = 'pedidos', limit, concurrency = DEFAULT_CONCURRENCY } = options
   const log = deps.log ?? (() => {})
   const writeDeps = { supabase: deps.supabase, report, dryRun, log }
 
   try {
+    if (options.somentePedidos === true) {
+      await importarPedidos(deps, options, report, log)
+      return report
+    }
+
     // ---- 1 · categorias --------------------------------------------------
     log('fase 1 · categorias')
     const rawCategories = await deps.nuvemshop.listCategories()
@@ -230,13 +271,91 @@ export const run = async (deps: RunDeps, options: RunOptions = {}): Promise<Repo
       await writeProductImages(productId, galeria, writeDeps)
       await writeVariantImages(item.variants, urlPorImagem, writeDeps)
     })
+    if (stopAfter === 'imagens') return report
 
-    log('fase 4 · relatório')
+    // ---- 4 · pedidos e clientes (feature 35) -----------------------------
+    //
+    // DEPOIS das imagens, e a ordem é dependência de dado: o casamento de item precisa de
+    // `products.nuvemshop_id` e `product_variants.nuvemshop_id`, que a fase 2 grava. Rodar antes
+    // produz 100% de itens órfãos — e o piso de casamento do relatório é quem acusa.
+    //
+    // A fonte NÃO é a API: o plano da loja é o Essencial, e os escopos `read_orders`/
+    // `read_customers` exigem Escala ou Next. São dois CSV exportados do painel.
+    await importarPedidos(deps, options, report, log)
+
+    log('fase 5 · relatório')
     return report
   } catch (err) {
     report.aborted((err as Error).message)
     log(`PAROU: ${(err as Error).message}`)
     return report
+  }
+}
+
+/**
+ * A fase 4 — pedidos e clientes, dos dois CSV.
+ *
+ * Separada em função própria porque é **opcional**: sem `--vendas`, a fase inteira sai do caminho e
+ * o import continua sendo o do catálogo. Um `if` embutido no meio de `run` esconderia isso.
+ */
+const importarPedidos = async (
+  deps: RunDeps,
+  options: RunOptions,
+  report: Report,
+  log: (m: string) => void,
+): Promise<void> => {
+  if (!options.vendas) {
+    log('fase 4 · pedidos — pulada (sem --vendas)')
+    return
+  }
+
+  log('fase 4 · pedidos e clientes')
+
+  const produtos = await selectAll<ProdutoLocal>(
+    deps.supabase.from('products'),
+    'id, name, nuvemshop_id, requires_material, material_kinds',
+    'ler produtos para casar itens',
+  )
+  const variacoes = await selectAll<VariacaoLocal>(
+    deps.supabase.from('product_variants'),
+    'id, product_id, sku, option_values',
+    'ler variações para casar itens',
+  )
+
+  // O aviso vem ANTES da fase, e não depois: rodar com o catálogo vazio produz 100% de órfãos, e
+  // sem esta linha quem lê o relatório procuraria o defeito no casamento em vez da ordem de
+  // execução. O piso de casamento reprova o gate de qualquer forma.
+  if (produtos.length === 0) {
+    log('  ⚠ 0 produtos no catálogo local — TODOS os itens ficarão órfãos. Rode as fases 1–3 antes.')
+  }
+
+  const index = buildIndex(produtos, variacoes)
+  const { dentro, fora } = aplicarRecorte(lerVendas(options.vendas))
+  report.outOfRange(fora.length)
+  log(`  ${dentro.length} pedido(s) no recorte · ${fora.length} fora (loja anterior)`)
+
+  const mapeados = dentro.map(pedido => mapOrder(pedido, index))
+
+  await writeOrders(mapeados, {
+    supabase: deps.supabase,
+    report,
+    dryRun: options.dryRun ?? false,
+    log,
+    ressincronizarEstado: options.ressincronizarEstado,
+    reimportarItens: options.reimportarItens,
+  })
+
+  // As clientes são DERIVADAS dos pedidos pela view `customer_directory` (`AD-023`) — nada é
+  // escrito em `customers`. O CSV de clientes entra só como conferência, e para dizer quantas
+  // ficaram de fora por nunca terem comprado.
+  const emails = new Set(mapeados.map(m => m.order.customer_email.toLowerCase()))
+  report.customersDerived(emails.size)
+
+  if (options.clientes) {
+    const clientes = lerClientes(options.clientes)
+    const semPedido = clientes.filter(c => !emails.has(c.email.toLowerCase()))
+    report.customersWithoutOrders(semPedido.length)
+    log(`  ${emails.size} cliente(s) derivada(s) dos pedidos · ${semPedido.length} sem pedido no recorte`)
   }
 }
 

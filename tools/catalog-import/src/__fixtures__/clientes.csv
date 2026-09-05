@@ -1,0 +1,5 @@
+Nome completo;CPF/CNPJ;E-mail;Telefone de Contato;Gênero;Data de nascimento;Endereço;Número;Complemento;Cidade;Bairro;Estado;CEP;País;Total Consumido (BRL);Número de Compras;Última Compra;Data;Cadastrado;Inscrição para newsletter;Marketing;Marketing (atualização);Tags
+Pessoa de Teste Um;222.222.222-22;maiuscula@exemplo.invalid;+5551900000135;;;;;;;;;;Brasil;0.00;1;;01/01/2026;NÃO;NÃO;Aceita;;
+Pessoa de Teste Dois;333.333.333-33;pix.vencido@exemplo.invalid;+5551900000136;;;;;;;;;;Brasil;0.00;1;;01/01/2026;NÃO;NÃO;Aceita;;
+Pessoa Sem Pedido;;sem.pedido@exemplo.invalid;+5551900000999;;;;;;;;;;Brasil;0.00;0;;01/01/2026;NÃO;NÃO;Aceita;;
+Cliente Anterior Um;11111111111;anterior.um@exemplo.invalid;+5551900000133;;;;;;;;;;Brasil;0.00;1;;01/01/2026;NÃO;NÃO;Aceita;;

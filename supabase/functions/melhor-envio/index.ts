@@ -15,6 +15,65 @@ const ME_BASE = Deno.env.get("MELHOR_ENVIO_ENV") === "production"
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!
 const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
 
+/**
+ * Um client service-role por processo. Antes cada handler criava o seu, o que além de desperdício
+ * espalhava a credencial mais forte do sistema por três lugares.
+ */
+const adminClient = () => createClient(supabaseUrl, supabaseKey)
+
+/**
+ * `quote` é a ÚNICA ação pública — é a cliente, possivelmente convidada, cotando o carrinho antes de
+ * ter conta. Todo o resto é da dona.
+ *
+ * A lista é de **liberação**, não de bloqueio, e isso é deliberado: com uma lista de bloqueio, uma
+ * ação nova nasceria pública por esquecimento. Aqui ela nasce fechada.
+ */
+const PUBLIC_ACTIONS = new Set(["quote"])
+
+type AuthOutcome = { ok: true; userId: string } | { ok: false; status: number; error: string }
+
+/**
+ * Mesmo molde de `send-email/handlers.ts` — de propósito, para não existir uma segunda definição de
+ * "admin" nas edge functions.
+ *
+ * `verify_jwt = false` no `config.toml` e checagem manual aqui, porque `verify_jwt = true` seria
+ * teatro: a anon key pública É um JWT válido do projeto e passaria pelo gateway. O que importa é o
+ * papel, e papel só se checa dentro do handler.
+ *
+ * Três casos fecham o acesso de quem não é a dona:
+ *  - sem header           → 401
+ *  - anon key como bearer → JWT válido, mas sem `sub`; `getUser` erra → 401
+ *  - cliente logada       → `getUser` passa, `has_role` é falso → 403
+ *
+ * Falha da RPC **fecha** o acesso e loga distinto: indisponibilidade do banco não pode virar porta
+ * aberta para comprar etiqueta.
+ */
+async function requireAdmin(req: Request): Promise<AuthOutcome> {
+  const jwt = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "").trim()
+  if (jwt === "") return { ok: false, status: 401, error: "Não autenticado" }
+
+  const supabase = adminClient()
+  const { data, error } = await supabase.auth.getUser(jwt)
+  const user = data?.user
+  if (error || !user?.id) return { ok: false, status: 401, error: "Não autenticado" }
+
+  const { data: isAdmin, error: roleError } = await supabase.rpc("has_role", {
+    _user_id: user.id,
+    _role: "admin",
+  })
+  if (roleError) {
+    console.log(JSON.stringify({
+      action: "melhor-envio",
+      status: "admin_check_failed",
+      message: String(roleError.message ?? roleError),
+    }))
+    return { ok: false, status: 403, error: "Acesso restrito ao admin" }
+  }
+  if (isAdmin !== true) return { ok: false, status: 403, error: "Acesso restrito ao admin" }
+
+  return { ok: true, userId: user.id }
+}
+
 function meHeaders() {
   return {
     Authorization: `Bearer ${ME_TOKEN}`,
@@ -95,7 +154,7 @@ async function handleCreate(body: any) {
     })
   }
 
-  const supabase = createClient(supabaseUrl, supabaseKey)
+  const supabase = adminClient()
 
   // Fetch order + items
   const { data: order, error: orderErr } = await supabase
@@ -281,7 +340,7 @@ async function handlePrint(body: any) {
   const labelUrl = data?.url || null
 
   if (labelUrl && order_id) {
-    const supabase = createClient(supabaseUrl, supabaseKey)
+    const supabase = adminClient()
     await supabase
       .from("orders")
       .update({ melhor_envio_label_url: labelUrl })
@@ -321,6 +380,21 @@ Deno.serve(async (req) => {
     const url = new URL(req.url)
     const action = url.searchParams.get("action")
     const body = req.method === "POST" ? await req.json() : {}
+
+    // Choke point ÚNICO da autorização. Ficar aqui, e não dentro de cada handler, é o que faz uma
+    // ação nova nascer fechada: quem esquecer de mexer nesta linha ganha 401, não uma porta aberta.
+    //
+    // Sem isto, `create` era um endpoint público que comprava etiqueta com o saldo da carteira e
+    // escrevia em `orders` com service role, a partir de um `order_id` de qualquer origem.
+    if (!PUBLIC_ACTIONS.has(action ?? "")) {
+      const auth = await requireAdmin(req)
+      if (!auth.ok) {
+        return new Response(JSON.stringify({ error: auth.error }), {
+          status: auth.status,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        })
+      }
+    }
 
     switch (action) {
       case "quote":

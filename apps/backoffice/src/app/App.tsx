@@ -12,12 +12,14 @@ import AdminProductsPage from "@/pages/admin/AdminProductsPage";
 import AdminProductFormPage from "@/pages/admin/AdminProductFormPage"
 import AdminQuickGridPage from '@/pages/admin/AdminQuickGridPage';
 import AdminOrdersPage from "@/pages/admin/AdminOrdersPage";
+import AdminOrderPage from "@/pages/admin/AdminOrderPage";
 import AdminCategoriesPage from "@/pages/admin/AdminCategoriesPage";
 import AdminFaqsPage from "@/pages/admin/AdminFaqsPage";
 import AdminHomePage from "@/pages/admin/AdminHomePage";
 import AdminMenuPage from "@/pages/admin/AdminMenuPage";
 import AdminGoogleShoppingPage from "@/pages/admin/AdminGoogleShoppingPage";
 import AdminClientsPage from "@/pages/admin/AdminClientsPage";
+import AdminClientPage from "@/pages/admin/AdminClientPage";
 import AdminSettingsPage from "@/pages/admin/AdminSettingsPage";
 import AdminCouponsPage from "@/pages/admin/AdminCouponsPage";
 import AdminCouponFormPage from "@/pages/admin/AdminCouponFormPage";
@@ -47,8 +49,14 @@ const App = () => (
 
             {/* Vendas — mesma ordem da sidebar (widgets/admin-layout/model/navItems.ts) */}
             <Route path="/admin/pedidos" element={<AdminOrdersPage />} />
+            {/* O pedido é TELA desde a feature 34 (PED-24), pela mesma regra dos Descontos: o modal
+                de cinco abas não sobrevivia ao F5 e não virava link. Não entra em `navGroups` — é
+                alcançada de dentro de Pedidos, mesma régua da grade rápida e do editor de seção. */}
+            <Route path="/admin/pedidos/:id" element={<AdminOrderPage />} />
             <Route path="/admin/carrinhos-abandonados" element={<AdminAbandonedCartsPage />} />
             <Route path="/admin/clientes" element={<AdminClientsPage />} />
+            {/* Idem para a ficha da cliente (CLI-08). */}
+            <Route path="/admin/clientes/:id" element={<AdminClientPage />} />
 
             {/* Descontos — cupom e promoção são a mesma pergunta (feature 17).
                 Os editores são telas em rota própria desde a feature 18, como as de produto. */}

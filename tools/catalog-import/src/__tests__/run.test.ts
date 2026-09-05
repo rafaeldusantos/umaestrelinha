@@ -1,4 +1,8 @@
+import { readFileSync } from 'node:fs'
+
 import { describe, expect, it } from 'vitest'
+
+import { decodificar } from '../csv/parse.ts'
 
 import categoriesFixture from '../__fixtures__/categories.json' with { type: 'json' }
 import productsFixture from '../__fixtures__/products.json' with { type: 'json' }
@@ -390,5 +394,124 @@ describe('run — dry-run (CAT-09)', () => {
     expect(uploads).toHaveLength(0)
     expect(fases.filter(f => f === 'imagem')).toHaveLength(0)
     expect(ops.filter(o => o.tipo !== 'select')).toHaveLength(0)
+  })
+})
+
+describe('run — fase 4 · pedidos e clientes (feature 35)', () => {
+  const vendas = () => readFileSync(new URL('../__fixtures__/vendas.csv', import.meta.url))
+  const clientes = () => readFileSync(new URL('../__fixtures__/clientes.csv', import.meta.url))
+
+  it('a fase NÃO roda sem `--vendas` — o catálogo é útil sozinho', async () => {
+    const { deps, of } = harness()
+    const report = await run(deps)
+
+    expect(of('insert', 'orders')).toHaveLength(0)
+    expect(report.data().entidades.pedidos.lidos).toBe(0)
+  })
+
+  it('o default de `stopAfter` alcança a fase 4 — senão ela nunca rodaria', async () => {
+    // Até a feature 35 o default era `imagens`. Mantê-lo faria a fase nova depender de alguém
+    // lembrar de passar `--stop-after=pedidos`, e "não rodou" é indistinguível de "não achou nada".
+    const { deps, of } = harness()
+    await run(deps, { vendas: vendas() })
+
+    expect(of('insert', 'orders').length).toBeGreaterThan(0)
+  })
+
+  it('grava só os pedidos do recorte, e CONTA os que ficaram de fora', async () => {
+    const { deps, of } = harness()
+    const report = await run(deps, { vendas: vendas() })
+
+    expect(of('insert', 'orders')).toHaveLength(7)
+    expect(report.data().pedidos.foraDoRecorte).toBe(2)
+    expect(report.data().entidades.pedidos.lidos).toBe(7)
+  })
+
+  it('para antes da fase 4 quando pedido', async () => {
+    const { deps, of } = harness()
+    await run(deps, { vendas: vendas(), stopAfter: 'imagens' })
+
+    expect(of('insert', 'orders')).toHaveLength(0)
+  })
+
+  it('avisa ANTES da fase quando o catálogo local está vazio', async () => {
+    const linhas: string[] = []
+    const { deps } = harness({ log: (m: string) => linhas.push(m) })
+    await run(deps, { vendas: vendas() })
+
+    const aviso = linhas.findIndex(l => l.includes('0 produtos no catálogo local'))
+    const fase = linhas.findIndex(l => l.includes('fase 4'))
+    expect(aviso).toBeGreaterThan(-1)
+    expect(aviso).toBeGreaterThan(fase)
+    expect(linhas[aviso]).toContain('Rode as fases 1–3 antes')
+  })
+
+  it('com o catálogo vazio, o piso de casamento REPROVA o gate', async () => {
+    // 100% de órfãos passaria em verde sem o piso — e é o desfecho de rodar na ordem errada.
+    const { deps } = harness()
+    const report = await run(deps, { vendas: vendas() })
+
+    expect(report.matchRate()).toBe(0)
+    expect(report.exitCode()).toBe(1)
+  })
+
+  it('a distribuição observada soma exatamente os pedidos lidos', async () => {
+    const { deps } = harness()
+    const report = await run(deps, { vendas: vendas() })
+
+    const soma = report.data().pedidos.distribuicao.reduce((a, d) => a + d.vezes, 0)
+    expect(soma).toBe(report.data().entidades.pedidos.lidos)
+  })
+
+  it('deriva as clientes dos pedidos e conta as que nunca compraram', async () => {
+    // Nada é escrito em `customers` (AD-023): a pessoa é derivada pela view.
+    const { deps, of } = harness()
+    const report = await run(deps, { vendas: vendas(), clientes: clientes() })
+
+    expect(of('insert', 'customers')).toHaveLength(0)
+    expect(report.data().pedidos.clientesDerivados).toBe(7)
+    expect(report.data().pedidos.clientesSemPedido).toBeGreaterThan(0)
+  })
+
+  it('dry-run não grava pedido nenhum', async () => {
+    const { deps, of } = harness()
+    await run(deps, { vendas: vendas(), dryRun: true })
+
+    expect(of('insert', 'orders')).toHaveLength(0)
+  })
+
+  it('vocabulário desconhecido ABORTA com relatório parcial e saída ≠ 0', async () => {
+    const quebrado = Buffer.from(
+      decodificar(vendas()).replaceAll('Não está embalado', 'Teletransportado'),
+      'latin1',
+    )
+    const { deps } = harness()
+    const report = await run(deps, { vendas: quebrado })
+
+    expect(report.data().parouPorErro).toMatch(/Teletransportado/)
+    expect(report.exitCode()).toBe(1)
+  })
+})
+
+describe('run — --somente-pedidos', () => {
+  const vendas = () => readFileSync(new URL('../__fixtures__/vendas.csv', import.meta.url))
+
+  it('pula o catálogo inteiro e roda só a fase 4', async () => {
+    // A fase 4 lê o catálogo do BANCO, não da fase anterior — é a única que pode rodar sozinha.
+    const { deps, fases, of } = harness()
+    await run(deps, { vendas: vendas(), somentePedidos: true })
+
+    expect(fases).toEqual([])
+    expect(of('insert', 'categories')).toHaveLength(0)
+    expect(of('insert', 'products')).toHaveLength(0)
+    expect(of('insert', 'orders')).toHaveLength(7)
+  })
+
+  it('sem `--vendas`, não faz nada — e não finge que fez', async () => {
+    const { deps, ops } = harness()
+    const report = await run(deps, { somentePedidos: true })
+
+    expect(ops).toEqual([])
+    expect(report.data().entidades.pedidos.lidos).toBe(0)
   })
 })

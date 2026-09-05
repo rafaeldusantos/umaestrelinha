@@ -104,11 +104,14 @@ const AdminLayout = () => {
       <div className="flex-1 flex flex-col min-w-0">
         <header className="h-14 border-b border-estrelinha-admin-border bg-white flex items-center gap-3 px-4 md:hidden">
           <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
+            {/* Caixa de 44, glifo de 20 (`PED-23`/D8). A barra existe **só** no celular, e este é o
+                gesto mais repetido dela: o alvo tem de caber no polegar de quem está com o envelope
+                na outra mão. `-ml-2` conserva o alinhamento óptico à esquerda. */}
             <SheetTrigger
-              className="p-2 -ml-2 rounded-lg text-estrelinha-admin-text-secondary hover:bg-estrelinha-admin-bg hover:text-estrelinha-admin-text transition-colors"
+              className="-ml-2 flex h-11 w-11 items-center justify-center rounded-lg text-estrelinha-admin-text-secondary transition-colors hover:bg-estrelinha-admin-bg hover:text-estrelinha-admin-text"
               aria-label="Abrir menu"
             >
-              <Menu className="w-5 h-5" />
+              <Menu className="h-5 w-5" />
             </SheetTrigger>
             <SheetContent side="left" className="w-64 p-0 bg-white">
               <SheetTitle className="sr-only">Menu de navegação</SheetTitle>
@@ -119,7 +122,12 @@ const AdminLayout = () => {
               />
             </SheetContent>
           </Sheet>
-          <Link to="/admin" className="font-heading font-semibold text-estrelinha-admin-text">Uma Estrelinha Admin</Link>
+          <Link
+            to="/admin"
+            className="flex min-h-[44px] items-center font-heading font-semibold text-estrelinha-admin-text"
+          >
+            Uma Estrelinha Admin
+          </Link>
         </header>
         <main className="flex-1 p-6 overflow-auto">
           <Outlet />

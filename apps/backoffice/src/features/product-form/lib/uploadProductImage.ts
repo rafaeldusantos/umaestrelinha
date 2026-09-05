@@ -9,7 +9,18 @@ const BUCKET = 'product-images'
  * é isso que faz nenhum chamador existente mudar de comportamento.
  */
 const FOLDER = 'products'
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://zwvrqtjvaltpbevjqzks.supabase.co'
+/**
+ * Host usado para montar a URL pública do objeto no Storage (`publicUrl` e o prefixo de `pathFor`).
+ *
+ * O fallback é o projeto hospedado **real** (`hgkrsfpupypxtygjgthf`, ver `CLAUDE.md` → Estado da
+ * infraestrutura). O ref anterior (`zwvrqtjvaltpbevjqzks`) era link morto do CLI e **não existe na
+ * conta** — cair nele produzia URL de imagem apontando para lugar nenhum, sem erro em lugar algum.
+ *
+ * Na prática ele é inalcançável: o client de `@estrelinha/supabase` LANÇA no carregamento do módulo
+ * sem `VITE_SUPABASE_URL`, e este arquivo importa esse client na primeira linha. É a redução da
+ * `BL-009` a valor correto, não a remoção da dívida — quem quiser fechá-la de vez tira o `||`.
+ */
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://hgkrsfpupypxtygjgthf.supabase.co'
 /**
  * PMD-02 AC 5: era 1200 px — pequeno demais para o zoom de uma vitrine que vende detalhe de
  * estampa. O teto vale para o maior lado; imagem menor nunca é ampliada.

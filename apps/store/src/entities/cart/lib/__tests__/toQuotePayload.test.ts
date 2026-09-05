@@ -107,10 +107,33 @@ describe('toQuotePayload', () => {
     expect(payload[1]).toMatchObject({ id: 'sem-dim', width: 11, weight: 0.1 })
   })
 
-  it('insurance_value é o preço do produto', () => {
-    const payload = toQuotePayload([item({ product: product({ price: 34.5 }) })])
+  // A asserção anterior era `insurance_value === product.price`. Ela foi REESCRITA, não afrouxada:
+  // a régua ganhou o caso da grade, onde `product.price` e `unitPrice` divergem e só um dos dois é o
+  // valor que a cliente pagou. As três abaixo substituem a única de antes.
+  it('insurance_value é o preço DAQUELA LINHA (unitPrice)', () => {
+    const payload = toQuotePayload([item({ unitPrice: 34.5 })])
 
     expect(payload[0].insurance_value).toBe(34.5)
+  })
+
+  it('com grade, ganha o unitPrice — não o product.price', () => {
+    // Produto de base R$ 12,90 cuja variação escolhida custa R$ 18,40: segurar pela base seria
+    // subsegurar a carga em silêncio. É o mesmo motivo pelo qual `cartStore.subtotal()` soma
+    // `unitPrice`.
+    const payload = toQuotePayload([
+      item({ product: product({ price: 12.9 }), unitPrice: 18.4, variantId: 'var-1' }),
+    ])
+
+    expect(payload[0].insurance_value).toBe(18.4)
+    expect(payload[0].insurance_value).not.toBe(12.9)
+  })
+
+  it('a quantidade NÃO multiplica o seguro — quem multiplica é a API', () => {
+    const payload = toQuotePayload([item({ unitPrice: 34.5, quantity: 4 })])
+
+    expect(payload[0].insurance_value).toBe(34.5)
+    expect(payload[0].quantity).toBe(4)
+    expect(payload[0].insurance_value).not.toBe(138)
   })
 
   it('carrinho vazio devolve lista vazia', () => {

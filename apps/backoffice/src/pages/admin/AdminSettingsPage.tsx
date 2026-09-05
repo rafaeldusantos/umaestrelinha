@@ -213,13 +213,30 @@ const AdminSettingsPage = () => {
                 />
               </FieldGroup>
             </div>
-            <FieldGroup label="CEP de origem (Melhor Envio)" hint="CEP da loja, usado para calcular envios.">
-              <Input
-                value={shipping.origin_zip}
-                onChange={(e) => setShipping({ ...shipping, origin_zip: e.target.value.replace(/\D/g, '').slice(0, 8) })}
-                placeholder="00000000"
-              />
-            </FieldGroup>
+            {/*
+              O campo "CEP de origem" saiu daqui em 2026-09-05, e a remoção é o conserto — não uma
+              simplificação.
+
+              Ele era editável e **nenhum arquivo o lia**. A origem da cotação sempre veio do
+              `postal_code` do secret `MELHOR_ENVIO_SENDER_JSON`, que é o mesmo endereço impresso na
+              etiqueta. Preencher o campo aqui não mudava um centavo, e o tipo em
+              `packages/supabase/src/types/settings.ts` ainda afirmava que ele era a origem — dois
+              donos, um deles morto e o outro documentado errado.
+
+              Por que o dono único é o secret, e não este campo: a etiqueta precisa do endereço por
+              extenso, com CPF e telefone, e isso não cabe (nem deve caber) numa linha de
+              `store_settings` legível por quem tiver acesso ao painel. Se o CEP fosse configurável
+              aqui, a origem da COTAÇÃO e a origem da ETIQUETA passariam a poder divergir — a loja
+              cotaria de um lugar e postaria de outro, sem nada em tela dizendo por quê. É a mesma
+              família de defeito que esta remoção fecha.
+
+              A chave continua no banco (migration aplicada é imutável) e em `DEFAULT_SHIPPING`;
+              `originZipNotRead.test.ts` impede que alguma tela volte a lê-la.
+            */}
+            <p className="text-sm text-muted-foreground">
+              O CEP de origem dos cálculos é o endereço cadastrado na sua conta do Melhor Envio — o
+              mesmo que é impresso na etiqueta. Para alterá-lo, mude o endereço lá.
+            </p>
             <SaveButton loading={update.isPending} onClick={() => save('shipping')} />
           </FormCard>
         </TabsContent>
@@ -228,8 +245,9 @@ const AdminSettingsPage = () => {
           MATERIAL — para onde a cliente posta o material afetivo.
 
           Fica aqui, e não no código, porque mudar de endereço é operação da dona; com o endereço em
-          `.tsx` ela viraria um deploy. E é OUTRA remessa: o CEP da aba Frete é a origem da cotação
-          do Melhor Envio (ateliê → cliente), esta é a chegada (cliente → ateliê).
+          `.tsx` ela viraria um deploy. E é OUTRA remessa: a origem da cotação do Melhor Envio
+          (ateliê → cliente) vem do secret `MELHOR_ENVIO_SENDER_JSON`; esta é a chegada
+          (cliente → ateliê), e precisa do endereço por extenso para caber numa etiqueta escrita à mão.
 
           Enquanto o logradouro estiver vazio, a página "Como enviar" NÃO mostra endereço nenhum —
           mostra o convite a falar pela loja. Endereço pela metade é material insubstituível postado

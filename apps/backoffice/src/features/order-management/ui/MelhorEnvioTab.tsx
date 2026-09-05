@@ -5,6 +5,7 @@ import { supabase } from '@estrelinha/supabase/client'
 import { toast } from 'sonner'
 import { Truck, Printer, Package, RefreshCw, CheckCircle2, Loader2 } from 'lucide-react'
 import { formatPrice } from '@estrelinha/core/formatters'
+import { toQuoteProducts } from '@estrelinha/core/shipping'
 import type { DbOrder, DbOrderItem } from '@estrelinha/supabase/types'
 
 interface ShippingQuote {
@@ -52,19 +53,22 @@ const MelhorEnvioTab = ({ order, items, onUpdate }: Props) => {
 
       const dimMap = new Map((productsData || []).map((p: any) => [p.id, p]))
 
-      const products = items.map(item => {
-        const dims = dimMap.get(item.product_id)
-        return {
+      // Dono único da regra: `@estrelinha/core/shipping`. Este `map` é só adaptação de formato.
+      //
+      // Antes de 2026-09-05 esta tela montava o payload à mão e mandava
+      // `insurance_value: unit_price * quantity`, enquanto a loja mandava por unidade. A API do
+      // Melhor Envio **já multiplica** por `quantity` (medido: qty 1 → PAC R$ 23,28 · qty 4 →
+      // R$ 34,47), então este lado segurava a carga pelo QUADRADO da quantidade — e a cotação que a
+      // Adri via aqui saía acima da que a cliente pagou. Nada quebrava: as duas cópias eram
+      // coerentes sozinhas.
+      const products = toQuoteProducts(
+        items.map(item => ({
           id: item.product_id,
+          unitPrice: item.unit_price,
           quantity: item.quantity,
-          insurance_value: item.unit_price * item.quantity,
-          price: item.unit_price,
-          width: dims?.width_cm || 11,
-          height: dims?.height_cm || 2,
-          length: dims?.length_cm || 16,
-          weight: dims?.weight_kg || 0.1,
-        }
-      })
+          dimensions: dimMap.get(item.product_id),
+        })),
+      )
 
       const { data, error } = await supabase.functions.invoke('melhor-envio?action=quote', {
         body: {

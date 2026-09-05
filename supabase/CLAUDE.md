@@ -196,6 +196,107 @@ hospedado: a function responde `application/xml; charset=utf-8` e o gateway entr
 com `nosniff` e o `Cache-Control` intacto. **A reescrita do gateway não é específica de `text/html`**
 — era a pergunta que a `AD-021` deixou aberta, e a resposta é essa.
 
+### `melhor-envio` — cotação e etiquetas
+
+`action=quote` (loja) · `create` · `print` · `tracking` (painel). `verify_jwt = false`, com
+autorização **manual** e por **negação padrão**.
+
+**Só `quote` é pública** — é a cliente, possivelmente convidada, cotando antes de ter conta. Tudo o
+mais passa por `requireAdmin`, no mesmo molde de `send-email/handlers.ts` (`getUser` + a RPC canônica
+`has_role`), num **choke point único** antes do `switch`. A lista é de **liberação**, não de bloqueio:
+ação nova nasce fechada, e quem esquecer de mexer nela ganha 401 em vez de uma porta aberta.
+
+Até 2026-09-05 não havia checagem nenhuma: `create` era um endpoint **público** que comprava etiqueta
+com o saldo da carteira e escrevia em `orders` com service role, a partir de um `order_id` de qualquer
+origem. Provado nos dois sentidos no dia do conserto — `quote` sem header segue 200 com preços;
+`create`/`print`/`tracking` e uma ação inventada devolvem 401, inclusive com a anon key como bearer
+(ela é JWT válido do projeto, mas não tem `sub`).
+
+
+**A function rodou meses sem credencial e ninguém viu.** Até 2026-09-05 as três
+`MELHOR_ENVIO_*` não existiam em lugar nenhum — nem no `config.toml`, nem no `.env.example`, nem na
+checagem de secrets do CI. O `quote` respondia **500 `{"message":"Unauthenticated."}`** no local e no
+hospedado, e a loja seguia vendendo: `DeliveryBlock` converte cotação que falha na opção única
+"Frete padrão" (SHP-05), então **todo pedido cobrava `default_shipping_cost` (R$ 9,90) fixo**, para
+qualquer CEP e qualquer peso, sob um cabeçalho que diz "valores reais do Melhor Envio". Medido no dia
+do conserto, a mesma sacola que saía por R$ 9,90 cotava **R$ 17,89–34,86** para São Paulo e
+**R$ 62,31–163,64** para Rio Branco.
+
+Nada acusou, e vale saber por quê: os **46 testes** do caminho de frete (`useShippingQuote`,
+`DeliveryBlock`) mockam `supabase.functions.invoke` — provam o mapeamento, nunca a integração. É a
+mesma família do `AD-012`: *tipo escrito à mão é afirmação, não verificação*.
+
+**Duas variáveis, dois modos de falha distintos.** Preencher só uma troca um erro por outro:
+
+| Ausente | O que acontece |
+| --- | --- |
+| `MELHOR_ENVIO_TOKEN` | `Deno.env.get(...)!` devolve `undefined` — o `!` é asserção de **tipo**, não garantia de runtime. Header sai `Bearer undefined` ⇒ 500 `Unauthenticated.` |
+| `MELHOR_ENVIO_SENDER_JSON` | `from.postal_code` fica `undefined`, o `JSON.stringify` **apaga a chave**, a API recebe `"from":{}` ⇒ 422 |
+| `MELHOR_ENVIO_ENV` | cai em sandbox (qualquer valor `!= "production"`). Default seguro: deixa de cotar, não cobra errado |
+
+**O token do painel dura 365 dias, não os 30 do OAuth2.** A documentação oficial só descreve o fluxo
+OAuth2 (access 30 dias + refresh 45), e por isso a leitura natural é que precisamos de rotina de
+renovação. O token gerado em *Integrações → Área Dev.* é outro: medido no `exp` do JWT, **1 ano**. O
+atual foi emitido em 2026-09-05 e **vence em 2027-09-05**. Não há renovação no código — é string
+estática de env. Quando vencer, o modo de falha é o descrito acima: volta o R$ 9,90 fixo, em silêncio.
+
+**Sandbox e produção são CONTAS SEPARADAS**, sem importar dados entre si. O ambiente atual é
+**sandbox** (só simula Correios e Jadlog, saldo fictício de R$ 10.000). Ligar produção exige token
+novo **e** `MELHOR_ENVIO_ENV=production` — trocar um sem o outro fala com o ambiente errado.
+
+**O `origin_zip` era um dono morto, e o input SAIU da tela em 2026-09-05.**
+`store_settings.shipping.origin_zip` era editável em `/admin/configuracoes`, o tipo afirmava que ele
+*era* a origem da cotação, e **nenhum arquivo o lia** — a Adri podia preencher e nada acontecia.
+
+O dono único é o `postal_code` do `MELHOR_ENVIO_SENDER_JSON`, e a escolha tem motivo: a etiqueta
+precisa do endereço por extenso, com CPF e telefone, e isso não cabe numa linha de `store_settings`.
+Se o CEP continuasse configurável na tela, a origem da **cotação** e a da **etiqueta** poderiam
+divergir — a loja cotaria de um endereço e postaria de outro, sem nada em tela dizendo por quê.
+
+A chave continua no banco (migration aplicada é imutável) e em `DEFAULT_SHIPPING`, para o tipo
+descrever a coluna que existe. `originZipNotRead.test.ts` impede a leitura de voltar. Para mudar a
+origem, muda-se o endereço na conta do Melhor Envio e o secret junto.
+
+**A cotação foi validada contra o painel, e o método importa.** Em 2026-09-05, mesma origem
+(91240010), mesmo destino (01310100), mesmos insumos (0,1 kg · seguro R$ 140), a function e o painel
+**sandbox** devolveram os quatro serviços ao centavo: PAC 23,22 · SEDEX 35,76 · .Package 20,34 ·
+.Com 24,94. Antes disso a comparação tinha sido contra o painel de **produção**, e dava ~8% de
+diferença uniforme nos dois serviços dos Correios — proporção idêntica em serviços diferentes não é
+ruído de cálculo, é tabela de preço de outro ambiente. **Comparar cotação exige mesmo ambiente e
+mesmos insumos; faltando um dos dois, a diferença não diz nada.**
+
+O que move o preço, medido na mesma bateria — útil para não gastar curadoria no lugar errado:
+
+- **Dimensão não move nada** nessa faixa. 6×6×6, 15×6×15 e 11×2×16 com o mesmo peso dão preço
+  **idêntico**: o peso cúbico não chega perto do peso real. Curar dimensão de 691 produtos não muda
+  um centavo.
+- **Peso move em faixas, não linearmente.** 0,1 kg e 0,3 kg custam **o mesmo**; 0,5 kg é +R$ 2,45 no
+  PAC; 1,0 kg é +R$ 4,20. Errar de 0,1 para 0,3 é grátis; errar de 0,3 para 0,5 custa em todo pedido.
+- **Seguro move ~1% do valor segurado** no PAC e no SEDEX.
+- **A API já multiplica seguro e peso pela `quantity`.** Medido: qty 1 → 23,28 · qty 2 → 28,94 ·
+  qty 4 → 34,47. Logo `insurance_value` é **por unidade**. A loja estava certa; `MelhorEnvioTab.tsx`
+  mandava `unit_price * quantity` e inflava o seguro pelo **quadrado** da quantidade.
+  **Corrigido em 2026-09-05, e não pela linha**: a regra do payload tinha duas implementações, e foi
+  isso que deixou as duas divergirem sem nada quebrar. Agora ela tem dono único em
+  `@estrelinha/core/shipping/quotePayload.ts`, e os dois chamadores só adaptam formato. O guarda
+  carrega sensor: assere que a fórmula antiga **reprova** na mesma régua.
+
+**O painel exibe `delivery_range.min`; a API reporta `delivery_time`, que é o `max`.** Os dois
+diferem em 1 dia útil em todos os serviços, e nenhum dos dois está errado. A loja exibe a **faixa**,
+que é a leitura honesta — não "corrija" isso para bater com o painel.
+
+**Prova de fecho é o CORPO, nunca o status.** Mesma régua do `BUG-20260829`:
+
+```bash
+curl -s -X POST "http://127.0.0.1:54341/functions/v1/melhor-envio?action=quote" \
+  -H "Content-Type: application/json" \
+  -d '{"postal_code_to":"01310100","products":[{"id":"p1","width":11,"height":2,"length":16,"weight":0.1,"insurance_value":50,"quantity":1}]}'
+```
+
+Lista com preços = funcionando. `{"error":"..."}` com HTTP 500 = credencial. **Status 200 sozinho não
+prova nada** — o `action=quote` devolve `[]` para carrinho impossível, e `[]` é indistinguível de
+falha na tela: os dois viram "Frete padrão".
+
 ## Auth
 
 `AuthProvider` (de `@estrelinha/auth`) envolve cada app no `main.tsx`. A loja usa login de cliente +
@@ -244,4 +345,5 @@ Todos no `.env` da **raiz** (ver `.env.example`), resolvidos no local por `[edge
 `config.toml` (`env()`, exige `supabase stop && supabase start`). No hospedado, `supabase secrets set`.
 
 `SUPABASE_SERVICE_ROLE_KEY` · `MERCADO_PAGO_ACCESS_TOKEN` · `MERCADO_PAGO_WEBHOOK_SECRET` ·
-`RESEND_API_KEY` · `RESEND_FROM` · `RESEND_DEV_REDIRECT_TO` · `STORE_PUBLIC_URL` · `NUVEMSHOP_*`
+`RESEND_API_KEY` · `RESEND_FROM` · `RESEND_DEV_REDIRECT_TO` · `STORE_PUBLIC_URL` · `NUVEMSHOP_*` ·
+`MELHOR_ENVIO_TOKEN` · `MELHOR_ENVIO_ENV` · `MELHOR_ENVIO_SENDER_JSON`

@@ -1,6 +1,8 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Truck, Loader2 } from 'lucide-react'
 import { formatPrice } from '@estrelinha/core/formatters'
+import { formatEstimate, quoteToEstimate } from '@estrelinha/core/shipping'
+import { useShippingSettings } from '@estrelinha/core/hooks/useStoreSettings'
 import { supabase } from '@estrelinha/supabase/client'
 import type { Product, ShippingQuote } from '@estrelinha/supabase/types'
 import { toQuotePayload } from '@/entities/cart'
@@ -17,6 +19,18 @@ const ShippingCalc = ({ product }: { product: Product }) => {
   const [quotes, setQuotes] = useState<ShippingQuote[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  /**
+   * SHP-09 também vale aqui. Antes esta tela exibia o prazo CRU da transportadora
+   * (`5-6 dias úteis`) enquanto o checkout somava `handling_days` e exibia uma data — então a
+   * página do produto prometia dois dias a menos que o caixa, para o mesmo CEP e o mesmo item.
+   * Ninguém compara as duas telas lado a lado, que é justamente por que a divergência sobreviveu.
+   *
+   * Mesma função, mesma configuração, mesmo formato de saída que o `DeliveryBlock`.
+   */
+  const { handling_days } = useShippingSettings()
+  // Fixo por montagem: a data exibida não pode pular enquanto a cliente olha a tela.
+  const today = useMemo(() => new Date(), [])
 
   const handleCalc = async () => {
     const cleanCep = cep.replace(/\D/g, '')
@@ -103,7 +117,10 @@ const ShippingCalc = ({ product }: { product: Product }) => {
                   {q.name} — {q.company}
                 </span>
                 <span className="text-[12px] leading-4 text-estrelinha-ink-soft">
-                  {q.delivery_range ? `${q.delivery_range.min}-${q.delivery_range.max}` : q.delivery_time} dias úteis
+                  {(() => {
+                    const { min, max } = quoteToEstimate(q, handling_days, today)
+                    return `Chega ${formatEstimate(min, max)}`
+                  })()}
                 </span>
               </span>
               <span className="shrink-0 font-display text-[16px] font-semibold leading-5 text-estrelinha-primary">

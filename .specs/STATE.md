@@ -499,9 +499,203 @@
   `text/html`** — o `vercel.json` reimpõe o tipo em duas rotas agora, e o header deixou de ser rede
   extra para virar carga.
 
+### AD-023
+- **Decision**: **A lista de clientes da loja é a view `customer_directory`, e não a tabela
+  `public.customers`.** A convidada — quem comprou sem criar conta — entra na listagem com id
+  **derivado do e-mail normalizado** (`md5(lower(email))::uuid`), determinístico e estável, sem
+  escrita nenhuma no banco. `customer_stats` e `customer_list` agregam sobre esse diretório,
+  vinculando pedido a pessoa por `customer_id` **ou** por e-mail.
+- **Reason**: `public.customers` só recebe linha do trigger `on_auth_user_created_customer`, que
+  dispara em `auth.users`. O checkout de convidada grava `orders.customer_id = null` e não cria
+  cadastro — então a tela de Clientes mostrava **apenas quem criou conta**, e três requisitos da
+  feature 34 (`CLI-01` conta/convidada, `CLI-06` retrato da base, `CLI-14` duplicadas por e-mail)
+  não tinham o que ler. A spec descrevia o defeito ao contrário: dizia que a convidada recorrente
+  vira "duas linhas", quando vira **zero**.
+- **Trade-off**: O id da convidada não é chave estrangeira de nada, então `customer_notes.customer_id`
+  **não tem FK** — a integridade referencial daquela tabela fica por conta da aplicação. A
+  alternativa (criar linha em `customers` para cada convidada) seria escrever no banco para responder
+  uma pergunta de leitura, e daria a ela um cadastro que ela nunca pediu.
+- **Scope**: `supabase/migrations/20260829120000_34-painel-de-vendas.sql`,
+  `apps/backoffice/src/entities/customer/**`
+- **Date**: 2026-08-29
+- **Status**: active
+
+### AD-024
+- **Decision**: **Contador e filtro de uma mesma tela têm de ser o mesmo predicado, e número de
+  resumo é UNIÃO, nunca soma de contadores.** O subtítulo da listagem de pedidos usa a contagem que o
+  servidor calcula para a visão `Precisa de ação`; os tiles leem a mesma lista de estados
+  (`MATERIAL_NAO_SEGURA_LISTA`) que a visão usa.
+- **Reason**: Medido em navegador real na feature 34, com 8 pedidos: o cabeçalho dizia "**7**
+  esperando alguma coisa sua" e a aba logo abaixo dizia "Precisa de ação **4**"; e o tile "Pago, a
+  separar" dizia **3** enquanto o clique nele trazia **4**. As duas causas são a mesma família — os
+  conjuntos se sobrepõem (um pedido pago que ainda espera o envelope está em dois contadores), e
+  contá-los por soma ou filtrá-los por outro predicado produz números que se contradizem **na mesma
+  tela**. Nenhum teste pegaria: cada número, isolado, está certo.
+- **Trade-off**: Uma consulta a mais por carga (a contagem da visão), e um contador que às vezes diz
+  zero — o que é a verdade, e mais útil que um três que não se sustenta.
+- **Scope**: `apps/backoffice/src/entities/order/api/**`, `apps/backoffice/src/pages/admin/AdminOrdersPage.tsx`
+- **Date**: 2026-08-29
+- **Status**: active
+
+### AD-025
+- **Decision**: **Dado importado de fonte externa guarda o valor cru numa coluna de proveniência que
+  NENHUMA tela lê; a coluna derivada é a única verdade da aplicação.** Na feature `35`,
+  `orders.nuvemshop_status`, `nuvemshop_payment_status` e `nuvemshop_shipping_status` guardam os três
+  eixos em português, como o CSV escreve, e `provenanceNotRead.test.ts` varre `apps/**` e derruba a
+  suíte se alguma tela os ler.
+- **Reason**: sem a coluna crua, o de-para vira afirmação não verificável — não há como auditar se a
+  tradução está certa. Com ela **e sem o guarda**, ela vira um segundo dono: no dia em que uma tela
+  ler `nuvemshop_payment_status` para pintar um selo, existem duas respostas para "este pedido foi
+  pago?", e elas divergem no primeiro `Recusado` — que sozinho é ambíguo (PIX vencido vs. cartão
+  negado). É o defeito 01 com a agravante de que nada quebra: o selo renderiza, o `tsc` passa.
+- **Trade-off**: três colunas de texto por pedido que nunca são lidas em produção. O custo é
+  armazenamento; o ganho é que a distribuição observada do relatório pode ser conferida contra o
+  banco meses depois, sem o arquivo original.
+- **Scope**: `supabase/migrations/20260830120000_35-*.sql`, `tools/catalog-import/src/map/**`,
+  `apps/backoffice/src/shared/lib/__tests__/provenanceNotRead.test.ts`
+- **Date**: 2026-08-30
+- **Status**: active
+
+### AD-026
+- **Decision**: **Vínculo de chave estrangeira derivado por heurística só é gravado quando a
+  heurística é inequívoca. Ambiguidade vira ausência de vínculo, nunca escolha** — e o candidato
+  recusado vai para o relatório, marcado como não aplicado.
+- **Reason**: nasceu de uma medição na feature `35`. O casamento de item do pedido com o catálogo
+  tinha um passo por SKU que subia a taxa de 40,7% para 74,6%; rodando contra o banco real, pelo
+  menos um dos 20 vínculos extras estava errado — "Corrente **Veneziana** de Prata 925" ligada a
+  "Corrente **Singapura** em Prata 925". A causa é que `dedupeSkus` (feature `21`) **fabrica** a
+  unicidade do SKU no catálogo local, nulificando o de todas as variações menos a primeira: `BA-002`
+  aparece 316 vezes em 68 produtos na origem e sobrevive numa variação arbitrária. Perguntar ao
+  catálogo "este código é único?" devolvia `sim` para algo que não identifica nada.
+- **Trade-off**: metade do histórico antigo fica sem vínculo com o catálogo — os produtos foram
+  renomeados no rebranding. O snapshot do item (nome, preço, quantidade) está certo dos dois jeitos
+  e é o que a tela mostra, então o que se perde é conveniência; o que se evita é dado sujo
+  permanente num negócio memorial.
+- **Scope**: `tools/catalog-import/src/map/catalogMatch.ts`
+- **Date**: 2026-08-30
+- **Status**: active
+
+### AD-027
+- **Decision**: **Funcionalidade que a dona liga e desliga tem interruptor booleano PRÓPRIO, ao lado
+  do parâmetro — nunca "o parâmetro em zero".** Na feature `37`, `store_settings.shipping` ganhou
+  `free_shipping_enabled` ao lado de `free_shipping_threshold`, e a pergunta "esta loja pratica frete
+  grátis, e falta quanto?" passou a ter dono único em `freeShippingState`
+  (`@estrelinha/core/shipping`), com a invariante **`active === false ⇒ reached === false`**.
+- **Reason**: sem o booleano, o único jeito de desligar é zerar o parâmetro — e zero é **ambíguo**.
+  Medido no fonte antes da feature: sete superfícies liam `free_shipping_threshold` e se dividiam em
+  dois grupos. Três liam `threshold > 0` como "não temos frete grátis" e escondiam o texto; quatro
+  faziam `subtotal >= threshold`, que contra zero é **sempre verdadeiro**, e **zeravam o frete**.
+  Zerar o campo no painel — o caminho óbvio para desligar — escondia o anúncio e liberava frete
+  grátis para todo mundo no caixa. É o "defeito 01" com a agravante de estar no caminho do dinheiro
+  e de nada quebrar: build, `tsc` e teste de componente passam com as duas leituras convivendo.
+  O precedente dentro do próprio `store_settings` já era unânime (`pix_enabled`, `card_enabled`,
+  `order_bump_enabled`, `google_shopping.enabled`) — a feature só o estendeu ao que faltava.
+- **Trade-off**: a regra do `CLAUDE.md` contra coluna derivável ("uma coluna nova que já é derivável
+  de outra é um segundo dono") **não alcança este caso**, e a distinção importa: `menu_order` e o
+  `mode: 'auto' | 'manual'` da home eram **totalmente** deriváveis, com zero informação nova. Aqui o
+  booleano carrega um bit que o número não carrega sem **destruir o valor configurado** — desligar
+  por `threshold = 0` faria a dona perder o "150" dela. O custo é o par de campos poder divergir, e a
+  contenção é dupla: nenhuma tela lê os campos crus (`freeShippingSingleOwner.test.ts`, allowlist de
+  dois arquivos), e o painel **recusa gravar** `enabled: true` com faixa ≤ 0 (`freeShippingRefusal`).
+  O estado "frete grátis incondicional" fica inexprimível — nunca foi pedido, e teria copy própria em
+  cinco superfícies.
+- **Scope**: `packages/core/src/shipping/freeShipping.ts`, `packages/core/src/hooks/useFreeShipping.ts`,
+  `packages/supabase/src/types/settings.ts`,
+  `supabase/migrations/20260905120000_37-frete-gratis-configuravel.sql`, as 8 superfícies de
+  `apps/store`, `apps/backoffice/src/pages/admin/AdminSettingsPage.tsx`
+- **Date**: 2026-09-05
+- **Status**: active
+
 ## Handoff
 
-### ATUAL — 2026-08-29 · `33-sitemap-da-loja` **IMPLEMENTADA, não commitada**
+### ATUAL — 2026-09-05 · `37-frete-gratis-configuravel` **IMPLEMENTADA**
+
+**Estado**: T01–T08 feitas, gate limpo. Decisão: [`AD-027`](#ad-027).
+
+#### O passo de operação que esta feature CRIA
+
+> **O frete grátis nasce DESLIGADO.** No deploy, a loja para de anunciar e de conceder frete grátis
+> até alguém ligar em `/admin/configuracoes` → aba Frete. É decisão do usuário (2026-09-05), com o
+> custo declarado e aceito. **Sem este parágrafo, a loja fica meses sem frete grátis porque ninguém
+> soube que havia um interruptor.**
+
+#### O que a `37` entrega
+
+A loja anunciava e concedia frete grátis **sempre**, e não havia como desligar. O caminho óbvio —
+zerar `free_shipping_threshold` — era pior que não ter saída:
+
+| | antes | depois |
+| --- | --- | --- |
+| Zerar a faixa no painel | esconde o anúncio **e libera frete grátis para todo mundo no caixa** | não existe: quem desliga é o interruptor |
+| Quem responde "tem frete grátis?" | 7 superfícies, em 2 leituras que discordam | `freeShippingState`, dono único |
+| Interruptor | não existe | `free_shipping_enabled`, com recusa de "ligado sem faixa" |
+| `'Frete grátis acima de R$150'` no `AuthOverlay` | literal no JSX | das settings, e some quando desligado |
+| `freeShippingProgress` · `FreeShippingBar` | 2ª e 8ª leituras da regra | apagados, e recusados por guarda |
+
+**Cupom `free_shipping` não foi tocado** (decisão do usuário): `packages/core/src/payment/**` e
+`supabase/functions/**` seguem com **zero linhas alteradas**, conferido por `git diff --name-only`.
+
+#### O que ficou registrado como aprendizado
+
+- **Um guarda que varre disco precisa normalizar CRLF antes de remover comentário.** Em JavaScript
+  `.` **não casa `\r`**, e `$` sem `m` não ancora antes dele: num checkout Windows — a plataforma
+  deste projeto — o stripper de linha fica inerte, o guarda acusa a prosa que explica o defeito, e o
+  conserto "óbvio" vira apagar o comentário em vez de consertar o código.
+- **`cartStore.shippingCost()` não tinha teste nenhum**, e era um dos quatro caminhos que zeravam
+  frete. Função de dinheiro sem teste é onde a divergência mora.
+- **`ToggleField` nunca teve nome acessível**: o rótulo é `<p>`, não `<Label htmlFor>`, e todo
+  interruptor do painel era anunciado como "interruptor, ligado" e nada mais.
+
+#### Pendências
+
+- **O autor é o verificador**, quarta feature seguida.
+- **A migration não foi aplicada no hospedado** — sai no `Supabase Deploy` do push.
+- **Falta a prova em navegador real**, em 390 e 1440, com o interruptor nos dois estados.
+
+---
+
+### ANTERIOR — 2026-08-29 · `34-painel-de-vendas` **IMPLEMENTADA**
+
+**Estado**: T01–T18 feitas, gate limpo, `validation.md` escrito.
+Decisões: [`AD-023`](#ad-023), [`AD-024`](#ad-024). Reduz a [`BL-008`](./BACKLOG.md).
+
+#### O que a `34` entrega
+
+As duas telas do grupo `Vendas` que nunca receberam o tratamento que `Produtos` recebeu. Quatro
+defeitos corrigidos, **e mais dois que a validação prévia encontrou e a spec não tinha**:
+
+| | o que era | o que é |
+| --- | --- | --- |
+| Selos de material | dois dos quatro **sem cor nenhuma** (tokens inexistentes) | os quatro coloridos, com guarda que reprova classe órfã |
+| "Limpar filtros" | ignorava status e material, e nem aparecia com eles ligados | limpa os sete eixos, e o rótulo diz quantos |
+| Exportar CSV | as ≤20 linhas da página, com o rodapé dizendo 148 | o filtro inteiro, por `readAllPages`, com o total no botão |
+| Contagem das abas | leitura sem `where` e sem `range` | `head: true` por aba, com os filtros ativos |
+| **`orders.status`** | **recusava `'separating'` com 23514** | os seis estados no CHECK |
+| **Cliente convidada** | **não existia em tela nenhuma** | linha em `customer_list`, com ficha própria |
+
+Mais: o pedido e a ficha viraram **rota** (`/admin/pedidos/:id`, `/admin/clientes/:id`), a fila mostra
+idade em três degraus, seleção em massa com cinco ações, `orders.notes` (o recado da cliente) chegou
+à tela pela primeira vez, `addresses` passou a ser lida pelo painel, e a LGPD ganhou caminho
+(exportar + `anonymize_customer`).
+
+#### O que ficou registrado como aprendizado
+
+- **A prancha pode errar na própria régua.** O `#B45309` que ela propunha passa 5,02:1 contra branco
+  e **4,39:1 contra o fundo real do selo** (o próprio token a 10%). Adotado `#A2490A`.
+- **Três defeitos só apareceram no navegador**, e nenhum quebrava teste — eram números que se
+  contradiziam na mesma tela. Viraram a `AD-024`.
+- **Rodar duas suítes ao mesmo tempo produz flake**: timeout de 5s em testes que varrem disco. Um
+  workspace por vez.
+
+#### Pendências
+
+- **O autor é o verificador**, segunda feature seguida.
+- **O corte de 8 dias e o uso do painel no celular seguem a confirmar com a Adri.**
+- **Anonimizar preservar os pedidos é decisão jurídica**, não técnica.
+
+---
+
+### ANTES DELA — 2026-08-29 · `33-sitemap-da-loja` **IMPLEMENTADA, não commitada**
 
 **Estado**: T01–T16 feitas, gate limpo, **sem commit**. Sem `validation.md` — ver pendências.
 Decisão: [`AD-022`](#ad-022). Fecha a parte do sitemap da [`BL-007`](./BACKLOG.md).

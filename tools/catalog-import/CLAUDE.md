@@ -12,6 +12,10 @@ pnpm --filter @estrelinha/catalog-import run import -- --limit=5         # ensai
 pnpm --filter @estrelinha/catalog-import run import -- --stop-after=categorias
 pnpm --filter @estrelinha/catalog-import run import -- --stop-after=perguntas   # para antes das imagens
 pnpm --filter @estrelinha/catalog-import run import -- --report=reports/import.json
+
+# Fase 4 — pedidos e clientes (feature 35). A fonte são DOIS CSV, não a API.
+pnpm --filter @estrelinha/catalog-import run import -- --somente-pedidos \
+  --vendas=~/Downloads/Vendas-*.csv --clientes=~/Downloads/clientes-*.csv
 ```
 
 **O `run` não é opcional aqui, e omiti-lo não dá erro de script — dá erro de flag.** `import` é
@@ -80,6 +84,41 @@ HTML. Detalhe em [`../../packages/core/CLAUDE.md`](../../packages/core/CLAUDE.md
 **São DOIS arranjos de HTML, não um.** 617 produtos usam um `<p>` por par; **70 põem todos os pares num
 `<p>` só**, separados por `<br />`. A leitura ingênua perde **312 pares** em silêncio.
 
+## Fase 4 — pedidos e clientes, e por que ela vem de CSV
+
+A feature `35` acrescentou o espelho da operação: **35 pedidos, 59 itens, 33 clientes**, de
+jul/2025 a ago/2026. A fonte **não é a API**: o plano da loja é o Essencial, e os escopos
+`read_orders`/`read_customers` exigem Escala ou Next — medido em 2026-08-30, os dois endpoints
+respondem `403 Missing required scope`. São dois CSV exportados do painel.
+
+Medição completa em [`.specs/features/35-clientes-e-pedidos-nuvemshop/medicao.md`](../../.specs/features/35-clientes-e-pedidos-nuvemshop/medicao.md).
+
+**Cinco coisas que só se descobre lendo o arquivo:**
+
+- **Ele é Latin-1**, e não declara. Lido como UTF-8, `Não está embalado` chega quebrado, **nenhuma**
+  entrada do de-para casa, e a mensagem de erro culpa o vocabulário. Não há BOM — e um corte de BOM
+  seria código morto, porque decodificando Latin-1 o `U+FEFF` é inalcançável.
+- **O pedido são N linhas**: a primeira carrega tudo, as seguintes só repetem número e e-mail e
+  trazem um item. Ler linha a linha dá **243 pedidos em vez de 70** — com o `balance` fechando.
+- **Ele carrega DOIS negócios.** `#100`–`#134` são de uma loja de artigos religiosos que ocupou a
+  mesma conta até jun/2025; `#135`+ é a Uma Estrelinha. Zero e-mail em comum. `csv/recorte.ts` corta
+  em `>= 135`, **sem teto** — um `max` deixaria pedido novo de fora em silêncio.
+- **`Recusado` é ambíguo**: cobre PIX vencido (→ `expired`) e cartão negado (→ `rejected`). O próprio
+  arquivo desfaz, por `Vencimento do pagamento` × `Parcelas`.
+- **Não há `product_id` nem id de item.** Por isso itens de pedido importado são **imutáveis**
+  (`--reimportar-itens` apaga e regrava), e o casamento com o catálogo é **só por nome**.
+
+**O SKU não casa item, e isso é decisão medida.** `dedupeSkus` (acima) nulifica o SKU de todas as
+variações menos a primeira, então a unicidade no catálogo local é **fabricada**: `BA-002` sobrevive
+numa variação arbitrária entre 68 produtos. Casar por ele subia a taxa de 40,7% para 74,6% e ligava
+"Corrente **Veneziana**" a "Corrente **Singapura**" — medido no pedido `NS-162`. O candidato sai no
+relatório marcado `(NÃO aplicado)`, para revisão à mão.
+
+**Depois do primeiro import, o dono do estado operacional é o painel.** `status`, `payment_status`,
+`material_status`, `tracking_code` e `cancel_reason` são escritos **só no INSERT**; a re-execução
+atualiza apenas snapshot e proveniência. `--ressincronizar-estado` é a saída explícita, e o relatório
+nomeia cada pedido sobrescrito.
+
 ## Os dois guardas
 
 | Guarda | O que derruba |
@@ -93,7 +132,7 @@ existia. **Toda leitura de estado atual passa por `selectAll`.**
 
 ## Baseline
 
-**335 testes em 16 arquivos.** A baseline esteve velha uma vez e a diferença ficou explicada: dizia 276
+**509 testes em 23 arquivos.** Eram 335 em 16 antes da feature 35, que somou **+174** em 7 arquivos novos (parser de CSV, recorte, fixture sintética, de-para de status, casamento com o catálogo, snapshot do pedido, escrita idempotente). A baseline esteve velha uma vez e a diferença ficou explicada: dizia 276
 (registrada em `d1d877f`) e o commit `ce143f2` acrescentou **exatamente 23** — 23 `it(` adicionados, 0
 removidos — sem atualizar o número. Se a contagem não bater, procure o commit antes de suspeitar de
 teste fantasma.

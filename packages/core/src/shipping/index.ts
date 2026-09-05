@@ -4,3 +4,4 @@ export * from './estimate'
 // importa um alias `@estrelinha/*` —, então o barrel inteiro ainda não atravessa o Deno; o que este
 // arquivo garante é que `freeShipping` não seja o motivo quando isso for consertado.
 export * from './freeShipping.ts'
+export * from './quotePayload.ts'

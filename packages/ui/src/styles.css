@@ -16,7 +16,9 @@
     /* Painel: texto light mode */
     --estrelinha-admin-text: #1A0F2E;
     --estrelinha-admin-text-secondary: #5A4E6F;
-    --estrelinha-admin-text-muted: #9B8EC4;
+    /* Era #9B8EC4, que mede 2,97:1 sobre `card` — abaixo do piso de texto (PED-03).
+       #726591 mede 5,27:1 sobre `card` e 5,05:1 sobre `bg`. */
+    --estrelinha-admin-text-muted: #726591;
 
     /* Painel: borders light mode */
     --estrelinha-admin-border: #F0EAF5;
@@ -30,7 +32,19 @@
     --estrelinha-admin-cyan: #00E5FF;
     --estrelinha-admin-yellow: #FFD23F;
     --estrelinha-admin-dark: #1A0F2E;
-    --estrelinha-admin-muted: #8B7FB8;
+
+    /* Semânticos do painel (PED-01). Ao contrário dos acentos acima, estes MUDAM entre light e
+       dark: são texto de selo, e um texto de selo tem piso de contraste sobre o fundo do selo —
+       que é o próprio token a 10%. Os acentos acima são decoração e escapam disso.
+
+       Os valores foram MEDIDOS, não escolhidos. O `#B45309` que a prancha propõe entrega 4,39:1
+       sobre o próprio /10 no card e 4,20:1 sobre o /10 no bg — abaixo do piso, apesar de passar
+       sobre branco puro. `#A2490A` fecha o pior caso dos quatro fundos em 4,98:1.
+
+       amber   = o que ACUMULA (aguardando material)
+       emerald = o que já é trabalho seu (material recebido) */
+    --estrelinha-admin-amber: #A2490A;
+    --estrelinha-admin-emerald: #047857;
 
     /* Gradientes */
     --estrelinha-admin-gradient-cta: linear-gradient(135deg, #FF3B7F, #6C3CE9);
@@ -96,9 +110,17 @@
     --estrelinha-admin-elevated: #2A2640;
     --estrelinha-admin-text: #E8E4F0;
     --estrelinha-admin-text-secondary: #A99FCC;
-    --estrelinha-admin-text-muted: #7B6FA8;
+    /* Era #7B6FA8, que mede 3,92:1 sobre o `card` do dark — o mesmo defeito do light, medido no
+       fecho da T01. #9B8EC4 dá 5,91:1 sobre `card` e 6,46:1 sobre `bg`, e continua abaixo de
+       `text-secondary` (#A99FCC, 7,13:1), que é o que a hierarquia pede. */
+    --estrelinha-admin-text-muted: #9B8EC4;
     --estrelinha-admin-border: #2A2640;
     --estrelinha-admin-border-hover: rgba(108,60,233,0.4);
+
+    /* Os semânticos invertem no dark: no claro o selo é escuro sobre lavado, no escuro é claro
+       sobre fundo profundo. Pior caso dos quatro fundos — 6,91:1 e 7,64:1. */
+    --estrelinha-admin-amber: #F59E0B;
+    --estrelinha-admin-emerald: #34D399;
 
     --background: 250 40% 6%;
     --foreground: 260 20% 90%;

@@ -120,7 +120,10 @@ Ao planejar/implementar features, use a Skill **`tlc-spec-driven`** com estas co
   - **A `32` foi escrita RETROATIVAMENTE** (rolagem infinita da categoria): o código ficou 12 dias na
     árvore sem commit, e a spec nasceu dele, não antes dele. É a saída correta quando isso acontece —
     a `31` mostrou o que custa a alternativa —, mas **não** vira precedente para inverter a ordem.
-    **A `33` (sitemap) e a `34` (painel de vendas) já existem; a próxima é a `35`.**
+    **A `33` (sitemap), a `34` (painel de vendas), a `35` (clientes e pedidos da Nuvemshop) e a `37`
+    (frete grátis configurável) estão FECHADAS. A `36` (metadados e dados estruturados) tem
+    **só `spec.md`** e não foi implementada — o número está consumido de qualquer forma. A próxima é
+    a `38`.**
 - **Numeração dos itens**: dentro da feature, prefixar os itens de implementação (tasks/entregas) com
   número sequencial de dois dígitos e nome descritivo em kebab-case — `01-nome-implementacao`,
   `02-nome-implementacao`, etc.
@@ -190,6 +193,9 @@ com as duas cópias divergindo, e quem descobre é a cliente ou o Google.
 | `30` | a oferta do Google, uma no feed e outra na landing page | `@estrelinha/core/shopping` |
 | `31` | o conteúdo do guia de material (`model/fichas.ts`) | `widgets/material-guide/model/guide.ts` |
 | `33` | o escape de XML e a leitura completa paginada, cada um com um consumidor prestes a virar dois | `@estrelinha/core/xml` e `@estrelinha/core/paging` |
+| `35` | o telefone da cliente, que existia no checkout e **não era persistido** — e a coluna crua do status da origem, que viraria um segundo dono de "este pedido foi pago?" | `orders.customer_phone` (snapshot) e as colunas `nuvemshop_*_status`, que **nenhuma tela lê** (`provenanceNotRead.test.ts`) |
+| `34` | o contraste WCAG (só a loja tinha), a aritmética de página (só produtos tinha), e os rótulos de `payment_status` em **três** cópias | `@estrelinha/core/color`, `core/paging/pageMath.ts` e `entities/order/api/orderQuery` |
+| `37` | **o frete grátis, lido por SETE superfícies em duas leituras que discordavam** — com a faixa em zero, três escondiam o texto e quatro **zeravam o frete**. Zerar o campo no painel escondia o anúncio e liberava frete grátis para todo mundo no caixa | `@estrelinha/core/shipping` (`freeShippingState`), com `freeShippingSingleOwner.test.ts` recusando leitura direta |
 
 Consequências práticas, nesta ordem:
 
@@ -277,7 +283,8 @@ migrations, e `vercelRedirects` lê o `vercel.json`.
 | `accentText.test.ts` | idem | texto ouro fora da lista curta; `ink` **com opacidade** dentro de superfície `accent` |
 | `touchTarget.test.ts` | idem | controle abaixo de 44px que não adotou `TAP_44`/`TAP_ROW`; a medida deixar de morar num lugar só |
 | `brandScan.test.ts` | idem | **qualquer** ocorrência da marca anterior em `apps/`, `packages/`, `supabase/` ou nas configs da raiz |
-| `storeSettingsDefaults.test.ts` | idem | os defaults do TypeScript divergirem do que as migrations gravam |
+| `storeSettingsDefaults.test.ts` | idem | os defaults do TypeScript divergirem do que as migrations gravam; o interruptor do frete grátis nascer ligado; a migration da `37` deixar de ser aditiva (`value \|\|`) ou idempotente (`NOT value ?`). **Sensor embutido**: assere que o parser devolve `undefined` para campo ausente |
+| `freeShippingSingleOwner.test.ts` | idem | qualquer arquivo de `apps/**` fora de um allowlist de **dois** ler `free_shipping_threshold`; `freeShippingProgress` ou `FreeShippingBar` voltarem a existir em produção; copy com o valor da faixa cravada em JSX. **Âncora dupla** e **quatro sensores embutidos** — incluindo a prova de que o removedor de comentário funciona com CRLF **e** com LF |
 | `importOrder.test.ts` | idem | `App.css` importado **antes** de `@estrelinha/ui/styles.css` no `main.tsx` |
 | `reservedSlugs.test.ts` | idem | rota nova no `App.tsx` que não entrou em `ROUTE_SLUGS`; entrada de `ROUTE_SLUGS` que deixou de ser rota. **Bidirecional** |
 | `vercelRedirects.test.ts` | idem | `vercel.json` divergir de `LEGACY_REDIRECTS`; `trailingSlash` deixar de ser `false`; redirect usando `permanent` (que produz 308); o catch-all do SPA sair do fim da lista de `rewrites`; os headers de segurança mudarem; o `rewrite` ou o `Content-Type` de `/sitemap.xml` sumirem |
@@ -287,8 +294,17 @@ migrations, e `vercelRedirects` lê o `vercel.json`.
 | `faqSchema.test.ts` | idem | a migration da `28` afrouxar: `grant` a `anon`; policy sem `has_role`; `faq_id` deixar de ser `on delete restrict`; sumirem os `check` de 160/600; a view perder `security_invoker` |
 | `googleShoppingSchema.test.ts` | idem | a migration da `30` afrouxar; o interruptor do feed nascer ligado; os limites do TypeScript divergirem do `.sql` |
 | `sanitizeHtml.test.ts` | idem | a allowlist aceitar atributo, `href` deixar de passar por `new URL`, ou `script`/`style`/`iframe` voltarem a desembrulhar em vez de sumir |
+| `importSchema.test.ts` | store `shared/lib/__tests__` | a migration da `35` afrouxar: índice de idempotência virar parcial; `security_invoker` sumir de `customer_directory`; o agregado de telefone da convidada perder o `FILTER (WHERE … IS NOT NULL)`; `handle_new_customer` perder o `security definer`; a adoção por e-mail deixar de recortar `customer_id IS NULL` ou de comparar por `lower()`; `grant` alcançar `anon`. **Cada asserção tem sensor por mutação** |
+| `originZipNotRead.test.ts` | backoffice `shared/lib/__tests__` | qualquer arquivo de `apps/**` ler `store_settings.shipping.origin_zip` — o campo é LEGADO e a origem da cotação é o `postal_code` do secret `MELHOR_ENVIO_SENDER_JSON`. Deixá-lo configurável na tela faria a origem da COTAÇÃO e a da ETIQUETA poderem divergir. **Âncora dupla** |
+| `quotePayload.test.ts` | `packages/core/src/shipping/__tests__` | `insurance_value` deixar de ser **por unidade** — a API do Melhor Envio já multiplica por `quantity`, e multiplicar aqui segura a carga pelo **quadrado** dela. Carrega **sensor embutido**: assere que a fórmula antiga do backoffice reprova na mesma régua |
+| `provenanceNotRead.test.ts` | backoffice `shared/lib/__tests__` | qualquer arquivo de `apps/**` ler `nuvemshop_status`, `nuvemshop_payment_status` ou `nuvemshop_shipping_status` — as colunas cruas do import são **proveniência**, e lê-las daria duas respostas para "este pedido foi pago?". **Âncora dupla** |
+| `parse.test.ts` · `recorte.test.ts` · `fixtureSintetica.test.ts` | `tools/catalog-import/src/csv/__tests__` | o CSV deixar de ser lido como Latin-1; o agrupador voltar a tratar linha como pedido (243 em vez de 70); o rastreio `="…"` chegar cru; o recorte ganhar teto e deixar pedido novo de fora; a fixture parar de ser sintética (e-mail fora de `@exemplo.invalid`, documento sem dígito repetido) |
+| `orderStatus.test.ts` · `catalogMatch.test.ts` · `order.test.ts` | `tools/catalog-import/src/map/__tests__` | o de-para divergir do `CHECK` do banco (**lido do disco**); `separating` ser produzido; valor fora do vocabulário deixar de abortar; o SKU voltar a casar item; o recorte de parênteses deixar de ser balanceado; a fila de material perder um dos **dois** cortes (terminal e pagamento) |
+| `orders.test.ts` | `tools/catalog-import/src/write/__tests__` | a re-execução sobrescrever coluna operacional sem `--ressincronizar-estado`; os itens deixarem de ser imutáveis; a leitura de estado atual sair do `selectAll` |
+| `orderList.test.ts` (cobrança) | backoffice `features/order-list/model` | um `chargeMaterialUrl(` de `AdminOrdersPage.tsx` deixar de passar `customer_phone` — o link volta a sair **sem número**, em silêncio |
 | `sitemapRoutes.test.ts` | store `app/__tests__` | rota nova no `App.tsx` que não entrou em `SITEMAP_STATIC_PATHS` nem em `NON_INDEXABLE_PATHS`; entrada classificada que deixou de ser rota. **Bidirecional**, e provado nos dois sentidos |
 | `routes.test.ts` | store `app/__tests__` | `ROUTE_SLUGS`/`LEGACY_REDIRECTS` divergirem das rotas; `legacyRedirectTo` deixar de casar caminho fixo antes de prefixo |
+| `scrollToTop.test.tsx` | idem | o `ScrollToTop` sair do `App.tsx` ou de dentro do `BrowserRouter`; o botão voltar (`POP`) passar a rolar ao topo; mudança só de query string passar a rolar (a busca daria um pulo por tecla); âncora de outra página com alvo existente deixar de ir até ele |
 | `brandAssets.test.ts` | idem | ícone referenciado no `index.html` que não existe no disco; `theme-color` fora da paleta; `og:image` fora do projeto |
 | `homeComposition.test.tsx` | store `pages/__tests__` | a Home mudar de cara — sequência, literais, limites e as duas cores do título, pelo **DOM renderizado**. **Não perde asserção, só ganha** |
 | `copyInstitucional.test.tsx` | idem | copy institucional voltar a prometer o que a loja não cumpre |
@@ -299,6 +315,7 @@ migrations, e `vercelRedirects` lê o `vercel.json`.
 | `paths.test.ts` | store `shared/ui/brand/__tests__` | `paths.ts` divergir do SVG-fonte em um caractere; dois `<path>` do mesmo SVG com a mesma espessura |
 | `previaUnica.test.ts` | backoffice `features/home-composition` | um segundo desenho da Home voltar ao painel; o painel importar de `apps/store` |
 | `navItems.test.ts` | backoffice `widgets/admin-layout` | ordem das rotas em `App.tsx` divergir de `navGroups` |
+| `adminTokens.test.ts` | backoffice `shared/lib/__tests__` | classe `estrelinha-admin-*` cujo token **não existe no preset**; `amber`/`emerald` virarem hex literal (o dark pararia de acompanhar); chave do preset apontando para variável não declarada; hex do preset divergir do `styles.css`; `text`/`text-secondary`/`text-muted` caírem abaixo de 4,5:1 sobre `card`/`bg`, **em light e dark**; `text-muted` alcançar `text-secondary` (o piso comeria a hierarquia); âmbar ou esmeralda reprovarem sobre o **próprio fundo de 10%**. Carrega **sensor embutido** e **âncora dupla** |
 | `faqSuggestion.test.ts` | `packages/core/src/faq/__tests__` | a sugestão cair abaixo de **80%** de precisão ou cobertura contra a distribuição real do catálogo. Carrega **sensor embutido**: assere que contagem bruta **reprova** na mesma régua |
 | `block.test.ts` | idem | o extrator perder um dos **dois** arranjos de HTML medidos; `stripFaqBlock` remover bloco sem par extraível |
 | `shoppingParity.test.ts` | `packages/core/src/shopping/__tests__` | o feed e o JSON-LD divergirem em preço ou disponibilidade, medidos pelas **serializações reais**. Sensor embutido |
@@ -306,6 +323,9 @@ migrations, e `vercelRedirects` lê o `vercel.json`.
 | `urls.test.ts` · `render.test.ts` | `packages/core/src/sitemap/__tests__` | produto fora de `/produtos/:slug`; subcategoria em um segmento; `<loc>` relativa, com barra final ou com query; forma legada presente; `changefreq`/`priority` voltarem; o escape sair na ordem errada. Carrega **sensor embutido**: assere que um gerador ingênuo (`'/' + slug`) **reprova** na mesma régua |
 | `readAll.test.ts` | `packages/core/src/paging/__tests__` | leitura truncada aceita; total lido divergir da contagem e passar; página vazia não interromper o laço |
 | `catalog.test.ts` · `defaults.test.ts` | `packages/core/src/home/__tests__` | um arquivo de `core/home` importar React ou Supabase; a varredura render menos de 9 arquivos; a semente divergir do que a loja desenha |
+| `orderList.test.ts` | backoffice `features/order-list/model` | o "limpar filtros" voltar a ignorar um eixo; a busca perder uma das cinco colunas; `Precisa de ação` deixar de ser a união dos três acionáveis ou passar a incluir o Pix; o lote de material abortar na primeira recusa, ou parar de separar RECUSA de FALHA; o teto de 50 sumir; a cobrança por WhatsApp ganhar urgência fabricada ou passar a nomear o material (`BL-015`) |
+| `orderDetail.test.ts` | backoffice `features/order-detail/model` | o histórico deixar de fundir os três fios ou de ordenar por tempo; e-mail que falhou parar de dizer que a cliente não soube; o "próximo passo" bloquear em vez de explicar; `delivered`/`cancelled` deixarem de ser fim de linha |
+| `pickSlip.test.ts` | backoffice `features/pick-slip` | a folha perder itens, gravação, material esperado ou endereço; o conteúdo deixar de ser escapado; a folha voltar a carregar CSS do painel; o lote parar de gerar uma folha por pedido |
 | `apiShape.test.ts` | `tools/catalog-import` | a Nuvemshop mudar a forma de um campo que o mapeamento lê; a fixture perder um caso de borda |
 | `db.test.ts` (`selectAll`) | idem | uma leitura de "o que já existe" voltar a `select` simples e ser truncada em 1.000 linhas pelo PostgREST |
 | `handlers.test.ts` (sitemap) | `supabase/functions/sitemap/__tests__` | um caminho degradado responder 200; **um corpo de erro carregar `<urlset>`**; o `Content-Type` da resposta boa deixar de ser `application/xml` |
@@ -324,15 +344,66 @@ quando mudarem de verdade.
 
 | Medida | Baseline | Como medir |
 | --- | --- | --- |
-| **Lint** | **30 erros / 8 warnings** — backoffice 28/7 · store 2/1 | `pnpm lint` |
+| **Lint** | **27 erros / 5 warnings** — backoffice 25/4 · store 2/1 | `pnpm lint` |
 | **Tipos** | **0 · 0 · 0** (store · backoffice · catalog-import) | `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` |
-| **Testes** | **5581 em 307 arquivos** — store 1922/132 · backoffice 1556/97 · core 1418/55 · functions 350/7 · catalog-import 335/16 | `pnpm --filter @estrelinha/<w> test` |
+| **Testes** | **6139 em 334 arquivos** — store 2001/135 · backoffice 1786/109 · core 1493/60 · functions 350/7 · catalog-import 509/23 | `pnpm --filter @estrelinha/<w> test` |
 
-Os cinco workspaces foram remedidos em **2026-08-29**, por workspace e com exit code capturado, e os
-cinco passam limpos. A feature `33` (sitemap) somou **+87** em três deles: **core +55** (a regra pura
-do sitemap, a paginação extraída e a classificação de rota), **functions +13** (a function nova) e
-**store +19** (`sitemapRoutes` e `robotsSource`, mais as vizinhas do `vercelRedirects`). Backoffice e
-catalog-import não mudaram — e é isso que se espera de uma feature que não encosta neles.
+**A feature `37` (frete grátis configurável) somou +86 em três workspaces**, medidos em 2026-09-05 um
+por vez e com exit code capturado: **store +45**, **core +32** (a regra pura, 26, e o hook, 6) e
+**backoffice +9** (o interruptor e a recusa de "ligado sem faixa"). Functions e catalog-import não
+foram tocados, e `packages/core/src/payment/**` também não — conferido por `git diff --name-only`.
+Lint ficou em **27/5** e tipos em **0·0·0**, sem mexer.
+
+**A integração do Melhor Envio somou +26 em três workspaces**, medidos em 2026-09-05 um por vez e com
+exit code capturado: **core +17/+1** (`quotePayload`, o dono único do corpo da cotação), **store +5**
+(o mapper delegando, e o prazo com `handling_days` na página do produto) e **backoffice +4/+1**
+(`originZipNotRead`). Lint ficou em **27/5** e tipos em **0·0·0**. `packages/core/src/payment/**` não
+foi tocado.
+
+> **A cotação de frete nunca tinha funcionado, e nada acusava.** As três `MELHOR_ENVIO_*` não
+> existiam em lugar nenhum — nem no `config.toml`, nem no `.env.example`, nem na checagem de secrets
+> do CI. A function respondia 500 `Unauthenticated.` no local **e em produção**, `DeliveryBlock`
+> convertia a falha na opção única "Frete padrão" (SHP-05), e **todo pedido cobrava R$ 9,90 fixo**,
+> para qualquer CEP e qualquer peso. Medido no dia do conserto: a mesma sacola cotava R$ 17,89–34,86
+> para São Paulo e R$ 62,31–163,64 para Rio Branco.
+>
+> **Os 46 testes do caminho de frete passavam** — eles mockam `supabase.functions.invoke`, então
+> provam o mapeamento e nunca a integração. É a lição do `AD-012` noutra roupa: **mock é afirmação, e
+> integração só se prova com probe contra o serviço**. Detalhe em [`supabase/CLAUDE.md`](supabase/CLAUDE.md).
+
+> **A queda de 3 em `drawerFacts.test.ts` (15 → 12) é contrapartida declarada**: os três casos de
+> `freeShippingProgress` reapareceram em `core/src/shipping/__tests__/freeShipping.test.ts`, e o
+> terceiro teve o **veredito invertido de propósito** — faixa zerada devolvia "frete grátis sempre",
+> que era a leitura que custava dinheiro. `FreeShippingBar.tsx` foi apagado **sem** perda de
+> contagem: nunca teve teste, porque nunca teve consumidor.
+
+Os cinco workspaces foram remedidos em **2026-08-30**, por workspace e com exit code capturado, e os
+cinco passam limpos. A feature `35` (clientes e pedidos da Nuvemshop) somou **+201** em três deles:
+**catalog-import +174** (parser de CSV, recorte dos dois negócios, de-para de status, casamento com o
+catálogo, snapshot e escrita idempotente), **store +21** (o guarda da migration) e **backoffice +6**
+(o guarda de proveniência e a cobrança por WhatsApp com telefone). Core e functions não mudaram.
+
+**O backoffice foi a 1773/108 em 2026-08-30**, fora de feature: a foto e o link do produto na tela
+do pedido (`+11` — 6 casos novos em `AdminOrderPage.test.tsx`, e o arquivo novo
+`entities/order/api/useAdminOrder.test.ts`, que guarda o recorte dos `product_id` procuráveis).
+Lint e tipos não mudaram (25/4 · 0). Os outros quatro workspaces não foram tocados e não foram
+remedidos.
+
+> **O lote sequencial dos cinco workspaces REPROVOU store e backoffice, e os dois passam sozinhos.**
+> Medido na `35`, com o servidor de dev e um navegador de cima. Não é a mesma flake do `pnpm test`
+> paralelo — é a mesma **causa**: jsdom sob carga estoura o timeout de 5s dos testes que varrem
+> disco. Antes de investigar uma reprovação, feche o que estiver rodando e repita o workspace
+> sozinho; se reprovar sozinho, é defeito.
+
+> **Rode um workspace por vez.** Duas suítes concorrentes saturam a máquina e produzem timeout de 5s
+> em testes que varrem disco — medido na `34`, em `routes.test.ts` (store) e `AdminOrdersPage.test.tsx`
+> (backoffice), os dois verdes isolados. É a mesma flake que motiva o `--concurrency=1` no CI, e ela
+> aparece igual na máquina de quem desenvolve.
+
+**O lint MELHOROU de 30/8 para 27/5**, e não por trabalho de lint: `OrderDetailDialog.tsx` foi apagado
+na `34` e levou junto três `no-explicit-any`. Baseline que cai também precisa ser anotada — senão a
+próxima feature compara contra folga que não existe mais. **A `35` manteve 27/5**, medido em
+2026-08-30 (store 2/1 · backoffice 25/4).
 
 > **A baseline anterior do store estava 3 testes curta, e o erro era de bookkeeping.** Ela dizia
 > **1874/129**; o número medido no HEAD da `31`, por `git stash` em 2026-08-29, é **1877/129**. Nada
@@ -448,12 +519,33 @@ completo (framework, `installCommand` na raiz do monorepo, headers de cache e de
 
 ## Estado conhecido / dívidas
 
+- **O FRETE GRÁTIS NASCE DESLIGADO, e ligar é passo de operação** (feature `37`, `AD-027`). Depois do
+  deploy desta feature a loja **não anuncia nem concede** frete grátis até alguém ligar em
+  `/admin/configuracoes` → aba Frete. Decisão do usuário, com o custo declarado e aceito — mas sem
+  este registro a loja fica meses assim porque ninguém soube que havia um interruptor.
+- **A `37` tem `validation.md`, e o autor também é o verificador.** Quarta seguida. A evidência é
+  medida e os guardas novos tiveram a sensibilidade provada por injeção de falha; o que falta é a
+  prova em navegador real, em 390 e 1440, com o interruptor nos dois estados — e ela importa mais
+  que o normal, porque o que muda ao desligar é **presença de bloco** (a faixa some do topo da gaveta
+  e do resumo), e jsdom devolve 0 para toda medida de layout.
+- **A `36` tem só `spec.md`** (metadados e dados estruturados): não foi implementada, e o número
+  segue consumido.
 - **A feature `31` não tem spec.** O guia de material foi implementado no commit `fcd3942` e está
   documentado em `apps/store/CLAUDE.md`, mas não existe `.specs/features/31-*` nem handoff na
   `STATE.md`. O número segue consumido.
 - **A `32` não tem `validation.md`** e não passou por Verifier independente. Os 24 testes cobrem os
   requisitos que jsdom alcança e carregam o sensor da cicatriz da chave (`LST-04`), mas ninguém
   conferiu a feature contra a spec com olhos frescos. Mesma pendência da `22` e da `28`.
+- **A `35` tem `validation.md`, e o autor também é o verificador.** Terceira seguida. A evidência é
+  toda medida — 3 execuções reais do importador contra os arquivos da loja, 9 blocos de probe SQL, e
+  navegador em 390 e 1440, onde saiu **um defeito que teste nenhum pegaria**: a coluna
+  `orders.customer_phone` estava gravada em 35/35 pedidos, o teste dela passava, e **todo** link de
+  cobrança por WhatsApp saía sem número — porque a view `order_list` enumera colunas uma a uma e os
+  três chamadores da tela ignoravam o telefone. Três peças certas, resultado errado.
+- **A `34` tem `validation.md`, e o autor também é o verificador.** Segunda seguida. A evidência é
+  toda medida — probes HTTP, injeção de falha nos guardas novos, e navegador real em 390 e 1440, onde
+  saíram três defeitos que teste nenhum pegaria (números que se contradiziam na mesma tela). Ainda
+  assim, ninguém de fora conferiu contra a spec.
 - **A `33` tem `validation.md`, mas o autor é o verificador.** A execução foi inline, e o relatório
   declara isso no topo. A evidência é toda medida e os dois guardas novos tiveram a sensibilidade
   provada por injeção de falha — o que reduz o viés, não o elimina. Entra na mesma fila acima.
@@ -472,8 +564,10 @@ completo (framework, `installCommand` na raiz do monorepo, headers de cache e de
   trocar o domínio do painel exige mexer no `vercel.json` e no teste — sob pena de a prévia voltar a
   ser quadro branco sem erro.
 - **`BL-007`** — sitemap. A `30` levou a metade do dado estruturado; a do sitemap segue aberta.
-- **`BL-008`** — `fetchStatusCounts` lê `orders` sem paginação e herda o teto de 1.000 do PostgREST.
-  As contagens da fila de material entram no mesmo teto; corretas até 1.000 pedidos.
+- **`BL-008` foi REDUZIDA, não fechada** (feature `34`). `fetchStatusCounts` deixou de existir: as
+  contagens de aba e de tile agora são `select('id', { count: 'exact', head: true })`, então **o
+  servidor conta e nenhuma linha atravessa a rede** — não há teto a herdar. As outras leituras sem
+  paginação do painel continuam abertas.
 - **`BL-009`..`BL-011`** — dívidas da `24`, entre elas o `SUPABASE_URL` com fallback hard-coded de
   outro projeto em `uploadProductImage.ts`.
 - **`BL-014`** — geração de pergunta por IA, adiada por decisão do usuário em 2026-08-16. Irmã da

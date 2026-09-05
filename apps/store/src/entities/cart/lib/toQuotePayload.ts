@@ -1,38 +1,30 @@
 // Mapper carrinho → payload de `melhor-envio?action=quote` (SHP-02).
 //
-// Extraído de `features/shipping-calc/ui/ShippingCalc.tsx:36-49` para existir **uma única**
-// implementação: a página de produto e o checkout cotam com o mesmo corpo.
+// **A regra não mora mais aqui.** Ela é de `@estrelinha/core/shipping/quotePayload`, porque tem dois
+// consumidores: este (o carrinho da cliente) e a cotação da dona na tela do pedido do backoffice.
+// Enquanto eram duas implementações elas divergiram no `insurance_value` — a loja mandava por
+// unidade, o painel por unidade × quantidade — e ninguém viu, porque cada uma era coerente sozinha.
+// O arquivo de `core` conta a medição inteira.
 //
-// Os fallbacks 11/2/16/0.1 são os mesmos já usados no shipping-calc; eles só entram quando o
-// produto não tem a dimensão cadastrada. Com o produto preenchido, o valor real é enviado.
+// O que sobra aqui é só a **adaptação de formato**: `CartItem` tem o produto aninhado, e o pedido do
+// backoffice chega como `order_items` + um mapa de dimensões. Nenhuma decisão de negócio nesta linha.
+import { toQuoteProducts } from '@estrelinha/core/shipping'
+import type { QuoteProductPayload } from '@estrelinha/core/shipping'
 import type { CartItem } from '../model/cartStore'
 
-/** Dimensões padrão de um botton, aplicadas por item quando o produto não as tem. */
-export const QUOTE_FALLBACK = {
-  width: 11,
-  height: 2,
-  length: 16,
-  weight: 0.1,
-} as const
-
-export interface QuoteProductPayload {
-  id: string
-  width: number
-  height: number
-  length: number
-  weight: number
-  insurance_value: number
-  quantity: number
-}
+export type { QuoteProductPayload }
+export { QUOTE_FALLBACK } from '@estrelinha/core/shipping'
 
 export function toQuotePayload(items: CartItem[]): QuoteProductPayload[] {
-  return (items ?? []).map((item) => ({
-    id: item.product.id,
-    width: item.product.width_cm || QUOTE_FALLBACK.width,
-    height: item.product.height_cm || QUOTE_FALLBACK.height,
-    length: item.product.length_cm || QUOTE_FALLBACK.length,
-    weight: item.product.weight_kg || QUOTE_FALLBACK.weight,
-    insurance_value: item.product.price,
-    quantity: item.quantity,
-  }))
+  return toQuoteProducts(
+    (items ?? []).map((item) => ({
+      id: item.product.id,
+      // `unitPrice`, NÃO `product.price`: com grade os dois divergem, e o `cartStore` já escolhe
+      // este no `subtotal()` pelo mesmo motivo. Segurar a carga pelo preço-base de um produto cuja
+      // variação custa outra coisa é subsegurar (ou supersegurar) em silêncio.
+      unitPrice: item.unitPrice ?? item.product.price,
+      quantity: item.quantity,
+      dimensions: item.product,
+    })),
+  )
 }

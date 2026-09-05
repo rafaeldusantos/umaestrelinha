@@ -9,6 +9,16 @@ import { MATERIAL_STATUS_LABELS, toMaterialStatus } from '@estrelinha/core/mater
  * **As cores separam remédios diferentes**, na mesma régua de `Expirado` × `Esgotado` nos cupons:
  * `Aguardando material` é o que ACUMULA (ninguém pode fazer nada até chegar); `Material a caminho` é
  * espera com prazo; `Material recebido` e `Em produção` são trabalho da Adri, não fila.
+ *
+ * ⚠️ **Por dois meses este arquivo não cumpriu o parágrafo acima** (`PED-01`). `estrelinha-admin-amber`
+ * e `estrelinha-admin-emerald` não existiam — nem em `styles.css`, nem no preset —, e o Tailwind não
+ * emite classe para token inexistente: as duas PONTAS da régua, justamente o que acumula e o que já
+ * está pronto, saíam sem fundo, sem borda e com a cor herdada. Build, `tsc` e teste de componente
+ * passavam com o defeito de pé, porque `className` é string.
+ *
+ * A feature 34 criou os dois tokens **e** `adminTokens.test.ts`, que varre este diretório e reprova
+ * toda classe `estrelinha-admin-*` sem token. Acrescentar os dois sem o guarda deixaria a próxima
+ * classe inventada falhar do mesmo jeito silencioso.
  */
 const TONE: Record<string, string> = {
   aguardando_material:

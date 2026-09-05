@@ -253,6 +253,18 @@ export interface DbOrder {
   coupon_id: string | null
   created_at: string
   /**
+   * O **RECADO DA CLIENTE**, escrito por ela no checkout — `PED-11`, feature 34.
+   *
+   * A coluna existe desde a migration inicial (2026-04-14) e **nunca esteve neste tipo**, então
+   * nunca chegou a tela nenhuma do painel: o que a cliente escreveu simplesmente não era lido. Foi
+   * conferida contra o `information_schema` do banco local antes de ser declarada aqui — tipo
+   * escrito à mão é afirmação, não verificação (`AD-012`).
+   *
+   * ⚠️ **Não confundir com `order_notes`**, que é nota **interna** da Adri e a cliente nunca vê. A
+   * tela rotula as duas com a origem explícita, pelo mesmo motivo que separa os dois rastreios.
+   */
+  notes: string | null
+  /**
    * Feature 22 — o estado do material, **independente** do de pagamento (`MAT-08 AC 5`).
    *
    * Só muda por RPC guardada (`set_material_status`, `set_material_tracking`). Um `update` direto
@@ -286,6 +298,90 @@ export interface DbOrderNote {
   note: string
   created_by: string | null
   created_at: string
+}
+
+/**
+ * Nota **interna** sobre a cliente — `CLI-10`, feature 34. A cliente nunca vê, e a tela escreve isso.
+ *
+ * `customer_id` aponta para o id de `customer_directory`, que **inclui a convidada** e por isso não
+ * é FK para `customers`: a convidada não tem cadastro, e uma FK tornaria impossível anotar
+ * exatamente sobre quem o painel mais precisa anotar.
+ */
+export interface DbCustomerNote {
+  id: string
+  customer_id: string
+  note: string
+  created_by: string | null
+  created_at: string
+}
+
+/**
+ * Uma linha de `public.addresses`. A tabela existe desde a migration inicial e **o painel nunca a
+ * leu** — só a loja (`useDefaultAddress`, `useSaveAddress`). `CLI-09` a traz para a ficha.
+ */
+export interface DbAddress {
+  id: string
+  customer_id: string
+  label: string | null
+  cep: string
+  street: string
+  number: string
+  complement: string | null
+  neighborhood: string
+  city: string
+  state: string
+  is_default: boolean | null
+  created_at: string | null
+}
+
+/**
+ * Uma pessoa da lista de Clientes — a view `customer_directory`.
+ *
+ * **`public.customers` não é a lista de clientes da loja.** Aquela tabela só recebe linha do trigger
+ * `on_auth_user_created_customer`, que dispara em `auth.users`: quem comprou como convidada nunca
+ * aparece ali, porque o checkout grava `orders.customer_id = null` e não cria cadastro.
+ *
+ * `has_account = false` é a convidada, e o `id` dela é `md5(lower(email))::uuid` — determinístico e
+ * estável, então `/admin/clientes/:id` funciona igual para as duas.
+ */
+export interface DbCustomerDirectory {
+  id: string
+  user_id: string | null
+  name: string | null
+  email: string
+  cpf: string | null
+  phone: string | null
+  created_at: string | null
+  has_account: boolean
+}
+
+/**
+ * O agregado por pessoa — a view `customer_stats`. `CLI-03`..`CLI-06`.
+ *
+ * **É view, nunca coluna**: materializar daria um segundo dono do número, e qualquer importação o
+ * desatualizaria em silêncio (mesma decisão de `faq_usage` na feature 28).
+ *
+ * ⚠️ `orders_paid` e `total_spent` contam **só `payment_status = 'approved'`**, e `orders_total`
+ * conta tudo. Os dois existem de propósito: um número de dinheiro que inclui Pix expirado não é um
+ * número de dinheiro, e a tela **declara o critério em texto** para ele não ter dois donos.
+ *
+ * `avg_ticket` é `null`, e não `0`, para quem nunca teve pedido pago — "ticket R$ 0,00" é uma
+ * afirmação falsa sobre quem nunca comprou.
+ *
+ * As contagens chegam como `number` pelo PostgREST, apesar de serem `bigint` no banco.
+ */
+export interface DbCustomerStats {
+  customer_id: string
+  orders_paid: number
+  orders_total: number
+  total_spent: number
+  avg_ticket: number | null
+  first_order_at: string | null
+  last_order_at: string | null
+  /** O último pedido de **qualquer** estado — é o "em aberto" da coluna Última compra (`CLI-05`). */
+  last_activity_at: string | null
+  orders_with_material: number
+  material_kinds: string[]
 }
 
 /** Como o item foi precificado. **Congelado no pedido** — o servidor respeita

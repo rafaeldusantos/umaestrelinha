@@ -75,6 +75,13 @@ export default {
           cyan: "#00E5FF",
           yellow: "#FFD23F",
           dark: "#1A0F2E",
+          // PED-01 — os dois que faltavam. **Pela variável, nunca pelo hex**: os sete acentos
+          // acima são literais aqui E em `styles.css`, e por isso têm dois donos (o de cima nunca
+          // divergiu porque nunca mudou). Estes dois MUDAM entre light e dark, então um literal
+          // aqui congelaria o valor do light nos dois temas — sem quebrar nada, do jeito de
+          // sempre. `adminTokens.test.ts` guarda a regra.
+          amber: "var(--estrelinha-admin-amber)",
+          emerald: "var(--estrelinha-admin-emerald)",
         },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",

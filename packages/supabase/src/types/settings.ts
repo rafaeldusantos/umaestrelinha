@@ -25,6 +25,20 @@ export interface ShippingSettings {
   free_shipping_enabled: boolean
   free_shipping_threshold: number
   default_shipping_cost: number
+  /**
+   * **LEGADO — não é lido por nenhuma tela, e não é a origem da cotação.**
+   *
+   * O comentário anterior aqui afirmava que este campo era "o CEP de origem da cotação do Melhor
+   * Envio". Não era: a origem sempre veio do `postal_code` do secret `MELHOR_ENVIO_SENDER_JSON`, o
+   * mesmo endereço impresso na etiqueta. O campo era editável em `/admin/configuracoes` e não movia
+   * um centavo — dois donos, um morto, e a documentação apontando para o morto.
+   *
+   * O input saiu da tela em 2026-09-05. A chave **continua no banco** porque migration aplicada é
+   * imutável (`AD-017`), e continua aqui para que o tipo descreva a coluna que existe. Quem impede
+   * uma tela de voltar a lê-la é `originZipNotRead.test.ts`.
+   *
+   * Para mudar a origem, muda-se o endereço na conta do Melhor Envio e o secret junto.
+   */
   origin_zip: string
   /** Dias úteis de produção somados ao prazo do transportador (SHP-09). */
   handling_days: number
