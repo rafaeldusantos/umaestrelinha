@@ -230,7 +230,8 @@ describe('vercel.json — as duas rotas do Google Shopping (feature 30)', () => 
     // Âncora de contagem: sem ela, uma entrada some por edição e as duas buscas abaixo seguem
     // achando o que procuram, com o arquivo já pela metade.
     // Feature 33: subiu de 3 para 4 com o `Content-Type` de `/sitemap.xml`.
-    expect(CONFIG.headers).toHaveLength(4)
+    // Feature 38: subiu de 4 para 5 com o `immutable` de `/fonts/(.*)`.
+    expect(CONFIG.headers).toHaveLength(5)
 
     const assets = CONFIG.headers.find((entry) => entry.source === '/assets/(.*)')
     expect(assets).toBeDefined()
@@ -245,6 +246,51 @@ describe('vercel.json — as duas rotas do Google Shopping (feature 30)', () => 
       'Referrer-Policy',
       'Content-Security-Policy',
     ])
+  })
+})
+
+/**
+ * Feature 38 (`PRF-14`) — as fontes próprias, e o cabeçalho que as torna gratuitas na revisita.
+ *
+ * A conferência que originou esta regra foi feita no build, não assumida: `public/` é copiado para
+ * a **raiz** do `dist`, então os `woff2` são servidos em `/fonts/…` e a regra de `/assets/(.*)`
+ * **não os alcança**. Sem esta entrada, três arquivos que nunca mudam seriam rebaixados a cada
+ * visita sob o cache padrão da Vercel — e a economia de tirar o Google do caminho crítico
+ * apareceria só na primeira visita.
+ *
+ * A regressão aqui é a de sempre nesta classe: apagar a entrada não quebra nada. A loja continua
+ * servindo a fonte, com a cara certa, só que de novo.
+ */
+describe('vercel.json — as fontes próprias (feature 38)', () => {
+  const CSS = readFileSync(join(ROOT, 'apps/store/src/app/App.css'), 'utf8')
+  const SERVIDOS = [...CSS.matchAll(/url\(["']?(\/fonts\/[^"')]+)/g)].map((m) => m[1])
+
+  it('a leitura encontrou os caminhos servidos — âncora', () => {
+    // Sem ela, as asserções abaixo iterariam lista vazia se o `@font-face` mudasse de forma.
+    expect(SERVIDOS.length).toBeGreaterThanOrEqual(3)
+  })
+
+  it('`/fonts/(.*)` é servido com um ano de cache `immutable`', () => {
+    const fontes = CONFIG.headers.find((entry) => entry.source === '/fonts/(.*)')
+    expect(fontes).toBeDefined()
+    expect(fontes.headers).toEqual([
+      { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+    ])
+  })
+
+  it('SENSOR: a regra de `/assets` NÃO alcançaria o caminho servido', () => {
+    // É a razão inteira de a entrada existir, escrita como asserção. Os arquivos de `public/` não
+    // ganham hash no nome nem entram em `assets/` — conferido no `dist` de um build real.
+    for (const caminho of SERVIDOS) {
+      expect(caminho.startsWith('/fonts/')).toBe(true)
+      expect(caminho.startsWith('/assets/')).toBe(false)
+    }
+  })
+
+  it('o nome do arquivo carrega a versão — `immutable` não tem como ser invalidado', () => {
+    // Um ano de cache sobre um nome estável é um ano sem conserto possível. A versão no nome é o
+    // que transforma "trocar a fonte" em "publicar outra URL".
+    for (const caminho of SERVIDOS) expect(caminho).toMatch(/-v\d+-/)
   })
 })
 

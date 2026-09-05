@@ -17,6 +17,91 @@
  * ─────────────────────────────────────────────────────────────────────────
  */
 
+/* ── AS FONTES, SERVIDAS PELO PRÓPRIO DOMÍNIO — `PRF-14` ──────────────────
+ *
+ * Até a feature 38 as duas famílias vinham do `fonts.googleapis.com`, e o
+ * texto da loja dependia de **duas conexões a um terceiro** para pintar: uma
+ * folha de estilo no `googleapis`, que só então revelava os `woff2` no
+ * `gstatic`. Em 4G isso são dois apertos de mão (DNS + TCP + TLS) EM SÉRIE
+ * antes do primeiro byte de fonte — de 300 a 600 ms de FCP pagos para buscar
+ * um arquivo que nunca muda.
+ *
+ * Os arquivos são os MESMOS que o Google servia (`librebaskerville/v24` e
+ * `outfit/v15`, subconjunto `latin`), baixados de lá e commitados em
+ * `public/fonts` sob a SIL Open Font License 1.1, cujo texto vai no mesmo
+ * diretório — é exigência da licença, não formalidade.
+ *
+ * **A versão está no NOME do arquivo de propósito.** `public/` é copiado para
+ * a raiz do `dist` com o nome intacto — não ganha hash como os `assets/` —, e
+ * o `vercel.json` serve `/fonts/` com `immutable` por um ano. Sem a versão no
+ * nome, trocar o arquivo deixaria um ano de navegadores com os bytes velhos e
+ * nenhuma forma de invalidar. Fonte nova = nome novo.
+ *
+ * **Só o subconjunto `latin`.** A loja é em português, e todo acento do idioma
+ * cabe em U+0000–00FF. Cirílico, grego e `latin-ext` seriam peso morto no
+ * caminho crítico de quem abre no celular. O `unicode-range` abaixo descreve
+ * exatamente o que cada arquivo contém: caractere fora dele cai no fallback
+ * serifado (Georgia) em vez de baixar um arquivo que não o tem.
+ *
+ * **Os pesos são os do DS, e só eles** (`DESIGN.md` §3). Libre Baskerville é
+ * hoje uma variável de eixo `wght` 400–700 e um itálico estático de 400: as
+ * duas primeiras declarações apontam para o MESMO arquivo, exatamente como a
+ * folha do Google fazia, e é o que mantém a renderização idêntica à de ontem.
+ * Não há 500 nem 600 declarados, porque o DS não usa nenhum dos dois — e um
+ * peso não declarado faz o navegador sintetizar falso-negrito em vez de
+ * baixar. Outfit é variável e vai como faixa `300 700`: um arquivo, os cinco
+ * pesos do DS.
+ *
+ * `font-display: swap` em todas: texto invisível esperando fonte é pior que
+ * texto certo na fonte errada por 200 ms. As duas faces do PRIMEIRO texto
+ * (Outfit do corpo e Libre Baskerville dos títulos) têm `preload` no
+ * `index.html` — sem ele o navegador só descobriria a fonte depois de baixar
+ * e interpretar este CSS, e o `swap` teria de trabalhar duas vezes.
+ *
+ * Guardas: `brandAssets.test.ts` (arquivos, pesos, preload e licença) e
+ * `vercelRedirects.test.ts` (o `immutable` do caminho servido).
+ */
+@font-face {
+  font-family: "Libre Baskerville";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/libre-baskerville-v24-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Libre Baskerville";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/libre-baskerville-v24-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Libre Baskerville";
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/libre-baskerville-v24-latin-italic.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Outfit";
+  font-style: normal;
+  font-weight: 300 700;
+  font-display: swap;
+  src: url("/fonts/outfit-v15-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
 :root {
   /* ── Marca UMA ESTRELINHA — a paleta ──────────────────────────────────
    * Valores exportados do arquivo do Paper "Uma Estrelinha" e idênticos aos

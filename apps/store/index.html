@@ -26,17 +26,32 @@
 
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <!-- Libre Baskerville = display e títulos · Outfit = corpo. São as duas
-         famílias do arquivo do Paper (`--font-display` e `--font-body`).
+    <!-- `PRF-14`: as duas faces do PRIMEIRO texto, pedidas antes de o CSS
+         existir.
 
-         Os pesos são os que o DS declara, e só eles. Libre Baskerville
-         **existe em 400 e 700, mais o itálico de 400** — não há 500 nem 600
-         para pedir, e pedir peso que a família não tem faz o navegador
-         sintetizar (falso-negrito) em vez de baixar. Outfit é variável, então
-         vai como faixa `300..700`: uma requisição, cinco pesos do DS. -->
-    <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Outfit:wght@300..700&display=swap" rel="stylesheet" />
+         Libre Baskerville = display e títulos · Outfit = corpo. São as duas
+         famílias do arquivo do Paper (`--font-display` e `--font-body`), e
+         desde a feature 38 elas vivem em `public/fonts`, servidas por este
+         mesmo domínio. Nenhum terceiro entra no caminho do primeiro texto.
+
+         O `@font-face` mora no `App.css`, junto do resto do tema — mas o
+         navegador só o lê depois de baixar e interpretar o CSS do bundle.
+         Estas duas linhas encurtam isso: o download começa com o HTML, em
+         paralelo. Só as duas faces do primeiro texto entram aqui; o itálico
+         é raro e não paga uma requisição adiantada.
+
+         `crossorigin` é obrigatório mesmo sendo do próprio domínio: fonte é
+         sempre buscada em modo CORS, e sem o atributo o navegador guardaria a
+         resposta num balde que o `@font-face` não alcança — e baixaria tudo
+         de novo. O ganho viraria o dobro do custo, sem erro em lugar nenhum.
+
+         Os pesos são os que o DS declara, e só eles: Libre Baskerville
+         **em 400 e 700, mais o itálico de 400** — não há 500 nem 600 para
+         pedir, e pedir peso que a família não tem faz o navegador sintetizar
+         (falso-negrito) em vez de baixar. Outfit é variável: um arquivo,
+         faixa `300 700`, os cinco pesos do DS. -->
+    <link rel="preload" href="/fonts/outfit-v15-latin.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/libre-baskerville-v24-latin.woff2" as="font" type="font/woff2" crossorigin />
     <meta property="og:title" content="Uma Estrelinha - Joias afetivas artesanais em resina">
     <meta name="twitter:title" content="Uma Estrelinha - Joias afetivas artesanais em resina">
     <meta property="og:description" content="Joias feitas à mão em resina com o material que você envia: cinzas, leite materno, dente de leite e mecha de cabelo. Feitas por Adri Muniz, em Porto Alegre.">

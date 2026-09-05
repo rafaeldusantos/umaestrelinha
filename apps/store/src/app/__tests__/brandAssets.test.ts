@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { existsSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { SYMBOL, SYMBOL_TINY } from '@/shared/ui/brand/paths'
@@ -24,8 +24,9 @@ const REFERENCIADOS = [...INDEX.matchAll(/(?:href|content)="\/([^"]+)"/g)].map((
 describe('todo arquivo que o index.html referencia existe no disco', () => {
   it('a leitura encontrou as referências locais', () => {
     // Âncora: um `index.html` lido do lugar errado não referencia nada, e um
-    // teste que itera lista vazia passa em silêncio. São quatro ícones hoje.
-    expect(REFERENCIADOS.length).toBeGreaterThanOrEqual(4)
+    // teste que itera lista vazia passa em silêncio. São seis hoje: os quatro
+    // ícones e os dois `preload` de fonte que a feature 38 trouxe para cá.
+    expect(REFERENCIADOS.length).toBeGreaterThanOrEqual(6)
   })
 
   it.each(REFERENCIADOS)('`public/%s`', (file) => {
@@ -145,44 +146,268 @@ describe('index.html — a cabeça do documento', () => {
   })
 })
 
-describe('index.html — as fontes', () => {
-  const fontLink = INDEX.match(/<link href="https:\/\/fonts\.googleapis[^>]*>/)?.[0] ?? ''
+/**
+ * `PRF-14` — as fontes saem do domínio de terceiro.
+ *
+ * Até a feature 38 o primeiro texto da loja dependia de DUAS conexões ao
+ * Google: uma folha de estilo no `googleapis`, que só então revelava os
+ * `woff2` no `gstatic`. Em 4G são dois apertos de mão em série antes do
+ * primeiro byte de fonte.
+ *
+ * Este guarda é a contrapartida escrita disso, e existe porque a regressão é
+ * silenciosa nos dois sentidos: um `<link>` do Google que volte por cópia de
+ * outro projeto não quebra nada (a loja fica mais lenta e ninguém vê), e um
+ * `@font-face` apontando para arquivo que não está no disco também não — a
+ * página renderiza, em Georgia, e só quem conhece a marca percebe.
+ *
+ * As asserções abaixo **substituem** as que liam o `<link>` do Google, e são
+ * mais do que ele: além das famílias e dos pesos, cobrem a existência dos
+ * bytes no disco, o `swap`, o `preload`, a licença e o caminho servido.
+ */
+const APP_CSS = readFileSync(resolve(STORE, 'src/app/App.css'), 'utf8')
+const FONTS_DIR = resolve(PUBLIC, 'fonts')
 
-  it('a leitura encontrou o `<link>` do Google Fonts', () => {
-    // Âncora: sem ela, as asserções de "não pede X" abaixo passariam sobre uma
-    // string vazia — que é exatamente o resultado de um regex que deixou de
-    // casar. Um `<link>` só, e é o que a loja carrega.
-    expect(fontLink).toMatch(/family=/)
+/**
+ * Remove comentário de CSS. A EXPLICAÇÃO de uma regra não pode contar como uso
+ * dela: o bloco de `App.css` conta por que o Google saiu, e sem esta poda a
+ * asserção de "nenhuma origem de terceiro" reprovaria no próprio texto que
+ * documenta a decisão. Funciona com CRLF e com LF — `[\s\S]` atravessa os
+ * dois, e o arquivo no disco de quem desenvolve no Windows tem CRLF.
+ */
+function semComentarios(css: string): string {
+  return css.replace(/\/\*[\s\S]*?\*\//g, '')
+}
+
+type Face = { family: string; style: string; weight: string; display: string; src: string }
+
+/** Toda declaração `@font-face` do CSS, lida do disco. */
+function facesDe(css: string): Face[] {
+  return [...semComentarios(css).matchAll(/@font-face\s*\{([^}]*)\}/g)].map((bloco) => {
+    const corpo = bloco[1]
+    const prop = (nome: string) =>
+      corpo.match(new RegExp(`(?:^|[;{\\s])${nome}\\s*:\\s*([^;]+)`))?.[1].trim() ?? ''
+    return {
+      family: prop('font-family').replace(/["']/g, ''),
+      style: prop('font-style'),
+      weight: prop('font-weight').replace(/\s+/g, ' '),
+      display: prop('font-display'),
+      src: prop('src').match(/url\(["']?([^"')]+)/)?.[1] ?? '',
+    }
+  })
+}
+
+const FACES = facesDe(APP_CSS)
+
+/**
+ * Os pesos do design system, e só eles — `DESIGN.md` §3.
+ *
+ * Libre Baskerville é hoje uma variável de eixo `wght` 400–700 mais um itálico
+ * estático de 400, então as duas primeiras faces apontam para o MESMO arquivo:
+ * é o que a folha do Google fazia, e é o que mantém a renderização idêntica.
+ * Não há 500 nem 600 aqui porque o DS não usa nenhum dos dois.
+ */
+const DS: Face[] = [
+  {
+    family: 'Libre Baskerville',
+    style: 'normal',
+    weight: '400',
+    display: 'swap',
+    src: '/fonts/libre-baskerville-v24-latin.woff2',
+  },
+  {
+    family: 'Libre Baskerville',
+    style: 'normal',
+    weight: '700',
+    display: 'swap',
+    src: '/fonts/libre-baskerville-v24-latin.woff2',
+  },
+  {
+    family: 'Libre Baskerville',
+    style: 'italic',
+    weight: '400',
+    display: 'swap',
+    src: '/fonts/libre-baskerville-v24-latin-italic.woff2',
+  },
+  {
+    family: 'Outfit',
+    style: 'normal',
+    weight: '300 700',
+    display: 'swap',
+    src: '/fonts/outfit-v15-latin.woff2',
+  },
+]
+
+const PRELOADS = [...INDEX.matchAll(/<link rel="preload"[^>]*>/g)].map((m) => m[0])
+const PRELOAD_HREFS = PRELOADS.map((linha) => linha.match(/href="([^"]+)"/)?.[1] ?? '')
+const NO_DISCO = readdirSync(FONTS_DIR)
+const WOFF2_NO_DISCO = NO_DISCO.filter((f) => f.endsWith('.woff2'))
+const TERCEIROS = ['fonts.googleapis.com', 'fonts.gstatic.com']
+
+describe('as fontes vêm do próprio domínio (PRF-14)', () => {
+  it('a leitura encontrou as faces e os arquivos — âncora dupla', () => {
+    // Sem âncora, um regex que deixasse de casar faria toda asserção abaixo
+    // iterar lista vazia e passar em silêncio — a pior falha possível num
+    // teste que varre disco. São quatro faces sobre três arquivos.
+    expect(FACES).toHaveLength(4)
+    expect(WOFF2_NO_DISCO).toHaveLength(3)
   })
 
-  it('pede Libre Baskerville e Outfit', () => {
-    expect(fontLink).toMatch(/family=Libre\+Baskerville/)
-    expect(fontLink).toMatch(/family=Outfit/)
+  it.each(TERCEIROS)('o `index.html` não fala mais com `%s`', (origem) => {
+    expect(INDEX).not.toContain(origem)
   })
 
-  it('pede os pesos que o DS declara, e só eles', () => {
-    // Libre Baskerville existe em 400, 700 e itálico de 400 — não há 500 nem
-    // 600. Pedir peso inexistente faz o navegador sintetizar falso-negrito.
-    expect(fontLink).toMatch(/Libre\+Baskerville:ital,wght@0,400;0,700;1,400/)
-    // Outfit é variável: uma faixa cobre os cinco pesos do DS (300..700).
-    expect(fontLink).toMatch(/Outfit:wght@300\.\.700/)
+  it.each(TERCEIROS)('o `App.css` não fala mais com `%s`', (origem) => {
+    // Lido SEM comentário: o bloco que explica a saída do Google cita os dois
+    // hosts, e citar não é usar.
+    expect(semComentarios(APP_CSS)).not.toContain(origem)
   })
 
-  it.each(['Fredoka', 'DM+Sans', 'Berkshire', 'Lilita'])(
-    'NÃO pede `%s`, da identidade anterior',
-    (familia) => {
-      expect(fontLink).not.toContain(familia)
-    },
-  )
-
-  it('nenhuma outra origem de fonte é requisitada', () => {
-    // Uma segunda origem passaria despercebida: a página renderiza, e o custo
-    // aparece só no waterfall de quem abre no 4G.
+  it('nenhuma origem externa sobrou no `<head>`', () => {
+    // A régua é a lista de origens, não a busca por um nome: uma terceira CDN
+    // de fonte passaria pelas duas asserções acima sem tocar em nenhuma.
     const origens = [...INDEX.matchAll(/<link[^>]*href="(https?:\/\/[^/"]+)/g)].map((m) => m[1])
-    expect([...new Set(origens)].sort()).toEqual([
-      'https://fonts.googleapis.com',
-      'https://fonts.gstatic.com',
-    ])
+    expect(origens).toEqual([])
+  })
+
+  it.each(DS)('declara $family $style $weight, e aponta para o arquivo dela', (esperada) => {
+    const face = FACES.find(
+      (f) =>
+        f.family === esperada.family && f.style === esperada.style && f.weight === esperada.weight,
+    )
+    expect(face).toBeDefined()
+    expect(face.src).toBe(esperada.src)
+  })
+
+  it('nenhum peso além dos do DS é declarado', () => {
+    // O par da asserção acima, e o que pega o caso caro: pedir 500 ou 600 de
+    // uma família que não os tem faz o navegador SINTETIZAR falso-negrito —
+    // não quebra nada, só fica feio, e só na fonte certa.
+    const declarados = FACES.map((f) => `${f.family} ${f.style} ${f.weight}`).sort()
+    const esperados = DS.map((f) => `${f.family} ${f.style} ${f.weight}`).sort()
+    expect(declarados).toEqual(esperados)
+  })
+
+  it('SENSOR: a régua reprova um peso que a família não tem', () => {
+    // Prova que a asserção acima é sensível ao defeito que ela existe para
+    // pegar. Sem isto, um extrator quebrado devolveria lista vazia e a
+    // comparação passaria com o CSS pedindo qualquer coisa.
+    const defeito = facesDe(
+      '@font-face { font-family: "Libre Baskerville"; font-style: normal; font-weight: 600; font-display: swap; src: url("/fonts/x.woff2") format("woff2"); }',
+    )
+    expect(defeito).toHaveLength(1)
+    expect(defeito[0].weight).toBe('600')
+    expect(DS.map((f) => `${f.family} ${f.style} ${f.weight}`)).not.toContain(
+      'Libre Baskerville normal 600',
+    )
+  })
+
+  it('SENSOR: a poda de comentário não engole o uso, e atravessa CRLF', () => {
+    // Se a poda comesse demais, "nenhuma origem de terceiro" passaria mesmo
+    // com um `@import` real do Google no arquivo.
+    expect(semComentarios('/* fonts.gstatic.com */\na{color:red}')).not.toContain('gstatic')
+    expect(semComentarios('/* nota */\r\na{src:url(https://fonts.gstatic.com/x)}')).toContain(
+      'fonts.gstatic.com',
+    )
+  })
+
+  it.each([...new Set(DS.map((f) => f.src))])('`public%s` existe, e é um woff2 de verdade', (src) => {
+    // "Existe" não basta: um arquivo de zero byte ou um HTML de erro salvo com
+    // extensão de fonte passaria por `existsSync`. A assinatura `wOF2` é a
+    // prova de que os bytes são fonte.
+    const arquivo = resolve(PUBLIC, src.slice(1))
+    expect(existsSync(arquivo)).toBe(true)
+    const bytes = readFileSync(arquivo)
+    expect(bytes.toString('latin1', 0, 4)).toBe('wOF2')
+    expect(bytes.length).toBeGreaterThan(10_000)
+  })
+
+  it('nenhum arquivo de fonte fica órfão no diretório', () => {
+    // Bidirecional: a asserção acima pega a fonte que sumiu, esta pega a que
+    // ficou para trás — bytes servidos que ninguém pede são peso morto no
+    // repositório e no deploy.
+    const usados = new Set(DS.map((f) => f.src.replace('/fonts/', '')))
+    expect([...WOFF2_NO_DISCO].sort()).toEqual([...usados].sort())
+  })
+
+  it.each(FACES)('$family $style $weight usa `font-display: swap`', (face) => {
+    // Texto invisível esperando fonte é pior que texto certo na fonte errada
+    // por 200 ms. É a política de sempre, e ela não muda ao sair do Google.
+    expect(face.display).toBe('swap')
+  })
+})
+
+describe('o `preload` das duas faces do primeiro texto (PRF-14)', () => {
+  it('a leitura encontrou os `preload` — âncora', () => {
+    // São dois: o corpo (Outfit) e os títulos (Libre Baskerville). O itálico
+    // fica de fora de propósito: é raro e não paga uma requisição adiantada.
+    expect(PRELOADS).toHaveLength(2)
+  })
+
+  it.each([
+    ['/fonts/outfit-v15-latin.woff2', 'o corpo'],
+    ['/fonts/libre-baskerville-v24-latin.woff2', 'os títulos'],
+  ])('adianta `%s` — %s', (href) => {
+    expect(PRELOAD_HREFS).toContain(href)
+  })
+
+  it.each(PRELOADS)('%s declara `as`, `type` e `crossorigin`', (linha) => {
+    expect(linha).toContain('as="font"')
+    expect(linha).toContain('type="font/woff2"')
+    // `crossorigin` não é enfeite nem sobra de copiar do Google: fonte é
+    // SEMPRE buscada em modo CORS, mesmo do próprio domínio. Sem o atributo o
+    // navegador guarda a resposta num balde que o `@font-face` não alcança e
+    // baixa tudo de novo — o adiantamento vira o dobro do custo, em silêncio.
+    expect(linha).toContain('crossorigin')
+  })
+
+  it('nenhum `preload` aponta para face que o CSS não declara', () => {
+    // Um `preload` órfão é a regressão mais cara desta task: o arquivo baixa,
+    // ninguém usa, e o Lighthouse ainda cobra o byte.
+    const declarados = FACES.map((f) => f.src)
+    for (const href of PRELOAD_HREFS) expect(declarados).toContain(href)
+  })
+
+  it('vem ANTES do `<script type="module">`', () => {
+    // O ganho inteiro é o download começar junto com o HTML. Depois do script,
+    // o navegador já teria descoberto a fonte pelo CSS por conta própria.
+    const script = INDEX.indexOf('<script type="module"')
+    expect(script).toBeGreaterThan(-1)
+    for (const linha of PRELOADS) expect(INDEX.indexOf(linha)).toBeLessThan(script)
+  })
+})
+
+describe('a licença OFL viaja junto dos arquivos (PRF-14)', () => {
+  const LICENCAS = NO_DISCO.filter((f) => f.startsWith('OFL'))
+
+  it('há uma licença por família, no MESMO diretório dos bytes', () => {
+    // Exigência da SIL Open Font License 1.1, não formalidade: redistribuir a
+    // fonte sem o aviso de copyright e o texto da licença é redistribuir fora
+    // da licença. Duas famílias, dois detentores, dois arquivos.
+    expect([...LICENCAS].sort()).toEqual(['OFL-Libre-Baskerville.txt', 'OFL-Outfit.txt'])
+  })
+
+  it.each([
+    ['OFL-Libre-Baskerville.txt', 'Libre Baskerville'],
+    ['OFL-Outfit.txt', 'Outfit'],
+  ])('`%s` traz o aviso de copyright e o texto da licença', (arquivo, familia) => {
+    const texto = readFileSync(resolve(FONTS_DIR, arquivo), 'utf8')
+    expect(texto).toMatch(/^Copyright \d{4} The .+ Project Authors/)
+    expect(texto).toContain(familia)
+    expect(texto).toContain('SIL OPEN FONT LICENSE Version 1.1')
+    expect(texto).toContain('PERMISSION & CONDITIONS')
+  })
+
+  it('toda família declarada no CSS tem licença — bidirecional', () => {
+    // O par do teste acima: uma terceira família entrando no `@font-face` sem
+    // licença ao lado passaria pela lista fixa, mas não por esta varredura.
+    const familias = [...new Set(FACES.map((f) => f.family))]
+    expect(familias.length).toBeGreaterThanOrEqual(2)
+    for (const familia of familias) {
+      const encontrada = LICENCAS.some((arquivo) =>
+        readFileSync(resolve(FONTS_DIR, arquivo), 'utf8').includes(familia),
+      )
+      expect(encontrada).toBe(true)
+    }
   })
 })
 
@@ -293,8 +518,9 @@ describe('index.html — o `preconnect` do Supabase (PRF-04)', () => {
 
   it('a leitura encontrou os `preconnect` do documento — âncora', () => {
     // Sem esta âncora, um regex que deixasse de casar faria toda asserção abaixo passar sobre uma
-    // lista vazia. São três hoje: o do Supabase e os dois do Google Fonts.
-    expect(preconnects).toHaveLength(3)
+    // lista vazia. É UM hoje: os dois do Google Fonts saíram com a T18, que trouxe as fontes para
+    // o próprio domínio — e origem própria não se aquece, já está aquecida.
+    expect(preconnects).toHaveLength(1)
   })
 
   it('declara `preconnect` para o Supabase, com `crossorigin`', () => {
@@ -323,12 +549,12 @@ describe('index.html — o `preconnect` do Supabase (PRF-04)', () => {
     expect(preconnect).toBeLessThan(script)
   })
 
-  it('as três declarações de fonte de hoje continuam intactas', () => {
-    // T18 é quem mexe nelas. Esta task só ACRESCENTA uma origem, e o par desta asserção é o
-    // `nenhuma outra origem de fonte é requisitada`, acima, que continua fechado nas duas do Google.
-    expect(preconnects.filter((l) => l.includes('fonts.googleapis.com'))).toHaveLength(1)
-    expect(preconnects.filter((l) => l.includes('fonts.gstatic.com'))).toHaveLength(1)
-    expect(INDEX).toMatch(/<link href="https:\/\/fonts\.googleapis\.com\/css2\?family=/)
+  it('é o ÚNICO — nenhuma origem de terceiro sobrou para aquecer', () => {
+    // A T18 tirou as duas do Google, e esta asserção é a que sobrou no lugar delas: um
+    // `preconnect` para uma origem que a loja não usa mais é pior que inútil — custa um aperto de
+    // mão no 4G para nada, e ninguém percebe, porque a página funciona.
+    expect(preconnects.filter((l) => /https?:\/\//.test(l))).toHaveLength(0)
+    expect(preconnects[0]).toContain('%VITE_SUPABASE_URL%')
   })
 })
 
