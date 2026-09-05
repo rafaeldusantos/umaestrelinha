@@ -60,7 +60,7 @@ catalog-import 509/23**. Quedas declaradas e permitidas: `TrendingLane`, `MenuBa
 | --- | --- | --- | --- | --- | --- |
 | 1 | 1 | T1–T5 | ✅ completo | `5dffb6b` | core **1705/66** (+212/+6) · tsc 0 · 0 |
 | 2 | 2 + 3 | T6–T11 | ✅ completo | `3c00b09` · `1b97a38` | store **2046/137** (+45/+2) · core 1705/66 · backoffice 1786/109 · lint 27/5 (=) · tsc 0 · 0 · build ✅ |
-| 3 | 4 | T12–T18 | ✅ completo | (dois commits ao fim do lote) | store **2140/142** (+94/+5) · core 1705/66 (=) · backoffice 1786/109 (=) · lint 27/5 (=) · tsc 0 · 0 |
+| 3 | 4 | T12–T18 | ✅ completo | `7697f91` · `test(39): os guardas do menu na loja` | store **2140/142** (+94/+5) · core 1705/66 (=) · backoffice 1786/109 (=) · lint 27/5 (=) · tsc 0 · 0 |
 | 4 | 5 | T19–T26 | — | — | — |
 | 5 | 6 + 7 | T27–T32 | — | — | — |
 
