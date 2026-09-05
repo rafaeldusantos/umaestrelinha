@@ -11,7 +11,56 @@ const { fromMock } = vi.hoisted(() => ({ fromMock: vi.fn() }))
 
 vi.mock('@estrelinha/supabase/client', () => ({ supabase: { from: fromMock } }))
 
-import { useProducts } from '../useProducts'
+import {
+  LISTING_LIMIT,
+  useAllProducts,
+  useFeaturedProducts,
+  useNewProducts,
+  useProducts,
+} from '../useProducts'
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/**
+ * Um builder do PostgREST de mentira — **encadeável e thenable**.
+ *
+ * `select()` deixou de ser o fim da cadeia quando as listagens passaram a declarar ordenação e teto
+ * (`PRF-09`): agora vem `.order().order().limit()`, e na categoria um `.in()` antes. Um mock que
+ * devolvesse a Promise direto do `select` quebraria na primeira chamada encadeada.
+ *
+ * Nenhuma asserção deste arquivo mudou — o que mudou é a FORMA do dublê, que passou a ter os
+ * mesmos métodos que o código sob teste chama. E o dublê registra a janela pedida, para os testes
+ * de `PRF-09` poderem prová-la.
+ */
+interface JanelaPedida {
+  order: { column: string; ascending: boolean }[]
+  limit: number | null
+}
+
+const criarBuilder = (
+  resolver: () => { data: unknown; error: unknown },
+  hooks: { onIn?: (column: string, values: string[]) => void } = {},
+) => {
+  const janela: JanelaPedida = { order: [], limit: null }
+  const q: any = {
+    order: (column: string, options?: { ascending?: boolean }) => {
+      janela.order.push({ column, ascending: options?.ascending !== false })
+      return q
+    },
+    limit: (count: number) => {
+      janela.limit = count
+      return q
+    },
+    eq: () => q,
+    in: (column: string, values: string[]) => {
+      hooks.onIn?.(column, values)
+      return q
+    },
+    then: (onOk: (v: unknown) => unknown, onErr?: (e: unknown) => unknown) =>
+      Promise.resolve(resolver()).then(onOk, onErr),
+  }
+  q.janela = janela
+  return q
+}
 
 const dbRow = (overrides: Record<string, unknown> = {}) => ({
   id: 'prod-1',
@@ -30,7 +79,72 @@ const dbRow = (overrides: Record<string, unknown> = {}) => ({
 })
 
 const respondWith = (rows: unknown[]) => {
-  fromMock.mockReturnValue({ select: () => Promise.resolve({ data: rows, error: null }) })
+  const q = criarBuilder(() => ({ data: rows, error: null }))
+  fromMock.mockReturnValue({ select: () => q })
+  return { janela: () => q.janela as JanelaPedida }
+}
+
+/**
+ * A árvore que o banco tem de verdade: guarda-chuva "Bottons" com os universos dentro, e "Naruto"
+ * dentro de "Anime". É ela que expõe o roll-up — `cat-anime` tem uma NETA.
+ */
+const TREE = [
+  { id: 'cat-bottons', parent_id: null, slug: 'bottons' },
+  { id: 'cat-anime', parent_id: 'cat-bottons', slug: 'anime' },
+  { id: 'cat-kpop', parent_id: 'cat-bottons', slug: 'kpop' },
+  { id: 'cat-naruto', parent_id: 'cat-anime', slug: 'naruto' },
+]
+
+/**
+ * Encena as três leituras da variante com `categorySlug`: árvore → vínculos → produtos.
+ *
+ * `linksByCategory` mapeia categoria → produtos vinculados **a ela**, para o teste poder pôr um
+ * produto só na filha e provar que ele aparece na página do pai.
+ */
+const respondForCategory = (
+  linksByCategory: Record<string, string[]>,
+  rows: unknown[],
+  tree = TREE,
+) => {
+  const filtroSpy = vi.fn()
+  let categoriesSelects = 0
+  let productSelects = 0
+  let galho: string[] = []
+  let produtos: any = null
+
+  fromMock.mockImplementation((table: string) => {
+    if (table === 'categories') {
+      categoriesSelects += 1
+      // A árvore não passa por `listingWindow`: são duas colunas de `categories`, não listagem.
+      return { select: () => Promise.resolve({ data: tree, error: null }) }
+    }
+    // `product_categories` NÃO é mais consultada em separado: o filtro roda dentro da consulta de
+    // produto, por embed aliased. Se alguém voltar a consultá-la, o teste de N+1 acusa.
+    productSelects += 1
+    produtos = criarBuilder(
+      () => {
+        // Encena o servidor: devolve os produtos vinculados a qualquer categoria do galho, sem
+        // repetir — que é o que o inner join do PostgREST faz.
+        const ids = [...new Set(galho.flatMap(id => linksByCategory[id] ?? []))]
+        return { data: ids.length > 0 ? rows : [], error: null }
+      },
+      {
+        onIn: (column, values) => {
+          filtroSpy(column, values)
+          galho = values
+        },
+      },
+    )
+    return { select: () => produtos }
+  })
+  return {
+    filtroSpy,
+    /** O galho de categorias enviado ao servidor — o que de fato viaja na URL. */
+    galhoEnviado: () => filtroSpy.mock.calls[0]?.[1] as string[] | undefined,
+    counts: () => ({ categoriesSelects, productSelects }),
+    /** A ordenação e o teto que a consulta de produtos declarou (`PRF-09`). */
+    janela: () => produtos?.janela as JanelaPedida | undefined,
+  }
 }
 
 const wrapper = ({ children }: { children: ReactNode }) => (
@@ -243,60 +357,6 @@ describe('useProducts — grade do produto (PST-05)', () => {
 // por `.eq('category_id')`". A prova é na CHAMADA: é o filtro que decide se um produto em 3
 // categorias aparece nas 3 páginas.
 describe('useProducts — filtro por categoria N:N (PST-06 AC 4)', () => {
-  /**
-   * A árvore que o banco tem de verdade: guarda-chuva "Bottons" com os universos dentro, e "Naruto"
-   * dentro de "Anime". É ela que expõe o roll-up — `cat-anime` tem uma NETA.
-   */
-  const TREE = [
-    { id: 'cat-bottons', parent_id: null, slug: 'bottons' },
-    { id: 'cat-anime', parent_id: 'cat-bottons', slug: 'anime' },
-    { id: 'cat-kpop', parent_id: 'cat-bottons', slug: 'kpop' },
-    { id: 'cat-naruto', parent_id: 'cat-anime', slug: 'naruto' },
-  ]
-
-  /**
-   * Encena as três leituras da variante com `categorySlug`: árvore → vínculos → produtos.
-   *
-   * `linksByCategory` mapeia categoria → produtos vinculados **a ela**, para o teste poder pôr um
-   * produto só na filha e provar que ele aparece na página do pai.
-   */
-  const respondForCategory = (
-    linksByCategory: Record<string, string[]>,
-    rows: unknown[],
-    tree = TREE,
-  ) => {
-    const filtroSpy = vi.fn()
-    let categoriesSelects = 0
-    let productSelects = 0
-
-    fromMock.mockImplementation((table: string) => {
-      if (table === 'categories') {
-        categoriesSelects += 1
-        return { select: () => Promise.resolve({ data: tree, error: null }) }
-      }
-      // `product_categories` NÃO é mais consultada em separado: o filtro roda dentro da consulta de
-      // produto, por embed aliased. Se alguém voltar a consultá-la, o teste de N+1 acusa.
-      productSelects += 1
-      return {
-        select: () => ({
-          in: (column: string, values: string[]) => {
-            filtroSpy(column, values)
-            // Encena o servidor: devolve os produtos vinculados a qualquer categoria do galho, sem
-            // repetir — que é o que o inner join do PostgREST faz.
-            const ids = [...new Set(values.flatMap(id => linksByCategory[id] ?? []))]
-            return Promise.resolve({ data: ids.length > 0 ? rows : [], error: null })
-          },
-        }),
-      }
-    })
-    return {
-      filtroSpy,
-      /** O galho de categorias enviado ao servidor — o que de fato viaja na URL. */
-      galhoEnviado: () => filtroSpy.mock.calls[0]?.[1] as string[] | undefined,
-      counts: () => ({ categoriesSelects, productSelects }),
-    }
-  }
-
   it('filtra no SERVIDOR pela categoria, por embed aliased de product_categories', async () => {
     const { filtroSpy } = respondForCategory({ 'cat-anime': ['prod-1', 'prod-9'] }, [dbRow()])
 
@@ -421,7 +481,7 @@ describe('useProducts — filtro por categoria N:N (PST-06 AC 4)', () => {
         return {
           select: () => {
             catalogoCompletoSpy()
-            return Promise.resolve({ data: [dbRow()], error: null })
+            return criarBuilder(() => ({ data: [dbRow()], error: null }))
           },
         }
       })
@@ -447,9 +507,7 @@ describe('useProducts — filtro por categoria N:N (PST-06 AC 4)', () => {
       fromMock.mockImplementation((table: string) => {
         if (table === 'categories') return { select: () => Promise.resolve({ data: TREE, error: null }) }
         return {
-          select: () => ({
-            in: () => Promise.resolve({ data: null, error: { message: 'URI too long' } }),
-          }),
+          select: () => criarBuilder(() => ({ data: null, error: { message: 'URI too long' } })),
         }
       })
 
@@ -527,5 +585,176 @@ describe('useProducts — filtro por categoria N:N (PST-06 AC 4)', () => {
 
       expect(result.current.data).toHaveLength(1)
     })
+  })
+})
+
+/**
+ * `PRF-09` — a janela da consulta: ordem declarada e teto explícito.
+ *
+ * As duas coisas andam juntas, e é por isso que moram no mesmo `describe`. **Teto sem ordem é lista
+ * indefinida**: assim que o servidor devolve "as primeiras N", quem decide quais são as primeiras
+ * passa a ser o plano de execução, e a fileira da home mostraria peças diferentes a cada recarga.
+ *
+ * E **ordem sem teto não resolve o que motivou a feature**: medido em 2026-09-05, a home disparava
+ * quatro consultas de árvore inteira — `joias-afetivas` sozinha trazia 505 produtos e 1,10 MB
+ * comprimidos para desenhar QUATRO cards.
+ */
+describe('useProducts — a janela da consulta (PRF-09)', () => {
+  it('sem `limit`, a listagem declara o teto de LISTING_LIMIT — o corte deixa de ser herdado', async () => {
+    // Sem `.limit()` o PostgREST corta em `db-max-rows` e responde 200 com a lista truncada: um
+    // catálogo que cruze a marca perderia produtos na vitrine sem erro em lugar nenhum.
+    const { janela } = respondWith([dbRow()])
+
+    const { result } = renderHook(() => useProducts(), { wrapper })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    expect(janela().limit).toBe(LISTING_LIMIT)
+  })
+
+  it('o teto é um número escrito num lugar só, e ele é 1.000', () => {
+    expect(LISTING_LIMIT).toBe(1000)
+  })
+
+  it('`limit` da chamada substitui o teto — quem desenha 4 cards pede 4 linhas', async () => {
+    const { janela } = respondWith([dbRow()])
+
+    const { result } = renderHook(() => useProducts(undefined, { limit: 4 }), { wrapper })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    expect(janela().limit).toBe(4)
+  })
+
+  it('a consulta declara ordenação por created_at ascendente — a ordem de inserção que a vitrine já pratica', async () => {
+    const { janela } = respondWith([dbRow()])
+
+    const { result } = renderHook(() => useProducts(), { wrapper })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    expect(janela().order[0]).toEqual({ column: 'created_at', ascending: true })
+  })
+
+  it('a ordenação tem desempate por id — o importador grava em lote e `now()` é o tempo da TRANSAÇÃO', async () => {
+    // Centenas de produtos compartilham o mesmo `created_at`. Sem o segundo critério, o empate
+    // voltaria a ser resolvido pelo plano de execução — ou seja, indefinido.
+    const { janela } = respondWith([dbRow()])
+
+    const { result } = renderHook(() => useProducts(), { wrapper })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    expect(janela().order).toHaveLength(2)
+    expect(janela().order[1]).toEqual({ column: 'id', ascending: true })
+  })
+
+  it('a consulta POR CATEGORIA declara a mesma janela, depois do filtro', async () => {
+    const { janela } = respondForCategory({ 'cat-anime': ['prod-1'] }, [dbRow()])
+
+    const { result } = renderHook(() => useProducts('anime', { limit: 4 }), { wrapper })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    expect(janela()!.order).toEqual([
+      { column: 'created_at', ascending: true },
+      { column: 'id', ascending: true },
+    ])
+    expect(janela()!.limit).toBe(4)
+  })
+
+  it('a consulta por categoria SEM limite continua no teto — a página da categoria recebe a lista inteira', async () => {
+    // `LST-*`: filtro, ordenação e rolagem infinita continuam no cliente, sobre a lista inteira.
+    const { janela } = respondForCategory({ 'cat-anime': ['prod-1'] }, [dbRow()])
+
+    const { result } = renderHook(() => useProducts('anime'), { wrapper })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    expect(janela()!.limit).toBe(LISTING_LIMIT)
+  })
+
+  it('useAllProducts declara janela — é a consulta que a busca e a gaveta usam', async () => {
+    const { janela } = respondWith([dbRow()])
+
+    const { result } = renderHook(() => useAllProducts(), { wrapper })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    expect(janela().limit).toBe(LISTING_LIMIT)
+    expect(janela().order).toHaveLength(2)
+  })
+
+  it('useFeaturedProducts declara janela', async () => {
+    const { janela } = respondWith([dbRow()])
+
+    const { result } = renderHook(() => useFeaturedProducts(), { wrapper })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    expect(janela().limit).toBe(LISTING_LIMIT)
+    expect(janela().order).toHaveLength(2)
+  })
+
+  it('useNewProducts declara janela', async () => {
+    const { janela } = respondWith([dbRow()])
+
+    const { result } = renderHook(() => useNewProducts(), { wrapper })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    expect(janela().limit).toBe(LISTING_LIMIT)
+    expect(janela().order).toHaveLength(2)
+  })
+
+  it('uma resposta EXATAMENTE no tamanho do teto continua sendo a lista inteira que chegou', async () => {
+    // O teto declarado não recorta no cliente: o que ele muda é o pedido, não a leitura.
+    const cheia = Array.from({ length: 3 }, (_, i) => dbRow({ id: 'prod-' + i }))
+    respondWith(cheia)
+
+    const { result } = renderHook(() => useProducts(undefined, { limit: 3 }), { wrapper })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    expect(result.current.data).toHaveLength(3)
+  })
+})
+
+describe('useProducts — o limite entra na CHAVE do cache (PRF-09)', () => {
+  /**
+   * Sem isto a fileira da home e a página da categoria compartilhariam a resposta: quem chegasse
+   * primeiro serviria o outro, e a categoria inteira apareceria com quatro produtos — ou a home
+   * baixaria os 505. É o mesmo cliente para os dois, então a chave tem de distinguir o pedido.
+   */
+  const clienteCompartilhado = () => {
+    // `staleTime` alto de propósito: em produção o cliente da loja nasce com 5 minutos (`PRF-07`), e
+    // com o padrão zero do vitest toda montagem revalidaria — as duas chamadas refariam a consulta e
+    // o teste mediria a revalidação, não a chave.
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: Infinity } },
+    })
+    return ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    )
+  }
+
+  const consultasDeProduto = () => fromMock.mock.calls.filter(([t]) => t === 'products').length
+
+  it('dois limites diferentes para o mesmo slug são duas consultas', async () => {
+    const wrap = clienteCompartilhado()
+    respondForCategory({ 'cat-anime': ['prod-1'] }, [dbRow()])
+
+    const quatro = renderHook(() => useProducts('anime', { limit: 4 }), { wrapper: wrap })
+    await waitFor(() => expect(quatro.result.current.isSuccess).toBe(true))
+    const apósQuatro = consultasDeProduto()
+
+    const inteira = renderHook(() => useProducts('anime'), { wrapper: wrap })
+    await waitFor(() => expect(inteira.result.current.isSuccess).toBe(true))
+
+    expect(consultasDeProduto()).toBeGreaterThan(apósQuatro)
+  })
+
+  it('o MESMO limite para o mesmo slug reusa o cache — a home não paga duas vezes pela fileira', async () => {
+    const wrap = clienteCompartilhado()
+    respondForCategory({ 'cat-anime': ['prod-1'] }, [dbRow()])
+
+    const primeira = renderHook(() => useProducts('anime', { limit: 4 }), { wrapper: wrap })
+    await waitFor(() => expect(primeira.result.current.isSuccess).toBe(true))
+    const chamadas = consultasDeProduto()
+
+    const segunda = renderHook(() => useProducts('anime', { limit: 4 }), { wrapper: wrap })
+    await waitFor(() => expect(segunda.result.current.isSuccess).toBe(true))
+
+    expect(consultasDeProduto()).toBe(chamadas)
   })
 })

@@ -42,6 +42,9 @@ interface ProductPageProps {
   legacy?: boolean
 }
 
+/** Quantas peças a faixa de relacionados desenha. É também o teto da consulta, mais um. */
+const RELATED_CARDS = 4
+
 const ProductPage = ({ legacy = false }: ProductPageProps) => {
   const { slug } = useParams<{ slug: string }>()
   const { pathname } = useLocation()
@@ -54,7 +57,15 @@ const ProductPage = ({ legacy = false }: ProductPageProps) => {
   // `sort_order`, desempate por `position`. Com N:N, `category_slug` guardava só uma das N.
   const { data: categories } = useCategories()
   const category = product ? displayCategory(product, categories) : null
-  const { data: categoryProducts } = useProducts(category?.slug)
+  /*
+   * Os relacionados (`PRF-09`): quatro cards, e a consulta pede **cinco**.
+   *
+   * O quinto é a folga para o próprio produto, que é filtrado logo abaixo — pedir quatro devolveria
+   * três sempre que a peça aberta estivesse entre os quatro primeiros da categoria. Antes daqui a
+   * chamada era a mesma da página da categoria e rebaixava a árvore inteira: 505 produtos para
+   * desenhar quatro.
+   */
+  const { data: categoryProducts } = useProducts(category?.slug, { limit: RELATED_CARDS + 1 })
 
   // `URL-01`: a canônica do produto é `/produtos/<slug>` — o formato que a loja em produção publica
   // e que o Google indexou. Sai do `<head>` quando a página desmonta.
@@ -85,7 +96,7 @@ const ProductPage = ({ legacy = false }: ProductPageProps) => {
       product={product}
       category={category}
       categories={categories ?? []}
-      related={(categoryProducts ?? []).filter(p => p.id !== product.id).slice(0, 4)}
+      related={(categoryProducts ?? []).filter(p => p.id !== product.id).slice(0, RELATED_CARDS)}
       variantImage={variantImage}
       onVariantImage={setVariantImage}
     />
