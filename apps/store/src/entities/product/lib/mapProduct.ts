@@ -86,7 +86,17 @@ export const PRODUCT_CARD_SELECT = [
   // a vitrine fica vazia sem erro. `name` sai — o mapper lê só o `slug`.
   'category_id, categories!products_category_id_fkey(slug)',
   'images, options, stock_policy',
-  'stock, stock_total, low_stock_threshold',
+  // **`stock` NÃO entra, e a razão é schema, não economia.** A coluna foi renomeada para
+  // `stock_total` na migration `20260726000000_products_extended_fields.sql`, e o que sobrou dela é
+  // o fallback `p.stock ?? p.stock_total` do `mapDbToProduct` — guardado na época para o bundle
+  // velho sobreviver ao intervalo de deploy. Pedir `stock` aqui foi ler esse fallback como se fosse
+  // declaração de schema: o PostgREST responde **400 `column products.stock does not exist`** e a
+  // vitrine inteira fica vazia. `PRODUCT_SELECT` nunca sofreu disso porque usa `*`.
+  //
+  // É o `AD-012` outra vez, e do lado da leitura: tipo e fallback são afirmação, o banco é a
+  // verificação. Quem impede a volta é `renamedColumns.test.ts`, que lê os `RENAME COLUMN` das
+  // migrations do disco.
+  'stock_total, low_stock_threshold',
   'is_new, is_featured, tags',
   'weight_kg, width_cm, height_cm, length_cm',
   'requires_material, material_kinds, engraving_max_chars',
