@@ -346,7 +346,18 @@ quando mudarem de verdade.
 | --- | --- | --- |
 | **Lint** | **27 erros / 5 warnings** — backoffice 25/4 · store 2/1 | `pnpm lint` |
 | **Tipos** | **0 · 0 · 0** (store · backoffice · catalog-import) | `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` |
-| **Testes** | **6139 em 334 arquivos** — store 2001/135 · backoffice 1786/109 · core 1493/60 · functions 350/7 · catalog-import 509/23 | `pnpm --filter @estrelinha/<w> test` |
+| **Testes** | **6465 em 352 arquivos** — store 2270/152 · backoffice 1789/109 · core 1524/61 · functions 370/7 · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test` |
+
+**A feature `38` (performance no celular) somou +326 em quatro workspaces**, medidos em 2026-09-05 um
+por vez e com exit code capturado sem pipe: **store +269**, **core +31** (o módulo `rendition`),
+**functions +20** (o `preload` da página do produto) e **catalog-import +3** (a constante de cache).
+O backoffice ficou em +3, e `packages/core/src/payment/**` não foi tocado — conferido por
+`git diff --name-only`. Lint e tipos não mudaram.
+
+> **A baseline desta feature esteve errada DUAS vezes antes de ser escrita certa**, e as duas foram
+> pegas pelo verificador independente, nenhuma pelo autor: primeiro `6127 em 351` — desatualizada
+> **e** mal somada —, depois `6454 em 352`, que envelheceu em 4 testes no commit seguinte. É a
+> própria lição desta seção acontecendo de novo: **meça na hora de escrever, e some conferindo**.
 
 **A feature `37` (frete grátis configurável) somou +86 em três workspaces**, medidos em 2026-09-05 um
 por vez e com exit code capturado: **store +45**, **core +32** (a regra pura, 26, e o hook, 6) e
