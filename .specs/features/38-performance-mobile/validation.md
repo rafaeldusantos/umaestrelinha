@@ -1,411 +1,468 @@
 # Performance da loja no celular — Validation
 
-**Date**: 2026-09-05
-**Spec**: `.specs/features/38-performance-mobile/spec.md`
-**Diff range**: `fd4d121..HEAD` (6 commits de implementação, sobre o commit da spec)
-**Verifier**: sub-agente independente (autor ≠ verificador) — **não escreveu uma linha desta feature**
-**Veredito**: ❌ **FAIL** — 3 lacunas de discriminação e 1 regressão de comportamento confirmada
+**Feature**: `.specs/features/38-performance-mobile/spec.md`
+**Branch**: `feat/38-performance-mobile` · **Faixa**: `fd4d121..HEAD` (9 commits)
+
+| Iteração | Data | Verificador | Veredito |
+| --- | --- | --- | --- |
+| 1 | 2026-09-05 | sub-agente independente (autor ≠ verificador) | ❌ **FAIL** — 3 lacunas de discriminação + 1 regressão de comportamento |
+| **2** | **2026-09-05** | **sub-agente independente, outro** — não escreveu uma linha desta feature nem do commit de correção | ❌ **FAIL** — as 3 lacunas da iteração 1 estão **fechadas e provadas**; **1 sobrevivente novo** e **2 defeitos de bookkeeping** ficam de pé |
 
 ---
 
 ## O que este relatório NÃO conseguiu verificar
 
-Declarado antes de qualquer número, porque o que falta aqui pesa mais do que o que passou.
+Declarado antes de qualquer número, porque o que falta aqui pesa mais do que o que passou. Vale para
+as duas iterações — nada nesta lista mudou entre elas.
 
 1. **Nenhum teste desta feature prova comportamento visual em navegador real.** jsdom devolve **0
-   para toda medida de layout**: `getBoundingClientRect`, `scrollWidth`, `offsetHeight`, tudo zero.
-   Consequências diretas:
+   para toda medida de layout** — `getBoundingClientRect`, `scrollWidth`, `offsetHeight`, tudo zero.
+   Consequências que continuam de pé:
    - `PRF-10` AC 1 — "`Suspense` cujo fallback SHALL NOT causar deslocamento de layout" — é asserido
      como **a classe `min-h-[60vh]` estar presente** (`RouteFallback.test.tsx:18`), não como ausência
      de CLS. A classe certa não prova o deslocamento ausente.
    - `PRF-02` e `PRF-03` estão provados no **atributo do DOM**, nunca no **byte que a rede
      entregou**. Que o `<img>` declare `srcset` não prova que o navegador escolheu o candidato de
      360 px, nem que o Supabase respondeu `image/webp` naquela largura.
-   - O `sizes` de cada superfície (`"(min-width: 1024px) 25vw, …"`, `"220px"`, `"160px"`) é asserido
-     como **string**. Se ele descrever a vaga errada, o `srcset` inteiro vira decoração — e nenhum
-     teste desta suíte tem como notar.
-2. **Nenhum dos Success Criteria da spec foi medido por mim.** LCP/FCP por Lighthouse, peso da
-   primeira visita, JSON da categoria e soma das fileiras da home exigem o deploy e um navegador em
-   390×844, aba anônima. Os números do `tasks.md` (214 KB de catálogo, 50 KB de categoria) são
-   **medições do autor**, não reproduzidas aqui.
-3. **O único Success Criterion que eu reproduzi é o do chunk de entrada** — build real, brotli
-   medido por mim (abaixo).
-4. **`PRF-05` AC 3 não foi implementada** (T19, o passe sobre os 3.618 objetos já no Storage). Não é
-   uma lacuna de teste: é uma AC sem código, pendente de decisão do usuário.
-5. **Não houve UAT interativa.** Quinta feature seguida em que autor e verificador conferem sem um
-   par de olhos humanos sobre a tela.
+   - O `sizes` de cada superfície continua asserido como **string**. Se ele descrever a vaga errada,
+     o `srcset` inteiro vira decoração, e nenhum teste desta suíte tem como notar.
+2. **Nenhum Lighthouse foi rodado por mim.** LCP, FCP, peso da primeira visita e a soma das fileiras
+   da home exigem o deploy e um navegador em 390×844, aba anônima. Os números do `tasks.md` (214 KB
+   de catálogo, 50 KB de categoria, 117,2 KB de chunk de entrada) são **medições do autor**. A
+   iteração 1 reproduziu **só** o do chunk de entrada, por build real; **a iteração 2 não repetiu o
+   build** — nada em `a1d465d` toca `vite.config`, roteamento ou `manualChunks`, então aquela medida
+   segue valendo, mas ela é dela, não minha.
+3. **O ganho que a correção alega — "214 KB a menos por página" ao ligar o `enabled` da busca — não
+   foi medido por mim.** Provei que a opção é **passada** (M5, M6) e que o `SearchDropdown` sai da
+   montagem desligado; não provei que o hook a **honra** (é o achado L-01, abaixo), nem medi bytes.
+4. **Não houve UAT interativa.** Sexta feature seguida em que autor e verificador conferem sem um par
+   de olhos humanos sobre a tela — e esta acrescenta um interruptor cujo efeito observável é
+   **presença de requisição**, que jsdom só enxerga por dublê.
+5. **`PRF-05` AC 3 segue sem implementação** — agora **declarada adiada** na spec, com razão medida e
+   confirmada por mim (abaixo).
 
 ---
 
-## Task Completion
+## Iteração 1 — o que foi achado, e como foi fechado
 
-| Task | Status | Notas |
+Preservado porque é o histórico que dá sentido ao critério da iteração 2.
+
+A iteração 1 mediu **13 mutações**, matou 9 e deixou **4 sobreviventes**, agrupados em **3 lacunas
+distintas** — todas de **prova ausente**, nenhuma de código de produção defeituoso:
+
+| # da it. 1 | Lacuna | AC |
 | --- | --- | --- |
-| T1–T18 | ✅ Feitas e commitadas | Confirmado no diff `fd4d121..HEAD` |
-| T19 | ⛔ Não executada | Passe de `cacheControl` — custa 410 MB de upload, espera decisão. **Deixa `PRF-05` AC 3 descoberta** |
+| 7 e 7b | O `href` do `<link rel="preload">` **nunca era asserido**: os quatro `toContain` miravam a string do elemento inteiro, e o `imagesrcset` do mesmo `<link>` — que carrega as três rendições — satisfazia todos. `href` apontando para a URL original **ou** para a rendição de 360 passava | `PRF-06` AC 5 |
+| 10 | **Ninguém provava que a `CategoryPage` passa `index`** ao `ProductCard`. Apagar `index={i}` passava nos 2234 testes do store — e sem o índice `imagePriority(undefined)` devolve `lazy` + `animateIn`, os três mecanismos que a feature existe para remover, na listagem que mediu **LCP de 15,6 s** | `PRF-03` AC 1 |
+| 13 | **Nada ligava a página do produto ao select completo.** Trocar `PRODUCT_SELECT` por `PRODUCT_CARD_SELECT` em `useProduct.ts` passava nos 2234 testes, e o efeito real seria a descrição de **todo** produto sumir da loja | `PRF-08` AC 2 |
+
+Mais uma **regressão de comportamento** confirmada por leitura (não por mutação): a busca deixou de
+casar termo que só aparece na `description`, porque a coluna saiu do select enxuto que alimenta as
+três superfícies de busca — contradizendo o critério "nenhuma mudança visível de comportamento" da
+própria spec.
+
+Os portões da iteração 1 estavam limpos (5 workspaces exit `0`, tipos `0·0·0`, lint 27/5) e o
+Success Criterion do chunk de entrada foi reproduzido por build real: **117,5 KB brotli** contra o
+teto de 220 KB.
+
+**O commit `a1d465d`** diz ter fechado as três lacunas (mais um interruptor novo na busca, por
+decisão do usuário) e ter tirado a contradição da spec. É isso que a iteração 2 mede.
 
 ---
 
-## Critérios de aceite ancorados na spec
+## Iteração 2 — as quatro mutações da iteração 1, reinjetadas
 
-**Regra aplicada**: evidência ou zero. Sem `arquivo:linha` + a expressão do `expect`, conta como não
-coberta. E o valor asserido tem de bater com o resultado que a spec define — "existe uma asserção"
-não basta.
+**Este é o critério objetivo de re-verificação: as quatro têm de morrer.** Todas em estado
+descartável, aplicadas por `perl`/`sed` sobre a árvore e desfeitas por `git checkout --`, com
+`git status --porcelain` conferido **depois de cada uma** (os arquivos de conferência saíram com
+**0 bytes** — árvore limpa a cada volta).
 
-### P1 — a loja pede a foto do tamanho que vai exibir
-
-| AC | Resultado que a spec define | `arquivo:linha` + asserção | Result |
-| --- | --- | --- | --- |
-| PRF-01/1 — objeto do Storage + largura → `/render/image/public/` com `width` e `quality=75` | URL exata | `packages/core/src/media/rendition.test.ts:64` — `expect(renditionUrl(OBJETO, 360)).toBe(`${RENDER}?width=360&quality=75`)` | ✅ PASS |
-| PRF-01/2 — URL fora do Storage volta **inalterada**, sem lançar | entrada devolvida idêntica | `rendition.test.ts:93` — `expect(renditionUrl('', 360)).toBe('')` · `:98` — `expect(renditionUrl(externo, 360)).toBe(externo)` · `:102` — `/assets/estrela.svg` · `:112` — disfarce na query · `:118` — `expect(() => renditionUrl(null…)).not.toThrow()` | ✅ PASS |
-| PRF-01/3 — largura fora de `1..2500` grampeada ao limite mais próximo | 0→1, −800→1, 9000→2500 | `rendition.test.ts:127` — `expect(renditionUrl(OBJETO, 0)).toBe(`${RENDER}?width=${RENDITION_MIN_WIDTH}&quality=75`)` · `:132` (9000→2500) · `:145` (`NaN`→1, `Infinity`→2500) | ✅ PASS |
-| PRF-02/4 — card declara `srcset` (360/480/720) e `sizes` da vaga real | as três larguras, e `sizes` da grade | `ProductCard.test.tsx:76` — `expect(foto.getAttribute('srcset')).toBe('…360w, …480w, …720w')` · `:89` — `expect(foto.getAttribute('sizes')).toBe('(min-width: 1024px) 25vw, (min-width: 768px) 33vw, 50vw')` · `:99` — `src` = rendição de 480 | ✅ PASS |
-| PRF-02/5 — vagas pequenas pedem largura compatível, nunca o original | 120 amostra · 160 carrinho/resumo/busca · 160 miniatura | `SmallSlotRendition.test.tsx:99` (`width=120`), `:140` (`width=180`), `:183` (`width=160`) · `CartDrawer.test.tsx:526` (`width=160`), `:538` (`width=120`) · `OrderSummary.test.tsx:725` · `OrderBump.test.tsx:200` · `SearchDropdown.test.tsx:68` · `SearchOverlay.test.tsx:154` · `useProductPurchase.test.tsx:283` · `ProductGallery.test.tsx:145` (`width=160&quality=75`) | ✅ PASS |
-| PRF-02/6 — palco pede 720 no celular; tela cheia continua no **original** | 720 no palco, original na lupa | `ProductGallery.test.tsx:118` — `expect(container.querySelector('img[sizes]')!.getAttribute('src')).toBe(…)` · `:158-159` — `expect(fontes).toContain(STORAGE)` + `forEach(src => expect(src).not.toContain('/render/image/public/'))` | ✅ PASS |
-| PRF-15 — arquivo de `apps/**` que monta URL de rendição fora do helper derruba a suíte, com âncora de contagem | lista vazia + âncora dupla | `renditionSingleOwner.test.ts:246` — `expect(telas).toEqual([])` · âncora `:137` (`>400` arquivos), `:154` (`≥6` chamadas legítimas) · sensores `:260`, `:296`, `:338` | ✅ PASS |
-
-### P2 — a maior imagem da página é a primeira a ser pedida
-
-| AC | Resultado que a spec define | `arquivo:linha` + asserção | Result |
-| --- | --- | --- | --- |
-| PRF-03/1 — primeiros seis `eager`, o primeiro `fetchpriority="high"` | `loading=eager` + `fetchpriority=high` no 0 | `ProductCard.test.tsx:136-137` — `expect(foto.getAttribute('loading')).toBe('eager')` / `expect(foto.getAttribute('fetchpriority')).toBe('high')` · `ProductCarousel.test.tsx` (índice deslocado pelo banner) | ⚠️ **PASS no componente, GAP na fiação** — ver Sensor mutação 10 |
-| PRF-03/2 — os seis primeiros SHALL NOT nascer em opacidade zero (nem Framer, nem `opacity-0`) | sem `opacity-0` e sem `initial.opacity=0` | `ProductCard.test.tsx:138-139` — `expect(foto.className).toContain('opacity-100')` / `.not.toContain('opacity-0')` · `:142` — `expect((container.firstElementChild as HTMLElement).style.opacity).not.toBe('0')` · `:152-153` (índices 1–5) | ✅ PASS |
-| PRF-03/3 — além dos seis, `lazy` + animação de hoje | `loading=lazy`, `opacity-0`, `style.opacity === '0'` | `ProductCard.test.tsx:162-165` · fronteira `:170-171` — `renderCard(5)`→`eager`, `renderCard(6)`→`lazy` | ✅ PASS |
-| PRF-03/4 — a decisão tem **um dono** (função pura índice → par), nunca literal repetido | `imagePriority` + recusa de comparação à mão | `rendition.test.ts:191` — `expect(imagePriority(0)).toEqual({ loading: 'eager', fetchPriority: 'high', animateIn: false })` · `:210-212` (fronteira em `EAGER_IMAGE_COUNT`) · `renditionSingleOwner.test.ts:326` — `expect(comparacoes.map(…)).toEqual([])` | ✅ PASS |
-| PRF-06/5 — a function injeta `<link rel="preload" as="image">` para a **rendição de 720**, com `imagesrcset` coerente | `href` = rendição de **720** | `handlers.test.ts:397-400` — quatro `toContain` sobre a **string inteira do `<link>`**; **nenhum mira o valor de `href=`** | ❌ **GAP** — mutantes 7 e 7b sobreviveram |
-| PRF-06/6 — produto sem foto: nenhum preload, resposta idêntica à de hoje | corpo byte a byte igual | `handlers.test.ts:442` — `expect(await corpoDe(semFoto())).not.toContain('rel="preload"')` · `:452` — `expect(corpo).toBe(injectIntoHead(SHELL, jsonLdScript(productJsonLd(oferta))))` | ✅ PASS |
-| PRF-04 — `index.html` declara `preconnect` para a origem do Supabase | `preconnect` + `crossorigin`, antes do `<script type="module">` | `brandAssets.test.ts:530-531` — `expect(supabase).toHaveLength(1)` / `expect(supabase[0]).toMatch(/crossorigin/)` · `:539` — `expect(INDEX).toContain('href="%VITE_SUPABASE_URL%"')` · `:549` — `expect(preconnect).toBeLessThan(script)` | ✅ PASS |
-
-### P3 — o que já foi baixado não é baixado de novo
-
-| AC | Resultado que a spec define | `arquivo:linha` + asserção | Result |
-| --- | --- | --- | --- |
-| PRF-05/1 — imagem enviada ao Storage gravada com cache de **um ano** | `cacheControl: '31536000'` | `tools/catalog-import/src/write/__tests__/storage.test.ts:331` — `expect(uploads[0].cacheControl).toBe(STORAGE_CACHE_CONTROL)` + `:333` — `expect(Number(STORAGE_CACHE_CONTROL)).toBe(365*24*3600)` · `apps/backoffice/…/uploadProductImage.test.ts:323-324` | ✅ PASS |
-| PRF-05/2 — o valor vem de uma **constante única em `@estrelinha/core`**, lida pelos dois | uma escrita só | `rendition.test.ts:229` — `expect(STORAGE_CACHE_CONTROL).toBe('31536000')` · `:234` — `.not.toBe('3600')` · `storage.test.ts:341-343` e `uploadProductImage.test.ts:339-341` — `expect(fonte).toContain("from '@estrelinha/core/media'")` + `expect(fonte).not.toMatch(/cacheControl:\s*'\d+'/)` | ✅ PASS |
-| PRF-05/3 — passe idempotente sobre os objetos existentes, sem reenviar bytes | segunda execução inócua | **sem evidência — T19 não executada** | ❌ **NÃO COBERTA** (AC sem implementação) |
-| PRF-07/4 — `QueryClient` com `staleTime` padrão de 5 min | `1000*60*5` | `queryClient.test.ts:27-28` — `expect(STORE_STALE_TIME).toBe(1000 * 60 * 5)` / `expect(client.getDefaultOptions().queries?.staleTime).toBe(STORE_STALE_TIME)` | ✅ PASS |
-| PRF-07/5 — consulta com `staleTime` próprio prevalece | o valor da chamada vence | `queryClient.test.ts:54` — `expect(propria.staleTime).toBe(1234)` · `:43` (sem o próprio, herda) · `:65-66` (o de `store_settings` lido do disco) | ✅ PASS |
-
-### P4 — o celular baixa só o código da tela que abriu
-
-| AC | Resultado que a spec define | `arquivo:linha` + asserção | Result |
-| --- | --- | --- | --- |
-| PRF-10/1 — cada página por `React.lazy`, `Suspense` sem deslocamento | 14 páginas em `lazy` | `routeSplitting.test.ts:123-124` — `expect(paginasNoDisco).toHaveLength(14)` / `expect([...preguicosas].sort()).toEqual([...paginasNoDisco].sort())` · `:175` — `expect(layout).toContain('<Suspense fallback={<RouteFallback />}>')` · fallback: `RouteFallback.test.tsx:18` — `expect(container.firstElementChild!.className).toContain('min-h-[60vh]')` | ⚠️ **Coberta em `lazy`; "sem deslocamento" é proxy** — jsdom não mede |
-| PRF-11 — overlays de gesto sob demanda, fora do chunk inicial | ausentes até o gesto | `StoreLayoutOverlays.test.tsx:68-71` — `expect(screen.queryByTestId('gaveta'\|'busca'\|'menu'\|'entrar')).not.toBeInTheDocument()` · `:88`, `:96`, `:105`, `:113` — aparecem após o gesto (`findByTestId`) | ✅ PASS |
-| PRF-12 — React, Supabase e Query em chunks próprios | três chunks nomeados | `viteChunks.test.ts:93` — `expect(Object.keys(grupos).sort()).toEqual(['query','react','supabase'])` · `:87` — órfãos do `dedupe` = `[]` · `:146` — colisões = `[]` · **build real medido por mim** (abaixo) | ✅ PASS |
-| PRF-13 — `App.tsx` não monta o `Toaster` do Radix | ausente, Sonner presente | `toasterUnico.test.ts:145-146` — `expect(fonte).not.toMatch(/<Toaster\s*\/>/)` / `expect(fonte).toContain('<Sonner />')` · `:133` — `expect(achados).toEqual([])` (nenhum `useToast` em produção) | ✅ PASS |
-| PRF-16 — rota nova com import estático derruba a suíte | lista de estáticas vazia, bidirecional | `routeSplitting.test.ts:113` — `expect(app.estaticas, …).toEqual([])` · `:129` — `expect(orfas.map(o => o.nome), 'chunk que ninguém monta').toEqual([])` · sensor `:94` · âncora dupla `:71`, `:77` | ✅ PASS |
-| PRF-10/6 — produto aberto direto pela URL: comportamento idêntico, incluindo `ScrollToTop` e rotas legadas | mesmo DOM, mesma navegação | `routing.test.tsx:121-221` (14 casos, todos `await findBy…`) · `scrollToTop.test.tsx` **intocado no diff** | ✅ PASS |
-
-### P5 — a consulta traz o que o card desenha
-
-| AC | Resultado que a spec define | `arquivo:linha` + asserção | Result |
-| --- | --- | --- | --- |
-| PRF-08/1 — select enxuto exclui `description`, SEO e Google Shopping; variação com colunas explícitas | os campos ausentes | `cardSelect.test.ts:203` — `expect(parseSelect(PRODUCT_CARD_SELECT).colunas).not.toContain('description')` · `:208-209` (SEO) · `:222` (Shopping) · `:230-231` — variação sem `*`, lista exata | ✅ PASS |
-| PRF-08/2 — a página do **produto** continua no select completo | `useProduct` usa `PRODUCT_SELECT` | **sem evidência** — nenhuma asserção liga `useProduct`/`useProductById` ao select completo | ❌ **GAP** — mutante 13 sobreviveu |
-| PRF-08/3 — todo campo que a listagem lê continua preenchido | preço, tags, variações, imagem, selo, política, 4 dimensões | `cardSelect.test.ts:257-258`, `:263-265`, `:270-271`, `:276-277`, `:285-287`, `:304-306`, `:311-314`, `:319-321` | ✅ PASS |
-| PRF-08/4 — campo lido e não pedido derruba a suíte | régua reprova select sem o campo | `cardSelect.test.ts:333` — `expect(dimensoesChegaram(PRODUCT_CARD_SELECT)).toBe(true)` · `:338-339` — sensor: `semPeso` **reprova** | ✅ PASS |
-| PRF-09/1 — a fileira da home pede no máximo o que desenha | `limit` = 4 (3 com banner) | `HomeCollectionRow.test.tsx:61` — `expect(options.limit).toBe(4)` · `:67` — `expect(chamada()[1].limit).toBe(3)` | ✅ PASS |
-| PRF-09/2 — relacionados limitados, sem rebaixar para a categoria inteira | `limit` = 5 (4 + folga) | `ProductPageRelated.test.tsx:95` — `expect(consultaDeCategoria()[1].limit).toBe(5)` · `:111-127` (4/4/2 desenhados) | ✅ PASS |
-| PRF-09/3 — consulta de listagem declara teto explícito | teto declarado, com ordem | `useProducts.test.tsx:611` — `expect(janela().limit).toBe(LISTING_LIMIT)` · `:615` — `expect(LISTING_LIMIT).toBe(1000)` · `:633`/`:645` — ordem `created_at` + desempate `id` · `:677`, `:687`, `:697` (os três outros caminhos) | ✅ PASS |
-
-### P6 — as fontes não dependem de um terceiro
-
-| AC | Resultado que a spec define | `arquivo:linha` + asserção | Result |
-| --- | --- | --- | --- |
-| PRF-14/1 — `@font-face` do próprio domínio, sem `fonts.googleapis.com` | zero origem externa | `brandAssets.test.ts:256` / `:262` — `expect(INDEX\|semComentarios(APP_CSS)).not.toContain(origem)` para os dois hosts · `:269` — `expect(origens).toEqual([])` (régua por lista, não por nome) | ✅ PASS |
-| PRF-14/2 — arquivos sob o cabeçalho `immutable` | `/fonts/(.*)` com `max-age=31536000, immutable` | `vercelRedirects.test.ts` (bloco novo) — `expect(fontes.headers).toEqual([{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }])` + sensor "`/assets` não alcançaria" + `expect(CONFIG.headers).toHaveLength(5)` | ✅ PASS |
-| PRF-14/3 — as duas faces do primeiro texto com `preload`; política `swap` | 2 preloads, `font-display: swap` | `brandAssets.test.ts:343` — `expect(PRELOADS).toHaveLength(2)` · `:354-360` (`as="font"`, `type="font/woff2"`, `crossorigin`) · `:335` — `expect(face.display).toBe('swap')` · `:375` — preload antes do `<script>` | ✅ PASS |
-| PRF-14/4 — exatamente os pesos do DS, sem pedir peso que a família não tem | LB 400/700/itálico 400; Outfit 300–700 | `brandAssets.test.ts:287` — `expect(declarados).toEqual(esperados)` · sensor `:297-299` (peso 600 reprovado) | ✅ PASS — **e verificado por mim fora do teste**: `libre-baskerville-v24-latin.woff2` **tem tabela `fvar`** (é variável), então declarar 400 e 700 sobre o mesmo arquivo **não** produz falso-negrito. `outfit-v15-latin.woff2` também tem `fvar`; o itálico é estático, e só é declarado em 400 |
-
-**Placar**: **13 de 16** requisitos com asserção batendo o resultado da spec.
-**2 gaps de discriminação** (`PRF-06` AC 5, `PRF-08` AC 2) · **1 AC sem implementação** (`PRF-05`
-AC 3) · **1 ressalva de medição** (`PRF-10` AC 1, jsdom) · **1 fiação desguarnecida dentro de um
-requisito coberto** (`PRF-03` AC 1 na `CategoryPage`).
-
----
-
-## Sensor de discriminação
-
-13 mutações de comportamento, todas em estado descartável (cópia do arquivo em scratch, mutação,
-suíte-alvo, restauração e `cmp` de conferência). **A árvore de trabalho real nunca foi alterada.**
-
-| # | `arquivo:linha` | Mutação | Alvo | Killed? |
+| # | `arquivo` | Mutação | Suíte | Resultado |
 | --- | --- | --- | --- | --- |
-| 1 | `core/src/media/rendition.ts:106` | `renditionUrl` devolve sempre a URL original | core | ✅ Morto (6+ falhas) |
-| 2 | `rendition.ts:160` | `imagePriority(0)` devolve `lazy`/`animateIn: true` | core | ✅ Morto |
-| 3 | `rendition.ts:95` | limite invertido: abaixo do mínimo grampeia em **2500** | core | ✅ Morto |
-| 4 | `store/…/mapProduct.ts:100` | `PRODUCT_CARD_SELECT` perde `weight_kg` | store | ✅ Morto (inclui o sensor `SHP-02`) |
-| 5 | `mapProduct.ts:96` | `PRODUCT_CARD_SELECT` volta a nomear `stock` (o defeito real de `92fadbf`) | store | ✅ Morto (`renamedColumns.test.ts`, 5 falhas) |
-| 6 | `store/src/app/App.tsx:38` | `CheckoutPage` volta a import estático | store | ✅ Morto (4 falhas em `routeSplitting`) |
-| **7** | `functions/product-page/handlers.ts:141` | `href` do `preload` aponta para a **URL original** | functions | ❌ **SOBREVIVEU** |
-| **7b** | `handlers.ts:114` | `PALCO_PX` vira **360** — `href` na largura errada | functions | ❌ **SOBREVIVEU** |
-| 8 | `store/src/app/App.css:77` | `@font-face` de Libre Baskerville pede peso **600** | store | ✅ Morto |
-| 9 | `rendition.ts:51` | `STORAGE_CACHE_CONTROL` volta a `'3600'` | core | ✅ Morto |
-| **10** | `store/src/pages/CategoryPage.tsx:408` | a `CategoryPage` **para de passar `index`** ao `ProductCard` | store — **suíte inteira (2234)** | ❌ **SOBREVIVEU** |
-| 11 | `apps/store/index.html:19` | remove o `preconnect` do Supabase | store | ✅ Morto (5 falhas) |
-| 12 | `widgets/product-carousel/ui/ProductCarousel.tsx:129` | o carrossel para de passar `index` | store | ✅ Morto (4 falhas) |
-| **13** | `entities/product/api/useProduct.ts:3` | a **página do produto** passa a usar o select enxuto | store — **suíte inteira (2234)** | ❌ **SOBREVIVEU** |
+| **M1** | `supabase/functions/product-page/handlers.ts:141` | `href="${escapeXml(renditionUrl(url, PALCO_PX))}"` → `href="${escapeXml(url)}"` (a URL original, `/object/public/…`) | functions | ✅ **MORTO — 2 testes** |
+| **M2** | `handlers.ts:113` | `PALCO_PX = RENDITION_WIDTHS[RENDITION_WIDTHS.length - 1]` → `RENDITION_WIDTHS[0]` (rendição de **360**) | functions | ✅ **MORTO — 2 testes** |
+| **M3** | `apps/store/src/pages/CategoryPage.tsx:408` | `<ProductCard key={p.id} product={p} index={i} />` → sem `index` | store | ✅ **MORTO — 1 teste** |
+| **M4** | `apps/store/src/entities/product/api/useProduct.ts` | `PRODUCT_SELECT` → `PRODUCT_CARD_SELECT` (import + as duas leituras) | store | ✅ **MORTO — 4 testes** |
 
-**Profundidade**: P0-full (13 mutações, todos os ramos novos de risco).
-**Resultado**: **9/13 mortos, 4 sobreviventes** (3 lacunas distintas) — ❌ **FAIL**.
+Quais testes morrem, nome a nome:
 
-### Por que cada sobrevivente importa
+- **M1** — `handlers.test.ts`: *"produto com foto do Storage: o `href` do preload É a rendição de
+  720"* e *"o `href` NÃO é a URL original — o sensor da lacuna que o Verifier achou"*.
+- **M2** — `handlers.test.ts`: *"…o `href` do preload É a rendição de 720"* e *"o `href` NÃO é
+  nenhuma das outras larguras do `imagesrcset`"*. **Os dois sensores discriminam alvos diferentes**,
+  que é exatamente o que a lacuna pedia: um separa a rendição do original, o outro separa 720 de 360
+  e 480 — e as três larguras convivem no **mesmo elemento**, que era a razão de o `toContain` antigo
+  não distinguir nada.
+- **M3** — `fiacaoDaVitrine.test.ts`: *"e passa `index` — sem isto, todo card volta a lazy e
+  opacidade zero"*.
+- **M4** — `fiacaoDaVitrine.test.ts`: *"`useProduct.ts` importa `PRODUCT_SELECT`"*, *"e NÃO usa
+  nenhum dos selects enxutos"*, *"todo `.select(...)` do arquivo usa o completo"* e o sensor *"e o
+  `useProduct` real casa a régua porque usa o nome NU"*.
 
-**Mutantes 7 e 7b — o `href` do `preload` nunca é asserido (`PRF-06` AC 5).**
-O teste chamado *"produto com foto do Storage: o preload aponta para a rendição de 720"*
-(`handlers.test.ts:396-401`) faz quatro `toContain` sobre a **string inteira do `<link>`**:
+**Veredito do critério objetivo: 4 de 4 mortas.** As três lacunas da iteração 1 estão fechadas, e
+fechadas do jeito certo — a asserção do `href` passou a mirar **o campo**, por igualdade
+(`expect(href).toBe(renditionUrl(STORAGE, 720)…)`), e a fiação que render não alcança virou guarda de
+disco no molde de `reservedSlugs`/`previaUnica`, com âncora dupla e sensores embutidos.
 
-```
-expect(link).toContain('/storage/v1/render/image/public/product-images/pulseira.webp')
-expect(link).toContain('width=720')
-```
+### Uma observação sobre a régua do `href`
 
-Os dois são satisfeitos pelo **`imagesrcset`**, que carrega as três rendições — inclusive a de 720.
-O `href` pode apontar para o original de 1024 px, ou para a rendição de 360, e a suíte não pisca.
-É exatamente a violação da regra de payload: a asserção mira o **elemento**, não o **campo**. O
-único `href` de fato asserido é o do caso de host de terceiro (`:436`), que é o caminho em que ele
-**não** é reescrito. Consequência prática: o preload — a peça de `PRF-06` inteira — pode voltar a
-baixar 113 KB no `<head>` da página do produto, em silêncio, e ainda por cima **em duplicidade** com
-a foto que a galeria escolhe pelo `srcset`.
-
-**Mutante 10 — a fiação do `index` na `CategoryPage` não tem guarda (`PRF-03` AC 1).**
-Removi `index={i}` da única listagem citada no *Independent Test* da spec (`/joias-e-acessorios/…`,
-a que mediu **LCP de 15,6 s**) e rodei a **suíte inteira do store**: 2234 testes, todos verdes. Sem
-o `index`, todo card cai no ramo `lazy` + `animateIn: true` de `imagePriority` — os três mecanismos
-que escondiam a foto do medidor voltam **na página que motivou a feature**. O contraste é o que
-torna a lacuna concreta: a mesma mutação no `ProductCarousel` (mutante 12) mata quatro testes. Uma
-das duas superfícies de listagem está guardada; a outra, a mais cara, não.
-
-**Mutante 13 — nada liga a página do produto ao select completo (`PRF-08` AC 2).**
-Troquei `PRODUCT_SELECT` por `PRODUCT_CARD_SELECT` em `useProduct.ts` e rodei os 2234 testes do
-store: verdes. Como `mapDbToProduct` coalesce (`description: p.description ?? ''`), o efeito seria
-**a descrição de todo produto sumindo da loja** — `ProductDetailsAccordion` calcula
-`temDescricao = sanitizeHtml(product.description) !== ''` e simplesmente não renderiza a seção. É o
-`AD-012` do lado da leitura outra vez: a coluna some, nada erra, e quem descobre é a cliente.
+`expect(href).toBe(renditionUrl(STORAGE, 720).replace(/&/g, '&amp;'))` usa **a mesma função de
+produção** que o código sob teste chama — a régua é, em parte, o objeto medido. Isso sozinho seria
+frágil: `renditionUrl` quebrada para emitir 360 satisfaria a igualdade. **Está mitigado**, e por
+construção: as três `toContain` de literal (`width=720`, `quality=75`, o caminho `/render/image/`) e
+os dois sensores negativos não passam por `renditionUrl` — e M2 provou a mitigação na prática, porque
+matou o teste de igualdade **e** o sensor de largura. Fica registrado como propriedade a preservar,
+não como defeito.
 
 ---
 
-## Regressão de comportamento confirmada (fora do sensor)
+## Iteração 2 — mutações novas
 
-**A busca deixou de casar termo que só aparece na descrição.**
+Seis, sobre o que `a1d465d` acrescentou e sobre o que restou mais frágil. Mesmo protocolo.
 
-Confirmada por leitura, não por suposição:
+| # | Alvo | Mutação | Suíte | Resultado |
+| --- | --- | --- | --- | --- |
+| **M5** | `SearchDropdown.tsx:50` | volta a `useAllProducts()` **sem `enabled`** — a regressão que o commit diz ter fechado | store | ✅ **MORTO — 6 testes** |
+| **M6** | `SearchDropdown.tsx:50` | `useAllProducts({ enabled: true })` — liga sempre, o mesmo defeito disfarçado de opção | store | ✅ **MORTO — 3 testes** |
+| **M7** | `fiacaoDaVitrine.test.ts` (a própria régua) | `CATEGORY_PAGE` aponta para `pages/CategoriaPage.tsx`, que não existe | store | ✅ **QUEBRA ALTO** |
+| **M8** | `useProducts.ts:228` | `useAllProducts` **ignora a opção**: `enabled: options?.enabled ?? true` → `enabled: true` | store — **suíte inteira** | ❌ **SOBREVIVEU** |
+| **M9** | `SearchDropdown.tsx:49` | o latch perde o `trim()`: `query.trim() !== ''` → `query !== ''` | store | ✅ **MORTO — 1 teste** |
+| **M10** | `ProductCarousel.tsx:129` | o carrossel para de passar `index` (a superfície irmã da `CategoryPage`) | store | ✅ **MORTO — 4 testes** |
 
-- `apps/store/src/features/search/lib/searchProducts.ts:55` — `description: 5` no mapa de pontuação;
-  `:76` — `if (description.includes(term)) return SCORE.description`; `:104` —
-  `description: normalizeTerm(product.description ?? '')`.
-- As **três** superfícies de busca leem `useAllProducts`: `SearchDropdown.tsx:33`,
-  `SearchOverlay.tsx:52`, `SearchPage.tsx:23`.
-- `useProducts.ts:223` — `useAllProducts` passou a usar `PRODUCT_CARD_SELECT`, que **não pede**
-  `description` (`cardSelect.test.ts:203`).
-- `mapProduct.ts:132` — `description: p.description ?? ''`, então o campo chega **vazio**, não
-  ausente: `includes(term)` devolve `false` e o desempate de peso 5 nunca dispara.
+**M7 é o caso que mais importa depois do sobrevivente**, porque é o modo de falha que este projeto já
+pagou caro: um guarda com caminho errado varre **zero** e passa em silêncio. Aqui não passa — `ler()`
+usa `readFileSync`, que estoura no carregamento do módulo:
 
-**Nenhum teste cobre a regressão**, e a razão é estrutural: `searchProducts.test.ts:57` constrói
-`product({ name: 'Chaveiro Sakura', description: 'inspirado em naruto' })` — um `Product` já pronto,
-com descrição. A função continua correta; o **dado que chega até ela** é que mudou. Teste de unidade
-de função pura não tem como ver isso.
+```
+Error: ENOENT: no such file or directory, open '…\apps\store\src\pages\CategoriaPage.tsx'
+ Test Files  1 failed (1)
+      Tests  no tests
+EXIT=1
+```
 
-Isto **contradiz o critério de sucesso "Nenhuma mudança visível de layout, cópia ou comportamento"**
-da própria spec. O `tasks.md` registra a perda honestamente e a encaminha como decisão do usuário —
-o que é o tratamento certo —, mas enquanto a decisão não sai, a feature **não** satisfaz o critério
-que escreveu para si.
+`Tests  no tests` com `exit 1`: **o arquivo inteiro cai, antes de qualquer asserção.** É o
+comportamento certo, e a âncora dupla do guarda (`categoria.length > 2000` mais
+`toContain('CategoryPage')`) cobre o outro lado — arquivo que existe mas está vazio.
 
-Observação de escopo: `ProductDetailsAccordion` e `ProductFaq` também leem `product.description`,
-mas vivem na página do produto, que continua no select completo. Hoje eles estão a salvo — e é
-justamente essa proteção que o mutante 13 mostrou não ter guarda.
+**M9 mata exatamente um teste** (*"espaço em branco não conta como digitar"*), que é o único que mede
+o `trim()`. Discriminação mínima, mas real e nominal.
+
+**M10 confirma o contraste que motivou o guarda novo**: a mesma remoção que na `CategoryPage` matava
+zero antes de `a1d465d` sempre matou 4 no `ProductCarousel`, porque o carrossel é renderizável em
+teste de componente e a página não é. As duas superfícies estão guardadas agora, por caminhos
+diferentes e pelo motivo certo.
+
+### M8 — o sobrevivente, e por que ele importa
+
+Com `enabled: true` cravado em `useAllProducts`, a **suíte inteira do store passa: 2259 testes em 152
+arquivos, exit `0`.** Nenhum teste do repositório prova que o hook **honra** o interruptor.
+
+O que a correção provou e o que ficou de fora:
+
+- **Provado** — o `SearchDropdown` **passa** `{ enabled: false }` na montagem, `{ enabled: true }` na
+  primeira letra digitada, mantém ligado depois de apagar o texto, e nunca passa `undefined` (seis
+  casos novos em `SearchDropdown.test.tsx`, todos mortos por M5/M6/M9).
+- **Não provado** — que passar `enabled: false` **impede a consulta**. Os testes do dropdown mockam
+  `@/entities/product/api/useProducts`, então o dublê registra a opção e devolve dados de qualquer
+  jeito. É a mesma família do defeito que o próprio commit descreve ao trocar o dublê ("um dublê que
+  ignora as opções não consegue provar `PRF-09`") — só que **um nível acima**: agora quem pode
+  ignorar a opção é o hook.
+
+A linha mutada **não é nova**: `enabled: options?.enabled ?? true` já estava em `fd4d121`, servindo o
+`SearchOverlay`. Então M8 não é buraco **aberto** por `a1d465d` — é buraco em que a correção passou a
+se **apoiar**, e com muito mais peso: o `SearchDropdown` mora no `Header`, que mora no `StoreLayout`,
+que está em **toda rota** (`Header.tsx:139`, montagem incondicional). Se alguém simplificar essa
+linha, a loja volta a baixar 680 produtos em toda página, **em silêncio e com a suíte verde** — e é
+justamente esse ganho que a spec oferece como contrapartida assinada da regressão da busca.
+
+O conserto é barato e o molde já existe no mesmo arquivo: `useProducts.test.tsx:534-556` tem os três
+casos de `enabled` para `useProducts` (`false` não dispara, `true` dispara, sem `options` continua
+ligado). Faltam os mesmos três para `useAllProducts`.
+
+**Placar do sensor da iteração 2**: **10 mutações · 9 mortas · 1 sobrevivente.**
+Somando as reinjetadas, o que era **4 sobreviventes em 3 lacunas** virou **1 sobrevivente em 1
+lacuna** — e a lacuna nova é de espécie diferente das três anteriores: vertical (um consumidor e o
+hook que ele chama), não horizontal (uma superfície e a irmã dela).
+
+---
+
+## Auditoria do diff de `a1d465d` — alguma asserção foi afrouxada?
+
+Lido linha a linha nos dois arquivos de teste alterados (`git show a1d465d -- <arquivo>`).
+**Resposta: não. Nenhuma asserção foi removida ou enfraquecida.**
+
+### `supabase/functions/product-page/__tests__/handlers.test.ts`
+
+| Saiu | Entrou | Veredito |
+| --- | --- | --- |
+| `expect(link).toContain('/storage/v1/render/image/public/product-images/pulseira.webp')` | a mesma substring, **sobre `href`** | ✅ Mais forte — mesmo literal, alvo mais estreito |
+| `expect(link).toContain('width=720')` | idem, sobre `href` | ✅ Mais forte |
+| `expect(link).toContain('quality=75')` | idem, sobre `href` | ✅ Mais forte |
+| — | `expect(href).toBe(renditionUrl(STORAGE, 720).replace(/&/g,'&amp;'))` | ✅ Novo — igualdade da URL inteira |
+| — | 2 testes novos (sensor do original, sensor das outras larguras) | ✅ Novos |
+
+`expect(link).toContain('as="image"')` **permanece** sobre o elemento, que é onde ele pertence. O
+saldo é **+2 testes**, nenhum removido, e cada `toContain` antigo sobrevive com o alvo trocado de
+elemento para campo. **Exatamente a correção que a iteração 1 prescreveu, e nada além dela.**
+
+### `apps/store/src/features/search/ui/__tests__/SearchDropdown.test.tsx`
+
+O dublê de `useAllProducts` mudou de forma — de `() => ({ data: [...] })` para uma função que empurra
+`options` num array e devolve **os mesmos dois produtos, com os mesmos campos, na mesma ordem**
+(`product('Pingente com cinzas', { image_url: STORAGE })` e `product('Pingente sem foto')`).
+**Nenhum dado do dublê mudou**; ele só passou a registrar o argumento.
+
+O `describe` pré-existente — *"SearchDropdown — a sugestão pede o tamanho da vaga (PRF-02 AC 5)"* —
+está **intocado no diff**: nem uma linha de contexto alterada, e as duas asserções de `PRF-02` AC 5
+(`width=160&quality=75`; `src` vazio para produto sem foto) continuam idênticas. O arquivo vai de
+**2 para 8 testes**, e o `beforeEach` novo zera **só** o array de registro, que os testes antigos não
+leem.
+
+### Aritmética da contagem — nada sumiu
+
+| Workspace | Antes de `a1d465d` | Depois | Delta | Origem |
+| --- | --- | --- | --- | --- |
+| store | 2234 / 151 | **2259 / 152** | **+25 / +1** | `fiacaoDaVitrine.test.ts` (**19**, arquivo novo) + `SearchDropdown.test.tsx` (**+6**) = 25 ✅ |
+| functions | 368 / 7 | **370 / 7** | **+2 / 0** | os dois sensores de `href` ✅ |
+
+**A conta fecha exatamente nos dois workspaces**, o que é a evidência mais limpa de que nenhum teste
+foi apagado para acomodar a correção. Os outros três não foram tocados: o `--stat` do commit mostra
+7 arquivos, e o **único de produção é `SearchDropdown.tsx`**.
+
+---
+
+## Coerência da spec
+
+### As duas exceções declaradas descrevem o código de hoje? — **Sim, as duas.**
+
+| Exceção da spec (`spec.md:325-339`) | Conferido contra o fonte | Veredito |
+| --- | --- | --- |
+| "a busca deixou de casar termo que só aparece na descrição; `searchProducts` pontua `description` como último desempate (**peso 5**)" | `features/search/lib/searchProducts.ts:55` — `description: 5`; `:76` — `if (description.includes(term)) return SCORE.description`; `:104` — `description: normalizeTerm(product.description ?? '')`. E `description` **não** está em `PRODUCT_CARD_SELECT` (`mapProduct.ts:82-107`), que é o select das três superfícies de busca | ✅ Verdadeiro |
+| "o `SearchDropdown` — que fica no header, em toda rota — ganhou o `enabled` que o `SearchOverlay` já tinha" | `SearchDropdown.tsx:50` — `useAllProducts({ enabled: buscou })`; `SearchOverlay.tsx:52` — `useAllProducts({ enabled: open })`; `Header.tsx:139` — `<SearchDropdown />` montado incondicionalmente | ✅ Verdadeiro **na fiação** — mas ver **L-01**: que o hook honre o `enabled` não tem prova |
+| "a lupa de passar o mouse no desktop amplia **720 px**, não 1024" | `ProductGallery.tsx:58` — `const PALCO_PX = 720`; `:107` — `<ImageZoom src={renditionUrl(active.url, PALCO_PX)} …>`, dentro do bloco `hidden … md:block` | ✅ Verdadeiro |
+| "o original segue na tela cheia" | `ProductGallery.tsx:213` — o `<img>` do `Dialog` usa `src={active.url}`, sem rendição | ✅ Verdadeiro |
+
+### `PRF-05` AC 3 está marcada como adiada, e a razão é verdadeira? — **Sim.**
+
+`spec.md:152-159` risca a AC (`~~…~~`) e a marca **ADIADA**, com decisão do usuário datada. A razão
+declarada — "o `@supabase/storage-js` **2.110.7 instalado** não tem `updateMetadata`" — foi **medida
+por mim** no pacote instalado, não aceita de palavra:
+
+```
+node_modules/.pnpm/@supabase+storage-js@2.110.7/node_modules/@supabase/storage-js/dist/index.d.mts
+  ocorrências de "updateMetadata" ......... 0
+  métodos de nome próximo presentes ....... copy(…), update(…)
+```
+
+A versão bate com a citada, e a API não existe. **"Só metadados mudam" é de fato impossível** com
+esta dependência — o passe exigiria `update()`, que reenvia bytes. A justificativa é honesta.
+
+### O que **não** fecha
+
+Dois defeitos de bookkeeping, ambos verificáveis, ambos criados ou perpetuados por `a1d465d`.
+
+**(a) `BL-020` e `BL-021` já existem, e são outra coisa.** A spec apoia duas decisões em ponteiros
+para o backlog, e os dois números estão **ocupados desde 2026-08-30**, pela auditoria de SEO da
+feature `36`:
+
+| Citado como | Onde | O que `BACKLOG.md` realmente tem |
+| --- | --- | --- |
+| "`BL-020`, que é busca no servidor" | `spec.md:43` e `:333`, `context.md:95`, `design.md:227`, `tasks.md`, e **no fonte de produção**: `entities/product/api/useProducts.ts:36` e `entities/product/lib/mapProduct.ts:77` ("registrada em `BL-020`") | `BL-020 — Curadoria de SEO das 35 categorias` (`BACKLOG.md:842`) |
+| "o passe vira `BL-021`" | `spec.md:158` | `BL-021 — Image sitemap` (`BACKLOG.md:866`) |
+
+Não existe **nenhuma** entrada de backlog sobre busca no servidor nem sobre o passe de
+`cacheControl`. O próximo número livre é **`BL-023`** (`BL-022` é o peso do bundle). Isso não é
+cosmético: a spec só aceita a regressão da busca **porque** "a busca por descrição volta com
+`BL-020`", e `PRF-05` AC 3 só é adiável **porque** "o passe vira `BL-021`". As duas saídas de
+emergência apontam para portas que já pertencem a outra coisa, e duas dessas citações estão em
+comentário de código que vai para produção.
+
+*De quebra*: `BL-022 — Peso do bundle da loja: 1,17 MB num chunk só` (`BACKLOG.md:886`) é
+**exatamente** o que esta feature resolveu, e segue `Status: aberto`, sem uma linha de referência à
+`38` em nenhum dos dois lados.
+
+**(b) `tasks.md` contradiz a spec dentro do mesmo commit.** `a1d465d` reescreveu `tasks.md` e deixou
+lá, como *"Decisões pendentes do usuário"*:
+
+> 1. **A busca deixou de casar termo que só aparece na descrição.** […] o `SearchDropdown` fica no
+>    header e **baixa o catálogo sem interruptor em qualquer rota**. Contradiz o critério "nenhuma
+>    mudança visível de comportamento" da spec.
+
+As duas afirmações **deixaram de ser verdade nesse mesmo commit**: o interruptor existe
+(`SearchDropdown.tsx:50`) e a spec já não é contradita (a exceção está declarada e assinada). Junto,
+o `tasks.md` fixa *"Baselines finais: store **2234/151** […] = **6127 em 351 arquivos**"* — número
+que o próprio commit invalidou (é 2259/152).
+
+E **`6127` é aritmeticamente errado, nas duas fontes que o carregam** (`tasks.md:39` e o relatório da
+iteração 1): `2234 + 1524 + 368 + 512 + 1789 = **6427**`, não 6127. A soma correta hoje é **6454**.
+`CLAUDE.md` está certo e coerente na baseline de **entrada** (`6139 em 334`, e a soma bate) — o erro
+é só no total de **saída**, que é justamente o número que a próxima feature vai copiar para o gate
+dela. É o defeito que o próprio `CLAUDE.md` já registrou: *"baseline anotada de memória […] mente sem
+quebrar nada"*.
+
+*Menor, sem consequência de gate*: `design.md` não menciona o interruptor da busca em lugar nenhum —
+ele nasceu depois do design, e só existe na spec (como exceção), no código e nos testes.
 
 ---
 
 ## Portões — números medidos por mim
 
-Um workspace por vez, exit code capturado **sem pipe**, nada mais rodando na máquina.
+**Um workspace por vez, exit code capturado sem pipe** (`cmd > arquivo 2>&1; echo "EXIT=$?"`).
 
-| Workspace | Medido agora | Baseline declarada | Exit |
+| Workspace | Medido na iteração 2 | Baseline a confirmar | Exit |
 | --- | --- | --- | --- |
-| `@estrelinha/store` | **2234 testes / 151 arquivos** | 2234 / 151 | `0` ✅ |
+| `@estrelinha/store` | **2259 testes / 152 arquivos** | 2259 / 152 | `0` ✅ |
 | `@estrelinha/core` | **1524 / 61** | 1524 / 61 | `0` ✅ |
-| `@estrelinha/functions` | **368 / 7** | 368 / 7 | `0` ✅ |
+| `@estrelinha/functions` | **370 / 7** | 370 / 7 | `0` ✅ |
 | `@estrelinha/catalog-import` | **512 / 23** | 512 / 23 | `0` ✅ |
 | `@estrelinha/backoffice` | **1789 / 109** | 1789 / 109 | `0` ✅ |
-| **Total** | **6127 em 351 arquivos** | 6127 / 351 | — |
+| **Total** | **6454 em 352 arquivos** | — | — |
 
-**Tipos** — `npx tsc --noEmit -p …`: store `0`, backoffice `0`, catalog-import `0`. Exit `0 · 0 · 0`,
-igual à baseline.
+**Os cinco batem a baseline declarada, item por item.** O total correto é **6454**, não o 6127 que os
+documentos da feature repetem (ver acima).
 
-**Lint** — `pnpm lint`: backoffice **25 erros / 4 warnings**, store **2 / 1** = **27 / 5**. Idêntico
-à baseline; nenhum erro novo. (Exit 1 é o esperado enquanto a baseline não for zerada.)
+**A flake de carga apareceu duas vezes, e é a documentada no `CLAUDE.md`.** Enquanto uma segunda
+suíte rodava na máquina, o backoffice reprovou **1 teste** em cada uma de duas execuções — testes
+**diferentes** a cada vez (`SlugField.test.tsx` a 5.310 ms, depois `CategoryInspector.test.tsx` a
+12.194 ms), os dois guardas que **varrem disco**, os dois estourando o timeout de 5 s. Na execução
+**isolada, com nada mais rodando**, os 1789 passam. O mesmo em `@estrelinha/functions`: 1 falha sob
+carga, 370/370 sozinho. Nenhum dos testes envolvidos é tocado por esta feature — `a1d465d` não
+encosta no backoffice. **Contam como flake, não como defeito, e os números da tabela são todos de
+execução isolada.**
 
-**Build** — `pnpm --filter @estrelinha/store build`, exit `0`. Brotli medido por mim sobre o `dist`:
+**Tipos** — `npx tsc --noEmit -p …`, medido por mim:
 
-| Chunk | Cru | Brotli |
+| Projeto | `error TS` | Exit |
 | --- | --- | --- |
-| `index-D5UVAEGf.js` (entrada) | 417,9 KB | **117,5 KB** |
-| `react-ex_17CfA.js` | 138,9 KB | 38,9 KB |
-| `supabase-DFM6Pj3g.js` | 210,9 KB | 46,1 KB |
-| `query-BXgais-p.js` | 40,3 KB | 10,8 KB |
+| `apps/store/tsconfig.app.json` | **0** | `0` ✅ |
+| `apps/backoffice/tsconfig.app.json` | **0** | `0` ✅ |
+| `tools/catalog-import/tsconfig.json` | **0** | `0` ✅ |
 
-**Confirma `PRF-12` no artefato real** — os três vendors saem em chunks hasheados próprios — e o
-Success Criterion do chunk de entrada: **117,5 KB brotli, contra o teto de 220 KB**. Reproduz a
-medição do autor (117,2 KB) dentro do ruído de versão do compressor. As 14 páginas aparecem como
-chunks separados (`CheckoutPage` 54,3 KB, `HowToSendMaterialPage` 50,7 KB, `PixPayment` 24,5 KB), o
-que confirma `PRF-10`/`PRF-11` no artefato, e não só no fonte.
+**Lint** — `pnpm lint`: **27 erros / 5 warnings** — backoffice **25/4**, store **2/1**. Idêntico à
+baseline; nenhum problema novo, e em particular o `setState` durante render do latch novo
+(`SearchDropdown.tsx:49`) não acrescentou nada. Exit `1`, que é o esperado enquanto a baseline não
+for zerada.
 
-**Integridade da contagem**: a suíte só subiu. Comparando com a baseline de entrada do `tasks.md`
-(store 2001, core 1493, functions 350, catalog-import 509, backoffice 1786): **+233 testes, zero
-removido**. Nenhuma queda a justificar.
+**Build**: não repetido nesta iteração — `a1d465d` não toca `vite.config`, roteamento nem
+`manualChunks`. Vale a medição da iteração 1 (chunk de entrada **117,5 KB brotli**, teto 220 KB),
+com a ressalva de que ela é dela.
 
 ---
 
-## Asserções reescritas — auditoria do diff
+## Lacunas ranqueadas
 
-Os commits `2099684` e `7ef8ab1` declaram ter religado encanamento de teste sem alterar asserção.
-**Verificado linha a linha no diff** (`git diff fd4d121..HEAD -- <arquivo> | grep '^-'`):
+### L-01 — `useAllProducts` pode ignorar o `enabled` e a suíte inteira fica verde — **Blocker**
 
-| Arquivo | `expect` removidos | O que os substituiu | Veredito |
-| --- | --- | --- | --- |
-| `useProducts.test.tsx` | **0** | — | ✅ Nenhuma asserção tocada |
-| `routing.test.tsx` | 17 | Cada uma reaparece como `await screen.findBy…` ou `await waitFor(() => expect(…))` com **o mesmo alvo e o mesmo valor**. O `beforeAll` novo só aquece o cache de transformação dos módulos que viraram `lazy`; o teto de 120 s é do **hook**, não das asserções | ✅ Religado, não afrouxado |
-| `handlers.test.ts` | 1 — `expect(corpo.replace(/<script…ld\+json…>/,'')).toBe(SHELL)` | Substituída por `:452` — `expect(corpo).toBe(injectIntoHead(SHELL, jsonLdScript(productJsonLd(oferta))))`, no caso **sem foto**. A antiga afirmava "a única injeção é o JSON-LD", que deixou de ser verdade por desenho; a nova é **igualdade estrutural completa**, mais forte no caminho em que se aplica | ✅ Trocada por equivalente mais forte |
+- **Prova**: M8. `useProducts.ts:228`, `enabled: options?.enabled ?? true` → `enabled: true`. Store:
+  **2259/152, exit 0**.
+- **Causa raiz**: os seis casos novos de `PRF-09` provam que o `SearchDropdown` **passa** a opção;
+  nenhum prova que o hook a **honra**. As três superfícies de busca mockam o módulo do hook, então a
+  fiação e o efeito nunca se encontram. `useProducts.test.tsx` cobre `enabled` para `useProducts`
+  (`:534-556`) e **não** para `useAllProducts`.
+- **Consequência real**: o `SearchDropdown` está montado em toda rota da loja. Sem o interruptor
+  honrado, toda visita a qualquer página volta a baixar o catálogo — e é esse ganho que a spec
+  oferece como **contrapartida assinada** da regressão da busca por descrição. A troca deixaria de
+  existir sem nada ficar vermelho.
+- **Correção**: em `useProducts.test.tsx`, três casos para `useAllProducts` espelhando `:534-556` —
+  `enabled: false` não chama o client (`expect(fromMock).not.toHaveBeenCalled()`, `fetchStatus`
+  `idle`), `enabled: true` dispara, e sem `options` o padrão segue ligado.
+- **Done when**: `enabled: options?.enabled ?? true` → `enabled: true` em `useProducts.ts:228`
+  derruba a suíte do store.
 
-**Nenhuma asserção foi enfraquecida ou removida.** E os cinco guardas de rota/composição
-(`scrollToTop.test.tsx`, `routes.test.ts`, `reservedSlugs.test.ts`, `sitemapRoutes.test.ts`,
-`homeComposition.test.tsx`) estão **byte a byte intocados** no diff — o que é a evidência mais limpa
-possível de que o `lazy` não custou régua.
+### L-02 — os ponteiros de backlog da spec apontam para itens que já existem e são outra coisa — **Major**
 
----
+- **Prova**: `BACKLOG.md:842` (`BL-020` = curadoria de SEO das 35 categorias) e `:866` (`BL-021` =
+  image sitemap), ambos registrados em 2026-08-30 pela feature `36`. Não há entrada sobre busca no
+  servidor nem sobre o passe de `cacheControl`. Próximo livre: **`BL-023`**.
+- **Por que é Major e não cosmético**: as duas decisões que a spec pede ao usuário para assinar —
+  aceitar a perda da busca por descrição, e adiar `PRF-05` AC 3 — são **condicionadas** a esses dois
+  itens existirem. E duas das citações estão em **comentário de código de produção**
+  (`useProducts.ts:36`, `mapProduct.ts:77`: "registrada em `BL-020`"), afirmando algo falso.
+- **Correção**: abrir `BL-023` (busca no servidor) e `BL-024` (o passe de `cacheControl` sobre os
+  3.618 objetos), e trocar as referências em `spec.md`, `context.md`, `design.md`, `tasks.md` e nos
+  dois fontes. De passagem, fechar ou reduzir **`BL-022`**, que é o que esta feature resolveu.
 
-## Edge cases da spec
+### L-03 — `tasks.md` contradiz a spec e carrega um total errado — **Major**
 
-- [x] URL `''` → helper devolve `''`, superfície sem `<img>` — `rendition.test.ts:93`,
-      `ProductGallery.test.tsx:51`, `SmallSlotRendition.test.tsx:114`
-- [x] Host externo → sem `srcset`, imagem como hoje — `ProductCard.test.tsx:109-110`,
-      `ProductGallery.test.tsx:168-169`, `HomeBannerGrid.test.tsx:237`, `MegaMenu.test.tsx:290`
-- [x] Categoria com zero produtos → caminho vazio intacto — `useProducts.test.tsx:412`
-- [x] Rendição que falha → sem caminho alternativo, registrado na tabela de assunções (decisão, não defeito)
-- [x] Navegador sem `srcset` usa o `src` da **largura média** — `ProductCard.test.tsx:99` (`width=480`)
-- [ ] Passe de `cacheControl` rodando duas vezes → **T19 não executada**
-- [x] Chunk que falha ao baixar → estado de erro legível, nunca tela branca —
-      `ChunkErrorBoundary.test.tsx:79`, `:105`
-- [x] `?preview=1` → leitura de `isPreviewWindow` **acima** do `Suspense` —
-      `routeSplitting.test.ts:167`
+- **Prova**: `tasks.md` (escrito por `a1d465d`) afirma que o `SearchDropdown` "baixa o catálogo sem
+  interruptor em qualquer rota" e que a regressão "contradiz o critério" da spec — as duas coisas
+  deixaram de valer **no mesmo commit**. E fixa "Baselines finais: store 2234/151 … = 6127 em 351",
+  quando é 2259/152 e **6454 em 352** (o 6127 é ainda um erro de soma: o certo naquele momento era
+  6427).
+- **Por que importa**: é desse documento que sai a atualização da tabela de baselines do `CLAUDE.md`
+  no fecho. Baseline errada faz o gate da feature seguinte comparar contra um número que nunca
+  existiu — o modo de falha que o próprio `CLAUDE.md` registra.
+- **Correção**: atualizar a tabela de execução e a linha de baselines do `tasks.md` com os números
+  desta iteração, e substituir a seção "Decisões pendentes" pelo que de fato ficou pendente (só a
+  T19 / `PRF-05` AC 3, agora adiada).
 
----
+### L-04 — `PRF-05` AC 3 segue sem implementação — **Minor, decisão já tomada**
 
-## Qualidade de código
-
-| Princípio | Status |
-| --- | --- |
-| Código mínimo | ✅ |
-| Mudanças cirúrgicas | ✅ — 75 arquivos, todos rastreáveis a uma task |
-| Sem escopo além do pedido | ✅ — Framer, paginação no servidor e busca no servidor ficaram fora, como a spec manda |
-| Segue os padrões do repositório | ✅ — guardas com âncora dupla e sensor embutido, molde de `freeShippingSingleOwner`; `rendition.ts` sem um único `import`, como a armadilha da `33` exige; imports da edge function relativos e com `.ts` |
-| Asserções batem o valor da spec | ⚠️ — falha em `PRF-06` AC 5 (mira o elemento, não o campo) |
-| Cobertura por camada | ⚠️ — regra pura 1:1 com as ACs; **a fiação entre camadas é o buraco** (mutantes 10 e 13) |
-| Todo teste mapeia uma AC/edge case/"done when" | ✅ |
-| Diretrizes documentadas seguidas | ✅ — `CLAUDE.md` (raiz), `apps/store/CLAUDE.md`, `packages/core/CLAUDE.md` |
-
-**Ponto positivo que merece registro**: `92fadbf` corrigiu um defeito que teria deixado **toda
-vitrine da loja vazia em produção** (`products.stock` não existe desde a migration
-`20260726000000`), e criou `renamedColumns.test.ts`, que lê os `RENAME COLUMN` das migrations **do
-disco** e é **por tabela** — `product_variants.stock`, que nunca foi renomeada, segue permitida. A
-mutação 5 confirmou que o guarda mata o defeito de volta. É a prescrição do `AD-012` aplicada
-corretamente, e o guarda é mais forte que a correção.
+Adiada, com razão medida e confirmada por mim. Fica registrada só para não sumir do rastro: enquanto
+o passe não roda, o cache de um ano vale para foto **nova**, e os 3.618 objetos existentes seguem em
+uma hora.
 
 ---
 
-## Planos de correção
+## Rastreabilidade
 
-### Fix 1 — asserir o `href` do `preload`, não a string do `<link>` — **Blocker**
-
-- **Causa raiz**: `handlers.test.ts:396-401` usa `toContain` sobre o `<link>` inteiro; o
-  `imagesrcset` satisfaz todas as substrings, então o `href` é livre.
-- **Correção**: extrair o `href` (`link.match(/href="([^"]+)"/)?.[1]`) e comparar por **igualdade**
-  com `renditionUrl(STORAGE, 720)`. Acrescentar o par negativo: `expect(href).not.toBe(STORAGE)`.
-- **Done when**: a mutação `renditionUrl(url, PALCO_PX)` → `url` **e** a mutação
-  `PALCO_PX = RENDITION_WIDTHS[0]` derrubam a suíte de `@estrelinha/functions`.
-
-### Fix 2 — guardar a fiação do `index` na `CategoryPage` — **Blocker**
-
-- **Causa raiz**: `PRF-03` é asserido no `ProductCard` (que recebe o índice) e no `ProductCarousel`
-  (que o passa). A `CategoryPage`, a listagem que motivou a feature, passa e ninguém confere.
-- **Correção**: um caso em teste de `CategoryPage` que renderize a grade e assere que o primeiro
-  `<img>` sai com `loading="eager"` e `fetchpriority="high"` e o sétimo com `loading="lazy"`;
-  **ou** estender `renditionSingleOwner.test.ts` com uma régua bidirecional: todo arquivo que
-  renderiza `<ProductCard` dentro de um `.map(` **precisa** passar `index=`.
-- **Done when**: remover `index={i}` de `CategoryPage.tsx:408` derruba a suíte do store.
-
-### Fix 3 — guardar o select da página do produto — **Blocker**
-
-- **Causa raiz**: `PRF-08` AC 2 não tem asserção nenhuma; o par "enxuto na listagem / completo no
-  produto" só existe no código.
-- **Correção**: em `cardSelect.test.ts`, ler `useProduct.ts` e `useProducts.ts` **do disco** e
-  asserir quem usa qual — na mesma forma bidirecional dos outros guardas do repositório: as quatro
-  leituras de listagem usam o enxuto, as duas de produto usam o completo, e nenhuma troca de lado.
-- **Done when**: trocar `PRODUCT_SELECT` por `PRODUCT_CARD_SELECT` em `useProduct.ts` derruba a
-  suíte do store.
-
-### Fix 4 — decidir a regressão da busca — **Major, decisão do usuário**
-
-- **Causa raiz**: `description` saiu do select que alimenta as três superfícies de busca.
-- **Opções**: (a) aceitar a perda e **registrar** — mas então o critério "nenhuma mudança visível de
-  comportamento" precisa ser corrigido na spec, não deixado contraditório; (b) `BL-020` (busca no
-  servidor) vira pré-requisito; (c) select próprio para a busca, com `id, name, slug, tags,
-  description`, o que devolve o casamento sem os 430 KB do select completo.
-- **Done when**: qualquer que seja a escolha, um teste que prove o comportamento **com o dado que a
-  consulta realmente entrega**, e não com um `Product` construído à mão.
-
-### Fix 5 — `PRF-05` AC 3 — **Minor, decisão do usuário**
-
-- T19 pendente. Enquanto não roda, `PRF-05` vale só para foto nova e a economia de CDN que segura o
-  custo da transformação **não acontece** nos 3.618 objetos existentes.
-
----
-
-## Atualização de rastreabilidade
-
-| Requirement | Status anterior | Novo status |
+| Requirement | Status na iteração 1 | Status na iteração 2 |
 | --- | --- | --- |
-| PRF-01 | Pending | ✅ Verificado |
-| PRF-02 | Pending | ✅ Verificado |
-| PRF-03 | Pending | ⚠️ Verificado no componente · **fiação da `CategoryPage` sem guarda** |
-| PRF-04 | Pending | ✅ Verificado |
-| PRF-05 | Pending | ⚠️ AC 1-2 verificadas · **AC 3 sem implementação** |
-| PRF-06 | Pending | ❌ **Precisa de correção** (AC 5 sem asserção de valor) |
-| PRF-07 | Pending | ✅ Verificado |
-| PRF-08 | Pending | ❌ **Precisa de correção** (AC 2 sem evidência) |
-| PRF-09 | Pending | ✅ Verificado |
-| PRF-10 | Pending | ⚠️ `lazy` verificado · "sem deslocamento" só por proxy |
-| PRF-11 | Pending | ✅ Verificado |
-| PRF-12 | Pending | ✅ Verificado, **inclusive no build real** |
-| PRF-13 | Pending | ✅ Verificado |
-| PRF-14 | Pending | ✅ Verificado |
-| PRF-15 | Pending | ✅ Verificado |
-| PRF-16 | Pending | ✅ Verificado |
+| PRF-01 | ✅ Verificado | ✅ Verificado |
+| PRF-02 | ✅ Verificado | ✅ Verificado |
+| PRF-03 | ⚠️ fiação da `CategoryPage` sem guarda | ✅ **Verificado** — `fiacaoDaVitrine.test.ts`; M3 e M10 mortos |
+| PRF-04 | ✅ Verificado | ✅ Verificado |
+| PRF-05 | ⚠️ AC 3 sem implementação | ⚠️ AC 1-2 verificadas · **AC 3 adiada, razão medida e confirmada** |
+| PRF-06 | ❌ AC 5 sem asserção de valor | ✅ **Verificado** — asserção por campo; M1 e M2 mortos |
+| PRF-07 | ✅ Verificado | ✅ Verificado |
+| PRF-08 | ❌ AC 2 sem evidência | ✅ **Verificado** — M4 morto (4 testes) |
+| PRF-09 | ✅ Verificado | ⚠️ **AC 1-3 verificadas; o interruptor novo da busca está provado só do lado de quem passa a opção** (L-01) |
+| PRF-10 | ⚠️ `lazy` verificado · "sem deslocamento" por proxy | ⚠️ inalterado — jsdom não mede |
+| PRF-11 | ✅ Verificado | ✅ Verificado |
+| PRF-12 | ✅ Verificado, inclusive no build real | ✅ Verificado (a medição do build é da iteração 1) |
+| PRF-13 | ✅ Verificado | ✅ Verificado |
+| PRF-14 | ✅ Verificado | ✅ Verificado |
+| PRF-15 | ✅ Verificado | ✅ Verificado |
+| PRF-16 | ✅ Verificado | ✅ Verificado |
 
 ---
 
 ## Resumo
 
-**Overall**: ❌ **Not Ready** — o trabalho é bom e os portões estão limpos, mas três peças novas não
-são defensáveis por teste, e uma delas é justamente a que a feature existe para consertar.
+**Overall**: ❌ **Not Ready** — mas por pouco, e por um motivo diferente do da iteração 1.
 
-**Ancorada na spec**: 13/16 batendo o resultado definido · 2 gaps · 1 AC sem implementação
-**Sensor**: 13 mutações, **9 mortas, 4 sobreviventes** (3 lacunas distintas)
-**Portões**: 6127 testes em 351 arquivos, exit `0` nos cinco · tipos `0·0·0` · lint 27/5 · build `0`,
-chunk de entrada **117,5 KB brotli**
+**O critério objetivo de re-verificação foi cumprido**: as quatro mutações que sobreviveram à
+iteração 1 morrem agora, e morrem em testes nomeados, específicos e não sobrepostos — 2, 2, 1 e 4
+falhas. As três lacunas estão fechadas do jeito certo: o `href` do preload é asserido **por campo e
+por igualdade**, e a fiação que render não alcança virou guarda de disco com âncora dupla, sensores
+embutidos e um removedor de comentário que já nasce provado em CRLF e LF. **Nenhuma asserção foi
+removida ou enfraquecida** — a aritmética da contagem fecha exatamente nos dois workspaces tocados
+(+25/+1 no store, +2 no functions), e o `describe` pré-existente do `SearchDropdown` está byte a byte
+intocado.
 
-**O que funciona, e funciona bem**: o dono único da URL de rendição é um módulo puro, sem um único
-`import`, alcançável pelo Deno — a armadilha da feature `33` foi respeitada desde a primeira linha.
-O guarda `renditionSingleOwner` segue o molde de `freeShippingSingleOwner` com âncora dupla e três
-sensores embutidos. O `routeSplitting` é bidirecional e provado nos dois sentidos. A correção
-`92fadbf` pegou um defeito que teria esvaziado a loja em produção, e o guarda que ela criou lê as
-migrations do disco. A economia é real e reproduzível: 117,5 KB de chunk de entrada contra 278.
+**O que segura o fecho**: um sobrevivente novo (**L-01**) e dois defeitos de bookkeeping (**L-02**,
+**L-03**).
 
-**O que precisa de conserto antes do fecho**: os três Blockers acima — todos são **teste**, nenhum
-é código de produção. E a decisão sobre a busca, que é do usuário.
+O sobrevivente tem a mesma assinatura das três lacunas anteriores — *remover o comportamento e a
+suíte inteira continua verde* — e cai justamente sobre o interruptor que a spec oferece como
+contrapartida assinada da única regressão de comportamento que esta feature aceita. Ele **não** foi
+aberto por `a1d465d` (a linha é anterior à feature), mas foi nele que a correção passou a se apoiar,
+e o conserto é copiar três casos que já existem 300 linhas acima no mesmo arquivo.
 
-**Próximo passo**: rotear Fix 1, 2 e 3 para um implementador; levar Fix 4 e 5 ao usuário. Depois da
-correção, re-verificar reinjetando as mutações 7, 7b, 10 e 13 — o critério de fecho é as quatro
-morrerem.
+Os dois de bookkeeping são baratos e mecânicos, e nenhum é opinião: `BL-020` e `BL-021` estão
+ocupados por outros itens desde antes desta feature — inclusive em comentário de código de produção
+—, e o `tasks.md` afirma, sobre o próprio commit que o escreveu, duas coisas que deixaram de ser
+verdade nele.
+
+**Portões, medidos por mim**: **6454 testes em 352 arquivos**, exit `0` nos cinco workspaces
+(isolados) · tipos **0 · 0 · 0**, exit `0` nos três · lint **27/5**, idêntico à baseline.
+
+**Próximo passo**: L-01 é o único que exige código (de teste). L-02 e L-03 são edição de documento e
+de dois comentários. Depois disso, a re-verificação da iteração 3 é uma mutação só:
+`enabled: options?.enabled ?? true` → `enabled: true` em `useProducts.ts:228` tem de derrubar a suíte
+do store.
+
+**O que continua sem verificação de ninguém**: navegador real em 390 e 1440, Lighthouse, e o peso
+entregue pela rede. Sexta feature seguida sem um par de olhos humanos sobre a tela — e esta
+acrescenta um interruptor cujo efeito observável é **presença de requisição**, que jsdom só enxerga
+por dublê.

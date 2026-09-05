@@ -74,7 +74,7 @@ export const PRODUCT_SELECT_BY_CATEGORY =
  *
  * **O que sai, e o que isso custa:** `description` sai, e com ela sai o casamento por descrição da
  * busca (`searchProducts` a pontua com peso 5, o último recurso). A busca já é uma dívida própria —
- * baixa o catálogo inteiro e herda o teto de 1.000 linhas do PostgREST —, registrada em `BL-020`.
+ * baixa o catálogo inteiro e herda o teto de 1.000 linhas do PostgREST —, registrada em `BL-025`.
  *
  * `mapDbToProduct` **não muda**: ele já coalesce toda coluna ausente, e é `cardSelect.test.ts` que
  * prova, coluna a coluna, que a linha recortada por este `select` ainda preenche o card inteiro.

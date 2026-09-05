@@ -33,7 +33,7 @@ const fail = (operacao: string, error: { message?: string }): never => {
  * `@estrelinha/core/paging` existe para fechar.
  *
  * Declarar o teto não conserta a truncagem; conserta a **invisibilidade** dela. O fecho de verdade
- * é `BL-020`, que tira a busca e a listagem do "baixa o catálogo inteiro" — enquanto ele não vem, o
+ * é `BL-025`, que tira a busca e a listagem do "baixa o catálogo inteiro" — enquanto ele não vem, o
  * número está escrito aqui, num lugar só, em vez de morar na configuração de um servidor.
  */
 export const LISTING_LIMIT = 1000

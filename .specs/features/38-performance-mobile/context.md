@@ -39,7 +39,7 @@ busca no servidor, cache de borda da página do produto, e o backoffice.
 - A razão: levar filtro e ordenação para o servidor reescreveria os 14 requisitos `LST-*` — incluindo
   a contagem do cabeçalho, que hoje descreve a coleção filtrada inteira, e a reancoragem por valor de
   `LST-04`. O ganho marginal não paga esse risco enquanto a maior categoria tem 505 produtos.
-- **A decisão foi adiada com endereço**: vira `BL-019`, com o número medido (307 KB → ~8 KB por
+- **A decisão foi adiada com endereço**: vira `BL-024`, com o número medido (307 KB → ~8 KB por
   leva), para o dia em que o catálogo crescer.
 - Junto vai um **teto explícito** nas consultas de listagem: o corte de 1.000 linhas do PostgREST
   hoje é um limite herdado que ninguém declarou, e ele morde em silêncio.
@@ -50,7 +50,7 @@ busca no servidor, cache de borda da página do produto, e o backoffice.
 - **As fontes próprias entram** — é mecânico, testável, e tira uma origem de terceiro do caminho
   crítico.
 - **O Framer Motion fica fora.** 42 KB gzip em 11 arquivos de interface, com regressão que só
-  aparece em navegador real. Vira `BL-018`, com o número medido, para uma feature que possa pagar o
+  aparece em navegador real. Vira `BL-023`, com o número medido, para uma feature que possa pagar o
   QA visual.
 
 ### Agent's Discretion
@@ -90,7 +90,7 @@ existentes.
 
 | Ideia | Vira |
 | --- | --- |
-| Retirar o Framer Motion do chunk inicial (−42 KB gzip, 11 arquivos) | `BL-018` |
-| Paginação, filtro e ordenação no servidor (307 KB → ~8 KB por leva) | `BL-019` |
-| Busca no servidor, que também fecha o teto de 1.000 linhas do PostgREST | `BL-020` |
+| Retirar o Framer Motion do chunk inicial (−42 KB gzip, 11 arquivos) | `BL-023` |
+| Paginação, filtro e ordenação no servidor (307 KB → ~8 KB por leva) | `BL-024` |
+| Busca no servidor, que também fecha o teto de 1.000 linhas do PostgREST | `BL-025` |
 | Cache de borda da página do produto (TTFB de ~1 s) | `BL-017`, já aberto |

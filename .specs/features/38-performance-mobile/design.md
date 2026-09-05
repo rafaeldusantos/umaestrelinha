@@ -224,7 +224,7 @@ Nenhum. Esta feature não cria coluna, tabela, view nem migration.
 | **`?preview=1` lê `window.location` acima das `Routes`** | `apps/store/src/app/App.tsx:31` | O `lazy` não pode atrasar a decisão de prévia, ou a feature `25` quebra | A leitura fica onde está — acima do `Suspense`. Uma AC de `PRF-10` cobre isso |
 | **`brandAssets.test.ts` já lê o `index.html`** | store `app/__tests__` | Trocar as fontes por `@font-face` local pode passar sem ninguém notar se o arquivo não existir | O guarda ganha asserção: toda fonte referenciada existe no disco, como já faz com os ícones |
 | **A rodada de Lighthouse que abriu a feature tinha extensões ativas** | relatório do usuário, `runWarnings` | Os números de partida estão inflados, e comparar contra eles superestimaria o ganho | O fecho **remede o antes e o depois** em aba anônima, no mesmo aparelho |
-| **`useAllProducts` continua baixando 680 produtos** | `entities/product/api/useProducts.ts:130` | Com o select enxuto cai de 1,45 MB para ~250 KB, mas o teto de 1.000 linhas do PostgREST segue | Encolhe nesta feature, fecha na `BL-020` |
+| **`useAllProducts` continua baixando 680 produtos** | `entities/product/api/useProducts.ts:130` | Com o select enxuto cai de 1,45 MB para ~250 KB, mas o teto de 1.000 linhas do PostgREST segue | Encolhe nesta feature, fecha na `BL-025` |
 
 ---
 

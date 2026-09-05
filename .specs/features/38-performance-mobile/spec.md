@@ -37,10 +37,10 @@ Para quem paga franquia de dados, cinco páginas da loja consomem hoje perto de 
 
 | Feature | Reason |
 | --- | --- |
-| **Retirar o Framer Motion** (−42 KB gzip) | Decisão do usuário (2026-09-05). Mexe em 11 arquivos de interface por um ganho que teste de componente não consegue proteger — a regressão é visual. Vira `BL-018`, com o número já medido. |
-| **Paginação, filtro e ordenação no servidor** | Decisão do usuário (2026-09-05). Reescreveria os 14 requisitos `LST-*` da feature `32`, que hoje filtram sobre a lista inteira em memória. O select enxuto entrega ~90% do ganho sem tocar nela. Vira `BL-019`. |
+| **Retirar o Framer Motion** (−42 KB gzip) | Decisão do usuário (2026-09-05). Mexe em 11 arquivos de interface por um ganho que teste de componente não consegue proteger — a regressão é visual. Vira `BL-023`, com o número já medido. |
+| **Paginação, filtro e ordenação no servidor** | Decisão do usuário (2026-09-05). Reescreveria os 14 requisitos `LST-*` da feature `32`, que hoje filtram sobre a lista inteira em memória. O select enxuto entrega ~90% do ganho sem tocar nela. Vira `BL-024`. |
 | **Cache da página do produto na borda** (`BL-017`) | Já registrado, e a causa é outra: a Vercel não cacheia `rewrite` para host externo. O TTFB de ~1 s de `/produtos/:slug` continua aberto ali. |
-| **Busca no servidor** | A busca baixa o catálogo inteiro (1,45 MB comprimidos) e carrega o teto de 1.000 linhas do PostgREST. É um defeito próprio, com risco de correção silenciosa de catálogo, e merece spec própria. Vira `BL-020`. |
+| **Busca no servidor** | A busca baixa o catálogo inteiro (1,45 MB comprimidos) e carrega o teto de 1.000 linhas do PostgREST. É um defeito próprio, com risco de correção silenciosa de catálogo, e merece spec própria. Vira `BL-025`. |
 | **Trocar a resolução dos originais no Storage** | O original de 1024 px continua sendo a fonte da lupa da galeria. Esta feature muda **como se pede** a imagem, nunca o que está gravado. |
 | **Otimizar o backoffice** | Fora do caminho da cliente. |
 
@@ -156,7 +156,7 @@ que não acontece.
    `dist/index.d.mts` do pacote —, então "só metadados mudam" **é impossível** e o passe custaria
    ~410 MB de reenvio; e a transformação é cobrada por **imagem distinta por mês**, não por batida,
    então o passe compra velocidade de revisita, **não dinheiro**. As fotos novas já nascem com um
-   ano. As 3.618 antigas seguem em uma hora, e o passe vira `BL-021`.
+   ano. As 3.618 antigas seguem em uma hora, e o passe vira `BL-026`.
 4. **PRF-07** — WHEN o `QueryClient` da loja é criado THEN ele SHALL declarar `staleTime` padrão de
    **5 minutos**, para que voltar a uma categoria já visitada não refaça a consulta.
 5. **PRF-07** — WHEN uma consulta já declara `staleTime` próprio — `store_settings`, promoções —
@@ -330,7 +330,7 @@ tinha extensões ativas, e o próprio relatório avisa que isso inflou os númer
      troca, o `SearchDropdown` — que fica no header, em toda rota — ganhou o `enabled` que o
      `SearchOverlay` já tinha, e **deixou de baixar o catálogo de quem só abriu a página**: 214 KB
      a menos por página, contra um desempate de busca que quase nunca decide. A busca por descrição
-     volta com `BL-020`, que é busca no servidor.
+     volta com `BL-025`, que é busca no servidor.
   2. **A lupa de passar o mouse no desktop amplia 720 px, não 1024.** A galeria renderiza os dois
      palcos ao mesmo tempo, e imagem escondida por CSS **continua sendo baixada** — dar 1024 ao
      desktop e 720 ao celular faria o celular baixar as duas. O original segue na tela cheia, que é

@@ -35,9 +35,16 @@ flow and Critical Rules.** Do not search for skill files by filesystem path.
 | Categoria `colar-e-correntes` (147 produtos), brotli | 307 KB | **50 KB** |
 | Chunk de entrada, brotli | 278,4 KB | **117,2 KB** |
 
-Baselines finais: store **2234/151** · core **1524/61** · functions **368/7** ·
-catalog-import **512/23** · backoffice **1789/109** = **6127 em 351 arquivos**.
+| — | correções do Verifier | `a1d465d` | store →2259 · functions →370 · as três lacunas e o interruptor da busca |
+
+Baselines finais, **conferidas pelo Verifier na iteração 2**: store **2259/152** · core **1524/61** ·
+functions **370/7** · catalog-import **512/23** · backoffice **1789/109** = **6454 em 352 arquivos**.
 Lint **27/5** e tipos **0 · 0 · 0**, os dois iguais à baseline de entrada.
+
+> **A primeira escrita desta linha dizia `6127 em 351`, e estava errada por duas razões ao mesmo
+> tempo**: era anterior aos dois últimos commits **e** a soma estava errada (os números daquele
+> momento davam 6427, não 6127). O Verifier pegou. É exatamente o que o `CLAUDE.md` avisa —
+> *baseline anotada de memória mente sem quebrar nada*.
 
 ### A correção fora de fase, e por que ela existe
 
@@ -51,48 +58,30 @@ client. É o `AD-012` na íntegra, do lado da leitura. O guarda `renamedColumns.
 `RENAME COLUMN` das migrations do disco e é **por tabela** — `product_variants.stock` nunca foi
 renomeada e segue legítima.
 
-### Decisões pendentes do usuário
+### As duas decisões do usuário, tomadas em 2026-09-05 *(já não são pendências)*
 
-1. **A busca deixou de casar termo que só aparece na descrição.** `searchProducts` pontua
-   `description` como último desempate (peso 5), e ela saiu do select enxuto. Nenhum teste falha,
-   porque os testes de busca recebem `Product` pronto. Trazê-la de volta custa **+430 KB brotli em
-   toda página** — o `SearchDropdown` fica no header e baixa o catálogo sem interruptor em qualquer
-   rota. Contradiz o critério "nenhuma mudança visível de comportamento" da spec.
-2. **T19**, o passe de `cacheControl` sobre os 3.618 objetos já no Storage.
-
----
-
-## ⚠️ Bloqueio de estado antes da T1 *(resolvido em 2026-09-05)*
-
-Resolvido: as features `34`, `35` e `36` — que nunca haviam sido commitadas — entraram em
-`146561e`, e a `38` nasceu em branch próprio a partir dali.
-
-**A árvore tem 101 arquivos não commitados no branch `feat/37-frete-gratis-configuravel`**, medido em
-2026-09-05. Entre eles há **arquivos novos que ninguém commitou**: `packages/core/src/color/`,
-`packages/core/src/material/aging.ts`, `packages/core/src/shipping/quotePayload.ts`,
-`packages/core/src/paging/pageMath.ts`, `apps/store/src/app/ScrollToTop.tsx` e o guarda
-`importSchema.test.ts`.
-
-Isso é bloqueante porque a regra de commit deste projeto é **um commit por feature, ao fim** — e com
-a árvore suja, o commit da `38` arrastaria trabalho de outra feature junto, sem ninguém notar.
-
-**A decisão é do usuário**, e é a primeira coisa a resolver: commitar a `37` no branch dela, ou
-guardar o trabalho em outro lugar, antes de a `38` começar. A `38` nasce em branch próprio a partir
-de uma árvore limpa.
+1. **A busca por descrição.** `searchProducts` pontua `description` como último desempate (peso 5),
+   e ela saiu do select enxuto. **Decisão: aceitar, e pôr interruptor na busca.** Trazer a descrição
+   de volta custaria **+430 KB brotli em toda página**; em troca, o `SearchDropdown` — que fica no
+   `Header`, montado em toda rota — ganhou o `enabled` que o `SearchOverlay` já tinha e deixou de
+   baixar o catálogo de quem só abriu a página (**−214 KB por página**). A busca por descrição volta
+   com `BL-025`. Registrado nos critérios de sucesso da spec.
+2. **T19**, o passe de `cacheControl` sobre os 3.618 objetos. **Decisão: adiar** — vira `BL-026`.
+   Não existe `updateMetadata` no `@supabase/storage-js` instalado, então o passe custaria 410 MB de
+   reenvio, e a cobrança da transformação é por imagem distinta **por mês**: ele compra velocidade
+   de revisita, não dinheiro.
 
 ---
 
-## Baselines medidas agora (não de memória)
+## ⚠️ Bloqueio de estado antes da T1 — **resolvido em 2026-09-05**
 
-Medidas em 2026-09-05, **um workspace por vez**, com exit code capturado, sobre a árvore como está.
+A árvore tinha **101 arquivos não commitados**, e a inspeção mostrou que a premissa inicial estava
+errada: a `37` **já estava commitada**; o que nunca havia entrado no git eram as features `34`, `35`
+e `36` inteiras — incluindo duas migrations que o CI aplica no projeto hospedado. O `CLAUDE.md`
+declarava a `34` e a `35` como fechadas enquanto o código delas vivia só na árvore de trabalho.
 
-| Workspace | Medido agora | `CLAUDE.md` diz | Delta |
-| --- | --- | --- | --- |
-| `@estrelinha/store` | **2001 / 135 arquivos** | 1996 / 135 | +5 |
-| `@estrelinha/core` | **1493 / 60 arquivos** | 1476 / 59 | +17 / +1 |
-
-O delta vem do trabalho não commitado acima, **não** desta feature. O gate da `38` compara contra os
-números **medidos**, e o `CLAUDE.md` é corrigido no fecho.
+Resolvido em `146561e`, com os cinco workspaces medidos verdes antes do commit. A `38` nasceu em
+branch próprio a partir dali.
 
 ---
 
@@ -507,7 +496,7 @@ não só do `.slice`
 - [ ] Cada leitura de listagem declara um teto explícito, com o número escrito num lugar só
 - [ ] O teste prova que o teto é **declarado**, não herdado — uma resposta no limite não vira lista
       silenciosamente truncada
-- [ ] O comentário no código aponta para `BL-020` como o fecho de verdade
+- [ ] O comentário no código aponta para `BL-025` como o fecho de verdade
 - [ ] Gate: `pnpm --filter @estrelinha/store test`
 - [ ] Test count: **≥+5** sobre o total de T12
 

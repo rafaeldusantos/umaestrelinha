@@ -758,3 +758,61 @@ describe('useProducts — o limite entra na CHAVE do cache (PRF-09)', () => {
     expect(consultasDeProduto()).toBe(chamadas)
   })
 })
+
+/**
+ * **`useAllProducts` HONRA o `enabled`** — `PRF-09`.
+ *
+ * Esta suíte nasceu de um mutante sobrevivente que a re-verificação da feature 38 encontrou:
+ * trocar `enabled: options?.enabled ?? true` por `enabled: true` em `useProducts.ts` passava nos
+ * **2259 testes do store**.
+ *
+ * O buraco era de par. O `SearchDropdown` ganhou seis testes provando que ele **passa**
+ * `{ enabled: false }` na montagem — mas as três superfícies de busca **mockam o módulo inteiro**,
+ * então nenhuma delas encosta no hook real. Provar que o chamador passa a opção não prova que o
+ * hook a respeita: são duas afirmações, e só uma tinha teste.
+ *
+ * Custa caro porque `useAllProducts` é o catálogo **inteiro** e o `SearchDropdown` mora no `Header`,
+ * montado em toda rota: o hook ignorar o `enabled` traz 680 produtos em cada página aberta.
+ *
+ * Molde: o `describe('enabled')` de `useProducts`, logo acima — o mesmo interruptor, no irmão que
+ * não tinha cobertura.
+ */
+describe('useAllProducts — o interruptor (PRF-09)', () => {
+  it('`enabled: false` não dispara consulta nenhuma', async () => {
+    respondWith([dbRow()])
+
+    const { result } = renderHook(() => useAllProducts({ enabled: false }), { wrapper })
+
+    expect(fromMock).not.toHaveBeenCalled()
+    expect(result.current.fetchStatus).toBe('idle')
+    expect(result.current.data).toBeUndefined()
+  })
+
+  it('`enabled: true` dispara normalmente', async () => {
+    respondWith([dbRow()])
+
+    const { result } = renderHook(() => useAllProducts({ enabled: true }), { wrapper })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    expect(result.current.data).toHaveLength(1)
+  })
+
+  it('sem `options` o padrão continua ligado — as telas que não passam nada não mudam', async () => {
+    respondWith([dbRow()])
+
+    const { result } = renderHook(() => useAllProducts(), { wrapper })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    expect(result.current.data).toHaveLength(1)
+  })
+
+  it('desligado, NENHUMA linha atravessa a rede — é o ponto, não o efeito colateral', async () => {
+    respondWith([dbRow()])
+
+    renderHook(() => useAllProducts({ enabled: false }), { wrapper })
+
+    // `fromMock` é a porta de entrada do PostgREST no dublê: zero chamadas é a prova de que a
+    // consulta não saiu, e não apenas de que o resultado foi descartado depois de chegar.
+    expect(fromMock).toHaveBeenCalledTimes(0)
+  })
+})
