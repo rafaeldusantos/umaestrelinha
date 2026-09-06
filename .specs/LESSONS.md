@@ -206,6 +206,30 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: apps/store/src/entities/cart/model/cartStore.ts:shippingCost (apps/store/src/entities/cart)
 - last seen: 2026-09-05T14:17:53Z
 
+### L-033 — Guarda de migration precisa de uma regua por COMANDO, nunca uma para a familia: uma expressao que casa um update inteiro mede a forma do primeiro, e o segundo, com uma clausula a mais no meio (from), escapa em silencio. Recorte o set e assere as colunas dentro dele.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `apps/**/__tests__ (guardas que leem .sql)` · harmful: 0
+- features: 39-menu-configuravel
+- evidence: menuSchema.test.ts + 20260905130000_39-menu-configuravel.sql:126 (apps/**/__tests__ (guardas que leem .sql))
+- last seen: 2026-09-06T12:47:05Z
+
+### L-034 — Regua de classe utilitaria tem de recusar hifen depois do token: toContain casa o sufixo (accent casa accent-strong) e \b nao fecha nada, porque - nao e caractere de palavra. A forma que fecha e (?:^|\s)token(?![-\w]).
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `testing/tokens` · harmful: 0
+- features: 39-menu-configuravel
+- evidence: MegaMenu.test.tsx + navItem.ts:38 (testing/tokens)
+- last seen: 2026-09-06T12:47:15Z
+
+### L-035 — Guarda com escopo menor que a regra e allowlist com outro nome: varrer so ['apps'] deixava supabase/functions fora, e a edge function seguia pedindo a coluna legado ao banco. O escopo da varredura e parte da assercao, e precisa de ancora que NOMEIE um arquivo de cada ponta.
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `testing/guardas de dono unico` · harmful: 0
+- features: 39-menu-configuravel
+- evidence: menuSurfaceSingleOwner.test.ts:ESCOPO + supabase/functions/sitemap/index.ts:61 (testing/guardas de dono unico)
+- last seen: 2026-09-06T12:47:25Z
+
+### L-036 — AC com duas metades — o sistema faz X E a tela diz isso em texto — precisa de assercao sobre o LITERAL. O componente que ficou sem arquivo de teste e exatamente onde a segunda metade some: apagar a frase nao quebra nada.
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `apps/backoffice/**` · harmful: 0
+- features: 39-menu-configuravel
+- evidence: NAV-23 + MenuPanelEditor.tsx:60-62 (apps/backoffice/**)
+- last seen: 2026-09-06T12:47:35Z
+
 ## Quarantined (failed when applied — ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.

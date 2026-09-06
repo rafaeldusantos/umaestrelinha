@@ -3,7 +3,7 @@
   "promote_threshold": 2,
   "window_days": 45,
   "quarantine_threshold": 2,
-  "next_id": 33,
+  "next_id": 37,
   "lessons": [
     {
       "id": "L-001",
@@ -580,6 +580,78 @@
       ],
       "created": "2026-09-05T14:17:53Z",
       "last_seen": "2026-09-05T14:17:53Z"
+    },
+    {
+      "id": "L-033",
+      "key": "surviving_mutant::guarda de migration precisa de uma regua por comando nunca uma para a familia uma expressao que casa um update inteiro mede a forma do primeiro e o segundo com uma clausula a mais no meio from escapa em silencio recorte o set e assere as colunas dentro dele",
+      "text": "Guarda de migration precisa de uma regua por COMANDO, nunca uma para a familia: uma expressao que casa um update inteiro mede a forma do primeiro, e o segundo, com uma clausula a mais no meio (from), escapa em silencio. Recorte o set e assere as colunas dentro dele.",
+      "signal": "surviving_mutant",
+      "scope": "apps/**/__tests__ (guardas que leem .sql)",
+      "status": "candidate",
+      "features": [
+        "39-menu-configuravel"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "menuSchema.test.ts + 20260905130000_39-menu-configuravel.sql:126 (apps/**/__tests__ (guardas que leem .sql))"
+      ],
+      "created": "2026-09-06T12:47:05Z",
+      "last_seen": "2026-09-06T12:47:05Z"
+    },
+    {
+      "id": "L-034",
+      "key": "surviving_mutant::regua de classe utilitaria tem de recusar hifen depois do token tocontain casa o sufixo accent casa accent strong e b nao fecha nada porque nao e caractere de palavra a forma que fecha e s token w",
+      "text": "Regua de classe utilitaria tem de recusar hifen depois do token: toContain casa o sufixo (accent casa accent-strong) e \\b nao fecha nada, porque - nao e caractere de palavra. A forma que fecha e (?:^|\\s)token(?![-\\w]).",
+      "signal": "surviving_mutant",
+      "scope": "testing/tokens",
+      "status": "candidate",
+      "features": [
+        "39-menu-configuravel"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "MegaMenu.test.tsx + navItem.ts:38 (testing/tokens)"
+      ],
+      "created": "2026-09-06T12:47:15Z",
+      "last_seen": "2026-09-06T12:47:15Z"
+    },
+    {
+      "id": "L-035",
+      "key": "ac_gap::guarda com escopo menor que a regra e allowlist com outro nome varrer so apps deixava supabase functions fora e a edge function seguia pedindo a coluna legado ao banco o escopo da varredura e parte da assercao e precisa de ancora que nomeie um arquivo de cada ponta",
+      "text": "Guarda com escopo menor que a regra e allowlist com outro nome: varrer so ['apps'] deixava supabase/functions fora, e a edge function seguia pedindo a coluna legado ao banco. O escopo da varredura e parte da assercao, e precisa de ancora que NOMEIE um arquivo de cada ponta.",
+      "signal": "ac_gap",
+      "scope": "testing/guardas de dono unico",
+      "status": "candidate",
+      "features": [
+        "39-menu-configuravel"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "menuSurfaceSingleOwner.test.ts:ESCOPO + supabase/functions/sitemap/index.ts:61 (testing/guardas de dono unico)"
+      ],
+      "created": "2026-09-06T12:47:25Z",
+      "last_seen": "2026-09-06T12:47:25Z"
+    },
+    {
+      "id": "L-036",
+      "key": "ac_gap::ac com duas metades o sistema faz x e a tela diz isso em texto precisa de assercao sobre o literal o componente que ficou sem arquivo de teste e exatamente onde a segunda metade some apagar a frase nao quebra nada",
+      "text": "AC com duas metades — o sistema faz X E a tela diz isso em texto — precisa de assercao sobre o LITERAL. O componente que ficou sem arquivo de teste e exatamente onde a segunda metade some: apagar a frase nao quebra nada.",
+      "signal": "ac_gap",
+      "scope": "apps/backoffice/**",
+      "status": "candidate",
+      "features": [
+        "39-menu-configuravel"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "NAV-23 + MenuPanelEditor.tsx:60-62 (apps/backoffice/**)"
+      ],
+      "created": "2026-09-06T12:47:35Z",
+      "last_seen": "2026-09-06T12:47:35Z"
     }
   ]
 }
