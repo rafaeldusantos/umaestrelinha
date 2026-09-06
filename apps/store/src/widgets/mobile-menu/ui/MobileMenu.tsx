@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { TAP_44 } from '@/shared/lib/touchTarget'
 import { Link } from 'react-router-dom'
 import { ChevronDown, ChevronUp, Heart, Package, Search, User, X } from 'lucide-react'
@@ -9,7 +9,7 @@ import { useAuthContext } from '@estrelinha/auth'
 import type { MenuItem, ResolvedMenuBanner } from '@estrelinha/core/menu'
 import { categoryPath } from '@estrelinha/core/routes'
 import { useMenu, useMenuUiStore } from '@/entities/category'
-import { useMenuBanners } from '@/entities/menu'
+import { useMenuBanners, useMenuPreview } from '@/entities/menu'
 import { useSearchUiStore } from '@/features/search'
 import { useAuthUiStore } from '@/features/auth'
 
@@ -68,6 +68,27 @@ const MobileMenu = () => {
    * entradas só para desenhar a lista. Como há um acordeão aberto por vez, um id basta.
    */
   const banners = useMenuBanners(expandedId, 'mobile')
+
+  /**
+   * `NAV-43` — na prévia, a folha abre sozinha, e no acordeão que o palco pediu.
+   *
+   * O quadro do celular mede 390: a barra de departamentos é `hidden md:block` e não existe ali, e o
+   * único caminho para o menu é este `Sheet`. Sem abrir, a prévia da superfície **celular** — a que
+   * responde por ~90% dos acessos da loja — mostraria a home e um ícone de hambúrguer, e a Adri
+   * precisaria clicar dentro do iframe a cada mudança para ver o que fez.
+   *
+   * São dois efeitos e não um: abrir é uma vez (senão o X de dentro da folha reabriria a cada
+   * mensagem), e o acordeão acompanha a seleção do painel a cada `open`.
+   */
+  const { preview, openId: pedidoDoPalco } = useMenuPreview()
+
+  useEffect(() => {
+    if (preview) setMenuOpen(true)
+  }, [preview, setMenuOpen])
+
+  useEffect(() => {
+    if (preview) setExpandedId(pedidoDoPalco)
+  }, [preview, pedidoDoPalco])
 
   /** Todo caminho que leva a outra superfície fecha a folha primeiro: duas camadas abertas no
       celular deixam a cliente sem saber o que o "voltar" está fechando. */

@@ -14,8 +14,8 @@
 // 2. **Sem teto e sem item fixo.** Nada aqui recusa por contagem, e nada aqui declara item de menu.
 //    `menuSemTeto` e `menuSemItemFixo` recusam a volta dos dois.
 // 3. **O painel não desenha o menu.** A prévia é a loja num iframe, como em `/admin/home`
-//    (`previaUnica.test.ts`). Enquanto o iframe não chega — fase 6 —, o lugar dela diz isso em
-//    texto, em vez de um esquema que divergiria da loja sem quebrar nada.
+//    (`previaUnica.test.ts`), e o dispositivo dela é a superfície em edição — o alternador do
+//    cabeçalho governa lista, contagem, editores **e** prévia (`NAV-37`).
 
 import { useEffect, useMemo, useState } from 'react'
 import {
@@ -42,6 +42,7 @@ import {
   MenuBannerEditor,
   MenuIconPicker,
   MenuLinkDialog,
+  MenuLivePreview,
   MenuPanelEditor,
   MenuSlotList,
   NOME_DA_SUPERFICIE,
@@ -327,22 +328,15 @@ const AdminMenuPage = () => {
           </div>
 
           <div className="flex flex-col gap-6">
-            {/* O lugar da prévia, **declarado**. O painel não desenha o menu: a prévia é a loja num
-                iframe, como em `/admin/home`, e ela chega na fase seguinte desta feature. Um esquema
-                provisório aqui seria o segundo desenho — o defeito que a feature 25 apagou da Home e
-                que `previaUnica.test.ts` existe para impedir de voltar. */}
-            <div
-              data-testid="previa-em-breve"
-              className="rounded-2xl border border-dashed border-border bg-muted/10 p-6"
-            >
-              <h2 className="font-heading text-sm font-bold text-foreground">Prévia</h2>
-              <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
-                A prévia ao vivo — a loja de verdade num iframe, com o menu já aberto na entrada
-                selecionada — entra na próxima etapa desta feature. Até lá, confira em{' '}
-                <strong>Ver na loja</strong>: esta tela não desenha o menu de propósito, para não
-                existir um segundo desenho que discorde do que a cliente vê.
-              </p>
-            </div>
+            {/* A prévia é **a loja**, num iframe — não um desenho deste painel (`NAV-43`). O
+                dispositivo dela é a superfície em edição: o alternador do cabeçalho governa os dois
+                (`NAV-37`). `previaUnica.test.ts` recusa a volta de qualquer segundo desenho. */}
+            <MenuLivePreview
+              surface={surface}
+              categories={pool}
+              links={links}
+              openId={selectedId}
+            />
 
             {host && (
               <MenuIconPicker itemName={host.name} value={host.icon ?? null} onChange={handleIcon} />

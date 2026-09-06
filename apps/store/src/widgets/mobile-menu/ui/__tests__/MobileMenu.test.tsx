@@ -21,16 +21,27 @@ import MobileMenu from '../MobileMenu'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-const { openSearchSpy, openAuthSpy, closeMenuSpy, surfaceSpy, menuState, authState, bannersState } =
-  vi.hoisted(() => ({
-    openSearchSpy: vi.fn(),
-    openAuthSpy: vi.fn(),
-    closeMenuSpy: vi.fn(),
-    surfaceSpy: vi.fn(),
-    menuState: { items: [] as any[] },
-    authState: { user: null as any },
-    bannersState: { lista: [] as ResolvedMenuBanner[], pedidos: [] as unknown[] },
-  }))
+const {
+  openSearchSpy,
+  openAuthSpy,
+  closeMenuSpy,
+  setMenuOpenSpy,
+  surfaceSpy,
+  menuState,
+  authState,
+  bannersState,
+  previewState,
+} = vi.hoisted(() => ({
+  openSearchSpy: vi.fn(),
+  openAuthSpy: vi.fn(),
+  closeMenuSpy: vi.fn(),
+  setMenuOpenSpy: vi.fn(),
+  surfaceSpy: vi.fn(),
+  menuState: { items: [] as any[] },
+  authState: { user: null as any },
+  bannersState: { lista: [] as ResolvedMenuBanner[], pedidos: [] as unknown[] },
+  previewState: { preview: false, draft: null as unknown, openId: null as string | null },
+}))
 
 vi.mock('@estrelinha/auth', () => ({ useAuthContext: () => authState }))
 vi.mock('@/features/search', () => ({ useSearchUiStore: (sel: any) => sel({ openSearch: openSearchSpy }) }))
@@ -41,7 +52,7 @@ vi.mock('@/entities/category', () => ({
     return menuState
   },
   useMenuUiStore: (sel: any) =>
-    sel({ open: true, closeMenu: closeMenuSpy, setMenuOpen: vi.fn() }),
+    sel({ open: true, closeMenu: closeMenuSpy, setMenuOpen: setMenuOpenSpy }),
 }))
 // O que o hook RESOLVE tem teste próprio (`entities/menu/api/__tests__`). Aqui interessa o desenho
 // — e, sobretudo, POR QUAL id ele é chamado: é o que prova que o banner é do acordeão aberto.
@@ -50,6 +61,7 @@ vi.mock('@/entities/menu', () => ({
     bannersState.pedidos.push([id, surface])
     return bannersState.lista
   },
+  useMenuPreview: () => previewState,
 }))
 
 const filha = (id: string, name: string) => ({ id, name, slug: id })
@@ -117,6 +129,9 @@ beforeEach(() => {
   authState.user = null
   bannersState.lista = []
   bannersState.pedidos = []
+  previewState.preview = false
+  previewState.draft = null
+  previewState.openId = null
 })
 
 describe('MENU-16 — a folha inteira', () => {
@@ -391,5 +406,42 @@ describe('NAV-36 — o banner mora DENTRO do acordeão', () => {
     bannersState.lista = [banner()]
     renderSheet()
     expect(screen.queryByTestId('mobile-menu-promo')).toBeNull()
+  })
+})
+
+describe('NAV-43 — na prévia, a folha abre sozinha e no acordeão pedido', () => {
+  it('em modo prévia a folha é aberta, sem ninguém tocar no hambúrguer', () => {
+    // O quadro do celular mede 390: a faixa de departamentos é `hidden md:block` e não existe ali.
+    // Sem esta abertura, a prévia da superfície que responde por ~90% dos acessos mostraria a home.
+    previewState.preview = true
+    renderSheet()
+    expect(setMenuOpenSpy).toHaveBeenCalledWith(true)
+  })
+
+  it('o acordeão da entrada pedida já vem aberto, com as filhas e o banner dela', () => {
+    previewState.preview = true
+    previewState.openId = 'correntes'
+    bannersState.lista = [banner()]
+    renderSheet()
+
+    expect(screen.getByRole('button', { name: 'Correntes' })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    )
+    expect(screen.getByText('Elo português')).toBeInTheDocument()
+    // E o banner resolvido é o DESSA entrada — o hook foi chamado com o id dela.
+    expect(bannersState.pedidos).toContainEqual(['correntes', 'mobile'])
+  })
+
+  it('FORA do modo prévia nada disso acontece', () => {
+    previewState.preview = false
+    previewState.openId = 'correntes'
+    renderSheet()
+
+    expect(setMenuOpenSpy).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: 'Correntes' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    )
   })
 })

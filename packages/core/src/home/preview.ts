@@ -9,7 +9,12 @@
 // de dentro de um teste. Foi ter a regra escrita em cada tela que produziu o defeito que esta
 // feature elimina: **dois desenhos da mesma Home**, mantidos à mão, em apps que não se importam.
 
-import type { HomeSection } from './types'
+// `.ts` explícito (feature 39, e a regra é a do `CLAUDE.md`): este arquivo passou a ser alcançado por
+// `core/menu/preview.ts`, e `core/menu` é resolvido pelo **Deno** da edge function do sitemap. Deno
+// resolve o grafo de TIPOS junto — um especificador relativo sem extensão derruba o worker com
+// `Failed resolving types` antes da primeira linha rodar. Vite e vitest resolvem as duas formas, então
+// nada acusava; quem acusa agora é `core/menu/__tests__/purity.test.ts`, que caminha o grafo inteiro.
+import type { HomeSection } from './types.ts'
 
 /**
  * O carimbo de toda mensagem da ponte.

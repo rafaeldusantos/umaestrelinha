@@ -21,11 +21,17 @@ import MegaMenu from '../MegaMenu'
  *   pelos banners com arte, que têm cobertura própria aqui e em `useMenuTargets.test.tsx`.
  */
 
-const { bannersState } = vi.hoisted(() => ({ bannersState: { lista: [] as ResolvedMenuBanner[] } }))
+const { bannersState, previewState } = vi.hoisted(() => ({
+  bannersState: { lista: [] as ResolvedMenuBanner[] },
+  previewState: { preview: false, draft: null as unknown, openId: null as string | null },
+}))
 
 // O painel resolve os banners por hook, e o que ele resolve tem teste próprio
 // (`entities/menu/api/__tests__/useMenuTargets.test.tsx`). Aqui interessa o DESENHO.
-vi.mock('@/entities/menu', () => ({ useMenuBanners: () => bannersState.lista }))
+vi.mock('@/entities/menu', () => ({
+  useMenuBanners: () => bannersState.lista,
+  useMenuPreview: () => previewState,
+}))
 
 const filha = (id: string, name: string) => ({ id, name, slug: id }) as never
 
@@ -88,6 +94,9 @@ const hover = (name: string) => {
 beforeEach(() => {
   vi.useFakeTimers()
   bannersState.lista = []
+  previewState.preview = false
+  previewState.draft = null
+  previewState.openId = null
 })
 
 // Obrigatório: o `afterAll` de `src/test/setup.ts` espera 100ms **reais** (drenar os timers do
@@ -404,5 +413,43 @@ describe('NAV-04 — a forma que produz a rolagem', () => {
 
     expect(fila.className).toContain('min-w-max')
     expect(fila.className).not.toContain('flex-wrap')
+  })
+})
+
+describe('NAV-43 — na prévia, o palco diz qual painel abrir', () => {
+  it('o painel da entrada pedida já está aberto, SEM hover nenhum', () => {
+    // É o que a AC pede: a Adri está com o mouse no editor, fora do iframe, e o mega menu só abre
+    // por hover. Sem esta ponte ela teria de entrar na prévia a cada mudança para conferi-la.
+    previewState.preview = true
+    previewState.openId = 'afetivas'
+    renderMenu()
+
+    expect(screen.getByTestId('mega-menu-painel')).toHaveTextContent('Cinzas de cremação')
+  })
+
+  it('`null` fecha o que estava aberto', () => {
+    previewState.preview = true
+    previewState.openId = 'afetivas'
+    const { rerender } = renderMenu()
+    expect(screen.getByTestId('mega-menu-painel')).toBeInTheDocument()
+
+    previewState.openId = null
+    rerender(
+      <MemoryRouter>
+        <MegaMenu items={[AFETIVAS, CORRENTES]} />
+      </MemoryRouter>,
+    )
+
+    expect(screen.queryByTestId('mega-menu-painel')).toBeNull()
+  })
+
+  it('FORA do modo prévia o pedido é ignorado — a barra da cliente não abre sozinha', () => {
+    // A trava é `preview`, não a presença do id: sem ela, uma mensagem alheia que chegasse numa aba
+    // comum abriria o mega menu na cara da cliente.
+    previewState.preview = false
+    previewState.openId = 'afetivas'
+    renderMenu()
+
+    expect(screen.queryByTestId('mega-menu-painel')).toBeNull()
   })
 })

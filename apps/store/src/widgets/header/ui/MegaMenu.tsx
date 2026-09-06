@@ -9,7 +9,7 @@ import {
   type ResolvedMenuBanner,
 } from '@estrelinha/core/menu'
 import { MENU_ICON_COMPONENTS } from '@estrelinha/ui/icons'
-import { useMenuBanners } from '@/entities/menu'
+import { useMenuBanners, useMenuPreview } from '@/entities/menu'
 import { NAV_ITEM, NAV_ITEM_CHEVRON, NAV_ITEM_ICON } from './navItem'
 
 /**
@@ -210,8 +210,26 @@ const MegaMenu = ({ items }: { items: MenuItem[] }) => {
    * Vale para um único `onFocus`, o que nós mesmos causamos.
    */
   const ignoreNextFocus = useRef(false)
+  /**
+   * `NAV-43` — na prévia, o palco diz qual painel abrir.
+   *
+   * Sem isto a Adri teria de passar o mouse **dentro do iframe** para conferir o painel que está
+   * editando fora dele: o mouse dela está no editor, e o hover é a única forma de abrir o mega menu.
+   *
+   * O palco **steera**, não trava: o estado local continua sendo o dono, e um hover dentro da prévia
+   * ainda abre outro painel — até a próxima mensagem. Fora do modo prévia este efeito não corre.
+   */
+  const { preview, openId: pedidoDoPalco } = useMenuPreview()
 
   useEffect(() => () => clearTimeout(timer.current), [])
+
+  useEffect(() => {
+    if (!preview) return
+    // Cancela a abertura/fechamento agendado: o pedido do palco é explícito e não pode ser desfeito
+    // 200ms depois por um `schedule` que já estava no ar.
+    clearTimeout(timer.current)
+    setOpenId(pedidoDoPalco)
+  }, [preview, pedidoDoPalco])
 
   /**
    * Abrir e fechar com espera.

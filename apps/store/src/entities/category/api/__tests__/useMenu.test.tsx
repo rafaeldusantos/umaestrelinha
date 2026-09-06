@@ -13,14 +13,18 @@ import { renderHook } from '@testing-library/react'
  * 3. **Falha de leitura devolve `[]`**, dos dois lados, e a loja continua de pé.
  */
 
-const { categoriesState, settingsState } = vi.hoisted(() => ({
+const { categoriesState, settingsState, previewState } = vi.hoisted(() => ({
   categoriesState: { data: undefined as unknown },
   settingsState: { data: undefined as unknown },
+  previewState: { preview: false, draft: null as unknown, openId: null as string | null },
 }))
 
 vi.mock('../useCategories', () => ({ useCategories: () => categoriesState }))
 vi.mock('@estrelinha/core/hooks/useStoreSettings', () => ({
   useStoreSettings: () => settingsState,
+}))
+vi.mock('@/entities/menu/model/useMenuPreview', () => ({
+  useMenuPreview: () => previewState,
 }))
 
 import { useMenu } from '../useMenu'
@@ -52,6 +56,9 @@ const menu = (surface: 'desktop' | 'mobile') => renderHook(() => useMenu(surface
 beforeEach(() => {
   categoriesState.data = []
   settingsState.data = { menu: { links: [] } }
+  previewState.preview = false
+  previewState.draft = null
+  previewState.openId = null
 })
 
 describe('useMenu — duas curadorias, um dado (NAV-01)', () => {
@@ -120,6 +127,49 @@ describe('useMenu — as duas fontes numa lista só (NAV-14)', () => {
     }
 
     expect(menu('desktop').items.map(i => i.kind)).toEqual(['link'])
+  })
+})
+
+describe('NAV-44 — em modo prévia o rascunho SUBSTITUI o banco', () => {
+  it('a barra passa a ser a do painel, e a leitura do banco é ignorada', () => {
+    categoriesState.data = [categoria({ id: 'salva', name: 'Salva no banco', menu_desktop: true })]
+    previewState.draft = {
+      categories: [categoria({ id: 'rascunho', name: 'Do rascunho', menu_desktop: true })],
+      links: [link({ id: 'sobre', label: 'Sobre', desktop: true, sort_order: 100 })],
+    }
+
+    expect(menu('desktop').items.map(i => i.name)).toEqual(['Do rascunho', 'Sobre'])
+  })
+
+  it('a substituição vale para as DUAS superfícies, com a mesma função', () => {
+    // O quadro do celular mede 390 e a folha pede `'mobile'`: se o rascunho só chegasse ao desktop, a
+    // prévia da superfície que responde por ~90% dos acessos mostraria o banco.
+    previewState.draft = {
+      categories: [
+        categoria({ id: 'so-celular', name: 'Só no celular', menu_mobile: true }),
+        categoria({ id: 'so-pc', name: 'Só no computador', menu_desktop: true }),
+      ],
+      links: [],
+    }
+
+    expect(menu('mobile').items.map(i => i.name)).toEqual(['Só no celular'])
+    expect(menu('desktop').items.map(i => i.name)).toEqual(['Só no computador'])
+  })
+
+  it('rascunho VAZIO é menu vazio, e não o do banco — é como a dona vê o que desligou', () => {
+    // A diferença que o hook da ponte guarda: `null` é "ainda não chegou" e cai no banco; `[]` é
+    // "a dona desligou tudo". Confundir os dois faria a prévia nunca ficar vazia.
+    categoriesState.data = [categoria({ id: 'salva', name: 'Salva no banco', menu_desktop: true })]
+    previewState.draft = { categories: [], links: [] }
+
+    expect(menu('desktop').items).toEqual([])
+  })
+
+  it('sem rascunho (`null`), a loja lê o banco como sempre', () => {
+    categoriesState.data = [categoria({ id: 'salva', name: 'Salva no banco', menu_desktop: true })]
+    previewState.draft = null
+
+    expect(menu('desktop').items.map(i => i.name)).toEqual(['Salva no banco'])
   })
 })
 

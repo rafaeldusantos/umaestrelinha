@@ -119,6 +119,18 @@ vi.mock('@estrelinha/supabase/client', () => {
 
 vi.mock('@estrelinha/ui/hooks/use-toast', () => ({ toast: vi.fn() }))
 
+/**
+ * `VITE_STORE_URL` é fixada aqui, e **não** lida do ambiente.
+ *
+ * É a lição do `storeOrigin.test.ts` (feature 27): teste que lê `import.meta.env` mede a MÁQUINA, não
+ * o código — passa em quem já rodou a loja e falha no CI, onde o `.env` é gitignored. `vitest.config`
+ * fixa só as duas do Supabase; esta é da prévia, e só esta tela precisa dela.
+ */
+vi.mock('@/shared/lib/storeOrigin', () => ({
+  STORE_URL: 'http://localhost:8082',
+  storeOrigin: () => 'http://localhost:8082',
+}))
+
 import AdminMenuPage from './AdminMenuPage'
 import { toast } from '@estrelinha/ui/hooks/use-toast'
 
@@ -180,12 +192,15 @@ describe('NAV-40 — a tela mostra o que a LOJA renderiza, e nada declarado nela
     expect(within(screen.getByTestId('item-sobre')).getByText('Link')).toBeInTheDocument()
   })
 
-  it('SUBSTITUI o caso da prévia desenhada à mão: o painel não desenha o menu', async () => {
+  it('SUBSTITUI o caso da prévia desenhada à mão: quem desenha o menu é a LOJA', async () => {
     await renderPage()
-    // `MenuBarPreview` era o segundo desenho da barra, com a paleta do admin. O lugar da prévia
-    // agora DECLARA que a loja é quem desenha — e `previaUnica.test.ts` recusa a volta do arquivo.
-    expect(screen.getByTestId('previa-em-breve')).toHaveTextContent('não desenha o menu')
-    expect(screen.queryByTestId('previa-vazia')).toBeNull()
+    // `MenuBarPreview` era o segundo desenho da barra, com a paleta do admin. O lugar dele agora é
+    // um iframe da loja — e `previaUnica.test.ts` recusa a volta do arquivo.
+    expect(screen.getByTestId('palco-previa-menu')).toBeInTheDocument()
+    expect(document.querySelector('iframe')).toHaveAttribute(
+      'src',
+      'http://localhost:8082/?preview=1',
+    )
   })
 
   it('filha marcada de pai marcado NÃO tem linha na barra — ela é item do painel (NAV-06)', async () => {
@@ -291,6 +306,19 @@ describe('NAV-37 — o alternador troca lista, contagem e editores juntos', () =
     await waitFor(() =>
       expect(hook.updateCategory).toHaveBeenCalledWith('personalizados', { menu_mobile: true }),
     )
+  })
+
+  it('e a PRÉVIA acompanha: o quadro passa de 1024 para 390 (NAV-45)', async () => {
+    // O alternador é UM só, e ele governa a prévia junto (`NAV-37`). Um segundo alternador dentro do
+    // palco deixaria a Adri editar a curadoria do celular olhando a barra do computador.
+    await renderPage()
+    expect(document.querySelector('iframe')).toHaveAttribute('width', '1024')
+
+    fireEvent.click(screen.getByTestId('superficie-mobile'))
+
+    expect(document.querySelector('iframe')).toHaveAttribute('width', '390')
+    expect(document.querySelector('iframe')).toHaveAttribute('data-device', 'mobile')
+    expect(screen.getByTestId('dispositivo-previa')).toHaveTextContent('Celular')
   })
 })
 

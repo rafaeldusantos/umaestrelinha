@@ -112,3 +112,94 @@ describe('core/menu é importável por Deno', () => {
     expect(relativos).toBeGreaterThanOrEqual(4)
   })
 })
+
+// ───────────────────────────────────────────────────────────────────────────
+// A varredura TRANSITIVA — feature 39
+//
+// A régua acima olha só os arquivos deste diretório, e isso deixou de bastar: `menu/preview.ts`
+// importa `../home/preview.ts`, que importava `'./types'` **sem extensão**. Os dois especificadores
+// de `core/menu` estavam certos, o guarda passava, e o Deno da function do sitemap teria morrido com
+// `Failed resolving types` na primeira linha — porque ele resolve o grafo INTEIRO, e o de tipos
+// junto. Um vizinho pode quebrar este módulo sem tocar nele.
+//
+// A caminhada começa no `index.ts`, que é a única porta declarada em `package.json`.
+// ───────────────────────────────────────────────────────────────────────────
+
+/** Um leitor de arquivo, injetável — é o que torna o sensor por mutação possível. */
+type Leitor = (caminho: string) => string
+
+/** `…/packages/core/src/home/preview.ts` → `home/preview.ts`. Independe de separador e de raiz. */
+const rotulo = (caminho: string): string =>
+  caminho.replace(/\\/g, '/').split('/').slice(-2).join('/')
+
+const caminharGrafo = (
+  entrada: string,
+  ler: Leitor,
+): { visitados: string[]; semExtensao: string[] } => {
+  const visitados: string[] = []
+  const semExtensao: string[] = []
+  const fila = [entrada]
+  const vistos = new Set<string>()
+
+  while (fila.length > 0) {
+    const atual = fila.shift()!
+    if (vistos.has(atual)) continue
+    vistos.add(atual)
+    visitados.push(atual)
+
+    for (const spec of especificadores(ler(atual))) {
+      if (!spec.startsWith('.')) continue
+      if (!spec.endsWith('.ts')) {
+        // Sem extensão o grafo não é caminhável a partir daqui: registra e para neste ramo, em vez
+        // de adivinhar `+ '.ts'` — adivinhar faria o guarda "consertar" o defeito que ele mede.
+        semExtensao.push(`${rotulo(atual)} → ${spec}`)
+        continue
+      }
+      fila.push(join(dirname(atual), spec))
+    }
+  }
+
+  return { visitados, semExtensao }
+}
+
+describe('core/menu é importável por Deno — o grafo TRANSITIVO', () => {
+  const grafo = caminharGrafo(join(DIR, 'index.ts'), c => readFileSync(c, 'utf8'))
+
+  it('a caminhada sai de `core/menu` e alcança os vizinhos — âncora', () => {
+    // Sem esta âncora, um `index.ts` que deixasse de exportar tudo faria a asserção abaixo varrer
+    // dois arquivos e aprovar em silêncio.
+    const rel = grafo.visitados.map(rotulo)
+    expect(grafo.visitados.length).toBeGreaterThanOrEqual(8)
+    expect(rel).toEqual(
+      expect.arrayContaining([
+        'menu/index.ts',
+        'menu/menu.ts',
+        'menu/preview.ts',
+        'routes/index.ts',
+        'home/preview.ts',
+      ]),
+    )
+  })
+
+  it('nenhum arquivo do grafo tem especificador relativo sem `.ts`', () => {
+    expect(grafo.semExtensao).toEqual([])
+  })
+
+  it('a régua PEGA o defeito de um vizinho — sensor por mutação', () => {
+    // O defeito exato que existia antes desta feature: `menu/preview.ts` correto, e o arquivo de
+    // `home` que ele importa com um `import type` sem extensão. Sem este sensor, a asserção acima
+    // mede uma ausência — e ausência é o que passa sozinha quando o instrumento falha.
+    const falso: Record<string, string> = {
+      '/x/menu/index.ts': "export * from './preview.ts'",
+      '/x/menu/preview.ts': "import type { A } from '../home/preview.ts'",
+      '/x/home/preview.ts': "import type { HomeSection } from './types'",
+    }
+    const doente = caminharGrafo('/x/menu/index.ts', c => falso[c.replace(/\\/g, '/')] ?? '')
+    expect(doente.semExtensao).toEqual(['home/preview.ts → ./types'])
+
+    const curado = caminharGrafo('/x/menu/index.ts', c =>
+      (falso[c.replace(/\\/g, '/')] ?? '').replace("'./types'", "'./types.ts'"),
+    )
+    expect(curado.semExtensao).toEqual([])
+  })
+})

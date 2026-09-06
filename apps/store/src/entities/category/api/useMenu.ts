@@ -1,6 +1,10 @@
 import { useMemo } from 'react'
 import { menuItems, type MenuItem, type MenuSurface } from '@estrelinha/core/menu'
 import { useStoreSettings } from '@estrelinha/core/hooks/useStoreSettings'
+// Import PROFUNDO de propósito, e é a única forma sem ciclo: `entities/menu/index.ts` reexporta
+// `useMenuTargets`, que importa `@/entities/category` — passar pelo barrel fecharia
+// `category → menu → category` entre os dois barris. O arquivo apontado não importa de `category`.
+import { useMenuPreview } from '@/entities/menu/model/useMenuPreview'
 import { useCategories } from './useCategories'
 
 /**
@@ -26,11 +30,25 @@ import { useCategories } from './useCategories'
 export const useMenu = (surface: MenuSurface): { items: MenuItem[] } => {
   const { data: categories } = useCategories()
   const { data: settings } = useStoreSettings()
+  /**
+   * Em modo prévia as duas fontes chegam do painel, por `postMessage` (`NAV-44`).
+   *
+   * A substituição acontece **aqui e em nenhum outro lugar**: `useMenu` já é a porta única das
+   * quatro superfícies, então a barra do computador, a folha do celular e a prévia continuam sendo a
+   * mesma função com a mesma entrada. Trocar a fonte dentro de cada widget daria duas leituras do
+   * rascunho, com a chance de uma delas ficar para trás — que é o "defeito 01" no lugar mais caro.
+   *
+   * Fora do modo prévia `draft` é `null` **permanentemente**, e nada disto custa um render.
+   */
+  const { draft } = useMenuPreview()
 
   const links = settings?.menu?.links
   const items = useMemo(
-    () => menuItems({ categories: categories ?? [], links: links ?? [] }, surface),
-    [categories, links, surface],
+    () =>
+      draft
+        ? menuItems({ categories: draft.categories, links: draft.links }, surface)
+        : menuItems({ categories: categories ?? [], links: links ?? [] }, surface),
+    [draft, categories, links, surface],
   )
 
   return { items }

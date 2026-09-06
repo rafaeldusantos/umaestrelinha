@@ -4,11 +4,13 @@ import { supabase } from '@estrelinha/supabase/client'
 import {
   menuBannerSlots,
   resolveMenuBanners,
+  type MenuCategory,
   type MenuProduct,
   type MenuSurface,
   type ResolvedMenuBanner,
 } from '@estrelinha/core/menu'
 import { useCategories } from '@/entities/category'
+import { useMenuPreview } from '../model/useMenuPreview'
 
 /**
  * Os ids de **produto** que os banners desta superfície apontam.
@@ -93,14 +95,26 @@ export const useMenuBanners = (
   surface: MenuSurface,
 ): ResolvedMenuBanner[] => {
   const { data: categories } = useCategories()
+  // Em modo prévia a árvore vem do painel (`NAV-44`), e ela precisa chegar até aqui: o banner é
+  // configurado na mesma tela, e uma prévia que mostrasse a barra do rascunho com o banner do banco
+  // seria meia prévia — a dona trocaria a arte e o quadro não mudaria, sem nada quebrar.
+  const { draft } = useMenuPreview()
+  // `useMemo` e não uma expressão solta: `categories ?? []` produz um array novo a cada render, e ele
+  // é dependência do `useMemo` de baixo — sem isto, a resolução dos banners refaria a cada quadro
+  // enquanto a consulta não voltasse.
+  const arvore = useMemo<MenuCategory[]>(
+    () => (draft ? draft.categories : ((categories ?? []) as MenuCategory[])),
+    [draft, categories],
+  )
 
-  const raw = categoryId
-    ? ((categories ?? []).find(c => c.id === categoryId)?.menu_banners ?? null)
-    : null
+  const raw = categoryId ? (arvore.find(c => c.id === categoryId)?.menu_banners ?? null) : null
+  // O destino de PRODUTO continua saindo do banco: o painel manda a curadoria, não o catálogo, e
+  // resolver o produto pela consulta é o que garante que a prévia recuse o mesmo destino que a loja
+  // recusaria (apagado, inativo).
   const products = useMenuTargets(raw, surface)
 
   return useMemo(
-    () => resolveMenuBanners({ categories: categories ?? [], products }, raw, surface),
-    [categories, products, raw, surface],
+    () => resolveMenuBanners({ categories: arvore, products }, raw, surface),
+    [arvore, products, raw, surface],
   )
 }
