@@ -40,6 +40,52 @@ segunda-feira.)
   alcançadas de dentro de outra tela, não são destino de primeiro nível. A segunda exigiria um id em
   código para virar link.
 
+### A coluna é FIXA, e os grupos colapsam
+
+**A sidebar não acompanha a rolagem da página, e isso conserta um defeito medido.** O `aside` era um
+filho de flex sem altura declarada, então o `stretch` o esticava até a altura do **documento**:
+em `/admin/produtos` (680 produtos, documento de 6.864px numa viewport de 900) o rodapé
+`Configurações · Ver Loja · Sair` ficava com o topo em **1.712px** — fora da tela, e sem jeito de
+alcançar sem rolar a listagem inteira. Com `sticky top-0 self-start h-screen` ele fica em **748px**,
+sempre. Os dois números foram medidos no navegador, na mesma página, trocando só a `className`.
+
+- **`sticky`, não `fixed`, e não `h-screen overflow-hidden` na raiz.** `fixed` tira a coluna do fluxo
+  e o conteúdo passaria por baixo dela; prender a rolagem na raiz trocaria a rolagem do body pela do
+  `main`, e `100vh` com a barra do navegador do celular é o defeito seguinte. `sticky` prende a
+  coluna **sem** mexer no modelo de rolagem da página.
+- **`self-start` é obrigatório**: sem ele o `align-items: stretch` do flex desfaz o `h-screen` e a
+  sidebar volta a acompanhar o documento — que é exatamente o defeito.
+- **O que rola é o `<nav>`, e o rodapé é irmão dele.** `flex-1 min-h-0 overflow-y-auto`: sem o
+  `min-h-0`, um filho de flex não encolhe abaixo do próprio conteúdo e a lista empurraria o rodapé
+  para fora da coluna em vez de rolar dentro dela.
+- **A barra do celular também é `sticky`.** No celular a sidebar **é** aquele botão: se ele rola para
+  fora, navegar exige voltar ao topo de uma listagem de 680 linhas.
+
+**Os grupos colapsam porque a lista não cabe**, e isso também é medido: com os quatro abertos, o
+`<nav>` pede **820px** e tem **670px** numa viewport de 900 — o grupo `Loja` inteiro fica abaixo da
+dobra interna. Em 390×844 sobram 206px de corte. Colapsar dois grupos zera a diferença.
+
+- **O que se guarda é o conjunto COLAPSADO, nunca o expandido** (`estrelinha.admin.nav-collapsed`,
+  junto das colunas e visões salvas das listagens). Assim a ausência de valor — primeira visita,
+  storage limpo, aba anônima — significa "tudo aberto", que é o comportamento de sempre; e um grupo
+  acrescentado depois nasce **visível** em quem já usava o painel.
+- **A lista de rótulos colapsáveis sai de `navGroups`, não de uma segunda cópia** — um segundo dono
+  dos rótulos faria o grupo renomeado parar de colapsar, em silêncio. `readCollapsed` ainda descarta
+  rótulo que não é mais grupo.
+- **O Dashboard não colapsa**: sem cabeçalho não há onde clicar, e esconder o ponto de partida não
+  teria como se desfazer.
+- **Grupo colapsado que contém a tela atual AVISA** (ponto violeta + texto `sr-only`), e **não** se
+  abre sozinho. Abrir à força resolveria o sintoma destruindo a escolha de quem colapsou; sem
+  aviso nenhum, colapsar `Catálogo` e abrir um produto pelo link de dentro do pedido deixaria a
+  sidebar **sem item marcado**, e navegação que não responde "onde estou" lê como quebrada.
+- **A régua do aviso é a mesma do item ativo** (`isNavActive`): grupo que se marcasse só na rota
+  exata deixaria de avisar justamente nas telas de segundo nível — que são as alcançadas de dentro de
+  outra tela, o caso que motivou o aviso.
+- **O que o jsdom não mede está travado por leitura do fonte.** `AdminLayout.test.tsx` lê o próprio
+  `.tsx` do disco e cobra `sticky`/`top-0`/`h-screen`/`self-start` no `aside`, `min-h-0` no `<nav>` e
+  a ausência de `overflow-hidden` na raiz — com **âncora** (a varredura tem de achar os três
+  elementos) e **sensor** (a declaração antiga tem de reprovar na mesma régua).
+
 ## Molde dos formulários
 
 - **Editor é TELA, não modal.** Cupom, promoção e produto se cadastram em rota própria —
@@ -374,6 +420,10 @@ catálogo — e impede que a troca aconteça na ordem errada.
 
 ## Dívidas conhecidas deste app
 
+- **A baseline de testes do painel é 1946 em 118 arquivos** (2026-09-06, medida um workspace por vez
+  e com exit code capturado fora de pipe). O número **antes** da sidebar fixa e dos grupos
+  colapsáveis, medido por `git stash` no mesmo dia, é **1914 em 116** — que é o que a raiz já
+  registrava. O gate é "sem regressão"; ver [`../../CLAUDE.md`](../../CLAUDE.md).
 - **A baseline de lint do painel é 25 erros / 4 warnings**, em boa parte
   `@typescript-eslint/no-explicit-any` nos hooks admin (`entities/*/api/useAdmin*`). O gate é "sem
   erros novos". *(Dizia 28/7 até 2026-09-05: a `34` apagou `OrderDetailDialog.tsx` e levou junto três

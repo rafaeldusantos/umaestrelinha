@@ -330,6 +330,8 @@ migrations, e `vercelRedirects` lê o `vercel.json`.
 | `paths.test.ts` | store `shared/ui/brand/__tests__` | `paths.ts` divergir do SVG-fonte em um caractere; dois `<path>` do mesmo SVG com a mesma espessura |
 | `previaUnica.test.ts` | backoffice `features/home-composition` | um segundo desenho da Home **ou do MENU** voltar ao painel; `MenuBarPreview.tsx` reaparecer; um arquivo de `store-menu` importar `menuPanelColumns` ou `resolveMenuBanners` (calcular o desenho do painel da loja **é** o segundo desenho); qualquer dos dois importar de `apps/store`. **Cobre as features `25` e `39`**, com âncora dupla e sensor de CRLF/LF |
 | `navItems.test.ts` | backoffice `widgets/admin-layout` | ordem das rotas em `App.tsx` divergir de `navGroups` |
+| `AdminLayout.test.tsx` | idem | a sidebar deixar de ser fixa (`sticky`/`top-0`/`h-screen`/`self-start` no `aside`), o `<nav>` perder `min-h-0`, a raiz ganhar `overflow-hidden`, a barra do celular deixar de ser `sticky`; o Dashboard virar grupo colapsável; grupo colapsado que contém a rota atual parar de avisar. **Âncora** (a varredura do fonte tem de achar os três elementos) e **sensor** (a declaração antiga reprova na mesma régua) |
+| `navCollapse.test.ts` | idem | o storage vazio deixar de significar "tudo aberto"; a lista de colapsáveis virar segunda cópia dos rótulos de `navGroups`; a régua do "onde estou" divergir de `isNavActive` |
 | `adminTokens.test.ts` | backoffice `shared/lib/__tests__` | classe `estrelinha-admin-*` cujo token **não existe no preset**; `amber`/`emerald` virarem hex literal (o dark pararia de acompanhar); chave do preset apontando para variável não declarada; hex do preset divergir do `styles.css`; `text`/`text-secondary`/`text-muted` caírem abaixo de 4,5:1 sobre `card`/`bg`, **em light e dark**; `text-muted` alcançar `text-secondary` (o piso comeria a hierarquia); âmbar ou esmeralda reprovarem sobre o **próprio fundo de 10%**. Carrega **sensor embutido** e **âncora dupla** |
 | `faqSuggestion.test.ts` | `packages/core/src/faq/__tests__` | a sugestão cair abaixo de **80%** de precisão ou cobertura contra a distribuição real do catálogo. Carrega **sensor embutido**: assere que contagem bruta **reprova** na mesma régua |
 | `block.test.ts` | idem | o extrator perder um dos **dois** arranjos de HTML medidos; `stripFaqBlock` remover bloco sem par extraível |
@@ -361,9 +363,15 @@ quando mudarem de verdade.
 | --- | --- | --- |
 | **Lint** | **27 erros / 5 warnings** — backoffice 25/4 · store 2/1 | `pnpm lint` |
 | **Tipos** | **0 · 0 · 0** (store · backoffice · catalog-import) | `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` |
-| **Testes** | **7014 em 375 arquivos** — store 2490/161 · backoffice 1914/116 · core 1728/68 · functions 370/7 · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test` |
+| **Testes** | **7046 em 377 arquivos** — store 2490/161 · backoffice **1946/118** · core 1728/68 · functions 370/7 · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test` |
 
-**Este número é da ÁRVORE MESCLADA — a `39` encontrando a `38` na `master`** (merge de 2026-09-06),
+**A sidebar fixa e os grupos colapsáveis somaram +32 no backoffice**, medidos em 2026-09-06 um
+workspace por vez e com exit code capturado fora de pipe: **1914 em 116 → 1946 em 118**, em dois
+arquivos novos (`navCollapse.test.ts`, 16, e `AdminLayout.test.tsx`, 16). Os outros quatro workspaces
+não foram tocados e não foram remedidos. Lint ficou em **27/5** (backoffice 25/4) e tipos em
+**0·0·0**; `packages/core/src/payment/**` não foi tocado, conferido por `git diff --name-only`.
+
+**O número anterior (7014/375) é da ÁRVORE MESCLADA — a `39` encontrando a `38` na `master`** (merge de 2026-09-06),
 e não a soma de duas baselines. Os cinco workspaces foram medidos **um por vez**, com exit code
 capturado fora de pipe, e os cinco passam limpos.
 
