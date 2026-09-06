@@ -279,6 +279,65 @@ coleção toda. Quem pagina é a **janela** (`shared/lib/useInfiniteWindow`), n�
 - **Sabido e em aberto**: enquanto carrega não há como saber se a coleção tem universos, então a
   faixa de chips aparece só depois — a grade desce ~48px nesse momento. Reservar a faixa trocaria
   esse salto por outro nas coleções sem tag.
+- **O esqueleto e o card têm guarda de paridade desde a feature `40`** (`cardSkeletonBox.test.ts`).
+  Ele não mede altura — continua sendo impossível em jsdom —, mas lê os **dois arquivos do disco** e
+  compara as quatro classes que produzem os 431px. O par do nome é assimétrico de propósito:
+  `min-h-[40px]` no card (o nome pode ter uma linha e ainda reservar duas, `COR-09`) contra
+  `h-[40px]` no esqueleto, que tem conteúdo fixo. A régua é de **token exato** — `includes` diria
+  que o card declara `h-[40px]`, porque `min-h-[40px]` o contém.
+
+## A home não salta enquanto carrega (feature `40`)
+
+O Lighthouse de 2026-09-06 mediu **CLS 0,244** na home — e o número inteiro saiu de **um**
+deslocamento, o do `<footer>`.
+
+- **A causa era `ProductCarousel` tratar "ainda não sei" como "não tem".** A guarda de saída era
+  `if (products.length === 0) return null`, e `products` chega `undefined` enquanto carrega: as
+  quatro fileiras nasciam com altura zero, o rodapé subia para dentro da viewport, e cada fileira
+  estourava para ~600px quando os produtos chegavam. **É a distância que o rodapé percorria que
+  dominava o cálculo** — ele só desloca tanto porque estava visível numa página curta.
+- **Hoje são três estados**, como na `CategoryPage`: carregando reserva as vagas, vazio **resolvido**
+  some, e com produtos desenha. Quem separa é `loading`, e é `isLoading` — **nunca** `isPending`,
+  pela mesma razão da listagem.
+- **`skeletonCount` é `vagas`, não `CARDS`.** Com banner a fileira tem três vagas de produto, e
+  quatro esqueletos ao lado do banner reservariam uma linha maior que a que vai aparecer.
+- **A fiação tem guarda própria**, e ela nasceu de um mutante que a verificação independente pegou:
+  apagar `loading={isLoading}` do `HomeCollectionRow` passava nos 2531 testes e devolvia o CLS
+  inteiro. Provar que o carrossel honra a prop não prova que alguém a passa — são duas afirmações,
+  e só uma tinha teste. Mesmo padrão do `fiacaoDaVitrine`.
+- **O hero não nasce invisível.** O elemento do LCP é o `<p>` do `HeroBanner`, e ele animava de
+  `opacity: 0` sob `staggerChildren: 0.1` — sendo o terceiro filho, só começava a aparecer 0,2 s
+  depois do mount. O Chrome não conta como pintado o que está invisível: `elementRenderDelay` de
+  **2005 ms** contra `timeToFirstByte` de **25 ms**. Hoje a entrada anima só `y`; `transform` não
+  impede a pintura. É a mesma régua que `PRF-03` já tinha escrito para os cards da primeira dobra.
+- **A bolha do WhatsApp sai do fluxo.** Ela entra sozinha aos 2,2 s e, em fluxo dentro de um
+  `flex-col` ancorado por `bottom-20`, crescia a caixa do contêiner para cima — 0,0215 de
+  deslocamento. `absolute bottom-full` contra o contêiner `fixed`, que já é bloco de contenção. O
+  painel `open` continua no fluxo de propósito: abre **depois de gesto**, e o CLS ignora 500 ms após
+  entrada do usuário.
+
+## A árvore de categorias tem um dono (feature `40`)
+
+`useProducts` buscava a árvore **dentro** do próprio `queryFn`, e a chave dele carrega o slug
+(`['products', slug, limit]`) — então **cada fileira da home emitia a sua cópia**. Medido:
+
+```
+ 583ms  categories?select=*            ->  884ms   (o header - ja trazia id/parent_id/slug)
+1007ms  4x categories?select=id,...    -> 1301, 1898, 2143, 2356ms
+1304..2358ms  os quatro `products`, cada um esperando A SUA arvore  -> cauda em 3010ms
+```
+
+- **Quem busca é `categoriesQueryOptions()`**, exportada de `entities/category/api/useCategories`,
+  consumida pelo hook e por `useProducts` via `queryClient.fetchQuery`. A chave é `['categories']` —
+  **a mesma do header**, que monta em toda rota da loja. Uma chave compartilhada entre as fileiras
+  mas diferente da do header mediria 1 requisição em teste e **2** na home; é por isso que o teste
+  monta o header junto.
+- **A falha SOBE, e isso mudou nesta feature.** `useCategories` fazia `if (error || !data) return []`
+  — o defeito que `AD-014` e `BUG-20260809` já tinham registrado duas vezes. Passou a doer quando
+  `useProducts` começou a ler a árvore por ali: com o erro engolido, uma falha de rede faria a
+  categoria não ser encontrada e a coleção apareceria **vazia**, sem erro em lugar nenhum. Para as
+  12 telas consumidoras nada mudou no que se vê (todas leem só `data`); o que mudou é que agora há
+  estado de erro e o React Query repete.
 
 ## A Home é dado (feature `24`)
 

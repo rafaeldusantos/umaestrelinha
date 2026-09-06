@@ -158,11 +158,36 @@ describe('useCategories — os campos que NÃO voltam (AD-012)', () => {
   })
 })
 
-describe('useCategories — falha não derruba a loja', () => {
-  it('erro de consulta devolve lista vazia', async () => {
+/**
+ * **Falha e vazio deixaram de ser a mesma coisa** — `PRF-20`.
+ *
+ * Este bloco media o contrato ANTERIOR ("erro de consulta devolve lista vazia"), que era o defeito
+ * que `AD-014` registrou em `useAdminCollections` e `BUG-20260809` em `useProducts`: o React Query
+ * guarda um `[]` devolvido como **sucesso**, e nunca mais tenta.
+ *
+ * Passou a doer de verdade quando `useProducts` começou a ler a árvore por aqui (feature 40): com o
+ * erro engolido, uma falha de rede faria a categoria da rota não ser encontrada, o hook devolveria
+ * `[]` pelo ramo de `URL-04`, e uma coleção que existe apareceria **vazia** — sem erro em lugar
+ * nenhum.
+ *
+ * O que as doze telas consumidoras veem **não mudou**: todas leem só `data`, que continua chegando
+ * `undefined` na falha. O que mudou é que agora há um estado de erro, e o React Query repete.
+ */
+describe('useCategories — falha não derruba a loja, mas TAMBÉM não vira vazio', () => {
+  it('erro de consulta SOBE — não vira lista vazia guardada como sucesso', async () => {
     respondeCom(null, { message: 'boom' })
     const result = await ler()
 
+    expect(result.current.isError).toBe(true)
+    expect(result.current.data).toBeUndefined()
+    expect((result.current.error as Error).message).toContain('boom')
+  })
+
+  it('resposta vazia de verdade continua sendo lista vazia — e sucesso', async () => {
+    respondeCom([])
+    const result = await ler()
+
+    expect(result.current.isSuccess).toBe(true)
     expect(result.current.data).toEqual([])
   })
 })

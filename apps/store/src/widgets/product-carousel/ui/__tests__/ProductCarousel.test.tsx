@@ -137,3 +137,73 @@ describe('ProductCarousel — o índice de cada card conta o banner (PRF-03 AC 1
     expect(cards[0].getAttribute('src')).toBe(`${RENDER('p0')}?width=480&resize=contain&quality=75`)
   })
 })
+
+/**
+ * **A fileira reserva a altura enquanto carrega** — `PRF-17`.
+ *
+ * Até a feature 40 a fileira desenhava `null` em DOIS estados diferentes: a coleção que respondeu
+ * sem produto e a coleção que ainda não respondeu. As quatro fileiras da home nasciam com altura
+ * zero e estouravam para ~600px cada quando os produtos chegavam.
+ *
+ * O Lighthouse de 2026-09-06 mediu o custo: o elemento que deslocava era o `<footer>`, com score
+ * **0,244228432563791** — o CLS total inteiro da página, num deslocamento só. O rodapé ficava
+ * visível enquanto a página era curta, e é a distância que ele percorria que dominava o cálculo.
+ *
+ * **jsdom devolve 0 para toda medida de layout**, então nada aqui mede altura. O que se assere é a
+ * PRESENÇA da seção e o número de vagas reservadas; a igualdade de altura entre esqueleto e card é
+ * guardada por `cardSkeletonBox.test.ts`, e medida em navegador.
+ */
+describe('ProductCarousel — carregando é o terceiro estado (PRF-17)', () => {
+  const renderEstado = (props: Partial<Parameters<typeof ProductCarousel>[0]>) =>
+    render(
+      <MemoryRouter>
+        <ProductCarousel title="Joias afetivas" products={[]} {...props} />
+      </MemoryRouter>,
+    )
+
+  const esqueletos = (c: HTMLElement) => c.querySelectorAll('[aria-hidden="true"].flex.flex-col')
+
+  it('carregando: a seção, o título e as vagas existem', () => {
+    const { container, getByText } = renderEstado({ loading: true, skeletonCount: 4 })
+
+    expect(container.querySelector('section')).not.toBeNull()
+    expect(getByText('Joias afetivas')).toBeTruthy()
+    expect(esqueletos(container)).toHaveLength(4)
+  })
+
+  it('carregando: a grade se anuncia ocupada para leitor de tela', () => {
+    const { container } = renderEstado({ loading: true })
+
+    expect(container.querySelector('[aria-busy="true"]')).not.toBeNull()
+  })
+
+  it('carregando com banner: reserva TRÊS vagas, não quatro — o banner ocupa a primeira', () => {
+    // Prova por deslocamento: `skeletonCount` derivado de `CARDS` em vez de `vagas` reservaria uma
+    // linha maior que a que vai aparecer, e a fileira encolheria ao carregar.
+    const { container } = renderEstado({ loading: true, skeletonCount: 3, banner: BANNER })
+
+    expect(esqueletos(container)).toHaveLength(3)
+  })
+
+  it('RESOLVIDO e vazio: continua sumindo por inteiro — não é um título com buracos', () => {
+    const { container } = renderEstado({ loading: false })
+
+    expect(container.querySelector('section')).toBeNull()
+    expect(container.textContent).toBe('')
+  })
+
+  it('resolvido COM produtos: nenhuma vaga de esqueleto sobra', () => {
+    const { container } = render(
+      <MemoryRouter>
+        <ProductCarousel
+          title="Joias afetivas"
+          products={[product(0), product(1)]}
+          loading={false}
+        />
+      </MemoryRouter>,
+    )
+
+    expect(esqueletos(container)).toHaveLength(0)
+    expect(container.querySelector('[aria-busy="false"]')).not.toBeNull()
+  })
+})

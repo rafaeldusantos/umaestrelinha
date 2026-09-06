@@ -1,6 +1,7 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@estrelinha/supabase/client'
 import { descendantIds, type MenuCategory } from '@estrelinha/core/menu'
+import { categoriesQueryOptions } from '@/entities/category/api/useCategories'
 import {
   CATEGORY_FILTER_COLUMN,
   mapDbToProduct,
@@ -95,8 +96,12 @@ export interface ProductListOptions {
  * janela de rolagem da categoria continuam onde estavam, no cliente e sobre a lista inteira
  * (`LST-*`, feature `32`): quem passa `limit` é só quem desenha uma vitrine de tamanho fixo.
  */
-export const useProducts = (categorySlug?: string, options?: ProductListOptions) =>
-  useQuery({
+export const useProducts = (categorySlug?: string, options?: ProductListOptions) => {
+  // O client, e não o hook `useCategories`: a árvore é lida DENTRO do `queryFn` abaixo, e `queryFn`
+  // não pode chamar hook. `fetchQuery` na mesma chave acerta o cache que o header já preencheu.
+  const queryClient = useQueryClient()
+
+  return useQuery({
     queryKey: ['products', categorySlug, options?.limit ?? null],
     queryFn: async (): Promise<Product[]> => {
       if (!categorySlug) {
@@ -108,14 +113,16 @@ export const useProducts = (categorySlug?: string, options?: ProductListOptions)
         return (data ?? []).map(mapDbToProduct)
       }
 
-      // A árvore inteira, não só a categoria da rota: é dela que sai a descendência (MENU-03).
-      // Duas colunas bastam — `descendantIds` só precisa de `id` e `parent_id`.
-      const { data: tree, error: treeError } = await supabase
-        .from('categories')
-        .select('id, parent_id, slug')
-      if (treeError) fail('carregar categorias', treeError)
-
-      const rows = (tree ?? []) as { id: string; parent_id: string | null; slug: string }[]
+      /*
+       * A árvore inteira, não só a categoria da rota: é dela que sai a descendência (MENU-03).
+       *
+       * **Vem do cache compartilhado, não de uma consulta própria (`PRF-20`).** A chave é a mesma
+       * que o header já preenche em toda rota da loja, então `fetchQuery` normalmente nem sai à
+       * rede — e quando sai, sai **uma vez** para as quatro fileiras da home, porque as quatro
+       * pedem a mesma chave e o React Query as funde. Antes disso eram quatro requisições em
+       * cascata, e é o que segurava a home em 3,0 s de cauda.
+       */
+      const rows = await queryClient.fetchQuery(categoriesQueryOptions())
       const self = rows.find(c => c.slug === categorySlug)
       /*
        * **Slug informado que não casa com categoria nenhuma devolve VAZIO — e essa é a virada de
@@ -165,6 +172,7 @@ export const useProducts = (categorySlug?: string, options?: ProductListOptions)
     },
     enabled: options?.enabled ?? true,
   })
+}
 
 /**
  * Produto por `id` — usado pelo order bump, cuja oferta é guardada em

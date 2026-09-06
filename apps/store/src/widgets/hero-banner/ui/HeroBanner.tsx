@@ -10,9 +10,29 @@ const container: Variants = {
   show: { transition: { staggerChildren: 0.1 } },
 }
 
+/**
+ * A entrada do hero — **deslize, nunca opacidade** (`PRF-19`).
+ *
+ * O elemento do LCP desta loja é o `<p>` daqui, e até a feature 40 ele nascia em `opacity: 0`.
+ * Sendo o terceiro filho de um contêiner com `staggerChildren: 0.1`, ele só *começava* a aparecer
+ * 0,2 s depois do mount e levava mais 0,45 s para chegar a `opacity: 1` — e o Chrome **não conta
+ * como pintado** um elemento em opacidade zero. A animação de entrada estava, literalmente,
+ * adiando a métrica.
+ *
+ * Medido no Lighthouse de 2026-09-06 (móvel, Slow 4G simulado): `elementRenderDelay` de **2005 ms**
+ * contra `timeToFirstByte` de **25 ms**. O tempo não estava na rede.
+ *
+ * `transform` não impede a pintura — o elemento é pintado deslocado e escorrega para o lugar —,
+ * então o deslize continua e o LCP passa a ser o primeiro quadro em que o texto existe. É a mesma
+ * régua que `PRF-03` já tinha escrito para os cards da primeira dobra ("SHALL NOT nascer em
+ * opacidade zero"); o hero é que tinha ficado de fora.
+ *
+ * **Não devolver `opacity` aqui.** `heroSemOpacidadeZero.test.ts` derruba a suíte, porque o
+ * sintoma — meio segundo a mais de LCP — não aparece em diff nenhum.
+ */
 const item: Variants = {
-  hidden: { opacity: 0, y: 20 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.45, ease: 'easeOut' as const } },
+  hidden: { y: 20 },
+  show: { y: 0, transition: { duration: 0.45, ease: 'easeOut' as const } },
 }
 
 /**

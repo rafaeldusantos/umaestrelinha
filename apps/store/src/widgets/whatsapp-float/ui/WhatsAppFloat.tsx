@@ -112,13 +112,39 @@ const WhatsAppFloat = () => {
         </div>
       )}
 
+      {/*
+        **A bolha sai do FLUXO** — `PRF-18`.
+
+        Ela entra sozinha 2,2 s depois da montagem. Em fluxo, dentro de um contêiner `flex-col`
+        ancorado por `bottom-20`, entrar significava **crescer a caixa do contêiner para cima** — e o
+        Chrome registra isso como deslocamento do próprio contêiner. O Lighthouse de 2026-09-06 mediu
+        0,0215 ali, numa janela de sessão separada da do rodapé (por isso não entrou no total de
+        0,244 — mas entraria em qualquer página onde as duas coincidissem).
+
+        `absolute` contra o contêiner `fixed`, que já é bloco de contenção: a caixa dele passa a ser
+        só o botão, e não muda mais de tamanho. `mb-3` reproduz o `gap-3` que o flex dava — filho
+        absoluto não participa do `gap`.
+
+        O painel `open` continua no fluxo de propósito: ele abre **depois de um gesto**, e o CLS
+        ignora 500 ms após entrada do usuário.
+      */}
       {!open && showTeaser && (
         <button
           onClick={handleToggle}
-          className="bg-white border border-estrelinha-line rounded-2xl rounded-br-sm shadow-lg px-3 py-2 max-w-[220px] text-left animate-in fade-in slide-in-from-right-2 duration-300 hover:border-[hsl(142_70%_45%)] transition-colors"
+          className="absolute bottom-full right-0 mb-3 bg-white border border-estrelinha-line rounded-2xl rounded-br-sm shadow-lg px-3 py-2 max-w-[220px] text-left animate-in fade-in slide-in-from-right-2 duration-300 hover:border-[hsl(142_70%_45%)] transition-colors"
           aria-label="Abrir mensagem"
         >
-          <p className="text-[11px] font-semibold text-[hsl(142_70%_38%)] mb-0.5">
+          {/*
+            `hsl(142 71% 30%)` mede **4,88:1** sobre o branco da bolha — `A11Y-01`.
+
+            Era `hsl(142 70% 38%)` (`#1da54f`), **3,22:1**, e texto de 11px semibold não é *large
+            text*: a régua da WCAG AA é 4,5:1. Era o único item **com peso** que segurava a
+            acessibilidade da home em 96.
+
+            O valor não é novo: é o mesmo verde que `ProductInfo` já usa para "em estoque". A loja
+            passa a ter **um** verde, não dois.
+          */}
+          <p className="text-[11px] font-semibold text-[hsl(142_71%_30%)] mb-0.5">
             {store_name || 'Uma Estrelinha'}
           </p>
           <p className="text-xs text-estrelinha-ink leading-snug">
