@@ -21,15 +21,13 @@ vi.mock('@estrelinha/supabase/client', () => ({
 }))
 
 import {
-  ACCEPTED_TYPES,
-  MAX_FILE_BYTES,
-  uploadFailureMessage,
-  uploadImageBlob,
   uploadProductImage,
   uploadProductImages,
-  validateImageFile,
   type UploadProgress,
 } from './uploadProductImage'
+// A régua de tipo/tamanho e a mensagem foram para `shared/lib` junto com o motor (feature 39, T19);
+// os casos delas moraram neste arquivo até lá e estão em `shared/lib/__tests__/uploadImage.test.ts`.
+import { MAX_FILE_BYTES } from '@/shared/lib/uploadImage'
 
 const MB = 1024 * 1024
 
@@ -41,7 +39,6 @@ const fileOf = (name: string, type: string, size: number): File => {
 }
 
 let createObjectURL: ReturnType<typeof vi.fn>
-let toBlobSpy: ReturnType<typeof vi.spyOn>
 let lastCanvas: HTMLCanvasElement | null = null
 /** Dimensões que o `Image` stub reporta — cada teste ajusta antes de chamar. */
 let sourceSize = { width: 800, height: 600 }
@@ -83,7 +80,7 @@ beforeEach(() => {
   vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
     drawImage: vi.fn(),
   } as unknown as CanvasRenderingContext2D)
-  toBlobSpy = vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation(function (
+  vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation(function (
     this: HTMLCanvasElement,
     callback: BlobCallback,
   ) {
@@ -94,50 +91,6 @@ beforeEach(() => {
 afterEach(() => {
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
-})
-
-describe('validateImageFile — PMD-02 AC 4', () => {
-  it('aceita os três tipos da copy: PNG, JPG e WebP', () => {
-    expect(validateImageFile(fileOf('a.png', 'image/png', 2 * MB))).toBeNull()
-    expect(validateImageFile(fileOf('b.jpg', 'image/jpeg', 2 * MB))).toBeNull()
-    expect(validateImageFile(fileOf('c.webp', 'image/webp', 2 * MB))).toBeNull()
-    expect(ACCEPTED_TYPES).toEqual(['image/png', 'image/jpeg', 'image/webp'])
-  })
-
-  it('rejeita tipo fora da lista com motivo `type`', () => {
-    expect(validateImageFile(fileOf('anim.gif', 'image/gif', 1 * MB))).toBe('type')
-    expect(validateImageFile(fileOf('doc.pdf', 'application/pdf', 1 * MB))).toBe('type')
-  })
-
-  it('rejeita acima de 8 MB com motivo `size`', () => {
-    expect(MAX_FILE_BYTES).toBe(8 * MB)
-    expect(validateImageFile(fileOf('grande.png', 'image/png', 12 * MB))).toBe('size')
-    expect(validateImageFile(fileOf('limite.png', 'image/png', 8 * MB + 1))).toBe('size')
-  })
-
-  it('aceita exatamente 8 MB — o teto é inclusivo', () => {
-    expect(validateImageFile(fileOf('limite.png', 'image/png', 8 * MB))).toBeNull()
-  })
-})
-
-describe('uploadFailureMessage — nomeia arquivo e motivo', () => {
-  it('diz o nome do arquivo e o formato aceito quando o tipo é inválido', () => {
-    expect(uploadFailureMessage({ file: 'anim.gif', reason: 'type' })).toBe(
-      'anim.gif: formato não aceito — use PNG, JPG ou WebP',
-    )
-  })
-
-  it('diz o nome do arquivo e o teto quando o tamanho estoura', () => {
-    expect(uploadFailureMessage({ file: 'grande.png', reason: 'size' })).toBe(
-      'grande.png: maior que 8 MB',
-    )
-  })
-
-  it('diz o nome do arquivo quando o envio em si falhou', () => {
-    expect(uploadFailureMessage({ file: 'foto.png', reason: 'upload' })).toBe(
-      'foto.png: falha ao enviar',
-    )
-  })
 })
 
 describe('uploadProductImage — validação ANTES da compressão', () => {
@@ -174,74 +127,6 @@ describe('uploadProductImage — validação ANTES da compressão', () => {
     const result = await uploadProductImage(fileOf('foto.png', 'image/png', 3 * MB))
 
     expect(result).toEqual({ ok: false, failure: { file: 'foto.png', reason: 'upload' } })
-  })
-})
-
-describe('compressão — PMD-02 AC 5: WebP de 1600 px', () => {
-  it('reduz o maior lado para 1600 px preservando a proporção', async () => {
-    sourceSize = { width: 3000, height: 2000 }
-
-    await uploadImageBlob(new Blob(['raw'], { type: 'image/png' }))
-
-    expect(lastCanvas?.width).toBe(1600)
-    expect(lastCanvas?.height).toBe(1067)
-  })
-
-  it('não amplia imagem menor que o teto', async () => {
-    sourceSize = { width: 900, height: 400 }
-
-    await uploadImageBlob(new Blob(['raw'], { type: 'image/png' }))
-
-    expect(lastCanvas?.width).toBe(900)
-    expect(lastCanvas?.height).toBe(400)
-  })
-
-  it('uploadImageBlob segue aceitando Blob puro — contrato do estúdio de mockup', async () => {
-    const url = await uploadImageBlob(new Blob(['render'], { type: 'image/png' }))
-
-    expect(url).toMatch(
-      /\/storage\/v1\/object\/public\/product-images\/products\/[0-9a-f-]+\.webp$/,
-    )
-    expect(uploadMock).toHaveBeenCalledTimes(1)
-    // O blob enviado é o WebP comprimido, não o original.
-    expect(uploadMock.mock.calls[0][2]).toMatchObject({ contentType: 'image/webp' })
-  })
-
-  it('o destino padrão continua `product-images/products` (feature 24 — T26)', async () => {
-    // `uploadImageBlob` ganhou `{ bucket, folder }` para a Home poder gravar em `home-images`. O
-    // default é exatamente o que estava cravado antes, e este teste é o que impede a generalização
-    // de mover a arte de três chamadores sem que nada acuse.
-    await uploadImageBlob(new Blob(['raw'], { type: 'image/png' }))
-
-    expect(fromMock).toHaveBeenCalledWith('product-images')
-    expect(uploadMock.mock.calls[0][0]).toMatch(/^products\/[0-9a-f-]+\.webp$/)
-  })
-
-  it('bucket e pasta explícitos mandam no `from`, no caminho e na URL pública', async () => {
-    const url = await uploadImageBlob(new Blob(['raw'], { type: 'image/png' }), {
-      bucket: 'home-images',
-      folder: 'sections',
-    })
-
-    expect(fromMock).toHaveBeenCalledWith('home-images')
-    expect(uploadMock.mock.calls[0][0]).toMatch(/^sections\/[0-9a-f-]+\.webp$/)
-    expect(url).toMatch(
-      /\/storage\/v1\/object\/public\/home-images\/sections\/[0-9a-f-]+\.webp$/,
-    )
-  })
-
-  it('respeita a resolução e o formato pedidos pelo estúdio (PMD-05 AC 5)', async () => {
-    sourceSize = { width: 3000, height: 2000 }
-
-    const url = await uploadImageBlob(new Blob(['render'], { type: 'image/png' }), {
-      maxDimension: 2000,
-      format: 'image/png',
-    })
-
-    expect(lastCanvas?.width).toBe(2000)
-    expect(toBlobSpy.mock.calls[0][1]).toBe('image/png')
-    expect(uploadMock.mock.calls[0][2]).toMatchObject({ contentType: 'image/png' })
-    expect(url).toMatch(/\.png$/)
   })
 })
 

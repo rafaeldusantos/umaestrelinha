@@ -17,11 +17,10 @@ import { Input } from '@estrelinha/ui/input'
 import { Label } from '@estrelinha/ui/label'
 import { toast } from '@estrelinha/ui/hooks/use-toast'
 import type { ProductImage } from '@estrelinha/supabase/types'
-import {
-  uploadFailureMessage,
-  uploadProductImages,
-  type UploadProgress,
-} from '../lib/uploadProductImage'
+import { uploadProductImages, type UploadProgress } from '../lib/uploadProductImage'
+// A mensagem de falha mora com o motor, em `shared/lib`: os tres chamadores de upload dizem a mesma
+// coisa sobre o mesmo PDF de 40 MB (feature 39, T19).
+import { uploadFailureMessage } from '@/shared/lib/uploadImage'
 import { buildAltText } from '../lib/buildAltText'
 
 interface Props {

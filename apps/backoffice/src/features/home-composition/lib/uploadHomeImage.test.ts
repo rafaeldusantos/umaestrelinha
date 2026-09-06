@@ -25,7 +25,7 @@ vi.mock('@estrelinha/supabase/client', () => ({
 }))
 
 import { HOME_BUCKET, HOME_FOLDER, uploadHomeImage } from './uploadHomeImage'
-import { uploadImageBlob } from '@/features/product-form'
+import { uploadImageBlob } from '@/shared/lib/uploadImage'
 
 const MB = 1024 * 1024
 

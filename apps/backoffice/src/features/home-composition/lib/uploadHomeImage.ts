@@ -4,11 +4,14 @@
 // coisas que só a Home tem: **bucket próprio** e **aviso de proporção**.
 
 import { aspectRatioWarning, type SlotSpec } from '@estrelinha/core/home'
+// O motor inteiro mora em `shared/lib` desde a feature 39 — validar, comprimir e gravar. Três
+// features o consomem (produto, Home e o banner do menu), e feature importando de feature é a
+// fronteira FSD ao contrário.
 import {
   uploadFailureMessage,
   uploadImageBlob,
   validateImageFile,
-} from '@/features/product-form'
+} from '@/shared/lib/uploadImage'
 
 /**
  * O bucket da Home, separado de `product-images` (criado na T8).

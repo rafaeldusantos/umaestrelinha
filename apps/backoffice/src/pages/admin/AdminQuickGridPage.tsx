@@ -33,10 +33,8 @@ import {
   type GridRow,
 } from '@/features/quick-grid/model/quickGrid'
 import { supabase } from '@estrelinha/supabase/client'
-import {
-  uploadFailureMessage,
-  uploadProductImages,
-} from '@/features/product-form/lib/uploadProductImage'
+import { uploadProductImages } from '@/features/product-form/lib/uploadProductImage'
+import { uploadFailureMessage } from '@/shared/lib/uploadImage'
 
 const STARTING_ROWS = 5
 
