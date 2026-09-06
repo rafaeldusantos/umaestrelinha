@@ -559,6 +559,15 @@ ninguém é avisado.
   antes de varrer, e **normaliza CRLF primeiro** — em JavaScript `.` não casa `\r`, então num
   checkout Windows o stripper de linha ficava inerte e o guarda acusava o comentário que explica o
   defeito. O conserto "óbvio" seria apagar o comentário em vez de consertar o código.
+  - **E linha e bloco na MESMA varredura** (`BL-023`, fechada em 2026-09-06). Em duas passadas — bloco
+    primeiro, linha depois — um comentário de linha que cite um glob terminado em dois asteriscos
+    (`apps/**`) carrega um abre-bloco que a régua de bloco trata como abertura, e ela apaga até o
+    próximo fecha-bloco do arquivo — **inclusive código**. O guarda não reprova: ele **deixa de
+    enxergar um trecho** e passa a aprovar em silêncio, num guarda do caminho do dinheiro. A forma
+    certa é a alternação (`\/\/[^\n]*|\/\*[\s\S]*?\*\/`), que os três guardas do menu já usavam, e
+    três sensores no arquivo provam o CRLF, o LF e o glob. **A forma do glob importa**: um que
+    termine em `**/` fecha o bloco sozinho e não reproduz nada — o que cega é `apps/**` seguido, mais
+    abaixo, de um bloco de verdade que forneça o fecha-bloco.
 
 ## Menu (consumo)
 

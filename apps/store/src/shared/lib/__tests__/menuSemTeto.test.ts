@@ -69,8 +69,8 @@ interface Arquivo {
  * depois) têm um ponto cego que custou uma reprovação de verdade no lote 4: um comentário de LINHA
  * que cite um glob de dois asteriscos abre um "bloco" aos olhos da segunda régua, que apaga tudo até
  * o próximo fecha-bloco — **inclusive código**. O guarda deixa de enxergar um trecho e passa a
- * aprovar o que estiver lá dentro, em silêncio. (`freeShippingSingleOwner.test.ts` ainda carrega a
- * forma antiga: está registrado como `BL-023`.)
+ * aprovar o que estiver lá dentro, em silêncio. (`freeShippingSingleOwner.test.ts` carregava a forma
+ * antiga; foi corrigido em 2026-09-06 e a `BL-023` está fechada.)
  */
 const semComentarios = (fonte: string): string[] =>
   fonte

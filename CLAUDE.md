@@ -287,7 +287,7 @@ migrations, e `vercelRedirects` lê o `vercel.json`.
 | `touchTarget.test.ts` | idem | controle abaixo de 44px que não adotou `TAP_44`/`TAP_ROW`; a medida deixar de morar num lugar só |
 | `brandScan.test.ts` | idem | **qualquer** ocorrência da marca anterior em `apps/`, `packages/`, `supabase/` ou nas configs da raiz |
 | `storeSettingsDefaults.test.ts` | idem | os defaults do TypeScript divergirem do que as migrations gravam; o interruptor do frete grátis nascer ligado; a migration da `37` deixar de ser aditiva (`value \|\|`) ou idempotente (`NOT value ?`). **Sensor embutido**: assere que o parser devolve `undefined` para campo ausente |
-| `freeShippingSingleOwner.test.ts` | idem | qualquer arquivo de `apps/**` fora de um allowlist de **dois** ler `free_shipping_threshold`; `freeShippingProgress` ou `FreeShippingBar` voltarem a existir em produção; copy com o valor da faixa cravada em JSX. **Âncora dupla** e **quatro sensores embutidos** — incluindo a prova de que o removedor de comentário funciona com CRLF **e** com LF. **Carrega o ponto cego do `BL-023`**: o stripper dele roda em duas passadas e fica cego para um trecho quando um comentário de linha cita um glob com dois asteriscos |
+| `freeShippingSingleOwner.test.ts` | idem | qualquer arquivo de `apps/**` fora de um allowlist de **dois** ler `free_shipping_threshold`; `freeShippingProgress` ou `FreeShippingBar` voltarem a existir em produção; copy com o valor da faixa cravada em JSX. **Âncora dupla** e **seis sensores embutidos** — o removedor de comentário provado com CRLF, com LF, contra o glob de dois asteriscos que o cegava (`BL-023`, fechada em 2026-09-06: linha e bloco na **mesma** varredura) e contra uma leitura nova escondida atrás desse mesmo glob |
 | `importOrder.test.ts` | idem | `App.css` importado **antes** de `@estrelinha/ui/styles.css` no `main.tsx` |
 | `reservedSlugs.test.ts` | idem | rota nova no `App.tsx` que não entrou em `ROUTE_SLUGS`; entrada de `ROUTE_SLUGS` que deixou de ser rota. **Bidirecional** |
 | `vercelRedirects.test.ts` | idem | `vercel.json` divergir de `LEGACY_REDIRECTS`; `trailingSlash` deixar de ser `false`; redirect usando `permanent` (que produz 308); o catch-all do SPA sair do fim da lista de `rewrites`; os headers de segurança mudarem; o `rewrite` ou o `Content-Type` de `/sitemap.xml` sumirem |
@@ -636,12 +636,13 @@ completo (framework, `installCommand` na raiz do monorepo, headers de cache e de
   importa de `features/` —, e o `||` com o `SUPABASE_URL` de **outro projeto** foi apagado no mesmo
   movimento: o client já lança sem a env, então o fallback era inalcançável e mentiroso.
   `BL-010`/`BL-011` seguem abertas.
-- **`BL-023`** — o removedor de comentário de `freeShippingSingleOwner.test.ts` roda em **duas
-  passadas** e fica cego para um trecho inteiro quando um comentário de linha cita um glob com dois
-  asteriscos: ele deixa de enxergar o trecho e passa a **aprovar em silêncio** o que estiver lá.
-  Guarda com ponto cego é pior que guarda nenhum, porque parece estar de pé — e este é o guarda do
-  **dinheiro**. A forma corrigida (linha e bloco na **mesma** varredura) está nos quatro guardas do
-  menu; ver o `BACKLOG.md`. *(Registrado como `023` e não `018` porque o `018` já estava ocupado.)*
+- **`BL-023` está FECHADO** (2026-09-06). O removedor de comentário de
+  `freeShippingSingleOwner.test.ts` passou a fazer linha e bloco na **mesma** varredura, e três
+  sensores provam o CRLF, o LF e o glob de dois asteriscos que o cegava. **Nenhuma asserção de regra
+  passou a reprovar** — o ponto cego não escondia leitura nenhuma; escondia a *possibilidade* de
+  esconder. Achado ao fechar, e **não consertado**: `previaUnica.test.ts` (backoffice) ainda faz
+  duas passadas, embora o `BACKLOG.md` o listasse como exemplo da forma correta.
+  *(Registrado como `023` e não `018` porque o `018` já estava ocupado.)*
 - **`BL-014`** — geração de pergunta por IA, adiada por decisão do usuário em 2026-08-16. Irmã da
   `BL-001`, e as duas devem ser resolvidas juntas (a resposta de infraestrutura é a mesma).
 - **`BL-015`** — **`material_kinds` diz menos que a descrição.** Há produto com `material_kinds =

@@ -926,8 +926,42 @@ existem para ele.
 
 ## BL-023 — O guarda do frete grátis tem um PONTO CEGO no removedor de comentário
 
-- **Status**: aberto · **Registrado em**: 2026-09-05 · **Origem**: feature `39`, lote 4 — o defeito
-  foi encontrado nos guardas novos do menu e corrigido lá; o arquivo da `37` **não foi tocado**.
+- **Status**: **FECHADO em 2026-09-06** · **Registrado em**: 2026-09-05 · **Origem**: feature `39`,
+  lote 4 — o defeito foi encontrado nos guardas novos do menu e corrigido lá; o arquivo da `37`
+  **não foi tocado** na ocasião.
+
+> **Como fechou.** `freeShippingSingleOwner.test.ts` passou a remover linha e bloco na **mesma
+> varredura**, com alternação (`\/\/[^\n]*|\/\*[\s\S]*?\*\/`), a forma que os guardas do menu já
+> usavam. A normalização de CRLF continua **antes** dela. Nenhuma asserção de regra foi tocada, e
+> nenhuma passou a reprovar: o ponto cego não estava escondendo leitura nenhuma de
+> `free_shipping_threshold` — o que ele escondia era a **possibilidade** de esconder.
+>
+> **Correção de fato no registro abaixo, medida ao fechar**: a lista de "arquivos com a forma
+> correta" cita **quatro**, e são **três** — `menuSemTeto`, `menuSemItemFixo` e
+> `menuSurfaceSingleOwner` usam a alternação; `previaUnica.test.ts` **não** (ele faz duas passadas,
+> com um `^[^\n]*?\/\/` na segunda). Fica registrado e **não foi consertado aqui**: o escopo mínimo
+> desta entrada é o guarda do frete grátis, e mexer no do painel exigiria os sensores dele.
+>
+> **Os três sensores pedidos entraram, e os três foram provados por injeção de falha** (o removedor
+> antigo recolocado no lugar, a suíte rodada, o removedor restaurado):
+>
+> | Sensor | O que mede | Com o removedor antigo |
+> | --- | --- | --- |
+> | `comentário é REMOVIDO, com CRLF e com LF` (já existia) | os dois finais de linha, e a numeração que não desliza | **reprova** |
+> | `comentário de LINHA que cita um glob NÃO cega o código abaixo` (novo) | o código sobrevive dos dois lados do comentário armadilha | **reprova** |
+> | `leitura nova FORA do allowlist é acusada, mesmo com o comentário armadilha ao lado` (novo) | a REGRA continua acusando as duas leituras, nas linhas certas | **reprova** |
+>
+> **A forma do glob importa, e a primeira versão do sensor nasceu MORTA por causa disso.** Escrito
+> como `apps` + `**` + `/` + `*.tsx`, o abre-bloco que o glob carrega **fecha sozinho** (`/**/` é um
+> comentário completo) e não cega nada — o sensor passava com o defeito no lugar. O que reproduz o
+> defeito é um glob que termine em **dois asteriscos sem barra depois** (`apps/**`), mais um bloco
+> de verdade abaixo do código: sem esse fecha-bloco, a régua antiga não casa nada e também não cega.
+> As três peças estão escritas no comentário do sensor, e o glob é montado por **concatenação**,
+> para o fonte do guarda não pôr um abre-bloco cru na frente dos outros guardas que varrem `apps`.
+>
+> Contagem: o arquivo foi de **15 para 17** casos. Só sobe.
+
+O registro original, preservado:
 
 > **O número.** O item pedido como `BL-018` recebeu `BL-023`: o `018` já estava ocupado pelos
 > "13 endereços que a Nuvemshop indexou", e número de backlog é imutável pela mesma razão que número

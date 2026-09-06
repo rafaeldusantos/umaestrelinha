@@ -69,10 +69,23 @@ const semComentarios = (fonte: string): string[] =>
     // removido. O guarda acusava a prosa que explica o defeito, e o conserto "óbvio" seria apagar
     // o comentário em vez de consertar o código.
     .replace(/\r\n/g, '\n')
-    // Bloco: troca o miolo por espaços, preservando as quebras — o índice de cada linha não desliza.
-    .replace(/\/\*[\s\S]*?\*\//g, (bloco) => bloco.replace(/[^\n]/g, ' '))
+    // **Linha e bloco na MESMA varredura, e a ordem é a do texto** — `BL-023`.
+    //
+    // Até 2026-09-06 isto eram DUAS passadas (bloco primeiro, linha depois), e tinha um ponto cego
+    // que a feature 39 encontrou nos guardas do menu: um comentário de LINHA que cite um glob de
+    // dois asteriscos carrega um abre-bloco dentro de si, e para a régua de bloco aquilo ABRE um
+    // comentário — que ela apaga até o próximo fecha-bloco do arquivo, **inclusive CÓDIGO**.
+    //
+    // O efeito é o pior possível num guarda cuja asserção é uma AUSÊNCIA: ele não reprova, ele
+    // deixa de enxergar um trecho e passa a **aprovar em silêncio** o que estiver lá dentro. Verde,
+    // listado na tabela dos guardas, e cego — num guarda do caminho do dinheiro.
+    //
+    // Com a alternação, quem começa primeiro consome: um comentário de linha engole o resto da
+    // linha (e o glob junto), e um abre-bloco engole até o fecha-bloco. O miolo vira espaço,
+    // **preservando as quebras** — o índice de cada linha não desliza, e o guarda continua podendo
+    // apontar `arquivo:linha`.
+    .replace(/\/\/[^\n]*|\/\*[\s\S]*?\*\//g, (trecho) => trecho.replace(/[^\n]/g, ' '))
     .split('\n')
-    .map((linha) => linha.replace(/\/\/.*$/, ''))
 
 const varridos: Arquivo[] = ESCOPO.flatMap((d) => arquivos(join(ROOT, d))).map((caminho) => ({
   rel: relative(ROOT, caminho).split('\\').join('/'),
@@ -134,6 +147,79 @@ describe('freeShipping — âncoras da varredura', () => {
 
     // A numeração não desliza: o bloco de 5 linhas continua com 5 linhas (+ a final vazia).
     expect(bloco).toHaveLength(6)
+  })
+
+  // O glob armadilha, montado por CONCATENAÇÃO de propósito — duas razões independentes.
+  //
+  // 1. Escrito colado, ele poria um abre-bloco cru no fonte DESTE arquivo, e todo guarda que varre
+  //    a pasta dos apps passaria a ler daqui um bloco que nunca fecha. A régua não pode contaminar
+  //    o objeto medido, nem o dos vizinhos.
+  // 2. A forma importa: o glob termina em dois asteriscos SEM barra depois, e é só assim que o
+  //    abre-bloco que ele carrega fica em aberto. Com a barra logo em seguida ele fecharia sozinho
+  //    — bloco completo, defeito nenhum. Foi assim que a primeira versão deste sensor nasceu morta:
+  //    passava com o removedor velho no lugar.
+  const GLOB_ARMADILHA = 'apps/' + '*'.repeat(2)
+
+  it('comentário de LINHA que cita um glob NÃO cega o código abaixo — sensor do ponto cego (BL-023)', () => {
+    // O defeito que a `BL-023` registrou, reproduzido inteiro. São TRÊS peças, e nenhuma é enfeite:
+    //
+    //   1. um comentário de linha que cite o glob — ele carrega o abre-bloco;
+    //   2. código depois dele — é o que fica invisível;
+    //   3. um bloco de verdade mais abaixo — é o fecha-bloco que a régua velha vai procurar.
+    //
+    // Sem a peça 3 o removedor antigo não casa nada (não há `*/` para fechar) e o sensor passa com
+    // o defeito no lugar. Com ela, o removedor antigo apaga de `apps` até `verdade */` — levando o
+    // `const depois = 1` junto, em silêncio.
+    const fonte = [
+      '/** a prosa que explica a régua */',
+      `// a varredura cobre ${GLOB_ARMADILHA}, e este glob era a armadilha`,
+      'const depois = 1',
+      '/* bloco de verdade */',
+      'const final = 2',
+      '',
+    ].join('\n')
+
+    const linhas = semComentarios(fonte)
+
+    // O código sobrevive aos dois lados do comentário armadilha.
+    expect(linhas.some((l) => l.includes('const depois = 1'))).toBe(true)
+    expect(linhas.some((l) => l.includes('const final = 2'))).toBe(true)
+    // E a prosa continua sumindo — a correção não pode ter desligado o removedor.
+    expect(linhas.some((l) => l.includes('a prosa que explica'))).toBe(false)
+    expect(linhas.some((l) => l.includes('armadilha'))).toBe(false)
+    expect(linhas.some((l) => l.includes('bloco de verdade'))).toBe(false)
+    // A numeração não desliza: 5 linhas de fonte + a final vazia.
+    expect(linhas).toHaveLength(6)
+  })
+
+  it('leitura nova FORA do allowlist é acusada, mesmo com o comentário armadilha ao lado — sensor por mutação (BL-023)', () => {
+    // O sensor que fecha o círculo: não basta o removedor preservar o código, a REGRA tem de
+    // continuar acusando o que estiver nele. Este é o arquivo que a `BL-023` descreve — uma oitava
+    // superfície lendo o campo cru, escondida atrás de um comentário com glob.
+    const sintetico: Arquivo = {
+      rel: 'apps/store/src/widgets/cart-drawer/ui/Sintetico.tsx',
+      linhas: semComentarios(
+        [
+          `// esta tela varre ${GLOB_ARMADILHA} à procura de nada`,
+          'const teto = settings.shipping.free_shipping_threshold',
+          'const gratis = subtotal >= settings.shipping.free_shipping_threshold',
+          '/* fim do arquivo */',
+          '',
+        ].join('\n'),
+      ),
+    }
+
+    const achados = procurar(/free_shipping_threshold/, [sintetico])
+    // As DUAS leituras, nas linhas certas — a numeração é o que deixa o guarda apontar o defeito.
+    expect(achados.map((o) => o.linha)).toEqual([2, 3])
+    // E caem fora do allowlist, que é o veredito que derruba a suíte de verdade.
+    expect(
+      achados.filter((o) => !Object.prototype.hasOwnProperty.call(ALLOWLIST, o.arquivo)),
+    ).toHaveLength(2)
+    // A comparação por forma também pega a linha 3 — a assinatura exata do defeito da `37`.
+    expect(
+      procurar(/>=\s*.*free_shipping_threshold|free_shipping_threshold\s*<=/, [sintetico]),
+    ).toHaveLength(1)
   })
 
   it('a régua ENCONTRA o que procura — sensor do extrator', () => {
