@@ -18,7 +18,18 @@
          `@estrelinha/supabase` lê. Cravar o host produziria um segundo dono
          que diverge em silêncio no dia em que o projeto mudar — e o sintoma
          seria uma conexão aquecida para um host que ninguém usa. O Vite
-         substitui `%VITE_...%` no HTML em dev e no build. -->
+         substitui a variável marcada abaixo, em dev e no build.
+
+         DUAS CONSEQUÊNCIAS que já custaram tempo, e ficam escritas aqui:
+
+         1. **O `vite build` ABORTA se a variável não existir** — não é aviso,
+            é `Build failed`. O CI não tem `.env` (ele é gitignored), então o
+            `ci.yml` fixa valores falsos no passo de build pelo mesmo motivo
+            que o `vitest.config.ts` já fixava nos testes. A Vercel sempre
+            passou porque tem as variáveis dela.
+         2. **Não escreva o padrão de substituição dentro deste comentário.**
+            O Vite varre o arquivo inteiro, inclusive comentários, e um
+            exemplo escrito aqui vira um aviso em todo build, para sempre. -->
     <link rel="preconnect" href="%VITE_SUPABASE_URL%" crossorigin />
     <title>Uma Estrelinha - Joias afetivas artesanais em resina</title>
     <meta name="description" content="Joias feitas à mão em resina com o material que você envia: cinzas, leite materno, dente de leite e mecha de cabelo. Feitas por Adri Muniz, em Porto Alegre.">
