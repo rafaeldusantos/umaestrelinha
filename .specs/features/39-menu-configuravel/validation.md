@@ -1,5 +1,17 @@
 # Menu configurável (39) — relatório de verificação
 
+> **Duas iterações, dois Verifiers independentes, e este arquivo carrega as duas.** A iteração 1
+> (abaixo, íntegra) devolveu **FAIL ❌** com 6 lacunas; o commit `c413ce2` disse ter fechado quatro
+> delas; a **iteração 2** (seção própria, depois do veredito da 1) reinjetou cada mutação por conta e
+> mediu o gate de novo. **Veredito atual: PASS ✅, com dois riscos de entrega declarados.**
+>
+> **Nada da iteração 1 foi apagado nem reescrito** — é o registro de que o processo pegou o que
+> pegou, e a régua da 2 é justamente comparar contra ele.
+
+---
+
+## Iteração 1 — 2026-09-05 · HEAD `3f1b6ba` · **FAIL ❌**
+
 > **Verifier independente.** Quem escreve isto não escreveu o código e não usou o relato de quem
 > escreveu como evidência: cada AC abaixo foi ancorada em `arquivo:linha` lido do disco, cada número
 > de gate foi **medido nesta sessão**, e os pontos de maior risco foram exercidos por **injeção de
@@ -357,6 +369,319 @@ que guarda que não discrimina é pior que guarda nenhum.
 - **O teto de vagas foi apagado, não depreciado**, e o vocabulário de "vaga" é recusado nas cinco
   superfícies.
 - **Nenhuma linha de dinheiro foi tocada**, conferido por diff.
+
+---
+
+# Iteração 2 — 2026-09-06 · HEAD `c413ce2` · **PASS ✅**
+
+> **Segundo Verifier independente.** Não escrevi o código, não escrevi as correções, e **não usei o
+> relato do commit `c413ce2` como evidência de nada**: cada uma das quatro lacunas que ele diz ter
+> fechado foi **reinjetada por mim** no arquivo de produção, medida com a suíte relevante e desfeita
+> por cópia de backup (nunca `git stash`, cuja pilha é compartilhada). `git status --porcelain`
+> conferido **vazio depois de cada passo** e no fecho, junto com `git diff --stat`.
+>
+> **Data**: 2026-09-06 · **Base**: `146561e` · **HEAD**: `c413ce2` · **Branch**:
+> `feat/39-menu-configuravel` · **Worktree**: `C:\Projetos\uma-estrelinha\store-39-menu` · diff da
+> branch: **155 arquivos**; diff do `c413ce2`: **14 arquivos, +927/−51**.
+
+---
+
+## I2.1 — Gate, medido por mim, um workspace por vez, exit code fora de pipe
+
+| Medida | Reportado pelo worker | **Medido por mim** | Veredito |
+| --- | --- | --- | --- |
+| core | 1691 / 67 | **1691 / 67** · `exit=0` | ✅ bate |
+| store | 2190 / 144 | **2190 / 144** · `exit=0` | ✅ bate |
+| backoffice | 1908 / 116 | **1908 / 116** · `exit=0` | ✅ bate |
+| functions | 350 / 7 | **350 / 7** · `exit=0` | ✅ bate |
+| catalog-import | 509 / 23 | **509 / 23** · `exit=0` | ✅ bate |
+| **total** | 6648 / 357 | **6648 / 357** | ✅ |
+| Lint | 27 erros / 5 warnings | **27 / 5** — store **2/1** · backoffice **25/4** | ✅ bate |
+| Tipos | 0 · 0 | **0 · 0 · 0** (store · backoffice · catalog-import) | ✅ bate |
+
+- **Nenhum número do worker precisou ser corrigido.** Cada workspace rodou isolado, com
+  `echo "exit=$?"` numa linha própria — nunca depois de um `| tail`, cujo código de saída é o do
+  `tail`.
+- **Delta contra a iteração 1**: **+25 testes, +1 arquivo** (store 2182→**2190**, backoffice
+  1891/115→**1908/116**). Core, functions e catalog-import **não mudaram de contagem**, e o diff
+  confirma que não foram tocados na parte de teste.
+- **`packages/core/src/payment/**` e `supabase/functions/mercado-pago/**` seguem intocados em TODA a
+  branch** — `git diff --name-only 146561e..HEAD -- <os dois caminhos>` devolve **zero linhas**,
+  medido por mim no HEAD da iteração 2.
+
+### Nenhuma asserção foi afrouxada para o gate subir
+
+Régua: `git show c413ce2 --unified=0` filtrado por linhas removidas que contenham `it(`/`describe(` e
+por linhas removidas que contenham `expect(`. **Cinco casos e quatro asserções saíram, e cada um foi
+substituído no mesmo lugar por versão estritamente mais forte** — conferido um a um:
+
+| O que saiu | O que entrou no lugar | Mais forte porque |
+| --- | --- | --- |
+| `expect(sql).toMatch(/set menu_desktop = true,\s*menu_mobile…where show_in_menu/i)` | `ligaAsDuasSuperficies()` aplicado aos **três** backfills, + âncora de "cada marca casa 1 `update`" + 3 sensores | a régua antiga era a **forma do backfill 1** e não alcançava os outros dois |
+| `expect(bloco).toContain("'desktop'")` / `toContain("'mobile'")` | `camposDoBanner(bloco,'mobile')).toEqual(camposDoBanner(bloco,'desktop'))` com o conjunto literal `['badge','id','kind','subtitle','target','title']` | igualdade de conjunto de campos × presença de uma chave |
+| `expect(svg.getAttribute('class')).toContain('text-estrelinha-accent')` | `temToken(…,'text-estrelinha-accent')).toBe(true)` **e** `temToken(…,'text-estrelinha-accent-strong')).toBe(false)` + a metade do rótulo + sensor | `toContain` casava o token que a AC **opõe** |
+| `it('a varredura enxerga os dois apps')` · `it('não sobrou allowlist … de apps/**')` | as mesmas, com escopo `['apps','supabase/functions']` e uma asserção **nova** só das edge functions | escopo maior, âncora nomeando `supabase/functions/sitemap/index.ts` |
+
+---
+
+## I2.2 — As quatro lacunas: **mutação reinjetada por mim**, uma a uma
+
+**11 mutações, 11 mortas, 0 sobreviventes.** Todas no arquivo de **produção** real (nunca no teste),
+desfeitas por cópia de backup guardada fora do repositório.
+
+| # | Lacuna | Onde injetei | A mutação | Resultado |
+| --- | --- | --- | --- | --- |
+| 1 | `NAV-08` | `…39-menu-configuravel.sql:126` | **backfill 2** reduzido a `set menu_desktop = true` — *a mutação exata que sobreviveu na iteração 1* | ❌→ **2 falhas** (`backfill 2 — as filhas ativas…` + `SENSOR`). Rodada na **suíte inteira da loja**: 2190 testes, 2 reprovaram |
+| 2 | `NAV-08` | `…:114` | **backfill 1** reduzido a `set menu_desktop = true` | ❌→ **2 falhas** |
+| 3 | `NAV-08` | `…:148` | **backfill 3** com `'mobile', '[]'::jsonb` — a chave fica, o anúncio some | ❌→ **1 falha** (`backfill 3 — o card da 16 vira o MESMO banner…`) |
+| 4 | `NAV-08` | `…:151` | **backfill 3** com o celular perdendo **só** `subtitle` (parênteses balanceados) | ❌→ **1 falha**. É a mutação sutil que uma régua de `toContain("'mobile'")` deixaria passar |
+| 5 | `NAV-20` | `navItem.ts:24` | `text-estrelinha-on-primary` **removido** de `NAV_ITEM` | ❌→ **1 falha** (`o RÓTULO continua em on-primary`) |
+| 6 | `NAV-20` | `navItem.ts:38` | `text-estrelinha-accent` → `text-estrelinha-accent-strong` em `NAV_ITEM_ICON` | ❌→ **1 falha** (`o ícone sai em accent — e NÃO em accent-strong`) |
+| 7 | `NAV-23` | `MenuPanelEditor.tsx:34` | `marcada` lendo `menu_desktop` **nas duas** superfícies | ❌→ **3 falhas** |
+| 8 | `NAV-23` | `MenuPanelEditor.tsx:60-62` | a frase da consequência **apagada**, mantendo a das colunas | ❌→ **2 falhas** |
+| 9 | Predicado da arte | `core/src/menu/banners.ts:112` | `menuBannerArt` deixa de recuar para a outra superfície | ❌→ **2 falhas em `MenuBannerEditor.test.tsx`, no BACKOFFICE**. Na iteração 1 esta mesma quebra deixava os 1891 do painel verdes |
+| 10 | Escopo do guarda | `supabase/functions/sitemap/index.ts:61` | `show_in_menu` devolvido ao `select` de colunas | ❌→ **2 falhas** em `menuSurfaceSingleOwner.test.ts` (a asserção das functions **e** a de "não sobrou allowlist") |
+| 11 | — | (probe puro, sem tocar no repositório) | a régua `(?:^|\s)token(?![-\w])` avaliada em Node sobre 10 entradas construídas | ✅ **distingue de verdade**, e **não por ordem** — ver I2.3 |
+
+### I2.3 — A régua de token distingue `accent` de `accent-strong` por construção, não por acidente
+
+A auditoria pediu por nome que eu não aceitasse "passou". Copiei `temToken` **literalmente** de
+`MegaMenu.test.tsx` para um script fora do repositório e avaliei os dois sentidos, inclusive a ordem
+invertida — que é onde uma régua ingênua acerta por sorte:
+
+```
+"h-4 text-estrelinha-accent-strong"                        → accent        : false  ✅
+"h-4 text-estrelinha-accent"                               → accent        : true   ✅
+"text-estrelinha-accent-strong text-estrelinha-accent"     → accent        : true   ✅  ← ordem invertida
+"text-estrelinha-accent text-estrelinha-accent-strong"     → accent        : true   ✅
+"text-estrelinha-accent-strong"                            → accent-strong : true   ✅
+"xtext-estrelinha-accent"                                  → accent        : false  ✅  ← não casa sufixo
+"text-estrelinha-accentX" / "text-estrelinha-accent_x"     → accent        : false  ✅
+null                                                       → accent        : false  ✅
+```
+
+O par que fecha a pergunta é o terceiro: com `-strong` **antes** do token real, a régua ainda
+responde `true` — ela procura o token, não a primeira ocorrência do prefixo. E o primeiro caso, com
+**só** o `-strong` presente, responde `false`. O `(?![-\w])` é o que faz isso: `\b` não fecharia nada,
+porque `-` não é caractere de palavra.
+
+### I2.4 — `MenuPanelEditor.test.tsx`: os 16 casos asserem VALOR, não renderização
+
+Conferido caso a caso contra `spec.md:177` (`NAV-20`) e a AC 2 da história de curadoria (`NAV-23`:
+*"SHALL sumir do menu e SHALL continuar existindo na loja (página, busca, rodapé, grade da home) — a
+tela SHALL dizer isso em texto"*):
+
+| O que a spec exige | `file:line` + asserção | Resultado |
+| --- | --- | --- |
+| a tela **diz** que a categoria continua na loja, e nomeia onde | `MenuPanelEditor.test.tsx:77-79` — `getByText(/continua existindo na loja/)`, `/página, busca, rodapé e grade/`, `/só não aparece no menu do computador/` | ✅ o literal da consequência está asserido |
+| a consequência é **por dispositivo** | `:84` — `getByText(/só não aparece no menu do celular/)` | ✅ |
+| marcar grava **só** a booleana da superfície corrente | `:98-107` — `caixaDe('pingentes')` **marcada** no desktop e **desmarcada** no mobile, com a mesma árvore | ✅ mata a leitura cruzada (mutação 7) |
+| o evento carrega id + valor, e nada mais é decidido ali | `:114-118` — `toHaveBeenCalledWith('aneis', true)`, `toHaveBeenLastCalledWith('correntes', false)`, `toHaveBeenCalledTimes(2)` | ✅ igualdade exata |
+| "N de M" bate com a **árvore** | `:135` `'2 de 3'` · `:140` `'1 de 3'` · `:149` `'0 de 0'` · `:159` `'2 de 4'` | ✅ e a fixture traz `velas`, filha de **outro** pai, que é o que impede M de virar "quantas categorias existem" |
+| o corte é `MENU_PANEL_COLUMN_SIZE`, nunca um número escrito à mão | `:181` `toHaveLength(MENU_PANEL_COLUMN_SIZE)` · `:184` `0 de ${SIZE+2}` · `:206` sem botão com a coluna exata | ✅ o corte é de **exibição**; a contagem continua falando da árvore inteira |
+| a ordem é a da árvore | `:218` — `toEqual(['Pôr Abelha…','Pôr Zebra…'])` com `sort_order` 1 e 9 fora de ordem na entrada | ✅ |
+
+**Nenhum dos 16 é "renderizou sem quebrar".** O `aria-label` completo (`'Pôr Pingentes no painel do
+celular'`) é asserido literal, e é ele que morre junto na mutação 7.
+
+### I2.5 — O predicado da arte tem um dono, e o painel não recalcula em superfície nenhuma
+
+`menuBannerArt` e `menuBannerImage` passaram a ser **export** de `packages/core/src/menu/banners.ts`
+(`:87` e `:105`), e `resolveMenuBanners:146` os consome. Varredura de `MenuBannerEditor.tsx` por
+`image_desktop|image_mobile|arteDaSuperficie|arteDaOutra`: **cinco acertos, nenhum é predicado**.
+
+| Superfície onde ele decidia sozinho | Como está agora | Linha |
+| --- | --- | --- |
+| a miniatura do banner | `const { image: arteMostrada, imageReused: reaproveitando } = menuBannerArt(banner, surface)` | `MenuBannerEditor.tsx:220` |
+| o rótulo "arte do computador / do celular · falta" | `menuBannerImage(banner, campo === 'image_desktop' ? 'desktop' : 'mobile')` | `:410` |
+| o aviso "a loja vai reaproveitar a do computador" | `{reaproveitando && …}` | `:452` |
+
+Os dois acertos restantes não são leitura de predicado: `:102` é a **normalização de escrita** (campo
+vazio **sai** do jsonb em vez de virar `""`, e já usa `.trim()`, coerente com `texto()`) e `:131` é o
+nome do campo de upload.
+
+**A prova de que a delegação é medida, e não declarada**: `MenuBannerEditor.test.tsx:140-166` monta a
+tela com `image_mobile: '   '` e compara **o veredito da tela** com `resolveMenuBanners` sobre o
+**mesmo jsonb** — `expect(naLoja[0]).toMatchObject({ image: 'https://x/d.webp', imageReused: true })`
+ao lado de `getByTestId('arte-reaproveitada-0')` e `getByTestId('arte-image_mobile-0')` com `'falta'`.
+Com `menuBannerArt` quebrada em `core`, **o painel reprova** (mutação 9) — que é exatamente o que não
+acontecia na iteração 1.
+
+`previaUnica.test.ts` **não foi tocado** por `c413ce2`, e continua recusando `menuPanelColumns` e
+`resolveMenuBanners` em fonte de produção do painel (`:205`, sobre `FONTES_MENU`, que já excluía
+`.test.tsx` antes desta feature). O import de `resolveMenuBanners` que entrou está num **arquivo de
+teste** e por isso fora do escopo — corretamente: a regra proíbe o painel ter um segundo **desenho**,
+e o que ele passou a fazer é o oposto disso.
+
+---
+
+## I2.6 — O que a iteração 1 aprovou, e não regrediu
+
+Amostra dirigida aos pontos de maior risco tocados por `c413ce2` — não refiz as 48 ACs.
+
+- **As allowlists continuam vazias, e a ausência continua sendo a asserção.** `grep` por
+  `ALLOWLIST|allowlist|PERMITIDOS|EXCECOES|EXCEÇ` em `menuSurfaceSingleOwner`, `menuSemItemFixo`,
+  `menuSemTeto` e `previaUnica`: **nenhuma constante de exceção**, só prosa explicando que não há uma.
+  A asserção que fica de pé é `expect(procurar(LEGADO).map(…)).toEqual([])` sobre o escopo inteiro.
+- **O escopo novo `['apps','supabase/functions']` ACUSA** — provado pela mutação 10, e com **âncora
+  nomeando o arquivo**: `expect(varridos.some(a => a.rel === 'supabase/functions/sitemap/index.ts'))`.
+  Sem essa âncora, um caminho errado varreria zero arquivo e a asserção passaria por vacuidade.
+- **A âncora dupla do guarda sobreviveu ao alargamento**: `varridos.length > 400` e a separação
+  produção × teste continuam, e as duas contagens só cresceram.
+- **A migration continua com quatro `update public.categories`** (três backfills + a limpeza de
+  `icon`), e a âncora nova assere que **cada marca casa exatamente um** — o que impede uma marca
+  frouxa de cobrir o backfill errado e deixar o certo sem guarda nenhum.
+- **`supabase/functions/sitemap/__tests__/handlers.test.ts`** perdeu `show_in_menu: false` da fixture,
+  acompanhando o tipo. A contagem de functions ficou **350/7**, então nenhum caso saiu.
+
+---
+
+## I2.7 — Os dois desvios que o worker declarou
+
+**1. As baselines de quatro `CLAUDE.md`.** Batem com o que **eu** medi:
+
+| Arquivo | O que ele escreveu | O que eu medi |
+| --- | --- | --- |
+| `CLAUDE.md` (raiz) | `6648 em 357 arquivos` — store 2190/144 · backoffice 1908/116 · core 1691/67 · functions 350/7 · catalog-import 509/23 | ✅ **idêntico**, os cinco isolados com exit code |
+| `CLAUDE.md` (raiz) | lint **27/5**, tipos **0 · 0 · 0** | ✅ store 2/1 · backoffice 25/4; `tsc` limpo nos três |
+| `apps/backoffice/CLAUDE.md` | lint do painel **25/4** | ✅ |
+| `apps/store/CLAUDE.md` · `packages/core/CLAUDE.md` · `apps/backoffice/CLAUDE.md` | o dono único de `menuBannerArt`, e o escopo do guarda alcançando `supabase/functions/**` | ✅ o texto descreve o código que está no disco |
+
+O delta declarado (**+25**, sendo store **+8** e backoffice **+17/+1**) fecha com a aritmética:
+2182→2190 e 1891/115→1908/116.
+
+**2. O `validation.md` da iteração 1 commitado junto.** Conferido por `diff` contra a versão anterior
+do arquivo (`3c00b09`), recortada a partir de `## Probes (T7)`:
+
+- **A seção `## Probes (T7)` está preservada byte a byte** — as 227 linhas do probe (as três execuções
+  da migration, os hashes de idempotência `67171ec1…`/`2ddd6c77…`, o catálogo do sistema com
+  `attgenerated = 's'`, os **9 probes HTTP** incluindo o `428C9` da recusa de escrita na coluna gerada
+  e o `200` com `[]` do falso verde da RLS) chegam **sem uma diferença**.
+- O commit removeu **13 linhas**, e são exatamente o cabeçalho antigo do arquivo (`# Menu configurável
+  — evidência de execução`, que declarava ser evidência parcial do implementador) e a lista
+  `## Pendente para o Verifier`. As duas foram **substituídas** pelo relatório do Verifier, que
+  reabsorveu os três itens pendentes em `## Pendente depois desta verificação` — nenhum sumiu.
+- **Nada do texto do Verifier foi reescrito**: os 6 itens ranqueados, os dois mutantes sobreviventes
+  com o SQL injetado, e as cinco ACs parciais estão como ele os escreveu.
+
+---
+
+## I2.8 — O que continua SEM PROVA — riscos de entrega
+
+Nada em `c413ce2` tocou nestes três, e eu não os fechei. **Eles são a razão de o PASS vir com
+ressalva**, e não devem ser lidos como "coberto por teste":
+
+### 1. `NAV-04` — a faixa rola em vez de estourar, e o `body` nunca rola em 390
+
+**Provado só pela FORMA.** `Header.test.tsx:197` (`overflow-x-auto`), `:201`
+(`not.toContain('flex-wrap')`), `:208` (a faixa não é posicionada), `MegaMenu.test.tsx:408`
+(`min-w-max`). **Remedido por mim nesta iteração**: `grep` por `scrollWidth|clientWidth|offsetWidth`
+em todo `apps/store/src/**/*.test.ts(x)` devolve **um** acerto, e é um **comentário** em
+`ProductPage.test.tsx:245`, de outra feature. Continua **zero** medida de layout.
+
+- **O que falta medir**: em **1440**, ligar itens de menu até a faixa estourar e conferir que ela
+  **rola** (`scrollWidth > clientWidth` no `<nav>`) e que `document.body.scrollWidth` continua igual
+  a `clientWidth`; em **390**, com a folha aberta e um acordeão com banner, conferir ausência de
+  rolagem horizontal do `body` e alvo de toque ≥ 44px.
+- **Onde**: navegador real, loja em `:8082`. jsdom devolve **0** para toda medida de layout — nenhum
+  teste de componente pode fechar isto, hoje ou depois.
+- **Por que importa aqui mais que o normal**: esta feature **apagou o teto de itens**. Antes, o
+  estouro era impossível por construção; agora a resposta ao estouro é a rolagem, e ela nunca foi
+  vista funcionando. É a cicatriz da `27` na mesma casa — página de produto inteira rolando na
+  horizontal, `scrollWidth` 634 em viewport de 390, com todos os testes verdes.
+
+### 2. `NAV-45` — a prévia é 390 **escalado**, não 390 encolhido
+
+**Provado só pela FORMA.** `MenuLivePreview.test.tsx:87` (`width=390`, `height=844`), `:94`/`:99`
+(`style.transform` contém `scale(`, `transformOrigin === 'top left'`), `AdminMenuPage.test.tsx:311`
+(1024 → 390 ao trocar de aba). **Remedido**: a asserção continua sendo `toContain('scale(')`, e sob
+jsdom (sem `ResizeObserver`) `previewScale` devolve **1** — o valor renderizado é sempre `scale(1)`.
+O que está provado é que **existe** um `transform`, não que a escala é calculada.
+
+- **O que falta medir**: em `/admin/menu`, trocar para a aba Celular e confirmar que o iframe mede
+  **390 de verdade** nas media queries — o sinal barato é que a barra de departamentos
+  (`hidden md:block`) **some**, porque se o iframe estivesse encolhido por CSS ele continuaria
+  medindo 1024 e a barra apareceria. **O erro se apresenta como um menu que não deveria estar ali.**
+- **Onde**: navegador real, painel em `:8083` com `VITE_STORE_URL` apontando para `:8082`.
+
+### 3. A migration nunca rodou do zero
+
+O probe (T7, preservado abaixo) aplicou o `.sql` **três vezes sobre o banco local com o catálogo real
+importado**, com hash de estado antes/depois provando idempotência. **`supabase db reset` não foi
+rodado, nem por mim** — rodá-lo apagaria o catálogo real da máquina de quem desenvolve, e o
+`seed.sql` não o repõe desde a feature 21.
+
+- **O que falta medir**: `supabase db reset` **num banco descartável**, com as 48 migrations em
+  ordem, e depois conferir que (a) o `drop column show_in_menu` dentro do `do $$` não esbarra em
+  dependência que só existe no grafo completo, (b) `show_in_menu` nasce `attgenerated = 's'`, e (c) a
+  semeadura do "Sobre" casa com o `store_settings` recém-criado (`insert … on conflict (key) do
+  nothing` afeta 1 linha, não 0 por tabela ausente).
+- **Onde**: instância Supabase descartável — **nunca** a de trabalho, na faixa 54341–54349.
+- **O que já reduz o risco, por leitura**: nenhuma view, policy ou índice fora da própria migration
+  depende de `show_in_menu`; o `seed.sql` não escreve na coluna; e a `16` roda antes, criando a coluna
+  comum que a guarda `attgenerated = ''` espera encontrar.
+
+---
+
+## I2.9 — Veredito da iteração 2
+
+**PASS ✅**
+
+**As quatro lacunas que o commit `c413ce2` diz ter fechado estão fechadas, e eu provei cada uma
+reinjetando a mutação eu mesmo** — 11 mutações, 11 mortas, **0 sobreviventes**. As duas que a
+iteração 1 marcou como **mutante sobrevivente** (o backfill 2 da migration e o rótulo em
+`on-primary`) agora reprovam a suíte, e a mutação do backfill 2 é literalmente a mesma que o Verifier
+anterior usou. O gate bate número por número com o que o worker reportou, medido por mim, um
+workspace por vez, com exit code fora de pipe. Nenhuma asserção foi afrouxada para o gate subir:
+os cinco casos e as quatro asserções que saíram do diff foram substituídos no mesmo lugar por versões
+estritamente mais fortes.
+
+### Lacunas da iteração 1 — situação
+
+| # | Lacuna | Situação |
+| --- | --- | --- |
+| 1 | `NAV-08` — backfill 2 sem colunas asseridas, mutante sobrevivente | ✅ **FECHADA** — mutações 1–4 |
+| 2 | `NAV-20` — rótulo em `on-primary` sem asserção, mutante sobrevivente | ✅ **FECHADA** — mutações 5–6 e o probe da régua |
+| 3 | `NAV-23` — `MenuPanelEditor.test.tsx` não existia | ✅ **FECHADA** — 16 casos, mutações 7–8 |
+| 6 | Duas escritas do predicado de `arte()` | ✅ **FECHADA** — dono único em `core`, mutação 9 |
+| — | *(extra, não pedido)* escopo do guarda era `['apps']` | ✅ fechado — mutação 10 |
+| 4 | `NAV-04` e `NAV-45` sem prova de navegador | ⚠️ **ABERTA — risco de entrega**, I2.8 §1 e §2 |
+| 5 | A migration nunca rodou do zero | ⚠️ **ABERTA — risco de entrega**, I2.8 §3 |
+| 7 | Ressalvas de precisão (`NAV-39`, `NAV-41`, `NAV-42`, `NAV-46`) | ⚠️ **inalteradas** — nenhuma é defeito; todas são asserção mais fraca do que a AC escreve. Não bloqueiam |
+
+**As duas que continuam abertas não são regressão nem surpresa**: as duas primeiras estão declaradas
+na própria spec (`spec.md:381-384`), e a terceira tem o custo declarado (destruir o catálogo local).
+Nenhuma delas se fecha com código — as três se fecham **abrindo um navegador e um banco
+descartável**, e é isso que separa "a suíte está verde" de "a feature está pronta para a Adri".
+
+### Como esta iteração foi conduzida
+
+- **Árvore de trabalho intocada.** Nenhuma linha de código, teste ou spec foi escrita ou corrigida
+  por mim. As 10 mutações de arquivo foram aplicadas ao arquivo **real**, medidas e desfeitas por
+  **cópia de backup** guardada fora do repositório — nunca `git stash`, cuja pilha é compartilhada com
+  o repositório principal. `git status --porcelain` conferido **vazio depois de cada restauração** e
+  no fecho, junto com `git diff --stat` vazio. A 11ª mutação é um probe puro, num script fora da
+  árvore.
+- **Gate um workspace por vez**, com `echo "exit=$?"` em linha própria.
+- **O relato do commit `c413ce2` não foi usado como evidência de nada.** Cada afirmação dele foi
+  reproduzida ou recusada por medição própria; as que conferi todas bateram.
+
+---
+
+## I2.10 — Lições a registrar (não gravadas por restrição de escopo)
+
+`.specs/LESSONS.md` **não tem nenhuma entrada da feature 39** (`grep -c '39-menu-configuravel'` → 0),
+e a iteração 1 produziu sinal graúdo: **dois mutantes sobreviventes**. Não rodei
+`scripts/lessons.py add` porque a instrução desta verificação é fechar com `git status` limpo exceto
+por este arquivo, e o script escreve `.specs/lessons.json` **e** `.specs/LESSONS.md`. Ficam aqui, com
+o *grounding* pronto, para quem fechar a feature gravar:
+
+| Sinal | Escopo | Lição | Grounding |
+| --- | --- | --- | --- |
+| `surviving_mutant` | `apps/**/__tests__` (guardas que leem `.sql`) | Uma régua por **comando**, nunca uma para a família: guarda que casa um `update` inteiro numa expressão só mede a **forma do primeiro**, e o segundo, com uma cláusula a mais no meio (`from`), escapa em silêncio. Recorte o `set` e assere as colunas nele. | `menuSchema.test.ts` + `20260905130000_39-menu-configuravel.sql:126` — backfill 2 reduzido a `menu_desktop` deixava 2182 testes verdes |
+| `surviving_mutant` | `testing/tokens` | Régua de classe utilitária precisa recusar **hífen** depois do token: `toContain` casa o sufixo (`accent` casa `accent-strong`) e `\b` não fecha nada, porque `-` não é caractere de palavra. A forma que fecha é `(?:^|\s)token(?![-\w])`. | `MegaMenu.test.tsx` + `navItem.ts:38` — `accent` → `accent-strong` passava batido |
+| `ac_gap` | `testing/guardas de dono único` | Guarda com escopo menor que a regra é allowlist com outro nome: `['apps']` deixava `supabase/functions/**` fora, e a function do sitemap seguia pedindo a coluna legado ao banco. Escopo de varredura é parte da asserção, e precisa de âncora que **nomeie um arquivo** de cada ponta. | `menuSurfaceSingleOwner.test.ts:ESCOPO` + `supabase/functions/sitemap/index.ts:61` |
+| `ac_gap` | `apps/backoffice/**` | AC com duas metades — "o sistema faz X" **e** "a tela diz isso em texto" — precisa de asserção sobre o **literal**: o componente único sem arquivo de teste é onde a segunda metade some, e apagar a frase não quebra nada. | `NAV-23` + `MenuPanelEditor.tsx:60-62`, que não tinha teste nenhum |
 
 ---
 
