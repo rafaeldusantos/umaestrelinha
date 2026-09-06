@@ -737,7 +737,7 @@ declarada em relação à ponte da home, que ainda posta o `ready` com `'*'`.
   um glob com dois asteriscos — e passa a **aprovar em silêncio** o que estiver ali. Achado no lote 4
   porque uma asserção nova reprovou; virou sensor nos quatro guardas do menu.
   `freeShippingSingleOwner.test.ts` — o guarda do **dinheiro** — carrega a forma antiga, e está
-  registrado como **`BL-023`**.
+  registrado como **`BL-027`**.
 - **`?preview=1` sozinho não pode mudar nada.** O parâmetro é adivinhável e viraliza por link: o modo
   prévia exige **também** estar dentro de um iframe. Vale igual para o canal novo.
 

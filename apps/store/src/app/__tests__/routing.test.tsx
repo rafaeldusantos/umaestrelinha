@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { render, screen, waitFor } from '@testing-library/react'
 import { Outlet } from 'react-router-dom'
 import type { Category } from '@estrelinha/supabase/types'
 
@@ -98,6 +98,19 @@ const renderAt = (path: string) => {
   return render(<App />)
 }
 
+/*
+ * As rotas passaram a ser `React.lazy` (`PRF-10`), e montar uma virou import dinâmico. A PRIMEIRA
+ * vez que o vitest resolve `CategoryPage` e `ProductPage` ele transforma os módulos de verdade —
+ * mais de um segundo, que é o teto padrão do `findBy`. Aquecer o cache aqui é plumbing de dublê, e
+ * não afrouxamento: as asserções continuam exigindo exatamente o mesmo DOM.
+ */
+beforeAll(async () => {
+  await Promise.all([import('@/pages/CategoryPage'), import('@/pages/ProductPage')])
+  // O teto é do HOOK, não das asserções: transformar as duas páginas e a árvore delas passa dos 10s
+  // padrão do vitest. Antes do `lazy` esse mesmo trabalho acontecia na coleta do arquivo; ele só
+  // mudou de fase.
+}, 120_000)
+
 beforeEach(() => {
   useCategoriesMock.mockReset()
   useProductMock.mockReset()
@@ -106,98 +119,104 @@ beforeEach(() => {
 })
 
 describe('rotas — produto (URL-01, URL-02)', () => {
-  it('`/produtos/:slug` monta a ProductPage', () => {
+  it('`/produtos/:slug` monta a ProductPage', async () => {
     renderAt('/produtos/joia-lua')
 
-    expect(screen.getByText('produto:galeria')).toBeInTheDocument()
+    expect(await screen.findByText('produto:galeria')).toBeInTheDocument()
     expect(window.location.pathname).toBe('/produtos/joia-lua')
   })
 
-  it('`/produto/x` navega para `/produtos/x`', () => {
+  it('`/produto/x` navega para `/produtos/x`', async () => {
     renderAt('/produto/joia-lua')
 
-    expect(window.location.pathname).toBe('/produtos/joia-lua')
-    expect(screen.getByText('produto:galeria')).toBeInTheDocument()
+    await waitFor(() => expect(window.location.pathname).toBe('/produtos/joia-lua'))
+    expect(await screen.findByText('produto:galeria')).toBeInTheDocument()
   })
 })
 
 describe('rotas — categoria (URL-02 AC 3c, URL-03)', () => {
-  it('`/colecao/x` navega para `/x`', () => {
+  it('`/colecao/x` navega para `/x`', async () => {
     renderAt('/colecao/joias-afetivas')
 
-    expect(window.location.pathname).toBe('/joias-afetivas')
-    expect(screen.getByRole('heading', { name: 'Joias afetivas' })).toBeInTheDocument()
+    await waitFor(() => expect(window.location.pathname).toBe('/joias-afetivas'))
+    expect(await screen.findByRole('heading', { name: 'Joias afetivas' })).toBeInTheDocument()
   })
 
-  it('`/categoria/x` navega para `/x`', () => {
+  it('`/categoria/x` navega para `/x`', async () => {
     renderAt('/categoria/joias-afetivas')
 
-    expect(window.location.pathname).toBe('/joias-afetivas')
-    expect(screen.getByRole('heading', { name: 'Joias afetivas' })).toBeInTheDocument()
+    await waitFor(() => expect(window.location.pathname).toBe('/joias-afetivas'))
+    expect(await screen.findByRole('heading', { name: 'Joias afetivas' })).toBeInTheDocument()
   })
 
-  it('`/:slug` monta a CategoryPage', () => {
+  it('`/:slug` monta a CategoryPage', async () => {
     renderAt('/joias-afetivas')
 
-    expect(screen.getByRole('heading', { name: 'Joias afetivas' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Joias afetivas' })).toBeInTheDocument()
   })
 
-  it('`/:parentSlug/:slug` monta a CategoryPage da subcategoria', () => {
+  it('`/:parentSlug/:slug` monta a CategoryPage da subcategoria', async () => {
     renderAt('/joias-afetivas/joia-de-leite-materno')
 
-    expect(screen.getByRole('heading', { name: 'Joia de leite materno' })).toBeInTheDocument()
+    expect(
+      await screen.findByRole('heading', { name: 'Joia de leite materno' }),
+    ).toBeInTheDocument()
     expect(window.location.pathname).toBe('/joias-afetivas/joia-de-leite-materno')
   })
 })
 
 describe('rotas — segmento estático vence o dinâmico (a armadilha de AD-018)', () => {
-  it('`/conta` monta a AccountPage e NÃO a CategoryPage', () => {
+  it('`/conta` monta a AccountPage e NÃO a CategoryPage', async () => {
     renderAt('/conta')
 
-    expect(screen.getByText('pagina:conta')).toBeInTheDocument()
+    expect(await screen.findByText('pagina:conta')).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Joias afetivas' })).not.toBeInTheDocument()
   })
 
-  it('`/pedido/abc` monta a confirmação e NÃO a CategoryPage de duas partes', () => {
+  it('`/pedido/abc` monta a confirmação e NÃO a CategoryPage de duas partes', async () => {
     renderAt('/pedido/abc')
 
-    expect(screen.getByText('pagina:pedido')).toBeInTheDocument()
+    expect(await screen.findByText('pagina:pedido')).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Essa página não existe.' })).not.toBeInTheDocument()
   })
 
-  it('`/busca` continua sendo a busca, não uma categoria chamada busca', () => {
+  it('`/busca` continua sendo a busca, não uma categoria chamada busca', async () => {
     renderAt('/busca')
 
-    expect(screen.getByText('pagina:busca')).toBeInTheDocument()
+    expect(await screen.findByText('pagina:busca')).toBeInTheDocument()
   })
 })
 
 describe('rotas — o que não existe (URL-04)', () => {
-  it('três segmentos caem na 404 própria', () => {
+  it('três segmentos caem na 404 própria', async () => {
     renderAt('/a/b/c')
 
-    expect(screen.getByRole('heading', { name: 'Essa página não existe.' })).toBeInTheDocument()
+    expect(
+      await screen.findByRole('heading', { name: 'Essa página não existe.' }),
+    ).toBeInTheDocument()
   })
 
-  it('um segmento que não é categoria cai na 404 própria', () => {
+  it('um segmento que não é categoria cai na 404 própria', async () => {
     renderAt('/nao-existe')
 
-    expect(screen.getByRole('heading', { name: 'Essa página não existe.' })).toBeInTheDocument()
+    expect(
+      await screen.findByRole('heading', { name: 'Essa página não existe.' }),
+    ).toBeInTheDocument()
   })
 })
 
 describe('rotas — o checkout segue fora do StoreLayout (CHK-10)', () => {
-  it('`/checkout` monta a página sem a moldura da loja', () => {
+  it('`/checkout` monta a página sem a moldura da loja', async () => {
     renderAt('/checkout')
 
-    expect(screen.getByText('pagina:checkout')).toBeInTheDocument()
+    expect(await screen.findByText('pagina:checkout')).toBeInTheDocument()
     expect(screen.queryByTestId('store-layout')).not.toBeInTheDocument()
   })
 
-  it('e a home, por contraste, monta DENTRO da moldura', () => {
+  it('e a home, por contraste, monta DENTRO da moldura', async () => {
     renderAt('/')
 
-    expect(screen.getByText('pagina:home')).toBeInTheDocument()
+    expect(await screen.findByText('pagina:home')).toBeInTheDocument()
     expect(screen.getByTestId('store-layout')).toBeInTheDocument()
   })
 })

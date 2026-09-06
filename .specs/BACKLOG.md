@@ -901,8 +901,19 @@ guarda), e se a URL é a do Storage ou a transformada.
 
 ## BL-022 — Peso do bundle da loja: 1,17 MB num chunk só
 
-- **Status**: aberto · **Registrado em**: 2026-08-30 · **Origem**: auditoria de SEO da feature
-  [`36`](./features/36-metadados-e-dados-estruturados/spec.md), `Out of Scope`
+- **Status**: **FECHADO em 2026-09-05** pela feature
+  [`38`](./features/38-performance-mobile/spec.md). As 14 páginas viraram `React.lazy`, os quatro
+  overlays de gesto passaram a carregar sob demanda, e `react`/`supabase`/`query` saíram em chunks
+  que **sobrevivem a um deploy**. O `<Toaster />` do Radix, que estava montado sem um único
+  consumidor na loja, foi removido. Medido no artefato, não no fonte: chunk de entrada de
+  **278,4 KB → 117,2 KB brotli** (1.144 KB → 418 KB crus), contra um teto de 220 KB.
+  Guardas: `routeSplitting.test.ts` (bidirecional) e `viteChunks.test.ts`, que amarra as listas de
+  `manualChunks` ao `dedupe`. · **Registrado em**: 2026-08-30 · **Origem**: auditoria de SEO da
+  feature [`36`](./features/36-metadados-e-dados-estruturados/spec.md), `Out of Scope`
+
+> **O item previu certo o passo seguinte**, e vale registrar: ele dizia *"o endpoint
+> `storage/v1/render/image` responde transformação (11 KB a 400px) — `srcset` está a um passo"*. Era
+> o passo. A `38` mediu 12,7 KB a 360 px e levou o `srcset` a 15 superfícies.
 
 **O que é.** `apps/store/dist/assets` emite **um** `index-*.js` de **1.167.848 bytes** e um
 `index-*.css` de 121.536 — sem `React.lazy`, sem `Suspense` nas rotas, sem `manualChunks`. Toda
@@ -924,7 +935,112 @@ existem para ele.
 
 ---
 
-## BL-023 — O guarda do frete grátis tem um PONTO CEGO no removedor de comentário
+## BL-023 — Framer Motion no chunk de entrada: 42 KB gzip para fade-in
+
+- **Status**: aberto · **Registrado em**: 2026-09-05 · **Origem**: `Out of Scope` da feature
+  [`38`](./features/38-performance-mobile/spec.md), por decisão do usuário
+
+**O que é.** `framer-motion` + `motion-dom` somam **42,6 KB gzip** no chunk de entrada, e 11 arquivos
+de interface os importam. A esmagadora maioria dos usos é `initial={{ opacity: 0, y: 20 }}` +
+`whileInView` — animação de entrada que CSS faz sem biblioteca.
+
+**Por que ficou de fora da `38`.** O ganho é real e medido, mas a regressão é **visual**, e teste de
+componente não a alcança: em jsdom toda medida de layout devolve 0. Fechar isto exige conferência em
+navegador real nas 11 telas, e o usuário decidiu não pagar esse QA junto com o resto da feature.
+
+**O que já mudou e reduz o risco.** A `38` tirou o `initial={{ opacity: 0 }}` dos seis primeiros
+cards de cada listagem — eles não podem nascer invisíveis, ou o navegador não os conta como LCP.
+Então a parte do Framer que estava no caminho da métrica **já saiu**; o que resta é peso de bundle.
+
+**Saída provável**: fade-in em CSS onde é só entrada, e `LazyMotion` com `domAnimation` onde há gesto
+de verdade — a gaveta de variações e a galeria.
+
+---
+
+## BL-024 — Paginação, filtro e ordenação da categoria no servidor
+
+- **Status**: aberto · **Registrado em**: 2026-09-05 · **Origem**: `Out of Scope` da feature
+  [`38`](./features/38-performance-mobile/spec.md), por decisão do usuário
+
+**O que é.** A categoria baixa **todos** os produtos do ramo e filtra, ordena e janela no cliente. A
+`38` cortou o payload em 84% com o select enxuto — `colar-e-correntes` saiu de 307 KB para **50 KB
+brotli**, medido contra o banco hospedado —, mas ainda são 147 produtos para desenhar 24 cards.
+
+**Por que ficou de fora.** Levar filtro e ordenação para SQL **reescreve os 14 requisitos `LST-*`** da
+feature [`32`](./features/32-rolagem-infinita-da-categoria/spec.md), incluindo a contagem do
+cabeçalho (que descreve a coleção filtrada inteira) e a reancoragem por valor de `LST-04`. O usuário
+decidiu que o ganho marginal não paga esse risco **enquanto a maior categoria tiver 505 produtos**.
+
+**A condição de revisão**: quando uma categoria passar de ~1.000 produtos, o teto do PostgREST
+(`LISTING_LIMIT`) começa a morder de verdade e este item deixa de ser opcional.
+
+**Estimado**: 307 KB → ~8 KB por leva de 24.
+
+---
+
+## BL-025 — Busca no servidor, e o teto de 1.000 linhas
+
+- **Status**: aberto · **Registrado em**: 2026-09-05 · **Origem**: `Out of Scope` da feature
+  [`38`](./features/38-performance-mobile/spec.md)
+
+**O que é.** As três superfícies de busca (`SearchDropdown`, `SearchOverlay`, `SearchPage`) leem
+`useAllProducts` — o catálogo **inteiro** — e filtram em memória. A `38` reduziu isso de 1.449 KB
+para **214 KB brotli** e pôs interruptor no `SearchDropdown`, que estava no `Header` baixando o
+catálogo em **toda rota** sem ninguém ter notado. Mas a forma continua sendo "baixe tudo e filtre
+aqui".
+
+**Duas dívidas concretas, e as duas já custaram algo:**
+
+1. **O teto de 1.000 linhas do PostgREST.** Hoje `LISTING_LIMIT` o declara em vez de herdá-lo em
+   silêncio, mas declarar não conserta: com 680 produtos ainda cabe; passando de 1.000, a busca
+   **esconde produtos sem erro**.
+2. **A busca por descrição foi perdida na `38`, com custo medido e decisão do usuário.**
+   `searchProducts` pontua `description` como último desempate (peso 5), e o campo saiu do select
+   enxuto. Trazê-lo de volta custaria **+430 KB brotli em toda página**. Um `ilike`/`textSearch` no
+   servidor devolve o comportamento **e** o peso.
+
+**Saída**: `ilike` ou `textSearch` com `limit`, e a pontuação vira `ORDER BY`.
+
+---
+
+## BL-026 — O cache de um ano nas 3.618 fotos que já estão no Storage
+
+- **Status**: aberto, **baixa prioridade** · **Registrado em**: 2026-09-05 · **Origem**: T19 da
+  feature [`38`](./features/38-performance-mobile/spec.md), adiada por decisão do usuário
+
+**O que é.** A `38` fez as fotos **novas** nascerem com `cacheControl` de um ano, por constante única
+em `@estrelinha/core`. As **3.618 já gravadas** seguem com `max-age=3600`.
+
+**Por que é caro, e a razão mudou durante o design.** Não existe `updateMetadata`, `getMetadata` nem
+`setMetadata` no `@supabase/storage-js` **2.110.7 instalado** — conferido no `dist/index.d.mts` do
+pacote, depois de uma busca na web afirmar o contrário. O único caminho é
+`update(path, bytes, { cacheControl })`, que **substitui o arquivo**: ~410 MB de reenvio.
+
+**Por que não é urgente.** A transformação do Supabase é cobrada por **imagem distinta por mês**, não
+por batida. O passe compra **velocidade de revisita**, não dinheiro — o teto de ~US$ 20/mês do
+catálogo não muda com ele.
+
+**Saída barata quando vier**: subcomando do `tools/catalog-import` lendo os bytes do **cache em
+disco** que o importador já mantém, sem tocar o CDN da Nuvemshop. Objeto ausente do cache é pulado
+com registro, nunca rebaixado de terceiro.
+
+---
+
+> **As quatro entradas acima e as duas abaixo COLIDIRAM em número, e a colisão é do merge.**
+> As features `38` e `39` foram escritas em paralelo, cada uma a partir da mesma base (`146561e`),
+> e as duas registraram a sua primeira dívida como `BL-023`. Nenhuma das duas errou: quando foram
+> escritas, `022` era mesmo o último número.
+>
+> **Quem manteve o número foi a `38`**, porque ela chegou primeiro à `master` — e é ali que o
+> número passa a ser público, citado por relatório de verificação e por commit. As duas entradas da
+> `39` desceram para `BL-027` e `BL-028`, que era o próximo par livre. É a mesma regra que a
+> própria `BL-027` aplica ao contar por que não pôde ser `BL-018`: **número ocupado não se disputa,
+> anda para frente.**
+>
+> As citações em código, teste e documento foram renumeradas junto — o `validation.md` e o
+> `tasks.md` da `39` carregam a nota do que mudou, para que o relatório continue conferível.
+
+## BL-027 — O guarda do frete grátis tem um PONTO CEGO no removedor de comentário
 
 - **Status**: **FECHADO em 2026-09-06** · **Registrado em**: 2026-09-05 · **Origem**: feature `39`,
   lote 4 — o defeito foi encontrado nos guardas novos do menu e corrigido lá; o arquivo da `37`
@@ -963,7 +1079,7 @@ existem para ele.
 
 O registro original, preservado:
 
-> **O número.** O item pedido como `BL-018` recebeu `BL-023`: o `018` já estava ocupado pelos
+> **O número.** O item pedido como `BL-018` recebeu `BL-027`: o `018` já estava ocupado pelos
 > "13 endereços que a Nuvemshop indexou", e número de backlog é imutável pela mesma razão que número
 > de feature é — dois donos do mesmo identificador é o "defeito 01" aplicado à documentação.
 
@@ -1028,7 +1144,7 @@ existiu.
 se alguma passar a reprovar depois da troca, ela estava sendo aprovada pelo ponto cego, e isso é um
 achado, não um efeito colateral a "consertar" afrouxando a régua.
 
-## BL-024 — A barra cheia do computador não tem afordância de rolagem para quem usa mouse
+## BL-028 — A barra cheia do computador não tem afordância de rolagem para quem usa mouse
 
 - **Status**: **FECHADO em 2026-09-06** · **Origem**: UAT em navegador da feature `39`, 2026-09-06.
   Medido, não suposto.

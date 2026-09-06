@@ -32,6 +32,19 @@ import {
   type OfferInputProduct,
   type OfferInputVariant,
 } from '../../../packages/core/src/shopping/index.ts'
+// Os dois abaixo entram por ARQUIVO, e não pelo barrel do módulo — e a distinção não é estilo.
+//
+// `core/media/index.ts` faz `import type { ProductImage } from '@estrelinha/supabase/types'`, e o
+// Deno resolve o grafo de TIPOS: o worker morreria com `Failed resolving types` **antes da primeira
+// linha rodar** (medido na feature `33`). `rendition.ts` e `escape.ts` são folhas, sem import
+// nenhum, e por isso são alcançáveis daqui. A extensão `.ts` é obrigatória pela mesma regra.
+import {
+  GALLERY_STAGE_SIZES,
+  RENDITION_WIDTHS,
+  renditionSrcSet,
+  renditionUrl,
+} from '../../../packages/core/src/media/rendition.ts'
+import { escapeXml } from '../../../packages/core/src/xml/escape.ts'
 
 export interface ProductPageData {
   product: OfferInputProduct
@@ -89,6 +102,53 @@ export const createShellCache = (
  */
 export const jsonLdScript = (dados: Record<string, unknown>): string =>
   `<script type="application/ld+json">${JSON.stringify(dados).replace(/</g, '\\u003c')}</script>`
+
+/**
+ * O palco da galeria pede a MAIOR das rendições — derivada, nunca cravada.
+ *
+ * `ProductGallery` chama a mesma largura de `PALCO_PX`. O que precisa casar de verdade entre o
+ * preload e a galeria é o par `srcset`/`sizes`, porque é dele que o navegador escolhe o candidato;
+ * o `href` é o recuo de quem não entende `imagesrcset`.
+ */
+const PALCO_PX = RENDITION_WIDTHS[RENDITION_WIDTHS.length - 1]
+
+/**
+ * O `<link rel="preload" as="image">` da foto principal — `PRF-06`.
+ *
+ * A maior imagem da página do produto é a foto do palco, e até aqui o navegador só ficava sabendo
+ * dela **depois** de baixar e interpretar o bundle, montar a árvore e chegar ao `<img>`. O preload
+ * no `<head>` é o que a coloca na fila junto com o JavaScript, em vez de atrás dele.
+ *
+ * `imagesrcset`/`imagesizes` repetem EXATAMENTE o que a galeria declara. Divergir aqui é pior que
+ * não ter preload: o navegador escolheria um candidato para o preload e outro para o `<img>`, e
+ * baixaria as duas fotos. Por isso `GALLERY_STAGE_SIZES` mora em `core/media`, e não nas duas.
+ *
+ * Produto **sem** foto devolve `''` — nenhum `preload`, e a resposta segue idêntica à de hoje.
+ * Foto em host de terceiro sai com `href` e sem `imagesrcset`: `renditionSrcSet` devolve `''`
+ * porque não há rendição a pedir, e um `imagesrcset` vazio faria o navegador ignorar o preload.
+ *
+ * O escape é o `escapeXml` do projeto — a URL da rendição carrega `&quality=`, e `&` cru dentro de
+ * atributo é o defeito silencioso clássico de quem monta HTML por concatenação.
+ */
+export const imagePreloadLink = (imageUrl: string): string => {
+  const url = (imageUrl ?? '').trim()
+  if (url === '') return ''
+
+  const srcset = renditionSrcSet(url)
+  const atributos = [
+    'rel="preload"',
+    'as="image"',
+    `href="${escapeXml(renditionUrl(url, PALCO_PX))}"`,
+    ...(srcset === ''
+      ? []
+      : [
+          `imagesrcset="${escapeXml(srcset)}"`,
+          `imagesizes="${escapeXml(GALLERY_STAGE_SIZES)}"`,
+        ]),
+    'fetchpriority="high"',
+  ]
+  return `<link ${atributos.join(' ')}>`
+}
 
 /** Insere o bloco imediatamente antes de `</head>`. Sem `</head>`, devolve o shell intacto. */
 export const injectIntoHead = (shell: string, bloco: string): string => {
@@ -148,7 +208,11 @@ export const handleProductPage = async (
     defaultProductCategory: deps.defaultProductCategory,
   })
 
-  return html(injectIntoHead(shell, jsonLdScript(productJsonLd(oferta))))
+  // O preload vem ANTES do JSON-LD: o rastreador lê o documento inteiro de qualquer jeito, e a
+  // cliente ganha os bytes da foto começando mais cedo.
+  return html(
+    injectIntoHead(shell, imagePreloadLink(oferta.imageLink) + jsonLdScript(productJsonLd(oferta))),
+  )
 }
 
 const isElegivel = (dados: ProductPageData, v: OfferInputVariant): boolean =>

@@ -287,7 +287,7 @@ migrations, e `vercelRedirects` lê o `vercel.json`.
 | `touchTarget.test.ts` | idem | controle abaixo de 44px que não adotou `TAP_44`/`TAP_ROW`; a medida deixar de morar num lugar só |
 | `brandScan.test.ts` | idem | **qualquer** ocorrência da marca anterior em `apps/`, `packages/`, `supabase/` ou nas configs da raiz |
 | `storeSettingsDefaults.test.ts` | idem | os defaults do TypeScript divergirem do que as migrations gravam; o interruptor do frete grátis nascer ligado; a migration da `37` deixar de ser aditiva (`value \|\|`) ou idempotente (`NOT value ?`). **Sensor embutido**: assere que o parser devolve `undefined` para campo ausente |
-| `freeShippingSingleOwner.test.ts` | idem | qualquer arquivo de `apps/**` fora de um allowlist de **dois** ler `free_shipping_threshold`; `freeShippingProgress` ou `FreeShippingBar` voltarem a existir em produção; copy com o valor da faixa cravada em JSX. **Âncora dupla** e **seis sensores embutidos** — o removedor de comentário provado com CRLF, com LF, contra o glob de dois asteriscos que o cegava (`BL-023`, fechada em 2026-09-06: linha e bloco na **mesma** varredura) e contra uma leitura nova escondida atrás desse mesmo glob |
+| `freeShippingSingleOwner.test.ts` | idem | qualquer arquivo de `apps/**` fora de um allowlist de **dois** ler `free_shipping_threshold`; `freeShippingProgress` ou `FreeShippingBar` voltarem a existir em produção; copy com o valor da faixa cravada em JSX. **Âncora dupla** e **seis sensores embutidos** — o removedor de comentário provado com CRLF, com LF, contra o glob de dois asteriscos que o cegava (`BL-027`, fechada em 2026-09-06: linha e bloco na **mesma** varredura) e contra uma leitura nova escondida atrás desse mesmo glob |
 | `importOrder.test.ts` | idem | `App.css` importado **antes** de `@estrelinha/ui/styles.css` no `main.tsx` |
 | `reservedSlugs.test.ts` | idem | rota nova no `App.tsx` que não entrou em `ROUTE_SLUGS`; entrada de `ROUTE_SLUGS` que deixou de ser rota. **Bidirecional** |
 | `vercelRedirects.test.ts` | idem | `vercel.json` divergir de `LEGACY_REDIRECTS`; `trailingSlash` deixar de ser `false`; redirect usando `permanent` (que produz 308); o catch-all do SPA sair do fim da lista de `rewrites`; os headers de segurança mudarem; o `rewrite` ou o `Content-Type` de `/sitemap.xml` sumirem |
@@ -300,7 +300,7 @@ migrations, e `vercelRedirects` lê o `vercel.json`.
 | `menuIconCatalog.test.ts` | idem | chave de `MENU_ICON_KEYS` sem componente em `MENU_ICON_COMPONENTS`, ou o contrário; a loja voltar a importar ícone de `@/shared/ui/icons`. **Bidirecional**, com âncora de contagem |
 | `menuSurfaceSingleOwner.test.ts` | idem | qualquer arquivo de `apps/**` ler `show_in_menu` ou `menu_promo` — a primeira é **coluna gerada** e a segunda é legado; quem responde "está no menu?" é `menuItems(…, surface)`, porque a resposta depende do dispositivo. **Zero allowlist**, escrito literalmente, e sensor do ponto cego do comentário |
 | `menuSemItemFixo.test.ts` | idem | `FIXED_ENTRIES` (com qualquer um dos dois nomes) voltar a existir; `/crie-seu-botton` reaparecer; destino literal (`to="/…"`) nas quatro superfícies de menu da loja fora do chrome (`/`, `/conta`, `/favoritos`). **Âncora dupla** e quatro sensores |
-| `menuSemTeto.test.ts` | idem | `MENU_SLOT_LIMIT`, `slotsUsed`, `menuSlotRefusal`, `menuEntries`, `MenuEntry`, `resolvePromo` ou `ResolvedPromo` voltarem a `apps/**` ou a `packages/core/src/menu/**`; vocabulário de "vaga" nas cinco superfícies de menu; a barra trocar `overflow-x-auto`/`min-w-max` por `flex-wrap` (embrulhar **esconde** o estouro); a **afordância** de rolagem sumir da faixa cheia — o estado medido, os dois degradês e as duas setas rotuladas (`BL-024`). **Âncora dupla** e dez sensores — incluindo a prova de que `MobileMenuEntry` **não** é acusado, e as duas réguas da `BL-024` escritas como **predicado**, para asserção e sensor chamarem a mesma função |
+| `menuSemTeto.test.ts` | idem | `MENU_SLOT_LIMIT`, `slotsUsed`, `menuSlotRefusal`, `menuEntries`, `MenuEntry`, `resolvePromo` ou `ResolvedPromo` voltarem a `apps/**` ou a `packages/core/src/menu/**`; vocabulário de "vaga" nas cinco superfícies de menu; a barra trocar `overflow-x-auto`/`min-w-max` por `flex-wrap` (embrulhar **esconde** o estouro); a **afordância** de rolagem sumir da faixa cheia — o estado medido, os dois degradês e as duas setas rotuladas (`BL-028`). **Âncora dupla** e dez sensores — incluindo a prova de que `MobileMenuEntry` **não** é acusado, e as duas réguas da `BL-028` escritas como **predicado**, para asserção e sensor chamarem a mesma função |
 | `sanitizeHtml.test.ts` | idem | a allowlist aceitar atributo, `href` deixar de passar por `new URL`, ou `script`/`style`/`iframe` voltarem a desembrulhar em vez de sumir |
 | `importSchema.test.ts` | store `shared/lib/__tests__` | a migration da `35` afrouxar: índice de idempotência virar parcial; `security_invoker` sumir de `customer_directory`; o agregado de telefone da convidada perder o `FILTER (WHERE … IS NOT NULL)`; `handle_new_customer` perder o `security definer`; a adoção por e-mail deixar de recortar `customer_id IS NULL` ou de comparar por `lower()`; `grant` alcançar `anon`. **Cada asserção tem sensor por mutação** |
 | `originZipNotRead.test.ts` | backoffice `shared/lib/__tests__` | qualquer arquivo de `apps/**` ler `store_settings.shipping.origin_zip` — o campo é LEGADO e a origem da cotação é o `postal_code` do secret `MELHOR_ENVIO_SENDER_JSON`. Deixá-lo configurável na tela faria a origem da COTAÇÃO e a da ETIQUETA poderem divergir. **Âncora dupla** |
@@ -314,6 +314,13 @@ migrations, e `vercelRedirects` lê o `vercel.json`.
 | `routes.test.ts` | store `app/__tests__` | `ROUTE_SLUGS`/`LEGACY_REDIRECTS` divergirem das rotas; `legacyRedirectTo` deixar de casar caminho fixo antes de prefixo |
 | `scrollToTop.test.tsx` | idem | o `ScrollToTop` sair do `App.tsx` ou de dentro do `BrowserRouter`; o botão voltar (`POP`) passar a rolar ao topo; mudança só de query string passar a rolar (a busca daria um pulo por tecla); âncora de outra página com alvo existente deixar de ir até ele |
 | `brandAssets.test.ts` | idem | ícone referenciado no `index.html` que não existe no disco; `theme-color` fora da paleta; `og:image` fora do projeto |
+| `routeSplitting.test.ts` | idem | página do `App.tsx` importada estaticamente em vez de `lazy`; entrada de `lazy` que deixou de ser rota. **Bidirecional** — sem o segundo sentido o arquivo acumula chunk fantasma |
+| `viteChunks.test.ts` | idem | um grupo de `manualChunks` sumir do `vite.config.ts`; pacote do `dedupe` ficar fora de todo grupo (duas cópias do React é tela branca, não lentidão) |
+| `toasterUnico.test.ts` | idem | o segundo sistema de aviso voltar à loja — `useToast`/`<Toaster>` do Radix, cujo provider saiu. O aviso simplesmente não pinta, e nada acusa |
+| `queryClient.test.ts` | idem | o `staleTime` padrão do React Query voltar a zero, ou passar a atropelar a consulta que já decidiu o dela |
+| `cardSelect.test.ts` · `renamedColumns.test.ts` | store `entities/product/lib/__tests__` | o `select` enxuto da vitrine deixar de pedir um campo que o card desenha (o mapper coalesce, e a tela renderiza vazia); um `select` nomear coluna que uma migration renomeou para fora |
+| `fiacaoDaVitrine.test.ts` | idem | a página parar de passar `index` para o card — a prioridade do LCP volta a `lazy` em toda a listagem, e os 2234 testes do store continuam verdes |
+| `renditionSingleOwner.test.ts` | store `shared/lib/__tests__` | qualquer arquivo de `apps/**` ou `packages/**` montar a URL de rendição à mão (`render/image`, `width=`, `quality=`) fora de `core/media/rendition.ts`; largura de `srcset` cravada em JSX; `eager`/`lazy` decidido por `index < 6` fora de `imagePriority`. **Âncora dupla** e sensores por mutação nos dois sentidos |
 | `homeComposition.test.tsx` | store `pages/__tests__` | a Home mudar de cara — sequência, literais, limites e as duas cores do título, pelo **DOM renderizado**. **Não perde asserção, só ganha** |
 | `copyInstitucional.test.tsx` | idem | copy institucional voltar a prometer o que a loja não cumpre |
 | `HomeRendererPreview.test.tsx` | store `widgets/home-renderer` | o invólucro da prévia vazar para o **modo normal** |
@@ -354,7 +361,50 @@ quando mudarem de verdade.
 | --- | --- | --- |
 | **Lint** | **27 erros / 5 warnings** — backoffice 25/4 · store 2/1 | `pnpm lint` |
 | **Tipos** | **0 · 0 · 0** (store · backoffice · catalog-import) | `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` |
-| **Testes** | **6670 em 357 arquivos** — store 2212/144 · backoffice 1908/116 · core 1691/67 · functions 350/7 · catalog-import 509/23 | `pnpm --filter @estrelinha/<w> test` |
+| **Testes** | **7014 em 375 arquivos** — store 2490/161 · backoffice 1914/116 · core 1728/68 · functions 370/7 · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test` |
+
+**Este número é da ÁRVORE MESCLADA — a `39` encontrando a `38` na `master`** (merge de 2026-09-06),
+e não a soma de duas baselines. Os cinco workspaces foram medidos **um por vez**, com exit code
+capturado fora de pipe, e os cinco passam limpos.
+
+| Workspace | `39` sozinha | `38` sozinha (`master`) | **Árvore mesclada** |
+| --- | --- | --- | --- |
+| store | 2212/144 | 2270/152 | **2490/161** |
+| backoffice | 1908/116 | 1789/109 | **1914/116** |
+| core | 1691/67 | 1524/61 | **1728/68** |
+| functions | 350/7 | 370/7 | **370/7** |
+| catalog-import | 509/23 | 512/23 | **512/23** |
+
+**O merge acrescentou 7 casos, e nenhum deles é herança de uma das pontas** — são o trabalho que só
+existe porque as duas se encontraram. Os banners do menu passaram a pedir a foto no tamanho da vaga
+(`renditionUrl`/`renditionSrcSet`), que a `39` **não pôde** usar porque o módulo vivia só na
+`master`, e o `design.md` dela registra isso por escrito:
+
+| Onde | Casos | O quê |
+| --- | --- | --- |
+| store `MegaMenu.test.tsx` | **+2** | a vaga de 320px pede 640 no `src`, `srcset` de `[320, 640]` e `sizes`; e o par — arte de fora do Storage sai **inalterada**, sem `srcset` inventado |
+| store `MobileMenu.test.tsx` | **+2** | o mesmo, na vaga quadrada de 104px da folha do celular |
+| backoffice `MenuBannerEditor.test.tsx` | **+2** | o mesmo, na miniatura de 64px do painel |
+| backoffice `shared/lib/__tests__/uploadImage.test.ts` | **+1** | o sensor de que o endereço ANTIGO do upload não pode voltar a gravar `cacheControl` — os 3 casos do `PRF-05` não são novos, **mudaram de arquivo** |
+
+**Os 3 casos do `PRF-05` da `38` não caem em lugar nenhum, e a mudança de casa é a razão de terem
+se mexido.** A `38` pôs `cacheControl: STORAGE_CACHE_CONTROL` em
+`features/product-form/lib/uploadProductImage.ts`; a `39` mudou o motor de upload para
+`shared/lib/uploadImage.ts` e o merge automático manteve as duas coisas sem conflito — com o
+resultado de o painel voltar a gravar **uma hora** de cache e o guarda ler um arquivo que já não faz
+upload nenhum. Peça certa, endereço errado, suíte verde. O conserto foi portar a constante para o
+endereço novo e mover os casos com ela.
+
+**A soma não é aritmética, e não deve ser lida como se fosse.** As duas features mexeram nos mesmos
+arquivos de teste (`SearchOverlay.test.tsx`, `routing.test.tsx`, `MegaMenu.test.tsx`,
+`uploadProductImage.test.ts`), e cada baseline escrita abaixo é anterior aos últimos commits da
+própria feature — a `38` registra esse envelhecimento no bloco dela. **O número que vale é o
+medido**, e ele foi medido aqui.
+
+Lint ficou em **27/5** (backoffice 25/4 · store 2/1) e tipos em **0 · 0 · 0**, os dois medidos na
+árvore mesclada. `pnpm build` passa nos dois apps. `packages/core/src/payment/**` não teve uma linha
+alterada pelo merge — conferido pelo diff de nomes de arquivo do merge.
+
 
 **As duas dívidas que a `39` registrou somaram +22, todas no store**, medidas em 2026-09-06 um
 workspace por vez e com exit code capturado. **Nenhum arquivo novo de teste**: as duas cresceram
@@ -362,8 +412,8 @@ dentro dos arquivos que já guardavam o assunto.
 
 | Dívida | Onde | Delta |
 | --- | --- | --- |
-| **`BL-023`** — o ponto cego do removedor de comentário do guarda do frete grátis | store `freeShippingSingleOwner.test.ts` (15 → 17) | **+2**, os dois sensores novos (o glob que cegava, e a leitura fora do allowlist ao lado dele). Nenhuma asserção de regra tocada, e nenhuma passou a reprovar — o ponto cego não escondia leitura nenhuma |
-| **`BL-024`** — a barra cheia sem afordância de rolagem para mouse | store `Header.test.tsx` (26 → 38) e `menuSemTeto.test.ts` (15 → 23) | **+20**: 12 casos de estado (cabe · começo · meio · fim · fim fracionário · os dois cliques · rótulos · alvo de 44 · a camada fora do `<nav>` · o teclado intacto) e 8 de forma, com as duas réguas escritas como **predicado** para asserção e sensor chamarem a mesma função |
+| **`BL-027`** — o ponto cego do removedor de comentário do guarda do frete grátis | store `freeShippingSingleOwner.test.ts` (15 → 17) | **+2**, os dois sensores novos (o glob que cegava, e a leitura fora do allowlist ao lado dele). Nenhuma asserção de regra tocada, e nenhuma passou a reprovar — o ponto cego não escondia leitura nenhuma |
+| **`BL-028`** — a barra cheia sem afordância de rolagem para mouse | store `Header.test.tsx` (26 → 38) e `menuSemTeto.test.ts` (15 → 23) | **+20**: 12 casos de estado (cabe · começo · meio · fim · fim fracionário · os dois cliques · rótulos · alvo de 44 · a camada fora do `<nav>` · o teclado intacto) e 8 de forma, com as duas réguas escritas como **predicado** para asserção e sensor chamarem a mesma função |
 
 Lint ficou em **27/5** (store 2/1 · backoffice 25/4) e tipos em **0 · 0**, sem mexer. Core,
 functions e catalog-import não foram tocados e foram remedidos assim mesmo: 1691/67, 350/7 e 509/23.
@@ -406,6 +456,17 @@ contagem. **Duas delas eram mutante sobrevivente**, e é isso que as torna digna
 - **O escopo de `menuSurfaceSingleOwner.test.ts` era `['apps']`**, e a function do sitemap pedia
   `show_in_menu` no `select`. A coluna saiu da lista e o escopo passou a incluir
   `supabase/functions/**` — guarda com alcance menor que a regra é allowlist com outro nome.
+
+**A feature `38` (performance no celular) somou +326 em quatro workspaces**, medidos em 2026-09-05 um
+por vez e com exit code capturado sem pipe: **store +269**, **core +31** (o módulo `rendition`),
+**functions +20** (o `preload` da página do produto) e **catalog-import +3** (a constante de cache).
+O backoffice ficou em +3, e `packages/core/src/payment/**` não foi tocado — conferido por
+`git diff --name-only`. Lint e tipos não mudaram.
+
+> **A baseline desta feature esteve errada DUAS vezes antes de ser escrita certa**, e as duas foram
+> pegas pelo verificador independente, nenhuma pelo autor: primeiro `6127 em 351` — desatualizada
+> **e** mal somada —, depois `6454 em 352`, que envelheceu em 4 testes no commit seguinte. É a
+> própria lição desta seção acontecendo de novo: **meça na hora de escrever, e some conferindo**.
 
 **A feature `37` (frete grátis configurável) somou +86 em três workspaces**, medidos em 2026-09-05 um
 por vez e com exit code capturado: **store +45**, **core +32** (a regra pura, 26, e o hook, 6) e
@@ -649,14 +710,14 @@ completo (framework, `installCommand` na raiz do monorepo, headers de cache e de
   importa de `features/` —, e o `||` com o `SUPABASE_URL` de **outro projeto** foi apagado no mesmo
   movimento: o client já lança sem a env, então o fallback era inalcançável e mentiroso.
   `BL-010`/`BL-011` seguem abertas.
-- **`BL-023` está FECHADO** (2026-09-06). O removedor de comentário de
+- **`BL-027` está FECHADO** (2026-09-06). O removedor de comentário de
   `freeShippingSingleOwner.test.ts` passou a fazer linha e bloco na **mesma** varredura, e três
   sensores provam o CRLF, o LF e o glob de dois asteriscos que o cegava. **Nenhuma asserção de regra
   passou a reprovar** — o ponto cego não escondia leitura nenhuma; escondia a *possibilidade* de
   esconder. Achado ao fechar, e **não consertado**: `previaUnica.test.ts` (backoffice) ainda faz
   duas passadas, embora o `BACKLOG.md` o listasse como exemplo da forma correta.
   *(Registrado como `023` e não `018` porque o `018` já estava ocupado.)*
-- **`BL-024` está FECHADO** (2026-09-06). A faixa de departamentos ganhou degradê nas bordas e setas
+- **`BL-028` está FECHADO** (2026-09-06). A faixa de departamentos ganhou degradê nas bordas e setas
   nas pontas, presentes **só** do lado em que há conteúdo além da dobra — e nenhum quando ela cabe,
   que é o caso normal (3 itens). O estado vem da posição real de rolagem
   (`shared/lib/useOverflowAffordance`), não de contagem de itens. A **roda vertical não foi

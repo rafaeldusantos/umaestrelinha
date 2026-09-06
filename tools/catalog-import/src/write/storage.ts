@@ -1,3 +1,4 @@
+import { STORAGE_CACHE_CONTROL } from '@estrelinha/core/media'
 import { type ImagePlan, extensionOf, storagePath } from '../map/image.ts'
 import type { BytesCache } from './cache.ts'
 
@@ -195,7 +196,13 @@ export const ensureImage = async (
     try {
       ;({ error } = await deps.supabase.storage.from(BUCKET).upload(path, baixado.bytes, {
         contentType: contentTypeOf(baixado.servedUrl),
-        cacheControl: '3600',
+        // `PRF-05`: um ano, e o valor vem de `@estrelinha/core/media`. O literal `'3600'` estava
+        // escrito aqui E no uploader do painel — dois donos do mesmo número, em workspaces
+        // diferentes, que divergiriam sem nada quebrar. Uma hora de cache faz cada revisita
+        // rebaixar a foto **e** repetir a transformação do `render/image`, que é o que custa.
+        cacheControl: STORAGE_CACHE_CONTROL,
+        // `CAT-03`: continua `false` de propósito — a colisão é o SINAL de "já está lá", e é dela
+        // que a idempotência do importador vive. Ligar `upsert` reenviaria 410 MB por execução.
         upsert: false,
       }))
     } catch (err) {

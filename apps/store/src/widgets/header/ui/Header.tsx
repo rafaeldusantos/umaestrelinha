@@ -38,7 +38,7 @@ const BADGE =
 const FAIXA_ALTURA = 'h-[52px]'
 
 /**
- * A seta de rolagem da faixa cheia — `BL-024`.
+ * A seta de rolagem da faixa cheia — `BL-028`.
  *
  * **44px de alvo sem auxiliar**: `h-11 w-11` já É o alvo, então nada de `TAP_44` (que existe para
  * desenho MENOR que 44). O ícone sai `on-primary` sobre `primary` — 8,40:1 — e o anel de foco sai
@@ -99,7 +99,7 @@ const Header = () => {
   const { items } = useMenu('desktop')
   const { direction, atTop } = useScrollDirection()
   const hidden = direction === 'down' && !atTop
-  // A pista de que a faixa rola (`BL-024`). Em jsdom toda medida de layout é 0, então `antes` e
+  // A pista de que a faixa rola (`BL-028`). Em jsdom toda medida de layout é 0, então `antes` e
   // `depois` nascem `false` e NADA disto renderiza — que é também o caso normal da loja, com 3
   // itens. A medida que motiva o recurso é do UAT em navegador, não daqui.
   const faixa = useOverflowAffordance(items.length)
@@ -256,7 +256,7 @@ const Header = () => {
             <MegaMenu items={items} />
           </nav>
 
-          {/* A AFORDÂNCIA — `BL-024`. Degradê como pista, seta como alvo.
+          {/* A AFORDÂNCIA — `BL-028`. Degradê como pista, seta como alvo.
 
               **Ela some inteira quando a faixa cabe**, e esse é o caso normal: a loja tem 3 itens
               hoje, e `antes`/`depois` são `false` enquanto `scrollWidth === clientWidth`. Uma seta

@@ -400,8 +400,12 @@ const CategoryPage = ({ legacy = false }: Props) => {
           ) : visible.length > 0 ? (
             <>
               <div className={gridClass}>
-                {visible.slice(0, visibleCount).map(p => (
-                  <ProductCard key={p.id} product={p} />
+                {/* O índice é o que faz `PRF-03` valer: os seis primeiros cards nascem ansiosos
+                    e sem opacidade zero, e o primeiro leva `fetchpriority="high"`. Sem passá-lo
+                    daqui, a decisão existiria no `ProductCard` e nunca seria tomada — esta é a
+                    listagem que media LCP de 15,6 s. */}
+                {visible.slice(0, visibleCount).map((p, i) => (
+                  <ProductCard key={p.id} product={p} index={i} />
                 ))}
               </div>
 

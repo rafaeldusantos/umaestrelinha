@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import type { MenuItem, ResolvedMenuBanner } from '@estrelinha/core/menu'
+import { renditionSrcSet, renditionUrl } from '@estrelinha/core/media'
 import MobileMenu from '../MobileMenu'
 
 /**
@@ -381,6 +382,33 @@ describe('NAV-36 — o banner mora DENTRO do acordeão', () => {
     expect(img).toHaveAttribute('loading', 'lazy')
     expect(img.className).toContain('h-[104px]')
     expect(img.className).toContain('w-[104px]')
+  })
+
+  it('a arte é pedida NO TAMANHO DA VAGA — 104px quadrados (PRF-15)', () => {
+    // A vaga da folha é a menor das duas: 104px. É também a superfície onde a conexão é pior —
+    // ~90% dos acessos vêm de celular —, e onde servir o original de 1024 doía mais.
+    const arte =
+      'https://proj.supabase.co/storage/v1/object/public/menu-images/banners/arvore.webp'
+    bannersState.lista = [banner({ image: arte })]
+    renderSheet()
+    fireEvent.click(screen.getByRole('button', { name: 'Coleção Afetivas' }))
+
+    const img = screen.getByTestId('mobile-menu-banner').querySelector('img')!
+    expect(img.getAttribute('src')).toBe(renditionUrl(arte, 208))
+    expect(img.getAttribute('src')).toContain('/render/image/public/')
+    expect(img.getAttribute('srcset')).toBe(renditionSrcSet(arte, [104, 208]))
+    expect(img.getAttribute('sizes')).toBe('104px')
+    expect(img.getAttribute('src')).not.toBe(arte)
+  })
+
+  it('arte de fora do Storage sai INALTERADA, e sem `srcset` inventado', () => {
+    bannersState.lista = [banner({ image: 'https://cdn.test/arvore.webp' })]
+    renderSheet()
+    fireEvent.click(screen.getByRole('button', { name: 'Coleção Afetivas' }))
+
+    const img = screen.getByTestId('mobile-menu-banner').querySelector('img')!
+    expect(img).toHaveAttribute('src', 'https://cdn.test/arvore.webp')
+    expect(img.getAttribute('srcset')).toBeNull()
   })
 
   it('sem arte o card fica só com o texto', () => {

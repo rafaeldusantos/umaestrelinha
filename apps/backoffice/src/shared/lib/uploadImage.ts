@@ -13,6 +13,7 @@
 // formato novo.
 
 import { supabase } from '@estrelinha/supabase/client'
+import { STORAGE_CACHE_CONTROL } from '@estrelinha/core/media'
 
 /**
  * O host que monta a URL pública do objeto no Storage.
@@ -168,7 +169,14 @@ export const uploadImageBlob = async (
       .from(bucket)
       .upload(filePath, compressed, {
         contentType: format,
-        cacheControl: '3600',
+        // `PRF-05`: um ano, do dono único em `@estrelinha/core/media`. O caminho carrega um UUID,
+        // então o objeto é imutável — uma hora de cache era desperdício puro, e ainda fazia cada
+        // revisita repetir a transformação do `render/image`.
+        //
+        // A regra chegou pela feature 38, quando o motor ainda morava em
+        // `features/product-form/lib/uploadProductImage.ts`. Ele mudou de casa na 39 (T19) e o
+        // ajuste veio junto: mudança de endereço não pode custar comportamento.
+        cacheControl: STORAGE_CACHE_CONTROL,
         upsert: false,
       })
 

@@ -8,6 +8,7 @@ import {
   type MenuItem,
   type ResolvedMenuBanner,
 } from '@estrelinha/core/menu'
+import { renditionSrcSet, renditionUrl } from '@estrelinha/core/media'
 import { MENU_ICON_COMPONENTS } from '@estrelinha/ui/icons'
 import { useMenuBanners, useMenuPreview } from '@/entities/menu'
 import { NAV_ITEM, NAV_ITEM_CHEVRON, NAV_ITEM_ICON } from './navItem'
@@ -63,8 +64,18 @@ const BannerCard = ({
           `alt=""` porque o card inteiro é o link e o título já o nomeia: um `alt` com o mesmo texto
           faria o leitor de tela anunciar a peça duas vezes. */}
       {banner.image && (
+        /* A vaga tem 320px de largura fixos (o `w-[320px]` de `classe`, logo abaixo), então a foto é
+           pedida NO TAMANHO DELA: 640 cobre DPR 2 e é o que vai no `src`, e o `srcset` oferece as
+           duas larguras para o navegador escolher. Sem isto o painel baixava o original de 1024px
+           para uma vaga de 320 — e são até dois banners por painel.
+
+           Isto **não** estava aqui quando a 39 foi escrita, e o `design.md` dela registra o porquê:
+           `@estrelinha/core/media` é da feature 38, que vivia só na `master`. O merge das duas é o
+           que tornou a condição verdadeira. */
         <img
-          src={banner.image}
+          src={renditionUrl(banner.image, 640)}
+          srcSet={renditionSrcSet(banner.image, [320, 640]) || undefined}
+          sizes="320px"
           alt=""
           loading="lazy"
           className="h-[190px] w-full shrink-0 object-cover"

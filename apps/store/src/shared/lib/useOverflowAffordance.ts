@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type MutableRefObject } from 'react'
 
 /**
- * **A pista de que uma faixa rola — `BL-024`.**
+ * **A pista de que uma faixa rola — `BL-028`.**
  *
  * A feature 39 apagou o teto de itens do menu (decisão do usuário: "não limitar a quantidade de
  * itens em 5"). Antes, o estouro da barra era impossível **por construção**; agora é um estado

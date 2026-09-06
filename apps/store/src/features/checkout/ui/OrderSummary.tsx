@@ -16,6 +16,7 @@
 import { useState } from 'react'
 import { Check, ChevronDown, ShoppingBag, Tag, X } from 'lucide-react'
 import { formatPrice } from '@estrelinha/core/formatters'
+import { renditionUrl } from '@estrelinha/core/media'
 import { usePaymentSettings } from '@estrelinha/core/hooks/useStoreSettings'
 import { useFreeShipping } from '@estrelinha/core/hooks/useFreeShipping'
 import CouponInput from '@/features/apply-coupon/ui/CouponInput'
@@ -95,7 +96,12 @@ const OrderSummary = ({ variant }: Props) => {
         >
           <span className="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[12px] bg-estrelinha-ground-deep">
             {item.product.image_url ? (
-              <img src={item.product.image_url} alt="" className="h-full w-full object-cover" />
+              /* A miniatura de 56px do board (`RSM-01`): 160 cobre DPR 2 e sobra para o 3. */
+              <img
+                src={renditionUrl(item.product.image_url, 160)}
+                alt=""
+                className="h-full w-full object-cover"
+              />
             ) : (
               <EstrelinhaSymbol size={26} tone="brand" />
             )}

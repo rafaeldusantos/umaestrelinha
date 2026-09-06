@@ -705,3 +705,32 @@ describe('OrderSummary — paleta (DESIGN.md §8)', () => {
     )
   })
 })
+
+/**
+ * `PRF-02` (AC 5) — a miniatura de 56px do resumo pede rendição.
+ *
+ * O resumo fica na tela o checkout inteiro, com uma foto por item. Servir o original de 1024px ali
+ * é baixar o catálogo do carrinho de novo, na hora em que a cliente está pagando.
+ */
+describe('OrderSummary — a miniatura pede o tamanho da vaga (PRF-02 AC 5)', () => {
+  const STORAGE =
+    'https://hgkrsfpupypxtygjgthf.supabase.co/storage/v1/object/public/product-images/pingente.webp'
+
+  it('a miniatura de 56px busca a rendição de 160, e não o objeto original', () => {
+    setCart([{ product: product({ image_url: STORAGE }), quantity: 1 }])
+    const { container } = render(<OrderSummary variant="sidebar" />)
+
+    const foto = container.querySelector('img')
+    expect(foto?.getAttribute('src')).toContain('/render/image/public/')
+    expect(foto?.getAttribute('src')).toContain('width=160')
+    expect(foto?.getAttribute('src')).toContain('quality=75')
+    expect(foto?.getAttribute('src')).not.toContain('/object/public/')
+  })
+
+  it('item sem foto continua no símbolo da marca, sem `<img>` nenhum', () => {
+    setCart([{ product: product({ image_url: '' }), quantity: 1 }])
+    const { container } = render(<OrderSummary variant="sidebar" />)
+
+    expect(container.querySelectorAll('img')).toHaveLength(0)
+  })
+})

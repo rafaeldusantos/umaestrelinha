@@ -2,6 +2,7 @@ import { ShoppingBag, X } from 'lucide-react'
 import { TAP_44 } from '@/shared/lib/touchTarget'
 import type { Product, OptionValues } from '@estrelinha/supabase/types'
 import { formatPrice } from '@estrelinha/core/formatters'
+import { renditionUrl } from '@estrelinha/core/media'
 import { Sheet, SheetContent, SheetTitle } from '@estrelinha/ui/sheet'
 import { CARD_MAX_AXES, canAddSelection } from '../lib/variantSelection'
 import VariantPicker from './VariantPicker'
@@ -52,8 +53,9 @@ const VariantSheet = ({
         <span aria-hidden className="mx-auto mb-[18px] h-1 w-10 shrink-0 rounded-pill bg-estrelinha-line" />
 
         <div className="flex items-center gap-3.5">
+          {/* Vaga de 64px. */}
           <img
-            src={product.image_url}
+            src={renditionUrl(product.image_url, 160)}
             alt=""
             className="h-16 w-16 shrink-0 rounded-md bg-estrelinha-ground-deep object-cover"
           />

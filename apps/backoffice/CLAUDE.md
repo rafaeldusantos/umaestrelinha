@@ -389,3 +389,14 @@ catálogo — e impede que a troca aconteça na ordem errada.
   assim que um fallback se parece antes de virar defeito — bastava alguém dar um default ao client
   para toda imagem enviada apontar para outro projeto, sem erro nenhum. `BL-010` e `BL-011` seguem
   abertas.
+  - **O `cacheControl` do upload é `STORAGE_CACHE_CONTROL` de `@estrelinha/core/media` — um ano, não
+    uma hora** (`PRF-05`, feature `38`). O caminho do objeto carrega um UUID, então ele é imutável:
+    uma hora fazia cada revisita rebaixar o arquivo **e** repetir a transformação do `render/image`,
+    que é o que custa dinheiro. **Quase se perdeu no merge das duas features**, e o modo de falha
+    merece registro: a `38` pôs a constante no arquivo antigo, a `39` mudou o motor de casa, e o
+    merge automático manteve as duas coisas **sem conflito** — o painel voltou a gravar `'3600'` e o
+    guarda passou a ler um arquivo que não faz mais upload. Peça certa, endereço errado, suíte
+    verde. O guarda em `shared/lib/__tests__/uploadImage.test.ts` agora lê **os dois** arquivos: o
+    novo tem de citar o dono, e o antigo não pode ter `cacheControl` nenhum.
+  - **A miniatura da arte do banner do menu pede a rendição de 64px** (mesma origem), pelo mesmo
+    dono da loja. Duas cópias da régua de "qual URL nesta vaga" seriam o defeito 01 em bytes.

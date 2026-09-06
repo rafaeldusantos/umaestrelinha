@@ -201,3 +201,31 @@ describe('CollectionFeature — coleção fora do ar não renderiza (HOME-39)', 
     expect(container.firstElementChild!.childElementCount).toBe(0)
   })
 })
+
+/**
+ * `PRF-02` (AC 4) — a foto da faixa editorial no tamanho da vaga.
+ */
+const STORAGE_ARTE =
+  'https://hgkrsfpupypxtygjgthf.supabase.co/storage/v1/object/public/home/colecao.webp'
+const RENDER_ARTE =
+  'https://hgkrsfpupypxtygjgthf.supabase.co/storage/v1/render/image/public/home/colecao.webp'
+
+describe('CollectionFeature — a foto no tamanho da vaga (PRF-02 AC 4)', () => {
+  it('declara `srcset` e um `sizes` com os 46% que o desenho reserva', () => {
+    renderFaixa({ image_url: STORAGE_ARTE, image_alt: 'A coleção de leite materno' })
+    const arte = screen.getByRole('img', { name: 'A coleção de leite materno' })
+
+    expect(arte.getAttribute('srcset')).toContain(`${RENDER_ARTE}?width=720&resize=contain&quality=75 720w`)
+    expect(arte.getAttribute('sizes')).toBe('(min-width: 768px) 46vw, 100vw')
+    expect(arte).toHaveAttribute('src', `${RENDER_ARTE}?width=480&resize=contain&quality=75`)
+  })
+
+  it('foto de host externo passa inalterada e SEM `srcset`', () => {
+    // A arte da coleção pode vir de fora do Storage — a fixture desta suíte é exatamente isso.
+    renderFaixa({})
+    const arte = screen.getByRole('img', { name: 'Joias com leite materno' })
+
+    expect(arte).toHaveAttribute('src', 'https://cdn/banner-da-colecao.webp')
+    expect(arte.hasAttribute('srcset')).toBe(false)
+  })
+})

@@ -69,7 +69,7 @@ const semComentarios = (fonte: string): string[] =>
     // removido. O guarda acusava a prosa que explica o defeito, e o conserto "óbvio" seria apagar
     // o comentário em vez de consertar o código.
     .replace(/\r\n/g, '\n')
-    // **Linha e bloco na MESMA varredura, e a ordem é a do texto** — `BL-023`.
+    // **Linha e bloco na MESMA varredura, e a ordem é a do texto** — `BL-027`.
     //
     // Até 2026-09-06 isto eram DUAS passadas (bloco primeiro, linha depois), e tinha um ponto cego
     // que a feature 39 encontrou nos guardas do menu: um comentário de LINHA que cite um glob de
@@ -160,8 +160,8 @@ describe('freeShipping — âncoras da varredura', () => {
   //    passava com o removedor velho no lugar.
   const GLOB_ARMADILHA = 'apps/' + '*'.repeat(2)
 
-  it('comentário de LINHA que cita um glob NÃO cega o código abaixo — sensor do ponto cego (BL-023)', () => {
-    // O defeito que a `BL-023` registrou, reproduzido inteiro. São TRÊS peças, e nenhuma é enfeite:
+  it('comentário de LINHA que cita um glob NÃO cega o código abaixo — sensor do ponto cego (BL-027)', () => {
+    // O defeito que a `BL-027` registrou, reproduzido inteiro. São TRÊS peças, e nenhuma é enfeite:
     //
     //   1. um comentário de linha que cite o glob — ele carrega o abre-bloco;
     //   2. código depois dele — é o que fica invisível;
@@ -192,9 +192,9 @@ describe('freeShipping — âncoras da varredura', () => {
     expect(linhas).toHaveLength(6)
   })
 
-  it('leitura nova FORA do allowlist é acusada, mesmo com o comentário armadilha ao lado — sensor por mutação (BL-023)', () => {
+  it('leitura nova FORA do allowlist é acusada, mesmo com o comentário armadilha ao lado — sensor por mutação (BL-027)', () => {
     // O sensor que fecha o círculo: não basta o removedor preservar o código, a REGRA tem de
-    // continuar acusando o que estiver nele. Este é o arquivo que a `BL-023` descreve — uma oitava
+    // continuar acusando o que estiver nele. Este é o arquivo que a `BL-027` descreve — uma oitava
     // superfície lendo o campo cru, escondida atrás de um comentário com glob.
     const sintetico: Arquivo = {
       rel: 'apps/store/src/widgets/cart-drawer/ui/Sintetico.tsx',

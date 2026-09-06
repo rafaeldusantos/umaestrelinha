@@ -4,8 +4,9 @@ import { descendantIds, type MenuCategory } from '@estrelinha/core/menu'
 import {
   CATEGORY_FILTER_COLUMN,
   mapDbToProduct,
+  PRODUCT_CARD_SELECT,
+  PRODUCT_CARD_SELECT_BY_CATEGORY,
   PRODUCT_SELECT,
-  PRODUCT_SELECT_BY_CATEGORY,
 } from '../lib/mapProduct'
 import type { Product } from '@estrelinha/supabase/types'
 
@@ -24,19 +25,85 @@ const fail = (operacao: string, error: { message?: string }): never => {
 }
 
 /**
+ * **O teto de toda leitura de listagem — declarado, e não herdado.**
+ *
+ * Sem `.limit()` o PostgREST não devolve tudo: ele corta em `db-max-rows` (1.000 nesta instância) e
+ * responde 200 com a lista truncada. Um catálogo que cruze essa marca perderia produtos na vitrine
+ * **sem erro em lugar nenhum** — o mesmo modo de falha que a `21` mediu em `product_variants` e que
+ * `@estrelinha/core/paging` existe para fechar.
+ *
+ * Declarar o teto não conserta a truncagem; conserta a **invisibilidade** dela. O fecho de verdade
+ * é `BL-025`, que tira a busca e a listagem do "baixa o catálogo inteiro" — enquanto ele não vem, o
+ * número está escrito aqui, num lugar só, em vez de morar na configuração de um servidor.
+ */
+export const LISTING_LIMIT = 1000
+
+/**
+ * A ordenação declarada da listagem.
+ *
+ * **Limite sem ordem é lista indefinida.** Sem `.order`, o PostgREST devolve as linhas na ordem que
+ * o plano de execução produzir — hoje isso não incomoda porque a resposta é completa e a tela ordena
+ * o que quiser em memória (`sortProducts`, `LST-*`). Com teto, "as primeiras N" passa a ser uma
+ * pergunta que o banco precisa responder sempre igual: sem ordem, a fileira da home poderia mostrar
+ * quatro peças diferentes a cada recarga.
+ *
+ * `created_at` ascendente aproxima a ordem de inserção, que é a que a vitrine já pratica. O
+ * desempate por `id` não é preciosismo: o importador grava em lotes dentro de uma transação, e
+ * `now()` é o tempo da TRANSAÇÃO — centenas de produtos compartilham o mesmo `created_at`, e sem o
+ * segundo critério o empate voltaria a ser indefinido.
+ */
+const LISTING_ORDER = 'created_at'
+const LISTING_ORDER_TIEBREAK = 'id'
+
+/** O builder do PostgREST devolve `this` em `order`/`limit`, então a janela é encadeável. */
+interface ListingWindow<Q> {
+  order(column: string, options: { ascending: boolean }): Q
+  limit(count: number): Q
+}
+
+/** Ordem declarada + teto explícito. Todo caminho de listagem passa por aqui. */
+const listingWindow = <Q extends ListingWindow<Q>>(query: Q, limit = LISTING_LIMIT): Q =>
+  query
+    .order(LISTING_ORDER, { ascending: true })
+    .order(LISTING_ORDER_TIEBREAK, { ascending: true })
+    .limit(limit)
+
+/**
+ * As opções das listagens: o interruptor de `URL-04` e o teto por chamada.
+ *
+ * **`limit` entra na chave do React Query de propósito.** A fileira da home pede 4 e a página da
+ * categoria pede o catálogo da categoria — com a mesma chave, quem chegasse primeiro serviria o
+ * outro, e a categoria inteira apareceria com quatro produtos (ou a home baixaria os 505).
+ */
+export interface ProductListOptions {
+  enabled?: boolean
+  /** Quantas linhas o SERVIDOR devolve. Ausente = o teto de `LISTING_LIMIT`. */
+  limit?: number
+}
+
+/**
  * Os produtos de uma categoria — ou o catálogo inteiro quando não há slug.
  *
  * `enabled` entra com `URL-04`: com a categoria servida na **raiz do domínio** (`AD-018`), toda URL
  * errada passa por esta página, e sem o interruptor a loja baixaria 689 produtos antes de mostrar a
  * 404. Quem liga é a `CategoryPage`, e só quando a resolução da rota é `ok`. Mesmo padrão de
  * `useAllProducts`, logo abaixo.
+ *
+ * `limit` entra com `PRF-09`: quem desenha quatro cards não precisa da árvore inteira. Medido em
+ * 2026-09-05, a home disparava **quatro** consultas de categoria-raiz — `joias-afetivas` sozinha
+ * trazia 505 produtos e 1,10 MB comprimidos para mostrar **quatro**. O filtro, a ordenação e a
+ * janela de rolagem da categoria continuam onde estavam, no cliente e sobre a lista inteira
+ * (`LST-*`, feature `32`): quem passa `limit` é só quem desenha uma vitrine de tamanho fixo.
  */
-export const useProducts = (categorySlug?: string, options?: { enabled?: boolean }) =>
+export const useProducts = (categorySlug?: string, options?: ProductListOptions) =>
   useQuery({
-    queryKey: ['products', categorySlug],
+    queryKey: ['products', categorySlug, options?.limit ?? null],
     queryFn: async (): Promise<Product[]> => {
       if (!categorySlug) {
-        const { data, error } = await supabase.from('products').select(PRODUCT_SELECT)
+        const { data, error } = await listingWindow(
+          supabase.from('products').select(PRODUCT_CARD_SELECT),
+          options?.limit,
+        )
         if (error) fail('carregar produtos', error)
         return (data ?? []).map(mapDbToProduct)
       }
@@ -75,7 +142,7 @@ export const useProducts = (categorySlug?: string, options?: { enabled?: boolean
       const branch = descendantIds(rows as MenuCategory[], self.id)
 
       /*
-       * O filtro roda NO SERVIDOR, por um embed aliased — ver `PRODUCT_SELECT_BY_CATEGORY`.
+       * O filtro roda NO SERVIDOR, por um embed aliased — ver `PRODUCT_CARD_SELECT_BY_CATEGORY`.
        *
        * A versão anterior trazia os `product_id` da árvore e mandava a lista de uuids de volta na
        * URL. Com 508 produtos isso virou uma URL de 14.309 caracteres, recusada pelo gateway
@@ -85,10 +152,13 @@ export const useProducts = (categorySlug?: string, options?: { enabled?: boolean
        * PST-06 AC 4 continua valendo: o filtro é por `product_categories` e não por
        * `products.category_id`, porque um produto em 3 categorias aparece nas 3 páginas.
        */
-      const { data, error } = await supabase
-        .from('products')
-        .select(PRODUCT_SELECT_BY_CATEGORY)
-        .in(CATEGORY_FILTER_COLUMN, branch)
+      const { data, error } = await listingWindow(
+        supabase
+          .from('products')
+          .select(PRODUCT_CARD_SELECT_BY_CATEGORY)
+          .in(CATEGORY_FILTER_COLUMN, branch),
+        options?.limit,
+      )
       if (error) fail(`carregar produtos de ${categorySlug}`, error)
 
       return (data ?? []).map(mapDbToProduct)
@@ -120,7 +190,9 @@ export const useFeaturedProducts = () =>
   useQuery({
     queryKey: ['products', 'featured'],
     queryFn: async (): Promise<Product[]> => {
-      const { data, error } = await supabase.from('products').select(PRODUCT_SELECT).eq('is_featured', true)
+      const { data, error } = await listingWindow(
+        supabase.from('products').select(PRODUCT_CARD_SELECT).eq('is_featured', true),
+      )
       if (error || !data) return []
       return data.map(mapDbToProduct)
     },
@@ -130,7 +202,9 @@ export const useNewProducts = () =>
   useQuery({
     queryKey: ['products', 'new'],
     queryFn: async (): Promise<Product[]> => {
-      const { data, error } = await supabase.from('products').select(PRODUCT_SELECT).eq('is_new', true)
+      const { data, error } = await listingWindow(
+        supabase.from('products').select(PRODUCT_CARD_SELECT).eq('is_new', true),
+      )
       if (error || !data) return []
       return data.map(mapDbToProduct)
     },
@@ -145,7 +219,9 @@ export const useAllProducts = (options?: { enabled?: boolean }) =>
   useQuery({
     queryKey: ['products', 'all'],
     queryFn: async (): Promise<Product[]> => {
-      const { data, error } = await supabase.from('products').select(PRODUCT_SELECT)
+      const { data, error } = await listingWindow(
+        supabase.from('products').select(PRODUCT_CARD_SELECT),
+      )
       if (error || !data) return []
       return data.map(mapDbToProduct)
     },

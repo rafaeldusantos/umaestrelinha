@@ -316,7 +316,14 @@ Confirmei no código **todos** os desvios que o implementador declarou. Amostra 
 | `useMenu` importa `useMenuPreview` por **caminho profundo** | ✅ `useMenu.ts:7` → `'@/entities/menu/model/useMenuPreview'` |
 | Não há alternador de dispositivo dentro do palco | ✅ asserido em `MenuLivePreview.test.tsx:103` |
 | A T30 removeu **sete** símbolos | ✅ `menuSemTeto.test.ts:161-162` cobre os sete, com sensores em `:228` e `:237` e o par negativo de `MobileMenuEntry` em `:247` |
-| `BL-018` virou `BL-023` | ✅ `.specs/BACKLOG.md:927`, com o motivo em `:932` |
+| `BL-018` virou `BL-027` | ✅ `.specs/BACKLOG.md:927`, com o motivo em `:932` |
+
+> **Renumeração posterior, no merge com a `master` (feature `38`).** A entrada foi registrada como
+> `BL-023` e conferida com esse número; a `38`, escrita em paralelo a partir da mesma base, também
+> registrou a sua primeira dívida como `BL-023` e chegou primeiro à `master`. No merge, as duas
+> entradas da `39` desceram para **`BL-027`** e **`BL-028`**, e todas as citações — código, teste e
+> documento, este incluído — foram renumeradas junto. A evidência acima continua válida: o que
+> mudou foi o número, não o achado. O registro da colisão está no `.specs/BACKLOG.md`.
 | `icons.test.ts` ficou na suíte da loja (`packages/ui` não tem runner) | ✅ o guarda varre `packages/ui/src/icons`, e são **29** `.tsx` (28 do catálogo + `PixIcon`, fora do conjunto) |
 
 **Desvio não declarado encontrado**: um só, o de 4.2 — o painel reescrevendo o predicado de `arte()`.

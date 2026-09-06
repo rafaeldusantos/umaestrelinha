@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronLeft, ChevronRight, ImageOff, ZoomIn } from 'lucide-react'
 import type { ProductImage } from '@estrelinha/supabase/types'
+import { GALLERY_STAGE_SIZES, renditionSrcSet, renditionUrl } from '@estrelinha/core/media'
 import ImageZoom from './ImageZoom'
 import { TAP_44 } from '@/shared/lib/touchTarget'
 import { Dialog, DialogContent } from '@estrelinha/ui/dialog'
@@ -39,6 +40,23 @@ interface Props {
  */
 const altOf = (image: ProductImage, name: string, index: number) =>
   image.alt ?? `${name} - imagem ${index + 1}`
+
+/**
+ * As duas larguras da galeria (`PRF-02` AC 5-6).
+ *
+ * `PALCO_PX` — 720 cobre o palco no celular (390 de viewport em DPR 2 pede 780, e o `srcset` escolhe
+ * a maior das três) e o palco de 588px do desktop. As DUAS leituras do palco pedem a mesma largura
+ * de propósito: elas coexistem no DOM (uma escondida por `md:hidden`, a outra por `hidden md:block`)
+ * e **imagem escondida por CSS continua sendo baixada**. Larguras diferentes fariam o celular baixar
+ * duas fotos em vez de uma, e a economia viraria prejuízo.
+ *
+ * `FITA_PX` — a miniatura mede 56px no celular e 80px no desktop; 160 cobre os dois em DPR 2.
+ *
+ * **A tela cheia fica com o ORIGINAL** (`PRF-02` AC 6): é lá que a lupa existe, e é o único lugar da
+ * loja onde a resolução gravada no Storage é o conteúdo, e não o custo.
+ */
+const PALCO_PX = 720
+const FITA_PX = 160
 
 /**
  * A galeria do produto — boards "Desktop Product Detail - v3" e "Mobile Product Detail - v3".
@@ -86,15 +104,23 @@ const ProductGallery = ({ images, name, focusUrl = null, badges, action }: Props
           className="hidden h-full w-full cursor-zoom-in md:block"
           onClick={() => setFullscreen(true)}
         >
-          <ImageZoom src={active.url} alt={altOf(active, name, index)} />
+          <ImageZoom src={renditionUrl(active.url, PALCO_PX)} alt={altOf(active, name, index)} />
         </div>
 
         {/* Mobile: toque abre a tela cheia. */}
         <div className="h-full w-full md:hidden" onClick={() => setFullscreen(true)}>
           <AnimatePresence mode="wait">
+            {/* O LCP da página do produto no celular — 90% dos acessos da loja. `eager` e
+                `fetchpriority="high"` porque é a maior imagem da dobra, e nada acima dela compete.
+                A grafia minúscula sai por spread: o React 18.3 não conhece `fetchPriority` e avisa
+                no console pedindo exatamente esta. */}
             <motion.img
               key={index}
-              src={active.url}
+              src={renditionUrl(active.url, PALCO_PX)}
+              srcSet={renditionSrcSet(active.url) || undefined}
+              sizes={GALLERY_STAGE_SIZES}
+              loading="eager"
+              {...({ fetchpriority: 'high' } as Record<string, string>)}
               alt={altOf(active, name, index)}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -170,7 +196,11 @@ const ProductGallery = ({ images, name, focusUrl = null, badges, action }: Props
             >
               {/* Miniatura é controle de navegação, não conteúdo: o `alt` do botão já está na
                   imagem grande, e repeti-lo aqui faria o leitor de tela ler N vezes o mesmo. */}
-              <img src={img.url} alt="" className="h-full w-full object-cover" />
+              <img
+                src={renditionUrl(img.url, FITA_PX)}
+                alt=""
+                className="h-full w-full object-cover"
+              />
             </button>
           ))}
         </div>

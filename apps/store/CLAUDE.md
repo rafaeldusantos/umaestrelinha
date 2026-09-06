@@ -559,7 +559,7 @@ ninguém é avisado.
   antes de varrer, e **normaliza CRLF primeiro** — em JavaScript `.` não casa `\r`, então num
   checkout Windows o stripper de linha ficava inerte e o guarda acusava o comentário que explica o
   defeito. O conserto "óbvio" seria apagar o comentário em vez de consertar o código.
-  - **E linha e bloco na MESMA varredura** (`BL-023`, fechada em 2026-09-06). Em duas passadas — bloco
+  - **E linha e bloco na MESMA varredura** (`BL-027`, fechada em 2026-09-06). Em duas passadas — bloco
     primeiro, linha depois — um comentário de linha que cite um glob terminado em dois asteriscos
     (`apps/**`) carrega um abre-bloco que a régua de bloco trata como abertura, e ela apaga até o
     próximo fecha-bloco do arquivo — **inclusive código**. O guarda não reprova: ele **deixa de
@@ -609,7 +609,7 @@ ninguém é avisado.
   o bloco que o contém é o `<header>`; um `relative` ali dentro mudaria o containing block e o mega
   menu viraria uma tira de 52px — sem erro nenhum. jsdom devolve 0 para largura, então o que os
   testes provam é a forma; a medida é de navegador, em 390 e 1440.
-- **A faixa cheia MOSTRA que rola** (`BL-024`, fechada em 2026-09-06). Tirar o teto tornou o estouro
+- **A faixa cheia MOSTRA que rola** (`BL-028`, fechada em 2026-09-06). Tirar o teto tornou o estouro
   alcançável, e o UAT mediu o que sobrou: com 17 itens, `nav.scrollWidth` **2619** contra
   `clientWidth` **1280** — rola e nada vaza —, mas a barra de rolagem do Chromium é **em
   sobreposição** (`offsetHeight` = `clientHeight` = 52: não ocupa layout, não aparece parada) e a
@@ -633,6 +633,18 @@ ninguém é avisado.
   resolve **tarde**: sem banner de produto não há consulta nenhuma, e enquanto a lista de produtos
   não chega o banner **não renderiza** — "ainda não sei" não é "existe". Destino apagado ou
   inativo some e o painel encolhe; no celular o banner mora **dentro do acordeão** da entrada.
+- **A arte do banner é pedida NO TAMANHO DA VAGA**, por `renditionUrl`/`renditionSrcSet` de
+  `@estrelinha/core/media` — o mesmo dono que a vitrine e a galeria usam. São três vagas, e cada uma
+  escreve a sua largura: **320px** na barra do computador (`MegaMenu`), **104px** quadrados na folha
+  do celular (`MobileMenu`) e **64px** na miniatura do painel (`MenuBannerEditor`). Em todas, `src`
+  no dobro (o candidato de DPR 2), `srcset` com as duas larguras e `sizes` literal.
+  - **Isto chegou no merge com a feature `38`, não na `39`.** Enquanto a branch do menu saiu de
+    `feat/37-*`, `core/media` vivia só na `master` e a arte saía em `<img loading="lazy">` servindo o
+    original de 1024px numa vaga de 104 — o `design.md` da `39` registra a dívida por escrito. **É a
+    forma que uma dívida de branch tem**: nada quebrava, a foto aparecia, só pesava.
+  - **Arte de fora do Storage volta INALTERADA**, e é isso que faz banner de campanha em host de
+    terceiro continuar carregando. Cada vaga tem esse par coberto por teste — o caso legítimo e o
+    caso que não pode ser reescrito.
 - **A faixa "Em destaque" (`TrendingLane`) e o card `menu_promo` SAÍRAM.** Eram 3 produtos
   automáticos que a dona não escolhia nem via (mais uma consulta de catálogo por painel aberto) e
   um retângulo de cor sem imagem, numa loja que vende peça que se compra pelo olho.

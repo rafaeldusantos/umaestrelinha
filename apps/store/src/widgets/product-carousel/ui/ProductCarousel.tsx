@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 import ProductCard from '@/entities/product/ui/ProductCard'
 import SectionHeading from '@/shared/ui/SectionHeading'
 import type { Product } from '@estrelinha/supabase/types'
+import { renditionSrcSet, renditionUrl } from '@estrelinha/core/media'
 
 /**
  * O chão da seção — board `7CF-0`.
@@ -105,20 +106,27 @@ const ProductCarousel = ({
               to={banner.href}
               className="group min-w-[220px] max-w-[220px] snap-start overflow-hidden rounded-lg bg-estrelinha-ground-deep md:min-w-0 md:max-w-none"
             >
+              {/* A vaga mede 220px no celular e um quarto da linha a partir do `md`. Banner de
+                  campanha em host externo volta inalterado e sem `srcset` — reescrever a URL de
+                  terceiro seria inventar um endpoint que não existe. */}
               <img
-                src={banner.imageUrl}
+                src={renditionUrl(banner.imageUrl, 480)}
+                srcSet={renditionSrcSet(banner.imageUrl) || undefined}
+                sizes="(min-width: 768px) 25vw, 220px"
                 alt={banner.alt}
                 loading="lazy"
                 className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
               />
             </Link>
           )}
-          {products.map((product) => (
+          {/* O índice conta o BANNER: com ele a fileira começa na segunda vaga, e passar `i`
+              cru faria o segundo card se achar o primeiro da tela (`PRF-03`). */}
+          {products.map((product, i) => (
             <div
               key={product.id}
               className="min-w-[220px] max-w-[220px] snap-start md:min-w-0 md:max-w-none"
             >
-              <ProductCard product={product} />
+              <ProductCard product={product} index={banner ? i + 1 : i} />
             </div>
           ))}
         </div>

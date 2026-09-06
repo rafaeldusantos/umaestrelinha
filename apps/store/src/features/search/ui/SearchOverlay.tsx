@@ -5,6 +5,7 @@ import { Clock, Search, X } from 'lucide-react'
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@estrelinha/ui/sheet'
 import { formatPrice } from '@estrelinha/core/formatters'
 import { productPath } from '@estrelinha/core/routes'
+import { renditionUrl } from '@estrelinha/core/media'
 import { useAllProducts } from '@/entities/product/api/useProducts'
 import { displayCategory } from '@/entities/product/lib/displayCategory'
 import { isProductOutOfStock } from '@/entities/product/lib/availability'
@@ -197,8 +198,9 @@ const SearchOverlay = () => {
                         >
                           <span className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-md bg-estrelinha-ground-deep">
                             {product.image_url ? (
+                              /* Vaga de 48px: 160 cobre DPR 3. */
                               <img
-                                src={product.image_url}
+                                src={renditionUrl(product.image_url, 160)}
                                 alt=""
                                 loading="lazy"
                                 className="h-full w-full object-cover"

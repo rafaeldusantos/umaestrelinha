@@ -7,6 +7,7 @@ import { MENU_ICON_COMPONENTS } from '@estrelinha/ui/icons'
 import { EstrelinhaSignature } from '@/shared/ui/brand'
 import { useAuthContext } from '@estrelinha/auth'
 import type { MenuItem, ResolvedMenuBanner } from '@estrelinha/core/menu'
+import { renditionSrcSet, renditionUrl } from '@estrelinha/core/media'
 import { categoryPath } from '@estrelinha/core/routes'
 import { useMenu, useMenuUiStore } from '@/entities/category'
 import { useMenuBanners, useMenuPreview } from '@/entities/menu'
@@ -228,8 +229,13 @@ const MobileBanner = ({
     <>
       {/* Sem arte, o card é só o texto — nenhum quadro vazio reservado (`NAV-32`). */}
       {banner.image && (
+        /* Vaga quadrada de 104px: 208 cobre DPR 2. É a vaga MENOR da loja depois do avatar do
+           carrinho, e a que mais pagava por servir o original — a folha do celular é justamente
+           onde a conexão é pior. Ver o comentário gêmeo em `MegaMenu`, com a vaga de 320. */
         <img
-          src={banner.image}
+          src={renditionUrl(banner.image, 208)}
+          srcSet={renditionSrcSet(banner.image, [104, 208]) || undefined}
+          sizes="104px"
           alt=""
           loading="lazy"
           className="h-[104px] w-[104px] shrink-0 object-cover"

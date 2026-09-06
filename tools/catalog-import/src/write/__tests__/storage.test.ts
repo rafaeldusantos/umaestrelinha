@@ -1,4 +1,7 @@
+import { readFile } from 'node:fs/promises'
+
 import { describe, expect, it } from 'vitest'
+import { STORAGE_CACHE_CONTROL } from '@estrelinha/core/media'
 
 import type { ImagePlan } from '../../map/image.ts'
 import { createMemoryCache } from '../cache.ts'
@@ -28,7 +31,13 @@ const deps = (
   const fetched: string[] = []
   const sleeps: number[] = []
   const listados: string[] = []
-  const uploads: Array<{ path: string; contentType: string; upsert: boolean; bytes: number }> = []
+  const uploads: Array<{
+    path: string
+    contentType: string
+    cacheControl: string
+    upsert: boolean
+    bytes: number
+  }> = []
 
   const d: StorageDeps = {
     fetch: (async (url: string) => {
@@ -46,8 +55,18 @@ const deps = (
     supabase: {
       storage: {
         from: () => ({
-          upload: async (path: string, bytes: Uint8Array, opts: { contentType: string; upsert: boolean }) => {
-            uploads.push({ path, contentType: opts.contentType, upsert: opts.upsert, bytes: bytes.length })
+          upload: async (
+            path: string,
+            bytes: Uint8Array,
+            opts: { contentType: string; cacheControl: string; upsert: boolean },
+          ) => {
+            uploads.push({
+              path,
+              contentType: opts.contentType,
+              cacheControl: opts.cacheControl,
+              upsert: opts.upsert,
+              bytes: bytes.length,
+            })
             return { error: uploads.length <= erros ? uploadError : null }
           },
           list: async (prefix: string) => {
@@ -294,5 +313,47 @@ describe('ensureImage — Storage indisponível para o import (CAT-06)', () => {
     )
     await expect(ensureImage(plan, d)).rejects.toThrow(/nuvemshop\/279680049\/1230884211\.webp/)
     await expect(ensureImage(plan, d)).rejects.toThrow(new RegExp(`${UPLOAD_ATTEMPTS} tentativas`))
+  })
+})
+
+/**
+ * `PRF-05` (AC 1, 2) — um ano de cache, com um dono só.
+ *
+ * O literal `'3600'` estava escrito duas vezes, em dois workspaces: aqui e no uploader do painel.
+ * É o "defeito 01" em miniatura — as duas cópias divergem e nada quebra, porque o sintoma é uma
+ * revisita mais lenta e uma transformação de `render/image` cobrada de novo.
+ */
+describe('o cacheControl do upload (PRF-05)', () => {
+  it('declara UM ANO, e o valor vem do dono em `@estrelinha/core/media`', async () => {
+    const { d, uploads } = deps({ [plan.webpUrl]: { status: 200, contentType: 'image/webp' } })
+    await ensureImage(plan, d)
+
+    expect(uploads[0].cacheControl).toBe(STORAGE_CACHE_CONTROL)
+    // E o valor é o que se espera de "um ano": 365 x 24 x 3600.
+    expect(Number(STORAGE_CACHE_CONTROL)).toBe(365 * 24 * 3600)
+  })
+
+  it('o arquivo NÃO contém mais o literal `3600` — lido do disco', async () => {
+    // A asserção acima passaria com o literal de volta, desde que ele valesse o mesmo. Esta é a que
+    // impede o segundo dono de renascer: o valor tem de VIR do módulo, não estar escrito aqui.
+    const fonte = await readFile(new URL('../storage.ts', import.meta.url), 'utf8')
+
+    expect(fonte).toContain("from '@estrelinha/core/media'")
+    expect(fonte).toContain('cacheControl: STORAGE_CACHE_CONTROL')
+    expect(fonte).not.toMatch(/cacheControl:\s*'\d+'/)
+  })
+
+  it('`upsert: false` e a detecção de duplicata continuam intactos (CAT-03)', async () => {
+    // A vizinha da mudança: mexer no `cacheControl` não pode ter encostado na idempotência, que é
+    // do que a re-execução do importador vive.
+    const { d, uploads } = deps({ [plan.webpUrl]: { status: 200, contentType: 'image/webp' } })
+    await ensureImage(plan, d)
+    expect(uploads[0].upsert).toBe(false)
+
+    const dup = deps(
+      { [plan.webpUrl]: { status: 200, contentType: 'image/webp' } },
+      { statusCode: '409', message: 'The resource already exists' },
+    )
+    expect((await ensureImage(plan, dup.d)).kind).toBe('reused')
   })
 })

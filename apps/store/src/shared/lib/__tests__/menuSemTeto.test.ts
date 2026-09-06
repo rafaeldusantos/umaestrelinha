@@ -70,7 +70,7 @@ interface Arquivo {
  * que cite um glob de dois asteriscos abre um "bloco" aos olhos da segunda régua, que apaga tudo até
  * o próximo fecha-bloco — **inclusive código**. O guarda deixa de enxergar um trecho e passa a
  * aprovar o que estiver lá dentro, em silêncio. (`freeShippingSingleOwner.test.ts` carregava a forma
- * antiga; foi corrigido em 2026-09-06 e a `BL-023` está fechada.)
+ * antiga; foi corrigido em 2026-09-06 e a `BL-027` está fechada.)
  */
 const semComentarios = (fonte: string): string[] =>
   fonte
@@ -219,7 +219,7 @@ describe('NAV-04 — a barra rola, e nunca embrulha', () => {
 })
 
 // ───────────────────────────────────────────────────────────────────────────
-// A regra — a faixa cheia MOSTRA que rola (`BL-024`)
+// A regra — a faixa cheia MOSTRA que rola (`BL-028`)
 // ───────────────────────────────────────────────────────────────────────────
 
 /**
@@ -259,7 +259,7 @@ const temAfordancia = (fonte: string): boolean =>
   /aria-label="Ver os departamentos anteriores"/.test(fonte) &&
   /aria-label="Ver mais departamentos"/.test(fonte)
 
-describe('BL-024 — a faixa cheia mostra que tem mais coisa', () => {
+describe('BL-028 — a faixa cheia mostra que tem mais coisa', () => {
   const header = fonteDe('apps/store/src/widgets/header/ui/Header.tsx')
 
   it('a faixa MANTÉM `overflow-x-auto` e NÃO ganhou `flex-wrap`', () => {

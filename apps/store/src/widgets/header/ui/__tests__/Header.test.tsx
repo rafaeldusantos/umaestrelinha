@@ -222,7 +222,7 @@ describe('Header — a faixa rola em vez de embrulhar (NAV-04)', () => {
   })
 })
 
-// ── BL-024 — a barra cheia mostra que tem mais coisa ─────────────────────────
+// ── BL-028 — a barra cheia mostra que tem mais coisa ─────────────────────────
 //
 // **A medida que motiva isto é do UAT em navegador, NÃO do jsdom** (2026-09-06, Chromium, 1440×900,
 // 17 itens): `nav.scrollWidth` **2619** contra `clientWidth` **1280**, último item alcançável em
@@ -233,7 +233,7 @@ describe('Header — a faixa rola em vez de embrulhar (NAV-04)', () => {
 // jsdom devolve **0** para toda medida de layout, então nada disso é observável aqui. O que estes
 // casos provam é o ESTADO: as três medidas são fixadas à mão no nó e o `scroll` é disparado, que é
 // a forma honesta de exercitar a lógica sem fingir que há layout.
-describe('Header — a faixa cheia mostra que tem mais coisa (BL-024)', () => {
+describe('Header — a faixa cheia mostra que tem mais coisa (BL-028)', () => {
   /** Os números do UAT, para o teste medir a mesma faixa que o navegador mediu. */
   const LARGURA_TOTAL = 2619
   const LARGURA_VISIVEL = 1280

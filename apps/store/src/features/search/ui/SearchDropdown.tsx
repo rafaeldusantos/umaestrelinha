@@ -6,6 +6,7 @@ import { useAllProducts } from '@/entities/product/api/useProducts'
 import { useCategories } from '@/entities/category/api/useCategories'
 import { formatPrice } from '@estrelinha/core/formatters'
 import { productPath } from '@estrelinha/core/routes'
+import { renditionUrl } from '@estrelinha/core/media'
 import { motion, AnimatePresence } from 'framer-motion'
 import { pushRecentSearch } from '../model/recentSearches'
 import { MIN_QUERY_LENGTH, searchProducts } from '../lib/searchProducts'
@@ -29,7 +30,26 @@ const SearchDropdown = ({ onClose, mobile }: Props) => {
   const ref = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const navigate = useNavigate()
-  const { data: products } = useAllProducts()
+  /*
+   * `enabled`, e não a busca solta — `PRF-09`.
+   *
+   * Este componente vive no `Header`, que está no `StoreLayout`, que está em **toda rota**. Sem o
+   * interruptor, abrir qualquer página da loja baixava o catálogo inteiro: 680 produtos que quase
+   * ninguém ia consultar. O `SearchOverlay`, o irmão de celular, já fazia certo desde sempre
+   * (`enabled: open`) — a divergência entre os dois é que passou despercebida.
+   *
+   * A régua é `query`, não `open`: a gaveta abre no foco do campo, e abrir o campo ainda não é
+   * intenção de buscar. Quem digitou a primeira letra, sim.
+   *
+   * O `latch` é o que impede a consulta de ser **cancelada** quando a cliente apaga o que digitou:
+   * uma vez buscado, o catálogo fica no cache do React Query, e desligar o `enabled` faria a
+   * próxima letra reabrir um carregamento que já estava resolvido. A chave é a mesma de
+   * `useAllProducts` em qualquer superfície, então quem chega depois reaproveita.
+   */
+  const [buscou, setBuscou] = useState(false)
+  if (query.trim() !== '' && !buscou) setBuscou(true)
+
+  const { data: products } = useAllProducts({ enabled: buscou })
   const { data: categories } = useCategories()
 
   const results = useMemo(
@@ -133,8 +153,10 @@ const SearchDropdown = ({ onClose, mobile }: Props) => {
                 onClick={() => { setOpen(false); onClose?.() }}
                 className="flex items-center gap-3 px-4 py-3 hover:bg-estrelinha-ground-deep transition-colors"
               >
+                {/* `PRF-02`: resultado de busca em vaga de 40px. O original de 1024px vinha
+                    por resultado, e a busca mostra vários de uma vez. */}
                 <img
-                  src={p.image_url}
+                  src={renditionUrl(p.image_url, 160)}
                   alt={p.name}
                   className="w-10 h-10 rounded-lg object-cover"
                 />

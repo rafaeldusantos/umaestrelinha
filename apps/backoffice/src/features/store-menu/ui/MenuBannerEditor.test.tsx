@@ -13,6 +13,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { resolveMenuBanners, type MenuBanner, type MenuBanners, type MenuCategory } from '@estrelinha/core/menu'
+import { renditionSrcSet, renditionUrl } from '@estrelinha/core/media'
 import type { AdminCategory } from '@/entities/category/api/useAdminCategories'
 
 // O editor procura o nome do produto de destino; sem client dublado o módulo do Supabase lança no
@@ -163,6 +164,31 @@ describe('NAV-33 / NAV-34 — a arte é por dispositivo', () => {
     // A tela: o mesmo veredito, nas duas superfícies onde ele aparece.
     expect(screen.getByTestId('arte-reaproveitada-0')).toHaveTextContent('reaproveitar a do computador')
     expect(screen.getByTestId('arte-image_mobile-0')).toHaveTextContent('falta')
+  })
+})
+
+describe('a miniatura da arte pede a foto no tamanho da vaga (PRF-15)', () => {
+  it('64px de vaga, `src` no dobro e `srcset` com as duas larguras', () => {
+    // Mesmo dono da loja: `renditionUrl` / `renditionSrcSet` de `@estrelinha/core/media`. A régua
+    // de "qual URL nesta vaga" não pode ter uma cópia no painel — seria o defeito 01 outra vez, e
+    // desta vez em bytes: a tela lista até dois banners e recarrega a cada edição.
+    const arte = 'https://proj.supabase.co/storage/v1/object/public/menu-images/banners/d.webp'
+    montar({ desktop: [banner({ image_desktop: arte })], mobile: [] })
+
+    const img = screen.getByTestId('banner-0').querySelector('img')!
+    expect(img.getAttribute('src')).toBe(renditionUrl(arte, 128))
+    expect(img.getAttribute('src')).toContain('/render/image/public/')
+    expect(img.getAttribute('srcset')).toBe(renditionSrcSet(arte, [64, 128]))
+    expect(img.getAttribute('sizes')).toBe('64px')
+    expect(img.getAttribute('src')).not.toBe(arte)
+  })
+
+  it('arte de fora do Storage sai INALTERADA — a miniatura não some', () => {
+    montar({ desktop: [banner({ image_desktop: 'https://x/y.webp' })], mobile: [] })
+
+    const img = screen.getByTestId('banner-0').querySelector('img')!
+    expect(img).toHaveAttribute('src', 'https://x/y.webp')
+    expect(img.getAttribute('srcset')).toBeNull()
   })
 })
 

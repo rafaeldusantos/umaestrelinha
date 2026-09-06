@@ -112,9 +112,12 @@ catalog-import 509/23**. Quedas declaradas e permitidas: `TrendingLane`, `MenuBa
   do painel e nenhuma é exportada; importar de outra seria feature→feature, que é o import que a T19
   desta feature existiu para fechar. Unificar as cinco é dívida do repositório, e a decisão de onde
   elas moram precisa valer para as cinco.
-- **O item pedido como `BL-018` foi registrado como `BL-023`**: o `018` já estava ocupado ("os 13
+- **O item pedido como `BL-018` foi registrado como `BL-027`**: o `018` já estava ocupado ("os 13
   endereços que a Nuvemshop indexou"), e número de backlog é imutável pelo mesmo motivo que número de
   feature é.
+  **E `BL-027` não foi o número final**: no merge com a `master` a feature `38` já ocupava o `023`
+  (ela chegou primeiro), então esta entrada desceu para `BL-027` e a da afordância da barra, para
+  `BL-028`. Mesma regra, aplicada duas vezes: número ocupado anda para frente.
 
 **Quedas declaradas do lote 5** (uma só, e o número não reaparece porque o comportamento não existe):
 

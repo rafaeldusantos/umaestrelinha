@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { variantLabel } from '@estrelinha/core/pricing'
+import { renditionUrl } from '@estrelinha/core/media'
 import {
   engravingLimit,
   engravingRefusal,
@@ -140,8 +141,9 @@ export const useProductPurchase = (
 
     toast.custom(() => (
       <div className="flex items-center gap-3 rounded-md border border-estrelinha-line bg-white p-3 shadow-estrelinha-soft">
+        {/* Vaga de 48px no aviso do canto — o original de 1024px por clique em "adicionar". */}
         <img
-          src={product.image_url}
+          src={renditionUrl(product.image_url, 160)}
           alt={product.name}
           className="h-12 w-12 rounded-sm object-cover"
         />

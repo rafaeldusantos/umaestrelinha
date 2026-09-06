@@ -28,6 +28,7 @@ import { Label } from '@estrelinha/ui/label'
 import { Textarea } from '@estrelinha/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@estrelinha/ui/select'
 import { cn } from '@estrelinha/ui/lib/utils'
+import { renditionSrcSet, renditionUrl } from '@estrelinha/core/media'
 import {
   MENU_BANNER_LIMIT,
   menuBannerArt,
@@ -236,7 +237,19 @@ const MenuBannerEditor = ({ surface, host, categories, onSave }: Props) => {
               <div className="flex items-start gap-3">
                 <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-[10px] border border-border bg-muted/40">
                   {arteMostrada ? (
-                    <img src={arteMostrada} alt="" className="h-full w-full object-cover" />
+                    /* A miniatura tem 64px (`h-16 w-16`), e pede a foto nesse tamanho — 128 cobre
+                       DPR 2. A tela lista até dois banners por superfície e recarrega a cada
+                       edição: servir o original de 1024px aqui era baixar meio megabyte para
+                       desenhar um quadrado do tamanho de uma unha. Mesmo dono da loja
+                       (`@estrelinha/core/media`), pelo mesmo motivo — a régua de "qual URL nesta
+                       vaga" não pode ter uma cópia no painel. */
+                    <img
+                      src={renditionUrl(arteMostrada, 128)}
+                      srcSet={renditionSrcSet(arteMostrada, [64, 128]) || undefined}
+                      sizes="64px"
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
                   ) : (
                     <span className="text-[9px] font-semibold text-muted-foreground">FOTO</span>
                   )}

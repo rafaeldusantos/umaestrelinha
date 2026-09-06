@@ -32,8 +32,28 @@ jobs:
       - name: test
         run: pnpm exec turbo run test --concurrency=1
 
+      # O `.env` de cada app é gitignored, e o CI não tem nenhum. Duas coisas quebram sem estas
+      # variáveis, e a segunda só apareceu quando o `index.html` passou a referenciá-las:
+      #
+      #   1. O client de `@estrelinha/supabase` LANÇA no carregamento do módulo sem elas — de
+      #      propósito, para que falta de configuração não vire fallback silencioso. Isso já custou
+      #      uma quebra de CI e foi resolvido em `vitest.config.ts`, que as fixa em `test.env`.
+      #   2. **O `vite build` ABORTA** quando o `index.html` usa `%VITE_...%` e a variável não
+      #      existe: `%VITE_SUPABASE_URL% is not defined in env variables`. O `preconnect` da
+      #      feature 38 (`PRF-04`) usa exatamente essa forma, para não cravar o host num segundo
+      #      lugar — e por isso o build passou a exigir a variável em tempo de compilação.
+      #
+      # É a mesma lição, um passo adiante: **o que lê `import.meta.env` mede a MÁQUINA, não o
+      # código**. A Vercel tem as variáveis no ambiente dela e sempre passou; o CI não tinha, e
+      # falhava com um erro que nem parece de build.
+      #
+      # Os valores são deliberadamente falsos e só precisam ser parseáveis: o artefato deste passo
+      # é uma prova de fumaça e nunca é publicado — quem publica é a Vercel, com as variáveis dela.
       - name: build
         run: pnpm build
+        env:
+          VITE_SUPABASE_URL: https://ci-nao-publica.invalid
+          VITE_SUPABASE_PUBLISHABLE_KEY: ci-placeholder-nao-e-segredo
 
       # Lint e typecheck têm baseline de erros pré-existentes (ver CLAUDE.md →
       # "Estado conhecido / dívidas"). Rodam para dar visibilidade, mas não

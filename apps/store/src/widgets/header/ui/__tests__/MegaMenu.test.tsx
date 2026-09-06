@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, act } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import type { MenuItem, ResolvedMenuBanner } from '@estrelinha/core/menu'
+import { renditionSrcSet, renditionUrl } from '@estrelinha/core/media'
 import MegaMenu from '../MegaMenu'
 
 /**
@@ -397,6 +398,41 @@ describe('NAV-28 / NAV-35 — os banners do painel', () => {
     expect(img).toHaveAttribute('loading', 'lazy')
     // `alt` vazio: o card inteiro é o link e o título já o nomeia.
     expect(img).toHaveAttribute('alt', '')
+  })
+
+  it('a arte é pedida NO TAMANHO DA VAGA — 320px, e o `srcset` com as duas larguras', () => {
+    // A vaga do banner do computador tem 320px fixos. Servir o original de 1024 aqui era o que a
+    // feature 38 chamou de "pedir a foto grande para desenhar a pequena" — e são até DOIS por
+    // painel. A URL de rendição vem de `@estrelinha/core/media`, que só existia na `master` quando
+    // a 39 foi escrita: o merge das duas é o que tornou esta linha possível.
+    const arte =
+      'https://proj.supabase.co/storage/v1/object/public/menu-images/banners/arvore.webp'
+    bannersState.lista = [banner({ image: arte })]
+    renderMenu()
+    hover('Coleção Afetivas')
+
+    const img = screen.getByTestId('mega-menu-banners').querySelector('img')!
+    // `src` no dobro da vaga: é o candidato de DPR 2, e o que um navegador sem `srcset` usa.
+    expect(img.getAttribute('src')).toBe(renditionUrl(arte, 640))
+    expect(img.getAttribute('src')).toContain('/render/image/public/')
+    expect(img.getAttribute('srcset')).toBe(renditionSrcSet(arte, [320, 640]))
+    expect(img.getAttribute('sizes')).toBe('320px')
+    // E o original NÃO sai mais como está: sem esta asserção, um `renditionUrl` que devolvesse a
+    // entrada intacta passaria nas três acima.
+    expect(img.getAttribute('src')).not.toBe(arte)
+  })
+
+  it('arte de fora do Storage sai INALTERADA, e sem `srcset` inventado', () => {
+    // O par do caso acima. Banner de campanha hospedado em terceiro não tem `render/image`:
+    // reescrever a URL dele seria apontar para um endpoint que não existe, e o card ficaria sem
+    // foto — em silêncio, porque o `<img>` continua na árvore.
+    bannersState.lista = [banner({ image: 'https://cdn.test/arvore.webp' })]
+    renderMenu()
+    hover('Coleção Afetivas')
+
+    const img = screen.getByTestId('mega-menu-banners').querySelector('img')!
+    expect(img).toHaveAttribute('src', 'https://cdn.test/arvore.webp')
+    expect(img.getAttribute('srcset')).toBeNull()
   })
 
   it('sem arte o card fica só com o texto', () => {
