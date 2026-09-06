@@ -23,6 +23,16 @@ const CARDS = 4
  * **A fileira some quando a coleção não tem produto.** Uma categoria recém-criada apareceria como
  * um título com quatro buracos embaixo — e é justamente o que a `ProductCarousel` já evita ao
  * devolver `null` com a lista vazia.
+ *
+ * **Mas some só depois de RESPONDER** (`PRF-17`). Até a feature 40 os dois estados desenhavam
+ * `null`: a coleção vazia e a coleção que ainda não voltou. As quatro fileiras da home nasciam com
+ * altura zero e estouravam para ~600px cada quando os produtos chegavam — o rodapé, que ficava
+ * visível enquanto a página era curta, era empurrado para baixo, e o Lighthouse de 2026-09-06 mediu
+ * **CLS 0,244 num deslocamento só**, o total inteiro da página. Passar `loading` é o que separa
+ * "não tem" de "ainda não sei".
+ *
+ * `skeletonCount` é `vagas`, não `CARDS`: com banner a fileira tem três vagas de produto, e quatro
+ * esqueletos ao lado do banner reservariam uma linha maior que a que vai aparecer.
  */
 const HomeCollectionRow = ({
   collection,
@@ -39,7 +49,7 @@ const HomeCollectionRow = ({
   // vira o teto da consulta — pedir quatro e desenhar três seria baixar um card de graça.
   const vagas = banner ? CARDS - 1 : CARDS
 
-  const { data: products } = useProducts(collection.slug, { limit: vagas })
+  const { data: products, isLoading } = useProducts(collection.slug, { limit: vagas })
 
   // O `.slice` continua como rede de segurança: o teto é do servidor, e um cache antigo (ou um
   // PostgREST que ignore o limite) não pode fazer a fileira desenhar cinco.
@@ -54,6 +64,8 @@ const HomeCollectionRow = ({
       linkText="Ver todos"
       tone={tone}
       banner={banner}
+      loading={isLoading}
+      skeletonCount={vagas}
     />
   )
 }

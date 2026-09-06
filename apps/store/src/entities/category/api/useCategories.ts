@@ -71,15 +71,61 @@ const mapCategory = (row: CategoryRow): Category => ({
   menu_banners: row.menu_banners ?? null,
 })
 
-export const useCategories = () =>
-  useQuery({
-    queryKey: ['categories'],
-    queryFn: async (): Promise<Category[]> => {
-      const { data, error } = await supabase.from('categories').select('*').order('sort_order')
-      if (error || !data) return []
-      return (data as unknown as CategoryRow[]).map(mapCategory)
-    },
-  })
+/**
+ * Falha de leitura de categorias — irmã de `ProductQueryError`.
+ *
+ * Existe para que a falha tenha **tipo**, e não só mensagem: quem consome a árvore precisa
+ * distinguir "a loja não tem categoria" de "a consulta morreu".
+ */
+export class CategoryQueryError extends Error {}
+
+/**
+ * **A porta única para a tabela `categories` inteira** (`PRF-20`).
+ *
+ * Existe como *fábrica de opções* — e não só como hook — porque quem precisa da árvore nem sempre
+ * está num componente: `useProducts` precisa dela **dentro** do próprio `queryFn`, para resolver a
+ * descendência de uma coleção, e um `queryFn` não pode chamar hook.
+ *
+ * **O que isso conserta.** Até a feature 40 `useProducts` fazia o próprio
+ * `from('categories').select('id, parent_id, slug')` lá dentro, e a chave dele é
+ * `['products', slug, limit]` — então **cada fileira da home emitia a sua cópia**. Medido no
+ * Lighthouse de 2026-09-06: quatro requisições idênticas às 1007 ms, cada uma com preflight CORS
+ * próprio, terminando em 1301, 1898, 2143 e 2356 ms, e cada fileira só pedindo seus produtos depois
+ * que *a sua* árvore voltava. A cauda da home fechava em 3,0 s.
+ *
+ * E o dado **já estava em cache às 884 ms**: o header monta `useCategories` em toda rota da loja, e
+ * o `select('*')` daqui já traz `id`, `parent_id` e `slug`. Era o "defeito 01" na forma mais cara —
+ * o mesmo dado com dois donos, um deles multiplicado por quatro.
+ *
+ * Com a chave compartilhada, o `fetchQuery` de `useProducts` **acerta este cache** em vez de abrir
+ * consulta nova, e as quatro fileiras disparam seus produtos juntas.
+ */
+export const categoriesQueryOptions = () => ({
+  queryKey: ['categories'] as const,
+  queryFn: async (): Promise<Category[]> => {
+    const { data, error } = await supabase.from('categories').select('*').order('sort_order')
+    /*
+     * **A falha SOBE — ela não vira lista vazia.**
+     *
+     * O `if (error || !data) return []` que morava aqui é o defeito que `AD-014` registrou em
+     * `useAdminCollections` e que `BUG-20260809` registrou em `useProducts`: vazio e falha são
+     * estados diferentes, e o React Query guarda um `[]` devolvido como **sucesso** — sem nova
+     * tentativa, para sempre.
+     *
+     * Isto deixou de ser detalhe quando `useProducts` passou a ler a árvore por aqui (`PRF-20`).
+     * Engolindo o erro, uma falha de rede faria `self` vir `undefined`, o hook devolveria `[]` pelo
+     * ramo de `URL-04`, e uma categoria que existe apareceria **vazia** em vez de acusar a falha —
+     * exatamente a confusão que `BUG-20260809` custou a desfazer.
+     *
+     * Para as doze telas que consomem `useCategories` nada muda no que se vê: todas leem só `data`,
+     * que continua chegando `undefined` na falha. O que muda é que agora o React Query **repete**.
+     */
+    if (error) throw new CategoryQueryError(`carregar categorias: ${error.message ?? 'erro desconhecido'}`)
+    return ((data ?? []) as unknown as CategoryRow[]).map(mapCategory)
+  },
+})
+
+export const useCategories = () => useQuery(categoriesQueryOptions())
 
 export const useCategoryBySlug = (slug: string) =>
   useQuery({

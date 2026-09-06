@@ -121,10 +121,10 @@ Ao planejar/implementar features, use a Skill **`tlc-spec-driven`** com estas co
     árvore sem commit, e a spec nasceu dele, não antes dele. É a saída correta quando isso acontece —
     a `31` mostrou o que custa a alternativa —, mas **não** vira precedente para inverter a ordem.
     **A `33` (sitemap), a `34` (painel de vendas), a `35` (clientes e pedidos da Nuvemshop), a `37`
-    (frete grátis configurável) e a `39` (menu configurável) estão FECHADAS. A `36` (metadados e
-    dados estruturados) tem **só `spec.md`** e não foi implementada — o número está consumido de
-    qualquer forma; a `38` (performance no celular) está EM ANDAMENTO noutro ramo. A próxima é a
-    `40`.**
+    (frete grátis configurável), a `38` (performance no celular), a `39` (menu configurável) e a
+    `40` (estabilidade da home) estão FECHADAS. A `36` (metadados e dados estruturados) tem **só
+    `spec.md`** e não foi implementada — o número está consumido de qualquer forma. A próxima é a
+    `41`.**
 - **Numeração dos itens**: dentro da feature, prefixar os itens de implementação (tasks/entregas) com
   número sequencial de dois dígitos e nome descritivo em kebab-case — `01-nome-implementacao`,
   `02-nome-implementacao`, etc.
@@ -302,6 +302,10 @@ migrations, e `vercelRedirects` lê o `vercel.json`.
 | `menuSemItemFixo.test.ts` | idem | `FIXED_ENTRIES` (com qualquer um dos dois nomes) voltar a existir; `/crie-seu-botton` reaparecer; destino literal (`to="/…"`) nas quatro superfícies de menu da loja fora do chrome (`/`, `/conta`, `/favoritos`). **Âncora dupla** e quatro sensores |
 | `menuSemTeto.test.ts` | idem | `MENU_SLOT_LIMIT`, `slotsUsed`, `menuSlotRefusal`, `menuEntries`, `MenuEntry`, `resolvePromo` ou `ResolvedPromo` voltarem a `apps/**` ou a `packages/core/src/menu/**`; vocabulário de "vaga" nas cinco superfícies de menu; a barra trocar `overflow-x-auto`/`min-w-max` por `flex-wrap` (embrulhar **esconde** o estouro); a **afordância** de rolagem sumir da faixa cheia — o estado medido, os dois degradês e as duas setas rotuladas (`BL-028`). **Âncora dupla** e dez sensores — incluindo a prova de que `MobileMenuEntry` **não** é acusado, e as duas réguas da `BL-028` escritas como **predicado**, para asserção e sensor chamarem a mesma função |
 | `sanitizeHtml.test.ts` | idem | a allowlist aceitar atributo, `href` deixar de passar por `new URL`, ou `script`/`style`/`iframe` voltarem a desembrulhar em vez de sumir |
+| `categoryTreeSingleOwner.test.ts` | idem | qualquer arquivo de `apps/store/**` fora de `useCategories.ts` abrir `from('categories')` — a árvore tem **um** dono, e é a chave `['categories']` que o header já preenche. **Zero allowlist**, âncora dupla e sensor de comentário |
+| `arbitraryTextColor.test.ts` | idem | cor de texto **arbitrária** (`text-[hsl(…)]`, `text-[#…]`, `text-[rgb(…)]`) fora de um allowlist de dois, ou com contraste abaixo de 4,5:1 **contra o fundo declarado**. `contrast.test.ts` mede tokens e não alcança essa sintaxe. O guarda **calcula** a razão — não confia no comentário |
+| `cardSkeletonBox.test.ts` | store `entities/product/ui/__tests__` | o `ProductCard` e o `ProductCardSkeleton` divergirem numa das quatro classes que produzem altura. jsdom devolve 0 para layout, então nenhum teste de componente pega — este lê os dois do disco. Modela o **par** (`min-h-[40px]` no card × `h-[40px]` no esqueleto), e a régua é de **token exato**, porque `'min-h-[40px]'.includes('h-[40px]')` é `true` |
+| `heroSemOpacidadeZero.test.ts` | store `widgets/hero-banner/ui/__tests__` | o elemento do LCP voltar a nascer invisível — `opacity: 0` em **qualquer** lugar do `HeroBanner.tsx`, variant ou prop inline. Também recusa apagar a animação inteira: o pedido é entrar **sem esconder**, não deixar de entrar |
 | `importSchema.test.ts` | store `shared/lib/__tests__` | a migration da `35` afrouxar: índice de idempotência virar parcial; `security_invoker` sumir de `customer_directory`; o agregado de telefone da convidada perder o `FILTER (WHERE … IS NOT NULL)`; `handle_new_customer` perder o `security definer`; a adoção por e-mail deixar de recortar `customer_id IS NULL` ou de comparar por `lower()`; `grant` alcançar `anon`. **Cada asserção tem sensor por mutação** |
 | `originZipNotRead.test.ts` | backoffice `shared/lib/__tests__` | qualquer arquivo de `apps/**` ler `store_settings.shipping.origin_zip` — o campo é LEGADO e a origem da cotação é o `postal_code` do secret `MELHOR_ENVIO_SENDER_JSON`. Deixá-lo configurável na tela faria a origem da COTAÇÃO e a da ETIQUETA poderem divergir. **Âncora dupla** |
 | `quotePayload.test.ts` | `packages/core/src/shipping/__tests__` | `insurance_value` deixar de ser **por unidade** — a API do Melhor Envio já multiplica por `quantity`, e multiplicar aqui segura a carga pelo **quadrado** dela. Carrega **sensor embutido**: assere que a fórmula antiga do backoffice reprova na mesma régua |
@@ -363,7 +367,25 @@ quando mudarem de verdade.
 | --- | --- | --- |
 | **Lint** | **27 erros / 5 warnings** — backoffice 25/4 · store 2/1 | `pnpm lint` |
 | **Tipos** | **0 · 0 · 0** (store · backoffice · catalog-import) | `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` |
-| **Testes** | **7046 em 377 arquivos** — store 2490/161 · backoffice **1946/118** · core 1728/68 · functions 370/7 · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test` |
+| **Testes** | **7094 em 381 arquivos** — store **2538/165** · backoffice 1946/118 · core 1728/68 · functions 370/7 · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test` |
+
+**A feature `40` (estabilidade da home) somou +48 em um workspace só**, medidos em 2026-09-06 com
+exit code capturado fora de pipe: **store 2490/161 → 2538/165**. Os outros quatro não foram tocados
+e foram remedidos assim mesmo — idênticos. Lint ficou em **27/5** e tipos em **0**, sem mexer;
+`packages/core/src/payment/**` não teve uma linha alterada, conferido por `git diff --name-only`.
+
+**Quatro arquivos de guarda novos, e os quatro nasceram de um defeito medido no Lighthouse**, não de
+zelo: `categoryTreeSingleOwner` (5), `cardSkeletonBox` (8), `heroSemOpacidadeZero` (9) e
+`arbitraryTextColor` (11). Os outros +15 cresceram dentro de arquivos que já guardavam o assunto.
+
+> **A verificação independente derrubou TRÊS mutantes desta feature, e os três estavam em cima de um
+> AC.** Foi a primeira `validation.md` do projeto com autor ≠ verificador — a fila que a `39`, `37`,
+> `35`, `34`, `33` e `32` acumularam —, e o retorno pagou na hora: apagar `loading={isLoading}` do
+> `HomeCollectionRow` devolvia **o CLS inteiro** com os 2531 testes verdes; uma chave de categorias
+> compartilhada entre as fileiras mas **diferente da do header** media 1 requisição no teste e 2 na
+> home; e o guarda do hero, ancorado na sintaxe do variant, não via `<motion.p initial={{ opacity: 0
+> }}>` — a porta ao lado, com o mesmo efeito. **Guarda ancorado em sintaxe guarda a sintaxe, não a
+> regra.**
 
 **A sidebar fixa e os grupos colapsáveis somaram +32 no backoffice**, medidos em 2026-09-06 um
 workspace por vez e com exit code capturado fora de pipe: **1914 em 116 → 1946 em 118**, em dois
@@ -658,6 +680,19 @@ completo (framework, `installCommand` na raiz do monorepo, headers de cache e de
   ligar as coleções em `/admin/menu`, **uma aba por vez**: ligar no computador **não** liga no
   celular. É o mesmo formato de dívida do interruptor do frete grátis: sem este registro, a loja fica
   meses com o menu quase vazio porque ninguém soube que havia uma tela.
+- **A `40` é a PRIMEIRA feature com autor ≠ verificador**, e o retorno pagou na primeira execução:
+  três mutantes sobreviventes, os três em cima de um AC (ver `validation.md` dela). **A fila de
+  pendências de verificação independente parou de crescer aqui** — `32`, `33`, `34`, `35`, `37` e
+  `39` continuam abertas.
+  - **O que a `40` ainda NÃO tem é prova em navegador**, e nela isso pesa mais que a média: tudo o
+    que a feature entrega — deslocamento, tempo de pintura, cascata de rede — é exatamente o que
+    jsdom não mede. Toda asserção da suíte é **proxy de forma**. Falta medir em 390×844, Slow 4G e
+    4× CPU: o CLS da home, a cascata (uma linha `categories`, quatro `products` juntas), o LCP do
+    `<p>` do hero e a bolha do WhatsApp entrando sem mover o botão.
+- **O peso do JS inicial continua aberto** (`BL-029`, aberto pela `40`). São 141 KB de `index.js` e
+  57 KB de `supabase-js` com **107 KB não usados** — o `realtime-js` é a maior parte do que a home
+  não toca. Vale ~3,5 pontos de FCP e mexe no client de dados, então ficou fora do escopo da `40` de
+  propósito.
 - **A `39` NÃO tem `validation.md`.** Os cinco lotes foram medidos por workspace, com exit code
   capturado, e os guardas novos tiveram a sensibilidade provada por injeção real de falha — mas
   ninguém conferiu a feature contra a spec com olhos frescos, e **a prova em navegador não foi

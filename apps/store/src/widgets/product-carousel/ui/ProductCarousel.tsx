@@ -3,6 +3,7 @@ import { TAP_44 } from '@/shared/lib/touchTarget'
 import { Link } from 'react-router-dom'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import ProductCard from '@/entities/product/ui/ProductCard'
+import ProductCardSkeleton from '@/entities/product/ui/ProductCardSkeleton'
 import SectionHeading from '@/shared/ui/SectionHeading'
 import type { Product } from '@estrelinha/supabase/types'
 import { renditionSrcSet, renditionUrl } from '@estrelinha/core/media'
@@ -38,6 +39,24 @@ interface Props {
    * cortar aqui esconderia um produto que quem chamou achou que estava mostrando.
    */
   banner?: { href: string; imageUrl: string; alt: string }
+  /**
+   * A consulta ainda não respondeu — `PRF-17`.
+   *
+   * **Sem isto a fileira nascia com altura zero.** `products` chega `undefined` enquanto carrega, o
+   * `products.length === 0` abaixo devolvia `null`, e as quatro fileiras da home não desenhavam
+   * nada — até os produtos chegarem e cada uma estourar para ~600px de uma vez.
+   *
+   * O preço, medido no Lighthouse de 2026-09-06: o rodapé, que ficava visível enquanto a página era
+   * curta, era empurrado para baixo — **CLS 0,244, o total inteiro da página**, num único
+   * deslocamento. A distância que ele percorria é o que dominava o cálculo.
+   *
+   * `isLoading`, **nunca** `isPending`: com o interruptor de `URL-04` desligado a consulta fica
+   * pendente para sempre, e o esqueleto pulsaria embaixo de uma 404. É a mesma lição que a
+   * `CategoryPage` já tinha aprendido.
+   */
+  loading?: boolean
+  /** Quantos esqueletos desenhar enquanto carrega. Deve ser o número de vagas da fileira. */
+  skeletonCount?: number
 }
 
 const ProductCarousel = ({
@@ -49,6 +68,8 @@ const ProductCarousel = ({
   linkText,
   tone = 'ground',
   banner,
+  loading = false,
+  skeletonCount = 4,
 }: Props) => {
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -58,7 +79,15 @@ const ProductCarousel = ({
     scrollRef.current.scrollBy({ left: amount, behavior: 'smooth' })
   }
 
-  if (products.length === 0) return null
+  /*
+   * **Vazio RESOLVIDO some; vazio CARREGANDO reserva a altura** — `PRF-17`.
+   *
+   * A guarda de saída continua valendo para a coleção que respondeu sem produto: uma categoria
+   * recém-criada apareceria como um título com quatro buracos embaixo, e sumir é o certo. O que
+   * mudou é que "ainda não sei" deixou de ser tratado como "não tem" — os dois desenhavam `null`, e
+   * era isso que fazia a home saltar.
+   */
+  if (products.length === 0 && !loading) return null
 
   return (
     <section className={`py-12 md:py-20 ${TONES[tone]}`}>
@@ -98,6 +127,7 @@ const ProductCarousel = ({
         />
         <div
           ref={scrollRef}
+          aria-busy={loading}
           className="flex snap-x snap-mandatory gap-6 overflow-x-auto pb-2 md:grid md:grid-cols-4 md:overflow-visible"
           style={{ scrollbarWidth: 'none' }}
         >
@@ -129,6 +159,21 @@ const ProductCarousel = ({
               <ProductCard product={product} index={banner ? i + 1 : i} />
             </div>
           ))}
+          {/*
+            As vagas reservadas. Mesma classe de vaga dos cards — é ela que faz o esqueleto ocupar
+            exatamente a largura que o produto vai ocupar, na fita do celular e na grade do `md`.
+            Quem anuncia o carregamento é o `aria-busy` da grade, então cada esqueleto é
+            `aria-hidden` por dentro.
+          */}
+          {loading &&
+            Array.from({ length: skeletonCount }, (_, i) => (
+              <div
+                key={`vaga-${i}`}
+                className="min-w-[220px] max-w-[220px] snap-start md:min-w-0 md:max-w-none"
+              >
+                <ProductCardSkeleton />
+              </div>
+            ))}
         </div>
       </div>
     </section>

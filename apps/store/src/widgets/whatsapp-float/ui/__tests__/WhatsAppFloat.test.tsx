@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, act } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import WhatsAppFloat from '../WhatsAppFloat'
 
@@ -102,5 +102,54 @@ describe('WhatsAppFloat — some na página do produto, pelo caminho novo', () =
     renderFloat('/joias-afetivas/joia-de-leite-materno')
 
     expect(screen.getByLabelText('Abrir conversa no WhatsApp')).toBeInTheDocument()
+  })
+})
+
+/**
+ * **A bolha não muda a caixa do contêiner** — `PRF-18`.
+ *
+ * O teaser entra sozinho 2,2 s depois da montagem. Em fluxo, dentro de um `flex-col` ancorado por
+ * `bottom-20`, entrar significava crescer a caixa do contêiner **para cima** — e o Chrome registra
+ * isso como deslocamento do próprio contêiner. O Lighthouse de 2026-09-06 mediu 0,0215 ali.
+ *
+ * Não entrou no CLS total daquela execução (0,244 é o rodapé, e as duas caíram em janelas de sessão
+ * diferentes) — mas entraria em qualquer página onde as duas coincidissem, e o custo de evitá-lo é
+ * uma classe.
+ *
+ * jsdom devolve 0 para toda medida de layout, então o que se assere é a **forma**: a bolha fora do
+ * fluxo, ancorada acima do botão. A prova de que não há salto é de navegador.
+ */
+describe('WhatsAppFloat — a bolha não desloca a caixa (PRF-18)', () => {
+  const comBolhaVisivel = (fn: (teaser: HTMLElement) => void) => {
+    vi.useFakeTimers()
+    try {
+      renderFloat()
+      act(() => {
+        vi.advanceTimersByTime(2500)
+      })
+      fn(screen.getByLabelText('Abrir mensagem'))
+    } finally {
+      vi.useRealTimers()
+    }
+  }
+
+  it('a bolha entra FORA DO FLUXO, ancorada acima do botão', () => {
+    comBolhaVisivel((teaser) => {
+      expect(teaser.className).toContain('absolute')
+      expect(teaser.className).toContain('bottom-full')
+    })
+  })
+
+  it('o vão de 12px vem de `mb-3`, não do `gap` do flex — filho absoluto não participa do gap', () => {
+    comBolhaVisivel((teaser) => {
+      expect(teaser.className).toContain('mb-3')
+    })
+  })
+
+  it('o contêiner continua sendo o bloco de contenção — `fixed`, sem `relative` redundante', () => {
+    comBolhaVisivel((teaser) => {
+      const container = teaser.parentElement!
+      expect(container.className).toContain('fixed')
+    })
   })
 })

@@ -649,7 +649,46 @@
 
 ## Handoff
 
-### ATUAL — 2026-09-05 · `39-menu-configuravel` **IMPLEMENTADA**
+### ATUAL — 2026-09-06 · `40-estabilidade-da-home` **IMPLEMENTADA E VERIFICADA**
+
+**Estado**: T01–T06 feitas num lote só, gate limpo. **Primeira feature do projeto com autor ≠
+verificador** — `validation.md` escrita por agente distinto, com sensor de mutação real.
+
+**O que a feature conserta**, tudo medido no Lighthouse de 2026-09-06 (móvel, Slow 4G simulado,
+4× CPU) contra `umaestrelinha-store-five.vercel.app` — performance **72**, acessibilidade **96**:
+
+| Defeito | Métrica | Dono |
+| --- | --- | --- |
+| As fileiras nasciam com altura zero | CLS **0,244** (o total, num deslocamento só — o `<footer>`) | `ProductCarousel` tratava "ainda não sei" como "não tem" |
+| O elemento do LCP nascia invisível | `elementRenderDelay` **2005 ms** vs TTFB **25 ms** | `HeroBanner`, `hidden: { opacity: 0 }` sob `staggerChildren` |
+| Quatro consultas idênticas de `categories` | cauda de rede em **3,0 s** | `useProducts` buscava a árvore dentro do próprio `queryFn` |
+| Verde ilegível na bolha do WhatsApp | **3,22:1** (régua 4,5:1) | único item **com peso** que segurava a11y em 96 |
+
+**Baselines**: store 2490/161 → **2538/165** (+48/+4). Os outros quatro workspaces intocados e
+remedidos. Lint **27/5**, tipos **0**, `packages/core/src/payment/**` intocado.
+
+#### O que a verificação independente pegou
+
+Três mutantes sobreviventes, os três em cima de um AC — e o mais caro devolvia **o CLS inteiro** com
+os 2531 testes verdes (apagar `loading={isLoading}` do `HomeCollectionRow`). Os três foram
+corrigidos e cada correção foi provada reinjetando a mutação. A lição que sobra:
+**guarda ancorado em sintaxe guarda a sintaxe, não a regra** — o do hero casava
+`hidden: { … }` e não via `<motion.p initial={{ opacity: 0 }}>`, a porta ao lado com o mesmo efeito.
+
+#### O que FICA em aberto
+
+> **Prova em navegador.** Tudo o que a `40` entrega é o que jsdom não mede: deslocamento, tempo de
+> pintura e cascata de rede. Falta medir em 390×844 com Slow 4G e 4× CPU — CLS da home, a cascata
+> (uma linha `categories`, quatro `products` juntas), o LCP do `<p>` do hero, e a bolha do WhatsApp
+> entrando aos 2,2 s sem mover o botão. **A estimativa de 72 → ~88–92 é estimativa**, e o gate da
+> feature foi o comportamento medido, não a nota.
+
+Dívida aberta pela feature: **`BL-029`** — 141 KB de `index.js` + 57 KB de `supabase-js` com 107 KB
+não usados. Vale ~3,5 pontos de FCP e mexe no client de dados.
+
+---
+
+### 2026-09-05 · `39-menu-configuravel` **IMPLEMENTADA**
 
 **Estado**: T1–T32 feitas em cinco lotes, gate limpo nos cinco workspaces. Decisão:
 [`AD-028`](#ad-028), que continua `active`.

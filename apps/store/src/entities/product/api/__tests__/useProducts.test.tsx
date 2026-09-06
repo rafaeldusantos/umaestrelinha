@@ -11,6 +11,7 @@ const { fromMock } = vi.hoisted(() => ({ fromMock: vi.fn() }))
 
 vi.mock('@estrelinha/supabase/client', () => ({ supabase: { from: fromMock } }))
 
+import { categoriesQueryOptions, useCategories } from '@/entities/category/api/useCategories'
 import {
   LISTING_LIMIT,
   useAllProducts,
@@ -61,6 +62,18 @@ const criarBuilder = (
   q.janela = janela
   return q
 }
+
+/**
+ * O dublê da consulta de **categorias** — `PRF-20`.
+ *
+ * Desde a feature 40 a árvore não é mais buscada dentro de `useProducts`: ela vem de
+ * `categoriesQueryOptions()`, a mesma chave que o header já preenche, e essa consulta declara
+ * `.select('*').order('sort_order')`. Um dublê que devolvesse a Promise direto do `select` quebraria
+ * no `.order()` — que é exatamente o que aconteceu ao portar, em 18 testes de uma vez.
+ */
+const arvoreMock = (tree: unknown) => ({
+  select: () => ({ order: () => Promise.resolve({ data: tree, error: null }) }),
+})
 
 const dbRow = (overrides: Record<string, unknown> = {}) => ({
   id: 'prod-1',
@@ -115,8 +128,10 @@ const respondForCategory = (
   fromMock.mockImplementation((table: string) => {
     if (table === 'categories') {
       categoriesSelects += 1
-      // A árvore não passa por `listingWindow`: são duas colunas de `categories`, não listagem.
-      return { select: () => Promise.resolve({ data: tree, error: null }) }
+      // A árvore não passa por `listingWindow`, mas passa por `.order('sort_order')` — é a
+      // consulta compartilhada de `categoriesQueryOptions` (`PRF-20`), e o dublê tem de ter os
+      // mesmos métodos que o código sob teste chama.
+      return arvoreMock(tree)
     }
     // `product_categories` NÃO é mais consultada em separado: o filtro roda dentro da consulta de
     // produto, por embed aliased. Se alguém voltar a consultá-la, o teste de N+1 acusa.
@@ -477,7 +492,7 @@ describe('useProducts — filtro por categoria N:N (PST-06 AC 4)', () => {
        */
       const catalogoCompletoSpy = vi.fn()
       fromMock.mockImplementation((table: string) => {
-        if (table === 'categories') return { select: () => Promise.resolve({ data: TREE, error: null }) }
+        if (table === 'categories') return arvoreMock(TREE)
         return {
           select: () => {
             catalogoCompletoSpy()
@@ -505,7 +520,7 @@ describe('useProducts — filtro por categoria N:N (PST-06 AC 4)', () => {
        * para sempre). Vazio e falha sao estados diferentes.
        */
       fromMock.mockImplementation((table: string) => {
-        if (table === 'categories') return { select: () => Promise.resolve({ data: TREE, error: null }) }
+        if (table === 'categories') return arvoreMock(TREE)
         return {
           select: () => criarBuilder(() => ({ data: null, error: { message: 'URI too long' } })),
         }
@@ -521,7 +536,7 @@ describe('useProducts — filtro por categoria N:N (PST-06 AC 4)', () => {
 
     it('falha ao ler a arvore de categorias tambem sobe', async () => {
       fromMock.mockImplementation(() => ({
-        select: () => Promise.resolve({ data: null, error: { message: 'sem conexao' } }),
+        select: () => ({ order: () => Promise.resolve({ data: null, error: { message: 'sem conexao' } }) }),
       }))
 
       const { result } = renderHook(() => useProducts('anime'), { wrapper })
@@ -729,6 +744,7 @@ describe('useProducts — o limite entra na CHAVE do cache (PRF-09)', () => {
   }
 
   const consultasDeProduto = () => fromMock.mock.calls.filter(([t]) => t === 'products').length
+  const consultasDeCategoria = () => fromMock.mock.calls.filter(([t]) => t === 'categories').length
 
   it('dois limites diferentes para o mesmo slug são duas consultas', async () => {
     const wrap = clienteCompartilhado()
@@ -742,6 +758,73 @@ describe('useProducts — o limite entra na CHAVE do cache (PRF-09)', () => {
     await waitFor(() => expect(inteira.result.current.isSuccess).toBe(true))
 
     expect(consultasDeProduto()).toBeGreaterThan(apósQuatro)
+  })
+
+  /**
+   * **A home inteira paga UMA árvore de categorias** — `PRF-20`.
+   *
+   * Este é o teste que mede o defeito medido no Lighthouse de 2026-09-06: quatro fileiras, quatro
+   * requisições idênticas a `categories`, cada uma com preflight CORS próprio, e cada fileira só
+   * pedindo seus produtos depois que *a sua* árvore voltava — 3,0 s de cauda.
+   *
+   * A causa era a chave: `useProducts` fazia a consulta **dentro** do `queryFn`, cuja chave carrega
+   * o slug (`['products', slug, limit]`), então o React Query não tinha como fundir as quatro. Com
+   * `categoriesQueryOptions()` a chave é uma só (`['categories']`) e as quatro pedidas viram uma.
+   *
+   * O cliente é COMPARTILHADO de propósito: um cliente por hook mediria quatro caches isolados, que
+   * é o oposto do que a home faz.
+   */
+  it('quatro fileiras da home fazem UMA consulta a categories, não quatro (PRF-20)', async () => {
+    const wrap = clienteCompartilhado()
+    respondForCategory(
+      { 'cat-anime': ['prod-1'], 'cat-games': ['prod-1'], 'cat-filmes': ['prod-1'] },
+      [dbRow()],
+    )
+
+    const fileiras = ['anime', 'games', 'filmes', 'bottons'].map(slug =>
+      renderHook(() => useProducts(slug, { limit: 4 }), { wrapper: wrap }),
+    )
+    await Promise.all(
+      fileiras.map(f => waitFor(() => expect(f.result.current.isSuccess).toBe(true))),
+    )
+
+    expect(consultasDeCategoria()).toBe(1)
+  })
+
+  /**
+   * **A chave é a MESMA do header, não só uma chave compartilhada** — `PRF-20` AC 1.
+   *
+   * Este par nasceu de um mutante que sobreviveu à primeira escrita: dar às quatro fileiras uma
+   * chave própria mas **compartilhada entre elas** (`['category-tree']`, digamos) fazia o teste
+   * acima medir 1 — e a home real medir **2**, porque o header pede `['categories']` em toda rota
+   * da loja. O teste contava requisições, mas contava só as das fileiras.
+   *
+   * São duas afirmações e cada uma tem o seu caso: a chave **é** `['categories']`, e montar o
+   * header junto das quatro fileiras continua dando **uma** consulta para os cinco.
+   */
+  it('a chave da árvore é `[categories]` — a mesma que o header pede (PRF-20)', () => {
+    expect(categoriesQueryOptions().queryKey).toEqual(['categories'])
+  })
+
+  it('o header e as quatro fileiras somam UMA consulta, não duas (PRF-20)', async () => {
+    const wrap = clienteCompartilhado()
+    respondForCategory(
+      { 'cat-anime': ['prod-1'], 'cat-games': ['prod-1'], 'cat-filmes': ['prod-1'] },
+      [dbRow()],
+    )
+
+    // O header monta `useCategories` em toda rota da loja — é ele o primeiro a pedir a árvore.
+    const header = renderHook(() => useCategories(), { wrapper: wrap })
+    const fileiras = ['anime', 'games', 'filmes', 'bottons'].map(slug =>
+      renderHook(() => useProducts(slug, { limit: 4 }), { wrapper: wrap }),
+    )
+
+    await waitFor(() => expect(header.result.current.isSuccess).toBe(true))
+    await Promise.all(
+      fileiras.map(f => waitFor(() => expect(f.result.current.isSuccess).toBe(true))),
+    )
+
+    expect(consultasDeCategoria()).toBe(1)
   })
 
   it('o MESMO limite para o mesmo slug reusa o cache — a home não paga duas vezes pela fileira', async () => {

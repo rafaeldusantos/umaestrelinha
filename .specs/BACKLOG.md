@@ -1225,3 +1225,36 @@ não couber em 1440 — a prévia já mostra, mas em silêncio.
 
 ~~**Status**: aberto. Nada quebra sem isto; o que se perde é descoberta.~~ — **fechado**, ver o
 bloco no topo desta entrada.
+
+---
+
+## BL-029 — O JS inicial da loja pesa 198 KB, e 107 KB não são usados
+
+**Aberto por**: feature `40`, 2026-09-06. **Fora do escopo dela de propósito.**
+
+Medido no Lighthouse de 2026-09-06 (móvel, Slow 4G simulado, 4× CPU):
+
+| Chunk | Transferido | Não usado |
+| --- | ---: | ---: |
+| `index-*.js` | 141 KB | **76 KB** |
+| `supabase-*.js` | 57 KB | **33 KB** |
+
+`supabase-js` é o caso mais claro: a maior parte do que não se usa é o **`realtime-js`**, e a loja
+não abre canal de realtime em tela nenhuma. `PRF-12` já separou o chunk (o que resolve **cache
+entre deploys**), mas separar não é deixar de baixar — ele continua no caminho crítico da primeira
+visita, e é ele que o `preload` do `index.html` pede.
+
+**Vale ~3,5 pontos de FCP**, contra os ~12 do CLS e ~12 do LCP que a `40` foi buscar. Ficou de fora
+por proporção: é o item de **maior risco** dos três (mexe no client de dados de toda a loja) e o de
+**menor retorno**.
+
+Saídas possíveis, sem decisão tomada:
+
+1. Trocar `@supabase/supabase-js` por `@supabase/postgrest-js` + `@supabase/auth-js` diretos nas
+   rotas que só leem. Risco: dois jeitos de falar com o banco, que é o "defeito 01" pedindo para
+   acontecer.
+2. Carregar o client por `import()` fora do caminho crítico. Não ajuda a home, que precisa dele
+   imediatamente.
+3. Atacar os 76 KB de `index.js` primeiro, que são código nosso e não têm o risco do item 1.
+
+**A medida vem antes da escolha**: nenhuma das três foi medida contra este catálogo.

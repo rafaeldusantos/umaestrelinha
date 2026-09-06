@@ -100,3 +100,51 @@ describe('HomeCollectionRow — a fileira pede o que desenha (PRF-09)', () => {
     expect(container.querySelector('section')).toBeNull()
   })
 })
+
+/**
+ * **A fiação de `PRF-17`** — a fileira repassa o estado de carregamento ao carrossel.
+ *
+ * Esta suíte nasceu de um **mutante sobrevivente** que a verificação independente da feature 40
+ * encontrou: apagar `loading={isLoading}` e `skeletonCount={vagas}` do JSX passava nos **2531
+ * testes do store**. E o custo de apagá-las é o número inteiro que a feature existe para zerar —
+ * sem as props, a fileira volta a nascer com altura zero e o CLS da home volta a 0,244.
+ *
+ * O buraco era de par, e é o mesmo padrão que `fiacaoDaVitrine.test.ts` já tinha registrado: o
+ * `ProductCarousel` ganhou seis casos provando que ele **desenha** esqueleto quando recebe
+ * `loading` — mas provar que o componente honra a prop não prova que alguém a passa. São duas
+ * afirmações, e só uma tinha teste.
+ *
+ * **A prova é pelo carrossel REAL**, não por um dublê que capture props: assim ela mede o que a
+ * cliente vê, e não a forma da chamada. `ProductCard` continua dublado (é o que os outros casos
+ * deste arquivo já fazem); `ProductCardSkeleton` renderiza de verdade.
+ */
+describe('HomeCollectionRow — repassa o carregamento ao carrossel (PRF-17)', () => {
+  const carregando = () => useProductsMock.mockReturnValue({ data: undefined, isLoading: true })
+  const esqueletos = (c: HTMLElement) => c.querySelectorAll('[aria-hidden="true"].flex.flex-col')
+
+  it('carregando: a seção existe e reserva QUATRO vagas', () => {
+    carregando()
+
+    const { container } = renderRow()
+
+    // Sem `loading={isLoading}` o carrossel devolveria `null` aqui — e a home voltaria a saltar.
+    expect(container.querySelector('section')).not.toBeNull()
+    expect(esqueletos(container)).toHaveLength(4)
+  })
+
+  it('carregando COM banner: reserva TRÊS — o banner ocupa a primeira vaga', () => {
+    // Prova por deslocamento: sem `skeletonCount={vagas}` o carrossel cai no padrão de quatro, e a
+    // fileira reservaria uma linha maior que a que vai aparecer — encolhendo ao carregar.
+    carregando()
+
+    const { container } = renderRow({ bannerUrl: 'https://exemplo.invalid/banner.webp' })
+
+    expect(esqueletos(container)).toHaveLength(3)
+  })
+
+  it('resolvido: nenhuma vaga de esqueleto sobra', () => {
+    const { container } = renderRow()
+
+    expect(esqueletos(container)).toHaveLength(0)
+  })
+})
