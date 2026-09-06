@@ -1,145 +1,307 @@
-// A curadoria da barra do topo da loja: quem ocupa as vagas, e em que ordem.
+// A curadoria do menu de **uma** superfície: quem aparece, com que ícone, e em que ordem.
 //
-// Não é uma segunda árvore de categorias. Cada linha aqui é **a mesma linha** de `public.categories`
-// que a tela de Categorias edita — esta tela só liga `show_in_menu` e mexe em `sort_order`. Uma
-// tabela `menu_items` própria significaria dois lugares para consertar cada regra, e as duas
-// divergiriam no primeiro rename de categoria.
+// Três coisas mudaram na feature 39, e cada uma consertava um defeito diferente:
 //
-// As subcategorias aparecem em **leitura**, com link para `/admin/categorias`. Editar hierarquia em
-// duas telas é o mesmo defeito de novo.
+// 1. **Não existe mais entrada fixa.** `FIXED_ENTRIES` declarava aqui dois itens do menu — "Crie o
+//    Seu" (`/crie-seu-botton`) e "Sobre" — e os mostrava travados, na lista e na prévia. O primeiro
+//    **nunca foi rota declarada**: caía na 404 da loja, e `routes.test.ts` já asseria isso do outro
+//    lado. A tela onde a dona decide o menu mostrava, em dois lugares, um item que não existia. A
+//    feature não corrigiu a lista — apagou o conceito: o "Sobre" virou item de LINK no banco, e a
+//    Adri pode movê-lo, trocá-lo ou tirá-lo. `menuSemItemFixo.test.ts` recusa a volta.
+// 2. **Não existe teto.** O contador dizia "4 de 4 vagas" e a tela RECUSAVA a quinta categoria. Era
+//    número de código recusando curadoria da dona; hoje o contador diz "5 itens" e a barra da loja
+//    rola quando não cabe. Nada aqui conta vaga.
+// 3. **A pergunta tem duas respostas.** `show_in_menu` ligava o item nos dois dispositivos ao mesmo
+//    tempo; uma coleção de nome longo que cabe em 1440 e estoura em 390 não tinha saída. O switch
+//    desta lista mexe só na superfície corrente, e a linha AVISA quando a outra está diferente.
+//
+// **Esta lista não decide nada**: ela mostra o que `menuItems(input, surface)` devolve — a mesma
+// função que desenha a barra do computador e a folha do celular —, mais as candidatas que ainda não
+// entraram. Filtrar ou ordenar por conta própria seria o "defeito 01" nascendo de novo.
 
-import { GripVertical, Lock, Star, Info } from 'lucide-react'
+import { GripVertical, Link2, Plus } from 'lucide-react'
 import { Switch } from '@estrelinha/ui/switch'
 import { cn } from '@estrelinha/ui/lib/utils'
-import { MENU_SLOT_LIMIT, menuSlotRefusal, pathLabel, type MenuCategory } from '@estrelinha/core/menu'
+import { MENU_ICON_COMPONENTS } from '@estrelinha/ui/icons'
+import {
+  MENU_ICON_LABELS,
+  bySortOrder,
+  menuBannerSlots,
+  menuIconKey,
+  pathLabel,
+  type MenuCategory,
+  type MenuItem,
+  type MenuLink,
+  type MenuSurface,
+} from '@estrelinha/core/menu'
 import type { AdminCategory } from '@/entities/category'
+import { NOME_DA_SUPERFICIE, outraSuperficie } from '../model/superficie'
 
-/**
- * As entradas fixas do menu, que vivem no código da loja (`Header` / `MobileMenu`) e não no banco.
- *
- * Aparecem aqui **travadas** por um motivo específico: sem elas a tela diz "4 vagas" e a barra da
- * loja mostra 6 itens, e o admin não tem como saber de onde vieram os outros dois. Elas não são
- * editáveis porque são rotas do produto — um interruptor que esconde "Sobre" é armadilha sem demanda.
- */
-export const FIXED_ENTRIES = [
-  { label: 'Crie o Seu', href: '/crie-seu-botton', Icon: Star },
-  { label: 'Sobre', href: '/sobre', Icon: Info },
-] as const
+const ligada = (category: MenuCategory, surface: MenuSurface): boolean =>
+  surface === 'desktop' ? !!category.menu_desktop : !!category.menu_mobile
 
-interface Props {
-  /** Todas as categorias, na ordem em que a árvore as desenha. */
-  categories: AdminCategory[]
-  /** Qual entrada está selecionada para editar o painel/promo. */
-  activeId: string | null
-  onSelect: (id: string) => void
-  /** Recebe o veredito do domínio — a recusa da 5ª vaga chega aqui com o motivo. */
-  onToggle: (id: string, next: boolean, refusal: string | null) => void
-  onReorder: (draggedId: string, targetId: string) => void
+const linkLigado = (link: MenuLink, surface: MenuSurface): boolean =>
+  surface === 'desktop' ? !!link.desktop : !!link.mobile
+
+const plural = (quantidade: number, singular: string, plural_: string): string =>
+  `${quantidade} ${quantidade === 1 ? singular : plural_}`
+
+interface Linha {
+  id: string
+  kind: 'category' | 'link'
+  name: string
+  icon: string | null
+  ligada: boolean
+  /** A ordem em que a linha entra na fusão — a mesma de `byMenuOrder`. */
+  sortOrder: number
+  /** O que a linha diz debaixo do nome, já montado. */
+  detalhe: string
+  /** `null` quando a categoria está nas duas superfícies (ou fora das duas). */
+  avisoCruzado: string | null
+  inativa: boolean
+  arrastavel: boolean
 }
 
-const MenuSlotList = ({ categories, activeId, onSelect, onToggle, onReorder }: Props) => {
+interface Props {
+  surface: MenuSurface
+  /**
+   * O que a loja renderiza nesta superfície, **na ordem dela**.
+   *
+   * Vem de `menuItems`, e é o que faz esta tela mostrar a barra de verdade em vez de uma
+   * aproximação: a contagem, a ordem e o papel (barra × painel) são os da loja.
+   */
+  items: MenuItem[]
+  categories: AdminCategory[]
+  links: MenuLink[]
+  /** Qual entrada está selecionada — governa o editor de painel, o de banner e o de ícone. */
+  activeId: string | null
+  onSelect: (id: string) => void
+  onToggleCategory: (id: string, next: boolean) => void
+  onToggleLink: (id: string, next: boolean) => void
+  onReorder: (draggedId: string, targetId: string) => void
+  onAddLink: () => void
+  onEditLink: (link: MenuLink) => void
+}
+
+const MenuSlotList = ({
+  surface,
+  items,
+  categories,
+  links,
+  activeId,
+  onSelect,
+  onToggleCategory,
+  onToggleLink,
+  onReorder,
+  onAddLink,
+  onEditLink,
+}: Props) => {
   const pool = categories as unknown as MenuCategory[]
-  const inMenu = categories.filter(c => c.show_in_menu)
-  const used = inMenu.length
-  const childCountOf = (id: string) => categories.filter(c => c.parent_id === id).length
+  const marcadas = new Set(pool.filter(c => ligada(c, surface)).map(c => c.id))
+
+  const linhasDeCategoria: Linha[] = pool
+    // Filha de uma categoria marcada **na mesma superfície** é item de painel, não entrada da barra
+    // (`NAV-06`) — e o lugar dela é o editor de painel, logo abaixo. Repeti-la aqui daria dois
+    // lugares para ligar a mesma coisa, e a dona não teria como saber qual deles vale.
+    .filter(c => !(c.parent_id && marcadas.has(c.parent_id)))
+    .map(c => {
+      const dentro = marcadas.has(c.id)
+      const filhas = pool.filter(f => f.parent_id === c.id)
+      const noPainel = filhas.filter(f => marcadas.has(f.id)).length
+      const banners = menuBannerSlots(c.menu_banners, surface).length
+      const caminho = pathLabel(pool, c.id)
+      const chave = menuIconKey(c.icon)
+
+      const partes = dentro
+        ? [
+            filhas.length === 0 ? 'sem subcategoria' : plural(filhas.length, 'subcategoria', 'subcategorias'),
+            `${noPainel} no painel`,
+            banners === 0 ? 'sem banner' : plural(banners, 'banner', 'banners'),
+          ]
+        : [
+            'fora do menu',
+            chave ? MENU_ICON_LABELS[chave] : 'sem ícone escolhido',
+          ]
+
+      return {
+        id: c.id,
+        kind: 'category' as const,
+        name: c.name,
+        icon: c.icon ?? null,
+        ligada: dentro,
+        sortOrder: c.sort_order ?? 0,
+        // O caminho na árvore entra quando ela tem pai: no banco real os universos são filhas de
+        // outra categoria, e só o nome não diz o que está sendo posto no menu.
+        detalhe: [caminho !== c.name ? caminho : null, ...partes].filter(Boolean).join(' · '),
+        avisoCruzado:
+          dentro !== ligada(c, outraSuperficie(surface))
+            ? `desligada no ${NOME_DA_SUPERFICIE[dentro ? outraSuperficie(surface) : surface]}`
+            : null,
+        inativa: !c.active,
+        // Arrastar reordena a `sort_order` da ÁRVORE, e ela vale também para a grade da home e o
+        // rodapé — por isso só quem está na barra arrasta: mover o que está fora do menu mudaria
+        // aquelas duas telas sem nada nesta dizer que mudou.
+        arrastavel: dentro,
+      }
+    })
+
+  const linhasDeLink: Linha[] = links.map(link => {
+    const dentro = linkLigado(link, surface)
+    return {
+      id: link.id,
+      kind: 'link' as const,
+      name: link.label.trim() === '' ? '(sem nome)' : link.label,
+      icon: link.icon ?? null,
+      ligada: dentro,
+      sortOrder: link.sort_order ?? 0,
+      detalhe: `leva para ${link.href} · sem painel`,
+      avisoCruzado:
+        dentro !== linkLigado(link, outraSuperficie(surface))
+          ? `desligado no ${NOME_DA_SUPERFICIE[dentro ? outraSuperficie(surface) : surface]}`
+          : null,
+      inativa: false,
+      // Item de link não arrasta: a `sort_order` dele mora no jsonb, e um arraste que atravessasse a
+      // fronteira categoria ⇄ link teria de gravar em duas fontes com significados diferentes.
+      arrastavel: false,
+    }
+  })
+
+  const linhas = [...linhasDeCategoria, ...linhasDeLink].sort((a, b) =>
+    // O MESMO comparador da loja (`byMenuOrder` delega a este): a lista do painel e a barra do topo
+    // não podem discordar de ordem, e o desempate por nome com locale `pt-BR` é o que torna as duas
+    // reprodutíveis — `sort_order` nasce 0 para todo mundo, então empate é o caso comum.
+    bySortOrder({ sort_order: a.sortOrder, name: a.name }, { sort_order: b.sortOrder, name: b.name }),
+  )
 
   return (
     <div className="rounded-2xl border border-border bg-card">
       <header className="flex items-center justify-between border-b border-border px-4 py-3">
-        <h2 className="font-heading text-sm font-bold text-foreground">Barra do topo</h2>
+        <h2 className="font-heading text-sm font-bold text-foreground">
+          {surface === 'desktop' ? 'Barra do topo · computador' : 'Menu do celular'}
+        </h2>
+        {/* Contagem é INFORMAÇÃO, nunca cota (`NAV-05`). "4 de 5 vagas" seria o teto de volta com
+            outro nome — e o teto era o código recusando a curadoria da dona. */}
         <span
-          data-testid="contador-vagas"
-          className={cn(
-            'rounded-full px-2.5 py-1 text-xs font-semibold',
-            // Passar de 4 é estado alcançável (SQL na mão, dois admins) e o contador precisa
-            // *acusar*, não esconder — por isso `menuEntries` não trunca.
-            used > MENU_SLOT_LIMIT
-              ? 'bg-destructive/10 text-destructive'
-              : 'bg-muted text-muted-foreground',
-          )}
+          data-testid="contador-itens"
+          className="rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground"
         >
-          {used} de {MENU_SLOT_LIMIT} vagas
+          {plural(items.length, 'item', 'itens')}
         </span>
       </header>
 
       <ul>
-        {categories.map(category => {
-          const children = childCountOf(category.id)
-          const refusal = menuSlotRefusal(pool, category.id)
+        {linhas.map(linha => {
+          const chave = menuIconKey(linha.icon)
+          const Icone = chave ? MENU_ICON_COMPONENTS[chave] : null
 
           return (
-            <li key={category.id}>
+            <li key={`${linha.kind}-${linha.id}`}>
               <div
-                data-testid={`vaga-${category.id}`}
-                draggable={category.show_in_menu}
+                data-testid={`item-${linha.id}`}
+                draggable={linha.arrastavel}
                 onDragStart={
-                  category.show_in_menu
-                    ? e => e.dataTransfer.setData('text/plain', category.id)
-                    : undefined
+                  linha.arrastavel ? e => e.dataTransfer.setData('text/plain', linha.id) : undefined
                 }
-                onDragOver={category.show_in_menu ? e => e.preventDefault() : undefined}
+                onDragOver={linha.arrastavel ? e => e.preventDefault() : undefined}
                 onDrop={
-                  category.show_in_menu
+                  linha.arrastavel
                     ? e => {
                         e.preventDefault()
-                        onReorder(e.dataTransfer.getData('text/plain'), category.id)
+                        onReorder(e.dataTransfer.getData('text/plain'), linha.id)
                       }
                     : undefined
                 }
                 className={cn(
-                  'flex items-center gap-3 border-b border-border/60 px-4 py-3 last:border-0',
-                  activeId === category.id ? 'bg-primary/5' : 'hover:bg-muted/30',
+                  'flex items-center gap-2.5 border-b border-border/60 px-4 py-2.5 last:border-0',
+                  activeId === linha.id ? 'bg-primary/5' : 'hover:bg-muted/30',
                 )}
               >
-                {/* Vão de largura fixa mesmo quando vazio: sem ele, as linhas sem alça de arraste
-                    puxam o nome para a esquerda e a coluna deixa de formar uma pista vertical. */}
-                <span className="flex w-4 shrink-0 justify-center">
-                  {category.show_in_menu && (
-                    <GripVertical
-                      className="h-4 w-4 cursor-grab text-muted-foreground"
-                      aria-hidden
-                    />
+                {/* As quatro vaias verticais do board têm largura FIXA, inclusive quando vazias:
+                    sem isso a linha sem alça puxa o nome para a esquerda e a coluna deixa de formar
+                    uma pista. */}
+                <span className="flex w-3.5 shrink-0 justify-center">
+                  {linha.arrastavel && (
+                    <GripVertical className="h-4 w-4 cursor-grab text-muted-foreground" aria-hidden />
                   )}
                 </span>
 
                 <button
                   type="button"
-                  onClick={() => onSelect(category.id)}
-                  className="flex min-w-0 flex-1 flex-col items-start text-left"
+                  data-testid={`icone-${linha.id}`}
+                  // A categoria escolhe o ícone na grade da coluna da direita, que edita a entrada
+                  // SELECIONADA; o link escolhe dentro do próprio diálogo, porque ele não tem painel
+                  // nem banner e abrir três cartões para um atalho seria desenhar o que não existe.
+                  onClick={() =>
+                    linha.kind === 'link'
+                      ? onEditLink(links.find(l => l.id === linha.id)!)
+                      : onSelect(linha.id)
+                  }
+                  aria-label={`Escolher o ícone de ${linha.name}`}
+                  className={cn(
+                    'flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border',
+                    Icone ? 'border-border bg-muted/50' : 'border-dashed border-border bg-transparent',
+                  )}
                 >
-                  <span className="truncate text-sm font-semibold text-foreground">
-                    {category.name}
+                  {Icone ? (
+                    <Icone className="h-[18px] w-[18px]" aria-hidden />
+                  ) : (
+                    <Plus className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    linha.kind === 'link'
+                      ? onEditLink(links.find(l => l.id === linha.id)!)
+                      : onSelect(linha.id)
+                  }
+                  className="flex min-w-0 flex-1 flex-col items-start gap-0.5 text-left"
+                >
+                  <span className="flex items-center gap-1.5">
+                    <span
+                      className={cn(
+                        'truncate text-sm',
+                        linha.ligada ? 'font-semibold text-foreground' : 'font-medium text-muted-foreground',
+                      )}
+                    >
+                      {linha.name}
+                    </span>
+                    {linha.kind === 'link' && (
+                      <span className="rounded bg-muted px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
+                        Link
+                      </span>
+                    )}
                   </span>
-                  <span className="truncate text-xs text-muted-foreground">
-                    {/* O caminho na árvore, porque no banco real os universos são filhas de
-                        "Bottons" — só o nome não diz o que está sendo posto no menu. */}
-                    {pathLabel(pool, category.id)}
-                    {' · '}
-                    {children === 0
-                      ? 'sem subcategoria'
-                      : `${children} subcategoria${children === 1 ? '' : 's'}`}
+                  <span className="truncate text-[11px] text-muted-foreground">
+                    {linha.detalhe}
+                    {linha.avisoCruzado && (
+                      // O aviso NOMEIA o dispositivo (`NAV-02`): "desligada" sem dizer onde faria a
+                      // dona abrir a outra aba para descobrir o que já está em tela.
+                      <span data-testid={`aviso-${linha.id}`} className="text-estrelinha-admin-amber">
+                        {' · '}
+                        {linha.avisoCruzado}
+                      </span>
+                    )}
                   </span>
                 </button>
 
-                {!category.active && (
+                {linha.inativa && (
                   <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
                     inativa — não aparece na loja
                   </span>
                 )}
 
-                <span className="flex w-10 shrink-0 justify-end">
+                <span className="flex w-9 shrink-0 justify-end">
                   <Switch
-                    checked={category.show_in_menu}
-                    aria-label={`${category.show_in_menu ? 'Tirar' : 'Pôr'} ${category.name} no menu`}
+                    checked={linha.ligada}
+                    aria-label={`${linha.ligada ? 'Tirar' : 'Pôr'} ${linha.name} no menu do ${NOME_DA_SUPERFICIE[surface]}`}
                     onCheckedChange={next =>
-                      onToggle(
-                        category.id,
-                        next,
-                        // O motivo vem do domínio, não da tela: o `disabled` de um switch some num
-                        // teste, num atalho de teclado ou numa chamada direta ao hook — e a barra
-                        // ganha um quinto item que estoura em 1440px.
-                        next ? refusal : null,
-                      )
+                      // **Nenhuma recusa por contagem** (`NAV-03`): o 6º, o 10º e o 20º entram. Quem
+                      // mostra o que acontece quando não cabe é a prévia, não um erro no clique.
+                      linha.kind === 'link'
+                        ? onToggleLink(linha.id, next)
+                        : onToggleCategory(linha.id, next)
                     }
                   />
                 </span>
@@ -149,25 +311,24 @@ const MenuSlotList = ({ categories, activeId, onSelect, onToggle, onReorder }: P
         })}
       </ul>
 
-      <div className="border-t border-border bg-muted/20">
-        {FIXED_ENTRIES.map(({ label, href, Icon }) => (
-          <div
-            key={href}
-            data-testid={`fixa-${label}`}
-            className="flex items-center gap-3 border-b border-border/60 px-4 py-2.5 last:border-0"
-          >
-            <span className="flex w-4 shrink-0 justify-center">
-              <Lock className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
-            </span>
-            <Icon className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-            <span className="flex-1 text-sm font-medium text-foreground">{label}</span>
-            <code className="text-xs text-muted-foreground">{href}</code>
-            <span className="w-10 shrink-0 text-right text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-              fixo
-            </span>
-          </div>
-        ))}
-      </div>
+      <button
+        type="button"
+        data-testid="adicionar-link"
+        onClick={onAddLink}
+        className="flex w-full items-center gap-2.5 rounded-b-2xl border-t border-border bg-muted/20 px-4 py-2.5 text-left hover:bg-muted/40"
+      >
+        <span className="w-3.5 shrink-0" />
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border border-dashed border-primary/40">
+          <Link2 className="h-3.5 w-3.5 text-primary" aria-hidden />
+        </span>
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="text-sm font-semibold text-primary">Adicionar um link</span>
+          <span className="truncate text-[11px] text-muted-foreground">
+            Uma página da loja no menu — “Sobre”, “Como enviar o material”, uma campanha
+          </span>
+        </span>
+        <span className="w-9 shrink-0" />
+      </button>
     </div>
   )
 }

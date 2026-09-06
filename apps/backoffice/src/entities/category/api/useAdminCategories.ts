@@ -19,10 +19,18 @@ export interface AdminCategory extends DbCategory {
 export const CATEGORY_SELECT = [
   'id', 'name', 'slug', 'description', 'icon', 'image_url',
   'banner_url', 'color_accent', 'active', 'sort_order', 'parent_id',
-  // Feature 16: a vaga na barra do topo da loja e o card promocional do menu. Provadas por probe
+  // Feature 39: a curadoria do menu por dispositivo, e os banners do painel. Provadas por probe
   // HTTP antes de existirem em tipo — `PATCH` com `Prefer: return=representation` devolvendo os
   // valores persistidos (`AD-012`).
-  'show_in_menu', 'menu_promo',
+  //
+  // **`show_in_menu` e `menu_promo` saíram desta lista, e não por limpeza.** A primeira virou coluna
+  // GERADA (`menu_desktop or menu_mobile`) e o banco recusa escrita nela; a segunda é o card da
+  // feature 16, substituído por `menu_banners`. As duas continuam existindo no banco — apagá-las
+  // quebraria a loja publicada na janela entre o `db push` e o deploy da Vercel —, e é justamente
+  // por continuarem legíveis que `menuSurfaceSingleOwner.test.ts` recusa qualquer arquivo de
+  // `apps/**` que volte a nomeá-las: "esta categoria está no menu?" tem DUAS respostas desde a 39, e
+  // quem as dá é `menuItems(input, surface)`.
+  'menu_desktop', 'menu_mobile', 'menu_banners',
   // Feature 30 (`GSH-23`): a taxonomia do Google herdada pelos produtos desta categoria.
   'google_product_category',
   'created_at', 'updated_at',

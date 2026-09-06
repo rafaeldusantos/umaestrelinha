@@ -26,8 +26,10 @@ import { describe, expect, it } from 'vitest'
  * contar arquivos deixa passar um regex quebrado; só procurar ocorrência deixa passar um caminho
  * errado. As duas juntas é que fecham.
  *
- * A régua nunca é o objeto medido: o allowlist e o escopo estão escritos **literalmente** aqui, e
- * não derivados de constante que o código sob teste exporte — lição da `fieldBorder`.
+ * A régua nunca é o objeto medido: o escopo está escrito **literalmente** aqui, e não derivado de
+ * constante que o código sob teste exporte — lição da `fieldBorder`. **E não há mais allowlist**: a
+ * lista de dívida em trânsito que o painel tinha durante o lote 3 expirou na fase 5, como estava
+ * escrito nela que expiraria.
  */
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -67,12 +69,19 @@ const semComentarios = (fonte: string): string[] =>
   fonte
     // CRLF NORMALIZADO PRIMEIRO, e isto não é higiene — é correção. Em JavaScript `.` **não casa
     // `\r`** (é terminador de linha), então num checkout Windows — que é a plataforma deste
-    // projeto — `// comentário\r` fazia `/\/\/.*$/` não casar nada, e o stripper ficava inerte.
+    // projeto — um comentário de linha terminado em `\r` não casava nada, e o stripper ficava inerte.
     .replace(/\r\n/g, '\n')
-    // Bloco: troca o miolo por espaços, preservando as quebras — o índice de cada linha não desliza.
-    .replace(/\/\*[\s\S]*?\*\//g, (bloco) => bloco.replace(/[^\n]/g, ' '))
+    // **Linha e bloco na MESMA varredura, e a ordem é a do texto.** Duas passadas (bloco primeiro,
+    // linha depois) têm um ponto cego que custou uma reprovação de verdade: um comentário de LINHA
+    // que cite um glob de dois asteriscos abre um "bloco" aos olhos da segunda régua, e ela apaga
+    // tudo até o próximo fecha-bloco — inclusive CÓDIGO. O efeito é o pior possível num guarda: ele
+    // deixa de enxergar um trecho e passa a aprovar o que estiver lá dentro, em silêncio.
+    //
+    // Com a alternação, quem começa primeiro consome: um comentário de linha engole o resto da linha
+    // (e o glob junto), e um abre-bloco engole até o fecha-bloco. O miolo vira espaço, preservando as
+    // quebras — o índice de cada linha não desliza.
+    .replace(/\/\/[^\n]*|\/\*[\s\S]*?\*\//g, (trecho) => trecho.replace(/[^\n]/g, ' '))
     .split('\n')
-    .map((linha) => linha.replace(/\/\/.*$/, ''))
 
 const varridos: Arquivo[] = ESCOPO.flatMap((d) => arquivos(join(ROOT, d))).map((caminho) => ({
   rel: relative(ROOT, caminho).split('\\').join('/'),
@@ -134,6 +143,24 @@ describe('menu por superfície — âncoras da varredura', () => {
     expect(bloco).toHaveLength(6)
   })
 
+  it('comentário de LINHA que cita um glob não engole o código abaixo — sensor do ponto cego', () => {
+    // Custou uma reprovação de verdade nesta feature: a régua tinha duas passadas (bloco primeiro,
+    // linha depois), e um comentário de linha citando `apps` com dois asteriscos abria um "bloco"
+    // aos olhos da segunda — que apagava tudo até o próximo fecha-bloco, **inclusive código**. O
+    // guarda ficava CEGO para o trecho e aprovava o que estivesse lá dentro, em silêncio.
+    const fonte = [
+      '/** a régua vale nos dois apps */',
+      "// vale para apps/**, e este glob é a armadilha",
+      "const lido = row.show_in_menu",
+      '',
+    ].join(String.fromCharCode(10))
+
+    const linhas = semComentarios(fonte)
+    expect(linhas.some((l) => l.includes('const lido = row.show_in_menu'))).toBe(true)
+    expect(linhas.some((l) => l.includes('a régua vale'))).toBe(false)
+    expect(linhas.some((l) => l.includes('armadilha'))).toBe(false)
+  })
+
   it('a régua ENCONTRA o caminho legítimo — sensor do extrator', () => {
     // `menuItems` é a porta única do menu, e ela existe em produção. Se sumir da varredura, é o
     // extrator que está quebrado — não o código —, e todas as asserções de ausência abaixo
@@ -167,68 +194,54 @@ describe('nenhum arquivo da LOJA lê a curadoria legada (NAV-01)', () => {
 })
 
 /**
- * **O painel ainda lê as duas, e a lista é DÍVIDA EM TRÂNSITO, não permissão.**
+ * **A dívida do painel foi PAGA, e a lista está vazia — literalmente.**
  *
- * A tela `/admin/menu` é reescrita na fase seguinte da mesma feature (T21 a T26). Enquanto isso ela
- * continua ligando `show_in_menu` e gravando `menu_promo`, porque a alternativa seria deixá-la
- * quebrada entre dois lotes — e painel quebrado é a dona sem como configurar a loja.
+ * Ela existiu por um lote: quando o lote 3 fez a loja inteira ler `menuItems(…, surface)`, a tela
+ * `/admin/menu` ainda ligava `show_in_menu` e gravava `menu_promo`, porque a alternativa era deixá-la
+ * quebrada entre dois commits — e painel quebrado é a dona sem como configurar a loja. Cada entrada
+ * nomeava a task que a removeria (T21 a T26), e uma asserção exigia que ela **ainda casasse**: no dia
+ * em que a leitura sumisse, este arquivo reprovava até a entrada sair daqui.
  *
- * O que torna a lista segura é a asserção logo abaixo, que exige que **cada entrada ainda case**:
- * quando a T21 apagar a leitura, este arquivo reprova até a entrada sair daqui. Ela não pode
- * apodrecer em silêncio, que é o destino normal de allowlist.
+ * Foi o que aconteceu. A fase 5 reescreveu `MenuSlotList`, apagou `MenuPromoEditor` e `MenuBarPreview`,
+ * trocou as colunas do `CATEGORY_SELECT` e refez a página — e as quatro entradas saíram juntas.
+ *
+ * **A ausência da lista é a asserção**: daqui em diante, qualquer leitura em `apps/**` reprova, sem
+ * exceção nomeada para negociar. Uma permissão pendurada é como a próxima entra sem ninguém ver.
  */
-const DIVIDA_DO_PAINEL: Record<string, string> = {
-  'apps/backoffice/src/entities/category/api/useAdminCategories.ts':
-    'O `CATEGORY_SELECT` ainda nomeia as duas colunas legadas. Sai na T21, quando a tela passar a ler `menu_desktop`/`menu_mobile` e `menu_banners`.',
-  'apps/backoffice/src/features/store-menu/ui/MenuSlotList.tsx':
-    'A lista de vagas, que liga a categoria pela coluna única. Reescrita na T21 para duas superfícies, sem teto e com chip de ícone.',
-  'apps/backoffice/src/features/store-menu/ui/MenuPromoEditor.tsx':
-    'O editor do card antigo. Vira `MenuBannerEditor` na T25, com dois slots, arte por dispositivo e seletor de destino.',
-  'apps/backoffice/src/pages/admin/AdminMenuPage.tsx':
-    'A página que grava as duas colunas. Reescrita na T26, com alternador de superfície e a prévia sendo a loja num iframe.',
-}
+describe('nenhum arquivo do PAINEL lê a curadoria legada (NAV-01)', () => {
+  it('`show_in_menu` e `menu_promo` não aparecem em `apps/backoffice/**`', () => {
+    const leituras = procurar(LEGADO).filter((o) => o.arquivo.startsWith('apps/backoffice/'))
 
-describe('o painel ainda lê o legado — e a lista existe para expirar', () => {
-  const leituras = procurar(LEGADO)
-
-  it('toda leitura está na lista, com o motivo e a tarefa que a remove', () => {
-    const foraDaLista = leituras.filter(
-      (o) => !Object.prototype.hasOwnProperty.call(DIVIDA_DO_PAINEL, o.arquivo),
-    )
     expect(
-      foraDaLista.map((o) => `${o.arquivo}:${o.linha} — ${o.texto}`),
+      leituras.map((o) => `${o.arquivo}:${o.linha} — ${o.texto}`),
       'a curadoria do menu é por dispositivo: leia `menu_desktop`/`menu_mobile`, nunca a coluna gerada',
     ).toEqual([])
   })
 
-  it('cada entrada AINDA casa — a lista reprova quando a dívida é paga', () => {
-    // É o que a impede de virar letra morta. Sem esta asserção, a T21 apagaria a leitura e a
-    // entrada ficaria pendurada, autorizando por escrito uma leitura que ninguém mais faz — e
-    // abrindo a porta para a próxima entrar sem discussão.
-    for (const arquivo of Object.keys(DIVIDA_DO_PAINEL)) {
-      expect(
-        leituras.some((o) => o.arquivo === arquivo),
-        `${arquivo} está na lista mas não lê mais o legado — remova a entrada`,
-      ).toBe(true)
-    }
+  it('não sobrou allowlist: a varredura inteira de `apps/**` está limpa', () => {
+    // A soma das duas asserções acima, escrita como uma só — é ela que fica de pé quando alguém
+    // acrescentar um app novo ao monorepo.
+    expect(procurar(LEGADO).map((o) => `${o.arquivo}:${o.linha}`)).toEqual([])
   })
 
-  it('a lista é FECHADA, e só tem arquivo do painel — escrito literalmente', () => {
-    expect(Object.keys(DIVIDA_DO_PAINEL).sort()).toEqual([
-      'apps/backoffice/src/entities/category/api/useAdminCategories.ts',
-      'apps/backoffice/src/features/store-menu/ui/MenuPromoEditor.tsx',
-      'apps/backoffice/src/features/store-menu/ui/MenuSlotList.tsx',
-      'apps/backoffice/src/pages/admin/AdminMenuPage.tsx',
-    ])
-    expect(Object.keys(DIVIDA_DO_PAINEL).filter((a) => a.startsWith('apps/store/'))).toEqual([])
+  it('o painel MIGROU de verdade — ele lê as duas colunas por dispositivo', () => {
+    // Sensor da migração, e da varredura: se o painel tivesse simplesmente parado de ler o menu,
+    // a asserção de ausência acima passaria sozinha e ninguém saberia.
+    const doPainel = producao.filter((a) => a.rel.startsWith('apps/backoffice/'))
+    expect(procurar(/menu_desktop/, doPainel).length).toBeGreaterThanOrEqual(1)
+    expect(procurar(/menu_mobile/, doPainel).length).toBeGreaterThanOrEqual(1)
+    expect(procurar(/menu_banners/, doPainel).length).toBeGreaterThanOrEqual(1)
   })
 
-  it('toda entrada diz o motivo e quando ela sai', () => {
-    const semMotivo = Object.entries(DIVIDA_DO_PAINEL)
-      .filter(([, motivo]) => motivo.length < 60 || !/T\d\d/.test(motivo))
-      .map(([arquivo]) => arquivo)
-
-    expect(semMotivo).toEqual([])
+  it('o `CATEGORY_SELECT` do painel não nomeia mais as colunas legadas', () => {
+    // A entrada nº 1 da dívida, medida no arquivo em vez de na lista: era o `select` que trazia
+    // `show_in_menu` e `menu_promo` para dentro de toda tela de categoria do painel.
+    const select = producao.find(
+      (a) => a.rel === 'apps/backoffice/src/entities/category/api/useAdminCategories.ts',
+    )
+    expect(select, 'o hook de categorias do painel sumiu — o guarda perdeu o alvo').toBeTruthy()
+    expect(procurar(LEGADO, [select!])).toEqual([])
+    expect(procurar(/menu_desktop/, [select!]).length).toBeGreaterThanOrEqual(1)
   })
 })
 

@@ -64,7 +64,7 @@ Large — as três entregam o mesmo escopo):
 | `resolvePromo` | `core/menu/menu.ts` | **Evolui** para `resolveMenuBanners` (lista, por superfície, com imagem e três tipos de destino). A regra "destino inválido ⇒ não renderiza" é preservada literalmente |
 | `useStoreSettings` | `@estrelinha/core/hooks` | Passa a ler a chave `menu`; nenhuma consulta nova na loja |
 | `uploadImageBlob` (bucket + pasta parametrizáveis desde a `24`) | `apps/backoffice/src/features/product-form/lib/uploadProductImage.ts` | Sobe a arte do banner. **Precisa sair de `features/product-form`** para `shared/lib` — hoje seria import feature→feature |
-| `renditionUrl` / `renditionSrcSet` | `@estrelinha/core/media` | A arte do banner é servida no tamanho da vaga, como a `38` fez no resto da loja |
+| ~~`renditionUrl` / `renditionSrcSet`~~ | ~~`@estrelinha/core/media`~~ | **CORRIGIDO no lote 3**: esse módulo é da feature `38`, que **não está nesta branch** (saímos de `feat/37-*`). A arte do banner sai em `<img loading="lazy">`; servir no tamanho da vaga volta quando a `38` mergear |
 | Ponte da prévia (`PREVIEW_PARAM`, `isPreviewWindow`, `PREVIEW_DEVICES`, `previewScale`, `previewMetrics`, `previewSrc`) | `packages/core/src/home/preview.ts` | **Reusada como está**, sem mover: `core/menu/preview.ts` importa dela e define só o canal próprio (`MENU_PREVIEW_SOURCE`). Um `?preview=1` só, dois canais de rascunho |
 | `HomeLivePreview` | `apps/backoffice/.../home-composition/ui` | Molde do palco (iframe + escala + alternador). O de menu é irmão, não cópia: o que difere é o payload |
 | `reorderWithinParent` | `apps/backoffice/src/features/category-list` | O arraste de categoria continua sendo o dele |
@@ -313,3 +313,5 @@ divergir. Falta da arte da superfície ⇒ usa a outra (NAV-34).
 | Validador de destino | **Um só**, servindo link e banner | Dois divergiriam, e um aceitaria o que o outro recusa |
 | Ponte da prévia | `core/menu/preview.ts` importa os genéricos de `core/home/preview.ts` | Um `?preview=1`, dois canais. Mover os genéricos agora seria refatorar a `25` sem necessidade |
 | Estouro da barra | Rolagem horizontal, nunca `flex-wrap` | Embrulhar **esconde** o estouro — decisão que o próprio repositório já tomou duas vezes |
+| Tom do ícone | **Muda com o fundo**: `accent` na faixa `primary` (3,26:1), `accent-strong` na folha branca (3,85:1) | Medido no lote 3: `accent` sobre branco dá **2,82:1** e reprova até o piso de 3:1 de objeto gráfico. Os boards do Paper foram corrigidos junto — board e código não podem discordar |
+| Selo do banner | `ink-soft`, não `accent-strong` | A 10–11px o ouro mede **3,55:1** e reprova o piso de texto (4,5:1). Board corrigido junto |

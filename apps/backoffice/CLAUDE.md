@@ -172,18 +172,50 @@ um segundo arquivo `…Preview`, se o palco ramificar por tipo de seção, ou se
   um `<p>` e não um `<Label htmlFor>`, então o `Switch` nascia sem nome acessível — um leitor de tela
   anunciava "interruptor, ligado" e nada mais.
 
-## `/admin/menu` — a curadoria da barra do topo
+## `/admin/menu` — a curadoria do menu, por dispositivo (feature `39`)
 
-Duas colunas mandam: `show_in_menu` (a vaga, **válida em qualquer profundidade**) e `menu_promo jsonb`
-(`{ category_id, badge?, title?, subtitle? }`, nulo = sem card). A **ordem é a `sort_order` que já
-existia** — não há coluna `menu_order`. A regra é de `@estrelinha/core/menu`.
+**A tela mostra o que a loja renderiza**: ela chama `menuItems(input, surface)`, a **mesma** função
+que desenha a barra do computador e a folha do celular. Não filtra, não ordena e não trunca por
+conta — fazer isso seria o "defeito 01" nascendo dentro da tela que existe para acabar com ele.
 
-- **O contador mostra "5 de 4" quando há cinco marcadas**, e isso é de propósito: `menuEntries` não
-  trunca em `MENU_SLOT_LIMIT`. Truncar esconderia a quinta da **única tela onde ela pode ser
-  desmarcada**.
-- **Destino de promo apagado não quebra a tela**: `resolvePromo` devolve `null` para destino
-  inexistente ou inativo — `menu_promo.category_id` mora em jsonb e não tem FK, então
-  `on delete set null` não dispara.
+- **Duas curadorias, não um responsivo.** O alternador Computador/Celular troca ao mesmo tempo o que
+  se edita, o que se conta e o que a prévia mostra. O switch grava **só** a coluna da superfície
+  corrente (`menu_desktop` / `menu_mobile`), e a linha AVISA quando a outra está diferente
+  ("desligada no celular") — o aviso nomeia sempre o dispositivo onde ela está DESLIGADA, então diz a
+  mesma coisa nas duas abas: é propriedade da categoria, não da aba.
+- **Não existe teto, e nenhuma recusa por contagem existe no código.** O contador diz "5 itens", e
+  nunca "4 de 5 vagas": contagem é **informação**, não cota. Quem mostra o que acontece quando não
+  cabe é a prévia (a barra da loja rola), não um erro no clique.
+- **Nenhuma entrada é declarada no painel.** `FIXED_ENTRIES` foi APAGADA — ela anunciava "Crie o Seu"
+  → `/crie-seu-botton`, que **nunca foi rota declarada** e caía na 404. O "Sobre" é um **item de
+  link** de `store_settings.menu`, semeado pela migration, e a Adri pode movê-lo, trocá-lo ou tirá-lo.
+- **O papel é derivado da árvore, nunca gravado** (`NAV-06`): filha marcada de pai marcado na mesma
+  superfície é item do **painel** do pai, e por isso ela **não tem linha na lista da barra** — o
+  lugar dela é o `MenuPanelEditor`. Uma coluna "é item de painel" dessincronizaria no primeiro
+  "mover categoria".
+- **Arrastar reordena a `sort_order` da ÁRVORE**, e a tela diz isso depois de gravar: a mesma ordem
+  vale para a grade da home e o rodapé. Arraste entre ramos é recusado com motivo (mudar de pai é a
+  tela de Categorias). Item de link **não** arrasta — a `sort_order` dele mora no jsonb, e um arraste
+  atravessando a fronteira gravaria em duas fontes com significados diferentes.
+- **Duas leituras, duas faixas de erro.** Categorias e itens de link falham em separado, e cada uma
+  tem a própria superfície com "tentar de novo". `useMenuLinks` **não** usa `useStoreSettings`: aquele
+  hook é o da loja e engole erro de propósito (devolve defaults), o que aqui faria a tela dizer
+  "nenhum link" com o banco fora do ar.
+- **Os banners são até dois por superfície, e o terceiro é recusado com motivo.** Gravar é explícito
+  (rascunho + "Salvar banners"), e não um `update` por tecla digitada como no card antigo.
+  **Excedente gravado à mão é ACUSADO**: `resolveMenuBanners` trunca em dois na leitura, então sem o
+  aviso ("3 gravados, 2 cabem") o terceiro ficaria invisível **e indeletável**.
+- **A arte do banner vai para `home-images/menu`** — bucket reusado, não criado: mesma policy e mesmo
+  ciclo de vida (campanha sobrevive à coleção que aponta), e criar `menu-images` exigiria migration
+  nova sobre uma já aplicada (`AD-017`).
+- **O painel NÃO desenha o menu.** `MenuBarPreview.tsx` foi apagado — era o segundo desenho da barra,
+  com os tokens do admin, mostrando a entrada fixa que não existia. `previaUnica.test.ts` cobre as
+  duas features agora: recusa a volta do arquivo, um segundo `…Preview`, o import de `apps/store` e
+  qualquer arquivo do painel que **calcule** o desenho da loja (`menuPanelColumns`,
+  `resolveMenuBanners`).
+- **Ninguém lê `show_in_menu` nem `menu_promo`** (`menuSurfaceSingleOwner.test.ts`, **sem allowlist**
+  desde a fase 5): a primeira é coluna gerada e a segunda é legado. As duas continuam no banco para a
+  loja publicada não quebrar entre o `db push` e o deploy da Vercel.
 
 ## Pedidos e a fila de material
 
@@ -316,5 +348,11 @@ catálogo — e impede que a troca aconteça na ordem errada.
   senão a feature seguinte compara contra folga que não existe mais.)*
 - **`fetchStatusCounts` lê `orders` sem paginação** e herda o teto de 1.000 do PostgREST (`BL-008`).
   As contagens da fila de material entram no mesmo teto; corretas até 1.000 pedidos.
-- **`uploadProductImage.ts` tem `SUPABASE_URL` com fallback hard-coded de outro projeto**
-  (`BL-009`..`BL-011`).
+- **`BL-009` está FECHADO** (feature `39`, T19). O motor de upload — validar, comprimir e gravar no
+  Storage — saiu de `features/product-form/lib` para **`shared/lib/uploadImage.ts`**, porque três
+  features o consomem (produto, Home e o banner do menu) e feature importando de feature é a
+  fronteira FSD ao contrário. O `|| 'https://<ref>.supabase.co'` do `SUPABASE_URL` **morreu na
+  mudança de casa**: ele era inalcançável (o client lança sem `VITE_SUPABASE_URL`), e é exatamente
+  assim que um fallback se parece antes de virar defeito — bastava alguém dar um default ao client
+  para toda imagem enviada apontar para outro projeto, sem erro nenhum. `BL-010` e `BL-011` seguem
+  abertas.

@@ -60,12 +60,21 @@ interface Arquivo {
  */
 const semComentarios = (fonte: string): string[] =>
   fonte
-    // CRLF primeiro: em JavaScript `.` não casa `\r`, e num checkout Windows o stripper de linha
-    // ficaria inerte. É o defeito que a `freeShippingSingleOwner` já pagou uma vez.
+    // CRLF NORMALIZADO PRIMEIRO, e isto não é higiene — é correção. Em JavaScript `.` **não casa
+    // `\r`** (é terminador de linha), então num checkout Windows — que é a plataforma deste
+    // projeto — um comentário de linha terminado em `\r` não casava nada, e o stripper ficava inerte.
     .replace(/\r\n/g, '\n')
-    .replace(/\/\*[\s\S]*?\*\//g, (bloco) => bloco.replace(/[^\n]/g, ' '))
+    // **Linha e bloco na MESMA varredura, e a ordem é a do texto.** Duas passadas (bloco primeiro,
+    // linha depois) têm um ponto cego que custou uma reprovação de verdade: um comentário de LINHA
+    // que cite um glob de dois asteriscos abre um "bloco" aos olhos da segunda régua, e ela apaga
+    // tudo até o próximo fecha-bloco — inclusive CÓDIGO. O efeito é o pior possível num guarda: ele
+    // deixa de enxergar um trecho e passa a aprovar o que estiver lá dentro, em silêncio.
+    //
+    // Com a alternação, quem começa primeiro consome: um comentário de linha engole o resto da linha
+    // (e o glob junto), e um abre-bloco engole até o fecha-bloco. O miolo vira espaço, preservando as
+    // quebras — o índice de cada linha não desliza.
+    .replace(/\/\/[^\n]*|\/\*[\s\S]*?\*\//g, (trecho) => trecho.replace(/[^\n]/g, ' '))
     .split('\n')
-    .map((linha) => linha.replace(/\/\/.*$/, ''))
 
 const varridos: Arquivo[] = ESCOPO.flatMap((d) => arquivos(join(ROOT, d))).map((caminho) => ({
   rel: relative(ROOT, caminho).split('\\').join('/'),
@@ -151,21 +160,18 @@ const ENTRADA_FIXA = /FIXED_(MENU_)?ENTRIES/
 const ROTA_QUE_NAO_EXISTE = /crie-seu-botton/
 
 /**
- * O painel ainda tem a lista fixa, e ela sai na T21/T26 — **dívida em trânsito, não permissão**.
+ * **A dívida do painel foi PAGA — o conceito não existe em app nenhum.**
  *
- * A asserção de "cada entrada ainda casa" é o que a faz expirar sozinha: no dia em que a T21 apagar
- * `FIXED_ENTRIES`, este arquivo reprova até a entrada sair daqui.
+ * Durante o lote 3 ela existiu, e cada entrada nomeava a task que a removeria: `MenuSlotList.tsx`
+ * (onde `FIXED_ENTRIES` era declarada), `MenuBarPreview.tsx` (o segundo desenho, que a consumia) e o
+ * barrel que a reexportava. Uma asserção exigia que cada uma **ainda casasse** — no dia em que a
+ * fase 5 apagasse a constante, este arquivo reprovaria até a entrada sair daqui.
+ *
+ * Foi o que aconteceu: a T21 reescreveu a lista sem entrada declarada, a T26 apagou o segundo
+ * desenho, e o barrel deixou de exportar as duas coisas. **A ausência de allowlist é a asserção** —
+ * daqui em diante não há exceção nomeada para negociar em nenhum dos dois apps.
  */
-const DIVIDA_DO_PAINEL: Record<string, string> = {
-  'apps/backoffice/src/features/store-menu/ui/MenuSlotList.tsx':
-    'Onde `FIXED_ENTRIES` é declarada, com o `/crie-seu-botton` que não é rota. Reescrita na T21, e a constante é APAGADA junto — não corrigida.',
-  'apps/backoffice/src/features/store-menu/ui/MenuBarPreview.tsx':
-    'O segundo desenho da barra, que consome a lista fixa. APAGADO na T26: a prévia passa a ser a loja num iframe, como em `/admin/home`.',
-  'apps/backoffice/src/features/store-menu/index.ts':
-    'O barrel que reexporta `FIXED_ENTRIES`. A linha sai na T21, junto da constante.',
-}
-
-describe('o conceito de entrada fixa não existe na LOJA (NAV-14)', () => {
+describe('o conceito de entrada fixa não existe (NAV-14)', () => {
   it('`FIXED_ENTRIES` não aparece em `apps/store/**`', () => {
     const achados = procurar(ENTRADA_FIXA).filter((o) => o.arquivo.startsWith('apps/store/'))
     expect(achados.map((o) => `${o.arquivo}:${o.linha} — ${o.texto}`)).toEqual([])
@@ -178,36 +184,33 @@ describe('o conceito de entrada fixa não existe na LOJA (NAV-14)', () => {
     expect(achados.map((o) => `${o.arquivo}:${o.linha} — ${o.texto}`)).toEqual([])
   })
 
-  it('no painel, os dois só existem nos arquivos que a fase 5 reescreve', () => {
+  it('nem no PAINEL: a lista de dívida da fase 5 foi zerada', () => {
+    // Era aqui que os três arquivos do painel estavam nomeados. A lista sumiu porque o que ela
+    // autorizava sumiu — e não o contrário.
     const achados = procurar(new RegExp(`${ENTRADA_FIXA.source}|${ROTA_QUE_NAO_EXISTE.source}`))
-    const fora = achados.filter(
-      (o) => !Object.prototype.hasOwnProperty.call(DIVIDA_DO_PAINEL, o.arquivo),
+    expect(achados.map((o) => `${o.arquivo}:${o.linha} — ${o.texto}`)).toEqual([])
+  })
+
+  it('a tela do menu monta a lista a partir de `menuItems`, e não de constante própria', () => {
+    // O par do teste acima: provar que o item fixo sumiu não basta, porque uma tela que parasse de
+    // listar qualquer coisa também passaria. O painel tem de estar lendo a MESMA porta que a loja.
+    const pagina = producao.find(
+      (a) => a.rel === 'apps/backoffice/src/pages/admin/AdminMenuPage.tsx',
     )
-    expect(fora.map((o) => `${o.arquivo}:${o.linha} — ${o.texto}`)).toEqual([])
+    expect(pagina, 'a tela do menu sumiu — o guarda perdeu o alvo').toBeTruthy()
+    expect(procurar(/\bmenuItems\b/, [pagina!]).length).toBeGreaterThanOrEqual(1)
   })
 
-  it('cada entrada da dívida AINDA casa — a lista reprova quando ela é paga', () => {
-    const achados = procurar(new RegExp(`${ENTRADA_FIXA.source}|${ROTA_QUE_NAO_EXISTE.source}`))
-    for (const arquivo of Object.keys(DIVIDA_DO_PAINEL)) {
-      expect(
-        achados.some((o) => o.arquivo === arquivo),
-        `${arquivo} está na lista mas não declara mais item fixo — remova a entrada`,
-      ).toBe(true)
-    }
-  })
-
-  it('a lista é FECHADA, só tem arquivo do painel, e diz quando cada uma sai', () => {
-    expect(Object.keys(DIVIDA_DO_PAINEL).sort()).toEqual([
-      'apps/backoffice/src/features/store-menu/index.ts',
-      'apps/backoffice/src/features/store-menu/ui/MenuBarPreview.tsx',
-      'apps/backoffice/src/features/store-menu/ui/MenuSlotList.tsx',
-    ])
-    expect(Object.keys(DIVIDA_DO_PAINEL).filter((a) => a.startsWith('apps/store/'))).toEqual([])
-
-    const semMotivo = Object.entries(DIVIDA_DO_PAINEL)
-      .filter(([, motivo]) => motivo.length < 60 || !/T\d\d/.test(motivo))
-      .map(([arquivo]) => arquivo)
-    expect(semMotivo).toEqual([])
+  it('e o painel também não declara um item de menu em JSX', () => {
+    // A régua de destino literal, aplicada aos arquivos do menu no PAINEL: um `to="/sobre"` ali
+    // seria a entrada fixa voltando com outro nome, do outro lado do monorepo.
+    const doPainel = producao.filter((a) =>
+      a.rel.startsWith('apps/backoffice/src/features/store-menu/'),
+    )
+    expect(doPainel.length).toBeGreaterThan(3)
+    expect(procurar(DESTINO, doPainel).map((o) => `${o.arquivo}:${o.linha} — ${o.texto}`)).toEqual(
+      [],
+    )
   })
 })
 

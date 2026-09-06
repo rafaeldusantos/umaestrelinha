@@ -61,7 +61,7 @@ catalog-import 509/23**. Quedas declaradas e permitidas: `TrendingLane`, `MenuBa
 | 1 | 1 | T1–T5 | ✅ completo | `5dffb6b` | core **1705/66** (+212/+6) · tsc 0 · 0 |
 | 2 | 2 + 3 | T6–T11 | ✅ completo | `3c00b09` · `1b97a38` | store **2046/137** (+45/+2) · core 1705/66 · backoffice 1786/109 · lint 27/5 (=) · tsc 0 · 0 · build ✅ |
 | 3 | 4 | T12–T18 | ✅ completo | `7697f91` · `test(39): os guardas do menu na loja` | store **2140/142** (+94/+5) · core 1705/66 (=) · backoffice 1786/109 (=) · lint 27/5 (=) · tsc 0 · 0 |
-| 4 | 5 | T19–T26 | — | — | — |
+| 4 | 5 | T19–T26 | ✅ completo | `refactor(39): o upload…` · `feat(39): a tela…` | backoffice **1860/113** (+74/+4) · store **2141/142** (+1) · core 1705/66 (=) · lint 27/5 (=) · tsc 0 · 0 |
 | 5 | 6 + 7 | T27–T32 | — | — | — |
 
 **Desvios aceitos no lote 1** (todos documentados no código):
@@ -98,6 +98,44 @@ catalog-import 509/23**. Quedas declaradas e permitidas: `TrendingLane`, `MenuBa
 - **Duas fixtures do painel ganharam os campos novos** (`CategoryFormDialog.test.tsx`,
   `Taxonomy.test.tsx`): `DbCategory` descreve a linha, e a linha traz as colunas novas. A alternativa
   — declará-las opcionais no tipo — seria o `AD-012` de novo, com o tipo dizendo menos que o banco.
+
+**Desvios aceitos no lote 4** (todos documentados no código):
+
+- **A T19 moveu MAIS que `uploadImageBlob`**: `validateImageFile`, `uploadFailureMessage`,
+  `MAX_FILE_BYTES` e `ACCEPTED_TYPES` foram junto para `shared/lib/uploadImage.ts`. Sem elas, o
+  `uploadBannerImage` da T25 teria de importar de `@/features/product-form` — o import
+  feature→feature que a T19 existe para fechar — ou reescrever a régua de tipo/tamanho, que é o
+  defeito 01. `product-form` reexporta só os **tipos** (`UploadFailure`, `UploadRejectReason`), nunca
+  as funções: reexportar a função daria dois caminhos para a mesma régua.
+- **A arte do banner grava em `home-images/menu`, e não num bucket próprio.** Criar `menu-images`
+  exigiria migration nova sobre uma já aplicada (`AD-017`), e o ativo é o mesmo tipo do da Home
+  (campanha que sobrevive à coleção apontada), com a mesma policy. A pasta separa o que precisa ser
+  separado.
+- **`useMenuLinks` NÃO usa `useStoreSettings`.** Aquele hook devolve os defaults quando a consulta
+  falha — o que é certo na loja (a cliente não pode ficar sem header) e errado no painel: a tela
+  diria "nenhum link" com o banco fora do ar, e a Adri recadastraria o "Sobre" por cima do que já
+  existe. `NAV-41` pede superfície explícita, e superfície explícita precisa de erro explícito.
+- **Item de LINK não arrasta.** As ACs de arraste (`NAV-38`/`NAV-39`) falam da `sort_order` da
+  árvore; a do link mora no jsonb. Um arraste atravessando a fronteira gravaria em duas fontes com
+  significados diferentes. Consequência declarada: a posição do link se muda pelo `sort_order` dele
+  (o "Sobre" semeado nasce em 100, e link novo entra em 101) — não há controle de ordem na tela.
+- **O aviso cruzado nomeia sempre o dispositivo onde o item está DESLIGADO**, e por isso diz a mesma
+  coisa nas duas abas. É propriedade da categoria, não da aba; fazê-lo mudar de texto obrigaria a
+  dona a ler duas frases sobre o mesmo fato.
+- **O lugar da prévia é um espaço reservado que DIZ que a prévia chega na fase 6.** Um esquema
+  provisório ali seria o segundo desenho — o que a `25` apagou da Home e o que a T26 acabou de apagar
+  do menu. `previaUnica.test.ts` foi estendido e cobre as duas features.
+- **`NOME_DA_SUPERFICIE` mora em `model/superficie.ts`**, não ao lado do componente: um `.tsx` que
+  exporta constante **e** React quebra o Fast Refresh (era o único warning de lint novo do lote).
+
+**Achado do lote 4 — o stripper de comentário dos guardas da T18 era CEGO num caso, e o modo de
+falhar era o pior possível**: ele rodava em duas passadas (bloco primeiro, linha depois), então um
+comentário de **linha** citando um glob `apps/` com dois asteriscos abria um "bloco" para a segunda
+régua, que apagava tudo até o próximo fecha-bloco — **inclusive código**. O guarda deixava de
+enxergar o trecho e passava a aprovar o que estivesse lá dentro, em silêncio. Foi encontrado porque
+uma asserção nova reprovou; as duas réguas passaram a fazer linha e bloco na **mesma** varredura, e
+o caso virou sensor. (`freeShippingSingleOwner.test.ts` carrega a mesma forma antiga e não foi
+tocado — não é desta feature, mas tem o mesmo ponto cego.)
 
 **Desvios aceitos no lote 3** (todos documentados no código):
 
