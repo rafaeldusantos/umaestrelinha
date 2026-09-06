@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { User, Menu, Heart } from 'lucide-react'
+import { User, Menu, Heart, ChevronLeft, ChevronRight } from 'lucide-react'
 import { EstrelinhaSignature } from '@/shared/ui/brand'
 import { useWishlistStore } from '@/entities/wishlist/model/wishlistStore'
 import { useMenu, useMenuUiStore } from '@/entities/category'
@@ -8,6 +8,7 @@ import { useAuthContext } from '@estrelinha/auth'
 import { useAuthUiStore } from '@/features/auth'
 import CartButton from '@/widgets/cart-drawer/ui/CartButton'
 import { useScrollDirection } from '@/shared/lib/useScrollDirection'
+import { useOverflowAffordance } from '@/shared/lib/useOverflowAffordance'
 import MegaMenu from './MegaMenu'
 
 /**
@@ -26,6 +27,29 @@ const ICON_BUTTON =
  *  `contrast.test.ts`. */
 const BADGE =
   'absolute -right-0.5 -top-0.5 flex h-[18px] w-[18px] items-center justify-center rounded-full bg-estrelinha-accent text-[10px] font-bold text-estrelinha-ink'
+
+/**
+ * A altura da faixa de departamentos, com UM dono.
+ *
+ * Ela é escrita em dois lugares — o `<nav>` que rola e a camada de afordância que se desenha por
+ * cima dele — e os dois **precisam** concordar: a camada é `absolute bottom-0` contra o `<header>`,
+ * então uma altura divergente a deixaria fora de registro com a faixa, sem erro nenhum.
+ */
+const FAIXA_ALTURA = 'h-[52px]'
+
+/**
+ * A seta de rolagem da faixa cheia — `BL-024`.
+ *
+ * **44px de alvo sem auxiliar**: `h-11 w-11` já É o alvo, então nada de `TAP_44` (que existe para
+ * desenho MENOR que 44). O ícone sai `on-primary` sobre `primary` — 8,40:1 — e o anel de foco sai
+ * `accent`, que sobre `primary` mede 3,26:1 e passa a régua de 3:1 de elemento gráfico. **Nenhuma
+ * cor nova**: os dois tokens já vestem esta faixa.
+ *
+ * `pointer-events-auto` porque a camada que a contém é `pointer-events-none` — o degradê não pode
+ * roubar clique de item nenhum, e a seta é a única coisa clicável ali.
+ */
+const SETA =
+  'pointer-events-auto absolute top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full text-estrelinha-on-primary transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-estrelinha-accent motion-reduce:transition-none'
 
 /**
  * No celular o header ficou com **logo, favoritos e menu** — nada mais.
@@ -75,6 +99,10 @@ const Header = () => {
   const { items } = useMenu('desktop')
   const { direction, atTop } = useScrollDirection()
   const hidden = direction === 'down' && !atTop
+  // A pista de que a faixa rola (`BL-024`). Em jsdom toda medida de layout é 0, então `antes` e
+  // `depois` nascem `false` e NADA disto renderiza — que é também o caso normal da loja, com 3
+  // itens. A medida que motiva o recurso é do UAT em navegador, não daqui.
+  const faixa = useOverflowAffordance(items.length)
 
   const initials = user ? (customer?.name || user.email || '?').slice(0, 2).toUpperCase() : null
 
@@ -217,11 +245,77 @@ const Header = () => {
               containing block e o painel passaria a viver dentro da faixa de 52px — sem erro
               nenhum, com o mega menu virando uma tira ilegível. */}
           <nav
+            ref={faixa.ref}
             aria-label="Departamentos"
-            className="container flex h-[52px] items-center overflow-x-auto"
+            /* `scroll-smooth` faz a seta deslizar em vez de saltar, e o par
+               `motion-reduce:scroll-auto` desliga isso para quem pediu menos movimento. É por ele
+               que `rolar` escreve `scrollLeft` direto, sem `scrollBy({ behavior })`: a decisão de
+               animar fica no CSS, num lugar só. */
+            className={`container flex ${FAIXA_ALTURA} items-center overflow-x-auto scroll-smooth motion-reduce:scroll-auto`}
           >
             <MegaMenu items={items} />
           </nav>
+
+          {/* A AFORDÂNCIA — `BL-024`. Degradê como pista, seta como alvo.
+
+              **Ela some inteira quando a faixa cabe**, e esse é o caso normal: a loja tem 3 itens
+              hoje, e `antes`/`depois` são `false` enquanto `scrollWidth === clientWidth`. Uma seta
+              parada numa barra que não rola seria um botão que não faz nada.
+
+              **Não há `relative` em ancestral nenhum, e isso é a parte não óbvia.** Esta camada é
+              `absolute` contra o próprio `<header>` (que é `sticky`, logo posicionado) — a mesma
+              âncora que o painel do mega menu usa. Pôr `relative` no `div` da faixa "para
+              simplificar" mudaria o containing block do painel, e ele passaria a viver dentro dos
+              52px — sem erro nenhum, com o mega menu virando uma tira ilegível.
+
+              A camada é `pointer-events-none` para o degradê não roubar clique do item que ele
+              cobre; só as setas voltam a receber ponteiro. O `container` interno alinha as pontas
+              com as do `<nav>`, que também é `container` (medido no UAT: 80..1360 em 1440). */}
+          {(faixa.antes || faixa.depois) && (
+            <div
+              className={`pointer-events-none absolute inset-x-0 bottom-0 ${FAIXA_ALTURA}`}
+              data-testid="faixa-afordancia"
+            >
+              <div className="container relative h-full">
+                {faixa.antes && (
+                  <>
+                    {/* Degradê a partir da PRÓPRIA cor da faixa, e não uma sombra: sobre um chapado
+                        `primary`, qualquer sombra dura viraria uma linha que o board não tem. */}
+                    <div
+                      aria-hidden
+                      data-testid="afordancia-esquerda"
+                      className="absolute inset-y-0 left-0 w-16 bg-gradient-to-r from-estrelinha-primary to-estrelinha-primary/0"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => faixa.rolar(-1)}
+                      aria-label="Ver os departamentos anteriores"
+                      className={`${SETA} left-0`}
+                    >
+                      <ChevronLeft className="h-5 w-5" strokeWidth={1.8} aria-hidden />
+                    </button>
+                  </>
+                )}
+                {faixa.depois && (
+                  <>
+                    <div
+                      aria-hidden
+                      data-testid="afordancia-direita"
+                      className="absolute inset-y-0 right-0 w-16 bg-gradient-to-l from-estrelinha-primary to-estrelinha-primary/0"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => faixa.rolar(1)}
+                      aria-label="Ver mais departamentos"
+                      className={`${SETA} right-0`}
+                    >
+                      <ChevronRight className="h-5 w-5" strokeWidth={1.8} aria-hidden />
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </header>

@@ -219,6 +219,116 @@ describe('NAV-04 — a barra rola, e nunca embrulha', () => {
 })
 
 // ───────────────────────────────────────────────────────────────────────────
+// A regra — a faixa cheia MOSTRA que rola (`BL-024`)
+// ───────────────────────────────────────────────────────────────────────────
+
+/**
+ * **Rolar sem pista é rolar que ninguém descobre.**
+ *
+ * Tirar o teto tornou o estouro alcançável, e o UAT em navegador (2026-09-06, Chromium, 1440×900,
+ * 17 itens) mediu o que sobrou: `nav.scrollWidth` **2619** contra `clientWidth` **1280** — a faixa
+ * rola e nada vaza —, mas a barra de rolagem é **em sobreposição** (`offsetHeight` = `clientHeight`
+ * = 52: não ocupa layout, não aparece parada) e a **roda vertical** do mouse sobre a faixa rola a
+ * **página**, não a faixa. Sobram `shift`+roda, trackpad e teclado.
+ *
+ * Ou seja: quem usa mouse num monitor largo pode **não descobrir** que há mais departamentos. Este
+ * bloco congela as três coisas que respondem a isso — e a primeira delas é que a resposta continua
+ * sendo ROLAR, não embrulhar: uma afordância bonita sobre uma faixa que passou a `flex-wrap` seria
+ * a mesma regressão de sempre, agora com seta.
+ *
+ * As duas réguas abaixo são **predicados**, e é assim de propósito: a asserção da regra e o sensor
+ * por mutação chamam a MESMA função. Uma régua escrita duas vezes é o "defeito 01" aplicado ao
+ * teste — a cópia da asserção passa enquanto a do sensor mede outra coisa.
+ */
+const faixaRola = (fonte: string): boolean =>
+  /overflow-x-auto/.test(fonte) && !/flex-wrap/.test(fonte)
+
+/**
+ * As TRÊS peças da afordância, e nenhuma sozinha resolve:
+ *
+ * - o **estado** vem da posição real de rolagem (`useOverflowAffordance` lê `scrollLeft`,
+ *   `scrollWidth` e `clientWidth`, no `scroll` e num `ResizeObserver`) — sem ele, seta e degradê
+ *   seriam decoração permanente numa faixa de 3 itens que cabe;
+ * - o **degradê** das duas bordas é a pista, e sai da própria cor da faixa (`primary`);
+ * - as **setas** são o alvo que o mouse tem, e cada uma leva rótulo em português.
+ */
+const temAfordancia = (fonte: string): boolean =>
+  /useOverflowAffordance/.test(fonte) &&
+  /bg-gradient-to-r from-estrelinha-primary/.test(fonte) &&
+  /bg-gradient-to-l from-estrelinha-primary/.test(fonte) &&
+  /aria-label="Ver os departamentos anteriores"/.test(fonte) &&
+  /aria-label="Ver mais departamentos"/.test(fonte)
+
+describe('BL-024 — a faixa cheia mostra que tem mais coisa', () => {
+  const header = fonteDe('apps/store/src/widgets/header/ui/Header.tsx')
+
+  it('a faixa MANTÉM `overflow-x-auto` e NÃO ganhou `flex-wrap`', () => {
+    expect(faixaRola(header)).toBe(true)
+  })
+
+  it('e TEM a afordância — o estado medido, o degradê e as duas setas rotuladas', () => {
+    expect(temAfordancia(header)).toBe(true)
+  })
+
+  it('a afordância é `absolute` contra o `<header>`, e não rola junto com os itens', () => {
+    // Dentro do `<nav>` a seta sairia da tela junto com o conteúdo — ela precisa ficar parada na
+    // ponta. E o `relative` que a "simplificaria" mudaria o containing block do painel do mega
+    // menu, que passaria a viver dentro dos 52px. `Header.test.tsx` mede isso no DOM; aqui fica a
+    // forma, para a classe não sumir num refactor de estilo.
+    expect(header).toContain('pointer-events-none absolute inset-x-0 bottom-0')
+    expect(header).toContain('motion-reduce:scroll-auto')
+  })
+})
+
+describe('a régua da afordância funciona — sensores por mutação', () => {
+  const FAIXA_CERTA = '<nav className="container flex h-[52px] items-center overflow-x-auto">'
+
+  it('`faixaRola` APROVA a forma certa — o par dos dois sensores abaixo', () => {
+    // Uma régua que reprovasse tudo passaria nos dois negativos e seria inútil.
+    expect(faixaRola(FAIXA_CERTA)).toBe(true)
+  })
+
+  it('`faixaRola` REPROVA uma faixa sem `overflow-x-auto`', () => {
+    expect(faixaRola('<nav className="container flex h-[52px] items-center">')).toBe(false)
+  })
+
+  it('`faixaRola` REPROVA uma faixa que EMBRULHA, mesmo com `overflow-x-auto`', () => {
+    // A regressão mais provável: alguém acrescenta `flex-wrap` "para caber" e mantém o overflow,
+    // que passa a não ter efeito nenhum. O estouro some da tela e a dona deixa de vê-lo.
+    expect(faixaRola(`${FAIXA_CERTA.slice(0, -1)} flex-wrap">`)).toBe(false)
+  })
+
+  const COMPLETO = [
+    "import { useOverflowAffordance } from '@/shared/lib/useOverflowAffordance'",
+    'const faixa = useOverflowAffordance(items.length)',
+    '<div className="absolute inset-y-0 left-0 w-16 bg-gradient-to-r from-estrelinha-primary to-estrelinha-primary/0" />',
+    '<button aria-label="Ver os departamentos anteriores" />',
+    '<div className="absolute inset-y-0 right-0 w-16 bg-gradient-to-l from-estrelinha-primary to-estrelinha-primary/0" />',
+    '<button aria-label="Ver mais departamentos" />',
+  ].join('\n')
+
+  it('`temAfordancia` APROVA o conjunto completo', () => {
+    expect(temAfordancia(COMPLETO)).toBe(true)
+  })
+
+  it('`temAfordancia` REPROVA a falta de CADA peça, uma a uma', () => {
+    // Cinco mutações, uma por asserção do predicado. Sem isto, uma régua que só olhasse o hook
+    // aprovaria uma barra com estado e sem nada desenhado — que é o defeito com outra roupa.
+    const PECAS: Array<[string, RegExp]> = [
+      ['o estado medido', /useOverflowAffordance/g],
+      ['o degradê da esquerda', /bg-gradient-to-r from-estrelinha-primary/g],
+      ['o degradê da direita', /bg-gradient-to-l from-estrelinha-primary/g],
+      ['a seta da esquerda', /aria-label="Ver os departamentos anteriores"/g],
+      ['a seta da direita', /aria-label="Ver mais departamentos"/g],
+    ]
+
+    for (const [nome, peca] of PECAS) {
+      expect(temAfordancia(COMPLETO.replace(peca, 'REMOVIDO')), `faltando: ${nome}`).toBe(false)
+    }
+  })
+})
+
+// ───────────────────────────────────────────────────────────────────────────
 // Sensores por mutação — a asserção acima mede AUSÊNCIA, e ausência passa sozinha
 // ───────────────────────────────────────────────────────────────────────────
 

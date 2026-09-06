@@ -609,6 +609,26 @@ ninguém é avisado.
   o bloco que o contém é o `<header>`; um `relative` ali dentro mudaria o containing block e o mega
   menu viraria uma tira de 52px — sem erro nenhum. jsdom devolve 0 para largura, então o que os
   testes provam é a forma; a medida é de navegador, em 390 e 1440.
+- **A faixa cheia MOSTRA que rola** (`BL-024`, fechada em 2026-09-06). Tirar o teto tornou o estouro
+  alcançável, e o UAT mediu o que sobrou: com 17 itens, `nav.scrollWidth` **2619** contra
+  `clientWidth` **1280** — rola e nada vaza —, mas a barra de rolagem do Chromium é **em
+  sobreposição** (`offsetHeight` = `clientHeight` = 52: não ocupa layout, não aparece parada) e a
+  **roda vertical** do mouse sobre a faixa rola a **página**. Quem usa mouse podia não descobrir que
+  havia mais departamentos.
+  - **Degradê como pista, seta como alvo.** Quem decide é `shared/lib/useOverflowAffordance`, que lê
+    `scrollLeft`/`scrollWidth`/`clientWidth` no `scroll` e num `ResizeObserver` de **duas** caixas (o
+    `<nav>`, que encolhe, e a fila `min-w-max`, que cresce). **Nada aparece quando cabe** — e é o caso
+    normal, com 3 itens. Nenhuma cor nova: degradê a partir do próprio `primary`, ícone `on-primary`
+    (8,40:1), anel de foco `accent` (3,26:1 sobre `primary`, acima dos 3:1 de elemento gráfico), alvo
+    de 44px sem `TAP_44` (`h-11 w-11` **é** o alvo).
+  - **A camada é `absolute` contra o `<header>`, e o invólucro da faixa também não pode ser
+    posicionado.** É a mesma armadilha do `<nav>`, um nível acima: pôr `relative` no `div` da faixa
+    para ancorar a seta mudaria o containing block do painel. `Header.test.tsx` assere os dois.
+  - **A roda vertical NÃO é sequestrada** e **o teclado continua sendo do navegador** (o UAT provou
+    que `focus()` no último item já leva a faixa a `scrollLeft` 1339). A única mudança de rolagem é
+    `scroll-smooth` + `motion-reduce:scroll-auto`, em CSS — por isso `rolar` escreve `scrollLeft`
+    direto em vez de `scrollBy({ behavior })`.
+  - **O `MobileMenu` não tem nada disso**: no celular a lista é vertical.
 - **Os banners do painel chegam por `useMenuBanners(categoryId, surface)`** (`entities/menu`), que
   resolve **tarde**: sem banner de produto não há consulta nenhuma, e enquanto a lista de produtos
   não chega o banner **não renderiza** — "ainda não sei" não é "existe". Destino apagado ou

@@ -211,6 +211,189 @@ describe('Header — a faixa rola em vez de embrulhar (NAV-04)', () => {
     // mudaria o containing block e o mega menu viraria uma tira de 52px — sem erro nenhum.
     expect(faixa().className).not.toMatch(/(^|\s)(relative|absolute|fixed|sticky)(\s|$)/)
   })
+
+  it('nem o invólucro dela — a camada de afordância se ancora no `<header>`, não na faixa', () => {
+    // A tentação ao acrescentar a afordância é pôr `relative` no `div` que embrulha o `<nav>`,
+    // porque é o jeito curto de posicionar seta e degradê. Custaria o mesmo que a asserção acima:
+    // o `div` é ancestral do painel, e o painel passaria a se medir por uma caixa de 52px.
+    expect(faixa().parentElement!.className).not.toMatch(
+      /(^|\s)(relative|absolute|fixed|sticky)(\s|$)/,
+    )
+  })
+})
+
+// ── BL-024 — a barra cheia mostra que tem mais coisa ─────────────────────────
+//
+// **A medida que motiva isto é do UAT em navegador, NÃO do jsdom** (2026-09-06, Chromium, 1440×900,
+// 17 itens): `nav.scrollWidth` **2619** contra `clientWidth` **1280**, último item alcançável em
+// `scrollLeft` **1339**. Lá também se mediu por que a rolagem não se anuncia — a barra é em
+// sobreposição (`offsetHeight` = `clientHeight` = 52, não ocupa layout e não aparece parada) e a
+// roda vertical do mouse sobre a faixa rola a PÁGINA (`window.scrollY` 300, `nav.scrollLeft` 0).
+//
+// jsdom devolve **0** para toda medida de layout, então nada disso é observável aqui. O que estes
+// casos provam é o ESTADO: as três medidas são fixadas à mão no nó e o `scroll` é disparado, que é
+// a forma honesta de exercitar a lógica sem fingir que há layout.
+describe('Header — a faixa cheia mostra que tem mais coisa (BL-024)', () => {
+  /** Os números do UAT, para o teste medir a mesma faixa que o navegador mediu. */
+  const LARGURA_TOTAL = 2619
+  const LARGURA_VISIVEL = 1280
+  const FIM = LARGURA_TOTAL - LARGURA_VISIVEL // 1339, conferido no navegador
+
+  const montar = () => {
+    menuState.items = [item('anime', 'Anime'), item('kpop', 'K-Pop')]
+    const { container } = renderHeader()
+    return container.querySelector('[aria-label="Departamentos"]') as HTMLElement
+  }
+
+  /**
+   * Fixa as três medidas no nó e avisa o componente, como o navegador faria.
+   *
+   * `scrollLeft` entra como par get/set de verdade — o clique da seta ESCREVE nele, e um valor
+   * fixo esconderia justamente o que o último caso mede.
+   */
+  const medir = (nav: HTMLElement, scrollLeft: number, total = LARGURA_TOTAL) => {
+    let atual = scrollLeft
+    Object.defineProperty(nav, 'scrollWidth', { configurable: true, get: () => total })
+    Object.defineProperty(nav, 'clientWidth', { configurable: true, get: () => LARGURA_VISIVEL })
+    Object.defineProperty(nav, 'scrollLeft', {
+      configurable: true,
+      get: () => atual,
+      set: (valor: number) => {
+        atual = valor
+      },
+    })
+    act(() => {
+      nav.dispatchEvent(new Event('scroll'))
+    })
+  }
+
+  const esquerda = () => screen.queryByLabelText('Ver os departamentos anteriores')
+  const direita = () => screen.queryByLabelText('Ver mais departamentos')
+
+  it('quando CABE, não há afordância nenhuma — e este é o caso normal da loja', () => {
+    // A loja tem 3 itens hoje. Uma seta parada numa barra que não rola é um botão que não faz nada,
+    // e um degradê permanente seria sujeira sobre uma faixa chapada.
+    const nav = montar()
+    medir(nav, 0, LARGURA_VISIVEL)
+
+    expect(screen.queryByTestId('faixa-afordancia')).toBeNull()
+    expect(esquerda()).toBeNull()
+    expect(direita()).toBeNull()
+  })
+
+  it('no COMEÇO, só à direita', () => {
+    const nav = montar()
+    medir(nav, 0)
+
+    expect(screen.getByTestId('afordancia-direita')).toBeInTheDocument()
+    expect(screen.queryByTestId('afordancia-esquerda')).toBeNull()
+    expect(direita()).toBeInTheDocument()
+    expect(esquerda()).toBeNull()
+  })
+
+  it('no MEIO, dos dois lados', () => {
+    const nav = montar()
+    medir(nav, 600)
+
+    expect(screen.getByTestId('afordancia-esquerda')).toBeInTheDocument()
+    expect(screen.getByTestId('afordancia-direita')).toBeInTheDocument()
+    expect(esquerda()).toBeInTheDocument()
+    expect(direita()).toBeInTheDocument()
+  })
+
+  it('no FIM, só à esquerda', () => {
+    // `FIM` é `scrollWidth − clientWidth`, o mesmo 1339 que o navegador reportou ao levar a faixa
+    // até o último item.
+    const nav = montar()
+    medir(nav, FIM)
+
+    expect(screen.getByTestId('afordancia-esquerda')).toBeInTheDocument()
+    expect(screen.queryByTestId('afordancia-direita')).toBeNull()
+    expect(esquerda()).toBeInTheDocument()
+    expect(direita()).toBeNull()
+  })
+
+  it('o fim tolera fração — o navegador não devolve o máximo exato', () => {
+    // Com zoom ou densidade não inteira as três medidas voltam fracionárias, e a rolagem para a
+    // décimos do máximo. Sem folga, a seta da direita ficaria acesa para sempre num fim já
+    // alcançado — e clicá-la não moveria nada.
+    const nav = montar()
+    medir(nav, FIM - 0.4)
+
+    expect(direita()).toBeNull()
+  })
+
+  it('clicar na seta da direita rola PARA a direita, ~uma janela', () => {
+    const nav = montar()
+    medir(nav, 0)
+
+    fireEvent.click(direita()!)
+
+    // 80% da janela visível: uma janela cheia deixaria a cliente sem referência do que passou.
+    expect(nav.scrollLeft).toBeCloseTo(LARGURA_VISIVEL * 0.8)
+    // E o estado acompanha na hora: agora há conteúdo escondido dos dois lados.
+    expect(esquerda()).toBeInTheDocument()
+    expect(direita()).toBeInTheDocument()
+  })
+
+  it('clicar na seta da esquerda rola PARA a esquerda', () => {
+    const nav = montar()
+    medir(nav, FIM)
+
+    fireEvent.click(esquerda()!)
+
+    expect(nav.scrollLeft).toBeCloseTo(FIM - LARGURA_VISIVEL * 0.8)
+  })
+
+  it('as duas setas têm rótulo em português, e o degradê não tem — ele é pista, não controle', () => {
+    const nav = montar()
+    medir(nav, 600)
+
+    expect(esquerda()).toHaveAttribute('aria-label', 'Ver os departamentos anteriores')
+    expect(direita()).toHaveAttribute('aria-label', 'Ver mais departamentos')
+    expect(screen.getByTestId('afordancia-esquerda')).toHaveAttribute('aria-hidden')
+    expect(screen.getByTestId('afordancia-direita')).toHaveAttribute('aria-hidden')
+  })
+
+  it('o alvo da seta é 44px, e ela não rouba clique do item que o degradê cobre', () => {
+    // 44 vem do `CLAUDE.md`. `h-11 w-11` JÁ é o alvo, então nada de `TAP_44` — o auxiliar existe
+    // para desenho menor que 44, e `touchTarget.test.ts` só o cobra de `h-8`/`h-9`/`h-10`/`38px`.
+    const nav = montar()
+    medir(nav, 600)
+
+    for (const seta of [esquerda()!, direita()!]) {
+      expect(seta.className).toContain('h-11')
+      expect(seta.className).toContain('w-11')
+      expect(seta.className).toContain('pointer-events-auto')
+    }
+    // A camada inteira é transparente ao ponteiro: o degradê cobre o primeiro/último item, e sem
+    // isto ele engoliria o clique de um link de departamento.
+    expect(screen.getByTestId('faixa-afordancia').className).toContain('pointer-events-none')
+  })
+
+  it('a camada NÃO vive dentro do `<nav>` — senão ela rolaria junto com o conteúdo', () => {
+    // Uma seta dentro do container de rolagem sairia da tela junto com os itens: ela precisa ficar
+    // parada na ponta. Por isso é irmã do `<nav>`, ancorada no `<header>`.
+    const nav = montar()
+    medir(nav, 600)
+
+    const camada = screen.getByTestId('faixa-afordancia')
+    expect(nav.contains(camada)).toBe(false)
+    expect(camada.className).toContain('absolute')
+    expect(camada.className).toContain('bottom-0')
+  })
+
+  it('a rolagem por teclado continua sendo do navegador — nada aqui a intercepta', () => {
+    // O UAT provou que `focus()` no último item leva a faixa a `scrollLeft` 1339 sozinho. Um
+    // `onWheel`/`onKeyDown` no `<nav>` seria a forma de quebrar isso sem ninguém notar.
+    const nav = montar()
+    medir(nav, 0)
+
+    expect(nav.getAttribute('onwheel')).toBeNull()
+    // E a suavização é do CSS, com o par de movimento reduzido ao lado.
+    expect(nav.className).toContain('scroll-smooth')
+    expect(nav.className).toContain('motion-reduce:scroll-auto')
+  })
 })
 
 // ── O chrome das boards `5MC-0` / `6AU-0` — `IDN-09` ──────────────────────────

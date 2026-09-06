@@ -1030,7 +1030,57 @@ achado, não um efeito colateral a "consertar" afrouxando a régua.
 
 ## BL-024 — A barra cheia do computador não tem afordância de rolagem para quem usa mouse
 
-**Origem**: UAT em navegador da feature `39`, 2026-09-06. Medido, não suposto.
+- **Status**: **FECHADO em 2026-09-06** · **Origem**: UAT em navegador da feature `39`, 2026-09-06.
+  Medido, não suposto.
+
+> **Como fechou.** As saídas **(1)** e **(3)** da lista abaixo, juntas — degradê como *pista* e seta
+> como *alvo* —, na faixa de departamentos do `Header`. A **(2)** foi recusada por escrito (ver
+> abaixo) e a **(4)** continua fora: ela é tela do painel, não da loja.
+>
+> - **O estado vem da posição real de rolagem**, nunca de contagem de itens:
+>   `shared/lib/useOverflowAffordance.ts` lê `scrollLeft`, `scrollWidth` e `clientWidth` no `scroll`
+>   do container **e** num `ResizeObserver` — que observa **duas** caixas, o `<nav>` (a janela
+>   encolheu) e o filho `min-w-max` (a fila cresceu). Contar itens erraria: sete itens curtos cabem
+>   e três longos não.
+> - **Nada aparece quando a faixa cabe**, e este é o caso normal: a loja tem 3 itens hoje. Só à
+>   direita no começo, dos dois lados no meio, só à esquerda no fim — com **1px de folga**, porque o
+>   navegador devolve medida fracionária e a rolagem para a décimos do máximo (sem a folga, a seta da
+>   direita ficaria acesa para sempre num fim já alcançado).
+> - **Nenhuma cor nova.** O degradê sai da própria cor da faixa
+>   (`from-estrelinha-primary → …/0`, sem sombra dura); o ícone da seta é `on-primary` sobre
+>   `primary` (**8,40:1**) e o anel de foco é `accent`, que sobre `primary` mede **3,26:1** e passa a
+>   régua de 3:1 de elemento gráfico. Alvo de **44px** (`h-11 w-11`, que já É o alvo — `TAP_44` é
+>   para desenho menor), `aria-label` em português nas duas.
+> - **A roda vertical NÃO foi sequestrada** (a saída 2). Rolar a página com o ponteiro sobre uma
+>   barra de 52px passaria a não rolar a página; e o cabeçalho é `sticky`, então a faixa continua à
+>   vista enquanto a página desce. A pista custa menos que a expectativa quebrada.
+> - **A rolagem por teclado continua sendo do navegador.** O UAT provou que `focus()` no último item
+>   leva `nav.scrollLeft` a 1339 sozinho, e nada foi acrescentado que intercepte isso. `scroll-smooth`
+>   (com `motion-reduce:scroll-auto` ao lado) é a única mudança de comportamento de rolagem, e é CSS
+>   — por isso `rolar` escreve `scrollLeft` direto em vez de `scrollBy({ behavior })`: a decisão de
+>   animar fica num lugar só.
+> - **A camada de afordância é `absolute` contra o `<header>`, não contra a faixa.** Pôr `relative`
+>   no `div` da faixa era o caminho curto, e teria mudado o **containing block** do painel do mega
+>   menu — que passaria a viver dentro dos 52px, sem erro nenhum. `Header.test.tsx` assere que nem o
+>   `<nav>` nem o invólucro dele são posicionados. E a camada é `pointer-events-none` (com
+>   `pointer-events-auto` só nas setas): o degradê cobre o primeiro e o último item, e sem isso
+>   engoliria o clique deles.
+> - **O `MobileMenu` não foi tocado**: no celular a lista é vertical e o problema não existe.
+>
+> **Prova.** 12 casos novos em `Header.test.tsx` (cabe · começo · meio · fim · fim fracionário ·
+> clique de cada seta · rótulos · alvo de 44 · a camada fora do `<nav>` · o teclado intacto),
+> fixando `scrollWidth`/`clientWidth`/`scrollLeft` no nó com `Object.defineProperty` e disparando
+> `scroll` — **jsdom devolve 0 para toda medida de layout, e os números usados são os do UAT**
+> (2619 × 1280, fim em 1339). Sensibilidade provada por três mutações: direção do clique invertida
+> (2 reprovam), afordância incondicional (1 reprova), lado esquerdo trocado pelo direito (3
+> reprovam). `menuSemTeto.test.ts` ganhou a regra e **seis** sensores por mutação, com as duas réguas
+> escritas como **predicado** — a asserção e o sensor chamam a mesma função.
+>
+> **O que continua fora, e é o item (4):** avisar em `/admin/menu` quando a curadoria não couber em
+> 1440. A prévia já mostra, mas em silêncio. Não virou item novo por ser tela do painel e depender de
+> medir o iframe, não a loja.
+
+O registro original, preservado:
 
 A feature `39` **apagou o teto de itens do menu** (decisão do usuário: "não limitar a quantidade de
 itens em 5"). Antes, o estouro da barra era impossível por construção; agora é um estado alcançável,
@@ -1057,4 +1107,5 @@ houver conteúdo à direita; (2) mapear a roda vertical para rolagem horizontal 
 sobre a faixa; (3) setas de rolagem nas pontas; (4) avisar na tela `/admin/menu` quando a curadoria
 não couber em 1440 — a prévia já mostra, mas em silêncio.
 
-**Status**: aberto. Nada quebra sem isto; o que se perde é descoberta.
+~~**Status**: aberto. Nada quebra sem isto; o que se perde é descoberta.~~ — **fechado**, ver o
+bloco no topo desta entrada.

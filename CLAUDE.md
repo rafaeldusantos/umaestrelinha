@@ -300,7 +300,7 @@ migrations, e `vercelRedirects` lê o `vercel.json`.
 | `menuIconCatalog.test.ts` | idem | chave de `MENU_ICON_KEYS` sem componente em `MENU_ICON_COMPONENTS`, ou o contrário; a loja voltar a importar ícone de `@/shared/ui/icons`. **Bidirecional**, com âncora de contagem |
 | `menuSurfaceSingleOwner.test.ts` | idem | qualquer arquivo de `apps/**` ler `show_in_menu` ou `menu_promo` — a primeira é **coluna gerada** e a segunda é legado; quem responde "está no menu?" é `menuItems(…, surface)`, porque a resposta depende do dispositivo. **Zero allowlist**, escrito literalmente, e sensor do ponto cego do comentário |
 | `menuSemItemFixo.test.ts` | idem | `FIXED_ENTRIES` (com qualquer um dos dois nomes) voltar a existir; `/crie-seu-botton` reaparecer; destino literal (`to="/…"`) nas quatro superfícies de menu da loja fora do chrome (`/`, `/conta`, `/favoritos`). **Âncora dupla** e quatro sensores |
-| `menuSemTeto.test.ts` | idem | `MENU_SLOT_LIMIT`, `slotsUsed`, `menuSlotRefusal`, `menuEntries`, `MenuEntry`, `resolvePromo` ou `ResolvedPromo` voltarem a `apps/**` ou a `packages/core/src/menu/**`; vocabulário de "vaga" nas cinco superfícies de menu; a barra trocar `overflow-x-auto`/`min-w-max` por `flex-wrap` (embrulhar **esconde** o estouro). **Âncora dupla** e cinco sensores — incluindo a prova de que `MobileMenuEntry` **não** é acusado |
+| `menuSemTeto.test.ts` | idem | `MENU_SLOT_LIMIT`, `slotsUsed`, `menuSlotRefusal`, `menuEntries`, `MenuEntry`, `resolvePromo` ou `ResolvedPromo` voltarem a `apps/**` ou a `packages/core/src/menu/**`; vocabulário de "vaga" nas cinco superfícies de menu; a barra trocar `overflow-x-auto`/`min-w-max` por `flex-wrap` (embrulhar **esconde** o estouro); a **afordância** de rolagem sumir da faixa cheia — o estado medido, os dois degradês e as duas setas rotuladas (`BL-024`). **Âncora dupla** e dez sensores — incluindo a prova de que `MobileMenuEntry` **não** é acusado, e as duas réguas da `BL-024` escritas como **predicado**, para asserção e sensor chamarem a mesma função |
 | `sanitizeHtml.test.ts` | idem | a allowlist aceitar atributo, `href` deixar de passar por `new URL`, ou `script`/`style`/`iframe` voltarem a desembrulhar em vez de sumir |
 | `importSchema.test.ts` | store `shared/lib/__tests__` | a migration da `35` afrouxar: índice de idempotência virar parcial; `security_invoker` sumir de `customer_directory`; o agregado de telefone da convidada perder o `FILTER (WHERE … IS NOT NULL)`; `handle_new_customer` perder o `security definer`; a adoção por e-mail deixar de recortar `customer_id IS NULL` ou de comparar por `lower()`; `grant` alcançar `anon`. **Cada asserção tem sensor por mutação** |
 | `originZipNotRead.test.ts` | backoffice `shared/lib/__tests__` | qualquer arquivo de `apps/**` ler `store_settings.shipping.origin_zip` — o campo é LEGADO e a origem da cotação é o `postal_code` do secret `MELHOR_ENVIO_SENDER_JSON`. Deixá-lo configurável na tela faria a origem da COTAÇÃO e a da ETIQUETA poderem divergir. **Âncora dupla** |
@@ -354,7 +354,20 @@ quando mudarem de verdade.
 | --- | --- | --- |
 | **Lint** | **27 erros / 5 warnings** — backoffice 25/4 · store 2/1 | `pnpm lint` |
 | **Tipos** | **0 · 0 · 0** (store · backoffice · catalog-import) | `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` |
-| **Testes** | **6648 em 357 arquivos** — store 2190/144 · backoffice 1908/116 · core 1691/67 · functions 350/7 · catalog-import 509/23 | `pnpm --filter @estrelinha/<w> test` |
+| **Testes** | **6670 em 357 arquivos** — store 2212/144 · backoffice 1908/116 · core 1691/67 · functions 350/7 · catalog-import 509/23 | `pnpm --filter @estrelinha/<w> test` |
+
+**As duas dívidas que a `39` registrou somaram +22, todas no store**, medidas em 2026-09-06 um
+workspace por vez e com exit code capturado. **Nenhum arquivo novo de teste**: as duas cresceram
+dentro dos arquivos que já guardavam o assunto.
+
+| Dívida | Onde | Delta |
+| --- | --- | --- |
+| **`BL-023`** — o ponto cego do removedor de comentário do guarda do frete grátis | store `freeShippingSingleOwner.test.ts` (15 → 17) | **+2**, os dois sensores novos (o glob que cegava, e a leitura fora do allowlist ao lado dele). Nenhuma asserção de regra tocada, e nenhuma passou a reprovar — o ponto cego não escondia leitura nenhuma |
+| **`BL-024`** — a barra cheia sem afordância de rolagem para mouse | store `Header.test.tsx` (26 → 38) e `menuSemTeto.test.ts` (15 → 23) | **+20**: 12 casos de estado (cabe · começo · meio · fim · fim fracionário · os dois cliques · rótulos · alvo de 44 · a camada fora do `<nav>` · o teclado intacto) e 8 de forma, com as duas réguas escritas como **predicado** para asserção e sensor chamarem a mesma função |
+
+Lint ficou em **27/5** (store 2/1 · backoffice 25/4) e tipos em **0 · 0**, sem mexer. Core,
+functions e catalog-import não foram tocados e foram remedidos assim mesmo: 1691/67, 350/7 e 509/23.
+`packages/core/src/payment/**` não teve uma linha alterada.
 
 **A feature `39` (menu configurável) somou +484 em três workspaces**, medidos em 2026-09-05 um por
 vez, na ordem, e com exit code capturado: **core +198/+7**, **store +181/+9** e **backoffice
@@ -643,6 +656,12 @@ completo (framework, `installCommand` na raiz do monorepo, headers de cache e de
   esconder. Achado ao fechar, e **não consertado**: `previaUnica.test.ts` (backoffice) ainda faz
   duas passadas, embora o `BACKLOG.md` o listasse como exemplo da forma correta.
   *(Registrado como `023` e não `018` porque o `018` já estava ocupado.)*
+- **`BL-024` está FECHADO** (2026-09-06). A faixa de departamentos ganhou degradê nas bordas e setas
+  nas pontas, presentes **só** do lado em que há conteúdo além da dobra — e nenhum quando ela cabe,
+  que é o caso normal (3 itens). O estado vem da posição real de rolagem
+  (`shared/lib/useOverflowAffordance`), não de contagem de itens. A **roda vertical não foi
+  sequestrada** e o teclado continua sendo do navegador. Fica aberto só o item (4) da entrada: avisar
+  em `/admin/menu` quando a curadoria não couber em 1440.
 - **`BL-014`** — geração de pergunta por IA, adiada por decisão do usuário em 2026-08-16. Irmã da
   `BL-001`, e as duas devem ser resolvidas juntas (a resposta de infraestrutura é a mesma).
 - **`BL-015`** — **`material_kinds` diz menos que a descrição.** Há produto com `material_kinds =
