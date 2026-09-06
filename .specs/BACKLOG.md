@@ -993,3 +993,34 @@ existiu.
 **Escopo mínimo sugerido**: só o removedor e os sensores. Nenhuma asserção de regra deve ser tocada —
 se alguma passar a reprovar depois da troca, ela estava sendo aprovada pelo ponto cego, e isso é um
 achado, não um efeito colateral a "consertar" afrouxando a régua.
+
+## BL-024 — A barra cheia do computador não tem afordância de rolagem para quem usa mouse
+
+**Origem**: UAT em navegador da feature `39`, 2026-09-06. Medido, não suposto.
+
+A feature `39` **apagou o teto de itens do menu** (decisão do usuário: "não limitar a quantidade de
+itens em 5"). Antes, o estouro da barra era impossível por construção; agora é um estado alcançável,
+e a resposta desenhada para ele é a faixa **rolar na horizontal** dentro de si mesma.
+
+O UAT provou que a rolagem funciona e que nada vaza: com 17 itens, `nav.scrollWidth` 2619 contra
+`clientWidth` 1280, `body` 1440 × 1440, e o último item alcançável em `scrollLeft` 1339. **O problema
+não é a rolagem — é a pista de que ela existe.**
+
+Medido no Chromium:
+
+- a barra de rolagem é **em sobreposição** (`offsetHeight` = `clientHeight` = 52), então não aparece
+  parada;
+- a roda **vertical** do mouse sobre a faixa rola a **página**, não a faixa;
+- sobram `shift`+roda, trackpad horizontal e teclado — e o teclado funciona bem: o foco no último
+  item rola a faixa sozinho.
+
+Ou seja: quem usa mouse num monitor largo pode **não descobrir** que há itens além da dobra da faixa.
+Não é violação de AC (nenhuma pede afordância) e não reprovou o UAT — é consequência de produto da
+decisão de tirar o teto.
+
+**Saídas possíveis, da mais barata para a mais cara**: (1) um degradê na borda direita enquanto
+houver conteúdo à direita; (2) mapear a roda vertical para rolagem horizontal quando o ponteiro está
+sobre a faixa; (3) setas de rolagem nas pontas; (4) avisar na tela `/admin/menu` quando a curadoria
+não couber em 1440 — a prévia já mostra, mas em silêncio.
+
+**Status**: aberto. Nada quebra sem isto; o que se perde é descoberta.

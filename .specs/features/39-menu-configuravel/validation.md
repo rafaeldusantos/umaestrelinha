@@ -948,3 +948,236 @@ O que o implementador deixou como pendente continua pendente, e eu não o fechei
   ser o do `tail`. Os cinco passaram isolados.
 - **A evidência do implementador foi lida, não reexecutada**, e está preservada acima com a marcação
   de origem. Ela não foi usada como prova de nada que eu não tenha ancorado por conta.
+
+---
+
+## UAT em navegador (390 × 1440)
+
+> **Data**: 2026-09-06 · **HEAD**: `19ac788` · **Branch**: `feat/39-menu-configuravel` · **Worktree**:
+> `C:\Projetos\uma-estrelinha\store-39-menu` · Chromium via `playwright-cli` 0.1.17.
+>
+> **Escopo estrito**: só o que o jsdom não alcança — largura, rolagem, sobreposição e recorte. Nenhuma
+> linha de código, teste ou spec foi escrita ou corrigida por esta execução; `git status --short`
+> vazio no início e no fecho. Fecha os dois riscos de entrega §1 (`NAV-04`) e §2 (`NAV-45`) da seção
+> `I2.8`. **O risco §3 (a migration do zero) continua aberto e não foi tocado.**
+
+### Como subiu — e por que NÃO foi nas portas 8082/8083
+
+As portas 8082 e 8083 **já estavam ocupadas, e por outra árvore**: os servidores de dev que respondiam
+ali servem `C:\Projetos\uma-estrelinha\store` (branch `feat/38-performance-mobile`), não este worktree.
+Medido antes de qualquer coisa, por impressão digital do módulo servido:
+
+| Prova | 8082/8083 (já de pé) | Este worktree |
+| --- | --- | --- |
+| `GET /src/widgets/header/ui/MegaMenu.tsx` | 5 × `hasPanel`, 4 × `MenuEntry`, 1 × `menuEntries` | 1 × `hasPanel`, 0 × `MenuEntry` |
+| `GET /src/pages/admin/AdminMenuPage.tsx` | 1 × `vaga`, 0 × `MenuPanelEditor` | 2 × `MenuPanelEditor`, 2 × `MenuBannerEditor` |
+
+Rodar a medição contra elas teria medido a feature **38**. Subi então os desta árvore em portas
+livres, e derrubei só o que subi:
+
+- loja: `pnpm --filter @estrelinha/store exec vite --port 8092 --strictPort` → `http://localhost:8092`
+- painel: `VITE_STORE_URL=http://localhost:8092 pnpm --filter @estrelinha/backoffice exec vite --port
+  8093 --strictPort` → `http://localhost:8093`
+- Supabase local **já estava de pé** (`GET http://127.0.0.1:54341/rest/v1/` → `200`). Nada foi
+  iniciado nem parado ali; **`supabase stop --all` não foi executado**.
+- Login do painel: `admin@umaestrelinha.dev` / `admin123` (do `supabase/seed.sql:135-147`). Entrou na
+  primeira tentativa.
+- **Zero erro de console** nas duas aplicações durante toda a sessão (loja: 5 mensagens, 0 erros, 2
+  avisos; painel: 10 mensagens, 0 erros, 5 avisos).
+
+---
+
+### A. `NAV-04` no computador (1440 × 900) — a faixa rola, e o painel não é cortado ✅
+
+**Estado semeado (o que a loja entrega hoje)**: 3 itens na barra, `scrollWidth` **1280** =
+`clientWidth` **1280** — não estoura, logo não prova nada. Para provocar o estouro liguei 14
+categorias direto no banco (lista e desfazimento em *Estado do banco*, abaixo), chegando a **17
+itens**.
+
+| Medida | Antes (3 itens) | **Com 17 itens** | Veredito |
+| --- | --- | --- | --- |
+| `nav.scrollWidth` × `nav.clientWidth` | 1280 × 1280 | **2619 × 1280** | ✅ a faixa **estoura e rola** |
+| `document.body.scrollWidth` × `clientWidth` | 1440 × 1440 | **1440 × 1440** | ✅ o `body` **não** rola |
+| `documentElement.scrollWidth` × `clientWidth` | 1440 × 1440 | **1440 × 1440** | ✅ |
+| `window.scrollX` | 0 | **0** | ✅ |
+| `getComputedStyle(nav).overflowX` | — | `auto` | ✅ |
+
+**Alcançar o último item — medido, não presumido.** Com `scrollLeft = 0`, o item "Sobre" fica em
+`x = 2636..2683`, **fora** da caixa do `<nav>` (`80..1360`) — `ultimoVisivelNoNav: false`. Levando
+`scrollLeft` ao fim: **1339**, que é exatamente `scrollWidth − clientWidth` (2619 − 1280), e o "Sobre"
+passa a `1297..1344`, **dentro** do `<nav>` — `ultimoVisivelNoNav: true`, com `body` ainda 1440 × 1440.
+
+**Gestos reais, não só `scrollLeft`:**
+
+| Gesto | Resultado | Leitura |
+| --- | --- | --- |
+| roda **horizontal** sobre a faixa (`wheel(300, 0)`) | `nav.scrollLeft = 300`, `window.scrollX = 0` | ✅ trackpad e `shift`+roda rolam a faixa |
+| roda **vertical** sobre a faixa (`wheel(0, 300)`) | `nav.scrollLeft = 0`, `window.scrollY = 300` | a página rola; a faixa não. O cabeçalho é `sticky`, então ela continua à vista |
+| **teclado** — `focus()` no último item | `nav.scrollLeft = 1339`, item visível dentro do `<nav>` | ✅ tabular alcança o fim da faixa sem gesto de ponteiro |
+
+Sem barra de rolagem consumindo layout: `nav.offsetHeight` **52** = `clientHeight` **52** e
+`offsetWidth` **1280** = `clientWidth` **1280** (barra em sobreposição neste Chromium).
+
+**O painel do mega menu NÃO é cortado — a parte não óbvia, e ela passa.** Com os 17 itens e o painel
+de "Joias afetivas" aberto:
+
+- o painel **é descendente do `<nav>` no DOM** (`nav.contains(painel) === true`), e o ancestral que
+  clipa mais próximo é o próprio `<nav>`, com `overflow-x: auto` e **`overflow-y: auto`** (o `visible`
+  computa para `auto` quando o outro eixo não é `visible`);
+- e mesmo assim ele desenha em **`[x=0, y=136, w=1440, h=349]`** — mais largo que o `<nav>`
+  (`80..1360`) e **abaixo** dele (`84..136`), com `scrollHeight` **348** = `clientHeight` **348** (não
+  há recorte interno). É o `absolute` cujo bloco contentor é o `<header>`, exatamente como o
+  comentário de `Header.tsx:213-218` prevê;
+- **prova por hit-test, não por retângulo**: `document.elementFromPoint` em `(40, 300)` e
+  `(1400, 300)` — os dois **fora** da faixa horizontal do `<nav>` — devolve o `div` do painel; em
+  `(700, 470)` devolve o `container` interno. O primeiro link (`ver tudo em Joias afetivas`,
+  `[96,168,480,18]`) e o último (`[1024,168,320,62]`) devolvem a si mesmos no centro: **13 links,
+  todos clicáveis**.
+
+*Observação sem AC*: rolar a faixa por script com o painel aberto **fecha** o painel — o ponteiro deixa
+a entrada e o fechamento por `pointerleave` dispara. É comportamento de hover, não recorte.
+
+---
+
+### B. `NAV-04` no celular (390 × 844) — nada rola na horizontal ✅
+
+Folha do menu aberta, acordeão "Joias afetivas" (a única categoria com banner semeado) expandido e
+fechado de novo. Três medições na mesma sessão:
+
+| Medida | fechado | **aberto** | refechado |
+| --- | --- | --- | --- |
+| `body.scrollWidth` × `clientWidth` | 390 × 390 | **390 × 390** | 390 × 390 |
+| `documentElement.scrollWidth` × `clientWidth` | 390 × 390 | **390 × 390** | 390 × 390 |
+| `window.scrollX` | 0 | **0** | 0 |
+| `dialog.scrollWidth` × `clientWidth` | 390 × 390 | **390 × 390** | 390 × 390 |
+| banners `[data-testid="mobile-menu-banner"]` | **0** | **1** | **0** |
+| alvos de toque na `nav[aria-label="Coleções"]` | 3 | **16** | 3 |
+| menor altura medida | 56 | **44,0** | 56 |
+| alvos abaixo de 44px | **0** | **0** | **0** |
+| alvo cuja borda direita passa de 390 | **0** | **0** (máx. 370) | **0** |
+
+- **O banner vive dentro do acordeão** (`NAV-36`): retângulo `[32, 704, 338, 47]`, e
+  `nav[aria-label="Coleções"].contains(banner) === true`. Ele **não existe no DOM** com o acordeão
+  fechado, e some de novo ao fechar — 0 → 1 → 0.
+- **Alvos de toque**: as 12 filhas e o "ver tudo em Joias afetivas →" medem **44,0px** de altura por
+  `getBoundingClientRect`; os três botões de primeiro nível medem **56**; o banner, 47. Largura 338 ou
+  350, borda direita máxima **370** numa viewport de 390.
+- **Varredura de rolagem horizontal dentro da folha**: os únicos nós com `scrollWidth > clientWidth`
+  são dois `sr-only` (`clientWidth: 1`, `overflow-x: hidden`) e o botão "Fechar menu", cujo
+  pseudo-elemento de 44px (`before:`, o `TAP_44`) transborda a caixa de 36px com
+  `overflow-x: visible`. **Nenhum deles chega ao `body`**, que fica em 390 × 390 nas três etapas.
+- A faixa de departamentos em 390: presente no DOM, mas com o invólucro (`hidden bg-estrelinha-primary
+  md:block`) em `display: none`, retângulo **0 × 0** e `checkVisibility() === false`.
+
+---
+
+### C. As bordas que só o navegador mostra ✅
+
+**Menu vazio na superfície do computador.** Desliguei **tudo**: `menu_desktop = false` nas 34
+categorias marcadas **e** `desktop: false` nos dois itens de link (sem isso a barra continuaria com o
+"Sobre" e o caso não seria o vazio). Em 1440:
+
+| Medida | Com menu | **Vazio** |
+| --- | --- | --- |
+| `nav[aria-label="Departamentos"]` no DOM | presente | **ausente** |
+| altura do `<header>` | 136 (84 + 52) | **84** |
+| filhos diretos do `<header>` | 2 | **1** |
+| marca, busca e ações | presentes | **presentes** — `"O que você está procurando?"`, `Buscar`, `Entrar`, `Carrinho`, `Abrir menu` |
+| `body.scrollWidth` × `clientWidth` | 1440 × 1440 | **1440 × 1440** |
+
+**Não sobra faixa de altura zero**: o header perde os 52px inteiros e volta a ter um único filho
+direto. Estado desfeito em seguida.
+
+**Item de link com destino externo.** Criado **pela tela**, não por SQL: `/admin/menu` → "Adicionar um
+link" → rótulo `Instagram UAT`, destino `https://www.instagram.com/umaestrelinha`. A gravação foi
+aceita (`sort_order: 101`, `desktop: true`, `mobile: true`), o que exercita `NAV-09`/`NAV-10` de ponta
+a ponta. No DOM renderizado da loja:
+
+| Superfície | `href` | `target` | `rel` |
+| --- | --- | --- | --- |
+| barra do computador (1440) | `https://www.instagram.com/umaestrelinha` | **`_blank`** | **`noopener noreferrer`** |
+| folha do celular (390) | `https://www.instagram.com/umaestrelinha` | **`_blank`** | **`noopener noreferrer`** |
+
+O link foi apagado no desfazimento.
+
+---
+
+### D. `NAV-45` — a prévia é 390 **escalado**, não encolhido ✅
+
+Em `/admin/menu`, com o painel logado. O sinal barato que a `I2.8 §2` nomeia — a barra de
+departamentos, que é `hidden md:block`, **tem de sumir** — foi medido pelo lado de **dentro** do
+iframe, e não por aparência:
+
+| Medida | aba **Computador** | aba **Celular** (painel a 1440) | aba **Celular** (painel a **1000 × 620**) |
+| --- | --- | --- | --- |
+| atributo `width` × `height` | 1024 × 768 | **390 × 844** | **390 × 844** |
+| `offsetWidth` × `offsetHeight` | 1024 × 768 | **390 × 844** | **390 × 844** |
+| `style.transform` | `scale(0.591797)` | `scale(1)` | **`scale(0.451422)`** |
+| `transform-origin` | `0px 0px` | `0px 0px` | `0px 0px` |
+| retângulo **visual** | 606 × 455 | 390 × 844 | **176 × 381** |
+| `window.innerWidth` **dentro** | 1024 | **390** | **390** |
+| `matchMedia('(min-width: 768px)')` dentro | **true** | **false** | **false** |
+| faixa de departamentos dentro | visível, `[0, 84, 1024, 52]` | **`display: none`, 0 × 0, `checkVisibility() = false`** | **`display: none`, 0 × 0, `checkVisibility() = false`** |
+| `body.scrollWidth` dentro | 1024 | **390** | **390** |
+
+**A terceira coluna é a que fecha a AC.** Com a janela do painel em 1000 × 620 o palco não comporta os
+390 e a escala cai para **0,451422**, mas o `iframe` continua medindo **390 × 844** e a loja lá dentro
+continua reportando `innerWidth = 390` com a media query de `md` **falsa**. Se fosse encolhimento por
+CSS, `innerWidth` continuaria 1024 e a barra apareceria. O `scale(1)` da segunda coluna não é constante
+cravada: é o valor calculado quando o palco cabe — e as outras duas colunas provam o cálculo vivo, em
+dois valores diferentes.
+
+`src` do iframe: `http://localhost:8092/?preview=1`.
+
+---
+
+### Estado do banco — devolvido, e provado pela mesma consulta
+
+**O que mexi**, tudo no Postgres local `54342` (nada foi enviado ao projeto hospedado):
+
+1. `update public.categories set menu_desktop = true where slug in (…)` — **14 slugs**: `aneis`,
+   `berloques`, `brincos1`, `colar-e-correntes`, `colares-afetivos`, `corrente`, `pingentes1`,
+   `pingentes-afetivos`, `pulseiras1`, `pulseiras-afetivas`, `amuletos`, `botanicas`,
+   `joias-codigo-morse`, `colecao-fragmentos`.
+2. `update public.categories set menu_desktop = false where menu_desktop` (34 linhas) — a borda do
+   menu vazio.
+3. `store_settings.menu`: `desktop: false` nos dois links, e o item `Instagram UAT` criado pela tela.
+4. `menu_mobile` **nunca foi tocado** em nenhum momento.
+
+**Desfazimento e prova:**
+
+| Prova | Antes | Depois |
+| --- | --- | --- |
+| `md5(string_agg(id‖menu_desktop‖menu_mobile))` sobre `categories` | `f0f8a9ca3f0616b533a44335eb64f310` | **`f0f8a9ca3f0616b533a44335eb64f310`** |
+| `diff` do dump completo das 37 categorias (slug, pai, as duas booleanas, `active`) | — | **idêntico byte a byte** |
+| `store_settings.menu` | `{"links": [{"id": "sobre", …, "desktop": true, "sort_order": 100}]}` | **string idêntica** |
+| render da loja em 1440 | 3 itens, `scrollWidth` 1280 = `clientWidth` 1280 | **3 itens, 1280 = 1280** |
+| `git status --short` | vazio | **vazio** |
+
+---
+
+### O que esta execução NÃO prova
+
+- **A migration do zero** (`I2.8 §3`) segue aberta, e não foi tocada: `supabase db reset` apagaria o
+  catálogo real da máquina de trabalho. Continua precisando de banco descartável.
+- **Aparelho real.** Tudo acima foi medido em Chromium de desktop com a viewport redimensionada para
+  390 × 844. Rolagem por inércia, barra de navegação do sistema e `100vh` no iOS Safari **não** foram
+  exercitados — o que se prova é geometria e recorte, não gesto de toque de verdade.
+- **A afordância da rolagem da faixa para quem só tem mouse.** A barra de rolagem é em sobreposição
+  (`offsetHeight` = `clientHeight`) e a roda **vertical** sobre a faixa rola a página, não a faixa.
+  Sobram `shift`+roda, trackpad horizontal, teclado e arrastar a barra em sobreposição. Nenhuma AC
+  pede afordância visual, e por isso **não reprovo** — registro como observação de produto: com a
+  faixa cheia, no computador com mouse, não há pista de que há mais item à direita.
+- **`NAV-39`, `NAV-41`, `NAV-42`, `NAV-46`** — as ressalvas de precisão da `I2.9` continuam como
+  estavam; não são de layout e estavam fora deste escopo.
+
+### Veredito do UAT
+
+**PASS ✅ — nenhum defeito de layout encontrado.** Os dois riscos de entrega de navegador estão
+fechados com número medido: a faixa **estoura e rola** (2619 × 1280) sem que o `body` saia de
+1440 × 1440, o último item é alcançável (`scrollLeft` 1339, o item indo de `2636` para `1297`), o
+painel do mega menu **não é cortado** apesar de morar dentro do container que rola (hit-test em
+`x = 40` e `x = 1400`), o celular não rola na horizontal em nenhuma das três etapas (390 × 390), o
+banner só existe com o acordeão aberto, todo alvo mede **≥ 44px**, e a prévia é **390 escalado** —
+provado com duas escalas diferentes (`0,591797` e `0,451422`) enquanto o `iframe` fica em 390 e a
+media query de `md` continua falsa lá dentro.
