@@ -90,9 +90,9 @@ describe('ProductGallery — a foto do tamanho do palco (PRF-02 AC 5-6)', () => 
     const palco = container.querySelector('img[sizes]')!
 
     expect(palco.getAttribute('srcset')).toBe(
-      `${RENDER}?width=360&quality=75 360w, ` +
-        `${RENDER}?width=480&quality=75 480w, ` +
-        `${RENDER}?width=720&quality=75 720w`,
+      `${RENDER}?width=360&resize=contain&quality=75 360w, ` +
+        `${RENDER}?width=480&resize=contain&quality=75 480w, ` +
+        `${RENDER}?width=720&resize=contain&quality=75 720w`,
     )
   })
 
@@ -116,7 +116,7 @@ describe('ProductGallery — a foto do tamanho do palco (PRF-02 AC 5-6)', () => 
     const { container } = galeria()
 
     expect(container.querySelector('img[sizes]')!.getAttribute('src')).toBe(
-      `${RENDER}?width=720&quality=75`,
+      `${RENDER}?width=720&resize=contain&quality=75`,
     )
   })
 
@@ -142,7 +142,7 @@ describe('ProductGallery — a foto do tamanho do palco (PRF-02 AC 5-6)', () => 
     expect(fita).toHaveLength(2)
     fita.forEach(img => {
       expect(img.getAttribute('src')).toContain('/render/image/public/')
-      expect(img.getAttribute('src')).toContain('width=160&quality=75')
+      expect(img.getAttribute('src')).toContain('width=160&resize=contain&quality=75')
     })
     expect(fita.map(img => img.getAttribute('src'))).not.toContain(STORAGE)
   })
@@ -183,7 +183,7 @@ describe('ProductGallery — a foto do tamanho do palco (PRF-02 AC 5-6)', () => 
       .filter(src => src!.includes('width=720'))
 
     expect(ativas).toContain(
-      SEGUNDA.replace('/object/public/', '/render/image/public/') + '?width=720&quality=75',
+      SEGUNDA.replace('/object/public/', '/render/image/public/') + '?width=720&resize=contain&quality=75',
     )
     expect(ativas.every(src => src!.includes('/render/image/public/'))).toBe(true)
   })

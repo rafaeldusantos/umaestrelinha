@@ -273,9 +273,9 @@ describe('MegaMenu — o destaque pede rendição pequena (PRF-02 AC 5)', () => 
     hover('Anime')
 
     const foto = screen.getByRole('img', { name: 'Pingente a' })
-    expect(foto).toHaveAttribute('src', `${RENDER_MENU}?width=320&quality=75`)
+    expect(foto).toHaveAttribute('src', `${RENDER_MENU}?width=320&resize=contain&quality=75`)
     expect(foto.getAttribute('srcset')).toBe(
-      `${RENDER_MENU}?width=160&quality=75 160w, ${RENDER_MENU}?width=320&quality=75 320w`,
+      `${RENDER_MENU}?width=160&resize=contain&quality=75 160w, ${RENDER_MENU}?width=320&resize=contain&quality=75 320w`,
     )
     expect(foto.getAttribute('sizes')).toBe('160px')
   })

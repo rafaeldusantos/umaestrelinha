@@ -207,9 +207,9 @@ describe('HomeBannerGrid — a arte no tamanho da vaga (PRF-02 AC 4)', () => {
     const arte = screen.getAllByRole('img')[0]
 
     expect(arte.getAttribute('srcset')).toBe(
-      `${RENDER_BANNER}?width=360&quality=75 360w, ` +
-        `${RENDER_BANNER}?width=480&quality=75 480w, ` +
-        `${RENDER_BANNER}?width=720&quality=75 720w`,
+      `${RENDER_BANNER}?width=360&resize=contain&quality=75 360w, ` +
+        `${RENDER_BANNER}?width=480&resize=contain&quality=75 480w, ` +
+        `${RENDER_BANNER}?width=720&resize=contain&quality=75 720w`,
     )
     // Largura cheia em 390px, metade da linha a partir do `md` — é o que os quatro arranjos fazem.
     expect(arte.getAttribute('sizes')).toBe('(min-width: 768px) 50vw, 100vw')
@@ -222,7 +222,7 @@ describe('HomeBannerGrid — a arte no tamanho da vaga (PRF-02 AC 4)', () => {
 
     expect(screen.getAllByRole('img')[0]).toHaveAttribute(
       'src',
-      `${RENDER_BANNER}?width=480&quality=75`,
+      `${RENDER_BANNER}?width=480&resize=contain&quality=75`,
     )
   })
 

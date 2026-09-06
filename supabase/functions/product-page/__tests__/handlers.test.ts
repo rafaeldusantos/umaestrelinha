@@ -456,7 +456,7 @@ describe('handleProductPage — o preload da foto principal (PRF-06)', () => {
   })
 
   it('o `&` da query sai ESCAPADO — `&` cru em atributo é o defeito silencioso', async () => {
-    // A URL da rendição carrega `?width=720&quality=75`. Concatenado cru, o `&quality` viraria uma
+    // A URL da rendição carrega `?width=720&resize=contain&quality=75`. Concatenado cru, o `&quality` viraria uma
     // referência de entidade malformada, e o documento deixaria de validar.
     const link = linkDe(await corpoDe(comFoto(STORAGE)))
 

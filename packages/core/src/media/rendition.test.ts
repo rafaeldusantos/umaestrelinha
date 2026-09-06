@@ -9,6 +9,7 @@ import {
   RENDITION_MAX_WIDTH,
   RENDITION_MIN_WIDTH,
   RENDITION_QUALITY,
+  RENDITION_RESIZE,
   RENDITION_WIDTHS,
   STORAGE_CACHE_CONTROL,
   imagePriority,
@@ -61,7 +62,7 @@ describe('rendition.ts não importa nada — a condição de a edge function con
 
 describe('renditionUrl — objeto público do Storage vira rendição (PRF-01 AC 1)', () => {
   it('troca o segmento `object` por `render/image` e acrescenta largura e qualidade', () => {
-    expect(renditionUrl(OBJETO, 360)).toBe(`${RENDER}?width=360&quality=75`)
+    expect(renditionUrl(OBJETO, 360)).toBe(`${RENDER}?width=360&resize=contain&quality=75`)
   })
 
   it('a qualidade vem da constante, não de um literal solto', () => {
@@ -70,14 +71,14 @@ describe('renditionUrl — objeto público do Storage vira rendição (PRF-01 AC
 
   it('cada largura pedida sai na query, e o caminho do objeto não muda', () => {
     for (const w of RENDITION_WIDTHS) {
-      expect(renditionUrl(OBJETO, w)).toBe(`${RENDER}?width=${w}&quality=75`)
+      expect(renditionUrl(OBJETO, w)).toBe(`${RENDER}?width=${w}&resize=contain&quality=75`)
     }
   })
 
   it('query existente é preservada, e a rendição entra depois dela', () => {
     // Token de cache-busting do painel (`?t=...`) não pode ser descartado: descartá-lo faria a
     // imagem trocada continuar a mostrar a versão antiga.
-    expect(renditionUrl(`${OBJETO}?t=1234`, 720)).toBe(`${RENDER}?t=1234&width=720&quality=75`)
+    expect(renditionUrl(`${OBJETO}?t=1234`, 720)).toBe(`${RENDER}?t=1234&width=720&resize=contain&quality=75`)
   })
 
   it('só a PRIMEIRA ocorrência do segmento é trocada', () => {
@@ -124,12 +125,12 @@ describe('renditionUrl — o que NÃO é objeto do Storage volta inalterado (PRF
 describe('renditionUrl — largura fora da faixa é grampeada (PRF-01 AC 3)', () => {
   it('abaixo do mínimo vira o mínimo', () => {
     // O Supabase RECUSA fora de 1..2500, e a resposta seria erro em vez de foto.
-    expect(renditionUrl(OBJETO, 0)).toBe(`${RENDER}?width=${RENDITION_MIN_WIDTH}&quality=75`)
-    expect(renditionUrl(OBJETO, -800)).toBe(`${RENDER}?width=${RENDITION_MIN_WIDTH}&quality=75`)
+    expect(renditionUrl(OBJETO, 0)).toBe(`${RENDER}?width=${RENDITION_MIN_WIDTH}&resize=contain&quality=75`)
+    expect(renditionUrl(OBJETO, -800)).toBe(`${RENDER}?width=${RENDITION_MIN_WIDTH}&resize=contain&quality=75`)
   })
 
   it('acima do máximo vira o máximo', () => {
-    expect(renditionUrl(OBJETO, 9000)).toBe(`${RENDER}?width=${RENDITION_MAX_WIDTH}&quality=75`)
+    expect(renditionUrl(OBJETO, 9000)).toBe(`${RENDER}?width=${RENDITION_MAX_WIDTH}&resize=contain&quality=75`)
   })
 
   it('os limites em si passam intactos', () => {
@@ -142,18 +143,18 @@ describe('renditionUrl — largura fora da faixa é grampeada (PRF-01 AC 3)', ()
   })
 
   it('largura que não é número nunca produz `width=NaN` — grampeia ao limite mais próximo', () => {
-    expect(renditionUrl(OBJETO, NaN)).toBe(`${RENDER}?width=1&quality=75`)
-    expect(renditionUrl(OBJETO, Infinity)).toBe(`${RENDER}?width=2500&quality=75`)
-    expect(renditionUrl(OBJETO, -Infinity)).toBe(`${RENDER}?width=1&quality=75`)
+    expect(renditionUrl(OBJETO, NaN)).toBe(`${RENDER}?width=1&resize=contain&quality=75`)
+    expect(renditionUrl(OBJETO, Infinity)).toBe(`${RENDER}?width=2500&resize=contain&quality=75`)
+    expect(renditionUrl(OBJETO, -Infinity)).toBe(`${RENDER}?width=1&resize=contain&quality=75`)
   })
 })
 
 describe('renditionSrcSet — as três larguras numa string só', () => {
   it('devolve `url 360w, url 480w, url 720w`', () => {
     expect(renditionSrcSet(OBJETO)).toBe(
-      `${RENDER}?width=360&quality=75 360w, ` +
-        `${RENDER}?width=480&quality=75 480w, ` +
-        `${RENDER}?width=720&quality=75 720w`,
+      `${RENDER}?width=360&resize=contain&quality=75 360w, ` +
+        `${RENDER}?width=480&resize=contain&quality=75 480w, ` +
+        `${RENDER}?width=720&resize=contain&quality=75 720w`,
     )
   })
 
@@ -168,7 +169,7 @@ describe('renditionSrcSet — as três larguras numa string só', () => {
 
   it('aceita larguras próprias — a vaga pequena pede a dela', () => {
     expect(renditionSrcSet(OBJETO, [120, 240])).toBe(
-      `${RENDER}?width=120&quality=75 120w, ${RENDER}?width=240&quality=75 240w`,
+      `${RENDER}?width=120&resize=contain&quality=75 120w, ${RENDER}?width=240&resize=contain&quality=75 240w`,
     )
   })
 
@@ -182,7 +183,7 @@ describe('renditionSrcSet — as três larguras numa string só', () => {
 
   it('o descritor acompanha o grampeamento — nunca promete largura que a URL não pede', () => {
     // `"…width=2500… 9000w"` faria o navegador escolher errado para sempre.
-    expect(renditionSrcSet(OBJETO, [9000])).toBe(`${RENDER}?width=2500&quality=75 2500w`)
+    expect(renditionSrcSet(OBJETO, [9000])).toBe(`${RENDER}?width=2500&resize=contain&quality=75 2500w`)
   })
 })
 
@@ -232,5 +233,56 @@ describe('STORAGE_CACHE_CONTROL — um dono para o cache do Storage (PRF-05 AC 2
 
   it('não é a uma hora de hoje — o literal `3600` está escrito em dois workspaces', () => {
     expect(STORAGE_CACHE_CONTROL).not.toBe('3600')
+  })
+})
+
+/**
+ * **A rendição preserva a PROPORÇÃO da origem** — o defeito que chegou em produção.
+ *
+ * A primeira versão de `renditionUrl` pedia só `width` e `quality`. O padrão do Supabase é
+ * `resize=cover`, que com uma dimensão só **mantém a altura da origem e recorta a largura**:
+ * uma foto 1024×1280 pedida em 360 voltava **360×1280**, uma tira vertical do meio. O
+ * `object-cover` da vaga então esticava essa tira, e o card mostrava um detalhe ampliado da peça.
+ *
+ * Nenhum teste pegou, e a razão é estrutural: jsdom não baixa imagem e não mede layout, e a URL
+ * estava sintaticamente correta em todas as asserções. Quem encontrou foi olho humano, no
+ * navegador, com o catálogo real na tela.
+ *
+ * Estes casos não substituem essa prova — eles impedem a **regressão** de quem, olhando a URL,
+ * ache que `resize` é ruído e o remova.
+ */
+describe('a rendição preserva a proporção da origem', () => {
+  const STORAGE =
+    'https://x.supabase.co/storage/v1/object/public/product-images/nuvemshop/1/2.webp'
+
+  it('toda rendição declara `resize=contain`', () => {
+    for (const w of RENDITION_WIDTHS) {
+      expect(renditionUrl(STORAGE, w)).toContain('resize=contain')
+    }
+  })
+
+  it('o `srcset` inteiro declara `resize=contain` — uma vez por candidato', () => {
+    const srcset = renditionSrcSet(STORAGE)
+    expect(srcset.match(/resize=contain/g)).toHaveLength(RENDITION_WIDTHS.length)
+  })
+
+  it('NUNCA declara `resize=cover` — é o padrão que recorta', () => {
+    expect(renditionUrl(STORAGE, 360)).not.toContain('resize=cover')
+    expect(renditionSrcSet(STORAGE)).not.toContain('resize=cover')
+  })
+
+  it('a constante é `contain`, e não outro modo', () => {
+    // `fill` distorce e `cover` recorta. Só `contain` reduz sem mentir sobre a peça.
+    expect(RENDITION_RESIZE).toBe('resize=contain')
+  })
+
+  it('a ordem dos parâmetros mantém `width` primeiro, `quality` por último', () => {
+    // Não é cosmético: a URL é chave de cache no CDN, e reordenar invalida tudo que já está quente.
+    expect(renditionUrl(STORAGE, 480)).toMatch(/\?width=480&resize=contain&quality=75$/)
+  })
+
+  it('com query preexistente, os três parâmetros entram DEPOIS dela', () => {
+    const comQuery = STORAGE + '?t=1'
+    expect(renditionUrl(comQuery, 360)).toMatch(/\?t=1&width=360&resize=contain&quality=75$/)
   })
 })

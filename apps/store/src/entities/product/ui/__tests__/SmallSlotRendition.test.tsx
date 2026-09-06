@@ -180,7 +180,7 @@ describe('VariantSheet — a foto do cabeçalho pede 160 (PRF-02 AC 5)', () => {
     const { baseElement } = renderSheet(produto({ ...COM_COR, image_url: STORAGE }))
 
     const foto = baseElement.querySelectorAll('img')[0]
-    expect(foto?.getAttribute('src')).toBe(`${RENDER}?width=160&quality=75`)
+    expect(foto?.getAttribute('src')).toBe(`${RENDER}?width=160&resize=contain&quality=75`)
   })
 
   it('produto de host externo passa inalterado, sem endpoint inventado', () => {

@@ -74,9 +74,9 @@ describe('ProductCard — a foto chega no tamanho da vaga (PRF-02 AC 4)', () => 
     const { foto } = renderCard(0)
 
     expect(foto.getAttribute('srcset')).toBe(
-      `${RENDER}?width=360&quality=75 360w, ` +
-        `${RENDER}?width=480&quality=75 480w, ` +
-        `${RENDER}?width=720&quality=75 720w`,
+      `${RENDER}?width=360&resize=contain&quality=75 360w, ` +
+        `${RENDER}?width=480&resize=contain&quality=75 480w, ` +
+        `${RENDER}?width=720&resize=contain&quality=75 720w`,
     )
   })
 
@@ -96,7 +96,7 @@ describe('ProductCard — a foto chega no tamanho da vaga (PRF-02 AC 4)', () => 
     // o pior preço de todos — 113 KB onde 12,7 KB bastam.
     const { foto } = renderCard(0)
 
-    expect(foto.getAttribute('src')).toBe(`${RENDER}?width=480&quality=75`)
+    expect(foto.getAttribute('src')).toBe(`${RENDER}?width=480&resize=contain&quality=75`)
     expect(foto.getAttribute('src')).not.toBe(STORAGE)
   })
 

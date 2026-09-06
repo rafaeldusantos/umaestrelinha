@@ -134,6 +134,6 @@ describe('ProductCarousel — o índice de cada card conta o banner (PRF-03 AC 1
   it('a foto do card sai por rendição, não pelo original', () => {
     const { cards } = renderFileira(2)
 
-    expect(cards[0].getAttribute('src')).toBe(`${RENDER('p0')}?width=480&quality=75`)
+    expect(cards[0].getAttribute('src')).toBe(`${RENDER('p0')}?width=480&resize=contain&quality=75`)
   })
 })

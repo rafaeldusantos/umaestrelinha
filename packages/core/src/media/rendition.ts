@@ -37,6 +37,27 @@ export const RENDITION_WIDTHS = [360, 480, 720] as const
  */
 export const RENDITION_QUALITY = 75
 
+/**
+ * **`resize=contain` NÃO é opcional, e omiti-lo desfigura o catálogo inteiro.**
+ *
+ * O padrão do Supabase é `cover`. Pedindo só `width`, `cover` **mantém a altura da origem** e
+ * recorta a largura — uma tira vertical do meio da foto. Medido contra o banco hospedado:
+ *
+ *     origem 1024×1280 · `?width=360`                  ->  360×1280  (11.160 B) — recortada
+ *     origem 1024×1280 · `?width=360&resize=contain`   ->  360×450   ( 5.548 B) — proporcional
+ *     origem 1024×1024 · `?width=360`                  ->  360×1024            — recortada
+ *     origem 1024×1024 · `?width=360&resize=contain`   ->  360×360             — proporcional
+ *
+ * A tira ainda passa pelo `object-cover` da vaga e é esticada, então o efeito na tela é **zoom
+ * absurdo**: a peça sai do enquadramento e o card mostra um detalhe ampliado. Chegou em produção
+ * na feature 38 e foi encontrado por olho humano no navegador — **nenhum teste pegaria**, porque
+ * jsdom não baixa imagem e não mede layout, e a URL estava "certa" em todas as asserções.
+ *
+ * `contain` ainda sai **menor em bytes** que o recorte, então não há troca a fazer: é só o modo
+ * certo.
+ */
+export const RENDITION_RESIZE = 'resize=contain'
+
 /** Limites do `render/image` do Supabase. Fora deles a resposta é **erro**, não foto. */
 export const RENDITION_MIN_WIDTH = 1
 export const RENDITION_MAX_WIDTH = 2500
@@ -111,7 +132,8 @@ export const renditionUrl = (url: string, width: number): string => {
 
   // `replace` com padrão de string troca só a PRIMEIRA ocorrência — que é a que interessa.
   const render = caminho.replace(OBJECT_SEGMENT, RENDER_SEGMENT)
-  const params = 'width=' + grampear(width) + '&quality=' + RENDITION_QUALITY
+  const params =
+    'width=' + grampear(width) + '&' + RENDITION_RESIZE + '&quality=' + RENDITION_QUALITY
 
   return cauda === '' ? render + '?' + params : render + '?' + cauda + '&' + params
 }

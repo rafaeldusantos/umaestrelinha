@@ -161,8 +161,8 @@ describe('rendition — âncoras da varredura', () => {
   it('comentário é REMOVIDO, com CRLF e com LF — sensor do stripper', () => {
     // Os comentários desta feature citam `render/image` e `width=` para explicar a regra. Sem o
     // stripper, o guarda acusaria a própria explicação, e o conserto "óbvio" seria apagá-la.
-    const crlf = semComentarios('const a = 1\r\n// monta ?width=360&quality=75 aqui\r\nconst b = 2\r\n')
-    const lf = semComentarios('const a = 1\n// monta ?width=360&quality=75 aqui\nconst b = 2\n')
+    const crlf = semComentarios('const a = 1\r\n// monta ?width=360&resize=contain&quality=75 aqui\r\nconst b = 2\r\n')
+    const lf = semComentarios('const a = 1\n// monta ?width=360&resize=contain&quality=75 aqui\nconst b = 2\n')
     const bloco = semComentarios('const a = 1\r\n/**\r\n * render/image e ?width=\r\n */\r\nconst b = 2\r\n')
 
     for (const linhas of [crlf, lf, bloco]) {
@@ -188,7 +188,7 @@ describe('rendition — âncoras da varredura', () => {
 
     // E o comentário no FIM de uma linha com URL continua sendo removido — a correção não pode
     // custar a propriedade original.
-    const [mista] = semComentarios("const u = 'https://x/a.webp' // ?width=360&quality=75 aqui")
+    const [mista] = semComentarios("const u = 'https://x/a.webp' // ?width=360&resize=contain&quality=75 aqui")
     expect(mista).toContain('https://x/a.webp')
     expect(URL_A_MAO.test(mista)).toBe(false)
   })
@@ -252,7 +252,7 @@ describe('ninguém monta a URL de rendição à mão (PRF-15)', () => {
       rel: 'apps/store/src/widgets/sintetico.tsx',
       linhas: [
         "const url = base.replace('/object/public/', '/render/image/public/')",
-        'const thumb = `${src}?width=160&quality=75`',
+        'const thumb = `${src}?width=160&resize=contain&quality=75`',
         "const grande = src + '&width=720'",
         "<img src={`${u}?quality=75`} />",
       ],
