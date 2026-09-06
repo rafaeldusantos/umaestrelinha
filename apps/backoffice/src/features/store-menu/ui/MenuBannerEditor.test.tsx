@@ -12,7 +12,7 @@
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { MenuBanner, MenuBanners } from '@estrelinha/core/menu'
+import { resolveMenuBanners, type MenuBanner, type MenuBanners, type MenuCategory } from '@estrelinha/core/menu'
 import type { AdminCategory } from '@/entities/category/api/useAdminCategories'
 
 // O editor procura o nome do produto de destino; sem client dublado o módulo do Supabase lança no
@@ -135,6 +135,34 @@ describe('NAV-33 / NAV-34 — a arte é por dispositivo', () => {
       mobile: [],
     })
     expect(screen.queryByTestId('arte-reaproveitada-0')).toBeNull()
+  })
+
+  it('arte só de espaços: o painel e a LOJA respondem a mesma coisa', () => {
+    // **O desvio que a verificação achou, medido nas duas pontas.** O painel calculava a herança por
+    // truthiness da string crua e `menuBannerArt` (em `core`) apara espaço: com `image_mobile: "   "`
+    // a loja reaproveitava a arte do computador e a tela não avisava nada — duas escritas do mesmo
+    // predicado, discordando exatamente no caso que ninguém digita e o SQL produz.
+    //
+    // Este caso é o par: a tela é renderizada, a loja é `resolveMenuBanners`, e o veredito é
+    // comparado. É também o sensor da delegação — se o painel voltar a reescrever o predicado, uma
+    // das duas metades reprova; se `menuBannerArt` quebrar, reprovam as duas.
+    const jsonb = {
+      desktop: [],
+      mobile: [banner({ image_desktop: 'https://x/d.webp', image_mobile: '   ' })],
+    }
+    montar(jsonb, 'mobile')
+
+    // A loja: a arte do celular é branco, então ela desenha a do computador e DECLARA o reaproveito.
+    const naLoja = resolveMenuBanners(
+      { categories: CATEGORIAS as unknown as MenuCategory[] },
+      jsonb,
+      'mobile',
+    )
+    expect(naLoja[0]).toMatchObject({ image: 'https://x/d.webp', imageReused: true })
+
+    // A tela: o mesmo veredito, nas duas superfícies onde ele aparece.
+    expect(screen.getByTestId('arte-reaproveitada-0')).toHaveTextContent('reaproveitar a do computador')
+    expect(screen.getByTestId('arte-image_mobile-0')).toHaveTextContent('falta')
   })
 })
 

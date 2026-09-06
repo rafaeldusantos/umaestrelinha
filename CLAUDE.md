@@ -354,7 +354,7 @@ quando mudarem de verdade.
 | --- | --- | --- |
 | **Lint** | **27 erros / 5 warnings** — backoffice 25/4 · store 2/1 | `pnpm lint` |
 | **Tipos** | **0 · 0 · 0** (store · backoffice · catalog-import) | `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` |
-| **Testes** | **6623 em 356 arquivos** — store 2182/144 · backoffice 1891/115 · core 1691/67 · functions 350/7 · catalog-import 509/23 | `pnpm --filter @estrelinha/<w> test` |
+| **Testes** | **6648 em 357 arquivos** — store 2190/144 · backoffice 1908/116 · core 1691/67 · functions 350/7 · catalog-import 509/23 | `pnpm --filter @estrelinha/<w> test` |
 
 **A feature `39` (menu configurável) somou +484 em três workspaces**, medidos em 2026-09-05 um por
 vez, na ordem, e com exit code capturado: **core +198/+7**, **store +181/+9** e **backoffice
@@ -367,6 +367,32 @@ conferido por `git diff --name-only`. **Três quedas declaradas**, e nenhuma é 
 | **−3 e −3** | store `MegaMenu.test.tsx` (19 → 31) e `MobileMenu.test.tsx` (15 → 30) | saíram a faixa `TrendingLane` (3 produtos automáticos por `is_featured`, que a Adri não escolhia nem via) e o card `menu_promo` (retângulo de cor sem imagem). Os dois arquivos **cresceram** na mesma reescrita: entram os banners com arte, o ícone, as colunas curadas e o item de link |
 | **−0** | backoffice `MenuBarPreview.tsx` | apagado — era o **segundo desenho** da barra, com os tokens do admin, anunciando `/crie-seu-botton`, que nunca foi rota. **Não custou contagem**: nunca teve teste. `previaUnica.test.ts` cobre as duas features e recusa a volta |
 | **−34** | core `menu.test.ts` (58 → 24) | saíram `menuEntries` (10), `slotsUsed`/`menuSlotRefusal` (6) e `resolvePromo` (13) — funções **apagadas** na T30, que liam um booleano só e não conheciam dispositivo. O que as substituiu tem cobertura maior (`menuItems.test.ts` 62, `banners.test.ts` 46). Os 3 casos de `URL-03` **não** caíram: foram reescritos contra `menuItems`, no mesmo arquivo |
+
+**As lacunas que a verificação da `39` achou somaram +25**, medidos em 2026-09-05 um workspace por
+vez e com exit code capturado: **store +8** (a régua dos três backfills da migration, a cor do rótulo
+da barra e o escopo do dono único) e **backoffice +17/+1** (`MenuPanelEditor.test.tsx`, que não
+existia, e o par painel × loja do predicado da arte). Core, functions e catalog-import não mudaram de
+contagem. **Duas delas eram mutante sobrevivente**, e é isso que as torna dignas de registro:
+
+- **A migration tinha UMA régua para TRÊS backfills, e era a forma do primeiro.** O segundo traz
+  `from public.categories p` entre o `set` e o `where` e escapava dela: reduzi-lo a
+  `set menu_desktop = true` deixava os 2182 testes verdes, e no `db push` **todo painel do menu do
+  celular nasceria vazio** — ~90% dos acessos — com o do computador intacto. Cada backfill passou a
+  ter asserção própria que o nomeia, com sensor ao lado, e as três mutações foram reinjetadas no
+  arquivo real para ver a suíte reprovar.
+- **`text-estrelinha-on-primary` podia sair de `NAV_ITEM` sem nada acusar.** A metade "o rótulo
+  continua em `on-primary`" não tinha asserção nenhuma, e a que existia (`toContain
+  ('text-estrelinha-accent')`) casava **também** `accent-strong` — o token que a AC opõe. A régua
+  agora é de token exato (`(?:^|\s)token(?![-\w])`), porque `\b` não fecha nada quando o vizinho é
+  hífen.
+- **O predicado da herança de arte tinha dois donos**: o painel o recalculava por truthiness da
+  string crua e `core` apara espaço, então `image_mobile: "   "` fazia a loja reaproveitar a arte do
+  computador **sem a tela avisar**. `menuBannerArt`/`menuBannerImage` passaram a ser exportados de
+  `@estrelinha/core/menu`, o painel os chama, e um caso novo compara os dois vereditos no mesmo
+  teste.
+- **O escopo de `menuSurfaceSingleOwner.test.ts` era `['apps']`**, e a function do sitemap pedia
+  `show_in_menu` no `select`. A coluna saiu da lista e o escopo passou a incluir
+  `supabase/functions/**` — guarda com alcance menor que a regra é allowlist com outro nome.
 
 **A feature `37` (frete grátis configurável) somou +86 em três workspaces**, medidos em 2026-09-05 um
 por vez e com exit code capturado: **store +45**, **core +32** (a regra pura, 26, e o hook, 6) e

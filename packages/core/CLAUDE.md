@@ -182,6 +182,12 @@ empatou em `sort_order = 0`.
   `menu_promo`, e é AC.
 - **Um validador de destino só** (`resolveMenuTarget`/`menuTargetRefusal`), servindo item de link e
   banner. Dois divergiriam, e um aceitaria o que o outro recusa.
+- **A herança da arte do banner também tem um dono só, e ele é exportado**: `menuBannerArt` (com
+  recuo para a outra superfície) e `menuBannerImage` (a arte gravada desta). O painel os **chama** em
+  vez de recalcular — ele reescrevia o predicado por truthiness da string crua enquanto estes aparam
+  espaço, e um `image_mobile: "   "` fazia a loja reaproveitar a arte do computador com a tela
+  dizendo que estava tudo certo. A separação foi medida: com `arte()` quebrada aqui, os 1891 testes
+  do painel passavam.
 - **`preview.ts` é o canal da prévia do MENU, e reusa os genéricos da `25`.** `MENU_PREVIEW_SOURCE`,
   as mensagens `ready`/`draft`/`open` e `parseMenuPreviewMessage` moram aqui; `PREVIEW_PARAM`,
   `isPreviewWindow`, `PREVIEW_DEVICES`, `previewScale`, `previewMetrics` e `previewSrc` são

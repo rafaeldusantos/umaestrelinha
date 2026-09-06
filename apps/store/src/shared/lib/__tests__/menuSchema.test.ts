@@ -128,6 +128,63 @@ const reguaDoIcone = (texto: string): string | null =>
 const hrefSemeado = (texto: string): string | null =>
   texto.match(/'href',\s*'([^']+)'/)?.[1] ?? null
 
+/**
+ * Os `update` da migration, um por elemento e na ordem do arquivo.
+ *
+ * Lidos do texto **sem comentário**: o cabeçalho desta migration descreve os três backfills em prosa,
+ * e uma régua que casasse a prosa mediria o que ninguém executa.
+ */
+const updates = (texto: string): string[] =>
+  semComentarios(texto).match(/update public\.categories[\s\S]*?;/gi) ?? []
+
+/**
+ * As marcas dos três backfills, escritas **literalmente** — cada uma casa um `update` e só ele.
+ *
+ * Elas existem porque a régua anterior era **uma só**, e era a forma do backfill 1
+ * (`set menu_desktop = true, menu_mobile = true where show_in_menu`). O backfill 2 traz
+ * `from public.categories p` entre o `set` e o `where` e **escapava dela**: reduzi-lo a
+ * `set menu_desktop = true` deixava os 2182 testes da loja verdes, e no `db push` todo painel do menu
+ * do CELULAR — a superfície de ~90% dos acessos — nasceria vazio, com o do computador intacto.
+ */
+const BACKFILL_1 = /where\s+show_in_menu/i
+const BACKFILL_2 = /from public\.categories p/i
+const BACKFILL_3 = /set menu_banners = jsonb_build_object/i
+
+/** O `update` cuja forma casa `marca` — ou `null`, para a asserção poder dizer QUAL deles sumiu. */
+const backfill = (texto: string, marca: RegExp): string | null =>
+  updates(texto).find((u) => marca.test(u)) ?? null
+
+/**
+ * A cláusula `set` de um `update` — de `set` até o `from` ou o `where`, o que vier primeiro.
+ *
+ * É o recorte que faltava: sem separar o `set` do resto, a única forma de conferir as colunas era
+ * casar o comando inteiro numa expressão só — e aí basta um `from` no meio para a régua deixar de
+ * alcançar o comando, em silêncio.
+ */
+const clausulaSet = (update: string): string =>
+  update.match(/\bset\b([\s\S]*?)\b(?:from|where)\b/i)?.[1] ?? ''
+
+/** O `update` liga as DUAS superfícies. É a asserção que o mutante sobrevivente atravessou. */
+const ligaAsDuasSuperficies = (update: string): boolean => {
+  const set = clausulaSet(update)
+  return /menu_desktop\s*=\s*true/i.test(set) && /menu_mobile\s*=\s*true/i.test(set)
+}
+
+/**
+ * Os campos que o backfill 3 escreve para uma superfície, sem repetição e em ordem alfabética.
+ *
+ * O banner é montado com `jsonb_build_object`, onde cada nome aparece duas vezes (a chave e a leitura
+ * de `menu_promo`); o que interessa é o CONJUNTO — e é ele que tem de ser o mesmo nos dois
+ * dispositivos, porque o anúncio é um só e o que mudaria entre eles é a arte, que o card da 16 não
+ * tinha.
+ */
+const camposDoBanner = (bloco: string, chave: 'desktop' | 'mobile'): string[] => {
+  const depois = bloco.split(new RegExp(`'${chave}',`))[1] ?? ''
+  const ate = depois.split(/'(?:desktop|mobile)',/)[0]
+  const nomes = [...ate.matchAll(/'(target|kind|id|badge|title|subtitle)'/g)].map((m) => m[1])
+  return [...new Set(nomes)].sort()
+}
+
 // -------------------------------------------------------------------------------------------
 
 describe('âncoras — a varredura olhou alguma coisa', () => {
@@ -253,24 +310,74 @@ describe('os backfills', () => {
     expect(backfillsAntesDoDrop(mutado)).toBe(false)
   })
 
-  it('quem estava na barra entra nas DUAS superfícies', () => {
-    expect(sql).toMatch(/set menu_desktop = true,\s*menu_mobile\s*=\s*true\s*where show_in_menu/i)
+  it('ÂNCORA: a varredura achou os TRÊS, e cada marca casa um `update` e só um', () => {
+    // Sem isto, uma marca que deixasse de casar faria `backfill()` devolver `null` — e a asserção
+    // seguinte reprovaria pelo motivo errado, ou (pior) uma marca frouxa cobriria o backfill errado
+    // e o certo ficaria sem guarda nenhuma. É a segunda metade da âncora dupla, no nível do comando.
+    expect(updates(sql).length).toBeGreaterThanOrEqual(3)
+    for (const [nome, marca] of [
+      ['1', BACKFILL_1],
+      ['2', BACKFILL_2],
+      ['3', BACKFILL_3],
+    ] as const) {
+      expect(
+        updates(sql).filter((u) => marca.test(u)),
+        `a marca do backfill ${nome} não casou exatamente um \`update\``,
+      ).toHaveLength(1)
+    }
+  })
+
+  it('backfill 1 — quem estava na barra entra nas DUAS superfícies', () => {
+    const bloco = backfill(sql, BACKFILL_1)
+    expect(bloco, 'o backfill 1 sumiu do arquivo').not.toBeNull()
+    expect(ligaAsDuasSuperficies(bloco)).toBe(true)
+  })
+
+  it('SENSOR: o backfill 1 ligando SÓ o computador reprova', () => {
+    const bloco = backfill(sql, BACKFILL_1)
+    const mutado = bloco.replace(/,\s*menu_mobile\s*=\s*true/i, '')
+    expect(mutado).not.toBe(bloco)
+    expect(ligaAsDuasSuperficies(mutado)).toBe(false)
+  })
+
+  it('backfill 2 — as filhas ativas entram nas DUAS superfícies', () => {
+    // **A asserção que faltava, e o mutante que passou por ela.** O Verifier reduziu este `set` a
+    // `menu_desktop = true` e a suíte inteira ficou verde: a régua antiga terminava em
+    // `where show_in_menu`, e aqui há um `from public.categories p` no meio. Aplicaria limpo, e o
+    // painel do menu do celular nasceria vazio em produção sem nada em tela dizendo por quê.
+    const bloco = backfill(sql, BACKFILL_2)
+    expect(bloco, 'o backfill 2 sumiu do arquivo').not.toBeNull()
+    expect(ligaAsDuasSuperficies(bloco)).toBe(true)
+  })
+
+  it('SENSOR: o backfill 2 ligando SÓ o computador reprova — a mutação exata que sobreviveu', () => {
+    const bloco = backfill(sql, BACKFILL_2)
+    const mutado = bloco.replace(/,\s*menu_mobile\s*=\s*true/i, '')
+    expect(mutado).not.toBe(bloco)
+    expect(mutado).toContain('from public.categories p')
+    expect(ligaAsDuasSuperficies(mutado)).toBe(false)
   })
 
   it('as filhas do backfill 2 são recortadas por `active`', () => {
     // O `MegaMenu` da 16 mostrava todas as filhas da entrada aberta — mas só as ativas chegavam ao
     // navegador, por `public read categories using (active = true)`. Trazer as inativas aqui poria
     // no painel da loja categorias que ninguém deveria ver.
-    const bloco = sql.match(/update public\.categories c[\s\S]*?;/)?.[0] ?? ''
+    const bloco = backfill(sql, BACKFILL_2) ?? ''
     expect(bloco).toContain('c.parent_id = p.id')
     expect(bloco).toContain('p.show_in_menu')
     expect(bloco).toContain('c.active')
   })
 
-  it('o card da 16 vira banner nas duas superfícies, sem chave nula', () => {
-    const bloco = sql.match(/set menu_banners = jsonb_build_object[\s\S]*?;/)?.[0] ?? ''
-    expect(bloco).toContain("'desktop'")
-    expect(bloco).toContain("'mobile'")
+  it('backfill 3 — o card da 16 vira o MESMO banner nas duas superfícies, sem chave nula', () => {
+    const bloco = backfill(sql, BACKFILL_3)
+    expect(bloco, 'o backfill 3 sumiu do arquivo').not.toBeNull()
+
+    const doComputador = camposDoBanner(bloco, 'desktop')
+    expect(doComputador).toEqual(['badge', 'id', 'kind', 'subtitle', 'target', 'title'])
+    // O anúncio é UM: o celular recebe o mesmo objeto, campo a campo. Uma superfície com menos
+    // campos que a outra é a dona publicando metade do anúncio para metade das clientes.
+    expect(camposDoBanner(bloco, 'mobile')).toEqual(doComputador)
+
     // `jsonb_strip_nulls` porque ausente ≠ nulo para quem lê: `resolveMenuBanners` herda o nome do
     // destino quando o título FALTA, e um `"title": null` gravado passaria pela mesma porta por acaso.
     expect(bloco).toContain('jsonb_strip_nulls')
@@ -278,8 +385,19 @@ describe('os backfills', () => {
     expect(bloco).toMatch(/'target',\s*jsonb_build_object\('kind',\s*'category',\s*'id'/)
   })
 
+  it('SENSOR: o backfill 3 deixando o celular sem o anúncio reprova', () => {
+    // A mutação irmã da do backfill 2, na coluna de jsonb: a chave `'mobile'` continua lá — o que
+    // some é o anúncio dentro dela. Uma régua de `toContain("'mobile'")` passaria nisto.
+    const bloco = backfill(sql, BACKFILL_3)
+    const mutado = bloco.replace(/'mobile',[\s\S]*$/, "'mobile', '[]'::jsonb);")
+    expect(mutado).not.toBe(bloco)
+    expect(mutado).toContain("'mobile'")
+    expect(camposDoBanner(mutado, 'mobile')).toEqual([])
+    expect(camposDoBanner(mutado, 'mobile')).not.toEqual(camposDoBanner(mutado, 'desktop'))
+  })
+
   it('o backfill do banner não sobrescreve banner já configurado', () => {
-    const bloco = sql.match(/set menu_banners = jsonb_build_object[\s\S]*?;/)?.[0] ?? ''
+    const bloco = backfill(sql, BACKFILL_3) ?? ''
     expect(bloco).toContain('menu_banners is null')
   })
 })

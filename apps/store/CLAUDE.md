@@ -582,8 +582,12 @@ ninguém é avisado.
   (`menu_desktop or menu_mobile`) e a segunda é legado não lido — as duas continuam no banco de
   propósito, para a loja publicada não quebrar na janela entre o `db push` e o deploy da Vercel,
   que rodam em paralelo. `menuSurfaceSingleOwner.test.ts` derruba a suíte se alguma tela voltar a
-  lê-las, e **não há mais allowlist**: a dívida do painel foi paga na fase 5, e a varredura de
-  `apps/**` está limpa nos dois apps. Os dois campos também **saíram de `MenuCategory`**, em `core`.
+  lê-las, e **não há mais allowlist**: a dívida do painel foi paga na fase 5, e a varredura está
+  limpa. Os dois campos também **saíram de `MenuCategory`**, em `core`.
+  - **O escopo do guarda alcança `supabase/functions/**`, e não só `apps/**`.** A function do sitemap
+    ainda pedia `show_in_menu` no `select` de colunas — inofensivo (nada decidia com ela), mas fora
+    do alcance da varredura. Coluna legado pedida ao banco é como um leitor volta a existir: primeiro
+    chega no payload, depois alguém a usa.
 - **Não existe teto de itens, e os sete símbolos que o encarnavam foram APAGADOS**: `MENU_SLOT_LIMIT`,
   `slotsUsed`, `menuSlotRefusal`, `menuEntries`, `MenuEntry`, `resolvePromo` e `ResolvedPromo`.
   `menuSemTeto.test.ts` recusa a volta de qualquer um deles em `apps/**` ou em

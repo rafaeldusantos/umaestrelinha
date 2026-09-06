@@ -35,8 +35,16 @@ import { describe, expect, it } from 'vitest'
 const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(HERE, '../../../../../..')
 
-/** Escopo literal: as duas pontas que têm tela. */
-const ESCOPO = ['apps']
+/**
+ * Escopo literal: as duas pontas que têm tela, **e as edge functions**.
+ *
+ * `supabase/functions` entrou depois, e o motivo foi um achado de verificação: a function do sitemap
+ * ainda pedia `show_in_menu` no `select` de colunas. Era inofensivo (a coluna existe, gerada, e nada
+ * decidia com ela), mas estava **fora do alcance do guarda** — que dizia `['apps']` e por isso lia
+ * uma varredura que não cobria todo o código que fala com o banco. Guarda com escopo menor que a
+ * regra é a mesma família de defeito que uma allowlist esquecida.
+ */
+const ESCOPO = ['apps', 'supabase/functions']
 
 const IGNORADOS = new Set(['node_modules', 'dist', '.turbo', '.temp', 'coverage', '.git'])
 const EXTENSOES = ['.ts', '.tsx']
@@ -112,11 +120,14 @@ const procurar = (padrao: RegExp, alvo: Arquivo[] = producao): Ocorrencia[] => {
 // ───────────────────────────────────────────────────────────────────────────
 
 describe('menu por superfície — âncoras da varredura', () => {
-  it('a varredura enxerga os dois apps', () => {
+  it('a varredura enxerga os dois apps E as edge functions', () => {
     // Caminho errado varre zero arquivo e faz TODA asserção abaixo passar por vacuidade.
     expect(varridos.length).toBeGreaterThan(400)
     expect(varridos.some((a) => a.rel.startsWith('apps/store/src/'))).toBe(true)
     expect(varridos.some((a) => a.rel.startsWith('apps/backoffice/src/'))).toBe(true)
+    // A terceira ponta, nomeada por um arquivo que precisa existir: o `sitemap` é quem lê categoria
+    // do banco fora dos apps, e era ele que trazia `show_in_menu` no `select`.
+    expect(varridos.some((a) => a.rel === 'supabase/functions/sitemap/index.ts')).toBe(true)
   })
 
   it('a varredura separa produção de teste, e sobra produção de verdade', () => {
@@ -218,9 +229,21 @@ describe('nenhum arquivo do PAINEL lê a curadoria legada (NAV-01)', () => {
     ).toEqual([])
   })
 
-  it('não sobrou allowlist: a varredura inteira de `apps/**` está limpa', () => {
-    // A soma das duas asserções acima, escrita como uma só — é ela que fica de pé quando alguém
-    // acrescentar um app novo ao monorepo.
+  it('nem a EDGE FUNCTION lê a coluna legada — nem no `select` de colunas', () => {
+    // A function do sitemap fala com o mesmo banco e não tem tela: ela pedia `show_in_menu` na lista
+    // de colunas, sem decidir nada com ela. Pedir coluna legado é como um leitor volta a existir —
+    // primeiro chega no payload, depois alguém a usa.
+    const nasFunctions = procurar(LEGADO).filter((o) => o.arquivo.startsWith('supabase/functions/'))
+
+    expect(
+      nasFunctions.map((o) => `${o.arquivo}:${o.linha} — ${o.texto}`),
+      'a curadoria do menu é por dispositivo: nenhuma leitura da coluna gerada, nem no `select`',
+    ).toEqual([])
+  })
+
+  it('não sobrou allowlist: a varredura inteira do escopo está limpa', () => {
+    // A soma das asserções acima, escrita como uma só — é ela que fica de pé quando alguém
+    // acrescentar um app novo ao monorepo, ou uma function nova ao backend.
     expect(procurar(LEGADO).map((o) => `${o.arquivo}:${o.linha}`)).toEqual([])
   })
 

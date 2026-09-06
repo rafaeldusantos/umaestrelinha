@@ -24,7 +24,6 @@ const categoria = (slug: string, over: Partial<SitemapCategory> = {}): SitemapCa
   parent_id: over.parent_id ?? null,
   sort_order: over.sort_order ?? 0,
   active: true,
-  show_in_menu: false,
   updated_at: over.updated_at ?? null,
 })
 

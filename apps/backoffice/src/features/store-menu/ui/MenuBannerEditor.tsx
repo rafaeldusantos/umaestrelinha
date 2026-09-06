@@ -30,6 +30,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { cn } from '@estrelinha/ui/lib/utils'
 import {
   MENU_BANNER_LIMIT,
+  menuBannerArt,
+  menuBannerImage,
   menuBannerRefusal,
   menuBannerSlots,
   menuTargetRefusal,
@@ -215,8 +217,11 @@ const MenuBannerEditor = ({ surface, host, categories, onSave }: Props) => {
           const alvo = banner.target
           const kind = alvo?.kind ?? 'category'
           const resolvido = resolveMenuTarget({ categories: pool, products: produtos }, alvo)
-          const arteDaSuperficie = surface === 'desktop' ? banner.image_desktop : banner.image_mobile
-          const arteDaOutra = surface === 'desktop' ? banner.image_mobile : banner.image_desktop
+          // **A herança da arte é decidida por `core`, não aqui.** Esta tela já reescreveu o
+          // predicado uma vez — por truthiness da string crua, enquanto `menuBannerArt` apara espaço
+          // —, e uma arte só de espaços fazia a loja reaproveitar a do outro dispositivo enquanto a
+          // tela dizia que estava tudo certo. É o "defeito 01" no tamanho de um `||`.
+          const { image: arteMostrada, imageReused: reaproveitando } = menuBannerArt(banner, surface)
           const excedente = indice >= MENU_BANNER_LIMIT
 
           return (
@@ -230,12 +235,8 @@ const MenuBannerEditor = ({ surface, host, categories, onSave }: Props) => {
             >
               <div className="flex items-start gap-3">
                 <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-[10px] border border-border bg-muted/40">
-                  {arteDaSuperficie || arteDaOutra ? (
-                    <img
-                      src={arteDaSuperficie || arteDaOutra}
-                      alt=""
-                      className="h-full w-full object-cover"
-                    />
+                  {arteMostrada ? (
+                    <img src={arteMostrada} alt="" className="h-full w-full object-cover" />
                   ) : (
                     <span className="text-[9px] font-semibold text-muted-foreground">FOTO</span>
                   )}
@@ -404,7 +405,9 @@ const MenuBannerEditor = ({ surface, host, categories, onSave }: Props) => {
                     ['image_mobile', 'celular', 'mais quadrada'],
                   ] as const
                 ).map(([campo, dispositivo, medida]) => {
-                  const arte = banner[campo]
+                  // Pelo mesmo motivo do bloco acima: quem diz se ESTA superfície tem arte é `core`.
+                  // `banner[campo]` cru chamaria `"   "` de arte, e a loja não chamaria.
+                  const arte = menuBannerImage(banner, campo === 'image_desktop' ? 'desktop' : 'mobile')
                   return (
                     <div key={campo} className="flex flex-col gap-1.5">
                       <span
@@ -446,7 +449,7 @@ const MenuBannerEditor = ({ surface, host, categories, onSave }: Props) => {
                 })}
               </div>
 
-              {!arteDaSuperficie && arteDaOutra && (
+              {reaproveitando && (
                 // `NAV-34`: a loja renderiza com a arte do outro dispositivo em vez de sumir com o
                 // banner. Sem este aviso a dona acharia que enviou as duas.
                 <p

@@ -52,8 +52,13 @@ const COLUNAS_PRODUTO = 'slug,updated_at'
  * São mais do que o sitemap "usa" porque quem monta a canônica é `categoryHref`, e ele recebe
  * `MenuCategory[]`. Passar linhas de verdade em vez de objetos de fachada é o que impede a URL de
  * mudar em silêncio no dia em que `categoryHref` passar a ler outro campo. São 35 linhas.
+ *
+ * **`show_in_menu` saiu daqui na feature 39**: ela virou coluna gerada e legado não lido, `MenuCategory`
+ * não a declara mais, e o sitemap nunca decidiu nada com ela. Pedi-la ao PostgREST era leitura de
+ * coluna legado num arquivo que o guarda de `apps/**` não alcançava — o escopo de
+ * `menuSurfaceSingleOwner.test.ts` passou a incluir `supabase/functions/**` por causa disto.
  */
-const COLUNAS_CATEGORIA = 'id,name,slug,parent_id,sort_order,active,show_in_menu,updated_at'
+const COLUNAS_CATEGORIA = 'id,name,slug,parent_id,sort_order,active,updated_at'
 
 /**
  * `order('id')` é o que torna a paginação estável: sem ordem explícita o PostgREST não garante a

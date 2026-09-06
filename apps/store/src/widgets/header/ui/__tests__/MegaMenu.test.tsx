@@ -226,6 +226,17 @@ describe('MENU-15 — sair fecha', () => {
   })
 })
 
+/**
+ * A classe traz **exatamente** este token — nunca um que comece com ele.
+ *
+ * `toContain('text-estrelinha-accent')` casa `text-estrelinha-accent-strong`, e os dois são tons
+ * diferentes para fundos diferentes (`accent` na faixa escura, `accent-strong` na folha branca). Um
+ * `\b` no fim não resolve: `-` não é caractere de palavra, então `\b` casaria antes do hífen. O que
+ * fecha a régua é recusar hífen e caractere de palavra logo depois do token.
+ */
+const temToken = (classe: string | null, token: string): boolean =>
+  new RegExp(`(?:^|\\s)${token}(?![-\\w])`).test(classe ?? '')
+
 describe('NAV-17 / NAV-18 — o ícone da entrada', () => {
   it('o item com ícone desenha o glifo do catálogo à esquerda do nome', () => {
     const { container } = renderMenu([categoria({ id: 'correntes', name: 'Correntes', icon: 'corrente' })])
@@ -241,12 +252,40 @@ describe('NAV-17 / NAV-18 — o ícone da entrada', () => {
     )
   })
 
-  it('o ícone sai em `accent` — a régua de 3:1 de objeto gráfico sobre a faixa `primary` (NAV-20)', () => {
-    // Ouro como TEXTO ali mediria 3,26:1 e reprovaria os 4,5:1. O rótulo continua em `on-primary`,
-    // e quem marca o item aberto é a régua de 2px — duas pistas, nenhuma delas só de cor.
+  it('o ícone sai em `accent` — e NÃO em `accent-strong` (NAV-20)', () => {
+    // Ouro como TEXTO ali mediria 3,26:1 e reprovaria os 4,5:1; como objeto gráfico a régua é 3:1, e
+    // `accent` passa. `accent-strong` é o tom da folha BRANCA do celular — sobre a faixa escura ele
+    // mede menos, e a AC opõe os dois de propósito. Por isso a régua é de token exato: um
+    // `toContain('text-estrelinha-accent')` casa `text-estrelinha-accent-strong` também, e o mutante
+    // que troca um pelo outro passaria batido.
     renderMenu([categoria({ id: 'correntes', name: 'Correntes', icon: 'corrente' })])
     const svg = screen.getByRole('link', { name: 'Correntes' }).querySelector('svg')!
-    expect(svg.getAttribute('class')).toContain('text-estrelinha-accent')
+
+    expect(temToken(svg.getAttribute('class'), 'text-estrelinha-accent')).toBe(true)
+    expect(temToken(svg.getAttribute('class'), 'text-estrelinha-accent-strong')).toBe(false)
+  })
+
+  it('o RÓTULO continua em `on-primary` — a outra metade da NAV-20', () => {
+    // **A metade que não tinha asserção nenhuma, e cujo mutante sobreviveu**: tirar
+    // `text-estrelinha-on-primary` de `NAV_ITEM` deixava os 2182 testes da loja verdes. O rótulo
+    // passaria a herdar cor sobre a faixa `primary` escura, e nenhum outro guarda pega — `contrast`
+    // mede tokens, não o uso do token aqui, e `accentText` mede quem pinta ouro.
+    renderMenu([categoria({ id: 'correntes', name: 'Correntes', icon: 'corrente' })])
+    const entrada = screen.getByRole('link', { name: 'Correntes' })
+
+    expect(temToken(entrada.getAttribute('class'), 'text-estrelinha-on-primary')).toBe(true)
+    // E o ouro NÃO é o rótulo: as duas pistas do item são o ícone e a régua de 2px, nunca a cor do
+    // texto. Ouro como texto sobre `primary` mede 3,26:1 e reprova os 4,5:1.
+    expect(temToken(entrada.getAttribute('class'), 'text-estrelinha-accent')).toBe(false)
+  })
+
+  it('SENSOR: a régua de token distingue `accent` de `accent-strong`', () => {
+    // Sem este par, as duas asserções acima poderiam estar medindo com um `toContain` disfarçado —
+    // que é exatamente o defeito que elas existem para consertar.
+    expect(temToken('h-4 w-4 text-estrelinha-accent-strong', 'text-estrelinha-accent')).toBe(false)
+    expect(temToken('h-4 w-4 text-estrelinha-accent', 'text-estrelinha-accent')).toBe(true)
+    expect(temToken('text-estrelinha-accent', 'text-estrelinha-accent')).toBe(true)
+    expect(temToken(null, 'text-estrelinha-accent')).toBe(false)
   })
 
   it('item SEM ícone não reserva vaga vazia', () => {

@@ -214,6 +214,11 @@ conta — fazer isso seria o "defeito 01" nascendo dentro da tela que existe par
 - **A arte do banner vai para `home-images/menu`** — bucket reusado, não criado: mesma policy e mesmo
   ciclo de vida (campanha sobrevive à coleção que aponta), e criar `menu-images` exigiria migration
   nova sobre uma já aplicada (`AD-017`).
+- **Quem decide "esta superfície tem arte?" é `core`, não esta tela** — `menuBannerArt` e
+  `menuBannerImage`, de `@estrelinha/core/menu`. O editor calculava a herança por truthiness da
+  string crua e `core` apara espaço: um `image_mobile: "   "` (chegado por SQL ou por importação)
+  fazia a loja reaproveitar a arte do computador e a tela **não avisar**. `MenuBannerEditor.test.tsx`
+  carrega o par — a tela renderizada e `resolveMenuBanners` respondendo ao mesmo jsonb.
 - **O painel NÃO desenha o menu — a prévia é a LOJA, num iframe** (`MenuLivePreview`, `NAV-43`).
   `MenuBarPreview.tsx` foi apagado: era o segundo desenho da barra, com os tokens do admin, mostrando
   a entrada fixa que não existia. `previaUnica.test.ts` cobre as duas features agora: recusa a volta

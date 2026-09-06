@@ -79,18 +79,37 @@ const texto = (valor: unknown): string | null =>
   typeof valor === 'string' && valor.trim() !== '' ? valor.trim() : null
 
 /**
+ * A arte **gravada** para esta superfície — `null` quando não há.
+ *
+ * `texto()` apara espaço, e é aí que mora a diferença que importa: um `image_mobile: "   "` chegado
+ * por SQL, por importação ou por um campo que alguém limpou com a barra de espaço **não é arte**.
+ * Exportada porque o painel precisa da MESMA resposta para desenhar "arte do celular · falta"; ele
+ * calculava a dela por truthiness da string crua, e as duas discordavam exatamente nesse caso.
+ */
+export const menuBannerImage = (banner: MenuBanner, surface: MenuSurface): string | null =>
+  texto(surface === 'desktop' ? banner.image_desktop : banner.image_mobile)
+
+/**
  * A arte desta superfície, com recuo para a da outra.
  *
  * O recuo é a AC `NAV-34`: banner configurado sem a arte do dispositivo renderiza com a que existe,
  * porque a alternativa — o banner sumir de uma das superfícies — é a dona publicando um anúncio que
  * metade das clientes não vê, sem nada em tela dizendo por quê. (E ~90% dos acessos vêm de celular,
  * que é justamente a arte que costuma faltar.)
+ *
+ * **Exportada, e é o dono único do predicado da herança.** A loja a alcança por
+ * `resolveMenuBanners`; o painel a chama direto, para o aviso "a loja vai reaproveitar a do
+ * computador" ser a mesma decisão que a loja toma — e não uma segunda escrita dela. Reescrevê-la lá
+ * já custou uma divergência silenciosa: com `arte()` quebrada aqui, os testes do painel passavam.
  */
-const arte = (banner: MenuBanner, surface: MenuSurface): { image: string | null; imageReused: boolean } => {
-  const propria = texto(surface === 'desktop' ? banner.image_desktop : banner.image_mobile)
+export const menuBannerArt = (
+  banner: MenuBanner,
+  surface: MenuSurface,
+): { image: string | null; imageReused: boolean } => {
+  const propria = menuBannerImage(banner, surface)
   if (propria) return { image: propria, imageReused: false }
 
-  const outra = texto(surface === 'desktop' ? banner.image_mobile : banner.image_desktop)
+  const outra = menuBannerImage(banner, surface === 'desktop' ? 'mobile' : 'desktop')
   return { image: outra, imageReused: outra !== null }
 }
 
@@ -124,7 +143,7 @@ export const resolveMenuBanners = (
     const destino = resolveMenuTarget(ctx, banner.target)
     if (!destino) continue
 
-    const { image, imageReused } = arte(banner, surface)
+    const { image, imageReused } = menuBannerArt(banner, surface)
     const title = texto(banner.title) ?? destino.name
 
     // Sem arte e sem texto não há banner — há um retângulo clicável e mudo. Endereço digitado é o
