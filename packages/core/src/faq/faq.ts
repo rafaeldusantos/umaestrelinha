@@ -149,7 +149,7 @@ export const FAQ_ANSWER_MAX = 600
  * **`string | null`, nunca união discriminada por literal booleano.** `tsconfig.base.json` tem
  * `strictNullChecks: false`, e nesse modo `{ ok: true } | { ok: false; reason: string }` **não
  * estreita** — ler `.reason` no ramo do `else` é TS2339. Mesmo formato de `materialTransitionRefusal`,
- * `menuSlotRefusal` e `reservedSlugRefusal`.
+ * `menuTargetRefusal` e `reservedSlugRefusal`.
  */
 export const faqRefusal = (
   question: string | null | undefined,

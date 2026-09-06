@@ -260,7 +260,7 @@ describe('MATERIAL_TRANSITIONS — a tabela do design, célula a célula', () =>
 describe('materialTransitionRefusal', () => {
   it('devolve `string | null` — nunca objeto discriminado por booleano', () => {
     // `strictNullChecks: false` não estreita união por literal booleano (TS2339). O formato é
-    // contrato, não estilo: `reservedSlugRefusal` e `menuSlotRefusal` seguem o mesmo.
+    // contrato, não estilo: `reservedSlugRefusal` e `menuTargetRefusal` seguem o mesmo.
     const ok = materialTransitionRefusal('aguardando_material', 'material_recebido')
     const nao = materialTransitionRefusal('nao_aplicavel', 'material_recebido')
     expect(ok).toBeNull()

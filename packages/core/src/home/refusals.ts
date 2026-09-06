@@ -9,7 +9,7 @@ import type { HomeSection, HomeSectionConfig, HomeSectionItem, HomeSectionType }
  * **Todas devolvem `string | null`, e não `{ ok, reason }`** — por um motivo do repositório, não de
  * gosto: `tsconfig.base.json` tem `strictNullChecks: false`, e nesse modo união discriminada por
  * literal booleano **não estreita**. Ler `verdict.reason` no ramo do `else` é TS2339. O formato atual
- * não tem ramo para esquecer: ou há motivo, ou não há. Mesmo formato de `menuSlotRefusal` e de
+ * não tem ramo para esquecer: ou há motivo, ou não há. Mesmo formato de `menuTargetRefusal` e de
  * `reservedSlugRefusal`.
  *
  * Campo em branco devolve `null` em toda função daqui. Obrigatoriedade é cobrança do formulário —
@@ -53,9 +53,11 @@ export const uniqueTypeRefusal = (
 /**
  * Por que a Home não aceita mais uma seção — ou `null` quando aceita.
  *
- * Mora em `core` e não na bandeja (emenda `E3`): é o mesmo argumento de `menuEntries`. O teto é
- * regra da Home, e uma tela que o recalculasse seria o segundo dono de um número — que é como
- * `MENU_SLOT_LIMIT` acabou dizendo "4" na barra e `.slice(0, 4)` no `Header`.
+ * Mora em `core` e não na bandeja (emenda `E3`): é o mesmo argumento de `menuItems`. O teto é
+ * regra da Home, e uma tela que o recalculasse seria o segundo dono de um número — que é como o teto
+ * de vagas do menu acabou dizendo "4" na barra e `.slice(0, 4)` no `Header`. (Aquele teto **deixou
+ * de existir** na feature 39: a barra rola. O teto da Home ficou porque a Home não rola — a vaga é
+ * de layout, não de largura.)
  *
  * O teto não trunca nem esconde: **recusa dizendo o número**. Uma bandeja que simplesmente parasse
  * de responder ao clique deixaria a dona sem saber se o problema é dela, do bloco ou da tela.

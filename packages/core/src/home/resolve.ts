@@ -117,7 +117,7 @@ const naOrdemDaDona = (items: readonly HomeSectionItem[]): HomeSectionItem[] =>
  *
  * A loja precisa saber *o que desenhar*; o painel precisa saber *o que avisar que não vai desenhar*.
  * É a mesma pergunta vista dos dois lados, e foi ter a regra em cada tela que produziu o defeito
- * original do menu (o `.slice(0, 4)` do `Header`). Molde de `menuEntries`, que mora em `core` e é
+ * original do menu (o `.slice(0, 4)` do `Header`). Molde de `menuItems`, que mora em `core` e é
  * consumida pelas quatro superfícies.
  *
  * **Devolve TODAS as seções, inclusive as que não renderizam.** A loja filtra por `renders`; o painel

@@ -1,4 +1,4 @@
-// Feature 16 — o domínio do menu da loja.
+﻿// Feature 16 — o domínio do menu da loja.
 //
 // Puro: nada aqui sabe que existe React, Supabase ou tela. Vive em `@estrelinha/core` porque **quatro
 // superfícies em dois apps** consomem a mesma regra — a tela `/admin/menu`, o mega menu do desktop, a
@@ -15,7 +15,13 @@ import { categoryPath } from '../routes/index.ts'
 import { menuIconKey, type MenuIconKey } from './icons.ts'
 
 /**
- * O card promocional do menu, como gravado em `categories.menu_promo` (jsonb).
+ * A forma do jsonb LEGADO `categories.menu_promo` — o card da feature 16.
+ *
+ * **Nada mais lê esta coluna** (feature 39): ela foi substituída por `menu_banners`, que aceita arte,
+ * dois anúncios por painel e destino de categoria, produto ou endereço. A coluna continua no banco de
+ * propósito, para a loja publicada não quebrar na janela entre o `db push` e o deploy da Vercel, e o
+ * tipo continua declarado porque `DbCategory` **descreve a linha** — um tipo que dissesse menos que o
+ * banco é o `AD-012` de novo.
  *
  * **Declarado aqui, e reexportado por `@estrelinha/supabase/types`** — a inversão é da feature 33.
  * O tipo morava lá e era importado por este arquivo, o que tornava `core/menu` inalcançável pelo
@@ -24,10 +30,9 @@ import { menuIconKey, type MenuIconKey } from './icons.ts'
  * da function do sitemap). Quem precisa alcançar este módulo de lá é o sitemap, porque `categoryHref`
  * — o dono da canônica de categoria — mora aqui.
  *
- * `category_id` é obrigatório porque o card aponta para uma categoria de verdade, não para uma URL
- * digitada; a referência mora dentro de jsonb, onde não cabe FK, e por isso quem lê resolve o
- * destino em runtime (`resolvePromo`, abaixo). `title` e `subtitle` ausentes caem no nome e na
- * descrição da categoria de destino.
+ * `category_id` era obrigatório porque o card apontava para uma categoria de verdade, e a referência
+ * mora dentro de jsonb, onde **não cabe FK** — apagar o destino não dispara `on delete set null`.
+ * Essa lição não se perdeu: é a razão de `resolveMenuBanners` validar destino na leitura.
  */
 export interface MenuPromo {
   category_id: string
@@ -52,15 +57,16 @@ export interface MenuCategory {
   sort_order: number
   active: boolean
   /**
-   * LEGADO (feature 39). Virou **coluna gerada** no banco (`menu_desktop or menu_mobile`) e nenhuma
-   * tela pode lê-la — quem responde "está no menu?" é `menuItems(…, surface)`, porque a resposta
-   * depende do dispositivo. Continua declarada, e opcional, só enquanto os consumidores migram: ela
-   * sai do domínio junto com `menuEntries`.
+   * **`show_in_menu` e `menu_promo` NÃO estão aqui, e a ausência é a decisão** (feature 39, T30).
+   *
+   * As duas colunas continuam no banco — a primeira virou **gerada** (`menu_desktop or menu_mobile`)
+   * e a segunda é legado não lido —, mas o domínio deixou de conhecê-las: quem responde "está no
+   * menu?" é `menuItems(…, surface)`, porque a resposta depende do dispositivo, e um campo aqui
+   * seria o convite permanente para alguém voltar a perguntar sem dizer qual dispositivo.
+   * `menuSurfaceSingleOwner.test.ts` guarda o outro lado, nos dois apps.
+   *
+   * Feature 39 — a curadoria por dispositivo. Ausente é o mesmo que desligado.
    */
-  show_in_menu?: boolean
-  /** LEGADO (feature 39) — o card da feature 16. Substituído por `menu_banners`. */
-  menu_promo?: MenuPromo | null
-  /** Feature 39 — a curadoria por dispositivo. Ausente é o mesmo que desligado. */
   menu_desktop?: boolean
   menu_mobile?: boolean
   /** Chave de `MENU_ICON_KEYS`. Valor fora do conjunto degrada para "sem ícone" (`NAV-19`). */
@@ -71,45 +77,28 @@ export interface MenuCategory {
   product_count?: number
 }
 
-/**
- * LEGADO (feature 39) — o teto de vagas da barra do topo, que **deixou de existir**.
- *
- * Era número de código recusando curadoria da dona: a tela negava a 5ª categoria em vez de mostrar o
- * que acontecia com ela. A resposta da feature 39 é a barra rolar na horizontal, e não haver recusa
- * por contagem em lugar nenhum — `menuItems` não trunca e não conta.
- *
- * O comentário que vivia aqui também estava errado, e é o defeito que a varredura da 39 achou de
- * passagem: dizia que "Crie o Seu" e "Sobre" eram entradas fixas do código. `/crie-seu-botton` nunca
- * foi rota declarada — cai na 404 da loja —, e a única entrada escrita em JSX era o "Sobre". A tela
- * que decide o menu mostrava, na lista e na prévia, um item que não existia.
- */
-export const MENU_SLOT_LIMIT = 4
-
-/** O card promocional já resolvido: destino existe, textos preenchidos, link pronto. */
-export interface ResolvedPromo {
-  badge: string | null
-  title: string
-  subtitle: string | null
-  /** A URL canônica do destino: `/<slug>` na raiz, `/<pai>/<slug>` na filha (`AD-018`). */
-  href: string
-  /** `null` quando quem chamou não trouxe `product_count`. */
-  productCount: number | null
-}
-
-/** Uma entrada da barra do topo, pronta para desenhar. */
-export interface MenuEntry {
-  id: string
-  name: string
-  slug: string
-  /** A URL canônica da categoria: `/<slug>` na raiz, `/<pai>/<slug>` na filha (`AD-018`). */
-  href: string
-  /** `Bottons › Anime` — o admin precisa saber o que está pondo no menu. A loja mostra só `name`. */
-  path: string
-  /** Subcategorias ativas, ordenadas. Vazio ⇒ a entrada é link direto, não painel. */
-  children: MenuCategory[]
-  /** `null` quando não há promo, o jsonb é inválido, ou o destino sumiu/desativou. */
-  promo: ResolvedPromo | null
-}
+// ===========================================================================
+// O QUE SAIU AQUI, e por quê — feature 39, T30
+//
+// Este bloco guardava `MENU_SLOT_LIMIT`, `slotsUsed`, `menuSlotRefusal`, `MenuEntry`,
+// `ResolvedPromo`, `resolvePromo` e `menuEntries`. Os sete foram **apagados**, não depreciados, e a
+// diferença importa: um "legado que ninguém lê" exportado do barril é exatamente o que a próxima
+// tela importa por engano — e ele responderia com a **única** curadoria de antes, ignorando o
+// dispositivo. A tela voltaria a mostrar uma coisa e a loja outra, sem quebrar nada.
+//
+// - **O teto de 4 vagas** era número de código recusando curadoria da dona: a tela negava a 5ª
+//   categoria em vez de mostrar o que acontecia com ela. A resposta da 39 é a barra **rolar**, e não
+//   haver recusa por contagem em lugar nenhum. `menuSemTeto.test.ts` recusa a volta.
+// - **`menuEntries`** lia um booleano só e devolvia todas as filhas ativas — sem superfície e sem
+//   curadoria de painel. `menuItems(input, surface)` é a porta única.
+// - **`resolvePromo`** resolvia o card `menu_promo`, um retângulo de cor sem imagem, com destino só
+//   de categoria. `resolveMenuBanners` o substituiu, com arte por dispositivo e três tipos de
+//   destino.
+//
+// O comentário que vivia no teto também estava **errado**, e é o defeito que a varredura da 39 achou
+// de passagem: dizia que "Crie o Seu" e "Sobre" eram entradas fixas do código. `/crie-seu-botton`
+// nunca foi rota declarada — cai na 404 da loja —, e a única entrada escrita em JSX era o "Sobre".
+// ===========================================================================
 
 /**
  * A ordem do menu — e a **causa raiz** do bug do topo.
@@ -230,108 +219,6 @@ export const descendantIds = (
   return out
 }
 
-/**
- * Valida o jsonb do card e resolve o destino — ou devolve `null`.
- *
- * `menu_promo.category_id` mora **dentro de jsonb**, onde não cabe FK: apagar a categoria de destino
- * não dispara `on delete set null`. Então a referência pendurada é um estado alcançável do banco, e a
- * única resposta possível é validar na leitura. Card que não resolve não renderiza — a alternativa é
- * um "Explorar →" que leva a 404.
- *
- * Destino **inativo** também devolve `null`: a policy `public read categories using (active = true)`
- * já o esconderia da cliente, e um card apontando para uma coleção invisível é pior que card nenhum.
- */
-export const resolvePromo = (
-  categories: readonly MenuCategory[],
-  raw: unknown,
-): ResolvedPromo | null => {
-  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return null
-
-  const promo = raw as Partial<MenuPromo>
-  if (typeof promo.category_id !== 'string' || promo.category_id.trim() === '') return null
-
-  const target = categories.find(c => c.id === promo.category_id)
-  if (!target || !target.active) return null
-
-  const trimmed = (value: unknown) =>
-    typeof value === 'string' && value.trim() !== '' ? value.trim() : null
-
-  return {
-    badge: trimmed(promo.badge),
-    // Título e texto vazios caem no que a categoria de destino já diz — o admin só escreve quando
-    // quer divergir dela, e não é obrigado a repetir o nome para o card aparecer.
-    title: trimmed(promo.title) ?? target.name,
-    subtitle: trimmed(promo.subtitle) ?? trimmed(target.description),
-    href: categoryHref(categories, target.id),
-    productCount: typeof target.product_count === 'number' ? target.product_count : null,
-  }
-}
-
-/**
- * As entradas da barra do topo.
- *
- * **Não trunca em `MENU_SLOT_LIMIT`.** Se o banco tem 5 marcadas — SQL na mão, migration, dois admins
- * — devolver 4 esconderia a quinta de todas as telas, inclusive da única onde ela poderia ser
- * desmarcada. Truncar em silêncio é como o `.slice(0, 4)` original se comportava: a tela parecia
- * certa e o dado estava errado. Quem impede a quinta é `canEnterMenu`, na entrada; aqui o retorno é
- * honesto e o contador do admin mostra "5 de 4".
- */
-export const menuEntries = (categories: readonly MenuCategory[]): MenuEntry[] => {
-  const visible = categories.filter(c => c.active)
-
-  return visible
-    .filter(c => c.show_in_menu)
-    .sort(bySortOrder)
-    .map(entry => ({
-      id: entry.id,
-      name: entry.name,
-      slug: entry.slug,
-      href: categoryHref(visible, entry.id),
-      path: pathLabel(categories, entry.id),
-      children: visible.filter(c => c.parent_id === entry.id).sort(bySortOrder),
-      promo: resolvePromo(visible, entry.menu_promo),
-    }))
-}
-
-/**
- * Quantas vagas estão tomadas.
- *
- * Conta **toda** categoria marcada, ativa ou não — a vaga fica reservada. `menuEntries` esconde a
- * inativa da loja, mas se ela não contasse aqui, reativá-la depois faria a barra ter 5 itens sem
- * ninguém ter ligado nada. A tela mostra a inativa marcada como "não aparece na loja", que é o
- * suficiente para o admin decidir.
- */
-export const slotsUsed = (categories: readonly MenuCategory[]): number =>
-  categories.filter(c => c.show_in_menu).length
-
-/**
- * Por que esta categoria **não** pode entrar no menu — ou `null` quando pode.
- *
- * O limite é regra de domínio, não `disabled` de switch: o `disabled` some num teste, num atalho de
- * teclado ou numa chamada direta ao hook, e a barra ganha um quinto item que estoura em 1440px.
- *
- * Quem já está no menu devolve `null` — ligar o que está ligado é idempotente, e recusar aí faria a
- * tela acusar erro num clique que não muda nada.
- *
- * **Devolve `string | null` e não um `{ ok, reason }`** por um motivo do repositório, não de gosto:
- * `tsconfig.base.json` tem `strictNullChecks: false`, e nesse modo uma união discriminada por
- * literal booleano (`{ ok: true } | { ok: false; reason: string }`) **não estreita** — ler
- * `verdict.reason` no ramo do `else` é erro de compilação. O formato atual não tem ramo para
- * esquecer: ou há motivo, ou não há.
- */
-export const menuSlotRefusal = (
-  categories: readonly MenuCategory[],
-  categoryId: string,
-): string | null => {
-  const category = categories.find(c => c.id === categoryId)
-  if (!category) return 'Categoria não encontrada.'
-  if (category.show_in_menu) return null
-
-  if (slotsUsed(categories) >= MENU_SLOT_LIMIT) {
-    return `A barra do topo tem ${MENU_SLOT_LIMIT} vagas e todas estão ocupadas. Desligue uma antes de ligar esta.`
-  }
-  return null
-}
 
 // ===========================================================================
 // Feature 39 — o menu configurável: duas superfícies, sem teto, papel derivado da árvore.

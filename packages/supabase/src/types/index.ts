@@ -13,13 +13,16 @@
  * vive em `core`; este pacote só descreve a coluna que o guarda. Duplicá-lo aqui daria dois donos ao
  * mesmo formato, que é o "defeito 01" do projeto.
  *
- * `category_id` é obrigatório porque o card **aponta para uma coleção de verdade**, não para uma URL
- * digitada: link com typo deixa de ser possível e a contagem ("12 pins") sai da view
- * `category_product_counts`. O preço é que a referência mora dentro de jsonb, onde **não cabe FK** —
- * apagar o destino não dispara `on delete set null`. Por isso quem lê **precisa** resolver o destino
- * em runtime (`resolvePromo`, em `@estrelinha/core/menu`); é critério de aceite, não zelo.
+ * **A coluna é LEGADO desde a feature 39, e nada mais a lê**: `menu_banners` a substituiu, com arte
+ * por dispositivo, dois anúncios por painel e destino de categoria, produto ou endereço. O leitor
+ * dela (`resolvePromo`) foi **apagado** de `core/menu` na T30 — um "legado que ninguém lê" exportado
+ * do barril é o que a próxima tela importa por engano. O tipo continua declarado porque `DbCategory`
+ * descreve a **linha**, e a coluna segue no banco: apagá-la quebraria a loja publicada na janela
+ * entre o `db push` e o deploy da Vercel, que rodam em paralelo.
  *
- * `title` e `subtitle` ausentes caem no nome e na descrição da categoria de destino.
+ * `category_id` era obrigatório porque o card apontava para uma coleção de verdade, e a referência
+ * morava dentro de jsonb, onde **não cabe FK** — apagar o destino não dispara `on delete set null`.
+ * Essa lição não se perdeu: é a razão de `resolveMenuBanners` validar destino na leitura.
  */
 export type { MenuPromo } from '../../../core/src/menu/menu.ts'
 import type { MenuPromo } from '../../../core/src/menu/menu.ts'

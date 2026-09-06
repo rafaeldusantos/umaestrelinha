@@ -70,7 +70,7 @@ export const isReservedSlug = (slug: string): boolean => {
  *
  * **`string | null`, e não união discriminada por literal booleano.** `tsconfig.base.json` tem
  * `strictNullChecks: false`, e nesse modo `{ ok: true } | { ok: false; reason: string }` **não
- * estreita**: ler `verdict.reason` no ramo do `else` é TS2339. Mesmo formato de `menuSlotRefusal`.
+ * estreita**: ler `verdict.reason` no ramo do `else` é TS2339. Mesmo formato de `menuTargetRefusal`.
  *
  * A mensagem carrega a **lista inteira** porque a AC 5 pede "com a lista visível": quem está
  * cadastrando precisa saber qual outro nome escolher sem ir procurar no código.

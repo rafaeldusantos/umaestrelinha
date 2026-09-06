@@ -117,7 +117,7 @@ export const freeShippingState = (
  *
  * **`string | null` e não união discriminada por booleano.** Com `strictNullChecks: false`,
  * `{ ok: true } | { ok: false; reason: string }` **não estreita**, e ler `.reason` no ramo do `else`
- * é erro de compilação (TS2339). Formato já usado por `menuSlotRefusal` e `reservedSlugRefusal`
+ * é erro de compilação (TS2339). Formato já usado por `menuTargetRefusal` e `reservedSlugRefusal`
  * (`CLAUDE.md`).
  *
  * O que ela impede (`FRG-12`): o painel exibir "frete grátis ligado" enquanto a loja se comporta

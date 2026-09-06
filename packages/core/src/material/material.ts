@@ -195,7 +195,7 @@ export const materialTransitionSources = (to: MaterialStatus): MaterialStatus[] 
  * **`string | null`, e não união discriminada por literal booleano.** `tsconfig.base.json` tem
  * `strictNullChecks: false`, e nesse modo `{ ok: true } | { ok: false; reason: string }` **não
  * estreita**: ler `verdict.reason` no ramo do `else` é TS2339. Mesmo formato de `reservedSlugRefusal`
- * e de `menuSlotRefusal`.
+ * e de `menuTargetRefusal`.
  *
  * **Transição para o próprio estado é sucesso.** É o que faz duas admins clicando ao mesmo tempo
  * convergirem para o resultado de uma só, sem estado intermediário inválido.

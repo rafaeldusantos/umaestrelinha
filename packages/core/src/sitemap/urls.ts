@@ -45,7 +45,7 @@ const normalizeOrigin = (origin: string): string => String(origin ?? '').replace
  * **`string | null`, e não união discriminada por literal booleano.** `tsconfig.base.json` tem
  * `strictNullChecks: false`, e nesse modo `{ ok: true } | { ok: false; reason: string }` **não
  * estreita**: ler `.reason` no ramo do `else` é TS2339. Mesmo formato de `reservedSlugRefusal` e
- * `menuSlotRefusal`.
+ * `menuTargetRefusal`.
  *
  * A validação existe porque o estrago é **de escala**: uma origem vazia ou relativa não produz uma
  * URL errada, produz **todas** as 719 erradas de uma vez, num documento que continua sendo XML
