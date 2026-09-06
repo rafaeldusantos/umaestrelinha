@@ -115,7 +115,13 @@ desenho.
   campanha **sobrevive** à coleção que ele apontava, e uma limpeza futura de imagem órfã de produto
   não pode alcançá-lo.
 
-### A ponte da prévia (feature `25`)
+### A ponte da prévia (feature `25`, e o segundo canal da `39`)
+
+> **São DUAS pontes sobre o mesmo `?preview=1`**: a da Home (`home-composition/model/usePreviewBridge`)
+> e a do Menu (`store-menu/model/useMenuPreviewBridge`, feature `39`). Tudo o que está escrito abaixo
+> vale para as duas — o que difere é o **payload** e o carimbo (`PREVIEW_SOURCE` ×
+> `MENU_PREVIEW_SOURCE`). Um parâmetro novo para o menu seria um segundo dono de "esta janela é uma
+> prévia". Detalhe do canal do menu na seção `/admin/menu`, acima.
 
 **O painel NÃO desenha seção da Home** — nem esquema, nem mini-mapa, nem "só um fallback para quando
 o iframe não carrega". Isso apagou `HomePreview.tsx`, 277 linhas redesenhando à mão o que
@@ -208,14 +214,36 @@ conta — fazer isso seria o "defeito 01" nascendo dentro da tela que existe par
 - **A arte do banner vai para `home-images/menu`** — bucket reusado, não criado: mesma policy e mesmo
   ciclo de vida (campanha sobrevive à coleção que aponta), e criar `menu-images` exigiria migration
   nova sobre uma já aplicada (`AD-017`).
-- **O painel NÃO desenha o menu.** `MenuBarPreview.tsx` foi apagado — era o segundo desenho da barra,
-  com os tokens do admin, mostrando a entrada fixa que não existia. `previaUnica.test.ts` cobre as
-  duas features agora: recusa a volta do arquivo, um segundo `…Preview`, o import de `apps/store` e
-  qualquer arquivo do painel que **calcule** o desenho da loja (`menuPanelColumns`,
-  `resolveMenuBanners`).
+- **O painel NÃO desenha o menu — a prévia é a LOJA, num iframe** (`MenuLivePreview`, `NAV-43`).
+  `MenuBarPreview.tsx` foi apagado: era o segundo desenho da barra, com os tokens do admin, mostrando
+  a entrada fixa que não existia. `previaUnica.test.ts` cobre as duas features agora: recusa a volta
+  do arquivo, um segundo `…Preview`, o import de `apps/store` e qualquer arquivo do painel que
+  **calcule** o desenho da loja (`menuPanelColumns`, `resolveMenuBanners`).
+  - **Não há alternador de dispositivo dentro do palco, e a ausência é a decisão** (`NAV-37`): o
+    alternador Computador/Celular da própria tela governa a edição **e** a prévia, e o quadro é 390
+    ou 1024 conforme a superfície em edição. Um segundo alternador deixaria a Adri editar a curadoria
+    do celular olhando a barra do computador — dois donos de "que dispositivo estou conferindo".
+  - **A medida vai no atributo `width`/`height` e a redução é `transform: scale()`.** Encolher o
+    iframe por CSS o deixaria medindo 1024 nas media queries, e a superfície "celular" mostraria a
+    barra do computador — que é `hidden md:block`, ou seja, o erro apareceria como um menu que some.
+  - **`postMessage` com a origem exata, nunca `'*'`** (`useMenuPreviewBridge`), e a régua de recepção
+    é a estrita: **origem exata E `event.source` sendo a janela do próprio iframe**. O painel **age**
+    (muda a seleção da tela de quem está trabalhando); a loja só desenha, e por isso lá basta ser o
+    pai. A assimetria é o desenho da `25`.
+  - **O rascunho sai com debounce e o `open` sai sem**: o primeiro acompanha gravação e aguenta
+    200ms; o segundo acompanha o clique na lista, e 200ms ali seriam lidos como travamento.
+  - **Sem `VITE_STORE_URL` a tela DIZ isso e continua editável** (`NAV-46`) — a ponte fica desligada
+    inteira (`origin: null`), em vez de tocar num `contentWindow` que não existe.
 - **Ninguém lê `show_in_menu` nem `menu_promo`** (`menuSurfaceSingleOwner.test.ts`, **sem allowlist**
   desde a fase 5): a primeira é coluna gerada e a segunda é legado. As duas continuam no banco para a
   loja publicada não quebrar entre o `db push` e o deploy da Vercel.
+- **Nada aqui conta vaga.** O teto de 4 e os símbolos que o encarnavam foram apagados de `core/menu`;
+  `menuSemTeto.test.ts` recusa a volta deles e do vocabulário de "vaga" nesta tela. A contagem que a
+  lista mostra é **informação** ("7 itens no computador"), nunca cota.
+- **O seletor de ícone tem busca por nome** (`NAV-48`), sem acento e sem caixa — "gravacao" acha
+  "Gravação" —, e ela casa o **rótulo e a chave**: quem confere um valor gravado procura por
+  `gota-afetiva`, não por "Gota afetiva". A cela "Sem ícone" **não é filtrada**: é a saída, não um
+  resultado, e escondê-la tiraria o único jeito de limpar a escolha.
 
 ## Pedidos e a fila de material
 

@@ -649,7 +649,115 @@
 
 ## Handoff
 
-### ATUAL — 2026-09-05 · `37-frete-gratis-configuravel` **IMPLEMENTADA**
+### ATUAL — 2026-09-05 · `39-menu-configuravel` **IMPLEMENTADA**
+
+**Estado**: T1–T32 feitas em cinco lotes, gate limpo nos cinco workspaces. Decisão:
+[`AD-028`](#ad-028), que continua `active`.
+
+#### O passo de operação que esta feature CRIA
+
+> **O menu nasce VAZIO nos dois dispositivos.** As 37 categorias têm `menu_desktop` e `menu_mobile`
+> em `false`, e o único item semeado é o link **"Sobre"**. No deploy, a barra do topo mostra um item
+> e a folha do celular também — até a Adri montar o menu em `/admin/menu`, **uma aba por vez**:
+> ligar no computador **não** liga no celular, porque são duas curadorias e não uma responsiva.
+> **Sem este parágrafo, a loja fica meses com o menu quase vazio porque ninguém soube que havia uma
+> tela.**
+
+#### O que a `39` entrega
+
+| | antes | depois |
+| --- | --- | --- |
+| Curadoria | `show_in_menu`, um booleano para os dois dispositivos | `menu_desktop` + `menu_mobile`, independentes; `show_in_menu` vira **coluna gerada** que ninguém lê |
+| Quantos itens cabem | `MENU_SLOT_LIMIT = 4` — a tela **recusava** a 5ª categoria | **sem teto**; a barra rola na horizontal e a prévia mostra o estouro |
+| O que abre no painel | todas as filhas ativas, numa coluna de 180px | curadoria por dispositivo, em colunas de até 8 (`menuPanelColumns`) |
+| Ícone da entrada | não existia | `categories.icon` **reusada** + `MENU_ICON_KEYS` (28 chaves) + o mesmo desenho nos dois apps |
+| "Sobre" | escrito no JSX do `Header` **e** do `MobileMenu` | **item de link** de `store_settings.menu`, que a Adri move, troca ou tira |
+| `FIXED_ENTRIES` do painel | prometia `/crie-seu-botton`, que **nunca foi rota** — 404 | o **conceito** deixou de existir; guarda recusa a volta |
+| Card do painel | `menu_promo`: retângulo de cor, sem imagem, destino só de categoria | **`menu_banners`**: até 2 por painel por dispositivo, arte por dispositivo, destino de categoria/produto/endereço |
+| Destaque do celular | o promo da *primeira* entrada que tivesse um | o banner **dentro do acordeão** da entrada a que pertence |
+| Faixa "Em destaque" | 3 produtos automáticos por `is_featured`, + 1 consulta por painel aberto | **removida** — a Adri não os escolhia nem os via |
+| Prévia do painel | `MenuBarPreview.tsx`, segundo desenho com a paleta do admin | **a loja, num iframe** (`MenuLivePreview`), como em `/admin/home` |
+| Biblioteca de ícones | `apps/store/src/shared/ui/icons` | `@estrelinha/ui/icons` — o painel precisa do **mesmo** glifo, e não importa de `apps/store` |
+
+#### As duas pontes, e por que elas convivem
+
+A prévia do menu usa **o mesmo `?preview=1`** da feature `25`. `core/menu/preview.ts` importa os
+genéricos de `core/home/preview.ts` (`PREVIEW_PARAM`, `isPreviewWindow`, `PREVIEW_DEVICES`,
+`previewScale`, `previewMetrics`, `previewSrc`) e define **só** o canal próprio: o carimbo
+`MENU_PREVIEW_SOURCE` e as mensagens `ready`/`draft`/`open`. Um parâmetro novo seria um segundo dono
+de "esta janela é uma prévia"; o que separa os canais é o **carimbo**, não o `type` — os dois têm
+`ready` e `draft`, e as duas mensagens chegam na mesma janela.
+
+As réguas continuam **assimétricas de propósito**: o painel exige origem exata **e** `event.source`
+sendo a janela do próprio iframe (ele **age**); a loja exige só ser o pai (ela só **desenha**).
+
+**E o `ready` da loja não vai mais com `'*'`.** Ele é postado na origem do painel, deduzida do
+`document.referrer` — num iframe cross-origin o referrer chega **só como origem**, que é exatamente o
+que se precisa, e `Referrer-Policy: strict-origin-when-cross-origin` está escrito nos dois
+`vercel.json`. Sem referrer (política `no-referrer`) o `ready` **não sai**, e o palco entrega no
+`onLoad` do iframe: a segunda entrega é feita pelo lado que **conhece** a origem certa. É diferença
+declarada em relação à ponte da home, que ainda posta o `ready` com `'*'`.
+
+#### Desvios aceitos, e o que eles mudam em relação à `AD-028`
+
+- **A chave de settings é `menu`, com `links` dentro** — não `menu_links` como a `AD-028` escreveu.
+  Uma chave por lista faria a próxima configuração de menu (ordem, tipografia, o que for) nascer como
+  chave irmã solta; `menu` é o namespace, e `links` é o que hoje mora nele.
+- **Item de LINK não arrasta.** As ACs de arraste falam da `sort_order` da **árvore**; a do link mora
+  no jsonb. Um arraste atravessando a fronteira gravaria em duas fontes com significados diferentes.
+  Consequência declarada: a posição do link se muda pelo `sort_order` dele (o "Sobre" semeado nasce
+  em 100), e **não há controle de ordem na tela** para ele.
+- **`resolveMenuBanners` trunca em 2 na leitura**, e a contrapartida é a tela **acusar** o excedente
+  ("3 gravados, 2 cabem") e deixar apagá-lo — senão o terceiro, gravado por SQL na mão, ficaria
+  invisível **e indeletável**.
+- **A arte do banner grava em `home-images/menu`**, bucket reusado: mesma policy, mesmo ciclo de vida,
+  e criar `menu-images` exigiria migration nova sobre uma já aplicada (`AD-017`).
+- **`icons.test.ts` e `paths.test.ts` NÃO foram para `packages/ui`.** Aquele pacote não tem script
+  `test` nem `vitest.config.ts`: um teste ali **nunca rodaria**, e guarda que não roda é pior que
+  guarda nenhum. `icons.test.ts` ficou na suíte da loja varrendo `packages/ui/src/icons`.
+- **Não há alternador de dispositivo dentro do palco da prévia.** O alternador da própria tela governa
+  edição **e** prévia (`NAV-37`); um segundo deixaria a Adri editar a curadoria do celular olhando a
+  barra do computador.
+- **`MenuCategory` perdeu `show_in_menu` e `menu_promo`** — o domínio deixou de conhecê-las. As duas
+  colunas continuam no banco, e `DbCategory` continua descrevendo-as: quem descreve a linha é o tipo
+  de `@estrelinha/supabase`, não o do domínio.
+- **`core/home/preview.ts` ganhou `.ts` no import de `./types`.** Ele entrou no grafo que o **Deno**
+  do sitemap resolve, e Deno resolve o grafo de **tipos** junto — sem a extensão, o worker morreria
+  com `Failed resolving types` antes da primeira linha. `purity.test.ts` passou a caminhar o grafo
+  **transitivo**, com sensor que prova o defeito exato.
+
+#### O que ficou registrado como aprendizado
+
+- **Um "legado que ninguém lê" exportado do barril é o que a próxima tela importa por engano.** Por
+  isso `MENU_SLOT_LIMIT`, `slotsUsed`, `menuSlotRefusal`, `menuEntries`, `MenuEntry`, `resolvePromo`
+  e `ResolvedPromo` foram **apagados**, não depreciados: eles responderiam com a curadoria única de
+  antes, ignorando o dispositivo, e a tela mostraria uma coisa e a loja outra **sem quebrar nada**.
+- **Guarda com ponto cego é pior que guarda nenhum.** O removedor de comentário em **duas passadas**
+  (bloco primeiro, linha depois) fica cego para um trecho inteiro quando um comentário de linha cita
+  um glob com dois asteriscos — e passa a **aprovar em silêncio** o que estiver ali. Achado no lote 4
+  porque uma asserção nova reprovou; virou sensor nos quatro guardas do menu.
+  `freeShippingSingleOwner.test.ts` — o guarda do **dinheiro** — carrega a forma antiga, e está
+  registrado como **`BL-023`**.
+- **`?preview=1` sozinho não pode mudar nada.** O parâmetro é adivinhável e viraliza por link: o modo
+  prévia exige **também** estar dentro de um iframe. Vale igual para o canal novo.
+
+#### Pendências
+
+- **A `39` NÃO tem `validation.md`, e não passou por Verifier independente.** É a pendência mais
+  cara desta feature, porque o que ela entrega é **largura** (a barra que rola em vez de recusar) e
+  **prévia** (o iframe em 390 e em 1024) — e **jsdom devolve 0 para toda medida de layout**.
+- **Falta a prova em navegador real**, em 390 e 1440: o estouro da barra com 10+ itens, o banner
+  dentro do acordeão, e a prévia com o alternador nos dois estados.
+- **A migration não foi aplicada no hospedado** — sai no `Supabase Deploy` do push. O caminho "banco
+  novo" continua **não provado**: ela foi exercida três vezes sobre o banco local **com catálogo
+  importado**, e `supabase db reset` não foi rodado de propósito (o `seed.sql` não tem mais catálogo,
+  e resetar destruiria os 680 produtos importados nesta máquina). Quem fechar isto precisa de um
+  banco descartável.
+- **`BL-010` e `BL-011` seguem abertas** — `BL-009` fechou nesta feature (T19).
+
+---
+
+### ANTERIOR — 2026-09-05 · `37-frete-gratis-configuravel` **IMPLEMENTADA**
 
 **Estado**: T01–T08 feitas, gate limpo. Decisão: [`AD-027`](#ad-027).
 

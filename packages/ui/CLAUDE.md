@@ -16,7 +16,33 @@ import '@estrelinha/ui/styles.css'                  // no main.tsx, ANTES do App
 ```
 
 O `exports` do `package.json` tem um curinga `./*` que resolve `./src/*.tsx` — por isso
-`@estrelinha/ui/button` funciona sem cada componente estar listado.
+`@estrelinha/ui/button` funciona sem cada componente estar listado. `./icons` é subpath **declarado**,
+porque aponta para um diretório com barrel e não para um arquivo.
+
+## `@estrelinha/ui/icons` — a biblioteca de ícones (feature `39`)
+
+**Ela morava em `apps/store/src/shared/ui/icons` e mudou de casa por uma razão de produto, não de
+arrumação**: o seletor de ícone de `/admin/menu` tem de desenhar o **mesmo** glifo que a cliente vê na
+barra, e `apps/backoffice` **não importa de `apps/store`** (`previaUnica.test.ts` derruba a suíte se
+importar). Sem a mudança, a alternativa real não era reusar — era **copiar**, e a dona escolheria um
+desenho na tela e a loja mostraria outro.
+
+- **O barrel antigo NÃO ficou reexportando.** Dois caminhos para o mesmo ícone é o "defeito 01"; a
+  loja tem **zero** ocorrências de `shared/ui/icons`, e `menuIconCatalog.test.ts` guarda isso.
+- **A chave e o desenho são de donos diferentes, de propósito.** `MENU_ICON_KEYS` vive em
+  `@estrelinha/core/menu` (é **dado** — vem de `categories.icon`, roda em Node e em Deno) e
+  `MENU_ICON_COMPONENTS` vive aqui (é **React**). `Record<MenuIconKey, …>` prova a cobertura em
+  compilação; `menuIconCatalog.test.ts` fecha o sentido inverso. **Não traga a chave para cá**:
+  `core/menu/__tests__/purity.test.ts` reprova qualquer import de `@estrelinha/ui` lá dentro, porque
+  isso quebraria a edge function do sitemap.
+- **Uma grade e um traço**: `viewBox="0 0 24 24"`, traço **efetivo 1,5**. Desenho de outra grade entra
+  num `<g transform="scale(…)">` com o traço compensado — **escala × traço = 1,5**, sempre.
+- **`icons.test.ts` e `paths.test.ts` NÃO vieram junto, e isso é decisão declarada.** Este pacote não
+  tem script `test` nem `vitest.config.ts`: um teste aqui dentro **nunca rodaria**, e guarda que não
+  roda é pior que guarda nenhum, porque parece estar de pé. `icons.test.ts` ficou na suíte da loja
+  (`shared/lib/__tests__`) varrendo `packages/ui/src/icons` — a mesma solução que `materialTransitions`
+  e `vercelRedirects` já usam para ler migrations e o `vercel.json`. Ao acrescentar um ícone, rode
+  `pnpm --filter @estrelinha/store test`.
 
 ## Os tokens daqui são os do PAINEL, não os da loja
 

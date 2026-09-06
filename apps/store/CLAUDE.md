@@ -322,6 +322,11 @@ Home tem um desenho só, e ele mora aqui.**
 
 - **O contrato tem UM dono: `@estrelinha/core/home/preview.ts`** — quatro mensagens (`ready`, `draft`,
   `highlight`, `select`), `isPreviewWindow`, `parsePreviewMessage`, `previewScale`.
+- **Desde a feature `39` o MESMO `?preview=1` carrega DOIS canais**: o da home e o do menu
+  (`@estrelinha/core/menu/preview.ts`), que importa os genéricos daqui e define só o carimbo próprio
+  (`MENU_PREVIEW_SOURCE`) e as mensagens dele. Um parâmetro novo (`?menu=1`) seria um segundo dono de
+  "esta janela é uma prévia"; o que separa os canais é o **carimbo**, não o `type` — os dois têm
+  `ready` e `draft`, e as duas mensagens chegam na mesma janela.
 - **O modo prévia exige `?preview=1` E estar dentro de um iframe.** O parâmetro sozinho não basta: ele
   é adivinhável e viraliza por link compartilhado, e uma cliente cairia numa página esperando uma
   mensagem que nunca chega.
@@ -577,7 +582,13 @@ ninguém é avisado.
   (`menu_desktop or menu_mobile`) e a segunda é legado não lido — as duas continuam no banco de
   propósito, para a loja publicada não quebrar na janela entre o `db push` e o deploy da Vercel,
   que rodam em paralelo. `menuSurfaceSingleOwner.test.ts` derruba a suíte se alguma tela voltar a
-  lê-las; a loja tem **zero** entradas no allowlist, e as do painel expiram na fase 5.
+  lê-las, e **não há mais allowlist**: a dívida do painel foi paga na fase 5, e a varredura de
+  `apps/**` está limpa nos dois apps. Os dois campos também **saíram de `MenuCategory`**, em `core`.
+- **Não existe teto de itens, e os sete símbolos que o encarnavam foram APAGADOS**: `MENU_SLOT_LIMIT`,
+  `slotsUsed`, `menuSlotRefusal`, `menuEntries`, `MenuEntry`, `resolvePromo` e `ResolvedPromo`.
+  `menuSemTeto.test.ts` recusa a volta de qualquer um deles em `apps/**` ou em
+  `packages/core/src/menu/**`, recusa o vocabulário de "vaga" nas cinco superfícies de menu, e
+  congela a forma que produz a rolagem (`overflow-x-auto` + `min-w-max`, sem `flex-wrap`).
 - **Não há teto de itens, e a resposta ao estouro é ROLAR.** A faixa do desktop é
   `overflow-x-auto` (no `<nav>` do `Header`) com `min-w-max` (na fila do `MegaMenu`), e **nunca**
   `flex-wrap`: embrulhar em duas linhas esconderia o estouro, que é o que a dona precisa ver.
@@ -592,6 +603,22 @@ ninguém é avisado.
 - **A faixa "Em destaque" (`TrendingLane`) e o card `menu_promo` SAÍRAM.** Eram 3 produtos
   automáticos que a dona não escolhia nem via (mais uma consulta de catálogo por painel aberto) e
   um retângulo de cor sem imagem, numa loja que vende peça que se compra pelo olho.
+- **A prévia do menu é a MESMA loja, no mesmo `?preview=1`** (feature `39`, `NAV-43`). O painel
+  `/admin/menu` carrega a loja num iframe e manda a curadoria por `postMessage`; a loja escuta em
+  `entities/menu/model/useMenuPreview`. Dois pontos que não podem mudar:
+  - **A substituição da fonte acontece em `useMenu`, e em nenhum outro lugar.** Ele já é a porta
+    única das duas superfícies; trocar a fonte dentro de cada widget daria duas leituras do rascunho,
+    com a chance de uma ficar para trás. `useMenuBanners` também lê o rascunho, pela mesma ponte.
+  - **`draft === null` é "ainda não chegou" e cai no banco; `draft` vazio é "a dona desligou tudo".**
+    Confundir os dois faria a prévia nunca ficar vazia — que é justamente o estado que ela precisa
+    mostrar.
+  - **O `ready` da loja vai para a origem do painel, deduzida do `document.referrer`, nunca para
+    `'*'`.** Sem referrer ele não sai, e o palco entrega pelo `load` do iframe — a segunda entrega é
+    feita pelo lado que **conhece** a origem certa. A régua de recepção continua sendo a da `25`: a
+    loja exige só ser o pai, porque a loja só desenha.
+  - No celular a folha **abre sozinha** em modo prévia, no acordeão que o palco pediu: a barra de
+    departamentos é `hidden md:block` e não existe em 390, então sem isso a prévia da superfície que
+    responde por ~90% dos acessos mostraria a home e um hambúrguer.
 - **`browseCategories`** (grade da home, rodapé) **pula o guarda-chuva**: uma raiz sozinha é
   contêiner, não escolha. Não confundir com `pickTrendingCategories`, que é deliberadamente **folha**.
 - **`useProducts(slug)` faz roll-up da descendência** (`descendantIds`): sem isso o "Ver todos →" do

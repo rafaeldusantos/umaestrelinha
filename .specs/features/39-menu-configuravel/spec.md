@@ -327,56 +327,61 @@ voltar a ter um desenho próprio — e, sem teto de itens, é onde o estouro da 
 
 | ID | Story | Fase | Status |
 | --- | --- | --- | --- |
-| NAV-01 | P1 Curadoria — duas superfícies independentes | Design | Pending |
-| NAV-02 | P1 — estado cruzado visível na linha ("desligada no celular") | Design | Pending |
-| NAV-03 | P1 — **sem teto de itens**, e nenhuma recusa por contagem no código | Design | Pending |
-| NAV-04 | P1 — barra do desktop rola na horizontal quando não cabe; `body` nunca rola | Design | Pending |
-| NAV-05 | P1 — contagem é informação, não vaga consumida | Design | Pending |
-| NAV-06 | P1 — papel (barra × painel) derivado da árvore | Design | Pending |
-| NAV-07 | P1 — inativa some da loja e é marcada na tela | Design | Pending |
-| NAV-08 | P1 — migração preserva o menu que já existe | Design | Pending |
-| NAV-09 | P1 Link — cadastro com rótulo, destino, ícone e ligação por dispositivo | Design | Pending |
-| NAV-10 | P1 — destino interno conferido contra as rotas declaradas, na gravação | Design | Pending |
-| NAV-11 | P1 — externo exige `https://` e sai com `noopener noreferrer` | Design | Pending |
-| NAV-12 | P1 — link é link direto: sem painel, seta, subcategoria ou banner | Design | Pending |
-| NAV-13 | P1 — remover o link não mexe na página de destino | Design | Pending |
-| NAV-14 | P1 — categorias e links ordenados juntos; **zero item de menu em JSX** | Design | Pending |
-| NAV-15 | P1 — sem links, a barra é só categorias, sem sobra | Design | Pending |
-| NAV-16 | P1 Ícone — seletor com o desenho de verdade e "sem ícone" | Design | Pending |
-| NAV-17 | P1 — mesmo ícone nas duas superfícies | Design | Pending |
-| NAV-18 | P1 — sem ícone não reserva espaço | Design | Pending |
-| NAV-19 | P1 — chave inválida degrada para sem ícone | Design | Pending |
-| NAV-20 | P1 — ícone em `accent`, rótulo em `on-primary` | Design | Pending |
-| NAV-21 | P1 — um dono só do conjunto de ícones, alcançável pelos dois apps | Design | Pending |
-| NAV-22 | P1 Subcategorias — marcadas aparecem, na ordem da árvore | Design | Pending |
-| NAV-23 | P1 — desmarcada some do menu e continua na loja | Design | Pending |
-| NAV-24 | P1 — colunas de até 8, calculadas | Design | Pending |
-| NAV-25 | P1 — entrada sem filhas e sem banner é link direto | Design | Pending |
-| NAV-26 | P1 — "ver tudo em X" aponta para a canônica | Design | Pending |
-| NAV-27 | P1 — curadoria de filhas é por dispositivo | Design | Pending |
-| NAV-28 | P1 Banner — até dois por entrada por dispositivo | Design | Pending |
-| NAV-29 | P1 — terceiro banner é recusado com motivo | Design | Pending |
-| NAV-30 | P1 — destino categoria/produto validado na leitura | Design | Pending |
-| NAV-31 | P1 — destino digitado usa a mesma validação do item de link | Design | Pending |
-| NAV-32 | P1 — herança de título/texto do destino; sem imagem não vira buraco | Design | Pending |
-| NAV-33 | P1 — arte por dispositivo, com aviso do que falta | Design | Pending |
-| NAV-34 | P1 — arte ausente reaproveita a do outro, com aviso no painel | Design | Pending |
-| NAV-35 | P1 — sem banner o painel encolhe | Design | Pending |
-| NAV-36 | P1 — no celular o banner mora dentro do acordeão da entrada | Design | Pending |
-| NAV-37 | P1 Tela — alternador Computador/Celular governa edição e prévia | Design | Pending |
-| NAV-38 | P1 — arrastar reordena a árvore, com o aviso do alcance | Design | Pending |
-| NAV-39 | P1 — recusa de arraste entre ramos | Design | Pending |
-| NAV-40 | P1 — a tela mostra o que a loja renderiza, e nada declarado nela | Design | Pending |
-| NAV-41 | P1 — falha de leitura é superfície explícita | Design | Pending |
-| NAV-42 | P1 — falha de gravação diz o que não salvou | Design | Pending |
-| NAV-43 | P2 Prévia — a loja num iframe, sem segundo desenho | Design | Pending |
-| NAV-44 | P2 — rascunho ao vivo | Design | Pending |
-| NAV-45 | P2 — celular é 390 escalado, não encolhido | Design | Pending |
-| NAV-46 | P2 — sem `VITE_STORE_URL` a tela segue editável | Design | Pending |
-| NAV-47 | P2 — mensagem de origem estranha é ignorada | Design | Pending |
-| NAV-48 | P3 — busca por nome no seletor de ícones | - | Pending |
+| NAV-01 | P1 Curadoria — duas superfícies independentes | Implementado | Done |
+| NAV-02 | P1 — estado cruzado visível na linha ("desligada no celular") | Implementado | Done |
+| NAV-03 | P1 — **sem teto de itens**, e nenhuma recusa por contagem no código | Implementado | Done |
+| NAV-04 | P1 — barra do desktop rola na horizontal quando não cabe; `body` nunca rola | Implementado | Done |
+| NAV-05 | P1 — contagem é informação, não vaga consumida | Implementado | Done |
+| NAV-06 | P1 — papel (barra × painel) derivado da árvore | Implementado | Done |
+| NAV-07 | P1 — inativa some da loja e é marcada na tela | Implementado | Done |
+| NAV-08 | P1 — migração preserva o menu que já existe | Implementado | Done |
+| NAV-09 | P1 Link — cadastro com rótulo, destino, ícone e ligação por dispositivo | Implementado | Done |
+| NAV-10 | P1 — destino interno conferido contra as rotas declaradas, na gravação | Implementado | Done |
+| NAV-11 | P1 — externo exige `https://` e sai com `noopener noreferrer` | Implementado | Done |
+| NAV-12 | P1 — link é link direto: sem painel, seta, subcategoria ou banner | Implementado | Done |
+| NAV-13 | P1 — remover o link não mexe na página de destino | Implementado | Done |
+| NAV-14 | P1 — categorias e links ordenados juntos; **zero item de menu em JSX** | Implementado | Done |
+| NAV-15 | P1 — sem links, a barra é só categorias, sem sobra | Implementado | Done |
+| NAV-16 | P1 Ícone — seletor com o desenho de verdade e "sem ícone" | Implementado | Done |
+| NAV-17 | P1 — mesmo ícone nas duas superfícies | Implementado | Done |
+| NAV-18 | P1 — sem ícone não reserva espaço | Implementado | Done |
+| NAV-19 | P1 — chave inválida degrada para sem ícone | Implementado | Done |
+| NAV-20 | P1 — ícone em `accent`, rótulo em `on-primary` | Implementado | Done |
+| NAV-21 | P1 — um dono só do conjunto de ícones, alcançável pelos dois apps | Implementado | Done |
+| NAV-22 | P1 Subcategorias — marcadas aparecem, na ordem da árvore | Implementado | Done |
+| NAV-23 | P1 — desmarcada some do menu e continua na loja | Implementado | Done |
+| NAV-24 | P1 — colunas de até 8, calculadas | Implementado | Done |
+| NAV-25 | P1 — entrada sem filhas e sem banner é link direto | Implementado | Done |
+| NAV-26 | P1 — "ver tudo em X" aponta para a canônica | Implementado | Done |
+| NAV-27 | P1 — curadoria de filhas é por dispositivo | Implementado | Done |
+| NAV-28 | P1 Banner — até dois por entrada por dispositivo | Implementado | Done |
+| NAV-29 | P1 — terceiro banner é recusado com motivo | Implementado | Done |
+| NAV-30 | P1 — destino categoria/produto validado na leitura | Implementado | Done |
+| NAV-31 | P1 — destino digitado usa a mesma validação do item de link | Implementado | Done |
+| NAV-32 | P1 — herança de título/texto do destino; sem imagem não vira buraco | Implementado | Done |
+| NAV-33 | P1 — arte por dispositivo, com aviso do que falta | Implementado | Done |
+| NAV-34 | P1 — arte ausente reaproveita a do outro, com aviso no painel | Implementado | Done |
+| NAV-35 | P1 — sem banner o painel encolhe | Implementado | Done |
+| NAV-36 | P1 — no celular o banner mora dentro do acordeão da entrada | Implementado | Done |
+| NAV-37 | P1 Tela — alternador Computador/Celular governa edição e prévia | Implementado | Done |
+| NAV-38 | P1 — arrastar reordena a árvore, com o aviso do alcance | Implementado | Done |
+| NAV-39 | P1 — recusa de arraste entre ramos | Implementado | Done |
+| NAV-40 | P1 — a tela mostra o que a loja renderiza, e nada declarado nela | Implementado | Done |
+| NAV-41 | P1 — falha de leitura é superfície explícita | Implementado | Done |
+| NAV-42 | P1 — falha de gravação diz o que não salvou | Implementado | Done |
+| NAV-43 | P2 Prévia — a loja num iframe, sem segundo desenho | Implementado | Done |
+| NAV-44 | P2 — rascunho ao vivo | Implementado | Done |
+| NAV-45 | P2 — celular é 390 escalado, não encolhido | Implementado | Done |
+| NAV-46 | P2 — sem `VITE_STORE_URL` a tela segue editável | Implementado | Done |
+| NAV-47 | P2 — mensagem de origem estranha é ignorada | Implementado | Done |
+| NAV-48 | P3 — busca por nome no seletor de ícones | Implementado | Done |
 
-**Coverage:** 48 requisitos, 0 mapeados para tarefas ainda.
+**Coverage:** 48 requisitos, **48 implementados** nas tasks T1–T32 (cinco lotes, fechados em
+2026-09-05). **`Done` aqui significa "coberto por teste que roda no gate"**, e não "verificado" — a
+feature não tem `validation.md` e não passou por Verifier independente. Os que dependem de **medida
+de layout** ficam fora do alcance de jsdom e continuam provados só pela **forma** (classe, atributo):
+`NAV-04` (o estouro da barra) e `NAV-45` (390 escalado, não encolhido). A prova deles é de navegador,
+em 390 e 1440 — ver *Pendências* no handoff da `STATE.md`.
 
 ---
 

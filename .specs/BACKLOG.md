@@ -431,7 +431,23 @@ opção é uma consulta por estado (9 hoje); a terceira é uma migration.
 
 ## BL-009 — `SUPABASE_URL` com fallback hard-coded de OUTRO projeto
 
-- **Status**: aberto · **Registrado em**: 2026-08-15 · **Origem**: feature `24`, T26 (generalização do upload)
+- **Status**: **FECHADO** em 2026-09-05 · **Registrado em**: 2026-08-15 · **Origem**: feature `24`,
+  T26 (generalização do upload) · **Fechado por**: feature `39`, T19
+
+> **Como fechou.** O editor de banner do menu precisava do mesmo motor de upload, e `features/` não
+> importa de `features/`: `uploadImageBlob` (com `validateImageFile`, `uploadFailureMessage`,
+> `MAX_FILE_BYTES` e `ACCEPTED_TYPES`) mudou de casa para
+> `apps/backoffice/src/shared/lib/uploadImage.ts`. O `||` morreu na mudança — não foi "consertado
+> depois", foi apagado no movimento que já tocava o arquivo. A saída escolhida é a **(b)** descrita
+> abaixo pela razão mais simples possível: o client de `@estrelinha/supabase` **já lança** sem
+> `VITE_SUPABASE_URL`, então o lado direito do `||` era inalcançável — e é exatamente assim que um
+> fallback se parece **antes** de virar defeito: bastava alguém dar um default ao client para toda
+> imagem enviada apontar para outro projeto, sem erro nenhum.
+>
+> `product-form` reexporta só os **tipos** (`UploadFailure`, `UploadRejectReason`), nunca as funções:
+> reexportar a função daria dois caminhos para a mesma régua.
+
+O registro original, preservado:
 
 `apps/backoffice/src/features/product-form/lib/uploadProductImage.ts:12` monta a URL pública da
 imagem com um `||` cujo lado direito é a URL literal de **um projeto Supabase hospedado que não é
@@ -905,3 +921,75 @@ transformação (11 KB a 400px) — `srcset` está a um passo.
 existem para ele.
 
 **Irmã da `BL-00X`** (peso da listagem de produto), que mede o outro lado do mesmo problema.
+
+---
+
+## BL-023 — O guarda do frete grátis tem um PONTO CEGO no removedor de comentário
+
+- **Status**: aberto · **Registrado em**: 2026-09-05 · **Origem**: feature `39`, lote 4 — o defeito
+  foi encontrado nos guardas novos do menu e corrigido lá; o arquivo da `37` **não foi tocado**.
+
+> **O número.** O item pedido como `BL-018` recebeu `BL-023`: o `018` já estava ocupado pelos
+> "13 endereços que a Nuvemshop indexou", e número de backlog é imutável pela mesma razão que número
+> de feature é — dois donos do mesmo identificador é o "defeito 01" aplicado à documentação.
+
+**O que é.** `apps/store/src/shared/lib/__tests__/freeShippingSingleOwner.test.ts` remove comentários
+do fonte antes de varrê-lo — sem isso ele acusaria a prosa que **explica** a regra, e o conserto
+óbvio viraria "apague o comentário" em vez de "conserte o código". O removedor roda em **duas
+passadas**:
+
+```
+.replace(/\/\*[\s\S]*?\*\//g, …)   // 1ª: bloco
+.replace(/\/\/.*$/gm, …)           // 2ª: linha
+```
+
+E aí está o defeito: um comentário de **linha** que cite um glob com dois asteriscos —
+`// varre apps/**/*.tsx` — carrega um `/*` **dentro dele**. Para a primeira régua, aquilo abre um
+bloco, e ela apaga tudo até o próximo `*/` que encontrar no arquivo — **inclusive código**.
+
+**Por que é pior que um guarda ausente.** O efeito não é uma reprovação: é o guarda **deixar de
+enxergar um trecho inteiro** e passar a **aprovar em silêncio** o que estiver ali dentro. Ele
+continua verde, continua listado na tabela *Os guardas* do `CLAUDE.md`, e a asserção que ele mede é
+uma **ausência** — que é exatamente o que passa sozinho quando o instrumento falha. Guarda com ponto
+cego parece estar de pé.
+
+O `freeShippingSingleOwner` é o guarda do **dinheiro**: ele existe porque sete superfícies liam
+`free_shipping_threshold` em duas leituras que discordavam, e quatro delas **zeravam o frete**. É o
+último lugar do repositório onde se pode aceitar um instrumento que aprova sem olhar.
+
+**Onde está a forma corrigida, para copiar.** Os quatro guardas do menu (feature `39`) fazem linha e
+bloco na **mesma varredura**, com alternação — quem começa primeiro consome:
+
+```ts
+const semComentarios = (fonte: string): string[] =>
+  fonte
+    .replace(/\r\n/g, '\n')                                   // CRLF PRIMEIRO
+    .replace(/\/\/[^\n]*|\/\*[\s\S]*?\*\//g, t => t.replace(/[^\n]/g, ' '))
+    .split('\n')
+```
+
+Um comentário de linha engole o resto da linha (e o glob junto); um abre-bloco engole até o
+fecha-bloco. O miolo vira espaço, **preservando as quebras** — o índice de cada linha não desliza, e
+o guarda continua podendo apontar `arquivo:linha`.
+
+Arquivos com a forma correta, em ordem de proximidade com o alvo:
+`apps/store/src/shared/lib/__tests__/menuSemTeto.test.ts`,
+`apps/store/src/shared/lib/__tests__/menuSemItemFixo.test.ts`,
+`apps/store/src/shared/lib/__tests__/menuSurfaceSingleOwner.test.ts` e
+`apps/backoffice/src/features/home-composition/__tests__/previaUnica.test.ts`.
+
+**A normalização de CRLF vem primeiro, e não é higiene.** Em JavaScript `.` **não casa `\r`** (é
+terminador de linha), então num checkout Windows — que é a plataforma deste projeto — `// comentário\r`
+faz `/\/\/.*$/` não casar nada e o stripper fica **inerte**. Esse defeito o `freeShippingSingleOwner`
+já pagou uma vez e já corrigiu; o que falta nele é a segunda metade.
+
+**O que precisa ser decidido**: nada de projeto — é substituição mecânica. O que **não** pode
+acontecer é fechar isto sem os **sensores**: quem trocar o removedor tem de acrescentar, no mesmo
+arquivo, (1) a prova de que o comentário some com CRLF **e** com LF, (2) a prova de que a numeração
+das linhas não desliza, e (3) o caso do glob com dois asteriscos, asserindo que o código **abaixo
+dele sobrevive**. Sem o (3) a troca não é verificável, e o próximo a ler não saberá que o ponto cego
+existiu.
+
+**Escopo mínimo sugerido**: só o removedor e os sensores. Nenhuma asserção de regra deve ser tocada —
+se alguma passar a reprovar depois da troca, ela estava sendo aprovada pelo ponto cego, e isso é um
+achado, não um efeito colateral a "consertar" afrouxando a régua.

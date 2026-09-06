@@ -51,7 +51,26 @@ ausente seria indistinguível de run quebrado na aba Actions.
 
 ## Migrations
 
-44 arquivos em `migrations/`. **Nenhuma credencial no código.**
+48 arquivos em `migrations/`. **Nenhuma credencial no código.**
+
+> **A migration do menu configurável (`39`) é o caso de "coluna nova sem quebrar a loja publicada"**,
+> e vale como molde. `show_in_menu` deixou de ser coluna comum e virou **coluna GERADA**
+> (`menu_desktop or menu_mobile`), com o índice parcial recriado sobre ela. O motivo é a janela entre
+> o `db push` e o deploy da Vercel, que **rodam em paralelo**: por alguns minutos a loja publicada
+> ainda lê a coluna antiga. Gerada, ela continua respondendo — e **nenhuma tela pode lê-la** daí em
+> diante (`menuSurfaceSingleOwner.test.ts`, sem allowlist). `menu_promo` foi **preservada** pelo mesmo
+> motivo, e o leitor dela foi apagado do código.
+>
+> Duas outras coisas dessa migration são molde:
+> - **Backfill e conversão dentro de um `do $$` guardado por `attgenerated = ''`.** Soltos, a segunda
+>   execução leria a coluna já DERIVADA e ligaria nas duas superfícies tudo que estivesse ligado em
+>   uma — **apagando a curadoria da dona em silêncio**. Idempotência aqui não é higiene: é o que
+>   separa "rodar de novo" de "perder trabalho".
+> - **A semeadura de `store_settings.menu` é aditiva (`value ||`) e idempotente (`NOT value ?`)**, o
+>   molde da `37`. O único item de menu que existe por padrão é o link "Sobre"; as 37 categorias
+>   nascem com `menu_desktop` e `menu_mobile` em `false`.
+>
+> `menuSchema.test.ts` (na suíte da loja) lê o `.sql` do disco e reprova cada afrouxamento.
 
 - **`AD-017` VENCEU em 2026-08-17, e a regra agora é a normal: migration aplicada é IMUTÁVEL.**
   Até o primeiro `db push` bem-sucedido era permitido corrigir uma migration no lugar — foi assim que
@@ -72,8 +91,9 @@ ausente seria indistinguível de run quebrado na aba Actions.
 
 ### RLS — o molde que os guardas cobram
 
-Quatro migrations são lidas do disco por teste (`materialTransitions`, `homeSections`, `faqSchema`,
-`googleShoppingSchema`). O que eles reprovam é sempre a mesma família de afrouxamento:
+Seis migrations são lidas do disco por teste (`materialTransitions`, `homeSections`, `faqSchema`,
+`googleShoppingSchema`, `importSchema` e, desde a `39`, `menuSchema`). O que eles reprovam é sempre a
+mesma família de afrouxamento:
 
 - **`anon` não alcança escrita em nada.** Nenhum `grant` de escrita, em nenhuma tabela nova.
 - **Policy de escrita passa por `has_role`.** Sem exceção.

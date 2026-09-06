@@ -14,7 +14,8 @@ grupo a que ela pertence, não uma promessa de commit atômico.
 ---
 
 **Design**: `.specs/features/39-menu-configuravel/design.md`
-**Status**: Draft
+**Status**: **Implementada** (2026-09-05) — sem `validation.md` e sem Verifier independente; ver
+*Pendências* no handoff da `STATE.md`.
 
 ---
 
@@ -52,6 +53,15 @@ grupo a que ela pertence, não uma promessa de commit atômico.
 catalog-import 509/23**. Quedas declaradas e permitidas: `TrendingLane`, `MenuBarPreview`,
 `menuSlotRefusal`/`MENU_SLOT_LIMIT` — cada uma anotada com o motivo no fecho.
 
+> **FECHADO em 2026-09-05.** Baselines finais, medidas um workspace por vez e com exit code
+> capturado: **store 2182/144 · backoffice 1891/115 · core 1691/67 · functions 350/7 ·
+> catalog-import 509/23** — total **6623 em 356 arquivos** (+484 / +22). Lint **27/5** e tipos
+> **0 · 0**, sem mexer; `pnpm build` verde. `packages/core/src/payment/**` e
+> `supabase/functions/mercado-pago/**` seguem **intocados**, conferido por `git diff --name-only`.
+> As três quedas previstas aconteceram e estão anotadas: `TrendingLane` (−3 no `MegaMenu`, −3 no
+> `MobileMenu`, os dois arquivos crescendo na mesma reescrita), `MenuBarPreview` (**−0** — nunca teve
+> teste) e o teto de vagas (**−34** em `core/menu/__tests__/menu.test.ts`).
+
 ---
 
 ## Progresso
@@ -62,7 +72,57 @@ catalog-import 509/23**. Quedas declaradas e permitidas: `TrendingLane`, `MenuBa
 | 2 | 2 + 3 | T6–T11 | ✅ completo | `3c00b09` · `1b97a38` | store **2046/137** (+45/+2) · core 1705/66 · backoffice 1786/109 · lint 27/5 (=) · tsc 0 · 0 · build ✅ |
 | 3 | 4 | T12–T18 | ✅ completo | `7697f91` · `test(39): os guardas do menu na loja` | store **2140/142** (+94/+5) · core 1705/66 (=) · backoffice 1786/109 (=) · lint 27/5 (=) · tsc 0 · 0 |
 | 4 | 5 | T19–T26 | ✅ completo | `refactor(39): o upload…` · `feat(39): a tela…` | backoffice **1860/113** (+74/+4) · store **2141/142** (+1) · core 1705/66 (=) · lint 27/5 (=) · tsc 0 · 0 |
-| 5 | 6 + 7 | T27–T32 | — | — | — |
+| 5 | 6 + 7 | T27–T32 | ✅ completo | `feat(39): a prévia ao vivo…` · `refactor(39): sai o teto…` · `docs(39): baselines…` | core **1691/67** (−14/+1) · store **2182/144** (+41/+2) · backoffice **1891/115** (+31/+2) · functions 350/7 (=) · catalog-import 509/23 (=) · lint 27/5 (=) · tsc 0 · 0 · build ✅ |
+
+**Desvios aceitos no lote 5** (todos documentados no código):
+
+- **`core/menu/preview.ts` NÃO reexporta os genéricos.** A T27 mandava importá-los de
+  `core/home/preview.ts` e não duplicá-los; reexportá-los daria **dois caminhos** para a mesma
+  função, o que é meio passo do defeito 01. Consequência: quem precisa de `isPreviewWindow`,
+  `PREVIEW_DEVICES`, `previewScale`, `previewMetrics`, `previewSrc` ou `PREVIEW_DEBOUNCE_MS` importa
+  de `@estrelinha/core/home` — e essa importação, em arquivo de menu, **é a documentação do reuso**.
+- **`core/home/preview.ts` ganhou `.ts` no `import type … from './types'`.** Ele entrou no grafo que
+  o **Deno** do sitemap resolve (via `core/menu/index.ts → preview.ts`), e Deno resolve o grafo de
+  **tipos** junto. `purity.test.ts` passou a caminhar o grafo **transitivo** — a régua antiga olhava
+  só os arquivos do próprio diretório, e um vizinho podia quebrar o módulo sem tocar nele. O sensor
+  foi provado por **injeção real**: revertendo a extensão, a asserção reprova.
+- **O `ready` da loja vai para a ORIGEM do painel, não para `'*'`.** Deduzida do `document.referrer`,
+  que num iframe cross-origin chega só como origem (`Referrer-Policy: strict-origin-when-cross-origin`,
+  escrito nos dois `vercel.json`). Sem referrer o `ready` **não sai**, e o palco entrega no `onLoad`
+  do iframe — a entrega feita pelo lado que conhece a origem certa. Diverge da ponte da home, que
+  ainda posta o `ready` com `'*'` por não conhecer a origem do pai.
+- **A T28 mexeu no `MobileMenu`, que a task não nomeava.** O quadro do celular mede 390, onde a barra
+  de departamentos é `hidden md:block` e não existe: sem abrir a folha e o acordeão pedido, a prévia
+  da superfície que responde por ~90% dos acessos mostraria a home e um hambúrguer.
+- **A substituição da fonte em modo prévia acontece em `useMenu`, e a leitura do rascunho pelos
+  banners em `useMenuBanners`** — os dois pontos que já eram porta única. `useMenu` importa
+  `useMenuPreview` por **caminho profundo**: passar pelo barrel de `entities/menu` fecharia o ciclo
+  `category → menu → category` entre os dois barris.
+- **Não há alternador de dispositivo dentro do palco** (`MenuLivePreview`). `NAV-37` já diz que o
+  alternador da tela governa edição **e** prévia; um segundo permitiria editar a curadoria do celular
+  olhando a barra do computador.
+- **A T30 removeu SETE símbolos, não seis**: `ResolvedPromo` ficou órfã de `resolvePromo` e saiu
+  junto. `MenuPromo` **permanece** — ela tipa a coluna legada que `DbCategory` descreve. E
+  `MenuCategory` perdeu `show_in_menu` e `menu_promo`, cumprindo o que o comentário do próprio campo
+  prometia no lote 1.
+- **Oito comentários de `packages/**` que nomeavam `menuSlotRefusal`/`menuEntries` foram
+  atualizados** para `menuTargetRefusal`/`menuItems`. Prosa que nomeia função apagada é documentação
+  que mente — e o custo de deixá-la é o próximo leitor procurar um símbolo que não existe.
+- **A dobra de acento da busca de ícone (`dobrar`) é LOCAL.** A mesma dobra existe em quatro features
+  do painel e nenhuma é exportada; importar de outra seria feature→feature, que é o import que a T19
+  desta feature existiu para fechar. Unificar as cinco é dívida do repositório, e a decisão de onde
+  elas moram precisa valer para as cinco.
+- **O item pedido como `BL-018` foi registrado como `BL-023`**: o `018` já estava ocupado ("os 13
+  endereços que a Nuvemshop indexou"), e número de backlog é imutável pelo mesmo motivo que número de
+  feature é.
+
+**Quedas declaradas do lote 5** (uma só, e o número não reaparece porque o comportamento não existe):
+
+- `packages/core/src/menu/__tests__/menu.test.ts` foi de **58 para 24** (**−34**): saem os **10**
+  casos de `menuEntries`, os **6** de `slotsUsed`/`menuSlotRefusal` e os **13** de `resolvePromo` —
+  as três funções foram **apagadas**. Os **3** casos de `URL-03` (o href pela árvore, `AD-018`) não
+  caíram: foram **reescritos** contra `menuItems`, no mesmo arquivo, e estão dentro dos 24. O que
+  substituiu as funções tem cobertura maior: `menuItems.test.ts` (62) e `banners.test.ts` (46).
 
 **Desvios aceitos no lote 1** (todos documentados no código):
 

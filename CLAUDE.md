@@ -27,7 +27,7 @@ Este arquivo carrega o que vale em **todo** o repositório. O que é específico
 | `apps/store/**` | [`apps/store/CLAUDE.md`](apps/store/CLAUDE.md) | tokens da loja, ícones, marca, home, página do produto, carrinho, checkout, URLs, guia de material |
 | `apps/backoffice/**` | [`apps/backoffice/CLAUDE.md`](apps/backoffice/CLAUDE.md) | sidebar, molde dos formulários, editores de desconto, `/admin/home` e a ponte da prévia, perguntas, Google Shopping |
 | `packages/core/**` | [`packages/core/CLAUDE.md`](packages/core/CLAUDE.md) | a regra pura de cada domínio, e por que ela mora lá e não na tela |
-| `packages/ui/**` | [`packages/ui/CLAUDE.md`](packages/ui/CLAUDE.md) | shadcn, preset Tailwind, tokens `--estrelinha-admin-*` |
+| `packages/ui/**` | [`packages/ui/CLAUDE.md`](packages/ui/CLAUDE.md) | shadcn, preset Tailwind, tokens `--estrelinha-admin-*`, **a biblioteca de ícones** (`@estrelinha/ui/icons`, desde a `39`) |
 | `supabase/**` | [`supabase/CLAUDE.md`](supabase/CLAUDE.md) | migrations, RLS, edge functions, auth, e-mail, secrets |
 | `tools/catalog-import/**` | [`tools/catalog-import/CLAUDE.md`](tools/catalog-import/CLAUDE.md) | o importador da Nuvemshop |
 | UI da loja (qualquer) | [`DESIGN.md`](DESIGN.md) | identidade, paleta, tipografia |
@@ -120,10 +120,11 @@ Ao planejar/implementar features, use a Skill **`tlc-spec-driven`** com estas co
   - **A `32` foi escrita RETROATIVAMENTE** (rolagem infinita da categoria): o código ficou 12 dias na
     árvore sem commit, e a spec nasceu dele, não antes dele. É a saída correta quando isso acontece —
     a `31` mostrou o que custa a alternativa —, mas **não** vira precedente para inverter a ordem.
-    **A `33` (sitemap), a `34` (painel de vendas), a `35` (clientes e pedidos da Nuvemshop) e a `37`
-    (frete grátis configurável) estão FECHADAS. A `36` (metadados e dados estruturados) tem
-    **só `spec.md`** e não foi implementada — o número está consumido de qualquer forma. A próxima é
-    a `38`.**
+    **A `33` (sitemap), a `34` (painel de vendas), a `35` (clientes e pedidos da Nuvemshop), a `37`
+    (frete grátis configurável) e a `39` (menu configurável) estão FECHADAS. A `36` (metadados e
+    dados estruturados) tem **só `spec.md`** e não foi implementada — o número está consumido de
+    qualquer forma; a `38` (performance no celular) está EM ANDAMENTO noutro ramo. A próxima é a
+    `40`.**
 - **Numeração dos itens**: dentro da feature, prefixar os itens de implementação (tasks/entregas) com
   número sequencial de dois dígitos e nome descritivo em kebab-case — `01-nome-implementacao`,
   `02-nome-implementacao`, etc.
@@ -196,6 +197,7 @@ com as duas cópias divergindo, e quem descobre é a cliente ou o Google.
 | `35` | o telefone da cliente, que existia no checkout e **não era persistido** — e a coluna crua do status da origem, que viraria um segundo dono de "este pedido foi pago?" | `orders.customer_phone` (snapshot) e as colunas `nuvemshop_*_status`, que **nenhuma tela lê** (`provenanceNotRead.test.ts`) |
 | `34` | o contraste WCAG (só a loja tinha), a aritmética de página (só produtos tinha), e os rótulos de `payment_status` em **três** cópias | `@estrelinha/core/color`, `core/paging/pageMath.ts` e `entities/order/api/orderQuery` |
 | `37` | **o frete grátis, lido por SETE superfícies em duas leituras que discordavam** — com a faixa em zero, três escondiam o texto e quatro **zeravam o frete**. Zerar o campo no painel escondia o anúncio e liberava frete grátis para todo mundo no caixa | `@estrelinha/core/shipping` (`freeShippingState`), com `freeShippingSingleOwner.test.ts` recusando leitura direta |
+| `39` | **o DESENHO do menu, de novo** — `MenuBarPreview.tsx` redesenhava a barra do topo à mão no painel, com a paleta do admin, e anunciava `/crie-seu-botton`, que **nunca foi rota**. É o mesmo defeito que a `25` apagou da Home; no menu ele nunca tinha saído. E, ao lado dele, o **papel** de cada categoria (barra × painel), que uma coluna nova teria dessincronizado no primeiro "mover categoria" | a prévia É a loja, num iframe (`MenuLivePreview`), e o papel é **derivado da árvore** dentro de `menuItems(input, surface)` — a porta única das quatro superfícies |
 
 Consequências práticas, nesta ordem:
 
@@ -250,7 +252,8 @@ Consequências práticas, nesta ordem:
   literal booleano não estreita**: com `{ ok: true } | { ok: false; reason: string }`, ler
   `verdict.reason` no ramo do `else` é erro de compilação (TS2339). Para veredito com motivo, devolva
   `string | null` — não tem ramo para esquecer — ou discrimine por literal de **string**. É o formato
-  de `menuSlotRefusal` e `reservedSlugRefusal`.
+  de `menuTargetRefusal` e `reservedSlugRefusal`. **União por literal de string estreita**, e é por
+  isso que `MenuItem` discrimina por `kind: 'category' | 'link'`.
 - **Tipo escrito à mão é afirmação, não verificação** (`AD-012`). `DbCategory` declarava três colunas
   que o banco não tinha, e **toda gravação de categoria falhava com `PGRST204`** — nada pegava: o
   build não checa tipo, o `tsc` achava o código certo (o tipo mentia), e os testes mockavam o client.
@@ -284,7 +287,7 @@ migrations, e `vercelRedirects` lê o `vercel.json`.
 | `touchTarget.test.ts` | idem | controle abaixo de 44px que não adotou `TAP_44`/`TAP_ROW`; a medida deixar de morar num lugar só |
 | `brandScan.test.ts` | idem | **qualquer** ocorrência da marca anterior em `apps/`, `packages/`, `supabase/` ou nas configs da raiz |
 | `storeSettingsDefaults.test.ts` | idem | os defaults do TypeScript divergirem do que as migrations gravam; o interruptor do frete grátis nascer ligado; a migration da `37` deixar de ser aditiva (`value \|\|`) ou idempotente (`NOT value ?`). **Sensor embutido**: assere que o parser devolve `undefined` para campo ausente |
-| `freeShippingSingleOwner.test.ts` | idem | qualquer arquivo de `apps/**` fora de um allowlist de **dois** ler `free_shipping_threshold`; `freeShippingProgress` ou `FreeShippingBar` voltarem a existir em produção; copy com o valor da faixa cravada em JSX. **Âncora dupla** e **quatro sensores embutidos** — incluindo a prova de que o removedor de comentário funciona com CRLF **e** com LF |
+| `freeShippingSingleOwner.test.ts` | idem | qualquer arquivo de `apps/**` fora de um allowlist de **dois** ler `free_shipping_threshold`; `freeShippingProgress` ou `FreeShippingBar` voltarem a existir em produção; copy com o valor da faixa cravada em JSX. **Âncora dupla** e **quatro sensores embutidos** — incluindo a prova de que o removedor de comentário funciona com CRLF **e** com LF. **Carrega o ponto cego do `BL-023`**: o stripper dele roda em duas passadas e fica cego para um trecho quando um comentário de linha cita um glob com dois asteriscos |
 | `importOrder.test.ts` | idem | `App.css` importado **antes** de `@estrelinha/ui/styles.css` no `main.tsx` |
 | `reservedSlugs.test.ts` | idem | rota nova no `App.tsx` que não entrou em `ROUTE_SLUGS`; entrada de `ROUTE_SLUGS` que deixou de ser rota. **Bidirecional** |
 | `vercelRedirects.test.ts` | idem | `vercel.json` divergir de `LEGACY_REDIRECTS`; `trailingSlash` deixar de ser `false`; redirect usando `permanent` (que produz 308); o catch-all do SPA sair do fim da lista de `rewrites`; os headers de segurança mudarem; o `rewrite` ou o `Content-Type` de `/sitemap.xml` sumirem |
@@ -293,6 +296,11 @@ migrations, e `vercelRedirects` lê o `vercel.json`.
 | `homeSections.test.ts` | idem | o catálogo de tipos divergir do `check` da migration; a semente divergir de `DEFAULT_HOME_COMPOSITION`; entrar tipo de contagem regressiva ou de prova social; policy de escrita sem `has_role`; `grant` alcançar `anon`; o trigger do hero indelével sumir |
 | `faqSchema.test.ts` | idem | a migration da `28` afrouxar: `grant` a `anon`; policy sem `has_role`; `faq_id` deixar de ser `on delete restrict`; sumirem os `check` de 160/600; a view perder `security_invoker` |
 | `googleShoppingSchema.test.ts` | idem | a migration da `30` afrouxar; o interruptor do feed nascer ligado; os limites do TypeScript divergirem do `.sql` |
+| `menuSchema.test.ts` | idem | a migration da `39` afrouxar: `show_in_menu` deixar de ser **gerada**; o índice parcial sumir na recriação; a semeadura do link "Sobre" perder o `NOT value ?`/`do nothing` (viraria escrita destrutiva a cada `db push`); `grant` alcançar `anon`. **Âncora dupla** e sensor por mutação |
+| `menuIconCatalog.test.ts` | idem | chave de `MENU_ICON_KEYS` sem componente em `MENU_ICON_COMPONENTS`, ou o contrário; a loja voltar a importar ícone de `@/shared/ui/icons`. **Bidirecional**, com âncora de contagem |
+| `menuSurfaceSingleOwner.test.ts` | idem | qualquer arquivo de `apps/**` ler `show_in_menu` ou `menu_promo` — a primeira é **coluna gerada** e a segunda é legado; quem responde "está no menu?" é `menuItems(…, surface)`, porque a resposta depende do dispositivo. **Zero allowlist**, escrito literalmente, e sensor do ponto cego do comentário |
+| `menuSemItemFixo.test.ts` | idem | `FIXED_ENTRIES` (com qualquer um dos dois nomes) voltar a existir; `/crie-seu-botton` reaparecer; destino literal (`to="/…"`) nas quatro superfícies de menu da loja fora do chrome (`/`, `/conta`, `/favoritos`). **Âncora dupla** e quatro sensores |
+| `menuSemTeto.test.ts` | idem | `MENU_SLOT_LIMIT`, `slotsUsed`, `menuSlotRefusal`, `menuEntries`, `MenuEntry`, `resolvePromo` ou `ResolvedPromo` voltarem a `apps/**` ou a `packages/core/src/menu/**`; vocabulário de "vaga" nas cinco superfícies de menu; a barra trocar `overflow-x-auto`/`min-w-max` por `flex-wrap` (embrulhar **esconde** o estouro). **Âncora dupla** e cinco sensores — incluindo a prova de que `MobileMenuEntry` **não** é acusado |
 | `sanitizeHtml.test.ts` | idem | a allowlist aceitar atributo, `href` deixar de passar por `new URL`, ou `script`/`style`/`iframe` voltarem a desembrulhar em vez de sumir |
 | `importSchema.test.ts` | store `shared/lib/__tests__` | a migration da `35` afrouxar: índice de idempotência virar parcial; `security_invoker` sumir de `customer_directory`; o agregado de telefone da convidada perder o `FILTER (WHERE … IS NOT NULL)`; `handle_new_customer` perder o `security definer`; a adoção por e-mail deixar de recortar `customer_id IS NULL` ou de comparar por `lower()`; `grant` alcançar `anon`. **Cada asserção tem sensor por mutação** |
 | `originZipNotRead.test.ts` | backoffice `shared/lib/__tests__` | qualquer arquivo de `apps/**` ler `store_settings.shipping.origin_zip` — o campo é LEGADO e a origem da cotação é o `postal_code` do secret `MELHOR_ENVIO_SENDER_JSON`. Deixá-lo configurável na tela faria a origem da COTAÇÃO e a da ETIQUETA poderem divergir. **Âncora dupla** |
@@ -311,9 +319,9 @@ migrations, e `vercelRedirects` lê o `vercel.json`.
 | `HomeRendererPreview.test.tsx` | store `widgets/home-renderer` | o invólucro da prévia vazar para o **modo normal** |
 | `faqNoDuplicate.test.tsx` | store `entities/product/ui/__tests__` | a descrição voltar a exibir uma pergunta que já está na seção de FAQ |
 | `buttonShape.test.ts` | store `shared/ui/__tests__` | ação voltar a pílula; a chave custom de raio voltar ao config |
-| `icons.test.ts` | store `shared/ui/icons/__tests__` | ícone fora da grade `0 0 24 24`; escala × traço ≠ 1,5; cor fora de `ICON_ACCENT`; ícone que não chegou ao barrel |
+| `icons.test.ts` | store `shared/lib/__tests__` (varre `packages/ui/src/icons`) | ícone fora da grade `0 0 24 24`; escala × traço ≠ 1,5; cor fora de `ICON_ACCENT`; ícone que não chegou ao barrel. **Mora na suíte da loja porque `packages/ui` não tem runner** — guarda que não roda é pior que guarda nenhum |
 | `paths.test.ts` | store `shared/ui/brand/__tests__` | `paths.ts` divergir do SVG-fonte em um caractere; dois `<path>` do mesmo SVG com a mesma espessura |
-| `previaUnica.test.ts` | backoffice `features/home-composition` | um segundo desenho da Home voltar ao painel; o painel importar de `apps/store` |
+| `previaUnica.test.ts` | backoffice `features/home-composition` | um segundo desenho da Home **ou do MENU** voltar ao painel; `MenuBarPreview.tsx` reaparecer; um arquivo de `store-menu` importar `menuPanelColumns` ou `resolveMenuBanners` (calcular o desenho do painel da loja **é** o segundo desenho); qualquer dos dois importar de `apps/store`. **Cobre as features `25` e `39`**, com âncora dupla e sensor de CRLF/LF |
 | `navItems.test.ts` | backoffice `widgets/admin-layout` | ordem das rotas em `App.tsx` divergir de `navGroups` |
 | `adminTokens.test.ts` | backoffice `shared/lib/__tests__` | classe `estrelinha-admin-*` cujo token **não existe no preset**; `amber`/`emerald` virarem hex literal (o dark pararia de acompanhar); chave do preset apontando para variável não declarada; hex do preset divergir do `styles.css`; `text`/`text-secondary`/`text-muted` caírem abaixo de 4,5:1 sobre `card`/`bg`, **em light e dark**; `text-muted` alcançar `text-secondary` (o piso comeria a hierarquia); âmbar ou esmeralda reprovarem sobre o **próprio fundo de 10%**. Carrega **sensor embutido** e **âncora dupla** |
 | `faqSuggestion.test.ts` | `packages/core/src/faq/__tests__` | a sugestão cair abaixo de **80%** de precisão ou cobertura contra a distribuição real do catálogo. Carrega **sensor embutido**: assere que contagem bruta **reprova** na mesma régua |
@@ -346,7 +354,19 @@ quando mudarem de verdade.
 | --- | --- | --- |
 | **Lint** | **27 erros / 5 warnings** — backoffice 25/4 · store 2/1 | `pnpm lint` |
 | **Tipos** | **0 · 0 · 0** (store · backoffice · catalog-import) | `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` |
-| **Testes** | **6139 em 334 arquivos** — store 2001/135 · backoffice 1786/109 · core 1493/60 · functions 350/7 · catalog-import 509/23 | `pnpm --filter @estrelinha/<w> test` |
+| **Testes** | **6623 em 356 arquivos** — store 2182/144 · backoffice 1891/115 · core 1691/67 · functions 350/7 · catalog-import 509/23 | `pnpm --filter @estrelinha/<w> test` |
+
+**A feature `39` (menu configurável) somou +484 em três workspaces**, medidos em 2026-09-05 um por
+vez, na ordem, e com exit code capturado: **core +198/+7**, **store +181/+9** e **backoffice
++105/+6**. Functions e catalog-import não foram tocados. Lint ficou em **27/5** e tipos em **0 · 0**,
+sem mexer; `packages/core/src/payment/**` e `supabase/functions/mercado-pago/**` seguem intocados —
+conferido por `git diff --name-only`. **Três quedas declaradas**, e nenhuma é deleção silenciosa:
+
+| Queda | Onde | Por quê |
+| --- | --- | --- |
+| **−3 e −3** | store `MegaMenu.test.tsx` (19 → 31) e `MobileMenu.test.tsx` (15 → 30) | saíram a faixa `TrendingLane` (3 produtos automáticos por `is_featured`, que a Adri não escolhia nem via) e o card `menu_promo` (retângulo de cor sem imagem). Os dois arquivos **cresceram** na mesma reescrita: entram os banners com arte, o ícone, as colunas curadas e o item de link |
+| **−0** | backoffice `MenuBarPreview.tsx` | apagado — era o **segundo desenho** da barra, com os tokens do admin, anunciando `/crie-seu-botton`, que nunca foi rota. **Não custou contagem**: nunca teve teste. `previaUnica.test.ts` cobre as duas features e recusa a volta |
+| **−34** | core `menu.test.ts` (58 → 24) | saíram `menuEntries` (10), `slotsUsed`/`menuSlotRefusal` (6) e `resolvePromo` (13) — funções **apagadas** na T30, que liam um booleano só e não conheciam dispositivo. O que as substituiu tem cobertura maior (`menuItems.test.ts` 62, `banners.test.ts` 46). Os 3 casos de `URL-03` **não** caíram: foram reescritos contra `menuItems`, no mesmo arquivo |
 
 **A feature `37` (frete grátis configurável) somou +86 em três workspaces**, medidos em 2026-09-05 um
 por vez e com exit code capturado: **store +45**, **core +32** (a regra pura, 26, e o hook, 6) e
@@ -476,6 +496,11 @@ completo (framework, `installCommand` na raiz do monorepo, headers de cache e de
 - **O schema ESTÁ aplicado.** `supabase migration list --linked`: **44 de 44**, `local` == `remote`,
   zero pendente. E o **catálogo está lá**: 680 produtos (todos ativos), 3.245 variações, 35
   categorias, 67 perguntas e 3.475 vínculos, 7 seções de home, Storage servindo imagem real.
+  - **Medido em 2026-08-29. Hoje o disco tem 48**, e as pendentes são as das features `37`
+    (frete grátis) e `39` (menu configurável) — o `Supabase Deploy` as aplica no push em `master`.
+    A da `39` **converte `show_in_menu` em coluna gerada** e é idempotente por construção; a
+    conversão é guardada por `attgenerated = ''` justamente porque uma segunda execução sobre a
+    coluna já derivada apagaria curadoria em silêncio.
 - **As TRÊS edge functions estão implantadas** (`google-feed`, `product-page` e, desde 2026-08-29, a
   `sitemap` da feature `33`), e a loja provisória está no ar em
   `umaestrelinha-store-five.vercel.app` (o painel, em `umaestrelinha-backoffice.vercel.app`).
@@ -519,6 +544,18 @@ completo (framework, `installCommand` na raiz do monorepo, headers de cache e de
 
 ## Estado conhecido / dívidas
 
+- **O MENU NASCE VAZIO NOS DOIS DISPOSITIVOS, e montá-lo é passo de operação** (feature `39`). As 37
+  categorias têm `menu_desktop` e `menu_mobile` em `false`, e o único item semeado é o link "Sobre".
+  Depois do deploy, a barra do topo mostra **um** item e a folha do celular também — até a Adri
+  ligar as coleções em `/admin/menu`, **uma aba por vez**: ligar no computador **não** liga no
+  celular. É o mesmo formato de dívida do interruptor do frete grátis: sem este registro, a loja fica
+  meses com o menu quase vazio porque ninguém soube que havia uma tela.
+- **A `39` NÃO tem `validation.md`.** Os cinco lotes foram medidos por workspace, com exit code
+  capturado, e os guardas novos tiveram a sensibilidade provada por injeção real de falha — mas
+  ninguém conferiu a feature contra a spec com olhos frescos, e **a prova em navegador não foi
+  feita**. Ela importa mais que o normal aqui: o que a feature entrega é **largura** (a barra que
+  rola em vez de recusar) e **prévia** (o iframe em 390 e em 1024), e **jsdom devolve 0 para toda
+  medida de layout**. A fila de pendências de verificação independente ganhou mais uma.
 - **O FRETE GRÁTIS NASCE DESLIGADO, e ligar é passo de operação** (feature `37`, `AD-027`). Depois do
   deploy desta feature a loja **não anuncia nem concede** frete grátis até alguém ligar em
   `/admin/configuracoes` → aba Frete. Decisão do usuário, com o custo declarado e aceito — mas sem
@@ -568,8 +605,17 @@ completo (framework, `installCommand` na raiz do monorepo, headers de cache e de
   contagens de aba e de tile agora são `select('id', { count: 'exact', head: true })`, então **o
   servidor conta e nenhuma linha atravessa a rede** — não há teto a herdar. As outras leituras sem
   paginação do painel continuam abertas.
-- **`BL-009`..`BL-011`** — dívidas da `24`, entre elas o `SUPABASE_URL` com fallback hard-coded de
-  outro projeto em `uploadProductImage.ts`.
+- **`BL-009` está FECHADO** (feature `39`, T19). `uploadImageBlob` saiu de `features/product-form/lib`
+  para `shared/lib/uploadImage.ts` — o editor de banner do menu precisava dela, e `features/` não
+  importa de `features/` —, e o `||` com o `SUPABASE_URL` de **outro projeto** foi apagado no mesmo
+  movimento: o client já lança sem a env, então o fallback era inalcançável e mentiroso.
+  `BL-010`/`BL-011` seguem abertas.
+- **`BL-023`** — o removedor de comentário de `freeShippingSingleOwner.test.ts` roda em **duas
+  passadas** e fica cego para um trecho inteiro quando um comentário de linha cita um glob com dois
+  asteriscos: ele deixa de enxergar o trecho e passa a **aprovar em silêncio** o que estiver lá.
+  Guarda com ponto cego é pior que guarda nenhum, porque parece estar de pé — e este é o guarda do
+  **dinheiro**. A forma corrigida (linha e bloco na **mesma** varredura) está nos quatro guardas do
+  menu; ver o `BACKLOG.md`. *(Registrado como `023` e não `018` porque o `018` já estava ocupado.)*
 - **`BL-014`** — geração de pergunta por IA, adiada por decisão do usuário em 2026-08-16. Irmã da
   `BL-001`, e as duas devem ser resolvidas juntas (a resposta de infraestrutura é a mesma).
 - **`BL-015`** — **`material_kinds` diz menos que a descrição.** Há produto com `material_kinds =
@@ -592,6 +638,6 @@ código — mas todas explicam por que uma tela parece vazia:
 | O que | Onde ela decide | Por que a tela parece vazia hoje |
 | --- | --- | --- |
 | Material de cada produto | `/admin/produtos`, aba Geral | a `22` semeou 689 produtos por inferência do nome |
-| Vagas do menu | `/admin/menu` | `show_in_menu = 0` nas 37 categorias ⇒ barra do topo vazia |
+| O menu de cada dispositivo | `/admin/menu` | `menu_desktop` e `menu_mobile` nascem `false` nas 37 categorias ⇒ barra do topo e folha do celular vazias. **São duas curadorias**, e ligar numa não liga na outra (feature `39`). O único item semeado é o link "Sobre", em `store_settings.menu` |
 | Arte da vitrine | `/admin/categorias` | nenhuma das 37 categorias tem `banner_url` ⇒ a grade de banners não aparece |
 | Perguntas frequentes | `/admin/perguntas` e a aba `Perguntas` do produto | a `28` semeou 67 entradas e 3.475 vínculos das descrições |

@@ -38,7 +38,7 @@ sem ela a varredura passa com zero arquivo lido, que é a pior falha possível n
 | `./payment/*` | preço, parcelas, Pix, status, assinatura de webhook | loja, `mercado-pago` |
 | `./pricing` · `./formatters` | formatação e conta de exibição | os dois apps |
 | `./routes` | `ROUTE_SLUGS`, `RESERVED_SLUGS`, `LEGACY_REDIRECTS`, `productPath`, `MATERIAL_GUIDE_PATH` | router da loja, `vercel.json`, cadastro do painel |
-| `./menu` | `menuEntries`, `menuSlotRefusal`, `resolvePromo`, `descendantIds`, `bySortOrder`, `categoryHref` | 4 superfícies nos 2 apps |
+| `./menu` | `menuItems`, `menuPanelColumns`, `resolveMenuTarget`/`menuTargetRefusal`, `resolveMenuBanners`, `MENU_ICON_KEYS`, `descendantIds`, `bySortOrder`, `categoryHref`, o canal `preview.ts` | 4 superfícies nos 2 apps |
 | `./home` | catálogo de blocos, `DEFAULT_HOME_COMPOSITION`, `derive.ts`, `preview.ts` | loja, painel |
 | `./faq` | `resolveProductFaqs`, `faqOverrideOf`, `rankFaqSuggestions`, `block.ts` | loja, painel, importador |
 | `./material` | máquina de estado, `requiresMaterial()`, `materialSummary` | loja, painel, RPC (cópia em SQL) |
@@ -156,18 +156,44 @@ requisição forjada, e só o TypeScript produz o motivo legível que a AC exige
 
 ## `menu` — a regra das quatro superfícies
 
-Consumida pelas **quatro** superfícies nos dois apps. Foi ter a regra em cada tela que produziu o bug
-original: o `Header` fazia `.slice(0, 4)` de uma lista chapada e a barra do topo mostrava o contêiner
-de tudo mais uma filha que empatou em `sort_order = 0`.
+Consumida pelas **quatro** superfícies nos dois apps (barra do desktop, folha do celular,
+`/admin/menu` e a prévia). Foi ter a regra em cada tela que produziu o bug original: o `Header` fazia
+`.slice(0, 4)` de uma lista chapada e a barra do topo mostrava o contêiner de tudo mais uma filha que
+empatou em `sort_order = 0`.
 
-- **`bySortOrder` desempata por nome.** Sem isso a barra muda entre dois carregamentos.
-- **`menuEntries` NÃO trunca em `MENU_SLOT_LIMIT`.** Cinco marcadas devolvem cinco, e o contador do
-  admin mostra "5 de 4". Truncar esconderia a quinta da única tela onde ela pode ser desmarcada.
-- **`menu_promo.category_id` não tem FK** (mora em jsonb): apagar o destino não dispara
-  `on delete set null`. Quem lê **precisa** de `resolvePromo`, que devolve `null` para destino
-  inexistente ou inativo. É AC, não zelo.
+- **A porta é `menuItems(input, surface)`, e é UMA.** Nenhuma tela filtra, ordena ou trunca por conta.
+  Ela funde **duas fontes** — `categories` e `store_settings.menu.links` — numa lista só, ordenada
+  junto: é isso que permite não haver item de menu escrito em JSX.
+- **O menu não é responsivo: são DUAS curadorias.** `menu_desktop` e `menu_mobile` são colunas
+  independentes, e a superfície é pedida **por nome**. Derivar por largura faria o hook responder uma
+  coisa na prévia do painel e outra no navegador da cliente.
+- **O papel (barra × painel) é DERIVADO da árvore**, nunca gravado: categoria marcada cujo pai também
+  está marcado **na mesma superfície** é item do painel do pai. Uma coluna de papel dessincronizaria
+  no primeiro "mover categoria" — em silêncio.
+- **Não existe teto** (feature `39`). `MENU_SLOT_LIMIT`, `slotsUsed` e `menuSlotRefusal` foram
+  **apagados**: eram número de código recusando a curadoria da dona. Vinte marcadas devolvem vinte, e
+  a barra rola. `menuSemTeto.test.ts` recusa a volta dos sete símbolos.
+- **`menuEntries`/`MenuEntry` e `resolvePromo`/`ResolvedPromo` também foram apagados**, e não
+  depreciados: símbolo de legado exportado do barril é o que a próxima tela importa por engano — e
+  ele responderia com a curadoria única de antes, ignorando o dispositivo.
+- **Destino sem FK continua sendo destino sem FK.** `menu_banners` mora em jsonb, então apagar a
+  categoria ou o produto de destino não dispara `on delete set null`: quem lê **precisa** de
+  `resolveMenuBanners`, que remove o banner cujo destino sumiu ou está inativo. É a mesma lição do
+  `menu_promo`, e é AC.
+- **Um validador de destino só** (`resolveMenuTarget`/`menuTargetRefusal`), servindo item de link e
+  banner. Dois divergiriam, e um aceitaria o que o outro recusa.
+- **`preview.ts` é o canal da prévia do MENU, e reusa os genéricos da `25`.** `MENU_PREVIEW_SOURCE`,
+  as mensagens `ready`/`draft`/`open` e `parseMenuPreviewMessage` moram aqui; `PREVIEW_PARAM`,
+  `isPreviewWindow`, `PREVIEW_DEVICES`, `previewScale`, `previewMetrics` e `previewSrc` são
+  **importados** de `core/home/preview.ts`, nunca redeclarados. **Um `?preview=1` só, dois canais** —
+  o carimbo é o que os separa, e um parâmetro novo seria um segundo dono de "esta janela é prévia".
 - **Sem coluna `menu_order`** — a ordem é a `sort_order` que já existia. Dois donos do mesmo dado é o
   "defeito 01".
+- **`core/menu` é resolvido pelo Deno** (a function do sitemap importa `categoryHref` daqui), e desde
+  a `39` o grafo dele alcança `core/home/preview.ts`. `purity.test.ts` passou a caminhar o grafo
+  **transitivo**: um vizinho com especificador relativo sem `.ts` derruba o worker com
+  `Failed resolving types` **antes da primeira linha rodar**, e nada mais acusaria — Vite e vitest
+  resolvem as duas formas. Foi assim que `home/preview.ts` ganhou o `./types.ts`.
 
 ## `home` — derivação e contrato da prévia
 
@@ -178,14 +204,17 @@ de tudo mais uma filha que empatou em `sort_order = 0`.
   que a semente não divirja do que a loja desenha.
 - **`preview.ts` é o contrato das quatro mensagens** (`ready`, `draft`, `highlight`, `select`), mais
   `isPreviewWindow`, `parsePreviewMessage` e `previewScale`. Módulo puro porque as **duas** pontas o
-  leem.
+  leem — e, desde a `39`, também porque `core/menu/preview.ts` importa os genéricos dele. Essa
+  segunda leitura tem consequência: o arquivo entrou no grafo que o **Deno** do sitemap resolve, e
+  por isso o `import type … from './types'` ganhou o `.ts` explícito.
 - **Literal de texto de seção mora aqui, não dentro do widget** — `catalog.test.ts` reprova a volta.
 
 ## Convenções de tipo
 
 - **`strictNullChecks` está `false`.** União discriminada por literal **booleano** não estreita: com
   `{ ok: true } | { ok: false; reason: string }`, ler `verdict.reason` no `else` é TS2339. Para
-  veredito com motivo devolva **`string | null`** — é o formato de `menuSlotRefusal`,
-  `reservedSlugRefusal` e `feedExclusion`.
+  veredito com motivo devolva **`string | null`** — é o formato de `menuTargetRefusal`,
+  `menuBannerRefusal`, `reservedSlugRefusal` e `feedExclusion`. Parser de mensagem segue a mesma
+  regra: `parseMenuPreviewMessage` devolve `T | null`, nunca `{ ok }`.
 - **Este pacote não passa por ESLint** (`BL-002`): nenhum pacote tem script `lint` e `pnpm lint` é
   `turbo run lint`. É type-checado e testado, mas o linter nunca o vê.
