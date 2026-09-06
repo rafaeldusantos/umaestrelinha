@@ -558,3 +558,85 @@ describe('index.html — o `preconnect` do Supabase (PRF-04)', () => {
   })
 })
 
+
+/**
+ * **Todo marcador de env do `index.html` está declarado no `turbo.json`** — `PRF-04`.
+ *
+ * ## O defeito que este guarda existe para pegar, e que aconteceu
+ *
+ * O `preconnect` de `PRF-04` referencia `VITE_SUPABASE_URL` pelo marcador de substituição do Vite,
+ * para não cravar o host do Supabase num segundo lugar. A escolha é certa. O que ninguém mediu é
+ * que **o Turbo roda cada task num ambiente filtrado**: variável não declarada em `turbo.json` não
+ * chega ao `vite build`.
+ *
+ * Sem a declaração, o Vite deixa o marcador intacto dentro do `href`, e o `decodeURI` do
+ * `vite:build-html` tropeça no `%VI` — escape percentual inválido. O build morre com
+ * **`[vite:build-html] URI malformed`**, uma mensagem que **não menciona variável de ambiente
+ * nenhuma** e manda procurar no lugar errado.
+ *
+ * ## Por que nada pegou
+ *
+ * O build **local** sempre passou: o Vite lê o **arquivo** `.env` do app, que não é ambiente e por
+ * isso o Turbo nunca filtrou. A **Vercel** também sempre passou: ela roda `vite build` direto, sem
+ * Turbo no meio. Só o CI reprovava — e ele foi o último a ser olhado, porque as duas superfícies
+ * que a gente vê estavam verdes. Custou dois ciclos de deploy.
+ *
+ * ## A régua
+ *
+ * Bidirecional por construção: todo marcador que o HTML usa tem de estar na lista do `turbo.json`.
+ * Ela lê os dois arquivos do disco — o `turbo.json` é a raiz do monorepo, três níveis acima de
+ * `apps/store`.
+ */
+describe('as env do index.html chegam ao build (PRF-04)', () => {
+  const TURBO = readFileSync(resolve(STORE, '../..', 'turbo.json'), 'utf8')
+
+  /** Os marcadores `%VITE_*%` que o HTML manda o Vite substituir. */
+  const marcadores = [...INDEX.matchAll(/%(VITE_[A-Z0-9_]+)%/g)].map((m) => m[1])
+
+  /** O bloco `env` da task `build`, lido como texto: o JSON tem comentários e não é `JSON.parse`. */
+  const envDeclaradas = [...TURBO.matchAll(/"(VITE_[A-Z0-9_]+)"/g)].map((m) => m[1])
+
+  it('o index.html usa ao menos um marcador — senão esta suíte não afirma nada', () => {
+    expect(marcadores.length).toBeGreaterThan(0)
+    expect(marcadores).toContain('VITE_SUPABASE_URL')
+  })
+
+  it('o turbo.json declara variáveis de env no build', () => {
+    expect(envDeclaradas.length).toBeGreaterThan(0)
+  })
+
+  it('CADA marcador do HTML está declarado no turbo.json', () => {
+    const ausentes = marcadores.filter((v) => !envDeclaradas.includes(v))
+    expect(ausentes).toEqual([])
+  })
+
+  it('as duas que o client do Supabase exige estão lá', () => {
+    // O client LANÇA no carregamento sem elas. Se o Turbo as filtrar, o bundle nasce sem valor e a
+    // loja quebra em runtime, não no build — pior ainda que o `URI malformed`.
+    expect(envDeclaradas).toContain('VITE_SUPABASE_URL')
+    expect(envDeclaradas).toContain('VITE_SUPABASE_PUBLISHABLE_KEY')
+  })
+
+  describe('sensores — a régua reprova o defeito medido', () => {
+    const extrair = (html: string) => [...html.matchAll(/%(VITE_[A-Z0-9_]+)%/g)].map((m) => m[1])
+    const declarar = (json: string) => [...json.matchAll(/"(VITE_[A-Z0-9_]+)"/g)].map((m) => m[1])
+
+    it('marcador no HTML sem declaração no turbo é REPROVADO', () => {
+      const m = extrair('<link href="%VITE_NOVA_COISA%">')
+      const d = declarar('{ "env": ["VITE_SUPABASE_URL"] }')
+      expect(m.filter((v) => !d.includes(v))).toEqual(['VITE_NOVA_COISA'])
+    })
+
+    it('o mesmo par, com a declaração presente, PASSA', () => {
+      const m = extrair('<link href="%VITE_NOVA_COISA%">')
+      const d = declarar('{ "env": ["VITE_NOVA_COISA"] }')
+      expect(m.filter((v) => !d.includes(v))).toEqual([])
+    })
+
+    it('a régua não confunde `VITE_X` com `VITE_X_Y`', () => {
+      const m = extrair('<link href="%VITE_STORE%">')
+      const d = declarar('{ "env": ["VITE_STORE_URL"] }')
+      expect(m.filter((v) => !d.includes(v))).toEqual(['VITE_STORE'])
+    })
+  })
+})

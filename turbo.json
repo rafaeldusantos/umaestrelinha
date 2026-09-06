@@ -4,7 +4,28 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**"]
+      "outputs": ["dist/**"],
+      // O Turbo roda cada task num ambiente FILTRADO: variável que não estiver
+      // declarada aqui NÃO chega ao `vite build`.
+      //
+      // Sem esta lista o build da loja falha com `[vite:build-html] URI malformed`,
+      // e o erro não menciona env nenhuma: o `preconnect` da feature 38 (`PRF-04`)
+      // usa o marcador de substituição dentro de um `href`, o Vite o deixa intacto
+      // quando a variável não existe, e o `decodeURI` do build-html tropeça no `%VI`,
+      // que é escape percentual inválido.
+      //
+      // O build local sempre passou porque o Vite lê o ARQUIVO `.env` do app, que não
+      // é ambiente e por isso o Turbo nunca filtrou. A Vercel também passou: ela roda
+      // `vite build` direto, sem Turbo no meio.
+      //
+      // Declarar aqui é correto também para o CACHE — build com env diferente é build
+      // diferente, e sem a declaração o Turbo devolveria o artefato errado.
+      "env": [
+        "VITE_SUPABASE_URL",
+        "VITE_SUPABASE_PUBLISHABLE_KEY",
+        "VITE_MP_PUBLIC_KEY",
+        "VITE_STORE_URL"
+      ]
     },
     "lint": {},
     "test": {},
