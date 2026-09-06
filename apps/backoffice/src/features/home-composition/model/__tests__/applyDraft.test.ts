@@ -25,6 +25,7 @@ const item = (over: Partial<DraftItem> & { key: string }): DraftItem => ({
   product_id: null,
   href: null,
   image_url: null,
+  image_mobile_url: null,
   alt: null,
   label_snapshot: null,
   ...over,
@@ -124,5 +125,34 @@ describe('applyDraft — a curadoria vira item da loja', () => {
       alt: 'Arte da campanha',
       label_snapshot: 'Leite materno',
     })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// BNR-07, BNR-16 — a arte de celular atravessa o rascunho
+// ---------------------------------------------------------------------------
+
+describe('a arte de celular atravessa a tradução (BNR-07)', () => {
+  it('a prévia recebe as DUAS artes do slide', () => {
+    // Sem isto a prévia mostraria a arte do computador no iframe de 390px, e a dona só descobriria a
+    // diferença abrindo a loja — que é exatamente o que a feature 25 acabou com a prévia da Home.
+    const rascunho = [
+      item({ key: 'k1', image_url: '/d.jpg', image_mobile_url: '/m.jpg', alt: 'campanha' }),
+    ]
+
+    const [aplicada] = applyDraft([secao('s1', { type: 'hero_carousel' })], 's1', { config: {}, items: rascunho })
+
+    expect(aplicada.items![0].image_url).toBe('/d.jpg')
+    expect(aplicada.items![0].image_mobile_url).toBe('/m.jpg')
+  })
+
+  it('slide sem arte de celular chega com `null`, e não com a do computador', () => {
+    // A herança é decisão de `surfaceArt`, no momento de desenhar. Aplicá-la aqui daria a mesma
+    // resposta em dois lugares — e o painel perderia como distinguir "não enviou" de "enviou igual".
+    const rascunho = [item({ key: 'k1', image_url: '/d.jpg', alt: 'campanha' })]
+
+    const [aplicada] = applyDraft([secao('s1', { type: 'hero_carousel' })], 's1', { config: {}, items: rascunho })
+
+    expect(aplicada.items![0].image_mobile_url).toBeNull()
   })
 })

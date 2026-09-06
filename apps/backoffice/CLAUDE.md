@@ -150,9 +150,27 @@ desenho.
 - **O editor da faixa de vantagens NÃO tem campo de texto** — ele aponta para Configurações. Todo
   número dali sai das settings. Dar campo de texto reintroduziria o defeito da `MarqueeBar`, com a
   diferença de que agora quem digitaria o número errado seria a dona.
-- **O hero é indelével**: sem controle de desligar na lista **e** com trigger na migration. Os dois
-  precisam existir — sem o trigger a regra morre num `PATCH` direto; sem o controle escondido, a dona
-  clica e leva um erro do banco.
+- **O hero DEIXOU de ser indelével na feature `41`** (`AD-029`), e a invariante que o protegia foi
+  **generalizada, não apagada**: o trigger passou a recusar desligar ou apagar a **última seção
+  ativa**, qualquer que seja o tipo. Era preciso — enquanto o hero fosse obrigatório, o Banner
+  principal nunca ocuparia o topo. **A mensagem da recusa tem um dono só, e é o banco**: o painel a
+  exibe, não a reescreve.
+- **`/admin/home` › bloco “Banner principal”** (feature `41`) — o carrossel de campanha. Cada banner
+  tem **duas artes** (computador e celular), descrição e destino; a seção escolhe `full` ou `wide`.
+  Três coisas não se decidem nesta tela:
+  - **"está reaproveitando a arte do computador" é resposta de `core`** (`surfaceArt`, `AD-030`), não
+    da tela. O painel do menu já reescreveu esse predicado uma vez por truthiness da string crua, e
+    um `"   "` fazia a loja reaproveitar enquanto a tela dizia que estava tudo certo.
+  - **O teto de 6 banners recusa com MOTIVO, nunca com botão apagado.** `disabled` some num atalho de
+    teclado e não diz o que fazer — e a saída ("crie um segundo bloco") faz parte da recusa.
+  - **Nada aqui desenha o carrossel.** `previaUnica.test.ts` recusa a mecânica (`snap-x`,
+    `scroll-snap`, `setInterval`) dentro de `home-composition`, e a régua é a mecânica e não o nome
+    do arquivo: "só uma mini-prévia para conferir a ordem" é o pedido razoável que traz o defeito de
+    volta.
+- **O seletor de destino é `DestinoDoItem.tsx`, e é compartilhado.** Extraído do `BannerGridEditor` na
+  `41`, porque o que ele carrega é uma **regra** e não um formulário: o `label_snapshot` é congelado
+  junto com a escolha, e uma segunda escrita esqueceria isso — o painel passaria a dizer "este banner
+  perdeu o destino" em vez de "a coleção Prata 925 foi apagada".
 - **Editor de seção é ROTA, e ela troca só a coluna da lista** (`/admin/home/:sectionId`). É o
   precedente dos Descontos ("editor é tela, não modal") sem o preço que ele costuma cobrar — que aqui
   seria apagar a prévia justamente enquanto a dona edita olhando para ela. **A prévia não remonta**, e

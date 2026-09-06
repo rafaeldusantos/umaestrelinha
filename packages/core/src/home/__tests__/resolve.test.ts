@@ -26,6 +26,7 @@ const item = (id: string, position: number, extra: Partial<HomeSectionItem> = {}
   product_id: null,
   href: null,
   image_url: null,
+  image_mobile_url: null,
   alt: null,
   label_snapshot: null,
   ...extra,
@@ -40,6 +41,7 @@ const resolvido = (id: string, extra: Partial<ResolvedItem> = {}): ResolvedItem 
   description: null,
   href: `/${id}`,
   imageUrl: null,
+  imageMobileUrl: null,
   curated: false,
   ...extra,
 })
@@ -274,5 +276,99 @@ describe('resolveHomeSections — a ordem e o limite', () => {
     const out = resolveHomeSections([curada], ctx())
 
     expect(porId(out, 't').items.map(i => i.id)).toEqual(['a', 'b'])
+  })
+})
+
+// ---------------------------------------------------------------------------
+// BNR-28, BNR-29, BNR-49 — o banner principal
+// ---------------------------------------------------------------------------
+
+describe('resolveHomeSections — banner principal (BNR-28, BNR-29)', () => {
+  it('seção ligada e SEM slide não renderiza, e diz por quê', () => {
+    // O motivo é do domínio e não da tela: `HOME-09` pede que a linha do painel explique, e uma
+    // frase escrita no componente divergiria da que a loja usa para decidir.
+    const [r] = resolveHomeSections([secao('c', 'hero_carousel', 1)], ctx())
+
+    expect(r.renders).toBe(false)
+    expect(r.hiddenReason).toBe('Não vai aparecer: nenhum banner enviado.')
+  })
+
+  it('seção com slides renderiza, na ordem da dona', () => {
+    const secoes = [
+      secao('c', 'hero_carousel', 1, {
+        items: [item('b', 1, { category_id: 'x' }), item('a', 0, { category_id: 'y' })],
+      }),
+    ]
+    const [r] = resolveHomeSections(secoes, ctx())
+
+    expect(r.renders).toBe(true)
+    expect(r.items.map(i => i.id)).toEqual(['a', 'b'])
+  })
+
+  it('slide com destino fora do ar é PULADO, e os outros desenham (BNR-28)', () => {
+    const secoes = [
+      secao('c', 'hero_carousel', 1, {
+        items: [item('a', 0, { category_id: 'x' }), item('morto', 1, { category_id: 'y' })],
+      }),
+    ]
+    const [r] = resolveHomeSections(
+      secoes,
+      ctx({ resolveItem: i => (i.id === 'morto' ? null : resolvido(i.id, { curated: true })) }),
+    )
+
+    expect(r.renders).toBe(true)
+    expect(r.items.map(i => i.id)).toEqual(['a'])
+    expect(r.droppedCount).toBe(1)
+  })
+
+  it('TODOS os slides fora do ar: não renderiza, e o motivo conta quantos eram', () => {
+    const secoes = [
+      secao('c', 'hero_carousel', 1, {
+        items: [item('a', 0, { category_id: 'x' }), item('b', 1, { category_id: 'y' })],
+      }),
+    ]
+    const [r] = resolveHomeSections(secoes, ctx({ resolveItem: () => null }))
+
+    expect(r.renders).toBe(false)
+    expect(r.hiddenReason).toBe('Não vai aparecer: os 2 itens escolhidos saíram do ar.')
+    expect(r.droppedCount).toBe(2)
+  })
+
+  it('seção desligada diz que está desligada, e não que falta banner', () => {
+    // Os dois motivos mandariam a dona para lugares diferentes: um pede upload, o outro pede um
+    // clique no interruptor.
+    const secoes = [
+      secao('c', 'hero_carousel', 1, { active: false, items: [item('a', 0, { category_id: 'x' })] }),
+    ]
+    const [r] = resolveHomeSections(secoes, ctx())
+
+    expect(r.renders).toBe(false)
+    expect(r.hiddenReason).toBe('Desligada: não aparece na loja.')
+  })
+
+  it('a arte de celular do item resolvido chega intacta ao desenho', () => {
+    const secoes = [
+      secao('c', 'hero_carousel', 1, { items: [item('a', 0, { category_id: 'x' })] }),
+    ]
+    const [r] = resolveHomeSections(
+      secoes,
+      ctx({
+        resolveItem: i =>
+          resolvido(i.id, { curated: true, imageUrl: '/d.jpg', imageMobileUrl: '/m.jpg' }),
+      }),
+    )
+
+    expect(r.items[0].imageUrl).toBe('/d.jpg')
+    expect(r.items[0].imageMobileUrl).toBe('/m.jpg')
+  })
+
+  it('duas seções de banner convivem — o tipo é repetível (BNR-03)', () => {
+    const secoes = [
+      secao('c1', 'hero_carousel', 1, { items: [item('a', 0, { category_id: 'x' })] }),
+      secao('c2', 'hero_carousel', 2, { items: [item('b', 0, { category_id: 'y' })] }),
+    ]
+    const resolvidas = resolveHomeSections(secoes, ctx())
+
+    expect(resolvidas.filter(r => r.renders)).toHaveLength(2)
   })
 })

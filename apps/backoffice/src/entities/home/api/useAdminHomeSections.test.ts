@@ -280,6 +280,9 @@ describe('useAdminHomeSections — curar', () => {
       ])
     })
     const insercao = escritas('home_section_items').find(c => c.insert !== undefined)!
+    // As chaves são as MESMAS nos dois — e a asserção compara o objeto inteiro justamente para uma
+    // coluna nova não entrar em um item só (`PGRST102` acontece na gravação, não no diff).
+    expect(Object.keys(insercao.insert[0]).sort()).toEqual(Object.keys(insercao.insert[1]).sort())
     expect(insercao.insert).toEqual([
       {
         section_id: 'sec-banners',
@@ -288,6 +291,7 @@ describe('useAdminHomeSections — curar', () => {
         product_id: null,
         href: null,
         image_url: 'a.webp',
+        image_mobile_url: null,
         alt: 'Leite materno',
         label_snapshot: 'Leite materno',
       },
@@ -298,6 +302,7 @@ describe('useAdminHomeSections — curar', () => {
         product_id: null,
         href: '/como-enviar',
         image_url: 'b.webp',
+        image_mobile_url: null,
         alt: 'Como enviar',
         label_snapshot: null,
       },

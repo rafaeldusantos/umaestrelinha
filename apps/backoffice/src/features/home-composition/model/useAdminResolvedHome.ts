@@ -47,6 +47,7 @@ const daCategoria = (
   description: categoria.description?.trim() || null,
   href: categoryHref(categories, categoria.id),
   imageUrl: categoria.banner_url?.trim() || null,
+  imageMobileUrl: null,
   curated: false,
   ...over,
 })
@@ -79,6 +80,7 @@ export const useAdminResolvedHome = (
             id: item.id,
             label: item.alt?.trim() || categoria.name,
             imageUrl: item.image_url?.trim() || categoria.banner_url?.trim() || null,
+            imageMobileUrl: item.image_mobile_url?.trim() || null,
             curated: true,
           })
         }
@@ -99,6 +101,7 @@ export const useAdminResolvedHome = (
             description: null,
             href: productPath(slug),
             imageUrl: item.image_url?.trim() || null,
+            imageMobileUrl: item.image_mobile_url?.trim() || null,
             curated: true,
           }
         }
@@ -113,6 +116,7 @@ export const useAdminResolvedHome = (
             description: null,
             href: item.href.trim(),
             imageUrl: item.image_url?.trim() || null,
+            imageMobileUrl: item.image_mobile_url?.trim() || null,
             curated: true,
           }
         }

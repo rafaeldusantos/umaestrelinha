@@ -8,6 +8,7 @@
 import {
   ChevronRight,
   CornerDownRight,
+  GalleryHorizontal,
   GripVertical,
   Image as ImageIcon,
   LayoutGrid,
@@ -44,6 +45,7 @@ const ICONS: Record<HomeSectionType, LucideIcon> = {
   collection_feature: Quote,
   product_carousel: ShoppingBag,
   category_grid: LayoutGrid,
+  hero_carousel: GalleryHorizontal,
 }
 
 const aspas = (texto: string | undefined): string | null => {

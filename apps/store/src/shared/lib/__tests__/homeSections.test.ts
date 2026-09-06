@@ -42,6 +42,27 @@ const semComentarios = (fonte: string): string => fonte.replace(/--[^\n]*/g, '')
 
 const LIMPO = semComentarios(SQL)
 
+/**
+ * A migration da feature 41 — e ela é lida **por inteiro**, não como um apêndice da 24.
+ *
+ * Duas coisas mudaram de arquivo e por isso mudam de fonte aqui:
+ *
+ * - **o `check (type in …)` vigente**, que a 41 recria com `hero_carousel`. Continuar medindo o da 24
+ *   faria este guarda comparar o catálogo do TypeScript com uma constraint que o banco já não tem —
+ *   o pior tipo de teste verde;
+ * - **o guarda de "a Home nunca fica sem seção ativa"**, que deixou de travar o hero (`HOME-08`) e
+ *   passou a travar a última linha ativa, qualquer que seja o tipo (`AD-029`).
+ *
+ * `supabase db push` aplica as migrations em ordem, então **a última que define a constraint é a que
+ * vale**. Migration aplicada é imutável (`AD-017` venceu em 2026-08-17): a da 24 não é editada, é
+ * superada.
+ */
+const MIGRATION_41 = join(ROOT, 'supabase/migrations/20260906120000_41-banner-principal-da-home.sql')
+
+const SQL_41 = readFileSync(MIGRATION_41, 'utf8')
+
+const LIMPO_41 = semComentarios(SQL_41)
+
 // ---------------------------------------------------------------------------
 // Parsers
 // ---------------------------------------------------------------------------
@@ -126,7 +147,8 @@ const policiesDaHome = (fonte: string): Policy[] => {
   }))
 }
 
-const TIPOS_DO_CHECK = tiposDoCheck(LIMPO)
+/** Do arquivo da **41**, que é quem recria a constraint por último. Ver `MIGRATION_41`. */
+const TIPOS_DO_CHECK = tiposDoCheck(LIMPO_41)
 const TIPOS_UNICOS_DO_INDICE = tiposUnicosDoIndice(LIMPO)
 const SEMENTE = sementeDoSql(LIMPO)
 const FKS = acoesDeFk(LIMPO)
@@ -143,8 +165,10 @@ describe('âncora da leitura da migration da Home', () => {
     expect(SQL).toContain('create table if not exists public.home_section_items')
   })
 
-  it('extraiu os 10 tipos do `check`, e não uma lista vazia', () => {
-    expect(TIPOS_DO_CHECK).toHaveLength(10)
+  it('extraiu os 11 tipos do `check` vigente, e não uma lista vazia', () => {
+    // O `check` vigente é o da migration da **41**, que o recriou com `hero_carousel`. Ver
+    // `MIGRATION_41`: `db push` aplica em ordem, e a última definição é a que o banco tem.
+    expect(TIPOS_DO_CHECK).toHaveLength(11)
   })
 
   it('extraiu os 6 tipos do índice único parcial', () => {
@@ -214,7 +238,7 @@ describe('catálogo de tipos: TypeScript × migration (HOME-06)', () => {
     expect(TIPOS_DO_CHECK).toContain(tipo)
   })
 
-  it.each(['hero', 'trust_bar', 'banner_grid', 'collection_rows', 'brand_statement', 'trending_tags', 'newsletter', 'collection_feature', 'product_carousel', 'category_grid'])(
+  it.each(['hero', 'trust_bar', 'banner_grid', 'collection_rows', 'brand_statement', 'trending_tags', 'newsletter', 'collection_feature', 'product_carousel', 'category_grid', 'hero_carousel'])(
     'o tipo `%s` do `check` existe em HOME_SECTION_TYPES',
     tipo => {
       expect(HOME_SECTION_TYPES).toContain(tipo as HomeSectionType)
@@ -371,25 +395,142 @@ describe('FK dos itens: cascade só na seção (HOME-24, HOME-30)', () => {
 })
 
 // ---------------------------------------------------------------------------
-// HOME-08 — o hero indelével
+// AD-029 (ex-HOME-08) — a Home não tem bloco indelével, tem uma última seção ativa
 // ---------------------------------------------------------------------------
+//
+// `HOME-08` nunca existiu para proteger o hero: existiu para tornar IMPOSSÍVEL uma Home com zero
+// seções ativas. A feature 41 precisa que o hero seja desligável — senão o carrossel de banner nunca
+// ocupa o topo —, então a invariante foi **generalizada**, não apagada.
+//
+// Este bloco guarda a troca nos DOIS sentidos: o guarda novo existe e cobre os dois caminhos, **e** o
+// antigo não existe mais. Sem o segundo sentido, uma migration que criasse o novo sem derrubar o
+// velho deixaria os dois triggers ligados — e o hero continuaria indelével, com a suíte verde.
 
-describe('o hero não desliga nem some (HOME-08)', () => {
-  it('a função de guarda existe e cobre os dois caminhos', () => {
-    const inicio = LIMPO.indexOf('create or replace function public.guard_hero_home_section')
-    expect(inicio).toBeGreaterThan(-1)
-    const corpo = LIMPO.slice(inicio, LIMPO.indexOf('$$;', inicio))
+describe('a última seção ativa não desliga nem some (AD-029, BNR-42..BNR-45)', () => {
+  const inicioDoGuarda = LIMPO_41.indexOf(
+    'create or replace function public.guard_last_active_home_section',
+  )
+  const corpoDoGuarda =
+    inicioDoGuarda === -1 ? '' : LIMPO_41.slice(inicioDoGuarda, LIMPO_41.indexOf('$$;', inicioDoGuarda))
 
-    expect(corpo).toContain("tg_op = 'DELETE'")
-    expect(corpo).toContain("old.type = 'hero'")
-    expect(corpo).toContain('new.active = false')
-    // Duas recusas, não uma: apagar e desligar são caminhos diferentes.
-    expect([...corpo.matchAll(/raise exception/g)]).toHaveLength(2)
+  it('a função de guarda existe', () => {
+    expect(inicioDoGuarda).toBeGreaterThan(-1)
+    expect(corpoDoGuarda.length).toBeGreaterThan(200)
+  })
+
+  it('cobre o caminho do DELETE', () => {
+    expect(corpoDoGuarda).toContain("tg_op = 'DELETE'")
+    // Apagar linha JÁ desligada não pode ser recusado — ela não conta para a invariante.
+    expect(corpoDoGuarda).toContain('old.active is not true')
+  })
+
+  it('cobre o caminho do desligamento', () => {
+    expect(corpoDoGuarda).toContain('old.active is true')
+    expect(corpoDoGuarda).toContain('new.active is not true')
+  })
+
+  it('decide por CONTAGEM das outras ativas, e não pelo tipo da linha', () => {
+    // A diferença que faz o hero virar opção: o guarda não pergunta mais "esta linha é o hero?".
+    expect(corpoDoGuarda).toMatch(/select\s+count\(\*\)\s+into\s+restantes/)
+    expect(corpoDoGuarda).toContain('where active and id <> old.id')
+    expect(corpoDoGuarda, 'o guarda voltou a olhar o TIPO da linha').not.toContain("'hero'")
+  })
+
+  it('recusa com o errcode que o PostgREST reporta como violação de constraint', () => {
+    expect(corpoDoGuarda).toContain("using errcode = '23514'")
+  })
+
+  it('tem UMA recusa para os dois caminhos, e a mensagem tem um dono só', () => {
+    // Duas cópias da frase divergiriam na primeira vez que alguém ajustasse uma delas — e é esta
+    // mensagem que o painel exibe, sem reescrever (BNR-44).
+    expect([...corpoDoGuarda.matchAll(/raise exception/g)]).toHaveLength(1)
+    expect(corpoDoGuarda).toContain('A Home precisa de pelo menos uma secao ativa')
   })
 
   it('o trigger está ligado, antes de update E de delete', () => {
-    expect(LIMPO.replace(/\s+/g, ' ')).toContain(
-      'create trigger trg_home_sections_hero_guard before update or delete on public.home_sections',
+    expect(LIMPO_41.replace(/\s+/g, ' ')).toContain(
+      'create trigger trg_home_sections_last_active_guard before update or delete on public.home_sections',
     )
+  })
+
+  it('o guarda ANTIGO do hero é derrubado — função e trigger', () => {
+    // O segundo sentido. Criar o novo sem derrubar o velho deixaria o hero indelével com a suíte
+    // verde, que é a falha mais cara possível numa troca de guarda.
+    expect(LIMPO_41.replace(/\s+/g, ' ')).toContain(
+      'drop trigger if exists trg_home_sections_hero_guard on public.home_sections',
+    )
+    expect(LIMPO_41.replace(/\s+/g, ' ')).toContain(
+      'drop function if exists public.guard_hero_home_section()',
+    )
+  })
+
+  it('a migration da 41 não recria o guarda do hero', () => {
+    expect(LIMPO_41).not.toContain('create or replace function public.guard_hero_home_section')
+    expect(LIMPO_41).not.toContain('create trigger trg_home_sections_hero_guard')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// BNR-07, BNR-21, BNR-45, BNR-46 — a migration da 41
+// ---------------------------------------------------------------------------
+
+describe('âncora da leitura da migration da 41', () => {
+  it('leu o arquivo de verdade', () => {
+    expect(SQL_41.length).toBeGreaterThan(1000)
+    expect(SQL_41).toContain('alter table public.home_section_items')
+    expect(SQL_41).toContain('public.guard_last_active_home_section')
+  })
+
+  it('é ESTE arquivo que recria a constraint de tipo', () => {
+    // A âncora que importa aqui não é a contagem (a de cima já a faz) — é a PROCEDÊNCIA. Se a 41
+    // deixasse de recriar o `check`, `TIPOS_DO_CHECK` viria vazio, a comparação com o catálogo
+    // falharia por outro motivo, e o diagnóstico apontaria para o lugar errado.
+    expect(LIMPO_41).toContain('drop constraint if exists home_sections_type_check')
+    expect(LIMPO_41).toContain('add constraint home_sections_type_check')
+  })
+})
+
+describe('a arte de celular do item curado (BNR-07, BNR-21)', () => {
+  it('a coluna entra de forma aditiva e idempotente', () => {
+    expect(LIMPO_41.replace(/\s+/g, ' ')).toContain(
+      'alter table public.home_section_items add column if not exists image_mobile_url text',
+    )
+  })
+
+  it('a coluna é documentada, e a antiga é redocumentada como arte de computador', () => {
+    // `image_url` mudou de significado sem mudar de nome: sem o comentário, quem abrir o schema em
+    // 2027 não tem como saber que a coluna sem sufixo é a do computador.
+    expect(SQL_41).toContain('comment on column public.home_section_items.image_mobile_url is')
+    expect(SQL_41).toContain('comment on column public.home_section_items.image_url is')
+  })
+})
+
+describe('a migration da 41 não toca dado (BNR-46)', () => {
+  it('não tem insert, update nem delete de linha', () => {
+    // A semente já rodou em produção. Uma escrita aqui mudaria a Home de quem já a tem — e o
+    // sintoma apareceria para a cliente, não no diff.
+    expect(LIMPO_41).not.toMatch(/\binsert\s+into\b/i)
+    expect(LIMPO_41).not.toMatch(/\bupdate\s+public\./i)
+    expect(LIMPO_41).not.toMatch(/\bdelete\s+from\b/i)
+  })
+
+  it('não concede nada a `anon`', () => {
+    expect(LIMPO_41).not.toMatch(/grant[\s\S]{0,120}?\banon\b/i)
+  })
+
+  it('toda criação é idempotente', () => {
+    // `db push` reaplica o arquivo inteiro se a linha de controle se perder; um `add column` sem
+    // `if not exists` transformaria isso em falha de deploy.
+    const criacoes = [...LIMPO_41.matchAll(/\bcreate\s+(or\s+replace\s+)?(function|trigger)\b/gi)]
+    expect(criacoes.length).toBeGreaterThan(0)
+    for (const [trecho] of criacoes) {
+      expect(trecho.toLowerCase()).toMatch(/or replace|trigger/)
+    }
+    // Todo `create trigger` é precedido de um `drop trigger if exists` do mesmo nome.
+    for (const [, nome] of LIMPO_41.matchAll(/create trigger (\w+)/g)) {
+      expect(LIMPO_41, `o trigger ${nome} é criado sem drop antes`).toContain(
+        `drop trigger if exists ${nome}`,
+      )
+    }
   })
 })

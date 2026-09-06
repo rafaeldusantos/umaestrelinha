@@ -26,6 +26,7 @@ const item = (id: string): ResolvedItem => ({
   description: null,
   href: `/${id}`,
   imageUrl: null,
+  imageMobileUrl: null,
   curated: false,
 })
 

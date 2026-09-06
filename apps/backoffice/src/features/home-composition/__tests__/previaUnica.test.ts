@@ -125,7 +125,7 @@ describe('PRV-18 — existe UMA superfície de prévia, e ela é um iframe', () 
 
   it('o palco NÃO ramifica por tipo de seção — ramificar ali é o segundo desenho voltando', () => {
     const fonte = ler(join(UI, 'HomeLivePreview.tsx'))
-    // Os dez tipos do catálogo. Nenhum deles pode aparecer como literal no palco: o palco não sabe
+    // Os onze tipos do catálogo. Nenhum deles pode aparecer como literal no palco: o palco não sabe
     // o que é um hero, e é justamente por não saber que ele não pode divergir da loja.
     for (const tipo of [
       'hero',
@@ -138,6 +138,7 @@ describe('PRV-18 — existe UMA superfície de prévia, e ela é um iframe', () 
       'collection_feature',
       'product_carousel',
       'category_grid',
+      'hero_carousel',
     ]) {
       expect(fonte).not.toContain(`'${tipo}'`)
     }
@@ -146,6 +147,51 @@ describe('PRV-18 — existe UMA superfície de prévia, e ela é um iframe', () 
   it('o painel não importa nada de `apps/store` — a fronteira dos apps segue de pé', () => {
     const infratores = FONTES.filter(f => /from ['"].*apps\/store/.test(ler(f)))
     expect(infratores).toEqual([])
+  })
+})
+
+// ───────────────────────────────────────────────────────────────────────────
+// BNR-51 — o CARROSSEL também tem um desenho, e ele mora na loja
+// ───────────────────────────────────────────────────────────────────────────
+//
+// O bloco novo da feature 41 é o candidato mais provável ao segundo desenho de toda a Home: ele tem
+// movimento, e "só uma mini-prévia para a dona conferir a ordem dos banners" é um pedido razoável
+// que reintroduz exatamente o defeito que a `25` apagou e a `39` teve de apagar de novo no menu.
+
+describe('BNR-51 — o painel não redesenha o carrossel', () => {
+  it('nenhum arquivo do painel monta um trilho de slides', () => {
+    // A régua é a **mecânica** do carrossel, não o nome do arquivo: quem redesenha precisa de um
+    // container de rolagem com encaixe, e é isso que não pode existir aqui.
+    const infratores = FONTES.filter(f => {
+      const fonte = semComentarios(ler(f))
+      return /snap-x|snap-mandatory|scroll-snap|aria-roledescription=["'{]?carrossel/.test(fonte)
+    })
+    expect(infratores.map(f => f.replace(/\\/g, '/'))).toEqual([])
+  })
+
+  it('o editor do carrossel existe, e NÃO desenha o carrossel', () => {
+    // Âncora: sem esta asserção, renomear o editor faria a regra acima varrer um arquivo que já não
+    // existe e aprovar por vacuidade.
+    const editor = join(UI, 'HeroCarouselEditor.tsx')
+    expect(existsSync(editor)).toBe(true)
+
+    const fonte = semComentarios(ler(editor))
+    expect(fonte).not.toContain('snap-x')
+    // A miniatura de uma arte é um `<img>` num quadro — não é o trilho, e não gira.
+    expect(fonte).not.toMatch(/setInterval|useHeroCarousel/)
+  })
+
+  it('nenhuma prévia nova apareceu na pasta de UI', () => {
+    // A mesma régua de `HomePreview`, aplicada ao nome que o bloco novo tornaria tentador.
+    expect(previasEm(UI)).toEqual(['HomeLivePreview.tsx'])
+    expect(existsSync(join(UI, 'HeroCarouselPreview.tsx'))).toBe(false)
+  })
+
+  it('SENSOR: a régua pegaria um segundo desenho injetado', () => {
+    // Prova de sensibilidade sem tocar no disco: a régua roda sobre o fonte, então basta alimentá-la
+    // com o que um `HeroCarouselPreview.tsx` teria dentro.
+    const sintetico = 'const Trilho = () => <div className="flex snap-x snap-mandatory overflow-x-auto" />'
+    expect(/snap-x|snap-mandatory|scroll-snap/.test(semComentarios(sintetico))).toBe(true)
   })
 })
 

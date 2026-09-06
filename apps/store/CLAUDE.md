@@ -339,6 +339,39 @@ deslocamento, o do `<footer>`.
   12 telas consumidoras nada mudou no que se vê (todas leem só `data`); o que mudou é que agora há
   estado de erro e o React Query repete.
 
+## Banner principal — o carrossel de campanha (feature `41`)
+
+`widgets/hero-carousel` desenha o bloco `hero_carousel`: arte enviada pela dona, uma por dispositivo,
+apontando para uma coleção, uma peça ou um caminho da loja. **Sem texto sobreposto** — a frase da
+campanha está dentro da imagem, que é como a Adri monta banner. Por isso o `alt` é obrigatório: sem
+ele a campanha é invisível para leitor de tela e para o Google.
+
+- **O trilho é `scroll-snap` nativo, não um `translateX` animado**, e a escolha paga três coisas sem
+  JS: o arrasto do dedo é o do navegador, a rolagem vertical da página **não** é sequestrada, e o
+  teclado continua sendo do navegador. `useHeroCarousel` faz só o que o navegador não faz sozinho —
+  girar, parar de girar, e saber onde parou.
+- **A posição real manda, nunca um contador paralelo.** O índice sai de `slideIndexFromScroll` num
+  listener de `scroll`: a cliente arrasta e o navegador decide onde encaixar sem passar por nós, e um
+  índice mantido à parte discordaria dele no primeiro arrasto — as bolinhas passariam a apontar para
+  outro banner. Mesmo princípio de `useOverflowAffordance` (`BL-028`).
+- **`full` é "sem container", e NUNCA `w-screen`.** `100vw` inclui a barra de rolagem e produz rolagem
+  horizontal no `body` — o defeito que a auditoria da `27` mediu (`scrollWidth` 634 numa viewport de
+  390). `wide` é o `container` com raio.
+- **A proporção da vaga vem de `HERO_CAROUSEL_SLOTS`, por variável CSS.** Uma classe com a razão
+  cravada (`aspect-[1440/540]`) seria um segundo dono da medida: o painel recomenda o tamanho a partir
+  da constante, e a loja reservaria outro. Com `var()`, o número tem uma origem só — e a vaga tem
+  **altura conhecida antes de a imagem chegar**, que é o que impede o deslocamento.
+- **A arte por dispositivo é `<picture>` + `<source media>`**, para o navegador baixar **uma**. Duas
+  `<img>` escondidas por CSS baixariam as duas, e a que não aparece sairia do orçamento do celular —
+  ~90% dos acessos.
+- **Só o primeiro slide é `eager`.** `imagePriority` **não** serve aqui, e não é descuido: ele descreve
+  uma GRADE, onde os seis primeiros cards estão todos na primeira dobra. Num carrossel só um está.
+- **Um slide é estático**: sem bolinha, sem seta e sem giro. O giro pausa em hover, foco e toque, e
+  `prefers-reduced-motion` desliga o giro **mantendo** os controles.
+- **Destino externo NÃO existe neste bloco**, e é por construção: `ctaHrefRefusal` recusa endereço que
+  não comece com `/` (`HOME-23`, `AD-018`). O `target="_blank"` da spec ficou declaradamente fora — a
+  mudança, se um dia for querida, é na régua, não no widget.
+
 ## A Home é dado (feature `24`)
 
 `home_sections` + `home_section_items` guardam quais blocos existem, em que ordem, com que texto, com

@@ -121,10 +121,10 @@ Ao planejar/implementar features, use a Skill **`tlc-spec-driven`** com estas co
     árvore sem commit, e a spec nasceu dele, não antes dele. É a saída correta quando isso acontece —
     a `31` mostrou o que custa a alternativa —, mas **não** vira precedente para inverter a ordem.
     **A `33` (sitemap), a `34` (painel de vendas), a `35` (clientes e pedidos da Nuvemshop), a `37`
-    (frete grátis configurável), a `38` (performance no celular), a `39` (menu configurável) e a
-    `40` (estabilidade da home) estão FECHADAS. A `36` (metadados e dados estruturados) tem **só
-    `spec.md`** e não foi implementada — o número está consumido de qualquer forma. A próxima é a
-    `41`.**
+    (frete grátis configurável), a `38` (performance no celular), a `39` (menu configurável), a
+    `40` (estabilidade da home) e a `41` (banner principal da home) estão FECHADAS. A `36`
+    (metadados e dados estruturados) tem **só `spec.md`** e não foi implementada — o número está
+    consumido de qualquer forma. A próxima é a `42`.**
 - **Numeração dos itens**: dentro da feature, prefixar os itens de implementação (tasks/entregas) com
   número sequencial de dois dígitos e nome descritivo em kebab-case — `01-nome-implementacao`,
   `02-nome-implementacao`, etc.
@@ -197,6 +197,7 @@ com as duas cópias divergindo, e quem descobre é a cliente ou o Google.
 | `35` | o telefone da cliente, que existia no checkout e **não era persistido** — e a coluna crua do status da origem, que viraria um segundo dono de "este pedido foi pago?" | `orders.customer_phone` (snapshot) e as colunas `nuvemshop_*_status`, que **nenhuma tela lê** (`provenanceNotRead.test.ts`) |
 | `34` | o contraste WCAG (só a loja tinha), a aritmética de página (só produtos tinha), e os rótulos de `payment_status` em **três** cópias | `@estrelinha/core/color`, `core/paging/pageMath.ts` e `entities/order/api/orderQuery` |
 | `37` | **o frete grátis, lido por SETE superfícies em duas leituras que discordavam** — com a faixa em zero, três escondiam o texto e quatro **zeravam o frete**. Zerar o campo no painel escondia o anúncio e liberava frete grátis para todo mundo no caixa | `@estrelinha/core/shipping` (`freeShippingState`), com `freeShippingSingleOwner.test.ts` recusando leitura direta |
+| `41` | **a arte por dispositivo, que a `39` já tinha escrito duas vezes** — `menuBannerArt` em `core` e o mesmo predicado recalculado no painel por truthiness da string crua. Com o carrossel da Home os consumidores viraram quatro | `@estrelinha/core/media/surfaceArt.ts`, com `menuBannerArt` **delegando** e `surfaceArtSingleOwner.test.ts` recusando a volta (`AD-030`) |
 | `39` | **o DESENHO do menu, de novo** — `MenuBarPreview.tsx` redesenhava a barra do topo à mão no painel, com a paleta do admin, e anunciava `/crie-seu-botton`, que **nunca foi rota**. É o mesmo defeito que a `25` apagou da Home; no menu ele nunca tinha saído. E, ao lado dele, o **papel** de cada categoria (barra × painel), que uma coluna nova teria dessincronizado no primeiro "mover categoria" | a prévia É a loja, num iframe (`MenuLivePreview`), e o papel é **derivado da árvore** dentro de `menuItems(input, surface)` — a porta única das quatro superfícies |
 
 Consequências práticas, nesta ordem:
@@ -293,7 +294,7 @@ migrations, e `vercelRedirects` lê o `vercel.json`.
 | `vercelRedirects.test.ts` | idem | `vercel.json` divergir de `LEGACY_REDIRECTS`; `trailingSlash` deixar de ser `false`; redirect usando `permanent` (que produz 308); o catch-all do SPA sair do fim da lista de `rewrites`; os headers de segurança mudarem; o `rewrite` ou o `Content-Type` de `/sitemap.xml` sumirem |
 | `robotsSource.test.ts` | idem | `public/robots.txt` perder a linha `Sitemap:`, ganhar uma segunda, declará-la relativa, ou apontar fora de `/sitemap.xml`; uma diretiva `Disallow` entrar de carona |
 | `materialTransitions.test.ts` | idem | a máquina de estado do material em **SQL** divergir da em **TypeScript**; `set_material_tracking` escrever coluna além do rastreio e do estado; a migration abrir policy de `UPDATE` em `orders` ou conceder `execute` a `anon` |
-| `homeSections.test.ts` | idem | o catálogo de tipos divergir do `check` da migration; a semente divergir de `DEFAULT_HOME_COMPOSITION`; entrar tipo de contagem regressiva ou de prova social; policy de escrita sem `has_role`; `grant` alcançar `anon`; o trigger do hero indelével sumir |
+| `homeSections.test.ts` | idem | o catálogo de tipos divergir do `check` **vigente** (o da migration da `41`, que recria a constraint); a semente divergir de `DEFAULT_HOME_COMPOSITION`; entrar tipo de contagem regressiva ou de prova social; policy de escrita sem `has_role`; `grant` alcançar `anon`. **Desde a `41` guarda a TROCA do guarda do banco nos dois sentidos** (`AD-029`): `guard_last_active_home_section` existe e decide por **contagem** (nunca pelo tipo da linha), **e** `guard_hero_home_section` foi derrubado — função e trigger. Também recusa `insert`/`update`/`delete` de dado na migration da `41` |
 | `faqSchema.test.ts` | idem | a migration da `28` afrouxar: `grant` a `anon`; policy sem `has_role`; `faq_id` deixar de ser `on delete restrict`; sumirem os `check` de 160/600; a view perder `security_invoker` |
 | `googleShoppingSchema.test.ts` | idem | a migration da `30` afrouxar; o interruptor do feed nascer ligado; os limites do TypeScript divergirem do `.sql` |
 | `menuSchema.test.ts` | idem | a migration da `39` afrouxar: `show_in_menu` deixar de ser **gerada**; o índice parcial sumir na recriação; a semeadura do link "Sobre" perder o `NOT value ?`/`do nothing` (viraria escrita destrutiva a cada `db push`); `grant` alcançar `anon`. **Âncora dupla** e sensor por mutação |
@@ -306,6 +307,8 @@ migrations, e `vercelRedirects` lê o `vercel.json`.
 | `arbitraryTextColor.test.ts` | idem | cor de texto **arbitrária** (`text-[hsl(…)]`, `text-[#…]`, `text-[rgb(…)]`) fora de um allowlist de dois, ou com contraste abaixo de 4,5:1 **contra o fundo declarado**. `contrast.test.ts` mede tokens e não alcança essa sintaxe. O guarda **calcula** a razão — não confia no comentário |
 | `cardSkeletonBox.test.ts` | store `entities/product/ui/__tests__` | o `ProductCard` e o `ProductCardSkeleton` divergirem numa das quatro classes que produzem altura. jsdom devolve 0 para layout, então nenhum teste de componente pega — este lê os dois do disco. Modela o **par** (`min-h-[40px]` no card × `h-[40px]` no esqueleto), e a régua é de **token exato**, porque `'min-h-[40px]'.includes('h-[40px]')` é `true` |
 | `heroSemOpacidadeZero.test.ts` | store `widgets/hero-banner/ui/__tests__` | o elemento do LCP voltar a nascer invisível — `opacity: 0` em **qualquer** lugar do `HeroBanner.tsx`, variant ou prop inline. Também recusa apagar a animação inteira: o pedido é entrar **sem esconder**, não deixar de entrar |
+| `heroCarouselSemOpacidadeZero.test.ts` | store `widgets/hero-carousel/ui/__tests__` | a mesma régua no bloco da `41`, em **três grafias**: objeto do framer, `style` inline e **classe utilitária** (`opacity-0`, com prefixo de breakpoint ou de estado). A terceira é a lição da `40` — guarda ancorado em sintaxe guarda a sintaxe, não a regra. **Âncora dupla** (o arquivo lido e o `<img>` encontrado) e sete sensores, incluindo o par que prova que `opacity: 0.5`, `opacity-70` e `bg-…/90` **não** são o defeito |
+| `surfaceArtSingleOwner.test.ts` | store `shared/lib/__tests__` (varre `apps/**` e `packages/**`) | qualquer arquivo de produção fora de `core/media/surfaceArt.ts` decidir **entre a arte de celular e a de computador** — `\|\|`, `??` ou ternário. A régua exige **uma de cada superfície**: a primeira escrita acusou `CollectionFeature.tsx:55`, que é outra regra ("a arte do item vence a do destino") e legítima. Também recusa o dono **deixar de ser chamado** por `core/menu` e `core/home`. **Âncora dupla** e seis sensores — o ternário cuja condição é a superfície (a forma que a primeira régua deixava passar, e exatamente como `menuBannerImage` estava escrito), o CRLF, o LF e o glob de dois asteriscos (`BL-027`) |
 | `importSchema.test.ts` | store `shared/lib/__tests__` | a migration da `35` afrouxar: índice de idempotência virar parcial; `security_invoker` sumir de `customer_directory`; o agregado de telefone da convidada perder o `FILTER (WHERE … IS NOT NULL)`; `handle_new_customer` perder o `security definer`; a adoção por e-mail deixar de recortar `customer_id IS NULL` ou de comparar por `lower()`; `grant` alcançar `anon`. **Cada asserção tem sensor por mutação** |
 | `originZipNotRead.test.ts` | backoffice `shared/lib/__tests__` | qualquer arquivo de `apps/**` ler `store_settings.shipping.origin_zip` — o campo é LEGADO e a origem da cotação é o `postal_code` do secret `MELHOR_ENVIO_SENDER_JSON`. Deixá-lo configurável na tela faria a origem da COTAÇÃO e a da ETIQUETA poderem divergir. **Âncora dupla** |
 | `quotePayload.test.ts` | `packages/core/src/shipping/__tests__` | `insurance_value` deixar de ser **por unidade** — a API do Melhor Envio já multiplica por `quantity`, e multiplicar aqui segura a carga pelo **quadrado** dela. Carrega **sensor embutido**: assere que a fórmula antiga do backoffice reprova na mesma régua |
@@ -332,7 +335,7 @@ migrations, e `vercelRedirects` lê o `vercel.json`.
 | `buttonShape.test.ts` | store `shared/ui/__tests__` | ação voltar a pílula; a chave custom de raio voltar ao config |
 | `icons.test.ts` | store `shared/lib/__tests__` (varre `packages/ui/src/icons`) | ícone fora da grade `0 0 24 24`; escala × traço ≠ 1,5; cor fora de `ICON_ACCENT`; ícone que não chegou ao barrel. **Mora na suíte da loja porque `packages/ui` não tem runner** — guarda que não roda é pior que guarda nenhum |
 | `paths.test.ts` | store `shared/ui/brand/__tests__` | `paths.ts` divergir do SVG-fonte em um caractere; dois `<path>` do mesmo SVG com a mesma espessura |
-| `previaUnica.test.ts` | backoffice `features/home-composition` | um segundo desenho da Home **ou do MENU** voltar ao painel; `MenuBarPreview.tsx` reaparecer; um arquivo de `store-menu` importar `menuPanelColumns` ou `resolveMenuBanners` (calcular o desenho do painel da loja **é** o segundo desenho); qualquer dos dois importar de `apps/store`. **Cobre as features `25` e `39`**, com âncora dupla e sensor de CRLF/LF |
+| `previaUnica.test.ts` | backoffice `features/home-composition` | um segundo desenho da Home, do MENU **ou do CARROSSEL** voltar ao painel; `MenuBarPreview.tsx` reaparecer; um arquivo de `store-menu` importar `menuPanelColumns` ou `resolveMenuBanners` (calcular o desenho do painel da loja **é** o segundo desenho); qualquer dos dois importar de `apps/store`. **Cobre as features `25`, `39` e `41`**, com âncora dupla e sensor de CRLF/LF. A régua do carrossel é a **mecânica** (`snap-x`, `scroll-snap`, `aria-roledescription="carrossel"`, `setInterval`), não o nome do arquivo — "só uma mini-prévia para conferir a ordem dos banners" é o pedido razoável que traz o defeito de volta |
 | `navItems.test.ts` | backoffice `widgets/admin-layout` | ordem das rotas em `App.tsx` divergir de `navGroups` |
 | `AdminLayout.test.tsx` | idem | a sidebar deixar de ser fixa (`sticky`/`top-0`/`h-screen`/`self-start` no `aside`), o `<nav>` perder `min-h-0`, a raiz ganhar `overflow-hidden`, a barra do celular deixar de ser `sticky`; o Dashboard virar grupo colapsável; grupo colapsado que contém a rota atual parar de avisar. **Âncora** (a varredura do fonte tem de achar os três elementos) e **sensor** (a declaração antiga reprova na mesma régua) |
 | `navCollapse.test.ts` | idem | o storage vazio deixar de significar "tudo aberto"; a lista de colapsáveis virar segunda cópia dos rótulos de `navGroups`; a régua do "onde estou" divergir de `isNavActive` |
@@ -367,7 +370,27 @@ quando mudarem de verdade.
 | --- | --- | --- |
 | **Lint** | **27 erros / 5 warnings** — backoffice 25/4 · store 2/1 | `pnpm lint` |
 | **Tipos** | **0 · 0 · 0** (store · backoffice · catalog-import) | `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` |
-| **Testes** | **7094 em 381 arquivos** — store **2538/165** · backoffice 1946/118 · core 1728/68 · functions 370/7 · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test` |
+| **Testes** | **7307 em 388 arquivos** — store **2634/169** · backoffice **1980/119** · core **1811/70** · functions 370/7 · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test` |
+
+**A feature `41` (banner principal da home) somou +213 em três workspaces**, medidos em 2026-09-06 um
+por vez e com exit code capturado fora de pipe: **store +96/+4** (o widget, o hook, os dois guardas
+novos e a fiação), **core +83/+2** (`surfaceArt`, `carousel` e os casos de `resolve`) e **backoffice
++34/+1** (o editor). Functions e catalog-import não foram tocados e foram remedidos assim mesmo —
+idênticos. Lint ficou em **27/5** e tipos em **0 · 0**, sem mexer; `packages/core/src/payment/**` não
+teve uma linha alterada, conferido por `git diff --name-only`.
+
+**A `41` derrubou a última exceção estrutural da Home: o hero deixou de ser indelével** (`AD-029`).
+`HOME-08` nunca existiu para proteger o hero — existiu para tornar impossível uma Home com zero
+seções ativas —, e a invariante foi **generalizada**, não apagada: `guard_last_active_home_section`
+recusa desligar ou apagar a **última seção ativa**, qualquer que seja o tipo. `homeSections.test.ts`
+guarda a troca nos **dois sentidos**: o guarda novo existe **e** o antigo não existe mais. Sem o
+segundo sentido, uma migration que criasse um sem derrubar o outro deixaria o hero indelével com a
+suíte verde.
+
+> **O `tsc` pegou três construções de `ResolvedItem` que a varredura da loja não tinha**, e isso é
+> registro de método, não de bug: `useAdminResolvedHome` (backoffice) monta o mesmo tipo em três
+> ramos, e `strictNullChecks: false` **não** dispensa propriedade obrigatória. Campo novo em tipo
+> compartilhado se conta com `tsc`, nunca com grep.
 
 **A feature `40` (estabilidade da home) somou +48 em um workspace só**, medidos em 2026-09-06 com
 exit code capturado fora de pipe: **store 2490/161 → 2538/165**. Os outros quatro não foram tocados
@@ -674,6 +697,19 @@ completo (framework, `installCommand` na raiz do monorepo, headers de cache e de
 
 ## Estado conhecido / dívidas
 
+- **O BANNER PRINCIPAL NÃO EXISTE ATÉ A ADRI CRIAR UM, e o hero deixou de ser obrigatório** (feature
+  `41`). A migration **não semeia seção nenhuma** — de propósito, porque semear mudaria a Home de
+  quem já a tem. Depois do deploy, a Home continua **idêntica**: quem quiser o carrossel no topo
+  precisa, em `/admin/home`, acrescentar o bloco **"Banner principal"**, subir as duas artes de cada
+  banner, escolher os destinos, **ligar a seção** (todo bloco novo nasce desligado) e arrastá-la para
+  cima da "Chamada principal" — que agora pode ser desligada ou removida. São cinco passos, e nenhum
+  deles acontece sozinho.
+  - **O que a `41` ainda NÃO tem é `validation.md` nem prova em navegador**, e nela a segunda pesa
+    mais que a média: o bloco entrega **largura, deslocamento e rotação**, que é exatamente o que
+    jsdom não mede (ele devolve 0 para toda medida de layout, e a suíte inteira do widget é proxy de
+    forma — atributo, classe e presença). Falta medir em 390×844 e 1440: o CLS da faixa enquanto a
+    arte carrega, o LCP do primeiro slide em Slow 4G, o arrasto do dedo sem sequestrar a rolagem
+    vertical, e as setas do computador. Entra na mesma fila da `32`, `33`, `34`, `35`, `37` e `39`.
 - **O MENU NASCE VAZIO NOS DOIS DISPOSITIVOS, e montá-lo é passo de operação** (feature `39`). As 37
   categorias têm `menu_desktop` e `menu_mobile` em `false`, e o único item semeado é o link "Sobre".
   Depois do deploy, a barra do topo mostra **um** item e a folha do celular também — até a Adri
@@ -790,4 +826,5 @@ código — mas todas explicam por que uma tela parece vazia:
 | Material de cada produto | `/admin/produtos`, aba Geral | a `22` semeou 689 produtos por inferência do nome |
 | O menu de cada dispositivo | `/admin/menu` | `menu_desktop` e `menu_mobile` nascem `false` nas 37 categorias ⇒ barra do topo e folha do celular vazias. **São duas curadorias**, e ligar numa não liga na outra (feature `39`). O único item semeado é o link "Sobre", em `store_settings.menu` |
 | Arte da vitrine | `/admin/categorias` | nenhuma das 37 categorias tem `banner_url` ⇒ a grade de banners não aparece |
+| O banner de campanha | `/admin/home`, bloco **Banner principal** | a `41` **não semeia nenhum** ⇒ a Home abre com a "Chamada principal" de sempre. O bloco existe na bandeja e espera arte, destino e o interruptor |
 | Perguntas frequentes | `/admin/perguntas` e a aba `Perguntas` do produto | a `28` semeou 67 entradas e 3.475 vínculos das descrições |

@@ -51,7 +51,28 @@ ausente seria indistinguível de run quebrado na aba Actions.
 
 ## Migrations
 
-48 arquivos em `migrations/`. **Nenhuma credencial no código.**
+49 arquivos em `migrations/`. **Nenhuma credencial no código.**
+
+> **A migration do banner principal (`41`) é o caso de "trocar um guarda sem ficar sem nenhum"**, e o
+> molde é o dos dois sentidos. `guard_hero_home_section` (`HOME-08`) tornava o hero indelével; ele foi
+> **derrubado** — função e trigger — e substituído por `guard_last_active_home_section`, que recusa
+> desligar ou apagar a **última seção ativa**, qualquer que seja o tipo (`AD-029`).
+>
+> Três coisas dessa migration valem como molde:
+> - **A invariante não foi apagada, foi generalizada.** `HOME-08` nunca existiu para proteger o hero:
+>   existiu para tornar impossível uma Home com zero seções ativas. Tornar o hero opcional sem
+>   substituir a invariante deixaria a Home poder ficar em branco.
+> - **O guarda decide por CONTAGEM, nunca pelo tipo da linha**, e faz **uma** contagem e **uma**
+>   recusa para os dois caminhos (`DELETE` e `UPDATE active = false`). Duas cópias da frase
+>   divergiriam na primeira vez que alguém ajustasse uma delas — e é essa mensagem que o painel
+>   exibe, sem reescrever.
+> - **Zero escrita de dado.** Nenhum `insert`, `update` ou `delete`: a semente da `24` já rodou em
+>   produção, e mexer nela mudaria a Home de quem já a tem. O bloco novo **não é semeado** — quem o
+>   quiser o cria em `/admin/home`.
+>
+> `homeSections.test.ts` (na suíte do store) lê o `.sql` do disco e guarda a troca **nos dois
+> sentidos**: o guarda novo existe **e** o antigo não existe mais. Sem o segundo sentido, uma
+> migration que criasse um sem derrubar o outro deixaria o hero indelével com a suíte verde.
 
 > **A migration do menu configurável (`39`) é o caso de "coluna nova sem quebrar a loja publicada"**,
 > e vale como molde. `show_in_menu` deixou de ser coluna comum e virou **coluna GERADA**

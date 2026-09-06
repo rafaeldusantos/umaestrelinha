@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import {
   MENU_BANNER_LIMIT,
+  menuBannerArt,
+  menuBannerImage,
   menuBannerRefusal,
   resolveMenuBanners,
   type MenuBanner,
 } from '../banners'
 import type { MenuProduct } from '../target'
 import type { MenuCategory } from '../menu'
+import { surfaceArt, surfaceImage } from '../../media/surfaceArt'
 
 /**
  * Feature 39 — `NAV-28` a `NAV-35`.
@@ -312,5 +315,33 @@ describe('painel sem banner (NAV-35)', () => {
 
   it('categoria sem menu_banners devolve lista vazia', () => {
     expect(resolveMenuBanners(ctx, undefined, 'desktop')).toEqual([])
+  })
+})
+
+describe('a herança de arte delega no dono único (AD-030)', () => {
+  /**
+   * O sensor da delegação. Ele não repete a régua — ele **amarra** os dois vereditos.
+   *
+   * Sem este caso, alguém pode reescrever a régua dentro de `banners.ts` com um comportamento
+   * ligeiramente diferente e os testes acima continuam passando, porque eles medem o resultado e não
+   * a origem dele. É exatamente assim que a `39` acabou com duas escritas discordando sobre `"   "`.
+   */
+  const CASOS: MenuBanner[] = [
+    { target: { kind: 'url', href: '/x' }, image_desktop: '/d.jpg', image_mobile: '/m.jpg' },
+    { target: { kind: 'url', href: '/x' }, image_desktop: '/d.jpg' },
+    { target: { kind: 'url', href: '/x' }, image_mobile: '/m.jpg' },
+    { target: { kind: 'url', href: '/x' }, image_desktop: '  /d.jpg  ', image_mobile: '   ' },
+    { target: { kind: 'url', href: '/x' } },
+  ]
+
+  it.each(CASOS)('menuBannerArt == surfaceArt nas duas superfícies (%#)', banner => {
+    for (const surface of ['desktop', 'mobile'] as const) {
+      expect(menuBannerArt(banner, surface)).toEqual(
+        surfaceArt(banner.image_desktop, banner.image_mobile, surface),
+      )
+      expect(menuBannerImage(banner, surface)).toBe(
+        surfaceImage(banner.image_desktop, banner.image_mobile, surface),
+      )
+    }
   })
 })

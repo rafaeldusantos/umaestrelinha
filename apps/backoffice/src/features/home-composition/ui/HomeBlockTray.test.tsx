@@ -116,11 +116,22 @@ describe('HomeBlockTray — o teto de 30 (edge case da spec)', () => {
 })
 
 describe('HomeBlockTray — a bandeja mostra o catálogo inteiro', () => {
-  it('oferece os dez tipos, e nenhum deles é contagem regressiva ou prova social', () => {
+  it('oferece os onze tipos, e nenhum deles é contagem regressiva ou prova social', () => {
     montar()
-    expect(screen.getAllByTestId(/^bloco-/)).toHaveLength(10)
+    expect(screen.getAllByTestId(/^bloco-/)).toHaveLength(11)
     const ids = screen.getAllByTestId(/^bloco-/).map(b => b.getAttribute('data-testid'))
     expect(ids.some(id => /countdown|social|proof|depoiment/i.test(id ?? ''))).toBe(false)
+  })
+
+  it('oferece o Banner principal, e SEM a etiqueta “em breve” (BNR-01)', () => {
+    // Vizinha da contagem acima, e não substituta: aquela mede o total, esta nomeia o bloco que a
+    // feature 41 acrescenta. Um bloco esmaecido é um bloco que a Adri nunca descobre que existe.
+    montar()
+    const bloco = screen.getByTestId('bloco-hero_carousel')
+
+    expect(bloco).toHaveTextContent('Banner principal')
+    expect(bloco).not.toHaveTextContent('em breve')
+    expect(bloco).not.toBeDisabled()
   })
 
   it('diz que a seção nova nasce desligada (HOME-10)', () => {

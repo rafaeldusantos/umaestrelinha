@@ -118,11 +118,29 @@ describe('useHomeSections — o que o banco devolve chega mapeado', () => {
         product_id: null,
         href: null,
         image_url: 'https://cdn.test/campanha.webp',
+        image_mobile_url: null,
         alt: 'Campanha de outono',
         label_snapshot: 'Prata 925',
         product_slug: null,
       },
     ])
+  })
+
+  it('a arte de celular do item chega mapeada (BNR-21)', async () => {
+    // Enumerar coluna a coluna é o que fez o telefone da cliente sumir do link de cobrança na
+    // feature 35: a coluna gravada, o teste dela verde, e o mapper ignorando o campo. Este caso é o
+    // sensor disso para a coluna nova.
+    respondeCom([
+      linhaDoBanco({
+        items: [itemDoBanco({ image_mobile_url: 'https://cdn.test/campanha-celular.webp' })],
+      }),
+    ])
+
+    const result = await ler()
+
+    expect(result.current.data[0].items[0].image_mobile_url).toBe(
+      'https://cdn.test/campanha-celular.webp',
+    )
   })
 
   it('seção sem curadoria chega com a lista vazia — que é a derivação de hoje, não "sem conteúdo"', async () => {

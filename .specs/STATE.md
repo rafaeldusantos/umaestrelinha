@@ -647,9 +647,90 @@
 - **Date**: 2026-09-05
 - **Status**: active
 
+### AD-029
+- **Decision**: **A Home não tem bloco indelével.** A "Chamada principal" (`hero`) passa a ser uma
+  seção como qualquer outra — pode ser desligada e removida. A invariante que o trigger
+  `guard_hero_home_section` (`HOME-08`) protegia **não é apagada, é generalizada**: o guarda novo
+  (`guard_last_active_home_section`) recusa desligar ou apagar a **última seção ativa**, qualquer que
+  seja o tipo dela.
+- **Reason**: `HOME-08` nunca existiu para proteger o hero — existiu para tornar **impossível** uma
+  Home com zero seções ativas, porque esconder o botão na tela é UX e UX não sobrevive a um `PATCH`
+  direto. Com o carrossel de banner (feature `41`) a dona precisa poder pôr o anúncio no topo, e o
+  hero indelével impedia isso por construção: o carrossel entraria sempre **abaixo** de um bloco que
+  ela não pode desligar. Tornar o hero opcional sem substituir a invariante deixaria a Home poder
+  ficar em branco; apagá-la seria perder a garantia sem troca.
+- **Trade-off**: O guarda novo faz uma **contagem** de linhas ativas em vez de olhar só a linha
+  corrente, então duas transações simultâneas desligando seções diferentes podem passar as duas. A
+  loja tem uma administradora, e blindar exigiria `serializable` ou lock de tabela — custo alto para
+  um risco que a operação real não tem. Aceito e declarado.
+- **Scope**: `supabase/migrations/20260906120000_41-*.sql`,
+  `apps/store/src/shared/lib/__tests__/homeSections.test.ts`
+- **Date**: 2026-09-06
+- **Status**: active
+
+### AD-030
+- **Decision**: **"A arte desta superfície, com recuo para a da outra" tem UM dono**, e ele é
+  `packages/core/src/media/surfaceArt.ts` (`surfaceImage` / `surfaceArt`). `menuBannerArt` e
+  `menuBannerImage` (feature `39`) passam a **delegar** nele em vez de escrever a regra; o carrossel
+  da Home (feature `41`) o consome direto. O retorno declara `imageReused`, para a tela poder avisar
+  que reaproveitou.
+- **Reason**: O predicado já tinha dois consumidores (loja e painel) quando foi escrito na `39`, e a
+  segunda escrita **já custou uma divergência silenciosa**: o painel decidia por truthiness da string
+  crua enquanto `core` apara espaço, e um `image_mobile: "   "` fazia a loja reaproveitar a arte do
+  computador com a tela dizendo que estava tudo certo. Com a feature `41` os consumidores viram
+  quatro. E a regra do repositório é essa: dois consumidores da mesma regra ⇒ `packages/core`.
+- **Trade-off**: `core/menu/banners.ts` passa a depender de `core/media`, o que amarra dois módulos
+  de `core` que antes eram independentes. Aceito porque a alternativa é a cópia, e porque
+  `core/media` não importa nada — a direção da dependência não cria ciclo. O módulo mantém extensão
+  `.ts` explícita em todo import, para continuar alcançável por Deno.
+- **Scope**: `packages/core/src/media/surfaceArt.ts`, `packages/core/src/menu/banners.ts`,
+  `packages/core/src/home/carousel.ts`, `apps/store/src/widgets/hero-carousel/**`,
+  `apps/backoffice/src/features/{store-menu,home-composition}/**`
+- **Date**: 2026-09-06
+- **Status**: active
+
 ## Handoff
 
-### ATUAL — 2026-09-06 · `40-estabilidade-da-home` **IMPLEMENTADA E VERIFICADA**
+### ATUAL — 2026-09-06 · `41-banner-principal-da-home` **IMPLEMENTADA**
+
+**Estado**: T1–T18 feitas inline, uma por vez, com gate por task. Falta a **verificação
+independente** (`validation.md`) e a **prova em navegador**.
+
+**O que a feature entrega**: um tipo de seção novo, `hero_carousel` ("Banner principal"), que a Adri
+acrescenta em `/admin/home` em qualquer posição e quantas vezes quiser. Cada banner tem **arte de
+computador, arte de celular, descrição e destino** (coleção, peça ou caminho da loja); a seção
+escolhe `full` (borda a borda) ou `wide` (dentro do container). Vários banners na mesma seção giram
+a cada 6 s, com bolinhas, setas no computador, arrasto do dedo, pausa em hover/foco/toque e
+`prefers-reduced-motion` desligando o giro sem desligar os controles.
+
+**Duas decisões de projeto saíram daqui:**
+
+- **`AD-029` — a Home não tem bloco indelével.** O hero virou opção; a invariante que o protegia foi
+  generalizada para "a última seção ativa não desliga e não some". Sem isso o carrossel nunca
+  ocuparia o topo, que era o pedido.
+- **`AD-030` — a arte por dispositivo tem um dono**, `core/media/surfaceArt.ts`. `menuBannerArt`
+  (feature `39`) passou a delegar; os consumidores foram de dois para quatro.
+
+**Baselines** (medidas um workspace por vez, exit code fora de pipe): store 2538/165 → **2634/169**,
+backoffice 1946/118 → **1980/119**, core 1728/68 → **1811/70**. Functions (370/7) e catalog-import
+(512/23) intocados e remedidos. Total **7307 em 388**. Lint **27/5**, tipos **0 · 0**, `pnpm build`
+verde, `packages/core/src/payment/**` intocado.
+
+**Migration `20260906120000_41-*.sql` aplicada no banco LOCAL e probeada** — aplicada duas vezes
+(idempotente), tipo novo aceito, `image_mobile_url` gravando e relendo, hero desligável e apagável,
+e as duas recusas da última seção ativa devolvendo `23514` com a mensagem certa. **Ainda não foi ao
+hospedado**: o `Supabase Deploy` a aplica no push em `master`.
+
+**Divergência declarada**: `BNR-27` pede `target="_blank"` para destino externo. Não implementado —
+`ctaHrefRefusal` recusa endereço que não comece com `/` (`HOME-23`), então o estado é inalcançável.
+Registrado na tabela de suposições da spec e como `SPEC_DEVIATION` no widget.
+
+**Próximo passo**: dispatch do Verifier (autor ≠ verificador) e prova em navegador em 390×844 e
+1440 — CLS da faixa, LCP do primeiro slide em Slow 4G, arrasto sem sequestrar a rolagem vertical.
+
+---
+
+### 2026-09-06 · `40-estabilidade-da-home` **IMPLEMENTADA E VERIFICADA**
 
 **Estado**: T01–T06 feitas num lote só, gate limpo. **Primeira feature do projeto com autor ≠
 verificador** — `validation.md` escrita por agente distinto, com sensor de mutação real.

@@ -103,8 +103,19 @@ export interface DbHomeSectionItem {
   category_id: string | null
   product_id: string | null
   href: string | null
-  /** Arte própria (banner livre). Sem imagem, a seção deriva a arte do destino. */
+  /**
+   * Arte própria (banner livre). Sem imagem, a seção deriva a arte do destino.
+   *
+   * **É a arte de COMPUTADOR** desde a feature 41 — o nome é herdado de quando havia uma arte só.
+   */
   image_url: string | null
+  /**
+   * A arte de **celular** do mesmo item (feature 41), ou `null`.
+   *
+   * Quem responde "qual arte esta superfície usa" é `surfaceArt`, em `@estrelinha/core/media`, e a
+   * régua tem um dono só (`AD-030`). Este tipo só descreve a coluna.
+   */
+  image_mobile_url: string | null
   alt: string | null
   /**
    * O rótulo congelado no momento da escolha.
