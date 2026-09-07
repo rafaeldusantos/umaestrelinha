@@ -65,14 +65,19 @@ export const nasceInvisivel = (fonte: string): boolean => {
    */
   const classe = /(?:^|[\s"'`:[{])opacity-(?:0|\[0(?:\.0+)?%?\])(?![\d.])/.test(limpo)
   /**
-   * `fade-in` do `tailwindcss-animate` compila para `--tw-enter-opacity: 0`, e o plugin está no
-   * preset deste projeto. É o mesmo defeito de LCP escrito de um jeito que **não contém a palavra
-   * `opacity`** — e a grafia já é usada nesta loja (`WhatsAppFloat.tsx`).
+   * As animações de entrada que começam em opacidade zero — **nenhuma contém a palavra `opacity`**.
    *
-   * `fade-in-50` não casa: entrar de 50% não esconde o elemento do medidor.
+   * Duas origens: `fade-in` do `tailwindcss-animate`, e `fade-in`/`scale-in`/`slide-up` declarados
+   * pelo **próprio preset deste projeto** (`packages/ui/tailwind.preset.ts`), usados como
+   * `animate-fade-in` e afins. O hífen está na classe de caracteres anteriores por causa da segunda
+   * família: sem ele a régua via a biblioteca e era cega ao que o repositório declara sozinho.
+   *
+   * `fade-in-50`, `scale-in-95` e afins não casam: entrar parcialmente não esconde o elemento.
    */
-  const fade = /(?:^|[\s"'`:[{])fade-in(?:-0)?(?![-\d])/.test(limpo)
-  return objeto || classe || fade
+  const fade = /(?:^|[\s"'`:[{-])(?:fade-in|scale-in|slide-up)(?:-0)?(?![-\d])/.test(limpo)
+  /** `invisible` é `visibility: hidden`, que o Chrome também não conta como pintado. */
+  const oculto = /(?:^|[\s"'`:[{-])invisible(?![-\w])/.test(limpo)
+  return objeto || classe || fade || oculto
 }
 
 describe('o hero não nasce em opacidade zero (PRF-19)', () => {
@@ -144,6 +149,22 @@ describe('o hero não nasce em opacidade zero (PRF-19)', () => {
     expect(nasceInvisivel('className="animate-in fade-in-50"')).toBe(false)
     expect(nasceInvisivel('className="animate-in zoom-in-95"')).toBe(false)
     expect(nasceInvisivel('className="opacity-[0.4]"')).toBe(false)
+  })
+
+  it('SENSOR: as animações do PRÓPRIO preset também são o defeito (rodada 2 da 41)', () => {
+    // `animate-fade-in`, `animate-scale-in` e `animate-slide-up` são keyframes de
+    // `packages/ui/tailwind.preset.ts`, os três com `opacity: "0"` no primeiro quadro. A régua era
+    // cega a eles por um caractere: o anterior a `fade-in` ali é um hífen, não um espaço.
+    expect(nasceInvisivel('className="animate-fade-in"')).toBe(true)
+    expect(nasceInvisivel('className="animate-scale-in"')).toBe(true)
+    expect(nasceInvisivel('className="animate-slide-up"')).toBe(true)
+    expect(nasceInvisivel('className="invisible"')).toBe(true)
+  })
+
+  it('SENSOR: as animações do preset que só mexem em `transform` NÃO são o defeito', () => {
+    // O par — e é justamente o que `PRF-19` recomenda no lugar da opacidade.
+    expect(nasceInvisivel('className="animate-bounce-cart"')).toBe(false)
+    expect(nasceInvisivel('className="animate-slide-in-right"')).toBe(false)
   })
 
   it('SENSOR: opacidade PARCIAL não é o defeito — só o zero', () => {

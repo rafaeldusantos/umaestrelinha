@@ -186,12 +186,37 @@ const TERNARIO = '\\?(?![.?])[^\\n]*:'
  * não há nome de arte antes do `?`. É exatamente como `menuBannerImage` estava escrito antes da
  * feature 41, ou seja: a forma mais provável de o defeito voltar era justamente a que escapava.
  */
+/**
+ * As formas **sem operador nenhum** — achadas na rodada 2 da verificação.
+ *
+ * As quatro alternativas acima exigem `||`, `??` ou ternário **entre** os dois nomes, e a junção em
+ * linhas lógicas resolveu a quebra de linha, não a ausência de operador. Duas escritas escapavam:
+ *
+ * - `[a, b].find(Boolean)` — o array literal com as duas artes;
+ * - `if (!image) image = item.image_url` — a reatribuição condicional, que é o mesmo recuo em duas
+ *   sentenças. A retrorreferência (`\\1`) é o que a torna específica: sem ela, qualquer `if (!x)`
+ *   perto de um nome de arte viraria falso positivo, e o mapper legítimo seria acusado.
+ */
+/**
+ * O ponto antes de cada nome **não é decoração** — é o que separa "escolher entre as duas artes" de
+ * "listar os nomes dos dois campos".
+ *
+ * Sem ele a régua acusava `MenuBannerEditor.tsx:103`, que percorre
+ * `['badge', 'title', 'subtitle', 'image_desktop', 'image_mobile']` só para apagar campo em branco
+ * antes de gravar. É uma lista de **nomes**, não uma decisão — e um guarda que a acusasse mandaria
+ * consertar código correto, que é como guarda vira ruído e depois vira allowlist.
+ */
+const ARRAY_DAS_DUAS = `\\[[^\\]\\n]*(?:\\.${MOBILE}[^\\]\\n]*,[^\\]\\n]*\\.${DESKTOP}|\\.${DESKTOP}[^\\]\\n]*,[^\\]\\n]*\\.${MOBILE})[^\\]\\n]*\\]`
+const REATRIBUICAO = `if\\s*\\(\\s*!\\s*(\\w+)\\s*\\)\\s*\\1\\s*=\\s*[^\\n]*(?:${MOBILE}|${DESKTOP})`
+
 const RECUO_A_MAO = new RegExp(
   [
     `${MOBILE}[^\\n]*(?:${OU}|${TERNARIO})[^\\n]*${DESKTOP}`,
     `${DESKTOP}[^\\n]*(?:${OU}|${TERNARIO})[^\\n]*${MOBILE}`,
     `\\?(?![.?])[^\\n]*${MOBILE}[^\\n]*:[^\\n]*${DESKTOP}`,
     `\\?(?![.?])[^\\n]*${DESKTOP}[^\\n]*:[^\\n]*${MOBILE}`,
+    ARRAY_DAS_DUAS,
+    REATRIBUICAO,
   ].join('|'),
 )
 
@@ -386,5 +411,66 @@ describe('ninguém escreve o recuo de arte à mão (BNR-22, AD-030)', () => {
       ),
     )
     expect(procurar(RECUO_A_MAO, [{ rel: 'x.ts', linhas }])).toHaveLength(1)
+  })
+})
+
+describe('o recuo SEM operador (rodada 2 da verificação)', () => {
+  it('SENSOR: o array com as duas artes é pego', () => {
+    const sintetico: Arquivo = {
+      rel: 'apps/store/src/widgets/sintetico.tsx',
+      linhas: [
+        'const arte = [item.image_mobile_url, item.image_url].find(Boolean)',
+        'const arte = [b.image_desktop, b.image_mobile].filter(Boolean)[0]',
+      ],
+    }
+    expect(procurar(RECUO_A_MAO, [sintetico])).toHaveLength(2)
+  })
+
+  it('SENSOR: a reatribuição condicional é pega', () => {
+    // O mesmo recuo escrito em duas sentenças, sem operador nenhum entre os dois nomes.
+    const sintetico: Arquivo = {
+      rel: 'apps/store/src/widgets/sintetico.tsx',
+      linhas: [
+        'let image = item.image_mobile_url',
+        'if (!image) image = item.image_url',
+      ],
+    }
+    expect(procurar(RECUO_A_MAO, [sintetico])).toHaveLength(1)
+  })
+
+  it('SENSOR: `if (!x)` com OUTRA variável não é acusado', () => {
+    // O par, e a razão da retrorreferência: sem ela, todo `if (!algo)` perto de um nome de arte
+    // viraria falso positivo — e o mapper legítimo seria o primeiro a cair.
+    const sintetico: Arquivo = {
+      rel: 'apps/store/src/widgets/sintetico.tsx',
+      linhas: [
+        'if (!categoria) return item.image_url',
+        'if (!slug) fallback = produto.image_url',
+      ],
+    }
+    expect(procurar(RECUO_A_MAO, [sintetico])).toEqual([])
+  })
+
+  it('SENSOR: array com UMA arte só não é acusado', () => {
+    const sintetico: Arquivo = {
+      rel: 'apps/store/src/widgets/sintetico.tsx',
+      linhas: ['const artes = [item.image_url, categoria.banner_url].filter(Boolean)'],
+    }
+    expect(procurar(RECUO_A_MAO, [sintetico])).toEqual([])
+  })
+})
+
+describe('a régua não acusa LISTA DE NOMES de campo', () => {
+  it('SENSOR: percorrer os nomes das colunas para limpar campo vazio é legítimo', () => {
+    // Achado ao fechar a rodada 2: `MenuBannerEditor.tsx` faz exatamente isto antes de gravar, e a
+    // primeira versão do `ARRAY_DAS_DUAS` o acusava. É uma lista de nomes, não uma decisão.
+    const sintetico: Arquivo = {
+      rel: 'apps/backoffice/src/features/sintetico.tsx',
+      linhas: [
+        "for (const chave of ['badge', 'title', 'image_desktop', 'image_mobile'] as const) {",
+        "const CAMPOS = ['image_url', 'image_mobile_url'] as const",
+      ],
+    }
+    expect(procurar(RECUO_A_MAO, [sintetico])).toEqual([])
   })
 })

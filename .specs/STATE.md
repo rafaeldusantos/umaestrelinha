@@ -712,9 +712,49 @@
 - **Date**: 2026-09-06
 - **Status**: active
 
+### AD-032
+- **Decision**: **Quem dispara notificação nomeia o que ACONTECEU (o gatilho), nunca qual mensagem
+  sai.** Quais eventos um gatilho produz, para quem (cliente ou dona), e sob que pré-condição, é
+  regra de `@estrelinha/core/notifications` (`eventsForTrigger`, `preconditionFailure`), lida pelo
+  motor da edge function e pelo painel. **Um motor** (`send-notification/dispatch.ts`), **N canais**
+  registrados por uma interface (`NotificationProvider`), **uma memória** (`order_notifications`,
+  com `channel`). Feature `42`; a `43` acrescenta o canal WhatsApp como adaptador.
+- **Reason**: A bifurcação "pagamento aprovado" → `order_paid` **ou** `material_instructions`
+  existiria em dois chamadores (`mercado-pago` e o reenvio do backoffice) se cada um nomeasse o
+  evento — o defeito 01 no dia um. Com o gatilho, a decisão tem um dono e um teste puro. E a
+  memória com `channel` desde já é o custo declarado de separar e-mail (`42`) de WhatsApp (`43`),
+  pago uma vez em vez de reaberto na segunda.
+- **Trade-off**: O reenvio explícito do histórico (`action=send`) **continua nomeando evento**, porque
+  reenviar é repetir uma mensagem específica — são duas portas com semânticas diferentes, e a spec
+  as separa. A tabela `order_emails` sobrevive como **view** `security_invoker` durante a janela de
+  deploy (`db push` e Vercel em paralelo, lição da `39`) e as RPCs antigas delegam; a remoção é
+  migration posterior. `delivery_status` nasce sem leitor, para a `43` não reabrir a migration.
+- **Scope**: `packages/core/src/notifications/**`, `supabase/functions/send-notification/**`,
+  `supabase/functions/mercado-pago/handlers.ts` (só os pontos de disparo), `apps/backoffice/src/
+  entities/order/api/**`, `apps/store/src/entities/order/api/useSetMaterialTracking.ts`
+- **Date**: 2026-09-06
+- **Status**: active
+
 ## Handoff
 
-### ATUAL — 2026-09-06 · `41-banner-principal-da-home` **IMPLEMENTADA**
+### ATUAL — 2026-09-06 · `42-notificacoes-email-e-whatsapp` **EM EXECUÇÃO**
+
+- **Feature**: `.specs/features/42-notificacoes-email-e-whatsapp/` (spec, context, design, tasks
+  aprovados; `levantamento.md` cobre também a `43`, que tem spec + context e **espera** a `42`)
+- **Phase / Task**: Phase 0 / T1 — lote B1 (T1–T4) despachado a um worker
+- **Completed**: none
+- **In-progress**: —
+- **Next step**: receber o resumo do B1, atualizar `tasks.md`, despachar B2 (Phase 1a, T5–T11)
+- **Blockers**: T4 precisa de `RESEND_DEV_REDIRECT_TO` no `.env` da raiz (vazia em 2026-09-06) e
+  da parte manual (sandbox do MP + Gmail no celular) — fica em checklist no `validation.md`
+- **Uncommitted files**: `.specs/STATE.md` (AD-031, AD-032, este handoff), `.specs/features/42-*`,
+  `.specs/features/43-*`; **`apps/backoffice/src/pages/admin/AdminHomePage.tsx` é WIP do usuário,
+  fora da feature — não commitar**
+- **Branch**: `feat/42-notificacoes-por-email` (criada de `master` em `2370054`)
+- **Baseline de entrada**: store 2652/169 · backoffice 1996/119 · core 1811/70 · functions 370/7 ·
+  catalog-import 512/23 · lint 27/5 · tipos 0·0
+
+### ANTERIOR — 2026-09-06 · `41-banner-principal-da-home` **IMPLEMENTADA** (commit `2370054`)
 
 **Estado**: T1–T18 feitas inline, uma por vez, com gate por task. Falta a **verificação
 independente** (`validation.md`) e a **prova em navegador**.
@@ -745,9 +785,18 @@ dono único cego ao `||` quebrado em linhas, `BNR-39` sem asserção, e seis ACs
 **Todos corrigidos**; os dois guardas foram ampliados com sensores para cada furo, e o guarda irmão
 da `40` (`heroSemOpacidadeZero`) recebeu a mesma ampliação, porque tinha o mesmo furo.
 
-**Baselines** (medidas um workspace por vez, exit code fora de pipe): store 2538/165 → **2652/169**,
-backoffice 1946/118 → **1996/119**, core 1728/68 → **1811/70**. Functions (370/7) e catalog-import
-(512/23) intocados e remedidos. Total **7341 em 388**. Lint **27/5**, tipos **0 · 0**, `pnpm build`
+**A rodada 2 passou com três ressalvas, e as três foram fechadas.** A mais séria era o achado nº 1 um
+nível acima: as duas pontas da remoção de seção estavam provadas — o hook e a lista — e **o fio entre
+elas não**. Apagar `onRemove={handleRemove}` da página fazia o botão sumir da tela inteira com a
+suíte do backoffice verde; `AdminHomePage.test.tsx` ganhou seis casos que provam a junção. A segunda:
+a régua de opacidade via o `fade-in` do `tailwindcss-animate` e era cega a `animate-fade-in`,
+`animate-scale-in` e `animate-slide-up` — as três do **próprio preset**, as três com `opacity: "0"`
+no primeiro quadro, e o furo era **de um caractere** (o anterior ali é hífen, não espaço). A terceira:
+o recuo sem operador (`[a, b].find(Boolean)` e `if (!image) image = …`).
+
+**Baselines** (medidas um workspace por vez, exit code fora de pipe): store 2538/165 → **2664/169**,
+backoffice 1946/118 → **2002/119**, core 1728/68 → **1811/70**. Functions (370/7) e catalog-import
+(512/23) intocados e remedidos. Total **7359 em 388**. Lint **27/5**, tipos **0 · 0**, `pnpm build`
 verde, `packages/core/src/payment/**` intocado.
 
 **Migration `20260906120000_41-*.sql` aplicada no banco LOCAL e probeada** — aplicada duas vezes

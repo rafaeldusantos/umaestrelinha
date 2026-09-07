@@ -9,7 +9,7 @@
 
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DEFAULT_HOME_COMPOSITION } from '@estrelinha/core/home'
 import type { AdminCategory } from '@/entities/category/api/useAdminCategories'
 
@@ -416,5 +416,101 @@ describe('AdminHomePage — enquanto carrega', () => {
     state.loading = true
     renderPage()
     expect(screen.queryByTestId('coluna-secoes')).toBeNull()
+  })
+})
+
+/**
+ * `BNR-40`, `BNR-41`, `BNR-44` — **a junção**, e ela existe porque o meio já esteve solto.
+ *
+ * `deleteSection` viveu uma feature inteira exportada pelo hook e **sem nenhuma tela a consumindo**;
+ * ninguém percebeu porque as duas pontas — o hook e a lista — estavam cada uma provada por conta
+ * própria. É o mesmo formato do defeito que a verificação da 41 pegou um nível abaixo: peças certas,
+ * fio faltando.
+ *
+ * Por isso estes casos não checam a existência do botão (a lista já faz isso) nem o payload (o hook
+ * já faz): eles checam que **apertar o botão chega ao banco**.
+ */
+describe('AdminHomePage — remover uma seção (BNR-41)', () => {
+  const confirmar = (resposta: boolean) =>
+    vi.spyOn(window, 'confirm').mockReturnValue(resposta)
+
+  afterEach(() => vi.restoreAllMocks())
+
+  it('o botão Remover da linha chega em `deleteSection`, com o id da seção', async () => {
+    confirmar(true)
+    renderPage()
+
+    fireEvent.click(
+      within(screen.getByTestId('secao-newsletter')).getByLabelText('Remover Newsletter'),
+    )
+    await waitFor(() => expect(hook.deleteSection).toHaveBeenCalledWith('newsletter'))
+  })
+
+  it('a CHAMADA PRINCIPAL também pode ser removida — é o pedido da feature (BNR-40)', async () => {
+    // Sem isto, um recorte por tipo em qualquer camada do caminho passaria: a lista mostra o botão,
+    // o hook aceita o id, e o meio decidiria sozinho que o hero é diferente.
+    confirmar(true)
+    renderPage()
+
+    fireEvent.click(
+      within(screen.getByTestId('secao-hero')).getByLabelText('Remover Chamada principal'),
+    )
+    await waitFor(() => expect(hook.deleteSection).toHaveBeenCalledWith('hero'))
+  })
+
+  it('desistir da confirmação NÃO apaga nada', async () => {
+    confirmar(false)
+    renderPage()
+
+    fireEvent.click(
+      within(screen.getByTestId('secao-newsletter')).getByLabelText('Remover Newsletter'),
+    )
+    await waitFor(() => expect(window.confirm).toHaveBeenCalled())
+    expect(hook.deleteSection).not.toHaveBeenCalled()
+  })
+
+  it('a confirmação NOMEIA a seção e avisa que os itens vão junto', () => {
+    // A exclusão leva a curadoria pelo `on delete cascade`. Uma confirmação genérica ("tem certeza?")
+    // esconderia justamente a parte que a dona não pode desfazer.
+    const confirm = confirmar(false)
+    renderPage()
+
+    fireEvent.click(
+      within(screen.getByTestId('secao-newsletter')).getByLabelText('Remover Newsletter'),
+    )
+    expect(confirm.mock.calls[0][0]).toContain('Newsletter')
+    expect(confirm.mock.calls[0][0]).toContain('itens escolhidos')
+  })
+
+  it('a recusa do banco vira toast com a mensagem DELE, sem reescrita (BNR-44)', async () => {
+    // A frase tem um dono só, e é o trigger. Igualdade e não `contains`: reescrevê-la aqui, mesmo
+    // "melhorando-a", criaria a segunda versão da regra que `AD-029` unificou.
+    const doBanco = 'A Home precisa de pelo menos uma secao ativa, e esta e a ultima.'
+    confirmar(true)
+    hook.deleteSection.mockResolvedValueOnce({ message: doBanco })
+    renderPage()
+
+    fireEvent.click(
+      within(screen.getByTestId('secao-newsletter')).getByLabelText('Remover Newsletter'),
+    )
+    await waitFor(() =>
+      expect(toastMock).toHaveBeenCalledWith(
+        expect.objectContaining({ description: doBanco, variant: 'destructive' }),
+      ),
+    )
+  })
+
+  it('desligar a última ativa NÃO é antecipado pela tela — o toast vem do banco', async () => {
+    const doBanco = 'A Home precisa de pelo menos uma secao ativa, e esta e a ultima.'
+    hook.setSectionActive.mockResolvedValueOnce({ message: doBanco })
+    renderPage()
+
+    fireEvent.click(within(screen.getByTestId('secao-hero')).getByRole('switch'))
+
+    // A gravação ACONTECE — a tela não recusa por conta própria.
+    await waitFor(() => expect(hook.setSectionActive).toHaveBeenCalledWith('hero', false))
+    await waitFor(() =>
+      expect(toastMock).toHaveBeenCalledWith(expect.objectContaining({ description: doBanco })),
+    )
   })
 })

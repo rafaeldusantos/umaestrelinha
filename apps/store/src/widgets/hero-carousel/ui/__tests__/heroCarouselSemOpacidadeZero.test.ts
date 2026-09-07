@@ -61,19 +61,32 @@ export const nasceInvisivel = (fonte: string): boolean => {
    */
   const classe = /(?:^|[\s"'`:[{])opacity-(?:0|\[0(?:\.0+)?%?\])(?![\d.])/.test(limpo)
   /**
-   * A animação de entrada do `tailwindcss-animate` — **o furo que a verificação independente achou,
-   * e o único dos três que não era hipotético.**
+   * **As animações de entrada que começam em opacidade zero — e nenhuma delas contém a palavra
+   * `opacity`.** É o que torna esta metade da régua indispensável, e o que a fez errar duas vezes.
    *
-   * `fade-in` compila para `--tw-enter-opacity: 0` (o plugin está em
-   * `packages/ui/tailwind.preset.ts`), e a grafia **já é usada nesta loja** — `WhatsAppFloat.tsx` a
-   * tem em três lugares. É o mesmo defeito de LCP, escrito de um jeito que nem contém a palavra
-   * `opacity`: um `className="animate-in fade-in duration-700"` no slide passava com exit 0.
+   * Duas famílias, de duas origens:
    *
-   * `fade-in-50` **não** casa: entrar de 50% não esconde o elemento do medidor. O `(?![-\d])` é o
-   * que separa os dois — sem ele, o `(?:-0)?` opcional casaria vazio e `fade-in-50` reprovaria.
+   * - **`tailwindcss-animate`**: `fade-in` compila para `--tw-enter-opacity: 0`. A grafia já é usada
+   *   nesta loja (`WhatsAppFloat.tsx`), e a rodada 1 da verificação a encontrou.
+   * - **O PRÓPRIO PRESET deste projeto** (`packages/ui/tailwind.preset.ts`): `fade-in`, `scale-in` e
+   *   `slide-up` são keyframes declarados ali, os três com `opacity: "0"` no primeiro quadro, e são
+   *   usados pela classe `animate-fade-in`, `animate-scale-in`, `animate-slide-up`. A rodada 2
+   *   encontrou os três — e o furo era **de um caractere**: a régua exigia o `fade-in` precedido de
+   *   espaço ou aspas, e em `animate-fade-in` o caractere anterior é um hífen. Ela via a biblioteca
+   *   e era cega ao que o repositório declara sozinho.
+   *
+   * O hífen entrou na classe de caracteres anteriores por isso. `-50`, `-95` e afins continuam de
+   * fora: entrar de 50% ou 95% não esconde o elemento do medidor.
    */
-  const fade = /(?:^|[\s"'`:[{])fade-in(?:-0)?(?![-\d])/.test(limpo)
-  return objeto || classe || fade
+  const fade = /(?:^|[\s"'`:[{-])(?:fade-in|scale-in|slide-up)(?:-0)?(?![-\d])/.test(limpo)
+  /**
+   * `invisible` — `visibility: hidden`, que o Chrome também não conta como pintado.
+   *
+   * Não tinha regra nenhuma até a rodada 2. O teste de `BNR-39` o checava, mas só no `<Link>` do
+   * slide: um `invisible` no `<img>` passava pelos dois.
+   */
+  const oculto = /(?:^|[\s"'`:[{-])invisible(?![-\w])/.test(limpo)
+  return objeto || classe || fade || oculto
 }
 
 describe('o Banner principal não nasce em opacidade zero (BNR-25)', () => {
@@ -176,5 +189,43 @@ describe('os furos que a verificação independente encontrou', () => {
 
   it('SENSOR: `zoom-in` e `slide-in` não são acusados — eles não mexem em opacidade', () => {
     expect(nasceInvisivel('className="animate-in zoom-in-95 slide-in-from-top-1"')).toBe(false)
+  })
+})
+
+describe('os furos da RODADA 2 — as animações do próprio preset', () => {
+  it('SENSOR: `animate-fade-in`, `animate-scale-in` e `animate-slide-up` são o defeito', () => {
+    // Os três são keyframes declarados em `packages/ui/tailwind.preset.ts`, os três com
+    // `opacity: "0"` no primeiro quadro. A régua da rodada 1 via o `fade-in` do plugin e era cega a
+    // estes: em `animate-fade-in` o caractere anterior é hífen, e a classe exigia espaço ou aspas.
+    expect(nasceInvisivel('className="animate-fade-in"')).toBe(true)
+    expect(nasceInvisivel('className="animate-scale-in delay-100"')).toBe(true)
+    expect(nasceInvisivel('className={cn("animate-slide-up", x)}')).toBe(true)
+  })
+
+  it('SENSOR: `invisible` é o defeito — `visibility: hidden` também não é pintura', () => {
+    expect(nasceInvisivel('className="invisible md:visible"')).toBe(true)
+  })
+
+  it('SENSOR: `animate-bounce-cart` e `animate-slide-in-right` NÃO são o defeito', () => {
+    // O par. Os dois são keyframes do mesmo preset e **não** mexem em opacidade — só em `transform`,
+    // que é justamente o que `PRF-19` recomenda em vez da opacidade.
+    expect(nasceInvisivel('className="animate-bounce-cart"')).toBe(false)
+    expect(nasceInvisivel('className="animate-slide-in-right"')).toBe(false)
+  })
+
+  it('SENSOR: `visible` não é confundido com `invisible`', () => {
+    expect(nasceInvisivel('className="visible"')).toBe(false)
+  })
+
+  it('as classes acusadas existem MESMO no preset — a régua não inventa nome', () => {
+    // Âncora contra a régua envelhecer sozinha: se um destes keyframes for renomeado ou perder o
+    // `opacity: 0`, a régua passa a proibir uma classe que não existe, e ninguém descobre.
+    const preset = readFileSync(
+      resolve(HERE, '../../../../../../../packages/ui/tailwind.preset.ts'),
+      'utf8',
+    )
+    for (const nome of ['fade-in', 'scale-in', 'slide-up']) {
+      expect(preset, `${nome} não está mais no preset`).toContain(`"${nome}"`)
+    }
   })
 })
