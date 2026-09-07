@@ -354,9 +354,12 @@ admin; o backoffice usa `RequireAdmin`.
 ### O SMTP está DESLIGADO de propósito
 
 - Hoje o e-mail de login cai no **Mailpit** (`http://127.0.0.1:54344`), e é assim que se testa.
-- O remetente de produção seria `acesso@send.umaestrelinha.com.br`, mas o domínio **ainda não está
-  verificado no Resend** — medido em 2026-08-08: envio a partir dele devolve **403 "not authorized to
-  send"**. Ligar o SMTP nessas condições derruba **todo** o login por código, e já derrubou uma vez
+- O remetente de produção é `acesso@loja.umaestrelinha.com.br`. **Até 2026-09-06 este arquivo, o
+  `config.toml` e o `.env.example` prescreviam um subdomínio `send.` que nunca existiu na conta** — o
+  403 medido em 2026-08-08 era isso, não DNS pendente. O único domínio verificado na conta Resend é
+  `loja.umaestrelinha.com.br` (medido em 2026-09-06 via `GET /domains`: `status: verified`, região
+  `sa-east-1`), e `authSenderDomain.test.ts` (store) recusa a volta do domínio antigo. Ligar o SMTP
+  com remetente que a chave não alcança derruba **todo** o login por código, e já derrubou uma vez
   (`BUG-20260728`). O bloco `[auth.email.smtp]` está no `config.toml`, **comentado**, com o passo exato
   de troca (incluindo o `curl` de verificação).
 - **São DOIS remetentes, dois lugares, um domínio.** O do auth é `admin_email` em `[auth.email.smtp]`

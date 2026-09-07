@@ -34,9 +34,9 @@ const deps: Deps = {
   env: {
     resendApiKey: Deno.env.get('RESEND_API_KEY')!,
     // Default do remetente vive aqui: `onboarding@resend.dev` funciona sem domínio verificado, mas só
-    // entrega para o e-mail dono da conta Resend. O alvo é `loja@send.umaestrelinha.com.br` — que em
-    // 2026-08-08 ainda devolvia 403, por domínio não verificado (ver .env.example). Quando verificar,
-    // é só mexer na env, sem tocar em código. E ele é DISTINTO do remetente do auth (`acesso@`):
+    // entrega para o e-mail dono da conta Resend. O alvo é `loja@loja.umaestrelinha.com.br` — domínio
+    // verificado, medido em 2026-09-06 (ver .env.example). É só mexer na env, sem tocar em código. E
+    // ele é DISTINTO do remetente do auth (`acesso@`):
     // confundir os dois é a causa raiz do BUG-20260728.
     resendFrom: envOr('RESEND_FROM', 'Uma Estrelinha <onboarding@resend.dev>'),
     // Origem DA LOJA, não do Supabase. Base do link `/conta` dos e-mails.

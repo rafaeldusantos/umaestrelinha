@@ -62,6 +62,7 @@ const toast = vi.hoisted(() => vi.fn())
 vi.mock('@estrelinha/ui/hooks/use-toast', () => ({ useToast: () => ({ toast }) }))
 
 import AdminSettingsPage from './AdminSettingsPage'
+import { ToggleField } from '@/shared/ui'
 
 /**
  * `mouseDown`, e não `click`: o `TabsTrigger` do Radix troca de aba no **onMouseDown**, e um `click`
@@ -266,5 +267,52 @@ describe('Configurações › Frete — ligado sem faixa e RECUSADO (FRG-12)', (
         free_shipping_threshold: 199.9,
       }),
     })
+  })
+})
+
+/**
+ * Feature 42 — a aba **Carrinho** para de mentir (`FIX-03`, defeito D3).
+ *
+ * Ela tinha "Enviar email de lembrete automaticamente", horas e cupom — e NENHUM código lia
+ * `auto_email_enabled` para enviar nada. Um interruptor sem motor invalida o painel inteiro como
+ * fonte de verdade: a dona liga, nada acontece, e ninguém sabe dizer por quê. Os campos seguem no
+ * tipo e no JSONB; o que sai é a tela prometer.
+ */
+const abrirCarrinho = () => {
+  render(<AdminSettingsPage />)
+  fireEvent.mouseDown(screen.getByRole('tab', { name: 'Carrinho' }))
+}
+
+/** O controle que saiu, exatamente como era — o sensor abaixo o reinjeta num fixture. */
+const ROTULO_DO_INTERRUPTOR = 'Enviar email de lembrete automaticamente'
+const ROTULO_DAS_HORAS = 'Enviar lembrete após (horas)'
+const ROTULO_DO_CUPOM = 'Cupom de incentivo (opcional)'
+
+describe('Configurações › Carrinho — sem interruptor sem motor (FIX-03)', () => {
+  it('mostra só o prazo de abandono, e diz que a loja não envia lembrete automático', () => {
+    abrirCarrinho()
+
+    expect(screen.getByText('Marcar como abandonado após (horas)')).toBeInTheDocument()
+    expect(screen.getByText(/A loja não envia lembrete automático de carrinho/)).toBeInTheDocument()
+    expect(screen.getByText(/BL-030/)).toBeInTheDocument()
+
+    expect(screen.queryByText(ROTULO_DO_INTERRUPTOR)).toBeNull()
+    expect(screen.queryByRole('switch', { name: ROTULO_DO_INTERRUPTOR })).toBeNull()
+    expect(screen.queryByText(ROTULO_DAS_HORAS)).toBeNull()
+    expect(screen.queryByText(ROTULO_DO_CUPOM)).toBeNull()
+    // A aba não promete envio nenhum — nem "na Fase 2".
+    expect(screen.queryByText(/recuperação automática por email/)).toBeNull()
+  })
+
+  it('SENSOR: a mesma régua reprova um fixture com o controle de volta', () => {
+    // Prova que `queryByText(...).toBeNull()` acima não passa por acidente: o mesmo `ToggleField`,
+    // com o mesmo rótulo, renderizado num componente mínimo, é encontrado pela mesma consulta.
+    const Fixture = () => (
+      <ToggleField label={ROTULO_DO_INTERRUPTOR} checked={false} onChange={() => {}} />
+    )
+    render(<Fixture />)
+
+    expect(screen.queryByText(ROTULO_DO_INTERRUPTOR)).not.toBeNull()
+    expect(screen.queryByRole('switch', { name: ROTULO_DO_INTERRUPTOR })).not.toBeNull()
   })
 })

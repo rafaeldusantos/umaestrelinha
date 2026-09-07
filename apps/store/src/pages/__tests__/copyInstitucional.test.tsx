@@ -1,5 +1,5 @@
 import { beforeEach, describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 
 /**
@@ -27,6 +27,7 @@ vi.mock('@estrelinha/core/hooks/useStoreSettings', () => ({
 import AboutPage from '../AboutPage'
 import NotFound from '../NotFound'
 import PoliciesPage from '../PoliciesPage'
+import NewsletterBanner from '@/features/newsletter/ui/NewsletterBanner'
 
 beforeEach(() => {
   settingsPagamento.pix_enabled = true
@@ -183,5 +184,37 @@ describe('Políticas — o texto que a cliente lê antes de enviar o material (C
 
     expect(screen.queryByText(/Frete grátis/)).toBeNull()
     expect(screen.getByRole('heading', { name: 'Envio' })).toBeInTheDocument()
+  })
+})
+
+/**
+ * Feature 42 — a newsletter para de prometer (`FIX-04`, defeito D4).
+ *
+ * A faixa da home confirmava "Você vai receber as novidades da loja no seu e-mail" — e não persiste,
+ * não inscreve, não envia. É a mesma classe da copy institucional: uma promessa que a loja não cumpre,
+ * feita a quem acabou de perder alguém. A confirmação é o retorno de uma ação, então ela existe; o
+ * que não pode existir é a promessa de e-mail.
+ */
+describe('Newsletter — a confirmação não promete o que a loja não envia (FIX-04)', () => {
+  const confirmar = () => {
+    const { container } = render(<NewsletterBanner content={{ title: 'Novidades', subtitle: '', cta_label: 'Enviar' }} />)
+    fireEvent.change(screen.getByLabelText('Seu e-mail'), { target: { value: 'cliente@exemplo.invalid' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Enviar' }))
+    return container
+  }
+
+  it('confirma com "Anotado. Quando houver novidades, escrevemos."', () => {
+    confirmar()
+
+    expect(screen.getByText('Anotado. Quando houver novidades, escrevemos.')).toBeInTheDocument()
+  })
+
+  it('NÃO afirma que a cliente vai receber e-mail', () => {
+    const container = confirmar()
+
+    expect(container.textContent).not.toMatch(/vai receber/i)
+    expect(container.textContent).not.toMatch(/no seu e-mail/i)
+    // E a régua do tom desta suíte vale para a faixa também.
+    expect(container.textContent).not.toMatch(FESTIVO)
   })
 })

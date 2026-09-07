@@ -346,8 +346,8 @@ describe('CFG-03 — formato do RESEND_FROM', () => {
   it.each([
     'onboarding@resend.dev',
     'Uma Estrelinha <onboarding@resend.dev>',
-    'Uma Estrelinha <loja@send.umaestrelinha.com.br>',
-    '"Loja, Uma Estrelinha" <loja@send.umaestrelinha.com.br>',
+    'Uma Estrelinha <loja@loja.umaestrelinha.com.br>',
+    '"Loja, Uma Estrelinha" <loja@loja.umaestrelinha.com.br>',
   ])('aceita %s', (from) => {
     expect(isValidFrom(from)).toBe(true)
   })
@@ -357,8 +357,8 @@ describe('CFG-03 — formato do RESEND_FROM', () => {
     ['sem arroba', 'umaestrelinha.com.br'],
     ['sem domínio', 'pedidos@'],
     ['sem TLD', 'Uma Estrelinha <loja@localhost>'],
-    ['ângulo não fechado', 'Uma Estrelinha <loja@send.umaestrelinha.com.br'],
-    ['vírgula no display name sem aspas', 'Loja, Uma Estrelinha <loja@send.umaestrelinha.com.br>'],
+    ['ângulo não fechado', 'Uma Estrelinha <loja@loja.umaestrelinha.com.br'],
+    ['vírgula no display name sem aspas', 'Loja, Uma Estrelinha <loja@loja.umaestrelinha.com.br>'],
     ['ângulo vazio', 'Uma Estrelinha <>'],
   ])('rejeita %s', (_label, from) => {
     expect(isValidFrom(from)).toBe(false)
