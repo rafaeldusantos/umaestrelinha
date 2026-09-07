@@ -107,3 +107,87 @@ não sumiu, mudou de valor esperado.
 | --- | --- | --- |
 | `authSenderDomain.test.ts` | arquivo `docs/__injecao_t1.md` com `admin_email = "acesso@<domínio antigo>"` | **reprova** a regra, nomeando `docs/__injecao_t1.md:2` |
 | `AdminSettingsPage.test.tsx` (FIX-03) | `ToggleField` com o rótulo antigo reinjetado na aba Carrinho | **reprova** o caso de ausência (1 failed · 16 passed) |
+
+---
+
+## Probe da migration (T11) — `20260907120000_42-notificacoes.sql` no banco local
+
+**Autor**: batch B2 (Phase 1a), 2026-09-07. **Método**: `AD-012` — tipo não é schema; o que prova a
+migration é o banco respondendo. Aplicada **sem `db reset`** (o catálogo importado está lá), com
+`npx supabase migration up --local`; leituras por REST/RPC com a service role do `.env` (`curl`) e
+por `psql` dentro do contêiner (`docker exec supabase_db_uma-estrelinha-store psql`).
+
+### Estado antes
+
+- `select count(*) from order_emails` = **0** (a tabela nunca teve linha — FIX-05 segue pendente do
+  usuário). Logo o "mesma contagem depois do rename" é 0 = 0, e a preservação de dado é provada só
+  pela **forma** (rename, sem `drop table`/`delete`/`truncate` — asserção do guarda) e pelo próprio
+  Postgres ter mantido `order_emails_pkey` e `order_emails_order_id_fkey` com os nomes antigos.
+- `store_settings` tinha 8 chaves; **não** tinha `notifications`.
+- **Achado fora da task**: a migration da `41` (`20260906120000`) estava **aplicada à mão e não
+  registrada** em `supabase_migrations.schema_migrations` (`migration list --local` mostrava
+  `remote: ""`; a coluna `image_mobile_url` e a função `guard_last_active_home_section` existiam). O
+  `migration up` a reaplicou (ela é idempotente e não escreve dado — conferido por `grep` antes) e a
+  registrou. Depois: `schema_migrations` termina em `20260906120000`, `20260907120000`.
+
+### Aplicação
+
+| Comando | Resultado |
+| --- | --- |
+| `npx supabase migration up --local` | `Applying migration 20260906120000_41-…`, `Applying migration 20260907120000_42-notificacoes.sql`, `Migrations applied`, exit 0 |
+| reexecução do `.sql` inteiro via `psql -v ON_ERROR_STOP=1` (idempotência) | exit 0; `INSERT 0 0` na semente; só `NOTICE … already exists, skipping` / `does not exist, skipping`; `count(*)` continua 0; `store_settings` continua com **1** linha `notifications` |
+
+### Forma (psql)
+
+| O quê | Medido |
+| --- | --- |
+| `\d order_notifications` | colunas `id, order_id, event, status, attempts, provider_message_id, error, created_at, sent_at, channel (not null default 'email'), delivery_status` |
+| `check` de `event` | os **15** de `NOTIFICATION_EVENTS`, na ordem |
+| `check` de `channel` / `delivery_status` / `status` | `email\|whatsapp` · `null \| sent_to_server\|delivered\|read` · `pending\|sent\|failed` |
+| índice único | `order_notifications_order_event_channel UNIQUE (order_id, event, channel)` — sem `where` |
+| índice antigo `order_emails_order_type` | **não existe** |
+| policy | `admin read order_notifications FOR SELECT TO authenticated USING (has_role(auth.uid(), 'admin'))` — a única |
+| `pg_class` | `order_notifications` relkind `r`; `order_emails` relkind **`v`** com `reloptions = {security_invoker=true}` |
+| view | `select id, order_id, event AS type, status, attempts, provider_message_id, error, created_at, sent_at … where channel = 'email'` |
+| ACL das 4 RPCs (`proacl`) | `{postgres=X, service_role=X}` nas quatro — `anon`/`authenticated` sem `execute` |
+| `store_settings.notifications` | `jsonb_typeof = object`, **15** chaves em `events`, `post_delivery_days = 7` |
+
+### Leituras por REST (service role)
+
+| Chamada | Status |
+| --- | --- |
+| `GET /rest/v1/order_notifications?select=id,event,channel,status&limit=1` | **200** |
+| `GET /rest/v1/order_emails?select=id,type,status&limit=1` (view) | **200** |
+| `GET /rest/v1/store_settings?key=eq.notifications` | `{"post_delivery_days":7, events.order_paid.email.enabled: true}` |
+| `GET …/order_emails` e `…/order_notifications` com a **anon key** do CLI | **200 `[]`** — a RLS vale pela view (`security_invoker`) e pela tabela |
+| `POST /rest/v1/rpc/claim_order_notification` com a **anon key** | **401** `42501 permission denied for function claim_order_notification` |
+
+### O ciclo das RPCs (pedido real `NS-161`, `c52e25b8-…`)
+
+| # | Chamada | Resultado |
+| --- | --- | --- |
+| 1 | `rpc/claim_order_email {p_type: order_paid}` — a RPC **antiga**, delegando | `"3f06d109-…"` (uuid) |
+| 2 | `rpc/claim_order_notification {owner_order_paid, email}` — a **nova** | `"2cc92da9-…"` (uuid) |
+| 3 | mesmo par de (2) de novo, ainda `pending` | **o mesmo uuid**, `attempts = 2` |
+| 4 | `rpc/finish_order_email (id1, null, 'probe')` | 204 → linha **`failed`**, `error = 'probe'` |
+| 5 | `rpc/finish_order_notification (id2, 'probe-sent', null)` | 204 → linha **`sent`**, `provider_message_id = 'probe-sent'` |
+| 6 | re-claim do `failed` (1) | **uuid de novo** (`3f06d109-…`) — retentável; a linha volta a `pending`, `error = null`, `attempts = 2` |
+| 7 | re-claim do `sent` (2) | **`null`** — só `sent` é terminal (`AD-006`) |
+| 8 | `GET order_notifications?order_id=eq.…` / `GET order_emails?order_id=eq.…` | as duas linhas, com `channel = email`; a view as expõe com `type` |
+| 9 | `claim_order_notification {event: 'order_confirmed'}` (fora do `check`) | erro `23514 … violates check constraint "order_notifications_event_check"` — nenhuma linha |
+
+**Limpeza**: as duas linhas de probe foram apagadas **pelos ids** (`delete … where id in (…) returning
+event, status` → `order_paid|pending`, `owner_order_paid|sent`, `DELETE 2`), e não por `error = 'probe'`
+como o roteiro previa — o passo 6 é justamente o que **limpa** o `error` ao reivindicar de novo, então
+o filtro do roteiro deixaria a linha de `order_paid` para trás. `count(*)` = **0** ao fim.
+
+### Guardas de disco correspondentes
+
+- `apps/store/src/shared/lib/__tests__/orderNotificationsSchema.test.ts` — **35** casos, âncora dupla
+  (arquivo lido **e** `check`/índice/view/semente encontrados), 12 sensores por mutação (evento a
+  menos, evento a mais, índice parcial, `on conflict` sem canal, revoke de `anon` perdido, RPC antiga
+  com corpo próprio, view sem `security_invoker`, view sem recorte de canal, upsert na semente,
+  rename solto, `drop table`, grant a `anon` em LF e CRLF, `notify` ausente).
+- `storeSettingsDefaults.test.ts` — bloco `notifications` (+7): `JSON.parse` do trecho
+  `$notifications$ … $notifications$::jsonb` `toEqual(DEFAULT_NOTIFICATIONS)`, os 4 legados ligados e
+  os 11 novos desligados **nos dois lados**, parser com sensor de chave ausente.

@@ -27,7 +27,8 @@
     "./shopping": "./src/shopping/index.ts",
     "./xml": "./src/xml/index.ts",
     "./paging": "./src/paging/index.ts",
-    "./sitemap": "./src/sitemap/index.ts"
+    "./sitemap": "./src/sitemap/index.ts",
+    "./notifications": "./src/notifications/index.ts"
   },
   "scripts": {
     "test": "vitest run"

@@ -83,17 +83,46 @@ não atualizou — o fecho desta feature (T24) escreve o número medido, não o 
 
 Fases em ordem; tasks em ordem dentro da fase.
 
-### Phase 0: Base — a documentação e o painel param de mentir (FIX)
+### Phase 0: Base — a documentação e o painel param de mentir (FIX) — ✅ **feita** (B1, commit `859d4aa`)
 
 ```
-T1 → T2 → T3 → T4
+T1 ✅ → T2 ✅ → T3 ✅ → T4 ⚠️ parcial (probes do Resend feitos; passos 4/5/8 pendentes do usuário — `RESEND_DEV_REDIRECT_TO` vazia)
 ```
 
-### Phase 1a: A regra em `core` e a memória no banco
+Medido após B1 (HEAD `859d4aa`, sobre o `b6abe64` do usuário que entrou na branch): store **2670/170** ·
+backoffice **2004/119** · core 1811/70 · functions 370/7 · catalog-import 512/23 · lint 27/5 · tsc 0·0.
+
+### Phase 1a: A regra em `core` e a memória no banco — ✅ **feita** (B2, 2026-09-07)
 
 ```
-T5 → T6 → T7 → T8 → T9 → T10 → T11
+T5 ✅ → T6 ✅ → T7 ✅ → T8 ✅ → T9 ✅ → T10 ✅ → T11 ✅
 ```
+
+Medido após B2 (um workspace por vez, exit code fora de pipe): core **2119/80** (+308/+10 — todos em
+`packages/core/src/notifications/__tests__`: `events` 11 · `precondition` 69 · `triggers` 28 ·
+`variables` 23 · `copy` 44 · `defaults` 20 · `notificationCopyGuard` 49 · `purity` 15 · `phone` 7 ·
+`providers` 42) · store **2712/171** (+42/+1 — `orderNotificationsSchema.test.ts` novo, 35, e o bloco
+`notifications` em `storeSettingsDefaults.test.ts`, +7) · backoffice **2004/119** (0 — `orderList.test.ts`
+continua verde sem asserção tocada; `whatsappNumber` virou reexport) · functions 370/7 · catalog-import
+512/23 · lint **27/5** (store 2/1 · backoffice 25/4) · tsc **0·0** · `pnpm build` 2/2.
+`git diff --name-only master -- packages/core/src/payment` vazio; em `supabase/functions` só os dois
+arquivos de `send-email` que a **Phase 0** (`859d4aa`) já tinha tocado — nada desta fase.
+
+**Desvios declarados (ver `validation.md` → *Probe da migration*):**
+
+- **T8 adiantou uma linha da T19**: `notifications: DEFAULT_NOTIFICATIONS` entrou em `DEFAULTS` de
+  `useStoreSettings.ts`, porque `DEFAULTS: SettingsMap` não compila com a chave nova em `SettingsMap`
+  e o gate de tipos é 0. O hook `useNotificationSettings` e o teste da leitura continuam na T19.
+- **`order_shipped` tem UMA divergência declarada dos "quatro byte a byte"**: o lead legado tinha duas
+  formas (com/sem transportadora) e a linha "Transportadora: …" do `extra` era condicional. O default
+  usa `{{transportadora}}` no lead e só "Código de rastreio: {{rastreio}}" no `extra`; a T12
+  (`render/vars.ts`) resolve `{{transportadora}}` para o nome do serviço ou, sem ele, para
+  **"a transportadora"**. O HTML mantém a informação; a versão texto perde a linha redundante.
+- **`preconditionFailure` ganhou um 3º parâmetro** `ctx: { ownerEmail? }`: é onde `no_owner_contact`
+  cabe sem a pré-condição precisar ler settings. O motor (T13) passa `general.email`.
+- **A migration da `41` estava aplicada à mão e não registrada** no banco local; o `migration up` a
+  reaplicou (idempotente, zero escrita de dado) e registrou. Não é desta feature, mas mudou o estado
+  do banco local.
 
 ### Phase 1b: O motor, as portas e quem as chama
 
@@ -116,6 +145,16 @@ T24
 **Empacotamento sugerido para sub-agentes (~7 tasks, fases inteiras):** B1 = Phase 0 (4) ·
 B2 = Phase 1a (7) · B3 = Phase 1b (7) · B4 = Phase 2 + Phase 3 (6). Oferta na entrada do Execute;
 o Verifier roda depois da T24, sempre.
+
+> **Nota para o B3 (Phase 1b), vinda do B2**: `core/notifications` exporta tudo pelo barrel
+> `index.ts` (com `.ts`), e a function deve importar por caminho relativo
+> `../../../packages/core/src/notifications/<arquivo>.ts`. Os nomes que a T12/T13 vão consumir:
+> `eventsForTrigger`, `preconditionFailure(event, order, { ownerEmail })`, `greeting(firstName, event)`
+> (a `{{saudacao}}`), `interpolate`, `variablesRefusal`, `notificationCopyRefusal`, `limitsRefusal`,
+> `resolveEventSettings(settings, event, 'email')`, `DEFAULT_NOTIFICATIONS`, `createResendProvider({
+> apiKey, from })` (o `send` recebe `{ fetch, signal }`; o redirect de dev fica no motor),
+> `isNotificationEvent`, `isNotificationTrigger`, `CUSTOMER_TRIGGERS`. `{{transportadora}}` vazio deve
+> resolver para "a transportadora" (ver desvio da Phase 1a).
 
 ---
 

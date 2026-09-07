@@ -249,10 +249,13 @@ não aprovei.
    `lead`, `extra[]` e `cta_label`; itens, totais, endereço, rastreio, casca e destino do CTA SHALL
    NOT ser editáveis.
 3. WHEN a Adri digita uma variável THEN ela SHALL vir do vocabulário fechado `NOTIFICATION_VARIABLES`
-   (`{{primeiro_nome}}`, `{{numero_pedido}}`, `{{rastreio}}`, `{{transportadora}}`, `{{link_conta}}`,
-   `{{link_pedido}}`, `{{link_pedido_admin}}`, `{{link_guia_material}}`, `{{endereco_atelie}}`,
-   `{{whatsapp_atendimento}}`, `{{total}}`); variável fora dele SHALL ser recusada ao salvar, com a
-   mensagem nomeando a variável.
+   (`{{saudacao}}`, `{{primeiro_nome}}`, `{{numero_pedido}}`, `{{rastreio}}`, `{{transportadora}}`,
+   `{{link_conta}}`, `{{link_pedido}}`, `{{link_pedido_admin}}`, `{{link_guia_material}}`,
+   `{{endereco_atelie}}`, `{{whatsapp_atendimento}}`, `{{total}}`); variável fora dele SHALL ser
+   recusada ao salvar, com a mensagem nomeando a variável. **`{{saudacao}}`** resolve para
+   "Oi, {primeiro nome}! " (ou "" sem nome) e, nos eventos de material, para "Oi, {primeiro nome}. "
+   — é a regra de `greet`/`greetCalm` de `templates.ts`, e é o que permite os quatro textos legados
+   serem defaults byte a byte. (Precisão acrescentada em 2026-09-06, antes da T7.)
 4. WHEN o texto contém urgência fabricada, emoji, `!!` ou — nos eventos de material — `!` THEN
    `notificationCopyRefusal` SHALL devolver o motivo, o painel SHALL mostrar inline e **não salvar**,
    e a function SHALL recusar renderizar (422) o mesmo texto — **uma** função em `core`, chamada nos

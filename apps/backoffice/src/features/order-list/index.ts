@@ -4,6 +4,8 @@ export { default as QueueTiles } from './ui/QueueTiles'
 export { buildOrderChips, type OrderFilterChip } from './model/filterChips'
 export { runMaterialBulk, bulkSummary, BULK_LIMIT, type BulkOutcome } from './model/bulkMaterial'
 export { rowSummary, type RowSummary, type PrimaryActionId } from './model/rowSummary'
+// `whatsappNumber` é reexport de `normalizeBrPhone` (`@estrelinha/core/notifications`) desde a
+// feature 42 — mantido só para não quebrar consumidores; sai na 43.
 export { chargeMaterialText, chargeMaterialUrl, whatsappNumber } from './model/chargeMaterial'
 export {
   ORDER_LIST_COLUMNS, isOrderColumnVisible, toggleOrderColumn, readOrderPrefs,
