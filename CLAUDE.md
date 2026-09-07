@@ -306,9 +306,9 @@ migrations, e `vercelRedirects` lê o `vercel.json`.
 | `categoryTreeSingleOwner.test.ts` | idem | qualquer arquivo de `apps/store/**` fora de `useCategories.ts` abrir `from('categories')` — a árvore tem **um** dono, e é a chave `['categories']` que o header já preenche. **Zero allowlist**, âncora dupla e sensor de comentário |
 | `arbitraryTextColor.test.ts` | idem | cor de texto **arbitrária** (`text-[hsl(…)]`, `text-[#…]`, `text-[rgb(…)]`) fora de um allowlist de dois, ou com contraste abaixo de 4,5:1 **contra o fundo declarado**. `contrast.test.ts` mede tokens e não alcança essa sintaxe. O guarda **calcula** a razão — não confia no comentário |
 | `cardSkeletonBox.test.ts` | store `entities/product/ui/__tests__` | o `ProductCard` e o `ProductCardSkeleton` divergirem numa das quatro classes que produzem altura. jsdom devolve 0 para layout, então nenhum teste de componente pega — este lê os dois do disco. Modela o **par** (`min-h-[40px]` no card × `h-[40px]` no esqueleto), e a régua é de **token exato**, porque `'min-h-[40px]'.includes('h-[40px]')` é `true` |
-| `heroSemOpacidadeZero.test.ts` | store `widgets/hero-banner/ui/__tests__` | o elemento do LCP voltar a nascer invisível — `opacity: 0` em **qualquer** lugar do `HeroBanner.tsx`, variant ou prop inline. Também recusa apagar a animação inteira: o pedido é entrar **sem esconder**, não deixar de entrar |
-| `heroCarouselSemOpacidadeZero.test.ts` | store `widgets/hero-carousel/ui/__tests__` | a mesma régua no bloco da `41`, em **três grafias**: objeto do framer, `style` inline e **classe utilitária** (`opacity-0`, com prefixo de breakpoint ou de estado). A terceira é a lição da `40` — guarda ancorado em sintaxe guarda a sintaxe, não a regra. **Âncora dupla** (o arquivo lido e o `<img>` encontrado) e sete sensores, incluindo o par que prova que `opacity: 0.5`, `opacity-70` e `bg-…/90` **não** são o defeito |
-| `surfaceArtSingleOwner.test.ts` | store `shared/lib/__tests__` (varre `apps/**` e `packages/**`) | qualquer arquivo de produção fora de `core/media/surfaceArt.ts` decidir **entre a arte de celular e a de computador** — `\|\|`, `??` ou ternário. A régua exige **uma de cada superfície**: a primeira escrita acusou `CollectionFeature.tsx:55`, que é outra regra ("a arte do item vence a do destino") e legítima. Também recusa o dono **deixar de ser chamado** por `core/menu` e `core/home`. **Âncora dupla** e seis sensores — o ternário cuja condição é a superfície (a forma que a primeira régua deixava passar, e exatamente como `menuBannerImage` estava escrito), o CRLF, o LF e o glob de dois asteriscos (`BL-027`) |
+| `heroSemOpacidadeZero.test.ts` | store `widgets/hero-banner/ui/__tests__` | o elemento do LCP voltar a nascer invisível — `opacity: 0` em **qualquer** lugar do `HeroBanner.tsx`, variant ou prop inline. Também recusa apagar a animação inteira: o pedido é entrar **sem esconder**, não deixar de entrar. **Ampliado na `41`** para a classe utilitária, o valor arbitrário (`opacity-[0]`) e o `fade-in` do `tailwindcss-animate` |
+| `heroCarouselSemOpacidadeZero.test.ts` | store `widgets/hero-carousel/ui/__tests__` | a mesma régua no bloco da `41`, em **quatro grafias**: objeto do framer, `style` inline, classe utilitária (`opacity-0` e `opacity-[0]`, com prefixo) e **`fade-in` do `tailwindcss-animate`** — que compila para `--tw-enter-opacity: 0` e **não contém a palavra `opacity`**. Varre o widget **e o registro `tipo → componente`**, porque a AC diz "em nenhum ponto do caminho até ele". **Âncora tripla** e doze sensores, incluindo o par que prova que `opacity: 0.5`, `opacity-70`, `fade-in-50`, `zoom-in-95` e `bg-…/90` **não** são o defeito |
+| `surfaceArtSingleOwner.test.ts` | store `shared/lib/__tests__` (varre `apps/**` e `packages/**`) | qualquer arquivo de produção fora de `core/media/surfaceArt.ts` decidir **entre a arte de celular e a de computador** — `\|\|`, `??` ou ternário, **inclusive quebrados em linhas**, que é a forma que o Prettier produz sozinho. A régua exige **uma de cada superfície**: a primeira escrita acusou `CollectionFeature.tsx:55`, que é outra regra ("a arte do item vence a do destino") e legítima. Também recusa o dono **deixar de ser chamado** por `core/menu` e `core/home`. **Âncora dupla** e nove sensores — o ternário cuja condição é a superfície (a forma que a primeira régua deixava passar, e exatamente como `menuBannerImage` estava escrito), o `\|\|` quebrado, o par que prova que linhas vizinhas de um objeto **não** são juntadas, o CRLF, o LF e o glob de dois asteriscos (`BL-027`) |
 | `importSchema.test.ts` | store `shared/lib/__tests__` | a migration da `35` afrouxar: índice de idempotência virar parcial; `security_invoker` sumir de `customer_directory`; o agregado de telefone da convidada perder o `FILTER (WHERE … IS NOT NULL)`; `handle_new_customer` perder o `security definer`; a adoção por e-mail deixar de recortar `customer_id IS NULL` ou de comparar por `lower()`; `grant` alcançar `anon`. **Cada asserção tem sensor por mutação** |
 | `originZipNotRead.test.ts` | backoffice `shared/lib/__tests__` | qualquer arquivo de `apps/**` ler `store_settings.shipping.origin_zip` — o campo é LEGADO e a origem da cotação é o `postal_code` do secret `MELHOR_ENVIO_SENDER_JSON`. Deixá-lo configurável na tela faria a origem da COTAÇÃO e a da ETIQUETA poderem divergir. **Âncora dupla** |
 | `quotePayload.test.ts` | `packages/core/src/shipping/__tests__` | `insurance_value` deixar de ser **por unidade** — a API do Melhor Envio já multiplica por `quantity`, e multiplicar aqui segura a carga pelo **quadrado** dela. Carrega **sensor embutido**: assere que a fórmula antiga do backoffice reprova na mesma régua |
@@ -370,14 +370,27 @@ quando mudarem de verdade.
 | --- | --- | --- |
 | **Lint** | **27 erros / 5 warnings** — backoffice 25/4 · store 2/1 | `pnpm lint` |
 | **Tipos** | **0 · 0 · 0** (store · backoffice · catalog-import) | `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` |
-| **Testes** | **7307 em 388 arquivos** — store **2634/169** · backoffice **1980/119** · core **1811/70** · functions 370/7 · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test` |
+| **Testes** | **7341 em 388 arquivos** — store **2652/169** · backoffice **1996/119** · core **1811/70** · functions 370/7 · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test` |
 
-**A feature `41` (banner principal da home) somou +213 em três workspaces**, medidos em 2026-09-06 um
-por vez e com exit code capturado fora de pipe: **store +96/+4** (o widget, o hook, os dois guardas
+**A feature `41` (banner principal da home) somou +247 em três workspaces**, medidos em 2026-09-06 um
+por vez e com exit code capturado fora de pipe: **store +114/+4** (o widget, o hook, os dois guardas
 novos e a fiação), **core +83/+2** (`surfaceArt`, `carousel` e os casos de `resolve`) e **backoffice
-+34/+1** (o editor). Functions e catalog-import não foram tocados e foram remedidos assim mesmo —
-idênticos. Lint ficou em **27/5** e tipos em **0 · 0**, sem mexer; `packages/core/src/payment/**` não
-teve uma linha alterada, conferido por `git diff --name-only`.
++50/+1** (o editor, a remoção de seção e as ACs que a verificação cobrou). Functions e catalog-import
+não foram tocados e foram remedidos assim mesmo — idênticos. Lint ficou em **27/5** e tipos em
+**0 · 0**, sem mexer; `packages/core/src/payment/**` não teve uma linha alterada, conferido por
+`git diff --name-only`.
+
+> **A verificação independente REPROVOU a primeira entrega, e o achado nº 1 era o pior tipo possível:
+> `AD-029` tinha parado no banco.** O trigger fora trocado, mas o painel continuava trancando a
+> Chamada principal com um cadeado — e `HomeSectionList.test.tsx` **asseria a trava**, ou seja, a
+> suíte estava verde a favor do comportamento que a spec mandava remover. `deleteSection` existia no
+> hook desde a feature 24 e **nenhuma tela a consumia**. Resultado: a Adri arrastaria o Banner
+> principal para o topo e o hero continuaria acima dele — exatamente o problema que a feature existe
+> para resolver, entregue "completo" com 7307 testes passando.
+>
+> **A lição de método é a mais reutilizável desta feature**: quando uma AC remove uma trava, o teste
+> que a defendia tem de ser **invertido**, não deixado de lado — e a busca por "quem mais aplica esta
+> regra" não pode parar na camada onde a mudança começou.
 
 **A `41` derrubou a última exceção estrutural da Home: o hero deixou de ser indelével** (`AD-029`).
 `HOME-08` nunca existiu para proteger o hero — existiu para tornar impossível uma Home com zero

@@ -425,3 +425,80 @@ describe('o bloco sem banner nenhum (BNR-29)', () => {
     await waitFor(() => expect(onSave).toHaveBeenCalled())
   })
 })
+
+// ---------------------------------------------------------------------------
+// BNR-08, BNR-09 — o destino, e o rótulo congelado junto com ele
+// ---------------------------------------------------------------------------
+
+describe('o destino do banner (BNR-08, BNR-09)', () => {
+  it('oferece os três modos: coleção, peça e endereço da loja', () => {
+    renderEditor({ items: [slide()] })
+    const seletor = screen.getByLabelText('Leva para · 1º banner') as HTMLSelectElement
+    const opcoes = Array.from(seletor.querySelectorAll('option')).map(o => o.textContent)
+
+    expect(opcoes).toContain('Coleção · Joias com leite materno')
+    expect(opcoes).toContain('Produto · Pingente Gota')
+    expect(opcoes).toContain('Outro endereço da loja…')
+  })
+
+  it('escolher a coleção grava UM destino e zera os outros dois', () => {
+    renderEditor({ items: [slide({ href: null })] })
+
+    fireEvent.change(screen.getByLabelText('Leva para · 1º banner'), {
+      target: { value: 'cat:cinzas' },
+    })
+    salvar()
+
+    return waitFor(() => {
+      expect(gravado().items[0].category_id).toBe('cinzas')
+      expect(gravado().items[0].product_id).toBeNull()
+      expect(gravado().items[0].href).toBeNull()
+    })
+  })
+
+  it('escolher a peça troca o destino, sem deixar a coleção pendurada', () => {
+    renderEditor({ items: [slide()] })
+
+    fireEvent.change(screen.getByLabelText('Leva para · 1º banner'), {
+      target: { value: 'prod:prod-1' },
+    })
+    salvar()
+
+    return waitFor(() => {
+      expect(gravado().items[0].product_id).toBe('prod-1')
+      expect(gravado().items[0].category_id).toBeNull()
+    })
+  })
+
+  it('o rótulo do destino é CONGELADO junto com a escolha (BNR-09)', () => {
+    // Não é desnormalização preguiçosa: depois do `on delete set null` não há de onde ler o nome da
+    // coleção apagada, e é ele que faz o painel dizer "«Prata 925» foi apagado" em vez de "este
+    // banner perdeu o destino". Congelar DEPOIS seria tarde.
+    renderEditor({ items: [slide({ label_snapshot: null })] })
+
+    fireEvent.change(screen.getByLabelText('Leva para · 1º banner'), {
+      target: { value: 'cat:cinzas' },
+    })
+    salvar()
+
+    return waitFor(() => expect(gravado().items[0].label_snapshot).toBe('Eternize as cinzas'))
+  })
+
+  it('o endereço livre zera as duas FKs', () => {
+    renderEditor({ items: [slide()] })
+
+    fireEvent.change(screen.getByLabelText('Leva para · 1º banner'), {
+      target: { value: '__outro' },
+    })
+    fireEvent.change(screen.getByLabelText('Endereço do banner'), {
+      target: { value: '/como-enviar' },
+    })
+    salvar()
+
+    return waitFor(() => {
+      expect(gravado().items[0].href).toBe('/como-enviar')
+      expect(gravado().items[0].category_id).toBeNull()
+      expect(gravado().items[0].product_id).toBeNull()
+    })
+  })
+})

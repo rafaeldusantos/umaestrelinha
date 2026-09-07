@@ -35,6 +35,14 @@ const HERE = dirname(fileURLToPath(import.meta.url))
 const CARROSSEL = resolve(HERE, '../HeroCarousel.tsx')
 
 /**
+ * O **invólucro** — a AC diz "em nenhum ponto do caminho até ele", e o caminho começa aqui.
+ *
+ * Um `opacity-0` no registro `tipo → componente` esconderia o slide exatamente igual, e uma régua
+ * que lesse só o widget aprovaria em silêncio. Foi a verificação independente que apontou o furo.
+ */
+const REGISTRO = resolve(HERE, '../../../home-renderer/ui/sectionRenderers.tsx')
+
+/**
  * A régua, como predicado — asserção e sensor chamam a mesma função (`BL-028`).
  *
  * Roda sobre o fonte **sem comentário**: a documentação do widget cita `opacity: 0` para explicar por
@@ -47,13 +55,30 @@ export const nasceInvisivel = (fonte: string): boolean => {
   const limpo = semComentarios(fonte)
   /** Forma de objeto: framer, `style={{…}}`, qualquer literal. */
   const objeto = /\bopacity\s*:\s*0(?:\.0+)?\s*[,}\]]/.test(limpo)
-  /** Classe utilitária, com ou sem prefixo (`md:opacity-0`, `group-hover:opacity-0`). */
-  const classe = /(?:^|[\s"'`:[])opacity-0(?![\d.])/.test(limpo)
-  return objeto || classe
+  /**
+   * Classe utilitária, com ou sem prefixo (`md:opacity-0`, `group-hover:opacity-0`) — **e com valor
+   * arbitrário**, `opacity-[0]`, que a primeira escrita desta régua deixava passar.
+   */
+  const classe = /(?:^|[\s"'`:[{])opacity-(?:0|\[0(?:\.0+)?%?\])(?![\d.])/.test(limpo)
+  /**
+   * A animação de entrada do `tailwindcss-animate` — **o furo que a verificação independente achou,
+   * e o único dos três que não era hipotético.**
+   *
+   * `fade-in` compila para `--tw-enter-opacity: 0` (o plugin está em
+   * `packages/ui/tailwind.preset.ts`), e a grafia **já é usada nesta loja** — `WhatsAppFloat.tsx` a
+   * tem em três lugares. É o mesmo defeito de LCP, escrito de um jeito que nem contém a palavra
+   * `opacity`: um `className="animate-in fade-in duration-700"` no slide passava com exit 0.
+   *
+   * `fade-in-50` **não** casa: entrar de 50% não esconde o elemento do medidor. O `(?![-\d])` é o
+   * que separa os dois — sem ele, o `(?:-0)?` opcional casaria vazio e `fade-in-50` reprovaria.
+   */
+  const fade = /(?:^|[\s"'`:[{])fade-in(?:-0)?(?![-\d])/.test(limpo)
+  return objeto || classe || fade
 }
 
 describe('o Banner principal não nasce em opacidade zero (BNR-25)', () => {
   const fonte = semComentarios(readFileSync(CARROSSEL, 'utf8'))
+  const registro = semComentarios(readFileSync(REGISTRO, 'utf8'))
 
   it('o arquivo do carrossel foi lido de verdade (âncora 1)', () => {
     expect(fonte.length).toBeGreaterThan(1000)
@@ -64,6 +89,17 @@ describe('o Banner principal não nasce em opacidade zero (BNR-25)', () => {
     // guardando um componente que já não desenha imagem nenhuma.
     expect(fonte).toContain('<img')
     expect(fonte).toContain('<picture>')
+  })
+
+  it('o registro `tipo → componente` foi lido (âncora 3)', () => {
+    // O caminho até o slide passa por ele, e uma régua que lesse só o widget aprovaria um
+    // `opacity-0` posto aqui.
+    expect(registro.length).toBeGreaterThan(500)
+    expect(registro).toContain('hero_carousel')
+  })
+
+  it('nada no INVÓLUCRO nasce em opacidade zero', () => {
+    expect(nasceInvisivel(registro)).toBe(false)
   })
 
   it('nada no carrossel nasce em opacidade zero', () => {
@@ -110,5 +146,35 @@ describe('o Banner principal não nasce em opacidade zero (BNR-25)', () => {
     // A transparência de fundo das setas é legítima e vai continuar existindo. Uma régua que a
     // acusasse seria afrouxada na primeira semana — e régua afrouxada não guarda nada.
     expect(nasceInvisivel('className="bg-estrelinha-surface/90"')).toBe(false)
+  })
+})
+
+describe('os furos que a verificação independente encontrou', () => {
+  it('SENSOR: `fade-in` do tailwindcss-animate É o defeito, e não contém a palavra `opacity`', () => {
+    // O único dos três furos que não era hipotético: a grafia já existe nesta loja
+    // (`WhatsAppFloat.tsx`), o plugin está no preset, e ela compila para `--tw-enter-opacity: 0`.
+    expect(nasceInvisivel('className="animate-in fade-in duration-700"')).toBe(true)
+    expect(nasceInvisivel('className="animate-in fade-in-0 slide-in-from-bottom-2"')).toBe(true)
+    expect(nasceInvisivel('className={cn("md:fade-in", x)}')).toBe(true)
+  })
+
+  it('SENSOR: entrar de 50% NÃO é o defeito — `fade-in-50` passa', () => {
+    // O par. Uma régua que acusasse toda entrada suave seria afrouxada na primeira semana.
+    expect(nasceInvisivel('className="animate-in fade-in-50"')).toBe(false)
+    expect(nasceInvisivel('className="animate-in fade-in-95 zoom-in-95"')).toBe(false)
+  })
+
+  it('SENSOR: o valor arbitrário `opacity-[0]` É o defeito', () => {
+    expect(nasceInvisivel('className="opacity-[0]"')).toBe(true)
+    expect(nasceInvisivel('className="md:opacity-[0.0]"')).toBe(true)
+  })
+
+  it('SENSOR: valor arbitrário PARCIAL não é o defeito', () => {
+    expect(nasceInvisivel('className="opacity-[0.4]"')).toBe(false)
+    expect(nasceInvisivel('className="opacity-[35%]"')).toBe(false)
+  })
+
+  it('SENSOR: `zoom-in` e `slide-in` não são acusados — eles não mexem em opacidade', () => {
+    expect(nasceInvisivel('className="animate-in zoom-in-95 slide-in-from-top-1"')).toBe(false)
   })
 })

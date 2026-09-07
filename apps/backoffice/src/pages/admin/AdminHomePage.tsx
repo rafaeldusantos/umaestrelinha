@@ -21,7 +21,7 @@ import { AlertTriangle, ExternalLink, House, Plus, RefreshCw } from 'lucide-reac
 import { Button } from '@estrelinha/ui/button'
 import { cn } from '@estrelinha/ui/lib/utils'
 import { toast } from '@estrelinha/ui/hooks/use-toast'
-import type { HomeSectionType } from '@estrelinha/core/home'
+import { sectionMeta, type HomeSectionType } from '@estrelinha/core/home'
 import { useAdminCategories } from '@/entities/category'
 import { useAdminProducts } from '@/entities/product'
 import { useAdminHomeSections } from '@/entities/home'
@@ -51,6 +51,7 @@ const AdminHomePage = () => {
     setSectionActive,
     reorderSectionsTo,
     curateSection,
+    deleteSection,
   } = useAdminHomeSections()
   const { categories, loading: loadingCategorias } = useAdminCategories()
   const { products } = useAdminProducts()
@@ -97,6 +98,30 @@ const AdminHomePage = () => {
 
   const handleReorder = async (moves: { id: string; position: number }[]) => {
     avisar('Não foi possível reordenar', await reorderSectionsTo(moves))
+  }
+
+  /**
+   * Remover uma seção (`BNR-41`).
+   *
+   * `deleteSection` existia no hook desde a feature 24 e **nenhuma tela a consumia** — passou
+   * despercebido enquanto o hero era o único bloco que a AC mandava poder remover, e ele era
+   * indelével. Com `AD-029` isso virou a metade que faltava.
+   *
+   * A confirmação é `window.confirm` porque o que falta antes do clique é um passo, não um fluxo: a
+   * exclusão leva junto a curadoria da seção (`on delete cascade`), e a arte enviada continua no
+   * Storage.
+   *
+   * **A recusa da última seção ativa não é antecipada aqui.** Ela vem do banco
+   * (`guard_last_active_home_section`) e chega como erro de gravação, que o `avisar` mostra com a
+   * mensagem **do banco** — duas versões da mesma regra é exatamente o que `AD-029` evita.
+   */
+  const handleRemove = async (id: string) => {
+    const alvo = sections.find(s => s.id === id)
+    const nome = sectionMeta(alvo?.type)?.label ?? 'esta seção'
+    if (!window.confirm(`Remover “${nome}” da Home? Os itens escolhidos nela também são apagados.`)) {
+      return
+    }
+    avisar('Não foi possível remover a seção', await deleteSection(id))
   }
 
   const handleAdd = async (type: HomeSectionType) => {
@@ -253,6 +278,7 @@ const AdminHomePage = () => {
                   onOpen={id => navigate(`/admin/home/${id}`)}
                   onReorder={handleReorder}
                   onHover={setApontada}
+                  onRemove={handleRemove}
                   footer={
                     <div id="blocos">
                       <HomeBlockTray sections={sections} onAdd={handleAdd} />

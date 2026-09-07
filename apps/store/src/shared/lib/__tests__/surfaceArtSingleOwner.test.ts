@@ -89,11 +89,58 @@ interface Ocorrencia {
   texto: string
 }
 
+/**
+ * A expressão continua na linha seguinte?
+ *
+ * **O furo que a verificação independente achou**: a régua casava por linha, e o recuo escrito à mão
+ * com o `||` quebrado passava inteiro — que é exatamente a forma que **o Prettier produz sozinho**
+ * quando a expressão não cabe em 100 colunas:
+ *
+ *     const arte =
+ *       banner.image_mobile ||
+ *       banner.image_desktop
+ *
+ * Um guarda que só vê a versão de uma linha guarda o descuido e deixa passar a formatação padrão do
+ * projeto — o oposto do que ele existe para fazer.
+ *
+ * As duas condições são as duas convenções do Prettier: `||` e `??` ficam no **fim** da linha;
+ * `?` e `:` de ternário ficam no **começo** da seguinte.
+ */
+const continua = (atual: string, proxima: string): boolean =>
+  /(?:\|\||\?\?|\?|:)\s*$/.test(atual) || /^\s*(?:\|\||\?\?|\?|:)/.test(proxima)
+
+/**
+ * As **linhas lógicas**: cada linha física seguida do que ela continua.
+ *
+ * O número devolvido é o da **primeira** linha, para o relatório continuar apontando `arquivo:linha`.
+ * O teto de junção existe para uma cadeia mal formatada não engolir o arquivo inteiro e virar falso
+ * positivo por vizinhança.
+ */
+const TETO_DE_JUNCAO = 6
+
+const linhasLogicas = (linhas: string[]): { texto: string; fim: number }[] =>
+  linhas.map((_, i) => {
+    let junto = linhas[i]
+    let fim = i
+    for (let j = i; j < linhas.length - 1 && j - i < TETO_DE_JUNCAO; j += 1) {
+      if (!continua(linhas[j], linhas[j + 1])) break
+      junto += ' ' + linhas[j + 1].trim()
+      fim = j + 1
+    }
+    return { texto: junto, fim }
+  })
+
 const procurar = (padrao: RegExp, alvo: Arquivo[] = producao): Ocorrencia[] => {
   const achados: Ocorrencia[] = []
   for (const { rel, linhas } of alvo) {
-    linhas.forEach((texto, i) => {
-      if (padrao.test(texto)) achados.push({ arquivo: rel, linha: i + 1, texto: texto.trim() })
+    // Uma expressão quebrada casa em várias linhas lógicas sobrepostas (a que começa na primeira, a
+    // que começa na segunda…). Reportar todas transformaria **um** defeito em quatro entradas, e o
+    // relatório do guarda vale pela precisão do endereço. Fica a primeira, e as sobrepostas somem.
+    let coberto = -1
+    linhasLogicas(linhas).forEach(({ texto, fim }, i) => {
+      if (i <= coberto || !padrao.test(texto)) return
+      coberto = fim
+      achados.push({ arquivo: rel, linha: i + 1, texto: texto.trim() })
     })
   }
   return achados
@@ -287,6 +334,46 @@ describe('ninguém escreve o recuo de arte à mão (BNR-22, AD-030)', () => {
 
     expect(procurar(RECUO_A_MAO, [{ rel: 'x.ts', linhas: lf }])).toEqual([])
     expect(procurar(RECUO_A_MAO, [{ rel: 'x.ts', linhas: crlf }])).toEqual([])
+  })
+
+  it('SENSOR: o `||` QUEBRADO EM LINHAS é pego — é o que o Prettier produz', () => {
+    // O furo que a verificação independente achou. A versão de uma linha já era pega; a quebrada,
+    // que é a formatação padrão do projeto para expressão longa, passava inteira.
+    const sintetico: Arquivo = {
+      rel: 'apps/store/src/widgets/sintetico.tsx',
+      linhas: ['const arte =', '  banner.image_mobile ||', '  banner.image_desktop'],
+    }
+    const achados = procurar(RECUO_A_MAO, [sintetico])
+
+    expect(achados).toHaveLength(1)
+    // Aponta a PRIMEIRA linha da expressão, não a última — é onde quem for consertar precisa olhar.
+    expect(achados[0].linha).toBe(2)
+  })
+
+  it('SENSOR: o TERNÁRIO quebrado em linhas também é pego', () => {
+    const sintetico: Arquivo = {
+      rel: 'apps/store/src/widgets/sintetico.tsx',
+      linhas: [
+        "const arte = surface === 'mobile'",
+        '  ? b.image_mobile',
+        '  : b.image_desktop',
+      ],
+    }
+    expect(procurar(RECUO_A_MAO, [sintetico])).toHaveLength(1)
+  })
+
+  it('SENSOR: linhas vizinhas que NÃO continuam a expressão não são juntadas', () => {
+    // O par. Sem o predicado de continuação, duas propriedades vizinhas de um objeto virariam uma
+    // linha lógica só e o guarda acusaria todo mapper do projeto.
+    const sintetico: Arquivo = {
+      rel: 'apps/store/src/widgets/sintetico.tsx',
+      linhas: [
+        '  image_url: row.image_url ?? null,',
+        '  image_mobile_url: row.image_mobile_url ?? null,',
+        '  alt: row.alt ?? null,',
+      ],
+    }
+    expect(procurar(RECUO_A_MAO, [sintetico])).toEqual([])
   })
 
   it('SENSOR: o glob de dois asteriscos num comentário não cega a varredura (BL-027)', () => {

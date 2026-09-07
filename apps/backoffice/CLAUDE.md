@@ -155,6 +155,12 @@ desenho.
   ativa**, qualquer que seja o tipo. Era preciso — enquanto o hero fosse obrigatório, o Banner
   principal nunca ocuparia o topo. **A mensagem da recusa tem um dono só, e é o banco**: o painel a
   exibe, não a reescreve.
+  - **A linha da lista ganhou "Remover"**, e ela é a metade que faltava: `deleteSection` existia no
+    hook desde a feature 24 e **nenhuma tela a consumia**. Passou despercebido enquanto o único bloco
+    que a AC mandava poder remover era justamente o indelével. A confirmação é `window.confirm`
+    porque o que falta antes do clique é um passo, não um fluxo.
+  - **O painel NÃO antecipa a recusa da última seção ativa.** Ela vem do banco e chega como erro de
+    gravação. Antecipá-la aqui seria a segunda escrita da regra que `AD-029` acabou de unificar.
 - **`/admin/home` › bloco “Banner principal”** (feature `41`) — o carrossel de campanha. Cada banner
   tem **duas artes** (computador e celular), descrição e destino; a seção escolhe `full` ou `wide`.
   Três coisas não se decidem nesta tela:

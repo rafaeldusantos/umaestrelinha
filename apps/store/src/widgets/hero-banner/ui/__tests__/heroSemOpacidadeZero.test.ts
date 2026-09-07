@@ -53,8 +53,27 @@ const HERO = resolve(HERE, '../HeroBanner.tsx')
  *
  * `opacity: 0.5` **não** casa — só o zero, com ou sem casas decimais nulas.
  */
-export const nasceInvisivel = (fonte: string): boolean =>
-  /\bopacity\s*:\s*0(?:\.0+)?\s*[,}\]]/.test(semComentarios(fonte))
+export const nasceInvisivel = (fonte: string): boolean => {
+  const limpo = semComentarios(fonte)
+  const objeto = /\bopacity\s*:\s*0(?:\.0+)?\s*[,}\]]/.test(limpo)
+  /**
+   * Classe utilitária e valor arbitrário — **acrescentados na feature 41**.
+   *
+   * A verificação independente da `41` mostrou que este guarda, escrito na `40`, ainda era cego a
+   * duas grafias que produzem exatamente o mesmo defeito. É a terceira vez que a lição aparece neste
+   * projeto: **guarda ancorado em sintaxe guarda a sintaxe, não a regra**.
+   */
+  const classe = /(?:^|[\s"'`:[{])opacity-(?:0|\[0(?:\.0+)?%?\])(?![\d.])/.test(limpo)
+  /**
+   * `fade-in` do `tailwindcss-animate` compila para `--tw-enter-opacity: 0`, e o plugin está no
+   * preset deste projeto. É o mesmo defeito de LCP escrito de um jeito que **não contém a palavra
+   * `opacity`** — e a grafia já é usada nesta loja (`WhatsAppFloat.tsx`).
+   *
+   * `fade-in-50` não casa: entrar de 50% não esconde o elemento do medidor.
+   */
+  const fade = /(?:^|[\s"'`:[{])fade-in(?:-0)?(?![-\d])/.test(limpo)
+  return objeto || classe || fade
+}
 
 describe('o hero não nasce em opacidade zero (PRF-19)', () => {
   const fonte = semComentarios(readFileSync(HERO, 'utf8'))
@@ -107,6 +126,24 @@ describe('o hero não nasce em opacidade zero (PRF-19)', () => {
 
   it('SENSOR: `opacity: 1` no `show` não é confundido com o defeito', () => {
     expect(nasceInvisivel('hidden: { y: 20 }, show: { opacity: 1, y: 0 }')).toBe(false)
+  })
+
+  it('SENSOR: a CLASSE utilitária e o valor arbitrário também são o defeito (feature 41)', () => {
+    expect(nasceInvisivel('className="opacity-0 transition-opacity"')).toBe(true)
+    expect(nasceInvisivel('className="md:opacity-[0]"')).toBe(true)
+  })
+
+  it('SENSOR: `fade-in` do tailwindcss-animate é o defeito sem dizer `opacity` (feature 41)', () => {
+    // O furo que a verificação da 41 achou neste guarda: a classe compila para
+    // `--tw-enter-opacity: 0`, e a régua da 40 não a via.
+    expect(nasceInvisivel('className="animate-in fade-in duration-700"')).toBe(true)
+    expect(nasceInvisivel('className="animate-in fade-in-0"')).toBe(true)
+  })
+
+  it('SENSOR: entrar de 50% e `zoom-in` NÃO são o defeito', () => {
+    expect(nasceInvisivel('className="animate-in fade-in-50"')).toBe(false)
+    expect(nasceInvisivel('className="animate-in zoom-in-95"')).toBe(false)
+    expect(nasceInvisivel('className="opacity-[0.4]"')).toBe(false)
   })
 
   it('SENSOR: opacidade PARCIAL não é o defeito — só o zero', () => {

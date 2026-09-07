@@ -689,6 +689,29 @@
 - **Date**: 2026-09-06
 - **Status**: active
 
+### AD-031
+- **Decision**: **O canal de WhatsApp da loja é a Evolution API v2 com a integração
+  `WHATSAPP-BAILEYS`** (protocolo do WhatsApp Web, não oficial), **pareada no número da Adri**,
+  atrás de uma interface de provedor em `core/notifications/providers/` que permite trocar para a
+  Cloud API por secret, sem tocar na loja. O motor e a memória com `channel` são a feature `42`
+  (e-mail); o adaptador, o opt-in e os webhooks são a `43`.
+- **Reason**: Decisão do usuário em 2026-09-06, tomada com o levantamento da `42` à vista — que
+  recomendava a Cloud API oficial e um número secundário. Pesaram a conta Evolution já existente, a
+  ausência de aprovação de template (texto livre, editável no painel) e a cliente responder na
+  conversa que já conhece.
+- **Trade-off**: **Aceito o risco de banimento do número da Adri** — que é o canal de atendimento da
+  loja — e o de instabilidade quando a Meta muda o protocolo. Mitigações exigidas pela spec da `43`:
+  opt-in explícito por pedido, `delay` aleatório de 1–3 s, teto de 30 mensagens/hora, texto puro sem
+  emoji e com um link só, alerta de desconexão para a dona por e-mail e `delivery_status` no
+  histórico. **Condição de revisão**: a primeira desconexão prolongada ou banimento em produção
+  reabre esta decisão em favor do adaptador `cloud` — e, nesse caso, o número secundário volta à
+  mesa.
+- **Scope**: `packages/core/src/notifications/**`, `supabase/functions/send-notification/**`,
+  `apps/backoffice/src/**` (aba Notificações), `apps/store/src/features/checkout/**` (opt-in),
+  secrets `EVOLUTION_*`
+- **Date**: 2026-09-06
+- **Status**: active
+
 ## Handoff
 
 ### ATUAL — 2026-09-06 · `41-banner-principal-da-home` **IMPLEMENTADA**
@@ -711,9 +734,20 @@ a cada 6 s, com bolinhas, setas no computador, arrasto do dedo, pausa em hover/f
 - **`AD-030` — a arte por dispositivo tem um dono**, `core/media/surfaceArt.ts`. `menuBannerArt`
   (feature `39`) passou a delegar; os consumidores foram de dois para quatro.
 
-**Baselines** (medidas um workspace por vez, exit code fora de pipe): store 2538/165 → **2634/169**,
-backoffice 1946/118 → **1980/119**, core 1728/68 → **1811/70**. Functions (370/7) e catalog-import
-(512/23) intocados e remedidos. Total **7307 em 388**. Lint **27/5**, tipos **0 · 0**, `pnpm build`
+**A verificação independente REPROVOU a primeira entrega**, e o achado nº 1 era estrutural: `AD-029`
+tinha parado no banco. O trigger fora trocado, mas o painel continuava trancando a Chamada principal
+com um cadeado, `HomeSectionList.test.tsx` **asseria a trava**, e `deleteSection` existia no hook sem
+nenhuma tela consumindo. A Adri arrastaria o Banner principal para o topo e o hero continuaria acima
+dele — o problema que a feature existe para resolver, entregue "completo" e verde. Os outros cinco
+achados: duas pausas do carrossel que não discriminavam (`INTERVAL * 3` com 3 slides volta ao índice
+0, igual a pausado), o guarda de opacidade cego ao `fade-in` do `tailwindcss-animate`, o guarda de
+dono único cego ao `||` quebrado em linhas, `BNR-39` sem asserção, e seis ACs sem evidência própria.
+**Todos corrigidos**; os dois guardas foram ampliados com sensores para cada furo, e o guarda irmão
+da `40` (`heroSemOpacidadeZero`) recebeu a mesma ampliação, porque tinha o mesmo furo.
+
+**Baselines** (medidas um workspace por vez, exit code fora de pipe): store 2538/165 → **2652/169**,
+backoffice 1946/118 → **1996/119**, core 1728/68 → **1811/70**. Functions (370/7) e catalog-import
+(512/23) intocados e remedidos. Total **7341 em 388**. Lint **27/5**, tipos **0 · 0**, `pnpm build`
 verde, `packages/core/src/payment/**` intocado.
 
 **Migration `20260906120000_41-*.sql` aplicada no banco LOCAL e probeada** — aplicada duas vezes

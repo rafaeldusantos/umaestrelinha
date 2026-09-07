@@ -139,3 +139,34 @@ describe('HomeBlockTray — a bandeja mostra o catálogo inteiro', () => {
     expect(screen.getByText(/nasce desligada/)).toBeInTheDocument()
   })
 })
+
+describe('HomeBlockTray — o Banner principal e o teto (BNR-03, BNR-05)', () => {
+  const secao = (type: HomeSection['type'], id: string = type): HomeSection => ({
+    id,
+    type,
+    position: 1,
+    active: true,
+    config: {},
+  })
+
+  it('acrescentar um SEGUNDO Banner principal é permitido — o tipo é repetível', () => {
+    // O par da regra de unicidade: os tipos únicos aparecem esmaecidos com "já está na Home", e
+    // este não pode ser um deles. Sem esta asserção, pôr `hero_carousel` em `UNIQUE_SECTION_TYPES`
+    // esconderia o segundo bloco atrás de uma recusa que soa correta.
+    const onAdd = montar([...DEFAULT_HOME_COMPOSITION, secao('hero_carousel')])
+
+    expect(bloco('hero_carousel')).not.toBeDisabled()
+    expect(screen.queryByTestId('motivo-hero_carousel')).toBeNull()
+
+    fireEvent.click(bloco('hero_carousel'))
+    expect(onAdd).toHaveBeenCalledWith('hero_carousel')
+  })
+
+  it('com a Home cheia, o Banner principal é recusado pelo teto — como qualquer tipo', () => {
+    const cheia = Array.from({ length: MAX_HOME_SECTIONS }, (_, i) => secao('banner_grid', `s${i}`))
+    montar(cheia)
+
+    expect(bloco('hero_carousel')).toBeDisabled()
+    expect(screen.getByTestId('motivo-hero_carousel')).toHaveTextContent('Home cheia')
+  })
+})

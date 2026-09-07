@@ -29,6 +29,15 @@ import { useHeroCarousel } from '../model/useHeroCarousel'
  * adiava a métrica em 2 s (`PRF-19`, feature 40). `heroCarouselSemOpacidadeZero.test.ts` derruba a
  * suíte, porque o sintoma não aparece em diff nenhum.
  *
+ * SPEC_DEVIATION: `BNR-39` foi escrita para um trilho **transladado** ("o slide que sai de vista sai
+ * do alcance do teclado e do leitor de tela"). Aqui não há esse estado: os slides não ficam
+ * escondidos, ficam fora da vista num container rolável, e dar Tab neles os traz para a vista — que
+ * é o comportamento correto de um scroller, não o foco invisível que a AC proíbe. Tirá-los do Tab
+ * seria introduzir o defeito, não evitá-lo.
+ * Reason: a propriedade cobrada — nenhum elemento focável visualmente oculto — continua valendo, e é
+ * asserida em `HeroCarousel.test.tsx` ("nenhum slide fica oculto E focável"). "Por construção" que
+ * ninguém mede é só uma frase.
+ *
  * SPEC_DEVIATION: `BNR-27` pede que destino **externo** abra em nova aba. Não implementado, porque é
  * inalcançável: `ctaHrefRefusal` recusa qualquer endereço que não comece com `/` (`HOME-23`), e é a
  * régua que `destinationRefusal` aplica ao caminho livre deste bloco. Escrever o ramo seria código

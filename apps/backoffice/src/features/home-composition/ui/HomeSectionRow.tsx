@@ -12,7 +12,6 @@ import {
   GripVertical,
   Image as ImageIcon,
   LayoutGrid,
-  Lock,
   Mail,
   Quote,
   Rows3,
@@ -20,6 +19,7 @@ import {
   Sparkles,
   Star,
   Tags,
+  Trash2,
   TriangleAlert,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -129,17 +129,25 @@ interface Props {
    * faria o contorno piscar ao atravessar a alça ou o interruptor.
    */
   onHover?: (sectionId: string | null) => void
+  /** Remove a seção (`BNR-41`). Ausente esconde o controle — a lista decide se oferece. */
+  onRemove?: (sectionId: string) => void
 }
 
-const HomeSectionRow = ({ entry, nested = false, onToggle, onOpen, onDrop, onHover }: Props) => {
+const HomeSectionRow = ({ entry, nested = false, onToggle, onOpen, onDrop, onHover, onRemove }: Props) => {
   const { section, renders, hiddenReason } = entry
   const meta = sectionMeta(section.type)
   const Icon = ICONS[section.type] ?? LayoutGrid
 
-  // O hero não desliga nem se remove (`HOME-08`). Esconder o controle aqui é UX; quem torna "Home
-  // com zero seções" impossível é o trigger da migration. Os dois precisam existir: sem o trigger, a
-  // regra morre num `PATCH` direto; sem o controle escondido, a dona clica e leva um erro do banco.
-  const indelevel = section.type === 'hero'
+  // **Nenhuma seção é indelével desde a feature 41** (`AD-029`, `BNR-40`/`BNR-41`).
+  //
+  // Até aqui o hero tinha cadeado no lugar do interruptor, e o trigger `guard_hero_home_section` no
+  // banco. A invariante que os dois protegiam nunca foi "o hero existe": era "a Home nunca fica sem
+  // seção ativa". Com o Banner principal, travar o hero passou a impedir justamente o que a feature
+  // entrega — o carrossel entraria sempre ABAIXO de um bloco que a dona não pode desligar.
+  //
+  // Quem guarda a invariante continua sendo o banco, agora generalizado
+  // (`guard_last_active_home_section`), e a mensagem da recusa é **dele**: esta tela a exibe, não a
+  // reescreve. Esconder controle aqui deixou de ser UX e passaria a ser mentira.
 
   // `HOME-09`: seção LIGADA que mesmo assim não vai aparecer. A desligada não precisa de aviso —
   // "Desligada" já é a resposta, e ela está na coluna de estado.
@@ -205,28 +213,17 @@ const HomeSectionRow = ({ entry, nested = false, onToggle, onOpen, onDrop, onHov
             **380px** desde a inversão do layout, e esses ~50px são do nome da seção — que truncava.
             Visualmente a posição do interruptor e a opacidade da linha já dizem o mesmo; para quem
             usa leitor de tela, o texto continua sendo a resposta em palavras. */}
-        <span className="sr-only">
-          {indelevel ? 'Sempre no ar' : section.active ? 'No ar' : 'Desligada'}
-        </span>
+        <span className="sr-only">{section.active ? 'No ar' : 'Desligada'}</span>
 
-        {/* Vão fixo mesmo no hero: sem ele o cadeado e os interruptores das outras linhas não
-            formam a mesma coluna. */}
         <span className="flex h-11 w-11 shrink-0 items-center justify-center md:h-9 md:w-9">
-          {indelevel ? (
-            <Lock
-              className="h-4 w-4 text-muted-foreground"
-              aria-label="A chamada principal não pode ser desligada"
-            />
-          ) : (
-            <Switch
-              checked={section.active}
-              aria-label={`${section.active ? 'Desligar' : 'Ligar'} ${meta?.label ?? section.type}`}
-              // Nunca `disabled` por causa do aviso de ausência: `HOME-09` diz que ativar uma seção
-              // sem conteúdo É PERMITIDO — a fonte pode encher depois, e travar o interruptor
-              // obrigaria a dona a cadastrar na ordem que o painel prefere.
-              onCheckedChange={next => onToggle(section.id, next)}
-            />
-          )}
+          <Switch
+            checked={section.active}
+            aria-label={`${section.active ? 'Desligar' : 'Ligar'} ${meta?.label ?? section.type}`}
+            // Nunca `disabled` — nem pelo aviso de ausência, nem por tipo. `HOME-09` diz que ativar
+            // uma seção sem conteúdo É PERMITIDO (a fonte pode encher depois), e `AD-029` tirou a
+            // última exceção por tipo. Quem recusa desligar a última ativa é o banco, com motivo.
+            onCheckedChange={next => onToggle(section.id, next)}
+          />
         </span>
 
         <button
@@ -237,6 +234,28 @@ const HomeSectionRow = ({ entry, nested = false, onToggle, onOpen, onDrop, onHov
         >
           <ChevronRight className="h-5 w-5" aria-hidden />
         </button>
+
+        {/* Remover a seção (`BNR-41`).
+
+            Não existia tela nenhuma que consumisse `deleteSection` — o hook a expunha e ninguém a
+            chamava. Enquanto o hero era indelével isso passava despercebido; com `AD-029` a AC pede
+            explicitamente que a Chamada principal possa ser REMOVIDA, e sem este controle a feature
+            para no banco.
+
+            Confirmação em `window.confirm` e não em modal próprio: a operação apaga a curadoria da
+            seção junto (`on delete cascade`), e a recusa da última ativa vem do banco depois — o
+            que esta tela precisa é de um passo a mais antes do clique, não de um fluxo novo. */}
+        {onRemove && (
+          <button
+            type="button"
+            data-testid={`remover-${section.id}`}
+            onClick={() => onRemove(section.id)}
+            aria-label={`Remover ${meta?.label ?? section.type}`}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive md:h-9 md:w-9"
+          >
+            <Trash2 className="h-4 w-4" aria-hidden />
+          </button>
+        )}
       </div>
 
       {avisoDeAusencia && (

@@ -107,12 +107,37 @@ describe('o giro automático (BNR-30, BNR-31)', () => {
   })
 })
 
+/**
+ * `BNR-32` — a pausa.
+ *
+ * **O tempo avançado aqui NUNCA pode ser múltiplo do número de slides**, e isso não é detalhe de
+ * escrita: com 3 slides e `INTERVAL * 3`, um carrossel que gira normalmente volta ao índice 0 — o
+ * mesmo valor de um carrossel pausado. A asserção passaria com a pausa apagada, e a verificação
+ * independente derrubou exatamente isso: `onPointerDown: () => {}` matava a pausa do toque (o
+ * caminho de ~90% dos acessos) com os 66 testes verdes.
+ *
+ * A régua deste bloco é: **avançar 2 de 3, e provar o contraste** — o pausado fica em 0, e o mesmo
+ * tempo sem pausa chega em 2. Sem a segunda metade, "não girou" continua sendo indistinguível de
+ * "girou e voltou".
+ */
 describe('a pausa (BNR-32)', () => {
+  /** O contraste, medido uma vez e reusado: 2 intervalos de 3 slides levam ao índice 2. */
+  const SEM_PAUSA = 2
+
+  it('o CONTRASTE existe — sem pausa, dois intervalos levam ao slide 2', () => {
+    // A âncora deste bloco inteiro. Se o carrossel deixasse de girar por outro motivo, todos os
+    // testes de pausa abaixo passariam por acidente, e este é o único que reprovaria.
+    const { result } = renderHook(() => useHeroCarousel(3))
+
+    act(() => void vi.advanceTimersByTime(HERO_CAROUSEL_INTERVAL_MS * 2))
+    expect(result.current.index).toBe(SEM_PAUSA)
+  })
+
   it('o ponteiro sobre o carrossel pausa, e sair retoma', () => {
     const { result } = renderHook(() => useHeroCarousel(3))
 
     act(() => result.current.pauseHandlers.onMouseEnter())
-    act(() => void vi.advanceTimersByTime(HERO_CAROUSEL_INTERVAL_MS * 3))
+    act(() => void vi.advanceTimersByTime(HERO_CAROUSEL_INTERVAL_MS * 2))
     expect(result.current.index).toBe(0)
 
     act(() => result.current.pauseHandlers.onMouseLeave())
@@ -124,7 +149,7 @@ describe('a pausa (BNR-32)', () => {
     const { result } = renderHook(() => useHeroCarousel(3))
 
     act(() => result.current.pauseHandlers.onFocus())
-    act(() => void vi.advanceTimersByTime(HERO_CAROUSEL_INTERVAL_MS * 3))
+    act(() => void vi.advanceTimersByTime(HERO_CAROUSEL_INTERVAL_MS * 2))
     expect(result.current.index).toBe(0)
 
     act(() => result.current.pauseHandlers.onBlur())
@@ -137,7 +162,7 @@ describe('a pausa (BNR-32)', () => {
     const { result } = renderHook(() => useHeroCarousel(3))
 
     act(() => result.current.pauseHandlers.onPointerDown())
-    act(() => void vi.advanceTimersByTime(HERO_CAROUSEL_INTERVAL_MS * 3))
+    act(() => void vi.advanceTimersByTime(HERO_CAROUSEL_INTERVAL_MS * 2))
     expect(result.current.index).toBe(0)
 
     act(() => result.current.pauseHandlers.onPointerUp())
@@ -162,6 +187,18 @@ describe('a pausa (BNR-32)', () => {
     act(() => result.current.pauseHandlers.onMouseEnter())
     act(() => result.current.pauseHandlers.onPointerDown())
     act(() => result.current.pauseHandlers.onPointerUp())
+
+    act(() => void vi.advanceTimersByTime(HERO_CAROUSEL_INTERVAL_MS * 2))
+    expect(result.current.index).toBe(0)
+  })
+
+  it('tirar o ponteiro NÃO retoma enquanto o dedo continua encostado', () => {
+    // O par simétrico do caso acima — sem ele, um `sobre` que apagasse a pausa do toque passaria.
+    const { result } = renderHook(() => useHeroCarousel(3))
+
+    act(() => result.current.pauseHandlers.onPointerDown())
+    act(() => result.current.pauseHandlers.onMouseEnter())
+    act(() => result.current.pauseHandlers.onMouseLeave())
 
     act(() => void vi.advanceTimersByTime(HERO_CAROUSEL_INTERVAL_MS * 2))
     expect(result.current.index).toBe(0)

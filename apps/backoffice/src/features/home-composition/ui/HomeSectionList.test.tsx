@@ -53,6 +53,7 @@ const montar = (resolved: ResolvedSection[], overrides: Partial<Parameters<typeo
     onToggle: vi.fn(),
     onOpen: vi.fn(),
     onReorder: vi.fn(),
+    onRemove: vi.fn(),
     ...overrides,
   }
   render(<HomeSectionList {...props} />)
@@ -117,18 +118,56 @@ describe('HomeSectionList — a lista (HOME-08)', () => {
   })
 })
 
-describe('HomeSectionList — o hero é indelével (HOME-08)', () => {
-  it('a linha do hero não tem interruptor de desligar', () => {
+/**
+ * `AD-029` (`BNR-40`, `BNR-41`) — **nenhuma seção é indelével.**
+ *
+ * Este bloco era o oposto: até a feature 41 ele asseria que a linha do hero **não** tinha
+ * interruptor e mostrava um cadeado. A troca é deliberada, e a asserção antiga não foi afrouxada —
+ * foi **invertida**, porque o comportamento que ela defendia é o que a feature existe para remover.
+ *
+ * O que se perdeu ao inverter não se perdeu: a invariante ("a Home nunca fica sem seção ativa")
+ * continua provada, e agora no lugar certo — `homeSections.test.ts` lê o `.sql` e assere o guarda de
+ * banco que a protege para **qualquer** tipo. Trancar a tela era a metade frágil das duas: ela morre
+ * num `PATCH` direto, e desde a 41 ela também impedia o que a dona precisa fazer.
+ */
+describe('HomeSectionList — nenhuma seção é indelével (AD-029)', () => {
+  it('a linha do hero TEM interruptor, como qualquer outra', () => {
     montar(resolver())
-    expect(within(linha('hero')).queryByRole('switch')).toBeNull()
+    expect(within(linha('hero')).getByRole('switch')).toBeInTheDocument()
   })
 
-  it('e diz que está sempre no ar, com cadeado', () => {
+  it('o interruptor do hero desliga de verdade, e avisa quem manda', () => {
+    const props = montar(resolver())
+    fireEvent.click(within(linha('hero')).getByRole('switch'))
+    expect(props.onToggle).toHaveBeenCalledWith('hero', false)
+  })
+
+  it('não sobrou cadeado nem "Sempre no ar" em linha nenhuma', () => {
+    // O par da inversão: sem isto, deixar o cadeado ao lado de um interruptor funcional passaria —
+    // a tela diria uma coisa e faria outra.
     montar(resolver())
-    expect(linha('hero')).toHaveTextContent('Sempre no ar')
-    expect(
-      within(linha('hero')).getByLabelText('A chamada principal não pode ser desligada'),
-    ).toBeInTheDocument()
+    expect(screen.queryByLabelText(/não pode ser desligada/i)).toBeNull()
+    expect(screen.queryByText('Sempre no ar')).toBeNull()
+  })
+
+  it('a linha do hero pode ser REMOVIDA (BNR-41)', () => {
+    const props = montar(resolver())
+    fireEvent.click(within(linha('hero')).getByLabelText('Remover Chamada principal'))
+    expect(props.onRemove).toHaveBeenCalledWith('hero')
+  })
+
+  it('toda seção oferece remoção, não só o hero', () => {
+    montar(resolver())
+    for (const id of ['hero', 'newsletter', 'banner_grid']) {
+      expect(within(linha(id)).getByLabelText(/^Remover /)).toBeInTheDocument()
+    }
+  })
+
+  it('sem `onRemove`, a linha não desenha o controle', () => {
+    // A lista também é montada em contexto de leitura; um botão que não faz nada é pior que a
+    // ausência dele.
+    montar(resolver(), { onRemove: undefined })
+    expect(screen.queryByLabelText(/^Remover /)).toBeNull()
   })
 
   it('as outras seções têm interruptor', () => {
@@ -239,9 +278,12 @@ describe('HomeSectionList — 390px (HOME-15)', () => {
   it('cada controle da linha tem alvo próprio de 44px', () => {
     montar(resolver())
     const faixa = linha('trending_tags')
-    // O interruptor e o "abrir" são controles distintos, e cada um precisa do seu alvo: um único
-    // alvo de 44 cobrindo os dois faria o polegar desligar a seção querendo abri-la.
-    expect(faixa.querySelectorAll('.h-11.w-11')).toHaveLength(2)
+    // O interruptor, o "abrir" e o "remover" são controles distintos, e cada um precisa do seu
+    // alvo: um único alvo de 44 cobrindo dois faria o polegar desligar a seção querendo abri-la —
+    // ou apagá-la querendo desligar.
+    expect(faixa.querySelectorAll('.h-11.w-11')).toHaveLength(3)
+    // Vizinha da contagem, e não substituta dela: a contagem sozinha não diz QUAL controle entrou.
+    expect(within(faixa).getByLabelText(/^Remover /).className).toContain('h-11')
     // O corpo da linha (nome + resumo) é o terceiro alvo, e é de altura — o rótulo tem a largura
     // que tiver.
     expect(faixa.querySelector('.min-h-11')).not.toBeNull()
@@ -257,5 +299,39 @@ describe('HomeSectionList — o rodapé é da bandeja', () => {
   it('o cartão recebe a bandeja no rodapé, dentro dele mesmo', () => {
     montar(resolver(), { footer: <div data-testid="bandeja">blocos</div> })
     expect(screen.getByTestId('bandeja')).toBeInTheDocument()
+  })
+})
+
+describe('HomeSectionList — o Banner principal em qualquer posição (BNR-04)', () => {
+  const soltar = (targetId: string, draggedId: string) =>
+    fireEvent.drop(linha(targetId), {
+      dataTransfer: { getData: () => draggedId, setData: vi.fn() },
+    })
+
+  const comCarrossel = () =>
+    resolver([
+      ...DEFAULT_HOME_COMPOSITION,
+      { id: 'carrossel', type: 'hero_carousel', position: 8, active: false, config: {}, items: [] },
+    ])
+
+  it('a linha do carrossel é arrastável, como qualquer outra', () => {
+    montar(comCarrossel())
+    expect(linha('carrossel').getAttribute('draggable')).toBe('true')
+  })
+
+  it('soltar o carrossel sobre a Chamada principal o põe ACIMA dela', () => {
+    // É literalmente o pedido da feature: com o hero fixo no topo, o banner de campanha nunca seria
+    // a abertura da loja. Sem esta asserção, um recorte por tipo no reordenamento passaria.
+    const props = montar(comCarrossel())
+    soltar('hero', 'carrossel')
+
+    const posicoes = vi.mocked(props.onReorder).mock.calls[0][0] as {
+      id: string
+      position: number
+    }[]
+    const carrossel = posicoes.find(p => p.id === 'carrossel')!
+    const hero = posicoes.find(p => p.id === 'hero')!
+
+    expect(carrossel.position).toBeLessThan(hero.position)
   })
 })

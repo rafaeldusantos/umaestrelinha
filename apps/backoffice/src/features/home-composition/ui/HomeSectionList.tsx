@@ -20,6 +20,14 @@ interface Props {
   footer?: ReactNode
   /** O cursor apontou uma linha — a prévia contorna o bloco dela (feature 25, `PRV-11`). */
   onHover?: (sectionId: string | null) => void
+  /**
+   * Remover uma seção (`BNR-41`).
+   *
+   * Opcional porque a lista também é montada em contexto de leitura; quando ausente, a linha não
+   * desenha o controle. A recusa da ÚLTIMA seção ativa é do banco (`AD-029`), e chega aqui como
+   * erro de gravação — esta tela não a antecipa, para não ter duas versões da mesma regra.
+   */
+  onRemove?: (id: string) => void
 }
 
 /**
@@ -49,7 +57,7 @@ const aninhadas = (resolved: readonly ResolvedSection[]): Set<string> => {
   return dentro
 }
 
-const HomeSectionList = ({ resolved, onToggle, onOpen, onReorder, footer, onHover }: Props) => {
+const HomeSectionList = ({ resolved, onToggle, onOpen, onReorder, footer, onHover, onRemove }: Props) => {
   const dentro = aninhadas(resolved)
   const noAr = resolved.filter(e => e.section.active).length
 
@@ -84,6 +92,7 @@ const HomeSectionList = ({ resolved, onToggle, onOpen, onReorder, footer, onHove
             onOpen={onOpen}
             onDrop={handleDrop}
             onHover={onHover}
+            onRemove={onRemove}
           />
         ))}
       </ul>

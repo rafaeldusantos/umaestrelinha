@@ -367,3 +367,52 @@ describe('o trilho (BNR-37)', () => {
     expect(screen.getByTestId('hero-carousel-trilho').className).not.toContain('flex-wrap')
   })
 })
+
+// ---------------------------------------------------------------------------
+// BNR-39 — nenhum link fica escondido e focável ao mesmo tempo
+// ---------------------------------------------------------------------------
+//
+// A AC foi escrita para o modelo de trilho TRANSLADADO, onde os slides fora de vista ficam
+// visualmente escondidos e continuam no alcance do Tab — o defeito clássico do padrão: o foco some
+// da tela e a cliente não sabe onde está.
+//
+// Com trilho de ROLAGEM o estado não existe: os slides não estão escondidos, estão fora da vista num
+// container rolável, e dar Tab neles os traz para a vista (que é o comportamento correto de um
+// scroller). A propriedade que a AC cobra continua valendo — mas por construção, e por isso ela
+// precisa ser asserida aqui: "por construção" que ninguém mede é só uma frase.
+
+describe('nenhum slide fica oculto E focável (BNR-39)', () => {
+  it('nenhum slide é escondido do leitor de tela', () => {
+    montar([item('a'), item('b'), item('c')])
+
+    for (const i of [0, 1, 2]) {
+      const slide = screen.getByTestId(`hero-carousel-slide-${i}`)
+      expect(slide.getAttribute('aria-hidden')).toBeNull()
+      expect(slide.hasAttribute('hidden')).toBe(false)
+    }
+  })
+
+  it('nenhum slide é tirado do alcance do teclado', () => {
+    // O par: esconder por CSS e tirar do Tab são os dois jeitos de errar. Um scroller não faz
+    // nenhum dos dois — todo link continua alcançável, e alcançá-lo o traz para a vista.
+    montar([item('a'), item('b'), item('c')])
+
+    for (const i of [0, 1, 2]) {
+      expect(screen.getByTestId(`hero-carousel-slide-${i}`).getAttribute('tabindex')).toBeNull()
+    }
+  })
+
+  it('nenhum slide é escondido por CSS', () => {
+    // Régua de TOKEN EXATO, e não `includes`: o slide legitimamente carrega `overflow-hidden`, e uma
+    // régua de substring acusaria a classe certa. É a mesma lição de `cardSkeletonBox`, onde
+    // `'min-h-[40px]'.includes('h-[40px]')` é `true`.
+    const token = (nome: string) => new RegExp(`(?:^|\\s)${nome}(?![-\\w])`)
+    montar([item('a'), item('b')])
+
+    for (const i of [0, 1]) {
+      const classe = screen.getByTestId(`hero-carousel-slide-${i}`).className
+      expect(classe).not.toMatch(token('hidden'))
+      expect(classe).not.toMatch(token('invisible'))
+    }
+  })
+})
