@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { FICHAS_DE_MATERIAL } from '../model/guide'
+import { FICHAS_DE_MATERIAL } from '@/entities/material'
 import GuideHeading from './GuideHeading'
 import GuideSection from './GuideSection'
 import MaterialFicha from './MaterialFicha'

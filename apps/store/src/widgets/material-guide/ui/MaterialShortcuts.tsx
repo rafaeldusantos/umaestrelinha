@@ -1,6 +1,6 @@
 import { Play } from 'lucide-react'
 import { TAP_ROW } from '@/shared/lib/touchTarget'
-import { ATALHOS_DE_MATERIAL } from '../model/guide'
+import { ATALHOS_DE_MATERIAL } from '@/entities/material'
 
 /**
  * "Encontre o seu material" — os hiperlinks por material (`5MC-0` chips, `6AU-0` grade).

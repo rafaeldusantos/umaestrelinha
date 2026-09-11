@@ -1,5 +1,5 @@
 import { ESTRELINHA_ICONS } from '@estrelinha/ui/icons'
-import { CARTOES_DE_MATERIAL } from '../model/guide'
+import { CARTOES_DE_MATERIAL } from '@/entities/material'
 
 /**
  * "Materiais de preparo simples" (`5MC-0`).

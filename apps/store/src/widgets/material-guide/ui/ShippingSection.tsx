@@ -5,7 +5,7 @@ import {
   DECLARACAO,
   DEPOIS_DE_POSTAR,
   FORMAS_DE_ENVIO,
-} from '../model/guide'
+} from '@/entities/material'
 import GuideHeading from './GuideHeading'
 import GuideSection from './GuideSection'
 import MaterialAddress from './MaterialAddress'

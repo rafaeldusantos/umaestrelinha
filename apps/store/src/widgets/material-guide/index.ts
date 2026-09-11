@@ -3,25 +3,13 @@
  *
  * A página importa daqui, nunca de caminho profundo: é o barrel que deixa a seção mudar de arquivo
  * sem mexer em quem a monta. `GUIA_MATERIAL_PATH` e `guiaMaterialHref` saem junto porque quem linka
- * para o guia (rodapé, aviso de material da página do produto, bloco do pedido) precisa do endereço,
- * e não do desenho.
+ * para o guia (rodapé, bloco do pedido) precisa do endereço, e não do desenho.
+ *
+ * **O conteúdo mudou de casa na feature `44`** e agora mora em `@/entities/material` — a gaveta da
+ * página do produto também o lê, e widget não importa de widget. Este barrel continua reexportando
+ * tudo, que é o que permitiu o movimento sem tocar em `HowToSendMaterialPage.tsx` nem no teste dela.
  */
-export {
-  ANCORAS_DO_GUIA,
-  ATALHOS_DE_MATERIAL,
-  CARTOES_DE_MATERIAL,
-  CHECKLIST_DO_ENVIO,
-  FICHAS_DE_MATERIAL,
-  GUIA_MATERIAL_PATH,
-  MATERIAIS_SEM_ANCORA,
-  PASSOS_DO_ENVIO,
-  PREPARO_EM_CASA,
-  guiaMaterialHref,
-} from './model/guide'
-export type { CartaoDeMaterial, FichaDeMaterial, PassoDoEnvio, PreparoEmCasa } from './model/guide'
-
-export { VIDEOS_DE_PREPARO, videoCapa, videoDoMaterial, videoEmbed, videoUrl } from './model/videos'
-export type { VideoDePreparo } from './model/videos'
+export * from '@/entities/material'
 
 export { default as GuideChecklist } from './ui/GuideChecklist'
 export { default as GuideHero } from './ui/GuideHero'

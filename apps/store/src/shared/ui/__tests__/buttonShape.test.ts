@@ -48,6 +48,8 @@ const ROTULO: Record<string, string> = {
     'Os mesmos chips de material, agora listando o que ESTE pedido espera. Mantê-los em pílula é o que faz a cliente reconhecer na confirmação exatamente o que leu na página do produto; a ação do bloco é o botão "Registrar", em `rounded-sm`.',
   'widgets/material-guide/ui/MaterialShortcuts.tsx':
     'Os atalhos por material no topo do guia. É o TERCEIRO lugar onde a mesma espécie de chip aparece — página do produto, confirmação do pedido e agora o guia —, e mantê-los idênticos é o que faz a cliente reconhecer o mesmo objeto nas três telas. São âncoras da própria página, não CTAs: as ações do guia (ver o vídeo, falar com a Adri) saem em `rounded-sm`.',
+  'widgets/material-drawer/ui/MaterialDrawerChips.tsx':
+    'A pergunta "Qual é o seu material?" na gaveta da página do produto (feature 44). QUARTA tela da mesma espécie de chip, e a que fecha o círculo: eles nasceram na página do produto, foram para a confirmação e para o guia, e voltam à página do produto — desta vez perguntando em vez de afirmando. São rótulos que nomeiam material e alternam estado (`aria-pressed`), não CTAs: a ação da gaveta ("Ver o guia completo") sai em `rounded-sm`.',
 }
 
 function tsxFiles(dir: string): string[] {

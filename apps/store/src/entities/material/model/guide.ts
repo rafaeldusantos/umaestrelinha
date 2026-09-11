@@ -112,6 +112,11 @@ export interface FichaDeMaterial {
    */
   tambem?: readonly MaterialKind[]
   titulo: string
+  /**
+   * O rótulo curto, para chip (feature `44`). Cai no `titulo` quando ausente — ver
+   * `ATALHOS_DE_MATERIAL`.
+   */
+  rotuloCurto?: string
   icone: EstrelinhaIconName
   quantidade: { valor: string; nota: string }
   /** `RECIPIENTES ACEITOS` na ficha de leite e cinzas, `TAMBÉM VALE PARA` na de cabelos. */
@@ -187,6 +192,7 @@ export const FICHAS_DE_MATERIAL: readonly FichaDeMaterial[] = [
   {
     kind: 'cinzas',
     titulo: 'Cinzas de cremação',
+    rotuloCurto: 'Cinzas',
     icone: 'pote-cinzas',
     quantidade: { valor: 'a que desejar', nota: 'uma colher de chá já é suficiente' },
     listaTitulo: 'Recipientes aceitos',
@@ -216,6 +222,8 @@ export interface CartaoDeMaterial {
   /** A âncora. Deriva de `kind` quando existe; caso contrário é escrita à mão. */
   anchor: string
   titulo: string
+  /** O rótulo curto, para chip (feature `44`). Cai no `titulo` quando ausente. */
+  rotuloCurto?: string
   icone: EstrelinhaIconName
   itens: readonly string[]
 }
@@ -250,6 +258,7 @@ export const CARTOES_DE_MATERIAL: readonly CartaoDeMaterial[] = [
     kind: null,
     anchor: 'unhas',
     titulo: 'Unhas (humanas ou de pet)',
+    rotuloCurto: 'Unhas',
     icone: 'unha',
     itens: ['Embrulhe em papel alumínio ou guardanapo', 'Depois coloque no saco plástico identificado'],
   },
@@ -283,6 +292,8 @@ export interface PreparoEmCasa {
   kind: MaterialKind | null
   anchor: string
   titulo: string
+  /** O rótulo curto, para chip (feature `44`). Cai no `titulo` quando ausente. */
+  rotuloCurto?: string
   icone: EstrelinhaIconName
   aviso: string
   passos: readonly string[]
@@ -328,6 +339,19 @@ export const PREPARO_EM_CASA: readonly PreparoEmCasa[] = [
 export interface AtalhoDeMaterial {
   anchor: string
   rotulo: string
+  /**
+   * O mesmo destino, num rótulo que cabe num chip (feature `44`).
+   *
+   * **Não é uma segunda lista** — é um campo do mesmo registro, com queda para `rotulo`, então
+   * entrada nova nunca nasce sem rótulo. O teto de 20 caracteres é guardado
+   * (`rotuloCurto.test.ts`), e é ele que obriga quem escreve um título longo a declarar o curto:
+   * hoje só `Unhas (humanas ou de pet)` estoura.
+   *
+   * O seletor do topo do guia (`MaterialShortcuts`) continua usando `rotulo`, e é de propósito: lá a
+   * cliente já está lendo a página e os chips são navegação; na gaveta o chip é a **porta de
+   * entrada** da resposta, e ali "Unhas (humanas ou de…" seria pior do que "Unhas".
+   */
+  rotuloCurto: string
   /** Ficha rica (com vídeo e passos ilustrados) ou entrada simples — muda só o desenho do atalho. */
   destaque: boolean
 }
@@ -345,16 +369,19 @@ export const ATALHOS_DE_MATERIAL: readonly AtalhoDeMaterial[] = [
   ...FICHAS_DE_MATERIAL.map(ficha => ({
     anchor: materialAnchor(ficha.kind),
     rotulo: ficha.titulo,
+    rotuloCurto: ficha.rotuloCurto ?? ficha.titulo,
     destaque: true,
   })),
   ...CARTOES_DE_MATERIAL.map(cartao => ({
     anchor: cartao.anchor,
     rotulo: cartao.titulo,
+    rotuloCurto: cartao.rotuloCurto ?? cartao.titulo,
     destaque: false,
   })),
   ...PREPARO_EM_CASA.map(bloco => ({
     anchor: bloco.anchor,
     rotulo: bloco.titulo,
+    rotuloCurto: bloco.rotuloCurto ?? bloco.titulo,
     destaque: false,
   })),
 ]

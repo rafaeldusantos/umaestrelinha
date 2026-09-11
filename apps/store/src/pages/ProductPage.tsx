@@ -21,6 +21,7 @@ import ProductDetailsAccordion from '@/entities/product/ui/ProductDetailsAccordi
 import { useWishlistStore } from '@/entities/wishlist/model/wishlistStore'
 import RelatedProducts from '@/widgets/related-products/ui/RelatedProducts'
 import { ProductBuyBar } from '@/widgets/product-buy-bar'
+import { MaterialDrawer } from '@/widgets/material-drawer'
 
 /**
  * Página do produto — boards "Desktop Product Detail - v3" e "Mobile Product Detail - v3".
@@ -277,6 +278,15 @@ const ProductPageBody = ({
       {/* A folga do rodapé fixo é do `StoreLayout`, depois do `Footer` — que é o fim real do
           documento. Um espaçador aqui reservaria espaço antes do rodapé, não depois dele. */}
       <ProductBuyBar product={product} purchase={purchase} revealAfter={fotoPrincipal} />
+
+      {/* GAV-04 — a gaveta de "como enviar o material", montada UMA vez por página.
+
+          Fica aqui e não no `StoreLayout` porque, ao contrário da gaveta do carrinho, ela só é
+          alcançável desta página: montá-la no layout custaria um componente em toda rota da loja
+          para servir a uma. Quem a abre é `MaterialSendTrigger`, na coluna de informação, pelo
+          `materialDrawerStore` — sem prop drilling, e sem a página precisar saber se a peça exige
+          material. */}
+      <MaterialDrawer />
     </div>
   )
 }

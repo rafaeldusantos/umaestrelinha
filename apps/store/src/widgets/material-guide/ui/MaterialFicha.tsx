@@ -2,8 +2,12 @@ import { ChevronDown, Check, Play } from 'lucide-react'
 import { materialAnchor } from '@estrelinha/core/material'
 import { ESTRELINHA_ICONS } from '@estrelinha/ui/icons'
 import { TAP_ROW } from '@/shared/lib/touchTarget'
-import type { AvisoDaFicha, FichaDeMaterial } from '../model/guide'
-import { videoDoMaterial } from '../model/videos'
+import {
+  MaterialAviso,
+  videoDoMaterial,
+  type AvisoDaFicha,
+  type FichaDeMaterial,
+} from '@/entities/material'
 
 /**
  * Uma ficha rica: quantidade, recipientes, os passos ilustrados e os avisos (`5MC-0` / `6AU-0`).
@@ -21,36 +25,13 @@ import { videoDoMaterial } from '../model/videos'
  * vez de apontar para metade delas.
  */
 
-const Aviso = ({ aviso }: { aviso: AvisoDaFicha }) => {
-  const Icone = aviso.icone ? ESTRELINHA_ICONS[aviso.icone] : null
-
-  // `alerta` é erro que estraga o material; `calma` é informação que tranquiliza. A barra à esquerda
-  // separa os dois de relance, antes de a frase ser lida.
-  if (aviso.tom === 'alerta') {
-    return (
-      <p className="flex h-full items-start gap-3 rounded-[2px] border-l-[3px] border-[#9E4A3E] bg-[#F7EDE8] px-5 py-4 text-[14px] font-light leading-6 text-estrelinha-ink md:px-[22px] md:py-5">
-        <span
-          aria-hidden
-          className="mt-px flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full border border-[#9E4A3E] text-[13px] font-bold text-[#9E4A3E]"
-        >
-          !
-        </span>
-        <span>{aviso.texto}</span>
-      </p>
-    )
-  }
-
-  return (
-    <p className="flex h-full items-start gap-3 rounded-md bg-estrelinha-serenity px-5 py-4 text-[14px] font-light leading-6 text-estrelinha-ink md:px-[26px] md:py-[22px]">
-      {Icone ? (
-        <Icone className="mt-0.5 h-[22px] w-[22px] shrink-0 text-estrelinha-primary" aria-hidden />
-      ) : (
-        <Check className="mt-0.5 h-[22px] w-[22px] shrink-0 text-estrelinha-primary" aria-hidden />
-      )}
-      <span>{aviso.texto}</span>
-    </p>
-  )
-}
+/**
+ * O aviso saiu daqui na feature `44` para `entities/material/ui/MaterialAviso` — a gaveta da página
+ * do produto renderiza os MESMOS avisos, e copiar o bloco daria dois donos ao tom `alerta`.
+ */
+const Aviso = ({ aviso }: { aviso: AvisoDaFicha }) => (
+  <MaterialAviso aviso={aviso} surface="pagina" />
+)
 
 interface MaterialFichaProps {
   ficha: FichaDeMaterial

@@ -1,5 +1,5 @@
 import { Play } from 'lucide-react'
-import { VIDEOS_DE_PREPARO, videoCapa } from '../model/videos'
+import { VIDEOS_DE_PREPARO, videoCapa } from '@/entities/material'
 import GuideHeading from './GuideHeading'
 import GuideSection from './GuideSection'
 

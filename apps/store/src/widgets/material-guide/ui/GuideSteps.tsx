@@ -1,5 +1,5 @@
 import { ESTRELINHA_ICONS } from '@estrelinha/ui/icons'
-import { PASSOS_DO_ENVIO } from '../model/guide'
+import { PASSOS_DO_ENVIO } from '@/entities/material'
 import GuideHeading from './GuideHeading'
 import GuideSection from './GuideSection'
 

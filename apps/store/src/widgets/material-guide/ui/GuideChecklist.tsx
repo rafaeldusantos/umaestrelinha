@@ -1,5 +1,5 @@
 import { Check } from 'lucide-react'
-import { CHECKLIST_DO_ENVIO } from '../model/guide'
+import { CHECKLIST_DO_ENVIO } from '@/entities/material'
 import GuideHeading from './GuideHeading'
 import GuideSection from './GuideSection'
 

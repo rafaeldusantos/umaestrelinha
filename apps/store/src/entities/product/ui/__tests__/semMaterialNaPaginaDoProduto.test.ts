@@ -35,8 +35,24 @@ const HERE = dirname(fileURLToPath(import.meta.url))
 /** `apps/store/src` — quatro níveis acima de `entities/product/ui/__tests__`. */
 const SRC = resolve(HERE, '../../../..')
 
-/** Escopo literal: as superfícies que a página do produto monta. */
-const ESCOPO = ['entities/product/ui', 'widgets/product-buy-bar', 'pages/ProductPage.tsx']
+/**
+ * Escopo literal: as superfícies que a página do produto monta.
+ *
+ * **`entities/material/ui` entrou na feature `44`**, e a omissão dele foi achado da verificação
+ * independente: `MaterialSendTrigger` é renderizado por `ProductInfo` e **é** a coluna de informação
+ * da página do produto — um guarda que não o alcança é allowlist com outro nome. Um
+ * `materialKindsOf` ali produziria exatamente o card que a remoção de 2026-09-11 apagou, a um
+ * arquivo de distância da régua.
+ *
+ * `widgets/material-drawer` **não** entra, e é a fronteira que `GAV-08` mede: lá a cliente escolhe o
+ * material, então nomear material é o trabalho do arquivo.
+ */
+const ESCOPO = [
+  'entities/product/ui',
+  'entities/material/ui',
+  'widgets/product-buy-bar',
+  'pages/ProductPage.tsx',
+]
 
 const EXTENSOES = ['.ts', '.tsx']
 
@@ -97,9 +113,23 @@ const producao = varridos.filter(a => !eTeste(a.rel))
  * Cobre o componente apagado, os leitores de `@estrelinha/core/material` que nomeiam material, e a
  * coluna crua. `engravingLimit` e `DEFAULT_ENGRAVING_MAX_CHARS` **não** entram: gravação é outro
  * dado, e o `MAT-03` continua na página.
+ *
+ * **A régua FOI ESTREITADA na feature `44`, e a distinção é a feature inteira** (`GAV-07`):
+ * `requiresMaterial` saiu da lista, as outras sete ficaram. A página do produto voltou a poder dizer
+ * que **existe** material — é o que acende a linha "Como enviar seu material de DNA" — e continua
+ * proibida de dizer **qual**.
+ *
+ * O motivo do guarda não mudou: `material_kinds` diz menos que a descrição (`BL-015`), e anunciar um
+ * material só, na tela onde a compra se decide, é dizer errado num registro memorial. O interruptor
+ * booleano não faz essa afirmação — ele só diz que a conversa vai existir. Quem responde "qual é o
+ * seu material" é a **cliente**, dentro da gaveta, onde a loja não afirma nada.
+ *
+ * O estreitamento é deliberado e tem sensor nos DOIS sentidos: um caso prova que a régua aceita
+ * `requiresMaterial`, e sete provam que ela continua acusando cada uma das formas que nomeiam. Sem o
+ * segundo grupo, um regex que perdesse tudo passaria como "estreitado".
  */
 export const falaDeMaterial = (linha: string): boolean =>
-  /\bMaterialNotice\b|\bmaterial_kinds\b|\bmaterialKindsOf\b|\bmaterialKindLabel\b|\bMATERIAL_KIND_LABELS\b|\bmaterialSummary\b|\brequiresMaterial\b|\bmaterialAnchor\b/.test(
+  /\bMaterialNotice\b|\bmaterial_kinds\b|\bmaterialKindsOf\b|\bmaterialKindLabel\b|\bMATERIAL_KIND_LABELS\b|\bmaterialSummary\b|\bmaterialAnchor\b/.test(
     linha,
   )
 
@@ -128,15 +158,31 @@ describe('página do produto sem material afetivo — âncoras', () => {
     expect(nomes).toContain('pages/ProductPage.tsx')
   })
 
-  it('a régua ACUSA as formas que foram removidas — as duas superfícies', () => {
-    // Sensor: sem isto, um regex quebrado passaria por "nenhuma ocorrência".
+  it('a régua ACUSA as SETE formas que nomeiam material — uma asserção por forma', () => {
+    // Sensor: sem isto, um regex quebrado passaria por "nenhuma ocorrência". Uma asserção por
+    // forma, e não um bloco só, porque a `44` estreitou a régua: uma edição futura que derrubasse
+    // mais uma delas por engano tem de dizer QUAL caiu.
     expect(falaDeMaterial('      <MaterialNotice product={product} />')).toBe(true)
-    expect(
-      falaDeMaterial('        {exige && <MaterialNotice product={product} variant="bar" />}'),
-    ).toBe(true)
-    expect(falaDeMaterial('  const kinds = materialKindsOf(product)')).toBe(true)
-    expect(falaDeMaterial('  const exige = requiresMaterial(product)')).toBe(true)
     expect(falaDeMaterial('  {product.material_kinds.map(k => k)}')).toBe(true)
+    expect(falaDeMaterial('  const kinds = materialKindsOf(product)')).toBe(true)
+    expect(falaDeMaterial('  <span>{materialKindLabel(kind)}</span>')).toBe(true)
+    expect(falaDeMaterial("  import { MATERIAL_KIND_LABELS } from '@estrelinha/core/material'")).toBe(
+      true,
+    )
+    expect(falaDeMaterial('  const resumo = materialSummary(product)')).toBe(true)
+    expect(falaDeMaterial('  href={`#${materialAnchor(kind)}`}')).toBe(true)
+  })
+
+  it('a régua NÃO acusa mais o INTERRUPTOR — o estreitamento da feature 44', () => {
+    // `GAV-07`. O par do sensor acima, e a razão de a feature 44 poder existir: a página voltou a
+    // poder dizer que EXISTE material, e continua proibida de dizer QUAL.
+    expect(falaDeMaterial('  const exige = requiresMaterial(product)')).toBe(false)
+    expect(falaDeMaterial('  if (!requiresMaterial(product)) return null')).toBe(false)
+    expect(falaDeMaterial("  import { requiresMaterial } from '@estrelinha/core/material'")).toBe(
+      false,
+    )
+    // E a coluna crua do interruptor também é lícita — é `material_kinds` que mente, não ela.
+    expect(falaDeMaterial('  product.requires_material === true')).toBe(false)
   })
 
   it('a régua NÃO acusa a gravação, que continua na página', () => {
@@ -154,6 +200,32 @@ describe('página do produto sem material afetivo — âncoras', () => {
 describe('página do produto sem material afetivo', () => {
   it('nenhuma superfície da página do produto lê material afetivo', () => {
     expect(ocorrencias()).toEqual([])
+  })
+
+  it('a GAVETA nomeia material, e está FORA do escopo — a fronteira é real', () => {
+    // `GAV-08`. Um guarda cujo escopo não alcança nada que a régua acusaria estaria provando o
+    // óbvio, e ninguém perceberia: ele passaria igual se a régua tivesse quebrado.
+    //
+    // A prova tem de ser a GAVETA, e não outro arquivo qualquer: é ela que a AC nomeia, e é ela
+    // que a feature `44` pôs do outro lado da fronteira. A primeira escrita deste caso media
+    // `guide.ts` — verdadeiro, mas ao lado do ponto, e foi achado da verificação independente.
+    const corpoDaGaveta = readFileSync(
+      join(SRC, 'widgets/material-drawer/ui/MaterialDrawerBody.tsx'),
+      'utf8',
+    )
+    expect(semComentarios(corpoDaGaveta).some(falaDeMaterial)).toBe(true)
+
+    // E ela não é varrida por este guarda — nem pelo escopo escrito, nem pelo que foi varrido.
+    expect(ESCOPO.some(alvo => alvo.includes('material-drawer'))).toBe(false)
+    expect(producao.some(a => a.rel.startsWith('widgets/material-drawer/'))).toBe(false)
+  })
+
+  it('o escopo ALCANÇA `entities/material/ui` — ela é a coluna de informação agora', () => {
+    // Achado da verificação independente: `MaterialSendTrigger` é renderizado por `ProductInfo`,
+    // logo é superfície da página do produto. Sem esta asserção, o guarda voltaria a ter alcance
+    // menor que a regra na primeira vez que alguém reorganizasse o escopo.
+    expect(ESCOPO).toContain('entities/material/ui')
+    expect(producao.map(a => a.rel)).toContain('entities/material/ui/MaterialSendTrigger.tsx')
   })
 
   it('`MaterialNotice.tsx` não existe mais', () => {

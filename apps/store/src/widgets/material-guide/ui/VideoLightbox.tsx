@@ -6,7 +6,7 @@ import {
   DialogTitle,
 } from '@estrelinha/ui/dialog'
 import { TAP_ROW } from '@/shared/lib/touchTarget'
-import { videoEmbed, videoUrl, type VideoDePreparo } from '../model/videos'
+import { videoEmbed, videoUrl, type VideoDePreparo } from '@/entities/material'
 
 /**
  * O vídeo em tela cheia.

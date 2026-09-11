@@ -10,6 +10,7 @@ import {
 } from '@estrelinha/core/hooks/useStoreSettings'
 import type { Product } from '@estrelinha/supabase/types'
 import { useWishlistStore } from '@/entities/wishlist/model/wishlistStore'
+import { MaterialSendTrigger } from '@/entities/material'
 import ShareButtons from '@/features/share-product/ui/ShareButtons'
 import ShippingCalc from '@/features/shipping-calc/ui/ShippingCalc'
 import { PAGE_MAX_AXES } from '../lib/variantSelection'
@@ -171,6 +172,15 @@ const ProductInfo = ({ product, categoryName, purchase }: Props) => {
         <span className={`font-medium ${STOCK_TONE[stock.tone].text}`}>{stock.label}</span>
         {stock.note && <span className="text-[12px] text-estrelinha-ink-soft">{stock.note}</span>}
       </p>
+
+      {/* GAV-01 — o caminho para "como eu mando isso?", depois do estoque e antes do carrinho.
+          A escada da coluna é "o que é → quanto custa → qual → tem? → como envio → levar": a
+          dúvida do envio nasce quando a compra já está quase decidida, e mandá-la para outra
+          página nesse ponto é perder a compra.
+
+          A linha diz que EXISTE material e nunca diz QUAL — quem responde isso é a cliente, dentro
+          da gaveta. Ver `MaterialSendTrigger` e `semMaterialNaPaginaDoProduto.test.ts`. */}
+      <MaterialSendTrigger product={product} />
 
       {/* O CTA da coluna é escondido no mobile: lá quem compra é a barra fixa do rodapé, e dois
           "Adicionar ao carrinho" na mesma tela é duas ações primárias (DESIGN.md §8). */}
