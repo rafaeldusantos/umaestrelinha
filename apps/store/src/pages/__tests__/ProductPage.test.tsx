@@ -36,6 +36,19 @@ vi.mock('@/entities/product/api/useProductFaqs', () => ({
 vi.mock('@/entities/category/api/useCategories', () => ({ useCategories: () => ({ data: [] }) }))
 vi.mock('@/entities/product/ui/ProductGallery', () => ({ default: () => <div>galeria</div> }))
 vi.mock('@/entities/product/ui/ProductInfo', () => ({ default: () => <div>info</div> }))
+// A barra de compra passou a ler o desconto do Pix, e `usePaymentSettings` é um `useQuery` como os
+// de cima — mesmo dublê, mesmo motivo. É `importOriginal` e não um objeto inteiro de propósito: o
+// módulo exporta uma dúzia de hooks, e substituir todos deixaria a próxima leitura nova deste
+// subgrafo quebrando por `undefined is not a function` em vez de dizer o que faltou.
+vi.mock('@estrelinha/core/hooks/useStoreSettings', async (importOriginal) => ({
+  ...((await importOriginal()) as object),
+  usePaymentSettings: () => ({
+    max_installments: 6,
+    min_installment_value: 10,
+    pix_enabled: true,
+    pix_discount_percent: 5,
+  }),
+}))
 vi.mock('@/features/shipping-calc/ui/ShippingCalc', () => ({ default: () => null }))
 vi.mock('@/widgets/related-products/ui/RelatedProducts', () => ({ default: () => null }))
 
@@ -237,7 +250,7 @@ describe('ProductPage — sem as avaliações de demonstração (PIN-07)', () =>
 })
 
 /**
- * As duas grades da página **encolhem** no mobile.
+ * A grade de topo (galeria + informação) **encolhe** no mobile.
  *
  * Sem `minmax(0, …)` a coluna implícita é `auto`, cujo mínimo automático é o min-content do item — e
  * o item é a galeria, cuja fita de miniaturas soma a largura de todas as fotos. Medido em navegador
@@ -248,18 +261,23 @@ describe('ProductPage — sem as avaliações de demonstração (PIN-07)', () =>
  * navegador — jsdom devolve 0 para tudo. O que dá para travar em unidade é a classe que produz o
  * comportamento; a prova de que ela chega à tela é a auditoria em 390×844 registrada no
  * `validation.md` da feature 27. Mesmo arranjo do `touchTarget.test.ts`, e pelo mesmo motivo.
+ *
+ * **A faixa do acordeão deixou de ser grade** (2026-09-11): dividia espaço com `ShippingCalc`, que
+ * mudou de casa para dentro da coluna de informação, no lugar da antiga `ProductTrustBadges`. Sem um
+ * segundo item ao lado, o acordeão é bloco normal — e bloco normal não tem o hazard do grid (coluna
+ * implícita `auto` medindo o min-content do item), então não precisa do mesmo `minmax(0, …)`.
  */
-describe('ProductPage — as grades encolhem no mobile (sem scroll horizontal)', () => {
+describe('ProductPage — a grade de topo encolhe no mobile (sem scroll horizontal)', () => {
   beforeEach(() => {
     useProductMock.mockReturnValue({ data: product('botton-sailor-moon'), isFetching: false })
   })
 
-  it('as duas grades declaram `minmax(0,1fr)` já no mobile, e não só a partir de `md`', () => {
+  it('a grade declara `minmax(0,1fr)` já no mobile, e não só a partir de `md`', () => {
     const { container } = renderAt('/produtos/botton-sailor-moon')
     const grades = Array.from(container.querySelectorAll('div.grid'))
 
     // Âncora: sem ela um seletor errado varre zero grade e o teste passa em silêncio.
-    expect(grades.length).toBeGreaterThanOrEqual(2)
+    expect(grades.length).toBeGreaterThanOrEqual(1)
 
     for (const grade of grades) {
       expect(grade.className).toContain('grid-cols-[minmax(0,1fr)]')

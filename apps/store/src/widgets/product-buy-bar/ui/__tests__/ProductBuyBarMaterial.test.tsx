@@ -15,9 +15,23 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Product, ProductVariant } from '@estrelinha/supabase/types'
 import { useCartStore } from '@/entities/cart/model/cartStore'
 import { useProductPurchase } from '@/entities/product/model/useProductPurchase'
+import { BUY_BAR_H } from '@/shared/lib/storeChrome'
 import ProductBuyBar from '../ProductBuyBar'
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), custom: vi.fn() } }))
+// A barra passou a ler o desconto do Pix (o mesmo que a coluna já mostrava), e `usePaymentSettings`
+// é um `useQuery` — sem mock, a montagem morre por falta de `QueryClientProvider` antes da primeira
+// asserção. Mesmo formato do mock de `ProductBuyBar.test.tsx`.
+vi.mock('@estrelinha/core/hooks/useStoreSettings', () => ({
+  useGeneralSettings: () => ({ whatsapp: '', store_name: 'Uma Estrelinha' }),
+  usePaymentSettings: () => ({
+    max_installments: 6,
+    min_installment_value: 10,
+    pix_enabled: true,
+    pix_discount_percent: 5,
+  }),
+  useShippingSettings: () => ({ free_shipping_enabled: true, free_shipping_threshold: 150 }),
+}))
 
 const comEixoDeGravacao = (over: Partial<Product> = {}): Product =>
   ({
@@ -93,9 +107,11 @@ describe('ProductBuyBar — gravação, e a ausência do material (MAT-03)', () 
     expect(screen.queryByText(/você envia/i)).not.toBeInTheDocument()
   })
 
-  it('a altura da barra continua sendo a do rodapé — exija material ou não', () => {
-    // É isso que deixa a reserva de espaço do `StoreLayout` ser incondicional: ela não sabe qual
-    // barra está montada. Crescer aqui esconderia a última faixa do rodapé.
+  it('a altura da barra é a que o StoreLayout reserva — exija material ou não', () => {
+    // A reserva do fim do documento é a da ROTA (`bottomBarReserve`), e o valor dela sai daqui.
+    // Crescer por conteúdo esconderia a última faixa do rodapé atrás da barra — e a régua lê
+    // `BUY_BAR_H` do módulo em vez de repetir o número, porque duas cópias da medida é como uma
+    // delas fica para trás.
     const semMaterial = montarBarra(comEixoDeGravacao({ requires_material: false }))
     const alturaSem = semMaterial.container.querySelector<HTMLElement>('[style*="height"]')?.style.height
     semMaterial.unmount()
@@ -105,7 +121,7 @@ describe('ProductBuyBar — gravação, e a ausência do material (MAT-03)', () 
     )
     const alturaCom = comMaterial.container.querySelector<HTMLElement>('[style*="height"]')?.style.height
 
-    expect(alturaSem).toBe('4rem')
+    expect(alturaSem).toBe(BUY_BAR_H)
     expect(alturaCom).toBe(alturaSem)
   })
 })

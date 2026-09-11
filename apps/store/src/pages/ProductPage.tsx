@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { TAP_ROW } from '@/shared/lib/touchTarget'
 import { useParams, Link, Navigate, useLocation, useSearchParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
@@ -19,16 +19,16 @@ import ProductGallery from '@/entities/product/ui/ProductGallery'
 import ProductInfo from '@/entities/product/ui/ProductInfo'
 import ProductDetailsAccordion from '@/entities/product/ui/ProductDetailsAccordion'
 import { useWishlistStore } from '@/entities/wishlist/model/wishlistStore'
-import ShippingCalc from '@/features/shipping-calc/ui/ShippingCalc'
 import RelatedProducts from '@/widgets/related-products/ui/RelatedProducts'
 import { ProductBuyBar } from '@/widgets/product-buy-bar'
 
 /**
  * Página do produto — boards "Desktop Product Detail - v3" e "Mobile Product Detail - v3".
  *
- * Desktop: galeria e informação lado a lado, depois uma faixa com o cálculo de frete à esquerda e o
- * acordeão à direita, e então avaliações e relacionados. Mobile: tudo empilhado na ordem do board,
- * com o **CTA na barra fixa** do rodapé — a coluna de informação esconde o dela abaixo de `md`.
+ * Desktop: galeria e informação lado a lado — o cálculo de frete mora dentro da coluna de
+ * informação, no lugar em que o board desenhava os selos de garantia —, depois o acordeão de
+ * detalhes e então avaliações e relacionados. Mobile: tudo empilhado na ordem do board, com o
+ * **CTA na barra fixa** do rodapé — a coluna de informação esconde o dela abaixo de `md`.
  *
  * O estado de compra é montado aqui, uma vez, e desce para as duas superfícies (`ProductInfo` e
  * `ProductBuyBar`): duas cópias dariam duas quantidades e dois preços na mesma tela.
@@ -143,6 +143,15 @@ const ProductPageBody = ({
     findVariantByPublicId(product, searchParams.get('variant')),
   )
 
+  /**
+   * A âncora que revela a barra de compra do celular.
+   *
+   * Mora aqui, e não dentro da galeria nem da barra: as duas são irmãs, e ligar uma à outra por
+   * dentro seria import lateral entre camadas. É o mesmo arranjo do `variantImage` — o pai comum
+   * guarda o que as duas precisam dividir.
+   */
+  const fotoPrincipal = useRef<HTMLDivElement>(null)
+
   const purchase = useProductPurchase(
     product,
     v => onVariantImage(v?.image_url ?? null),
@@ -181,16 +190,22 @@ const ProductPageBody = ({
         className="flex flex-wrap items-center gap-1 py-4 text-[13px] text-estrelinha-ink-soft md:py-5"
       >
         <Link to="/" className={`${TAP_ROW} transition-colors hover:text-estrelinha-ink`}>Início</Link>
-        <ChevronRight className="h-3 w-3 shrink-0" aria-hidden />
         {category && (
           <>
+            <ChevronRight className="h-3 w-3 shrink-0" aria-hidden />
             <Link to={categoryHref(categories, category.id)} className={`${TAP_ROW} transition-colors hover:text-estrelinha-ink`}>
               {category.name}
             </Link>
-            <ChevronRight className="h-3 w-3 shrink-0" aria-hidden />
           </>
         )}
-        <span className="font-medium text-estrelinha-ink">{product.name}</span>
+        {/* No mobile o nome do produto some do rastro: a página já mostra o nome como <h1> logo
+            abaixo, e a trilha existe para navegar para cima, não para repetir o título. A partir de
+            `md` ele volta, junto com o chevron que o precede — os dois escondidos como par, senão
+            sobraria uma seta apontando para nada. */}
+        <span className="hidden items-center gap-1 md:flex">
+          <ChevronRight className="h-3 w-3 shrink-0" aria-hidden />
+          <span className="font-medium text-estrelinha-ink">{product.name}</span>
+        </span>
       </nav>
 
       {/*
@@ -209,6 +224,11 @@ const ProductPageBody = ({
       */}
       <div className="grid grid-cols-[minmax(0,1fr)] gap-6 md:grid-cols-[minmax(0,600px)_minmax(0,1fr)] md:items-start md:gap-8">
         <motion.div
+          /* A âncora da barra de compra: ela entra quando ESTE bloco sai por cima da tela. A
+             referência é o invólucro da galeria e não a `<img>` de dentro, porque quem conhece o
+             recorte da foto é a `ProductGallery` — apontar para um filho dela seria a página
+             dependendo da estrutura interna de um componente de outra camada. */
+          ref={fotoPrincipal}
           initial={{ opacity: 0, scale: 0.98 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.3 }}
@@ -248,10 +268,7 @@ const ProductPageBody = ({
         </motion.div>
       </div>
 
-      {/* Mesma trilha da grade de cima, pelo mesmo motivo: aqui mora a descrição, que é HTML de
-          origem externa e pode trazer um `<li>` longo sem espaço. */}
-      <div className="grid grid-cols-[minmax(0,1fr)] gap-6 pt-8 md:grid-cols-[minmax(0,600px)_minmax(0,1fr)] md:items-start md:gap-8 md:pt-10">
-        <ShippingCalc product={product} />
+      <div className="pt-8 md:pt-10">
         <ProductDetailsAccordion product={product} faqs={faqs ?? []} />
       </div>
 
@@ -259,7 +276,7 @@ const ProductPageBody = ({
 
       {/* A folga do rodapé fixo é do `StoreLayout`, depois do `Footer` — que é o fim real do
           documento. Um espaçador aqui reservaria espaço antes do rodapé, não depois dele. */}
-      <ProductBuyBar product={product} purchase={purchase} />
+      <ProductBuyBar product={product} purchase={purchase} revealAfter={fotoPrincipal} />
     </div>
   )
 }

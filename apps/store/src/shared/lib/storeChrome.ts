@@ -17,8 +17,24 @@ import { productPath } from '@estrelinha/core/routes'
  */
 export const BOTTOM_BAR_H = '4rem'
 
-/** A reserva de fim de documento, já com a área segura do iPhone. */
-export const BOTTOM_BAR_RESERVE = `calc(${BOTTOM_BAR_H} + env(safe-area-inset-bottom))`
+/**
+ * A altura da barra de COMPRA da página do produto.
+ *
+ * Ela é maior que a das abas desde a feature 42, e isso desfez a igualdade que deixava a reserva do
+ * `StoreLayout` ser incondicional. **Não é um segundo dono**: quem responde "qual barra está nesta
+ * rota?" continua sendo `ownsBottomBar`, e as duas consequências da resposta — qual barra monta e
+ * quanto o documento reserva — passam a sair da MESMA porta (`bottomBarReserve`, abaixo). Duas
+ * cópias da regra é como o rodapé fica atrás da barra em metade das rotas.
+ *
+ * São 88px, contra os 64 de antes: a barra tem duas faixas — preço (com o valor no Pix) e ação. A
+ * de uma faixa só não cabia. Em 390px, `Adicionar ao carrinho` disputava largura com o preço e o
+ * favoritar, e como o botão é `grow` com `whitespace-nowrap` e **sem `min-w-0`**, ele não encolhia
+ * abaixo do próprio texto: a fileira estourava ~18px e o coração saía da tela. É a lição do
+ * `minmax(0, …)` do `CLAUDE.md`, na versão flex.
+ *
+ * Continua **muito** abaixo dos 133px que a regra de uma-barra-por-vez existe para impedir.
+ */
+export const BUY_BAR_H = '5.5rem'
 
 /**
  * O prefixo da página de produto, derivado do **mesmo construtor** que monta os links
@@ -42,3 +58,18 @@ const PRODUCT_PREFIX = productPath('')
  * `/checkout` não entra na lista porque nem chega aqui: mora fora do `StoreLayout`.
  */
 export const ownsBottomBar = (pathname: string): boolean => pathname.startsWith(PRODUCT_PREFIX)
+
+/**
+ * A altura da barra que ESTA rota monta.
+ *
+ * Deriva de `ownsBottomBar` de propósito: a pergunta é uma só, e responder duas vezes — uma para
+ * escolher a barra, outra para dimensionar a reserva — é o "defeito 01" aplicado ao rodapé. Com as
+ * duas leituras divergindo, a página do produto reservaria 64px para uma barra de 88 e a última
+ * faixa do rodapé ficaria atrás dela, exatamente o defeito que a reserva veio consertar.
+ */
+export const bottomBarHeight = (pathname: string): string =>
+  ownsBottomBar(pathname) ? BUY_BAR_H : BOTTOM_BAR_H
+
+/** A reserva de fim de documento desta rota, já com a área segura do iPhone. */
+export const bottomBarReserve = (pathname: string): string =>
+  `calc(${bottomBarHeight(pathname)} + env(safe-area-inset-bottom))`

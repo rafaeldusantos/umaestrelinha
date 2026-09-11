@@ -3,13 +3,16 @@ import { Truck, Loader2 } from 'lucide-react'
 import { formatPrice } from '@estrelinha/core/formatters'
 import { formatEstimate, quoteToEstimate } from '@estrelinha/core/shipping'
 import { useShippingSettings } from '@estrelinha/core/hooks/useStoreSettings'
+import { maskCep, stripCep } from '@estrelinha/core/validators'
 import { supabase } from '@estrelinha/supabase/client'
 import type { Product, ShippingQuote } from '@estrelinha/supabase/types'
 import { toQuotePayload } from '@/entities/cart'
 
 /**
- * Cálculo de frete da página do produto — boards de Produto (card de pó de açúcar à esquerda do
- * acordeão no desktop, bloco de largura cheia no mobile).
+ * Cálculo de frete da página do produto, na coluna de informação (`ProductInfo`) — no lugar em
+ * que o board original desenhava a faixa de selos "Compra segura / Troca em 7 dias / Pix com
+ * desconto" (`ProductTrustBadges`, apagado). A troca é decisão do usuário: o que a cliente decide
+ * antes de comprar é quanto custa chegar até ela, não um selo genérico de confiança.
  *
  * O "Calcular" é contorno, não geleia chapada: numa tela onde o CTA de compra é a única ação
  * primária (DESIGN.md §8), um segundo botão sólido na mesma cor disputaria o clique.
@@ -33,7 +36,7 @@ const ShippingCalc = ({ product }: { product: Product }) => {
   const today = useMemo(() => new Date(), [])
 
   const handleCalc = async () => {
-    const cleanCep = cep.replace(/\D/g, '')
+    const cleanCep = stripCep(cep)
     if (cleanCep.length !== 8) {
       setError('CEP inválido')
       return
@@ -86,13 +89,16 @@ const ShippingCalc = ({ product }: { product: Product }) => {
       >
         <input
           value={cep}
-          onChange={e => setCep(e.target.value.replace(/\D/g, '').slice(0, 8))}
+          onChange={e => setCep(maskCep(e.target.value))}
           placeholder="00000-000"
           inputMode="numeric"
           aria-label="CEP"
           aria-invalid={Boolean(error)}
-          /* Papelão, não Dobra — borda de campo precisa dos 3:1 da WCAG 1.4.11. */
-          className="h-11 grow rounded-md border border-estrelinha-field bg-white px-3.5 text-[13px] text-estrelinha-ink placeholder:text-estrelinha-ink-soft focus:border-estrelinha-primary focus:outline-none"
+          /* `min-w-0` é o que permite o campo encolher abaixo de 360px: sem ele, o mínimo
+             automático de um item flex é o seu min-content (o mesmo hazard do grid, documentado
+             no CLAUDE.md), e o botão "Calcular" — que não encolhe — estourava para fora do box.
+             Papelão, não Dobra — borda de campo precisa dos 3:1 da WCAG 1.4.11. */
+          className="h-11 min-w-0 grow rounded-md border border-estrelinha-field bg-white px-3.5 text-[13px] text-estrelinha-ink placeholder:text-estrelinha-ink-soft focus:border-estrelinha-primary focus:outline-none"
         />
         <button
           type="submit"

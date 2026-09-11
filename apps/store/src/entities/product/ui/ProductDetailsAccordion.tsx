@@ -13,16 +13,17 @@ import ProductDescription from './ProductDescription'
 import ProductFaq from './ProductFaq'
 
 /**
- * "Detalhes do Produto / Cuidados / Trocas / Perguntas Frequentes" — boards de Produto.
+ * "Detalhes do Produto / Cuidados / Perguntas Frequentes" — boards de Produto.
  *
- * Quatro seções, a primeira aberta: é a única que traz dado do cadastro, e deixar tudo fechado
+ * Três seções, a primeira aberta: é a única que traz dado do cadastro, e deixar tudo fechado
  * esconderia a ficha técnica atrás de um clique que quase toda visita dá.
  *
  * A primeira traz a **descrição completa** e, abaixo dela, os bullets de `productSpecs` (as medidas
  * do produto, quando existem). A descrição chegou aqui na feature 27: ela vivia entre o preço e o
  * seletor de variação, e com mediana de 2.271 caracteres empurrava o CTA para fora da primeira tela.
- * As outras três seções são política da loja, iguais para todo o catálogo — texto mesmo, não
- * cadastro.
+ * "Cuidados" é política da loja, igual para todo o catálogo — texto mesmo, não cadastro.
+ * "Política de Trocas" saiu do acordeão (2026-09-11): a informação segue na `PoliciesPage`, e este
+ * componente não precisa repeti-la.
  *
  * Desde a `PIN-05` a seção pode vir **vazia** (produto sem medida cadastrada): aí ela não é montada,
  * e a que abre é "Cuidados". Uma seção aberta e vazia seria pior que ausente. A `PDP-10` mantém a
@@ -73,7 +74,10 @@ const ProductDetailsAccordion = ({
     </AccordionItem>
     )}
 
-    <AccordionItem value="cuidados" className="border-estrelinha-line">
+    {/* A última seção visível não leva risco embaixo. Com o FAQ agora condicional, quem é a última
+        deixou de ser fixo — sem isto, o produto sem pergunta ganharia um risco solto no rodapé do
+        acordeão. Desde que "Política de Trocas" saiu, "Cuidados" é quem herda essa borda condicional. */}
+    <AccordionItem value="cuidados" className={faqs.length > 0 ? 'border-estrelinha-line' : 'border-b-0'}>
       <AccordionTrigger className="py-3.5 font-body text-[15px] font-bold leading-[18px] text-estrelinha-ink hover:no-underline">
         Cuidados e Conservação
       </AccordionTrigger>
@@ -87,22 +91,6 @@ const ProductDetailsAccordion = ({
           <li>• Perfume, hidratante e cloro por último: espere secar antes de colocar a joia.</li>
           <li>• Guarde separada de outras peças, longe de umidade e de sol direto.</li>
           <li>• Prata escurece com o tempo — é natural, e volta com flanela própria para prata.</li>
-        </ul>
-      </AccordionContent>
-    </AccordionItem>
-
-    {/* A última seção visível não leva risco embaixo. Com o FAQ agora condicional, quem é a última
-        deixou de ser fixo — sem isto, o produto sem pergunta ganharia um risco solto no rodapé do
-        acordeão. */}
-    <AccordionItem value="trocas" className={faqs.length > 0 ? 'border-estrelinha-line' : 'border-b-0'}>
-      <AccordionTrigger className="py-3.5 font-body text-[15px] font-bold leading-[18px] text-estrelinha-ink hover:no-underline">
-        Política de Trocas
-      </AccordionTrigger>
-      <AccordionContent className="pb-4">
-        <ul className="flex flex-col gap-1.5 text-[13px] leading-[20px] text-estrelinha-ink-soft">
-          <li>• Você tem 7 dias corridos após o recebimento para desistir da compra.</li>
-          <li>• Produto com defeito é trocado ou devolvido sem custo de frete.</li>
-          <li>• Basta falar com a gente pelo WhatsApp ou pelo e-mail de contato.</li>
         </ul>
       </AccordionContent>
     </AccordionItem>

@@ -10,8 +10,7 @@ import { AtendimentoIcon, EnvioIcon, ParcelasIcon, PixIcon } from '@estrelinha/u
  * grátis acima de R$150", "Pix com 5% OFF", "Parcele em 12×". Três delas já não batiam com as
  * settings (o teto de parcelas é `max_installments`, hoje 6), e a faixa era o primeiro lugar da
  * home onde a loja prometia número — o pior lugar possível para um número congelado. Aqui todo
- * valor sai da MESMA fonte que o caixa cobra, como já fazia a `ProductTrustBadges` da página do
- * produto.
+ * valor sai da MESMA fonte que o caixa cobra.
  *
  * Quatro colunas com divisória no desktop, duas no celular: a 390px, quatro colunas dariam ~86px e
  * o rótulo quebraria em três linhas.

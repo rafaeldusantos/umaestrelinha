@@ -369,7 +369,7 @@ quando mudarem de verdade.
 
 | Medida | Baseline | Como medir |
 | --- | --- | --- |
-| **Lint** | **27 erros / 5 warnings** — backoffice 25/4 · store 2/1 | `pnpm lint` |
+| **Lint** | **27 erros / 6 warnings** — backoffice 25/4 · store 2/2 | `pnpm lint` |
 | **Tipos** | **0 · 0 · 0** (store · backoffice · catalog-import) | `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` |
 | **Testes** | **7359 em 388 arquivos** — store **2664/169** · backoffice **2002/119** · core **1811/70** · functions 370/7 · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test` |
 
@@ -849,8 +849,10 @@ completo (framework, `installCommand` na raiz do monorepo, headers de cache e de
     congelada em `order_items` pelo checkout e continua sendo lida pela confirmação e pela fila do
     painel — a dívida de curadoria **não** foi fechada, só deixou de ser anunciada à cliente. Guardas:
     `semMaterialNaPaginaDoProduto.test.ts` (loja) e `MaterialCard.test.tsx` (painel).
-- **Fronteiras FSD em `warn`**: 1 violação conhecida no store (`entities/product/ProductInfo` importa
-  `features/share-product`). Corrigir extraindo a interação para uma feature.
+- **Fronteiras FSD em `warn`**: 2 violações conhecidas no store, as duas em
+  `entities/product/ProductInfo` — importa `features/share-product` e, desde 2026-09-11,
+  `features/shipping-calc` (a caixa de frete que substituiu `ProductTrustBadges` na coluna de
+  informação). Corrigir extraindo a interação para uma feature.
 - **Imports profundos** (pré-barrel) em muitos lugares. Migrar para os barrels de slice
   incrementalmente.
 - **O `seed.sql` não tem mais catálogo.** Depois de `supabase db reset` a loja fica **sem produto e

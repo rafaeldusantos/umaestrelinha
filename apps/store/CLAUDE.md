@@ -664,10 +664,14 @@ ninguém é avisado.
   `packages/core/src/payment/**` nem de `supabase/functions/**` foi tocada por esta feature.** Com o
   interruptor desligado e um cupom aplicado, o frete é zero e nenhuma copy de faixa aparece.
 - **O que some quando desliga**: a segunda linha do item de envio da `TrustBar` vira `para todo o
-  Brasil` (o item **não** some — enviar para o Brasil é verdade dos dois jeitos), o selo da
-  `ProductTrustBadges`, o parágrafo da `PoliciesPage`, o item do `AuthOverlay`, a faixa de progresso
-  **e a `CrossSell`** da gaveta, e a faixa do `OrderSummary` com o sufixo ` · frete grátis` da barra
-  mobile.
+  Brasil` (o item **não** some — enviar para o Brasil é verdade dos dois jeitos), o parágrafo da
+  `PoliciesPage`, o item do `AuthOverlay`, a faixa de progresso **e a `CrossSell`** da gaveta, e a
+  faixa do `OrderSummary` com o sufixo ` · frete grátis` da barra mobile.
+  - **`ProductTrustBadges` foi APAGADO** (2026-09-11, decisão do usuário): a faixa de selos "Compra
+    segura / Troca em 7 dias / Pix com desconto" da página do produto deu lugar ao cálculo de frete
+    (`ShippingCalc`, `features/shipping-calc`), que passou a morar na coluna de informação
+    (`ProductInfo`) em vez da faixa de largura cheia abaixo da galeria. A página do produto não
+    anuncia mais frete grátis em selo nenhum.
 - **`freeShippingProgress` e `FreeShippingBar` foram APAGADOS.** A primeira era a regra escrita uma
   segunda vez, com o caso de borda invertido; o segundo era um componente **sem consumidor nenhum**
   que dividia por `threshold` sem guarda. Os dois nomes são recusados pelo guarda.

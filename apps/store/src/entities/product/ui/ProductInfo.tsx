@@ -11,10 +11,10 @@ import {
 import type { Product } from '@estrelinha/supabase/types'
 import { useWishlistStore } from '@/entities/wishlist/model/wishlistStore'
 import ShareButtons from '@/features/share-product/ui/ShareButtons'
+import ShippingCalc from '@/features/shipping-calc/ui/ShippingCalc'
 import { PAGE_MAX_AXES } from '../lib/variantSelection'
 import type { ProductPurchase } from '../model/useProductPurchase'
 import EngravingField from './EngravingField'
-import ProductTrustBadges from './ProductTrustBadges'
 import VariantPicker from './VariantPicker'
 import { PixIcon } from '@estrelinha/ui/icons'
 
@@ -42,7 +42,8 @@ const STOCK_TONE = {
  *
  * A ordem é a do board e é uma escada de decisão: **o que é** (selos, nome) → **quanto custa**
  * (preço, economia, parcela) → **qual** (acabamento, tamanho) → **tem?** (estoque) → **levar**
- * (quantidade + CTA). O que não decide compra — compartilhar e garantias — vem depois do CTA.
+ * (quantidade + CTA). O que não decide compra — compartilhar e o cálculo de frete — vem depois do
+ * CTA.
  *
  * Não guarda estado de compra: quem guarda é `useProductPurchase`, na página, porque a mesma escolha
  * alimenta a barra fixa do rodapé mobile.
@@ -232,7 +233,7 @@ const ProductInfo = ({ product, categoryName, purchase }: Props) => {
       </div>
 
       <div className="mt-5">
-        <ProductTrustBadges />
+        <ShippingCalc product={product} />
       </div>
 
       {hasWhatsApp && (

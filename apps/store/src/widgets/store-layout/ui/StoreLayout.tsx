@@ -4,7 +4,7 @@ import { useCartUiStore } from '@/entities/cart/model/cartUiStore'
 import { useMenuUiStore } from '@/entities/category/model/menuUiStore'
 import { useAuthUiStore } from '@/features/auth/model/authUiStore'
 import { useSearchUiStore } from '@/features/search/model/searchUiStore'
-import { BOTTOM_BAR_RESERVE, ownsBottomBar } from '@/shared/lib/storeChrome'
+import { bottomBarReserve, ownsBottomBar } from '@/shared/lib/storeChrome'
 import RouteFallback from '@/shared/ui/RouteFallback'
 import Header from '@/widgets/header/ui/Header'
 import Footer from '@/widgets/footer/ui/Footer'
@@ -46,7 +46,8 @@ const StoreLayout = () => {
   // Uma barra de rodapé por vez: onde a página traz a própria (a de compra, na página do produto),
   // as abas saem de cena em vez de empilhar. Empilhadas somavam 133px de rodapé — com o header, 30%
   // de um iPhone SE. É a mesma decisão que já tirou o checkout deste layout (ver `App.tsx`).
-  const pageOwnsBar = ownsBottomBar(useLocation().pathname)
+  const pathname = useLocation().pathname
+  const pageOwnsBar = ownsBottomBar(pathname)
 
   const mostrarCarrinho = useAbertoAlgumaVez(useCartUiStore(s => s.open))
   const mostrarBusca = useAbertoAlgumaVez(useSearchUiStore(s => s.open))
@@ -68,15 +69,17 @@ const StoreLayout = () => {
       {/* A reserva da barra fixa mora AQUI, depois do `Footer`, porque é ele o fim do documento.
           Era um `pb` no `main`, o que reservava espaço no lugar errado: ao rolar até o fim de
           verdade, a barra cobria a última faixa do rodapé, e o `pb-8` dele não dava conta de 64px.
-          Como as duas barras têm a MESMA altura (`BOTTOM_BAR_H`), a reserva é incondicional — há
-          sempre exatamente uma barra ali, muda só qual. */}
+          As duas barras NÃO têm mais a mesma altura — a de compra ganhou uma segunda faixa na
+          feature 42 —, então a reserva passou a ser da ROTA. Ela sai de `bottomBarReserve`, que
+          deriva do mesmo `ownsBottomBar` que escolhe a barra logo abaixo: uma pergunta, duas
+          consequências, um dono. Medir aqui por conta própria seria a segunda cópia da regra. */}
       {/* `style`, e não uma classe `h-[calc(...)]`: a altura vem de uma constante, e o JIT do
           Tailwind só varre classe literal — interpolada, a regra não seria gerada. */}
       <div
         aria-hidden
         data-testid="bottom-bar-reserve"
         className="shrink-0 md:hidden"
-        style={{ height: BOTTOM_BAR_RESERVE }}
+        style={{ height: bottomBarReserve(pathname) }}
       />
       {!pageOwnsBar && <MobileNav />}
       <WhatsAppFloat />

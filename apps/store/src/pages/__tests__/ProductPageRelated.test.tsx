@@ -29,6 +29,19 @@ vi.mock('@/entities/category/api/useCategories', () => ({
 }))
 vi.mock('@/entities/product/ui/ProductGallery', () => ({ default: () => <div>galeria</div> }))
 vi.mock('@/entities/product/ui/ProductInfo', () => ({ default: () => <div>info</div> }))
+// A barra de compra passou a ler o desconto do Pix, e `usePaymentSettings` é um `useQuery` como os
+// de cima — mesmo dublê, mesmo motivo. É `importOriginal` e não um objeto inteiro de propósito: o
+// módulo exporta uma dúzia de hooks, e substituir todos deixaria a próxima leitura nova deste
+// subgrafo quebrando por `undefined is not a function` em vez de dizer o que faltou.
+vi.mock('@estrelinha/core/hooks/useStoreSettings', async (importOriginal) => ({
+  ...((await importOriginal()) as object),
+  usePaymentSettings: () => ({
+    max_installments: 6,
+    min_installment_value: 10,
+    pix_enabled: true,
+    pix_discount_percent: 5,
+  }),
+}))
 vi.mock('@/features/shipping-calc/ui/ShippingCalc', () => ({ default: () => null }))
 vi.mock('@/widgets/related-products/ui/RelatedProducts', () => ({
   default: ({ products }: any) => <div data-testid="relacionados">{products.length}</div>,

@@ -119,21 +119,21 @@ describe('ProductDetailsAccordion — quando não há nada a dizer (PDP-10, pres
   })
 })
 
-describe('ProductDetailsAccordion — as três seções de política seguem intactas', () => {
-  it('as quatro seções existem quando há descrição e perguntas', () => {
+describe('ProductDetailsAccordion — "Política de Trocas" saiu do acordeão (2026-09-11)', () => {
+  it('as três seções existem quando há descrição e perguntas', () => {
     render(<ProductDetailsAccordion product={produto({ description: DESCRICAO })} faqs={FAQS} />)
 
     expect(screen.getByRole('button', { name: 'Detalhes do Produto' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Cuidados e Conservação' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Política de Trocas' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Política de Trocas' })).toBeNull()
     expect(screen.getByRole('button', { name: 'Perguntas Frequentes' })).toBeInTheDocument()
   })
 
-  it('Cuidados e Trocas continuam presentes mesmo sem pergunta nenhuma', () => {
+  it('Cuidados continua presente mesmo sem pergunta nenhuma, e Trocas não volta', () => {
     render(<ProductDetailsAccordion product={produto({ description: DESCRICAO })} />)
 
     expect(screen.getByRole('button', { name: 'Cuidados e Conservação' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Política de Trocas' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Política de Trocas' })).toBeNull()
   })
 })
 
@@ -178,11 +178,11 @@ describe('ProductDetailsAccordion — as perguntas frequentes vêm do cadastro',
   })
 
   // A última seção visível não leva risco embaixo — e quem é a última deixou de ser fixo.
-  it('sem perguntas, "Política de Trocas" vira a última e perde o risco', () => {
+  it('sem perguntas, "Cuidados e Conservação" vira a última e perde o risco', () => {
     const { container } = render(<ProductDetailsAccordion product={produto({ description: DESCRICAO })} />)
-    const trocas = container.querySelector('[data-state][class*="border-b-0"]')
+    const cuidados = container.querySelector('[data-state][class*="border-b-0"]')
 
-    expect(trocas).not.toBeNull()
+    expect(cuidados).not.toBeNull()
   })
 })
 
