@@ -16,12 +16,14 @@ import {
   bannerGridRefusal,
   collectionFeatureRefusal,
   collectionRowsRefusal,
+  heroCarouselRefusal,
   heroRefusal,
   textSectionRefusal,
 } from '../model/sectionRefusals'
 import BannerGridEditor from './BannerGridEditor'
 import CollectionFeatureEditor from './CollectionFeatureEditor'
 import CollectionRowsEditor from './CollectionRowsEditor'
+import HeroCarouselEditor from './HeroCarouselEditor'
 import HeroEditor from './HeroEditor'
 import TextSectionEditor from './TextSectionEditor'
 
@@ -56,6 +58,7 @@ export interface SectionEditorEntry {
 
 export const SECTION_EDITORS: Partial<Record<HomeSectionType, SectionEditorEntry>> = {
   hero: { Body: HeroEditor, refusal: heroRefusal },
+  hero_carousel: { Body: HeroCarouselEditor, refusal: heroCarouselRefusal },
   banner_grid: { Body: BannerGridEditor, refusal: bannerGridRefusal },
   collection_rows: { Body: CollectionRowsEditor, refusal: collectionRowsRefusal },
   collection_feature: { Body: CollectionFeatureEditor, refusal: collectionFeatureRefusal },

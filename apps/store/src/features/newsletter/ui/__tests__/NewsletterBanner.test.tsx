@@ -113,7 +113,9 @@ describe('Newsletter — o envio', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Me cadastrar' }))
 
     expect(screen.getByText('Tudo certo!')).toBeInTheDocument()
-    expect(screen.getByText(/novidades da loja no seu e-mail/)).toBeInTheDocument()
+    // Feature 42 (FIX-04): a frase deixou de prometer e-mail — a newsletter não persiste, não
+    // inscreve e não envia. `copyInstitucional.test.tsx` guarda a régua do que ela NÃO pode dizer.
+    expect(screen.getByText('Anotado. Quando houver novidades, escrevemos.')).toBeInTheDocument()
   })
 
   it('e-mail vazio não confirma nada', () => {

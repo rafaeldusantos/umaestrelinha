@@ -10,6 +10,7 @@ import {
   DEFAULT_GOOGLE_SHOPPING,
   DEFAULT_MATERIAL,
   DEFAULT_MENU,
+  DEFAULT_NOTIFICATIONS,
   type GeneralSettings,
   type ShippingSettings,
   type PaymentSettings,
@@ -37,6 +38,11 @@ const DEFAULTS: SettingsMap = {
   // ela já vem no mesmo `select` das outras sete, e é isso que permite fundir categorias e links
   // no header sem custo de rede.
   menu: DEFAULT_MENU,
+  // Feature 42 — os textos das notificações. Entrou aqui junto com a chave em `SettingsMap` (T8),
+  // porque `DEFAULTS: SettingsMap` não compila com uma chave faltando; sem esta linha o
+  // `fetchAllSettings` descartaria a linha `notifications` em silêncio (o `if (key in map)`
+  // abaixo). O hook `useNotificationSettings` e o teste que prova a leitura são da T19.
+  notifications: DEFAULT_NOTIFICATIONS,
 }
 
 async function fetchAllSettings(): Promise<SettingsMap> {

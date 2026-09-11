@@ -19,8 +19,8 @@ import {
  * porta por onde eles voltariam — com a dona clicando, sem ninguém decidir nada.
  */
 
-describe('HOME_SECTION_TYPES — os dez tipos', () => {
-  it('tem exatamente 10 tipos, na ordem em que o painel os oferece', () => {
+describe('HOME_SECTION_TYPES — os onze tipos', () => {
+  it('tem exatamente 11 tipos, na ordem em que o painel os oferece', () => {
     expect(HOME_SECTION_TYPES).toEqual([
       'hero',
       'trust_bar',
@@ -32,8 +32,9 @@ describe('HOME_SECTION_TYPES — os dez tipos', () => {
       'collection_feature',
       'product_carousel',
       'category_grid',
+      'hero_carousel',
     ])
-    expect(HOME_SECTION_TYPES).toHaveLength(10)
+    expect(HOME_SECTION_TYPES).toHaveLength(11)
   })
 
   it('não repete tipo', () => {
@@ -80,14 +81,23 @@ describe('UNIQUE_SECTION_TYPES — os seis que só existem uma vez', () => {
     }
   })
 
-  it('os quatro repetíveis são os blocos de campanha', () => {
+  it('os cinco repetíveis são os blocos de campanha', () => {
     const repetiveis = HOME_SECTION_TYPES.filter(t => !UNIQUE_SECTION_TYPES.includes(t))
     expect(repetiveis).toEqual([
       'banner_grid',
       'collection_feature',
       'product_carousel',
       'category_grid',
+      'hero_carousel',
     ])
+  })
+
+  it('o banner principal é REPETÍVEL — a dona pode querer dois (BNR-03)', () => {
+    // Vizinha da asserção acima, e não substituta dela: aquela mede o conjunto, esta nomeia a regra
+    // que a feature 41 cobra. Pôr `hero_carousel` em UNIQUE_SECTION_TYPES esconderia o segundo bloco
+    // atrás de uma recusa "já está na Home", que é uma frase certa sobre uma regra errada.
+    expect(UNIQUE_SECTION_TYPES).not.toContain('hero_carousel')
+    expect(sectionMeta('hero_carousel')!.unique).toBe(false)
   })
 })
 
@@ -139,7 +149,7 @@ describe('sectionMeta — os tipos de P3 são "em breve" (emenda E3)', () => {
     expect(emBreve).toEqual(['product_carousel', 'category_grid'])
   })
 
-  it('os outros oito NÃO são "em breve" — os sete de hoje mais o destaque em coleção', () => {
+  it('os outros nove NÃO são "em breve" — os oito de antes mais o banner principal', () => {
     const prontos = HOME_SECTION_TYPES.filter(t => !sectionMeta(t)!.comingSoon)
     expect(prontos).toEqual([
       'hero',
@@ -150,7 +160,27 @@ describe('sectionMeta — os tipos de P3 são "em breve" (emenda E3)', () => {
       'trending_tags',
       'newsletter',
       'collection_feature',
+      'hero_carousel',
     ])
+  })
+
+  it('o banner principal NÃO nasce "em breve" — ele tem renderer e editor (BNR-01)', () => {
+    // A etiqueta "em breve" é o que a bandeja mostra para bloco sem tela. Deixá-la ligada aqui faria
+    // o painel esmaecer um bloco que existe, e a dona nunca descobriria que podia usá-lo.
+    expect(sectionMeta('hero_carousel')!.comingSoon).toBe(false)
+  })
+
+  it('o banner principal tem o rótulo que a dona lê, e ele não colide com os vizinhos', () => {
+    const rotulo = sectionMeta('hero_carousel')!.label
+    expect(rotulo).toBe('Banner principal')
+    // "Chamada principal" é o hero e "Grade de banners" é a grade. Três nomes parecidos é como a
+    // curadoria acaba na seção errada sem ninguém perceber.
+    expect(rotulo).not.toBe(sectionMeta('hero')!.label)
+    expect(rotulo).not.toBe(sectionMeta('banner_grid')!.label)
+  })
+
+  it('o banner principal não tem faixa de `limit` — o teto dele é de SLIDES, não de seção', () => {
+    expect(sectionMeta('hero_carousel')!.limit).toBeNull()
   })
 })
 

@@ -19,6 +19,7 @@ export const HOME_SECTION_TYPES: readonly HomeSectionType[] = [
   'collection_feature',
   'product_carousel',
   'category_grid',
+  'hero_carousel',
 ]
 
 /**
@@ -28,8 +29,9 @@ export const HOME_SECTION_TYPES: readonly HomeSectionType[] = [
  * índice faz a mesma regra valer contra escrita direta — esconder o botão é UX, o índice é a
  * garantia.
  *
- * Os quatro que ficam de fora são repetíveis por natureza: grade de banners, destaque em coleção,
- * carrossel de produtos e grade de coleções são blocos de campanha, e a dona pode querer dois.
+ * Os cinco que ficam de fora são repetíveis por natureza: grade de banners, destaque em coleção,
+ * carrossel de produtos, grade de coleções e **banner principal** são blocos de campanha, e a dona
+ * pode querer dois — em posições diferentes da página, inclusive.
  */
 export const UNIQUE_SECTION_TYPES: readonly HomeSectionType[] = [
   'hero',
@@ -94,6 +96,11 @@ const LABELS: Record<HomeSectionType, string> = {
   collection_feature: 'Destaque em coleção',
   product_carousel: 'Carrossel de produtos',
   category_grid: 'Grade de coleções',
+  // "Banner principal", e não "Carrossel de banners": o que a dona escolhe na bandeja é o PAPEL do
+  // bloco na página, não o mecanismo dele. E o nome não pode colidir com "Chamada principal" (o
+  // hero) nem com "Grade de banners" — três blocos com nome parecido é como a curadoria erra de
+  // seção sem perceber.
+  hero_carousel: 'Banner principal',
 }
 
 /**

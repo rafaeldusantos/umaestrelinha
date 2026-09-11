@@ -7,6 +7,7 @@
 
 import type { Deps } from '../handlers.ts'
 import type { FakeFetch, FakeSupabase } from '../../_shared/testing/fakes.ts'
+import { createResendProvider } from '../../../../packages/core/src/notifications/index.ts'
 
 export {
   createFakeFetch,
@@ -29,23 +30,26 @@ export const TEST_ENV: Deps['env'] = {
   strictVariantPricing: true,
 }
 
-/** Env do e-mail transacional (feature 10). Separado de `TEST_ENV`, que é sobre o Mercado Pago. */
-export const TEST_EMAIL_ENV: Deps['email'] = {
+/** Env das notificações (features 10 e 42). Separado de `TEST_ENV`, que é sobre o Mercado Pago. */
+export const TEST_EMAIL_ENV: Deps['notifications'] = {
   resendApiKey: 're_test_key',
   resendFrom: 'Uma Estrelinha <onboarding@resend.dev>',
   storePublicUrl: 'https://umaestrelinha.com.br',
+  adminPublicUrl: 'https://painel.umaestrelinha.com.br',
 }
 
 export function createDeps(
   supabase: FakeSupabase,
   fetchDouble: FakeFetch,
   env: Partial<Deps['env']> = {},
-  email: Partial<Deps['email']> = {},
+  email: Partial<Deps['notifications']> = {},
+  providers: Deps['providers'] = [createResendProvider({ apiKey: 're_test_key', from: TEST_EMAIL_ENV.resendFrom })],
 ): Deps {
   return {
     supabase: supabase.client,
     fetch: fetchDouble.fetch,
     env: { ...TEST_ENV, ...env },
-    email: { ...TEST_EMAIL_ENV, ...email },
+    notifications: { ...TEST_EMAIL_ENV, ...email },
+    providers,
   }
 }

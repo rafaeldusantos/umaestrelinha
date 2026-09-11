@@ -3,8 +3,9 @@
 // O desenho é o dos artboards `5MC-0` (desktop) e `6AU-0` (mobile). O conteúdo mora aqui, e não
 // dentro dos componentes, por três motivos que já custaram caro neste repositório:
 //
-// 1. **A âncora é contrato.** `/como-enviar-seu-material-de-dna#cinzas` é o link que a página do
-//    produto monta desde a feature 22 (`MaterialNotice`), e `materialAnchor` é quem o produz. Com o
+// 1. **A âncora é contrato.** `/como-enviar-seu-material-de-dna#cinzas` é o link que a confirmação
+//    do pedido monta desde a feature 22 (`OrderMaterialBlock`), e `materialAnchor` é quem o produz.
+//    (A página do produto montava o mesmo link até o aviso de material sair dela.) Com o
 //    conteúdo em dado, um teste percorre `MATERIAL_KINDS` e prova que **todo** material tem destino;
 //    com o conteúdo em JSX, a cobertura vira leitura de código.
 // 2. **Um lugar para a dona corrigir.** Quantidade, recipiente e ordem dos passos mudam com a

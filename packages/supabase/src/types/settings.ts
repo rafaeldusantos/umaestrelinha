@@ -8,6 +8,19 @@
 export type { MenuLink } from '../../../core/src/menu/menu.ts'
 import type { MenuLink } from '../../../core/src/menu/menu.ts'
 
+/**
+ * Os textos e interruptores das notificações (feature 42, `PNL-06`) — **declarados em
+ * `@estrelinha/core/notifications` e só reexportados daqui**, mesma inversão de `MenuPromo`: quem usa
+ * a forma é a regra (o motor da edge function `send-notification`, que roda em Deno e alcança `core`
+ * só por caminho relativo com `.ts`), e este pacote apenas descreve a coluna
+ * `store_settings['notifications']`. `DEFAULT_NOTIFICATIONS` é ao mesmo tempo a semente da migration
+ * `20260907120000_42-notificacoes.sql` e o piso do hook — `storeSettingsDefaults.test.ts` compara os
+ * dois lidos do disco.
+ */
+export type { NotificationSettings } from '../../../core/src/notifications/settings.ts'
+import type { NotificationSettings } from '../../../core/src/notifications/settings.ts'
+export { DEFAULT_NOTIFICATIONS } from '../../../core/src/notifications/defaults.ts'
+
 export interface GeneralSettings {
   store_name: string
   whatsapp: string
@@ -298,6 +311,7 @@ export type SettingsKey =
   | 'material'
   | 'google_shopping'
   | 'menu'
+  | 'notifications'
 
 export interface SettingsMap {
   general: GeneralSettings
@@ -309,4 +323,5 @@ export interface SettingsMap {
   material: MaterialSettings
   google_shopping: GoogleShoppingSettings
   menu: MenuSettings
+  notifications: NotificationSettings
 }

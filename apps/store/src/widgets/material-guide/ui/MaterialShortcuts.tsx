@@ -11,8 +11,10 @@ import { ATALHOS_DE_MATERIAL } from '../model/guide'
  * exatamente o uso: a Adri manda "olha o item das cinzas".
  *
  * Pílula é a forma certa aqui, e não uma exceção: são **rótulos que nomeiam material**, a mesma
- * espécie dos chips de `MaterialNotice` na página do produto, que a allowlist de `buttonShape` já
- * descreve. A cliente reconhece o mesmo objeto nas duas telas.
+ * espécie dos chips de `OrderMaterialBlock` na confirmação do pedido, que a allowlist de
+ * `buttonShape` já descreve. A cliente reconhece o mesmo objeto nas duas telas. (Eles nasceram na
+ * página do produto, em `MaterialNotice`; o aviso de lá saiu — `material_kinds` diz menos que a
+ * descrição, `BL-015` — e as duas telas que restaram continuam falando a mesma língua.)
  *
  * O triângulo marca as três fichas que têm vídeo e passos ilustrados; as demais são entradas curtas.
  * Sem o marcador, oito pílulas idênticas prometeriam a mesma profundidade em todas.

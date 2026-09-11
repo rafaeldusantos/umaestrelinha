@@ -14,6 +14,7 @@ import {
   configRefusal,
   ctaHrefRefusal,
   destinationRefusal,
+  heroCarouselSlidesRefusal,
   type HomeSectionConfig,
   type HomeSectionType,
 } from '@estrelinha/core/home'
@@ -118,6 +119,22 @@ export const collectionFeatureRefusal = (
   // congelado na escolha. Reescrever a frase aqui daria duas versões da mesma notícia.
   return destinationRefusal(item) ?? configRefusal('collection_feature', config)
 }
+
+/**
+ * O banner principal (feature 41).
+ *
+ * **Não redige uma linha de regra**: `heroCarouselSlidesRefusal` cobra arte, descrição, destino e o
+ * teto, na ordem, e é a mesma função que `carousel.test.ts` prova. Aqui só se compõe com o
+ * `configRefusal` do tipo — que é o molde de todos os vizinhos deste arquivo.
+ *
+ * A largura **não** é cobrada, e a ausência é regra: valor desconhecido cai em `full`
+ * (`heroCarouselWidth`), porque uma seção que se recusa a salvar por causa de um `config` gravado
+ * por escrita direta deixaria a dona sem como consertar pela tela.
+ */
+export const heroCarouselRefusal = (
+  config: HomeSectionConfig,
+  items: readonly DraftItem[],
+): string | null => heroCarouselSlidesRefusal(items) ?? configRefusal('hero_carousel', config)
 
 /**
  * As seções de texto: limite dentro da faixa do tipo (`HOME-42`) e link de escape que a loja serve.

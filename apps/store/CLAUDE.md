@@ -339,6 +339,51 @@ deslocamento, o do `<footer>`.
   12 telas consumidoras nada mudou no que se vê (todas leem só `data`); o que mudou é que agora há
   estado de erro e o React Query repete.
 
+## Banner principal — o carrossel de campanha (feature `41`)
+
+`widgets/hero-carousel` desenha o bloco `hero_carousel`: arte enviada pela dona, uma por dispositivo,
+apontando para uma coleção, uma peça ou um caminho da loja. **Sem texto sobreposto** — a frase da
+campanha está dentro da imagem, que é como a Adri monta banner. Por isso o `alt` é obrigatório: sem
+ele a campanha é invisível para leitor de tela e para o Google.
+
+- **O trilho é `scroll-snap` nativo, não um `translateX` animado**, e a escolha paga três coisas sem
+  JS: o arrasto do dedo é o do navegador, a rolagem vertical da página **não** é sequestrada, e o
+  teclado continua sendo do navegador. `useHeroCarousel` faz só o que o navegador não faz sozinho —
+  girar, parar de girar, e saber onde parou.
+- **A posição real manda, nunca um contador paralelo.** O índice sai de `slideIndexFromScroll` num
+  listener de `scroll`: a cliente arrasta e o navegador decide onde encaixar sem passar por nós, e um
+  índice mantido à parte discordaria dele no primeiro arrasto — as bolinhas passariam a apontar para
+  outro banner. Mesmo princípio de `useOverflowAffordance` (`BL-028`).
+- **`full` é "sem container", e NUNCA `w-screen`.** `100vw` inclui a barra de rolagem e produz rolagem
+  horizontal no `body` — o defeito que a auditoria da `27` mediu (`scrollWidth` 634 numa viewport de
+  390). `wide` é o `container` com raio.
+- **A proporção da vaga vem de `HERO_CAROUSEL_SLOTS`, por variável CSS.** Uma classe com a razão
+  cravada (`aspect-[1680/560]`) seria um segundo dono da medida: o painel recomenda o tamanho a partir
+  da constante, e a loja reservaria outro. Com `var()`, o número tem uma origem só — e a vaga tem
+  **altura conhecida antes de a imagem chegar**, que é o que impede o deslocamento.
+- **As duas vagas são `1680 × 560` (3:1) e `720 × 720` (1:1), e os números são MEDIDOS** — a arte que
+  a Adri traz do site anterior. A `41` os tinha registrado como **suposição** (`spec.md`,
+  *Assumptions*: 1440 × 540 e 780 × 975 retrato) e a suposição chegou à tela: `object-cover` cortava
+  **90px de cada lado** no computador e **~25% da largura** no celular, comendo a primeira letra da
+  frase que está desenhada **dentro** da arte. **Nada acusava** — a foto aparecia, o aviso de
+  proporção do painel apontava para o número errado, e os 83 testes do widget continuavam verdes,
+  porque todos leem a constante em vez de conferi-la contra um arquivo. É o `AD-012` noutra roupa:
+  **medida suposta é afirmação, e o arquivo da dona é a verificação.**
+  - A régua de `BNR-26` era `height > width` ("a vaga do celular é retrato") e **teria reprovado a
+    arte real**. Virou o que ela sempre quis comprar: a vaga do celular **nunca é paisagem**, com
+    sensor que prova a do computador reprovando na mesma função. O que protege a legibilidade em
+    390px é a altura (o quadrado dá 390px; a tira 3:1 daria 130), não o formato retrato.
+- **A arte por dispositivo é `<picture>` + `<source media>`**, para o navegador baixar **uma**. Duas
+  `<img>` escondidas por CSS baixariam as duas, e a que não aparece sairia do orçamento do celular —
+  ~90% dos acessos.
+- **Só o primeiro slide é `eager`.** `imagePriority` **não** serve aqui, e não é descuido: ele descreve
+  uma GRADE, onde os seis primeiros cards estão todos na primeira dobra. Num carrossel só um está.
+- **Um slide é estático**: sem bolinha, sem seta e sem giro. O giro pausa em hover, foco e toque, e
+  `prefers-reduced-motion` desliga o giro **mantendo** os controles.
+- **Destino externo NÃO existe neste bloco**, e é por construção: `ctaHrefRefusal` recusa endereço que
+  não comece com `/` (`HOME-23`, `AD-018`). O `target="_blank"` da spec ficou declaradamente fora — a
+  mudança, se um dia for querida, é na régua, não no widget.
+
 ## A Home é dado (feature `24`)
 
 `home_sections` + `home_section_items` guardam quais blocos existem, em que ordem, com que texto, com
@@ -468,12 +513,28 @@ Medido no catálogo real: **zero** das 3.356 variações tem eixo de material �
 dizem "leite", 127 "cinzas", 85 "cabelo", 51 "coto"), e existe peça que exige **dois**. Pedir que a
 cliente escolha seria pedir que repita o que já escolheu ao clicar no produto.
 
-| `products.requires_material` | `material_kinds` | o que a loja diz |
+| `products.requires_material` | `material_kinds` | o que a loja faz |
 | --- | --- | --- |
 | `false` / `null` | — | nada; a compra segue igual |
-| `true` | `cabelo`, `coto_umbilical` | "você envia cabelo e coto umbilical", com link para a ficha |
-| `true` | **vazia** | "o material é combinado com a gente" — e o pedido **entra na fila igual** |
+| `true` | `cabelo`, `coto_umbilical` | o pedido **entra na fila**, e a CONFIRMAÇÃO diz o que enviar |
+| `true` | **vazia** | o pedido **entra na fila igual**, e a confirmação diz "combinado com a gente" |
 
+- **A PÁGINA DO PRODUTO NÃO FALA MAIS DE MATERIAL** (2026-09-11). Ela anunciava `material_kinds` em
+  **duas** superfícies — o card "Esta joia é feita com material seu" na coluna de informação e a linha
+  "Você envia: cinzas" na barra fixa do celular. As duas saíram, e `MaterialNotice.tsx` foi apagado:
+  a coluna **diz menos que a descrição** (`BL-015`) — há peça gravada com `{cinzas}` cuja descrição
+  enumera cinco materiais, peça com `requires_material = false` que manda enviar coto e cabelo, e
+  material citado na descrição (`sangue`) que nem está no enum. Anunciar um material só, na tela onde
+  a cliente decide a compra, é dizer errado, e num registro memorial isso não é detalhe de copy.
+  - Quem guarda a ausência é **`semMaterialNaPaginaDoProduto.test.ts`**, que varre as superfícies da
+    página **sem comentário**: as duas que restaram explicam a remoção citando o nome da coluna, então
+    um guarda ingênuo acusaria a própria explicação.
+  - **O que continua lendo a coluna**: o checkout a congela em `order_items`, a confirmação
+    (`OrderMaterialBlock`) diz o que enviar e recebe o rastreio, e o painel a mostra na fila. Só a
+    página do produto deixou de ler.
+  - **No painel sobrou o interruptor**: `/admin/produtos` → aba Geral ainda liga "Esta peça exige
+    material da cliente" (é ele que põe o pedido na fila), mas a lista "Quais materiais" saiu junto —
+    `material_kinds` não é mais editável e é preservada pelo save.
 - **Lista vazia NUNCA se lê como "não exige"**: é a peça de material livre, e quem a renderiza usa
   `materialSummary`, que devolve **`a combinar`**. Lista vazia em tela se lê como "nenhum material",
   que é o oposto.

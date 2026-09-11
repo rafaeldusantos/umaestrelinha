@@ -10,7 +10,8 @@ import { Input } from '@estrelinha/ui/input'
 
 import { useAdminOrder } from '@/entities/order/api/useAdminOrder'
 import { useAdminOrders, STATUS_LABELS } from '@/entities/order/api/useAdminOrders'
-import { sendOrderEmail, type OrderEmailType } from '@/entities/order/api/sendOrderEmail'
+import { resendNotification } from '@/entities/order/api/notifyOrder'
+import type { NotificationEvent } from '@estrelinha/core/notifications'
 import {
   PAYMENT_STATUS_LABELS, rowQueueAge, type AdminOrderRow,
 } from '@/entities/order/api/orderQuery'
@@ -371,11 +372,12 @@ const AdminOrderPage = () => {
               }
               await reload()
             }}
-            onResendEmail={async type => {
+            onResendEmail={async (type, channel) => {
               setBusy(true)
-              // `AD-008`: o envio é contido. `sendOrderEmail` devolve booleano e NUNCA lança — a
-              // falha não reverte estado nenhum, só informa.
-              const saiu = await sendOrderEmail(order.id, type as OrderEmailType)
+              // `AD-008`: o envio é contido. `resendNotification` devolve booleano e NUNCA lança —
+              // a falha não reverte estado nenhum, só informa. Aqui o nome da MENSAGEM é o certo:
+              // reenviar é repetir uma mensagem específica, não anunciar um fato novo (`AD-032`).
+              const saiu = await resendNotification(order.id, type as NotificationEvent, channel as 'email')
               setBusy(false)
               if (saiu) toast.success('E-mail reenviado')
               else toast.error('O reenvio não saiu. O estado do pedido não mudou.')

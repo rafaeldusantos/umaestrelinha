@@ -432,11 +432,15 @@ const AdminSettingsPage = () => {
             <div className="flex items-start gap-3 p-3 rounded-xl bg-muted">
               <ShoppingCart className="w-4 h-4 text-primary mt-0.5 shrink-0" />
               <p className="text-xs text-muted-foreground">
-                Configure quando um carrinho parado vira "abandonado" e prepare a recuperação automática por email
-                (envio será habilitado na Fase 2, quando o provedor de email estiver configurado).
+                Configure quando um carrinho parado vira "abandonado". A loja não envia lembrete automático de
+                carrinho. Se um dia enviar, a decisão e o texto são da dona (BL-030).
               </p>
             </div>
 
+            {/* Feature 42 (FIX-03): os controles de lembrete automático (`auto_email_enabled`,
+                `auto_email_hours`, `reminder_coupon_code`) saíram daqui porque NENHUM código os lia
+                para enviar coisa nenhuma — era um interruptor sem motor. Os campos seguem no tipo e no
+                JSONB; só a tela deixou de prometer. */}
             <FieldGroup
               label="Marcar como abandonado após (horas)"
               hint="Tempo de inatividade antes de mudar o status de 'ativo' para 'abandonado'. Recomendado: 4h."
@@ -447,43 +451,6 @@ const AdminSettingsPage = () => {
                 max={72}
                 value={abandonedCart.threshold_hours}
                 onChange={(e) => setAbandonedCart({ ...abandonedCart, threshold_hours: Number(e.target.value) || 1 })}
-              />
-            </FieldGroup>
-
-            <ToggleField
-              label="Enviar email de lembrete automaticamente"
-              checked={abandonedCart.auto_email_enabled}
-              onChange={(v) => setAbandonedCart({ ...abandonedCart, auto_email_enabled: v })}
-            />
-
-            <FieldGroup
-              label="Enviar lembrete após (horas)"
-              hint="Tempo após o carrinho ficar abandonado para enviar o email. Recomendado: 24h."
-            >
-              <Input
-                type="number"
-                min={1}
-                max={168}
-                disabled={!abandonedCart.auto_email_enabled}
-                value={abandonedCart.auto_email_hours}
-                onChange={(e) => setAbandonedCart({ ...abandonedCart, auto_email_hours: Number(e.target.value) || 1 })}
-              />
-            </FieldGroup>
-
-            <FieldGroup
-              label="Cupom de incentivo (opcional)"
-              hint="Código do cupom incluído no email de recuperação. Deixe vazio para não oferecer desconto."
-            >
-              <Input
-                value={abandonedCart.reminder_coupon_code}
-                onChange={(e) =>
-                  setAbandonedCart({
-                    ...abandonedCart,
-                    reminder_coupon_code: e.target.value.toUpperCase().replace(/\s/g, ''),
-                  })
-                }
-                placeholder="VOLTA10"
-                className="font-mono uppercase"
               />
             </FieldGroup>
 

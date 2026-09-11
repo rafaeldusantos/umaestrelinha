@@ -21,6 +21,7 @@ export interface DraftItem {
   product_id: string | null
   href: string | null
   image_url: string | null
+  image_mobile_url: string | null
   alt: string | null
   label_snapshot: string | null
 }
@@ -39,6 +40,7 @@ export const emptyDraftItem = (): DraftItem => ({
   product_id: null,
   href: null,
   image_url: null,
+  image_mobile_url: null,
   alt: null,
   label_snapshot: null,
 })
@@ -52,6 +54,7 @@ export const toDraftItems = (items: readonly HomeSectionItem[] | undefined): Dra
       product_id: item.product_id ?? null,
       href: item.href ?? null,
       image_url: item.image_url ?? null,
+      image_mobile_url: item.image_mobile_url ?? null,
       alt: item.alt ?? null,
       label_snapshot: item.label_snapshot ?? null,
     }))
@@ -105,6 +108,10 @@ export const applyDraft = (
             product_id: item.product_id,
             href: item.href,
             image_url: item.image_url,
+            // Sem esta linha a prévia mostraria o slide com a arte do computador no celular, e a
+            // dona só descobriria a diferença abrindo a loja — que é exatamente o que a feature 25
+            // acabou com a prévia da Home.
+            image_mobile_url: item.image_mobile_url,
             alt: item.alt,
             label_snapshot: item.label_snapshot,
           })) as HomeSectionItem[],

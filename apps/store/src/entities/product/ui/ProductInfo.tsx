@@ -14,7 +14,6 @@ import ShareButtons from '@/features/share-product/ui/ShareButtons'
 import { PAGE_MAX_AXES } from '../lib/variantSelection'
 import type { ProductPurchase } from '../model/useProductPurchase'
 import EngravingField from './EngravingField'
-import MaterialNotice from './MaterialNotice'
 import ProductTrustBadges from './ProductTrustBadges'
 import VariantPicker from './VariantPicker'
 import { PixIcon } from '@estrelinha/ui/icons'
@@ -150,11 +149,15 @@ const ProductInfo = ({ product, categoryName, purchase }: Props) => {
         </>
       )}
 
-      {/* MAT-02/MAT-03 — o que a cliente precisa enviar, e o que vai gravado. Vêm ANTES do CTA de
-          propósito: a escada de decisão da coluna é "o que é → quanto custa → qual → tem? → levar",
-          e descobrir depois de comprar que faltava enviar algo é o defeito que esta feature fecha.
-          Os dois lêem o MESMO `purchase` que a barra fixa do mobile — nunca um segundo estado. */}
-      <MaterialNotice product={product} />
+      {/* MAT-03 — o que vai gravado. Vem ANTES do CTA de propósito: a escada de decisão da coluna
+          é "o que é → quanto custa → qual → tem? → levar", e descobrir depois de comprar que a
+          gravação não cabia é o defeito que a feature 22 fechou. Lê o MESMO `purchase` que a barra
+          fixa do mobile — nunca um segundo estado.
+
+          O aviso de material afetivo (MAT-02) NÃO mora mais aqui: a lista de `material_kinds` diz
+          menos que a descrição do produto (BL-015), e anunciar "você envia: leite materno" numa
+          peça cuja descrição pede cinco materiais é dizer errado à cliente. Quem exige material
+          continua marcado no cadastro, e a conversa acontece na confirmação do pedido. */}
       <EngravingField purchase={purchase} />
 
       <hr className="mt-5 border-estrelinha-line" />

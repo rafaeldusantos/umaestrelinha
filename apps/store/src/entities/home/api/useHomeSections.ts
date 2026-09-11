@@ -40,6 +40,10 @@ const mapItem = (row: DbHomeSectionItem): HomeSectionItem => ({
   product_slug: row.product?.slug ?? null,
   href: row.href ?? null,
   image_url: row.image_url ?? null,
+  // Enumerar coluna a coluna é o que fez o telefone da cliente sumir do link de cobrança na feature
+  // 35: a coluna estava gravada em 35/35 pedidos, o teste dela passava, e três chamadores a
+  // ignoravam. Campo novo na tabela é campo novo AQUI, ou ele não chega à tela.
+  image_mobile_url: row.image_mobile_url ?? null,
   alt: row.alt ?? null,
   label_snapshot: row.label_snapshot ?? null,
 })

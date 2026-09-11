@@ -1,10 +1,8 @@
 import { Heart, ShoppingCart } from 'lucide-react'
 import { formatPrice } from '@estrelinha/core/formatters'
-import { requiresMaterial } from '@estrelinha/core/material'
 import type { Product } from '@estrelinha/supabase/types'
 import type { ProductPurchase } from '@/entities/product'
 import { ENGRAVING_FIELD_ID } from '@/entities/product/ui/EngravingField'
-import MaterialNotice from '@/entities/product/ui/MaterialNotice'
 import { useWishlistStore } from '@/entities/wishlist/model/wishlistStore'
 import { BOTTOM_BAR_H } from '@/shared/lib/storeChrome'
 
@@ -37,7 +35,6 @@ const ProductBuyBar = ({ product, purchase }: Props) => {
   const { price, savings, canAdd, add, engravingRefusal } = purchase
   const toggleWishlist = useWishlistStore(s => s.toggleItem)
   const isWishlisted = useWishlistStore(s => s.hasItem(product.id))
-  const exigeMaterial = requiresMaterial(product)
 
   /**
    * MAT-03: com a gravação inválida, o CTA está bloqueado — e o campo que a bloqueia está a uma tela
@@ -60,17 +57,16 @@ const ProductBuyBar = ({ product, purchase }: Props) => {
       className="fixed inset-x-0 bottom-0 z-50 border-t border-estrelinha-line bg-white pb-[env(safe-area-inset-bottom)] md:hidden"
     >
       {/*
-        **A altura total continua sendo exatamente `BOTTOM_BAR_H`**, com ou sem o aviso de material —
-        e isso não é detalhe de estilo: é o que deixa a reserva de espaço do `StoreLayout` ser
-        incondicional (ela não sabe qual barra está montada). Cabe porque a linha do aviso tem 14px e
-        a fileira de controles tem 44px: 14 + 4 de respiro + 44 = 62, dentro dos 64.
+        **A altura total é exatamente `BOTTOM_BAR_H`**, e isso não é detalhe de estilo: é o que deixa
+        a reserva de espaço do `StoreLayout` ser incondicional (ela não sabe qual barra está
+        montada). A linha de material afetivo saiu daqui junto com o card da coluna de informação
+        (`material_kinds` diz menos que a descrição, BL-015), então a fileira de controles de 44px é
+        tudo o que a barra carrega.
       */}
       <div
         className="flex flex-col justify-center gap-1 px-5"
         style={{ height: BOTTOM_BAR_H }}
       >
-        {exigeMaterial && <MaterialNotice product={product} variant="bar" />}
-
         <div className="flex items-center gap-2.5">
         <div className="flex shrink-0 flex-col">
           {savings && (

@@ -73,3 +73,10 @@ export const primaryImage = (raw: unknown): ProductImage | null =>
 // Deno morre nesse `import type` antes da primeira linha rodar. Elas importam
 // `packages/core/src/media/rendition.ts` direto, por caminho relativo.
 export * from './rendition.ts'
+
+// "Qual arte esta superfície usa" — o outro vizinho puro deste barrel (`AD-030`).
+//
+// Mesma regra de extensão, e pelo mesmo motivo: `core/menu/banners.ts` o alcança por caminho
+// relativo (`../media/surfaceArt.ts`), **não** por este barrel, porque o barrel importa
+// `@estrelinha/supabase/types` e o Deno morre nesse `import type`.
+export * from './surfaceArt.ts'

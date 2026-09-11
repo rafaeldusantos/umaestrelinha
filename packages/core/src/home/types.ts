@@ -29,6 +29,14 @@ export type HomeSectionType =
   | 'collection_feature'
   | 'product_carousel'
   | 'category_grid'
+  /**
+   * O banner de campanha (feature 41): arte enviada pela dona, uma por dispositivo, apontando para
+   * uma coleção, uma peça ou um endereço. Vários slides na mesma seção, girando.
+   *
+   * **Não substitui o `hero`** — convive com ele, e a Home passa a poder ter os dois, um só ou
+   * nenhum. É a `AD-029` valendo: desde a 41 a Home não tem bloco indelével.
+   */
+  | 'hero_carousel'
 
 /**
  * Os arranjos da grade de banners.
@@ -41,6 +49,20 @@ export type HomeSectionType =
  * dentro de 82px é ilegível em ~90% dos acessos.
  */
 export type HomeBannerLayout = 'single' | 'pair' | 'hero_pair' | 'quad'
+
+/**
+ * A largura de uma seção `hero_carousel` (feature 41).
+ *
+ * `full` é de borda a borda, **sem container** — e "sem container" é a implementação literal, não
+ * `w-screen`: `100vw` inclui a barra de rolagem e produz rolagem horizontal no `body`, que é o
+ * defeito que a auditoria da 27 mediu (`scrollWidth` 634 numa viewport de 390). `wide` é a largura
+ * do container, com o raio da escala do projeto.
+ *
+ * **União por literal de STRING**, e isso é obrigatório aqui: `strictNullChecks: false` não estreita
+ * união discriminada por literal booleano, então um `{ full: boolean }` não teria como ser lido com
+ * segurança nos dois ramos.
+ */
+export type HomeBannerWidth = 'full' | 'wide'
 
 /**
  * O `config jsonb` de uma seção.
@@ -74,6 +96,13 @@ export interface HomeSectionConfig {
   image_alt?: string
   /** `banner_grid`. */
   layout?: HomeBannerLayout
+  /**
+   * `hero_carousel` — a largura da faixa. Ausente ou desconhecido ⇒ `full` (`BNR-20`).
+   *
+   * Cabe no `config` porque é **valor**, não referência: a fronteira que este tipo declara é sobre
+   * id de categoria e de produto (`AD-014`), e a largura não tem destino para ficar pendurado.
+   */
+  width?: HomeBannerWidth
   /** `collection_rows`, `trending_tags`, `product_carousel`, `category_grid`. */
   limit?: number
   /** `brand_statement`, `trending_tags`, `newsletter`, `collection_feature`, e os dois de P3. */
@@ -143,8 +172,22 @@ export interface HomeSectionItem {
    */
   product_slug?: string | null
   href: string | null
-  /** Arte própria (banner livre). Sem imagem, a seção deriva a arte do destino. */
+  /**
+   * Arte própria (banner livre). Sem imagem, a seção deriva a arte do destino.
+   *
+   * **É a arte de COMPUTADOR** desde a feature 41 — o nome é herdado de quando havia uma arte só, e
+   * renomear a coluna custaria uma migration destrutiva para não ganhar nada.
+   */
   image_url: string | null
+  /**
+   * A arte de **celular** do mesmo item (feature 41) — o outro recorte do anúncio, não outro anúncio.
+   *
+   * Ausente ⇒ a loja usa a de computador e **declara** que reaproveitou, para o painel poder avisar.
+   * Quem decide isso é `surfaceArt`, em `core/media`, e a régua tem um dono só (`AD-030`): esta
+   * pergunta já foi respondida de dois jeitos diferentes uma vez, e um `"   "` gravado fazia a loja
+   * e a tela discordarem em silêncio.
+   */
+  image_mobile_url?: string | null
   alt: string | null
   /**
    * O rótulo congelado no momento da escolha.

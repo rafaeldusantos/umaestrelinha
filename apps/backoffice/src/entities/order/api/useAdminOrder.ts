@@ -15,25 +15,36 @@ import type {
 } from '@estrelinha/supabase/types'
 
 /**
- * Um evento de `public.order_emails` — a auditoria de envio da feature "e-mails do pedido".
+ * Uma tentativa de `public.order_notifications` — a auditoria de envio, por evento **e canal**.
  *
  * Conferido contra o `information_schema` do banco local, e **não** contra a memória: a primeira
- * versão deste tipo declarava `template` e `to_email`, que não existem. A coluna se chama `type`, e
- * o destinatário nunca foi gravado. Tipo escrito à mão é afirmação, não verificação (`AD-012`).
+ * versão deste tipo declarava `template` e `to_email`, que não existem. Tipo escrito à mão é
+ * afirmação, não verificação (`AD-012`).
+ *
+ * Feature 42: a tabela era `order_emails` e a coluna `type`. Virou `order_notifications` com
+ * `event` + `channel`, e a antiga sobrevive como VIEW só para a janela de deploy — nenhuma tela
+ * pode lê-la (`notificationSingleOwner.test.ts`).
  */
-export interface OrderEmailEvent {
+export interface OrderNotificationRow {
   id: string
   order_id: string
-  /** `order_shipped`, `material_received`, … */
-  type: string
+  /** Um de `NOTIFICATION_EVENTS`. O rótulo vem de `NOTIFICATION_EVENT_LABELS`, em `core`. */
+  event: string
+  /** `email` hoje; `whatsapp` na feature 43. */
+  channel: string
   /** `pending` | `sent` | `failed`. É o que decide se a tela oferece reenviar (`PED-28`). */
   status: string
   attempts: number
   provider_message_id: string | null
+  /** `sent_to_server` | `delivered` | `read` — só o WhatsApp preenche (feature 43). */
+  delivery_status: string | null
   error: string | null
   created_at: string
   sent_at: string | null
 }
+
+/** Nome anterior, mantido enquanto os consumidores migram. */
+export type OrderEmailEvent = OrderNotificationRow
 
 /** O resumo da cliente que o aside do pedido mostra (`D3`). */
 export interface OrderCustomerSummary {
@@ -96,7 +107,7 @@ export interface AdminOrderDetail {
   productRefs: Record<string, OrderProductRef>
   history: DbOrderStatusHistory[]
   notes: DbOrderNote[]
-  emails: OrderEmailEvent[]
+  emails: OrderNotificationRow[]
   loading: boolean
   error: string | null
   reload: () => Promise<void>
@@ -110,7 +121,7 @@ export const useAdminOrder = (id: string | undefined): AdminOrderDetail => {
   const [productRefs, setProductRefs] = useState<Record<string, OrderProductRef>>({})
   const [history, setHistory] = useState<DbOrderStatusHistory[]>([])
   const [notes, setNotes] = useState<DbOrderNote[]>([])
-  const [emails, setEmails] = useState<OrderEmailEvent[]>([])
+  const [emails, setEmails] = useState<OrderNotificationRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -166,7 +177,7 @@ export const useAdminOrder = (id: string | undefined): AdminOrderDetail => {
         .eq('order_id', id)
         .order('created_at', { ascending: false }),
       supabase
-        .from('order_emails')
+        .from('order_notifications')
         .select('*')
         .eq('order_id', id)
         .order('created_at', { ascending: false }),
@@ -187,8 +198,8 @@ export const useAdminOrder = (id: string | undefined): AdminOrderDetail => {
 
     // A leitura dos itens é a ÚNICA das quatro cujo erro não pode degradar para lista vazia: um
     // pedido sem itens não existe, e a folha de separação sai deste array. As outras três degradam
-    // de propósito — histórico e notas vazios são estados legítimos, e `order_emails` pode nem
-    // existir em ambiente antigo.
+    // de propósito — histórico e notas vazios são estados legítimos, e `order_notifications` pode
+    // nem existir em ambiente antigo.
     setItems((itensRes.data ?? []) as DbOrderItem[])
     setItemsError(
       itensRes.error
@@ -198,7 +209,7 @@ export const useAdminOrder = (id: string | undefined): AdminOrderDetail => {
 
     setHistory((historicoRes.data ?? []) as DbOrderStatusHistory[])
     setNotes((notasRes.data ?? []) as DbOrderNote[])
-    setEmails((emailsRes.data ?? []) as OrderEmailEvent[])
+    setEmails((emailsRes.data ?? []) as OrderNotificationRow[])
 
     setProductRefs(await lerProdutos((itensRes.data ?? []) as DbOrderItem[]))
 

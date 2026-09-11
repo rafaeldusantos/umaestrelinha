@@ -106,8 +106,16 @@ enabled = true
 file_size_limit = "50MiB"
 
 # Image transformation API is available to Supabase Pro plan.
-# [storage.image_transformation]
-# enabled = true
+#
+# LIGADO DE PROPÓSITO, e não é conveniência: a loja pede TODA foto por
+# `/storage/v1/render/image/public/…` (`@estrelinha/core/media/rendition.ts`, 19 superfícies).
+# Com isto comentado o CLI não sobe o `imgproxy`, essa rota responde **404 JSON** e a loja local
+# fica sem uma única imagem — enquanto o painel continua inteiro, porque ele desenha o
+# `image_url` cru em quase toda tela (a exceção é a miniatura do `MenuBannerEditor`, que
+# também não pintava). Dois apps sobre o mesmo Storage, um funcionando e o outro não, e nada
+# acusando: nenhum teste baixa imagem, e `<img>` quebrado não é erro de build.
+[storage.image_transformation]
+enabled = true
 
 # Uncomment to configure local storage buckets
 # [storage.buckets.images]
@@ -207,42 +215,41 @@ otp_expiry = 600
 # (http://127.0.0.1:54344): o login por código funciona de ponta a ponta em
 # desenvolvimento, sem depender de rede nem de domínio verificado.
 #
-# ## Por que o remetente NÃO foi trocado junto com a marca
+# ## O domínio do remetente — e o que este arquivo dizia de errado (feature 42, D1)
 #
-# O remetente do auth precisa de um domínio VERIFICADO no Resend. Medido em
-# 2026-08-08, com a chave deste projeto:
+# O remetente do auth precisa de um domínio VERIFICADO no Resend. Até 2026-09-06
+# este bloco, o `.env.example` e o `supabase/CLAUDE.md` mandavam ligar com um
+# subdomínio `send.` e registravam "domínio não verificado, 403 medido em
+# 2026-08-08". O 403 era real — mas porque aquele subdomínio NUNCA foi criado na
+# conta. Medido em 2026-09-06 via `GET https://api.resend.com/domains`: a conta
+# tem UM domínio, `loja.umaestrelinha.com.br`, `status: verified`, região
+# `sa-east-1`. Seguir o passo antigo repetiria o BUG-20260728 (ligar o SMTP com
+# remetente recusado derruba TODO login por código) com um domínio inexistente.
 #
-#   from acesso@send.umaestrelinha.com.br  →  403 "This API key is not
-#                                             authorized to send emails from
-#                                             send.umaestrelinha.com.br"
-#   from acesso@send.<domínio anterior>    →  200
+# O remetente do auth é `acesso@loja.umaestrelinha.com.br` — mesmo domínio do
+# transacional (`RESEND_FROM`, `loja@loja.umaestrelinha.com.br`), local-part
+# distinto. `authSenderDomain.test.ts` (store) recusa a volta do domínio antigo
+# a qualquer arquivo do repositório.
 #
-# Trocar o endereço para um domínio não verificado derruba TODO login por
-# código — já derrubou uma vez (BUG-20260728). E manter o domínio da marca
-# anterior enviando e-mail assinado por esta loja é pior ainda. Com o SMTP
-# desligado, nenhuma das duas coisas acontece.
+# ## O passo exato de troca — o domínio JÁ está verificado; falta só ligar
 #
-# ## O passo exato de troca, quando o domínio for verificado
-#
-#  1. Verificar `send.umaestrelinha.com.br` no Resend (DKIM + SPF no DNS) e
-#     conferir com:
+#  1. Confirmar com o probe (200 = liberado; 403 = a chave não alcança o domínio):
 #       curl -s -X POST https://api.resend.com/emails \
 #            -H "Authorization: Bearer $RESEND_API_KEY" \
 #            -H "Content-Type: application/json" \
-#            -d '{"from":"Uma Estrelinha <acesso@send.umaestrelinha.com.br>",
+#            -d '{"from":"Uma Estrelinha <acesso@loja.umaestrelinha.com.br>",
 #                 "to":["delivered@resend.dev"],"subject":"probe","text":"probe"}'
-#     — 200 = liberado; 403 = ainda não.
 #  2. Descomentar o bloco abaixo, EXATAMENTE como está.
 #  3. `supabase stop && supabase start` — mudança em config.toml exige;
 #     `db reset` NÃO recarrega o auth.
 #  4. Pedir um código de acesso na loja e conferir a chegada.
 #
 # `admin_email` é endereço NU: o nome de exibição vem de `sender_name`, e o
-# GoTrue monta `From: "Uma Estrelinha" <acesso@send.umaestrelinha.com.br>`.
+# GoTrue monta `From: "Uma Estrelinha" <acesso@loja.umaestrelinha.com.br>`.
 # NUNCA reusar RESEND_FROM aqui — aquele valor já é RFC 5322 (`Nome <addr>`) e
 # o resultado seria `"Uma Estrelinha" <Uma Estrelinha <loja@…>>`: malformado,
 # e todo envio de auth falha. `loja@` é dos transacionais (edge function
-# send-email, API HTTP); `acesso@` é do auth. Mesmo domínio, streams separados:
+# send-notification, API HTTP); `acesso@` é do auth. Mesmo domínio, streams separados:
 # reputação de entrega é por domínio da assinatura DKIM (d=), então separar o
 # local-part não custa entrega e deixa o login filtrável no painel do Resend.
 #
@@ -252,7 +259,7 @@ otp_expiry = 600
 # port = 465
 # user = "resend"
 # pass = "env(RESEND_API_KEY)"
-# admin_email = "acesso@send.umaestrelinha.com.br"
+# admin_email = "acesso@loja.umaestrelinha.com.br"
 # sender_name = "Uma Estrelinha"
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -425,7 +432,7 @@ deno_version = 2
 MERCADO_PAGO_ACCESS_TOKEN = "env(MERCADO_PAGO_ACCESS_TOKEN)"
 MERCADO_PAGO_WEBHOOK_SECRET = "env(MERCADO_PAGO_WEBHOOK_SECRET)"
 # A MESMA chave que o SMTP do auth usa em [auth.email.smtp].pass — agora também pela API HTTP
-# (https://api.resend.com/emails), na function send-email. Dois usos, uma chave.
+# (https://api.resend.com/emails), na function send-notification. Dois usos, uma chave.
 RESEND_API_KEY = "env(RESEND_API_KEY)"
 # Remetente dos e-mails transacionais — e SÓ deles. O auth não passa por aqui: quem manda o
 # código de login é o GoTrue, com o `admin_email` de [auth.email.smtp] acima. Dois endereços
@@ -433,16 +440,16 @@ RESEND_API_KEY = "env(RESEND_API_KEY)"
 # Formato RFC 5322: `Nome <e@dominio>` ou só `e@dominio`.
 # Um valor malformado é 422 em TODOS os envios (apagão silencioso), então a function valida o formato
 # antes de tentar enviar. Default do código: "Uma Estrelinha <onboarding@resend.dev>".
-# Valor alvo, quando o domínio for verificado: "Uma Estrelinha <loja@send.umaestrelinha.com.br>".
+# Valor alvo (domínio verificado, medido em 2026-09-06): "Uma Estrelinha <loja@loja.umaestrelinha.com.br>".
 RESEND_FROM = "env(RESEND_FROM)"
 # Origem DA LOJA (ex.: http://localhost:8082 em dev), NÃO a do Supabase — é a base do link `/conta`
 # dos e-mails. Fácil de errar porque toda outra env de URL deste arquivo aponta para o Supabase.
 STORE_PUBLIC_URL = "env(STORE_PUBLIC_URL)"
 # Só dev: redireciona TODO destinatário para este endereço e prefixa o assunto com o real.
-# Enquanto `send.umaestrelinha.com.br` não estiver verificado (403 medido em 2026-08-08), o
-# remetente possível é o compartilhado `onboarding@resend.dev`, onde
-# `onboarding@resend.dev` devolve 403 validation_error para qualquer destinatário que não seja o
-# dono da conta. Deixar VAZIA no dia a dia e em produção — preenchida, ela sequestra todo
+# Com `loja.umaestrelinha.com.br` verificado (medido em 2026-09-06) ela virou OPT-IN: só serve
+# para quem estiver com uma chave sem domínio, onde o remetente possível é o compartilhado
+# `onboarding@resend.dev`, que devolve 403 validation_error para qualquer destinatário que não
+# seja o dono da conta. Deixar VAZIA no dia a dia e em produção — preenchida, ela sequestra todo
 # destinatário e nenhuma cliente recebe e-mail.
 RESEND_DEV_REDIRECT_TO = "env(RESEND_DEV_REDIRECT_TO)"
 # Melhor Envio — cotacao de frete da loja e etiquetas do painel.
@@ -495,7 +502,7 @@ verify_jwt = false
 # válido do projeto e passaria pelo gateway sem provar nada. O que importa é o PAPEL, e papel só se
 # checa dentro do handler — a function exige admin via `has_role` no client service-role, e recusa
 # 401 (sem/JWT inválido) ou 403 (autenticado sem papel). Ver o cabeçalho de handlers.ts.
-[functions.send-email]
+[functions.send-notification]
 verify_jwt = false
 
 # Quem busca o feed é o rastreador do Google, que não manda JWT nenhum — não há o que autenticar, e

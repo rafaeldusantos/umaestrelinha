@@ -5,10 +5,12 @@ import { fileURLToPath } from 'node:url'
 import {
   DEFAULT_GENERAL,
   DEFAULT_GOOGLE_SHOPPING,
+  DEFAULT_NOTIFICATIONS,
   DEFAULT_PAYMENT,
   DEFAULT_SEO,
   DEFAULT_SHIPPING,
 } from '@estrelinha/supabase/types/settings'
+import { LEGACY_ENABLED_EVENTS, NOTIFICATION_EVENTS } from '@estrelinha/core/notifications'
 
 /**
  * Os defaults de `store_settings` são declarados em DOIS lugares — as migrations
@@ -100,6 +102,25 @@ function campoAditivo(fonte: string, campo: string): string | number | boolean |
   if (numero !== undefined) return Number(numero)
   return booleano === 'true'
 }
+
+/**
+ * `PNL-06` — a chave `notifications` nasceu na feature 42, na sua própria migration. O jsonb é
+ * `DEFAULT_NOTIFICATIONS` **serializado inteiro**, entre `$notifications$ … $notifications$::jsonb`
+ * (dollar-quoting, porque os textos têm aspas simples e travessão). Aqui não há parser de campo a
+ * campo: o trecho é lido do disco, passa por `JSON.parse`, e o objeto tem de ser IGUAL ao do
+ * TypeScript — divergir num caractere de um `lead` reprova.
+ */
+const SQL_NOTIFICACOES = readFileSync(`${MIGRATIONS}/20260907120000_42-notificacoes.sql`, 'utf8')
+
+/** O JSON semeado em `values ('<chave>', $<chave>$ … $<chave>$::jsonb)`, ou `undefined` se não há. */
+function jsonbSemeado(fonte: string, chave: string): unknown {
+  const re = new RegExp(`values \\('${chave}',\\s*\\$${chave}\\$([\\s\\S]*?)\\$${chave}\\$::jsonb\\)`)
+  const m = re.exec(fonte)
+  if (!m) return undefined
+  return JSON.parse(m[1])
+}
+
+const notificacoesSql = jsonbSemeado(SQL_NOTIFICACOES, 'notifications') as typeof DEFAULT_NOTIFICATIONS | undefined
 
 describe('defaults de store_settings — âncoras', () => {
   it('leu as duas migrations do disco', () => {
@@ -212,6 +233,54 @@ describe('defaults de store_settings — tom do negócio', () => {
     // porque a classe casaria as METADES do par, não o emoji.
     expect(DEFAULT_GENERAL.whatsapp_message).not.toMatch(/🎉|🥳|✨|💖|drop|pin|botton/i)
     expect(DEFAULT_GENERAL.whatsapp_message.length).toBeGreaterThan(10)
+  })
+})
+
+describe('notifications — os textos dizem o mesmo nos dois lados (PNL-06)', () => {
+  it('leu a migration da 42 do disco e extraiu o jsonb', () => {
+    // Âncora: sem ela, um caminho errado faria `jsonbSemeado` devolver `undefined`, e uma asserção
+    // frouxa passaria comparando indefinido com indefinido.
+    expect(SQL_NOTIFICACOES).toContain('store_settings')
+    expect(notificacoesSql).toBeDefined()
+    expect(typeof notificacoesSql).toBe('object')
+  })
+
+  it('o parser DISCRIMINA — chave ausente devolve undefined', () => {
+    // Sensor embutido, molde de `campoAditivo`.
+    expect(jsonbSemeado(SQL_NOTIFICACOES, 'chave_que_nao_existe')).toBeUndefined()
+  })
+
+  it('o jsonb semeado é EXATAMENTE `DEFAULT_NOTIFICATIONS`', () => {
+    expect(notificacoesSql).toEqual(DEFAULT_NOTIFICATIONS)
+  })
+
+  it('cobre os quinze eventos, e só eles', () => {
+    expect(Object.keys(notificacoesSql?.events ?? {}).sort()).toEqual([...NOTIFICATION_EVENTS].sort())
+  })
+
+  it('os quatro legados nascem LIGADOS no SQL e no TypeScript', () => {
+    for (const event of LEGACY_ENABLED_EVENTS) {
+      expect(notificacoesSql?.events[event].email.enabled, `${event} (SQL)`).toBe(true)
+      expect(DEFAULT_NOTIFICATIONS.events[event].email.enabled, `${event} (TS)`).toBe(true)
+    }
+  })
+
+  it('os onze novos nascem DESLIGADOS no SQL e no TypeScript', () => {
+    const novos = NOTIFICATION_EVENTS.filter((e) => !LEGACY_ENABLED_EVENTS.includes(e))
+    expect(novos).toHaveLength(11)
+    for (const event of novos) {
+      expect(notificacoesSql?.events[event].email.enabled, `${event} (SQL)`).toBe(false)
+      expect(DEFAULT_NOTIFICATIONS.events[event].email.enabled, `${event} (TS)`).toBe(false)
+    }
+  })
+
+  it('a semeadura é `on conflict (key) do nothing` — a chave é NOVA, então é insert, não `value ||`', () => {
+    // Diferente da 37 (que acrescentava um campo a uma chave existente), aqui a linha inteira nasce:
+    // o que protege a edição da Adri em todo `db push` futuro é o `do nothing`.
+    const insert = SQL_NOTIFICACOES.match(/insert into public\.store_settings[\s\S]*?on conflict \(key\) do nothing;/i)?.[0]
+    expect(insert).toBeDefined()
+    expect(insert).toContain("'notifications'")
+    expect(insert).not.toMatch(/do update/i)
   })
 })
 

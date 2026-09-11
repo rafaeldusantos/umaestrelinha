@@ -13,6 +13,9 @@ import { normalizeEngraving, toMaterialStatus, type MaterialStatus } from '@estr
  *
  * A mesma RPC serve a Adri pelo painel: cliente e admin fazem a mesma coisa, e duas funções seriam
  * duas máquinas de estado que divergem no primeiro ajuste.
+ *
+ * **Feature 42**: registrado o código, a loja avisa a própria cliente ("anotamos o rastreio") e a
+ * Adri ("material a caminho"). O aviso é CONTIDO — ver `avisarQueRegistrou` abaixo.
  */
 
 /** `reason` vem da RPC; `null` quando deu certo. Formato `string | null` pelo motivo de sempre. */
@@ -58,11 +61,16 @@ export const useSetMaterialTracking = (orderId: string | undefined) => {
       if (error) throw new Error(error.message)
 
       const resultado = (data ?? {}) as { ok?: boolean; status?: string; reason?: string | null }
-      return {
+      const saida = {
         ok: resultado.ok === true,
         status: toMaterialStatus(resultado.status),
         reason: resultado.reason ?? null,
       }
+
+      // Só avisa quando o estado MUDOU de fato. Numa recusa não houve fato nenhum a comunicar.
+      if (saida.ok) await avisarQueRegistrou(orderId!)
+
+      return saida
     },
     onSuccess: (resultado) => {
       // Só invalida quando algo mudou de fato. Invalidar numa recusa recarregaria o pedido para
@@ -70,4 +78,29 @@ export const useSetMaterialTracking = (orderId: string | undefined) => {
       if (resultado.ok) qc.invalidateQueries({ queryKey: ['orders', 'id', orderId] })
     },
   })
+}
+
+/**
+ * Conta à `send-notification` que a cliente registrou o rastreio (`NTF-13`).
+ *
+ * **Contido, e por três razões que valem escritas:**
+ *
+ * 1. `await` e não `void`, para que uma falha de rede não vire *unhandled rejection* depois de a
+ *    tela já ter navegado — mas dentro de `try/catch`, então o resultado do registro **não depende**
+ *    do aviso. A cliente acabou de digitar o código com o envelope na mão; dizer "não deu" porque um
+ *    e-mail não saiu seria mentir sobre o que aconteceu.
+ * 2. Manda o GATILHO (`material_tracking_set`), não o evento (`AD-032`). Quais mensagens saem — uma
+ *    para ela, uma para a Adri — é decisão de `core/notifications/triggers`, com um dono e um teste.
+ * 3. A porta é `?action=notify`, que autoriza por **dona do pedido** e aceita um recorte fechado de
+ *    gatilhos (`CUSTOMER_TRIGGERS`). A porta `trigger` é admin-only e a cliente não é admin.
+ */
+async function avisarQueRegistrou(orderId: string): Promise<void> {
+  try {
+    await supabase.functions.invoke('send-notification?action=notify', {
+      body: { order_id: orderId, trigger: 'material_tracking_set' },
+    })
+  } catch {
+    // O estado no banco já mudou pela RPC. O aviso é o que pode faltar, e ele tem o próprio
+    // registro em `order_notifications` — a Adri reenvia pelo histórico do pedido.
+  }
 }

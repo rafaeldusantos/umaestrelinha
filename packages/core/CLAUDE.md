@@ -39,13 +39,14 @@ sem ela a varredura passa com zero arquivo lido, que é a pior falha possível n
 | `./pricing` · `./formatters` | formatação e conta de exibição | os dois apps |
 | `./routes` | `ROUTE_SLUGS`, `RESERVED_SLUGS`, `LEGACY_REDIRECTS`, `productPath`, `MATERIAL_GUIDE_PATH` | router da loja, `vercel.json`, cadastro do painel |
 | `./menu` | `menuItems`, `menuPanelColumns`, `resolveMenuTarget`/`menuTargetRefusal`, `resolveMenuBanners`, `MENU_ICON_KEYS`, `descendantIds`, `bySortOrder`, `categoryHref`, o canal `preview.ts` | 4 superfícies nos 2 apps |
-| `./home` | catálogo de blocos, `DEFAULT_HOME_COMPOSITION`, `derive.ts`, `preview.ts` | loja, painel |
+| `./home` | catálogo de blocos, `DEFAULT_HOME_COMPOSITION`, `derive.ts`, `preview.ts`, `carousel.ts` | loja, painel |
 | `./faq` | `resolveProductFaqs`, `faqOverrideOf`, `rankFaqSuggestions`, `block.ts` | loja, painel, importador |
 | `./material` | máquina de estado, `requiresMaterial()`, `materialSummary` | loja, painel, RPC (cópia em SQL) |
 | `./shopping` | `ShoppingOffer` e as duas serializações | `google-feed`, `product-page`, loja, painel |
 | `./checkout` | `resolveBlocks`, `isOrderStale` | loja |
 | `./shipping` | `freeShippingState` + `freeShippingRefusal` (o frete grátis tem **um** dono), `estimate.ts` | 8 superfícies nos 2 apps |
-| `./validators` · `./product` · `./media` · `./auth` | utilitários de domínio | vários |
+| `./media` | `renditionUrl`/`renditionSrcSet`/`imagePriority` (`rendition.ts`) e **`surfaceArt`** (`AD-030`) | loja, painel, `product-page` |
+| `./validators` · `./product` · `./auth` | utilitários de domínio | vários |
 | `./hooks/*` | **exceção declarada** — `useStoreSettings`, `useCoupons` tocam Supabase | os dois apps |
 
 ## Dinheiro — a regra que não muda por acaso
@@ -214,6 +215,28 @@ empatou em `sort_order = 0`.
   segunda leitura tem consequência: o arquivo entrou no grafo que o **Deno** do sitemap resolve, e
   por isso o `import type … from './types'` ganhou o `.ts` explícito.
 - **Literal de texto de seção mora aqui, não dentro do widget** — `catalog.test.ts` reprova a volta.
+- **`carousel.ts` é o dono do Banner principal** (feature `41`): as duas vagas
+  (`HERO_CAROUSEL_SLOTS` — 1440×540 no computador, **780×975 retrato** no celular), o teto de 6
+  slides, o giro de 6 s, `heroCarouselWidth` (valor desconhecido cai em `full`, nunca quebra),
+  `heroCarouselSlidesRefusal` e a **aritmética pura** do carrossel. `nextSlideIndex` e
+  `slideIndexFromScroll` moram aqui e não no hook por uma razão de prova: **jsdom devolve 0 para toda
+  medida de layout**, então a decisão de qual slide está na frente só é testável fora do DOM.
+- **A ordem das cobranças do slide é regra**: arte → descrição → destino. Trocá-la faria a tela pedir
+  a descrição de uma arte que ainda não existe.
+
+## `media/surfaceArt.ts` — a arte por dispositivo tem UM dono (`AD-030`)
+
+- **`surfaceImage(desktop, mobile, surface)`** é a arte **gravada** daquela superfície; **`surfaceArt`**
+  é a mesma pergunta com **recuo para a outra**, devolvendo `imageReused` para a tela poder avisar.
+- **Quatro consumidores**: os dois banners do menu (via `menuBannerArt`, que hoje **delega**) e os
+  dois do carrossel da Home (via `heroSlideArt`). A regra já divergiu uma vez, na `39`: o painel
+  decidia por truthiness da string crua e `core` apara espaço, então `image_mobile: "   "` fazia a
+  loja reaproveitar a arte do computador **com a tela dizendo que estava tudo certo**.
+- **Espaço em branco não é arte**, e é essa a diferença que importa. Um valor chegado por SQL, por
+  importação ou de um campo limpo com a barra de espaço tem de contar como ausente.
+- **O arquivo não importa NADA, e é de propósito.** `core/media/index.ts` importa
+  `@estrelinha/supabase/types`, e o Deno morre nesse `import type`; `core/menu/banners.ts` — que a
+  edge function do sitemap alcança — o consome por caminho relativo com `.ts`, nunca pelo barrel.
 
 ## Convenções de tipo
 

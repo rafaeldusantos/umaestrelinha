@@ -1,19 +1,20 @@
 // Feature 22 / T5 — o cadastro que determina o material afetivo (MAT-02, MAT-03).
 //
-// O que este arquivo existe para congelar: **"exige material" e "quais materiais" são DOIS dados**.
-// A leitura preguiçosa ("lista vazia ⇒ não exige") apaga a peça de material livre — a que exige,
-// entra na fila, e ainda não sabe qual. Um teste que só cobrisse "marquei cabelo, salvou cabelo"
-// passaria com o modelo errado.
+// **Este arquivo já congelou "exige material" e "quais materiais" como DOIS dados.** A lista saiu do
+// formulário (`BL-015`: `material_kinds` diz menos que a descrição, e a loja parou de anunciá-la), e
+// o que sobra aqui é o interruptor — que continua sendo dois dados com a coluna, só que agora um
+// deles não se edita mais por esta tela.
+//
+// O que este arquivo existe para congelar hoje: **o interruptor não é texto de vitrine, é operação**
+// (fila de material, cobrança, folha de separação), e **ele não pode voltar a mexer na coluna**.
 
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import type { MaterialKind } from '@estrelinha/core/material'
 import MaterialCard from './MaterialCard'
 
 const montar = (
   over: Partial<{
     requiresMaterial: boolean | null
-    materialKinds: MaterialKind[]
     engravingMaxChars: number | null
     offersEngraving: boolean
   }> = {},
@@ -22,7 +23,6 @@ const montar = (
   render(
     <MaterialCard
       requiresMaterial={over.requiresMaterial ?? null}
-      materialKinds={over.materialKinds ?? []}
       engravingMaxChars={over.engravingMaxChars ?? null}
       offersEngraving={over.offersEngraving ?? false}
       onChange={onChange}
@@ -31,41 +31,16 @@ const montar = (
   return onChange
 }
 
-describe('MaterialCard — os dois dados (MAT-02)', () => {
-  it('o switch e a lista são controles SEPARADOS', () => {
+describe('MaterialCard — o interruptor (MAT-02)', () => {
+  it('o card oferece o interruptor, e diz o que ele liga', () => {
     montar()
     expect(screen.getByText('Esta peça exige material da cliente')).toBeInTheDocument()
-    expect(screen.getByText('Quais materiais')).toBeInTheDocument()
+    // O rótulo sozinho não diz consequência nenhuma. Sem esta frase, a Adri não tem como saber que
+    // este switch é o que põe o pedido na fila e libera a cobrança.
+    expect(screen.getByText(/fila de material/i)).toBeInTheDocument()
   })
 
-  it('os dez materiais aparecem como opção', () => {
-    montar({ requiresMaterial: true })
-    for (const rotulo of [
-      'Leite materno', 'Mecha de cabelo', 'Cinzas', 'Pelo do pet', 'Dente de leite',
-      'Coto umbilical', 'Placenta', 'Flores', 'Penas', 'Outro material',
-    ]) {
-      expect(screen.getByLabelText(rotulo), `faltou ${rotulo}`).toBeInTheDocument()
-    }
-  })
-
-  it('com o switch DESLIGADO, os tipos ficam inacessíveis', () => {
-    montar({ requiresMaterial: false })
-    expect(screen.getByLabelText('Cinzas')).toBeDisabled()
-  })
-
-  it('com o switch LIGADO e nada marcado, a tela diz que o material é combinado — não cobra escolha', () => {
-    // É o estado válido que a leitura preguiçosa apagaria.
-    montar({ requiresMaterial: true, materialKinds: [] })
-    expect(screen.getByText(/o material será combinado com você/i)).toBeInTheDocument()
-    expect(screen.getByLabelText('Cinzas')).not.toBeDisabled()
-  })
-
-  it('com material marcado, o aviso de "a combinar" some', () => {
-    montar({ requiresMaterial: true, materialKinds: ['cinzas'] })
-    expect(screen.queryByText(/o material será combinado com você/i)).not.toBeInTheDocument()
-  })
-
-  it('ligar o switch emite `requires_material: true` e NÃO mexe na lista', () => {
+  it('ligar o interruptor emite `requires_material: true` e NÃO mexe na lista', () => {
     const onChange = montar({ requiresMaterial: null })
     fireEvent.click(screen.getByRole('switch'))
 
@@ -81,34 +56,33 @@ describe('MaterialCard — os dois dados (MAT-02)', () => {
     expect(onChange).toHaveBeenCalledWith({ requires_material: false })
   })
 
-  it('desligar NÃO apaga os materiais já escolhidos', () => {
-    const onChange = montar({ requiresMaterial: true, materialKinds: ['cabelo'] })
+  it('a lista "Quais materiais" não existe mais — nenhum dos dez é editável aqui', () => {
+    // Inverso do caso que este arquivo tinha até a remoção. Ele é o guarda da volta: reintroduzir os
+    // checkboxes traria de volta a curadoria que `BL-015` mostrou ser menos verdadeira que a
+    // descrição — e a loja, que não a anuncia mais, continuaria calada, sem nada acusar.
+    montar({ requiresMaterial: true })
+
+    expect(screen.queryByText('Quais materiais')).not.toBeInTheDocument()
+    for (const rotulo of [
+      'Leite materno', 'Mecha de cabelo', 'Cinzas', 'Pelo do pet', 'Dente de leite',
+      'Coto umbilical', 'Placenta', 'Flores', 'Penas', 'Outro material',
+    ]) {
+      expect(screen.queryByLabelText(rotulo), `voltou ${rotulo}`).not.toBeInTheDocument()
+    }
+    expect(screen.queryAllByRole('checkbox')).toHaveLength(0)
+  })
+
+  it('o card não emite `material_kinds` em interação nenhuma', () => {
+    // O par do caso acima, pelo lado do dado: a coluna continua gravada no banco e precisa chegar
+    // intacta ao próximo save. Emitir `material_kinds: []` daqui apagaria a curadoria de 689 linhas
+    // com o formulário parecendo não ter mexido em nada.
+    const onChange = montar({ requiresMaterial: true, offersEngraving: true })
     fireEvent.click(screen.getByRole('switch'))
+    fireEvent.change(screen.getByLabelText(/limite de caracteres/i), { target: { value: '30' } })
 
-    expect(onChange.mock.calls[0][0].material_kinds).toBeUndefined()
-  })
-
-  it('marcar um material emite a lista nova', () => {
-    const onChange = montar({ requiresMaterial: true, materialKinds: [] })
-    fireEvent.click(screen.getByLabelText('Cinzas'))
-
-    expect(onChange).toHaveBeenCalledWith({ material_kinds: ['cinzas'] })
-  })
-
-  it('desmarcar remove só aquele material', () => {
-    const onChange = montar({ requiresMaterial: true, materialKinds: ['cabelo', 'cinzas'] })
-    fireEvent.click(screen.getByLabelText('Cinzas'))
-
-    expect(onChange).toHaveBeenCalledWith({ material_kinds: ['cabelo'] })
-  })
-
-  it('a ordem gravada é a de `MATERIAL_KINDS`, não a de clique', () => {
-    // Sem isto, "cabelo e coto umbilical" sairia numa ordem em um save e noutra no seguinte, e o
-    // rótulo do pedido mudaria sem ninguém ter mexido em nada.
-    const onChange = montar({ requiresMaterial: true, materialKinds: ['coto_umbilical'] })
-    fireEvent.click(screen.getByLabelText('Mecha de cabelo'))
-
-    expect(onChange).toHaveBeenCalledWith({ material_kinds: ['cabelo', 'coto_umbilical'] })
+    for (const [patch] of onChange.mock.calls) {
+      expect(patch).not.toHaveProperty('material_kinds')
+    }
   })
 })
 

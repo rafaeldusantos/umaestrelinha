@@ -56,7 +56,7 @@ vi.mock('@/entities/order/api/useAdminOrders', async importOriginal => ({
     setMaterialTracking: setMaterialTrackingMock,
   }),
 }))
-vi.mock('@/entities/order/api/sendOrderEmail', () => ({ sendOrderEmail: sendEmailMock }))
+vi.mock('@/entities/order/api/notifyOrder', () => ({ resendNotification: sendEmailMock, notifyOrder: vi.fn().mockResolvedValue(true) }))
 vi.mock('sonner', () => ({ toast: { error: toastErrorMock, success: toastSuccessMock } }))
 // O Melhor Envio migra sem alteração interna (D9) e fala com uma API externa — fora do escopo aqui.
 vi.mock('@/features/order-management/ui/MelhorEnvioTab', () => ({ default: () => null }))
@@ -304,7 +304,7 @@ describe('histórico é UM fluxo (PED-27, PED-28)', () => {
           { id: 'h1', order_id: 'o1', from_status: 'pending', to_status: 'paid', note: null, created_by: null, created_at: '2026-08-20T14:35:00Z' },
         ],
         emails: [
-          { id: 'e1', order_id: 'o1', type: 'order_shipped', status: 'sent', attempts: 1, provider_message_id: 'x', error: null, created_at: '2026-08-21T09:00:00Z', sent_at: '2026-08-21T09:00:00Z' },
+          { id: 'e1', order_id: 'o1', event: 'order_shipped', channel: 'email', delivery_status: null, status: 'sent', attempts: 1, provider_message_id: 'x', error: null, created_at: '2026-08-21T09:00:00Z', sent_at: '2026-08-21T09:00:00Z' },
         ],
         notes: [
           { id: 'n1', order_id: 'o1', note: 'Falei com ela no WhatsApp.', created_by: null, created_at: '2026-08-22T16:12:00Z' },
@@ -317,7 +317,7 @@ describe('histórico é UM fluxo (PED-27, PED-28)', () => {
       .parentElement!
 
     expect(within(historico).getByText('Pendente → Pago')).toBeInTheDocument()
-    expect(within(historico).getByText('Aviso de postagem enviado')).toBeInTheDocument()
+    expect(within(historico).getByText('Aviso de postagem enviado (E-mail)')).toBeInTheDocument()
     expect(within(historico).getByText('Falei com ela no WhatsApp.')).toBeInTheDocument()
   })
 
@@ -325,13 +325,13 @@ describe('histórico é UM fluxo (PED-27, PED-28)', () => {
     detailMock.mockReturnValue(
       detail({
         emails: [
-          { id: 'e1', order_id: 'o1', type: 'order_shipped', status: 'failed', attempts: 2, provider_message_id: null, error: 'SMTP timeout', created_at: '2026-08-21T09:00:00Z', sent_at: null },
+          { id: 'e1', order_id: 'o1', event: 'order_shipped', channel: 'email', delivery_status: null, status: 'failed', attempts: 2, provider_message_id: null, error: 'SMTP timeout', created_at: '2026-08-21T09:00:00Z', sent_at: null },
         ],
       }),
     )
     renderPage()
 
-    expect(screen.getByText('Falha ao enviar order_shipped')).toBeInTheDocument()
+    expect(screen.getByText('Falha ao enviar aviso de postagem enviado (E-mail)')).toBeInTheDocument()
     expect(screen.getByText('SMTP timeout')).toBeInTheDocument()
     expect(screen.getByText('Reenviar')).toBeInTheDocument()
   })
@@ -340,7 +340,7 @@ describe('histórico é UM fluxo (PED-27, PED-28)', () => {
     detailMock.mockReturnValue(
       detail({
         emails: [
-          { id: 'e1', order_id: 'o1', type: 'order_shipped', status: 'sent', attempts: 1, provider_message_id: 'x', error: null, created_at: '2026-08-21T09:00:00Z', sent_at: '2026-08-21T09:00:00Z' },
+          { id: 'e1', order_id: 'o1', event: 'order_shipped', channel: 'email', delivery_status: null, status: 'sent', attempts: 1, provider_message_id: 'x', error: null, created_at: '2026-08-21T09:00:00Z', sent_at: '2026-08-21T09:00:00Z' },
         ],
       }),
     )
@@ -354,7 +354,7 @@ describe('histórico é UM fluxo (PED-27, PED-28)', () => {
     detailMock.mockReturnValue(
       detail({
         emails: [
-          { id: 'e1', order_id: 'o1', type: 'order_shipped', status: 'failed', attempts: 1, provider_message_id: null, error: 'timeout', created_at: '2026-08-21T09:00:00Z', sent_at: null },
+          { id: 'e1', order_id: 'o1', event: 'order_shipped', channel: 'email', delivery_status: null, status: 'failed', attempts: 1, provider_message_id: null, error: 'timeout', created_at: '2026-08-21T09:00:00Z', sent_at: null },
         ],
       }),
     )

@@ -647,9 +647,176 @@
 - **Date**: 2026-09-05
 - **Status**: active
 
+### AD-029
+- **Decision**: **A Home não tem bloco indelével.** A "Chamada principal" (`hero`) passa a ser uma
+  seção como qualquer outra — pode ser desligada e removida. A invariante que o trigger
+  `guard_hero_home_section` (`HOME-08`) protegia **não é apagada, é generalizada**: o guarda novo
+  (`guard_last_active_home_section`) recusa desligar ou apagar a **última seção ativa**, qualquer que
+  seja o tipo dela.
+- **Reason**: `HOME-08` nunca existiu para proteger o hero — existiu para tornar **impossível** uma
+  Home com zero seções ativas, porque esconder o botão na tela é UX e UX não sobrevive a um `PATCH`
+  direto. Com o carrossel de banner (feature `41`) a dona precisa poder pôr o anúncio no topo, e o
+  hero indelével impedia isso por construção: o carrossel entraria sempre **abaixo** de um bloco que
+  ela não pode desligar. Tornar o hero opcional sem substituir a invariante deixaria a Home poder
+  ficar em branco; apagá-la seria perder a garantia sem troca.
+- **Trade-off**: O guarda novo faz uma **contagem** de linhas ativas em vez de olhar só a linha
+  corrente, então duas transações simultâneas desligando seções diferentes podem passar as duas. A
+  loja tem uma administradora, e blindar exigiria `serializable` ou lock de tabela — custo alto para
+  um risco que a operação real não tem. Aceito e declarado.
+- **Scope**: `supabase/migrations/20260906120000_41-*.sql`,
+  `apps/store/src/shared/lib/__tests__/homeSections.test.ts`
+- **Date**: 2026-09-06
+- **Status**: active
+
+### AD-030
+- **Decision**: **"A arte desta superfície, com recuo para a da outra" tem UM dono**, e ele é
+  `packages/core/src/media/surfaceArt.ts` (`surfaceImage` / `surfaceArt`). `menuBannerArt` e
+  `menuBannerImage` (feature `39`) passam a **delegar** nele em vez de escrever a regra; o carrossel
+  da Home (feature `41`) o consome direto. O retorno declara `imageReused`, para a tela poder avisar
+  que reaproveitou.
+- **Reason**: O predicado já tinha dois consumidores (loja e painel) quando foi escrito na `39`, e a
+  segunda escrita **já custou uma divergência silenciosa**: o painel decidia por truthiness da string
+  crua enquanto `core` apara espaço, e um `image_mobile: "   "` fazia a loja reaproveitar a arte do
+  computador com a tela dizendo que estava tudo certo. Com a feature `41` os consumidores viram
+  quatro. E a regra do repositório é essa: dois consumidores da mesma regra ⇒ `packages/core`.
+- **Trade-off**: `core/menu/banners.ts` passa a depender de `core/media`, o que amarra dois módulos
+  de `core` que antes eram independentes. Aceito porque a alternativa é a cópia, e porque
+  `core/media` não importa nada — a direção da dependência não cria ciclo. O módulo mantém extensão
+  `.ts` explícita em todo import, para continuar alcançável por Deno.
+- **Scope**: `packages/core/src/media/surfaceArt.ts`, `packages/core/src/menu/banners.ts`,
+  `packages/core/src/home/carousel.ts`, `apps/store/src/widgets/hero-carousel/**`,
+  `apps/backoffice/src/features/{store-menu,home-composition}/**`
+- **Date**: 2026-09-06
+- **Status**: active
+
+### AD-031
+- **Decision**: **O canal de WhatsApp da loja é a Evolution API v2 com a integração
+  `WHATSAPP-BAILEYS`** (protocolo do WhatsApp Web, não oficial), **pareada no número da Adri**,
+  atrás de uma interface de provedor em `core/notifications/providers/` que permite trocar para a
+  Cloud API por secret, sem tocar na loja. O motor e a memória com `channel` são a feature `42`
+  (e-mail); o adaptador, o opt-in e os webhooks são a `43`.
+- **Reason**: Decisão do usuário em 2026-09-06, tomada com o levantamento da `42` à vista — que
+  recomendava a Cloud API oficial e um número secundário. Pesaram a conta Evolution já existente, a
+  ausência de aprovação de template (texto livre, editável no painel) e a cliente responder na
+  conversa que já conhece.
+- **Trade-off**: **Aceito o risco de banimento do número da Adri** — que é o canal de atendimento da
+  loja — e o de instabilidade quando a Meta muda o protocolo. Mitigações exigidas pela spec da `43`:
+  opt-in explícito por pedido, `delay` aleatório de 1–3 s, teto de 30 mensagens/hora, texto puro sem
+  emoji e com um link só, alerta de desconexão para a dona por e-mail e `delivery_status` no
+  histórico. **Condição de revisão**: a primeira desconexão prolongada ou banimento em produção
+  reabre esta decisão em favor do adaptador `cloud` — e, nesse caso, o número secundário volta à
+  mesa.
+- **Scope**: `packages/core/src/notifications/**`, `supabase/functions/send-notification/**`,
+  `apps/backoffice/src/**` (aba Notificações), `apps/store/src/features/checkout/**` (opt-in),
+  secrets `EVOLUTION_*`
+- **Date**: 2026-09-06
+- **Status**: active
+
+### AD-032
+- **Decision**: **Quem dispara notificação nomeia o que ACONTECEU (o gatilho), nunca qual mensagem
+  sai.** Quais eventos um gatilho produz, para quem (cliente ou dona), e sob que pré-condição, é
+  regra de `@estrelinha/core/notifications` (`eventsForTrigger`, `preconditionFailure`), lida pelo
+  motor da edge function e pelo painel. **Um motor** (`send-notification/dispatch.ts`), **N canais**
+  registrados por uma interface (`NotificationProvider`), **uma memória** (`order_notifications`,
+  com `channel`). Feature `42`; a `43` acrescenta o canal WhatsApp como adaptador.
+- **Reason**: A bifurcação "pagamento aprovado" → `order_paid` **ou** `material_instructions`
+  existiria em dois chamadores (`mercado-pago` e o reenvio do backoffice) se cada um nomeasse o
+  evento — o defeito 01 no dia um. Com o gatilho, a decisão tem um dono e um teste puro. E a
+  memória com `channel` desde já é o custo declarado de separar e-mail (`42`) de WhatsApp (`43`),
+  pago uma vez em vez de reaberto na segunda.
+- **Trade-off**: O reenvio explícito do histórico (`action=send`) **continua nomeando evento**, porque
+  reenviar é repetir uma mensagem específica — são duas portas com semânticas diferentes, e a spec
+  as separa. A tabela `order_emails` sobrevive como **view** `security_invoker` durante a janela de
+  deploy (`db push` e Vercel em paralelo, lição da `39`) e as RPCs antigas delegam; a remoção é
+  migration posterior. `delivery_status` nasce sem leitor, para a `43` não reabrir a migration.
+- **Scope**: `packages/core/src/notifications/**`, `supabase/functions/send-notification/**`,
+  `supabase/functions/mercado-pago/handlers.ts` (só os pontos de disparo), `apps/backoffice/src/
+  entities/order/api/**`, `apps/store/src/entities/order/api/useSetMaterialTracking.ts`
+- **Date**: 2026-09-06
+- **Status**: active
+
 ## Handoff
 
-### ATUAL — 2026-09-06 · `40-estabilidade-da-home` **IMPLEMENTADA E VERIFICADA**
+### ATUAL — 2026-09-06 · `42-notificacoes-email-e-whatsapp` **EM EXECUÇÃO**
+
+- **Feature**: `.specs/features/42-notificacoes-email-e-whatsapp/` (spec, context, design, tasks
+  aprovados; `levantamento.md` cobre também a `43`, que tem spec + context e **espera** a `42`)
+- **Phase / Task**: Phase 1b / T16 — T12–T15 feitas **inline** (o worker do lote B3 morreu por
+  limite de sessão sem escrever nada; retomado na janela principal)
+- **Completed**: T1–T4 (commit `859d4aa`) · T5–T11 (commit `7707ade`) · T12–T15 **na árvore, sem
+  commit** (o commit é por fase, ao fim da T18)
+- **In-progress**: T16 — `apps/store/src/entities/order/api/useSetMaterialTracking.ts`
+- **Next step**: T16 (loja chama `?action=notify`), T17 (`notifyOrder` no backoffice), T18
+  (histórico lê `order_notifications` + guarda de dono único), commit da fase, então B4/Phase 2
+- **Blockers**: T4 precisa de `RESEND_DEV_REDIRECT_TO` no `.env` da raiz (vazia em 2026-09-06) e
+  da parte manual (sandbox do MP + Gmail no celular) — fica em checklist no `validation.md`
+- **Uncommitted files**: `.specs/STATE.md` (AD-031, AD-032, este handoff), `.specs/features/42-*`,
+  `.specs/features/43-*`; **`apps/backoffice/src/pages/admin/AdminHomePage.tsx` é WIP do usuário,
+  fora da feature — não commitar**
+- **Branch**: `feat/42-notificacoes-por-email` (criada de `master` em `2370054`)
+- **Baseline de entrada**: store 2652/169 · backoffice 1996/119 · core 1811/70 · functions 370/7 ·
+  catalog-import 512/23 · lint 27/5 · tipos 0·0
+
+### ANTERIOR — 2026-09-06 · `41-banner-principal-da-home` **IMPLEMENTADA** (commit `2370054`)
+
+**Estado**: T1–T18 feitas inline, uma por vez, com gate por task. Falta a **verificação
+independente** (`validation.md`) e a **prova em navegador**.
+
+**O que a feature entrega**: um tipo de seção novo, `hero_carousel` ("Banner principal"), que a Adri
+acrescenta em `/admin/home` em qualquer posição e quantas vezes quiser. Cada banner tem **arte de
+computador, arte de celular, descrição e destino** (coleção, peça ou caminho da loja); a seção
+escolhe `full` (borda a borda) ou `wide` (dentro do container). Vários banners na mesma seção giram
+a cada 6 s, com bolinhas, setas no computador, arrasto do dedo, pausa em hover/foco/toque e
+`prefers-reduced-motion` desligando o giro sem desligar os controles.
+
+**Duas decisões de projeto saíram daqui:**
+
+- **`AD-029` — a Home não tem bloco indelével.** O hero virou opção; a invariante que o protegia foi
+  generalizada para "a última seção ativa não desliga e não some". Sem isso o carrossel nunca
+  ocuparia o topo, que era o pedido.
+- **`AD-030` — a arte por dispositivo tem um dono**, `core/media/surfaceArt.ts`. `menuBannerArt`
+  (feature `39`) passou a delegar; os consumidores foram de dois para quatro.
+
+**A verificação independente REPROVOU a primeira entrega**, e o achado nº 1 era estrutural: `AD-029`
+tinha parado no banco. O trigger fora trocado, mas o painel continuava trancando a Chamada principal
+com um cadeado, `HomeSectionList.test.tsx` **asseria a trava**, e `deleteSection` existia no hook sem
+nenhuma tela consumindo. A Adri arrastaria o Banner principal para o topo e o hero continuaria acima
+dele — o problema que a feature existe para resolver, entregue "completo" e verde. Os outros cinco
+achados: duas pausas do carrossel que não discriminavam (`INTERVAL * 3` com 3 slides volta ao índice
+0, igual a pausado), o guarda de opacidade cego ao `fade-in` do `tailwindcss-animate`, o guarda de
+dono único cego ao `||` quebrado em linhas, `BNR-39` sem asserção, e seis ACs sem evidência própria.
+**Todos corrigidos**; os dois guardas foram ampliados com sensores para cada furo, e o guarda irmão
+da `40` (`heroSemOpacidadeZero`) recebeu a mesma ampliação, porque tinha o mesmo furo.
+
+**A rodada 2 passou com três ressalvas, e as três foram fechadas.** A mais séria era o achado nº 1 um
+nível acima: as duas pontas da remoção de seção estavam provadas — o hook e a lista — e **o fio entre
+elas não**. Apagar `onRemove={handleRemove}` da página fazia o botão sumir da tela inteira com a
+suíte do backoffice verde; `AdminHomePage.test.tsx` ganhou seis casos que provam a junção. A segunda:
+a régua de opacidade via o `fade-in` do `tailwindcss-animate` e era cega a `animate-fade-in`,
+`animate-scale-in` e `animate-slide-up` — as três do **próprio preset**, as três com `opacity: "0"`
+no primeiro quadro, e o furo era **de um caractere** (o anterior ali é hífen, não espaço). A terceira:
+o recuo sem operador (`[a, b].find(Boolean)` e `if (!image) image = …`).
+
+**Baselines** (medidas um workspace por vez, exit code fora de pipe): store 2538/165 → **2664/169**,
+backoffice 1946/118 → **2002/119**, core 1728/68 → **1811/70**. Functions (370/7) e catalog-import
+(512/23) intocados e remedidos. Total **7359 em 388**. Lint **27/5**, tipos **0 · 0**, `pnpm build`
+verde, `packages/core/src/payment/**` intocado.
+
+**Migration `20260906120000_41-*.sql` aplicada no banco LOCAL e probeada** — aplicada duas vezes
+(idempotente), tipo novo aceito, `image_mobile_url` gravando e relendo, hero desligável e apagável,
+e as duas recusas da última seção ativa devolvendo `23514` com a mensagem certa. **Ainda não foi ao
+hospedado**: o `Supabase Deploy` a aplica no push em `master`.
+
+**Divergência declarada**: `BNR-27` pede `target="_blank"` para destino externo. Não implementado —
+`ctaHrefRefusal` recusa endereço que não comece com `/` (`HOME-23`), então o estado é inalcançável.
+Registrado na tabela de suposições da spec e como `SPEC_DEVIATION` no widget.
+
+**Próximo passo**: dispatch do Verifier (autor ≠ verificador) e prova em navegador em 390×844 e
+1440 — CLS da faixa, LCP do primeiro slide em Slow 4G, arrasto sem sequestrar a rolagem vertical.
+
+---
+
+### 2026-09-06 · `40-estabilidade-da-home` **IMPLEMENTADA E VERIFICADA**
 
 **Estado**: T01–T06 feitas num lote só, gate limpo. **Primeira feature do projeto com autor ≠
 verificador** — `validation.md` escrita por agente distinto, com sensor de mutação real.

@@ -10,7 +10,7 @@ import {
 interface Props {
   events: HistoryEvent[]
   onAddNote: (note: string) => Promise<void>
-  onResendEmail: (type: string) => Promise<void>
+  onResendEmail: (event: string, channel: string) => Promise<void>
   busy?: boolean
 }
 
@@ -115,7 +115,7 @@ const OrderHistory = ({ events, onAddNote, onResendEmail, busy = false }: Props)
                       variant="outline"
                       className="mt-1.5 min-h-[44px]"
                       disabled={busy}
-                      onClick={() => onResendEmail(ev.emailType!)}
+                      onClick={() => onResendEmail(ev.emailType!, ev.emailChannel ?? 'email')}
                     >
                       <RefreshCw className="mr-1 h-3.5 w-3.5" /> Reenviar
                     </Button>

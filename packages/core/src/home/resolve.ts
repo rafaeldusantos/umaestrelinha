@@ -20,8 +20,16 @@ export interface ResolvedItem {
   description: string | null
   /** O destino já montado — `categoryHref`, `productPath` ou o caminho livre. */
   href: string
-  /** A arte própria do item; sem ela, a do destino. */
+  /** A arte própria do item; sem ela, a do destino. **É a de computador** (feature 41). */
   imageUrl: string | null
+  /**
+   * A arte de **celular**, quando o item tem uma (feature 41).
+   *
+   * Só o carrossel a lê; as outras seções a recebem `null`. Não vem com recuo aplicado de propósito
+   * — quem decide "qual arte esta superfície usa" é `surfaceArt` (`AD-030`), no momento de desenhar,
+   * e aplicá-lo aqui daria a mesma resposta em dois lugares.
+   */
+  imageMobileUrl: string | null
   /** `true` quando a dona escolheu a dedo; `false` quando veio da derivação de hoje. */
   curated: boolean
 }
@@ -79,6 +87,11 @@ const SOURCE_DRIVEN: readonly HomeSectionType[] = [
   'collection_feature',
   'product_carousel',
   'category_grid',
+  // O banner principal (feature 41) **só existe por curadoria** — não há derivação para ele, e é de
+  // propósito: a grade de banners pode cair na arte das categorias porque ali a arte é do destino;
+  // aqui a arte é da campanha, e campanha ninguém deriva. Sem slide, a seção não desenha — e a linha
+  // do painel diz por quê, em vez de a Home abrir com uma faixa vazia.
+  'hero_carousel',
 ]
 
 /**
@@ -99,6 +112,7 @@ const EMPTY_SOURCE_REASON: Record<HomeSectionType, string> = {
   collection_feature: 'Não vai aparecer: nenhuma coleção escolhida está no ar.',
   product_carousel: 'Não vai aparecer: a fonte não devolveu nenhum produto.',
   category_grid: 'Não vai aparecer: o catálogo ainda não tem coleção para mostrar.',
+  hero_carousel: 'Não vai aparecer: nenhum banner enviado.',
 }
 
 const DESLIGADA = 'Desligada: não aparece na loja.'

@@ -117,6 +117,17 @@ dobra interna. Em 390×844 sobram 206px de corte. Colapsar dois grupos zera a di
   contra o banco local, não inspeção de tipo.
 - **Payload de gravação fica em igualdade EXATA no teste** (`CategoryInspector.test.tsx`,
   `core/product/index.test.ts`). É o que impede campo novo entrar na gravação sem ninguém decidir.
+- **O card "Material afetivo" tem UM controle, e a lista "Quais materiais" NÃO volta** (2026-09-11).
+  Sobraram o interruptor "Esta peça exige material da cliente" e o limite de gravação. Os dez
+  checkboxes saíram junto com o card que a loja mostrava na página do produto: `material_kinds` **diz
+  menos que a descrição** (`BL-015`), e a loja parou de anunciá-la.
+  - **O interruptor é operação, não texto de vitrine**, e o card diz isso na tela: ligado, o pedido
+    pago nasce com `material_status`, entra na fila, aparece no filtro de `/admin/clientes`, ganha a
+    cobrança por WhatsApp e sai na folha de separação. Nada disso depende de saber **qual** material —
+    é por isso que a lista pôde sair sem levar a fila junto.
+  - **A coluna continua gravada e é preservada pelo save.** `useProductForm` ainda a carrega do banco;
+    o card **nunca** emite `material_kinds`, e `MaterialCard.test.tsx` assere isso em toda interação —
+    emitir `[]` daqui apagaria a curadoria de 689 linhas com o formulário parecendo intocado.
 
 ## Descontos
 
@@ -150,9 +161,39 @@ desenho.
 - **O editor da faixa de vantagens NÃO tem campo de texto** — ele aponta para Configurações. Todo
   número dali sai das settings. Dar campo de texto reintroduziria o defeito da `MarqueeBar`, com a
   diferença de que agora quem digitaria o número errado seria a dona.
-- **O hero é indelével**: sem controle de desligar na lista **e** com trigger na migration. Os dois
-  precisam existir — sem o trigger a regra morre num `PATCH` direto; sem o controle escondido, a dona
-  clica e leva um erro do banco.
+- **O hero DEIXOU de ser indelével na feature `41`** (`AD-029`), e a invariante que o protegia foi
+  **generalizada, não apagada**: o trigger passou a recusar desligar ou apagar a **última seção
+  ativa**, qualquer que seja o tipo. Era preciso — enquanto o hero fosse obrigatório, o Banner
+  principal nunca ocuparia o topo. **A mensagem da recusa tem um dono só, e é o banco**: o painel a
+  exibe, não a reescreve.
+  - **A linha da lista ganhou "Remover"**, e ela é a metade que faltava: `deleteSection` existia no
+    hook desde a feature 24 e **nenhuma tela a consumia**. Passou despercebido enquanto o único bloco
+    que a AC mandava poder remover era justamente o indelével. A confirmação é `window.confirm`
+    porque o que falta antes do clique é um passo, não um fluxo.
+  - **O painel NÃO antecipa a recusa da última seção ativa.** Ela vem do banco e chega como erro de
+    gravação. Antecipá-la aqui seria a segunda escrita da regra que `AD-029` acabou de unificar.
+- **`/admin/home` › bloco “Banner principal”** (feature `41`) — o carrossel de campanha. Cada banner
+  tem **duas artes** (computador e celular), descrição e destino; a seção escolhe `full` ou `wide`.
+  Três coisas não se decidem nesta tela:
+  - **"está reaproveitando a arte do computador" é resposta de `core`** (`surfaceArt`, `AD-030`), não
+    da tela. O painel do menu já reescreveu esse predicado uma vez por truthiness da string crua, e
+    um `"   "` fazia a loja reaproveitar enquanto a tela dizia que estava tudo certo.
+  - **O teto de 6 banners recusa com MOTIVO, nunca com botão apagado.** `disabled` some num atalho de
+    teclado e não diz o que fazer — e a saída ("crie um segundo bloco") faz parte da recusa.
+  - **Nada aqui desenha o carrossel.** `previaUnica.test.ts` recusa a mecânica (`snap-x`,
+    `scroll-snap`, `setInterval`) dentro de `home-composition`, e a régua é a mecânica e não o nome
+    do arquivo: "só uma mini-prévia para conferir a ordem" é o pedido razoável que traz o defeito de
+    volta.
+  - **A miniatura de cada vaga tem a proporção DA VAGA** (`1680 × 560` e `720 × 720`), entregue por
+    `style` porque a razão é dado — classe montada em tempo de execução não existe no CSS, já que o
+    JIT do Tailwind varre o fonte. Ela era `aspect-video` nas **duas**: a dona conferia o recorte em
+    16:9 enquanto a loja entregava 3:1 e 1:1, ou seja, **o corte que ela precisa enxergar era
+    exatamente o que a miniatura escondia**. É uma terceira proporção na mesma tela, que é o "defeito
+    01" em forma de moldura.
+- **O seletor de destino é `DestinoDoItem.tsx`, e é compartilhado.** Extraído do `BannerGridEditor` na
+  `41`, porque o que ele carrega é uma **regra** e não um formulário: o `label_snapshot` é congelado
+  junto com a escolha, e uma segunda escrita esqueceria isso — o painel passaria a dizer "este banner
+  perdeu o destino" em vez de "a coleção Prata 925 foi apagada".
 - **Editor de seção é ROTA, e ela troca só a coluna da lista** (`/admin/home/:sectionId`). É o
   precedente dos Descontos ("editor é tela, não modal") sem o preço que ele costuma cobrar — que aqui
   seria apagar a prévia justamente enquanto a dona edita olhando para ela. **A prévia não remonta**, e

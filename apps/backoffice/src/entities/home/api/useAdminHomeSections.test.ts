@@ -208,14 +208,33 @@ describe('useAdminHomeSections — ligar/desligar', () => {
     expect(escritas('home_sections')[0].update).toEqual({ active: false })
   })
 
-  it('a recusa do hero volta TIPADA, com a mensagem do trigger (HOME-08, HOME-14)', async () => {
-    writeResponse = { error: { message: 'A chamada principal da Home nao pode ser desligada.' } }
+  it('a recusa do banco volta TIPADA e LITERAL, sem reescrita (AD-029, BNR-44, HOME-14)', async () => {
+    // A mensagem mudou com a feature 41: o trigger deixou de falar do hero e passou a falar da
+    // ÚLTIMA SEÇÃO ATIVA, qualquer que seja o tipo. Ela tem **um dono**, e é o banco — esta camada
+    // repassa a frase inteira, e o painel a exibe como veio.
+    //
+    // A asserção é de igualdade e não de "contém": reescrever a frase aqui, mesmo "melhorando-a",
+    // criaria a segunda versão da regra que `AD-029` existe para evitar.
+    const doBanco = 'A Home precisa de pelo menos uma secao ativa, e esta e a ultima.'
+    writeResponse = { error: { message: doBanco } }
     const { result } = await montar()
     let devolvido: { message: string } | null = null
     await act(async () => {
       devolvido = await result.current.setSectionActive('sec-hero', false)
     })
-    expect(devolvido).toEqual({ message: 'A chamada principal da Home nao pode ser desligada.' })
+    expect(devolvido).toEqual({ message: doBanco })
+  })
+
+  it('desligar o HERO não é recusado por esta camada — quem decide é o banco (BNR-40)', async () => {
+    // O par: enquanto o painel travava o hero por tipo, a recusa nunca chegava a sair. Agora a
+    // gravação acontece, e o `null` é a prova de que nada aqui a antecipa.
+    const { result } = await montar()
+    let devolvido: { message: string } | null = { message: 'nao rodou' }
+    await act(async () => {
+      devolvido = await result.current.setSectionActive('sec-hero', false)
+    })
+    expect(devolvido).toBeNull()
+    expect(escritas('home_sections')[0].update).toEqual({ active: false })
   })
 })
 
@@ -280,6 +299,9 @@ describe('useAdminHomeSections — curar', () => {
       ])
     })
     const insercao = escritas('home_section_items').find(c => c.insert !== undefined)!
+    // As chaves são as MESMAS nos dois — e a asserção compara o objeto inteiro justamente para uma
+    // coluna nova não entrar em um item só (`PGRST102` acontece na gravação, não no diff).
+    expect(Object.keys(insercao.insert[0]).sort()).toEqual(Object.keys(insercao.insert[1]).sort())
     expect(insercao.insert).toEqual([
       {
         section_id: 'sec-banners',
@@ -288,6 +310,7 @@ describe('useAdminHomeSections — curar', () => {
         product_id: null,
         href: null,
         image_url: 'a.webp',
+        image_mobile_url: null,
         alt: 'Leite materno',
         label_snapshot: 'Leite materno',
       },
@@ -298,6 +321,7 @@ describe('useAdminHomeSections — curar', () => {
         product_id: null,
         href: '/como-enviar',
         image_url: 'b.webp',
+        image_mobile_url: null,
         alt: 'Como enviar',
         label_snapshot: null,
       },
@@ -346,5 +370,33 @@ describe('useAdminHomeSections — salvar conteúdo (HOME-14)', () => {
       devolvido = await result.current.updateSectionConfig('sec-hero', { title_line1: 'x' })
     })
     expect(devolvido).toEqual({ message: 'PGRST204 column does not exist' })
+  })
+})
+
+describe('useAdminHomeSections — o Banner principal (BNR-02, BNR-52)', () => {
+  it('a seção nova nasce DESLIGADA, seja qual for o tipo', async () => {
+    // `HOME-10`/`BNR-02`: a Adri monta o bloco inteiro antes de a cliente ver, e "publicar" é um
+    // clique explícito — não o efeito colateral de criar. Sem isto, acrescentar um Banner principal
+    // vazio abriria uma faixa em branco no topo da loja no instante do clique.
+    const { result } = await montar()
+    await act(async () => {
+      await result.current.createSection('hero_carousel')
+    })
+
+    const insercao = escritas('home_sections').find(c => c.insert !== undefined)!
+    expect(insercao.insert).toMatchObject({ type: 'hero_carousel', active: false })
+  })
+
+  it('desligar uma seção NÃO toca os itens dela (BNR-52)', async () => {
+    // Religar tem de trazer a campanha de volta inteira. Se `setSectionActive` escrevesse itens, a
+    // dona perderia a curadoria ao usar o interruptor — e descobriria só ao religar.
+    const { result } = await montar()
+    await act(async () => {
+      await result.current.setSectionActive('sec-banners', false)
+    })
+
+    expect(escritas('home_section_items')).toEqual([])
+    const update = escritas('home_sections').find(c => c.update !== undefined)!
+    expect(Object.keys(update.update as object)).toEqual(['active'])
   })
 })

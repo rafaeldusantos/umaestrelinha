@@ -116,15 +116,57 @@ describe('HomeBlockTray — o teto de 30 (edge case da spec)', () => {
 })
 
 describe('HomeBlockTray — a bandeja mostra o catálogo inteiro', () => {
-  it('oferece os dez tipos, e nenhum deles é contagem regressiva ou prova social', () => {
+  it('oferece os onze tipos, e nenhum deles é contagem regressiva ou prova social', () => {
     montar()
-    expect(screen.getAllByTestId(/^bloco-/)).toHaveLength(10)
+    expect(screen.getAllByTestId(/^bloco-/)).toHaveLength(11)
     const ids = screen.getAllByTestId(/^bloco-/).map(b => b.getAttribute('data-testid'))
     expect(ids.some(id => /countdown|social|proof|depoiment/i.test(id ?? ''))).toBe(false)
+  })
+
+  it('oferece o Banner principal, e SEM a etiqueta “em breve” (BNR-01)', () => {
+    // Vizinha da contagem acima, e não substituta: aquela mede o total, esta nomeia o bloco que a
+    // feature 41 acrescenta. Um bloco esmaecido é um bloco que a Adri nunca descobre que existe.
+    montar()
+    const bloco = screen.getByTestId('bloco-hero_carousel')
+
+    expect(bloco).toHaveTextContent('Banner principal')
+    expect(bloco).not.toHaveTextContent('em breve')
+    expect(bloco).not.toBeDisabled()
   })
 
   it('diz que a seção nova nasce desligada (HOME-10)', () => {
     montar()
     expect(screen.getByText(/nasce desligada/)).toBeInTheDocument()
+  })
+})
+
+describe('HomeBlockTray — o Banner principal e o teto (BNR-03, BNR-05)', () => {
+  const secao = (type: HomeSection['type'], id: string = type): HomeSection => ({
+    id,
+    type,
+    position: 1,
+    active: true,
+    config: {},
+  })
+
+  it('acrescentar um SEGUNDO Banner principal é permitido — o tipo é repetível', () => {
+    // O par da regra de unicidade: os tipos únicos aparecem esmaecidos com "já está na Home", e
+    // este não pode ser um deles. Sem esta asserção, pôr `hero_carousel` em `UNIQUE_SECTION_TYPES`
+    // esconderia o segundo bloco atrás de uma recusa que soa correta.
+    const onAdd = montar([...DEFAULT_HOME_COMPOSITION, secao('hero_carousel')])
+
+    expect(bloco('hero_carousel')).not.toBeDisabled()
+    expect(screen.queryByTestId('motivo-hero_carousel')).toBeNull()
+
+    fireEvent.click(bloco('hero_carousel'))
+    expect(onAdd).toHaveBeenCalledWith('hero_carousel')
+  })
+
+  it('com a Home cheia, o Banner principal é recusado pelo teto — como qualquer tipo', () => {
+    const cheia = Array.from({ length: MAX_HOME_SECTIONS }, (_, i) => secao('banner_grid', `s${i}`))
+    montar(cheia)
+
+    expect(bloco('hero_carousel')).toBeDisabled()
+    expect(screen.getByTestId('motivo-hero_carousel')).toHaveTextContent('Home cheia')
   })
 })

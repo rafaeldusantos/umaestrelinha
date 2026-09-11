@@ -5,6 +5,7 @@ import TrustBar from '@/widgets/home-sections/ui/TrustBar'
 import BrandStatement from '@/widgets/home-sections/ui/BrandStatement'
 import TrendingTags from '@/widgets/home-sections/ui/TrendingTags'
 import { HomeBannerGrid } from '@/widgets/home-banners'
+import { HeroCarousel } from '@/widgets/hero-carousel'
 import { HomeCollections } from '@/widgets/home-collections'
 import { CollectionFeature } from '@/widgets/collection-feature'
 import NewsletterBanner from '@/features/newsletter/ui/NewsletterBanner'
@@ -61,4 +62,9 @@ export const HOME_SECTION_RENDERERS: Record<
     items[0] ? <CollectionFeature content={section.config} collection={items[0]} /> : null,
   product_carousel: null,
   category_grid: null,
+  // Sem slide não há carrossel, e quem já decidiu isso é `resolveHomeSections` — a seção nem chega
+  // aqui. O guarda existe pelo mesmo motivo do `collection_feature` logo acima: desenhar uma faixa
+  // com trilho vazio seria uma vaga de altura reservada mostrando nada.
+  hero_carousel: ({ section, items }) =>
+    items.length ? <HeroCarousel section={section} items={items} /> : null,
 }

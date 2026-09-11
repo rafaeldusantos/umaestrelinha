@@ -506,12 +506,15 @@ const AdminProductFormPage = () => {
                 />
               </FormCard>
 
-              {/* Feature 22 — o que a cliente precisa enviar pelo correio. `offersEngraving` sai dos
-                  eixos do produto (aba Preços & variações): o limite só faz sentido para os 35
-                  produtos de 689 que de fato oferecem gravação. */}
+              {/* Feature 22 — se a peça exige material da cliente, e quanto cabe de gravação.
+                  `offersEngraving` sai dos eixos do produto (aba Preços & variações): o limite só
+                  faz sentido para os 35 produtos de 689 que de fato oferecem gravação.
+
+                  A lista "Quais materiais" saiu daqui (`BL-015`): `material_kinds` dizia menos que a
+                  descrição, e a loja parou de anunciá-la. A coluna continua gravada e preservada
+                  pelo save — o formulário só não a edita mais. */}
               <MaterialCard
                 requiresMaterial={form.requires_material}
-                materialKinds={form.material_kinds}
                 engravingMaxChars={form.engraving_max_chars}
                 offersEngraving={hasEngravingAxis(form.options)}
                 onChange={patch => setFields(patch)}

@@ -1,9 +1,10 @@
-// Feature 22 / T9 — `MAT-02` e `MAT-03` na **segunda** superfície de compra: a barra fixa do mobile.
+// Feature 22 / T9 — a **segunda** superfície de compra: a barra fixa do mobile.
 //
-// A AC pede o aviso na coluna de informação **e** aqui, "que compartilham o mesmo estado". A prova
-// que importa não é o layout: é que as duas leem o **mesmo** `purchase`. Duas cópias de estado
-// dariam duas verdades na mesma tela — o defeito que `useProductPurchase` existe para impedir, e o
-// mesmo que quebrou a remoção de item com variação quando existiam duas telas de carrinho.
+// O `MAT-02` saiu daqui: o aviso de material afetivo não existe mais em superfície nenhuma da página
+// do produto, porque `material_kinds` diz menos que a descrição (`BL-015`). O que este arquivo ainda
+// prova é o que continua valendo — a barra e a coluna de informação leem o **mesmo** `purchase`.
+// Duas cópias de estado dariam duas verdades na mesma tela, que é o defeito que `useProductPurchase`
+// existe para impedir.
 //
 // Este arquivo mora em `widgets/` e não em `entities/` porque `entities` não importa de `widgets`
 // (fronteira FSD): um teste que cruzasse a camada já seria a violação que a regra impede.
@@ -55,7 +56,7 @@ beforeEach(() => {
   localStorage.clear()
 })
 
-describe('ProductBuyBar — material e gravação (MAT-02, MAT-03)', () => {
+describe('ProductBuyBar — gravação, e a ausência do material (MAT-03)', () => {
   it('a barra reflete o bloqueio de gravação vindo do `purchase`', () => {
     montarBarra(comEixoDeGravacao(), p => {
       p.select({ 'Com gravação': 'Sim' })
@@ -74,19 +75,25 @@ describe('ProductBuyBar — material e gravação (MAT-02, MAT-03)', () => {
     expect(screen.getByText('R$ 142,00')).toBeInTheDocument()
   })
 
-  it('a barra mostra o aviso de material quando o produto exige', () => {
+  it('a barra NÃO fala de material afetivo, nem quando o produto exige', () => {
+    // A linha "Você envia: cinzas" saiu junto com o card da coluna de informação:
+    // `material_kinds` diz menos que a descrição (`BL-015`), e a barra é a superfície onde a
+    // cliente TOCA em comprar. Quem guarda a ausência das duas é `semMaterialNaPaginaDoProduto`.
     const { container } = montarBarra(
       comEixoDeGravacao({ requires_material: true, material_kinds: ['cinzas'] }),
     )
-    expect(within(container).getByText(/você envia: cinzas/i)).toBeInTheDocument()
+
+    expect(within(container).queryByText(/você envia/i)).not.toBeInTheDocument()
+    expect(within(container).queryByText(/cinzas/i)).not.toBeInTheDocument()
+    expect(within(container).queryByText(/combinado com a gente/i)).not.toBeInTheDocument()
   })
 
-  it('produto que não exige material não ganha linha nenhuma na barra', () => {
+  it('produto que não exige material também não ganha linha nenhuma', () => {
     montarBarra(comEixoDeGravacao({ requires_material: false }))
     expect(screen.queryByText(/você envia/i)).not.toBeInTheDocument()
   })
 
-  it('a altura da barra continua sendo a do rodapé — com ou sem aviso', () => {
+  it('a altura da barra continua sendo a do rodapé — exija material ou não', () => {
     // É isso que deixa a reserva de espaço do `StoreLayout` ser incondicional: ela não sabe qual
     // barra está montada. Crescer aqui esconderia a última faixa do rodapé.
     const semMaterial = montarBarra(comEixoDeGravacao({ requires_material: false }))

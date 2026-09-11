@@ -53,8 +53,32 @@ const HERO = resolve(HERE, '../HeroBanner.tsx')
  *
  * `opacity: 0.5` **não** casa — só o zero, com ou sem casas decimais nulas.
  */
-export const nasceInvisivel = (fonte: string): boolean =>
-  /\bopacity\s*:\s*0(?:\.0+)?\s*[,}\]]/.test(semComentarios(fonte))
+export const nasceInvisivel = (fonte: string): boolean => {
+  const limpo = semComentarios(fonte)
+  const objeto = /\bopacity\s*:\s*0(?:\.0+)?\s*[,}\]]/.test(limpo)
+  /**
+   * Classe utilitária e valor arbitrário — **acrescentados na feature 41**.
+   *
+   * A verificação independente da `41` mostrou que este guarda, escrito na `40`, ainda era cego a
+   * duas grafias que produzem exatamente o mesmo defeito. É a terceira vez que a lição aparece neste
+   * projeto: **guarda ancorado em sintaxe guarda a sintaxe, não a regra**.
+   */
+  const classe = /(?:^|[\s"'`:[{])opacity-(?:0|\[0(?:\.0+)?%?\])(?![\d.])/.test(limpo)
+  /**
+   * As animações de entrada que começam em opacidade zero — **nenhuma contém a palavra `opacity`**.
+   *
+   * Duas origens: `fade-in` do `tailwindcss-animate`, e `fade-in`/`scale-in`/`slide-up` declarados
+   * pelo **próprio preset deste projeto** (`packages/ui/tailwind.preset.ts`), usados como
+   * `animate-fade-in` e afins. O hífen está na classe de caracteres anteriores por causa da segunda
+   * família: sem ele a régua via a biblioteca e era cega ao que o repositório declara sozinho.
+   *
+   * `fade-in-50`, `scale-in-95` e afins não casam: entrar parcialmente não esconde o elemento.
+   */
+  const fade = /(?:^|[\s"'`:[{-])(?:fade-in|scale-in|slide-up)(?:-0)?(?![-\d])/.test(limpo)
+  /** `invisible` é `visibility: hidden`, que o Chrome também não conta como pintado. */
+  const oculto = /(?:^|[\s"'`:[{-])invisible(?![-\w])/.test(limpo)
+  return objeto || classe || fade || oculto
+}
 
 describe('o hero não nasce em opacidade zero (PRF-19)', () => {
   const fonte = semComentarios(readFileSync(HERO, 'utf8'))
@@ -107,6 +131,40 @@ describe('o hero não nasce em opacidade zero (PRF-19)', () => {
 
   it('SENSOR: `opacity: 1` no `show` não é confundido com o defeito', () => {
     expect(nasceInvisivel('hidden: { y: 20 }, show: { opacity: 1, y: 0 }')).toBe(false)
+  })
+
+  it('SENSOR: a CLASSE utilitária e o valor arbitrário também são o defeito (feature 41)', () => {
+    expect(nasceInvisivel('className="opacity-0 transition-opacity"')).toBe(true)
+    expect(nasceInvisivel('className="md:opacity-[0]"')).toBe(true)
+  })
+
+  it('SENSOR: `fade-in` do tailwindcss-animate é o defeito sem dizer `opacity` (feature 41)', () => {
+    // O furo que a verificação da 41 achou neste guarda: a classe compila para
+    // `--tw-enter-opacity: 0`, e a régua da 40 não a via.
+    expect(nasceInvisivel('className="animate-in fade-in duration-700"')).toBe(true)
+    expect(nasceInvisivel('className="animate-in fade-in-0"')).toBe(true)
+  })
+
+  it('SENSOR: entrar de 50% e `zoom-in` NÃO são o defeito', () => {
+    expect(nasceInvisivel('className="animate-in fade-in-50"')).toBe(false)
+    expect(nasceInvisivel('className="animate-in zoom-in-95"')).toBe(false)
+    expect(nasceInvisivel('className="opacity-[0.4]"')).toBe(false)
+  })
+
+  it('SENSOR: as animações do PRÓPRIO preset também são o defeito (rodada 2 da 41)', () => {
+    // `animate-fade-in`, `animate-scale-in` e `animate-slide-up` são keyframes de
+    // `packages/ui/tailwind.preset.ts`, os três com `opacity: "0"` no primeiro quadro. A régua era
+    // cega a eles por um caractere: o anterior a `fade-in` ali é um hífen, não um espaço.
+    expect(nasceInvisivel('className="animate-fade-in"')).toBe(true)
+    expect(nasceInvisivel('className="animate-scale-in"')).toBe(true)
+    expect(nasceInvisivel('className="animate-slide-up"')).toBe(true)
+    expect(nasceInvisivel('className="invisible"')).toBe(true)
+  })
+
+  it('SENSOR: as animações do preset que só mexem em `transform` NÃO são o defeito', () => {
+    // O par — e é justamente o que `PRF-19` recomenda no lugar da opacidade.
+    expect(nasceInvisivel('className="animate-bounce-cart"')).toBe(false)
+    expect(nasceInvisivel('className="animate-slide-in-right"')).toBe(false)
   })
 
   it('SENSOR: opacidade PARCIAL não é o defeito — só o zero', () => {

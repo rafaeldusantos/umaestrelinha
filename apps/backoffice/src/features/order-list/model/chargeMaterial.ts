@@ -13,6 +13,7 @@
 
 import { toMaterialStatus } from '@estrelinha/core/material'
 import { queueAge } from '@estrelinha/core/material'
+import { normalizeBrPhone } from '@estrelinha/core/notifications'
 import type { AdminOrderRow } from '@/entities/order/api/orderQuery'
 import { queueSince } from '@/entities/order/api/orderQuery'
 
@@ -50,12 +51,13 @@ export const chargeMaterialText = (row: AdminOrderRow, now?: Date): string => {
   )
 }
 
-/** Só dígitos, com o 55 do Brasil na frente quando falta. */
-export const whatsappNumber = (phone: string | null | undefined): string | null => {
-  const digitos = (phone ?? '').replace(/\D/g, '')
-  if (digitos.length < 10) return null
-  return digitos.startsWith('55') ? digitos : `55${digitos}`
-}
+/**
+ * O normalizador SUBIU para `@estrelinha/core/notifications` na feature 42 (`PNL-07`): o canal
+ * WhatsApp da 43 precisa do mesmo número no mesmo formato, e duas cópias é o "defeito 01". O nome
+ * antigo continua exportado daqui **só** para não quebrar quem já importa `whatsappNumber` — é
+ * reexport, não cópia. Sai na feature 43, quando os consumidores passarem a importar de `core`.
+ */
+export { normalizeBrPhone as whatsappNumber }
 
 /**
  * O link do WhatsApp.
@@ -75,7 +77,7 @@ export const chargeMaterialUrl = (
   phone?: string | null,
   now?: Date,
 ): string => {
-  const numero = whatsappNumber(phone)
+  const numero = normalizeBrPhone(phone)
   const texto = encodeURIComponent(chargeMaterialText(row, now))
   return numero ? `https://wa.me/${numero}?text=${texto}` : `https://wa.me/?text=${texto}`
 }

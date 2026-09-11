@@ -18,6 +18,10 @@
 
 import { menuBannerSlots, type MenuSurface } from './menu.ts'
 import { resolveMenuTarget, type MenuTarget, type MenuTargetContext } from './target.ts'
+// **Por caminho relativo, e nunca pelo barrel `@estrelinha/core/media`** — ele importa
+// `@estrelinha/supabase/types`, e o Deno resolve o grafo de tipos junto: a edge function do sitemap
+// alcança este arquivo, e morreria nesse `import type` antes da primeira linha rodar.
+import { surfaceArt, surfaceImage } from '../media/surfaceArt.ts'
 
 /**
  * Um banner, como o jsonb `categories.menu_banners` o guarda.
@@ -81,13 +85,18 @@ const texto = (valor: unknown): string | null =>
 /**
  * A arte **gravada** para esta superfície — `null` quando não há.
  *
- * `texto()` apara espaço, e é aí que mora a diferença que importa: um `image_mobile: "   "` chegado
- * por SQL, por importação ou por um campo que alguém limpou com a barra de espaço **não é arte**.
- * Exportada porque o painel precisa da MESMA resposta para desenhar "arte do celular · falta"; ele
- * calculava a dela por truthiness da string crua, e as duas discordavam exatamente nesse caso.
+ * **Delega em `surfaceImage`** (`core/media/surfaceArt.ts`) desde a feature 41 — este arquivo já não
+ * escreve a régua, e é `AD-030`: quando o carrossel da Home entrou, os consumidores do mesmo
+ * predicado passaram de dois para quatro.
+ *
+ * O que a régua diz continua sendo o que a `39` mediu: espaço é aparado, e um `image_mobile: "   "`
+ * chegado por SQL, por importação ou por um campo que alguém limpou com a barra de espaço **não é
+ * arte**. Continua exportada porque o painel precisa da MESMA resposta para desenhar "arte do
+ * celular · falta"; ele calculava a dela por truthiness da string crua, e as duas discordavam
+ * exatamente nesse caso.
  */
 export const menuBannerImage = (banner: MenuBanner, surface: MenuSurface): string | null =>
-  texto(surface === 'desktop' ? banner.image_desktop : banner.image_mobile)
+  surfaceImage(banner.image_desktop, banner.image_mobile, surface)
 
 /**
  * A arte desta superfície, com recuo para a da outra.
@@ -97,21 +106,19 @@ export const menuBannerImage = (banner: MenuBanner, surface: MenuSurface): strin
  * metade das clientes não vê, sem nada em tela dizendo por quê. (E ~90% dos acessos vêm de celular,
  * que é justamente a arte que costuma faltar.)
  *
- * **Exportada, e é o dono único do predicado da herança.** A loja a alcança por
- * `resolveMenuBanners`; o painel a chama direto, para o aviso "a loja vai reaproveitar a do
- * computador" ser a mesma decisão que a loja toma — e não uma segunda escrita dela. Reescrevê-la lá
- * já custou uma divergência silenciosa: com `arte()` quebrada aqui, os testes do painel passavam.
+ * **É a porta do menu para o dono único, que mora em `core/media/surfaceArt.ts`** (`AD-030`). A loja
+ * a alcança por `resolveMenuBanners`; o painel a chama direto, para o aviso "a loja vai reaproveitar
+ * a do computador" ser a mesma decisão que a loja toma — e não uma segunda escrita dela. Reescrevê-la
+ * lá já custou uma divergência silenciosa: com `arte()` quebrada aqui, os testes do painel passavam.
+ *
+ * **Não voltar a escrever a régua neste arquivo.** `surfaceArtSingleOwner.test.ts` derruba a suíte, e
+ * o motivo é o de sempre: duas escritas da mesma regra não quebram nada até divergirem.
  */
 export const menuBannerArt = (
   banner: MenuBanner,
   surface: MenuSurface,
-): { image: string | null; imageReused: boolean } => {
-  const propria = menuBannerImage(banner, surface)
-  if (propria) return { image: propria, imageReused: false }
-
-  const outra = menuBannerImage(banner, surface === 'desktop' ? 'mobile' : 'desktop')
-  return { image: outra, imageReused: outra !== null }
-}
+): { image: string | null; imageReused: boolean } =>
+  surfaceArt(banner.image_desktop, banner.image_mobile, surface)
 
 /**
  * Os banners de uma superfície, resolvidos — a lista **sem** o que não pode ser desenhado.

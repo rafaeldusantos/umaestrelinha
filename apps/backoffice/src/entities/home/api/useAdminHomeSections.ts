@@ -38,6 +38,7 @@ export interface NewHomeSectionItem {
   product_id?: string | null
   href?: string | null
   image_url?: string | null
+  image_mobile_url?: string | null
   alt?: string | null
   label_snapshot?: string | null
 }
@@ -53,6 +54,7 @@ const mapItem = (row: DbHomeSectionItem): HomeSectionItem => ({
   product_slug: row.product?.slug ?? null,
   href: row.href ?? null,
   image_url: row.image_url ?? null,
+  image_mobile_url: row.image_mobile_url ?? null,
   alt: row.alt ?? null,
   label_snapshot: row.label_snapshot ?? null,
 })
@@ -209,7 +211,7 @@ export const useAdminHomeSections = () => {
    * operação, e não a sincronização de dois campos que uma flag `auto | manual` exigiria.
    *
    * ⚠️ **`insert` em lote exige as MESMAS chaves em todos os objetos** (`PGRST102 All object keys
-   * must match`), medido no probe da T11. Por isso cada linha vai com as seis colunas escritas, com
+   * must match`), medido no probe da T11. Por isso cada linha vai com as sete colunas escritas, com
    * `null` explícito no que não se aplica — item com destino de coleção e item com destino de
    * caminho não podem diferir em forma.
    */
@@ -229,6 +231,7 @@ export const useAdminHomeSections = () => {
           product_id: item.product_id ?? null,
           href: item.href ?? null,
           image_url: item.image_url ?? null,
+          image_mobile_url: item.image_mobile_url ?? null,
           alt: item.alt ?? null,
           label_snapshot: item.label_snapshot ?? null,
         })),

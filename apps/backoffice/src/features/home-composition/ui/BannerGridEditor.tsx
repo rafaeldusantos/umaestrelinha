@@ -27,13 +27,12 @@ import {
   DEFAULT_BANNER_LAYOUT,
   type HomeBannerLayout,
 } from '@estrelinha/core/home'
-import { bySortOrder } from '@estrelinha/core/menu'
-import type { AdminCategory } from '@/entities/category'
 import { FormCard } from '@/shared/ui'
+import DestinoDoItem from './DestinoDoItem'
 import { uploadHomeImage } from '../lib/uploadHomeImage'
 import { emptyDraftItem, type DraftItem } from '../model/sectionDraft'
 import { ordinal } from '../model/sectionRefusals'
-import type { EditorProduct, SectionEditorProps } from './sectionEditors'
+import type { SectionEditorProps } from './sectionEditors'
 
 /** Os quatro arranjos, com o nome que a dona lê. O desenho de cada um é a contagem de vagas. */
 const ARRANJOS: { layout: HomeBannerLayout; label: string }[] = [
@@ -42,101 +41,6 @@ const ARRANJOS: { layout: HomeBannerLayout; label: string }[] = [
   { layout: 'hero_pair', label: '1 grande + 2' },
   { layout: 'quad', label: '4 em fila' },
 ]
-
-const OUTRO = '__outro'
-
-/**
- * O destino de um banner — coleção, produto ou caminho da loja, **exatamente um** (`HOME-23`).
- *
- * Os três moram em colunas próprias, com FK de verdade nas duas primeiras: é o que faz o
- * `on delete set null` funcionar e o banner sair de cena quando o destino é apagado, em vez de
- * virar link para 404. Guardar o destino como um caminho de texto perderia isso — é o defeito do
- * `menu_promo`, que mora em jsonb e por isso precisa ser validado a cada leitura.
- */
-const Destino = ({
-  item,
-  categories,
-  products,
-  onChange,
-}: {
-  item: DraftItem
-  categories: readonly AdminCategory[]
-  products: readonly EditorProduct[]
-  onChange: (patch: Partial<DraftItem>) => void
-}) => {
-  const colecoes = [...categories].filter(c => c.active !== false).sort(bySortOrder)
-  const atual = item.category_id
-    ? `cat:${item.category_id}`
-    : item.product_id
-      ? `prod:${item.product_id}`
-      : item.href
-        ? OUTRO
-        : ''
-
-  const [livre, setLivre] = useState(atual === OUTRO)
-
-  const escolher = (valor: string) => {
-    if (valor === OUTRO) {
-      setLivre(true)
-      onChange({ category_id: null, product_id: null })
-      return
-    }
-    setLivre(false)
-
-    if (valor === '') {
-      onChange({ category_id: null, product_id: null, href: null })
-      return
-    }
-
-    const [tipo, id] = valor.split(':')
-    if (tipo === 'cat') {
-      const alvo = colecoes.find(c => c.id === id)
-      // O rótulo é congelado JUNTO com a escolha: depois de a coleção ser apagada não há de onde
-      // lê-lo, e `HOME-24` pede que o painel diga **qual** destino se perdeu.
-      onChange({ category_id: id, product_id: null, href: null, label_snapshot: alvo?.name ?? null })
-      return
-    }
-    const alvo = products.find(p => p.id === id)
-    onChange({ category_id: null, product_id: id, href: null, label_snapshot: alvo?.name ?? null })
-  }
-
-  return (
-    <div className="space-y-2">
-      <select
-        aria-label="Leva para"
-        value={livre ? OUTRO : atual}
-        onChange={e => escolher(e.target.value)}
-        className="h-10 w-full rounded-lg border border-input bg-card px-3 text-[13px]"
-      >
-        <option value="">Escolha um destino</option>
-        <optgroup label="Coleções">
-          {colecoes.map(c => (
-            <option key={c.id} value={`cat:${c.id}`}>
-              Coleção · {c.name}
-            </option>
-          ))}
-        </optgroup>
-        <optgroup label="Produtos">
-          {products.map(p => (
-            <option key={p.id} value={`prod:${p.id}`}>
-              Produto · {p.name}
-            </option>
-          ))}
-        </optgroup>
-        <option value={OUTRO}>Outro endereço da loja…</option>
-      </select>
-
-      {livre && (
-        <Input
-          aria-label="Endereço do banner"
-          placeholder="/como-enviar"
-          value={item.href ?? ''}
-          onChange={e => onChange({ href: e.target.value || null, category_id: null, product_id: null })}
-        />
-      )}
-    </div>
-  )
-}
 
 const BannerGridEditor = ({ config, onConfigChange, items, onItemsChange, categories, products }: SectionEditorProps) => {
   const arranjo: HomeBannerLayout = config.layout ?? DEFAULT_BANNER_LAYOUT
@@ -313,7 +217,7 @@ const BannerGridEditor = ({ config, onConfigChange, items, onItemsChange, catego
                   </div>
                   <div className="space-y-1.5">
                     <Label>Leva para</Label>
-                    <Destino
+                    <DestinoDoItem
                       item={item}
                       categories={categories}
                       products={products}

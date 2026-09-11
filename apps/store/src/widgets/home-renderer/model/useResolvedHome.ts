@@ -41,6 +41,7 @@ const daCategoria = (
   description: categoria.description?.trim() || null,
   href: categoryHref(categories ?? [], categoria.id),
   imageUrl: categoria.banner_url?.trim() || null,
+  imageMobileUrl: null,
   curated: false,
   ...over,
 })
@@ -79,6 +80,7 @@ export const useResolvedHome = (sections: readonly HomeSection[]): ResolvedSecti
           label: item.alt?.trim() || categoria.name,
           // A arte própria vence a do destino: banner de campanha é a arte que a dona subiu.
           imageUrl: item.image_url?.trim() || categoria.banner_url?.trim() || null,
+          imageMobileUrl: item.image_mobile_url?.trim() || null,
           curated: true,
         })
       }
@@ -107,6 +109,7 @@ export const useResolvedHome = (sections: readonly HomeSection[]): ResolvedSecti
           description: null,
           href: productPath(slug),
           imageUrl: item.image_url?.trim() || null,
+          imageMobileUrl: item.image_mobile_url?.trim() || null,
           curated: true,
         }
       }
@@ -121,6 +124,7 @@ export const useResolvedHome = (sections: readonly HomeSection[]): ResolvedSecti
           description: null,
           href: item.href.trim(),
           imageUrl: item.image_url?.trim() || null,
+          imageMobileUrl: item.image_mobile_url?.trim() || null,
           curated: true,
         }
       }
@@ -146,6 +150,9 @@ export const useResolvedHome = (sections: readonly HomeSection[]): ResolvedSecti
           description: null,
           href: b.href,
           imageUrl: b.bannerUrl,
+          // A grade de banners deriva a arte do destino, e categoria tem UMA arte. O `null` aqui é
+          // afirmação, não descuido: quem lê a arte de celular é o carrossel.
+          imageMobileUrl: null,
           curated: false,
         }))
       }
@@ -160,6 +167,7 @@ export const useResolvedHome = (sections: readonly HomeSection[]): ResolvedSecti
           description: c.description,
           href: c.href,
           imageUrl: c.bannerUrl,
+          imageMobileUrl: null,
           curated: false,
         }))
       }
