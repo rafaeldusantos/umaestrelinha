@@ -156,9 +156,17 @@ importa de camadas **estritamente abaixo**. Cross-import na mesma camada é tole
 Cada slice tem um barrel `index.ts` (public API). **Novo código deve importar do slice**
 (`@/entities/product`) e não de caminhos profundos.
 
-**Quando um widget precisa de algo que outro widget tem, a resposta é `packages/core`, não um
-import lateral.** Foi assim que `MATERIAL_GUIDE_PATH` acabou em `@estrelinha/core/routes`: quem linka
-para o guia é `entities`/`widgets`, e pela regra de camadas eles não podem importar de outro widget.
+**Quando um widget precisa de algo que outro widget tem, a resposta é uma camada ESTRITAMENTE
+ABAIXO — nunca um import lateral.** Qual camada depende de onde estão os consumidores (`AD-033`):
+
+- **Apps ou serviços diferentes** (loja × painel, loja × edge function) ⇒ `packages/core`. Foi assim
+  que `MATERIAL_GUIDE_PATH` acabou em `@estrelinha/core/routes`, e é o caso de `core/menu`,
+  `core/home`, `core/shopping`, `core/shipping` e `core/media`.
+- **Dois widgets do MESMO app** ⇒ `entities/`. Foi assim que o conteúdo do guia de material saiu de
+  `widgets/material-guide/model/` para `entities/material/model/` na feature `44`, lido pela página
+  do guia e pela gaveta da página do produto. Levá-lo a `core` custaria uma dependência
+  `core → @estrelinha/ui` (o tipo `EstrelinhaIconName`), que `core/menu/__tests__/purity.test.ts`
+  proíbe — ou um segundo vocabulário de ícones em `core`, que é uma cópia para evitar uma cópia.
 
 ### Alias de import
 - `@/*` → `src/*` do app atual.
@@ -193,6 +201,7 @@ com as duas cópias divergindo, e quem descobre é a cliente ou o Google.
 | `27` | o preço com Pix, arredondado de dois jeitos | `@estrelinha/core/payment/pix` |
 | `30` | a oferta do Google, uma no feed e outra na landing page | `@estrelinha/core/shopping` |
 | `31` | o conteúdo do guia de material (`model/fichas.ts`) | `widgets/material-guide/model/guide.ts` |
+| `44` | **o mesmo conteúdo, agora com DOIS leitores** — a página do guia e a gaveta da página do produto —, e o tom `alerta` do aviso, que a gaveta ia copiar | `entities/material/model/` (`AD-033`) e `entities/material/ui/MaterialAviso`, com `donoUnicoDoGuia.test.ts` recusando a segunda declaração e o import lateral |
 | `33` | o escape de XML e a leitura completa paginada, cada um com um consumidor prestes a virar dois | `@estrelinha/core/xml` e `@estrelinha/core/paging` |
 | `35` | o telefone da cliente, que existia no checkout e **não era persistido** — e a coluna crua do status da origem, que viraria um segundo dono de "este pedido foi pago?" | `orders.customer_phone` (snapshot) e as colunas `nuvemshop_*_status`, que **nenhuma tela lê** (`provenanceNotRead.test.ts`) |
 | `34` | o contraste WCAG (só a loja tinha), a aritmética de página (só produtos tinha), e os rótulos de `payment_status` em **três** cópias | `@estrelinha/core/color`, `core/paging/pageMath.ts` e `entities/order/api/orderQuery` |
@@ -306,7 +315,9 @@ migrations, e `vercelRedirects` lê o `vercel.json`.
 | `categoryTreeSingleOwner.test.ts` | idem | qualquer arquivo de `apps/store/**` fora de `useCategories.ts` abrir `from('categories')` — a árvore tem **um** dono, e é a chave `['categories']` que o header já preenche. **Zero allowlist**, âncora dupla e sensor de comentário |
 | `arbitraryTextColor.test.ts` | idem | cor de texto **arbitrária** (`text-[hsl(…)]`, `text-[#…]`, `text-[rgb(…)]`) fora de um allowlist de dois, ou com contraste abaixo de 4,5:1 **contra o fundo declarado**. `contrast.test.ts` mede tokens e não alcança essa sintaxe. O guarda **calcula** a razão — não confia no comentário |
 | `cardSkeletonBox.test.ts` | store `entities/product/ui/__tests__` | o `ProductCard` e o `ProductCardSkeleton` divergirem numa das quatro classes que produzem altura. jsdom devolve 0 para layout, então nenhum teste de componente pega — este lê os dois do disco. Modela o **par** (`min-h-[40px]` no card × `h-[40px]` no esqueleto), e a régua é de **token exato**, porque `'min-h-[40px]'.includes('h-[40px]')` é `true` |
-| `semMaterialNaPaginaDoProduto.test.ts` | store `entities/product/ui/__tests__` | a página do produto voltar a falar de material afetivo — `MaterialNotice`, `material_kinds`, `materialKindsOf`, `requiresMaterial` ou os rótulos, em **qualquer** arquivo de `entities/product/ui`, `widgets/product-buy-bar` ou `ProductPage.tsx`; `MaterialNotice.tsx` reaparecer no disco. A gravação (`MAT-03`) **não** é acusada. **Âncora dupla** (arquivos lidos **e** a régua provada como predicado, nos dois sentidos) e remoção de comentário com CRLF, LF e o glob de dois asteriscos (`BL-027`) — os dois arquivos que restaram **explicam a remoção citando o nome da coluna**, então um guarda ingênuo acusaria a própria explicação |
+| `semMaterialNaPaginaDoProduto.test.ts` | store `entities/product/ui/__tests__` | a página do produto voltar a dizer **QUAL** material — `MaterialNotice`, `material_kinds`, `materialKindsOf`, `materialKindLabel`, `MATERIAL_KIND_LABELS`, `materialSummary` ou `materialAnchor`, em **qualquer** arquivo de `entities/product/ui`, `widgets/product-buy-bar` ou `ProductPage.tsx`; `MaterialNotice.tsx` reaparecer no disco. **A `44` ESTREITOU a régua**: `requiresMaterial` saiu dela — a página voltou a poder dizer que *existe* material (é o que acende a linha "Como enviar seu material de DNA") e continua proibida de dizer *qual*. A gravação (`MAT-03`) nunca foi acusada. **Âncora dupla**, **sete sensores** (um por forma, não um bloco) **mais o sensor inverso** provando que `requiresMaterial` passa, mais a prova de que o escopo é fronteira e não vazio (o dono do conteúdo, fora do escopo, é acusado pela mesma régua) |
+| `donoUnicoDoGuia.test.ts` | store `entities/material/model/__tests__` | uma segunda declaração de `FICHAS_DE_MATERIAL`, `CARTOES_DE_MATERIAL`, `PREPARO_EM_CASA`, `PASSOS_DO_ENVIO`, `ATALHOS_DE_MATERIAL`, `VIDEOS_DE_PREPARO`, `FORMAS_DE_ENVIO` ou `CHECKLIST_DO_ENVIO` fora de `entities/material/model`; `widgets/material-guide/model` voltar a existir; a gaveta e o guia importarem um do outro; `MATERIAIS_SEM_ANCORA` deixar de ser vazio. A régua procura **declaração**, nunca menção — proibir o consumo seria proibir o uso que ela existe para proteger. **Âncora dupla** e remoção de comentário com CRLF, LF e o glob de dois asteriscos |
+| `rotuloCurto.test.ts` | idem | entrada de `ATALHOS_DE_MATERIAL` sem `rotuloCurto`, com rótulo vazio ou acima de **20 caracteres**; `rotulo` deixar de ser o título completo (o seletor do guia usa ele, a gaveta usa o curto). **Âncora de contagem** derivada das três origens — um mapa que perdesse `...PREPARO_EM_CASA` passaria com 8 entradas conformes |
 | `heroSemOpacidadeZero.test.ts` | store `widgets/hero-banner/ui/__tests__` | o elemento do LCP voltar a nascer invisível — `opacity: 0` em **qualquer** lugar do `HeroBanner.tsx`, variant ou prop inline. Também recusa apagar a animação inteira: o pedido é entrar **sem esconder**, não deixar de entrar. **Ampliado na `41`** para a classe utilitária, o valor arbitrário (`opacity-[0]`) e o `fade-in` do `tailwindcss-animate` |
 | `heroCarouselSemOpacidadeZero.test.ts` | store `widgets/hero-carousel/ui/__tests__` | a mesma régua no bloco da `41`, em **cinco grafias**: objeto do framer, `style` inline, classe utilitária (`opacity-0` e `opacity-[0]`, com prefixo), `invisible`, e as **animações de entrada** — o `fade-in` do `tailwindcss-animate` **e** o `animate-fade-in`/`animate-scale-in`/`animate-slide-up` do preset deste repositório, que compilam para opacidade zero e **não contêm a palavra `opacity`**. Varre o widget **e o registro `tipo → componente`**, porque a AC diz "em nenhum ponto do caminho até ele". **Âncora quádrupla** (a quarta lê o preset e prova que as classes acusadas EXISTEM mesmo) e dezesseis sensores, incluindo o par que prova que `opacity: 0.5`, `opacity-70`, `fade-in-50`, `zoom-in-95`, `animate-bounce-cart` e `bg-…/90` **não** são o defeito |
 | `surfaceArtSingleOwner.test.ts` | store `shared/lib/__tests__` (varre `apps/**` e `packages/**`) | qualquer arquivo de produção fora de `core/media/surfaceArt.ts` decidir **entre a arte de celular e a de computador** — `\|\|`, `??` ou ternário, **inclusive quebrados em linhas**, que é a forma que o Prettier produz sozinho. A régua exige **uma de cada superfície**: a primeira escrita acusou `CollectionFeature.tsx:55`, que é outra regra ("a arte do item vence a do destino") e legítima. Também recusa o dono **deixar de ser chamado** por `core/menu` e `core/home`. Pega também as formas **sem operador nenhum**: o array das duas artes e a reatribuição condicional (`if (!image) image = …`). **Âncora dupla** e treze sensores — o ternário cuja condição é a superfície (a forma que a primeira régua deixava passar, e exatamente como `menuBannerImage` estava escrito), o `\|\|` quebrado em linhas, o CRLF, o LF, o glob de dois asteriscos (`BL-027`), e os três pares que provam que linhas vizinhas de objeto, `if` com **outra** variável e **lista de nomes de campo** não são acusados — este último achado contra `MenuBannerEditor.tsx:103`, que percorre nomes de coluna para limpar campo vazio |
@@ -371,7 +382,46 @@ quando mudarem de verdade.
 | --- | --- | --- |
 | **Lint** | **27 erros / 6 warnings** — backoffice 25/4 · store 2/2 | `pnpm lint` |
 | **Tipos** | **0 · 0 · 0** (store · backoffice · catalog-import) | `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` |
-| **Testes** | **7359 em 388 arquivos** — store **2664/169** · backoffice **2002/119** · core **1811/70** · functions 370/7 · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test` |
+| **Testes** | **7546 em 403 arquivos** — store **2851/184** · backoffice **2002/119** · core **1811/70** · functions 370/7 · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test` |
+
+**A feature `44` (gaveta de material na página do produto) somou +104 em UM workspace**, medidos em
+2026-09-11 com exit code capturado fora de pipe: **store 2747/175 → 2851/184**. Os outros quatro não
+foram tocados — `git status` só acusa `apps/store/**` e `.specs/**`. Lint ficou em **27/6**, tipos em
+**0·0**, e `packages/core/src/payment/**` não teve uma linha alterada.
+
+> **A baseline de entrada do store NÃO era a que este arquivo dizia.** A tabela registrava 2664/169;
+> o medido no início da `44` foi **2747/175**. A diferença (+83/+6) era o trabalho da página do
+> produto que estava **na árvore sem commit** e que virou o commit `9d873d6` no meio desta feature —
+> não uma baseline errada. É a mesma lição de sempre numa forma nova: **baseline é do que está no
+> disco, não do último commit**, e medir na hora é o que separa "+104" de um número inventado.
+
+> **A verificação independente REPROVOU a primeira entrega da `44`, e o achado nº 1 é o da `41`
+> repetido letra por letra.** O teste que provava "o fio entre o gatilho e a gaveta" **montava a
+> própria árvore**: ele renderizava `<ProductInfo />` e `<MaterialDrawer />` lado a lado, escritos
+> dentro do próprio arquivo de teste. Apagar `<MaterialDrawer />` de `ProductPage.tsx` fazia a gaveta
+> sumir da loja inteira com **2828 testes verdes** — e o comentário que dizia "este é o caso que
+> reprova se a gaveta sair da página" era falso. **Um teste que monta a árvore que quer provar não
+> prova árvore nenhuma**: quem monta tem de ser a página.
+>
+> Os outros três mutantes sobreviventes tinham a mesma assinatura — asserção ao lado do ponto:
+> `MaterialAviso` foi extraído **para o tom `alerta` não ter dois donos** e saiu sem uma asserção
+> sequer sobre o tom; a gaveta só era testada com `cinzas`, que tem **um** aviso, então
+> `avisos.slice(0,1)` passava; e o chip escolhido era provado só por `aria-pressed`, então colapsar
+> os dois ramos de classe deixava a cliente tocando num chip que não mudava de cara.
+
+> **Um guarda estreitado é um guarda com sensor nos DOIS sentidos.**
+> `semMaterialNaPaginaDoProduto.test.ts` deixou de recusar `requiresMaterial` e continua recusando as
+> outras sete formas. Sem o segundo grupo de sensores — **um por forma**, e não um bloco só —, um
+> regex que perdesse tudo passaria como "estreitado", e a página do produto voltaria a anunciar
+> `material_kinds` com a suíte verde. A sensibilidade foi provada por injeção real no arquivo real:
+> `materialKindsOf` em `ProductInfo.tsx` reprova, `requiresMaterial` passa.
+
+> **O mock com dado de mentira custou uma reescrita, e teria custado a feature.** O desenho no Paper
+> usava rótulos curtos inventados para os chips; o dado real (`ATALHOS_DE_MATERIAL`) tem títulos como
+> `Unhas (humanas ou de pet)`, e com eles os chips ocupam **7 fileiras** e empurram a ficha para fora
+> da tela de 390×844. O conserto foi um campo `rotuloCurto` no mesmo registro — não uma segunda
+> lista. É `AD-012` noutra roupa, e a mesma armadilha das vagas do carrossel na `41`: **medida
+> suposta é afirmação; o dado do repositório é a verificação.**
 
 **A feature `41` (banner principal da home) somou +265 em três workspaces**, medidos em 2026-09-06 um
 por vez e com exit code capturado fora de pipe: **store +126/+4** (o widget, o hook, os dois guardas
@@ -849,6 +899,15 @@ completo (framework, `installCommand` na raiz do monorepo, headers de cache e de
     congelada em `order_items` pelo checkout e continua sendo lida pela confirmação e pela fila do
     painel — a dívida de curadoria **não** foi fechada, só deixou de ser anunciada à cliente. Guardas:
     `semMaterialNaPaginaDoProduto.test.ts` (loja) e `MaterialCard.test.tsx` (painel).
+  - **A feature `44` devolveu o ASSUNTO à página sem devolver a AFIRMAÇÃO.** A linha "Como enviar seu
+    material de DNA" acende pelo interruptor e abre uma gaveta onde **a cliente escolhe** o material
+    dela. A loja pergunta; não responde por ela. É por isso que o guarda foi *estreitado* e não
+    revogado.
+  - **A dívida de `requires_material` continua aberta, e agora ela ESCONDE uma tela.** Peça com
+    `requires_material = false` cuja descrição manda enviar coto e cabelo **não ganha a linha** — a
+    cliente não descobre a gaveta e não tem como saber que precisa enviar algo. Antes da `44` a
+    consequência era só um pedido fora da fila; agora é também informação que não chega. O conserto é
+    curadoria da dona em `/admin/produtos`, não código.
 - **Fronteiras FSD em `warn`**: 2 violações conhecidas no store, as duas em
   `entities/product/ProductInfo` — importa `features/share-product` e, desde 2026-09-11,
   `features/shipping-calc` (a caixa de frete que substituiu `ProductTrustBadges` na coluna de

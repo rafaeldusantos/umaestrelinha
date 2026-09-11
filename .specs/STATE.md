@@ -735,9 +735,57 @@
 - **Date**: 2026-09-06
 - **Status**: active
 
+### AD-033
+- **Decision**: **Conteúdo ou regra compartilhada por dois widgets do MESMO app vai para
+  `entities/`, não para `packages/core`.** `packages/core` continua sendo a resposta quando os
+  consumidores estão em **apps ou serviços diferentes** (loja × painel, loja × edge function) — que
+  é o caso de `core/menu`, `core/home`, `core/shopping`, `core/shipping` e `core/media`. Aplicado na
+  feature `44`: o conteúdo do guia de material saiu de `widgets/material-guide/model/` para
+  `apps/store/src/entities/material/model/`, e é lido pela página do guia e pela gaveta da página do
+  produto.
+- **Reason**: A regra que o `CLAUDE.md` escrevia — *"quando um widget precisa de algo que outro
+  widget tem, a resposta é `packages/core`"* — resolvia o sintoma certo (import lateral entre
+  widgets) apontando para o lugar errado quando o app é um só. O que a regra de camadas exige é uma
+  camada **estritamente abaixo** das duas, e `entities` já é isso. Levar o conteúdo para `core`
+  custaria uma dependência `core → @estrelinha/ui` (o tipo `EstrelinhaIconName` de cada ficha), que
+  `packages/core/src/menu/__tests__/purity.test.ts` **proíbe explicitamente** — ou um segundo
+  vocabulário de ícones em `core`, no molde de `core/menu/icons.ts`. Seria uma cópia criada para
+  evitar uma cópia.
+- **Trade-off**: A fronteira passa a depender de uma pergunta ("os consumidores estão no mesmo
+  app?") em vez de uma só ("são dois?"), e a resposta pode mudar: conteúdo que hoje só a loja lê
+  pode ser pedido pelo painel amanhã, e aí a mudança é de `entities` para `core`. Aceito porque o
+  movimento é mecânico e porque a alternativa — pôr tudo em `core` por precaução — arrasta
+  dependências de UI para um pacote cuja pureza tem guarda.
+- **Scope**: `apps/store/src/entities/material/**`, `apps/store/src/widgets/material-guide/**`,
+  `apps/store/src/widgets/material-drawer/**`
+- **Date**: 2026-09-11
+- **Status**: active
+
 ## Handoff
 
-### ATUAL — 2026-09-06 · `42-notificacoes-email-e-whatsapp` **EM EXECUÇÃO**
+### ATUAL — 2026-09-11 · `44-gaveta-de-material` **IMPLEMENTADA E VERIFICADA**
+
+- **Feature**: `.specs/features/44-gaveta-de-material/` (spec, design, tasks)
+- **Phase / Task**: todas — T1–T15 concluídas
+- **Completed**: P1 (dono único: T1–T4) · P2 (store, gatilho, guarda: T5–T8) · P3 (a gaveta:
+  T9–T14) · P4 (T15). **Sem commit ainda** — `BL-012`: os commits completos saem de uma vez
+- **Next step**: **prova em navegador** em 390×844 e 1440 — largura da gaveta, posição da dobra, rolagem interna e o véu de 48px sob o dedo. Duas rodadas de verificação independente feitas: a 1 REPROVOU (4 mutantes), a 2 passou com ressalvas (6 mutantes nos consertos); os 10 estão fechados.
+  Falta também a **prova em navegador** em 390×844 e 1440 — nenhum teste de jsdom alcança largura da
+  gaveta, posição da dobra, rolagem interna ou o véu de 48px sob o dedo
+- **Blockers**: nenhum
+- **Uncommitted files**: `apps/store/src/entities/material/**` (novo), `apps/store/src/widgets/
+  material-drawer/**` (novo), `apps/store/src/widgets/material-guide/**` (imports + `MaterialFicha`),
+  `apps/store/src/entities/product/ui/ProductInfo.tsx`, `apps/store/src/pages/ProductPage.tsx`,
+  `apps/store/src/entities/product/ui/__tests__/semMaterialNaPaginaDoProduto.test.ts`,
+  `apps/store/src/shared/ui/__tests__/buttonShape.test.ts`, `.specs/**`. **Mais o WIP anterior da
+  página do produto, que já estava na árvore antes desta feature**
+- **Branch**: `master`
+- **Baseline de entrada**: store **2747/175** · lint 27/6 · tipos 0·0
+- **Baseline de saída**: store **2851/184** (+104/+9) · lint **27/6** (inalterado) · tipos **0·0** ·
+  `pnpm build` verde nos dois apps · `packages/core/src/payment/**` intocado (conferido por
+  `git diff --name-only`)
+
+### ANTERIOR — 2026-09-06 · `42-notificacoes-email-e-whatsapp` **EM EXECUÇÃO**
 
 - **Feature**: `.specs/features/42-notificacoes-email-e-whatsapp/` (spec, context, design, tasks
   aprovados; `levantamento.md` cobre também a `43`, que tem spec + context e **espera** a `42`)

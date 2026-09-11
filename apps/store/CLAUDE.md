@@ -529,6 +529,12 @@ cliente escolha seria pedir que repita o que já escolheu ao clicar no produto.
   - Quem guarda a ausência é **`semMaterialNaPaginaDoProduto.test.ts`**, que varre as superfícies da
     página **sem comentário**: as duas que restaram explicam a remoção citando o nome da coluna, então
     um guarda ingênuo acusaria a própria explicação.
+  - **A feature `44` ESTREITOU esse guarda, e a distinção é a feature inteira**: `requiresMaterial`
+    saiu da régua e as outras sete formas ficaram. A página voltou a poder dizer que **existe**
+    material — é o que acende a linha "Como enviar seu material de DNA" — e continua proibida de
+    dizer **qual**. Quem responde isso é a cliente, dentro da gaveta. O estreitamento tem sensor nos
+    **dois** sentidos, e um por forma: sem eles, um regex que perdesse tudo passaria como
+    "estreitado".
   - **O que continua lendo a coluna**: o checkout a congela em `order_items`, a confirmação
     (`OrderMaterialBlock`) diz o que enviar e recebe o rastreio, e o painel a mostra na fila. Só a
     página do produto deixou de ler.
@@ -549,11 +555,55 @@ cliente escolha seria pedir que repita o que já escolheu ao clicar no produto.
   gravações diferentes são **duas linhas** — colapsá-las mandaria um nome só para a bancada. Mesma
   armadilha que o `variantId` já custou à loja anterior, em duas telas.
 
+## A gaveta de material na página do produto (feature `44`)
+
+Desenho da página **"44 · Gaveta de material"** no Paper. A página do produto ganhou uma linha
+discreta — **"Como enviar seu material de DNA"**, depois do estado de estoque — que abre uma gaveta
+pela **direita**, sem navegar.
+
+- **A loja PERGUNTA, não afirma.** A gaveta abre com "Qual é o seu material?" e um chip por entrada
+  de `ATALHOS_DE_MATERIAL`; a ficha só aparece depois da escolha da cliente. Pré-selecionar por
+  `material_kinds` seria repetir o defeito que a remoção de `MaterialNotice` apagou no mesmo dia
+  (`BL-015`). Por isso o gatilho lê **só o interruptor booleano**, e o guarda da página foi
+  *estreitado* em vez de revogado.
+- **A ORDEM do corpo é medida, não gosto**: nota de contexto → pergunta → chips → os quatro passos.
+  Com os passos no topo — a ordem "lógica" — os chips caem abaixo da dobra em 390×844, e os chips são
+  o motivo de a gaveta abrir.
+- **A faixa de véu de 48px no celular não é sobra de largura.** Painel colado na borda deixa a
+  cliente sem alvo de "toque fora", e no Android o instinto seguinte é o gesto de voltar — que sai da
+  página do produto. Integração com histórico está fora de escopo (nenhuma das quatro superfícies
+  sobrepostas da loja a tem), então o véu é o que resolve. `w-[calc(100%-48px)] sm:max-w-[480px]`.
+- **O foco volta para a linha à mão, e isso é conserto de defeito medido.** A devolução automática do
+  Radix não funciona aqui porque a gaveta não é aberta por um `SheetTrigger` — é comandada por store.
+  Sem o `useEffect` em `MaterialSendTrigger`, quem fecha por teclado reaparece no `<body>`.
+- **`rotuloCurto` existe porque o dado real não cabia no chip.** Os títulos das fichas produzem 7
+  fileiras de chips em 390px; os curtos, 5. É um campo no **mesmo registro**, com queda para
+  `titulo`, e não uma segunda lista — `rotuloCurto.test.ts` guarda o teto de 20 caracteres, que é o
+  que obriga quem escreve um título longo a declarar o curto.
+- **O vídeo toca DENTRO da gaveta**, no lugar da capa, e o `<iframe>` só nasce depois do toque. A
+  página usa `VideoLightbox` (um `Dialog`), mas diálogo sobre gaveta empilha foco em duas camadas e
+  no celular não acrescentaria área. `videoUrl` fica presente nos dois estados, para quem bloqueia
+  iframe não ficar com um retângulo preto.
+- **Bloco ausente não vira bloco vazio**: cartão simples não desenha "QUANTIDADE —". Mesma régua do
+  `MaterialAddress`, que não renderiza endereço pela metade.
+
+> **Falta a prova em navegador**, e nela isso pesa: o que a gaveta entrega — largura, dobra, rolagem
+> interna e o véu sob o dedo — é exatamente o que jsdom não mede. Entra na fila da `32`, `33`, `34`,
+> `35`, `37`, `39`, `40` e `41`.
+
 ## O guia de material — `/como-enviar-seu-material-de-dna` (feature `31`)
 
 Desenho dos artboards `5MC-0` (desktop) e `6AU-0` (mobile). A página resolve **três** coisas —
-canônica, viewport e qual vídeo está aberto — e o resto é o slice `widgets/material-guide`: conteúdo
-em `model/guide.ts`, desenho em 16 componentes.
+canônica, viewport e qual vídeo está aberto — e o resto é o slice `widgets/material-guide`: desenho
+em 16 componentes.
+
+- **O CONTEÚDO mudou de casa na feature `44`** e mora em `entities/material/model/` (`AD-033`): a
+  gaveta da página do produto lê o mesmo dado, e widget não importa de widget. O barrel do widget
+  continua reexportando tudo — foi o que permitiu o movimento sem tocar em `HowToSendMaterialPage.tsx`
+  nem no teste dela. `donoUnicoDoGuia.test.ts` recusa a segunda declaração e o import lateral.
+- **O aviso de ficha (`MaterialAviso`) também saiu**, para `entities/material/ui/`. Se a gaveta
+  tivesse copiado o bloco, o tom `alerta` teria ganhado dois donos no dia em que ela nasceu — e dois
+  hex divergem sem quebrar build, `tsc` ou teste de componente.
 
 > Esta feature **não tem spec** em `.specs/features/`. O número segue consumido; a próxima é a `32`.
 
