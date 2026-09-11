@@ -741,10 +741,13 @@
 
 - **Feature**: `.specs/features/42-notificacoes-email-e-whatsapp/` (spec, context, design, tasks
   aprovados; `levantamento.md` cobre também a `43`, que tem spec + context e **espera** a `42`)
-- **Phase / Task**: Phase 0 / T1 — lote B1 (T1–T4) despachado a um worker
-- **Completed**: none
-- **In-progress**: —
-- **Next step**: receber o resumo do B1, atualizar `tasks.md`, despachar B2 (Phase 1a, T5–T11)
+- **Phase / Task**: Phase 1b / T16 — T12–T15 feitas **inline** (o worker do lote B3 morreu por
+  limite de sessão sem escrever nada; retomado na janela principal)
+- **Completed**: T1–T4 (commit `859d4aa`) · T5–T11 (commit `7707ade`) · T12–T15 **na árvore, sem
+  commit** (o commit é por fase, ao fim da T18)
+- **In-progress**: T16 — `apps/store/src/entities/order/api/useSetMaterialTracking.ts`
+- **Next step**: T16 (loja chama `?action=notify`), T17 (`notifyOrder` no backoffice), T18
+  (histórico lê `order_notifications` + guarda de dono único), commit da fase, então B4/Phase 2
 - **Blockers**: T4 precisa de `RESEND_DEV_REDIRECT_TO` no `.env` da raiz (vazia em 2026-09-06) e
   da parte manual (sandbox do MP + Gmail no celular) — fica em checklist no `validation.md`
 - **Uncommitted files**: `.specs/STATE.md` (AD-031, AD-032, este handoff), `.specs/features/42-*`,

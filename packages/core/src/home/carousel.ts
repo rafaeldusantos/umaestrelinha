@@ -17,20 +17,28 @@ import type { HomeSectionConfig, HomeSectionItem, HomeBannerWidth } from './type
 /**
  * As vagas do banner, **uma por dispositivo**.
  *
- * Não é uma proporção com dois recortes: são dois enquadramentos do mesmo anúncio. Uma arte 8:3 de
- * topo, servida em 390px, vira uma tira de 146px de altura — e o texto embutido nela fica ilegível
- * justamente em ~90% dos acessos. Por isso o celular é **retrato**.
+ * Não é uma proporção com dois recortes: são dois enquadramentos do mesmo anúncio. Uma arte 3:1 de
+ * topo, servida em 390px, vira uma tira de 130px de altura — e o texto embutido nela fica ilegível
+ * justamente em ~90% dos acessos. Por isso o celular tem enquadramento próprio, **quadrado**.
  *
  * **A proporção é o que a loja reserva; os pixels são o que o painel recomenda.** Mesmo par que
  * `layoutRatios` já usa para a grade de banners, e pelo mesmo motivo: ter as duas medidas no mesmo
  * lugar é o que impede a tela de inventar a sua.
  *
- * Números registrados como suposição a confirmar contra uma arte real da Adri (`spec.md`,
- * *Assumptions*). Trocá-los é trocar estes dois objetos — a loja e o painel leem daqui.
+ * **Estes números são MEDIDOS, e a medição custou uma entrega.** A `41` os registrou como suposição
+ * a confirmar (`spec.md`, *Assumptions*) e escolheu 1440 × 540 (2,67:1) e 780 × 975 (retrato 0,8:1).
+ * A arte real da Adri — a mesma do site anterior, de onde ela a traz — é **1680 × 560 (3:1)** no
+ * computador e **720 × 720 (1:1)** no celular. Com a vaga errada, `object-cover` cortava **90px de
+ * cada lado** no computador e **~25% da largura** no celular, comendo a primeira letra da frase que
+ * está desenhada dentro da arte. Nada acusava: o aviso de proporção do painel apontava para o
+ * número errado, e a loja recortava em silêncio.
+ *
+ * **A lição é a do `AD-012` noutra roupa**: medida suposta é afirmação, e o arquivo da dona é a
+ * verificação. Trocá-los é trocar estes dois objetos — a loja e o painel leem daqui.
  */
 export const HERO_CAROUSEL_SLOTS: Record<DeviceSurface, SlotSpec> = {
-  desktop: { width: 1440, height: 540 },
-  mobile: { width: 780, height: 975 },
+  desktop: { width: 1680, height: 560 },
+  mobile: { width: 720, height: 720 },
 }
 
 /**

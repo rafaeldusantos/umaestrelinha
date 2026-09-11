@@ -12,6 +12,7 @@
 // devolve a aba a quem a queria — sem obrigar quem quer a sequência a montá-la na cabeça.
 
 import { STATUS_LABELS } from '@/entities/order/api/useAdminOrders'
+import { NOTIFICATION_EVENT_LABELS, isNotificationEvent } from '@estrelinha/core/notifications'
 import type { OrderEmailEvent } from '@/entities/order/api/useAdminOrder'
 import type { DbOrderNote, DbOrderStatusHistory } from '@estrelinha/supabase/types'
 
@@ -25,19 +26,28 @@ export interface HistoryEvent {
   detail: string | null
   /** Só para `email`: se saiu. `false` habilita o reenviar (`PED-28`). */
   emailSent?: boolean
-  /** O `type` do e-mail, para o reenvio saber qual template repetir. */
+  /** O evento, para o reenvio saber qual mensagem repetir. */
   emailType?: string
+  /** O canal da tentativa — o reenvio repete no MESMO canal. */
+  emailChannel?: string
   author?: string | null
 }
 
-const EMAIL_LABELS: Record<string, string> = {
-  order_shipped: 'Aviso de postagem enviado',
-  material_received: 'Aviso de material recebido enviado',
-  order_confirmed: 'Confirmação do pedido enviada',
-  payment_approved: 'Aviso de pagamento aprovado enviado',
-}
+/**
+ * O rótulo vem de `core` (`FIX-02`), e é um `Record` COMPLETO: evento novo sem rótulo é erro de
+ * compilação, não fallback.
+ *
+ * O que existia aqui antes era um `Record<string, string>` com QUATRO chaves, das quais duas
+ * (`order_confirmed`, `payment_approved`) **nunca existiram** no vocabulário do banco — e as duas
+ * que de fato ocorriam (`order_received`, `order_paid`) caíam no fallback, fazendo a admin ler
+ * "E-mail order_received enviado". Nenhum teste cobria os rótulos.
+ */
+const rotuloDoEvento = (event: string): string =>
+  isNotificationEvent(event) ? NOTIFICATION_EVENT_LABELS[event] : `Aviso ${event} enviado`
 
-const rotuloDoEmail = (type: string): string => EMAIL_LABELS[type] ?? `E-mail ${type} enviado`
+/** Como o canal aparece na linha. `email` fica implícito; o WhatsApp precisa se identificar. */
+const rotuloDoCanal = (channel: string | undefined): string =>
+  channel === 'whatsapp' ? 'WhatsApp' : 'E-mail'
 
 /**
  * Funde os três fios num só, do mais recente para o mais antigo.
@@ -45,6 +55,16 @@ const rotuloDoEmail = (type: string): string => EMAIL_LABELS[type] ?? `E-mail ${
  * Ordem decrescente porque a pergunta que se faz ao abrir um pedido é "o que aconteceu por último?",
  * e não "como isso começou?".
  */
+/** `event` é o nome de hoje; `type` é o da view de compatibilidade, durante a janela de deploy. */
+const evento = (e: OrderEmailEvent & { type?: string }): string => e.event ?? e.type ?? ''
+
+/** O que o WhatsApp devolve de confirmação (feature 43). E-mail não tem — o Resend não avisa. */
+const ROTULO_ENTREGA: Record<string, string> = {
+  sent_to_server: 'Enviado ao servidor',
+  delivered: 'Entregue',
+  read: 'Lido',
+}
+
 export const buildHistory = (
   status: DbOrderStatusHistory[],
   emails: OrderEmailEvent[],
@@ -72,14 +92,20 @@ export const buildHistory = (
       // `sent_at` quando saiu, `created_at` quando não: a linha do tempo tem de marcar QUANDO a
       // coisa aconteceu, e para um e-mail que falhou o que aconteceu foi a tentativa.
       at: e.sent_at ?? e.created_at,
-      title: saiu ? rotuloDoEmail(e.type) : `Falha ao enviar ${e.type}`,
+      title: saiu
+        ? `${rotuloDoEvento(evento(e))} (${rotuloDoCanal(e.channel)})`
+        : `Falha ao enviar ${rotuloDoEvento(evento(e)).toLowerCase()} (${rotuloDoCanal(e.channel)})`,
       detail: saiu
-        ? e.attempts > 1
-          ? `Enviado na ${e.attempts}ª tentativa`
-          : null
+        ? [
+            e.attempts > 1 ? `Enviado na ${e.attempts}ª tentativa` : null,
+            e.delivery_status ? ROTULO_ENTREGA[e.delivery_status] : null,
+          ]
+            .filter(Boolean)
+            .join(' · ') || null
         : (e.error ?? 'A cliente NÃO foi avisada'),
       emailSent: saiu,
-      emailType: e.type,
+      emailType: evento(e),
+      emailChannel: e.channel ?? 'email',
     })
   }
 

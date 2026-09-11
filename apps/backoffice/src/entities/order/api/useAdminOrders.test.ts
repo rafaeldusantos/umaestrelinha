@@ -1,7 +1,9 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const sendOrderEmailMock = vi.fn<(orderId: string, type: string) => Promise<boolean>>()
+import { eventsForTrigger } from '@estrelinha/core/notifications'
+
+const notifyOrderMock = vi.fn<(orderId: string, trigger: string) => Promise<boolean>>()
 
 /** Resultado do `.update().eq()` — trocado por teste para exercitar o caminho de falha. */
 let updateResult: { error: unknown } = { error: null }
@@ -53,8 +55,8 @@ vi.mock('@estrelinha/supabase/client', () => {
   }
 })
 
-vi.mock('./sendOrderEmail', () => ({
-  sendOrderEmail: (orderId: string, type: string) => sendOrderEmailMock(orderId, type),
+vi.mock('./notifyOrder', () => ({
+  notifyOrder: (orderId: string, trigger: string) => notifyOrderMock(orderId, trigger),
 }))
 
 import { useAdminOrders } from './useAdminOrders'
@@ -72,8 +74,8 @@ beforeEach(() => {
   updateCalls.length = 0
   rpcCalls.length = 0
   rpcResult = { data: { ok: true, status: 'material_recebido', reason: null }, error: null }
-  sendOrderEmailMock.mockReset()
-  sendOrderEmailMock.mockResolvedValue(true)
+  notifyOrderMock.mockReset()
+  notifyOrderMock.mockResolvedValue(true)
 })
 
 describe('TRG-12 — os DOIS escritores tentam o e-mail de enviado', () => {
@@ -84,7 +86,7 @@ describe('TRG-12 — os DOIS escritores tentam o e-mail de enviado', () => {
       await result.current.updateStatus(ORDER_ID, 'shipped')
     })
 
-    expect(sendOrderEmailMock).toHaveBeenCalledWith(ORDER_ID, 'order_shipped')
+    expect(notifyOrderMock).toHaveBeenCalledWith(ORDER_ID, 'order_status_changed')
   })
 
   it('addTrackingCode tenta SEMPRE — é o outro lado do par, e cobre o Melhor Envio', async () => {
@@ -94,15 +96,19 @@ describe('TRG-12 — os DOIS escritores tentam o e-mail de enviado', () => {
       await result.current.addTrackingCode(ORDER_ID, 'NA123456789BR', 'Correios')
     })
 
-    expect(sendOrderEmailMock).toHaveBeenCalledWith(ORDER_ID, 'order_shipped')
+    expect(notifyOrderMock).toHaveBeenCalledWith(ORDER_ID, 'order_status_changed')
     expect(updateCalls.find((c) => 'tracking_code' in c.values)?.values).toEqual({
       tracking_code: 'NA123456789BR',
       shipping_carrier: 'Correios',
     })
   })
 
-  it.each(['pending', 'paid', 'delivered', 'cancelled'])(
-    'updateStatus para `%s` NÃO tenta e-mail de enviado',
+  // `AD-032`: o chamador nomeia o FATO e NÃO filtra por status — quais status têm aviso é regra de
+  // `core/notifications/triggers`. Filtrar aqui seria a segunda cópia dessa lista, e ela divergiria
+  // no primeiro status novo. A proteção que os quatro casos antigos davam ("`pending` não manda
+  // e-mail de enviado") continua existindo: está medida abaixo, contra a regra de verdade.
+  it.each(['pending', 'paid', 'processing', 'delivered', 'cancelled'])(
+    'updateStatus para `%s` dispara o MESMO gatilho — quem decide a mensagem é `core`',
     async (status) => {
       const { result } = await mountHook()
 
@@ -110,13 +116,26 @@ describe('TRG-12 — os DOIS escritores tentam o e-mail de enviado', () => {
         await result.current.updateStatus(ORDER_ID, status)
       })
 
-      expect(sendOrderEmailMock).not.toHaveBeenCalled()
+      expect(notifyOrderMock).toHaveBeenCalledWith(ORDER_ID, 'order_status_changed')
     },
   )
 
+  it.each(['pending', 'paid', 'processing'])(
+    'e para `%s` a regra de `core` devolve ZERO eventos — nenhuma mensagem sai',
+    (status) => {
+      expect(eventsForTrigger('order_status_changed', { status })).toEqual([])
+    },
+  )
+
+  it('só `cancelled`, `shipped` e `delivered` produzem mensagem de mudança de status', () => {
+    expect(eventsForTrigger('order_status_changed', { status: 'cancelled' })).toEqual(['order_cancelled'])
+    expect(eventsForTrigger('order_status_changed', { status: 'shipped' })).toEqual(['order_shipped'])
+    expect(eventsForTrigger('order_status_changed', { status: 'delivered' })).toEqual(['order_delivered'])
+  })
+
   it('propaga emailSent para quem chamou, para o toast poder ser honesto', async () => {
     const { result } = await mountHook()
-    sendOrderEmailMock.mockResolvedValue(false)
+    notifyOrderMock.mockResolvedValue(false)
 
     let outcome: any
     await act(async () => {
@@ -139,7 +158,7 @@ describe('UX-02 — falha de escrita não é engolida e não dispara e-mail', ()
 
     expect(outcome.error).toEqual({ message: 'violates check constraint "orders_status_check"' })
     expect(outcome.emailSent).toBe(false)
-    expect(sendOrderEmailMock).not.toHaveBeenCalled()
+    expect(notifyOrderMock).not.toHaveBeenCalled()
   })
 
   it('erro no update de rastreio volta em `error` e NÃO tenta e-mail', async () => {
@@ -152,7 +171,7 @@ describe('UX-02 — falha de escrita não é engolida e não dispara e-mail', ()
     })
 
     expect(outcome.error).toEqual({ message: 'permission denied' })
-    expect(sendOrderEmailMock).not.toHaveBeenCalled()
+    expect(notifyOrderMock).not.toHaveBeenCalled()
   })
 })
 
@@ -200,7 +219,7 @@ describe('MAT-08 — a transição do material é RPC, nunca `update`', () => {
 
     expect(resultado?.ok).toBe(false)
     expect(resultado?.reason).toBe('invalid_transition')
-    expect(sendOrderEmailMock).not.toHaveBeenCalled()
+    expect(notifyOrderMock).not.toHaveBeenCalled()
   })
 
   it('erro de rede na RPC não vira exceção — devolve `ok: false`', async () => {
@@ -224,10 +243,10 @@ describe('MAT-09 — o e-mail de material recebido é CONTIDO (AD-008)', () => {
       await result.current.setMaterialStatus(ORDER_ID, 'material_recebido')
     })
 
-    expect(sendOrderEmailMock).toHaveBeenCalledWith(ORDER_ID, 'material_received')
+    expect(notifyOrderMock).toHaveBeenCalledWith(ORDER_ID, 'material_status_changed')
   })
 
-  it('as outras transições NÃO disparam e-mail', async () => {
+  it('toda transição de material dispara o mesmo gatilho, e `core` escolhe a mensagem', async () => {
     rpcResult = { data: { ok: true, status: 'em_producao', reason: null }, error: null }
     const { result } = await mountHook()
 
@@ -235,13 +254,22 @@ describe('MAT-09 — o e-mail de material recebido é CONTIDO (AD-008)', () => {
       await result.current.setMaterialStatus(ORDER_ID, 'em_producao')
     })
 
-    expect(sendOrderEmailMock).not.toHaveBeenCalled()
+    expect(notifyOrderMock).toHaveBeenCalledWith(ORDER_ID, 'material_status_changed')
+  })
+
+  it('a regra: `material_recebido` e `em_producao` avisam; `aguardando_material` não', () => {
+    // `material_enviado` também não avisa por aqui — ele chega pelo RASTREIO, que é o fato
+    // completo (status + código). Avisar só pelo status mandaria o e-mail sem o código dentro.
+    expect(eventsForTrigger('material_status_changed', { material_status: 'material_recebido' })).toEqual(['material_received'])
+    expect(eventsForTrigger('material_status_changed', { material_status: 'em_producao' })).toEqual(['in_production'])
+    expect(eventsForTrigger('material_status_changed', { material_status: 'aguardando_material' })).toEqual([])
+    expect(eventsForTrigger('material_status_changed', { material_status: 'material_enviado' })).toEqual([])
   })
 
   it('e-mail que FALHA não reverte o estado nem vira erro para a admin', async () => {
     // A Adri acabou de conferir o envelope na bancada. Desfazer isso porque o Resend caiu seria
     // pior do que não avisar a cliente.
-    sendOrderEmailMock.mockResolvedValue(false)
+    notifyOrderMock.mockResolvedValue(false)
     const { result } = await mountHook()
 
     let resultado: { ok: boolean; emailSent: boolean } | undefined
@@ -254,7 +282,7 @@ describe('MAT-09 — o e-mail de material recebido é CONTIDO (AD-008)', () => {
   })
 
   it('e-mail que REJEITA não propaga a exceção', async () => {
-    sendOrderEmailMock.mockRejectedValue(new Error('boom'))
+    notifyOrderMock.mockRejectedValue(new Error('boom'))
     const { result } = await mountHook()
 
     let erro: unknown = null
@@ -266,7 +294,7 @@ describe('MAT-09 — o e-mail de material recebido é CONTIDO (AD-008)', () => {
       }
     })
 
-    // `sendOrderEmail` tem contrato de nunca lançar; se um dia lançar, quem chama precisa saber.
+    // `notifyOrder` tem contrato de nunca lançar; se um dia lançar, quem chama precisa saber.
     // Este teste é o sensor: hoje ele documenta que a promessa vem de lá.
     expect(erro).not.toBeNull()
   })
@@ -306,7 +334,18 @@ describe('MAT-11 — o rastreio da remessa da cliente, pelo painel', () => {
     })
 
     expect(updateCalls.filter(c => 'tracking_code' in c.values)).toEqual([])
-    expect(sendOrderEmailMock).not.toHaveBeenCalled()
+  })
+
+  it('avisa com o MESMO gatilho que a loja usa quando a própria cliente registra (`NTF-13`)', async () => {
+    // Dois gatilhos diferentes para o mesmo fato seriam duas mensagens diferentes para a mesma
+    // cliente, dependendo de quem digitou o código.
+    const { result } = await mountHook()
+
+    await act(async () => {
+      await result.current.setMaterialTracking(ORDER_ID, 'AA1BR')
+    })
+
+    expect(notifyOrderMock).toHaveBeenCalledWith(ORDER_ID, 'material_tracking_set')
   })
 })
 

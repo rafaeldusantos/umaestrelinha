@@ -7,7 +7,6 @@ import { useCategories } from '@/entities/category/api/useCategories'
 import { formatPrice } from '@estrelinha/core/formatters'
 import { imagePriority, renditionSrcSet, renditionUrl } from '@estrelinha/core/media'
 import { resolveInstallments } from '@estrelinha/core/payment/installments'
-import { pixPrice } from '@estrelinha/core/payment/pix'
 import { usePaymentSettings } from '@estrelinha/core/hooks/useStoreSettings'
 import { productPath } from '@estrelinha/core/routes'
 import { TAP_44 } from '@/shared/lib/touchTarget'
@@ -80,8 +79,7 @@ const ProductCard = ({ product, index }: { product: Product; index?: number }) =
   */
   const [corEscolhida, setCorEscolhida] = useState<string | null>(null)
   const { data: categories } = useCategories()
-  const { pix_enabled, pix_discount_percent, max_installments, min_installment_value } =
-    usePaymentSettings()
+  const { max_installments, min_installment_value } = usePaymentSettings()
 
   // PST-10: variação ativa com `options` vazio é grade meio-cadastrada — o produto vale como
   // simples, precificado por `base_price` e com saldo em `stock_total`.
@@ -127,17 +125,6 @@ const ProductCard = ({ product, index }: { product: Product; index?: number }) =
     ? Math.round((1 - selectedPrice / selectedCompare!) * 100)
     : 0
 
-  /*
-    A conta saiu daqui na feature 27 e virou `@estrelinha/core/payment/pix`, junto com a página do
-    produto, que passou a mostrar o mesmo número.
-
-    A mudança não foi só de lugar: a expressão que vivia aqui arredondava o PREÇO FINAL
-    (`round2(a × (1 − pct/100))`), e `resolveOrderPricing` arredonda o DESCONTO e subtrai. Medido no
-    catálogo real com o `pix_discount_percent = 5` de hoje, **81 dos 259 preços distintos (31%)**
-    saíam 1 centavo acima do que o caixa cobra — a vitrine prometia R$ 7,51 onde a cobrança é
-    R$ 7,50. A direção era a favor da cliente, e por isso ninguém reclamou.
-  */
-  const precoPix = pix_enabled ? pixPrice(selectedPrice, pix_discount_percent) : null
   const installments = resolveInstallments(selectedPrice, max_installments, min_installment_value)
 
   const imagemEmDestaque = corEscolhida ?? product.image_url
@@ -347,7 +334,6 @@ const ProductCard = ({ product, index }: { product: Product; index?: number }) =
         </div>
 
         <div className="mt-4 flex flex-col gap-[5px]">
-          {category && <p className="estrelinha-eyebrow text-estrelinha-ink-soft">{category.name}</p>}
           {/*
             `COR-09`: 14px em duas linhas, com os 40px reservados.
 
@@ -373,19 +359,18 @@ const ProductCard = ({ product, index }: { product: Product; index?: number }) =
           </div>
 
           {/*
-            Pix e parcela na vitrine — board `7CF-0`, e o que a loja em produção mostra em todo card.
-            É a informação pela qual quem parcela decide, e ela vem das MESMAS settings que o caixa
-            aplica (`resolveInstallments`, `pix_discount_percent`). Cravar "8%" ou "4x" aqui faria a
-            vitrine prometer uma regra que o checkout não pratica.
+            Parcela na vitrine — board `7CF-0`. É a informação pela qual quem parcela decide, e ela
+            vem das MESMAS settings que o caixa aplica (`resolveInstallments`). Cravar "4x" aqui
+            faria a vitrine prometer uma regra que o checkout não pratica.
+
+            O valor com Pix e a categoria (que ficava logo acima do nome) saíram do card por
+            decisão de produto — a página do produto continua mostrando os dois.
           */}
-          {(precoPix !== null || installments) && (
+          {installments && installments.count > 1 && (
             <div className="flex flex-col text-[13px] leading-[19px] text-estrelinha-ink-soft">
-              {precoPix !== null && <span>{formatPrice(precoPix)} com Pix</span>}
-              {installments && installments.count > 1 && (
-                <span>
-                  {installments.count}x de {formatPrice(installments.value)} sem juros
-                </span>
-              )}
+              <span>
+                {installments.count}x de {formatPrice(installments.value)} sem juros
+              </span>
             </div>
           )}
         </div>

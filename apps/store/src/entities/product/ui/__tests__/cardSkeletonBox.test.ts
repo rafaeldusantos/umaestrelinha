@@ -10,8 +10,9 @@ import { semComentarios } from '@/test/sourceScan'
  * **O esqueleto e o card declaram a MESMA caixa** — `PRF-17`.
  *
  * `ProductCardSkeleton` existe para que a grade não salte quando os produtos chegam, e o jeito de
- * ele cumprir isso é ter a **altura** do card. As medidas dele foram tiradas em navegador (431px dos
- * dois lados, em 1440×900) — mas são, por construção, uma **segunda escrita** das do `ProductCard`.
+ * ele cumprir isso é ter a **altura** do card. As medidas dele foram tiradas em navegador (389px dos
+ * dois lados, em 1440×900, depois da categoria e do valor com Pix saírem do card) — mas são, por
+ * construção, uma **segunda escrita** das do `ProductCard`.
  *
  * `apps/store/CLAUDE.md` já registrava a lacuna, com todas as letras:
  *
@@ -37,7 +38,7 @@ const UI = resolve(HERE, '..')
  * As medidas que **produzem altura**, e a classe que cada lado usa para declarar cada uma.
  *
  * Não é toda classe dos dois arquivos: cor, arredondamento e largura não movem a grade. São estas
- * quatro que somam os 431px, e cada uma está no comentário do `ProductCardSkeleton` com a medida ao
+ * quatro que somam os 389px, e cada uma está no comentário do `ProductCardSkeleton` com a medida ao
  * lado.
  *
  * **Três são a mesma classe dos dois lados; a do nome NÃO é, e a diferença é deliberada.** O card
@@ -49,7 +50,7 @@ const UI = resolve(HERE, '..')
 const CAIXA = [
   { medida: 'palco da foto (280px)', card: 'aspect-[4/5]', esqueleto: 'aspect-[4/5]' },
   { medida: 'respiro foto→texto (16px)', card: 'mt-4', esqueleto: 'mt-4' },
-  { medida: 'os três vãos (15px)', card: 'gap-[5px]', esqueleto: 'gap-[5px]' },
+  { medida: 'os dois vãos (10px)', card: 'gap-[5px]', esqueleto: 'gap-[5px]' },
   { medida: 'duas linhas do nome (40px)', card: 'min-h-[40px]', esqueleto: 'h-[40px]' },
 ] as const
 

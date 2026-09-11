@@ -2386,8 +2386,8 @@ function ordersBySelect(handlerRow: unknown, emailRow: unknown) {
 
 const EMAIL_RPCS = {
   apply_payment_approval: { data: true },
-  claim_order_email: { data: 'claim-row-1' },
-  finish_order_email: { data: null },
+  claim_order_notification: { data: 'claim-row-1' },
+  finish_order_notification: { data: null },
 }
 
 function emailSupabase(handlerOver: Record<string, unknown> = {}, emailOver: Record<string, unknown> = {}) {
@@ -2504,13 +2504,13 @@ describe('create-payment — gatilho de e-mail (TRG-04, TRG-05, TRG-08, TRG-09, 
       user: { id: USER_ID },
       rows: { ...paymentRows(), orders: ordersBySelect(paymentRows().orders, emailOrderRow()) },
       lists: paymentLists,
-      rpcByFn: { ...EMAIL_RPCS, claim_order_email: { data: null } },
+      rpcByFn: { ...EMAIL_RPCS, claim_order_notification: { data: null } },
     })
     const fetchDouble = createFakeFetch([{ match: '/v1/orders', body: mpOrderResponse() }, RESEND_ROUTE])
 
     await createPayment(createDeps(supabase, fetchDouble), paymentRequest(), pixBody)
 
-    expect(supabase.rpcs.filter((r) => r.fn === 'claim_order_email')).toHaveLength(1)
+    expect(supabase.rpcs.filter((r) => r.fn === 'claim_order_notification')).toHaveLength(1)
     expect(resendCalls(fetchDouble)).toHaveLength(0)
   })
 })
@@ -2623,7 +2623,7 @@ describe('TRG-06 — falha de e-mail NUNCA altera a resposta do pagamento', () =
   })
 
   it('motor de e-mail LANÇANDO: PIX segue 200 — o try/catch é carga, não decoração', async () => {
-    const supabase = poisonRpc(emailSupabase(), 'claim_order_email')
+    const supabase = poisonRpc(emailSupabase(), 'claim_order_notification')
     const fetchDouble = createFakeFetch([{ match: '/v1/orders', body: mpOrderResponse() }, RESEND_ROUTE])
 
     const response = await createPayment(createDeps(supabase, fetchDouble), paymentRequest(), pixBody)
@@ -2645,7 +2645,7 @@ describe('TRG-06 — falha de e-mail NUNCA altera a resposta do pagamento', () =
         },
         rpcByFn: EMAIL_RPCS,
       }),
-      'claim_order_email',
+      'claim_order_notification',
     )
     const fetchDouble = createFakeFetch([{ match: '/v1/orders/', body: mpOrderLookup() }, RESEND_ROUTE])
 

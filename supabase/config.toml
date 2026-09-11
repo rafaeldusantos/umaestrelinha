@@ -106,8 +106,16 @@ enabled = true
 file_size_limit = "50MiB"
 
 # Image transformation API is available to Supabase Pro plan.
-# [storage.image_transformation]
-# enabled = true
+#
+# LIGADO DE PROPÓSITO, e não é conveniência: a loja pede TODA foto por
+# `/storage/v1/render/image/public/…` (`@estrelinha/core/media/rendition.ts`, 19 superfícies).
+# Com isto comentado o CLI não sobe o `imgproxy`, essa rota responde **404 JSON** e a loja local
+# fica sem uma única imagem — enquanto o painel continua inteiro, porque ele desenha o
+# `image_url` cru em quase toda tela (a exceção é a miniatura do `MenuBannerEditor`, que
+# também não pintava). Dois apps sobre o mesmo Storage, um funcionando e o outro não, e nada
+# acusando: nenhum teste baixa imagem, e `<img>` quebrado não é erro de build.
+[storage.image_transformation]
+enabled = true
 
 # Uncomment to configure local storage buckets
 # [storage.buckets.images]
@@ -241,7 +249,7 @@ otp_expiry = 600
 # NUNCA reusar RESEND_FROM aqui — aquele valor já é RFC 5322 (`Nome <addr>`) e
 # o resultado seria `"Uma Estrelinha" <Uma Estrelinha <loja@…>>`: malformado,
 # e todo envio de auth falha. `loja@` é dos transacionais (edge function
-# send-email, API HTTP); `acesso@` é do auth. Mesmo domínio, streams separados:
+# send-notification, API HTTP); `acesso@` é do auth. Mesmo domínio, streams separados:
 # reputação de entrega é por domínio da assinatura DKIM (d=), então separar o
 # local-part não custa entrega e deixa o login filtrável no painel do Resend.
 #
@@ -424,7 +432,7 @@ deno_version = 2
 MERCADO_PAGO_ACCESS_TOKEN = "env(MERCADO_PAGO_ACCESS_TOKEN)"
 MERCADO_PAGO_WEBHOOK_SECRET = "env(MERCADO_PAGO_WEBHOOK_SECRET)"
 # A MESMA chave que o SMTP do auth usa em [auth.email.smtp].pass — agora também pela API HTTP
-# (https://api.resend.com/emails), na function send-email. Dois usos, uma chave.
+# (https://api.resend.com/emails), na function send-notification. Dois usos, uma chave.
 RESEND_API_KEY = "env(RESEND_API_KEY)"
 # Remetente dos e-mails transacionais — e SÓ deles. O auth não passa por aqui: quem manda o
 # código de login é o GoTrue, com o `admin_email` de [auth.email.smtp] acima. Dois endereços
@@ -494,7 +502,7 @@ verify_jwt = false
 # válido do projeto e passaria pelo gateway sem provar nada. O que importa é o PAPEL, e papel só se
 # checa dentro do handler — a function exige admin via `has_role` no client service-role, e recusa
 # 401 (sem/JWT inválido) ou 403 (autenticado sem papel). Ver o cabeçalho de handlers.ts.
-[functions.send-email]
+[functions.send-notification]
 verify_jwt = false
 
 # Quem busca o feed é o rastreador do Google, que não manda JWT nenhum — não há o que autenticar, e

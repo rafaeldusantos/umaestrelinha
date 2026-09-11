@@ -306,6 +306,7 @@ migrations, e `vercelRedirects` lê o `vercel.json`.
 | `categoryTreeSingleOwner.test.ts` | idem | qualquer arquivo de `apps/store/**` fora de `useCategories.ts` abrir `from('categories')` — a árvore tem **um** dono, e é a chave `['categories']` que o header já preenche. **Zero allowlist**, âncora dupla e sensor de comentário |
 | `arbitraryTextColor.test.ts` | idem | cor de texto **arbitrária** (`text-[hsl(…)]`, `text-[#…]`, `text-[rgb(…)]`) fora de um allowlist de dois, ou com contraste abaixo de 4,5:1 **contra o fundo declarado**. `contrast.test.ts` mede tokens e não alcança essa sintaxe. O guarda **calcula** a razão — não confia no comentário |
 | `cardSkeletonBox.test.ts` | store `entities/product/ui/__tests__` | o `ProductCard` e o `ProductCardSkeleton` divergirem numa das quatro classes que produzem altura. jsdom devolve 0 para layout, então nenhum teste de componente pega — este lê os dois do disco. Modela o **par** (`min-h-[40px]` no card × `h-[40px]` no esqueleto), e a régua é de **token exato**, porque `'min-h-[40px]'.includes('h-[40px]')` é `true` |
+| `semMaterialNaPaginaDoProduto.test.ts` | store `entities/product/ui/__tests__` | a página do produto voltar a falar de material afetivo — `MaterialNotice`, `material_kinds`, `materialKindsOf`, `requiresMaterial` ou os rótulos, em **qualquer** arquivo de `entities/product/ui`, `widgets/product-buy-bar` ou `ProductPage.tsx`; `MaterialNotice.tsx` reaparecer no disco. A gravação (`MAT-03`) **não** é acusada. **Âncora dupla** (arquivos lidos **e** a régua provada como predicado, nos dois sentidos) e remoção de comentário com CRLF, LF e o glob de dois asteriscos (`BL-027`) — os dois arquivos que restaram **explicam a remoção citando o nome da coluna**, então um guarda ingênuo acusaria a própria explicação |
 | `heroSemOpacidadeZero.test.ts` | store `widgets/hero-banner/ui/__tests__` | o elemento do LCP voltar a nascer invisível — `opacity: 0` em **qualquer** lugar do `HeroBanner.tsx`, variant ou prop inline. Também recusa apagar a animação inteira: o pedido é entrar **sem esconder**, não deixar de entrar. **Ampliado na `41`** para a classe utilitária, o valor arbitrário (`opacity-[0]`) e o `fade-in` do `tailwindcss-animate` |
 | `heroCarouselSemOpacidadeZero.test.ts` | store `widgets/hero-carousel/ui/__tests__` | a mesma régua no bloco da `41`, em **cinco grafias**: objeto do framer, `style` inline, classe utilitária (`opacity-0` e `opacity-[0]`, com prefixo), `invisible`, e as **animações de entrada** — o `fade-in` do `tailwindcss-animate` **e** o `animate-fade-in`/`animate-scale-in`/`animate-slide-up` do preset deste repositório, que compilam para opacidade zero e **não contêm a palavra `opacity`**. Varre o widget **e o registro `tipo → componente`**, porque a AC diz "em nenhum ponto do caminho até ele". **Âncora quádrupla** (a quarta lê o preset e prova que as classes acusadas EXISTEM mesmo) e dezesseis sensores, incluindo o par que prova que `opacity: 0.5`, `opacity-70`, `fade-in-50`, `zoom-in-95`, `animate-bounce-cart` e `bg-…/90` **não** são o defeito |
 | `surfaceArtSingleOwner.test.ts` | store `shared/lib/__tests__` (varre `apps/**` e `packages/**`) | qualquer arquivo de produção fora de `core/media/surfaceArt.ts` decidir **entre a arte de celular e a de computador** — `\|\|`, `??` ou ternário, **inclusive quebrados em linhas**, que é a forma que o Prettier produz sozinho. A régua exige **uma de cada superfície**: a primeira escrita acusou `CollectionFeature.tsx:55`, que é outra regra ("a arte do item vence a do destino") e legítima. Também recusa o dono **deixar de ser chamado** por `core/menu` e `core/home`. Pega também as formas **sem operador nenhum**: o array das duas artes e a reatribuição condicional (`if (!image) image = …`). **Âncora dupla** e treze sensores — o ternário cuja condição é a superfície (a forma que a primeira régua deixava passar, e exatamente como `menuBannerImage` estava escrito), o `\|\|` quebrado em linhas, o CRLF, o LF, o glob de dois asteriscos (`BL-027`), e os três pares que provam que linhas vizinhas de objeto, `if` com **outra** variável e **lista de nomes de campo** não são acusados — este último achado contra `MenuBannerEditor.tsx:103`, que percorre nomes de coluna para limpar campo vazio |
@@ -735,6 +736,14 @@ completo (framework, `installCommand` na raiz do monorepo, headers de cache e de
     forma — atributo, classe e presença). Falta medir em 390×844 e 1440: o CLS da faixa enquanto a
     arte carrega, o LCP do primeiro slide em Slow 4G, o arrasto do dedo sem sequestrar a rolagem
     vertical, e as setas do computador. Entra na mesma fila da `32`, `33`, `34`, `35`, `37` e `39`.
+  - **O primeiro olhar de navegador já cobrou o preço, em 2026-09-11**: as duas vagas eram
+    **suposição** (a `spec.md` as marcava "confirmar com uma arte real da Adri") e a arte real é
+    `1680 × 560` e `720 × 720`. Com as vagas erradas, `object-cover` cortava **90px de cada lado** no
+    computador e **~25% da largura** no celular, comendo a primeira letra da frase desenhada dentro
+    da arte — e os **83 testes do widget seguiam verdes**, porque todos leem a constante em vez de
+    conferi-la contra um arquivo. Medida suposta é afirmação; o arquivo da dona é a verificação
+    (`AD-012` noutra roupa). Corrigido em `HERO_CAROUSEL_SLOTS`, com a régua de `BNR-26` **invertida**
+    em vez de descartada: ela dizia "o celular é retrato" e teria reprovado a arte real.
 - **O MENU NASCE VAZIO NOS DOIS DISPOSITIVOS, e montá-lo é passo de operação** (feature `39`). As 37
   categorias têm `menu_desktop` e `menu_mobile` em `false`, e o único item semeado é o link "Sobre".
   Depois do deploy, a barra do topo mostra **um** item e a folha do celular também — até a Adri
@@ -833,6 +842,13 @@ completo (framework, `installCommand` na raiz do monorepo, headers de cache e de
   {cinzas}` cuja descrição enumera cinco materiais, produto com `requires_material = false` cuja
   descrição manda enviar coto e cabelo, e um material (`sangue`) fora de `MATERIAL_KINDS`. É curadoria
   da `22`, e por isso a `28` **proíbe** derivar a resposta "Quais materiais posso usar?" da coluna.
+  - **Em 2026-09-11 a coluna saiu das duas telas onde ela DECIDIA compra** (decisão do usuário): o
+    card "Esta joia é feita com material seu" e a linha da barra fixa sumiram da página do produto, e
+    a lista "Quais materiais" saiu do formulário do painel. Sobrou o **interruptor**
+    `requires_material`, que é o que põe o pedido na fila. A coluna continua no banco, continua sendo
+    congelada em `order_items` pelo checkout e continua sendo lida pela confirmação e pela fila do
+    painel — a dívida de curadoria **não** foi fechada, só deixou de ser anunciada à cliente. Guardas:
+    `semMaterialNaPaginaDoProduto.test.ts` (loja) e `MaterialCard.test.tsx` (painel).
 - **Fronteiras FSD em `warn`**: 1 violação conhecida no store (`entities/product/ProductInfo` importa
   `features/share-product`). Corrigir extraindo a interação para uma feature.
 - **Imports profundos** (pré-barrel) em muitos lugares. Migrar para os barrels de slice

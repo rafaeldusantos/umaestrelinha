@@ -3,9 +3,9 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import type { Product, ProductOption, ProductVariant } from '@estrelinha/supabase/types'
 
-// O card lê `usePaymentSettings` desde que passou a mostrar Pix e parcela na vitrine (board
-// `7CF-0`). São os MESMOS valores que o caixa cobra, então o mock repete os defaults de
-// `DEFAULT_PAYMENT` — um mock com número inventado aqui provaria uma tela que não existe.
+// O card lê `usePaymentSettings` desde que passou a mostrar a parcela na vitrine (board `7CF-0`).
+// São os MESMOS valores que o caixa cobra, então o mock repete os defaults de `DEFAULT_PAYMENT` —
+// um mock com número inventado aqui provaria uma tela que não existe.
 vi.mock('@estrelinha/core/hooks/useStoreSettings', () => ({
   usePaymentSettings: () => ({
     pix_enabled: true,
@@ -34,7 +34,11 @@ import { COLOR_SLOT_TIERS, COLOR_THUMB_PX } from '../../lib/variantSelection'
  */
 
 vi.mock('sonner', () => ({ toast: { custom: vi.fn(), error: vi.fn(), success: vi.fn() } }))
-vi.mock('@/entities/category/api/useCategories', () => ({ useCategories: () => ({ data: [] }) }))
+
+// Devolve uma categoria de verdade em alguns testes — não `{ data: [] }` fixo — porque o teste que
+// prova que o selo saiu do card só prova algo se `displayCategory` tivesse ONDE resolver.
+const { useCategoriesMock } = vi.hoisted(() => ({ useCategoriesMock: vi.fn() }))
+vi.mock('@/entities/category/api/useCategories', () => ({ useCategories: useCategoriesMock }))
 
 const product = (overrides: Partial<Product> = {}): Product => ({
   id: 'p1',
@@ -78,7 +82,10 @@ const setViewport = (width: number) => {
   Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: width })
 }
 
-beforeEach(() => setViewport(1024))
+beforeEach(() => {
+  setViewport(1024)
+  useCategoriesMock.mockReturnValue({ data: [] })
+})
 
 const option = (name: string, values: string[], position: number): ProductOption => ({
   name,
@@ -147,6 +154,23 @@ describe('card de produto — superfícies', () => {
   it('o disco de favoritar é branco', () => {
     renderCard(product())
     expect(screen.getByRole('button', { name: /favoritos/i })).toHaveClass('bg-white', 'rounded-full')
+  })
+})
+
+describe('card de produto — categoria e valor com Pix saíram do card (decisão de produto)', () => {
+  it('não mostra mais o selo de categoria acima do nome, mesmo com categoria resolvível', () => {
+    // A categoria existe e `displayCategory` a resolveria — o card é que parou de desenhá-la.
+    useCategoriesMock.mockReturnValue({
+      data: [{ id: 'c1', name: 'Anime', slug: 'anime', sort_order: 0 }],
+    })
+    renderCard(product())
+
+    expect(screen.queryByText('Anime')).toBeNull()
+  })
+
+  it('não mostra mais o valor com Pix', () => {
+    renderCard(product())
+    expect(screen.queryByText(/com Pix/)).toBeNull()
   })
 })
 
@@ -309,30 +333,15 @@ describe('card de produto — o preço acompanha a cor escolhida (COR-12)', () =
     expect(screen.queryByText('R$ 100,00')).toBeNull()
   })
 
-  it('o Pix e a parcela saem do preço da cor escolhida, não do produto', () => {
+  it('a parcela sai do preço da cor escolhida, não do produto', () => {
+    // O valor com Pix saiu do card por decisão de produto; a parcela continua acompanhando a
+    // variação escolhida, como o preço e o "de" riscado.
     renderCard(precoPorCor)
-    // 5% de desconto e 6x, os mesmos valores que o caixa aplica.
-    expect(screen.getByText('R$ 95,00 com Pix')).toBeInTheDocument()
+    expect(screen.queryByText(/com Pix/)).toBeNull()
 
     fireEvent.click(miniatura('Ouro'))
 
-    expect(screen.getByText('R$ 190,00 com Pix')).toBeInTheDocument()
     expect(screen.getByText('6x de R$ 33,33 sem juros')).toBeInTheDocument()
-  })
-
-  /**
-   * `PDP-15` — o valor do card é o que o CAIXA cobra.
-   *
-   * R$ 100 e R$ 200 (o caso acima) dão o mesmo número nas duas fórmulas possíveis, então aquele
-   * teste passaria mesmo com a conta errada. Este preço discrimina: a expressão que vivia inline
-   * aqui arredondava o preço final e produzia R$ 7,51; `resolveOrderPricing` arredonda o desconto e
-   * cobra R$ 7,50. Eram 81 dos 259 preços distintos do catálogo (31%) a 5%.
-   */
-  it('o Pix mostra o valor cobrado, e não o da fórmula que arredondava o preço final', () => {
-    renderCard(product({ price: 7.9 }))
-
-    expect(screen.getByText('R$ 7,50 com Pix')).toBeInTheDocument()
-    expect(screen.queryByText('R$ 7,51 com Pix')).toBeNull()
   })
 
   it('o "de" riscado também segue a variação — senão a % do selo mistura duas linhas', () => {

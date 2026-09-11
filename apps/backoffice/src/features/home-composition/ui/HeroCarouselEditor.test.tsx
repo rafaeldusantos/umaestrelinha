@@ -161,6 +161,35 @@ describe('os campos de um banner (BNR-07)', () => {
     expect(screen.getByLabelText('Leva para · 1º banner')).toBeInTheDocument()
   })
 
+  it('a miniatura tem a proporção DA VAGA, e as duas vagas não têm a mesma', () => {
+    // Ela era `aspect-video` nas duas: a dona conferia o recorte em 16:9 e a loja entregava 3:1 e
+    // 1:1. O corte que ela precisa enxergar era justamente o que a miniatura escondia — e nada
+    // acusava, porque a foto aparecia.
+    renderEditor({ items: [slide()] })
+
+    const computador = screen.getByTestId('miniatura-image_url-0')
+    const celular = screen.getByTestId('miniatura-image_mobile_url-0')
+
+    expect(computador.style.aspectRatio).toBe(
+      `${HERO_CAROUSEL_SLOTS.desktop.width} / ${HERO_CAROUSEL_SLOTS.desktop.height}`,
+    )
+    expect(celular.style.aspectRatio).toBe(
+      `${HERO_CAROUSEL_SLOTS.mobile.width} / ${HERO_CAROUSEL_SLOTS.mobile.height}`,
+    )
+
+    // **Âncora**: se um dia as duas vagas tiverem a mesma proporção, as asserções acima passam a
+    // valer com uma única escrita e param de provar que a miniatura lê a SUA vaga.
+    expect(
+      HERO_CAROUSEL_SLOTS.desktop.width / HERO_CAROUSEL_SLOTS.desktop.height,
+      'as duas vagas passaram a ter a mesma proporção — este teste deixou de separar as duas',
+    ).not.toBe(HERO_CAROUSEL_SLOTS.mobile.width / HERO_CAROUSEL_SLOTS.mobile.height)
+
+    // A classe fixa de 16:9 não pode voltar por baixo do `style` — ela venceria em nada, mas é o
+    // rastro de que alguém reintroduziu a terceira proporção.
+    expect(computador.className).not.toContain('aspect-video')
+    expect(celular.className).not.toContain('aspect-video')
+  })
+
   it('a arte enviada vai para a vaga certa e é gravada', async () => {
     renderEditor({ items: [slide({ image_mobile_url: null })] })
 
@@ -170,8 +199,9 @@ describe('os campos de um banner (BNR-07)', () => {
     })
 
     await waitFor(() => expect(upload.uploadHomeImage).toHaveBeenCalled())
-    // A vaga do celular é a que vai para o aviso de proporção: a arte é retrato, e cobrar a medida
-    // do computador mandaria a dona reexportar no tamanho errado.
+    // A vaga do celular é a que vai para o aviso de proporção: a arte do celular é quadrada e a do
+    // computador é 3:1, e cobrar a medida errada mandaria a dona reexportar no tamanho errado —
+    // que foi exatamente o que aconteceu enquanto as duas vagas eram suposição.
     expect(upload.uploadHomeImage.mock.calls[0][1]).toEqual(HERO_CAROUSEL_SLOTS.mobile)
 
     salvar()

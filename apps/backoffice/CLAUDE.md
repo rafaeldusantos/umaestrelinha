@@ -117,6 +117,17 @@ dobra interna. Em 390×844 sobram 206px de corte. Colapsar dois grupos zera a di
   contra o banco local, não inspeção de tipo.
 - **Payload de gravação fica em igualdade EXATA no teste** (`CategoryInspector.test.tsx`,
   `core/product/index.test.ts`). É o que impede campo novo entrar na gravação sem ninguém decidir.
+- **O card "Material afetivo" tem UM controle, e a lista "Quais materiais" NÃO volta** (2026-09-11).
+  Sobraram o interruptor "Esta peça exige material da cliente" e o limite de gravação. Os dez
+  checkboxes saíram junto com o card que a loja mostrava na página do produto: `material_kinds` **diz
+  menos que a descrição** (`BL-015`), e a loja parou de anunciá-la.
+  - **O interruptor é operação, não texto de vitrine**, e o card diz isso na tela: ligado, o pedido
+    pago nasce com `material_status`, entra na fila, aparece no filtro de `/admin/clientes`, ganha a
+    cobrança por WhatsApp e sai na folha de separação. Nada disso depende de saber **qual** material —
+    é por isso que a lista pôde sair sem levar a fila junto.
+  - **A coluna continua gravada e é preservada pelo save.** `useProductForm` ainda a carrega do banco;
+    o card **nunca** emite `material_kinds`, e `MaterialCard.test.tsx` assere isso em toda interação —
+    emitir `[]` daqui apagaria a curadoria de 689 linhas com o formulário parecendo intocado.
 
 ## Descontos
 
@@ -173,6 +184,12 @@ desenho.
     `scroll-snap`, `setInterval`) dentro de `home-composition`, e a régua é a mecânica e não o nome
     do arquivo: "só uma mini-prévia para conferir a ordem" é o pedido razoável que traz o defeito de
     volta.
+  - **A miniatura de cada vaga tem a proporção DA VAGA** (`1680 × 560` e `720 × 720`), entregue por
+    `style` porque a razão é dado — classe montada em tempo de execução não existe no CSS, já que o
+    JIT do Tailwind varre o fonte. Ela era `aspect-video` nas **duas**: a dona conferia o recorte em
+    16:9 enquanto a loja entregava 3:1 e 1:1, ou seja, **o corte que ela precisa enxergar era
+    exatamente o que a miniatura escondia**. É uma terceira proporção na mesma tela, que é o "defeito
+    01" em forma de moldura.
 - **O seletor de destino é `DestinoDoItem.tsx`, e é compartilhado.** Extraído do `BannerGridEditor` na
   `41`, porque o que ele carrega é uma **regra** e não um formulário: o `label_snapshot` é congelado
   junto com a escolha, e uma segunda escrita esqueceria isso — o painel passaria a dizer "este banner

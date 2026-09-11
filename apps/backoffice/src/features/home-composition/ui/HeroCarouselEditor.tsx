@@ -226,15 +226,28 @@ const HeroCarouselEditor = ({
                           arte do {vaga.dispositivo} · {propria ? 'enviada' : 'falta'}
                         </span>
 
+                        {/* **A miniatura tem a proporção DA VAGA, e não uma terceira.** Ela era
+                            `aspect-video` nas duas: a dona conferia o recorte em 16:9 enquanto a
+                            loja entregava 3:1 no computador e 1:1 no celular — ou seja, o corte que
+                            ela precisa enxergar era exatamente o que a miniatura escondia.
+
+                            Vem por `style`, e não por classe, porque a razão é DADO: uma classe
+                            montada em tempo de execução não existe no CSS, já que o JIT do Tailwind
+                            varre o FONTE. É o mesmo motivo pelo qual a loja entrega a vaga por
+                            variável CSS. */}
                         {image ? (
                           <img
                             data-testid={`miniatura-${vaga.campo}-${indice}`}
                             src={image}
                             alt=""
-                            className="aspect-video w-full rounded-lg border border-border object-cover"
+                            style={{ aspectRatio: `${vaga.slot.width} / ${vaga.slot.height}` }}
+                            className="w-full rounded-lg border border-border object-cover"
                           />
                         ) : (
-                          <span className="flex aspect-video w-full items-center justify-center rounded-lg border border-dashed border-input bg-muted/30">
+                          <span
+                            style={{ aspectRatio: `${vaga.slot.width} / ${vaga.slot.height}` }}
+                            className="flex w-full items-center justify-center rounded-lg border border-dashed border-input bg-muted/30"
+                          >
                             <ImagePlus className="h-5 w-5 text-muted-foreground" aria-hidden />
                           </span>
                         )}

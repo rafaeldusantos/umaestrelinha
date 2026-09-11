@@ -26,12 +26,16 @@ import {
 // Preço por variação (07/T12). Mesmo precedente dos imports acima: caminho relativo `.ts`, sem
 // import map — a função pura testada em vitest É a que roda no caixa, não uma cópia.
 import { isPriceError, resolveItemPrice } from "../../../packages/core/src/pricing/index.ts"
-// E-mail transacional (AD-005): import DIRETO do motor, no mesmo processo — sem hop HTTP para a
-// function `send-email`. Um `fetch` entre duas functions do mesmo deploy exigiria inventar auth
-// interna e pagaria um segundo cold start justamente no caminho do PIX. A `send-email` continua
-// existindo: é a porta HTTP que o backoffice usa.
-import { type EmailEnv, sendOrderEmail } from "../send-email/sender.ts"
-import type { EmailType } from "../send-email/templates.ts"
+// Notificações (AD-005): import DIRETO do motor, no mesmo processo — sem hop HTTP para a function
+// `send-notification`. Um `fetch` entre duas functions do mesmo deploy exigiria inventar auth
+// interna e pagaria um segundo cold start justamente no caminho do PIX. A `send-notification`
+// continua existindo: são as portas HTTP que o backoffice, o painel e a loja usam.
+//
+// O que este arquivo informa é o GATILHO — o que aconteceu com o pedido —, nunca qual mensagem sai
+// (`AD-032`). A bifurcação "pagou, e tem material a esperar?" vive em `core/notifications/triggers`,
+// com um dono e um teste puro; aqui ela nem aparece.
+import { type NotificationEnv, dispatchTrigger } from "../send-notification/dispatch.ts"
+import type { NotificationTrigger } from "../../../packages/core/src/notifications/index.ts"
 
 /** Tudo que os handlers tocam fora do próprio processo. O wiring (index.ts) fornece o real. */
 export interface Deps {
@@ -55,38 +59,44 @@ export interface Deps {
      */
     strictVariantPricing: boolean
   }
-  /** Env do e-mail transacional. Chave separada de `env` porque `env` é sobre o Mercado Pago. */
-  email: EmailEnv
+  /** Env das notificações. Chave separada de `env` porque `env` é sobre o Mercado Pago. */
+  notifications: NotificationEnv
+  /** Os provedores registrados neste deploy — o `index.ts` monta. Ver `AD-032`. */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  providers: any[]
 }
 
 /**
  * Budget do e-mail a partir do `create-payment`: a cliente está esperando na tela e o front aborta em
  * 15s (`PAYMENT_TIMEOUT_MS`). O e-mail é o último passo e não pode competir com isso.
  */
-const EMAIL_TIMEOUT_CREATE_MS = 2500
+const NOTIFY_BUDGET_CREATE_MS = 2500
 
 /** A partir do webhook não há ninguém esperando — quem espera é o MP, que retenta de todo jeito. */
-const EMAIL_TIMEOUT_WEBHOOK_MS = 8000
+const NOTIFY_BUDGET_WEBHOOK_MS = 8000
 
 /**
- * Dispara e-mail transacional sem NUNCA afetar o resultado do pagamento.
+ * Dispara as notificações de um gatilho sem NUNCA afetar o resultado do pagamento.
  *
- * O try/catch é carga estrutural, não decoração: `sendOrderEmail` promete não lançar, mas se um bug
+ * O try/catch é carga estrutural, não decoração: `dispatchTrigger` promete não lançar, mas se um bug
  * quebrar essa promessa o throw subiria até o catch de `route` e viraria **500 no pagamento** — PIX
- * sem QR na tela, ou webhook em erro fazendo o MP retentar para sempre. E-mail que não sai é
+ * sem QR na tela, ou webhook em erro fazendo o MP retentar para sempre. Aviso que não sai é
  * aceitável; cobrança que falha não é.
+ *
+ * O orçamento é COMPARTILHADO por todos os eventos do gatilho: o que não couber vira linha
+ * `budget_exhausted`, visível no histórico do pedido e reenviável pela dona.
  */
-async function fireEmail(deps: Deps, orderId: string, type: EmailType, timeoutMs: number) {
+async function fireTrigger(deps: Deps, orderId: string, trigger: NotificationTrigger, budgetMs: number) {
   try {
-    await sendOrderEmail(
-      { supabase: deps.supabase, fetch: deps.fetch, env: deps.email },
-      { orderId, type, timeoutMs },
+    await dispatchTrigger(
+      { supabase: deps.supabase, fetch: deps.fetch, env: deps.notifications, providers: deps.providers },
+      { orderId, trigger, budgetMs },
     )
   } catch (err) {
     log({
-      action: "email_dispatch_failed",
+      action: "notification_dispatch_failed",
       order_id: orderId,
-      type,
+      trigger,
       message: err instanceof Error ? err.message : String(err),
     })
   }
@@ -799,13 +809,13 @@ export async function createPayment(deps: Deps, req: Request, body: any) {
   // Cartão aprovado recebe SÓ `order_paid`; cartão recusado não recebe nada (a loja já mostra
   // `friendlyMessage` com a cliente na tela, e `rejected` é retentável).
   const pix = method === "pix" ? extractPixData(mp) : null
-  const emailType: EmailType | null = approvalApplied
-    ? "order_paid"
+  const gatilho: NotificationTrigger | null = approvalApplied
+    ? "payment_approved"
     : method === "pix" && syncStatus === "pending" && pix?.qr_code
-      ? "order_received"
+      ? "pix_created"
       : null
-  if (emailType) {
-    await fireEmail(deps, order_id, emailType, EMAIL_TIMEOUT_CREATE_MS)
+  if (gatilho) {
+    await fireTrigger(deps, order_id, gatilho, NOTIFY_BUDGET_CREATE_MS)
   }
 
   if (method === "pix") {
@@ -989,8 +999,24 @@ export async function webhook(deps: Deps, req: Request, url: URL) {
   // acima também setam `applied = true`, então um webhook de `refunded`/`expired`/`cancelled`
   // mandaria "pagamento aprovado". E `applied === false` (webhook reentregue, RPC no-op) não manda
   // nada — é o que faz a reentrega do MP ser silenciosa.
-  if (target === "approved" && applied) {
-    await fireEmail(deps, order.id, "order_paid", EMAIL_TIMEOUT_WEBHOOK_MS)
+  // O guard nomeia o FATO, e cada não-aprovação tem o seu: sem isso um webhook de `refunded` cairia
+  // no mesmo ramo do aprovado. `applied === false` (webhook reentregue, RPC no-op) não dispara nada —
+  // é o que faz a reentrega do MP ser silenciosa.
+  const gatilhoDoWebhook: NotificationTrigger | null =
+    !applied
+      ? null
+      : target === "approved"
+        ? "payment_approved"
+        : target === "expired"
+          ? "payment_expired"
+          : target === "rejected"
+            ? "payment_rejected"
+            : target === "refunded"
+              ? "payment_refunded"
+              : null
+
+  if (gatilhoDoWebhook) {
+    await fireTrigger(deps, order.id, gatilhoDoWebhook, NOTIFY_BUDGET_WEBHOOK_MS)
   }
 
   return json({ received: true })

@@ -6,7 +6,7 @@
 // decisão de design. Sem <style>, sem <link>, sem background-image (Outlook).
 //
 // Módulo PURO: zero I/O, zero `Deno`. Roda no vitest (AD-002/AD-004).
-import { formatPrice } from '../../../packages/core/src/formatters/price.ts'
+import { formatPrice } from '../../../../packages/core/src/formatters/price.ts'
 
 /**
  * Paleta Uma Estrelinha (DESIGN.md), medida sobre `ground` #FAF8F4:
@@ -110,6 +110,11 @@ export interface EmailOrderItem {
 }
 
 export interface EmailOrder {
+  /**
+   * Feature 42. Só os links precisam dele (`{{link_pedido}}`, `{{link_pedido_admin}}`), e por isso
+   * é opcional: o pedido de exemplo da prévia do painel não é uma linha do banco.
+   */
+  id?: string | null
   order_number: string
   customer_name: string
   customer_email: string
@@ -133,6 +138,12 @@ export interface EmailOrder {
    * recebeu um material que não chegou — sobre a morte de alguém.
    */
   material_status?: string | null
+  /**
+   * Feature 42. A remessa de ENTRADA — o envelope que a cliente posta com o material. Não é
+   * `tracking_code`, que é a encomenda de saída; `render/vars.ts` escolhe qual dos dois vira
+   * `{{rastreio}}` conforme o evento.
+   */
+  material_tracking_code?: string | null
   order_items: EmailOrderItem[]
 }
 

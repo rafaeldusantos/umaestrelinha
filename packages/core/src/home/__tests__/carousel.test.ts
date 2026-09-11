@@ -33,15 +33,40 @@ const slide = (over: Partial<HomeSectionItem> = {}): Partial<HomeSectionItem> =>
 // As medidas
 // ---------------------------------------------------------------------------
 
+/**
+ * **A régua da vaga do celular, escrita como PREDICADO** — para a asserção e o sensor chamarem a
+ * mesma função, e não duas descrições da mesma regra que divergem na terceira edição.
+ *
+ * O que `BNR-26` compra não é "retrato": é **altura de leitura em 390px**, porque a frase da
+ * campanha está desenhada dentro da arte. Quadrado cumpre (390px de altura numa viewport de 390); a
+ * tira 3:1 do computador não (130px). A régua antiga dizia `height > width` e teria **reprovado a
+ * arte real da Adri**, que é 720 × 720 — congelava um formato em vez da propriedade.
+ */
+const paisagem = (slot: { width: number; height: number }): boolean => slot.width > slot.height
+const alturaEm390 = (slot: { width: number; height: number }): number =>
+  Math.round(390 / (slot.width / slot.height))
+
 describe('as vagas do banner (BNR-26)', () => {
-  it('a arte de computador é larga: 1440 × 540', () => {
-    expect(HERO_CAROUSEL_SLOTS.desktop).toEqual({ width: 1440, height: 540 })
+  // Números MEDIDOS contra a arte real da Adri — a mesma do site anterior —, não mais a suposição
+  // que a `41` registrou. Com 1440 × 540 aqui, `object-cover` comia 90px de cada lado da arte 3:1.
+  it('a arte de computador é a do site anterior: 1680 × 560 (3:1)', () => {
+    expect(HERO_CAROUSEL_SLOTS.desktop).toEqual({ width: 1680, height: 560 })
   })
 
-  it('a arte de celular é RETRATO — e é o que impede a tira ilegível em 390px', () => {
-    expect(HERO_CAROUSEL_SLOTS.mobile).toEqual({ width: 780, height: 975 })
-    const { width, height } = HERO_CAROUSEL_SLOTS.mobile
-    expect(height, 'a vaga do celular deixou de ser retrato').toBeGreaterThan(width)
+  it('a arte de celular é a do site anterior: 720 × 720 (1:1)', () => {
+    expect(HERO_CAROUSEL_SLOTS.mobile).toEqual({ width: 720, height: 720 })
+  })
+
+  it('a vaga do celular NUNCA é paisagem — é o que impede a tira ilegível em 390px', () => {
+    expect(paisagem(HERO_CAROUSEL_SLOTS.mobile), 'a vaga do celular virou paisagem').toBe(false)
+    // Sensor: a vaga do computador **reprova** na mesma régua. Sem ele, um predicado que devolvesse
+    // `false` para tudo passaria aqui e não guardaria nada.
+    expect(paisagem(HERO_CAROUSEL_SLOTS.desktop), 'a régua deixou de acusar paisagem').toBe(true)
+  })
+
+  it('em 390px a arte do celular tem altura de leitura, e a do computador não teria', () => {
+    expect(alturaEm390(HERO_CAROUSEL_SLOTS.mobile)).toBe(390)
+    expect(alturaEm390(HERO_CAROUSEL_SLOTS.desktop)).toBe(130)
   })
 
   it('as duas vagas são declaradas, e nenhuma tem medida zero', () => {

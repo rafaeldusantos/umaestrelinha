@@ -18,7 +18,7 @@ const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
 // projeto hospedado. Por isso não há env de URL aqui.
 // `??` não serve para as envs de e-mail: uma env declarada e VAZIA no `.env` devolve `""`, que não é
 // nullish — e um `resendFrom` vazio reprovaria na validação de formato e bloquearia todo envio.
-// Mesma função existe em send-email/index.ts; duplicada porque wiring não compartilha módulo.
+// Mesma função existe em send-notification/index.ts; duplicada porque wiring não compartilha módulo.
 function envOr(name: string, fallback: string): string {
   const value = Deno.env.get(name)?.trim()
   return value === undefined || value === "" ? fallback : value
@@ -42,11 +42,13 @@ const deps: Deps = {
     strictVariantPricing: envOr("STRICT_VARIANT_PRICING", "true").toLowerCase() !== "false",
   },
   // Esta function dispara `order_received` (PIX criado) e `order_paid` (aprovação), importando o
-  // motor de `send-email/sender.ts` no mesmo processo (AD-005) — daí precisar do env de e-mail aqui.
-  email: {
+  // motor de `send-notification/sender.ts` no mesmo processo (AD-005) — daí precisar do env de e-mail aqui.
+  providers: [createResendProvider({ apiKey: Deno.env.get("RESEND_API_KEY")!, from: envOr("RESEND_FROM", "Uma Estrelinha <onboarding@resend.dev>") })],
+  notifications: {
     resendApiKey: Deno.env.get("RESEND_API_KEY")!,
     resendFrom: envOr("RESEND_FROM", "Uma Estrelinha <onboarding@resend.dev>"),
     storePublicUrl: envOr("STORE_PUBLIC_URL", "http://localhost:8080"),
+    adminPublicUrl: envOr("ADMIN_PUBLIC_URL", "http://localhost:8083"),
     resendDevRedirectTo: envOptional("RESEND_DEV_REDIRECT_TO"),
   },
 }

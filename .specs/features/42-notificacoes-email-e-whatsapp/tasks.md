@@ -124,11 +124,42 @@ arquivos de `send-email` que a **Phase 0** (`859d4aa`) já tinha tocado — nada
   reaplicou (idempotente, zero escrita de dado) e registrou. Não é desta feature, mas mudou o estado
   do banco local.
 
-### Phase 1b: O motor, as portas e quem as chama
+### Phase 1b: O motor, as portas e quem as chama — ✅ **feita** (inline, 2026-09-07)
 
 ```
-T12 → T13 → T14 → T15 → T16 → T17 → T18
+T12 ✅ → T13 ✅ → T14 ✅ → T15 ✅ → T16 ✅ → T17 ✅ → T18 ✅
 ```
+
+**Executada na janela principal, não por worker**: o lote B3 morreu por limite de sessão sem escrever
+nada, e retomar inline garante que cada arquivo cai no disco na hora — uma interrupção deixa de
+custar o lote inteiro.
+
+**Correspondência das mudanças de casa** (a régua "queda só vale se o número reaparecer do outro
+lado"):
+
+| Saiu | Entrou | Delta |
+| --- | --- | --- |
+| `send-email/__tests__/templates.test.ts` (75) | `send-notification/__tests__/render.test.ts` (**104**) | **+29** — ganhou a prova byte a byte das 12 fixtures legadas e o conteúdo exigido dos 11 eventos novos |
+| `send-email/__tests__/handlers.test.ts` (62, motor **e** portas) | `handlers.test.ts` (**62**, só as portas) + `dispatch.test.ts` (**37**, só o motor) | **+37** — a separação é a mesma de `handlers.ts` × `dispatch.ts` |
+| `entities/order/api/sendOrderEmail.test.ts` (6) | `notifyOrder.test.ts` (**11**) | **+5** — os 6 casos continuam, agora sobre o gatilho, mais os do reenvio |
+| — | store `useSetMaterialTracking.test.tsx` (**7**) | **+7** — arquivo novo (`NTF-13`) |
+| — | store `notificationSingleOwner.test.ts` (**11**) | **+11** — guarda novo, âncora dupla + 3 sensores |
+| `order-detail/model/__tests__/orderDetail.test.ts` (17) | idem (**29**) | **+12** — os rótulos do `FIX-02`, o canal na linha e o reenvio por canal |
+
+**Três asserções foram REESCRITAS, e nenhuma afrouxada** — todas em `useAdminOrders.test.ts`, e
+todas porque o `AD-032` moveu a decisão de lugar: o chamador deixou de filtrar por status e passou a
+nomear o fato. Onde havia `expect(mock).not.toHaveBeenCalled()` para `pending`/`paid`/`em_producao`,
+agora há **duas** asserções — que o gatilho É disparado, e que `eventsForTrigger` (a regra de
+verdade, importada de `core`) devolve `[]` para aqueles estados. A proteção ficou mais forte, não
+mais fraca: antes ela media a cópia da lista no painel; agora mede a lista.
+
+**Um defeito foi achado antes de existir**: `ORDER_COLUMNS` do motor pedia `whatsapp_opt_in`, coluna
+que só a `43` cria. Um `select` com coluna inexistente faz o PostgREST devolver `42703` para a
+consulta inteira — o pedido viria `null` e **nenhuma notificação sairia**, em silêncio, para toda a
+loja. Removida, com o porquê escrito no arquivo.
+
+**Duas envs novas** (`ADMIN_PUBLIC_URL`, usada só por `{{link_pedido_admin}}` dos e-mails da dona) —
+a documentar em `.env.example` na T24.
 
 ### Phase 2: A aba Notificações
 

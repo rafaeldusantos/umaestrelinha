@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@estrelinha/supabase/client'
 import type { DbOrder, DbOrderItem, DbOrderStatusHistory, DbOrderNote } from '@estrelinha/supabase/types'
-import { sendOrderEmail } from './sendOrderEmail'
+import { notifyOrder } from './notifyOrder'
 
 export const ORDER_STATUSES = ['pending', 'paid', 'separating', 'shipped', 'delivered', 'cancelled'] as const
 export type OrderStatus = typeof ORDER_STATUSES[number]
@@ -131,9 +131,13 @@ export const useAdminOrders = () => {
       to_status: status,
       note: note || null,
     })
-    // TRG-12: um dos dois lados do par. Se o rastreio ainda não foi salvo, a function devolve 422 e
-    // isto é no-op silencioso — o e-mail sai quando `addTrackingCode` completar o par.
-    const emailSent = status === 'shipped' ? await sendOrderEmail(id, 'order_shipped') : false
+    // TRG-12: um dos dois lados do par. Se o rastreio ainda não foi salvo, a pré-condição barra e
+    // isto é no-op silencioso — o aviso sai quando `addTrackingCode` completar o par.
+    //
+    // O gatilho é `order_status_changed` para TODO status, e não só para `shipped` (`AD-032`): quais
+    // status têm aviso — `cancelled`, `shipped`, `delivered` — é decisão de `core`, e `processing`
+    // simplesmente não produz evento nenhum. Filtrar aqui seria a segunda cópia dessa lista.
+    const emailSent = await notifyOrder(id, 'order_status_changed')
     await fetchOrders()
     await fetchStatusCounts()
     return { error: null, emailSent }
@@ -149,6 +153,10 @@ export const useAdminOrders = () => {
         to_status: 'cancelled',
         note: `Cancelado: ${reason}`,
       })
+      // Feature 42: o cancelamento deixou de ser mudo. `order_cancelled` nasce DESLIGADO, então até
+      // a Adri ligar em `/admin/configuracoes` → Notificações isto é um no-op — e o contido de
+      // sempre: falha de aviso não desfaz o cancelamento.
+      await notifyOrder(id, 'order_status_changed')
       await fetchOrders()
       await fetchStatusCounts()
     }
@@ -160,9 +168,9 @@ export const useAdminOrders = () => {
     if (error) return { error, emailSent: false }
 
     // O outro lado do par (TRG-12), tentado SEMPRE: se o pedido já está `shipped`, salvar o rastreio é
-    // o que completa e dispara. Se ainda não está, 422 e nada acontece. Cobre também o caminho do
-    // Melhor Envio, que grava o rastreio sem tocar em `status`.
-    const emailSent = await sendOrderEmail(id, 'order_shipped')
+    // o que completa e dispara. Se ainda não está, a pré-condição barra e nada acontece. Cobre
+    // também o caminho do Melhor Envio, que grava o rastreio sem tocar em `status`.
+    const emailSent = await notifyOrder(id, 'order_status_changed')
     await fetchOrders()
     return { error: null, emailSent }
   }
@@ -186,11 +194,13 @@ export const useAdminOrders = () => {
       return { ok: false, reason: resultado.reason ?? 'invalid_transition', emailSent: false }
     }
 
-    // MAT-09 + AD-008: o e-mail é contido. `sendOrderEmail` devolve booleano e NUNCA lança — falha
-    // de envio não reverte o estado nem vira erro para a admin. Ela acabou de conferir o envelope na
+    // MAT-09 + AD-008: o aviso é contido. `notifyOrder` devolve booleano e NUNCA lança — falha de
+    // envio não reverte o estado nem vira erro para a admin. Ela acabou de conferir o envelope na
     // bancada; desfazer isso porque o Resend caiu seria pior do que não avisar a cliente.
-    const emailSent =
-      status === 'material_recebido' ? await sendOrderEmail(id, 'material_received') : false
+    //
+    // Gatilho para TODA transição: `material_recebido` produz `material_received` e `em_producao`
+    // produz `in_production`; `aguardando_material` não produz nada. A lista é de `core`.
+    const emailSent = await notifyOrder(id, 'material_status_changed')
 
     await fetchOrders()
     await fetchStatusCounts()
@@ -214,6 +224,11 @@ export const useAdminOrders = () => {
     if (resultado.ok !== true) {
       return { ok: false, reason: resultado.reason ?? 'not_allowed' }
     }
+
+    // O MESMO gatilho que a loja dispara quando a própria cliente registra (`NTF-13`): a Adri
+    // registrando pelo painel é o caso do WhatsApp, e o fato é idêntico. Dois gatilhos diferentes
+    // para o mesmo fato seriam duas mensagens diferentes para a mesma cliente.
+    await notifyOrder(id, 'material_tracking_set')
 
     await fetchOrders()
     await fetchStatusCounts()
