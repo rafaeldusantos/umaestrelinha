@@ -182,6 +182,10 @@ describe('Footer — os links institucionais (POL-17, POL-18)', () => {
     ['Trocas e devoluções', '/politicas-de-trocas-e-devolucoes'],
     ['Política de privacidade', '/politica-de-privacidade'],
     ['Cuidados com sua joia afetiva', '/cuidados-com-sua-joia-afetiva'],
+    // Feature 46. O rótulo e o destino, os dois asseridos: um link certo com rótulo trocado é tão
+    // quebrado quanto o contrário, e foi o rótulo prometendo o que a página não entregava que abriu
+    // a `POL-18`.
+    ['Perguntas frequentes', '/perguntas-frequentes'],
   ])('"%s" aponta para %s', (rotulo, href) => {
     renderFooter()
 

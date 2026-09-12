@@ -3,6 +3,7 @@ import { Instagram } from 'lucide-react'
 import { browseCategories, useCategories } from '@/entities/category'
 import { categoryHref } from '@estrelinha/core/menu'
 import {
+  FAQ_PATH,
   JEWELRY_CARE_PATH,
   MATERIAL_GUIDE_PATH,
   PRIVACY_POLICY_PATH,
@@ -138,6 +139,10 @@ const Footer = () => {
 
             <FooterColumn title="Ajuda">
               <FooterLink to="/conta">Meus pedidos</FooterLink>
+              {/* Feature 46. Primeiro item de ajuda depois de "meus pedidos": é a página que responde
+                  a dúvida de quem ainda NÃO comprou, e por isso ela vem antes das instruções de uso
+                  do material, que só interessam a quem já comprou. */}
+              <FooterLink to={FAQ_PATH}>Perguntas frequentes</FooterLink>
               {/* Feature 22: a pergunta que a operação mais responde. Fica em "Ajuda", e não em
                   "Institucional", porque é instrução de uso — a cliente procura isso com o envelope
                   na mão, não navegando pela loja. */}
