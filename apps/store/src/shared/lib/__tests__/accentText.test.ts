@@ -47,6 +47,9 @@ const PERMITIDOS: Record<string, string> = {
     'Título do card de tinta (ouro sobre `ink`, 4,78:1) e a inicial marca-d’água a 40%, que é ornamento e não carrega informação.',
   'pages/AboutPage.tsx':
     'ÍCONE em três lugares, e texto em nenhum: a estrela decorativa sai `accent-strong` sobre `ground-deep` (3,17:1) e `accent` sobre `primary` (3,33:1) — os dois acima dos 3:1 de objeto gráfico. O versalete da assinatura, que o artboard pedia em ouro, saiu em `ink-soft` justamente porque ali é TEXTO.',
+  // Feature 46 — a página de perguntas frequentes.
+  'entities/faq/ui/FaqQuestion.tsx':
+    'CHEVRON de 14px do acordeão, e texto em nenhum lugar: o SVG herda a cor por `text-…` porque é assim que se pinta `currentColor`, mas o elemento é OBJETO GRÁFICO. `accent-strong` sobre `ground` mede 3,55:1, acima dos 3:1 da WCAG 1.4.11 — e é ele, não `accent` (2,66:1), justamente por isso. A pergunta ao lado sai em `ink`.',
   // Feature 45 — o fecho da política de trocas.
   'pages/ReturnsPolicyPage.tsx':
     'ÍCONE, e um só: a estrela de 22px que fecha "Uma Estrelinha — eternizando suas lembranças". `accent-strong` sobre `ground` mede 3,55:1, acima dos 3:1 de objeto gráfico. Ela está ali porque o texto da dona fecha com o emoji `✨`, que `copyInstitucional` recusa — mesmo desvio de `SOB-10` na Sobre. A FRASE sai em `primary` (8,76:1), não em ouro; ouro como texto ali mediria 2,66:1.',
