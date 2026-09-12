@@ -446,3 +446,30 @@ left join inseridas i on i.question_key = s.question_key
 left join public.faqs f on f.question_key = s.question_key
 where coalesce(i.id, f.id) is not null
 on conflict (faq_id) do nothing;
+
+-- ---------------------------------------------------------------------
+-- O que o probe mediu (AD-012), em 2026-09-12
+-- ---------------------------------------------------------------------
+--
+-- Contra o PostgREST e o Postgres locais (127.0.0.1:54341 / 54342), por HTTP e SQL — nunca por
+-- inspeção de tipo. `DbCategory` declarava três colunas que o banco não tinha e TODA gravação de
+-- categoria falhava com PGRST204, com o `tsc` achando o código certo e a suíte verde.
+--
+--   · anon lê a colocação com o embed ............................. 200, 26 linhas
+--   · anon POST em `faq_page_items` ............................... 401
+--   · anon POST em `faqs` ......................................... 401
+--   · resposta com 4000 caracteres ................................ inserida
+--   · resposta com 4001 caracteres ................................ viola `faqs_answer_len`
+--   · apagar entrada que está SÓ na página ........................ viola a FK (o `restrict`)
+--   · apagar entrada que está em produtos ......................... viola `product_faqs_faq_id_fkey`
+--   · desativar a entrada (o caminho reversível) .................. ok; visíveis caem de 26 para 25
+--   · **a semeadura reexecutada inteira** ......................... `INSERT 0 0`
+--
+-- ⚠️ **A reexecução é a medição que mais importa.** Rodada uma segunda vez, a semeadura inseriu
+-- ZERO linhas: as contagens (92 na biblioteca, 26 colocações) e o md5 do conjunto das respostas
+-- ficaram idênticos. É o que separa "rodar de novo" de "perder a edição que a dona fez no painel".
+--
+-- ⚠️ **Uma das 26 REUSOU entrada que já existia na biblioteca** — medido: `select count(*) … where
+-- exists (product_faqs)` devolve 1. A biblioteca foi de 67 para 92, não para 93. É a prova de que o
+-- `join` por `question_key` faz a página apontar para a pergunta que os produtos já usam, em vez de
+-- criar uma segunda com o mesmo texto. Era a propriedade central do desenho, e ela está exercida.
