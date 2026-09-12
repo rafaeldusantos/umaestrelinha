@@ -57,6 +57,40 @@ export type FaqBlock =
   | { kind: 'paragraph'; text: string }
   | { kind: 'list'; items: readonly string[] }
 
+/**
+ * Uma colocação na página de perguntas da loja — feature 46.
+ *
+ * **Irmã de `ProductFaqLink`, e a diferença é o contexto**: lá o vínculo pertence a um produto e por
+ * isso a PK é composta; aqui a página é uma só, `faq_id` é a PK inteira, e a mesma pergunta não pode
+ * aparecer duas vezes.
+ *
+ * `answer_override` existe pelo mesmo motivo de lá: por padrão a página mostra a resposta da
+ * biblioteca — editar alcança os dois lugares —, e a dona pode escrever uma versão própria quando
+ * quiser o texto longo e em primeira pessoa. Override idêntico ao padrão grava `null`
+ * (`faqOverrideOf`), senão o mesmo texto teria dois donos.
+ */
+export interface FaqPageLink {
+  faq_id: string
+  category: string
+  position: number
+  answer_override?: string | null
+  /** O embed do PostgREST (`faq:faqs(...)`). Vem `null` quando a entrada está inativa. */
+  faq?: FaqEntry | null
+}
+
+/**
+ * Um assunto da página com as perguntas dele, já resolvidas.
+ *
+ * Carrega `ResolvedFaq` **de propósito** — é o mesmo tipo que a página do produto desenha. Uma
+ * pergunta resolvida é a mesma coisa nas duas superfícies, e um tipo próprio aqui seria um segundo
+ * vocabulário para o mesmo objeto.
+ */
+export interface FaqPageGroup {
+  category: string
+  label: string
+  items: readonly ResolvedFaq[]
+}
+
 /** Uma linha da view `faq_category_usage`. */
 export interface FaqCategoryUsage {
   category_id: string

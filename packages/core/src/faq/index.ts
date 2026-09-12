@@ -1,5 +1,6 @@
 export * from './types.ts'
 export * from './faq.ts'
 export * from './text.ts'
+export * from './page.ts'
 export * from './block.ts'
 export * from './suggest.ts'
