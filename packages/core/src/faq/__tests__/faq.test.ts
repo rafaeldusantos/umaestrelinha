@@ -152,9 +152,15 @@ describe('faqRefusal', () => {
     expect(faqRefusal('O anel é ajustável?', 'Sim, dentro de dois números.')).toBeNull()
   })
 
-  it('os limites são 160 e 600 — os máximos medidos (94 e 370) com folga', () => {
+  it('a pergunta é 160 — o máximo medido (94) com folga', () => {
     expect(FAQ_QUESTION_MAX).toBe(160)
-    expect(FAQ_ANSWER_MAX).toBe(600)
+  })
+
+  // Era 600, a folga sobre os 370 do catálogo importado. A feature 46 trouxe texto escrito pela
+  // dona, e a maior resposta da página de perguntas tem ~1.350 caracteres.
+  it('a resposta é 4000 desde a feature 46, e comporta a maior resposta real', () => {
+    expect(FAQ_ANSWER_MAX).toBe(4000)
+    expect(FAQ_ANSWER_MAX).toBeGreaterThan(1350)
   })
 
   it('recusa pergunta vazia', () => {
@@ -172,11 +178,17 @@ describe('faqRefusal', () => {
     expect(faqRefusal('a'.repeat(160), 'resposta')).toBeNull()
   })
 
-  it('recusa resposta acima de 600, dizendo o tamanho', () => {
-    expect(faqRefusal('pergunta', 'a'.repeat(601))).toBe(
-      'A resposta tem 601 caracteres e o limite é 600.',
+  it('recusa resposta acima de 4000, dizendo o tamanho', () => {
+    expect(faqRefusal('pergunta', 'a'.repeat(4001))).toBe(
+      'A resposta tem 4001 caracteres e o limite é 4000.',
     )
-    expect(faqRefusal('pergunta', 'a'.repeat(600))).toBeNull()
+    expect(faqRefusal('pergunta', 'a'.repeat(4000))).toBeNull()
+  })
+
+  // A fronteira antiga vira caso próprio: em 600 a recusa PAROU de existir, e é isso que a página de
+  // perguntas precisa. Sem esta asserção, reverter a constante para 600 passaria no teste acima.
+  it('uma resposta de 601 caracteres, que a 28 recusava, agora passa', () => {
+    expect(faqRefusal('pergunta', 'a'.repeat(601))).toBeNull()
   })
 
   // O limite é medido DEPOIS de colapsar o espaço — senão um texto colado com quebras contaria

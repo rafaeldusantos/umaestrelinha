@@ -28,10 +28,26 @@ const ROOT = resolve(HERE, '../../../../../..')
  */
 const MIGRATION = join(ROOT, 'supabase/migrations/20260816120000_28-perguntas-frequentes.sql')
 
+/**
+ * A migration da **46** recria `faqs_answer_len` e `product_faqs_override_len` com 4000.
+ *
+ * Ela precisa ser lida aqui porque **o teto vigente não é mais o da 28** — e a 28 não pode ser
+ * editada para acompanhar (`AD-017`: migration aplicada é imutável, e reescrevê-la faria o banco
+ * local e o hospedado divergirem sem nada acusar). É o mesmo arranjo que `homeSections.test.ts`
+ * adotou quando a 41 recriou a constraint de tipo de seção: o guarda mede o **último** `check`, e
+ * assere em separado que o primeiro continua onde estava.
+ */
+const MIGRATION_46 = join(
+  ROOT,
+  'supabase/migrations/20260912120000_46-perguntas-frequentes-da-loja.sql',
+)
+
 const SQL = readFileSync(MIGRATION, 'utf8')
+const SQL_46 = readFileSync(MIGRATION_46, 'utf8')
 
 /** Comentário não é código: sem tirá-los, o texto que EXPLICA a regra entraria na medição dela. */
 const LIMPO = SQL.replace(/--[^\n]*/g, '')
+const LIMPO_46 = SQL_46.replace(/--[^\n]*/g, '')
 
 const ocorrencias = (re: RegExp): string[] => [...LIMPO.matchAll(re)].map(m => m[0])
 
@@ -70,11 +86,11 @@ describe('a migration está onde este teste procura', () => {
 // Limites — o par TypeScript ⇄ SQL
 // ---------------------------------------------------------------------------
 
-/** Os dois números de um `check (… between A and B)` daquela constraint. */
-const faixaDoCheck = (constraint: string): [number, number] | null => {
-  const inicio = LIMPO.indexOf(`constraint ${constraint}`)
+/** Os dois números de um `check (… between A and B)` daquela constraint, no SQL que se pedir. */
+const faixaDoCheckEm = (sql: string, constraint: string): [number, number] | null => {
+  const inicio = sql.indexOf(`constraint ${constraint}`)
   if (inicio === -1) return null
-  const bloco = LIMPO.slice(inicio, inicio + 240)
+  const bloco = sql.slice(inicio, inicio + 240)
   // Exigir a palavra `check` no bloco impede que um `between` de outra declaração seja lido como se
   // fosse desta constraint.
   if (!bloco.includes('check')) return null
@@ -82,23 +98,48 @@ const faixaDoCheck = (constraint: string): [number, number] | null => {
   return match ? [Number(match[1]), Number(match[2])] : null
 }
 
+/** A faixa declarada pela migration da 28 — o estado ORIGINAL, que não pode mudar. */
+const faixaDoCheck = (constraint: string) => faixaDoCheckEm(LIMPO, constraint)
+
+/** A faixa VIGENTE: a 46 recria as duas de resposta, e é o número dela que o banco aplica. */
+const faixaVigente = (constraint: string) => faixaDoCheckEm(LIMPO_46, constraint)
+
 describe('os limites do TypeScript são os do banco', () => {
   it('a pergunta é 1..FAQ_QUESTION_MAX nos dois lados', () => {
+    // A 46 não mexe na pergunta, então o vigente continua sendo o da 28.
     expect(faixaDoCheck('faqs_question_len')).toEqual([1, FAQ_QUESTION_MAX])
+    expect(faixaVigente('faqs_question_len')).toBeNull()
   })
 
-  it('a resposta é 1..FAQ_ANSWER_MAX nos dois lados', () => {
-    expect(faixaDoCheck('faqs_answer_len')).toEqual([1, FAQ_ANSWER_MAX])
+  it('a resposta é 1..FAQ_ANSWER_MAX no check VIGENTE', () => {
+    expect(faixaVigente('faqs_answer_len')).toEqual([1, FAQ_ANSWER_MAX])
   })
 
   it('a resposta própria do vínculo tem o mesmo teto da resposta padrão', () => {
-    expect(faixaDoCheck('product_faqs_override_len')).toEqual([1, FAQ_ANSWER_MAX])
+    // As duas sobem JUNTAS. Subir só a de `faqs` faria a aba Perguntas do produto aceitar um texto
+    // que o banco recusa — o defeito aparece no save da dona, não em teste nenhum.
+    expect(faixaVigente('product_faqs_override_len')).toEqual([1, FAQ_ANSWER_MAX])
+  })
+
+  // A contrapartida obrigatória de medir o vigente: provar que o original NÃO foi reescrito.
+  // Editar uma migration já aplicada faz o banco local (vindo de `db reset`) e o hospedado
+  // divergirem em silêncio — o `db push` só olha o que falta, nunca o que mudou no que já passou.
+  it('a migration da 28 continua declarando 600 — ela é imutável', () => {
+    expect(faixaDoCheck('faqs_answer_len')).toEqual([1, 600])
+    expect(faixaDoCheck('product_faqs_override_len')).toEqual([1, 600])
+  })
+
+  // Sem esta, a dupla acima passaria com as duas migrations dizendo 600 e o TypeScript em 4000 —
+  // ou seja, o guarda acusaria o oposto do que existe para acusar.
+  it('o teto SUBIU: o vigente é maior que o original', () => {
+    expect(faixaVigente('faqs_answer_len')![1]).toBeGreaterThan(faixaDoCheck('faqs_answer_len')![1])
   })
 
   // Se o parser não achasse a constraint devolveria `null`, e `null !== [1, 160]` reprovaria — mas a
   // asserção abaixo prova que ele REPROVA quando deve, em vez de só não achar.
   it('o parser reprova uma constraint que não existe', () => {
     expect(faixaDoCheck('constraint_que_nao_existe')).toBeNull()
+    expect(faixaVigente('constraint_que_nao_existe')).toBeNull()
   })
 })
 

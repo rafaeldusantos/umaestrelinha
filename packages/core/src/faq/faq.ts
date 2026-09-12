@@ -140,8 +140,21 @@ export const faqQuestionKey = (question: string | null | undefined): string => {
  */
 export const FAQ_QUESTION_MAX = 160
 
-/** Máximo medido: **370**. Mesma folga, mesmo par em SQL. */
-export const FAQ_ANSWER_MAX = 600
+/**
+ * Era **600** — a folga de ~1,7× sobre os 370 caracteres da maior resposta do catálogo importado.
+ *
+ * **Subiu para 4000 na feature 46**, e não por conforto: a página de perguntas da loja traz texto
+ * escrito pela dona, não extraído de descrição de produto, e a maior delas — *"Quais materiais são
+ * utilizados na fabricação das joias afetivas?"* — tem ~1.350 caracteres. Em 600, o `insert`
+ * falharia com `23514` e a tela diria só "falha ao salvar".
+ *
+ * O par deste número mora no `check` da migration da **46**, que recria `faqs_answer_len` **e**
+ * `product_faqs_override_len` (subir só o primeiro faria a aba do produto aceitar um texto que o
+ * banco recusa). `faqSchema.test.ts` compara o TypeScript com o `check` **vigente** — o da 46 —, e
+ * ao mesmo tempo assere que a migration da 28 continua declarando 600, porque migration aplicada é
+ * imutável (`AD-017`).
+ */
+export const FAQ_ANSWER_MAX = 4000
 
 /**
  * O motivo da recusa, ou `null` quando pode gravar.
