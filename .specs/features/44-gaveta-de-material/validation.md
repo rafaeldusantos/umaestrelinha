@@ -1,5 +1,38 @@
 # Gaveta de material — Verificação independente
 
+## Prova em navegador — 2026-09-11, Chrome real, `pnpm dev:store`
+
+Medida contra o catálogo local (`anel-afetivo-leite-materno-redondo-grande-prata-925`,
+`requires_material = true`). **É o que jsdom não alcança**: ele devolve 0 para toda medida de layout,
+e toda asserção da suíte é proxy de forma.
+
+| O que | 390×844 | 1440×900 |
+| --- | --- | --- |
+| Gatilho presente na coluna | ✅ | ✅ |
+| Gaveta entra pela direita | ✅ `x = 48` | ✅ `x = 960` |
+| Largura | ✅ **342px** (tela − 48) | ✅ **480px** exatos |
+| Faixa de véu | ✅ **48px**, e `elementFromPoint(20, 400)` devolve o overlay — **o toque fora alcança** | ✅ 960px de página visível |
+| Chips | ✅ **10**, último termina em **561px** de 844 — **acima da dobra** | ✅ último em **447px** de 900 |
+| Rolagem horizontal do body | ✅ nenhuma (`scrollWidth 390 = clientWidth 390`) | ✅ nenhuma |
+| Rolagem interna | ✅ a gaveta rola **dentro** (`scrollHeight 1610 > clientHeight 665`) | ✅ |
+| Escolher material troca o corpo | ✅ `Cinzas de cremação` | ✅ |
+| `<iframe>` antes do toque | ✅ **zero** | — |
+| Player depois do toque | ✅ `youtube-nocookie.com/embed/05giQozXsUY` | — |
+| Foco volta ao gatilho ao fechar | ✅ visível pelo anel de foco | — |
+
+**O critério de sucesso da spec está cumprido**: "a pergunta e todos os chips acima da dobra em
+390×844" — medido, não desenhado.
+
+> **Uma leitura errada minha, corrigida pela medição.** Em 390 eu julguei que o véu **não** escurecia
+> a página, olhando uma faixa de 48px. Em 1440, com 960px de página à vista, o escurecimento é
+> evidente. O véu funciona; o que não dá para fazer é julgar contraste numa tira estreita a olho.
+> Fica a nota de que ele escurece **menos** que os 80% nominais de `bg-black/80` — comportamento do
+> `SheetOverlay` compartilhado, anterior a esta feature e inalterado por ela. A gaveta do carrinho é
+> `w-full` no celular, então esta é a **primeira** superfície da loja em que o véu fica visível.
+
+---
+
+
 > **Autor ≠ verificador.** Esta rodada foi executada por um verificador que não implementou a
 > feature, sem herdar o modelo mental de quem a escreveu: a cobertura foi re-derivada do `spec.md`,
 > e toda afirmação abaixo é **evidência medida ou zero**.
