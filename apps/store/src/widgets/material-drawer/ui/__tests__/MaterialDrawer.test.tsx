@@ -57,17 +57,39 @@ describe('MaterialDrawer — a casca', () => {
     expect(classes).toContain('slide-in-from-right')
   })
 
-  it('a largura é tela − 48px no celular e 480px no computador', () => {
+  it('a largura é CHEIA no celular e 480px no computador', () => {
     abrir()
-    // `GAV-21`. Token exato: `includes('w-[calc(100%-48px)]')` casaria um `min-w-` com o mesmo
-    // sufixo, e a faixa de véu deixaria de existir sem nada acusar.
+    // `GAV-21`. Token exato, e não `includes`: `'sm:max-w-[480px]'.includes('max-w-[480px]')` é
+    // `true`, então uma régua ingênua não distinguiria o teto do computador de um teto aplicado
+    // também ao celular.
     const classes = (screen.getByTestId('material-drawer').getAttribute('class') ?? '').split(/\s+/)
-    expect(classes).toContain('w-[calc(100%-48px)]')
+    expect(classes).toContain('w-full')
     expect(classes).toContain('sm:max-w-[480px]')
-    // E o `w-3/4` padrão do `Sheet` não pode ter sobrevivido ao merge: com ele, o celular voltaria
-    // a 75% e o véu viraria 25% da tela.
+
+    // O `w-3/4 sm:max-w-sm` padrão do variant `right` do `Sheet` não pode ter sobrevivido ao
+    // merge de classes: com ele o celular abriria em 75% da tela e o computador em 384px — os
+    // dois diferentes do que a spec fixa, e nenhum dos dois quebraria nada visível em teste.
     expect(classes).not.toContain('w-3/4')
     expect(classes).not.toContain('sm:max-w-sm')
+  })
+
+  it('a borda esquerda só existe no computador', () => {
+    // Em tela cheia o `border-l` do variant vira um filete solto na beirada, sem nada do outro
+    // lado para separar. Mesma decisão que o `CartDrawer` já registra.
+    abrir()
+    const classes = (screen.getByTestId('material-drawer').getAttribute('class') ?? '').split(/\s+/)
+    expect(classes).toContain('border-l-0')
+    expect(classes).toContain('sm:border-l')
+  })
+
+  it('o cabeçalho não rola com o conteúdo — o fecho fica sempre alcançável', () => {
+    // Sem a faixa de véu não há "toque fora" no celular, então o X é a única saída por toque. Ele
+    // não pode sair da tela quando a ficha é longa: o cabeçalho é `shrink-0` e só o corpo rola.
+    // jsdom não mede rolagem, mas mede a classe que a produz.
+    abrir('cinzas')
+    const cabecalho = screen.getByRole('button', { name: 'Fechar' }).closest('header')
+    expect(cabecalho).not.toBeNull()
+    expect((cabecalho!.getAttribute('class') ?? '').split(/\s+/)).toContain('shrink-0')
   })
 
   it('a nota de contexto sai INTEIRA', () => {

@@ -105,7 +105,7 @@ da `31` (`model/guide.ts` matando `model/fichas.ts`), um nível abaixo.
 - **Interfaces**: sem props — lê o store.
 - **Composição**: `MaterialDrawerChips`, `MaterialDrawerBody`, `MaterialDrawerVideo`,
   `MaterialDrawerSteps`.
-- **Largura**: `w-[calc(100%-48px)] sm:max-w-[480px]` (`GAV-21`).
+- **Largura**: `w-full sm:max-w-[480px]` (`GAV-21`) — largura cheia no celular, como o `CartDrawer`. Decisão do usuário em 2026-09-11.
 
 ### `widgets/material-drawer/ui/MaterialDrawerBody.tsx`
 
@@ -164,7 +164,7 @@ interface MaterialDrawerState {
 | **Tom `alerta` tem um dono só hoje, e a gaveta seria o segundo** | `widgets/material-guide/ui/MaterialFicha.tsx:29` | Os hex divergem em silêncio; um vira rosa e o outro não | Extrair `MaterialAviso` para `entities/material/ui/` **antes** de a gaveta consumi-lo |
 | **`rotuloCurto` é um segundo rótulo e pode envelhecer** | `entities/material/model/guide.ts` | Ficha renomeada, chip com nome velho | Guarda `GAV-20`: toda entrada de `ATALHOS_DE_MATERIAL` tem `rotuloCurto` não vazio e ≤ 20 caracteres, com âncora de contagem. O fallback `?? titulo` garante que entrada nova nunca fica sem rótulo — só reprova se for longa |
 | **`accentText.test.ts` nomeia arquivos de `widgets/material-guide/ui/`** | `shared/lib/__tests__/accentText.test.ts:56-64` | Allowlist apontando para caminho que mudou passa a varrer zero | A mudança é só de `model/`; os `ui/` ficam. **Conferir na execução**, não presumir |
-| **A gaveta não fecha no gesto de voltar do Android** | `widgets/material-drawer` | Cliente sai da página do produto achando que fecha a gaveta | Faixa de véu de 48px com `onClick` de fechar (`GAV-21`). Integração com histórico está em Out of Scope, declarada |
+| **A gaveta não fecha no gesto de voltar do Android** | `widgets/material-drawer` | Cliente sai da página do produto achando que fecha a gaveta | **Não mitigado, e declarado.** A faixa de véu de 48px resolvia, e saiu por decisão do usuário em 2026-09-11 em favor da consistência com as outras três superfícies sobrepostas da loja — que têm a mesma dívida. O que resta é o fecho sempre alcançável: cabeçalho `shrink-0`, só o corpo rola |
 
 ---
 

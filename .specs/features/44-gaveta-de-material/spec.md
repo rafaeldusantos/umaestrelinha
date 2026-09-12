@@ -29,7 +29,7 @@ qual é o material da cliente**.
 | Substituir a página `/como-enviar-seu-material-de-dna` | A gaveta é o resumo acionável; a página continua sendo o documento completo, e a gaveta linka para ela |
 | O endereço de envio (`MaterialAddress`) | O endereço chega por WhatsApp **depois do pagamento confirmado** — anunciá-lo antes convida a enviar material de um pedido que ainda não existe |
 | Formas de envio comparadas (SEDEX × PAC × carta), declaração e checklist | São conteúdo de **depois da compra**; estão na página e na confirmação. Trazê-los faria a gaveta virar a página |
-| Integração com o histórico do navegador (gesto de voltar fecha a gaveta) | Nenhuma das quatro superfícies sobrepostas da loja faz isso hoje (carrinho, busca, menu, filtros). Mitigado pela faixa de véu — ver `GAV-16` |
+| Integração com o histórico do navegador (gesto de voltar fecha a gaveta) | Nenhuma das quatro superfícies sobrepostas da loja faz isso hoje (carrinho, busca, menu, filtros), e a gaveta abre em largura cheia no celular como elas. **É dívida da loja, não desta feature** — consertá-la aqui deixaria esta gaveta diferente das outras quatro, que é o oposto do que a consistência pede. Ver Assumptions |
 | Corrigir a curadoria de `requires_material` / `material_kinds` | É `BL-015`, e é trabalho da dona, não de código — ver Assumptions |
 | Telemetria de abertura da gaveta | A loja não emite evento de front em superfície nenhuma hoje; criar o primeiro aqui é infraestrutura fora do escopo |
 
@@ -41,6 +41,7 @@ qual é o material da cliente**.
 | --- | --- | --- | --- |
 | Quem diz qual é o material | **A cliente escolhe**, por chips | Decisão do usuário em 2026-09-11. A loja afirmar seria repetir o defeito que a remoção de `MaterialNotice` acabou de apagar (`BL-015`) | **sim** |
 | De que lado a gaveta entra | **Pela direita**, nos dois tamanhos | Decisão do usuário em 2026-09-11. É o lado em que a gaveta do carrinho já abre nesta loja | **sim** |
+| Largura no celular | **Cheia**, sem faixa de véu | Decisão do usuário em 2026-09-11, depois de a primeira entrega usar `tela − 48px`. O carrinho, a busca e a folha do menu já são `w-full` no celular, e ser a única superfície com desenho próprio custa mais do que a faixa resolvia. **O custo foi levantado e aceito**: sem véu não há "toque fora" no celular, e o gesto de voltar do Android sai da página do produto — exatamente como já acontece nas outras três. Mitigação: o cabeçalho não rola, então o X de 44px é sempre alcançável (`GAV-21` AC 4) | **sim** |
 | Peça com `requires_material = false` cuja descrição pede material | **O gatilho não aparece** | O interruptor tem a mesma dívida de curadoria da coluna (`BL-015`). Mostrar sempre poria o convite em ~500 peças que não pedem material. Registrado como dívida, não resolvido aqui | não |
 | A escolha da cliente sobrevive ao fechar a gaveta? | **Sim, enquanto a aba estiver aberta** (memória do store, **sem** `localStorage`) | Reescolher a cada consulta é atrito puro. Sem `localStorage` porque não é preferência da pessoa, é contexto de uma visita — e a regra de chave nova volta a valer no primeiro cliente real (`CLAUDE.md`) | não |
 | Rótulo dos chips | Campo **`rotuloCurto`** no mesmo registro, ao lado de `rotulo` | Medido no mock com o dado real: os títulos das fichas produzem **7 fileiras** de chips e empurram a ficha para fora da tela; com rótulo curto são 5. Uma segunda lista à mão seria o defeito 01 — o campo mora no mesmo registro e tem guarda (`GAV-14`) | não |
@@ -177,11 +178,13 @@ componente**, então o custo é de largura, não de código.
 **Acceptance Criteria**:
 
 1. WHEN a viewport é de computador THEN o painel SHALL ocupar **480px** à direita, com a página
-   visível ao lado
-2. WHEN a viewport é de celular THEN o painel SHALL ocupar a largura da tela **menos 48px**, e a
-   faixa restante SHALL fechar a gaveta ao ser acionada
+   visível ao lado, e a borda esquerda SHALL existir
+2. WHEN a viewport é de celular THEN o painel SHALL ocupar a **largura cheia** da tela, sem borda
+   esquerda
 3. WHEN o painel é renderizado em qualquer tamanho THEN o conteúdo SHALL ser o mesmo — nenhuma seção
    existe só num dos dois
+4. WHEN a ficha é mais longa que a tela THEN o cabeçalho **NÃO SHALL** rolar com o conteúdo — o
+   fecho de 44px permanece alcançável
 
 ---
 
@@ -225,7 +228,7 @@ componente**, então o custo é de largura, não de código.
 | GAV-18 | P2: a página do guia não regride | Design | Pending |
 | GAV-19 | P2: `MATERIAIS_SEM_ANCORA` continua vazio | Design | Pending |
 | GAV-20 | P2: `rotuloCurto` existe e cabe em 20 caracteres | Design | Pending |
-| GAV-21 | P3: 480px no computador, tela − 48px no celular, véu fecha | Design | Pending |
+| GAV-21 | P3: 480px no computador, largura cheia no celular, cabeçalho não rola | Design | Pending |
 | GAV-22 | Edge: foco volta para o gatilho ao fechar | Design | Pending |
 | GAV-23 | Edge: saída externa do vídeo preservada | Design | Pending |
 

@@ -258,7 +258,7 @@ contexto, foco de volta.
 
 **Done when**:
 - [ ] `side="right"` asserido
-- [ ] Classe de largura asserida por **token exato** (`w-[calc(100%-48px)]`, `sm:max-w-[480px]`)
+- [ ] Classe de largura asserida por **token exato** (`w-full`, `sm:max-w-[480px]`), com o par negativo (`w-3/4`/`sm:max-w-sm` do variant)
 - [ ] Nota de contexto com a frase inteira da spec
 - [ ] Fechar devolve o foco ao gatilho
 - [ ] Gate Quick passa
@@ -453,6 +453,6 @@ apontando para a âncora escolhida.
 ## O que estes testes NÃO provam
 
 **jsdom devolve 0 para toda medida de layout.** Nenhuma task acima prova largura da gaveta, posição
-da dobra, rolagem interna, o véu de 48px sendo alcançável pelo dedo, ou o painel de 480px não
+da dobra, rolagem interna, o fecho alcançável com a ficha rolada, ou o painel de 480px não
 cobrindo a página no computador. Isso é **prova em navegador**, em 390×844 e 1440, e entra na fila da
 `32`, `33`, `34`, `35`, `37`, `39` e `41`.

@@ -769,7 +769,7 @@
 - **Phase / Task**: todas — T1–T15 concluídas
 - **Completed**: P1 (dono único: T1–T4) · P2 (store, gatilho, guarda: T5–T8) · P3 (a gaveta:
   T9–T14) · P4 (T15). **Sem commit ainda** — `BL-012`: os commits completos saem de uma vez
-- **Next step**: nenhum. **Prova em navegador FEITA** em 390×844 e 1440 (ver `validation.md`): véu de 48px alcançável pelo toque, chips acima da dobra nos dois tamanhos, rolagem interna, zero iframe antes do toque. Duas rodadas de verificação independente feitas: a 1 REPROVOU (4 mutantes), a 2 passou com ressalvas (6 mutantes nos consertos); os 10 estão fechados.
+- **Next step**: nenhum. **Prova em navegador FEITA e REMEDIDA** em 390×844 e 1440 (ver `validation.md`), depois de a gaveta passar a abrir em largura cheia no celular por decisão do usuário: X alcançável com a ficha rolada até o fim, chips acima da dobra nos dois tamanhos, rolagem interna, zero iframe antes do toque. Duas rodadas de verificação independente feitas: a 1 REPROVOU (4 mutantes), a 2 passou com ressalvas (6 mutantes nos consertos); os 10 estão fechados.
   Falta também a **prova em navegador** em 390×844 e 1440 — nenhum teste de jsdom alcança largura da
   gaveta, posição da dobra, rolagem interna ou o véu de 48px sob o dedo
 - **Blockers**: nenhum
@@ -781,7 +781,7 @@
   página do produto, que já estava na árvore antes desta feature**
 - **Branch**: `master`
 - **Baseline de entrada**: store **2747/175** · lint 27/6 · tipos 0·0
-- **Baseline de saída**: store **2851/184** (+104/+9) · lint **27/6** (inalterado) · tipos **0·0** ·
+- **Baseline de saída**: store **2853/184** (+106/+9) · lint **27/6** (inalterado) · tipos **0·0** ·
   `pnpm build` verde nos dois apps · `packages/core/src/payment/**` intocado (conferido por
   `git diff --name-only`)
 

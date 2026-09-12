@@ -382,10 +382,10 @@ quando mudarem de verdade.
 | --- | --- | --- |
 | **Lint** | **27 erros / 6 warnings** — backoffice 25/4 · store 2/2 | `pnpm lint` |
 | **Tipos** | **0 · 0 · 0** (store · backoffice · catalog-import) | `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` |
-| **Testes** | **7546 em 403 arquivos** — store **2851/184** · backoffice **2002/119** · core **1811/70** · functions 370/7 · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test` |
+| **Testes** | **7548 em 403 arquivos** — store **2853/184** · backoffice **2002/119** · core **1811/70** · functions 370/7 · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test` |
 
-**A feature `44` (gaveta de material na página do produto) somou +104 em UM workspace**, medidos em
-2026-09-11 com exit code capturado fora de pipe: **store 2747/175 → 2851/184**. Os outros quatro não
+**A feature `44` (gaveta de material na página do produto) somou +106 em UM workspace**, medidos em
+2026-09-11 com exit code capturado fora de pipe: **store 2747/175 → 2853/184**. Os outros quatro não
 foram tocados — `git status` só acusa `apps/store/**` e `.specs/**`. Lint ficou em **27/6**, tipos em
 **0·0**, e `packages/core/src/payment/**` não teve uma linha alterada.
 
@@ -393,7 +393,7 @@ foram tocados — `git status` só acusa `apps/store/**` e `.specs/**`. Lint fic
 > o medido no início da `44` foi **2747/175**. A diferença (+83/+6) era o trabalho da página do
 > produto que estava **na árvore sem commit** e que virou o commit `9d873d6` no meio desta feature —
 > não uma baseline errada. É a mesma lição de sempre numa forma nova: **baseline é do que está no
-> disco, não do último commit**, e medir na hora é o que separa "+104" de um número inventado.
+> disco, não do último commit**, e medir na hora é o que separa "+106" de um número inventado.
 
 > **A verificação independente REPROVOU a primeira entrega da `44`, e o achado nº 1 é o da `41`
 > repetido letra por letra.** O teste que provava "o fio entre o gatilho e a gaveta" **montava a

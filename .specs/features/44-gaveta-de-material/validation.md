@@ -9,10 +9,11 @@ e toda asserção da suíte é proxy de forma.
 | O que | 390×844 | 1440×900 |
 | --- | --- | --- |
 | Gatilho presente na coluna | ✅ | ✅ |
-| Gaveta entra pela direita | ✅ `x = 48` | ✅ `x = 960` |
-| Largura | ✅ **342px** (tela − 48) | ✅ **480px** exatos |
-| Faixa de véu | ✅ **48px**, e `elementFromPoint(20, 400)` devolve o overlay — **o toque fora alcança** | ✅ 960px de página visível |
-| Chips | ✅ **10**, último termina em **561px** de 844 — **acima da dobra** | ✅ último em **447px** de 900 |
+| Gaveta entra pela direita | ✅ `x = 0` | ✅ `x = 960` |
+| Largura | ✅ **390px** — tela cheia | ✅ **480px** exatos |
+| Borda esquerda | ✅ ausente (`border-l-0`) | ✅ `1px` |
+| Fecho alcançável com a ficha rolada até o fim | ✅ X em `top: 16`, **44px**, e `elementFromPoint` no centro dele devolve o próprio botão | — |
+| Chips | ✅ **10**, último termina em **465px** de 844 — **acima da dobra** | ✅ último em **447px** de 900 |
 | Rolagem horizontal do body | ✅ nenhuma (`scrollWidth 390 = clientWidth 390`) | ✅ nenhuma |
 | Rolagem interna | ✅ a gaveta rola **dentro** (`scrollHeight 1610 > clientHeight 665`) | ✅ |
 | Escolher material troca o corpo | ✅ `Cinzas de cremação` | ✅ |
@@ -23,12 +24,23 @@ e toda asserção da suíte é proxy de forma.
 **O critério de sucesso da spec está cumprido**: "a pergunta e todos os chips acima da dobra em
 390×844" — medido, não desenhado.
 
-> **Uma leitura errada minha, corrigida pela medição.** Em 390 eu julguei que o véu **não** escurecia
-> a página, olhando uma faixa de 48px. Em 1440, com 960px de página à vista, o escurecimento é
-> evidente. O véu funciona; o que não dá para fazer é julgar contraste numa tira estreita a olho.
-> Fica a nota de que ele escurece **menos** que os 80% nominais de `bg-black/80` — comportamento do
-> `SheetOverlay` compartilhado, anterior a esta feature e inalterado por ela. A gaveta do carrinho é
-> `w-full` no celular, então esta é a **primeira** superfície da loja em que o véu fica visível.
+> **A largura do celular MUDOU depois desta medição.** A primeira entrega abria em `tela − 48px`,
+> deixando uma faixa de véu para dar alvo ao "toque fora". Por decisão do usuário em 2026-09-11 ela
+> passou a abrir em **largura cheia**, como o carrinho, a busca e a folha do menu. A tabela acima é a
+> **remedição** depois da mudança; a primeira medição registrava `x = 48`, largura `342px` e o último
+> chip em `561px`.
+>
+> **O custo foi levantado antes e é aceito**: sem véu não há "toque fora" no celular, e o gesto de
+> voltar do Android sai da página do produto. É a mesma dívida das outras três superfícies
+> sobrepostas da loja — consertá-la só aqui deixaria esta gaveta diferente das outras. A mitigação
+> tem prova: com a ficha de cinzas rolada até o fim, o X continua em `top: 16`, com 44px, e
+> `elementFromPoint` no centro dele devolve o próprio botão.
+>
+> **Uma leitura errada minha, corrigida pela medição** (vale como método, mesmo com o véu agora só no
+> computador): em 390 eu julguei que o véu **não** escurecia a página, olhando uma tira de 48px. Em
+> 1440, com 960px de página à vista, o escurecimento é evidente. **Não se julga contraste numa tira
+> estreita a olho.** Fica a nota de que o `SheetOverlay` compartilhado escurece menos que os 80%
+> nominais de `bg-black/80` — comportamento anterior a esta feature e inalterado por ela.
 
 ---
 

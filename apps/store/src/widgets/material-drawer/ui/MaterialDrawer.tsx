@@ -23,11 +23,20 @@ import MaterialDrawerSteps from './MaterialDrawerSteps'
  * **Entra pela direita nos dois tamanhos** — é o lado em que a gaveta do carrinho já abre nesta
  * loja, e repetir o gesto é o que faz a cliente reconhecer o objeto.
  *
- * **A faixa de véu de 48px no celular não é sobra de largura.** Painel colado na borda, ocupando a
- * tela inteira, deixa a cliente sem alvo para "toque fora" — e no Android o instinto seguinte é o
- * gesto de voltar, que sai da página do produto em vez de fechar a gaveta. A integração com o
- * histórico está fora do escopo (nenhuma das quatro superfícies sobrepostas da loja a tem), então o
- * véu é o que resolve.
+ * **Largura cheia no celular, 480px no computador** — o mesmo molde do `CartDrawer`, e por decisão
+ * do usuário em 2026-09-11. A primeira escrita deixava uma faixa de véu de 48px à esquerda para dar
+ * alvo ao "toque fora"; o custo era ser a única superfície sobreposta da loja com esse desenho. O
+ * carrinho, a busca e a folha do menu já são `w-full` no celular, e a cliente reconhece o objeto
+ * pela repetição.
+ *
+ * **O que a faixa resolvia continua em aberto, e é declarado**: sem ela não há "toque fora" no
+ * celular, e o gesto de voltar do Android sai da página do produto em vez de fechar a gaveta. Vale
+ * igual para as outras três superfícies — é dívida da loja, não desta gaveta. O que sobra aqui é
+ * garantir que o fecho seja sempre alcançável: o cabeçalho é `shrink-0` e só o corpo rola, então o
+ * X de 44px nunca sai da tela por mais longa que a ficha seja.
+ *
+ * `border-l` só a partir de `sm`: em tela cheia ele vira um filete solto na beirada esquerda, sem
+ * nada do outro lado para separar — mesma razão que o `CartDrawer` registra.
  *
  * **A ORDEM do corpo é decisão medida, não gosto** (`GAV-09`): a pergunta vem antes dos quatro
  * passos. Com os passos no topo — que é a ordem "lógica" — os chips caem abaixo da dobra numa tela
@@ -58,7 +67,7 @@ const MaterialDrawer = () => {
         side="right"
         hideClose
         data-testid="material-drawer"
-        className="flex w-[calc(100%-48px)] flex-col gap-0 bg-estrelinha-surface p-0 sm:max-w-[480px]"
+        className="flex w-full flex-col gap-0 border-l-0 bg-estrelinha-surface p-0 sm:max-w-[480px] sm:border-l sm:border-estrelinha-line"
       >
         <header className="flex shrink-0 items-center gap-3 border-b border-estrelinha-line px-4 py-4 sm:px-7">
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">

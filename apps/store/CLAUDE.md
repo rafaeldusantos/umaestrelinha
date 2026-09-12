@@ -569,10 +569,17 @@ pela **direita**, sem navegar.
 - **A ORDEM do corpo é medida, não gosto**: nota de contexto → pergunta → chips → os quatro passos.
   Com os passos no topo — a ordem "lógica" — os chips caem abaixo da dobra em 390×844, e os chips são
   o motivo de a gaveta abrir.
-- **A faixa de véu de 48px no celular não é sobra de largura.** Painel colado na borda deixa a
-  cliente sem alvo de "toque fora", e no Android o instinto seguinte é o gesto de voltar — que sai da
-  página do produto. Integração com histórico está fora de escopo (nenhuma das quatro superfícies
-  sobrepostas da loja a tem), então o véu é o que resolve. `w-[calc(100%-48px)] sm:max-w-[480px]`.
+- **Largura cheia no celular, 480px no computador** — `w-full sm:max-w-[480px]`, o mesmo molde do
+  `CartDrawer`, e `border-l` só a partir de `sm` (em tela cheia o filete fica solto na beirada). A
+  primeira entrega deixava uma faixa de véu de 48px para dar alvo ao "toque fora"; saiu por decisão
+  do usuário em 2026-09-11, porque ser a única superfície sobreposta da loja com desenho próprio
+  custa mais do que a faixa resolvia.
+  - **O que a faixa resolvia continua aberto, e é dívida da LOJA, não desta gaveta**: sem véu não há
+    "toque fora" no celular, e o gesto de voltar do Android sai da página do produto. Vale igual para
+    o carrinho, a busca e a folha do menu — as quatro são `w-full` e nenhuma integra com o histórico.
+    Consertar só aqui deixaria esta gaveta diferente das outras três.
+  - O que sobra é o fecho sempre alcançável: o cabeçalho é `shrink-0` e **só o corpo rola**, então o
+    X de 44px nunca sai da tela por mais longa que a ficha seja. Tem asserção (`GAV-21` AC 4).
 - **O foco volta para a linha à mão, e isso é conserto de defeito medido.** A devolução automática do
   Radix não funciona aqui porque a gaveta não é aberta por um `SheetTrigger` — é comandada por store.
   Sem o `useEffect` em `MaterialSendTrigger`, quem fecha por teclado reaparece no `<body>`.
