@@ -42,6 +42,21 @@ export interface FaqPair {
   answer: string
 }
 
+/**
+ * Um pedaço de resposta já interpretado — feature 46.
+ *
+ * A resposta é **texto puro** no banco (medido: 0 de 3.476 do catálogo têm tag), e continua sendo:
+ * é o que dispensa sanitizador, dispensa `dangerouslySetInnerHTML` e é a forma que um modelo de
+ * linguagem ingere limpa. O que este tipo carrega é a **leitura** desse texto — linha em branco
+ * separa parágrafo, linha começada por `- ` é item —, e quem a produz é `faqAnswerBlocks`.
+ *
+ * Discriminada por literal de **string**, e não por booleano: com `strictNullChecks: false` a união
+ * por literal booleano não estreita, e ler o campo do outro ramo é TS2339.
+ */
+export type FaqBlock =
+  | { kind: 'paragraph'; text: string }
+  | { kind: 'list'; items: readonly string[] }
+
 /** Uma linha da view `faq_category_usage`. */
 export interface FaqCategoryUsage {
   category_id: string
