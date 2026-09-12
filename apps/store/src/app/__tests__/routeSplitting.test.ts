@@ -73,7 +73,7 @@ describe('routeSplitting — âncoras da régua', () => {
     expect(APP).toContain('<Routes>')
   })
 
-  it('a régua ENCONTRA as 16 páginas preguiçosas — a segunda ponta da âncora', () => {
+  it('a régua ENCONTRA as 17 páginas preguiçosas — a segunda ponta da âncora', () => {
     expect(app.preguicosas.length).toBeGreaterThanOrEqual(16)
     expect(app.preguicosas.map(p => p.nome)).toContain('HomePage')
     expect(app.preguicosas.map(p => p.nome)).toContain('CheckoutPage')
@@ -118,9 +118,9 @@ describe('routeSplitting — cada página é um chunk (PRF-16)', () => {
     ).toEqual([])
   })
 
-  it('as 16 páginas do disco estão TODAS em `lazy`', () => {
+  it('as 17 páginas do disco estão TODAS em `lazy`', () => {
     const preguicosas = app.preguicosas.map(p => p.modulo.replace('@/pages/', ''))
-    expect(paginasNoDisco).toHaveLength(16)
+    expect(paginasNoDisco).toHaveLength(17)
     expect([...preguicosas].sort()).toEqual([...paginasNoDisco].sort())
   })
 

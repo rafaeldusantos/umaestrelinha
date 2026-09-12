@@ -47,6 +47,14 @@ export const ROUTE_SLUGS: readonly string[] = [
   // (`umaestrelinha.com.br/cuidados-com-sua-joia-afetiva/`, lido em 2026-09-12), sem a barra final —
   // `trailingSlash: false` já resolve isso no `vercel.json`.
   'cuidados-com-sua-joia-afetiva',
+  // Feature 46 — a página de perguntas frequentes da loja.
+  //
+  // **Este slug NÃO é literal de produção**, e a diferença importa: as três entradas acima foram
+  // lidas do `sitemap.xml` do site porque já estavam indexadas, e mudá-las seria trocar endereço
+  // disfarçado de arrumação. Esta página não existe lá, então não há URL a preservar — e por isso
+  // ela também não entra em `LEGACY_REDIRECTS`. Se um endereço de FAQ já tiver sido divulgado por
+  // WhatsApp ou Instagram, é ali que ele entra, e não aqui.
+  'perguntas-frequentes',
   // Feature 22. Entra aqui **junto** com a rota no `App.tsx`, nunca depois: com categoria na raiz do
   // domínio, uma rota de um segmento que não seja reservada encobre em silêncio a categoria homônima.
   //
@@ -154,6 +162,16 @@ export const PRIVACY_POLICY_PATH = '/politica-de-privacidade'
 export const JEWELRY_CARE_PATH = '/cuidados-com-sua-joia-afetiva'
 
 /**
+ * A página de perguntas frequentes da loja (feature 46).
+ *
+ * Mora aqui pela razão de sempre, e ela vale em três pontas desta vez: **quem linka não é quem
+ * renderiza**. O rodapé é um `widget` e não pode importar de `pages`; o painel aponta "Ver na loja"
+ * para cá e vive em **outro app**; e o sitemap precisa da string sem arrastar React para dentro do
+ * teste que lê o `App.tsx` do disco.
+ */
+export const FAQ_PATH = '/perguntas-frequentes'
+
+/**
  * `/como-enviar-seu-material-de-dna#cinzas` — o guia, opcionalmente já no material da cliente.
  *
  * A âncora vem de `materialAnchor` (`@estrelinha/core/material`), que não é importado aqui de
@@ -190,6 +208,9 @@ export const SITEMAP_STATIC_PATHS: readonly string[] = [
   PRIVACY_POLICY_PATH,
   JEWELRY_CARE_PATH,
   MATERIAL_GUIDE_PATH,
+  // Feature 46. É a página que mais tem motivo para ser encontrada por busca — ela responde a dúvida
+  // de quem ainda não decidiu comprar, e boa parte dessas perguntas chega como busca.
+  FAQ_PATH,
 ]
 
 /**

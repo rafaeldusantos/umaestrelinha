@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   INFRA_SLUGS,
   JEWELRY_CARE_PATH,
+  FAQ_PATH,
   LEGACY_REDIRECTS,
   MATERIAL_GUIDE_PATH,
   NON_INDEXABLE_PATHS,
@@ -24,7 +25,7 @@ import {
  * medido — comparar `ROUTE_SLUGS` com um `map` derivado dele mesmo passaria com a lista vazia.
  */
 describe('ROUTE_SLUGS — o primeiro segmento de toda rota declarada em App.tsx', () => {
-  it('tem exatamente os 17 segmentos estáticos das rotas da loja', () => {
+  it('tem exatamente os 18 segmentos estáticos das rotas da loja', () => {
     // 13 até a feature 23; o 14º é `como-enviar-o-material`, da 22. O 15º é
     // `como-enviar-seu-material-de-dna`, da 31 — e o 14º **continua aqui**, agora como rota de
     // redirect: apagá-lo liberaria o slug para uma categoria, que engoliria o 301 das URLs já
@@ -33,7 +34,7 @@ describe('ROUTE_SLUGS — o primeiro segmento de toda rota declarada em App.tsx'
     // entrou no lugar dele, mantendo a contagem. **Esta contagem falhar quando uma rota entra é o
     // comportamento correto**: com categoria na raiz do domínio (`AD-018`), rota nova que não passe
     // por aqui encobre em silêncio uma categoria homônima.
-    expect(ROUTE_SLUGS).toHaveLength(17)
+    expect(ROUTE_SLUGS).toHaveLength(18)
   })
 
   it.each([
@@ -101,12 +102,12 @@ describe('INFRA_SLUGS — o que é do host/build e não aparece no App.tsx', () 
 })
 
 describe('RESERVED_SLUGS — a união das duas, sem duplicata', () => {
-  it('tem 20 entradas: 17 rotas + 3 de infraestrutura', () => {
-    expect(RESERVED_SLUGS).toHaveLength(20)
+  it('tem 21 entradas: 18 rotas + 3 de infraestrutura', () => {
+    expect(RESERVED_SLUGS).toHaveLength(21)
   })
 
   it('não repete nenhuma entrada', () => {
-    expect(new Set(RESERVED_SLUGS).size).toBe(20)
+    expect(new Set(RESERVED_SLUGS).size).toBe(21)
   })
 
   it.each([
@@ -366,11 +367,24 @@ describe('a classificação de rota do sitemap (SMP-04, SMP-24)', () => {
     expect(SITEMAP_STATIC_PATHS).toContain(JEWELRY_CARE_PATH)
   })
 
-  it('âncora de tamanho: 6 institucionais e 7 excluídas', () => {
+  it('as perguntas frequentes entram pelo `FAQ_PATH`, não por literal repetido', () => {
+    expect(SITEMAP_STATIC_PATHS).toContain(FAQ_PATH)
+    expect(ROUTE_SLUGS).toContain('perguntas-frequentes')
+  })
+
+  // O slug é novo — a página não existe no site em produção —, então não há URL indexada a
+  // preservar e ele NÃO entra em `LEGACY_REDIRECTS`. A asserção registra a decisão: se um endereço
+  // de FAQ já divulgado aparecer depois, é lá que ele entra, e este caso vai cobrar a mudança.
+  it('não há redirect legado apontando para as perguntas frequentes', () => {
+    expect(LEGACY_REDIRECTS.some(r => r.to === FAQ_PATH)).toBe(false)
+  })
+
+  it('âncora de tamanho: 7 institucionais e 7 excluídas', () => {
     // Sem a âncora, esvaziar uma das listas tornaria as asserções acima verdadeiras por vacuidade.
-    // As 6: raiz, Sobre, as duas políticas da feature 45, os cuidados com a joia e o guia de
-    // material. O índice `/politicas` que ocupava uma dessas vagas foi removido em 2026-09-12.
-    expect(SITEMAP_STATIC_PATHS).toHaveLength(6)
+    // As 7: raiz, Sobre, as duas políticas da feature 45, os cuidados com a joia, o guia de
+    // material e as perguntas frequentes (feature 46). O índice `/politicas` que ocupava uma dessas
+    // vagas foi removido em 2026-09-12.
+    expect(SITEMAP_STATIC_PATHS).toHaveLength(7)
     expect(NON_INDEXABLE_PATHS).toHaveLength(7)
   })
 })

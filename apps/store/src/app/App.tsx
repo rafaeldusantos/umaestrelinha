@@ -43,6 +43,7 @@ const AboutPage = lazy(() => import("@/pages/AboutPage"));
 const ReturnsPolicyPage = lazy(() => import("@/pages/ReturnsPolicyPage"));
 const PrivacyPolicyPage = lazy(() => import("@/pages/PrivacyPolicyPage"));
 const JewelryCarePage = lazy(() => import("@/pages/JewelryCarePage"));
+const FaqPage = lazy(() => import("@/pages/FaqPage"));
 const HowToSendMaterialPage = lazy(() => import("@/pages/HowToSendMaterialPage"));
 const AccountPage = lazy(() => import("@/pages/AccountPage"));
 const NotFound = lazy(() => import("@/pages/NotFound"));
@@ -147,6 +148,8 @@ const App = () => (
                 <Route path="/politica-de-privacidade" element={<PrivacyPolicyPage />} />
                 {/* Mesma régua: slug literal do site em produção, lido em 2026-09-12. */}
                 <Route path="/cuidados-com-sua-joia-afetiva" element={<JewelryCarePage />} />
+                {/* Feature 46 — a página de perguntas da loja. Slug novo, sem legado a preservar. */}
+                <Route path="/perguntas-frequentes" element={<FaqPage />} />
                 <Route
                   path="/como-enviar-seu-material-de-dna"
                   element={<HowToSendMaterialPage />}
