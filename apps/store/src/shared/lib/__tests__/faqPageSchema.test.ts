@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { FAQ_QUESTION_MAX, faqQuestionKey } from '@estrelinha/core/faq'
 
 /**
  * `FAQL-26`, `FAQL-27`, `FAQL-29` — o guarda entre o schema em **SQL** da feature 46 e o que o resto
@@ -33,14 +34,33 @@ const ROOT = resolve(HERE, '../../../../../..')
 const MIGRATION = join(ROOT, 'supabase/migrations/20260912120000_46-perguntas-frequentes-da-loja.sql')
 const MIGRATION_28 = join(ROOT, 'supabase/migrations/20260816120000_28-perguntas-frequentes.sql')
 
-const SQL = readFileSync(MIGRATION, 'utf8')
-const SQL_28 = readFileSync(MIGRATION_28, 'utf8')
+/**
+ * CRLF normalizado **antes** de qualquer régua (`L-031`). Num checkout Windows o arquivo chega com
+ * `\r\n`, e toda expressão ancorada em `\n` passaria a medir outra coisa — silenciosamente.
+ */
+const ler = (caminho: string): string => readFileSync(caminho, 'utf8').replace(/\r\n/g, '\n')
+
+const SQL = ler(MIGRATION)
+const SQL_28 = ler(MIGRATION_28)
 
 /** Comentário não é código: sem tirá-los, o texto que EXPLICA a regra entraria na medição dela. */
 const semComentarios = (fonte: string): string => fonte.replace(/--[^\n]*/g, '')
 
 const LIMPO = semComentarios(SQL)
 const LIMPO_28 = semComentarios(SQL_28)
+
+/**
+ * O SQL sem os literais de texto — é sobre ISTO que as réguas de "que comandos esta migration emite"
+ * rodam.
+ *
+ * Desde a semeadura o arquivo carrega 26 respostas escritas pela dona. Uma régua de comando aplicada
+ * sobre o texto dela mediria o conteúdo em vez do código: bastaria uma resposta futura conter a
+ * palavra "delete" para o guarda acusar uma migration correta. O objeto medido é o comando; a prosa
+ * da dona não é régua de nada.
+ */
+const semLiterais = (fonte: string): string => fonte.replace(/'(?:[^']|'')*'/g, "''")
+
+const CODIGO = semLiterais(LIMPO)
 
 const ocorrencias = (re: RegExp): string[] => [...LIMPO.matchAll(re)].map(m => m[0])
 
@@ -279,6 +299,200 @@ describe('RLS', () => {
   })
 
   it('a migration não emite `grant` nenhum', () => {
-    expect(LIMPO).not.toMatch(/\bgrant\b/i)
+    expect(CODIGO).not.toMatch(/\bgrant\b/i)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// A semeadura das 26 perguntas (FAQL-28)
+// ---------------------------------------------------------------------------
+
+interface LinhaSemeada {
+  question: string
+  answer: string
+  question_key: string
+  category: string
+  position: number
+}
+
+/**
+ * Lê o `values` da semeadura **do SQL cru**, com um tokenizador que respeita literal de texto.
+ *
+ * Ler do `LIMPO` seria errado por construção: as respostas são texto da dona, e um `--` dentro de uma
+ * delas faria o removedor de comentário comer o resto da linha — o guarda passaria a medir um corpus
+ * mutilado sem reprovar. A aspa dobrada (`''`) é a única sequência de escape do Postgres.
+ */
+const lerSemente = (fonte: string): LinhaSemeada[] => {
+  const inicio = fonte.indexOf('\tvalues\n')
+  const fim = fonte.indexOf('\n),\ninseridas as (')
+  if (inicio === -1 || fim === -1 || fim < inicio) return []
+
+  const bloco = fonte.slice(inicio, fim)
+  const linhas: LinhaSemeada[] = []
+  let campos: string[] = []
+  let numero = ''
+  let i = 0
+
+  while (i < bloco.length) {
+    const c = bloco[i]
+    if (c === "'") {
+      let texto = ''
+      i += 1
+      while (i < bloco.length) {
+        if (bloco[i] === "'" && bloco[i + 1] === "'") {
+          texto += "'"
+          i += 2
+          continue
+        }
+        if (bloco[i] === "'") {
+          i += 1
+          break
+        }
+        texto += bloco[i]
+        i += 1
+      }
+      campos.push(texto)
+      continue
+    }
+    if (c >= '0' && c <= '9') {
+      numero += c
+      i += 1
+      continue
+    }
+    if (c === ')' && campos.length === 4 && numero !== '') {
+      linhas.push({
+        question: campos[0],
+        answer: campos[1],
+        question_key: campos[2],
+        category: campos[3],
+        position: Number(numero),
+      })
+      campos = []
+      numero = ''
+    }
+    i += 1
+  }
+
+  return linhas
+}
+
+const SEMENTE = lerSemente(SQL)
+
+/** As contagens por assunto, medidas em `conteudo.md` e conferidas pelo gerador. */
+const POR_ASSUNTO: Record<string, number> = {
+  sobre: 5,
+  'o-processo': 3,
+  'envio-do-material': 4,
+  'materiais-e-acabamentos': 8,
+  personalizacao: 3,
+  cuidados: 3,
+}
+
+describe('a semeadura é o corpus da loja', () => {
+  it('o tokenizador leu as 26 linhas — âncora, sem ela todo laço abaixo roda sobre nada', () => {
+    expect(SEMENTE).toHaveLength(26)
+    // O tokenizador poderia estar devolvendo campos vazios e a contagem ainda bater.
+    expect(SEMENTE.every(l => l.question !== '' && l.answer !== '' && l.question_key !== '')).toBe(true)
+  })
+
+  it('o tokenizador devolve lista vazia quando o bloco não existe — sensor', () => {
+    expect(lerSemente('select 1;')).toEqual([])
+  })
+
+  /**
+   * A asserção que impede o transporte de apodrecer.
+   *
+   * `question_key` é escrita pela aplicação (a 28 recusou coluna gerada para não criar uma segunda
+   * normalização), então a migration carrega o resultado LITERAL de `faqQuestionKey`. Se alguém
+   * editar uma pergunta aqui sem regerar a chave, a dedup deixa de funcionar para aquela linha — e
+   * nada quebra: a pergunta simplesmente entra duas vezes na biblioteca.
+   */
+  it('`faqQuestionKey(question)` é a `question_key` gravada, em cada uma das 26 linhas', () => {
+    const divergentes = SEMENTE.filter(l => faqQuestionKey(l.question) !== l.question_key).map(
+      l => `${l.question} → gravado "${l.question_key}", esperado "${faqQuestionKey(l.question)}"`,
+    )
+    expect(divergentes).toEqual([])
+    expect(SEMENTE.filter(l => faqQuestionKey(l.question) === l.question_key)).toHaveLength(26)
+  })
+
+  it('as 26 `question_key` são distintas — duas iguais perderiam uma pergunta no `do nothing`', () => {
+    expect(new Set(SEMENTE.map(l => l.question_key)).size).toBe(26)
+  })
+
+  it('a soma por assunto é 5/3/4/8/3/3', () => {
+    const contagem: Record<string, number> = {}
+    for (const l of SEMENTE) contagem[l.category] = (contagem[l.category] ?? 0) + 1
+    expect(contagem).toEqual(POR_ASSUNTO)
+  })
+
+  it('todo assunto semeado está no vocabulário fechado do `check`', () => {
+    const aceitos = valoresDoCheckDeAssunto(LIMPO)
+    const fora = SEMENTE.filter(l => !aceitos.includes(l.category)).map(l => l.category)
+    expect(fora).toEqual([])
+  })
+
+  it('dentro de um assunto, nenhuma posição se repete', () => {
+    const repetidas: string[] = []
+    for (const key of Object.keys(POR_ASSUNTO)) {
+      const posicoes = SEMENTE.filter(l => l.category === key).map(l => l.position)
+      if (new Set(posicoes).size !== posicoes.length) repetidas.push(key)
+    }
+    expect(repetidas).toEqual([])
+  })
+
+  // `FAQL-10`: o registro é memorial. O texto de origem trazia `✨` e `❤️`, e a transcrição os tirou.
+  it('nenhum emoji entrou no banco', () => {
+    const comEmoji = SEMENTE.filter(
+      l => /\p{Extended_Pictographic}/u.test(l.question) || /\p{Extended_Pictographic}/u.test(l.answer),
+    ).map(l => l.question)
+    expect(comEmoji).toEqual([])
+  })
+
+  it('toda pergunta cabe em `FAQ_QUESTION_MAX` e toda resposta em 4000', () => {
+    expect(SEMENTE.filter(l => l.question.trim().length > FAQ_QUESTION_MAX)).toEqual([])
+    expect(SEMENTE.filter(l => l.answer.trim().length > 4000)).toEqual([])
+  })
+
+  // A medição que obriga o teto a subir. Com 600 esta migration falharia com 23514 no `db push`.
+  it('há resposta acima de 600 caracteres — é por isso que o teto subiu', () => {
+    expect(Math.max(...SEMENTE.map(l => l.answer.trim().length))).toBeGreaterThan(600)
+  })
+})
+
+describe('a semeadura é aditiva e idempotente', () => {
+  it('as duas pontas são `on conflict … do nothing`', () => {
+    expect(CODIGO).toMatch(/on conflict \(question_key\) do nothing/)
+    expect(CODIGO).toMatch(/on conflict \(faq_id\) do nothing/)
+  })
+
+  // Rodar duas vezes não pode apagar edição da dona. Um `update` aqui sobrescreveria o texto que ela
+  // corrigiu no painel, e o `db push` roda em TODO push em `master`.
+  it('não há um `update` sequer — nem statement, nem `do update`', () => {
+    expect(CODIGO).not.toMatch(/\bupdate\s+public\./i)
+    expect(CODIGO).not.toMatch(/\bupdate\s+only\b/i)
+    expect(CODIGO).not.toMatch(/\bdo\s+update\b/i)
+  })
+
+  it('não há um `delete` sequer', () => {
+    expect(CODIGO).not.toMatch(/\bdelete\s+from\b/i)
+    expect(CODIGO).not.toMatch(/\btruncate\b/i)
+  })
+
+  /**
+   * O `join` por `question_key` é o que faz a pergunta que JÁ EXISTE na biblioteca entrar na página
+   * sem virar uma segunda. Sem ele, "Quanto tempo demora" — hoje em dezenas de produtos — seria
+   * inserida de novo (e recusada pelo `do nothing`), e a colocação dela nunca apareceria.
+   */
+  it('a colocação encontra tanto a linha nova quanto a que já existia na biblioteca', () => {
+    expect(CODIGO).toMatch(/returning id, question_key/)
+    expect(CODIGO).toMatch(/left join inseridas i on i\.question_key = s\.question_key/)
+    expect(CODIGO).toMatch(/left join public\.faqs f on f\.question_key = s\.question_key/)
+    expect(CODIGO).toMatch(/coalesce\(i\.id, f\.id\)/)
+  })
+
+  // O desenho previa dois `insert` sobre o mesmo `values` repetido — 26 chaves escritas duas vezes,
+  // que é o "defeito 01" dentro da migration que existe para evitá-lo.
+  it('a lista de 26 linhas aparece UMA vez no arquivo', () => {
+    expect([...CODIGO.matchAll(/\bvalues\b/g)]).toHaveLength(1)
   })
 })
