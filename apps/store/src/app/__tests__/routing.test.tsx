@@ -49,6 +49,8 @@ vi.mock('@/pages/CartPage', () => ({ default: () => <div>pagina:carrinho</div> }
 vi.mock('@/pages/SearchPage', () => ({ default: () => <div>pagina:busca</div> }))
 vi.mock('@/pages/AboutPage', () => ({ default: () => <div>pagina:sobre</div> }))
 vi.mock('@/pages/PoliciesPage', () => ({ default: () => <div>pagina:politicas</div> }))
+vi.mock('@/pages/ReturnsPolicyPage', () => ({ default: () => <div>pagina:trocas</div> }))
+vi.mock('@/pages/PrivacyPolicyPage', () => ({ default: () => <div>pagina:privacidade</div> }))
 vi.mock('@/pages/WishlistPage', () => ({ default: () => <div>pagina:favoritos</div> }))
 vi.mock('@/pages/AuthPage', () => ({ default: () => <div>pagina:entrar</div> }))
 
@@ -218,5 +220,52 @@ describe('rotas — o checkout segue fora do StoreLayout (CHK-10)', () => {
 
     expect(await screen.findByText('pagina:home')).toBeInTheDocument()
     expect(screen.getByTestId('store-layout')).toBeInTheDocument()
+  })
+})
+
+/**
+ * `POL-01` — **o fio entre o endereço e a página** (feature 45).
+ *
+ * As duas páginas de política são provadas por arquivo próprio, e `reservedSlugs`/`sitemapRoutes`
+ * leem o `App.tsx` do disco e cobram que cada rota esteja declarada e classificada. **Nenhum dos
+ * três prova qual componente a rota monta.** Trocar o `element` de uma pela outra deixa tudo verde:
+ * as duas rotas existem, as duas páginas existem, as duas estão em `lazy` e as duas estão no
+ * sitemap — e `/politica-de-privacidade` serve a política de trocas.
+ *
+ * É a lição da feature 44 na sua forma mais barata: quem monta a árvore tem de ser o `App`, e não o
+ * teste. Estes três casos montam o roteador de verdade.
+ */
+describe('rotas — as políticas em página própria (POL-01)', () => {
+  it('`/politicas-de-trocas-e-devolucoes` monta a política de trocas', async () => {
+    renderAt('/politicas-de-trocas-e-devolucoes')
+
+    expect(await screen.findByText('pagina:trocas')).toBeInTheDocument()
+    expect(window.location.pathname).toBe('/politicas-de-trocas-e-devolucoes')
+  })
+
+  it('`/politica-de-privacidade` monta a política de privacidade', async () => {
+    renderAt('/politica-de-privacidade')
+
+    expect(await screen.findByText('pagina:privacidade')).toBeInTheDocument()
+    expect(window.location.pathname).toBe('/politica-de-privacidade')
+  })
+
+  it('as duas NÃO se confundem entre si nem com o índice', async () => {
+    // O mutante que este caso mata: `element={<ReturnsPolicyPage />}` na rota da privacidade.
+    renderAt('/politica-de-privacidade')
+
+    expect(await screen.findByText('pagina:privacidade')).toBeInTheDocument()
+    expect(screen.queryByText('pagina:trocas')).toBeNull()
+    expect(screen.queryByText('pagina:politicas')).toBeNull()
+  })
+
+  it('nenhuma das duas cai na CategoryPage — o namespace é compartilhado (AD-018)', async () => {
+    // Com categoria na raiz do domínio, uma rota que saísse do `App.tsx` casaria `/:slug`, a
+    // `CategoryPage` REAL montaria, não acharia a categoria e renderizaria a 404 própria — em
+    // silêncio, e em produção. O marcador da 404 é o link de saída dela, que só ela desenha.
+    renderAt('/politicas-de-trocas-e-devolucoes')
+
+    expect(await screen.findByText('pagina:trocas')).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Voltar para o início' })).toBeNull()
   })
 })

@@ -2,7 +2,12 @@ import { Link } from 'react-router-dom'
 import { Instagram } from 'lucide-react'
 import { browseCategories, useCategories } from '@/entities/category'
 import { categoryHref } from '@estrelinha/core/menu'
-import { MATERIAL_GUIDE_PATH } from '@estrelinha/core/routes'
+import {
+  JEWELRY_CARE_PATH,
+  MATERIAL_GUIDE_PATH,
+  PRIVACY_POLICY_PATH,
+  RETURNS_POLICY_PATH,
+} from '@estrelinha/core/routes'
 import { EstrelinhaSignature } from '@/shared/ui/brand'
 import { TAP_ROW } from '@/shared/lib/touchTarget'
 import InstagramStrip, { INSTAGRAM_URL } from './InstagramStrip'
@@ -137,14 +142,27 @@ const Footer = () => {
                   "Institucional", porque é instrução de uso — a cliente procura isso com o envelope
                   na mão, não navegando pela loja. */}
               <FooterLink to={MATERIAL_GUIDE_PATH}>Como enviar o material</FooterLink>
-              <FooterLink to="/politicas#trocas">Trocas e devoluções</FooterLink>
-              <FooterLink to="/politicas">Políticas</FooterLink>
-              <FooterLink to="/sobre">Contato</FooterLink>
+              {/* Endereço literal do site em produção, lido em 2026-09-12 — mesma régua das duas
+                  políticas abaixo. */}
+              <FooterLink to={JEWELRY_CARE_PATH}>Cuidados com sua joia afetiva</FooterLink>
+              {/* Feature 45 (`POL-17`). Era `/politicas#trocas`, e as três âncoras do rodapé
+                  apontavam para `id` que `PoliciesPage` **nunca teve**: o `ScrollToTop` levava ao
+                  topo da política, que é melhor que o meio da página e continua sendo link que não
+                  vai aonde diz. Agora é uma página, com um endereço que chega ao servidor. */}
+              <FooterLink to={RETURNS_POLICY_PATH}>Trocas e devoluções</FooterLink>
+              {/* "Políticas" (o índice `/politicas`) e "Contato" (que só duplicava "Sobre nós", na
+                  coluna ao lado, com outro rótulo) saíram por decisão do usuário em 2026-09-12. O
+                  índice foi removido de vez — `PoliciesPage` não existe mais, ver `routes.ts`. */}
             </FooterColumn>
 
             <FooterColumn title="Institucional">
-              <FooterLink to="/politicas#termos">Termos de uso</FooterLink>
-              <FooterLink to="/politicas#privacidade">Política de privacidade</FooterLink>
+              {/* **"Termos de uso" SAIU daqui** (`POL-18`), e a ausência é a decisão.
+                  `/politicas#termos` não tinha âncora **nem seção**: era um rótulo institucional
+                  levando a uma página que não fala de termos. O `apps/store/CLAUDE.md` registrou o
+                  caso como "consertar exige decisão de conteúdo, não `id`" — e a decisão é não
+                  inventar termos de uso, que é redigir contrato no lugar da dona. O link volta no dia
+                  em que existir o texto. */}
+              <FooterLink to={PRIVACY_POLICY_PATH}>Política de privacidade</FooterLink>
               <FooterLink to="/sobre">Sobre nós</FooterLink>
             </FooterColumn>
           </div>

@@ -19,8 +19,8 @@ import { motion } from 'framer-motion'
 import { useGeneralSettings } from '@estrelinha/core/hooks/useStoreSettings'
 import { EstrelinhaStarIcon } from '@estrelinha/ui/icons'
 import { EstrelinhaSymbol } from '@/shared/ui/brand'
+import Trilha from '@/shared/ui/Trilha'
 import { useCanonical } from '@/shared/lib/useCanonical'
-import { TAP_ROW } from '@/shared/lib/touchTarget'
 
 export const ABOUT_PATH = '/sobre'
 
@@ -88,47 +88,16 @@ const LegendaDaFoto = ({ className = '' }: { className?: string }) => (
   </p>
 )
 
-/**
- * A trilha (`SOB-12`).
+/*
+ * A trilha (`SOB-12`) SAIU daqui na feature 45, para `@/shared/ui/Trilha`.
  *
- * É a primeira da loja — nenhuma outra página tem uma —, e por isso mora aqui e não em `shared/ui`:
- * componente compartilhado com um consumidor só é abstração antes da hora. Quando a segunda página
- * pedir trilha, ela sobe com as duas necessidades na mesa.
+ * O comentário que ela carregava escreveu a própria condição de mudança: *"componente compartilhado
+ * com um consumidor só é abstração antes da hora. Quando a segunda página pedir trilha, ela sobe com
+ * as duas necessidades na mesa"*. As duas páginas de política pediram, e são três consumidores.
  *
- * `TAP_ROW`, e não `TAP_44`: é texto em fluxo, e um quadrado de 44 centrado num rótulo de 40px
- * deixaria as pontas fora do alvo (`CLAUDE.md`).
+ * O DOM não mudou — é por isso que os dois casos de `AboutPage.test.tsx` que medem a trilha passaram
+ * sem edição.
  */
-const Trilha = () => (
-  <nav aria-label="Trilha de navegação" className="border-b border-estrelinha-line bg-estrelinha-ground">
-    <ol className={`${COLUNA} flex items-center gap-2 py-3.5 md:py-[18px]`}>
-      <li>
-        <Link
-          to="/"
-          className={`${TAP_ROW} text-[13px] font-light leading-4 text-estrelinha-ink-soft hover:text-estrelinha-primary md:text-sm`}
-        >
-          Início
-        </Link>
-      </li>
-      <li aria-hidden className="flex items-center">
-        <svg viewBox="0 0 24 24" className="h-3 w-3 text-estrelinha-line" fill="none">
-          <path
-            d="M9 5l7 7-7 7"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      </li>
-      <li
-        aria-current="page"
-        className="text-[13px] font-medium leading-4 text-estrelinha-primary md:text-sm"
-      >
-        Sobre
-      </li>
-    </ol>
-  </nav>
-)
 
 const AboutPage = () => {
   useCanonical(ABOUT_PATH)
@@ -149,7 +118,7 @@ const AboutPage = () => {
       transition={{ duration: 0.3 }}
       className="flex flex-col"
     >
-      <Trilha />
+      <Trilha paginaAtual="Sobre" />
 
       {/* 1 · Hero — `ground-deep`, 40/44 no mobile e 96 no desktop.
           A ordem do DOM é a do mobile (título → foto → legenda), que é a ordem de leitura em

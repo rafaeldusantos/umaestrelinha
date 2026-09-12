@@ -168,3 +168,65 @@ describe('Footer — a coluna de categorias no formato canônico', () => {
     categorias.data = []
   })
 })
+
+/**
+ * `POL-17`, `POL-18` — o rodapé deixou de linkar para âncora que não existe.
+ *
+ * As três entradas institucionais apontavam para `/politicas#trocas`, `/politicas#privacidade` e
+ * `/politicas#termos`, e **`PoliciesPage` nunca teve um `id` sequer**. O defeito não quebrava nada:
+ * o `ScrollToTop` mandava ao topo da página de políticas, então o clique "funcionava" — só não ia
+ * aonde o rótulo prometia. `#termos` era pior: não tinha nem seção correspondente.
+ */
+describe('Footer — os links institucionais (POL-17, POL-18)', () => {
+  it.each([
+    ['Trocas e devoluções', '/politicas-de-trocas-e-devolucoes'],
+    ['Política de privacidade', '/politica-de-privacidade'],
+    ['Cuidados com sua joia afetiva', '/cuidados-com-sua-joia-afetiva'],
+  ])('"%s" aponta para %s', (rotulo, href) => {
+    renderFooter()
+
+    expect(screen.getByRole('link', { name: rotulo })).toHaveAttribute('href', href)
+  })
+
+  it('NENHUM link do rodapé usa fragmento em `/politicas`', () => {
+    // A régua é a forma, e continua valendo mesmo com o índice removido: qualquer `#` em `/politicas`
+    // seria âncora morta, porque a rota nem existe mais.
+    const { container } = renderFooter()
+
+    const comFragmento = [...container.querySelectorAll('a[href]')]
+      .map((a) => a.getAttribute('href') ?? '')
+      .filter((href) => href.startsWith('/politicas#'))
+
+    expect(comFragmento).toEqual([])
+  })
+
+  it('"Termos de uso" não existe — a loja não tem o texto, e o link não finge que tem', () => {
+    // A ausência É a decisão (`POL-18`). Sem este caso, alguém "restaura" o link no primeiro passe
+    // de copy e o rodapé volta a prometer um documento que não existe.
+    renderFooter()
+
+    expect(screen.queryByRole('link', { name: 'Termos de uso' })).toBeNull()
+  })
+
+  /**
+   * 2026-09-12 — o índice `/politicas` e o link duplicado "Contato" saíram por decisão do usuário.
+   *
+   * `PoliciesPage` foi apagada (não redirecionada: nunca foi URL do site em produção), e "Contato"
+   * apontava para `/sobre` — o mesmo endereço que "Sobre nós" já cobre na coluna ao lado, só que com
+   * outro rótulo.
+   */
+  it('"Políticas" e "Contato" não existem mais — o índice foi removido e o link era duplicado', () => {
+    renderFooter()
+
+    expect(screen.queryByRole('link', { name: 'Políticas' })).toBeNull()
+    expect(screen.queryByRole('link', { name: 'Contato' })).toBeNull()
+  })
+
+  it('`/sobre` continua alcançável por UM rótulo só: "Sobre nós"', () => {
+    renderFooter()
+
+    expect(
+      screen.getAllByRole('link').filter((a) => a.getAttribute('href') === '/sobre'),
+    ).toHaveLength(1)
+  })
+})

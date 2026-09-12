@@ -118,9 +118,27 @@ marca. Leia [`../../CLAUDE.md`](../../CLAUDE.md) (regras do repositório) e
 | categoria raiz | `/:slug` | `/colecao/:slug` e `/categoria/:slug` — **301** |
 | subcategoria | `/:pai/:filha` | `/:filha` sozinha — **200**, com canonical para a de dois |
 | guia de material | `/como-enviar-seu-material-de-dna` | `/como-enviar-o-material` — **301** |
+| trocas e devoluções | `/politicas-de-trocas-e-devolucoes` | — |
+| privacidade | `/politica-de-privacidade` | — |
+
+**Os dois endereços de política são LITERAIS do site em produção** (feature `45`), lidos do
+`sitemap.xml` de `umaestrelinha.com.br` em 2026-09-12 — plural no primeiro, **singular** no segundo.
+A assimetria é do site, não erro de digitação: "padronizar" um dos dois é mudança de endereço
+disfarçada de arrumação, e a URL que o Google indexou passa a responder 404 **sem nada acusar**, já
+que a página continua abrindo pelo endereço novo. É a mesma decisão que a `31` tomou ao adotar
+`/como-enviar-seu-material-de-dna`. `routes.test.ts` (core) trava as duas grafias.
+
+> **`/politicas` NÃO EXISTE MAIS.** Ela era a página institucional herdada (commitada desde
+> `12c8ab7`) e foi **removida** em 2026-09-12, por decisão do usuário, junto com os links "Políticas"
+> e "Contato" do rodapé. Saiu **sem 301**, e isso é dívida declarada, não descuido: a rota estava em
+> `SITEMAP_STATIC_PATHS`, ou seja, foi anunciada para indexação. Dois efeitos colaterais que nenhuma
+> outra página cobre hoje: **Envio e Pagamento sumiram da loja** (eram os dois blocos que liam
+> `store_settings` — prazo de postagem, Pix, cartão e a faixa de frete grátis da `37`).
+> `politicaComDonoUnico.test.ts` recusa qualquer link para ela, com ou sem fragmento.
 
 - **A fonte é uma só: `@estrelinha/core/routes`** — `ROUTE_SLUGS`, `INFRA_SLUGS`, `RESERVED_SLUGS`,
-  `productPath`, `categoryPath`, `MATERIAL_GUIDE_PATH` e `LEGACY_REDIRECTS`. Quem monta a canônica de
+  `productPath`, `categoryPath`, `MATERIAL_GUIDE_PATH`, `RETURNS_POLICY_PATH`,
+  `PRIVACY_POLICY_PATH` e `LEGACY_REDIRECTS`. Quem monta a canônica de
   uma categoria é `categoryHref` (`@estrelinha/core/menu`), que sobe até o **pai imediato** e para
   ali: a canônica tem no máximo **dois** segmentos, mesmo numa árvore de três níveis.
 - **Categoria na raiz significa que o namespace de rota e o de slug de categoria são O MESMO.** Uma
@@ -183,12 +201,17 @@ não `useEffect`: corrigir depois da pintura é um flash visível justamente no 
   endereço nenhum tenha mudado.
 - **Âncora de outra página vai até o alvo, não ao topo.** Os `<a href="#...">` do guia de material são
   do mesmo documento e o navegador os resolve sozinho (âncora não dispara `popstate`, então o router
-  nem enxerga o clique). O caso **sem dono nenhum** é o `Link to="/politicas#trocas"` do rodapé: troca
-  de página, e aí ninguém rola até o fragmento. Com alvo existente vai até ele; **sem alvo, topo**.
-  - **E hoje os três `#` do rodapé não casam com `id` nenhum**: `PoliciesPage` não tem um `id`
-    sequer, então `#trocas`, `#termos` e `#privacidade` caem no topo da política. É melhor que o meio
-    da página, mas continua sendo âncora morta — e `#termos` nem tem seção correspondente, então
-    consertar exige decisão de conteúdo, não `id`.
+  nem enxerga o clique). O caso **sem dono nenhum** é um `Link to="/pagina#fragmento"` que troca de
+  página: aí ninguém rola até o fragmento. Com alvo existente vai até ele; **sem alvo, topo**.
+  - **As três âncoras mortas do rodapé ACABARAM** (feature 45). Elas eram `/politicas#trocas`,
+    `/politicas#privacidade` e `/politicas#termos`, e `PoliciesPage` não tinha **um `id` sequer** —
+    os três caíam no topo da política. Hoje as duas primeiras são páginas de verdade
+    (`/politicas-de-trocas-e-devolucoes` e `/politica-de-privacidade`), a terceira **saiu do rodapé**
+    porque não existe texto de termos de uso, e a própria `/politicas` foi removida da loja.
+    `politicaComDonoUnico.test.ts` recusa qualquer link para `/politicas`, com ou sem fragmento.
+  - **O caso continua valendo e continua sem consumidor na loja**: é o comportamento que protege a
+    próxima âncora entre páginas. `scrollToTop.test.tsx` o mede com uma página sintética, que aqui é
+    legítimo — o objeto medido é o `ScrollToTop`, não a página.
 
 `scrollToTop.test.tsx` (`app/__tests__`) mede os seis casos navegando de verdade, e carrega a guarda
 de que o componente está **montado** — existir sem ninguém montar passaria em build, `tsc` e em todos
@@ -643,6 +666,42 @@ em 16 componentes.
   WhatsApp depois do pagamento —, mas o componente lê `store_settings` e **não renderiza endereço pela
   metade**. Apagá-lo trocaria informação que a loja já sabe dar por informação que a cliente teria de
   pedir.
+
+## As páginas de política (feature `45`)
+
+Duas páginas de texto jurídico, nos endereços do site em produção: **trocas/devoluções** e
+**privacidade**. O texto das duas é **da dona** — a política de trocas veio pronta e a de privacidade
+é a que o site publica hoje —, e a regra de ouro é que ele não se reescreve para "melhorar".
+
+- **O desenho tem um dono: `shared/ui/PolicyDocument`.** Trilha, título, medida de leitura (720px, o
+  mesmo número da faixa "A história" da Sobre), escala do corpo (17/28 → 19/34 em `ink-soft`) e
+  espaçamento vivem lá. `PolicySection` (`h2` com `id` **derivado do título**), `PolicySubsection`
+  (`h3`), `PolicyList` (marcador em **fio ouro**, nunca bullet ouro — 2,66:1 como texto) e
+  `PolicyNote` (o aviso destacado, ouro no traço e texto em `ink`).
+  - **`id` derivado, nunca digitado ao lado do título.** `id` à mão é a definição de dois donos do
+    mesmo nome: renomear a seção deixa a âncora apontando para o texto antigo — que é literalmente
+    como `/politicas#trocas` virou âncora morta no rodapé e sobreviveu assim por uma feature inteira.
+  - **Sem `prose`**, pela regra do Design system acima: o plugin traz `--tw-prose-*`, que
+    `contrast.test.ts` não mede. Quem estiliza os `<p>` é seletor de filho explícito.
+- **`shared/ui/Trilha` saiu da `AboutPage`** e é a mesma dos três consumidores. O DOM não mudou — a
+  prova é que os 22 casos de `AboutPage.test.tsx` passaram **sem edição**.
+- **Todo canal de contato vem de `store_settings`** (`shared/ui/PolicyContact`), com o portão de
+  `SOB-08`: menos de 10 dígitos é número não configurado e a ação do WhatsApp **sai de cena**; o
+  e-mail continua. Cravar contato no JSX é o defeito que `PDP-24` consertou nesta mesma família.
+- **O `✨` do texto original virou a estrela desenhada**, como a `29` fez na Sobre (`SOB-10`). Está na
+  allowlist de `accentText.test.ts` como **ícone** (3,55:1 sobre `ground`), com a frase em `primary`.
+- **O consentimento de marketing tem um dono: `shared/lib/consent.ts`.** A caixa do checkout o
+  **mostra** e a política de privacidade o **cita** — escritos separadamente, o checkout mostraria
+  uma frase e a política declararia outra, e o que ficaria errado é a **prova de consentimento**.
+- **A política de privacidade não inventa programa de privacidade.** Sem encarregado de dados, sem
+  perfilamento publicitário, sem prazo de retenção que a operação não tenha — o teste **assere a
+  ausência** dos três. É a régua de `FIX-04` aplicada a um documento assinado pela dona.
+  - A promessa sobre o material que sobra é **a mesma frase** do guia de envio, e a página **linka**
+    para ele em vez de reescrevê-la.
+- **`politicaComDonoUnico.test.ts`** recusa (a) o mesmo título de seção declarado em dois arquivos de
+  `pages/` — são **três** documentos agora, contando a página de cuidados com a joia, e "Cuidados com
+  a peça" × "Cuidados gerais com a joia" é o par que vai divergir —, e (b) qualquer link para
+  `/politicas`.
 
 ## Página Sobre (feature `29`)
 

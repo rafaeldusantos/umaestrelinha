@@ -28,7 +28,25 @@ export const ROUTE_SLUGS: readonly string[] = [
   'pedido',
   'busca',
   'sobre',
-  'politicas',
+  // Feature 45 — as duas políticas obrigatórias, cada uma em página própria.
+  //
+  // **Os slugs são LITERAIS do site em produção**, lidos do `sitemap.xml` de `umaestrelinha.com.br`
+  // em 2026-09-12, e a divergência entre o plural do primeiro e o singular do segundo é **do site**,
+  // não erro de digitação. Padronizá-los seria mudança de endereço disfarçada de arrumação — a mesma
+  // armadilha que `AD-018` existe para recusar, e o mesmo motivo pelo qual a feature 31 adotou
+  // `como-enviar-seu-material-de-dna` em vez de um slug mais curto.
+  //
+  // `politicas` (o ÍNDICE que apontava para as duas) foi REMOVIDO — não apenas do rodapé, a rota
+  // inteira saiu do `App.tsx`. Ele nunca teve seção própria, só apontava para as duas abaixo, e o
+  // conteúdo que não tinha outra casa (Envio, Pagamento) saiu de circulação junto. Comparação de
+  // `ROUTE_SLUGS` continua sendo de **segmento inteiro**, então isto nunca reservou as duas entradas
+  // abaixo por prefixo.
+  'politicas-de-trocas-e-devolucoes',
+  'politica-de-privacidade',
+  // Cuidados com sua joia afetiva. Mesma régua: slug LITERAL do site em produção
+  // (`umaestrelinha.com.br/cuidados-com-sua-joia-afetiva/`, lido em 2026-09-12), sem a barra final —
+  // `trailingSlash: false` já resolve isso no `vercel.json`.
+  'cuidados-com-sua-joia-afetiva',
   // Feature 22. Entra aqui **junto** com a rota no `App.tsx`, nunca depois: com categoria na raiz do
   // domínio, uma rota de um segmento que não seja reservada encobre em silêncio a categoria homônima.
   //
@@ -111,6 +129,31 @@ export const categoryPath = (slug: string, parentSlug?: string | null): string =
 export const MATERIAL_GUIDE_PATH = '/como-enviar-seu-material-de-dna'
 
 /**
+ * As duas políticas com página própria (feature 45).
+ *
+ * Moram aqui **pela mesma razão que `MATERIAL_GUIDE_PATH`**, e o caso é ainda mais claro: quem linka
+ * para elas não é quem as renderiza. O rodapé é um `widget` e o índice é outra `page` — nenhum dos
+ * dois pode importar da página que desenha a política (o rodapé porque `widgets` não importa de
+ * `pages`; o índice porque importar o módulo irmão para pegar uma string **arrasta o chunk inteiro
+ * da outra política para dentro do chunk do índice**, desfazendo o `PRF-16` sem que
+ * `routeSplitting.test.ts` — cujo escopo é o `App.tsx` — tenha como ver).
+ *
+ * Os valores são **literais do site em produção**, lidos do `sitemap.xml` dele em 2026-09-12: plural
+ * no primeiro, singular no segundo. A assimetria é do site.
+ */
+export const RETURNS_POLICY_PATH = '/politicas-de-trocas-e-devolucoes'
+export const PRIVACY_POLICY_PATH = '/politica-de-privacidade'
+
+/**
+ * Cuidados com sua joia afetiva — o guia de conservação da peça.
+ *
+ * Mora aqui pela mesma razão das duas acima: quem linka (o rodapé) não é quem renderiza, e o valor é
+ * **literal** do site em produção (`/cuidados-com-sua-joia-afetiva/`, lido em 2026-09-12), sem a
+ * barra final.
+ */
+export const JEWELRY_CARE_PATH = '/cuidados-com-sua-joia-afetiva'
+
+/**
  * `/como-enviar-seu-material-de-dna#cinzas` — o guia, opcionalmente já no material da cliente.
  *
  * A âncora vem de `materialAnchor` (`@estrelinha/core/material`), que não é importado aqui de
@@ -135,7 +178,17 @@ export const materialGuideHref = (anchor?: string | null): string => {
 export const SITEMAP_STATIC_PATHS: readonly string[] = [
   '/',
   '/sobre',
-  '/politicas',
+  // Feature 45. As duas políticas são conteúdo público e estável, e entram aqui pelo motivo que
+  // `NON_INDEXABLE_PATHS` explica ao contrário: sem anúncio no sitemap, a descoberta delas volta a
+  // depender de o rastreador executar o JavaScript da vitrine. São também as URLs que o Google
+  // Merchant Center e o meio de pagamento pedem por escrito. O índice `/politicas` que as anunciava
+  // foi removido — a rota não existe mais, e uma entrada dele aqui seria uma URL do sitemap
+  // apontando para 404.
+  //
+  // Pelas constantes, e não por literal repetido: mesma regra do `MATERIAL_GUIDE_PATH` logo acima.
+  RETURNS_POLICY_PATH,
+  PRIVACY_POLICY_PATH,
+  JEWELRY_CARE_PATH,
   MATERIAL_GUIDE_PATH,
 ]
 

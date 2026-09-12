@@ -32,7 +32,7 @@ const APP = readFileSync(resolve(HERE, '../App.tsx'), 'utf8')
  * Toda `path="…"` que aparece no arquivo, **sem repetição**.
  *
  * A varredura é textual e por isso alcança comentário também — o bloco que explica o ranqueamento do
- * React Router cita `path="*"` em prosa, e a leitura crua devolve 20 ocorrências para 19 rotas. A
+ * React Router cita `path="*"` em prosa, e a leitura crua devolve 22 ocorrências para 21 rotas. A
  * deduplicação resolve isso sem enfraquecer nada: um comentário que citasse um caminho **novo**
  * continuaria caindo na classificação abaixo, e ser obrigado a classificar um caminho citado em
  * comentário é o lado certo do erro.
@@ -65,7 +65,7 @@ describe('sitemapRoutes — âncora da varredura (SMP-25)', () => {
   it('encontrou o número de rotas que o roteador declara', () => {
     // Segunda metade: contou o que leu. Se uma rota sumir do arquivo, este número cai e alguém
     // precisa olhar — em vez de a classificação passar a cobrir um roteador menor sem aviso.
-    expect(declaredRoutes()).toHaveLength(19)
+    expect(declaredRoutes()).toHaveLength(21)
   })
 })
 

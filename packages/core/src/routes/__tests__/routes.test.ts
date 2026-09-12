@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   INFRA_SLUGS,
+  JEWELRY_CARE_PATH,
   LEGACY_REDIRECTS,
   MATERIAL_GUIDE_PATH,
   NON_INDEXABLE_PATHS,
@@ -23,14 +24,16 @@ import {
  * medido — comparar `ROUTE_SLUGS` com um `map` derivado dele mesmo passaria com a lista vazia.
  */
 describe('ROUTE_SLUGS — o primeiro segmento de toda rota declarada em App.tsx', () => {
-  it('tem exatamente os 15 segmentos estáticos das rotas da loja', () => {
+  it('tem exatamente os 17 segmentos estáticos das rotas da loja', () => {
     // 13 até a feature 23; o 14º é `como-enviar-o-material`, da 22. O 15º é
     // `como-enviar-seu-material-de-dna`, da 31 — e o 14º **continua aqui**, agora como rota de
     // redirect: apagá-lo liberaria o slug para uma categoria, que engoliria o 301 das URLs já
-    // compartilhadas. **Esta contagem falhar quando uma rota entra é o comportamento correto**: com
-    // categoria na raiz do domínio (`AD-018`), rota nova que não passe por aqui encobre em silêncio
-    // uma categoria homônima.
-    expect(ROUTE_SLUGS).toHaveLength(15)
+    // compartilhadas. O 16º e o 17º são as duas políticas da 45. O ÍNDICE `politicas` que as
+    // apontava foi removido em 2026-09-12 (decisão do usuário) e `cuidados-com-sua-joia-afetiva`
+    // entrou no lugar dele, mantendo a contagem. **Esta contagem falhar quando uma rota entra é o
+    // comportamento correto**: com categoria na raiz do domínio (`AD-018`), rota nova que não passe
+    // por aqui encobre em silêncio uma categoria homônima.
+    expect(ROUTE_SLUGS).toHaveLength(17)
   })
 
   it.each([
@@ -42,7 +45,9 @@ describe('ROUTE_SLUGS — o primeiro segmento de toda rota declarada em App.tsx'
     ['pedido'],
     ['busca'],
     ['sobre'],
-    ['politicas'],
+    ['politicas-de-trocas-e-devolucoes'],
+    ['politica-de-privacidade'],
+    ['cuidados-com-sua-joia-afetiva'],
     ['como-enviar-o-material'],
     ['como-enviar-seu-material-de-dna'],
     ['conta'],
@@ -51,6 +56,31 @@ describe('ROUTE_SLUGS — o primeiro segmento de toda rota declarada em App.tsx'
     ['checkout'],
   ])('contém "%s"', slug => {
     expect(ROUTE_SLUGS).toContain(slug)
+  })
+
+  /**
+   * `POL-01` — o plural e o singular são **do site em produção**, e a assimetria é o dado.
+   *
+   * Sem este caso, a próxima pessoa que passar por aqui "arruma" um dos dois para o outro, e a
+   * arrumação é uma mudança de endereço: a URL que o Google indexou passa a responder 404, e nada no
+   * repositório acusa — as duas páginas continuam abrindo, pelo endereço novo.
+   */
+  it('as duas políticas têm os slugs LITERAIS do site em produção — plural e singular', () => {
+    expect(ROUTE_SLUGS).toContain('politicas-de-trocas-e-devolucoes')
+    expect(ROUTE_SLUGS).toContain('politica-de-privacidade')
+    expect(ROUTE_SLUGS).not.toContain('politica-de-trocas-e-devolucoes')
+    expect(ROUTE_SLUGS).not.toContain('politicas-de-privacidade')
+  })
+
+  /**
+   * `politicas` era o índice — e só o índice — e foi removido em 2026-09-12. A comparação continua
+   * sendo de **segmento inteiro**: sem o índice reservado, nada muda para as duas páginas abaixo,
+   * porque elas nunca dependeram dele para ficar reservadas.
+   */
+  it('a política de trocas continua reservada por segmento inteiro, mesmo sem o índice `politicas`', () => {
+    expect(isReservedSlug('politicas-de-trocas-e-devolucoes')).toBe(true)
+    expect(isReservedSlug('politicas')).toBe(false)
+    expect(isReservedSlug('politicas-de-frete')).toBe(false)
   })
 })
 
@@ -71,12 +101,12 @@ describe('INFRA_SLUGS — o que é do host/build e não aparece no App.tsx', () 
 })
 
 describe('RESERVED_SLUGS — a união das duas, sem duplicata', () => {
-  it('tem 18 entradas: 15 rotas + 3 de infraestrutura', () => {
-    expect(RESERVED_SLUGS).toHaveLength(18)
+  it('tem 20 entradas: 17 rotas + 3 de infraestrutura', () => {
+    expect(RESERVED_SLUGS).toHaveLength(20)
   })
 
   it('não repete nenhuma entrada', () => {
-    expect(new Set(RESERVED_SLUGS).size).toBe(18)
+    expect(new Set(RESERVED_SLUGS).size).toBe(20)
   })
 
   it.each([
@@ -88,7 +118,7 @@ describe('RESERVED_SLUGS — a união das duas, sem duplicata', () => {
     ['pedido'],
     ['busca'],
     ['sobre'],
-    ['politicas'],
+    ['cuidados-com-sua-joia-afetiva'],
     ['conta'],
     ['favoritos'],
     ['entrar'],
@@ -149,7 +179,7 @@ describe('reservedSlugRefusal — o motivo da recusa (URL-05)', () => {
       'pedido',
       'busca',
       'sobre',
-      'politicas',
+      'cuidados-com-sua-joia-afetiva',
       'conta',
       'favoritos',
       'entrar',
@@ -318,9 +348,29 @@ describe('a classificação de rota do sitemap (SMP-04, SMP-24)', () => {
     }
   })
 
-  it('âncora de tamanho: 4 institucionais e 7 excluídas', () => {
+  /**
+   * `POL-03` — as duas políticas são anunciadas.
+   *
+   * Um item por caminho (`L-010`), e não um laço sobre a própria lista: a régua não pode ser o objeto
+   * medido. Sem isto, uma das duas poderia sair de `SITEMAP_STATIC_PATHS` e a única coisa a acusar
+   * seria a âncora de contagem abaixo — que quem remove a entrada também ajusta, sem pensar.
+   */
+  it.each([['/politicas-de-trocas-e-devolucoes'], ['/politica-de-privacidade']])(
+    'a política em "%s" é anunciada no sitemap',
+    (path) => {
+      expect(SITEMAP_STATIC_PATHS).toContain(path)
+    },
+  )
+
+  it('os cuidados com a joia entram pelo `JEWELRY_CARE_PATH`, não por literal repetido', () => {
+    expect(SITEMAP_STATIC_PATHS).toContain(JEWELRY_CARE_PATH)
+  })
+
+  it('âncora de tamanho: 6 institucionais e 7 excluídas', () => {
     // Sem a âncora, esvaziar uma das listas tornaria as asserções acima verdadeiras por vacuidade.
-    expect(SITEMAP_STATIC_PATHS).toHaveLength(4)
+    // As 6: raiz, Sobre, as duas políticas da feature 45, os cuidados com a joia e o guia de
+    // material. O índice `/politicas` que ocupava uma dessas vagas foi removido em 2026-09-12.
+    expect(SITEMAP_STATIC_PATHS).toHaveLength(6)
     expect(NON_INDEXABLE_PATHS).toHaveLength(7)
   })
 })

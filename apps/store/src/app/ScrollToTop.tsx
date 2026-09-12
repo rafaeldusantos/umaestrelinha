@@ -40,10 +40,10 @@ const alvoDoFragmento = (hash: string): HTMLElement | null => {
  * 2. **Não rouba a âncora que já tem dono.** Os `<a href="#...">` do guia de material são do mesmo
  *    documento: o navegador os resolve sozinho e o React Router nem enxerga o clique (âncora não
  *    dispara `popstate`), então este componente nunca roda por causa deles. O que ele resolve é o
- *    caso **sem dono nenhum**: `Link to="/politicas#trocas"` no rodapé troca de página, e aí a
- *    rolagem do fragmento não é de ninguém — o navegador não a faz em navegação de SPA. Com alvo
- *    existente, vai até ele; **sem alvo, vai ao topo**, porque hoje os três `#` do rodapé não casam
- *    com `id` nenhum de `PoliciesPage` e cair no meio da página é o defeito, não a intenção.
+ *    caso **sem dono nenhum**: um `Link to="/outra-pagina#secao"` troca de página, e aí a rolagem do
+ *    fragmento não é de ninguém — o navegador não a faz em navegação de SPA. Com alvo existente, vai
+ *    até ele; **sem alvo, vai ao topo** — foi o caso de `/politicas#trocas` no rodapé, até a feature
+ *    45 trocar aquele link por uma página própria com o texto inteiro, sem fragmento nenhum.
  * 3. **Não reage a mudança só de query string.** Digitar na busca reescreve `?q=` a cada tecla
  *    (`setParams(..., { replace: true })`); rolar ali seria um pulo por caractere. O gatilho é o
  *    **destino** — `pathname` + `hash` —, e o `ref` abaixo é o que garante isso: sem ele, o primeiro

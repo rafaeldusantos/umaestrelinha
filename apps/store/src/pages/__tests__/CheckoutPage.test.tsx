@@ -30,7 +30,7 @@ import CheckoutPage, {
 // CHK-06: rótulo do CTA com o valor do método escolhido; desabilitado se algum bloco falta.
 // CHK-07/CHK-08: pedido criado 1×; edição entre acionamentos cria um segundo.
 // CHK-09: falha na criação preserva rascunho e carrinho.
-// CHK-10/CHK-12: header próprio sem navegação + faixa de confiança coerente com PoliciesPage.
+// CHK-10/CHK-12: header próprio sem navegação + faixa de confiança coerente com ReturnsPolicyPage.
 // PGD-03: CPF que não salva bloqueia; endereço que não salva não bloqueia (ADR-03).
 // CNF-03: a aprovação navega para `/pedido/:id` — nenhuma confirmação inline sobra.
 // CNF-05: carrinho e cupom limpos exatamente 1× e **só** na aprovação.
@@ -1247,7 +1247,7 @@ describe('CheckoutPage — header, confiança e paleta (CHK-10, CHK-12)', () => 
     expect(screen.queryByRole('navigation')).not.toBeInTheDocument()
   })
 
-  it('faixa de confiança afirma só o que PoliciesPage promete', () => {
+  it('faixa de confiança afirma só o que ReturnsPolicyPage promete', () => {
     renderPage()
 
     expect(screen.getByText('Mercado Pago')).toBeInTheDocument()

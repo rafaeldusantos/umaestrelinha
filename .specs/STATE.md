@@ -763,7 +763,38 @@
 
 ## Handoff
 
-### ATUAL — 2026-09-11 · `44-gaveta-de-material` **IMPLEMENTADA E VERIFICADA**
+### ATUAL — 2026-09-12 · `45-politicas-da-loja` **IMPLEMENTADA**
+
+- **Feature**: `.specs/features/45-politicas-da-loja/` (spec, design, tasks, validation)
+- **Phase / Task**: todas — T1–T8 concluídas
+- **Completed**: `shared/ui/Trilha` (extraída da `AboutPage`), `shared/ui/PolicyDocument` +
+  `PolicyContact`, `shared/lib/consent.ts` + `policySectionId.ts`, as duas páginas
+  (`/politicas-de-trocas-e-devolucoes` e `/politica-de-privacidade`), `politicaComDonoUnico.test.ts`,
+  o fio path→componente em `routing.test.tsx`, e a passagem de docs (`apps/store/CLAUDE.md` + as
+  baselines da raiz). **Sem commit ainda** — `BL-012`
+- **EXECUTADA EM WORKING TREE COMPARTILHADA**, o primeiro caso do projeto. Uma segunda sessão
+  entregou `/cuidados-com-sua-joia-afetiva` sobre o `PolicyDocument` desta feature **e removeu
+  `/politicas`** por instrução direta do usuário dela. Consequências registradas:
+  - **`POL-15` e `POL-16` foram REVOGADOS no meio da execução** (o índice `/politicas`), com o
+    usuário desta sessão consultado e decidindo aceitar. Estão marcados **superseded** na `spec.md`,
+    não apagados
+  - **`POL-19` foi ESTREITADO** de três réguas para duas: a que guardava o índice morreu com ele
+  - as seis **âncoras de contagem compartilhadas** ficaram com a outra sessão, porque o líquido das
+    duas mudanças é **zero** (uma rota saiu, outra entrou)
+- **Next step**: nenhum para o código. Pendentes declarados no `validation.md`: **prova em
+  navegador** (390×844 e 1440), **verificador independente**, e as duas dívidas que a remoção de
+  `/politicas` deixou (Envio/Pagamento sem casa, e a rota removida sem 301 estando no sitemap)
+- **Blockers**: nenhum
+- **Baseline de entrada**: medida do disco em `3fe19b1` — store **2853/184** · core **2121/80** ·
+  functions **436/8** · backoffice **2023/119** · catalog-import **512/23**. **Três das cinco
+  estavam desatualizadas no `CLAUDE.md`** (core +310/+10, functions +66/+1, backoffice +21); o total
+  `7548 em 403` que o arquivo registrava **nunca existiu na árvore**. Corrigido
+- **Baseline de saída** (árvore combinada, um workspace por vez, exit code fora de pipe):
+  **8054 em 419** — store **2955/189** · core **2128/80** · functions 436/8 · backoffice 2023/119 ·
+  catalog-import 512/23. Lint **27/6** · tipos **0·0·0** · `pnpm build` verde · `payment/**` intocado
+- **Branch**: `master`
+
+### ANTERIOR — 2026-09-11 · `44-gaveta-de-material` **IMPLEMENTADA E VERIFICADA**
 
 - **Feature**: `.specs/features/44-gaveta-de-material/` (spec, design, tasks)
 - **Phase / Task**: todas — T1–T15 concluídas

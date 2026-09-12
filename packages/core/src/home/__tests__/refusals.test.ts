@@ -8,7 +8,7 @@ import {
   uniqueTypeRefusal,
 } from '../refusals'
 import { MAX_HOME_SECTIONS } from '../catalog'
-import { INFRA_SLUGS } from '../../routes'
+import { INFRA_SLUGS, ROUTE_SLUGS } from '../../routes'
 import type { HomeSection } from '../types'
 
 /**
@@ -218,7 +218,12 @@ describe('ctaHrefRefusal — o destino do CTA (HOME-20)', () => {
   })
 
   it('deixa passar três níveis sob uma rota de verdade', () => {
-    expect(ctaHrefRefusal('/politicas/troca/prazo')).toBeNull()
+    // **O fixture tem de ser um primeiro segmento que REALMENTE é rota**, e a asserção fica ao lado
+    // por causa do que aconteceu aqui: o fixture anterior era `/politicas`, a rota foi REMOVIDA da
+    // loja na feature 45, e este caso passou a medir o oposto do que o nome dele diz — sem ninguém
+    // tocar em `ctaHrefRefusal`. Fixture que nomeia uma rota precisa provar que ela existe.
+    expect(ROUTE_SLUGS).toContain('produtos')
+    expect(ctaHrefRefusal('/produtos/troca/prazo')).toBeNull()
   })
 })
 

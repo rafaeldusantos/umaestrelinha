@@ -14,6 +14,7 @@ import { Label } from '@estrelinha/ui/label'
 import { Checkbox } from '@estrelinha/ui/checkbox'
 import { useAuthContext } from '@estrelinha/auth'
 import { setGuestEmail } from '@/features/abandoned-cart/model/useAbandonedCartTracker'
+import { MARKETING_CONSENT_LABEL } from '@/shared/lib/consent'
 import { useCheckoutStore } from '../model/checkoutStore'
 
 interface Props {
@@ -162,9 +163,10 @@ const ContactBlock = ({ open, complete, onEdit, onContinue, canContinue }: Props
           onCheckedChange={(v) => edit({ consent: v === true })}
           className="mt-0.5 border-estrelinha-ink-soft"
         />
-        <span>
-          Quero receber lembretes e novidades por e-mail. Você pode cancelar quando quiser.
-        </span>
+        {/* O texto mora em `shared/lib/consent` porque a Política de Privacidade o CITA para dizer à
+            leitora o que ela autorizou (`POL-13`). Escrito nos dois lugares, o checkout mostraria uma
+            frase e a política declararia outra — e o que ficaria errado é a prova de consentimento. */}
+        <span>{MARKETING_CONSENT_LABEL}</span>
       </label>
 
       {/* FLW-02/FLW-03: contorno de tinta, não geleia sólida — CHK-04 reserva a única pílula

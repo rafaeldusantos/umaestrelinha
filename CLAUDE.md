@@ -122,9 +122,19 @@ Ao planejar/implementar features, use a Skill **`tlc-spec-driven`** com estas co
     a `31` mostrou o que custa a alternativa —, mas **não** vira precedente para inverter a ordem.
     **A `33` (sitemap), a `34` (painel de vendas), a `35` (clientes e pedidos da Nuvemshop), a `37`
     (frete grátis configurável), a `38` (performance no celular), a `39` (menu configurável), a
-    `40` (estabilidade da home) e a `41` (banner principal da home) estão FECHADAS. A `36`
-    (metadados e dados estruturados) tem **só `spec.md`** e não foi implementada — o número está
-    consumido de qualquer forma. A próxima é a `42`.**
+    `40` (estabilidade da home), a `41` (banner principal da home), a `44` (gaveta de material) e a
+    `45` (as políticas da loja) estão FECHADAS. A `36` (metadados e dados estruturados) tem **só
+    `spec.md`** e não foi implementada — o número está consumido de qualquer forma. A próxima é a
+    `46`.**
+  - **A `45` foi executada em uma working tree COMPARTILHADA com outra sessão**, e é o primeiro caso
+    do projeto. A outra entregou `/cuidados-com-sua-joia-afetiva` sobre o `PolicyDocument` da `45` e
+    **removeu `/politicas`** — o que revogou dois requisitos da `45` no meio da execução
+    (`POL-15`/`POL-16`, registrados como superseded na `spec.md` dela, não apagados). O que fez isso
+    funcionar foi dividir a **propriedade dos arquivos** por escrito antes de editar, com atenção
+    especial às **âncoras de contagem compartilhadas** (`ROUTE_SLUGS`, `SITEMAP_STATIC_PATHS`, as
+    contagens de `routeSplitting`/`sitemapRoutes` e o `<loc>` do sitemap): duas sessões somando +1
+    cada na mesma âncora produzem um número que nenhuma das duas mediu. Aqui o líquido era **zero**
+    — uma rota saiu e outra entrou —, e só se sabe disso conversando.
 - **Numeração dos itens**: dentro da feature, prefixar os itens de implementação (tasks/entregas) com
   número sequencial de dois dígitos e nome descritivo em kebab-case — `01-nome-implementacao`,
   `02-nome-implementacao`, etc.
@@ -317,6 +327,7 @@ migrations, e `vercelRedirects` lê o `vercel.json`.
 | `cardSkeletonBox.test.ts` | store `entities/product/ui/__tests__` | o `ProductCard` e o `ProductCardSkeleton` divergirem numa das quatro classes que produzem altura. jsdom devolve 0 para layout, então nenhum teste de componente pega — este lê os dois do disco. Modela o **par** (`min-h-[40px]` no card × `h-[40px]` no esqueleto), e a régua é de **token exato**, porque `'min-h-[40px]'.includes('h-[40px]')` é `true` |
 | `semMaterialNaPaginaDoProduto.test.ts` | store `entities/product/ui/__tests__` | a página do produto voltar a dizer **QUAL** material — `MaterialNotice`, `material_kinds`, `materialKindsOf`, `materialKindLabel`, `MATERIAL_KIND_LABELS`, `materialSummary` ou `materialAnchor`, em **qualquer** arquivo de `entities/product/ui`, `widgets/product-buy-bar` ou `ProductPage.tsx`; `MaterialNotice.tsx` reaparecer no disco. **A `44` ESTREITOU a régua**: `requiresMaterial` saiu dela — a página voltou a poder dizer que *existe* material (é o que acende a linha "Como enviar seu material de DNA") e continua proibida de dizer *qual*. A gravação (`MAT-03`) nunca foi acusada. **Âncora dupla**, **sete sensores** (um por forma, não um bloco) **mais o sensor inverso** provando que `requiresMaterial` passa, mais a prova de que o escopo é fronteira e não vazio (o dono do conteúdo, fora do escopo, é acusado pela mesma régua) |
 | `donoUnicoDoGuia.test.ts` | store `entities/material/model/__tests__` | uma segunda declaração de `FICHAS_DE_MATERIAL`, `CARTOES_DE_MATERIAL`, `PREPARO_EM_CASA`, `PASSOS_DO_ENVIO`, `ATALHOS_DE_MATERIAL`, `VIDEOS_DE_PREPARO`, `FORMAS_DE_ENVIO` ou `CHECKLIST_DO_ENVIO` fora de `entities/material/model`; `widgets/material-guide/model` voltar a existir; a gaveta e o guia importarem um do outro; `MATERIAIS_SEM_ANCORA` deixar de ser vazio. A régua procura **declaração**, nunca menção — proibir o consumo seria proibir o uso que ela existe para proteger. **Âncora dupla** e remoção de comentário com CRLF, LF e o glob de dois asteriscos |
+| `politicaComDonoUnico.test.ts` | store `pages/__tests__` | o mesmo **título de seção** de política ser declarado em dois arquivos de `pages/` — são **três** documentos `PolicyDocument` (trocas, privacidade, cuidados com a joia), e "Cuidados com a peça" × "Cuidados gerais com a joia" é o par que vai divergir; qualquer arquivo de `apps/store/**` linkar para `/politicas`, **com ou sem fragmento** — a rota foi removida, então o endereço nu também é 404. A régua procura **declaração**, nunca menção, e o recorte é `(?![-\w])` e **não** `\b`: `-` não é caractere de palavra, então `\b` não fecha nada e `/politicas-de-trocas-e-devolucoes` seria acusado junto (`L-034`). **Âncora dupla** (arquivos lidos + títulos encontrados + pelo menos três declarantes) e **sete sensores**, incluindo o inverso que prova que as duas políticas VIVAS passam |
 | `rotuloCurto.test.ts` | idem | entrada de `ATALHOS_DE_MATERIAL` sem `rotuloCurto`, com rótulo vazio ou acima de **20 caracteres**; `rotulo` deixar de ser o título completo (o seletor do guia usa ele, a gaveta usa o curto). **Âncora de contagem** derivada das três origens — um mapa que perdesse `...PREPARO_EM_CASA` passaria com 8 entradas conformes |
 | `heroSemOpacidadeZero.test.ts` | store `widgets/hero-banner/ui/__tests__` | o elemento do LCP voltar a nascer invisível — `opacity: 0` em **qualquer** lugar do `HeroBanner.tsx`, variant ou prop inline. Também recusa apagar a animação inteira: o pedido é entrar **sem esconder**, não deixar de entrar. **Ampliado na `41`** para a classe utilitária, o valor arbitrário (`opacity-[0]`) e o `fade-in` do `tailwindcss-animate` |
 | `heroCarouselSemOpacidadeZero.test.ts` | store `widgets/hero-carousel/ui/__tests__` | a mesma régua no bloco da `41`, em **cinco grafias**: objeto do framer, `style` inline, classe utilitária (`opacity-0` e `opacity-[0]`, com prefixo), `invisible`, e as **animações de entrada** — o `fade-in` do `tailwindcss-animate` **e** o `animate-fade-in`/`animate-scale-in`/`animate-slide-up` do preset deste repositório, que compilam para opacidade zero e **não contêm a palavra `opacity`**. Varre o widget **e o registro `tipo → componente`**, porque a AC diz "em nenhum ponto do caminho até ele". **Âncora quádrupla** (a quarta lê o preset e prova que as classes acusadas EXISTEM mesmo) e dezesseis sensores, incluindo o par que prova que `opacity: 0.5`, `opacity-70`, `fade-in-50`, `zoom-in-95`, `animate-bounce-cart` e `bg-…/90` **não** são o defeito |
@@ -382,7 +393,46 @@ quando mudarem de verdade.
 | --- | --- | --- |
 | **Lint** | **27 erros / 6 warnings** — backoffice 25/4 · store 2/2 | `pnpm lint` |
 | **Tipos** | **0 · 0 · 0** (store · backoffice · catalog-import) | `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` |
-| **Testes** | **7548 em 403 arquivos** — store **2853/184** · backoffice **2002/119** · core **1811/70** · functions 370/7 · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test` |
+| **Testes** | **8054 em 419 arquivos** — store **2955/189** · backoffice **2023/119** · core **2128/80** · functions **436/8** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test` |
+
+**A feature `45` (as políticas da loja) foi medida em 2026-09-12 na árvore COMBINADA**, um workspace
+por vez e com exit code capturado fora de pipe. "Combinada" é literal: **duas sessões trabalharam na
+mesma working tree ao mesmo tempo** — a `45` (as duas páginas de política, o `PolicyDocument` e os
+guardas) e um trabalho paralelo que entregou `/cuidados-com-sua-joia-afetiva` sobre o mesmo
+`PolicyDocument` **e removeu `/politicas`**. Os números abaixo são das duas coisas juntas, e **não
+devem ser lidos como delta de uma feature só**.
+
+| Workspace | Entrada medida | Saída | Delta |
+| --- | --- | --- | --- |
+| store | 2853/184 | **2955/189** | +102/+5 |
+| core | 2121/80 | **2128/80** | +7 |
+| functions | 436/8 | **436/8** | 0 |
+| backoffice | 2023/119 | **2023/119** | 0 — não tocado, remedido |
+| catalog-import | 512/23 | **512/23** | 0 — não tocado, remedido |
+
+Lint ficou em **27/6** (backoffice 25/4 · store 2/2), tipos em **0·0·0**, `pnpm build` verde nos dois
+apps, e `packages/core/src/payment/**` sem uma linha alterada — conferido por `git diff --name-only`.
+
+> **TRÊS das cinco baselines desta tabela estavam DESATUALIZADAS antes desta feature**, e o achado é
+> o mais reutilizável dela. Medidas do disco com a árvore limpa em `3fe19b1`, **antes** de qualquer
+> edição: core dizia `1811/70` e era **2121/80** (+310/+10); functions dizia `370/7` e era **436/8**
+> (+66/+1); backoffice dizia `2002/119` e era **2023/119** (+21). Só o store batia.
+>
+> O total anterior (`7548 em 403`) portanto **nunca existiu na árvore** — é a soma de três números
+> velhos com dois certos. Pelos deltas, o envelhecimento vem do fecho da `42`/`43`. A correção está
+> aplicada acima: o número novo é **medido**, não `7548 + 506`.
+>
+> É a lição que este arquivo já repete desde a `32` — *"baseline anotada de memória, ou de uma
+> execução anterior à última alteração, mente sem quebrar nada"* —, agora com a consequência
+> concreta: **uma baseline velha faz o gate da feature seguinte comparar contra folga que não
+> existe**, e o erro se acumula em silêncio por features inteiras.
+
+> **O full run de um workspace acha o que o arquivo tocado não acha.** A remoção de `/politicas`
+> passou nos testes de `routes.test.ts` e derrubou `core/home/__tests__/refusals.test.ts`, que usava
+> `/politicas/troca/prazo` como exemplo de **"uma rota de verdade"**. O caso passou a medir o oposto
+> do que o nome dele diz — sem ninguém tocar em `ctaHrefRefusal`. Conserto: fixture sob `/produtos` e
+> **a asserção `expect(ROUTE_SLUGS).toContain('produtos')` ao lado**. *Fixture que nomeia uma rota
+> precisa provar que ela existe*, senão a próxima remoção o apodrece de novo em silêncio.
 
 **A feature `44` (gaveta de material na página do produto) somou +106 em UM workspace**, medidos em
 2026-09-11 com exit code capturado fora de pipe: **store 2747/175 → 2853/184**. Os outros quatro não
@@ -772,6 +822,26 @@ completo (framework, `installCommand` na raiz do monorepo, headers de cache e de
   os identificadores não.
 
 ## Estado conhecido / dívidas
+
+- **`/politicas` FOI REMOVIDA, e levou Envio e Pagamento com ela** (2026-09-12, decisão do usuário).
+  A loja tem três páginas institucionais de texto — `/politicas-de-trocas-e-devolucoes`,
+  `/politica-de-privacidade` e `/cuidados-com-sua-joia-afetiva` — e **nenhuma delas diz por onde a
+  loja envia, em quanto tempo posta, que aceita Pix e cartão, nem a partir de quanto o frete é
+  grátis**. Esses quatro blocos liam `store_settings` (`usePaymentSettings`, `useFreeShipping`) e só
+  existiam na `/politicas`. É dívida de conteúdo, não de código: some uma página, some a informação.
+  - **A rota saiu SEM 301, estando em `SITEMAP_STATIC_PATHS`** — ou seja, foi anunciada para
+    indexação, e está commitada desde `12c8ab7` ("baseline herdada da Nanita"). É exatamente o
+    tradeoff que `AD-018` e `LEGACY_REDIRECTS` existem para não deixar acontecer por acidente com
+    outros slugs. O conserto, se a decisão mudar, é **uma entrada** em `LEGACY_REDIRECTS`.
+- **As duas páginas de política NÃO têm prova em navegador** (feature `45`). Os endereços, o texto, o
+  portão do WhatsApp e os guardas estão medidos; o que falta é o que **jsdom não mede**: a medida de
+  leitura de 720px, os botões de contato empilhando em 390, o alvo de 44px e a ausência de rolagem
+  horizontal do body. Entra na fila da `32`, `33`, `34`, `35`, `37`, `39` e `41`.
+  - **O texto jurídico não passou por advogado.** Ele é da dona e foi transportado sem reescrita; o
+    que a `45` acrescentou (LGPD, compartilhamento, consentimento) foi conferido contra **o que o
+    código faz**, não contra a lei. A `PrivacyPolicyPage` recusa por teste afirmar encarregado de
+    dados, perfilamento publicitário ou remarketing — a loja não faz nenhum dos três, e declarar o
+    contrário seria assinar documento falso em nome da Adri.
 
 - **O BANNER PRINCIPAL NÃO EXISTE ATÉ A ADRI CRIAR UM, e o hero deixou de ser obrigatório** (feature
   `41`). A migration **não semeia seção nenhuma** — de propósito, porque semear mudaria a Home de

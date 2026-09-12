@@ -78,7 +78,7 @@ interface DbGridRow {
   product_variants: { is_active: boolean; price: number | null }[] | null
 }
 
-/** CHK-12: só o que `pages/PoliciesPage.tsx` realmente promete. */
+/** CHK-12: só o que `pages/ReturnsPolicyPage.tsx` realmente promete. */
 const TRUST_ITEMS = [
   { icon: ShieldCheck, label: 'Mercado Pago' },
   { icon: RefreshCw, label: 'Troca de produto com defeito em 7 dias' },

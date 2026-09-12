@@ -40,7 +40,9 @@ const OrderConfirmationPage = lazy(() => import("@/pages/OrderConfirmationPage")
 const AuthPage = lazy(() => import("@/pages/AuthPage"));
 const SearchPage = lazy(() => import("@/pages/SearchPage"));
 const AboutPage = lazy(() => import("@/pages/AboutPage"));
-const PoliciesPage = lazy(() => import("@/pages/PoliciesPage"));
+const ReturnsPolicyPage = lazy(() => import("@/pages/ReturnsPolicyPage"));
+const PrivacyPolicyPage = lazy(() => import("@/pages/PrivacyPolicyPage"));
+const JewelryCarePage = lazy(() => import("@/pages/JewelryCarePage"));
 const HowToSendMaterialPage = lazy(() => import("@/pages/HowToSendMaterialPage"));
 const AccountPage = lazy(() => import("@/pages/AccountPage"));
 const NotFound = lazy(() => import("@/pages/NotFound"));
@@ -127,7 +129,24 @@ const App = () => (
                 <Route path="/pedido/:id" element={<OrderConfirmationPage />} />
                 <Route path="/busca" element={<SearchPage />} />
                 <Route path="/sobre" element={<AboutPage />} />
-                <Route path="/politicas" element={<PoliciesPage />} />
+                {/*
+                  Feature 45. Os dois endereços são LITERAIS do site em produção — plural no primeiro,
+                  singular no segundo —, e a assimetria é do site, não erro. Padronizá-los é mudar de
+                  endereço: a URL que o Google indexou passaria a responder 404, e a página nova
+                  abriria normalmente, então nada no repositório acusaria.
+
+                  Os dois entram em `ROUTE_SLUGS` na mesma mudança (`AD-018`): com categoria na raiz
+                  do domínio, rota de um segmento que não é reservada encobre em silêncio a categoria
+                  homônima.
+
+                  O índice `/politicas` (que só apontava para as duas, sem seção própria) foi
+                  removido — não redirecionado: ele nunca foi URL do site em produção, então não há
+                  link externo nem e-mail antigo que dependa dele.
+                */}
+                <Route path="/politicas-de-trocas-e-devolucoes" element={<ReturnsPolicyPage />} />
+                <Route path="/politica-de-privacidade" element={<PrivacyPolicyPage />} />
+                {/* Mesma régua: slug literal do site em produção, lido em 2026-09-12. */}
+                <Route path="/cuidados-com-sua-joia-afetiva" element={<JewelryCarePage />} />
                 <Route
                   path="/como-enviar-seu-material-de-dna"
                   element={<HowToSendMaterialPage />}
