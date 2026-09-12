@@ -12,7 +12,29 @@ discriminação).
 ---
 
 **Design**: `.specs/features/46-perguntas-frequentes-da-loja/design.md`
-**Status**: Approved
+**Status**: In Progress — **Fases 1 e 2 completas (T1–T8)**, medidas em 2026-09-12
+
+| Task | Commit | Nota |
+| --- | --- | --- |
+| T1 | `5945d5c` | migration: teto 4000 (nas **duas** constraints) + `faq_page_items` + RLS |
+| T2 | `f545740` | semeadura das 26, `question_key` gerada por `faqQuestionKey` |
+| T3 | `edbd2e5` | `FAQ_ANSWER_MAX = 4000`; `faqSchema.test.ts` mede o check **vigente** |
+| T4 | `915128f` | probe: 9 medições por HTTP/SQL contra o banco local |
+| T5 | `4e50811` | `text.ts` — `faqAnswerPlainText` é dobra sobre `faqAnswerBlocks` |
+| T6 | `757f587` | `page.ts` — `resolveFaqPage` + vocabulário de assuntos |
+| T7 | `8790a31` | `jsonld.ts` — `faqPageJsonLd` |
+| T8 | `37f4dfe` | `purity.test.ts` de `core/faq` |
+
+**Medido ao fim da Fase 2**: core **2128 → 2184** (+56, 80 → 84 arquivos) · store **2955 → 2995**
+(+40, 189 → 190) · tipos **0 · 0**. Um workspace por vez, exit code fora de pipe.
+
+**Achado da T1 que o design não previu**: a migration sobe o teto de `product_faqs_override_len`
+**junto** com o de `faqs.answer`. Subir só o primeiro faria a aba Perguntas do produto aceitar 4000
+caracteres que o banco recusa — o defeito apareceria no save da dona, e em teste nenhum.
+
+**Achado da T4, contra dado real**: das 26 semeadas, **uma reusou** entrada que já existia na
+biblioteca (a biblioteca foi de 67 para 92, não 93). O `join` por `question_key` fez a página apontar
+para a pergunta que os produtos já usam — a propriedade central do desenho, exercida.
 
 ---
 
