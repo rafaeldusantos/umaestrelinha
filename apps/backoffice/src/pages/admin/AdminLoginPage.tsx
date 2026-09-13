@@ -6,6 +6,7 @@ import { Button } from '@estrelinha/ui/button'
 import { Input } from '@estrelinha/ui/input'
 import { Label } from '@estrelinha/ui/label'
 import { Pin, LogIn } from 'lucide-react'
+import ForgotPasswordFlow from '@/features/account/ui/ForgotPasswordFlow'
 
 const AdminLoginPage = () => {
   const [email, setEmail] = useState('')
@@ -13,6 +14,11 @@ const AdminLoginPage = () => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [entrando, setEntrando] = useState(false)
+  /**
+   * `USR-39`. Um passo, não uma rota: a recuperação termina com sessão aberta, e o efeito abaixo já
+   * sabe para onde levar quem entrou. Uma rota própria precisaria repetir essa decisão.
+   */
+  const [recuperando, setRecuperando] = useState(false)
   const navigate = useNavigate()
   const { user, isAdmin, loading: authLoading } = useAuthContext()
 
@@ -64,6 +70,23 @@ const AdminLoginPage = () => {
           <h1 className="font-heading text-2xl font-extrabold text-estrelinha-admin-text">Admin Uma Estrelinha</h1>
           <p className="text-sm text-estrelinha-admin-muted mt-1">Acesse o painel de gestão</p>
         </div>
+        {recuperando ? (
+          /**
+           * `USR-42`: o desfecho é o MESMO do login normal. `onEntrou` liga o `entrando`, e o efeito
+           * acima decide — `/admin` para quem é admin, e a frase de conta sem acesso para quem não
+           * é. Nenhuma segunda cópia da regra de "para onde ir depois de entrar".
+           */
+          <ForgotPasswordFlow
+            onCancel={() => {
+              setRecuperando(false)
+              setError('')
+            }}
+            onEntrou={() => {
+              setRecuperando(false)
+              setEntrando(true)
+            }}
+          />
+        ) : (
         <form onSubmit={handleLogin} className="bg-white rounded-2xl border border-estrelinha-admin-border p-6 space-y-4">
           {error && <p className="text-sm text-estrelinha-admin-pink bg-estrelinha-admin-pink/5 border border-estrelinha-admin-pink/20 rounded-lg p-3">{error}</p>}
           <div>
@@ -77,7 +100,19 @@ const AdminLoginPage = () => {
           <Button type="submit" disabled={loading} className="w-full rounded-xl gradient-cta text-white border-0 hover:brightness-110 hover:scale-[1.02] transition-all">
             <LogIn className="w-4 h-4 mr-2" /> {loading ? 'Entrando...' : 'Entrar'}
           </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => {
+              setRecuperando(true)
+              setError('')
+            }}
+            className="w-full text-estrelinha-admin-text-secondary"
+          >
+            Esqueci minha senha
+          </Button>
         </form>
+        )}
       </div>
     </div>
   )

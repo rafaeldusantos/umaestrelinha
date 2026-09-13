@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import { supabase } from '@estrelinha/supabase/client'
 import { MIN_PASSWORD_LENGTH } from '@estrelinha/core/constants'
 import { authErrorMessage } from '@estrelinha/core/auth'
+import { passwordChangeRefusal } from '@estrelinha/core/admin-users'
 import type { User } from '@supabase/supabase-js'
 
 interface Customer {
@@ -27,6 +28,7 @@ interface AuthContextType {
   resetPassword: (email: string) => Promise<{ error: string | null }>
   verifyRecoveryCode: (email: string, token: string) => Promise<{ error: string | null }>
   updatePassword: (password: string) => Promise<{ error: string | null }>
+  changeOwnPassword: (current: string, next: string, confirm: string) => Promise<{ error: string | null }>
   signOut: () => Promise<void>
 }
 
@@ -237,12 +239,43 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return { error: authErrorMessage(error) }
   }
 
+  /**
+   * Troca a senha de quem está logada, **provando a senha atual** (`USR-09`..`USR-12`, `USR-23`).
+   *
+   * Três passos, nesta ordem, e a ordem é a regra:
+   *
+   *   1. `passwordChangeRefusal` — recusa local, **zero rede**. Sem ela, cada tentativa errada de
+   *      confirmação gastaria uma ida ao GoTrue e a pessoa acabaria bloqueada por rate limit
+   *      (`sign_in_sign_ups`) justamente enquanto tenta trocar a própria senha.
+   *   2. `signInWithPassword` — é o que prova a senha atual. O GoTrue **não** exige isso em
+   *      `updateUser`, e sem a prova qualquer pessoa numa máquina destravada assume a conta da dona.
+   *   3. `updateUser` — a troca.
+   *
+   * O passo 2 substitui a sessão por outra **do mesmo usuário**: `resolvedFor.current === u.id` no
+   * efeito acima, então `loading` não pisca e ninguém é deslogado. E errar a senha atual **não**
+   * derruba a sessão existente — o supabase-js não a limpa num `signInWithPassword` que falha.
+   */
+  const changeOwnPassword = async (current: string, next: string, confirm: string) => {
+    const recusa = passwordChangeRefusal({ current, next, confirm })
+    if (recusa) return { error: recusa }
+
+    const { data: { user: atual } } = await supabase.auth.getUser()
+    const email = atual?.email
+    if (!email) return { error: 'Sessão expirada. Entre novamente.' }
+
+    const { error: credencial } = await supabase.auth.signInWithPassword({ email, password: current })
+    if (credencial) return { error: authErrorMessage(credencial) }
+
+    const { error } = await supabase.auth.updateUser({ password: next })
+    return { error: authErrorMessage(error) }
+  }
+
   const signOut = async () => {
     await supabase.auth.signOut()
   }
 
   return (
-    <AuthContext.Provider value={{ user, customer, isAdmin, loading, signIn, signUp, signInWithGoogle, signInWithOtp, verifyOtp, updateDisplayName, resetPassword, verifyRecoveryCode, updatePassword, signOut }}>
+    <AuthContext.Provider value={{ user, customer, isAdmin, loading, signIn, signUp, signInWithGoogle, signInWithOtp, verifyOtp, updateDisplayName, resetPassword, verifyRecoveryCode, updatePassword, changeOwnPassword, signOut }}>
       {children}
     </AuthContext.Provider>
   )
