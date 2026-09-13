@@ -103,6 +103,18 @@ export interface RpcCall {
   args: Record<string, unknown>
 }
 
+/** Feature `49`: `create-order` grava, e gravar precisa ser observável. */
+export interface InsertCall {
+  table: string
+  /** O objeto (ou o array) passado ao `.insert()`, como veio. */
+  values: unknown
+}
+
+/** Feature `49`: a conta sem senha da convidada nasce por `auth.admin.createUser`. */
+export interface AdminCreateUserCall {
+  attributes: Record<string, unknown>
+}
+
 /**
  * Fixture de linha. A forma de função existe porque o webhook consulta a MESMA tabela duas vezes
  * com filtros diferentes (`id` e depois `mp_order_id`, WHK-03): sem enxergar o `.eq()`, o dublê
@@ -143,33 +155,64 @@ export interface FakeSupabaseOptions {
   rpcByFn?: Record<string, { data?: unknown; error?: unknown }>
   /** Força erro em todo `.update()`, para exercitar o caminho de falha de persistência. */
   updateError?: unknown
+  /**
+   * Feature `49`. O que `.insert(...).select(...).single()` devolve, **por tabela**.
+   *
+   * Separado de `rows` de propósito: `create-order` LÊ `orders` (idempotência, por
+   * `client_request_id`) e ESCREVE em `orders` no mesmo fluxo, com desfechos diferentes. Um mapa
+   * só não conseguiria montar "não existe ainda, e a gravação devolve este id".
+   */
+  inserted?: Record<string, RowFixture>
+  /** Erro de `.insert()` por tabela, para exercitar a falha de gravação. */
+  insertError?: Record<string, unknown>
+  /**
+   * Resultado de `auth.admin.createUser`. Feature `49`.
+   *
+   * É função, e não valor, porque `PED-09` (duas tentativas simultâneas para o mesmo e-mail novo)
+   * exige que a PRIMEIRA chamada dê certo e a SEGUNDA falhe com "já existe" — um valor fixo não
+   * distingue as duas.
+   */
+  adminCreateUser?: (attrs: Record<string, unknown>) => {
+    data?: { user?: { id: string } | null }
+    error?: unknown
+  }
 }
 
 export interface FakeSupabase {
   client: any
   updates: UpdateCall[]
   rpcs: RpcCall[]
+  /** Feature `49`: toda gravação, na ordem em que aconteceu. */
+  inserts: InsertCall[]
+  /** Feature `49`: toda criação de conta tentada. */
+  adminCreateUsers: AdminCreateUserCall[]
 }
 
 export function createFakeSupabase(options: FakeSupabaseOptions = {}): FakeSupabase {
   const updates: UpdateCall[] = []
   const rpcs: RpcCall[] = []
+  const inserts: InsertCall[] = []
+  const adminCreateUsers: AdminCreateUserCall[] = []
 
   function builder(table: string) {
     let eqPair: [string, unknown] | null = null
     let selectColumns = ''
     let pendingUpdate: Record<string, unknown> | null = null
+    let inseriu = false
 
     const result = () => {
       if (pendingUpdate) {
         updates.push({ table, values: pendingUpdate, eq: eqPair })
         return { data: null, error: options.updateError ?? null }
       }
+      if (inseriu) return { data: null, error: options.insertError?.[table] ?? null }
       return { data: options.lists?.[table] ?? null, error: null }
     }
 
     const row = () => {
-      const fixture = options.rows?.[table] ?? null
+      // Depois de um `.insert()`, quem responde é `inserted` — o mesmo fluxo pode LER e ESCREVER
+      // a mesma tabela com desfechos diferentes, e um mapa só não distinguiria os dois.
+      const fixture = inseriu ? (options.inserted?.[table] ?? null) : (options.rows?.[table] ?? null)
       return typeof fixture === 'function'
         ? (fixture as (eq: [string, unknown] | null, select: string) => unknown | null)(
             eqPair,
@@ -192,7 +235,15 @@ export function createFakeSupabase(options: FakeSupabaseOptions = {}): FakeSupab
         pendingUpdate = values
         return chain
       },
+      insert: (values: unknown) => {
+        inserts.push({ table, values })
+        inseriu = true
+        return chain
+      },
       single: async () => {
+        if (inseriu && options.insertError?.[table]) {
+          return { data: null, error: options.insertError[table] }
+        }
         const data = row()
         return { data, error: data ? null : { message: 'not found' } }
       },
@@ -213,6 +264,16 @@ export function createFakeSupabase(options: FakeSupabaseOptions = {}): FakeSupab
           ? { data: { user }, error: null }
           : { data: { user: null }, error: { message: 'invalid jwt' } }
       },
+      admin: {
+        createUser: async (attributes: Record<string, unknown>) => {
+          adminCreateUsers.push({ attributes })
+          const resultado = options.adminCreateUser?.(attributes)
+          return {
+            data: { user: resultado?.data?.user ?? null },
+            error: resultado?.error ?? null,
+          }
+        },
+      },
     },
     from: (table: string) => builder(table),
     rpc: async (fn: string, args: Record<string, unknown>) => {
@@ -222,5 +283,5 @@ export function createFakeSupabase(options: FakeSupabaseOptions = {}): FakeSupab
     },
   }
 
-  return { client, updates, rpcs }
+  return { client, updates, rpcs, inserts, adminCreateUsers }
 }

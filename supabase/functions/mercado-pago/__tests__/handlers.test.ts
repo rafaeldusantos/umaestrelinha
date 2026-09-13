@@ -4,6 +4,13 @@ import { createPayment, route, webhook } from '../handlers.ts'
 // carrega `status_detail`, e a loja o traduz com `friendlyMessage`. Importar a mesma função que a
 // loja usa fecha a corrente inteira — sem isso, a AC fica satisfeita "por acidente" do fallback.
 import { friendlyMessage } from '../../../../packages/core/src/payment/status.ts'
+// Feature 49: a segunda prova de posse. Importa as MESMAS funções que o handler usa — um token
+// produzido aqui à mão não provaria que a régua do servidor é a que `core` implementa.
+import {
+  guestAccessExpiry,
+  hashAccessToken,
+  newAccessToken,
+} from '../../../../packages/core/src/checkout/guestAccess.ts'
 import { createDeps, createFakeFetch, createFakeSupabase, TEST_ENV } from './fakes.ts'
 
 // Smoke tests do harness (T7). Escolhidos por serem verdadeiros ANTES e DEPOIS da migração para a
@@ -2791,5 +2798,139 @@ describe('create-payment — preço por variação (07/T12, T13, T14)', () => {
 
     expect(response.status).toBe(200)
     expect(e.fetchDouble.calls.at(-1)!.body.total_amount).toBe('25.00')
+  })
+})
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════════
+// Feature 49 — a SEGUNDA prova de posse: quem comprou sem conta não tem JWT (PED-06, PED-07)
+//
+// O que estes casos protegem é a assimetria: o token é uma prova tão forte quanto o JWT para ESTE
+// pedido, e nenhuma prova para qualquer outro. Cada caso de recusa vem com o seu inverso — sem o
+// par, afrouxar a regra (aceitar qualquer token, ignorar a validade) passaria verde.
+// ═══════════════════════════════════════════════════════════════════════════════════════════════
+
+describe('create-payment — a convidada paga com o token do pedido (PED-06)', () => {
+  /** Pedido de convidada: ainda sem ficha resolvida, com acesso válido para `token`. */
+  const convidadaRows = async (token: string, over: Record<string, unknown> = {}) => ({
+    ...paymentRows({
+      customer_id: null,
+      // CSC-04: o CPF do pagador está no snapshot do pedido. É ele que torna `CSC-08` verdade —
+      // pedido órfão continua pagável.
+      customer_document: ORDER_CPF,
+      guest_access_hash: await hashAccessToken(token),
+      guest_access_expires_at: guestAccessExpiry(new Date()),
+      ...over,
+    }),
+    customers: null,
+  })
+
+  const semJwt = () =>
+    new Request('http://local/functions/v1/mercado-pago?action=create-payment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    })
+
+  const ambiente = async (rows: Record<string, unknown>) => {
+    const supabase = createFakeSupabase({ user: null, rows, lists: paymentLists })
+    const fetchDouble = createFakeFetch([{ match: '/v1/orders', body: mpOrderResponse() }])
+    return { supabase, fetchDouble, deps: createDeps(supabase, fetchDouble) }
+  }
+
+  it('token certo, sem JWT nenhum → o pagamento sai', async () => {
+    const token = newAccessToken()
+    const e = await ambiente(await convidadaRows(token))
+    const response = await createPayment(e.deps, semJwt(), { ...pixBody, access_token: token })
+
+    expect(response.status).toBe(200)
+    expect(e.fetchDouble.calls).toHaveLength(1)
+  })
+
+  it('o pagador do pedido órfão sai de `orders.customer_document` (CSC-08)', async () => {
+    // Sem este recuo, `customer` é nulo, o CPF sai vazio e o guard de PGD-04 devolve 422 — a
+    // convidada teria o pedido, teria o token, e ouviria "informe o CPF" que ela já informou.
+    const token = newAccessToken()
+    const e = await ambiente(await convidadaRows(token))
+    await createPayment(e.deps, semJwt(), { ...pixBody, access_token: token })
+    const enviado = e.fetchDouble.calls.at(-1)!.body as Record<string, any>
+
+    expect(enviado.payer.identification).toEqual({ type: 'CPF', number: ORDER_CPF })
+  })
+
+  it.each([
+    ['token de outro pedido', async () => newAccessToken()],
+    ['token vazio', async () => ''],
+  ])('403: %s → nada sai daqui', async (_rotulo, produzir) => {
+    const token = newAccessToken()
+    const e = await ambiente(await convidadaRows(token))
+    const response = await createPayment(e.deps, semJwt(), {
+      ...pixBody,
+      access_token: await produzir(),
+    })
+
+    // Token vazio cai antes, em 401 (nem JWT nem token); o de outro pedido, em 403. Os dois
+    // importam: nenhum dos dois pode chegar ao Mercado Pago.
+    expect([401, 403]).toContain(response.status)
+    expect(e.fetchDouble.calls).toHaveLength(0)
+    expect(e.supabase.updates).toHaveLength(0)
+  })
+
+  it('403: token expirado → nada sai daqui', async () => {
+    const token = newAccessToken()
+    const ontem = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+    const e = await ambiente(await convidadaRows(token, { guest_access_expires_at: ontem }))
+    const response = await createPayment(e.deps, semJwt(), { ...pixBody, access_token: token })
+
+    expect(response.status).toBe(403)
+    expect(e.fetchDouble.calls).toHaveLength(0)
+  })
+
+  it('403: pedido criado COM sessão não abre por token — ele não tem hash nenhum', async () => {
+    // O buraco clássico do padrão: a comparação está certa e o dado é que não existe.
+    const e = await ambiente({ ...paymentRows(), customers: null })
+    const response = await createPayment(e.deps, semJwt(), {
+      ...pixBody,
+      access_token: newAccessToken(),
+    })
+
+    expect(response.status).toBe(403)
+    expect(e.fetchDouble.calls).toHaveLength(0)
+  })
+
+  it('409: token válido NÃO paga pedido já aprovado (PED-07)', async () => {
+    // `RETRYABLE_STATUSES` continua sendo o portão. O token prova posse, nunca estado.
+    const token = newAccessToken()
+    const e = await ambiente(await convidadaRows(token, { payment_status: 'approved' }))
+    const response = await createPayment(e.deps, semJwt(), { ...pixBody, access_token: token })
+
+    expect(response.status).toBe(409)
+    expect(e.fetchDouble.calls).toHaveLength(0)
+  })
+
+  it('401: sem JWT e sem token → segue 401, como antes', async () => {
+    // O caso inverso do topo: a feature não pode ter aberto a porta para quem não prova nada.
+    const token = newAccessToken()
+    const e = await ambiente(await convidadaRows(token))
+    const response = await createPayment(e.deps, semJwt(), pixBody)
+
+    expect(response.status).toBe(401)
+    expect(e.fetchDouble.calls).toHaveLength(0)
+  })
+
+  it('403: JWT de OUTRO usuário + token errado continua sendo recusa', async () => {
+    // A combinação que uma implementação frouxa (um `||` mal posto) deixaria passar.
+    const token = newAccessToken()
+    const supabase = createFakeSupabase({
+      user: { id: 'auth-user-2' },
+      rows: await convidadaRows(token),
+      lists: paymentLists,
+    })
+    const fetchDouble = createFakeFetch([{ match: '/v1/orders', body: mpOrderResponse() }])
+    const response = await createPayment(createDeps(supabase, fetchDouble), paymentRequest(), {
+      ...pixBody,
+      access_token: newAccessToken(),
+    })
+
+    expect(response.status).toBe(403)
+    expect(fetchDouble.calls).toHaveLength(0)
   })
 })

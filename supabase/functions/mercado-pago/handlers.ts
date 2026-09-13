@@ -9,6 +9,8 @@ import {
   resolveOrderPricing,
 } from "../../../packages/core/src/payment/pricing.ts"
 import { buildPayer, mergePayer } from "../../../packages/core/src/payment/payer.ts"
+// Feature `49`: a segunda prova de posse — quem comprou sem conta não tem JWT para apresentar.
+import { accessGrant } from "../../../packages/core/src/checkout/guestAccess.ts"
 import {
   buildOrderPayload,
   extractPaymentId,
@@ -102,20 +104,13 @@ async function fireTrigger(deps: Deps, orderId: string, trigger: NotificationTri
   }
 }
 
-export const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-}
+// Feature `49`: os dois passaram a ter dono único em `_shared/http.ts` — eram TRÊS declarações
+// idênticas espalhadas pelas functions. Reexportados, e não redeclarados, para que todo import que
+// já apontava para cá continue valendo.
+export { corsHeaders, json } from "../_shared/http.ts"
+import { corsHeaders, json } from "../_shared/http.ts"
 
 const MP_BASE = "https://api.mercadopago.com"
-
-export function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  })
-}
 
 function log(entry: Record<string, unknown>) {
   console.log(JSON.stringify(entry))
@@ -265,14 +260,28 @@ export async function createPayment(deps: Deps, req: Request, body: any) {
     )
   }
 
+  // Feature `49`: DUAS provas de posse, e a ordem não importa porque elas são exclusivas.
+  //
+  //   JWT           quem tem sessão — o caminho de sempre, inalterado
+  //   access_token  quem comprou sem conta, e por definição não tem JWT nenhum
+  //
+  // A convidada não é um caso relaxado do primeiro: ela apresenta um segredo de 256 bits que só
+  // existe porque ESTE pedido foi criado no navegador dela. Quem não tem nenhum dos dois continua
+  // tomando 401, e quem tem o JWT errado continua tomando 403.
   const authHeader = req.headers.get("Authorization") || ""
   const jwt = authHeader.replace(/^Bearer\s+/i, "")
-  if (!jwt) return json({ error: "Não autenticado" }, 401)
+  const accessToken = typeof body?.access_token === "string" ? body.access_token : ""
+  if (!jwt && !accessToken) return json({ error: "Não autenticado" }, 401)
 
   const supabase = deps.supabase
-  const { data: userData, error: userError } = await supabase.auth.getUser(jwt)
-  const user = userData?.user
-  if (userError || !user) return json({ error: "Não autenticado" }, 401)
+
+  let user: { id: string } | null = null
+  if (jwt) {
+    const { data: userData, error: userError } = await supabase.auth.getUser(jwt)
+    user = userData?.user ?? null
+    // Sem token de convidada, JWT inválido continua sendo 401 — não cai num caminho mais frouxo.
+    if ((userError || !user) && !accessToken) return json({ error: "Não autenticado" }, 401)
+  }
 
   const { data: order, error: orderError } = await supabase
     .from("orders")
@@ -293,7 +302,22 @@ export async function createPayment(deps: Deps, req: Request, body: any) {
     customer = data
   }
   const ownerUserId = customer?.user_id ?? null
-  if (!ownerUserId || ownerUserId !== user.id) {
+  const donoPorSessao = Boolean(user && ownerUserId && ownerUserId === user.id)
+
+  // `accessGrant` recusa por ausência de hash (pedido criado COM sessão), por divergência e por
+  // validade vencida — os três dentro de `core`, para nenhum deles depender de um `if` daqui.
+  const donoPorToken = accessToken
+    ? await accessGrant(
+        {
+          guest_access_hash: order.guest_access_hash ?? null,
+          guest_access_expires_at: order.guest_access_expires_at ?? null,
+        },
+        accessToken,
+        new Date(),
+      )
+    : false
+
+  if (!donoPorSessao && !donoPorToken) {
     return json({ error: "Pedido não pertence ao usuário autenticado" }, 403)
   }
 
@@ -308,10 +332,19 @@ export async function createPayment(deps: Deps, req: Request, body: any) {
   // `identification` quando o CPF não passa no dígito verificador, então este guard cobre
   // "ausente" e "sujo" de uma vez. Falhar aqui (antes de qualquer escrita ou chamada ao MP) é
   // o ponto da feature: um PIX sem pagador identificado é recusado pelo banco.
+  // Feature `49`: o recuo para `order.customer_document` é o que torna `CSC-08` verdade.
+  //
+  // Quando a criação da conta da convidada falha, o pedido fica ÓRFÃO (`customer_id` nulo) — e a
+  // spec promete que ele continua pagável. Sem este recuo, `customer` é `null`, o CPF sai vazio e
+  // o guard abaixo devolve 422 `missing_payer_cpf`: o pedido existiria, a cliente teria o token, e
+  // o pagamento seria recusado por falta de pagador que ela JÁ informou.
+  //
+  // Não é um segundo dono: `customers.cpf` continua sendo a fonte quando há ficha, e
+  // `orders.customer_document` é o snapshot que o próprio checkout grava no mesmo fluxo.
   const orderPayer = buildPayer({
     name: customer?.name || order.customer_name || "",
     email: order.customer_email,
-    cpf: customer?.cpf || "",
+    cpf: customer?.cpf || order.customer_document || "",
   })
   if (!orderPayer.identification) {
     log({ action: "create-payment", order_id, status: "missing_payer_cpf", payer_cpf_present: false })
