@@ -103,6 +103,47 @@ export interface RpcCall {
   args: Record<string, unknown>
 }
 
+export interface InsertCall {
+  table: string
+  values: Record<string, unknown>
+}
+
+export interface DeleteCall {
+  table: string
+  /** Os `.eq()` que escopam o delete, na ordem em que foram encadeados. */
+  eq: Array<[string, unknown]>
+}
+
+/**
+ * Os métodos de `auth.admin` que os handlers da `admin-users` usam — e **só** eles.
+ *
+ * Um dublê que tenta imitar o `GoTrueAdminApi` inteiro fica errado e dá falso verde. A lista foi
+ * conferida contra os typings instalados (`@supabase/auth-js@2.110.7`).
+ */
+export type AdminMethod =
+  | 'getUserById'
+  | 'createUser'
+  | 'updateUserById'
+  | 'deleteUser'
+  | 'listUsers'
+
+export interface AdminCall {
+  method: AdminMethod
+  /** O id, quando o método recebe um. `null` em `createUser`/`listUsers`. */
+  id: string | null
+  /** Os atributos, quando o método recebe. */
+  attributes: Record<string, unknown> | null
+}
+
+/** A forma mínima de um usuário do GoTrue, no que estes handlers leem. */
+export interface AuthUserFixture {
+  id: string
+  email?: string
+  created_at?: string
+  last_sign_in_at?: string | null
+  user_metadata?: Record<string, unknown>
+}
+
 /**
  * Fixture de linha. A forma de função existe porque o webhook consulta a MESMA tabela duas vezes
  * com filtros diferentes (`id` e depois `mp_order_id`, WHK-03): sem enxergar o `.eq()`, o dublê
@@ -143,27 +184,72 @@ export interface FakeSupabaseOptions {
   rpcByFn?: Record<string, { data?: unknown; error?: unknown }>
   /** Força erro em todo `.update()`, para exercitar o caminho de falha de persistência. */
   updateError?: unknown
+  /** Força erro em todo `.insert()` — é o caminho de `USR-08` (papel não concedido). */
+  insertError?: unknown
+  /** Força erro em todo `.delete()`. */
+  deleteError?: unknown
+  /**
+   * O que `select(..., { count: 'exact', head: true })` devolve, por tabela.
+   *
+   * Existe para `?action=delete` poder contar as QUATRO origens de histórico com números
+   * **divergentes** — com todas no mesmo valor, ler a tabela errada produziria a mesma resposta e
+   * nada acusaria.
+   */
+  counts?: Record<string, number>
+  /** Usuários do GoTrue, por id, para `auth.admin.getUserById`. */
+  authUsers?: Record<string, AuthUserFixture>
+  /** O que `auth.admin.createUser` devolve no sucesso. */
+  createdUser?: AuthUserFixture
+  /** O que `auth.admin.listUsers` devolve. */
+  listedUsers?: AuthUserFixture[]
+  /** Força erro por método de `auth.admin`, para exercitar cada ramo de falha separadamente. */
+  adminErrors?: Partial<Record<AdminMethod, unknown>>
 }
 
 export interface FakeSupabase {
   client: any
   updates: UpdateCall[]
+  inserts: InsertCall[]
+  deletes: DeleteCall[]
   rpcs: RpcCall[]
+  /** Toda chamada a `auth.admin.*`, na ordem. É o que prova "zero chamadas" num caminho de recusa. */
+  adminCalls: AdminCall[]
 }
 
 export function createFakeSupabase(options: FakeSupabaseOptions = {}): FakeSupabase {
   const updates: UpdateCall[] = []
+  const inserts: InsertCall[] = []
+  const deletes: DeleteCall[] = []
   const rpcs: RpcCall[] = []
+  const adminCalls: AdminCall[] = []
 
   function builder(table: string) {
     let eqPair: [string, unknown] | null = null
+    /** Todos os `.eq()`, não só o último — um delete escopado por duas colunas precisa dos dois. */
+    const eqTodos: Array<[string, unknown]> = []
     let selectColumns = ''
     let pendingUpdate: Record<string, unknown> | null = null
+    let pendingInsert: Record<string, unknown> | null = null
+    let pendingDelete = false
+    let headCount = false
 
     const result = () => {
       if (pendingUpdate) {
         updates.push({ table, values: pendingUpdate, eq: eqPair })
         return { data: null, error: options.updateError ?? null }
+      }
+      if (pendingInsert) {
+        inserts.push({ table, values: pendingInsert })
+        return { data: null, error: options.insertError ?? null }
+      }
+      if (pendingDelete) {
+        deletes.push({ table, eq: [...eqTodos] })
+        return { data: null, error: options.deleteError ?? null }
+      }
+      // `head: true` não traz linha — traz só o total. É como a function conta histórico sem
+      // atravessar a rede com os registros.
+      if (headCount) {
+        return { data: null, count: options.counts?.[table] ?? 0, error: null }
       }
       return { data: options.lists?.[table] ?? null, error: null }
     }
@@ -179,17 +265,27 @@ export function createFakeSupabase(options: FakeSupabaseOptions = {}): FakeSupab
     }
 
     const chain: any = {
-      select: (columns?: string) => {
+      select: (columns?: string, opts?: { count?: string; head?: boolean }) => {
         selectColumns = columns ?? ''
+        if (opts?.head === true) headCount = true
         return chain
       },
       eq: (column: string, value: unknown) => {
         eqPair = [column, value]
+        eqTodos.push([column, value])
         return chain
       },
       in: () => chain,
       update: (values: Record<string, unknown>) => {
         pendingUpdate = values
+        return chain
+      },
+      insert: (values: Record<string, unknown>) => {
+        pendingInsert = values
+        return chain
+      },
+      delete: () => {
+        pendingDelete = true
         return chain
       },
       single: async () => {
@@ -205,6 +301,22 @@ export function createFakeSupabase(options: FakeSupabaseOptions = {}): FakeSupab
     return chain
   }
 
+  /**
+   * Registra a chamada ANTES de decidir o desfecho.
+   *
+   * A ordem importa: um teste de recusa assere `adminCalls` vazio, e um teste de falha assere que a
+   * chamada aconteceu **e** deu erro. Registrar depois do `if (erro)` tornaria os dois
+   * indistinguíveis.
+   */
+  const registrarAdmin = (
+    method: AdminMethod,
+    id: string | null,
+    attributes: Record<string, unknown> | null,
+  ) => {
+    adminCalls.push({ method, id, attributes })
+    return options.adminErrors?.[method] ?? null
+  }
+
   const client = {
     auth: {
       getUser: async () => {
@@ -212,6 +324,38 @@ export function createFakeSupabase(options: FakeSupabaseOptions = {}): FakeSupab
         return user
           ? { data: { user }, error: null }
           : { data: { user: null }, error: { message: 'invalid jwt' } }
+      },
+      resetPasswordForEmail: async (email: string) => {
+        adminCalls.push({ method: 'updateUserById', id: null, attributes: { resetFor: email } })
+        return { data: null, error: null }
+      },
+      admin: {
+        getUserById: async (uid: string) => {
+          const erro = registrarAdmin('getUserById', uid, null)
+          if (erro) return { data: { user: null }, error: erro }
+          const user = options.authUsers?.[uid] ?? null
+          return user ? { data: { user }, error: null } : { data: { user: null }, error: { message: 'not found' } }
+        },
+        createUser: async (attributes: Record<string, unknown>) => {
+          const erro = registrarAdmin('createUser', null, attributes)
+          if (erro) return { data: { user: null }, error: erro }
+          return { data: { user: options.createdUser ?? { id: 'novo-id' } }, error: null }
+        },
+        updateUserById: async (uid: string, attributes: Record<string, unknown>) => {
+          const erro = registrarAdmin('updateUserById', uid, attributes)
+          if (erro) return { data: { user: null }, error: erro }
+          return { data: { user: { ...(options.authUsers?.[uid] ?? { id: uid }), ...attributes } }, error: null }
+        },
+        deleteUser: async (uid: string) => {
+          const erro = registrarAdmin('deleteUser', uid, null)
+          if (erro) return { data: { user: null }, error: erro }
+          return { data: { user: { id: uid } }, error: null }
+        },
+        listUsers: async (params?: Record<string, unknown>) => {
+          const erro = registrarAdmin('listUsers', null, params ?? null)
+          if (erro) return { data: { users: [] }, error: erro }
+          return { data: { users: options.listedUsers ?? [], aud: 'authenticated' }, error: null }
+        },
       },
     },
     from: (table: string) => builder(table),
@@ -222,5 +366,5 @@ export function createFakeSupabase(options: FakeSupabaseOptions = {}): FakeSupab
     },
   }
 
-  return { client, updates, rpcs }
+  return { client, updates, inserts, deletes, rpcs, adminCalls }
 }

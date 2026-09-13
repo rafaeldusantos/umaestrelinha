@@ -62,3 +62,116 @@ describe('createFakeSupabase — rpcByFn discrimina por nome de função', () =>
     })
   })
 })
+
+// ---------------------------------------------------------------------------------------------
+// Feature 48 — a superfície de `auth.admin.*` e as três operações de escrita que faltavam.
+//
+// Mesma régua do bloco acima: só o que a feature ACRESCENTOU tem teste próprio. O que justifica
+// testar o dublê aqui é que estes ramos decidem vereditos de segurança nos handlers — "zero
+// chamadas num caminho de recusa" é uma asserção sobre `adminCalls`, e um `adminCalls` que nunca
+// enche tornaria TODA essa família de teste um no-op verde.
+// ---------------------------------------------------------------------------------------------
+
+describe('createFakeSupabase — auth.admin', () => {
+  it('registra a chamada mesmo quando o método FALHA — é o que separa recusa de erro', async () => {
+    const { client, adminCalls } = createFakeSupabase({
+      adminErrors: { deleteUser: { message: 'boom' } },
+    })
+
+    const { error } = await client.auth.admin.deleteUser('u1')
+
+    expect(error).toEqual({ message: 'boom' })
+    // Registrar depois do erro faria "recusei antes de chamar" e "chamei e deu erro" ficarem
+    // indistinguíveis — e os dois desfechos têm consequências opostas no handler.
+    expect(adminCalls).toEqual([{ method: 'deleteUser', id: 'u1', attributes: null }])
+  })
+
+  it('`getUserById` devolve a fixture por id, e erro quando o id não existe', async () => {
+    const { client } = createFakeSupabase({
+      authUsers: { u1: { id: 'u1', email: 'a@b.invalid' } },
+    })
+
+    await expect(client.auth.admin.getUserById('u1')).resolves.toEqual({
+      data: { user: { id: 'u1', email: 'a@b.invalid' } },
+      error: null,
+    })
+
+    const ausente = await client.auth.admin.getUserById('u9')
+    expect(ausente.data.user).toBeNull()
+    expect(ausente.error).not.toBeNull()
+  })
+
+  it('`createUser` guarda os ATRIBUTOS enviados — é sobre eles que os handlers asseveram', async () => {
+    const { client, adminCalls } = createFakeSupabase({ createdUser: { id: 'novo' } })
+
+    const { data } = await client.auth.admin.createUser({
+      email: 'a@b.invalid',
+      password: 'segredo',
+      email_confirm: true,
+    })
+
+    expect(data.user).toEqual({ id: 'novo' })
+    expect(adminCalls[0].attributes).toEqual({
+      email: 'a@b.invalid',
+      password: 'segredo',
+      email_confirm: true,
+    })
+  })
+
+  it('`updateUserById` guarda id e atributos separadamente', async () => {
+    const { client, adminCalls } = createFakeSupabase({})
+
+    await client.auth.admin.updateUserById('u1', { email: 'novo@b.invalid' })
+
+    expect(adminCalls).toEqual([
+      { method: 'updateUserById', id: 'u1', attributes: { email: 'novo@b.invalid' } },
+    ])
+  })
+})
+
+describe('createFakeSupabase — insert, delete e contagem', () => {
+  it('`insert` registra a tabela e os valores, e honra `insertError`', async () => {
+    const bom = createFakeSupabase({})
+    await bom.client.from('user_roles').insert({ user_id: 'u1', role: 'admin' })
+    expect(bom.inserts).toEqual([{ table: 'user_roles', values: { user_id: 'u1', role: 'admin' } }])
+
+    const ruim = createFakeSupabase({ insertError: { message: 'falhou' } })
+    const { error } = await ruim.client.from('user_roles').insert({ user_id: 'u1', role: 'admin' })
+    expect(error).toEqual({ message: 'falhou' })
+    // Registrou mesmo falhando — o handler precisa saber que TENTOU para poder compensar.
+    expect(ruim.inserts).toHaveLength(1)
+  })
+
+  it('`delete` guarda TODOS os `.eq()`, não só o último', async () => {
+    // `revoke` escopa por `user_id` E por `role`: guardar só o último faria um delete que apaga
+    // todos os papéis da pessoa passar como se apagasse só o de admin.
+    const { client, deletes } = createFakeSupabase({})
+
+    await client.from('user_roles').delete().eq('user_id', 'u1').eq('role', 'admin')
+
+    expect(deletes).toEqual([
+      { table: 'user_roles', eq: [['user_id', 'u1'], ['role', 'admin']] },
+    ])
+  })
+
+  it('`select(..., { head: true })` devolve `count` por tabela, sem linha', async () => {
+    const { client } = createFakeSupabase({ counts: { orders: 7, order_notes: 3 } })
+
+    const pedidos = await client.from('orders').select('id', { count: 'exact', head: true })
+    const notas = await client.from('order_notes').select('id', { count: 'exact', head: true })
+    const semFixture = await client.from('customer_notes').select('id', { count: 'exact', head: true })
+
+    expect(pedidos).toEqual({ data: null, count: 7, error: null })
+    expect(notas).toEqual({ data: null, count: 3, error: null })
+    expect(semFixture.count).toBe(0)
+  })
+
+  it('`select` SEM `head` continua devolvendo lista — o comportamento antigo não mudou', async () => {
+    const { client } = createFakeSupabase({ lists: { order_items: [{ id: 'i1' }] } })
+
+    await expect(client.from('order_items').select('*')).resolves.toEqual({
+      data: [{ id: 'i1' }],
+      error: null,
+    })
+  })
+})

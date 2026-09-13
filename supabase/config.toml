@@ -505,6 +505,15 @@ verify_jwt = false
 [functions.send-notification]
 verify_jwt = false
 
+# Feature 48 — quem entra no painel. MESMA razão da send-notification acima, e aqui o custo de
+# confiar no gateway seria maior: esta function carrega a service role e cria/apaga conta no GoTrue.
+# `verify_jwt = true` deixaria passar qualquer portador da anon key publicada, que é um JWT válido do
+# projeto. O que fecha a porta é `has_role` dentro do handler — 401 sem JWT ou com JWT sem `sub`, 403
+# sem papel, e 403 TAMBÉM quando a checagem de papel falha (falha de verificação nunca vira
+# permissão). Ver o cabeçalho de handlers.ts.
+[functions.admin-users]
+verify_jwt = false
+
 # Quem busca o feed é o rastreador do Google, que não manda JWT nenhum — não há o que autenticar, e
 # o conteúdo servido é o mesmo catálogo que a vitrine já publica. O que controla o acesso é o
 # INTERRUPTOR: com `store_settings.google_shopping.enabled = false` a function responde 404.
