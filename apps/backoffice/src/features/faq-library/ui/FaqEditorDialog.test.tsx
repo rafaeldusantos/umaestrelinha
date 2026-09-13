@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
+import { FAQ_ANSWER_MAX, FAQ_QUESTION_MAX } from '@estrelinha/core/faq'
 import FaqEditorDialog from './FaqEditorDialog'
 
 /**
@@ -119,11 +120,18 @@ describe('FaqEditorDialog — a recusa', () => {
 })
 
 describe('FaqEditorDialog — os contadores', () => {
+  // O limite da resposta subiu de 600 para 4000 na feature 46 — a página de perguntas da loja traz
+  // texto escrito pela dona, e a maior das 26 tem ~1.350 caracteres. O contador deste editor lê a
+  // mesma constante, então ele acompanhou: os números vêm de `FAQ_QUESTION_MAX`/`FAQ_ANSWER_MAX`,
+  // nunca de literal, para os dois lados não poderem divergir.
   it('mostram o limite de cada campo', () => {
     abrir()
 
-    expect(screen.getByTestId('faq-question-counter')).toHaveTextContent('0 / 160')
-    expect(screen.getByTestId('faq-answer-counter')).toHaveTextContent('0 / 600')
+    expect(screen.getByTestId('faq-question-counter')).toHaveTextContent(`0 / ${FAQ_QUESTION_MAX}`)
+    expect(screen.getByTestId('faq-answer-counter')).toHaveTextContent(`0 / ${FAQ_ANSWER_MAX}`)
+    // E a âncora: sem ela, as duas linhas acima passariam com a constante zerada.
+    expect(FAQ_QUESTION_MAX).toBe(160)
+    expect(FAQ_ANSWER_MAX).toBe(4000)
   })
 
   it('contam o texto já normalizado, como o limite mede', () => {
