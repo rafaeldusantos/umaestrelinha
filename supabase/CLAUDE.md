@@ -153,10 +153,41 @@ assere.
 | `google-feed` | `false` | o feed RSS 2.0 do Merchant Center |
 | `product-page` | `false` | a página do produto servida com JSON-LD no `<head>` |
 | `sitemap` | `false` | `/sitemap.xml` — 719 URLs canônicas, lidas com a chave **publicável** |
+| `admin-users` | `false` | quem entra no painel — a **porta única** da service role (`AD-034`) |
 
 **`verify_jwt = true` seria teatro de segurança** onde está `false`: a anon key publicada no `.env` da
 loja é um JWT válido que qualquer pessoa lê no bundle. Onde há papel a exigir, a checagem é **manual**
 via `has_role` dentro do handler.
+
+### `admin-users` (feature `48`, `AD-034`)
+
+Seis ações: `list · create · update · revoke · delete · reset-password`. É a **única** function que
+existe por causa da chave que ela carrega, e não por causa do que ela calcula — criar e apagar conta
+no GoTrue não tem outro caminho, e a `service_role` ignora toda RLS.
+
+- **Lista pela function também, e isso é deliberado.** `auth.users` não é exposto ao PostgREST, e a
+  alternativa curta — uma view `security definer` sobre ela — entregaria o e-mail de toda pessoa
+  cadastrada a qualquer sessão autenticada, além de criar um **segundo dono** de "quem é admin".
+- **Lê `user_roles` + `getUserById` por id, nunca `listUsers`.** Aquele endpoint é paginado sobre a
+  base INTEIRA de clientes: trazer 680 pessoas para filtrar duas é buscar a resposta errada.
+- **`create` COMPENSA.** São duas escritas em sistemas diferentes sem transação entre elas
+  (`createUser` no GoTrue, `insert` em `user_roles`). Se a segunda falha, a primeira é desfeita com
+  `deleteUser` — senão sobra uma conta de **loja** criada por engano, que entra na vitrine, aparece
+  em `/admin/clientes` e não acessa o painel. O log registra o id, para a órfã ser achável se a
+  compensação também falhar.
+- **`delete` conta o histórico ANTES.** Quatro FKs para `auth.users` **sem `ON DELETE`** bloqueiam a
+  exclusão: `orders.customer_id` (via o `CASCADE` de `customers.user_id`), `order_notes.created_by`,
+  `order_status_history.created_by` e `customer_notes.created_by`. Na prática, **um admin que
+  trabalhou não pode ser apagado** — e a recusa nomeia o que bloqueia e com quantos registros, em vez
+  de deixar um `23503` cru chegar à tela. O `23503` que chegar assim mesmo é traduzido para a MESMA
+  frase: o banco garante, a tela explica.
+- **`reset-password` resolve o e-mail pelo ID, e ignora o do corpo.** Aceitar o endereço de quem
+  chamou faria desta porta um jeito de mandar código de recuperação de uma conta do painel para um
+  endereço arbitrário.
+- **O trigger `guard_last_admin`** (migration da `48`) é o que torna impossível `user_roles` ficar
+  sem nenhum admin. Decide por **contagem**, nunca por identidade, e serializa por
+  `pg_advisory_xact_lock` — sem o lock, duas remoções simultâneas passam as duas, e aqui o desfecho
+  não se conserta por tela nenhuma.
 
 ### `mercado-pago`
 

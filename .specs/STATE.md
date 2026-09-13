@@ -761,9 +761,81 @@
 - **Date**: 2026-09-11
 - **Status**: active
 
+### AD-034
+- **Decision**: **Toda operação que exige a `service_role` passa por edge function com autorização
+  MANUAL por `has_role`, e nenhum arquivo de `apps/**` toca `auth.admin.*` nem nomeia a chave.** A
+  function é a **porta única** do assunto — inclusive para LEITURA, mesmo quando existiria um
+  caminho de leitura mais curto. Aplicado na feature `48` (`supabase/functions/admin-users`), e
+  guardado por `chaveDeServidorForaDoNavegador.test.ts`, que varre os dois apps.
+- **Reason**: A `service_role` ignora toda RLS, e um `createClient(url, serviceRoleKey)` em
+  `apps/**` **funcionaria perfeitamente**: a tela abre, a lista carrega, build, `tsc` e teste de
+  componente passam — e a chave iria inteira no JavaScript servido a qualquer visitante da loja.
+  É a família de erro que este repositório mais teme, na sua forma mais cara: sem sintoma nenhum.
+  A alternativa de leitura que foi **recusada** tinha nome e desenho: uma view `security definer`
+  sobre `auth.users`. Ela entregaria o e-mail de toda pessoa cadastrada a qualquer sessão
+  autenticada, e criaria um **segundo dono** de "quem é admin do painel" ao lado da function que
+  precisava existir de qualquer forma para criar e apagar conta.
+- **Trade-off**: Listar dois admins custa uma ida à edge function em vez de uma consulta ao
+  PostgREST, e a function resolve `user_roles` + um `getUserById` por id — N+1 assumido, porque N é
+  o número de pessoas que administram a loja. E `verify_jwt` fica `false` no gateway, o que **parece**
+  o contrário de seguro: a anon key publicada é um JWT válido do projeto e passaria por ele sem
+  provar nada, então o gateway não é o lugar onde esta decisão se toma. Quem fecha a porta é
+  `requireAdmin` dentro do handler — 401 sem JWT ou com JWT sem `sub`, 403 sem papel, e **403 também
+  quando a checagem de papel falha**: falha de verificação nunca vira permissão.
+- **Scope**: `supabase/functions/admin-users/**`, `packages/core/src/admin-users/**`,
+  `apps/backoffice/src/features/admin-users/**`,
+  `apps/store/src/shared/lib/__tests__/chaveDeServidorForaDoNavegador.test.ts`
+- **Date**: 2026-09-13
+- **Status**: active
+
 ## Handoff
 
-### ATUAL — 2026-09-12 · `47-painel-em-foco` **IMPLEMENTADA — T1..T19 concluídas**
+### ATUAL — 2026-09-13 · `48-usuarios-do-painel` **IMPLEMENTADA — 25 de 25 tasks**
+
+- **Feature**: `.specs/features/48-usuarios-do-painel/` (`spec.md`, `design.md`, `tasks.md`).
+  **`validation.md` com DUAS rodadas de verificação independente** (autor ≠ verificador): a rodada 1
+  reprovou com 3 mutantes sobreviventes, a rodada 2 passou. 17 mutações reinjetadas no arquivo real.
+- **Fase / Task**: Execute completo. **25 de 25 tasks** (o plano tinha 26; T08 absorveu T10 — ver
+  *Desvios do plano* em `tasks.md`), **43 de 43 requisitos** (`USR-01`..`USR-43`).
+- **O que está no ar**: `/admin/usuarios` cria, edita, **remove do painel** (revoga o papel) e
+  **apaga a conta** (recusada com motivo legível quando há histórico), mais "enviar link de
+  redefinição"; `/admin/conta` troca a própria senha **provando a senha atual**; e `/admin/login`
+  ganhou "Esqueci minha senha", fechando um buraco que já existia — o template `recovery.html` manda
+  código dizendo *"use na loja"*, e o painel não tinha onde consumi-lo.
+- **A porta é a edge function `admin-users`** (`AD-034`), seis ações, `verify_jwt = false` com
+  `has_role` manual. **Nenhum arquivo de `apps/**` toca `auth.admin.*` nem nomeia a chave de
+  serviço** — `chaveDeServidorForaDoNavegador.test.ts` recusa, com âncora tripla e treze sensores.
+- **A invariante mora no banco**: `guard_last_admin` decide por **contagem** (nunca por identidade) e
+  serializa por `pg_advisory_xact_lock`. Provado por **6 probes SQL** contra o Postgres local:
+  apagar o último admin falha, rebaixá-lo falha, apagar um de dois passa, conceder passa.
+- **O grafo de módulo da function foi provado por `deno check` de verdade**, não pela inferência do
+  guarda de pureza — `Check file:///app/supabase/functions/admin-users/index.ts`, sem erro.
+- **Gates (2026-09-13, um workspace por vez, exit code fora de pipe)**: testes **8809 em 460**
+  (store 3176/205 · backoffice 2328/135 · core 2285/88 · functions 508/9 · catalog-import 512/23),
+  **+306** contra a entrada medida. Tipos **0 · 0 · 0**. Lint **27/6** — idêntico. `pnpm build`
+  verde. `packages/core/src/payment/**` sem uma linha alterada.
+- **As 5 lacunas da verificação foram fechadas e provadas por mutação**, e a última delas foi
+  **criada pelo conserto da anterior**: consolidar `passwordChangeRefusal` num dono só transferiu
+  para a ordem interna de `changeOwnPassword` uma promessa ("nenhuma rede antes da recusa") que as
+  duas cópias sustentavam por acidente. *Remover uma cópia move o ônus da prova, não o elimina.*
+- **Nada commitado** — o `CLAUDE.md` deste projeto manda gerar os commits completos de uma vez ao
+  fim (`BL-012`), e a proposta ainda não foi apresentada ao usuário.
+- **Próximo passo**: propor os commits. A dívida que fica é **prova em navegador** (390×844 e 1440)
+  e o passo de operação: **a Adri precisa criar o segundo acesso** — a migration não semeia conta
+  nenhuma, e enquanto a lista tiver uma linha o ponto único de falha humano continua de pé.
+- **Armadilhas desta sessão, para quem continuar**:
+  - A working tree é **compartilhada com outra sessão**, que commitou quatro vezes durante a
+    execução (`403c924`..`f8609b6`), inclusive a `spec.md` desta feature. A âncora de contagem
+    compartilhada é a tabela de baselines do `CLAUDE.md`.
+  - `appRoutePaths()` de `navItems.test.ts` lê de `process.cwd()`: rodar via
+    `npx vitest --root apps/backoffice` **a partir da raiz** quebra 8 casos com `ENOENT`. Rode de
+    dentro do diretório do app, ou por `pnpm --filter`.
+  - **Rodar duas suítes em paralelo produz `Test timed out in 5000ms`** em teste que varre disco — e
+    isso alcança o **store** também, não só o backoffice. Aconteceu uma vez aqui, por minha conta.
+
+---
+
+### 2026-09-12 · `47-painel-em-foco` **IMPLEMENTADA — T1..T19 concluídas**
 
 - **Feature**: `.specs/features/47-painel-em-foco/` (`spec.md`, `design.md`, `tasks.md`, `validation.md`)
 - **Fase / Task**: Execute completo. **19 de 19 tasks**, 37 de 37 requisitos (`FOCO-01`..`FOCO-37`).

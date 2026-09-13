@@ -185,6 +185,29 @@ pedido, tentar apagar (recusa nomeando a nota).
 
 ---
 
+### P2: Esqueci minha senha, no próprio painel
+
+**User Story**: Como pessoa com acesso ao painel, quero redefinir minha senha a partir do
+`/admin/login`, para que "enviar link de redefinição" tenha onde terminar.
+
+**Why P2**: Sem isto, a ação de `USR-18` manda um e-mail cuja cópia diz *"use o código abaixo **na
+loja**"* — e o `/admin/login` não tem nenhuma porta de recuperação. A jornada atravessaria dois apps.
+É uma lacuna que **já existe hoje**, e que esta feature tornaria visível ao criar o botão que a
+aciona.
+
+**Acceptance Criteria**:
+
+1. `USR-39` — WHEN a pessoa aciona `Esqueci minha senha` em `/admin/login` THEN a tela SHALL pedir o e-mail, disparar o código de recuperação e confirmar o envio nomeando o endereço.
+2. `USR-40` — WHEN ela informa o código correto THEN a tela SHALL pedir senha nova e confirmação, gravar, e SHALL aplicar as mesmas recusas de `USR-11` e `USR-23`.
+3. `USR-41` — WHEN o código está errado ou expirou THEN a tela SHALL exibir a mensagem de `authErrorMessage` e SHALL permitir pedir outro código sem recarregar a página.
+4. `USR-42` — WHEN a redefinição termina bem THEN o desfecho SHALL ser o **mesmo do login normal**: admin vai para `/admin`; conta sem papel lê `Esta conta não tem acesso ao painel.`
+5. `USR-43` — WHEN a pessoa está em qualquer passo da recuperação THEN ela SHALL conseguir voltar ao formulário de entrar sem recarregar a página.
+
+**Independent Test**: em `/admin/login`, pedir o código, lê-lo no Mailpit (`:54344`), definir senha
+nova e cair no painel.
+
+---
+
 ### P2: As duas telas na navegação
 
 **User Story**: Como dona da loja, quero achar "Usuários do painel" e "Minha conta" onde já procuro
@@ -219,46 +242,51 @@ Configurações, para não caçar num menu de quatro eixos que falam da loja.
 
 | ID | Story | Fase | Status |
 | --- | --- | --- | --- |
-| USR-01 | P1: Porta única | Design | Pending |
-| USR-02 | P1: Porta única | Design | Pending |
-| USR-03 | P1: Porta única | Design | Pending |
-| USR-19 | P1: Porta única | Design | Pending |
-| USR-20 | P1: Porta única | Design | Pending |
-| USR-25 | P1: Porta única | Design | Pending |
-| USR-26 | P1: Porta única | Design | Pending |
-| USR-27 | P1: Porta única | Design | Pending |
-| USR-04 | P1: Criar acesso | Design | Pending |
-| USR-05 | P1: Criar acesso | Design | Pending |
-| USR-06 | P1: Criar acesso | Design | Pending |
-| USR-07 | P1: Criar acesso | Design | Pending |
-| USR-08 | P1: Criar acesso | Design | Pending |
-| USR-21 | P1: Criar acesso | Design | Pending |
-| USR-22 | P1: Criar acesso | Design | Pending |
-| USR-09 | P1: Própria senha | Design | Pending |
-| USR-10 | P1: Própria senha | Design | Pending |
-| USR-11 | P1: Própria senha | Design | Pending |
-| USR-12 | P1: Própria senha | Design | Pending |
-| USR-23 | P1: Própria senha | Design | Pending |
-| USR-24 | P1: Própria senha | Design | Pending |
-| USR-13 | P1: Tirar do painel | Design | Pending |
-| USR-14 | P1: Tirar do painel | Design | Pending |
-| USR-15 | P1: Tirar do painel | Design | Pending |
-| USR-16 | P1: Tirar do painel | Design | Pending |
-| USR-17 | P1: Tirar do painel | Design | Pending |
-| USR-28 | P2: Editar e apagar | Design | Pending |
-| USR-29 | P2: Editar e apagar | Design | Pending |
-| USR-18 | P2: Editar e apagar | Design | Pending |
-| USR-30 | P2: Editar e apagar | Design | Pending |
-| USR-31 | P2: Editar e apagar | Design | Pending |
-| USR-32 | P2: Editar e apagar | Design | Pending |
-| USR-33 | P2: Editar e apagar | Design | Pending |
-| USR-34 | P2: Editar e apagar | Design | Pending |
-| USR-35 | P2: Editar e apagar | Design | Pending |
-| USR-36 | P2: Navegação | Design | Pending |
-| USR-37 | P2: Navegação | Design | Pending |
-| USR-38 | P2: Navegação | Design | Pending |
+| USR-01 | P1: Porta única | Execute | Implementado |
+| USR-02 | P1: Porta única | Execute | Implementado |
+| USR-03 | P1: Porta única | Execute | Implementado |
+| USR-19 | P1: Porta única | Execute | Implementado |
+| USR-20 | P1: Porta única | Execute | Implementado |
+| USR-25 | P1: Porta única | Execute | Implementado |
+| USR-26 | P1: Porta única | Execute | Implementado |
+| USR-27 | P1: Porta única | Execute | Implementado |
+| USR-04 | P1: Criar acesso | Execute | Implementado |
+| USR-05 | P1: Criar acesso | Execute | Implementado |
+| USR-06 | P1: Criar acesso | Execute | Implementado |
+| USR-07 | P1: Criar acesso | Execute | Implementado |
+| USR-08 | P1: Criar acesso | Execute | Implementado |
+| USR-21 | P1: Criar acesso | Execute | Implementado |
+| USR-22 | P1: Criar acesso | Execute | Implementado |
+| USR-09 | P1: Própria senha | Execute | Implementado |
+| USR-10 | P1: Própria senha | Execute | Implementado |
+| USR-11 | P1: Própria senha | Execute | Implementado |
+| USR-12 | P1: Própria senha | Execute | Implementado |
+| USR-23 | P1: Própria senha | Execute | Implementado |
+| USR-24 | P1: Própria senha | Execute | Implementado |
+| USR-13 | P1: Tirar do painel | Execute | Implementado |
+| USR-14 | P1: Tirar do painel | Execute | Implementado |
+| USR-15 | P1: Tirar do painel | Execute | Implementado |
+| USR-16 | P1: Tirar do painel | Execute | Implementado |
+| USR-17 | P1: Tirar do painel | Execute | Implementado |
+| USR-28 | P2: Editar e apagar | Execute | Implementado |
+| USR-29 | P2: Editar e apagar | Execute | Implementado |
+| USR-18 | P2: Editar e apagar | Execute | Implementado |
+| USR-30 | P2: Editar e apagar | Execute | Implementado |
+| USR-31 | P2: Editar e apagar | Execute | Implementado |
+| USR-32 | P2: Editar e apagar | Execute | Implementado |
+| USR-33 | P2: Editar e apagar | Execute | Implementado |
+| USR-34 | P2: Editar e apagar | Execute | Implementado |
+| USR-35 | P2: Editar e apagar | Execute | Implementado |
+| USR-39 | P2: Esqueci minha senha | Execute | Implementado |
+| USR-40 | P2: Esqueci minha senha | Execute | Implementado |
+| USR-41 | P2: Esqueci minha senha | Execute | Implementado |
+| USR-42 | P2: Esqueci minha senha | Execute | Implementado |
+| USR-43 | P2: Esqueci minha senha | Execute | Implementado |
+| USR-36 | P2: Navegação | Execute | Implementado |
+| USR-37 | P2: Navegação | Execute | Implementado |
+| USR-38 | P2: Navegação | Execute | Implementado |
 
-**Coverage:** 38 requisitos, 0 mapeados para tasks ainda.
+**Coverage:** 43 requisitos, **43 implementados** em 25 tasks (2026-09-13). Falta a verificação independente e a prova em navegador.
 
 ---
 

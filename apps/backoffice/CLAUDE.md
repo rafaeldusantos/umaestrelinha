@@ -21,7 +21,12 @@ Não pelo ciclo de vida do produto:
 | **Descontos** | Cupons · Promoções |
 | **Catálogo** | Produtos · Categorias · Perguntas frequentes |
 | **Loja** | Home · Menu da loja · Google Shopping |
-| *(rodapé)* | Configurações |
+| *(rodapé)* | Configurações · Usuários do painel · Minha conta |
+
+**O rodapé é o lugar da administração do SISTEMA**, e por isso os dois itens da feature `48` entram
+ali e não num dos quatro eixos: ninguém abre o painel de manhã para conferir quem tem acesso. A ordem
+vai do mais amplo ao mais pessoal — **a loja → o sistema → eu** —, e `Minha conta` fica encostada em
+`Sair`, que é onde se procura o que é da própria pessoa.
 
 **`Vendas` vem primeiro porque é o único eixo que ACUMULA**: pedido esperando envio, carrinho
 esfriando, cliente esperando resposta. Cadastrar e curar vitrine são trabalho de quando não há fila —
@@ -561,6 +566,44 @@ catálogo — e impede que a troca aconteça na ordem errada.
   consertar a coisa errada.
 - **A tela não serve o feed** — quem serve são as edge functions `google-feed` e `product-page`. Ver
   [`../../supabase/CLAUDE.md`](../../supabase/CLAUDE.md).
+
+## `/admin/usuarios` e `/admin/conta` — quem entra no painel (feature `48`)
+
+**Toda escrita passa pela edge function `admin-users`** (`AD-034`). Nada aqui toca `auth.admin.*`, e
+`chaveDeServidorForaDoNavegador.test.ts` (na suíte da **loja**, que é onde os guardas de varredura
+moram) recusa qualquer arquivo de `apps/**` que nomeie a chave de serviço ou aquela API.
+
+- **"Remover do painel" e "Apagar conta" são ações DIFERENTES, lado a lado, com rótulos diferentes.**
+  A primeira apaga uma linha de `user_roles` e é reversível com um clique; a segunda destrói login,
+  ficha de cliente e lista de desejos. Rotulá-las igual — ou oferecer só a segunda — era o desenho
+  que esta feature recusou, porque **um admin que trabalhou não pode ser apagado**: quatro FKs
+  bloqueiam, e o botão falharia quase sempre.
+- **A confirmação de apagar é digitar o e-mail**, e não um "tem certeza?". As duas ações ficam a um
+  pixel de distância e têm consequências opostas; digitar obriga a ler qual conta está na frente.
+- **`is_self` desabilita as duas na própria linha**, com o motivo no `title`. Recusa que só aparece
+  depois do clique faz a dona pensar que algo quebrou.
+- **`motivoDaFalha` em `useAdminUsers.ts` existe porque `functions.invoke` DESCARTA o corpo** de
+  qualquer resposta ≥ 400. Sem ler o `context` do `FunctionsHttpError`, a frase que o handler
+  escreveu ("esta conta tem 7 pedidos…") nunca chega à tela, e a Adri leria *"Edge Function returned
+  a non-2xx status code"*. As duas pontas certas, resultado errado.
+- **`/admin/conta` é separada de `/admin/configuracoes` de propósito**: aquela tela guarda
+  configuração **da loja**, compartilhada entre todo mundo que administra. Senha é pessoal.
+- **Trocar a própria senha exige a senha atual**, e o GoTrue **não** exige.
+  `changeOwnPassword` faz recusa local → `signInWithPassword` → `updateUser`, nessa ordem. A recusa
+  local antes da rede não é zelo: sem ela, cada confirmação errada queima o `sign_in_sign_ups` do
+  GoTrue e a pessoa acaba bloqueada justamente enquanto tenta trocar a senha.
+- **`/admin/login` ganhou "Esqueci minha senha"**, e isso fechou um buraco que já existia: o
+  template `recovery.html` manda um código de 6 dígitos dizendo *"use o código abaixo **na loja**"*,
+  e o painel não tinha onde consumi-lo. O fluxo usa `resetPassword`, `verifyRecoveryCode` e
+  `updatePassword` do `AuthContext` — os três **já existiam e não tinham chamador nenhum aqui**. O
+  desfecho reusa o efeito `entrando`/`authLoading` que já morava na página: uma segunda regra de
+  "para onde ir depois de entrar" seria a divergência que a feature combate.
+
+> ⚠️ **Revogar o papel NÃO derruba a sessão ativa da pessoa.** Medido nos typings
+> (`@supabase/auth-js@2.110.7`): `signOut(jwt, scope?)` exige o JWT dela, e não existe logout por id.
+> O casco do painel pode seguir na tela até ela recarregar — mas **nada que ela faça grava**, porque
+> toda policy de escrita chama `has_role`, avaliado por requisição. Limitação declarada, não
+> escondida.
 
 ## Dívidas conhecidas deste app
 

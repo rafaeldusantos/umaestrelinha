@@ -321,6 +321,9 @@ migrations, e `vercelRedirects` lê o `vercel.json`.
 | `reservedSlugs.test.ts` | idem | rota nova no `App.tsx` que não entrou em `ROUTE_SLUGS`; entrada de `ROUTE_SLUGS` que deixou de ser rota. **Bidirecional** |
 | `vercelRedirects.test.ts` | idem | `vercel.json` divergir de `LEGACY_REDIRECTS`; `trailingSlash` deixar de ser `false`; redirect usando `permanent` (que produz 308); o catch-all do SPA sair do fim da lista de `rewrites`; os headers de segurança mudarem; o `rewrite` ou o `Content-Type` de `/sitemap.xml` sumirem |
 | `robotsSource.test.ts` | idem | `public/robots.txt` perder a linha `Sitemap:`, ganhar uma segunda, declará-la relativa, ou apontar fora de `/sitemap.xml`; uma diretiva `Disallow` entrar de carona |
+| `chaveDeServidorForaDoNavegador.test.ts` | store `shared/lib/__tests__` (varre `apps/**`) | qualquer arquivo dos **dois apps** nomear `SUPABASE_SERVICE_ROLE_KEY`, carregar a string `service_role` ou chamar `auth.admin.*` — a chave ignora toda RLS, e um `createClient` com ela em `apps/**` **funcionaria perfeitamente**, entregando o banco inteiro a qualquer visitante. A porta é a function `admin-users` (`AD-034`). **Âncora TRIPLA** (arquivos lidos · um arquivo de cada app nomeado, `L-035` · a porta legítima encontrada) e **treze sensores**, incluindo as três formas de `auth.admin.`, o CRLF, o LF, o glob de dois asteriscos (`BL-027`) e os **dois inversos** que provam que `functions.invoke` e a auth do próprio usuário não são acusados. **Allowlist de UM**, escrito literalmente — o próprio guarda, que precisa carregar as formas proibidas nos sensores —, com um caso provando que outro arquivo de teste **seria** acusado |
+| `rotasSobGuarda.test.ts` | backoffice `app/__tests__` | qualquer rota `/admin/*` do `App.tsx` ficar **fora** do `<Route>` cujo element é o `RequireAdmin` — menos `/admin/login`, que precisa estar fora e tem asserção própria dizendo isso. Mede **posição**, não presença: `navItems.test.ts` lê o mesmo arquivo com um regex plano e é **cego a aninhamento**, o que deixou duas telas vazarem com 2328 testes verdes. Também recusa o `RequireAdmin` perder o `loginPath="/admin/login"` (sem ele a lojista é mandada para a tela de cliente da LOJA). **Âncora tripla** — arquivo lido, bloco **recortado** (recorte que falha devolve `null` e REPROVA, em vez de virar bloco vazio que aprova tudo), e exatamente **um** `</Route>`, para que aninhar um Route com filhos faça o guarda gritar em vez de encolher. Seis sensores, incluindo o inverso e o `RequireAdmin` sumindo |
+| `adminUsersSchema.test.ts` | idem | a migration da `48` afrouxar: `guard_last_admin` deixar de decidir por **contagem** (e passar a comparar identidade); o `id <> old.id` sumir do `count` — sem ele o trigger é `before`, a linha ainda conta, e o guarda **nunca dispara**; o trigger virar só `before delete`, liberando rebaixar o último admin por `update`; o `pg_advisory_xact_lock` sumir, deixando duas remoções simultâneas passarem as duas; o `errcode 23514` virar genérico; `grant` alcançar `anon`; escrita de dado entrar na migration. **Âncora dupla** e **onze sensores por mutação** |
 | `materialTransitions.test.ts` | idem | a máquina de estado do material em **SQL** divergir da em **TypeScript**; `set_material_tracking` escrever coluna além do rastreio e do estado; a migration abrir policy de `UPDATE` em `orders` ou conceder `execute` a `anon` |
 | `homeSections.test.ts` | idem | o catálogo de tipos divergir do `check` **vigente** (o da migration da `41`, que recria a constraint); a semente divergir de `DEFAULT_HOME_COMPOSITION`; entrar tipo de contagem regressiva ou de prova social; policy de escrita sem `has_role`; `grant` alcançar `anon`. **Desde a `41` guarda a TROCA do guarda do banco nos dois sentidos** (`AD-029`): `guard_last_active_home_section` existe e decide por **contagem** (nunca pelo tipo da linha), **e** `guard_hero_home_section` foi derrubado — função e trigger. Também recusa `insert`/`update`/`delete` de dado na migration da `41` |
 | `faqSchema.test.ts` | idem | a migration da `28` afrouxar: `grant` a `anon`; policy sem `has_role`; `faq_id` deixar de ser `on delete restrict`; sumirem os `check` de 160/600; a view perder `security_invoker` |
@@ -408,7 +411,85 @@ quando mudarem de verdade.
 | --- | --- | --- |
 | **Lint** | **27 erros / 6 warnings** — backoffice 25/4 · store 2/2 | `pnpm lint` |
 | **Tipos** | **0 · 0 · 0** (store · backoffice · catalog-import) | `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` |
-| **Testes** | **8479 em 447 arquivos** — store **3128/203** · backoffice **2204/129** · core **2199/84** · functions **436/8** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test` |
+| **Testes** | **8827 em 461 arquivos** — store **3176/205** · backoffice **2345/136** · core **2285/88** · functions **509/9** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test` |
+
+**A feature `48` (usuários do painel) somou +324 em quatro workspaces**, medidos em 2026-09-13 um por
+vez e com exit code capturado fora de pipe: **backoffice +117/+7** (as duas telas, os dois diálogos,
+o hook, o cartão de senha, o fluxo de recuperação e o guarda das rotas), **core +86/+4** (as recusas
+puras e a pureza do módulo), **functions +73/+1** (a `admin-users`, mais 8 casos nos dublês de
+`_shared/testing`) e **store +48/+2** (os dois guardas novos — a migration e a chave de servidor).
+`catalog-import` não foi tocado e foi remedido — idêntico. `packages/core/src/payment/**` sem uma
+linha alterada, conferido por `git status --porcelain`.
+
+> **A verificação independente REPROVOU a primeira entrega, e o achado nº 1 é o pior tipo: o contrato
+> de autorização do painel inteiro não tinha UMA asserção.** O verificador moveu `/admin/usuarios` e
+> `/admin/conta` para fora do `<Route>` do `RequireAdmin` e rodou a suíte completa do backoffice —
+> **2328 verdes**. As duas telas (a lista de quem administra a loja, com e-mail e último acesso, e o
+> formulário de senha) renderizariam para visitante deslogado. `grep -rn RequireAdmin
+> --include=*.test.*` devolvia **uma** ocorrência no painel, e era um comentário.
+>
+> **O guarda que existia não alcançava, e o motivo é reutilizável**: `navItems.test.ts` lê o
+> `App.tsx` com `/path="(\/admin[^"]*)"/g` — um regex **plano**, cego a aninhamento. Para ele, uma
+> rota dentro e uma rota fora do bloco guardado são a mesma coisa. **Régua que mede PRESENÇA não mede
+> POSIÇÃO**, e autorização é posição. O guarda novo (`app/__tests__/rotasSobGuarda.test.ts`) recorta
+> o bloco e compara índices, cobre a **classe** inteira (toda rota `/admin/*`, não só as duas que
+> vazaram), e a mutação exata do verificador foi reinjetada no `App.tsx` real para ver as duas
+> asserções reprovarem — com o `navItems.test.ts` seguindo verde em 25/25 ao lado.
+>
+> Os outros dois mutantes sobreviventes tinham a assinatura de sempre — **a asserção verdadeira nos
+> dois mundos**: (1) o único teste de `delete` no hook exercitava o ramo de **recusa**, que retorna
+> antes da releitura, então apagar o `refetch` de `remove()` deixava a linha da pessoa apagada na
+> tela até um F5 — o irmão `revoke` tinha a asserção certa, `remove` não; (2) o caso do `23503`
+> montava a corrida com as quatro contagens em **zero**, então a releitura devolvia `null`, a
+> resposta caía no literal de fallback, e as duas asserções passavam com a releitura trocada por
+> `null`. O conserto foi fazer a contagem **mudar entre as duas leituras** (0 → 4), que é a corrida
+> de verdade, e asserir o **número** na frase.
+>
+> **E uma duplicação foi REMOVIDA em vez de testada**: `passwordChangeRefusal` era chamada no
+> `ChangePasswordCard` **e** no `changeOwnPassword`, e as duas se mascaravam — remover qualquer uma
+> deixava a suíte verde. A do componente não comprava nada (a do contexto já recusa antes da rede),
+> então saiu. `ForgotPasswordFlow` mantém a dele, e ali é carga: `updatePassword` não confere nada.
+>
+> **A rodada 2 achou a lacuna que o conserto acima CRIOU, e esta é a lição mais reutilizável da
+> feature.** Com a régua num dono só, mover o `supabase.auth.getUser()` para **antes** dela em
+> `changeOwnPassword` passou a deixar a suíte verde — e `getUser` no supabase-js v2 **vai ao
+> servidor** validar o JWT, então a mutação viola a letra de `USR-11`/`USR-23` ("antes de QUALQUER
+> chamada de rede"). Na rodada 1 aquele mutante era **inalcançável**, porque o cartão já tinha
+> recusado. Consolidar foi certo, e transferiu para a **ordem interna** de uma função uma promessa
+> que as duas cópias sustentavam por acidente: **remover uma cópia move o ônus da prova, não o
+> elimina.** O conserto é `expect(getUser).not.toHaveBeenCalled()` nos três casos de recusa local.
+
+> ⚠️ **O teto de 5s da contenção alcança a LOJA também, não só o painel.** Medido duas vezes na
+> verificação da `48`: a suíte do store reprovou com `Test timed out in 5000ms` em **5 casos de 4
+> arquivos, todos de varredura de disco** — e os 4 passam isolados (44/44). Com
+> `--testTimeout=20000` a suíte fecha **3176/205, contagem idêntica**. É a mesma assinatura que o
+> achado da `46` descreve para o backoffice, e a instrução vale igual aqui: **antes de investigar uma
+> reprovação da loja, confira se o erro diz `Test timed out in 5000ms`** — se disser, feche o que
+> estiver rodando e remeça sozinho, ou suba o teto.
+
+> **A baseline do backoffice estava velha em +24 quando esta feature começou** (dizia 2204/129, e o
+> disco tinha **2228/129**). É a **quinta** feature seguida a encontrar isso. As outras quatro linhas
+> batiam — e o motivo de baterem é que a `47` mediu de verdade ao fechar.
+>
+> **E a medição de entrada foi CONTAMINADA por mim mesmo**: a corrida de `core` pegou o
+> `refusals.test.ts` que eu tinha acabado de escrever, e reportou 2221/85 em vez de 2199/84.
+> Descontar os 22 casos devolveu o número certo, e o erro só foi visível porque o log nomeia cada
+> arquivo. **Meça com a árvore parada** — a regra deste arquivo diz "meça na hora", e faltava dizer
+> "antes de tocar em qualquer coisa".
+
+> ⚠️ **Esta feature correu numa working tree COMPARTILHADA com outra sessão** — o quarto caso do
+> projeto, depois da `45`, da `46`/`47` e do conserto dos diálogos. A outra sessão commitou quatro
+> vezes durante a execução (`403c924`..`f8609b6`, 12:19–12:20), **inclusive a `spec.md` desta
+> feature**. Os números acima não sofreram com isso porque aquele trabalho **já estava no disco** às
+> 12:36, quando a baseline de entrada foi medida — mas a coincidência é sorte, não método. A âncora
+> de contagem compartilhada é **esta tabela**, e é onde duas sessões somando +1 cada produzem um
+> número que nenhuma das duas mediu.
+
+> **Um erro de fuso horário quase entrou na listagem de acessos.** A fixture do teste usava
+> `2026-09-10T00:00:00Z`, e meia-noite UTC renderizada em Porto Alegre é **o dia anterior** — o teste
+> reprovou pedindo `10/09` e recebendo `09/09`. O conserto foi a fixture (meio-dia UTC, mesmo dia
+> civil em qualquer fuso de −11 a +11), não a asserção: o componente estava certo, o teste é que
+> media a máquina. Mesma família de `storeOrigin.test.ts`.
 
 **O conserto da posição dos alvos de toque somou +16 em UM workspace**, medidos em 2026-09-13 com
 exit code capturado fora de pipe: **store 3111/202 → 3128/203** (o guarda novo, 14, e os dois casos
@@ -1003,6 +1084,40 @@ completo (framework, `installCommand` na raiz do monorepo, headers de cache e de
 
 ## Estado conhecido / dívidas
 
+- **O PAINEL CONTINUA COM UM ACESSO SÓ ATÉ A ADRI CRIAR O SEGUNDO** (feature `48`). A migration
+  **não semeia conta nenhuma** — semear criaria uma credencial que ninguém pediu e que ninguém sabe
+  a senha. Depois do deploy, `/admin/usuarios` mostra **uma** linha (a do `seed.sql`), e o ponto
+  único de falha humano que a feature existe para remover **só some quando ela criar o segundo
+  acesso**. É o mesmo formato de dívida do interruptor do frete grátis e do menu vazio: sem este
+  registro, a loja fica meses assim porque ninguém soube que havia uma tela.
+- **A `48` TEM `validation.md`, com autor ≠ verificador e DUAS rodadas** — a primeira reprovou com 3 mutantes sobreviventes, a segunda passou. O que falta é **prova em navegador**. Os 324 casos foram medidos por
+  workspace com exit code fora de pipe, os guardas novos tiveram a sensibilidade provada por
+  **injeção real no arquivo real**, a invariante do banco foi provada por **6 probes SQL contra o
+  Postgres local**, e o grafo de módulo da edge function foi provado por **`deno check` de verdade**
+  (não pela inferência do guarda). **O que falta é exatamente o que jsdom não mede**: em 390×844, a
+  tabela de acessos com **quatro** botões de ação na linha (ela vai estourar), os dois diálogos de
+  confirmação, e os três campos de senha empilhados com o botão de mostrar/ocultar em cada. Entra na
+  fila da `32`, `33`, `34`, `35`, `37`, `39`, `41`, `45` e `47`.
+- **Revogar o acesso NÃO derruba a sessão ativa da pessoa** (`A-06` da `48`). Medido nos typings
+  (`@supabase/auth-js@2.110.7`): `signOut(jwt, scope?)` exige o JWT dela, e **não existe logout por
+  id**. O casco do painel pode seguir na tela até ela recarregar — mas **nada que ela faça grava**,
+  porque toda policy de escrita chama `has_role`, avaliado por requisição. Para expulsar de imediato
+  seria preciso banir a conta (`ban_duration`), que é mais pesado que tirar o acesso ao painel.
+  Limitação declarada, não escondida.
+- **Um admin que trabalhou NÃO PODE ser apagado, e isso é do schema** (feature `48`). Quatro FKs
+  apontam para `auth.users` sem `ON DELETE`: `orders.customer_id` (via o `CASCADE` de
+  `customers.user_id`), `order_notes.created_by`, `order_status_history.created_by` e
+  `customer_notes.created_by`. A tela recusa **antes**, nomeando o que bloqueia e com quantos
+  registros, e oferece `Remover do painel` como saída. Não é bug: apagar destruiria o histórico da
+  loja junto. Mudar isso exigiria `ON DELETE SET NULL` nas três colunas `created_by` — migration
+  própria, e uma decisão sobre o que "nota sem autor" significa.
+- **Criar um admin cria também uma linha em `customers`, e ADOTA os pedidos órfãos do mesmo e-mail.**
+  É o trigger `handle_new_customer` (`ESP-22`) fazendo o trabalho dele. Consequências: a pessoa
+  aparece em `/admin/clientes` com zero pedidos, e — se aquele e-mail já comprou como convidada — os
+  pedidos passam a ser dela. As duas são corretas; a segunda torna a conta indelével dali em diante.
+  **Filtrar admins da listagem de clientes seria criar um segundo dono de "quem é cliente"**, e por
+  isso não foi feito.
+
 - **A `47` NÃO tem prova em navegador, e nela isso pesa mais que a média**: o que a feature entrega é
   **largura** (440 × 872), **escala** (81% e 100%) e **altura de corpo**, e jsdom devolve 0 para toda
   medida de layout — toda asserção da suíte é proxy de forma (classe declarada, atributo, presença de
@@ -1195,3 +1310,4 @@ código — mas todas explicam por que uma tela parece vazia:
 | Arte da vitrine | `/admin/categorias` | nenhuma das 37 categorias tem `banner_url` ⇒ a grade de banners não aparece |
 | O banner de campanha | `/admin/home`, bloco **Banner principal** | a `41` **não semeia nenhum** ⇒ a Home abre com a "Chamada principal" de sempre. O bloco existe na bandeja e espera arte, destino e o interruptor |
 | Perguntas frequentes | `/admin/perguntas` e a aba `Perguntas` do produto | a `28` semeou 67 entradas e 3.475 vínculos das descrições |
+| **Quem mais entra no painel** | `/admin/usuarios` | a `48` **não semeia conta nenhuma** ⇒ a lista mostra só a do `seed.sql`. Enquanto for uma linha, o painel segue com um ponto único de falha humano — e o próprio guarda do banco recusa remover o último acesso |
