@@ -159,14 +159,21 @@ const HeroCarousel = ({ section, items }: Props) => {
         {gira && (
           <>
             {/* As setas são do computador: no celular quem troca de slide é o dedo, e uma seta
-                sobre a arte tampa justamente o texto que a campanha desenhou nela. */}
+                sobre a arte tampa justamente o texto que a campanha desenhou nela.
+
+                **`TAP_44` vem PRIMEIRO, e a ordem aqui é carga, não estilo.** `cn` é `twMerge`, e
+                o `relative` que o auxiliar traz disputa com `absolute` o mesmo grupo de posição:
+                com o auxiliar por último, o `absolute` da seta é APAGADO da saída e os dois botões
+                caem no fluxo normal, empilhados no canto de baixo — sem erro de build, de `tsc` ou
+                de teste de componente. `alvoDeToqueNaoRoubaPosicao.test.ts` recusa a volta, e ele
+                CALCULA a fusão em vez de conferir a ordem no olho. */}
             <button
               type="button"
               onClick={prev}
               aria-label="Banner anterior"
               className={cn(
-                'absolute left-3 top-1/2 hidden -translate-y-1/2 items-center justify-center rounded-full bg-estrelinha-surface/90 p-2 text-estrelinha-ink shadow-estrelinha-soft transition-colors hover:bg-estrelinha-surface md:flex',
                 TAP_44,
+                'absolute left-3 top-1/2 hidden -translate-y-1/2 items-center justify-center rounded-full bg-estrelinha-surface/90 p-2 text-estrelinha-ink shadow-estrelinha-soft transition-colors hover:bg-estrelinha-surface md:flex',
               )}
             >
               <ChevronLeft size={20} strokeWidth={2} aria-hidden />
@@ -176,8 +183,8 @@ const HeroCarousel = ({ section, items }: Props) => {
               onClick={next}
               aria-label="Próximo banner"
               className={cn(
-                'absolute right-3 top-1/2 hidden -translate-y-1/2 items-center justify-center rounded-full bg-estrelinha-surface/90 p-2 text-estrelinha-ink shadow-estrelinha-soft transition-colors hover:bg-estrelinha-surface md:flex',
                 TAP_44,
+                'absolute right-3 top-1/2 hidden -translate-y-1/2 items-center justify-center rounded-full bg-estrelinha-surface/90 p-2 text-estrelinha-ink shadow-estrelinha-soft transition-colors hover:bg-estrelinha-surface md:flex',
               )}
             >
               <ChevronRight size={20} strokeWidth={2} aria-hidden />

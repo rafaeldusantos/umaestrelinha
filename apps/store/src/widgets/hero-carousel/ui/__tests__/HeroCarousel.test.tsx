@@ -284,6 +284,49 @@ describe('as setas (BNR-35)', () => {
     )
   })
 
+  /**
+   * **A seta é ancorada na faixa, e esta é a asserção que faltava.**
+   *
+   * Todas as outras deste bloco são verdadeiras nos DOIS mundos — o rótulo, o `hidden`, o
+   * `md:flex` e o `before:h-11` continuam iguais com a seta posicionada ou caída no fluxo. Foi
+   * assim que `cn(classes, TAP_44)` pôde derrubar as duas setas para o canto de baixo da Home com a
+   * suíte inteira verde: `cn` é `twMerge`, e o `relative` do auxiliar apaga o `absolute` da seta.
+   *
+   * Por isso a régua é de token exato e mede os dois lados: o `absolute` **está** e o `relative`
+   * **não está**. Sem a segunda metade, um `cn` que emitisse as duas classes passaria — e no
+   * navegador quem vence é a última do arquivo CSS, não a última da string.
+   */
+  it('as duas setas ficam ancoradas na faixa, e não caem no fluxo (BNR-35)', () => {
+    montar([item('a'), item('b')])
+
+    for (const [rotulo, borda] of [
+      ['Banner anterior', 'left-3'],
+      ['Próximo banner', 'right-3'],
+    ] as const) {
+      const seta = screen.getByRole('button', { name: rotulo })
+      const classes = seta.className.split(/\s+/)
+
+      expect(classes, rotulo).toContain('absolute')
+      expect(classes, rotulo).not.toContain('relative')
+      expect(classes, rotulo).toContain(borda)
+      expect(classes, rotulo).toContain('top-1/2')
+      expect(classes, rotulo).toContain('-translate-y-1/2')
+    }
+  })
+
+  it('o alvo de 44 sobrevive ao posicionamento — as duas coisas ao mesmo tempo', () => {
+    // O contrário da asserção acima: consertar a posição jogando `TAP_44` fora seria trocar um
+    // defeito por outro. `absolute` também é contexto de posicionamento, então o pseudo continua
+    // ancorado no próprio botão.
+    montar([item('a'), item('b')])
+    const seta = screen.getByRole('button', { name: 'Banner anterior' })
+    const classes = seta.className.split(/\s+/)
+
+    expect(classes).toContain('before:absolute')
+    expect(classes).toContain('before:h-11')
+    expect(classes).toContain('before:w-11')
+  })
+
   it('“anterior” circula do primeiro para o último', () => {
     montar([item('a'), item('b'), item('c')])
 

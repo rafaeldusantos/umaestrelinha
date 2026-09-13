@@ -19,7 +19,7 @@ import { motion } from 'framer-motion'
 import { useGeneralSettings } from '@estrelinha/core/hooks/useStoreSettings'
 import { EstrelinhaStarIcon } from '@estrelinha/ui/icons'
 import { EstrelinhaSymbol } from '@/shared/ui/brand'
-import Trilha from '@/shared/ui/Trilha'
+import Trilha, { COLUNA_INSTITUCIONAL } from '@/shared/ui/Trilha'
 import { useCanonical } from '@/shared/lib/useCanonical'
 
 export const ABOUT_PATH = '/sobre'
@@ -38,8 +38,14 @@ export const ABOUT_PATH = '/sobre'
  */
 const ADRI_PHOTO: { src: string; alt: string } | null = null
 
-/** A coluna de conteúdo: 350 no mobile (390 − 2×20), 1200 no desktop (1440 − 2×120). */
-const COLUNA = 'mx-auto w-full max-w-[1240px] px-5'
+/**
+ * A coluna de conteúdo: 350 no mobile (390 − 2×20), 1200 no desktop (1440 − 2×120).
+ *
+ * O valor saiu daqui para `shared/ui/Trilha` quando a página de perguntas virou o quarto
+ * consumidor da mesma lane. O alias local fica porque o resto do arquivo o chama por este nome —
+ * o DOM não muda, e a string tem um dono só.
+ */
+const COLUNA = COLUNA_INSTITUCIONAL
 
 /** A medida de leitura do corpo, do artboard: 17/28 no mobile, 19/34 no desktop. */
 const CORPO =

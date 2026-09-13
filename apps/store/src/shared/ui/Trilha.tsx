@@ -18,6 +18,21 @@ import { TAP_ROW } from '@/shared/lib/touchTarget'
  * `TAP_ROW`, e não `TAP_44`: é texto em fluxo, e um quadrado de 44 centrado num rótulo de 40px
  * deixaria as pontas fora do alvo (`CLAUDE.md`).
  */
+/**
+ * A coluna das páginas institucionais — a mesma lane que a trilha, o título e o corpo dividem.
+ *
+ * **Ela mora aqui porque a trilha é o único componente que as três páginas já compartilham**, e
+ * porque o número só tem sentido em relação a ela: escrita de novo na página, a trilha e o título
+ * passam a começar em colunas diferentes — 120px contra 96px numa viewport de 1440, se a página
+ * usar o `container` do preset (1280/1rem) em vez desta medida. E nada acusa: build, `tsc` e teste
+ * de componente seguem verdes com as duas lanes divergindo, porque jsdom devolve 0 para toda medida
+ * de layout. Quem vê o degrau é a cliente — o "defeito 01" na forma mais barata de evitar.
+ *
+ * 1240 com 20 de respiro = **1200 de conteúdo**, que é exatamente o `paddingInline: 120px` dos
+ * artboards de 1440. No celular não há teto: 390 − 2×20 = 350.
+ */
+export const COLUNA_INSTITUCIONAL = 'mx-auto w-full max-w-[1240px] px-5'
+
 const Trilha = ({
   paginaAtual,
   className = '',
@@ -32,7 +47,7 @@ const Trilha = ({
     className="border-b border-estrelinha-line bg-estrelinha-ground"
   >
     <ol
-      className={`mx-auto flex w-full max-w-[1240px] items-center gap-2 px-5 py-3.5 md:py-[18px] ${className}`}
+      className={`${COLUNA_INSTITUCIONAL} flex items-center gap-2 py-3.5 md:py-[18px] ${className}`}
     >
       <li>
         <Link

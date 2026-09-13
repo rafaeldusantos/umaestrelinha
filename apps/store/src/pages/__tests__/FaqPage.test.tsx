@@ -225,3 +225,98 @@ describe('FaqPage — a cabeça do documento', () => {
     expect(document.title).toContain('Perguntas frequentes')
   })
 })
+
+describe('FaqPage — a moldura institucional', () => {
+  // A trilha da loja tem UM dono: `shared/ui/Trilha`, o mesmo da Sobre e das duas políticas.
+  // A que morava nesta página era uma quarta escrita do mesmo degrau, com outro separador, outra
+  // escala e sem `aria-current` — e nada quebrava, porque quatro trilhas divergentes renderizam
+  // perfeitamente. Este caso reprova se alguém reescrever a trilha aqui dentro.
+  it('usa a trilha COMPARTILHADA, com o nome acessível das outras institucionais', () => {
+    comEstado({ data: GRUPOS })
+    desenhar()
+
+    const trilha = screen.getByRole('navigation', { name: 'Trilha de navegação' })
+    expect(screen.getByRole('link', { name: 'Início' })).toHaveAttribute('href', '/')
+
+    // O degrau corrente não é link, e é o que a trilha local não marcava.
+    const atual = trilha.querySelector('[aria-current="page"]')!
+    expect(atual.textContent).toBe('Perguntas frequentes')
+    expect(atual.querySelector('a')).toBeNull()
+  })
+
+  it('tem UMA trilha — a local não ficou para trás ao lado da compartilhada', () => {
+    comEstado({ data: GRUPOS })
+    desenhar()
+
+    expect(screen.getAllByRole('link', { name: 'Início' })).toHaveLength(1)
+  })
+
+  it('a trilha vem ANTES do título — é navegação, não legenda', () => {
+    comEstado({ data: GRUPOS })
+    desenhar()
+
+    const trilha = screen.getByRole('navigation', { name: 'Trilha de navegação' })
+    const titulo = screen.getByRole('heading', { level: 1 })
+    expect(trilha.compareDocumentPosition(titulo) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  /*
+   * A BUSCA À DIREITA — board `EKT-0`.
+   *
+   * jsdom devolve 0 para toda medida de layout, então isto é **proxy de forma**: o que dá para
+   * provar aqui é que o título e a busca dividem a MESMA linha, e que a linha é a que separa as
+   * pontas. A largura de verdade se mede em navegador, e está registrada como pendência.
+   *
+   * A asserção sobe do `<h1>` até a linha e depois **desce até a busca**, em vez de parar no
+   * primeiro ancestral com a classe: subir e asserir no nó encontrado provaria o estilo de um
+   * vizinho qualquer, e passaria com a busca fora da linha.
+   */
+  it('o título e a busca dividem a linha de abertura, separados pelas pontas', () => {
+    comEstado({ data: GRUPOS })
+    const { container } = desenhar()
+
+    const titulo = screen.getByRole('heading', { level: 1 })
+    const busca = screen.getByLabelText('Buscar nas perguntas frequentes')
+
+    // Sobe à mão em vez de `closest('.lg\:justify-between')`: o seletor precisaria escapar os
+    // dois-pontos do Tailwind, e o motor do jsdom recusa o escape (`unknown pseudo-class`).
+    let linha: HTMLElement | null = titulo.parentElement
+    while (linha && !linha.className.includes('lg:justify-between')) linha = linha.parentElement
+
+    expect(linha, 'a faixa de abertura não vira linha em `lg`').not.toBeNull()
+    expect(linha!.className).toContain('lg:flex-row')
+    // A prova de que a busca está NESSA linha, e não numa outra abaixo dela.
+    expect(linha!.contains(busca)).toBe(true)
+
+    // A virada é em `lg` e nunca em `md`: 620 + 60 + 420 não cabe nos 728 de uma viewport de 768.
+    expect(container.innerHTML).not.toContain('md:justify-between')
+  })
+
+  /*
+   * A COLUNA DE LEITURA ENCOLHE — e este caso é **proxy de forma**, declarado como tal.
+   *
+   * A medida que importa (a página não rolar na horizontal em 1024) é exatamente a que jsdom não
+   * faz: ele devolve 0 para tudo. O que dá para congelar aqui é a **declaração**: largura fixa
+   * mais `shrink-0` na coluna de respostas pedia 248 + 96 + 720 = 1064px onde existem 984, e a
+   * loja inteira rolava de lado. Medido em navegador antes e depois: body 1080/1024 → 1024/1024.
+   *
+   * O par de classes é asserido no PRÓPRIO nó da coluna, e não no ancestral mais próximo: subir
+   * até achar a prova encontraria o `lg:shrink-0` legítimo do `<aside>` ao lado, que é uma coluna
+   * de navegação e pode ter largura fixa.
+   */
+  it('a coluna de respostas tem TETO, não largura fixa — senão a página rola de lado em 1024', () => {
+    comEstado({ data: GRUPOS })
+    desenhar()
+
+    const primeira = screen.getByText('O que são joias afetivas?')
+    let coluna: HTMLElement | null = primeira.parentElement
+    while (coluna && !coluna.className.includes('lg:max-w-[720px]')) coluna = coluna.parentElement
+
+    expect(coluna, 'a coluna de respostas não declara teto de 720').not.toBeNull()
+    expect(coluna!.className).toContain('lg:flex-1')
+    expect(coluna!.className).toContain('lg:min-w-0')
+    // O par que reprovava: largura cravada com recusa de encolher.
+    expect(coluna!.className).not.toContain('lg:w-[720px]')
+    expect(coluna!.className).not.toContain('lg:shrink-0')
+  })
+})

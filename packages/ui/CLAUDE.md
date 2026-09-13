@@ -64,6 +64,29 @@ componente acusa. `importOrder.test.ts` guarda isso.
 dentro do painel: renderizar widget da loja no documento do painel traria `--estrelinha-*` para o
 documento de `--estrelinha-admin-*`. Outro documento, outra folha.
 
+## `DialogContent` e `AlertDialogContent` carregam `grid-cols-1`, e não é decoração
+
+O shadcn entrega os dois contêineres como `grid` **sem trilha declarada**. Isso cria uma coluna
+implícita `auto`, cuja **base** é a maior contribuição de **min-content** entre os filhos — e texto
+com `white-space: nowrap` (que é exatamente o que `truncate` faz) contribui com a linha inteira.
+`min-w-0` e `overflow` no caminho **não salvam**: eles dão **piso zero ao item**, nunca **teto à
+contribuição**.
+
+Medido em navegador real no `AddQuestionDialog` do painel, com 66 entradas numa janela de 1280:
+`grid-template-columns` resolveu para **1141,03px** dentro de um cartão de 660. O texto vazava pela
+direita do cartão, o `truncate` nunca aparava nada, e o rodapé — `sm:justify-end` sobre uma faixa de
+1084px — levava "Cancelar" e "Adicionar" para **~440px fora da tela**. `pnpm build`, `tsc` e os
+testes de componente: todos verdes.
+
+`grid-cols-1` compila para `repeat(1, minmax(0, 1fr))`: mínimo zero, máximo "o espaço que existe".
+
+- **Ao trazer componente novo do shadcn que use `grid` como contêiner de conteúdo, declare a
+  trilha.** `sheet.tsx` não precisa (é bloco com `inset-x-0`/`w-3/4`); `drawer.tsx`, `chart.tsx` e
+  `toaster.tsx` usam `grid` só em cabeçalho e tooltip, onde o conteúdo embrulha.
+- **Os dois arquivos são cópia da mesma linha**, e por isso um guarda só lê os dois:
+  `apps/store/src/shared/lib/__tests__/dialogGridTrack.test.ts` — na suíte da loja pelo mesmo motivo
+  que `icons.test.ts`, porque este pacote não tem runner.
+
 ## Ao mexer aqui
 
 - **Este pacote não passa por ESLint** (`BL-002`) — não tem script `lint`, e `pnpm lint` é

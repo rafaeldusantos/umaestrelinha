@@ -703,6 +703,38 @@ Duas páginas de texto jurídico, nos endereços do site em produção: **trocas
   a peça" × "Cuidados gerais com a joia" é o par que vai divergir —, e (b) qualquer link para
   `/politicas`.
 
+## A página de perguntas frequentes (feature `46`)
+
+`/perguntas-frequentes` — a lista pública, com busca, navegação por assunto e o fecho de contato.
+A composição está no cabeçalho do próprio `pages/FaqPage.tsx`; o que vale registrar aqui é a
+**moldura**, porque ela é compartilhada e já divergiu uma vez.
+
+- **A trilha é `shared/ui/Trilha`, como na Sobre e nas políticas.** A página nasceu com uma trilha
+  própria — separador `/` em vez do chevron, escala 12/13 em vez de 13/14, sem `aria-current="page"`
+  e sem o alvo de toque do `TAP_ROW`. Eram **quatro** escritas do mesmo degrau, e as quatro
+  renderizavam: é o "defeito 01" na navegação. `FaqPage.test.tsx` recusa a volta pelo nome acessível
+  da trilha e pela existência de **uma** só.
+- **A coluna é `COLUNA_INSTITUCIONAL`, exportada por `shared/ui/Trilha`** — `max-w-[1240px] px-5`,
+  o mesmo 1200 de conteúdo que os artboards de 1440 desenham com `paddingInline: 120px`. A página
+  usava o `container` do preset (1280/1rem), e a trilha começava **24px à direita** do título. O
+  valor é um só: a Sobre o consome pelo mesmo import.
+- **A busca fica à direita a partir de `lg`, nunca de `md`** (board `EKT-0`): título e busca dividem
+  uma linha `items-end` com `justify-between`. O board pede 620 + 60 + 420 = **1100px**, e em `md`
+  (768) existem 728 — virar em `md` põe a faixa para fora da tela.
+- **A coluna de assuntos fica a `lg:top-[152px]`, e o número é medido**: o header empilha 84 (marca)
+  + 52 (departamentos) e **não se recolhe no desktop**. O `top-24` original valia 96 e a lista subia
+  por baixo da barra a cada rolagem. `shared/lib/__tests__/folgaDoHeader.test.ts` lê as duas alturas
+  do `Header.tsx` e a folga do `FaqPage.tsx` **do disco** e compara — citação em comentário não
+  conta, porque os dois arquivos explicam a conta em prosa.
+- **A coluna de respostas tem TETO, não largura fixa.** `lg:w-[720px] lg:shrink-0` pedia
+  248 + 96 + 720 = 1064px onde uma viewport de 1024 oferece 984, e a loja inteira rolava na
+  horizontal (medido em navegador: `scrollWidth` 1080 em 1024). É a lição do `minmax(0, …)` da `27`
+  na roupa do flex, e **nenhum teste via**: jsdom devolve 0 para toda medida de layout.
+
+> **Pendência:** o rodapé da loja estoura a viewport em **768px** (`scrollWidth` 802) — a grade
+> `grid-cols-2 md:flex md:gap-14` das colunas de link. É anterior a esta mudança, vale para **toda**
+> página da loja, e não foi consertado aqui por ser outro widget.
+
 ## Página Sobre (feature `29`)
 
 Quatro faixas de largura cheia, nesta ordem e com estas cores dos artboards: `1 Hero`
@@ -714,8 +746,11 @@ Quatro faixas de largura cheia, nesta ordem e com estas cores dos artboards: `1 
   `serenity`) — nunca uma caixa escrita "FOTO", que é notação de desenho e não de loja. **4:3 paisagem
   nos dois tamanhos**, porque a fotografia é **um** arquivo: duas proporções pediriam dois recortes.
 - **A legenda muda de coluna, não de texto**, e existe **uma** ocorrência dela no DOM nos dois casos.
-- A trilha (breadcrumb) mora na página e não em `shared/ui`: é a primeira da loja, e componente
-  compartilhado com um consumidor só é abstração antes da hora.
+- A trilha (breadcrumb) **nasceu** aqui e não em `shared/ui`, pela regra de sempre: componente
+  compartilhado com um consumidor só é abstração antes da hora. **A condição foi atingida e ela
+  mudou de casa** — `shared/ui/Trilha`, hoje com quatro consumidores (Sobre, as duas políticas e as
+  perguntas frequentes). Trilha nova se consome de lá; escrever a quarta no JSX foi exatamente o que
+  a feature `46` custou.
 
 ## Carrinho, chrome e checkout
 

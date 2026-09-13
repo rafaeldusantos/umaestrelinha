@@ -316,6 +316,7 @@ migrations, e `vercelRedirects` lê o `vercel.json`.
 | `brandScan.test.ts` | idem | **qualquer** ocorrência da marca anterior em `apps/`, `packages/`, `supabase/` ou nas configs da raiz |
 | `storeSettingsDefaults.test.ts` | idem | os defaults do TypeScript divergirem do que as migrations gravam; o interruptor do frete grátis nascer ligado; a migration da `37` deixar de ser aditiva (`value \|\|`) ou idempotente (`NOT value ?`). **Sensor embutido**: assere que o parser devolve `undefined` para campo ausente |
 | `freeShippingSingleOwner.test.ts` | idem | qualquer arquivo de `apps/**` fora de um allowlist de **dois** ler `free_shipping_threshold`; `freeShippingProgress` ou `FreeShippingBar` voltarem a existir em produção; copy com o valor da faixa cravada em JSX. **Âncora dupla** e **seis sensores embutidos** — o removedor de comentário provado com CRLF, com LF, contra o glob de dois asteriscos que o cegava (`BL-027`, fechada em 2026-09-06: linha e bloco na **mesma** varredura) e contra uma leitura nova escondida atrás desse mesmo glob |
+| `alvoDeToqueNaoRoubaPosicao.test.ts` | store `shared/lib/__tests__` (varre `apps/**` e `packages/ui/**`) | um controle posicionado perder a posição para `TAP_44`/`TAP_ROW`, **nas duas formas de juntar classe**: `cn(classes, TAP_44)`, onde o `relative` do auxiliar **apaga** o `absolute` na fusão do `twMerge`; e `` `${TAP_44} absolute …` ``, onde não há fusão, as **duas** classes chegam ao DOM e `.relative` vence por vir **depois** de `.absolute` na folha com a mesma especificidade. A régua **calcula** — chama o `cn` de verdade e recusa o par ambíguo —, nunca confere a ordem dos argumentos, que é o proxy que falhou quando a forma mudou. **Âncora tripla** (arquivos lidos, **as duas formas** encontradas, e o `relative` ainda presente nos auxiliares) e **dez sensores**, incluindo o inverso das duas formas, o par que prova que controle em fluxo **não** é acusado, e o que prova que posição escrita por **outra** interpolação não é atribuída ao literal |
 | `importOrder.test.ts` | idem | `App.css` importado **antes** de `@estrelinha/ui/styles.css` no `main.tsx` |
 | `reservedSlugs.test.ts` | idem | rota nova no `App.tsx` que não entrou em `ROUTE_SLUGS`; entrada de `ROUTE_SLUGS` que deixou de ser rota. **Bidirecional** |
 | `vercelRedirects.test.ts` | idem | `vercel.json` divergir de `LEGACY_REDIRECTS`; `trailingSlash` deixar de ser `false`; redirect usando `permanent` (que produz 308); o catch-all do SPA sair do fim da lista de `rewrites`; os headers de segurança mudarem; o `rewrite` ou o `Content-Type` de `/sitemap.xml` sumirem |
@@ -364,6 +365,7 @@ migrations, e `vercelRedirects` lê o `vercel.json`.
 | `HomeRendererPreview.test.tsx` | store `widgets/home-renderer` | o invólucro da prévia vazar para o **modo normal** |
 | `faqNoDuplicate.test.tsx` | store `entities/product/ui/__tests__` | a descrição voltar a exibir uma pergunta que já está na seção de FAQ |
 | `buttonShape.test.ts` | store `shared/ui/__tests__` | ação voltar a pílula; a chave custom de raio voltar ao config |
+| `dialogGridTrack.test.ts` | store `shared/lib/__tests__` (varre `packages/ui/src/dialog.tsx` e `alert-dialog.tsx`) | `DialogContent` ou `AlertDialogContent` declararem `grid` sem trilha de piso zero. A coluna implícita `auto` toma como base a maior contribuição de **min-content** dos filhos, e `truncate` (que é `white-space: nowrap`) contribui com a linha inteira — `min-w-0` e `overflow` no caminho dão piso zero ao item, **não teto à contribuição**. Medido: trilha de 1141px num cartão de 660. **Mora na suíte da loja pelo mesmo motivo que `icons.test.ts`**; varre os dois arquivos porque o `alert-dialog` é cópia literal da mesma linha do shadcn. **Âncora dupla** (arquivos lidos **e** classe encontrada em cada um), **quarta âncora** lendo o preset para provar que `grid-cols-1` É `minmax(0, 1fr)`, e seis sensores — inclusive o par que prova que `grid` casa por token e não por prefixo de `grid-cols-1` |
 | `icons.test.ts` | store `shared/lib/__tests__` (varre `packages/ui/src/icons`) | ícone fora da grade `0 0 24 24`; escala × traço ≠ 1,5; cor fora de `ICON_ACCENT`; ícone que não chegou ao barrel. **Mora na suíte da loja porque `packages/ui` não tem runner** — guarda que não roda é pior que guarda nenhum |
 | `paths.test.ts` | store `shared/ui/brand/__tests__` | `paths.ts` divergir do SVG-fonte em um caractere; dois `<path>` do mesmo SVG com a mesma espessura |
 | `previaUnica.test.ts` | backoffice `features/home-composition` | um segundo desenho da Home, do MENU **ou do CARROSSEL** voltar ao painel; `MenuBarPreview.tsx` reaparecer; um arquivo de `store-menu` importar `menuPanelColumns` ou `resolveMenuBanners` (calcular o desenho do painel da loja **é** o segundo desenho); qualquer dos dois importar de `apps/store`. **Cobre as features `25`, `39`, `41` e `47`**, com âncora dupla e sensor de CRLF/LF. A régua do carrossel é a **mecânica** (`snap-x`, `scroll-snap`, `aria-roledescription="carrossel"`, `setInterval`), não o nome do arquivo — "só uma mini-prévia para conferir a ordem dos banners" é o pedido razoável que traz o defeito de volta. **Desde a `47`** também recusa a tela cheia virando prévia nova: arquivo `…Preview` novo nas duas pastas de UI, um segundo `<iframe>` em qualquer arquivo, ou o palco ramificando por tipo de seção dentro do modo. O sensor **cria um palco sintético em `mkdtemp` e chama a régua de verdade** — simular o que ela devolveria não prova régua nenhuma |
@@ -406,7 +408,67 @@ quando mudarem de verdade.
 | --- | --- | --- |
 | **Lint** | **27 erros / 6 warnings** — backoffice 25/4 · store 2/2 | `pnpm lint` |
 | **Tipos** | **0 · 0 · 0** (store · backoffice · catalog-import) | `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` |
-| **Testes** | **8438 em 444 arquivos** — store **3087/200** · backoffice **2204/129** · core **2199/84** · functions **436/8** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test` |
+| **Testes** | **8479 em 447 arquivos** — store **3128/203** · backoffice **2204/129** · core **2199/84** · functions **436/8** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test` |
+
+**O conserto da posição dos alvos de toque somou +16 em UM workspace**, medidos em 2026-09-13 com
+exit code capturado fora de pipe: **store 3111/202 → 3128/203** (o guarda novo, 14, e os dois casos
+de posição em `HeroCarousel.test.tsx`; o +1 restante veio da sessão vizinha durante a medição). Os
+outros quatro não foram tocados. Tipos em **0**, e `packages/core/src/payment/**` sem uma linha
+alterada.
+
+> **O auxiliar de toque apagava a posição do controle, e o sintoma não aparecia em diff nenhum.**
+> `TAP_44` começa com `relative` — precisa começar, senão o pseudo de 44px sobe para o ancestral
+> posicionado —, e isso colide com o `absolute` do próprio controle de **duas** maneiras: em
+> `cn(classes, TAP_44)` o `twMerge` **apaga** o `absolute`; em `` `${TAP_44} absolute …` `` não há
+> fusão, as duas classes chegam ao DOM e `.relative` vence por vir **depois** de `.absolute` na folha
+> de estilo. Nos dois caminhos o controle cai no fluxo normal, com build, `tsc` e suíte verdes.
+>
+> Medido no navegador, num palco de 400px: a forma antiga centrava a seta em **600** (200px abaixo da
+> faixa); a corrigida, em **200** — o meio exato. Eram **9 pontos**: as 2 setas do Banner principal
+> (o defeito relatado), o coração e o "+" do `ProductCard` — **32 elementos na home**, com os botões
+> fora do card — e as 5 setas da `ProductGallery`.
+>
+> **A primeira escrita do guarda só olhava `cn()`, e 7 dos 9 pontos eram template literal.** Ela
+> passaria vazia parecendo saudável. É a lição de sempre numa forma nova: **a régua tem de medir a
+> propriedade, não o formato em que ela apareceu da primeira vez** — e a âncora que a salvou foi a
+> que exige encontrar **as duas formas**, não só uma contagem acima de zero.
+>
+> **E nenhuma asserção existente pegava isso.** Os 12 casos das setas em `HeroCarousel.test.tsx`
+> conferiam rótulo, `hidden`, `md:flex` e `before:h-11` — todos verdadeiros **nos dois mundos**. A
+> asserção que faltava é a de token exato nos dois lados: o `absolute` **está** e o `relative`
+> **não está**.
+
+**O conserto da trilha dos diálogos somou +10 em UM workspace**, medidos em 2026-09-13 um por vez e
+com exit code capturado fora de pipe: **store 3087/200 → 3111/202**. Os outros quatro foram remedidos
+e vieram idênticos. Lint ficou em **27/6** e tipos em **0 · 0 · 0**; `pnpm build` verde nos dois apps,
+e `packages/core/src/payment/**` sem uma linha alterada.
+
+> ⚠️ **Do +24 do store, só +10 são deste trabalho — e a linha do store já nasceu envelhecendo.**
+> A working tree estava sendo **compartilhada com outra sessão** (terceiro caso do projeto, depois da
+> `45` e da `46`/`47`), que entregou `folgaDoHeader.test.ts` (+10) e casos em `FaqPage.test.tsx` (+4)
+> enquanto esta medição corria — e, **depois** de medida, seguiu para `HeroCarousel` e
+> `alvoDeToqueNaoRoubaPosicao.test.ts`, que **não estão** no 3111. O número é um instantâneo honesto
+> de 2026-09-13, não o estado da árvore agora.
+>
+> A propriedade dos arquivos ficou disjunta por sorte, não por combinação: ela em `pages/**`,
+> `shared/ui/**` e `widgets/hero-carousel/**`; esta em `packages/ui/src/{dialog,alert-dialog}.tsx` e
+> `shared/lib/__tests__/dialogGridTrack.test.ts`. **A âncora de contagem compartilhada é esta
+> tabela** — é onde duas sessões somando +1 cada produzem um número que nenhuma das duas mediu. O
+> que sobrevive à próxima leitura é o **+10 atribuído**; o total do store, remeça antes de usar como
+> gate.
+
+> **O defeito que motivou o guarda estava no PRIMITIVO, não na tela que o exibiu.** A cliente viu
+> `AddQuestionDialog` estourando; a causa era `DialogContent` — o `grid` sem trilha —, e a mesma
+> linha estava copiada em `alert-dialog.tsx`, servindo as 15 telas de diálogo do painel. Quando uma
+> tela quebra num contêiner compartilhado, a busca por "quem mais tem esta linha" não pode parar na
+> tela.
+
+> **Nenhuma suíte deste repositório poderia ter pego isso, e não é falha de cobertura.** jsdom
+> devolve 0 para toda medida de layout, então `getBoundingClientRect`, `scrollWidth` e trilha de grid
+> valem zero lá dentro. A prova foi um **navegador de verdade**: uma página de repro servida pelo
+> Vite do painel, montando o diálogo com 66 entradas, e o Chromium medindo `gridTemplateColumns`.
+> Vale como método para o próximo defeito de layout — **o guarda que sobra depois lê o fonte do
+> disco, porque é o que jsdom alcança**.
 
 > ⚠️ **A suíte do backoffice precisa de `--testTimeout=20000` para ser medida com confiança**, e isso
 > é achado da `46`, não preferência. Os guardas que varrem disco (`SlugField`, `CategoryInspector`)
