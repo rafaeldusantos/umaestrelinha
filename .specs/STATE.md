@@ -763,7 +763,48 @@
 
 ## Handoff
 
-### ATUAL — 2026-09-12 · `45-politicas-da-loja` **IMPLEMENTADA**
+### ATUAL — 2026-09-12 · `47-painel-em-foco` **PLANEJADA — spec + design + tasks. Execute NAO comecou**
+
+- **Feature**: `.specs/features/47-painel-em-foco/` (`spec.md`, `design.md`, `tasks.md`)
+- **Fase / Task**: Specify -> Design -> Tasks concluidas. **Nenhuma linha de codigo escrita.**
+- **ONDE ELA VIVE**: worktree proprio `../store-47-painel-em-foco`, branch `feat/47-painel-em-foco`,
+  ramificada do **HEAD local `ad1acb9`** e nao de `origin/master` — que estava **21 commits atras**
+  (a `46` inteira ainda sem push). Ramificar do `origin` teria produzido uma arvore sem a `46`, e a
+  numeracao da feature teria saido errada.
+- **O desenho veio ANTES da spec, e foi aprovado pelo usuario**: Paper, arquivo `Uma Estrelinha`,
+  pagina **`47 · Painel em foco — Home e Menu`** (5 artboards + legenda). A `spec.md` declara no topo
+  que, onde os dois discordarem, **vale a spec**.
+- **O que a feature faz**: nas duas telas que mostram a loja ao lado do que se edita
+  (`/admin/home` e `/admin/menu`), a navegacao recolhe para um **trilho de icones de 56px**; a coluna
+  de edicao vai de **380 para 440** e o palco de **748 para 872** (computador a 81% em vez de 69%); e
+  um botao **Tela cheia** leva o computador a **100%**. Mais quatro correcoes menores: a lixeira sai
+  de cada linha da lista de secoes, os tres editores da entrada de menu viram um card com abas, o
+  `Salvando…` do menu sobe para o cabecalho, e o menu ganha as abas Entradas/Previa no celular.
+- **37 requisitos (`FOCO-01`..`FOCO-37`), 37 mapeados em tasks, 0 sem task.** 19 tasks em 7 fases,
+  que empacotam em **3 lotes** — a oferta de sub-agentes se aplica no Execute.
+- **Next step**: **T1 — medir a baseline dos cinco workspaces do disco**, um por vez e com exit code
+  fora de pipe. A tabela do `CLAUDE.md` NAO deve ser usada como entrada: tres das cinco ja estavam
+  desatualizadas no fecho da `45`, e a arvore ganhou a `46` depois disso.
+- **Decisoes**: **nenhuma `AD` nova**. O design conforma `AD-020` (a previa e a loja num iframe, sem
+  fallback desenhado pelo painel), `AD-025`, `AD-028`, `AD-029` e `AD-033`. `TD-03` do `design.md`
+  explica por que a geometria do quadro fica em `core/home/preview.ts` **sem** superar `AD-033`: a
+  regra ja tem dono la, e os dois palcos ja sao consumidores dele.
+- **Tres achados de leitura de codigo, registrados em `Risks & Concerns`**:
+  1. `AdminLayout.test.tsx` le o `className` do `<aside>` por regex de **string literal** — qualquer
+     refator para `cn()` faz a ancora medir string vazia. **T5 conserta isso antes** de T7 mexer no
+     componente.
+  2. `AdminMenuPage` **nao tem altura de tela**, entao a previa rola junto com os editores. Nao
+     estava no pedido; virou `FOCO-13`.
+  3. **`FOLGA = 40` tem dois donos** (`HomeLivePreview.tsx:33` e `MenuLivePreview.tsx:31`) — defeito
+     01 em miniatura. `previewFrame` recebe a caixa e apaga as duas.
+- **Blockers**: nenhum
+- **Baseline de entrada**: **deliberadamente vazia** em `tasks.md`. Numero copiado do `CLAUDE.md` ali
+  faria o gate comparar contra folga que pode nao existir.
+- **Pendencias ja declaradas para o fecho**: prova em navegador (390 · 768 · 1024 · 1440), o `11rem`
+  do corpo do menu (suposicao de altura de cabecalho), e a divida do estado de falha do iframe, que
+  ficou **fora de escopo por decisao** (`AD-020`), nao por esquecimento.
+
+### ANTERIOR — 2026-09-12 · `45-politicas-da-loja` **IMPLEMENTADA**
 
 - **Feature**: `.specs/features/45-politicas-da-loja/` (spec, design, tasks, validation)
 - **Phase / Task**: todas — T1–T8 concluídas
