@@ -393,7 +393,42 @@ quando mudarem de verdade.
 | --- | --- | --- |
 | **Lint** | **27 erros / 6 warnings** — backoffice 25/4 · store 2/2 | `pnpm lint` |
 | **Tipos** | **0 · 0 · 0** (store · backoffice · catalog-import) | `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` |
-| **Testes** | **8054 em 419 arquivos** — store **2955/189** · backoffice **2023/119** · core **2128/80** · functions **436/8** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test` |
+| **Testes** | **8294 em 438 arquivos** — store **3087/200** · backoffice **2073/123** · core **2186/84** · functions **436/8** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test` |
+
+> ⚠️ **A suíte do backoffice precisa de `--testTimeout=20000` para ser medida com confiança**, e isso
+> é achado da `46`, não preferência. Os guardas que varrem disco (`SlugField`, `CategoryInspector`)
+> levam segundos cada; sob a contenção da suíte completa eles cruzam o teto padrão de **5s** e
+> reprovam por **timeout, nunca por asserção** — e o arquivo que reprova **muda a cada execução**,
+> que é a assinatura de contenção. Medido três vezes: passam isolados (49 testes, 4,39s só de
+> execução), reprovam 1–2 por vez na suíte cheia, e com o teto em 20s a suíte fecha **123/123**.
+> `--no-file-parallelism` também resolve, mas passa de 10 minutos.
+>
+> **Isto não conserta o CI**, que já roda `--concurrency=1` no nível do turbo. É instrução de
+> medição local: antes de investigar uma reprovação do painel, confira se o erro diz
+> `Test timed out in 5000ms` — se disser, remeça com o teto maior.
+
+**A feature `46` (perguntas frequentes da loja) somou +240 em quatro workspaces**, medidos em
+2026-09-12 um por vez e com exit code capturado fora de pipe: **store +132/+11** (a página, o slice
+`entities/faq`, os dois hooks de `<head>` e três guardas novos), **core +58/+4** (`text`, `page`,
+`jsonld` e a pureza de `core/faq`), **backoffice +50/+4** (a curadoria) e **functions +0** (o teste
+do sitemap mudou de número, não de contagem). `catalog-import` não foi tocado e foi remedido —
+idêntico. Lint ficou em **27/6** e tipos em **0·0·0**; `packages/core/src/payment/**` e
+`supabase/functions/mercado-pago/**` não tiveram uma linha alterada, conferido por
+`git diff --name-only bd35225..HEAD`.
+
+> **Três consequências apareceram FORA do workspace que a task estava medindo**, e as três valem
+> como método:
+>
+> - **Mudança em `packages/core` tem gate de TRÊS workspaces, não dois.** O gate da task que subiu
+>   `FAQ_ANSWER_MAX` rodou core e store; o `FaqEditorDialog` do **painel** lê a mesma constante e o
+>   contador dele seguiu dizendo "0 / 600". Os números dele passaram a vir da constante, com âncora
+>   ao lado — senão as duas linhas passariam com a constante zerada.
+> - **Acrescentar rota a `SITEMAP_STATIC_PATHS` muda a saída da edge function do sitemap**, e o
+>   teste dela conta `<loc>`. Foi o guarda bidirecional pegando uma consequência a um workspace de
+>   distância.
+> - **Seis âncoras de contagem dispararam** ao declarar a rota (17→18 slugs, 20→21 reservados, 6→7
+>   institucionais, 16→17 páginas lazy, 21→22 rotas, 10→11 `<loc>`). Todas atualizadas para o número
+>   verdadeiro, nenhuma afrouxada — é exatamente o trabalho que elas existem para fazer.
 
 **A feature `45` (as políticas da loja) foi medida em 2026-09-12 na árvore COMBINADA**, um workspace
 por vez e com exit code capturado fora de pipe. "Combinada" é literal: **duas sessões trabalharam na
