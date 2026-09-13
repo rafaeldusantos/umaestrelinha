@@ -23,6 +23,11 @@ vi.mock('@/entities/order/api/useOrder', async () => {
   return { ...actual, useOrder: vi.fn() }
 })
 
+// Feature 49: a convidada chega aqui SEM sessão, e a tela oferece a ela o caminho que funciona —
+// o código por e-mail — em vez de mandá-la a uma conta em que ela nunca entrou.
+const { authUser } = vi.hoisted(() => ({ authUser: { current: null as { id: string } | null } }))
+vi.mock('@estrelinha/auth', () => ({ useAuthContext: () => ({ user: authUser.current }) }))
+
 const useOrderMock = vi.mocked(useOrder)
 
 const order = (overrides: Partial<OrderDetail> = {}): OrderDetail =>
@@ -76,6 +81,8 @@ beforeEach(() => {
   useOrderMock.mockReset()
   useCartStore.setState({ items: [] })
   useCouponStore.getState().clearCoupon()
+  // O padrão dos casos antigos: havia sessão, porque o checkout a exigia.
+  authUser.current = { id: 'usr-1' }
 })
 
 describe('OrderConfirmationPage — o pedido é lido por id (CNF-03)', () => {
@@ -115,6 +122,58 @@ describe('OrderConfirmationPage — o pedido é lido por id (CNF-03)', () => {
 
     expect(screen.getByText('Pedido não encontrado')).toBeInTheDocument()
     expect(screen.queryByText('É nosso!')).not.toBeInTheDocument()
+  })
+})
+
+describe('OrderConfirmationPage — sem sessão, o acesso expirado tem saída (feature 49)', () => {
+  it('quem não tem sessão recebe "Entrar com código", não "Ir para Minha conta"', () => {
+    // Mandar a convidada a `/conta` é um conselho que não funciona: a conta dela existe, mas ela
+    // nunca entrou nela. O caminho honesto é o código por e-mail.
+    authUser.current = null
+    mockOrder({ data: null })
+    renderPage()
+
+    expect(screen.getByRole('button', { name: 'Entrar com código' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Ir para Minha conta' })).not.toBeInTheDocument()
+  })
+
+  it('o texto explica a expiração em vez de culpar o link', () => {
+    authUser.current = null
+    mockOrder({ data: null })
+    renderPage()
+
+    expect(screen.getByText(/acesso a este pedido pode ter expirado/i)).toBeInTheDocument()
+  })
+
+  it('o alvo do botão tem os 44px da premissa mobile', () => {
+    authUser.current = null
+    mockOrder({ data: null })
+    renderPage()
+
+    // Token exato: `h-11` é substring de `min-h-11`, e conferir por `includes` aprovaria o errado.
+    const botao = screen.getByRole('button', { name: 'Entrar com código' })
+    expect(botao.className.split(/\s+/)).toContain('min-h-11')
+  })
+
+  it('COM sessão, o caminho continua sendo Minha conta — o par inverso', () => {
+    // Sem este caso, uma implementação que trocasse o link por botão para todo mundo passaria.
+    authUser.current = { id: 'usr-1' }
+    mockOrder({ data: null })
+    renderPage()
+
+    expect(screen.getByRole('link', { name: 'Ir para Minha conta' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Entrar com código' })).not.toBeInTheDocument()
+  })
+
+  it('erro de REDE sem sessão continua mandando a Minha conta, não ao código', () => {
+    // Erro de rede não é expiração de acesso: oferecer o código ali faria a loja pedir que a
+    // cliente digite um código para resolver um problema que é nosso.
+    authUser.current = null
+    mockOrder({ isError: true })
+    renderPage()
+
+    expect(screen.getByText('Não conseguimos abrir este pedido')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Entrar com código' })).not.toBeInTheDocument()
   })
 })
 

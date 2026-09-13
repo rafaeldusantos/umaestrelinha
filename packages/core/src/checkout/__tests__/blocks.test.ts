@@ -10,6 +10,15 @@ import {
 } from '../index'
 import { isPaymentComplete } from '../blocks'
 
+/**
+ * `IDN-04` acrescentou a identidade à régua. Os casos abaixo são todos ANTERIORES a ela e não
+ * dependem do veredito: correm com `'guest'`, que é o neutro — e é justamente o que prova que a
+ * régua antiga ficou **idêntica**. Os casos do desafio ficam no bloco próprio, no fim do arquivo.
+ */
+const contatoCompleto = (contact: CheckoutDraft['contact']) => isContactComplete(contact, 'guest')
+const blocos = (draft: CheckoutDraft) => resolveBlocks(draft, 'guest')
+const fluxo = (draft: CheckoutDraft, flow: FlowState) => resolveFlow(draft, flow, 'guest')
+
 // CHK-03: definição de "completo" por bloco
 // CHK-04: abre o primeiro incompleto; nunca mais de um aberto
 // CHK-08: edição depois do pedido criado invalida o pedido em curso
@@ -67,44 +76,44 @@ const emptyDraft = (): CheckoutDraft => ({
 
 describe('isContactComplete', () => {
   it('nome, e-mail válido e WhatsApp de 11 dígitos => completo', () => {
-    expect(isContactComplete(completeDraft().contact)).toBe(true)
+    expect(contatoCompleto(completeDraft().contact)).toBe(true)
   })
 
   it('WhatsApp de 10 dígitos (telefone fixo) também é aceito', () => {
     const contact = { ...completeDraft().contact, whatsapp: '(11) 3888-7777' }
-    expect(isContactComplete(contact)).toBe(true)
+    expect(contatoCompleto(contact)).toBe(true)
   })
 
   it('nome vazio => incompleto', () => {
-    expect(isContactComplete({ ...completeDraft().contact, name: '' })).toBe(false)
+    expect(contatoCompleto({ ...completeDraft().contact, name: '' })).toBe(false)
   })
 
   it('nome só com espaços => incompleto', () => {
-    expect(isContactComplete({ ...completeDraft().contact, name: '   ' })).toBe(false)
+    expect(contatoCompleto({ ...completeDraft().contact, name: '   ' })).toBe(false)
   })
 
   it('e-mail sem @ => incompleto', () => {
-    expect(isContactComplete({ ...completeDraft().contact, email: 'marina.exemplo.com' })).toBe(false)
+    expect(contatoCompleto({ ...completeDraft().contact, email: 'marina.exemplo.com' })).toBe(false)
   })
 
   it('e-mail sem domínio depois do @ => incompleto', () => {
-    expect(isContactComplete({ ...completeDraft().contact, email: 'marina@' })).toBe(false)
+    expect(contatoCompleto({ ...completeDraft().contact, email: 'marina@' })).toBe(false)
   })
 
   it('e-mail sem ponto no domínio => incompleto', () => {
-    expect(isContactComplete({ ...completeDraft().contact, email: 'marina@exemplo' })).toBe(false)
+    expect(contatoCompleto({ ...completeDraft().contact, email: 'marina@exemplo' })).toBe(false)
   })
 
   it('WhatsApp com 9 dígitos => incompleto', () => {
-    expect(isContactComplete({ ...completeDraft().contact, whatsapp: '988887777' })).toBe(false)
+    expect(contatoCompleto({ ...completeDraft().contact, whatsapp: '988887777' })).toBe(false)
   })
 
   it('WhatsApp com 12 dígitos => incompleto', () => {
-    expect(isContactComplete({ ...completeDraft().contact, whatsapp: '5511988887777' })).toBe(false)
+    expect(contatoCompleto({ ...completeDraft().contact, whatsapp: '5511988887777' })).toBe(false)
   })
 
   it('consentimento de marketing recusado não impede o bloco de ficar completo', () => {
-    expect(isContactComplete({ ...completeDraft().contact, consent: false })).toBe(true)
+    expect(contatoCompleto({ ...completeDraft().contact, consent: false })).toBe(true)
   })
 })
 
@@ -215,23 +224,23 @@ describe('isPaymentComplete', () => {
 
 describe('resolveBlocks', () => {
   it('rascunho vazio abre Contato e não tem bloco completo', () => {
-    expect(resolveBlocks(emptyDraft())).toEqual({ open: 'contact', complete: [] })
+    expect(blocos(emptyDraft())).toEqual({ open: 'contact', complete: [] })
   })
 
   it('só Contato completo abre Entrega', () => {
     const draft = emptyDraft()
     draft.contact = completeDraft().contact
-    expect(resolveBlocks(draft)).toEqual({ open: 'delivery', complete: ['contact'] })
+    expect(blocos(draft)).toEqual({ open: 'delivery', complete: ['contact'] })
   })
 
   it('Contato e Entrega completos abrem Pagamento', () => {
     const draft = completeDraft()
     draft.payment = { method: null, cpf: '' }
-    expect(resolveBlocks(draft)).toEqual({ open: 'payment', complete: ['contact', 'delivery'] })
+    expect(blocos(draft)).toEqual({ open: 'payment', complete: ['contact', 'delivery'] })
   })
 
   it('os três completos não deixam nenhum bloco aberto', () => {
-    expect(resolveBlocks(completeDraft())).toEqual({
+    expect(blocos(completeDraft())).toEqual({
       open: null,
       complete: ['contact', 'delivery', 'payment'],
     })
@@ -241,7 +250,7 @@ describe('resolveBlocks', () => {
     // Contato e Entrega incompletos, Pagamento completo: abre Contato, e só ele
     const draft = emptyDraft()
     draft.payment = completeDraft().payment
-    const blocks = resolveBlocks(draft)
+    const blocks = blocos(draft)
     expect(blocks.open).toBe('contact')
     expect(blocks.complete).toEqual(['payment'])
   })
@@ -256,7 +265,7 @@ const flow = (over: Partial<FlowState> = {}): FlowState => ({
 
 describe('resolveFlow', () => {
   it('rascunho vazio abre Contato', () => {
-    expect(resolveFlow(emptyDraft(), flow())).toEqual({
+    expect(fluxo(emptyDraft(), flow())).toEqual({
       open: 'contact',
       complete: [],
       settled: [],
@@ -268,7 +277,7 @@ describe('resolveFlow', () => {
     const draft = emptyDraft()
     draft.contact = completeDraft().contact
 
-    const result = resolveFlow(draft, flow({ dirty: ['contact'] }))
+    const result = fluxo(draft, flow({ dirty: ['contact'] }))
 
     expect(result.open).toBe('contact')
     expect(result.settled).toEqual([])
@@ -279,7 +288,7 @@ describe('resolveFlow', () => {
     const draft = emptyDraft()
     draft.contact = completeDraft().contact
 
-    const result = resolveFlow(draft, flow({ dirty: ['contact'], confirmed: ['contact'] }))
+    const result = fluxo(draft, flow({ dirty: ['contact'], confirmed: ['contact'] }))
 
     expect(result.open).toBe('delivery')
     expect(result.settled).toEqual(['contact'])
@@ -290,7 +299,7 @@ describe('resolveFlow', () => {
     const draft = completeDraft()
     draft.payment = { method: null, cpf: '' }
 
-    const result = resolveFlow(draft, flow())
+    const result = fluxo(draft, flow())
 
     expect(result.settled).toEqual(['contact', 'delivery'])
     expect(result.open).toBe('payment')
@@ -299,7 +308,7 @@ describe('resolveFlow', () => {
   it('confirmar não fecha bloco incompleto: ele segue aberto', () => {
     const draft = emptyDraft()
 
-    const result = resolveFlow(draft, flow({ confirmed: ['contact'] }))
+    const result = fluxo(draft, flow({ confirmed: ['contact'] }))
 
     expect(result.open).toBe('contact')
     expect(result.settled).toEqual([])
@@ -308,7 +317,7 @@ describe('resolveFlow', () => {
   // FLW-05: `payment` é o último de BLOCK_ORDER — não há próximo bloco para onde avançar, e é
   // isso que mantém o formulário de cartão montado (PGM-04).
   it('Pagamento NUNCA fica settled, nem completo, nem confirmado (FLW-05)', () => {
-    const result = resolveFlow(
+    const result = fluxo(
       completeDraft(),
       flow({ dirty: ['payment'], confirmed: ['contact', 'delivery', 'payment'] }),
     )
@@ -318,7 +327,7 @@ describe('resolveFlow', () => {
   })
 
   it('com os três blocos válidos o aberto é Pagamento — `open` nunca vira null (FLW-05)', () => {
-    const result = resolveFlow(completeDraft(), flow())
+    const result = fluxo(completeDraft(), flow())
 
     expect(result.open).toBe('payment')
     expect(result.complete).toEqual(['contact', 'delivery', 'payment'])
@@ -326,14 +335,14 @@ describe('resolveFlow', () => {
 
   // FLW-06: `Alterar` vence a ordem natural — e colapsa os demais, porque `open` é um só.
   it('`editing` vence a ordem natural dos blocos (FLW-06)', () => {
-    const result = resolveFlow(completeDraft(), flow({ editing: 'contact' }))
+    const result = fluxo(completeDraft(), flow({ editing: 'contact' }))
 
     expect(result.open).toBe('contact')
   })
 
   it('`editing` abre até um bloco que já estava settled', () => {
     const draft = completeDraft()
-    const result = resolveFlow(draft, flow({ editing: 'delivery', confirmed: ['delivery'] }))
+    const result = fluxo(draft, flow({ editing: 'delivery', confirmed: ['delivery'] }))
 
     expect(result.open).toBe('delivery')
     expect(result.settled).toContain('delivery')
@@ -344,7 +353,7 @@ describe('resolveFlow', () => {
     const draft = completeDraft()
     draft.contact.email = 'marina@'
 
-    const result = resolveFlow(draft, flow({ dirty: ['contact'], confirmed: ['contact'] }))
+    const result = fluxo(draft, flow({ dirty: ['contact'], confirmed: ['contact'] }))
 
     expect(result.settled).toEqual(['delivery'])
     expect(result.open).toBe('contact')
@@ -353,14 +362,14 @@ describe('resolveFlow', () => {
 
   // FLW-07: o CTA deixa de olhar `open` (que nunca é null) e passa a olhar `complete`.
   it('complete traz os três blocos mesmo com Pagamento aberto (FLW-07)', () => {
-    const result = resolveFlow(completeDraft(), flow({ dirty: ['contact', 'delivery'] }))
+    const result = fluxo(completeDraft(), flow({ dirty: ['contact', 'delivery'] }))
 
     expect(result.complete).toHaveLength(3)
     expect(result.open).toBe('contact')
   })
 
   it('sujar a Entrega depois do Contato confirmado mantém a Entrega aberta', () => {
-    const result = resolveFlow(
+    const result = fluxo(
       completeDraft(),
       flow({ dirty: ['contact', 'delivery'], confirmed: ['contact'] }),
     )
@@ -371,8 +380,8 @@ describe('resolveFlow', () => {
 
   it('delega `complete` a resolveBlocks — mesma lista, para o mesmo rascunho', () => {
     const draft = completeDraft()
-    expect(resolveFlow(draft, flow({ dirty: ['contact'] })).complete).toEqual(
-      resolveBlocks(draft).complete,
+    expect(fluxo(draft, flow({ dirty: ['contact'] })).complete).toEqual(
+      blocos(draft).complete,
     )
   })
 })
@@ -444,5 +453,52 @@ describe('isOrderStale', () => {
     const draft = completeDraft()
     draft.address.manual = true
     expect(isOrderStale(draft, completeDraft())).toBe(false)
+  })
+})
+
+// ───────────────────────────────────────────────────────────────────────────
+// IDN-04 — desafio de código pendente impede o bloco Contato de completar.
+//
+// Estes casos chamam as funções REAIS, com os três argumentos, e não os invólucros do topo.
+// ───────────────────────────────────────────────────────────────────────────
+
+describe('IDN-04: a identidade entra na régua do bloco Contato', () => {
+  it('desafio pendente NÃO completa, mesmo com os três campos válidos', () => {
+    expect(isContactComplete(completeDraft().contact, 'challenge')).toBe(false)
+  })
+
+  it('sessão e convidada deixam a régua IDÊNTICA à de antes', () => {
+    // O par inverso. Sem ele, uma régua que passasse a recusar TUDO contaria como implementada.
+    const contact = completeDraft().contact
+
+    expect(isContactComplete(contact, 'session')).toBe(true)
+    expect(isContactComplete(contact, 'guest')).toBe(true)
+  })
+
+  it('a identidade só TIRA, nunca dá: contato inválido segue inválido nos três vereditos', () => {
+    const semNome = { ...completeDraft().contact, name: '' }
+
+    expect(isContactComplete(semNome, 'session')).toBe(false)
+    expect(isContactComplete(semNome, 'guest')).toBe(false)
+    expect(isContactComplete(semNome, 'challenge')).toBe(false)
+  })
+
+  it('com desafio pendente o bloco aberto volta a ser Contato', () => {
+    expect(resolveBlocks(completeDraft(), 'challenge')).toEqual({
+      open: 'contact',
+      complete: ['delivery', 'payment'],
+    })
+  })
+
+  it('com desafio pendente o CTA de pagar fica desabilitado — complete nunca chega a 3', () => {
+    // FLW-07: o gate do CTA é `complete.length === 3`. É esta a asserção que liga IDN-04 ao botão.
+    const result = resolveFlow(completeDraft(), flow(), 'challenge')
+
+    expect(result.complete).not.toContain('contact')
+    expect(result.complete).toHaveLength(2)
+  })
+
+  it('resolvido o desafio, o MESMO rascunho completa os três', () => {
+    expect(resolveFlow(completeDraft(), flow(), 'session').complete).toHaveLength(3)
   })
 })

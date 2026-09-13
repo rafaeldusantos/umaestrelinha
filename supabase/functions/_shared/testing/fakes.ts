@@ -186,6 +186,30 @@ export interface FakeSupabaseOptions {
   updateError?: unknown
   /** Força erro em todo `.insert()` — é o caminho de `USR-08` (papel não concedido). */
   insertError?: unknown
+  /**
+   * Erro de `.insert()` **por tabela**, com precedência sobre `insertError`. Mesmo molde de
+   * `rpcByFn` sobre `rpc`, e pela mesma razão: a feature `49` grava em `orders`, `order_items` e
+   * `addresses` no mesmo fluxo, com desfechos que precisam divergir — `ADR-G2` diz que o endereço
+   * falhando **não** derruba o pedido, e um erro global não consegue montar esse cenário.
+   */
+  insertErrorByTable?: Record<string, unknown>
+  /**
+   * O que `.insert(...).select(...).single()` devolve, **por tabela**.
+   *
+   * Separado de `rows` de propósito: `create-order` LÊ `orders` (a idempotência, por
+   * `client_request_id`) e ESCREVE em `orders` no mesmo fluxo. Um mapa só não conseguiria montar
+   * "ainda não existe, e a gravação devolve este id".
+   */
+  inserted?: Record<string, RowFixture>
+  /**
+   * Chamado a cada `auth.admin.*`, **antes** do resultado.
+   *
+   * É um observador, nunca uma segunda fonte de resposta — quem decide o desfecho continua sendo
+   * `createdUser`/`listedUsers`/`adminErrors`. Existe para asserção de ORDEM: perguntar, de dentro
+   * da chamada, o que já foi gravado até ali. Comparar índices de duas listas independentes
+   * (`inserts` e `adminCalls`) não prova sequência — é verdadeiro nos dois mundos.
+   */
+  onAdminCall?: (call: AdminCall) => void
   /** Força erro em todo `.delete()`. */
   deleteError?: unknown
   /**
@@ -229,19 +253,21 @@ export function createFakeSupabase(options: FakeSupabaseOptions = {}): FakeSupab
     const eqTodos: Array<[string, unknown]> = []
     let selectColumns = ''
     let pendingUpdate: Record<string, unknown> | null = null
-    let pendingInsert: Record<string, unknown> | null = null
+    let inseriu = false
     let pendingDelete = false
     let headCount = false
+
+    /** Por tabela vence o global, no molde de `rpcByFn` sobre `rpc`. */
+    const erroDeInsert = () => options.insertErrorByTable?.[table] ?? options.insertError ?? null
 
     const result = () => {
       if (pendingUpdate) {
         updates.push({ table, values: pendingUpdate, eq: eqPair })
         return { data: null, error: options.updateError ?? null }
       }
-      if (pendingInsert) {
-        inserts.push({ table, values: pendingInsert })
-        return { data: null, error: options.insertError ?? null }
-      }
+      // A gravação já foi registrada em `.insert()` — aqui só o desfecho. Registrar nos dois
+      // lugares duplicaria toda inserção que termina awaitada.
+      if (inseriu) return { data: null, error: erroDeInsert() }
       if (pendingDelete) {
         deletes.push({ table, eq: [...eqTodos] })
         return { data: null, error: options.deleteError ?? null }
@@ -255,7 +281,11 @@ export function createFakeSupabase(options: FakeSupabaseOptions = {}): FakeSupab
     }
 
     const row = () => {
-      const fixture = options.rows?.[table] ?? null
+      // Depois de um `.insert()`, quem responde é `inserted`: o mesmo fluxo pode LER e ESCREVER a
+      // mesma tabela com desfechos diferentes, e um mapa só não distinguiria os dois.
+      const fixture = inseriu
+        ? (options.inserted?.[table] ?? null)
+        : (options.rows?.[table] ?? null)
       return typeof fixture === 'function'
         ? (fixture as (eq: [string, unknown] | null, select: string) => unknown | null)(
             eqPair,
@@ -280,8 +310,11 @@ export function createFakeSupabase(options: FakeSupabaseOptions = {}): FakeSupab
         pendingUpdate = values
         return chain
       },
-      insert: (values: Record<string, unknown>) => {
-        pendingInsert = values
+      insert: (values: unknown) => {
+        inseriu = true
+        // Registra AQUI, e não em `result()`: a cadeia pode terminar em `.select().single()`, que
+        // não passa por `result()` — e uma gravação invisível é uma asserção impossível.
+        inserts.push({ table, values })
         return chain
       },
       delete: () => {
@@ -289,6 +322,12 @@ export function createFakeSupabase(options: FakeSupabaseOptions = {}): FakeSupab
         return chain
       },
       single: async () => {
+        // `.insert().select().single()` devolve o erro da gravação, não "linha não encontrada" —
+        // confundi-los faria uma falha de escrita parecer um pedido que não existe.
+        if (inseriu) {
+          const erro = erroDeInsert()
+          if (erro) return { data: null, error: erro }
+        }
         const data = row()
         return { data, error: data ? null : { message: 'not found' } }
       },
@@ -313,7 +352,11 @@ export function createFakeSupabase(options: FakeSupabaseOptions = {}): FakeSupab
     id: string | null,
     attributes: Record<string, unknown> | null,
   ) => {
-    adminCalls.push({ method, id, attributes })
+    const call: AdminCall = { method, id, attributes }
+    adminCalls.push(call)
+    // Observador, nunca segunda fonte de resposta: quem decide o desfecho continua sendo
+    // `createdUser`/`listedUsers`/`adminErrors`. É o que torna asserção de ORDEM possível.
+    options.onAdminCall?.(call)
     return options.adminErrors?.[method] ?? null
   }
 

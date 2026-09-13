@@ -532,3 +532,9 @@ verify_jwt = false
 # feed do Merchant Center, cuja ausência REMOVE catálogo.
 [functions.sitemap]
 verify_jwt = false
+
+# A porta do checkout sem conta (feature 49). Aqui `verify_jwt = false` NÃO é teatro de segurança
+# como nas outras: a convidada não tem JWT nenhum, por definição. Quem autoriza é o handler — a
+# sessão quando existe, o token de posse do pedido quando não.
+[functions.checkout]
+verify_jwt = false

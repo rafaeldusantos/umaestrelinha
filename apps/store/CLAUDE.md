@@ -787,6 +787,56 @@ Quatro faixas de largura cheia, nesta ordem e com estas cores dos artboards: `1 
   no rodapé) e por isso monta o `AuthOverlay` por conta própria. A confirmação é a rota `/pedido/:id`
   (lê o pedido do banco), nunca estado interno da página — assim sobrevive ao reload; o carrinho e o
   cupom são limpos **só** na aprovação.
+
+### O checkout NÃO exige conta (feature `49`, `AD-035`)
+
+`CHK-02` **foi removida**. Até ela, `/checkout` trancava em `user`, abria o `AuthOverlay` sozinho e
+escrevia atrás dele "Você precisa estar logada para finalizar a compra" — uma etapa entre decidir
+comprar e pagar, em ~90% de acessos de celular. Numa loja memorial isso cobra burocracia de quem
+acabou de perder alguém.
+
+- **Quem grava o pedido é a edge function `checkout`**, nunca mais um `insert` do PostgREST — e ela
+  grava **todos**, de convidada e de quem tem sessão. Dois caminhos seriam o "defeito 01" no caminho
+  do dinheiro. `pedidoComDonoUnico.test.ts` varre `apps/**` e recusa a volta; as policies de INSERT
+  continuam no banco de propósito (`BL-030`), então **o guarda é quem impede o segundo gravador**.
+- **O CPF e o endereço também são gravados pelo servidor** (`PED-08`, `ADR-G1`). Eram duas mutations
+  do navegador escopadas por RLS, e elas não serviam à convidada — sem `auth.uid()` não há o que
+  escopar. Mantidas ao lado da gravação do servidor, dariam dois donos de "onde mora o CPF do
+  pagador", e `buildPayer` lê de um só. `AD-013` fala de quem **coleta** o documento; isso não mudou.
+- **`orders.customer_phone` e `customer_document` passaram a ser preenchidos.** As colunas existem
+  desde a `35` e **só o importador da Nuvemshop as preenchia** — pedido feito na loja nascia sem
+  telefone. É `customer_document` que torna `CSC-08` verdade: pedido órfão continua pagável porque
+  `create-payment` tira o pagador de lá quando não há ficha.
+- **O convite para entrar é `SignInInvite`**, acima do bloco Contato e só sem sessão. Ele abre o
+  `AuthOverlay` com `returnTo: '/checkout'` — é isso que faz `finish()` **não navegar** ao concluir,
+  preservando o rascunho. **O ícone não é a marca do Google**, ainda que o board `EWX-0` o desenhe
+  assim: o botão abre o overlay inteiro (código, senha, Google), e marca de provedor prometeria um
+  caminho só. A copy também não promete tempo — o board diz "finaliza em 20 segundos".
+- **E-mail que já tem conta pede o código ali mesmo** (`CheckoutSignInChallenge`), reusando
+  `AuthCodeStep` inteiro. `desafioDeCodigoUnico.test.ts` recusa um segundo campo de 6 dígitos: com o
+  passo existente vêm o reenvio com cooldown de 60s, a distinção entre código errado e expirado e o
+  salto para o passo de nome.
+  - **A consulta é no BLUR, uma vez por e-mail normalizado** (`useAccountLookup`), nunca a cada
+    tecla — teclar dispararia uma requisição por caractere e o teto por IP da function fecharia na
+    cara de quem só estava digitando. **Falha e 429 respondem "não tem conta"**: quem decide é o
+    servidor, e um `true` de erro desafiaria toda cliente nova.
+  - O desafio **some sozinho** quando a sessão existe, porque `resolveCheckoutIdentity` põe a sessão
+    acima do e-mail — não há efeito nenhum limpando estado depois do login.
+  - **`useAccountLookup` não usa React Query**, e é desvio declarado: `CheckoutPage` é montada sem
+    `QueryClientProvider` nos testes, de propósito. A dedup é um cache de **promessa** em módulo, e
+    a resposta negativa **não** é cacheada — ela pode ser um `false` de falha, e cacheá-la prenderia
+    a pessoa no caminho de convidada pelo resto da sessão.
+- **Trocar de identidade descarta o pedido em curso** (`IDN-07`), pela mecânica de `CHK-08`. Entrar
+  depois de o pedido existir muda de quem ele é, e `create-payment` responderia 403 depois de a
+  cliente ter feito tudo certo. A chave de idempotência morre junto — mantê-la faria a retentativa
+  reaproveitar o pedido do dono antigo.
+- **A convidada lê o próprio pedido pelo token** (`entities/order/model/orderAccess`, chave
+  `estrelinha-order-access` em **`localStorage`**). `useOrder` é o dono único de "como leio um
+  pedido": com token, vai pela function; recusado, **esquece o token** e cai no PostgREST — é isso
+  que permite a quem entrou por código depois da compra ver o próprio pedido.
+- **`/pedido/:id` sem sessão oferece "Entrar com código"**, não "Ir para Minha conta": a conta da
+  convidada existe, mas ela nunca entrou nela. Erro de **rede** continua mandando à conta — erro de
+  rede não é expiração de acesso.
 - **Preço, desconto e promoção são de `@estrelinha/core`, não daqui.** A loja **exibe**; quem calcula
   é `resolveOrderPricing`, a mesma função que a edge function do Mercado Pago chama. Ver
   [`../../packages/core/CLAUDE.md`](../../packages/core/CLAUDE.md).

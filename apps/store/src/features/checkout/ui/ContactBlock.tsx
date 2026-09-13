@@ -15,6 +15,8 @@ import { Checkbox } from '@estrelinha/ui/checkbox'
 import { useAuthContext } from '@estrelinha/auth'
 import { setGuestEmail } from '@/features/abandoned-cart/model/useAbandonedCartTracker'
 import { MARKETING_CONSENT_LABEL } from '@/shared/lib/consent'
+import { useAccountLookup } from '../api/useAccountLookup'
+import CheckoutSignInChallenge from './CheckoutSignInChallenge'
 import { useCheckoutStore } from '../model/checkoutStore'
 
 interface Props {
@@ -25,10 +27,26 @@ interface Props {
   onContinue: () => void
   /** FLW-02: `Continuar` só habilita com o bloco válido. */
   canContinue: boolean
+  /** `IDN-02`: o desafio de código está pendente para o e-mail que está no campo. */
+  challenging: boolean
+  /**
+   * `IDN-02`/`IDN-06`: reporta o e-mail que já tem conta, ou `null` quando a pessoa troca de
+   * endereço. Quem guarda é a página, porque a identidade dela alimenta `resolveFlow`.
+   */
+  onChallenge: (email: string | null) => void
 }
 
-const ContactBlock = ({ open, complete, onEdit, onContinue, canContinue }: Props) => {
+const ContactBlock = ({
+  open,
+  complete,
+  onEdit,
+  onContinue,
+  canContinue,
+  challenging,
+  onChallenge,
+}: Props) => {
   const { customer } = useAuthContext()
+  const { check } = useAccountLookup()
   const contact = useCheckoutStore((s) => s.contact)
   const setContact = useCheckoutStore((s) => s.setContact)
   const markDirty = useCheckoutStore((s) => s.markDirty)
@@ -137,12 +155,29 @@ const ContactBlock = ({ open, complete, onEdit, onContinue, canContinue }: Props
             id="contact-email"
             type="email"
             value={contact.email}
-            onChange={(e) => edit({ email: e.target.value })}
+            onChange={(e) => {
+              // `IDN-06`: trocar de e-mail derruba o desafio na hora. Guardar um booleano em vez do
+              // endereço prenderia a pessoa pedindo o código de um e-mail que já não está no campo.
+              onChallenge(null)
+              edit({ email: e.target.value })
+            }}
+            // `IDN-01`: a consulta é no **blur**, nunca a cada tecla — teclar dispararia uma
+            // requisição por caractere e o teto por IP da function fecharia na cara de quem só
+            // estava digitando.
+            onBlur={(e) => {
+              const digitado = e.target.value
+              void check(digitado).then((temConta) => {
+                if (temConta) onChallenge(digitado)
+              })
+            }}
             placeholder="seu@email.com"
             className="border-estrelinha-field"
           />
         </div>
       </div>
+
+      {/* IDN-02/IDN-03: o desafio aparece DENTRO do bloco, entre o e-mail e o resto. */}
+      {challenging && <CheckoutSignInChallenge email={contact.email} />}
 
       <div className="flex flex-col gap-[7px] sm:max-w-[260px]">
         <Label htmlFor="contact-whatsapp" className="text-[13px] font-semibold text-estrelinha-ink">

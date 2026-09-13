@@ -61,17 +61,11 @@ export interface AdminUserRow {
   is_self: boolean
 }
 
-export const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
-
-export function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  })
-}
+// Feature `49`: dono único em `_shared/http.ts`. Esta era a QUARTA declaração idêntica nas edge
+// functions — e ela chegou no merge, pela feature `48`, depois de as outras três terem sido
+// unificadas. Reexportadas, e não redeclaradas, para não quebrar import existente.
+export { corsHeaders, json } from '../_shared/http.ts'
+import { corsHeaders, json } from '../_shared/http.ts'
 
 /**
  * Log estruturado, uma linha por desfecho.

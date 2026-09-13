@@ -43,7 +43,8 @@ sem ela a varredura passa com zero arquivo lido, que é a pior falha possível n
 | `./faq` | `resolveProductFaqs`, `faqOverrideOf`, `rankFaqSuggestions`, `block.ts` | loja, painel, importador |
 | `./material` | máquina de estado, `requiresMaterial()`, `materialSummary` | loja, painel, RPC (cópia em SQL) |
 | `./shopping` | `ShoppingOffer` e as duas serializações | `google-feed`, `product-page`, loja, painel |
-| `./checkout` | `resolveBlocks`, `isOrderStale` | loja |
+| `./checkout` | `resolveBlocks`, `isOrderStale`, **`resolveCheckoutIdentity`** e **`guestAccess`** | loja, edge function `checkout`, `mercado-pago` |
+| `./validators/email` | `isValidEmail`, `normalizeEmail` | loja, edge function `checkout` |
 | `./shipping` | `freeShippingState` + `freeShippingRefusal` (o frete grátis tem **um** dono), `estimate.ts` | 8 superfícies nos 2 apps |
 | `./media` | `renditionUrl`/`renditionSrcSet`/`imagePriority` (`rendition.ts`) e **`surfaceArt`** (`AD-030`) | loja, painel, `product-page` |
 | `./validators` · `./product` · `./auth` | utilitários de domínio | vários |
@@ -223,6 +224,28 @@ empatou em `sort_order = 0`.
   medida de layout**, então a decisão de qual slide está na frente só é testável fora do DOM.
 - **A ordem das cobranças do slide é regra**: arte → descrição → destino. Trocá-la faria a tela pedir
   a descrição de uma arte que ainda não existe.
+
+## `checkout/identity.ts` — quem está fechando o pedido (feature `49`, `AD-035`)
+
+`resolveCheckoutIdentity({ hasSession, emailHasAccount })` devolve `'session' | 'guest' |
+'challenge'`. **A tela e o servidor chamam a MESMA linha**: `IDN-02` (mostrar o desafio de código) e
+`IDN-08` (recusar a gravação do pedido) são a mesma pergunta, e escritas em dois lugares divergem
+sem build, `tsc` ou teste de componente acusarem — desta vez com o CTA de dinheiro no meio.
+
+- **A sessão vence o e-mail**, e é requisito: quem está logada e digita no campo de contato o e-mail
+  de outra pessoa (o do presenteado) **não** é desafiada. O e-mail digitado é o contato do pedido; a
+  identidade é a da conta.
+- **A recusa é `string | null`** (`checkoutIdentityRefusal`), o formato de `menuTargetRefusal`, e o
+  **mesmo texto** aparece no 409 do servidor e no aviso da tela.
+- **`identity.ts` e `guestAccess.ts` não importam NADA**, de propósito: são resolvidos por Deno por
+  caminho relativo, e lá todo especificador precisa de `.ts` — `import type` incluso. O **barrel**
+  de `core/checkout` fica fora desse alcance (ele faz `export * from './types'` sem extensão, e
+  `blocks.ts` importa `'../validators/cep'`), e tornar o barrel alcançável arrastaria
+  `core/validators` inteiro. Quem a function importa é o **arquivo**; `denoReach.test.ts` guarda
+  exatamente esses arquivos, com sensor de `import type` sem extensão.
+- **`isContactComplete` recebe a identidade**, e o parâmetro é **obrigatório** — é o `tsc` que acha
+  todo chamador. Um opcional com default silencioso é como se ganha a segunda verdade sem nada
+  quebrar: o gate do CTA (`complete.length === 3`) passaria a mentir para quem está no desafio.
 
 ## `media/surfaceArt.ts` — a arte por dispositivo tem UM dono (`AD-030`)
 

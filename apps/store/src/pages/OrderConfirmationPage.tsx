@@ -11,6 +11,8 @@ import { Link, useParams } from 'react-router-dom'
 import { PackageCheck } from 'lucide-react'
 import { formatPrice } from '@estrelinha/core/formatters'
 import { formatEstimate } from '@estrelinha/core/shipping'
+import { useAuthContext } from '@estrelinha/auth'
+import { useAuthUiStore } from '@/features/auth'
 import { OrderTimeline, useOrder } from '@/entities/order'
 import { OrderMaterialBlock } from '@/widgets/order-material'
 
@@ -45,6 +47,11 @@ const paidStamp = (paidAt: string | null): string => {
 const OrderConfirmationPage = () => {
   const { id } = useParams<{ id: string }>()
   const { data: order, isLoading, isError } = useOrder(id)
+  // Feature 49: a convidada chega aqui SEM sessão. A tela precisa saber disso para oferecer o
+  // caminho que funciona para ela — o código por e-mail — em vez de mandá-la a uma conta em que
+  // ela nunca entrou.
+  const { user } = useAuthContext()
+  const openAuth = useAuthUiStore((s) => s.open)
 
   if (isLoading) {
     return (
@@ -62,17 +69,32 @@ const OrderConfirmationPage = () => {
           <h1 className="font-heading text-3xl font-semibold tracking-[-0.03em] text-estrelinha-ink">
             {isError ? 'Não conseguimos abrir este pedido' : 'Pedido não encontrado'}
           </h1>
+          {/* Feature 49: sem sessão, "veja em Minha conta" é um conselho que não funciona — a conta
+              da convidada existe, mas ela nunca entrou nela. O caminho honesto é o código por
+              e-mail, que é como a loja identifica qualquer pessoa. */}
           <p className="max-w-md text-estrelinha-ink-soft">
             {isError
               ? 'Tente novamente em alguns instantes. Seus pedidos ficam guardados em Minha conta.'
-              : 'Confira o link ou veja a lista completa em Minha conta.'}
+              : user
+                ? 'Confira o link ou veja a lista completa em Minha conta.'
+                : 'O acesso a este pedido pode ter expirado. Entre com o código enviado para o seu e-mail para ver seus pedidos.'}
           </p>
-          <Link
-            to="/conta"
-            className="rounded-sm border-2 border-estrelinha-ink px-7 py-4 font-heading text-[17px] font-semibold text-estrelinha-ink transition-all hover:scale-[1.02]"
-          >
-            Ir para Minha conta
-          </Link>
+          {user || isError ? (
+            <Link
+              to="/conta"
+              className="rounded-sm border-2 border-estrelinha-ink px-7 py-4 font-heading text-[17px] font-semibold text-estrelinha-ink transition-all hover:scale-[1.02]"
+            >
+              Ir para Minha conta
+            </Link>
+          ) : (
+            <button
+              type="button"
+              onClick={() => openAuth({ returnTo: `/pedido/${id}` })}
+              className="min-h-11 rounded-sm border-2 border-estrelinha-ink px-7 py-4 font-heading text-[17px] font-semibold text-estrelinha-ink transition-all hover:scale-[1.02]"
+            >
+              Entrar com código
+            </button>
+          )}
         </div>
       </Shell>
     )

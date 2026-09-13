@@ -3,6 +3,8 @@ import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import { StrictMode } from 'react'
 import PixPayment from '../PixPayment'
 import { supabase } from '@estrelinha/supabase/client'
+import { fetchGuestOrder } from '@/entities/order/api/guestOrder'
+import { rememberAccess } from '@/entities/order/model/orderAccess'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -45,6 +47,10 @@ vi.mock('@estrelinha/supabase/client', () => ({
     removeChannel: vi.fn(),
   },
 }))
+
+// Feature 49: a espera da convidada. `fetchGuestOrder` é a MESMA porta que a confirmação usa —
+// mockada aqui para o teste controlar a resposta, não reimplementada.
+vi.mock('@/entities/order/api/guestOrder', () => ({ fetchGuestOrder: vi.fn() }))
 
 const onApproved = vi.fn()
 
@@ -280,5 +286,91 @@ describe('PixPayment — estados na paleta Uma Estrelinha (CNF-06)', () => {
     expect(container.innerHTML).not.toMatch(
       /bg-(yellow|blue|purple|green|red)-|text-(green|red|yellow|blue|purple)-[0-9]/,
     )
+  })
+})
+
+/**
+ * `CSC-05` (feature `49`) — **a convidada não recebe o evento do Realtime.**
+ *
+ * O Realtime respeita RLS, e a única policy de `SELECT` em `orders` é `TO authenticated` (conferido
+ * no banco em 2026-09-13). Quem comprou sem conta é `anon`: o canal conecta, o filtro casa e o
+ * payload **nunca chega** — sem erro nenhum. Sem a espera abaixo, ela paga o PIX e fica no QR para
+ * sempre.
+ */
+describe('PixPayment — a convidada espera perguntando (CSC-05)', () => {
+  const avancar = async (ms: number) => {
+    await act(async () => {
+      vi.advanceTimersByTime(ms)
+    })
+  }
+
+  beforeEach(() => {
+    globalThis.localStorage.clear()
+    vi.mocked(fetchGuestOrder).mockReset().mockResolvedValue(null)
+  })
+
+  it('COM token, pergunta pela mesma porta da confirmação', async () => {
+    rememberAccess('order-1', 'tok-abc')
+    mutateAsync.mockResolvedValue(futurePix())
+    vi.useFakeTimers()
+    render(<PixPayment orderId="order-1" onApproved={onApproved} />)
+    await avancar(5000)
+
+    expect(fetchGuestOrder).toHaveBeenCalledWith('order-1', 'tok-abc')
+    vi.useRealTimers()
+  })
+
+  it('aprovado na pergunta dispara o sucesso', async () => {
+    rememberAccess('order-1', 'tok-abc')
+    vi.mocked(fetchGuestOrder).mockResolvedValue({ payment_status: 'approved' } as never)
+    mutateAsync.mockResolvedValue(futurePix())
+    vi.useFakeTimers()
+    render(<PixPayment orderId="order-1" onApproved={onApproved} />)
+    await avancar(5000)
+
+    expect(onApproved).toHaveBeenCalled()
+    vi.useRealTimers()
+  })
+
+  it('ainda pendente NÃO dispara o sucesso', async () => {
+    // O par. Sem ele, um efeito que chamasse `onApproved` a cada volta levaria a cliente à
+    // confirmação de um PIX que ela não pagou.
+    rememberAccess('order-1', 'tok-abc')
+    vi.mocked(fetchGuestOrder).mockResolvedValue({ payment_status: 'pending' } as never)
+    mutateAsync.mockResolvedValue(futurePix())
+    vi.useFakeTimers()
+    render(<PixPayment orderId="order-1" onApproved={onApproved} />)
+    await avancar(15000)
+
+    expect(onApproved).not.toHaveBeenCalled()
+    vi.useRealTimers()
+  })
+
+  it('SEM token não pergunta — quem tem sessão segue pelo Realtime', async () => {
+    // O par inverso. Perguntar para todo mundo seria uma requisição a cada 5s por cliente logada,
+    // para um caminho que já funciona.
+    mutateAsync.mockResolvedValue(futurePix())
+    vi.useFakeTimers()
+    render(<PixPayment orderId="order-1" onApproved={onApproved} />)
+    await avancar(15000)
+
+    expect(fetchGuestOrder).not.toHaveBeenCalled()
+    vi.useRealTimers()
+  })
+
+  it('o intervalo para no desmonte', async () => {
+    // Ouvinte que sobrevive ao desmonte é a família de defeito que a `47` pegou por mutação: em
+    // React 18 o `setState` depois do unmount é no-op silencioso, então "não lançou" não prova nada.
+    rememberAccess('order-1', 'tok-abc')
+    mutateAsync.mockResolvedValue(futurePix())
+    vi.useFakeTimers()
+    const { unmount } = render(<PixPayment orderId="order-1" onApproved={onApproved} />)
+    await avancar(5000)
+    const antes = vi.mocked(fetchGuestOrder).mock.calls.length
+    unmount()
+    await avancar(20000)
+
+    expect(vi.mocked(fetchGuestOrder).mock.calls.length).toBe(antes)
+    vi.useRealTimers()
   })
 })

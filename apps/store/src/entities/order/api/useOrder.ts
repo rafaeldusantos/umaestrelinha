@@ -1,5 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@estrelinha/supabase/client'
+import { accessFor, forgetAccess } from '../model/orderAccess'
+import { fetchGuestOrder } from './guestOrder'
 import type { Order } from './useOrders'
 
 /**
@@ -28,6 +30,22 @@ export const useOrder = (id: string | undefined) =>
   useQuery({
     queryKey: ['orders', 'id', id],
     queryFn: async (): Promise<OrderDetail | null> => {
+      // `CSC-06`: quem comprou sem conta não tem sessão, e o PostgREST não tem como escopar o
+      // pedido para ela — a RLS de `orders` é toda `TO authenticated`. A prova de posse é o token,
+      // e quem o confere é a edge function.
+      //
+      // Este hook é o dono único de "como leio um pedido": o ramo mora aqui, e não em cada tela,
+      // porque a confirmação e a conta fazem a mesma pergunta com credenciais diferentes.
+      const token = accessFor(id!)
+      if (token) {
+        const pedido = await fetchGuestOrder<OrderDetail>(id!, token)
+        if (pedido) return pedido
+        // Token recusado — expirado, ou o pedido já é de uma conta. Esquecê-lo é o que permite o
+        // caminho normal assumir: sem isso, quem entrou por código depois da compra continuaria
+        // batendo num acesso morto para sempre.
+        forgetAccess(id!)
+      }
+
       const { data, error } = await supabase
         .from('orders')
         .select('*, order_items(*)')
@@ -39,3 +57,4 @@ export const useOrder = (id: string | undefined) =>
     },
     enabled: !!id,
   })
+

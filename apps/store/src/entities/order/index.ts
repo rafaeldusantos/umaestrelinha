@@ -1,5 +1,6 @@
 export * from './api/useOrders'
 export { useOrder, type OrderDetail } from './api/useOrder'
+export { accessFor, forgetAccess, rememberAccess } from './model/orderAccess'
 export {
   materialTrackingMessage,
   useSetMaterialTracking,

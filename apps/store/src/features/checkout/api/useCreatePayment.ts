@@ -1,5 +1,6 @@
 import { useMutation } from '@tanstack/react-query'
 import { supabase } from '@estrelinha/supabase/client'
+import { accessFor } from '@/entities/order/model/orderAccess'
 import type { CardPaymentFormData, CreatePaymentResponse } from '@estrelinha/supabase/types'
 
 export interface CreatePaymentInput {
@@ -56,6 +57,15 @@ export const useCreatePayment = () =>
               method: input.method,
               idempotency_key: crypto.randomUUID(),
               ...(input.card ? { card: input.card } : {}),
+              // `PED-06` (feature `49`): a segunda prova de posse. Quem comprou sem conta não tem
+              // JWT nenhum — sem isto o `create-payment` responde **403** e a convidada não paga.
+              //
+              // Lido de `orderAccess` na hora do envio, e não passado por prop: quem tem sessão
+              // simplesmente não tem token guardado para aquele pedido, e a chave nem entra no
+              // corpo. Um parâmetro obrigatório faria toda tela que cobra ter de saber disso.
+              ...(accessFor(input.order_id)
+                ? { access_token: accessFor(input.order_id) }
+                : {}),
             },
             signal: controller.signal,
           },

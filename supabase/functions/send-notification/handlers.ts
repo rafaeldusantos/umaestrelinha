@@ -33,17 +33,9 @@ import { SAMPLE_ORDER } from './render/sample.ts'
 
 export type Deps = NotificationDeps
 
-export const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
-
-export function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  })
-}
+// Feature `49`: dono único em `_shared/http.ts`. Reexportados para não quebrar import existente.
+export { corsHeaders, json } from '../_shared/http.ts'
+import { corsHeaders, json } from '../_shared/http.ts'
 
 function log(entry: Record<string, unknown>) {
   console.log(JSON.stringify(entry))
