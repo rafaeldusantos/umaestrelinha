@@ -141,13 +141,16 @@ describe('AdminHomePage — a tela junta lista, bandeja e prévia', () => {
 
   // PRV-12 — a inversão. As larguras de antes eram lista 748 / prévia 380, e é o número da prévia
   // que impedia qualquer representação de desktop.
-  // FOCO-12 — e a coluna de edição subiu de 380 para **440** na feature 47: em 380 as legendas
+  // FOCO-12 — a coluna de edição subiu de 380 para **440** na feature 47: em 380 as legendas
   // embrulhavam em três linhas e os dois campos de uma linha não cabiam lado a lado.
-  it('o rail tem 440px e vem PRIMEIRO; o palco ocupa o resto', () => {
+  // E de 440 para **560**: em 440 os pares `sm:grid-cols-2` dos editores davam colunas
+  // de ~180px, o `<input type="file">` nativo não encolhia até lá, e a coluna — que declara
+  // `overflow-y-auto`, o que promove o outro eixo a `auto` junto — ganhava rolagem HORIZONTAL.
+  it('o rail tem 560px e vem PRIMEIRO; o palco ocupa o resto', () => {
     const { container } = renderPage()
     const grade = container.querySelector('.grid') as HTMLElement
 
-    expect(grade.className).toContain('lg:grid-cols-[440px_minmax(0,1fr)]')
+    expect(grade.className).toContain('lg:grid-cols-[560px_minmax(0,1fr)]')
     const colunas = Array.from(grade.children)
     expect(colunas[0]).toBe(screen.getByTestId('coluna-secoes'))
     expect(colunas[1]).toBe(screen.getByTestId('coluna-previa'))
@@ -343,6 +346,23 @@ describe('T30 — o editor é rota, e a prévia não paga por isso', () => {
     expect(within(esquerda).getByTestId('editor-secao')).toBeInTheDocument()
     expect(within(esquerda).queryByText('Seções da Home')).toBeNull()
     expect(within(screen.getByTestId('coluna-previa')).getByTestId('palco-previa')).toBeInTheDocument()
+  })
+
+  it('o cabeçalho do editor NÃO sangra: a coluna que rola não tem padding para cobrir', () => {
+    // A FIAÇÃO, não a peça: quem monta é a página de verdade. `FormPageHeader.test.tsx` prova que
+    // `bleed={false}` funciona; sem este caso, alguém podia apagar o `bleed={false}` do
+    // `HomeSectionEditor` e a barra de rolagem horizontal voltaria com a suíte verde.
+    renderPage()
+    fireEvent.click(screen.getByRole('button', { name: /Abrir Chips de tema/ }))
+
+    const barra = within(screen.getByTestId('editor-secao')).getByRole('navigation', {
+      name: 'Trilha',
+    }).closest('header') as HTMLElement
+
+    expect(barra).not.toBeNull()
+    // Token exato: `-mx-4` contém `mx-4`, e `px-4` é substring de `px-40`.
+    expect(barra.className).not.toMatch(/(?:^|\s)-mx-4(?![-\w])/)
+    expect(barra.className).toMatch(/(?:^|\s)sticky(?![-\w])/)
   })
 
   it('o bloco em edição é o apontado na prévia', () => {
@@ -567,45 +587,113 @@ describe('AdminHomePage — remover uma seção (BNR-41)', () => {
 })
 
 /**
- * A grade, lida do disco — feature 47.
+ * A grade, lida do disco — features 47 e 48.
  *
  * jsdom devolve 0 para toda medida de layout, então o que dá para travar é a **declaração**. A
  * asserção pelo DOM, acima, prova que a classe chegou ao elemento; esta lê o fonte, porque é aqui
- * que o par altura-da-tela × largura-da-coluna se declara junto — e é ele que `/admin/menu` copia
- * em `FOCO-13`.
+ * que o par altura-da-tela × largura-da-coluna se declara — e é ele que `/admin/menu` copia em
+ * `FOCO-13`.
+ *
+ * A mudança de 2026-09-13 partiu o par em DOIS elementos: a **altura** subiu para a raiz e a **largura** ficou na
+ * grade. Por isso são dois extratores, e a régua da altura tem de dizer em qual dos dois ela mora —
+ * senão um `lg:h-[calc(…)]` de volta na grade passaria, e o cabeçalho voltaria a ser descontado
+ * duas vezes.
  */
-describe('AdminHomePage — a grade declarada (FOCO-12, FOCO-14)', () => {
-  const fonte = readFileSync(
-    resolve(dirname(fileURLToPath(import.meta.url)), 'AdminHomePage.tsx'),
-    'utf8',
+describe('AdminHomePage — a grade declarada (FOCO-12, FOCO-14, altura cheia)', () => {
+  /**
+   * O removedor de comentário — linha e bloco na MESMA varredura.
+   *
+   * Sem ele a régua casaria MENÇÃO em vez de USO, e foi exatamente o que aconteceu na primeira
+   * escrita desta feature: o comentário da página explica que a altura **era** `100vh-11rem`, e
+   * `alturaDe` extraía a prosa em vez da declaração — acusando o arquivo que está certo. `[^\n\r]`
+   * fecha o comentário de linha antes do `\r`, senão um arquivo com CRLF come a linha seguinte.
+   */
+  const semComentarios = (texto: string): string =>
+    texto.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n\r]*/g, '')
+
+  const fonte = semComentarios(
+    readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), 'AdminHomePage.tsx'), 'utf8'),
   )
 
-  /** O extrator, escrito uma vez e chamado duas: pela asserção e pelo sensor. */
+  /** O extrator da grade, escrito uma vez e chamado duas: pela asserção e pelo sensor. */
   const gradeDe = (texto: string) =>
     texto.match(/className="grid[^"]*lg:grid-cols-\[[^"]*"/)?.[0] ?? ''
 
-  const grade = gradeDe(fonte)
+  /** O da raiz: a única declaração da página com `lg:flex-col`. */
+  const raizDe = (texto: string) => texto.match(/className="[^"]*lg:flex-col[^"]*"/)?.[0] ?? ''
 
-  it('ÂNCORA: a varredura achou a declaração da grade', () => {
-    // Sem ela, um refator que movesse a grade para `cn()` faria as asserções abaixo passarem sobre
-    // string vazia — verde sobre nada.
+  const grade = gradeDe(fonte)
+  const raiz = raizDe(fonte)
+
+  it('ÂNCORA: a varredura achou a grade E a raiz', () => {
+    // Sem ela, um refator que movesse qualquer das duas para `cn()` faria as asserções abaixo
+    // passarem sobre string vazia — verde sobre nada.
     expect(grade).not.toBe('')
     expect(grade).toContain('lg:grid-cols-')
+    expect(raiz).not.toBe('')
   })
 
-  it('a coluna de edição declara 440px e o palco fica com o resto', () => {
-    expect(grade).toContain('lg:grid-cols-[440px_minmax(0,1fr)]')
+  it('a coluna de edição declara 560px e o palco fica com o resto', () => {
+    expect(grade).toContain('lg:grid-cols-[560px_minmax(0,1fr)]')
   })
 
-  it('SENSOR: a declaração de 380px REPROVA na MESMA régua', () => {
+  it('SENSOR: a declaração de 440px REPROVA na MESMA régua', () => {
     // O sensor tem de passar pelo **extrator**, não comparar dois literais escritos aqui: sem isso
     // ele mediria uma régua parecida com a da asserção, em vez da mesma. Com o fonte sintético, um
     // `gradeDe` quebrado devolve string vazia e as duas asserções abaixo reprovam.
-    const fonteAntiga = `<div className="grid gap-6 lg:h-[calc(100vh-11rem)] lg:grid-cols-[380px_minmax(0,1fr)]">`
+    const fonteAntiga = `<div className="grid gap-6 lg:h-[calc(100vh-11rem)] lg:grid-cols-[440px_minmax(0,1fr)]">`
 
     expect(gradeDe(fonteAntiga)).not.toBe('')
-    expect(gradeDe(fonteAntiga)).not.toContain('lg:grid-cols-[440px_minmax(0,1fr)]')
-    expect(gradeDe(fonteAntiga)).toContain('lg:grid-cols-[380px_minmax(0,1fr)]')
+    expect(gradeDe(fonteAntiga)).not.toContain('lg:grid-cols-[560px_minmax(0,1fr)]')
+    expect(gradeDe(fonteAntiga)).toContain('lg:grid-cols-[440px_minmax(0,1fr)]')
+  })
+
+  it('a altura mora na RAIZ, e desconta só o `p-6` do `<main>`', () => {
+    // `3rem` não é gosto: é o padding vertical do `<main>` do `AdminLayout` (p-6 — 24px em cima,
+    // 24 embaixo) e mais nada. Qualquer número maior volta a descontar um cabeçalho ADIVINHADO, e
+    // no editor — onde o `PageHeader` nem é renderizado — esse desconto é espaço morto no fim da
+    // tela, que foi o defeito relatado.
+    expect(raiz).toContain('lg:h-[calc(100vh-3rem)]')
+    expect(raiz).toContain('lg:flex')
+  })
+
+  it('a grade toma o que sobra, e o `min-h-0` é o que a deixa encolher', () => {
+    // Sem `min-h-0` um filho de flex não encolhe abaixo do próprio conteúdo: a grade empurraria a
+    // raiz para além da janela e as duas colunas voltariam a rolar com o documento.
+    expect(grade).toContain('lg:flex-1')
+    expect(grade).toContain('lg:min-h-0')
+  })
+
+  it('a altura NÃO volta para a grade — cabeçalho descontado duas vezes é o defeito de origem', () => {
+    expect(grade).not.toContain('lg:h-[calc(')
+    expect(fonte).not.toContain('100vh-11rem')
+  })
+
+  it('SENSOR: o removedor de comentário — a régua mede USO, nunca menção', () => {
+    // Esta página CITA a forma antiga em prosa, para explicar por que ela saiu. Sem o removedor,
+    // `alturaDe`/`raizDe` extrairiam a citação e a suíte reprovaria o arquivo correto.
+    expect(semComentarios('// era lg:h-[calc(100vh-11rem)] aqui\nconst x = 1')).not.toContain('11rem')
+    expect(semComentarios('/* lg:h-[calc(100vh-11rem)] */\nconst x = 1')).not.toContain('11rem')
+    // Com CRLF, e sem comer a linha seguinte: a declaração de verdade CONTINUA sendo lida.
+    expect(semComentarios('// nota\r\n<div className="lg:flex-col">')).toContain('lg:flex-col')
+  })
+
+  it('SENSOR: a forma antiga — altura na grade, raiz sem flex — reprova nas MESMAS réguas', () => {
+    const fonteAntiga = `  return (
+    <div>
+      <div className="grid gap-6 lg:h-[calc(100vh-11rem)] lg:grid-cols-[440px_minmax(0,1fr)]">`
+
+    // A raiz não é achada: não há `lg:flex-col` nenhum para extrair — a âncora derrubaria a suíte.
+    expect(raizDe(fonteAntiga)).toBe('')
+    // E a grade carrega a altura, que é exatamente o que a régua acima recusa.
+    expect(gradeDe(fonteAntiga)).toContain('lg:h-[calc(')
+    expect(gradeDe(fonteAntiga)).not.toContain('lg:flex-1')
+  })
+
+  it('o cabeçalho não encolhe: ele é a medida, e o corpo é que se ajusta', () => {
+    // Sem `shrink-0` o `PageHeader` é um filho de flex como outro qualquer: numa janela baixa ele
+    // cederia altura antes da grade, e o título sairia espremido em vez de a prévia encolher.
+    expect(fonte).toMatch(/<PageHeader\s+className="shrink-0"/)
   })
 
   it('FOCO-14: a página NÃO lê o estado do trilho — a largura tem um dono só', () => {

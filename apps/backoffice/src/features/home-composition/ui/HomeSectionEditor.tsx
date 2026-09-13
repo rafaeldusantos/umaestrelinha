@@ -117,6 +117,11 @@ const HomeSectionEditor = ({
         saveLabel="Salvar seção"
         onBack={onCancel}
         onSave={handleSave}
+        // Aqui o cabeçalho NÃO sangra. Este editor não mora numa página: mora dentro
+        // de `coluna-secoes`, que declara `overflow-y-auto` e não tem padding horizontal nenhum
+        // para a sangria cobrir. Os 16px da direita viravam barra de rolagem horizontal no
+        // formulário — medido em navegador, `clientWidth` 560 contra `scrollWidth` 576.
+        bleed={false}
       />
 
       {problema && (

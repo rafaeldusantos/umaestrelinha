@@ -162,12 +162,26 @@ const AdminHomePage = () => {
   }
 
   return (
-    <div>
+    /*
+      A altura deixou de ser adivinhada — altura cheia + coluna de 560 (2026-09-13, sem spec).
+
+      Era `lg:h-[calc(100vh-11rem)]` **na grade**: 11rem é o desconto do cabeçalho chutado à mão, e
+      ele estava errado nos dois sentidos. Na lista sobravam ~50px; **no editor sobravam ~128px**,
+      porque ali o `PageHeader` nem é renderizado — a tela terminava antes do fim da janela com o
+      formulário rolando dentro de uma coluna mais curta do que precisava ser.
+
+      Agora quem tem altura é a RAIZ, e o número é medido, não suposto: `3rem` é exatamente o `p-6`
+      do `<main>` do `AdminLayout` (24px em cima, 24 embaixo). O cabeçalho — quando existe — toma
+      o que ele mede, e a grade fica com o resto por `flex-1`. Cabeçalho que embrulhe em duas linhas
+      encolhe o corpo em vez de estourar a viewport, que era a dívida registrada em `/admin/menu`.
+    */
+    <div className="lg:flex lg:h-[calc(100vh-3rem)] lg:flex-col">
       {/* No editor o cabeçalho é o do formulário — trilha `Loja / Home / <seção>`, selo de
           pendência e `Salvar ⌘S`. Dois cabeçalhos empilhados dariam dois títulos e dois pares de
           ações competindo pela mesma decisão. */}
       {!emEdicao && (
       <PageHeader
+        className="shrink-0"
         title="Home"
         subtitle="O que a cliente vê ao abrir a loja, na ordem em que ela vê."
         icon={House}
@@ -196,7 +210,7 @@ const AdminHomePage = () => {
       {error && (
         <div
           data-testid="home-erro"
-          className="mb-6 flex items-start gap-3 rounded-2xl border border-destructive/30 bg-destructive/5 p-4"
+          className="mb-6 flex shrink-0 items-start gap-3 rounded-2xl border border-destructive/30 bg-destructive/5 p-4"
         >
           <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" aria-hidden />
           <div className="min-w-0 flex-1">
@@ -254,16 +268,23 @@ const AdminHomePage = () => {
             e `h-[calc(100vh-…)]` é o que a dá sem inventar um número fixo.
           */}
           {/*
-            Feature 47 — a coluna de edição vai de **380 para 440**. Em 380 as legendas das seções
-            embrulhavam em três linhas, os dois campos de uma linha não cabiam lado a lado e as duas
-            artes de um banner precisavam empilhar. Os 60px vêm do trilho de ícones, não do palco —
-            que ainda GANHA largura no mesmo movimento (748 → 872, o computador a 81% em vez de 69%).
+            Feature 47 — a coluna de edição foi de **380 para 440**. Agora vai de **440 para 560**
+            (2026-09-13, sem spec), e o motivo é medido: em 440 os pares `sm:grid-cols-2` dos editores
+            (as duas artes de um banner, "Descrição da imagem" × "Leva para") caem em colunas de
+            ~180px, e o `<input type="file">` nativo não encolhe até lá. Como a coluna declara
+            `overflow-y-auto`, o CSS promove o outro eixo a `auto` junto — e o que a dona via era
+            **barra de rolagem horizontal** dentro do formulário.
+
+            **O palco paga, e paga de propósito** (pedido do usuário): ele é quem tem folga, e desde
+            a `47` existe "Tela cheia" para quando a prévia é o que importa. Num 1440 o computador
+            cai de 81% para ~69%; no celular — o dispositivo padrão da prévia, ~90% dos acessos da
+            loja — continua em 100%, porque 390px cabem nos dois casos.
 
             **A página não lê o estado do trilho** (`FOCO-14`): com a navegação expandida, o palco
             simplesmente encolhe. Fazer a coluna reagir daria dois donos da largura — o widget do
             layout e esta página.
           */}
-          <div className="grid gap-6 lg:h-[calc(100vh-11rem)] lg:grid-cols-[440px_minmax(0,1fr)]">
+          <div className="grid gap-6 lg:min-h-0 lg:flex-1 lg:grid-cols-[560px_minmax(0,1fr)]">
             <div
               data-testid="coluna-secoes"
               className={cn('min-w-0 lg:overflow-y-auto', aba !== 'secoes' && 'hidden lg:block')}

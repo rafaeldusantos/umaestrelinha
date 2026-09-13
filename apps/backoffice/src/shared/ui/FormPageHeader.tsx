@@ -13,6 +13,7 @@ import { useEffect } from 'react'
 import { ChevronRight, Loader2 } from 'lucide-react'
 import { Button } from '@estrelinha/ui/button'
 import { Badge } from '@estrelinha/ui/badge'
+import { cn } from '@estrelinha/ui/lib/utils'
 
 interface Props {
   /** O primeiro nível da trilha — o grupo da sidebar. Não é link: o grupo não tem tela. */
@@ -28,6 +29,21 @@ interface Props {
   saveLabel: string
   onBack: () => void
   onSave: () => void
+  /**
+   * O cabeçalho sangra 16px para fora do contêiner?
+   *
+   * Ele nasceu dentro de uma PÁGINA, onde o `-mx-4` faz a barra fixa cobrir de borda a borda o que
+   * rola por baixo dela — inclusive o que passa pelo padding do `<main>`. Numa página isso é de
+   * graça: ninguém tem `overflow` no caminho, e a sangria some no padding.
+   *
+   * **Dentro de uma coluna que rola, ela cobra.** `coluna-secoes` de `/admin/home` declara
+   * `overflow-y-auto`, e o CSS promove o outro eixo a `auto` junto — os 16px da direita viravam
+   * **barra de rolagem horizontal** no formulário, medidos em navegador: `clientWidth` 560,
+   * `scrollWidth` 576. A coluna não tem padding para a sangria cobrir, então ali ela só estoura.
+   *
+   * O padrão é `true` porque as duas telas de Descontos dependem dele e nada mudou para elas.
+   */
+  bleed?: boolean
 }
 
 const FormPageHeader = ({
@@ -39,6 +55,7 @@ const FormPageHeader = ({
   saveLabel,
   onBack,
   onSave,
+  bleed = true,
 }: Props) => {
   // O `preventDefault` é o ponto do atalho: sem ele o `⌘S` abre o "salvar página como" do navegador,
   // que é a última coisa que se quer ao apertar salvar dentro de um formulário.
@@ -54,7 +71,12 @@ const FormPageHeader = ({
   }, [onSave, saving])
 
   return (
-    <header className="sticky top-0 z-20 -mx-4 mb-6 border-b border-border bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+    <header
+      className={cn(
+        'sticky top-0 z-20 mb-6 border-b border-border bg-background/95 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80',
+        bleed && '-mx-4 px-4',
+      )}
+    >
       <div className="flex flex-wrap items-center gap-3">
         <div className="min-w-0 flex-1">
           <nav className="flex items-center gap-1 text-xs text-muted-foreground" aria-label="Trilha">
