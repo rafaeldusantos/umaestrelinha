@@ -3,7 +3,8 @@ import { render, screen } from '@testing-library/react'
 import { readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import FaqQuestion, { faqAnchorId } from '../FaqQuestion'
+import FaqQuestion from '../FaqQuestion'
+import { faqAnchorId } from '../../lib/anchors'
 import FaqAnswer from '../FaqAnswer'
 
 /**

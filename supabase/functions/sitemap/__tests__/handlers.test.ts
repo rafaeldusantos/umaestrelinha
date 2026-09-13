@@ -66,8 +66,10 @@ describe('handleSitemap — o caminho bom', () => {
     expect(doc.documentElement.tagName).toBe('urlset')
     expect(locs).toContain('https://umaestrelinha.com.br/produtos/colar-de-leite')
     expect(locs).toContain('https://umaestrelinha.com.br/joias-afetivas/leite-materno')
-    // 6 institucionais + 2 categorias + 2 produtos.
-    expect(locs).toHaveLength(10)
+    // A página de perguntas frequentes entrou em `SITEMAP_STATIC_PATHS` na feature 46, e é aqui que
+    // a conta muda: 7 institucionais + 2 categorias + 2 produtos.
+    expect(locs).toContain('https://umaestrelinha.com.br/perguntas-frequentes')
+    expect(locs).toHaveLength(11)
   })
 
   it('declara `Cache-Control` — inútil na Vercel hoje, e correto quando o transporte mudar', async () => {

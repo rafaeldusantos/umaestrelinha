@@ -1,5 +1,6 @@
 export { useFaqPage } from './api/useFaqPage'
 export { useFaqSearch } from './model/useFaqSearch'
-export { default as FaqQuestion, faqAnchorId } from './ui/FaqQuestion'
+export { faqAnchorId, faqSubjectId } from './lib/anchors'
+export { default as FaqQuestion } from './ui/FaqQuestion'
 export { default as FaqAnswer } from './ui/FaqAnswer'
-export { default as FaqSubjectNav, faqSubjectId } from './ui/FaqSubjectNav'
+export { default as FaqSubjectNav } from './ui/FaqSubjectNav'

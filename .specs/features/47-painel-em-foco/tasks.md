@@ -878,6 +878,11 @@ diferença é a `46`, que entrou na árvore depois dela:
 
 ### As TRÊS falhas herdadas — da `46`, não desta feature
 
+> **Registro histórico: as três foram consertadas pela própria `46`, e o merge as apagou.** O que
+> está escrito abaixo era verdade durante toda a execução da `47`, e é por isso que fica: foi contra
+> estes números que o gate dela comparou. A árvore mesclada (2026-09-13) fecha **limpa** —
+> 8438 em 444, tipos 0·0·0. Ver a tabela da árvore mesclada no `CLAUDE.md` da raiz.
+
 Nenhuma é tocada aqui. As três nasceram fora desta árvore de trabalho, em arquivos que esta feature
 **não possui**, e a regra que a `45` deixou escrita (dividir a propriedade dos arquivos por escrito
 quando duas sessões trabalham em paralelo) manda **registrar**, não consertar por conta própria:

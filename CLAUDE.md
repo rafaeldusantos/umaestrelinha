@@ -404,33 +404,50 @@ quando mudarem de verdade.
 
 | Medida | Baseline | Como medir |
 | --- | --- | --- |
-| **Lint** | **27 erros / 8 warnings** — backoffice 25/4 · store 2/4 | `pnpm lint` |
-| **Tipos** | **0 (backoffice) · 5 (store) · 0 (catalog-import)** — os cinco do store são herdados, ver abaixo | `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` |
-| **Testes** | **8420 em 442 arquivos, com 2 REPROVANDO** — store **3069/198** · backoffice **2204/129 (1 ✗)** · core **2199/84** · functions **436/8 (1 ✗)** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test` |
+| **Lint** | **27 erros / 6 warnings** — backoffice 25/4 · store 2/2 | `pnpm lint` |
+| **Tipos** | **0 · 0 · 0** (store · backoffice · catalog-import) | `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` |
+| **Testes** | **8438 em 444 arquivos** — store **3087/200** · backoffice **2204/129** · core **2199/84** · functions **436/8** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test` |
 
-> **DUAS reprovações e um erro de tipo estão na baseline de propósito** — são da feature `46`,
-> entraram na árvore por outra sessão, e nenhuma feature posterior deve "consertá-las de passagem"
-> sem decidir fazê-lo. Elas ficam aqui para que o gate da próxima feature saiba **quais** são, e
-> recuse uma terceira:
+> ⚠️ **A suíte do backoffice precisa de `--testTimeout=20000` para ser medida com confiança**, e isso
+> é achado da `46`, não preferência. Os guardas que varrem disco (`SlugField`, `CategoryInspector`)
+> levam segundos cada; sob a contenção da suíte completa eles cruzam o teto padrão de **5s** e
+> reprovam por **timeout, nunca por asserção** — e o arquivo que reprova **muda a cada execução**,
+> que é a assinatura de contenção. Medido três vezes: passam isolados (49 testes, 4,39s só de
+> execução), reprovam 1–2 por vez na suíte cheia, e com o teto em 20s a suíte fecha **123/123**.
+> `--no-file-parallelism` também resolve, mas passa de 10 minutos.
 >
-> | Onde | O quê |
-> | --- | --- |
-> | `apps/backoffice/src/features/faq-library/ui/FaqEditorDialog.test.tsx:126` | assere `0 / 600`; a tela mostra `0 / 4000`. A `46` subiu `FAQ_ANSWER_MAX` de 600 para 4000 em `packages/core/src/faq/faq.ts:157` e o literal do teste ficou para trás |
-> | `supabase/functions/sitemap/__tests__/handlers.test.ts:70` | assere `toHaveLength(10)` e recebe **11**. A `46` acrescentou `/perguntas-frequentes` aos caminhos estáticos e a **âncora de contagem** da function não acompanhou — âncora compartilhada, exatamente o risco que a `45` registrou |
-> | `apps/store/src/entities/faq/ui/FaqSubjectNav.tsx:33` | `TS2322` — `MutableRefObject<HTMLElement>` num `ref` de `HTMLDivElement` |
-> | `apps/store/src/shared/lib/__tests__/orderNotificationsSchema.test.ts:134-146` | **quatro** `TS2339`. O typecheck do store sai de 0 e vai a **5** no total |
+> **Isto não conserta o CI**, que já roda `--concurrency=1` no nível do turbo. É instrução de
+> medição local: antes de investigar uma reprovação do painel, confira se o erro diz
+> `Test timed out in 5000ms` — se disser, remeça com o teto maior.
 >
-> **A contagem de tipos do store esteve errada uma vez neste próprio fecho**: a primeira escrita
-> registrou `1`, porque só o erro que aparecia na primeira tela de saída do `tsc` foi contado. Quem
-> achou foi a verificação independente, contando com `grep -c "error TS"`. **Erro de tipo se conta,
-> não se lê.**
+> **A `47` confirmou o achado sem saber dele**: a flake apareceu duas vezes no fecho dela, em
+> arquivos diferentes (`CategoryInspector` numa execução, `SlugField` na outra), e sumiu com o teto
+> maior. Duas sessões chegaram ao mesmo diagnóstico em paralelo.
 
-**A feature `47` (painel em foco) somou +144 em dois workspaces**, medidos em 2026-09-12/13 um por vez
-e com exit code capturado fora de pipe, no worktree `../store-47-painel-em-foco`: **backoffice
+**Os números acima são da ÁRVORE MESCLADA — a `47` encontrando a `46`** (merge de 2026-09-13), e não
+a soma de duas baselines. Os cinco workspaces foram medidos **um por vez**, com exit code capturado
+fora de pipe, **depois** do merge, e os cinco passam limpos:
+
+| Workspace | `47` sozinha | `46` sozinha (`master`) | **Árvore mesclada** |
+| --- | --- | --- | --- |
+| store | 3069/198 | 3087/200 | **3087/200** |
+| backoffice | 2204/129 (1 ✗) | 2073/123 | **2204/129** |
+| core | 2199/84 | 2186/84 | **2199/84** |
+| functions | 436/8 (1 ✗) | 436/8 | **436/8** |
+| catalog-import | 512/23 | 512/23 | **512/23** |
+
+> **O merge APAGOU as duas reprovações e os cinco erros de tipo que a `47` carregava na baseline.**
+> Ela fechou com `FaqEditorDialog.test.tsx` e o `handlers.test.ts` do sitemap vermelhos, e com o
+> typecheck do store em 5 — tudo herdado da `46` pelo `ff-only` do começo, e **registrado em vez de
+> consertado**, porque eram arquivos de outra sessão. Os três últimos commits da `46` consertaram os
+> três. **A decisão de não consertar de passagem estava certa**, e o registro é o que fez a
+> diferença: sem ele, a `47` teria fechado ou escondendo reprovações ou mexendo em arquivo alheio.
+
+**A feature `47` (painel em foco) somou +144 em dois workspaces**, medidos em 2026-09-12/13 um por
+vez e com exit code capturado fora de pipe, no worktree `../store-47-painel-em-foco`: **backoffice
 2073/123 → 2204/129** (+131/+6) e **core 2186/84 → 2199/84** (+13). Store, functions e
-catalog-import não foram tocados e foram remedidos assim mesmo — idênticos. Lint ficou em **27/8**
-(igual à entrada), tipos em **0 (bo) · 5 (store, todos herdados)**, `pnpm build` verde nos dois apps,
-e `packages/core/src/payment/**` sem uma linha alterada.
+catalog-import não foram tocados por ela e foram remedidos assim mesmo. `pnpm build` verde nos dois
+apps, e `packages/core/src/payment/**` sem uma linha alterada.
 
 > **A verificação independente REPROVOU a primeira entrega, e os dois mutantes sobreviventes tinham a
 > mesma assinatura: a asserção que é verdadeira nos DOIS mundos.**
@@ -471,6 +488,30 @@ e `packages/core/src/payment/**` sem uma linha alterada.
 > a **âncora passaria a medir string vazia** — as quatro asserções de posição continuariam verdes
 > sobre nada. A ordem importou: T5 estendeu a régua (com sensor de que um `cn()` sem os invariantes
 > reprova, e outro de que uma sintaxe ilegível derruba a âncora) e só T7 tocou no componente.
+
+**A feature `46` (perguntas frequentes da loja) somou +240 em quatro workspaces**, medidos em
+2026-09-12 um por vez e com exit code capturado fora de pipe: **store +132/+11** (a página, o slice
+`entities/faq`, os dois hooks de `<head>` e três guardas novos), **core +58/+4** (`text`, `page`,
+`jsonld` e a pureza de `core/faq`), **backoffice +50/+4** (a curadoria) e **functions +0** (o teste
+do sitemap mudou de número, não de contagem). `catalog-import` não foi tocado e foi remedido —
+idêntico. Lint ficou em **27/6** e tipos em **0·0·0**; `packages/core/src/payment/**` e
+`supabase/functions/mercado-pago/**` não tiveram uma linha alterada, conferido por
+`git diff --name-only bd35225..HEAD`.
+
+> **Três consequências apareceram FORA do workspace que a task estava medindo**, e as três valem
+> como método:
+>
+> - **Mudança em `packages/core` tem gate de TRÊS workspaces, não dois.** O gate da task que subiu
+>   `FAQ_ANSWER_MAX` rodou core e store; o `FaqEditorDialog` do **painel** lê a mesma constante e o
+>   contador dele seguiu dizendo "0 / 600". Os números dele passaram a vir da constante, com âncora
+>   ao lado — senão as duas linhas passariam com a constante zerada.
+> - **Acrescentar rota a `SITEMAP_STATIC_PATHS` muda a saída da edge function do sitemap**, e o
+>   teste dela conta `<loc>`. Foi o guarda bidirecional pegando uma consequência a um workspace de
+>   distância.
+> - **Seis âncoras de contagem dispararam** ao declarar a rota (17→18 slugs, 20→21 reservados, 6→7
+>   institucionais, 16→17 páginas lazy, 21→22 rotas, 10→11 `<loc>`). Todas atualizadas para o número
+>   verdadeiro, nenhuma afrouxada — é exatamente o trabalho que elas existem para fazer.
+
 
 **A feature `45` (as políticas da loja) foi medida em 2026-09-12 na árvore COMBINADA**, um workspace
 por vez e com exit code capturado fora de pipe. "Combinada" é literal: **duas sessões trabalharam na

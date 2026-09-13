@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import FaqSubjectNav, { faqSubjectId } from '../FaqSubjectNav'
+import FaqSubjectNav from '../FaqSubjectNav'
+import { faqSubjectId } from '../../lib/anchors'
 import type { FaqPageGroup } from '@estrelinha/core/faq'
 import { TAP_ROW } from '@/shared/lib/touchTarget'
 

@@ -1,9 +1,7 @@
 import type { FaqPageGroup } from '@estrelinha/core/faq'
 import { useOverflowAffordance } from '@/shared/lib/useOverflowAffordance'
 import { TAP_ROW } from '@/shared/lib/touchTarget'
-
-/** O `id` da seção de um assunto — `/perguntas-frequentes#assunto-cuidados`. */
-export const faqSubjectId = (category: string): string => `assunto-${category}`
+import { faqSubjectId } from '../lib/anchors'
 
 /**
  * Os assuntos da página, em duas formas e **uma fonte só** — `FAQL-06`.
@@ -30,7 +28,18 @@ const FaqSubjectNav = ({ groups }: { groups: readonly FaqPageGroup[] }) => {
           em que há conteúdo além da dobra. */}
       <div className="relative lg:hidden">
         <div
-          ref={faixa.ref}
+          /*
+           * `useOverflowAffordance` tipa o ref como `HTMLElement` porque o `Header` o prende num
+           * `<nav>`. Aqui o elemento que rola é um `<div>`, e a conversão é o preço.
+           *
+           * A alternativa — fazer a faixa ser outro `<nav aria-label="Assuntos">` — daria dois
+           * elementos de navegação com o mesmo nome no DOM. Em navegador só um existe (o outro é
+           * `display:none` pelo `lg:hidden`, e sai da árvore de acessibilidade), mas **jsdom não
+           * aplica as classes do Tailwind**: os dois ficariam expostos, e o `getByRole` do teste
+           * passaria a achar dois. Trocar semântica para satisfazer o tipo e quebrar o teste é o
+           * negócio errado.
+           */
+          ref={faixa.ref as React.RefObject<HTMLDivElement>}
           className="flex flex-row items-center gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
           {groups.map(grupo => (

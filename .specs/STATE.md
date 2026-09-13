@@ -777,11 +777,18 @@
 - **Delta medido**: **+137 testes em dois workspaces** — backoffice 2073/123 → **2197/129**, core
   2186/84 → **2199/84**. Store, functions e catalog-import intocados e remedidos. Lint **27/8** igual
   à entrada, `pnpm build` verde, `packages/core/src/payment/**` sem uma linha alterada.
-- **TRÊS falhas herdadas da `46` entraram na baseline, e NÃO são desta feature** — estão escritas em
-  `CLAUDE.md` e em `tasks.md`: `FaqEditorDialog.test.tsx:126` (`0 / 600` × `0 / 4000`),
-  `functions/sitemap/__tests__/handlers.test.ts:70` (`toHaveLength(10)` recebendo 11) e o `TS2322` de
-  `FaqSubjectNav.tsx:33`. **Não foram consertadas de propósito**: são de arquivos que esta feature não
-  possui, e outra sessão trabalhava neles em paralelo.
+- **TRÊS falhas herdadas da `46` entraram na baseline durante a execução, e o MERGE as apagou.**
+  `FaqEditorDialog.test.tsx:126` (`0 / 600` × `0 / 4000`),
+  `functions/sitemap/__tests__/handlers.test.ts:70` (`toHaveLength(10)` recebendo 11) e os 5 erros de
+  tipo do store. **Não foram consertadas por esta feature, de propósito**: eram de arquivos que ela
+  não possuía, e outra sessão trabalhava neles em paralelo. Os três últimos commits da `46`
+  consertaram os três, e a árvore mesclada fecha **limpa**. **A decisão de registrar em vez de
+  consertar foi o que fez isso funcionar** — sem o registro, esta feature teria fechado ou escondendo
+  reprovação ou mexendo em arquivo alheio.
+- **A árvore mesclada foi REMEDIDA inteira** (2026-09-13, cinco workspaces, um por vez): store
+  **3087/200** · backoffice **2204/129** · core **2199/84** · functions **436/8** · catalog-import
+  **512/23** — **8438 em 444, todos passando**. Tipos **0 · 0 · 0**, lint **27/6**. Os números da
+  `47` sozinha não valem mais como baseline.
 - **Pendências declaradas**: **prova em navegador** (390 · 768 · 1024 · 1440) — é a que mais pesa,
   porque o que a feature entrega (largura, escala, altura de corpo) é exatamente o que jsdom não mede;
   o `11rem` de `/admin/menu`, que é suposição de altura de cabeçalho; e o **estado de falha do

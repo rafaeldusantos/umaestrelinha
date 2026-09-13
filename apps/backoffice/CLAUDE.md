@@ -564,12 +564,14 @@ catálogo — e impede que a troca aconteça na ordem errada.
 
 ## Dívidas conhecidas deste app
 
-- **A baseline de testes do painel é 2197 em 129 arquivos** (2026-09-12, medida um workspace por vez
-  e com exit code capturado fora de pipe), **dos quais 1 REPROVA** — e ela **não é do painel**:
-  `features/faq-library/ui/FaqEditorDialog.test.tsx:126` assere `0 / 600` enquanto a tela mostra
-  `0 / 4000`, porque a feature 46 subiu `FAQ_ANSWER_MAX` em `packages/core` e o literal do teste
-  ficou para trás. O gate é "sem regressão" **contra esse número, com essa reprovação**: uma segunda
-  é regressão. Ver [`../../CLAUDE.md`](../../CLAUDE.md).
+- **A baseline de testes do painel é 2204 em 129 arquivos**, todos passando (2026-09-13, medida na
+  árvore mesclada `46` + `47`, um workspace por vez e com exit code capturado fora de pipe).
+  - **Meça com `--testTimeout=20000`.** Os guardas que varrem disco (`SlugField`,
+    `CategoryInspector`) cruzam o teto padrão de 5s sob a contenção da suíte cheia e reprovam por
+    **timeout, nunca por asserção** — e o arquivo que reprova **muda a cada execução**. As duas
+    sessões que corriam em paralelo em 2026-09-12 chegaram a esse diagnóstico separadamente. Antes
+    de investigar uma reprovação do painel, confira se o erro diz `Test timed out in 5000ms`.
+  - O gate é "sem regressão". Ver [`../../CLAUDE.md`](../../CLAUDE.md).
 - **A baseline de lint do painel é 25 erros / 4 warnings**, em boa parte
   `@typescript-eslint/no-explicit-any` nos hooks admin (`entities/*/api/useAdmin*`). O gate é "sem
   erros novos". *(Dizia 28/7 até 2026-09-05: a `34` apagou `OrderDetailDialog.tsx` e levou junto três
