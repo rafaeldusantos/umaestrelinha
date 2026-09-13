@@ -79,9 +79,13 @@ describe('navGroups — os quatro eixos', () => {
     // Feature 30: o grupo foi de dois para TRÊS itens. A asserção foi reescrita porque a spec mudou
     // o comportamento — e ela ganhou vizinha (o caso do Google Shopping, logo abaixo) em vez de ter
     // sido afrouxada para `toContain`.
+    // Feature 46: o grupo foi de três para QUATRO. Mesma régua da 30 — a lista foi reescrita para o
+    // conteúdo novo, e ganhou vizinha (o caso da Página de perguntas, abaixo) em vez de virar
+    // `toContain`.
     expect(loja.items.map(i => i.to)).toEqual([
       '/admin/home',
       '/admin/menu',
+      '/admin/perguntas-frequentes',
       '/admin/google-shopping',
     ])
 
@@ -95,17 +99,37 @@ describe('navGroups — os quatro eixos', () => {
     expect(catalogo.items.map(i => i.to)).not.toContain('/admin/menu')
   })
 
-  it('`Perguntas frequentes` entra em Catálogo, por último (feature 28)', () => {
+  it('`Biblioteca de perguntas` entra em Catálogo, por último (features 28 e 46)', () => {
     // Conteúdo de catálogo, não curadoria de vitrine — o que separa este grupo de `Loja`. Por último
     // porque é o que se visita menos: produto e categoria se cadastram toda semana.
     const catalogo = navGroups.find(g => g.label === 'Catálogo')!
     const ultimo = catalogo.items[catalogo.items.length - 1]
 
     expect(ultimo.to).toBe('/admin/perguntas')
-    expect(ultimo.label).toBe('Perguntas frequentes')
+    // Renomeado na 46, com a ROTA intacta. O rótulo antigo era "Perguntas frequentes", e ele deixou
+    // de servir no dia em que a 46 criou "Página de perguntas" no grupo Loja: dois itens quase
+    // homônimos em grupos diferentes obrigariam a dona a lembrar qual é qual toda vez.
+    expect(ultimo.label).toBe('Biblioteca de perguntas')
 
     const loja = navGroups.find(g => g.label === 'Loja')!
     expect(loja.items.map(i => i.to)).not.toContain('/admin/perguntas')
+  })
+
+  it('a Página de perguntas mora em `Loja`, e a Biblioteca em `Catálogo` (feature 46)', () => {
+    // A distinção que o rename existe para sustentar: uma cura o que a cliente VÊ, a outra guarda o
+    // conteúdo que as duas superfícies consomem. Os rótulos são asseridos junto das rotas porque foi
+    // o rótulo, não a rota, que motivou a mudança.
+    const loja = navGroups.find(g => g.label === 'Loja')!
+    const catalogo = navGroups.find(g => g.label === 'Catálogo')!
+
+    expect(loja.items.find(i => i.to === '/admin/perguntas-frequentes')?.label).toBe(
+      'Página de perguntas',
+    )
+    expect(catalogo.items.map(i => i.to)).not.toContain('/admin/perguntas-frequentes')
+
+    // E os dois rótulos são distintos — a regra que o rename comprou.
+    const rotulos = navGroups.flatMap(g => g.items.map(i => i.label))
+    expect(new Set(rotulos).size).toBe(rotulos.length)
   })
 
   it('`Home` vem ACIMA de `Menu da loja` no grupo Loja (feature 24)', () => {
@@ -113,7 +137,12 @@ describe('navGroups — os quatro eixos', () => {
     // topo é ajuste pontual de quatro vagas. Numa lista de dois, o primeiro é onde se vai mais
     // vezes. A ordem das rotas em `App.tsx` acompanha, e o teste acima (PRM-20) prova que acompanha.
     const loja = navGroups.find(g => g.label === 'Loja')!
-    expect(loja.items.map(i => i.label)).toEqual(['Home', 'Menu da loja', 'Google Shopping'])
+    expect(loja.items.map(i => i.label)).toEqual([
+      'Home',
+      'Menu da loja',
+      'Página de perguntas',
+      'Google Shopping',
+    ])
   })
 
   it('`Google Shopping` fecha o grupo Loja (feature 30)', () => {

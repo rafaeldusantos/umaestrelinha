@@ -1,4 +1,4 @@
-import { HelpCircle, House, LayoutDashboard, Package, Percent, Tags, Menu, ShoppingCart, ShoppingBag, Store, Ticket, Users, Settings } from 'lucide-react'
+import { HelpCircle, House, LayoutDashboard, MessageCircleQuestion, Package, Percent, Tags, Menu, ShoppingCart, ShoppingBag, Store, Ticket, Users, Settings } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 export interface NavItem {
@@ -81,7 +81,11 @@ export const navGroups: NavGroup[] = [
     items: [
       { to: '/admin/produtos', icon: Package, label: 'Produtos' },
       { to: '/admin/categorias', icon: Tags, label: 'Categorias' },
-      { to: '/admin/perguntas', icon: HelpCircle, label: 'Perguntas frequentes' },
+      // Renomeado na feature 46. Era "Perguntas frequentes", e virou "Biblioteca de perguntas"
+      // porque a 46 acrescentou "Página de perguntas" no grupo Loja: dois itens quase homônimos em
+      // grupos diferentes obrigariam a dona a lembrar qual é qual toda vez. O nome novo diz o que
+      // esta tela é — o conteúdo que os produtos E a página consomem —, e a rota não mudou.
+      { to: '/admin/perguntas', icon: HelpCircle, label: 'Biblioteca de perguntas' },
     ],
   },
   {
@@ -89,6 +93,9 @@ export const navGroups: NavGroup[] = [
     items: [
       { to: '/admin/home', icon: House, label: 'Home' },
       { to: '/admin/menu', icon: Menu, label: 'Menu da loja' },
+      // Feature 46. Entra em `Loja` e não em `Catálogo` porque é curadoria do que a cliente VÊ — a
+      // mesma régua que trouxe o Menu da loja para cá. O conteúdo que ela cura mora na Biblioteca.
+      { to: '/admin/perguntas-frequentes', icon: MessageCircleQuestion, label: 'Página de perguntas' },
       { to: '/admin/google-shopping', icon: Store, label: 'Google Shopping' },
     ],
   },
