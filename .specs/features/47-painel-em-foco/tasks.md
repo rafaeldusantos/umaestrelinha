@@ -765,15 +765,129 @@ task.
 
 ## Baseline medida
 
-> **Preenchida por T1, do disco, com a árvore limpa.** Até lá, vazia de propósito — um número
-> copiado do `CLAUDE.md` aqui faria o gate da feature comparar contra folga que pode não existir.
+> **Medida por T1 em 2026-09-12**, no worktree `../store-47-painel-em-foco` (branch
+> `feat/47-painel-em-foco` em `056da12`), com `git status --short` **vazio**, um workspace por vez e
+> `echo "exit=$?"` **fora de pipe**. A árvore é a `master` de `15a728b` — ou seja, **inclui a `46`
+> inteira**, que outra sessão fechava enquanto esta media.
 
 | Workspace | Entrada (T1) | Saída (T19) | Delta |
 | --- | --- | --- | --- |
-| store | — | — | — |
-| backoffice | — | — | — |
-| core | — | — | — |
-| functions | — | — | — |
-| catalog-import | — | — | — |
+| store | **3069 / 198** · exit 0 | **3069 / 198** · exit 0 | **0** — não tocado, remedido |
+| backoffice | **2073 / 123** · exit **1** (2072 passam, **1 reprova**) | **2204 / 129** · exit **1** (2203 passam, **a mesma 1**) | **+131 / +6** |
+| core | **2186 / 84** · exit 0 | **2199 / 84** · exit 0 | **+13** |
+| functions | **436 / 8** · exit **1** (435 passam, **1 reprova**) | **436 / 8** · exit **1** (**a mesma 1**) | **0** — não tocado, remedido |
+| catalog-import | **512 / 23** · exit 0 | **512 / 23** · exit 0 | **0** — não tocado, remedido |
 
-Lint: — · Tipos: — · `pnpm build`: —
+**Total de entrada: 8276 em 436 arquivos** · **de saída: 8420 em 442** · **delta +144 / +6**, em dois
+workspaces. As **duas** reprovações do fecho são **exatamente** as duas herdadas da `46` — nenhuma
+terceira apareceu.
+
+> **A flake documentada apareceu duas vezes no fecho, e mudou de arquivo entre as execuções**:
+> `CategoryInspector.test.tsx:250` numa, `SlugField.test.tsx:342` na outra — as duas varrem disco e
+> as duas estouraram o timeout de 5s sob carga. **As duas passam isoladas** (22/22 e 27/27).
+> **A medição definitiva usou `--testTimeout=20000`**, que é o achado que a `46` documentou no
+> `CLAUDE.md` enquanto esta feature corria: com ele a flake não aparece, e o workspace fecha em
+> **2204, com 2203 passando**. Medir a suíte do painel com o teto padrão de 5s mede a **máquina**, e
+> não o código.
+
+Lint: **27 erros / 8 warnings** na entrada e **27 / 8** na saída (backoffice 25/4 · store 2/4) ·
+Tipos: backoffice **0 → 0**; store **5 → 5** (todos herdados da `46`, não tocados) ·
+`pnpm build` **verde nos dois apps** · `packages/core/src/payment/**` **sem uma linha alterada**,
+conferido por `git diff --name-only`.
+
+> **Um warning novo apareceu e foi consertado na origem, não anotado.** `react-refresh/only-export-components`
+> acusou `MenuBannerEditor.tsx` quando a leitura `bannersGravados` passou a ser exportada dali para a
+> aba "Banners" usar a **mesma** contagem (`FOCO-32`). O conserto não foi silenciar a regra: a função
+> foi para `model/bannersGravados.ts`, que é onde ela já devia estar — helper que dois componentes
+> consomem não mora dentro de um deles. O dono continua único, e o lint voltou à baseline.
+
+### Onde os testes nasceram
+
+**Contagens LIDAS da saída do runner**, arquivo por arquivo, depois das correções da verificação
+independente. A primeira escrita desta tabela tinha quatro linhas erradas — os totais por workspace
+batiam, mas a atribuição por arquivo era de memória. **É o mesmo defeito da baseline, um nível
+abaixo**: número anotado de cabeça mente sem quebrar nada.
+
+> **A régua que fecha esta tabela é a SOMA, e ela achou o erro que as medições não acharam.** Depois
+> de reler as 14 saídas do runner, uma coluna de **entrada** continuava errada — `HomeSectionList`
+> estava como 24 e o arquivo tinha **26** em `056da12`. Medir a saída não conserta isso: só a soma
+> denuncia. Fechando: `novos (61) + deltas (70) = 131 = 2204 − 2073`. Com a linha errada a conta dava
+> 133, e o número de **entrada** do workspace é quem pagava a diferença. **Toda tabela de origem de
+> teste precisa fechar contra o delta do workspace** — senão ela vira contabilidade que ninguém
+> confere.
+>
+> | Parcela | Soma |
+> | --- | --- |
+> | arquivos novos | 8 + 13 + 13 + 8 + 5 + 14 = **61** |
+> | deltas em arquivos existentes | 14 + 11 + 10 + 6 + 4 + 7 + 18 = **70** |
+> | **total** | **131** = 2204 − 2073 ✓ |
+
+| Arquivo | Entrada → saída |
+| --- | --- |
+| `core/home/__tests__/preview.test.ts` | 24 → **37** (+13) — `previewFrame`, com o sensor da fórmula antiga |
+| `admin-layout/model/focusRoutes.test.ts` | **novo, 8** |
+| `admin-layout/model/navRail.test.ts` | **novo, 13** |
+| `admin-layout/ui/NavRail.test.tsx` | **novo, 13** |
+| `admin-layout/ui/AdminLayout.test.tsx` | 16 → **30** (+14) — 3 da régua de `cn()` e 11 do fio do trilho |
+| `shared/lib/useFullscreenStage.test.ts` | **novo, 8** |
+| `shared/lib/__tests__/folgaDoPalco.test.ts` | **novo, 5** |
+| `home-composition/ui/HomeLivePreview.test.tsx` | 12 → **23** (+11) |
+| `store-menu/ui/MenuLivePreview.test.tsx` | 17 → **27** (+10) |
+| `home-composition/__tests__/previaUnica.test.ts` | 22 → **28** (+6) |
+| `home-composition/ui/HomeSectionList.test.tsx` | 26 → **30** (+4) |
+| `store-menu/ui/MenuEntryEditor.test.tsx` | **novo, 14** |
+| `pages/admin/AdminHomePage.test.tsx` | 40 → **47** (+7) |
+| `pages/admin/AdminMenuPage.test.tsx` | 32 → **50** (+18) |
+
+### O que a verificação independente (autor ≠ verificador) mudou
+
+Ela devolveu **FAIL** na primeira rodada, com **2 mutantes sobreviventes de 18** — e os dois eram
+buracos reais, não estilo:
+
+| # | O que sobrevivia | O conserto |
+| --- | --- | --- |
+| 1 | Apagar o `return () => removeEventListener(...)` de `useFullscreenStage` deixava **52 testes verdes**. O caso asseria `expect(() => teclar('Escape')).not.toThrow()`, **verdade nos dois mundos**: em React 18 um `setState` depois do unmount é no-op silencioso | A régua virou **identidade do handler**: o que entrou no `addEventListener` tem de ser exatamente o que sai no `removeEventListener`, e o saldo de ouvintes tem de fechar em zero. Mais um caso para `sair()`, que é o mesmo vazamento pela outra porta |
+| 2 | Trocar a altura do quadro por `PREVIEW_DEVICES[device].height` deixava **26 verdes**: a barra imprimiria `1024 × 948` e o iframe sairia com **768**. `FOCO-16`/`FOCO-17` estavam provados **só em `core`** | O teste passou a **medir o palco**: um `ResizeObserver` dublê entrega uma caixa de verdade (jsdom não implementa o observador, então a caixa ficava `{0,0}` e os dois modos imprimiam o mesmo texto). Três casos novos cobrem palco alto, palco apertado e o celular que não estica |
+
+Mais seis correções de régua, todas da mesma família — **a asserção que passaria sob uma
+implementação plausivelmente errada**: o alvo de 44px era filtrado por `includes('h-11')` e depois
+cobrado por `h-11` (circular; agora enumera **por papel**, do DOM); dois sensores não chamavam o
+extrator da asserção (comparavam literais escritos no próprio caso); e duas asserções provavam a aba
+Ícone e o nome do arquivo por coisas que passariam com o componente apagado.
+
+**E duas correções de baseline**: o typecheck do store tem **5** erros herdados, não 1 — só o
+primeiro da tela tinha sido contado. **Erro de tipo se conta com `grep -c`, não se lê.**
+
+### Divergências contra o `CLAUDE.md` — anotadas, NÃO corrigidas em silêncio
+
+A tabela do `CLAUDE.md` (fechada na `45`) está desatualizada em **quatro** das cinco linhas. A
+diferença é a `46`, que entrou na árvore depois dela:
+
+| Medida | `CLAUDE.md` diz | Medido em T1 | Delta |
+| --- | --- | --- | --- |
+| store | 2955 / 189 | **3069 / 198** | +114 / +9 |
+| backoffice | 2023 / 119 | **2073 / 123** | +50 / +4 |
+| core | 2128 / 80 | **2186 / 84** | +58 / +4 |
+| functions | 436 / 8 | **436 / 8** | 0 — mas **1 reprova** agora |
+| catalog-import | 512 / 23 | **512 / 23** | 0 |
+| lint | 27 / 6 | **27 / 8** | +2 warnings (store 2/1 → 2/4) |
+| tipos | 0 · 0 · 0 | **0 (bo) · 5 (store)** | +5 erros no store |
+
+**O total de 8054 do `CLAUDE.md` nunca existiu nesta árvore** — é a soma de números anteriores à
+`46`. É a lição que a `45` já registrou, acontecendo de novo e pelo mesmo motivo.
+
+### As TRÊS falhas herdadas — da `46`, não desta feature
+
+Nenhuma é tocada aqui. As três nasceram fora desta árvore de trabalho, em arquivos que esta feature
+**não possui**, e a regra que a `45` deixou escrita (dividir a propriedade dos arquivos por escrito
+quando duas sessões trabalham em paralelo) manda **registrar**, não consertar por conta própria:
+
+| # | Onde | O quê |
+| --- | --- | --- |
+| 1 | `apps/backoffice/src/features/faq-library/ui/FaqEditorDialog.test.tsx:126` | assere `0 / 600`; a tela mostra `0 / 4000`. A `46` subiu `FAQ_ANSWER_MAX` de 600 para 4000 em `packages/core/src/faq/faq.ts:157` e o literal do teste ficou para trás |
+| 2 | `supabase/functions/sitemap/__tests__/handlers.test.ts:70` | assere `toHaveLength(10)` e recebe **11**. A `46` acrescentou `/perguntas-frequentes` aos caminhos estáticos e a **âncora de contagem** da function não acompanhou — exatamente o risco de âncora compartilhada que o `CLAUDE.md` descreve desde a `45` |
+| 3 | `apps/store/src/entities/faq/ui/FaqSubjectNav.tsx:33` | `TS2322` — `MutableRefObject<HTMLElement>` num `ref` de `HTMLDivElement`. O typecheck do store sai de **0** e vai a **1** |
+
+**Consequência para o gate desta feature**: "sem regressão" passa a ser medido contra
+**3069 · 2073 (1 ✗) · 2186 · 436 (1 ✗) · 512**, e as duas reprovações herdadas têm de continuar
+sendo **exatamente essas duas** no fecho. Uma terceira seria regressão desta feature.

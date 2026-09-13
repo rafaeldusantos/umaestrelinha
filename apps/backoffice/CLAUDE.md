@@ -85,6 +85,46 @@ dobra interna. Em 390×844 sobram 206px de corte. Colapsar dois grupos zera a di
   `.tsx` do disco e cobra `sticky`/`top-0`/`h-screen`/`self-start` no `aside`, `min-h-0` no `<nav>` e
   a ausência de `overflow-hidden` na raiz — com **âncora** (a varredura tem de achar os três
   elementos) e **sensor** (a declaração antiga tem de reprovar na mesma régua).
+  - **A régua passou a enxergar `className={cn(…)}`** (feature 47), e isso era um **ponto cego real**:
+    ela casava só `className="literal"`, então o primeiro refator para `cn()` faria a âncora medir
+    **string vazia** e todas as asserções passarem sobre nada — a pior falha possível num teste que
+    lê fonte. Três sensores guardam a extensão: a forma dinâmica correta é lida, uma sem os
+    invariantes reprova, e um `className` que a régua **não consegue ler** (`{classes}`, template
+    string, `style`) devolve vazio e derruba a âncora.
+
+### O modo de foco: `/admin/home` e `/admin/menu` recolhem a navegação (feature 47)
+
+São as duas telas que mostram **a loja ao lado do que se edita**, e nelas a sidebar de 240px é a
+coisa menos usada: quem entra em `/admin/home` veio compor a Home, não navegar. Em 1440 elas passam
+a ter coluna de edição de **440px** (era 380) e palco de **872** (era 748) — o computador a **81%**
+em vez de 69%.
+
+- **Quem decide é `model/focusRoutes.ts`, vizinho de `navItems.ts`**, e casa por `isNavActive` — a
+  **mesma** função que marca o item ativo. Duas réguas de "esta rota é aquela" discordariam no dia em
+  que uma subrota nova aparecesse (`/admin/home/:sectionId` conta; `/admin/homologacao` não).
+  - A alternativa (a página pedir foco por contexto num `useEffect`) foi recusada no design: o layout
+    renderiza **antes** do efeito da página, então o trilho apareceria expandido por um quadro e
+    recolheria depois — piscada visível a cada navegação.
+- **A preferência guarda só o override** (`estrelinha.admin.nav-rail` = `'expandido'`), e recolher de
+  volta **apaga a chave**. É `navCollapse` ao contrário e pelo mesmo motivo: guardando o que DIFERE
+  do padrão, a ausência de valor significa sempre "siga o padrão da rota" — e no dia em que o padrão
+  mudar, ele muda para quem nunca mexeu. **São duas preferências com donos separados**: o trilho não
+  lê nem escreve `estrelinha.admin.nav-collapsed`, e há asserção provando que as chaves nem se tocam.
+- **O trilho não declara destino nenhum** — a lista é `navGroups` + `footerNavItems`, na ordem delas,
+  e a âncora de contagem do teste é **derivada dessa fonte**, nunca escrita à mão: um grupo novo não
+  pode passar despercebido. Os cabeçalhos viram separadores de 1px (o grupo perde o rótulo, não
+  desaparece), e o rótulo de cada ícone vive no `aria-label` + tooltip.
+- **Os 44px do trilho são declarados em classe própria, e `TAP_44` NÃO é importado.** Aquele auxiliar
+  mora em `apps/store` e é guardado lá por `touchTarget.test.ts`; trazê-lo para cá criaria um segundo
+  dono da medida — que é exatamente o defeito que o guarda existe para impedir. A asserção é por
+  **token exato** (`h-11` é substring de `min-h-11`).
+- **A largura da coluna de edição NÃO reage ao trilho** (`FOCO-14`). Com a navegação expandida numa
+  rota de foco, o palco simplesmente encolhe (em 1440 cai para 688, o computador para ~63% — pior que
+  os 69% de antes). É estado transitório e escolhido, e a saída é um clique. Fazer a coluna reagir
+  daria **dois donos** da largura: o widget do layout e a página. Há asserção de que
+  `AdminHomePage.tsx` não importa nada de `admin-layout`.
+- **Fora dessas duas rotas nada muda**, e não existe nem o controle de recolher. Abaixo de `md` também
+  não: a navegação continua sendo a gaveta do botão da barra.
 
 ## Molde dos formulários
 
@@ -170,6 +210,15 @@ desenho.
     hook desde a feature 24 e **nenhuma tela a consumia**. Passou despercebido enquanto o único bloco
     que a AC mandava poder remover era justamente o indelével. A confirmação é `window.confirm`
     porque o que falta antes do clique é um passo, não um fluxo.
+  - **A lixeira saiu de cada linha e virou ação de menu** (feature 47, `FOCO-23`..`FOCO-26`). Sete
+    seções com sete lixeiras permanentes punham a ação destrutiva disputando peso com a principal
+    (abrir), a 40px dela. O `⋯` é o **mesmo** `onRemove`, um passo atrás, e o editor de uma seção
+    ganhou **"Remover esta seção da Home"** no rodapé — quem está com ela aberta e decide que ela não
+    vai ao ar não precisa voltar à lista para procurar.
+    - **Esconder é do desenho; alcançar é do DOM**: `opacity-0` + `group-hover`/`group-focus-within`,
+      nunca `hidden`. O controle continua na ordem de tabulação, e há caso provando que ele é
+      alcançável por `Tab` **sem nenhum evento de hover** — controle que só existe no hover não
+      existe para teclado nem para toque.
   - **O painel NÃO antecipa a recusa da última seção ativa.** Ela vem do banco e chega como erro de
     gravação. Antecipá-la aqui seria a segunda escrita da regra que `AD-029` acabou de unificar.
 - **`/admin/home` › bloco “Banner principal”** (feature `41`) — o carrossel de campanha. Cada banner
@@ -232,6 +281,32 @@ um segundo arquivo `…Preview`, se o palco ramificar por tipo de seção, ou se
   o `width` que a loja mede para escolher as media queries. A barra mostra a escala.
 - **Trocar de dispositivo não pode tocar no `src`**: cada clique remontaria o documento e perderia o
   rascunho já entregue. Recarregar remonta de propósito, por `key`.
+- **O tamanho do quadro tem UM dono, e ele mora em `core`** — `previewFrame(device, box, fullscreen)`
+  em `packages/core/src/home/preview.ts` (feature 47). Antes dela a folga entre palco e quadro era
+  uma constante **declarada duas vezes**, uma em cada palco: mudar a de um e não a do outro faria as
+  duas prévias escalarem diferente com build, `tsc` e teste de componente verdes. É o "defeito 01" em
+  miniatura, e `shared/lib/__tests__/folgaDoPalco.test.ts` recusa a volta — inclusive na forma sem
+  nome (`caixa.width - 40` no cálculo da escala).
+- **A tela cheia é um MODO do palco, não uma segunda prévia** (`FOCO-15`..`FOCO-22`). Um botão leva o
+  computador a **1024px com escala exatamente 1** — 81% ainda não é leitura, 100% é, e é o que torna
+  a barra do menu e a chamada legíveis como a cliente as lê.
+  - **É CSS na `<section>` que já existe** (`fixed inset-0 z-50`, de `shared/lib/useFullscreenStage`),
+    e não um portal. Portal reparenta o nó, o React remonta, o iframe recarrega e o rascunho da ponte
+    se perde — o defeito que `PRV-13` já custou uma vez. Os testes provam por **identidade do nó**:
+    guardam a referência do `<iframe>`, alternam o modo duas vezes, e o nó tem de ser o mesmo objeto.
+  - **A altura é a que existe, com piso de 768**, e o rótulo de métrica imprime a altura **realmente
+    usada** (`1024 × 948 · 100%`), não a nominal. Imprimir 768 ali seria a barra mentindo sobre o que
+    está na tela.
+  - **O celular NÃO estica, em modo nenhum**: 390 × 844 é a **dobra real**, e esticá-la mentiria
+    sobre o que a cliente vê.
+  - **`Esc` sai, e o ouvinte só existe enquanto o modo está ligado** — um listener global permanente
+    por palco seria dois `keydown` no documento em toda tela do painel, para nada.
+  - **Clicar num bloco dentro da prévia em tela cheia SAI do modo e então abre o editor**: o clique
+    quer dizer "quero consertar isto", e abrir o formulário atrás de uma prévia que ocupa a tela
+    inteira entregaria algo que ninguém vê.
+  - **Sem `VITE_STORE_URL` o botão não é oferecido** — não há o que ampliar.
+  - `previaUnica.test.ts` cobre o modo: nenhum arquivo `…Preview` novo nas duas pastas de UI, cada
+    palco montando **um** iframe, e nenhum outro arquivo montando iframe nenhum.
 - **`VITE_STORE_URL` é o que acende a prévia**, e tem **um leitor**: `shared/lib/storeOrigin.ts`. Sem
   ela o palco mostra o passo de configuração e a lista segue funcionando — a ausência é declarada.
 - **Em produção quem autoriza é a LOJA** (`BL-013`, fechado em 2026-08-16). O `vercel.json` dela manda
@@ -326,6 +401,34 @@ conta — fazer isso seria o "defeito 01" nascendo dentro da tela que existe par
     200ms; o segundo acompanha o clique na lista, e 200ms ali seriam lidos como travamento.
   - **Sem `VITE_STORE_URL` a tela DIZ isso e continua editável** (`NAV-46`) — a ponte fica desligada
     inteira (`origin: null`), em vez de tocar num `contentWindow` que não existe.
+- **A entrada se edita num lugar só** (feature 47, `FOCO-28`..`FOCO-32`): `MenuEntryEditor` é um card
+  com abas **Painel · Banners · Ícone**, na coluna da esquerda. O `MenuIconPicker` morava na coluna da
+  **direita**, debaixo da prévia — configurar uma categoria pedia olhar para as duas colunas ao mesmo
+  tempo, e o seletor ficava a uma rolagem do nome do item que ele iconiza. Os três editores **não
+  mudaram por dentro**: o card é invólucro.
+  - **Trocar a entrada OU o dispositivo volta para Painel**, por `key={superfície:entrada}` no
+    `<Tabs>`. Remontar zera a aba **e** o estado interno dos editores (o `mostrarTodas` do painel, o
+    rascunho dos banners), que é o comportamento certo ao passar a editar outra coisa — e sai de
+    graça.
+  - **A contagem da aba "Banners" sai da MESMA leitura que o editor usa** (`model/bannersGravados.ts`,
+    `AD-025`). Uma segunda contagem ali diria "2" com o editor mostrando 3, e nada quebraria. A função
+    mora em `model/` e não dentro do editor justamente porque dois componentes a consomem.
+- **O corpo tem altura de tela, no molde literal de `/admin/home`** (`FOCO-13`): a coluna da esquerda
+  rola dentro de si e o palco fica parado. Antes a prévia rolava junto com os três editores e saía da
+  vista enquanto se edita olhando para ela. O `11rem` é **suposição de altura de cabeçalho** copiada
+  da Home, e o teste lê as **duas páginas do disco e as compara** — se uma mudar e a outra não,
+  reprova. **Pende prova em navegador** (1024 e 1440): os dois `PageHeader` têm subtítulos de
+  comprimentos diferentes, e um que embrulhe em duas linhas estoura a viewport.
+- **"Salvando…" vive no CABEÇALHO** (`FOCO-33`/`FOCO-34`), ao lado do alternador de dispositivo. Era
+  um `<p>` solto no fim do documento, depois de três editores: com o corpo rolando, ligar uma
+  categoria no topo da lista dava um segundo de silêncio e nenhuma confirmação à vista. Ele **some do
+  DOM** ao terminar — o teste prova por ausência do nó, não por classe de invisibilidade.
+- **Abaixo de `lg` a tela alterna Entradas | Prévia** (`FOCO-35`..`FOCO-37`), como `/admin/home` faz
+  desde a 24. **A forma é diferente de propósito**: aqui o alternador de vista nasce logo abaixo de
+  uma pílula segmentada (Computador/Celular), e dois controles de forma idêntica empilhados leem como
+  o mesmo controle duplicado. O de **dispositivo** continua pílula ("o que estou editando"); o de
+  **vista** é barra sublinhada ("o que estou vendo"). A régua é escrita como **predicado** e chamada
+  pela asserção **e** pelo sensor.
 - **Ninguém lê `show_in_menu` nem `menu_promo`** (`menuSurfaceSingleOwner.test.ts`, **sem allowlist**
   desde a fase 5): a primeira é coluna gerada e a segunda é legado. As duas continuam no banco para a
   loja publicada não quebrar entre o `db push` e o deploy da Vercel.
@@ -461,10 +564,12 @@ catálogo — e impede que a troca aconteça na ordem errada.
 
 ## Dívidas conhecidas deste app
 
-- **A baseline de testes do painel é 1946 em 118 arquivos** (2026-09-06, medida um workspace por vez
-  e com exit code capturado fora de pipe). O número **antes** da sidebar fixa e dos grupos
-  colapsáveis, medido por `git stash` no mesmo dia, é **1914 em 116** — que é o que a raiz já
-  registrava. O gate é "sem regressão"; ver [`../../CLAUDE.md`](../../CLAUDE.md).
+- **A baseline de testes do painel é 2197 em 129 arquivos** (2026-09-12, medida um workspace por vez
+  e com exit code capturado fora de pipe), **dos quais 1 REPROVA** — e ela **não é do painel**:
+  `features/faq-library/ui/FaqEditorDialog.test.tsx:126` assere `0 / 600` enquanto a tela mostra
+  `0 / 4000`, porque a feature 46 subiu `FAQ_ANSWER_MAX` em `packages/core` e o literal do teste
+  ficou para trás. O gate é "sem regressão" **contra esse número, com essa reprovação**: uma segunda
+  é regressão. Ver [`../../CLAUDE.md`](../../CLAUDE.md).
 - **A baseline de lint do painel é 25 erros / 4 warnings**, em boa parte
   `@typescript-eslint/no-explicit-any` nos hooks admin (`entities/*/api/useAdmin*`). O gate é "sem
   erros novos". *(Dizia 28/7 até 2026-09-05: a `34` apagou `OrderDetailDialog.tsx` e levou junto três

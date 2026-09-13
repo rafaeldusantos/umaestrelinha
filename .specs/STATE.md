@@ -763,10 +763,36 @@
 
 ## Handoff
 
-### ATUAL — 2026-09-12 · `47-painel-em-foco` **PLANEJADA — spec + design + tasks. Execute NAO comecou**
+### ATUAL — 2026-09-12 · `47-painel-em-foco` **IMPLEMENTADA — T1..T19 concluídas**
 
-- **Feature**: `.specs/features/47-painel-em-foco/` (`spec.md`, `design.md`, `tasks.md`)
-- **Fase / Task**: Specify -> Design -> Tasks concluidas. **Nenhuma linha de codigo escrita.**
+- **Feature**: `.specs/features/47-painel-em-foco/` (`spec.md`, `design.md`, `tasks.md`, `validation.md`)
+- **Fase / Task**: Execute completo. **19 de 19 tasks**, 37 de 37 requisitos (`FOCO-01`..`FOCO-37`).
+- **O que está no ar**: em `/admin/home` e `/admin/menu` a navegação recolhe para um **trilho de
+  56px** (preferência em `estrelinha.admin.nav-rail`, que guarda **só o override** `'expandido'`); a
+  coluna de edição foi de **380 para 440** e o palco de **748 para 872**; os dois palcos ganharam
+  **Tela cheia** a 100% (`Esc` sai, e o `<iframe` **não** remonta — provado por identidade do nó); a
+  lixeira saiu de cada linha da lista de seções e virou `⋯` + ação no rodapé do editor; os três
+  editores da entrada de menu viraram **um card com abas**; o `Salvando…` subiu para o cabeçalho; e
+  `/admin/menu` ganhou altura de tela e as abas Entradas/Prévia no celular.
+- **Delta medido**: **+137 testes em dois workspaces** — backoffice 2073/123 → **2197/129**, core
+  2186/84 → **2199/84**. Store, functions e catalog-import intocados e remedidos. Lint **27/8** igual
+  à entrada, `pnpm build` verde, `packages/core/src/payment/**` sem uma linha alterada.
+- **TRÊS falhas herdadas da `46` entraram na baseline, e NÃO são desta feature** — estão escritas em
+  `CLAUDE.md` e em `tasks.md`: `FaqEditorDialog.test.tsx:126` (`0 / 600` × `0 / 4000`),
+  `functions/sitemap/__tests__/handlers.test.ts:70` (`toHaveLength(10)` recebendo 11) e o `TS2322` de
+  `FaqSubjectNav.tsx:33`. **Não foram consertadas de propósito**: são de arquivos que esta feature não
+  possui, e outra sessão trabalhava neles em paralelo.
+- **Pendências declaradas**: **prova em navegador** (390 · 768 · 1024 · 1440) — é a que mais pesa,
+  porque o que a feature entrega (largura, escala, altura de corpo) é exatamente o que jsdom não mede;
+  o `11rem` de `/admin/menu`, que é suposição de altura de cabeçalho; e o **estado de falha do
+  iframe**, fora de escopo por decisão (`AD-020`), não por esquecimento.
+- **Decisões**: **nenhuma `AD` nova.** `TD-03` (a geometria do quadro em `core/home/preview.ts`)
+  **aplica** `AD-033` em vez de superá-la — a regra já tinha dono ali e os dois palcos já eram
+  consumidores dele.
+
+#### O planejamento, para referência
+
+- **Fase / Task**: Specify -> Design -> Tasks concluidas antes do Execute.
 - **ONDE ELA VIVE**: worktree proprio `../store-47-painel-em-foco`, branch `feat/47-painel-em-foco`,
   ramificada do **HEAD local `ad1acb9`** e nao de `origin/master` — que estava **21 commits atras**
   (a `46` inteira ainda sem push). Ramificar do `origin` teria produzido uma arvore sem a `46`, e a
@@ -782,9 +808,9 @@
   `Salvando…` do menu sobe para o cabecalho, e o menu ganha as abas Entradas/Previa no celular.
 - **37 requisitos (`FOCO-01`..`FOCO-37`), 37 mapeados em tasks, 0 sem task.** 19 tasks em 7 fases,
   que empacotam em **3 lotes** — a oferta de sub-agentes se aplica no Execute.
-- **Next step**: **T1 — medir a baseline dos cinco workspaces do disco**, um por vez e com exit code
-  fora de pipe. A tabela do `CLAUDE.md` NAO deve ser usada como entrada: tres das cinco ja estavam
-  desatualizadas no fecho da `45`, e a arvore ganhou a `46` depois disso.
+- **Next step (cumprido)**: T1 mediu a baseline dos cinco workspaces do disco, e a desconfiança
+  estava certa — **quatro das cinco linhas do `CLAUDE.md` estavam velhas**, e o total de `8054` nunca
+  existiu na árvore. Os números medidos entraram em `tasks.md` e a tabela da raiz foi corrigida.
 - **Decisoes**: **nenhuma `AD` nova**. O design conforma `AD-020` (a previa e a loja num iframe, sem
   fallback desenhado pelo painel), `AD-025`, `AD-028`, `AD-029` e `AD-033`. `TD-03` do `design.md`
   explica por que a geometria do quadro fica em `core/home/preview.ts` **sem** superar `AD-033`: a

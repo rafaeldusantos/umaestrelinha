@@ -122,10 +122,17 @@ Ao planejar/implementar features, use a Skill **`tlc-spec-driven`** com estas co
     a `31` mostrou o que custa a alternativa —, mas **não** vira precedente para inverter a ordem.
     **A `33` (sitemap), a `34` (painel de vendas), a `35` (clientes e pedidos da Nuvemshop), a `37`
     (frete grátis configurável), a `38` (performance no celular), a `39` (menu configurável), a
-    `40` (estabilidade da home), a `41` (banner principal da home), a `44` (gaveta de material) e a
-    `45` (as políticas da loja) estão FECHADAS. A `36` (metadados e dados estruturados) tem **só
-    `spec.md`** e não foi implementada — o número está consumido de qualquer forma. A próxima é a
-    `46`.**
+    `40` (estabilidade da home), a `41` (banner principal da home), a `44` (gaveta de material), a
+    `45` (as políticas da loja), a `46` (as perguntas frequentes da loja) e a `47` (painel em foco)
+    estão FECHADAS. A `36` (metadados e dados estruturados) tem **só `spec.md`** e não foi
+    implementada — o número está consumido de qualquer forma. A próxima é a `48`.**
+  - **A `46` e a `47` correram EM PARALELO, em worktrees separados**, e é o segundo caso do projeto
+    (o primeiro, a `45`, dividiu uma working tree só). O que mudou: a divisão foi por **árvore**, não
+    por arquivo — a `47` nasceu de um `git worktree` sobre o HEAD local e trouxe a `46` por
+    `merge --ff-only` antes de começar. Funcionou melhor que a `45`, **e mesmo assim vazou**: a `46`
+    deixou duas suítes reprovando e um erro de `tsc` que a `47` herdou e teve de registrar na
+    baseline para não confundi-los com regressão própria. **Worktree separado isola a edição, não a
+    medição.**
   - **A `45` foi executada em uma working tree COMPARTILHADA com outra sessão**, e é o primeiro caso
     do projeto. A outra entregou `/cuidados-com-sua-joia-afetiva` sobre o `PolicyDocument` da `45` e
     **removeu `/politicas`** — o que revogou dois requisitos da `45` no meio da execução
@@ -217,6 +224,7 @@ com as duas cópias divergindo, e quem descobre é a cliente ou o Google.
 | `34` | o contraste WCAG (só a loja tinha), a aritmética de página (só produtos tinha), e os rótulos de `payment_status` em **três** cópias | `@estrelinha/core/color`, `core/paging/pageMath.ts` e `entities/order/api/orderQuery` |
 | `37` | **o frete grátis, lido por SETE superfícies em duas leituras que discordavam** — com a faixa em zero, três escondiam o texto e quatro **zeravam o frete**. Zerar o campo no painel escondia o anúncio e liberava frete grátis para todo mundo no caixa | `@estrelinha/core/shipping` (`freeShippingState`), com `freeShippingSingleOwner.test.ts` recusando leitura direta |
 | `41` | **a arte por dispositivo, que a `39` já tinha escrito duas vezes** — `menuBannerArt` em `core` e o mesmo predicado recalculado no painel por truthiness da string crua. Com o carrossel da Home os consumidores viraram quatro | `@estrelinha/core/media/surfaceArt.ts`, com `menuBannerArt` **delegando** e `surfaceArtSingleOwner.test.ts` recusando a volta (`AD-030`) |
+| `47` | **a folga entre o palco e o quadro da prévia**, declarada uma vez em cada palco (`HomeLivePreview.tsx:33` e `MenuLivePreview.tsx:31`). Mudar uma e não a outra fazia as duas prévias escalarem diferente — build, `tsc` e teste de componente verdes | `previewFrame(device, box, fullscreen)` em `@estrelinha/core/home`, que recebe a **caixa** e aplica a folga dentro de `core`; `folgaDoPalco.test.ts` recusa a volta, inclusive na forma sem nome |
 | `39` | **o DESENHO do menu, de novo** — `MenuBarPreview.tsx` redesenhava a barra do topo à mão no painel, com a paleta do admin, e anunciava `/crie-seu-botton`, que **nunca foi rota**. É o mesmo defeito que a `25` apagou da Home; no menu ele nunca tinha saído. E, ao lado dele, o **papel** de cada categoria (barra × painel), que uma coluna nova teria dessincronizado no primeiro "mover categoria" | a prévia É a loja, num iframe (`MenuLivePreview`), e o papel é **derivado da árvore** dentro de `menuItems(input, surface)` — a porta única das quatro superfícies |
 
 Consequências práticas, nesta ordem:
@@ -358,9 +366,14 @@ migrations, e `vercelRedirects` lê o `vercel.json`.
 | `buttonShape.test.ts` | store `shared/ui/__tests__` | ação voltar a pílula; a chave custom de raio voltar ao config |
 | `icons.test.ts` | store `shared/lib/__tests__` (varre `packages/ui/src/icons`) | ícone fora da grade `0 0 24 24`; escala × traço ≠ 1,5; cor fora de `ICON_ACCENT`; ícone que não chegou ao barrel. **Mora na suíte da loja porque `packages/ui` não tem runner** — guarda que não roda é pior que guarda nenhum |
 | `paths.test.ts` | store `shared/ui/brand/__tests__` | `paths.ts` divergir do SVG-fonte em um caractere; dois `<path>` do mesmo SVG com a mesma espessura |
-| `previaUnica.test.ts` | backoffice `features/home-composition` | um segundo desenho da Home, do MENU **ou do CARROSSEL** voltar ao painel; `MenuBarPreview.tsx` reaparecer; um arquivo de `store-menu` importar `menuPanelColumns` ou `resolveMenuBanners` (calcular o desenho do painel da loja **é** o segundo desenho); qualquer dos dois importar de `apps/store`. **Cobre as features `25`, `39` e `41`**, com âncora dupla e sensor de CRLF/LF. A régua do carrossel é a **mecânica** (`snap-x`, `scroll-snap`, `aria-roledescription="carrossel"`, `setInterval`), não o nome do arquivo — "só uma mini-prévia para conferir a ordem dos banners" é o pedido razoável que traz o defeito de volta |
+| `previaUnica.test.ts` | backoffice `features/home-composition` | um segundo desenho da Home, do MENU **ou do CARROSSEL** voltar ao painel; `MenuBarPreview.tsx` reaparecer; um arquivo de `store-menu` importar `menuPanelColumns` ou `resolveMenuBanners` (calcular o desenho do painel da loja **é** o segundo desenho); qualquer dos dois importar de `apps/store`. **Cobre as features `25`, `39`, `41` e `47`**, com âncora dupla e sensor de CRLF/LF. A régua do carrossel é a **mecânica** (`snap-x`, `scroll-snap`, `aria-roledescription="carrossel"`, `setInterval`), não o nome do arquivo — "só uma mini-prévia para conferir a ordem dos banners" é o pedido razoável que traz o defeito de volta. **Desde a `47`** também recusa a tela cheia virando prévia nova: arquivo `…Preview` novo nas duas pastas de UI, um segundo `<iframe>` em qualquer arquivo, ou o palco ramificando por tipo de seção dentro do modo. O sensor **cria um palco sintético em `mkdtemp` e chama a régua de verdade** — simular o que ela devolveria não prova régua nenhuma |
 | `navItems.test.ts` | backoffice `widgets/admin-layout` | ordem das rotas em `App.tsx` divergir de `navGroups` |
-| `AdminLayout.test.tsx` | idem | a sidebar deixar de ser fixa (`sticky`/`top-0`/`h-screen`/`self-start` no `aside`), o `<nav>` perder `min-h-0`, a raiz ganhar `overflow-hidden`, a barra do celular deixar de ser `sticky`; o Dashboard virar grupo colapsável; grupo colapsado que contém a rota atual parar de avisar. **Âncora** (a varredura do fonte tem de achar os três elementos) e **sensor** (a declaração antiga reprova na mesma régua) |
+| `focusRoutes.test.ts` | idem | rota de foco que não é destino de `navGroups` — o trilho recolheria sem saber qual ícone acender; `/admin/homologacao` passar a contar como Home por prefixo cru |
+| `navRail.test.ts` | idem | recolher passar a **gravar** em vez de apagar a chave (a ausência deixaria de significar "siga o padrão"); valor de lixo virar um terceiro estado; `localStorage` que lança derrubar a navegação; o trilho **tocar** na chave do `navCollapse` — as duas preferências têm donos separados |
+| `NavRail.test.tsx` | idem | o trilho deixar de renderizar **exatamente** os destinos de `navGroups` + `footerNavItems`, na ordem deles (**âncora derivada da fonte**, nunca escrita à mão); rótulo virar texto visível; mais de um destino marcado; alvo abaixo de 44 (por **token exato** — `h-11` é substring de `min-h-11`); `TAP_44` ser importado ou copiado da loja. Sensor do removedor de comentário: a régua procura **uso**, e o próprio arquivo cita `TAP_44` na prosa |
+| `folgaDoPalco.test.ts` | backoffice `shared/lib/__tests__` | qualquer arquivo de `apps/backoffice/**` declarar a folga do palco — `FOLGA`, ou a forma sem nome (`caixa.width - 40` no cálculo da escala). O dono é `previewFrame`, em `core`. **Âncora dupla** (arquivos lidos **e** os dois palcos encontrados) e sensores nos dois sentidos, incluindo a prova de que a chamada correta **não** é acusada |
+| `useFullscreenStage.test.ts` | idem | `Escape` agir com o modo desligado; o ouvinte sobreviver ao desmonte; as classes do modo deixarem de ter um dono só — os dois palcos as recebem daqui, e por isso não podem divergir |
+| `AdminLayout.test.tsx` | idem | a sidebar deixar de ser fixa (`sticky`/`top-0`/`h-screen`/`self-start` no `aside`, **nos dois estados de largura**), o `<nav>` perder `min-h-0`, a raiz ganhar `overflow-hidden`, a barra do celular deixar de ser `sticky`; o Dashboard virar grupo colapsável; grupo colapsado que contém a rota atual parar de avisar. **Desde a `47`**: o trilho sumir de `/admin/home`, de `/admin/menu` ou da subrota do editor; o controle de recolher aparecer **fora** das rotas de foco ou dentro da gaveta do celular; a preferência não sobreviver à remontagem. **Âncora** (a varredura tem de achar os três elementos) e **três sensores** — a declaração antiga reprova, um `cn()` sem os invariantes reprova, e um `className` que a régua **não consegue ler** devolve vazio e derruba a âncora |
 | `navCollapse.test.ts` | idem | o storage vazio deixar de significar "tudo aberto"; a lista de colapsáveis virar segunda cópia dos rótulos de `navGroups`; a régua do "onde estou" divergir de `isNavActive` |
 | `adminTokens.test.ts` | backoffice `shared/lib/__tests__` | classe `estrelinha-admin-*` cujo token **não existe no preset**; `amber`/`emerald` virarem hex literal (o dark pararia de acompanhar); chave do preset apontando para variável não declarada; hex do preset divergir do `styles.css`; `text`/`text-secondary`/`text-muted` caírem abaixo de 4,5:1 sobre `card`/`bg`, **em light e dark**; `text-muted` alcançar `text-secondary` (o piso comeria a hierarquia); âmbar ou esmeralda reprovarem sobre o **próprio fundo de 10%**. Carrega **sensor embutido** e **âncora dupla** |
 | `faqSuggestion.test.ts` | `packages/core/src/faq/__tests__` | a sugestão cair abaixo de **80%** de precisão ou cobertura contra a distribuição real do catálogo. Carrega **sensor embutido**: assere que contagem bruta **reprova** na mesma régua |
@@ -391,9 +404,73 @@ quando mudarem de verdade.
 
 | Medida | Baseline | Como medir |
 | --- | --- | --- |
-| **Lint** | **27 erros / 6 warnings** — backoffice 25/4 · store 2/2 | `pnpm lint` |
-| **Tipos** | **0 · 0 · 0** (store · backoffice · catalog-import) | `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` |
-| **Testes** | **8054 em 419 arquivos** — store **2955/189** · backoffice **2023/119** · core **2128/80** · functions **436/8** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test` |
+| **Lint** | **27 erros / 8 warnings** — backoffice 25/4 · store 2/4 | `pnpm lint` |
+| **Tipos** | **0 (backoffice) · 5 (store) · 0 (catalog-import)** — os cinco do store são herdados, ver abaixo | `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` |
+| **Testes** | **8420 em 442 arquivos, com 2 REPROVANDO** — store **3069/198** · backoffice **2204/129 (1 ✗)** · core **2199/84** · functions **436/8 (1 ✗)** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test` |
+
+> **DUAS reprovações e um erro de tipo estão na baseline de propósito** — são da feature `46`,
+> entraram na árvore por outra sessão, e nenhuma feature posterior deve "consertá-las de passagem"
+> sem decidir fazê-lo. Elas ficam aqui para que o gate da próxima feature saiba **quais** são, e
+> recuse uma terceira:
+>
+> | Onde | O quê |
+> | --- | --- |
+> | `apps/backoffice/src/features/faq-library/ui/FaqEditorDialog.test.tsx:126` | assere `0 / 600`; a tela mostra `0 / 4000`. A `46` subiu `FAQ_ANSWER_MAX` de 600 para 4000 em `packages/core/src/faq/faq.ts:157` e o literal do teste ficou para trás |
+> | `supabase/functions/sitemap/__tests__/handlers.test.ts:70` | assere `toHaveLength(10)` e recebe **11**. A `46` acrescentou `/perguntas-frequentes` aos caminhos estáticos e a **âncora de contagem** da function não acompanhou — âncora compartilhada, exatamente o risco que a `45` registrou |
+> | `apps/store/src/entities/faq/ui/FaqSubjectNav.tsx:33` | `TS2322` — `MutableRefObject<HTMLElement>` num `ref` de `HTMLDivElement` |
+> | `apps/store/src/shared/lib/__tests__/orderNotificationsSchema.test.ts:134-146` | **quatro** `TS2339`. O typecheck do store sai de 0 e vai a **5** no total |
+>
+> **A contagem de tipos do store esteve errada uma vez neste próprio fecho**: a primeira escrita
+> registrou `1`, porque só o erro que aparecia na primeira tela de saída do `tsc` foi contado. Quem
+> achou foi a verificação independente, contando com `grep -c "error TS"`. **Erro de tipo se conta,
+> não se lê.**
+
+**A feature `47` (painel em foco) somou +144 em dois workspaces**, medidos em 2026-09-12/13 um por vez
+e com exit code capturado fora de pipe, no worktree `../store-47-painel-em-foco`: **backoffice
+2073/123 → 2204/129** (+131/+6) e **core 2186/84 → 2199/84** (+13). Store, functions e
+catalog-import não foram tocados e foram remedidos assim mesmo — idênticos. Lint ficou em **27/8**
+(igual à entrada), tipos em **0 (bo) · 5 (store, todos herdados)**, `pnpm build` verde nos dois apps,
+e `packages/core/src/payment/**` sem uma linha alterada.
+
+> **A verificação independente REPROVOU a primeira entrega, e os dois mutantes sobreviventes tinham a
+> mesma assinatura: a asserção que é verdadeira nos DOIS mundos.**
+>
+> 1. Apagar o `removeEventListener` de `useFullscreenStage` deixava **52 testes verdes**. O caso
+>    asseria `expect(() => teclar('Escape')).not.toThrow()` — e em React 18 um `setState` depois do
+>    unmount é **no-op silencioso**, então não lançar é verdade com o ouvinte vazando. A régua virou
+>    **identidade do handler**: o que entra no `addEventListener` tem de ser exatamente o que sai.
+> 2. Trocar a altura do quadro por `PREVIEW_DEVICES[device].height` deixava **26 verdes**: a barra
+>    imprimiria `1024 × 948` e o iframe sairia com **768**. `FOCO-16`/`FOCO-17` estavam provados **só
+>    em `core`**, nunca na superfície — e em jsdom a caixa do palco é `{0,0}`, então os dois modos
+>    imprimiam o mesmo texto. O conserto foi **dar ao palco uma medida**: um `ResizeObserver` dublê,
+>    porque jsdom não implementa o observador.
+>
+> **A lição de método é a segunda**: quando a regra pura está testada em `core` com caixas
+> sintéticas, é tentador considerar a superfície coberta pelo teste de "a métrica vem do dono". Não
+> está — em jsdom, *todos* os caminhos colapsam no mesmo valor de piso, e o teste passa a medir a
+> ausência de layout em vez da regra. **Prova de geometria em componente exige palco medido.**
+
+> **A tabela de baselines estava desatualizada em QUATRO das cinco linhas quando esta feature
+> começou**, e o total de `8054` **nunca existiu na árvore** — era a soma de números anteriores à
+> `46`. Medido do disco com `git status` vazio: store dizia 2955/189 e era **3069/198**; backoffice
+> dizia 2023/119 e era **2073/123**; core dizia 2128/80 e era **2186/84**. Só catalog-import batia.
+> É a terceira feature seguida a encontrar isto (a `45` achou três linhas velhas, a `44` uma). O
+> padrão é estável o bastante para virar regra: **quem fecha a feature mede; quem abre a próxima
+> mede de novo.**
+
+> **Dois achados de método, e os dois são o mesmo erro em lugares diferentes: a régua que casa
+> MENÇÃO em vez de USO.** O guarda do trilho reprovou o próprio `NavRail.tsx` porque o arquivo
+> explica em comentário por que `TAP_44` **não** é importado; o de `HomeLivePreview` reprovou porque o
+> arquivo diz em comentário que a `FOLGA` saiu dali. Nos dois casos a régua acusava exatamente o
+> arquivo que estava certo. O conserto é o mesmo dos guardas antigos — remover comentário de linha e
+> de bloco na **mesma** varredura, com `[^\n\r]` fechando antes do `\r` — e cada um ganhou sensor
+> provando que um `import` de verdade **continua** sendo acusado.
+
+> **O ponto cego do `classesDe` era real, e foi consertado ANTES de o componente mudar.** A régua do
+> `<aside>` casava só `className="literal"`; a largura do trilho obrigava um `cn()`, e sem a extensão
+> a **âncora passaria a medir string vazia** — as quatro asserções de posição continuariam verdes
+> sobre nada. A ordem importou: T5 estendeu a régua (com sensor de que um `cn()` sem os invariantes
+> reprova, e outro de que uma sintaxe ilegível derruba a âncora) e só T7 tocou no componente.
 
 **A feature `45` (as políticas da loja) foi medida em 2026-09-12 na árvore COMBINADA**, um workspace
 por vez e com exit code capturado fora de pipe. "Combinada" é literal: **duas sessões trabalharam na
@@ -823,6 +900,21 @@ completo (framework, `installCommand` na raiz do monorepo, headers de cache e de
 
 ## Estado conhecido / dívidas
 
+- **A `47` NÃO tem prova em navegador, e nela isso pesa mais que a média**: o que a feature entrega é
+  **largura** (440 × 872), **escala** (81% e 100%) e **altura de corpo**, e jsdom devolve 0 para toda
+  medida de layout — toda asserção da suíte é proxy de forma (classe declarada, atributo, presença de
+  nó). Falta medir em 390 · 768 · 1024 · 1440:
+  - o `11rem` de `/admin/menu` é **suposição** de altura de cabeçalho copiada da Home, e os dois
+    `PageHeader` têm subtítulos de comprimentos diferentes — um que embrulhe em duas linhas estoura a
+    viewport;
+  - a grade do `MenuIconPicker` (célula fixa de 100px) dentro de um card de 440, que antes vivia numa
+    coluna de ~712;
+  - o trilho de 56px sob o dedo em 768–1023, que é território de toque;
+  - a tela cheia em monitor menor que 1064px de largura, onde o quadro de 1024 não cabe inteiro.
+- **O estado de FALHA do iframe da prévia continua sem existir** — e a `47` **não criou** esse modo de
+  falha, só ampliou a superfície dele: em tela cheia, um iframe que não carrega ocupa a tela inteira
+  em branco. Ficou fora de escopo **por decisão** (`AD-020` proíbe o painel desenhar um fallback da
+  loja), não por esquecimento. É dívida registrada.
 - **`/politicas` FOI REMOVIDA, e levou Envio e Pagamento com ela** (2026-09-12, decisão do usuário).
   A loja tem três páginas institucionais de texto — `/politicas-de-trocas-e-devolucoes`,
   `/politica-de-privacidade` e `/cuidados-com-sua-joia-afetiva` — e **nenhuma delas diz por onde a
