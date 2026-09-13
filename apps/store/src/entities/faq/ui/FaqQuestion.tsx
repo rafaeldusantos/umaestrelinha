@@ -1,9 +1,7 @@
 import type { ResolvedFaq } from '@estrelinha/core/faq'
 import { TAP_ROW } from '@/shared/lib/touchTarget'
+import { faqAnchorId } from '../lib/anchors'
 import FaqAnswer from './FaqAnswer'
-
-/** O `id` da pergunta na página — `/perguntas-frequentes#p-<id>`. */
-export const faqAnchorId = (id: string): string => `p-${id}`
 
 /**
  * Uma pergunta da página — `FAQL-03`, `FAQL-07`, `FAQL-11`.
