@@ -253,7 +253,17 @@ const AdminHomePage = () => {
             `items-start` some aqui de propósito: o palco precisa de **altura** para escalar o quadro,
             e `h-[calc(100vh-…)]` é o que a dá sem inventar um número fixo.
           */}
-          <div className="grid gap-6 lg:h-[calc(100vh-11rem)] lg:grid-cols-[380px_minmax(0,1fr)]">
+          {/*
+            Feature 47 — a coluna de edição vai de **380 para 440**. Em 380 as legendas das seções
+            embrulhavam em três linhas, os dois campos de uma linha não cabiam lado a lado e as duas
+            artes de um banner precisavam empilhar. Os 60px vêm do trilho de ícones, não do palco —
+            que ainda GANHA largura no mesmo movimento (748 → 872, o computador a 81% em vez de 69%).
+
+            **A página não lê o estado do trilho** (`FOCO-14`): com a navegação expandida, o palco
+            simplesmente encolhe. Fazer a coluna reagir daria dois donos da largura — o widget do
+            layout e esta página.
+          */}
+          <div className="grid gap-6 lg:h-[calc(100vh-11rem)] lg:grid-cols-[440px_minmax(0,1fr)]">
             <div
               data-testid="coluna-secoes"
               className={cn('min-w-0 lg:overflow-y-auto', aba !== 'secoes' && 'hidden lg:block')}
@@ -270,6 +280,7 @@ const AdminHomePage = () => {
                   onCancel={() => navigate('/admin/home')}
                   onSave={draft => handleSave(emEdicao.section.id, draft)}
                   onDraftChange={setRascunho}
+                  onRemove={handleRemove}
                 />
               ) : (
                 <HomeSectionList

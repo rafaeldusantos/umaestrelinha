@@ -13,7 +13,7 @@
 // **preserva o que a dona preencheu**, porque o preenchido está neste estado e não numa releitura.
 
 import { useEffect, useState } from 'react'
-import { TriangleAlert } from 'lucide-react'
+import { Trash2, TriangleAlert } from 'lucide-react'
 import { sectionMeta, type HomeSectionConfig, type ResolvedSection } from '@estrelinha/core/home'
 import type { AdminCategory } from '@/entities/category'
 import { FormCard, FormPageHeader } from '@/shared/ui'
@@ -45,6 +45,14 @@ interface Props {
    * conhece é a ponte, e um editor que postasse direto seria o segundo dono do contrato.
    */
   onDraftChange?: (draft: SectionSaveDraft) => void
+  /**
+   * Remove a seção da Home (`FOCO-26`).
+   *
+   * É o **mesmo** `onRemove` da lista, e portanto o mesmo `deleteSection`: quem está com a seção
+   * aberta e decide que ela não vai ao ar não devia ter de voltar à lista para procurar o `⋯`.
+   * Opcional porque o editor também é montado em contexto que não remove.
+   */
+  onRemove?: (sectionId: string) => void
 }
 
 const HomeSectionEditor = ({
@@ -55,6 +63,7 @@ const HomeSectionEditor = ({
   onCancel,
   onSave,
   onDraftChange,
+  onRemove,
 }: Props) => {
   const { section } = entry
   const meta = sectionMeta(section.type)
@@ -143,6 +152,24 @@ const HomeSectionEditor = ({
           </FormCard>
         )}
       </div>
+
+      {/* `FOCO-26` — a ação destrutiva no rodapé do editor, e não no meio dos campos: é onde ela é
+          encontrada por quem procura, e onde não é clicada por quem não procura. Mesmo `onRemove` da
+          lista, mesma confirmação, mesmo `deleteSection`. A recusa da última seção ativa continua
+          vindo do banco, com a mensagem dele (`AD-029`, `FOCO-27`) — esta tela não a antecipa. */}
+      {onRemove && (
+        <div className="mt-8 border-t border-border pt-4">
+          <button
+            type="button"
+            data-testid="remover-secao-do-editor"
+            onClick={() => onRemove(section.id)}
+            className="flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm font-semibold text-destructive transition-colors hover:bg-destructive/10"
+          >
+            <Trash2 className="h-4 w-4" aria-hidden />
+            Remover esta seção da Home
+          </button>
+        </div>
+      )}
     </div>
   )
 }

@@ -6,7 +6,8 @@
 // segunda versão do domínio.
 
 import { fireEvent, render, screen, within } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeAll, describe, expect, it, vi } from 'vitest'
+import { RADIX_POINTER_DOWN, enableRadixSelectInJsdom } from '@/test/radix'
 import {
   DEFAULT_HOME_COMPOSITION,
   resolveHomeSections,
@@ -61,6 +62,20 @@ const montar = (resolved: ResolvedSection[], overrides: Partial<Parameters<typeo
 }
 
 const linha = (id: string) => screen.getByTestId(`secao-${id}`)
+
+/**
+ * Abre o `⋯` de uma linha.
+ *
+ * `pointerDown`, e não `click`: o Radix decide a abertura por `pointerType === 'mouse'`, e no jsdom
+ * um `click` cru chega sem isso — o menu não abre e o teste falha medindo a ausência de um item que
+ * existe, por um motivo que não tem nada a ver com o componente.
+ */
+const abrirAcoes = async (id: string) => {
+  fireEvent.pointerDown(within(linha(id)).getByLabelText(/^Ações de /), RADIX_POINTER_DOWN)
+  return screen.findByRole('menu')
+}
+
+beforeAll(enableRadixSelectInJsdom)
 
 describe('HomeSectionList — a lista (HOME-08)', () => {
   it('lista TODAS as seções na ordem da Home, com tipo e resumo', () => {
@@ -150,16 +165,19 @@ describe('HomeSectionList — nenhuma seção é indelével (AD-029)', () => {
     expect(screen.queryByText('Sempre no ar')).toBeNull()
   })
 
-  it('a linha do hero pode ser REMOVIDA (BNR-41)', () => {
+  it('a linha do hero pode ser REMOVIDA (BNR-41), agora pelo `⋯` (FOCO-25)', async () => {
     const props = montar(resolver())
-    fireEvent.click(within(linha('hero')).getByLabelText('Remover Chamada principal'))
+
+    await abrirAcoes('hero')
+    fireEvent.click(await screen.findByRole('menuitem', { name: /^Remover / }))
+
     expect(props.onRemove).toHaveBeenCalledWith('hero')
   })
 
   it('toda seção oferece remoção, não só o hero', () => {
     montar(resolver())
     for (const id of ['hero', 'newsletter', 'banner_grid']) {
-      expect(within(linha(id)).getByLabelText(/^Remover /)).toBeInTheDocument()
+      expect(within(linha(id)).getByLabelText(/^Ações de /)).toBeInTheDocument()
     }
   })
 
@@ -167,7 +185,54 @@ describe('HomeSectionList — nenhuma seção é indelével (AD-029)', () => {
     // A lista também é montada em contexto de leitura; um botão que não faz nada é pior que a
     // ausência dele.
     montar(resolver(), { onRemove: undefined })
+    expect(screen.queryByLabelText(/^Ações de /)).toBeNull()
+  })
+
+  it('FOCO-23: nenhuma linha exibe lixeira PERMANENTE', () => {
+    // A ação destrutiva disputava peso com "abrir", a 40px dela, em sete linhas ao mesmo tempo.
+    montar(resolver())
+
     expect(screen.queryByLabelText(/^Remover /)).toBeNull()
+    for (const id of ['hero', 'newsletter', 'banner_grid']) {
+      expect(within(linha(id)).queryByTestId(`remover-${id}`)).toBeNull()
+    }
+  })
+
+  it('FOCO-24: o `⋯` é alcançável por `Tab`, sem nenhum evento de hover', () => {
+    montar(resolver())
+    const gatilho = within(linha('hero')).getByLabelText('Ações de Chamada principal')
+
+    // Nada de `mouseEnter`: o foco chega pelo teclado, e o controle tem de estar lá.
+    gatilho.focus()
+
+    expect(gatilho).toHaveFocus()
+    expect(gatilho).not.toHaveAttribute('disabled')
+    expect(gatilho).not.toHaveAttribute('aria-hidden')
+    expect(gatilho.tabIndex).toBeGreaterThanOrEqual(0)
+  })
+
+  it('FOCO-24: a linha revela o `⋯` no hover E no foco de dentro dela', () => {
+    montar(resolver())
+    const faixa = linha('hero')
+    const gatilho = within(faixa).getByLabelText('Ações de Chamada principal')
+
+    // O esconder é do desenho (`opacity-0`), e ele volta pelas duas portas — a do mouse e a do
+    // teclado. `display:none` ou `hidden` aqui tirariam o controle da ordem de tabulação.
+    expect(faixa.className).toContain('group')
+    expect(gatilho.className).toContain('opacity-0')
+    expect(gatilho.className).toContain('group-hover:opacity-100')
+    expect(gatilho.className).toContain('group-focus-within:opacity-100')
+    expect(gatilho.className).not.toContain('hidden')
+  })
+
+  it('FOCO-25: o caminho continua sendo `onRemove`, com o id da seção', async () => {
+    const props = montar(resolver())
+
+    await abrirAcoes('newsletter')
+    fireEvent.click(await screen.findByRole('menuitem', { name: /^Remover / }))
+
+    expect(props.onRemove).toHaveBeenCalledTimes(1)
+    expect(props.onRemove).toHaveBeenCalledWith('newsletter')
   })
 
   it('as outras seções têm interruptor', () => {
@@ -283,7 +348,9 @@ describe('HomeSectionList — 390px (HOME-15)', () => {
     // ou apagá-la querendo desligar.
     expect(faixa.querySelectorAll('.h-11.w-11')).toHaveLength(3)
     // Vizinha da contagem, e não substituta dela: a contagem sozinha não diz QUAL controle entrou.
-    expect(within(faixa).getByLabelText(/^Remover /).className).toContain('h-11')
+    // O terceiro alvo agora é o `⋯` — mesma medida, mesmo motivo (`FOCO-24` não abre exceção de
+    // tamanho por o controle estar escondido em repouso).
+    expect(within(faixa).getByLabelText(/^Ações de /).className).toContain('h-11')
     // O corpo da linha (nome + resumo) é o terceiro alvo, e é de altura — o rótulo tem a largura
     // que tiver.
     expect(faixa.querySelector('.min-h-11')).not.toBeNull()

@@ -13,6 +13,7 @@ import {
   Image as ImageIcon,
   LayoutGrid,
   Mail,
+  MoreHorizontal,
   Quote,
   Rows3,
   ShoppingBag,
@@ -24,6 +25,12 @@ import {
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { Switch } from '@estrelinha/ui/switch'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@estrelinha/ui/dropdown-menu'
 import { cn } from '@estrelinha/ui/lib/utils'
 import { sectionMeta, type HomeSectionType, type ResolvedSection } from '@estrelinha/core/home'
 
@@ -168,7 +175,9 @@ const HomeSectionRow = ({ entry, nested = false, onToggle, onOpen, onDrop, onHov
         onDrop(section.id, e.dataTransfer.getData('text/plain'))
       }}
       className={cn(
-        'border-b border-border/60 last:border-0',
+        // `group` é o que faz o `⋯` aparecer no hover E no foco de teclado de qualquer controle da
+        // linha — sem ele, `group-focus-within` não tem a quem se referir.
+        'group border-b border-border/60 last:border-0',
         nested && 'bg-muted/30',
         !section.active && 'opacity-70',
       )}
@@ -235,26 +244,43 @@ const HomeSectionRow = ({ entry, nested = false, onToggle, onOpen, onDrop, onHov
           <ChevronRight className="h-5 w-5" aria-hidden />
         </button>
 
-        {/* Remover a seção (`BNR-41`).
+        {/* Remover a seção (`BNR-41`), agora atrás de um `⋯` (`FOCO-23`..`FOCO-25`).
 
             Não existia tela nenhuma que consumisse `deleteSection` — o hook a expunha e ninguém a
             chamava. Enquanto o hero era indelével isso passava despercebido; com `AD-029` a AC pede
-            explicitamente que a Chamada principal possa ser REMOVIDA, e sem este controle a feature
-            para no banco.
+            explicitamente que a Chamada principal possa ser REMOVIDA.
+
+            **A lixeira saiu de cada linha, e o caminho continua sendo o mesmo.** Uma lista de sete
+            seções com sete lixeiras permanentes põe a ação destrutiva disputando peso com a
+            principal (abrir), a 40px dela. O `⋯` é o mesmo `onRemove`, um passo atrás.
+
+            `opacity-0` + `group-hover`/`group-focus-within`: o botão continua no DOM, continua
+            focável e continua alcançável por `Tab` — esconder é do desenho, alcançar é do DOM
+            (`FOCO-24`). Um controle que só existe no hover não existe para teclado nem para toque.
 
             Confirmação em `window.confirm` e não em modal próprio: a operação apaga a curadoria da
             seção junto (`on delete cascade`), e a recusa da última ativa vem do banco depois — o
             que esta tela precisa é de um passo a mais antes do clique, não de um fluxo novo. */}
         {onRemove && (
-          <button
-            type="button"
-            data-testid={`remover-${section.id}`}
-            onClick={() => onRemove(section.id)}
-            aria-label={`Remover ${meta?.label ?? section.type}`}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive md:h-9 md:w-9"
-          >
-            <Trash2 className="h-4 w-4" aria-hidden />
-          </button>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              data-testid={`acoes-${section.id}`}
+              aria-label={`Ações de ${meta?.label ?? section.type}`}
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-muted focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100 data-[state=open]:opacity-100 md:h-9 md:w-9"
+            >
+              <MoreHorizontal className="h-4 w-4" aria-hidden />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                data-testid={`remover-${section.id}`}
+                onSelect={() => onRemove(section.id)}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash2 className="mr-2 h-4 w-4" aria-hidden />
+                Remover {meta?.label ?? section.type}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         )}
       </div>
 

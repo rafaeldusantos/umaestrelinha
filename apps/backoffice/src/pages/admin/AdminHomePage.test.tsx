@@ -7,9 +7,13 @@
 //
 // O dublê do hook é o que permite provar **o que foi para o banco** sem subir Supabase.
 
+import { readFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { RADIX_POINTER_DOWN, enableRadixSelectInJsdom } from '@/test/radix'
 import { DEFAULT_HOME_COMPOSITION } from '@estrelinha/core/home'
 import type { AdminCategory } from '@/entities/category/api/useAdminCategories'
 
@@ -109,6 +113,8 @@ import AdminHomePage from './AdminHomePage'
  * provada: se o teste montasse `AdminHomePage` solto, a navegação não trocaria coluna nenhuma e a
  * pergunta "a prévia remonta?" não teria como ser feita.
  */
+beforeAll(enableRadixSelectInJsdom)
+
 const renderPage = (initial = '/admin/home') =>
   render(
     <MemoryRouter initialEntries={[initial]}>
@@ -135,11 +141,13 @@ describe('AdminHomePage — a tela junta lista, bandeja e prévia', () => {
 
   // PRV-12 — a inversão. As larguras de antes eram lista 748 / prévia 380, e é o número da prévia
   // que impedia qualquer representação de desktop.
-  it('o rail tem 380px e vem PRIMEIRO; o palco ocupa o resto', () => {
+  // FOCO-12 — e a coluna de edição subiu de 380 para **440** na feature 47: em 380 as legendas
+  // embrulhavam em três linhas e os dois campos de uma linha não cabiam lado a lado.
+  it('o rail tem 440px e vem PRIMEIRO; o palco ocupa o resto', () => {
     const { container } = renderPage()
     const grade = container.querySelector('.grid') as HTMLElement
 
-    expect(grade.className).toContain('lg:grid-cols-[380px_minmax(0,1fr)]')
+    expect(grade.className).toContain('lg:grid-cols-[440px_minmax(0,1fr)]')
     const colunas = Array.from(grade.children)
     expect(colunas[0]).toBe(screen.getByTestId('coluna-secoes'))
     expect(colunas[1]).toBe(screen.getByTestId('coluna-previa'))
@@ -434,15 +442,28 @@ describe('AdminHomePage — remover uma seção (BNR-41)', () => {
   const confirmar = (resposta: boolean) =>
     vi.spyOn(window, 'confirm').mockReturnValue(resposta)
 
+  /**
+   * Remove uma seção **pela linha**, que desde a feature 47 é o `⋯` (`FOCO-23`..`FOCO-25`).
+   *
+   * `pointerDown` e não `click`: o Radix decide a abertura por `pointerType === 'mouse'`, e um
+   * `click` cru no jsdom chega sem isso — o menu não abriria e o teste falharia por um motivo que
+   * não tem nada a ver com o fio que ele existe para provar.
+   */
+  const removerPelaLinha = async (id: string) => {
+    fireEvent.pointerDown(
+      within(screen.getByTestId(`secao-${id}`)).getByLabelText(/^Ações de /),
+      RADIX_POINTER_DOWN,
+    )
+    fireEvent.click(await screen.findByRole('menuitem', { name: /^Remover / }))
+  }
+
   afterEach(() => vi.restoreAllMocks())
 
   it('o botão Remover da linha chega em `deleteSection`, com o id da seção', async () => {
     confirmar(true)
     renderPage()
 
-    fireEvent.click(
-      within(screen.getByTestId('secao-newsletter')).getByLabelText('Remover Newsletter'),
-    )
+    await removerPelaLinha('newsletter')
     await waitFor(() => expect(hook.deleteSection).toHaveBeenCalledWith('newsletter'))
   })
 
@@ -452,9 +473,7 @@ describe('AdminHomePage — remover uma seção (BNR-41)', () => {
     confirmar(true)
     renderPage()
 
-    fireEvent.click(
-      within(screen.getByTestId('secao-hero')).getByLabelText('Remover Chamada principal'),
-    )
+    await removerPelaLinha('hero')
     await waitFor(() => expect(hook.deleteSection).toHaveBeenCalledWith('hero'))
   })
 
@@ -462,24 +481,58 @@ describe('AdminHomePage — remover uma seção (BNR-41)', () => {
     confirmar(false)
     renderPage()
 
-    fireEvent.click(
-      within(screen.getByTestId('secao-newsletter')).getByLabelText('Remover Newsletter'),
-    )
+    await removerPelaLinha('newsletter')
     await waitFor(() => expect(window.confirm).toHaveBeenCalled())
     expect(hook.deleteSection).not.toHaveBeenCalled()
   })
 
-  it('a confirmação NOMEIA a seção e avisa que os itens vão junto', () => {
+  it('a confirmação NOMEIA a seção e avisa que os itens vão junto', async () => {
     // A exclusão leva a curadoria pelo `on delete cascade`. Uma confirmação genérica ("tem certeza?")
     // esconderia justamente a parte que a dona não pode desfazer.
     const confirm = confirmar(false)
     renderPage()
 
-    fireEvent.click(
-      within(screen.getByTestId('secao-newsletter')).getByLabelText('Remover Newsletter'),
-    )
+    await removerPelaLinha('newsletter')
     expect(confirm.mock.calls[0][0]).toContain('Newsletter')
     expect(confirm.mock.calls[0][0]).toContain('itens escolhidos')
+  })
+
+  it('FOCO-26: o rodapé do EDITOR remove a seção aberta, pelo mesmo caminho', async () => {
+    // O fio que falta é sempre o mesmo tipo: `HomeSectionEditor` pode ter o botão e a página pode
+    // ter o `handleRemove`, e ninguém ligar os dois. Por isso o caso renderiza a PÁGINA na rota do
+    // editor — apagar `onRemove={handleRemove}` de `AdminHomePage.tsx` faz este caso reprovar.
+    confirmar(true)
+    renderPage('/admin/home/newsletter')
+
+    fireEvent.click(await screen.findByTestId('remover-secao-do-editor'))
+
+    await waitFor(() => expect(hook.deleteSection).toHaveBeenCalledWith('newsletter'))
+  })
+
+  it('FOCO-26: a confirmação do editor é a MESMA da lista — nomeia a seção e os itens', async () => {
+    const confirm = confirmar(false)
+    renderPage('/admin/home/newsletter')
+
+    fireEvent.click(await screen.findByTestId('remover-secao-do-editor'))
+
+    expect(confirm.mock.calls[0][0]).toContain('Newsletter')
+    expect(confirm.mock.calls[0][0]).toContain('itens escolhidos')
+    expect(hook.deleteSection).not.toHaveBeenCalled()
+  })
+
+  it('FOCO-27: a recusa do banco pelo EDITOR também chega com a mensagem dele', async () => {
+    const doBanco = 'A Home precisa de pelo menos uma secao ativa, e esta e a ultima.'
+    confirmar(true)
+    hook.deleteSection.mockResolvedValueOnce({ message: doBanco })
+    renderPage('/admin/home/newsletter')
+
+    fireEvent.click(await screen.findByTestId('remover-secao-do-editor'))
+
+    await waitFor(() =>
+      expect(toastMock).toHaveBeenCalledWith(
+        expect.objectContaining({ description: doBanco, variant: 'destructive' }),
+      ),
+    )
   })
 
   it('a recusa do banco vira toast com a mensagem DELE, sem reescrita (BNR-44)', async () => {
@@ -490,9 +543,7 @@ describe('AdminHomePage — remover uma seção (BNR-41)', () => {
     hook.deleteSection.mockResolvedValueOnce({ message: doBanco })
     renderPage()
 
-    fireEvent.click(
-      within(screen.getByTestId('secao-newsletter')).getByLabelText('Remover Newsletter'),
-    )
+    await removerPelaLinha('newsletter')
     await waitFor(() =>
       expect(toastMock).toHaveBeenCalledWith(
         expect.objectContaining({ description: doBanco, variant: 'destructive' }),
@@ -512,5 +563,56 @@ describe('AdminHomePage — remover uma seção (BNR-41)', () => {
     await waitFor(() =>
       expect(toastMock).toHaveBeenCalledWith(expect.objectContaining({ description: doBanco })),
     )
+  })
+})
+
+/**
+ * A grade, lida do disco — feature 47.
+ *
+ * jsdom devolve 0 para toda medida de layout, então o que dá para travar é a **declaração**. A
+ * asserção pelo DOM, acima, prova que a classe chegou ao elemento; esta lê o fonte, porque é aqui
+ * que o par altura-da-tela × largura-da-coluna se declara junto — e é ele que `/admin/menu` copia
+ * em `FOCO-13`.
+ */
+describe('AdminHomePage — a grade declarada (FOCO-12, FOCO-14)', () => {
+  const fonte = readFileSync(
+    resolve(dirname(fileURLToPath(import.meta.url)), 'AdminHomePage.tsx'),
+    'utf8',
+  )
+
+  /** O extrator, escrito uma vez e chamado duas: pela asserção e pelo sensor. */
+  const gradeDe = (texto: string) =>
+    texto.match(/className="grid[^"]*lg:grid-cols-\[[^"]*"/)?.[0] ?? ''
+
+  const grade = gradeDe(fonte)
+
+  it('ÂNCORA: a varredura achou a declaração da grade', () => {
+    // Sem ela, um refator que movesse a grade para `cn()` faria as asserções abaixo passarem sobre
+    // string vazia — verde sobre nada.
+    expect(grade).not.toBe('')
+    expect(grade).toContain('lg:grid-cols-')
+  })
+
+  it('a coluna de edição declara 440px e o palco fica com o resto', () => {
+    expect(grade).toContain('lg:grid-cols-[440px_minmax(0,1fr)]')
+  })
+
+  it('SENSOR: a declaração de 380px REPROVA na MESMA régua', () => {
+    // O sensor tem de passar pelo **extrator**, não comparar dois literais escritos aqui: sem isso
+    // ele mediria uma régua parecida com a da asserção, em vez da mesma. Com o fonte sintético, um
+    // `gradeDe` quebrado devolve string vazia e as duas asserções abaixo reprovam.
+    const fonteAntiga = `<div className="grid gap-6 lg:h-[calc(100vh-11rem)] lg:grid-cols-[380px_minmax(0,1fr)]">`
+
+    expect(gradeDe(fonteAntiga)).not.toBe('')
+    expect(gradeDe(fonteAntiga)).not.toContain('lg:grid-cols-[440px_minmax(0,1fr)]')
+    expect(gradeDe(fonteAntiga)).toContain('lg:grid-cols-[380px_minmax(0,1fr)]')
+  })
+
+  it('FOCO-14: a página NÃO lê o estado do trilho — a largura tem um dono só', () => {
+    // Se ela importasse de `admin-layout`, a coluna poderia encolher ao expandir a navegação, e a
+    // largura passaria a ter dois donos: o widget do layout e esta tela.
+    expect(fonte).not.toContain('admin-layout')
+    expect(fonte).not.toContain('useNavRail')
+    expect(fonte).not.toContain('isFocusRoute')
   })
 })
