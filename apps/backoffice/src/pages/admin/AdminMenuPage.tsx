@@ -215,8 +215,18 @@ const AdminMenuPage = () => {
   }
 
   return (
-    <div>
+    /*
+      O molde de altura da Home, atualizado junto (`FOCO-13`) — altura cheia + coluna de 560 (2026-09-13, sem spec).
+
+      O `11rem` que morava na grade era **suposição de altura de cabeçalho** — o próprio comentário
+      abaixo registrava isso como dívida. Agora a altura é da raiz e vale `3rem`, que é o `p-6` do
+      `<main>` do `AdminLayout` e nada mais. O `PageHeader` desta tela tem o subtítulo mais longo
+      do painel: com `flex-1` na grade, um subtítulo que embrulhe encolhe o corpo em vez de empurrar
+      a prévia para fora da janela.
+    */
+    <div className="lg:flex lg:h-[calc(100vh-3rem)] lg:flex-col">
       <PageHeader
+        className="shrink-0"
         title="Menu da loja"
         subtitle="Quem ocupa a barra, com que ícone, o que abre no painel e qual banner aparece — separado por dispositivo."
         icon={MenuIcon}
@@ -339,10 +349,14 @@ const AdminMenuPage = () => {
         {/* **O molde literal de `/admin/home`**: altura de tela no corpo, a coluna da esquerda
             rolando dentro de si, e o palco parado ao lado. Sem isso a prévia rolava junto com os
             editores e saía da vista justamente enquanto se edita olhando para ela.
-            O `11rem` é o desconto do cabeçalho, copiado da Home — e é **suposição de altura**: os
-            dois `PageHeader` têm subtítulos de comprimentos diferentes, e um que embrulhe em duas
-            linhas faz o corpo estourar a viewport. Pende prova em navegador, em 1024 e em 1440. */}
-        <div className="grid gap-6 lg:h-[calc(100vh-11rem)] lg:grid-cols-[440px_minmax(0,1fr)]">
+            A altura mora na RAIZ, e aqui a grade só toma o que sobra
+            (`lg:flex-1`) — o desconto deixou de ser chute de cabeçalho.
+            A largura também é a da Home: **560**. Nesta tela ela paga a dívida que a `47` deixou
+            registrada — a grade do `MenuIconPicker` tem célula FIXA de 100px, e numa coluna de 440
+            (menos o padding do card) sobravam três por fileira. "Mesmo molde" quer dizer o mesmo
+            número: dois valores aqui e ali é o defeito 01 aplicado a layout, e é o que
+            `AdminMenuPage.test.tsx` recusa lendo as duas páginas do disco. */}
+        <div className="grid gap-6 lg:min-h-0 lg:flex-1 lg:grid-cols-[560px_minmax(0,1fr)]">
           <div
             data-testid="coluna-entradas"
             className={cn(
@@ -368,21 +382,32 @@ const AdminMenuPage = () => {
                 setLinkEmEdicao(link)
                 setDialogoAberto(true)
               }}
-            />
-
-            {host ? (
               /* `FOCO-28` — os três editores da entrada num card com abas, na MESMA coluna. Antes o
                  seletor de ícone morava na coluna da direita, debaixo da prévia: configurar uma
-                 categoria pedia olhar para as duas colunas ao mesmo tempo. */
-              <MenuEntryEditor
-                surface={surface}
-                host={host}
-                categories={categories}
-                onToggleChild={handleToggleChild}
-                onSaveBanners={handleBanners}
-                onIcon={handleIcon}
-              />
-            ) : (
+                 categoria pedia olhar para as duas colunas ao mesmo tempo.
+                 **Desde a feature 48 ele não fica mais ABAIXO da lista, e sim dentro da linha
+                 selecionada** (`FOCO-48`): com 38 entradas, "abaixo da lista" eram ~1.400px de
+                 rolagem, e trocar de categoria mudava um card fora da vista sem nada avisar.
+                 A página continua montando o editor — quem decide ONDE ele entra é a lista. */
+              editor={
+                host && (
+                  <MenuEntryEditor
+                    surface={surface}
+                    host={host}
+                    categories={categories}
+                    onToggleChild={handleToggleChild}
+                    onSaveBanners={handleBanners}
+                    onIcon={handleIcon}
+                  />
+                )
+              }
+            />
+
+            {/* O vazio é da CURADORIA, não da seleção (`FOCO-49`). A condição deixou de ser
+                `!host`: com o editor dentro da lista, `host` nulo por um instante de leitura não
+                pode acender um aviso que manda a dona ligar uma categoria. Quem responde "não há o
+                que editar" é a ausência de entrada de categoria na barra. */}
+            {!items.some(i => i.kind === 'category') && (
               <div
                 data-testid="sem-entrada-selecionada"
                 className="rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground"

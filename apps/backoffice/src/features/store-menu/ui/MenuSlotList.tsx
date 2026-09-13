@@ -19,6 +19,7 @@
 // função que desenha a barra do computador e a folha do celular —, mais as candidatas que ainda não
 // entraram. Filtrar ou ordenar por conta própria seria o "defeito 01" nascendo de novo.
 
+import { useEffect, useRef, type ReactNode } from 'react'
 import { GripVertical, Link2, Plus } from 'lucide-react'
 import { Switch } from '@estrelinha/ui/switch'
 import { cn } from '@estrelinha/ui/lib/utils'
@@ -81,6 +82,15 @@ interface Props {
   onReorder: (draggedId: string, targetId: string) => void
   onAddLink: () => void
   onEditLink: (link: MenuLink) => void
+  /**
+   * O editor da entrada selecionada, para abrir **dentro da linha** dela (feature 48).
+   *
+   * Ele morava embaixo da lista, e com 38 entradas isso o punha a ~1.400px de rolagem do clique:
+   * escolher outra categoria trocava o conteúdo de um card fora da vista, em silêncio. A lista o
+   * recebe pronto e só decide ONDE ele entra — montá-lo aqui seria esta lista conhecer painel,
+   * banner e ícone, que é o que `MenuEntryEditor` existe para saber.
+   */
+  editor?: ReactNode
 }
 
 const MenuSlotList = ({
@@ -95,7 +105,19 @@ const MenuSlotList = ({
   onReorder,
   onAddLink,
   onEditLink,
+  editor,
 }: Props) => {
+  // Levar o painel aberto à vista quando a seleção muda (`FOCO-48`). `block: 'nearest'` rola só se
+  // precisar — com a linha já visível não há pulo, e é por isso que abrir a tela (primeira entrada
+  // selecionada por padrão) não arrasta ninguém para lugar nenhum.
+  //
+  // O `?.` do método não é zelo: **jsdom não implementa `scrollIntoView`**, e chamá-lo cru derruba
+  // todo teste que renderiza esta lista — a feature morreria na suíte, não na tela.
+  const painelRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    painelRef.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' })
+  }, [activeId])
+
   const pool = categories as unknown as MenuCategory[]
   const marcadas = new Set(pool.filter(c => ligada(c, surface)).map(c => c.id))
 
@@ -195,7 +217,21 @@ const MenuSlotList = ({
           const Icone = chave ? MENU_ICON_COMPONENTS[chave] : null
 
           return (
-            <li key={`${linha.kind}-${linha.id}`}>
+            /*
+              **O separador é do `<li>`, não da linha** — e isso é conserto, não gosto (feature 48).
+              Ele morava no `<div>` como `border-b border-border/60 last:border-0`, e o `<div>` era
+              filho ÚNICO do `<li>`: `:last-child` casava sempre, e `.last\:border-0:last-child`
+              (especificidade 0,2,0) anulava `.border-b` (0,1,0) em TODAS as linhas. A lista nunca
+              teve separador, e o `last:` nunca separou o último de nada.
+              Deixar como estava passaria a ser pior: com o painel dentro do `<li>`, só a linha
+              selecionada deixaria de ser `:last-child` — ela ganharia um traço que as outras não
+              têm, por acidente. No `<li>` a régua faz o que o nome dela diz, e o traço da entrada
+              aberta cai DEPOIS do painel, que é o que fecha os dois como um bloco só.
+            */
+            <li
+              key={`${linha.kind}-${linha.id}`}
+              className="border-b border-border/60 last:border-0"
+            >
               <div
                 data-testid={`item-${linha.id}`}
                 draggable={linha.arrastavel}
@@ -212,7 +248,7 @@ const MenuSlotList = ({
                     : undefined
                 }
                 className={cn(
-                  'flex items-center gap-2.5 border-b border-border/60 px-4 py-2.5 last:border-0',
+                  'flex items-center gap-2.5 px-4 py-2.5',
                   activeId === linha.id ? 'bg-primary/5' : 'hover:bg-muted/30',
                 )}
               >
@@ -258,7 +294,14 @@ const MenuSlotList = ({
                   }
                   className="flex min-w-0 flex-1 flex-col items-start gap-0.5 text-left"
                 >
-                  <span className="flex items-center gap-1.5">
+                  {/* **`max-w-full` nos dois, e é `items-start` quem obriga.** Com
+                      `align-items: flex-start` num flex COLUNA, cada filho é dimensionado pelo
+                      próprio conteúdo — não esticado —, então `truncate` nunca tem de quem cortar e
+                      o texto sai pela direita. Medido em 390px: a linha tinha 384px dentro de uma
+                      coluna de 342, e `main` (que é `overflow-auto`) ganhava rolagem horizontal.
+                      O `min-w-0` do botão não resolve isto: ele dá piso zero ao BOTÃO, e quem estava
+                      sem teto era o filho. */}
+                  <span className="flex min-w-0 max-w-full items-center gap-1.5">
                     <span
                       className={cn(
                         'truncate text-sm',
@@ -268,12 +311,12 @@ const MenuSlotList = ({
                       {linha.name}
                     </span>
                     {linha.kind === 'link' && (
-                      <span className="rounded bg-muted px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
+                      <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
                         Link
                       </span>
                     )}
                   </span>
-                  <span className="truncate text-[11px] text-muted-foreground">
+                  <span className="max-w-full truncate text-[11px] text-muted-foreground">
                     {linha.detalhe}
                     {linha.avisoCruzado && (
                       // O aviso NOMEIA o dispositivo (`NAV-02`): "desligada" sem dizer onde faria a
@@ -306,6 +349,23 @@ const MenuSlotList = ({
                   />
                 </span>
               </div>
+
+              {/* **O editor abre DENTRO da linha clicada** (feature 48, `FOCO-48`).
+                  Ele é filho do mesmo `<li>`: não há como a lista crescer e afastá-lo do item que o
+                  governa, porque a distância entre os dois é estrutural, não de layout.
+                  A barra à esquerda é a única coisa que diz "este editor é daquela linha" — por isso
+                  ela é `primary` e não `border`, e por isso o painel tem tom próprio.
+                  Só categoria tem editor: item de link se edita no diálogo, e ele nem chega aqui
+                  porque `onSelect` não é chamado por ele. */}
+              {editor && linha.kind === 'category' && linha.id === activeId && (
+                <div
+                  ref={painelRef}
+                  data-testid="painel-da-entrada"
+                  className="border-t border-l-[3px] border-border border-l-primary bg-primary/[0.03]"
+                >
+                  {editor}
+                </div>
+              )}
             </li>
           )
         })}

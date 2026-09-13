@@ -545,6 +545,42 @@ describe('AdminMenuPage — o editor da entrada num lugar só', () => {
     expect(within(esquerda).getByTestId('editor-da-entrada')).toBeInTheDocument()
   })
 
+  /**
+   * O texto da linha tem TETO.
+   *
+   * jsdom devolve 0 para toda medida de layout, então o que dá para provar aqui é a **declaração**;
+   * a medida veio de navegador, em 390px: a linha do nome saía com 384px dentro de uma coluna de
+   * 342, e o `<main>` do painel — que é `overflow-auto` — ganhava rolagem horizontal.
+   *
+   * A causa é sutil e vale escrita: o botão da linha é um flex COLUNA com `items-start`, e nesse
+   * arranjo cada filho é dimensionado pelo próprio conteúdo em vez de esticado. `truncate` não tem
+   * de quem cortar, e o `min-w-0` do botão não ajuda — ele dá piso zero ao BOTÃO, e quem estava sem
+   * TETO era o filho.
+   */
+  it('os dois textos da linha têm `max-w-full` — `items-start` não estica ninguém', async () => {
+    await renderPage()
+
+    const linha = screen.getByTestId('item-sobre')
+    // O botão que abre a entrada: o flex coluna com `items-start`.
+    const botao = within(linha)
+      .getAllByRole('button')
+      .find(b => b.className.includes('flex-col') && b.className.includes('items-start'))
+
+    expect(botao).toBeDefined()
+
+    const filhos = Array.from(botao!.children) as HTMLElement[]
+    expect(filhos.length).toBeGreaterThan(0)
+    // Token exato: `max-w-full` é substring de nada aqui, mas a régua por partição não tem borda.
+    for (const filho of filhos) {
+      expect(filho.className.split(/\s+/)).toContain('max-w-full')
+    }
+
+    // SENSOR: a régua é de token, não de substring — um `max-w-fu` qualquer não passaria.
+    const falso = document.createElement('span')
+    falso.className = 'max-w-full-bobagem truncate'
+    expect(falso.className.split(/\s+/)).not.toContain('max-w-full')
+  })
+
   it('FOCO-33: "Salvando…" aparece no CABEÇALHO, ao lado do alternador de dispositivo', async () => {
     // Uma gravação que não resolve enquanto o teste olha: é o único jeito de observar o estado
     // intermediário sem cravar tempo.
@@ -708,8 +744,19 @@ describe('AdminMenuPage — Entradas | Prévia abaixo de `lg`', () => {
  */
 describe('AdminMenuPage — o corpo tem altura de tela (FOCO-13)', () => {
   const AQUI = dirname(fileURLToPath(import.meta.url))
-  const fonteMenu = readFileSync(resolve(AQUI, 'AdminMenuPage.tsx'), 'utf8')
-  const fonteHome = readFileSync(resolve(AQUI, 'AdminHomePage.tsx'), 'utf8')
+
+  /**
+   * O removedor de comentário — linha e bloco na MESMA varredura.
+   *
+   * As duas páginas CITAM a altura antiga em prosa, para explicar por que ela saiu. Sem isto,
+   * `alturaDe` extrai a citação em vez da declaração e acusa o arquivo que está certo — a régua que
+   * mede MENÇÃO em vez de USO, que este repositório já pagou duas vezes na feature 47.
+   */
+  const semComentarios = (texto: string): string =>
+    texto.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n\r]*/g, '')
+
+  const fonteMenu = semComentarios(readFileSync(resolve(AQUI, 'AdminMenuPage.tsx'), 'utf8'))
+  const fonteHome = semComentarios(readFileSync(resolve(AQUI, 'AdminHomePage.tsx'), 'utf8'))
 
   const alturaDe = (fonte: string) => fonte.match(/lg:h-\[calc\(100vh-[^\]]*\)\]/)?.[0] ?? ''
 
@@ -720,6 +767,46 @@ describe('AdminMenuPage — o corpo tem altura de tela (FOCO-13)', () => {
 
   it('a altura do menu é a MESMA da Home — mesmo molde, um número só', () => {
     expect(alturaDe(fonteMenu)).toBe(alturaDe(fonteHome))
+  })
+
+  it('a altura desconta só o `p-6` do `<main>`, e mora na RAIZ das duas telas', () => {
+    // O `11rem` de antes era desconto de cabeçalho ADIVINHADO, e o comentário desta tela registrava
+    // isso como dívida: os dois `PageHeader` têm subtítulos de comprimentos diferentes, e o desta
+    // é o mais longo do painel. Com a altura na raiz e a grade em `flex-1`, o cabeçalho toma o que
+    // ele mede — não o que alguém supôs que ele mediria.
+    expect(alturaDe(fonteHome)).toBe('lg:h-[calc(100vh-3rem)]')
+
+    for (const fonte of [fonteHome, fonteMenu]) {
+      expect(fonte).toContain('lg:flex lg:h-[calc(100vh-3rem)] lg:flex-col')
+      expect(fonte).not.toContain('100vh-11rem')
+    }
+  })
+
+  it('a coluna de edição é 560 nas DUAS telas — mesmo molde, um número só', () => {
+    // `FOCO-13` diz que esta tela é o molde literal de `/admin/home`. Duas larguras diferentes
+    // seriam o defeito 01 aplicado a layout: nada quebra, e as duas divergem na próxima mexida.
+    const larguraDe = (fonte: string) =>
+      fonte.match(/lg:grid-cols-\[(\d+)px_minmax\(0,1fr\)\]/)?.[1] ?? ''
+
+    expect(larguraDe(fonteHome)).toBe('560')
+    expect(larguraDe(fonteMenu)).toBe(larguraDe(fonteHome))
+    // SENSOR: a declaração da `47` reprova na MESMA régua — o extrator acha, e o número é outro.
+    expect(larguraDe('<div className="grid gap-6 lg:grid-cols-[440px_minmax(0,1fr)]">')).toBe('440')
+  })
+
+  it('a grade toma o que sobra, nas duas telas', () => {
+    // `min-h-0` é o que permite à grade encolher abaixo do próprio conteúdo; sem ele ela empurra a
+    // raiz para além da janela e as colunas voltam a rolar com o documento.
+    const gradeDe = (fonte: string) => fonte.match(/className="grid[^"]*lg:grid-cols-\[[^"]*"/)?.[0] ?? ''
+
+    for (const fonte of [fonteHome, fonteMenu]) {
+      const grade = gradeDe(fonte)
+      expect(grade).not.toBe('')
+      expect(grade).toContain('lg:flex-1')
+      expect(grade).toContain('lg:min-h-0')
+      // A altura não pode voltar para cá: somada à da raiz, ela descontaria o cabeçalho duas vezes.
+      expect(grade).not.toContain('lg:h-[calc(')
+    }
   })
 
   it('a coluna da esquerda rola dentro de si, e o `min-h-0` é o que faz isso valer', () => {
@@ -739,9 +826,115 @@ describe('AdminMenuPage — o corpo tem altura de tela (FOCO-13)', () => {
     expect(coluna).toContain('min-w-0')
   })
 
-  it('SENSOR: a declaração de hoje — grade SEM altura — reprova na mesma régua', () => {
+  it('SENSOR: o removedor de comentário — a régua mede USO, nunca menção', () => {
+    expect(alturaDe(semComentarios('// era lg:h-[calc(100vh-11rem)]\nconst x = 1'))).toBe('')
+    expect(alturaDe(semComentarios('/* lg:h-[calc(100vh-11rem)] */\nconst x = 1'))).toBe('')
+    // Com CRLF, e sem comer a linha seguinte: a declaração de verdade CONTINUA sendo lida.
+    expect(alturaDe(semComentarios('// nota\r\n<div className="lg:h-[calc(100vh-3rem)]">'))).toBe(
+      'lg:h-[calc(100vh-3rem)]',
+    )
+  })
+
+  it('SENSOR: a declaração original — grade SEM altura — reprova na mesma régua', () => {
     const antiga = '<div className="grid gap-6 lg:grid-cols-[440px_minmax(0,1fr)]">'
     expect(alturaDe(antiga)).toBe('')
     expect(antiga).not.toContain('lg:overflow-y-auto')
+  })
+
+  it('SENSOR: a forma da feature 47 — altura na grade, com o `11rem` — reprova nas mesmas réguas', () => {
+    // O sensor passa pelo **extrator**, não compara literais escritos aqui: é o que garante que ele
+    // mede a mesma régua da asserção, e não uma parecida.
+    const daQuarentaESete = `  return (
+    <div>
+      <div className="grid gap-6 lg:h-[calc(100vh-11rem)] lg:grid-cols-[440px_minmax(0,1fr)]">`
+
+    expect(alturaDe(daQuarentaESete)).toBe('lg:h-[calc(100vh-11rem)]')
+    expect(alturaDe(daQuarentaESete)).not.toBe('lg:h-[calc(100vh-3rem)]')
+    expect(daQuarentaESete).not.toContain('lg:flex-col')
+  })
+})
+
+/**
+ * Feature 48 — o editor abre DENTRO da linha clicada (`FOCO-48`, `FOCO-49`).
+ *
+ * O defeito: o editor da entrada morava ABAIXO da lista. Com 38 categorias no catálogo real isso o
+ * punha a ~1.400px de rolagem do clique — escolher outra categoria trocava o conteúdo de um card
+ * fora da vista, em silêncio, e a dona não tinha como saber que algo havia mudado.
+ *
+ * **Estes casos renderizam a PÁGINA, e é o ponto.** Montar `<MenuSlotList editor={<algo/>} />` aqui
+ * provaria que a lista sabe hospedar um editor e passaria com `editor={…}` apagado de
+ * `AdminMenuPage` — a Adri ficaria sem editor nenhum, com a suíte verde. Quem monta a árvore tem de
+ * ser a página.
+ */
+describe('AdminMenuPage — o painel abre na linha (feature 48)', () => {
+  const liDe = (id: string) => screen.getByTestId(`item-${id}`).closest('li')
+
+  it('FOCO-48: o painel é filho do MESMO <li> da entrada selecionada', async () => {
+    await renderPage()
+
+    // `materiais` é a primeira entrada de categoria da barra — a seleção padrão da tela.
+    const painel = screen.getByTestId('painel-da-entrada')
+    expect(liDe('materiais')).toContainElement(painel)
+    expect(within(painel).getByTestId('editor-da-entrada')).toBeInTheDocument()
+  })
+
+  it('FOCO-48: o editor está DENTRO da lista — não é mais um card irmão abaixo dela', async () => {
+    await renderPage()
+
+    // A régua que mata a forma antiga: fora da `<ul>`, o editor volta a ser o card de baixo.
+    const lista = screen.getByTestId('item-materiais').closest('ul')
+    expect(lista).toContainElement(screen.getByTestId('editor-da-entrada'))
+  })
+
+  it('FOCO-48: clicar em outra entrada MOVE o painel para o <li> dela', async () => {
+    await renderPage()
+    fireEvent.click(within(screen.getByTestId('item-joias')).getByText('Joias afetivas'))
+
+    const painel = screen.getByTestId('painel-da-entrada')
+    expect(liDe('joias')).toContainElement(painel)
+    expect(liDe('materiais')).not.toContainElement(painel)
+  })
+
+  it('FOCO-48: há UM painel aberto, nunca dois', async () => {
+    await renderPage()
+    fireEvent.click(within(screen.getByTestId('item-joias')).getByText('Joias afetivas'))
+
+    expect(screen.getAllByTestId('painel-da-entrada')).toHaveLength(1)
+    expect(screen.getAllByTestId('editor-da-entrada')).toHaveLength(1)
+  })
+
+  it('FOCO-48: trocar de entrada leva o painel à vista, com `block: nearest`', async () => {
+    // **jsdom não implementa `scrollIntoView`** — sem este dublê o método é `undefined`, o `?.` do
+    // código engole a chamada e o caso mediria a ausência de layout em vez da regra.
+    const scrollIntoView = vi.fn()
+    Object.defineProperty(Element.prototype, 'scrollIntoView', {
+      value: scrollIntoView,
+      writable: true,
+      configurable: true,
+    })
+
+    await renderPage()
+    scrollIntoView.mockClear()
+    fireEvent.click(within(screen.getByTestId('item-joias')).getByText('Joias afetivas'))
+
+    // `nearest` e não `start`: com a linha já visível não há pulo nenhum — rolar sempre faria a
+    // lista dar um salto a cada clique, que é trocar um defeito por outro.
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: 'nearest', behavior: 'smooth' })
+  })
+
+  it('FOCO-49: o aviso de vazio é da CURADORIA, e some assim que UMA categoria está na barra', async () => {
+    await renderPage()
+
+    // Com entrada na barra não há aviso — e o painel existe no lugar dele.
+    expect(screen.queryByTestId('sem-entrada-selecionada')).toBeNull()
+    expect(screen.getByTestId('painel-da-entrada')).toBeInTheDocument()
+  })
+
+  it('FOCO-49: sem nenhuma categoria na barra, o aviso aparece e não há painel', async () => {
+    await renderPage(CATALOGO.map(c => ({ ...c, menu_desktop: false, menu_mobile: false })))
+
+    expect(screen.getByTestId('sem-entrada-selecionada')).toHaveTextContent('Ligue uma categoria')
+    expect(screen.queryByTestId('painel-da-entrada')).toBeNull()
+    expect(screen.queryByTestId('editor-da-entrada')).toBeNull()
   })
 })

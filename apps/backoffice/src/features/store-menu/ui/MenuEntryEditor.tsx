@@ -50,7 +50,10 @@ const MenuEntryEditor = ({
       key={`${surface}:${host.id}`}
       defaultValue="painel"
       data-testid="editor-da-entrada"
-      className="rounded-2xl border border-border bg-card"
+      // **Sem moldura de card desde a feature 48**: este editor não é mais um cartão irmão da
+      // lista, é o painel que abre dentro da linha. Quem dá borda, tom e a barra da esquerda é o
+      // invólucro em `MenuSlotList` — repetir aqui produziria cartão dentro de cartão.
+      className="bg-transparent"
     >
       <div className="border-b border-border px-4 pt-3">
         <h2 className="font-heading text-sm font-bold text-foreground">{host.name}</h2>
