@@ -51,6 +51,34 @@ const montar = (over: Partial<Parameters<typeof MenuLivePreview>[0]> = {}) =>
 
 const quadro = () => document.querySelector('iframe') as HTMLIFrameElement | null
 
+/**
+ * Dá ao palco uma medida de verdade.
+ *
+ * jsdom **não implementa `ResizeObserver`**, então sem isto a caixa fica `{0,0}`, `previewFrame`
+ * devolve o piso nos dois modos, e a tela cheia passa a ser indistinguível do modo normal — foi
+ * exatamente esse ponto cego que deixou o gêmeo deste arquivo sobreviver a uma mutação que trocava a
+ * altura do quadro pela nominal do dispositivo. O dublê chama o callback no `observe`, como o
+ * observador real faz no primeiro quadro.
+ */
+const comPalcoDe = (caixa: { width: number; height: number }) => {
+  class ObservadorFalso {
+    constructor(private readonly callback: ResizeObserverCallback) {}
+    observe(alvo: Element) {
+      this.callback(
+        [{ target: alvo, contentRect: caixa } as unknown as ResizeObserverEntry],
+        this as unknown as ResizeObserver,
+      )
+    }
+    unobserve() {}
+    disconnect() {}
+  }
+  // Atribuição direta: o setup do workspace define `ResizeObserver` como propriedade não
+  // reconfigurável, e `vi.stubGlobal` tenta redefini-la.
+  ;(globalThis as { ResizeObserver?: unknown }).ResizeObserver = ObservadorFalso
+}
+
+const observadorOriginal = (globalThis as { ResizeObserver?: unknown }).ResizeObserver
+
 /** A janela do iframe, dublada — jsdom não lhe dá `contentWindow` utilizável para `postMessage`. */
 const janelaDoQuadro = () => {
   const postMessage = vi.fn()
@@ -74,6 +102,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers()
+  ;(globalThis as { ResizeObserver?: unknown }).ResizeObserver = observadorOriginal
 })
 
 describe('NAV-45 — o dispositivo é a superfície, e a redução é por escala', () => {
@@ -280,5 +309,129 @@ describe('NAV-44 / NAV-47 — o que sai, para onde, e de quem o painel aceita or
 
     expect(quadro()).toBeNull()
     expect(screen.getByTestId('previa-menu-sem-loja')).toBeInTheDocument()
+  })
+
+  it('FOCO-15: sem loja NÃO se oferece tela cheia — não há o que ampliar', () => {
+    storeUrl.valor = ''
+    montar()
+    expect(screen.queryByRole('button', { name: 'Tela cheia' })).toBeNull()
+  })
+})
+
+/**
+ * A tela cheia — FOCO-15, 19, 21 (feature 47).
+ *
+ * Mesmas réguas do palco da Home, e é de propósito que sejam as mesmas: o estado e as classes saem
+ * do MESMO hook (`useFullscreenStage`), então divergir aqui seria divergir do dono.
+ */
+describe('MenuLivePreview — a tela cheia', () => {
+  const palco = () => screen.getByTestId('palco-previa-menu')
+  const entrar = () => fireEvent.click(screen.getByRole('button', { name: 'Tela cheia' }))
+  const sair = () => fireEvent.click(screen.getByRole('button', { name: 'Sair da tela cheia' }))
+
+  it('FOCO-15: o controle existe, rotulado, na barra do palco', () => {
+    montar()
+    expect(screen.getByRole('button', { name: 'Tela cheia' })).toBeInTheDocument()
+  })
+
+  it('acionar o controle aplica o modo na `<section>` do palco', () => {
+    montar()
+    expect(palco()).not.toHaveAttribute('data-fullscreen')
+
+    entrar()
+
+    expect(palco()).toHaveAttribute('data-fullscreen', 'true')
+    expect(palco().className).toContain('fixed')
+    expect(palco().className).toContain('inset-0')
+  })
+
+  it('FOCO-19: o controle de sair devolve a tela ao normal', () => {
+    montar()
+    entrar()
+
+    sair()
+
+    expect(palco()).not.toHaveAttribute('data-fullscreen')
+  })
+
+  it('FOCO-19: `Escape` também sai — pelo componente real', () => {
+    montar()
+    entrar()
+
+    fireEvent.keyDown(window, { key: 'Escape' })
+
+    expect(palco()).not.toHaveAttribute('data-fullscreen')
+  })
+
+  it('FOCO-21: o `<iframe>` é o MESMO nó antes e depois, e o `src` não muda', () => {
+    montar()
+    const antes = quadro()
+    const endereco = antes?.getAttribute('src')
+
+    entrar()
+    const durante = quadro()
+    sair()
+    const depois = quadro()
+
+    expect(durante).toBe(antes)
+    expect(depois).toBe(antes)
+    expect(depois?.getAttribute('src')).toBe(endereco)
+  })
+
+  it('FOCO-16/17: com palco MEDIDO, o quadro cresce em altura e a escala fica em 1', () => {
+    // **O gêmeo do palco da Home, e ele precisa da própria prova.** `FOCO-15` nomeia `/admin/menu`
+    // por extenso, então `FOCO-16` (1024 a 100%) e `FOCO-17` (altura real, piso 768) governam aqui
+    // também. `folgaDoPalco.test.ts` não alcança isto: ele cobra que `previewFrame` seja **chamada**,
+    // nunca que o resultado seja **usado** — uma mutação que chama e descarta passa por ele.
+    comPalcoDe({ width: 1440, height: 988 })
+    montar({ surface: 'desktop' })
+
+    expect(quadro()).toHaveAttribute('height', '768')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Tela cheia' }))
+
+    expect(quadro()).toHaveAttribute('width', '1024')
+    expect(quadro()).toHaveAttribute('height', '948')
+    expect(quadro()?.style.transform).toBe('scale(1)')
+    expect(screen.getByTestId('metrica-previa-menu')).toHaveTextContent('1024 × 948 · 100%')
+  })
+
+  it('FOCO-16: num palco APERTADO a tela cheia mantém 100%', () => {
+    comPalcoDe({ width: 900, height: 700 })
+    montar({ surface: 'desktop' })
+
+    expect(screen.getByTestId('metrica-previa-menu')).not.toHaveTextContent('100%')
+    // **E o quadro REALMENTE encolhe** (`PRV-14`). Sem esta linha, cravar `scale(1)` no iframe
+    // sobrevive: a barra diria `84%` e a prévia renderizaria a 100% dentro de uma caixa reservada
+    // para o tamanho reduzido — o menu aparece cortado, e a métrica mente sobre o que está na tela.
+    expect(quadro()?.style.transform).not.toBe('scale(1)')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Tela cheia' }))
+
+    expect(quadro()?.style.transform).toBe('scale(1)')
+    expect(screen.getByTestId('metrica-previa-menu')).toHaveTextContent('1024 × 768 · 100%')
+  })
+
+  it('FOCO-18: a superfície do celular NÃO estica em tela cheia', () => {
+    comPalcoDe({ width: 1440, height: 1400 })
+    montar({ surface: 'mobile' })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Tela cheia' }))
+
+    // A altura do celular é a **dobra**, e a curadoria que se edita aqui é a dele.
+    expect(quadro()).toHaveAttribute('width', '390')
+    expect(quadro()).toHaveAttribute('height', '844')
+    expect(screen.getByTestId('metrica-previa-menu')).toHaveTextContent('390 × 844 · 100%')
+  })
+
+  it('NAV-37 intacto: o dispositivo continua MOSTRADO, e não escolhido no palco', () => {
+    montar()
+    entrar()
+
+    // Em tela cheia a tentação é acrescentar o alternador "já que sobra espaço" — e aí a Adri
+    // editaria a curadoria do celular olhando a barra do computador.
+    expect(screen.getByTestId('dispositivo-previa')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Celular' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Computador' })).toBeNull()
   })
 })

@@ -19,7 +19,8 @@
 // com 1,19:1 passarem): o teste confere que leu arquivos de verdade **e** que achou a superfície que
 // deveria achar. Sem as duas, um caminho errado varre zero arquivo e passa em silêncio.
 
-import { existsSync, readFileSync, readdirSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
@@ -276,5 +277,93 @@ describe('NAV-43 — o segundo desenho do menu não existe mais', () => {
   it('`store-menu` não importa nada de `apps/store`', () => {
     const infratores = FONTES_MENU.filter(f => /from ['"].*apps\/store/.test(ler(f)))
     expect(infratores).toEqual([])
+  })
+})
+
+// ───────────────────────────────────────────────────────────────────────────
+// FOCO-22 — a tela cheia é um MODO do palco, não uma segunda prévia
+// ───────────────────────────────────────────────────────────────────────────
+
+/**
+ * Feature 47.
+ *
+ * A tela cheia é o pedido que mais convida o defeito de volta: "abre num componente próprio, que aí
+ * dá para desenhar direito". Um `FullscreenPreview.tsx` seria literalmente o segundo dono do desenho
+ * — e, pior que na `25`, ele nasceria com o mesmo conteúdo e divergiria só depois.
+ *
+ * Nenhuma asserção acima foi removida ou enfraquecida: este bloco só acrescenta.
+ */
+describe('FOCO-22 — a tela cheia não criou uma segunda prévia', () => {
+  it('a lista de arquivos `…Preview` continua sendo UM por feature', () => {
+    expect(previasEm(UI)).toEqual(['HomeLivePreview.tsx'])
+    expect(previasEm(MENU_UI)).toEqual(['MenuLivePreview.tsx'])
+  })
+
+  it('nenhum arquivo com nome de tela cheia apareceu nas duas pastas de UI', () => {
+    for (const pasta of [UI, MENU_UI]) {
+      for (const nome of ['FullscreenPreview.tsx', 'PreviewModal.tsx', 'PreviewOverlay.tsx']) {
+        expect(existsSync(join(pasta, nome))).toBe(false)
+      }
+    }
+  })
+
+  it('cada palco continua montando UM `<iframe>`, e nenhum outro arquivo monta iframe', () => {
+    const comIframe = [...FONTES, ...FONTES_MENU]
+      .filter(f => semComentarios(ler(f)).includes('<iframe'))
+      .map(f => f.replace(/\\/g, '/').replace(/^.*\/(features\/.*)$/, '$1'))
+      .sort()
+
+    expect(comIframe).toEqual([
+      'features/home-composition/ui/HomeLivePreview.tsx',
+      'features/store-menu/ui/MenuLivePreview.tsx',
+    ])
+
+    for (const palco of [join(UI, 'HomeLivePreview.tsx'), join(MENU_UI, 'MenuLivePreview.tsx')]) {
+      const iframes = semComentarios(ler(palco)).match(/<iframe/g) ?? []
+      expect(iframes).toHaveLength(1)
+    }
+  })
+
+  it('a tela cheia NÃO ramificou o palco por tipo de seção', () => {
+    // A régua de `PRV-18` reaplicada ao modo novo: se o palco em tela cheia precisasse saber o que é
+    // um `hero`, o segundo desenho teria voltado por dentro.
+    const fonte = semComentarios(ler(join(UI, 'HomeLivePreview.tsx')))
+    for (const tipo of ['hero', 'trust_bar', 'banner_grid', 'collection_rows', 'hero_carousel']) {
+      expect(fonte).not.toContain(`'${tipo}'`)
+    }
+  })
+
+  it('o modo vem do hook compartilhado — os dois palcos não podem divergir na medida', () => {
+    for (const palco of [join(UI, 'HomeLivePreview.tsx'), join(MENU_UI, 'MenuLivePreview.tsx')]) {
+      const fonte = semComentarios(ler(palco))
+      expect(fonte).toContain('useFullscreenStage')
+      // Nenhum palco escreve a própria moldura: se escrevesse, a medida teria dois donos de novo.
+      expect(fonte).not.toMatch(/'[^']*\bfixed inset-0\b/)
+    }
+  })
+
+  it('SENSOR: um segundo palco injetado REPROVA nas DUAS réguas — a de nome e a de conteúdo', () => {
+    // A régua de nome é `previasEm`, e ela lê um diretório de verdade: o sensor tem de chamá-la, e
+    // não simular o que ela devolveria. Um `mkdtemp` é o palco sintético mais barato que existe.
+    const pasta = mkdtempSync(join(tmpdir(), 'previa-unica-'))
+    try {
+      writeFileSync(
+        join(pasta, 'FullscreenPreview.tsx'),
+        'const FullscreenPreview = () => <iframe src={previewSrc(STORE_URL)} />\n',
+        'utf8',
+      )
+
+      // 1. A régua de NOME acusa o arquivo…
+      expect(previasEm(pasta)).toEqual(['FullscreenPreview.tsx'])
+      // …e um arquivo sem "Preview" no nome não é acusado, senão a régua estaria pegando qualquer um.
+      writeFileSync(join(pasta, 'MenuEntryEditor.tsx'), 'const x = 1\n', 'utf8')
+      expect(previasEm(pasta)).toEqual(['FullscreenPreview.tsx'])
+
+      // 2. E a régua de CONTEÚDO acusa o iframe dentro dele.
+      const injetado = semComentarios(readFileSync(join(pasta, 'FullscreenPreview.tsx'), 'utf8'))
+      expect(injetado).toContain('<iframe')
+    } finally {
+      rmSync(pasta, { recursive: true, force: true })
+    }
   })
 })

@@ -10,21 +10,19 @@
 // `importOrder.test.ts` e `palette.test.ts` existem para pegar. Outro documento, outra folha.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ExternalLink, Monitor, RefreshCw, Smartphone } from 'lucide-react'
+import { ExternalLink, Maximize2, Minimize2, Monitor, RefreshCw, Smartphone } from 'lucide-react'
 import {
   PREVIEW_DEVICES,
+  previewFrame,
   previewMetrics,
-  previewScale,
   previewSrc,
   type HomeSection,
   type PreviewDevice,
 } from '@estrelinha/core/home'
 import { cn } from '@estrelinha/ui/lib/utils'
 import { STORE_URL, storeOrigin } from '@/shared/lib/storeOrigin'
+import { useFullscreenStage } from '@/shared/lib/useFullscreenStage'
 import { usePreviewBridge } from '../model/usePreviewBridge'
-
-/** A folga entre o palco e o quadro. Entra na conta da escala, senão o quadro encosta na borda. */
-const FOLGA = 40
 
 interface Props {
   /** A composição a mostrar — já com o que a dona ainda não salvou. */
@@ -47,7 +45,19 @@ const HomeLivePreview = ({ sections, highlightId, onSelect }: Props) => {
   const origem = useMemo(() => storeOrigin(), [])
   const src = useMemo(() => (STORE_URL ? previewSrc(STORE_URL) : null), [])
 
-  usePreviewBridge({ iframeRef, origin: origem, sections, highlightId, onSelect })
+  const { cheia, entrar, sair, classes: classesDaTelaCheia } = useFullscreenStage()
+
+  // `FOCO-20` — o clique num bloco dentro da prévia quer dizer "quero consertar isto". Abrir o
+  // editor **atrás** de uma prévia em tela cheia entregaria um formulário que ninguém vê.
+  const selecionar = useCallback(
+    (sectionId: string) => {
+      sair()
+      onSelect(sectionId)
+    },
+    [onSelect, sair],
+  )
+
+  usePreviewBridge({ iframeRef, origin: origem, sections, highlightId, onSelect: selecionar })
 
   useEffect(() => {
     const alvo = palcoRef.current
@@ -63,20 +73,24 @@ const HomeLivePreview = ({ sections, highlightId, onSelect }: Props) => {
     return () => observer.disconnect()
   }, [])
 
-  const { width, height } = PREVIEW_DEVICES[device]
-  // As duas dimensões contam: numa janela baixa, escalar só pela largura deixaria o rodapé da loja
-  // fora do palco, e a dona conferiria uma dobra que não é a dela.
-  const escala = Math.min(
-    previewScale(caixa.width - FOLGA, width),
-    previewScale(caixa.height - FOLGA, height),
-  )
+  // A conta inteira — medida, folga e escala — mora em `previewFrame`, em `core`. Era ela que tinha
+  // dois donos: este palco e o do menu, cada um com a sua `FOLGA = 40`.
+  const frame = previewFrame(device, caixa, cheia)
+  const { width, height, scale: escala } = frame
 
   const trocar = useCallback((proximo: PreviewDevice) => setDevice(proximo), [])
 
   return (
     <section
       data-testid="palco-previa"
-      className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-border bg-card"
+      data-fullscreen={cheia ? 'true' : undefined}
+      // A tela cheia é **CSS nesta mesma `<section>`** — não um portal, não um segundo componente.
+      // Reparentar o nó faria o React remontar o `<iframe>`, o documento da loja recarregaria e o
+      // rascunho já entregue pela ponte se perderia (`FOCO-21`).
+      className={cn(
+        'flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-border bg-card',
+        classesDaTelaCheia,
+      )}
     >
       <header className="flex shrink-0 flex-wrap items-center gap-3 border-b border-border px-4 py-2.5">
         <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -120,8 +134,23 @@ const HomeLivePreview = ({ sections, highlightId, onSelect }: Props) => {
 
         <div className="flex shrink-0 items-center gap-2">
           <span data-testid="metrica-previa" className="text-xs tabular-nums text-muted-foreground">
-            {previewMetrics(device, escala)}
+            {previewMetrics(frame)}
           </span>
+          {src && (
+            <button
+              type="button"
+              onClick={cheia ? sair : entrar}
+              aria-label={cheia ? 'Sair da tela cheia' : 'Tela cheia'}
+              className="flex h-9 items-center gap-1.5 rounded-lg border border-border px-2.5 text-xs font-semibold text-muted-foreground hover:bg-muted"
+            >
+              {cheia ? (
+                <Minimize2 className="h-4 w-4" aria-hidden />
+              ) : (
+                <Maximize2 className="h-4 w-4" aria-hidden />
+              )}
+              {cheia ? 'Sair' : 'Tela cheia'}
+            </button>
+          )}
           <button
             type="button"
             aria-label="Recarregar a prévia"

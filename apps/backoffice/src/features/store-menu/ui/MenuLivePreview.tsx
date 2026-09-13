@@ -16,20 +16,19 @@
 // estou conferindo", com a tela mostrando um e ela editando outro, sem nada quebrar.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ExternalLink, Monitor, RefreshCw, Smartphone } from 'lucide-react'
+import { ExternalLink, Maximize2, Minimize2, Monitor, RefreshCw, Smartphone } from 'lucide-react'
 import {
   menuPreviewDevice,
   type MenuCategory,
   type MenuLink,
   type MenuSurface,
 } from '@estrelinha/core/menu'
-import { PREVIEW_DEVICES, previewMetrics, previewScale, previewSrc } from '@estrelinha/core/home'
+import { PREVIEW_DEVICES, previewFrame, previewMetrics, previewSrc } from '@estrelinha/core/home'
+import { cn } from '@estrelinha/ui/lib/utils'
 import { STORE_URL, storeOrigin } from '@/shared/lib/storeOrigin'
+import { useFullscreenStage } from '@/shared/lib/useFullscreenStage'
 import { NOME_DA_SUPERFICIE } from '../model/superficie'
 import { useMenuPreviewBridge } from '../model/useMenuPreviewBridge'
-
-/** A folga entre o palco e o quadro. Entra na conta da escala, senão o quadro encosta na borda. */
-const FOLGA = 40
 
 interface Props {
   /** A superfície em edição — e, por consequência, o dispositivo que o palco mostra. */
@@ -73,13 +72,12 @@ const MenuLivePreview = ({ surface, categories, links, openId }: Props) => {
   }, [])
 
   const device = menuPreviewDevice(surface)
-  const { width, height } = PREVIEW_DEVICES[device]
-  // As duas dimensões contam: numa janela baixa, escalar só pela largura deixaria o painel do mega
-  // menu fora do palco — e o painel é justamente o que a Adri veio conferir.
-  const escala = Math.min(
-    previewScale(caixa.width - FOLGA, width),
-    previewScale(caixa.height - FOLGA, height),
-  )
+  const { cheia, entrar, sair, classes: classesDaTelaCheia } = useFullscreenStage()
+
+  // A conta inteira — medida, folga e escala — mora em `previewFrame`, em `core`. Era ela que tinha
+  // dois donos: este palco e o da Home, cada um com a sua constante de folga.
+  const frame = previewFrame(device, caixa, cheia)
+  const { width, height, scale: escala } = frame
 
   const Icone = device === 'mobile' ? Smartphone : Monitor
   const recarregar = useCallback(() => setRecarga(n => n + 1), [])
@@ -87,7 +85,13 @@ const MenuLivePreview = ({ surface, categories, links, openId }: Props) => {
   return (
     <section
       data-testid="palco-previa-menu"
-      className="flex h-full min-h-[520px] flex-col overflow-hidden rounded-2xl border border-border bg-card"
+      data-fullscreen={cheia ? 'true' : undefined}
+      // A tela cheia é **CSS nesta mesma `<section>`** — não um portal, não um segundo componente.
+      // Reparentar o nó faria o React remontar o `<iframe>` e a prévia recarregaria (`FOCO-21`).
+      className={cn(
+        'flex h-full min-h-[520px] flex-col overflow-hidden rounded-2xl border border-border bg-card',
+        classesDaTelaCheia,
+      )}
     >
       <header className="flex shrink-0 flex-wrap items-center gap-3 border-b border-border px-4 py-2.5">
         <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -114,8 +118,23 @@ const MenuLivePreview = ({ surface, categories, links, openId }: Props) => {
             data-testid="metrica-previa-menu"
             className="text-xs tabular-nums text-muted-foreground"
           >
-            {previewMetrics(device, escala)}
+            {previewMetrics(frame)}
           </span>
+          {src && (
+            <button
+              type="button"
+              onClick={cheia ? sair : entrar}
+              aria-label={cheia ? 'Sair da tela cheia' : 'Tela cheia'}
+              className="flex h-9 items-center gap-1.5 rounded-lg border border-border px-2.5 text-xs font-semibold text-muted-foreground hover:bg-muted"
+            >
+              {cheia ? (
+                <Minimize2 className="h-4 w-4" aria-hidden />
+              ) : (
+                <Maximize2 className="h-4 w-4" aria-hidden />
+              )}
+              {cheia ? 'Sair' : 'Tela cheia'}
+            </button>
+          )}
           <button
             type="button"
             aria-label="Recarregar a prévia"
