@@ -21,8 +21,10 @@ vi.mock('@estrelinha/auth', () => ({ useAuthContext: () => authState }))
 
 const onEdit = vi.fn()
 const onContinue = vi.fn()
+/** Feature 49 (`IDN-02`): o bloco reporta o e-mail que já tem conta. */
+const onChallenge = vi.fn()
 
-const renderOpen = (canContinue = false) =>
+const renderOpen = (canContinue = false, challenging = false) =>
   render(
     <ContactBlock
       open
@@ -30,6 +32,8 @@ const renderOpen = (canContinue = false) =>
       onEdit={onEdit}
       onContinue={onContinue}
       canContinue={canContinue}
+      challenging={challenging}
+      onChallenge={onChallenge}
     />,
   )
 const renderCollapsed = () =>
@@ -40,6 +44,8 @@ const renderCollapsed = () =>
       onEdit={onEdit}
       onContinue={onContinue}
       canContinue
+      challenging={false}
+      onChallenge={onChallenge}
     />,
   )
 

@@ -14,16 +14,12 @@ import { useShippingQuote } from '@/features/checkout/api/useShippingQuote'
 import { useAuthUiStore } from '@/features/auth'
 import { markCartRecovered, clearGuestEmail } from '@/features/abandoned-cart/model/useAbandonedCartTracker'
 import { DOC_FIELD_LABEL } from '@/features/checkout/ui/PaymentBlock'
-import CheckoutPage, {
-  MISSING_DOCUMENT_MESSAGE,
-  NO_CUSTOMER_MESSAGE,
-  ORDER_FAILED_MESSAGE,
-} from '../CheckoutPage'
+import CheckoutPage, { MISSING_DOCUMENT_MESSAGE, ORDER_FAILED_MESSAGE } from '../CheckoutPage'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 // CHK-01: uma página, três blocos, nenhum passo "Revisão".
-// CHK-02: sem sessão o overlay abre com returnTo=/checkout e os blocos não renderizam.
+// CSC-01/CSC-02: sem sessão o checkout ABRE — CHK-02 foi removida na feature 49.
 // CHK-04: bloco aberto = `resolveFlow().open`, no máximo um.
 // FLW-01 … FLW-07: quem avança é a pessoa — digitar não colapsa bloco, `Continuar` colapsa,
 //                  Pagamento nunca colapsa e o CTA olha `complete`, não `open`.
@@ -42,7 +38,14 @@ const saveCpfMutateAsync = vi.fn()
 const saveAddressMutateAsync = vi.fn()
 const defaultAddressMock = vi.fn()
 
-vi.mock('@/entities/order/api/useOrders', () => ({
+vi.mock('@/entities/order/api/useOrders', async () => ({
+  // Feature 49: a página distingue o 409 de `needs_otp` dos demais erros para abrir o desafio de
+  // código em vez do toast genérico. `NeedsOtpError` vem do módulo REAL, e não de um dublê: o que
+  // a página faz é `instanceof`, e uma classe homônima declarada aqui responderia `false` — o
+  // caminho passaria a ser inalcançável no teste sem nada acusar.
+  ...(await vi.importActual<typeof import('@/entities/order/api/useOrders')>(
+    '@/entities/order/api/useOrders',
+  )),
   useCreateOrder: () => ({ mutateAsync: createOrderMutateAsync, isPending: false }),
 }))
 // PGM-06: quem cobra o cartão passou a ser o CTA da página — antes era o botão próprio do Brick.
@@ -102,6 +105,23 @@ vi.mock('@/features/auth', async () => {
     AuthOverlay: () => <div data-testid="auth-overlay" />,
   }
 })
+
+// Feature 49: o desafio de código (`IDN-02`). O fluxo real arrasta o SDK de OTP; o que a PÁGINA
+// precisa provar é que o desafio aparece, trava o CTA e some — não o campo de 6 dígitos, que tem
+// arquivo próprio.
+const { sendCodeMock, accountLookupMock } = vi.hoisted(() => ({
+  sendCodeMock: vi.fn(),
+  accountLookupMock: vi.fn(),
+}))
+vi.mock('@/features/auth/model/useAuthFlow', () => ({
+  useAuthFlow: () => ({ sendCode: sendCodeMock }),
+}))
+vi.mock('@/features/auth/ui/steps/AuthCodeStep', () => ({
+  default: () => <div data-testid="auth-code-step" />,
+}))
+vi.mock('@/features/checkout/api/useAccountLookup', () => ({
+  useAccountLookup: () => ({ check: accountLookupMock }),
+}))
 
 vi.mock('@/features/abandoned-cart/model/useAbandonedCartTracker', () => ({
   setGuestEmail: vi.fn(),
@@ -228,16 +248,21 @@ const ConfirmationRoute = () => {
   return <div>rota-confirmacao:{id}</div>
 }
 
-const renderPage = () =>
-  render(
-    <MemoryRouter initialEntries={['/checkout']}>
-      <Routes>
-        <Route path="/checkout" element={<CheckoutPage />} />
-        <Route path="/carrinho" element={<div>rota-carrinho</div>} />
-        <Route path="/pedido/:id" element={<ConfirmationRoute />} />
-      </Routes>
-    </MemoryRouter>,
-  )
+/**
+ * A árvore, separada do `render` — `IDN-07` precisa **remontar** a mesma árvore depois de trocar a
+ * identidade, e `rerender` exige o elemento.
+ */
+const pageTree = () => (
+  <MemoryRouter initialEntries={['/checkout']}>
+    <Routes>
+      <Route path="/checkout" element={<CheckoutPage />} />
+      <Route path="/carrinho" element={<div>rota-carrinho</div>} />
+      <Route path="/pedido/:id" element={<ConfirmationRoute />} />
+    </Routes>
+  </MemoryRouter>
+)
+
+const renderPage = () => render(pageTree())
 
 const fillContact = () =>
   useCheckoutStore.getState().setContact({
@@ -317,6 +342,9 @@ beforeEach(() => {
   sessionStorage.clear()
 
   gridRowsMock.mockReset().mockReturnValue({ data: [] })
+  // Feature 49: por padrão o e-mail NÃO tem conta — é o caminho de convidada, que é o normal.
+  accountLookupMock.mockReset().mockResolvedValue(false)
+  sendCodeMock.mockReset().mockResolvedValue({ error: null })
   createOrderMutateAsync.mockReset().mockResolvedValue({ id: 'order-1' })
   createPaymentMutateAsync.mockReset().mockResolvedValue({
     status: 'approved',
@@ -372,15 +400,38 @@ describe('CheckoutPage — uma página, três blocos (CHK-01)', () => {
   })
 })
 
-describe('CheckoutPage — login obrigatório (CHK-02)', () => {
-  it('deslogada abre o overlay com returnTo=/checkout e não renderiza os blocos', () => {
+/**
+ * ⚠️ Este bloco chamava-se **"login obrigatório (CHK-02)"** e asseria o portão: sem sessão, o
+ * overlay abria sozinho e os três blocos **não** renderizavam.
+ *
+ * A feature `49` removeu `CHK-02`. Os casos foram **invertidos**, não apagados — deixá-los de lado
+ * faria a suíte seguir verde a favor do comportamento que a spec mandou remover, que é o defeito
+ * que a `41` custou uma rodada inteira de verificação para descobrir.
+ */
+describe('CheckoutPage — sem sessão, o checkout abre (CSC-01, CSC-02)', () => {
+  it('deslogada renderiza os TRÊS blocos', () => {
     authState.user = null
     renderPage()
 
-    const state = useAuthUiStore.getState()
-    expect(state.isOpen).toBe(true)
-    expect(state.returnTo).toBe('/checkout')
-    expect(screen.queryByRole('region', { name: 'Contato' })).not.toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Contato' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Entrega' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Pagamento' })).toBeInTheDocument()
+  })
+
+  it('deslogada NÃO abre o overlay sozinho', () => {
+    // A asserção invertida. Sem ela, devolver o `useEffect` que abria o overlay passaria verde.
+    authState.user = null
+    renderPage()
+
+    expect(useAuthUiStore.getState().isOpen).toBe(false)
+  })
+
+  it('a tela "Faça login para continuar" não existe mais', () => {
+    authState.user = null
+    renderPage()
+
+    expect(screen.queryByText('Faça login para continuar')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Entrar ou Criar Conta' })).not.toBeInTheDocument()
   })
 
   it('deslogada não limpa o carrinho', () => {
@@ -391,9 +442,211 @@ describe('CheckoutPage — login obrigatório (CHK-02)', () => {
   })
 
   it('a página monta o próprio AuthOverlay — a rota vive fora do StoreLayout (CHK-10)', () => {
+    // Continua montado: é ele que o convite `SignInInvite` abre. O que saiu foi a obrigação.
     renderPage()
 
     expect(screen.getByTestId('auth-overlay')).toBeInTheDocument()
+  })
+
+  it('carrinho vazio continua redirecionando, sem sessão também', () => {
+    authState.user = null
+    useCartStore.setState({ items: [] })
+    renderPage()
+
+    expect(screen.queryByRole('region', { name: 'Contato' })).not.toBeInTheDocument()
+  })
+
+  /**
+   * A FIAÇÃO do convite (`ENT-01`), provada pela página REAL.
+   *
+   * `SignInInvite.test.tsx` monta o componente sozinho e prova o componente — apagá-lo daqui
+   * deixaria todos aqueles casos verdes com o convite fora da loja. Os três abaixo reprovam.
+   */
+  it('o convite para entrar está MONTADO na página, acima do bloco Contato (ENT-01)', () => {
+    authState.user = null
+    renderPage()
+
+    const convite = screen.getByRole('region', { name: 'Já tem conta' })
+    const contato = screen.getByRole('region', { name: 'Contato' })
+
+    expect(convite).toBeInTheDocument()
+    // `compareDocumentPosition` diz a ordem no DOM sem medir um pixel — jsdom não mede layout.
+    expect(convite.compareDocumentPosition(contato)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+  })
+
+  it('com sessão o convite não aparece na página (ENT-04)', () => {
+    renderPage()
+
+    expect(screen.queryByRole('region', { name: 'Já tem conta' })).not.toBeInTheDocument()
+  })
+
+  it('o convite da página abre o overlay com returnTo=/checkout (ENT-02)', () => {
+    authState.user = null
+    renderPage()
+
+    fireEvent.click(within(screen.getByRole('region', { name: 'Já tem conta' })).getByRole('button'))
+
+    expect(useAuthUiStore.getState().isOpen).toBe(true)
+    expect(useAuthUiStore.getState().returnTo).toBe('/checkout')
+  })
+})
+
+/**
+ * `IDN-02` … `IDN-06` — o desafio de código, provado pela PÁGINA.
+ *
+ * `CheckoutSignInChallenge.test.tsx` monta o componente sozinho e prova o aviso e o envio; o que só
+ * aqui pode ser provado é que ele **aparece no checkout** e que **trava o CTA** — as duas
+ * afirmações que uma fiação apagada deixaria verdes lá e falsas na loja.
+ */
+describe('CheckoutPage — e-mail que já tem conta pede o código (IDN-02 … IDN-06)', () => {
+  /**
+   * `fillAll()` semeia o store ANTES do render, e semear não suja (`FLW-04`): o bloco Contato
+   * nasce completo e colapsado. Abrir por "Alterar" é o caminho da cliente que volta ao contato —
+   * e é onde o campo de e-mail existe.
+   */
+  const abrirContato = () => fireEvent.click(region('Contato').getByRole('button', { name: 'Alterar' }))
+
+  const campoEmail = () => region('Contato').getByLabelText('E-mail')
+
+  const desafiar = async () => {
+    accountLookupMock.mockResolvedValue(true)
+    authState.user = null
+    fillAll()
+    renderPage()
+    abrirContato()
+    fireEvent.blur(campoEmail(), { target: { value: 'marina@email.com' } })
+    await screen.findByTestId('auth-code-step')
+  }
+
+  it('o desafio aparece DENTRO do bloco Contato', async () => {
+    await desafiar()
+
+    const contato = screen.getByRole('region', { name: 'Contato' })
+    expect(contato).toContainElement(screen.getByTestId('auth-code-step'))
+    expect(
+      within(contato).getByText('Este e-mail já tem cadastro na loja'),
+    ).toBeInTheDocument()
+  })
+
+  it('o CTA de pagar fica DESABILITADO enquanto o desafio está pendente (IDN-04)', async () => {
+    // É esta a asserção que liga a régua de `isContactComplete` ao botão. O rascunho está inteiro:
+    // sem a identidade na régua, o CTA estaria acionável.
+    await desafiar()
+
+    expect(cta()).toBeDisabled()
+  })
+
+  it('nenhum pedido é criado enquanto o desafio está de pé', async () => {
+    await desafiar()
+
+    fireEvent.click(cta())
+
+    expect(createOrderMutateAsync).not.toHaveBeenCalled()
+  })
+
+  it('e-mail SEM conta não desafia — o caminho normal da convidada', async () => {
+    // O par inverso. Sem ele, um desafio que aparecesse sempre passaria em todos os casos acima.
+    authState.user = null
+    fillAll()
+    renderPage()
+
+    abrirContato()
+    fireEvent.blur(campoEmail(), { target: { value: 'nova@email.com' } })
+
+    await waitFor(() => expect(accountLookupMock).toHaveBeenCalled())
+    expect(screen.queryByTestId('auth-code-step')).not.toBeInTheDocument()
+    expect(cta()).toBeEnabled()
+  })
+
+  it('trocar para outro e-mail derruba o desafio (IDN-06)', async () => {
+    await desafiar()
+
+    fireEvent.change(campoEmail(), { target: { value: 'outra@email.com' } })
+
+    expect(screen.queryByTestId('auth-code-step')).not.toBeInTheDocument()
+  })
+
+  it('com sessão, o mesmo e-mail com conta NÃO desafia (IDN-05)', async () => {
+    // A sessão vence o e-mail: quem está logada e digita o e-mail de outra pessoa (o do
+    // presenteado) não pode ser barrada. É a borda escrita na spec.
+    accountLookupMock.mockResolvedValue(true)
+    fillAll()
+    renderPage()
+
+    abrirContato()
+    fireEvent.blur(campoEmail(), { target: { value: 'marina@email.com' } })
+
+    await waitFor(() => expect(accountLookupMock).toHaveBeenCalled())
+    expect(screen.queryByTestId('auth-code-step')).not.toBeInTheDocument()
+    expect(cta()).toBeEnabled()
+  })
+
+  it('trocar de identidade descarta o pedido em curso (IDN-07)', async () => {
+    // Entrar depois de o pedido existir muda de quem ele é: o pedido de convidada tem o token
+    // dela, e quem paga depois do login apresenta um JWT que pode não ser o dono.
+    // `create-payment` responderia **403** — a cliente veria "pedido não pertence ao usuário"
+    // depois de ter feito tudo certo.
+    authState.user = null
+    fillAll()
+    const { rerender } = renderPage()
+
+    fireEvent.click(cta())
+    await waitFor(() => expect(useCheckoutStore.getState().orderId).toBe('order-1'))
+
+    authState.user = { id: 'usr-1' } as any
+    rerender(pageTree())
+
+    await waitFor(() => expect(useCheckoutStore.getState().orderId).toBeNull())
+  })
+
+  it('a chave de idempotência morre junto — o próximo CTA cria pedido NOVO (IDN-07)', async () => {
+    // Mantê-la faria a retentativa reaproveitar o pedido do dono antigo: o servidor devolveria o
+    // mesmo `order_id` e a troca de identidade não teria servido para nada.
+    authState.user = null
+    fillAll()
+    const { rerender } = renderPage()
+
+    fireEvent.click(cta())
+    await waitFor(() => expect(useCheckoutStore.getState().orderId).toBe('order-1'))
+    const chaveAntiga = useCheckoutStore.getState().clientRequestId
+
+    authState.user = { id: 'usr-1' } as any
+    rerender(pageTree())
+
+    await waitFor(() => expect(useCheckoutStore.getState().clientRequestId).toBeNull())
+    expect(chaveAntiga).toBeTruthy()
+  })
+
+  it('SEM troca de identidade, o pedido em curso SOBREVIVE — o par inverso', async () => {
+    // Sem este caso, um efeito que invalidasse a cada render passaria nos dois acima e faria todo
+    // CTA criar um pedido novo, deixando `pending` órfão a cada clique.
+    fillAll()
+    const { rerender } = renderPage()
+
+    fireEvent.click(cta())
+    await waitFor(() => expect(useCheckoutStore.getState().orderId).toBe('order-1'))
+
+    rerender(pageTree())
+    rerender(pageTree())
+
+    expect(useCheckoutStore.getState().orderId).toBe('order-1')
+  })
+
+  it('o 409 do servidor abre o desafio, em vez do toast genérico (IDN-08)', async () => {
+    // O servidor é a regra; a consulta da tela é conveniência. Quando ela falha (teto, rede) e o
+    // servidor recusa, a cliente precisa chegar ao código — não a "não conseguimos criar seu pedido".
+    const { NeedsOtpError } = await vi.importActual<
+      typeof import('@/entities/order/api/useOrders')
+    >('@/entities/order/api/useOrders')
+    createOrderMutateAsync.mockRejectedValue(new NeedsOtpError('Este e-mail já tem cadastro.'))
+    authState.user = null
+    fillAll()
+    renderPage()
+
+    fireEvent.click(cta())
+
+    expect(await screen.findByTestId('auth-code-step')).toBeInTheDocument()
+    expect(toast.error).not.toHaveBeenCalled()
   })
 })
 
@@ -969,35 +1222,68 @@ describe('CheckoutPage — falhas (CHK-09, PGD-03, ADR-03)', () => {
     await waitFor(() => expect(createOrderMutateAsync).toHaveBeenCalledTimes(2))
   })
 
-  it('falha ao salvar o CPF bloqueia: nada de pedido nem de superfície de pagamento', async () => {
-    saveCpfMutateAsync.mockRejectedValue(new Error('Não conseguimos salvar seus dados.'))
-    fillAll()
-    renderPage()
-
-    fireEvent.click(cta())
-
-    await waitFor(() =>
-      expect(toast.error).toHaveBeenCalledWith('Não conseguimos salvar seus dados.'),
-    )
-    expect(createOrderMutateAsync).not.toHaveBeenCalled()
-    expect(screen.queryByTestId('pix-payment')).not.toBeInTheDocument()
-  })
-
-  it('salva o CPF do bloco Pagamento antes de criar o pedido', async () => {
+  /**
+   * ⚠️ Os três casos abaixo mediam as gravações de CPF e endereço **pelo navegador**, escopadas por
+   * RLS. Elas mudaram de camada na feature `49` (`PED-08`, `ADR-G1`/`ADR-G2`): quem grava as duas é
+   * a edge function, no mesmo fluxo que grava o pedido, para convidada e para quem tem sessão.
+   *
+   * Mantê-las aqui **ao lado** da gravação do servidor daria dois donos de "onde mora o CPF do
+   * pagador", e `buildPayer` (no `create-payment`) lê de um só.
+   *
+   * **A cobertura não sumiu, mudou de endereço** — e cada peça tem o seu:
+   *
+   *   - o CPF chega a `customers.cpf` e o endereço a `addresses` →
+   *     `supabase/functions/checkout/__tests__/createOrder.test.ts`
+   *   - falha de endereço não derruba o pedido (`ADR-G2`) → o mesmo arquivo
+   *   - o documento vai no corpo do pedido →
+   *     `features/checkout/lib/__tests__/buildOrderPayload.test.ts`
+   *
+   * O que sobra para cá é o que só a PÁGINA pode errar: mandar o documento certo no payload.
+   */
+  it('o documento do pagador vai no corpo do pedido (CSC-04)', async () => {
     fillAll()
     renderPage()
 
     fireEvent.click(cta())
 
     await waitFor(() => expect(createOrderMutateAsync).toHaveBeenCalled())
-    expect(saveCpfMutateAsync).toHaveBeenCalledWith({ customerId: 'c1', cpf: CPF_VALIDO })
-    expect(saveCpfMutateAsync.mock.invocationCallOrder[0]).toBeLessThan(
-      createOrderMutateAsync.mock.invocationCallOrder[0],
-    )
+    expect(createOrderMutateAsync.mock.calls[0][0].customer_document).toBe(CPF_VALIDO)
   })
 
-  it('endereço que não fica salvo NÃO bloqueia a compra', async () => {
-    saveAddressMutateAsync.mockResolvedValue({ saved: false })
+  it('a página NÃO grava CPF nem endereço por conta própria (PED-08)', async () => {
+    // A asserção invertida das duas que saíram. Sem ela, devolver as mutations client-side passaria
+    // verde — e o CPF voltaria a ter dois gravadores, divergindo no primeiro ajuste de um deles.
+    fillAll()
+    renderPage()
+
+    fireEvent.click(cta())
+
+    await waitFor(() => expect(createOrderMutateAsync).toHaveBeenCalled())
+    expect(saveCpfMutateAsync).not.toHaveBeenCalled()
+    expect(saveAddressMutateAsync).not.toHaveBeenCalled()
+  })
+
+  it('o telefone do bloco Contato vai no corpo do pedido (CSC-04)', async () => {
+    // Até a feature `49` ele era digitado e **jamais persistido**: só o importador da Nuvemshop
+    // preenchia `orders.customer_phone`. É esse número que o painel usa para cobrar material.
+    fillAll()
+    renderPage()
+
+    fireEvent.click(cta())
+
+    await waitFor(() => expect(createOrderMutateAsync).toHaveBeenCalled())
+    expect(createOrderMutateAsync.mock.calls[0][0].customer_phone).toBeTruthy()
+  })
+
+  it('sem ficha em `customers`, o pedido é criado assim mesmo (CSC-03)', async () => {
+    // ⚠️ Este caso foi **INVERTIDO**, não apagado. Ele asseria a trava de `NO_CUSTOMER_MESSAGE`:
+    // sem `customer.id` o CTA recusava com "não foi possível identificar sua conta". A trava saiu
+    // na feature `49`, porque a convidada **não tem ficha** quando chega ao CTA — a dela nasce no
+    // servidor, depois do pedido (`CSC-08`).
+    //
+    // Deixar o caso antigo de lado faria a suíte seguir verde a favor do comportamento que a spec
+    // mandou remover, que é o defeito que a `41` custou uma rodada de verificação para descobrir.
+    authState.customer = null
     fillAll()
     renderPage()
 
@@ -1007,15 +1293,15 @@ describe('CheckoutPage — falhas (CHK-09, PGD-03, ADR-03)', () => {
     expect(toast.error).not.toHaveBeenCalled()
   })
 
-  it('sem customer.id bloqueia com mensagem clara', async () => {
+  it('sem ficha, o pedido vai com `customer_id` nulo — quem resolve a identidade é o servidor', async () => {
     authState.customer = null
     fillAll()
     renderPage()
 
     fireEvent.click(cta())
 
-    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(NO_CUSTOMER_MESSAGE))
-    expect(createOrderMutateAsync).not.toHaveBeenCalled()
+    await waitFor(() => expect(createOrderMutateAsync).toHaveBeenCalledTimes(1))
+    expect(createOrderMutateAsync.mock.calls[0][0].customer_id).toBeNull()
   })
 })
 
@@ -1096,14 +1382,14 @@ describe('CheckoutPage — um CTA, dois caminhos (PGM-06 … PGM-08, DOC-05)', (
     await waitFor(() => expect(brickError()).toBe('O Mercado Pago não respondeu.'))
   })
 
-  it('DOC-05: o documento coletado pelo Brick é o que vai para customers.cpf', async () => {
+  it('DOC-05: o documento coletado pelo Brick é o que vai no pedido', async () => {
     payWithCard()
 
-    await waitFor(() => expect(saveCpfMutateAsync).toHaveBeenCalled())
-    expect(saveCpfMutateAsync).toHaveBeenCalledWith({ customerId: 'c1', cpf: '39053344705' })
+    await waitFor(() => expect(createOrderMutateAsync).toHaveBeenCalled())
+    expect(createOrderMutateAsync.mock.calls[0][0].customer_document).toBe('39053344705')
   })
 
-  it('DOC-05: sem documento no Brick, cai para o já salvo em customers (aqui, um CNPJ)', async () => {
+  it('DOC-05: sem documento no Brick, cai para o já salvo em `customers` (aqui, um CNPJ)', async () => {
     authState.customer = {
       id: 'c1',
       name: 'Marina Yamashita',
@@ -1116,8 +1402,8 @@ describe('CheckoutPage — um CTA, dois caminhos (PGM-06 … PGM-08, DOC-05)', (
     })
     payWithCard()
 
-    await waitFor(() => expect(saveCpfMutateAsync).toHaveBeenCalled())
-    expect(saveCpfMutateAsync).toHaveBeenCalledWith({ customerId: 'c1', cpf: '11222333000181' })
+    await waitFor(() => expect(createOrderMutateAsync).toHaveBeenCalled())
+    expect(createOrderMutateAsync.mock.calls[0][0].customer_document).toBe('11222333000181')
   })
 
   it('DOC-05: faltando os dois documentos, erro no bloco e NENHUM pedido criado', async () => {
@@ -1138,8 +1424,8 @@ describe('CheckoutPage — um CTA, dois caminhos (PGM-06 … PGM-08, DOC-05)', (
     useCheckoutStore.getState().setPayment({ cpf: '111.444.777-35' })
     payWithCard()
 
-    await waitFor(() => expect(saveCpfMutateAsync).toHaveBeenCalled())
-    expect(saveCpfMutateAsync).toHaveBeenCalledWith({ customerId: 'c1', cpf: '39053344705' })
+    await waitFor(() => expect(createOrderMutateAsync).toHaveBeenCalled())
+    expect(createOrderMutateAsync.mock.calls[0][0].customer_document).toBe('39053344705')
   })
 
   it('PIX não tokeniza cartão nem chama create-payment — só cria o pedido e mostra o QR (PGM-07)', async () => {
@@ -1151,7 +1437,7 @@ describe('CheckoutPage — um CTA, dois caminhos (PGM-06 … PGM-08, DOC-05)', (
     await waitFor(() => expect(screen.getByTestId('pix-payment')).toBeInTheDocument())
     expect(getCardFormDataMock).not.toHaveBeenCalled()
     expect(createPaymentMutateAsync).not.toHaveBeenCalled()
-    expect(saveCpfMutateAsync).toHaveBeenCalledWith({ customerId: 'c1', cpf: CPF_VALIDO })
+    expect(createOrderMutateAsync.mock.calls[0][0].customer_document).toBe(CPF_VALIDO)
   })
 })
 

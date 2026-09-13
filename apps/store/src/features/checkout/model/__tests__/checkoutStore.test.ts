@@ -176,13 +176,13 @@ describe('checkoutStore — dirty (FLW-01, FLW-04)', () => {
 
 describe('checkoutStore — blocks() delega a resolveBlocks', () => {
   it('rascunho vazio abre `contact` e nenhum bloco completo', () => {
-    expect(useCheckoutStore.getState().blocks()).toEqual({ open: 'contact', complete: [] })
+    expect(useCheckoutStore.getState().blocks('guest')).toEqual({ open: 'contact', complete: [] })
   })
 
   it('só o contato preenchido abre `delivery`', () => {
     useCheckoutStore.getState().setContact(completeDraft().contact)
 
-    expect(useCheckoutStore.getState().blocks()).toEqual({
+    expect(useCheckoutStore.getState().blocks('guest')).toEqual({
       open: 'delivery',
       complete: ['contact'],
     })
@@ -191,7 +191,7 @@ describe('checkoutStore — blocks() delega a resolveBlocks', () => {
   it('rascunho completo não abre nenhum bloco e marca os três como completos', () => {
     fill()
 
-    expect(useCheckoutStore.getState().blocks()).toEqual({
+    expect(useCheckoutStore.getState().blocks('guest')).toEqual({
       open: null,
       complete: ['contact', 'delivery', 'payment'],
     })

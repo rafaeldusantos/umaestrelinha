@@ -15,6 +15,7 @@ import {
   type AddressDraft,
   type BlockId,
   type CheckoutDraft,
+  type CheckoutIdentity,
   type ContactDraft,
   type PaymentDraft,
   type ShippingDraft,
@@ -45,6 +46,15 @@ interface CheckoutState extends CheckoutDraft {
   /** O rascunho no momento em que o pedido foi criado — base da comparação de CHK-08. */
   orderSnapshot: CheckoutDraft | null
   /**
+   * `PED-04`: a chave de idempotência da tentativa em curso.
+   *
+   * Ela **tem** de sobreviver à retentativa — é isso que faz o servidor devolver o mesmo pedido em
+   * vez de criar um segundo. Gerada uma vez por tentativa de CTA e descartada junto com o pedido:
+   * chave que sobrevive à invalidação faria a tentativa seguinte, com rascunho JÁ ALTERADO,
+   * reaproveitar o pedido antigo — cobrando o valor que a cliente acabou de mudar.
+   */
+  clientRequestId: string | null
+  /**
    * FLW-01/FLW-04: blocos que a **pessoa** editou nesta tela. Fica no store porque quem edita são
    * os blocos, e eles já falam com o store — a alternativa seria um `onDirty` em cada `onChange`.
    * Semear de `customers`/`addresses` não suja: é o que preserva ADR-02.
@@ -59,10 +69,13 @@ interface CheckoutState extends CheckoutDraft {
   markDirty: (id: BlockId) => void
   setOrder: (id: string, snapshot: CheckoutDraft) => void
   invalidateOrder: () => void
+  /** Devolve a chave da tentativa em curso, criando uma na primeira vez (`PED-04`). */
+  ensureRequestId: () => string
   reset: () => void
 
   draft: () => CheckoutDraft
-  blocks: () => { open: BlockId | null; complete: BlockId[] }
+  /** `IDN-04`: a identidade entra na régua porque desafio pendente impede o contato de completar. */
+  blocks: (identity: CheckoutIdentity) => { open: BlockId | null; complete: BlockId[] }
   isStale: () => boolean
 }
 
@@ -72,6 +85,7 @@ export const useCheckoutStore = create<CheckoutState>()(
       ...emptyDraft(),
       orderId: null,
       orderSnapshot: null,
+      clientRequestId: null,
       dirty: [],
 
       setContact: (patch) => set((s) => ({ contact: { ...s.contact, ...patch } })),
@@ -84,9 +98,26 @@ export const useCheckoutStore = create<CheckoutState>()(
       markDirty: (id) => set((s) => (s.dirty.includes(id) ? {} : { dirty: [...s.dirty, id] })),
 
       setOrder: (id, snapshot) => set({ orderId: id, orderSnapshot: snapshot }),
-      invalidateOrder: () => set({ orderId: null, orderSnapshot: null }),
+      // A chave de idempotência morre COM o pedido: mantê-la faria a próxima tentativa, já com o
+      // rascunho alterado, reaproveitar o pedido antigo — e cobrar o valor que a cliente mudou.
+      invalidateOrder: () => set({ orderId: null, orderSnapshot: null, clientRequestId: null }),
+      ensureRequestId: () => {
+        const atual = get().clientRequestId
+        if (atual) return atual
+        const nova =
+          globalThis.crypto?.randomUUID?.() ??
+          `req-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
+        set({ clientRequestId: nova })
+        return nova
+      },
       reset: () => {
-        set({ ...emptyDraft(), orderId: null, orderSnapshot: null, dirty: [] })
+        set({
+          ...emptyDraft(),
+          orderId: null,
+          orderSnapshot: null,
+          clientRequestId: null,
+          dirty: [],
+        })
         useCheckoutStore.persist.clearStorage()
       },
 
@@ -94,7 +125,7 @@ export const useCheckoutStore = create<CheckoutState>()(
         const { contact, address, shipping, payment, bumpChecked } = get()
         return { contact, address, shipping, payment, bumpChecked }
       },
-      blocks: () => resolveBlocks(get().draft()),
+      blocks: (identity) => resolveBlocks(get().draft(), identity),
       isStale: () => isOrderStale(get().draft(), get().orderSnapshot),
     }),
     {
@@ -110,6 +141,10 @@ export const useCheckoutStore = create<CheckoutState>()(
         bumpChecked: s.bumpChecked,
         orderId: s.orderId,
         orderSnapshot: s.orderSnapshot,
+        // Persistida junto com o pedido, e pelo mesmo motivo: recarregar a aba no meio de uma
+        // tentativa não pode fazer a retentativa criar um SEGUNDO pedido (`PED-04`). Os três
+        // nascem e morrem juntos.
+        clientRequestId: s.clientRequestId,
       }),
     },
   ),

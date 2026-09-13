@@ -8,7 +8,18 @@ import { supabase } from '@estrelinha/supabase/client'
 import { formatPrice } from '@estrelinha/core/formatters'
 import { usePaymentSettings } from '@estrelinha/core/hooks/useStoreSettings'
 import type { PixPaymentResponse } from '@estrelinha/supabase/types'
+import { accessFor } from '@/entities/order/model/orderAccess'
+import { fetchGuestOrder } from '@/entities/order/api/guestOrder'
 import { useCreatePayment, PAYMENT_UNAVAILABLE_MESSAGE } from '../api/useCreatePayment'
+
+/**
+ * De quanto em quanto tempo a convidada pergunta se o PIX foi aprovado (`CSC-05`).
+ *
+ * Cinco segundos: o Mercado Pago aprova PIX em segundos, e a pessoa está olhando para a tela
+ * esperando. Mais lento seria uma espera que parece travada; mais rápido, requisição à toa numa
+ * janela que dura minutos.
+ */
+const GUEST_POLL_MS = 5000
 
 interface Props {
   orderId: string
@@ -90,6 +101,37 @@ const PixPayment = ({ orderId, amount, onApproved }: Props) => {
       .subscribe()
     return () => {
       supabase.removeChannel(channel)
+    }
+  }, [orderId])
+
+  /**
+   * `CSC-05` — **a convidada não recebe o evento acima**, e sem isto ela paga e fica no QR para
+   * sempre.
+   *
+   * O Realtime respeita RLS, e a única policy de `SELECT` em `orders` é `TO authenticated`
+   * (conferido no banco). Quem comprou sem conta é `anon`: o canal conecta, o filtro casa, e o
+   * payload **nunca chega** — o modo de falha mais silencioso possível, porque não há erro nenhum.
+   *
+   * A saída é perguntar. O intervalo é de 5s e a pergunta vai pela MESMA porta que a confirmação
+   * usa (`fetchGuestOrder`), então não há uma segunda leitura de pedido para divergir. Quem tem
+   * sessão não tem token guardado para este pedido: o efeito não faz nada, e o Realtime segue
+   * sendo o caminho dela.
+   */
+  useEffect(() => {
+    const token = accessFor(orderId)
+    if (!token) return
+
+    let vivo = true
+    const perguntar = async () => {
+      const pedido = await fetchGuestOrder<{ payment_status?: string }>(orderId, token)
+      if (!vivo) return
+      if (pedido?.payment_status === 'approved') onApprovedRef.current()
+    }
+
+    const id = setInterval(() => void perguntar(), GUEST_POLL_MS)
+    return () => {
+      vivo = false
+      clearInterval(id)
     }
   }, [orderId])
 

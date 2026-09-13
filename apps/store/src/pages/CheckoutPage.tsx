@@ -9,8 +9,9 @@
 //
 // A rota fica **fora** do `StoreLayout` (ver `app/App.tsx`) porque CHK-10 pede header próprio,
 // sem navegação de categorias, e o CTA fixo do rodapé não pode disputar espaço com o `MobileNav`.
-// Por isso o `AuthOverlay` é montado aqui: é ele que atende CHK-02.
-import { useEffect, useMemo, useState } from 'react'
+// Por isso o `AuthOverlay` é montado aqui — mas desde a feature `49` ele não abre mais sozinho:
+// `CHK-02` foi **removida**, e quem convida a entrar é o `SignInInvite`, sem obrigar ninguém.
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Lock, MessageCircle, Package, RefreshCw, ShieldCheck } from 'lucide-react'
 import { toast } from 'sonner'
@@ -18,17 +19,11 @@ import { Button } from '@estrelinha/ui/button'
 import { EstrelinhaSignature } from '@/shared/ui/brand'
 import { formatPrice } from '@estrelinha/core/formatters'
 import { isValidDocument, stripCep } from '@estrelinha/core/validators'
-import { applyOrderBump } from '@estrelinha/core/payment/pricing'
 import { friendlyMessage } from '@estrelinha/core/payment/status'
-import { primaryImage } from '@estrelinha/core/media'
 import { normalizeOptions } from '@estrelinha/core/product'
-import {
-  initialMaterialStatus,
-  materialKindsOf,
-  requiresMaterial,
-} from '@estrelinha/core/material'
+import { initialMaterialStatus } from '@estrelinha/core/material'
 import { hasSellableGrid } from '@/entities/product/lib/variantSelection'
-import { resolveFlow, type BlockId } from '@estrelinha/core/checkout'
+import { resolveCheckoutIdentity, resolveFlow, type BlockId } from '@estrelinha/core/checkout'
 import { useAuthContext } from '@estrelinha/auth'
 import { supabase } from '@estrelinha/supabase/client'
 import type { CardPaymentFormData, CardPaymentResponse } from '@estrelinha/supabase/types'
@@ -38,18 +33,22 @@ import {
 } from '@/features/checkout/lib/requireVariantSelection'
 import { getCardFormData } from '@/features/checkout/lib/cardBrick'
 import {
+  buildOrderItems,
+  buildOrderPayload,
+} from '@/features/checkout/lib/buildOrderPayload'
+import {
   useCreatePayment,
   PAYMENT_UNAVAILABLE_MESSAGE,
 } from '@/features/checkout/api/useCreatePayment'
 import { useCartStore, useCartUiStore } from '@/entities/cart'
 import { CartDrawer } from '@/widgets/cart-drawer'
 import { useCouponStore } from '@/entities/coupon'
-import { useCreateOrder } from '@/entities/order/api/useOrders'
-import { useSaveCustomerCpf } from '@/entities/customer'
-import { useSaveAddress } from '@/entities/address'
+import { NeedsOtpError, useCreateOrder } from '@/entities/order/api/useOrders'
+import { rememberAccess } from '@/entities/order/model/orderAccess'
 import { AuthOverlay, useAuthUiStore } from '@/features/auth'
 import { useCheckoutStore } from '@/features/checkout/model/checkoutStore'
 import { useCheckoutTotals } from '@/features/checkout/model/useCheckoutTotals'
+import SignInInvite from '@/features/checkout/ui/SignInInvite'
 import ContactBlock from '@/features/checkout/ui/ContactBlock'
 import DeliveryBlock from '@/features/checkout/ui/DeliveryBlock'
 import PaymentBlock from '@/features/checkout/ui/PaymentBlock'
@@ -61,8 +60,6 @@ import {
 } from '@/features/abandoned-cart/model/useAbandonedCartTracker'
 
 export const ORDER_FAILED_MESSAGE = 'Não conseguimos criar seu pedido. Tente novamente.'
-export const NO_CUSTOMER_MESSAGE =
-  'Não foi possível identificar sua conta. Saia e entre novamente para concluir a compra.'
 /**
  * DOC-05: o documento do cartão sai do Brick; sem ele, do `customers.cpf` já salvo. Faltando os
  * dois, o servidor montaria o pagamento sem pagador — melhor pedir aqui do que gravar um pedido
@@ -109,7 +106,6 @@ const CheckoutHeader = () => (
 const CheckoutPage = () => {
   const navigate = useNavigate()
   const { user, customer, loading } = useAuthContext()
-  const openAuth = useAuthUiStore((s) => s.open)
 
   const items = useCartStore((s) => s.items)
   const clearCart = useCartStore((s) => s.clearCart)
@@ -128,8 +124,6 @@ const CheckoutPage = () => {
     useCheckoutTotals()
   const createOrder = useCreateOrder()
   const createPayment = useCreatePayment()
-  const saveCpf = useSaveCustomerCpf()
-  const saveAddress = useSaveAddress()
 
   const [editing, setEditing] = useState<BlockId | null>(null)
   /** FLW-03: blocos que a pessoa fechou clicando em `Continuar`. Não sobrevive ao reload. */
@@ -138,13 +132,62 @@ const CheckoutPage = () => {
   /** Erro da tentativa de cartão. Não vai para o store: é de uma tentativa, não do rascunho. */
   const [cardError, setCardError] = useState<string | null>(null)
 
+  /**
+   * `IDN-02`: o e-mail que já tem conta e ainda não foi provado.
+   *
+   * Guardado pelo e-mail, e não por um booleano: se a pessoa trocar de e-mail depois de ser
+   * desafiada, o desafio precisa sumir sozinho (`IDN-06`) — com um booleano ela ficaria presa
+   * pedindo o código de um endereço que já não está no campo.
+   */
+  const [challengeEmail, setChallengeEmail] = useState<string | null>(null)
+
+  /**
+   * `IDN-04`: quem está fechando este pedido. Entra em `resolveFlow` porque desafio de código
+   * pendente impede o bloco Contato de completar — e, com ele, o CTA de pagar.
+   */
+  const identity = useMemo(
+    () =>
+      resolveCheckoutIdentity({
+        hasSession: !!user,
+        emailHasAccount:
+          !!challengeEmail &&
+          challengeEmail.trim().toLowerCase() === (contact.email ?? '').trim().toLowerCase(),
+      }),
+    [user, challengeEmail, contact.email],
+  )
+
+  /**
+   * `IDN-07`: **trocar de identidade descarta o pedido em curso.**
+   *
+   * Entrar (ou sair) depois de o pedido já existir muda de quem ele é: um pedido criado como
+   * convidada tem o token dela e nasceu órfão ou ligado à conta do e-mail digitado; depois do
+   * login, quem paga apresenta um JWT que pode não ser o dono. `create-payment` responderia 403 —
+   * a cliente veria "pedido não pertence ao usuário" depois de ter feito tudo certo.
+   *
+   * A mecânica é a de `CHK-08`, inteira: `invalidateOrder` também descarta a chave de idempotência,
+   * então o próximo CTA cria um pedido novo em vez de reaproveitar o antigo.
+   */
+  // `undefined` é "ainda não observei", e é distinto de `null` ("não há sessão"). Sem os três
+  // estados, a primeira renderização de quem JÁ está logada contaria como troca e descartaria um
+  // pedido recém-criado — em silêncio, e logo antes do pagamento.
+  const identidadeAnterior = useRef<string | null | undefined>(undefined)
+  useEffect(() => {
+    const atual = user?.id ?? null
+    const anterior = identidadeAnterior.current
+    identidadeAnterior.current = atual
+    // A primeira passada registra sem invalidar: não houve TROCA, só a leitura inicial.
+    if (anterior === undefined || anterior === atual) return
+    if (useCheckoutStore.getState().orderId) useCheckoutStore.getState().invalidateOrder()
+  }, [user?.id])
+
   const flow = useMemo(
     () =>
       resolveFlow(
         { contact, address, shipping, payment, bumpChecked },
         { dirty, confirmed, editing },
+        identity,
       ),
-    [contact, address, shipping, payment, bumpChecked, dirty, confirmed, editing],
+    [contact, address, shipping, payment, bumpChecked, dirty, confirmed, editing, identity],
   )
   const openBlock = flow.open
   const isComplete = (id: BlockId) => flow.complete.includes(id)
@@ -158,36 +201,15 @@ const CheckoutPage = () => {
     setEditing(null)
   }
 
-  // CHK-02: sem sessão o overlay abre sozinho, com o retorno para o próprio checkout.
-  useEffect(() => {
-    if (!loading && !user) openAuth({ returnTo: '/checkout' })
-  }, [loading, user, openAuth])
-
+  // `CSC-01`/`CSC-02`: **o portão caiu** (feature `49`).
+  //
+  // Até aqui `CHK-02` abria o `AuthOverlay` sozinho e, atrás dele, a página escrevia "Você precisa
+  // estar logada para finalizar a compra". Era uma etapa a mais entre decidir comprar e pagar, em
+  // ~90% de acessos de celular — e numa loja memorial ela cobra burocracia de quem acabou de
+  // perder alguém. O convite para entrar continua existindo, **dentro** do checkout
+  // (`SignInInvite`); o que saiu foi a obrigação.
   if (loading) {
     return <div className="container py-20 text-center text-estrelinha-ink-soft">Carregando...</div>
-  }
-
-  if (!user) {
-    return (
-      <>
-        <CheckoutHeader />
-        <div className="container mx-auto max-w-md py-20 text-center">
-          <h1 className="mb-3 font-heading text-2xl font-bold text-estrelinha-ink">
-            Faça login para continuar
-          </h1>
-          <p className="mb-6 text-estrelinha-ink-soft">
-            Você precisa estar logada para finalizar a compra.
-          </p>
-          <Button
-            onClick={() => openAuth({ returnTo: '/checkout' })}
-            className="rounded-sm border-0 bg-estrelinha-primary text-white transition-all hover:scale-[1.02] hover:bg-estrelinha-primary hover:opacity-95"
-          >
-            Entrar ou Criar Conta
-          </Button>
-        </div>
-        <AuthOverlay />
-      </>
-    )
   }
 
   // Edge case da spec: carrinho vazio volta ao carrinho em vez de renderizar blocos.
@@ -230,11 +252,9 @@ const CheckoutPage = () => {
     const store = useCheckoutStore.getState()
     if (store.orderId && store.isStale()) store.invalidateOrder()
 
-    if (!customer?.id) {
-      toast.error(NO_CUSTOMER_MESSAGE)
-      return
-    }
-
+    // `CSC-03`: **sem guarda de `customer.id`**. Ele existia porque o pedido só podia nascer
+    // ligado a uma ficha, e a convidada não tem nenhuma quando chega ao CTA — a dela nasce no
+    // servidor, depois do pedido (`CSC-08`).
     const isCard = payment.method === 'card'
     setBusy(true)
     setCardError(null)
@@ -249,36 +269,20 @@ const CheckoutPage = () => {
 
         // DOC-05: o documento do cartão é o que o Brick coletou; sem ele, o já salvo em
         // `customers`. Faltando os dois, erro no bloco — sem pedido.
-        payerDocument = cardForm.payer?.identification?.number || customer.cpf || ''
+        payerDocument = cardForm.payer?.identification?.number || customer?.cpf || ''
         if (!isValidDocument(payerDocument)) {
           setCardError(MISSING_DOCUMENT_MESSAGE)
           return
         }
       }
 
-      try {
-        // PGD-03: sem documento no banco o servidor montaria o pagamento sem pagador — bloqueia.
-        await saveCpf.mutateAsync({ customerId: customer.id, cpf: payerDocument })
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : ORDER_FAILED_MESSAGE)
-        return
-      }
-
-      // ADR-03: `addresses` é conveniência para a próxima compra — falhar aqui não bloqueia.
-      await saveAddress
-        .mutateAsync({
-          customerId: customer.id,
-          address: {
-            cep: stripCep(address.cep),
-            street: address.street,
-            number: address.number,
-            complement: address.complement,
-            neighborhood: address.neighborhood,
-            city: address.city,
-            state: address.state,
-          },
-        })
-        .catch(() => ({ saved: false }))
+      // `PED-08`/`ADR-G1`: **o CPF e o endereço passaram a ser gravados pela edge function**, no
+      // mesmo fluxo que grava o pedido — para convidada e para quem tem sessão.
+      //
+      // Eram duas mutations daqui, escopadas por RLS, e elas não serviam à convidada: sem
+      // `auth.uid()` não há o que escopar. Mantê-las **ao lado** da gravação do servidor daria dois
+      // donos de "onde mora o CPF do pagador", e `buildPayer` lê de um só. `AD-013` fala de quem
+      // **coleta** o documento — isso não mudou, e continua acontecendo logo acima.
 
       // PST-03 AC 5: item que EXIGE variação e não traz uma não pode virar pedido. A rejeição do
       // `create-payment` é a última linha de defesa, não a primeira — um pedido gravado que nunca
@@ -322,62 +326,10 @@ const CheckoutPage = () => {
         // com 422 (PST-01 AC 9). Ficar preso aqui por indisponibilidade de rede seria pior.
       }
 
-      // BMP-03: `order_items.unit_price` já sai descontado; o servidor recalcula pelo `product_id`
-      // (BMP-04). ⚠️ A lista descontada serve só para persistir — `calculateOrderTotals` recebe
-      // preço cheio + `bump` dentro de `useCheckoutTotals` (carry-forward #1).
-      const priced = applyOrderBump(pricingItems, bump)
-      const orderItems = [
-        ...items.map((item, index) => ({
-          product_id: item.product.id,
-          product_name: item.product.name,
-          product_image: primaryImage(item.product.images)?.url ?? null,
-          size: item.size || null,
-          finish: item.finish || null,
-          quantity: item.quantity,
-          unit_price: priced[index].unit_price,
-          // 07/T16 (PST-03): a variação escolhida vai para o pedido, e o caminho de preço é
-          // CONGELADO aqui. O servidor obedece este `price_source` e não reavalia se o produto tem
-          // grade — sem isso, criar ou pausar uma variação entre o pedido e o pagamento mudaria o
-          // valor de um pedido já fechado (A8).
-          variant_id: item.variantId,
-          price_source: (item.variantId ? 'variant' : 'base') as 'base' | 'variant',
-          // Snapshot: o histórico do pedido tem de ser legível sem join em `product_variants`, que
-          // pode ter sido pausada ou reeditada depois da compra.
-          variant_label: item.variantLabel || null,
-          variant_options: Object.keys(item.optionValues ?? {}).length ? item.optionValues : null,
-          // MAT-05: o material exigido e o texto gravado, congelados NO PEDIDO. Saem do snapshot do
-          // produto que está no carrinho, não de uma releitura do catálogo — mudar a exigência no
-          // cadastro depois não pode alterar pedido já criado.
-          requires_material: requiresMaterial(item.product),
-          material_kinds: materialKindsOf(item.product),
-          engraving_text: item.engravingText ?? null,
-        })),
-        ...(bumpProduct
-          ? [
-              {
-                product_id: bumpProduct.id,
-                product_name: bumpProduct.name,
-                product_image: primaryImage(bumpProduct.images)?.url ?? null,
-                size: null,
-                finish: null,
-                quantity: 1,
-                unit_price: priced[items.length].unit_price,
-                // O bump é sempre o produto inteiro, nunca uma linha da grade — a oferta do lojista
-                // aponta para um `product_id`, não para uma variação.
-                variant_id: null,
-                price_source: 'base' as const,
-                variant_label: null,
-                variant_options: null,
-                // O bump nunca é peça de material: a oferta do lojista aponta para um `product_id`
-                // avulso, fora do fluxo de curadoria. Se um dia apontar para uma joia afetiva, esta
-                // linha precisa passar a ler o produto — está declarado aqui para não passar batido.
-                requires_material: false,
-                material_kinds: [],
-                engraving_text: null,
-              },
-            ]
-          : []),
-      ]
+      // A montagem vive em `features/checkout/lib/buildOrderPayload` desde a feature `49`: ela
+      // estava no meio desta função de sete passos, e é exatamente aqui que o caminho de gravação
+      // muda. Regra nenhuma mudou de lugar — só saiu de dentro do CTA para onde pode ser exercida.
+      const orderItems = buildOrderItems({ items, pricingItems, bump, bumpProduct })
 
       // PGM-08: pedido `pending` já existente é REUSADO — só cria quem ainda não tem. Criar um
       // segundo deixaria lixo `pending` e faria a retentativa cobrar um pedido diferente do que a
@@ -386,48 +338,47 @@ const CheckoutPage = () => {
       if (!payingOrderId) {
         try {
           const order = await createOrder.mutateAsync({
-            customer_name: contact.name,
-            customer_email: contact.email,
-            customer_id: customer.id,
-            payment_method: payment.method ?? 'pix',
-            address_street: address.street,
-            address_number: address.number,
-            address_neighborhood: address.neighborhood,
-            address_city: address.city,
-            address_state: address.state,
-            // ADR-05: 8 dígitos sem máscara — é o que o backoffice consome em `MelhorEnvioTab`.
-            address_zip: stripCep(address.cep),
-            address_complement: address.complement,
-            // SHP-07: snapshot do envio escolhido; recotação posterior não o altera.
-            shipping_service_id: shipping?.serviceId,
-            shipping_carrier: shipping?.carrier,
-            shipping_method: shipping?.serviceName,
-            delivery_estimate_min: shipping?.estimateMin || undefined,
-            delivery_estimate_max: shipping?.estimateMax || undefined,
-            subtotal: totals.subtotal,
-            discount: totals.couponDiscount,
-            shipping_cost: totals.shipping,
-            total: totals.total,
-            coupon_code: coupon?.code,
-            coupon_id: coupon?.id,
-            // PRM-12: registra o desconto de faixa que ESTA tela exibiu, para o `create-payment`
-            // ter contra o que comparar o recálculo. A regra do `promotion_id` é copiada do
-            // servidor (`handlers.ts`): uma promoção ⇒ o id; zero ou mais de uma ⇒ `null`, porque a
-            // coluna é FK única e a verdade de "quanto" fica em `promotion_discount`.
-            promotion_id: applied.length === 1 ? applied[0].promotion_id : null,
-            promotion_discount: promotionDiscount,
-            // MAT-07: um item que exige material põe o pedido inteiro na fila — inclusive quando
-            // exige SEM dizer qual. A fila é sobre "algo está a caminho", não sobre saber o quê.
-            material_status: initialMaterialStatus(orderItems),
-            items: orderItems,
+            ...buildOrderPayload({
+              items,
+              pricingItems,
+              bump,
+              bumpProduct,
+              contact,
+              address,
+              shipping,
+              paymentMethod: payment.method,
+              payerDocument,
+              totals,
+              coupon,
+              applied,
+              promotionDiscount,
+              // MAT-07: um item que exige material põe o pedido inteiro na fila — inclusive quando
+              // exige SEM dizer qual. A fila é sobre "algo está a caminho", não sobre saber o quê.
+              materialStatus: initialMaterialStatus(orderItems),
+            }),
+            customer_id: customer?.id ?? null,
+            // PED-04: a MESMA chave na retentativa faz o servidor devolver o mesmo pedido, em vez
+            // de criar um segundo e uma segunda conta.
+            client_request_id: useCheckoutStore.getState().ensureRequestId(),
           })
-          const newOrderId = (order as { id?: string } | null)?.id
+          const newOrderId = order?.id
           if (!newOrderId) throw new Error('Pedido sem id')
+          // PED-05: a prova de posse da convidada. Sem sessão, é o único caminho para pagar e para
+          // reabrir `/pedido/:id` — e ela chega UMA vez, nesta resposta.
+          if (order.access_token) rememberAccess(newOrderId, order.access_token)
           // CHK-08: o snapshot é a base da comparação de "algum bloco mudou desde a criação".
           useCheckoutStore.getState().setOrder(newOrderId, useCheckoutStore.getState().draft())
           setEditing(null)
           payingOrderId = newOrderId
-        } catch {
+        } catch (err) {
+          // IDN-08: o servidor recusou porque o e-mail já tem conta. É a ÚNICA falha de criação
+          // que a cliente pode resolver sozinha — e o caminho é o desafio de código, não um toast
+          // genérico dizendo que não deu.
+          if (err instanceof NeedsOtpError) {
+            setChallengeEmail(contact.email)
+            setEditing('contact')
+            return
+          }
           // CHK-09: rascunho e carrinho intactos; o CTA continua acionável.
           toast.error(ORDER_FAILED_MESSAGE)
           return
@@ -494,12 +445,19 @@ const CheckoutPage = () => {
               </h1>
             </div>
 
+            {/* ENT-01: acima do bloco Contato, e só sem sessão. O componente decide isso sozinho. */}
+            <SignInInvite />
+
             <ContactBlock
               open={openBlock === 'contact'}
               complete={isComplete('contact')}
               onEdit={() => setEditing('contact')}
               onContinue={() => confirmBlock('contact')}
               canContinue={isComplete('contact')}
+              // `IDN-05`: o desafio some sozinho quando a sessão existe, porque `identity` põe a
+              // sessão acima do e-mail — não há efeito nenhum limpando estado depois do login.
+              challenging={identity === 'challenge'}
+              onChallenge={setChallengeEmail}
             />
             <DeliveryBlock
               open={openBlock === 'delivery'}

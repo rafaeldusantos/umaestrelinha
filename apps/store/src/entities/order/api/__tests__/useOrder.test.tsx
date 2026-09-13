@@ -3,115 +3,151 @@ import { renderHook, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 
-// CNF-03: a confirmação é rota, então o pedido é lido do banco por id — nunca de estado do
-//         checkout. Recarregar `/pedido/:id` refaz esta busca.
-// CNF-04: a página precisa do pedido **com os itens** e da janela de estimativa (SHP-08).
-// Erro e "não encontrado" são estados distintos: erro rejeita, inexistente resolve `null`.
+/**
+ * `CSC-05`/`CSC-06` — quem lê o pedido, e com qual credencial.
+ *
+ * `useOrder` é o dono único de "como leio um pedido": a confirmação e a conta fazem a mesma
+ * pergunta com credenciais diferentes, e o ramo mora aqui, não em cada tela.
+ *
+ * O caso que este arquivo existe para travar é o **inverso**: quem tem sessão tem de continuar
+ * lendo pelo PostgREST, exatamente como antes. Uma implementação que mandasse todo mundo pela
+ * edge function passaria nos casos da convidada e quebraria `/conta` — onde não há token nenhum.
+ */
 
-const { fromMock, selectMock, eqMock, maybeSingleMock } = vi.hoisted(() => ({
-  fromMock: vi.fn(),
-  selectMock: vi.fn(),
-  eqMock: vi.fn(),
-  maybeSingleMock: vi.fn(),
+const { invoke, maybeSingle, eq, select, from } = vi.hoisted(() => {
+  const maybeSingle = vi.fn()
+  const eq = vi.fn(() => ({ maybeSingle }))
+  const select = vi.fn(() => ({ eq }))
+  const from = vi.fn(() => ({ select }))
+  return { invoke: vi.fn(), maybeSingle, eq, select, from }
+})
+
+vi.mock('@estrelinha/supabase/client', () => ({
+  supabase: { from, functions: { invoke } },
 }))
 
-vi.mock('@estrelinha/supabase/client', () => ({ supabase: { from: fromMock } }))
-
 import { useOrder } from '../useOrder'
+import { forgetAccess, rememberAccess } from '../../model/orderAccess'
 
 const wrapper = ({ children }: { children: ReactNode }) => (
-  <QueryClientProvider
-    client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
-  >
+  <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
     {children}
   </QueryClientProvider>
 )
 
-const dbOrder = {
-  id: 'order-1',
-  order_number: 'NP-4821',
-  customer_email: 'marina@email.com',
-  status: 'pending',
-  payment_status: 'approved',
-  paid_at: '2026-07-27T12:00:00Z',
-  total: 109.9,
-  delivery_estimate_min: '2026-08-04',
-  delivery_estimate_max: '2026-08-06',
-  order_items: [{ id: 'oi-1', product_name: 'Pin Gojo', quantity: 2, unit_price: 50 }],
+const PEDIDO = { id: 'ord-1', customer_name: 'Marina Yamashita', order_items: [] }
+
+const ler = async (id = 'ord-1') => {
+  const { result } = renderHook(() => useOrder(id), { wrapper })
+  await waitFor(() => expect(result.current.isLoading).toBe(false))
+  return result.current
 }
 
 beforeEach(() => {
-  fromMock.mockReset()
-  selectMock.mockReset()
-  eqMock.mockReset()
-  maybeSingleMock.mockReset()
-
-  fromMock.mockReturnValue({ select: selectMock })
-  selectMock.mockReturnValue({ eq: eqMock })
-  eqMock.mockReturnValue({ maybeSingle: maybeSingleMock })
-  maybeSingleMock.mockResolvedValue({ data: dbOrder, error: null })
+  globalThis.localStorage.clear()
+  invoke.mockReset()
+  from.mockClear()
+  maybeSingle.mockReset().mockResolvedValue({ data: PEDIDO, error: null })
 })
 
-describe('useOrder — busca por id (CNF-03)', () => {
-  it('consulta `orders` com os itens do pedido', async () => {
-    const { result } = renderHook(() => useOrder('order-1'), { wrapper })
+describe('useOrder — com sessão, o caminho é o de sempre', () => {
+  it('sem token guardado, lê pelo PostgREST e NÃO chama a function', async () => {
+    // O caso inverso, e o mais importante deste arquivo: `/conta` não tem token nenhum.
+    const { data } = await ler()
 
-    await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    expect(fromMock).toHaveBeenCalledWith('orders')
-    expect(selectMock).toHaveBeenCalledWith('*, order_items(*)')
+    expect(data).toEqual(PEDIDO)
+    expect(from).toHaveBeenCalledWith('orders')
+    expect(invoke).not.toHaveBeenCalled()
   })
 
-  it('filtra pelo id recebido', async () => {
-    const { result } = renderHook(() => useOrder('order-42'), { wrapper })
+  it('erro do PostgREST continua rejeitando — rede e "não existe" dizem coisas diferentes', async () => {
+    maybeSingle.mockResolvedValue({ data: null, error: { message: 'timeout' } })
 
-    await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    expect(eqMock).toHaveBeenCalledWith('id', 'order-42')
+    const { isError } = await ler()
+    expect(isError).toBe(true)
   })
 
-  it('devolve o pedido com paid_at e a janela de estimativa', async () => {
-    const { result } = renderHook(() => useOrder('order-1'), { wrapper })
+  it('pedido inexistente resolve com `null`, não com erro', async () => {
+    maybeSingle.mockResolvedValue({ data: null, error: null })
 
-    await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    expect(result.current.data).toMatchObject({
-      order_number: 'NP-4821',
-      paid_at: '2026-07-27T12:00:00Z',
-      delivery_estimate_min: '2026-08-04',
-      delivery_estimate_max: '2026-08-06',
-      total: 109.9,
+    const { data, isError } = await ler()
+    expect(data).toBeNull()
+    expect(isError).toBe(false)
+  })
+})
+
+describe('useOrder — a convidada lê com o token (CSC-06)', () => {
+  it('com token guardado, lê pela function e NÃO toca o PostgREST', async () => {
+    rememberAccess('ord-1', 'tok-abc')
+    invoke.mockResolvedValue({ data: { order: PEDIDO }, error: null })
+
+    const { data } = await ler()
+
+    expect(data).toEqual(PEDIDO)
+    expect(invoke).toHaveBeenCalledWith('checkout?action=get-order', {
+      body: { order_id: 'ord-1', access_token: 'tok-abc' },
     })
+    expect(from).not.toHaveBeenCalled()
   })
 
-  it('devolve os itens do pedido junto', async () => {
-    const { result } = renderHook(() => useOrder('order-1'), { wrapper })
+  it('o token de OUTRO pedido não é usado neste', async () => {
+    rememberAccess('ord-2', 'tok-de-outro')
 
-    await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    expect(result.current.data?.order_items).toHaveLength(1)
-  })
+    await ler('ord-1')
 
-  it('sem id não dispara requisição', () => {
-    renderHook(() => useOrder(undefined), { wrapper })
-
-    expect(fromMock).not.toHaveBeenCalled()
+    expect(invoke).not.toHaveBeenCalled()
+    expect(from).toHaveBeenCalledWith('orders')
   })
 })
 
-describe('useOrder — erro e não encontrado são estados distintos', () => {
-  it('pedido inexistente resolve com null, sem erro', async () => {
-    maybeSingleMock.mockResolvedValue({ data: null, error: null })
+describe('useOrder — token recusado dá lugar ao caminho normal', () => {
+  it('403 esquece o token e tenta o PostgREST', async () => {
+    // É isto que permite a quem entrou por código DEPOIS da compra ver o próprio pedido: sem
+    // esquecer, ela bateria num acesso morto para sempre.
+    rememberAccess('ord-1', 'tok-expirado')
+    invoke.mockResolvedValue({ data: null, error: new Error('403') })
 
-    const { result } = renderHook(() => useOrder('order-inexistente'), { wrapper })
+    const { data } = await ler()
 
-    await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    expect(result.current.data).toBeNull()
-    expect(result.current.isError).toBe(false)
+    expect(data).toEqual(PEDIDO)
+    expect(from).toHaveBeenCalledWith('orders')
   })
 
-  it('erro do banco vira isError, com a mensagem preservada', async () => {
-    maybeSingleMock.mockResolvedValue({ data: null, error: { message: 'permission denied' } })
+  it('o token recusado é APAGADO do storage, não só ignorado', async () => {
+    rememberAccess('ord-1', 'tok-expirado')
+    invoke.mockResolvedValue({ data: null, error: new Error('403') })
 
-    const { result } = renderHook(() => useOrder('order-1'), { wrapper })
+    await ler()
 
-    await waitFor(() => expect(result.current.isError).toBe(true))
-    expect(result.current.error?.message).toBe('permission denied')
+    // A asserção que separa "ignorou desta vez" de "esqueceu": só a segunda evita uma requisição
+    // condenada a cada recarregamento da página.
+    expect(globalThis.localStorage.getItem('estrelinha-order-access')).not.toContain('tok-expirado')
+  })
+
+  it('a function lançando não derruba o hook — cai no caminho normal', async () => {
+    rememberAccess('ord-1', 'tok-abc')
+    invoke.mockRejectedValue(new Error('Failed to fetch'))
+
+    const { data, isError } = await ler()
+
+    expect(isError).toBe(false)
+    expect(data).toEqual(PEDIDO)
+  })
+
+  it('corpo sem `order` conta como recusa', async () => {
+    rememberAccess('ord-1', 'tok-abc')
+    invoke.mockResolvedValue({ data: {}, error: null })
+
+    const { data } = await ler()
+
+    expect(data).toEqual(PEDIDO)
+    expect(from).toHaveBeenCalledWith('orders')
+  })
+
+  it('esquecer um acesso que já não existe não quebra a leitura seguinte', async () => {
+    forgetAccess('ord-1')
+
+    const { data } = await ler()
+    expect(data).toEqual(PEDIDO)
   })
 })

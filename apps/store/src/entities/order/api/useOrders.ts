@@ -71,6 +71,16 @@ export interface CreateOrderInput {
   customer_name: string
   customer_email: string
   customer_id?: string | null
+  /**
+   * `CSC-04` (feature `49`). As colunas existem desde a `35`, e **até aqui só o importador da
+   * Nuvemshop as preenchia** — pedido feito na loja nascia sem telefone e sem documento.
+   *
+   * As duas passam a ser gravadas para convidada **e** para quem tem sessão. `customer_document`
+   * não é decoração: é dele que `create-payment` tira o pagador quando o pedido ficou **órfão**
+   * (`CSC-08`), e sem ele um pedido pagável seria recusado por falta de CPF que a cliente já deu.
+   */
+  customer_phone?: string
+  customer_document?: string
   payment_method: string
   address_street?: string
   address_number?: string
@@ -143,62 +153,81 @@ export interface CreateOrderInput {
   material_status?: string
 }
 
+/** O 409 que o servidor devolve quando o e-mail já tem conta e não há sessão (`IDN-08`). */
+export const NEEDS_OTP = 'needs_otp'
+
+export interface CreateOrderResult {
+  id: string
+  /** `PED-05`: a prova de posse da convidada. `null` para quem tem sessão — o JWT já é a prova. */
+  access_token: string | null
+}
+
+/**
+ * O erro que a tela precisa distinguir dos demais: e-mail com conta, sem sessão.
+ *
+ * Uma `Error` comum viraria o toast genérico de "não conseguimos criar seu pedido", e a cliente
+ * ficaria sem saber que basta digitar o código que já está na caixa de entrada dela.
+ */
+export class NeedsOtpError extends Error {
+  readonly reason = NEEDS_OTP
+}
+
+/**
+ * Cria o pedido — **pela edge function `checkout`, nunca pelo PostgREST** (feature `49`, `PED-01`).
+ *
+ * O caminho antigo montava a linha de `orders` aqui e inseria direto, escopado por RLS. Ele não
+ * servia à convidada (não há `auth.uid()` para escopar) e, mantido ao lado do novo, seria um
+ * segundo dono de "como nasce um pedido" — duas cópias divergindo no caminho do dinheiro, sem que
+ * build, `tsc` ou teste de componente acusassem. `pedidoComDonoUnico.test.ts` recusa a volta.
+ *
+ * O `Authorization` **não é montado à mão**: `functions.invoke` já anexa o token da sessão quando
+ * existe. Montá-lo aqui abriria a possibilidade de a loja mandar um e o client outro.
+ */
 export const useCreateOrder = () => {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (input: CreateOrderInput) => {
-      const orderNumber = `NP-${Date.now().toString(36).toUpperCase()}`
-      const { data: order, error } = await supabase
-        .from('orders')
-        .insert({
-          order_number: orderNumber,
-          customer_name: input.customer_name,
-          customer_email: input.customer_email,
-          customer_id: input.customer_id || null,
-          status: 'pending',
-          payment_method: input.payment_method,
-          address_street: input.address_street,
-          address_number: input.address_number,
-          address_neighborhood: input.address_neighborhood,
-          address_city: input.address_city,
-          address_state: input.address_state,
-          address_zip: input.address_zip || null,
-          address_complement: input.address_complement || null,
-          shipping_service_id: input.shipping_service_id || null,
-          shipping_carrier: input.shipping_carrier || null,
-          shipping_method: input.shipping_method || null,
-          delivery_estimate_min: input.delivery_estimate_min || null,
-          delivery_estimate_max: input.delivery_estimate_max || null,
-          subtotal: input.subtotal,
-          discount: input.discount,
-          shipping_cost: input.shipping_cost,
-          total: input.total,
-          coupon_code: input.coupon_code || null,
-          coupon_id: input.coupon_id || null,
-          promotion_id: input.promotion_id || null,
-          promotion_discount: input.promotion_discount ?? 0,
-          // MAT-07. Derivado dos itens que a loja acabou de montar, não de uma releitura do catálogo:
-          // o pedido é foto. `nao_aplicavel` é o default da coluna, então mandá-lo explícito só
-          // torna visível o que já aconteceria.
-          material_status: input.material_status ?? 'nao_aplicavel',
-        })
-        .select()
-        .single()
+    mutationFn: async (
+      input: CreateOrderInput & { client_request_id: string },
+    ): Promise<CreateOrderResult> => {
+      const { data, error } = await supabase.functions.invoke('checkout?action=create-order', {
+        body: input,
+      })
 
-      if (error || !order) throw new Error(error?.message || 'Erro ao criar pedido')
+      // `functions.invoke` não lança em 4xx: ele devolve `error` com o corpo dentro do contexto.
+      // Ler só `error.message` perderia o `reason`, e a tela não saberia abrir o desafio.
+      const corpo = (data ?? (await lerCorpoDoErro(error))) as {
+        order_id?: string
+        access_token?: string | null
+        reason?: string
+        error?: string
+      } | null
 
-      const itemsPayload = input.items.map((i) => ({
-        order_id: order.id,
-        ...i,
-      }))
+      if (corpo?.reason === NEEDS_OTP) throw new NeedsOtpError(corpo.error ?? '')
+      if (error || !corpo?.order_id) {
+        throw new Error(corpo?.error || error?.message || 'Erro ao criar pedido')
+      }
 
-      const { error: itemsError } = await supabase.from('order_items').insert(itemsPayload)
-      if (itemsError) throw new Error(itemsError.message)
-
-      return order as Order
+      return { id: corpo.order_id, access_token: corpo.access_token ?? null }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['orders'] })
     },
   })
+}
+
+/**
+ * O corpo de um erro do `functions.invoke`.
+ *
+ * O SDK embrulha a resposta num `FunctionsHttpError` cujo `context` é a `Response` original — é o
+ * único lugar onde o `reason: 'needs_otp'` sobrevive. Sem isto, um 409 chegaria à tela como
+ * "Edge Function returned a non-2xx status code" e o desafio nunca abriria.
+ */
+async function lerCorpoDoErro(error: unknown): Promise<unknown> {
+  const contexto = (error as { context?: { json?: () => Promise<unknown> } } | null)?.context
+  if (!contexto?.json) return null
+  try {
+    return await contexto.json()
+  } catch {
+    return null
+  }
 }
