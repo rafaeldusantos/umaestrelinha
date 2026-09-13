@@ -14,6 +14,9 @@
 //
 // O dublê dos dois hooks é o que permite provar **o que foi para o banco** sem subir Supabase.
 
+import { readFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -429,14 +432,30 @@ describe('NAV-42 — falha de gravação diz o que não salvou', () => {
 })
 
 describe('o painel e o ícone da entrada selecionada', () => {
+  /**
+   * Vai para a aba do seletor de ícone.
+   *
+   * Desde a feature 47 os três editores da entrada moram num card com abas (`FOCO-28`): o seletor
+   * continua alcançável, um clique atrás. `mouseDown` porque o `Tabs` do Radix ativa no mousedown.
+   */
+  const abaDoIcone = () => {
+    const aba = screen.getByRole('tab', { name: 'Ícone' })
+    fireEvent.mouseDown(aba)
+    fireEvent.click(aba)
+  }
+
   it('abre na primeira entrada da barra, com o painel e o seletor de ícone dela', async () => {
     await renderPage()
+    // A aba inicial é Painel (`FOCO-30`), e o painel é o da entrada selecionada.
     expect(screen.getByText('Painel de “Materiais”')).toBeInTheDocument()
+
+    abaDoIcone()
     expect(screen.getByText('Ícone de “Materiais”')).toBeInTheDocument()
   })
 
   it('escolher o ícone grava a chave na categoria selecionada', async () => {
     await renderPage()
+    abaDoIcone()
     fireEvent.click(screen.getByTestId('icone-opcao-corrente'))
 
     await waitFor(() =>
@@ -446,6 +465,7 @@ describe('o painel e o ícone da entrada selecionada', () => {
 
   it('"sem ícone" grava `null` — não string vazia', async () => {
     await renderPage()
+    abaDoIcone()
     fireEvent.click(screen.getByTestId('icone-nenhum'))
 
     await waitFor(() => expect(hook.updateCategory).toHaveBeenCalledWith('materiais', { icon: null }))
@@ -487,5 +507,241 @@ describe('o item de link', () => {
     await renderPage()
     fireEvent.click(within(screen.getByTestId('item-sobre')).getByText('Sobre'))
     expect(await screen.findByText('Editar item de link')).toBeInTheDocument()
+  })
+})
+
+/**
+ * O card da entrada e o aviso de gravação — FOCO-29, 31, 33, 34 (feature 47).
+ *
+ * Os casos renderizam a PÁGINA real: o fio que costuma faltar é o entre o componente e quem o monta
+ * — apagar `<MenuEntryEditor/>` daqui tem de reprovar, e é isso que estes casos travam.
+ */
+describe('AdminMenuPage — o editor da entrada num lugar só', () => {
+  it('FOCO-28: com uma entrada selecionada, as três abas aparecem na tela', async () => {
+    await renderPage()
+
+    const card = screen.getByTestId('editor-da-entrada')
+    expect(within(card).getAllByRole('tab').map(t => t.textContent?.replace(/\d+$/, '').trim())).toEqual([
+      'Painel',
+      'Banners',
+      'Ícone',
+    ])
+  })
+
+  it('FOCO-29: a coluna da DIREITA tem só o palco — o seletor de ícone saiu de lá', async () => {
+    await renderPage()
+
+    const direita = screen.getByTestId('coluna-previa-menu')
+    expect(within(direita).getByTestId('palco-previa-menu')).toBeInTheDocument()
+    // O seletor de ícone agora mora dentro do card, na coluna da esquerda.
+    expect(within(direita).queryByTestId('editor-da-entrada')).toBeNull()
+    expect(within(direita).queryByRole('tab')).toBeNull()
+  })
+
+  it('FOCO-29: o card fica na coluna da ESQUERDA, junto da lista', async () => {
+    await renderPage()
+
+    const esquerda = screen.getByTestId('coluna-entradas')
+    expect(within(esquerda).getByTestId('editor-da-entrada')).toBeInTheDocument()
+  })
+
+  it('FOCO-33: "Salvando…" aparece no CABEÇALHO, ao lado do alternador de dispositivo', async () => {
+    // Uma gravação que não resolve enquanto o teste olha: é o único jeito de observar o estado
+    // intermediário sem cravar tempo.
+    let concluir: (v: unknown) => void = () => {}
+    hook.updateCategory.mockReturnValueOnce(new Promise(r => { concluir = r }))
+    await renderPage()
+
+    fireEvent.click(within(screen.getByTestId('filha-sangue')).getByRole('checkbox'))
+
+    const aviso = await screen.findByTestId('salvando')
+    expect(aviso).toHaveTextContent('Salvando…')
+    // No cabeçalho: o mesmo contêiner de ações onde vive o alternador de dispositivo.
+    expect(aviso.closest('[data-testid="superficie-desktop"]')).toBeNull()
+    expect(
+      aviso.parentElement?.querySelector('[data-testid="superficie-desktop"]'),
+    ).not.toBeNull()
+
+    concluir({ error: null })
+  })
+
+  it('FOCO-34: terminado, o aviso SOME do DOM — não fica um espaço reservado', async () => {
+    let concluir: (v: unknown) => void = () => {}
+    hook.updateCategory.mockReturnValueOnce(new Promise(r => { concluir = r }))
+    await renderPage()
+
+    fireEvent.click(within(screen.getByTestId('filha-sangue')).getByRole('checkbox'))
+    await screen.findByTestId('salvando')
+
+    concluir({ error: null })
+
+    // Ausência do nó, e não classe de invisibilidade: um `opacity-0` deixaria os vizinhos
+    // deslocados para sempre.
+    await waitFor(() => expect(screen.queryByTestId('salvando')).toBeNull())
+  })
+
+  it('FOCO-33: não sobrou aviso de gravação no FIM do documento', async () => {
+    let concluir: (v: unknown) => void = () => {}
+    hook.updateCategory.mockReturnValueOnce(new Promise(r => { concluir = r }))
+    const { container } = await renderPage()
+
+    fireEvent.click(within(screen.getByTestId('filha-sangue')).getByRole('checkbox'))
+    await screen.findByTestId('salvando')
+
+    // Era um `<p>` solto depois de três editores: com o corpo rolando, ele nascia fora da vista.
+    const paragrafos = Array.from(container.querySelectorAll('p')).filter(p =>
+      p.textContent?.includes('Salvando'),
+    )
+    expect(paragrafos).toEqual([])
+
+    concluir({ error: null })
+  })
+
+  it('FOCO-31: sem entrada selecionada, a mensagem de hoje continua no lugar do card', async () => {
+    await renderPage(CATALOGO.map(c => ({ ...c, menu_desktop: false, menu_mobile: false })))
+
+    expect(screen.getByTestId('sem-entrada-selecionada')).toBeInTheDocument()
+    expect(screen.queryByTestId('editor-da-entrada')).toBeNull()
+  })
+})
+
+/**
+ * As abas de vista no celular — FOCO-35, 36, 37 (feature 47).
+ *
+ * jsdom não mede layout, então "apenas a coluna escolhida aparece" se prova pelas **classes
+ * declaradas**: `hidden lg:flex` é a forma que esconde abaixo de `lg` e devolve as duas colunas
+ * acima dele.
+ */
+describe('AdminMenuPage — Entradas | Prévia abaixo de `lg`', () => {
+  const vistaAba = (qual: 'entradas' | 'previa') => screen.getByTestId(`vista-${qual}`)
+
+  it('FOCO-35: o alternador existe, com as duas vistas', async () => {
+    await renderPage()
+
+    const abas = within(screen.getByTestId('abas-vista')).getAllByRole('tab')
+    expect(abas.map(a => a.textContent)).toEqual(['Entradas', 'Prévia'])
+  })
+
+  it('FOCO-36: ele NÃO existe a partir de `lg` — escolher entre duas coisas à vista', async () => {
+    await renderPage()
+    // `lg:hidden` é o que faz o alternador sumir onde as duas colunas cabem.
+    expect(screen.getByTestId('abas-vista').className).toContain('lg:hidden')
+  })
+
+  it('abre em Entradas — é onde se edita', async () => {
+    await renderPage()
+
+    expect(vistaAba('entradas')).toHaveAttribute('aria-selected', 'true')
+    expect(vistaAba('previa')).toHaveAttribute('aria-selected', 'false')
+    expect(screen.getByTestId('coluna-entradas').className).not.toContain('hidden')
+    expect(screen.getByTestId('coluna-previa-menu').className).toContain('hidden lg:flex')
+  })
+
+  it('escolher Prévia troca a coluna exibida, e voltar desfaz', async () => {
+    await renderPage()
+
+    fireEvent.click(vistaAba('previa'))
+
+    expect(vistaAba('previa')).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByTestId('coluna-previa-menu').className).not.toContain('hidden')
+    expect(screen.getByTestId('coluna-entradas').className).toContain('hidden lg:flex')
+
+    fireEvent.click(vistaAba('entradas'))
+
+    expect(screen.getByTestId('coluna-entradas').className).not.toContain('hidden')
+    expect(screen.getByTestId('coluna-previa-menu').className).toContain('hidden lg:flex')
+  })
+
+  it('os alvos do alternador medem ≥ 44px', async () => {
+    await renderPage()
+
+    for (const aba of within(screen.getByTestId('abas-vista')).getAllByRole('tab')) {
+      expect(aba.className).toMatch(/(?:^|\s)min-h-11(?![-\w])/)
+    }
+  })
+
+  /**
+   * `FOCO-37` — os dois alternadores desta tela têm formas DIFERENTES.
+   *
+   * A régua é escrita como **predicado** e chamada duas vezes: pela asserção e pelo sensor. Sem
+   * isso, o sensor mediria uma régua parecida com a da asserção em vez da mesma.
+   */
+  const ehPilulaSegmentada = (classe: string): boolean =>
+    /(?:^|\s)bg-muted(?![-\w])/.test(classe) && /rounded/.test(classe)
+
+  const ehBarraSublinhada = (classe: string): boolean =>
+    /border-b/.test(classe) && !/(?:^|\s)bg-muted(?![-\w])/.test(classe)
+
+  it('FOCO-37: o de DISPOSITIVO é pílula; o de VISTA é barra sublinhada', async () => {
+    await renderPage()
+
+    const dispositivo = screen.getByRole('group', { name: 'Dispositivo do menu' })
+    const vista = screen.getByTestId('abas-vista')
+
+    expect(ehPilulaSegmentada(dispositivo.className)).toBe(true)
+    expect(ehBarraSublinhada(vista.className)).toBe(true)
+    // E não são a mesma forma: um diz o que estou editando, o outro o que estou vendo.
+    expect(ehPilulaSegmentada(vista.className)).toBe(false)
+  })
+
+  it('SENSOR: dois controles com a MESMA forma reprovam na mesma régua', async () => {
+    await renderPage()
+
+    const dispositivo = screen.getByRole('group', { name: 'Dispositivo do menu' }).className
+    // O que a tela teria se o alternador de vista tivesse copiado o molde da Home (pílula):
+    const vistaComoPilula = 'mb-4 flex gap-1 rounded-xl bg-muted p-1 lg:hidden'
+
+    expect(ehPilulaSegmentada(dispositivo)).toBe(true)
+    expect(ehPilulaSegmentada(vistaComoPilula)).toBe(true)
+    // As duas pílulas: é exatamente o par que `FOCO-37` recusa.
+    expect(ehBarraSublinhada(vistaComoPilula)).toBe(false)
+  })
+})
+
+/**
+ * A altura de tela — FOCO-13, feature 47.
+ *
+ * O corpo desta tela não tinha altura, então a prévia rolava junto com os três editores e saía da
+ * vista justamente enquanto se edita olhando para ela. O molde é o de `/admin/home`, **literalmente**
+ * — e é por isso que a régua lê as DUAS páginas do disco e as compara: se uma mudar a altura e a
+ * outra não, a régua reprova antes de as duas telas divergirem em silêncio.
+ */
+describe('AdminMenuPage — o corpo tem altura de tela (FOCO-13)', () => {
+  const AQUI = dirname(fileURLToPath(import.meta.url))
+  const fonteMenu = readFileSync(resolve(AQUI, 'AdminMenuPage.tsx'), 'utf8')
+  const fonteHome = readFileSync(resolve(AQUI, 'AdminHomePage.tsx'), 'utf8')
+
+  const alturaDe = (fonte: string) => fonte.match(/lg:h-\[calc\(100vh-[^\]]*\)\]/)?.[0] ?? ''
+
+  it('ÂNCORA: a varredura achou a declaração de altura nas DUAS páginas', () => {
+    expect(alturaDe(fonteHome)).not.toBe('')
+    expect(alturaDe(fonteMenu)).not.toBe('')
+  })
+
+  it('a altura do menu é a MESMA da Home — mesmo molde, um número só', () => {
+    expect(alturaDe(fonteMenu)).toBe(alturaDe(fonteHome))
+  })
+
+  it('a coluna da esquerda rola dentro de si, e o `min-h-0` é o que faz isso valer', () => {
+    // Lê as DUAS formas de declarar classe — `className="literal"` e `className={cn('literal', …)}`.
+    // A coluna passou à segunda quando ganhou o `hidden lg:flex` das abas de vista (`FOCO-35`), e a
+    // âncora abaixo é quem transformou isso em suíte vermelha em vez de régua medindo string vazia.
+    const trecho = fonteMenu.match(/data-testid="coluna-entradas"[\s\S]{0,300}?>/)?.[0] ?? ''
+    const coluna = [...trecho.matchAll(/'([^']*)'|className="([^"]*)"/g)]
+      .map(captura => captura[1] ?? captura[2])
+      .join(' ')
+
+    expect(coluna).not.toBe('')
+    expect(coluna).toContain('lg:overflow-y-auto')
+    // Sem `min-h-0`, um filho de flex/grid não encolhe abaixo do próprio conteúdo: a coluna
+    // empurraria a grade em vez de rolar, e o `overflow` nunca dispararia.
+    expect(coluna).toContain('min-h-0')
+    expect(coluna).toContain('min-w-0')
+  })
+
+  it('SENSOR: a declaração de hoje — grade SEM altura — reprova na mesma régua', () => {
+    const antiga = '<div className="grid gap-6 lg:grid-cols-[440px_minmax(0,1fr)]">'
+    expect(alturaDe(antiga)).toBe('')
+    expect(antiga).not.toContain('lg:overflow-y-auto')
   })
 })

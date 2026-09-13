@@ -46,14 +46,9 @@ import {
 } from '@estrelinha/core/menu'
 import type { AdminCategory } from '@/entities/category'
 import { uploadBannerImage } from '../lib/uploadBannerImage'
+import { bannersGravados } from '../model/bannersGravados'
 import { MINIMO_PARA_BUSCAR, useMenuProducts } from '../model/useMenuProducts'
 import { NOME_DA_SUPERFICIE } from '../model/superficie'
-
-/** Os banners crus de uma superfície, já sem o que não é objeto. */
-const listaDe = (raw: unknown, surface: MenuSurface): MenuBanner[] =>
-  menuBannerSlots(raw, surface).filter(
-    b => b !== null && typeof b === 'object' && !Array.isArray(b),
-  ) as MenuBanner[]
 
 const idDoAlvo = (target: MenuTarget | undefined): string =>
   target && (target.kind === 'category' || target.kind === 'product') ? target.id : ''
@@ -67,7 +62,7 @@ interface Props {
 }
 
 const MenuBannerEditor = ({ surface, host, categories, onSave }: Props) => {
-  const gravados = listaDe(host.menu_banners, surface)
+  const gravados = bannersGravados(host.menu_banners, surface)
   /** `null` = mostrando o que está no banco. Qualquer edição materializa o rascunho. */
   const [rascunho, setRascunho] = useState<MenuBanner[] | null>(null)
   const [recusa, setRecusa] = useState<string | null>(null)
@@ -158,8 +153,8 @@ const MenuBannerEditor = ({ surface, host, categories, onSave }: Props) => {
     // A superfície que não está sendo editada passa intacta: gravar só a lista corrente apagaria os
     // banners do outro dispositivo — e a dona só descobriria abrindo a loja no celular.
     const falha = await onSave({
-      desktop: surface === 'desktop' ? lista : listaDe(host.menu_banners, 'desktop'),
-      mobile: surface === 'mobile' ? lista : listaDe(host.menu_banners, 'mobile'),
+      desktop: surface === 'desktop' ? lista : bannersGravados(host.menu_banners, 'desktop'),
+      mobile: surface === 'mobile' ? lista : bannersGravados(host.menu_banners, 'mobile'),
     })
     setOcupado(false)
     if (falha) {

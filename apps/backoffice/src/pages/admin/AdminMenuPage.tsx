@@ -21,6 +21,7 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   AlertTriangle,
   ExternalLink,
+  Loader2,
   Menu as MenuIcon,
   Monitor,
   RefreshCw,
@@ -39,11 +40,9 @@ import {
 } from '@estrelinha/core/menu'
 import { reorderWithinParent } from '@/features/category-list'
 import {
-  MenuBannerEditor,
-  MenuIconPicker,
+  MenuEntryEditor,
   MenuLinkDialog,
   MenuLivePreview,
-  MenuPanelEditor,
   MenuSlotList,
   NOME_DA_SUPERFICIE,
   useMenuLinks,
@@ -104,6 +103,9 @@ const AdminMenuPage = () => {
   } = useMenuLinks()
 
   const [surface, setSurface] = useState<MenuSurface>('desktop')
+  // A vista do celular (`FOCO-35`). Abre em `entradas` porque é onde se edita: a prévia é para
+  // conferir o que já se decidiu.
+  const [vista, setVista] = useState<'entradas' | 'previa'>('entradas')
   const [activeId, setActiveId] = useState<string | null>(null)
   const [salvando, setSalvando] = useState(false)
   const [linkEmEdicao, setLinkEmEdicao] = useState<MenuLink | null>(null)
@@ -220,6 +222,21 @@ const AdminMenuPage = () => {
         icon={MenuIcon}
         actions={
           <>
+            {/* `FOCO-33` — o aviso de gravação fica ONDE SE CLICA. Ele morava no fim do documento,
+                depois de três editores: com o corpo rolando, ligar uma categoria no topo da lista
+                dava um segundo de silêncio e nenhuma confirmação à vista.
+                Sem espaço reservado (`FOCO-34`): o selo entra e sai, e os vizinhos não se mexem
+                porque ele está no fim da fila de ações, não entre elas. */}
+            {salvando && (
+              <span
+                data-testid="salvando"
+                role="status"
+                className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground"
+              >
+                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                Salvando…
+              </span>
+            )}
             <div
               role="group"
               aria-label="Dispositivo do menu"
@@ -279,8 +296,60 @@ const AdminMenuPage = () => {
       {loading ? (
         <TableSkeleton />
       ) : (
-        <div className="grid gap-6 lg:grid-cols-[440px_minmax(0,1fr)]">
-          <div className="flex flex-col gap-6">
+        /* Feature 47 — `FOCO-35`..`FOCO-37`. Abaixo de `lg` a tela ALTERNA entre a lista e a prévia,
+           como `/admin/home` faz desde a feature 24: sem isso, conferir o menu pelo telefone pedia
+           rolar por três editores até achar o palco.
+
+           **A forma é outra de propósito** (`FOCO-37`): aqui o alternador de vista nasce logo abaixo
+           de uma pílula segmentada (Computador/Celular), e dois controles de forma idêntica
+           empilhados leem como o mesmo controle duplicado. Um diz *o que estou editando*, o outro
+           *o que estou vendo* — a pílula fica com o primeiro, a barra sublinhada com o segundo. */
+        <>
+        <div
+          data-testid="abas-vista"
+          role="tablist"
+          aria-label="O que mostrar"
+          className="mb-4 flex gap-4 border-b border-border lg:hidden"
+        >
+          {(
+            [
+              ['entradas', 'Entradas'],
+              ['previa', 'Prévia'],
+            ] as const
+          ).map(([valor, rotulo]) => (
+            <button
+              key={valor}
+              type="button"
+              role="tab"
+              data-testid={`vista-${valor}`}
+              aria-selected={vista === valor}
+              onClick={() => setVista(valor)}
+              className={cn(
+                'min-h-11 border-b-2 px-1 text-sm font-semibold transition-colors',
+                vista === valor
+                  ? 'border-primary text-foreground'
+                  : 'border-transparent text-muted-foreground hover:text-foreground',
+              )}
+            >
+              {rotulo}
+            </button>
+          ))}
+        </div>
+
+        {/* **O molde literal de `/admin/home`**: altura de tela no corpo, a coluna da esquerda
+            rolando dentro de si, e o palco parado ao lado. Sem isso a prévia rolava junto com os
+            editores e saía da vista justamente enquanto se edita olhando para ela.
+            O `11rem` é o desconto do cabeçalho, copiado da Home — e é **suposição de altura**: os
+            dois `PageHeader` têm subtítulos de comprimentos diferentes, e um que embrulhe em duas
+            linhas faz o corpo estourar a viewport. Pende prova em navegador, em 1024 e em 1440. */}
+        <div className="grid gap-6 lg:h-[calc(100vh-11rem)] lg:grid-cols-[440px_minmax(0,1fr)]">
+          <div
+            data-testid="coluna-entradas"
+            className={cn(
+              'flex min-h-0 min-w-0 flex-col gap-6 lg:overflow-y-auto',
+              vista !== 'entradas' && 'hidden lg:flex',
+            )}
+          >
             <MenuSlotList
               surface={surface}
               items={items}
@@ -302,20 +371,17 @@ const AdminMenuPage = () => {
             />
 
             {host ? (
-              <>
-                <MenuPanelEditor
-                  surface={surface}
-                  host={host}
-                  categories={categories}
-                  onToggleChild={handleToggleChild}
-                />
-                <MenuBannerEditor
-                  surface={surface}
-                  host={host}
-                  categories={categories}
-                  onSave={handleBanners}
-                />
-              </>
+              /* `FOCO-28` — os três editores da entrada num card com abas, na MESMA coluna. Antes o
+                 seletor de ícone morava na coluna da direita, debaixo da prévia: configurar uma
+                 categoria pedia olhar para as duas colunas ao mesmo tempo. */
+              <MenuEntryEditor
+                surface={surface}
+                host={host}
+                categories={categories}
+                onToggleChild={handleToggleChild}
+                onSaveBanners={handleBanners}
+                onIcon={handleIcon}
+              />
             ) : (
               <div
                 data-testid="sem-entrada-selecionada"
@@ -327,7 +393,13 @@ const AdminMenuPage = () => {
             )}
           </div>
 
-          <div className="flex flex-col gap-6">
+          <div
+            data-testid="coluna-previa-menu"
+            className={cn(
+              'flex min-h-0 min-w-0 flex-col gap-6',
+              vista !== 'previa' && 'hidden lg:flex',
+            )}
+          >
             {/* A prévia é **a loja**, num iframe — não um desenho deste painel (`NAV-43`). O
                 dispositivo dela é a superfície em edição: o alternador do cabeçalho governa os dois
                 (`NAV-37`). `previaUnica.test.ts` recusa a volta de qualquer segundo desenho. */}
@@ -337,12 +409,9 @@ const AdminMenuPage = () => {
               links={links}
               openId={selectedId}
             />
-
-            {host && (
-              <MenuIconPicker itemName={host.name} value={host.icon ?? null} onChange={handleIcon} />
-            )}
           </div>
         </div>
+        </>
       )}
 
       <MenuLinkDialog
@@ -353,7 +422,6 @@ const AdminMenuPage = () => {
         onRemove={handleRemoveLink}
       />
 
-      {salvando && <p className="mt-4 text-xs text-muted-foreground">Salvando…</p>}
     </div>
   )
 }
