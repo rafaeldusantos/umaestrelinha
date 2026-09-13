@@ -6,6 +6,10 @@
 // deixou de fechar o bloco embaixo do dedo de quem digita.
 import { stripCep } from '../validators/cep'
 import { isValidDocument } from '../validators/document'
+// Feature `49`: a régua do e-mail passou a ter dono único. A edge function `checkout` a usa para
+// decidir se GRAVA o pedido — uma cópia aqui mais frouxa deixaria passar o que a tela recusou.
+import { isValidEmail } from '../validators/email'
+import type { CheckoutIdentity } from './identity'
 import type {
   BlockId,
   CheckoutDraft,
@@ -17,17 +21,28 @@ import type {
 
 const BLOCK_ORDER: BlockId[] = ['contact', 'delivery', 'payment']
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 const filled = (value: string) => (value ?? '').trim().length > 0
 
-/** CHK-03: nome não vazio, e-mail com formato válido e WhatsApp com 10 ou 11 dígitos. */
-export function isContactComplete(contact: ContactDraft): boolean {
+/**
+ * CHK-03: nome não vazio, e-mail com formato válido e WhatsApp com 10 ou 11 dígitos.
+ *
+ * `IDN-04`: e **a identidade resolvida**. Com o desafio de código pendente o bloco não completa —
+ * é o que mantém o CTA de pagar desabilitado até a pessoa provar que o e-mail é dela.
+ *
+ * A regra entra **aqui dentro**, e não ao lado, de propósito: `resolveFlow` é o dono único de
+ * "bloco completo", e um `&& !desafioPendente` na página seria um segundo dono — o defeito 01 com
+ * o CTA de dinheiro no meio. O parâmetro é **obrigatório** justamente para o `tsc` achar todo
+ * chamador; opcional com default silencioso é como se ganha a segunda verdade sem nada quebrar.
+ */
+export function isContactComplete(contact: ContactDraft, identity: CheckoutIdentity): boolean {
+  if (identity === 'challenge') return false
+
   const whatsappDigits = (contact?.whatsapp ?? '').replace(/\D/g, '')
 
   return (
     filled(contact?.name) &&
-    EMAIL_PATTERN.test((contact?.email ?? '').trim()) &&
+    isValidEmail(contact?.email) &&
     (whatsappDigits.length === 10 || whatsappDigits.length === 11)
   )
 }
@@ -68,9 +83,12 @@ export function isPaymentComplete(payment: PaymentDraft): boolean {
  * CHK-04: `open` é o **primeiro** bloco incompleto na ordem contact → delivery → payment,
  * e `null` quando os três estão completos. Por construção nunca há mais de um aberto.
  */
-export function resolveBlocks(draft: CheckoutDraft): { open: BlockId | null; complete: BlockId[] } {
+export function resolveBlocks(
+  draft: CheckoutDraft,
+  identity: CheckoutIdentity,
+): { open: BlockId | null; complete: BlockId[] } {
   const done: Record<BlockId, boolean> = {
-    contact: isContactComplete(draft.contact),
+    contact: isContactComplete(draft.contact, identity),
     delivery: isDeliveryComplete(draft),
     payment: isPaymentComplete(draft.payment),
   }
@@ -98,8 +116,9 @@ export function resolveBlocks(draft: CheckoutDraft): { open: BlockId | null; com
 export function resolveFlow(
   draft: CheckoutDraft,
   flow: FlowState,
+  identity: CheckoutIdentity,
 ): { open: BlockId | null; complete: BlockId[]; settled: BlockId[] } {
-  const { complete } = resolveBlocks(draft)
+  const { complete } = resolveBlocks(draft, identity)
 
   const settled = BLOCK_ORDER.filter(
     (id, index) =>
