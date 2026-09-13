@@ -123,9 +123,10 @@ Ao planejar/implementar features, use a Skill **`tlc-spec-driven`** com estas co
     **A `33` (sitemap), a `34` (painel de vendas), a `35` (clientes e pedidos da Nuvemshop), a `37`
     (frete grátis configurável), a `38` (performance no celular), a `39` (menu configurável), a
     `40` (estabilidade da home), a `41` (banner principal da home), a `44` (gaveta de material), a
-    `45` (as políticas da loja), a `46` (as perguntas frequentes da loja) e a `47` (painel em foco)
-    estão FECHADAS. A `36` (metadados e dados estruturados) tem **só `spec.md`** e não foi
-    implementada — o número está consumido de qualquer forma. A próxima é a `48`.**
+    `45` (as políticas da loja), a `46` (as perguntas frequentes da loja), a `47` (painel em foco) e
+    a `49` (checkout sem conta) estão FECHADAS. A `36` (metadados e dados estruturados) tem **só
+    `spec.md`** e não foi implementada — o número está consumido de qualquer forma. A `48` (usuários
+    do painel) é de **outra sessão** e tem spec própria. A próxima é a `50`.**
   - **A `46` e a `47` correram EM PARALELO, em worktrees separados**, e é o segundo caso do projeto
     (o primeiro, a `45`, dividiu uma working tree só). O que mudou: a divisão foi por **árvore**, não
     por arquivo — a `47` nasceu de um `git worktree` sobre o HEAD local e trouxe a `46` por
@@ -226,6 +227,7 @@ com as duas cópias divergindo, e quem descobre é a cliente ou o Google.
 | `41` | **a arte por dispositivo, que a `39` já tinha escrito duas vezes** — `menuBannerArt` em `core` e o mesmo predicado recalculado no painel por truthiness da string crua. Com o carrossel da Home os consumidores viraram quatro | `@estrelinha/core/media/surfaceArt.ts`, com `menuBannerArt` **delegando** e `surfaceArtSingleOwner.test.ts` recusando a volta (`AD-030`) |
 | `47` | **a folga entre o palco e o quadro da prévia**, declarada uma vez em cada palco (`HomeLivePreview.tsx:33` e `MenuLivePreview.tsx:31`). Mudar uma e não a outra fazia as duas prévias escalarem diferente — build, `tsc` e teste de componente verdes | `previewFrame(device, box, fullscreen)` em `@estrelinha/core/home`, que recebe a **caixa** e aplica a folga dentro de `core`; `folgaDoPalco.test.ts` recusa a volta, inclusive na forma sem nome |
 | `39` | **o DESENHO do menu, de novo** — `MenuBarPreview.tsx` redesenhava a barra do topo à mão no painel, com a paleta do admin, e anunciava `/crie-seu-botton`, que **nunca foi rota**. É o mesmo defeito que a `25` apagou da Home; no menu ele nunca tinha saído. E, ao lado dele, o **papel** de cada categoria (barra × painel), que uma coluna nova teria dessincronizado no primeiro "mover categoria" | a prévia É a loja, num iframe (`MenuLivePreview`), e o papel é **derivado da árvore** dentro de `menuItems(input, surface)` — a porta única das quatro superfícies |
+| `49` | **três donos de uma vez, e o pior deles ainda não existia.** (1) "Este e-mail pode seguir como convidada?" ia nascer **duas vezes** — uma na tela, para mostrar o desafio de código, outra no servidor, para recusar a gravação —, e divergir faria a loja deixar passar quem o servidor recusa. (2) "Como nasce um pedido" ia ficar com **dois caminhos**, o `insert` do navegador para quem tem sessão e a function para a convidada. (3) `corsHeaders` já estava escrito **três vezes** nas edge functions, e a function nova seria a quarta | `resolveCheckoutIdentity` em `@estrelinha/core/checkout`, chamado igual pela tela e pelo servidor; **uma** function grava todos os pedidos, com `pedidoComDonoUnico.test.ts` recusando a volta; e `_shared/http.ts`, de onde as outras **reexportam** (`toBe`, não `toEqual`) |
 
 Consequências práticas, nesta ordem:
 
@@ -342,6 +344,12 @@ migrations, e `vercelRedirects` lê o `vercel.json`.
 | `heroCarouselSemOpacidadeZero.test.ts` | store `widgets/hero-carousel/ui/__tests__` | a mesma régua no bloco da `41`, em **cinco grafias**: objeto do framer, `style` inline, classe utilitária (`opacity-0` e `opacity-[0]`, com prefixo), `invisible`, e as **animações de entrada** — o `fade-in` do `tailwindcss-animate` **e** o `animate-fade-in`/`animate-scale-in`/`animate-slide-up` do preset deste repositório, que compilam para opacidade zero e **não contêm a palavra `opacity`**. Varre o widget **e o registro `tipo → componente`**, porque a AC diz "em nenhum ponto do caminho até ele". **Âncora quádrupla** (a quarta lê o preset e prova que as classes acusadas EXISTEM mesmo) e dezesseis sensores, incluindo o par que prova que `opacity: 0.5`, `opacity-70`, `fade-in-50`, `zoom-in-95`, `animate-bounce-cart` e `bg-…/90` **não** são o defeito |
 | `surfaceArtSingleOwner.test.ts` | store `shared/lib/__tests__` (varre `apps/**` e `packages/**`) | qualquer arquivo de produção fora de `core/media/surfaceArt.ts` decidir **entre a arte de celular e a de computador** — `\|\|`, `??` ou ternário, **inclusive quebrados em linhas**, que é a forma que o Prettier produz sozinho. A régua exige **uma de cada superfície**: a primeira escrita acusou `CollectionFeature.tsx:55`, que é outra regra ("a arte do item vence a do destino") e legítima. Também recusa o dono **deixar de ser chamado** por `core/menu` e `core/home`. Pega também as formas **sem operador nenhum**: o array das duas artes e a reatribuição condicional (`if (!image) image = …`). **Âncora dupla** e treze sensores — o ternário cuja condição é a superfície (a forma que a primeira régua deixava passar, e exatamente como `menuBannerImage` estava escrito), o `\|\|` quebrado em linhas, o CRLF, o LF, o glob de dois asteriscos (`BL-027`), e os três pares que provam que linhas vizinhas de objeto, `if` com **outra** variável e **lista de nomes de campo** não são acusados — este último achado contra `MenuBannerEditor.tsx:103`, que percorre nomes de coluna para limpar campo vazio |
 | `importSchema.test.ts` | store `shared/lib/__tests__` | a migration da `35` afrouxar: índice de idempotência virar parcial; `security_invoker` sumir de `customer_directory`; o agregado de telefone da convidada perder o `FILTER (WHERE … IS NOT NULL)`; `handle_new_customer` perder o `security definer`; a adoção por e-mail deixar de recortar `customer_id IS NULL` ou de comparar por `lower()`; `grant` alcançar `anon`. **Cada asserção tem sensor por mutação** |
+| `checkoutSchema.test.ts` | store `shared/lib/__tests__` | a migration da `49` afrouxar: coluna sem `if not exists`; o índice de `client_request_id` deixar de ser único **ou** deixar de ser parcial; `account_exists` perder o `security definer` ou o `search_path` vazio; a comparação deixar de ser por `lower()`; `grant` alcançar `anon`; a migration passar a escrever dado. **E guarda uma dependência que ela NÃO escreve**: o `WHERE NOT EXISTS` de `customer_directory` (migration `35`), que é o que impede a convidada de aparecer **duas vezes** na tela de Clientes agora que ela vira `customers` de verdade. **Cada asserção tem sensor por mutação** |
+| `pedidoComDonoUnico.test.ts` | idem (varre `apps/store/**` e `apps/backoffice/**`) | qualquer arquivo de produção gravar em `orders` ou `order_items` pelo PostgREST — desde a `49` quem grava é a edge function `checkout`, e as policies de `INSERT` continuam abertas no banco de propósito (`BL-030`), então **este guarda é a única contenção**. **Zero allowlist**, âncora dupla, e sensores que provam: as duas formas de gravação (compacta e quebrada em linhas), que **ler** não é acusado, que um `insert` em outra tabela no meio não é atribuído a `orders`, e o removedor de comentário com CRLF e LF |
+| `orderAccessSingleOwner.test.ts` | idem | qualquer arquivo fora de `entities/order/model/orderAccess.ts` citar `estrelinha-order-access` — o token é a **única** credencial de um pedido de convidada, e uma segunda leitura à mão faria a confirmação abrir vazia logo depois de ela pagar; o dono trocar `localStorage` por `sessionStorage` (fechar a aba apagaria o caminho de volta) |
+| `desafioDeCodigoUnico.test.ts` | idem | um segundo campo de 6 dígitos em `apps/store/**` fora de `features/auth/ui/steps` — com o passo existente vêm o reenvio, o cooldown de 60s e a distinção entre código errado e expirado. **Tem o sentido positivo junto**: o desafio do checkout precisa **conter** `AuthCodeStep`, senão a ausência de um segundo campo seria verdadeira por não haver campo nenhum |
+| `denoReach.test.ts` | `packages/core/src/checkout/__tests__` | um especificador relativo sem `.ts` — `import type` incluso — nos arquivos que a edge function importa por caminho (`identity.ts`, `guestAccess.ts`), ou um import de React/Supabase/Deno neles. O barrel fica **fora do escopo**, com a razão escrita no arquivo. Leitor injetável, com sensor de `import type`, do par com extensão, de CRLF e do removedor de comentário — que **reprovou o próprio arquivo certo** na primeira escrita, porque o cabeçalho dele cita `from './types'` em prosa |
+| `http.test.ts` | `supabase/functions/_shared/__tests__` | uma segunda **declaração** de `corsHeaders` nas functions (eram TRÊS, idênticas, até a `49`); `mercado-pago` ou `send-notification` deixarem de reexportar a MESMA referência — a asserção é `toBe`, e não `toEqual`, porque igualdade estrutural passaria com uma cópia colada |
 | `originZipNotRead.test.ts` | backoffice `shared/lib/__tests__` | qualquer arquivo de `apps/**` ler `store_settings.shipping.origin_zip` — o campo é LEGADO e a origem da cotação é o `postal_code` do secret `MELHOR_ENVIO_SENDER_JSON`. Deixá-lo configurável na tela faria a origem da COTAÇÃO e a da ETIQUETA poderem divergir. **Âncora dupla** |
 | `quotePayload.test.ts` | `packages/core/src/shipping/__tests__` | `insurance_value` deixar de ser **por unidade** — a API do Melhor Envio já multiplica por `quantity`, e multiplicar aqui segura a carga pelo **quadrado** dela. Carrega **sensor embutido**: assere que a fórmula antiga do backoffice reprova na mesma régua |
 | `provenanceNotRead.test.ts` | backoffice `shared/lib/__tests__` | qualquer arquivo de `apps/**` ler `nuvemshop_status`, `nuvemshop_payment_status` ou `nuvemshop_shipping_status` — as colunas cruas do import são **proveniência**, e lê-las daria duas respostas para "este pedido foi pago?". **Âncora dupla** |
@@ -408,7 +416,41 @@ quando mudarem de verdade.
 | --- | --- | --- |
 | **Lint** | **27 erros / 6 warnings** — backoffice 25/4 · store 2/2 | `pnpm lint` |
 | **Tipos** | **0 · 0 · 0** (store · backoffice · catalog-import) | `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` |
-| **Testes** | **8479 em 447 arquivos** — store **3128/203** · backoffice **2204/129** · core **2199/84** · functions **436/8** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test` |
+| **Testes** | **8753 em 463 arquivos** — store **3260/212** · backoffice **2228/129** · core **2235/87** · functions **518/12** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test` (store e backoffice com `--testTimeout=20000`) |
+
+**A feature `49` (checkout sem conta) somou +250 em três workspaces**, medidos em 2026-09-13 um por
+vez e com exit code capturado fora de pipe, no worktree `49-checkout-sem-conta`: **store +132/+9**
+(o convite, o desafio inline, `orderAccess`, `buildOrderPayload` e quatro guardas novos), **core
++36/+3** (`identity`, `guestAccess`, a identidade em `isContactComplete` e o guarda de alcance do
+Deno) e **functions +82/+4** (a function `checkout` inteira, a segunda prova de posse do
+`create-payment` e o dono único do CORS). Lint ficou em **27/6** e tipos em **0**; `pnpm build`
+verde nos dois apps, e `packages/core/src/payment/**` sem uma linha alterada — conferido por
+`git status --porcelain`.
+
+> ⚠️ **A linha do BACKOFFICE mudou sem esta feature encostar nele**, e o registro importa mais que
+> o número: a tabela dizia **2204/129** e o medido é **2228/129**, com `git status` e
+> `git diff --name-only HEAD -- apps/backoffice packages/ui` devolvendo **zero** arquivo. O `+24`
+> **não é desta feature** — é baseline envelhecida, a **quarta** ocorrência seguida (a `45` achou
+> três linhas velhas, a `46`, a `47` achou quatro). O total anterior de `8479` portanto nunca
+> existiu na árvore. O número acima é **medido**, não somado.
+
+> **Três ACs seriam FALSAS com o plano cumprido à risca**, e as três só apareceram ao implementar:
+>
+> 1. **`CSC-05` — a convidada nunca receberia a aprovação do PIX.** Ela é detectada por Supabase
+>    Realtime, que **respeita RLS**, e a única policy de `SELECT` em `orders` é `TO authenticated`
+>    (conferido no banco). Quem compra sem conta é `anon`: o canal conecta, o filtro casa e o
+>    payload **nunca chega** — sem erro nenhum. Ela pagaria e ficaria na tela do QR para sempre.
+> 2. **`CSC-08` — o pedido órfão não seria pagável.** Com `customer_id` nulo, `buildPayer` não acha
+>    CPF e o `create-payment` devolve 422 `missing_payer_cpf`: o pedido existiria, a cliente teria o
+>    token, e o pagamento seria recusado por falta de um documento que ela já informou. O recuo para
+>    `orders.customer_document` é o que torna a promessa verdadeira.
+> 3. **`PED-04` — a retentativa devolveria o pedido SEM o acesso.** A retentativa que importa é
+>    aquela em que a primeira resposta se perdeu na rede: o pedido foi gravado, o token foi emitido
+>    e a cliente nunca o recebeu. O servidor guarda só o hash, então ele **reemite** e substitui —
+>    quem chega ali apresentou o mesmo `client_request_id`, a mesma prova que autorizou a criação.
+>
+> As três têm a mesma assinatura: **a peça que o plano descreve funciona, e o CAMINHO não fecha.**
+> Nenhuma apareceria num teste de unidade das peças — só ao perguntar "e depois, o que acontece?".
 
 **O conserto da posição dos alvos de toque somou +16 em UM workspace**, medidos em 2026-09-13 com
 exit code capturado fora de pipe: **store 3111/202 → 3128/203** (o guarda novo, 14, e os dois casos
@@ -469,6 +511,16 @@ e `packages/core/src/payment/**` sem uma linha alterada.
 > Vite do painel, montando o diálogo com 66 entradas, e o Chromium medindo `gridTemplateColumns`.
 > Vale como método para o próximo defeito de layout — **o guarda que sobra depois lê o fonte do
 > disco, porque é o que jsdom alcança**.
+
+> ⚠️ **A suíte da LOJA também precisa de `--testTimeout=20000`** — achado da `49`, e o `CLAUDE.md`
+> registrava isso só para o painel. Sem o teto maior, **seis casos reprovam em três arquivos que
+> varrem disco** (`routes`, `accentText`, `touchTarget`), todos com `Test timed out in 5000ms`, e
+> **o arquivo muda a cada execução** — a assinatura de contenção. Com o teto: **3128/203, exit 0**,
+> na mesma árvore em que a execução anterior tinha reprovado. Os três passam isolados.
+>
+> A armadilha é de diagnóstico: a primeira leitura desta feature concluiu "não são timeouts" porque
+> o `grep` foi feito no **arquivo de saída do comando em background** (11 linhas, só o resumo) em
+> vez do log completo. Antes de investigar uma reprovação, confira a mensagem no log inteiro.
 
 > ⚠️ **A suíte do backoffice precisa de `--testTimeout=20000` para ser medida com confiança**, e isso
 > é achado da `46`, não preferência. Os guardas que varrem disco (`SlugField`, `CategoryInspector`)
@@ -1002,6 +1054,34 @@ completo (framework, `installCommand` na raiz do monorepo, headers de cache e de
   os identificadores não.
 
 ## Estado conhecido / dívidas
+
+- **A CONTA DA CONVIDADA NASCE SEM SENHA, e da 2ª compra em diante ela cai no desafio de código**
+  (feature `49`, `AD-034`). É consequência direta da decisão do usuário, apresentada com o custo e
+  aceita: o e-mail passa a existir em `auth.users` no fecho da primeira compra, então a consulta de
+  `identify` responde "tem conta" na seguinte. **A primeira compra fica sem parede nenhuma**; da
+  segunda em diante são 6 dígitos. Se o atrito se mostrar caro, a saída seria distinguir "conta que
+  já entrou" de "conta criada por compra" — um segundo dono de "tem conta?", e por isso fora de
+  escopo agora.
+- **A `49` NÃO tem prova em navegador**, e ela entra na fila de `32`…`47`. Falta medir em 390×844 e
+  1440: o convite `SignInInvite` embrulhando (é `flex-wrap`, e jsdom devolve 0 para toda medida de
+  layout), o alvo de 44px sob o dedo, o desafio de código dentro do bloco Contato sem empurrar o CTA
+  para fora da dobra, e o percurso inteiro em aba anônima — `/carrinho` → `/pedido/:id` aprovado.
+  **O que jsdom alcançou está provado**; o que ele não mede é proxy de forma.
+- **A `49` também não tem `validation.md` nem verificador independente.** Os guardas novos tiveram a
+  sensibilidade provada por injeção real (inclusive um que reprovou o próprio arquivo certo, e foi
+  consertado por isso), e a migration foi provada por **probe contra o banco local** — sete
+  comportamentos de `account_exists`, as três colunas e o índice parcial. Mas ninguém conferiu a
+  feature contra a spec com olhos frescos.
+- **A enumeração de e-mail é risco aceito e declarado** (`IDN-09`). A ação `identify` responde "este
+  e-mail tem conta?" com teto de 20 por IP em 5 minutos, e `account_exists` é fechada a `anon`. O
+  risco **já existia**: com a anon key publicada no bundle,
+  `signInWithOtp({ shouldCreateUser: false })` do navegador responde a mesma pergunta. O que muda é
+  que agora fica barato — e a agravante é que, com a conta de convidada, a resposta passa a
+  significar "este e-mail já comprou aqui".
+- **`BL-030`, `BL-031` e `BL-032` nasceram da `49`**, todas fora do escopo por decisão: as policies
+  de `INSERT` em `orders` continuam abertas no banco (a janela de deploy custaria venda),
+  `order_number` segue com prefixo da marca anterior e sem índice único, e os dois hooks de gravação
+  client-side ficaram sem consumidor.
 
 - **A `47` NÃO tem prova em navegador, e nela isso pesa mais que a média**: o que a feature entrega é
   **largura** (440 × 872), **escala** (81% e 100%) e **altura de corpo**, e jsdom devolve 0 para toda

@@ -761,6 +761,40 @@
 - **Date**: 2026-09-11
 - **Status**: active
 
+### AD-034
+- **Decision**: **O checkout de convidada CRIA conta sem senha, e o pedido nasce com dono.** A
+  partir da feature `49` não há portão de autenticação em `/checkout`: quem não tem sessão preenche
+  contato, entrega e pagamento e fecha a compra. No fecho, a edge function `checkout` grava o
+  pedido, **depois** cria a conta (`auth.admin.createUser`, `email_confirm: false`, sem senha) e
+  **depois** liga as duas. A identidade é decidida por `resolveCheckoutIdentity`, em
+  `@estrelinha/core/checkout`, que a tela e o servidor chamam **igual**: e-mail que já tem conta e
+  nenhuma sessão ⇒ desafio de código, inline no bloco Contato.
+- **Reason**: `CHK-02` trancava o caixa e escrevia "Você precisa estar logada para finalizar a
+  compra" — uma etapa entre decidir comprar e pagar, em ~90% de acessos de celular. Numa loja
+  memorial isso cobra burocracia de quem acabou de perder alguém. A conta sem senha é o que faz o
+  pedido ter dono desde o primeiro minuto: `/conta` funciona assim que ela entrar por código, sem
+  nenhum passo de migração.
+- **Trade-off**: **Da 2ª compra em diante a mesma pessoa cai no desafio de código**, porque o e-mail
+  dela passa a existir em `auth.users`. Apresentado ao usuário com o custo escrito e **aceito**. A
+  alternativa (ficha em `customers` sem `user_id`, com o desafio só para quem já entrou alguma vez)
+  manteria toda compra de convidada sem parede, e foi recusada. Se o atrito se mostrar caro, a saída
+  seria distinguir "conta que já entrou" de "conta criada por compra" — o que é um segundo dono de
+  "tem conta?", e por isso não entra agora.
+- **Relação com `AD-023`**: ela **NÃO é superseded**. A lista de clientes continua sendo a view
+  `customer_directory`, que é o ponto dela. O que foi **estreitado** é o trade-off escrito nela —
+  *"criar linha em `customers` para cada convidada … daria a ela um cadastro que ela nunca pediu"*:
+  a partir da `49` a convidada pede, implicitamente, ao comprar, e a escrita deixou de existir para
+  responder uma pergunta de leitura (ela existe para o pedido ter dono e para `buildPayer` ter uma
+  fonte só de CPF). **O ramo derivado da view continua necessário** — pedido importado da Nuvemshop
+  e pedido órfão de `CSC-08` — e o `WHERE NOT EXISTS` dela é o que impede a mesma pessoa de aparecer
+  duas vezes, agora que os dois ramos podem conter o mesmo e-mail. `checkoutSchema.test.ts` assere
+  esse recorte lendo a migration da `35` do disco.
+- **Scope**: `supabase/functions/checkout/**`, `supabase/migrations/20260913120000_49-*.sql`,
+  `packages/core/src/checkout/{identity,guestAccess}.ts`, `apps/store/src/pages/CheckoutPage.tsx`,
+  `apps/store/src/features/checkout/**`, `apps/store/src/entities/order/**`
+- **Date**: 2026-09-13
+- **Status**: active
+
 ## Handoff
 
 ### ATUAL — 2026-09-12 · `47-painel-em-foco` **IMPLEMENTADA — T1..T19 concluídas**

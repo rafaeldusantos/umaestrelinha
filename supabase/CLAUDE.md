@@ -153,6 +153,7 @@ assere.
 | `google-feed` | `false` | o feed RSS 2.0 do Merchant Center |
 | `product-page` | `false` | a página do produto servida com JSON-LD no `<head>` |
 | `sitemap` | `false` | `/sitemap.xml` — 719 URLs canônicas, lidas com a chave **publicável** |
+| `checkout` | `false` | cria **todo** pedido (convidada e logada), responde "este e-mail tem conta?" e devolve o pedido da convidada |
 
 **`verify_jwt = true` seria teatro de segurança** onde está `false`: a anon key publicada no `.env` da
 loja é um JWT válido que qualquer pessoa lê no bundle. Onde há papel a exigir, a checagem é **manual**
@@ -236,6 +237,42 @@ parece uma loja menor. `handlers.test.ts` assere a ausência do elemento em cada
 hospedado: a function responde `application/xml; charset=utf-8` e o gateway entrega **`text/plain`**,
 com `nosniff` e o `Cache-Control` intacto. **A reescrita do gateway não é específica de `text/html`**
 — era a pergunta que a `AD-021` deixou aberta, e a resposta é essa.
+
+### `checkout` — o pedido nasce aqui (feature `49`, `AD-034`)
+
+Três ações: `identify`, `create-order`, `get-order`. **É a única porta que grava pedido** — para
+convidada e para quem tem sessão.
+
+- **`verify_jwt = false` aqui NÃO é teatro de segurança**, ao contrário das outras cinco: a
+  convidada **não tem JWT nenhum**, por definição. Quem autoriza é o handler — a sessão quando
+  existe, o token de posse do pedido quando não.
+- **A ORDEM das escritas é requisito** (`CSC-08`): identidade → (recusa) → `orders` + `order_items`
+  → conta → vínculo → CPF e endereço. Criar a conta **antes** do pedido deixaria uma conta órfã
+  depois de uma falha de rede, e a **próxima** tentativa da mesma pessoa cairia num desafio de
+  código por um pedido que ela nunca fez. Nesta ordem, o que sobra de uma falha é um pedido órfão —
+  que `customer_directory` e `handle_new_customer` já tratam desde a `35`.
+- **Falha de identidade nunca derruba a venda.** GoTrue fora do ar ⇒ o pedido continua gravado,
+  pagável e órfão, **e o token de acesso é devolvido assim mesmo**. Sem o token, o pedido existiria
+  e ninguém poderia pagá-lo.
+- **A regra de identidade não mora aqui**: vem de `packages/core/src/checkout/identity.ts`, a mesma
+  linha que a tela chama. `IDN-02` (mostrar o desafio) e `IDN-08` (recusar a gravação) são a mesma
+  pergunta — escritas duas vezes, a tela deixaria seguir quem o servidor recusa.
+- **O token de posse vai para o banco só como SHA-256** (`orders.guest_access_hash`, 7 dias). O
+  texto puro vive só no navegador de quem comprou, e um dump do banco não dá acesso a pedido nenhum.
+  `accessGrant` (em `core`) recusa por **ausência** de hash também — pedido criado com sessão não
+  tem nenhum, e sem esse recorte um token vazio contra um hash vazio passaria.
+- **`identify` tem teto de 20 por IP em 5 minutos, e sem IP LIBERA.** Todo mundo no mesmo balde
+  faria um visitante esgotar o limite da loja inteira; a fronteira de segurança é a recusa de
+  `create-order`, não este número.
+- **`public.account_exists(text)` é a única leitura de `auth.users`**, `security definer`, com
+  `execute` só para `service_role`. Aberta a `anon`, ela viraria um enumerador de e-mail com a anon
+  key publicada no bundle, **por fora** do teto por IP.
+- **`create-payment` ganhou uma SEGUNDA prova de posse**, e só isso: `JWT do dono` **ou**
+  `access_token daquele pedido`. Preço, `buildPayer` e webhook não foram tocados —
+  `packages/core/src/payment/**` fechou a feature sem uma linha alterada.
+  - A única mudança adjacente é o recuo do pagador para `orders.customer_document` quando não há
+    ficha. **Sem ele, `CSC-08` seria falso**: o pedido órfão existiria, a cliente teria o token, e o
+    pagamento seria recusado com 422 por falta de CPF que ela já informou.
 
 ### `melhor-envio` — cotação e etiquetas
 

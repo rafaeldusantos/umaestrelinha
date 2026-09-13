@@ -1258,3 +1258,78 @@ Saídas possíveis, sem decisão tomada:
 3. Atacar os 76 KB de `index.js` primeiro, que são código nosso e não têm o risco do item 1.
 
 **A medida vem antes da escolha**: nenhuma das três foi medida contra este catálogo.
+
+---
+
+## BL-030 — As policies de INSERT em `orders`/`order_items` sobreviveram à mudança de gravador
+
+**Aberto por**: feature `49`, 2026-09-13. **Fora do escopo dela por decisão, não por esquecimento.**
+
+Desde a `49` quem grava pedido é a edge function `checkout`, com service role. As policies antigas
+continuam no banco:
+
+```
+"users insert own orders"       on public.orders       to authenticated
+"users insert own order items"  on public.order_items  to authenticated
+```
+
+Elas **deixaram de ser usadas** — nenhum arquivo de `apps/**` grava nessas tabelas, e
+`pedidoComDonoUnico.test.ts` recusa a volta. O que sobra é a **possibilidade**: enquanto a porta do
+banco estiver aberta, um segundo gravador pode nascer sem que a RLS o impeça.
+
+**Por que não foram derrubadas junto:** entre o `db push` e o deploy da Vercel há minutos em que uma
+aba já aberta ainda insere pelo caminho antigo — os dois workflows correm em paralelo. Derrubar as
+policies no mesmo commit que troca o gravador transformaria essa janela em **venda perdida**, e é a
+mesma razão pela qual a `39` converteu `show_in_menu` em coluna gerada em vez de apagá-la.
+
+**Quando fechar**: numa migration posterior, depois de um deploy da loja já estar no ar. Ela é de
+uma linha por policy (`drop policy … on public.orders`), e o guarda que já existe cobre o código.
+
+---
+
+## BL-031 — `orders.order_number` é gerado por relógio de milissegundo, sem índice único
+
+**Aberto por**: feature `49`, 2026-09-13, ao mover a geração do navegador para o servidor.
+**Comportamento PRESERVADO de propósito** — a feature trocou quem gera, não como.
+
+A expressão é `NP-${Date.now().toString(36).toUpperCase()}`, e tem dois problemas independentes:
+
+1. **`NP-` são as iniciais da marca ANTERIOR** (NanaPin). `brandScan.test.ts` não o alcança porque
+   é abreviação, não o nome. Trocá-lo muda a numeração que a Adri vê no painel e que aparece no
+   e-mail da cliente: é decisão de operação, não arrumação de código.
+2. **Dois pedidos no mesmo milissegundo recebem o mesmo número**, e `orders.order_number` é `text`
+   **sem índice único**. Hoje a colisão é improvável (o volume é baixo) e **silenciosa** quando
+   acontece: o segundo pedido grava normalmente e as duas linhas passam a se chamar igual, o que
+   quebra a busca do painel e a referência que a cliente cita no WhatsApp.
+
+Os pedidos importados da Nuvemshop usam outro prefixo (`NS-`), então a coexistência é intencional e
+não precisa mudar.
+
+**Saída provável**: uma sequência no banco (ou `gen_random_uuid()` encurtado) mais um índice único,
+numa migration que também decida o prefixo. As duas coisas juntas, porque mudar o formato sem o
+índice deixa o problema 2 de pé.
+
+---
+
+## BL-032 — `useSaveCustomerCpf` e `useSaveAddress` ficaram sem consumidor de produção
+
+**Aberto por**: feature `49`, 2026-09-13.
+
+O CPF do pagador e o endereço passaram a ser gravados pela edge function `checkout`, no mesmo fluxo
+que grava o pedido (`PED-08`, `ADR-G1`) — para convidada **e** para quem tem sessão. Os dois hooks
+que faziam isso pelo navegador continuam exportados por `entities/customer` e `entities/address`, e
+**nenhuma tela os chama**.
+
+É o padrão que este repositório já pagou caro (`deleteSection` viveu uma feature inteira exportado e
+sem consumidor): código morto que parece vivo é o que a próxima tela importa por engano — e aqui o
+engano teria consequência, porque daria um **segundo gravador** de `customers.cpf`, divergindo do
+servidor sem que nada quebrasse.
+
+**Não foram removidos junto** porque `useDefaultAddress` importa o tipo `AddressFields` de
+`useSaveAddress`: a remoção é de 4 arquivos (mover o tipo, ajustar dois barris, apagar dois testes
+com 21 casos) e não avança nenhuma AC da `49`. Embutir isso no commit que troca o caminho do
+dinheiro aumenta risco sem retorno.
+
+**Ao fechar**: mover `AddressFields` para um módulo de tipo, apagar os dois hooks e os dois arquivos
+de teste, e declarar a queda de contagem (−21) com a contrapartida — a cobertura equivalente está em
+`supabase/functions/checkout/__tests__/createOrder.test.ts`.
