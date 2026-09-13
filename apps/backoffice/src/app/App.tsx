@@ -22,6 +22,8 @@ import AdminGoogleShoppingPage from "@/pages/admin/AdminGoogleShoppingPage";
 import AdminClientsPage from "@/pages/admin/AdminClientsPage";
 import AdminClientPage from "@/pages/admin/AdminClientPage";
 import AdminSettingsPage from "@/pages/admin/AdminSettingsPage";
+import AdminUsersPage from "@/pages/admin/AdminUsersPage";
+import AdminAccountPage from "@/pages/admin/AdminAccountPage";
 import AdminCouponsPage from "@/pages/admin/AdminCouponsPage";
 import AdminCouponFormPage from "@/pages/admin/AdminCouponFormPage";
 import AdminPromotionsPage from "@/pages/admin/AdminPromotionsPage";
@@ -89,7 +91,11 @@ const App = () => (
             <Route path="/admin/perguntas-frequentes" element={<AdminStoreFaqPage />} />
             <Route path="/admin/google-shopping" element={<AdminGoogleShoppingPage />} />
 
+            {/* Rodapé da sidebar — administração do sistema, não um dos quatro eixos da loja.
+                A ordem segue `footerNavItems`: a loja → o sistema → eu (feature 48). */}
             <Route path="/admin/configuracoes" element={<AdminSettingsPage />} />
+            <Route path="/admin/usuarios" element={<AdminUsersPage />} />
+            <Route path="/admin/conta" element={<AdminAccountPage />} />
           </Route>
 
           <Route path="*" element={<NotFound />} />

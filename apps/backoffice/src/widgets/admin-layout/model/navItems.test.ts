@@ -204,9 +204,56 @@ describe('navGroups — os quatro eixos', () => {
     expect(allItems.map(i => i.to)).not.toContain('/admin/produtos/grade-rapida')
   })
 
-  it('Configurações fica no rodapé, fora dos grupos', () => {
-    expect(footerNavItems.map(i => i.to)).toEqual(['/admin/configuracoes'])
-    expect(allItems.map(i => i.to)).not.toContain('/admin/configuracoes')
+  it('o rodapé tem TRÊS destinos, na ordem "a loja → o sistema → eu" (feature 48)', () => {
+    // A lista foi REESCRITA, e não afrouxada para `toContain`: a feature 48 mudou o comportamento,
+    // então a asserção acompanha e ganha vizinhas (os dois casos abaixo). É a mesma régua que a 30 e
+    // a 46 aplicaram ao grupo `Loja`.
+    expect(footerNavItems.map(i => i.to)).toEqual([
+      '/admin/configuracoes',
+      '/admin/usuarios',
+      '/admin/conta',
+    ])
+    expect(footerNavItems.map(i => i.label)).toEqual([
+      'Configurações',
+      'Usuários do painel',
+      'Minha conta',
+    ])
+  })
+
+  it('nenhum destino do rodapé aparece também nos grupos', () => {
+    for (const item of footerNavItems) {
+      expect(allItems.map(i => i.to)).not.toContain(item.to)
+    }
+  })
+
+  it('USR-36: os dois destinos novos NÃO entram em `navGroups`', () => {
+    // Não são um dos quatro eixos por fila: ninguém abre o painel de manhã para conferir quem tem
+    // acesso. Pô-los num grupo daria a eles a mesma frequência visual de Pedidos.
+    expect(allItems.map(i => i.to)).not.toContain('/admin/usuarios')
+    expect(allItems.map(i => i.to)).not.toContain('/admin/conta')
+  })
+
+  it('USR-37: as duas rotas novas estão declaradas em `App.tsx`', () => {
+    const rotas = appRoutePaths()
+    expect(rotas).toContain('/admin/usuarios')
+    expect(rotas).toContain('/admin/conta')
+  })
+
+  it('USR-37: a ordem das rotas do rodapé em `App.tsx` casa com `footerNavItems`', () => {
+    // Mesma régua de PRM-20, agora valendo para o rodapé: a sequência textual é o contrato, e nada
+    // acusaria se ela divergisse.
+    const rotas = appRoutePaths()
+    const declaradas = rotas.filter(p => footerNavItems.some(i => i.to === p))
+    expect(declaradas).toEqual(footerNavItems.map(i => i.to))
+  })
+
+  it('bidirecional: TODA entrada do rodapé é uma rota de `App.tsx`', () => {
+    // Sem o segundo sentido, um item que apontasse para uma rota removida cairia na 404 do painel e
+    // continuaria na sidebar — o mesmo acúmulo que `routeSplitting` evita na loja.
+    const rotas = appRoutePaths()
+    for (const item of footerNavItems) {
+      expect(rotas).toContain(item.to)
+    }
   })
 
   it('Coleções não voltou (AD-014)', () => {

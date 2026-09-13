@@ -1,4 +1,4 @@
-import { HelpCircle, House, LayoutDashboard, MessageCircleQuestion, Package, Percent, Tags, Menu, ShoppingCart, ShoppingBag, Store, Ticket, Users, Settings } from 'lucide-react'
+import { HelpCircle, House, LayoutDashboard, MessageCircleQuestion, Package, Percent, Tags, Menu, ShieldCheck, ShoppingCart, ShoppingBag, Store, Ticket, UserCog, Users, Settings } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 export interface NavItem {
@@ -101,7 +101,18 @@ export const navGroups: NavGroup[] = [
   },
 ]
 
-/** Vai no bloco de rodapé, junto de Ver Loja / Sair. */
+/**
+ * Vai no bloco de rodapé, junto de Ver Loja / Sair.
+ *
+ * **Os dois itens da feature 48 entram AQUI, e não em `navGroups`**, porque não são um dos quatro
+ * eixos por fila da loja: ninguém abre o painel de manhã para conferir quem tem acesso. É
+ * administração do sistema, mesma família de Configurações — e `Minha conta` ainda ganha a vizinhança
+ * certa, encostada em `Sair`, que é onde se procura o que é da própria pessoa.
+ *
+ * A ordem vai do mais amplo ao mais pessoal: **a loja → o sistema → eu**.
+ */
 export const footerNavItems: NavItem[] = [
   { to: '/admin/configuracoes', icon: Settings, label: 'Configurações' },
+  { to: '/admin/usuarios', icon: ShieldCheck, label: 'Usuários do painel' },
+  { to: '/admin/conta', icon: UserCog, label: 'Minha conta' },
 ]
