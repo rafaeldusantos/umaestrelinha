@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@estrelinha/supabase/client'
-import { faqOverrideOf, faqPageCategoryRefusal, type FaqPageCategoryKey } from '@estrelinha/core/faq'
+import {
+  faqOverrideOf,
+  faqPageCategoryRefusal,
+  faqQuestionKey,
+  type FaqPageCategoryKey,
+} from '@estrelinha/core/faq'
 
 /**
  * A curadoria da página de perguntas da loja — feature 46.
@@ -124,6 +129,39 @@ export const useAdminFaqPage = () => {
   )
 
   /**
+   * Cria a pergunta na biblioteca **e** a coloca na página, nesta ordem.
+   *
+   * As duas metades moram aqui, e não na tela, porque a segunda precisa do `id` que só a primeira
+   * conhece. Na tela, isso viraria uma consulta ao Supabase dentro de uma página — furando a camada
+   * e dando ao componente uma segunda porta para o banco.
+   *
+   * **A dedup não é feita aqui**: quem recusa a pergunta repetida é o diálogo, antes de chamar, com
+   * a mensagem que nomeia a entrada existente. O `unique` do banco é a terceira linha.
+   */
+  const criarEAdicionar = useCallback(
+    async (question: string, answer: string, category: string): Promise<string | null> => {
+      const recusa = faqPageCategoryRefusal(category)
+      if (recusa) return recusa
+
+      const { data, error: err } = await supabase
+        .from('faqs')
+        .insert({
+          question: question.trim(),
+          answer: answer.trim(),
+          question_key: faqQuestionKey(question),
+        })
+        .select('id')
+        .single()
+
+      if (err) return motivoDoErro(err.code, err.message)
+      if (!data?.id) return 'A pergunta foi criada, mas o banco não devolveu o identificador dela.'
+
+      return adicionar([data.id], category)
+    },
+    [adicionar],
+  )
+
+  /**
    * Tira da PÁGINA — e a entrada continua na biblioteca, e nos produtos que a usam.
    *
    * É a diferença que a tela precisa dizer antes de executar: apagar a entrada é outra coisa, mora
@@ -219,5 +257,6 @@ export const useAdminFaqPage = () => {
     reordenar,
     moverDeAssunto,
     salvarTextoProprio,
+    criarEAdicionar,
   }
 }
