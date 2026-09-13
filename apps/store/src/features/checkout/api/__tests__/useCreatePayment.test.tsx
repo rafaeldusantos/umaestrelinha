@@ -9,6 +9,7 @@ import {
   PAYMENT_TIMEOUT_MS,
 } from '../useCreatePayment'
 import { supabase } from '@estrelinha/supabase/client'
+import { rememberAccess } from '@/entities/order/model/orderAccess'
 
 vi.mock('@estrelinha/supabase/client', () => ({
   supabase: { functions: { invoke: vi.fn() } },
@@ -161,5 +162,50 @@ describe('useCreatePayment — timeout (BUG-20260728-edge-runtime-sem-dns)', () 
     await expect(
       result.current.mutateAsync({ order_id: 'order-1', method: 'pix' }),
     ).rejects.toThrow(PAYMENT_UNAVAILABLE_MESSAGE)
+  })
+})
+
+/**
+ * `PED-06` (feature `49`) — **a segunda prova de posse tem de CHEGAR ao servidor.**
+ *
+ * ⚠️ Estes casos nasceram de um achado da verificação independente: remover `access_token` do
+ * corpo deixava o store inteiro verde (3260/3260) e a convidada tomando **403** no pagamento.
+ * `guestAccess` provava o token e `createOrder.test.ts` provava a emissão; nenhum teste da loja
+ * citava `access_token` num corpo de `create-payment`.
+ */
+describe('useCreatePayment — a convidada prova a posse do pedido (PED-06)', () => {
+  const corpoDaChamada = () =>
+    invokeMock.mock.calls[0][1]?.body as Record<string, unknown>
+
+  beforeEach(() => {
+    globalThis.localStorage.clear()
+    invokeMock.mockResolvedValue({ data: { status: 'approved' }, error: null })
+  })
+
+  it('com token guardado, ele vai no corpo', async () => {
+    rememberAccess('order-1', 'tok-abc')
+
+    const { result } = renderHook(() => useCreatePayment(), { wrapper })
+    await result.current.mutateAsync({ order_id: 'order-1', method: 'pix' })
+
+    expect(corpoDaChamada().access_token).toBe('tok-abc')
+  })
+
+  it('SEM token, a chave nem entra no corpo — o par inverso', async () => {
+    // Quem tem sessão prova pelo JWT. Mandar `access_token: undefined` faria o servidor entrar no
+    // ramo de convidada com um token vazio, e `accessGrant` recusaria por ausência.
+    const { result } = renderHook(() => useCreatePayment(), { wrapper })
+    await result.current.mutateAsync({ order_id: 'order-1', method: 'pix' })
+
+    expect(corpoDaChamada()).not.toHaveProperty('access_token')
+  })
+
+  it('o token de OUTRO pedido não é enviado neste', async () => {
+    rememberAccess('order-2', 'tok-de-outro')
+
+    const { result } = renderHook(() => useCreatePayment(), { wrapper })
+    await result.current.mutateAsync({ order_id: 'order-1', method: 'pix' })
+
+    expect(corpoDaChamada()).not.toHaveProperty('access_token')
   })
 })

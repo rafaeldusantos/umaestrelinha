@@ -12,6 +12,7 @@ import { useCheckoutStore } from '@/features/checkout/model/checkoutStore'
 import { useCepLookup } from '@/features/checkout/api/useCepLookup'
 import { useShippingQuote } from '@/features/checkout/api/useShippingQuote'
 import { useAuthUiStore } from '@/features/auth'
+import { accessFor } from '@/entities/order/model/orderAccess'
 import { markCartRecovered, clearGuestEmail } from '@/features/abandoned-cart/model/useAbandonedCartTracker'
 import { DOC_FIELD_LABEL } from '@/features/checkout/ui/PaymentBlock'
 import CheckoutPage, { MISSING_DOCUMENT_MESSAGE, ORDER_FAILED_MESSAGE } from '../CheckoutPage'
@@ -345,6 +346,8 @@ beforeEach(() => {
   // Feature 49: por padrão o e-mail NÃO tem conta — é o caminho de convidada, que é o normal.
   accountLookupMock.mockReset().mockResolvedValue(false)
   sendCodeMock.mockReset().mockResolvedValue({ error: null })
+  // Feature 49: o token de posse mora em `localStorage`, e ele sobrevive entre casos.
+  globalThis.localStorage.clear()
   createOrderMutateAsync.mockReset().mockResolvedValue({ id: 'order-1' })
   createPaymentMutateAsync.mockReset().mockResolvedValue({
     status: 'approved',
@@ -579,6 +582,39 @@ describe('CheckoutPage — e-mail que já tem conta pede o código (IDN-02 … I
     await waitFor(() => expect(accountLookupMock).toHaveBeenCalled())
     expect(screen.queryByTestId('auth-code-step')).not.toBeInTheDocument()
     expect(cta()).toBeEnabled()
+  })
+
+  /**
+   * A FIAÇÃO do token de posse (`PED-05`/`PED-06`).
+   *
+   * ⚠️ Estes casos nasceram de um achado da verificação independente: **as duas pontas estavam
+   * provadas e o fio entre elas não**. `guestAccess` prova o token, `orderAccess` prova o storage,
+   * `createOrder.test.ts` prova a emissão — e apagar `rememberAccess` desta página deixava o store
+   * inteiro verde (3260/3260) com a convidada **incapaz de pagar**: `create-payment` responderia
+   * 401, `/pedido/:id` quebraria e a espera do PIX nunca ligaria.
+   */
+  it('o acesso devolvido pela criação é GUARDADO (PED-05)', async () => {
+    createOrderMutateAsync.mockResolvedValue({ id: 'order-1', access_token: 'tok-abc' })
+    authState.user = null
+    fillAll()
+    renderPage()
+
+    fireEvent.click(cta())
+
+    await waitFor(() => expect(accessFor('order-1')).toBe('tok-abc'))
+  })
+
+  it('pedido com sessão não guarda acesso nenhum — o par inverso', async () => {
+    // Sem ele, um `rememberAccess` incondicional gravaria `undefined` sob o id do pedido e a
+    // leitura seguinte acharia uma chave sem valor.
+    createOrderMutateAsync.mockResolvedValue({ id: 'order-1', access_token: null })
+    fillAll()
+    renderPage()
+
+    fireEvent.click(cta())
+
+    await waitFor(() => expect(createOrderMutateAsync).toHaveBeenCalled())
+    expect(accessFor('order-1')).toBeNull()
   })
 
   it('trocar de identidade descarta o pedido em curso (IDN-07)', async () => {

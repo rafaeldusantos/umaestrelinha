@@ -185,6 +185,21 @@ describe('create-order — a convidada (CSC-03, CSC-04, PED-05)', () => {
     expect(linhaDoPedido(supabase).order_number).toMatch(/^NP-[0-9A-Z]+$/)
   })
 
+  it('dois pedidos no MESMO instante recebem números diferentes', async () => {
+    // `orders.order_number` tem índice ÚNICO (`orders_order_number_key`, conferido no banco). Com
+    // o relógio sozinho — resolução de milissegundo — o segundo pedido simultâneo falharia com
+    // violação de unicidade: uma venda perdida, não um número repetido. O relógio aqui é FIXO, o
+    // que torna a colisão certa se o sufixo aleatório sumir.
+    const numeros = new Set<string>()
+    for (let i = 0; i < 40; i++) {
+      const supabase = cenario()
+      await route(criarDeps(supabase), pedir({ ...PEDIDO, client_request_id: `t-${i}` }))
+      numeros.add(linhaDoPedido(supabase).order_number as string)
+    }
+
+    expect(numeros.size).toBe(40)
+  })
+
   it('grava os itens com o `order_id` do pedido recém-criado', async () => {
     const supabase = cenario()
     await route(criarDeps(supabase), pedir(PEDIDO))
@@ -195,14 +210,26 @@ describe('create-order — a convidada (CSC-03, CSC-04, PED-05)', () => {
 })
 
 describe('create-order — a ordem das escritas (CSC-08)', () => {
-  it('o pedido é gravado ANTES de a conta ser criada', async () => {
-    // A asserção que separa esta implementação da ingênua. Um 200 é verdadeiro nas duas; só a
-    // ordem distingue "sobra pedido órfão" de "sobra conta órfã" quando algo falha no meio.
-    const supabase = cenario()
+  it('o pedido e os itens já estão gravados QUANDO a conta é criada', async () => {
+    // ⚠️ A versão anterior deste caso asseria `tabelasGravadas[0] === 'orders'` e
+    // `adminCreateUsers.length === 1` — **verdadeiro nos dois mundos**, porque as duas listas são
+    // independentes e `orders` seria a primeira gravação mesmo com a conta criada antes dela.
+    // Sobreviveu à inversão da ordem na verificação independente; quem matou o mutante foram os
+    // vizinhos, por acidente.
+    //
+    // A régua agora é temporal de verdade: o dublê é perguntado **de dentro** do `createUser`, e
+    // nesse instante `orders` e `order_items` já têm de estar gravados. Inverter a ordem produz
+    // zero aqui.
+    let gravadoAoCriarConta: string[] = []
+    const supabase: ReturnType<typeof createFakeSupabase> = cenario({
+      adminCreateUser: () => {
+        gravadoAoCriarConta = supabase.inserts.map((i) => i.table)
+        return { data: { user: { id: 'usr-1' } } }
+      },
+    })
     await route(criarDeps(supabase), pedir(PEDIDO))
 
-    expect(tabelasGravadas(supabase)[0]).toBe('orders')
-    expect(supabase.adminCreateUsers).toHaveLength(1)
+    expect(gravadoAoCriarConta).toEqual(['orders', 'order_items'])
   })
 
   it('a conta nasce SEM senha, sem e-mail confirmado, e com o nome que a ficha vai usar', async () => {
@@ -422,6 +449,53 @@ describe('create-order — idempotência (PED-04)', () => {
     expect(linhaDoPedido(supabase).client_request_id).toBe('tentativa-1')
   })
 
+  /**
+   * ⚠️ Os dois casos abaixo nasceram de um achado da verificação independente: **nenhum filtro de
+   * coluna era observável**. O dublê só enxerga o `.eq()` quando a fixtura é **função**, e todos os
+   * cenários usavam fixtura de valor — trocar a coluna do filtro deixava 66/66 verdes.
+   *
+   * O que cada mutação produzia:
+   *
+   *   `client_request_id` → `customer_email` : a SEGUNDA compra devolveria o pedido da primeira, e
+   *                                            a pessoa pagaria o pedido errado
+   *   `user_id` → `id` (em `customers`)      : TODO pedido com sessão nasceria órfão, e depois o
+   *                                            `create-payment` recusaria a cliente logada com 403
+   */
+  it('o filtro da idempotência é a coluna `client_request_id`, com o valor enviado', async () => {
+    const filtros: ([string, unknown] | null)[] = []
+    const supabase = cenario({
+      rows: {
+        orders: (eq) => {
+          filtros.push(eq)
+          return null
+        },
+        customers: { id: 'cus-1' },
+      },
+    })
+    await route(criarDeps(supabase), pedir(PEDIDO))
+
+    expect(filtros).toContainEqual(['client_request_id', 'tentativa-1'])
+  })
+
+  it('o `customers` da sessão é buscado por `user_id`, não por `id`', async () => {
+    const filtros: ([string, unknown] | null)[] = []
+    const supabase = createFakeSupabase({
+      user: { id: 'usr-logada' },
+      rpcByFn: { account_exists: { data: false } },
+      rows: {
+        orders: null,
+        customers: (eq) => {
+          filtros.push(eq)
+          return { id: 'cus-logada' }
+        },
+      },
+      inserted: { orders: { id: 'ord-2' } },
+    })
+    await route(criarDeps(supabase), pedir(PEDIDO, { Authorization: 'Bearer jwt' }))
+
+    expect(filtros).toContainEqual(['user_id', 'usr-logada'])
+  })
+
   it('a retentativa nem chega a perguntar a identidade', async () => {
     // Pedido já gravado não é reavaliado: a pessoa já passou por aquela porta. Sem isto, uma
     // retentativa depois de ela criar conta em outra aba cairia num 409 por um pedido que é dela.
@@ -433,6 +507,50 @@ describe('create-order — idempotência (PED-04)', () => {
 
     expect(res.status).toBe(200)
     expect(supabase.rpcs).toEqual([])
+  })
+})
+
+/**
+ * A dimensão *Observabilidade* da spec: "**nunca** registra o token nem o código".
+ *
+ * ⚠️ Nasceu de um achado da verificação independente — ela não tinha asserção nenhuma, e pôr o
+ * token no log deixava 518/518 verdes. Log de edge function vai para um destino que muita gente
+ * lê, e um token ali é acesso a pedido alheio em texto puro.
+ */
+describe('create-order — o log não carrega o segredo', () => {
+  const capturarLog = async (executar: () => Promise<unknown>): Promise<string> => {
+    const linhas: string[] = []
+    const original = console.log
+    console.log = (...args: unknown[]) => linhas.push(args.map(String).join(' '))
+    try {
+      await executar()
+    } finally {
+      console.log = original
+    }
+    return linhas.join('\n')
+  }
+
+  it('o token emitido não aparece em nenhuma linha de log', async () => {
+    const supabase = cenario()
+    let token = ''
+    const saida = await capturarLog(async () => {
+      const res = await route(criarDeps(supabase), pedir(PEDIDO))
+      token = (await res.json()).access_token
+    })
+
+    expect(token).toHaveLength(43)
+    expect(saida).not.toContain(token)
+    // E a âncora: o log EXISTE — senão a asserção acima passaria sobre string vazia.
+    expect(saida).toContain('create-order')
+    expect(saida).toContain('ord-1')
+  })
+
+  it('o log da recusa por conta existente também não carrega segredo', async () => {
+    const supabase = cenario({ rpcByFn: { account_exists: { data: true } } })
+    const saida = await capturarLog(() => route(criarDeps(supabase), pedir(PEDIDO)))
+
+    expect(saida).toContain('needs_otp')
+    expect(saida).not.toContain('tentativa-1')
   })
 })
 
@@ -487,6 +605,29 @@ describe('create-order — CPF e endereço (PED-08, ADR-G1, ADR-G2)', () => {
     expect(endereco).toEqual(
       expect.objectContaining({ customer_id: 'cus-1', cep: '01310100', city: 'São Paulo' }),
     )
+  })
+
+  it('ADR-G2: endereço que NÃO grava não derruba o pedido', async () => {
+    // ⚠️ `ADR-G2` não tinha caso nenhum — só o nome de um `describe` —, achado da verificação
+    // independente. É a mesma regra de `ADR-03`, que a loja já aplicava: `addresses` é conveniência
+    // para a próxima compra, e falhar ali não pode custar a compra desta.
+    const supabase = cenario({ insertError: { addresses: { message: 'boom' } } })
+    const res = await route(criarDeps(supabase), pedir(PEDIDO))
+    const corpo = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(corpo.order_id).toBe('ord-1')
+    expect(typeof corpo.access_token).toBe('string')
+    // E a âncora: a gravação foi TENTADA — senão o caso passaria por o endereço nunca ter saído.
+    expect(supabase.inserts.some((i) => i.table === 'addresses')).toBe(true)
+  })
+
+  it('ADR-G2: CPF que não grava também não derruba o pedido', async () => {
+    const supabase = cenario({ updateError: { message: 'boom' } })
+    const res = await route(criarDeps(supabase), pedir(PEDIDO))
+
+    expect(res.status).toBe(200)
+    expect((await res.json()).order_id).toBe('ord-1')
   })
 
   it('sem CEP, nenhum endereço é inventado', async () => {

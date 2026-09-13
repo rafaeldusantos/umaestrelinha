@@ -64,6 +64,21 @@ describe('get-order — o token certo abre o pedido', () => {
     expect(order).not.toHaveProperty('guest_access_hash')
     expect(order).not.toHaveProperty('guest_access_expires_at')
   })
+
+  it('o `client_request_id` também NÃO volta — ele é credencial, não dado do pedido', async () => {
+    // Achado da verificação independente: quem apresenta o `client_request_id` em `create-order`
+    // faz o servidor REEMITIR o acesso daquele pedido. Devolvê-lo aqui tornaria o token de 7 dias
+    // renovável para sempre: bastaria ler o pedido uma vez, guardar a chave, e reemitir no
+    // vencimento.
+    const token = newAccessToken()
+    const pedido = { ...(await pedidoCom(token)), client_request_id: 'tentativa-1' }
+    const supabase = createFakeSupabase({ rows: { orders: pedido } })
+    const res = await route(criarDeps(supabase), pedir({ order_id: 'ord-1', access_token: token }))
+
+    const texto = await res.text()
+    expect(texto).not.toContain('tentativa-1')
+    expect(texto).not.toContain('client_request_id')
+  })
 })
 
 describe('get-order — as recusas (PED-07)', () => {

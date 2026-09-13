@@ -14,6 +14,14 @@ vi.mock('@/features/abandoned-cart/model/useAbandonedCartTracker', () => ({
   setGuestEmail: vi.fn(),
 }))
 
+// Feature 49: a consulta do e-mail e o desafio de código. O passo real arrasta o SDK de OTP; o que
+// o BLOCO precisa provar é quando ele pergunta e quando ele reporta.
+const { checkMock } = vi.hoisted(() => ({ checkMock: vi.fn() }))
+vi.mock('../../api/useAccountLookup', () => ({ useAccountLookup: () => ({ check: checkMock }) }))
+vi.mock('../CheckoutSignInChallenge', () => ({
+  default: () => <div data-testid="desafio-de-codigo" />,
+}))
+
 const authState: { customer: { id: string; name: string; email: string; phone?: string } | null } = {
   customer: null,
 }
@@ -36,6 +44,16 @@ const renderOpen = (canContinue = false, challenging = false) =>
       onChallenge={onChallenge}
     />,
   )
+/**
+ * `ENT-05` e `IDN-01` — achados da verificação independente, que os encontrou **sem asserção**.
+ *
+ * `ENT-05` é o edge case da spec: quem entra pelo convite depois de já ter digitado não pode ver o
+ * que escreveu ser sobrescrito pelo cadastro. Fazer a semeadura sobrescrever passava com 419/419.
+ *
+ * `IDN-01` é "no blur, nunca a cada tecla": consultar em cada `onChange` dispararia uma requisição
+ * por caractere e o teto por IP da function fecharia na cara de quem só estava digitando — e
+ * também passava com 419/419.
+ */
 const renderCollapsed = () =>
   render(
     <ContactBlock
@@ -58,6 +76,8 @@ beforeEach(() => {
   onContinue.mockClear()
   vi.mocked(setGuestEmail).mockClear()
   authState.customer = null
+  onChallenge.mockClear()
+  checkMock.mockReset().mockResolvedValue(false)
 })
 
 describe('ContactBlock — aberto (CHK-03)', () => {
@@ -243,5 +263,72 @@ describe('ContactBlock — paleta (CHK-04 / DESIGN.md §8)', () => {
     const { container } = renderCollapsed()
 
     expect(container.querySelectorAll('[class*="bg-estrelinha-primary"]')).toHaveLength(0)
+  })
+})
+
+describe('ContactBlock — a semeadura NÃO sobrescreve o que a pessoa digitou (ENT-05)', () => {
+  const ficha = {
+    id: 'c1',
+    name: 'Marina Yamashita',
+    email: 'marina@cadastro.com',
+    phone: '11988887777',
+  }
+
+  it('campo já digitado sobrevive à chegada da ficha', () => {
+    // O edge case da spec: quem entra pelo convite DEPOIS de digitar não pode ver o que escreveu
+    // ser trocado — inclusive porque ela pode estar comprando para presentear, com o e-mail de
+    // outra pessoa no contato.
+    useCheckoutStore.getState().setContact({ name: 'Nome Digitado', email: 'digitado@email.com' })
+    authState.customer = ficha
+    renderOpen()
+
+    const contato = useCheckoutStore.getState().contact
+    expect(contato.name).toBe('Nome Digitado')
+    expect(contato.email).toBe('digitado@email.com')
+  })
+
+  it('campo VAZIO é preenchido pela ficha — o par inverso', () => {
+    // Sem ele, uma semeadura que não fizesse nada passaria no caso acima, e o convite "entre e
+    // preenchemos seus dados" deixaria de cumprir o que promete.
+    authState.customer = ficha
+    renderOpen()
+
+    const contato = useCheckoutStore.getState().contact
+    expect(contato.name).toBe('Marina Yamashita')
+    expect(contato.whatsapp).toBe('11988887777')
+  })
+
+  it('semear NÃO suja o bloco — ADR-02/FLW-04 preservados', () => {
+    authState.customer = ficha
+    renderOpen()
+
+    expect(useCheckoutStore.getState().dirty).not.toContain('contact')
+  })
+})
+
+describe('ContactBlock — a consulta do e-mail é no blur, nunca a cada tecla (IDN-01)', () => {
+  it('digitar não consulta', () => {
+    renderOpen()
+
+    fireEvent.change(screen.getByLabelText('E-mail'), { target: { value: 'm@e.com' } })
+    fireEvent.change(screen.getByLabelText('E-mail'), { target: { value: 'ma@e.com' } })
+
+    expect(checkMock).not.toHaveBeenCalled()
+  })
+
+  it('sair do campo consulta — o par', () => {
+    renderOpen()
+
+    fireEvent.blur(screen.getByLabelText('E-mail'), { target: { value: 'marina@email.com' } })
+
+    expect(checkMock).toHaveBeenCalledWith('marina@email.com')
+  })
+
+  it('digitar derruba o desafio em curso (IDN-06)', () => {
+    renderOpen(false, true)
+
+    fireEvent.change(screen.getByLabelText('E-mail'), { target: { value: 'outro@email.com' } })
+
+    expect(onChallenge).toHaveBeenCalledWith(null)
   })
 })
