@@ -12,9 +12,12 @@ import {
   PREVIEW_SOURCE,
   isPreviewWindow,
   parsePreviewMessage,
+  previewFrame,
   previewMetrics,
   previewScale,
   previewSrc,
+  type PreviewBox,
+  type PreviewFrame,
 } from '../preview'
 import type { HomeSection } from '../types'
 
@@ -132,13 +135,138 @@ describe('previewScale — PRV-14: cabe no palco, e nunca amplia', () => {
   })
 })
 
+describe('previewFrame — FOCO-16/17/18: um dono só para o tamanho do quadro', () => {
+  describe('computador, modo normal', () => {
+    it('mede 1024 × 768 e escala pelo eixo mais apertado — aqui, a largura', () => {
+      // 872 de palco − 40 de folga = 832 ⇒ 832/1024. A altura sobra (1200 − 40 = 1160 > 768).
+      expect(previewFrame('desktop', { width: 872, height: 1200 }, false)).toEqual({
+        width: 1024,
+        height: 768,
+        scale: 832 / 1024,
+      })
+    })
+
+    it('escala pela ALTURA quando é ela que aperta — senão o rodapé da loja fica fora do palco', () => {
+      // 1600 − 40 = 1560 de largura sobra; 424 − 40 = 384 de altura ⇒ 384/768 = 0,5.
+      expect(previewFrame('desktop', { width: 1600, height: 424 }, false)).toEqual({
+        width: 1024,
+        height: 768,
+        scale: 0.5,
+      })
+    })
+
+    it('NÃO amplia quando o palco sobra nos dois eixos', () => {
+      expect(previewFrame('desktop', { width: 1920, height: 1400 }, false).scale).toBe(1)
+    })
+
+    it('palco em zero — jsdom antes do layout — devolve escala 1, e não um quadro invisível', () => {
+      expect(previewFrame('desktop', { width: 0, height: 0 }, false)).toEqual({
+        width: 1024,
+        height: 768,
+        scale: 1,
+      })
+    })
+  })
+
+  describe('computador, tela cheia', () => {
+    it('a largura é 1024 e a escala é EXATAMENTE 1 — 100% é o número que a feature entrega', () => {
+      const frame = previewFrame('desktop', { width: 1440, height: 988 }, true)
+      expect(frame.width).toBe(1024)
+      expect(frame.scale).toBe(1)
+    })
+
+    it('a altura é o espaço vertical que existe, menos a folga', () => {
+      expect(previewFrame('desktop', { width: 1440, height: 988 }, true).height).toBe(948)
+    })
+
+    it('palco baixo NÃO encolhe o quadro abaixo de 768 — encurta a leitura, não as letras', () => {
+      expect(previewFrame('desktop', { width: 1440, height: 600 }, true)).toEqual({
+        width: 1024,
+        height: 768,
+        scale: 1,
+      })
+    })
+
+    it('palco em zero cai no piso de 768, sem propagar NaN', () => {
+      expect(previewFrame('desktop', { width: 0, height: 0 }, true)).toEqual({
+        width: 1024,
+        height: 768,
+        scale: 1,
+      })
+    })
+
+    it('SENSOR: a fórmula antiga — escalar o computador para caber — REPROVA na mesma régua', () => {
+      // A régua de FOCO-16/17, escrita **uma vez** e chamada duas: pela asserção e pelo sensor.
+      // O 40 aqui é a EXPECTATIVA da spec ("o espaço vertical disponível no palco"), não uma
+      // importação do dono — se `previewFrame` mudar a folga por conta própria, esta régua reprova.
+      const FOLGA_DA_SPEC = 40
+      const ehTelaCheiaDeVerdade = (frame: PreviewFrame, box: PreviewBox): boolean =>
+        frame.width === PREVIEW_DEVICES.desktop.width &&
+        frame.scale === 1 &&
+        frame.height ===
+          Math.max(PREVIEW_DEVICES.desktop.height, Math.round(box.height - FOLGA_DA_SPEC))
+
+      // O que os dois palcos faziam antes desta feature: caber por `transform`, altura nominal.
+      const formulaAntiga = (box: PreviewBox): PreviewFrame => ({
+        width: 1024,
+        height: 768,
+        scale: Math.min(
+          previewScale(box.width - FOLGA_DA_SPEC, 1024),
+          previewScale(box.height - FOLGA_DA_SPEC, 768),
+        ),
+      })
+
+      // Palco alto: a diferença está na ALTURA — a antiga trava em 768 e desperdiça a tela.
+      const alto = { width: 1440, height: 1400 }
+      expect(ehTelaCheiaDeVerdade(previewFrame('desktop', alto, true), alto)).toBe(true)
+      expect(ehTelaCheiaDeVerdade(formulaAntiga(alto), alto)).toBe(false)
+
+      // Palco apertado: a diferença está na ESCALA — a antiga encolhe abaixo de 100%, que é
+      // exatamente o que a feature existe para não fazer.
+      const apertado = { width: 900, height: 700 }
+      expect(ehTelaCheiaDeVerdade(previewFrame('desktop', apertado, true), apertado)).toBe(true)
+      expect(ehTelaCheiaDeVerdade(formulaAntiga(apertado), apertado)).toBe(false)
+    })
+  })
+
+  describe('celular — FOCO-18: a altura é a dobra, e a dobra não estica', () => {
+    it('tela cheia devolve EXATAMENTE o mesmo quadro do modo normal', () => {
+      const box = { width: 1440, height: 1200 }
+      expect(previewFrame('mobile', box, true)).toEqual(previewFrame('mobile', box, false))
+    })
+
+    it('continua 390 × 844 mesmo num palco enorme', () => {
+      expect(previewFrame('mobile', { width: 1920, height: 1600 }, true)).toEqual({
+        width: 390,
+        height: 844,
+        scale: 1,
+      })
+    })
+
+    it('reduz para caber num palco apertado, como sempre fez', () => {
+      // 235 − 40 = 195 ⇒ 195/390 = 0,5.
+      expect(previewFrame('mobile', { width: 235, height: 1200 }, false).scale).toBe(0.5)
+    })
+  })
+})
+
 describe('previewMetrics — PRV-15: a barra diz a medida e a escala', () => {
   it('celular a 100%', () => {
-    expect(previewMetrics('mobile', 1)).toBe('390 × 844 · 100%')
+    expect(previewMetrics(previewFrame('mobile', { width: 1920, height: 1600 }, false))).toBe(
+      '390 × 844 · 100%',
+    )
   })
 
   it('computador reduzido, com a escala arredondada ao inteiro', () => {
-    expect(previewMetrics('desktop', previewScale(706, 1024))).toBe('1024 × 768 · 69%')
+    expect(previewMetrics(previewFrame('desktop', { width: 746, height: 1200 }, false))).toBe(
+      '1024 × 768 · 69%',
+    )
+  })
+
+  it('FOCO-17: em tela cheia imprime a altura REALMENTE usada, não a nominal do dispositivo', () => {
+    expect(previewMetrics(previewFrame('desktop', { width: 1440, height: 988 }, true))).toBe(
+      '1024 × 948 · 100%',
+    )
   })
 })
 

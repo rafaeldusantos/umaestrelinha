@@ -154,11 +154,85 @@ export const previewScale = (available: number, deviceWidth: number): number => 
   return Math.min(1, available / deviceWidth)
 }
 
-/** O rótulo da barra do palco: `390 × 844 · 100%`. */
-export const previewMetrics = (device: PreviewDevice, scale: number): string => {
-  const { width, height } = PREVIEW_DEVICES[device]
-  return `${width} × ${height} · ${Math.round(scale * 100)}%`
+/**
+ * A folga entre o palco e o quadro, nos dois eixos.
+ *
+ * **Mora aqui porque tinha dois donos** (feature 47): `HomeLivePreview.tsx` e `MenuLivePreview.tsx`
+ * declaravam cada um a sua `FOLGA = 40`, e mudar a de um palco e não a do outro faria as duas prévias
+ * escalarem diferente com build, `tsc` e teste de componente verdes. É o defeito 01 em miniatura.
+ *
+ * **Não é exportada de propósito**: quem precisa do número precisa, na verdade, do quadro — e o
+ * quadro é `previewFrame`. Uma constante exportada é um convite a refazer a conta do lado de fora.
+ */
+const PREVIEW_GUTTER = 40
+
+/** O palco disponível, medido pelo `ResizeObserver` de quem desenha. */
+export interface PreviewBox {
+  width: number
+  height: number
 }
+
+/** O quadro: a medida que o iframe declara, e a escala com que ele é desenhado. */
+export interface PreviewFrame {
+  width: number
+  height: number
+  scale: number
+}
+
+/**
+ * O tamanho do quadro da prévia — o **único** dono dessa conta.
+ *
+ * Três regras, e a terceira é a que a tela cheia acrescenta:
+ *
+ * - **Celular, em qualquer modo**: `390 × 844`, reduzido para caber. A altura é a **dobra real** do
+ *   celular; esticá-la em tela cheia mentiria sobre o que a cliente vê, que é justamente o que a
+ *   prévia existe para não fazer (`FOCO-18`).
+ * - **Computador, normal**: `1024 × 768`, reduzido pelo **menor** dos dois eixos — numa janela baixa,
+ *   escalar só pela largura deixaria o rodapé da loja fora do palco.
+ * - **Computador, tela cheia**: largura `1024` e escala **exatamente `1`** — 100% é o número que
+ *   importa, e é por ele que a barra do menu vira texto legível. A altura passa a ser o espaço
+ *   vertical que existe, **nunca menor que 768**: um palco baixo encurta a leitura, não o tamanho
+ *   das letras (`FOCO-16`, `FOCO-17`).
+ *
+ * `box` em zero — jsdom antes do layout, e o primeiro quadro de qualquer `ResizeObserver` — cai no
+ * mesmo ramo de sempre e devolve escala `1`.
+ */
+export const previewFrame = (
+  device: PreviewDevice,
+  box: PreviewBox,
+  fullscreen: boolean,
+): PreviewFrame => {
+  const { width, height } = PREVIEW_DEVICES[device]
+  const disponivel = {
+    width: (box?.width ?? 0) - PREVIEW_GUTTER,
+    height: (box?.height ?? 0) - PREVIEW_GUTTER,
+  }
+
+  if (fullscreen && device === 'desktop') {
+    // `NaN > height` é `false`, então uma caixa sem medida cai no piso em vez de propagar `NaN`.
+    const altura = disponivel.height > height ? Math.round(disponivel.height) : height
+    return { width, height: altura, scale: 1 }
+  }
+
+  return {
+    width,
+    height,
+    scale: Math.min(
+      previewScale(disponivel.width, width),
+      previewScale(disponivel.height, height),
+    ),
+  }
+}
+
+/**
+ * O rótulo da barra do palco: `390 × 844 · 100%`.
+ *
+ * Recebe o **quadro**, e não o dispositivo: em tela cheia a altura não é mais a nominal do
+ * dispositivo, e imprimir `768` enquanto o quadro mede `948` seria a barra mentindo sobre o que está
+ * na tela (`FOCO-17`).
+ */
+export const previewMetrics = (frame: PreviewFrame): string =>
+  `${frame.width} × ${frame.height} · ${Math.round(frame.scale * 100)}%`
 
 /**
  * O endereço que o iframe carrega.
