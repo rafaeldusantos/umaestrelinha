@@ -34,6 +34,14 @@ export interface AuthErrorLike {
  */
 export const AUTH_ERROR_FALLBACK = 'Não foi possível concluir agora. Tente de novo em instantes.'
 
+/**
+ * Exportada porque tem DOIS produtores: o GoTrue devolve `same_password` quando a troca chega ao
+ * servidor, e `passwordChangeRefusal` (`core/admin-users`) recusa antes de sair da tela. Com o
+ * literal escrito nos dois lugares, mudar a redação num deles faz a mesma situação falar duas
+ * frases — o defeito 01 aplicado a texto.
+ */
+export const SAME_PASSWORD = 'A senha nova precisa ser diferente da atual.'
+
 const RATE_LIMITED = 'Aguarde alguns segundos para reenviar'
 const SEND_FAILED = 'Não conseguimos enviar seu código agora. Tente de novo em instantes.'
 const SESSION_GONE = 'Sessão expirada. Entre novamente.'
@@ -67,7 +75,7 @@ const BY_CODE: Record<string, string> = {
   user_not_found: 'Não encontramos uma conta com esse e-mail.',
 
   weak_password: `A senha precisa de pelo menos ${MIN_PASSWORD_LENGTH} caracteres`,
-  same_password: 'A senha nova precisa ser diferente da atual.',
+  same_password: SAME_PASSWORD,
 
   session_expired: SESSION_GONE,
   session_not_found: SESSION_GONE,

@@ -28,7 +28,8 @@
     "./xml": "./src/xml/index.ts",
     "./paging": "./src/paging/index.ts",
     "./sitemap": "./src/sitemap/index.ts",
-    "./notifications": "./src/notifications/index.ts"
+    "./notifications": "./src/notifications/index.ts",
+    "./admin-users": "./src/admin-users/index.ts"
   },
   "scripts": {
     "test": "vitest run"
