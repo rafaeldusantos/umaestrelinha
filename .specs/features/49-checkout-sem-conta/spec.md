@@ -288,8 +288,31 @@ declarada, ver *Riscos*.
 - **Mexe no caminho do dinheiro.** `create-payment` ganha uma segunda prova de posse e a gravação do
   pedido muda de casa. O gate exige probe HTTP real contra o banco local (`AD-012`: tipo escrito à
   mão é afirmação, não verificação) — não basta `tsc` verde.
+- **`create-order` cria conta sem autenticação e sem teto por IP.** Achado da verificação
+  independente, **não declarado na primeira escrita desta spec**. Um cliente automatizado pode
+  chamar a ação com o e-mail de outra pessoa e produzir: (a) uma conta sem senha em `auth.users`
+  para aquele e-mail, o que faz a **primeira compra real dessa pessoa** cair no desafio de código; e
+  (b) um pedido `pending` falso, que `handle_new_customer` **adota** quando ela criar conta — ele
+  apareceria no histórico dela.
+  - **O que NÃO é possível**: pagar, ler dado de terceiro, ou tomar a conta. A conta nasce sem senha
+    e sem e-mail confirmado, e entrar nela continua exigindo o código que só chega ao dono do
+    e-mail.
+  - **Por que não foi fechado agora**: um teto em `create-order` é um teto no **caminho do
+    dinheiro**, e um throttle que erra bloqueia venda. A mitigação certa é captcha no checkout ou
+    limite por IP com folga generosa — decisão de produto, medida com tráfego real.
+  - Mitigação parcial que já existe: `client_request_id` é único, então repetir a mesma chave não
+    multiplica pedidos.
+- **`client_request_id` é uma credencial, e não parece uma.** Quem o apresenta faz o servidor
+  **reemitir** o acesso daquele pedido — é o que torna `PED-04` verdadeiro quando a primeira
+  resposta se perde. Ele não tem expiração própria e não identifica ninguém. Por isso `get-order`
+  **não o devolve** no corpo (senão o token de 7 dias seria renovável para sempre), e ele vive no
+  `sessionStorage` do checkout, morrendo com o pedido.
 - **Sem prova em navegador.** jsdom devolve 0 para toda medida de layout, e `ENT-07` é medida. Entra
   na fila de `32`…`47`.
+- **O probe contra o banco NÃO está no disco.** `checkoutSchema.test.ts` lê o `.sql`, o que é prova
+  sobre o **texto** da migration, não sobre o banco. O probe de `AD-012` foi executado (sete
+  comportamentos de `account_exists`, as três colunas e o índice parcial) e o resultado está no
+  histórico desta feature — mas ele não é reexecutável por quem vier depois.
 
 ---
 

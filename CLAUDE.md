@@ -416,16 +416,21 @@ quando mudarem de verdade.
 | --- | --- | --- |
 | **Lint** | **27 erros / 6 warnings** — backoffice 25/4 · store 2/2 | `pnpm lint` |
 | **Tipos** | **0 · 0 · 0** (store · backoffice · catalog-import) | `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` |
-| **Testes** | **8753 em 463 arquivos** — store **3260/212** · backoffice **2228/129** · core **2235/87** · functions **518/12** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test` (store e backoffice com `--testTimeout=20000`) |
+| **Testes** | **8772 em 463 arquivos** — store **3271/212** · backoffice **2228/129** · core **2235/87** · functions **526/12** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test` (store e backoffice com `--testTimeout=20000`) |
 
-**A feature `49` (checkout sem conta) somou +250 em três workspaces**, medidos em 2026-09-13 um por
-vez e com exit code capturado fora de pipe, no worktree `49-checkout-sem-conta`: **store +132/+9**
+**A feature `49` (checkout sem conta) somou +279 em três workspaces**, medidos em 2026-09-13 um por
+vez e com exit code capturado fora de pipe, no worktree `49-checkout-sem-conta`: **store +143/+9**
 (o convite, o desafio inline, `orderAccess`, `buildOrderPayload` e quatro guardas novos), **core
 +36/+3** (`identity`, `guestAccess`, a identidade em `isContactComplete` e o guarda de alcance do
-Deno) e **functions +82/+4** (a function `checkout` inteira, a segunda prova de posse do
+Deno) e **functions +90/+4** (a function `checkout` inteira, a segunda prova de posse do
 `create-payment` e o dono único do CORS). Lint ficou em **27/6** e tipos em **0**; `pnpm build`
 verde nos dois apps, e `packages/core/src/payment/**` sem uma linha alterada — conferido por
 `git status --porcelain`.
+
+> **Dos +279, exatamente 22 vieram DEPOIS da verificação independente**, consertando o que ela
+> achou: 11 no store (a fiação do token nas duas pontas, `ENT-05`, `IDN-01`) e 11 em functions (os
+> filtros de coluna, o log sem segredo, `ADR-G2`, a colisão de `order_number` e o vazamento de
+> `client_request_id`). Nenhuma régua foi afrouxada — são asserções que **faltavam**.
 
 > ⚠️ **A linha do BACKOFFICE mudou sem esta feature encostar nele**, e o registro importa mais que
 > o número: a tabela dizia **2204/129** e o medido é **2228/129**, com `git status` e
@@ -451,6 +456,38 @@ verde nos dois apps, e `packages/core/src/payment/**` sem uma linha alterada —
 >
 > As três têm a mesma assinatura: **a peça que o plano descreve funciona, e o CAMINHO não fecha.**
 > Nenhuma apareceria num teste de unidade das peças — só ao perguntar "e depois, o que acontece?".
+
+> **A verificação independente REPROVOU a primeira entrega, com 6 mutantes sobreviventes em 27, e o
+> achado nº 1 é o da `41`/`44` pela terceira vez: as duas pontas provadas e o FIO entre elas não.**
+>
+> Duas mutações, cada uma sozinha suficiente para a convidada **nunca conseguir pagar**, passavam
+> com **o store inteiro verde (3260/3260)**: apagar `rememberAccess(...)` de `CheckoutPage.tsx`
+> (o token chega e é jogado fora) e remover `access_token` do corpo em `useCreatePayment.ts` (403
+> no caixa). `guestAccess` provava o token, `orderAccess` provava o storage e `createOrder.test.ts`
+> provava a emissão — **nenhum teste da loja citava `access_token` num corpo de `create-payment`**.
+>
+> Os outros quatro, por ordem de utilidade do padrão:
+>
+> - **Nenhum filtro de coluna de `create-order` era observável.** O dublê compartilhado só enxerga
+>   o `.eq()` quando a fixtura é **função**, e todos os cenários usavam fixtura de valor: trocar
+>   `client_request_id` por `customer_email` no filtro da idempotência deixava **66/66 verdes** — e
+>   faria a segunda compra devolver o pedido da primeira, com a pessoa pagando o pedido errado.
+>   **A capacidade do dublê é parte da régua**: um dublê que não enxerga o filtro torna o filtro
+>   inauditável, e nada acusa.
+> - **A asserção de ordem era verdadeira nos DOIS mundos.** `tabelasGravadas[0] === 'orders'` mais
+>   `adminCreateUsers.length === 1` sobrevivia à inversão da ordem — as duas listas são
+>   independentes, e `orders` seria a primeira gravação de qualquer jeito. Quem matava o mutante
+>   eram os vizinhos, por acidente. A régua virou **temporal**: o dublê é perguntado de dentro do
+>   `createUser`, e nesse instante `orders` e `order_items` já têm de estar gravados.
+> - **`ADR-G2` tinha só o nome de um `describe`**, sem um caso sequer, e a dimensão *Observabilidade*
+>   ("nunca registra o token") não tinha asserção nenhuma — pôr o token no log deixava 518/518
+>   verdes.
+> - **`BL-031` e um comentário de código afirmavam o OPOSTO do schema.** Diziam que
+>   `orders.order_number` era "text sem índice único" e que a colisão seria "silenciosa";
+>   `orders_order_number_key` existe desde `20260415090935_…:49` e está aplicada. É `AD-012`
+>   cometido dentro da feature que o cita — **afirmação à mão sobre schema, sem verificação** —, e a
+>   consequência real era pior que a descrita: colisão **derruba a venda com 500**. O conserto foi
+>   o sufixo aleatório, com o caso medindo 40 números distintos sob **relógio fixo**.
 
 **O conserto da posição dos alvos de toque somou +16 em UM workspace**, medidos em 2026-09-13 com
 exit code capturado fora de pipe: **store 3111/202 → 3128/203** (o guarda novo, 14, e os dois casos

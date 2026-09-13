@@ -193,6 +193,20 @@ export async function resolveIdentity(
 // create-order — o dono único de "como nasce um pedido"
 // ---------------------------------------------------------------------------------------------
 
+/**
+ * Quatro caracteres aleatórios de base36 no fim do número do pedido.
+ *
+ * `orders.order_number` tem índice **único**, e o relógio sozinho tem resolução de milissegundo:
+ * dois pedidos simultâneos derrubariam o segundo com violação de unicidade — uma venda perdida,
+ * não um número repetido. Com 36⁴ ≈ 1,7 milhão de sufixos por milissegundo, a colisão deixa de ser
+ * um modo de falha alcançável neste volume.
+ */
+function sufixoAleatorio(): string {
+  const bytes = new Uint8Array(4)
+  crypto.getRandomValues(bytes)
+  return Array.from(bytes, (b) => (b % 36).toString(36).toUpperCase()).join('')
+}
+
 /** As colunas de `orders` que a loja preenche. Tudo o mais é default do banco. */
 const COLUNAS_DO_PEDIDO = [
   'customer_name',
@@ -311,12 +325,17 @@ export async function createOrder(
     // `orders.order_number` é `text` SEM default: alguém tem de gerar. Era o navegador, e passa a
     // ser o servidor — cliente não deve cunhar identificador de pedido.
     //
-    // ⚠️ Dois débitos PRESERVADOS aqui de propósito, para esta feature não mudar comportamento de
-    // passagem: (1) o prefixo `NP-` são as iniciais da marca ANTERIOR, e trocá-lo muda a numeração
-    // que a Adri vê no painel — decisão de operação, não refatoração; (2) a resolução é de
-    // milissegundo e a coluna não tem índice único, então dois pedidos simultâneos podem colidir
-    // em silêncio. Os dois estão no BACKLOG.
-    order_number: `NP-${Date.now().toString(36).toUpperCase()}`,
+    // ⚠️ **A coluna TEM índice único** (`orders_order_number_key`, criada em
+    // `20260415090935_create_orders_and_order_items.sql:49` e conferida no banco). A forma antiga
+    // era só `Date.now().toString(36)`, de resolução de **milissegundo**: dois pedidos no mesmo
+    // milissegundo não colidiriam em silêncio — o segundo **falharia com violação de unicidade**,
+    // e a cliente veria "não conseguimos criar seu pedido" tendo feito tudo certo.
+    //
+    // Os quatro caracteres aleatórios no fim resolvem isso sem mudar a forma do número. O prefixo
+    // `NP-` são as iniciais da marca ANTERIOR e fica **preservado de propósito**: trocá-lo muda a
+    // numeração que a Adri vê no painel e que a cliente cita no WhatsApp — decisão de operação,
+    // registrada em `BL-031`.
+    order_number: `NP-${Date.now().toString(36).toUpperCase()}${sufixoAleatorio()}`,
     status: 'pending',
     guest_access_hash: accessToken ? await hashAccessToken(accessToken) : null,
     guest_access_expires_at: accessToken ? guestAccessExpiry(agora) : null,
@@ -503,9 +522,21 @@ export async function getOrder(
     return json({ error: 'Pedido não encontrado.' }, 403)
   }
 
-  // O hash e a validade NÃO voltam para o navegador: são estado do servidor, e devolvê-los daria a
-  // quem já tem o token um segundo caminho para conferi-lo offline.
-  const { guest_access_hash: _hash, guest_access_expires_at: _expira, ...publico } = pedido
+  // Três campos NÃO voltam para o navegador, e o terceiro é o que mais importa:
+  //
+  //   guest_access_hash        estado do servidor; devolvê-lo daria a quem tem o token um segundo
+  //                            caminho para conferi-lo offline
+  //   guest_access_expires_at  idem
+  //   client_request_id        **é uma credencial**: quem o apresenta em `create-order` faz o
+  //                            servidor REEMITIR o acesso daquele pedido. Devolvê-lo aqui tornaria
+  //                            o token de 7 dias renovável para sempre — bastaria ler o pedido uma
+  //                            vez, guardar a chave, e reemitir quando o acesso vencesse.
+  const {
+    guest_access_hash: _hash,
+    guest_access_expires_at: _expira,
+    client_request_id: _chave,
+    ...publico
+  } = pedido
 
   log({ action: 'get-order', status: 'ok', order_id: orderId })
   return json({ order: publico })

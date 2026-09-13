@@ -1287,27 +1287,30 @@ uma linha por policy (`drop policy … on public.orders`), e o guarda que já ex
 
 ---
 
-## BL-031 — `orders.order_number` é gerado por relógio de milissegundo, sem índice único
+## BL-031 — `orders.order_number` ainda carrega o prefixo da marca anterior
 
 **Aberto por**: feature `49`, 2026-09-13, ao mover a geração do navegador para o servidor.
-**Comportamento PRESERVADO de propósito** — a feature trocou quem gera, não como.
 
-A expressão é `NP-${Date.now().toString(36).toUpperCase()}`, e tem dois problemas independentes:
+> ⚠️ **Esta entrada nasceu ERRADA e foi corrigida no mesmo dia, pela verificação independente.** A
+> primeira escrita afirmava que `orders.order_number` era "`text` **sem índice único**" e que uma
+> colisão seria "**silenciosa**". Os dois são falsos: a constraint `orders_order_number_key` existe
+> desde `20260415090935_create_orders_and_order_items.sql:49` e está aplicada no banco. É `AD-012`
+> na forma mais pura — **afirmação escrita à mão sobre schema, sem verificação** —, e a consequência
+> era o oposto do descrito: colisão não repetia número, ela **derrubava a venda com 500**.
 
-1. **`NP-` são as iniciais da marca ANTERIOR** (NanaPin). `brandScan.test.ts` não o alcança porque
-   é abreviação, não o nome. Trocá-lo muda a numeração que a Adri vê no painel e que aparece no
-   e-mail da cliente: é decisão de operação, não arrumação de código.
-2. **Dois pedidos no mesmo milissegundo recebem o mesmo número**, e `orders.order_number` é `text`
-   **sem índice único**. Hoje a colisão é improvável (o volume é baixo) e **silenciosa** quando
-   acontece: o segundo pedido grava normalmente e as duas linhas passam a se chamar igual, o que
-   quebra a busca do painel e a referência que a cliente cita no WhatsApp.
+**O que sobrou de dívida é só o prefixo.** `NP-` são as iniciais da marca ANTERIOR (NanaPin), e
+`brandScan.test.ts` não o alcança porque é abreviação, não o nome. Trocá-lo muda a numeração que a
+Adri vê no painel e que a cliente cita no WhatsApp: é decisão de operação, não arrumação de código.
+Os pedidos importados da Nuvemshop usam `NS-`, então a coexistência de dois prefixos é intencional.
 
-Os pedidos importados da Nuvemshop usam outro prefixo (`NS-`), então a coexistência é intencional e
-não precisa mudar.
+**O problema de colisão FOI RESOLVIDO na `49`**, e não fica pendente: a expressão passou a ser
+`NP-<base36 do relógio><4 caracteres aleatórios>`. O relógio sozinho tem resolução de milissegundo;
+com 36⁴ ≈ 1,7 milhão de sufixos por milissegundo, a colisão deixa de ser um modo de falha alcançável
+neste volume. `createOrder.test.ts` assere 40 números distintos com o **relógio fixo** — se o sufixo
+sumir, a colisão é certa e o caso reprova.
 
-**Saída provável**: uma sequência no banco (ou `gen_random_uuid()` encurtado) mais um índice único,
-numa migration que também decida o prefixo. As duas coisas juntas, porque mudar o formato sem o
-índice deixa o problema 2 de pé.
+**Ao fechar**: trocar o prefixo é uma linha em `supabase/functions/checkout/handlers.ts`, e a
+decisão é da dona — o número muda para quem já comprou.
 
 ---
 
