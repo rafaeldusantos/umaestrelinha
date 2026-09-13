@@ -146,6 +146,126 @@ describe('AdminLayout — o rodapé', () => {
 })
 
 /**
+ * O trilho de foco — feature 47.
+ *
+ * Tudo aqui renderiza o **layout real**, com o router de verdade: é o que separa "o trilho existe"
+ * de "o trilho está montado na tela". Um teste que montasse `<NavRail/>` ao lado de `<NavContent/>`
+ * dentro deste arquivo passaria com `<NavRail/>` apagado do `AdminLayout.tsx` — a lição da `44`.
+ */
+describe('AdminLayout — FOCO-01/04/05/07: a navegação recolhe nas duas telas de prévia', () => {
+  const trilho = () => screen.queryByTestId('trilho-de-navegacao')
+  const botaoRecolher = () => screen.queryByRole('button', { name: 'Recolher a navegação' })
+  const botaoExpandir = () => screen.queryByRole('button', { name: 'Expandir a navegação' })
+
+  it('`/admin/home` com storage limpo abre RECOLHIDA', () => {
+    renderEm('/admin/home')
+
+    expect(trilho()).toBeInTheDocument()
+    // E a sidebar larga não está montada junto: é uma OU outra. O que as distingue não é o conjunto
+    // de destinos — o trilho tem os mesmos, com o rótulo no `aria-label` — e sim os cabeçalhos de
+    // grupo, que só a larga desenha.
+    expect(within(coluna()).queryByRole('button', { name: /Catálogo/i })).not.toBeInTheDocument()
+    expect(within(coluna()).queryByText('Uma Estrelinha')).not.toBeInTheDocument()
+  })
+
+  it('`/admin/menu` também', () => {
+    renderEm('/admin/menu')
+    expect(trilho()).toBeInTheDocument()
+  })
+
+  it('a subrota do editor de seção também — `/admin/home/:sectionId`', () => {
+    renderEm('/admin/home/8f3c-1a')
+    expect(trilho()).toBeInTheDocument()
+  })
+
+  it('FOCO-07: fora das duas rotas a sidebar é a de hoje, e NÃO há controle de recolher', () => {
+    renderEm('/admin/produtos')
+
+    expect(trilho()).not.toBeInTheDocument()
+    expect(botaoRecolher()).not.toBeInTheDocument()
+    expect(botaoExpandir()).not.toBeInTheDocument()
+    expect(within(coluna()).getByRole('link', { name: 'Produtos' })).toBeInTheDocument()
+  })
+
+  it('FOCO-04: o controle expande, e o mesmo par de controles recolhe de volta', () => {
+    renderEm('/admin/home')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Expandir a navegação' }))
+
+    expect(trilho()).not.toBeInTheDocument()
+    expect(within(coluna()).getByRole('link', { name: 'Produtos' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Recolher a navegação' }))
+
+    expect(trilho()).toBeInTheDocument()
+  })
+
+  it('FOCO-05: expandido sobrevive à remontagem, e recolher APAGA a chave', () => {
+    const { unmount } = renderEm('/admin/home')
+    fireEvent.click(screen.getByRole('button', { name: 'Expandir a navegação' }))
+    expect(window.localStorage.getItem('estrelinha.admin.nav-rail')).toBe('expandido')
+    unmount()
+
+    // Remontar é o que o F5 faz: a preferência é de pessoa, não de visita.
+    const segunda = renderEm('/admin/home')
+    expect(screen.queryByTestId('trilho-de-navegacao')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Recolher a navegação' }))
+    expect(window.localStorage.getItem('estrelinha.admin.nav-rail')).toBeNull()
+    segunda.unmount()
+
+    expect(renderEm('/admin/home').container.querySelector('[data-testid="trilho-de-navegacao"]')).not.toBeNull()
+  })
+
+  it('a preferência expandida atravessa a navegação para fora e de volta', () => {
+    window.localStorage.setItem('estrelinha.admin.nav-rail', 'expandido')
+
+    renderEm('/admin/produtos')
+    expect(botaoRecolher()).not.toBeInTheDocument()
+
+    renderEm('/admin/home')
+    expect(screen.queryByTestId('trilho-de-navegacao')).not.toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: 'Recolher a navegação' })[0]).toBeInTheDocument()
+  })
+
+  it('FOCO-11: o colapso de grupos continua valendo no estado expandido, e o trilho não o toca', () => {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(['Catálogo']))
+    renderEm('/admin/home')
+
+    // Recolhida, a preferência dos grupos está guardada e intacta.
+    expect(window.localStorage.getItem(STORAGE_KEY)).toBe(JSON.stringify(['Catálogo']))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Expandir a navegação' }))
+
+    expect(within(sidebar()).getByRole('button', { name: /Catálogo/i })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    )
+    expect(window.localStorage.getItem(STORAGE_KEY)).toBe(JSON.stringify(['Catálogo']))
+  })
+
+  it('FOCO-08: a gaveta do celular não muda — e não ganha controle de recolher', () => {
+    renderEm('/admin/home')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Abrir menu' }))
+
+    const gaveta = screen.getByRole('dialog')
+    expect(within(gaveta).getByRole('link', { name: 'Produtos' })).toBeInTheDocument()
+    expect(within(gaveta).queryByRole('button', { name: 'Recolher a navegação' })).not.toBeInTheDocument()
+  })
+
+  it('FOCO-03: recolhida, a navegação continua respondendo onde eu estou', () => {
+    renderEm('/admin/menu')
+
+    const marcados = within(coluna())
+      .getAllByRole('link')
+      .filter(link => link.getAttribute('aria-current') === 'page')
+    expect(marcados).toHaveLength(1)
+    expect(marcados[0]).toHaveAttribute('href', '/admin/menu')
+  })
+})
+
+/**
  * O que o jsdom NÃO mede.
  *
  * O defeito consertado aqui é de layout: `aside` era um filho de flex sem altura, então esticava
@@ -157,9 +277,26 @@ describe('AdminLayout — a sidebar fixa, lida do fonte', () => {
   const HERE = dirname(fileURLToPath(import.meta.url))
   const fonte = readFileSync(resolve(HERE, 'AdminLayout.tsx'), 'utf8')
 
-  const classesDe = (tag: string): string => {
-    const match = fonte.match(new RegExp(`<${tag}\\b[^>]*className="([^"]*)"`))
-    return match?.[1] ?? ''
+  /**
+   * As classes declaradas num elemento, lidas do fonte.
+   *
+   * **Enxerga as duas formas** (feature 47): o `className="literal"` de sempre e o
+   * `className={cn('literal', …)}`, do qual concatena os literais de string. A segunda forma
+   * apareceu quando a largura do `aside` passou a depender do estado do trilho — e sem esta
+   * extensão a régua teria continuado verde medindo **string vazia**, que é a pior falha possível
+   * num teste que lê fonte. A âncora abaixo é o que transforma esse silêncio em reprovação.
+   *
+   * O segundo parâmetro existe para os sensores: eles precisam medir uma declaração sintética com a
+   * mesma régua que mede o arquivo real — régua que não pode ser chamada pelo sensor não é sensor.
+   */
+  const classesDe = (tag: string, fonteLida: string = fonte): string => {
+    const literal = fonteLida.match(new RegExp(`<${tag}\\b[^>]*className="([^"]*)"`))
+    if (literal) return literal[1]
+
+    const dinamico = fonteLida.match(new RegExp(`<${tag}\\b[^>]*className=\\{cn\\(([\\s\\S]*?)\\)\\}`))
+    if (!dinamico) return ''
+
+    return [...dinamico[1].matchAll(/'([^']*)'/g)].map(captura => captura[1]).join(' ')
   }
 
   it('ÂNCORA: a varredura acha os três elementos que ela mede', () => {
@@ -178,6 +315,18 @@ describe('AdminLayout — a sidebar fixa, lida do fonte', () => {
     // `self-start`: sem ele o `align-items: stretch` do flex desfaz o `h-screen` e a sidebar volta
     // a acompanhar a altura do documento — que é exatamente o defeito.
     expect(aside).toContain('self-start')
+  })
+
+  it('FOCO-10: a largura é a ÚNICA coisa que muda entre os dois estados', () => {
+    const aside = classesDe('aside')
+
+    // Os dois estados declarados, e os invariantes fora do ternário — que é o que garante que eles
+    // valem nos dois. Se `w-14`/`w-60` migrassem para dentro de `style`, a régua devolveria só os
+    // invariantes e o par abaixo reprovaria.
+    expect(aside).toContain('w-14')
+    expect(aside).toContain('w-60')
+    expect(aside).toContain('hidden')
+    expect(aside).toContain('md:block')
   })
 
   it('a lista de grupos rola DENTRO da sidebar, e o `min-h-0` é o que faz isso valer', () => {
@@ -212,12 +361,46 @@ describe('AdminLayout — a sidebar fixa, lida do fonte', () => {
     expect(header).toMatch(/z-\d+/)
   })
 
-  it('SENSOR: a régua reprova a declaração ANTIGA', () => {
+  it('SENSOR A: a régua reprova a declaração ANTIGA', () => {
     // A forma que estava no arquivo antes do conserto — `aside` sem altura e sem `sticky`. Se as
     // asserções acima passassem também por ela, não estariam medindo nada.
     const antigo = 'w-60 bg-white border-r border-estrelinha-admin-border shrink-0 hidden md:block'
     expect(antigo).not.toContain('sticky')
     expect(antigo).not.toContain('h-screen')
     expect(antigo).not.toContain('self-start')
+  })
+
+  it('a régua LÊ o `className={cn(...)}` — não apenas deixa de falhar nele', () => {
+    // Controle positivo da extensão: uma declaração dinâmica bem-formada tem de devolver os
+    // literais, incluindo os dos dois ramos do ternário.
+    const sintetico = `<aside className={cn('hidden md:block shrink-0 sticky top-0 self-start h-screen', recolhido ? 'w-14' : 'w-60')}>`
+    const lido = classesDe('aside', sintetico)
+
+    expect(lido).toContain('sticky')
+    expect(lido).toContain('h-screen')
+    expect(lido).toContain('self-start')
+    expect(lido).toContain('w-14')
+    expect(lido).toContain('w-60')
+  })
+
+  it('SENSOR B: um `cn()` SEM os invariantes reprova na mesma régua', () => {
+    // Sem este sensor, a extensão poderia ter apenas parado de falhar — passando a devolver algo,
+    // sem medir nada.
+    const semInvariantes = `<aside className={cn('hidden md:block shrink-0 bg-white', recolhido ? 'w-14' : 'w-60')}>`
+    const lido = classesDe('aside', semInvariantes)
+
+    expect(lido).not.toBe('')
+    expect(lido).not.toContain('sticky')
+    expect(lido).not.toContain('h-screen')
+    expect(lido).not.toContain('self-start')
+  })
+
+  it('SENSOR C: um `className` que a régua NÃO consegue ler produz âncora vazia — e reprova', () => {
+    // O ponto cego não pode voltar por outra sintaxe. Se alguém mover as classes para uma variável
+    // (`className={classes}`) ou para `style`, a régua tem de devolver string vazia, e a ÂNCORA
+    // acima é quem transforma isso em suíte vermelha — em vez de asserções passando sobre o vazio.
+    expect(classesDe('aside', `<aside className={classes}>`)).toBe('')
+    expect(classesDe('aside', `<aside className={\`w-60 \${extra}\`}>`)).toBe('')
+    expect(classesDe('aside', `<aside style={{ width: 240 }}>`)).toBe('')
   })
 })

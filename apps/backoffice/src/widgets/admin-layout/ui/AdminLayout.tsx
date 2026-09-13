@@ -1,12 +1,16 @@
 import { useState } from 'react'
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
-import { ChevronDown, LogOut, Pin, Store, Menu } from 'lucide-react'
+import { ChevronDown, LogOut, PanelLeftClose, Pin, Store, Menu } from 'lucide-react'
 import { supabase } from '@estrelinha/supabase/client'
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@estrelinha/ui/sheet'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@estrelinha/ui/collapsible'
+import { cn } from '@estrelinha/ui/lib/utils'
 import { isNavActive } from '@/widgets/admin-layout/lib/isNavActive'
 import { navGroups, footerNavItems, type NavItem } from '@/widgets/admin-layout/model/navItems'
 import { groupHasActive, isCollapsed, useNavCollapse } from '@/widgets/admin-layout/model/navCollapse'
+import { isFocusRoute } from '@/widgets/admin-layout/model/focusRoutes'
+import { useNavRail } from '@/widgets/admin-layout/model/navRail'
+import NavRail from '@/widgets/admin-layout/ui/NavRail'
 
 /** Id estável do cabeçalho, para o `aria-labelledby` do grupo. */
 const groupId = (label: string) => `nav-group-${label.toLowerCase().normalize('NFD').replace(/[^a-z]/g, '')}`
@@ -40,20 +44,38 @@ interface NavProps {
   pathname: string
   onNavigate?: () => void
   onLogout: () => void
+  /**
+   * Recolhe a navegação para o trilho.
+   *
+   * **Só chega preenchido nas rotas de foco** (`/admin/home` e `/admin/menu`): nas demais telas não
+   * há duas colunas disputando largura, e um controle que não resolve problema nenhum é ruído
+   * (`FOCO-07`). Ausente também na gaveta do celular, onde a navegação já sai da frente sozinha.
+   */
+  onCollapse?: () => void
 }
 
-const NavContent = ({ pathname, onNavigate, onLogout }: NavProps) => {
+const NavContent = ({ pathname, onNavigate, onLogout, onCollapse }: NavProps) => {
   const { collapsed, toggle } = useNavCollapse()
 
   return (
     <div className="flex flex-col h-full">
-      <div className="p-4 border-b border-estrelinha-admin-border shrink-0">
-        <Link to="/admin" onClick={onNavigate} className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full gradient-cta flex items-center justify-center">
+      <div className="flex items-center gap-2 p-4 border-b border-estrelinha-admin-border shrink-0">
+        <Link to="/admin" onClick={onNavigate} className="flex min-w-0 flex-1 items-center gap-2">
+          <div className="w-8 h-8 rounded-full gradient-cta flex items-center justify-center shrink-0">
             <Pin className="w-4 h-4 text-white" />
           </div>
-          <span className="font-heading text-lg font-semibold text-estrelinha-admin-text">Uma Estrelinha</span>
+          <span className="font-heading text-lg font-semibold text-estrelinha-admin-text truncate">Uma Estrelinha</span>
         </Link>
+        {onCollapse && (
+          <button
+            type="button"
+            onClick={onCollapse}
+            aria-label="Recolher a navegação"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-estrelinha-admin-text-secondary transition-colors hover:bg-estrelinha-admin-bg hover:text-estrelinha-admin-text"
+          >
+            <PanelLeftClose className="h-[18px] w-[18px]" aria-hidden />
+          </button>
+        )}
       </div>
       {/* `min-h-0` é o que faz o `overflow-y-auto` valer: sem ele um filho de flex não encolhe
           abaixo do próprio conteúdo, e a lista empurraria o rodapé para fora da coluna em vez de
@@ -132,6 +154,11 @@ const AdminLayout = () => {
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
 
+  // As duas telas que mostram a loja ao lado do editor abrem com a navegação recolhida. A
+  // preferência é de pessoa e sobrevive ao F5; fora dessas rotas ela existe mas não tem efeito.
+  const foco = isFocusRoute(location.pathname)
+  const { recolhido, alternar } = useNavRail(foco)
+
   const handleLogout = async () => {
     await supabase.auth.signOut()
     navigate('/admin/login')
@@ -147,8 +174,18 @@ const AdminLayout = () => {
           principal passaria por baixo) e preserva a rolagem do BODY, que é a que se comporta bem no
           celular — `h-screen overflow-hidden` na raiz traria o problema do `100vh` com a barra do
           navegador. `self-start` impede o `stretch` do flex de desfazer a altura de uma tela. */}
-      <aside className="hidden md:block w-60 shrink-0 sticky top-0 self-start h-screen bg-white border-r border-estrelinha-admin-border">
-        <NavContent pathname={location.pathname} onLogout={handleLogout} />
+      {/* A largura é a única coisa que muda com o trilho — os invariantes de posição valem nos DOIS
+          estados, e `AdminLayout.test.tsx` os lê do disco enxergando esta forma dinâmica. */}
+      <aside className={cn('hidden md:block shrink-0 sticky top-0 self-start h-screen bg-white border-r border-estrelinha-admin-border', recolhido ? 'w-14' : 'w-60')}>
+        {recolhido ? (
+          <NavRail pathname={location.pathname} onExpand={alternar} />
+        ) : (
+          <NavContent
+            pathname={location.pathname}
+            onLogout={handleLogout}
+            onCollapse={foco ? alternar : undefined}
+          />
+        )}
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0">
