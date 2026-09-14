@@ -142,13 +142,14 @@ describe('card de produto — superfícies', () => {
     expect(container.querySelector('.bg-estrelinha-ground-deep')).not.toBeNull()
   })
 
-  it('o disco de adicionar é Grafite e continua DISCO', () => {
-    // A forma de ação virou 14px na v2, mas o disco é a assinatura da marca —
-    // o produto é redondo. É a única exceção declarada da regra.
+  it('o disco de adicionar NÃO existe mais — o card não compra (2026-09-13)', () => {
+    // Era a exceção declarada da forma de ação: disco em Grafite, porque o produto é redondo. O
+    // controle saiu inteiro, e a asserção foi invertida em vez de apagada — um "+" que voltasse ao
+    // palco não teria quem o acusasse. O rótulo é EXATO: o favorito também começa com "Adicionar".
     renderCard(product())
-    const add = screen.getByRole('button', { name: /adicionar ao carrinho/i })
-    expect(add).toHaveClass('bg-estrelinha-ink', 'rounded-full')
-    expect(add).not.toHaveClass('rounded-sm')
+
+    expect(screen.queryByRole('button', { name: 'Adicionar ao carrinho' })).toBeNull()
+    expect(screen.queryByRole('button', { name: /sacola/i })).toBeNull()
   })
 
   it('o disco de favoritar é branco', () => {
@@ -283,13 +284,16 @@ describe('card de produto — cada miniatura troca a imagem em destaque (COR-11)
     expect(emDestaque()).toHaveAttribute('src', 'Folheado a Ouro.webp')
   })
 
-  it('clicar NÃO navega para a página do produto e NÃO abre o seletor', () => {
+  it('clicar NÃO navega para a página do produto e NÃO compra', () => {
+    // O seletor sobre a foto não existe mais desde 2026-09-13; o que resta a provar é que a
+    // miniatura continua sendo só uma troca de foto — nem navegação, nem carrinho.
     renderCard(comCor(['Prata 925', 'Folheado a Ouro']))
 
     fireEvent.click(miniatura('Folheado a Ouro'))
 
     expect(screen.queryByText('rota-produto')).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Fechar seleção de variações' })).toBeNull()
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Adicionar ao carrinho' })).toBeNull()
   })
 
   it('cor SEM foto mantém a imagem atual — não esvazia o palco', () => {

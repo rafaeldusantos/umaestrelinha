@@ -4,7 +4,6 @@ import type { OptionValues, Product, ProductOption, ProductVariant } from '@estr
 import { PAGE_MAX_AXES } from '../../lib/variantSelection'
 import ColorPreview from '../ColorPreview'
 import VariantPicker from '../VariantPicker'
-import VariantSheet from '../VariantSheet'
 
 /**
  * `PRF-02` (AC 5) — as vagas PEQUENAS também pedem rendição.
@@ -159,36 +158,5 @@ describe('VariantPicker — o eixo por foto pede 180 (PRF-02 AC 5)', () => {
       expect(img.getAttribute('src')).toContain('cdn.terceiro.example')
       expect(img.getAttribute('src')).not.toContain('/render/image/')
     }
-  })
-})
-
-describe('VariantSheet — a foto do cabeçalho pede 160 (PRF-02 AC 5)', () => {
-  const renderSheet = (p: Product) =>
-    render(
-      <VariantSheet
-        product={p}
-        open
-        onOpenChange={vi.fn()}
-        selected={{}}
-        onChange={vi.fn()}
-        onConfirm={vi.fn()}
-        price={100}
-      />,
-    )
-
-  it('a vaga de 64px busca a rendição de 160', () => {
-    const { baseElement } = renderSheet(produto({ ...COM_COR, image_url: STORAGE }))
-
-    const foto = baseElement.querySelectorAll('img')[0]
-    expect(foto?.getAttribute('src')).toBe(`${RENDER}?width=160&resize=contain&quality=75`)
-  })
-
-  it('produto de host externo passa inalterado, sem endpoint inventado', () => {
-    // Banner ou foto importada de terceiro: reescrever a URL de outro host inventaria uma rota
-    // que não existe, e a imagem simplesmente não carregaria.
-    const externo = 'https://cdn.terceiro.example/foto.jpg'
-    const { baseElement } = renderSheet(produto({ ...COM_COR, image_url: externo }))
-
-    expect(baseElement.querySelectorAll('img')[0].getAttribute('src')).toBe(externo)
   })
 })

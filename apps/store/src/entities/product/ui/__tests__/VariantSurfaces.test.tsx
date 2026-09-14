@@ -103,99 +103,34 @@ const renderInfo = (p: Product) =>
     </MemoryRouter>,
   )
 
-const openCardSelectors = () => fireEvent.click(screen.getByLabelText('Adicionar ao carrinho'))
-
 /**
- * `formatPrice` usa `Intl` e separa "R$" do número com NBSP. `getByRole({ name })` compara o nome
- * acessível cru, sem normalizar espaço — então o CTA se acha por prefixo e o preço se confere com
- * `toHaveTextContent`, que normaliza.
+ * Todo controle do card, pelo nome acessível — e é esta lista que a régua abaixo compara.
+ *
+ * Procurar o botão pelo rótulo antigo não serviria: o favorito também começa com "Adicionar", e um
+ * "+" que voltasse com outro rótulo passaria batido. Enumerar é o que faz um controle NOVO de
+ * qualquer nome derrubar o caso.
  */
-const cta = (prefix: RegExp) => screen.getByRole('button', { name: prefix })
-
-/** `useIsMobile` decide pela largura da janela; jsdom nasce em 1024 (desktop). */
-const setViewport = (width: number) => {
-  Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: width })
-}
+const controlesDoCard = () => screen.getAllByRole('button').map(b => b.getAttribute('aria-label'))
 
 beforeEach(() => {
   useCartStore.setState({ items: [] })
-  setViewport(1024)
 })
 
-describe('ProductCard — eixos genéricos (PST-05 AC 2)', () => {
-  it('produto de 2 eixos mostra 2 seletores, rotulados pelos eixos cadastrados', () => {
-    renderCard(
-      product({
-        options: TWO_AXES,
-        variants: [variant({ Tamanho: '4,5 cm', Acabamento: 'Fosco' })],
-      }),
-    )
-    openCardSelectors()
+describe('ProductCard — o card NÃO compra (decisão do usuário, 2026-09-13)', () => {
+  /*
+    A régua do "+", INVERTIDA.
 
-    expect(screen.getByLabelText('Tamanho')).toBeInTheDocument()
-    expect(screen.getByLabelText('Acabamento')).toBeInTheDocument()
-  })
+    Até aqui o card abria a escolha de variação sobre a foto — drawer no computador, bottom sheet no
+    celular — e adicionava ao carrinho sem sair da vitrine. O botão saiu, e as duas superfícies
+    foram junto. **Apagar os casos que o defendiam deixaria a volta dele passar em silêncio**, que é
+    o modo de falha de sempre: controle a mais não quebra nada, só volta a vender do lugar errado.
 
-  it('produto de 3 eixos NÃO abre seletor no card — leva para a página do produto', () => {
-    renderCard(
-      product({
-        options: THREE_AXES,
-        variants: [variant({ Tamanho: '4,5 cm', Acabamento: 'Fosco', Cor: 'Rosa' })],
-      }),
-    )
-    openCardSelectors()
-
-    expect(screen.getByText('rota-produto')).toBeInTheDocument()
-    expect(screen.queryByLabelText('Tamanho')).not.toBeInTheDocument()
-  })
-
-  it('adiciona ao carrinho com o variant_id e o PREÇO DA LINHA, não o base_price', () => {
-    renderCard(
-      product({
-        options: TWO_AXES,
-        variants: [variant({ Tamanho: '4,5 cm', Acabamento: 'Fosco' }, { id: 'v-45-fosco', price: 9.4 })],
-      }),
-    )
-    openCardSelectors()
-    // O CTA do drawer mostra o preço da LINHA, não o `price` da vitrine (R$ 4,90).
-    const confirm = cta(/^Adicionar ·/)
-    expect(confirm).toHaveTextContent('R$ 9,40')
-    fireEvent.click(confirm)
-
-    const [item] = useCartStore.getState().items
-    expect(item.variantId).toBe('v-45-fosco')
-    expect(item.unitPrice).toBe(9.4)
-    expect(item.variantLabel).toBe('4,5 cm · Fosco')
-    expect(item.optionValues).toEqual({ Tamanho: '4,5 cm', Acabamento: 'Fosco' })
-  })
-
-  it('combinação esgotada em policy track: CTA indisponível e nada entra no carrinho (AC 16)', () => {
-    renderCard(
-      product({
-        options: [option('Tamanho', ['4,5 cm'], 0)],
-        variants: [variant({ Tamanho: '4,5 cm' }, { stock: 0 })],
-      }),
-    )
-    openCardSelectors()
-
-    const cta = screen.getByRole('button', { name: 'Indisponível' })
-    expect(cta).toBeDisabled()
-    fireEvent.click(cta)
-    expect(useCartStore.getState().items).toHaveLength(0)
-  })
-
-  it('PST-10: variação ativa com options vazio entra como produto simples, por base_price', () => {
-    renderCard(product({ options: [], variants: [variant({}, { price: 9.4 })] }))
-    openCardSelectors()
-
-    const [item] = useCartStore.getState().items
-    expect(item.variantId).toBeNull()
-    expect(item.unitPrice).toBe(4.9)
-  })
-})
-
-describe('Quick add — drawer no card (desktop) e sheet (mobile)', () => {
-  const TWO_AXIS_PRODUCT = () =>
+    Por isso o que se afirma agora é a AUSÊNCIA, nos três casos que antes se comportavam diferente:
+    grade vendável de 2 eixos (abria o drawer), 3 eixos (navegava) e produto simples (adicionava
+    direto). Quem compra é a página — o `describe` de `ProductInfo`, abaixo, e a barra fixa do
+    celular, em `widgets/product-buy-bar`.
+  */
+  const DOIS_EIXOS = () =>
     product({
       options: TWO_AXES,
       variants: [
@@ -204,73 +139,59 @@ describe('Quick add — drawer no card (desktop) e sheet (mobile)', () => {
       ],
     })
 
-  it('desktop: o "+" abre o drawer sobre a imagem, não uma página nem o carrinho', () => {
-    renderCard(TWO_AXIS_PRODUCT())
-    openCardSelectors()
+  const TRES_EIXOS = () =>
+    product({
+      options: THREE_AXES,
+      variants: [variant({ Tamanho: '4,5 cm', Acabamento: 'Fosco', Cor: 'Rosa' })],
+    })
 
-    expect(screen.getByRole('radiogroup', { name: 'Tamanho' })).toBeInTheDocument()
-    expect(screen.queryByText('rota-produto')).not.toBeInTheDocument()
+  /** Duas cores com foto — o único arranjo em que a fileira de `COR-10` aparece. */
+  const COM_COR = () =>
+    product({
+      options: [option('Cor', ['Prata', 'Ouro'], 0)],
+      variants: [
+        variant({ Cor: 'Prata' }, { position: 0, image_url: 'prata.webp' }),
+        variant({ Cor: 'Ouro' }, { position: 1, image_url: 'ouro.webp' }),
+      ],
+    })
+
+  it('o único controle do card é o favorito — com grade, com 3 eixos e sem grade nenhuma', () => {
+    for (const p of [DOIS_EIXOS(), TRES_EIXOS(), product()]) {
+      const { unmount } = renderCard(p)
+
+      expect(controlesDoCard()).toEqual(['Adicionar aos favoritos'])
+      unmount()
+    }
+  })
+
+  it('o card é um link para a página do produto, e o caminho de compra é esse', () => {
+    renderCard(DOIS_EIXOS())
+
+    expect(screen.getByRole('link')).toHaveAttribute('href', '/produtos/botton-sailor-moon')
+  })
+
+  it('acionar todo controle do card não abre seletor, diálogo nem carrinho', () => {
+    // Vale para o favorito e para cada miniatura de cor: nenhuma delas decide compra.
+    renderCard(COM_COR())
+    for (const botao of screen.getAllByRole('button')) fireEvent.click(botao)
+
+    expect(screen.queryByRole('radiogroup')).toBeNull()
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(screen.queryByRole('button', { name: /sacola/i })).toBeNull()
     expect(useCartStore.getState().items).toHaveLength(0)
   })
 
-  it('desktop: o véu fecha o drawer sem adicionar nada', () => {
-    renderCard(TWO_AXIS_PRODUCT())
-    openCardSelectors()
-    fireEvent.click(screen.getByLabelText('Fechar seleção de variações'))
+  it('escolher uma cor continua trocando a foto — a fileira de `COR-11` não saiu junto', () => {
+    // A ausência só vale se a presença for medida ao lado: um card que perdesse a fileira também
+    // passaria nos três casos acima.
+    renderCard(COM_COR())
+    fireEvent.click(screen.getByRole('button', { name: 'Ver na cor Ouro' }))
 
-    expect(screen.queryByRole('radiogroup', { name: 'Tamanho' })).not.toBeInTheDocument()
+    expect(screen.getByAltText('Botton Sailor Moon')).toHaveAttribute('src', 'ouro.webp')
     expect(useCartStore.getState().items).toHaveLength(0)
-  })
-
-  it('trocar de pílula troca o preço do CTA — é o preço da linha que vai ser cobrado', () => {
-    renderCard(TWO_AXIS_PRODUCT())
-    openCardSelectors()
-
-    expect(cta(/^Adicionar ·/)).toHaveTextContent('R$ 7,90')
-    fireEvent.click(screen.getByRole('radio', { name: '4,5 cm' }))
-    expect(cta(/^Adicionar ·/)).toHaveTextContent('R$ 9,40')
-  })
-
-  it('valor sem linha disponível fica desabilitado, não escondido (PST-08)', () => {
-    renderCard(
-      product({
-        options: [option('Tamanho', ['3,5 cm', '4,5 cm'], 0)],
-        variants: [
-          variant({ Tamanho: '3,5 cm' }, { stock: 10, position: 0 }),
-          variant({ Tamanho: '4,5 cm' }, { stock: 0, position: 1 }),
-        ],
-      }),
-    )
-    openCardSelectors()
-
-    expect(screen.getByRole('radio', { name: '4,5 cm' })).toBeDisabled()
-    expect(screen.getByRole('radio', { name: '3,5 cm' })).toBeEnabled()
-  })
-
-  it('mobile: o "+" abre o bottom sheet, com nome e preço do produto no topo', () => {
-    setViewport(390)
-    renderCard(TWO_AXIS_PRODUCT())
-    openCardSelectors()
-
-    expect(screen.getByRole('dialog')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Adicionar à sacola/ })).toBeInTheDocument()
-    expect(screen.getByLabelText('Fechar')).toBeInTheDocument()
-  })
-
-  it('mobile: o sheet adiciona a linha escolhida ao carrinho', () => {
-    setViewport(390)
-    renderCard(TWO_AXIS_PRODUCT())
-    openCardSelectors()
-    fireEvent.click(screen.getByRole('radio', { name: '4,5 cm' }))
-    const confirm = cta(/^Adicionar à sacola/)
-    expect(confirm).toHaveTextContent('R$ 9,40')
-    fireEvent.click(confirm)
-
-    const [item] = useCartStore.getState().items
-    expect(item.unitPrice).toBe(9.4)
-    expect(item.optionValues).toEqual({ Tamanho: '4,5 cm', Acabamento: 'Fosco' })
   })
 })
+
 
 describe('ProductInfo — página do produto (PST-05 AC 1)', () => {
   it('mostra os 3 seletores de um produto de 3 eixos, na ordem de position', () => {

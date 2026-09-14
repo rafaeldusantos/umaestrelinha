@@ -1,37 +1,26 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Heart, Plus } from 'lucide-react'
+import { Heart } from 'lucide-react'
 import type { Product } from '@estrelinha/supabase/types'
-import { useCategories } from '@/entities/category/api/useCategories'
 import { formatPrice } from '@estrelinha/core/formatters'
 import { imagePriority, renditionSrcSet, renditionUrl } from '@estrelinha/core/media'
 import { resolveInstallments } from '@estrelinha/core/payment/installments'
 import { usePaymentSettings } from '@estrelinha/core/hooks/useStoreSettings'
 import { productPath } from '@estrelinha/core/routes'
 import { TAP_44 } from '@/shared/lib/touchTarget'
-import { variantLabel } from '@estrelinha/core/pricing'
-import { useCartStore } from '@/entities/cart/model/cartStore'
-import { useCartUiStore } from '@/entities/cart/model/cartUiStore'
 import { useWishlistStore } from '@/entities/wishlist/model/wishlistStore'
 import { Skeleton } from '@estrelinha/ui/skeleton'
 import { cn } from '@estrelinha/ui/lib/utils'
-import { useIsMobile } from '@estrelinha/ui/hooks/use-mobile'
-import { toast } from 'sonner'
 import {
   CARD_MAX_AXES,
-  canAddSelection,
   colorAxis,
   findVariant,
   hasSellableGrid,
   initialSelection,
-  needsProductPage,
   type ColorThumb,
 } from '../lib/variantSelection'
-import { displayCategory } from '../lib/displayCategory'
 import ColorPreview from './ColorPreview'
-import QuickAddDrawer from './QuickAddDrawer'
-import VariantSheet from './VariantSheet'
 
 /**
  * Selo do card.
@@ -57,17 +46,23 @@ const CardBadge = ({ tone, children }: { tone: 'jam' | 'ink'; children: React.Re
  * (`PRF-03`). Card sem índice (relacionados, favoritos, resultado de busca) cai no ramo preguiçoso
  * de `imagePriority`, que é exatamente o comportamento de hoje: o padrão seguro é não priorizar.
  */
+/**
+ * **O card NÃO compra** (decisão do usuário, 2026-09-13).
+ *
+ * Ele mostra e leva à página do produto; quem adiciona ao carrinho é a página — `ProductInfo` no
+ * corpo e `ProductBuyBar` na barra fixa do celular. O "+" que abria a escolha de variação sobre a
+ * foto saiu junto com as DUAS superfícies que só ele acionava (`QuickAddDrawer` no computador e
+ * `VariantSheet` no celular): controle sem gatilho é código morto, e código morto não quebra — só
+ * envelhece.
+ *
+ * Sobrou uma interação no palco, e ela não decide compra: a fileira de cores (`COR-11`), que troca
+ * a foto em destaque e o preço exibido.
+ */
 const ProductCard = ({ product, index }: { product: Product; index?: number }) => {
-  const addItem = useCartStore((s) => s.addItem)
   const toggleWishlist = useWishlistStore((s) => s.toggleItem)
   const isWishlisted = useWishlistStore((s) => s.hasItem(product.id))
-  const navigate = useNavigate()
-  // Uma escolha, duas superfícies: drawer sobre a imagem no desktop, bottom sheet no mobile.
-  // O sheet do Radix portala para o body, então não dá para alternar só com `md:hidden`.
-  const isMobile = useIsMobile()
-  const [showVariants, setShowVariants] = useState(false)
   // PST-05: a escolha é um mapa de eixo → valor, não mais duas strings fixas. Começa na primeira
-  // combinação disponível, para o "+" não abrir num tamanho esgotado.
+  // combinação disponível, para a foto e o preço do card nascerem numa linha que existe de verdade.
   const [selected, setSelected] = useState(() => initialSelection(product, CARD_MAX_AXES))
   const [imgLoaded, setImgLoaded] = useState(false)
   /*
@@ -79,7 +74,6 @@ const ProductCard = ({ product, index }: { product: Product; index?: number }) =
     seria uma segunda escrita da mesma busca, livre para divergir do que a cliente clicou.
   */
   const [corEscolhida, setCorEscolhida] = useState<string | null>(null)
-  const { data: categories } = useCategories()
   const { max_installments, min_installment_value } = usePaymentSettings()
 
   // PST-10: variação ativa com `options` vazio é grade meio-cadastrada — o produto vale como
@@ -95,16 +89,7 @@ const ProductCard = ({ product, index }: { product: Product; index?: number }) =
     product.stock_policy === 'track' &&
     product.stock_total > 0 &&
     product.stock_total <= product.low_stock_threshold
-  // PST-06 AC 3: o selo é a categoria de menor `sort_order` entre as do produto, com desempate por
-  // `position` do vínculo. `category_slug` (a coluna legada) guardava só uma das N.
-  const category = displayCategory(product, categories)
 
-  // A7: o card mostra no máximo 2 eixos. Com 3 não há como fechar a escolha aqui sem escolher o
-  // terceiro pelo cliente — então o "+" leva para a página do produto (PST-05 AC 2).
-  const goToPage = sellableGrid && needsProductPage(product.options)
-
-  // O CTA do drawer/sheet mostra o preço da LINHA escolhida, não o `price` da vitrine — é o valor
-  // que vai ser cobrado, e é ele que muda quando o cliente troca de tamanho.
   const selectedVariant = sellableGrid ? findVariant(product.variants, selected) : null
   const selectedPrice = selectedVariant?.price ?? product.price
 
@@ -151,9 +136,9 @@ const ProductCard = ({ product, index }: { product: Product; index?: number }) =
   ) as Record<string, string>
 
   /**
-   * `COR-11`: escolher a cor troca a imagem em destaque e a cor escolhida — e não navega nem abre
-   * o seletor. Cor **sem foto** mantém a imagem atual: esvaziar o palco por causa de um cadastro
-   * incompleto seria punir a cliente por um dado que falta em 9 dos 385 produtos.
+   * `COR-11`: escolher a cor troca a imagem em destaque e a cor escolhida — e não navega nem compra.
+   * Cor **sem foto** mantém a imagem atual: esvaziar o palco por causa de um cadastro incompleto
+   * seria punir a cliente por um dado que falta em 9 dos 385 produtos.
    */
   const pickColor = (thumb: ColorThumb) => {
     const axis = colorAxis(product.options)
@@ -161,62 +146,6 @@ const ProductCard = ({ product, index }: { product: Product; index?: number }) =
     setSelected(prev => ({ ...prev, [axis.name]: thumb.value }))
     if (thumb.imageUrl) setCorEscolhida(thumb.imageUrl)
   }
-
-  const addSelectionToCart = () => {
-    if (sellableGrid) {
-      if (!selectedVariant || !canAddSelection(product, selected)) {
-        toast.error('Essa combinação está indisponível. Escolha outra.')
-        return
-      }
-      addItem(product, '', '', {
-        variantId: selectedVariant.id,
-        variantLabel: variantLabel(product.options, selectedVariant.option_values),
-        optionValues: selectedVariant.option_values,
-        unitPrice: selectedVariant.price!,
-      })
-    } else {
-      addItem(product)
-    }
-    setShowVariants(false)
-    notifyAdded()
-  }
-
-  const handleAddToCart = (e: React.MouseEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    if (isOutOfStock) return
-
-    if (goToPage) {
-      navigate(productPath(product.slug))
-      return
-    }
-
-    // Com grade vendável o "+" não adiciona: ele ABRE a escolha (drawer no desktop, sheet no
-    // mobile). Sem grade, adiciona direto — não há o que escolher.
-    if (sellableGrid) {
-      setShowVariants(true)
-      return
-    }
-    addSelectionToCart()
-  }
-
-  const notifyAdded = () =>
-    toast.custom(() => (
-      <div className="flex items-center gap-3 rounded-md border border-estrelinha-line bg-white p-3 shadow-estrelinha-soft">
-        <img src={product.image_url} alt={product.name} className="h-12 w-12 rounded-sm object-cover" />
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-estrelinha-ink">{product.name}</p>
-          <p className="text-xs text-estrelinha-ink-soft">Adicionado ao carrinho</p>
-        </div>
-        <button
-          type="button"
-          onClick={() => useCartUiStore.getState().openCart()}
-          className="whitespace-nowrap text-xs font-semibold text-estrelinha-primary hover:underline"
-        >
-          Ver carrinho
-        </button>
-      </div>
-    ))
 
   const handleWishlist = (e: React.MouseEvent) => {
     e.preventDefault()
@@ -296,24 +225,11 @@ const ProductCard = ({ product, index }: { product: Product; index?: number }) =
             />
           </button>
 
-          {!isOutOfStock && (
-            <button
-              onClick={handleAddToCart}
-              className={cn(
-                TAP_44,
-                'absolute bottom-3.5 right-3.5 z-10 flex h-[38px] w-[38px] items-center justify-center rounded-full bg-estrelinha-ink transition-transform hover:scale-110 active:scale-95',
-              )}
-              aria-label="Adicionar ao carrinho"
-            >
-              <Plus className="h-[18px] w-[18px] text-white" strokeWidth={2.2} />
-            </button>
-          )}
-
           {/*
-            A placa de cores (`COR-10`..`COR-15`). Ela abre o MESMO caminho do "+" — `handleAddToCart`
-            —, que já faz `preventDefault` + `stopPropagation` dentro do `<Link>` e já decide entre
-            drawer, sheet e página do produto. Passar outro handler aqui seria uma terceira
-            superfície de escolha de variação.
+            A placa de cores (`COR-10`..`COR-15`). Desde que o "+" saiu, ela é a ÚNICA interação do
+            palco — e não compra nada: troca a foto em destaque e o preço exibido. Cada miniatura faz
+            `preventDefault` + `stopPropagation` por dentro, senão escolher uma cor navegaria para o
+            produto: o card inteiro é um `<Link>`.
 
             Ela nunca disputa espaço com o véu de "Esgotado": a placa exige grade vendável, e com
             grade vendável `isOutOfStock` é sempre falso (é a mesma condição, negada).
@@ -326,17 +242,6 @@ const ProductCard = ({ product, index }: { product: Product; index?: number }) =
                 Esgotado
               </span>
             </div>
-          )}
-
-          {showVariants && !isMobile && (
-            <QuickAddDrawer
-              product={product}
-              selected={selected}
-              onChange={setSelected}
-              onConfirm={addSelectionToCart}
-              onDismiss={() => setShowVariants(false)}
-              price={selectedPrice}
-            />
           )}
         </div>
 
@@ -382,19 +287,6 @@ const ProductCard = ({ product, index }: { product: Product; index?: number }) =
           )}
         </div>
       </Link>
-
-      {isMobile && (
-        <VariantSheet
-          product={product}
-          categoryName={category?.name}
-          open={showVariants}
-          onOpenChange={setShowVariants}
-          selected={selected}
-          onChange={setSelected}
-          onConfirm={addSelectionToCart}
-          price={selectedPrice}
-        />
-      )}
     </motion.div>
   )
 }

@@ -235,20 +235,29 @@ describe('CartDrawer — resumo e CTA', () => {
     useCartStore.getState().addItem(product({ price: 30 }))
   })
 
-  it('soma subtotal + frete estimado no total', () => {
+  /**
+   * A estimativa de frete SAIU da gaveta.
+   *
+   * Sem CEP, o único número disponível aqui era a faixa padrão de `store_settings` — e a cotação do
+   * checkout quase sempre a contradiz. O total é o dos produtos, e a nota diz de onde o frete vem;
+   * sem ela, este número se lê como valor final do pedido.
+   */
+  it('o total é o dos produtos, sem linha de frete e com a nota de onde ele é calculado', () => {
     renderDrawer()
     open()
     expect(summaryValue('Subtotal (1 item)')).toBe('R$ 30,00')
-    expect(summaryValue('Frete estimado')).toBe('R$ 9,90')
-    expect(summaryValue('Total')).toBe('R$ 39,90')
+    expect(screen.queryByText('Frete estimado')).not.toBeInTheDocument()
+    expect(summaryValue('Total')).toBe('R$ 30,00')
+    expect(screen.getByText('Frete calculado no checkout, com o seu CEP.')).toBeInTheDocument()
   })
 
-  it('acima da faixa, o frete vira "Grátis" e sai do total', () => {
+  it('com a faixa de frete grátis alcançada o total continua o mesmo — nenhum frete entra na conta', () => {
     useCartStore.setState({ items: [] })
     useCartStore.getState().addItem(product({ price: 200 }))
     renderDrawer()
     open()
-    expect(summaryValue('Frete estimado')).toBe('Grátis')
+    expect(screen.getByText(/Frete grátis liberado/)).toBeInTheDocument()
+    expect(screen.queryByText('Frete estimado')).not.toBeInTheDocument()
     expect(summaryValue('Total')).toBe('R$ 200,00')
   })
 
@@ -286,8 +295,8 @@ describe('CartDrawer — desconto progressivo (PRM-15)', () => {
 
     expect(summaryValue('Desconto progressivo')).toBe('−R$ 11,70')
     expect(summaryValue('Subtotal (3 itens)')).toBe('R$ 26,70')
-    // 15,00 (3 × 5,00) + 9,90 de frete estimado
-    expect(summaryValue('Total')).toBe('R$ 24,90')
+    // 3 × 5,00 — a faixa põe cada peça a R$ 5,00, e o frete não entra na gaveta
+    expect(summaryValue('Total')).toBe('R$ 15,00')
   })
 
   it('sem faixa alcançada nenhuma linha aparece — a gaveta não anuncia −R$ 0,00', () => {
@@ -297,7 +306,7 @@ describe('CartDrawer — desconto progressivo (PRM-15)', () => {
     open()
 
     expect(screen.queryByText('Desconto progressivo')).not.toBeInTheDocument()
-    expect(summaryValue('Total')).toBe('R$ 27,70')
+    expect(summaryValue('Total')).toBe('R$ 17,80')
   })
 
   it('sem promoção vigente nenhuma linha aparece', () => {
@@ -306,7 +315,7 @@ describe('CartDrawer — desconto progressivo (PRM-15)', () => {
     open()
 
     expect(screen.queryByText('Desconto progressivo')).not.toBeInTheDocument()
-    expect(summaryValue('Total')).toBe('R$ 36,60')
+    expect(summaryValue('Total')).toBe('R$ 26,70')
   })
 
   it('diminuir a quantidade abaixo da faixa remove a linha no mesmo render', () => {
@@ -319,7 +328,7 @@ describe('CartDrawer — desconto progressivo (PRM-15)', () => {
     fireEvent.click(screen.getByLabelText('Diminuir Pin Gojo Satoru'))
 
     expect(screen.queryByText('Desconto progressivo')).not.toBeInTheDocument()
-    expect(summaryValue('Total')).toBe('R$ 27,70')
+    expect(summaryValue('Total')).toBe('R$ 17,80')
   })
 
   /**
@@ -424,7 +433,7 @@ describe('CartDrawer — desconto progressivo (PRM-15)', () => {
 
     expect(summaryValue('Desconto progressivo')).toBe('−R$ 11,70')
     expect(screen.queryByText('Cupom BEMVINDA')).not.toBeInTheDocument()
-    expect(summaryValue('Total')).toBe('R$ 24,90')
+    expect(summaryValue('Total')).toBe('R$ 15,00')
   })
 })
 

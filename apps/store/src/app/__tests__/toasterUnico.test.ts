@@ -103,9 +103,14 @@ describe('toasterUnico — âncoras da varredura', () => {
 
   it('a régua ENCONTRA o Sonner — a segunda ponta da âncora', () => {
     // Sem esta asserção, um regex quebrado faria o guarda passar sem medir nada.
+    //
+    // O arquivo nomeado era o `ProductCard.tsx`, e ele deixou de avisar nada em 2026-09-13: o "+"
+    // saiu do card, e com ele o aviso de "Adicionado ao carrinho". Quem avisa agora é o hook de
+    // compra da PÁGINA, que é onde a ação passou a morar — âncora nomeando um arquivo que não faz
+    // mais o trabalho é a mesma armadilha da fixture que cita uma rota removida (`L-034`).
     const usos = procurar(SONNER)
     expect(usos.length).toBeGreaterThanOrEqual(5)
-    expect(usos.some(u => u.arquivo.endsWith('ProductCard.tsx'))).toBe(true)
+    expect(usos.some(u => u.arquivo.endsWith('useProductPurchase.tsx'))).toBe(true)
   })
 
   it('sensor da régua: uma linha sintética com useToast É reprovada', () => {

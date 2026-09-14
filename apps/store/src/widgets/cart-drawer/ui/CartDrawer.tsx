@@ -67,8 +67,6 @@ const CartDrawer = () => {
   const suggestions = useMemo(() => pickCrossSell(catalog, items), [catalog, items])
 
   const units = items.reduce((sum, i) => sum + i.quantity, 0)
-  const freeShipping = progress.reached || !!applied?.freeShipping
-  const shipping = freeShipping ? 0 : default_shipping_cost
   /**
    * PRM-15: os dois descontos por item saem de `resolveOrderPricing` — a mesma função que o
    * `create-payment` chama — e não de contas separadas aqui.
@@ -79,7 +77,15 @@ const CartDrawer = () => {
    * feature existe para matar.
    */
   const discount = totals.couponDiscount
-  const total = totals.total + shipping
+  /**
+   * O total da gaveta é o dos PRODUTOS, sem frete.
+   *
+   * A gaveta não tem CEP, então qualquer frete aqui seria a faixa padrão de `store_settings` — um
+   * número que a cotação do checkout quase sempre contradiz (medido na integração do Melhor Envio:
+   * a mesma sacola cotou de R$ 17,89 a R$ 163,64 conforme o destino). `useCartPromotion` já resolve
+   * o pedido com `shipping: 0`, e este total é exatamente o que ela devolve.
+   */
+  const total = totals.total
 
   const goTo = (path: string) => {
     closeCart()
@@ -257,13 +263,6 @@ const CartDrawer = () => {
                     <dd className="font-semibold text-estrelinha-primary">−{formatPrice(discount)}</dd>
                   </div>
                 )}
-                <div className="flex items-center justify-between text-[13px]">
-                  <dt className="font-medium text-estrelinha-ink-soft">Frete estimado</dt>
-                  {/* Estimativa da faixa padrão: o valor real sai da cotação por CEP, no checkout. */}
-                  <dd className={freeShipping ? 'font-bold text-estrelinha-primary' : 'font-semibold text-estrelinha-ink'}>
-                    {freeShipping ? 'Grátis' : formatPrice(shipping)}
-                  </dd>
-                </div>
                 <div className="h-px w-full bg-estrelinha-line" />
                 <div className="flex items-center justify-between">
                   <dt className="font-heading text-base font-bold text-estrelinha-ink">Total</dt>
@@ -272,6 +271,12 @@ const CartDrawer = () => {
                   </dd>
                 </div>
               </dl>
+
+              {/* Sem a linha de frete, o Total é o dos produtos. Dizer onde o frete é calculado é o
+                  que impede a cliente de ler este número como valor final do pedido. */}
+              <p className="px-5 pt-2 text-[11px] leading-4 text-estrelinha-ink-soft md:px-6">
+                Frete calculado no checkout, com o seu CEP.
+              </p>
 
               <div className="px-5 pb-5 pt-3.5 md:px-6 md:pb-6 md:pt-4">
                 <Button
