@@ -831,7 +831,63 @@
 
 ## Handoff
 
-### ATUAL — 2026-09-13 · `48-usuarios-do-painel` **IMPLEMENTADA — 25 de 25 tasks**
+### ATUAL — 2026-09-14 · `50-produtos-em-destaque-e-painel-sem-recarga` **IMPLEMENTADA — 21 de 21 tasks**
+
+- **Feature**: `.specs/features/50-produtos-em-destaque-e-painel-sem-recarga/` (`spec.md`,
+  `design.md`, `tasks.md`). **Sem `validation.md` ainda** — o Verifier independente roda a seguir, e
+  os commits vêm depois dele.
+- **Fase / Task**: Execute completo em **quatro lotes** (T1…T7 · T8…T12 · T13…T17 · T18…T21),
+  **44 de 44 requisitos** (`DST-01`..`DST-24`, `VIV-01`..`VIV-12`, `ANI-01`..`ANI-08`).
+- **O que está no ar**, em três frentes que compartilham uma tela (`/admin/home`):
+  1. **O bloco "Produtos em destaque"** — `product_carousel` deixou de ser "em breve". Curadoria de
+     até **12** peças na ordem da dona, título, descrição, e a escolha **Slider** (fita que rola nos
+     dois tamanhos) × **Grade** (2 colunas no celular, 4 a partir de `md`). **Zero migration**: o
+     tipo já estava no `check` desde a `24` e `display` é valor em `config jsonb` (`AD-014`).
+  2. **O painel parou de se desmontar** — `fetchX('inicial' | 'revalidar')` com token de sequência:
+     o esqueleto só existe na primeira carga, a releitura que falha **mantém** as linhas, e o
+     `<iframe>` da prévia **não remonta** (asserido por identidade de nó). Salvar uma seção não
+     navega mais; o recibo é o selo `Salvo`, que some em ~2 s.
+  3. **O movimento** — `Salvando… → Salvo`, a linha que **mudou** acendendo por 1,2 s, seção
+     entrando e saindo com transição, e **nada disso para quem pediu `prefers-reduced-motion`**.
+- **Gates (2026-09-14, um workspace por vez, exit code fora de pipe, `--testTimeout=20000` na loja e
+  no painel)**: testes **9360 em 486** (store 3371/218 · backoffice 2522/140 · core 2356/92 ·
+  functions 599/13 · catalog-import 512/23), **+261** contra a entrada medida (9099/478). Tipos
+  **0 · 0**. Lint **27/6** — idêntico. `pnpm build` verde nos dois apps.
+  `packages/core/src/payment/**` sem uma linha alterada (`git diff --name-only` = 0 arquivos).
+- **Nenhuma decisão nova.** O `design.md` justifica: as escolhas ou já são cobertas por decisões
+  ativas (`AD-014`, `AD-019`, `AD-024`, `AD-029`) ou são locais da feature. **`AD-036` não existe** —
+  se o `layout` do `ProductCarousel` vier a ser lido por uma terceira superfície, aí a fronteira
+  merece decisão própria.
+- **Três guardas novos**, com sensibilidade provada por **injeção real no arquivo real**:
+  `toNewItems.test.ts` (campo de tela que escapa para o `insert` = `PGRST204` silencioso),
+  `ProductCarouselLayout.test.tsx` (as três formas saem de um mapa só) e
+  `animacaoRespeitaMovimento.test.ts` (classe que move sem par `motion-reduce:`).
+  `catalog.test.ts` foi **invertido**, não descartado.
+- **Nada commitado** — o `CLAUDE.md` deste projeto manda gerar os commits completos de uma vez ao
+  fim (`BL-012`), e commitá-los antes do Verifier seria commitar trabalho não verificado.
+- **Próximo passo**: Verifier independente → consertos, se houver → commits.
+- **A dívida que fica** é **operação e navegador**: o bloco **nasce inexistente** (a Adri precisa
+  acrescentá-lo, dar título, escolher as peças, escolher a apresentação e **ligar** — bloco novo
+  nasce desligado), e a prova em 390×844 e 1440 não foi feita. A lista do que só o navegador vê está
+  em *O que só o navegador prova*, no `design.md`.
+- **Armadilhas desta sessão, para quem continuar**:
+  - **`ANI-07` só se prova por ORDEM.** "A animação não atrasa a gravação" é verdadeira nos dois
+    mundos quando o teste espera o resultado final. O caso que a prende não põe **um único `await`**
+    entre as duas asserções — microtarefa não roda entre duas linhas síncronas.
+  - **Gravação otimista precisa de um dublê que segure a ESCRITA.** Com a resposta chegando na hora,
+    otimista e pessimista produzem a mesma tela, e a primeira escrita do caso "não pisca"
+    **sobreviveu** à remoção do otimismo.
+  - **`await` sobre o builder do Supabase chama o `.then` numa MICROTAREFA**, não na hora: sem um
+    respiro, o dublê ainda não registrou a escrita quando a asserção roda — e o teste reprova
+    medindo o dublê, não o hook.
+  - **Os dois `fetch` recebem argumento agora**: consumidor novo precisa de seta
+    (`onClick={() => fetchSections('inicial')}`), senão o `MouseEvent` vira o modo.
+  - A baseline do `CLAUDE.md` estava velha em **+3/+1 no store** quando a feature abriu — **sexta**
+    ocorrência seguida. Meça com a árvore parada.
+
+---
+
+### 2026-09-13 · `48-usuarios-do-painel` **IMPLEMENTADA — 25 de 25 tasks**
 
 - **Feature**: `.specs/features/48-usuarios-do-painel/` (`spec.md`, `design.md`, `tasks.md`).
   **`validation.md` com DUAS rodadas de verificação independente** (autor ≠ verificador): a rodada 1

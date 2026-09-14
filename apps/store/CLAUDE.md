@@ -439,8 +439,49 @@ edita é `/admin/home` (ver [`../backoffice/CLAUDE.md`](../backoffice/CLAUDE.md)
   decidir nada.
 - **O hero é indelével**: sem controle de desligar na lista **e** com trigger na migration.
 - `widgets/category-grid` **continua no repositório mas não é montado**: a grade de tiles saiu da home
-  quando a grade de banners tomou o lugar dela no board. Os blocos `product_carousel` e `category_grid`
-  estão no catálogo **sem renderer**, e o renderizador os pula sem quebrar a página.
+  quando a grade de banners tomou o lugar dela no board. **`category_grid` continua no catálogo sem
+  renderer** e o renderizador o pula sem quebrar a página; **`product_carousel` GANHOU o dele na
+  feature `50`** — ver abaixo.
+
+## Produtos em destaque — o bloco de peças escolhidas a dedo (feature `50`)
+
+O único bloco da Home que fala de **peça**, e não de coleção. As fileiras saem de `categories` e
+mostram as quatro primeiras de cada uma; aqui a dona escolhe **estas doze, nesta ordem**.
+
+- **O tipo é `product_carousel`, e o rótulo de tela é "Produtos em destaque".** O identificador é
+  **coluna** — já aceito pelo `check` desde a feature `24` —, e renomeá-lo custaria migration
+  destrutiva para não ganhar nada. O que a dona lê é o `label` do catálogo. Mesmo argumento que
+  deixou `image_url` significando "a arte de computador" desde a `41`.
+- **`widgets/featured-products`** lê a curadoria, busca os produtos com `useProductsByIds` e
+  **reordena pela posição da dona** (`DST-22`): `.in()` não garante ordem, e ordenar no servidor
+  exigiria `order by array_position`, que o PostgREST não expõe. Erro da consulta ⇒ o bloco devolve
+  `null` e **o resto da Home fica de pé** (`DST-17`).
+- **O bloco não desenha card próprio.** Ele passa `loading` e `skeletonCount` ao `ProductCarousel`, e
+  o par card × esqueleto continua preso por `cardSkeletonBox.test.ts`.
+
+### `ProductCarousel` tem TRÊS formas, e elas saem de UM mapa
+
+Um dono só das classes de vaga e do esqueleto — uma segunda escrita delas seria o "defeito 01" no
+tamanho de uma classe. `ProductCarouselLayout.test.tsx` prende as três por **token exato**, com
+asserção positiva no celular **e** a partir de `md` (`L-029`).
+
+| `layout` | Celular | A partir de `md` | Quem usa |
+| --- | --- | --- | --- |
+| `row` (padrão) | fita que rola | `md:grid md:grid-cols-4`, **uma linha** | `HomeCollectionRow` — **imóvel**, é a Home de hoje (`HOME-04`) |
+| `slider` | fita que rola | **continua fita**, e as setas rolam | `config.display = 'slider'` (`DST-05`) |
+| `grid` | `grid-cols-2` | `md:grid-cols-4`, embrulhando | `config.display = 'grid'` (`DST-06`) |
+
+- **`row` e `slider` são iguais abaixo de `md`, e isso é de propósito.** Por isso a AC é escrita nos
+  dois tamanhos: sem a metade do computador, uma asserção provaria a metade fácil e as duas opções
+  entregariam a mesma tela.
+- **A vaga do `slider` mantém `min-w-[220px]` a partir de `md`.** Sem isso o item de flex encolhe até
+  o `min-content` e os 12 cards se espremem em vez de rolar.
+- **Com mais de 4 itens, o `row` de hoje já embrulhava** no computador — ninguém percebeu porque
+  `HomeCollectionRow` sempre passa exatamente 4. É o que torna a separação necessária: "Slider" com
+  12 produtos seria 3 linhas.
+- **`display` é VALOR, não referência** (`AD-014`): mora em `config.display`, e quem o lê é
+  `featuredDisplay()` em `core/home` — ausente ou desconhecido devolve `'slider'`, e nenhuma tela
+  recusa a gravação por causa disso (`DST-10`).
 
 ### Modo prévia (feature `25`)
 

@@ -228,6 +228,7 @@ com as duas cópias divergindo, e quem descobre é a cliente ou o Google.
 | `47` | **a folga entre o palco e o quadro da prévia**, declarada uma vez em cada palco (`HomeLivePreview.tsx:33` e `MenuLivePreview.tsx:31`). Mudar uma e não a outra fazia as duas prévias escalarem diferente — build, `tsc` e teste de componente verdes | `previewFrame(device, box, fullscreen)` em `@estrelinha/core/home`, que recebe a **caixa** e aplica a folga dentro de `core`; `folgaDoPalco.test.ts` recusa a volta, inclusive na forma sem nome |
 | `39` | **o DESENHO do menu, de novo** — `MenuBarPreview.tsx` redesenhava a barra do topo à mão no painel, com a paleta do admin, e anunciava `/crie-seu-botton`, que **nunca foi rota**. É o mesmo defeito que a `25` apagou da Home; no menu ele nunca tinha saído. E, ao lado dele, o **papel** de cada categoria (barra × painel), que uma coluna nova teria dessincronizado no primeiro "mover categoria" | a prévia É a loja, num iframe (`MenuLivePreview`), e o papel é **derivado da árvore** dentro de `menuItems(input, surface)` — a porta única das quatro superfícies |
 | `49` | **três donos de uma vez, e o pior deles ainda não existia.** (1) "Este e-mail pode seguir como convidada?" ia nascer **duas vezes** — uma na tela, para mostrar o desafio de código, outra no servidor, para recusar a gravação —, e divergir faria a loja deixar passar quem o servidor recusa. (2) "Como nasce um pedido" ia ficar com **dois caminhos**, o `insert` do navegador para quem tem sessão e a function para a convidada. (3) `corsHeaders` já estava escrito **três vezes** nas edge functions, e a function nova seria a quarta | `resolveCheckoutIdentity` em `@estrelinha/core/checkout`, chamado igual pela tela e pelo servidor; **uma** function grava todos os pedidos, com `pedidoComDonoUnico.test.ts` recusando a volta; e `_shared/http.ts`, de onde as outras **reexportam** (`toBe`, não `toEqual`) |
+| `50` | **o esqueleto de carga e a revalidação, que eram a MESMA chamada** — `fetchSections()`/`fetchCategories()` significavam "carregar" e "revalidar" ao mesmo tempo, e a tela só sabia ler a primeira: toda gravação trocava a árvore por `<TableSkeleton/>`, o que **desmontava o `<iframe>` da prévia** e recarregava a loja a cada clique. E, ao lado, dois campos **de tela** do rascunho a um `insert` de distância de virar `PGRST204` | `fetchX(modo)` com o tipo `FetchMode` em **um** arquivo (`shared/lib/fetchMode.ts`) — dois nomes para o mesmo modo seriam o defeito no tamanho de um tipo, e o terceiro hook nasceria com um terceiro nome —, mais `toNewItems` como a única tradução rascunho → colunas, com `toNewItems.test.ts` recusando a oitava chave |
 
 Consequências práticas, nesta ordem:
 
@@ -380,6 +381,9 @@ migrations, e `vercelRedirects` lê o `vercel.json`.
 | `icons.test.ts` | store `shared/lib/__tests__` (varre `packages/ui/src/icons`) | ícone fora da grade `0 0 24 24`; escala × traço ≠ 1,5; cor fora de `ICON_ACCENT`; ícone que não chegou ao barrel. **Mora na suíte da loja porque `packages/ui` não tem runner** — guarda que não roda é pior que guarda nenhum |
 | `paths.test.ts` | store `shared/ui/brand/__tests__` | `paths.ts` divergir do SVG-fonte em um caractere; dois `<path>` do mesmo SVG com a mesma espessura |
 | `previaUnica.test.ts` | backoffice `features/home-composition` | um segundo desenho da Home, do MENU **ou do CARROSSEL** voltar ao painel; `MenuBarPreview.tsx` reaparecer; um arquivo de `store-menu` importar `menuPanelColumns` ou `resolveMenuBanners` (calcular o desenho do painel da loja **é** o segundo desenho); qualquer dos dois importar de `apps/store`. **Cobre as features `25`, `39`, `41` e `47`**, com âncora dupla e sensor de CRLF/LF. A régua do carrossel é a **mecânica** (`snap-x`, `scroll-snap`, `aria-roledescription="carrossel"`, `setInterval`), não o nome do arquivo — "só uma mini-prévia para conferir a ordem dos banners" é o pedido razoável que traz o defeito de volta. **Desde a `47`** também recusa a tela cheia virando prévia nova: arquivo `…Preview` novo nas duas pastas de UI, um segundo `<iframe>` em qualquer arquivo, ou o palco ramificando por tipo de seção dentro do modo. O sensor **cria um palco sintético em `mkdtemp` e chama a régua de verdade** — simular o que ela devolveria não prova régua nenhuma |
+| `animacaoRespeitaMovimento.test.ts` | backoffice `shared/lib/__tests__` | uma classe de `transition-*` ou `animate-*` sem o par `motion-reduce:` **na mesma linha**, em qualquer dos **oito** arquivos de UI que a `50` tocou. A régua é de **token exato** (`(?![-\w])`, `L-034`): `animate-spin` é dispensado — é indicador de progresso, não enfeite, e congelá-lo apagaria o único sinal de que a gravação está em curso —, mas `animate-spinner` e `animate-spin-slow` **são acusados**. **Âncora TRIPLA** (arquivos lidos · tokens de movimento encontrados · pares encontrados) e sete sensores: a classe sem par reprova e com par passa, `hover:` na frente não desculpa, `transition` pelado é acusado, a prosa que explica a regra **não** é (com CRLF **e** com LF), e o par a três linhas de distância não cobre nada. **O escopo é literal e estreito de propósito** — ver a dívida em *Estado conhecido* |
+| `layoutDoCarrossel` (`ProductCarouselLayout.test.tsx`) | store `widgets/product-carousel/ui/__tests__` | as três formas do `ProductCarousel` (`row`, `slider`, `grid`) saírem de mais de um mapa, ou uma delas mudar de classe. `row` é a Home de hoje e é **imóvel** (`HOME-04`); `slider` rola nos dois tamanhos e `grid` embrulha em 2 colunas no celular e 4 a partir de `md`. Régua por **token exato**, com asserção positiva no celular **e** no `md` (`L-029`) — sem as duas, a metade fácil provaria a AC inteira |
+| `toNewItems.test.ts` | backoffice `features/home-composition/model/__tests__` | um campo **de tela** do rascunho (`key`, `product_slug`) chegar ao `insert`. A régua é **igualdade de chaves** com as sete colunas, nunca "contém as sete": uma régua de presença aprova o oitavo campo, que é exatamente o que ela existe para recusar. É o modo de falha do `AD-012` — `PGRST204` em produção, com a curadoria inteira perdida e nada na tela —, invisível para `tsc` (as sete colunas são opcionais), para o `build` e para o teste do editor, que mocka o client |
 | `navItems.test.ts` | backoffice `widgets/admin-layout` | ordem das rotas em `App.tsx` divergir de `navGroups` |
 | `focusRoutes.test.ts` | idem | rota de foco que não é destino de `navGroups` — o trilho recolheria sem saber qual ícone acender; `/admin/homologacao` passar a contar como Home por prefixo cru |
 | `navRail.test.ts` | idem | recolher passar a **gravar** em vez de apagar a chave (a ausência deixaria de significar "siga o padrão"); valor de lixo virar um terceiro estado; `localStorage` que lança derrubar a navegação; o trilho **tocar** na chave do `navCollapse` — as duas preferências têm donos separados |
@@ -419,7 +423,67 @@ quando mudarem de verdade.
 | --- | --- | --- |
 | **Lint** | **27 erros / 6 warnings** — backoffice 25/4 · store 2/2 | `pnpm lint` |
 | **Tipos** | **0 · 0 · 0** (store · backoffice · catalog-import) | `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` |
-| **Testes** | **9096 em 475 arquivos** — store **3319/214** · backoffice **2345/136** · core **2321/91** · functions **599/13** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test` (store e backoffice com `--testTimeout=20000`) |
+| **Testes** | **9377 em 486 arquivos** — store **3371/218** · backoffice **2539/140** · core **2356/92** · functions **599/13** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
+
+> ⚠️ **O `--` antes da flag ENGOLE a flag, e a suíte volta ao teto de 5 s sem avisar.** Medido na
+> verificação da `50`: `pnpm --filter <ws> test -- --testTimeout=20000` repassa o `--` **literal** ao
+> vitest, o teto continua em 5000 ms, e o painel reprova 1 caso por timeout num arquivo alheio ao que
+> se está medindo (`AdminLayout.test.tsx`, na ocasião). As duas formas que **funcionam** são
+> `pnpm --filter <ws> test --testTimeout=20000` (sem o `--`) e
+> `pnpm --filter <ws> exec vitest run --testTimeout=20000`. **A forma de invocar é parte da
+> medição**: com a flag engolida, a reprovação parece defeito do arquivo que caiu, e o arquivo muda a
+> cada execução.
+
+**A feature `50` (produtos em destaque, e o painel que não recarrega) somou +278 em três
+workspaces**, medidos em 2026-09-14 um por vez, com exit code capturado fora de pipe e
+`--testTimeout=20000` na loja e no painel: **backoffice +194/+4** (o editor novo, o seletor, os dois
+hooks com modo de leitura, o cabeçalho com `Salvo`, o movimento da lista, três guardas e os **+17 que
+as duas rodadas de verificação independente cobraram**),
+**store +49/+3** (`useProductsByIds`, o bloco, as três formas do `ProductCarousel`) e **core +35/+1**
+(o módulo `featured` e o catálogo invertido). `functions` e `catalog-import` **não foram tocados e
+foram remedidos** — idênticos. Lint ficou em **27/6** (backoffice 25/4 · store 2/2), tipos em
+**0 · 0**, `pnpm build` verde nos dois apps, e `packages/core/src/payment/**` sem uma linha alterada,
+conferido por `git diff --name-only -- packages/core/src/payment` (zero arquivos).
+
+> **A baseline de entrada desta tabela estava velha em +3/+1 no store**, e é a **sexta** feature
+> seguida a encontrar isso: a linha dizia `3319/214` e o disco tinha **3322/215** no commit
+> `6c362bd`, de outra sessão. O delta acima é calculado sobre a **entrada medida**
+> (core 2321/91 · store 3322/215 · backoffice 2345/136 · functions 599/13 · catalog-import 512/23 =
+> 9099/478), nunca sobre o número que estava escrito aqui. **Meça com a árvore parada, antes de tocar
+> em qualquer coisa** — e some conferindo.
+
+> **Nenhuma migration, e é isso que `DST-23` prova.** O tipo `product_carousel` já estava no `check`
+> desde a feature `24`, esperando renderer e editor; `display` é **valor** em `config jsonb`
+> (`AD-014`). `homeSections.test.ts` fechou a feature **sem uma asserção tocada** — e o guarda que
+> mudou foi `catalog.test.ts`, **invertido** e não descartado: ele asseria que
+> `['product_carousel','category_grid']` eram "em breve", e passou a asserir que **só `category_grid`**
+> é. Sem a inversão, entregar o bloco deixaria um guarda verde a favor do estado que a feature
+> removeu — que é exatamente o que a `41` achou no cadeado do hero.
+
+> **`ANI-07` é a AC que não se prova pelo resultado, e sim pela ORDEM.** "A animação não atrasa a
+> gravação" é verdadeira nos dois mundos quando o teste só espera o fim: com a requisição atrás de um
+> `setTimeout(…, 300)` a linha some do mesmo jeito, só que 300 ms depois. O caso que a prende
+> (`HomeSectionList.test.tsx:528`) clica no `Remover`, **não põe um único `await` entre as duas
+> asserções** e cobra as duas no mesmo tique — `onRemove` já foi chamado **e** a linha já carrega
+> `data-saindo`. A mutação foi reinjetada no arquivo real: com o `setTimeout` na frente da chamada,
+> reprovam três casos (o de `ANI-07` e os dois de `FOCO-25`, que medem a mesma chamada).
+> **Microtarefa não roda entre duas linhas síncronas de teste**, e é essa propriedade do JavaScript
+> que torna a asserção de ordem possível sem relógio falso.
+
+> **O interruptor otimista precisou de um dublê que ENXERGA a janela** (`VIV-10`). Com a escrita
+> respondendo na hora, "otimista" e "pessimista" produzem exatamente a mesma tela no fim, e toda
+> asserção sobre o meio é verdadeira nos dois mundos — medido: a primeira escrita do caso "a
+> revalidação não pisca" **sobreviveu** à remoção do otimismo. O conserto foi dar ao dublê um
+> `segurarEscritas` (irmão do `segurarLeituras` que a fase 4 criou) e medir o valor **enquanto a
+> releitura está no ar**. Os três mutantes — sem otimismo, sem a volta em caso de falha, e a
+> revalidação piscando — foram reinjetados no hook real, e cada um derruba pelo menos um caso.
+
+> **O guarda do movimento tem escopo LITERAL de oito arquivos, e isso é declarado, não escondido.**
+> O painel carrega ~50 classes de `transition-*` de antes desta feature, **nenhuma com par**; uma
+> régua sobre `apps/backoffice/**` nasceria reprovando cinquenta vezes, e guarda que nasce vermelho é
+> guarda que alguém desliga. Os oito são os arquivos de UI que a `50` tocou — e duas classes antigas
+> que moravam neles **ganharam o par** no caminho (`AdminMenuPage.tsx`, a aba Computador/Celular;
+> `HomeSectionEditor.tsx`, o botão de remover). O resto fica como dívida, abaixo.
 
 **A feature `48` (usuários do painel) somou +324 em quatro workspaces**, medidos em 2026-09-13 um por
 vez e com exit code capturado fora de pipe: **backoffice +117/+7** (as duas telas, os dois diálogos,
@@ -1232,6 +1296,45 @@ completo (framework, `installCommand` na raiz do monorepo, headers de cache e de
 
 ## Estado conhecido / dívidas
 
+- **O BLOCO "PRODUTOS EM DESTAQUE" NASCE INEXISTENTE, e montá-lo é passo de operação** (feature
+  `50`). **Não há migration**: nada foi semeado, nenhuma Home muda no deploy. Para a vitrine de
+  campanha existir, a Adri precisa, em `/admin/home`: acrescentar o bloco **"Produtos em destaque"**
+  pela bandeja, dar um **título** (obrigatório), escolher as peças no seletor (até **12**, na ordem
+  dela), decidir entre **Slider** e **Grade**, **ligar a seção** — todo bloco novo nasce desligado
+  (`HOME-10`) — e arrastá-la para onde ela quer na Home. São seis passos, e nenhum acontece sozinho.
+  É o mesmo formato de dívida do interruptor do frete grátis (`37`), do menu vazio (`39`) e do Banner
+  principal (`41`): sem este registro, a loja fica meses sem o bloco porque ninguém soube que havia
+  uma tela.
+- **A `50` NÃO tem prova em navegador**, e ela entra na fila de `32`…`49`. O que a feature entrega é
+  **largura, coluna e ausência de piscada**, e jsdom devolve 0 para toda medida de layout — toda
+  asserção da suíte é proxy de forma (classe declarada, atributo, presença de nó, ordem de chamada).
+  A lista do que falta está escrita em *O que só o navegador prova*, no `design.md` dela, e em
+  390×844 e 1440 é: a grade de 2 colunas com nome de produto de duas linhas (o par card ×
+  esqueleto); a fita do `slider` com 12 itens **sem rolagem horizontal do body** (o defeito que a
+  auditoria da `27` mediu, `scrollWidth` 634 numa viewport de 390); o CLS do bloco enquanto os
+  produtos chegam; o editor na coluna de 560 com a lista de 12 e o `ProductPicker` aberto; e —
+  **que é o olho do pedido** — a prévia **não recarregando** ao salvar, que nenhum teste de jsdom vê.
+  Falta também o par de `ANI-05` em navegador: os mesmos percursos com `prefers-reduced-motion`
+  ligado e desligado, conferindo que os dois mostram os mesmos estados e só um se move.
+- **O guarda do movimento alcança OITO arquivos, e o resto do painel continua sem par.** Medido em
+  2026-09-14: `apps/backoffice/src/**` declara **60** classes de `transition-*`/`animate-*` e só as
+  desta feature têm `motion-reduce:`. Ampliar `animacaoRespeitaMovimento.test.ts` para o app inteiro
+  é trabalho de uma feature própria — ela teria de decidir, classe a classe, o que é movimento
+  decorativo (ganha par) e o que é indicador de progresso (não ganha, como `animate-spin`). O guarda
+  nasceu estreito de propósito: um que nascesse reprovando cinquenta vezes seria desligado no
+  primeiro gate.
+- **A `50` não tem `validation.md` nem verificador independente no momento em que este parágrafo foi
+  escrito** — os commits e o Verifier vêm depois dela. Os três guardas novos tiveram a sensibilidade
+  provada por **injeção real no arquivo real** (o par `motion-reduce:` removido de
+  `HomeSectionRow.tsx`, a remoção posta atrás de um `setTimeout` em `HomeSectionList.tsx`, e o
+  otimismo e a volta apagados de `useAdminHomeSections.ts`, um de cada vez), e cada mutação derruba
+  pelo menos um caso nomeando arquivo e linha.
+- **A saída da linha é de OPACIDADE, e a altura não é animada** (`ANI-04`). Animar a altura exigiria
+  medi-la — e medida é exatamente o que jsdom não dá —, então a lista "acomoda o espaço" pelo fluxo
+  normal do CSS quando a linha sai do DOM. Se em navegador o salto incomodar, a saída pedirá um
+  `grid-template-rows: 0fr` ou uma biblioteca de layout; o `design.md` recusa `framer-motion` por uma
+  transição, e essa recusa continua valendo até alguém medir.
+
 - **O PAINEL CONTINUA COM UM ACESSO SÓ ATÉ A ADRI CRIAR O SEGUNDO** (feature `48`). A migration
   **não semeia conta nenhuma** — semear criaria uma credencial que ninguém pediu e que ninguém sabe
   a senha. Depois do deploy, `/admin/usuarios` mostra **uma** linha (a do `seed.sql`), e o ponto
@@ -1485,4 +1588,5 @@ código — mas todas explicam por que uma tela parece vazia:
 | Arte da vitrine | `/admin/categorias` | nenhuma das 37 categorias tem `banner_url` ⇒ a grade de banners não aparece |
 | O banner de campanha | `/admin/home`, bloco **Banner principal** | a `41` **não semeia nenhum** ⇒ a Home abre com a "Chamada principal" de sempre. O bloco existe na bandeja e espera arte, destino e o interruptor |
 | Perguntas frequentes | `/admin/perguntas` e a aba `Perguntas` do produto | a `28` semeou 67 entradas e 3.475 vínculos das descrições |
+| **As peças em destaque** | `/admin/home`, bloco **Produtos em destaque** | a `50` **não semeia nada** ⇒ o bloco nem existe na Home. Ele espera ser acrescentado pela bandeja, ganhar título, receber as peças (até 12, na ordem dela), a escolha Slider/Grade e o interruptor |
 | **Quem mais entra no painel** | `/admin/usuarios` | a `48` **não semeia conta nenhuma** ⇒ a lista mostra só a do `seed.sql`. Enquanto for uma linha, o painel segue com um ponto único de falha humano — e o próprio guarda do banco recusa remover o último acesso |

@@ -184,9 +184,19 @@ peças com a tela piscando a cada passo é o defeito multiplicado por 12.
 4. `VIV-04` — WHEN uma gravação está em curso THEN a tela SHALL dizer que está salvando **onde se
    clicou** e SHALL continuar mostrando os dados que já tinha.
 5. `VIV-05` — WHEN ela salva uma seção no editor de `/admin/home` THEN o editor SHALL **permanecer
-   aberto**, com o selo `Alterações não salvas` dando lugar a `Salvo`.
+   aberto**, com o selo `Alterações não salvas` **saindo** e o **botão de salvar** passando a dizer
+   `Salvo`.
 6. `VIV-06` — WHEN o `Salvo` aparece THEN ele SHALL sumir sozinho em ~2 s, e qualquer alteração nova
    SHALL devolver o selo de pendência.
+
+> **Correção de texto feita na rodada 2 da verificação, e o motivo é regra do projeto.** A redação
+> original de `VIV-05` dizia que o selo *"dava lugar a `Salvo`"*, enquanto `ANI-01` diz que quem passa
+> por `Salvando… → Salvo` é **o botão**. Cumprir as duas ao pé da letra poria a palavra `Salvo` em
+> **dois lugares** — dois donos do mesmo estado, que é o "defeito 01" no tamanho de uma palavra, e
+> ainda tornaria ambígua toda busca por `Salvo` na tela. A divisão vigente é: **pendência no selo,
+> gravação no botão**. O comportamento observável que `VIV-05` descrevia continua inteiro (a pendência
+> sai, o `Salvo` aparece), e nenhuma asserção de `VIV-05`/`VIV-06` precisou mudar — mudou o lugar,
+> não a promessa.
 7. `VIV-07` — WHEN a releitura que segue uma gravação falha THEN a tela SHALL mostrar a faixa de erro
    **sem apagar** os dados que já estavam na tela.
 8. `VIV-08` — WHEN duas gravações são pedidas em sequência rápida THEN a tela SHALL terminar

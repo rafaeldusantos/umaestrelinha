@@ -14,7 +14,63 @@ e as Critical Rules dela. Se a Skill não puder ser ativada, **PARE** e avise.
 
 **Design**: `.specs/features/50-produtos-em-destaque-e-painel-sem-recarga/design.md`
 **Spec**: `.specs/features/50-produtos-em-destaque-e-painel-sem-recarga/spec.md`
-**Status**: Draft
+**Status**: Implementado — aguardando Verifier independente e commits
+
+## Progresso
+
+**Baseline de entrada**, medida em 2026-09-14 na árvore limpa `6c362bd`, cinco workspaces um por
+vez, exit code fora de pipe, **os cinco verdes**: `core` 2321/91 · `store` 3322/215 ·
+`backoffice` 2345/136 · `functions` 599/13 · `catalog-import` 512/23 — **9099 em 478**.
+(O `CLAUDE.md` dizia 3319/214 no store; o `+3/+1` é do commit `6c362bd` da outra sessão, não desta
+feature.)
+
+| Lote | Tasks | Estado | Medido |
+| --- | --- | --- | --- |
+| 1 — fases 1+2 | T1…T7 | ✅ completo | `core` **2356/92** (+35/+1) · `store` **3371/218** (+49/+3), exit 0 nos dois; `tsc` 0·0; lint 27/6; build verde; `payment/**` intocado |
+| 2 — fase 3 | T8…T12 | ✅ completo | `backoffice` **2448/139** (+103/+3 sobre a entrada), exit 0; `core` 2356/92 e `store` 3371/218 **inalterados**; `tsc` 0·0; lint 27/6; `payment/**` intocado |
+| 3 — fase 4 | T13…T17 | ✅ completo | `backoffice` **2497/139** (+49/+0 sobre o Lote 2), exit 0; `core` 2356/92 e `store` 3371/218 **remedidos e inalterados**; `tsc` 0·0; `payment/**` intocado |
+| 4 — fases 5+6 | T18…T21 | ✅ completo | **os CINCO workspaces medidos**, um por vez, exit code fora de pipe: `backoffice` **2522/140** (+25/+1 sobre o Lote 3) · `store` **3371/218** · `core` **2356/92** · `functions` **599/13** · `catalog-import` **512/23**, os cinco exit 0 — **9360 em 486**. `tsc` 0·0; lint **27/6**; `pnpm build` verde nos dois apps; `payment/**` intocado (`git diff --name-only` = 0) |
+
+**Delta da feature inteira**, sobre a entrada medida (9099/478): **+261 em três workspaces** —
+`backoffice` +177/+4, `store` +49/+3, `core` +35/+1. `functions` e `catalog-import` não foram tocados
+e foram remedidos, idênticos.
+
+**Três escolhas do Lote 4 registradas**: (1) o que **acende** na lista é derivado da **assinatura de
+conteúdo** de cada linha, e não do clique — uma luz disparada pelo clique acenderia também quando o
+banco recusasse, e é a derivação que dá `ANI-08` de graça (releitura com o mesmo conteúdo produz a
+mesma assinatura, e nada pisca); (2) a **saída da linha é de opacidade**, sem animar altura — animar
+altura exigiria medi-la, e jsdom devolve 0 para toda medida de layout, então a asserção seria proxy
+de proxy; (3) o guarda do movimento tem **escopo literal de oito arquivos**, porque o painel carrega
+~50 classes de transição de antes desta feature e um guarda que nasce reprovando cinquenta vezes é um
+guarda que alguém desliga — a dívida está registrada no `CLAUDE.md` da raiz.
+
+> **Duas classes ANTIGAS ganharam o par `motion-reduce:` no caminho**, e estão declaradas aqui porque
+> são edições fora do que as ACs pediam: a aba Computador/Celular de `AdminMenuPage.tsx` e o botão
+> "Remover esta seção da Home" de `HomeSectionEditor.tsx`. As duas moram em arquivos que esta feature
+> já possuía e que entraram no escopo do guarda; deixá-las sem par obrigaria a excluir os arquivos da
+> régua, que é pior.
+
+> **Os commits da feature ficam para DEPOIS do Verifier.** O `CLAUDE.md` manda gerá-los de uma vez ao
+> fim; gerá-los antes da verificação independente seria commitar trabalho não verificado, e o Verifier
+> pode produzir tasks de conserto. Ordem: T18…T21 → Verifier → (consertos, se houver) → commits.
+
+**Consequência do Lote 1 que o Lote 2 herda** (esperada, e é `DST-01` valendo): tirar
+`product_carousel` de `COMING_SOON` derruba **3 casos** de
+`apps/backoffice/src/features/home-composition/ui/HomeBlockTray.test.tsx`, que asseriam o "em breve".
+O backoffice ficou em **2342 passando / 3 reprovando em 2345**. As três asserções são **viradas**
+(a bandeja passa a oferecer o bloco), nunca removidas — pertence a T10/T12.
+
+**Duas escolhas do Lote 3 registradas**: (1) o modo da leitura (`'inicial' | 'revalidar'`) é um
+**tipo só**, em `apps/backoffice/src/shared/lib/fetchMode.ts` — dois nomes para o mesmo modo seriam o
+"defeito 01" no tamanho de um tipo, e o terceiro hook nasceria com um terceiro nome; (2) os dois
+`fetch` passaram a receber argumento, e por isso `onClick={fetchSections}` / `onRetry={fetchCategories}`
+viraram setas: passar a função direto entregaria o `MouseEvent` como **modo**, e `'[object
+MouseEvent]' !== 'inicial'` faria o "Tentar de novo" revalidar em silêncio, sem esqueleto.
+
+**Duas escolhas do Lote 1 registradas**: (1) as recusas por item usam o `ordinal` masculino de `core`
+("2º item"), porque escrever um `ordinalF` novo seria a terceira cópia da mesma palavra; (2) a vaga
+do `slider` mantém `min-w-[220px]` a partir de `md` — sem isso o item de flex encolhe até o
+min-content e os 12 cards se espremem em vez de rolar.
 
 ---
 
@@ -458,11 +514,11 @@ requisição.
 **Requirement**: ANI-03, ANI-04, ANI-07
 
 **Done when**:
-- [ ] A linha gravada ganha o marcador por ~1,2 s e o perde — com o timer limpo no desmonte (sem `act` warning)
-- [ ] Remover marca a linha como saindo **no clique**, e a chamada de remoção sai **no mesmo tique** — asserido pela ordem: a função de remoção já foi chamada enquanto a classe de saída está na linha (`ANI-07`)
-- [ ] Remoção que **falha** desfaz o estado de saída e mostra o motivo
-- [ ] Nenhuma classe de animação entra sem par `motion-reduce:`
-- [ ] Gate quick — painel passa
+- [x] A linha gravada ganha o marcador por ~1,2 s e o perde — com o timer limpo no desmonte (sem `act` warning)
+- [x] Remover marca a linha como saindo **no clique**, e a chamada de remoção sai **no mesmo tique** — asserido pela ordem: a função de remoção já foi chamada enquanto a classe de saída está na linha (`ANI-07`)
+- [x] Remoção que **falha** desfaz o estado de saída e mostra o motivo
+- [x] Nenhuma classe de animação entra sem par `motion-reduce:`
+- [x] Gate quick — painel passa
 
 **Tests**: unit · **Gate**: quick — painel
 
@@ -479,11 +535,11 @@ arquivos do painel tocados por esta feature.
 **Requirement**: ANI-05
 
 **Done when**:
-- [ ] **Âncora dupla**: o número de arquivos lidos **e** o número de classes de animação encontradas são asseridos acima de zero (`L-021`)
-- [ ] Sensor: uma classe de transição sem par **reprova**; a mesma com par **passa**
-- [ ] Sensor de comentário: a prosa que explica a regra não é acusada, com CRLF e com LF (`L-031`)
-- [ ] Régua por token exato, recusando hífen depois do token (`L-034`)
-- [ ] Gate quick — painel passa
+- [x] **Âncora dupla**: o número de arquivos lidos **e** o número de classes de animação encontradas são asseridos acima de zero (`L-021`)
+- [x] Sensor: uma classe de transição sem par **reprova**; a mesma com par **passa**
+- [x] Sensor de comentário: a prosa que explica a regra não é acusada, com CRLF e com LF (`L-031`)
+- [x] Régua por token exato, recusando hífen depois do token (`L-034`)
+- [x] Gate quick — painel passa
 
 **Tests**: unit · **Gate**: quick — painel
 
@@ -499,10 +555,10 @@ arquivos do painel tocados por esta feature.
 **Requirement**: VIV-10
 
 **Done when**:
-- [ ] O estado da linha muda **antes** da resposta do servidor
-- [ ] Falha devolve o estado anterior **e** mostra a mensagem do banco (inclusive o `23514` da última seção ativa, `DST-19`)
-- [ ] A revalidação que chega depois não "pisca" o interruptor de volta e de novo
-- [ ] Gate quick — painel passa
+- [x] O estado da linha muda **antes** da resposta do servidor
+- [x] Falha devolve o estado anterior **e** mostra a mensagem do banco (inclusive o `23514` da última seção ativa, `DST-19`)
+- [x] A revalidação que chega depois não "pisca" o interruptor de volta e de novo
+- [x] Gate quick — painel passa
 
 **Tests**: unit · **Gate**: quick — painel
 
@@ -518,13 +574,15 @@ arquivos do painel tocados por esta feature.
 **Requirement**: todos (rastreabilidade)
 
 **Done when**:
-- [ ] Os **cinco** workspaces medidos **um por vez**, com exit code capturado fora de pipe, e a tabela de baselines atualizada com o número **medido** (nunca somado)
-- [ ] `npx tsc --noEmit` nos dois apps: **0 · 0**; `pnpm lint` em **27/6**; `pnpm build` verde nos dois
-- [ ] `git diff --name-only` prova que `packages/core/src/payment/**` não teve uma linha alterada
-- [ ] A tabela *Os guardas* da raiz ganha as três linhas novas; a de *O "defeito 01"* ganha a linha da feature `50`
-- [ ] `apps/store/CLAUDE.md` documenta as três formas do `ProductCarousel`; `apps/backoffice/CLAUDE.md`, o editor novo e a regra do `'revalidar'`
-- [ ] O *Estado conhecido* registra: **o bloco nasce inexistente** — a Adri precisa acrescentá-lo, escolher as peças e ligar —, e as pendências de prova em navegador
-- [ ] Commits gerados **de uma vez**, ao fim (override do `CLAUDE.md`), com o rodapé de atribuição
+- [x] Os **cinco** workspaces medidos **um por vez**, com exit code capturado fora de pipe, e a tabela de baselines atualizada com o número **medido** (nunca somado)
+- [x] `npx tsc --noEmit` nos dois apps: **0 · 0**; `pnpm lint` em **27/6**; `pnpm build` verde nos dois
+- [x] `git diff --name-only` prova que `packages/core/src/payment/**` não teve uma linha alterada
+- [x] A tabela *Os guardas* da raiz ganha as três linhas novas; a de *O "defeito 01"* ganha a linha da feature `50`
+- [x] `apps/store/CLAUDE.md` documenta as três formas do `ProductCarousel`; `apps/backoffice/CLAUDE.md`, o editor novo e a regra do `'revalidar'`
+- [x] O *Estado conhecido* registra: **o bloco nasce inexistente** — a Adri precisa acrescentá-lo, escolher as peças e ligar —, e as pendências de prova em navegador
+- [ ] Commits gerados **de uma vez**, ao fim (override do `CLAUDE.md`), com o rodapé de atribuição —
+      **PENDENTE POR DECISÃO**: eles saem depois do Verifier independente, senão seria commitar
+      trabalho não verificado. Tudo o mais da T21 está feito.
 
 **Tests**: none (documentação) · **Gate**: build
 

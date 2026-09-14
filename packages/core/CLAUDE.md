@@ -39,7 +39,7 @@ sem ela a varredura passa com zero arquivo lido, que é a pior falha possível n
 | `./pricing` · `./formatters` | formatação e conta de exibição | os dois apps |
 | `./routes` | `ROUTE_SLUGS`, `RESERVED_SLUGS`, `LEGACY_REDIRECTS`, `productPath`, `MATERIAL_GUIDE_PATH` | router da loja, `vercel.json`, cadastro do painel |
 | `./menu` | `menuItems`, `menuPanelColumns`, `resolveMenuTarget`/`menuTargetRefusal`, `resolveMenuBanners`, `MENU_ICON_KEYS`, `descendantIds`, `bySortOrder`, `categoryHref`, o canal `preview.ts` | 4 superfícies nos 2 apps |
-| `./home` | catálogo de blocos, `DEFAULT_HOME_COMPOSITION`, `derive.ts`, `preview.ts`, `carousel.ts` | loja, painel |
+| `./home` | catálogo de blocos, `DEFAULT_HOME_COMPOSITION`, `derive.ts`, `preview.ts`, `carousel.ts`, **`featured.ts`** | loja, painel |
 | `./faq` | `resolveProductFaqs`, `faqOverrideOf`, `rankFaqSuggestions`, `block.ts` | loja, painel, importador |
 | `./material` | máquina de estado, `requiresMaterial()`, `materialSummary` | loja, painel, RPC (cópia em SQL) |
 | `./shopping` | `ShoppingOffer` e as duas serializações | `google-feed`, `product-page`, loja, painel |
@@ -224,6 +224,26 @@ empatou em `sort_order = 0`.
   medida de layout**, então a decisão de qual slide está na frente só é testável fora do DOM.
 - **A ordem das cobranças do slide é regra**: arte → descrição → destino. Trocá-la faria a tela pedir
   a descrição de uma arte que ainda não existe.
+- **`featured.ts` é o dono do bloco "Produtos em destaque"** (feature `50`): `FEATURED_PRODUCTS_MAX`
+  (**12**), `featuredDisplay` e `featuredProductsRefusal`. Os dois últimos são **molde literal** dos
+  vizinhos, e a escolha do molde é a decisão:
+  - `featuredDisplay(valor)` segue `heroCarouselWidth` — valor desconhecido ou ausente cai em
+    `'slider'`, e **nunca recusa**. É o que impede um `config` gravado por escrita direta de apagar o
+    bloco da Home (`DST-10`).
+  - `featuredProductsRefusal(config, items)` segue `heroCarouselSlidesRefusal` — `string | null`, com
+    as cobranças **em ordem**: título vazio → lista vazia → acima do teto, **nomeando o 12** → item
+    sem produto → produto repetido, com o ordinal. `string | null` e não união discriminada por
+    booleano, porque com `strictNullChecks: false` essa união **não estreita** e ler o motivo no ramo
+    do `else` é TS2339.
+  - **O teto é RECUSA, não `config.limit`.** `limit` é lido por `resolveHomeSections`, que **corta** a
+    lista — e aí "quantos produtos aparecem" teria dois donos: a curadoria e o número. `LIMITS` não
+    ganhou entrada.
+  - O `ordinal` usado é o **de `core`**. Escrever um terceiro (havia um em `sectionRefusals.ts` do
+    painel e outro em `carousel.ts`) seria a terceira cópia da mesma palavra.
+- **`catalog.test.ts` foi INVERTIDO pela `50`, não descartado**: `product_carousel` saiu de
+  `COMING_SOON`, que ficou só com `category_grid`, e o `label` passou a ser
+  `'Produtos em destaque'` — o identificador é **coluna**, o rótulo é interface. A âncora de contagem
+  da varredura de pureza subiu de **9 para 10** arquivos (`L-021`) com a chegada do `featured.ts`.
 
 ## `checkout/identity.ts` — quem está fechando o pedido (feature `49`, `AD-035`)
 

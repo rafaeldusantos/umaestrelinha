@@ -256,6 +256,92 @@ desenho.
   campanha **sobrevive** à coleção que ele apontava, e uma limpeza futura de imagem órfã de produto
   não pode alcançá-lo.
 
+### O editor de "Produtos em destaque" (feature `50`)
+
+- **Três `FormCard`s, na ordem em que a decisão acontece** (molde do `HeroCarouselEditor`, onde a
+  ordem das cobranças é regra): **Conteúdo** (título obrigatório, descrição opcional), **Apresentação**
+  (o par segmentado `Slider` / `Grade`, com `aria-pressed`, e cada opção dizendo em uma linha o que
+  faz) e **Peças escolhidas** (a lista `draggable` nativa, com posição, nome, remover, e o
+  `ProductPicker` no rodapé, com o contador `n de 12`).
+- **O editor NÃO desenha vitrine** (`AD-019`): a lista é lista, e quem mostra como fica é a prévia.
+  `previaUnica.test.ts` ganhou o nome do arquivo novo no sensor — a régua alcança um arquivo que
+  nasceu depois dela.
+- **Nenhuma regra nova é redigida no painel.** O teto de 12, o título vazio, a lista vazia e o
+  produto repetido vêm de `featuredProductsRefusal`, em `@estrelinha/core/home`, chamada por
+  `sectionRefusals.ts` — que é o contrato daquele arquivo. O teto é **recusa**, e não `config.limit`:
+  `limit` é lido por `resolveHomeSections`, que **corta** a lista, e aí "quantos produtos aparecem"
+  teria dois donos.
+- **`ProductPicker` filtra EM MEMÓRIA**, sobre a lista que `useAdminProducts` já carrega para os
+  seletores de três telas. Busca sem acento, `toLowerCase`, teto de ~20 linhas desenhadas, e o já
+  escolhido aparece desabilitado dizendo que já está no bloco — a recusa de `core` é a rede de baixo,
+  não a primeira.
+- **`DraftItem` tem DOIS campos de tela** — a `key` (feature 24) e o `product_slug` (esta) —, e
+  `toNewItems` é a **única** linha do repositório que os remove. O `product_slug` existe para a
+  prévia: sem ele `resolveItem` trata "sem slug" como "fora do ar", e o bloco em edição apareceria
+  vazio justamente enquanto a dona escolhe as peças (`DST-24`). Um campo de tela que escapa para o
+  `insert` é `PGRST204` em produção, com a curadoria perdida e **nada** na tela — por isso
+  `toNewItems.test.ts` cobra **igualdade** de chaves, nunca "contém as sete".
+- **O painel e a loja concordam sobre "saiu do ar"** (`AD-024`): `useAdminResolvedHome` passa a
+  receber `products` e a tratar `is_active === false` como fora do ar, espelhando o que já fazia com
+  `categoria.active === false`. Sem isso o painel — que lê como admin e **enxerga** produto
+  despublicado — diria "tudo certo" sobre um bloco que a Home desenha pela metade.
+
+### Gravar NÃO desmonta a tela: `fetch(modo)` (feature `50`)
+
+Era o defeito que multiplicava todos os outros: `fetchSections()`/`fetchCategories()` significavam
+**"carregar" e "revalidar" ao mesmo tempo**, e as duas telas só sabiam ler a primeira. Toda gravação
+ligava `loading`, trocava a árvore por `<TableSkeleton/>` — e **isso desmontava o `<iframe>` da
+prévia**, que remontava recarregando a loja. Montar uma curadoria de 12 peças significava 12
+piscadas.
+
+- **O modo tem UM tipo e UM arquivo: `shared/lib/fetchMode.ts`** (`'inicial' | 'revalidar'`). Dois
+  nomes para o mesmo modo seriam o "defeito 01" no tamanho de um tipo, e o terceiro hook nasceria com
+  um terceiro nome.
+- **`'revalidar'` difere em TRÊS coisas, e só nelas**: (1) não liga `loading`; (2) não esvazia a
+  lista quando a leitura falha — grava `error` e **mantém as linhas** (`VIV-07`); (3) respeita o
+  **token de sequência**. Toda escrita passa `'revalidar'`; a primeira carga e o "Tentar de novo"
+  passam `'inicial'`.
+- **O token de sequência vale para os DOIS modos.** Duas gravações seguidas pedem duas releituras, e
+  a primeira pode responder por último — devolvendo a tela ao estado anterior à segunda. Nada quebra,
+  nenhum erro sobe, e o que a dona vê é a própria alteração desaparecendo.
+- ⚠️ **Os dois `fetch` recebem argumento agora.** Todo consumidor precisa de seta —
+  `onClick={() => fetchSections('inicial')}` —, porque passar a função direto entregaria o
+  `MouseEvent` como **modo**, e `'[object MouseEvent]' !== 'inicial'` faria o "Tentar de novo"
+  revalidar em silêncio, sem esqueleto.
+- **Salvar uma seção não navega mais** (`VIV-05`). Voltar para a lista era a metade barata do recibo:
+  a dona perdia a seção, a rolagem da coluna e o contexto da prévia a cada gravação. O recibo agora é
+  o selo `Salvo` do `FormPageHeader`, que ocupa **a mesma vaga** do `Alterações não salvas`, no fim
+  da fila de ações (mexer o vizinho é o que `ANI-02` proíbe), e some sozinho em ~2 s. Mexer num campo
+  depois disso devolve a pendência — `isDirty` vence.
+- **O interruptor de seção é a ÚNICA escrita otimista do painel** (`VIV-10`). Ele entra porque é onde
+  a latência é sentida: um interruptor que só se mexe depois da ida ao banco parece quebrado, e o
+  segundo clique desfaz o primeiro. Otimismo é dívida de reconciliação, e o caminho de volta está
+  escrito ao lado: a falha devolve o valor anterior **antes** de o erro subir, e a mensagem é a **do
+  banco** (inclusive o `23514` da última seção ativa — `AD-029` não é antecipado em lugar nenhum).
+
+### O movimento do painel (feature `50`)
+
+- **A convenção é CSS, e ela já existia na loja**: `motion-reduce:transition-none` ao lado da classe
+  que move. **Nada de `matchMedia` em componente** — a pergunta "esta pessoa pediu menos movimento?"
+  teria dois donos, o CSS e o JavaScript, e as duas respostas divergiriam sem nada quebrar.
+- **Nada de `framer-motion`.** O painel não o importa, e trazer a biblioteca inteira para animar a
+  saída de uma linha é caro. A saída é estado local + CSS, **em paralelo** com a requisição.
+- **O que acende é o que MUDOU, não o que foi clicado.** `HomeSectionList` compara a assinatura de
+  conteúdo de cada linha entre uma leitura e a seguinte; a que mudou ganha `data-recem-salvo` por
+  ~1,2 s. É o que dá `ANI-08` de graça: a revalidação que devolve o mesmo conteúdo produz a mesma
+  assinatura, e **nada pisca**. Uma luz disparada pelo clique acenderia também quando o banco
+  recusasse.
+- **A primeira leitura não acende nada**, e linha nova é `entrando` (`animate-fade-in`), não `acesa`
+  — são dois eventos diferentes, e a mesma marca para os dois faria a seção acrescentada piscar duas
+  vezes.
+- **A saída da linha começa NO CLIQUE, e a requisição sai no mesmo tique** (`ANI-07`). Um
+  `setTimeout` antes da chamada — o jeito "natural" de esperar a animação — atrasaria a gravação por
+  um efeito visual. O desfazer é incondicional ao fim da promessa: se a remoção deu certo a linha já
+  saiu da lista, e se ela falhou **ou foi cancelada no `confirm`** a linha volta ao normal.
+- **`animacaoRespeitaMovimento.test.ts` guarda o par**, com escopo literal de oito arquivos. Ver a
+  dívida no `CLAUDE.md` da raiz: o resto do painel tem ~50 classes de transição sem par nenhum, de
+  antes desta feature.
+
 ### A ponte da prévia (feature `25`, e o segundo canal da `39`)
 
 > **São DUAS pontes sobre o mesmo `?preview=1`**: a da Home (`home-composition/model/usePreviewBridge`)
