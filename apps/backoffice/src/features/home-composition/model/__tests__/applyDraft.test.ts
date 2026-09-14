@@ -21,6 +21,7 @@ const secao = (id: string, over: Partial<HomeSection> = {}): HomeSection => ({
 })
 
 const item = (over: Partial<DraftItem> & { key: string }): DraftItem => ({
+  product_slug: null,
   category_id: null,
   product_id: null,
   href: null,
@@ -125,6 +126,42 @@ describe('applyDraft — a curadoria vira item da loja', () => {
       alt: 'Arte da campanha',
       label_snapshot: 'Leite materno',
     })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// DST-24 — o slug do produto atravessa o rascunho (feature 50, `R-01`)
+// ---------------------------------------------------------------------------
+
+describe('o slug do produto atravessa a tradução (DST-24)', () => {
+  it('a prévia recebe o `product_slug` do rascunho', () => {
+    // `resolveItem` decide "este destino está no ar?" pela presença do slug. Sem esta linha, TODA
+    // peça que a dona acabasse de escolher apareceria como fora do ar na prévia — no bloco novo,
+    // onde todos os itens são produtos, a prévia ficaria vazia justamente enquanto ela cura.
+    const rascunho = [
+      item({ key: 'k1', product_id: 'p1', product_slug: 'pingente-gota', label_snapshot: 'Pingente Gota' }),
+    ]
+
+    const [aplicada] = applyDraft([secao('s1', { type: 'product_carousel' })], 's1', {
+      config: {},
+      items: rascunho,
+    })
+
+    expect(aplicada.items![0].product_slug).toBe('pingente-gota')
+    expect(aplicada.items![0].product_id).toBe('p1')
+  })
+
+  it('peça sem slug chega com `null` — e é assim que a prévia a trata como fora do ar', () => {
+    // O par da asserção acima. Sem ele, uma tradução que cravasse um slug qualquer passaria: a
+    // ausência tem de continuar significando ausência, senão o painel prometeria o que a loja pula.
+    const rascunho = [item({ key: 'k1', product_id: 'p1', label_snapshot: 'Peça apagada' })]
+
+    const [aplicada] = applyDraft([secao('s1', { type: 'product_carousel' })], 's1', {
+      config: {},
+      items: rascunho,
+    })
+
+    expect(aplicada.items![0].product_slug).toBeNull()
   })
 })
 

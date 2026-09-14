@@ -55,26 +55,61 @@ describe('HomeBlockTray — tipo único que já está na Home', () => {
   })
 })
 
-describe('HomeBlockTray — os dois tipos de P3 (emenda E3)', () => {
-  it('carrossel de produtos e grade de coleções aparecem como "em breve"', () => {
+// A emenda `E3` pôs os DOIS tipos de P3 como "em breve". A feature 50 implementou um deles, e as
+// três asserções abaixo foram **viradas, não removidas**: `product_carousel` passa a ser oferecido,
+// `category_grid` continua sendo o único esmaecido, e a régua do teto muda de sujeito.
+//
+// Queda de contagem sem reaparecimento do outro lado é deleção silenciosa — e este bloco existe
+// para que, se alguém devolver `product_carousel` a `COMING_SOON`, a suíte diga isso em vez de
+// aprovar um bloco que a Adri nunca descobriria que existe.
+describe('HomeBlockTray — o tipo de P3 que sobrou (emenda E3, feature 50)', () => {
+  it('SÓ a grade de coleções aparece como "em breve"', () => {
     montar()
-    for (const type of ['product_carousel', 'category_grid']) {
-      expect(bloco(type)).toBeDisabled()
-      expect(screen.getByTestId(`motivo-${type}`)).toHaveTextContent('em breve')
-    }
+    expect(bloco('category_grid')).toBeDisabled()
+    expect(screen.getByTestId('motivo-category_grid')).toHaveTextContent('em breve')
   })
 
-  it('a frase não promete o que não existe', () => {
+  it('Produtos em destaque é oferecido — não esmaecido, não "em breve" (DST-01)', () => {
+    // O outro sentido da mesma régua. Um bloco esmaecido é um bloco que a Adri nunca descobre que
+    // existe, e foi assim que `product_carousel` passou vinte e seis features na bandeja sem tela.
     montar()
-    expect(bloco('product_carousel')).toHaveAttribute(
+    const alvo = bloco('product_carousel')
+
+    expect(alvo).not.toBeDisabled()
+    expect(alvo).toHaveTextContent('Produtos em destaque')
+    expect(alvo).not.toHaveTextContent('em breve')
+    expect(screen.queryByTestId('motivo-product_carousel')).toBeNull()
+  })
+
+  it('clicar em Produtos em destaque acrescenta o bloco', () => {
+    const onAdd = montar()
+    fireEvent.click(bloco('product_carousel'))
+    expect(onAdd).toHaveBeenCalledWith('product_carousel')
+  })
+
+  it('mais de um Produtos em destaque é permitido — o tipo é repetível (DST-01)', () => {
+    const comUm: HomeSection[] = [
+      ...DEFAULT_HOME_COMPOSITION,
+      { id: 'pc1', type: 'product_carousel', position: 99, active: true, config: {} },
+    ]
+    const onAdd = montar(comUm)
+
+    expect(bloco('product_carousel')).not.toBeDisabled()
+    fireEvent.click(bloco('product_carousel'))
+    expect(onAdd).toHaveBeenCalledWith('product_carousel')
+  })
+
+  it('a frase do que ainda não existe fala da GRADE DE COLEÇÕES', () => {
+    montar()
+    expect(bloco('category_grid')).toHaveAttribute(
       'title',
       'Este bloco ainda não existe na loja.',
     )
   })
 
   it('"em breve" vence o teto: com a Home cheia, o P3 continua dizendo "em breve"', () => {
-    // Dizer "a Home já tem 30 seções" sobre um carrossel que nem tem editor mandaria a dona apagar
-    // uma seção à toa.
+    // Dizer "a Home já tem 30 seções" sobre uma grade que nem tem editor mandaria a dona apagar
+    // uma seção à toa. O sujeito mudou; a regra de precedência, não.
     const cheia: HomeSection[] = Array.from({ length: MAX_HOME_SECTIONS }, (_, i) => ({
       id: `s${i}`,
       type: 'banner_grid',
@@ -83,7 +118,11 @@ describe('HomeBlockTray — os dois tipos de P3 (emenda E3)', () => {
       config: {},
     }))
     montar(cheia)
-    expect(screen.getByTestId('motivo-product_carousel')).toHaveTextContent('em breve')
+    expect(screen.getByTestId('motivo-category_grid')).toHaveTextContent('em breve')
+
+    // E o par: agora que Produtos em destaque existe, ele é recusado pelo TETO, como qualquer
+    // tipo — e não mais por "em breve".
+    expect(screen.getByTestId('motivo-product_carousel')).toHaveTextContent('Home cheia')
   })
 })
 

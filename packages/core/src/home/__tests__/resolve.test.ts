@@ -372,3 +372,87 @@ describe('resolveHomeSections — banner principal (BNR-28, BNR-29)', () => {
     expect(resolvidas.filter(r => r.renders)).toHaveLength(2)
   })
 })
+
+/**
+ * O bloco **Produtos em destaque** — `DST-20`.
+ *
+ * Ele só existe por curadoria: não há fonte automática, e é decisão de escopo (uma fonte ao lado da
+ * lista seria o segundo dono de "quais produtos aparecem aqui"). Por isso os dois motivos de não
+ * aparecer são **diferentes**, e a distinção é o que a AC cobra: "nenhum escolhido" pede um clique
+ * no seletor; "os escolhidos saíram do ar" pede olhar o catálogo. Um motivo genérico mandaria a dona
+ * para o lugar errado.
+ */
+describe('resolveHomeSections — produtos em destaque (DST-20)', () => {
+  it('ativa e sem item escolhido: não renderiza, e o motivo fala da ESCOLHA', () => {
+    const [r] = resolveHomeSections([secao('d', 'product_carousel', 1)], ctx())
+
+    expect(r.renders).toBe(false)
+    expect(r.hiddenReason).toBe('Não vai aparecer: nenhum produto escolhido.')
+  })
+
+  it('o motivo NÃO fala de fonte — a dona não configura fonte nenhuma neste bloco', () => {
+    // Vizinha da asserção acima, e não substituta: a frase anterior dizia "a fonte não devolveu
+    // nenhum produto", e mandava procurar um campo que não existe em tela nenhuma.
+    const [r] = resolveHomeSections([secao('d', 'product_carousel', 1)], ctx())
+    expect(r.hiddenReason).not.toContain('fonte')
+  })
+
+  it('TRÊS escolhidos e os três fora do ar: o motivo conta quantos eram, e `droppedCount` é 3', () => {
+    const secoes = [
+      secao('d', 'product_carousel', 1, {
+        items: [
+          item('a', 0, { product_id: 'p1' }),
+          item('b', 1, { product_id: 'p2' }),
+          item('c', 2, { product_id: 'p3' }),
+        ],
+      }),
+    ]
+    const [r] = resolveHomeSections(secoes, ctx({ resolveItem: () => null }))
+
+    expect(r.renders).toBe(false)
+    expect(r.hiddenReason).toBe('Não vai aparecer: os 3 itens escolhidos saíram do ar.')
+    expect(r.droppedCount).toBe(3)
+  })
+
+  it('desligada COM itens diz que está desligada — a precedência não muda', () => {
+    // O edge case da spec: o motivo de estar desligada vence o de estar vazia. Os dois motivos
+    // mandariam a dona para lugares diferentes — um pede um clique no interruptor, o outro pede
+    // curadoria.
+    const secoes = [
+      secao('d', 'product_carousel', 1, {
+        active: false,
+        items: [item('a', 0, { product_id: 'p1' })],
+      }),
+    ]
+    const [r] = resolveHomeSections(secoes, ctx())
+
+    expect(r.renders).toBe(false)
+    expect(r.hiddenReason).toBe('Desligada: não aparece na loja.')
+  })
+
+  it('escolhido que saiu do ar é PULADO, e os outros desenham', () => {
+    const secoes = [
+      secao('d', 'product_carousel', 1, {
+        items: [item('a', 0, { product_id: 'p1' }), item('morto', 1, { product_id: 'p2' })],
+      }),
+    ]
+    const [r] = resolveHomeSections(
+      secoes,
+      ctx({ resolveItem: i => (i.id === 'morto' ? null : resolvido(i.id, { curated: true })) }),
+    )
+
+    expect(r.renders).toBe(true)
+    expect(r.items.map(i => i.id)).toEqual(['a'])
+    expect(r.droppedCount).toBe(1)
+  })
+
+  it('dois blocos convivem na mesma Home — o tipo é repetível', () => {
+    const secoes = [
+      secao('d1', 'product_carousel', 1, { items: [item('a', 0, { product_id: 'p1' })] }),
+      secao('d2', 'product_carousel', 2, { items: [item('b', 0, { product_id: 'p2' })] }),
+    ]
+    const resolvidas = resolveHomeSections(secoes, ctx())
+
+    expect(resolvidas.filter(r => r.renders)).toHaveLength(2)
+  })
+})

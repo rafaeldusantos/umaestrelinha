@@ -40,7 +40,7 @@ const CATALOGO = [
   cat({ id: 'leite', name: 'Joias com leite materno', sort_order: 1 }),
   cat({ id: 'cinzas', name: 'Eternize as cinzas', sort_order: 2 }),
 ]
-const PRODUTOS = [{ id: 'prod-1', name: 'Pingente Gota' }]
+const PRODUTOS = [{ id: 'prod-1', name: 'Pingente Gota', slug: 'pingente-gota', is_active: true }]
 
 const slide = (over: Partial<HomeSectionItem> = {}): HomeSectionItem => ({
   id: 'i1',

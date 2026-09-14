@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { DEFAULT_HOME_COMPOSITION, type HomeSection } from '@estrelinha/core/home'
@@ -14,14 +14,22 @@ import { HOME_SECTION_RENDERERS } from '../sectionRenderers'
  */
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-const { categorias, produtos } = vi.hoisted(() => ({
+const { categorias, produtos, escolhidos } = vi.hoisted(() => ({
   categorias: { data: [] as any[] },
   produtos: { data: [] as any[] },
+  escolhidos: { porId: {} as Record<string, any> },
 }))
 
 vi.mock('@/entities/category', () => ({ useCategories: () => categorias }))
 vi.mock('@/entities/category/api/useCategories', () => ({ useCategories: () => categorias }))
 vi.mock('@/entities/product/api/useProducts', () => ({ useProducts: () => produtos }))
+vi.mock('@/entities/product/api/useProductsByIds', () => ({
+  useProductsByIds: (ids: readonly string[]) => ({
+    data: ids.map(id => escolhidos.porId[id]).filter(Boolean),
+    isLoading: false,
+    isError: false,
+  }),
+}))
 vi.mock('@/entities/product/ui/ProductCard', () => ({
   default: ({ product }: any) => <div data-testid="produto">{product.name}</div>,
 }))
@@ -77,11 +85,18 @@ describe('HomeRenderer — o registro tipo → componente', () => {
     expect(news.compareDocumentPosition(hero) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
-  it('os dois tipos de P3 ainda não têm desenho', () => {
-    // A ausência é declarada, não acidental: eles entram no catálogo (a bandeja os mostra como "em
-    // breve") e ganham renderer quando ganharem tela.
-    expect(HOME_SECTION_RENDERERS.product_carousel).toBeNull()
+  it('a grade de coleções ainda não tem desenho', () => {
+    // A ausência é declarada, não acidental: ela entra no catálogo (a bandeja a mostra como "em
+    // breve") e ganha renderer quando ganhar tela.
+    //
+    // **Esta asserção foi VIRADA na feature 50, não apagada**: ela cobria os dois tipos de P3, e
+    // `product_carousel` ganhou desenho. Medir a que sobrou é o que impede a segunda entrar de
+    // carona no dia em que alguém mexer no registro.
     expect(HOME_SECTION_RENDERERS.category_grid).toBeNull()
+  })
+
+  it('Produtos em destaque GANHOU desenho na feature 50 (DST-04)', () => {
+    expect(HOME_SECTION_RENDERERS.product_carousel).not.toBeNull()
   })
 
   it('o destaque em coleção ganhou desenho na T32 — e é o único dos três que ganhou', () => {
@@ -91,7 +106,7 @@ describe('HomeRenderer — o registro tipo → componente', () => {
   it('tipo sem renderer é pulado e NÃO quebra a página', () => {
     renderHome([
       secao('hero', { position: 1 }),
-      { id: 'p3', type: 'product_carousel', position: 2, active: true, config: {} },
+      { id: 'p3', type: 'category_grid', position: 2, active: true, config: {} },
       secao('newsletter', { position: 3 }),
     ])
 
@@ -241,5 +256,87 @@ describe('HomeRenderer — banner com destino de PRODUTO (emenda E5)', () => {
     const { container } = renderHome([comProduto(null)])
 
     expect(container.querySelectorAll('section')).toHaveLength(0)
+  })
+})
+
+/**
+ * O bloco **Produtos em destaque** chega à Home — `DST-04`.
+ *
+ * **Quem monta a árvore é a página, nunca o teste.** Provar que `FeaturedProducts` desenha uma lista
+ * é provar o widget; provar que a Home o desenha exige renderizar o `HomeRenderer` de verdade com
+ * uma seção `product_carousel` — senão apagar a linha do registro deixa a suíte verde e o bloco some
+ * da loja inteira. É a lição que a feature 44 pagou com uma entrega reprovada.
+ */
+describe('HomeRenderer — Produtos em destaque (DST-04)', () => {
+  const comPecas = (ids: string[], over: any = {}): HomeSection =>
+    ({
+      id: 'destaque',
+      type: 'product_carousel',
+      position: 1,
+      active: true,
+      config: { title: 'Peças escolhidas' },
+      items: ids.map((id, i) => ({
+        id: `item-${id}`,
+        section_id: 'destaque',
+        position: i,
+        category_id: null,
+        product_id: id,
+        product_slug: `peca-${id}`,
+        href: null,
+        image_url: null,
+        image_mobile_url: null,
+        alt: null,
+        label_snapshot: null,
+      })),
+      ...over,
+    }) as HomeSection
+
+  beforeEach(() => {
+    escolhidos.porId = {
+      p1: { id: 'p1', name: 'Pingente de cinzas', images: [] },
+      p2: { id: 'p2', name: 'Colar de leite materno', images: [] },
+    }
+  })
+
+  it('a seção ativa com peças DESENHA o bloco, pela página de verdade', () => {
+    renderHome([comPecas(['p1', 'p2'])])
+
+    expect(screen.getByRole('heading', { name: 'Peças escolhidas' })).toBeInTheDocument()
+    expect(screen.getAllByTestId('produto').map(n => n.textContent)).toEqual([
+      'Pingente de cinzas',
+      'Colar de leite materno',
+    ])
+  })
+
+  it('a ordem desenhada é a da DONA, não a da resposta', () => {
+    renderHome([comPecas(['p2', 'p1'])])
+
+    expect(screen.getAllByTestId('produto').map(n => n.textContent)).toEqual([
+      'Colar de leite materno',
+      'Pingente de cinzas',
+    ])
+  })
+
+  it('seção sem item não desenha moldura nem espaçamento', () => {
+    // `HOME-03`: seção que não renderiza não produz NADA. Um `<section>` vazio seria uma faixa de
+    // `py-12` no meio da Home, e ninguém saberia de onde veio.
+    const { container } = renderHome([comPecas([])])
+    expect(container.querySelectorAll('section')).toHaveLength(0)
+  })
+
+  it('seção desligada não desenha, mesmo com peças escolhidas', () => {
+    const { container } = renderHome([comPecas(['p1'], { active: false })])
+    expect(container.querySelectorAll('section')).toHaveLength(0)
+  })
+
+  it('dois blocos na mesma Home desenham os dois, cada um com a sua curadoria', () => {
+    renderHome([
+      { ...comPecas(['p1']), id: 'd1', config: { title: 'Primeiro bloco' } } as HomeSection,
+      { ...comPecas(['p2']), id: 'd2', position: 2, config: { title: 'Segundo bloco' } } as HomeSection,
+    ])
+
+    expect(screen.getByRole('heading', { name: 'Primeiro bloco' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Segundo bloco' })).toBeInTheDocument()
+    expect(screen.getAllByTestId('produto')).toHaveLength(2)
   })
 })

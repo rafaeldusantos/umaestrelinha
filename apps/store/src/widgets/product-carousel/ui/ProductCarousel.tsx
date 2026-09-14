@@ -23,6 +23,57 @@ const TONES = {
 
 export type CarouselTone = keyof typeof TONES
 
+/**
+ * As **três formas** da fileira de produtos, num mapa só — feature 50.
+ *
+ * Um dono das classes de vaga e do trilho. A alternativa era um widget novo para o bloco "Produtos
+ * em destaque", e ela custaria uma segunda escrita de `min-w-[220px] max-w-[220px]` — exatamente o
+ * par que `cardSkeletonBox.test.ts` existe para prender, só que na outra direção.
+ *
+ * | forma | celular | a partir de `md` | quem usa |
+ * | --- | --- | --- | --- |
+ * | `row` | fita que rola | grade de 4, **uma linha** | `HomeCollectionRow` — a Home de hoje |
+ * | `slider` | fita que rola | **continua fita**, e as setas rolam | `display: 'slider'` |
+ * | `grid` | grade de 2 | grade de 4, embrulhando | `display: 'grid'` |
+ *
+ * **`row` é IMÓVEL**, e é o único jeito de um bloco novo não mudar a Home de hoje (`HOME-04`): ela
+ * tem exatamente as classes de antes desta feature, e `HomeCollectionRow.test.tsx` passa sem edição.
+ *
+ * **`row` e `slider` são iguais abaixo de `md`, de propósito.** A diferença é o computador, onde a
+ * `row` vira grade de uma linha e a `slider` segue fita — e é por isso que a asserção de cada uma é
+ * escrita nas **duas** metades: uma régua que provasse só o celular aprovaria as duas com a mesma
+ * classe.
+ *
+ * **A vaga da `slider` não perde o `min-w` no `md`**, e isso não é descuido: item de flex encolhe
+ * por padrão até o min-content, então sem ele os 12 cards se espremeriam na largura do trilho em vez
+ * de rolar.
+ *
+ * **As setas saem na `grid`**: não há o que rolar, e um par de botões que não move nada é um
+ * controle que mente.
+ */
+const LAYOUTS = {
+  row: {
+    trilho:
+      'flex snap-x snap-mandatory gap-6 overflow-x-auto pb-2 md:grid md:grid-cols-4 md:overflow-visible',
+    vaga: 'min-w-[220px] max-w-[220px] snap-start md:min-w-0 md:max-w-none',
+    setas: true,
+  },
+  slider: {
+    trilho: 'flex snap-x snap-mandatory gap-6 overflow-x-auto pb-2',
+    vaga: 'min-w-[220px] max-w-[220px] snap-start',
+    setas: true,
+  },
+  grid: {
+    // `min-w-0` na célula pela mesma razão que a página do produto pagou caro: a trilha implícita
+    // de uma grade tem piso de min-content, e card com nome longo estoura a largura no celular.
+    trilho: 'grid grid-cols-2 gap-6 pb-2 md:grid-cols-4',
+    vaga: 'min-w-0',
+    setas: false,
+  },
+} as const
+
+export type CarouselLayout = keyof typeof LAYOUTS
+
 interface Props {
   title: string
   products: Product[]
@@ -57,6 +108,13 @@ interface Props {
   loading?: boolean
   /** Quantos esqueletos desenhar enquanto carrega. Deve ser o número de vagas da fileira. */
   skeletonCount?: number
+  /**
+   * A forma da fileira — ver `LAYOUTS`. Padrão `row`, que é a Home de hoje.
+   *
+   * O padrão existe para `HomeCollectionRow` não precisar declarar nada: um bloco novo não pode
+   * mudar a fileira de coleção, e omitir a prop tem de significar exatamente o de antes.
+   */
+  layout?: CarouselLayout
 }
 
 const ProductCarousel = ({
@@ -70,7 +128,9 @@ const ProductCarousel = ({
   banner,
   loading = false,
   skeletonCount = 4,
+  layout = 'row',
 }: Props) => {
+  const forma = LAYOUTS[layout]
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const scroll = (dir: 'left' | 'right') => {
@@ -108,33 +168,37 @@ const ProductCarousel = ({
                 </Link>
               )}
               {/* Par assimétrico: "voltar" é contorno, "avançar" é sólido. */}
-              <button
-                onClick={() => scroll('left')}
-                className={`${TAP_44} flex h-10 w-10 items-center justify-center rounded-full border border-estrelinha-line transition-colors hover:bg-estrelinha-ground-deep`}
-                aria-label="Anterior"
-              >
-                <ChevronLeft className="h-4 w-4 text-estrelinha-ink" strokeWidth={2.2} />
-              </button>
-              <button
-                onClick={() => scroll('right')}
-                className={`${TAP_44} flex h-10 w-10 items-center justify-center rounded-full bg-estrelinha-ink transition-transform hover:scale-105`}
-                aria-label="Próximo"
-              >
-                <ChevronRight className="h-4 w-4 text-white" strokeWidth={2.2} />
-              </button>
+              {forma.setas && (
+                <>
+                  <button
+                    onClick={() => scroll('left')}
+                    className={`${TAP_44} flex h-10 w-10 items-center justify-center rounded-full border border-estrelinha-line transition-colors hover:bg-estrelinha-ground-deep`}
+                    aria-label="Anterior"
+                  >
+                    <ChevronLeft className="h-4 w-4 text-estrelinha-ink" strokeWidth={2.2} />
+                  </button>
+                  <button
+                    onClick={() => scroll('right')}
+                    className={`${TAP_44} flex h-10 w-10 items-center justify-center rounded-full bg-estrelinha-ink transition-transform hover:scale-105`}
+                    aria-label="Próximo"
+                  >
+                    <ChevronRight className="h-4 w-4 text-white" strokeWidth={2.2} />
+                  </button>
+                </>
+              )}
             </div>
           }
         />
         <div
           ref={scrollRef}
           aria-busy={loading}
-          className="flex snap-x snap-mandatory gap-6 overflow-x-auto pb-2 md:grid md:grid-cols-4 md:overflow-visible"
+          className={forma.trilho}
           style={{ scrollbarWidth: 'none' }}
         >
           {banner && (
             <Link
               to={banner.href}
-              className="group min-w-[220px] max-w-[220px] snap-start overflow-hidden rounded-lg bg-estrelinha-ground-deep md:min-w-0 md:max-w-none"
+              className={`group ${forma.vaga} overflow-hidden rounded-lg bg-estrelinha-ground-deep`}
             >
               {/* A vaga mede 220px no celular e um quarto da linha a partir do `md`. Banner de
                   campanha em host externo volta inalterado e sem `srcset` — reescrever a URL de
@@ -152,10 +216,7 @@ const ProductCarousel = ({
           {/* O índice conta o BANNER: com ele a fileira começa na segunda vaga, e passar `i`
               cru faria o segundo card se achar o primeiro da tela (`PRF-03`). */}
           {products.map((product, i) => (
-            <div
-              key={product.id}
-              className="min-w-[220px] max-w-[220px] snap-start md:min-w-0 md:max-w-none"
-            >
+            <div key={product.id} className={forma.vaga}>
               <ProductCard product={product} index={banner ? i + 1 : i} />
             </div>
           ))}
@@ -167,10 +228,7 @@ const ProductCarousel = ({
           */}
           {loading &&
             Array.from({ length: skeletonCount }, (_, i) => (
-              <div
-                key={`vaga-${i}`}
-                className="min-w-[220px] max-w-[220px] snap-start md:min-w-0 md:max-w-none"
-              >
+              <div key={`vaga-${i}`} className={forma.vaga}>
                 <ProductCardSkeleton />
               </div>
             ))}

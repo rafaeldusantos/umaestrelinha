@@ -62,8 +62,14 @@ interface ListingWindow<Q> {
   limit(count: number): Q
 }
 
-/** Ordem declarada + teto explícito. Todo caminho de listagem passa por aqui. */
-const listingWindow = <Q extends ListingWindow<Q>>(query: Q, limit = LISTING_LIMIT): Q =>
+/**
+ * Ordem declarada + teto explícito. Todo caminho de listagem passa por aqui.
+ *
+ * **Exportada desde a feature 50**, para `useProductsByIds` entrar pela mesma porta: uma leitura de
+ * listagem que montasse a própria janela seria um segundo dono da ordem e do teto — e o teto é
+ * justamente o que torna a truncagem do PostgREST visível.
+ */
+export const listingWindow = <Q extends ListingWindow<Q>>(query: Q, limit = LISTING_LIMIT): Q =>
   query
     .order(LISTING_ORDER, { ascending: true })
     .order(LISTING_ORDER_TIEBREAK, { ascending: true })

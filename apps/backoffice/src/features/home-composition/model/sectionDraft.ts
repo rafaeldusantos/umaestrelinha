@@ -17,6 +17,19 @@ import type { NewHomeSectionItem } from '@/entities/home'
  */
 export interface DraftItem {
   key: string
+  /**
+   * O slug do produto escolhido — **de tela, como a `key`, e nunca gravado**.
+   *
+   * `home_section_items` não tem esta coluna: o slug vive em `products` e chega ao painel pelo
+   * embed da leitura. Ele existe aqui por causa da PRÉVIA. `resolveItem` decide "este destino está
+   * no ar?" pela presença do slug, e sem ele o item de produto que a dona acabou de escolher
+   * apareceria como fora do ar **justamente enquanto ela o escolhe** (`DST-24`, `R-01`).
+   *
+   * **Quem o deixar chegar ao `insert` quebra a gravação inteira**, com `PGRST204` e sem nada no
+   * `tsc` acusando — o modo de falha do `AD-012`. Por isso `toNewItems` remove os dois campos de
+   * tela, e `toNewItems.test.ts` assere as sete colunas restantes por igualdade de chaves.
+   */
+  product_slug: string | null
   category_id: string | null
   product_id: string | null
   href: string | null
@@ -36,6 +49,7 @@ export const draftKey = (): string => {
 
 export const emptyDraftItem = (): DraftItem => ({
   key: draftKey(),
+  product_slug: null,
   category_id: null,
   product_id: null,
   href: null,
@@ -50,6 +64,7 @@ export const toDraftItems = (items: readonly HomeSectionItem[] | undefined): Dra
     .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
     .map(item => ({
       key: item.id,
+      product_slug: item.product_slug ?? null,
       category_id: item.category_id ?? null,
       product_id: item.product_id ?? null,
       href: item.href ?? null,
@@ -59,9 +74,17 @@ export const toDraftItems = (items: readonly HomeSectionItem[] | undefined): Dra
       label_snapshot: item.label_snapshot ?? null,
     }))
 
-/** O que vai para `curateSection` — a ordem da lista é a `position` gravada. */
+/**
+ * O que vai para `curateSection` — a ordem da lista é a `position` gravada.
+ *
+ * **Os dois campos de tela saem aqui, e é o único lugar onde isso acontece.** `key` nunca existiu no
+ * banco; `product_slug` também não — ele é do embed de `products`. Um terceiro campo de tela que
+ * esquecesse esta linha faria toda gravação de curadoria morrer com `PGRST204`, e nem o build nem o
+ * `tsc` diriam uma palavra: o objeto extra passa por `NewHomeSectionItem` sem reclamar porque todas
+ * as sete colunas são opcionais. Quem acusa é `toNewItems.test.ts`, por igualdade de chaves.
+ */
 export const toNewItems = (drafts: readonly DraftItem[]): NewHomeSectionItem[] =>
-  drafts.map(({ key: _key, ...resto }) => resto)
+  drafts.map(({ key: _key, product_slug: _slug, ...resto }) => resto)
 
 /**
  * O rascunho mudou em relação ao que está no banco?
@@ -106,6 +129,10 @@ export const applyDraft = (
             position: index,
             category_id: item.category_id,
             product_id: item.product_id,
+            // Sem esta linha a prévia trataria como "fora do ar" todo produto escolhido no
+            // rascunho: `resolveItem` decide pela presença do slug, e o rascunho é a única fonte
+            // que o tem antes de salvar (`DST-24`).
+            product_slug: item.product_slug,
             href: item.href,
             image_url: item.image_url,
             // Sem esta linha a prévia mostraria o slide com a arte do computador no celular, e a

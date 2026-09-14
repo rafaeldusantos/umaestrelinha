@@ -6,6 +6,7 @@ import BrandStatement from '@/widgets/home-sections/ui/BrandStatement'
 import TrendingTags from '@/widgets/home-sections/ui/TrendingTags'
 import { HomeBannerGrid } from '@/widgets/home-banners'
 import { HeroCarousel } from '@/widgets/hero-carousel'
+import { FeaturedProducts } from '@/widgets/featured-products'
 import { HomeCollections } from '@/widgets/home-collections'
 import { CollectionFeature } from '@/widgets/collection-feature'
 import NewsletterBanner from '@/features/newsletter/ui/NewsletterBanner'
@@ -29,9 +30,10 @@ export interface SectionRenderProps {
 /**
  * **Tipo sem renderer é `null`, e ser pulado é o comportamento certo.**
  *
- * Os dois de P3 (`product_carousel`, `category_grid`) entram no catálogo sem desenho. Uma linha
- * gravada com um deles — ou com um tipo de uma versão mais nova — **não pode derrubar a Home**: a
- * página inteira sumiria por causa de um bloco.
+ * `category_grid` entra no catálogo sem desenho. Uma linha gravada com ele — ou com um tipo de uma
+ * versão mais nova — **não pode derrubar a Home**: a página inteira sumiria por causa de um bloco.
+ *
+ * Eram dois até a feature 50, e `product_carousel` ganhou o seu (`DST-04`).
  */
 export const HOME_SECTION_RENDERERS: Record<
   HomeSectionType,
@@ -60,7 +62,11 @@ export const HOME_SECTION_RENDERERS: Record<
   // caminho — desenhar uma faixa sem destino seria um CTA para lugar nenhum.
   collection_feature: ({ section, items }) =>
     items[0] ? <CollectionFeature content={section.config} collection={items[0]} /> : null,
-  product_carousel: null,
+  // As peças escolhidas a dedo (feature 50). Sem item a seção nem chega aqui — `resolveHomeSections`
+  // já a escondeu com motivo (`DST-20`) —, e o guarda existe pela mesma razão do `hero_carousel`
+  // logo abaixo: desenhar um bloco sem peça seria um título com um vão embaixo.
+  product_carousel: ({ section, items }) =>
+    items.length ? <FeaturedProducts section={section} items={items} /> : null,
   category_grid: null,
   // Sem slide não há carrossel, e quem já decidiu isso é `resolveHomeSections` — a seção nem chega
   // aqui. O guarda existe pelo mesmo motivo do `collection_feature` logo acima: desenhar uma faixa

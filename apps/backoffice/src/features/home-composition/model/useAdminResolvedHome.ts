@@ -34,6 +34,26 @@ type Candidata = MenuCategory & {
   description?: string | null
 }
 
+/**
+ * Uma peça, como o painel precisa dela para responder **"está no ar?"** (feature 50, `R-02`).
+ *
+ * `AdminProduct` satisfaz, e `EditorProduct` também — os dois saem da mesma linha de `products`.
+ * Estrutural de propósito: este arquivo não precisa do nome nem do preço, e pedir o tipo inteiro
+ * obrigaria todo teste a montar um produto completo para provar uma regra de uma linha.
+ *
+ * **O campo é `is_active`, e não `active`.** Categoria usa `active`; produto usa `is_active`. Os
+ * dois convivem a três linhas de distância no `resolveItem` abaixo, e trocar um pelo outro não é
+ * erro de tipo em nenhum dos dois sentidos: `categoria.is_active` seria `undefined` (nunca
+ * `false`), então **toda** peça passaria a ser considerada no ar, e o painel voltaria a prometer o
+ * que a loja pula. É `AD-012` na forma mais barata de cometer — conferido em `DbProduct`, não de
+ * memória.
+ */
+type Peca = {
+  id: string
+  slug: string
+  is_active: boolean
+}
+
 const daCategoria = (
   categories: readonly Candidata[],
   categoria: Candidata,
@@ -55,6 +75,7 @@ const daCategoria = (
 export const useAdminResolvedHome = (
   sections: readonly HomeSection[],
   categories: readonly AdminCategory[],
+  products: readonly Peca[] = [],
 ): ResolvedSection[] =>
   useMemo(() => {
     const pool = categories as unknown as Candidata[]
@@ -85,12 +106,26 @@ export const useAdminResolvedHome = (
           })
         }
 
-        // Destino de PRODUTO (emenda `E5`): o slug vem embutido na consulta, igual ao da loja. Sem
-        // slug o produto está despublicado ou apagado, e a linha entra em `droppedCount` — é o que
-        // faz o painel dizer a MESMA coisa que a Home desenha, em vez de prometer um banner que
-        // nunca aparece.
+        // Destino de PRODUTO (emenda `E5`, corrigido na feature 50).
+        //
+        // Quem responde "está no ar?" é o **catálogo**, e não o slug embutido. A leitura do painel é
+        // feita como admin, e admin enxerga produto despublicado: o embed devolvia o slug de uma
+        // peça que a cliente — que lê como `anon`, sob a RLS — nunca receberia. O painel dizia
+        // "tudo certo" sobre um bloco que a Home desenhava pela metade (`R-02`, `AD-024`).
+        //
+        // O ramo espelha o de categoria, logo acima: ausente do catálogo (apagada) ou
+        // `is_active === false` (despublicada) sai de cena e entra em `droppedCount`. O
+        // `label_snapshot` continua sendo o que **nomeia** a perda — é a única fonte que sobra
+        // depois do `on delete set null`.
+        //
+        // O recuo para `item.product_slug` existe para o RASCUNHO: a peça recém-escolhida no editor
+        // chega com o slug congelado pela escolha, e a prévia precisa dela antes de qualquer
+        // gravação (`DST-24`).
         if (item.product_id) {
-          const slug = item.product_slug?.trim()
+          const produto = products.find(p => p.id === item.product_id)
+          if (!produto || produto.is_active === false) return null
+
+          const slug = produto.slug?.trim() || item.product_slug?.trim()
           if (!slug) return null
           return {
             id: item.id,
@@ -160,4 +195,4 @@ export const useAdminResolvedHome = (
     }
 
     return resolveHomeSections(sections, ctx)
-  }, [sections, categories])
+  }, [sections, categories, products])

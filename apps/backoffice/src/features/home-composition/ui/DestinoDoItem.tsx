@@ -77,7 +77,18 @@ const DestinoDoItem = ({
       return
     }
     const alvo = products.find(p => p.id === id)
-    onChange({ category_id: null, product_id: id, href: null, label_snapshot: alvo?.name ?? null })
+    // O `product_slug` é congelado JUNTO com a escolha, e ele é de TELA — `toNewItems` o remove
+    // antes do `insert`. É o que faz a prévia mostrar o destino recém-escolhido em vez de tratá-lo
+    // como fora do ar: `resolveItem` decide pela presença do slug, e antes de salvar o rascunho é a
+    // única fonte que o tem (`DST-24`, `R-01`). Sem esta linha o defeito atinge também o BANNER
+    // PRINCIPAL, onde ele já existia em silêncio.
+    onChange({
+      category_id: null,
+      product_id: id,
+      product_slug: alvo?.slug ?? null,
+      href: null,
+      label_snapshot: alvo?.name ?? null,
+    })
   }
 
   return (

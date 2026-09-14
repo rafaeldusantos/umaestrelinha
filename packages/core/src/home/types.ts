@@ -65,6 +65,19 @@ export type HomeBannerLayout = 'single' | 'pair' | 'hero_pair' | 'quad'
 export type HomeBannerWidth = 'full' | 'wide'
 
 /**
+ * Como um bloco `product_carousel` se apresenta (feature 50).
+ *
+ * `slider` é uma fileira que rola na horizontal nos dois tamanhos; `grid` embrulha em linhas de 4 a
+ * partir de `md` e de 2 abaixo dele. **Ausente ou desconhecido ⇒ `slider`** (`DST-10`), e quem
+ * responde isso é `featuredDisplay` — nunca a tela.
+ *
+ * **União por literal de STRING**, pelo mesmo motivo de `HomeBannerWidth`: `strictNullChecks: false`
+ * não estreita união discriminada por literal booleano, então um `{ grid: boolean }` não teria como
+ * ser lido com segurança nos dois ramos.
+ */
+export type HomeFeaturedDisplay = 'slider' | 'grid'
+
+/**
  * O `config jsonb` de uma seção.
  *
  * **Guarda só texto, número e URL de imagem — nunca referência.** Toda referência a categoria ou
@@ -103,6 +116,14 @@ export interface HomeSectionConfig {
    * id de categoria e de produto (`AD-014`), e a largura não tem destino para ficar pendurado.
    */
   width?: HomeBannerWidth
+  /**
+   * `product_carousel` — fita ou grade (feature 50). Ausente ou desconhecido ⇒ `slider` (`DST-10`).
+   *
+   * Cabe no `config` pelo mesmo motivo de `width`: é **valor**, não referência. A fronteira que este
+   * tipo declara é sobre id de categoria e de produto (`AD-014`), e "como isto se apresenta" não tem
+   * destino para ficar pendurado. Quem responde é `featuredDisplay`, nunca a tela.
+   */
+  display?: HomeFeaturedDisplay
   /** `collection_rows`, `trending_tags`, `product_carousel`, `category_grid`. */
   limit?: number
   /** `brand_statement`, `trending_tags`, `newsletter`, `collection_feature`, e os dois de P3. */

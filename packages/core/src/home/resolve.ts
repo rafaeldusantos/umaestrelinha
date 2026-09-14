@@ -110,7 +110,11 @@ const EMPTY_SOURCE_REASON: Record<HomeSectionType, string> = {
   trending_tags: 'Não vai aparecer: o catálogo ainda não tem coleção para virar chip.',
   newsletter: '',
   collection_feature: 'Não vai aparecer: nenhuma coleção escolhida está no ar.',
-  product_carousel: 'Não vai aparecer: a fonte não devolveu nenhum produto.',
+  // Feature 50: o bloco **só existe por curadoria** — não há fonte automática, e é decisão de
+  // escopo (uma fonte ao lado da lista seria o segundo dono de "quais produtos aparecem aqui").
+  // Por isso o motivo fala da ESCOLHA, e não de uma fonte que a dona não configura em lugar nenhum.
+  // O outro ramo — escolhi e todos saíram do ar — é `todosForaDoAr`, e não muda (`DST-20`).
+  product_carousel: 'Não vai aparecer: nenhum produto escolhido.',
   category_grid: 'Não vai aparecer: o catálogo ainda não tem coleção para mostrar.',
   hero_carousel: 'Não vai aparecer: nenhum banner enviado.',
 }

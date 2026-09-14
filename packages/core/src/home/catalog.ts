@@ -94,7 +94,11 @@ const LABELS: Record<HomeSectionType, string> = {
   trending_tags: 'Chips de tema',
   newsletter: 'Newsletter',
   collection_feature: 'Destaque em coleção',
-  product_carousel: 'Carrossel de produtos',
+  // "Produtos em destaque", e não "Carrossel de produtos": o que a dona escolhe na bandeja é o PAPEL
+  // do bloco — uma vitrine de peças escolhidas a dedo —, não o mecanismo dele, que aliás pode ser
+  // fita ou grade (`config.display`). O identificador `product_carousel` é COLUNA, e renomeá-lo
+  // custaria migration destrutiva para não ganhar nada; o que a dona lê é este rótulo.
+  product_carousel: 'Produtos em destaque',
   category_grid: 'Grade de coleções',
   // "Banner principal", e não "Carrossel de banners": o que a dona escolhe na bandeja é o PAPEL do
   // bloco na página, não o mecanismo dele. E o nome não pode colidir com "Chamada principal" (o
@@ -106,10 +110,15 @@ const LABELS: Record<HomeSectionType, string> = {
 /**
  * As faixas de `limit`, **só onde o desenho declarou uma**.
  *
- * Os dois tipos de P3 (`product_carousel`, `category_grid`) têm `limit` no `config` mas nenhuma faixa
- * declarada, e ela **não é inventada aqui**: eles entram no catálogo sem renderer e sem editor, e a
- * faixa nasce junto com a tela que a cobra. Faixa chutada seria regra sem origem, e é o tipo de
- * número que ninguém depois consegue justificar.
+ * `category_grid` tem `limit` no `config` mas nenhuma faixa declarada, e ela **não é inventada
+ * aqui**: ele entra no catálogo sem renderer e sem editor, e a faixa nasce junto com a tela que a
+ * cobra. Faixa chutada seria regra sem origem, e é o tipo de número que ninguém depois consegue
+ * justificar.
+ *
+ * **`product_carousel` ganhou tela na feature 50 e continua fora daqui, de propósito**: o teto dele
+ * é `FEATURED_PRODUCTS_MAX`, cobrado como **recusa** (`featured.ts`). `config.limit` é lido por
+ * `resolveHomeSections`, que **corta** a lista — e com ele "quantos produtos aparecem" teria dois
+ * donos, a curadoria e o número.
  */
 const LIMITS: Partial<Record<HomeSectionType, SectionLimit>> = {
   collection_rows: { min: 1, max: 8 },
@@ -117,13 +126,18 @@ const LIMITS: Partial<Record<HomeSectionType, SectionLimit>> = {
 }
 
 /**
- * Os tipos de P3 — no catálogo, **sem renderer e sem editor**.
+ * Os tipos que estão no catálogo **sem renderer e sem editor**.
  *
- * `HOME-45`..`HOME-47` ficaram fora do plano de propósito. Eles existem aqui porque o `check` da
- * migration os aceita e o catálogo do TypeScript não pode divergir dele (`HOME-06`); a bandeja os
- * mostra esmaecidos, dizendo "em breve", em vez de prometer o que não existe.
+ * Eles existem aqui porque o `check` da migration os aceita e o catálogo do TypeScript não pode
+ * divergir dele (`HOME-06`); a bandeja os mostra esmaecidos, dizendo "em breve", em vez de prometer o
+ * que não existe.
+ *
+ * **Eram dois até a feature 50, e `product_carousel` saiu** (`DST-01`): ele ganhou renderer na loja e
+ * editor no painel, e continuar esmaecido faria o painel esconder um bloco que existe — a dona nunca
+ * descobriria que podia usá-lo. É a mesma virada que o banner principal teve na 41. `category_grid`
+ * fica, porque implementar os dois só por estarem na mesma linha é escopo que ninguém pediu.
  */
-const COMING_SOON: readonly HomeSectionType[] = ['product_carousel', 'category_grid']
+const COMING_SOON: readonly HomeSectionType[] = ['category_grid']
 
 /**
  * O que o painel precisa saber sobre um tipo — ou `null` quando o tipo não existe.

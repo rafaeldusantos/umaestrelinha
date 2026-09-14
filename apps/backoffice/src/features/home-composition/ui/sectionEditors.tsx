@@ -18,19 +18,37 @@ import {
   collectionRowsRefusal,
   heroCarouselRefusal,
   heroRefusal,
+  productCarouselRefusal,
   textSectionRefusal,
 } from '../model/sectionRefusals'
 import BannerGridEditor from './BannerGridEditor'
 import CollectionFeatureEditor from './CollectionFeatureEditor'
 import CollectionRowsEditor from './CollectionRowsEditor'
+import FeaturedProductsEditor from './FeaturedProductsEditor'
 import HeroCarouselEditor from './HeroCarouselEditor'
 import HeroEditor from './HeroEditor'
 import TextSectionEditor from './TextSectionEditor'
 
-/** Um produto, como o seletor de destino precisa dele. `AdminProduct` satisfaz. */
+/**
+ * Um produto, como os seletores do painel precisam dele. `AdminProduct` satisfaz.
+ *
+ * **`slug` e `is_active` são obrigatórios desde a feature 50**, e os dois são carga, não conforto:
+ *
+ * - `slug` é o que a escolha congela em `DraftItem.product_slug` para a PRÉVIA saber que a peça
+ *   está no ar antes de qualquer gravação (`DST-24`). Sem ele, `resolveItem` trata todo produto
+ *   recém-escolhido como fora do ar, e o bloco em edição aparece vazio justamente enquanto a dona
+ *   o monta.
+ * - `is_active` é o que faz o painel dizer a MESMA coisa que a loja desenha (`AD-024`, `R-02`): o
+ *   painel lê o catálogo como admin e enxerga produto despublicado; a cliente, como `anon`, não.
+ *
+ * Os dois são **obrigatórios de propósito**. Opcionais, um construtor que os esquecesse compilaria
+ * e a tela mentiria em silêncio; obrigatórios, é o `tsc` que acha todos os construtores.
+ */
 export interface EditorProduct {
   id: string
   name: string
+  slug: string
+  is_active: boolean
 }
 
 export interface SectionEditorProps {
@@ -62,6 +80,9 @@ export const SECTION_EDITORS: Partial<Record<HomeSectionType, SectionEditorEntry
   banner_grid: { Body: BannerGridEditor, refusal: bannerGridRefusal },
   collection_rows: { Body: CollectionRowsEditor, refusal: collectionRowsRefusal },
   collection_feature: { Body: CollectionFeatureEditor, refusal: collectionFeatureRefusal },
+  // Feature 50 — o único bloco da Home que fala de PEÇA, e não de coleção. O tipo é o
+  // `product_carousel` que o `check` já aceitava desde a 24; o que faltava era tela.
+  product_carousel: { Body: FeaturedProductsEditor, refusal: productCarouselRefusal },
   // Quatro tipos, UM editor: a faixa institucional, os chips, a newsletter e a faixa de vantagens
   // fazem a mesma pergunta, e o que muda entre elas é a lista de campos — que é dado. A recusa
   // recebe o tipo por fora porque a faixa aceita de `limit` é de cada um.

@@ -86,8 +86,14 @@ export const heroSlideArt = (
   surface: DeviceSurface,
 ): SurfaceArt => surfaceArt(item?.image_url, item?.image_mobile_url, surface)
 
-/** O ordinal masculino, como a tela o escreve. Um dono só, porque a frase aparece em três lugares. */
-const ordinal = (n: number): string => `${n}º`
+/**
+ * O ordinal masculino, como a tela o escreve. Um dono só, porque a frase aparece em três lugares.
+ *
+ * **Exportado desde a feature 50**: `featuredProductsRefusal` numera as peças do bloco novo com a
+ * mesma forma. Escrever um terceiro `ordinal` seria o "defeito 01" no tamanho de uma função — e a
+ * divergência (`3o` × `3º`) não quebraria nada.
+ */
+export const ordinal = (n: number): string => `${n}º`
 
 const vazio = (valor: string | null | undefined): boolean => (valor ?? '').trim() === ''
 

@@ -14,6 +14,7 @@ import {
   configRefusal,
   ctaHrefRefusal,
   destinationRefusal,
+  featuredProductsRefusal,
   heroCarouselSlidesRefusal,
   type HomeSectionConfig,
   type HomeSectionType,
@@ -135,6 +136,27 @@ export const heroCarouselRefusal = (
   config: HomeSectionConfig,
   items: readonly DraftItem[],
 ): string | null => heroCarouselSlidesRefusal(items) ?? configRefusal('hero_carousel', config)
+
+/**
+ * O bloco **Produtos em destaque** (feature 50).
+ *
+ * **Não redige uma linha de regra**, e aqui isso pesa mais que nos vizinhos: as cinco cobranças
+ * deste bloco — título, lista vazia, teto de 12, item órfão e peça repetida — são as MESMAS que a
+ * loja usa para decidir o que desenhar. Uma segunda redação faria a tela recusar o que a loja
+ * aceita, ou pior, aceitar o que a loja pula.
+ *
+ * `featuredProductsRefusal` é a função que `featured.test.ts` prova, chamada com o rascunho da tela.
+ * Aqui só se compõe com o `configRefusal` do tipo, que é o molde de todos os vizinhos deste arquivo.
+ *
+ * A **apresentação** não é cobrada, e a ausência é regra: valor desconhecido cai em `slider`
+ * (`featuredDisplay`, `DST-10`), porque um bloco que se recusasse a salvar por causa de um `config`
+ * gravado por escrita direta deixaria a dona sem como consertar pela tela.
+ */
+export const productCarouselRefusal = (
+  config: HomeSectionConfig,
+  items: readonly DraftItem[],
+): string | null =>
+  featuredProductsRefusal(config, items) ?? configRefusal('product_carousel', config)
 
 /**
  * As seções de texto: limite dentro da faixa do tipo (`HOME-42`) e link de escape que a loja serve.

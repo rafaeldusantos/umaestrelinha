@@ -140,16 +140,21 @@ describe('sectionMeta — rótulo, unicidade e a faixa de limite', () => {
   })
 })
 
-describe('sectionMeta — os tipos de P3 são "em breve" (emenda E3)', () => {
-  it('carrossel de produtos e grade de coleções são os dois `comingSoon`', () => {
-    // Estão no catálogo porque o `check` da migration os aceita e o TypeScript não pode divergir
-    // dele (`HOME-06`) — mas não têm renderer nem editor. A bandeja os mostra esmaecidos em vez de
-    // prometer o que não existe.
+describe('sectionMeta — o que ainda é "em breve" (emenda E3)', () => {
+  it('a grade de coleções é o ÚNICO `comingSoon` (DST-23)', () => {
+    // Está no catálogo porque o `check` da migration a aceita e o TypeScript não pode divergir dele
+    // (`HOME-06`) — mas não tem renderer nem editor. A bandeja a mostra esmaecida em vez de prometer
+    // o que não existe.
+    //
+    // **Esta asserção foi VIRADA na feature 50, não descartada**: ela dizia
+    // `['product_carousel', 'category_grid']`. O carrossel de produtos ganhou tela, e é exatamente
+    // por isso que a lista tem de continuar sendo medida — apagar a asserção deixaria o segundo
+    // entrar de carona no dia em que alguém mexesse na constante.
     const emBreve = HOME_SECTION_TYPES.filter(t => sectionMeta(t)!.comingSoon)
-    expect(emBreve).toEqual(['product_carousel', 'category_grid'])
+    expect(emBreve).toEqual(['category_grid'])
   })
 
-  it('os outros nove NÃO são "em breve" — os oito de antes mais o banner principal', () => {
+  it('os outros dez NÃO são "em breve" — os nove de antes mais os produtos em destaque', () => {
     const prontos = HOME_SECTION_TYPES.filter(t => !sectionMeta(t)!.comingSoon)
     expect(prontos).toEqual([
       'hero',
@@ -160,8 +165,31 @@ describe('sectionMeta — os tipos de P3 são "em breve" (emenda E3)', () => {
       'trending_tags',
       'newsletter',
       'collection_feature',
+      'product_carousel',
       'hero_carousel',
     ])
+  })
+
+  it('Produtos em destaque NÃO nasce "em breve" — ele tem renderer e editor (DST-01)', () => {
+    // A etiqueta "em breve" é o que a bandeja mostra para bloco sem tela. Deixá-la ligada aqui faria
+    // o painel esmaecer um bloco que existe, e a dona nunca descobriria que podia usá-lo.
+    expect(sectionMeta('product_carousel')!.comingSoon).toBe(false)
+  })
+
+  it('Produtos em destaque tem o rótulo que a dona lê, e ele não colide com os vizinhos', () => {
+    const rotulo = sectionMeta('product_carousel')!.label
+    expect(rotulo).toBe('Produtos em destaque')
+    // O identificador do banco é `product_carousel`; o que a dona lê é o papel do bloco na página.
+    expect(rotulo).not.toBe('product_carousel')
+    expect(rotulo).not.toBe(sectionMeta('collection_feature')!.label)
+  })
+
+  it('Produtos em destaque é REPETÍVEL e não tem faixa de `limit` — o teto dele é RECUSA', () => {
+    // `config.limit` é lido por `resolveHomeSections`, que corta a lista: com ele, "quantos produtos
+    // aparecem" teria dois donos — a curadoria e o número. Quem recusa a 13ª peça é
+    // `featuredProductsRefusal`.
+    expect(sectionMeta('product_carousel')!.unique).toBe(false)
+    expect(sectionMeta('product_carousel')!.limit).toBeNull()
   })
 
   it('o banner principal NÃO nasce "em breve" — ele tem renderer e editor (BNR-01)', () => {
@@ -224,6 +252,7 @@ describe('core/home — módulo puro', () => {
         'catalog.ts',
         'defaults.ts',
         'derive.ts',
+        'featured.ts',
         'index.ts',
         'layout.ts',
         'order.ts',
@@ -231,7 +260,7 @@ describe('core/home — módulo puro', () => {
         'types.ts',
       ]),
     )
-    expect(FONTES.length).toBeGreaterThanOrEqual(9)
+    expect(FONTES.length).toBeGreaterThanOrEqual(10)
   })
 
   it('nenhum arquivo importa React nem Supabase', () => {

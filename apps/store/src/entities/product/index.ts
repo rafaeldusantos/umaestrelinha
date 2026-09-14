@@ -1,5 +1,6 @@
 export * from './api/useProduct'
 export * from './api/useProducts'
+export * from './api/useProductsByIds'
 export * from './lib/displayCategory'
 export * from './lib/mapProduct'
 export * from './lib/productFacts'

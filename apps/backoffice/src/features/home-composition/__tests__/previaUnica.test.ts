@@ -197,6 +197,76 @@ describe('BNR-51 — o painel não redesenha o carrossel', () => {
 })
 
 // ───────────────────────────────────────────────────────────────────────────
+// DST-02 — o editor de PEÇAS é uma lista, e não uma vitrine
+// ───────────────────────────────────────────────────────────────────────────
+//
+// Feature 50. O bloco novo é o único da Home que fala de **peça**, e por isso é o candidato mais
+// provável ao segundo desenho desde o carrossel da `41`: "mostra a foto de cada peça na lista, assim
+// a Adri reconhece" é um pedido razoável que reintroduz exatamente o defeito que a `25` apagou.
+//
+// As asserções abaixo não substituem nenhuma acima — a régua de arquivo (`FONTES`) já alcança os
+// dois arquivos novos. O que este bloco acrescenta é a **prova de que ela os alcança**: sem ela, um
+// editor que nascesse fora da varredura passaria em silêncio, que é a pior falha possível num
+// guarda de ausência.
+
+describe('DST-02 — o painel não desenha a vitrine de peças', () => {
+  it('a varredura ALCANÇA os dois arquivos novos', () => {
+    // Âncora, e é ela que dá sentido às asserções seguintes. Um `FONTES` que não os enxergasse
+    // faria as três regras abaixo varrerem zero arquivo e aprovarem por vacuidade.
+    for (const alvo of ['ui/FeaturedProductsEditor.tsx', 'ui/ProductPicker.tsx']) {
+      expect(FONTES.some(f => f.replace(/\\/g, '/').endsWith(alvo))).toBe(true)
+      expect(existsSync(join(UI, alvo.replace('ui/', '')))).toBe(true)
+    }
+  })
+
+  it('nenhum dos dois monta trilho de slides nem grade de cards', () => {
+    const suspeitos = ['FeaturedProductsEditor.tsx', 'ProductPicker.tsx'].map(n => join(UI, n))
+
+    for (const arquivo of suspeitos) {
+      const fonte = semComentarios(ler(arquivo))
+      // A mecânica do carrossel — a mesma régua de `BNR-51`, aplicada ao bloco novo.
+      expect(fonte).not.toMatch(/snap-x|snap-mandatory|scroll-snap|aria-roledescription/)
+      // E a grade de miniaturas, que é a forma que o segundo desenho tomaria AQUI.
+      expect(fonte).not.toMatch(/grid-cols-\d/)
+      // Sem foto de produto não há vitrine: é a peça que faltaria para o desenho existir.
+      expect(fonte).not.toMatch(/<img/)
+    }
+  })
+
+  it('SENSOR: a régua PEGA uma vitrine injetada nos dois arquivos', () => {
+    // Prova de sensibilidade sem tocar no disco, e ela é obrigatória: as asserções acima medem uma
+    // AUSÊNCIA, e ausência é o que passa sozinha quando o instrumento falha.
+    const vitrine =
+      'const Lista = () => <ul className="grid grid-cols-3 gap-2">{pecas.map(p => <img src={p.foto} />)}</ul>'
+
+    expect(/grid-cols-\d/.test(semComentarios(vitrine))).toBe(true)
+    expect(/<img/.test(semComentarios(vitrine))).toBe(true)
+
+    // E o par: o que os arquivos de verdade têm — uma lista — NÃO é acusado.
+    const lista = 'const Lista = () => <ul className="space-y-1">{pecas.map(p => <li>{p.name}</li>)}</ul>'
+    expect(/grid-cols-\d/.test(semComentarios(lista))).toBe(false)
+    expect(/<img/.test(semComentarios(lista))).toBe(false)
+  })
+
+  it('SENSOR: a prosa que explica a régua não é acusada, com CRLF e com LF', () => {
+    // Os dois arquivos novos CITAM a regra em comentário — "não desenha grade de miniatura" —, e
+    // sem o removedor o conserto de uma reprovação viraria "apague o comentário".
+    for (const quebra of ['\r\n', '\n']) {
+      const comentado = `const a = 1${quebra}// nada de grid-cols-3 aqui, e nada de <img${quebra}const b = 2`
+      expect(/grid-cols-\d/.test(semComentarios(comentado))).toBe(false)
+      expect(/<img/.test(semComentarios(comentado))).toBe(false)
+      // O código em volta sobrevive: um stripper que apagasse tudo passaria na linha acima.
+      expect(semComentarios(comentado)).toContain('const b = 2')
+    }
+  })
+
+  it('nenhuma prévia nova apareceu com o bloco de peças', () => {
+    expect(previasEm(UI)).toEqual(['HomeLivePreview.tsx'])
+    expect(existsSync(join(UI, 'FeaturedProductsPreview.tsx'))).toBe(false)
+  })
+})
+
+// ───────────────────────────────────────────────────────────────────────────
 // NAV-43 — o MENU tem um desenho, e ele também mora na loja
 // ───────────────────────────────────────────────────────────────────────────
 
