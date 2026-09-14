@@ -17,7 +17,7 @@
 //    (`previaUnica.test.ts`), e o dispositivo dela é a superfície em edição — o alternador do
 //    cabeçalho governa lista, contagem, editores **e** prévia (`NAV-37`).
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertTriangle,
   ExternalLink,
@@ -50,6 +50,13 @@ import {
 } from '@/features/store-menu'
 import { useAdminCategories } from '@/entities/category'
 import { PageHeader, TableSkeleton } from '@/shared/ui'
+
+/**
+ * Quanto tempo o selo `Salvo` fica na tela (`VIV-04`, `A-09`) — o MESMO número de `/admin/home`.
+ *
+ * `Salvo` permanente deixaria de significar "acabei de salvar" e viraria decoração do cabeçalho.
+ */
+const SALVO_MS = 2000
 
 /** A coluna que a superfície corrente liga. As duas são independentes de propósito (`AD-027`). */
 const COLUNA: Record<MenuSurface, 'menu_desktop' | 'menu_mobile'> = {
@@ -108,6 +115,30 @@ const AdminMenuPage = () => {
   const [vista, setVista] = useState<'entradas' | 'previa'>('entradas')
   const [activeId, setActiveId] = useState<string | null>(null)
   const [salvando, setSalvando] = useState(false)
+  /**
+   * O par do `Salvando…` (`VIV-04`): terminado, o aviso dá lugar a `Salvo` por ~2 s.
+   *
+   * Antes desta feature o fim da gravação era só a ausência do aviso — e ausência não confirma nada.
+   * O timer mora num `ref` para que duas gravações seguidas **reiniciem** a contagem em vez de a
+   * primeira apagar o selo da segunda, e é limpo no desmonte para não vazar `setState` fora da
+   * árvore.
+   */
+  const [salvo, setSalvo] = useState(false)
+  const timerSalvo = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const marcarSalvo = () => {
+    if (timerSalvo.current) clearTimeout(timerSalvo.current)
+    setSalvo(true)
+    timerSalvo.current = setTimeout(() => setSalvo(false), SALVO_MS)
+  }
+
+  useEffect(
+    () => () => {
+      if (timerSalvo.current) clearTimeout(timerSalvo.current)
+    },
+    [],
+  )
+
   const [linkEmEdicao, setLinkEmEdicao] = useState<MenuLink | null>(null)
   const [dialogoAberto, setDialogoAberto] = useState(false)
 
@@ -138,6 +169,7 @@ const AdminMenuPage = () => {
     // `NAV-42` — a falha DIZ o que não salvou, e `updateCategory` só refaz a leitura quando deu
     // certo: o estado da tela volta a ser o do banco em vez de mostrar o que a dona tentou.
     if (falha) avisar(`Não foi possível salvar ${oQue}`, falha.message)
+    else marcarSalvo()
   }
 
   const handleToggleCategory = (id: string, next: boolean) =>
@@ -160,6 +192,7 @@ const AdminMenuPage = () => {
     setSalvando(true)
     const falha = await updateCategory(host.id, { menu_banners: banners })
     setSalvando(false)
+    if (!falha) marcarSalvo()
     return falha ? falha.message : null
   }
 
@@ -168,6 +201,7 @@ const AdminMenuPage = () => {
     const falha = await setLinkSurface(id, surface, next)
     setSalvando(false)
     if (falha) avisar('Não foi possível salvar o item de link', falha)
+    else marcarSalvo()
   }
 
   const handleReorder = async (draggedId: string, targetId: string) => {
@@ -191,6 +225,7 @@ const AdminMenuPage = () => {
       avisar('Não foi possível reordenar', falha.message)
       return
     }
+    marcarSalvo()
     // `NAV-38` — o alcance é dito depois de gravar, e não escondido num rodapé: a `sort_order` é a
     // da ÁRVORE, e ela ordena também a grade da home e o rodapé da loja.
     toast({
@@ -204,6 +239,7 @@ const AdminMenuPage = () => {
     setSalvando(true)
     const falha = await saveLink(draft)
     setSalvando(false)
+    if (!falha) marcarSalvo()
     return falha
   }
 
@@ -211,6 +247,7 @@ const AdminMenuPage = () => {
     setSalvando(true)
     const falha = await removeLink(id)
     setSalvando(false)
+    if (!falha) marcarSalvo()
     return falha
   }
 
@@ -237,15 +274,30 @@ const AdminMenuPage = () => {
                 dava um segundo de silêncio e nenhuma confirmação à vista.
                 Sem espaço reservado (`FOCO-34`): o selo entra e sai, e os vizinhos não se mexem
                 porque ele está no fim da fila de ações, não entre elas. */}
-            {salvando && (
+            {/* Feature 50 (`VIV-04`) — os DOIS selos na mesma vaga, e nunca os dois ao mesmo tempo.
+                A transição é de opacidade e vem com o par `motion-reduce:transition-none`, que é a
+                convenção de movimento deste repositório (`ANI-05`). O nó continua **saindo** do DOM
+                quando não há o que dizer (`FOCO-34`): um `opacity-0` permanente deixaria os
+                vizinhos deslocados para sempre. */}
+            {salvando ? (
               <span
                 data-testid="salvando"
                 role="status"
-                className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground"
+                className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground transition-opacity motion-reduce:transition-none"
               >
                 <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
                 Salvando…
               </span>
+            ) : (
+              salvo && (
+                <span
+                  data-testid="salvo"
+                  role="status"
+                  className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground transition-opacity motion-reduce:transition-none"
+                >
+                  Salvo
+                </span>
+              )
             )}
             <div
               role="group"
@@ -290,7 +342,9 @@ const AdminMenuPage = () => {
           testId="menu-erro"
           titulo="Não foi possível carregar as categorias"
           detalhe={error}
-          onRetry={fetchCategories}
+          /* A seta envolve de propósito: `fetchCategories` recebe o MODO desde a feature 50, e
+             passar a função direto entregaria o `MouseEvent` como primeiro argumento. */
+          onRetry={() => fetchCategories('inicial')}
         />
       )}
 
@@ -335,7 +389,7 @@ const AdminMenuPage = () => {
               aria-selected={vista === valor}
               onClick={() => setVista(valor)}
               className={cn(
-                'min-h-11 border-b-2 px-1 text-sm font-semibold transition-colors',
+                'min-h-11 border-b-2 px-1 text-sm font-semibold transition-colors motion-reduce:transition-none',
                 vista === valor
                   ? 'border-primary text-foreground'
                   : 'border-transparent text-muted-foreground hover:text-foreground',

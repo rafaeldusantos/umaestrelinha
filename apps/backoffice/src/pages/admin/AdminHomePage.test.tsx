@@ -10,7 +10,7 @@
 import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { RADIX_POINTER_DOWN, enableRadixSelectInJsdom } from '@/test/radix'
@@ -71,8 +71,17 @@ vi.mock('@/entities/category', () => ({
   useAdminCategories: () => ({ categories: CATALOGO, loading: false, error: null }),
 }))
 
+// O catálogo de peças, como a página o recebe. `slug` e `is_active` são obrigatórios desde a
+// feature 50: é por eles que o painel decide se uma peça escolhida está no ar, e é o `slug` que a
+// escolha congela para a prévia (`DST-24`).
+const PECAS = vi.hoisted(() => [
+  { id: 'p1', name: 'Pingente Gota', slug: 'pingente-gota', is_active: true },
+  { id: 'p2', name: 'Colar de Cinzas', slug: 'colar-de-cinzas', is_active: true },
+  { id: 'p3', name: 'Broche Pena', slug: 'broche-pena', is_active: false },
+])
+
 vi.mock('@/entities/product', () => ({
-  useAdminProducts: () => ({ products: [{ id: 'p1', name: 'Pingente Gota' }], loading: false }),
+  useAdminProducts: () => ({ products: PECAS, loading: false }),
 }))
 
 vi.mock('@estrelinha/ui/hooks/use-toast', () => ({ toast: toastMock }))
@@ -92,7 +101,11 @@ vi.mock('@/features/home-composition/ui/HomeLivePreview', () => ({
     sections,
     highlightId,
   }: {
-    sections: { id: string; config?: { title_line1?: string; title?: string } }[]
+    sections: {
+      id: string
+      config?: { title_line1?: string; title?: string }
+      items?: { product_slug?: string | null }[]
+    }[]
     highlightId: string | null
   }) => (
     <div
@@ -100,7 +113,24 @@ vi.mock('@/features/home-composition/ui/HomeLivePreview', () => ({
       data-highlight={highlightId ?? ''}
       data-secoes={sections.map(s => s.id).join(',')}
       data-titulos={sections.map(s => s.config?.title_line1 ?? s.config?.title ?? '').join('|')}
-    />
+      // Feature 50: o palco precisa expor os slugs que recebeu, senão `DST-24` — "a prévia mostra a
+      // peça escolhida antes de salvar" — não tem como ser asserido nesta camada. O dublê mostra o
+      // que a página entregou; quem prova que a LOJA desenha é a suíte dela.
+      data-slugs={sections
+        .flatMap(s => s.items ?? [])
+        .map(i => i.product_slug)
+        .filter(Boolean)
+        .join(',')}
+    >
+      {/*
+        O dublê monta um `<iframe>` de verdade porque `VIV-03` é sobre ELE.
+        A AC não é "a prévia continua na tela" — é "é o MESMO elemento". Um `<div>` provaria a
+        identidade de um nó qualquer; o que remonta e recarrega a loja é o iframe, e é a identidade
+        dele que precisa sobreviver a uma gravação. Quem carrega o documento da loja de verdade é
+        `HomeLivePreview`, provado na suíte dele.
+      */}
+      <iframe data-testid="palco-iframe" title="Prévia da loja" />
+    </div>
   ),
 }))
 
@@ -288,6 +318,161 @@ describe('AdminHomePage — a prévia acompanha a seleção (PRV-11)', () => {
   })
 })
 
+// ───────────────────────────────────────────────────────────────────────────
+// DST-02, DST-16, DST-24 — a fiação do bloco Produtos em destaque (feature 50)
+// ───────────────────────────────────────────────────────────────────────────
+//
+// Provado **pela página**, e não montando o editor à mão: o que estes casos medem é o FIO — a página
+// entregando `products` a três consumidores (o editor, o seletor e a derivação). Um teste que
+// montasse `FeaturedProductsEditor` diretamente provaria o editor e **nada** sobre a fiação, que é
+// exatamente o defeito que a verificação da `41` e da `44` achou duas vezes.
+
+describe('Produtos em destaque — o editor novo monta pela rota (DST-02)', () => {
+  const comBloco = (items: unknown[] = []) => [
+    ...DEFAULT_HOME_COMPOSITION.map(s => ({ ...s })),
+    {
+      id: 'destaques',
+      type: 'product_carousel',
+      position: 99,
+      active: true,
+      config: { title: 'Feitas à mão neste mês' },
+      items,
+    },
+  ]
+
+  const itemDe = (productId: string, nome: string, slug: string | null) => ({
+    id: `i-${productId}`,
+    section_id: 'destaques',
+    position: 1,
+    category_id: null,
+    product_id: productId,
+    product_slug: slug,
+    href: null,
+    image_url: null,
+    image_mobile_url: null,
+    alt: null,
+    label_snapshot: nome,
+  })
+
+  it('abrir `/admin/home/:id` de um `product_carousel` monta o editor de peças', () => {
+    state.sections = comBloco()
+    renderPage('/admin/home/destaques')
+
+    expect(screen.getByTestId('editor-secao')).toHaveAttribute('data-section', 'destaques')
+    expect(screen.getByLabelText('Título do bloco')).toHaveValue('Feitas à mão neste mês')
+    expect(screen.getByTestId('apresentacao-slider')).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('o seletor recebe a LISTA DE PRODUTOS da página — sem ela não há o que escolher', () => {
+    // O fio que a `41` provou tarde: as duas pontas existiam e a ligação entre elas, não. Apagar o
+    // `products` da chamada do editor deixaria o seletor vazio com a suíte verde.
+    state.sections = comBloco()
+    renderPage('/admin/home/destaques')
+
+    expect(screen.getByTestId('peca-p1')).toHaveTextContent('Pingente Gota')
+    expect(screen.getByTestId('peca-p2')).toHaveTextContent('Colar de Cinzas')
+    expect(screen.getByTestId('contador-encontrados')).toHaveTextContent('3 no catálogo')
+  })
+
+  it('escolher uma peça leva o `product_slug` até a PRÉVIA, antes de salvar (DST-24)', () => {
+    // O percurso inteiro: seletor → rascunho → `applyDraft` → palco. É o caso que reprova se
+    // `product_slug` deixar de ser copiado em qualquer um dos três degraus.
+    state.sections = comBloco()
+    renderPage('/admin/home/destaques')
+
+    fireEvent.click(screen.getByTestId('peca-p1'))
+
+    expect(screen.getByTestId('palco-previa')).toHaveAttribute('data-slugs', 'pingente-gota')
+  })
+
+  it('a peça despublicada é marcada no editor — o painel diz o que a loja vai pular (DST-16)', () => {
+    state.sections = comBloco([itemDe('p3', 'Broche Pena', 'broche-pena')])
+    renderPage('/admin/home/destaques')
+
+    expect(screen.getByTestId('peca-fora-do-ar-0')).toHaveTextContent('fora do ar')
+  })
+
+  // ── O FIO que faltava ───────────────────────────────────────────────────
+  //
+  // Os dois casos abaixo são os únicos da suíte que reprovam quando a página deixa de passar
+  // `products` a `useAdminResolvedHome`. Sem eles a mutação sobrevivia com 59 verdes — medido —,
+  // porque tudo o que se asseria sobre peça fora do ar vinha do `products` que o EDITOR recebe, que
+  // é outra ligação. É a assinatura da `41` e da `44`: as duas pontas provadas, e o fio não.
+
+  it('DST-20 — a LISTA diz que o bloco não vai aparecer quando a peça saiu do ar', () => {
+    // `p3` é `is_active: false`. O slug embutido CHEGA (o painel lê como admin), então sem o
+    // catálogo a página daria a seção como no ar — que é o defeito de `R-02` em uma linha.
+    state.sections = comBloco([itemDe('p3', 'Broche Pena', 'broche-pena')])
+    renderPage()
+
+    expect(screen.getByTestId('aviso-destaques')).toHaveTextContent('saiu do ar')
+  })
+
+  it('e o par: com a peça NO AR, a lista não avisa nada', () => {
+    // Sem este caso, a asserção acima seria verdadeira num mundo em que toda peça é dada como fora
+    // do ar — que é exatamente o que acontece se `products` chegar vazio.
+    state.sections = comBloco([itemDe('p1', 'Pingente Gota', 'pingente-gota')])
+    renderPage()
+
+    expect(screen.queryByTestId('aviso-destaques')).toBeNull()
+  })
+
+  it('DST-13 — a falha do `insert` DIZ que a lista ficou vazia, e o rascunho fica na tela', async () => {
+    // A notícia nasce em `curateSection` (provado em `useAdminHomeSections.test.ts`); aqui se prova
+    // que ela **chega inteira à dona** e que o formulário não é limpo — as duas metades da AC.
+    const recusa =
+      'A lista ficou vazia — as peças foram removidas e as novas não entraram. Salve de novo. ' +
+      'Motivo do banco: new row violates row-level security policy'
+    hook.curateSection.mockResolvedValueOnce({ message: recusa })
+    state.sections = comBloco([itemDe('p1', 'Pingente Gota', 'pingente-gota')])
+    renderPage('/admin/home/destaques')
+
+    // A curadoria precisa MUDAR, senão a página nem chama `curateSection` (`DST-14`).
+    fireEvent.click(screen.getByTestId('peca-p2'))
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Salvar seção/ }))
+    })
+    await waitFor(() => expect(hook.curateSection).toHaveBeenCalled())
+
+    const aviso = screen.getByTestId('editor-recusa')
+    // A CONSEQUÊNCIA — é ela que não existia: a dona lia o erro do PostgREST e salvava de novo sem
+    // saber que a Home já estava sem o bloco.
+    expect(aviso).toHaveTextContent('A lista ficou vazia')
+    // E o motivo do banco, LITERAL: sem ele ninguém sabe por que não entrou.
+    expect(aviso).toHaveTextContent('new row violates row-level security policy')
+
+    // "…e SHALL manter o rascunho na tela para ela salvar de novo" (`HOME-14`). As duas peças
+    // escolhidas continuam ali — inclusive a que ela acabou de acrescentar.
+    expect(screen.getByLabelText('Título do bloco')).toHaveValue('Feitas à mão neste mês')
+    expect(screen.getByTestId('palco-previa')).toHaveAttribute(
+      'data-slugs',
+      'pingente-gota,colar-de-cinzas',
+    )
+    expect(screen.queryByText('Salvo')).toBeNull()
+  })
+
+  it('o par: gravou a curadoria, nenhuma faixa de recusa aparece', () => {
+    // Sem ele, "a tela diz que a lista ficou vazia" seria verdade num mundo em que ela diz isso
+    // sempre — inclusive quando gravou.
+    state.sections = comBloco([itemDe('p1', 'Pingente Gota', 'pingente-gota')])
+    renderPage('/admin/home/destaques')
+    fireEvent.click(screen.getByTestId('peca-p2'))
+    fireEvent.click(screen.getByRole('button', { name: /Salvar seção/ }))
+
+    expect(screen.queryByTestId('editor-recusa')).toBeNull()
+  })
+
+  it('a bandeja oferece o bloco, e acrescentá-lo chama o hook com o tipo certo (DST-01)', () => {
+    renderPage()
+    const bloco = screen.getByTestId('bloco-product_carousel')
+
+    expect(bloco).not.toBeDisabled()
+    fireEvent.click(bloco)
+    expect(hook.createSection).toHaveBeenCalledWith('product_carousel')
+  })
+})
+
 describe('PRV-09 — a prévia recebe o RASCUNHO, não o que está salvo', () => {
   it('sem editor aberto, a composição é a do banco', () => {
     renderPage()
@@ -407,16 +592,12 @@ describe('T30 — o editor é rota, e a prévia não paga por isso', () => {
 })
 
 describe('T30 — a gravação do editor (HOME-14)', () => {
-  it('salvar grava o `config` da seção e volta para a lista', async () => {
-    renderPage('/admin/home/newsletter')
-    fireEvent.click(screen.getByRole('button', { name: /Salvar seção/ }))
-
-    await waitFor(() => expect(hook.updateSectionConfig).toHaveBeenCalled())
-    const [id, config] = hook.updateSectionConfig.mock.calls[0] as [string, Record<string, unknown>]
-    expect(id).toBe('newsletter')
-    expect(config).toMatchObject({ title: 'Quer saber das novidades?' })
-    await waitFor(() => expect(screen.getByText('Seções da Home')).toBeInTheDocument())
-  })
+  /**
+   * ⚠️ **O caso "salvar volta para a lista" foi VIRADO pela feature 50**, não removido: `VIV-05`
+   * manda o editor **permanecer aberto**, e a asserção antiga defendia exatamente o que a AC tira.
+   * Ele vive agora em `AdminHomePage — salvar mantém o editor aberto`, no fim deste arquivo, com o
+   * `config` gravado asserido do mesmo jeito.
+   */
 
   it('curadoria intocada NÃO é reescrita — `curateSection` apaga e reinsere a lista inteira', async () => {
     renderPage('/admin/home/newsletter')
@@ -702,5 +883,314 @@ describe('AdminHomePage — a grade declarada (FOCO-12, FOCO-14, altura cheia)',
     expect(fonte).not.toContain('admin-layout')
     expect(fonte).not.toContain('useNavRail')
     expect(fonte).not.toContain('isFocusRoute')
+  })
+})
+
+// ───────────────────────────────────────────────────────────────────────────
+// VIV-01, VIV-03, VIV-05, VIV-06, VIV-11, VIV-12 — o painel para de recarregar (feature 50)
+// ───────────────────────────────────────────────────────────────────────────
+//
+// **A AC central é `VIV-03`, e só uma asserção a prova: IDENTIDADE DE NÓ.** `toBeInTheDocument`
+// passa nos dois mundos — o iframe remontado também está presente, e é justamente ele que
+// recarrega a loja, perde a rolagem e apaga a prévia. O que separa é `expect(depois).toBe(antes)`.
+//
+// Quem garante que a releitura não liga `loading` é `useAdminHomeSections.test.ts`, com a leitura
+// no ar; aqui se prova a consequência na tela: gravar não desmonta nada.
+
+describe('AdminHomePage — gravar não desmonta a tela (VIV-01, VIV-03, VIV-12)', () => {
+  const salvar = () => screen.getByRole('button', { name: /Salvar seção/ })
+
+  it('o `<iframe>` da prévia é o MESMO NÓ depois de salvar — não remonta, não recarrega', async () => {
+    renderPage('/admin/home/newsletter')
+    const antes = screen.getByTestId('palco-iframe')
+
+    await act(async () => {
+      fireEvent.click(salvar())
+    })
+
+    await waitFor(() => expect(hook.updateSectionConfig).toHaveBeenCalled())
+    // Identidade, não presença: um iframe remontado também estaria "no documento".
+    expect(screen.getByTestId('palco-iframe')).toBe(antes)
+    expect(screen.getByTestId('palco-previa')).toBe(antes.parentElement)
+  })
+
+  it('`VIV-12` — a coluna que ROLA é o mesmo nó: é o que preserva o `scrollTop`', async () => {
+    // jsdom devolve 0 para toda medida de layout, então "a rolagem fica onde estava" não tem como
+    // ser medida aqui. O que TEM é a causa: `scrollTop` é do elemento, e um elemento desmontado o
+    // perde. Identidade do contêiner que declara `overflow-y-auto` é o proxy honesto — e é o mesmo
+    // nó que o esqueleto substituiria.
+    renderPage('/admin/home/newsletter')
+    const coluna = screen.getByTestId('coluna-secoes')
+    expect(coluna.className).toContain('lg:overflow-y-auto')
+
+    await act(async () => {
+      fireEvent.click(salvar())
+    })
+
+    await waitFor(() => expect(hook.updateSectionConfig).toHaveBeenCalled())
+    expect(screen.getByTestId('coluna-secoes')).toBe(coluna)
+  })
+
+  it('o mesmo vale para ligar uma seção pela lista — a gravação mais comum da tela', async () => {
+    renderPage()
+    const antes = screen.getByTestId('palco-iframe')
+
+    fireEvent.click(within(screen.getByTestId('secao-newsletter')).getByRole('switch'))
+
+    await waitFor(() => expect(hook.setSectionActive).toHaveBeenCalled())
+    expect(screen.getByTestId('palco-iframe')).toBe(antes)
+  })
+
+  it('e para remover uma seção pelo editor', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    renderPage('/admin/home/newsletter')
+    const antes = screen.getByTestId('palco-iframe')
+
+    fireEvent.click(screen.getByTestId('remover-secao-do-editor'))
+
+    await waitFor(() => expect(hook.deleteSection).toHaveBeenCalledWith('newsletter'))
+    expect(screen.getByTestId('palco-iframe')).toBe(antes)
+  })
+
+  it('depois de salvar, o esqueleto NÃO está na tela — as duas colunas continuam de pé', async () => {
+    renderPage('/admin/home/newsletter')
+
+    await act(async () => {
+      fireEvent.click(salvar())
+    })
+
+    expect(screen.queryByTestId('skeleton-row')).toBeNull()
+    expect(screen.getByTestId('coluna-secoes')).toBeInTheDocument()
+    expect(screen.getByTestId('coluna-previa')).toBeInTheDocument()
+  })
+
+  it('o esqueleto continua aparecendo na PRIMEIRA carga (VIV-11)', () => {
+    // O par do caso acima: sem ele, "não mostra esqueleto" seria verdade num mundo em que o
+    // esqueleto deixou de existir.
+    state.loading = true
+    renderPage()
+    expect(screen.getAllByTestId('skeleton-row').length).toBeGreaterThan(0)
+    expect(screen.queryByTestId('coluna-secoes')).toBeNull()
+  })
+})
+
+describe('AdminHomePage — a gravação em curso APARECE no botão (VIV-04, ANI-01)', () => {
+  const salvar = () => screen.getByRole('button', { name: /Salvar seção/ })
+
+  /*
+    ⚠️ **O mutante que a rodada 2 da verificação independente achou.** Trocar `saving={saving}` por
+    `saving={false}` na chamada do `HomeSectionEditor` (`AdminHomePage.tsx:359`) deixava a suíte
+    inteira do painel verde — 2537 casos. As duas PONTAS estavam provadas (o `FormPageHeader` sabe
+    desenhar os três estados; a página sabe calcular o `saving`) e **o FIO entre elas não**: nenhum
+    caso desta tela continha a palavra `Salvando`. É a mesma assinatura que reprovou as features
+    `41`, `44` e `49`.
+
+    Na prática, com a mutação: durante a gravação o botão nunca diria `Salvando…`, e `Cancelar` e
+    `Salvar` continuariam clicáveis — dois cliques, duas gravações.
+
+    O par em repouso existe porque "diz Salvando…" sozinho seria verdade num mundo em que ele diz
+    isso SEMPRE.
+  */
+  it('com a gravação no ar, o botão diz `Salvando…` e as ações ficam travadas', async () => {
+    let concluir: (v: unknown) => void = () => {}
+    hook.updateSectionConfig.mockReturnValueOnce(
+      new Promise(r => {
+        concluir = r
+      }),
+    )
+
+    renderPage('/admin/home/newsletter')
+
+    await act(async () => {
+      fireEvent.click(salvar())
+    })
+
+    // A gravação não respondeu: é exatamente a janela que a mutação apagava.
+    expect(screen.getByTestId('botao-salvando')).toHaveTextContent('Salvando…')
+    expect(salvar()).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Cancelar' })).toBeDisabled()
+
+    await act(async () => {
+      concluir(null)
+    })
+
+    expect(screen.queryByTestId('botao-salvando')).toBeNull()
+  })
+
+  it('em repouso o botão NÃO diz `Salvando…`, e o rótulo de repouso está à vista', () => {
+    renderPage('/admin/home/newsletter')
+
+    expect(screen.queryByTestId('botao-salvando')).toBeNull()
+    expect(salvar()).not.toBeDisabled()
+    // `invisible` é o que apaga o rótulo de repouso quando há estado por cima; em repouso ele é a
+    // única coisa na célula, e precisa estar visível.
+    expect(screen.getByTestId('rotulo-de-repouso').className).not.toContain('invisible')
+  })
+})
+
+describe('AdminHomePage — salvar mantém o editor aberto (VIV-05, VIV-06)', () => {
+  const salvar = () => screen.getByRole('button', { name: /Salvar seção/ })
+
+  it('salvar grava o `config` e o editor CONTINUA ABERTO — a lista não volta', async () => {
+    // ⚠️ Esta asserção é a INVERSÃO do caso anterior a esta feature, que dizia "volta para a
+    // lista". Ela defendia o comportamento que `VIV-05` remove: voltar para a lista era a metade
+    // barata do recibo, e custava a seção em que a dona estava a cada gravação. Virada, não apagada.
+    renderPage('/admin/home/newsletter')
+
+    await act(async () => {
+      fireEvent.click(salvar())
+    })
+
+    await waitFor(() => expect(hook.updateSectionConfig).toHaveBeenCalled())
+    const [id, config] = hook.updateSectionConfig.mock.calls[0] as [string, Record<string, unknown>]
+    expect(id).toBe('newsletter')
+    expect(config).toMatchObject({ title: 'Quer saber das novidades?' })
+
+    expect(screen.getByTestId('editor-secao')).toHaveAttribute('data-section', 'newsletter')
+    expect(screen.queryByText('Seções da Home')).toBeNull()
+  })
+
+  it('o selo vira `Salvo` e some sozinho em ~2 s', async () => {
+    vi.useFakeTimers()
+    try {
+      renderPage('/admin/home/newsletter')
+      expect(screen.queryByText('Salvo')).toBeNull()
+
+      await act(async () => {
+        fireEvent.click(salvar())
+      })
+      expect(screen.getByText('Salvo')).toBeInTheDocument()
+
+      // Ainda está lá um instante antes — senão "some em 2 s" seria verdade para qualquer duração.
+      act(() => {
+        vi.advanceTimersByTime(1900)
+      })
+      expect(screen.getByText('Salvo')).toBeInTheDocument()
+
+      act(() => {
+        vi.advanceTimersByTime(200)
+      })
+      expect(screen.queryByText('Salvo')).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('mexer num campo depois de salvar devolve o selo de pendência (VIV-06)', async () => {
+    renderPage('/admin/home/hero')
+
+    await act(async () => {
+      fireEvent.click(salvar())
+    })
+    expect(screen.getByText('Salvo')).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText(/1ª linha/i), { target: { value: 'Outra chamada' } })
+
+    expect(screen.getByText('Alterações não salvas')).toBeInTheDocument()
+    expect(screen.queryByText('Salvo')).toBeNull()
+  })
+
+  it('desfazer a digitação dentro dos 2 s NÃO faz o `Salvo` voltar (VIV-06)', async () => {
+    // ⚠️ **O mutante que a verificação independente achou.** Apagar `setSalvo(false)` de
+    // `handleDraftChange` deixava os 73 casos deste arquivo verdes, porque `isDirty` MASCARAVA: com
+    // pendência na tela o `Salvo` não aparece de qualquer jeito, e toda asserção existente era
+    // verdadeira nos dois mundos.
+    //
+    // A janela em que eles diferem é esta: mexer e **desfazer**, dentro dos 2 s. A pendência some
+    // (nada está pendente), a máscara some com ela, e sem a linha o `Salvo` reaparece — recibo de
+    // uma gravação que não aconteceu.
+    vi.useFakeTimers()
+    try {
+      renderPage('/admin/home/hero')
+      const campo = () => screen.getByLabelText(/1ª linha/i) as HTMLInputElement
+      const original = campo().value
+
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /Salvar seção/ }))
+      })
+      expect(screen.getByText('Salvo')).toBeInTheDocument()
+
+      fireEvent.change(campo(), { target: { value: 'Outra chamada' } })
+      expect(screen.getByText('Alterações não salvas')).toBeInTheDocument()
+
+      // Desfaz. Daqui em diante não há pendência nenhuma para esconder o recibo.
+      fireEvent.change(campo(), { target: { value: original } })
+      act(() => {
+        vi.advanceTimersByTime(1000)
+      })
+
+      // Ainda **dentro** dos 2 s: se o `Salvo` fosse embora aqui por tempo, o caso mediria o timer
+      // em vez da linha.
+      expect(screen.queryByText('Alterações não salvas')).toBeNull()
+      expect(screen.queryByText('Salvo')).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('gravação recusada NÃO mostra `Salvo` — o selo é recibo, não otimismo', async () => {
+    hook.updateSectionConfig.mockResolvedValueOnce({ message: 'permission denied' })
+    renderPage('/admin/home/newsletter')
+
+    await act(async () => {
+      fireEvent.click(salvar())
+    })
+
+    expect(screen.getByTestId('editor-recusa')).toHaveTextContent('permission denied')
+    expect(screen.queryByText('Salvo')).toBeNull()
+  })
+
+  it('trocar de seção apaga o `Salvo` — recibo de uma seção não vale para outra', async () => {
+    renderPage('/admin/home/newsletter')
+    await act(async () => {
+      fireEvent.click(salvar())
+    })
+    expect(screen.getByText('Salvo')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
+    fireEvent.click(screen.getByRole('button', { name: /Abrir Chips de tema/ }))
+
+    expect(screen.getByTestId('editor-secao')).toHaveAttribute('data-section', 'trending_tags')
+    expect(screen.queryByText('Salvo')).toBeNull()
+  })
+})
+
+describe('R-05 — a releitura não sobrescreve o que a dona digitou', () => {
+  it('com o editor ABERTO, uma releitura que traz outro texto não mexe no campo', () => {
+    // Antes desta feature a releitura só acontecia com o editor fechado (salvar navegava de volta).
+    // Agora ela acontece **enquanto ela digita**, e a semeadura única do rascunho
+    // (`useState(() => …)` + `key={sectionId}`) deixa de ser detalhe e vira invariante: trocá-la por
+    // um `useEffect` reagindo a `section` apagaria o que ainda não foi salvo.
+    renderPage('/admin/home/hero')
+    fireEvent.change(screen.getByLabelText(/1ª linha/i), {
+      target: { value: 'Digitado pela dona' },
+    })
+
+    // A releitura que segue qualquer gravação vizinha: a seção volta do banco com o texto anterior.
+    state.sections = DEFAULT_HOME_COMPOSITION.map(s =>
+      s.id === 'hero'
+        ? { ...s, config: { ...(s.config ?? {}), title_line1: 'O que veio do banco' } }
+        : { ...s },
+    )
+    // Re-renderiza a página SEM trocar de rota — é assim que a releitura chega ao editor aberto.
+    fireEvent.click(screen.getByRole('button', { name: 'Prévia' }))
+
+    expect(screen.getByLabelText(/1ª linha/i)).toHaveValue('Digitado pela dona')
+    // E a prévia continua mostrando o rascunho, não o que voltou do banco.
+    expect(screen.getByTestId('palco-previa').getAttribute('data-titulos')).toContain(
+      'Digitado pela dona',
+    )
+  })
+
+  it('o par: trocar de SEÇÃO recomeça o formulário — é o `key` que faz isso, e ele fica', () => {
+    // Sem este caso, "a releitura não sobrescreve" seria verdade num mundo em que o editor nunca
+    // lê a seção — inclusive ao abrir outra.
+    renderPage('/admin/home/hero')
+    fireEvent.change(screen.getByLabelText(/1ª linha/i), { target: { value: 'Digitado' } })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
+    fireEvent.click(screen.getByRole('button', { name: /Abrir Chamada principal/ }))
+
+    expect(screen.getByLabelText(/1ª linha/i)).not.toHaveValue('Digitado')
   })
 })

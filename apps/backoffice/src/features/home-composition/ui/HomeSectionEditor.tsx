@@ -34,6 +34,14 @@ interface Props {
   categories: readonly AdminCategory[]
   products: readonly EditorProduct[]
   saving: boolean
+  /**
+   * Acabou de salvar, e o editor CONTINUA ABERTO (feature 50, `VIV-05`).
+   *
+   * Antes desta feature salvar navegava de volta para a lista, e o sumiço do formulário era o
+   * recibo. Com o editor ficando, o recibo passa a ser o selo — e quem o liga e o apaga sozinho em
+   * ~2 s é a página, porque é ela que conhece a gravação. Aqui ele só atravessa até o cabeçalho.
+   */
+  justSaved?: boolean
   onCancel: () => void
   /** Devolve o motivo da falha, ou `null` quando gravou. Mesmo formato das recusas do domínio. */
   onSave: (draft: SectionSaveDraft) => Promise<string | null>
@@ -60,6 +68,7 @@ const HomeSectionEditor = ({
   categories,
   products,
   saving,
+  justSaved = false,
   onCancel,
   onSave,
   onDraftChange,
@@ -113,6 +122,9 @@ const HomeSectionEditor = ({
         parentLabel="Home"
         title={meta?.label ?? section.type}
         isDirty={alterado}
+        // O selo de pendência vence o `Salvo` — mexer num campo depois de salvar significa que há
+        // pendência de novo (`VIV-06`), e quem decide isso é o cabeçalho, num lugar só.
+        justSaved={justSaved}
         saving={saving}
         saveLabel="Salvar seção"
         onBack={onCancel}
@@ -168,7 +180,7 @@ const HomeSectionEditor = ({
             type="button"
             data-testid="remover-secao-do-editor"
             onClick={() => onRemove(section.id)}
-            className="flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm font-semibold text-destructive transition-colors hover:bg-destructive/10"
+            className="flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm font-semibold text-destructive transition-colors hover:bg-destructive/10 motion-reduce:transition-none"
           >
             <Trash2 className="h-4 w-4" aria-hidden />
             Remover esta seção da Home

@@ -5,8 +5,8 @@
 // podem divergir sem esta suíte acusar. Montar `ResolvedSection` à mão testaria a lista contra uma
 // segunda versão do domínio.
 
-import { fireEvent, render, screen, within } from '@testing-library/react'
-import { beforeAll, describe, expect, it, vi } from 'vitest'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { RADIX_POINTER_DOWN, enableRadixSelectInJsdom } from '@/test/radix'
 import {
   DEFAULT_HOME_COMPOSITION,
@@ -16,7 +16,7 @@ import {
   type ResolvedItem,
   type ResolvedSection,
 } from '@estrelinha/core/home'
-import HomeSectionList from './HomeSectionList'
+import HomeSectionList, { ACENDE_MS } from './HomeSectionList'
 
 const item = (id: string): ResolvedItem => ({
   id,
@@ -400,5 +400,208 @@ describe('HomeSectionList — o Banner principal em qualquer posição (BNR-04)'
     const hero = posicoes.find(p => p.id === 'hero')!
 
     expect(carrossel.position).toBeLessThan(hero.position)
+  })
+})
+
+/**
+ * O movimento da lista — feature 50, `ANI-03`, `ANI-04`, `ANI-05`, `ANI-07`, `ANI-08`.
+ *
+ * Estes casos são de **proxy de forma**: jsdom devolve 0 para toda medida de layout, então nenhuma
+ * asserção aqui vê uma transição acontecer. O que elas veem é o que jsdom alcança e o que decide se
+ * a animação existe — o marcador de estado, a classe declarada e, em `ANI-07`, a **ordem**.
+ */
+describe('HomeSectionList — o movimento (ANI-03, ANI-04, ANI-07, ANI-08)', () => {
+  const montarComRerender = (
+    resolved: ResolvedSection[],
+    overrides: Partial<Parameters<typeof HomeSectionList>[0]> = {},
+  ) => {
+    const props = {
+      resolved,
+      onToggle: vi.fn(),
+      onOpen: vi.fn(),
+      onReorder: vi.fn(),
+      onRemove: vi.fn(),
+      ...overrides,
+    }
+    const view = render(<HomeSectionList {...props} />)
+    return {
+      props,
+      rerender: (proximo: ResolvedSection[]) =>
+        view.rerender(<HomeSectionList {...props} resolved={proximo} />),
+      unmount: view.unmount,
+    }
+  }
+
+  /** A mesma composição com UMA seção ligada/desligada — o que uma gravação de interruptor produz. */
+  const comToggle = (id: string, active: boolean) =>
+    resolver(DEFAULT_HOME_COMPOSITION.map(s => (s.id === id ? { ...s, active } : s)))
+
+  const comBlocoNovo = () =>
+    resolver([
+      ...DEFAULT_HOME_COMPOSITION,
+      { id: 'nova', type: 'product_carousel', position: 8, active: false, config: {}, items: [] },
+    ])
+
+  beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('ANI-03: a linha que MUDOU acende, e só ela', () => {
+    const { rerender } = montarComRerender(resolver())
+
+    // Na primeira leitura nada acende: abrir a tela não é ter acabado de salvar.
+    expect(document.querySelectorAll('[data-recem-salvo="true"]')).toHaveLength(0)
+
+    act(() => {
+      rerender(comToggle('newsletter', false))
+    })
+
+    expect(linha('newsletter')).toHaveAttribute('data-recem-salvo', 'true')
+    // A vizinha, e não a substituta: "só ela" é metade da AC, e sem esta contagem uma marca posta
+    // em todas as linhas passaria.
+    expect(document.querySelectorAll('[data-recem-salvo="true"]')).toHaveLength(1)
+  })
+
+  it('ANI-03: a luz apaga sozinha em ~1,2 s', () => {
+    const { rerender } = montarComRerender(resolver())
+    act(() => {
+      rerender(comToggle('newsletter', false))
+    })
+    expect(linha('newsletter')).toHaveAttribute('data-recem-salvo', 'true')
+
+    act(() => {
+      vi.advanceTimersByTime(ACENDE_MS)
+    })
+
+    expect(linha('newsletter')).not.toHaveAttribute('data-recem-salvo')
+  })
+
+  it('ANI-08: revalidar sem mudança de conteúdo NÃO pisca nada', () => {
+    // A releitura de gravação devolve o mesmo conteúdo num array novo. Uma régua que contasse
+    // releituras acenderia a lista inteira aqui — a assinatura é o que separa "leu de novo" de
+    // "mudou".
+    const { rerender } = montarComRerender(resolver())
+
+    act(() => {
+      rerender(resolver())
+    })
+
+    expect(document.querySelectorAll('[data-recem-salvo="true"]')).toHaveLength(0)
+    expect(document.querySelectorAll('.animate-fade-in')).toHaveLength(0)
+  })
+
+  it('ANI-04: seção acrescentada ENTRA com transição, e as antigas não', () => {
+    const { rerender } = montarComRerender(resolver())
+
+    act(() => {
+      rerender(comBlocoNovo())
+    })
+
+    expect(linha('nova').className).toContain('animate-fade-in')
+    expect(linha('hero').className).not.toContain('animate-fade-in')
+    // Entrar não é ter sido gravada: as duas marcas são eventos diferentes (`ANI-03` x `ANI-04`).
+    expect(linha('nova')).not.toHaveAttribute('data-recem-salvo')
+  })
+
+  it('ANI-05: a entrada declara o par `motion-reduce:animate-none`', () => {
+    // As classes de entrada do preset deste repositório começam em **opacidade zero**; sem o par,
+    // quem pediu menos movimento veria a linha nascer invisível e aparecer de repente.
+    const { rerender } = montarComRerender(resolver())
+    act(() => {
+      rerender(comBlocoNovo())
+    })
+
+    expect(linha('nova').className).toContain('motion-reduce:animate-none')
+  })
+
+  it('ANI-05: a linha declara a transição de cor COM o par `motion-reduce:transition-none`', () => {
+    montarComRerender(resolver())
+    const classes = linha('hero').className
+    expect(classes).toContain('transition-colors')
+    expect(classes).toContain('motion-reduce:transition-none')
+  })
+
+  it('ANI-07: a remoção sai NO MESMO TIQUE em que a linha ganha o estado de saída', async () => {
+    // A AC não é "a linha some" — é que **a animação não atrasa a gravação**. Um teste que só
+    // esperasse o resultado final passaria nos dois mundos; o que separa um `setTimeout` antes da
+    // chamada de um caminho em paralelo é a ORDEM, medida sem nenhum `await` no meio.
+    const nunca = vi.fn(() => new Promise<void>(() => {}))
+    const { props } = montarComRerender(resolver(), { onRemove: nunca })
+
+    await abrirAcoes('newsletter')
+    fireEvent.click(await screen.findByRole('menuitem', { name: /^Remover / }))
+
+    // Sem `await` entre as duas asserções: as microtarefas não rodaram, e mesmo assim as duas valem.
+    expect(props.onRemove).toHaveBeenCalledWith('newsletter')
+    expect(linha('newsletter')).toHaveAttribute('data-saindo', 'true')
+  })
+
+  it('ANI-06: a saída é de opacidade — a linha não muda de altura debaixo do dedo', async () => {
+    // O par da asserção acima: uma saída que encolhesse a linha moveria os controles das de baixo
+    // enquanto a requisição está no ar. Régua de token exato, porque `h-0` é substring de `min-h-0`.
+    montarComRerender(resolver(), { onRemove: vi.fn(() => new Promise<void>(() => {})) })
+
+    await abrirAcoes('newsletter')
+    fireEvent.click(await screen.findByRole('menuitem', { name: /^Remover / }))
+
+    const classes = linha('newsletter').className.split(/\s+/)
+    expect(classes).toContain('opacity-0')
+    expect(classes).toContain('pointer-events-none')
+    expect(classes.some(c => /^(?:max-)?h-0$/.test(c))).toBe(false)
+    expect(classes.some(c => /^scale-/.test(c))).toBe(false)
+  })
+
+  it('ANI-04: remoção que FALHA desfaz o estado de saída', async () => {
+    const recusa = vi.fn(() => Promise.reject(new Error('null value')))
+    montarComRerender(resolver(), { onRemove: recusa })
+
+    await abrirAcoes('newsletter')
+    fireEvent.click(await screen.findByRole('menuitem', { name: /^Remover / }))
+    expect(linha('newsletter')).toHaveAttribute('data-saindo', 'true')
+
+    // A linha continua na lista — é o sinal de que a remoção não aconteceu.
+    await waitFor(() => {
+      expect(linha('newsletter')).not.toHaveAttribute('data-saindo')
+    })
+    expect(recusa).toHaveBeenCalledTimes(1)
+  })
+
+  it('ANI-04: desistir no `confirm` também devolve a linha ao normal', async () => {
+    // A página pergunta antes de apagar, e quem desiste não recebe erro nenhum — só a promessa
+    // resolvendo sem que a linha tenha saído. Um desfazer que dependesse de "foi erro?" deixaria a
+    // linha apagada para sempre.
+    const desistiu = vi.fn(() => Promise.resolve())
+    montarComRerender(resolver(), { onRemove: desistiu })
+
+    await abrirAcoes('newsletter')
+    fireEvent.click(await screen.findByRole('menuitem', { name: /^Remover / }))
+    expect(linha('newsletter')).toHaveAttribute('data-saindo', 'true')
+
+    await waitFor(() => {
+      expect(linha('newsletter')).not.toHaveAttribute('data-saindo')
+    })
+  })
+
+  it('o timer é limpo no desmonte — nenhum `setState` depois da saída da tela', () => {
+    // A coluna da esquerda troca a lista pelo formulário a cada "abrir seção". Sem a limpeza, cada
+    // ida ao editor deixaria um timer apontando para uma árvore que já não existe — e em teste isso
+    // aparece como `act` warning, que é um aviso que se aprende a ignorar.
+    const erros = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { rerender, unmount } = montarComRerender(resolver())
+    act(() => {
+      rerender(comToggle('newsletter', false))
+    })
+
+    unmount()
+    act(() => {
+      vi.advanceTimersByTime(ACENDE_MS * 3)
+    })
+
+    expect(erros).not.toHaveBeenCalled()
+    erros.mockRestore()
   })
 })

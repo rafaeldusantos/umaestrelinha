@@ -17,7 +17,7 @@
 import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AdminCategory } from '@/entities/category/api/useAdminCategories'
@@ -936,5 +936,158 @@ describe('AdminMenuPage — o painel abre na linha (feature 48)', () => {
     expect(screen.getByTestId('sem-entrada-selecionada')).toHaveTextContent('Ligue uma categoria')
     expect(screen.queryByTestId('painel-da-entrada')).toBeNull()
     expect(screen.queryByTestId('editor-da-entrada')).toBeNull()
+  })
+})
+
+// ───────────────────────────────────────────────────────────────────────────
+// VIV-02, VIV-03, VIV-04 — `/admin/menu` para de recarregar (feature 50)
+// ───────────────────────────────────────────────────────────────────────────
+//
+// **A AC central é `VIV-03`, e só uma asserção a prova: IDENTIDADE DE NÓ.** `toBeInTheDocument`
+// passa nos dois mundos — o iframe remontado também está presente, e é ele que recarrega a loja e
+// perde a posição de rolagem. O que separa é `expect(depois).toBe(antes)`.
+//
+// Aqui o `<iframe>` é o de verdade: `MenuLivePreview` não é dublado nesta suíte.
+
+describe('AdminMenuPage — gravar não desmonta a tela (VIV-02, VIV-03)', () => {
+  it('ligar uma categoria mantém o MESMO nó `<iframe>` — não remonta, não recarrega', async () => {
+    await renderPage()
+    const antes = document.querySelector('iframe')
+    expect(antes).not.toBeNull()
+
+    fireEvent.click(switchOf('personalizados'))
+
+    await waitFor(() => expect(hook.updateCategory).toHaveBeenCalled())
+    expect(document.querySelector('iframe')).toBe(antes)
+  })
+
+  it('e o esqueleto NÃO volta: as duas colunas continuam de pé depois da gravação', async () => {
+    await renderPage()
+
+    fireEvent.click(switchOf('personalizados'))
+    await waitFor(() => expect(hook.updateCategory).toHaveBeenCalled())
+
+    expect(screen.queryByTestId('skeleton-row')).toBeNull()
+    expect(screen.getByTestId('coluna-entradas')).toBeInTheDocument()
+    expect(screen.getByTestId('coluna-previa-menu')).toBeInTheDocument()
+  })
+
+  it('o par: na PRIMEIRA carga o esqueleto continua aparecendo (VIV-11)', async () => {
+    // Sem ele, "não mostra esqueleto" seria verdade num mundo em que o esqueleto deixou de existir.
+    state.categories = CATALOGO
+    state.error = null
+    state.loading = true
+    render(
+      <MemoryRouter>
+        <AdminMenuPage />
+      </MemoryRouter>,
+    )
+
+    expect(screen.getAllByTestId('skeleton-row').length).toBeGreaterThan(0)
+    expect(screen.queryByTestId('coluna-entradas')).toBeNull()
+  })
+
+  it('reordenar também não remonta a prévia', async () => {
+    await renderPage()
+    const antes = document.querySelector('iframe')
+
+    fireEvent.drop(screen.getByTestId('item-correntes'), {
+      dataTransfer: { getData: () => 'pingentes', setData: vi.fn() },
+    })
+
+    await waitFor(() => expect(hook.updateSortOrders).toHaveBeenCalled())
+    expect(document.querySelector('iframe')).toBe(antes)
+  })
+})
+
+describe('AdminMenuPage — `Salvando…` dá lugar a `Salvo` (VIV-04)', () => {
+  it('terminado, o aviso vira `Salvo` e some sozinho em ~2 s', async () => {
+    vi.useFakeTimers()
+    try {
+      let concluir: (v: unknown) => void = () => {}
+      hook.updateCategory.mockReturnValueOnce(new Promise(r => { concluir = r }))
+
+      state.categories = CATALOGO
+      state.error = null
+      state.loading = false
+      render(
+        <MemoryRouter>
+          <AdminMenuPage />
+        </MemoryRouter>,
+      )
+      await act(async () => {})
+
+      fireEvent.click(switchOf('personalizados'))
+      expect(screen.getByTestId('salvando')).toHaveTextContent('Salvando…')
+      // Nunca os dois ao mesmo tempo: a vaga é uma só.
+      expect(screen.queryByTestId('salvo')).toBeNull()
+
+      await act(async () => {
+        concluir(null)
+      })
+
+      expect(screen.queryByTestId('salvando')).toBeNull()
+      expect(screen.getByTestId('salvo')).toHaveTextContent('Salvo')
+
+      // Um instante antes ele ainda está lá — senão "some em 2 s" valeria para qualquer duração.
+      act(() => {
+        vi.advanceTimersByTime(1900)
+      })
+      expect(screen.getByTestId('salvo')).toBeInTheDocument()
+
+      act(() => {
+        vi.advanceTimersByTime(200)
+      })
+      expect(screen.queryByTestId('salvo')).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('gravação RECUSADA não mostra `Salvo` — o selo é recibo, não otimismo', async () => {
+    hook.updateCategory.mockResolvedValueOnce({ message: 'permission denied' })
+    await renderPage()
+
+    fireEvent.click(switchOf('personalizados'))
+
+    await waitFor(() => expect(hook.updateCategory).toHaveBeenCalled())
+    await waitFor(() => expect(screen.queryByTestId('salvando')).toBeNull())
+    expect(screen.queryByTestId('salvo')).toBeNull()
+  })
+
+  it('os dois selos declaram a transição COM o par `motion-reduce:` (ANI-05, L-036)', async () => {
+    let concluir: (v: unknown) => void = () => {}
+    hook.updateCategory.mockReturnValueOnce(new Promise(r => { concluir = r }))
+    await renderPage()
+
+    fireEvent.click(switchOf('personalizados'))
+    const emCurso = (await screen.findByTestId('salvando')).className.split(/\s+/)
+    expect(emCurso).toContain('transition-opacity')
+    expect(emCurso).toContain('motion-reduce:transition-none')
+
+    await act(async () => {
+      concluir(null)
+    })
+
+    const pronto = screen.getByTestId('salvo').className.split(/\s+/)
+    expect(pronto).toContain('transition-opacity')
+    expect(pronto).toContain('motion-reduce:transition-none')
+  })
+
+  it('o `Salvo` fica no CABEÇALHO, na vaga do `Salvando…` — ao lado do alternador (FOCO-33)', async () => {
+    let concluir: (v: unknown) => void = () => {}
+    hook.updateCategory.mockReturnValueOnce(new Promise(r => { concluir = r }))
+    await renderPage()
+
+    fireEvent.click(switchOf('personalizados'))
+    const vagaDoSalvando = (await screen.findByTestId('salvando')).parentElement
+
+    await act(async () => {
+      concluir(null)
+    })
+
+    const selo = screen.getByTestId('salvo')
+    expect(selo.parentElement).toBe(vagaDoSalvando)
+    expect(selo.parentElement?.querySelector('[data-testid="superficie-desktop"]')).not.toBeNull()
   })
 })

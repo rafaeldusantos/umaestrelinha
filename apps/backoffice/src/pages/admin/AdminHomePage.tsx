@@ -15,7 +15,7 @@
 // modal": sobrevive ao F5, é compartilhável) sem o preço que ele costuma cobrar, que aqui seria
 // apagar a prévia justamente enquanto a dona edita olhando para ela.
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { AlertTriangle, ExternalLink, House, Plus, RefreshCw } from 'lucide-react'
 import { Button } from '@estrelinha/ui/button'
@@ -40,6 +40,14 @@ import { PageHeader, TableSkeleton } from '@/shared/ui'
 
 type Aba = 'secoes' | 'previa'
 
+/**
+ * Quanto tempo o selo `Salvo` fica na tela (`VIV-06`, `A-09`).
+ *
+ * `Salvo` permanente viraria ruído: deixaria de significar "acabei de salvar" e passaria a ser
+ * decoração do cabeçalho. Dois segundos é o que a resposta do usuário pediu.
+ */
+const SALVO_MS = 2000
+
 const AdminHomePage = () => {
   const {
     sections,
@@ -62,7 +70,11 @@ const AdminHomePage = () => {
   const [aba, setAba] = useState<Aba>('secoes')
   const [saving, setSaving] = useState(false)
 
-  const resolved = useAdminResolvedHome(sections, categories)
+  // `products` entra aqui desde a feature 50, e não é conforto: quem responde "esta peça está no
+  // ar?" é o CATÁLOGO, não o slug embutido na leitura. O painel lê como admin e enxerga produto
+  // despublicado; a cliente, como `anon`, não — sem esta lista o painel diria "tudo certo" sobre um
+  // bloco que a Home desenha pela metade (`R-02`, `AD-024`).
+  const resolved = useAdminResolvedHome(sections, categories, products)
 
   // A seção em edição sai da URL, não de um estado paralelo: é o que faz a tela sobreviver ao F5 e
   // ser compartilhável. Id que não existe mais (seção apagada, link velho) cai na lista — a coluna
@@ -79,9 +91,50 @@ const AdminHomePage = () => {
 
   // O rascunho da seção aberta, para a prévia mostrar o que ainda não foi salvo (`PRV-09`).
   const [rascunho, setRascunho] = useState<SectionSaveDraft | null>(null)
+
+  /**
+   * O selo `Salvo` do cabeçalho do editor (`VIV-05`, `VIV-06`).
+   *
+   * Ele existe porque salvar deixou de navegar: antes, o recibo era o formulário sumir. O timer mora
+   * num `ref` — e não numa closure — porque duas gravações seguidas precisam **reiniciar** a
+   * contagem em vez de deixar a primeira apagar o selo da segunda; e ele é limpo no desmonte, senão
+   * um `setState` fora da árvore vaza em cada saída da tela.
+   */
+  const [salvo, setSalvo] = useState(false)
+  const timerSalvo = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const marcarSalvo = () => {
+    if (timerSalvo.current) clearTimeout(timerSalvo.current)
+    setSalvo(true)
+    timerSalvo.current = setTimeout(() => setSalvo(false), SALVO_MS)
+  }
+
+  useEffect(
+    () => () => {
+      if (timerSalvo.current) clearTimeout(timerSalvo.current)
+    },
+    [],
+  )
+
   // Trocar de seção zera o rascunho. Sem isto, abrir a seção B mostraria por um quadro o rascunho da
   // A aplicado sobre a B — o `key` do editor recomeça o formulário, mas este estado é da página.
-  useEffect(() => setRascunho(null), [sectionId])
+  // O selo vai junto: `Salvo` de outra seção seria um recibo emitido pela tela errada.
+  useEffect(() => {
+    setRascunho(null)
+    setSalvo(false)
+  }, [sectionId])
+
+  /**
+   * Mexer num campo depois de salvar devolve a pendência (`VIV-06`).
+   *
+   * O cabeçalho já faria isso sozinho (`isDirty` vence o `Salvo`), mas apagar o estado aqui é o que
+   * impede o selo de reaparecer quando a pendência for desfeita — desfazer uma digitação não é ter
+   * acabado de salvar.
+   */
+  const handleDraftChange = (draft: SectionSaveDraft) => {
+    setRascunho(draft)
+    setSalvo(false)
+  }
 
   const previa = useMemo(
     () => applyDraft(sections, emEdicao?.section.id ?? null, rascunho),
@@ -154,7 +207,11 @@ const AdminHomePage = () => {
         if (falhaItens) return falhaItens.message
       }
 
-      navigate('/admin/home')
+      // **Salvar NÃO navega** (`VIV-05`). Voltar para a lista era a metade barata do recibo: a dona
+      // perdia a seção em que estava, a rolagem da coluna e o contexto da prévia a cada gravação —
+      // e montar uma curadoria de 12 peças significava fazer esse caminho 12 vezes. O recibo agora
+      // é o selo, que some sozinho.
+      marcarSalvo()
       return null
     } finally {
       setSaving(false)
@@ -219,7 +276,9 @@ const AdminHomePage = () => {
             </p>
             <p className="mt-0.5 text-xs text-muted-foreground">{error}</p>
           </div>
-          <Button variant="outline" size="sm" onClick={fetchSections}>
+          {/* A seta envolve de propósito: `fetchSections` recebe o MODO desde a feature 50, e
+              `onClick={fetchSections}` entregaria o `MouseEvent` como primeiro argumento. */}
+          <Button variant="outline" size="sm" onClick={() => fetchSections('inicial')}>
             <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Tentar de novo
           </Button>
         </div>
@@ -298,9 +357,10 @@ const AdminHomePage = () => {
                   categories={categories}
                   products={products}
                   saving={saving}
+                  justSaved={salvo}
                   onCancel={() => navigate('/admin/home')}
                   onSave={draft => handleSave(emEdicao.section.id, draft)}
-                  onDraftChange={setRascunho}
+                  onDraftChange={handleDraftChange}
                   onRemove={handleRemove}
                 />
               ) : (

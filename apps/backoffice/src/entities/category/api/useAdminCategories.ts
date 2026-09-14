@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { supabase } from '@estrelinha/supabase/client'
 import type { DbCategory } from '@estrelinha/supabase/types'
+import type { FetchMode } from '@/shared/lib/fetchMode'
 
 export interface AdminCategory extends DbCategory {
   product_count?: number
@@ -55,8 +56,24 @@ export const useAdminCategories = () => {
    */
   const [error, setError] = useState<string | null>(null)
 
-  const fetchCategories = useCallback(async () => {
-    setLoading(true)
+  /**
+   * O token de sequencia (`VIV-08`, `A-11`) — o MESMO desenho de `useAdminHomeSections`.
+   *
+   * Dois desenhos diferentes para o mesmo problema seriam o "defeito 01" duas pastas adiante: a
+   * releitura lenta de uma gravacao chegando depois da seguinte devolve a tela ao estado anterior,
+   * sem erro nenhum. Cada leitura reserva um numero e so escreve no estado se ainda for a ultima.
+   */
+  const pedido = useRef(0)
+
+  const fetchCategories = useCallback(async (modo: FetchMode = 'inicial') => {
+    const meu = ++pedido.current
+    // `'revalidar'` **nao liga `loading`**: a tela do Menu troca a arvore inteira por
+    // `<TableSkeleton/>` enquanto ele for `true`, e isso desmonta o `<iframe>` da previa, que
+    // remonta recarregando a loja (`VIV-02`, `VIV-03`).
+    //
+    // ⚠️ Este hook e lido por TRES telas (Categorias, Produtos, Menu), e por isso o que muda e o
+    // caminho da escrita — nunca o significado de `loading` para quem nao pediu (`R-04`).
+    if (modo === 'inicial') setLoading(true)
     setError(null)
 
     // Duas consultas pequenas, em paralelo, em vez de um join que traria o catálogo.
@@ -71,8 +88,13 @@ export const useAdminCategories = () => {
       supabase.from('category_product_counts').select('category_id, product_count'),
     ])
 
+    // Resposta de uma leitura ja superada por outra: descartada inteira, inclusive o erro.
+    if (meu !== pedido.current) return
+
     if (categoriesResult.error || !categoriesResult.data) {
-      setCategories([])
+      // **Na revalidacao a lista FICA** (`VIV-07`): a faixa de erro aparece sobre os dados que ja
+      // estavam na tela, em vez de apagar o menu inteiro por causa de uma releitura que falhou.
+      if (modo === 'inicial') setCategories([])
       setError(categoriesResult.error?.message ?? 'Não foi possível carregar as categorias.')
       setLoading(false)
       return
@@ -101,7 +123,7 @@ export const useAdminCategories = () => {
     setLoading(false)
   }, [])
 
-  useEffect(() => { fetchCategories() }, [fetchCategories])
+  useEffect(() => { fetchCategories('inicial') }, [fetchCategories])
 
   const tree = useMemo(() => {
     const roots: AdminCategory[] = []
@@ -124,19 +146,19 @@ export const useAdminCategories = () => {
    */
   const createCategory = async (cat: Partial<DbCategory>) => {
     const { data, error } = await supabase.from('categories').insert(cat).select('id').maybeSingle()
-    if (!error) await fetchCategories()
+    if (!error) await fetchCategories('revalidar')
     return { error, id: (data as { id?: string } | null)?.id ?? null }
   }
 
   const updateCategory = async (id: string, updates: Partial<DbCategory>) => {
     const { error } = await supabase.from('categories').update(updates).eq('id', id)
-    if (!error) await fetchCategories()
+    if (!error) await fetchCategories('revalidar')
     return error
   }
 
   const deleteCategory = async (id: string) => {
     const { error } = await supabase.from('categories').delete().eq('id', id)
-    if (!error) await fetchCategories()
+    if (!error) await fetchCategories('revalidar')
     return error
   }
 
@@ -144,7 +166,7 @@ export const useAdminCategories = () => {
   const updateCategoriesBatch = async (ids: string[], updates: Partial<DbCategory>) => {
     if (ids.length === 0) return null
     const { error } = await supabase.from('categories').update(updates).in('id', ids)
-    if (!error) await fetchCategories()
+    if (!error) await fetchCategories('revalidar')
     return error
   }
 
@@ -152,7 +174,7 @@ export const useAdminCategories = () => {
   const deleteCategoriesBatch = async (ids: string[]) => {
     if (ids.length === 0) return null
     const { error } = await supabase.from('categories').delete().in('id', ids)
-    if (!error) await fetchCategories()
+    if (!error) await fetchCategories('revalidar')
     return error
   }
 
@@ -174,7 +196,7 @@ export const useAdminCategories = () => {
       ),
     )
     const failure = results.find(r => r.error)?.error ?? null
-    if (!failure) await fetchCategories()
+    if (!failure) await fetchCategories('revalidar')
     return failure
   }
 
@@ -194,7 +216,7 @@ export const useAdminCategories = () => {
       ),
     )
     const failure = results.find(r => r.error)?.error ?? null
-    if (!failure) await fetchCategories()
+    if (!failure) await fetchCategories('revalidar')
     return failure
   }
 

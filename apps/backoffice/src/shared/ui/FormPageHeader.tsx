@@ -24,6 +24,21 @@ interface Props {
   title: string
   /** `true` some com o selo de pendência (nada foi mexido ainda). */
   isDirty: boolean
+  /**
+   * Acabou de salvar (feature 50, `VIV-05`/`VIV-06`, `ANI-01`).
+   *
+   * **Quem desenha `Salvo` é o BOTÃO de salvar**, não o selo. A gravação tem um dono só: o botão
+   * passa por `Salvar X` → `Salvando…` → `Salvo`, que é o que `ANI-01` pede, e o selo ao lado do
+   * título fica com a **pendência**, que é outro estado e outra AC (`ANI-02`). Dois lugares dizendo
+   * `Salvo` seriam o "defeito 01" no tamanho de uma palavra.
+   *
+   * **`isDirty` vence**: mexer num campo depois de salvar significa que há pendência de novo, e
+   * dizer `Salvo` ali seria dizer o contrário do que a tela tem. Quem faz o `Salvo` sumir sozinho
+   * é quem o ligou — aqui ele é só um estado a desenhar.
+   *
+   * Opcional, e o padrão preserva o cabeçalho de hoje: as duas telas de Descontos não passam nada.
+   */
+  justSaved?: boolean
   saving: boolean
   /** Rótulo do primário: `Salvar promoção` / `Salvar cupom`. */
   saveLabel: string
@@ -51,6 +66,7 @@ const FormPageHeader = ({
   parentLabel,
   title,
   isDirty,
+  justSaved = false,
   saving,
   saveLabel,
   onBack,
@@ -69,6 +85,18 @@ const FormPageHeader = ({
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [onSave, saving])
+
+  /**
+   * O estado da gravação, desenhado no botão (`ANI-01`).
+   *
+   * `null` é repouso. A precedência é a mesma do selo — **pendência vence** —, e ela mora aqui numa
+   * expressão só: calculá-la de novo lá embaixo seria a segunda escrita da mesma regra.
+   */
+  const estadoDaGravacao: 'salvando' | 'salvo' | null = saving
+    ? 'salvando'
+    : justSaved && !isDirty
+      ? 'salvo'
+      : null
 
   return (
     <header
@@ -91,7 +119,17 @@ const FormPageHeader = ({
 
           <div className="mt-1 flex flex-wrap items-center gap-2">
             <h1 className="font-heading truncate text-xl font-bold text-foreground">{title}</h1>
-            {isDirty && <Badge variant="outline">Alterações não salvas</Badge>}
+            {/* O selo é só da PENDÊNCIA (`ANI-02`). Ele entra e sai depois do título, dentro da
+                coluna `flex-1` — o grupo de ações é irmão dela, então nada do que acontece aqui
+                move `Cancelar` nem `Salvar`. O `Salvo` mora no botão, com o `Salvando…` (`ANI-01`).
+                A transição é de opacidade e vem com o par `motion-reduce:transition-none`, que é a
+                convenção de movimento deste repositório (`ANI-05`): quem pediu menos movimento troca
+                de estado sem animação nenhuma. */}
+            {isDirty && (
+              <Badge variant="outline" className="transition-opacity motion-reduce:transition-none">
+                Alterações não salvas
+              </Badge>
+            )}
           </div>
         </div>
 
@@ -105,8 +143,51 @@ const FormPageHeader = ({
             onClick={onSave}
             disabled={saving}
           >
-            {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {saveLabel}
+            {/*
+              A vaga do giro, e ela existe SEMPRE (`ANI-01`, segunda metade).
+
+              Antes desta feature o `<Loader2 className="mr-2 h-4 w-4">` **entrava e saía** do botão
+              a cada gravação: 16px mais a margem apareciam do nada, o botão crescia e empurrava o
+              `Cancelar` ao lado — que é literalmente "mudar de largura a ponto de mover o que está
+              ao lado". Reservada a vaga, o giro aparece DENTRO dela e nada se mexe.
+            */}
+            <span
+              data-testid="vaga-do-giro"
+              className="mr-2 inline-flex h-4 w-4 shrink-0 items-center justify-center"
+              aria-hidden="true"
+            >
+              {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+            </span>
+
+            {/*
+              A vaga do rótulo: uma célula de grade, com os dois rótulos EMPILHADOS nela.
+
+              O rótulo de repouso (`Salvar seção`) continua no DOM em todos os estados — é ele que
+              dá a medida —, e o estado corrente se desenha por cima, na mesma célula. Assim a
+              largura do botão é a mesma nos três estados, por construção, e não por um `min-w`
+              chutado que quebraria no dia em que um rótulo ficasse maior que ele.
+            */}
+            <span className="grid">
+              <span
+                data-testid="rotulo-de-repouso"
+                className={cn(
+                  'col-start-1 row-start-1 transition-opacity motion-reduce:transition-none',
+                  // `invisible` (`visibility: hidden`) e não `hidden`: ele precisa continuar
+                  // ocupando a célula, senão a medida que ele existe para dar some junto.
+                  estadoDaGravacao && 'invisible',
+                )}
+              >
+                {saveLabel}
+              </span>
+              {estadoDaGravacao && (
+                <span
+                  data-testid={`botao-${estadoDaGravacao}`}
+                  className="col-start-1 row-start-1 transition-opacity motion-reduce:transition-none"
+                >
+                  {estadoDaGravacao === 'salvando' ? 'Salvando…' : 'Salvo'}
+                </span>
+              )}
+            </span>
             {/* O atalho anunciado no próprio botão (board): sem isso ele é um segredo. */}
             <kbd className="ml-2 hidden rounded border border-white/30 px-1 text-[11px] font-normal sm:inline">
               ⌘S

@@ -138,9 +138,38 @@ interface Props {
   onHover?: (sectionId: string | null) => void
   /** Remove a seção (`BNR-41`). Ausente esconde o controle — a lista decide se oferece. */
   onRemove?: (sectionId: string) => void
+  /**
+   * Acabou de ser gravada (`ANI-03`).
+   *
+   * Quem decide é a lista, comparando o conteúdo de antes com o de agora — a linha só desenha. É o
+   * que faz o recibo ser do que MUDOU, e não do que foi clicado.
+   */
+  recemSalva?: boolean
+  /** Acabou de entrar na lista (`ANI-04`). */
+  entrando?: boolean
+  /**
+   * Está saindo da lista (`ANI-04`).
+   *
+   * A marca entra **no clique**, em paralelo com a requisição de remoção (`ANI-07`): a linha se
+   * apaga enquanto o banco decide, e volta ao normal se a remoção falhar ou for cancelada. É
+   * opacidade e nada mais — mexer na altura aqui moveria os controles das linhas de baixo debaixo
+   * do dedo de quem clicou (`ANI-06`).
+   */
+  saindo?: boolean
 }
 
-const HomeSectionRow = ({ entry, nested = false, onToggle, onOpen, onDrop, onHover, onRemove }: Props) => {
+const HomeSectionRow = ({
+  entry,
+  nested = false,
+  onToggle,
+  onOpen,
+  onDrop,
+  onHover,
+  onRemove,
+  recemSalva = false,
+  entrando = false,
+  saindo = false,
+}: Props) => {
   const { section, renders, hiddenReason } = entry
   const meta = sectionMeta(section.type)
   const Icon = ICONS[section.type] ?? LayoutGrid
@@ -163,6 +192,10 @@ const HomeSectionRow = ({ entry, nested = false, onToggle, onOpen, onDrop, onHov
   return (
     <li
       data-testid={`secao-${section.id}`}
+      // Os marcadores são de DADO e não de classe: a asserção do teste (e a de quem for depurar em
+      // navegador) fica sobre o estado, não sobre a paleta do dia.
+      data-recem-salvo={recemSalva ? 'true' : undefined}
+      data-saindo={saindo ? 'true' : undefined}
       draggable
       onMouseEnter={() => onHover?.(section.id)}
       onMouseLeave={() => onHover?.(null)}
@@ -177,9 +210,20 @@ const HomeSectionRow = ({ entry, nested = false, onToggle, onOpen, onDrop, onHov
       className={cn(
         // `group` é o que faz o `⋯` aparecer no hover E no foco de teclado de qualquer controle da
         // linha — sem ele, `group-focus-within` não tem a quem se referir.
-        'group border-b border-border/60 last:border-0',
+        // `transition-colors` é o que faz o anel do recém-salvo ACENDER e apagar em vez de trocar
+        // de cor num corte seco; o par `motion-reduce:transition-none` é a convenção de movimento
+        // deste repositório (`ANI-05`) — quem pediu menos movimento troca de estado sem animação.
+        'group border-b border-border/60 transition-colors last:border-0 motion-reduce:transition-none',
         nested && 'bg-muted/30',
         !section.active && 'opacity-70',
+        recemSalva && 'bg-primary/5 ring-1 ring-inset ring-primary/40',
+        // Entrada: uma vez só, no quadro em que a linha chega. `motion-reduce:animate-none` é o par
+        // obrigatório — as classes do preset (`fade-in`) começam em opacidade zero, e sem o par quem
+        // pediu menos movimento veria a linha aparecer do nada com a mesma animação.
+        entrando && 'animate-fade-in motion-reduce:animate-none',
+        // Saída: só opacidade. E `pointer-events-none` porque uma linha que já está sendo removida
+        // não pode receber um segundo clique no mesmo `⋯`.
+        saindo && 'pointer-events-none opacity-0 transition-opacity motion-reduce:transition-none',
       )}
     >
       <div className={cn('flex items-center gap-3 px-4 py-2', nested ? 'pl-8' : 'pl-4')}>
@@ -266,7 +310,7 @@ const HomeSectionRow = ({ entry, nested = false, onToggle, onOpen, onDrop, onHov
             <DropdownMenuTrigger
               data-testid={`acoes-${section.id}`}
               aria-label={`Ações de ${meta?.label ?? section.type}`}
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-muted focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100 data-[state=open]:opacity-100 md:h-9 md:w-9"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-muted focus-visible:opacity-100 motion-reduce:transition-none group-hover:opacity-100 group-focus-within:opacity-100 data-[state=open]:opacity-100 md:h-9 md:w-9"
             >
               <MoreHorizontal className="h-4 w-4" aria-hidden />
             </DropdownMenuTrigger>
