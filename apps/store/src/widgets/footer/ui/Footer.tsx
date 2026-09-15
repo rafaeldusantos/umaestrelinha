@@ -13,7 +13,29 @@ import { EstrelinhaSignature } from '@/shared/ui/brand'
 import { TAP_ROW } from '@/shared/lib/touchTarget'
 import InstagramStrip, { INSTAGRAM_URL } from './InstagramStrip'
 
-const PAYMENTS = ['Pix', 'Visa', 'Master', 'Elo']
+/**
+ * As bandeiras que o CAIXA processa — não as que vieram no conjunto da arte.
+ *
+ * Conferido contra a conta do Mercado Pago da loja em 2026-09-14
+ * (`GET /v1/payment_methods`): `visa`, `master`, `amex` e `elo` ativos, mais o
+ * Pix que o `PixPayment` emite. **Hipercard e o cartão Bradesco ficaram de
+ * fora**, e a ausência é a decisão: a conta não os processa, e anunciar
+ * bandeira que o caixa recusa é o defeito da `MarqueeBar` de novo — a loja
+ * prometendo uma coisa e o caixa cobrando outra, sem nada acusar. Quem só tem
+ * Hipercard chegaria ao pagamento pelo rodapé e levaria a recusa lá.
+ *
+ * **A arte é servida por NÓS** (`public/pagamentos/`), e não pelo CDN de onde
+ * ela veio: endereço de terceiro muda sem avisar, e o rodapé ficaria com cinco
+ * quadrados quebrados sem um erro em lugar nenhum. De quebra, o
+ * `Referrer-Policy` da loja deixa de anunciar cada visita a um host alheio.
+ */
+const PAYMENTS = [
+  { alt: 'Visa', src: '/pagamentos/visa.png' },
+  { alt: 'Mastercard', src: '/pagamentos/mastercard.png' },
+  { alt: 'American Express', src: '/pagamentos/amex.png' },
+  { alt: 'Elo', src: '/pagamentos/elo.png' },
+  { alt: 'Pix', src: '/pagamentos/pix.png' },
+]
 
 /**
  * **Uma rede só, e é de propósito.** O board nomeia o Instagram da Adri; os
@@ -178,16 +200,35 @@ const Footer = () => {
             Joias afetivas · leite materno, cinzas, cabelos, dentes e placenta · ©{' '}
             {new Date().getFullYear()} Uma Estrelinha. Todos os direitos reservados.
           </p>
-          <div className="flex gap-2">
-            {PAYMENTS.map((p) => (
-              <span
-                key={p}
-                className="rounded-sm border border-estrelinha-line bg-estrelinha-surface px-3.5 py-1.5 text-xs font-semibold text-estrelinha-ink-soft"
+          {/* A moldura é a mesma pílula de antes (`surface` + `line`), e ela faz trabalho: a arte de
+              quatro das cinco bandeiras vem com fundo BRANCO opaco e a do Pix vem transparente —
+              soltas sobre `ground` #FAF8F4 seriam quatro retângulos brancos e um logo sem chão. O
+              ladrilho branco some dentro das quatro e dá ao Pix o mesmo piso. A Amex é a exceção
+              que confirma: a arte dela preenche a vaga inteira em azul, que é como o cartão é.
+
+              A vaga é 52 × 32 para a proporção 150:93 da arte, e `object-contain` garante que uma
+              arte de outra proporção encolha em vez de esticar. */}
+          <ul
+            aria-label="Formas de pagamento aceitas"
+            className="flex flex-wrap items-center justify-center gap-2"
+          >
+            {PAYMENTS.map(({ alt, src }) => (
+              <li
+                key={alt}
+                className="flex h-8 w-[52px] items-center justify-center overflow-hidden rounded-sm border border-estrelinha-line bg-estrelinha-surface"
               >
-                {p}
-              </span>
+                <img
+                  src={src}
+                  alt={alt}
+                  width={150}
+                  height={93}
+                  loading="lazy"
+                  decoding="async"
+                  className="h-full w-full object-contain"
+                />
+              </li>
             ))}
-          </div>
+          </ul>
         </div>
       </div>
     </footer>

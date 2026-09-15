@@ -234,3 +234,82 @@ describe('Footer — os links institucionais (POL-17, POL-18)', () => {
     ).toHaveLength(1)
   })
 })
+
+/**
+ * As bandeiras de pagamento do rodapé.
+ *
+ * O que estava aqui eram quatro pílulas de TEXTO (`Pix`, `Visa`, `Master`, `Elo`); agora é a arte
+ * oficial de cada bandeira. A troca traz dois modos de falha que não quebram nada, e os dois têm
+ * caso abaixo:
+ *
+ * 1. **Anunciar bandeira que o caixa recusa.** A lista saiu de um conjunto de sete que incluía
+ *    Hipercard e o cartão Bradesco; a conta do Mercado Pago da loja processa `visa`, `master`,
+ *    `amex` e `elo`. Quem só tem Hipercard viria pelo rodapé e levaria a recusa no pagamento. É o
+ *    defeito da `MarqueeBar` (a loja prometendo o que o caixa não cumpre), e ele passa em build,
+ *    `tsc` e teste de componente.
+ * 2. **Servir a arte do CDN de terceiro.** O endereço de onde ela veio não é nosso: no dia em que
+ *    ele mudar, o rodapé fica com cinco quadrados quebrados e nenhum erro em lugar nenhum.
+ */
+describe('Footer — as bandeiras de pagamento', () => {
+  /** A régua da vaga: se a arte crescer, `object-contain` encolhe em vez de esticar. */
+  const bandeiras = (container: HTMLElement) => [
+    ...container.querySelectorAll<HTMLImageElement>('ul[aria-label="Formas de pagamento aceitas"] img'),
+  ]
+
+  it('mostra as quatro bandeiras que o caixa processa, mais o Pix', () => {
+    renderFooter()
+
+    for (const nome of ['Visa', 'Mastercard', 'American Express', 'Elo', 'Pix']) {
+      expect(screen.getByRole('img', { name: nome })).toBeInTheDocument()
+    }
+  })
+
+  it('NÃO mostra Hipercard nem o cartão Bradesco — a conta não processa nenhum dos dois', () => {
+    // A ausência É a decisão. Sem este caso, alguém "completa" a fileira com o conjunto inteiro do
+    // fornecedor da arte no primeiro passe de design, e a loja passa a anunciar meio de pagamento
+    // que o caixa recusa.
+    const { container } = renderFooter()
+
+    expect(screen.queryByRole('img', { name: 'Hipercard' })).toBeNull()
+    expect(screen.queryByRole('img', { name: 'Bradesco' })).toBeNull()
+    for (const img of bandeiras(container)) {
+      expect(img.getAttribute('src')).not.toMatch(/hipercard|bradesco/i)
+    }
+  })
+
+  it('toda arte do rodapé é SERVIDA POR NÓS, nunca por um host de terceiro', () => {
+    const { container } = renderFooter()
+    const artes = [...container.querySelectorAll<HTMLImageElement>('img[src]')]
+
+    // Âncora de contagem: sem ela, um seletor que varresse zero `<img>` passaria em silêncio — que é
+    // a pior falha possível num teste deste tipo.
+    expect(artes.length).toBeGreaterThanOrEqual(5)
+    for (const img of artes) {
+      const src = img.getAttribute('src') ?? ''
+      // As duas asserções juntas, e é a segunda que faz o trabalho: o endereço do CDN veio na forma
+      // relativa ao protocolo (`//host/...`), que começa com `/` e passaria pela primeira sozinha.
+      expect(src.startsWith('/')).toBe(true)
+      expect(src).not.toMatch(/^(https?:)?\/\//)
+    }
+  })
+
+  it('cada bandeira declara dimensão e carrega tarde', () => {
+    // O rodapé está sempre abaixo da dobra, e arte sem dimensão intrínseca empurra o conteúdo
+    // quando chega. Os dois atributos custam um caractere e nada os repõe depois.
+    const { container } = renderFooter()
+    const artes = bandeiras(container)
+
+    expect(artes).toHaveLength(5)
+    for (const img of artes) {
+      expect(img).toHaveAttribute('width')
+      expect(img).toHaveAttribute('height')
+      expect(img).toHaveAttribute('loading', 'lazy')
+    }
+  })
+
+  it('a fileira é uma lista com rótulo — quem usa leitor de tela sabe o que são as cinco artes', () => {
+    renderFooter()
+
+    expect(screen.getByRole('list', { name: 'Formas de pagamento aceitas' })).toBeInTheDocument()
+  })
+})

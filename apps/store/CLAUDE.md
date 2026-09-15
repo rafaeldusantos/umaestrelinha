@@ -881,6 +881,25 @@ acabou de perder alguém.
 - **Preço, desconto e promoção são de `@estrelinha/core`, não daqui.** A loja **exibe**; quem calcula
   é `resolveOrderPricing`, a mesma função que a edge function do Mercado Pago chama. Ver
   [`../../packages/core/CLAUDE.md`](../../packages/core/CLAUDE.md).
+- **As bandeiras do rodapé são a arte oficial, e a lista foi conferida CONTRA A CONTA** (2026-09-14).
+  O que eram quatro pílulas de texto (`Pix`, `Visa`, `Master`, `Elo`) virou a arte de cinco bandeiras
+  em `apps/store/public/pagamentos/`. **Duas do conjunto que veio junto ficaram de fora — Hipercard e
+  o cartão Bradesco —, e a ausência é a decisão**: `GET /v1/payment_methods` da conta do Mercado Pago
+  da loja responde `visa`, `master`, `amex` e `elo`, e mais nada de cartão. Anunciar bandeira que o
+  caixa recusa é o defeito da `MarqueeBar` de novo — a loja dizendo uma coisa e o caixa cobrando
+  outra —, e quem só tem Hipercard viria pelo rodapé para levar a recusa no pagamento.
+  - **A arte é servida por NÓS, nunca pelo CDN de onde veio.** Endereço de terceiro muda sem avisar e
+    o rodapé ficaria com cinco quadrados quebrados sem erro em lugar nenhum. `Footer.test.tsx` recusa
+    `src` fora da origem, e a régua tem **duas** asserções porque o endereço original era relativo ao
+    protocolo (`//host/…`) — ele começa com `/` e passaria por um `startsWith('/')` sozinho.
+  - **A vaga é 52 × 32 com moldura `surface` + `line`, e a moldura faz trabalho**: quatro das cinco
+    artes vêm com fundo **branco opaco** e a do Pix vem transparente; soltas sobre `ground` #FAF8F4
+    seriam quatro retângulos brancos e um logo sem chão. A Amex é a exceção que confirma — a arte
+    dela preenche a vaga inteira em azul, que é como o cartão é.
+  - **Medido em navegador** (2026-09-14): 390 → fileira de 292px centrada, `scrollWidth` 390, as
+    cinco artes carregadas; 768 → embrulha em duas linhas pelo `flex-wrap` e termina em 752; 1024 e
+    1440 → uma linha só. O `scrollWidth` 802 que o 768 acusa é a **pendência antiga** das colunas de
+    link, registrada abaixo, e o número não mudou com esta fileira.
 
 ## Frete grátis — um interruptor e um dono só (feature `37`)
 
