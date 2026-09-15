@@ -11,6 +11,7 @@ import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { RADIX_POINTER_DOWN, enableRadixSelectInJsdom } from '@/test/radix'
@@ -80,8 +81,25 @@ const PECAS = vi.hoisted(() => [
   { id: 'p3', name: 'Broche Pena', slug: 'broche-pena', is_active: false },
 ])
 
-vi.mock('@/entities/product', () => ({
-  useAdminProducts: () => ({ products: PECAS, loading: false }),
+/**
+ * Mock PARCIAL, e a diferenca importa (feature 51, `L-030`).
+ *
+ * Desde que o seletor de pecas passou a ser o `ProductSearchField` de `@/entities/product`, um
+ * `vi.mock` que substituisse o modulo INTEIRO devolveria `undefined` para o componente — e o erro
+ * aparece no RENDER, nao na assercao, apontando para a tela em vez de para o mock. `importOriginal`
+ * mantem tudo o que o barril exporta e troca so o hook que esta suite precisa dublar.
+ *
+ * **O dublê de `useAdminProducts` virou um ESPIÃO** (feature 51, `BUS-25`), e ele continua
+ * devolvendo a forma antiga de propósito: se esta tela voltar a chamá-lo, ela funciona — as peças
+ * chegam, nada quebra, e a única coisa que denuncia os 3.217 KB descendo de novo é a asserção de
+ * que ele **não foi chamado**. Um mock que lançasse provaria o mesmo por acidente, apontando para
+ * uma exceção em vez de para a regressão.
+ */
+const useAdminProductsEspiao = vi.hoisted(() => vi.fn(() => ({ products: [] as unknown[], loading: false })))
+
+vi.mock('@/entities/product', async importOriginal => ({
+  ...(await importOriginal<typeof import('@/entities/product')>()),
+  useAdminProducts: useAdminProductsEspiao,
 }))
 
 vi.mock('@estrelinha/ui/hooks/use-toast', () => ({ toast: toastMock }))
@@ -134,6 +152,7 @@ vi.mock('@/features/home-composition/ui/HomeLivePreview', () => ({
   ),
 }))
 
+import { PRODUCT_POOL_KEY } from '@/entities/product'
 import AdminHomePage from './AdminHomePage'
 
 /**
@@ -145,15 +164,33 @@ import AdminHomePage from './AdminHomePage'
  */
 beforeAll(enableRadixSelectInJsdom)
 
-const renderPage = (initial = '/admin/home') =>
-  render(
-    <MemoryRouter initialEntries={[initial]}>
-      <Routes>
-        <Route path="/admin/home" element={<AdminHomePage />} />
-        <Route path="/admin/home/:sectionId" element={<AdminHomePage />} />
-      </Routes>
-    </MemoryRouter>,
+/**
+ * O pool de produtos entra SEMEADO no cache (feature 51).
+ *
+ * O seletor de pecas nao recebe mais o catalogo por prop: ele le `useProductPool`, que e a porta
+ * unica de "quais pecas existem" (`BUS-07`). Semear com `staleTime: Infinity` mantem o render
+ * sincrono — nenhuma requisicao sai, e os casos abaixo seguem medindo a PAGINA, que e o assunto
+ * deste arquivo. Quem prova a leitura e `useProductPool.test.ts`, com duble que enxerga a
+ * projecao e a paginacao.
+ */
+const renderPage = (initial = '/admin/home') => {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity } } })
+  queryClient.setQueryData(
+    PRODUCT_POOL_KEY,
+    PECAS.map(p => ({ ...p, base_price: 289 })),
   )
+
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={[initial]}>
+        <Routes>
+          <Route path="/admin/home" element={<AdminHomePage />} />
+          <Route path="/admin/home/:sectionId" element={<AdminHomePage />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  )
+}
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -191,6 +228,47 @@ describe('AdminHomePage — a tela junta lista, bandeja e prévia', () => {
     const coluna = screen.getByTestId('coluna-secoes')
     expect(within(coluna).getByText('Blocos que você pode acrescentar')).toBeInTheDocument()
     expect(within(coluna).getByTestId('bloco-collection_feature')).toBeInTheDocument()
+  })
+})
+
+// ───────────────────────────────────────────────────────────────────────────
+// BUS-25 — a tela não baixa mais o catálogo inteiro (feature 51, P2)
+// ───────────────────────────────────────────────────────────────────────────
+
+describe('AdminHomePage — o catálogo vem do POOL, não de `useAdminProducts` (BUS-25)', () => {
+  it('a página não chama `useAdminProducts` em nenhuma das duas rotas', () => {
+    // A regressão que este caso existe para pegar é **invisível de todo outro ângulo**: devolver
+    // `useAdminProducts()` aqui faz a tela funcionar igual — as peças chegam, a prévia desenha, os
+    // 56 casos deste arquivo seguem verdes — e o único efeito é 3.217 KB descendo de novo a cada
+    // montagem, dos quais 876 KB são `description` em HTML que esta tela nunca abre. Por isso a
+    // asserção é sobre a CHAMADA, e não sobre o que aparece na tela.
+    renderPage()
+    expect(useAdminProductsEspiao).not.toHaveBeenCalled()
+
+    useAdminProductsEspiao.mockClear()
+    renderPage('/admin/home/hero')
+    expect(useAdminProductsEspiao).not.toHaveBeenCalled()
+  })
+
+  it('e o que a tela usa são as peças do pool — o espião devolve lista VAZIA de propósito', () => {
+    // O par do caso acima, e o que impede os dois de serem verdadeiros por acidente: o dublê de
+    // `useAdminProducts` devolve `[]`, então uma tela que voltasse a lê-lo não teria peça nenhuma.
+    // As três abaixo só podem ter vindo do cache semeado com `PRODUCT_POOL_KEY`.
+    state.sections = [
+      ...DEFAULT_HOME_COMPOSITION.map(s => ({ ...s })),
+      {
+        id: 'destaques',
+        type: 'product_carousel',
+        position: 99,
+        active: true,
+        config: { title: 'Feitas à mão neste mês' },
+        items: [],
+      },
+    ]
+    renderPage('/admin/home/destaques')
+
+    expect(screen.getByTestId('contador-encontrados')).toHaveTextContent('3 no catálogo')
+    expect(useAdminProductsEspiao).not.toHaveBeenCalled()
   })
 })
 
@@ -363,9 +441,17 @@ describe('Produtos em destaque — o editor novo monta pela rota (DST-02)', () =
     expect(screen.getByTestId('apresentacao-slider')).toHaveAttribute('aria-pressed', 'true')
   })
 
-  it('o seletor recebe a LISTA DE PRODUTOS da página — sem ela não há o que escolher', () => {
-    // O fio que a `41` provou tarde: as duas pontas existiam e a ligação entre elas, não. Apagar o
-    // `products` da chamada do editor deixaria o seletor vazio com a suíte verde.
+  it('o seletor é alimentado pelo POOL compartilhado — sem ele não há o que escolher', () => {
+    // O fio que a `41` provou tarde: as duas pontas existiam e a ligação entre elas, não.
+    //
+    // **A feature 51 trocou a ponta de cima, e o caso foi retargetado em vez de deixado verde**: até
+    // aqui ele dizia "o seletor recebe a lista de produtos DA PÁGINA", e essa ligação não existe
+    // mais — o seletor lê `useProductPool`, a porta única de "quais peças existem" (`BUS-07`). O
+    // que ele mede continua sendo um fio de verdade: apagar o `ProductSearchField` do picker, ou o
+    // pool de dentro dele, deixa o editor sem nada para escolher.
+    //
+    // Deixá-lo com o nome antigo seria um teste verde a favor de um estado que a feature removeu —
+    // exatamente o que a `41` encontrou no cadeado do hero.
     state.sections = comBloco()
     renderPage('/admin/home/destaques')
 

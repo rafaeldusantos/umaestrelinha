@@ -6,11 +6,14 @@
 // prova árvore nenhuma*: aqui quem monta é o casco, como na tela.
 
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import type { ReactNode } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import type { HomeSection, HomeSectionConfig, ResolvedSection } from '@estrelinha/core/home'
 import type { AdminCategory } from '@/entities/category'
 import HomeSectionEditor from './HomeSectionEditor'
 import type { EditorProduct } from './sectionEditors'
+import { PRODUCT_POOL_KEY } from '@/entities/product'
 import type { DraftItem } from '../model/sectionDraft'
 
 const prod = (over: Partial<EditorProduct> & { id: string; name: string }): EditorProduct => ({
@@ -49,29 +52,49 @@ const secao = (config: HomeSectionConfig = {}, items: HomeSection['items'] = [])
   items,
 })
 
+/**
+ * O palco de React Query, com o POOL semeado (feature 51).
+ *
+ * O seletor de pecas deixou de receber o catalogo por prop: ele le o pool compartilhado de
+ * `entities/product`, que e o que faz as cinco telas do painel responderem a mesma coisa para o
+ * mesmo termo (`BUS-07`). Sem o provedor, montar o editor lanca "No QueryClient set" no RENDER,
+ * e nao na assercao — que e exatamente o modo de falha que `L-030` descreve.
+ *
+ * O pool entra SEMEADO, com `staleTime: Infinity`: o render fica sincrono, nenhuma requisicao
+ * sai, e as assercoes abaixo continuam medindo o editor em vez da leitura, que tem dono e suite
+ * proprios (`useProductPool.test.ts`).
+ */
+const Palco = ({ children }: { children: ReactNode }) => {
+  const client = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity } } })
+  client.setQueryData(PRODUCT_POOL_KEY, PRODUTOS.map(p => ({ ...p, base_price: 289 })))
+  return <QueryClientProvider client={client}>{children}</QueryClientProvider>
+}
+
 const montar = (section: HomeSection = secao()) => {
   const onSave = vi.fn().mockResolvedValue(null)
   const onDraftChange = vi.fn()
 
   render(
-    <HomeSectionEditor
-      entry={
-        {
-          section,
-          renders: true,
-          hiddenReason: null,
-          items: [],
-          droppedCount: 0,
-          nestedUnder: null,
-        } as unknown as ResolvedSection
-      }
-      categories={[] as unknown as readonly AdminCategory[]}
-      products={PRODUTOS}
-      saving={false}
-      onCancel={vi.fn()}
-      onSave={onSave}
-      onDraftChange={onDraftChange}
-    />,
+    <Palco>
+      <HomeSectionEditor
+        entry={
+          {
+            section,
+            renders: true,
+            hiddenReason: null,
+            items: [],
+            droppedCount: 0,
+            nestedUnder: null,
+          } as unknown as ResolvedSection
+        }
+        categories={[] as unknown as readonly AdminCategory[]}
+        products={PRODUTOS}
+        saving={false}
+        onCancel={vi.fn()}
+        onSave={onSave}
+        onDraftChange={onDraftChange}
+      />
+    </Palco>,
   )
 
   return { onSave, onDraftChange }
@@ -381,23 +404,25 @@ describe('FeaturedProductsEditor — as recusas vêm de `core`, e preservam o pr
 describe('FeaturedProductsEditor — AD-019: o editor NÃO desenha a vitrine', () => {
   it('nenhuma imagem de produto é renderizada', () => {
     const { container } = render(
-      <HomeSectionEditor
-        entry={
-          {
-            section: secao({ title: 'x' }, [itemSalvo(1, 'p1', 'Colar de Cinzas')]),
-            renders: true,
-            hiddenReason: null,
-            items: [],
-            droppedCount: 0,
-            nestedUnder: null,
-          } as unknown as ResolvedSection
-        }
-        categories={[] as unknown as readonly AdminCategory[]}
-        products={PRODUTOS}
-        saving={false}
-        onCancel={vi.fn()}
-        onSave={vi.fn()}
-      />,
+      <Palco>
+        <HomeSectionEditor
+          entry={
+            {
+              section: secao({ title: 'x' }, [itemSalvo(1, 'p1', 'Colar de Cinzas')]),
+              renders: true,
+              hiddenReason: null,
+              items: [],
+              droppedCount: 0,
+              nestedUnder: null,
+            } as unknown as ResolvedSection
+          }
+          categories={[] as unknown as readonly AdminCategory[]}
+          products={PRODUTOS}
+          saving={false}
+          onCancel={vi.fn()}
+          onSave={vi.fn()}
+        />
+      </Palco>,
     )
     expect(container.querySelectorAll('img')).toHaveLength(0)
   })

@@ -14,48 +14,6 @@ _none_
 
 Seen once or not yet corroborated. Tracked, not trusted.
 
-### L-001 — When migrating admin pages to shadcn tokens, retire only neutral surface/text/border nana-* classes; brand-accent hues have no shadcn equivalent and stay as accents.
-- signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `backoffice` · harmful: 0
-- features: backoffice-ui-standardization
-- evidence: MIG-06 — AdminDashboard.tsx:17, AdminOrdersPage.tsx:43 (backoffice)
-- last seen: 2026-07-28T15:05:24Z
-
-### L-002 — Integration-test the money path with the discount or promotion actually enabled; a fixture with every offer switched off cannot detect a double-applied discount.
-- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `payment` · harmful: 0
-- features: 09-checkout-orders-api
-- evidence: M6 — handlers.ts:353 (Verifier sensor, validation.md) (payment)
-- last seen: 2026-07-28T15:05:38Z
-
-### L-003 — Assert the full payer identity object sent to the payment gateway for every payment method, not only the one where a value is overridden.
-- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `payment` · harmful: 0
-- features: 09-checkout-orders-api
-- evidence: M9 — handlers.ts:401 (Verifier sensor, validation.md) (payment)
-- last seen: 2026-07-28T15:05:38Z
-
-### L-004 — Every guard that returns before an external call needs its own test asserting the status code and zero outbound calls.
-- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `payment` · harmful: 0
-- features: 09-checkout-orders-api
-- evidence: M10 — handlers.ts:252 (Verifier sensor, validation.md) (payment)
-- last seen: 2026-07-28T15:05:38Z
-
-### L-005 — When an acceptance criterion lists several failure conditions that map to different status codes, state which condition wins where two of them overlap.
-- signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `payment` · harmful: 0
-- features: 09-checkout-orders-api
-- evidence: ORD-07 — handlers.ts:449 (Verifier spec-anchored check, validation.md) (payment)
-- last seen: 2026-07-28T15:05:39Z
-
-### L-006 — When an acceptance criterion requires a user-facing message, assert the message text for the specific detail value instead of asserting only that a fallback exists.
-- signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `payment` · harmful: 0
-- features: 09-checkout-orders-api
-- evidence: STA-03 — status.ts:84, status.test.ts:135 (Verifier spec-anchored check, validation.md) (payment)
-- last seen: 2026-07-28T15:05:39Z
-
-### L-007 — Quando uma regra de dinheiro é DUPLICADA entre loja e servidor (pares de linhas escritas à mão), teste de espelho não protege o servidor: cobrir uma instância (order bump) não cobre a classe (cupom × quantidade, free_shipping). Cada par loja↔servidor precisa de um teste no HANDLER que assevere o valor cobrado, não só um teste da aritmética num módulo que produção não chama nesse caminho.
-- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `packages/core/src/payment, supabase/functions` · harmful: 0
-- features: 09-checkout-orders-api
-- evidence: V1/V2 @ handlers.ts:312,354 — iteração 2 do Verifier (packages/core/src/payment, supabase/functions)
-- last seen: 2026-07-28T16:09:30Z
-
 ### L-008 — Quando uma AC lista um item que a tabela Out of Scope da mesma spec exclui, a exclusao explicita vence — implemente o resto, declare a divergencia no codigo e no validation.md, e nao invente a feature excluida.
 - signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `.specs/features` · harmful: 0
 - features: 12-product-media-studio

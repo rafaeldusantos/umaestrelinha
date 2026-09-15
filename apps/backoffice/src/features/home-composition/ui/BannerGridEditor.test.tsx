@@ -4,6 +4,8 @@
 // **para salvar**" só se prova apertando salvar e vendo que a gravação não aconteceu.
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   DEFAULT_HOME_COMPOSITION,
@@ -12,6 +14,7 @@ import {
   type HomeSectionItem,
 } from '@estrelinha/core/home'
 import type { AdminCategory } from '@/entities/category'
+import { PRODUCT_POOL_KEY } from '@/entities/product'
 
 const upload = vi.hoisted(() => ({ uploadHomeImage: vi.fn() }))
 vi.mock('../lib/uploadHomeImage', () => upload)
@@ -57,6 +60,22 @@ const item = (over: Partial<HomeSectionItem> = {}): HomeSectionItem => ({
 
 const onSave = vi.fn().mockResolvedValue(null)
 
+/**
+ * O palco de React Query, com o POOL semeado (feature 51).
+ *
+ * O ramo *Produto* do `DestinoDoItem` deixou de ser uma lista de `<option>` e virou o
+ * `ProductSearchField`, que lê o pool compartilhado de `entities/product`. Sem o provedor, montar o
+ * editor com o ramo aberto lança "No QueryClient set" no RENDER, e não na asserção (`L-030`).
+ *
+ * O pool entra SEMEADO, com `staleTime: Infinity`: o render fica síncrono e nenhuma requisição sai
+ * — a leitura tem dono e suíte próprios (`useProductPool.test.ts`).
+ */
+const Palco = ({ children }: { children: ReactNode }) => {
+  const client = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity } } })
+  client.setQueryData(PRODUCT_POOL_KEY, PRODUTOS.map(p => ({ ...p, base_price: 189 })))
+  return <QueryClientProvider client={client}>{children}</QueryClientProvider>
+}
+
 const renderEditor = (over: Partial<HomeSection> = {}) => {
   const section: HomeSection = {
     ...gradeBase,
@@ -64,6 +83,7 @@ const renderEditor = (over: Partial<HomeSection> = {}) => {
     config: { ...gradeBase.config, ...(over.config ?? {}) },
   }
   return render(
+    <Palco>
     <HomeSectionEditor
       entry={{
         section,
@@ -78,7 +98,8 @@ const renderEditor = (over: Partial<HomeSection> = {}) => {
       saving={false}
       onCancel={vi.fn()}
       onSave={onSave}
-    />,
+    />
+    </Palco>,
   )
 }
 
@@ -210,10 +231,16 @@ describe('BannerGridEditor — exatamente UM destino fica gravado (HOME-23)', ()
     })
   })
 
-  it('escolher um PRODUTO grava `product_id` — e é o destino que a emenda E5 fez renderizar', async () => {
+  it('escolher um PRODUTO grava `product_id`, o slug e o rótulo (BUS-19)', async () => {
+    // **Retargetado na feature 51**: o id da peça deixou de ser valor do `<select>` e passou a sair
+    // da busca. O que o caso mede não mudou — é o destino gravado, e o congelamento junto com ele.
     renderEditor({ items: [item({ category_id: null, label_snapshot: null })] })
 
-    fireEvent.change(screen.getByLabelText('Leva para'), { target: { value: 'prod:prod-1' } })
+    fireEvent.change(screen.getByLabelText('Leva para'), { target: { value: '__produto' } })
+    fireEvent.change(screen.getByLabelText('Leva para · qual peça'), {
+      target: { value: 'pingente' },
+    })
+    fireEvent.click(screen.getByTestId('peca-prod-1'))
     salvar()
 
     await waitFor(() => expect(onSave).toHaveBeenCalled())
@@ -222,7 +249,21 @@ describe('BannerGridEditor — exatamente UM destino fica gravado (HOME-23)', ()
       product_id: 'prod-1',
       href: null,
       label_snapshot: 'Pingente Gota',
+      // O slug é de TELA, e é ele que faz a prévia mostrar a peça antes de salvar (`DST-24`).
+      product_slug: 'pingente-gota',
     })
+  })
+
+  it('nenhuma `<option>` de peça sobra no seletor — o catálogo saiu dali (BUS-07, BUS-23)', () => {
+    renderEditor({ items: [item({ category_id: null, label_snapshot: null })] })
+
+    const seletor = screen.getByLabelText('Leva para') as HTMLSelectElement
+    const opcoes = Array.from(seletor.querySelectorAll('option'))
+
+    expect(opcoes.map(o => o.value).some(v => v.startsWith('prod:'))).toBe(false)
+    expect(opcoes.map(o => o.textContent)).not.toContain('Produto · Pingente Gota')
+    // E o ramo continua existindo: o que saiu foi a lista, não o destino (`A-12`).
+    expect(opcoes.map(o => o.textContent)).toContain('Produto…')
   })
 
   it('“Outro endereço da loja…” grava o caminho e zera as duas FKs', async () => {

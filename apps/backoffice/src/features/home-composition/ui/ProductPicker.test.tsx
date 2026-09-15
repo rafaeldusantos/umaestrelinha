@@ -1,111 +1,60 @@
-// O seletor de peças — `DST-03` e `DST-09` na tela (feature 50).
+// O seletor de peças da Home — o que sobrou dele depois da feature 51.
 //
-// O que esta suíte prova, além do filtro: que o seletor **responde antes do clique** (a peça que já
-// está no bloco aparece dizendo isso, em vez de ser recusada depois), que a escolha **congela** o
-// que a dona viu, e que ele **não desenha vitrine** — a régua de `AD-019` aplicada ao componente que
-// mais convidaria a quebrá-la.
+// **O contrato da BUSCA migrou inteiro** para
+// `entities/product/ui/__tests__/ProductSearchField.test.tsx`: dobra de acento, casamento por
+// palavra, ordenação, teto de 20, vazio explicado, "já está no bloco", "fora do ar", `<ul>`/`<li>`,
+// ausência de imagem e os 44px. Ele não foi perdido — mudou de dono junto com o código, e lá vale
+// para as cinco superfícies em vez de para uma.
+//
+// **O que fica aqui é o que NÃO é busca**: a montagem do `DraftItem`. Congelar `product_slug` e
+// `label_snapshot` é regra da Home (`DST-24`, `HOME-24`), e é a única coisa que este arquivo ainda
+// decide.
 
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { readFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { fireEvent, render, screen } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import type { ReactNode } from 'react'
 import { describe, expect, it, vi } from 'vitest'
+import { PRODUCT_POOL_KEY, type ProdutoDoPool } from '@/entities/product'
 import ProductPicker from './ProductPicker'
-import type { EditorProduct } from './sectionEditors'
 
-const prod = (over: Partial<EditorProduct> & { id: string; name: string }): EditorProduct => ({
-  slug: over.slug ?? over.id,
+const peca = (id: string, name: string, slug: string): ProdutoDoPool => ({
+  id,
+  name,
+  slug,
   is_active: true,
-  ...over,
+  base_price: 289,
 })
 
-const CATALOGO: EditorProduct[] = [
-  prod({ id: 'p1', name: 'Colar de Cinzas', slug: 'colar-de-cinzas' }),
-  prod({ id: 'p2', name: 'Pingente Gota', slug: 'pingente-gota' }),
-  prod({ id: 'p3', name: 'Anel Coração', slug: 'anel-coracao' }),
-  prod({ id: 'p4', name: 'Colar Memória', slug: 'colar-memoria' }),
-  prod({ id: 'p5', name: 'Broche Pena', slug: 'broche-pena', is_active: false }),
+const POOL: ProdutoDoPool[] = [
+  peca('p1', 'Colar de Cinzas', 'colar-de-cinzas'),
+  peca('p2', 'Pingente Gota', 'pingente-gota'),
 ]
 
-const montar = (escolhidos: string[] = [], products: EditorProduct[] = CATALOGO) => {
-  const onPick = vi.fn()
-  render(<ProductPicker products={products} escolhidos={escolhidos} onPick={onPick} />)
-  return onPick
+/**
+ * O pool entra **semeado no cache**, e não por um dublê de rede.
+ *
+ * O que este arquivo prova é a montagem do `DraftItem`; a leitura já tem dono e já tem suíte
+ * própria (`useProductPool.test.ts`), com dublê que enxerga a projeção e a paginação. Semear aqui
+ * mantém o render síncrono e deixa a asserção medir a montagem, que é o assunto.
+ */
+const Palco = ({ children }: { children: ReactNode }) => {
+  const client = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity } } })
+  client.setQueryData(PRODUCT_POOL_KEY, POOL)
+  return <QueryClientProvider client={client}>{children}</QueryClientProvider>
 }
 
-const buscar = (termo: string) =>
-  fireEvent.change(screen.getByLabelText('Acrescentar uma peça'), { target: { value: termo } })
-
-const nomesNaLista = () =>
-  within(screen.getByTestId('pecas-encontradas'))
-    .getAllByRole('button')
-    .map(b => b.textContent?.replace(/já está no bloco|fora do ar/g, '').trim())
-
-describe('ProductPicker — a busca (DST-03)', () => {
-  it('sem termo, oferece o catálogo inteiro', () => {
-    montar()
-    expect(nomesNaLista()).toEqual([
-      'Colar de Cinzas',
-      'Pingente Gota',
-      'Anel Coração',
-      'Colar Memória',
-      'Broche Pena',
-    ])
-  })
-
-  it('filtra por nome, SEM CAIXA — "colar" acha "Colar de Cinzas"', () => {
-    montar()
-    buscar('colar')
-    expect(nomesNaLista()).toEqual(['Colar de Cinzas', 'Colar Memória'])
-  })
-
-  it('filtra SEM ACENTO — "coracao" acha "Anel Coração"', () => {
-    // O par da asserção acima, e não um luxo: os nomes do catálogo desta loja são quase todos
-    // acentuados, e um filtro que exigisse o acento certo falharia justamente em "memória",
-    // "coração" e "cinzas de cremação".
-    montar()
-    buscar('coracao')
-    expect(nomesNaLista()).toEqual(['Anel Coração'])
-  })
-
-  it('o termo acentuado também acha — a dobra vale para os dois lados', () => {
-    montar()
-    buscar('Coração')
-    expect(nomesNaLista()).toEqual(['Anel Coração'])
-  })
-
-  it('espaço em volta do termo não muda o resultado', () => {
-    montar()
-    buscar('   gota   ')
-    expect(nomesNaLista()).toEqual(['Pingente Gota'])
-  })
-
-  it('o contador diz quantas casaram, de quantas existem', () => {
-    montar()
-    expect(screen.getByTestId('contador-encontrados')).toHaveTextContent('5 no catálogo')
-    buscar('colar')
-    expect(screen.getByTestId('contador-encontrados')).toHaveTextContent('2 de 5')
-  })
-})
-
-describe('ProductPicker — busca sem resultado EXPLICA (não é lista em branco)', () => {
-  it('mostra o vazio dizendo o que aconteceu e o que fazer', () => {
-    montar()
-    buscar('bicicleta')
-
-    const vazio = screen.getByTestId('busca-sem-resultado')
-    expect(vazio).toHaveTextContent('Nenhuma peça com “bicicleta”')
-    expect(vazio).toHaveTextContent(/ignora acento e maiúscula/)
-  })
-
-  it('a lista some — não fica uma lista vazia ao lado do aviso', () => {
-    montar()
-    buscar('bicicleta')
-    expect(screen.queryByTestId('pecas-encontradas')).toBeNull()
-  })
-
-  it('catálogo vazio cai no mesmo vazio explicado, e não quebra', () => {
-    montar([], [])
-    expect(screen.getByTestId('busca-sem-resultado')).toBeInTheDocument()
-  })
-})
+const montar = (escolhidos: string[] = []) => {
+  const onPick = vi.fn()
+  render(
+    <Palco>
+      <ProductPicker escolhidos={escolhidos} onPick={onPick} />
+    </Palco>,
+  )
+  return onPick
+}
 
 describe('ProductPicker — acrescentar congela o que a dona viu', () => {
   it('emite um `DraftItem` com `product_id`, `product_slug` e `label_snapshot`', () => {
@@ -148,112 +97,52 @@ describe('ProductPicker — acrescentar congela o que a dona viu', () => {
     })
   })
 
-  it('acrescentar a peça encontrada pela busca emite ELA, não a primeira da lista', () => {
+  it('emite a peça CLICADA, não a primeira da lista', () => {
     const onPick = montar()
-    buscar('memória')
-    fireEvent.click(screen.getByTestId('peca-p4'))
-    expect(onPick.mock.calls[0][0]).toMatchObject({ product_id: 'p4', product_slug: 'colar-memoria' })
+    fireEvent.click(screen.getByTestId('peca-p2'))
+    expect(onPick.mock.calls[0][0]).toMatchObject({ product_id: 'p2', product_slug: 'pingente-gota' })
   })
 })
 
-describe('ProductPicker — peça repetida (DST-09 na tela)', () => {
-  it('quem já está no bloco aparece DESABILITADA, dizendo por quê', () => {
-    montar(['p2'])
-    expect(screen.getByTestId('peca-p2')).toBeDisabled()
-    expect(screen.getByTestId('ja-escolhida-p2')).toHaveTextContent('já está no bloco')
+describe('ProductPicker — a delegação', () => {
+  it('renderiza o campo compartilhado, com o rótulo da Home', () => {
+    // O fio: apagar o `ProductSearchField` daqui deixaria o editor sem como acrescentar peça, e a
+    // montagem do `DraftItem` acima nunca chegaria a ser exercitada — mas os quatro casos ficariam
+    // "verdes por não rodar" se alguém os deixasse de fora.
+    montar()
+    expect(screen.getByLabelText('Acrescentar uma peça')).toBeInTheDocument()
+    expect(screen.getByTestId('seletor-de-pecas')).toBeInTheDocument()
   })
 
-  it('clicar na desabilitada não acrescenta nada', () => {
+  it('repassa os já escolhidos — quem está no bloco chega DESABILITADO ao campo', () => {
+    // A régua de "já está no bloco" é do componente compartilhado; o que se prova aqui é que o
+    // `escolhidos` da Home chega lá. Apagar o `selecionados=` deixaria a peça repetida escolhível.
     const onPick = montar(['p2'])
+    expect(screen.getByTestId('peca-p2')).toBeDisabled()
+
     fireEvent.click(screen.getByTestId('peca-p2'))
     expect(onPick).not.toHaveBeenCalled()
   })
 
-  it('as outras continuam oferecidas — a recusa é da peça, não da lista', () => {
-    // O par: uma régua que desabilitasse tudo passaria nas duas asserções acima.
-    const onPick = montar(['p2'])
-    expect(screen.getByTestId('peca-p1')).not.toBeDisabled()
-    expect(screen.queryByTestId('ja-escolhida-p1')).toBeNull()
-
-    fireEvent.click(screen.getByTestId('peca-p1'))
-    expect(onPick).toHaveBeenCalledTimes(1)
-  })
-})
-
-describe('ProductPicker — peça despublicada é escolhível, e DIZ que está fora do ar', () => {
-  it('a peça fora do ar é marcada', () => {
-    // Não é recusa (`A-12`): escolher uma peça despublicada é estado legítimo. Mas escolhê-la sem
-    // saber faria o painel dizer "1 escolhida saiu do ar" logo depois, sem explicação.
-    montar()
-    expect(screen.getByTestId('fora-do-ar-p5')).toHaveTextContent('fora do ar')
-  })
-
-  it('e continua escolhível — a marca informa, não bloqueia', () => {
-    const onPick = montar()
-    expect(screen.getByTestId('peca-p5')).not.toBeDisabled()
-    fireEvent.click(screen.getByTestId('peca-p5'))
-    expect(onPick.mock.calls[0][0]).toMatchObject({ product_id: 'p5' })
-  })
-
-  it('peça no ar NÃO ganha a marca — senão a marca não significaria nada', () => {
-    montar()
-    expect(screen.queryByTestId('fora-do-ar-p1')).toBeNull()
-  })
-})
-
-describe('ProductPicker — o teto de DESENHO da lista', () => {
-  const muitos = Array.from({ length: 30 }, (_, i) =>
-    prod({ id: `x${i}`, name: `Peça ${i}`, slug: `peca-${i}` }),
-  )
-
-  it('mostra 20 linhas e diz quantas ficaram de fora', () => {
-    montar([], muitos)
-    expect(nomesNaLista()).toHaveLength(20)
-    expect(screen.getByTestId('mais-resultados')).toHaveTextContent('Mostrando 20 de 30')
-  })
-
-  it('com o catálogo cabendo, o aviso NÃO aparece', () => {
-    montar()
-    expect(screen.queryByTestId('mais-resultados')).toBeNull()
-  })
-
-  it('o teto é de desenho, não de escolha — a busca alcança quem ficou de fora', () => {
-    montar([], muitos)
-    buscar('Peça 27')
-    expect(nomesNaLista()).toEqual(['Peça 27'])
-  })
-})
-
-describe('ProductPicker — AD-019: o seletor NÃO desenha vitrine', () => {
-  it('nenhuma imagem de produto é renderizada', () => {
-    // O painel não desenha a Home. Miniaturas aqui seriam o segundo desenho voltando com o rótulo
-    // de "ajuda a reconhecer a peça" — e `previaUnica.test.ts` derruba a suíte por isso.
-    const { container } = render(
-      <ProductPicker products={CATALOGO} escolhidos={[]} onPick={vi.fn()} />,
+  it('não declara busca própria — sem dobra, sem teto, sem `<Input>` e sem filtro', () => {
+    // A metade estrutural de `BUS-07`, lida do FONTE, no arquivo que mais convidaria a manter a
+    // cópia: ele era o mais novo dos cinco e o único com contrato completo, e por isso o candidato
+    // natural a "deixa esse como está". Uma asserção pelo DOM não alcançaria isto — uma cópia da
+    // busca aqui renderizaria exatamente o mesmo.
+    const fonte = readFileSync(
+      resolve(dirname(fileURLToPath(import.meta.url)), 'ProductPicker.tsx'),
+      'utf8',
     )
-    expect(container.querySelectorAll('img')).toHaveLength(0)
-  })
+    // Âncora: o arquivo foi lido de verdade, e é o certo.
+    expect(fonte).toContain('ProductSearchField')
 
-  it('a lista é uma LISTA — `<ul>` de `<li>`, não uma grade', () => {
-    montar()
-    const lista = screen.getByTestId('pecas-encontradas')
-    expect(lista.tagName).toBe('UL')
-    expect(lista.className).not.toMatch(/grid-cols/)
-  })
-
-  it('nenhuma linha mostra preço — isto não é a vitrine', () => {
-    montar()
-    expect(screen.queryByText(/R\$/)).toBeNull()
-  })
-})
-
-describe('ProductPicker — o alvo de toque', () => {
-  it('cada linha tem ao menos 44px de altura', () => {
-    // jsdom devolve 0 para toda medida de layout, então a régua é de token exato na classe — a
-    // mesma prática dos guardas deste repositório.
-    montar()
-    for (const id of ['p1', 'p2', 'p3']) {
-      expect(screen.getByTestId(`peca-${id}`).className).toMatch(/(?:^|\s)min-h-11(?![-\w])/)
-    }
+    // Comentario fora, linha e bloco na MESMA varredura, com a classe que fecha antes do retorno
+    // de carro: o cabecalho deste arquivo cita as formas proibidas em prosa, e uma regua que
+    // casasse mencao acusaria justamente o arquivo que esta certo (L-031).
+    const codigo = fonte.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n\r]*/g, '')
+    expect(codigo).not.toMatch(/normalize\(\s*['"]NFD['"]\s*\)/)
+    expect(codigo).not.toMatch(/<Input[\s/>]/)
+    expect(codigo).not.toMatch(/(?:^|[^\w.])useMemo(?![\w])/)
+    expect(codigo).not.toMatch(/(?:^|[^\w.])useState(?![\w])/)
   })
 })

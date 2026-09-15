@@ -251,11 +251,11 @@ const FeaturedProductsEditor = ({
         {/* O seletor NÃO é apagado no teto, pelo mesmo motivo do `HeroCarouselEditor`: `disabled`
             some num atalho de teclado e não diz por quê. Quem recusa é a régua de `core`, no
             salvar, com o motivo e a saída em texto. */}
-        <ProductPicker
-          products={products}
-          escolhidos={escolhidos}
-          onPick={item => onItemsChange([...items, item])}
-        />
+        {/* O seletor não recebe mais o catálogo desde a feature 51: ele lê o pool compartilhado por
+            conta própria, que é o que faz as cinco telas do painel responderem a mesma coisa para o
+            mesmo termo. O `products` acima continua servindo à LISTA de escolhidas, que é outra
+            pergunta — "esta peça ainda está no ar?". */}
+        <ProductPicker escolhidos={escolhidos} onPick={item => onItemsChange([...items, item])} />
       </FormCard>
     </>
   )

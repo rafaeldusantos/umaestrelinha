@@ -829,9 +829,126 @@
 - **Date**: 2026-09-13
 - **Status**: active
 
+### AD-036
+- **Decision**: **A busca de produto do painel tem UM dono, e ele é `apps/backoffice/src/entities/product`.**
+  Quem responde "quais peças existem, para escolher uma" é `useProductPool` — uma leitura enxuta
+  (`id, name, slug, is_active, base_price`), paginada por `readAllPages` e cacheada por React Query;
+  quem responde "quais casam com o que a dona digitou" é `buscarProdutos`, puro; e quem desenha é
+  `ProductSearchField`, **um** componente com `modo: 'unico' | 'multiplo'`. As **cinco** superfícies
+  do painel (o seletor da Home, o destino de item, produtos relacionados/compre junto, o order bump e
+  o banner do menu) passaram a renderizá-lo, e nenhuma mantém lista, filtro ou consulta própria.
+  A dobra de acento mora em `shared/lib/texto.ts`, a camada abaixo de todas.
+  `buscaDeProdutoComDonoUnico.test.ts` recusa a sexta cópia, com **zero allowlist**.
+- **Reason**: O painel respondia a **mesma** pergunta de cinco maneiras, e elas **já discordavam** —
+  medido contra o projeto hospedado em 2026-09-14: `name ilike '%coracao%'` devolve **0** linhas e
+  `'%coração%'` devolve **106**. Na Home a Adri digitava "coracao" e achava as 106 peças (a dobra
+  era no cliente); no menu a tela dizia que não existia nenhuma (o termo ia cru para o Postgres).
+  É o "defeito 01" deste repositório na forma que ele mais custa: as cópias não quebram nada, só
+  discordam. Junto vinham dois defeitos de peso e de verdade: o catálogo inteiro descia por tela
+  (**3.217 KB**, dos quais 876 KB de `description` que seletor nenhum lê) e a leitura não tinha
+  `range` nem `count`, então acima de 1.000 linhas o PostgREST cortaria **sem avisar** — 702
+  produtos hoje, 298 de distância (`BL-008`).
+- **Trade-off**: **O pool é filtrado em MEMÓRIA, e isso não escala além de alguns milhares de
+  peças.** A alternativa — coluna gerada `search_name` com índice trigram — foi apresentada com o
+  custo e **recusada pelo usuário**: ela pediria migration, debounce, mínimo de letras, estado de
+  carga e hidratação à parte, e **regrediria a dobra de acento**, porque `unaccent` não está
+  instalado e `unaccent()` não é imutável, logo não serve em coluna gerada — a dobra teria de ser
+  `translate()` escrito à mão no SQL, virando um **segundo dono** da dobra ao lado do TypeScript. A
+  porta fica desenhada para a troca: quem chama recebe `{ itens, total }` e não sabe de onde vêm, de
+  modo que trocar a estratégia mexe em **um** arquivo e em nenhum dos cinco consumidores. A condição
+  de revisão é explícita: **acima de ~3.000 produtos**, ou se o tempo de abertura de `/admin/home`
+  voltar a incomodar, a decisão volta à mesa.
+- **Relação com `AD-033`**: é ela aplicada, e não uma exceção. Os cinco consumidores são `features/`
+  do **mesmo app**, então a camada estritamente abaixo é `entities/` — não `packages/core`, que
+  custaria uma dependência de UI num pacote cuja pureza tem guarda.
+- **Scope**: `apps/backoffice/src/entities/product/**`, `apps/backoffice/src/shared/lib/texto.ts`,
+  `apps/backoffice/src/features/home-composition/ui/{ProductPicker,DestinoDoItem}.tsx`,
+  `apps/backoffice/src/features/product-form/ui/RelatedProductsSelect.tsx`,
+  `apps/backoffice/src/features/settings/ui/CheckoutSettingsCard.tsx`,
+  `apps/backoffice/src/features/store-menu/ui/MenuBannerEditor.tsx`
+- **Date**: 2026-09-14
+- **Status**: active
+
 ## Handoff
 
-### ATUAL — 2026-09-14 · `50-produtos-em-destaque-e-painel-sem-recarga` **IMPLEMENTADA — 21 de 21 tasks**
+### ATUAL — 2026-09-14 · `51-busca-de-produto-do-painel` **IMPLEMENTADA — 12 de 12 tasks**
+
+- **Feature**: `.specs/features/51-busca-de-produto-do-painel/` (`spec.md`, `design.md`, `tasks.md`).
+  **Sem `validation.md` ainda** — o Verifier independente roda a seguir, e os commits vêm depois dele.
+- **Fase / Task**: Execute completo em **quatro lotes** (T01…T03 · T04…T05 · T06…T09 · T10…T12),
+  **27 de 27 requisitos** (`BUS-01`..`BUS-27`).
+- **Decisão nova**: **`AD-036`** — *a busca de produto do painel tem um dono, e ele é
+  `entities/product`*. Conferida livre antes de escrever (a `50` registra em handoff que `AD-036` não
+  existia).
+- **O que está no ar**: o painel respondia "qual peça?" de **cinco maneiras diferentes**, e elas **já
+  discordavam** — medido contra o hospedado: `name ilike '%coracao%'` devolve **0** linhas e
+  `'%coração%'` devolve **106**. As cinco passaram a renderizar **um** `ProductSearchField`:
+  1. **A busca ficou melhor que `includes`** — toda palavra do termo em qualquer ordem, acento e
+     caixa ignorados **nos dois sentidos**, e quem casa no **começo** do nome vem antes de quem casa
+     no miolo. Empate por `localeCompare(pt-BR)` e, empatando de novo, **por `id`** — sem esse último
+     o determinismo seria verdadeiro por acaso.
+  2. **O catálogo desce ENXUTO e uma vez só** — `id, name, slug, is_active, base_price`,
+     **~137 KB** contra **3.217 KB**, cacheado por React Query e compartilhado por chave. E ele
+     **não mente mais**: conta primeiro e pagina com `readAllPages`, então leitura truncada
+     **falha** em vez de virar um catálogo menor (`BL-008` estava a 298 produtos de cobrar).
+  3. **As duas telas que não tinham busca nenhuma passaram a ter** (o order bump e o destino de item
+     da Home), e a que buscava no servidor **ganhou a dobra de acento** que nunca teve.
+  4. **`useAdminProducts` parou de carregar o catálogo** e ficou só com a escrita — e quem grava
+     agora **invalida o pool**, o que torna a troca uma melhora de *frescor*: o hook antigo não tinha
+     cache **nem** invalidação.
+- **Zero migration, zero coluna, zero índice.** A dobra continua no cliente, que é onde ela já estava
+  certa — `unaccent` não está instalado e `unaccent()` não é imutável, logo não serve em coluna
+  gerada.
+- **Gates (2026-09-14, um workspace por vez, exit code fora de pipe, `--testTimeout=20000` na loja e
+  no painel)**: testes **9547 em 494** (store 3376/218 · backoffice **2704/148** · core 2356/92 ·
+  functions 599/13 · catalog-import 512/23), **+165/+8** contra a entrada da feature. Tipos
+  **0 · 0**. Lint **26 erros / 6 warnings** (painel 24/4) — **caiu de 27/6**, e a causa tem nome: o
+  `no-explicit-any` de `data.map((p: any) => …)` sumiu junto com o mapeamento do catálogo que
+  `useAdminProducts` deixou de fazer. `pnpm build` verde nos dois apps.
+  `packages/core/src/payment/**` e `supabase/**` sem uma linha alterada.
+  - **Store, core, functions e catalog-import não foram tocados por esta feature** e foram remedidos
+    assim mesmo: os três últimos vieram **idênticos**. O **store** veio idêntico em contagem
+    (3376/218) e o número **inclui trabalho de OUTRA sessão** — as bandeiras de pagamento do rodapé,
+    que estavam na árvore sem commit. Registrado para que a próxima feature não atribua o delta a
+    esta.
+- **Um guarda novo**, `shared/lib/__tests__/buscaDeProdutoComDonoUnico.test.ts` — **21 casos, zero
+  allowlist**, com as quatro formas proibidas reinjetadas em **arquivos reais** e cada uma derrubando
+  só o caso que a nomeia. `animacaoRespeitaMovimento.test.ts` foi **estendido** (8 → 9 arquivos, com
+  as âncoras de contagem subidas junto).
+- **Nada commitado** — o `CLAUDE.md` deste projeto manda gerar os commits completos de uma vez ao fim
+  (`BL-012`), e commitá-los antes do Verifier seria commitar trabalho não verificado.
+- **Próximo passo**: Verifier independente → consertos, se houver → commits.
+- **A dívida que fica** é **navegador**, mais duas de código declaradas em *Estado conhecido*: as
+  **três cópias de `slugify`** (que não são a mesma função — elas geram endereço, e o guarda as
+  distingue por construção) e o **teto de 1.000 de `AdminQuickGridPage`/`AdminProductsPage`**, cujo
+  modo de falha é criar slug duplicado **em silêncio**.
+- **Armadilhas desta sessão, para quem continuar**:
+  - **O filtro de nome do dono NÃO tem a forma que a spec presumia.** `useAdminProducts` monta
+    `` `name.ilike.%…%` `` como **string** para o `.or()`, e a chamada de método que existe no
+    arquivo é sobre `sku`, em `product_variants`. Uma régua só de método teria nascido **verde sobre
+    nada** — régua por comando, nunca uma para a família (`L-033`). O guarda casa **as duas formas**,
+    e o recorte à esquerda é por token exato, senão `customer_name.ilike.` cairia junto (`L-034`).
+  - **`BUS-23` é a régua frágil, e ela foi ESCRITA com o alcance declarado.** O que a impede de ser
+    estrutural são as **doze** listas de categoria do painel, que têm a forma idêntica
+    (`categories.map(c => <SelectItem …>)`); uma régua estrutural nasceria reprovando doze vezes, e
+    guarda que nasce vermelho é guarda que alguém desliga. Ela é ancorada pelo **nome** da variável,
+    está escrito no arquivo, e o inverso está testado.
+  - **A âncora "cada régua no dono" não é universal.** A terceira régua **não tem** ocorrência
+    legítima em dono nenhum — o componente compartilhado é `<ul>` de `<li>` por `BUS-17`. Ela é
+    ancorada no **extrator de JSX**, que precisa enxergar as listas de categoria. Inventar uma
+    ocorrência no dono para satisfazer a forma da âncora seria uma âncora falsa.
+  - **`brandScan` alcança fixture de teste do PAINEL, e ele achou um.** `dobrarTexto('Mañana')`
+    devolve uma palavra que **contém a marca anterior**, e a suíte da **loja** reprovou por causa de
+    um arquivo do **backoffice**. O caso trocou de palavra e continua provando a mesma coisa. Vale
+    como método: **o gate de uma feature do painel inclui a suíte da loja**, porque os guardas de lá
+    varrem `apps/`.
+  - **`invalidarPoolDeProdutos` nasceu sem consumidor** e só ganhou um na última task. Função
+    exportada e não chamada é o que `deleteSection` fez durante uma feature inteira — confira o
+    consumidor, não a exportação.
+
+---
+
+### 2026-09-14 · `50-produtos-em-destaque-e-painel-sem-recarga` **IMPLEMENTADA — 21 de 21 tasks**
 
 - **Feature**: `.specs/features/50-produtos-em-destaque-e-painel-sem-recarga/` (`spec.md`,
   `design.md`, `tasks.md`). **Sem `validation.md` ainda** — o Verifier independente roda a seguir, e

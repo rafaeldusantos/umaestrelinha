@@ -5,6 +5,7 @@
 // visível, o que a seleção arrasta junto e o que o arraste grava.
 
 import { bySortOrder } from '@estrelinha/core/menu'
+import { dobrarTexto } from '@/shared/lib/texto'
 import type { AdminCategory } from '@/entities/category/api/useAdminCategories'
 
 export type CategoryView = 'todas' | 'vitrine' | 'ocultas' | 'sem-produto'
@@ -27,9 +28,9 @@ export interface CategoryFilters {
   view: CategoryView
 }
 
-/** Sem acento e sem caixa — "Filmes & Séries" tem que casar com "series". */
-const fold = (value: string) =>
-  value.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+// Sem acento e sem caixa — "Filmes & Séries" tem que casar com "series". A dobra morava aqui e
+// passou a ser importada na feature 51: ela era idêntica à do seletor de ícone e à do seletor de
+// peças, e três cópias da mesma normalização divergem sem quebrar nada.
 
 // `bySortOrder` mudou de casa para `@estrelinha/core/menu` na feature 16: a loja passou a precisar da
 // MESMA ordenação (é ela que impede uma filha empatada em `sort_order` de subir ao topo da barra), e
@@ -124,9 +125,9 @@ const matchesView = (row: CategoryRow, view: CategoryView): boolean => {
 }
 
 const matchesSearch = (row: CategoryRow, search: string): boolean => {
-  const term = fold(search.trim())
+  const term = dobrarTexto(search.trim())
   if (!term) return true
-  return fold(row.category.name).includes(term) || fold(row.category.slug).includes(term)
+  return dobrarTexto(row.category.name).includes(term) || dobrarTexto(row.category.slug).includes(term)
 }
 
 /**

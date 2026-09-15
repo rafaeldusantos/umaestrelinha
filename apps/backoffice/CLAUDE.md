@@ -271,10 +271,13 @@ desenho.
   `sectionRefusals.ts` — que é o contrato daquele arquivo. O teto é **recusa**, e não `config.limit`:
   `limit` é lido por `resolveHomeSections`, que **corta** a lista, e aí "quantos produtos aparecem"
   teria dois donos.
-- **`ProductPicker` filtra EM MEMÓRIA**, sobre a lista que `useAdminProducts` já carrega para os
-  seletores de três telas. Busca sem acento, `toLowerCase`, teto de ~20 linhas desenhadas, e o já
-  escolhido aparece desabilitado dizendo que já está no bloco — a recusa de `core` é a rede de baixo,
-  não a primeira.
+- **`ProductPicker` virou um invólucro fino do `ProductSearchField`** (feature `51`): ele perdeu o
+  prop `products`, a dobra, o teto e o `<Input>` próprio, e ficou com o que é **regra da Home** —
+  montar o `DraftItem` congelando `product_slug` e `label_snapshot`. A busca, o teto de 20, o já
+  escolhido desabilitado e o vazio explicado vêm do componente compartilhado; a recusa de `core`
+  continua sendo a rede de baixo, não a primeira. *(Até a `50` ele filtrava em memória sobre a lista
+  que `useAdminProducts` carregava para três telas — 3.217 KB por tela, sem cache. Ver a seção
+  **A busca de produto** acima.)*
 - **`DraftItem` tem DOIS campos de tela** — a `key` (feature 24) e o `product_slug` (esta) —, e
   `toNewItems` é a **única** linha do repositório que os remove. O `product_slug` existe para a
   prévia: sem ele `resolveItem` trata "sem slug" como "fora do ar", e o bloco em edição apareceria
@@ -285,6 +288,67 @@ desenho.
   receber `products` e a tratar `is_active === false` como fora do ar, espelhando o que já fazia com
   `categoria.active === false`. Sem isso o painel — que lê como admin e **enxerga** produto
   despublicado — diria "tudo certo" sobre um bloco que a Home desenha pela metade.
+
+### A busca de produto: **um** dono para as cinco telas (feature `51`, `AD-036`)
+
+Escolher uma peça é uma pergunta só, e o painel a respondia de **cinco maneiras diferentes**, nenhuma
+sabendo da outra: duas listas filtradas em memória com réguas distintas, dois `<select>` com o
+catálogo inteiro dentro e busca nenhuma, e uma busca no servidor. E elas **já discordavam**, medido
+contra o projeto hospedado: `name ilike '%coracao%'` devolve **0** linhas e `'%coração%'` devolve
+**106** — na Home a Adri achava as 106 peças (a dobra era no cliente), no menu a tela dizia que não
+existia nenhuma (o termo ia cru para o Postgres).
+
+- **Três camadas, e a fronteira entre elas é o que torna a estratégia trocável.** `shared/lib/texto`
+  dobra o texto; `entities/product/lib/buscarProdutos` é a **régua pura** (recebe array, devolve
+  array — é onde a busca inteira é provada sem montar tela); `entities/product/api/useProductPool` só
+  sabe ler; `entities/product/ui/ProductSearchField` junta os dois e desenha. **Quem trocar o pool
+  por busca no servidor mexe em um arquivo e em nenhum dos cinco consumidores**, porque eles recebem
+  `{ itens, total }` e não sabem de onde vêm.
+- **A busca é melhor que `includes`, e cada metade é testável sozinha**: casa **toda** palavra do
+  termo em **qualquer ordem** (`cinzas colar` acha `Colar de Cinzas`), dobra acento e caixa **nos
+  dois sentidos**, e ordena em **três postos** — começa com o termo · alguma palavra do nome começa
+  com a primeira palavra do termo · casa só no miolo. Empate desempata por `localeCompare(pt-BR)` e,
+  empatando de novo, **por `id`** — sem esse último a ordem entre duas peças homônimas dependeria da
+  ordem de chegada do banco, e o determinismo seria verdadeiro por acaso.
+- **UM componente com `modo: 'unico' | 'multiplo'`, nunca dois componentes.** O que as cinco telas
+  compartilham é justamente a parte que erra em silêncio (a consulta, a dobra, a ordenação, o teto de
+  20, o vazio explicado); a diferença entre "escolher uma" e "acrescentar à lista" é **onde o
+  resultado é entregue**, e cabe num parâmetro. Dois componentes teriam a lista de resultados escrita
+  duas vezes — o defeito de novo.
+- **`selecionados` desabilita e APARECE; `excluir` some.** A diferença é deliberada: quem já está no
+  bloco precisa ser **visto** para a dona entender por que não pode escolhê-lo outra vez; o produto
+  que está sendo editado nunca poderia relacionar-se a si mesmo, e mostrá-lo desabilitado seria ruído
+  sobre algo que nunca foi opção.
+- **Ele nunca tem `<img>`, grade, nem slot de renderização livre** (`AD-019`). O slot resolveria o
+  preço do order bump com elegância e **abriria a porta para a miniatura** — que é o segundo desenho
+  da Home voltando ao painel pela terceira vez (features `25` e `39`). Por isso o preço é um
+  parâmetro **booleano**, ligado só no order bump: número, não composição.
+- **A leitura desce ENXUTA, uma vez, e não mente.** `PRODUCT_POOL_COLUMNS` é
+  `id, name, slug, is_active, base_price` — **~137 KB** contra os **3.217 KB** do `select('*')` de
+  antes, dos quais 876 KB eram `description` em HTML que seletor nenhum lê. Ela **conta primeiro**
+  (`count: 'exact', head: true`) e pagina com `readAllPages`: leitura truncada **falha**, em vez de
+  virar um catálogo menor — que é indistinguível de uma loja que encolheu e faria o campo dizer
+  "nenhuma peça com X" sobre uma peça que existe. A ordem é `name` **e** `id`, porque `name` não é
+  único e sem o segundo critério linhas repetiriam ou sumiriam **com a contagem batendo**, que é
+  justamente o modo de falha que `readAllPages` não pega.
+- **Duas telas são UMA requisição** porque quem desduplica é a chave do React Query, não um singleton
+  escrito à mão. `staleTime` de 5 min, e **quem grava produto invalida** — o que torna a troca uma
+  melhora de **frescor** e não só de peso: o hook antigo não tinha cache **nem** invalidação, então
+  uma peça criada noutra aba já não aparecia.
+- **`useAdminProducts` parou de carregar o catálogo.** Com os cinco seletores no pool ele ficou sem
+  consumidor, e saiu — em vez de continuar exportado sem ninguém, que é como `deleteSection`
+  atravessou uma feature inteira. O que restou é a **escrita** e `getProduct`, que perdeu o atalho de
+  cache e caiu na consulta de uma linha **que ele já tinha escrita**.
+- **A dobra mora em `shared/lib/texto.ts`, e as três cópias dela chamam de lá.** As outras sete
+  ocorrências de `normalize('NFD')` do painel **não** foram tocadas: elas dobram o acento *e
+  continuam* (juntam por hífen, recortam o que não é letra), e o que produzem é **endereço**, não
+  termo de busca. Ver a dívida no [`CLAUDE.md`](../../CLAUDE.md) da raiz.
+- **O guarda é `shared/lib/__tests__/buscaDeProdutoComDonoUnico.test.ts`, com zero allowlist.** Ele
+  recusa a sexta cópia por três réguas, e a primeira delas guarda uma lição reutilizável: **o filtro
+  por nome do dono não tem a forma que se supõe**. `useAdminProducts` monta `` `name.ilike.%…%` ``
+  como **string** para o `.or()` do PostgREST, e a chamada de método que existe no arquivo é sobre
+  `sku`, em `product_variants`. Uma régua que só casasse a chamada de método teria nascido **verde
+  sobre nada** — régua por comando, nunca uma para a família (`L-033`).
 
 ### Gravar NÃO desmonta a tela: `fetch(modo)` (feature `50`)
 
@@ -693,8 +757,10 @@ moram) recusa qualquer arquivo de `apps/**` que nomeie a chave de serviço ou aq
 
 ## Dívidas conhecidas deste app
 
-- **A baseline de testes do painel é 2204 em 129 arquivos**, todos passando (2026-09-13, medida na
-  árvore mesclada `46` + `47`, um workspace por vez e com exit code capturado fora de pipe).
+- **A baseline de testes do painel é 2704 em 148 arquivos**, todos passando (2026-09-14, no fecho da
+  feature `51`, um workspace por vez e com exit code capturado fora de pipe). *(Dizia `2204/129` até
+  aqui, medida na árvore mesclada `46` + `47` — duas features a atravessaram sem que o número
+  acompanhasse, que é o envelhecimento silencioso que o `CLAUDE.md` da raiz registra desde a `45`.)*
   - **Meça com `--testTimeout=20000`.** Os guardas que varrem disco (`SlugField`,
     `CategoryInspector`) cruzam o teto padrão de 5s sob a contenção da suíte cheia e reprovam por
     **timeout, nunca por asserção** — e o arquivo que reprova **muda a cada execução**. As duas
@@ -708,6 +774,12 @@ moram) recusa qualquer arquivo de `apps/**` que nomeie a chave de serviço ou aq
   senão a feature seguinte compara contra folga que não existe mais.)*
 - **`fetchStatusCounts` lê `orders` sem paginação** e herda o teto de 1.000 do PostgREST (`BL-008`).
   As contagens da fila de material entram no mesmo teto; corretas até 1.000 pedidos.
+  - **`AdminQuickGridPage.tsx:127` e `AdminProductsPage.tsx:173` têm o mesmo teto sobre `products`**,
+    e a `51` os deixou de fora por decisão de escopo — são caminho de importação de CSV, não de
+    seletor. O modo de falha é pior que uma contagem errada: as duas montam um `Set` de slugs para
+    recusar duplicata, e acima de 1.000 produtos o PostgREST corta **sem avisar**, a tela conclui que
+    o slug está livre e **cria a duplicata em silêncio**. São 702 produtos hoje. O conserto é
+    `readAllPages`, que já é o dono desta regra no repositório — foi o que a `51` usou no pool.
 - **`BL-009` está FECHADO** (feature `39`, T19). O motor de upload — validar, comprimir e gravar no
   Storage — saiu de `features/product-form/lib` para **`shared/lib/uploadImage.ts`**, porque três
   features o consomem (produto, Home e o banner do menu) e feature importando de feature é a

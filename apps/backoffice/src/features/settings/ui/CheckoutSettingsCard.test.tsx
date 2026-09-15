@@ -1,6 +1,9 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { formatPrice } from '@estrelinha/core/formatters'
 import { DEFAULT_CHECKOUT, type CheckoutSettings } from '@estrelinha/supabase/types/settings'
+import { PRODUCT_POOL_KEY } from '@/entities/product'
 import CheckoutSettingsCard, { DISCOUNT_RANGE_MESSAGE } from './CheckoutSettingsCard'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -19,14 +22,18 @@ vi.mock('@estrelinha/core/hooks/useStoreSettings', () => ({
 }))
 
 const products = [
-  { id: 'prod-1', name: 'Porta-pins de feltro', price: 24.9 },
-  { id: 'prod-2', name: 'Pin Gojo Satoru', price: 12.9 },
+  { id: 'prod-1', name: 'Porta-pins de feltro', slug: 'porta-pins', is_active: true, base_price: 24.9 },
+  { id: 'prod-2', name: 'Pin Gojo Satoru', slug: 'pin-gojo', is_active: true, base_price: 12.9 },
 ]
 let productList: typeof products = products
 
-vi.mock('@/entities/product', () => ({
-  useAdminProducts: () => ({ products: productList, loading: false }),
-}))
+// **Nenhum `vi.mock` do barril de produto, e isso é o estado final da feature 51.**
+//
+// Ele existiu durante a transição, dublando `useAdminProducts` para o card não baixar o catálogo
+// inteiro em cada caso. Com o card lendo `useProductPool`, o dublê passou a ser um mock TOTAL
+// disfarçado de parcial — e um mock total entregaria o `ProductSearchField` como `undefined`, com o
+// erro saindo no RENDER e a mensagem apontando para o componente em vez de para o mock (`L-030`).
+// Quem alimenta o card agora é o cache semeado em `renderCard`, logo abaixo.
 
 const toastMock = vi.fn()
 vi.mock('@estrelinha/ui/hooks/use-toast', () => ({ useToast: () => ({ toast: toastMock }) }))
@@ -60,14 +67,25 @@ beforeAll(() => {
 const discountInput = () => screen.getByLabelText('Desconto da oferta (%)')
 const saveButton = () => screen.getByRole('button', { name: /salvar altera/i })
 
-const openProductSelect = () => {
-  fireEvent.pointerDown(screen.getByRole('combobox', { name: 'Produto da oferta' }), {
-    button: 0,
-    ctrlKey: false,
-    pointerId: 1,
-    pointerType: 'mouse',
-  })
+/**
+ * O card, com o POOL semeado.
+ *
+ * `staleTime: Infinity` mantém o render síncrono e impede qualquer ida à rede — o dublê de supabase
+ * deste arquivo não conhece a leitura do pool, que tem dono e suíte próprios.
+ */
+const renderCard = () => {
+  const client = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity } } })
+  client.setQueryData(PRODUCT_POOL_KEY, productList)
+  return render(
+    <QueryClientProvider client={client}>
+      <CheckoutSettingsCard />
+    </QueryClientProvider>,
+  )
 }
+
+/** Digita na busca da oferta — o nome acessível continua sendo "Produto da oferta" (R7). */
+const procurar = (termo: string) =>
+  fireEvent.change(screen.getByLabelText('Produto da oferta'), { target: { value: termo } })
 
 beforeEach(() => {
   mutateAsync.mockReset().mockResolvedValue(undefined)
@@ -79,10 +97,12 @@ beforeEach(() => {
 
 describe('CheckoutSettingsCard — campos do order bump (BMP-06)', () => {
   it('exibe o toggle, o seletor de produto e o campo de percentual', () => {
-    render(<CheckoutSettingsCard />)
+    renderCard()
 
     expect(screen.getByRole('switch')).toBeInTheDocument()
-    expect(screen.getByRole('combobox', { name: 'Produto da oferta' })).toBeInTheDocument()
+    // **Retargetado na feature 51**: o controle deixou de ser um `<select>` de 702 itens e virou a
+    // busca compartilhada. O nome acessível é o mesmo — é ele que a AC promete, não o widget (R7).
+    expect(screen.getByLabelText('Produto da oferta')).toBeInTheDocument()
     expect(discountInput()).toBeInTheDocument()
   })
 
@@ -92,35 +112,77 @@ describe('CheckoutSettingsCard — campos do order bump (BMP-06)', () => {
       order_bump_product_id: 'prod-2',
       order_bump_discount_percent: 30,
     }
-    render(<CheckoutSettingsCard />)
+    renderCard()
 
     expect(screen.getByRole('switch')).toBeChecked()
     expect(discountInput()).toHaveValue(30)
-    expect(screen.getByRole('combobox', { name: 'Produto da oferta' })).toHaveTextContent(
-      'Pin Gojo Satoru',
-    )
+    // A peça escolhida aparece NOMEADA, e não como um id (`BUS-09`).
+    expect(screen.getByTestId('produto-escolhido')).toHaveTextContent('Pin Gojo Satoru')
   })
 
-  it('lista os produtos cadastrados como opções da oferta', async () => {
-    render(<CheckoutSettingsCard />)
+  it('a busca acha as peças cadastradas — em qualquer ordem (BUS-01)', () => {
+    renderCard()
 
-    openProductSelect()
+    procurar('feltro porta')
+    expect(screen.getByTestId('peca-prod-1')).toHaveTextContent('Porta-pins de feltro')
 
-    expect(await screen.findByRole('option', { name: /Porta-pins de feltro/ })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: /Pin Gojo Satoru/ })).toBeInTheDocument()
+    procurar('gojo')
+    expect(screen.getByTestId('peca-prod-2')).toHaveTextContent('Pin Gojo Satoru')
+  })
+
+  it('o preco da peca aparece na linha, formatado por `formatPrice` (A-07)', () => {
+    // O order bump e a UNICA das cinco telas com `mostrarPreco` ligado, e ela ja mostrava preco
+    // antes desta feature. O par que prova que ele nao e padrao esta na suite do componente.
+    renderCard()
+    procurar('porta')
+
+    // `textContent` cru, e não `toHaveTextContent`: o matcher NORMALIZA espaço, e `formatPrice`
+    // devolve o `R$` separado por espaço rígido (U+00A0). As duas strings pareceriam iguais no
+    // relatório e a comparação reprovaria sem dizer por quê.
+    expect(screen.getByTestId('preco-prod-1').textContent).toBe(formatPrice(24.9))
+  })
+
+  it('nenhum `<option>` nem `<SelectItem>` de catalogo sobra na tela (BUS-07, BUS-23)', () => {
+    renderCard()
+
+    expect(screen.queryByRole('combobox', { name: 'Produto da oferta' })).toBeNull()
+    expect(screen.queryAllByRole('option')).toHaveLength(0)
   })
 
   it('sem produto cadastrado avisa o admin em vez de mostrar lista vazia', () => {
     productList = []
-    render(<CheckoutSettingsCard />)
+    renderCard()
 
     expect(screen.getByText(/Nenhum produto cadastrado ainda/)).toBeInTheDocument()
   })
 })
 
+describe('CheckoutSettingsCard — "Nenhum produto" continua alcancavel (BUS-09)', () => {
+  it('sem peca escolhida, a tela DIZ isso — nao fica um campo mudo', () => {
+    renderCard()
+    expect(screen.getByTestId('sem-produto-da-oferta')).toHaveTextContent('Nenhum produto escolhido')
+  })
+
+  it('limpar a escolha grava `null` — o que a opcao "Nenhum produto" fazia', async () => {
+    settingsData.checkout = {
+      order_bump_enabled: true,
+      order_bump_product_id: 'prod-2',
+      order_bump_discount_percent: 30,
+    }
+    renderCard()
+
+    fireEvent.click(screen.getByTestId('limpar-produto'))
+    expect(screen.getByTestId('sem-produto-da-oferta')).toBeInTheDocument()
+
+    fireEvent.click(saveButton())
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalledTimes(1))
+    expect(mutateAsync.mock.calls[0][0].value.order_bump_product_id).toBeNull()
+  })
+})
+
 describe('CheckoutSettingsCard — salvar na chave checkout (BMP-01)', () => {
   it('salva o toggle ligado na chave `checkout`', async () => {
-    render(<CheckoutSettingsCard />)
+    renderCard()
 
     fireEvent.click(screen.getByRole('switch'))
     fireEvent.click(saveButton())
@@ -137,10 +199,10 @@ describe('CheckoutSettingsCard — salvar na chave checkout (BMP-01)', () => {
   })
 
   it('salva o produto escolhido pelo seletor', async () => {
-    render(<CheckoutSettingsCard />)
+    renderCard()
 
-    openProductSelect()
-    fireEvent.click(await screen.findByRole('option', { name: /Porta-pins de feltro/ }))
+    procurar('porta-pins')
+    fireEvent.click(screen.getByTestId('peca-prod-1'))
     fireEvent.click(saveButton())
 
     await waitFor(() => expect(mutateAsync).toHaveBeenCalledTimes(1))
@@ -148,7 +210,7 @@ describe('CheckoutSettingsCard — salvar na chave checkout (BMP-01)', () => {
   })
 
   it('salva o percentual de desconto digitado', async () => {
-    render(<CheckoutSettingsCard />)
+    renderCard()
 
     fireEvent.change(discountInput(), { target: { value: '35' } })
     fireEvent.click(saveButton())
@@ -158,7 +220,7 @@ describe('CheckoutSettingsCard — salvar na chave checkout (BMP-01)', () => {
   })
 
   it('confirma o salvamento para o admin', async () => {
-    render(<CheckoutSettingsCard />)
+    renderCard()
 
     fireEvent.click(saveButton())
 
@@ -169,7 +231,7 @@ describe('CheckoutSettingsCard — salvar na chave checkout (BMP-01)', () => {
 
   it('erro ao salvar é reportado em vez de passar por sucesso', async () => {
     mutateAsync.mockRejectedValue(new Error('permission denied'))
-    render(<CheckoutSettingsCard />)
+    renderCard()
 
     fireEvent.click(saveButton())
 
@@ -181,7 +243,7 @@ describe('CheckoutSettingsCard — salvar na chave checkout (BMP-01)', () => {
 
 describe('CheckoutSettingsCard — percentual fora de 1–99 é rejeitado', () => {
   it('0% exibe erro e não salva', async () => {
-    render(<CheckoutSettingsCard />)
+    renderCard()
 
     fireEvent.change(discountInput(), { target: { value: '0' } })
 
@@ -192,7 +254,7 @@ describe('CheckoutSettingsCard — percentual fora de 1–99 é rejeitado', () =
   })
 
   it('100% exibe erro e não salva', async () => {
-    render(<CheckoutSettingsCard />)
+    renderCard()
 
     fireEvent.change(discountInput(), { target: { value: '100' } })
 
@@ -203,7 +265,7 @@ describe('CheckoutSettingsCard — percentual fora de 1–99 é rejeitado', () =
   })
 
   it('campo vazio não salva desconto zerado por acidente', async () => {
-    render(<CheckoutSettingsCard />)
+    renderCard()
 
     fireEvent.change(discountInput(), { target: { value: '' } })
 
@@ -214,7 +276,7 @@ describe('CheckoutSettingsCard — percentual fora de 1–99 é rejeitado', () =
   })
 
   it('1% e 99% são aceitos (as bordas do intervalo)', async () => {
-    render(<CheckoutSettingsCard />)
+    renderCard()
 
     fireEvent.change(discountInput(), { target: { value: '1' } })
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()

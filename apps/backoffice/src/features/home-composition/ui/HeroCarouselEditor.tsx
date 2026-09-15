@@ -56,7 +56,6 @@ const HeroCarouselEditor = ({
   items,
   onItemsChange,
   categories,
-  products,
 }: SectionEditorProps) => {
   const largura = heroCarouselWidth(config)
 
@@ -308,7 +307,6 @@ const HeroCarouselEditor = ({
                     <DestinoDoItem
                       item={item}
                       categories={categories}
-                      products={products}
                       onChange={mudanca => patch(item.key, mudanca)}
                       rotulo={`Leva para · ${ordinal(indice + 1)} banner`}
                     />

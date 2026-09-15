@@ -20,18 +20,12 @@ import {
   menuIconKey,
   type MenuIconKey,
 } from '@estrelinha/core/menu'
+import { dobrarTexto } from '@/shared/lib/texto'
 
-/**
- * Sem acento e sem caixa — "gravacao" tem de achar "Gravação" (`NAV-48`).
- *
- * Local **de propósito**: a mesma dobra existe em `category-list`, `product-form`, `quick-grid` e
- * `bulk-edit`, e nenhuma delas é exportada — importá-la daqui seria um import feature→feature, que é
- * exatamente o que a T19 desta feature existiu para fechar. Unificar as cinco é dívida do
- * repositório, não desta task: elas são normalização de texto, não regra de domínio, e a decisão de
- * onde elas moram (um `shared/lib` do painel, ou `@estrelinha/core`) precisa valer para as cinco.
- */
-const dobrar = (valor: string) =>
-  valor.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+// `NAV-48` continua valendo — "gravacao" tem de achar "Gravação" —, e a dobra que o cumpre deixou
+// de morar aqui. O comentário que ela levava explicava por que era local: existia em cinco features
+// do painel, nenhuma exportada, e importar de uma delas seria import feature→feature. A feature 51
+// fechou isso levando-a para `shared/lib/texto`, a camada abaixo de todas.
 
 interface Props {
   /** O nome do item cujo ícone está sendo escolhido — o cabeçalho o cita. */
@@ -50,7 +44,7 @@ const MenuIconPicker = ({ itemName, value, onChange }: Props) => {
   const atual = menuIconKey(value)
 
   const [busca, setBusca] = useState('')
-  const termo = dobrar(busca.trim())
+  const termo = dobrarTexto(busca.trim())
 
   /**
    * `NAV-48` — o filtro casa o **rótulo e a chave**.
@@ -65,7 +59,7 @@ const MenuIconPicker = ({ itemName, value, onChange }: Props) => {
         ? MENU_ICON_KEYS
         : MENU_ICON_KEYS.filter(
             chave =>
-              dobrar(MENU_ICON_LABELS[chave]).includes(termo) || dobrar(chave).includes(termo),
+              dobrarTexto(MENU_ICON_LABELS[chave]).includes(termo) || dobrarTexto(chave).includes(termo),
           ),
     [termo],
   )

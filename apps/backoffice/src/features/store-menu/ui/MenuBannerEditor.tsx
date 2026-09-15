@@ -45,9 +45,9 @@ import {
   type MenuTarget,
 } from '@estrelinha/core/menu'
 import type { AdminCategory } from '@/entities/category'
+import { ProductSearchField, useProductsByIds } from '@/entities/product'
 import { uploadBannerImage } from '../lib/uploadBannerImage'
 import { bannersGravados } from '../model/bannersGravados'
-import { MINIMO_PARA_BUSCAR, useMenuProducts } from '../model/useMenuProducts'
 import { NOME_DA_SUPERFICIE } from '../model/superficie'
 
 const idDoAlvo = (target: MenuTarget | undefined): string =>
@@ -67,7 +67,6 @@ const MenuBannerEditor = ({ surface, host, categories, onSave }: Props) => {
   const [rascunho, setRascunho] = useState<MenuBanner[] | null>(null)
   const [recusa, setRecusa] = useState<string | null>(null)
   const [ocupado, setOcupado] = useState(false)
-  const [termo, setTermo] = useState('')
 
   // Trocar de entrada ou de dispositivo **descarta** o rascunho: mantê-lo faria a dona salvar num
   // banner o que ela digitou em outro, e nada em tela diria que isso aconteceu.
@@ -81,8 +80,20 @@ const MenuBannerEditor = ({ surface, host, categories, onSave }: Props) => {
   const pool = categories as unknown as MenuCategory[]
   const destinos = categories.filter(c => c.active)
 
-  const { resultados, porId, buscando } = useMenuProducts(
-    termo,
+  /**
+   * O nome e a `description` das peças que os banners **já apontam** (feature 51).
+   *
+   * A outra metade — *"quais peças casam com o que a dona digitou?"* — saiu daqui e virou o
+   * `ProductSearchField`, que é a mesma busca das outras quatro superfícies do painel. O que ela
+   * fazia antes era `ilike('name', '%termo%')` direto no Postgres, **sem dobrar acento**: digitar
+   * `coracao` devolvia 0 linhas e `coração` devolvia 106. Na Home a mesma digitação achava as 106,
+   * porque lá a dobra era feita no cliente. Duas escritas da mesma pergunta, discordando.
+   *
+   * Esta metade sobrevive porque responde outra coisa, e para no máximo quatro ids: é ela que
+   * alimenta o placeholder herdado do título e do texto (`NAV-32`), e a `description` só desce
+   * aqui — nunca para resultado de busca.
+   */
+  const { porId } = useProductsByIds(
     lista.filter(b => b.target?.kind === 'product').map(b => idDoAlvo(b.target)),
   )
   const produtos = Object.values(porId)
@@ -323,42 +334,20 @@ const MenuBannerEditor = ({ surface, host, categories, onSave }: Props) => {
                 )}
 
                 {kind === 'product' && (
-                  <div className="flex flex-col gap-1.5">
-                    <Input
-                      value={termo}
-                      placeholder="Procurar a peça pelo nome"
-                      aria-label="Procurar a peça de destino"
-                      onChange={e => setTermo(e.target.value)}
-                    />
-                    {termo.trim().length >= MINIMO_PARA_BUSCAR && (
-                      <div className="max-h-32 overflow-y-auto rounded-lg border border-border">
-                        {buscando && <p className="px-2 py-1.5 text-xs text-muted-foreground">procurando…</p>}
-                        {!buscando && resultados.length === 0 && (
-                          <p className="px-2 py-1.5 text-xs text-muted-foreground">
-                            nenhuma peça com esse nome
-                          </p>
-                        )}
-                        {resultados.map(produto => (
-                          <button
-                            key={produto.id}
-                            type="button"
-                            onClick={() => editar(indice, { target: { kind: 'product', id: produto.id } })}
-                            className={cn(
-                              'flex w-full items-center justify-between gap-2 px-2 py-1.5 text-left text-xs hover:bg-muted/40',
-                              idDoAlvo(alvo) === produto.id && 'bg-primary/5 font-semibold',
-                            )}
-                          >
-                            <span className="truncate">{produto.name}</span>
-                            {produto.is_active === false && (
-                              <span className="shrink-0 text-[10px] text-estrelinha-admin-amber">
-                                inativa — não aparece
-                              </span>
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                  <ProductSearchField
+                    id={`banner-peca-${indice}`}
+                    rotulo={`Peça de destino do banner ${indice + 1}`}
+                    modo="unico"
+                    escolhido={idDoAlvo(alvo) || null}
+                    // Só aparece quando a peça NÃO está mais no catálogo: o nome do pool vence o
+                    // congelado enquanto ela existe. Sem isto o campo ficaria em branco, e a dona
+                    // não teria como distinguir "nada escolhido" de "a peça saiu do ar".
+                    nomeEscolhido={idDoAlvo(alvo) ? 'peça que não está mais no catálogo' : null}
+                    onEscolher={produto =>
+                      editar(indice, { target: { kind: 'product', id: produto.id } })
+                    }
+                    onLimpar={() => editar(indice, { target: { kind: 'product', id: '' } })}
+                  />
                 )}
 
                 {kind === 'url' && (

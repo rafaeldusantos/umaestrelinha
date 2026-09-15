@@ -381,9 +381,10 @@ migrations, e `vercelRedirects` lê o `vercel.json`.
 | `icons.test.ts` | store `shared/lib/__tests__` (varre `packages/ui/src/icons`) | ícone fora da grade `0 0 24 24`; escala × traço ≠ 1,5; cor fora de `ICON_ACCENT`; ícone que não chegou ao barrel. **Mora na suíte da loja porque `packages/ui` não tem runner** — guarda que não roda é pior que guarda nenhum |
 | `paths.test.ts` | store `shared/ui/brand/__tests__` | `paths.ts` divergir do SVG-fonte em um caractere; dois `<path>` do mesmo SVG com a mesma espessura |
 | `previaUnica.test.ts` | backoffice `features/home-composition` | um segundo desenho da Home, do MENU **ou do CARROSSEL** voltar ao painel; `MenuBarPreview.tsx` reaparecer; um arquivo de `store-menu` importar `menuPanelColumns` ou `resolveMenuBanners` (calcular o desenho do painel da loja **é** o segundo desenho); qualquer dos dois importar de `apps/store`. **Cobre as features `25`, `39`, `41` e `47`**, com âncora dupla e sensor de CRLF/LF. A régua do carrossel é a **mecânica** (`snap-x`, `scroll-snap`, `aria-roledescription="carrossel"`, `setInterval`), não o nome do arquivo — "só uma mini-prévia para conferir a ordem dos banners" é o pedido razoável que traz o defeito de volta. **Desde a `47`** também recusa a tela cheia virando prévia nova: arquivo `…Preview` novo nas duas pastas de UI, um segundo `<iframe>` em qualquer arquivo, ou o palco ramificando por tipo de seção dentro do modo. O sensor **cria um palco sintético em `mkdtemp` e chama a régua de verdade** — simular o que ela devolveria não prova régua nenhuma |
-| `animacaoRespeitaMovimento.test.ts` | backoffice `shared/lib/__tests__` | uma classe de `transition-*` ou `animate-*` sem o par `motion-reduce:` **na mesma linha**, em qualquer dos **oito** arquivos de UI que a `50` tocou. A régua é de **token exato** (`(?![-\w])`, `L-034`): `animate-spin` é dispensado — é indicador de progresso, não enfeite, e congelá-lo apagaria o único sinal de que a gravação está em curso —, mas `animate-spinner` e `animate-spin-slow` **são acusados**. **Âncora TRIPLA** (arquivos lidos · tokens de movimento encontrados · pares encontrados) e sete sensores: a classe sem par reprova e com par passa, `hover:` na frente não desculpa, `transition` pelado é acusado, a prosa que explica a regra **não** é (com CRLF **e** com LF), e o par a três linhas de distância não cobre nada. **O escopo é literal e estreito de propósito** — ver a dívida em *Estado conhecido* |
+| `animacaoRespeitaMovimento.test.ts` | backoffice `shared/lib/__tests__` | uma classe de `transition-*` ou `animate-*` sem o par `motion-reduce:` **na mesma linha**, em qualquer dos **nove** arquivos de UI em escopo — os oito que a `50` tocou mais o `ProductSearchField` da `51`, que **entrou na mesma task em que nasceu**, com as âncoras de contagem subidas junto (8/4 → 14/7). A régua é de **token exato** (`(?![-\w])`, `L-034`): `animate-spin` é dispensado — é indicador de progresso, não enfeite, e congelá-lo apagaria o único sinal de que a gravação está em curso —, mas `animate-spinner` e `animate-spin-slow` **são acusados**. **Âncora TRIPLA** (arquivos lidos · tokens de movimento encontrados · pares encontrados) e sete sensores: a classe sem par reprova e com par passa, `hover:` na frente não desculpa, `transition` pelado é acusado, a prosa que explica a regra **não** é (com CRLF **e** com LF), e o par a três linhas de distância não cobre nada. **O escopo é literal e estreito de propósito** — ver a dívida em *Estado conhecido* |
 | `layoutDoCarrossel` (`ProductCarouselLayout.test.tsx`) | store `widgets/product-carousel/ui/__tests__` | as três formas do `ProductCarousel` (`row`, `slider`, `grid`) saírem de mais de um mapa, ou uma delas mudar de classe. `row` é a Home de hoje e é **imóvel** (`HOME-04`); `slider` rola nos dois tamanhos e `grid` embrulha em 2 colunas no celular e 4 a partir de `md`. Régua por **token exato**, com asserção positiva no celular **e** no `md` (`L-029`) — sem as duas, a metade fácil provaria a AC inteira |
 | `toNewItems.test.ts` | backoffice `features/home-composition/model/__tests__` | um campo **de tela** do rascunho (`key`, `product_slug`) chegar ao `insert`. A régua é **igualdade de chaves** com as sete colunas, nunca "contém as sete": uma régua de presença aprova o oitavo campo, que é exatamente o que ela existe para recusar. É o modo de falha do `AD-012` — `PGRST204` em produção, com a curadoria inteira perdida e nada na tela —, invisível para `tsc` (as sete colunas são opcionais), para o `build` e para o teste do editor, que mocka o client |
+| `buscaDeProdutoComDonoUnico.test.ts` | backoffice `shared/lib/__tests__` | **três réguas, ZERO allowlist** (feature `51`, `AD-036`). (1) qualquer arquivo de `apps/backoffice/src/**` fora de `entities/product/api/**` consultar `products` **filtrando por nome** — e a régua casa **as duas formas**, porque o dono não usa a que a spec presumia: ele monta `` `name.ilike.%…%` `` como **string** para o `.or()`, e a chamada de método que existe no arquivo é sobre `sku`. Uma régua só de método teria nascido **verde sobre nada** (`L-033`). O recorte à esquerda é por token exato, senão `customer_name.ilike.` — a busca de PEDIDO, legítima — cairia junto (`L-034`). (2) a **declaração** da dobra de busca fora de `shared/lib/texto.ts`: a régua **caminha pela cadeia de chamadas** e acusa a que **termina** no acento — o gerador de slug e a normalização de tag continuam depois dele (hífen, espaço) e são outra função, e o sensor prova que um slug que perca a junção por hífen **volta a ser acusado**. (3) o catálogo virando `<option>`/`<SelectItem>` fora de `entities/product/**`; **o alcance desta terceira é o NOME da variável, e isso está declarado no arquivo** — uma régua puramente estrutural acusaria as doze listas de categoria do painel, que têm a forma idêntica. **Âncora dupla**, com a terceira ancorada no extrator de JSX (o dono é `<ul>` de `<li>` por `BUS-17`, então não há ocorrência legítima nele — fingir uma seria âncora falsa), e **treze sensores**, incluindo o glob de dois asteriscos (`BL-027`), o CRLF, o LF, e os inversos que provam que a busca de pedido, o gerador de slug e as listas de categoria **não** são acusados |
 | `navItems.test.ts` | backoffice `widgets/admin-layout` | ordem das rotas em `App.tsx` divergir de `navGroups` |
 | `focusRoutes.test.ts` | idem | rota de foco que não é destino de `navGroups` — o trilho recolheria sem saber qual ícone acender; `/admin/homologacao` passar a contar como Home por prefixo cru |
 | `navRail.test.ts` | idem | recolher passar a **gravar** em vez de apagar a chave (a ausência deixaria de significar "siga o padrão"); valor de lixo virar um terceiro estado; `localStorage` que lança derrubar a navegação; o trilho **tocar** na chave do `navCollapse` — as duas preferências têm donos separados |
@@ -421,9 +422,89 @@ quando mudarem de verdade.
 
 | Medida | Baseline | Como medir |
 | --- | --- | --- |
-| **Lint** | **27 erros / 6 warnings** — backoffice 25/4 · store 2/2 | `pnpm lint` |
+| **Lint** | **26 erros / 6 warnings** — backoffice 24/4 · store 2/2 | `pnpm lint` |
 | **Tipos** | **0 · 0 · 0** (store · backoffice · catalog-import) | `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` |
-| **Testes** | **9377 em 486 arquivos** — store **3371/218** · backoffice **2539/140** · core **2356/92** · functions **599/13** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
+| **Testes** | **9554 em 494 arquivos** — store **3376/218** · backoffice **2711/148** · core **2356/92** · functions **599/13** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
+
+**A feature `51` (a busca de produto do painel, com dono único) somou +172 em UM workspace**,
+medidos em 2026-09-14/15 um por vez, com exit code capturado fora de pipe e `--testTimeout=20000` na
+loja e no painel: **backoffice 2539/140 → 2711/148** (a dobra com dono, a régua pura, os dois hooks
+de leitura, o componente compartilhado, as cinco superfícies, o guarda novo, e os **+7 que a
+verificação independente cobrou**). Os outros quatro
+**não foram tocados e foram remedidos assim mesmo**, e os quatro vieram **idênticos** — store
+3376/218, core 2356/92, functions 599/13, catalog-import 512/23. Tipos em **0 · 0**, `pnpm build`
+verde nos dois apps, e `packages/core/src/payment/**` e `supabase/**` sem uma linha alterada
+(`git diff --name-only` e `git status --porcelain` = zero arquivos).
+
+> **A verificação independente devolveu PASS, e mesmo assim cobrou +7 — os dois buracos que ela
+> nomeou são a assinatura de sempre: a asserção verdadeira nos DOIS mundos.**
+>
+> - **`BUS-16` era mais larga que a implementação.** A AC diz "criado, alterado ou apagado **pelo
+>   painel**", e os três caminhos de **lote** — import de CSV, edição em massa e grade rápida —
+>   gravam em `products` sem passar por `createProduct`. Eles reliam a **listagem**, que não é o
+>   pool, e por até `PRODUCT_POOL_STALE_TIME` as cinco telas de busca ficariam sem as peças
+>   recém-importadas, sem nada em tela dizendo por quê. A régua nova é a **chave** invalidada, nunca
+>   "`invalidateQueries` foi chamado": invalidar a chave errada chamaria o método do mesmo jeito.
+> - **`BUS-26` não tinha asserção própria, e o comentário do dublê AFIRMAVA que tinha.** Ele dizia
+>   que devolver o `products` à página do produto "cairia no render"; o verificador fez exatamente
+>   isso e a suíte ficou **14/14 verde** — aqueles casos nunca abriam a aba *Relacionados*, então
+>   `products={undefined}` não chegava a renderizar nada. Quem prendia a regressão era só o `tsc`.
+>   **Comentário que afirma sensibilidade inexistente é pior que comentário nenhum**, porque ele
+>   encerra a investigação. Três casos novos abrem a aba e semeiam o pool com uma peça que o dublê
+>   **não** devolve — ver a peça é ver o pool —, e a mutação foi reinjetada no arquivo real: os 3
+>   novos caem e os **14 antigos seguem verdes**, que é a medida exata da cegueira deles.
+>
+> **E a correção quase custou o dobro do que comprou**: pôr `useQueryClient()` em
+> `useAdminProductList` derrubou **22 casos em 2 arquivos** com `No QueryClient set` — *no render, e
+> não na asserção*, que é a `L-030` do projeto acontecendo com quem tinha acabado de avisar sobre
+> ela. Em produção nunca falta (o `App.tsx` embrulha o painel inteiro); o que faltava era o provedor
+> no `renderHook`. E o caso novo da aba precisou de **`fireEvent.mouseDown`, não `click`**: o
+> `TabsTrigger` do Radix troca de aba no `onMouseDown`, e `click` não dispara mousedown — a aba não
+> mudava e o caso reprovava por "não achei o rótulo", que se lê como defeito do componente errado.
+
+> **O LINT CAIU de 27/6 para 26/6, e a queda tem causa nomeada.** O erro que sumiu é o
+> `no-explicit-any` de `data.map((p: any) => …)` em `useAdminProducts.ts` — o mapeamento do catálogo
+> inteiro, que **deixou de existir** quando o hook parou de carregá-lo (`BUS-27`). Baseline que cai
+> também precisa ser anotada: senão a feature seguinte compara contra folga que não existe mais.
+
+> **O número do STORE inclui trabalho de OUTRA sessão, e isso precisa estar escrito.** A `51` não
+> encostou em `apps/store/**`; as bandeiras de pagamento do rodapé (`Footer.tsx`, `Footer.test.tsx`,
+> `public/pagamentos/`) estavam na árvore sem commit quando esta feature correu. O 3376/218 é o mesmo
+> número que a linha acima já registrava — **idêntico, não somado** —, mas quem ler o delta desta
+> feature não deve atribuir aquele trabalho a ela.
+
+> **A suíte da LOJA reprovou por causa de um arquivo do PAINEL, e o achado é de método.**
+> `brandScan.test.ts` varre `apps/`, `packages/` e `supabase/` — inclusive **testes** —, e o caso que
+> prova que a dobra alcança o `ñ` usava `dobrarTexto('Mañana')`, cuja saída **contém a marca
+> anterior** como substring. O caso trocou de palavra e continua provando exatamente a mesma coisa.
+> A regra prática: **o gate de uma feature do painel inclui a suíte da loja**, porque os guardas de
+> lá varrem os dois apps — e um workspace verde não é o gate.
+
+> **O filtro de nome do dono NÃO tinha a forma que a spec presumiu, e uma régua ingênua teria
+> nascido verde sobre nada.** `useAdminProducts` monta `` `name.ilike.%…%` `` como **string** para o
+> `.or()` do PostgREST; a chamada de método que existe naquele arquivo é sobre `sku`, em
+> `product_variants`. Um guarda que só casasse `.ilike('name'` varreria o painel inteiro, encontraria
+> **zero** e passaria — num guarda cuja asserção é uma ausência, isso não reprova: **aprova em
+> silêncio**. É `L-033` de novo (régua por comando, nunca uma para a família), e o conserto foi casar
+> as duas formas com sensor para cada. O recorte à esquerda é por token exato, senão
+> `customer_name.ilike.` — a busca de PEDIDO, legítima — cairia junto (`L-034`).
+
+> **`BUS-23` foi ESCRITA, e o alcance dela está declarado em vez de escondido.** A régua que recusa
+> o catálogo virando `<option>`/`<SelectItem>` é ancorada no **nome** da variável, não na estrutura:
+> uma régua estrutural ("uma iteração produzindo uma opção") acusaria as **doze** listas legítimas de
+> categoria e de coleção do painel, que têm a forma idêntica, e um guarda que nasce reprovando doze
+> vezes é um guarda que alguém desliga. **E a âncora dela não pôde ser a de sempre**: o dono é `<ul>`
+> de `<li>` por exigência de `BUS-17`, então não existe ocorrência legítima dentro dele — inventar
+> uma para satisfazer a forma da âncora seria uma âncora falsa. Ela é ancorada no **extrator de
+> JSX**, que precisa continuar enxergando as doze listas que ela tem de NÃO acusar.
+
+**As bandeiras de pagamento do rodapé somaram +5 no store**, medidos em 2026-09-14 com exit code
+capturado fora de pipe e `--testTimeout=20000`: **3371/218 → 3376/218**, no arquivo que já guardava o
+rodapé (`Footer.test.tsx`, 20 → 25). Os outros quatro workspaces **não foram tocados e não foram
+remedidos** — a linha da tabela é a soma de um número medido com quatro de 2026-09-14. Lint ficou em
+**2/2** no store e tipos em **0**; `pnpm build` verde, e os três guardas novos tiveram a sensibilidade
+provada por **injeção real no arquivo real** (o CDN de volta em `PAYMENTS`, o Hipercard na fileira, e
+o `loading="lazy"` removido), cada um derrubando **só** o caso que o nomeia.
 
 > ⚠️ **O `--` antes da flag ENGOLE a flag, e a suíte volta ao teto de 5 s sem avisar.** Medido na
 > verificação da `50`: `pnpm --filter <ws> test -- --testTimeout=20000` repassa o `--` **literal** ao
@@ -1296,6 +1377,35 @@ completo (framework, `installCommand` na raiz do monorepo, headers de cache e de
 
 ## Estado conhecido / dívidas
 
+- **AS TRÊS CÓPIAS DE `slugify` DO PAINEL CONTINUAM TRÊS, e a `51` não as unificou de propósito.**
+  Ela levou a **dobra de busca** para `shared/lib/texto.ts` e deixou lá as sete outras ocorrências de
+  `normalize('NFD')`: os três `slugify` (`CategoryFormDialog`, `CsvImportDialog`,
+  `AdminProductFormPage` — e mais dois quase iguais em `quickGrid` e `buildDuplicates`),
+  `normalizeTag` e o gerador de id do `AdminLayout`. **Não são a mesma função**: elas dobram o
+  acento **e continuam** — juntam por hífen, recortam o que não é letra —, e o que produzem é
+  **endereço**, não termo de busca. Endereço que muda quebra link, então unificá-las é decisão sobre
+  geração de slug e merece a própria feature. O guarda da `51` **distingue as duas por construção**
+  (ele acusa a cadeia que *termina* no acento) e tem sensor provando que um `slugify` que perdesse a
+  junção por hífen voltaria a ser acusado — ou seja, a fronteira está medida, não suposta. O risco
+  aberto é o de sempre: cinco escritas do mesmo recorte divergem sem nada quebrar, e a divergência
+  aparece como dois slugs diferentes para o mesmo nome.
+- **`AdminQuickGridPage.tsx:127` lê `products` SEM `range` e SEM `count`**, e ficou **fora** da `51`
+  por decisão de escopo — é caminho de importação de CSV, não de seletor, e é da família `BL-008`. O
+  modo de falha está medido e é silencioso: a checagem de slug duplicado monta um `Set` com
+  `select('slug')`, e passando de **1.000 produtos** o PostgREST corta sem avisar. A partir dali a
+  tela deixa de enxergar parte do catálogo, conclui que o slug está livre e **cria duplicata** — sem
+  erro em lugar nenhum. São 702 produtos hoje, 298 de distância. `AdminProductsPage.tsx:173` tem a
+  mesma leitura e o mesmo teto. O conserto é `readAllPages`, que já existe e já é o dono desta regra.
+- **A `51` NÃO tem prova em navegador**, e ela entra na fila de `32`…`50`. O que a feature entrega é
+  **campo, lista e largura** — e jsdom devolve 0 para toda medida de layout, então cada asserção da
+  suíte é proxy de forma (classe declarada, atributo, presença de nó). A lista do que falta está em
+  *O que só o navegador prova*, no `design.md` dela, e em 390×844 e 1440 é: o campo de busca dentro
+  da coluna de edição de **560px** de `/admin/home`, com a lista de 20 abaixo; os chips de "Produtos
+  relacionados" embrulhando com nomes longos; o `ProductSearchField` do `DestinoDoItem` **dentro** de
+  um slide do carrossel, que já é um cartão aninhado; o alvo de 44px sob o dedo em cada linha de
+  resultado; a ausência de rolagem horizontal do corpo nas cinco telas; e — que é o percurso que
+  motivou a feature — acrescentar 12 peças ao bloco **Produtos em destaque** **sem a prévia
+  recarregar**, que é o que a `50` entregou e que a troca do seletor não pode devolver.
 - **O BLOCO "PRODUTOS EM DESTAQUE" NASCE INEXISTENTE, e montá-lo é passo de operação** (feature
   `50`). **Não há migration**: nada foi semeado, nenhuma Home muda no deploy. Para a vitrine de
   campanha existir, a Adri precisa, em `/admin/home`: acrescentar o bloco **"Produtos em destaque"**

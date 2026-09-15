@@ -5,6 +5,8 @@
 // aconteceu — a recusa vive no caminho de gravação, não num campo vermelho.
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   HERO_CAROUSEL_MAX_SLIDES,
@@ -14,6 +16,7 @@ import {
   type HomeSectionItem,
 } from '@estrelinha/core/home'
 import type { AdminCategory } from '@/entities/category'
+import { PRODUCT_POOL_KEY } from '@/entities/product'
 
 const upload = vi.hoisted(() => ({ uploadHomeImage: vi.fn() }))
 vi.mock('../lib/uploadHomeImage', () => upload)
@@ -58,6 +61,19 @@ const slide = (over: Partial<HomeSectionItem> = {}): HomeSectionItem => ({
 
 const onSave = vi.fn().mockResolvedValue(null)
 
+/**
+ * O palco de React Query, com o POOL semeado (feature 51).
+ *
+ * O ramo *Produto* do `DestinoDoItem` virou o `ProductSearchField`, que lê o pool compartilhado de
+ * `entities/product`. Sem o provedor, abrir esse ramo lança "No QueryClient set" no RENDER, e não
+ * na asserção (`L-030`). Semeado e com `staleTime: Infinity`, o render fica síncrono.
+ */
+const Palco = ({ children }: { children: ReactNode }) => {
+  const client = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity } } })
+  client.setQueryData(PRODUCT_POOL_KEY, PRODUTOS.map(p => ({ ...p, base_price: 189 })))
+  return <QueryClientProvider client={client}>{children}</QueryClientProvider>
+}
+
 const renderEditor = (over: Partial<HomeSection> = {}) => {
   const section: HomeSection = {
     id: 'carrossel',
@@ -69,6 +85,7 @@ const renderEditor = (over: Partial<HomeSection> = {}) => {
     ...over,
   }
   return render(
+    <Palco>
     <HomeSectionEditor
       entry={{
         section,
@@ -83,7 +100,8 @@ const renderEditor = (over: Partial<HomeSection> = {}) => {
       saving={false}
       onCancel={vi.fn()}
       onSave={onSave}
-    />,
+    />
+    </Palco>,
   )
 }
 
@@ -462,13 +480,20 @@ describe('o bloco sem banner nenhum (BNR-29)', () => {
 
 describe('o destino do banner (BNR-08, BNR-09)', () => {
   it('oferece os três modos: coleção, peça e endereço da loja', () => {
+    // **Retargetado na feature 51.** O ramo da peça continua, e o que saiu do `<select>` foi o
+    // CATÁLOGO: uma `<option>` por produto, sem busca, que a dona precisava rolar inteira (`A-12`,
+    // `BUS-07`). O par abaixo mede as duas metades — o ramo está, a lista não.
     renderEditor({ items: [slide()] })
     const seletor = screen.getByLabelText('Leva para · 1º banner') as HTMLSelectElement
-    const opcoes = Array.from(seletor.querySelectorAll('option')).map(o => o.textContent)
+    const opcoes = Array.from(seletor.querySelectorAll('option'))
+    const textos = opcoes.map(o => o.textContent)
 
-    expect(opcoes).toContain('Coleção · Joias com leite materno')
-    expect(opcoes).toContain('Produto · Pingente Gota')
-    expect(opcoes).toContain('Outro endereço da loja…')
+    expect(textos).toContain('Coleção · Joias com leite materno')
+    expect(textos).toContain('Produto…')
+    expect(textos).toContain('Outro endereço da loja…')
+
+    expect(textos).not.toContain('Produto · Pingente Gota')
+    expect(opcoes.map(o => o.value).some(v => v.startsWith('prod:'))).toBe(false)
   })
 
   it('escolher a coleção grava UM destino e zera os outros dois', () => {
@@ -490,13 +515,20 @@ describe('o destino do banner (BNR-08, BNR-09)', () => {
     renderEditor({ items: [slide()] })
 
     fireEvent.change(screen.getByLabelText('Leva para · 1º banner'), {
-      target: { value: 'prod:prod-1' },
+      target: { value: '__produto' },
     })
+    fireEvent.change(screen.getByLabelText('Leva para · 1º banner · qual peça'), {
+      target: { value: 'gota' },
+    })
+    fireEvent.click(screen.getByTestId('peca-prod-1'))
     salvar()
 
     return waitFor(() => {
       expect(gravado().items[0].product_id).toBe('prod-1')
       expect(gravado().items[0].category_id).toBeNull()
+      // `BUS-19` — o slug e o rótulo são congelados JUNTO com a escolha, também no carrossel.
+      expect(gravado().items[0].product_slug).toBe('pingente-gota')
+      expect(gravado().items[0].label_snapshot).toBe('Pingente Gota')
     })
   })
 

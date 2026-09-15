@@ -9,17 +9,17 @@ import { useEffect, useState } from 'react'
 import { Loader2, Save, Sparkles } from 'lucide-react'
 import { Input } from '@estrelinha/ui/input'
 import { Button } from '@estrelinha/ui/button'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@estrelinha/ui/select'
 import { useToast } from '@estrelinha/ui/hooks/use-toast'
-import { formatPrice } from '@estrelinha/core/formatters'
 import { useStoreSettings, useUpdateSettings } from '@estrelinha/core/hooks/useStoreSettings'
 import { DEFAULT_CHECKOUT, type CheckoutSettings } from '@estrelinha/supabase/types/settings'
 import { FormCard, FieldGroup, ToggleField } from '@/shared/ui'
-import { useAdminProducts } from '@/entities/product'
+import { ProductSearchField, useProductPool } from '@/entities/product'
 
 /** Fora de 1–99 o desconto não faz sentido: 0 não desconta e 100 daria o produto de graça. */
 export const DISCOUNT_RANGE_MESSAGE = 'O desconto precisa ficar entre 1% e 99%.'
-export const NO_PRODUCT_OPTION = 'none'
+// `NO_PRODUCT_OPTION` saiu com o `<Select>` (feature 51): era o valor-sentinela da opção "Nenhum
+// produto" daquela lista, e sem a lista ele não nomeia mais nada. O estado continua alcançável pelo
+// controle de limpar do campo de busca.
 
 const isDiscountValid = (percent: number) =>
   Number.isInteger(percent) && percent >= 1 && percent <= 99
@@ -27,7 +27,10 @@ const isDiscountValid = (percent: number) =>
 const CheckoutSettingsCard = () => {
   const { data, isLoading } = useStoreSettings()
   const update = useUpdateSettings()
-  const { products, loading: loadingProducts } = useAdminProducts()
+  // **Feature 51**: o `<Select>` de 702 `<SelectItem>` virou a busca compartilhada (`BUS-07`). O
+  // pool entra aqui só para responder "a loja já tem alguma peça cadastrada?" — é a MESMA chave que
+  // o campo abaixo lê, então continua sendo **uma** requisição (`BUS-20`).
+  const { produtos, carregando: carregandoProdutos } = useProductPool()
   const { toast } = useToast()
 
   const [checkout, setCheckout] = useState<CheckoutSettings>(DEFAULT_CHECKOUT)
@@ -80,37 +83,44 @@ const CheckoutSettingsCard = () => {
         onChange={(v) => setCheckout({ ...checkout, order_bump_enabled: v })}
       />
 
-      <FieldGroup
-        label="Produto da oferta"
-        hint="Um produto complementar e baratinho converte melhor que um item caro."
-      >
-        <Select
-          value={checkout.order_bump_product_id ?? NO_PRODUCT_OPTION}
-          onValueChange={(v) =>
-            setCheckout({
-              ...checkout,
-              order_bump_product_id: v === NO_PRODUCT_OPTION ? null : v,
-            })
+      {/* Sem `FieldGroup` aqui, e de propósito: o campo já desenha o próprio `<label>` com este
+          texto, e o `<Label>` do grupo o repetiria — dois rótulos com a mesma frase para um
+          controle só. O nome acessível continua sendo exatamente "Produto da oferta" (R7). */}
+      <div className="space-y-1.5">
+        <ProductSearchField
+          id="order-bump-produto"
+          rotulo="Produto da oferta"
+          modo="unico"
+          // A única tela do painel que liga o preço, e ela o mostrava antes desta feature: tirá-lo
+          // seria regressão de algo que a busca não foi chamada para piorar (`A-07`).
+          mostrarPreco
+          escolhido={checkout.order_bump_product_id}
+          placeholder="procure a peça da oferta pelo nome"
+          onEscolher={(produto) =>
+            setCheckout({ ...checkout, order_bump_product_id: produto.id })
           }
-        >
-          <SelectTrigger aria-label="Produto da oferta">
-            <SelectValue placeholder="Selecione um produto" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={NO_PRODUCT_OPTION}>Nenhum produto</SelectItem>
-            {products.map((p) => (
-              <SelectItem key={p.id} value={p.id}>
-                {p.name} — {formatPrice(p.price ?? 0)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {!loadingProducts && products.length === 0 && (
+          // O "Nenhum produto" do `<Select>` antigo era uma opção da lista; aqui ele é o caminho de
+          // volta do modo único (`BUS-09`). O estado continua alcançável — muda o controle, não a
+          // escolha que a dona pode fazer.
+          onLimpar={() => setCheckout({ ...checkout, order_bump_product_id: null })}
+        />
+
+        {checkout.order_bump_product_id === null && (
+          <p data-testid="sem-produto-da-oferta" className="text-xs text-muted-foreground">
+            Nenhum produto escolhido — a oferta não aparece no checkout.
+          </p>
+        )}
+
+        {!carregandoProdutos && produtos.length === 0 && (
           <p className="text-xs text-muted-foreground">
             Nenhum produto cadastrado ainda — crie um produto para poder oferecê-lo.
           </p>
         )}
-      </FieldGroup>
+
+        <p className="text-xs text-muted-foreground">
+          Um produto complementar e baratinho converte melhor que um item caro.
+        </p>
+      </div>
 
       <FieldGroup label="Desconto da oferta (%)" htmlFor="order-bump-discount">
         <Input

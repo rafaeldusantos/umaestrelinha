@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
+import { PRODUCT_POOL_KEY } from '@/entities/product'
 
 // PFM-01 (P1.3 AC 1): "SHALL exibir 5 abas — Geral · Mídia · Preços & variações · SEO ·
 // Relacionados — e a aba `Variações` SHALL não existir mais".
@@ -13,9 +15,22 @@ vi.mock('@estrelinha/supabase/client', () => ({
     }),
   },
 }))
+/**
+ * O dublê **não devolve `products`** — e isso é a asserção de `BUS-26`, não economia.
+ *
+ * Até a feature 51 este hook carregava o catálogo inteiro na montagem, e os dois seletores desta
+ * página (produtos relacionados e compre junto) liam a lista dele. Hoje quem responde "quais peças
+ * existem" é `useProductPool`, e o hook ficou só com a escrita.
+ *
+ * **O dublê sozinho NÃO prova `BUS-26`, e afirmar que provava era o defeito.** A verificação
+ * independente da feature 51 devolveu o `products` a esta página e a suíte ficou **14/14 verde**:
+ * os casos daqui nunca abriam a aba *Relacionados*, então `products={undefined}` não chegava a
+ * renderizar nada. Quem prendia a regressão era só o `tsc`. O caso de `BUS-26` abaixo é o que
+ * fecha isso — ele abre a aba e semeia o pool com uma peça que este dublê **não** devolve, de modo
+ * que ver a peça é ver o pool.
+ */
 vi.mock('@/entities/product/api/useAdminProducts', () => ({
   useAdminProducts: () => ({
-    products: [],
     createProduct: vi.fn().mockResolvedValue(undefined),
     updateProduct: vi.fn().mockResolvedValue(undefined),
   }),
@@ -43,12 +58,25 @@ vi.mock('@estrelinha/ui/hooks/use-toast', () => ({ toast: vi.fn() }))
 
 import AdminProductFormPage from './AdminProductFormPage'
 
-const renderPage = () =>
-  render(
-    <MemoryRouter initialEntries={['/admin/produtos/novo']}>
-      <AdminProductFormPage />
-    </MemoryRouter>,
+/**
+ * O palco de React Query, com o POOL semeado (feature 51).
+ *
+ * A aba *Relacionados* deixou de receber o catálogo por prop: os dois seletores leem o pool
+ * compartilhado de `entities/product`. Sem o provedor, abrir a aba lança "No QueryClient set" no
+ * RENDER, e não na asserção (`L-030`) — e com `staleTime: Infinity` nenhuma requisição sai, o que
+ * importa aqui porque o dublê de supabase deste arquivo não conhece a leitura do pool.
+ */
+const renderPage = (pool: unknown[] = []) => {
+  const client = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity } } })
+  client.setQueryData(PRODUCT_POOL_KEY, pool)
+  return render(
+    <QueryClientProvider client={client}>
+      <MemoryRouter initialEntries={['/admin/produtos/novo']}>
+        <AdminProductFormPage />
+      </MemoryRouter>
+    </QueryClientProvider>,
   )
+}
 
 beforeEach(() => {
   window.sessionStorage.clear()
@@ -202,5 +230,47 @@ describe('AdminProductFormPage — cabeçalho e checklist', () => {
 
     expect(screen.getByRole('button', { name: /Nome do produto/ })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Ao menos uma imagem/ })).toBeInTheDocument()
+  })
+})
+
+/**
+ * `BUS-26` — a aba *Relacionados* é alimentada pelo POOL, e não pelo catálogo de `useAdminProducts`.
+ *
+ * A régua é a **origem do dado**, não a presença do seletor: o dublê de `useAdminProducts` no topo
+ * deste arquivo não devolve `products`, então uma peça que aparece na busca só pode ter vindo do
+ * pool semeado aqui. É o que faz o caso ser falso no mundo mutado — devolver `products` à página
+ * entrega `undefined` aos dois seletores, e a peça some.
+ */
+describe('AdminProductFormPage — a aba Relacionados lê o pool (BUS-26)', () => {
+  const PECA = { id: 'p-pool', name: 'Colar de Cinzas', slug: 'colar-de-cinzas', is_active: true, base_price: 190 }
+
+  const abrirRelacionados = async () => {
+    renderPage([PECA])
+    await waitFor(() => expect(screen.getByRole('tab', { name: /Geral/ })).toBeInTheDocument())
+    // **`mouseDown`, e nao `click`.** O `TabsTrigger` do Radix troca de aba no `onMouseDown`, e
+    // `fireEvent.click` NAO dispara mousedown — a aba nao mudaria e os tres casos abaixo
+    // reprovariam por "nao achei o rotulo", que se le como defeito do componente errado.
+    fireEvent.mouseDown(screen.getByRole('tab', { name: /Relacionados/ }))
+  }
+
+  it('os dois seletores existem, e nenhum recebe catálogo por prop', async () => {
+    await abrirRelacionados()
+
+    await waitFor(() => expect(screen.getByLabelText('Produtos relacionados')).toBeInTheDocument())
+    expect(screen.getByLabelText('Compre junto')).toBeInTheDocument()
+  })
+
+  it('a peça do POOL aparece na busca — o dublê de `useAdminProducts` não a tem', async () => {
+    await abrirRelacionados()
+
+    await waitFor(() => expect(screen.getAllByTestId(`peca-${PECA.id}`).length).toBeGreaterThan(0))
+    expect(screen.getAllByTestId(`peca-${PECA.id}`)[0]).toHaveTextContent('Colar de Cinzas')
+  })
+
+  it('o próprio produto não se relaciona consigo — `excluir` na edição', async () => {
+    // Em `/admin/produtos/novo` não há id, então nada é excluído: as duas buscas mostram a peça.
+    await abrirRelacionados()
+
+    await waitFor(() => expect(screen.getAllByTestId(`peca-${PECA.id}`)).toHaveLength(2))
   })
 })

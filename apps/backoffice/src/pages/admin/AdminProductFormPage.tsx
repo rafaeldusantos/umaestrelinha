@@ -75,7 +75,7 @@ const AdminProductFormPage = () => {
   const [searchParams] = useSearchParams()
   const fromId = searchParams.get('from')
   const navigate = useNavigate()
-  const { products, createProduct, updateProduct } = useAdminProducts()
+  const { createProduct, updateProduct } = useAdminProducts()
   const { categories, createCategory } = useAdminCategories()
 
   // 11/T21: o estado saiu da página. Eram ~30 campos num `useState` só, e é por isso que PFM-11
@@ -639,10 +639,10 @@ const AdminProductFormPage = () => {
             {/* RELACIONADOS */}
             <TabsContent value="relacionados" className="space-y-4">
               <FormCard title="Produtos relacionados">
-                <RelatedProductsSelect label="Produtos relacionados" selected={relatedIds} onChange={setRelatedIds} products={products} excludeId={id} />
+                <RelatedProductsSelect label="Produtos relacionados" selected={relatedIds} onChange={setRelatedIds} excludeId={id} />
               </FormCard>
               <FormCard title="Compre junto">
-                <RelatedProductsSelect label="Compre junto" selected={buyTogetherIds} onChange={setBuyTogetherIds} products={products} excludeId={id} />
+                <RelatedProductsSelect label="Compre junto" selected={buyTogetherIds} onChange={setBuyTogetherIds} excludeId={id} />
               </FormCard>
             </TabsContent>
           </Tabs>

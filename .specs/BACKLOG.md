@@ -399,6 +399,20 @@ caminho crítico.
 > ainda. A régua para fechá-la de vez é varrer `apps/backoffice/src/**` atrás de `.select(` sem
 > `range` nem `head`, e decidir caso a caso.
 
+> **REDUZIDA DE NOVO em 2026-09-14 pela feature `51`, e desta vez com o resto ENUMERADO.** A leitura
+> mais cara do painel — `useAdminProducts` baixando `select('*, categories(name)')` para alimentar os
+> seletores de cinco telas, **sem `range` nem `count`** — deixou de existir: quem responde "quais
+> peças existem" é `useProductPool`, que **conta primeiro** e pagina com `readAllPages`, então
+> leitura truncada **falha** em vez de virar um catálogo menor. Eram 702 produtos e o teto estava a
+> 298 de distância; o modo de falha era os seletores pararem de achar parte das peças, sem erro em
+> lugar nenhum.
+>
+> **O que sobra sobre `products` está nomeado, e é pior que uma contagem errada**:
+> `AdminQuickGridPage.tsx:127` e `AdminProductsPage.tsx:173` fazem `select('slug')` sem `range` para
+> montar o `Set` que recusa slug duplicado. Truncado, o `Set` fica menor, a tela conclui que o slug
+> está livre e **cria a duplicata em silêncio** — e slug é URL. Ficaram fora da `51` por decisão de
+> escopo (são caminho de importação de CSV, não de seletor). O conserto é `readAllPages` nos dois.
+
 ### O registro original
 
 

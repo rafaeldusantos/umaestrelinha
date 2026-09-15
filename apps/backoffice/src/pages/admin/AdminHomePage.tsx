@@ -23,7 +23,7 @@ import { cn } from '@estrelinha/ui/lib/utils'
 import { toast } from '@estrelinha/ui/hooks/use-toast'
 import { sectionMeta, type HomeSectionType } from '@estrelinha/core/home'
 import { useAdminCategories } from '@/entities/category'
-import { useAdminProducts } from '@/entities/product'
+import { useProductPool } from '@/entities/product'
 import { useAdminHomeSections } from '@/entities/home'
 import {
   HomeBlockTray,
@@ -62,7 +62,7 @@ const AdminHomePage = () => {
     deleteSection,
   } = useAdminHomeSections()
   const { categories, loading: loadingCategorias } = useAdminCategories()
-  const { products } = useAdminProducts()
+  const { produtos } = useProductPool()
 
   const navigate = useNavigate()
   const { sectionId } = useParams()
@@ -70,11 +70,17 @@ const AdminHomePage = () => {
   const [aba, setAba] = useState<Aba>('secoes')
   const [saving, setSaving] = useState(false)
 
-  // `products` entra aqui desde a feature 50, e não é conforto: quem responde "esta peça está no
-  // ar?" é o CATÁLOGO, não o slug embutido na leitura. O painel lê como admin e enxerga produto
+  // O catálogo entra aqui desde a feature 50, e não é conforto: quem responde "esta peça está no
+  // ar?" é ele, não o slug embutido na leitura. O painel lê como admin e enxerga produto
   // despublicado; a cliente, como `anon`, não — sem esta lista o painel diria "tudo certo" sobre um
   // bloco que a Home desenha pela metade (`R-02`, `AD-024`).
-  const resolved = useAdminResolvedHome(sections, categories, products)
+  //
+  // **Feature 51 (`BUS-25`)**: a lista vem do POOL, e não mais de `useAdminProducts`. São as mesmas
+  // peças com cinco colunas em vez de todas — `ProdutoDoPool` satisfaz `Peca` e `EditorProduct` sem
+  // cast —, lidas uma vez por sessão e compartilhadas com o `ProductSearchField` pela mesma chave de
+  // cache. O que esta tela baixava eram 3.217 KB, dos quais 876 KB de `description` que ninguém aqui
+  // abre.
+  const resolved = useAdminResolvedHome(sections, categories, produtos)
 
   // A seção em edição sai da URL, não de um estado paralelo: é o que faz a tela sobreviver ao F5 e
   // ser compartilhável. Id que não existe mais (seção apagada, link velho) cai na lista — a coluna
@@ -355,7 +361,7 @@ const AdminHomePage = () => {
                   key={emEdicao.section.id}
                   entry={emEdicao}
                   categories={categories}
-                  products={products}
+                  products={produtos}
                   saving={saving}
                   justSaved={salvo}
                   onCancel={() => navigate('/admin/home')}

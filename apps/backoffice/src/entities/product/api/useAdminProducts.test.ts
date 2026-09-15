@@ -4,13 +4,16 @@
 // `select` da listagem não é `*`, que a busca cobre nome, tag e SKU de variação, e que o lote é um
 // insert com um refetch. Sem isso, "está no servidor" é afirmação, não fato.
 
+import { createElement, type ReactNode } from 'react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const { fromMock } = vi.hoisted(() => ({ fromMock: vi.fn() }))
 vi.mock('@estrelinha/supabase/client', () => ({ supabase: { from: fromMock } }))
 
-import { LIST_SELECT, toListRow, useAdminProductList } from './useAdminProducts'
+import { LIST_SELECT, toListRow, useAdminProductList, useAdminProducts } from './useAdminProducts'
+import { PRODUCT_POOL_KEY } from './useProductPool'
 import {
   activeFilterCount,
   defaultQuery,
@@ -31,6 +34,7 @@ interface Recorded {
   range?: unknown[]
   insert?: unknown
   update?: unknown
+  deleted?: boolean
 }
 
 let calls: Recorded[] = []
@@ -64,6 +68,10 @@ const makeBuilder = (record: Recorded, resolve: () => unknown) => {
   }
   // Sem `.range()` (consultas auxiliares), o próprio builder é aguardável.
   builder.then = (onFulfilled: (value: unknown) => unknown) => Promise.resolve(resolve()).then(onFulfilled)
+  // Feature 51: `getProduct` e `createProduct` terminam em `.single()` / `.maybeSingle()`, e sem
+  // eles o dublê não consegue encenar o caminho de UMA linha — que é o que `BUS-27` mede.
+  builder.single = () => Promise.resolve(resolve())
+  builder.maybeSingle = () => Promise.resolve(resolve())
   return builder
 }
 
@@ -83,6 +91,7 @@ beforeEach(() => {
       if (table === 'product_categories') return categoryLinksResponse
       if (record.insert !== undefined) return insertResponse
       if (record.update !== undefined) return { error: null }
+      if (record.deleted) return { error: null }
       return productsResponse
     }
 
@@ -95,6 +104,10 @@ beforeEach(() => {
       record.update = values
       return makeBuilder(record, resolve)
     }
+    builder.delete = () => {
+      record.deleted = true
+      return makeBuilder(record, resolve)
+    }
     return builder
   })
 })
@@ -104,9 +117,25 @@ const lastProductsCall = () => productsCall()[productsCall().length - 1]
 const filterArgs = (record: Recorded, method: string) =>
   record.filters.filter(f => f.method === method).map(f => f.args)
 
+/**
+ * O palco do React Query.
+ *
+ * `useAdminProductList` passou a chamar `useQueryClient()` na feature 51, porque os tres caminhos de
+ * LOTE invalidam o pool dos seletores (`BUS-16`). Em producao isso nunca falta — `App.tsx` embrulha
+ * o painel inteiro —, mas `renderHook` sem provedor lanca "No QueryClient set" **no render, e nao na
+ * assercao** (`L-030`). O cliente e NOVO a cada chamada: `invalidateQueries` e observado nele, e um
+ * cliente compartilhado entre casos carregaria chamada de um caso para o outro.
+ */
+const palcoDeQuery = () => {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const wrapper = ({ children }: { children: ReactNode }) =>
+    createElement(QueryClientProvider, { client }, children)
+  return { client, wrapper }
+}
+
 const renderList = async (over: Partial<ProductQuery> = {}) => {
   const query: ProductQuery = { ...defaultQuery(), ...over }
-  const view = renderHook(() => useAdminProductList(query))
+  const view = renderHook(() => useAdminProductList(query), { wrapper: palcoDeQuery().wrapper })
   await waitFor(() => expect(view.result.current.loading).toBe(false))
   return view
 }
@@ -339,6 +368,68 @@ describe('useAdminProductList — lote (PLS-08)', () => {
   })
 })
 
+/**
+ * `BUS-16` nos caminhos de LOTE.
+ *
+ * A AC diz "criado, alterado ou apagado **pelo painel**", e os tres lotes sao o painel: o import de
+ * CSV, a edicao em massa e a grade rapida gravam em `products` sem passar por `createProduct`.
+ * Eles releem a LISTAGEM (`refetch`) desde a feature 13 — e a listagem nao e o pool. Sem a
+ * invalidacao, importar um CSV deixaria as cinco telas de busca sem as pecas novas por ate
+ * `PRODUCT_POOL_STALE_TIME`, e nada em tela diria por que elas nao aparecem.
+ *
+ * A regua e a CHAVE invalidada, nunca "invalidateQueries foi chamado": invalidar a chave errada
+ * chamaria o metodo do mesmo jeito e deixaria o pool velho.
+ */
+describe('useAdminProductList — o lote invalida o pool dos seletores (BUS-16)', () => {
+  const chavesInvalidadas = (client: QueryClient, espia: ReturnType<typeof vi.spyOn>) =>
+    espia.mock.calls.map(([arg]) => JSON.stringify((arg as { queryKey?: unknown }).queryKey))
+
+  const palco = () => {
+    const { client, wrapper } = palcoDeQuery()
+    return { client, espia: vi.spyOn(client, 'invalidateQueries'), wrapper }
+  }
+
+  it('`createProductsBatch` invalida a chave do pool', async () => {
+    const { client, espia, wrapper } = palco()
+    const { result } = renderHook(() => useAdminProductList(defaultQuery()), { wrapper })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    await act(async () => { await result.current.createProductsBatch([{ name: 'Nova' }]) })
+
+    expect(chavesInvalidadas(client, espia)).toContain(JSON.stringify(PRODUCT_POOL_KEY))
+  })
+
+  it('`updateProductsBatch` invalida a chave do pool', async () => {
+    const { client, espia, wrapper } = palco()
+    const { result } = renderHook(() => useAdminProductList(defaultQuery()), { wrapper })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    await act(async () => { await result.current.updateProductsBatch([{ id: 'p1', values: { is_active: false } }]) })
+
+    expect(chavesInvalidadas(client, espia)).toContain(JSON.stringify(PRODUCT_POOL_KEY))
+  })
+
+  it('`deleteProductsBatch` invalida a chave do pool', async () => {
+    const { client, espia, wrapper } = palco()
+    const { result } = renderHook(() => useAdminProductList(defaultQuery()), { wrapper })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    await act(async () => { await result.current.deleteProductsBatch(['p1']) })
+
+    expect(chavesInvalidadas(client, espia)).toContain(JSON.stringify(PRODUCT_POOL_KEY))
+  })
+
+  it('lote VAZIO nao invalida nada — `deleteProductsBatch([])` sai antes de tocar no banco', async () => {
+    const { client, espia, wrapper } = palco()
+    const { result } = renderHook(() => useAdminProductList(defaultQuery()), { wrapper })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    await act(async () => { await result.current.deleteProductsBatch([]) })
+
+    expect(chavesInvalidadas(client, espia)).not.toContain(JSON.stringify(PRODUCT_POOL_KEY))
+  })
+})
+
 describe('toListRow — a linha que a tela recebe', () => {
   it('normaliza imagens, eixos, grade e categorias do formato do banco', () => {
     const row = toListRow(dbRow())
@@ -396,3 +487,101 @@ function dbRow(over: Record<string, unknown> = {}) {
     ...over,
   }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BUS-27 — o hook parou de carregar o catálogo (feature 51, P2)
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('useAdminProducts — a escrita, e só ela (BUS-27)', () => {
+  /**
+   * O hook virou consumidor de React Query ao passar a invalidar o pool, então precisa de provedor.
+   *
+   * O `QueryClient` é NOVO a cada render de propósito: `invalidateQueries` é observado no cliente
+   * desta montagem, e um cliente compartilhado entre casos deixaria a asserção de invalidação
+   * verdadeira por causa do caso anterior.
+   */
+  const montar = () => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const invalidate = vi.spyOn(qc, 'invalidateQueries')
+    const wrapper = ({ children }: { children: ReactNode }) =>
+      createElement(QueryClientProvider, { client: qc }, children)
+    return { ...renderHook(() => useAdminProducts(), { wrapper }), invalidate }
+  }
+
+  it('montar o hook NÃO consulta `products` — o catálogo não desce mais', async () => {
+    // Esta é a asserção inteira de `BUS-27`, e ela não tem sintoma de tela: com a leitura de volta,
+    // tudo funciona igual e descem 3.217 KB por montagem, dos quais 876 KB de `description`.
+    const { result } = montar()
+    await waitFor(() => expect(typeof result.current.getProduct).toBe('function'))
+
+    expect(calls).toEqual([])
+    // E a forma exata do que saiu: nenhuma leitura de catálogo com `select('*')` e sem `range`.
+    expect(productsCall()).toHaveLength(0)
+  })
+
+  it('o hook não devolve mais `products`, `loading` nem `fetchProducts`', () => {
+    // Exportar a lista sem consumidor seria o defeito da `41` de novo — `deleteSection` viveu uma
+    // feature inteira exportada e sem ninguém a chamar, e a tela que a queria nunca a recebeu.
+    const { result } = montar()
+    expect(Object.keys(result.current).sort()).toEqual([
+      'createProduct',
+      'deleteProduct',
+      'getProduct',
+      'updateProduct',
+    ])
+  })
+
+  it('`getProduct` devolve a peça pela consulta de UMA linha', async () => {
+    const { result } = montar()
+
+    // O dublê responde a consulta única com a linha; `productsResponse` é o que `resolve()` entrega.
+    productsResponse = {
+      data: { id: 'p1', name: 'Colar de Cinzas', base_price: 289, images: [], tags: null },
+      error: null,
+      count: null,
+    } as never
+
+    const peca = await act(async () => result.current.getProduct('p1'))
+
+    expect(peca?.name).toBe('Colar de Cinzas')
+    // A consulta é por id e termina em `.single()` — não uma varredura do catálogo.
+    expect(lastProductsCall().select?.[0]).toBe('*, categories(name)')
+    expect(filterArgs(lastProductsCall(), 'eq')).toEqual([['id', 'p1']])
+    expect(lastProductsCall().range).toBeUndefined()
+  })
+
+  it('criar, alterar e apagar INVALIDAM o pool (BUS-16)', async () => {
+    // Antes desta feature as três chamavam `fetchProducts()`, que era o refetch do catálogo local —
+    // e nada avisava o cache compartilhado, porque ele não existia. A invalidação é o que torna a
+    // troca uma melhora de FRESCOR, e não só de peso: o hook antigo não tinha cache nem
+    // invalidação, então uma peça criada noutra aba já não aparecia.
+    const { result, invalidate } = montar()
+
+    await act(async () => {
+      await result.current.createProduct({ name: 'Anel Coração' })
+    })
+    await act(async () => {
+      await result.current.updateProduct('p1', { is_active: false })
+    })
+    await act(async () => {
+      await result.current.deleteProduct('p1')
+    })
+
+    const chaves = invalidate.mock.calls.map(([arg]) => (arg as { queryKey: unknown }).queryKey)
+    expect(chaves).toEqual([PRODUCT_POOL_KEY, PRODUCT_POOL_KEY, PRODUCT_POOL_KEY])
+  })
+
+  it('escrita que FALHA não invalida — o pool não é remexido à toa', async () => {
+    // O par do caso acima. Sem ele, invalidar incondicionalmente passaria: as três asserções de
+    // cima continuariam verdes, e toda gravação recusada pelo banco derrubaria o cache das outras
+    // telas sem nada ter mudado.
+    insertResponse = { data: [], error: { message: 'violação de unicidade' } }
+    const { result, invalidate } = montar()
+
+    await act(async () => {
+      await result.current.createProduct({ name: 'Anel Coração' })
+    })
+
+    expect(invalidate).not.toHaveBeenCalled()
+  })
+})

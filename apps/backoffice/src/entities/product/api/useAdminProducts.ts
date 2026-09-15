@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@estrelinha/supabase/client'
 import { normalizeImages } from '@estrelinha/core/media'
 import { normalizeOptions, normalizeVariants, toStockPolicy, categoryIdsFromLinks } from '@estrelinha/core/product'
@@ -12,53 +13,35 @@ import {
   type ProductQuery,
   type ProductViewId,
 } from './productQuery'
+import { invalidarPoolDeProdutos } from './useProductPool'
 
 export interface AdminProduct extends DbProduct {
   category_name?: string
 }
 
 /**
- * O catálogo inteiro, para os SELETORES (produtos relacionados, compre junto, order bump,
- * coleções). Não é o caminho da listagem — esse é `useAdminProductList`, que pagina e conta no
- * servidor (PLS-01).
+ * A ESCRITA de produto, e a leitura de UMA peça. **Não carrega mais o catálogo** (feature 51,
+ * `BUS-27`).
  *
- * Continua trazendo tudo de propósito: um `<select>` de produto precisa da lista fechada, e três
- * telas dependem disso. Trocar por busca paginada nesses seletores é outra feature.
+ * Até a feature 51 este hook fazia `select('*, categories(name)')` na montagem — **3.217 KB** de
+ * JSON, dos quais 876 KB são `description` em HTML —, para alimentar os seletores de três telas. Ele
+ * não tinha cache, então cada tela repetia a leitura; e não tinha `range` nem `count`, então acima
+ * de 1.000 linhas o PostgREST cortaria **sem avisar** e os seletores parariam de achar parte das
+ * peças (`BL-008`, e o defeito que a feature 21 já pagou aqui). São 702 produtos hoje.
+ *
+ * Quem responde "quais peças existem, para escolher uma" passou a ser `useProductPool`, e com os
+ * cinco seletores nele o `products` daqui ficou **sem nenhum consumidor** — então ele saiu, em vez
+ * de ficar exportado sem ninguém, que é como `deleteSection` atravessou uma feature inteira.
+ *
+ * `getProduct` perdeu o atalho de cache e caiu na consulta de uma linha que ele **já tinha
+ * escrita** — o atalho era a única coisa que dependia da lista. E quem grava passou a invalidar o
+ * pool (`BUS-16`): é uma melhora de frescor, porque o estado anterior não tinha cache **nem**
+ * invalidação, e uma peça criada noutra aba já não aparecia.
  */
 export const useAdminProducts = () => {
-  const [products, setProducts] = useState<AdminProduct[]>([])
-  const [loading, setLoading] = useState(true)
-
-  const fetchProducts = useCallback(async () => {
-    setLoading(true)
-    const { data, error } = await supabase
-      .from('products')
-      .select('*, categories(name)')
-      .order('created_at', { ascending: false })
-
-    if (error || !data) {
-      setProducts([])
-    } else {
-      setProducts(data.map((p: any) => ({
-        ...p,
-        images: normalizeImages(p.images),
-        tags: p.tags ?? [],
-        price: p.base_price ?? p.price ?? 0,
-        compare_price: p.original_price ?? p.compare_price ?? null,
-        stock_total: p.stock_total ?? 0,
-        low_stock_threshold: p.low_stock_threshold ?? 5,
-        category_name: p.categories?.name,
-      })))
-    }
-    setLoading(false)
-  }, [])
-
-  useEffect(() => { fetchProducts() }, [fetchProducts])
+  const queryClient = useQueryClient()
 
   const getProduct = useCallback(async (id: string): Promise<AdminProduct | null> => {
-    const cached = products.find(p => p.id === id)
-    if (cached) return cached
-
     const { data, error } = await supabase.from('products').select('*, categories(name)').eq('id', id).single()
     if (error || !data) return null
     return {
@@ -73,7 +56,7 @@ export const useAdminProducts = () => {
       variants: normalizeVariants(data.product_variants, data.id),
       category_name: (data as any).categories?.name,
     }
-  }, [products])
+  }, [])
 
   /**
    * Devolve `{ error, id }`: o `id` é indispensável para gravar `product_categories` e
@@ -82,23 +65,23 @@ export const useAdminProducts = () => {
    */
   const createProduct = async (product: Record<string, any>) => {
     const { data, error } = await supabase.from('products').insert(product).select('id').maybeSingle()
-    if (!error) await fetchProducts()
+    if (!error) await invalidarPoolDeProdutos(queryClient)
     return { error, id: (data as { id?: string } | null)?.id ?? null }
   }
 
   const updateProduct = async (id: string, updates: Record<string, any>) => {
     const { error } = await supabase.from('products').update(updates).eq('id', id)
-    if (!error) await fetchProducts()
+    if (!error) await invalidarPoolDeProdutos(queryClient)
     return error
   }
 
   const deleteProduct = async (id: string) => {
     const { error } = await supabase.from('products').delete().eq('id', id)
-    if (!error) await fetchProducts()
+    if (!error) await invalidarPoolDeProdutos(queryClient)
     return error
   }
 
-  return { products, loading, fetchProducts, getProduct, createProduct, updateProduct, deleteProduct }
+  return { getProduct, createProduct, updateProduct, deleteProduct }
 }
 
 // === Listagem v2: paginação, filtro e contagem NO SERVIDOR (PLS-01) ==============================
@@ -240,6 +223,10 @@ export const useAdminProductList = (query: ProductQuery): ProductListResult => {
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  // Os tres caminhos de LOTE abaixo gravam em `products`, e por isso invalidam o pool dos
+  // seletores (`BUS-16`). Sem isto, importar um CSV deixaria as cinco telas de busca sem as pecas
+  // novas por ate `PRODUCT_POOL_STALE_TIME` — e nada em tela diria por que elas nao aparecem.
+  const queryClient = useQueryClient()
 
   const queryKey = useMemo(() => JSON.stringify(query), [query])
 
@@ -359,10 +346,13 @@ export const useAdminProductList = (query: ProductQuery): ProductListResult => {
         }
       }
 
-      if (!insertError) await refetch()
+      if (!insertError) {
+        await refetch()
+        await invalidarPoolDeProdutos(queryClient)
+      }
       return { error: insertError ?? variantError, ids }
     },
-    [refetch],
+    [refetch, queryClient],
   )
 
   /**
@@ -379,9 +369,10 @@ export const useAdminProductList = (query: ProductQuery): ProductListResult => {
         if (updateError) failed.push(patch.id)
       }
       await refetch()
+      await invalidarPoolDeProdutos(queryClient)
       return { changed: patches.length - failed.length, failed }
     },
-    [refetch],
+    [refetch, queryClient],
   )
 
   /**
@@ -395,11 +386,12 @@ export const useAdminProductList = (query: ProductQuery): ProductListResult => {
       if (ids.length === 0) return { deleted: 0, failed: 0 }
       const { error: deleteError } = await supabase.from('products').delete().in('id', ids)
       await refetch()
+      await invalidarPoolDeProdutos(queryClient)
       return deleteError
         ? { deleted: 0, failed: ids.length, message: (deleteError as { message?: string }).message }
         : { deleted: ids.length, failed: 0 }
     },
-    [refetch],
+    [refetch, queryClient],
   )
 
   /** RFN-04. O diff já vem pronto de `planCategoryWrites`; aqui é só I/O. */

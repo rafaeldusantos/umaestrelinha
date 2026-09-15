@@ -42,7 +42,7 @@ const ARRANJOS: { layout: HomeBannerLayout; label: string }[] = [
   { layout: 'quad', label: '4 em fila' },
 ]
 
-const BannerGridEditor = ({ config, onConfigChange, items, onItemsChange, categories, products }: SectionEditorProps) => {
+const BannerGridEditor = ({ config, onConfigChange, items, onItemsChange, categories }: SectionEditorProps) => {
   const arranjo: HomeBannerLayout = config.layout ?? DEFAULT_BANNER_LAYOUT
   const vagas = layoutSlots(arranjo)
   const medidas = layoutRatios(arranjo)
@@ -220,7 +220,6 @@ const BannerGridEditor = ({ config, onConfigChange, items, onItemsChange, catego
                     <DestinoDoItem
                       item={item}
                       categories={categories}
-                      products={products}
                       onChange={mudanca => patch(item.key, mudanca)}
                     />
                   </div>

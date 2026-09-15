@@ -12,10 +12,14 @@
 // movimento?" teria dois donos — o CSS e o JavaScript —, e as duas respostas divergiriam sem nada
 // quebrar. É o "defeito 01" no tamanho de uma media query.
 //
-// **O escopo é literal, e é estreito de propósito.** Estes são os arquivos de UI que a feature 50
-// tocou; o resto do painel carrega ~50 classes de transição de antes dela, sem par nenhum. Ampliar
-// a régua para `apps/backoffice/**` é trabalho de uma feature própria (está registrado como dívida
-// no `CLAUDE.md` da raiz), e um guarda que nasce reprovando 50 vezes é um guarda que alguém desliga.
+// **O escopo é literal, e é estreito de propósito.** São os arquivos de UI que a feature 50 tocou,
+// mais o componente compartilhado de busca de produto, que a **51** criou; o resto do painel carrega
+// ~50 classes de transição de antes delas, sem par nenhum. Ampliar a régua para
+// `apps/backoffice/**` é trabalho de uma feature própria (está registrado como dívida no
+// `CLAUDE.md` da raiz), e um guarda que nasce reprovando 50 vezes é um guarda que alguém desliga.
+//
+// **A entrada de um arquivo aqui é DELIBERADA, e a âncora cobra isso**: as contagens abaixo sobem
+// junto, então acrescentar o caminho sem conferir o que ele traz reprova.
 
 import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
@@ -41,6 +45,9 @@ const ARQUIVOS = [
   'features/home-composition/ui/HomeSectionEditor.tsx',
   'features/home-composition/ui/FeaturedProductsEditor.tsx',
   'features/home-composition/ui/ProductPicker.tsx',
+  // Feature 51 — a busca de produto compartilhada pelas cinco superfícies. Entrou aqui **na mesma
+  // task em que nasceu**: sem isso o movimento dela ficaria fora da régua e a âncora não acusaria.
+  'entities/product/ui/ProductSearchField.tsx',
 ] as const
 
 /**
@@ -130,7 +137,7 @@ const FONTES = ARQUIVOS.map(caminho => ({
 }))
 
 describe('o movimento do painel respeita `prefers-reduced-motion` (ANI-05)', () => {
-  it('ÂNCORA: os oito arquivos foram lidos, e a varredura ACHOU movimento neles', () => {
+  it('ÂNCORA: os nove arquivos foram lidos, e a varredura ACHOU movimento neles', () => {
     // Âncora dupla. Sem a segunda, um regex quebrado varreria os arquivos certos, encontraria zero
     // classe e a asserção de baixo (`[] === []`) passaria — a pior falha possível num teste que lê
     // fonte, porque ele parece saudável.
@@ -138,11 +145,11 @@ describe('o movimento do painel respeita `prefers-reduced-motion` (ANI-05)', () 
     expect(FONTES.every(f => f.fonte.length > 0)).toBe(true)
 
     const tokens = FONTES.flatMap(f => movimentoDe(semComentarios(f.fonte)))
-    expect(tokens.length).toBeGreaterThanOrEqual(8)
+    expect(tokens.length).toBeGreaterThanOrEqual(14)
 
     // E a terceira: os pares existem mesmo. Uma régua que nunca visse `motion-reduce:` também
     // passaria na segunda âncora, acusando tudo — ou, com o filtro invertido, nada.
-    expect(tokens.filter(t => t.ehOPar).length).toBeGreaterThanOrEqual(4)
+    expect(tokens.filter(t => t.ehOPar).length).toBeGreaterThanOrEqual(7)
   })
 
   it('nenhum arquivo em escopo declara movimento sem o par `motion-reduce:`', () => {

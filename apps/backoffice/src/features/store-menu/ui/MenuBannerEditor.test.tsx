@@ -11,13 +11,17 @@
 // indeletável**. É assim que um dado errado sobrevive por meses.
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { resolveMenuBanners, type MenuBanner, type MenuBanners, type MenuCategory } from '@estrelinha/core/menu'
 import { renditionSrcSet, renditionUrl } from '@estrelinha/core/media'
 import type { AdminCategory } from '@/entities/category/api/useAdminCategories'
+import { PRODUCT_POOL_KEY } from '@/entities/product'
 
-// O editor procura o nome do produto de destino; sem client dublado o módulo do Supabase lança no
-// carregamento. Nenhum caso aqui usa destino de peça, então a consulta devolve lista vazia.
+// O editor lê o nome e a `description` das peças que os banners já apontam; sem client dublado o
+// módulo do Supabase lança no carregamento. A consulta por id devolve lista vazia — o que a tela
+// precisa nomear vem do POOL, semeado no palco abaixo.
 vi.mock('@estrelinha/supabase/client', () => {
   const alvo: Record<string, unknown> = {}
   for (const metodo of ['select', 'eq', 'ilike', 'order', 'limit', 'in']) alvo[metodo] = () => alvo
@@ -49,14 +53,35 @@ const banner = (over: Partial<MenuBanner> = {}): MenuBanner => ({
 
 const onSave = vi.fn<(banners: MenuBanners) => Promise<string | null>>()
 
+/**
+ * O catálogo como o POOL o entrega (feature 51).
+ *
+ * `Anel Coração` está aqui de propósito: é a peça que esta tela **não achava** antes da troca. O
+ * `useMenuProducts` mandava o termo cru para o Postgres, e `name ilike '%coracao%'` devolve zero
+ * linhas enquanto `'%coração%'` devolve 106 — medido contra o banco hospedado em 2026-09-14.
+ */
+const POOL = [
+  { id: 'p1', name: 'Anel Coração', slug: 'anel-coracao', is_active: true, base_price: 199 },
+  { id: 'p2', name: 'Colar de Cinzas', slug: 'colar-de-cinzas', is_active: true, base_price: 289 },
+  { id: 'p3', name: 'Broche Pena', slug: 'broche-pena', is_active: false, base_price: 149 },
+]
+
+const Palco = ({ children }: { children: ReactNode }) => {
+  const client = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity } } })
+  client.setQueryData(PRODUCT_POOL_KEY, POOL)
+  return <QueryClientProvider client={client}>{children}</QueryClientProvider>
+}
+
 const montar = (menu_banners: unknown, surface: 'desktop' | 'mobile' = 'desktop') =>
   render(
-    <MenuBannerEditor
-      surface={surface}
-      host={{ ...CATEGORIAS[0], menu_banners } as AdminCategory}
-      categories={CATEGORIAS}
-      onSave={onSave}
-    />,
+    <Palco>
+      <MenuBannerEditor
+        surface={surface}
+        host={{ ...CATEGORIAS[0], menu_banners } as AdminCategory}
+        categories={CATEGORIAS}
+        onSave={onSave}
+      />
+    </Palco>,
   )
 
 beforeEach(() => {
@@ -278,5 +303,61 @@ describe('jsonb malformado não derruba a tela', () => {
   ])('%s renderiza o estado vazio, sem lançar', (_nome, valor) => {
     montar(valor)
     expect(screen.getByTestId('contador-banners')).toHaveTextContent('0 de 2')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Feature 51 — a peça de destino passou a usar a busca compartilhada (`BUS-02`, `BUS-07`)
+// ---------------------------------------------------------------------------
+
+const pecaDeDestino = (id = '') => banner({ target: { kind: 'product', id } })
+const buscaDaPeca = () => screen.getByLabelText('Peça de destino do banner 1')
+
+describe('a peça de destino é a MESMA busca das outras quatro telas (BUS-07)', () => {
+  it('`coracao` acha `Anel Coração` — o defeito que esta tela tinha, medido', () => {
+    // O caso que **reprovaria antes da troca**: `useMenuProducts` fazia `ilike('name', '%coracao%')`
+    // no Postgres, sem `unaccent` instalado, e a tela dizia que não existia nenhuma peça. A Home,
+    // com a mesma digitação, achava 106 — porque lá a dobra era feita no cliente.
+    montar({ desktop: [pecaDeDestino()], mobile: [] })
+    fireEvent.change(buscaDaPeca(), { target: { value: 'coracao' } })
+
+    expect(screen.getByTestId('peca-p1')).toHaveTextContent('Anel Coração')
+    // E o sensor da régua antiga, ao lado: `ilike` cru não casaria.
+    expect('Anel Coração'.toLowerCase().includes('coracao')).toBe(false)
+  })
+
+  it('UMA letra já busca — o mínimo de duas saiu junto com a ida ao servidor (A-13)', () => {
+    // `MINIMO_PARA_BUSCAR` existia porque cada tecla era uma requisição. Com o pool em memória essa
+    // razão deixou de existir, e esperar a segunda letra só escondia resultado.
+    montar({ desktop: [pecaDeDestino()], mobile: [] })
+    fireEvent.change(buscaDaPeca(), { target: { value: 'c' } })
+
+    expect(screen.getByTestId('peca-p2')).toHaveTextContent('Colar de Cinzas')
+  })
+
+  it('escolher a peça grava o id no alvo, e o campo passa a mostrá-la nomeada', async () => {
+    montar({ desktop: [pecaDeDestino()], mobile: [] })
+    fireEvent.change(buscaDaPeca(), { target: { value: 'cinzas' } })
+    fireEvent.click(screen.getByTestId('peca-p2'))
+
+    expect(screen.getByTestId('produto-escolhido')).toHaveTextContent('Colar de Cinzas')
+
+    fireEvent.click(screen.getByText('Salvar banners'))
+    await waitFor(() => expect(onSave).toHaveBeenCalled())
+    expect(onSave.mock.calls[0][0].desktop[0].target).toEqual({ kind: 'product', id: 'p2' })
+  })
+
+  it('peça que saiu do catálogo é NOMEADA como tal, e não vira campo em branco', () => {
+    montar({ desktop: [pecaDeDestino('sumiu-do-catalogo')], mobile: [] })
+
+    expect(screen.getByTestId('produto-escolhido')).toHaveTextContent('não está mais no catálogo')
+  })
+
+  it('a peça fora do ar é MARCADA e continua escolhível (BUS-10)', () => {
+    montar({ desktop: [pecaDeDestino()], mobile: [] })
+    fireEvent.change(buscaDaPeca(), { target: { value: 'pena' } })
+
+    expect(screen.getByTestId('fora-do-ar-p3')).toBeInTheDocument()
+    expect(screen.getByTestId('peca-p3')).not.toBeDisabled()
   })
 })
