@@ -1441,31 +1441,37 @@ completo (framework, `installCommand` na raiz do monorepo, headers de cache e de
 
 ## Estado conhecido / dívidas
 
-- **O E-MAIL DE AUTH DE PRODUÇÃO PODE ESTAR MORTO, E DOIS PASSOS DE OPERAÇÃO FECHAM ISSO** (feature
-  `52`). A feature abriu o cano do **transacional** — o `RESEND_FROM` do hospedado apontava, desde
-  2026-09-06, para um subdomínio que nunca foi criado na conta Resend, e a **única** tentativa de
-  e-mail da história da loja morreu com 403. Corrigido e medido em 2026-09-19. **O auth, esse, não
-  foi conferido**, e não há comando que o confira: o deploy não faz `config push` e a CLI **não tem
-  `config pull`**. Faltam dois passos, os dois de operação:
-  - **Conferir no dashboard do hospedado** o SMTP do auth e os **três** templates de
-    `supabase/templates/`. Sem SMTP, o GoTrue cai no compartilhado da Supabase (~2 e-mails/hora) e
-    **nenhuma cliente recebe o código de acesso**. Com SMTP e **sem** os templates é pior: chega o
-    e-mail padrão em inglês, com um **link**, enquanto a loja pede um código de 6 dígitos que aquele
-    e-mail não traz — e *parece* funcionar.
-  - **Apagar a function zumbi**: `supabase functions delete send-email --project-ref hgkrsfpupypxtygjgthf`.
-    Ela saiu do código no commit `480a171` e seguiu `ACTIVE`, respondendo 200. **Ordem obrigatória**:
-    apagar **antes** do push da migration da `52`, que derruba as RPCs que ela ainda chama.
-  - **Trocar o remetente de produção por dois secrets** — `RESEND_SENDER_NAME` e
-    `RESEND_SENDER_EMAIL` —, e apagar `RESEND_FROM`, que o código **não lê mais** (feature `52`,
-    T8). Enquanto faltarem, o remetente cai no default de caixa-de-areia: 200 do Resend e entrega
-    só ao dono da conta. O `supabase-deploy.yml` já confere a presença das duas.
-  - **Criar o secret `RESEND_API_KEY` no GitHub** (*Settings → Secrets and variables → Actions*,
-    **nível do repositório**). É do cofre do **GitHub**, não o da Supabase que o `Supabase Deploy`
-    confere — são dois cofres, e ter um não dá o outro. Sem ele o `Email check` nasce **vermelho
-    todo dia** dizendo "vazia". No **environment** `production` não serve: aquele job não declara
-    environment e não enxergaria.
-  O `Email check` cobre o remetente dos dois streams a partir do dia seguinte; ele **não** cobre o
-  SMTP nem os templates, e declara isso por extenso.
+- **O LOGIN DA LOJA ESTÁ EM REGRESSÃO ATIVA ATÉ ALGUÉM COLAR TRÊS TEMPLATES** (feature `52`).
+  É o **único** passo que restou da `52`, e ele ficou mais urgente do que era: o SMTP do auth foi
+  **ativado** no dashboard em 2026-09-19, e os três templates **não** foram colados junto.
+  - **Antes** de ativar o SMTP, o GoTrue caía no compartilhado da Supabase (~2 e-mails/hora) e
+    simplesmente não entregava. **Agora ele entrega** — o e-mail **padrão**, em inglês, com um
+    **link** —, enquanto a loja chama `verifyOtp` e pede um código de 6 dígitos que aquele e-mail
+    não traz. A cliente recebe algo, tenta e não entra. *Parece* funcionar, e é o pior dos três
+    estados possíveis.
+  - **Não precisa escrever nada.** Os três existem desde a feature `20`, em `supabase/templates/`,
+    com a identidade da loja, tudo inline, sem webfont e com `{{ .Token }}` nos três. É colar em
+    `/auth/templates`, mais o **assunto** de cada um — que vive no `config.toml` e, como ele não é
+    empurrado, precisa ser digitado no dashboard:
+
+    | Tela | Arquivo | Assunto |
+    | --- | --- | --- |
+    | Magic Link | `magic_link.html` | `Seu código de acesso — Uma Estrelinha` |
+    | Confirm signup | `confirmation.html` | `Seu código de acesso — Uma Estrelinha` |
+    | Reset password | `recovery.html` | `Redefinir sua senha — Uma Estrelinha` |
+
+  - **Três bastam, e é medido**: a loja dispara `signInWithOtp` (que vira *Magic Link* para e-mail
+    existente e *Confirm signup* para novo) e `resetPasswordForEmail`. Não há `updateUser` nem
+    convite, então *Change Email Address* e *Invite user* são inalcançáveis.
+  - **A prova de fecho é um login de verdade** — pedir um código na loja e vê-lo chegar com a cara
+    da marca e seis dígitos. E **nenhum teste alcança isso**: não há comando que leia o `[auth]` do
+    hospedado (a CLI não tem `config pull`), e o `Email check` declara essa cegueira por escrito —
+    ele prova que o remetente é aceito, nunca que o template está lá.
+  - O que **já** foi feito da `52`, para esta lista não envelhecer de novo: o remetente transacional
+    corrigido e medido (`config-check` em produção), os dois secrets novos gravados e o
+    `RESEND_FROM` apagado, o `RESEND_API_KEY` criado no cofre do **GitHub**, a function zumbi
+    `send-email` removida (`functions list` devolve **oito**, todas do repositório) e a migration da
+    RLS aplicada.
 - **O `.env` LOCAL É UM SEGUNDO DONO DOS SECRETS DE PRODUÇÃO** (`BL-044`, medido em 2026-09-19).
   `supabase secrets set UMA_CHAVE=valor` rodado da raiz do projeto grava **oito** — a CLI mescla o
   `.env` do diretório atual, sem avisar e sem criar chave nova (então não aparece na contagem).
