@@ -494,6 +494,51 @@ um segundo arquivo `…Preview`, se o palco ramificar por tipo de seção, ou se
 - **`ToggleField` ganhou `aria-label`**, e isso vale para **todos** os toggles do painel: o rótulo é
   um `<p>` e não um `<Label htmlFor>`, então o `Switch` nascia sem nome acessível — um leitor de tela
   anunciava "interruptor, ligado" e nada mais.
+  - **`switchClassName` (feature `53`) é aditivo e opcional** — os chamadores de antes dela não
+    passam nada e não mudam nem um pixel. Existe porque o `Switch` do design system é `h-6 w-11`
+    (24×44px): abaixo do piso de 44px de altura, medido em navegador real na aba Notificações. Quem
+    precisa do alvo maior passa a própria classe `before:` (molde do `TAP_44` da loja, nunca
+    importado — criaria um segundo dono da medida); os outros 7 usos de `ToggleField` continuam com
+    o `Switch` cru.
+
+## Configurações › Notificações — a aba dos 15 eventos do motor (feature `53`)
+
+`/admin/configuracoes` → aba **Notificações**. Lê, edita, liga/desliga e mostra a prévia dos quinze
+eventos de `@estrelinha/core/notifications` — o motor que a feature `42` construiu e que ficou sem
+tela por uma feature inteira (`BL-033`). A aba é **autocontida**: tem o próprio
+`useNotificationsDraft()`/`useUpdateSettings()`, no mesmo molde independente do `CheckoutSettingsCard`
+— `AdminSettingsPage.save()` **não** ganha um branch `notifications` (`PageSettingsKey` o exclui, e
+isso é checado por `tsc`, não por convenção).
+
+- **Salva a aba inteira, nunca um evento**. `useUpdateSettings` faz `upsert` da chave `notifications`
+  inteira — uma escrita que só carregasse o evento editado apagaria, em silêncio, a customização dos
+  outros 14 na próxima leitura. `useNotificationsDraft` inicializa o rascunho com
+  `resolveAllEventSettings` (os 15, resolvido contra o default) e `save()` sempre reconstrói os 15
+  via `buildNotificationsValue` — nunca um subconjunto.
+- **As três seções são DERIVADAS**, nunca uma lista nova: audiência `owner` → "Avisos para você";
+  `isMaterialEvent(event)` → "Material"; o resto → "Pedido e pagamento" (`model/sections.ts`,
+  `sectionFor`/`groupedEvents`). Nenhum nome de evento é escrito como literal em `apps/**` —
+  `notificationSingleOwner.test.ts` (feature `42`, na suíte da **loja**) proíbe isso, varrendo
+  `apps/**` e `supabase/functions/**`: quem precisa identificar UM evento específico importa
+  `MATERIAL_INSTRUCTIONS_EVENT` de `core`, e quem precisa da lista dos eventos `owner` reusa
+  `sections.owner` em vez de uma segunda classificação.
+- **A prévia é a MESMA function que envia** (`?action=preview`), nunca um segundo desenho de e-mail
+  dentro do painel — `EmailPreviewFrame` entrega o `html` da resposta direto para
+  `<iframe sandbox="" srcDoc={html}>`, byte a byte. Um preview ativo por vez: abrir um fecha o
+  anterior (estado no pai, `NotificationsTab`), para nunca montar 15 `<iframe>` simultâneos.
+- **Duas precondições, dois tratamentos diferentes.** `material_instructions` ligado com o endereço
+  do ateliê vazio (aba Material) **bloqueia salvar** — a Adri controla o campo na mesma sessão do
+  painel. Os dois eventos `owner_*` com `general.email` vazio ou `ADMIN_PUBLIC_URL` que não parece
+  produção só **avisam** (banner inline, não bloqueia) — são configurações que ela não alcança
+  *nesta* tela. `model/preconditions.ts` (`materialAddressMissing`, `adminUrlLooksLocal`) fica no
+  painel, e não em `core`: um consumidor só.
+- **Nenhuma régua de tom, variável ou limite é reescrita aqui.** `notificationDraftRefusal` (movida
+  para `core` nesta feature — antes só a function conhecia) compõe variável → tom → tamanho, e o
+  painel a chama para recusar ao SALVAR — a mesma recusa que a function já dava ao renderizar.
+  `notificationCopySingleOwner.test.ts` (`shared/lib/__tests__`) recusa qualquer segunda declaração
+  de `URGENCY_TERMS`/`NOTIFICATION_VARIABLES`/`COPY_LIMITS`/a régua de emoji no painel.
+- **Os 11 eventos novos nascem desligados** (`PNL-06`, decisão da `42`) e a `53` não ligou nenhum —
+  ver *Estado conhecido / dívidas* no `CLAUDE.md` da raiz.
 
 ## `/admin/menu` — a curadoria do menu, por dispositivo (feature `39`)
 

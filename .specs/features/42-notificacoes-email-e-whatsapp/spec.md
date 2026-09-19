@@ -342,19 +342,29 @@ marcado e de a dona escrever o texto.
 | NTF-14 | P1 eventos | `in_production`, `order_delivered` | Design | Pending |
 | NTF-15 | P1 eventos | `owner_order_paid` por e-mail (conteúdo, destino, `skipped:no_owner_contact`) | Design | Pending |
 | NTF-16 | P1 eventos | `payment/**` intocado | Design | Pending |
-| PNL-01 | P1 painel | aba Notificações, eventos na ordem da jornada, interruptor de e-mail | Design | Pending |
-| PNL-02 | P1 painel | campos editáveis exatos | Design | Pending |
-| PNL-03 | P1 painel | `NOTIFICATION_VARIABLES` fechado; recusa ao salvar e ao renderizar | Design | Pending |
-| PNL-04 | P1 painel | `notificationCopyRefusal` em `core`, chamado nos dois lados | Design | Pending |
-| PNL-05 | P1 painel | `action=preview` (admin, sem efeito), iframe 390/600, rascunho não salvo | Design | Pending |
-| PNL-06 | P1 painel | defaults: 4 ligados com texto idêntico, demais desligados; TS × SQL | Design | Pending |
-| PNL-07 | P1 painel | `normalizeBrPhone` em `core`; backoffice deixa de ter cópia | Design | Pending |
-| PNL-08 | P1 painel | histórico com canal e reenvio por linha | Design | Pending |
-| PNL-09 | P1 painel | limites de tamanho em `core`, lidos pelos dois lados | Design | Pending |
-| PNL-10 | P1 painel | prova em 390×844 (navegador) | Design | Pending |
-| PDC-01 | P3 pós-entrega | `post_delivery_care` elegível por N dias, uma vez, sem venda | – | Pending |
+| PNL-01 | P1 painel | aba Notificações, eventos na ordem da jornada, interruptor de e-mail | Design | Implemented by 53 |
+| PNL-02 | P1 painel | campos editáveis exatos | Design | Implemented by 53 |
+| PNL-03 | P1 painel | `NOTIFICATION_VARIABLES` fechado; recusa ao salvar e ao renderizar | Design | Implemented by 53 |
+| PNL-04 | P1 painel | `notificationCopyRefusal` em `core`, chamado nos dois lados | Design | Implemented by 53 |
+| PNL-05 | P1 painel | `action=preview` (admin, sem efeito), iframe 390/600, rascunho não salvo | Design | Implemented by 53 |
+| PNL-06 | P1 painel | defaults: 4 ligados com texto idêntico, demais desligados; TS × SQL | Design | Implemented by 42 |
+| PNL-07 | P1 painel | `normalizeBrPhone` em `core`; backoffice deixa de ter cópia | Design | Implemented by 42 |
+| PNL-08 | P1 painel | histórico com canal e reenvio por linha | Design | Implemented by 42 |
+| PNL-09 | P1 painel | limites de tamanho em `core`, lidos pelos dois lados | Design | Implemented by 53 |
+| PNL-10 | P1 painel | prova em 390×844 (navegador) | Design | Implemented by 53 |
+| PDC-01 | P3 pós-entrega | `post_delivery_care` elegível por N dias, uma vez, sem venda | – | Partial — motor pronto (42); rotina automática de elegibilidade segue aberta em `BL-037` |
 
 **Coverage:** 32 requisitos · 0 mapeados a tasks · 32 não mapeados ⚠️ (Design/Tasks pendentes)
+
+> **Nota de fecho (feature `53`, 2026-09-19).** As onze linhas acima ficaram `Pending` desde que
+> esta spec foi escrita — a Phase 2 dela (`tasks.md:164`, T19–T23) nunca saiu, virou `BL-033`, e foi
+> concluída pela feature `53`. Ao atualizar o `Status`, três delas (`PNL-06`, `PNL-07`, `PNL-08`) se
+> revelaram **já implementadas na Phase 1 desta própria feature** (`defaults.ts`, `phone.ts` e o
+> reenvio de `AdminOrderPage.tsx`, todos do commit `7707ade`) — marcá-las "Implemented by 53" seria
+> uma afirmação falsa de rastreabilidade, então ficam creditadas a `42`. `PDC-01` continua **parcial**
+> de propósito: a régua de copy e a pré-condição existem, mas nada dispara o evento automaticamente
+> — é exatamente o que `BL-037` (aberta) nomeia. As outras sete (`PNL-01..05`, `09`, `10`) são o
+> trabalho de painel que só existia como Phase 2 pendente, e são genuinamente de `53`.
 
 ---
 

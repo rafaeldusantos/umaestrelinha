@@ -174,25 +174,25 @@ navegador → nenhum alvo abaixo de 44px e sem scroll horizontal.
 
 | ID | Story | O quê | Phase | Status |
 | --- | --- | --- | --- | --- |
-| ABN-01 | P1 | aba Notificações, três seções derivadas, ordem de `NOTIFICATION_EVENTS` preservada | Design | Pending |
-| ABN-02 | P1 | campos editáveis exatos + contadores contra `COPY_LIMITS` | Design | Pending |
-| ABN-03 | P1 | `NOTIFICATION_VARIABLES` importado; recusa ao salvar nomeando a variável | Design | Pending |
-| ABN-04 | P1 | `notificationCopyRefusal` importado; bloqueia salvar | Design | Pending |
-| ABN-05 | P1 | `limitsRefusal` importado; bloqueia salvar | Design | Pending |
-| ABN-06 | P1 | `?action=preview` com rascunho não salvo; iframe sandbox srcdoc; sem recompor HTML; 390/600px + texto | Design | Pending |
-| ABN-07 | P1 | prévia por pedido de exemplo (indicado) ou `order_id` real | Design | Pending |
-| ABN-08 | P1 | recusa de salvar `material_instructions` ligado com endereço do ateliê vazio | Design | Pending |
-| ABN-09 | P1 | aviso inline nos cards `owner_*` — e-mail da dona vazio e/ou link do painel não é de produção | Design | Pending |
-| ABN-10 | P1 | prova em navegador 390×844 — alvo ≥44px, sem scroll horizontal | Design | Pending |
-| ABN-11 | P1 | guarda de disco: zero segunda declaração das réguas de tom/variável/limite no painel | Design | Pending |
-| ABN-12 | P1 | edição não salva é descartada ao sair do card, sem diálogo bloqueante | Design | Pending |
-| ABN-13 | P1 | salvar UM evento escreve o estado resolvido dos 15 — nunca uma escrita parcial | Design | Pending |
+| ABN-01 | P1 | aba Notificações, três seções derivadas, ordem de `NOTIFICATION_EVENTS` preservada | Design | Verified |
+| ABN-02 | P1 | campos editáveis exatos + contadores contra `COPY_LIMITS` | Design | Verified |
+| ABN-03 | P1 | `NOTIFICATION_VARIABLES` importado; recusa ao salvar nomeando a variável | Design | Verified |
+| ABN-04 | P1 | `notificationCopyRefusal` importado; bloqueia salvar | Design | Verified |
+| ABN-05 | P1 | `limitsRefusal` importado; bloqueia salvar | Design | Verified |
+| ABN-06 | P1 | `?action=preview` com rascunho não salvo; iframe sandbox srcdoc; sem recompor HTML; 390/600px + texto | Design | Verified |
+| ABN-07 | P1 | prévia por pedido de exemplo (indicado) ou `order_id` real | Design | Verified |
+| ABN-08 | P1 | recusa de salvar `material_instructions` ligado com endereço do ateliê vazio | Design | Verified |
+| ABN-09 | P1 | aviso inline nos cards `owner_*` — e-mail da dona vazio e/ou link do painel não é de produção | Design | Verified |
+| ABN-10 | P1 | prova em navegador 390×844 — alvo ≥44px, sem scroll horizontal | Design | Verified |
+| ABN-11 | P1 | guarda de disco: zero segunda declaração das réguas de tom/variável/limite no painel | Design | Verified |
+| ABN-12 | P1 | edição não salva é descartada ao sair do card, sem diálogo bloqueante | Design | Verified |
+| ABN-13 | P1 | salvar UM evento escreve o estado resolvido dos 15 — nunca uma escrita parcial | Design | Verified |
 
 **ID format:** `ABN-NN` (Aba de Notificações).
 
 **Status values:** Pending → In Design → In Tasks → Implementing → Verified
 
-**Coverage:** 13 requisitos · 0 mapeados a tasks · 13 não mapeados ⚠️ (Design/Tasks pendentes)
+**Coverage:** 13 requisitos · 13 mapeados a tasks · 0 não mapeados — todos Verified (validation.md).
 
 ---
 

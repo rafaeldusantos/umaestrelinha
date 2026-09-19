@@ -871,7 +871,83 @@
 
 ## Handoff
 
-### ATUAL — 2026-09-19 · `52-entrega-de-email-comprovada` **IMPLEMENTADA e NO AR — 8 tasks**
+### ATUAL — 2026-09-19 · `53-aba-de-notificacoes` **IMPLEMENTADA — 15 de 15 tasks**
+
+- **Feature**: `.specs/features/53-aba-de-notificacoes/` (`spec.md`, `design.md`, `tasks.md`,
+  `validation.md`). Execute em **dois lotes** (T01…T08 · T09…T15), `ABN-01`..`ABN-13`. Fecha
+  `BL-033`. **Nada commitado ainda** — os commits saem completos, de uma vez, depois do Verifier
+  independente (`BL-012`).
+- **Baselines de fecho (2026-09-19, um workspace por vez, exit code fora de pipe,
+  `--testTimeout=20000` na loja e no painel)**: **9881 em 509** (store 3516/221 · backoffice
+  2818/158 · core 2383/93 · functions 652/14 · catalog-import 512/23). Contra a entrada real
+  (9742/498): **+139/+11**, dos quais **+116/+10 são desta feature** (backoffice +107/+10,
+  core +11, functions −2) e **+23/+1 são da feature `54`** (`authEmailTemplates.test.ts`, sem
+  relação com esta — ver abaixo). Lint **26/6**, tipos **0·0·0**, `pnpm build` verde nos dois apps,
+  `packages/core/src/payment/**` sem uma linha tocada.
+
+**O que a feature fez.** A `42` entregou o motor inteiro — 15 eventos, pré-condição por estado,
+idempotência, régua de tom — e nunca a Phase 2 (`tasks.md:164`, T19–T23). Onze dos quinze eventos
+nasciam desligados e não existia tela nenhuma para ligá-los; `?action=preview`, construída
+especificamente para essa tela, não tinha um chamador. `/admin/configuracoes` → aba **Notificações**
+fecha isso: os 15 eventos em três seções derivadas, os 5 campos editáveis com contador contra
+`COPY_LIMITS`, recusa de variável/tom/tamanho ao salvar (a MESMA `notificationDraftRefusal` — movida
+para `core/notifications` nesta feature, chamada agora dos dois lados) e prévia real por
+`?action=preview` num `<iframe sandbox srcDoc>`, sem recompor. As duas precondições operacionais que
+a spec nomeou como "pior caso" (endereço do ateliê vazio, `ADMIN_PUBLIC_URL` de dev) têm tratamento
+diferente por decisão de design: a primeira **bloqueia salvar**, a segunda só **avisa** — e as duas
+foram provadas em navegador real, no ambiente local, onde a segunda é literalmente verdadeira.
+
+**Três achados que valem mais que o número.**
+
+1. **Um código do painel quebrou um guarda da LOJA**, e só apareceu ao medir os cinco workspaces de
+   fecho — nenhuma task de T01–T13 mediu a suíte da loja. `useNotificationsDraft.ts` e
+   `NotificationsTab.tsx` escreviam nome de evento como **literal**
+   (`event === 'material_instructions'`, `['owner_order_paid', 'owner_material_incoming']`), e
+   `notificationSingleOwner.test.ts` (feature `42`, na suíte da loja, varrendo `apps/**` e
+   `supabase/functions/**`) proíbe exatamente isso. Mesma lição que `brandScan` já tinha ensinado na
+   `51`: **o gate de uma feature do painel inclui a suíte da loja**. Conserto em `core`:
+   `MATERIAL_INSTRUCTIONS_EVENT` (nomeado, ao lado de `NOTIFICATION_EVENTS`), e `OWNER_EVENTS`
+   **apagado** em troca de reusar `sections.owner` — a mesma lista que `groupedEvents()` já
+   calculava, fechando um "defeito 01" um nível abaixo do que o guarda mede.
+2. **A prova em navegador (T14) achou DOIS defeitos de layout reais**, os dois corrigidos antes de
+   fechar (nenhum como dívida): o `Switch` de cada evento media 24px de altura (abaixo do piso de
+   44px) — consertado com um prop **aditivo** em `ToggleField` (`switchClassName`, default
+   `undefined`, zero mudança nos 7 chamadores de antes); e a `TabsList` de 8 abas tinha a 3ª linha
+   cortada por um `h-10` fixo do componente compartilhado, sobrepondo o título da seção — **não é
+   defeito desta feature** (7 abas já precisavam de 3 linhas antes; a 8ª não mudou a contagem),
+   consertado com `h-auto` só nesta `<TabsList>`. Detalhe completo em `validation.md`.
+3. **A verificação final achou uma LACUNA, não só mutantes**: `ABN-07` ("informar um `order_id`
+   real reflete os dados daquele pedido") nunca tinha UI — o `design.md` já tinha decidido a forma
+   ("campo de texto simples, UUID"), mas nenhuma task listou construí-la no "Done when", só a
+   chamada (T07) e o selo de exemplo (T09). Corrigido: um `<Input>` único no topo da aba,
+   compartilhado pelos 15 cards. Provado em unidade (3 casos novos) **e em navegador real** — um
+   UUID digitado produziu uma resposta com dados reais de pedido (`sample:false`), contra
+   `sample:true` do caso sem pedido.
+
+**Achado de infraestrutura**: o container `supabase_edge_runtime` local estava parado havia 5 dias;
+`docker start` isolado subiu com bind-mount obsoleto (`Module not found`), e só `supabase stop`
+(sem `--all`) + `supabase start` resolveu.
+
+> ⚠️ **Esta feature correu numa working tree COMPARTILHADA com outra sessão** — a `54` (templates de
+> e-mail de auth), que tocou `CLAUDE.md`, `supabase/templates/*.html` e criou
+> `apps/store/src/shared/lib/__tests__/authEmailTemplates.test.ts`, sem relação nenhuma com esta
+> feature. A `54` mediu primeiro e **deixou a tabela de baselines do `CLAUDE.md` sem atualizar de
+> propósito**, com uma nota explícita pedindo para quem fechasse a `53` medir de novo — foi o que
+> aconteceu aqui. Propriedade de arquivos ficou disjunta por sorte (ela em `supabase/templates/**` e
+> `apps/store/shared/lib/__tests__/authEmailTemplates.test.ts`; esta em `apps/backoffice/**` e
+> `packages/core/src/notifications/**`), e a única superfície de contato foi o guarda da loja que o
+> achado nº 1 acima descreve — que a `54` também viu (e documentou, sem tentar consertar, corretamente
+> deixando para quem tocou o código que o violava).
+
+**Dívida registrada, não código**: os 11 eventos novos continuam desligados por decisão da `42`
+(`PNL-06`) — a aba os torna alcançáveis, ligar é ato da Adri (`CLAUDE.md`, "O que espera decisão da
+dona"). `post_delivery_care` continua sem quem o dispare automaticamente (`BL-037`, aberta).
+
+**Próximo passo**: Verifier independente → consertos, se houver → commits completos (`BL-012`).
+
+---
+
+### 2026-09-19 · `52-entrega-de-email-comprovada` **IMPLEMENTADA e NO AR — 8 tasks**
 
 - **Feature**: `.specs/features/52-entrega-de-email-comprovada/` (`spec.md`, `design.md`,
   `tasks.md`, `validation.md`). **Duas rodadas de verificação independente**, as duas com FAIL na

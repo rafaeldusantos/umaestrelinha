@@ -351,6 +351,7 @@ migrations, e `vercelRedirects` lê o `vercel.json`.
 | `checkoutSchema.test.ts` | store `shared/lib/__tests__` | a migration da `49` afrouxar: coluna sem `if not exists`; o índice de `client_request_id` deixar de ser único **ou** deixar de ser parcial; `account_exists` perder o `security definer` ou o `search_path` vazio; a comparação deixar de ser por `lower()`; `grant` alcançar `anon`; a migration passar a escrever dado. **E guarda uma dependência que ela NÃO escreve**: o `WHERE NOT EXISTS` de `customer_directory` (migration `35`), que é o que impede a convidada de aparecer **duas vezes** na tela de Clientes agora que ela vira `customers` de verdade. **Cada asserção tem sensor por mutação** |
 | `wiringResolve.test.ts` | `supabase/functions/_shared/__tests__` | o `index.ts` de qualquer edge function **chamar um nome que ela não importa nem declara**. Percorre a **AST do TypeScript** e olha só `CallExpression` com callee `Identifier` — string, comentário, tipo, `obj.metodo()` e arrow `async (…) =>` ficam de fora **por construção**, não por lista de exceções (a primeira escrita era por regex e acusou oito falsos positivos). **Existe porque `index.ts` é o único arquivo do repositório que NENHUMA ferramenta lê**: nenhum teste o importa (`AD-004` manda a lógica para `handlers.ts`), `pnpm build` não o vê, `tsc` não o alcança (`esm.sh` + `Deno`) e `pnpm lint` não olha `supabase/`. Custou `mercado-pago` **fora do ar em produção por seis dias** — `500 WORKER_ERROR` em toda requisição, `create-payment` e webhook mortos — por um `createResendProvider` sem import. **Âncora DERIVADA** (um `index.ts` para cada diretório de function, contado do disco — número cravado já nasceu errado uma vez **e** cada um com ao menos uma chamada na AST, senão um parser quebrado aprovaria todos). Guarda também as **envs do remetente** (`T8`): nenhum entrypoint cita a aposentada `RESEND_FROM`, e os dois que compõem citam as **duas** metades e dez sensores, incluindo o defeito real reinjetado |
 | `entregaDeEmailSchema.test.ts` | store `shared/lib/__tests__` | a migration da `52` afrouxar: `using (true)` voltar a `order_notes` ou a `order_status_history`; um `drop policy` faltando; `create policy` sem `has_role`; **o `with check` omitido** — a meia-correção que fecha a leitura e deixa a GRAVAÇÃO aberta, e que um teste de leitura não pega; `to public` em vez de `to authenticated`; `revoke` de `anon` sumindo; escrita de dado entrar. **Guarda a queda nos DOIS sentidos**: as três peças de compatibilidade da `42` (view `order_emails` + as duas RPCs) caem **e** as três do motor (`order_notifications`, `claim_order_notification`, `finish_order_notification`) não. **Âncora tripla** e **8 mutantes injetados no arquivo real**. O helper `mutar()` **lança** quando a mutação não muda nada — dois sensores já tinham virado no-op em silêncio por perderem o alvo do `.replace()` |
+| `authEmailTemplates.test.ts` | store `shared/lib/__tests__` (varre `supabase/templates/`) | qualquer um dos 3 templates de auth (`magic_link`, `confirmation`, `recovery`) perder `{{ .Token }}` ou ganhar `{{ .ConfirmationURL }}`; `<style>`/`<link>`/`@font-face`/`<script>` entrarem (a régua varre fora do comentário do topo — que CITA essas formas em prosa de propósito, a mesma armadilha que já mordeu `authSenderDomain.test.ts`); cor hex fora da paleta de `ESTRELINHA` (`layout.ts`, lido como texto — nunca importado, por não ter precedente cruzar para o workspace de `supabase/functions`); `#B8945F` virar `color:` (texto); o casco (faixa, wordmark, fio, card, caixa do código, rodapé) divergir entre os 3 fora das 3 regiões que legitimamente variam (título, parágrafo de abertura, nota final); o preheader oculto sumir, ganhar `<style>`, ou deixar de repetir o parágrafo de abertura já aprovado. **Nenhum outro comando lê `supabase/templates/`** — são 3 arquivos colados à mão num dashboard sem `config pull` |
 | `emailCheckWorkflow.test.ts` | idem (varre `.github/workflows/`) | o `email-check.yml` medir a si mesmo em vez da produção: **qualquer literal do domínio verificado**, inclusive em comentário; a declaração de cegueira sumindo (o parágrafo que diz que ele NÃO prova SMTP nem templates do GoTrue — apagá-lo faz o próximo leitor achar que o auth está coberto); o remetente do auth virando literal em vez de vir de `config.toml`; 429/timeout deixarem de ser **indisponibilidade**; o passo 1 largando o par `200` **+** chave `from` (sem os dois, um bundle velho responde **400** com JSON válido e o sensor acusa "configuração errada" com o defeito sendo deploy velho). **Também guarda a `DLV-26`**: o passo de divergência do `Supabase Deploy` avisa e **nunca** falha o job. Recorte por bloco, que devolve `null` e **reprova** — a primeira escrita usava `[\s\S]*?` sobre o arquivo inteiro e casava o passo ERRADO |
 | `pedidoComDonoUnico.test.ts` | idem (varre `apps/store/**` e `apps/backoffice/**`) | qualquer arquivo de produção gravar em `orders` ou `order_items` pelo PostgREST — desde a `49` quem grava é a edge function `checkout`, e as policies de `INSERT` continuam abertas no banco de propósito (`BL-030`), então **este guarda é a única contenção**. **Zero allowlist**, âncora dupla, e sensores que provam: as duas formas de gravação (compacta e quebrada em linhas), que **ler** não é acusado, que um `insert` em outra tabela no meio não é atribuído a `orders`, e o removedor de comentário com CRLF e LF |
 | `orderAccessSingleOwner.test.ts` | idem | qualquer arquivo fora de `entities/order/model/orderAccess.ts` citar `estrelinha-order-access` — o token é a **única** credencial de um pedido de convidada, e uma segunda leitura à mão faria a confirmação abrir vazia logo depois de ela pagar; o dono trocar `localStorage` por `sessionStorage` (fechar a aba apagaria o caminho de volta) |
@@ -435,7 +436,95 @@ quando mudarem de verdade.
 | --- | --- | --- |
 | **Lint** | **26 erros / 6 warnings** — backoffice 24/4 · store 2/2 | `pnpm lint` |
 | **Tipos** | **0 · 0 · 0** (store · backoffice · catalog-import) | `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` |
-| **Testes** | **9742 em 498 arquivos** — store **3493/220** · backoffice **2711/148** · core **2372/93** · functions **654/14** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
+| **Testes** | **9881 em 509 arquivos** — store **3516/221** · backoffice **2818/158** · core **2383/93** · functions **652/14** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
+
+**A feature `53` (a aba de Notificações, os 15 eventos do motor ficam alcançáveis) somou +116 em
+TRÊS workspaces, medidos em 2026-09-19 um por vez, exit code fora de pipe e `--testTimeout=20000`
+na loja e no painel** — sobre a entrada real de **9742/498**: **backoffice 2711/148 → 2818/158**
+(+107/+10 — `EmailPreviewFrame`, `EventCard`, `NotificationsTab`, o guarda
+`notificationCopySingleOwner`, mais `sections`/`preconditions`/`notificationsWrite`/
+`useNotificationsDraft`/`previewNotification`/`checkNotificationConfig`, e +13 espalhados no fecho —
+3 na fiação de `AdminSettingsPage.test.tsx`, 2 no `FieldGroup.test.tsx`, 1 no `EventCard.test.tsx`
+(os três achados de T14, abaixo) e 3 em `NotificationsTab.test.tsx` (o `order_id` da prévia — achado
+da verificação final, também abaixo) — 4 novos), **core 2372/93 → 2383/93** (+11 —
+`notificationDraftRefusal` movida para cá na T01 (+6), `useNotificationSettings` na T02 (+3), e +2 no
+fecho, o achado do guarda da loja abaixo) e **functions 654/14 → 652/14** (**−2**, esperado: a T01
+consolidou `handlers.test.ts` para wiring-only depois de mover os casos substantivos para `core`, sem
+perda de cobertura — ver a nota de fecho da T01 em `tasks.md`). `catalog-import` não foi tocado.
+Lint em **26/6** e tipos em **0 · 0 · 0**, sem mexer; `packages/core/src/payment/**` sem uma linha
+alterada (`git diff --name-only -- packages/core/src/payment`, zero arquivos).
+
+> **A verificação final (autor = verificador, `BL-012` não separou os papéis nesta feature) achou uma
+> LACUNA, e não só mutantes.** `ABN-07` ("informar um `order_id` real reflete os dados daquele
+> pedido") nunca tinha UI: o `design.md` já tinha decidido a forma ("campo de texto simples, UUID,
+> sem busca") na seção *Tech Decisions*, mas nenhuma das tasks T09–T11 listou construir o campo no
+> próprio "Done when" — só a chamada (`previewNotification({ orderId? })`, T07) e o selo de exemplo
+> (`EmailPreviewFrame`, T09) tinham teste. Resultado: a metade do requisito que dependia da OUTRA
+> metade nunca foi cobrada por nenhuma task, e a suíte inteira ficou verde sem o campo existir.
+> Corrigido: um `<Input>` único no topo da aba (`NotificationsTab.tsx`), compartilhado pelos 15
+> cards, alimentando `orderId` em toda chamada de prévia. Provado em UNIDADE (3 casos novos em
+> `NotificationsTab.test.tsx` — sem digitar nada não manda `order_id`; digitando, manda; o valor vale
+> para qualquer card) **e em navegador real**: digitar um UUID e clicar "ver prévia" produziu uma
+> requisição com `order_id` no corpo e uma resposta com **dados reais** de um pedido do banco local
+> (`"sample":false`, itens, totais, endereço de entrega) — contra `sample:true` do caso sem pedido.
+
+> **Um código do painel quebrou um guarda da LOJA, e o achado vale mais que o número.**
+> `useNotificationsDraft.ts` (T06) e `NotificationsTab.tsx` (T11) escreviam o nome de dois eventos
+> como **literal** — `event === 'material_instructions'` e
+> `['owner_order_paid', 'owner_material_incoming']` — e `notificationSingleOwner.test.ts`
+> (`apps/store/shared/lib/__tests__`, feature `42`) varre `apps/**` **e** `supabase/functions/**`
+> proibindo exatamente isso: "quem responde que eventos existem, e como se chamam" é
+> `NOTIFICATION_EVENTS`/`NOTIFICATION_EVENT_LABELS`, nunca uma string solta. Nenhuma das tasks
+> T01–T13 mediu a suíte da LOJA — o `tasks.md` desta feature só listava `core`/`functions`/
+> `backoffice` como "workspaces tocados", e o guarda só foi encontrado ao medir os cinco de fecho
+> (T15). **A mesma lição que `brandScan.test.ts` já tinha ensinado na feature `51`**: o gate de uma
+> feature do painel inclui a suíte da loja, porque os guardas de lá varrem os dois apps.
+>
+> O conserto foi **em `core`, não um `// @ts-ignore` local**: `MATERIAL_INSTRUCTIONS_EVENT` (um
+> único evento nomeado, ao lado de `NOTIFICATION_EVENTS`/`MATERIAL_EVENTS`) em
+> `core/notifications/events.ts`, e `OWNER_EVENTS` **apagado** em troca de reusar
+> `sections.owner` — a mesma lista que `groupedEvents()` já calculava, evitando uma segunda
+> classificação que divergiria da primeira (o "defeito 01", de novo, um nível abaixo do que o
+> guarda mede). +2 casos em `core/notifications/__tests__/events.test.ts` — é isso que fecha os
+> **2383** de `core` acima, não os 2392 que a soma ingênua das tasks sugeriria.
+
+> **Dois defeitos de layout achados na prova em navegador (T14, `ABN-10`), e os dois corrigidos
+> antes de fechar — nenhum como dívida.** (1) O `Switch` de cada evento mede `h-6 w-11` (24×44px):
+> abaixo do piso de 44px de altura. `ToggleField` (`shared/ui/FieldGroup.tsx`) ganhou um prop
+> **aditivo e opcional**, `switchClassName` — default `undefined`, os 7 chamadores de antes desta
+> feature não mudam nem um pixel (provado por teste) —, e só `EventCard.tsx` o usa, com uma classe
+> `before:` que estende a área CLICÁVEL sem mudar o desenho, no molde do `TAP_44` da loja (nunca
+> importado: criaria um segundo dono da medida). Provado FUNCIONALMENTE em navegador real: um
+> clique 5px acima da borda visível do controle alterna o estado — `getBoundingClientRect` não
+> mede pseudo-elemento, então a prova não podia ser por pixel. (2) A `TabsList` de
+> `AdminSettingsPage.tsx` tem `h-10` fixo (do componente compartilhado), e com 8 abas em
+> `grid-cols-3` (mobile) são **3 linhas** de conteúdo (~100px) cortadas em 40px — a 3ª linha
+> sobrepunha visualmente o título da seção. **Não é defeito desta feature**: 7 abas já precisavam
+> de 3 linhas antes (3+3+1); a 8ª não mudou a contagem (3+3+2). Corrigido com `h-auto` acrescentado
+> ao `className` desta **única** `<TabsList>` — nenhuma outra tela do painel é afetada. Detalhe
+> completo, com as medidas de antes/depois, em `.specs/features/53-aba-de-notificacoes/validation.md`.
+
+> **O container do edge runtime local estava parado havia 5 dias**, e a fila de `docker ps` não
+> mostrava nem sinal dele — as outras 12 peças do Supabase local seguiam de pé. Religá-lo sozinho
+> (`docker start`) subiu com bind-mount obsoleto (`Module not found ".../notifications/sender.ts"`,
+> um arquivo que existe no disco); só `supabase stop` (sem `--all`) + `supabase start` recriou o
+> container do zero e resolveu. Sem isso, a prova em navegador desta feature (que depende de
+> `send-notification?action=preview`/`?action=config-check`) não teria como acontecer.
+
+**A feature `54` (templates de e-mail de auth) somou +23/+1 no store**, medidos em 2026-09-19:
+`authEmailTemplates.test.ts` (23 casos), guardando os 3 templates de `supabase/templates/` entre si e
+contra a paleta de `layout.ts` — nenhum outro comando lia aquele diretório. Tipos em **0** e lint em
+**2/2** no store, sem mexer; `packages/core/src/payment/**` e `apps/backoffice/**` sem uma linha
+tocada, conferido por `git diff --name-only`.
+
+> **A linha do store NÃO foi atualizada na tabela acima, de propósito** — a árvore estava
+> **compartilhada com outra sessão** no momento da medição (a `53`, em andamento, sem commit:
+> `apps/backoffice/src/features/notification-settings/**`), e a suíte completa reprovou **1 caso**
+> alheio a esta feature: `notificationSingleOwner.test.ts` acusando literais de evento nos arquivos
+> daquela feature. Não é regressão desta `54` — `git diff --name-only` confirma zero linha tocada
+> fora de `supabase/templates/**`, `apps/store/src/shared/lib/__tests__/authEmailTemplates.test.ts`
+> e este arquivo, e a contagem bate exatamente: `3493 + 23 = 3516`, os mesmos 3516 que a árvore
+> mostrou (220 → 221 arquivos). Quem fechar a `53` mede a tabela de novo.
 
 **A feature `52` (entrega de e-mail comprovada) somou +188 em TRÊS workspaces**, medidos em
 2026-09-19 um por vez, com exit code capturado fora de pipe e `--testTimeout=20000` na loja:
@@ -1441,18 +1530,23 @@ completo (framework, `installCommand` na raiz do monorepo, headers de cache e de
 
 ## Estado conhecido / dívidas
 
-- **O LOGIN DA LOJA ESTÁ EM REGRESSÃO ATIVA ATÉ ALGUÉM COLAR TRÊS TEMPLATES** (feature `52`).
-  É o **único** passo que restou da `52`, e ele ficou mais urgente do que era: o SMTP do auth foi
-  **ativado** no dashboard em 2026-09-19, e os três templates **não** foram colados junto.
+- **O LOGIN DA LOJA ESTÁ EM REGRESSÃO ATIVA ATÉ ALGUÉM COLAR TRÊS TEMPLATES** (feature `52`, auditados
+  e fechados pela `54`). É o **único** passo que resta — o SMTP do auth foi **ativado** no dashboard
+  em 2026-09-19, e os três templates **ainda não** foram colados.
   - **Antes** de ativar o SMTP, o GoTrue caía no compartilhado da Supabase (~2 e-mails/hora) e
     simplesmente não entregava. **Agora ele entrega** — o e-mail **padrão**, em inglês, com um
     **link** —, enquanto a loja chama `verifyOtp` e pede um código de 6 dígitos que aquele e-mail
     não traz. A cliente recebe algo, tenta e não entra. *Parece* funcionar, e é o pior dos três
     estados possíveis.
   - **Não precisa escrever nada.** Os três existem desde a feature `20`, em `supabase/templates/`,
-    com a identidade da loja, tudo inline, sem webfont e com `{{ .Token }}` nos três. É colar em
-    `/auth/templates`, mais o **assunto** de cada um — que vive no `config.toml` e, como ele não é
-    empurrado, precisa ser digitado no dashboard:
+    com a identidade da loja, tudo inline, sem webfont e com `{{ .Token }}` nos três. A `54` auditou
+    os três contra `DESIGN.md`, fechou a única lacuna concreta (preheader ausente — a caixa de
+    entrada mostrava o começo do wordmark em vez de uma frase) e acrescentou
+    `authEmailTemplates.test.ts`, que os compara entre si e contra a paleta de `layout.ts` — hoje
+    nenhum outro comando lê `supabase/templates/`. É colar em `/auth/templates` **sem o bloco de
+    comentário do topo** (documentação para quem edita o arquivo, não serve ao dashboard), mais o
+    **assunto** de cada um — que vive no `config.toml` e, como ele não é empurrado, precisa ser
+    digitado no dashboard:
 
     | Tela | Arquivo | Assunto |
     | --- | --- | --- |
@@ -1466,7 +1560,8 @@ completo (framework, `installCommand` na raiz do monorepo, headers de cache e de
   - **A prova de fecho é um login de verdade** — pedir um código na loja e vê-lo chegar com a cara
     da marca e seis dígitos. E **nenhum teste alcança isso**: não há comando que leia o `[auth]` do
     hospedado (a CLI não tem `config pull`), e o `Email check` declara essa cegueira por escrito —
-    ele prova que o remetente é aceito, nunca que o template está lá.
+    ele prova que o remetente é aceito, nunca que o template está lá. `authEmailTemplates.test.ts`
+    prova o conteúdo do repositório, nunca o que está colado no dashboard.
   - O que **já** foi feito da `52`, para esta lista não envelhecer de novo: o remetente transacional
     corrigido e medido (`config-check` em produção), os dois secrets novos gravados e o
     `RESEND_FROM` apagado, o `RESEND_API_KEY` criado no cofre do **GitHub**, a function zumbi
@@ -1804,3 +1899,4 @@ código — mas todas explicam por que uma tela parece vazia:
 | Perguntas frequentes | `/admin/perguntas` e a aba `Perguntas` do produto | a `28` semeou 67 entradas e 3.475 vínculos das descrições |
 | **As peças em destaque** | `/admin/home`, bloco **Produtos em destaque** | a `50` **não semeia nada** ⇒ o bloco nem existe na Home. Ele espera ser acrescentado pela bandeja, ganhar título, receber as peças (até 12, na ordem dela), a escolha Slider/Grade e o interruptor |
 | **Quem mais entra no painel** | `/admin/usuarios` | a `48` **não semeia conta nenhuma** ⇒ a lista mostra só a do `seed.sql`. Enquanto for uma linha, o painel segue com um ponto único de falha humano — e o próprio guarda do banco recusa remover o último acesso |
+| **Os 11 avisos novos de e-mail** | `/admin/configuracoes` → aba **Notificações** | a `53` tornou os 15 eventos legíveis, editáveis e com prévia — mas **não ligou nenhum**: os 11 novos nascem desligados por decisão da `42` (`PNL-06`), e a Adri precisa ler o texto de cada um antes da primeira cliente recebê-lo. Duas pendências ficam de fora desta tela e são operação, não curadoria: o **endereço do ateliê** (aba Material — sem ele, `material_instructions` é recusado ao tentar ligar) e o **`ADMIN_PUBLIC_URL` de produção** (secret de servidor — sem ele, os dois avisos "para você" mostram o aviso de link fora de produção) |

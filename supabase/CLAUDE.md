@@ -223,8 +223,11 @@ Pagamentos `/v1/payments` **não é usada em código novo** (`AD-001`).
 ### `send-notification` — o motor de notificação
 
 Quinze eventos (feature `42`), na ordem da jornada do pedido. **Quatro nascem ligados**
-(`order_received`, `order_paid`, `order_shipped`, `material_received`); os outros onze esperam a aba
-de Notificações, que **não existe** — é a `BL-033`, e é a feature `53`.
+(`order_received`, `order_paid`, `order_shipped`, `material_received`); os outros onze nascem
+**desligados** (`PNL-06`) — decisão do usuário, não falta de tela: desde a feature `53` (`BL-033`
+fechada), a aba **Notificações** de `/admin/configuracoes` lê, edita, liga/desliga e mostra a prévia
+dos quinze. Ligar um dos onze continua sendo ato explícito da Adri, feito ali — ver
+[`../apps/backoffice/CLAUDE.md`](../apps/backoffice/CLAUDE.md).
 
 > **Até a feature `52` esta seção se chamava `send-email` e descrevia `order_emails` e
 > `claim_order_email`.** A function foi removida do código no commit `480a171` (feature `42`), a

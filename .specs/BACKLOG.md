@@ -1355,6 +1355,30 @@ de teste, e declarar a queda de contagem (−21) com a contrapartida — a cober
 
 ## BL-033 — A aba Notificações nunca foi construída, e 11 dos 15 eventos são inalcançáveis
 
+- **Status**: **FECHADO em 2026-09-19** · **Registrado em**: 2026-09-17 · **Origem**: feature `53`
+  (`.specs/features/53-aba-de-notificacoes/`).
+
+> **Como fechou.** `/admin/configuracoes` ganhou a aba **Notificações**: os 15 eventos, agrupados em
+> três seções derivadas (`EVENT_AUDIENCE`/`isMaterialEvent`, nunca uma lista nova), cada um com os 5
+> campos editáveis (`subject`/`heading`/`lead`/`extra[]`/`cta_label`), contador contra `COPY_LIMITS`,
+> recusa de variável/tom/tamanho ao salvar (a MESMA `notificationDraftRefusal` que a function já
+> chamava ao renderizar — movida para `core/notifications`, não reimplementada) e prévia por
+> `?action=preview` num `<iframe sandbox srcDoc>`, sem recompor. As duas precondições operacionais
+> que esta entrada nomeou também foram resolvidas: ligar `material_instructions` com o endereço do
+> ateliê vazio (aba Material) é **recusado ao salvar**, nomeando o campo; os dois eventos `owner_*`
+> mostram aviso (não bloqueiam) quando `general.email` está vazio ou `ADMIN_PUBLIC_URL` não parece
+> produção — provado em navegador real, no ambiente local, onde a segunda condição é verdadeira.
+>
+> **Os 11 eventos continuam nascendo desligados** (`PNL-06`, decisão da `42`) — a aba os torna
+> **alcançáveis**, não os liga sozinha. Ligar é ato da Adri, registrado em "O que espera decisão da
+> dona" no `CLAUDE.md` da raiz.
+>
+> **O que fica de fora, e por quê**: a rotina que dispararia `post_delivery_care` automaticamente
+> continua sem existir — depende de um `pg_cron` que este repositório não tem —, e é a `BL-037`,
+> aberta, feature própria. O evento fica **visível e editável** nesta aba (é `PDC-01` do design da
+> `42`), só continua sem quem o dispare sozinho; o botão de reenvio manual do histórico do pedido
+> (`PNL-08`) continua sendo o único disparo possível para ele hoje.
+
 **Aberto por**: auditoria de comunicação com a cliente, 2026-09-17 (medições de 2026-09-16).
 
 A feature `42` entregou o motor inteiro — 15 eventos, pré-condição por estado, reivindicação atômica,

@@ -96,7 +96,21 @@ oferecidos no Execute.
 
 ## Task Breakdown
 
-### T01: `notificationDraftRefusal` ganha dono em `core`
+### T01: `notificationDraftRefusal` ganha dono em `core` ✅
+
+> Concluída em 2026-09-19. Movida corpo a corpo para `packages/core/src/notifications/copy.ts`, com
+> uma mudança de assinatura exigida pelo próprio design: `channel` deixou de ser literal `'email'`
+> hard-coded dentro do corpo e virou parâmetro (`notificationDraftRefusal(event, channel, fields)`).
+> `handlers.ts` passou a importar e delegar — `export const draftRefusal = notificationDraftRefusal`
+> (identidade, não cópia) — e `preview()` chama a versão de `core`. Os 4 casos originais de
+> `handlers.test.ts:591-620` migraram para `copy.test.ts`, mais 2 novos que só fazem sentido depois da
+> mudança de assinatura (o terceiro estágio, tamanho, e o `channel` como parâmetro). `handlers.test.ts`
+> ficou só com a checagem de identidade (`toBe`) e um smoke test. **A contagem de `functions` CAIU em
+> 2** (654→652) — é o esperado, não uma perda: 4 casos viraram 2 (wiring), e os outros migraram para
+> `core`, que subiu 6 (as 4 migradas + 2 novas). Líquido combinado core+functions: **+4**, e nenhum
+> comportamento perdeu cobertura — é o mesmo caso, medido no lugar novo.
+>
+> Gates: `core` 2372→2378/93 (+6) · `functions` 654→652/14 (−2, explicado acima). Os dois exit 0.
 
 **What**: mover `draftRefusal` (`handlers.ts:241-259`) para
 `packages/core/src/notifications/copy.ts` como `notificationDraftRefusal(event, channel, fields:
@@ -109,19 +123,25 @@ Partial<EmailFields>): string | null` — corpo idêntico. `handlers.ts` passa a
 **Requirement**: `ABN-04`, `ABN-05`, `ABN-11` (fundação)
 
 **Done when**:
-- [ ] `notificationDraftRefusal` exportado de `core/notifications`, com os mesmos 6+ casos que
+- [x] `notificationDraftRefusal` exportado de `core/notifications`, com os mesmos 6+ casos que
       `handlers.test.ts:591-619` tinha, movidos para `copy.test.ts`
-- [ ] `handlers.ts` não declara mais a composição — só importa e chama; `handlers.test.ts` mantém uma
+- [x] `handlers.ts` não declara mais a composição — só importa e chama; `handlers.test.ts` mantém uma
       checagem de identidade/wiring (`draftRefusal === notificationDraftRefusal` ou smoke test
       equivalente), não a lista inteira de casos
-- [ ] Import por caminho relativo com `.ts` explícito (grafo do Deno)
-- [ ] Gate: `pnpm --filter @estrelinha/core test --testTimeout=20000` e
+- [x] Import por caminho relativo com `.ts` explícito (grafo do Deno)
+- [x] Gate: `pnpm --filter @estrelinha/core test --testTimeout=20000` e
       `pnpm --filter @estrelinha/functions test --testTimeout=20000` verdes, contagem de `functions`
-      sem queda líquida (casos migram, não somem)
+      sem queda líquida (casos migram, não somem) — **líquido combinado core+functions em +4**; a
+      queda isolada de `functions` (−2) é o esperado do encolhimento de `handlers.test.ts` para
+      wiring-only, ver nota de fecho acima
 
 ---
 
-### T02: `useNotificationSettings()`
+### T02: `useNotificationSettings()` ✅
+
+> Concluída em 2026-09-19. Leitura RASA, mesmo molde de `useMaterialSettings`. Testes: default sem
+> linha no banco, linha gravada (parcial no sentido de faltar campos de `events`, não descartada por
+> `fetchAllSettings`), e erro de consulta devolvendo o default. Gate: `core` 2378→2381/93 (+3).
 
 **What**: hook novo em `useStoreSettings.ts`, mesmo molde de `useMaterialSettings`/
 `useGoogleShoppingSettings` — `data?.notifications ?? DEFAULT_NOTIFICATIONS`.
@@ -131,14 +151,20 @@ Partial<EmailFields>): string | null` — corpo idêntico. `handlers.ts` passa a
 **Requirement**: `ABN-01` (leitura que sustenta a aba inteira)
 
 **Done when**:
-- [ ] `useNotificationSettings()` exportado, devolve o default quando a linha do banco está ausente
-- [ ] Teste: uma linha `notifications` parcial vinda do dublê é lida (mesmo sensor de
+- [x] `useNotificationSettings()` exportado, devolve o default quando a linha do banco está ausente
+- [x] Teste: uma linha `notifications` parcial vinda do dublê é lida (mesmo sensor de
       `storeSettingsDefaults`/T19 original: `if (key in map)` não descarta)
-- [ ] Gate: `pnpm --filter @estrelinha/core test --testTimeout=20000` verde
+- [x] Gate: `pnpm --filter @estrelinha/core test --testTimeout=20000` verde
 
 ---
 
-### T03: `model/sections.ts` — as três seções, derivadas
+### T03: `model/sections.ts` — as três seções, derivadas ✅
+
+> Concluída em 2026-09-19. `sectionFor` checa audiência `owner` primeiro, depois `isMaterialEvent`,
+> depois o resto — na ORDEM da spec, mesmo os dois grupos nunca se sobrepondo hoje. `groupedEvents()`
+> itera `NOTIFICATION_EVENTS` uma vez. Âncora de contagem (soma = 15, sem repetição), ordem por
+> índice, e o par material/owner exato. Gate: backoffice +10 testes (só este arquivo; ver T04/T05
+> abaixo para os outros dois do lote medidos juntos).
 
 **What**: `NotificationSection`, `SECTION_LABELS`, `sectionFor(event)`, `groupedEvents()` — deriva
 de `EVENT_AUDIENCE`/`isMaterialEvent`, nunca uma lista nova.
@@ -148,16 +174,21 @@ de `EVENT_AUDIENCE`/`isMaterialEvent`, nunca uma lista nova.
 **Requirement**: `ABN-01`
 
 **Done when**:
-- [ ] Os 15 eventos cobertos, cada um em **exatamente uma** seção (soma das três seções = 15, sem
+- [x] Os 15 eventos cobertos, cada um em **exatamente uma** seção (soma das três seções = 15, sem
       repetição — âncora de contagem)
-- [ ] Dentro de cada seção, a ordem é a de `NOTIFICATION_EVENTS` (prova: comparar índices)
-- [ ] Sensor: um evento de material classificado como `customer` por engano faz o caso de contagem
+- [x] Dentro de cada seção, a ordem é a de `NOTIFICATION_EVENTS` (prova: comparar índices)
+- [x] Sensor: um evento de material classificado como `customer` por engano faz o caso de contagem
       da seção "Material" cair
-- [ ] Gate: `pnpm --filter @estrelinha/backoffice test --testTimeout=20000` verde
+- [x] Gate: `pnpm --filter @estrelinha/backoffice test --testTimeout=20000` verde
 
 ---
 
-### T04: `model/preconditions.ts` — as duas réguas
+### T04: `model/preconditions.ts` — as duas réguas ✅
+
+> Concluída em 2026-09-19. `materialAddressMissing` (trim vazio) e `adminUrlLooksLocal` (não começa
+> com `https://` OU contém `localhost`/`127.0.0.1`; string vazia conta como "não é produção", nunca
+> "não sei"). 9 casos, incluindo o default `DEFAULT_MATERIAL` (street vazio → true) e a forma `http://`
+> sem "s".
 
 **What**: `materialAddressMissing(material)`, `adminUrlLooksLocal(adminPublicUrl)`.
 **Where**: `apps/backoffice/src/features/notification-settings/model/preconditions.ts` *(novo)* e teste
@@ -166,14 +197,21 @@ de `EVENT_AUDIENCE`/`isMaterialEvent`, nunca uma lista nova.
 **Requirement**: `ABN-08`, `ABN-09`
 
 **Done when**:
-- [ ] `materialAddressMissing`: `street` vazio ou só espaço ⇒ `true`; preenchido ⇒ `false`
-- [ ] `adminUrlLooksLocal`: `http://localhost:8083` ⇒ `true`; `https://painel.umaestrelinha.com.br` ⇒
+- [x] `materialAddressMissing`: `street` vazio ou só espaço ⇒ `true`; preenchido ⇒ `false`
+- [x] `adminUrlLooksLocal`: `http://localhost:8083` ⇒ `true`; `https://painel.umaestrelinha.com.br` ⇒
       `false`; string vazia ⇒ `true` (trata ausência como "não é de produção", não como "não sei")
-- [ ] Gate: `pnpm --filter @estrelinha/backoffice test --testTimeout=20000` verde
+- [x] Gate: `pnpm --filter @estrelinha/backoffice test --testTimeout=20000` verde
 
 ---
 
-### T05: `model/notificationsWrite.ts` — a escrita sempre com os 15
+### T05: `model/notificationsWrite.ts` — a escrita sempre com os 15 ✅
+
+> Concluída em 2026-09-19. `buildNotificationsValue` itera `NOTIFICATION_EVENTS` uma vez, monta
+> `{ email: resolved[event] }` por chave. Sensor real: um `resolved` de faz-de-conta com `subject`
+> distinto de `DEFAULT_NOTIFICATIONS` em TODOS os 15 eventos, editar só `pix_expired`, e provar que os
+> outros 14 saem com o valor do `resolved` (não do default) — se a função reconstruísse do default por
+> engano, o assert do subject fake reprovaria. `post_delivery_days` preservado byte a byte, incluindo
+> o valor 0. Gate: T03+T04+T05 juntos, backoffice 2711→2735/151 (+24/+3, exatamente os 10+9+5 casos).
 
 **What**: `buildNotificationsValue(resolved, postDeliveryDays)` — reconstrói `NotificationSettings`
 iterando `NOTIFICATION_EVENTS` uma vez; `post_delivery_days` é preservado, nunca editado aqui.
@@ -183,17 +221,27 @@ iterando `NOTIFICATION_EVENTS` uma vez; `post_delivery_days` é preservado, nunc
 **Requirement**: `ABN-13`
 
 **Done when**:
-- [ ] O objeto construído tem **as 15 chaves** de `events`, sempre — mesmo quando `resolved` só
+- [x] O objeto construído tem **as 15 chaves** de `events`, sempre — mesmo quando `resolved` só
       reflete edição de 1 evento
-- [ ] Sensor: construir passando um `resolved` com só `pix_expired` alterado prova que os outros 14
+- [x] Sensor: construir passando um `resolved` com só `pix_expired` alterado prova que os outros 14
       saem com o valor de `resolved` (não com `DEFAULT_NOTIFICATIONS` por engano — `resolved` já veio
       resolvido de `resolveAllEventSettings`, o teste finge isso com um dublê)
-- [ ] `post_delivery_days` de entrada == de saída, byte a byte
-- [ ] Gate: `pnpm --filter @estrelinha/backoffice test --testTimeout=20000` verde
+- [x] `post_delivery_days` de entrada == de saída, byte a byte
+- [x] Gate: `pnpm --filter @estrelinha/backoffice test --testTimeout=20000` verde
 
 ---
 
-### T06: `model/useNotificationsDraft.ts` — o estado da aba inteira
+### T06: `model/useNotificationsDraft.ts` — o estado da aba inteira ✅
+
+> Concluída em 2026-09-19. Teste com hooks REAIS de `core` (não dublados) sob `QueryClientProvider` de
+> verdade + mock só do client Supabase — molde de `useStoreSettings.test.ts`, exatamente pela razão
+> que a Done-when nomeia (L-030). 12 casos: inicialização (do gravado e do default), `ABN-12` nos DOIS
+> sentidos (edição pendente sobrevive a um `invalidateQueries` simulando refetch; remontar sem salvar
+> mostra o último estado do SERVIDOR, não o rascunho), o gate de material nos três estados
+> (ligado+vazio, ligado+preenchido, desligado+vazio), a delegação a `notificationDraftRefusal` provada
+> por IGUALDADE de string (não só "não é null"), `canSave` caindo por 1 entre 15 sem contaminar os
+> outros, e `save()` nos dois desfechos (bloqueado sem chamar `upsert`; sucesso gravando as 15 chaves
+> e limpando `isDirty`). Gate: backoffice +12 (medido junto com T07/T08 abaixo).
 
 **What**: hook que inicializa o rascunho dos 15 eventos a partir de `resolveAllEventSettings`,
 expõe `setField`/`setEnabled`/`refusalFor`/`canSave`/`isSaving`/`isDirty`/`save()`. `refusalFor`
@@ -208,21 +256,28 @@ compõe `notificationDraftRefusal` (T01) e, só para `material_instructions` lig
 **Requirement**: `ABN-03`, `ABN-04`, `ABN-05`, `ABN-08`, `ABN-12`, `ABN-13`
 
 **Done when**:
-- [ ] Draft inicializado do servidor; não se reinicializa sozinho enquanto há edição pendente
+- [x] Draft inicializado do servidor; não se reinicializa sozinho enquanto há edição pendente
       (`isDirty`), mas volta ao estado do servidor quando a tela remonta sem salvar (`ABN-12`)
-- [ ] `refusalFor('material_instructions')` com `enabled: true` e endereço vazio devolve recusa
+- [x] `refusalFor('material_instructions')` com `enabled: true` e endereço vazio devolve recusa
       nomeando a aba Material; com `enabled: false` **não** recusa (ela pode digitar o texto sem
       travar, só não pode LIGAR)
-- [ ] `refusalFor` de variável/tom/limite delega 100% para `notificationDraftRefusal` — nenhuma cópia
+- [x] `refusalFor` de variável/tom/limite delega 100% para `notificationDraftRefusal` — nenhuma cópia
       local da composição (prova indireta de `ABN-11`, o guarda de disco em T13 confirma)
-- [ ] `canSave` é `false` quando qualquer um dos 15 tem `refusalFor !== null`
-- [ ] `save()` chama `useQueryClient`/`useUpdateSettings` dentro de um `QueryClientProvider` no teste
+- [x] `canSave` é `false` quando qualquer um dos 15 tem `refusalFor !== null`
+- [x] `save()` chama `useQueryClient`/`useUpdateSettings` dentro de um `QueryClientProvider` no teste
       (lição `L-030` do projeto — `renderHook` sem provider derruba com "No QueryClient set")
-- [ ] Gate: `pnpm --filter @estrelinha/backoffice test --testTimeout=20000` verde
+- [x] Gate: `pnpm --filter @estrelinha/backoffice test --testTimeout=20000` verde
 
 ---
 
-### T07: `api/previewNotification.ts`
+### T07: `api/previewNotification.ts` ✅
+
+> Concluída em 2026-09-19. `motivoDaFalha` (molde de `useAdminUsers.ts`) lê o corpo do
+> `FunctionsHttpError` — sem isso a recusa 422 de `notificationDraftRefusal` (ex.: "Variável
+> desconhecida: {{materia}}.") chegaria à tela como "Edge Function returned a non-2xx status code".
+> 6 casos: corpo exato com e sem `order_id`, resposta repassada byte a byte (`html` com atributo
+> inventado sobrevive intacto — prova de "não recompõe"), falha de rede, 422 com corpo legível, e erro
+> sem corpo legível caindo no fallback em português.
 
 **What**: `previewNotification({ event, draft, orderId? })` — `supabase.functions.invoke
 ('send-notification?action=preview', { body: { event, channel: 'email', draft, order_id } })`;
@@ -234,14 +289,24 @@ e teste
 **Requirement**: `ABN-06`, `ABN-07`
 
 **Done when**:
-- [ ] Corpo da chamada exato: `event`, `channel: 'email'`, `draft`, `order_id` só quando informado
-- [ ] Resposta de sucesso repassada tal qual (`{ subject, html, text, sample }`)
-- [ ] Erro de rede/function vira `{ error }`, sem `throw`
-- [ ] Gate: `pnpm --filter @estrelinha/backoffice test --testTimeout=20000` verde
+- [x] Corpo da chamada exato: `event`, `channel: 'email'`, `draft`, `order_id` só quando informado
+- [x] Resposta de sucesso repassada tal qual (`{ subject, html, text, sample }`)
+- [x] Erro de rede/function vira `{ error }`, sem `throw`
+- [x] Gate: `pnpm --filter @estrelinha/backoffice test --testTimeout=20000` verde
 
 ---
 
-### T08: `api/checkNotificationConfig.ts`
+### T08: `api/checkNotificationConfig.ts` ✅
+
+> Concluída em 2026-09-19. Um desvio pequeno e declarado do design: o `queryFn` devolve `null` (não
+> `undefined`) no caminho de falha, porque React Query v5 trata `data: undefined` vindo do `queryFn`
+> como consulta inválida e reclama no console ("Query data cannot be undefined") — `null` é dado
+> válido para a biblioteca. `useNotificationConfigCheck()` traduz para a interface pública
+> (`data ?? undefined`), que continua sendo exatamente `{ adminPublicUrl: string } | undefined`. Os
+> testes de falha esperam a query **assentar** (`fetchStatus === 'idle'` e `status !== 'pending'`) via
+> `client.getQueryState`, não só o valor inicial — que também é `undefined` durante o carregamento, e
+> um `waitFor` ingênuo passaria sem provar que o caminho de erro foi exercitado. Gate: T06+T07+T08
+> juntos, backoffice 2711→2758/154 (+47/+6 — exatamente 10+9+5+6+5+12 dos seis arquivos do lote T03-T08).
 
 **What**: `useNotificationConfigCheck()` — `useQuery` sobre `?action=config-check`, `staleTime` de 5
 minutos, devolve `undefined` em qualquer erro (nunca populate um estado de erro).
@@ -251,13 +316,21 @@ minutos, devolve `undefined` em qualquer erro (nunca populate um estado de erro)
 **Requirement**: `ABN-09`
 
 **Done when**:
-- [ ] Sucesso devolve `{ adminPublicUrl: string }` a partir de `admin_public_url` da resposta
-- [ ] Erro (rede, resposta sem o campo) devolve `undefined`, não lança
-- [ ] Gate: `pnpm --filter @estrelinha/backoffice test --testTimeout=20000` verde
+- [x] Sucesso devolve `{ adminPublicUrl: string }` a partir de `admin_public_url` da resposta
+- [x] Erro (rede, resposta sem o campo) devolve `undefined`, não lança
+- [x] Gate: `pnpm --filter @estrelinha/backoffice test --testTimeout=20000` verde
 
 ---
 
-### T09: `ui/EmailPreviewFrame.tsx`
+### T09: `ui/EmailPreviewFrame.tsx` ✅
+
+> Concluída. `<iframe sandbox="" srcDoc={html}>`, sem recompor — provado por tag inventada
+> sobrevivendo intacta no `srcdoc`. Alternância 390/600px por par de botões (`aria-pressed`, `h-11`,
+> nenhum terceiro valor), texto em `<pre className="whitespace-pre-wrap">` abaixo do iframe, selo
+> "Prévia de exemplo" só quando `sample`, e estado de erro (`role="alert"`) no lugar do iframe — nunca
+> vazio em silêncio. Gate: backoffice +10 (só este arquivo).
+
+
 
 **What**: `<iframe sandbox="" srcDoc={html}>`, alternância 390/600px, `text` abaixo em `<pre>`, selo
 "Prévia de exemplo" quando `sample`, estado de erro no lugar do iframe.
@@ -276,7 +349,18 @@ minutos, devolve `undefined` em qualquer erro (nunca populate um estado de erro)
 
 ---
 
-### T10: `ui/EventCard.tsx`
+### T10: `ui/EventCard.tsx` ✅
+
+> Concluída. Componente CONTROLADO pelo pai — rótulo (`NOTIFICATION_EVENT_LABELS`), `ToggleField`,
+> exatamente os 5 campos (`subject`/`heading`/`lead`/`extra[]` até 5 linhas/`cta_label`) com contador
+> contra `COPY_LIMITS`, recusa inline (`role="alert"`) vinda de `refusalFor`, banner de aviso
+> (`role="status"`) quando `warnings.length > 0` — sem desabilitar o toggle —, e "ver prévia"
+> montando `EmailPreviewFrame` só quando `previewActive` (o estado do preview mora no pai, T11, para
+> nunca haver 15 iframes simultâneos). Alvos de toque em classe literal (`h-11`/`w-11`) — **não**
+> `TAP_44`, que é de `apps/store` e o painel nunca importa (convenção já registrada em
+> `apps/backoffice/CLAUDE.md`, seção do `NavRail`). Gate: backoffice +15.
+
+
 
 **What**: um evento — rótulo (`NOTIFICATION_EVENT_LABELS`), toggle, os 5 campos com contador contra
 `COPY_LIMITS`, recusa inline, banner de aviso (material/e-mail-vazio/URL-local), botão "ver prévia".
@@ -298,7 +382,24 @@ minutos, devolve `undefined` em qualquer erro (nunca populate um estado de erro)
 
 ---
 
-### T11: `ui/NotificationsTab.tsx`
+### T11: `ui/NotificationsTab.tsx` ✅
+
+> Concluída. Monta as três seções (T03) com um `EventCard` (T10) por evento, na ordem
+> `NOTIFICATION_SECTIONS.flatMap(groupedEvents)` — que dentro de cada seção é a de
+> `NOTIFICATION_EVENTS`, mas o flat inteiro da tela NÃO é literalmente `NOTIFICATION_EVENTS` (que
+> intercala customer/material/owner); é o achatado seção a seção. `NotificationsTab.test.tsx` prova
+> isso comparando com `NOTIFICATION_SECTIONS.flatMap((s) => groupedEvents()[s])`. Um preview ativo
+> por vez (estado no pai — abrir um fecha o anterior, provado clicando em dois cards em sequência).
+> Os avisos de `ABN-09` são computados aqui (`warningsFor`, inline — um único consumidor, não vai
+> para `core` nem para um arquivo próprio) a partir de `materialAddressMissing`/`adminUrlLooksLocal`
+> (T04) + `useMaterialSettings`/`useGeneralSettings`/`useNotificationConfigCheck` (T08), com textos
+> DISTINTOS para e-mail vazio e URL local. `SaveButton` único chamando `draftState.save()`, com
+> `useToast` no erro (mesmo padrão das outras 7 abas). Barrel `index.ts` exporta só `NotificationsTab`.
+> Gate: backoffice +12 (+9 em `NotificationsTab.test.tsx`, incluindo a correção do primeiro caso de
+> ordem, que media `NOTIFICATION_EVENTS` cru contra o flat agrupado — errado por construção — e foi
+> reescrito para comparar contra `groupedEvents()`, achado ao rodar o teste pela primeira vez).
+
+
 
 **What**: monta as três seções (T03), um `EventCard` por evento (T10), **um** preview ativo por vez
 (abrir um fecha o anterior), `SaveButton` único da aba com `useToast` no erro.
@@ -317,7 +418,23 @@ minutos, devolve `undefined` em qualquer erro (nunca populate um estado de erro)
 
 ---
 
-### T12: Wiring em `AdminSettingsPage.tsx`
+### T12: Wiring em `AdminSettingsPage.tsx` ✅
+
+> Concluída. `TabsTrigger`/`TabsContent` de "Notificações" entre Checkout e SEO; `sm:grid-cols-7` →
+> `sm:grid-cols-8`. `PageSettingsKey` passou a excluir `'notifications'` além de `'checkout'`
+> (`Exclude<SettingsKey, 'checkout' | 'notifications'>`), o que torna `save('notifications')`
+> **inalcançável por `tsc`** — mecanismo mais forte que um teste de runtime para "esta página não
+> ganha um branch novo". `AdminSettingsPage.test.tsx` dubla `NotificationsTab` (mesmo molde de
+> `CheckoutSettingsCard`, porque ela tem o PRÓPRIO `useNotificationsDraft`/`useUpdateSettings`, e o
+> mock de `useStoreSettings` deste arquivo não declara `useNotificationSettings`/
+> `useMaterialSettings`) e prova só a fiação: a aba existe, as outras 7 continuam de pé, selecionar
+> monta o stub, e abrir a aba não chama o `mutateAsync` da página. Achado ao rodar `tsc`: o estado do
+> preview (`PreviewState`) tinha sido escrito como união discriminada por `loading: true | false` —
+> exatamente a forma que o `CLAUDE.md` da raiz avisa que **não estreita** sob `strictNullChecks:
+> false` — e virou uma interface com `result` opcional. Gate: backoffice +3 (AdminSettingsPage.test.tsx
+> 17→20); `tsc` do backoffice em 0.
+
+
 
 **What**: `<TabsTrigger value="notifications">Notificações</TabsTrigger>` +
 `<TabsContent value="notifications"><NotificationsTab /></TabsContent>`; `TabsList` de
@@ -333,7 +450,23 @@ minutos, devolve `undefined` em qualquer erro (nunca populate um estado de erro)
 
 ---
 
-### T13: Guarda `notificationCopySingleOwner.test.ts`
+### T13: Guarda `notificationCopySingleOwner.test.ts` ✅
+
+> Concluída. Varre `apps/backoffice/src/**`, com o stripper de comentário de `freeShippingSingleOwner`
+> (linha e bloco na mesma varredura, CRLF normalizado primeiro — `BL-027`). Recusa **declaração**
+> (`const NOME =`/`function nome(`), nunca menção — `import { COPY_LIMITS } from
+> '@estrelinha/core/notifications'` (o import real de `EventCard.tsx`) passa limpo. A régua roda só
+> contra **produção** (`producao`, filtrando `.test.ts`/`__tests__/`): rodá-la contra `varridos`
+> inteiro fazia o PRÓPRIO arquivo de teste reprovar, porque os sensores citam as formas proibidas
+> como string dentro de fixtures sintéticas — achado ao rodar pela primeira vez, corrigido no molde
+> que `freeShippingSingleOwner.test.ts` já usa (a régua nunca pode ser o objeto medido). Âncora dupla
+> (arquivos lidos > 100, e o import real de `COPY_LIMITS` em `EventCard.tsx` encontrado) e sensores:
+> injeção de `URGENCY_TERMS`, das duas formas de função (`function`/`const =>`), da régua de emoji
+> (`Extended_Pictographic`), do ponto cego do glob de dois asteriscos (`BL-027`), o inverso do import
+> legítimo (as cinco réguas importadas juntas, sem casar nada) e a prova contra o arquivo real.
+> Gate: backoffice +13.
+
+
 
 **What**: varredura de `apps/backoffice/src/**` recusando uma segunda declaração de
 `URGENCY_TERMS`/regex de emoji equivalente, `NOTIFICATION_VARIABLES`, `COPY_LIMITS`, ou uma função
@@ -356,7 +489,20 @@ precisa estar montada em `AdminSettingsPage` para o guarda ler o disco)
 
 ---
 
-### T14: Prova em navegador — 390×844 e 1440
+### T14: Prova em navegador — 390×844 e 1440 ✅
+
+> Concluída — evidência completa em `validation.md`. `scrollWidth === innerWidth` nos dois tamanhos,
+> os 15 cards renderizam, e o fluxo funcional inteiro foi exercitado ponta a ponta (recusa de
+> material → preencher endereço → salvar com sucesso, conferido no Postgres real com as 15 chaves;
+> "ver prévia" trazendo HTML real de 4347 caracteres da mesma function que envia; recusa de
+> `{{materia}}` nomeando a variável; o aviso de `admin_public_url` local aparecendo de verdade nos
+> dois cards `owner_*`, como a task previu). **Dois defeitos reais achados e corrigidos antes de
+> fechar** (nenhum deixado como dívida): o `Switch` de cada evento media 24px de altura (abaixo do
+> piso de 44px) e a `TabsList` de 8 abas tinha a 3ª linha cortada por um `h-10` fixo do componente
+> compartilhado, sobrepondo o título da seção. Os dois consertos são aditivos/locais — não mudam
+> nenhum dos 7 outros usos existentes de `ToggleField`/`TabsList` no painel. Achado de
+> infraestrutura à parte: o container do edge runtime local estava parado há 5 dias e precisou de
+> `supabase stop` + `supabase start` (sem `--all`) para religar.
 
 **What**: com `pnpm dev:backoffice` e o Supabase local rodando, abrir `/admin/configuracoes` →
 Notificações via `playwright-cli`, medir `document.body.scrollWidth`, alvos de toque, testar o fluxo
@@ -378,7 +524,20 @@ aqui). Repetir em 1440. Capturas e medidas para `validation.md`.
 
 ---
 
-### T15: Fecho — baselines, documentação, backlog, decisão
+### T15: Fecho — baselines, documentação, backlog, decisão ✅
+
+> Concluída. Os 5 workspaces medidos (9881/509 no fecho, +116/+10 desta feature sobre a entrada real
+> de 9742/498 — o resto, +23/+1, é a feature `54`, numa árvore compartilhada). Lint 26/6, tipos
+> 0·0·0, `pnpm build` verde nos dois apps, `payment/**` intocado. `CLAUDE.md` da raiz (tabela de
+> baselines + "O que espera decisão da dona"), `apps/backoffice/CLAUDE.md` (seção nova da aba),
+> `supabase/CLAUDE.md` (a linha do `send-notification` corrigida), `BL-033` fechada no `BACKLOG.md`
+> (com `BL-037` referenciada explicitamente), a tabela de rastreabilidade da `42/spec.md` atualizada
+> — com uma correção: três linhas (`PNL-06`, `07`, `08`) já estavam implementadas na Phase 1 da
+> própria `42` e foram creditadas a ela, não a `53`, para não afirmar rastreabilidade falsa.
+> `STATE.md` → Handoff substituído (só o corpo, `## Decisions` intocada). A verificação final
+> (standalone, seção *Verificação final* em `validation.md`) achou e corrigiu uma lacuna real —
+> `ABN-07` sem campo de `order_id` na UI — além de matar os três mutantes pedidos
+> (`ABN-13`, `ABN-08`, `ABN-04`/`ABN-05`), todos sem sobrevivente. Commits gerados na sequência.
 
 **What**: medir os 5 workspaces (um por vez, exit code fora de pipe, `--testTimeout=20000`), lint,
 tipos, `pnpm build`; atualizar `CLAUDE.md` (tabela de baselines + "O que espera decisão da dona"),
