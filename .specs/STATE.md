@@ -871,7 +871,49 @@
 
 ## Handoff
 
-### ATUAL — 2026-09-14 · `51-busca-de-produto-do-painel` **IMPLEMENTADA — 12 de 12 tasks**
+### ATUAL — 2026-09-19 · `52-entrega-de-email-comprovada` **IMPLEMENTADA e NO AR — 8 tasks**
+
+- **Feature**: `.specs/features/52-entrega-de-email-comprovada/` (`spec.md`, `design.md`,
+  `tasks.md`, `validation.md`). **Duas rodadas de verificação independente**, as duas com FAIL na
+  primeira leitura; consertos aplicados e commitados. **Commits `3979524`, `a5ce8f3`, `8595e92`**,
+  já em `master`.
+- **Baselines**: **9742 em 498** (store 3493/220 · backoffice 2711/148 · core 2372/93 ·
+  functions 654/14 · catalog-import 512/23). Lint 26/6, tipos 0·0·0, `payment/**` intocado.
+
+**O que a feature fez.** O motor de notificação existe desde a `42` e **nunca entregou um e-mail em
+produção**: `order_notifications` tinha uma linha em toda a história da loja, e era um 403 — o
+secret `RESEND_FROM` apontava para um subdomínio que nunca existiu na conta Resend. Treze dias, 36
+pedidos, nenhum aviso, porque a `42` corrigiu a prosa e não o secret. Agora o cano está aberto, e há
+um sensor diário (`Email check`) que pergunta **à produção** com o que ela está configurada e prova
+**esse** valor contra o Resend — um probe com o remetente escrito nele mesmo teria ficado verde os
+treze dias inteiros.
+
+**O achado que não era da feature, e é o mais grave da sessão.** `mercado-pago/index.ts` chamava
+`createResendProvider` **sem importá-lo** desde a `42`, publicado em 2026-09-13. A function
+devolvia **500 `WORKER_ERROR`** a qualquer requisição: `create-payment` e webhook mortos por seis
+dias. Ninguém viu porque **`index.ts` é o único arquivo do repositório que nenhuma ferramenta lê**
+— `AD-004` manda a lógica para `handlers.ts`, e "sem teste" virou "sem checagem nenhuma".
+`wiringResolve.test.ts` fecha a classe, pela AST do TypeScript.
+
+**Decisões novas**: **`AD-037`** (candidata, registrar ao fechar) — *sensor de configuração pergunta
+ao ambiente que executa e prova o valor que ele reporta, nunca um valor escrito no próprio sensor*.
+E a regra de ordem que a própria feature violou: **remoção em produção se ordena pelo que está
+PUBLICADO, nunca pelo que está no disco** (`DLV-31`) — o secret foi apagado antes do deploy do
+código que deixou de lê-lo, e o cano fechou de novo por algumas horas.
+
+**PENDENTE, e é operação, não código:**
+- **`O3`** — conferir **SMTP e os três templates** no dashboard do hospedado
+  (`/auth/smtp`, `/auth/templates`). A CLI **não tem `config pull`**: não há comando que leia o
+  `[auth]` de produção. Enquanto ninguém ligar o SMTP lá, o GoTrue usa o compartilhado da Supabase
+  (~2 e-mails/hora) e **nenhuma cliente recebe o código de acesso**. Os três templates do
+  repositório (`supabase/templates/`) estão prontos e já usam `{{ .Token }}` — é colar.
+- **`O4`** — `supabase functions delete send-email --project-ref hgkrsfpupypxtygjgthf`. A zumbi
+  segue `ACTIVE`; foi removida do código no commit `480a171` e `functions deploy` não remove o que
+  sumiu. (Tentei e a política do sandbox bloqueou.)
+
+---
+
+### ANTERIOR — 2026-09-14 · `51-busca-de-produto-do-painel` **IMPLEMENTADA — 12 de 12 tasks**
 
 - **Feature**: `.specs/features/51-busca-de-produto-do-painel/` (`spec.md`, `design.md`, `tasks.md`).
   **Sem `validation.md` ainda** — o Verifier independente roda a seguir, e os commits vêm depois dele.
