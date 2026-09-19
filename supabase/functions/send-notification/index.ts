@@ -11,7 +11,11 @@
 // UM item aqui e UM arquivo em `core/notifications/providers/`. O motor não muda.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
-import { createResendProvider } from '../../../packages/core/src/notifications/index.ts'
+import {
+  DEFAULT_SENDER_FROM,
+  createResendProvider,
+  senderFrom,
+} from '../../../packages/core/src/notifications/index.ts'
 import { type Deps, route } from './handlers.ts'
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!
@@ -33,7 +37,21 @@ function envOptional(name: string): string | undefined {
 }
 
 const resendApiKey = Deno.env.get('RESEND_API_KEY')!
-const resendFrom = envOr('RESEND_FROM', 'Uma Estrelinha <onboarding@resend.dev>')
+/**
+ * O remetente sai de DUAS envs (feature 52, T8), espelhando o auth — que sempre teve `sender_name`
+ * e `admin_email` separados no config.toml. Uma única string em RFC 5322 era o campo que mais
+ * errava: colar o formato de um no campo do outro derruba TODO o envio (BUG-20260728).
+ *
+ * `senderFrom` é o dono da composição, em `core`, e ele devolve vazio quando não dá para montar um
+ * remetente válido — inclusive quando alguém cola o valor antigo, combinado, no campo do endereço.
+ * Vazio cai no default abaixo, que o `Email check` recusa por `from_is_default`.
+ *
+ * `RESEND_FROM` NÃO é mais lida. O nome antigo foi aposentado de propósito: reusá-lo com
+ * significado novo faria um valor esquecido em produção ser interpretado como "só o nome".
+ */
+const resendFrom =
+  senderFrom(envOptional('RESEND_SENDER_NAME'), envOptional('RESEND_SENDER_EMAIL')) ||
+  DEFAULT_SENDER_FROM
 
 const deps: Deps = {
   supabase: createClient(supabaseUrl, serviceRoleKey),
@@ -41,10 +59,8 @@ const deps: Deps = {
   providers: [createResendProvider({ apiKey: resendApiKey, from: resendFrom })],
   env: {
     resendApiKey,
-    // Default do remetente: `onboarding@resend.dev` funciona sem domínio verificado, mas só entrega
-    // para o e-mail dono da conta Resend. O alvo é `loja@loja.umaestrelinha.com.br` — domínio
-    // verificado, medido em 2026-09-06 (ver .env.example). É só mexer na env, sem tocar em código. E
-    // ele é DISTINTO do remetente do auth (`acesso@`): confundir os dois é a causa do BUG-20260728.
+    // Já composto acima. O default (`onboarding@resend.dev`) entrega só ao dono da conta Resend —
+    // sucesso aparente e nenhuma cliente recebendo, que é por isso que o sensor o recusa.
     resendFrom,
     // Origem DA LOJA, não do Supabase. Base do link `/conta` dos e-mails.
     storePublicUrl: envOr('STORE_PUBLIC_URL', 'http://localhost:8080'),

@@ -1,10 +1,13 @@
-// As portas HTTP da `send-notification`. Quatro, e cada uma existe por um chamador diferente:
+// As portas HTTP da `send-notification`. Cinco, e cada uma existe por um chamador diferente:
 //
 //   ?action=trigger  · backoffice (admin) — "isto aconteceu com o pedido"
 //   ?action=send     · backoffice (admin) — "repita ESTA mensagem" (o reenvio do histórico)
 //   ?action=notify   · LOJA (dona do pedido) — o único fato que a cliente produz: o rastreio do
 //                      material que ela postou
 //   ?action=preview  · painel (admin) — renderiza um rascunho NÃO salvo, sem tocar em nada
+//   ?action=config-check · SENSOR externo (feature `52`) — "com o que esta produção está
+//                      configurada para enviar". É a ÚNICA porta sem autorização, e a razão está
+//                      escrita em `configCheck`: nenhum campo dela é segredo.
 //
 // A `mercado-pago` NÃO passa por aqui — ela importa `dispatch.ts` direto, no mesmo processo
 // (`AD-005`). Um hop HTTP entre duas functions do mesmo deploy exigiria inventar auth interna
@@ -26,7 +29,7 @@ import {
   variablesRefusal,
 } from '../../../packages/core/src/notifications/index.ts'
 import { type NotificationDeps, dispatchEventFull, dispatchTrigger } from './dispatch.ts'
-import { type EmailOrder } from './render/layout.ts'
+import { type EmailOrder, isValidFrom } from './render/layout.ts'
 import { renderEmail } from './render/email.ts'
 import { buildVars } from './render/vars.ts'
 import { SAMPLE_ORDER } from './render/sample.ts'
@@ -297,6 +300,72 @@ async function previewOrder(deps: Deps, orderId: unknown): Promise<EmailOrder> {
   return (data as EmailOrder) ?? SAMPLE_ORDER
 }
 
+/**
+ * O remetente de caixa-de-areia, reexportado de `core` — **não** declarado aqui.
+ *
+ * Na primeira escrita desta porta (T1) o literal existia nos dois lugares, com um comentário
+ * dizendo que tudo bem porque a régua decide pelo endereço. Tudo bem até alguém trocar um só. A
+ * T8 deu dono único a ele (`core/notifications/sender.ts`), junto com a composição do remetente.
+ */
+export { DEFAULT_SENDER_FROM as DEFAULT_RESEND_FROM } from '../../../packages/core/src/notifications/index.ts'
+import { DEFAULT_SENDER_FROM as DEFAULT_RESEND_FROM } from '../../../packages/core/src/notifications/index.ts'
+
+/** O endereço de caixa-de-areia do Resend. Nenhum envio real de produção sai dele. */
+const RESEND_SANDBOX_ADDRESS = 'onboarding@resend.dev'
+
+function isDefaultFrom(from: string): boolean {
+  const trimmed = from.trim()
+  if (trimmed === DEFAULT_RESEND_FROM) return true
+
+  // O que importa é o ENDEREÇO, não a frase inteira: `Loja <onboarding@resend.dev>` entrega
+  // exatamente igual ao default e precisa acender o mesmo alarme. Régua por literal deixaria essa
+  // forma passar como se fosse remetente de produção.
+  const angled = trimmed.match(/^.*<([^>]*)>$/)
+  const address = (angled ? angled[1] : trimmed).trim().toLowerCase()
+  return address === RESEND_SANDBOX_ADDRESS
+}
+
+/**
+ * ACTION: config-check — com o que ESTA produção está configurada para enviar (`DLV-05`).
+ *
+ * Existe para que o sensor diário (`email-check.yml`) prove **o valor que a produção usa** contra o
+ * Resend, em vez de provar um valor escrito no próprio sensor. O apagão de 2026-09-06 estava num
+ * secret do Supabase, não na conta Resend: um probe com o remetente escrito nele mesmo teria ficado
+ * verde pelos treze dias em que nenhum e-mail saiu.
+ *
+ * **Síncrona, e não toca no client do Supabase de propósito**: um sensor que dependesse do Postgres
+ * confundiria "o e-mail quebrou" com "o banco caiu" — e a segunda resposta manda procurar no lugar
+ * errado.
+ *
+ * **Sem autenticação, e o porquê** (`DLV-10`): nenhum campo desta resposta é segredo. O `from` viaja
+ * no cabeçalho de todo e-mail que a loja manda, as duas URLs são públicas, e os outros três são
+ * booleanos. Exigir papel de admin obrigaria o workflow a carregar um JWT de administradora — uma
+ * credencial de verdade — para ler o que não é credencial nenhuma.
+ *
+ * **O que a resposta NUNCA carrega**: a chave, nem o valor, nem prefixo, nem tamanho; e o endereço
+ * de `RESEND_DEV_REDIRECT_TO`, do qual sai só o booleano — ele é o e-mail de uma pessoa.
+ *
+ * 200 sempre, inclusive com a configuração ruim: é diagnóstico, não autorização. Um 4xx aqui faria o
+ * sensor não conseguir distinguir "a produção está mal configurada" de "a function está fora".
+ */
+export function configCheck(deps: Deps): Response {
+  const from = String(deps.env?.resendFrom ?? '')
+
+  return json({
+    from,
+    // A MESMA régua que o motor aplica antes de enviar (`CFG-03`). Reimplementá-la aqui faria o
+    // sensor aprovar um remetente que o envio recusa — o guarda verde sobre o cano fechado.
+    from_valid: isValidFrom(from),
+    from_is_default: isDefaultFrom(from),
+    has_api_key: String(deps.env?.resendApiKey ?? '').trim() !== '',
+    // `String(...)` e não o valor cru: `undefined` some do JSON e a resposta perderia a chave —
+    // o sensor leria "campo ausente" como se fosse "campo vazio".
+    store_public_url: String(deps.env?.storePublicUrl ?? ''),
+    admin_public_url: String(deps.env?.adminPublicUrl ?? ''),
+    dev_redirect_active: String(deps.env?.resendDevRedirectTo ?? '').trim() !== '',
+  })
+}
+
 export async function route(deps: Deps, req: Request): Promise<Response> {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -316,8 +385,10 @@ export async function route(deps: Deps, req: Request): Promise<Response> {
         return await notify(deps, req, body)
       case 'preview':
         return await preview(deps, req, body)
+      case 'config-check':
+        return configCheck(deps)
       default:
-        return json({ error: 'action inválida. Use: send, trigger, notify, preview' }, 400)
+        return json({ error: 'action inválida. Use: send, trigger, notify, preview, config-check' }, 400)
     }
   } catch (err) {
     log({ action: 'error', message: err instanceof Error ? err.message : String(err) })

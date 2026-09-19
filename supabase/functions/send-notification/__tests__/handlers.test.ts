@@ -8,7 +8,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { DEFAULT_NOTIFICATIONS, createResendProvider } from '../../../../packages/core/src/notifications/index.ts'
 import { createFakeFetch, createFakeSupabase, type FetchRoute } from '../../_shared/testing/fakes.ts'
 import type { NotificationEnv } from '../dispatch.ts'
-import { draftRefusal, route } from '../handlers.ts'
+import { DEFAULT_RESEND_FROM, type Deps, configCheck, draftRefusal, route } from '../handlers.ts'
+import { isValidFrom } from '../render/layout.ts'
 
 const ORDER_ID = '5b8f0b1e-9c2a-4f37-8a11-2b3c4d5e6f70'
 const OUTRO_ID = '7c9e0000-0000-4000-8000-0000000000ff'
@@ -146,14 +147,14 @@ describe('EML-08 — OPTIONS e action inválida', () => {
     expect(fetchDouble.calls).toHaveLength(0)
   })
 
-  it('action desconhecida → 400 nomeando as QUATRO portas, sem chamada externa', async () => {
+  it('action desconhecida → 400 nomeando as CINCO portas, sem chamada externa', async () => {
     const { deps, fetchDouble } = setup()
 
     const response = await route(deps, new Request('http://local/functions/v1/send-notification?action=xpto'))
     const body = await response.json()
 
     expect(response.status).toBe(400)
-    expect(body.error).toContain('send, trigger, notify, preview')
+    expect(body.error).toContain('send, trigger, notify, preview, config-check')
     expect(fetchDouble.calls).toHaveLength(0)
   })
 
@@ -616,5 +617,251 @@ describe('draftRefusal — a régua na ordem em que se explica', () => {
   it('exclamação só é recusada nos eventos de MATERIAL', () => {
     expect(draftRefusal('order_paid', campos({ lead: 'Pagamento aprovado!' }))).toBeNull()
     expect(draftRefusal('material_received', campos({ lead: 'Chegou!' }))).not.toBeNull()
+  })
+})
+
+// =================================================================================================
+// DLV-05 / DLV-10 — a porta `config-check`: o que a produção usa, e nada do que é segredo
+//
+// A razão de esta porta existir está em `handlers.ts`; a razão de ela ser MEDIDA assim está aqui.
+// O sensor diário prova contra o Resend **o valor que a produção reporta**. Se este handler mentir
+// — aprovando um remetente que o motor recusa, escondendo que caiu no default, ou deixando de dizer
+// que o desvio de desenvolvimento está ligado —, o sensor fica verde sobre o cano fechado. É
+// exatamente o que aconteceu entre 2026-09-06 e 2026-09-19, com treze dias de silêncio.
+// =================================================================================================
+
+/** Uma chave com forma de chave, para o caso que varre o corpo atrás dela. */
+const CHAVE_DE_TESTE = 're_S3nS0r_chave_que_nao_pode_vazar_9f3a'
+const DESVIO_DE_DEV = 'desvio+dev@exemplo.invalid'
+
+const ENV_DE_PRODUCAO: NotificationEnv = {
+  resendApiKey: CHAVE_DE_TESTE,
+  resendFrom: 'Adri - Uma Estrelinha <adri@loja.umaestrelinha.com.br>',
+  storePublicUrl: 'https://umaestrelinha.com.br',
+  adminPublicUrl: 'https://painel.umaestrelinha.com.br',
+}
+
+const CHAVES_DO_CONTRATO = [
+  'from',
+  'from_valid',
+  'from_is_default',
+  'has_api_key',
+  'store_public_url',
+  'admin_public_url',
+  'dev_redirect_active',
+]
+
+/**
+ * As dependências do sensor com DUAS armadilhas: um client que explode ao primeiro toque e um
+ * `fetch` que explode ao ser chamado.
+ *
+ * Não é zelo — é a asserção de `DLV-05` escrita como dublê. Um teste que só conferisse o corpo
+ * passaria com um `configCheck` que lesse o banco, e nesse mundo o sensor confundiria "o e-mail
+ * quebrou" com "o Postgres caiu". Aqui a violação derruba o caso, nomeando a propriedade tocada.
+ */
+function depsDeSensor(over: Partial<NotificationEnv> = {}): Deps {
+  return {
+    supabase: new Proxy(
+      {},
+      {
+        get(_alvo, prop) {
+          throw new Error(`config-check tocou no client do Supabase: .${String(prop)}`)
+        },
+      },
+    ),
+    fetch: (() => {
+      throw new Error('config-check chamou a rede')
+    }) as unknown as typeof globalThis.fetch,
+    env: { ...ENV_DE_PRODUCAO, ...over },
+    providers: [],
+  }
+}
+
+/** O corpo da resposta, pela porta de verdade (`route`), com GET e sem corpo de requisição. */
+async function sensor(over: Partial<NotificationEnv> = {}) {
+  const response = await route(
+    depsDeSensor(over),
+    new Request('http://local/functions/v1/send-notification?action=config-check'),
+  )
+  return { response, body: await response.json() }
+}
+
+describe('DLV-05 — os sete campos do contrato', () => {
+  it('`from`: devolve o remetente que a produção está usando, letra por letra', async () => {
+    const { body } = await sensor()
+
+    expect(body.from).toBe('Adri - Uma Estrelinha <adri@loja.umaestrelinha.com.br>')
+  })
+
+  it('`from_valid`: verdadeiro para um remetente bem formado', async () => {
+    const { body } = await sensor()
+
+    expect(body.from_valid).toBe(true)
+  })
+
+  it('`from_is_default`: falso quando o remetente é o do domínio da loja', async () => {
+    const { body } = await sensor()
+
+    expect(body.from_is_default).toBe(false)
+  })
+
+  it('`has_api_key`: verdadeiro quando a chave está preenchida', async () => {
+    const { body } = await sensor()
+
+    expect(body.has_api_key).toBe(true)
+  })
+
+  it('`store_public_url`: devolve a origem DA LOJA — é a base dos links de todo e-mail', async () => {
+    const { body } = await sensor()
+
+    expect(body.store_public_url).toBe('https://umaestrelinha.com.br')
+  })
+
+  it('`admin_public_url`: devolve a origem do PAINEL, que é outra implantação', async () => {
+    const { body } = await sensor()
+
+    expect(body.admin_public_url).toBe('https://painel.umaestrelinha.com.br')
+  })
+
+  it('`dev_redirect_active`: falso quando a env do desvio não existe', async () => {
+    const { body } = await sensor()
+
+    expect(body.dev_redirect_active).toBe(false)
+  })
+})
+
+describe('DLV-05 — os estados que o sensor existe para acusar', () => {
+  it('`from` malformada ⇒ `from_valid: false` — é 422 em TODOS os envios, não falha isolada', async () => {
+    const { body } = await sensor({ resendFrom: 'Adri Muniz adri(arroba)loja' })
+
+    expect(body.from_valid).toBe(false)
+    // O valor continua sendo reportado: quem lê o alarme precisa ver O QUE está configurado.
+    expect(body.from).toBe('Adri Muniz adri(arroba)loja')
+  })
+
+  it('`from` no default ⇒ `from_is_default: true` — 200 que só entrega ao dono da conta', async () => {
+    const { body } = await sensor({ resendFrom: DEFAULT_RESEND_FROM })
+
+    expect(body.from_is_default).toBe(true)
+    // E ele é VÁLIDO em formato: sem este campo, o passo 2 do sensor aprovaria o apagão.
+    expect(body.from_valid).toBe(true)
+  })
+
+  it('o default é reconhecido pelo ENDEREÇO, não pela frase — outro nome de exibição não engana', async () => {
+    const { body } = await sensor({ resendFrom: 'Loja <onboarding@resend.dev>' })
+
+    expect(body.from_is_default).toBe(true)
+  })
+
+  it('chave ausente, ou só com espaços, ⇒ `has_api_key: false`', async () => {
+    expect((await sensor({ resendApiKey: undefined })).body.has_api_key).toBe(false)
+    expect((await sensor({ resendApiKey: '' })).body.has_api_key).toBe(false)
+    expect((await sensor({ resendApiKey: '   ' })).body.has_api_key).toBe(false)
+  })
+
+  it('`RESEND_DEV_REDIRECT_TO` preenchida ⇒ `dev_redirect_active: true` — nenhuma cliente recebe', async () => {
+    const { body } = await sensor({ resendDevRedirectTo: DESVIO_DE_DEV })
+
+    expect(body.dev_redirect_active).toBe(true)
+  })
+
+  it('`from_valid` é a MESMA régua do motor (`isValidFrom`), inclusive na vírgula sem aspas', async () => {
+    const pares: Array<[string, boolean]> = [
+      ['adri@loja.umaestrelinha.com.br', true],
+      ['Adri <adri@loja.umaestrelinha.com.br>', true],
+      // RFC 5322: display name com vírgula exige aspas. Uma régua nova, escrita "parecida", casaria
+      // um par de sinais de menor/maior com arroba dentro e aprovaria o primeiro destes dois.
+      ['Adri, Uma Estrelinha <adri@loja.umaestrelinha.com.br>', false],
+      ['"Adri, Uma Estrelinha" <adri@loja.umaestrelinha.com.br>', true],
+      ['adri@localhost', false],
+      ['', false],
+    ]
+
+    for (const [from, esperado] of pares) {
+      const { body } = await sensor({ resendFrom: from })
+      expect(body.from_valid, from).toBe(esperado)
+      // E o veredito é o da função do motor, não uma coincidência dos seis casos acima.
+      expect(body.from_valid, from).toBe(isValidFrom(from))
+    }
+  })
+})
+
+describe('DLV-10 — o que a resposta NUNCA carrega', () => {
+  it('a chave não aparece no corpo — nem o valor, nem prefixo, nem tamanho', async () => {
+    const { body } = await sensor({ resendDevRedirectTo: DESVIO_DE_DEV })
+    const serializado = JSON.stringify(body)
+
+    expect(serializado).not.toContain(CHAVE_DE_TESTE)
+    // Prefixo e sufixo separados: vazar "as primeiras letras, só para conferir" é vazar.
+    expect(serializado).not.toContain(CHAVE_DE_TESTE.slice(0, 8))
+    expect(serializado).not.toContain(CHAVE_DE_TESTE.slice(-8))
+    // E o tamanho, que sozinho já estreita uma busca — nenhum campo o carrega como valor.
+    expect(Object.values(body)).not.toContain(CHAVE_DE_TESTE.length)
+  })
+
+  it('o endereço do desvio de desenvolvimento não aparece — dele sai só o booleano', async () => {
+    const { body } = await sensor({ resendDevRedirectTo: DESVIO_DE_DEV })
+
+    expect(JSON.stringify(body)).not.toContain(DESVIO_DE_DEV)
+    expect(body.dev_redirect_active).toBe(true)
+  })
+
+  it('o conjunto de chaves é EXATAMENTE as sete — nenhuma a mais', async () => {
+    const { body } = await sensor({ resendDevRedirectTo: DESVIO_DE_DEV })
+
+    // Igualdade de chaves, nunca "contém as sete": uma régua de presença aprovaria a oitava, que é
+    // justamente o campo que alguém acrescentaria "só para depurar" e que levaria o segredo junto.
+    expect(Object.keys(body).sort()).toEqual([...CHAVES_DO_CONTRATO].sort())
+  })
+
+  it('env vazia não faz chave SUMIR — `undefined` desaparece do JSON e viraria campo ausente', async () => {
+    const { body } = await sensor({ resendFrom: undefined, storePublicUrl: undefined, adminPublicUrl: undefined })
+
+    expect(Object.keys(body).sort()).toEqual([...CHAVES_DO_CONTRATO].sort())
+    expect(body.from).toBe('')
+    expect(body.store_public_url).toBe('')
+    expect(body.admin_public_url).toBe('')
+  })
+})
+
+describe('DLV-05 — a porta: aberta, síncrona e sem I/O', () => {
+  it('responde 200 SEM header `Authorization` — é diagnóstico, não autorização', async () => {
+    const requisicao = new Request('http://local/functions/v1/send-notification?action=config-check')
+    expect(requisicao.headers.get('Authorization')).toBeNull()
+
+    const response = await route(depsDeSensor(), requisicao)
+
+    expect(response.status).toBe(200)
+    expect((await response.json()).from).toBe('Adri - Uma Estrelinha <adri@loja.umaestrelinha.com.br>')
+  })
+
+  it('200 mesmo com TODA a configuração ruim — um 4xx confundiria "mal configurada" com "fora"', async () => {
+    const { response, body } = await sensor({
+      resendApiKey: '',
+      resendFrom: 'nao-e-endereco',
+      storePublicUrl: 'http://localhost:8082',
+      resendDevRedirectTo: DESVIO_DE_DEV,
+    })
+
+    expect(response.status).toBe(200)
+    expect(body.from_valid).toBe(false)
+    expect(body.has_api_key).toBe(false)
+    expect(body.dev_redirect_active).toBe(true)
+  })
+
+  it('não toca no client do Supabase nem na rede, e devolve a Response sem promessa no caminho', () => {
+    // `configCheck` direto, sem `route`: é a assinatura SÍNCRONA que a AC cobra, e um `await` aqui
+    // esconderia uma promessa pendente. As duas armadilhas de `depsDeSensor` fazem o resto.
+    const response = configCheck(depsDeSensor())
+
+    expect(response).toBeInstanceOf(Response)
+    expect(response.status).toBe(200)
+  })
+
+  it('a resposta carrega CORS — o sensor lê de outra origem', async () => {
+    const { response } = await sensor()
+
+    expect(response.headers.get('Access-Control-Allow-Origin')).toBe('*')
+    expect(response.headers.get('Content-Type')).toBe('application/json')
   })
 })
