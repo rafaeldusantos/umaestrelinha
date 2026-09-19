@@ -7,6 +7,11 @@
 // no vitest (AD-004) — sem `Deno` e sem `esm.sh` no caminho do módulo testado.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1"
+import {
+  DEFAULT_SENDER_FROM,
+  createResendProvider,
+  senderFrom,
+} from "../../../packages/core/src/notifications/index.ts"
 import { route, type Deps } from "./handlers.ts"
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!
@@ -29,6 +34,19 @@ function envOptional(name: string): string | undefined {
   return value === undefined || value === "" ? undefined : value
 }
 
+/**
+ * O remetente dos transacionais, composto das DUAS envs (feature 52, T8) — igual ao que
+ * `send-notification/index.ts` faz. A composição em si tem dono único (`senderFrom`, em `core`);
+ * o que se repete aqui é só a leitura de env, porque wiring de function não compartilha módulo.
+ *
+ * **Esta linha lia `RESEND_FROM`, e o secret foi apagado de produção na T8.** Sem a troca, o
+ * remetente cairia no default de caixa-de-areia e o e-mail do PIX entregaria só ao dono da conta
+ * Resend — 200 do provedor e nenhuma cliente recebendo.
+ */
+const resendFrom =
+  senderFrom(envOptional("RESEND_SENDER_NAME"), envOptional("RESEND_SENDER_EMAIL")) ||
+  DEFAULT_SENDER_FROM
+
 const deps: Deps = {
   supabase: createClient(supabaseUrl, serviceRoleKey),
   fetch: globalThis.fetch.bind(globalThis),
@@ -42,11 +60,11 @@ const deps: Deps = {
     strictVariantPricing: envOr("STRICT_VARIANT_PRICING", "true").toLowerCase() !== "false",
   },
   // Esta function dispara `order_received` (PIX criado) e `order_paid` (aprovação), importando o
-  // motor de `send-notification/sender.ts` no mesmo processo (AD-005) — daí precisar do env de e-mail aqui.
-  providers: [createResendProvider({ apiKey: Deno.env.get("RESEND_API_KEY")!, from: envOr("RESEND_FROM", "Uma Estrelinha <onboarding@resend.dev>") })],
+  // motor de `send-notification` no mesmo processo (AD-005) — daí precisar do env de e-mail aqui.
+  providers: [createResendProvider({ apiKey: Deno.env.get("RESEND_API_KEY")!, from: resendFrom })],
   notifications: {
     resendApiKey: Deno.env.get("RESEND_API_KEY")!,
-    resendFrom: envOr("RESEND_FROM", "Uma Estrelinha <onboarding@resend.dev>"),
+    resendFrom,
     storePublicUrl: envOr("STORE_PUBLIC_URL", "http://localhost:8080"),
     adminPublicUrl: envOr("ADMIN_PUBLIC_URL", "http://localhost:8083"),
     resendDevRedirectTo: envOptional("RESEND_DEV_REDIRECT_TO"),
