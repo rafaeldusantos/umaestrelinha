@@ -5,7 +5,7 @@
 // backoffice que nomeava DOIS eventos que nunca existiram (`order_confirmed`, `payment_approved`) e
 // deixava os reais caírem no fallback "E-mail order_received enviado". Três lugares, três verdades.
 //
-// Aqui mora a lista — na ORDEM DA JORNADA do pedido, que é a ordem da aba Notificações do painel —,
+// Aqui mora a lista — na ORDEM DA JORNADA do pedido, que é a ordem da seção Notificações do painel —,
 // o rótulo de cada evento (o `Record` não compila com um faltando: é isso que fecha o D2), a
 // audiência (cliente ou dona) e o recorte dos eventos de material, que têm régua de tom própria.
 //

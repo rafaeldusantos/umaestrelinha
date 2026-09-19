@@ -93,7 +93,21 @@ const App = () => (
 
             {/* Rodapé da sidebar — administração do sistema, não um dos quatro eixos da loja.
                 A ordem segue `footerNavItems`: a loja → o sistema → eu (feature 48). */}
+            {/* Feature 55 — as oito abas viraram quatro seções, e cada uma ganhou endereço.
+                A rota-mãe continua existindo por si (sem redirect): é ELA que está em
+                `footerNavItems`, e um `<Navigate>` daqui trocaria o endereço do rodapé da sidebar
+                por um que ela não conhece.
+
+                ⚠️ **As duas são IRMÃS AUTO-FECHADAS, e não um `<Route>` aninhado com filhos** — que
+                é justamente a forma idiomática do react-router para este caso. `rotasSobGuarda.test.ts`
+                (o guarda de autorização do painel inteiro) recorta o bloco do `RequireAdmin` por
+                `indexOf('</Route>')` e assere que existe **exatamente um** no arquivo. Aninhar aqui
+                faria aquele recorte fechar no lugar errado e o guarda encolher — ele passaria a medir
+                um pedaço do arquivo em vez das rotas todas. Duas rotas irmãs com o mesmo `element`
+                também mantêm a página montada ao trocar de seção, como já acontece em
+                `/admin/home` e `/admin/home/:sectionId`. */}
             <Route path="/admin/configuracoes" element={<AdminSettingsPage />} />
+            <Route path="/admin/configuracoes/:secao" element={<AdminSettingsPage />} />
             <Route path="/admin/usuarios" element={<AdminUsersPage />} />
             <Route path="/admin/conta" element={<AdminAccountPage />} />
           </Route>

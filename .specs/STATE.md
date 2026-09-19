@@ -869,9 +869,89 @@
 - **Date**: 2026-09-14
 - **Status**: active
 
+### AD-038
+- **Decision**: **Uma tela de configuração do painel é RAIL DE SEÇÕES + PAINEL, com endereço por
+  seção — nunca uma fileira de abas.** `/admin/configuracoes` passou de oito `<TabsTrigger>` para
+  quatro seções com rota própria (`/admin/configuracoes/:secao`), e a decisão vem com três donos
+  separados que valem para a próxima tela do mesmo formato: **quais seções existem** é um registro
+  (`shared/lib/settingsSections.ts`, no molde de `navItems.ts`), **qual está aberta** é a URL, e **o
+  que cada uma desenha** é um mapa `slug → componente` na camada que pode compor `features/`. O par
+  entre registro e mapa é bidirecional e testado. A tela entra em `FOCUS_ROUTES`.
+- **Reason**: A fileira de abas **põe a contagem no CSS**. O `TabsList` de Configurações já carregava
+  `h-auto grid-cols-3 sm:grid-cols-8`, escrito no próprio código como conserto local e não padrão,
+  porque em 390px o `h-10` fixo do componente compartilhado cortava a terceira linha de abas — e a
+  terceira linha sobrepunha visualmente o título da seção aberta. A oitava aba (Notificações, feature
+  53, com 15 eventos) tornou o formato insustentável: a nona pediria o remendo de novo. Com o rail,
+  acrescentar seção é acrescentar uma entrada no registro.
+  O **endereço por seção** deixou de ser conveniência quando o regrupamento espalhou por duas seções
+  os três valores que `TextSectionEditor` citava num link só: sem ele, aquele link ficaria **pior**
+  do que era — apontaria para uma tela de quatro seções deixando a dona adivinhar qual abrir.
+- **Trade-off**: **A montagem das seções é condicional, e isso é uma restrição, não uma otimização.**
+  O painel monta só o componente da seção ativa. Quem garantia "trocar de seção descarta a edição não
+  salva" era o Radix, que desmonta `TabsContent` inativo — e `NotificationsTab` depende disso **por
+  escrito**. Quatro painéis escondidos com CSS manteriam os quatro rascunhos vivos e a prévia de
+  e-mail vazando entre seções, **sem nada quebrar**. Em troca, trocar de seção remonta o formulário:
+  o estado de servidor é cacheado por React Query, então o custo é o render, não a rede.
+  A alternância **desktop × celular**, essa sim, é CSS numa árvore só: o rail e a lista do celular
+  são o mesmo nó, e o marcador de seção ativa é `lg:`-prefixado — é o que permite o desktop marcar a
+  primeira seção na rota-mãe enquanto o celular não marca nada, sem medir a janela em JavaScript.
+- **Restrição de implementação que vale para toda rota nova do painel**: `rotasSobGuarda.test.ts`
+  recorta o bloco do `RequireAdmin` por `indexOf('</Route>')` e exige **exatamente um** `</Route>` no
+  `App.tsx`. Logo, uma tela com parâmetro opcional entra como **duas rotas irmãs auto-fechadas** —
+  nunca como rota-mãe com filhos aninhados, que é a forma idiomática do react-router e a que faz
+  aquele recorte fechar no lugar errado, encolhendo o guarda de autorização do painel inteiro sem
+  avisar.
+- **Relação com `AD-033`**: é ela aplicada. O registro está em `shared/` e não ao lado da página
+  porque **duas features** o leem (`notification-settings` e `home-composition`) e `features` não
+  importa de `widgets`. E ele **não carrega componente React** de propósito: o corpo de duas das
+  quatro seções vem de `features/`, e pô-lo no registro faria `shared` importar `features`.
+- **Relação com `AD-020`**: nenhuma mudança. Configurações não tem prévia da loja; ela entra em
+  `FOCUS_ROUTES` pelo critério de **intenção** que `focusRoutes.ts` sempre escreveu — "veio compor,
+  não navegar" —, e não por ter um iframe ao lado. A âncora daquele guarda foi ampliada para varrer
+  `footerNavItems` além de `navGroups`, porque é o que o trilho renderiza.
+- **Scope**: `apps/backoffice/src/shared/lib/settingsSections.ts`,
+  `apps/backoffice/src/widgets/settings-sections/**`,
+  `apps/backoffice/src/features/settings/**`,
+  `apps/backoffice/src/pages/admin/AdminSettingsPage.tsx`,
+  `apps/backoffice/src/widgets/admin-layout/model/focusRoutes.ts`,
+  `apps/backoffice/src/app/App.tsx`
+- **Date**: 2026-09-19
+- **Status**: active
+
 ## Handoff
 
-### ATUAL — 2026-09-19 · `53-aba-de-notificacoes` **IMPLEMENTADA — 15 de 15 tasks**
+### ATUAL — 2026-09-19 · `55-configuracoes-por-secoes` **IMPLEMENTADA — 14 de 14 tasks**
+
+- **Feature**: `.specs/features/55-configuracoes-por-secoes/` (`spec.md`, `design.md`, `tasks.md`,
+  `validation.md`). `CFG-01`..`CFG-27`. Execute inline, em cinco fases. **Um commit só**, no fim
+  (`BL-012`).
+- **O que mudou**: `/admin/configuracoes` deixou de ser 8 abas horizontais e virou **4 seções com
+  rail + painel e endereço próprio** (`/admin/configuracoes/:secao`). Decisão de projeto em
+  **`AD-038`**.
+- **Baselines de fecho (2026-09-19, um workspace por vez, exit code fora de pipe,
+  `--testTimeout=20000` nos dois apps)**: **10011 em 515** — store **3517/221**, backoffice
+  **2947/164**, core **2383/93**, functions **652/14**, catalog-import **512/23**. Contra a entrada
+  medida do disco (**9881/509**, que batia com a tabela do `CLAUDE.md` — primeira vez em sete
+  features): **+130/+6** — +129 no backoffice, dos quais **+17 vieram depois da verificação
+  independente**, e **+1 no store** (a âncora que ensinou o guarda de posição a conhecer o
+  `SWITCH_TAP_44` do painel). Lint **26/6**, tipos **0 · 0**, `pnpm build` verde nos
+  dois apps, `packages/core/src/payment/**` sem uma linha tocada.
+- **`AD-037` NÃO é desta feature.** Ele está reservado pela `52` (o sensor que pergunta ao ambiente
+  que executa), já citado no `CLAUDE.md` da raiz e **ainda sem entrada escrita no `STATE.md`** — por
+  isso esta feature tomou o `AD-038`. Quem fechar a `52` escreve o `AD-037` no buraco.
+- **O que falta**: **prova em navegador** (390×844, 1024 e 1440 — a lista em detalhe no `CLAUDE.md`
+  da raiz, seção *Estado conhecido*). Tudo o que a suíte prova sobre largura e coluna é proxy de
+  forma; jsdom devolve 0 para layout.
+- **Três achados que valem para a próxima feature**:
+  1. A suíte da **loja** reprovou por causa de um arquivo do painel — terceira vez seguida
+     (`51`, `53`, `55`). `freeShippingSingleOwner.test.ts` pegou pelos **dois** lados: o arquivo novo
+     fora do allowlist **e** a entrada velha do allowlist já sem leitura.
+  2. `originZipNotRead.test.ts` lia um arquivo do disco que deixou de ter formulário. Só a asserção
+     **positiva** ao lado da negativa acusou — sem ela o guarda sobreviveria medindo o nada.
+  3. Duas réguas novas nasceram quebradas e passavam "verdes" sobre o nada; quem as achou foram os
+     **sensores**, não as asserções principais.
+
+### ANTERIOR — 2026-09-19 · `53-aba-de-notificacoes` **IMPLEMENTADA — 15 de 15 tasks**
 
 - **Feature**: `.specs/features/53-aba-de-notificacoes/` (`spec.md`, `design.md`, `tasks.md`,
   `validation.md`). Execute em **dois lotes** (T01…T08 · T09…T15), `ABN-01`..`ABN-13`. Fecha

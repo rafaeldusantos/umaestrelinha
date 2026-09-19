@@ -6,11 +6,12 @@
 // preview "ativo" também é estado do pai (`previewActive`/`previewLoading`/`previewResult`) — é o
 // que permite um preview por vez em vez de 15 <iframe> simultâneos (design.md, Risks & Concerns).
 
+import { Link } from 'react-router-dom'
 import { Eye, EyeOff, Plus, X } from 'lucide-react'
 import { Input } from '@estrelinha/ui/input'
 import { Textarea } from '@estrelinha/ui/textarea'
 import { Button } from '@estrelinha/ui/button'
-import { FieldGroup, ToggleField } from '@/shared/ui'
+import { FieldGroup, InfoBanner, SWITCH_TAP_44, ToggleField } from '@/shared/ui'
 import {
   COPY_LIMITS,
   NOTIFICATION_EVENT_LABELS,
@@ -20,6 +21,20 @@ import {
 } from '@estrelinha/core/notifications'
 import { EmailPreviewFrame, type EmailPreviewFrameProps } from './EmailPreviewFrame'
 
+/**
+ * Um aviso não bloqueante, com o caminho de conserto opcional ao lado (feature 55, `CFG-21`).
+ *
+ * O texto continua sendo `string` — e não um nó React — de propósito: um `<Link>` no meio da frase
+ * a partiria em vários nós de DOM, e as asserções que já provam essas mensagens por
+ * `getByText('a frase inteira')` parariam de casar. O link mora ao lado, no slot de ação do
+ * `InfoBanner`.
+ */
+export interface EventWarning {
+  text: string
+  /** A seção de Configurações onde o ajuste se resolve. */
+  action?: { to: string; label: string }
+}
+
 export interface EventCardProps {
   event: NotificationEvent
   value: EventChannelSettings<EmailFields>
@@ -28,21 +43,13 @@ export interface EventCardProps {
   /** `null` quando o texto passa em todas as réguas de `core` (variável, tom, tamanho, material). */
   refusal: string | null
   /** Avisos NÃO bloqueantes — material sem endereço (informativo, mesmo desligado) e os dois de `owner_*`. */
-  warnings: string[]
+  warnings: EventWarning[]
   onTogglePreview: () => void
   previewActive: boolean
   preview?: Pick<EmailPreviewFrameProps, 'loading' | 'error' | 'subject' | 'html' | 'text' | 'sample'>
 }
 
 const counterLabel = (value: string | undefined, limit: number) => `${(value ?? '').length}/${limit}`
-
-/**
- * ABN-10 — medido em navegador real (390×844): o `Switch` do design system é `h-6 w-11` (24×44px),
- * abaixo do piso de 44px de altura. O molde é `TAP_44` da loja (pseudo-elemento que estende a área
- * CLICÁVEL sem mudar o desenho visual) — nunca importado (ele é de `apps/store`, e trazê-lo criaria
- * um segundo dono da medida). `switchClassName` é aditivo em `ToggleField`: só este card o usa.
- */
-const TOGGLE_TOUCH_TARGET = "relative before:absolute before:content-[''] before:-top-[10px] before:-bottom-[10px] before:left-0 before:right-0"
 
 export function EventCard({
   event,
@@ -85,19 +92,33 @@ export function EventCard({
         label={NOTIFICATION_EVENT_LABELS[event]}
         checked={value.enabled}
         onChange={onToggle}
-        switchClassName={TOGGLE_TOUCH_TARGET}
+        switchClassName={SWITCH_TAP_44}
       />
 
+      {/* Feature 55 (`CFG-26`): era a quarta caixa de aviso ad hoc do painel — e a única fora do
+          sistema de tokens, com `amber-50`/`amber-900` crus do Tailwind e quatro classes `dark:`
+          mantidas à mão. `InfoBanner` usa `--estrelinha-admin-amber`, que acompanha o modo escuro
+          sozinho e cujo contraste `adminTokens.test.ts` já prova. */}
       {warnings.length > 0 && (
-        <div
+        <InfoBanner
           data-testid={`event-warnings-${event}`}
           role="status"
-          className="space-y-1 rounded-xl border border-amber-300/60 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200"
+          action={
+            warnings.find((w) => w.action) && (
+              <Link
+                to={warnings.find((w) => w.action)!.action!.to}
+                data-testid={`event-warning-link-${event}`}
+                className="font-semibold underline underline-offset-2"
+              >
+                {warnings.find((w) => w.action)!.action!.label}
+              </Link>
+            )
+          }
         >
           {warnings.map((warning) => (
-            <p key={warning}>{warning}</p>
+            <p key={warning.text}>{warning.text}</p>
           ))}
-        </div>
+        </InfoBanner>
       )}
 
       <FieldGroup label="Assunto" htmlFor={`${event}-subject`}>

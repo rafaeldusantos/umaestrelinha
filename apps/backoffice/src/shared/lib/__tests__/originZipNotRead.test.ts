@@ -116,12 +116,33 @@ describe('nenhuma tela lê `origin_zip`', () => {
   it('o formulário de configurações não tem mais o input', () => {
     // A asserção que nomeia a remoção: um `setShipping({ ... origin_zip ... })` de volta na tela
     // reabriria o segundo dono, e o teste acima já o pegaria — este diz POR QUE, na mensagem.
+    //
+    // ⚠️ **O arquivo mudou de endereço na feature 55**, e a régua veio junto. O formulário de frete
+    // morava na `AdminSettingsPage`, que tinha ~430 linhas e desenhava as oito abas à mão; agora a
+    // página só monta o painel da seção ativa, e o card de Frete mora em `ShippingMaterialSection`.
+    //
+    // Apontar para o arquivo antigo teria deixado a segunda asserção verde sobre o nada — o
+    // `not.toContain` passaria por ausência de assunto, e só a vizinha (`toContain`) acusou. É o
+    // mesmo modo de falha do `PRF-05` entre as features 38 e 39: peça certa, endereço errado, suíte
+    // verde. Quem o pegou aqui foi a asserção positiva ao lado da negativa — sem ela, este guarda
+    // teria sobrevivido à feature medindo um arquivo que já não tem formulário nenhum.
     const form = readFileSync(
-      join(ROOT, 'apps/backoffice/src/pages/admin/AdminSettingsPage.tsx'),
+      join(ROOT, 'apps/backoffice/src/features/settings/ui/ShippingMaterialSection.tsx'),
       'utf8',
     )
     expect(form).not.toContain('origin_zip')
     // Vizinha: a tela continua explicando de onde vem a origem, para a Adri não procurar o campo.
     expect(form).toContain('Melhor Envio')
+  })
+
+  it('e a PÁGINA também não o lê — ela não desenha mais formulário nenhum', () => {
+    // O par do caso acima, e o que impede o endereço de envelhecer de novo em silêncio: se um dia
+    // alguém voltar a pôr formulário na página, este caso continua valendo, e o de cima continua
+    // medindo o card.
+    const pagina = readFileSync(
+      join(ROOT, 'apps/backoffice/src/pages/admin/AdminSettingsPage.tsx'),
+      'utf8',
+    )
+    expect(pagina).not.toContain('origin_zip')
   })
 })

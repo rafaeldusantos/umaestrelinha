@@ -242,7 +242,12 @@ describe('freeShipping — âncoras da varredura', () => {
  * precisa de `useFreeShipping`.
  */
 const ALLOWLIST: Record<string, string> = {
-  'apps/backoffice/src/pages/admin/AdminSettingsPage.tsx':
+  // ⚠️ **Mudou de endereço na feature 55, e continua sendo UM.** O editor morava na
+  // `AdminSettingsPage`, que desenhava as oito abas à mão; a página agora só monta o painel da seção
+  // ativa, e o card de Frete mora na seção. O guarda pegou a troca pelos **dois** lados — acusou o
+  // arquivo novo por não estar na lista, e acusou a entrada velha por não ler mais o campo. É o
+  // segundo sentido que impede uma allowlist de virar cemitério.
+  'apps/backoffice/src/features/settings/ui/ShippingMaterialSection.tsx':
     'O editor da configuração. É ele quem grava o campo, e a recusa de FRG-12 acontece aqui.',
   'apps/store/src/app/RuntimeSettingsLoader.tsx':
     'A ponte para o caminho não-React: copia os campos crus do banco para `setRuntimeShippingSettings`, que o `cartStore` (zustand, sem hook) consome. Copiar não é decidir — quem decide continua sendo `freeShippingState`.',
@@ -276,7 +281,7 @@ describe('nenhuma tela lê `free_shipping_threshold` direto (FRG-09)', () => {
     // A lista não pode crescer por conveniência: cada entrada é uma superfície a mais que pode
     // divergir. Acrescentar uma exige mexer aqui, o que é o ponto.
     expect(Object.keys(ALLOWLIST).sort()).toEqual([
-      'apps/backoffice/src/pages/admin/AdminSettingsPage.tsx',
+      'apps/backoffice/src/features/settings/ui/ShippingMaterialSection.tsx',
       'apps/store/src/app/RuntimeSettingsLoader.tsx',
     ])
   })

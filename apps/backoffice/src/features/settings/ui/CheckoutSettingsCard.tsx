@@ -12,7 +12,7 @@ import { Button } from '@estrelinha/ui/button'
 import { useToast } from '@estrelinha/ui/hooks/use-toast'
 import { useStoreSettings, useUpdateSettings } from '@estrelinha/core/hooks/useStoreSettings'
 import { DEFAULT_CHECKOUT, type CheckoutSettings } from '@estrelinha/supabase/types/settings'
-import { FormCard, FieldGroup, ToggleField } from '@/shared/ui'
+import { FormCard, FieldGroup, InfoBanner, SWITCH_TAP_44, ToggleField } from '@/shared/ui'
 import { ProductSearchField, useProductPool } from '@/entities/product'
 
 /** Fora de 1–99 o desconto não faz sentido: 0 não desconta e 100 daria o produto de graça. */
@@ -67,16 +67,21 @@ const CheckoutSettingsCard = () => {
   }
 
   return (
-    <FormCard>
-      <div className="flex items-start gap-3 rounded-xl bg-muted p-3">
-        <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-        <p className="text-xs text-muted-foreground">
+    <FormCard
+      title="Checkout"
+      description="A oferta que aparece logo antes do botão de pagar"
+    >
+      {/* Feature 55 (`CFG-26`): era uma das quatro caixas de aviso ad hoc do painel. Mesmo ícone,
+          mesmo texto, mesma posição — muda o dono da aparência. */}
+      <InfoBanner icon={Sparkles} data-testid="aviso-order-bump">
+        <p>
           O order bump é a oferta que aparece logo antes do botão de pagar, no checkout. O desconto é
           aplicado no servidor, então o valor exibido é sempre o valor cobrado.
         </p>
-      </div>
+      </InfoBanner>
 
       <ToggleField
+        switchClassName={SWITCH_TAP_44}
         label="Order bump habilitado"
         description="Só aparece na loja se o produto escolhido existir e tiver estoque."
         checked={checkout.order_bump_enabled}

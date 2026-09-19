@@ -95,6 +95,41 @@ beforeEach(() => {
   productList = products
 })
 
+describe('CheckoutSettingsCard — o card DIZ que é o Checkout (feature 55, CFG-05)', () => {
+  it('tem título e descrição', () => {
+    // ⚠️ Até a feature 55 quem nomeava este card era o `<TabsTrigger>Checkout</TabsTrigger>` da
+    // barra de abas. As abas saíram, o card renderizava um `<FormCard>` **sem título**, e a palavra
+    // "Checkout" deixou de aparecer em qualquer lugar da tela de Configurações: dentro de "Vendas"
+    // a Adri via "Pagamento", um card sem nome, e "Carrinho abandonado".
+    //
+    // Nenhum teste podia ver isso: a suíte da página **dubla** este card.
+    renderCard()
+
+    expect(screen.getByText('Checkout')).toBeInTheDocument()
+    expect(screen.getByText(/A oferta que aparece logo antes do botão de pagar/)).toBeInTheDocument()
+  })
+
+  it('CFG-26: o aviso usa o `InfoBanner` compartilhado, no token do painel', () => {
+    // O quarto consumidor do `InfoBanner`, e o único que a varredura da suíte da página **não
+    // alcança** — ela dubla este card, então um `bg-muted` de volta aqui passaria despercebido por
+    // ela. A verificação independente reverteu exatamente isso e 14 arquivos ficaram verdes.
+    renderCard()
+    const aviso = screen.getByTestId('aviso-order-bump')
+
+    expect(aviso.className).toContain('bg-estrelinha-admin-amber/10')
+    expect(aviso.className.split(/\s+/)).not.toContain('bg-muted')
+    // `CFG-27` — extração, não redesenho: o texto e o ícone são os de antes.
+    expect(aviso).toHaveTextContent(/O order bump é a oferta que aparece logo antes do botão de pagar/)
+    expect(aviso.querySelector('svg')).not.toBeNull()
+  })
+
+  it('CFG-14: o interruptor tem a área clicável estendida', () => {
+    renderCard()
+    const controle = screen.getByRole('switch', { name: /Order bump habilitado/i })
+    expect(controle.className).toContain('before:-top-[10px]')
+  })
+})
+
 describe('CheckoutSettingsCard — campos do order bump (BMP-06)', () => {
   it('exibe o toggle, o seletor de produto e o campo de percentual', () => {
     renderCard()

@@ -475,6 +475,103 @@ um segundo arquivo `…Preview`, se o palco ramificar por tipo de seção, ou se
   - O modo de falhar continua sendo **quadro branco sem erro**: a recusa é do navegador, não da
     aplicação, e não aparece em log nenhum.
 
+## Configurações › quatro seções, não oito abas (feature `55`, `AD-038`)
+
+`/admin/configuracoes` era um `<Tabs>` de **oito** abas horizontais, e o `TabsList` já carregava um
+remendo de CSS — `h-auto grid-cols-3 sm:grid-cols-8`, escrito no próprio código como conserto local e
+não padrão, porque em 390px o `h-10` fixo do componente compartilhado cortava a terceira linha de
+abas em cima do título da seção aberta. **A contagem estava na classe**, e a nona aba pediria o
+remendo de novo.
+
+Agora são **quatro seções**, cada uma com endereço:
+
+| Seção | Slug | Cards | Chaves gravadas |
+| --- | --- | --- | --- |
+| Dados da loja | `dados-da-loja` | Geral · SEO | `general`, `seo` |
+| Vendas | `vendas` | Pagamento · Checkout · Carrinho abandonado | `payment`, `abandoned_cart` (+ `checkout`, pelo card) |
+| Frete e Material | `frete-e-material` | Frete · Material | `shipping`, `material` |
+| Notificações | `notificacoes` | `NotificationsTab` | `notifications`, pela própria seção |
+
+**Três donos, e nenhum decide o que é do outro** — é o que a `AD-038` generaliza para a próxima tela
+deste formato:
+
+| Pergunta | Dono |
+| --- | --- |
+| Quais seções existem, e como se chamam | `shared/lib/settingsSections.ts` (molde de `navItems.ts`) |
+| Qual está aberta | **a URL** (`useParams().secao`) |
+| O que cada uma desenha | `widgets/settings-sections/model/panels.tsx` |
+
+- **O registro mora em `shared/lib` e NÃO carrega componente React.** Ele está em `shared` porque
+  duas **features** o leem — `notification-settings` (o link de `CFG-21`) e `home-composition` (os
+  dois de `CFG-19`) —, e `features` não importa de `widgets`. E o corpo de duas das quatro seções vem
+  de `features/`: pôr o componente no registro faria `shared` importar `features`. O par entre
+  registro e mapa é **bidirecional e testado** (`panels.test.tsx`) — nem seção sem painel, nem painel
+  sem seção.
+- **As duas alternâncias são de naturezas diferentes, e confundi-las é como a tela quebra.**
+  - *Qual seção está montada* é decidido pela URL, com montagem **condicional**: só o painel da seção
+    ativa existe no DOM. Não é economia — é o que mantém verdadeiro "trocar de seção descarta a
+    edição não salva". Quem garantia isso era o Radix, que desmonta `TabsContent` inativo, e
+    `NotificationsTab` **depende disso por escrito**. Quatro painéis escondidos com CSS manteriam os
+    quatro rascunhos vivos e a prévia de e-mail vazando entre seções, **sem nada quebrar**.
+  - *Desktop × celular* é decidido pelo **breakpoint**, numa árvore só: o rail e a lista do celular
+    são o **mesmo nó** (`SettingsSectionNav`). O marcador de seção ativa é `lg:`-prefixado, e é isso
+    que permite o desktop marcar a primeira seção na rota-mãe enquanto o celular não marca nada —
+    sem `useMediaQuery`, que na primeira pintura não sabe a largura.
+- **A rota-mãe renderiza conteúdo, sem redirect.** É ela que vive em `footerNavItems`; um `<Navigate>`
+  dali trocaria o endereço do rodapé por um que a sidebar não nomeia. Slug inexistente cai na
+  rota-mãe — o recorte é `findSettingsSection`, num lugar só.
+- **As duas rotas são IRMÃS AUTO-FECHADAS no `App.tsx`**, e isso é restrição, não estilo:
+  `rotasSobGuarda.test.ts` recorta o bloco do `RequireAdmin` por `indexOf('</Route>')` e exige
+  **exatamente um** `</Route>` no arquivo. A forma idiomática do react-router (rota-mãe com filhos)
+  faria aquele recorte fechar no lugar errado e o guarda de autorização do painel encolher sem avisar.
+  `rotasDeConfiguracoes.test.ts` recusa a forma aninhada, com sensor.
+- **A tela entra em `FOCUS_ROUTES`.** Sem isso são duas colunas de navegação empilhadas — a sidebar
+  de 14 itens e o rail de 4 —, e a de fora é a que ninguém está usando. O critério de `focusRoutes.ts`
+  nunca foi "tem prévia ao lado": é a **intenção** ("veio compor, não navegar"). A âncora daquele
+  guarda passou a varrer `footerNavItems` além de `navGroups`, porque é o que o trilho renderiza.
+- **Cada seção é AUTOCONTIDA** — próprio `useStoreSettings()`, próprio estado, próprio salvamento —,
+  no molde que `CheckoutSettingsCard` e `NotificationsTab` já usavam. Some o `save()` de seis ramos e
+  o `PageSettingsKey` que existia para tornar `save('notifications')` inalcançável: não há mais um
+  `save` central para proteger.
+- **O estado de carga mudou de ALCANCE, de propósito.** Ele trocava a tela inteira, cabeçalho
+  incluso, por um spinner; agora é do **painel**. O rail é navegação, e piscá-lo a cada carga seria
+  pior do que não tê-lo.
+- **`InfoBanner` (`shared/ui`) é o aviso informativo único.** Eram quatro caixas ad hoc, e a do
+  `EventCard` estava fora do sistema de tokens — `amber-50`/`amber-900` crus do Tailwind, com quatro
+  classes `dark:` mantidas à mão. Todas passaram a `--estrelinha-admin-amber`, cujo contraste
+  `adminTokens.test.ts` já prova nos dois temas.
+- **Os três campos em reais usam `MoneyInput`** (frete grátis, custo padrão, parcela mínima), com o
+  rótulo **sem `(R$)`** — o prefixo do componente carrega a unidade (convenção do `PricingTab`).
+  `v ?? 0` em cada um: o campo cru gravava `Number(…) || 0`, e propagar o `null` do `MoneyInput`
+  mudaria o dado gravado. Porcentagem do Pix, máximo de parcelas e horas do carrinho **continuam**
+  `type="number"` — `MoneyInput` prefixaria `R$` numa grandeza que não é dinheiro.
+- **Todo `<Label>` das três seções ganhou `htmlFor`.** Os `FieldGroup` do painel quase nunca o
+  passam, e um rótulo não associado não foca o campo ao ser clicado nem é anunciado por leitor de
+  tela. Nas seções reescritas isso foi corrigido; no resto do painel a dívida continua.
+- **`SWITCH_TAP_44` mora em `shared/ui` e é o dono único do alvo de toque do interruptor.** O
+  `Switch` do design system é `h-6 w-11` — 24×44, **abaixo do piso de 44px de altura**. A feature
+  `53` já tinha medido isso em navegador e criado o `switchClassName` para corrigir um card,
+  escrevendo a classe **dentro** do `EventCard`; a `55` precisou do mesmo alvo em mais quatro
+  controles e trouxe a constante para a camada que todos alcançam. **Continua opt-in**: torná-la
+  padrão mudaria a área clicável dos 7 `ToggleField` anteriores à `53`, que esta feature não tocou e
+  não mediu. O botão de salvar de cada card foi de `h-10` (o padrão do `<Button>`) para `h-11` pela
+  mesma régua.
+- **O card do Checkout ganhou TÍTULO, e a razão é que ele nunca teve um.** Quem escrevia a palavra
+  "Checkout" era o `<TabsTrigger>`; o `CheckoutSettingsCard` sempre renderizou um `<FormCard>` sem
+  título, e ninguém notou porque a aba o nomeava por fora. Sem as abas, a seção *Vendas* mostrava
+  "Pagamento", **um card sem nome** e "Carrinho abandonado" — e `CFG-05` nomeia os três. Nenhum
+  teste podia pegar: a suíte da página **dubla** aquele card, então a asserção do título mora em
+  `CheckoutSettingsCard.test.tsx`, que é o único arquivo que o enxerga.
+- **O painel não fala mais em "abas".** As duas mensagens que mandavam preencher o logradouro numa
+  aba que não existe mais nomeiam a seção, e a do `EventCard` **leva até ela** por link — ela é lida
+  exatamente quando a Adri está travada. `semAbaEmConfiguracoes.test.ts` varre `apps/backoffice/src/**`
+  e recusa a volta; o alcance dele é estreito **de propósito e declarado**, porque o formulário de
+  produto tem abas de verdade chamadas Geral e SEO.
+- **O link do editor da faixa de vantagens virou DOIS** (`CFG-19`): o frete grátis mora em *Frete e
+  Material*, as parcelas e o Pix em *Vendas*. Com um link só para a rota-mãe, aquele aviso ficaria
+  **pior** do que era antes da feature — apontaria para uma tela de quatro seções deixando a dona
+  adivinhar qual abrir.
+
 ## Configurações › Frete — o interruptor do frete grátis (feature `37`)
 
 - **`free_shipping_enabled` nasce `false`, e ligar é passo de operação.** Enquanto ninguém ligar, a
@@ -496,19 +593,25 @@ um segundo arquivo `…Preview`, se o palco ramificar por tipo de seção, ou se
   anunciava "interruptor, ligado" e nada mais.
   - **`switchClassName` (feature `53`) é aditivo e opcional** — os chamadores de antes dela não
     passam nada e não mudam nem um pixel. Existe porque o `Switch` do design system é `h-6 w-11`
-    (24×44px): abaixo do piso de 44px de altura, medido em navegador real na aba Notificações. Quem
+    (24×44px): abaixo do piso de 44px de altura, medido em navegador real na seção Notificações. Quem
     precisa do alvo maior passa a própria classe `before:` (molde do `TAP_44` da loja, nunca
     importado — criaria um segundo dono da medida); os outros 7 usos de `ToggleField` continuam com
     o `Switch` cru.
 
-## Configurações › Notificações — a aba dos 15 eventos do motor (feature `53`)
+## Configurações › Notificações — os 15 eventos do motor (feature `53`)
 
-`/admin/configuracoes` → aba **Notificações**. Lê, edita, liga/desliga e mostra a prévia dos quinze
-eventos de `@estrelinha/core/notifications` — o motor que a feature `42` construiu e que ficou sem
-tela por uma feature inteira (`BL-033`). A aba é **autocontida**: tem o próprio
-`useNotificationsDraft()`/`useUpdateSettings()`, no mesmo molde independente do `CheckoutSettingsCard`
-— `AdminSettingsPage.save()` **não** ganha um branch `notifications` (`PageSettingsKey` o exclui, e
-isso é checado por `tsc`, não por convenção).
+`/admin/configuracoes/notificacoes`. Lê, edita, liga/desliga e mostra a prévia dos quinze eventos de
+`@estrelinha/core/notifications` — o motor que a feature `42` construiu e que ficou sem tela por uma
+feature inteira (`BL-033`). A seção é **autocontida**: tem o próprio
+`useNotificationsDraft()`/`useUpdateSettings()`, no mesmo molde independente do `CheckoutSettingsCard`.
+
+> **Era uma ABA até a feature `55`**, e o `AdminSettingsPage.save()` de seis ramos — mais o
+> `PageSettingsKey` que tornava `save('notifications')` inalcançável por `tsc` — **deixou de
+> existir**: cada seção grava a própria chave. O que NÃO mudou é a independência, mas ela ficou
+> frágil de um jeito que vale dizer: quem garantia "trocar de aba descarta o rascunho" era o Radix
+> desmontando o `TabsContent`. Agora quem garante é a montagem condicional por slug na
+> `AdminSettingsPage`. Trocá-la por painéis escondidos com CSS mataria a promessa **sem quebrar
+> nada**.
 
 - **Salva a aba inteira, nunca um evento**. `useUpdateSettings` faz `upsert` da chave `notifications`
   inteira — uma escrita que só carregasse o evento editado apagaria, em silêncio, a customização dos

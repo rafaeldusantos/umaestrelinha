@@ -7,6 +7,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, within, fireEvent, waitFor } from '@testing-library/react'
 import { createElement, type ReactNode } from 'react'
+import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { DEFAULT_NOTIFICATIONS, NOTIFICATION_EVENTS } from '@estrelinha/core/notifications'
 import { NOTIFICATION_SECTIONS, groupedEvents } from '../../model/sections'
@@ -31,7 +32,14 @@ import { NotificationsTab } from '../NotificationsTab'
 
 function makeWrapper() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0, staleTime: 0 } } })
-  return { client, Wrapper: ({ children }: { children: ReactNode }) => createElement(QueryClientProvider, { client }, children) }
+  // O `MemoryRouter` entrou na feature 55: o aviso de endereço do ateliê passou a oferecer um
+  // `<Link>` para a seção onde o campo se resolve (`CFG-21`), e `<Link>` fora de um Router lança no
+  // render — antes de qualquer asserção, o que se lê como defeito do componente errado.
+  return {
+    client,
+    Wrapper: ({ children }: { children: ReactNode }) =>
+      createElement(MemoryRouter, null, createElement(QueryClientProvider, { client }, children)),
+  }
 }
 
 function renderTab(rows: Array<{ key: string; value: unknown }> = [{ key: 'general', value: {} }]) {
@@ -220,6 +228,15 @@ describe('NotificationsTab (ABN-09) — avisos roteados para os cards certos', (
     await waitFor(() => expect(screen.getByTestId('event-card-material_instructions')).toBeInTheDocument())
 
     expect(screen.getByTestId('event-warnings-material_instructions')).toBeInTheDocument()
+    // ⚠️ `EventCard.test.tsx` prova que o aviso SABE desenhar um link — mas é ele quem monta a prop
+    // `warnings` naquele arquivo. Quem a monta de verdade é o `warningsFor` daqui, e apagar o
+    // `action` dele deixava as 9 suítes de notification-settings verdes com o link simplesmente
+    // inexistente: exatamente a metade que `CFG-21` acrescenta sobre `CFG-20`.
+    // É a lição "teste não monta a árvore que prova", agora na ponta que produz o dado.
+    expect(screen.getByTestId('event-warning-link-material_instructions')).toHaveAttribute(
+      'href',
+      '/admin/configuracoes/frete-e-material',
+    )
     // Nenhum outro card da seção "Pedido e pagamento" ganha o mesmo aviso.
     expect(screen.queryByTestId('event-warnings-order_paid')).toBeNull()
   })
@@ -240,6 +257,11 @@ describe('NotificationsTab (ABN-09) — avisos roteados para os cards certos', (
     expect(banner.textContent).toMatch(/produ[çc][ãa]o/)
 
     expect(screen.getByTestId('event-warnings-owner_material_incoming')).toBeInTheDocument()
+    // E os avisos de `owner_*` NÃO inventam link: não há um campo único a apontar — um é o e-mail em
+    // Dados da loja, o outro é um secret de servidor. É o par que impede o `action` de virar
+    // decoração em todo aviso.
+    expect(screen.queryByTestId('event-warning-link-owner_order_paid')).toBeNull()
+
     // material_instructions não ganha os avisos de owner.
     expect(screen.queryByTestId('event-warnings-material_instructions')).not.toBeNull() // continua com o SEU próprio aviso (endereço vazio)
   })

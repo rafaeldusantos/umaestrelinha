@@ -6,7 +6,10 @@ export { default as Pagination } from './Pagination'
 export { getPageItems } from './paginationItems'
 export { default as EmptyState } from './EmptyState'
 export { TableSkeleton, CardSkeleton } from './Skeletons'
-export { FieldGroup, ToggleField } from './FieldGroup'
+export { FieldGroup, ToggleField, SWITCH_TAP_44 } from './FieldGroup'
+// Feature 55: o aviso informativo único. Eram quatro caixas ad hoc, uma delas com a paleta `amber`
+// crua do Tailwind e quatro classes `dark:` mantidas à mão.
+export { default as InfoBanner } from './InfoBanner'
 // Feature 18: as duas peças que as telas de formulário do grupo `Descontos` compartilham.
 export { default as DateField } from './DateField'
 export { default as FormPageHeader } from './FormPageHeader'

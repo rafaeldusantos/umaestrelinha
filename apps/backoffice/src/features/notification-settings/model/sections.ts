@@ -1,4 +1,4 @@
-// Feature 53 (T03) — as três seções da aba Notificações, DERIVADAS de dados que já existem em
+// Feature 53 (T03) — os três grupos da seção Notificações, DERIVADOS de dados que já existem em
 // `core` (`ABN-01`). Nunca uma lista nova: o "defeito 01" deste projeto é exatamente uma segunda
 // classificação divergindo da primeira sem quebrar nada.
 //

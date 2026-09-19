@@ -1,4 +1,4 @@
-// Feature 53 (T06) — o estado da aba INTEIRA, não por card (`ABN-13`: `useUpdateSettings` faz
+// Feature 53 (T06) — o estado da seção INTEIRA, não por card (`ABN-13`: `useUpdateSettings` faz
 // `upsert` da chave inteira, então salvar precisa sempre carregar os 15 eventos).
 //
 // `refusalFor` delega 100% para `notificationDraftRefusal` (T01, `core/notifications`) — nenhuma
@@ -21,6 +21,8 @@ import {
   useUpdateSettings,
 } from '@estrelinha/core/hooks/useStoreSettings'
 
+import { SETTINGS_SECTIONS } from '@/shared/lib/settingsSections'
+
 import { materialAddressMissing } from './preconditions'
 import { buildNotificationsValue } from './notificationsWrite'
 
@@ -37,9 +39,17 @@ export interface UseNotificationsDraft {
   save: () => Promise<boolean>
 }
 
-/** ABN-08 — a mensagem nomeia o campo ausente e aponta para a aba onde ele se resolve (molde de `FRG-12`). */
-const MATERIAL_ADDRESS_REFUSAL =
-  'O endereço do ateliê está vazio — preencha o logradouro na aba Material antes de ligar este aviso.'
+/**
+ * ABN-08 — a mensagem nomeia o campo ausente e aponta para a seção onde ele se resolve (molde de
+ * `FRG-12`).
+ *
+ * O nome da seção sai do registro (feature 55, `CFG-20`): uma cópia aqui mandaria a Adri procurar
+ * um lugar que mudou de nome. Esta é uma RECUSA — ela aparece num `<p role="alert">`, que não
+ * comporta link —, então o que ela faz é nomear; quem oferece o caminho é o aviso do `EventCard`,
+ * que tem superfície para isso (`CFG-21`).
+ */
+const SECAO_DO_MATERIAL = SETTINGS_SECTIONS.find(s => s.slug === 'frete-e-material')!
+const MATERIAL_ADDRESS_REFUSAL = `O endereço do ateliê está vazio — preencha o logradouro na seção ${SECAO_DO_MATERIAL.label} antes de ligar este aviso.`
 
 export function useNotificationsDraft(): UseNotificationsDraft {
   const notifications = useNotificationSettings()

@@ -126,7 +126,10 @@ Ao planejar/implementar features, use a Skill **`tlc-spec-driven`** com estas co
     `45` (as políticas da loja), a `46` (as perguntas frequentes da loja), a `47` (painel em foco) e
     a `49` (checkout sem conta) estão FECHADAS. A `36` (metadados e dados estruturados) tem **só
     `spec.md`** e não foi implementada — o número está consumido de qualquer forma. A `48` (usuários
-    do painel) é de **outra sessão** e tem spec própria. A próxima é a `50`.**
+    do painel) é de **outra sessão** e tem spec própria. **A `50` (produtos em destaque), a `51` (a
+    busca de produto do painel), a `52` (entrega de e-mail comprovada), a `53` (a aba de
+    Notificações), a `54` (templates de e-mail de auth) e a `55` (configurações por seções) também
+    estão FECHADAS. A próxima é a `56`.**
   - **A `46` e a `47` correram EM PARALELO, em worktrees separados**, e é o segundo caso do projeto
     (o primeiro, a `45`, dividiu uma working tree só). O que mudou: a divisão foi por **árvore**, não
     por arquivo — a `47` nasceu de um `git worktree` sobre o HEAD local e trouxe a `46` por
@@ -319,7 +322,7 @@ migrations, e `vercelRedirects` lê o `vercel.json`.
 | `brandScan.test.ts` | idem | **qualquer** ocorrência da marca anterior em `apps/`, `packages/`, `supabase/` ou nas configs da raiz |
 | `storeSettingsDefaults.test.ts` | idem | os defaults do TypeScript divergirem do que as migrations gravam; o interruptor do frete grátis nascer ligado; a migration da `37` deixar de ser aditiva (`value \|\|`) ou idempotente (`NOT value ?`). **Sensor embutido**: assere que o parser devolve `undefined` para campo ausente |
 | `freeShippingSingleOwner.test.ts` | idem | qualquer arquivo de `apps/**` fora de um allowlist de **dois** ler `free_shipping_threshold`; `freeShippingProgress` ou `FreeShippingBar` voltarem a existir em produção; copy com o valor da faixa cravada em JSX. **Âncora dupla** e **seis sensores embutidos** — o removedor de comentário provado com CRLF, com LF, contra o glob de dois asteriscos que o cegava (`BL-027`, fechada em 2026-09-06: linha e bloco na **mesma** varredura) e contra uma leitura nova escondida atrás desse mesmo glob |
-| `alvoDeToqueNaoRoubaPosicao.test.ts` | store `shared/lib/__tests__` (varre `apps/**` e `packages/ui/**`) | um controle posicionado perder a posição para `TAP_44`/`TAP_ROW`, **nas duas formas de juntar classe**: `cn(classes, TAP_44)`, onde o `relative` do auxiliar **apaga** o `absolute` na fusão do `twMerge`; e `` `${TAP_44} absolute …` ``, onde não há fusão, as **duas** classes chegam ao DOM e `.relative` vence por vir **depois** de `.absolute` na folha com a mesma especificidade. A régua **calcula** — chama o `cn` de verdade e recusa o par ambíguo —, nunca confere a ordem dos argumentos, que é o proxy que falhou quando a forma mudou. **Âncora tripla** (arquivos lidos, **as duas formas** encontradas, e o `relative` ainda presente nos auxiliares) e **dez sensores**, incluindo o inverso das duas formas, o par que prova que controle em fluxo **não** é acusado, e o que prova que posição escrita por **outra** interpolação não é atribuída ao literal |
+| `alvoDeToqueNaoRoubaPosicao.test.ts` | store `shared/lib/__tests__` (varre `apps/**` e `packages/ui/**`) | um controle posicionado perder a posição para **um dos TRÊS auxiliares** — `TAP_44`/`TAP_ROW` da loja e, desde a `55`, `SWITCH_TAP_44` do painel, **lido do disco** (importá-lo criaria o segundo dono que o guarda existe para impedir), com a extração lançando quando não acha —, **nas duas formas de juntar classe**: `cn(classes, TAP_44)`, onde o `relative` do auxiliar **apaga** o `absolute` na fusão do `twMerge`; e `` `${TAP_44} absolute …` ``, onde não há fusão, as **duas** classes chegam ao DOM e `.relative` vence por vir **depois** de `.absolute` na folha com a mesma especificidade. A régua **calcula** — chama o `cn` de verdade e recusa o par ambíguo —, nunca confere a ordem dos argumentos, que é o proxy que falhou quando a forma mudou. **Âncora tripla** (arquivos lidos, **as duas formas** encontradas, e o `relative` ainda presente nos auxiliares) e **dez sensores**, incluindo o inverso das duas formas, o par que prova que controle em fluxo **não** é acusado, e o que prova que posição escrita por **outra** interpolação não é atribuída ao literal |
 | `importOrder.test.ts` | idem | `App.css` importado **antes** de `@estrelinha/ui/styles.css` no `main.tsx` |
 | `reservedSlugs.test.ts` | idem | rota nova no `App.tsx` que não entrou em `ROUTE_SLUGS`; entrada de `ROUTE_SLUGS` que deixou de ser rota. **Bidirecional** |
 | `vercelRedirects.test.ts` | idem | `vercel.json` divergir de `LEGACY_REDIRECTS`; `trailingSlash` deixar de ser `false`; redirect usando `permanent` (que produz 308); o catch-all do SPA sair do fim da lista de `rewrites`; os headers de segurança mudarem; o `rewrite` ou o `Content-Type` de `/sitemap.xml` sumirem |
@@ -358,7 +361,7 @@ migrations, e `vercelRedirects` lê o `vercel.json`.
 | `desafioDeCodigoUnico.test.ts` | idem | um segundo campo de 6 dígitos em `apps/store/**` fora de `features/auth/ui/steps` — com o passo existente vêm o reenvio, o cooldown de 60s e a distinção entre código errado e expirado. **Tem o sentido positivo junto**: o desafio do checkout precisa **conter** `AuthCodeStep`, senão a ausência de um segundo campo seria verdadeira por não haver campo nenhum |
 | `denoReach.test.ts` | `packages/core/src/checkout/__tests__` | um especificador relativo sem `.ts` — `import type` incluso — nos arquivos que a edge function importa por caminho (`identity.ts`, `guestAccess.ts`), ou um import de React/Supabase/Deno neles. O barrel fica **fora do escopo**, com a razão escrita no arquivo. Leitor injetável, com sensor de `import type`, do par com extensão, de CRLF e do removedor de comentário — que **reprovou o próprio arquivo certo** na primeira escrita, porque o cabeçalho dele cita `from './types'` em prosa |
 | `http.test.ts` | `supabase/functions/_shared/__tests__` | uma segunda **declaração** de `corsHeaders` nas functions (eram TRÊS, idênticas, até a `49`); `mercado-pago` ou `send-notification` deixarem de reexportar a MESMA referência — a asserção é `toBe`, e não `toEqual`, porque igualdade estrutural passaria com uma cópia colada |
-| `originZipNotRead.test.ts` | backoffice `shared/lib/__tests__` | qualquer arquivo de `apps/**` ler `store_settings.shipping.origin_zip` — o campo é LEGADO e a origem da cotação é o `postal_code` do secret `MELHOR_ENVIO_SENDER_JSON`. Deixá-lo configurável na tela faria a origem da COTAÇÃO e a da ETIQUETA poderem divergir. **Âncora dupla** |
+| `originZipNotRead.test.ts` | backoffice `shared/lib/__tests__` | qualquer arquivo de `apps/**` ler `store_settings.shipping.origin_zip` — o campo é LEGADO e a origem da cotação é o `postal_code` do secret `MELHOR_ENVIO_SENDER_JSON`. Deixá-lo configurável na tela faria a origem da COTAÇÃO e a da ETIQUETA poderem divergir. **Âncora dupla**, e desde a `55` o arquivo medido é `ShippingMaterialSection.tsx` — a asserção POSITIVA ao lado da negativa foi quem pegou a mudança de endereço |
 | `quotePayload.test.ts` | `packages/core/src/shipping/__tests__` | `insurance_value` deixar de ser **por unidade** — a API do Melhor Envio já multiplica por `quantity`, e multiplicar aqui segura a carga pelo **quadrado** dela. Carrega **sensor embutido**: assere que a fórmula antiga do backoffice reprova na mesma régua |
 | `provenanceNotRead.test.ts` | backoffice `shared/lib/__tests__` | qualquer arquivo de `apps/**` ler `nuvemshop_status`, `nuvemshop_payment_status` ou `nuvemshop_shipping_status` — as colunas cruas do import são **proveniência**, e lê-las daria duas respostas para "este pedido foi pago?". **Âncora dupla** |
 | `parse.test.ts` · `recorte.test.ts` · `fixtureSintetica.test.ts` | `tools/catalog-import/src/csv/__tests__` | o CSV deixar de ser lido como Latin-1; o agrupador voltar a tratar linha como pedido (243 em vez de 70); o rastreio `="…"` chegar cru; o recorte ganhar teto e deixar pedido novo de fora; a fixture parar de ser sintética (e-mail fora de `@exemplo.invalid`, documento sem dígito repetido) |
@@ -390,7 +393,11 @@ migrations, e `vercelRedirects` lê o `vercel.json`.
 | `toNewItems.test.ts` | backoffice `features/home-composition/model/__tests__` | um campo **de tela** do rascunho (`key`, `product_slug`) chegar ao `insert`. A régua é **igualdade de chaves** com as sete colunas, nunca "contém as sete": uma régua de presença aprova o oitavo campo, que é exatamente o que ela existe para recusar. É o modo de falha do `AD-012` — `PGRST204` em produção, com a curadoria inteira perdida e nada na tela —, invisível para `tsc` (as sete colunas são opcionais), para o `build` e para o teste do editor, que mocka o client |
 | `buscaDeProdutoComDonoUnico.test.ts` | backoffice `shared/lib/__tests__` | **três réguas, ZERO allowlist** (feature `51`, `AD-036`). (1) qualquer arquivo de `apps/backoffice/src/**` fora de `entities/product/api/**` consultar `products` **filtrando por nome** — e a régua casa **as duas formas**, porque o dono não usa a que a spec presumia: ele monta `` `name.ilike.%…%` `` como **string** para o `.or()`, e a chamada de método que existe no arquivo é sobre `sku`. Uma régua só de método teria nascido **verde sobre nada** (`L-033`). O recorte à esquerda é por token exato, senão `customer_name.ilike.` — a busca de PEDIDO, legítima — cairia junto (`L-034`). (2) a **declaração** da dobra de busca fora de `shared/lib/texto.ts`: a régua **caminha pela cadeia de chamadas** e acusa a que **termina** no acento — o gerador de slug e a normalização de tag continuam depois dele (hífen, espaço) e são outra função, e o sensor prova que um slug que perca a junção por hífen **volta a ser acusado**. (3) o catálogo virando `<option>`/`<SelectItem>` fora de `entities/product/**`; **o alcance desta terceira é o NOME da variável, e isso está declarado no arquivo** — uma régua puramente estrutural acusaria as doze listas de categoria do painel, que têm a forma idêntica. **Âncora dupla**, com a terceira ancorada no extrator de JSX (o dono é `<ul>` de `<li>` por `BUS-17`, então não há ocorrência legítima nele — fingir uma seria âncora falsa), e **treze sensores**, incluindo o glob de dois asteriscos (`BL-027`), o CRLF, o LF, e os inversos que provam que a busca de pedido, o gerador de slug e as listas de categoria **não** são acusados |
 | `navItems.test.ts` | backoffice `widgets/admin-layout` | ordem das rotas em `App.tsx` divergir de `navGroups` |
-| `focusRoutes.test.ts` | idem | rota de foco que não é destino de `navGroups` — o trilho recolheria sem saber qual ícone acender; `/admin/homologacao` passar a contar como Home por prefixo cru |
+| `settingsSections.test.ts` | backoffice `shared/lib/__tests__` | o registro das 4 seções de Configurações mudar de ordem, ganhar slug fora de kebab-case, ou `findSettingsSection` deixar de devolver `null` para slug inexistente, vazio e ausente — é lá que `CFG-18` mora, num lugar só. Também recusa duas descrições iguais (duas linhas do rail indistinguíveis abaixo do rótulo) e uma cópia no lugar da referência do registro |
+| `panels.test.tsx` | backoffice `widgets/settings-sections/model/__tests__` | o registro das seções e o mapa `slug → painel` divergirem, **nos dois sentidos**: seção sem painel abre o vazio, painel sem seção fica no bundle sem ninguém alcançar. O `tsc` pega só o primeiro (`Record<SettingsSectionSlug, …>`). Também recusa duas seções compartilhando o mesmo componente — o erro que passa por completude |
+| `rotasDeConfiguracoes.test.ts` | backoffice `app/__tests__` | as duas rotas de Configurações deixarem de ser **irmãs auto-fechadas**. A forma idiomática do react-router (rota-mãe com filhos aninhados) faz o `indexOf('</Route>')` de `rotasSobGuarda` fechar no lugar errado e **encolher o guarda de autorização do painel inteiro**. Também recusa um `<Navigate>` na rota-mãe (`CFG-17`) e as duas rotas montando componentes diferentes. O parser caminha por profundidade de `{}` em vez de regex — `element={<X />}` contém um `/>` dentro da tag, e a primeira escrita declarava **toda** rota auto-fechada; quem acusou foram os dois sensores |
+| `semAbaEmConfiguracoes.test.ts` | backoffice `shared/lib/__tests__` | qualquer arquivo de `apps/backoffice/src/**` chamar uma seção de Configurações de "aba" — os **seis** rótulos inequívocos das abas mortas, os **quatro** rótulos de seção novos, e a forma `Configurações → <rótulo>`. **`Geral` e `SEO` sozinhos ficam de fora, com o motivo escrito no arquivo**: o formulário de produto tem abas de verdade com esses nomes, e um guarda que nasce reprovando outra tela é um guarda que alguém desliga. A forma com seta descarta as seções VIVAS por lookahead — sem isso ela acusava `Configurações → Dados da loja` (a copy nova) e `→ Frete e Material` (por `Frete` ser prefixo). **Allowlist de UM** (o próprio guarda) com o caso que prova que outro arquivo de teste seria acusado |
+| `focusRoutes.test.ts` | idem | rota de foco que não é destino da navegação — a âncora varre `navGroups` **+ `footerNavItems`** desde a `55`, que é o que o trilho renderiza (varrer só metade era a régua medindo menos que a regra); `/admin/homologacao` passar a contar como Home por prefixo cru. Guarda também a **inversão** da `55`: `/admin/configuracoes` PEDE foco, e os outros dois destinos do rodapé não |
 | `navRail.test.ts` | idem | recolher passar a **gravar** em vez de apagar a chave (a ausência deixaria de significar "siga o padrão"); valor de lixo virar um terceiro estado; `localStorage` que lança derrubar a navegação; o trilho **tocar** na chave do `navCollapse` — as duas preferências têm donos separados |
 | `NavRail.test.tsx` | idem | o trilho deixar de renderizar **exatamente** os destinos de `navGroups` + `footerNavItems`, na ordem deles (**âncora derivada da fonte**, nunca escrita à mão); rótulo virar texto visível; mais de um destino marcado; alvo abaixo de 44 (por **token exato** — `h-11` é substring de `min-h-11`); `TAP_44` ser importado ou copiado da loja. Sensor do removedor de comentário: a régua procura **uso**, e o próprio arquivo cita `TAP_44` na prosa |
 | `folgaDoPalco.test.ts` | backoffice `shared/lib/__tests__` | qualquer arquivo de `apps/backoffice/**` declarar a folga do palco — `FOLGA`, ou a forma sem nome (`caixa.width - 40` no cálculo da escala). O dono é `previewFrame`, em `core`. **Âncora dupla** (arquivos lidos **e** os dois palcos encontrados) e sensores nos dois sentidos, incluindo a prova de que a chamada correta **não** é acusada |
@@ -436,7 +443,7 @@ quando mudarem de verdade.
 | --- | --- | --- |
 | **Lint** | **26 erros / 6 warnings** — backoffice 24/4 · store 2/2 | `pnpm lint` |
 | **Tipos** | **0 · 0 · 0** (store · backoffice · catalog-import) | `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` |
-| **Testes** | **9881 em 509 arquivos** — store **3516/221** · backoffice **2818/158** · core **2383/93** · functions **652/14** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
+| **Testes** | **10011 em 515 arquivos** — store **3517/221** · backoffice **2947/164** · core **2383/93** · functions **652/14** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
 
 **A feature `53` (a aba de Notificações, os 15 eventos do motor ficam alcançáveis) somou +116 em
 TRÊS workspaces, medidos em 2026-09-19 um por vez, exit code fora de pipe e `--testTimeout=20000`
@@ -510,6 +517,117 @@ alterada (`git diff --name-only -- packages/core/src/payment`, zero arquivos).
 > um arquivo que existe no disco); só `supabase stop` (sem `--all`) + `supabase start` recriou o
 > container do zero e resolveu. Sem isso, a prova em navegador desta feature (que depende de
 > `send-notification?action=preview`/`?action=config-check`) não teria como acontecer.
+
+**A feature `55` (configurações por seções) somou +129 em UM workspace**, medidos em 2026-09-19 um
+por vez, com exit code fora de pipe e `--testTimeout=20000` nos dois apps: **backoffice 2818/158 →
+2947/164** (o registro das seções, o guarda das rotas, a navegação, o mapa de painéis, o
+`InfoBanner`, o guarda das "abas", e a suíte da página indo de 21 para 68 casos — dos quais **+17
+vieram DEPOIS da verificação independente**, consertando o que ela achou) — **e +1 no store**, a
+âncora da leitura cruzada que ensinou o guarda de posição a conhecer o auxiliar do painel. Os outros quatro
+**não mudaram de comportamento e foram remedidos**: store **3516/221 → 3517/221** (só a âncora
+acima), core 2383/93, functions 652/14, catalog-import 512/23. Lint em **26/6** e tipos em **0 · 0**, sem mexer;
+`pnpm build` verde nos dois apps, e `packages/core/src/payment/**` sem uma linha alterada
+(`git diff --name-only`, zero arquivos).
+
+> **A verificação independente REPROVOU a primeira entrega — 7 mutantes sobreviventes em 26 — e
+> achou DOIS defeitos de produto que teste nenhum podia ver.** É a leitura mais cara desta feature, e
+> os dois defeitos têm a mesma causa: **a coisa que sumiu da tela não tinha dono em teste nenhum.**
+>
+> 1. **O card do Checkout ficou SEM NOME.** Quem escrevia a palavra "Checkout" era o
+>    `<TabsTrigger>`; o `CheckoutSettingsCard` sempre renderizou um `<FormCard>` **sem título**, e
+>    ninguém notou porque a aba o nomeava por fora. Com as abas removidas, a seção *Vendas* passou a
+>    mostrar "Pagamento", **um card sem nome**, e "Carrinho abandonado" — e `CFG-05` nomeia os três.
+>    Nenhum teste podia pegar: a suíte da página **dubla** aquele card.
+> 2. **O alvo de toque de 44px valia só para a linha do rail.** A AC nomeia três coisas — a lista, o
+>    botão de voltar e **os controles de uma seção** —, e a terceira não estava implementada: o
+>    `Switch` é `h-6` (24px) e o `<Button>` padrão é `h-10` (40px). **A feature `53` já tinha topado
+>    com esse defeito** e criado o `switchClassName` para corrigi-lo num card; a `55` *editou aquele
+>    comentário* e não usou o prop. O conserto trouxe a classe para `shared/ui` como
+>    `SWITCH_TAP_44` — ela estava escrita **dentro** do `EventCard`, e a segunda escrita seria o
+>    "defeito 01" no tamanho de uma classe.
+>
+> **Dos 7 mutantes, cinco tinham a assinatura de sempre — a asserção verdadeira nos DOIS mundos:**
+>
+> - **`CFG-08` provava IDENTIDADE, não POSIÇÃO.** `expect(header).toBe(antesDaTroca)` continua
+>   valendo com o cabeçalho **dentro** do painel, porque o React reconcilia por posição e tipo. Mover
+>   o `<PageHeader>` para dentro do painel deixava 112 casos verdes — e no celular, na rota-mãe, o
+>   título **sumiria de vez** (o painel carrega `hidden lg:block`). Identidade prova que ele não
+>   remonta; só a posição prova que ele não se move.
+> - **A régua de `CFG-13` filtrava o defeito para fora da própria amostra.** Ela colhia só os `div`
+>   que **já** tinham `sm:grid-cols-`, e depois asseria que nenhum deles tinha `grid-cols-` pelado —
+>   um `grid-cols-2` fixo nunca entrava na lista. E o "sensor" dela exercitava só o `filter` interno
+>   sobre um array escrito à mão, sem nunca chamar o colhedor, que era onde o defeito morava.
+>   **Sensor que não chama a função da asserção não é sensor.**
+> - **`CFG-21` era provado no componente, nunca no PRODUTOR.** `EventCard.test.tsx` monta a prop
+>   `warnings` ele mesmo; apagar o `action` de quem a produz de verdade (`warningsFor`, em
+>   `NotificationsTab`) deixava as 9 suítes verdes com o link simplesmente inexistente. É a quarta
+>   ocorrência de *"teste não monta a árvore que prova"* neste repositório.
+> - **`CFG-26` tinha um consumidor com zero cobertura, e a varredura era CEGA a ele por
+>   construção.** A varredura de `bg-muted` mora na suíte da página — que **dubla** o
+>   `CheckoutSettingsCard`. Um guarda nunca alcança o que o próprio arquivo substituiu por um stub.
+> - **`CFG-24` estava provado para 1 dos 3 campos**, embora o `design.md` prometesse "um caso por
+>   campo". E o caso novo do frete só discrimina com o interruptor **desligado**: com ele ligado,
+>   `freeShippingRefusal` recusa tanto `0` quanto `null` (`null <= 0` é `true`), então aquele caminho
+>   é verdadeiro nos dois mundos.
+>
+> **O `Success Criteria` "sem nenhum campo removido" não tinha teste nenhum**: apagar o campo
+> *Imagem Open Graph* deixava a suíte verde. Agora há um inventário de 24 rótulos, escrito por
+> extenso — derivá-lo do componente provaria que ele é igual a si mesmo.
+>
+> **Os 12 mutantes foram reinjetados nos arquivos reais depois do conserto, com restauração e
+> comparação byte a byte: 12 morreram, 0 sobreviveram.** O arnês **lança** quando a string alvo não
+> é encontrada — mutação que vira no-op em silêncio não prova nada (a lição do `mutar()` da `52`).
+
+> **A rodada 2 passou (19 mutantes, 19 mortos) e ainda assim achou um buraco — criado pelo
+> CONSERTO.** Extrair `SWITCH_TAP_44` para `shared/ui` resolveu a duplicação e, no mesmo movimento,
+> levou a classe de **um** arquivo para ~200: ela começa com `relative` igual aos auxiliares da loja,
+> e `alvoDeToqueNaoRoubaPosicao.test.ts` — que varre `apps/backoffice/src` — **não sabia o nome
+> novo**, porque `(TAP_44|TAP_ROW)` não casa dentro de `SWITCH_TAP_44` (`_` é caractere de
+> palavra). A sonda pareada que provou isso é o molde: a mesma linha, só trocando o identificador —
+> com `SWITCH_TAP_44` passava cega, com `TAP_44` reprovava.
+>
+> O guarda passou a ler a constante **do disco** em vez de importá-la (a suíte da loja importar um
+> módulo do painel seria o segundo dono que ele existe para impedir), e a leitura **lança** quando
+> não acha. A primeira escrita dessa leitura casava aspas simples e cortava a string em
+> `before:content-['']` — quem pegou foi a âncora que assere um pedaço do conteúdo, não o
+> `toBeGreaterThan(0)` do tamanho. **Ampliar o alcance de um guarda é uma feature em si**, e vale a
+> mesma régua: sonda pareada, controle, e o inverso que prova que ele não virou "qualquer coisa
+> reprova".
+
+> **A suíte da LOJA reprovou, e o guarda que pegou fez isso pelos DOIS lados.** A `55` moveu o card
+> de Frete da `AdminSettingsPage` para `ShippingMaterialSection`, e
+> `freeShippingSingleOwner.test.ts` (que mora em `apps/store` e varre `apps/**`) acusou **duas**
+> coisas de uma vez: o arquivo novo lendo `free_shipping_threshold` fora do allowlist, **e** a
+> entrada velha do allowlist não lendo mais o campo. O segundo sentido é o que impede uma allowlist
+> de virar cemitério — sem ele, a entrada morta ficaria lá autorizando um arquivo que já não existe
+> naquele papel. É a terceira feature seguida em que um arquivo do PAINEL quebra um guarda da LOJA
+> (a `51` com `brandScan`, a `53` com `notificationSingleOwner`): **o gate de uma feature do painel
+> inclui a suíte da loja, e workspace verde não é o gate.**
+
+> **Um guarda de 2026-09-05 estava medindo o arquivo errado, e só a asserção POSITIVA o pegou.**
+> `originZipNotRead.test.ts` lia `AdminSettingsPage.tsx` do disco e asseria duas coisas: que ele
+> **não** contém `origin_zip` e que ele **contém** "Melhor Envio". Com o formulário mudando de
+> arquivo, a negativa passaria por ausência de assunto — o arquivo não tem mais formulário nenhum —
+> e o guarda sobreviveria à feature medindo o nada. Quem reprovou foi a vizinha. É o modo de falha
+> do `PRF-05` entre as features `38` e `39`: **peça certa, endereço errado, suíte verde** — e a
+> lição prática é que todo guarda que lê UM arquivo do disco precisa de uma asserção positiva ao
+> lado da negativa.
+
+> **`size="icon"` do design system é 40×40, e `CFG-14` pede 44.** O cabeçalho de voltar do celular é
+> o **primeiro consumidor** do prop `backTo` do `PageHeader` — ele existia na interface desde sempre
+> e nenhuma tela o usava —, então subir a medida ali não move um pixel em nenhuma outra tela do
+> painel. Achado ao conferir a AC contra o `button.tsx`, não por teste: nenhuma asserção media a
+> altura daquele botão porque ele nunca tinha sido renderizado.
+
+> **Dois sensores acharam duas réguas nascidas quebradas, e as duas passavam "verdes" sobre o nada.**
+> (1) O parser de rotas de `rotasDeConfiguracoes.test.ts` era um regex preguiçoso
+> (`[\s\S]*?(\/>|>)`), e `element={<X />}` contém um `/>` **dentro** da tag: ele declarava toda
+> rota auto-fechada, inclusive a aninhada, que é a única coisa que o guarda existe para recusar. As
+> asserções principais passavam; quem acusou foram os dois sensores. (2) A régua de `aba` acusava
+> `Configurações → Dados da loja` — **a copy que a própria feature escreveu** —, porque os rótulos
+> de seção viva estavam na mesma lista dos mortos; e depois acusava `→ Frete e Material` porque
+> `Frete` é prefixo dele e o recorte à direita via um espaço. **Régua que reprova o conserto é pior
+> que régua nenhuma**: ela empurra quem consertou de volta para a frase velha.
 
 **A feature `54` (templates de e-mail de auth) somou +23/+1 no store**, medidos em 2026-09-19:
 `authEmailTemplates.test.ts` (23 casos), guardando os 3 templates de `supabase/templates/` entre si e
@@ -1529,6 +1647,27 @@ completo (framework, `installCommand` na raiz do monorepo, headers de cache e de
   os identificadores não.
 
 ## Estado conhecido / dívidas
+
+- **A `55` NÃO tem prova em navegador**, e ela entra na fila de `32`…`51`. O que a feature entrega é
+  **largura, coluna e alternância por breakpoint**, e jsdom devolve 0 para toda medida de layout:
+  cada asserção da suíte é proxy de forma (classe declarada, atributo, presença de nó). Falta medir
+  em **390×844, 1024 e 1440**:
+  - o rail de 296px ao lado do painel em 1440 **com o trilho de ícones do modo de foco à esquerda**,
+    e o mesmo em **1024**, onde o `lg:` acabou de ligar e as duas colunas são as mais apertadas;
+  - a lista das 4 seções em 390, sem rolagem horizontal do body, com os 60px de linha sob o dedo;
+  - a seção aberta em 390: o cabeçalho de voltar, os campos em coluna única, e o card Material
+    **inteiro** — os 9 campos, incluindo os dois que o artboard abrevia;
+  - **Notificações em 390** — 15 cards, cada um com 5 campos e uma prévia: é a seção que mais pesa e
+    a única em que o painel rola muito;
+  - trocar de seção **sem recarregar a página**, e o modo de foco recolhendo a navegação ao entrar;
+  - abrir uma prévia de e-mail, trocar de seção, voltar — e ela estar fechada.
+- **O bloco "Ver na loja" do artboard NÃO foi implementado**, e é decisão declarada: nenhuma AC o
+  pede, e a tabela *Out of Scope* da `55` diz que a feature só reorganiza o que já existe. Se a dona
+  sentir falta do atalho (ele existe em `/admin/menu`), é uma linha — mas é conteúdo novo.
+- **Os `<Label>` do painel quase nunca têm `htmlFor`, e a `55` só consertou os das três seções que
+  reescreveu.** `FieldGroup` aceita o prop desde sempre e a maioria dos chamadores não o passa: o
+  rótulo não foca o campo ao ser clicado e não é anunciado por leitor de tela. Corrigir o resto é
+  trabalho de uma feature própria — ela teria de tocar quase toda tela de formulário do painel.
 
 - **O LOGIN DA LOJA ESTÁ EM REGRESSÃO ATIVA ATÉ ALGUÉM COLAR TRÊS TEMPLATES** (feature `52`, auditados
   e fechados pela `54`). É o **único** passo que resta — o SMTP do auth foi **ativado** no dashboard

@@ -10,10 +10,27 @@
 // foco por contexto num `useEffect` — foi recusada no design: o layout renderiza **antes** do efeito
 // da página, então o trilho apareceria expandido por um quadro e recolheria depois, com piscada
 // visível a cada navegação.
+//
+// ## `/admin/configuracoes` entrou na feature 55, e o critério continua o mesmo
+//
+// A tela deixou de ser oito abas horizontais e passou a ser **rail de seções + painel**. Sem o modo
+// de foco são duas colunas de navegação empilhadas na mesma tela — a sidebar de 14 itens e o rail
+// de 4 —, e a de fora é a que ninguém está usando: quem abre Configurações veio ajustar a loja, não
+// navegar por ela. É a mesma frase que justificou a Home e o Menu, com outra tela no lugar.
+//
+// O que ela NÃO tem é uma prévia ao lado. A régua deste arquivo nunca foi "tem iframe"; é a
+// **intenção** — veio compor, não navegar —, e é por isso que ela alcança uma terceira tela sem
+// precisar ser reescrita.
 
 import { isNavActive } from '@/widgets/admin-layout/lib/isNavActive'
 
-export const FOCUS_ROUTES: readonly string[] = ['/admin/home', '/admin/menu']
+export const FOCUS_ROUTES: readonly string[] = [
+  '/admin/home',
+  '/admin/menu',
+  // Feature 55. Diferente das duas de cima, esta mora em `footerNavItems` e não em `navGroups` — o
+  // trilho renderiza os dois, e a âncora de `focusRoutes.test.ts` foi ampliada para varrer os dois.
+  '/admin/configuracoes',
+]
 
 /**
  * Esta rota pede o modo de foco?
@@ -22,6 +39,9 @@ export const FOCUS_ROUTES: readonly string[] = ['/admin/home', '/admin/menu']
  * réguas de "esta rota é aquela" discordariam no dia em que uma subrota nova aparecesse: o editor de
  * seção (`/admin/home/:sectionId`) precisa contar como Home, e `/admin/homologacao` não pode contar
  * como nenhuma das duas só por começar com as mesmas letras.
+ *
+ * É esse casamento por segmento que faz `/admin/configuracoes/:secao` herdar o foco de graça, sem
+ * uma segunda entrada na lista acima (feature 55).
  */
 export const isFocusRoute = (pathname: string): boolean =>
   FOCUS_ROUTES.some(rota => isNavActive(pathname, rota))

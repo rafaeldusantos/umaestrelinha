@@ -1,505 +1,125 @@
-import { useEffect, useState } from 'react'
-import { Loader2, PackageOpen, Save, Settings as SettingsIcon, ShoppingCart } from 'lucide-react'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@estrelinha/ui/tabs'
-import { Input } from '@estrelinha/ui/input'
-import { Button } from '@estrelinha/ui/button'
-import { Textarea } from '@estrelinha/ui/textarea'
-import { useToast } from '@estrelinha/ui/hooks/use-toast'
-import { PageHeader, FormCard, FieldGroup, ToggleField } from '@/shared/ui'
-import { CheckoutSettingsCard } from '@/features/settings'
-import { NotificationsTab } from '@/features/notification-settings'
-import {
-  useStoreSettings,
-  useUpdateSettings,
-} from '@estrelinha/core/hooks/useStoreSettings'
-import { freeShippingRefusal } from '@estrelinha/core/shipping'
-import {
-  DEFAULT_GENERAL,
-  DEFAULT_PAYMENT,
-  DEFAULT_SEO,
-  DEFAULT_SHIPPING,
-  DEFAULT_ABANDONED_CART,
-  DEFAULT_MATERIAL,
-  type GeneralSettings,
-  type PaymentSettings,
-  type SeoSettings,
-  type ShippingSettings,
-  type AbandonedCartSettings,
-  type MaterialSettings,
-  type SettingsKey,
-} from '@estrelinha/supabase/types/settings'
+// `/admin/configuracoes` — feature 55.
+//
+// ## O que ela era
+//
+// Oito abas horizontais dentro de um `<Tabs>` só, com ~430 linhas de formulário escritas à mão, seis
+// `useState`, e um `save()` de seis ramos. O `TabsList` já levava um remendo de CSS
+// (`h-auto grid-cols-3 sm:grid-cols-8`) documentado no próprio código como conserto local, porque em
+// 390px as três linhas de abas eram cortadas pelo `h-10` fixo do componente compartilhado. A nona
+// aba não caberia sem repetir o remendo — a contagem estava na classe.
+//
+// ## O que ela é
+//
+// **Quatro seções com endereço próprio**, um rail à esquerda, e uma página que não sabe desenhar
+// formulário nenhum: ela lê a URL, escolhe a seção e monta o painel dela.
+//
+// Três donos, e nenhum decide o que é do outro:
+//
+// | Pergunta | Dono |
+// | --- | --- |
+// | Quais seções existem | `SETTINGS_SECTIONS` (`shared/lib`) |
+// | Qual está aberta | a **URL** |
+// | O que cada uma desenha | `SETTINGS_PANELS` (`widgets/settings-sections`) |
+//
+// ## As duas alternâncias, que são de naturezas diferentes
+//
+// **Qual seção está montada é decidido pela URL, com montagem CONDICIONAL** — o painel renderiza só
+// o componente da seção ativa, e as outras três não existem no DOM. Isso não é economia: é o que
+// mantém verdadeiro "trocar de seção descarta a edição não salva". Quem garantia isso até aqui era o
+// Radix, que desmonta `TabsContent` inativo, e a `NotificationsTab` **depende disso por escrito**
+// (o comentário no topo dela diz que o rascunho volta ao servidor porque o componente remonta).
+// Esconder as quatro seções com CSS manteria os quatro rascunhos vivos, a prévia de e-mail aberta
+// vazaria entre seções, e nada quebraria.
+//
+// **Desktop × celular é decidido pelo BREAKPOINT, numa árvore só.** Não há uma versão de cada: o
+// rail e a lista do celular são o mesmo nó (`SettingsSectionNav`), e o que muda é classe `lg:`. Duas
+// árvores paralelas seriam duas listas das mesmas quatro seções — o "defeito 01" —, e divergiriam na
+// quinta.
 
-/**
- * Chaves salvas por **esta página**. Derivada da união canônica de
- * `@estrelinha/supabase/types/settings` — nunca redeclarada — menos `checkout`, que é salva pelo
- * `CheckoutSettingsCard` (`features/settings`), e menos `notifications`, que é salva pela
- * `NotificationsTab` (`features/notification-settings`, feature `53`). Aqui existia uma união local
- * duplicada sem `'checkout'`: a chave nova ficava fora do tipo e não tinha como ser salva.
- *
- * `Exclude<SettingsKey, 'checkout' | 'notifications'>` é o que torna `save('notifications')`
- * inalcançável por `tsc` — a aba de notificações é autocontida, com o próprio `useUpdateSettings()`
- * (design.md: "é a mesma independência que `CheckoutSettingsCard` já tem hoje"), e esta página nunca
- * ganha um branch para ela.
- */
-type PageSettingsKey = Exclude<SettingsKey, 'checkout' | 'notifications'>
+import { useNavigate, useParams } from 'react-router-dom'
+import { Settings as SettingsIcon } from 'lucide-react'
+import { cn } from '@estrelinha/ui/lib/utils'
+import { PageHeader } from '@/shared/ui'
+import { SETTINGS_PANELS, SettingsSectionNav } from '@/widgets/settings-sections'
+import {
+  SETTINGS_ROOT,
+  SETTINGS_SECTIONS,
+  findSettingsSection,
+} from '@/shared/lib/settingsSections'
 
 const AdminSettingsPage = () => {
-  const { data, isLoading } = useStoreSettings()
-  const update = useUpdateSettings()
-  const { toast } = useToast()
+  const { secao } = useParams<{ secao: string }>()
+  const navigate = useNavigate()
 
-  const [general, setGeneral] = useState<GeneralSettings>(DEFAULT_GENERAL)
-  const [shipping, setShipping] = useState<ShippingSettings>(DEFAULT_SHIPPING)
-  const [payment, setPayment] = useState<PaymentSettings>(DEFAULT_PAYMENT)
-  const [seo, setSeo] = useState<SeoSettings>(DEFAULT_SEO)
-  const [abandonedCart, setAbandonedCart] = useState<AbandonedCartSettings>(DEFAULT_ABANDONED_CART)
-  const [material, setMaterial] = useState<MaterialSettings>(DEFAULT_MATERIAL)
+  /**
+   * As duas derivações, e cada uma responde a uma pergunta diferente.
+   *
+   * `secaoValida` é `null` na rota-mãe **e** no slug inexistente (`CFG-18`, cujo recorte mora em
+   * `findSettingsSection`, num lugar só). Ela decide se o celular mostra a lista ou a seção, e se o
+   * cabeçalho de voltar existe.
+   *
+   * `secaoExibida` nunca é nula. Ela decide o que o painel desenha e o que o rail marca — e é por
+   * isso que a rota-mãe abre em "Dados da loja" com ela marcada (`CFG-02`), em vez de um índice no
+   * painel: o rail já é a lista, e repeti-la ao lado seria a mesma lista duas vezes na mesma tela.
+   */
+  const secaoValida = findSettingsSection(secao)
+  const secaoExibida = secaoValida ?? SETTINGS_SECTIONS[0]
 
-  useEffect(() => {
-    if (!data) return
-    setGeneral(data.general)
-    setShipping(data.shipping)
-    setPayment(data.payment)
-    setSeo(data.seo)
-    setAbandonedCart(data.abandoned_cart)
-    setMaterial(data.material)
-  }, [data])
-
-  const save = async (key: PageSettingsKey) => {
-    /**
-     * `FRG-12` — a aba Frete recusa "ligado, a partir de R$ 0" **antes** de qualquer escrita.
-     *
-     * Sem esta guarda o painel exibiria "frete grátis ligado" enquanto a loja se comporta como
-     * desligada (`freeShippingState` trata faixa ≤ 0 como inativa). Divergência silenciosa entre o
-     * que a dona lê e o que a cliente vive é a família de defeito que a feature 37 existe para
-     * fechar — deixá-la entrar pela porta do editor seria trocar um segundo dono por outro.
-     *
-     * O veredito é `string | null`, e não união discriminada por booleano: com
-     * `strictNullChecks: false` aquela forma não estreita. Mesmo formato de `reservedSlugRefusal`.
-     */
-    if (key === 'shipping') {
-      const motivo = freeShippingRefusal(shipping)
-      if (motivo) {
-        toast({ title: 'Frete grátis sem valor mínimo', description: motivo, variant: 'destructive' })
-        return
-      }
-    }
-
-    try {
-      const value =
-        key === 'general' ? general :
-        key === 'shipping' ? shipping :
-        key === 'payment' ? payment :
-        key === 'seo' ? seo :
-        key === 'material' ? material :
-        abandonedCart
-      await update.mutateAsync({ key, value } as Parameters<typeof update.mutateAsync>[0])
-      toast({ title: 'Configurações salvas', description: 'As alterações já estão valendo na loja.' })
-    } catch (e) {
-      toast({
-        title: 'Erro ao salvar',
-        description: e instanceof Error ? e.message : 'Tente novamente.',
-        variant: 'destructive',
-      })
-    }
-  }
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-64 text-muted-foreground">
-        <Loader2 className="w-5 h-5 animate-spin mr-2" /> Carregando configurações…
-      </div>
-    )
-  }
+  const Painel = SETTINGS_PANELS[secaoExibida.slug]
 
   return (
-    <div className="max-w-3xl space-y-6">
+    <div>
+      {/* O cabeçalho de voltar é do celular, e só existe dentro de uma seção. No desktop a seção
+          abre ao lado do rail, então não há para onde "voltar" — a lista está à vista.
+
+          É o `PageHeader` com `backTo`, e não um cabeçalho novo: a prop existe na interface dele
+          desde sempre e **nunca teve consumidor**. Inventar um segundo cabeçalho de página para
+          ganhar o sobrescrito "CONFIGURAÇÕES" do artboard seria um segundo dono de cabeçalho — a
+          descrição da seção abaixo do título diz a mesma coisa com o componente que já existe.
+
+          Ele **sobe** para a rota-mãe em vez de `navigate(-1)`: quem chegou por link colado não tem
+          "anterior", e voltar o levaria para fora do painel. O botão do navegador continua fazendo o
+          que sempre faz, e no percurso normal os dois levam à lista (`CFG-12`). */}
+      {secaoValida && (
+        <PageHeader
+          className="lg:hidden"
+          backTo={() => navigate(SETTINGS_ROOT)}
+          title={secaoValida.label}
+          subtitle={secaoValida.description}
+        />
+      )}
+
+      {/* `CFG-08` — o cabeçalho é o MESMO nó em todas as seções. Ele fica fora do painel de
+          propósito: dentro dele, trocar de seção o remontaria, e o título piscaria a cada clique. */}
       <PageHeader
+        className={cn(secaoValida && 'hidden lg:flex')}
         icon={SettingsIcon}
-        title="Configurações da Loja"
-        subtitle="Centralize aqui dados de contato, frete, material, pagamento, checkout e SEO."
+        title="Configurações"
+        subtitle="O que muda o funcionamento da loja — frete, pagamento, notificações e mais."
       />
 
-      <Tabs defaultValue="general" className="w-full">
-        {/*
-          `h-auto` sobrepõe o `h-10` fixo do `TabsList` compartilhado (`packages/ui/src/tabs.tsx`) —
-          via `cn(default, className)`, o mesmo mecanismo que já resolve conflito de classe em todo
-          o design system (é como `switchClassName` do `ToggleField` funciona, acima). O componente
-          nasceu para UMA linha (7 tabs cabiam ali por acidente, não por design: `grid-cols-3` já
-          precisava de 3 linhas com 7 abas — 3+3+1). Medido em navegador em 390px: o `h-10` (40px)
-          cortava um conteúdo de 100px (3 linhas reais), e a terceira linha ("SEO"/"Carrinho" antes
-          da `53`, "SEO"/"Carrinho" depois) sobrepunha visualmente o título da primeira seção da aba
-          selecionada. A 8ª aba (Notificações) não criou o defeito — ele já existia com 7 —, mas como
-          este `className` já estava sendo editado nesta task, corrigi-lo aqui é escopo, não
-          scope creep. Local a ESTA `<TabsList>`: nenhuma outra tela do painel é afetada.
-        */}
-        <TabsList className="grid h-auto grid-cols-3 w-full max-w-2xl sm:grid-cols-8">
-          <TabsTrigger value="general">Geral</TabsTrigger>
-          <TabsTrigger value="shipping">Frete</TabsTrigger>
-          <TabsTrigger value="material">Material</TabsTrigger>
-          <TabsTrigger value="payment">Pagamento</TabsTrigger>
-          <TabsTrigger value="checkout">Checkout</TabsTrigger>
-          <TabsTrigger value="notifications">Notificações</TabsTrigger>
-          <TabsTrigger value="seo">SEO</TabsTrigger>
-          <TabsTrigger value="abandoned_cart">Carrinho</TabsTrigger>
-        </TabsList>
+      <div className="lg:flex lg:items-start lg:gap-6">
+        <SettingsSectionNav
+          ativa={secaoExibida.slug}
+          className={cn(secaoValida && 'hidden lg:block')}
+        />
 
-        {/* GERAL */}
-        <TabsContent value="general" className="mt-4">
-          <FormCard>
-            <FieldGroup label="Nome da loja">
-              <Input value={general.store_name} onChange={(e) => setGeneral({ ...general, store_name: e.target.value })} />
-            </FieldGroup>
-            <div className="grid sm:grid-cols-2 gap-4">
-              <FieldGroup label="WhatsApp (com DDD)" hint="Ex: 5551999999999">
-                <Input value={general.whatsapp} onChange={(e) => setGeneral({ ...general, whatsapp: e.target.value.replace(/\D/g, '') })} />
-              </FieldGroup>
-              <FieldGroup label="E-mail de contato">
-                <Input type="email" value={general.email} onChange={(e) => setGeneral({ ...general, email: e.target.value })} />
-              </FieldGroup>
-            </div>
-            <div className="grid sm:grid-cols-2 gap-4">
-              <FieldGroup label="Instagram (@usuario)">
-                <Input value={general.instagram} onChange={(e) => setGeneral({ ...general, instagram: e.target.value.replace(/^@/, '') })} />
-              </FieldGroup>
-              <FieldGroup label="TikTok (@usuario)">
-                <Input value={general.tiktok} onChange={(e) => setGeneral({ ...general, tiktok: e.target.value.replace(/^@/, '') })} />
-              </FieldGroup>
-            </div>
-            <FieldGroup
-              label="Mensagem padrão do WhatsApp"
-              hint="Texto pré-preenchido enviado quando o cliente clica no botão flutuante de chat."
-            >
-              <Textarea
-                value={general.whatsapp_message}
-                rows={3}
-                maxLength={300}
-                onChange={(e) => setGeneral({ ...general, whatsapp_message: e.target.value })}
-                placeholder="Olá! Gostaria de tirar uma dúvida..."
-              />
-            </FieldGroup>
-            <SaveButton loading={update.isPending} onClick={() => save('general')} />
-          </FormCard>
-        </TabsContent>
-
-        {/* FRETE */}
-        <TabsContent value="shipping" className="mt-4">
-          <FormCard>
-            {/*
-              FRG-02 — o interruptor do frete grátis.
-
-              Antes da feature 37 só existia o campo do valor, e zerá-lo era a única saída aparente
-              para desligar o benefício. Não desligava: três superfícies da loja liam o zero como
-              "não temos frete grátis" e escondiam o texto, enquanto quatro faziam
-              `subtotal >= 0` — sempre verdadeiro — e ZERAVAM O FRETE. Zerar o campo escondia o
-              anúncio e liberava frete grátis para todo mundo no caixa.
-
-              O campo do valor fica DESABILITADO e não escondido: a Adri precisa ver o número que
-              está guardado para decidir se quer religar com ele. Desligar não apaga a configuração.
-            */}
-            <ToggleField
-              label="Oferecer frete grátis"
-              description="Quando desligado, a loja não anuncia frete grátis em nenhuma tela e o frete é cobrado normalmente. Cupons de frete grátis continuam valendo."
-              checked={shipping.free_shipping_enabled}
-              onChange={(v) => setShipping({ ...shipping, free_shipping_enabled: v })}
-            />
-            <div className="grid sm:grid-cols-2 gap-4">
-              <FieldGroup
-                label="Frete grátis a partir de (R$)"
-                htmlFor="free-shipping-threshold"
-                hint={
-                  shipping.free_shipping_enabled
-                    ? undefined
-                    : 'Guardado. Volta a valer quando você ligar o frete grátis.'
-                }
-              >
-                <Input
-                  id="free-shipping-threshold"
-                  type="number"
-                  step="0.01"
-                  min={0}
-                  disabled={!shipping.free_shipping_enabled}
-                  value={shipping.free_shipping_threshold}
-                  onChange={(e) => setShipping({ ...shipping, free_shipping_threshold: Number(e.target.value) || 0 })}
-                />
-              </FieldGroup>
-              <FieldGroup label="Custo de frete padrão (R$)" hint="Usado como fallback quando o cálculo não está disponível.">
-                <Input
-                  type="number"
-                  step="0.01"
-                  min={0}
-                  value={shipping.default_shipping_cost}
-                  onChange={(e) => setShipping({ ...shipping, default_shipping_cost: Number(e.target.value) || 0 })}
-                />
-              </FieldGroup>
-            </div>
-            {/*
-              O campo "CEP de origem" saiu daqui em 2026-09-05, e a remoção é o conserto — não uma
-              simplificação.
-
-              Ele era editável e **nenhum arquivo o lia**. A origem da cotação sempre veio do
-              `postal_code` do secret `MELHOR_ENVIO_SENDER_JSON`, que é o mesmo endereço impresso na
-              etiqueta. Preencher o campo aqui não mudava um centavo, e o tipo em
-              `packages/supabase/src/types/settings.ts` ainda afirmava que ele era a origem — dois
-              donos, um deles morto e o outro documentado errado.
-
-              Por que o dono único é o secret, e não este campo: a etiqueta precisa do endereço por
-              extenso, com CPF e telefone, e isso não cabe (nem deve caber) numa linha de
-              `store_settings` legível por quem tiver acesso ao painel. Se o CEP fosse configurável
-              aqui, a origem da COTAÇÃO e a origem da ETIQUETA passariam a poder divergir — a loja
-              cotaria de um lugar e postaria de outro, sem nada em tela dizendo por quê. É a mesma
-              família de defeito que esta remoção fecha.
-
-              A chave continua no banco (migration aplicada é imutável) e em `DEFAULT_SHIPPING`;
-              `originZipNotRead.test.ts` impede que alguma tela volte a lê-la.
-            */}
-            <p className="text-sm text-muted-foreground">
-              O CEP de origem dos cálculos é o endereço cadastrado na sua conta do Melhor Envio — o
-              mesmo que é impresso na etiqueta. Para alterá-lo, mude o endereço lá.
-            </p>
-            <SaveButton loading={update.isPending} onClick={() => save('shipping')} />
-          </FormCard>
-        </TabsContent>
-
-        {/*
-          MATERIAL — para onde a cliente posta o material afetivo.
-
-          Fica aqui, e não no código, porque mudar de endereço é operação da dona; com o endereço em
-          `.tsx` ela viraria um deploy. E é OUTRA remessa: a origem da cotação do Melhor Envio
-          (ateliê → cliente) vem do secret `MELHOR_ENVIO_SENDER_JSON`; esta é a chegada
-          (cliente → ateliê), e precisa do endereço por extenso para caber numa etiqueta escrita à mão.
-
-          Enquanto o logradouro estiver vazio, a página "Como enviar" NÃO mostra endereço nenhum —
-          mostra o convite a falar pela loja. Endereço pela metade é material insubstituível postado
-          para lugar nenhum, e não há segunda via.
-        */}
-        <TabsContent value="material" className="mt-4">
-          <FormCard>
-            <div className="flex items-start gap-3 p-3 rounded-xl bg-muted">
-              <PackageOpen className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-              <p className="text-xs text-muted-foreground">
-                Este endereço aparece na página <strong>Como enviar o material</strong>. Enquanto o
-                logradouro estiver vazio, a loja não mostra endereço nenhum — pede que a cliente
-                combine o envio com você.
-              </p>
-            </div>
-
-            <FieldGroup
-              label="Destinatário"
-              hint="A quem endereçar o envelope. Sem isto a cliente escreve só o nome da loja."
-            >
-              <Input
-                value={material.recipient}
-                onChange={(e) => setMaterial({ ...material, recipient: e.target.value })}
-                placeholder="Adri Muniz"
-              />
-            </FieldGroup>
-
-            <div className="grid sm:grid-cols-[1fr_140px] gap-4">
-              <FieldGroup label="Logradouro">
-                <Input
-                  value={material.street}
-                  onChange={(e) => setMaterial({ ...material, street: e.target.value })}
-                  placeholder="Rua …"
-                />
-              </FieldGroup>
-              <FieldGroup label="Número">
-                <Input
-                  value={material.number}
-                  onChange={(e) => setMaterial({ ...material, number: e.target.value })}
-                />
-              </FieldGroup>
-            </div>
-
-            <div className="grid sm:grid-cols-2 gap-4">
-              <FieldGroup label="Complemento">
-                <Input
-                  value={material.complement}
-                  onChange={(e) => setMaterial({ ...material, complement: e.target.value })}
-                  placeholder="Apto, sala, referência"
-                />
-              </FieldGroup>
-              <FieldGroup label="Bairro">
-                <Input
-                  value={material.neighborhood}
-                  onChange={(e) => setMaterial({ ...material, neighborhood: e.target.value })}
-                />
-              </FieldGroup>
-            </div>
-
-            <div className="grid sm:grid-cols-[1fr_100px_160px] gap-4">
-              <FieldGroup label="Cidade">
-                <Input
-                  value={material.city}
-                  onChange={(e) => setMaterial({ ...material, city: e.target.value })}
-                />
-              </FieldGroup>
-              <FieldGroup label="UF">
-                <Input
-                  value={material.state}
-                  onChange={(e) =>
-                    setMaterial({ ...material, state: e.target.value.toUpperCase().slice(0, 2) })
-                  }
-                  placeholder="RS"
-                />
-              </FieldGroup>
-              <FieldGroup label="CEP">
-                <Input
-                  value={material.zip}
-                  onChange={(e) =>
-                    setMaterial({ ...material, zip: e.target.value.replace(/\D/g, '').slice(0, 8) })
-                  }
-                  placeholder="00000000"
-                />
-              </FieldGroup>
-            </div>
-
-            <FieldGroup
-              label="Observação para quem envia"
-              hint="Aparece junto do endereço. Ex.: horário de recebimento, como embalar."
-            >
-              <Textarea
-                value={material.notes}
-                rows={3}
-                maxLength={400}
-                onChange={(e) => setMaterial({ ...material, notes: e.target.value })}
-              />
-            </FieldGroup>
-
-            <SaveButton loading={update.isPending} onClick={() => save('material')} />
-          </FormCard>
-        </TabsContent>
-
-        {/* PAGAMENTO */}
-        <TabsContent value="payment" className="mt-4">
-          <FormCard>
-            <ToggleField
-              label="PIX habilitado"
-              checked={payment.pix_enabled}
-              onChange={(v) => setPayment({ ...payment, pix_enabled: v })}
-            />
-            <FieldGroup label="Desconto no PIX (%)">
-              <Input
-                type="number"
-                min={0}
-                max={50}
-                value={payment.pix_discount_percent}
-                onChange={(e) => setPayment({ ...payment, pix_discount_percent: Number(e.target.value) || 0 })}
-              />
-            </FieldGroup>
-            <ToggleField
-              label="Cartão de crédito habilitado"
-              checked={payment.card_enabled}
-              onChange={(v) => setPayment({ ...payment, card_enabled: v })}
-            />
-            <div className="grid sm:grid-cols-2 gap-4">
-              <FieldGroup label="Máximo de parcelas">
-                <Input
-                  type="number"
-                  min={1}
-                  max={12}
-                  value={payment.max_installments}
-                  onChange={(e) => setPayment({ ...payment, max_installments: Number(e.target.value) || 1 })}
-                />
-              </FieldGroup>
-              <FieldGroup label="Valor mínimo da parcela (R$)">
-                <Input
-                  type="number"
-                  step="0.01"
-                  min={0}
-                  value={payment.min_installment_value}
-                  onChange={(e) => setPayment({ ...payment, min_installment_value: Number(e.target.value) || 0 })}
-                />
-              </FieldGroup>
-            </div>
-            <SaveButton loading={update.isPending} onClick={() => save('payment')} />
-          </FormCard>
-        </TabsContent>
-
-        {/* CHECKOUT — order bump (BMP-06). O card salva a chave `checkout` por conta própria. */}
-        <TabsContent value="checkout" className="mt-4">
-          <CheckoutSettingsCard />
-        </TabsContent>
-
-        {/* NOTIFICAÇÕES — feature 53. A aba é AUTOCONTIDA: tem o próprio `useNotificationsDraft()`
-            e o próprio `useUpdateSettings()`, mesma independência de `CheckoutSettingsCard` acima.
-            `save()` desta página não ganha um branch `notifications` — ver `PageSettingsKey`. */}
-        <TabsContent value="notifications" className="mt-4">
-          <NotificationsTab />
-        </TabsContent>
-
-        {/* SEO */}
-        <TabsContent value="seo" className="mt-4">
-          <FormCard>
-            <FieldGroup label="Título padrão (até 60 caracteres)">
-              <Input
-                value={seo.title}
-                maxLength={70}
-                onChange={(e) => setSeo({ ...seo, title: e.target.value })}
-              />
-            </FieldGroup>
-            <FieldGroup label="Descrição padrão (até 160 caracteres)">
-              <Textarea
-                value={seo.description}
-                maxLength={180}
-                rows={3}
-                onChange={(e) => setSeo({ ...seo, description: e.target.value })}
-              />
-            </FieldGroup>
-            <FieldGroup label="Imagem Open Graph (URL)">
-              <Input value={seo.og_image} onChange={(e) => setSeo({ ...seo, og_image: e.target.value })} placeholder="https://…" />
-            </FieldGroup>
-            <SaveButton loading={update.isPending} onClick={() => save('seo')} />
-          </FormCard>
-        </TabsContent>
-
-        {/* CARRINHO ABANDONADO */}
-        <TabsContent value="abandoned_cart" className="mt-4">
-          <FormCard>
-            <div className="flex items-start gap-3 p-3 rounded-xl bg-muted">
-              <ShoppingCart className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-              <p className="text-xs text-muted-foreground">
-                Configure quando um carrinho parado vira "abandonado". A loja não envia lembrete automático de
-                carrinho. Se um dia enviar, a decisão e o texto são da dona (BL-030).
-              </p>
-            </div>
-
-            {/* Feature 42 (FIX-03): os controles de lembrete automático (`auto_email_enabled`,
-                `auto_email_hours`, `reminder_coupon_code`) saíram daqui porque NENHUM código os lia
-                para enviar coisa nenhuma — era um interruptor sem motor. Os campos seguem no tipo e no
-                JSONB; só a tela deixou de prometer. */}
-            <FieldGroup
-              label="Marcar como abandonado após (horas)"
-              hint="Tempo de inatividade antes de mudar o status de 'ativo' para 'abandonado'. Recomendado: 4h."
-            >
-              <Input
-                type="number"
-                min={1}
-                max={72}
-                value={abandonedCart.threshold_hours}
-                onChange={(e) => setAbandonedCart({ ...abandonedCart, threshold_hours: Number(e.target.value) || 1 })}
-              />
-            </FieldGroup>
-
-            <SaveButton loading={update.isPending} onClick={() => save('abandoned_cart')} />
-          </FormCard>
-        </TabsContent>
-      </Tabs>
+        {/* `max-w-3xl` é a medida de leitura que a tela já tinha antes desta feature: os campos
+            mantêm a largura de sempre, e o painel não estica até a borda num monitor largo. */}
+        <div
+          data-testid="settings-panel"
+          className={cn(
+            'w-full min-w-0 max-w-3xl lg:flex-1',
+            // Na rota-mãe o celular mostra SÓ a lista (`CFG-10`). O painel existe no DOM porque o
+            // desktop o está mostrando — é a mesma árvore.
+            !secaoValida && 'hidden lg:block',
+          )}
+        >
+          <Painel />
+        </div>
+      </div>
     </div>
   )
 }
-
-const SaveButton = ({ loading, onClick }: { loading: boolean; onClick: () => void }) => (
-  <div className="pt-2">
-    <Button
-      onClick={onClick}
-      disabled={loading}
-      className="rounded-xl gradient-cta text-white hover:brightness-110 hover:scale-[1.02] transition-all"
-    >
-      {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-      Salvar alterações
-    </Button>
-  </div>
-)
 
 export default AdminSettingsPage

@@ -118,7 +118,7 @@ const ShippingSection = () => (
         O endereço de destino, de `store_settings` (`MAT-01`).
         **Sobreviveu ao redesenho de propósito.** Os artboards não desenham este bloco — neles o
         endereço chega por WhatsApp depois do pagamento, que é o que o passo 01 promete. Mas o
-        componente existe, lê a aba Material das configurações e **não renderiza endereço pela
+        componente existe, lê o endereço das configurações e **não renderiza endereço pela
         metade**: enquanto a dona não preencher, ele mostra o convite a confirmar pelo WhatsApp, que é
         exatamente o comportamento do board. Apagá-lo trocaria uma informação que a loja já sabe dar
         por uma que a cliente teria de pedir.

@@ -1,8 +1,17 @@
 import { describe, expect, it, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render as rtlRender, screen, fireEvent } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import type { EmailFields, EventChannelSettings } from '@estrelinha/core/notifications'
 import { COPY_LIMITS } from '@estrelinha/core/notifications'
+import { settingsSectionPath } from '@/shared/lib/settingsSections'
 import { EventCard } from '../EventCard'
+
+/**
+ * Desde a feature 55 o banner de aviso pode carregar um `<Link>` para a seção onde o ajuste se
+ * resolve (`CFG-21`), e `<Link>` fora de um Router lança. O embrulho fica aqui, num lugar só, em vez
+ * de nos dezesseis `render` do arquivo.
+ */
+const render = (ui: React.ReactElement) => rtlRender(<MemoryRouter>{ui}</MemoryRouter>)
 
 const fields = (overrides: Partial<EmailFields> = {}): EmailFields => ({
   subject: 'Pedido {{numero_pedido}} pago',
@@ -165,7 +174,7 @@ describe('EventCard — toggle e recusa inline', () => {
         value={value()}
         onFieldChange={noop}
         onToggle={noop}
-        refusal="O endereço do ateliê está vazio — preencha o logradouro na aba Material antes de ligar este aviso."
+        refusal="O endereço do ateliê está vazio — preencha o logradouro na seção Frete e Material antes de ligar este aviso."
         warnings={[]}
         onTogglePreview={noop}
         previewActive={false}
@@ -201,7 +210,7 @@ describe('EventCard (ABN-09) — banner de aviso não-bloqueante', () => {
         onFieldChange={noop}
         onToggle={onToggle}
         refusal={null}
-        warnings={['Nenhum e-mail cadastrado para você.']}
+        warnings={[{ text: 'Nenhum e-mail cadastrado para você.' }]}
         onTogglePreview={noop}
         previewActive={false}
       />,
@@ -238,7 +247,7 @@ describe('EventCard (ABN-09) — banner de aviso não-bloqueante', () => {
         onFieldChange={noop}
         onToggle={noop}
         refusal={null}
-        warnings={['aviso de e-mail ausente', 'aviso de link fora de produção']}
+        warnings={[{ text: 'aviso de e-mail ausente' }, { text: 'aviso de link fora de produção' }]}
         onTogglePreview={noop}
         previewActive={false}
       />,
@@ -246,6 +255,73 @@ describe('EventCard (ABN-09) — banner de aviso não-bloqueante', () => {
     const banner = screen.getByTestId('event-warnings-owner_material_incoming')
     expect(banner).toHaveTextContent('aviso de e-mail ausente')
     expect(banner).toHaveTextContent('aviso de link fora de produção')
+  })
+})
+
+describe('EventCard (CFG-20, CFG-21) — o aviso nomeia a seção e leva até ela', () => {
+  const avisoDoMaterial = {
+    text: 'O endereço do ateliê ainda não foi preenchido na seção Frete e Material — o texto usa {{endereco_atelie}}, que sairia em branco.',
+    action: { to: settingsSectionPath('frete-e-material'), label: 'Preencher' },
+  }
+
+  const montarComAviso = () =>
+    render(
+      <EventCard
+        event="material_instructions"
+        value={value({}, false)}
+        onFieldChange={noop}
+        onToggle={noop}
+        refusal={null}
+        warnings={[avisoDoMaterial]}
+        onTogglePreview={noop}
+        previewActive={false}
+      />,
+    )
+
+  it('o texto do aviso continua sendo UM nó — o link não parte a frase', () => {
+    // É o que mantém `getByText('a frase inteira')` casando. Um `<Link>` no meio do parágrafo
+    // quebraria esta asserção e todas as irmãs dela.
+    montarComAviso()
+    expect(screen.getByText(avisoDoMaterial.text)).toBeInTheDocument()
+  })
+
+  it('o aviso NÃO fala em "aba" — elas não existem mais', () => {
+    montarComAviso()
+    const banner = screen.getByTestId('event-warnings-material_instructions')
+
+    expect(banner.textContent).toContain('seção Frete e Material')
+    expect(banner.textContent).not.toMatch(/(?:^|\s)aba(?![-\wà-ú])/i)
+  })
+
+  it('CFG-21: o aviso oferece o caminho, e ele é o da seção que contém o campo', () => {
+    // A mensagem é lida exatamente quando a Adri está travada — nomear o lugar sem levar até ele
+    // deixa o trabalho de procurar com quem já não conseguiu ligar o aviso.
+    montarComAviso()
+    expect(screen.getByTestId('event-warning-link-material_instructions')).toHaveAttribute(
+      'href',
+      '/admin/configuracoes/frete-e-material',
+    )
+  })
+
+  it('aviso SEM caminho de conserto não inventa link', () => {
+    // O par do caso acima. Os dois avisos de `owner_*` não têm um campo único a apontar — um é
+    // e-mail em Dados da loja, o outro é um secret de servidor —, e um botão "Preencher" ali
+    // prometeria uma tela que não resolve.
+    render(
+      <EventCard
+        event="owner_order_paid"
+        value={value({}, false)}
+        onFieldChange={noop}
+        onToggle={noop}
+        refusal={null}
+        warnings={[{ text: 'Nenhum e-mail cadastrado para você.' }]}
+        onTogglePreview={noop}
+        previewActive={false}
+      />,
+    )
+
+    expect(screen.queryByTestId('event-warning-link-owner_order_paid')).toBeNull()
+    expect(screen.getByTestId('event-warnings-owner_order_paid').querySelector('a')).toBeNull()
   })
 })
 

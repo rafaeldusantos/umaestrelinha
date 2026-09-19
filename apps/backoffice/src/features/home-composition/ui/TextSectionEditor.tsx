@@ -17,7 +17,16 @@ import { Textarea } from '@estrelinha/ui/textarea'
 import { Label } from '@estrelinha/ui/label'
 import { sectionMeta, type HomeSectionConfig, type HomeSectionType } from '@estrelinha/core/home'
 import { FormCard } from '@/shared/ui'
+import {
+  SETTINGS_SECTIONS,
+  settingsSectionPath,
+  type SettingsSectionSlug,
+} from '@/shared/lib/settingsSections'
 import type { SectionEditorProps } from './sectionEditors'
+
+/** O rótulo como ele aparece no rail de Configurações — nunca uma segunda cópia do nome. */
+const rotuloDaSecao = (slug: SettingsSectionSlug): string =>
+  SETTINGS_SECTIONS.find(secao => secao.slug === slug)!.label
 
 interface CampoTexto {
   key: keyof HomeSectionConfig
@@ -68,13 +77,32 @@ const TextSectionEditor = ({ section, config, onConfigChange }: SectionEditorPro
             <p className="text-sm font-medium text-foreground">
               Esta faixa não tem texto para escrever aqui.
             </p>
+            {/*
+              `CFG-19` — eram TRÊS valores atrás de UM link, e a feature 55 os espalhou por duas
+              seções: o frete grátis foi para *Frete e Material*, as parcelas e o Pix para *Vendas*.
+
+              Com um link só para a rota-mãe, a dona chegaria numa tela de quatro seções tendo de
+              adivinhar qual contém o número que ela veio mudar — pior do que era antes, porque
+              antes havia oito abas visíveis e agora há um painel por vez. Os caminhos saem do
+              registro, nunca escritos aqui: renomear uma seção não pode deixar este link para trás.
+            */}
             <p className="text-xs text-muted-foreground">
-              O valor do frete grátis, o número de parcelas e o desconto no Pix saem de{' '}
-              <Link to="/admin/configuracoes" className="font-medium text-primary underline">
-                Configurações
-              </Link>{' '}
-              — a mesma fonte que o caixa cobra. Assim a faixa nunca promete uma coisa e a compra
-              cobra outra.
+              O valor do frete grátis sai de{' '}
+              <Link
+                to={settingsSectionPath('frete-e-material')}
+                className="font-medium text-primary underline"
+              >
+                {rotuloDaSecao('frete-e-material')}
+              </Link>
+              ; o número de parcelas e o desconto no Pix, de{' '}
+              <Link
+                to={settingsSectionPath('vendas')}
+                className="font-medium text-primary underline"
+              >
+                {rotuloDaSecao('vendas')}
+              </Link>
+              {' '}— a mesma fonte que o caixa cobra. Assim a faixa nunca promete uma coisa e a
+              compra cobra outra.
             </p>
           </div>
         </div>

@@ -208,12 +208,44 @@ describe('TextSectionEditor — a faixa de vantagens NÃO ganha campo de texto (
     expect(screen.queryAllByRole('spinbutton')).toHaveLength(0)
   })
 
-  it('a tela DIZ onde o número mora, em vez de deixar a dona procurar', () => {
+  it('a tela DIZ onde o número mora, em vez de deixar a dona procurar (CFG-19)', () => {
+    // ⚠️ Esta asserção foi REESCRITA na feature 55, e não afrouxada. Ela cobrava **um** link para
+    // `/admin/configuracoes`, e naquele dia estava certa: a tela era oito abas visíveis de uma vez.
+    //
+    // A 55 espalhou os três valores por DUAS seções e passou a mostrar um painel por vez. Um link
+    // só para a rota-mãe deixaria a dona adivinhando qual das quatro seções contém o número que ela
+    // veio mudar — pior do que era antes da feature.
     renderEditor('trust_bar')
 
     expect(screen.getByText('Esta faixa não tem texto para escrever aqui.')).toBeInTheDocument()
-    const link = screen.getByRole('link', { name: 'Configurações' })
-    expect(link).toHaveAttribute('href', '/admin/configuracoes')
+
+    expect(screen.getByRole('link', { name: 'Frete e Material' })).toHaveAttribute(
+      'href',
+      '/admin/configuracoes/frete-e-material',
+    )
+    expect(screen.getByRole('link', { name: 'Vendas' })).toHaveAttribute(
+      'href',
+      '/admin/configuracoes/vendas',
+    )
+  })
+
+  it('CFG-19: cada valor é anunciado com a SEÇÃO que o contém', () => {
+    // O par do caso acima: dois links certos apontando para as seções erradas passariam nele. Aqui
+    // o que se mede é o pareamento — frete grátis com uma, parcelas e Pix com a outra.
+    renderEditor('trust_bar')
+    const texto = screen.getByText(/frete grátis/i).textContent ?? ''
+
+    expect(texto.indexOf('frete grátis')).toBeLessThan(texto.indexOf('Frete e Material'))
+    expect(texto.indexOf('Frete e Material')).toBeLessThan(texto.indexOf('parcelas'))
+    expect(texto.indexOf('parcelas')).toBeLessThan(texto.indexOf('Vendas'))
+  })
+
+  it('CFG-19: nenhum link aponta para a rota-mãe — ela não diz qual seção', () => {
+    renderEditor('trust_bar')
+
+    for (const link of screen.getAllByRole('link')) {
+      expect(link.getAttribute('href')).not.toBe('/admin/configuracoes')
+    }
   })
 
   it('explica o porquê: é a mesma fonte que o caixa cobra', () => {

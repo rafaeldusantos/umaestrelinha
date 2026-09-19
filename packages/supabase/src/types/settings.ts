@@ -138,7 +138,7 @@ export const DEFAULT_GENERAL: GeneralSettings = {
  * **`free_shipping_enabled` nasce `false`, e isso é decisão do usuário, não conservadorismo.**
  *
  * O custo é visível em produção: no primeiro deploy desta feature a loja **para** de anunciar e de
- * conceder frete grátis, até a Adri ligar em `/admin/configuracoes` → aba Frete. A alternativa
+ * conceder frete grátis, até a Adri ligar em `/admin/configuracoes/frete-e-material`. A alternativa
  * (nascer `true`, preservando o comportamento de hoje) foi oferecida e recusada — mesmo molde do
  * `google_shopping.enabled`, que também exige ato explícito da dona.
  *

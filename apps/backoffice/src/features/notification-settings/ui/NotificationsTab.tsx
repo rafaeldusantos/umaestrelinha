@@ -1,11 +1,16 @@
-// Feature 53 (T11) — a aba inteira: as três seções derivadas (T03), um `EventCard` (T10) por evento,
-// um preview ativo por vez (abrir um fecha o anterior — design.md, Risks & Concerns) e o
-// `SaveButton` único da aba, no mesmo molde das outras 7 (`AdminSettingsPage.tsx`).
+// Feature 53 (T11) — o corpo inteiro: as três seções derivadas (T03), um `EventCard` (T10) por
+// evento, um preview ativo por vez (abrir um fecha o anterior — design.md, Risks & Concerns) e o
+// `SaveButton` próprio.
 //
-// `useNotificationsDraft` (T06) é o único dono do estado da aba: este componente só o consome. É
-// isso que faz `ABN-12` (descartar edição não salva) funcionar de graça — o componente remonta ao
-// trocar de aba (Radix desmonta `TabsContent` inativo), o hook nasce de novo, e o rascunho volta a
-// refletir o servidor.
+// `useNotificationsDraft` (T06) é o único dono do estado daqui: este componente só o consome. É
+// isso que faz `ABN-12` (descartar edição não salva) funcionar de graça — o componente **remonta**
+// ao se trocar de seção, o hook nasce de novo, e o rascunho volta a refletir o servidor.
+//
+// ⚠️ Até a feature 55 quem garantia esse remonte era o Radix, que desmonta `TabsContent` inativo.
+// As abas deixaram de existir, e a `AdminSettingsPage` monta **só** o painel da seção ativa
+// justamente para a promessa continuar de pé — está escrito no cabeçalho dela. Se alguém um dia
+// trocar aquela montagem condicional por quatro painéis escondidos com CSS, é aqui que quebra: o
+// rascunho sobrevive à troca, e nada acusa.
 
 import { useState } from 'react'
 import { Loader2, Save } from 'lucide-react'
@@ -16,20 +21,29 @@ import { FieldGroup } from '@/shared/ui'
 import { useGeneralSettings, useMaterialSettings } from '@estrelinha/core/hooks/useStoreSettings'
 import { MATERIAL_INSTRUCTIONS_EVENT, type NotificationEvent } from '@estrelinha/core/notifications'
 
+import { SETTINGS_SECTIONS, settingsSectionPath } from '@/shared/lib/settingsSections'
+
 import { NOTIFICATION_SECTIONS, SECTION_LABELS, groupedEvents } from '../model/sections'
 import { adminUrlLooksLocal, materialAddressMissing } from '../model/preconditions'
 import { useNotificationsDraft } from '../model/useNotificationsDraft'
 import { useNotificationConfigCheck } from '../api/checkNotificationConfig'
 import { previewNotification, type PreviewNotificationResult } from '../api/previewNotification'
-import { EventCard } from './EventCard'
+import { EventCard, type EventWarning } from './EventCard'
+
+/**
+ * A seção de Configurações onde o endereço do ateliê se resolve — feature 55 (`CFG-20`, `CFG-21`).
+ *
+ * Sai do registro, e não escrita aqui: o rótulo e o caminho têm um dono só, e uma cópia aqui
+ * passaria a mandar a Adri para uma seção que mudou de nome.
+ */
+const SECAO_DO_MATERIAL = SETTINGS_SECTIONS.find((s) => s.slug === 'frete-e-material')!
 
 /** ABN-08 — informativo, aparece mesmo com o evento desligado (o bloqueio de verdade é `refusalFor`). */
-const MATERIAL_ADDRESS_WARNING =
-  'O endereço do ateliê ainda não foi preenchido na aba Material — o texto usa {{endereco_atelie}}, que sairia em branco.'
+const MATERIAL_ADDRESS_WARNING = `O endereço do ateliê ainda não foi preenchido na seção ${SECAO_DO_MATERIAL.label} — o texto usa {{endereco_atelie}}, que sairia em branco.`
 
 /** ABN-09 — os dois avisos "para você" têm textos DISTINTOS (spec, AC 9). */
 const OWNER_EMAIL_MISSING_WARNING =
-  'Nenhum e-mail cadastrado para você em Configurações → Geral — este aviso não tem para onde ir.'
+  'Nenhum e-mail cadastrado para você em Configurações → Dados da loja — este aviso não tem para onde ir.'
 const OWNER_ADMIN_URL_LOCAL_WARNING =
   'O endereço do painel configurado no servidor não parece ser o de produção — o link {{link_pedido_admin}} pode sair quebrado.'
 
@@ -60,18 +74,28 @@ export function NotificationsTab() {
 
   const sections = groupedEvents()
 
-  const warningsFor = (event: NotificationEvent): string[] => {
-    const list: string[] = []
+  const warningsFor = (event: NotificationEvent): EventWarning[] => {
+    const list: EventWarning[] = []
     if (event === MATERIAL_INSTRUCTIONS_EVENT && materialAddressMissing(material)) {
-      list.push(MATERIAL_ADDRESS_WARNING)
+      // `CFG-21` — a mensagem não só nomeia a seção: ela leva até lá. O banner comporta link, e é
+      // exatamente quando a Adri está travada que ela precisa do caminho, não da instrução.
+      list.push({
+        text: MATERIAL_ADDRESS_WARNING,
+        action: {
+          to: settingsSectionPath(SECAO_DO_MATERIAL.slug),
+          label: 'Preencher',
+        },
+      })
     }
     // "Avisos para você" já É a lista de eventos de audiência `owner` (`sections.owner`, derivada
     // por `groupedEvents()` — `model/sections.ts`). Reusar em vez de uma segunda lista aqui evita
     // tanto o "defeito 01" (duas classificações que podem divergir) quanto literais de nome de
     // evento em `apps/**`, que `notificationSingleOwner.test.ts` (feature 42, suíte da loja) proíbe.
     if (sections.owner.includes(event)) {
-      if (general.email.trim() === '') list.push(OWNER_EMAIL_MISSING_WARNING)
-      if (configCheck && adminUrlLooksLocal(configCheck.adminPublicUrl)) list.push(OWNER_ADMIN_URL_LOCAL_WARNING)
+      if (general.email.trim() === '') list.push({ text: OWNER_EMAIL_MISSING_WARNING })
+      if (configCheck && adminUrlLooksLocal(configCheck.adminPublicUrl)) {
+        list.push({ text: OWNER_ADMIN_URL_LOCAL_WARNING })
+      }
     }
     return list
   }

@@ -7,7 +7,7 @@ import { TAP_ROW } from '@/shared/lib/touchTarget'
  *
  * **Não renderiza endereço pela metade, e essa é a regra inteira deste componente.** Enquanto o
  * logradouro estiver vazio — porque a linha ainda não chegou do banco, porque a dona ainda não
- * preencheu a aba Material, porque a leitura falhou — o bloco mostra o convite a combinar o envio.
+ * preencheu a seção Frete e Material do painel, porque a leitura falhou — o bloco mostra o convite a combinar o envio.
  * Um endereço incompleto aqui não é um layout feio: é cinzas de cremação postadas para um lugar que
  * não existe, e não há segunda via.
  *

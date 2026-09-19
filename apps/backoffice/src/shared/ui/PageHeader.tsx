@@ -16,7 +16,19 @@ const PageHeader = ({ title, subtitle, actions, icon: Icon, backTo, className }:
   <div className={cn('flex items-start justify-between gap-4 flex-wrap mb-6', className)}>
     <div className="flex items-center gap-3 min-w-0">
       {backTo && (
-        <Button variant="ghost" size="icon" onClick={backTo} aria-label="Voltar">
+        /*
+          `h-11 w-11` sobrepõe o `h-10 w-10` do `size="icon"` — 44px, o piso de alvo de toque.
+          Este prop **nunca teve consumidor** até a feature 55, então subir a medida aqui não move um
+          pixel em nenhuma outra tela do painel; e quem o usa é justamente o cabeçalho de voltar do
+          CELULAR, onde o alvo é o dedo. Medido no design system: `size="icon"` é 40×40.
+        */
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-11 w-11"
+          onClick={backTo}
+          aria-label="Voltar"
+        >
           <ArrowLeft className="w-5 h-5" />
         </Button>
       )}

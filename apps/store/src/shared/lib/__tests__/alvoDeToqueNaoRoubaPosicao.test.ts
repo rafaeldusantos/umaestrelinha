@@ -38,7 +38,41 @@ const RAIZ = resolve(HERE, '../../../../../..')
 /** As classes que disputam o grupo de posição com o `relative` dos auxiliares. */
 const POSICOES = ['absolute', 'fixed', 'sticky'] as const
 
-const AUXILIARES: Record<string, string> = { TAP_44, TAP_ROW }
+/**
+ * O auxiliar do PAINEL, lido do disco.
+ *
+ * A feature 55 extraiu `SWITCH_TAP_44` para `apps/backoffice/src/shared/ui/FieldGroup.tsx` — ele
+ * estende a área clicável do `Switch` (24px de altura) até 44 e, como os dois daqui, **começa com
+ * `relative`**. Ou seja: mesma colisão, mesmo modo de falha. Antes da 55 a classe era privada de um
+ * arquivo; depois dela é exportada pelo barril de `shared/ui` e alcançável por ~200 arquivos do
+ * painel — a superfície cresceu, e este guarda não sabia o nome novo (`(TAP_44|TAP_ROW)` não
+ * casa dentro de `SWITCH_TAP_44`, porque `_` é caractere de palavra).
+ *
+ * É **lido**, e não importado, de propósito: `apps/store` importar um módulo de `apps/backoffice`
+ * criaria exatamente o segundo dono que este arquivo existe para impedir — e faria a suíte da loja
+ * depender do grafo de módulos do painel.
+ *
+ * A extração **lança** quando não acha. Um `?? ''` aqui faria o guarda perder o auxiliar do painel
+ * em silêncio, que é a pior falha possível numa régua cuja asserção é uma ausência.
+ */
+const SWITCH_TAP_44 = (() => {
+  const caminho = join(RAIZ, 'apps/backoffice/src/shared/ui/FieldGroup.tsx')
+  // Aspas DUPLAS como delimitador, e só elas: a classe carrega `before:content-['']`, então uma
+  // régua que aceitasse aspas simples cortaria a string no meio e devolveria um pedaço — que é o
+  // que a âncora abaixo pegou na primeira escrita desta leitura.
+  const achado = readFileSync(caminho, 'utf8').match(
+    /export const SWITCH_TAP_44\s*=\s*"([^"]+)"/,
+  )
+  if (!achado) {
+    throw new Error(
+      `SWITCH_TAP_44 não foi encontrado em ${caminho} — se ele mudou de nome ou de casa, atualize ` +
+        'esta leitura. Sem ela, o auxiliar do painel sai da régua sem nada acusar.',
+    )
+  }
+  return achado[1]
+})()
+
+const AUXILIARES: Record<string, string> = { TAP_44, TAP_ROW, SWITCH_TAP_44 }
 
 // ───────────────────────────────────────────────────────────────────────────
 // As réguas, como predicado — asserção e sensor chamam a MESMA função
@@ -212,11 +246,21 @@ describe('o alvo de toque não rouba a posição — as âncoras', () => {
     expect(cns.length).toBeGreaterThan(5)
   })
 
-  it('os dois auxiliares continuam disputando o grupo de posição', () => {
+  it('os TRÊS auxiliares continuam disputando o grupo de posição', () => {
     // A premissa inteira do guarda. Se um dia `TAP_44` deixar de trazer `relative`, este arquivo
     // vira decoração — e é melhor ele reprovar do que seguir verde sem guardar nada.
     expect(temToken(TAP_44, 'relative')).toBe(true)
     expect(temToken(TAP_ROW, 'relative')).toBe(true)
+    // O do painel (feature 55), lido do disco. Este caso é também a âncora da LEITURA: se o
+    // `FieldGroup.tsx` mudar de forma, a extração lança antes de chegar aqui.
+    expect(temToken(SWITCH_TAP_44, 'relative')).toBe(true)
+  })
+
+  it('o auxiliar do painel foi lido de verdade — e é o mesmo do `EventCard`', () => {
+    // Âncora da leitura cruzada: uma regex que parasse de casar devolveria string vazia, e a régua
+    // varreria o painel inteiro sem nunca acusar nada.
+    expect(SWITCH_TAP_44).toContain('before:-top-[10px]')
+    expect(SWITCH_TAP_44.length).toBeGreaterThan(40)
   })
 })
 

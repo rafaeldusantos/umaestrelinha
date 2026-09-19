@@ -121,7 +121,7 @@ describe('useNotificationsDraft — ABN-12: edição não salva é descartada, s
 })
 
 describe('useNotificationsDraft — ABN-08: o gate de material só bloqueia quando LIGADO', () => {
-  it('material_instructions ligado + endereço vazio → recusa nomeando a aba Material', async () => {
+  it('material_instructions ligado + endereço vazio → recusa nomeando a seção (CFG-20)', async () => {
     const gravado = {
       events: {
         ...DEFAULT_NOTIFICATIONS.events,
@@ -134,7 +134,17 @@ describe('useNotificationsDraft — ABN-08: o gate de material só bloqueia quan
 
     const recusa = result.current.notif.refusalFor('material_instructions')
     expect(recusa).not.toBeNull()
-    expect(recusa).toMatch(/Material/)
+    // `CFG-20` — a recusa nomeia a SEÇÃO como ela aparece na tela. Até a feature 55 ela apontava
+    // para uma das oito abas, e as abas deixaram de existir: a Adri leria isto exatamente quando
+    // está travada, e sairia procurando uma tela que não existe mais.
+    //
+    // (A frase velha não é escrita aqui de propósito: `semAbaEmConfiguracoes.test.ts` varre este
+    // arquivo, e prosa que cita a forma proibida quebra o guarda que existe para impedi-la.)
+    //
+    // `toMatch(/Material/)` sozinho continuaria passando com a frase antiga — as duas contêm a
+    // palavra. A asserção precisa dos dois lados: o nome novo presente, e a palavra "aba" ausente.
+    expect(recusa).toContain('seção Frete e Material')
+    expect(recusa).not.toMatch(/(?:^|\s)aba(?![-\wà-ú])/i)
   })
 
   it('material_instructions ligado + endereço PREENCHIDO → sem recusa de gate', async () => {
