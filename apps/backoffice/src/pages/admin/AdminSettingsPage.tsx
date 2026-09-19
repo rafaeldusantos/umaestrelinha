@@ -7,6 +7,7 @@ import { Textarea } from '@estrelinha/ui/textarea'
 import { useToast } from '@estrelinha/ui/hooks/use-toast'
 import { PageHeader, FormCard, FieldGroup, ToggleField } from '@/shared/ui'
 import { CheckoutSettingsCard } from '@/features/settings'
+import { NotificationsTab } from '@/features/notification-settings'
 import {
   useStoreSettings,
   useUpdateSettings,
@@ -31,10 +32,16 @@ import {
 /**
  * Chaves salvas por **esta página**. Derivada da união canônica de
  * `@estrelinha/supabase/types/settings` — nunca redeclarada — menos `checkout`, que é salva pelo
- * `CheckoutSettingsCard` (`features/settings`). Aqui existia uma união local duplicada sem
- * `'checkout'`: a chave nova ficava fora do tipo e não tinha como ser salva.
+ * `CheckoutSettingsCard` (`features/settings`), e menos `notifications`, que é salva pela
+ * `NotificationsTab` (`features/notification-settings`, feature `53`). Aqui existia uma união local
+ * duplicada sem `'checkout'`: a chave nova ficava fora do tipo e não tinha como ser salva.
+ *
+ * `Exclude<SettingsKey, 'checkout' | 'notifications'>` é o que torna `save('notifications')`
+ * inalcançável por `tsc` — a aba de notificações é autocontida, com o próprio `useUpdateSettings()`
+ * (design.md: "é a mesma independência que `CheckoutSettingsCard` já tem hoje"), e esta página nunca
+ * ganha um branch para ela.
  */
-type PageSettingsKey = Exclude<SettingsKey, 'checkout'>
+type PageSettingsKey = Exclude<SettingsKey, 'checkout' | 'notifications'>
 
 const AdminSettingsPage = () => {
   const { data, isLoading } = useStoreSettings()
@@ -114,12 +121,25 @@ const AdminSettingsPage = () => {
       />
 
       <Tabs defaultValue="general" className="w-full">
-        <TabsList className="grid grid-cols-3 w-full max-w-2xl sm:grid-cols-7">
+        {/*
+          `h-auto` sobrepõe o `h-10` fixo do `TabsList` compartilhado (`packages/ui/src/tabs.tsx`) —
+          via `cn(default, className)`, o mesmo mecanismo que já resolve conflito de classe em todo
+          o design system (é como `switchClassName` do `ToggleField` funciona, acima). O componente
+          nasceu para UMA linha (7 tabs cabiam ali por acidente, não por design: `grid-cols-3` já
+          precisava de 3 linhas com 7 abas — 3+3+1). Medido em navegador em 390px: o `h-10` (40px)
+          cortava um conteúdo de 100px (3 linhas reais), e a terceira linha ("SEO"/"Carrinho" antes
+          da `53`, "SEO"/"Carrinho" depois) sobrepunha visualmente o título da primeira seção da aba
+          selecionada. A 8ª aba (Notificações) não criou o defeito — ele já existia com 7 —, mas como
+          este `className` já estava sendo editado nesta task, corrigi-lo aqui é escopo, não
+          scope creep. Local a ESTA `<TabsList>`: nenhuma outra tela do painel é afetada.
+        */}
+        <TabsList className="grid h-auto grid-cols-3 w-full max-w-2xl sm:grid-cols-8">
           <TabsTrigger value="general">Geral</TabsTrigger>
           <TabsTrigger value="shipping">Frete</TabsTrigger>
           <TabsTrigger value="material">Material</TabsTrigger>
           <TabsTrigger value="payment">Pagamento</TabsTrigger>
           <TabsTrigger value="checkout">Checkout</TabsTrigger>
+          <TabsTrigger value="notifications">Notificações</TabsTrigger>
           <TabsTrigger value="seo">SEO</TabsTrigger>
           <TabsTrigger value="abandoned_cart">Carrinho</TabsTrigger>
         </TabsList>
@@ -399,6 +419,13 @@ const AdminSettingsPage = () => {
         {/* CHECKOUT — order bump (BMP-06). O card salva a chave `checkout` por conta própria. */}
         <TabsContent value="checkout" className="mt-4">
           <CheckoutSettingsCard />
+        </TabsContent>
+
+        {/* NOTIFICAÇÕES — feature 53. A aba é AUTOCONTIDA: tem o próprio `useNotificationsDraft()`
+            e o próprio `useUpdateSettings()`, mesma independência de `CheckoutSettingsCard` acima.
+            `save()` desta página não ganha um branch `notifications` — ver `PageSettingsKey`. */}
+        <TabsContent value="notifications" className="mt-4">
+          <NotificationsTab />
         </TabsContent>
 
         {/* SEO */}

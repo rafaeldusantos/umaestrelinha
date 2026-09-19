@@ -105,3 +105,12 @@ export const MATERIAL_EVENTS: readonly NotificationEvent[] = [
 ]
 
 export const isMaterialEvent = (event: NotificationEvent): boolean => MATERIAL_EVENTS.includes(event)
+
+/**
+ * O evento cujo texto carrega `{{endereco_atelie}}` — a aba de Notificações do painel (feature `53`,
+ * `ABN-08`) precisa identificá-lo para o gate de "endereço vazio bloqueia ligar". Nomeado aqui, e não
+ * como literal em `apps/**`, porque `notificationSingleOwner.test.ts` (feature `42`) proíbe qualquer
+ * arquivo de `apps/**`/`supabase/functions/**` escrever um nome de evento como string solta — "quem
+ * responde que eventos existem, e como se chamam" é `core`, sempre.
+ */
+export const MATERIAL_INSTRUCTIONS_EVENT: NotificationEvent = 'material_instructions'

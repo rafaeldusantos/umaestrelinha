@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   EVENT_AUDIENCE,
   MATERIAL_EVENTS,
+  MATERIAL_INSTRUCTIONS_EVENT,
   NOTIFICATION_EVENTS,
   NOTIFICATION_EVENT_LABELS,
   isMaterialEvent,
@@ -106,5 +107,16 @@ describe('MATERIAL_EVENTS — os que proíbem exclamação (spec, AC 4 dos event
     expect(isMaterialEvent('owner_material_incoming')).toBe(false)
     expect(isMaterialEvent('material_received')).toBe(true)
     expect(isMaterialEvent('order_paid')).toBe(false)
+  })
+})
+
+describe('MATERIAL_INSTRUCTIONS_EVENT — o único evento com {{endereco_atelie}} (feature 53, ABN-08)', () => {
+  it('é `material_instructions`, e é ele mesmo um dos quinze', () => {
+    expect(MATERIAL_INSTRUCTIONS_EVENT).toBe('material_instructions')
+    expect(NOTIFICATION_EVENTS).toContain(MATERIAL_INSTRUCTIONS_EVENT)
+  })
+
+  it('é evento de material — o gate de endereço da aba de Notificações se apoia nisso', () => {
+    expect(isMaterialEvent(MATERIAL_INSTRUCTIONS_EVENT)).toBe(true)
   })
 })

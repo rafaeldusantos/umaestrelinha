@@ -58,6 +58,16 @@ vi.mock('@/features/settings', () => ({
   CheckoutSettingsCard: () => null,
 }))
 
+// `NotificationsTab` (feature 53) é autocontida — ela tem o PRÓPRIO `useNotificationsDraft()`, que
+// chama `useNotificationSettings`/`useMaterialSettings`, exports que o mock de
+// `@estrelinha/core/hooks/useStoreSettings` acima NÃO declara (só `useStoreSettings` e
+// `useUpdateSettings`, os dois que esta página usa). Dublar aqui, no molde de `CheckoutSettingsCard`
+// logo acima, mantém este arquivo testando só a FIAÇÃO (a aba existe, monta o componente, a grade
+// muda) — o comportamento interno da aba já está provado em `NotificationsTab.test.tsx`.
+vi.mock('@/features/notification-settings', () => ({
+  NotificationsTab: () => <div data-testid="notifications-tab-stub">stub</div>,
+}))
+
 const toast = vi.hoisted(() => vi.fn())
 vi.mock('@estrelinha/ui/hooks/use-toast', () => ({ useToast: () => ({ toast }) }))
 
@@ -314,5 +324,50 @@ describe('Configurações › Carrinho — sem interruptor sem motor (FIX-03)', 
 
     expect(screen.queryByText(ROTULO_DO_INTERRUPTOR)).not.toBeNull()
     expect(screen.queryByRole('switch', { name: ROTULO_DO_INTERRUPTOR })).not.toBeNull()
+  })
+})
+
+describe('Configurações › Notificações — fiação (T12, feature 53)', () => {
+  it('a aba existe, ao lado de Checkout, e as outras 7 continuam de pé', () => {
+    render(<AdminSettingsPage />)
+    expect(screen.getByRole('tab', { name: 'Notificações' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Geral' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Frete' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Material' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Pagamento' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Checkout' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'SEO' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Carrinho' })).toBeInTheDocument()
+    // Oito abas agora — a grade mobile continua em 3 colunas, só a partir de `sm` muda.
+    expect(screen.getByRole('tablist').className).toContain('sm:grid-cols-8')
+    expect(screen.getByRole('tablist').className).not.toContain('sm:grid-cols-7')
+  })
+
+  it('a grade de abas usa `h-auto` — o `h-10` fixo do TabsList cortava a 3ª linha em mobile', () => {
+    // Achado em navegador real, 390px: `ceil(8/3) = 3` linhas de abas medem ~100px de conteúdo
+    // contra os 40px fixos do `h-10` do `TabsList` compartilhado — a 3ª linha ("SEO"/"Carrinho")
+    // sobrepunha visualmente o título da seção. `h-auto` sobrepõe o default via `cn()`, só nesta
+    // `<TabsList>` (nenhuma outra tela do painel usa esta classe).
+    render(<AdminSettingsPage />)
+    expect(screen.getByRole('tablist').className).toContain('h-auto')
+  })
+
+  it('selecionar a aba monta `NotificationsTab` — nunca um segundo desenho da aba aqui dentro', () => {
+    render(<AdminSettingsPage />)
+    expect(screen.queryByTestId('notifications-tab-stub')).toBeNull()
+
+    fireEvent.mouseDown(screen.getByRole('tab', { name: 'Notificações' }))
+
+    expect(screen.getByTestId('notifications-tab-stub')).toBeInTheDocument()
+  })
+
+  it('a aba é AUTOCONTIDA: abri-la não chama o `update.mutateAsync` desta página', () => {
+    // NotificationsTab está dublada (ela tem o próprio useUpdateSettings — ver o comentário do mock
+    // acima), então só abrir a aba não pode disparar gravação nenhuma pela mutation DESTA página.
+    // `save('notifications')` também é inalcançável por `tsc`: `PageSettingsKey` a exclui.
+    render(<AdminSettingsPage />)
+    fireEvent.mouseDown(screen.getByRole('tab', { name: 'Notificações' }))
+    expect(screen.getByTestId('notifications-tab-stub')).toBeInTheDocument()
+    expect(mutateAsync).not.toHaveBeenCalled()
   })
 })
