@@ -5,6 +5,7 @@ import { createElement, type ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   DEFAULT_CHECKOUT,
+  DEFAULT_NOTIFICATIONS,
   DEFAULT_SHIPPING,
 } from '@estrelinha/supabase/types/settings'
 
@@ -18,7 +19,12 @@ vi.mock('@estrelinha/supabase/client', () => ({
   supabase: { from: () => ({ select: selectMock }) },
 }))
 
-import { useCheckoutSettings, useShippingSettings, useStoreSettings } from '../useStoreSettings'
+import {
+  useCheckoutSettings,
+  useNotificationSettings,
+  useShippingSettings,
+  useStoreSettings,
+} from '../useStoreSettings'
 
 const rows = (data: Array<{ key: string; value: unknown }>) => {
   selectMock.mockResolvedValue({ data, error: null })
@@ -39,6 +45,7 @@ async function loadSettings() {
       query: useStoreSettings(),
       checkout: useCheckoutSettings(),
       shipping: useShippingSettings(),
+      notifications: useNotificationSettings(),
     }),
     { wrapper: makeWrapper() },
   )
@@ -116,5 +123,42 @@ describe('handling_days em ShippingSettings', () => {
     rows([{ key: 'shipping', value: { handling_days: 5 } }])
     const result = await loadSettings()
     expect(result.current.shipping.handling_days).toBe(5)
+  })
+})
+
+// Feature 53, T02 — ABN-01: a aba de Notificações lê por aqui. Mesmo molde de useCheckoutSettings
+// acima; o sensor que prova "não descarta" é o mesmo de storeSettingsDefaults/T19 original
+// (`fetchAllSettings` → `if (key in map)`).
+describe('useNotificationSettings', () => {
+  it('devolve DEFAULT_NOTIFICATIONS quando não existe linha `notifications` no banco', async () => {
+    rows([{ key: 'general', value: { store_name: 'Uma Estrelinha' } }])
+    const result = await loadSettings()
+    expect(result.current.notifications).toEqual(DEFAULT_NOTIFICATIONS)
+  })
+
+  it('a linha `notifications` do banco sobrevive ao fetchAllSettings e não é descartada', async () => {
+    const gravado = {
+      events: {
+        ...DEFAULT_NOTIFICATIONS.events,
+        pix_expired: {
+          email: {
+            enabled: true,
+            fields: { ...DEFAULT_NOTIFICATIONS.events.pix_expired.email.fields, subject: 'PIX expirado — texto da Adri' },
+          },
+        },
+      },
+      post_delivery_days: 10,
+    }
+    rows([{ key: 'notifications', value: gravado }])
+    const result = await loadSettings()
+    expect(result.current.notifications.events.pix_expired.email.enabled).toBe(true)
+    expect(result.current.notifications.events.pix_expired.email.fields.subject).toBe('PIX expirado — texto da Adri')
+    expect(result.current.notifications.post_delivery_days).toBe(10)
+  })
+
+  it('erro na consulta devolve os defaults, inclusive a chave `notifications`', async () => {
+    selectMock.mockResolvedValue({ data: null, error: { message: 'relation does not exist' } })
+    const result = await loadSettings()
+    expect(result.current.notifications).toEqual(DEFAULT_NOTIFICATIONS)
   })
 })

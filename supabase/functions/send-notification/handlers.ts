@@ -23,10 +23,8 @@ import {
   CUSTOMER_TRIGGERS,
   isNotificationEvent,
   isNotificationTrigger,
-  limitsRefusal,
-  notificationCopyRefusal,
+  notificationDraftRefusal,
   resolveEventSettings,
-  variablesRefusal,
 } from '../../../packages/core/src/notifications/index.ts'
 import { type NotificationDeps, dispatchEventFull, dispatchTrigger } from './dispatch.ts'
 import { type EmailOrder, isValidFrom } from './render/layout.ts'
@@ -222,7 +220,7 @@ export async function preview(deps: Deps, req: Request, body: any): Promise<Resp
   const gravado = resolveEventSettings(settings.notifications, event as NotificationEvent, 'email')
   const fields = { ...gravado.fields, ...(body?.draft ?? {}) }
 
-  const recusa = draftRefusal(event as NotificationEvent, fields)
+  const recusa = notificationDraftRefusal(event as NotificationEvent, channel, fields)
   if (recusa) return json({ error: recusa }, 422)
 
   const order = await previewOrder(deps, body?.order_id)
@@ -237,26 +235,13 @@ export async function preview(deps: Deps, req: Request, body: any): Promise<Resp
   return json({ ...rendered, sample: !orderIdOf({ order_id: body?.order_id }) })
 }
 
-/** A régua completa do rascunho, na ordem em que se explica: variável, tom, tamanho. */
-export function draftRefusal(event: NotificationEvent, fields: any): string | null {
-  const textos: string[] = [
-    fields.subject,
-    fields.heading,
-    fields.lead,
-    ...(Array.isArray(fields.extra) ? fields.extra : []),
-    fields.cta_label,
-  ].filter((t) => typeof t === 'string')
-
-  for (const texto of textos) {
-    const variavel = variablesRefusal(texto)
-    if (variavel) return variavel
-  }
-  for (const texto of textos) {
-    const tom = notificationCopyRefusal(texto, { event, channel: 'email' })
-    if (tom) return tom
-  }
-  return limitsRefusal(fields, 'email')
-}
+/**
+ * A régua completa do rascunho — dono único em `@estrelinha/core/notifications` desde a feature `53`
+ * (T01, `ABN-11`). Reexportada aqui só para não quebrar quem já importa `draftRefusal` de
+ * `handlers.ts`; é a MESMA referência, não uma cópia (`http.test.ts` é o precedente de `toBe`, não
+ * `toEqual`, para este tipo de dono único).
+ */
+export const draftRefusal = notificationDraftRefusal
 
 async function readNotificationSettings(deps: Deps) {
   const { data } = await deps.supabase

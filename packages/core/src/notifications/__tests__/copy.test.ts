@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { COPY_LIMITS, URGENCY_TERMS, limitsRefusal, notificationCopyRefusal } from '../copy.ts'
+import { COPY_LIMITS, URGENCY_TERMS, limitsRefusal, notificationCopyRefusal, notificationDraftRefusal } from '../copy.ts'
 import { MATERIAL_EVENTS, NOTIFICATION_EVENTS } from '../events.ts'
 
 /**
@@ -160,5 +160,55 @@ describe('COPY_LIMITS e limitsRefusal (PNL-09)', () => {
 
   it('campos ausentes contam como vazios — o que falta não estoura', () => {
     expect(limitsRefusal({})).toBeNull()
+  })
+})
+
+/**
+ * `notificationDraftRefusal` — movida de `supabase/functions/send-notification/handlers.ts`
+ * (`draftRefusal`) para cá na feature `53` (`ABN-04`/`ABN-05`/`ABN-11`). Casos migrados de
+ * `handlers.test.ts:591-620` sem reescrever a régua; só o import e a assinatura mudaram (o `channel`
+ * deixou de ser hard-coded `'email'` dentro do corpo e passou a ser parâmetro).
+ */
+describe('notificationDraftRefusal — a régua na ordem em que se explica (movida da function)', () => {
+  const campos = (over: Record<string, unknown> = {}) => ({
+    subject: 'Assunto',
+    heading: 'Título',
+    lead: 'Texto normal.',
+    extra: ['Linha'],
+    cta_label: 'Abrir',
+    ...over,
+  })
+
+  it('texto limpo passa', () => {
+    expect(notificationDraftRefusal('order_paid', 'email', campos())).toBeNull()
+  })
+
+  it('variável desconhecida vence a régua de tom — é o erro mais fácil de corrigir', () => {
+    const r = notificationDraftRefusal('order_paid', 'email', campos({ lead: 'Corra {{inexistente}}' }))
+    expect(r).toContain('{{inexistente}}')
+  })
+
+  it('recusa alcança TODOS os campos, não só o lead', () => {
+    for (const campo of ['subject', 'heading', 'lead', 'cta_label']) {
+      expect(
+        notificationDraftRefusal('order_paid', 'email', campos({ [campo]: 'Últimas unidades' })),
+        campo,
+      ).not.toBeNull()
+    }
+    expect(notificationDraftRefusal('order_paid', 'email', campos({ extra: ['Ok', 'corra!'] }))).not.toBeNull()
+  })
+
+  it('exclamação só é recusada nos eventos de MATERIAL', () => {
+    expect(notificationDraftRefusal('order_paid', 'email', campos({ lead: 'Pagamento aprovado!' }))).toBeNull()
+    expect(notificationDraftRefusal('material_received', 'email', campos({ lead: 'Chegou!' }))).not.toBeNull()
+  })
+
+  it('o terceiro estágio (tamanho) também reprova, quando variável e tom passam', () => {
+    expect(notificationDraftRefusal('order_paid', 'email', campos({ lead: 'a'.repeat(601) }))).not.toBeNull()
+  })
+
+  it('o `channel` é parâmetro, não literal — WhatsApp passa pela MESMA composição', () => {
+    expect(notificationDraftRefusal('order_paid', 'whatsapp', campos({ lead: 'Corra!' }))).not.toBeNull()
+    expect(notificationDraftRefusal('order_paid', 'whatsapp', campos())).toBeNull()
   })
 })

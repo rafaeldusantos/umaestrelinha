@@ -5,7 +5,11 @@
 // separação é a mesma de `handlers.ts` × `dispatch.ts` — testar as duas coisas no mesmo arquivo foi
 // o que a feature 42 desfez.
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { DEFAULT_NOTIFICATIONS, createResendProvider } from '../../../../packages/core/src/notifications/index.ts'
+import {
+  DEFAULT_NOTIFICATIONS,
+  createResendProvider,
+  notificationDraftRefusal,
+} from '../../../../packages/core/src/notifications/index.ts'
 import { createFakeFetch, createFakeSupabase, type FetchRoute } from '../../_shared/testing/fakes.ts'
 import type { NotificationEnv } from '../dispatch.ts'
 import { DEFAULT_RESEND_FROM, type Deps, configCheck, draftRefusal, route } from '../handlers.ts'
@@ -588,35 +592,20 @@ describe('PNL-05 — `preview`', () => {
   })
 })
 
-describe('draftRefusal — a régua na ordem em que se explica', () => {
-  const campos = (over: Record<string, unknown> = {}) => ({
-    subject: 'Assunto',
-    heading: 'Título',
-    lead: 'Texto normal.',
-    extra: ['Linha'],
-    cta_label: 'Abrir',
-    ...over,
+// A régua completa do rascunho (variável → tom → tamanho) mudou de dono na feature `53` (T01,
+// `ABN-11`): mora em `@estrelinha/core/notifications` como `notificationDraftRefusal`, com os casos
+// migrados para `packages/core/src/notifications/__tests__/copy.test.ts`. O que fica aqui é só o
+// wiring — a prova de que `handlers.ts` DELEGA em vez de reimplementar, que é exatamente o tipo de
+// dono único que `http.test.ts` já cobra para `corsHeaders` (`toBe`, não `toEqual`).
+describe('draftRefusal (handlers.ts) — wiring, não reimplementação', () => {
+  it('é a MESMA referência de notificationDraftRefusal — não uma cópia', () => {
+    expect(draftRefusal).toBe(notificationDraftRefusal)
   })
 
-  it('texto limpo passa', () => {
-    expect(draftRefusal('order_paid', campos())).toBeNull()
-  })
-
-  it('variável desconhecida vence a régua de tom — é o erro mais fácil de corrigir', () => {
-    const r = draftRefusal('order_paid', campos({ lead: 'Corra {{inexistente}}' }))
-    expect(r).toContain('{{inexistente}}')
-  })
-
-  it('recusa alcança TODOS os campos, não só o lead', () => {
-    for (const campo of ['subject', 'heading', 'lead', 'cta_label']) {
-      expect(draftRefusal('order_paid', campos({ [campo]: 'Últimas unidades' })), campo).not.toBeNull()
-    }
-    expect(draftRefusal('order_paid', campos({ extra: ['Ok', 'corra!'] }))).not.toBeNull()
-  })
-
-  it('exclamação só é recusada nos eventos de MATERIAL', () => {
-    expect(draftRefusal('order_paid', campos({ lead: 'Pagamento aprovado!' }))).toBeNull()
-    expect(draftRefusal('material_received', campos({ lead: 'Chegou!' }))).not.toBeNull()
+  it('smoke test: continua recusando um texto óbvio', () => {
+    expect(
+      draftRefusal('order_paid', 'email', { subject: 'Corra', heading: '', lead: '', extra: [], cta_label: '' }),
+    ).not.toBeNull()
   })
 })
 

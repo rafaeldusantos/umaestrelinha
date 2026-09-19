@@ -16,8 +16,8 @@
 | --- | --- | --- | --- |
 | **O1** | `RESEND_FROM` correto em produção | ✅ feito | abaixo |
 | **O2** | SMTP local ligado | ❌ **revogado por decisão** | abaixo |
-| **O3** | Dashboard: SMTP + 3 templates do hospedado | ⏳ **pendente — do usuário** | — |
-| **O4** | `functions delete send-email` | ⏳ **pendente — do usuário** | — |
+| **O3** | Dashboard: SMTP + 3 templates do hospedado | 🟡 **SMTP ativo** (2026-09-19); templates pendentes | — |
+| **O4** | `functions delete send-email` | ✅ **feito** (2026-09-19) | `functions list` → **oito**, todas do repositório |
 | **O5** | Uma linha `sent` real em `order_notifications` | ⏳ **bloqueado por O3/O4** | — |
 | **O6** | Criar o secret **`RESEND_API_KEY` do GITHUB** | ✅ **feito pelo usuário** (2026-09-19) | achado pela verificação; ver abaixo |
 | **O7** | Trocar o remetente de produção por `RESEND_SENDER_NAME` + `RESEND_SENDER_EMAIL`, e apagar `RESEND_FROM` | ✅ **feito** (2026-09-19T14:29) | T8; **mas ver o alerta de ORDEM abaixo** |
@@ -76,7 +76,32 @@ garantia nenhuma.
 (o *Send Email Hook*), que tiraria o SMTP do caminho e transformaria os três templates em código
 versionado.
 
-### O3 e O4 — pendentes, e por quê
+### O3 e O4 — o estado no fim da sessão
+
+**`O4` está FEITO.** `supabase functions list --project-ref hgkrsfpupypxtygjgthf` devolve **oito**,
+e as oito são as do repositório — `send-email` não está mais lá. `DLV-21` satisfeita.
+
+**`O3` está pela metade**: o **SMTP foi ativado** no dashboard em 2026-09-19. Faltam os **três
+templates**, e eles não precisam ser escritos — existem desde a feature `20`, em
+`supabase/templates/`, com a identidade da loja, tudo inline, sem webfont, e `{{ .Token }}` nos
+três. É colar, junto com o **assunto** de cada um (que vive no `config.toml` e, como ele não é
+empurrado, precisa ser digitado no dashboard):
+
+| Tela | Arquivo | Assunto |
+| --- | --- | --- |
+| Magic Link | `magic_link.html` | `Seu código de acesso — Uma Estrelinha` |
+| Confirm signup | `confirmation.html` | `Seu código de acesso — Uma Estrelinha` |
+| Reset password | `recovery.html` | `Redefinir sua senha — Uma Estrelinha` |
+
+**Três bastam, e é medido**: a loja dispara `signInWithOtp` (que vira *Magic Link* para e-mail
+existente e *Confirm signup* para novo) e `resetPasswordForEmail`. Não há `updateUser` nem convite,
+então *Change Email Address* e *Invite user* são inalcançáveis.
+
+**A prova de fecho do `O3` é um login de verdade**: pedir um código na loja e recebê-lo com a cara
+da marca e 6 dígitos. Se chegar em inglês com um link, os templates não foram colados — e esse é o
+modo de falha que *parece* funcionar.
+
+### O que estava pendente, e por quê (histórico)
 
 - **O3** exige o dashboard. A CLI **não tem `config pull`**, então o `[auth]` do hospedado não é
   legível por comando nenhum — é a limitação que `BL-034` descreve e que esta feature confirmou

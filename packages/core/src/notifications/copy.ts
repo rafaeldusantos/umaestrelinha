@@ -10,6 +10,7 @@
 
 import { type NotificationEvent, isMaterialEvent } from './events.ts'
 import type { EmailFields, NotificationChannel } from './settings.ts'
+import { variablesRefusal } from './variables.ts'
 
 /**
  * Urgência fabricada — a lista que `orderList.test.ts` já cobrava do rascunho de cobrança, agora
@@ -125,4 +126,39 @@ export function limitsRefusal(fields: Partial<EmailFields>, _channel: Notificati
   }
 
   return null
+}
+
+/**
+ * A régua COMPLETA do rascunho, na ordem em que se explica: variável, tom, tamanho (feature `53`,
+ * `ABN-04`/`ABN-05`/`ABN-11`).
+ *
+ * Até a feature `53` esta composição só existia em `supabase/functions/send-notification/handlers.ts`
+ * (`draftRefusal`) — a function chamava ao renderizar a prévia. A aba de Notificações do painel
+ * precisa da MESMA recusa ao salvar, e reimplementá-la ali seria o "defeito 01": cada peça
+ * (`variablesRefusal`, `notificationCopyRefusal`, `limitsRefusal`) já é importada de um dono só, mas
+ * a ORDEM de compô-las teria dois donos, e divergiria sem quebrar nada. `handlers.ts` passa a
+ * importar e chamar esta função — não a reimplementa.
+ */
+export function notificationDraftRefusal(
+  event: NotificationEvent,
+  channel: NotificationChannel,
+  fields: Partial<EmailFields>,
+): string | null {
+  const textos: string[] = [
+    fields.subject,
+    fields.heading,
+    fields.lead,
+    ...(Array.isArray(fields.extra) ? fields.extra : []),
+    fields.cta_label,
+  ].filter((t): t is string => typeof t === 'string')
+
+  for (const texto of textos) {
+    const variavel = variablesRefusal(texto)
+    if (variavel) return variavel
+  }
+  for (const texto of textos) {
+    const tom = notificationCopyRefusal(texto, { event, channel })
+    if (tom) return tom
+  }
+  return limitsRefusal(fields, channel)
 }

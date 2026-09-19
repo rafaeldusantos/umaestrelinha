@@ -19,6 +19,7 @@ import {
   type CheckoutSettings,
   type GoogleShoppingSettings,
   type MaterialSettings,
+  type NotificationSettings,
   type SettingsKey,
   type SettingsMap,
 } from '@estrelinha/supabase/types/settings'
@@ -123,6 +124,19 @@ export function useMaterialSettings(): MaterialSettings {
 export function useGoogleShoppingSettings(): GoogleShoppingSettings {
   const { data } = useStoreSettings()
   return data?.google_shopping ?? DEFAULT_GOOGLE_SHOPPING
+}
+
+/**
+ * Os textos e interruptores dos 15 eventos de notificação (feature `53`, `ABN-01`).
+ *
+ * Mesmo molde de `useMaterialSettings`/`useGoogleShoppingSettings`: leitura RASA — `data?.notifications
+ * ?? DEFAULT_NOTIFICATIONS`. A resolução campo a campo (o que preenche um evento parcialmente gravado
+ * com o default) continua sendo trabalho de `resolveAllEventSettings`/`resolveEventSettings`, chamado
+ * por quem precisa da visão por evento (a aba do painel, T06).
+ */
+export function useNotificationSettings(): NotificationSettings {
+  const { data } = useStoreSettings()
+  return data?.notifications ?? DEFAULT_NOTIFICATIONS
 }
 
 type UpdateInput = { [K in SettingsKey]: { key: K; value: SettingsMap[K] } }[SettingsKey]
