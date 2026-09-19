@@ -137,7 +137,8 @@ mesma família de afrouxamento:
 ## Edge functions
 
 `index.ts` é **só wiring** (env + client + `Deno.serve`); a lógica vive em `handlers.ts` com
-dependências injetadas e é testada em `@estrelinha/functions` (`AD-004`). **337 testes em 6 arquivos.**
+dependências injetadas e é testada em `@estrelinha/functions` (`AD-004`). **620 testes em 13
+arquivos** (medido em 2026-09-19; a linha anterior dizia 337 em 6, e estava velha desde a `42`).
 
 > ⚠️ **O `supabase start` MORRE por causa de comentário, e o modo de falha é o ambiente local
 > inteiro fora do ar.** O bundler de functions do CLI varre dependências **por texto e não remove
@@ -164,7 +165,7 @@ assere.
 | --- | --- | --- |
 | `melhor-envio` | `false` | frete. A API **exige** identificação no `User-Agent` |
 | `mercado-pago` | `false` | pagamento — `create-payment` e `webhook` |
-| `send-email` | `false` | e-mail transacional pela API HTTP do Resend |
+| `send-notification` | `false` | o motor de notificação (feature `42`) — os 15 eventos pela API HTTP do Resend. Cinco portas: `send · trigger · notify · preview · config-check` |
 | `google-feed` | `false` | o feed RSS 2.0 do Merchant Center |
 | `product-page` | `false` | a página do produto servida com JSON-LD no `<head>` |
 | `sitemap` | `false` | `/sitemap.xml` — 719 URLs canônicas, lidas com a chave **publicável** |
@@ -219,27 +220,43 @@ Pagamentos `/v1/payments` **não é usada em código novo** (`AD-001`).
   [`../packages/core/CLAUDE.md`](../packages/core/CLAUDE.md).
 - Secrets: `MERCADO_PAGO_ACCESS_TOKEN`, `MERCADO_PAGO_WEBHOOK_SECRET`.
 
-### `send-email`
+### `send-notification` — o motor de notificação
 
-Três tipos: `order_received` (PIX criado), `order_paid` (aprovação), `order_shipped` (postado com
-rastreio).
+Quinze eventos (feature `42`), na ordem da jornada do pedido. **Quatro nascem ligados**
+(`order_received`, `order_paid`, `order_shipped`, `material_received`); os outros onze esperam a aba
+de Notificações, que **não existe** — é a `BL-033`, e é a feature `53`.
 
-- **Contrato dirigido por estado** (`AD-007`): o corpo aceita **só** `{ type, order_id }`. O
-  destinatário vem de `orders.customer_email` lido com a service role, e a function **relê** o pedido
-  e exige que o estado case com o tipo — `order_paid` só sai com `paid_at` preenchido (a RPC
-  `apply_payment_approval` **não** toca `orders.status`, então `status='paid'` seria a condição
-  errada). Estado incompatível ⇒ 422, sem efeito e retentável.
-- **Duas portas, um motor** (`AD-005`): a porta HTTP (`?action=send`, papel admin manual via
-  `has_role`) é do **backoffice**. A `mercado-pago` importa `sender.ts` **direto, no mesmo processo** —
-  sem hop HTTP, para não inventar auth interna nem pagar um segundo cold start no caminho do PIX.
-- **Idempotência é do banco** (`AD-006`): tabela `order_emails` + RPC `claim_order_email`, que
-  reivindica o par `(order_id, type)` numa única statement (`on conflict … do update … where status <>
-  'sent'`). Índice único **não parcial** — um índice `where status='sent'` só detectaria a colisão
-  **depois** da entrega. `supabase-js` não expressa esse `on conflict`.
+> **Até a feature `52` esta seção se chamava `send-email` e descrevia `order_emails` e
+> `claim_order_email`.** A function foi removida do código no commit `480a171` (feature `42`), a
+> tabela virou `order_notifications`, e a view e as duas RPCs de compatibilidade caíram na migration
+> da `52`. **A function publicada, essa, sobreviveu doze dias como zumbi** — `functions deploy` sobe
+> o que existe e não remove o que sumiu. Quem acusa isso agora é o passo `divergencia entre o remoto
+> e o repositorio` do `Supabase Deploy`.
+
+- **Contrato dirigido por estado** (`AD-007`): o corpo aceita **só** `{ event, order_id }` (ou o
+  gatilho, em `?action=trigger` — `AD-032`: quem dispara nomeia **o que aconteceu**, nunca qual
+  mensagem sai). O destinatário vem de `orders.customer_email` lido com a service role, e a function
+  **relê** o pedido e exige que o estado case com o evento. Estado incompatível ⇒ recusa sem efeito e
+  retentável.
+- **Duas portas, um motor** (`AD-005`): a porta HTTP é do **backoffice**; a `mercado-pago` importa
+  `dispatch.ts` **direto, no mesmo processo** — sem hop HTTP, para não inventar auth interna nem
+  pagar um segundo cold start no caminho do PIX.
+- **Idempotência é do banco** (`AD-006`): `order_notifications` + RPC `claim_order_notification`, que
+  reivindica `(order_id, event, channel)` numa única statement (`on conflict … do update … where
+  status <> 'sent'`). Índice único **não parcial** — um índice `where status='sent'` só detectaria a
+  colisão **depois** da entrega. `supabase-js` não expressa esse `on conflict`.
+  - O recorte `status <> 'sent'` é o que torna uma linha `failed` **reivindicável de novo**: a
+    retentativa a converte em vez de duplicar.
+- **`?action=config-check` é aberta, e isso é desenho** (feature `52`). Ela responde **com o que a
+  produção está configurada** — remetente, se ele passa em `isValidFrom`, se há chave, as duas URLs
+  e se o desvio de desenvolvimento está ligado. Nenhum campo é segredo: o remetente viaja no
+  cabeçalho de todo e-mail, as URLs são públicas, o resto são booleanos, e **a chave nunca sai, nem
+  prefixo nem tamanho**. Ela existe para o `Email check` poder provar *o valor da produção* contra o
+  Resend, em vez de provar um valor escrito no próprio sensor.
 - **Falha de e-mail nunca altera o pagamento**: a chamada é `await` limitado por `AbortController`
   (2500ms do `create-payment`, 8000ms do webhook — **nunca trabalho em background**, `AD-008`) e vive
   dentro de `try/catch`. Um throw ali viraria **500 na cobrança**.
-- Secrets: `RESEND_API_KEY`, `RESEND_FROM`, `STORE_PUBLIC_URL` (origem **da loja**, não do Supabase),
+- Secrets: `RESEND_API_KEY`, `RESEND_SENDER_NAME`, `RESEND_SENDER_EMAIL`, `STORE_PUBLIC_URL` (origem **da loja**, não do Supabase),
   `RESEND_DEV_REDIRECT_TO`.
 
 ### `google-feed` e `product-page` (feature `30`, `AD-020`)
@@ -434,28 +451,78 @@ admin; o backoffice usa `RequireAdmin`.
   dispara o de signup para e-mail novo e o magic link para e-mail existente. Configurar só um deixa
   metade dos casos no template padrão, que entrega **link** em vez do código.
 
-### O SMTP está DESLIGADO de propósito
+### O SMTP local segue DESLIGADO — e o de produção não é verificável por comando
 
-- Hoje o e-mail de login cai no **Mailpit** (`http://127.0.0.1:54344`), e é assim que se testa.
+O bloco `[auth.email.smtp]` está comentado, e o e-mail de auth do desenvolvimento cai no **Mailpit**
+(`http://127.0.0.1:54344`). **A feature `52` chegou a ligá-lo e voltou atrás**, e a razão vale mais
+que a decisão: a pendência `C-08` mandava ligar para *validar que o remetente é aceito pela chave* —
+e quem faz essa validação agora é o `Email check`, todo dia, sem efeito colateral. Ligar o SMTP local
+custaria o Mailpit (dev deixa de funcionar offline e passa a mandar e-mail real, sujeito a limite) e
+não compraria nenhuma garantia nova.
+
+**A pergunta que expôs isso vale repetir**: se os transacionais saem pela API HTTP, por que SMTP? —
+porque quem manda o e-mail de auth **não é o nosso código**. É o GoTrue, que não fala a API HTTP do
+Resend; ele fala SMTP. Os dois caminhos usam a mesma chave e transportes diferentes.
+**A alternativa existe** e está registrada em `BL-045`: o *Send Email Hook* faz o GoTrue chamar uma
+function nossa, e aí o SMTP deixa de ser usado.
+
+> ⚠️ **O `[auth]` do projeto HOSPEDADO não é legível por comando nenhum, e isso é estrutural.**
+> O `supabase-deploy.yml` **não** faz `config push` de propósito (o `config.toml` é configuração de
+> desenvolvimento; empurrá-lo derrubaria o auth de produção), e **a CLI não tem `config pull`** —
+> `supabase config` tem um subcomando só, `push`. Logo: SMTP, os três templates, `site_url`,
+> `additional_redirect_urls`, `otp_length` e `otp_expiry` existem em produção **só se alguém colou
+> no dashboard**, e nenhum teste, passo de CI ou probe conferia isso até a `52`.
+>
+> **O que o `Email check` cobre, e o que não:** ele prova que o remetente do auth é **aceito pela
+> chave** — mata o modo `BUG-20260728`, em que um remetente recusado derruba todo login por código.
+> Ele **não** prova que o SMTP está ligado no dashboard nem que os templates estão colados. Com o
+> SMTP desligado lá, o GoTrue cai no SMTP compartilhado da Supabase (~2 e-mails/hora, na prática só
+> para membros do projeto) e o workflow fica **verde** enquanto o login da loja não funciona.
+> Conferir isso é passo manual, e está registrado no `validation.md` da `52`.
+>
+> O segundo modo de falha é pior que o primeiro: **com** SMTP e **sem** os templates, chega o e-mail
+> padrão do GoTrue, em inglês, com um **link** — enquanto a loja chama `verifyOtp` e pede um código
+> de 6 dígitos que aquele e-mail não traz. *Parece* funcionar, porque o e-mail chega.
+
+- Antes disso, o e-mail de login caía no **Mailpit** (`http://127.0.0.1:54344`).
 - O remetente de produção é `acesso@loja.umaestrelinha.com.br`. **Até 2026-09-06 este arquivo, o
   `config.toml` e o `.env.example` prescreviam um subdomínio `send.` que nunca existiu na conta** — o
   403 medido em 2026-08-08 era isso, não DNS pendente. O único domínio verificado na conta Resend é
   `loja.umaestrelinha.com.br` (medido em 2026-09-06 via `GET /domains`: `status: verified`, região
   `sa-east-1`), e `authSenderDomain.test.ts` (store) recusa a volta do domínio antigo. Ligar o SMTP
   com remetente que a chave não alcança derruba **todo** o login por código, e já derrubou uma vez
-  (`BUG-20260728`). O bloco `[auth.email.smtp]` está no `config.toml`, **comentado**, com o passo exato
-  de troca (incluindo o `curl` de verificação).
-- **São DOIS remetentes, dois lugares, um domínio.** O do auth é `admin_email` em `[auth.email.smtp]`
-  — endereço **nu**, porque o nome de exibição vem de `sender_name` e o GoTrue monta
-  `From: "Nome" <addr>`. O dos transacionais é a env `RESEND_FROM`, em **RFC 5322** (`Nome <addr>`).
-  **Reusar `RESEND_FROM` no `admin_email` produz `"Nome" <Nome <addr>>` — malformado, e todo envio de
-  auth falha.** Confundir os dois é a causa raiz do `BUG-20260728`.
+  (`BUG-20260728`).
+  - **O subdomínio `send.` não ficou só na documentação: ele estava no SECRET de produção**, e o
+    custo foi medido na `52`. Entre 2026-09-06 e 2026-09-19 o `RESEND_FROM` do hospedado apontava
+    para ele, e a **única** tentativa de e-mail transacional da história da loja morreu com
+    `403 validation_error`. Treze dias, 36 pedidos, nenhum aviso — a `42` corrigiu a prosa e não o
+    secret. **Corrigir documentação não corrige configuração.**
+  - Aquele remetente virou o **sensor de discriminação** do `Email check`: contra a mesma chave que
+    aceita os dois atuais, ele devolve 403 sob demanda. É o controle que prova que o probe
+    discrimina em vez de passar verde sobre nada.
+- **São DOIS remetentes, e desde a feature `52` cada um tem o MESMO formato: nome + endereço.**
+  O do auth é `sender_name` + `admin_email` em `[auth.email.smtp]` (endereço **nu**; o GoTrue monta
+  `From: "Nome" <addr>`). O dos transacionais é `RESEND_SENDER_NAME` + `RESEND_SENDER_EMAIL`.
+  - **Até a `52` o transacional era UM campo** (`RESEND_FROM`, em RFC 5322), e essa assimetria era o
+    campo que mais errava: colar o valor de um no campo do outro produz `"Nome" <Nome <addr>>` —
+    malformado, e todo envio falha. É a causa raiz do `BUG-20260728`. Agora as duas pontas têm a
+    mesma forma, e não há o que confundir.
+  - **`RESEND_FROM` foi APOSENTADA, e o nome novo é deliberado.** Reusar o nome antigo com
+    significado novo faria um valor esquecido em produção ser lido como "só o nome", e o remetente
+    montado sairia `Nome <addr> <addr>`. Nome novo faz a variável ausente ser **ausente**.
+  - **Quem junta os dois é `senderFrom`**, em `packages/core/src/notifications/sender.ts` — dono
+    único, inclusive da regra de que display name com vírgula precisa de aspas. Ele devolve
+    **vazio** quando não consegue montar algo válido (inclusive quando alguém cola o valor antigo,
+    combinado, no campo do endereço), e vazio reprova em `isValidFrom` com `invalid_from`.
+    **Ele não lança**: derrubar o módulo na partida levaria junto a porta `config-check`, que é
+    quem o sensor consulta para descobrir *por que* o envio parou. O diagnóstico não pode morrer
+    com o defeito que ele diagnostica.
 
 ## O Resend tem DOIS usos, com uma chave
 
 1. **SMTP do auth** — quem envia é o GoTrue; templates em `templates/*.html`.
-2. **API HTTP transacional** — quem envia é `send-email`, via `POST https://api.resend.com/emails`;
-   templates em `functions/send-email/{layout,templates}.ts`.
+2. **API HTTP transacional** — quem envia é `send-notification`, via
+   `POST https://api.resend.com/emails`; render em `functions/send-notification/render/`.
 
 **Não confundir: mexer nos e-mails de pedido não é mexer em `templates/`.** `RESEND_DEV_REDIRECT_TO` é
 válvula de dev **só dos transacionais** (o GoTrue não tem equivalente) e hoje fica vazia.
@@ -471,6 +538,33 @@ serifado como o display da loja, porque cair de serifa para sans muda família e
 Todos no `.env` da **raiz** (ver `.env.example`), resolvidos no local por `[edge_runtime.secrets]` do
 `config.toml` (`env()`, exige `supabase stop && supabase start`). No hospedado, `supabase secrets set`.
 
+> ⚠️ **`supabase secrets set` MESCLA O `.env` DO DIRETÓRIO ATUAL — e não avisa.** Medido em
+> 2026-09-19: o mesmo comando, com o mesmo valor, responde `{"count":8}` a partir da raiz do projeto
+> e `{"count":1}` de um diretório sem `.env`. Ele atualiza **toda** chave que já exista no hospedado
+> e tenha homônima local; **não cria chave nova**, então o estrago não aparece na contagem.
+>
+> Custou um incidente na `52`: uma gravação de `RESEND_FROM` sobrescreveu 7 secrets de produção com
+> valores de desenvolvimento — `STORE_PUBLIC_URL` virou `http://localhost:8082` (confirmado pelas
+> `<loc>` do sitemap servido), `MELHOR_ENVIO_ENV` caiu de `production` para `sandbox` (derrubando a
+> cotação de frete para 401, e a loja voltou a cobrar R$ 9,90 fixo), e os dois `MERCADO_PAGO_*`
+> viraram credencial de `test_user`. **O `.env` de desenvolvimento é um segundo dono dos secrets de
+> produção**, e é o "defeito 01" dentro da ferramenta.
+>
+> **Os valores antigos não são recuperáveis**: a CLI devolve digest, o dashboard não revela secret de
+> Edge Function, e o `supabase-deploy.yml` só **confere presença**. Não há cópia em lugar nenhum.
+>
+> **Procedimento seguro** — dashboard (*Settings → Edge Functions → Secrets*), **ou** CLI de um
+> diretório sem `.env`:
+> ```bash
+> cd "$(mktemp -d)" && npx supabase secrets set CHAVE=valor --project-ref <ref>
+> # a resposta tem de dizer {"count":1}. Disse mais? você mesclou.
+> ```
+>
+> **Como conferir uma troca sem revelar nada**: o digest de `secrets list` é **hash estável do
+> valor** — o mesmo valor produz o mesmo digest, sempre, inclusive entre escritas. Capture antes e
+> depois; digest igual significa valor igual. E **`updated_at` idêntico em TODOS os secrets é a
+> assinatura da mescla**; carimbos distintos indicam gravações deliberadas.
+
 `SUPABASE_SERVICE_ROLE_KEY` · `MERCADO_PAGO_ACCESS_TOKEN` · `MERCADO_PAGO_WEBHOOK_SECRET` ·
-`RESEND_API_KEY` · `RESEND_FROM` · `RESEND_DEV_REDIRECT_TO` · `STORE_PUBLIC_URL` · `NUVEMSHOP_*` ·
+`RESEND_API_KEY` · `RESEND_SENDER_NAME` · `RESEND_SENDER_EMAIL` · `RESEND_DEV_REDIRECT_TO` · `STORE_PUBLIC_URL` · `NUVEMSHOP_*` ·
 `MELHOR_ENVIO_TOKEN` · `MELHOR_ENVIO_ENV` · `MELHOR_ENVIO_SENDER_JSON`

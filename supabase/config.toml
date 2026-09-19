@@ -209,11 +209,28 @@ otp_length = 6
 otp_expiry = 600
 
 # ─────────────────────────────────────────────────────────────────────────────
-# SMTP do auth — DESLIGADO, e isso é uma decisão, não um esquecimento (T36).
+# SMTP do auth — DESLIGADO no LOCAL de propósito, e a razão mudou na feature 52.
 #
 # Sem este bloco, quem entrega o e-mail de auth é o Mailpit local
 # (http://127.0.0.1:54344): o login por código funciona de ponta a ponta em
-# desenvolvimento, sem depender de rede nem de domínio verificado.
+# desenvolvimento, sem rede, sem limite de envio e sem mandar e-mail de verdade
+# para o endereço de ninguém.
+#
+# Até 2026-09-19 a pendência `C-08` mandava LIGAR este bloco, e o motivo era
+# validar que o remetente do auth é aceito pela chave do Resend. **Esse motivo
+# deixou de existir**: quem valida isso agora é o workflow `Email check`, todo
+# dia, sem efeito colateral nenhum — ele faz `POST /emails` com este endereço
+# contra o simulador do Resend e falha se vier 403. Ligar o SMTP local para
+# obter a mesma garantia custaria o Mailpit e não compraria nada.
+#
+# Produção NÃO depende deste bloco: o `supabase-deploy.yml` não faz
+# `config push`, então o SMTP do hospedado é configurado no dashboard. O que
+# este bloco declara é o endereço — versionado, guardado por
+# `authSenderDomain.test.ts`, e lido pelo passo 7 do `Email check`.
+#
+# Para ligar localmente (dev deixa de ser offline e passa a mandar e-mail real):
+# descomente e rode `supabase stop && supabase start` — `db reset` NÃO recarrega
+# o auth.
 #
 # ## O domínio do remetente — e o que este arquivo dizia de errado (feature 42, D1)
 #
@@ -227,11 +244,21 @@ otp_expiry = 600
 # remetente recusado derruba TODO login por código) com um domínio inexistente.
 #
 # O remetente do auth é `acesso@loja.umaestrelinha.com.br` — mesmo domínio do
-# transacional (`RESEND_FROM`, `loja@loja.umaestrelinha.com.br`), local-part
+# transacional (`RESEND_SENDER_EMAIL`, `adri@loja.umaestrelinha.com.br`), local-part
 # distinto. `authSenderDomain.test.ts` (store) recusa a volta do domínio antigo
 # a qualquer arquivo do repositório.
 #
-# ## O passo exato de troca — o domínio JÁ está verificado; falta só ligar
+# ## O passo de troca — o probe do item 1 virou rotina em 2026-09-19
+#
+# Fica escrito para quem precisar ligar isto localmente. O item 1 deixou de ser
+# um passo manual: ele é o passo 6/7 do workflow `Email check`, que roda diário.
+#
+# E o controle que prova que aquele probe DISCRIMINA (em vez de passar verde
+# sobre nada) é o remetente antigo — o do subdomínio que nunca foi criado na
+# conta, citado no parágrafo acima. Contra a mesma chave que aceita os dois
+# endereços atuais, ele devolve 403 sob demanda. **O endereço dele não é escrito
+# por extenso em lugar nenhum fora de `.specs/`**: `authSenderDomain.test.ts`
+# recusa a string, e a prosa que explica o defeito já o reintroduziu uma vez.
 #
 #  1. Confirmar com o probe (200 = liberado; 403 = a chave não alcança o domínio):
 #       curl -s -X POST https://api.resend.com/emails \
@@ -246,9 +273,12 @@ otp_expiry = 600
 #
 # `admin_email` é endereço NU: o nome de exibição vem de `sender_name`, e o
 # GoTrue monta `From: "Uma Estrelinha" <acesso@loja.umaestrelinha.com.br>`.
-# NUNCA reusar RESEND_FROM aqui — aquele valor já é RFC 5322 (`Nome <addr>`) e
-# o resultado seria `"Uma Estrelinha" <Uma Estrelinha <loja@…>>`: malformado,
-# e todo envio de auth falha. `loja@` é dos transacionais (edge function
+# Desde a feature 52 os transacionais também têm o remetente em DUAS envs
+# (`RESEND_SENDER_NAME` + `RESEND_SENDER_EMAIL`), exatamente como este bloco —
+# justamente para acabar com a troca que derrubava tudo. O que continua valendo:
+# `admin_email` é endereço NU. Colar aqui uma string `Nome <addr>` produz
+# `"Uma Estrelinha" <Uma Estrelinha <addr>>`: malformado, e todo envio de auth
+# falha. `loja@` é dos transacionais (edge function
 # send-notification, API HTTP); `acesso@` é do auth. Mesmo domínio, streams separados:
 # reputação de entrega é por domínio da assinatura DKIM (d=), então separar o
 # local-part não custa entrega e deixa o login filtrável no painel do Resend.
@@ -441,7 +471,8 @@ RESEND_API_KEY = "env(RESEND_API_KEY)"
 # Um valor malformado é 422 em TODOS os envios (apagão silencioso), então a function valida o formato
 # antes de tentar enviar. Default do código: "Uma Estrelinha <onboarding@resend.dev>".
 # Valor alvo (domínio verificado, medido em 2026-09-06): "Uma Estrelinha <loja@loja.umaestrelinha.com.br>".
-RESEND_FROM = "env(RESEND_FROM)"
+RESEND_SENDER_NAME = "env(RESEND_SENDER_NAME)"
+RESEND_SENDER_EMAIL = "env(RESEND_SENDER_EMAIL)"
 # Origem DA LOJA (ex.: http://localhost:8082 em dev), NÃO a do Supabase — é a base do link `/conta`
 # dos e-mails. Fácil de errar porque toda outra env de URL deste arquivo aponta para o Supabase.
 STORE_PUBLIC_URL = "env(STORE_PUBLIC_URL)"

@@ -164,7 +164,8 @@ jobs:
             MERCADO_PAGO_ACCESS_TOKEN \
             MERCADO_PAGO_WEBHOOK_SECRET \
             RESEND_API_KEY \
-            RESEND_FROM \
+            RESEND_SENDER_NAME \
+            RESEND_SENDER_EMAIL \
             STORE_PUBLIC_URL \
             MELHOR_ENVIO_TOKEN \
             MELHOR_ENVIO_SENDER_JSON
@@ -177,7 +178,7 @@ jobs:
             echo "  supabase secrets set NOME=valor --project-ref <ref>"
             exit 1
           fi
-          echo "Os 7 secrets obrigatórios estão presentes."
+          echo "Os 8 secrets obrigatórios estão presentes."
 
       - name: migrations pendentes (dry run)
         run: supabase migration list --linked
@@ -191,3 +192,59 @@ jobs:
       - name: functions deploy
         if: ${{ steps.mudou.outputs.functions == 'true' }}
         run: supabase functions deploy --project-ref "$PROJECT_REF"
+
+      # Feature 52 (DLV-25/DLV-26) — FUNCTION ZUMBI É INDISTINGUÍVEL DE FUNCTION VIVA.
+      #
+      # `functions deploy` sobe o que existe e **não remove o que sumiu**. Medido em 2026-09-19:
+      # `send-email` foi apagada do código no commit 480a171 e continuou `ACTIVE` no hospedado por
+      # doze dias — endpoint público, sem JWT obrigatório, servindo código da marca anterior, que
+      # ninguém media e cujo log ninguém lia. Um `OPTIONS` contra ela respondia 200.
+      #
+      # Roda SEMPRE, e não só quando `supabase/functions/**` mudou: a divergência sobrevive aos
+      # deploys seguintes, então condicioná-la ao diff a esconderia em todo push que não tocasse
+      # nas functions.
+      #
+      # AVISA, NUNCA FALHA (DLV-26). Function zumbi é dívida, não incidente — derrubar o deploy por
+      # ela pararia a loja por um problema que não é dela. Por isso `::warning::`, `continue-on-error`
+      # e nenhum `exit 1`: as três coisas juntas, para que nem uma falha da própria listagem vire
+      # incidente.
+      - name: divergencia entre o remoto e o repositorio
+        if: ${{ always() }}
+        continue-on-error: true
+        run: |
+          # `set +e` de propósito: o GitHub roda `bash -e`, e com errexit ligado um `grep` que não
+          # casa nada (saída 1, que aqui é um resultado legítimo) abortaria o passo. A promessa de
+          # `DLV-26` é que este passo NUNCA falha, e ela precisa valer no shell, não só na intenção.
+          set +e
+          set -uo pipefail
+
+          # Prefixo `_` é ignorado pelo próprio CLI (`_shared`), então não conta como faltando.
+          repo=$(find supabase/functions -mindepth 1 -maxdepth 1 -type d -printf '%f\n' \
+                 | grep -v '^_' | sort)
+
+          bruto=$(supabase functions list --project-ref "$PROJECT_REF" 2>/dev/null || true)
+          # A forma da saída acompanha a CLI, e o workflow instala `version: latest` — que muda sem
+          # avisar. Duas formas conhecidas, e degradação explícita se aparecer uma terceira: este
+          # passo é um aviso, e um aviso que falha por mudança de formato é pior que nenhum.
+          remoto=$(printf '%s' "$bruto" | jq -r '(.functions // .)[]?.slug // empty' 2>/dev/null | sort || true)
+          if [ -z "$remoto" ]; then
+            echo "::warning::não consegui ler a lista remota de functions (formato da CLI mudou?) — comparação pulada. Confira à mão: supabase functions list --project-ref $PROJECT_REF"
+            exit 0
+          fi
+
+          echo "no repositório: $(printf '%s' "$repo" | tr '\n' ' ')"
+          echo "no hospedado  : $(printf '%s' "$remoto" | tr '\n' ' ')"
+
+          sobrando=$(comm -13 <(printf '%s\n' "$repo") <(printf '%s\n' "$remoto") | tr -d '\r')
+          faltando=$(comm -23 <(printf '%s\n' "$repo") <(printf '%s\n' "$remoto") | tr -d '\r')
+
+          for slug in $sobrando; do
+            echo "::warning::function ZUMBI no hospedado: '$slug' está publicada e NÃO existe em supabase/functions/. Ela continua atendendo requisição. Remover com: supabase functions delete $slug --project-ref $PROJECT_REF"
+          done
+          for slug in $faltando; do
+            echo "::warning::function '$slug' existe no repositório e NÃO está publicada — o deploy pode ter falhado, ou ela nunca subiu."
+          done
+
+          if [ -z "$sobrando" ] && [ -z "$faltando" ]; then
+            echo "OK — o hospedado e o repositório listam as mesmas functions."
+          fi

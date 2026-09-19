@@ -1,0 +1,233 @@
+# Feature 52 — a rotina que prova que o e-mail AINDA PODE SAIR.
+#
+# ---------------------------------------------------------------------------------------------
+# POR QUE ISTO EXISTE, E POR QUE ELE PERGUNTA À PRODUÇÃO EM VEZ DE SABER A RESPOSTA
+# ---------------------------------------------------------------------------------------------
+# Entre 2026-09-06 e 2026-09-19 o transacional da loja esteve QUEBRADO em produção: o secret
+# `RESEND_FROM` apontava para um subdomínio que nunca foi criado na conta Resend, e a única
+# tentativa de envio da história da loja morreu com 403. Treze dias, 36 pedidos, nenhum aviso.
+#
+# O detalhe que desenha este arquivo: **um probe que chamasse o Resend com o remetente escrito AQUI
+# teria ficado verde os treze dias inteiros.** O defeito não estava na conta Resend — estava na
+# configuração da produção. Um sensor que mede a si mesmo é verdadeiro nos dois mundos.
+#
+# Por isso a ordem é: perguntar à produção COM O QUE ELA ESTÁ CONFIGURADA (`?action=config-check`),
+# e então provar ESSE valor contra o Resend. A corrente só fecha assim.
+#
+# Pelo mesmo motivo não há UM literal de domínio neste arquivo. O domínio esperado é derivado do
+# `from` que a produção reporta, e conferido contra a lista de `verified` que o Resend reporta.
+# Cravá-lo aqui criaria um terceiro dono, e no cutover alguém trocaria dois dos três.
+# O remetente do auth, idem: sai de `supabase/config.toml`, que é quem o declara e o versiona.
+#
+# ---------------------------------------------------------------------------------------------
+# O QUE ESTE WORKFLOW **NÃO** PROVA — leia antes de confiar nele
+# ---------------------------------------------------------------------------------------------
+# Ele NÃO prova que o GoTrue do projeto hospedado tem SMTP ligado, nem que os três templates de
+# `supabase/templates/` estão colados lá. Esse transporte é outro (SMTP, não a API HTTP), e a
+# configuração dele vive só no dashboard: o `supabase-deploy.yml` não faz `config push` de
+# propósito, e **a CLI não tem `config pull`** — não existe comando que leia aquele estado.
+#
+# O que o passo 7 cobre é o modo de falha do BUG-20260728: o remetente do auth ser recusado pela
+# chave, que derruba TODO login por código. Se o SMTP estiver desligado no dashboard, este
+# workflow fica verde e o login mesmo assim não funciona. Conferir isso é passo manual, e está
+# registrado no validation.md da feature 52.
+#
+# DIÁRIO: custa três requisições HTTP e nenhum e-mail chega a pessoa nenhuma (o destinatário é o
+# simulador do Resend). O que se compra com a frequência é o teto do tempo em que uma quebra passa
+# despercebida — 24 h em vez de treze dias.
+
+name: Email check
+
+on:
+  schedule:
+    # 07:25 UTC (04:25 em Porto Alegre). Fora da hora cheia de propósito: o agendador do GitHub
+    # atrasa runs de minuto redondo quando a fila está cheia. Distinto do `Sitemap check` (06:40)
+    # para as duas rotinas não disputarem a mesma janela.
+    - cron: '25 7 * * *'
+  workflow_dispatch:
+
+jobs:
+  cano:
+    name: o e-mail ainda pode sair
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # O checkout existe por UM motivo: ler o remetente do auth de `supabase/config.toml`.
+      - uses: actions/checkout@v4
+
+      - name: conferir o cano
+        env:
+          # `vars`, não `secrets`: o ref do projeto já é público neste repositório, e mascará-lo
+          # faria toda mensagem de erro dizer `***` no lugar do que interessa.
+          PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF || 'hgkrsfpupypxtygjgthf' }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          # O simulador do Resend. Aceita, contabiliza e não entrega a ninguém.
+          DESTINO: 'delivered@resend.dev'
+        run: |
+          set -euo pipefail
+
+          if [ -z "${RESEND_API_KEY:-}" ]; then
+            # DOIS COFRES, e confundi-los manda procurar no lugar errado. Esta chave é um secret do
+            # GITHUB (Settings → Secrets and variables → Actions). O `supabase-deploy.yml` também
+            # fala de `RESEND_API_KEY`, mas ele confere o cofre DA SUPABASE (`supabase secrets
+            # list`) — são coisas diferentes, e ter uma não dá a outra.
+            echo "::error::RESEND_API_KEY vazia. Ela é um secret do GITHUB, não o da Supabase que o Supabase Deploy confere. Crie em Settings → Secrets and variables → Actions → New repository secret. Se você a criou dentro de um ENVIRONMENT (como o 'production' que o deploy usa), este job não a enxerga: ou mova para o nível do repositório, ou acrescente 'environment: production' ao job — ciente de que regra de aprovação no environment faria o cron ficar na fila."
+            exit 1
+          fi
+
+          FUNC="https://${PROJECT_REF}.supabase.co/functions/v1/send-notification"
+
+          # Classifica um código HTTP do Resend em CONFIGURAÇÃO x INDISPONIBILIDADE. A distinção é
+          # o produto deste workflow: sem ela, um teto de envio manda alguém procurar defeito na
+          # configuração, que é o lugar errado.
+          # ⚠️ `|| true`, NUNCA `|| echo 000`. O curl já imprime `000` quando a conexão falha, então o
+          # fallback CONCATENA e a variável vira `000000` — que não casa nenhum ramo do `case`
+          # abaixo, cai no `*)` e classifica a queda de rede como **configuração**. Ou seja: o
+          # oposto exato do que este workflow existe para dizer. Medido em 2026-09-19 contra uma
+          # porta morta: `|| echo 000` devolve 6 bytes, `|| true` devolve 3. O `|| true` só existe
+          # para o `set -e` não abortar; o código já veio do `-w`.
+          classificar() {
+            case "$1" in
+              2*)  echo "ok" ;;
+              401) echo "config:a chave do Resend foi recusada (401) — RESEND_API_KEY inválida ou revogada" ;;
+              403) echo "config:o Resend RECUSOU o remetente (403) — domínio não verificado para esta chave" ;;
+              429) echo "indisp:teto de envio do Resend (429) — indisponibilidade, não configuração" ;;
+              000) echo "indisp:sem resposta do Resend (timeout ou rede) — indisponibilidade, não configuração" ;;
+              5*)  echo "indisp:o Resend respondeu $1 — indisponibilidade, não configuração" ;;
+              *)   echo "config:resposta inesperada do Resend ($1)" ;;
+            esac
+          }
+
+          # ---------------------------------------------------------------------------------
+          echo "[1/7] o que a produção reporta"
+          # --------------------------------------------------------------------------------
+          # Exige 200 **E** a chave `from`. Um bundle velho em produção responde 400 com a lista
+          # de actions — que é JSON válido. Sem as duas condições, esse 400 passaria por resposta
+          # boa e os passos seguintes acusariam "configuração errada" com o defeito sendo DEPLOY
+          # VELHO, mandando procurar no lugar errado.
+          COD=$(curl -sS -o cfg.json -w '%{http_code}' -m 30 "${FUNC}?action=config-check" || true)
+          if [ "$COD" != "200" ]; then
+            echo "::error::config-check respondeu $COD (esperado 200). 400 com lista de actions significa BUNDLE VELHO em produção — redeploy da send-notification. 000 ou 5xx significa function fora do ar."
+            exit 1
+          fi
+          if ! jq -e 'has("from")' cfg.json >/dev/null; then
+            echo "::error::config-check respondeu 200 mas sem a chave 'from' — o contrato mudou, ou o que respondeu não é a send-notification."
+            exit 1
+          fi
+
+          FROM=$(jq -r '.from' cfg.json)
+          echo "remetente em produção: ${FROM}"
+
+          # ---------------------------------------------------------------------------------
+          echo "[2/7] o remetente é utilizável"
+          # --------------------------------------------------------------------------------
+          # `from_valid` vem da MESMA função que o motor chama antes de enviar. `from_is_default`
+          # acusa o fallback `onboarding@…`, que responde 200 e entrega só ao dono da conta — um
+          # sucesso que não chega a cliente nenhuma.
+          jq -e '.from_valid == true' cfg.json >/dev/null \
+            || { echo "::error::RESEND_FROM é inválida em produção — o motor recusa ANTES de enviar, e TODO e-mail falha em silêncio."; exit 1; }
+          jq -e '.from_is_default == false' cfg.json >/dev/null \
+            || { echo "::error::produção está no remetente DEFAULT de caixa-de-areia: entrega só para o dono da conta Resend. Nenhuma cliente recebe."; exit 1; }
+
+          # ---------------------------------------------------------------------------------
+          echo "[3/7] nenhum desvio de desenvolvimento ligado"
+          # --------------------------------------------------------------------------------
+          # RESEND_DEV_REDIRECT_TO preenchida redireciona TODO transacional para um endereço só.
+          # Ela fica fora da conferência de secrets do deploy justamente por não poder existir
+          # aqui — e, até esta feature, nada verificava a ausência dela.
+          jq -e '.dev_redirect_active == false' cfg.json >/dev/null \
+            || { echo "::error::RESEND_DEV_REDIRECT_TO existe em produção — todo e-mail transacional está sendo DESVIADO e nenhuma cliente recebe."; exit 1; }
+
+          # ---------------------------------------------------------------------------------
+          echo "[4/7] os links dos e-mails apontam para a loja"
+          # --------------------------------------------------------------------------------
+          # Só `store_public_url`. `admin_public_url` NÃO é conferida de propósito: ela é o default
+          # de desenvolvimento em produção, porque os dois eventos que a usam nascem desligados
+          # (está em Out of Scope da feature 52). Uma régua genérica sobre "as duas URLs" nasceria
+          # vermelha todo dia.
+          LOJA=$(jq -r '.store_public_url' cfg.json)
+          case "$LOJA" in
+            https://*localhost*|https://*127.0.0.1*|http://*)
+              echo "::error::store_public_url em produção é '${LOJA}' — os links de todo e-mail apontam para lugar nenhum."; exit 1 ;;
+            https://*) echo "loja: ${LOJA}" ;;
+            *) echo "::error::store_public_url em produção é '${LOJA}', que não é uma origem https."; exit 1 ;;
+          esac
+
+          # ---------------------------------------------------------------------------------
+          echo "[5/7] o domínio do remetente está verificado"
+          # --------------------------------------------------------------------------------
+          # DERIVADO, nunca literal: o domínio sai do `from` que a produção reportou, e a lista de
+          # verificados sai do Resend. Nenhum dos dois está escrito neste arquivo.
+          DOMINIO=$(printf '%s' "$FROM" | sed -e 's/.*@//' -e 's/>.*//' -e 's/[[:space:]]*$//')
+          [ -n "$DOMINIO" ] || { echo "::error::não foi possível extrair o domínio de '${FROM}'."; exit 1; }
+          echo "domínio do remetente: ${DOMINIO}"
+
+          COD=$(curl -sS -o dom.json -w '%{http_code}' -m 30 https://api.resend.com/domains \
+                  -H "Authorization: Bearer ${RESEND_API_KEY}" || true)
+          if [ "$COD" != "200" ]; then
+            VEREDITO=$(classificar "$COD")
+            echo "::error::GET /domains respondeu $COD — ${VEREDITO#*:}"
+            exit 1
+          fi
+          jq -e --arg d "$DOMINIO" 'any(.data[]?; .name == $d and .status == "verified")' dom.json >/dev/null \
+            || { echo "::error::o domínio '${DOMINIO}' NÃO está verificado na conta Resend. Verificados: $(jq -r '[.data[]? | select(.status=="verified") | .name] | join(", ")' dom.json). Se o DNS mudou, o e-mail parou."; exit 1; }
+
+          # ---------------------------------------------------------------------------------
+          echo "[6/7] o Resend aceita o remetente que a produção usa"
+          # --------------------------------------------------------------------------------
+          provar_remetente() {
+            local remetente="$1" rotulo="$2" corpo cod veredito
+            corpo=$(jq -nc --arg f "$remetente" --arg t "$DESTINO" \
+              '{from:$f, to:[$t], subject:"Email check", text:"probe automatico"}')
+            # `-o /dev/null`: o corpo da resposta do Resend ecoa dado da requisição, e log de CI é
+            # público neste repositório. Só o código sai daqui.
+            cod=$(curl -sS -o /dev/null -w '%{http_code}' -m 30 -X POST https://api.resend.com/emails \
+                    -H "Authorization: Bearer ${RESEND_API_KEY}" \
+                    -H "Content-Type: application/json" \
+                    --data "$corpo" || true)
+            veredito=$(classificar "$cod")
+            if [ "${veredito%%:*}" = "ok" ]; then
+              echo "  ${rotulo}: aceito ($cod)"
+              return 0
+            fi
+            echo "::error::${rotulo} — ${veredito#*:}"
+            return 1
+          }
+
+          # `|| exit 1` explícito, e não a confiança no `set -e`: o ramo de falha de cada passo tem
+          # de ser visível no próprio bloco, porque é ele que o guarda mede. Confiar no errexit
+          # deixava este passo (e o 7) removíveis com a suíte verde.
+          provar_remetente "$FROM" "remetente TRANSACIONAL (o que a produção usa)" || exit 1
+
+          # ---------------------------------------------------------------------------------
+          echo "[7/7] o Resend aceita o remetente do AUTH"
+          # --------------------------------------------------------------------------------
+          # Lido de `supabase/config.toml`, que é quem declara e versiona este endereço — e que
+          # `authSenderDomain.test.ts` já guarda. Escrevê-lo aqui seria um segundo dono.
+          #
+          # COMENTADO CONTA. O bloco [auth.email.smtp] fica comentado de propósito (o local usa
+          # Mailpit), e o endereço declarado ali continua sendo o que a produção deve usar — ela é
+          # configurada no dashboard, não por este arquivo. O que interessa é a DECLARAÇÃO.
+          #
+          # ⚠️ O recorte pelo bloco é obrigatório, não estilo: existe um SEGUNDO `admin_email` no
+          # mesmo arquivo, na seção [inbucket], com o placeholder `admin@email.com` — e ele vem
+          # ANTES. Um `grep | head -1` que tolerasse `#` pegaria o placeholder e este passo passaria
+          # a provar um endereço que não é de ninguém.
+          AUTH_FROM=$(awk '
+            /^[[:space:]]*#?[[:space:]]*\[auth\.email\.smtp\][[:space:]]*$/ { dentro = 1; next }
+            dentro && /^[[:space:]]*#?[[:space:]]*admin_email[[:space:]]*=/ {
+              sub(/^[^=]*=[[:space:]]*/, ""); gsub(/"/, ""); gsub(/\r/, ""); print; exit
+            }
+          ' supabase/config.toml)
+          case "$AUTH_FROM" in
+            *@*.*) : ;;
+            *)
+              echo "::error::não extraí um endereço de admin_email do bloco [auth.email.smtp] de supabase/config.toml (li: '${AUTH_FROM}'). O bloco foi renomeado, ou o endereço saiu dali — sem ele este passo não prova o remetente do login."
+              exit 1 ;;
+          esac
+          echo "remetente do auth (de supabase/config.toml): ${AUTH_FROM}"
+          provar_remetente "$AUTH_FROM" "remetente do AUTH (login por código)" || exit 1
+
+          echo
+          echo "OK — produção manda de ${FROM}, domínio ${DOMINIO} verificado, e os dois remetentes são aceitos."
+          echo "LEMBRETE: isto NÃO prova que o SMTP e os templates do GoTrue estão configurados no dashboard."

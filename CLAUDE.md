@@ -349,6 +349,9 @@ migrations, e `vercelRedirects` lê o `vercel.json`.
 | `surfaceArtSingleOwner.test.ts` | store `shared/lib/__tests__` (varre `apps/**` e `packages/**`) | qualquer arquivo de produção fora de `core/media/surfaceArt.ts` decidir **entre a arte de celular e a de computador** — `\|\|`, `??` ou ternário, **inclusive quebrados em linhas**, que é a forma que o Prettier produz sozinho. A régua exige **uma de cada superfície**: a primeira escrita acusou `CollectionFeature.tsx:55`, que é outra regra ("a arte do item vence a do destino") e legítima. Também recusa o dono **deixar de ser chamado** por `core/menu` e `core/home`. Pega também as formas **sem operador nenhum**: o array das duas artes e a reatribuição condicional (`if (!image) image = …`). **Âncora dupla** e treze sensores — o ternário cuja condição é a superfície (a forma que a primeira régua deixava passar, e exatamente como `menuBannerImage` estava escrito), o `\|\|` quebrado em linhas, o CRLF, o LF, o glob de dois asteriscos (`BL-027`), e os três pares que provam que linhas vizinhas de objeto, `if` com **outra** variável e **lista de nomes de campo** não são acusados — este último achado contra `MenuBannerEditor.tsx:103`, que percorre nomes de coluna para limpar campo vazio |
 | `importSchema.test.ts` | store `shared/lib/__tests__` | a migration da `35` afrouxar: índice de idempotência virar parcial; `security_invoker` sumir de `customer_directory`; o agregado de telefone da convidada perder o `FILTER (WHERE … IS NOT NULL)`; `handle_new_customer` perder o `security definer`; a adoção por e-mail deixar de recortar `customer_id IS NULL` ou de comparar por `lower()`; `grant` alcançar `anon`. **Cada asserção tem sensor por mutação** |
 | `checkoutSchema.test.ts` | store `shared/lib/__tests__` | a migration da `49` afrouxar: coluna sem `if not exists`; o índice de `client_request_id` deixar de ser único **ou** deixar de ser parcial; `account_exists` perder o `security definer` ou o `search_path` vazio; a comparação deixar de ser por `lower()`; `grant` alcançar `anon`; a migration passar a escrever dado. **E guarda uma dependência que ela NÃO escreve**: o `WHERE NOT EXISTS` de `customer_directory` (migration `35`), que é o que impede a convidada de aparecer **duas vezes** na tela de Clientes agora que ela vira `customers` de verdade. **Cada asserção tem sensor por mutação** |
+| `wiringResolve.test.ts` | `supabase/functions/_shared/__tests__` | o `index.ts` de qualquer edge function **chamar um nome que ela não importa nem declara**. Percorre a **AST do TypeScript** e olha só `CallExpression` com callee `Identifier` — string, comentário, tipo, `obj.metodo()` e arrow `async (…) =>` ficam de fora **por construção**, não por lista de exceções (a primeira escrita era por regex e acusou oito falsos positivos). **Existe porque `index.ts` é o único arquivo do repositório que NENHUMA ferramenta lê**: nenhum teste o importa (`AD-004` manda a lógica para `handlers.ts`), `pnpm build` não o vê, `tsc` não o alcança (`esm.sh` + `Deno`) e `pnpm lint` não olha `supabase/`. Custou `mercado-pago` **fora do ar em produção por seis dias** — `500 WORKER_ERROR` em toda requisição, `create-payment` e webhook mortos — por um `createResendProvider` sem import. **Âncora DERIVADA** (um `index.ts` para cada diretório de function, contado do disco — número cravado já nasceu errado uma vez **e** cada um com ao menos uma chamada na AST, senão um parser quebrado aprovaria todos). Guarda também as **envs do remetente** (`T8`): nenhum entrypoint cita a aposentada `RESEND_FROM`, e os dois que compõem citam as **duas** metades e dez sensores, incluindo o defeito real reinjetado |
+| `entregaDeEmailSchema.test.ts` | store `shared/lib/__tests__` | a migration da `52` afrouxar: `using (true)` voltar a `order_notes` ou a `order_status_history`; um `drop policy` faltando; `create policy` sem `has_role`; **o `with check` omitido** — a meia-correção que fecha a leitura e deixa a GRAVAÇÃO aberta, e que um teste de leitura não pega; `to public` em vez de `to authenticated`; `revoke` de `anon` sumindo; escrita de dado entrar. **Guarda a queda nos DOIS sentidos**: as três peças de compatibilidade da `42` (view `order_emails` + as duas RPCs) caem **e** as três do motor (`order_notifications`, `claim_order_notification`, `finish_order_notification`) não. **Âncora tripla** e **8 mutantes injetados no arquivo real**. O helper `mutar()` **lança** quando a mutação não muda nada — dois sensores já tinham virado no-op em silêncio por perderem o alvo do `.replace()` |
+| `emailCheckWorkflow.test.ts` | idem (varre `.github/workflows/`) | o `email-check.yml` medir a si mesmo em vez da produção: **qualquer literal do domínio verificado**, inclusive em comentário; a declaração de cegueira sumindo (o parágrafo que diz que ele NÃO prova SMTP nem templates do GoTrue — apagá-lo faz o próximo leitor achar que o auth está coberto); o remetente do auth virando literal em vez de vir de `config.toml`; 429/timeout deixarem de ser **indisponibilidade**; o passo 1 largando o par `200` **+** chave `from` (sem os dois, um bundle velho responde **400** com JSON válido e o sensor acusa "configuração errada" com o defeito sendo deploy velho). **Também guarda a `DLV-26`**: o passo de divergência do `Supabase Deploy` avisa e **nunca** falha o job. Recorte por bloco, que devolve `null` e **reprova** — a primeira escrita usava `[\s\S]*?` sobre o arquivo inteiro e casava o passo ERRADO |
 | `pedidoComDonoUnico.test.ts` | idem (varre `apps/store/**` e `apps/backoffice/**`) | qualquer arquivo de produção gravar em `orders` ou `order_items` pelo PostgREST — desde a `49` quem grava é a edge function `checkout`, e as policies de `INSERT` continuam abertas no banco de propósito (`BL-030`), então **este guarda é a única contenção**. **Zero allowlist**, âncora dupla, e sensores que provam: as duas formas de gravação (compacta e quebrada em linhas), que **ler** não é acusado, que um `insert` em outra tabela no meio não é atribuído a `orders`, e o removedor de comentário com CRLF e LF |
 | `orderAccessSingleOwner.test.ts` | idem | qualquer arquivo fora de `entities/order/model/orderAccess.ts` citar `estrelinha-order-access` — o token é a **única** credencial de um pedido de convidada, e uma segunda leitura à mão faria a confirmação abrir vazia logo depois de ela pagar; o dono trocar `localStorage` por `sessionStorage` (fechar a aba apagaria o caminho de volta) |
 | `desafioDeCodigoUnico.test.ts` | idem | um segundo campo de 6 dígitos em `apps/store/**` fora de `features/auth/ui/steps` — com o passo existente vêm o reenvio, o cooldown de 60s e a distinção entre código errado e expirado. **Tem o sentido positivo junto**: o desafio do checkout precisa **conter** `AuthCodeStep`, senão a ausência de um segundo campo seria verdadeira por não haver campo nenhum |
@@ -408,6 +411,14 @@ migrations, e `vercelRedirects` lê o `vercel.json`.
 | `db.test.ts` (`selectAll`) | idem | uma leitura de "o que já existe" voltar a `select` simples e ser truncada em 1.000 linhas pelo PostgREST |
 | `handlers.test.ts` (sitemap) | `supabase/functions/sitemap/__tests__` | um caminho degradado responder 200; **um corpo de erro carregar `<urlset>`**; o `Content-Type` da resposta boa deixar de ser `application/xml` |
 
+> **Guarda que recusa uma STRING é quebrado pela prosa que explica o defeito.** Aconteceu duas vezes
+> com formas diferentes: o bundler do `supabase start` morreu por um comentário que escrevia um
+> import proibido por extenso (merge da `48` com a `49`), e o `authSenderDomain.test.ts` reprovou na
+> feature `52` porque a documentação nova citava o subdomínio antigo ao contar como ele quebrou a
+> loja — **dois arquivos, os dois escritos para impedir o defeito que reintroduziram**.
+> A regra: **descreva a forma proibida, não a escreva**. Se o texto precisa mesmo dela, ele pertence
+> a `.specs/`, que é o escopo que esses guardas excluem.
+
 **Nenhum deles é opcional, e nenhum se conserta afrouxando a asserção.** A `fieldBorder` já custou 16
 campos com contraste de 1,19:1 por varrer só as tags HTML minúsculas enquanto a loja monta quase todo
 campo com o `<Input>` do shadcn — a regra existia, o token existia, o teste existia, e os três nunca
@@ -424,7 +435,45 @@ quando mudarem de verdade.
 | --- | --- | --- |
 | **Lint** | **26 erros / 6 warnings** — backoffice 24/4 · store 2/2 | `pnpm lint` |
 | **Tipos** | **0 · 0 · 0** (store · backoffice · catalog-import) | `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` |
-| **Testes** | **9554 em 494 arquivos** — store **3376/218** · backoffice **2711/148** · core **2356/92** · functions **599/13** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
+| **Testes** | **9742 em 498 arquivos** — store **3493/220** · backoffice **2711/148** · core **2372/93** · functions **654/14** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
+
+**A feature `52` (entrega de e-mail comprovada) somou +188 em TRÊS workspaces**, medidos em
+2026-09-19 um por vez, com exit code capturado fora de pipe e `--testTimeout=20000` na loja:
+**store 3376/218 → 3493/220** (+117/+2 — o guarda da migration, 43, e o do `email-check.yml`, 74) e
+**functions 599/13 → 654/14** (+55 — a porta `config-check`, com o dublê que **lança** em qualquer
+acesso ao banco, tornando "não toca no banco" medido em vez de suposto; e o guarda de wiring que
+achou a function de pagamento fora do ar) e **core 2356/92 → 2372/93**
+(+16 — `senderFrom`, o dono único da composição do remetente, na T8). Backoffice e catalog-import
+**não foram tocados e foram remedidos** — idênticos (2711/148 e 512/23). Lint em **26/6** e tipos em **0 · 0 · 0**, sem mexer; `packages/core/src/payment/**`
+sem uma linha alterada, conferido por `git status --porcelain` (zero arquivos).
+
+> **A suíte da loja reprovou 1 caso, e o culpado era a documentação desta própria feature.**
+> `authSenderDomain.test.ts` recusa o subdomínio antigo em qualquer arquivo fora de `.specs/` — e os
+> textos novos do `.env.example` e do `config.toml`, escritos para **explicar** como aquele domínio
+> derrubou a loja, o citavam por extenso. Dois arquivos, os dois existindo para impedir o defeito que
+> reintroduziram. É a segunda ocorrência desta classe no repositório (a primeira matou o
+> `supabase start` por um comentário com um import proibido), e virou regra na seção dos guardas.
+
+> **Duas réguas desta feature nasceram medindo a coisa errada, e os sensores acharam as duas.**
+> (1) `/\[1\/7\][\s\S]*?"\$COD" != "200"/` sobre o arquivo inteiro **atravessa passos**: com a
+> ocorrência do passo 1 mutada, ela casava a do passo 5 e seguia verde — media "existe um `!= 200`
+> em algum lugar depois do passo 1". Trocada por recorte de bloco que devolve `null` e **reprova**.
+> (2) A janela de 200 caracteres de `authLidoDoConfigToml` reprovou o arquivo **certo** quando o
+> `grep` de uma linha virou um `awk` de várias — régua calibrada pela forma que o código tinha no dia
+> em que ela foi escrita.
+
+> **O `config.toml` tem DOIS `admin_email`, e o placeholder vem primeiro.** O da seção `[inbucket]`
+> (`admin@email.com`, linha 100) precede o do `[auth.email.smtp]` (linha 289). A extração do passo 7
+> do `Email check` é **recortada pelo bloco** por isso: um `grep | head -1` que tolerasse o `#`
+> pegaria o placeholder, e o sensor passaria a provar um endereço que não é de ninguém — 200 do
+> Resend sobre um domínio que não é nosso.
+
+> **A `52` não ligou o SMTP local, e a razão é melhor que a decisão.** A pendência `C-08` mandava
+> ligar para validar que o remetente é aceito pela chave; quem faz isso agora é o `Email check`, todo
+> dia, sem efeito colateral. Ligar custaria o Mailpit (dev deixa de funcionar offline e passa a
+> mandar e-mail real, sujeito a limite) e não compraria garantia nova. A pergunta que expôs isso —
+> *"por que SMTP, se os transacionais saem pela API HTTP?"* — também abriu a `BL-045`: o **Send Email
+> Hook** faria o GoTrue chamar uma function nossa, e aí o SMTP deixaria de ser usado.
 
 **A feature `51` (a busca de produto do painel, com dono único) somou +172 em UM workspace**,
 medidos em 2026-09-14/15 um por vez, com exit code capturado fora de pipe e `--testTimeout=20000` na
@@ -1305,11 +1354,26 @@ Três workflows em `.github/workflows/`:
 | `ci.yml` | PR **e** push em `master` | `turbo run test --concurrency=1`, depois `pnpm build`. Lint e typecheck rodam com `continue-on-error` |
 | `supabase-deploy.yml` | push em `master` (sem filtro de `paths`) | `supabase db push --linked` e, condicionalmente, `supabase functions deploy` |
 | `sitemap-check.yml` | **cron diário** + `workflow_dispatch` | Prova a **entrega** de `/sitemap.xml`: tipo entregue, documento parseando, contagem acima do piso, `robots.txt` coerente e uma `<loc>` respondendo 200. Não regenera nada — o sitemap é servido ao vivo |
+| `email-check.yml` | **cron diário** + `workflow_dispatch` | Prova que o e-mail **ainda pode sair** (feature `52`). Sete passos: pergunta à produção com o que ela está configurada (`send-notification?action=config-check`), e prova **esse** valor contra o Resend. **Não** prova o SMTP nem os templates do GoTrue, e declara isso por extenso |
 
 - **`--concurrency=1` no CI é de propósito**: rodar store e backoffice em paralelo satura o runner de
   2 vCPUs (jsdom é pesado) e a suíte do backoffice fica flaky. É a mesma flake que se vê localmente.
 - **Lint e typecheck NÃO bloqueiam o merge** enquanto a baseline não for zerada. Rodam para dar
   visibilidade. O gate de verdade é *teste + build*.
+- **Remoção em produção se ordena pelo que está PUBLICADO, nunca pelo que está no disco.**
+  Vale para function, secret e coluna, e a feature `52` violou a regra depois de tê-la escrito para
+  outro caso: o `ADR` dela manda apagar a function zumbi **antes** da migration que derruba as RPCs
+  que ela chama — e o secret `RESEND_FROM` foi apagado **antes** do deploy do código que deixou de
+  lê-lo. O bundle publicado caiu no remetente de caixa-de-areia (200 do Resend, entrega só ao dono
+  da conta) e o cano que a feature tinha acabado de abrir fechou de novo, **sem erro em lugar
+  nenhum**. As duas metades da regra: o que o código publicado **ainda usa** só se remove depois do
+  deploy; o que o código publicado **ainda chama** só se derruba depois de ele sair do ar.
+- **O sensor pergunta ao ambiente que executa, e prova o valor que ele reporta** — nunca um valor
+  escrito no próprio sensor (`AD-037`, feature `52`). Um `email-check` que chamasse o Resend com o
+  remetente escrito no `.yml` mediria a **conta Resend**; o apagão de 2026-09-06 estava num **secret
+  do Supabase**, e aquele probe teria ficado verde os treze dias inteiros. Por isso não há um único
+  literal de domínio no workflow: ele é derivado do que a produção reporta e conferido contra o que o
+  Resend reporta.
 - **O deploy do Supabase roda sem filtro de `paths`**, e isso é decisão declarada: com filtro, um push
   que não tocasse `supabase/**` não gerava execução nenhuma — e **run ausente é indistinguível de run
   quebrado** na aba Actions. O custo de rodar sempre fica contido no passo `mudou`, que só deploya as
@@ -1376,6 +1440,40 @@ completo (framework, `installCommand` na raiz do monorepo, headers de cache e de
   os identificadores não.
 
 ## Estado conhecido / dívidas
+
+- **O E-MAIL DE AUTH DE PRODUÇÃO PODE ESTAR MORTO, E DOIS PASSOS DE OPERAÇÃO FECHAM ISSO** (feature
+  `52`). A feature abriu o cano do **transacional** — o `RESEND_FROM` do hospedado apontava, desde
+  2026-09-06, para um subdomínio que nunca foi criado na conta Resend, e a **única** tentativa de
+  e-mail da história da loja morreu com 403. Corrigido e medido em 2026-09-19. **O auth, esse, não
+  foi conferido**, e não há comando que o confira: o deploy não faz `config push` e a CLI **não tem
+  `config pull`**. Faltam dois passos, os dois de operação:
+  - **Conferir no dashboard do hospedado** o SMTP do auth e os **três** templates de
+    `supabase/templates/`. Sem SMTP, o GoTrue cai no compartilhado da Supabase (~2 e-mails/hora) e
+    **nenhuma cliente recebe o código de acesso**. Com SMTP e **sem** os templates é pior: chega o
+    e-mail padrão em inglês, com um **link**, enquanto a loja pede um código de 6 dígitos que aquele
+    e-mail não traz — e *parece* funcionar.
+  - **Apagar a function zumbi**: `supabase functions delete send-email --project-ref hgkrsfpupypxtygjgthf`.
+    Ela saiu do código no commit `480a171` e seguiu `ACTIVE`, respondendo 200. **Ordem obrigatória**:
+    apagar **antes** do push da migration da `52`, que derruba as RPCs que ela ainda chama.
+  - **Trocar o remetente de produção por dois secrets** — `RESEND_SENDER_NAME` e
+    `RESEND_SENDER_EMAIL` —, e apagar `RESEND_FROM`, que o código **não lê mais** (feature `52`,
+    T8). Enquanto faltarem, o remetente cai no default de caixa-de-areia: 200 do Resend e entrega
+    só ao dono da conta. O `supabase-deploy.yml` já confere a presença das duas.
+  - **Criar o secret `RESEND_API_KEY` no GitHub** (*Settings → Secrets and variables → Actions*,
+    **nível do repositório**). É do cofre do **GitHub**, não o da Supabase que o `Supabase Deploy`
+    confere — são dois cofres, e ter um não dá o outro. Sem ele o `Email check` nasce **vermelho
+    todo dia** dizendo "vazia". No **environment** `production` não serve: aquele job não declara
+    environment e não enxergaria.
+  O `Email check` cobre o remetente dos dois streams a partir do dia seguinte; ele **não** cobre o
+  SMTP nem os templates, e declara isso por extenso.
+- **O `.env` LOCAL É UM SEGUNDO DONO DOS SECRETS DE PRODUÇÃO** (`BL-044`, medido em 2026-09-19).
+  `supabase secrets set UMA_CHAVE=valor` rodado da raiz do projeto grava **oito** — a CLI mescla o
+  `.env` do diretório atual, sem avisar e sem criar chave nova (então não aparece na contagem).
+  Controle: o mesmo comando devolve `{"count":8}` da raiz e `{"count":1}` de um diretório sem `.env`.
+  Custou sete secrets de produção sobrescritos com valores de dev, dos quais **um não foi
+  restaurado**: `MELHOR_ENVIO_SENDER_JSON`. A cotação de frete funciona (usa só o CEP); a **criação
+  de etiqueta** é que pode falhar com 422, e ninguém a exercitou desde então. Procedimento seguro e
+  o contrato do digest estão em `supabase/CLAUDE.md` e no `.env.example`.
 
 - **AS TRÊS CÓPIAS DE `slugify` DO PAINEL CONTINUAM TRÊS, e a `51` não as unificou de propósito.**
   Ela levou a **dobra de busca** para `shared/lib/texto.ts` e deixou lá as sete outras ocorrências de

@@ -1350,3 +1350,477 @@ dinheiro aumenta risco sem retorno.
 **Ao fechar**: mover `AddressFields` para um módulo de tipo, apagar os dois hooks e os dois arquivos
 de teste, e declarar a queda de contagem (−21) com a contrapartida — a cobertura equivalente está em
 `supabase/functions/checkout/__tests__/createOrder.test.ts`.
+
+---
+
+## BL-033 — A aba Notificações nunca foi construída, e 11 dos 15 eventos são inalcançáveis
+
+**Aberto por**: auditoria de comunicação com a cliente, 2026-09-17 (medições de 2026-09-16).
+
+A feature `42` entregou o motor inteiro — 15 eventos, pré-condição por estado, reivindicação atômica,
+auditoria por linha em `order_notifications`, reenvio manual, régua de tom. **A Phase 2 dela nunca
+saiu**: `tasks.md:164` ("Phase 2: A aba Notificações"), T19–T23, todos os checkboxes em aberto,
+incluindo a T22, que mandava `AdminSettingsPage.tsx` ganhar `<TabsTrigger value="notifications">`.
+
+`AdminSettingsPage.tsx:118-124` tem **sete** abas — Geral, Frete, Material, Pagamento, Checkout, SEO,
+Carrinho. Não há Notificações, não há rota `/admin/notificacoes`, e **nenhum arquivo dos dois apps lê
+ou grava `store_settings.notifications`**. A porta `?action=preview`
+(`send-notification/handlers.ts:206`) foi construída para essa tela e não tem um único chamador.
+
+**O default é 4 ligados e 11 desligados** (`packages/core/src/notifications/defaults.ts:191-196`):
+
+| Ligados | Desligados — e sem caminho de UI para ligar |
+| --- | --- |
+| `order_received`, `order_paid`, `order_shipped`, `material_received` | `material_instructions`, `payment_rejected`, `pix_expired`, `order_cancelled`, `payment_refunded`, `material_tracking_registered`, `in_production`, `order_delivered`, `post_delivery_care`, `owner_order_paid`, `owner_material_incoming` |
+
+Hoje, em consequência: cancelar um pedido não avisa a cliente; marcar como entregue não avisa;
+"em produção" não avisa; a dona não é avisada de venda paga; e — o pior — **quem paga um pedido com
+material afetivo não recebe e-mail nenhum**. `triggers.ts:52-56` bifurca `payment_approved` para
+`material_instructions` quando há material a esperar, e esse evento está desligado; `order_paid`
+**se recusa** nesse estado (`precondition.ts:66`, `return 'material_pending'`). Silêncio dos dois lados.
+
+**Duas linhas de código de produção mandam a lojista para a tela que não existe**:
+`defaults.ts:18-19` e `useAdminOrders.ts:156-158`.
+
+**Precondição operacional que falta junto**: `store_settings.material` — o endereço do ateliê — **não
+é semeada por migration nenhuma** (conferido nos 7 `insert into public.store_settings` do repositório
+e no banco local: 9 chaves, `material` ausente). A aba Material existe e grava a chave; enquanto
+ninguém salvar, `atelieAddress()` (`dispatch.ts:172-180`) devolve vazio e `{{endereco_atelie}}` sai
+**em branco** — no e-mail cujo propósito é dar o endereço para onde postar as cinzas. Ligar
+`material_instructions` sem preencher a aba entrega um e-mail pior que nenhum.
+
+**Por que ficou de fora**: é a metade de painel de uma feature já entregue, não um achado novo — e
+ela tem tamanho próprio (formulário por evento, prévia ao vivo pela porta que já existe, régua de tom
+de `copy.ts` na tela).
+
+**Ao fechar**: a tela consome `?action=preview` em vez de redesenhar o e-mail (`AD-019`/`PNL-05` — um
+segundo renderizador seria o "defeito 01" no lugar mais caro: a dona aprova um desenho e a cliente
+recebe outro). Enquanto ela não existe, ligar qualquer evento exige `UPDATE` em `store_settings` por
+SQL, e **isso precisa estar registrado na tabela "O que espera decisão da dona" do `CLAUDE.md`** — é
+o mesmo formato de dívida do interruptor do frete grátis (`AD-027`) e do menu vazio (`39`), com a
+diferença de que ali a tela existe.
+
+---
+
+## BL-034 — O auth de produção não é verificado por nada, e o SMTP local segue desligado
+
+**Aberto por**: auditoria de comunicação com a cliente, 2026-09-17.
+
+`.github/workflows/supabase-deploy.yml:7-12` declara que **não** faz `supabase config push`, e a razão
+está certa (o `config.toml` é configuração de desenvolvimento; empurrá-lo derrubaria o auth de
+produção). A consequência não está registrada em lugar nenhum: **nada de `[auth]` chega ao projeto
+hospedado** — nem SMTP, nem os três templates, nem `site_url`, nem `additional_redirect_urls`, nem
+`enable_confirmations`, nem `email_sent`. Tudo isso existe em produção só se alguém configurou no
+dashboard à mão, e **nenhum teste, passo de CI ou probe confere**.
+
+O passo `conferir secrets das edge functions` (`supabase-deploy.yml:158-180`) confere `RESEND_API_KEY`
+— mas essa chave ali é o uso por **API HTTP** da `send-notification`. O uso por **SMTP** do GoTrue é
+outro, e não é coberto por nada.
+
+**Os dois modos de falha, o segundo pior que o primeiro:**
+
+1. **Sem SMTP no dashboard** — o GoTrue cai no SMTP compartilhado do Supabase (~2 e-mails/hora, na
+   prática só para membros do projeto). O login por código da loja fica inoperante para clientes.
+2. **Com SMTP mas sem os templates colados** — chega o link padrão do GoTrue, **em inglês**, enquanto
+   a loja chama `verifyOtp` e pede um código de 6 dígitos que o e-mail não traz. *Parece* funcionar: o
+   e-mail chega.
+
+É a mesma família do apagão do Melhor Envio que o próprio workflow narra nas linhas 142-148 ("a loja
+rodou meses sem elas", "os 46 testes do caminho de frete mockam o client e passam verdes").
+
+> **A pendência `C-08` do `.env.example` está VENCIDA, e isso é achado desta auditoria.** O passo
+> escrito lá manda rodar um probe antes de ligar o SMTP. Medido em 2026-09-16 contra a conta real:
+> `GET /domains` devolve **um** domínio, `loja.umaestrelinha.com.br`, `status: verified`, região
+> `sa-east-1`; e `POST /emails` para `delivered@resend.dev` devolveu **HTTP 200** com os **dois**
+> remetentes — o transacional (`adri@loja.umaestrelinha.com.br`, o valor real do `.env`) e o do auth
+> (`acesso@loja.umaestrelinha.com.br`). O bloqueio que a caixa descreve não existe mais. O que falta
+> é descomentar `[auth.email.smtp]` (`config.toml:256-263`) e `supabase stop && supabase start` —
+> `db reset` não recarrega o auth.
+
+**Ao fechar**: (a) executar o passo de troca local, que agora está liberado; (b) conferir no dashboard
+do projeto hospedado o SMTP **e** os três templates de `supabase/templates/`; (c) decidir se cabe um
+probe de entrega no `sitemap-check.yml` ou irmão — o único jeito de transformar "pode estar quebrado
+há meses" em "quebrou hoje". Sem (c), este item volta.
+
+---
+
+## BL-035 — O rastreio gravado pelo Melhor Envio não avisa a cliente, e a falha não deixa rastro
+
+**Aberto por**: auditoria de comunicação com a cliente, 2026-09-17.
+
+`MelhorEnvioTab.tsx` **não grava** `tracking_code` — só lê (`:159-162`) e chama a function. Quem grava
+é `supabase/functions/melhor-envio/index.ts:303-311`, direto em `orders`, **sem chamar
+`dispatchTrigger`**. O comentário em `useAdminOrders.ts:170-172` afirma que o caminho de
+`addTrackingCode` "cobre também o caminho do Melhor Envio" — **isso não se sustenta**, porque a aba
+não passa por `addTrackingCode`.
+
+O par `TRG-12` fecha ou não conforme a ordem em que a lojista trabalha:
+
+- **Etiqueta, depois marcar Enviado**: `updateStatus` dispara, a pré-condição passa
+  (`precondition.ts:104-107` exige `status === 'shipped'` **e** `tracking_code` não vazio), e-mail sai.
+- **Marcar Enviado, depois gerar etiqueta**: o primeiro disparo falha por `no_tracking_code`, e a
+  gravação pelo Melhor Envio não dispara nada. **O e-mail de postagem nunca sai.**
+
+**E o segundo caso é invisível**, o que é a metade mais cara deste item: `dispatch.ts:430-436` avalia
+a pré-condição **antes** do claim e retorna **sem gravar linha nenhuma**. Sem linha, o histórico do
+pedido não mostra nada — nem falha, nem botão de reenviar. Vai só para o `console.log` da function. O
+mesmo vale para `invalid_from` (`dispatch.ts:426-429`), que é apagão total de e-mail sem uma linha em
+lugar nenhum.
+
+**Contorno até fechar**: gerar a etiqueta **antes** de marcar como Enviado.
+
+**Ao fechar**: decidir entre (a) a function do Melhor Envio disparar `order_status_changed` ao gravar
+o rastreio, ou (b) `addTrackingCode` virar a única porta de gravação. E, independente disso, **fazer a
+recusa por pré-condição deixar rastro** — hoje o único sinal de que uma cliente não foi avisada é a
+ausência de uma linha que ninguém procura. Ver também a falta de indicador fora da tela do pedido:
+`order-list/model/columns.ts` não tem coluna de notificação e o dashboard não menciona e-mail, então
+descobrir exige abrir pedido a pedido.
+
+---
+
+## BL-036 — A convidada vê o formulário de rastreio do material, e ele não funciona
+
+**Aberto por**: auditoria de comunicação com a cliente, 2026-09-17. **Regressão de feature cruzada.**
+
+Duas travas independentes cortam a convidada da **única** comunicação que a loja pública dispara:
+
+1. **A RPC é fechada a `anon`** — `20260811120000_22-material-afetivo.sql:264-265`:
+   `revoke all on function public.set_material_tracking(uuid, text) from anon;`
+2. **A porta `notify` exige sessão** — `send-notification/handlers.ts:173` chama `requireOrderOwner`,
+   que exige JWT com `sub` (`:92-95`). Sem sessão, 401.
+
+**E o formulário não é escondido dela**: `OrderConfirmationPage.tsx:145` renderiza
+`<OrderMaterialBlock>`, e `OrderMaterialBlock.tsx:110` renderiza `<MaterialTrackingForm>` **sem
+nenhuma checagem de usuário** — a busca por `useAuth`, `user`, `session` ou `logged` naquele arquivo
+devolve zero. Ela digita o código do envelope que postou e recebe *"Não foi possível registrar o
+código agora."*
+
+O comentário da migration `22` diz que "`anon` não alcança nenhuma das duas: o rastreio exige
+identidade, e o caminho alternativo (avisar a Adri) continua valendo" — escrito **antes** de a feature
+`49` criar o checkout sem conta. A `49` tornou aquele comentário obsoleto e ninguém reabriu a decisão.
+
+**O PIX, esse, foi resolvido** e serve de molde: `PixPayment.tsx:105-128` documenta o `CSC-05` e
+acrescenta polling de 5s via `fetchGuestOrder`, porque o Realtime respeita RLS e a convidada é `anon`.
+
+**Ao fechar**: as opções são (a) autorizar a porta pelo `access_token`, como `checkout?action=get-order`
+já faz — é o caminho coerente com a `49`; ou (b) esconder o formulário e mostrar o caminho do WhatsApp.
+**O estado atual é o pior dos três**: campo visível que falha com mensagem genérica.
+
+---
+
+## BL-037 — `post_delivery_care` está inteiro e não tem quem o dispare
+
+**Aberto por**: auditoria de comunicação com a cliente, 2026-09-17.
+
+O evento existe em `events.ts:35`, está no `check` da migration (`20260907120000:134`), tem texto
+semeado (`defaults.ts:156-163`), audiência (`events.ts:63`), rótulo (`:88`), régua de copy própria
+(`copy.ts:48,75`), pré-condição (`precondition.ts:114-115`) e um parâmetro `post_delivery_days: 7`
+(`defaults.ts:187`, `settings.ts:45-46`), também semeado.
+
+**Nada o produz.** `eventsForTrigger` (`triggers.ts:45-95`) devolve 14 dos 15 eventos e nunca este, e
+não existe rotina: o único `pg_cron` do repositório é o expirador de pedidos
+(`20260718235214_payment_approval_rpc.sql:81-106`). O próprio código admite em `precondition.ts:112-113`
+— *"a elegibilidade 'há ≥ N dias' é da rotina que dispara (P3, **sem task nesta rodada**)"*.
+
+Ele também **não é alcançável pelo botão de reenvio**, porque `AdminOrderPage.tsx:380` só reenvia
+eventos que já têm linha no histórico. Ou seja: mesmo depois de a aba de `BL-033` existir e a dona
+ligar o interruptor, **nunca sairia** — e nada na tela diria por quê.
+
+`post_delivery_days` é órfão pela mesma razão: semeado, tipado, **zero leitores em produção**.
+
+**Ao fechar**: escrever a rotina (um `pg_cron` que varre `delivered` com `delivered_at` há N dias ou
+mais e chama a function, ou um job externo), **ou** retirar o evento do vocabulário. Deixar como está
+é pior que as duas: um interruptor que a dona pode ligar e que não faz nada.
+
+---
+
+## BL-038 — O carrinho abandonado é capturado e nunca acionado
+
+**Aberto por**: auditoria de comunicação com a cliente, 2026-09-17.
+
+A tabela **existe** (`20260802120000_abandoned_carts.sql:35-51`) e é escrita de verdade: o tracker
+(`useAbandonedCartTracker.ts:87`) chama `track_abandoned_cart` com debounce de 3s, para logada e para
+convidada. O painel lê em `/admin/carrinhos-abandonados`. **A metade "recuperação" é que está morta:**
+
+| O que o banco prevê | Quem consome |
+| --- | --- |
+| lembrete por e-mail | **ninguém** — a varredura por `abandoned` em `supabase/functions/` e no `config.toml` devolve **zero**; não há cron além do expirador de pedidos, e nenhum dos 15 eventos de notificação é carrinho abandonado |
+| `reminder_sent_at`, `reminder_sent_count` | **ninguém escreve** — lidos só para exibir (`AbandonedCartDetailDialog.tsx:168-171`, filtro `hasReminder`). Serão sempre nulos/zero |
+| `status = 'abandoned'` e `'lost'` | **ninguém escreve** — `track_` grava `'active'`, `mark_cart_recovered` grava `'recovered'`. As métricas `abandoned`/`abandonedValue` (`useAdminAbandonedCarts.ts:74,80`) serão sempre 0 |
+| `store_settings.abandoned_cart.threshold_hours` (semeado `4`) | só um `<Input>` (`AdminSettingsPage.tsx:452`) — **nada aplica o corte**, e o rótulo diz "Marcar como abandonado após (horas)" |
+| `auto_email_enabled`, `auto_email_hours`, `reminder_coupon_code` | **zero leitores.** Os controles foram removidos da tela na `42` com o motivo escrito (`AdminSettingsPage.tsx:440-443`): *"era um interruptor sem motor"* |
+| `updateStatus` (`useAdminAbandonedCarts.ts:97-106`) | exportado (`:124`) e **sem consumidor** — `AdminAbandonedCartsPage.tsx:14` não o desestrutura. Mesmo padrão do `deleteSection` da `41` |
+
+E existe **a metade receptora de um lembrete que ninguém envia**: `useRecoverCart.ts` trata
+`/carrinho?recover=<id>`, e o comentário em `:44` fala de *"quem clica no lembrete"*.
+
+**Por que ficou de fora**: e-mail de recuperação de carrinho é decisão de **produto** antes de código,
+e num negócio memorial ela não é óbvia — é a mesma régua que tirou da home a prova social fabricada e
+que fez `chargeMaterial.ts:1-12` recusar cobrança automática. Pode ser que a resposta certa seja
+**remover** a metade morta em vez de completá-la.
+
+**Ao fechar**: decidir primeiro se a loja quer lembrete. Se sim, ele é um evento novo no motor que já
+existe — mas **não** por pedido, porque `order_notifications` é chaveada por `order_id` e carrinho não
+é pedido, o que é trabalho de schema. Se não, apagar as colunas, as três chaves de settings e o
+`updateStatus` órfão, e tirar o campo de `threshold_hours` da tela.
+
+---
+
+## BL-039 — A newsletter coleta o e-mail, descarta, e confirma assim mesmo
+
+**Aberto por**: auditoria de comunicação com a cliente, 2026-09-17.
+
+`NewsletterBanner.tsx:41-44` trata o envio com um `preventDefault` seguido de `setSubmitted(true)` — e
+nada mais. O e-mail não vai a lugar nenhum: não há tabela, não há RPC, não há chamada. A tela então
+exibe *"Anotado. Quando houver novidades, escrevemos."* (`:57`). O próprio doc-comment admite
+(`:22-25`) que "esta newsletter não tem destino nenhum".
+
+É coleta com confirmação falsa, e num negócio memorial o peso é diferente do normal: quem deixa o
+e-mail ali quer notícia da joia que guarda as cinzas de alguém. É a mesma régua que removeu da home a
+prova social fabricada e as avaliações de demonstração.
+
+**Por que ficou de fora**: `levantamento.md:122` da `42` já a tinha classificado como **não
+transacional** — motor e reputação de envio separados (Resend Audiences/Broadcasts), com double
+opt-in e descadastro por LGPD. É feature própria, não conserto.
+
+**Ao fechar**: as duas saídas honestas são dar destino ao e-mail **ou** remover o campo. A terceira —
+manter a faixa e trocar a copy para não prometer — é o mínimo, e leva minutos.
+
+---
+
+## BL-040 — `order_notes` e `order_status_history` continuam `FOR ALL USING (true)`
+
+**Aberto por**: auditoria de comunicação com a cliente, 2026-09-17. **Achado de segurança já nomeado
+no repositório e nunca corrigido.**
+
+`20260415160758_order_tracking_and_history.sql:24-25` e `:40-41` criaram as duas policies como
+`FOR ALL USING (true) WITH CHECK (true)`, e **nenhuma migration as derrubou**. Combinadas com
+`20260801130000_public_schema_grants.sql:29` (`grant all ... to anon, authenticated, service_role`),
+o efeito é: **`anon` lê e grava** nota interna e histórico de status de **qualquer** pedido.
+
+O defeito está identificado por escrito, dentro do repositório, em
+`20260829120000_34-painel-de-vendas.sql:235-238`:
+
+> *"A policy usa `has_role`, e NÃO o `FOR ALL USING (true)` que `order_notes` carrega desde 2026-04.
+> Copiar aquele molde ao pé da letra seria copiar um defeito: nota interna sobre a morte de alguém
+> não pode ser legível por qualquer sessão autenticada."*
+
+A `34` fez o certo em `customer_notes` e **não voltou** para consertar as duas antigas.
+
+Ao lado, dois itens menores da mesma varredura, que valem decisão e não necessariamente conserto:
+`store_settings` é legível por `anon` **inteira** (`store_settings_public_read FOR SELECT USING (true)`,
+sem cláusula `TO`), o que hoje inclui o texto de todos os e-mails e o `general.email` da dona; e
+`get_abandoned_cart(uuid)` tem `grant execute ... to anon` e devolve e-mail e itens de qualquer id —
+este último é decisão declarada (`20260802120000:170-177`, "uuid v4 não enumerável").
+
+**Por que ficou de fora**: é migration de RLS em tabela viva, e merece ser feita junto com uma leitura
+de quem escreve nelas hoje (o painel grava por sessão autenticada de admin; confirmar antes de fechar
+a porta).
+
+**Ao fechar**: `drop policy` nas duas e recriar por `has_role`, no molde de `customer_notes`
+(`34:225-250`). Guarda: uma asserção que leia a migration e recuse `USING (true)` em tabela de pedido.
+
+---
+
+## BL-041 — A function `send-email` continua ACTIVE em produção, e a ponte da `42` nunca saiu
+
+**Aberto por**: auditoria de comunicação com a cliente, 2026-09-17.
+
+`supabase functions list --project-ref hgkrsfpupypxtygjgthf` devolve **nove** functions. Oito são as
+do repositório. A nona é **`send-email`**, `status: ACTIVE`,
+*(esta entrada dizia "dez functions"; corrigido em 2026-09-19. **A versão foi deliberadamente
+removida**: ela já foi documentada como v7, corrigida para v15 e medida como v17 no mesmo dia, com
+`updated_at` provando que a function não foi reimplantada — é contador mutável da plataforma, e
+cravá-lo em três documentos é três donos de um número que ninguém controla. O que identifica o
+zumbi é **slug + `ACTIVE`**.)*
+`verify_jwt: false`, sem atualização desde a criação — e ela **não existe mais no código**, removida
+no commit `480a171` ("feat(42): a fase 1b termina"). `functions deploy` sobe o que existe; **não
+remove o que sumiu**.
+
+É um endpoint público, sem JWT obrigatório, rodando código da marca anterior, que ninguém mede e
+ninguém lê o log. Um `OPTIONS` contra ele devolve 200.
+
+Na mesma família, as três peças de compatibilidade que a `42` criou **para a janela de deploy** e
+deixou para trás:
+
+- a view `public.order_emails` (`20260907120000:261-268`) — **zero leitores** (guardado por
+  `notificationSingleOwner.test.ts`), com o comentário `:522-523` dizendo "sai em migration posterior";
+- as RPCs `claim_order_email` e `finish_order_email` (`:229-252`), reescritas para delegar — **zero
+  chamadores**, agora que a function que as usava não existe.
+
+A `48` e a `49` são as migrations seguintes e não tocaram em nenhuma das três.
+
+**Ao fechar**: `supabase functions delete send-email --project-ref hgkrsfpupypxtygjgthf` (decisão de
+quem opera, porque é remoção em produção), e uma migration que derrube a view e as duas RPCs. Vale
+também um passo no `supabase-deploy.yml` que compare a lista remota com os diretórios de
+`supabase/functions/` e avise na divergência — **function zumbi é indistinguível de function viva na
+aba Functions**.
+
+---
+
+## BL-042 — Três guardas do motor de notificação são verdadeiros nos dois mundos
+
+**Aberto por**: auditoria de comunicação com a cliente, 2026-09-17. Suíte de `functions` em
+**599/13 verde** no momento da medição — o que segue não é reprovação, é **cegueira**.
+
+1. **`requireOrderOwner` é auditável só no papel — e é bypass de autorização.**
+   `handlers.ts:96-100` faz `.from('customers').select('id').eq('user_id', user.id)`. O dublê registra
+   `.eq()` **apenas quando a fixture é função** (`_shared/testing/fakes.ts:162-165,289-294`), e
+   `handlers.test.ts:89` passa `customers: { id: CUSTOMER_ID }` como **objeto**. Apagar
+   `.eq('user_id', user.id)` não muda um resultado: os 8 casos de `NTF-13` seguem verdes, inclusive o
+   de "pedido de OUTRA pessoa devolve 404", que só passa porque a fixture de `orders` traz
+   `customer_id` divergente. Na prática, **qualquer cliente logada poderia disparar notificação de
+   qualquer pedido**. É exatamente o padrão que o `CLAUDE.md` já registra para o `create-order` da
+   `49` — *"dublê que não enxerga o filtro torna o filtro inauditável"*. Conserto: fixture de
+   `customers` como **função** que discrimina por `eq[1]`, como `fakes.ts:147-160` já ensina.
+
+2. **`SETTINGS_KEYS` pode perder um item sem nada reprovar.** `fakes.ts:308` implementa
+   `in: () => chain`, um no-op. Remover `'material'` de `dispatch.ts:55` faz a leitura real deixar de
+   trazer o endereço do ateliê, e `dispatch.test.ts:543-552` ("o endereço do ateliê chega ao texto")
+   continua passando.
+
+3. **O teste que diz que todos os canais são tentados não prova envio nenhum.**
+   `dispatch.test.ts:531-541` assere que os canais resultantes são `['email','whatsapp']`, mas
+   `recipientFor` (`dispatch.ts:192`) recusa todo canal diferente de `email` **antes** do `send`. A
+   asserção é verdadeira no mundo em que o WhatsApp funciona e no mundo em que ele é sempre pulado —
+   que é o atual. O nome do teste afirma uma sensibilidade que ele não tem.
+
+**Consequência de desenho para a feature `43`**: `dispatch.ts:81-86` promete que acrescentar um canal é
+"um item em `index.ts:41` e um arquivo". **Não é** — a linha `dispatch.ts:192` recusa o canal antes do
+provedor, então a `43` vai precisar tocar o motor. `SkipReason` já prevê `no_phone` e `no_opt_in`
+(`:93-94`), hoje inalcançáveis.
+
+**Ao fechar**: os três consertos são de teste, não de produção — exceto a linha 192, que é decisão da
+`43`. Cada um deve ser provado por **injeção real da mutação no arquivo real**, no molde que o
+repositório já usa.
+
+---
+
+## BL-043 — Seis defeitos pequenos no conteúdo e no render do e-mail
+
+**Aberto por**: auditoria de comunicação com a cliente, 2026-09-17. Nenhum derruba envio; todos são de
+uma sessão só, e por isso estão juntos.
+
+1. **O link do guia de material aponta para uma rota 301, e o teste trava o valor errado.**
+   `render/vars.ts:58` usa `'/como-enviar-o-material'`; o dono do endereço é
+   `MATERIAL_GUIDE_PATH = '/como-enviar-seu-material-de-dna'` (`packages/core/src/routes/routes.ts:137`),
+   e a rota antiga só existe como **redirect** (`routes.ts:61-64`). `render.test.ts:449` **assere a
+   rota velha** — a suíte está verde a favor do endereço obsoleto, mesma família do cadeado do hero que
+   a `41` encontrou. O parâmetro `ctx.guiaPath` (`vars.ts:31`) existe e **nenhum chamador o passa**.
+
+2. **O rótulo do botão não é escapado.** `layout.ts:229` interpola o rótulo cru dentro do `<a>`, e
+   `email.ts:100` o produz por `interpolate(fields.cta_label, vars)`. Com `{{primeiro_nome}}` no rótulo
+   — que a dona pode escrever, `variables.ts:15` permite — o nome da cliente entra sem escape.
+   `interpolate` declara que não escapa (`variables.ts:65-67`) e `notificationCopyRefusal` checa
+   urgência, emoji e venda, nunca marcação. **É a única saída de dado sem escape**, e há teste provando
+   escape para todas as outras: a assimetria é acidental, não decidida.
+
+3. **As linhas `extra` da dona nunca aparecem no HTML.** `email.ts:99` as interpola e `:116` as usa
+   **só** na versão texto; o corpo HTML (`:103-109`) não as inclui. Confere com as fixtures legadas,
+   então não é regressão — mas é um campo que a dona edita, com limite de 5 por 160 caracteres
+   (`copy.ts:94-95`), que a esmagadora maioria das caixas de entrada jamais mostra. **Nenhum teste
+   prende a decisão** nos dois sentidos.
+
+4. **Duas cópias da montagem do endereço do ateliê.** `dispatch.ts:172-180` (`atelieAddress`) e
+   `handlers.ts:268-274` (dentro de `readNotificationSettings`) fazem a mesma junção campo a campo, e as
+   duas leituras de `store_settings` também são duplicadas. É o "defeito 01" no lugar mais irônico
+   possível: a prévia existe para a dona ver **exatamente** o que a cliente recebe, e acrescentar um
+   campo numa cópia só faria prévia e envio divergirem sem nada quebrar. Nenhum teste compara as duas.
+
+5. **`recovery.html` diz "na loja", e o mesmo e-mail agora serve o painel.** `recovery.html:23`:
+   *"Use o código abaixo **na loja** para criar uma senha nova."* Desde a `48` ele é disparado também de
+   `/admin/usuarios` (`AdminUsersPage.tsx:122`) e de `/admin/login` (`ForgotPasswordFlow.tsx:54`) — e o
+   próprio `ForgotPasswordFlow.tsx:12-15` registra esse problema como razão de existir. Um template,
+   dois públicos, texto que serve a um só.
+
+6. **Erro interno da function vira 404 "Pedido não encontrado".** `dispatchEventFull` devolve
+   `found:false` no `.catch()` (`dispatch.ts:357-360`) e `handlers.ts:142` traduz isso em 404. Bug de
+   código lido como pedido inexistente, na tela de quem está tentando entender por que o e-mail não saiu.
+
+**Ao fechar**: (1), (5) e (6) são de minutos. (2) e (4) pedem um teste junto. (3) é decisão antes de
+código — ou o `extra` entra no HTML, ou some do formulário que a `BL-033` vai construir.
+
+---
+
+## BL-044 — `MELHOR_ENVIO_SENDER_JSON` do hospedado ficou com o valor de desenvolvimento
+
+- **Status**: aberto · **Registrado em**: 2026-09-19 · **Origem**: o incidente de `secrets set` da feature `52`
+
+Em 2026-09-19 um `supabase secrets set` com **uma** chave na linha de comando gravou **oito** — a CLI
+mescla o `.env` do diretório atual. Sete secrets de produção foram sobrescritos com valores de dev.
+
+Seis foram restaurados no mesmo dia, e a prova é o digest: `MERCADO_PAGO_ACCESS_TOKEN`,
+`MERCADO_PAGO_WEBHOOK_SECRET`, `STORE_PUBLIC_URL`, `MELHOR_ENVIO_ENV` e `RESEND_API_KEY` voltaram a
+digests **idênticos** aos de antes, e o digest é hash estável do valor. `MELHOR_ENVIO_TOKEN` não
+voltou ao original, mas ganhou um token de **produção novo**, emitido em 2026-09-19 e válido até
+2027-09-19 — conferido pelo payload do JWT e por `GET /api/v2/me` (200 em `melhorenvio.com.br`, 401
+em `sandbox.`).
+
+**Sobra um**: `MELHOR_ENVIO_SENDER_JSON`, digest `75e60e0d0cea` desde 2026-09-19T12:00, contra o
+original `d48035cb5b43`. Ele carrega o endereço de origem por extenso — CEP, logradouro, CPF e
+telefone de quem posta.
+
+**Por que não quebrou nada ainda.** A **cotação** usa só `from.postal_code`, e ela está respondendo:
+medida em 2026-09-19, 14 serviços com preços de produção (PAC 25,25 · SEDEX 38,94), ~8% acima da
+referência sandbox que o `supabase/CLAUDE.md` registra — a assinatura da conta de produção. Quem usa
+o endereço **completo** é a criação de etiqueta (`action=create`), que ninguém executou desde a
+troca.
+
+**O risco.** Sandbox e produção são contas separadas no Melhor Envio. Se o endereço de dev não for
+válido como remetente na conta de produção, a primeira etiqueta falha com 422 — e o modo de falha é
+ruim: a lojista descobre no momento de postar, com a peça pronta e a cliente esperando.
+
+**Ao fechar**: conferir o endereço cadastrado na conta de **produção** do Melhor Envio e regravar o
+secret pelo **dashboard** (nunca pela CLI a partir da raiz do projeto — ver a regra que a `52`
+escreve em `.env.example` e `supabase/CLAUDE.md`). Depois, comprar **uma** etiqueta de teste, que é
+a única prova de que o endereço serve.
+
+---
+
+## BL-045 — O auth podia sair pela API HTTP do Resend, e sair do SMTP junto
+
+- **Status**: aberto · **Registrado em**: 2026-09-19 · **Origem**: pergunta do usuário durante a feature `52`
+
+**A pergunta que abriu isto**: *"precisamos de SMTP ligado, uma vez que os envios de e-mail são
+feitos diretamente sob chamadas API pelo Resend?"* A resposta hoje é **sim**, e o porquê é que existem
+dois caminhos, e só um deles é código nosso:
+
+| Caminho | Quem envia | Transporte |
+| --- | --- | --- |
+| Transacional (os 15 eventos) | a edge function `send-notification` | **API HTTP** do Resend |
+| Auth (código de 6 dígitos, recuperação de senha) | o **GoTrue** | **SMTP** |
+
+O GoTrue não fala a API HTTP do Resend. Sem SMTP ele cai no SMTP compartilhado da Supabase
+(~2 e-mails/hora, na prática só para membros do projeto), e **nenhuma cliente recebe o código**.
+
+**A alternativa existe.** A Supabase tem o **Send Email Hook**: o GoTrue chama uma function nossa em
+vez de mandar por SMTP. A documentação é explícita — *"Auth Hook handles email sending (SMTP not
+used)"* — e o recurso está disponível em projeto hospedado.
+
+**O que ele fecharia, e é mais do que parece:**
+
+- **Os três templates virariam código.** Hoje eles existem em produção **só se alguém colou no
+  dashboard**, e não há como verificar: o deploy não faz `config push` e a CLI **não tem
+  `config pull`**. É o coração da `BL-034`, e nenhum sensor alcança. Com o hook, o corpo do e-mail é
+  montado pela nossa function — versionado, testado, e podendo reusar o `layout.ts` que os
+  transacionais já usam.
+- **Um transporte só.** Hoje há duas formas de um e-mail sair da loja, com modos de falha distintos.
+- **O `Email check` passaria a cobrir o auth de verdade**, em vez de declarar cegueira (hoje ele
+  prova que o remetente é aceito pela chave e nada além disso).
+- **Mata a classe do `BUG-20260728`** — a confusão entre `RESEND_FROM` em RFC 5322 (`Nome <addr>`) e
+  o `admin_email` nu, que ao ser trocada derruba **todo** o login por código.
+
+**Por que ficou de fora da `52`.** Na hora em que esta entrada foi escrita a loja tinha **zero**
+e-mail de auth funcionando em produção, e o hook é feature de vários dias — function nova, contrato
+de payload do GoTrue, segredo de assinatura e reescrita dos três corpos. Ligar o SMTP no dashboard
+leva minutos. **Consertar o apagão primeiro e unificar depois é a ordem certa**, e a `52` deixou o
+passo manual registrado no `validation.md`.
+
+**Custo residual que o hook NÃO elimina**: ele ainda exige **uma** configuração no dashboard (a URI
+do hook e o segredo). É menos que SMTP + três templates, mas não é zero — a fronteira "configuração
+que só existe no painel" continua existindo, só fica bem menor.
+
+**Ao fechar**: dimensionar o contrato do payload do GoTrue e o segredo de assinatura; decidir se os
+três corpos passam pelo `layout.ts` dos transacionais (provavelmente sim — é o mesmo defeito 01 se
+nascerem separados); e estender o `Email check` para provar o caminho inteiro, retirando o parágrafo
+de cegueira que a `52` escreveu.
