@@ -37,3 +37,7 @@ docs/qa/evidence/
 
 # Vercel CLI — link local do projeto, nunca versionado
 .vercel
+
+# Bytecode do Python — as skills de `.claude/skills/**` geram cache ao rodar.
+__pycache__/
+*.py[cod]
