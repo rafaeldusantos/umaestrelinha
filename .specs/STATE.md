@@ -918,9 +918,85 @@
 - **Date**: 2026-09-19
 - **Status**: active
 
+### AD-039
+- **Decision**: **Uma lista longa de itens configuráveis é ACORDEÃO — recolhida por padrão, um aberto
+  por vez, com o estado do "qual está aberto" no PAI.** Aplicado na feature `56` aos quinze eventos de
+  Configurações → Notificações. E, junto: **"como um registro se apresenta numa tela de configuração"
+  é uma pergunta DIFERENTE de "o que aconteceu com ele", e as duas têm mapas separados** —
+  `NOTIFICATION_EVENT_NAMES`/`_DESCRIPTIONS`/`_ICONS` (`core/notifications/catalog.ts`) ao lado do já
+  existente `NOTIFICATION_EVENT_LABELS`, que continua sendo do histórico do pedido.
+- **Reason**: A tela tinha **13.292px** de rolagem em 1440 e **13.592px** em 390, medidos em
+  navegador — ~16 telas para responder *"quais destes quinze avisos eu quero ligar?"*, e **nenhuma
+  visão em que os quinze coubessem juntos**. O problema não era densidade: era que a pergunta mais
+  frequente da tela (ligar/desligar, e conferir o que está ligado) exigia atravessar a pergunta mais
+  rara (editar o texto). Recolher inverte isso, e custa um clique a quem vai editar.
+  Sobre os dois mapas: usar o rótulo de histórico como título de card punha cada evento **no passado**
+  ("Confirmação do pedido enviada") acima de um interruptor **desligado** — a tela afirmando que algo
+  já saiu enquanto o controle diz que não sai. Eram duas perguntas dividindo um dono, que é o
+  "defeito 01" ao contrário: não duas escritas da mesma regra, mas uma escrita servindo a duas.
+- **Trade-off**: **Recolher ESCONDE informação, e essa é a parte que precisa de contrapartida.** A
+  recusa de texto e o banner de precondição moram dentro do card; sem nada na linha, descobrir qual
+  dos quinze está travado custaria abrir os quinze. A saída foi um sinal na linha recolhida com o
+  **motivo inteiro** no nome acessível — não um "atenção" genérico, que trocaria uma busca por outra.
+  E o segundo custo é de manutenção: dois mapas keyed pelo mesmo tipo convidam alguém a achar que são
+  cópias e apagar uma. A contenção é uma asserção que **recusa a igualdade nos quinze**, mais uma que
+  recusa o particípio — a cópia não volta nem por `ctrl+C` nem por reescrita.
+  O estado no pai é o que torna "um aberto por vez" expressável: quinze `useState` locais seriam
+  quinze verdades e nenhum lugar onde a regra mora. O preço é um componente controlado a mais, e o
+  ganho é que `LEG-06` e `LEG-10` (fechar o card fecha a prévia) caem na **mesma função**.
+- **Relação com `AD-033`**: é ela aplicada, e o resultado é o contrário do que a regra sugeriria à
+  primeira leitura. Os consumidores do catálogo são hoje **um só** (o painel), o que apontaria para
+  `entities/`. Mas não há escolha: `notificationSingleOwner.test.ts` (feature `42`) proíbe qualquer
+  arquivo de `apps/**` escrever nome de evento como literal, e um `Record<NotificationEvent, …>`
+  escrito no painel teria os **quinze literais como chaves**. Quando um guarda de vocabulário existe,
+  ele decide a camada.
+- **Restrição que vale para todo módulo novo em `core/notifications`**: o **ícone é uma CHAVE**, nunca
+  um componente. `purity.test.ts` proíbe React ali porque a edge function importa o grafo por caminho
+  relativo e o Deno resolve os tipos junto. O painel guarda o mapa `chave → componente`, com guarda
+  bidirecional — molde de `core/menu/icons.ts` × `MENU_ICON_COMPONENTS`.
+- **Scope**: `packages/core/src/notifications/catalog.ts`,
+  `apps/backoffice/src/features/notification-settings/**`,
+  `apps/backoffice/src/shared/ui/{CharCounter,SettingsSaveButton,FieldGroup}.tsx`,
+  `apps/backoffice/src/widgets/settings-sections/**`
+- **Date**: 2026-09-20
+- **Status**: active
+
 ## Handoff
 
-### ATUAL — 2026-09-19 · `55-configuracoes-por-secoes` **IMPLEMENTADA — 14 de 14 tasks**
+### ATUAL — 2026-09-20 · `56-notificacoes-legiveis` **IMPLEMENTADA — 9 de 9 tasks**
+
+- **Feature**: `.specs/features/56-notificacoes-legiveis/` (`spec.md`, `design.md`, `tasks.md`,
+  `validation.md`). Decisão: `AD-039`.
+- **Origem**: pedido do usuário — *melhorar a UI de Configurações → Notificações conforme os
+  artboards do Paper, e alinhar as outras seções ao mesmo padrão*. Artboards na página
+  *Configurações — proposta de reorganização* do arquivo `Uma Estrelinha`.
+- **Decisão do usuário no meio do caminho**: o artboard desenha um card aberto e os outros
+  recolhidos, mas a nota ao lado dizia *"resumido aqui só para caber no desenho"* — ou seja, ele
+  **não** prescrevia o acordeão. Perguntado com as três opções e o custo de cada uma, o usuário
+  escolheu **recolhidos de verdade, um aberto por vez**.
+- **O que mudou**:
+  - `packages/core/src/notifications/catalog.ts` — nome, descrição e chave de ícone dos 15 eventos.
+  - `apps/backoffice/src/shared/ui/` — `CharCounter` (dono único do contador), `SettingsSaveButton`
+    (que saiu de `features/settings`), e `FieldGroup` com o slot `counter` na linha do rótulo.
+  - `EventCard` recolhível, `EmailPreviewFrame` emoldurado, `NotificationsTab` com acordeão e
+    cabeçalho próprio. `NotificationsSection` **apagado**.
+  - As outras três seções: contadores nos quatro campos com limite, e o botão de salvar unificado.
+- **Medido**: **10084 em 518** (backoffice 2947/164 → 3008/166, core 2383/93 → 2395/94; store,
+  functions e catalog-import remedidos e idênticos). Lint **26/6**, tipos **0 · 0 · 0**, `pnpm build`
+  verde, `payment/**` intocado. Navegador: **13.292px → 1.693px** (1440) e **13.592px → 1.833px**
+  (390).
+- **Sensor**: 18 mutantes, 18 mortos — **1 sobreviveu na rodada 1** (`LEG-10`, asserção subsumida
+  pela vizinha) e **1 morreu por erro de compilação** em vez de por asserção. Os dois refeitos.
+- **Próximo número de feature**: `57`.
+- **Pendências que esta feature NÃO fechou, e que estão no `CLAUDE.md` da raiz**: os sete contadores
+  escritos à mão fora de Configurações; os três grupos de Notificações (o primeiro ficou com nove
+  eventos, incluindo postagem e cuidados, que não são pagamento); e o guarda de movimento, que
+  alcança treze arquivos e não o painel inteiro.
+- **Achado de infraestrutura**: o edge runtime local **não enxerga arquivo novo** em `packages/core`
+  — responde 503 com `Module not found` para um arquivo que existe no disco. `supabase stop` (sem
+  `--all`) + `supabase start` resolve. É local; `functions deploy` empacota na hora.
+
+### 2026-09-19 · `55-configuracoes-por-secoes` **IMPLEMENTADA — 14 de 14 tasks**
 
 - **Feature**: `.specs/features/55-configuracoes-por-secoes/` (`spec.md`, `design.md`, `tasks.md`,
   `validation.md`). `CFG-01`..`CFG-27`. Execute inline, em cinco fases. **Um commit só**, no fim

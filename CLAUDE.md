@@ -128,8 +128,9 @@ Ao planejar/implementar features, use a Skill **`tlc-spec-driven`** com estas co
     `spec.md`** e não foi implementada — o número está consumido de qualquer forma. A `48` (usuários
     do painel) é de **outra sessão** e tem spec própria. **A `50` (produtos em destaque), a `51` (a
     busca de produto do painel), a `52` (entrega de e-mail comprovada), a `53` (a aba de
-    Notificações), a `54` (templates de e-mail de auth) e a `55` (configurações por seções) também
-    estão FECHADAS. A próxima é a `56`.**
+    Notificações), a `54` (templates de e-mail de auth), a `55` (configurações por seções) e a `56`
+    (Notificações legíveis, e o padrão das Configurações) também estão FECHADAS. A próxima é a
+    `57`.**
   - **A `46` e a `47` correram EM PARALELO, em worktrees separados**, e é o segundo caso do projeto
     (o primeiro, a `45`, dividiu uma working tree só). O que mudou: a divisão foi por **árvore**, não
     por arquivo — a `47` nasceu de um `git worktree` sobre o HEAD local e trouxe a `46` por
@@ -231,6 +232,7 @@ com as duas cópias divergindo, e quem descobre é a cliente ou o Google.
 | `47` | **a folga entre o palco e o quadro da prévia**, declarada uma vez em cada palco (`HomeLivePreview.tsx:33` e `MenuLivePreview.tsx:31`). Mudar uma e não a outra fazia as duas prévias escalarem diferente — build, `tsc` e teste de componente verdes | `previewFrame(device, box, fullscreen)` em `@estrelinha/core/home`, que recebe a **caixa** e aplica a folga dentro de `core`; `folgaDoPalco.test.ts` recusa a volta, inclusive na forma sem nome |
 | `39` | **o DESENHO do menu, de novo** — `MenuBarPreview.tsx` redesenhava a barra do topo à mão no painel, com a paleta do admin, e anunciava `/crie-seu-botton`, que **nunca foi rota**. É o mesmo defeito que a `25` apagou da Home; no menu ele nunca tinha saído. E, ao lado dele, o **papel** de cada categoria (barra × painel), que uma coluna nova teria dessincronizado no primeiro "mover categoria" | a prévia É a loja, num iframe (`MenuLivePreview`), e o papel é **derivado da árvore** dentro de `menuItems(input, surface)` — a porta única das quatro superfícies |
 | `49` | **três donos de uma vez, e o pior deles ainda não existia.** (1) "Este e-mail pode seguir como convidada?" ia nascer **duas vezes** — uma na tela, para mostrar o desafio de código, outra no servidor, para recusar a gravação —, e divergir faria a loja deixar passar quem o servidor recusa. (2) "Como nasce um pedido" ia ficar com **dois caminhos**, o `insert` do navegador para quem tem sessão e a function para a convidada. (3) `corsHeaders` já estava escrito **três vezes** nas edge functions, e a function nova seria a quarta | `resolveCheckoutIdentity` em `@estrelinha/core/checkout`, chamado igual pela tela e pelo servidor; **uma** function grava todos os pedidos, com `pedidoComDonoUnico.test.ts` recusando a volta; e `_shared/http.ts`, de onde as outras **reexportam** (`toBe`, não `toEqual`) |
+| `56` | **o contador de caracteres, escrito CINCO vezes à mão dentro de um card** — e ausente dos quatro campos com limite das outras seções, onde o teto ia embutido no rótulo ("Título padrão (até 60 caracteres)") com o número **cravado na frase**, longe do `maxLength` que de fato limita. Ao lado dele, a **mesma string de classes** do botão de salvar escrita em três arquivos de Configurações, um deles já sem o `h-11` | `shared/ui/CharCounter.tsx` e `shared/ui/SettingsSaveButton.tsx`, com `contadorComDonoUnico.test.ts` recusando a sexta escrita dentro de Configurações |
 | `50` | **o esqueleto de carga e a revalidação, que eram a MESMA chamada** — `fetchSections()`/`fetchCategories()` significavam "carregar" e "revalidar" ao mesmo tempo, e a tela só sabia ler a primeira: toda gravação trocava a árvore por `<TableSkeleton/>`, o que **desmontava o `<iframe>` da prévia** e recarregava a loja a cada clique. E, ao lado, dois campos **de tela** do rascunho a um `insert` de distância de virar `PGRST204` | `fetchX(modo)` com o tipo `FetchMode` em **um** arquivo (`shared/lib/fetchMode.ts`) — dois nomes para o mesmo modo seriam o defeito no tamanho de um tipo, e o terceiro hook nasceria com um terceiro nome —, mais `toNewItems` como a única tradução rascunho → colunas, com `toNewItems.test.ts` recusando a oitava chave |
 
 Consequências práticas, nesta ordem:
@@ -394,6 +396,9 @@ migrations, e `vercelRedirects` lê o `vercel.json`.
 | `buscaDeProdutoComDonoUnico.test.ts` | backoffice `shared/lib/__tests__` | **três réguas, ZERO allowlist** (feature `51`, `AD-036`). (1) qualquer arquivo de `apps/backoffice/src/**` fora de `entities/product/api/**` consultar `products` **filtrando por nome** — e a régua casa **as duas formas**, porque o dono não usa a que a spec presumia: ele monta `` `name.ilike.%…%` `` como **string** para o `.or()`, e a chamada de método que existe no arquivo é sobre `sku`. Uma régua só de método teria nascido **verde sobre nada** (`L-033`). O recorte à esquerda é por token exato, senão `customer_name.ilike.` — a busca de PEDIDO, legítima — cairia junto (`L-034`). (2) a **declaração** da dobra de busca fora de `shared/lib/texto.ts`: a régua **caminha pela cadeia de chamadas** e acusa a que **termina** no acento — o gerador de slug e a normalização de tag continuam depois dele (hífen, espaço) e são outra função, e o sensor prova que um slug que perca a junção por hífen **volta a ser acusado**. (3) o catálogo virando `<option>`/`<SelectItem>` fora de `entities/product/**`; **o alcance desta terceira é o NOME da variável, e isso está declarado no arquivo** — uma régua puramente estrutural acusaria as doze listas de categoria do painel, que têm a forma idêntica. **Âncora dupla**, com a terceira ancorada no extrator de JSX (o dono é `<ul>` de `<li>` por `BUS-17`, então não há ocorrência legítima nele — fingir uma seria âncora falsa), e **treze sensores**, incluindo o glob de dois asteriscos (`BL-027`), o CRLF, o LF, e os inversos que provam que a busca de pedido, o gerador de slug e as listas de categoria **não** são acusados |
 | `navItems.test.ts` | backoffice `widgets/admin-layout` | ordem das rotas em `App.tsx` divergir de `navGroups` |
 | `settingsSections.test.ts` | backoffice `shared/lib/__tests__` | o registro das 4 seções de Configurações mudar de ordem, ganhar slug fora de kebab-case, ou `findSettingsSection` deixar de devolver `null` para slug inexistente, vazio e ausente — é lá que `CFG-18` mora, num lugar só. Também recusa duas descrições iguais (duas linhas do rail indistinguíveis abaixo do rótulo) e uma cópia no lugar da referência do registro |
+| `catalog.test.ts` | `packages/core/src/notifications/__tests__` | os três mapas de apresentação divergirem dos 15 eventos (chave a mais **ou** a menos); **um nome de evento virar CÓPIA do rótulo de histórico** — os dois mapas respondem perguntas diferentes (*"que evento é este?"* × *"o que aconteceu com este pedido?"*), e a cópia faz a tela de configuração intitular cada card no passado, acima de um interruptor desligado; nome no particípio de "enviado" mesmo sem ser cópia literal; nome ou descrição vazio, repetido ou longo demais; descrição que não começa por "Enviado" (ela responde QUANDO, nunca O QUE) ou que leve exclamação; chave de ícone fora do vocabulário, órfã, ou repetida entre dois eventos. A **pureza** do módulo não é remedida aqui: `purity.test.ts`, ao lado, já lista o diretório do disco e alcança o arquivo novo por construção |
+| `eventIcons.test.ts` | backoffice `features/notification-settings/ui/__tests__` | chave de `NOTIFICATION_ICON_KEYS` sem componente **ou** componente sem chave — **bidirecional**, no molde de `menuIconCatalog.test.ts`, porque o `tsc` pega só o primeiro sentido. Guarda também o **percurso inteiro** (evento → chave → componente), que os dois mapas podem satisfazer isoladamente e quebrar juntos |
+| `contadorComDonoUnico.test.ts` | backoffice `shared/ui/__tests__` | uma segunda escrita do contador de caracteres dentro de Configurações — a forma "comprimento colado numa barra", nas duas grafias (interpolação de template e chave de JSX). **Escopo LITERAL e estreito**, com o motivo escrito no arquivo: a primeira escrita varria o painel inteiro e nascia acusando **sete** ocorrências em cinco arquivos fora de Configurações, que **não são a mesma função** (duas aparam antes de contar, duas escrevem o sufixo "caracteres") — e guarda que nasce reprovando sete vezes é guarda que alguém desliga. **Allowlist de UM** (o dono), âncora dupla (arquivos lidos **e** a forma encontrada no dono), e sensores com os dois inversos (`.length` sem barra, e divisão POR comprimento) mais o removedor de comentário com CRLF, LF e o glob de dois asteriscos |
 | `panels.test.tsx` | backoffice `widgets/settings-sections/model/__tests__` | o registro das seções e o mapa `slug → painel` divergirem, **nos dois sentidos**: seção sem painel abre o vazio, painel sem seção fica no bundle sem ninguém alcançar. O `tsc` pega só o primeiro (`Record<SettingsSectionSlug, …>`). Também recusa duas seções compartilhando o mesmo componente — o erro que passa por completude |
 | `rotasDeConfiguracoes.test.ts` | backoffice `app/__tests__` | as duas rotas de Configurações deixarem de ser **irmãs auto-fechadas**. A forma idiomática do react-router (rota-mãe com filhos aninhados) faz o `indexOf('</Route>')` de `rotasSobGuarda` fechar no lugar errado e **encolher o guarda de autorização do painel inteiro**. Também recusa um `<Navigate>` na rota-mãe (`CFG-17`) e as duas rotas montando componentes diferentes. O parser caminha por profundidade de `{}` em vez de regex — `element={<X />}` contém um `/>` dentro da tag, e a primeira escrita declarava **toda** rota auto-fechada; quem acusou foram os dois sensores |
 | `semAbaEmConfiguracoes.test.ts` | backoffice `shared/lib/__tests__` | qualquer arquivo de `apps/backoffice/src/**` chamar uma seção de Configurações de "aba" — os **seis** rótulos inequívocos das abas mortas, os **quatro** rótulos de seção novos, e a forma `Configurações → <rótulo>`. **`Geral` e `SEO` sozinhos ficam de fora, com o motivo escrito no arquivo**: o formulário de produto tem abas de verdade com esses nomes, e um guarda que nasce reprovando outra tela é um guarda que alguém desliga. A forma com seta descarta as seções VIVAS por lookahead — sem isso ela acusava `Configurações → Dados da loja` (a copy nova) e `→ Frete e Material` (por `Frete` ser prefixo). **Allowlist de UM** (o próprio guarda) com o caso que prova que outro arquivo de teste seria acusado |
@@ -443,7 +448,7 @@ quando mudarem de verdade.
 | --- | --- | --- |
 | **Lint** | **26 erros / 6 warnings** — backoffice 24/4 · store 2/2 | `pnpm lint` |
 | **Tipos** | **0 · 0 · 0** (store · backoffice · catalog-import) | `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` |
-| **Testes** | **10011 em 515 arquivos** — store **3517/221** · backoffice **2947/164** · core **2383/93** · functions **652/14** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
+| **Testes** | **10084 em 518 arquivos** — store **3517/221** · backoffice **3008/166** · core **2395/94** · functions **652/14** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
 
 **A feature `53` (a aba de Notificações, os 15 eventos do motor ficam alcançáveis) somou +116 em
 TRÊS workspaces, medidos em 2026-09-19 um por vez, exit code fora de pipe e `--testTimeout=20000`
@@ -517,6 +522,71 @@ alterada (`git diff --name-only -- packages/core/src/payment`, zero arquivos).
 > um arquivo que existe no disco); só `supabase stop` (sem `--all`) + `supabase start` recriou o
 > container do zero e resolveu. Sem isso, a prova em navegador desta feature (que depende de
 > `send-notification?action=preview`/`?action=config-check`) não teria como acontecer.
+
+**A feature `56` (Notificações legíveis, e o padrão das Configurações) somou +73 em DOIS
+workspaces**, medidos em 2026-09-20 um por vez, com exit code fora de pipe e `--testTimeout=20000`
+nos dois apps: **backoffice 2947/164 → 3008/166** (+61/+2 — o card recolhível, o mapa de ícones, o
+contador com dono, a moldura da prévia, o acordeão e os contadores das outras seções) e **core
+2383/93 → 2395/94** (+12 — o catálogo de apresentação dos 15 eventos). **Store, functions e
+catalog-import não foram tocados e foram remedidos assim mesmo — os três vieram idênticos.** Lint em
+**26/6** e tipos em **0 · 0 · 0**, sem mexer; `pnpm build` verde nos dois apps, e
+`packages/core/src/payment/**` com **zero** arquivos alterados.
+
+> **A baseline de entrada bateu EXATAMENTE a tabela acima** — 10011 em 515, os cinco workspaces. É a
+> primeira vez em muitas features que a linha escrita aqui não estava envelhecida, e o motivo é que a
+> `55` mediu de verdade ao fechar. Vale como confirmação da regra: **quem fecha a feature mede; quem
+> abre a próxima mede de novo** — e quando as duas medições concordam, a próxima pessoa pode confiar
+> no gate em vez de recalculá-lo.
+
+> **O defeito que motivou a feature era MEDIDO, não impressão.** A seção Notificações tinha
+> **13.292px** de rolagem em 1440 e **13.592px** em 390 — ~16 telas para responder *"quais destes
+> quinze avisos eu quero ligar?"*, sem nenhuma visão em que os quinze coubessem juntos. Os 15 cards
+> nasciam todos abertos, com 5 campos cada. Depois: **1.693px** e **1.833px**, medidos no mesmo
+> Chromium, com os 15 recolhidos.
+
+> **O título de cada card era a frase do HISTÓRICO do pedido, e isso é um segundo dono com duas
+> perguntas diferentes.** `NOTIFICATION_EVENT_LABELS` (feature 42) responde *"o que aconteceu com
+> este pedido?"* e está no passado — "Confirmação do pedido enviada". Numa tela onde se configura o
+> que **vai** ser enviado, ela se lê como registro de log, acima de um interruptor desligado.
+> `NOTIFICATION_EVENT_NAMES` (`core/notifications/catalog.ts`) responde *"que evento é este?"*. O
+> risco de alguém achar que são cópias e apagar uma é real, e a contenção é uma asserção que **recusa
+> a igualdade nos 15** — mais uma que recusa o particípio, para a cópia não voltar por reescrita em
+> vez de por `ctrl+C`.
+
+> **O sensor de discriminação achou UM sobrevivente em 17, e ele tem a assinatura de sempre: a
+> asserção verdadeira nos DOIS mundos.** Apagar `setPreview(null)` de `alternarCard` deixava a suíte
+> inteira verde, porque a régua de `LEG-10` media a prévia **dentro do card já recolhido** — e lá o
+> iframe está ausente de qualquer jeito, pois o corpo sai do DOM por `LEG-05`. A asserção estava
+> **subsumida pela vizinha** e não media nada próprio. A consequência real só aparece na **volta**: o
+> card reabre mostrando a prévia de um texto que pode ter mudado, com o botão dizendo "Fechar prévia".
+> O caso novo volta ao card e cobra as duas coisas.
+>
+> **E um mutante morreu pelo MOTIVO ERRADO**, o que é quase tão ruim quanto sobreviver: o primeiro de
+> `LEG-16` foi escrito com um fragmento JSX sem fechar e derrubou a suíte **por erro de compilação**.
+> Um mutante assim prova que o compilador funciona, e nada mais. Refeito como mutação sintaticamente
+> válida, morre por asserção. **A rodada 2 passou a imprimir, por mutante, se a morte foi por
+> asserção ou por compilação** — a distinção que a rodada 1 não fazia. Total: **18 mutantes, 18
+> mortos**, todos reinjetados nos arquivos reais com restauração e comparação byte a byte.
+
+> **DOIS defeitos de layout achados só em navegador, e os dois corrigidos antes de fechar.** (1) O
+> título "Notificações" aparecia **duas vezes** no celular — o cabeçalho de voltar da
+> `AdminSettingsPage` já nomeia a seção, e o título da aba o repetia logo abaixo com outra descrição,
+> antes do primeiro evento. **A duplicação é anterior a esta feature**, e não aparecia nas outras três
+> seções porque lá os títulos vêm do `FormCard` e são diferentes do nome da seção. Corrigido com
+> `hidden lg:block`, a mesma alternância que o resto da tela usa: **−84px** acima da dobra em 390.
+> (2) O rótulo da moldura da prévia quebrava em **três linhas** em 390, partindo no hífen de
+> "e-mail", porque o selo "Prévia de exemplo" espremia a frase; com `flex-wrap` mais piso de largura
+> no título, quem desce de linha passou a ser o selo.
+
+> ⚠️ **O edge runtime local NÃO enxerga arquivo novo em `packages/core`, e isso custa uma sessão de
+> depuração.** Ao acrescentar `catalog.ts` ao barrel que a function `send-notification` importa, ela
+> passou a responder **503** com `worker boot error: Module not found ".../catalog.ts"` — para um
+> arquivo que **existe no disco**. É bind-mount obsoleto, o mesmo sintoma que a `53` registrou por
+> outro caminho. `supabase stop` (sem `--all`) + `supabase start` recria o container e resolve: a
+> mesma requisição passou a responder **401**, que é só a falta do header de auth no `curl` e é a
+> prova de que o worker inicializa e o grafo de tipos resolve. **É local, não produção** —
+> `functions deploy` empacota na hora. Antes de investigar um 503 depois de criar arquivo em `core`,
+> confira o log do container: se a mensagem nomeia um arquivo que existe, é o mount.
 
 **A feature `55` (configurações por seções) somou +129 em UM workspace**, medidos em 2026-09-19 um
 por vez, com exit code fora de pipe e `--testTimeout=20000` nos dois apps: **backoffice 2818/158 →
@@ -1648,6 +1718,27 @@ completo (framework, `installCommand` na raiz do monorepo, headers de cache e de
 
 ## Estado conhecido / dívidas
 
+- **SETE contadores de caracteres do painel continuam escritos à mão, fora de Configurações**
+  (achado da `56`, ao escrever `contadorComDonoUnico.test.ts`). São cinco arquivos:
+  `FaqEditorDialog.tsx` (×2), `HeroEditor.tsx`, `SeoPreview.tsx` (×2) e `AdminProductFormPage.tsx`.
+  **Não são a mesma função que o `CharCounter`**: duas aparam o texto antes de contar
+  (`.trim().length`), duas escrevem o sufixo "caracteres", e o espaçamento em volta da barra difere.
+  Trocá-las mudaria texto visível em telas que a `56` não foi pedida para tocar, e quebraria as
+  asserções delas. O guarda nasceu com **escopo literal de quatro pastas** por isso, com o motivo
+  escrito no arquivo — um que nascesse reprovando sete vezes seria desligado no primeiro gate. O
+  risco aberto é o de sempre: o número do limite fica cravado na frase, longe da constante, e a
+  feature `46` já mediu o custo disso (subir `FAQ_ANSWER_MAX` em `core` deixou o contador do painel
+  dizendo "0 / 600").
+- **Os TRÊS grupos de Notificações continuam sendo os da `53`, e "Pedido e pagamento" ficou com
+  NOVE eventos** — inclusive "Pedido postado", "Pedido entregue" e "Cuidados com a joia", que não são
+  pagamento. A `56` tornou a contagem visível (`LEG-17`) e foi ela que expôs o desequilíbrio; mudar o
+  agrupamento é mexer em `sectionFor` (`model/sections.ts`), que é regra da `53`, e ficou fora de
+  escopo por decisão. O artboard desenhava "5 eventos" naquele grupo — número ilustrativo, não medida.
+- **A `56` não ampliou `animacaoRespeitaMovimento.test.ts` ao painel inteiro.** Os quatro arquivos de
+  UI que ela tocou entraram no escopo literal (9 → 13 arquivos, âncoras 14/7 → **38/18**), no molde
+  do que a `51` fez na task em que o arquivo dela nasceu. O resto do painel continua com ~50 classes
+  de `transition-*` sem par, e a dívida de decidir classe a classe o que é movimento decorativo segue
+  aberta.
 - **A `55` NÃO tem prova em navegador**, e ela entra na fila de `32`…`51`. O que a feature entrega é
   **largura, coluna e alternância por breakpoint**, e jsdom devolve 0 para toda medida de layout:
   cada asserção da suíte é proxy de forma (classe declarada, atributo, presença de nó). Falta medir

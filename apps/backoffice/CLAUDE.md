@@ -492,6 +492,14 @@ Agora são **quatro seções**, cada uma com endereço:
 | Frete e Material | `frete-e-material` | Frete · Material | `shipping`, `material` |
 | Notificações | `notificacoes` | `NotificationsTab` | `notifications`, pela própria seção |
 
+> **`NotificationsSection` foi APAGADO na feature `56`.** Ele era o invólucro entre o registro e a
+> `NotificationsTab`, e existia — por escrito, no comentário dele — só para desenhar o cabeçalho "que
+> as outras seções ganham do `FormCard` e esta não pode ganhar, porque o corpo dela já são quinze
+> cards". `LEG-18` mudou aquele cabeçalho de casa: o campo *Pedido para a prévia* foi para a linha do
+> título, e o campo é **estado da aba**, então o dono da linha passou a ser quem tem o estado. O que
+> sobrou no arquivo era `() => <NotificationsTab />`, e `SETTINGS_PANELS` passou a apontar direto
+> para a feature.
+
 **Três donos, e nenhum decide o que é do outro** — é o que a `AD-038` generaliza para a próxima tela
 deste formato:
 
@@ -642,6 +650,56 @@ feature inteira (`BL-033`). A seção é **autocontida**: tem o próprio
   de `URGENCY_TERMS`/`NOTIFICATION_VARIABLES`/`COPY_LIMITS`/a régua de emoji no painel.
 - **Os 11 eventos novos nascem desligados** (`PNL-06`, decisão da `42`) e a `53` não ligou nenhum —
   ver *Estado conhecido / dívidas* no `CLAUDE.md` da raiz.
+
+### O card recolhível, e o catálogo de apresentação (feature `56`)
+
+A seção tinha **13.292px** de rolagem em 1440 e **13.592px** em 390, medidos em navegador: os quinze
+cards nasciam todos abertos, com cinco campos cada, e não havia nenhuma visão em que os quinze
+coubessem juntos. Hoje são **1.693px** e **1.833px** — os quinze numa tela, e a Adri abre o que quer
+editar.
+
+- **Recolhido é 74px: ícone, nome, interruptor.** Nenhum campo no DOM — ausência, não `display:none`:
+  quinze cards × cinco campos escondidos seriam 75 nós de formulário alcançáveis por tabulação dentro
+  de cartões fechados.
+- **Qual card está aberto é estado do PAI** (`NotificationsTab`), pelo mesmo motivo que a prévia já
+  era: *"no máximo um aberto"* não se expressa dentro do card. Quinze `useState` locais seriam quinze
+  verdades e nenhum lugar onde a regra mora. **Fechar o card fecha a prévia dele na MESMA função** —
+  dois `useEffect` se observando poderiam divergir, e a prévia de um card fechado continuaria no ar.
+- **Fechar NÃO descarta a edição**, e isso é propriedade da árvore: o rascunho é de
+  `useNotificationsDraft` e o card nunca o teve. Está medido (`LEG-07`) para que a próxima feature não
+  mova um campo para dentro do card e perca o texto ao recolher, com tudo verde.
+- **O interruptor é IRMÃO do botão do cabeçalho, nunca filho.** Controle dentro de controle é HTML
+  inválido, e o clique borbulharia para o botão — acionar o interruptor abriria o card. A estrutura
+  resolve; nada de `stopPropagation`, que seria a mesma regra escrita de novo em JavaScript. O
+  `ToggleField` saiu junto: ele desenha a própria moldura, e dentro do card isso produzia caixa
+  dentro de caixa.
+- **O cabeçalho é `<button type="button">`, e é a TAG que dá Enter e Espaço.** Um `<div onClick>`
+  renderiza igual, clica igual, e não faz nenhum dos dois — e jsdom **não** sintetiza a ação padrão do
+  teclado, então nenhum `fireEvent.keyDown` distinguiria os dois mundos. Quem discrimina é a tag.
+  (`SettingsSectionNav` precisou de um handler de Espaço à mão justamente porque lá o controle é um
+  `<a>`.)
+- **Recolher esconde a recusa e o banner, então eles viram SINAL na linha** — com o motivo inteiro em
+  `sr-only`, nunca um "atenção" genérico. Sem isso, descobrir qual dos quinze está travado custaria
+  abrir os quinze. Aberto, os sinais somem: o banner e a recusa inline já estão à vista.
+- **O nome do card vem de `NOTIFICATION_EVENT_NAMES`, não do rótulo de histórico.** Os dois mapas
+  respondem perguntas diferentes — *"que evento é este?"* × *"o que aconteceu com este pedido?"* — e
+  o segundo está no passado ("Confirmação do pedido enviada"), o que numa tela de configuração se lia
+  como registro de log acima de um interruptor desligado. `catalog.test.ts` **recusa a igualdade nos
+  15**, e também o particípio, para a cópia não voltar por reescrita.
+- **O ícone vem de uma CHAVE, e o painel guarda o desenho.** `core` não pode importar React
+  (`purity.test.ts`), então o vocabulário fechado de 15 chaves mora lá e
+  `ui/eventIcons.ts` mapeia chave → componente, com guarda bidirecional — molde de
+  `core/menu/icons.ts` × `MENU_ICON_COMPONENTS`.
+- **A prévia é EMOLDURADA, e os três estados moram na mesma moldura.** A barra a nomeia ("o mesmo
+  e-mail que a cliente recebe") — um `<iframe>` de 390px solto no meio de um formulário não se
+  explica. Antes, carregando era uma caixa de 160px, erro era uma caixa vermelha e a prévia era outra
+  coisa: três alturas e a página saltando a cada troca. Os botões de largura **não** cabem na barra
+  (são `h-11`, alvo de toque) e ficam no corpo; o selo `Prévia de exemplo`, que é informação *sobre* a
+  prévia, sobe.
+- **O título da seção é `lg:`-only.** No celular quem nomeia é o cabeçalho de voltar da
+  `AdminSettingsPage`, e o título da aba imprimia o mesmo nome logo abaixo com outra descrição —
+  achado em navegador, e a duplicação era anterior à `56`. Ela não aparecia nas outras três seções
+  porque lá os títulos vêm do `FormCard` e diferem do nome da seção.
 
 ## `/admin/menu` — a curadoria do menu, por dispositivo (feature `39`)
 
