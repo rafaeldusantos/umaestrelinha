@@ -18,9 +18,26 @@ import {
   type GeneralSettings,
   type SeoSettings,
 } from '@estrelinha/supabase/types/settings'
-import { FormCard, FieldGroup } from '@/shared/ui'
+import { CharCounter, FormCard, FieldGroup, SettingsSaveButton } from '@/shared/ui'
 import { useSettingsSave } from '../model/useSettingsSave'
-import { SettingsLoading, SettingsSaveButton } from './settingsParts'
+import { SettingsLoading } from './settingsParts'
+
+/**
+ * Os tetos ANUNCIADOS dos campos de texto livre — feature 56 (`LEG-19`).
+ *
+ * Eles iam embutidos no rótulo ("Título padrão (até 60 caracteres)"), com o número **cravado na
+ * frase** e a três linhas de distância do `maxLength` que de fato limita. Duas escritas do mesmo
+ * número, e a que a dona lê não era a que o campo aplica.
+ *
+ * O `maxLength` é maior que o teto de propósito — mesmo desenho de `COPY_LIMITS` em `core`: o campo
+ * deixa passar um pouco para o texto colado não ser **truncado sem aviso**, e o contador é quem
+ * mostra que passou do ponto.
+ */
+const LIMITES = {
+  seoTitle: 60,
+  seoDescription: 160,
+  whatsappMessage: 300,
+} as const
 
 export const StoreDataSection = () => {
   const { data, isLoading } = useStoreSettings()
@@ -81,11 +98,12 @@ export const StoreDataSection = () => {
         <FieldGroup
           label="Mensagem padrão do WhatsApp" htmlFor="geral-whatsapp-mensagem"
           hint="Texto pré-preenchido enviado quando o cliente clica no botão flutuante de chat."
+          counter={<CharCounter value={general.whatsapp_message} limit={LIMITES.whatsappMessage} />}
         >
           <Textarea id="geral-whatsapp-mensagem"
             value={general.whatsapp_message}
             rows={3}
-            maxLength={300}
+            maxLength={LIMITES.whatsappMessage}
             onChange={e => setGeneral({ ...general, whatsapp_message: e.target.value })}
             placeholder="Olá! Gostaria de tirar uma dúvida..."
           />
@@ -99,17 +117,25 @@ export const StoreDataSection = () => {
       </FormCard>
 
       <FormCard title="SEO" description="Como a loja se apresenta no Google e nas redes">
-        <FieldGroup label="Título padrão (até 60 caracteres)" htmlFor="seo-titulo">
+        <FieldGroup
+          label="Título padrão"
+          htmlFor="seo-titulo"
+          counter={<CharCounter value={seo.title} limit={LIMITES.seoTitle} />}
+        >
           <Input id="seo-titulo"
             value={seo.title}
-            maxLength={70}
+            maxLength={LIMITES.seoTitle + 10}
             onChange={e => setSeo({ ...seo, title: e.target.value })}
           />
         </FieldGroup>
-        <FieldGroup label="Descrição padrão (até 160 caracteres)" htmlFor="seo-descricao">
+        <FieldGroup
+          label="Descrição padrão"
+          htmlFor="seo-descricao"
+          counter={<CharCounter value={seo.description} limit={LIMITES.seoDescription} />}
+        >
           <Textarea id="seo-descricao"
             value={seo.description}
-            maxLength={180}
+            maxLength={LIMITES.seoDescription + 20}
             rows={3}
             onChange={e => setSeo({ ...seo, description: e.target.value })}
           />

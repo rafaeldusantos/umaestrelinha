@@ -5,12 +5,28 @@ interface FieldGroupProps {
   label: string
   hint?: string
   htmlFor?: string
+  /**
+   * Slot à direita do rótulo, na **mesma linha** — hoje o `CharCounter` (feature 56, `LEG-14`).
+   *
+   * Ele não vai abaixo do campo porque lá já mora a `hint`, e as duas juntas produzem duas linhas de
+   * texto de apoio empilhadas sob um `<input>` — o contador, que muda a cada tecla, empurrando a
+   * dica, que não muda. Na linha do rótulo ele fica ao lado da única coisa a que se refere: o nome
+   * do campo e o quanto dele já foi usado.
+   *
+   * Aditivo: sem `counter`, o markup é exatamente o de antes desta feature.
+   */
+  counter?: React.ReactNode
   children: React.ReactNode
 }
 
-export const FieldGroup = ({ label, hint, htmlFor, children }: FieldGroupProps) => (
+export const FieldGroup = ({ label, hint, htmlFor, counter, children }: FieldGroupProps) => (
   <div className="space-y-1.5">
-    <Label htmlFor={htmlFor} className="text-sm font-medium text-foreground">{label}</Label>
+    {/* `items-baseline` e não `items-center`: o contador é menor que o rótulo, e alinhado pelo centro
+        ele flutuaria acima da linha de base do texto ao lado. */}
+    <div className="flex items-baseline justify-between gap-3">
+      <Label htmlFor={htmlFor} className="text-sm font-medium text-foreground">{label}</Label>
+      {counter}
+    </div>
     {children}
     {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
   </div>

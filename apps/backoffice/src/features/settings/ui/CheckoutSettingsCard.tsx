@@ -6,13 +6,12 @@
 //
 // UI em tokens shadcn + `shared/ui`, conforme a decisão de 2026-07-20 do `STATE.md`.
 import { useEffect, useState } from 'react'
-import { Loader2, Save, Sparkles } from 'lucide-react'
+import { Loader2, Sparkles } from 'lucide-react'
 import { Input } from '@estrelinha/ui/input'
-import { Button } from '@estrelinha/ui/button'
 import { useToast } from '@estrelinha/ui/hooks/use-toast'
 import { useStoreSettings, useUpdateSettings } from '@estrelinha/core/hooks/useStoreSettings'
 import { DEFAULT_CHECKOUT, type CheckoutSettings } from '@estrelinha/supabase/types/settings'
-import { FormCard, FieldGroup, InfoBanner, SWITCH_TAP_44, ToggleField } from '@/shared/ui'
+import { FormCard, FieldGroup, InfoBanner, SettingsSaveButton, SWITCH_TAP_44, ToggleField } from '@/shared/ui'
 import { ProductSearchField, useProductPool } from '@/entities/product'
 
 /** Fora de 1–99 o desconto não faz sentido: 0 não desconta e 100 daria o produto de graça. */
@@ -148,20 +147,15 @@ const CheckoutSettingsCard = () => {
         </p>
       )}
 
-      <div className="pt-2">
-        <Button
-          onClick={() => void save()}
-          disabled={update.isPending}
-          className="rounded-xl gradient-cta text-white transition-all hover:scale-[1.02] hover:brightness-110"
-        >
-          {update.isPending ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <Save className="mr-2 h-4 w-4" />
-          )}
-          Salvar alterações
-        </Button>
-      </div>
+      {/* Feature 56 (`LEG-20`): era a terceira escrita da mesma string de classes, e já tinha
+          divergido — esta não levava o `h-11`, então o botão nascia com 40px, abaixo do piso de
+          alvo de toque que `CFG-14` nomeia. Com o dono em `shared/ui` ele ganha os 44px e a largura
+          cheia no celular de graça. */}
+      <SettingsSaveButton
+        testId="salvar-checkout"
+        loading={update.isPending}
+        onClick={() => void save()}
+      />
     </FormCard>
   )
 }

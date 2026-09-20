@@ -18,9 +18,18 @@ import {
   type MaterialSettings,
   type ShippingSettings,
 } from '@estrelinha/supabase/types/settings'
-import { FormCard, FieldGroup, InfoBanner, MoneyInput, SWITCH_TAP_44, ToggleField } from '@/shared/ui'
+import { CharCounter, FormCard, FieldGroup, InfoBanner, MoneyInput, SettingsSaveButton, SWITCH_TAP_44, ToggleField } from '@/shared/ui'
 import { useSettingsSave } from '../model/useSettingsSave'
-import { SettingsLoading, SettingsSaveButton } from './settingsParts'
+import { SettingsLoading } from './settingsParts'
+
+/**
+ * O teto da observação — feature 56 (`LEG-19`). Um nome, porque o número aparece em dois lugares
+ * (o `maxLength` do campo e o contador), e duas escritas do mesmo número divergem sem nada quebrar.
+ *
+ * Aqui ele é o MESMO nos dois: diferente do SEO, esta observação é um bilhete operacional e não um
+ * texto que alguém vá colar de outro lugar, então truncar no limite é o comportamento certo.
+ */
+const LIMITE_OBSERVACAO = 400
 
 export const ShippingMaterialSection = () => {
   const { data, isLoading } = useStoreSettings()
@@ -245,11 +254,12 @@ export const ShippingMaterialSection = () => {
         <FieldGroup
           label="Observação para quem envia" htmlFor="material-observacao"
           hint="Aparece junto do endereço. Ex.: horário de recebimento, como embalar."
+          counter={<CharCounter value={material.notes} limit={LIMITE_OBSERVACAO} />}
         >
           <Textarea id="material-observacao"
             value={material.notes}
             rows={3}
-            maxLength={400}
+            maxLength={LIMITE_OBSERVACAO}
             onChange={e => setMaterial({ ...material, notes: e.target.value })}
           />
         </FieldGroup>

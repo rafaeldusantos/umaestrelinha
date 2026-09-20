@@ -19,10 +19,10 @@ import {
   type AbandonedCartSettings,
   type PaymentSettings,
 } from '@estrelinha/supabase/types/settings'
-import { FormCard, FieldGroup, InfoBanner, MoneyInput, SWITCH_TAP_44, ToggleField } from '@/shared/ui'
+import { FormCard, FieldGroup, InfoBanner, MoneyInput, SettingsSaveButton, SWITCH_TAP_44, ToggleField } from '@/shared/ui'
 import { useSettingsSave } from '../model/useSettingsSave'
 import CheckoutSettingsCard from './CheckoutSettingsCard'
-import { SettingsLoading, SettingsSaveButton } from './settingsParts'
+import { SettingsLoading } from './settingsParts'
 
 export const SalesSection = () => {
   const { data, isLoading } = useStoreSettings()

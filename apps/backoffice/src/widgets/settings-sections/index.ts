@@ -5,5 +5,4 @@
 // seções existem" é `shared/lib/settingsSections.ts`, um nível abaixo, onde as features também
 // alcançam.
 export { default as SettingsSectionNav } from './ui/SettingsSectionNav'
-export { default as NotificationsSection } from './ui/NotificationsSection'
 export { SETTINGS_PANELS } from './model/panels'

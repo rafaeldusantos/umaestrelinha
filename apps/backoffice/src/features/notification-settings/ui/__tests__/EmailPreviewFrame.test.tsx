@@ -87,3 +87,65 @@ describe('EmailPreviewFrame — alvo de toque (ABN-10)', () => {
     expect(screen.getByTestId('preview-width-600').className).toContain('h-11')
   })
 })
+
+// ───────────────────────────────────────────────────────────────────────────
+// Feature 56 (`LEG-16`) — a moldura que nomeia a prévia
+// ───────────────────────────────────────────────────────────────────────────
+
+const TITULO = 'Prévia — o mesmo e-mail que a cliente recebe'
+
+describe('EmailPreviewFrame (LEG-16) — a moldura', () => {
+  it('a barra nomeia a prévia com a FRASE INTEIRA', () => {
+    // A frase inteira, e não um fragmento (`L-009`): "Prévia" sozinho casaria também com o selo
+    // "Prévia de exemplo", e a asserção passaria com a barra tendo perdido o resto do texto.
+    render(<EmailPreviewFrame html="<p>oi</p>" />)
+
+    expect(screen.getByText(TITULO)).toBeInTheDocument()
+  })
+
+  it('os controles de largura e o iframe ficam DENTRO da moldura', () => {
+    render(<EmailPreviewFrame html="<p>oi</p>" text="oi" sample />)
+
+    const moldura = screen.getByTestId('email-preview-frame')
+
+    // Contenção, e não "existe na tela": os quatro já existiam antes desta feature, soltos. O que
+    // `LEG-16` muda é onde eles moram.
+    expect(moldura.contains(screen.getByTestId('preview-width-390'))).toBe(true)
+    expect(moldura.contains(screen.getByTestId('preview-width-600'))).toBe(true)
+    expect(moldura.contains(screen.getByTestId('email-preview-iframe'))).toBe(true)
+    expect(moldura.contains(screen.getByTestId('email-preview-text'))).toBe(true)
+    expect(moldura.contains(screen.getByTestId('preview-sample-badge'))).toBe(true)
+  })
+
+  it('o selo de exemplo fica na BARRA, junto do título — não flutuando sobre o iframe', () => {
+    render(<EmailPreviewFrame html="<p>oi</p>" sample />)
+
+    const titulo = screen.getByText(TITULO)
+    const selo = screen.getByTestId('preview-sample-badge')
+
+    // Pai compartilhado: o selo é informação SOBRE a prévia, que é o que a barra nomeia.
+    expect(selo.parentElement).toBe(titulo.parentElement)
+  })
+
+  it('carregando e erro moram na MESMA moldura — a página não salta entre os três estados', () => {
+    // Antes desta feature eram três caixas diferentes, com três alturas e três bordas: a página
+    // pulava a cada troca de estado. Uma moldura só é o que torna a troca silenciosa.
+    const { unmount } = render(<EmailPreviewFrame loading />)
+    expect(screen.getByTestId('email-preview-frame').contains(screen.getByRole('status'))).toBe(true)
+    expect(screen.getByText(TITULO)).toBeInTheDocument()
+    unmount()
+
+    render(<EmailPreviewFrame error="Não deu" />)
+    expect(screen.getByTestId('email-preview-frame').contains(screen.getByRole('alert'))).toBe(true)
+    expect(screen.getByText(TITULO)).toBeInTheDocument()
+  })
+
+  it('sem pedido nenhum, NÃO existe moldura — ela não promete conteúdo que ninguém pediu', () => {
+    // O par do caso acima. Sem ele, "a moldura sempre existe" passaria por completude e o card
+    // recolhido carregaria uma caixa vazia com um título dentro.
+    render(<EmailPreviewFrame />)
+
+    expect(screen.queryByTestId('email-preview-frame')).toBeNull()
+    expect(screen.queryByText(TITULO)).toBeNull()
+  })
+})

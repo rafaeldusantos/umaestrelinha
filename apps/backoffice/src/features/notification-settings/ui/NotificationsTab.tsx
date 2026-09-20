@@ -1,23 +1,41 @@
-// Feature 53 (T11) — o corpo inteiro: as três seções derivadas (T03), um `EventCard` (T10) por
-// evento, um preview ativo por vez (abrir um fecha o anterior — design.md, Risks & Concerns) e o
-// `SaveButton` próprio.
+// A seção Notificações inteira — feature 53 (T11), redesenhada pela 56.
 //
-// `useNotificationsDraft` (T06) é o único dono do estado daqui: este componente só o consome. É
-// isso que faz `ABN-12` (descartar edição não salva) funcionar de graça — o componente **remonta**
-// ao se trocar de seção, o hook nasce de novo, e o rascunho volta a refletir o servidor.
+// ## O que ela é dona
 //
-// ⚠️ Até a feature 55 quem garantia esse remonte era o Radix, que desmonta `TabsContent` inativo.
-// As abas deixaram de existir, e a `AdminSettingsPage` monta **só** o painel da seção ativa
-// justamente para a promessa continuar de pé — está escrito no cabeçalho dela. Se alguém um dia
-// trocar aquela montagem condicional por quatro painéis escondidos com CSS, é aqui que quebra: o
-// rascunho sobrevive à troca, e nada acusa.
+// Três estados locais, e os três existem aqui pelo MESMO motivo: nenhum deles se expressa dentro de
+// um card.
+//
+// | Estado | A regra que ele carrega |
+// | --- | --- |
+// | `aberto` | no máximo **um** card aberto por vez (`LEG-06`) |
+// | `preview` | no máximo **uma** prévia por vez — 15 `<iframe>` simultâneos era o desenho recusado |
+// | `orderId` | o mesmo pedido vale para a prévia de **qualquer** card (`ABN-07`) |
+//
+// `LEG-10` (fechar o card fecha a prévia) cai de graça porque `abrir()` zera os dois na mesma
+// função — não são dois `useEffect` se observando.
+//
+// `LEG-07` (fechar não descarta a edição) **já era verdade** e agora é medido: o rascunho é de
+// `useNotificationsDraft`, e o card nunca o teve. Sem asserção, nada impediria a próxima feature de
+// mover um campo para dentro do card e perder o texto ao recolher, com tudo verde.
+//
+// ## O cabeçalho da seção mora aqui desde a 56
+//
+// Ele era de `NotificationsSection` (widget), que existia **só** para desenhá-lo. `LEG-18` põe o
+// campo "Pedido para a prévia" na mesma linha do título — e o campo é estado daqui. Dono da linha
+// passou a ser quem tem o estado, e aquele arquivo foi apagado em vez de virar um invólucro vazio.
+//
+// ## O que NÃO mudou, e depende de não mudar
+//
+// `useNotificationsDraft` continua sendo o único dono do estado daqui, e `ABN-12` (trocar de seção
+// descarta a edição não salva) continua sendo propriedade da ÁRVORE: a `AdminSettingsPage` monta só
+// o painel da seção ativa, este componente remonta, e o rascunho volta a refletir o servidor. Se
+// alguém trocar aquela montagem condicional por quatro painéis escondidos com CSS, é aqui que
+// quebra — o rascunho sobrevive à troca, e nada acusa.
 
 import { useState } from 'react'
-import { Loader2, Save } from 'lucide-react'
-import { Button } from '@estrelinha/ui/button'
 import { Input } from '@estrelinha/ui/input'
 import { useToast } from '@estrelinha/ui/hooks/use-toast'
-import { FieldGroup } from '@/shared/ui'
+import { FieldGroup, SettingsSaveButton } from '@/shared/ui'
 import { useGeneralSettings, useMaterialSettings } from '@estrelinha/core/hooks/useStoreSettings'
 import { MATERIAL_INSTRUCTIONS_EVENT, type NotificationEvent } from '@estrelinha/core/notifications'
 
@@ -66,6 +84,8 @@ export function NotificationsTab() {
   const configCheck = useNotificationConfigCheck()
   const { toast } = useToast()
   const [preview, setPreview] = useState<PreviewState | null>(null)
+  /** `LEG-05` — nenhum card aberto na montagem. Os quinze cabem numa tela, e a Adri escolhe um. */
+  const [aberto, setAberto] = useState<NotificationEvent | null>(null)
   // ABN-07 — "ver prévia" sem pedido usa o exemplo (sample: true); com um `order_id` real aqui, a
   // prévia reflete os dados daquele pedido. Campo de texto simples, sem busca (design.md, Tech
   // Decisions: "resolveria um problema que a spec não pede"), compartilhado pelos 15 cards — a Adri
@@ -73,6 +93,16 @@ export function NotificationsTab() {
   const [orderId, setOrderId] = useState('')
 
   const sections = groupedEvents()
+
+  /**
+   * `LEG-06` e `LEG-10` na mesma função, de propósito: trocar de card fecha o anterior **e** a
+   * prévia dele. Escrito em dois lugares — um `useEffect` observando `aberto` para zerar `preview` —
+   * as duas regras poderiam divergir, e a prévia de um card fechado continuaria no ar.
+   */
+  const alternarCard = (event: NotificationEvent) => {
+    setAberto((atual) => (atual === event ? null : event))
+    setPreview(null)
+  }
 
   const warningsFor = (event: NotificationEvent): EventWarning[] => {
     const list: EventWarning[] = []
@@ -128,75 +158,118 @@ export function NotificationsTab() {
   }
 
   return (
-    <div className="space-y-6" data-testid="notifications-tab">
-      <FieldGroup
-        label="Pedido para a prévia (opcional)"
-        htmlFor="notifications-preview-order-id"
-        hint="Cole o ID de um pedido real para ver os dados dele na prévia. Vazio usa um pedido de exemplo."
+    <div className="space-y-5" data-testid="notifications-tab">
+      {/* `LEG-18` — título e campo na mesma linha a partir de `lg`; empilhados abaixo dela. As duas
+          metades são CSS numa árvore só, nunca dois blocos alternados por largura de janela: dois
+          blocos seriam dois campos, e o texto digitado num não existiria no outro. */}
+      <div
+        data-testid="notifications-header"
+        className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between lg:gap-6"
       >
-        <Input
-          id="notifications-preview-order-id"
-          data-testid="notifications-preview-order-id"
-          value={orderId}
-          onChange={(e) => setOrderId(e.target.value)}
-          placeholder="ID do pedido (UUID)"
-          className="max-w-sm"
-        />
-      </FieldGroup>
+        {/* `hidden lg:block` — achado em navegador real, em 390px: o cabeçalho de voltar do celular
+            (`PageHeader` com `backTo`, na `AdminSettingsPage`) JÁ escreve "Notificações" e descreve a
+            seção, então este bloco imprimia o nome da seção **duas vezes seguidas**, com duas
+            descrições diferentes, antes do primeiro evento.
 
-      {NOTIFICATION_SECTIONS.map((section) => (
-        <section key={section} data-testid={`notifications-section-${section}`} className="space-y-3">
-          <h2 className="text-sm font-semibold text-foreground">{SECTION_LABELS[section]}</h2>
-          <div className="space-y-3">
-            {sections[section].map((event) => {
-              const activePreview = preview && preview.event === event ? preview : null
-              const previewActive = activePreview !== null
-              const previewLoading = activePreview?.loading ?? false
-              const previewResult = activePreview?.result
-              const previewError = previewResult && 'error' in previewResult ? previewResult.error : undefined
-              const previewData = previewResult && !('error' in previewResult) ? previewResult : undefined
+            É a mesma alternância que o resto da tela usa: no desktop o `PageHeader` diz
+            "Configurações" e quem nomeia a seção é este título; no celular quem nomeia é o
+            cabeçalho de voltar. Uma árvore só, decidida por classe `lg:` — medir a janela em
+            JavaScript entregaria um primeiro quadro errado.
 
-              return (
-                <EventCard
-                  key={event}
-                  event={event}
-                  value={draftState.draft[event]}
-                  onFieldChange={(field, fieldValue) => draftState.setField(event, field, fieldValue)}
-                  onToggle={(enabled) => draftState.setEnabled(event, enabled)}
-                  refusal={draftState.refusalFor(event)}
-                  warnings={warningsFor(event)}
-                  onTogglePreview={() => void togglePreview(event)}
-                  previewActive={previewActive}
-                  preview={{
-                    loading: previewLoading,
-                    error: previewError,
-                    subject: previewData?.subject,
-                    html: previewData?.html,
-                    text: previewData?.text,
-                    sample: previewData?.sample,
-                  }}
-                />
-              )
-            })}
-          </div>
-        </section>
-      ))}
+            O campo ao lado NÃO some junto: ele é controle, não título, e não tem duplicata. */}
+        <div className="hidden min-w-0 lg:block">
+          <h2 className="font-heading text-lg font-semibold text-foreground">Notificações</h2>
+          <p className="text-sm text-muted-foreground">
+            O que a loja e a cliente recebem por e-mail, evento a evento
+          </p>
+        </div>
 
-      <div className="flex justify-end border-t border-border pt-4">
-        <Button
-          type="button"
-          data-testid="notifications-save"
+        <div className="lg:w-[260px] lg:shrink-0">
+          <FieldGroup
+            label="Pedido para a prévia (opcional)"
+            htmlFor="notifications-preview-order-id"
+            hint="Cole o ID de um pedido real para ver os dados dele. Vazio usa um exemplo."
+          >
+            <Input
+              id="notifications-preview-order-id"
+              data-testid="notifications-preview-order-id"
+              value={orderId}
+              onChange={(e) => setOrderId(e.target.value)}
+              placeholder="ID do pedido (UUID)"
+            />
+          </FieldGroup>
+        </div>
+      </div>
+
+      {NOTIFICATION_SECTIONS.map((section) => {
+        const eventos = sections[section]
+
+        return (
+          <section key={section} data-testid={`notifications-section-${section}`} className="space-y-2.5">
+            {/* `LEG-17` — a contagem é DERIVADA da lista. Cravada à mão, ela mente no dia em que a
+                feature 43 acrescentar um evento, e mente em silêncio.
+                A voz (11px, caixa alta, espaçada, tom de apoio) é a mesma do sobrescrito "SEÇÕES" do
+                rail, ao lado — a tela reusando o que já tinha, em vez de inventar um terceiro nível
+                de título. */}
+            <div className="flex items-baseline justify-between gap-3 pt-1">
+              <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                {SECTION_LABELS[section]}
+              </h3>
+              <span
+                data-testid={`notifications-count-${section}`}
+                className="shrink-0 text-xs text-muted-foreground"
+              >
+                {eventos.length} {eventos.length === 1 ? 'evento' : 'eventos'}
+              </span>
+            </div>
+
+            <div className="space-y-2.5">
+              {eventos.map((event) => {
+                const activePreview = preview && preview.event === event ? preview : null
+                const previewActive = activePreview !== null
+                const previewLoading = activePreview?.loading ?? false
+                const previewResult = activePreview?.result
+                const previewError =
+                  previewResult && 'error' in previewResult ? previewResult.error : undefined
+                const previewData =
+                  previewResult && !('error' in previewResult) ? previewResult : undefined
+
+                return (
+                  <EventCard
+                    key={event}
+                    event={event}
+                    value={draftState.draft[event]}
+                    onFieldChange={(field, fieldValue) => draftState.setField(event, field, fieldValue)}
+                    onToggle={(enabled) => draftState.setEnabled(event, enabled)}
+                    refusal={draftState.refusalFor(event)}
+                    warnings={warningsFor(event)}
+                    expanded={aberto === event}
+                    onToggleExpanded={() => alternarCard(event)}
+                    onTogglePreview={() => void togglePreview(event)}
+                    previewActive={previewActive}
+                    preview={{
+                      loading: previewLoading,
+                      error: previewError,
+                      subject: previewData?.subject,
+                      html: previewData?.html,
+                      text: previewData?.text,
+                      sample: previewData?.sample,
+                    }}
+                  />
+                )
+              })}
+            </div>
+          </section>
+        )
+      })}
+
+      <div className="border-t border-border pt-2">
+        <SettingsSaveButton
+          testId="notifications-save"
+          loading={draftState.isSaving}
+          disabled={!draftState.canSave}
           onClick={() => void handleSave()}
-          disabled={!draftState.canSave || draftState.isSaving}
-          className="h-11 rounded-xl gradient-cta text-white transition-all hover:scale-[1.02] hover:brightness-110"
-        >
-          {draftState.isSaving ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
-          ) : (
-            <Save className="mr-2 h-4 w-4" aria-hidden />
-          )}
-          Salvar alterações
-        </Button>
+        />
       </div>
     </div>
   )

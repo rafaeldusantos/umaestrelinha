@@ -2,9 +2,14 @@ import { describe, expect, it, vi } from 'vitest'
 import { render as rtlRender, screen, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import type { EmailFields, EventChannelSettings } from '@estrelinha/core/notifications'
-import { COPY_LIMITS } from '@estrelinha/core/notifications'
+import {
+  COPY_LIMITS,
+  NOTIFICATION_EVENT_DESCRIPTIONS,
+  NOTIFICATION_EVENT_LABELS,
+  NOTIFICATION_EVENT_NAMES,
+} from '@estrelinha/core/notifications'
 import { settingsSectionPath } from '@/shared/lib/settingsSections'
-import { EventCard } from '../EventCard'
+import { EventCard, type EventCardProps } from '../EventCard'
 
 /**
  * Desde a feature 55 o banner de aviso pode carregar um `<Link>` para a seção onde o ajuste se
@@ -39,6 +44,8 @@ describe('EventCard (ABN-02) — exatamente os 5 campos editáveis', () => {
         onToggle={noop}
         refusal={null}
         warnings={[]}
+        expanded
+        onToggleExpanded={noop}
         onTogglePreview={noop}
         previewActive={false}
       />,
@@ -68,6 +75,8 @@ describe('EventCard (ABN-02) — exatamente os 5 campos editáveis', () => {
         onToggle={noop}
         refusal={null}
         warnings={[]}
+        expanded
+        onToggleExpanded={noop}
         onTogglePreview={noop}
         previewActive={false}
       />,
@@ -94,6 +103,8 @@ describe('EventCard (ABN-02) — exatamente os 5 campos editáveis', () => {
         onToggle={noop}
         refusal={null}
         warnings={[]}
+        expanded
+        onToggleExpanded={noop}
         onTogglePreview={noop}
         previewActive={false}
       />,
@@ -118,6 +129,8 @@ describe('EventCard (ABN-02) — exatamente os 5 campos editáveis', () => {
         onToggle={noop}
         refusal={null}
         warnings={[]}
+        expanded
+        onToggleExpanded={noop}
         onTogglePreview={noop}
         previewActive={false}
       />,
@@ -137,6 +150,8 @@ describe('EventCard (ABN-02) — exatamente os 5 campos editáveis', () => {
         onToggle={noop}
         refusal={null}
         warnings={[]}
+        expanded
+        onToggleExpanded={noop}
         onTogglePreview={noop}
         previewActive={false}
       />,
@@ -157,6 +172,8 @@ describe('EventCard — toggle e recusa inline', () => {
         onToggle={onToggle}
         refusal={null}
         warnings={[]}
+        expanded
+        onToggleExpanded={noop}
         onTogglePreview={noop}
         previewActive={false}
       />,
@@ -176,6 +193,8 @@ describe('EventCard — toggle e recusa inline', () => {
         onToggle={noop}
         refusal="O endereço do ateliê está vazio — preencha o logradouro na seção Frete e Material antes de ligar este aviso."
         warnings={[]}
+        expanded
+        onToggleExpanded={noop}
         onTogglePreview={noop}
         previewActive={false}
       />,
@@ -192,6 +211,8 @@ describe('EventCard — toggle e recusa inline', () => {
         onToggle={noop}
         refusal={null}
         warnings={[]}
+        expanded
+        onToggleExpanded={noop}
         onTogglePreview={noop}
         previewActive={false}
       />,
@@ -211,6 +232,8 @@ describe('EventCard (ABN-09) — banner de aviso não-bloqueante', () => {
         onToggle={onToggle}
         refusal={null}
         warnings={[{ text: 'Nenhum e-mail cadastrado para você.' }]}
+        expanded
+        onToggleExpanded={noop}
         onTogglePreview={noop}
         previewActive={false}
       />,
@@ -232,6 +255,8 @@ describe('EventCard (ABN-09) — banner de aviso não-bloqueante', () => {
         onToggle={noop}
         refusal={null}
         warnings={[]}
+        expanded
+        onToggleExpanded={noop}
         onTogglePreview={noop}
         previewActive={false}
       />,
@@ -248,6 +273,8 @@ describe('EventCard (ABN-09) — banner de aviso não-bloqueante', () => {
         onToggle={noop}
         refusal={null}
         warnings={[{ text: 'aviso de e-mail ausente' }, { text: 'aviso de link fora de produção' }]}
+        expanded
+        onToggleExpanded={noop}
         onTogglePreview={noop}
         previewActive={false}
       />,
@@ -273,6 +300,8 @@ describe('EventCard (CFG-20, CFG-21) — o aviso nomeia a seção e leva até el
         onToggle={noop}
         refusal={null}
         warnings={[avisoDoMaterial]}
+        expanded
+        onToggleExpanded={noop}
         onTogglePreview={noop}
         previewActive={false}
       />,
@@ -315,6 +344,8 @@ describe('EventCard (CFG-20, CFG-21) — o aviso nomeia a seção e leva até el
         onToggle={noop}
         refusal={null}
         warnings={[{ text: 'Nenhum e-mail cadastrado para você.' }]}
+        expanded
+        onToggleExpanded={noop}
         onTogglePreview={noop}
         previewActive={false}
       />,
@@ -336,6 +367,8 @@ describe('EventCard (ABN-06) — "ver prévia" monta o EmailPreviewFrame', () =>
         onToggle={noop}
         refusal={null}
         warnings={[]}
+        expanded
+        onToggleExpanded={noop}
         onTogglePreview={onTogglePreview}
         previewActive={false}
       />,
@@ -354,6 +387,8 @@ describe('EventCard (ABN-06) — "ver prévia" monta o EmailPreviewFrame', () =>
         onToggle={noop}
         refusal={null}
         warnings={[]}
+        expanded
+        onToggleExpanded={noop}
         onTogglePreview={noop}
         previewActive
         preview={{ subject: 'Assunto', html: '<p>corpo</p>', text: 'corpo', sample: true, loading: false }}
@@ -375,6 +410,8 @@ describe('EventCard — alvo de toque (ABN-10)', () => {
         onToggle={noop}
         refusal={null}
         warnings={[]}
+        expanded
+        onToggleExpanded={noop}
         onTogglePreview={noop}
         previewActive={false}
       />,
@@ -391,6 +428,8 @@ describe('EventCard — alvo de toque (ABN-10)', () => {
         onToggle={noop}
         refusal={null}
         warnings={[]}
+        expanded
+        onToggleExpanded={noop}
         onTogglePreview={noop}
         previewActive={false}
       />,
@@ -407,11 +446,217 @@ describe('EventCard — alvo de toque (ABN-10)', () => {
         onToggle={noop}
         refusal={null}
         warnings={[]}
+        expanded
+        onToggleExpanded={noop}
         onTogglePreview={noop}
         previewActive={false}
       />,
     )
     expect(screen.getByTestId('order_paid-extra-remove-0').className).toContain('h-11')
     expect(screen.getByTestId('order_paid-extra-remove-0').className).toContain('w-11')
+  })
+})
+
+// ───────────────────────────────────────────────────────────────────────────
+// Feature 56 — o card recolhível
+// ───────────────────────────────────────────────────────────────────────────
+
+/**
+ * Os casos acima passam `expanded`, porque é do card ABERTO que eles falam. Daqui para baixo o
+ * estado é o assunto, então ele é sempre explícito — e o default do helper é `false`, que é como o
+ * card nasce em produção.
+ */
+const cartao = (props: Partial<EventCardProps> = {}) =>
+  render(
+    <EventCard
+      event="order_paid"
+      value={value()}
+      onFieldChange={noop}
+      onToggle={noop}
+      refusal={null}
+      warnings={[]}
+      expanded={false}
+      onToggleExpanded={noop}
+      onTogglePreview={noop}
+      previewActive={false}
+      {...props}
+    />,
+  )
+
+describe('EventCard (LEG-05) — recolhido não tem campo nenhum no DOM', () => {
+  it('nenhum dos cinco campos existe quando o card está recolhido', () => {
+    cartao()
+
+    // Ausência no DOM, e não escondido por CSS: 15 cards × 5 campos escondidos continuariam custando
+    // 75 nós de formulário, alcançáveis por tabulação dentro de cartões fechados.
+    for (const campo of ['subject', 'heading', 'lead', 'cta_label', 'extra-0']) {
+      expect(screen.queryByTestId(`order_paid-${campo}`), campo).toBeNull()
+    }
+    expect(screen.queryByTestId('order_paid-toggle-preview')).toBeNull()
+  })
+
+  it('e todos aparecem quando ele abre — a metade positiva', () => {
+    // Sem esta, a asserção acima seria verdadeira num card que não sabe abrir.
+    cartao({ expanded: true })
+
+    for (const campo of ['subject', 'heading', 'lead', 'cta_label', 'extra-0']) {
+      expect(screen.getByTestId(`order_paid-${campo}`), campo).toBeInTheDocument()
+    }
+  })
+})
+
+describe('EventCard (LEG-09) — o cabeçalho é um controle de verdade', () => {
+  it('é um <button>, e não um <div> com onClick', () => {
+    // Não é purismo: `<button>` ativa por Enter **e** por Espaço pelo navegador, que é o que
+    // `LEG-09` pede. Um `<div onClick>` renderiza igual, clica igual, e não faz nenhum dos dois — e
+    // jsdom não sintetiza a ação padrão do teclado, então nenhum `fireEvent.keyDown` distinguiria
+    // os dois mundos. Quem discrimina é a TAG. (`SettingsSectionNav` precisou de um handler de
+    // Espaço à mão justamente porque lá o controle é um `<a>`, que não ativa por Espaço.)
+    cartao()
+    const header = screen.getByTestId('event-card-header-order_paid')
+
+    expect(header.tagName).toBe('BUTTON')
+    expect(header).toHaveAttribute('type', 'button')
+  })
+
+  it('`aria-expanded` acompanha o estado, nos dois sentidos', () => {
+    const { unmount } = cartao()
+    expect(screen.getByTestId('event-card-header-order_paid')).toHaveAttribute('aria-expanded', 'false')
+    unmount()
+
+    cartao({ expanded: true })
+    expect(screen.getByTestId('event-card-header-order_paid')).toHaveAttribute('aria-expanded', 'true')
+  })
+
+  it('clicar no cabeçalho chama onToggleExpanded', () => {
+    const onToggleExpanded = vi.fn()
+    cartao({ onToggleExpanded })
+
+    fireEvent.click(screen.getByTestId('event-card-header-order_paid'))
+
+    expect(onToggleExpanded).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('EventCard (LEG-08) — o interruptor não abre o card', () => {
+  it('clicar no interruptor chama onToggle e NÃO onToggleExpanded', () => {
+    const onToggle = vi.fn()
+    const onToggleExpanded = vi.fn()
+    cartao({ onToggle, onToggleExpanded })
+
+    fireEvent.click(screen.getByRole('switch'))
+
+    expect(onToggle).toHaveBeenCalledWith(false)
+    expect(onToggleExpanded).not.toHaveBeenCalled()
+  })
+
+  it('o interruptor é IRMÃO do cabeçalho, nunca filho dele', () => {
+    // A asserção acima é verdadeira também com um `stopPropagation` costurado no handler — e nesse
+    // mundo o HTML continua inválido (controle dentro de controle), e o nome acessível do botão
+    // engole o do interruptor. Esta mede a ESTRUTURA, que é onde a regra de fato mora.
+    cartao()
+    const header = screen.getByTestId('event-card-header-order_paid')
+    const interruptor = screen.getByRole('switch')
+
+    expect(header.contains(interruptor)).toBe(false)
+    expect(header.querySelector('button')).toBeNull()
+  })
+})
+
+describe('EventCard (LEG-11) — recolhido, a pendência vira sinal na linha', () => {
+  it('recusa recolhida aparece como sinal, com o MOTIVO no nome acessível', () => {
+    cartao({ refusal: 'O assunto tem 130 caracteres; o limite é 120.' })
+
+    // O motivo inteiro, não um "atenção" genérico: quem usa leitor de tela recebe a mesma informação
+    // que quem abre o card.
+    expect(screen.getByTestId('event-flag-refusal-order_paid')).toHaveTextContent(
+      'O assunto tem 130 caracteres; o limite é 120.',
+    )
+  })
+
+  it('aviso recolhido aparece como sinal, com o texto do aviso', () => {
+    cartao({ warnings: [{ text: 'O endereço do ateliê ainda não foi preenchido.' }] })
+
+    expect(screen.getByTestId('event-flag-warning-order_paid')).toHaveTextContent(
+      'O endereço do ateliê ainda não foi preenchido.',
+    )
+  })
+
+  it('sem recusa e sem aviso, nenhum sinal — a régua não vira "sempre acusa"', () => {
+    cartao()
+
+    expect(screen.queryByTestId('event-flag-refusal-order_paid')).toBeNull()
+    expect(screen.queryByTestId('event-flag-warning-order_paid')).toBeNull()
+  })
+
+  it('ABERTO, os sinais somem — o banner e a recusa inline já dizem a mesma coisa', () => {
+    cartao({
+      expanded: true,
+      refusal: 'O assunto tem 130 caracteres; o limite é 120.',
+      warnings: [{ text: 'O endereço do ateliê ainda não foi preenchido.' }],
+    })
+
+    expect(screen.queryByTestId('event-flag-refusal-order_paid')).toBeNull()
+    expect(screen.queryByTestId('event-flag-warning-order_paid')).toBeNull()
+    // …e as duas formas longas estão lá, que é o que torna a remoção acima correta em vez de perda.
+    expect(screen.getByTestId('event-card-refusal-order_paid')).toBeInTheDocument()
+    expect(screen.getByTestId('event-warnings-order_paid')).toBeInTheDocument()
+  })
+})
+
+describe('EventCard (LEG-01, LEG-02) — o nome vem do catálogo, não do histórico', () => {
+  it('o título do card é o NOME do evento, e nunca o rótulo de histórico', () => {
+    cartao()
+
+    expect(screen.getByText(NOTIFICATION_EVENT_NAMES.order_paid)).toBeInTheDocument()
+    // A metade que prende o defeito: o rótulo de histórico está no passado ("Aviso de pagamento
+    // aprovado enviado") e se lia como registro de log acima de um interruptor desligado.
+    expect(screen.queryByText(NOTIFICATION_EVENT_LABELS.order_paid)).toBeNull()
+  })
+
+  it('a descrição de quando o evento dispara existe SÓ com o card aberto', () => {
+    const { unmount } = cartao()
+    expect(screen.queryByText(NOTIFICATION_EVENT_DESCRIPTIONS.order_paid)).toBeNull()
+    unmount()
+
+    cartao({ expanded: true })
+    expect(screen.getByText(NOTIFICATION_EVENT_DESCRIPTIONS.order_paid)).toBeInTheDocument()
+  })
+})
+
+describe('EventCard (LEG-13, LEG-15, LEG-21) — a forma do cabeçalho', () => {
+  const caixaDoIcone = () =>
+    screen.getByTestId('event-card-header-order_paid').querySelector('span')!
+
+  it('o ícone muda de tom entre recolhido e aberto', () => {
+    const { unmount } = cartao()
+    expect(caixaDoIcone().className).toContain('bg-muted')
+    expect(caixaDoIcone().className).not.toContain('bg-primary/10')
+    unmount()
+
+    cartao({ expanded: true })
+    expect(caixaDoIcone().className).toContain('bg-primary/10')
+    expect(caixaDoIcone().className).not.toContain('bg-muted')
+  })
+
+  it('o cabeçalho tem piso de 44px de alvo de toque', () => {
+    // Por token exato: `h-11` é substring de `min-h-11`, então uma régua de `toContain('h-11')`
+    // passaria com a classe errada (`L-034`).
+    cartao()
+    const classes = screen.getByTestId('event-card-header-order_paid').className.split(/\s+/)
+
+    expect(classes).toContain('min-h-11')
+  })
+
+  it('o cabeçalho não tem caixa dentro de caixa — o `ToggleField` saiu', () => {
+    // `ToggleField` desenha `rounded-xl border border-border p-3` em volta do rótulo e do
+    // interruptor, e dentro da moldura do card isso produzia duas bordas concêntricas. A régua é a
+    // ausência de `border-border` no cabeçalho e na linha que o contém — o divisor do corpo, que é
+    // `border-t`, é outro elemento e fica fora.
+    cartao()
+    const header = screen.getByTestId('event-card-header-order_paid')
+
+    expect(header.className).not.toContain('border-border')
+    expect(header.parentElement!.className).not.toContain('border-border')
   })
 })

@@ -7,6 +7,12 @@ export { getPageItems } from './paginationItems'
 export { default as EmptyState } from './EmptyState'
 export { TableSkeleton, CardSkeleton } from './Skeletons'
 export { FieldGroup, ToggleField, SWITCH_TAP_44 } from './FieldGroup'
+// Feature 56: o contador de caracteres, que estava escrito cinco vezes à mão dentro de um card e
+// não existia nos quatro campos com limite das outras seções — lá o teto ia embutido no rótulo.
+export { CharCounter } from './CharCounter'
+// Feature 56: o botão de salvar de Configurações. Ele morava em `features/settings`, e um dos três
+// chamadores é `features/notification-settings` — outra feature, que só o alcança daqui.
+export { SettingsSaveButton } from './SettingsSaveButton'
 // Feature 55: o aviso informativo único. Eram quatro caixas ad hoc, uma delas com a paleta `amber`
 // crua do Tailwind e quatro classes `dark:` mantidas à mão.
 export { default as InfoBanner } from './InfoBanner'

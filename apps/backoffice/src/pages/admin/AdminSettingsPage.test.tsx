@@ -459,8 +459,10 @@ describe('Configurações › nenhum campo foi removido (Success Criteria)', () 
       'Instagram (@usuario)',
       'TikTok (@usuario)',
       'Mensagem padrão do WhatsApp',
-      'Título padrão (até 60 caracteres)',
-      'Descrição padrão (até 160 caracteres)',
+      // Feature 56 (`LEG-19`): o teto saiu do RÓTULO e virou contador na linha dele. O inventário
+      // acompanha o texto novo e continua guardando a mesma coisa — que o campo não sumiu.
+      'Título padrão',
+      'Descrição padrão',
       'Imagem Open Graph (URL)',
     ],
     'frete-e-material': [
@@ -1004,5 +1006,75 @@ describe('Configurações › Dados da loja — Geral e SEO gravam separado', ()
     await waitFor(() => expect(mutateAsync).toHaveBeenCalled())
     expect(mutateAsync.mock.calls[0][0].value.whatsapp).toBe('51999999999')
     expect(mutateAsync.mock.calls[0][0].value.instagram).toBe('umaestrelinha')
+  })
+})
+
+// ───────────────────────────────────────────────────────────────────────────
+// Feature 56 — o mesmo padrão nas outras seções
+// ───────────────────────────────────────────────────────────────────────────
+
+describe('Configurações › LEG-19 — o teto saiu do rótulo e virou contador', () => {
+  /** Rótulo visível → o teto que ele anunciava antes desta feature. */
+  const CAMPOS_COM_TETO: Array<{ abrir: () => unknown; rotulo: string; limite: number }> = [
+    { abrir: abrirDadosDaLoja, rotulo: 'Título padrão', limite: 60 },
+    { abrir: abrirDadosDaLoja, rotulo: 'Descrição padrão', limite: 160 },
+    { abrir: abrirDadosDaLoja, rotulo: 'Mensagem padrão do WhatsApp', limite: 300 },
+    { abrir: abrirFreteEMaterial, rotulo: 'Observação para quem envia', limite: 400 },
+  ]
+
+  it.each(CAMPOS_COM_TETO)('o campo $rotulo mostra o contador $limite', ({ abrir, rotulo, limite }) => {
+    const { unmount } = abrir() as { unmount: () => void }
+
+    // O rótulo NÃO carrega mais o número. Escrito como asserção própria porque é a metade que muda:
+    // sem ela, acrescentar o contador e deixar o parêntese no rótulo diria o teto duas vezes.
+    const label = screen.getByText(rotulo)
+    expect(label.textContent).not.toMatch(/caracteres/)
+
+    // E o contador está na linha DELE, com o teto certo. A busca é dentro do pai compartilhado, e
+    // não na tela inteira: `getByText('0/60')` acharia o contador de outro campo que por acaso
+    // tivesse o mesmo teto, e a asserção passaria medindo o vizinho.
+    expect(label.parentElement!.textContent).toContain(`/${limite}`)
+
+    unmount()
+  })
+
+  it('o contador ACOMPANHA o que é digitado — ele não é um rótulo estático com outro nome', () => {
+    // Sem este caso, um `<span>0/60</span>` cravado passaria em tudo acima.
+    abrirDadosDaLoja()
+    const label = screen.getByText('Título padrão')
+    expect(label.parentElement!.textContent).toContain('0/60')
+
+    fireEvent.change(screen.getByLabelText('Título padrão'), {
+      target: { value: 'Joias afetivas' },
+    })
+
+    expect(label.parentElement!.textContent).toContain('14/60')
+  })
+})
+
+describe('Configurações › LEG-20 — o botão de salvar tem um dono, e ele é largura cheia no celular', () => {
+  const botoesDeSalvar = () => screen.getAllByRole('button', { name: /salvar altera/i })
+
+  it.each([
+    ['dados-da-loja', abrirDadosDaLoja],
+    ['frete-e-material', abrirFreteEMaterial],
+    ['vendas', abrirVendas],
+  ] as const)('os botões de salvar da seção %s são `w-full sm:w-auto` e `h-11`', (_slug, abrir) => {
+    const { unmount } = abrir() as { unmount: () => void }
+
+    const botoes = botoesDeSalvar()
+    expect(botoes.length).toBeGreaterThan(0)
+
+    for (const botao of botoes) {
+      const classes = botao.className.split(/\s+/)
+      // As duas metades da AC, cada uma com asserção POSITIVA (`L-029`): a largura cheia no celular
+      // e o recuo a partir de `sm`. Só a primeira deixaria o botão esticado em 1440.
+      expect(classes, botao.textContent!).toContain('w-full')
+      expect(classes, botao.textContent!).toContain('sm:w-auto')
+      // Por token exato: `h-11` é substring de `min-h-11` (`L-034`).
+      expect(classes, botao.textContent!).toContain('h-11')
+    }
+
+    unmount()
   })
 })
