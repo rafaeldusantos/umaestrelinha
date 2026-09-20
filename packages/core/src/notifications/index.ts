@@ -11,6 +11,7 @@
 // 2026-09-07, com a mensagem `failed to read file: open packages/core/src/notifications/events`.
 export * from './events.ts'
 export * from './catalog.ts'
+export * from './owner.ts'
 export * from './precondition.ts'
 export * from './triggers.ts'
 export * from './variables.ts'

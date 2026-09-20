@@ -33,7 +33,13 @@ export const NOTIFICATION_EVENTS = [
   'order_shipped',
   'order_delivered',
   'post_delivery_care',
+  // Os quatro da dona ficam no FIM, e entre eles a ordem também é a da jornada: nasce o pedido,
+  // ele é pago ou recusado, e o material vem a caminho. A feature 57 acrescentou o primeiro e o
+  // terceiro — inserir no meio do bloco muda a ordem do `check` do banco e a da tela, e as duas
+  // estão certas e medidas.
+  'owner_order_received',
   'owner_order_paid',
+  'owner_payment_rejected',
   'owner_material_incoming',
 ] as const
 
@@ -61,7 +67,9 @@ export const EVENT_AUDIENCE: Record<NotificationEvent, NotificationAudience> = {
   order_shipped: 'customer',
   order_delivered: 'customer',
   post_delivery_care: 'customer',
+  owner_order_received: 'owner',
   owner_order_paid: 'owner',
+  owner_payment_rejected: 'owner',
   owner_material_incoming: 'owner',
 }
 
@@ -86,7 +94,9 @@ export const NOTIFICATION_EVENT_LABELS: Record<NotificationEvent, string> = {
   order_shipped: 'Aviso de postagem enviado',
   order_delivered: 'Aviso de entrega enviado',
   post_delivery_care: 'Mensagem de cuidados pós-entrega enviada',
+  owner_order_received: 'Aviso à dona de pedido novo enviado',
   owner_order_paid: 'Aviso à dona de pedido pago enviado',
+  owner_payment_rejected: 'Aviso à dona de pagamento recusado enviado',
   owner_material_incoming: 'Aviso à dona de material a caminho enviado',
 }
 

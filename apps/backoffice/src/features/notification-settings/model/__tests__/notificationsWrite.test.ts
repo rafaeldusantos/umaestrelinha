@@ -28,19 +28,19 @@ function fakeResolved(): Record<NotificationEvent, EventChannelSettings<EmailFie
   return saida
 }
 
-describe('buildNotificationsValue — ABN-13, a escrita sempre com os 15', () => {
-  it('o objeto construído tem as 15 chaves de events, sempre', () => {
+describe('buildNotificationsValue — ABN-13, a escrita sempre com os 17', () => {
+  it('o objeto construído tem as 17 chaves de events, sempre', () => {
     const construido = buildNotificationsValue(fakeResolved(), 7)
-    expect(Object.keys(construido.events)).toHaveLength(15)
+    expect(Object.keys(construido.events)).toHaveLength(17)
     for (const event of NOTIFICATION_EVENTS) expect(construido.events[event]).toBeDefined()
   })
 
-  it('mesmo quando `resolved` só reflete a edição de 1 evento, as 15 chaves saem completas', () => {
+  it('mesmo quando `resolved` só reflete a edição de 1 evento, as 17 chaves saem completas', () => {
     const resolved = fakeResolved()
     resolved.pix_expired = { enabled: false, fields: { ...resolved.pix_expired.fields, subject: 'PIX expirado — editado' } }
 
     const construido = buildNotificationsValue(resolved, 7)
-    expect(Object.keys(construido.events)).toHaveLength(15)
+    expect(Object.keys(construido.events)).toHaveLength(17)
   })
 
   it('SENSOR — os outros 14 saem com o valor de `resolved`, não de DEFAULT_NOTIFICATIONS por engano', () => {

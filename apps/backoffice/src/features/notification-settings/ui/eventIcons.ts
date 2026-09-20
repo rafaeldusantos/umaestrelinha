@@ -12,6 +12,7 @@
 import {
   Ban,
   BellRing,
+  CircleAlert,
   CheckCircle2,
   Clock,
   Coins,
@@ -21,6 +22,7 @@ import {
   Mail,
   MailOpen,
   PackageCheck,
+  PackagePlus,
   PackageSearch,
   RotateCcw,
   Truck,
@@ -45,4 +47,7 @@ export const EVENT_ICON_COMPONENTS: Record<NotificationIconKey, LucideIcon> = {
   care: HeartHandshake,
   coins: Coins,
   bell: BellRing,
+  // Feature 57.
+  'inbox-new': PackagePlus,
+  alert: CircleAlert,
 }

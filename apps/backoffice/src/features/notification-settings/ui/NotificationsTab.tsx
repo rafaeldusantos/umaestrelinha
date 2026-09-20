@@ -37,7 +37,11 @@ import { Input } from '@estrelinha/ui/input'
 import { useToast } from '@estrelinha/ui/hooks/use-toast'
 import { FieldGroup, SettingsSaveButton } from '@/shared/ui'
 import { useGeneralSettings, useMaterialSettings } from '@estrelinha/core/hooks/useStoreSettings'
-import { MATERIAL_INSTRUCTIONS_EVENT, type NotificationEvent } from '@estrelinha/core/notifications'
+import {
+  MATERIAL_INSTRUCTIONS_EVENT,
+  ownerContactMissing,
+  type NotificationEvent,
+} from '@estrelinha/core/notifications'
 
 import { SETTINGS_SECTIONS, settingsSectionPath } from '@/shared/lib/settingsSections'
 
@@ -122,7 +126,11 @@ export function NotificationsTab() {
     // tanto o "defeito 01" (duas classificações que podem divergir) quanto literais de nome de
     // evento em `apps/**`, que `notificationSingleOwner.test.ts` (feature 42, suíte da loja) proíbe.
     if (sections.owner.includes(event)) {
-      if (general.email.trim() === '') list.push({ text: OWNER_EMAIL_MISSING_WARNING })
+      // `ownerContactMissing`, nunca `general.email.trim() === ''` (feature 57): o destinatário
+      // passou a ser o campo próprio de avisos, com queda para o de contato. Perguntar aqui pelo
+      // campo errado faria o painel avisar "nenhum e-mail cadastrado" enquanto o motor manda
+      // alegremente — e nada quebraria.
+      if (ownerContactMissing(general)) list.push({ text: OWNER_EMAIL_MISSING_WARNING })
       if (configCheck && adminUrlLooksLocal(configCheck.adminPublicUrl)) {
         list.push({ text: OWNER_ADMIN_URL_LOCAL_WARNING })
       }

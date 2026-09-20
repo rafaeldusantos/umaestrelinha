@@ -58,6 +58,11 @@ export const NOTIFICATION_ICON_KEYS = [
   'care',
   'coins',
   'bell',
+  // Feature 57 — os dois avisos internos novos. Chaves PRÓPRIAS, e não as da cliente (`mail`, `x`):
+  // no card recolhido o ícone é metade do que distingue uma linha da outra, e repetir o desenho
+  // apagaria essa metade justamente entre eventos que falam do mesmo fato para pessoas diferentes.
+  'inbox-new',
+  'alert',
 ] as const
 
 export type NotificationIconKey = (typeof NOTIFICATION_ICON_KEYS)[number]
@@ -88,7 +93,9 @@ export const NOTIFICATION_EVENT_NAMES: Record<NotificationEvent, string> = {
   order_shipped: 'Pedido postado',
   order_delivered: 'Pedido entregue',
   post_delivery_care: 'Cuidados com a joia',
+  owner_order_received: 'Pedido novo',
   owner_order_paid: 'Pedido pago',
+  owner_payment_rejected: 'Pagamento recusado da cliente',
   owner_material_incoming: 'Material a caminho',
 }
 
@@ -117,7 +124,9 @@ export const NOTIFICATION_EVENT_DESCRIPTIONS: Record<NotificationEvent, string> 
   order_shipped: 'Enviado quando a peça é postada, com o código de rastreio',
   order_delivered: 'Enviado quando a transportadora confirma a entrega',
   post_delivery_care: 'Enviado alguns dias depois da entrega',
+  owner_order_received: 'Enviado para o seu e-mail quando um pedido é registrado, antes do pagamento',
   owner_order_paid: 'Enviado para o seu e-mail quando um pedido é pago',
+  owner_payment_rejected: 'Enviado para o seu e-mail quando a operadora recusa um pagamento',
   owner_material_incoming: 'Enviado para o seu e-mail quando uma cliente posta o material',
 }
 
@@ -141,6 +150,8 @@ export const NOTIFICATION_EVENT_ICONS: Record<NotificationEvent, NotificationIco
   order_shipped: 'truck',
   order_delivered: 'delivered',
   post_delivery_care: 'care',
+  owner_order_received: 'inbox-new',
   owner_order_paid: 'coins',
+  owner_payment_rejected: 'alert',
   owner_material_incoming: 'bell',
 }

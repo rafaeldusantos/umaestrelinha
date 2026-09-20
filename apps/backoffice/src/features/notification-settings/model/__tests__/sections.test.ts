@@ -4,7 +4,7 @@ import { NOTIFICATION_EVENTS, type NotificationEvent } from '@estrelinha/core/no
 import { NOTIFICATION_SECTIONS, SECTION_LABELS, groupedEvents, sectionFor } from '../sections'
 
 /**
- * ABN-01 — os 15 eventos agrupados em três seções DERIVADAS, cada um em exatamente uma, com a
+ * ABN-01 — os 17 eventos agrupados em três seções DERIVADAS, cada um em exatamente uma, com a
  * ordem de `NOTIFICATION_EVENTS` preservada dentro de cada seção.
  */
 
@@ -20,7 +20,9 @@ describe('SECTION_LABELS', () => {
 
 describe('sectionFor', () => {
   it('os dois eventos de audiência `owner` caem em "Avisos para você"', () => {
+    expect(sectionFor('owner_order_received')).toBe('owner')
     expect(sectionFor('owner_order_paid')).toBe('owner')
+    expect(sectionFor('owner_payment_rejected')).toBe('owner')
     expect(sectionFor('owner_material_incoming')).toBe('owner')
   })
 
@@ -50,13 +52,13 @@ describe('sectionFor', () => {
 describe('groupedEvents — âncora de contagem e ordem preservada', () => {
   const grupos = groupedEvents()
 
-  it('os 15 eventos estão distribuídos nas três seções, sem repetição e sem sobra', () => {
+  it('os 17 eventos estão distribuídos nas três seções, sem repetição e sem sobra', () => {
     const total = grupos.customer.length + grupos.material.length + grupos.owner.length
-    expect(total).toBe(15)
+    expect(total).toBe(17)
     expect(total).toBe(NOTIFICATION_EVENTS.length)
 
     const achatado = [...grupos.customer, ...grupos.material, ...grupos.owner]
-    expect(new Set(achatado).size).toBe(15)
+    expect(new Set(achatado).size).toBe(17)
     for (const event of NOTIFICATION_EVENTS) expect(achatado).toContain(event)
   })
 
@@ -84,8 +86,14 @@ describe('groupedEvents — âncora de contagem e ordem preservada', () => {
     ])
   })
 
-  it('"Avisos para você" tem exatamente os 2 eventos de audiência owner', () => {
-    expect(grupos.owner).toEqual(['owner_order_paid', 'owner_material_incoming'])
+  it('"Avisos para você" tem exatamente os 4 eventos de audiência owner', () => {
+    // A feature 57 acrescentou o primeiro e o terceiro, na ordem da jornada deles.
+    expect(grupos.owner).toEqual([
+      'owner_order_received',
+      'owner_order_paid',
+      'owner_payment_rejected',
+      'owner_material_incoming',
+    ])
   })
 })
 

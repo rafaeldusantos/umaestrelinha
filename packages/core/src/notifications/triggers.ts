@@ -44,8 +44,11 @@ export const CUSTOMER_TRIGGERS: readonly NotificationTrigger[] = ['material_trac
  */
 export function eventsForTrigger(trigger: NotificationTrigger, order: OrderSnapshot): NotificationEvent[] {
   switch (trigger) {
+    // A dona vem DEPOIS da cliente — a ordem desta lista é regra, não estética (ver o cabeçalho
+    // de `eventsForTrigger`). O aviso interno da 57 nasce aqui, e é o único ponto em que "pedido
+    // novo" existe: `payment_approved` já é outro fato.
     case 'pix_created':
-      return ['order_received']
+      return ['order_received', 'owner_order_received']
 
     // NTF-10 — a bifurcação. Com material a esperar, o próximo passo é da cliente (postar), e o
     // e-mail de "entra na fila de produção" diria a coisa errada. A dona é avisada nos dois ramos.
@@ -56,7 +59,7 @@ export function eventsForTrigger(trigger: NotificationTrigger, order: OrderSnaps
       ]
 
     case 'payment_rejected':
-      return ['payment_rejected']
+      return ['payment_rejected', 'owner_payment_rejected']
 
     case 'payment_expired':
       return ['pix_expired']

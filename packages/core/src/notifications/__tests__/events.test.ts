@@ -18,8 +18,8 @@ import {
  * o histórico já exibia, e o tom.
  */
 
-describe('NOTIFICATION_EVENTS — os quinze, na ordem da jornada (spec, tabela de eventos)', () => {
-  it('são exatamente os quinze da spec, nesta ordem', () => {
+describe('NOTIFICATION_EVENTS — os dezessete, na ordem da jornada (spec, tabela de eventos)', () => {
+  it('são exatamente os dezessete da spec, nesta ordem', () => {
     expect([...NOTIFICATION_EVENTS]).toEqual([
       'order_received',
       'order_paid',
@@ -34,7 +34,9 @@ describe('NOTIFICATION_EVENTS — os quinze, na ordem da jornada (spec, tabela d
       'order_shipped',
       'order_delivered',
       'post_delivery_care',
+      'owner_order_received',
       'owner_order_paid',
+      'owner_payment_rejected',
       'owner_material_incoming',
     ])
   })
@@ -55,7 +57,7 @@ describe('NOTIFICATION_EVENTS — os quinze, na ordem da jornada (spec, tabela d
 })
 
 describe('NOTIFICATION_EVENT_LABELS — cada evento tem rótulo (FIX-02, AC 2)', () => {
-  it('cobre os quinze, sem chave sobrando', () => {
+  it('cobre os dezessete, sem chave sobrando', () => {
     expect(Object.keys(NOTIFICATION_EVENT_LABELS).sort()).toEqual([...NOTIFICATION_EVENTS].sort())
   })
 
@@ -80,13 +82,20 @@ describe('NOTIFICATION_EVENT_LABELS — cada evento tem rótulo (FIX-02, AC 2)',
 })
 
 describe('EVENT_AUDIENCE — quem recebe (spec, coluna Destinatário)', () => {
-  it('cobre os quinze', () => {
+  it('cobre os dezessete', () => {
     expect(Object.keys(EVENT_AUDIENCE).sort()).toEqual([...NOTIFICATION_EVENTS].sort())
   })
 
-  it('só os dois `owner_*` vão para a dona; os outros treze vão para a cliente', () => {
+  it('só os quatro `owner_*` vão para a dona; os outros treze vão para a cliente', () => {
     const daDona = NOTIFICATION_EVENTS.filter((e) => EVENT_AUDIENCE[e] === 'owner')
-    expect(daDona).toEqual(['owner_order_paid', 'owner_material_incoming'])
+    // A feature 57 acrescentou o primeiro e o terceiro. A ordem é a da jornada DELES — nasce o
+    // pedido, é pago ou recusado, o material vem a caminho.
+    expect(daDona).toEqual([
+      'owner_order_received',
+      'owner_order_paid',
+      'owner_payment_rejected',
+      'owner_material_incoming',
+    ])
     const daCliente = NOTIFICATION_EVENTS.filter((e) => EVENT_AUDIENCE[e] === 'customer')
     expect(daCliente).toHaveLength(13)
   })
@@ -111,7 +120,7 @@ describe('MATERIAL_EVENTS — os que proíbem exclamação (spec, AC 4 dos event
 })
 
 describe('MATERIAL_INSTRUCTIONS_EVENT — o único evento com {{endereco_atelie}} (feature 53, ABN-08)', () => {
-  it('é `material_instructions`, e é ele mesmo um dos quinze', () => {
+  it('é `material_instructions`, e é ele mesmo um dos dezessete', () => {
     expect(MATERIAL_INSTRUCTIONS_EVENT).toBe('material_instructions')
     expect(NOTIFICATION_EVENTS).toContain(MATERIAL_INSTRUCTIONS_EVENT)
   })

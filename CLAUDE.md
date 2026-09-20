@@ -129,8 +129,8 @@ Ao planejar/implementar features, use a Skill **`tlc-spec-driven`** com estas co
     do painel) é de **outra sessão** e tem spec própria. **A `50` (produtos em destaque), a `51` (a
     busca de produto do painel), a `52` (entrega de e-mail comprovada), a `53` (a aba de
     Notificações), a `54` (templates de e-mail de auth), a `55` (configurações por seções) e a `56`
-    (Notificações legíveis, e o padrão das Configurações) também estão FECHADAS. A próxima é a
-    `57`.**
+    (Notificações legíveis, e o padrão das Configurações) também estão FECHADAS. A `57`
+    (os avisos para a dona, e o endereço que os recebe) também está FECHADA. A próxima é a `58`.**
   - **A `46` e a `47` correram EM PARALELO, em worktrees separados**, e é o segundo caso do projeto
     (o primeiro, a `45`, dividiu uma working tree só). O que mudou: a divisão foi por **árvore**, não
     por arquivo — a `47` nasceu de um `git worktree` sobre o HEAD local e trouxe a `46` por
@@ -396,6 +396,7 @@ migrations, e `vercelRedirects` lê o `vercel.json`.
 | `buscaDeProdutoComDonoUnico.test.ts` | backoffice `shared/lib/__tests__` | **três réguas, ZERO allowlist** (feature `51`, `AD-036`). (1) qualquer arquivo de `apps/backoffice/src/**` fora de `entities/product/api/**` consultar `products` **filtrando por nome** — e a régua casa **as duas formas**, porque o dono não usa a que a spec presumia: ele monta `` `name.ilike.%…%` `` como **string** para o `.or()`, e a chamada de método que existe no arquivo é sobre `sku`. Uma régua só de método teria nascido **verde sobre nada** (`L-033`). O recorte à esquerda é por token exato, senão `customer_name.ilike.` — a busca de PEDIDO, legítima — cairia junto (`L-034`). (2) a **declaração** da dobra de busca fora de `shared/lib/texto.ts`: a régua **caminha pela cadeia de chamadas** e acusa a que **termina** no acento — o gerador de slug e a normalização de tag continuam depois dele (hífen, espaço) e são outra função, e o sensor prova que um slug que perca a junção por hífen **volta a ser acusado**. (3) o catálogo virando `<option>`/`<SelectItem>` fora de `entities/product/**`; **o alcance desta terceira é o NOME da variável, e isso está declarado no arquivo** — uma régua puramente estrutural acusaria as doze listas de categoria do painel, que têm a forma idêntica. **Âncora dupla**, com a terceira ancorada no extrator de JSX (o dono é `<ul>` de `<li>` por `BUS-17`, então não há ocorrência legítima nele — fingir uma seria âncora falsa), e **treze sensores**, incluindo o glob de dois asteriscos (`BL-027`), o CRLF, o LF, e os inversos que provam que a busca de pedido, o gerador de slug e as listas de categoria **não** são acusados |
 | `navItems.test.ts` | backoffice `widgets/admin-layout` | ordem das rotas em `App.tsx` divergir de `navGroups` |
 | `settingsSections.test.ts` | backoffice `shared/lib/__tests__` | o registro das 4 seções de Configurações mudar de ordem, ganhar slug fora de kebab-case, ou `findSettingsSection` deixar de devolver `null` para slug inexistente, vazio e ausente — é lá que `CFG-18` mora, num lugar só. Também recusa duas descrições iguais (duas linhas do rail indistinguíveis abaixo do rótulo) e uma cópia no lugar da referência do registro |
+| `ownerEmailComDonoUnico.test.ts` | store `shared/lib/__tests__` (varre `apps/**` e `supabase/functions/**`) | qualquer arquivo de produção NOMEAR `notifications_email` fora do formulário que o edita — o campo só tem uma razão para aparecer num app, que é ser editado, e qualquer outra ocorrência é alguém resolvendo o destinatário dos avisos à mão. **Allowlist de UM**, e a régua vem com a **metade POSITIVA**: os três consumidores (`recipientFor`, a pré-condição e o aviso do painel) têm de CHAMAR `resolveOwnerEmail`/`ownerContactMissing` — sem ela, apagar as três chamadas deixaria a regra de ausência verdadeira e vazia (`originZipNotRead`). Recusa também a forma exata que a `57` removeu (`general.email === ''` como decisão de destinatário), que voltaria por "simplificação" levando a queda junto. Inverso provando que `general.email` — o e-mail **público**, lido por `PolicyContact` — não é acusado |
 | `catalog.test.ts` | `packages/core/src/notifications/__tests__` | os três mapas de apresentação divergirem dos 15 eventos (chave a mais **ou** a menos); **um nome de evento virar CÓPIA do rótulo de histórico** — os dois mapas respondem perguntas diferentes (*"que evento é este?"* × *"o que aconteceu com este pedido?"*), e a cópia faz a tela de configuração intitular cada card no passado, acima de um interruptor desligado; nome no particípio de "enviado" mesmo sem ser cópia literal; nome ou descrição vazio, repetido ou longo demais; descrição que não começa por "Enviado" (ela responde QUANDO, nunca O QUE) ou que leve exclamação; chave de ícone fora do vocabulário, órfã, ou repetida entre dois eventos. A **pureza** do módulo não é remedida aqui: `purity.test.ts`, ao lado, já lista o diretório do disco e alcança o arquivo novo por construção |
 | `eventIcons.test.ts` | backoffice `features/notification-settings/ui/__tests__` | chave de `NOTIFICATION_ICON_KEYS` sem componente **ou** componente sem chave — **bidirecional**, no molde de `menuIconCatalog.test.ts`, porque o `tsc` pega só o primeiro sentido. Guarda também o **percurso inteiro** (evento → chave → componente), que os dois mapas podem satisfazer isoladamente e quebrar juntos |
 | `contadorComDonoUnico.test.ts` | backoffice `shared/ui/__tests__` | uma segunda escrita do contador de caracteres dentro de Configurações — a forma "comprimento colado numa barra", nas duas grafias (interpolação de template e chave de JSX). **Escopo LITERAL e estreito**, com o motivo escrito no arquivo: a primeira escrita varria o painel inteiro e nascia acusando **sete** ocorrências em cinco arquivos fora de Configurações, que **não são a mesma função** (duas aparam antes de contar, duas escrevem o sufixo "caracteres") — e guarda que nasce reprovando sete vezes é guarda que alguém desliga. **Allowlist de UM** (o dono), âncora dupla (arquivos lidos **e** a forma encontrada no dono), e sensores com os dois inversos (`.length` sem barra, e divisão POR comprimento) mais o removedor de comentário com CRLF, LF e o glob de dois asteriscos |
@@ -448,7 +449,7 @@ quando mudarem de verdade.
 | --- | --- | --- |
 | **Lint** | **26 erros / 6 warnings** — backoffice 24/4 · store 2/2 | `pnpm lint` |
 | **Tipos** | **0 · 0 · 0** (store · backoffice · catalog-import) | `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` |
-| **Testes** | **10084 em 518 arquivos** — store **3517/221** · backoffice **3008/166** · core **2395/94** · functions **652/14** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
+| **Testes** | **10136 em 520 arquivos** — store **3535/222** · backoffice **3017/166** · core **2420/95** · functions **652/14** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
 
 **A feature `53` (a aba de Notificações, os 15 eventos do motor ficam alcançáveis) somou +116 em
 TRÊS workspaces, medidos em 2026-09-19 um por vez, exit code fora de pipe e `--testTimeout=20000`
@@ -522,6 +523,63 @@ alterada (`git diff --name-only -- packages/core/src/payment`, zero arquivos).
 > um arquivo que existe no disco); só `supabase stop` (sem `--all`) + `supabase start` recriou o
 > container do zero e resolveu. Sem isso, a prova em navegador desta feature (que depende de
 > `send-notification?action=preview`/`?action=config-check`) não teria como acontecer.
+
+**A feature `57` (os avisos para a dona, e o endereço que os recebe) somou +52 em TRÊS
+workspaces**, medidos em 2026-09-20 um por vez, com exit code fora de pipe e `--testTimeout=20000`
+nos dois apps: **core 2395/94 → 2420/95** (`resolveOwnerEmail` e as duas pré-condições novas),
+**store 3517/221 → 3535/222** (o guarda do dono único, mais as asserções novas nos dois guardas de
+schema) e **backoffice 3008/166 → 3017/166** (o campo novo e o aviso pelo dono único). Functions e
+catalog-import não foram tocados e foram remedidos — idênticos. Lint em **26/6** e tipos em
+**0 · 0**, sem mexer; `pnpm build` verde, e `packages/core/src/payment/**` com zero arquivos
+alterados.
+
+> **A pergunta que abriu a feature já tinha resposta, e a resposta era "já está".** O e-mail que
+> recebe os avisos sempre foi lido **na hora de enviar** (`recipientFor`, `dispatch.ts`), então
+> trocar o valor no painel já valia no próximo e-mail — sem deploy e sem secret. O que **não** era
+> verdade era a separação: `general.email` acumulava dois papéis, o endereço interno e o e-mail
+> **público** que `PolicyContact` mostra nas páginas de política. Agora são dois campos, e o novo
+> vazio significa *"use o de contato"* — regra, não dado faltando, e é o que faz o deploy não mudar
+> o comportamento de ninguém.
+
+> **"Qual é o endereço que recebe os avisos?" virou REGRA, e regra lida em três lugares diverge.**
+> Três superfícies fazem essa pergunta: o motor ao escolher o destino, a pré-condição, e o aviso do
+> painel. Escrita três vezes, a queda diverge — e a forma da divergência é a pior possível porque
+> nenhum lado quebra: **o painel avisando "nenhum e-mail cadastrado" enquanto o motor manda
+> alegremente para o de contato**. `resolveOwnerEmail` (`core/notifications/owner.ts`) é o dono, e
+> `ownerEmailComDonoUnico.test.ts` tem allowlist de UM **mais a metade positiva** — os três
+> consumidores chamam o dono. Um guarda de ausência sem a presença ao lado sobrevive à feature
+> medindo o nada (`originZipNotRead`).
+
+> **O `check` de `event` estava numa migration JÁ APLICADA, e `AD-017` a torna imutável.** A
+> constraint foi **recriada** em migration nova (molde da `41` com `home_sections.type`), e os
+> **dois guardas que a mediam tiveram de aprender o endereço novo** — senão continuariam comparando
+> com uma lista que o banco não tem mais: **peça certa, endereço errado, suíte verde** (`PRF-05`).
+> Cada um ganhou a **metade que o mantém vivo**: o de schema assere que a da 42 **não é mais** a
+> vigente, e o de defaults assere que a semente da 42 **não cobre mais os dezessete sozinha**. Sem
+> essas duas, apagar o `check` da 57 faria as réguas voltarem a medir os quinze antigos e aprovarem
+> a divergência.
+
+> **O guarda de defaults passou a comparar a COMPOSIÇÃO, e isso não é remendo.** Ele exigia que o
+> jsonb semeado pela `42` fosse igual a `DEFAULT_NOTIFICATIONS`. Com dois eventos acrescentados por
+> outra migration, o que o banco fica não está em nenhum arquivo sozinho: é a semente da 42 **mais**
+> o acréscimo da 57 — num banco novo e num existente. A alternativa preguiçosa era afrouxar para
+> `toMatchObject`, que deixaria o texto divergir em silêncio; a cara era repetir os dezessete na
+> migration nova, sobrescrevendo o texto que a Adri já editou.
+
+> **A checagem contra a PRODUÇÃO achou um defeito que teste nenhum pegaria.** `ADMIN_PUBLIC_URL`
+> **não existia** nos secrets, e o código faz `envOr("ADMIN_PUBLIC_URL", "http://localhost:8083")`
+> — os **quatro** avisos para a dona usam `{{link_pedido_admin}}`, então eles sairiam com link para
+> `localhost`. O default é sintaticamente válido, a function sobe, o e-mail é enviado: o defeito só
+> existe no corpo da mensagem que chega. Gravado em 2026-09-20, com a URL conferida por `curl`.
+>
+> A mesma consulta mostrou que **nenhum aviso para a dona estava ligado** — nem os dois que existem
+> desde a `42`. A feature não leva de dois a quatro: leva de **zero em uso** a quatro disponíveis.
+
+> **`MELHOR_ENVIO_SENDER_JSON` foi restaurado no mesmo movimento, e o `{"count":2}` é a prova.**
+> O procedimento seguro de `BL-044` é arquivo com **só** as chaves pretendidas e
+> `secrets set --env-file` rodado de um diretório **sem `.env`**. O retorno da CLI dizendo `count: 2`
+> é o que separa "gravei duas" de "gravei oito" — que é exatamente como sete secrets de produção
+> foram sobrescritos com valores de dev em 2026-09-19. O conteúdo foi conferido antes de subir.
 
 **A feature `56` (Notificações legíveis, e o padrão das Configurações) somou +73 em DOIS
 workspaces**, medidos em 2026-09-20 um por vez, com exit code fora de pipe e `--testTimeout=20000`
@@ -1760,15 +1818,25 @@ completo (framework, `installCommand` na raiz do monorepo, headers de cache e de
   rótulo não foca o campo ao ser clicado e não é anunciado por leitor de tela. Corrigir o resto é
   trabalho de uma feature própria — ela teria de tocar quase toda tela de formulário do painel.
 
-- **O LOGIN DA LOJA ESTÁ EM REGRESSÃO ATIVA ATÉ ALGUÉM COLAR TRÊS TEMPLATES** (feature `52`, auditados
-  e fechados pela `54`). É o **único** passo que resta — o SMTP do auth foi **ativado** no dashboard
-  em 2026-09-19, e os três templates **ainda não** foram colados.
+- **A DÍVIDA DE AUTH DA `52` ESTÁ FECHADA** (2026-09-20, informado pelo usuário). O SMTP foi ativado
+  no dashboard em 2026-09-19 e os **três templates foram colados** em `/auth/templates`. O bloco
+  abaixo fica como registro do que era e de como se conferiu — não como pendência.
+  - ⚠️ **O fecho é por relato, não por medição, e isso é do assunto e não do zelo de quem fechou**:
+    não existe comando que leia o `[auth]` do projeto hospedado (a CLI não tem `config pull`), o
+    `Email check` declara essa cegueira por escrito, e `authEmailTemplates.test.ts` prova o conteúdo
+    do **repositório**, nunca o que está colado no dashboard. A prova de verdade é um login: pedir um
+    código na loja e vê-lo chegar com a cara da marca e seis dígitos.
+  - **O que era**: antes de ativar o SMTP, o GoTrue caía no compartilhado da Supabase (~2 e-mails por
+    hora) e simplesmente não entregava. Ativado e **sem** os templates, ele passou a entregar o
+    e-mail **padrão**, em inglês, com um **link** — enquanto a loja chama `verifyOtp` e pede um
+    código de 6 dígitos que aquele e-mail não traz. A cliente recebia algo, tentava e não entrava.
+    *Parecia* funcionar, e era o pior dos três estados possíveis.
   - **Antes** de ativar o SMTP, o GoTrue caía no compartilhado da Supabase (~2 e-mails/hora) e
     simplesmente não entregava. **Agora ele entrega** — o e-mail **padrão**, em inglês, com um
     **link** —, enquanto a loja chama `verifyOtp` e pede um código de 6 dígitos que aquele e-mail
     não traz. A cliente recebe algo, tenta e não entra. *Parece* funcionar, e é o pior dos três
     estados possíveis.
-  - **Não precisa escrever nada.** Os três existem desde a feature `20`, em `supabase/templates/`,
+  - **Não foi preciso escrever nada.** Os três existiam desde a feature `20`, em `supabase/templates/`,
     com a identidade da loja, tudo inline, sem webfont e com `{{ .Token }}` nos três. A `54` auditou
     os três contra `DESIGN.md`, fechou a única lacuna concreta (preheader ausente — a caixa de
     entrada mostrava o começo do wordmark em vez de uma frase) e acrescentou
@@ -1776,7 +1844,7 @@ completo (framework, `installCommand` na raiz do monorepo, headers de cache e de
     nenhum outro comando lê `supabase/templates/`. É colar em `/auth/templates` **sem o bloco de
     comentário do topo** (documentação para quem edita o arquivo, não serve ao dashboard), mais o
     **assunto** de cada um — que vive no `config.toml` e, como ele não é empurrado, precisa ser
-    digitado no dashboard:
+    digitado no dashboard (foi o que se fez):
 
     | Tela | Arquivo | Assunto |
     | --- | --- | --- |
@@ -1788,10 +1856,8 @@ completo (framework, `installCommand` na raiz do monorepo, headers de cache e de
     existente e *Confirm signup* para novo) e `resetPasswordForEmail`. Não há `updateUser` nem
     convite, então *Change Email Address* e *Invite user* são inalcançáveis.
   - **A prova de fecho é um login de verdade** — pedir um código na loja e vê-lo chegar com a cara
-    da marca e seis dígitos. E **nenhum teste alcança isso**: não há comando que leia o `[auth]` do
-    hospedado (a CLI não tem `config pull`), e o `Email check` declara essa cegueira por escrito —
-    ele prova que o remetente é aceito, nunca que o template está lá. `authEmailTemplates.test.ts`
-    prova o conteúdo do repositório, nunca o que está colado no dashboard.
+    da marca e seis dígitos. Quem for mexer em auth de novo faz esse percurso antes de dar por
+    certo: nenhum comando deste repositório sabe dizer o que está no dashboard.
   - O que **já** foi feito da `52`, para esta lista não envelhecer de novo: o remetente transacional
     corrigido e medido (`config-check` em produção), os dois secrets novos gravados e o
     `RESEND_FROM` apagado, o `RESEND_API_KEY` criado no cofre do **GitHub**, a function zumbi
@@ -1802,8 +1868,12 @@ completo (framework, `installCommand` na raiz do monorepo, headers de cache e de
   `.env` do diretório atual, sem avisar e sem criar chave nova (então não aparece na contagem).
   Controle: o mesmo comando devolve `{"count":8}` da raiz e `{"count":1}` de um diretório sem `.env`.
   Custou sete secrets de produção sobrescritos com valores de dev, dos quais **um não foi
-  restaurado**: `MELHOR_ENVIO_SENDER_JSON`. A cotação de frete funciona (usa só o CEP); a **criação
-  de etiqueta** é que pode falhar com 422, e ninguém a exercitou desde então. Procedimento seguro e
+  restaurado por treze dias**: `MELHOR_ENVIO_SENDER_JSON`. **Restaurado em 2026-09-20**, com o valor
+  do `.env` da raiz (conferido antes de subir: é o endereço real do ateliê em Porto Alegre, não um
+  placeholder de dev), pelo procedimento seguro — arquivo com **só** as chaves pretendidas, e
+  `secrets set --env-file` rodado de um diretório **sem `.env`**. O retorno da CLI disse
+  `{"count":2}`, que é a prova de que a mescla não aconteceu: da raiz teriam sido oito.
+  A **criação de etiqueta** continua sem ninguém ter exercitado depois da restauração. Procedimento seguro e
   o contrato do digest estão em `supabase/CLAUDE.md` e no `.env.example`.
 
 - **AS TRÊS CÓPIAS DE `slugify` DO PAINEL CONTINUAM TRÊS, e a `51` não as unificou de propósito.**

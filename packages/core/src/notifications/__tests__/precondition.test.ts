@@ -218,6 +218,65 @@ describe('post_delivery_care — `status = delivered` (o "há ≥ N dias" é da 
   })
 })
 
+describe('owner_order_received — pedido aguardando pagamento, e alguém para avisar (AVD-05)', () => {
+  it('passa com o pedido pendente e destinatário configurado', () => {
+    expect(preconditionFailure('owner_order_received', { payment_status: 'pending' }, DONA)).toBeNull()
+  })
+
+  it('NÃO exige `mp_order_id`, diferente do evento da cliente', () => {
+    // A cliente recebe um e-mail sobre o PIX que foi gerado; este diz apenas que entrou pedido.
+    // Exigir o id da Mercado Pago acoplaria o aviso interno a um detalhe que ele não menciona — e o
+    // par abaixo é o que prende essa diferença, porque ela é fácil de "consertar" por simetria.
+    expect(preconditionFailure('owner_order_received', { payment_status: 'pending' }, DONA)).toBeNull()
+    expect(preconditionFailure('order_received', { payment_status: 'pending' }, DONA)).toBe('no_mp_order')
+  })
+
+  it('recusa pedido que já saiu de pendente', () => {
+    expect(preconditionFailure('owner_order_received', { payment_status: 'approved' }, DONA)).toBe(
+      'order_not_pending',
+    )
+  })
+
+  it('recusa com `no_owner_contact` sem destinatário', () => {
+    expect(preconditionFailure('owner_order_received', { payment_status: 'pending' }, { ownerEmail: '' })).toBe(
+      'no_owner_contact',
+    )
+    expect(preconditionFailure('owner_order_received', { payment_status: 'pending' })).toBe('no_owner_contact')
+  })
+})
+
+describe('owner_payment_rejected — pagamento recusado, e alguém para avisar (AVD-05)', () => {
+  it('passa com o pagamento recusado e destinatário configurado', () => {
+    expect(preconditionFailure('owner_payment_rejected', { payment_status: 'rejected' }, DONA)).toBeNull()
+  })
+
+  it('recusa quando o pagamento NÃO foi recusado', () => {
+    // O estado é a única coisa que separa este aviso de uma mentira: "a operadora recusou" sobre um
+    // pedido aprovado é a loja dizendo a coisa errada para quem toma decisão a partir dela.
+    expect(preconditionFailure('owner_payment_rejected', { payment_status: 'approved' }, DONA)).toBe(
+      'payment_not_rejected',
+    )
+    expect(preconditionFailure('owner_payment_rejected', { payment_status: 'pending' }, DONA)).toBe(
+      'payment_not_rejected',
+    )
+  })
+
+  it('recusa com `no_owner_contact` sem destinatário', () => {
+    expect(preconditionFailure('owner_payment_rejected', { payment_status: 'rejected' }, { ownerEmail: '  ' })).toBe(
+      'no_owner_contact',
+    )
+    expect(preconditionFailure('owner_payment_rejected', { payment_status: 'rejected' })).toBe('no_owner_contact')
+  })
+
+  it('o ESTADO é conferido antes do destinatário — o motivo nomeia o defeito mais grave', () => {
+    // Com os dois errados, o slug que vai para o log é o do estado: "não há para quem avisar" é
+    // configuração faltando, e "o pagamento não foi recusado" é o chamador pedindo a coisa errada.
+    expect(preconditionFailure('owner_payment_rejected', { payment_status: 'approved' }, { ownerEmail: '' })).toBe(
+      'payment_not_rejected',
+    )
+  })
+})
+
 describe('owner_order_paid — `paid_at`, e alguém para avisar (NTF-15)', () => {
   it('passa com pedido pago e e-mail da loja configurado', () => {
     expect(preconditionFailure('owner_order_paid', pago(), DONA)).toBeNull()

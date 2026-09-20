@@ -30,8 +30,10 @@ export interface OrderSnapshot {
 /**
  * O que a pré-condição precisa saber ALÉM do pedido.
  *
- * Só os eventos `owner_*` usam: o destinatário deles é `store_settings.general.email`, e sem esse
- * endereço não há para quem avisar — `no_owner_contact`. A cliente não entra aqui: e-mail dela
+ * Só os eventos `owner_*` usam: o destinatário deles sai de `resolveOwnerEmail` (`owner.ts`) — o
+ * campo próprio de avisos, com queda para o de contato —, e sem endereço não há para quem avisar
+ * (`no_owner_contact`). **Quem chama resolve**: passar `general.email` cru aqui reintroduziria o
+ * segundo dono que `owner.ts` existe para impedir. A cliente não entra aqui: e-mail dela
  * ausente é `skipped:no_email` no motor, por canal, porque um canal pode faltar e o outro não.
  */
 export interface PreconditionContext {
@@ -113,6 +115,19 @@ export function preconditionFailure(
     // decide QUANDO; aqui só se confere que o pedido foi de fato entregue.
     case 'post_delivery_care':
       return order.status === 'delivered' ? null : 'order_not_delivered'
+
+    // Feature 57. Espelha `order_received` no estado, e NÃO exige `mp_order_id`: a cliente recebe
+    // um e-mail sobre o PIX que foi gerado, e este diz apenas que entrou pedido — exigir o id da
+    // Mercado Pago acoplaria o aviso interno a um detalhe que ele não menciona.
+    case 'owner_order_received':
+      if (order.payment_status !== 'pending') return 'order_not_pending'
+      if (blank(ctx.ownerEmail)) return 'no_owner_contact'
+      return null
+
+    case 'owner_payment_rejected':
+      if (order.payment_status !== 'rejected') return 'payment_not_rejected'
+      if (blank(ctx.ownerEmail)) return 'no_owner_contact'
+      return null
 
     case 'owner_order_paid':
       if (!order.paid_at) return 'order_not_paid'

@@ -71,7 +71,11 @@ export const StoreDataSection = () => {
               onChange={e => setGeneral({ ...general, whatsapp: e.target.value.replace(/\D/g, '') })}
             />
           </FieldGroup>
-          <FieldGroup label="E-mail de contato" htmlFor="geral-email">
+          <FieldGroup
+            label="E-mail de contato"
+            htmlFor="geral-email"
+            hint="Aparece na loja, nas páginas de política."
+          >
             <Input id="geral-email"
               type="email"
               value={general.email}
@@ -79,6 +83,26 @@ export const StoreDataSection = () => {
             />
           </FieldGroup>
         </div>
+
+        {/* Feature 57 (`AVD-07`). Ele fica ao lado do de contato porque a pergunta que a dona traz é
+            comparativa — "qual dos dois é qual?" —, e separá-los em cards distintos faria a resposta
+            depender de ela rolar a tela.
+
+            O vazio é REGRA, e a dica diz isso: `resolveOwnerEmail` cai no de contato. Sem a frase, um
+            campo vazio se lê como configuração faltando, e ela preencheria os dois com o mesmo
+            endereço só para ter certeza — que é o estado que esta feature existe para evitar. */}
+        <FieldGroup
+          label="E-mail para avisos internos"
+          htmlFor="geral-email-avisos"
+          hint="Recebe os avisos de pedido novo, pago, recusado e material a caminho. Vazio, eles vão para o e-mail de contato acima."
+        >
+          <Input id="geral-email-avisos"
+            type="email"
+            value={general.notifications_email}
+            onChange={e => setGeneral({ ...general, notifications_email: e.target.value })}
+            placeholder={general.email || 'seu@email.com'}
+          />
+        </FieldGroup>
 
         <div className="grid gap-4 sm:grid-cols-2">
           <FieldGroup label="Instagram (@usuario)" htmlFor="geral-instagram">

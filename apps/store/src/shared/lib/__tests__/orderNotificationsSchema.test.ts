@@ -30,6 +30,27 @@ const CAMINHO = resolve(ROOT, 'supabase/migrations/20260907120000_42-notificacoe
 const sql = readFileSync(CAMINHO, 'utf8')
 const minusculo = sql.toLowerCase()
 
+/**
+ * A migration da feature **57**, e e ela quem define o `check (event in ...)` VIGENTE.
+ *
+ * A da 42 continua sendo lida por tudo o que ela criou e ninguem recriou - tabela, indice, RPCs,
+ * policies, semente. Mas o `check` de `event` ela **nao** e mais quem manda: a 57 o recriou com
+ * dezessete valores, e o `db push` aplica em ordem, entao a ultima definicao e a que o banco tem.
+ *
+ * Continuar medindo o da 42 seria o modo de falha que este repositorio ja pagou entre a `38` e a
+ * `39` (`PRF-05`): **peca certa, endereco errado, suite verde** - o guarda comparando com uma lista
+ * que o banco nao tem mais, e o `check` real podendo divergir de `core` sem nada acusar.
+ *
+ * `AD-017` e o que torna isto obrigatorio em vez de opcional: a migration da 42 esta APLICADA em
+ * producao, e reescreve-la faria o banco local e o hospedado divergirem em silencio - o `db push`
+ * so olha o que falta, nunca o que mudou no que ja passou.
+ *
+ * Molde: `homeSections.test.ts` depois da `41`, que recriou o `check` de `home_sections.type`.
+ */
+const CAMINHO_57 = resolve(ROOT, 'supabase/migrations/20260920120000_57-avisos-para-a-dona.sql')
+
+const sql57 = readFileSync(CAMINHO_57, 'utf8')
+
 // -------------------------------------------------------------------------------------------
 // As réguas, como predicados
 // -------------------------------------------------------------------------------------------
@@ -182,24 +203,44 @@ describe('âncoras — a varredura olhou alguma coisa', () => {
   })
 
   it('`NOTIFICATION_EVENTS` tem tamanho de verdade', () => {
-    expect(NOTIFICATION_EVENTS.length).toBe(15)
+    // 15 na feature 42; 17 desde a 57.
+    expect(NOTIFICATION_EVENTS.length).toBe(17)
   })
 })
 
 describe('o `check` de `event` é NOTIFICATION_EVENTS — nos dois sentidos, e na ordem', () => {
   it('a lista do SQL é exatamente a do TypeScript', () => {
-    expect(eventosDoCheck(sql)).toEqual([...NOTIFICATION_EVENTS])
+    // Do arquivo da **57**, que e quem recria a constraint por ultimo. Ver `CAMINHO_57`.
+    expect(eventosDoCheck(sql57)).toEqual([...NOTIFICATION_EVENTS])
+  })
+
+  it('e a da 42 NAO e mais a vigente - senao este guarda mediria o endereco errado', () => {
+    // A metade que impede a regua de apodrecer em silencio. Se alguem apagar o `check` da 57, esta
+    // assercao cai junto com a de cima - em vez de a de cima voltar a medir os quinze antigos e
+    // aprovar uma divergencia.
+    const daQuarentaEDois = eventosDoCheck(sql)
+    expect(daQuarentaEDois).not.toBeNull()
+    expect(daQuarentaEDois).not.toEqual([...NOTIFICATION_EVENTS])
+    expect(daQuarentaEDois).toHaveLength(15)
+  })
+
+  it('a 57 DERRUBA a constraint antes de recria-la - senao o `add` falha no banco existente', () => {
+    const m57 = sql57.toLowerCase()
+    expect(m57).toContain('drop constraint if exists order_notifications_event_check')
+    expect(m57.indexOf('drop constraint if exists order_notifications_event_check')).toBeLessThan(
+      m57.indexOf('add constraint order_notifications_event_check'),
+    )
   })
 
   it('SENSOR: tirar um evento do SQL reprova', () => {
-    const mutado = sql.replace("\t\t'pix_expired',\n", '')
-    expect(mutado).not.toBe(sql)
+    const mutado = sql57.replace("\t\t'pix_expired',\n", '')
+    expect(mutado).not.toBe(sql57)
     expect(eventosDoCheck(mutado)).not.toEqual([...NOTIFICATION_EVENTS])
   })
 
   it('SENSOR: um evento a mais no SQL (que `core` não rotula) reprova', () => {
-    const mutado = sql.replace("\t\t'owner_material_incoming'\n", "\t\t'owner_material_incoming',\n\t\t'order_confirmed'\n")
-    expect(mutado).not.toBe(sql)
+    const mutado = sql57.replace("\t\t'owner_material_incoming'\n", "\t\t'owner_material_incoming',\n\t\t'order_confirmed'\n")
+    expect(mutado).not.toBe(sql57)
     expect(eventosDoCheck(mutado)).not.toEqual([...NOTIFICATION_EVENTS])
   })
 

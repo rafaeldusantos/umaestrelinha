@@ -76,15 +76,15 @@ beforeEach(() => {
   })
 })
 
-describe('NotificationsTab (ABN-01) — 15 cards, três seções, ordem preservada', () => {
-  it('renderiza um card por evento — os 15, cada um exatamente uma vez', async () => {
+describe('NotificationsTab (ABN-01) — 17 cards, três seções, ordem preservada', () => {
+  it('renderiza um card por evento — os 17, cada um exatamente uma vez', async () => {
     renderTab()
     await waitFor(() => expect(screen.getByTestId(`event-card-${NOTIFICATION_EVENTS[0]}`)).toBeInTheDocument())
 
     for (const event of NOTIFICATION_EVENTS) {
       expect(screen.getByTestId(`event-card-${event}`)).toBeInTheDocument()
     }
-    expect(screen.getAllByTestId(/^event-card-[a-z_]+$/)).toHaveLength(15)
+    expect(screen.getAllByTestId(/^event-card-[a-z_]+$/)).toHaveLength(17)
   })
 
   it('a ordem do flat de cards é a das TRÊS SEÇÕES, e dentro de cada uma é a de NOTIFICATION_EVENTS', async () => {
@@ -359,6 +359,75 @@ describe('NotificationsTab — salvar', () => {
 // ───────────────────────────────────────────────────────────────────────────
 // Feature 56 — o acordeão, os cabeçalhos de grupo e a linha do título
 // ───────────────────────────────────────────────────────────────────────────
+
+describe('NotificationsTab (AVD-09) — o aviso de "sem e-mail" segue o dono unico', () => {
+  it('com o campo de avisos preenchido e o de contato VAZIO, NAO avisa', async () => {
+    // O mutante que este caso mata: trocar `ownerContactMissing(general)` por
+    // `general.email.trim() === ''`. O painel diria "nenhum e-mail cadastrado" enquanto o motor
+    // manda alegremente para o campo de avisos - e as duas telas ficariam verdes.
+    renderTab([{ key: 'general', value: { email: '', notifications_email: 'avisos@loja.com' } }])
+    await waitFor(() => expect(screen.getByTestId('event-card-owner_order_paid')).toBeInTheDocument())
+
+    abrirCard('owner_order_paid')
+
+    const banner = screen.queryByTestId('event-warnings-owner_order_paid')
+    // Pode haver o aviso da URL do painel; o que NAO pode haver e o de e-mail.
+    expect(banner?.textContent ?? '').not.toContain('Nenhum e-mail cadastrado')
+  })
+
+  it('com os DOIS vazios, avisa', async () => {
+    // O par. Sem ele, um `ownerContactMissing` que devolvesse sempre `false` passaria acima.
+    renderTab([{ key: 'general', value: { email: '', notifications_email: '' } }])
+    await waitFor(() => expect(screen.getByTestId('event-card-owner_order_paid')).toBeInTheDocument())
+
+    abrirCard('owner_order_paid')
+
+    expect(screen.getByTestId('event-warnings-owner_order_paid').textContent).toContain(
+      'Nenhum e-mail cadastrado',
+    )
+  })
+
+  it('so o de contato preenchido tambem NAO avisa - e a queda que o deploy depende', async () => {
+    // O estado de TODA loja no dia do deploy da 57: `notifications_email` semeado vazio. Se este
+    // caso quebrar, o painel passa a acusar falta de e-mail em quem sempre recebeu.
+    renderTab([{ key: 'general', value: { email: 'adri@loja.com' } }])
+    await waitFor(() => expect(screen.getByTestId('event-card-owner_order_paid')).toBeInTheDocument())
+
+    abrirCard('owner_order_paid')
+
+    const banner = screen.queryByTestId('event-warnings-owner_order_paid')
+    expect(banner?.textContent ?? '').not.toContain('Nenhum e-mail cadastrado')
+  })
+})
+
+describe('NotificationsTab (AVD-01, AVD-02) — os quatro avisos para a dona', () => {
+  it('o grupo "Avisos para voce" tem QUATRO cards, e a contagem acompanha', async () => {
+    renderTab()
+    await waitFor(() => expect(screen.getByTestId('event-card-owner_order_paid')).toBeInTheDocument())
+
+    const grupo = screen.getByTestId('notifications-section-owner')
+    expect(within(grupo).getAllByTestId(/^event-card-header-/)).toHaveLength(4)
+    expect(screen.getByTestId('notifications-count-owner')).toHaveTextContent('4 eventos')
+
+    // Os dois novos existem pelo nome, e nao so pela contagem: uma contagem certa com o card errado
+    // passaria na assercao de cima.
+    for (const event of ['owner_order_received', 'owner_payment_rejected']) {
+      expect(within(grupo).getByTestId(`event-card-header-${event}`)).toBeInTheDocument()
+    }
+  })
+
+  it('os dois novos nascem DESLIGADOS na tela (PNL-06)', async () => {
+    // O interruptor da tela le o rascunho, que resolve contra o default. Se um deles nascesse
+    // ligado, a dona comecaria a receber e-mail de pedido nao pago sem ter escolhido isso.
+    renderTab()
+    await waitFor(() => expect(screen.getByTestId('event-card-owner_order_received')).toBeInTheDocument())
+
+    for (const event of ['owner_order_received', 'owner_payment_rejected']) {
+      const card = screen.getByTestId(`event-card-${event}`)
+      expect(within(card).getByRole('switch'), event).toHaveAttribute('data-state', 'unchecked')
+    }
+  })
+})
 
 describe('NotificationsTab (LEG-05) — os quinze nascem recolhidos', () => {
   it('nenhum card está aberto na montagem, e nenhum campo existe no DOM', async () => {

@@ -20,8 +20,9 @@ import {
 
 /** Sem isto, uma lista vazia satisfaria todo `for` abaixo — a falha mais silenciosa possível. */
 describe('catálogo de apresentação — âncora', () => {
-  it('os quinze eventos estão na varredura', () => {
-    expect(NOTIFICATION_EVENTS).toHaveLength(15)
+  it('os dezessete eventos estão na varredura', () => {
+    // 15 na feature 56; a 57 acrescentou `owner_order_received` e `owner_payment_rejected`.
+    expect(NOTIFICATION_EVENTS).toHaveLength(17)
   })
 
   it('os três mapas cobrem exatamente os quinze, sem chave a mais', () => {
@@ -136,6 +137,6 @@ describe('LEG-03 — a chave de ícone é de um vocabulário fechado', () => {
     const chaves = NOTIFICATION_EVENTS.map((e) => NOTIFICATION_EVENT_ICONS[e])
 
     expect(new Set(chaves).size).toBe(chaves.length)
-    expect(NOTIFICATION_ICON_KEYS).toHaveLength(15)
+    expect(NOTIFICATION_ICON_KEYS).toHaveLength(17)
   })
 })

@@ -456,6 +456,8 @@ describe('Configurações › nenhum campo foi removido (Success Criteria)', () 
       'Nome da loja',
       'WhatsApp (com DDD)',
       'E-mail de contato',
+      // Feature 57 (`AVD-07`): o endereco que recebe os avisos internos, separado do publico.
+      'E-mail para avisos internos',
       'Instagram (@usuario)',
       'TikTok (@usuario)',
       'Mensagem padrão do WhatsApp',
@@ -1012,6 +1014,64 @@ describe('Configurações › Dados da loja — Geral e SEO gravam separado', ()
 // ───────────────────────────────────────────────────────────────────────────
 // Feature 56 — o mesmo padrão nas outras seções
 // ───────────────────────────────────────────────────────────────────────────
+
+describe('Configuracoes > AVD-07, AVD-08 — o e-mail dos avisos internos', () => {
+  it('o campo existe, e e SEPARADO do e-mail de contato', () => {
+    abrirDadosDaLoja()
+
+    const contato = screen.getByLabelText('E-mail de contato') as HTMLInputElement
+    const avisos = screen.getByLabelText('E-mail para avisos internos') as HTMLInputElement
+
+    // Dois nos distintos. Uma assercao de "existe" em cada um passaria com os dois sendo o MESMO
+    // input, que e exatamente o estado que esta feature existe para desfazer.
+    expect(contato).not.toBe(avisos)
+    expect(contato.id).not.toBe(avisos.id)
+  })
+
+  it('a dica diz o que o VAZIO faz — senao ele se le como configuracao faltando', () => {
+    // Sem a frase, a Adri preencheria os dois com o mesmo endereco so para ter certeza, e a
+    // separacao que a feature entrega nao serviria para nada.
+    abrirDadosDaLoja()
+
+    const dica = screen.getByText(/Vazio, eles v[ãa]o para o e-mail de contato acima/)
+    expect(dica).toBeInTheDocument()
+  })
+
+  it('editar o campo novo NAO mexe no de contato', () => {
+    abrirDadosDaLoja()
+
+    fireEvent.change(screen.getByLabelText('E-mail para avisos internos'), {
+      target: { value: 'avisos@loja.com' },
+    })
+
+    expect((screen.getByLabelText('E-mail para avisos internos') as HTMLInputElement).value).toBe(
+      'avisos@loja.com',
+    )
+    // O par que prende a independencia: um `setGeneral` que escrevesse na chave errada passaria na
+    // assercao de cima e quebraria o e-mail publico da loja.
+    expect((screen.getByLabelText('E-mail de contato') as HTMLInputElement).value).not.toBe(
+      'avisos@loja.com',
+    )
+  })
+
+  it('salvar Geral envia `notifications_email` junto — o campo nao e decorativo', () => {
+    abrirDadosDaLoja()
+
+    fireEvent.change(screen.getByLabelText('E-mail para avisos internos'), {
+      target: { value: 'avisos@loja.com' },
+    })
+    fireEvent.click(screen.getByTestId('salvar-geral'))
+
+    // A metade que a assercao de tela nao alcanca: o valor precisa chegar ao `upsert`. Sem ela, um
+    // campo controlado que nunca entrasse no objeto salvo passaria em tudo acima.
+    expect(mutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        key: 'general',
+        value: expect.objectContaining({ notifications_email: 'avisos@loja.com' }),
+      }),
+    )
+  })
+})
 
 describe('Configurações › LEG-19 — o teto saiu do rótulo e virou contador', () => {
   /** Rótulo visível → o teto que ele anunciava antes desta feature. */

@@ -140,10 +140,10 @@ describe('TPL-01 — shape do retorno', () => {
     expect(email.text.length).toBeGreaterThan(0)
   })
 
-  it('renderEmail atende TODOS os quinze eventos do vocabulário', () => {
+  it('renderEmail atende TODOS os dezessete eventos do vocabulário', () => {
     // O allow-list deixou de ser uma lista de quatro dentro da function e passou a ser
     // `NOTIFICATION_EVENTS`, em `core` — a mesma que o `check` da migration copia.
-    expect(NOTIFICATION_EVENTS).toHaveLength(15)
+    expect(NOTIFICATION_EVENTS).toHaveLength(17)
 
     for (const event of NOTIFICATION_EVENTS) {
       const email = render(event, shippedFixture({ material_status: 'material_enviado', material_tracking_code: 'BB1BR' }))
@@ -598,7 +598,7 @@ describe('material_received — tom e conteúdo', () => {
 
   it('está no vocabulário, e o vocabulário tem um dono só', () => {
     expect(NOTIFICATION_EVENTS).toContain('material_received')
-    expect(NOTIFICATION_EVENTS).toHaveLength(15)
+    expect(NOTIFICATION_EVENTS).toHaveLength(17)
   })
 
   it('o assunto traz o número do pedido e diz o que aconteceu', () => {

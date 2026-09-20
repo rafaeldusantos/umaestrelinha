@@ -34,6 +34,7 @@ import {
   notificationCopyRefusal,
   preconditionFailure,
   resolveEventSettings,
+  resolveOwnerEmail,
   variablesRefusal,
 } from '../../../packages/core/src/notifications/index.ts'
 import { type EmailOrder, isValidFrom } from './render/layout.ts'
@@ -192,7 +193,10 @@ function recipientFor(
   if (channel !== 'email') return { skipped: 'no_provider' }
 
   if (EVENT_AUDIENCE[event] === 'owner') {
-    const to = String(settings.general?.email ?? '').trim()
+    // `resolveOwnerEmail`, nunca `general.email` cru (feature 57): o campo próprio de avisos cai no
+    // de contato quando vazio, e essa queda tem UM dono. Ler o campo aqui faria este caminho e o da
+    // pré-condição, abaixo, discordarem — com o pior dos sintomas, que é nenhum.
+    const to = resolveOwnerEmail(settings.general)
     return to === '' ? { skipped: 'no_owner_contact' } : { to }
   }
 
@@ -429,7 +433,7 @@ async function forEvent(
     return [{ ok: false, event, channel: 'email', reason: 'invalid_from' }]
   }
 
-  const falha = preconditionFailure(event, order, { ownerEmail: settings.general?.email })
+  const falha = preconditionFailure(event, order, { ownerEmail: resolveOwnerEmail(settings.general) })
   if (falha) {
     // Sai ANTES do claim, de propósito: a tentativa segue retentável quando o estado completar. É o
     // que faz o par "marcar enviado" + "salvar rastreio" funcionar em qualquer ordem (TRG-12).

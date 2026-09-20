@@ -961,9 +961,87 @@
 - **Date**: 2026-09-20
 - **Status**: active
 
+### AD-040
+- **Decision**: **Um `check` de banco recriado por migration nova muda o ENDEREÇO do guarda, e o
+  guarda precisa da metade que prova que o endereço antigo não vale mais.** Aplicado na feature `57`,
+  que recriou `order_notifications_event_check` com dezessete valores. E, junto: **quando uma
+  migration aplicada semeia dado e outra o acrescenta, o guarda compara a COMPOSIÇÃO** — que é o que
+  o banco de fato fica —, nunca o arquivo de uma delas sozinho.
+- **Reason**: `AD-017` torna migration aplicada imutável, então toda correção de constraint nasce
+  numa migration nova e a definição vigente muda de arquivo. O guarda que ficasse lendo o arquivo
+  antigo passaria a comparar `core` com uma lista **que o banco não tem mais**: ele continua verde,
+  continua parecendo que mede, e a divergência real fica livre. É o `PRF-05` — *peça certa, endereço
+  errado, suíte verde* — que este repositório já pagou entre a `38` e a `39`.
+  A metade que resolve não é só "aponte para o arquivo novo": é **asserir que o antigo não é mais o
+  dono**. No `check`, isso é `expect(eventosDo42).not.toEqual(NOTIFICATION_EVENTS)`; na semente, é
+  `expect(Object.keys(semente42.events)).toHaveLength(15)`. Sem elas, apagar a migration nova faria
+  as réguas voltarem silenciosamente a medir o estado antigo — o guarda se auto-repara para a versão
+  errada.
+- **Trade-off**: o guarda passa a ler **dois** arquivos e a carregar o número da lista antiga
+  cravado (15). Isso é dívida: a próxima recriação vai ter três arquivos e dois números. Aceito
+  porque a alternativa é pior em espécie, não em grau — um guarda que mede o endereço errado é pior
+  que guarda nenhum, porque ele dá a garantia sem entregá-la. Quando o terceiro chegar, o movimento
+  é extrair "qual é a migration vigente desta constraint" para um lugar só.
+  A **composição** tem um custo próprio: o guarda passa a conhecer a MECÂNICA das duas migrations
+  (um `insert` com dollar-quoting, um `jsonb_set` por caminho). Em troca, ele modela a sequência
+  real de `db push` — e recusa as duas saídas fáceis, que seriam afrouxar para `toMatchObject` (o
+  texto divergiria em silêncio) ou repetir os dezessete na migration nova (sobrescrevendo o texto
+  que a dona já editou).
+- **Relação com `AD-039`**: é a mesma feature aplicando a mesma disciplina em outra camada. A `39`
+  diz que uma pergunta com três consumidores vira função em `core`; esta diz que uma verdade com
+  dois arquivos vira comparação de composição. As duas existem porque o sintoma da divergência é o
+  mesmo: **nada quebra**.
+- **Scope**: `apps/store/src/shared/lib/__tests__/orderNotificationsSchema.test.ts`,
+  `apps/store/src/shared/lib/__tests__/storeSettingsDefaults.test.ts`,
+  `supabase/migrations/20260920120000_57-avisos-para-a-dona.sql`
+- **Date**: 2026-09-20
+- **Status**: active
+
 ## Handoff
 
-### ATUAL — 2026-09-20 · `56-notificacoes-legiveis` **IMPLEMENTADA — 9 de 9 tasks**
+### ATUAL — 2026-09-20 · `57-avisos-para-a-dona` **IMPLEMENTADA — 10 de 10 tasks**
+
+- **Feature**: `.specs/features/57-avisos-para-a-dona/` (`spec.md`, `design.md`, `tasks.md`,
+  `validation.md`). Decisões: `AD-039` (na 56) e `AD-040`.
+- **Origem**: pergunta do usuário — *"onde é configurado o e-mail que recebe as notificações? Esse
+  dado precisa ser dinâmico. Existem 2 avisos, mas precisamos de outros status como RECEBIDO."*
+  Ele escolheu, com o custo de cada um apresentado: **Pedido recebido** e **Pagamento recusado**
+  (recusou PIX expirado e cancelado/estornado), e **campo próprio** para o e-mail interno.
+- **O que mudou**: `core/notifications/{owner,catalog,events,defaults,triggers,precondition}.ts` ·
+  `general.notifications_email` · migration aditiva recriando o `check` com 17 ·
+  `dispatch.ts` pelo dono único · o campo em Dados da loja · o aviso do painel pelo dono único ·
+  `ownerEmailComDonoUnico.test.ts` · nove âncoras de contagem 15 → 17.
+- **Medido**: **10136 em 520** (core 2420/95, store 3535/222, backoffice 3017/166; functions e
+  catalog-import remedidos e idênticos). Lint 26/6, tipos 0 · 0, build verde, `payment/**` intocado.
+- **Próximo número de feature**: `58`.
+
+#### O que foi feito em PRODUÇÃO nesta sessão, fora do repositório
+
+| O quê | Quando | Prova |
+| --- | --- | --- |
+| `ADMIN_PUBLIC_URL` gravado (`https://umaestrelinha-backoffice.vercel.app`) | 2026-09-20 | não existia; a URL responde 200; sem ele os quatro avisos da dona sairiam com link para `localhost` |
+| `MELHOR_ENVIO_SENDER_JSON` restaurado do `.env` da raiz | 2026-09-20 | `{"count":2}` no retorno da CLI — a prova de que a mescla do `BL-044` não aconteceu |
+| Os três templates de auth colados no dashboard | pelo usuário | relato do usuário; **não há comando que leia o `[auth]` do hospedado**, então o fecho é por relato |
+
+#### O que a dona ainda precisa fazer, e sem isso nada acontece
+
+- **Ligar os avisos** em `/admin/configuracoes/notificacoes` → grupo *Avisos para você*. Consultado
+  em 2026-09-20: em produção **nenhum** dos avisos internos estava ligado — nem os dois de antes.
+  Os quatro nascem desligados (`PNL-06`).
+- **Opcional**: preencher *E-mail para avisos internos* em Dados da loja. Vazio, cai em
+  `general.email`, que hoje é `adri@umaestrelinha.com.br`.
+
+#### Pendências que esta feature NÃO fechou
+
+- **`AVD-13` sem prova em navegador**: a seção com 17 cards recolhidos. A `56` mediu 1.693px (1440)
+  e 1.833px (390) com 15; dois cards somam ~168px, o que **projeta** ~1.860 e ~2.000, dentro do teto
+  de 2.500. Projeção não é medida.
+- **A criação de etiqueta do Melhor Envio** continua sem ninguém ter exercitado depois da
+  restauração do secret.
+- **Os três grupos de Notificações**: o primeiro já tinha nove eventos e continua com nove; o de
+  *Avisos para você* foi a quatro. A dívida de reagrupar segue aberta.
+
+### 2026-09-20 · `56-notificacoes-legiveis` **IMPLEMENTADA — 9 de 9 tasks**
 
 - **Feature**: `.specs/features/56-notificacoes-legiveis/` (`spec.md`, `design.md`, `tasks.md`,
   `validation.md`). Decisão: `AD-039`.

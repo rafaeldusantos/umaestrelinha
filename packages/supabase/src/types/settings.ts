@@ -25,7 +25,25 @@ export interface GeneralSettings {
   store_name: string
   whatsapp: string
   whatsapp_message: string
+  /**
+   * O e-mail **PÚBLICO** da loja. Aparece nas páginas de política, via `PolicyContact`.
+   *
+   * Até a feature 57 ele acumulava um segundo papel: era também o endereço que recebia os avisos
+   * internos (`owner_*`). Hoje isso é `notifications_email`, abaixo.
+   */
   email: string
+  /**
+   * O endereço **INTERNO**, que recebe os avisos `owner_*` — feature 57 (`AVD-07`).
+   *
+   * **Vazio é significativo**: significa *"use o de contato"*, e é regra, não dado faltando. Por
+   * isso o default é `''` e não uma cópia de `email` — a cópia viraria um segundo dono do endereço
+   * no dia em que ela trocasse o de contato e esquecesse este.
+   *
+   * Quem resolve a queda é `resolveOwnerEmail` (`@estrelinha/core/notifications`), e as três
+   * superfícies que perguntam "para onde vai o aviso?" chamam a MESMA função. Nunca leia este campo
+   * direto para decidir destinatário.
+   */
+  notifications_email: string
   instagram: string
   tiktok: string
 }
@@ -130,6 +148,8 @@ export const DEFAULT_GENERAL: GeneralSettings = {
   whatsapp: '',
   whatsapp_message: 'Olá! Vim pelo site e gostaria de tirar uma dúvida.',
   email: 'contato@umaestrelinha.com.br',
+  // Vazio de propósito — ver o comentário do campo. Vazio = "use o de contato".
+  notifications_email: '',
   instagram: '',
   tiktok: '',
 }

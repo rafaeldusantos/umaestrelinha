@@ -162,12 +162,42 @@ const EVENTS: Record<NotificationEvent, { email: { enabled: boolean; fields: Ema
     cta_label: CTA_LABEL,
   }),
 
-  // ── Os dois da dona — destino é `general.email`, nunca a cliente ─────────────────────────────
+  // ── Os QUATRO da dona — destino é `resolveOwnerEmail`, nunca a cliente ──────────────────────
+  //
+  // O destinatário deixou de ser `general.email` cru na feature 57: agora é o campo próprio de
+  // avisos, que cai no de contato quando vazio. Quem resolve é `resolveOwnerEmail` (`owner.ts`), e
+  // o motor, a pré-condição e o painel chamam os três a MESMA função.
+
+  // Feature 57 — "recebido" acontece ANTES do pagamento, e num PIX boa parte dos pedidos criados
+  // nunca é paga. A dona recebe aviso de tentativa, não de venda: por isso o texto diz "aguardando
+  // pagamento" em vez de anunciar um pedido, e por isso ele nasce desligado como todos os novos.
+  owner_order_received: email(false, {
+    subject: 'Pedido {{numero_pedido}} recebido — aguardando pagamento',
+    heading: 'Pedido novo',
+    lead:
+      'O pedido {{numero_pedido}} de {{primeiro_nome}} foi registrado: {{total}}. Ele ainda não foi pago — você recebe outro aviso quando o pagamento entrar.',
+    extra: ['Abrir no painel: {{link_pedido_admin}}'],
+    cta_label: 'Abrir o pedido no painel',
+  }),
+
   owner_order_paid: email(false, {
     subject: 'Pedido {{numero_pedido}} pago — {{primeiro_nome}}',
     heading: 'Pedido pago',
     lead:
       'O pedido {{numero_pedido}} de {{primeiro_nome}} foi pago: {{total}}. Confira os itens e se há material a esperar em {{link_pedido_admin}}.',
+    extra: ['Abrir no painel: {{link_pedido_admin}}'],
+    cta_label: 'Abrir o pedido no painel',
+  }),
+
+  // Feature 57 — este é o aviso interno com melhor relação entre volume e ação possível: a dona
+  // pode chamar a cliente e oferecer outra forma de pagamento. O texto NÃO diz por que foi
+  // recusado: `{{motivo_recusa}}` não existe em `NOTIFICATION_VARIABLES`, e inventar uma razão
+  // seria pior que não dar nenhuma.
+  owner_payment_rejected: email(false, {
+    subject: 'Pagamento recusado — pedido {{numero_pedido}}',
+    heading: 'Pagamento recusado',
+    lead:
+      'A operadora recusou o pagamento do pedido {{numero_pedido}}, de {{primeiro_nome}}: {{total}}. Vale falar com ela e oferecer outra forma de pagar.',
     extra: ['Abrir no painel: {{link_pedido_admin}}'],
     cta_label: 'Abrir o pedido no painel',
   }),

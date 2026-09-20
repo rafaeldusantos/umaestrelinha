@@ -18,7 +18,8 @@ const chavesDoPainel = Object.keys(EVENT_ICON_COMPONENTS)
 describe('EVENT_ICON_COMPONENTS — âncora', () => {
   it('os dois lados estão povoados, e com o mesmo tamanho', () => {
     // Sem isto, dois objetos vazios satisfariam todas as asserções abaixo.
-    expect(NOTIFICATION_ICON_KEYS.length).toBe(15)
+    // 15 na feature 56; a 57 acrescentou `inbox-new` e `alert`.
+    expect(NOTIFICATION_ICON_KEYS.length).toBe(17)
     expect(chavesDoPainel).toHaveLength(NOTIFICATION_ICON_KEYS.length)
   })
 })

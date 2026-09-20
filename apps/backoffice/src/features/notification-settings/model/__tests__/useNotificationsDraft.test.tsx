@@ -219,7 +219,7 @@ describe('useNotificationsDraft — save()', () => {
     expect(upsertMock).not.toHaveBeenCalled()
   })
 
-  it('salva com sucesso: grava a chave `notifications` com os 15 eventos e limpa isDirty', async () => {
+  it('salva com sucesso: grava a chave `notifications` com os 17 eventos e limpa isDirty', async () => {
     const { result } = await mount([{ key: 'general', value: {} }])
 
     act(() => {
@@ -236,7 +236,7 @@ describe('useNotificationsDraft — save()', () => {
     expect(upsertMock).toHaveBeenCalledTimes(1)
     const [payload] = upsertMock.mock.calls[0]
     expect(payload.key).toBe('notifications')
-    expect(Object.keys(payload.value.events)).toHaveLength(15)
+    expect(Object.keys(payload.value.events)).toHaveLength(17)
     expect(payload.value.events.order_paid.email.fields.subject).toBe('Assunto novo da Adri')
     expect(result.current.notif.isDirty).toBe(false)
   })

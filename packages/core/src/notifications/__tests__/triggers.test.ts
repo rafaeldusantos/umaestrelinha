@@ -34,9 +34,13 @@ describe('os oito gatilhos', () => {
 })
 
 describe('pix_created (create-payment com QR)', () => {
-  it('→ só `order_received`', () => {
+  it('→ `order_received` para a cliente e `owner_order_received` para a dona, NESTA ordem', () => {
+    // A ordem é regra, não estética (feature 42, cabeçalho de `eventsForTrigger`): o orçamento de
+    // tempo do caixa é compartilhado, e se um dos dois não couber, quem espera é o aviso interno.
+    // Uma asserção de conteúdo (`toContain` nos dois) seria verdadeira com a ordem invertida.
     expect(eventsForTrigger('pix_created', { payment_status: 'pending', mp_order_id: 'x' })).toEqual([
       'order_received',
+      'owner_order_received',
     ])
   })
 })
@@ -72,8 +76,11 @@ describe('os gatilhos do webhook (NTF-11) — um evento cada', () => {
   it('payment_expired → `pix_expired`', () => {
     expect(eventsForTrigger('payment_expired', { payment_status: 'expired' })).toEqual(['pix_expired'])
   })
-  it('payment_rejected → `payment_rejected`', () => {
-    expect(eventsForTrigger('payment_rejected', { payment_status: 'rejected' })).toEqual(['payment_rejected'])
+  it('payment_rejected → o da cliente e o da dona, nesta ordem', () => {
+    expect(eventsForTrigger('payment_rejected', { payment_status: 'rejected' })).toEqual([
+      'payment_rejected',
+      'owner_payment_rejected',
+    ])
   })
   it('payment_refunded → `payment_refunded`', () => {
     expect(eventsForTrigger('payment_refunded', { payment_status: 'refunded' })).toEqual(['payment_refunded'])

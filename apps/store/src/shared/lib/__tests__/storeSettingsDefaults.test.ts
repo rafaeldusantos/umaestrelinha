@@ -120,7 +120,48 @@ function jsonbSemeado(fonte: string, chave: string): unknown {
   return JSON.parse(m[1])
 }
 
-const notificacoesSql = jsonbSemeado(SQL_NOTIFICACOES, 'notifications') as typeof DEFAULT_NOTIFICATIONS | undefined
+const semente42 = jsonbSemeado(SQL_NOTIFICACOES, 'notifications') as typeof DEFAULT_NOTIFICATIONS | undefined
+
+/**
+ * A migration da feature **57**, que ACRESCENTA dois eventos a chave `notifications`.
+ *
+ * Ela nao reescreve a semente da 42 - `AD-017` torna migration aplicada imutavel -, entao o que o
+ * banco fica nao esta em nenhum arquivo sozinho: e a COMPOSICAO dos dois. E essa composicao que
+ * precisa ser igual a `DEFAULT_NOTIFICATIONS`, num banco novo (42 insere, 57 acrescenta) e num
+ * antigo (57 acrescenta).
+ *
+ * A alternativa - repetir os dezessete eventos inteiros na migration nova - sobrescreveria o texto
+ * que a Adri ja editou nos outros quinze. A alternativa preguicosa - afrouxar esta comparacao para
+ * `toMatchObject` - deixaria o texto divergir em silencio, que e exatamente o que este arquivo
+ * existe para impedir.
+ */
+const SQL_57 = readFileSync(`${MIGRATIONS}/20260920120000_57-avisos-para-a-dona.sql`, 'utf8')
+
+/**
+ * Os eventos que a 57 acrescenta, lidos do `jsonb_set` de cada um.
+ *
+ * O dollar-quoting usa o NOME DO EVENTO como tag, e o regex o exige dos dois lados: uma tag
+ * desbalanceada nao casa, em vez de casar demais e devolver JSON invalido.
+ */
+function eventosAcrescentados(fonte: string): Record<string, unknown> {
+  const re = /'\{events,([a-z_]+)\}',\s*\$([a-z_]+)\$([\s\S]*?)\$\2\$::jsonb/g
+  const saida: Record<string, unknown> = {}
+  for (const m of fonte.matchAll(re)) {
+    // A tag do dollar-quoting tem de ser o proprio nome do evento: e o que impede um copiar-colar
+    // de acrescentar o texto de um evento sob a chave de outro.
+    expect(m[2], 'tag do dollar-quoting').toBe(m[1])
+    saida[m[1]] = JSON.parse(m[3])
+  }
+  return saida
+}
+
+const acrescimo57 = eventosAcrescentados(SQL_57)
+
+/** O que o banco de fato fica: a semente da 42 com o acrescimo da 57 por cima. */
+const notificacoesSql = semente42 && {
+  ...semente42,
+  events: { ...semente42.events, ...acrescimo57 },
+}
 
 describe('defaults de store_settings — âncoras', () => {
   it('leu as duas migrations do disco', () => {
@@ -250,11 +291,59 @@ describe('notifications — os textos dizem o mesmo nos dois lados (PNL-06)', ()
     expect(jsonbSemeado(SQL_NOTIFICACOES, 'chave_que_nao_existe')).toBeUndefined()
   })
 
-  it('o jsonb semeado é EXATAMENTE `DEFAULT_NOTIFICATIONS`', () => {
+  it('a COMPOSICAO das duas migrations e EXATAMENTE `DEFAULT_NOTIFICATIONS`', () => {
+    // Semente da 42 + acrescimo da 57. Ver `SQL_57`.
     expect(notificacoesSql).toEqual(DEFAULT_NOTIFICATIONS)
   })
 
-  it('cobre os quinze eventos, e só eles', () => {
+  it('`general.notifications_email` nasce VAZIO no SQL e no TypeScript (AVD-08)', () => {
+    // Vazio e REGRA, nao dado faltando: significa "use o e-mail de contato", e e o que faz a loja
+    // de hoje nao mudar de comportamento no deploy. Uma copia de `general.email` no default seria
+    // um SEGUNDO DONO do endereco - ela trocaria o de contato, esqueceria este, e os avisos
+    // continuariam indo para o antigo sem nada na tela dizendo por que.
+    expect(campoAditivo(SQL_57, 'notifications_email')).toBe('')
+    expect(DEFAULT_GENERAL.notifications_email).toBe('')
+  })
+
+  it('e o acrescimo de `general` e IDEMPOTENTE - `db push` repetido nao zera o que ela preencheu', () => {
+    // Molde da 37. Sem o `not (value ? 'chave')`, todo deploy apagaria o endereco que ela digitou,
+    // e os avisos voltariam em silencio para o e-mail de contato.
+    const sem = SQL_57.replace(/--[^\r\n]*/g, '').replace(/\s+/g, ' ')
+    expect(sem).toContain("not (value ? 'notifications_email')")
+    expect(sem).toContain("value || jsonb_build_object('notifications_email', '')")
+  })
+
+  it('e o acrescimo dos EVENTOS tambem e idempotente - nao religa o que ela desligou', () => {
+    const sem = SQL_57.replace(/--[^\r\n]*/g, '').replace(/\s+/g, ' ')
+    for (const event of ['owner_order_received', 'owner_payment_rejected']) {
+      expect(sem, event).toContain("not (value #> '{events}' ? '" + event + "')")
+    }
+  })
+
+  it('a 57 NAO escreve dado de pedido nem mexe em policy', () => {
+    // Uma migration de configuracao que criasse ou apagasse linha de pedido seria um efeito que
+    // ninguem procuraria aqui. A regua e por comando, nao pela familia (`L-033`).
+    const sem = SQL_57.replace(/--[^\r\n]*/g, '').toLowerCase()
+    expect(sem).not.toContain('delete from')
+    expect(sem).not.toContain('insert into public.orders')
+    expect(sem).not.toContain('create policy')
+    expect(sem).not.toContain('grant ')
+  })
+
+  it('ANCORA: a 57 de fato acrescenta os dois, e nao uma lista vazia', () => {
+    // Sem isto, um regex quebrado devolveria `{}`, a composicao seria a semente da 42 crua, e a
+    // igualdade acima reprovaria por um motivo que se leria como "o TypeScript esta errado".
+    expect(Object.keys(acrescimo57).sort()).toEqual(['owner_order_received', 'owner_payment_rejected'])
+  })
+
+  it('a semente da 42 NAO cobre mais os dezessete sozinha - senao a composicao nao mediria nada', () => {
+    // A metade que impede este guarda de apodrecer: se alguem um dia reescrever a semente da 42
+    // com os dezessete (violando `AD-017`), esta assercao cai e o problema aparece aqui, e nao num
+    // `db push` que diverge em silencio.
+    expect(Object.keys(semente42?.events ?? {})).toHaveLength(15)
+  })
+
+  it('cobre os dezessete eventos, e so eles', () => {
     expect(Object.keys(notificacoesSql?.events ?? {}).sort()).toEqual([...NOTIFICATION_EVENTS].sort())
   })
 
@@ -265,9 +354,11 @@ describe('notifications — os textos dizem o mesmo nos dois lados (PNL-06)', ()
     }
   })
 
-  it('os onze novos nascem DESLIGADOS no SQL e no TypeScript', () => {
+  it('os treze novos nascem DESLIGADOS no SQL e no TypeScript', () => {
     const novos = NOTIFICATION_EVENTS.filter((e) => !LEGACY_ENABLED_EVENTS.includes(e))
-    expect(novos).toHaveLength(11)
+    // 11 na feature 42; a 57 acrescentou dois avisos internos, e eles nascem desligados pela
+    // mesma decisao (`PNL-06`).
+    expect(novos).toHaveLength(13)
     for (const event of novos) {
       expect(notificacoesSql?.events[event].email.enabled, `${event} (SQL)`).toBe(false)
       expect(DEFAULT_NOTIFICATIONS.events[event].email.enabled, `${event} (TS)`).toBe(false)

@@ -97,9 +97,11 @@ describe('os interruptores (PNL-06, AC 7)', () => {
     }
   })
 
-  it('os onze novos nascem DESLIGADOS', () => {
+  it('os treze novos nascem DESLIGADOS', () => {
     const novos = NOTIFICATION_EVENTS.filter((e) => !LEGACY_ENABLED_EVENTS.includes(e))
-    expect(novos).toHaveLength(11)
+    // 11 na feature 42; a 57 acrescentou dois avisos internos, e eles nascem desligados pela mesma
+    // decisão (`PNL-06`): a Adri lê o texto antes de a primeira cliente disparar o gatilho.
+    expect(novos).toHaveLength(13)
     for (const event of novos) {
       expect(DEFAULT_NOTIFICATIONS.events[event].email.enabled, `${event} nasceu ligado`).toBe(false)
     }
