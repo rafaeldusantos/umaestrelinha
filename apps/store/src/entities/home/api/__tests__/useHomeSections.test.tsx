@@ -7,10 +7,14 @@ import { DEFAULT_HOME_COMPOSITION } from '@estrelinha/core/home'
 /**
  * `HOME-07` — a leitura das seções **nunca deixa a Home em branco**.
  *
- * O que se prova aqui é o piso, e ele tem três entradas que falham de jeitos diferentes: a consulta
- * que erra, a que volta vazia, e o instante antes de qualquer resposta. As três precisam entregar
- * `DEFAULT_HOME_COMPOSITION` — devolver `[]` em qualquer uma delas apagaria a Home inteira sem que
- * nada quebrasse, que é a classe de falha desta feature.
+ * O que se prova aqui é o piso, e ele tem **duas** entradas: a consulta que erra e a que volta
+ * vazia. As duas precisam entregar `DEFAULT_HOME_COMPOSITION` — devolver `[]` em qualquer uma
+ * delas apagaria a Home inteira sem que nada quebrasse, que é a classe de falha desta feature.
+ *
+ * **Eram três até 2026-09-21**, e a terceira (o instante antes de qualquer resposta) foi
+ * INVERTIDA, não apagada — ver o caso no fim do arquivo. `HOME-07` fala de leitura que **falha**
+ * (`spec.md`, AC 7); pintar o piso enquanto a leitura está em curso era escopo além da AC, e
+ * virou defeito quando a feature `41` revogou a premissa que o sustentava.
  */
 
 const { fromMock, selectMock } = vi.hoisted(() => ({
@@ -181,16 +185,30 @@ describe('useHomeSections — o piso semeado (HOME-07)', () => {
     expect(result.current.data.map(s => s.type)).toEqual(tiposDoPiso)
   })
 
-  it('o piso já está na PRIMEIRA pintura, antes de qualquer resposta', async () => {
-    // Sem isto a Home nasce em branco a cada visita e só aparece quando a consulta volta — que é
-    // "página em branco" pelo relógio, não pelo erro.
+  it('a PRIMEIRA pintura NÃO tem piso: "ainda não sei" é `undefined`, e quem desenha é o esqueleto', async () => {
+    // **INVERTIDO, nunca apagado** — a doutrina da feature `41`: quando uma AC remove uma trava, o
+    // teste que a defendia é invertido, senão a suíte fica verde a favor do estado removido.
+    //
+    // O que este caso defendia era `placeholderData: piso()`, que fazia a Home nascer com a
+    // composição SEMEADA — hero ativo na posição 1 — em toda carga fria. Era verdade em 100% dos
+    // bancos enquanto `guard_hero_home_section` existia; a `41` o derrubou (`AD-029`) para a dona
+    // poder pôr o banner de campanha em cima. Com a "Chamada principal" DESLIGADA e o "Banner
+    // principal" LIGADO, a cliente via a chamada semeada entrar, animar e sumir. O bloco vinha do
+    // bundle, nunca do banco: a policy pública devolve só `active = true`.
     respondeCom([linhaDoBanco()])
 
     const { result } = renderHook(() => useHomeSections(), { wrapper })
 
-    expect(result.current.data.map(s => s.type)).toEqual(tiposDoPiso)
+    expect(result.current.data).toBeUndefined()
+    expect(result.current.isLoading).toBe(true)
+    // O sensor do MECANISMO, e não só do sintoma: `placeholderData` (ou `initialData`) de volta
+    // acende isto. É o que dispensa uma varredura de fonte, que casaria uma grafia só.
+    expect(result.current.isPlaceholderData).toBe(false)
 
     await waitFor(() => expect(result.current.isFetching).toBe(false))
+
+    // E o que chega depois é o BANCO, não o piso.
+    expect(result.current.data.map(s => s.type)).toEqual(['banner_grid'])
   })
 
   it('o piso é uma CÓPIA — mutar o que a loja recebeu não contamina a constante', async () => {

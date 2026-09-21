@@ -1,5 +1,5 @@
 import { useHomePreview, useHomeSections } from '@/entities/home'
-import { HomeRenderer } from '@/widgets/home-renderer'
+import { HomeRenderer, HomeSkeleton } from '@/widgets/home-renderer'
 import { PREVIEW_SECTION_ATTR } from '@estrelinha/core/home'
 
 /**
@@ -30,12 +30,25 @@ const HomePage = () => {
   // paralelo daria à página duas fontes para a mesma pergunta, e a do banco chegaria depois,
   // sobrescrevendo o que a dona está digitando.
   //
-  // `useHomeSections` nunca devolve vazio por acidente: erro, lista vazia e o instante antes da
-  // resposta caem todos em `DEFAULT_HOME_COMPOSITION` (`HOME-07`). O `?? []` é só a formalidade do
-  // tipo — a Home em branco é o estado que aquele piso existe para tornar impossível.
-  const { data: sections } = useHomeSections({ enabled: !preview })
+  // **São TRÊS estados, e o terceiro nasceu de um defeito.** Erro de leitura e lista vazia caem em
+  // `DEFAULT_HOME_COMPOSITION` (`HOME-07`, que fala de leitura que **falha**); o instante ANTES da
+  // resposta cai no esqueleto. Até 2026-09-21 ele caía no piso também, por um `placeholderData` no
+  // hook — e como a feature `41` tirou do banco a premissa que sustentava aquele piso (o hero
+  // deixou de ser indelével, `AD-029`), a loja passou a **afirmar uma composição que ela não sabe
+  // ser verdadeira**: com a "Chamada principal" desligada, a cliente a via por ~1s antes do
+  // "Banner principal". O `?? []` é só a formalidade do tipo.
+  //
+  // **`isLoading`, nunca `isPending`** — a regra do módulo, que a `CategoryPage` e as fileiras da
+  // home já seguem. **E aqui ela NÃO tem dente, o que precisa estar escrito**: o ramo da prévia
+  // devolve antes de o esqueleto ser alcançado, então hoje as duas leituras se comportam igual e
+  // **nenhum teste as distingue** — medido por mutação em 2026-09-21, e o mutante sobreviveu.
+  // `isLoading` fica porque é a leitura que continua certa se a ordem dos ramos mudar: ela é
+  // `isPending && isFetching`, e com `enabled: false` o `isPending` é verdadeiro para sempre —
+  // o esqueleto nunca sairia da prévia. Afirmar sensibilidade que não existe encerra a
+  // investigação de quem vier depois, e por isso o limite está declarado em vez de sugerido.
+  const { data: sections, isLoading } = useHomeSections({ enabled: !preview })
 
-  if (!preview) return <HomeRenderer sections={sections ?? []} />
+  if (!preview) return isLoading ? <HomeSkeleton /> : <HomeRenderer sections={sections ?? []} />
 
   return (
     <div

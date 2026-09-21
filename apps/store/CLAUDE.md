@@ -422,6 +422,22 @@ edita é `/admin/home` (ver [`../backoffice/CLAUDE.md`](../backoffice/CLAUDE.md)
 - **Erro de leitura cai em `DEFAULT_HOME_COMPOSITION`, nunca em página em branco.** A composição de
   hoje existe como dado em `@estrelinha/core/home` e é ao mesmo tempo a **semente** da migration e o
   **piso** do hook. Lista vazia cai no mesmo piso.
+  - **E o instante ANTES da resposta NÃO cai no piso — cai no esqueleto** (`HomeSkeleton`, desde
+    2026-09-21). `HOME-07` fala de leitura que **falha** (`spec.md`, AC 7); pintar a composição
+    semeada em toda carga fria era escopo além da AC, e virou defeito no dia em que a `41`
+    derrubou o trigger do hero. O `placeholderData` fazia a loja **afirmar uma composição que ela
+    não sabe ser verdadeira**: com a "Chamada principal" desligada e o "Banner principal" ligado,
+    a cliente via a chamada semeada entrar, animar e sumir a cada visita. **O bloco fantasma nunca
+    veio do banco** — a policy pública devolve só `active = true`; ele vinha do bundle.
+  - **A régua da altura do esqueleto é o `<footer>`, e é medida.** O CLS só conta nó que existe nos
+    dois quadros: header é `sticky`, `MobileNav` e a bolha do WhatsApp são `fixed`, e o esqueleto
+    desmonta enquanto o `HomeRenderer` monta — sobra o rodapé, que foi quem produziu os **CLS
+    0,244** que a `40` fechou. Reservar `min-h-screen` o mantém fora de vista em 390×844 (header
+    de 64) e em 1440×900 (header de 136). **Nenhum teste prende essa altura** — jsdom devolve 0
+    para layout —, e o próprio arquivo diz isso.
+  - **O esqueleto não afirma conteúdo nenhum**: sem texto, sem CTA, sem nome de seção, e sem
+    derivar de `HERO_CAROUSEL_SLOTS` ou das caixas do `HeroBanner` — derivar o faria voltar a
+    dizer qual bloco vem primeiro, que é o defeito que ele existe para remover.
 - **A vaga que sobra fica VAZIA.** Escolhida que saiu do ar é pulada e **não** é substituída pela
   derivação: entraria na vitrine algo que a dona não escolheu, justamente na seção onde ela pediu para
   escolher. A loja **pula**, o painel **avisa**.
@@ -437,7 +453,12 @@ edita é `/admin/home` (ver [`../backoffice/CLAUDE.md`](../backoffice/CLAUDE.md)
   asserida** (`homeSections.test.ts`). Os dois saíram na feature 20 por decisão ética, e um catálogo
   genérico de blocos é exatamente a porta por onde voltariam — com a dona clicando, sem ninguém
   decidir nada.
-- **O hero é indelével**: sem controle de desligar na lista **e** com trigger na migration.
+- **O hero DEIXOU de ser indelével na feature `41`** (`AD-029`): o trigger caiu e a lista ganhou o
+  controle de desligar, porque a dona precisa poder pôr a campanha no topo. O que o banco garante
+  hoje é **uma última seção ativa**, de qualquer tipo (`guard_last_active_home_section`).
+  **Esta linha afirmou o contrário por uma feature inteira** — a raiz e o painel já diziam o certo,
+  e era esta, no app que executa a regra, a cópia divergente. Quem ainda carregava a premissa
+  revogada em CÓDIGO era o `placeholderData` de `useHomeSections`, removido em 2026-09-21.
 - `widgets/category-grid` **continua no repositório mas não é montado**: a grade de tiles saiu da home
   quando a grade de banners tomou o lugar dela no board. **`category_grid` continua no catálogo sem
   renderer** e o renderizador o pula sem quebrar a página; **`product_carousel` GANHOU o dele na

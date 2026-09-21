@@ -188,6 +188,12 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: NAV-23 + MenuPanelEditor.tsx:60-62 (apps/backoffice/**)
 - last seen: 2026-09-06T12:47:35Z
 
+### L-037 — Constante do bundle usada como estado de carregamento e uma SEGUNDA resposta para "o que a loja mostra", e ela sobrevive a migration que revoga a premissa: o banco muda, o bundle segue afirmando o estado antigo, e nada quebra.
+- signal: `stale_premise` · recurrence: 1 feature(s) · scope: `apps/store/**` · harmful: 0
+- features: 41-banner-principal-da-home (premissa revogada), conserto-2026-09-21 (defeito colhido)
+- evidence: useHomeSections.ts:84 `placeholderData` x migration 41 `drop trigger guard_hero_home_section` (AD-029/AD-041)
+- last seen: 2026-09-21T00:00:00Z
+
 ## Quarantined (failed when applied — ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.

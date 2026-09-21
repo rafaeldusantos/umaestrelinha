@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitForElementToBeRemoved } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import HomePage from '../HomePage'
@@ -107,15 +107,38 @@ const campanhas = Array.from({ length: 4 }, (_, i) =>
 catalogo.data = [...temas, ...colecoes, ...campanhas]
 produtos.data = Array.from({ length: 4 }, (_, i) => ({ id: `p${i + 1}`, name: `Peça ${i + 1}` }))
 
-const renderHome = () => {
+/**
+ * **O `await` é do RELÓGIO, não da composição** — e é por isso que ele não move a trave deste
+ * arquivo.
+ *
+ * A primeira pintura da Home passou a ser o esqueleto: `placeholderData` saiu de `useHomeSections`
+ * em 2026-09-21, porque ele pintava a composição SEMEADA em toda carga fria e a feature `41`
+ * (`AD-029`) tirou do banco a premissa que a sustentava. O piso continua chegando — pelo `queryFn`,
+ * na resposta vazia que este arquivo mocka —, e a premissa declarada no topo daqui continua
+ * literalmente verdadeira.
+ *
+ * **O gate fica MAIS APERTADO, não mais frouxo.** Até aqui as asserções corriam ANTES de a consulta
+ * resolver, então um mutante que apagasse o `if (error || !data?.length) return piso()` do `queryFn`
+ * sobrevivia ao arquivo inteiro. Com a espera, ele morre. É "não perde asserção, só ganha".
+ *
+ * `waitForElementToBeRemoved` e não `waitFor(() => expect(...).toBeNull())`, embora o segundo seja o
+ * idioma corrente do repositório: o primeiro **lança** quando o elemento não estava lá no começo, ou
+ * seja, ele é **auto-ancorado**. O segundo passaria por vacuidade se o esqueleto nunca renderizasse,
+ * e os casos abaixo voltariam a medir a primeira pintura sem ninguém perceber.
+ */
+const renderHome = async () => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  return render(
+  const utils = render(
     <QueryClientProvider client={client}>
       <MemoryRouter>
         <HomePage />
       </MemoryRouter>
     </QueryClientProvider>,
   )
+  await waitForElementToBeRemoved(() =>
+    utils.container.querySelector('[aria-busy="true"][aria-label="Carregando a página inicial"]'),
+  )
+  return utils
 }
 
 /** Os marcos, reordenados pela ordem do documento. Falha legível: sai a sequência real. */
@@ -127,8 +150,8 @@ const naOrdemDoDocumento = (marcos: [string, Element][]) =>
     .map(([nome]) => nome)
 
 describe('Home — a sequência das seções (HOME-04)', () => {
-  it('desenha hero → vantagens → banners → fileiras com a faixa institucional depois da 1ª → chips → newsletter', () => {
-    renderHome()
+  it('desenha hero → vantagens → banners → fileiras com a faixa institucional depois da 1ª → chips → newsletter', async () => {
+    await renderHome()
 
     const marcos: [string, Element][] = [
       ['hero', screen.getByRole('heading', { level: 1 })],
@@ -149,8 +172,8 @@ describe('Home — a sequência das seções (HOME-04)', () => {
 })
 
 describe('Home — os literais do hero (HOME-04)', () => {
-  it('mantém sobretítulo, as duas linhas do título, o parágrafo e o CTA', () => {
-    renderHome()
+  it('mantém sobretítulo, as duas linhas do título, o parágrafo e o CTA', async () => {
+    await renderHome()
 
     expect(screen.getByText('Joias afetivas artesanais')).toBeInTheDocument()
     expect(screen.getByText('O que você ama,')).toBeInTheDocument()
@@ -165,10 +188,10 @@ describe('Home — os literais do hero (HOME-04)', () => {
     expect(cta).toHaveAttribute('href', '/busca')
   })
 
-  it('o título sai em DUAS cores: `ink` na 1ª linha, `primary` na 2ª', () => {
+  it('o título sai em DUAS cores: `ink` na 1ª linha, `primary` na 2ª', async () => {
     // Não é decoração: é o que dá o pico de contraste sem um terceiro tamanho de fonte. Um remap que
     // uniformizasse as duas linhas passaria em build, `tsc` e teste de widget.
-    renderHome()
+    await renderHome()
 
     const [linha1, linha2] = Array.from(
       screen.getByRole('heading', { level: 1 }).querySelectorAll('span'),
@@ -186,8 +209,8 @@ describe('Home — os literais do hero (HOME-04)', () => {
 })
 
 describe('Home — os literais da faixa institucional (HOME-04)', () => {
-  it('mantém sobretítulo, título, parágrafo, assinatura e link de escape', () => {
-    renderHome()
+  it('mantém sobretítulo, título, parágrafo, assinatura e link de escape', async () => {
+    await renderHome()
 
     expect(screen.getByText('Feito à mão, uma por vez')).toBeInTheDocument()
     expect(
@@ -207,36 +230,36 @@ describe('Home — os literais da faixa institucional (HOME-04)', () => {
 })
 
 describe('Home — os literais dos chips e da newsletter (HOME-04)', () => {
-  it('mantém título e subtítulo dos chips de tema', () => {
-    renderHome()
+  it('mantém título e subtítulo dos chips de tema', async () => {
+    await renderHome()
 
     expect(screen.getByRole('heading', { name: 'Explore por tema' })).toBeInTheDocument()
     expect(screen.getByText('As linhas mais procuradas, direto ao ponto')).toBeInTheDocument()
   })
 
-  it('mantém o "ver todos" dos chips, com rótulo e destino', () => {
+  it('mantém o "ver todos" dos chips, com rótulo e destino', async () => {
     // **Emenda `E2`.** A primeira versão deste arquivo congelou título e subtítulo dos chips e
     // esqueceu o link — então a task que trocasse o texto do widget por prop poderia removê-lo e
     // nada acusaria, que é exatamente a classe de falha que este arquivo existe para pegar. O link
     // entra na composição como `link_label`/`link_href`, e aqui está o congelamento dele.
-    renderHome()
+    await renderHome()
 
     expect(screen.getByRole('link', { name: /Ver todos os temas/ })).toHaveAttribute('href', '/busca')
   })
 
-  it('a seção dos chips mantém o chão `surface` e o respiro de hoje', () => {
+  it('a seção dos chips mantém o chão `surface` e o respiro de hoje', async () => {
     // A moldura da seção mora hoje na `HomePage` e vai migrar para o widget quando a composição
     // virar dado. Sem congelar o chão, a migração podia deixar os chips sobre `ground` — uma faixa
     // a menos no ritmo da página, sem nada quebrar.
-    renderHome()
+    await renderHome()
 
     const secao = screen.getByRole('heading', { name: 'Explore por tema' }).closest('section')!
     expect(secao.className).toContain('bg-estrelinha-surface')
     expect(secao.className).toContain('py-12')
   })
 
-  it('mantém título, subtítulo e o rótulo do botão da newsletter', () => {
-    renderHome()
+  it('mantém título, subtítulo e o rótulo do botão da newsletter', async () => {
+    await renderHome()
 
     expect(screen.getByRole('heading', { name: 'Quer saber das novidades?' })).toBeInTheDocument()
     expect(
@@ -279,22 +302,22 @@ describe('Home — a página não conhece seção nenhuma (HOME-02)', () => {
 })
 
 describe('Home — os limites de cada seção (HOME-04)', () => {
-  it('a grade de banners tem 3 vagas, com 4 artes disponíveis', () => {
-    renderHome()
+  it('a grade de banners tem 3 vagas, com 4 artes disponíveis', async () => {
+    await renderHome()
 
     expect(screen.getAllByRole('link', { name: /^Campanha \d$/ })).toHaveLength(3)
     expect(screen.queryByRole('link', { name: 'Campanha 4' })).toBeNull()
   })
 
-  it('a home mostra 4 fileiras de coleção, com 6 raízes disponíveis', () => {
-    renderHome()
+  it('a home mostra 4 fileiras de coleção, com 6 raízes disponíveis', async () => {
+    await renderHome()
 
     expect(screen.getAllByRole('heading', { name: /^Coleção \d$/ })).toHaveLength(4)
     expect(screen.queryByRole('heading', { name: 'Coleção 5' })).toBeNull()
   })
 
-  it('os chips de tema são 12, com 13 candidatas disponíveis', () => {
-    renderHome()
+  it('os chips de tema são 12, com 13 candidatas disponíveis', async () => {
+    await renderHome()
 
     expect(screen.getAllByRole('link', { name: /^Tema \d+$/ })).toHaveLength(12)
     expect(screen.queryByRole('link', { name: 'Tema 13' })).toBeNull()

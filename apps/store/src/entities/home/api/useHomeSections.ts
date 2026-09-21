@@ -78,10 +78,13 @@ export const useHomeSections = ({ enabled = true }: { enabled?: boolean } = {}) 
   useQuery({
     queryKey: ['home-sections'],
     enabled,
-    // O piso enquanto carrega, e não `undefined`: `HOME-07` diz "nunca página em branco", e a
-    // primeira pintura da Home é justamente onde o branco apareceria. `placeholderData` e não
-    // `initialData` porque isto não é dado do servidor e não pode ser gravado no cache.
-    placeholderData: piso(),
+    // **Não há `placeholderData`, e a ausência é a regra.** Ele respondia "a Home é esta" antes de
+    // qualquer leitura — e a resposta vinha de uma constante do bundle, que a `41` deixou de
+    // refletir o banco ao derrubar `guard_hero_home_section` (`AD-029`). Com a "Chamada principal"
+    // desligada e o "Banner principal" ligado, a cliente via a chamada semeada entrar, animar e
+    // sumir a cada carga fria. `HOME-07` fala de leitura que **falha** (`spec.md`, AC 7), e as duas
+    // entradas dela estão no `queryFn` logo abaixo. "Ainda não sei" é `undefined`, e quem desenha
+    // isso é o esqueleto da página — nunca uma composição que a loja não sabe ser verdadeira.
     queryFn: async (): Promise<HomeSection[]> => {
       // SPEC_DEVIATION: o `design.md` escreve `.select(...).order('position')`; aqui não há `.order`.
       // Reason: a ordem da Home tem **um dono**, `orderSections` — que é quem desempata `position`

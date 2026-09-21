@@ -997,6 +997,38 @@
 - **Date**: 2026-09-20
 - **Status**: active
 
+### AD-041
+- **Decision**: **O piso semeado responde por leitura que FALHOU, nunca por leitura pendente.**
+  `placeholderData: DEFAULT_HOME_COMPOSITION` saiu de `useHomeSections` em 2026-09-21; o `queryFn`
+  mantém o piso para erro e lista vazia, e o instante antes da resposta virou um esqueleto que **não
+  afirma conteúdo**. A regra geral: **constante do bundle só pode pintar como estado de carregamento
+  quando ela é invariante de PRODUTO — nunca quando é configuração da dona.**
+- **Reason**: a Home pintava a composição semeada em toda carga fria, e com a "Chamada principal"
+  desligada e o "Banner principal" ligado a cliente via a chamada entrar, animar e sumir. O bloco
+  **nunca veio do banco** — a policy pública devolve só `active = true` —, ele vinha do bundle.
+  A premissa que tornava aquele piso verdadeiro era do BANCO: a `24` criou `guard_hero_home_section`
+  (hero indelével, verdade em 100% dos bancos) e a `41` o derrubou (`AD-029`) para a dona poder pôr
+  a campanha no topo. `defaults.ts` não foi revisitado, e a afirmação virou mentira **sem nada
+  quebrar** — é a assinatura do "defeito 01" com um dono no código e outro no schema.
+  `HOME-07` nunca pediu isso: a AC escrita é *"WHEN a leitura das seções **falha**"*
+  (`.specs/features/24-home-gerenciavel/spec.md:123`). Remover o `placeholderData` **restaura** a AC
+  em vez de afrouxá-la.
+- **Trade-off**: o LCP piora, e conscientemente. Hoje ele é quase o FCP porque o parágrafo do hero
+  vem do bundle; depois ele espera a resposta real. Trocou-se **uma pintura rápida do conteúdo
+  errado** por uma pintura do conteúdo certo. O CLS **não** piora, porque o esqueleto reserva uma
+  viewport e o único nó que persiste entre os dois quadros é o `<footer>` — o mesmo que produziu os
+  CLS 0,244 da `40`. E o waterfall não piora: `pickHomeCollections` devolve `[]` com a árvore
+  ausente, então nenhum `useProducts` de fileira disparava antes de `categories` chegar.
+  Custo aceito e declarado: **a altura do esqueleto não tem teste** — jsdom devolve 0 para layout, e
+  o mutante que a reduz sobrevive à suíte inteira. A prova é navegador, e está registrada como
+  pendência no `CLAUDE.md`.
+- **Scope**: `apps/store/src/entities/home/api/useHomeSections.ts`,
+  `apps/store/src/pages/HomePage.tsx`,
+  `apps/store/src/widgets/home-renderer/ui/HomeSkeleton.tsx`,
+  `apps/store/src/pages/__tests__/homeSemHeroFantasma.test.tsx`
+- **Date**: 2026-09-21
+- **Status**: active
+
 ## Handoff
 
 ### ATUAL — 2026-09-20 · `57-avisos-para-a-dona` **IMPLEMENTADA — 10 de 10 tasks**

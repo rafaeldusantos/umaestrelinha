@@ -449,7 +449,92 @@ quando mudarem de verdade.
 | --- | --- | --- |
 | **Lint** | **26 erros / 6 warnings** — backoffice 24/4 · store 2/2 | `pnpm lint` |
 | **Tipos** | **0 · 0 · 0** (store · backoffice · catalog-import) | `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` |
-| **Testes** | **10136 em 520 arquivos** — store **3535/222** · backoffice **3017/166** · core **2420/95** · functions **652/14** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
+| **Testes** | **10142 em 521 arquivos** — store **3541/223** · backoffice **3017/166** · core **2420/95** · functions **652/14** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
+
+**O conserto da Home que mostrava a seção DESLIGADA somou +6 em UM workspace**, medidos em
+2026-09-21 com a árvore parada antes de qualquer edição, um workspace por vez e exit code fora de
+pipe: **store 3535/222 → 3541/223** (o arquivo de regressão novo). Os outros quatro não foram
+tocados e foram remedidos assim mesmo — os quatro vieram **idênticos** (backoffice 3017/166, core
+2420/95, functions 652/14, catalog-import 512/23), e a baseline de entrada bateu **exatamente** a
+linha desta tabela. Lint em **26/6** e tipos em **0 · 0**, sem mexer; `packages/core/src/payment/**`
+com zero arquivos alterados.
+
+> **A loja afirmava uma composição que ela não sabia ser verdadeira, e o bloco fantasma não vinha do
+> banco.** `useHomeSections` usava `DEFAULT_HOME_COMPOSITION` como `placeholderData`, e no React
+> Query v5 isso volta como `data` com `status` de sucesso em **toda carga fria** (o cache é só em
+> memória). Com a "Chamada principal" desligada e o "Banner principal" ligado, a cliente via a
+> chamada semeada entrar, animar e sumir — a policy pública devolve só `active = true`, então a linha
+> desligada nunca trafegou: o hero vinha do **bundle**.
+>
+> A premissa que sustentava aquele piso era **do banco**, e tinha caído: a `24` criou
+> `guard_hero_home_section` (hero indelével, verdade em 100% dos bancos) e a `41` o derrubou
+> (`AD-029`) para a dona poder pôr a campanha no topo. `defaults.ts` nunca foi revisitado. **É a
+> mesma classe da `41` e da `50`: o estado que sobrevive à regra que o justificava.**
+
+> **`HOME-07` nunca pediu isso, e é o que torna a remoção uma RESTAURAÇÃO.** A AC escrita é *"WHEN a
+> leitura das seções **falha**"* (`.specs/features/24-home-gerenciavel/spec.md:123`) — erro e lista
+> vazia, que continuam no `queryFn` intocados. Pintar o piso com a leitura **em curso** era escopo
+> além da AC. O terceiro estado passou a ser um esqueleto que **não afirma conteúdo nenhum**.
+
+> **A régua da altura do esqueleto é o `<footer>`, e é medida — não "mais ou menos a altura do
+> hero".** O CLS só conta nó presente nos dois quadros: header é `sticky`, `MobileNav` e a bolha do
+> WhatsApp são `fixed`, e o esqueleto desmonta enquanto o `HomeRenderer` monta. Sobra o rodapé — que
+> foi exatamente quem produziu os **CLS 0,244** que a `40` mediu e fechou. `min-h-screen` o mantém
+> fora de vista em 390×844 (header 64) e em 1440×900 (header 136).
+
+> **O guarda mais protegido do repositório ficou MAIS APERTADO, e é por isso que mexer nele foi
+> legítimo.** `homeComposition.test.tsx` diz que o gate é *"continua verde SEM uma única alteração
+> aqui"*. Só o helper mudou (`renderHome` virou `async`, 11 chamadas ganharam `await`); **nenhuma
+> asserção foi tocada** — mesmos papéis, nomes e contagens. E o ganho é real: até aqui as asserções
+> corriam **antes** de a consulta resolver, então um mutante que apagasse o `return piso()` do
+> `queryFn` sobrevivia ao arquivo inteiro. Com a espera, ele morre (M4). É "não perde asserção, só
+> ganha".
+
+> **Cinco mutantes reinjetados no arquivo real, com restauração e comparação byte a byte — 3 mortos,
+> 2 sobreviventes DECLARADOS.** O arnês **lança** quando a string alvo não é encontrada, para mutação
+> que vira no-op não passar por morte (a lição do `mutar()` da `52`).
+>
+> | M | mutação | resultado |
+> | --- | --- | --- |
+> | M1 | `placeholderData` de volta no hook | **morto** — o caso invertido e o de regressão |
+> | M2 | `isLoading` → `isPending` na página | **SOBREVIVEU** |
+> | M3 | o ramo de carregamento apagado da página | **morto** |
+> | M4 | o piso trocado por lista vazia no `queryFn` | **morto** |
+> | M5 | `min-h-screen` → meia viewport no esqueleto | **SOBREVIVEU** (esperado) |
+>
+> **M2 é achado, não lacuna a tapar**: o ramo da prévia devolve **antes** de o esqueleto ser
+> alcançado, então hoje as duas leituras se comportam igual e nenhum teste pode distingui-las. O
+> comentário escrito na primeira passada dizia que ali a regra "tem dente" — afirmação falsa, e é o
+> defeito que a `51` nomeou: *comentário que afirma sensibilidade inexistente é pior que comentário
+> nenhum, porque encerra a investigação*. Corrigido para declarar o limite; `isLoading` fica por ser
+> a leitura que continua certa se a ordem dos ramos mudar. **M5 também é declarado**: jsdom devolve 0
+> para layout, a altura só se prova em navegador, e o próprio `HomeSkeleton.tsx` diz isso.
+
+> **PROVA EM NAVEGADOR, com o defeito reproduzido e medido A/B** (2026-09-21, Chromium, dev server
+> em :8082). O Docker não estava de pé, então `supabase start` falhou e a leitura de `home_sections`
+> foi **interceptada** — o que é mais determinístico que esperar o relógio: a resposta é atrasada
+> 1,5 s de propósito, e a página é medida **no meio do atraso** e depois. Composição de 4 seções
+> (carrossel, vantagens, faixa institucional, newsletter), sem o `hero`.
+>
+> | viewport | antes — hero na tela · CLS | depois — hero na tela · CLS |
+> | --- | --- | --- |
+> | 390 × 844 | **sim** · **0,2488** | **não** · **0,0995** |
+> | 1440 × 900 | **sim** · **0,1548** | **não** · **0,0589** |
+>
+> O "antes" é o mutante M1 reinjetado no arquivo real, com o dev server **conferido** servindo o
+> código mutado antes de medir (a primeira tentativa mediu com o módulo ainda não retransformado e
+> reportou o hero ausente em 390 — leitura errada que só o `grep` no bundle servido pegou).
+>
+> **A régua da altura se confirmou**: o esqueleto mede 844 em 390×844 e 900 em 1440×900, e o
+> `<footer>` nasce em **972** e **1048** — fora de vista nos dois. O CLS restante tem `footer` como
+> **única** fonte e cai ~60%. Nenhuma rolagem horizontal do `body` em nenhum dos dois.
+>
+> ⚠️ **O `<footer>` continua sendo a fonte, e o número depende do tamanho da Home.** Com uma
+> composição de **uma seção curta** o mesmo teste deu **0,3073** em 390: aí o conteúdo é mais BAIXO
+> que o esqueleto e o rodapé sobe. É o limite que o `HomeSkeleton.tsx` já declara — reservar uma
+> viewport é uma aposta de que a Home real é mais alta que uma tela, verdadeira para qualquer
+> composição de verdade e falsa para uma Home de um bloco só.
+
 
 **A feature `53` (a aba de Notificações, os 15 eventos do motor ficam alcançáveis) somou +116 em
 TRÊS workspaces, medidos em 2026-09-19 um por vez, exit code fora de pipe e `--testTimeout=20000`
@@ -1776,6 +1861,25 @@ completo (framework, `installCommand` na raiz do monorepo, headers de cache e de
 
 ## Estado conhecido / dívidas
 
+- **A prova em navegador do esqueleto da Home FOI FEITA** (2026-09-21) e está na seção de baselines:
+  o defeito foi reproduzido A/B com o mutante reinjetado, e o hero desligado deixou de aparecer nos
+  dois viewports, com o CLS caindo ~60% e o `<footer>` como única fonte. **O que ficou de fora**, e
+  é o que a próxima sessão deve fechar:
+  - **A medição não usou o banco local** — o Docker não estava de pé, `supabase start` falhou, e a
+    leitura de `home_sections` foi interceptada com 4 seções sintéticas. Com o catálogo real (680
+    produtos, categorias com arte, 7 seções) a Home é bem mais alta e o CLS deve cair mais ainda —
+    mas **isso é previsão, não medida**.
+  - **O LCP não foi medido**, e é a métrica que esta mudança piora de propósito: hoje ele é quase o
+    FCP porque o parágrafo do hero vem do bundle; depois ele espera a resposta real. Um `<div>` com
+    cor de fundo não é candidato a LCP, então o esqueleto não assume a métrica. Trocou-se **uma
+    pintura rápida do conteúdo errado** por uma pintura do conteúdo certo — medir antes de reagir
+    ao Lighthouse.
+  - **A prévia de `/admin/home` não foi conferida em navegador** (o painel não foi subido). A suíte
+    prova que ela não passa pelo esqueleto (`homePreview.test.tsx` segue verde **sem uma edição**),
+    e o ramo da prévia devolve antes de o esqueleto ser alcançado.
+  - **A altura do esqueleto continua sem teste automatizado** — jsdom devolve 0 para layout, e o
+    mutante que a reduz sobrevive à suíte. Hoje ela está provada por navegador; se alguém a mudar,
+    nada acusa até a próxima auditoria.
 - **SETE contadores de caracteres do painel continuam escritos à mão, fora de Configurações**
   (achado da `56`, ao escrever `contadorComDonoUnico.test.ts`). São cinco arquivos:
   `FaqEditorDialog.tsx` (×2), `HeroEditor.tsx`, `SeoPreview.tsx` (×2) e `AdminProductFormPage.tsx`.
