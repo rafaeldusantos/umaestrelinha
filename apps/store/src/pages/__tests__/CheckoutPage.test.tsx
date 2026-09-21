@@ -756,7 +756,9 @@ describe('CheckoutPage — quem avança é a pessoa (FLW-01, FLW-02, FLW-03)', (
 
     typeWhatsapp()
 
-    expect(region('Contato').getByLabelText('WhatsApp')).toHaveValue('11987654321')
+    // Mascarado: o campo formata enquanto a pessoa digita. O que este caso mede é o bloco não
+    // colapsar no último dígito — a grafia do valor é só como se prova que ele continua na tela.
+    expect(region('Contato').getByLabelText('WhatsApp')).toHaveValue('(11) 98765-4321')
     expect(region('Entrega').queryByLabelText('CEP')).not.toBeInTheDocument()
   })
 

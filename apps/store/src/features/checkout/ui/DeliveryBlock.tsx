@@ -315,6 +315,9 @@ const DeliveryBlock = ({ open, complete, onEdit, onContinue, canContinue }: Prop
         <Input
           id="delivery-cep"
           inputMode="numeric"
+          autoComplete="postal-code"
+          // 9 = comprimento de `00000-000`. O teto real é de `maskCep`, que ignora o 9º dígito.
+          maxLength={9}
           value={address.cep}
           onChange={(e) => edit({ cep: maskCep(e.target.value) })}
           placeholder="00000-000"

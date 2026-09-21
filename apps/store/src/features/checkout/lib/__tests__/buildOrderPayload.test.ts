@@ -172,6 +172,17 @@ describe('buildOrderPayload — o corpo do pedido', () => {
     expect(corpo.customer_document).toBe('529.982.247-25')
   })
 
+  it('o telefone vai só com dígitos, sem a máscara da tela', () => {
+    // O par do caso acima, que entra com dígitos crus e por isso é verdadeiro nos DOIS mundos:
+    // sem ele, apagar `stripPhone` do payload deixa a suíte verde e o banco passa a guardar duas
+    // grafias do mesmo telefone. `normalizeBrPhone` (o link `wa.me`) tolera as duas; `customers.phone`,
+    // que o próprio checkout semeia de volta no campo, não tem por que ficar com as duas.
+    const pedido = entrada()
+    pedido.contact.whatsapp = '(11) 98888-7777'
+
+    expect(buildOrderPayload(pedido).customer_phone).toBe('11988887777')
+  })
+
   it('o envio escolhido vira snapshot (SHP-07)', () => {
     const corpo = buildOrderPayload(entrada())
 

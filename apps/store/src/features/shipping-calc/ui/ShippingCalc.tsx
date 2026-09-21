@@ -92,6 +92,8 @@ const ShippingCalc = ({ product }: { product: Product }) => {
           onChange={e => setCep(maskCep(e.target.value))}
           placeholder="00000-000"
           inputMode="numeric"
+          autoComplete="postal-code"
+          maxLength={9}
           aria-label="CEP"
           aria-invalid={Boolean(error)}
           /* `min-w-0` é o que permite o campo encolher abaixo de 360px: sem ele, o mínimo

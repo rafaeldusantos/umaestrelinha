@@ -449,7 +449,42 @@ quando mudarem de verdade.
 | --- | --- | --- |
 | **Lint** | **26 erros / 6 warnings** — backoffice 24/4 · store 2/2 | `pnpm lint` |
 | **Tipos** | **0 · 0 · 0** (store · backoffice · catalog-import) | `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` |
-| **Testes** | **10142 em 521 arquivos** — store **3541/223** · backoffice **3017/166** · core **2420/95** · functions **652/14** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
+| **Testes** | **10161 em 522 arquivos** — store **3548/223** · backoffice **3017/166** · core **2432/96** · functions **652/14** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
+
+**A máscara de telefone e CEP nos formulários da loja somou +19 em DOIS workspaces**, medidos em
+2026-09-21 um por vez, com exit code fora de pipe e `--testTimeout=20000` nos dois apps: **core
+2420/95 → 2432/96** (`maskPhone`/`stripPhone`/`isValidBrPhone`, o dono único da regra, ao lado de
+`maskCep`) e **store 3541/223 → 3548/223** (+6 na máscara do campo real do `ContactBlock`, +1 no
+payload). Backoffice foi **remedido** porque o barrel de `core/validators` mudou, e veio idêntico
+(3017/166); functions e catalog-import não foram tocados e não foram remedidos. Lint em **26/6** e
+tipos em **0 · 0**, sem mexer; `pnpm build` verde nos dois apps, e `packages/core/src/payment/**`
+com zero arquivos alterados.
+
+> **O campo WhatsApp era o único da loja que aceitava qualquer coisa**, e a ausência não aparecia
+> em teste nenhum: `isContactComplete` conta **dígitos** (10 ou 11), então `abc11987654321xyz`
+> reprovava e `11987654321` passava — a regra estava certa e a tela não ajudava ninguém a chegar
+> nela. O CEP já tinha `maskCep` nos dois campos desde a `SHP-03`.
+
+> **`maskPhone` NÃO foi fundida com `normalizeBrPhone`** (`core/notifications/phone.ts`), e o
+> motivo está escrito no arquivo: aquela responde *"para que número o `wa.me` aponta?"* — prefixa
+> `55` e devolve `null` —, esta responde *"como se escreve isto enquanto a pessoa digita?"* e nunca
+> recusa. Elas compartilham um passo (só dígitos) e divergem no que fazem depois, como
+> `dobrarTexto` × `slugify` no painel. Ligá-las custaria uma dependência
+> `core/notifications → core/validators`, e o grafo de `notifications` é resolvido pelo **Deno** na
+> function `send-notification`, onde todo especificador relativo precisa de `.ts` — que o barrel de
+> `validators` não tem.
+
+> **O payload grava só dígitos, pelo precedente do CEP (`ADR-05`).** O caso que já existia entrava
+> com dígitos crus e por isso era **verdadeiro nos dois mundos**: apagar `stripPhone` do payload o
+> deixava verde. O par novo entra com `(11) 98888-7777`. Sem ele, `customers.phone` passaria a ter
+> duas grafias do mesmo telefone conforme a cliente tivesse ou não passado pelo campo.
+
+> **Seis mutantes reinjetados nos arquivos reais, com restauração e comparação byte a byte — 6
+> mortos, 0 sobreviventes, todos por asserção** (nenhum por compilação, que prova o esbuild e mais
+> nada). O arnês **lança** quando a string alvo não é encontrada. Os dois que mais importam:
+> a máscara apagada do `onChange` (o campo do `ContactBlock`, não o `maskPhone` de `core` — o dono
+> ter teste não prova que o campo o chama) e apagada da **semeadura** de `customers.phone`, que
+> abriria o checkout do cliente recorrente com o número cru.
 
 **O conserto da Home que mostrava a seção DESLIGADA somou +6 em UM workspace**, medidos em
 2026-09-21 com a árvore parada antes de qualquer edição, um workspace por vez e exit code fora de

@@ -850,6 +850,20 @@ Quatro faixas de largura cheia, nesta ordem e com estas cores dos artboards: `1 
   (lê o pedido do banco), nunca estado interno da página — assim sobrevive ao reload; o carrinho e o
   cupom são limpos **só** na aprovação.
 
+- **Todo campo formatado da loja tem um dono em `@estrelinha/core/validators`**, e o campo só o
+  chama: `maskCep` (CEP, em `DeliveryBlock` e no `ShippingCalc` da página do produto), `maskDocument`
+  (CPF/CNPJ, `PaymentBlock`) e `maskPhone` (WhatsApp, `ContactBlock`). **A máscara é da tela; o
+  payload leva só dígitos** — `stripCep` em `address_zip` desde `ADR-05`, e `stripPhone` em
+  `customer_phone`. Gravar formatado faria o banco guardar duas grafias do mesmo dado conforme a
+  cliente tivesse ou não passado pelo campo.
+  - **A semeadura de cliente recorrente mascara também.** `customers.phone` guarda só dígitos, então
+    semear cru abriria o checkout de quem já comprou com o número sem formato. `maskPhone` é
+    idempotente, e o caso que prende isso mede o campo **renderizado pelo bloco**, não o `maskPhone`
+    de `core` — o dono da regra ter teste nunca prova que a tela o chama.
+  - **`maskPhone` não é `normalizeBrPhone`** (`core/notifications/phone.ts`, o número do link
+    `wa.me`). As duas compartilham "só dígitos" e divergem depois; o motivo de não fundi-las está
+    escrito no arquivo.
+
 ### O checkout NÃO exige conta (feature `49`, `AD-035`)
 
 `CHK-02` **foi removida**. Até ela, `/checkout` trancava em `user`, abria o `AuthOverlay` sozinho e

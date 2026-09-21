@@ -10,7 +10,7 @@
 import { applyOrderBump, type OrderBumpConfig, type PricingItem } from '@estrelinha/core/payment/pricing'
 import { primaryImage } from '@estrelinha/core/media'
 import { materialKindsOf, requiresMaterial } from '@estrelinha/core/material'
-import { stripCep } from '@estrelinha/core/validators'
+import { stripCep, stripPhone } from '@estrelinha/core/validators'
 import type { CartItem } from '@/entities/cart'
 import type { Product } from '@estrelinha/supabase/types'
 import type { CreateOrderInput } from '@/entities/order/api/useOrders'
@@ -128,7 +128,11 @@ export function buildOrderPayload(input: OrderPayloadInput): CreateOrderInput {
   return {
     customer_name: contact.name,
     customer_email: contact.email,
-    customer_phone: contact.whatsapp,
+    // Só dígitos, pelo mesmo motivo que `address_zip` (ADR-05): a máscara é da tela, e quem lê
+    // isto depois é o `normalizeBrPhone` do link `wa.me` e o `customers.phone` que o próprio
+    // checkout semeia de volta. Gravar `(11) 98888-7777` faria o banco guardar duas grafias do
+    // mesmo telefone conforme a cliente tivesse ou não passado por este campo.
+    customer_phone: stripPhone(contact.whatsapp),
     customer_document: input.payerDocument,
     payment_method: input.paymentMethod ?? 'pix',
     address_street: address.street,

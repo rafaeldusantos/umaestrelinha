@@ -102,7 +102,8 @@ describe('ContactBlock — aberto (CHK-03)', () => {
 
     expect(screen.getByLabelText('Nome completo')).toHaveValue('Marina Yamashita')
     expect(screen.getByLabelText('E-mail')).toHaveValue('marina@email.com')
-    expect(screen.getByLabelText('WhatsApp')).toHaveValue('11987654321')
+    // `customers.phone` guarda só dígitos; quem formata é a tela.
+    expect(screen.getByLabelText('WhatsApp')).toHaveValue('(11) 98765-4321')
   })
 
   it('digitar grava os três campos no checkoutStore (base de CHK-03)', () => {
@@ -115,7 +116,7 @@ describe('ContactBlock — aberto (CHK-03)', () => {
     const contact = useCheckoutStore.getState().contact
     expect(contact.name).toBe('Marina')
     expect(contact.email).toBe('marina@email.com')
-    expect(contact.whatsapp).toBe('11987654321')
+    expect(contact.whatsapp).toBe('(11) 98765-4321')
   })
 })
 
@@ -295,7 +296,7 @@ describe('ContactBlock — a semeadura NÃO sobrescreve o que a pessoa digitou (
 
     const contato = useCheckoutStore.getState().contact
     expect(contato.name).toBe('Marina Yamashita')
-    expect(contato.whatsapp).toBe('11988887777')
+    expect(contato.whatsapp).toBe('(11) 98888-7777')
   })
 
   it('semear NÃO suja o bloco — ADR-02/FLW-04 preservados', () => {
@@ -330,5 +331,62 @@ describe('ContactBlock — a consulta do e-mail é no blur, nunca a cada tecla (
     fireEvent.change(screen.getByLabelText('E-mail'), { target: { value: 'outro@email.com' } })
 
     expect(onChallenge).toHaveBeenCalledWith(null)
+  })
+})
+
+describe('ContactBlock — a máscara do WhatsApp', () => {
+  // A máscara é provada AQUI, na árvore que a loja monta, e não só em `maskPhone`: o dono da regra
+  // ter testes não prova que o campo o chama. Apagar `maskPhone` do `onChange` deixa
+  // `packages/core` inteiramente verde.
+  const campo = () => screen.getByLabelText('WhatsApp') as HTMLInputElement
+
+  it('digitar só dígitos já sai formatado', () => {
+    renderOpen()
+
+    fireEvent.change(campo(), { target: { value: '11988887777' } })
+
+    expect(campo()).toHaveValue('(11) 98888-7777')
+  })
+
+  it('o estado guarda o valor formatado, e não o que foi digitado', () => {
+    renderOpen()
+
+    fireEvent.change(campo(), { target: { value: '1133334444' } })
+
+    expect(useCheckoutStore.getState().contact.whatsapp).toBe('(11) 3333-4444')
+  })
+
+  it('número parcial não ganha separador que ainda não cabe', () => {
+    renderOpen()
+
+    fireEvent.change(campo(), { target: { value: '119' } })
+
+    expect(campo()).toHaveValue('(11) 9')
+  })
+
+  it('colar um número já formatado não duplica parêntese nem hífen', () => {
+    renderOpen()
+
+    fireEvent.change(campo(), { target: { value: '(11) 98888-7777' } })
+
+    expect(campo()).toHaveValue('(11) 98888-7777')
+  })
+
+  it('o 12º dígito não entra', () => {
+    renderOpen()
+
+    fireEvent.change(campo(), { target: { value: '119888877779' } })
+
+    expect(campo()).toHaveValue('(11) 98888-7777')
+  })
+
+  // ~90% dos acessos vêm de celular: sem `inputMode`, o teclado abre em QWERTY para um campo que
+  // só aceita dígito.
+  it('abre o teclado numérico e aceita o autopreenchimento do navegador', () => {
+    renderOpen()
+
+    expect(campo()).toHaveAttribute('inputmode', 'tel')
+    expect(campo()).toHaveAttribute('autocomplete', 'tel')
+    expect(campo()).toHaveAttribute('type', 'tel')
   })
 })

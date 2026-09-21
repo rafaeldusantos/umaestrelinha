@@ -13,6 +13,7 @@ import { Input } from '@estrelinha/ui/input'
 import { Label } from '@estrelinha/ui/label'
 import { Checkbox } from '@estrelinha/ui/checkbox'
 import { useAuthContext } from '@estrelinha/auth'
+import { maskPhone } from '@estrelinha/core/validators'
 import { setGuestEmail } from '@/features/abandoned-cart/model/useAbandonedCartTracker'
 import { MARKETING_CONSENT_LABEL } from '@/shared/lib/consent'
 import { useAccountLookup } from '../api/useAccountLookup'
@@ -71,7 +72,9 @@ const ContactBlock = ({
     const patch: Partial<typeof current> = {}
     if (!current.name && customer.name) patch.name = customer.name
     if (!current.email && customer.email) patch.email = customer.email
-    if (!current.whatsapp && customer.phone) patch.whatsapp = customer.phone
+    // `customers.phone` foi gravado só com dígitos até aqui, então semear cru abriria o campo sem
+    // máscara. `maskPhone` é idempotente, então valor já formatado atravessa inalterado.
+    if (!current.whatsapp && customer.phone) patch.whatsapp = maskPhone(customer.phone)
     if (Object.keys(patch).length > 0) setContact(patch)
   }, [customer, setContact])
 
@@ -185,8 +188,14 @@ const ContactBlock = ({
         </Label>
         <Input
           id="contact-whatsapp"
+          type="tel"
+          inputMode="tel"
+          autoComplete="tel"
+          // 15 = comprimento de `(00) 00000-0000`. O teto real é de `maskPhone`, que ignora o 12º
+          // dígito; o `maxLength` só poupa a tecla que não produziria efeito nenhum.
+          maxLength={15}
           value={contact.whatsapp}
-          onChange={(e) => edit({ whatsapp: e.target.value })}
+          onChange={(e) => edit({ whatsapp: maskPhone(e.target.value) })}
           placeholder="(11) 99999-9999"
           className="border-estrelinha-field"
         />
