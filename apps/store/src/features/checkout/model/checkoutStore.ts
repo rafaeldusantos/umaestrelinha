@@ -55,6 +55,22 @@ interface CheckoutState extends CheckoutDraft {
    */
   clientRequestId: string | null
   /**
+   * `IDN-07`: **quem era a pessoa quando o pedido em curso nasceu.** `null` é convidada, e é um
+   * valor legítimo — não "não sei".
+   *
+   * Isto era um `useRef` dentro do `CheckoutPage`, e o ref **nasce cego a cada montagem**: para ele
+   * a primeira passada nunca é troca, porque não há passada anterior. Enquanto o checkout ficava
+   * montado atrás do QR isso era invisível; desde a feature `58` sair da página é o fluxo normal
+   * (`PIX-P1-02` entrega o bastão para `/pedido/:id/pagamento`, e `PIX-P1-08` preserva `orderId` de
+   * propósito). O percurso que o ref deixa passar é real e termina em 403: convidada cria o pedido,
+   * não paga, entra na conta, volta ao `/checkout` — e o CTA **reusa** o pedido de convidada, que
+   * `create-payment` recusa por não ser dela.
+   *
+   * Aqui ele sobrevive à remontagem e ao reload, porque nasce e morre com os outros três campos do
+   * pedido em curso.
+   */
+  orderIdentity: string | null
+  /**
    * FLW-01/FLW-04: blocos que a **pessoa** editou nesta tela. Fica no store porque quem edita são
    * os blocos, e eles já falam com o store — a alternativa seria um `onDirty` em cada `onChange`.
    * Semear de `customers`/`addresses` não suja: é o que preserva ADR-02.
@@ -67,7 +83,12 @@ interface CheckoutState extends CheckoutDraft {
   setPayment: (patch: Partial<PaymentDraft>) => void
   toggleBump: (checked?: boolean) => void
   markDirty: (id: BlockId) => void
-  setOrder: (id: string, snapshot: CheckoutDraft) => void
+  /**
+   * `identity` é o `user.id` de quem acionou o CTA — `null` para convidada (`IDN-07`). Opcional
+   * para os chamadores que não decidem identidade nenhuma, e nesses o valor é `null`, que é o
+   * mesmo "convidada" de sempre.
+   */
+  setOrder: (id: string, snapshot: CheckoutDraft, identity?: string | null) => void
   invalidateOrder: () => void
   /** Devolve a chave da tentativa em curso, criando uma na primeira vez (`PED-04`). */
   ensureRequestId: () => string
@@ -86,6 +107,7 @@ export const useCheckoutStore = create<CheckoutState>()(
       orderId: null,
       orderSnapshot: null,
       clientRequestId: null,
+      orderIdentity: null,
       dirty: [],
 
       setContact: (patch) => set((s) => ({ contact: { ...s.contact, ...patch } })),
@@ -97,10 +119,14 @@ export const useCheckoutStore = create<CheckoutState>()(
       // página re-renderizar à toa (o seletor compara por referência).
       markDirty: (id) => set((s) => (s.dirty.includes(id) ? {} : { dirty: [...s.dirty, id] })),
 
-      setOrder: (id, snapshot) => set({ orderId: id, orderSnapshot: snapshot }),
+      setOrder: (id, snapshot, identity = null) =>
+        set({ orderId: id, orderSnapshot: snapshot, orderIdentity: identity }),
       // A chave de idempotência morre COM o pedido: mantê-la faria a próxima tentativa, já com o
       // rascunho alterado, reaproveitar o pedido antigo — e cobrar o valor que a cliente mudou.
-      invalidateOrder: () => set({ orderId: null, orderSnapshot: null, clientRequestId: null }),
+      // A identidade cai junto pelo mesmo motivo: ela responde "de quem é o pedido em curso?", e
+      // sem pedido em curso a pergunta não tem sujeito.
+      invalidateOrder: () =>
+        set({ orderId: null, orderSnapshot: null, clientRequestId: null, orderIdentity: null }),
       ensureRequestId: () => {
         const atual = get().clientRequestId
         if (atual) return atual
@@ -116,6 +142,7 @@ export const useCheckoutStore = create<CheckoutState>()(
           orderId: null,
           orderSnapshot: null,
           clientRequestId: null,
+          orderIdentity: null,
           dirty: [],
         })
         useCheckoutStore.persist.clearStorage()
@@ -142,9 +169,12 @@ export const useCheckoutStore = create<CheckoutState>()(
         orderId: s.orderId,
         orderSnapshot: s.orderSnapshot,
         // Persistida junto com o pedido, e pelo mesmo motivo: recarregar a aba no meio de uma
-        // tentativa não pode fazer a retentativa criar um SEGUNDO pedido (`PED-04`). Os três
+        // tentativa não pode fazer a retentativa criar um SEGUNDO pedido (`PED-04`). Os quatro
         // nascem e morrem juntos.
         clientRequestId: s.clientRequestId,
+        // `IDN-07`: sem persistir, voltar ao checkout depois de entrar na conta compararia a
+        // identidade nova com "não sei" e o pedido de convidada seria reusado — 403 no caixa.
+        orderIdentity: s.orderIdentity,
       }),
     },
   ),

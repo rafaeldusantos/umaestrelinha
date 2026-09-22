@@ -7,6 +7,7 @@ import TopProductsCard from '@/widgets/top-products/ui/TopProductsCard'
 import QuickActions from '@/widgets/quick-actions/ui/QuickActions'
 import { PageHeader, StatCard, AdminTable, type AdminColumn } from '@/shared/ui'
 import { formatPrice } from '@estrelinha/core/formatters'
+import { formatOrderNumber } from '@estrelinha/core/orders'
 
 type RecentOrder = ReturnType<typeof useAdminStats>['stats']['recentOrders'][number]
 
@@ -23,7 +24,9 @@ const AdminDashboard = () => {
   ]
 
   const orderColumns: AdminColumn<RecentOrder>[] = [
-    { key: 'order_number', header: '#Pedido', cell: o => <span className="font-medium">{o.order_number}</span> },
+    // O `#` sai do formatador, e por isso o cabeçalho deixou de traze-lo: com os dois, a coluna
+    // lia-se "#Pedido / #0170".
+    { key: 'order_number', header: 'Pedido', cell: o => <span className="font-medium">{formatOrderNumber(o.order_number)}</span> },
     { key: 'customer_name', header: 'Cliente', cell: o => o.customer_name },
     { key: 'total', header: 'Valor', align: 'right', cell: o => formatPrice(o.total) },
     { key: 'status', header: 'Status', align: 'center', cell: o => <StatusBadge status={o.status} /> },

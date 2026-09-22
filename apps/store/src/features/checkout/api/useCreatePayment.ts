@@ -16,7 +16,7 @@ export const PAYMENT_UNAVAILABLE_MESSAGE =
  * BUG-20260728-edge-runtime-sem-dns: `fetch` não tem timeout por padrão. Com o worker da edge
  * function fora do ar, o Kong manteve a conexão aberta e `functions.invoke` **nunca resolveu** —
  * a tela ficou em "Gerando código PIX..." para sempre, com o pedido já `pending`. O tratamento de
- * erro de `PixPayment` estava correto; ele simplesmente nunca era alcançado.
+ * erro da máquina do PIX estava correto; ele simplesmente nunca era alcançado.
  *
  * 15s é folgado para o ida-e-volta ao Mercado Pago e curto o bastante para não parecer travado.
  * `AbortController` + `setTimeout` explícitos em vez de `AbortSignal.timeout()` porque os fake

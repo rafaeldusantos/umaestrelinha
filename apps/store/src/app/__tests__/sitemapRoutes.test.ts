@@ -65,7 +65,7 @@ describe('sitemapRoutes — âncora da varredura (SMP-25)', () => {
   it('encontrou o número de rotas que o roteador declara', () => {
     // Segunda metade: contou o que leu. Se uma rota sumir do arquivo, este número cai e alguém
     // precisa olhar — em vez de a classificação passar a cobrir um roteador menor sem aviso.
-    expect(declaredRoutes()).toHaveLength(22)
+    expect(declaredRoutes()).toHaveLength(23)
   })
 })
 

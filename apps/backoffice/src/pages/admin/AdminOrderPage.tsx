@@ -4,6 +4,7 @@ import { Copy, ExternalLink, ImageOff, MessageSquare, Printer, Truck } from 'luc
 import { toast } from 'sonner'
 
 import { formatPrice } from '@estrelinha/core/formatters'
+import { formatOrderNumber } from '@estrelinha/core/orders'
 import { queueAgeLabel } from '@estrelinha/core/material'
 import { Button } from '@estrelinha/ui/button'
 import { Input } from '@estrelinha/ui/input'
@@ -138,8 +139,8 @@ const AdminOrderPage = () => {
       <RecordPageHeader
         group="Vendas"
         parentLabel="Pedidos"
-        crumb={`#${order.order_number}`}
-        title={`Pedido #${order.order_number}`}
+        crumb={formatOrderNumber(order.order_number)}
+        title={`Pedido ${formatOrderNumber(order.order_number)}`}
         // Os selos EM LINHA com o título: "Pedido #1042, que está pago e aguardando material" é uma
         // frase só. Numa linha separada eles viravam legenda solta, longe do que qualificam.
         badges={

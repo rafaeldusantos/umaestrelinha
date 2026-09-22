@@ -5,6 +5,7 @@ import { format } from 'date-fns'
 import { toast } from 'sonner'
 
 import { formatPrice, formatRelativeDate } from '@estrelinha/core/formatters'
+import { formatOrderNumber } from '@estrelinha/core/orders'
 import { MATERIAL_STATUS_LABELS, queueAge, queueAgeLabel, toMaterialStatus } from '@estrelinha/core/material'
 import { Button } from '@estrelinha/ui/button'
 import { Input } from '@estrelinha/ui/input'
@@ -258,7 +259,7 @@ const AdminOrdersPage = () => {
       cell: o => (
         <span className="block">
           <Link to={`/admin/pedidos/${o.id}`} className="font-medium hover:underline">
-            #{o.order_number}
+            {formatOrderNumber(o.order_number)}
           </Link>
           {/* A idade DO PEDIDO, sempre presente — todo pedido tem uma. O degrau vem da fila de
               material quando o pedido está nela; um pedido que não espera material nenhum ainda
@@ -676,7 +677,7 @@ const AdminOrdersPage = () => {
                         {o.customer_name}
                       </Link>
                       <p className="truncate text-xs text-muted-foreground">
-                        #{o.order_number}
+                        {formatOrderNumber(o.order_number)}
                         {purchaseOrdinalLabel(o.purchase_ordinal)
                           ? ` · ${purchaseOrdinalLabel(o.purchase_ordinal)}`
                           : ''}{' '}

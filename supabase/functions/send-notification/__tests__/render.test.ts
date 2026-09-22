@@ -93,6 +93,29 @@ const legacyOrder = (over: Partial<EmailOrder> = {}): EmailOrder =>
 const legacy = (event: string, ext: 'html' | 'txt' | 'subject.txt') =>
   readFileSync(join(FIXTURES, `legacy-${event}.${ext}`), 'utf8')
 
+/**
+ * A ÚNICA divergência que a feature `58` introduz nos quatro legados: o número do pedido passa a
+ * sair pelo formatador de `core`, com `#` na frente (`PIX-P4-03`).
+ *
+ * **As fixtures NÃO foram regeradas, de propósito.** Elas são o registro congelado do que
+ * `templates.ts` produzia antes da feature `42`, e regerá-las destruiria a evidência — o guarda
+ * passaria a comparar o motor de hoje com ele mesmo. O que se faz aqui é o mesmo movimento que o
+ * caso de `order_shipped` já fazia desde a T12: **nomear a divergência e provar que é só ela**.
+ *
+ * A transformação é aplicada à fixture, nunca ao que o motor produz — invertê-la apagaria
+ * justamente o prefixo que a feature existe para pôr, e o guarda ficaria verde com o formatador
+ * apagado.
+ */
+const comPrefixo = (texto: string): string => {
+  const partes = texto.split('NP-ABC123')
+  // Âncora: a fixture tem de conter o número UMA vez. Zero ocorrências fariam a transformação virar
+  // identidade e o guarda passar sobre o nada — que é o modo de falhar de todo teste que lê disco.
+  if (partes.length !== 2) {
+    throw new Error(`fixture com ${partes.length - 1} ocorrências do número; esperava 1`)
+  }
+  return partes.join('#NP-ABC123')
+}
+
 describe('T12 — os quatro legados saem idênticos ao que templates.ts produzia', () => {
   const casos = [
     ['order_received', legacyOrder()],
@@ -101,20 +124,38 @@ describe('T12 — os quatro legados saem idênticos ao que templates.ts produzia
     ['material_received', legacyOrder({ material_status: 'material_recebido' })],
   ] as const
 
-  it.each(casos)('%s — o ASSUNTO é idêntico', (event, pedido) => {
-    expect(render(event as NotificationEvent, pedido).subject).toBe(legacy(event, 'subject.txt'))
+  it.each(casos)('%s — o ASSUNTO é idêntico, a menos do `#` do número (feature 58)', (event, pedido) => {
+    expect(render(event as NotificationEvent, pedido).subject).toBe(
+      comPrefixo(legacy(event, 'subject.txt')),
+    )
   })
 
   it.each(casos)('%s — o HTML é idêntico, byte a byte', (event, pedido) => {
+    // O HTML **não** muda: o número não aparece no corpo, só no assunto e na versão texto. Medido
+    // ao escrever a `58` — as doze fixtures `.html` têm zero ocorrência dele.
     expect(render(event as NotificationEvent, pedido).html).toBe(legacy(event, 'html'))
+  })
+
+  it.each(casos)('%s — o HTML não cita o número, e é por isso que ele segue congelado', (event) => {
+    // A asserção que sustenta a de cima. Sem ela, "o HTML é idêntico" passaria a ser verdade por
+    // acidente, e no dia em que o número entrasse no corpo ninguém saberia por que aquele caso
+    // reprovou — nem se a fixture ou o motor é que estava errado.
+    expect(legacy(event, 'html')).not.toContain('NP-ABC123')
   })
 
   it.each([
     ['order_received', legacyOrder()],
     ['order_paid', legacyOrder()],
     ['material_received', legacyOrder({ material_status: 'material_recebido' })],
-  ] as const)('%s — a versão TEXTO é idêntica, byte a byte', (event, pedido) => {
-    expect(render(event as NotificationEvent, pedido).text).toBe(legacy(event, 'txt'))
+  ] as const)('%s — a versão TEXTO é idêntica, a menos do `#` do número', (event, pedido) => {
+    expect(render(event as NotificationEvent, pedido).text).toBe(comPrefixo(legacy(event, 'txt')))
+  })
+
+  it('sensor — a transformação declarada acusa fixture sem o número', () => {
+    // Se `comPrefixo` virasse identidade sobre uma fixture vazia, os sete casos acima passariam
+    // comparando nada com nada.
+    expect(() => comPrefixo('Pedido sem número')).toThrow(/esperava 1/)
+    expect(comPrefixo('Pedido NP-ABC123')).toBe('Pedido #NP-ABC123')
   })
 
   it('order_shipped — a versão texto perde EXATAMENTE a linha "Transportadora:", e nada mais', () => {
@@ -124,7 +165,7 @@ describe('T12 — os quatro legados saem idênticos ao que templates.ts produzia
     const atual = render('order_shipped', legacyOrder({ tracking_code: 'AA123456789BR', shipping_carrier: 'PAC' })).text
     const antigo = legacy('order_shipped', 'txt')
 
-    expect(antigo.split('\n').filter((l) => !l.startsWith('Transportadora: ')).join('\n')).toBe(atual)
+    expect(comPrefixo(antigo).split('\n').filter((l) => !l.startsWith('Transportadora: ')).join('\n')).toBe(atual)
     expect(antigo).toContain('Transportadora: PAC')
     expect(atual).not.toContain('Transportadora:')
     expect(atual).toContain('Postamos seu pedido com PAC.')
@@ -248,10 +289,22 @@ describe('TPL-04 / TPL-05 — dinheiro vem do formatPrice do core', () => {
   })
 
   it('TPL-05: o texto contém o número do pedido e o total formatado', () => {
+    // O número sai pelo formatador de `core` (feature `58`), então o legado ganha o `#` e continua
+    // legível — `PIX-P4-04`. O literal aqui é escrito com o prefixo de propósito: derivá-lo de
+    // `formatOrderNumber` provaria que a função é igual a si mesma.
     const { text } = render('order_paid', orderFixture({ order_number: 'NP-XYZ999', total: 1234.56 }))
 
-    expect(text).toContain('Pedido NP-XYZ999')
+    expect(text).toContain('Pedido #NP-XYZ999')
     expect(text).toContain(`Total: R$${NBSP}1.234,56`)
+  })
+
+  it('TPL-05: o número da sequência sai com UM `#`, e o valor gravado não o tem', () => {
+    // O par do caso acima, com o formato que a `58` passou a produzir. Sem ele, um formatador que
+    // devolvesse o valor cru continuaria passando pelo caso do legado.
+    const { text } = render('order_paid', orderFixture({ order_number: '0170' }))
+
+    expect(text).toContain('Pedido #0170')
+    expect(text).not.toContain('Pedido ##')
   })
 
   it('a variável {{total}} usa o MESMO formatPrice do corpo', () => {

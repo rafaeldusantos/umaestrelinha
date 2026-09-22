@@ -521,8 +521,8 @@ describe('PNL-05 — `preview`', () => {
     expect(body.sample).toBe(true)
     // O número do pedido vive no ASSUNTO e na versão texto — o corpo HTML traz itens, totais e
     // endereço, não o número. Medido ao escrever este teste.
-    expect(body.subject).toContain('UE-0042')
-    expect(body.text).toContain('Pedido UE-0042')
+    expect(body.subject).toContain('#UE-0042')
+    expect(body.text).toContain('Pedido #UE-0042')
   })
 
   it('com `order_id`, renderiza sobre o pedido real', async () => {
@@ -532,7 +532,7 @@ describe('PNL-05 — `preview`', () => {
 
     expect(body.sample).toBe(false)
     expect(body.subject).toContain('NP-ABC123')
-    expect(body.text).toContain('Pedido NP-ABC123')
+    expect(body.text).toContain('Pedido #NP-ABC123')
   })
 
   it('o rascunho vence o gravado, e o que ele não manda cai no gravado', async () => {

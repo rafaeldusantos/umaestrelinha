@@ -28,25 +28,19 @@ import { PixIcon } from '@estrelinha/ui/icons'
 import { useCheckoutStore } from '../model/checkoutStore'
 import { resolveInstallments } from '@estrelinha/core/payment/installments'
 import CardPaymentBrick from './CardPaymentBrick'
-import PixPayment from './PixPayment'
 
 interface Props {
   open: boolean
   complete: boolean
   onEdit: () => void
   /**
-   * Pedido `pending` em curso. **Só o PIX** troca o bloco pela superfície do pedido: no cartão o
-   * Brick precisa continuar montado depois da criação, senão o formulário preenchido e o token se
-   * perdem — e com eles a retentativa de recusa (PGM-08).
-   */
-  orderId: string | null
-  /**
-   * Total a pagar do método selecionado (o rótulo do CTA mostra o mesmo número). Só uma das
-   * duas superfícies monta por vez, então serve tanto ao Brick de cartão quanto ao valor em
-   * destaque do PIX (CNF-01).
+   * Total a pagar do método selecionado — o rótulo do CTA mostra o mesmo número, e o Brick de
+   * cartão o recebe para montar as parcelas.
+   *
+   * Até a feature `58` ele servia também ao valor em destaque do PIX (`CNF-01`), porque o bloco
+   * trocava de conteúdo quando o pedido nascia. Hoje quem mostra esse valor é a rota do pagamento.
    */
   amount: number
-  onApproved: () => void
   /** PGM-06: erro da última tentativa de cartão. Quem tenta é o CTA da página, não este bloco. */
   cardError?: string | null
 }
@@ -65,15 +59,7 @@ export const DOC_FIELD_LABEL = 'CPF ou CNPJ do pagador'
 export const NO_METHOD_MESSAGE =
   'Nenhum método de pagamento disponível no momento. Fale com a gente pelo WhatsApp.'
 
-const PaymentBlock = ({
-  open,
-  complete,
-  onEdit,
-  orderId,
-  amount,
-  onApproved,
-  cardError = null,
-}: Props) => {
+const PaymentBlock = ({ open, complete, onEdit, amount, cardError = null }: Props) => {
   const { customer } = useAuthContext()
   const { pix_enabled, pix_discount_percent, card_enabled, max_installments, min_installment_value } =
     usePaymentSettings()
@@ -143,20 +129,15 @@ const PaymentBlock = ({
     </header>
   )
 
-  // PGM-07: no PIX o pedido criado troca o bloco pelo QR, aberto ou colapsado — é o fluxo de
-  // hoje. No cartão **não**: desmontar o Brick aqui apagaria o formulário já preenchido e o
-  // token, e não haveria como retentar uma recusa (PGM-08).
-  if (orderId && payment.method !== 'card') {
-    return (
-      <section
-        aria-label="Pagamento"
-        className="flex flex-col gap-5 rounded-lg border border-estrelinha-line bg-white p-4"
-      >
-        {header}
-        <PixPayment orderId={orderId} amount={amount} onApproved={onApproved} />
-      </section>
-    )
-  }
+  // `PIX-P1-05` (feature `58`): **o bloco não troca mais de conteúdo quando o pedido nasce.**
+  //
+  // Era `PGM-07`: com `orderId` e método PIX, este bloco virava o QR — aberto ou colapsado. O QR
+  // nascia abaixo da dobra no celular, com o CTA fixo por cima dizendo "Pagar R$ X com PIX", um
+  // botão que já não fazia nada. A superfície do PIX mudou de casa para `/pedido/:id/pagamento`,
+  // que é a única que tem endereço.
+  //
+  // O cartão **nunca** passou por essa troca, e continua não passando: desmontar o Brick apagaria o
+  // formulário preenchido e o token, e não haveria como retentar uma recusa (`PGM-08`).
 
   if (!open) {
     return (

@@ -186,28 +186,53 @@ describe('create-order — a convidada (CSC-03, CSC-04, PED-05)', () => {
     expect(linhaDoPedido(supabase)).not.toHaveProperty('coupon_code')
   })
 
-  it('o pedido nasce `pending` e com número', async () => {
-    // `orders.order_number` é `text` SEM default: sem geração, toda criação morreria com not-null.
+  it('o pedido nasce `pending`', async () => {
     const supabase = cenario()
     await route(criarDeps(supabase), pedir(PEDIDO))
 
     expect(linhaDoPedido(supabase).status).toBe('pending')
-    expect(linhaDoPedido(supabase).order_number).toMatch(/^NP-[0-9A-Z]+$/)
   })
 
-  it('dois pedidos no MESMO instante recebem números diferentes', async () => {
-    // `orders.order_number` tem índice ÚNICO (`orders_order_number_key`, conferido no banco). Com
-    // o relógio sozinho — resolução de milissegundo — o segundo pedido simultâneo falharia com
-    // violação de unicidade: uma venda perdida, não um número repetido. O relógio aqui é FIXO, o
-    // que torna a colisão certa se o sufixo aleatório sumir.
-    const numeros = new Set<string>()
+  it('a function NÃO manda `order_number` — o dono é o banco (feature 58)', async () => {
+    // ⚠️ **Esta régua foi INVERTIDA, não descartada.** Até a `58` ela exigia o número com o prefixo
+    // da marca anterior, cunhado aqui; a feature move o dono para o `default` da coluna
+    // (`lpad(nextval(…)::text, 4, '0')`), e uma régua deixada como estava ficaria **verde a favor
+    // do comportamento que a feature remove** — é a lição da `41`, onde um teste asseria a trava
+    // que a spec mandava tirar.
+    //
+    // A ausência é o requisito inteiro: valor explícito **vence** o default no Postgres, então
+    // mandar a coluna daqui — mesmo "só para garantir" — devolveria o gerador ao JavaScript sem
+    // nada quebrar. `toHaveProperty` e não `toBeUndefined`: a chave presente com valor indefinido
+    // seria enviada pelo client e chegaria como `null`, derrubando a criação por not-null.
+    const supabase = cenario()
+    await route(criarDeps(supabase), pedir(PEDIDO))
+
+    expect(linhaDoPedido(supabase)).not.toHaveProperty('order_number')
+  })
+
+  it('`order_number` vindo do CORPO também não é gravado', async () => {
+    // O par da régua acima, e o que ela existe para impedir de verdade: um navegador (ou um script)
+    // mandando o número escolhido por ele. `COLUNAS_DO_PEDIDO` é a allowlist, e a coluna não está
+    // nela — mas isso é uma linha de distância de deixar de ser verdade.
+    const supabase = cenario()
+    await route(criarDeps(supabase), pedir({ ...PEDIDO, order_number: '0001' }))
+
+    expect(linhaDoPedido(supabase)).not.toHaveProperty('order_number')
+  })
+
+  it('quarenta criações seguidas não inventam número nenhum', async () => {
+    // O caso anterior media UMA criação. Este mede a classe: sob relógio fixo, a forma antiga
+    // dependia de um sufixo aleatório para não colidir, e a colisão custava a venda. Hoje nenhuma
+    // das quarenta leva a coluna, e quem garante unicidade é `nextval` mais o índice único.
+    const comNumero: unknown[] = []
     for (let i = 0; i < 40; i++) {
       const supabase = cenario()
       await route(criarDeps(supabase), pedir({ ...PEDIDO, client_request_id: `t-${i}` }))
-      numeros.add(linhaDoPedido(supabase).order_number as string)
+      const linha = linhaDoPedido(supabase)
+      if (Object.prototype.hasOwnProperty.call(linha, 'order_number')) comNumero.push(linha)
     }
 
-    expect(numeros.size).toBe(40)
+    expect(comNumero).toEqual([])
   })
 
   it('grava os itens com o `order_id` do pedido recém-criado', async () => {

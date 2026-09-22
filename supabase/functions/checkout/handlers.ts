@@ -193,19 +193,16 @@ export async function resolveIdentity(
 // create-order — o dono único de "como nasce um pedido"
 // ---------------------------------------------------------------------------------------------
 
-/**
- * Quatro caracteres aleatórios de base36 no fim do número do pedido.
- *
- * `orders.order_number` tem índice **único**, e o relógio sozinho tem resolução de milissegundo:
- * dois pedidos simultâneos derrubariam o segundo com violação de unicidade — uma venda perdida,
- * não um número repetido. Com 36⁴ ≈ 1,7 milhão de sufixos por milissegundo, a colisão deixa de ser
- * um modo de falha alcançável neste volume.
- */
-function sufixoAleatorio(): string {
-  const bytes = new Uint8Array(4)
-  crypto.getRandomValues(bytes)
-  return Array.from(bytes, (b) => (b % 36).toString(36).toUpperCase()).join('')
-}
+// ⚠️ **Esta function NÃO cunha mais o número do pedido** (feature `58`). Ela cunhava — prefixo da
+// marca anterior + o relógio em base36 + quatro caracteres aleatórios contra a colisão de
+// milissegundo —, e o gerador inteiro foi apagado no mesmo movimento em que a coluna ganhou
+// `default lpad(nextval(…)::text, 4, '0')`.
+//
+// O dono é o banco, e a razão é concorrência: `nextval` é seguro por construção e é o único que
+// enxerga todas as transações. Mandar a coluna daqui reabriria o "defeito 01" na pior forma — dois
+// geradores para o mesmo número, cada um certo sozinho —, e o insert do cliente **venceria** o
+// default em silêncio. Por isso `order_number` não aparece em `COLUNAS_DO_PEDIDO` nem no objeto
+// gravado, e `createOrder.test.ts` cobra a ausência.
 
 /** As colunas de `orders` que a loja preenche. Tudo o mais é default do banco. */
 const COLUNAS_DO_PEDIDO = [
@@ -322,20 +319,8 @@ export async function createOrder(
   const pedido: Record<string, unknown> = {
     customer_id: customerIdDaSessao,
     client_request_id: clientRequestId,
-    // `orders.order_number` é `text` SEM default: alguém tem de gerar. Era o navegador, e passa a
-    // ser o servidor — cliente não deve cunhar identificador de pedido.
-    //
-    // ⚠️ **A coluna TEM índice único** (`orders_order_number_key`, criada em
-    // `20260415090935_create_orders_and_order_items.sql:49` e conferida no banco). A forma antiga
-    // era só `Date.now().toString(36)`, de resolução de **milissegundo**: dois pedidos no mesmo
-    // milissegundo não colidiriam em silêncio — o segundo **falharia com violação de unicidade**,
-    // e a cliente veria "não conseguimos criar seu pedido" tendo feito tudo certo.
-    //
-    // Os quatro caracteres aleatórios no fim resolvem isso sem mudar a forma do número. O prefixo
-    // `NP-` são as iniciais da marca ANTERIOR e fica **preservado de propósito**: trocá-lo muda a
-    // numeração que a Adri vê no painel e que a cliente cita no WhatsApp — decisão de operação,
-    // registrada em `BL-031`.
-    order_number: `NP-${Date.now().toString(36).toUpperCase()}${sufixoAleatorio()}`,
+    // `order_number` NÃO entra aqui — o dono é o `default` da coluna (feature `58`). Mandá-lo,
+    // mesmo "só para garantir", venceria o default e devolveria o gerador ao JavaScript.
     status: 'pending',
     guest_access_hash: accessToken ? await hashAccessToken(accessToken) : null,
     guest_access_expires_at: accessToken ? guestAccessExpiry(agora) : null,

@@ -37,6 +37,7 @@ const WishlistPage = lazy(() => import("@/pages/WishlistPage"));
 const CartPage = lazy(() => import("@/pages/CartPage"));
 const CheckoutPage = lazy(() => import("@/pages/CheckoutPage"));
 const OrderConfirmationPage = lazy(() => import("@/pages/OrderConfirmationPage"));
+const OrderPaymentPage = lazy(() => import("@/pages/OrderPaymentPage"));
 const AuthPage = lazy(() => import("@/pages/AuthPage"));
 const SearchPage = lazy(() => import("@/pages/SearchPage"));
 const AboutPage = lazy(() => import("@/pages/AboutPage"));
@@ -178,6 +179,22 @@ const App = () => (
                 `MobileNav`. A página monta o `AuthOverlay` por conta própria (CHK-02).
               */}
               <Route path="/checkout" element={<CheckoutPage />} />
+
+              {/*
+                Feature 58 — a casa do PIX. Fica fora do `StoreLayout` pela MESMA razão do checkout:
+                header próprio, sem navegação de categorias, e sem o `MobileNav` fixo disputando o
+                rodapé com o QR.
+
+                O caminho estende `/pedido/:id` como rota IRMÃ auto-fechada, e é decisão: o
+                ranqueamento por especificidade já resolve (um segmento estático a mais vence), e
+                uma rota-mãe com filhos aninhados muda a forma do arquivo — os guardas que recortam
+                bloco de rota por marcador de fechamento passam a fechar no lugar errado, e o
+                encolhimento é silencioso. É a mesma razão registrada na decisão da feature 55.
+
+                Ela entra em `NON_INDEXABLE_PATHS` na mesma mudança — é o pagamento de UMA pessoa, e
+                `sitemapRoutes.test.ts` exige a classificação de toda rota declarada.
+              */}
+              <Route path="/pedido/:id/pagamento" element={<OrderPaymentPage />} />
 
               <Route path="*" element={<NotFound />} />
             </Routes>

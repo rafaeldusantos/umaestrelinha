@@ -229,6 +229,12 @@ export const NON_INDEXABLE_PATHS: readonly { path: string; reason: string }[] = 
   { path: '/carrinho', reason: 'estado do navegador, não conteúdo — muda a cada visitante' },
   { path: '/checkout', reason: 'transacional; nada a indexar e tudo a não expor' },
   { path: '/pedido/:id', reason: 'privado — é o pedido de uma pessoa' },
+  {
+    path: '/pedido/:id/pagamento',
+    reason:
+      'privado e transacional — é o PIX de UMA pessoa (feature 58). Vale as duas exclusões ao ' +
+      'mesmo tempo: o conteúdo é de um pedido só, e a página existe para cobrar',
+  },
   { path: '/conta', reason: 'privado, atrás de autenticação' },
   { path: '/favoritos', reason: 'privado, por navegador' },
   { path: '/entrar', reason: 'autenticação' },

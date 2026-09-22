@@ -10,6 +10,7 @@
 // `and(...)` aninhado, `count` exato com `Range`, e `head=true` para contar sem carregar linha.
 
 import { queueAge, type QueueAge } from '@estrelinha/core/material'
+import { stripOrderNumberPrefix } from '@estrelinha/core/orders'
 import type { PaymentStatus } from '@estrelinha/supabase/types'
 
 export { pageRange, rangeLabel, escapeSearchTerm } from '@estrelinha/core/paging'
@@ -195,9 +196,23 @@ export const ORDER_SEARCH_COLUMNS = [
   'material_tracking_code',
 ] as const
 
-/** O `or=(…)` da busca, ou `null` quando não há termo. */
+/**
+ * O `or=(…)` da busca, ou `null` quando não há termo.
+ *
+ * **O `#` cai antes de virar filtro** (`PIX-P4-05`, feature `58`). O número é gravado sem prefixo
+ * (`0244`) e exibido com ele (`#0244`), então o que a Adri copia da tela, do WhatsApp ou do e-mail
+ * **traz o `#`** — e `order_number.ilike.%#0244%` não acha nada. As três grafias (`244`, `0244` e
+ * `#0244`) passam a cair no mesmo `%0244%`/`%244%`.
+ *
+ * Quem recorta é `stripOrderNumberPrefix`, o mesmo dono que põe o prefixo — um recorte escrito aqui
+ * divergiria do formatador no dia em que o prefixo mudasse, e o sintoma seria só a busca deixando
+ * de achar, com a tela continuando certa.
+ *
+ * O recorte é **do termo inteiro**, não por coluna: `#` não aparece em nome, e-mail nem código de
+ * rastreio, então tirá-lo não estreita nenhuma das outras quatro buscas.
+ */
 export const buildOrderSearchCondition = (search: string): string | null => {
-  const term = escapeSearchTerm(search)
+  const term = stripOrderNumberPrefix(escapeSearchTerm(search))
   if (term === '') return null
   return ORDER_SEARCH_COLUMNS.map(coluna => `${coluna}.ilike.%${term}%`).join(',')
 }

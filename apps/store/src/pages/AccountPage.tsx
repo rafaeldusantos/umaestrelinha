@@ -4,12 +4,11 @@ import { Button } from '@estrelinha/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@estrelinha/ui/card'
 import { Badge } from '@estrelinha/ui/badge'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@estrelinha/ui/collapsible'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@estrelinha/ui/dialog'
 import { Link } from 'react-router-dom'
-import { useQueryClient } from '@tanstack/react-query'
 import { useOrdersByCustomerId, type Order } from '@/entities/order/api/useOrders'
-import PixPayment from '@/features/checkout/ui/PixPayment'
+import { orderPaymentPath, podePagarComPix } from '@/entities/order'
 import { formatPrice } from '@estrelinha/core/formatters'
+import { formatOrderNumber } from '@estrelinha/core/orders'
 import { useAuthContext } from '@estrelinha/auth'
 import { useAuthUiStore } from '@/features/auth'
 
@@ -34,8 +33,6 @@ const StatusBadge = ({ status }: { status: string }) => {
 
 const OrderCard = ({ order }: { order: Order }) => {
   const [open, setOpen] = useState(false)
-  const [pixOpen, setPixOpen] = useState(false)
-  const qc = useQueryClient()
   const date = new Date(order.created_at).toLocaleDateString('pt-BR')
 
   return (
@@ -47,7 +44,7 @@ const OrderCard = ({ order }: { order: Order }) => {
               <div className="flex flex-col gap-1">
                 <div className="flex items-center gap-3">
                   <CardTitle className="text-base font-bold text-estrelinha-ink">
-                    #{order.order_number}
+                    {formatOrderNumber(order.order_number)}
                   </CardTitle>
                   <StatusBadge status={order.status} />
                 </div>
@@ -62,29 +59,29 @@ const OrderCard = ({ order }: { order: Order }) => {
             </div>
           </CardHeader>
         </CollapsibleTrigger>
-        {order.payment_status === 'pending' && (
+        {/*
+          `PIX-P3-04` (feature `58`): **a conta LINKA, não monta o pagamento.**
+
+          Aqui existia um `<Dialog>` que montava a superfície do PIX dentro da lista. Duas
+          superfícies montando o mesmo pagamento são dois donos de "onde se paga um pedido
+          pendente" — e esta já nascia errada: o diálogo montava sem `amount`, então o valor em
+          destaque (`CNF-01`) simplesmente não aparecia, e o QR vivia dentro de um `DialogContent`,
+          que é a forma que `dialogGridTrack.test.ts` existe para vigiar.
+
+          O link leva ao endereço do pedido, que é a mesma casa a que `/pedido/:id` leva — e que
+          sobrevive a fechar a aba.
+        */}
+        {podePagarComPix(order) && (
           <div className="px-4 pb-3">
             <Button
+              asChild
               size="sm"
-              onClick={() => setPixOpen(true)}
               className="rounded-sm bg-estrelinha-primary text-white border-0 hover:bg-estrelinha-primary hover:opacity-95 transition-all gap-1.5"
             >
-              <QrCode className="w-4 h-4" /> Pagar com PIX
+              <Link to={orderPaymentPath(order.id)}>
+                <QrCode className="w-4 h-4" /> Pagar com PIX
+              </Link>
             </Button>
-            <Dialog open={pixOpen} onOpenChange={setPixOpen}>
-              <DialogContent className="max-w-md">
-                <DialogHeader>
-                  <DialogTitle>Pagar pedido #{order.order_number} com PIX</DialogTitle>
-                </DialogHeader>
-                <PixPayment
-                  orderId={order.id}
-                  onApproved={() => {
-                    setPixOpen(false)
-                    qc.invalidateQueries({ queryKey: ['orders'] })
-                  }}
-                />
-              </DialogContent>
-            </Dialog>
           </div>
         )}
         <CollapsibleContent>

@@ -215,6 +215,46 @@ describe('checkoutStore — pedido em curso (CHK-07 / CHK-08)', () => {
     expect(useCheckoutStore.getState().orderSnapshot).toBeNull()
   })
 
+  /**
+   * `IDN-07` — **a identidade de quem criou o pedido é do PEDIDO, não da montagem da tela.**
+   *
+   * Ela vivia num `useRef` do `CheckoutPage`, e um ref nasce cego a cada montagem. Desde a feature
+   * `58` sair do checkout é o fluxo normal do PIX, e a borda que o ref deixava passar termina em
+   * 403: convidada cria o pedido, entra na conta, volta, e o CTA reusa o pedido de convidada.
+   */
+  it('setOrder grava a identidade de quem criou o pedido', () => {
+    useCheckoutStore.getState().setOrder('order-1', completeDraft(), 'usr-1')
+
+    expect(useCheckoutStore.getState().orderIdentity).toBe('usr-1')
+  })
+
+  it('sem identidade informada, o pedido é de convidada — `null`, nunca `undefined`', () => {
+    // `undefined` reabriria o terceiro estado ("não sei") que o ref tinha, e com ele o furo: uma
+    // comparação contra "não sei" nunca é uma troca.
+    useCheckoutStore.getState().setOrder('order-1', completeDraft())
+
+    expect(useCheckoutStore.getState().orderIdentity).toBeNull()
+  })
+
+  it('a identidade cai junto com o pedido — sem pedido, a pergunta não tem sujeito', () => {
+    useCheckoutStore.getState().setOrder('order-1', completeDraft(), 'usr-1')
+    useCheckoutStore.getState().invalidateOrder()
+
+    expect(useCheckoutStore.getState().orderIdentity).toBeNull()
+  })
+
+  it('a identidade é PERSISTIDA, junto dos outros três campos do pedido', () => {
+    // Persistir é o ponto inteiro: sem isto, recarregar a aba (ou voltar ao checkout depois de
+    // passar pela rota do pagamento) compararia a identidade nova com "nada" e o pedido de
+    // convidada seria reusado. Os quatro campos nascem e morrem juntos.
+    useCheckoutStore.getState().setOrder('order-1', completeDraft(), 'usr-1')
+
+    const guardado = JSON.parse(sessionStorage.getItem(CHECKOUT_STORAGE_KEY)!).state
+
+    expect(guardado.orderIdentity).toBe('usr-1')
+    expect(guardado.orderId).toBe('order-1')
+  })
+
   it('sem pedido em curso não há nada obsoleto', () => {
     fill()
     expect(useCheckoutStore.getState().isStale()).toBe(false)
@@ -267,7 +307,11 @@ describe('checkoutStore — pedido em curso (CHK-07 / CHK-08)', () => {
 describe('checkoutStore — reset', () => {
   it('reset volta o rascunho, o pedido em curso e o storage ao estado inicial', () => {
     fill()
-    useCheckoutStore.getState().setOrder('order-1', useCheckoutStore.getState().draft())
+    // A identidade entra **não-nula** de propósito: com `setOrder` de dois argumentos ela já valeria
+    // `null` antes do `reset`, e a asserção lá embaixo seria verdadeira nos dois mundos — apagar a
+    // linha do `reset` que a limpa não reprovaria nada. É a semente que dá dente à régua, não a
+    // asserção.
+    useCheckoutStore.getState().setOrder('order-1', useCheckoutStore.getState().draft(), 'usr-1')
 
     useCheckoutStore.getState().reset()
 
@@ -279,6 +323,7 @@ describe('checkoutStore — reset', () => {
     expect(s.bumpChecked).toBe(false)
     expect(s.orderId).toBeNull()
     expect(s.orderSnapshot).toBeNull()
+    expect(s.orderIdentity).toBeNull()
     expect(sessionStorage.getItem(CHECKOUT_STORAGE_KEY)).toBeNull()
   })
 })

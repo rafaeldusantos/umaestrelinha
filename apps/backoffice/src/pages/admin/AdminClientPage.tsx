@@ -4,6 +4,7 @@ import { Download, Mail, MessageCircle, MessageSquare, ShieldAlert } from 'lucid
 import { toast } from 'sonner'
 
 import { formatPrice } from '@estrelinha/core/formatters'
+import { formatOrderNumber } from '@estrelinha/core/orders'
 import {
   MATERIAL_KIND_LABELS, MATERIAL_STATUS_LABELS, queueAgeLabel, toMaterialStatus,
 } from '@estrelinha/core/material'
@@ -238,7 +239,7 @@ const AdminClientPage = () => {
                           // prancha (16px) é de mouse.
                           className="inline-flex min-h-[44px] items-center text-xs font-semibold text-primary hover:underline md:min-h-0"
                         >
-                          #{o.order_number}
+                          {formatOrderNumber(o.order_number)}
                         </Link>
                         <span className="text-[11px] text-estrelinha-admin-text-secondary">
                           {new Date(o.created_at).toLocaleDateString('pt-BR', {

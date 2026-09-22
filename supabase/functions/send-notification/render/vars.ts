@@ -14,6 +14,7 @@ import {
   greeting,
 } from '../../../../packages/core/src/notifications/index.ts'
 import { formatPrice } from '../../../../packages/core/src/formatters/price.ts'
+import { formatOrderNumber } from '../../../../packages/core/src/orders/format.ts'
 import { type EmailOrder, firstName, storeLink } from './layout.ts'
 
 /**
@@ -65,7 +66,9 @@ export function buildVars(event: NotificationEvent, order: EmailOrder, ctx: Vars
   return {
     saudacao: greeting(nome, event),
     primeiro_nome: nome,
-    numero_pedido: order.order_number ?? '',
+    // O `#` vem do formatador, nunca do texto do template: se a dona escrever `#{{numero_pedido}}`
+    // numa notificação e o valor já o trouxer, o e-mail sai com dois. Um dono, e ele é de `core`.
+    numero_pedido: formatOrderNumber(order.order_number),
     // A remessa de SAÍDA (loja → cliente) nos eventos de envio; a de ENTRADA (cliente → ateliê) nos
     // de material. São dois códigos diferentes no mesmo pedido, e trocá-los mandaria a cliente
     // rastrear a própria encomenda achando que rastreia a joia.

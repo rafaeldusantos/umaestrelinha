@@ -10,10 +10,11 @@
 import { Link, useParams } from 'react-router-dom'
 import { PackageCheck } from 'lucide-react'
 import { formatPrice } from '@estrelinha/core/formatters'
+import { formatOrderNumber } from '@estrelinha/core/orders'
 import { formatEstimate } from '@estrelinha/core/shipping'
-import { useAuthContext } from '@estrelinha/auth'
-import { useAuthUiStore } from '@/features/auth'
-import { OrderTimeline, useOrder } from '@/entities/order'
+import { PixIcon } from '@estrelinha/ui/icons'
+import { OrderTimeline, orderPaymentPath, podePagarComPix, useOrder } from '@/entities/order'
+import { OrderAccessRefusal } from '@/widgets/order-access-refusal'
 import { OrderMaterialBlock } from '@/widgets/order-material'
 
 /**
@@ -47,11 +48,6 @@ const paidStamp = (paidAt: string | null): string => {
 const OrderConfirmationPage = () => {
   const { id } = useParams<{ id: string }>()
   const { data: order, isLoading, isError } = useOrder(id)
-  // Feature 49: a convidada chega aqui SEM sessão. A tela precisa saber disso para oferecer o
-  // caminho que funciona para ela — o código por e-mail — em vez de mandá-la a uma conta em que
-  // ela nunca entrou.
-  const { user } = useAuthContext()
-  const openAuth = useAuthUiStore((s) => s.open)
 
   if (isLoading) {
     return (
@@ -61,41 +57,12 @@ const OrderConfirmationPage = () => {
     )
   }
 
-  // Erro de rede e pedido inexistente dizem coisas diferentes — o hook os mantém distintos.
+  // Erro de rede e pedido inexistente dizem coisas diferentes — o hook os mantém distintos, e a
+  // recusa em si mora num lugar só desde a feature `58`: `/pedido/:id/pagamento` falha igual.
   if (isError || !order) {
     return (
       <Shell>
-        <div className="flex flex-col items-center gap-4 text-center">
-          <h1 className="font-heading text-3xl font-semibold tracking-[-0.03em] text-estrelinha-ink">
-            {isError ? 'Não conseguimos abrir este pedido' : 'Pedido não encontrado'}
-          </h1>
-          {/* Feature 49: sem sessão, "veja em Minha conta" é um conselho que não funciona — a conta
-              da convidada existe, mas ela nunca entrou nela. O caminho honesto é o código por
-              e-mail, que é como a loja identifica qualquer pessoa. */}
-          <p className="max-w-md text-estrelinha-ink-soft">
-            {isError
-              ? 'Tente novamente em alguns instantes. Seus pedidos ficam guardados em Minha conta.'
-              : user
-                ? 'Confira o link ou veja a lista completa em Minha conta.'
-                : 'O acesso a este pedido pode ter expirado. Entre com o código enviado para o seu e-mail para ver seus pedidos.'}
-          </p>
-          {user || isError ? (
-            <Link
-              to="/conta"
-              className="rounded-sm border-2 border-estrelinha-ink px-7 py-4 font-heading text-[17px] font-semibold text-estrelinha-ink transition-all hover:scale-[1.02]"
-            >
-              Ir para Minha conta
-            </Link>
-          ) : (
-            <button
-              type="button"
-              onClick={() => openAuth({ returnTo: `/pedido/${id}` })}
-              className="min-h-11 rounded-sm border-2 border-estrelinha-ink px-7 py-4 font-heading text-[17px] font-semibold text-estrelinha-ink transition-all hover:scale-[1.02]"
-            >
-              Entrar com código
-            </button>
-          )}
-        </div>
+        <OrderAccessRefusal isError={isError} returnTo={`/pedido/${id}`} />
       </Shell>
     )
   }
@@ -112,7 +79,7 @@ const OrderConfirmationPage = () => {
         <div className="flex flex-col items-center gap-5 text-center">
           <div className="flex flex-col items-center gap-[10px]">
             <p className="estrelinha-eyebrow text-estrelinha-ink-soft">
-              PEDIDO {order.order_number} · {paidStamp(order.paid_at)}
+              PEDIDO {formatOrderNumber(order.order_number)} · {paidStamp(order.paid_at)}
             </p>
             <h1 className="font-heading text-[38px] font-semibold leading-[1.1] tracking-[-0.035em] text-estrelinha-ink md:text-[50px]">
               {paid ? 'É nosso!' : 'Pedido registrado'}
@@ -150,21 +117,45 @@ const OrderConfirmationPage = () => {
           cancelled={order.status === 'cancelled'}
         />
 
-        {/* CNF-05: uma única pílula geleia — "Acompanhar pedido". A outra é contorno tinta. */}
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <Link
-            to="/conta"
-            className="flex flex-1 items-center justify-center gap-[10px] rounded-sm bg-estrelinha-primary px-[30px] py-[19px] font-heading text-[17px] font-semibold text-white transition-all hover:opacity-95"
-          >
-            <PackageCheck className="h-[19px] w-[19px]" aria-hidden />
-            Acompanhar pedido
-          </Link>
-          <Link
-            to="/"
-            className="flex flex-1 items-center justify-center rounded-sm border-2 border-estrelinha-ink px-7 py-[17px] font-heading text-[17px] font-semibold text-estrelinha-ink transition-all hover:scale-[1.02]"
-          >
-            Ver mais joias
-          </Link>
+        {/*
+          `PIX-P3-01`/`PIX-P3-02` (feature `58`): o pedido pendente de PIX ganhou **caminho de volta
+          para pagar**. Até aqui esta tela oferecia "Acompanhar pedido" e "Ver mais joias", e nenhum
+          caminho para pagar — quem saía do PIX sem pagar só voltava pelo diálogo de `/conta`, que a
+          convidada não alcança sem entrar por código.
+
+          `CNF-05` continua valendo, e é por isso que "Acompanhar pedido" **desce para contorno**
+          quando o botão de pagar existe: duas pílulas cheias na mesma tela deixam de dizer qual é a
+          ação da vez, justamente onde a ação da vez é pagar.
+        */}
+        <div className="flex flex-col gap-3">
+          {podePagarComPix(order) ? (
+            <Link
+              to={orderPaymentPath(order.id)}
+              className="flex items-center justify-center gap-[10px] rounded-sm bg-estrelinha-primary px-[30px] py-[19px] font-heading text-[17px] font-semibold text-white transition-all hover:opacity-95"
+            >
+              <PixIcon className="h-[18px] w-[18px]" aria-hidden />
+              Pagar com PIX
+            </Link>
+          ) : null}
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <Link
+              to="/conta"
+              className={
+                podePagarComPix(order)
+                  ? 'flex flex-1 items-center justify-center gap-[10px] rounded-sm border-2 border-estrelinha-ink px-7 py-[17px] font-heading text-[17px] font-semibold text-estrelinha-ink transition-all hover:scale-[1.02]'
+                  : 'flex flex-1 items-center justify-center gap-[10px] rounded-sm bg-estrelinha-primary px-[30px] py-[19px] font-heading text-[17px] font-semibold text-white transition-all hover:opacity-95'
+              }
+            >
+              <PackageCheck className="h-[19px] w-[19px]" aria-hidden />
+              Acompanhar pedido
+            </Link>
+            <Link
+              to="/"
+              className="flex flex-1 items-center justify-center rounded-sm border-2 border-estrelinha-ink px-7 py-[17px] font-heading text-[17px] font-semibold text-estrelinha-ink transition-all hover:scale-[1.02]"
+            >
+              Ver mais joias
+            </Link>
+          </div>
         </div>
       </div>
     </Shell>

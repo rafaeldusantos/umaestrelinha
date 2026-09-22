@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Button } from '@estrelinha/ui/button'
 import { Textarea } from '@estrelinha/ui/textarea'
 import { AlertTriangle } from 'lucide-react'
+import { formatOrderNumber } from '@estrelinha/core/orders'
 
 interface Props {
   open: boolean
@@ -40,7 +41,7 @@ const OrderCancelDialog = ({ open, onOpenChange, orderNumber, onConfirm }: Props
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-destructive">
             <AlertTriangle className="w-5 h-5" />
-            Cancelar Pedido #{orderNumber}
+            Cancelar Pedido {formatOrderNumber(orderNumber)}
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-3">

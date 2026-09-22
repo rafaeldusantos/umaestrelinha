@@ -18,11 +18,6 @@ import PaymentBlock, {
 // PGM-01 … PGM-04: cards do mesmo tamanho, marca do PIX e uma superfície por método.
 // Toggle filtrado por settings + fallback: coberto antes por `PaymentStep.test.tsx`, migrado aqui.
 
-vi.mock('../PixPayment', () => ({
-  default: ({ orderId, amount }: any) => (
-    <div data-testid="pix-payment" data-order={orderId} data-amount={amount} />
-  ),
-}))
 vi.mock('../CardPaymentBrick', () => ({
   default: ({ amount, payerEmail, payerDocument, errorMessage }: any) => (
     <div
@@ -52,26 +47,14 @@ vi.mock('@estrelinha/auth', () => ({ useAuthContext: () => authState }))
 const CPF_VALIDO = '390.533.447-05'
 
 const onEdit = vi.fn()
-const onApproved = vi.fn()
 
 const renderBlock = (props: Partial<Parameters<typeof PaymentBlock>[0]> = {}) =>
-  render(
-    <PaymentBlock
-      open
-      complete={false}
-      onEdit={onEdit}
-      orderId={null}
-      amount={100}
-      onApproved={onApproved}
-      {...props}
-    />,
-  )
+  render(<PaymentBlock open complete={false} onEdit={onEdit} amount={100} {...props} />)
 
 beforeEach(() => {
   useCheckoutStore.getState().reset()
   sessionStorage.clear()
   onEdit.mockClear()
-  onApproved.mockClear()
   paymentSettings.pix_enabled = true
   paymentSettings.card_enabled = true
   paymentSettings.pix_discount_percent = 5
@@ -214,30 +197,39 @@ describe('PaymentBlock — CPF do pagador (PGD-01, PGD-02, PGD-06)', () => {
   })
 })
 
-describe('PaymentBlock — superfície de pagamento e colapso', () => {
-  it('com orderId e método pix monta o PixPayment do pedido com o valor a pagar (CNF-01)', () => {
-    renderBlock({ orderId: 'order-1', amount: 46.55 })
+/**
+ * ⚠️ Os três primeiros casos foram **INVERTIDOS**, não apagados.
+ *
+ * Eles asseriam que `orderId` + método PIX trocava este bloco pela superfície do pagamento — o
+ * comportamento que a feature `58` removeu, levando o PIX para `/pedido/:id/pagamento`. Deixá-los
+ * de lado faria a suíte seguir verde a favor do que a spec mandou tirar (lição da `41`), e um
+ * `PixPayment` devolvido ao bloco passaria despercebido.
+ */
+describe('PaymentBlock — o bloco não é mais superfície de pagamento (PIX-P1-05)', () => {
+  it('no PIX o bloco continua sendo o formulário — nenhum QR, nenhum código copia-e-cola', () => {
+    renderBlock({ amount: 46.55 })
 
-    const pix = screen.getByTestId('pix-payment')
-    expect(pix.getAttribute('data-order')).toBe('order-1')
-    expect(pix.getAttribute('data-amount')).toBe('46.55')
+    expect(screen.getByLabelText(DOC_FIELD_LABEL)).toBeInTheDocument()
+    expect(screen.queryByLabelText(/copia e cola/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/QR/i)).not.toBeInTheDocument()
     expect(screen.queryByTestId('card-brick')).not.toBeInTheDocument()
   })
 
-  // PGM-08: o pedido criado NÃO troca o bloco no cartão — o Brick fica montado com o formulário
-  // preenchido e o token, que é o que permite retentar uma recusa sem recomeçar.
-  it('com orderId e método card o Brick segue montado com o valor do pedido', () => {
+  // PGM-08: o cartão NUNCA passou por essa troca, e continua não passando — o Brick fica montado
+  // com o formulário preenchido e o token, que é o que permite retentar uma recusa sem recomeçar.
+  it('no cartão o Brick segue montado com o valor do pedido', () => {
     useCheckoutStore.getState().setPayment({ method: 'card' })
-    renderBlock({ orderId: 'order-1', amount: 49 })
+    renderBlock({ amount: 49 })
 
     expect(screen.getByTestId('card-brick').getAttribute('data-amount')).toBe('49')
-    expect(screen.queryByTestId('pix-payment')).not.toBeInTheDocument()
   })
 
-  it('com orderId a superfície aparece mesmo com o bloco colapsado', () => {
-    renderBlock({ orderId: 'order-1', open: false, complete: true })
+  it('colapsado, o bloco é o resumo — nunca uma superfície de pagamento', () => {
+    useCheckoutStore.getState().setPayment({ method: 'pix', cpf: CPF_VALIDO })
+    renderBlock({ open: false, complete: true })
 
-    expect(screen.getByTestId('pix-payment')).toBeInTheDocument()
+    expect(screen.getByText(`PIX · CPF ${CPF_VALIDO}`)).toBeInTheDocument()
+    expect(screen.queryByLabelText(/copia e cola/i)).not.toBeInTheDocument()
   })
 
   it('colapsado sem pedido exibe o método, o CPF e a ação Alterar', () => {
@@ -263,7 +255,7 @@ describe('PaymentBlock — uma superfície por método (PGM-03, PGM-04, PGM-09)'
   })
 
   it('Cartão: formulário presente ANTES de existir pedido e sem campo de documento (PGM-04)', () => {
-    renderBlock({ orderId: null })
+    renderBlock()
 
     fireEvent.click(screen.getByRole('button', { name: /cartão de crédito/i }))
 
@@ -303,16 +295,16 @@ describe('PaymentBlock — uma superfície por método (PGM-03, PGM-04, PGM-09)'
    * O bloco 3 é o último: quem o "continua" é o CTA de finalizar. Um `Continuar` aqui seria
    * justamente o **segundo botão** que esta feature veio eliminar do caminho do cartão — e sem
    * esta asserção nada impediria alguém de acrescentá-lo por simetria com os blocos 1 e 2.
-   * Vale para os dois métodos e também com o pedido já criado.
+   * Vale para os dois métodos, aberto e colapsado.
    */
   it.each([
-    ['pix' as const, null],
-    ['card' as const, null],
-    ['pix' as const, 'o1'],
-    ['card' as const, 'o1'],
-  ])('Pagamento nunca ganha um botão Continuar — método %s, pedido %s', (method, order) => {
+    ['pix' as const, true],
+    ['card' as const, true],
+    ['pix' as const, false],
+    ['card' as const, false],
+  ])('Pagamento nunca ganha um botão Continuar — método %s, aberto %s', (method, open) => {
     useCheckoutStore.getState().setPayment({ method })
-    renderBlock({ orderId: order })
+    renderBlock({ open, complete: !open })
 
     expect(screen.queryByRole('button', { name: /continuar/i })).not.toBeInTheDocument()
   })

@@ -118,9 +118,10 @@ describe('viteChunks — os três chunks de fornecedor (PRF-12)', () => {
   })
 
   it('o grupo `supabase` leva o client E o realtime que ele arrasta no boot', () => {
-    // `design.md`: o `createClient` puxa `realtime-js` + `phoenix` na montagem, e só o `PixPayment`
-    // usa. Separar o client em dois é assunto de outra feature — o que dá para fazer aqui é tirar os
-    // três do chunk de entrada juntos.
+    // `design.md`: o `createClient` puxa `realtime-js` + `phoenix` na montagem, e quem usa é só a
+    // máquina do PIX (desde a feature `58`, `features/order-payment`). Separar o client em dois é
+    // assunto de outra feature — o que dá para fazer aqui é tirar os três do chunk de entrada
+    // juntos.
     expect(grupos.supabase).toContain('@supabase/supabase-js')
     expect(grupos.supabase).toContain('@supabase/realtime-js')
     expect(grupos.supabase).toContain('@supabase/phoenix')

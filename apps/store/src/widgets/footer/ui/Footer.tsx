@@ -18,7 +18,7 @@ import InstagramStrip, { INSTAGRAM_URL } from './InstagramStrip'
  *
  * Conferido contra a conta do Mercado Pago da loja em 2026-09-14
  * (`GET /v1/payment_methods`): `visa`, `master`, `amex` e `elo` ativos, mais o
- * Pix que o `PixPayment` emite. **Hipercard e o cartão Bradesco ficaram de
+ * Pix que a rota do pagamento emite. **Hipercard e o cartão Bradesco ficaram de
  * fora**, e a ausência é a decisão: a conta não os processa, e anunciar
  * bandeira que o caixa recusa é o defeito da `MarqueeBar` de novo — a loja
  * prometendo uma coisa e o caixa cobrando outra, sem nada acusar. Quem só tem

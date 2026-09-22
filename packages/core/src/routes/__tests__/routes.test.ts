@@ -379,12 +379,14 @@ describe('a classificação de rota do sitemap (SMP-04, SMP-24)', () => {
     expect(LEGACY_REDIRECTS.some(r => r.to === FAQ_PATH)).toBe(false)
   })
 
-  it('âncora de tamanho: 7 institucionais e 7 excluídas', () => {
+  it('âncora de tamanho: 7 institucionais e 8 excluídas', () => {
     // Sem a âncora, esvaziar uma das listas tornaria as asserções acima verdadeiras por vacuidade.
     // As 7: raiz, Sobre, as duas políticas da feature 45, os cuidados com a joia, o guia de
     // material e as perguntas frequentes (feature 46). O índice `/politicas` que ocupava uma dessas
     // vagas foi removido em 2026-09-12.
     expect(SITEMAP_STATIC_PATHS).toHaveLength(7)
-    expect(NON_INDEXABLE_PATHS).toHaveLength(7)
+    // A 8ª exclusão é `/pedido/:id/pagamento`, da feature 58: privada e transacional ao mesmo
+    // tempo — é o PIX de uma pessoa, e a página existe para cobrar.
+    expect(NON_INDEXABLE_PATHS).toHaveLength(8)
   })
 })

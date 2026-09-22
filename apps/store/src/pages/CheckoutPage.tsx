@@ -11,12 +11,11 @@
 // sem navegação de categorias, e o CTA fixo do rodapé não pode disputar espaço com o `MobileNav`.
 // Por isso o `AuthOverlay` é montado aqui — mas desde a feature `49` ele não abre mais sozinho:
 // `CHK-02` foi **removida**, e quem convida a entrar é o `SignInInvite`, sem obrigar ninguém.
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link, Navigate, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Lock, MessageCircle, Package, RefreshCw, ShieldCheck } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { Navigate, useNavigate } from 'react-router-dom'
+import { ArrowLeft, Lock, Package, RefreshCw, ShieldCheck } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@estrelinha/ui/button'
-import { EstrelinhaSignature } from '@/shared/ui/brand'
 import { formatPrice } from '@estrelinha/core/formatters'
 import { isValidDocument, stripCep } from '@estrelinha/core/validators'
 import { friendlyMessage } from '@estrelinha/core/payment/status'
@@ -41,9 +40,12 @@ import {
   PAYMENT_UNAVAILABLE_MESSAGE,
 } from '@/features/checkout/api/useCreatePayment'
 import { useCartStore, useCartUiStore } from '@/entities/cart'
+import { PaymentProgress } from '@/features/order-payment'
 import { CartDrawer } from '@/widgets/cart-drawer'
+import { CheckoutHeader } from '@/widgets/checkout-header'
 import { useCouponStore } from '@/entities/coupon'
 import { NeedsOtpError, useCreateOrder } from '@/entities/order/api/useOrders'
+import { orderPaymentPath } from '@/entities/order/lib/podePagarComPix'
 import { rememberAccess } from '@/entities/order/model/orderAccess'
 import { AuthOverlay, useAuthUiStore } from '@/features/auth'
 import { useCheckoutStore } from '@/features/checkout/model/checkoutStore'
@@ -82,27 +84,6 @@ const TRUST_ITEMS = [
   { icon: Package, label: 'Embalagem protegida' },
 ]
 
-const CheckoutHeader = () => (
-  <header className="border-b border-estrelinha-line bg-white">
-    <div className="container flex items-center justify-between py-5">
-      <Link to="/" aria-label="Uma Estrelinha">
-        <EstrelinhaSignature width={200} />
-      </Link>
-      <div className="flex items-center gap-5 text-sm font-medium">
-        <span className="flex items-center gap-[7px] text-estrelinha-ink">
-          <Lock className="h-[15px] w-[15px] text-estrelinha-primary" aria-hidden />
-          Ambiente seguro
-        </span>
-        <span className="hidden h-[18px] w-px bg-estrelinha-line sm:block" />
-        <span className="hidden items-center gap-[7px] text-estrelinha-ink-soft sm:flex">
-          <MessageCircle className="h-[15px] w-[15px]" aria-hidden />
-          Ajuda no WhatsApp
-        </span>
-      </div>
-    </div>
-  </header>
-)
-
 const CheckoutPage = () => {
   const navigate = useNavigate()
   const { user, customer, loading } = useAuthContext()
@@ -117,7 +98,10 @@ const CheckoutPage = () => {
   const shipping = useCheckoutStore((s) => s.shipping)
   const payment = useCheckoutStore((s) => s.payment)
   const bumpChecked = useCheckoutStore((s) => s.bumpChecked)
-  const orderId = useCheckoutStore((s) => s.orderId)
+  // `orderId` deixou de ser LIDO por esta tela na feature `58`: ele existia para o `PaymentBlock`
+  // trocar o bloco 3 pelo QR. Quem o lê agora é `handleConfirm`, por `getState()`, no instante em
+  // que decide criar ou reusar o pedido — assinar a mudança aqui faria a página renderizar de novo
+  // sem nada para mostrar de diferente.
   const dirty = useCheckoutStore((s) => s.dirty)
 
   const { pricingItems, bump, bumpProduct, totals, promotionDiscount, applied } =
@@ -167,18 +151,28 @@ const CheckoutPage = () => {
    * A mecânica é a de `CHK-08`, inteira: `invalidateOrder` também descarta a chave de idempotência,
    * então o próximo CTA cria um pedido novo em vez de reaproveitar o antigo.
    */
-  // `undefined` é "ainda não observei", e é distinto de `null` ("não há sessão"). Sem os três
-  // estados, a primeira renderização de quem JÁ está logada contaria como troca e descartaria um
-  // pedido recém-criado — em silêncio, e logo antes do pagamento.
-  const identidadeAnterior = useRef<string | null | undefined>(undefined)
+  //
+  // **A comparação é contra a identidade GRAVADA COM O PEDIDO, não contra um `useRef`.**
+  //
+  // Um ref nasce cego a cada montagem: para ele a primeira passada nunca é troca. Enquanto o
+  // checkout ficava montado atrás do QR isso não tinha consequência — a pessoa não tinha como
+  // entrar na conta sem sair daqui. Desde a feature `58` sair daqui é o fluxo normal: o PIX
+  // entrega o bastão para `/pedido/:id/pagamento` e `PIX-P1-08` preserva `orderId` de propósito. O
+  // percurso que o ref deixava passar termina em 403 — convidada cria o pedido, não paga, entra na
+  // conta pelo header (que só existe fora desta rota), volta ao `/checkout`, e o CTA REUSA o pedido
+  // de convidada (`PGM-08`), que `create-payment` recusa por não ser dela.
+  //
+  // `orderIdentity` vive no `checkoutStore`, ao lado do `orderId` que ele descreve, e sobrevive à
+  // remontagem e ao reload. Sem pedido em curso não há o que invalidar, então não existe mais o
+  // problema da "primeira leitura": a pergunta só é feita quando ela tem sujeito.
   useEffect(() => {
-    const atual = user?.id ?? null
-    const anterior = identidadeAnterior.current
-    identidadeAnterior.current = atual
-    // A primeira passada registra sem invalidar: não houve TROCA, só a leitura inicial.
-    if (anterior === undefined || anterior === atual) return
-    if (useCheckoutStore.getState().orderId) useCheckoutStore.getState().invalidateOrder()
-  }, [user?.id])
+    // Enquanto a sessão está sendo resolvida, `user` é `null` por ausência de resposta — não por
+    // ausência de sessão. Agir aqui descartaria o pedido de quem ESTÁ logada, a cada reload.
+    if (loading) return
+    const { orderId, orderIdentity } = useCheckoutStore.getState()
+    if (!orderId || orderIdentity === (user?.id ?? null)) return
+    useCheckoutStore.getState().invalidateOrder()
+  }, [user?.id, loading])
 
   const flow = useMemo(
     () =>
@@ -217,11 +211,43 @@ const CheckoutPage = () => {
     return <Navigate to="/carrinho" replace />
   }
 
+  /**
+   * `PIX-P1-01` — **o CTA acionado troca a tela, não o estado do botão.**
+   *
+   * Até a feature `58` o clique deixava o mesmo botão no lugar, com 50% de opacidade e o mesmo
+   * rótulo, enquanto duas chamadas de rede aconteciam em sequência. Quem está comprando não tinha
+   * como distinguir "a loja está trabalhando" de "meu toque não pegou" — e a tela ficava assim por
+   * até 30 segundos, num momento em que recarregar a página é a reação natural.
+   *
+   * **Só o PIX passa por aqui.** No cartão o Brick precisa continuar montado depois da criação do
+   * pedido, senão o formulário preenchido e o token se perdem e a retentativa de uma recusa morre
+   * (`PGM-08`) — então o caminho do cartão segue exatamente como era, com o CTA desabilitado.
+   *
+   * O header é o MESMO das duas telas seguintes (`PIX-P1-02`): é ele que faz a espera ler como um
+   * caminho só, e não como três telas empilhadas.
+   */
+  if (busy && payment.method !== 'card') {
+    return (
+      <div className="min-h-screen bg-white">
+        <CheckoutHeader />
+        <PaymentProgress step="order" amount={totals.total} />
+      </div>
+    )
+  }
+
   const ctaLabel = `Pagar ${formatPrice(totals.total)} ${
     payment.method === 'card' ? 'no cartão' : 'com PIX'
   }`
 
-  // Aprovação: só aqui o carrinho e o cupom são limpos (CNF-05).
+  /**
+   * Aprovação **do cartão** — o carrinho e o cupom são limpos aqui (CNF-05).
+   *
+   * Até a feature `58` esta função também respondia pelo PIX, porque o QR nascia dentro do bloco 3
+   * e o checkout continuava montado esperando o Realtime. Com o pagamento em rota própria o
+   * checkout já está desmontado quando o PIX cai: **a limpeza do caminho PIX mudou de casa** para
+   * `OrderPaymentPage`, e lá ela ganhou o recorte de `PIX-P1-08` — que aqui não precisa existir,
+   * porque o pedido que o cartão acabou de aprovar é, por construção, o que este rascunho criou.
+   */
   const handlePaymentSuccess = async () => {
     const currentOrderId = useCheckoutStore.getState().orderId
     if (contact.email && currentOrderId) {
@@ -367,7 +393,11 @@ const CheckoutPage = () => {
           // reabrir `/pedido/:id` — e ela chega UMA vez, nesta resposta.
           if (order.access_token) rememberAccess(newOrderId, order.access_token)
           // CHK-08: o snapshot é a base da comparação de "algum bloco mudou desde a criação".
-          useCheckoutStore.getState().setOrder(newOrderId, useCheckoutStore.getState().draft())
+          // `IDN-07`: e a identidade de quem o criou vai junto — é contra ela que a volta ao
+          // checkout compara, e por isso ela precisa nascer no mesmo instante que o pedido.
+          useCheckoutStore
+            .getState()
+            .setOrder(newOrderId, useCheckoutStore.getState().draft(), user?.id ?? null)
           setEditing(null)
           payingOrderId = newOrderId
         } catch (err) {
@@ -385,8 +415,30 @@ const CheckoutPage = () => {
         }
       }
 
-      // PGM-07: no PIX acaba aqui — o pedido passou a existir e o bloco troca sozinho para o QR.
-      if (!isCard || !cardForm) return
+      /**
+       * `PIX-P1-02` — no PIX o checkout acaba aqui, entregando o bastão para a ROTA do pedido.
+       *
+       * Era `PGM-07`: "o pedido passou a existir e o bloco troca sozinho para o QR". O bloco não
+       * troca mais nada — a superfície do PIX tem endereço próprio, e é isso que a faz sobreviver
+       * a fechar a aba, voltar pelo histórico e abrir em outro aparelho.
+       *
+       * **A navegação vem antes de qualquer pedido de código**, e a ordem é o requisito: quem pede
+       * o código é a rota, no instante em que ela monta. Pedi-lo aqui e navegar depois devolveria a
+       * espera para uma tela que a pessoa está prestes a deixar — e, se a navegação falhasse, o
+       * código nasceria numa tela sem QR.
+       *
+       * A limpeza do carrinho **não acontece aqui** (`PIX-P1-08`): o pedido ainda não foi pago.
+       *
+       * O endereço vem de `orderPaymentPath`, que é o dono declarado dele — montá-lo à mão aqui
+       * seria a terceira grafia da mesma rota (`/conta` e `/pedido/:id` já chamam o dono), e a
+       * divergência não quebra nada: renomear a rota nas outras pontas deixaria **este** literal
+       * para trás, com a suíte verde e o checkout navegando para um 404.
+       */
+      if (!isCard) {
+        navigate(orderPaymentPath(payingOrderId))
+        return
+      }
+      if (!cardForm) return
 
       // PAY-06: `useCreatePayment` gera `idempotency_key` nova a cada chamada, então retentar uma
       // recusa sobre o MESMO pedido não duplica cobrança (PGM-08).
@@ -466,16 +518,15 @@ const CheckoutPage = () => {
               onContinue={() => confirmBlock('delivery')}
               canContinue={isComplete('delivery')}
             />
+            {/* `PIX-P1-05`: o bloco deixou de receber `orderId` e `onApproved` na feature `58` —
+                ele não troca mais de conteúdo quando o pedido passa a existir, porque a superfície
+                do pagamento saiu daqui para a rota dele. */}
             <PaymentBlock
               open={openBlock === 'payment'}
               complete={isComplete('payment')}
               onEdit={() => setEditing('payment')}
-              orderId={orderId}
               amount={totals.total}
               cardError={cardError}
-              onApproved={() => {
-                void handlePaymentSuccess()
-              }}
             />
 
             <OrderBump />

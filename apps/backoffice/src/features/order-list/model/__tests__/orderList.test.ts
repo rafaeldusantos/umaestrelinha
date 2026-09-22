@@ -96,6 +96,68 @@ describe('a busca alcança as cinco colunas (PED-10)', () => {
   })
 })
 
+describe('a busca aceita as três grafias do número (PIX-P4-05, feature 58)', () => {
+  // O número é gravado sem prefixo (`0244`) e exibido com ele (`#0244`), então o que a Adri copia
+  // da tela, do WhatsApp ou do e-mail **traz o `#`**. Sem o recorte, `%#0244%` não acha nada — e
+  // não parece defeito: a lista simplesmente vem vazia, como se o pedido não existisse.
+
+  it('`#0244`, `0244` e `244` procuram o mesmo pedido', () => {
+    const comPrefixo = buildOrderSearchCondition('#0244')
+    const semPrefixo = buildOrderSearchCondition('0244')
+
+    // As duas primeiras produzem a MESMA condição — é o que faz as grafias serem equivalentes, e
+    // não só "as duas acham alguma coisa".
+    expect(comPrefixo).toBe(semPrefixo)
+    expect(comPrefixo).toContain('order_number.ilike.%0244%')
+    // A terceira é um `ilike` mais largo, e `%244%` casa `0244` por construção do `ilike`.
+    expect(buildOrderSearchCondition('244')).toContain('order_number.ilike.%244%')
+  })
+
+  it('o `#` não sobra em nenhuma das cinco colunas', () => {
+    // A régua é sobre o TERMO, então uma implementação que recortasse só a coluna do número
+    // deixaria as outras quatro procurando por `%#0244%`.
+    expect(buildOrderSearchCondition('#0244')).not.toContain('#')
+  })
+
+  it('`#` com espaço depois, e mais de um `#`, também caem', () => {
+    expect(buildOrderSearchCondition('# 0244')).toBe(buildOrderSearchCondition('0244'))
+    expect(buildOrderSearchCondition('##0244')).toBe(buildOrderSearchCondition('0244'))
+  })
+
+  it('termo que vira vazio depois do recorte não gera condição', () => {
+    // Sem isto, digitar só `#` produziria `%%` nas cinco colunas — a lista inteira, com cara de
+    // busca que funcionou.
+    expect(buildOrderSearchCondition('#')).toBeNull()
+    expect(buildOrderSearchCondition('  #  ')).toBeNull()
+  })
+
+  it('a busca das outras quatro colunas NÃO regride', () => {
+    // O par que prova que o recorte não estreitou nada: nome, e-mail e os dois rastreios continuam
+    // produzindo exatamente a condição de antes.
+    expect(buildOrderSearchCondition('Luciana')).toBe(
+      'order_number.ilike.%Luciana%,customer_name.ilike.%Luciana%,customer_email.ilike.%Luciana%,' +
+        'tracking_code.ilike.%Luciana%,material_tracking_code.ilike.%Luciana%',
+    )
+    expect(buildOrderSearchCondition('lu@example.com')).toContain(
+      'customer_email.ilike.%lu@example.com%',
+    )
+    expect(buildOrderSearchCondition('NA123456789BR')).toContain(
+      'material_tracking_code.ilike.%NA123456789BR%',
+    )
+  })
+
+  it('o `#` no MEIO do termo é preservado — o recorte é só do prefixo', () => {
+    expect(buildOrderSearchCondition('Ana #2')).toContain('customer_name.ilike.%Ana #2%')
+  })
+
+  it('o legado continua alcançável pelas duas grafias', () => {
+    // 35 pedidos `NS-…` e 2 `NP-…` não foram renumerados (spec, *Out of Scope*), e a Adri copia o
+    // número deles da tela com o `#` que a `58` passou a exibir.
+    expect(buildOrderSearchCondition('#NS-169')).toBe(buildOrderSearchCondition('NS-169'))
+    expect(buildOrderSearchCondition('#NS-169')).toContain('order_number.ilike.%NS-169%')
+  })
+})
+
 describe('`Precisa de ação` é a união dos TRÊS acionáveis (D4)', () => {
   const predicado = viewPredicate('precisa-acao')!
 

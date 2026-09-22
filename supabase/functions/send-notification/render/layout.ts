@@ -7,6 +7,7 @@
 //
 // Módulo PURO: zero I/O, zero `Deno`. Roda no vitest (AD-002/AD-004).
 import { formatPrice } from '../../../../packages/core/src/formatters/price.ts'
+import { formatOrderNumber } from '../../../../packages/core/src/orders/format.ts'
 
 /**
  * Paleta Uma Estrelinha (DESIGN.md), medida sobre `ground` #FAF8F4:
@@ -289,7 +290,7 @@ export function textBody(heading: string, lead: string, order: EmailOrder, href:
     '',
     lead,
     '',
-    `Pedido ${order.order_number}`,
+    `Pedido ${formatOrderNumber(order.order_number)}`,
     ...extra,
     '',
     ...items,

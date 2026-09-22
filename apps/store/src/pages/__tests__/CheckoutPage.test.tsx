@@ -1,5 +1,6 @@
+import { useEffect } from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { cleanup, render, screen, fireEvent, waitFor, within } from '@testing-library/react'
+import { act, cleanup, render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import type { Product } from '@estrelinha/supabase/types'
@@ -74,17 +75,6 @@ vi.mock('@/entities/product/api/useProducts', () => ({
 vi.mock('@/features/checkout/api/useCepLookup', () => ({ useCepLookup: vi.fn() }))
 vi.mock('@/features/checkout/api/useShippingQuote', () => ({ useShippingQuote: vi.fn() }))
 vi.mock('@/features/apply-coupon/ui/CouponInput', () => ({ default: () => null }))
-// O `onApproved` é o gatilho que a `PixPayment` real dispara no Realtime (PAY-13). Aqui ele é
-// exposto como botão para os testes de CNF-03/CNF-05 poderem simular a aprovação.
-vi.mock('@/features/checkout/ui/PixPayment', () => ({
-  default: ({ orderId, onApproved }: any) => (
-    <div data-testid="pix-payment" data-order={orderId}>
-      <button type="button" onClick={onApproved}>
-        simular-aprovacao
-      </button>
-    </div>
-  ),
-}))
 vi.mock('@/features/checkout/ui/CardPaymentBrick', () => ({
   default: ({ amount, payerEmail, errorMessage }: any) => (
     <div
@@ -250,6 +240,29 @@ const ConfirmationRoute = () => {
 }
 
 /**
+ * Quantos pedidos de código já tinham saído **no instante em que a rota do pagamento montou**.
+ *
+ * É a régua de ordem de `PIX-P1-02`, e ela precisa deste número porque "o checkout não chamou
+ * `create-payment`" é verdade nos dois mundos: a rota nova é quem chama, e ela chama depois. O que
+ * distingue o certo do errado é se **já havia** uma chamada antes de a navegação acontecer.
+ */
+const chamadasDeCodigoAoMontar = { current: -1 }
+
+/**
+ * O lugar da rota real (`OrderPaymentPage`), que pede o código ao Mercado Pago no instante em que
+ * monta — é isso que o dublê reproduz. A página sob teste continua sendo a REAL: quem monta a
+ * árvore aqui é o roteador, não o arquivo de teste.
+ */
+const PaymentRoute = () => {
+  const { id } = useParams<{ id: string }>()
+  useEffect(() => {
+    chamadasDeCodigoAoMontar.current = createPaymentMutateAsync.mock.calls.length
+    void createPaymentMutateAsync({ order_id: id, method: 'pix' })
+  }, [id])
+  return <div>rota-pagamento:{id}</div>
+}
+
+/**
  * A árvore, separada do `render` — `IDN-07` precisa **remontar** a mesma árvore depois de trocar a
  * identidade, e `rerender` exige o elemento.
  */
@@ -259,6 +272,7 @@ const pageTree = () => (
       <Route path="/checkout" element={<CheckoutPage />} />
       <Route path="/carrinho" element={<div>rota-carrinho</div>} />
       <Route path="/pedido/:id" element={<ConfirmationRoute />} />
+      <Route path="/pedido/:id/pagamento" element={<PaymentRoute />} />
     </Routes>
   </MemoryRouter>
 )
@@ -314,16 +328,29 @@ const realClearCoupon = useCouponStore.getState().clearCoupon
 let clearCartSpy: ReturnType<typeof vi.fn>
 let clearCouponSpy: ReturnType<typeof vi.fn>
 
-/** Cria o pedido e chega na superfície de pagamento, pronta para simular a aprovação. */
-const reachPaymentSurface = async () => {
+/**
+ * Cria o pedido pelo caminho do PIX e espera a rota do pagamento assumir.
+ *
+ * Até a feature `58` isto se chamava `reachPaymentSurface` e parava dentro do checkout, no bloco 3
+ * trocado pelo QR. A superfície mudou de casa — o que o checkout faz agora é **entregar o bastão**.
+ */
+const handOffToPixRoute = async () => {
   fillAll()
   renderPage()
   fireEvent.click(cta())
-  await waitFor(() => expect(screen.getByTestId('pix-payment')).toBeInTheDocument())
+  await waitFor(() => expect(screen.getByText('rota-pagamento:order-1')).toBeInTheDocument())
 }
 
-const approve = async () => {
-  fireEvent.click(screen.getByRole('button', { name: 'simular-aprovacao' }))
+/**
+ * O caminho do CARTÃO até a aprovação — é ele que hoje exercita `handlePaymentSuccess`.
+ *
+ * A limpeza de carrinho/cupom do caminho PIX **mudou de casa** na feature `58` (`PIX-P1-08`), e é
+ * provada em `OrderPaymentPage.test.tsx`, com o recorte que aqui não precisa existir.
+ */
+const approveWithCard = async () => {
+  fillAll('card')
+  renderPage()
+  fireEvent.click(cta())
   await waitFor(() => expect(screen.getByText('rota-confirmacao:order-1')).toBeInTheDocument())
 }
 
@@ -342,6 +369,7 @@ beforeEach(() => {
   useCouponStore.setState({ clearCoupon: clearCouponSpy })
   sessionStorage.clear()
 
+  chamadasDeCodigoAoMontar.current = -1
   gridRowsMock.mockReset().mockReturnValue({ data: [] })
   // Feature 49: por padrão o e-mail NÃO tem conta — é o caminho de convidada, que é o normal.
   accountLookupMock.mockReset().mockResolvedValue(false)
@@ -617,17 +645,35 @@ describe('CheckoutPage — e-mail que já tem conta pede o código (IDN-02 … I
     expect(accessFor('order-1')).toBeNull()
   })
 
+  /**
+   * ⚠️ Os três casos de `IDN-07` passaram a correr pelo **cartão recusado**, e não pelo PIX.
+   *
+   * O que eles medem não mudou: a página montada, com um pedido `pending` em curso, descartando-o
+   * quando a identidade troca. O que mudou foi o único caminho que deixa a cliente **aqui** depois
+   * de o pedido existir — desde a feature `58` o PIX entrega o bastão para `/pedido/:id/pagamento`,
+   * e uma página desmontada não roda o efeito que estes casos existem para provar. Medido: com o
+   * PIX, os dois primeiros passavam a reprovar e o terceiro virava verdadeiro sobre o nada.
+   */
+  const pedidoEmCursoSemSairDoCheckout = async () => {
+    createPaymentMutateAsync.mockResolvedValue({
+      status: 'rejected',
+      status_detail: 'cc_rejected_insufficient_amount',
+    })
+    fillAll('card')
+    const view = renderPage()
+
+    fireEvent.click(cta())
+    await waitFor(() => expect(useCheckoutStore.getState().orderId).toBe('order-1'))
+    return view
+  }
+
   it('trocar de identidade descarta o pedido em curso (IDN-07)', async () => {
     // Entrar depois de o pedido existir muda de quem ele é: o pedido de convidada tem o token
     // dela, e quem paga depois do login apresenta um JWT que pode não ser o dono.
     // `create-payment` responderia **403** — a cliente veria "pedido não pertence ao usuário"
     // depois de ter feito tudo certo.
     authState.user = null
-    fillAll()
-    const { rerender } = renderPage()
-
-    fireEvent.click(cta())
-    await waitFor(() => expect(useCheckoutStore.getState().orderId).toBe('order-1'))
+    const { rerender } = await pedidoEmCursoSemSairDoCheckout()
 
     authState.user = { id: 'usr-1' } as any
     rerender(pageTree())
@@ -639,11 +685,7 @@ describe('CheckoutPage — e-mail que já tem conta pede o código (IDN-02 … I
     // Mantê-la faria a retentativa reaproveitar o pedido do dono antigo: o servidor devolveria o
     // mesmo `order_id` e a troca de identidade não teria servido para nada.
     authState.user = null
-    fillAll()
-    const { rerender } = renderPage()
-
-    fireEvent.click(cta())
-    await waitFor(() => expect(useCheckoutStore.getState().orderId).toBe('order-1'))
+    const { rerender } = await pedidoEmCursoSemSairDoCheckout()
     const chaveAntiga = useCheckoutStore.getState().clientRequestId
 
     authState.user = { id: 'usr-1' } as any
@@ -656,16 +698,129 @@ describe('CheckoutPage — e-mail que já tem conta pede o código (IDN-02 … I
   it('SEM troca de identidade, o pedido em curso SOBREVIVE — o par inverso', async () => {
     // Sem este caso, um efeito que invalidasse a cada render passaria nos dois acima e faria todo
     // CTA criar um pedido novo, deixando `pending` órfão a cada clique.
-    fillAll()
-    const { rerender } = renderPage()
-
-    fireEvent.click(cta())
-    await waitFor(() => expect(useCheckoutStore.getState().orderId).toBe('order-1'))
+    const { rerender } = await pedidoEmCursoSemSairDoCheckout()
 
     rerender(pageTree())
     rerender(pageTree())
 
     expect(useCheckoutStore.getState().orderId).toBe('order-1')
+    // A página continua montada — sem isto a asserção acima seria verdadeira sobre o nada.
+    expect(screen.getByRole('region', { name: 'Pagamento' })).toBeInTheDocument()
+  })
+
+  /**
+   * **O percurso do PIX, que o `useRef` deixava passar** (`A5` da verificação independente).
+   *
+   * Os três casos acima nunca desmontam a página, e por isso não medem a borda que a feature `58`
+   * expôs: o guarda vivia num `useRef`, e um ref **nasce cego a cada montagem** — para ele a
+   * primeira passada nunca é troca. Enquanto o checkout ficava montado atrás do QR isso não tinha
+   * consequência; desde a `58` sair daqui é o fluxo normal (`PIX-P1-02` entrega o bastão, e
+   * `PIX-P1-08` preserva `orderId` de propósito).
+   *
+   * O percurso inteiro, com o desmonte no meio: convidada cria o pedido pelo PIX → o checkout sai
+   * de cena → ela entra na conta pelo header (que só existe fora da rota do pagamento) → volta ao
+   * `/checkout` com a sacola cheia. Sem o conserto, o CTA **reusa** o pedido de convidada
+   * (`PGM-08`) e `create-payment` responde **403** — o defeito que `IDN-07` existe para impedir,
+   * acontecendo pelo caminho que a feature tornou normal.
+   */
+  const convidadaCriaOPedidoESaiDoCheckout = async () => {
+    authState.user = null
+    fillAll()
+    const primeira = renderPage()
+
+    fireEvent.click(cta())
+    await waitFor(() => expect(screen.getByText('rota-pagamento:order-1')).toBeInTheDocument())
+    expect(useCheckoutStore.getState().orderId).toBe('order-1')
+    // O checkout já não está na tela: quem está é a rota do pagamento. O `unmount` é a pessoa
+    // trocando de página de verdade — fechar a aba, ou navegar para `/conta`.
+    primeira.unmount()
+  }
+
+  it('entrar na conta e VOLTAR ao checkout descarta o pedido de convidada (IDN-07 no PIX)', async () => {
+    await convidadaCriaOPedidoESaiDoCheckout()
+
+    authState.user = { id: 'usr-1' } as any
+    renderPage()
+
+    await waitFor(() => expect(useCheckoutStore.getState().orderId).toBeNull())
+    // A chave morre junto, como no caso sem desmonte: mantê-la faria o servidor devolver o mesmo
+    // pedido e a troca de identidade não teria servido para nada.
+    expect(useCheckoutStore.getState().clientRequestId).toBeNull()
+  })
+
+  it('voltar ao checkout SEM ter entrado preserva o pedido — o par inverso', async () => {
+    // Sem ele, um guarda que invalidasse a cada montagem passaria no caso acima e faria toda volta
+    // ao checkout criar um pedido novo, deixando `pending` órfão a cada ida e vinda.
+    await convidadaCriaOPedidoESaiDoCheckout()
+
+    renderPage()
+
+    await waitFor(() =>
+      expect(screen.getByRole('region', { name: 'Pagamento' })).toBeInTheDocument(),
+    )
+    expect(useCheckoutStore.getState().orderId).toBe('order-1')
+  })
+
+  it('quem JÁ estava logada volta ao checkout com o pedido dela intacto', async () => {
+    // O par que impede o conserto de virar "invalide sempre que remontar": a identidade gravada com
+    // o pedido é a mesma de quem voltou, e nada é descartado. Sem ele, comparar contra `null` fixo
+    // passaria nos dois casos acima e descartaria o pedido de toda cliente com sessão.
+    authState.user = { id: 'usr-1' } as any
+    fillAll()
+    const primeira = renderPage()
+
+    fireEvent.click(cta())
+    await waitFor(() => expect(screen.getByText('rota-pagamento:order-1')).toBeInTheDocument())
+    primeira.unmount()
+
+    renderPage()
+
+    await waitFor(() =>
+      expect(screen.getByRole('region', { name: 'Pagamento' })).toBeInTheDocument(),
+    )
+    expect(useCheckoutStore.getState().orderId).toBe('order-1')
+  })
+
+  it('a sessão AINDA CARREGANDO não conta como logout — o pedido sobrevive ao reload', async () => {
+    // `loading` é o terceiro estado que o conserto precisa respeitar: enquanto a sessão é
+    // resolvida, `user` é `null` por ausência de RESPOSTA, não por ausência de sessão. Sem o
+    // recorte, toda remontagem de quem está logada descartaria o pedido antes de a conta voltar.
+    authState.user = { id: 'usr-1' } as any
+    fillAll()
+    const primeira = renderPage()
+
+    fireEvent.click(cta())
+    await waitFor(() => expect(screen.getByText('rota-pagamento:order-1')).toBeInTheDocument())
+    primeira.unmount()
+
+    authState.loading = true
+    authState.user = null
+    renderPage()
+
+    await waitFor(() => expect(screen.getByText('Carregando...')).toBeInTheDocument())
+    expect(useCheckoutStore.getState().orderId).toBe('order-1')
+  })
+
+  it('sem pedido em curso, entrar na conta NÃO apaga a chave de idempotência (IDN-07)', async () => {
+    // O recorte `!orderId` do efeito, que sem esta régua pode ser removido com a suíte inteira
+    // verde. A janela é estreita e existe: `ensureRequestId()` cunha a chave **antes** de `setOrder`
+    // gravar o `orderId`, então entre as duas há um instante com chave e sem pedido. Um evento de
+    // auth ali dentro chamaria `invalidateOrder()` — que zera a chave junto — e a retentativa
+    // apresentaria uma chave NOVA ao servidor, que criaria um SEGUNDO pedido (`PED-04`).
+    //
+    // A identidade diverge de propósito: sem pedido, `orderIdentity` é `null` e `user.id` não é, que
+    // é exatamente a comparação que dispararia a invalidação se o recorte não existisse.
+    const chave = useCheckoutStore.getState().ensureRequestId()
+    expect(useCheckoutStore.getState().orderId).toBeNull()
+
+    authState.user = { id: 'usr-1' } as any
+    fillAll()
+    renderPage()
+
+    await waitFor(() =>
+      expect(screen.getByRole('region', { name: 'Pagamento' })).toBeInTheDocument(),
+    )
+    expect(useCheckoutStore.getState().clientRequestId).toBe(chave)
   })
 
   it('o 409 do servidor abre o desafio, em vez do toast genérico (IDN-08)', async () => {
@@ -938,21 +1093,48 @@ describe('CheckoutPage — CTA (CHK-06)', () => {
 })
 
 describe('CheckoutPage — criação do pedido (CHK-07, CHK-08)', () => {
-  it('dois acionamentos sem edição criam o pedido uma única vez', async () => {
+  /**
+   * ⚠️ Este caso media **dois acionamentos** do CTA no PIX. Depois da feature `58` o primeiro
+   * acionamento tira o CTA da tela (a espera nomeada o substitui) e o segundo não existe mais —
+   * então a régua mudou de forma sem mudar de assunto: o que impedia dois pedidos era a guarda de
+   * "já existe pedido"; o que impede agora é **o botão não estar mais lá para ser tocado**.
+   *
+   * Medido com a criação presa: sem a promessa controlada, a tela já teria navegado e a ausência do
+   * CTA seria verdadeira por outro motivo (a página inteira saiu), o que é verdade nos dois mundos.
+   */
+  it('o CTA sai da tela enquanto o pedido é criado — dois toques não criam dois pedidos', async () => {
+    let liberar!: (valor: unknown) => void
+    createOrderMutateAsync.mockImplementation(
+      () => new Promise((resolve) => { liberar = resolve }),
+    )
     fillAll()
     renderPage()
 
     fireEvent.click(cta())
-    await waitFor(() => expect(createOrderMutateAsync).toHaveBeenCalledTimes(1))
 
-    fireEvent.click(cta())
-    await waitFor(() => expect(screen.getByTestId('pix-payment')).toBeInTheDocument())
+    expect(await screen.findByText('Passo 1 de 2')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /pagar/i })).not.toBeInTheDocument()
+
+    await act(async () => {
+      liberar({ id: 'order-1' })
+    })
+
+    await waitFor(() => expect(screen.getByText('rota-pagamento:order-1')).toBeInTheDocument())
     expect(createOrderMutateAsync).toHaveBeenCalledTimes(1)
     expect(useCheckoutStore.getState().orderId).toBe('order-1')
   })
 
+  /**
+   * `CHK-08` no caminho do **cartão**, que é onde a página continua montada entre dois
+   * acionamentos. A recusa mantém a cliente aqui com o Brick montado (`PGM-08`) — e é isso que dá
+   * ao caso um "entre acionamentos" para medir depois da feature `58`.
+   */
   it('editar um bloco entre acionamentos cria um segundo pedido', async () => {
-    fillAll()
+    createPaymentMutateAsync.mockResolvedValue({
+      status: 'rejected',
+      status_detail: 'cc_rejected_insufficient_amount',
+    })
+    fillAll('card')
     renderPage()
 
     fireEvent.click(cta())
@@ -1230,15 +1412,16 @@ describe('CheckoutPage — criação do pedido (CHK-07, CHK-08)', () => {
     await waitFor(() => expect(createOrderMutateAsync).toHaveBeenCalled())
   })
 
-  it('depois de criado, o pedido monta a superfície de pagamento do PIX', async () => {
+  it('depois de criado, o pedido leva para a rota do pagamento dele (PIX-P1-02)', async () => {
+    // ⚠️ **Invertido**, não apagado. Este caso asseria que o pedido criado montava a superfície do
+    // PIX *dentro* do checkout — o comportamento que a feature `58` removeu. Deixá-lo de lado
+    // faria a suíte seguir verde a favor do que a spec mandou tirar (a lição da `41`).
     fillAll()
     renderPage()
 
     fireEvent.click(cta())
 
-    await waitFor(() =>
-      expect(screen.getByTestId('pix-payment').getAttribute('data-order')).toBe('order-1'),
-    )
+    await waitFor(() => expect(screen.getByText('rota-pagamento:order-1')).toBeInTheDocument())
   })
 })
 
@@ -1466,31 +1649,187 @@ describe('CheckoutPage — um CTA, dois caminhos (PGM-06 … PGM-08, DOC-05)', (
     expect(createOrderMutateAsync.mock.calls[0][0].customer_document).toBe('39053344705')
   })
 
-  it('PIX não tokeniza cartão nem chama create-payment — só cria o pedido e mostra o QR (PGM-07)', async () => {
+  it('PIX não tokeniza cartão — o checkout cria o pedido e entrega o bastão (PGM-07)', async () => {
     fillAll('pix')
     renderPage()
 
     fireEvent.click(cta())
 
-    await waitFor(() => expect(screen.getByTestId('pix-payment')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('rota-pagamento:order-1')).toBeInTheDocument())
     expect(getCardFormDataMock).not.toHaveBeenCalled()
-    expect(createPaymentMutateAsync).not.toHaveBeenCalled()
     expect(createOrderMutateAsync.mock.calls[0][0].customer_document).toBe(CPF_VALIDO)
   })
 })
 
-describe('CheckoutPage — aprovação navega para a confirmação (CNF-03)', () => {
-  it('aprovação navega para `/pedido/<orderId>`', async () => {
-    await reachPaymentSurface()
+/**
+ * Feature `58` — **o clique no CTA troca a tela, e o pedido ganha endereço** (`PIX-P1-01`,
+ * `PIX-P1-02`, `PIX-P1-05`, `PIX-P1-08`).
+ *
+ * A árvore montada aqui é a REAL: quem renderiza `PaymentProgress` e quem navega é a página. O
+ * único dublê é a rota de destino, que ocupa o lugar de `OrderPaymentPage` e faz o que ela faz ao
+ * montar — pedir o código.
+ */
+describe('CheckoutPage — o PIX entrega o bastão para a rota (PIX-P1-01, PIX-P1-02)', () => {
+  /** Prende a criação do pedido para a espera ser observável. Devolve quem a solta. */
+  const criacaoPresa = () => {
+    let liberar!: (valor: unknown) => void
+    createOrderMutateAsync.mockImplementation(
+      () => new Promise((resolve) => { liberar = resolve }),
+    )
+    return async (id = 'order-1') => {
+      await act(async () => {
+        liberar({ id })
+      })
+    }
+  }
 
-    fireEvent.click(screen.getByRole('button', { name: 'simular-aprovacao' }))
+  it('o clique põe os DOIS passos nomeados na tela, com o passo 2 ainda por vir', async () => {
+    const soltar = criacaoPresa()
+    fillAll()
+    renderPage()
+
+    fireEvent.click(cta())
+
+    expect(await screen.findByText('Passo 1 de 2')).toBeInTheDocument()
+    expect(screen.getByText('Registrando seu pedido')).toBeInTheDocument()
+    expect(screen.getByText('Gerando o código PIX com o banco')).toBeInTheDocument()
+    // O passo 1 só é dado por concluído quando a resposta chega — nunca por tempo decorrido.
+    expect(screen.queryByText('Pedido registrado')).not.toBeInTheDocument()
+
+    await soltar()
+  })
+
+  it('a espera SUBSTITUI o checkout — nem CTA, nem blocos, nem resumo editável (PIX-P1-05)', async () => {
+    const soltar = criacaoPresa()
+    fillAll()
+    renderPage()
+
+    fireEvent.click(cta())
+    await screen.findByText('Passo 1 de 2')
+
+    expect(screen.queryByRole('button', { name: /pagar/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Contato' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Entrega' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Pagamento' })).not.toBeInTheDocument()
+    expect(screen.queryByText(/Voltar ao carrinho/)).not.toBeInTheDocument()
+
+    await soltar()
+  })
+
+  it('o header e o valor continuam na tela durante a espera (PIX-P1-02)', async () => {
+    const soltar = criacaoPresa()
+    fillAll()
+    renderPage()
+
+    fireEvent.click(cta())
+    await screen.findByText('Passo 1 de 2')
+
+    expect(screen.getByText('Ambiente seguro')).toBeInTheDocument()
+    // 100 (2 × 50) − 5 (5% PIX) + 14,90 (frete) — o mesmo número que o CTA mostrava.
+    expect(screen.getByText('R$ 109,90')).toBeInTheDocument()
+
+    await soltar()
+  })
+
+  it('o pedido criado leva para `/pedido/<id>/pagamento`', async () => {
+    await handOffToPixRoute()
+
+    expect(screen.getByText('rota-pagamento:order-1')).toBeInTheDocument()
+  })
+
+  it('a navegação acontece ANTES de qualquer pedido de código (asserção de ORDEM)', async () => {
+    // A régua é o número de chamadas medido **de dentro da rota de destino**, no instante em que ela
+    // monta. `expect(createPayment).not.toHaveBeenCalled()` seria verdade nos dois mundos — a rota
+    // chama de qualquer jeito, só que depois.
+    await handOffToPixRoute()
+
+    await waitFor(() => expect(createPaymentMutateAsync).toHaveBeenCalledTimes(1))
+    expect(chamadasDeCodigoAoMontar.current).toBe(0)
+    expect(createPaymentMutateAsync.mock.calls[0][0]).toEqual({
+      order_id: 'order-1',
+      method: 'pix',
+    })
+  })
+
+  it('entregar o bastão NÃO limpa carrinho, cupom nem rascunho (PIX-P1-08)', async () => {
+    // O pedido existe e **não foi pago**. Quem limpa é a rota do pagamento, na aprovação, e só
+    // quando o pedido aprovado é o que este rascunho criou.
+    useCouponStore.setState({ applied: { id: 'cp1', code: 'ESTRELA10' } as any })
+    await handOffToPixRoute()
+
+    expect(clearCartSpy).not.toHaveBeenCalled()
+    expect(clearCouponSpy).not.toHaveBeenCalled()
+    expect(useCartStore.getState().items).toHaveLength(1)
+    expect(useCheckoutStore.getState().orderId).toBe('order-1')
+    expect(useCheckoutStore.getState().contact.email).toBe('marina@email.com')
+  })
+
+  it('falha na criação volta ao checkout, com carrinho e rascunho intactos (CHK-09)', async () => {
+    createOrderMutateAsync.mockRejectedValue(new Error('boom'))
+    fillAll()
+    renderPage()
+
+    fireEvent.click(cta())
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(ORDER_FAILED_MESSAGE))
+    expect(screen.queryByText('Passo 1 de 2')).not.toBeInTheDocument()
+    expect(screen.queryByText(/^rota-pagamento/)).not.toBeInTheDocument()
+    expect(cta()).toBeEnabled()
+    expect(useCartStore.getState().items).toHaveLength(1)
+  })
+
+  it('`NeedsOtpError` continua no desafio do checkout, sem passar pelo progresso', async () => {
+    const { NeedsOtpError } = await vi.importActual<
+      typeof import('@/entities/order/api/useOrders')
+    >('@/entities/order/api/useOrders')
+    createOrderMutateAsync.mockRejectedValue(new NeedsOtpError('Este e-mail já tem cadastro.'))
+    authState.user = null
+    fillAll()
+    renderPage()
+
+    fireEvent.click(cta())
+
+    await waitFor(() => expect(screen.getByTestId('auth-code-step')).toBeInTheDocument())
+    expect(screen.queryByText('Passo 1 de 2')).not.toBeInTheDocument()
+    expect(screen.queryByText(/^rota-pagamento/)).not.toBeInTheDocument()
+  })
+
+  it('o CARTÃO não passa pela tela de progresso — o Brick segue montado (PGM-08)', async () => {
+    // O par inverso. Sem ele, uma espera que substituísse o checkout nos DOIS métodos passaria nos
+    // casos acima e levaria embora o formulário preenchido e o token do cartão.
+    getCardFormDataMock.mockImplementation(
+      () => new Promise((resolve) => setTimeout(() => resolve(CARD_FORM_DATA), 0)),
+    )
+    fillAll('card')
+    renderPage()
+
+    fireEvent.click(cta())
+
+    expect(screen.queryByText('Passo 1 de 2')).not.toBeInTheDocument()
+    expect(screen.getByTestId('card-brick')).toBeInTheDocument()
 
     await waitFor(() => expect(screen.getByText('rota-confirmacao:order-1')).toBeInTheDocument())
   })
+})
+
+/**
+ * ⚠️ Os dois blocos abaixo mediam a aprovação **do PIX**, que acontecia dentro do checkout porque o
+ * QR nascia no bloco 3 e a página continuava montada esperando o Realtime.
+ *
+ * A feature `58` levou o PIX para `/pedido/:id/pagamento`, e com ele a aprovação: quem navega e
+ * quem limpa naquele caminho é a rota (`OrderPaymentPage.test.tsx`, com o recorte de `PIX-P1-08`).
+ * **A cobertura não sumiu, mudou de endereço** — e o que sobra aqui é o caminho do CARTÃO, que
+ * continua aprovando dentro desta página, sem uma linha alterada.
+ */
+describe('CheckoutPage — aprovação do cartão navega para a confirmação (CNF-03)', () => {
+  it('aprovação navega para `/pedido/<orderId>`', async () => {
+    await approveWithCard()
+
+    expect(screen.getByText('rota-confirmacao:order-1')).toBeInTheDocument()
+  })
 
   it('nenhuma confirmação inline sobra no checkout depois da aprovação', async () => {
-    await reachPaymentSurface()
-    await approve()
+    await approveWithCard()
 
     expect(screen.queryByRole('region', { name: 'Pagamento' })).not.toBeInTheDocument()
     expect(screen.queryByText(/pagamento confirmado/i)).not.toBeInTheDocument()
@@ -1498,15 +1837,13 @@ describe('CheckoutPage — aprovação navega para a confirmação (CNF-03)', ()
   })
 
   it('a confirmação não é o redirecionamento de carrinho vazio', async () => {
-    await reachPaymentSurface()
-    await approve()
+    await approveWithCard()
 
     expect(screen.queryByText('rota-carrinho')).not.toBeInTheDocument()
   })
 
   it('o rascunho e o `order_id` são descartados depois de navegar', async () => {
-    await reachPaymentSurface()
-    await approve()
+    await approveWithCard()
 
     const state = useCheckoutStore.getState()
     expect(state.orderId).toBeNull()
@@ -1516,10 +1853,9 @@ describe('CheckoutPage — aprovação navega para a confirmação (CNF-03)', ()
   })
 })
 
-describe('CheckoutPage — limpeza só na aprovação (CNF-05)', () => {
+describe('CheckoutPage — limpeza só na aprovação do cartão (CNF-05)', () => {
   it('carrinho e cupom são limpos exatamente uma vez na aprovação', async () => {
-    await reachPaymentSurface()
-    await approve()
+    await approveWithCard()
 
     expect(clearCartSpy).toHaveBeenCalledTimes(1)
     expect(clearCouponSpy).toHaveBeenCalledTimes(1)
@@ -1527,8 +1863,15 @@ describe('CheckoutPage — limpeza só na aprovação (CNF-05)', () => {
   })
 
   it('pedido criado e pagamento ainda não aprovado NÃO limpa carrinho nem cupom', async () => {
-    await reachPaymentSurface()
+    createPaymentMutateAsync.mockResolvedValue({
+      status: 'rejected',
+      status_detail: 'cc_rejected_insufficient_amount',
+    })
+    fillAll('card')
+    renderPage()
+    fireEvent.click(cta())
 
+    await waitFor(() => expect(createPaymentMutateAsync).toHaveBeenCalledTimes(1))
     expect(clearCartSpy).not.toHaveBeenCalled()
     expect(clearCouponSpy).not.toHaveBeenCalled()
     expect(useCartStore.getState().items).toHaveLength(1)
@@ -1547,16 +1890,14 @@ describe('CheckoutPage — limpeza só na aprovação (CNF-05)', () => {
   })
 
   it('marca o carrinho como recuperado com o e-mail e o pedido, uma única vez', async () => {
-    await reachPaymentSurface()
-    await approve()
+    await approveWithCard()
 
     expect(markCartRecovered).toHaveBeenCalledTimes(1)
     expect(markCartRecovered).toHaveBeenCalledWith('marina@email.com', 'order-1')
   })
 
   it('limpa o e-mail de convidada do rastreio de carrinho abandonado', async () => {
-    await reachPaymentSurface()
-    await approve()
+    await approveWithCard()
 
     expect(clearGuestEmail).toHaveBeenCalledTimes(1)
   })

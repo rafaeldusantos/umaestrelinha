@@ -20,6 +20,7 @@
 
 import type { AdminOrderRow } from '@/entities/order/api/orderQuery'
 import { MATERIAL_STATUS_LABELS, toMaterialStatus } from '@estrelinha/core/material'
+import { formatOrderNumber } from '@estrelinha/core/orders'
 
 export interface PickSlipItem {
   product_name: string
@@ -77,7 +78,7 @@ const itemHtml = (item: PickSlipItem): string => `
 const folha = (o: PickSlipOrder): string => `
   <section class="folha">
     <header>
-      <h1>Pedido #${escapar(o.order_number)}</h1>
+      <h1>Pedido ${escapar(formatOrderNumber(o.order_number))}</h1>
       <p class="sub">${escapar(o.customer_name)} · ${new Date(o.created_at).toLocaleDateString('pt-BR')}</p>
     </header>
 

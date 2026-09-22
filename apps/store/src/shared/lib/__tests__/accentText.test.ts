@@ -53,6 +53,11 @@ const PERMITIDOS: Record<string, string> = {
   // Feature 45 — o fecho da política de trocas.
   'pages/ReturnsPolicyPage.tsx':
     'ÍCONE, e um só: a estrela de 22px que fecha "Uma Estrelinha — eternizando suas lembranças". `accent-strong` sobre `ground` mede 3,55:1, acima dos 3:1 de objeto gráfico. Ela está ali porque o texto da dona fecha com o emoji `✨`, que `copyInstitucional` recusa — mesmo desvio de `SOB-10` na Sobre. A FRASE sai em `primary` (8,76:1), não em ouro; ouro como texto ali mediria 2,66:1.',
+  // Feature 58 — a espera nomeada do pagamento PIX (boards `58 A`/`58 B`).
+  'features/order-payment/ui/PaymentProgress.tsx':
+    'ÍCONE, e texto em nenhum lugar: o anel de progresso (64px na tela e 20px no passo em curso). É `accent-strong` e NÃO `accent` porque ele aparece sobre duas superfícies claras — `ground` (3,55:1) e `ground-deep`, dentro do cartão dos passos (3,17:1) —, e `accent` mediria 2,66:1 e 2,52:1, reprovando até os 3:1 que a WCAG 1.4.11 pede para objeto gráfico. O board pinta os dois anéis com o token claro; a paleta não deixa, como já tinha acontecido na folha do celular do menu. O selo do passo CONCLUÍDO não entra aqui: ele é tique `ink` sobre disco `accent` (4,78:1), escrito como fundo e não como cor de texto.',
+  'features/order-payment/ui/PixSurface.tsx':
+    'ÍCONE, e um só: o relógio de 14px dentro do selo “Este código vale por”, que é uma pílula `bg-white` sobre o cartão `ground-deep`. `accent-strong` sobre branco mede 3,85:1, acima dos 3:1 que a WCAG 1.4.11 pede para objeto gráfico — e `accent` ali mediria 2,82:1, reprovando até como gráfico. O TEMPO ao lado não é ouro: ele sai em `ink` (12,73:1) e troca para `primary` (8,76:1) nos últimos 5 minutos, que é a régua de `CNF-06`. O tique do pagamento confirmado também não entra aqui — ele é `ink` sobre um disco `accent` (4,78:1), escrito como fundo e não como cor de texto.',
   'widgets/home-sections/ui/BrandStatement.tsx':
     'A faixa institucional da home é `bg-estrelinha-ink` inteira: o eyebrow e o fio ao lado dele medem 4,78:1 ali. O título e o corpo NÃO são ouro — saem em `on-primary` e `ground`, que passam de 12:1.',
 

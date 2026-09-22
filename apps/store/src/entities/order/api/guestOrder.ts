@@ -1,9 +1,9 @@
 // A leitura do pedido pela edge function, com o token de posse (feature `49`).
 //
 // Mora num arquivo próprio porque tem **dois** consumidores, e a regra do repositório é a de sempre:
-// `useOrder` (a confirmação e a conta) e o `PixPayment` (a espera da aprovação). Escrita duas vezes,
-// a segunda cópia divergiria no formato do corpo ou no tratamento da recusa — e o modo de falhar
-// seria a cliente esperando para sempre numa tela de QR já pago.
+// `useOrder` (a confirmação e a conta) e a máquina do PIX (`usePixPayment`, a espera da aprovação).
+// Escrita duas vezes, a segunda cópia divergiria no formato do corpo ou no tratamento da recusa — e
+// o modo de falhar seria a cliente esperando para sempre numa tela de QR já pago.
 import { supabase } from '@estrelinha/supabase/client'
 
 /**

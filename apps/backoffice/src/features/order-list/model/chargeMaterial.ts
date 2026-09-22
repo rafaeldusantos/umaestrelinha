@@ -14,6 +14,7 @@
 import { toMaterialStatus } from '@estrelinha/core/material'
 import { queueAge } from '@estrelinha/core/material'
 import { normalizeBrPhone } from '@estrelinha/core/notifications'
+import { formatOrderNumber } from '@estrelinha/core/orders'
 import type { AdminOrderRow } from '@/entities/order/api/orderQuery'
 import { queueSince } from '@/entities/order/api/orderQuery'
 
@@ -33,7 +34,7 @@ export const chargeMaterialText = (row: AdminOrderRow, now?: Date): string => {
   if (material === 'material_enviado') {
     return (
       `Oi, ${primeiroNome}! Aqui é a Adri, da Uma Estrelinha. ` +
-      `Vi que você já postou o material do pedido #${row.order_number}. ` +
+      `Vi que você já postou o material do pedido ${formatOrderNumber(row.order_number)}. ` +
       `Assim que ele chegar aqui eu te aviso e começo a peça. Qualquer dúvida, é só me chamar.`
     )
   }
@@ -45,7 +46,7 @@ export const chargeMaterialText = (row: AdminOrderRow, now?: Date): string => {
 
   return (
     `Oi, ${primeiroNome}! Aqui é a Adri, da Uma Estrelinha. ` +
-    `Estou com o seu pedido #${row.order_number} guardado, esperando o material chegar para começar.${quando} ` +
+    `Estou com o seu pedido ${formatOrderNumber(row.order_number)} guardado, esperando o material chegar para começar.${quando} ` +
     `Se precisar de ajuda para preparar ou postar, me conta que eu te explico com calma. ` +
     `Sem pressa nenhuma.`
   )

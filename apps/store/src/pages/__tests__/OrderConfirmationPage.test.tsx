@@ -193,11 +193,25 @@ describe('OrderConfirmationPage — conteúdo da confirmação (CNF-04)', () => 
     expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument()
   })
 
-  it('exibe o número do pedido', () => {
+  it('exibe o número do pedido, com o `#` do formatador (PIX-P4-03)', () => {
+    // Até a feature `58` esta era a ÚNICA das quatro superfícies que mostrava o número **sem**
+    // prefixo — a conta, o painel e o e-mail já o escreviam à mão, cada um do seu jeito. O `#`
+    // passa a vir de `formatOrderNumber`, e é por isso que o literal aqui mudou: não é a régua que
+    // afrouxou, é a tela que passou a concordar com as outras três.
     mockOrder({ data: order({ order_number: 'NP-9001' }) })
     renderPage()
 
-    expect(screen.getByText(/PEDIDO NP-9001/)).toBeInTheDocument()
+    expect(screen.getByText(/PEDIDO #NP-9001/)).toBeInTheDocument()
+  })
+
+  it('o número da sequência sai com UM `#`, e o legado não ganha um segundo', () => {
+    // O par do caso acima, com a forma que a `58` passou a gravar (`PIX-P4-01`). Sem ele, um
+    // formatador que devolvesse o valor cru continuaria reprovando só no caso do legado.
+    mockOrder({ data: order({ order_number: '0170' }) })
+    renderPage()
+
+    expect(screen.getByText(/PEDIDO #0170/)).toBeInTheDocument()
+    expect(screen.queryByText(/##/)).not.toBeInTheDocument()
   })
 
   it('exibe o valor pago do pedido', () => {
@@ -325,6 +339,67 @@ describe('OrderConfirmationPage — ações (CNF-05)', () => {
     expect(container.innerHTML).not.toMatch(
       /bg-(yellow|blue|purple|green|red)-|text-(green|red|yellow|blue|purple)-[0-9]/,
     )
+  })
+})
+
+/**
+ * Feature `58` — **o pedido pendente ganhou caminho de volta para pagar** (`PIX-P3-01`,
+ * `PIX-P3-02`, `PIX-P3-03`), board `58 I`.
+ *
+ * Até aqui esta tela oferecia "Acompanhar pedido" e "Ver mais joias" e nenhum caminho para pagar:
+ * quem saía do PIX sem pagar só voltava pelo diálogo de `/conta`, que a convidada não alcança sem
+ * entrar por código.
+ */
+describe('OrderConfirmationPage — voltar a pagar (PIX-P3-01 … PIX-P3-03)', () => {
+  const pendente = (extra: Partial<OrderDetail> = {}) =>
+    order({ paid_at: null, payment_status: 'pending', payment_method: 'pix', ...extra })
+
+  const pagarComPix = () => screen.queryByRole('link', { name: /pagar com pix/i })
+
+  it('pendente de PIX oferece "Pagar com PIX" apontando para a rota do pagamento', () => {
+    mockOrder({ data: pendente() })
+    renderPage()
+
+    expect(pagarComPix()).toHaveAttribute('href', '/pedido/order-1/pagamento')
+  })
+
+  it('com o botão, ele é a ÚNICA pílula cheia — "Acompanhar pedido" desce para contorno', () => {
+    mockOrder({ data: pendente() })
+    const { container } = renderPage()
+
+    const cheias = container.querySelectorAll(
+      '[class*="bg-estrelinha-primary"][class*="rounded-sm"]',
+    )
+    expect(cheias).toHaveLength(1)
+    expect(cheias[0].textContent).toContain('Pagar com PIX')
+
+    const acompanhar = screen.getByRole('link', { name: /acompanhar pedido/i })
+    expect(acompanhar.className).toContain('border-estrelinha-ink')
+    expect(acompanhar.className).not.toContain('bg-estrelinha-primary')
+  })
+
+  it.each([
+    ['pago', { paid_at: '2026-09-21T12:00:00Z', payment_status: 'approved' as const }],
+    ['de cartão', { payment_method: 'card' }],
+    ['cancelado', { status: 'cancelled' }],
+  ])('%s: o botão de pagar não existe (PIX-P3-03)', (_nome, extra) => {
+    mockOrder({ data: pendente(extra as Partial<OrderDetail>) })
+    renderPage()
+
+    expect(pagarComPix()).not.toBeInTheDocument()
+  })
+
+  it('sem o botão, "Acompanhar pedido" volta a ser a pílula cheia (CNF-05)', () => {
+    // O par inverso. Sem ele, um "Acompanhar pedido" permanentemente em contorno passaria no caso
+    // acima e a tela do pedido pago ficaria sem ação primária nenhuma.
+    mockOrder({ data: order() })
+    const { container } = renderPage()
+
+    const cheias = container.querySelectorAll(
+      '[class*="bg-estrelinha-primary"][class*="rounded-sm"]',
+    )
+    expect(cheias).toHaveLength(1)
+    expect(cheias[0].textContent).toContain('Acompanhar pedido')
   })
 })
 

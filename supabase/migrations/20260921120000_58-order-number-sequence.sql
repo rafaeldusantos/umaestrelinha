@@ -1,0 +1,73 @@
+-- Feature 58 — o numero do pedido passa a ser do BANCO.
+--
+-- Ate aqui quem cunhava o numero era a edge function `checkout`: prefixo da
+-- marca anterior + o relogio em base36 + quatro caracteres aleatorios
+-- (`NP-MUBBLKLYGOMR`). Nao e ditavel no WhatsApp, nao e ordenavel, e o prefixo
+-- e de uma loja que nao existe mais.
+--
+-- A partir daqui o dono e a coluna, por `default` alimentado por uma sequence.
+-- Foi a forma escolhida entre tres (ver o `design.md`), e o motivo e
+-- concorrencia: `nextval` e seguro por construcao, sem lock de linha e sem
+-- round-trip extra, e o indice unico de `order_number` continua como ultima
+-- linha de defesa. Um dono, e e o unico que enxerga todas as transacoes.
+--
+-- `start with 170`: o maior numero importado da Nuvemshop e o 169, e a Adri
+-- continua a contagem dela. Os 35 pedidos importados seguem `NS-…` e os 2
+-- anteriores a esta feature seguem com o numero que tem — renumerar
+-- reescreveria numero ja citado em e-mail enviado e em link de pedido.
+--
+-- Esta migration e ADITIVA e IDEMPOTENTE, e NAO escreve dado: nenhum `insert`,
+-- nenhum `update`, nenhum `delete`. Nenhum pedido existente muda de numero.
+-- `AD-017` venceu em 2026-08-17 — correcao vem em migration nova, e nenhuma ja
+-- aplicada e reescrita aqui.
+
+-- ---------------------------------------------------------------------
+-- 1. A sequence
+--
+-- `if not exists` e o que torna a reexecucao segura: numa segunda passada o
+-- comando e no-op e o valor CORRENTE e preservado. Recriar a sequence aqui
+-- (ou um `setval` de "conserto") jogaria a contagem de volta para 170 e a
+-- proxima venda morreria com violacao de unicidade contra um pedido que ja
+-- existe.
+-- ---------------------------------------------------------------------
+create sequence if not exists public.orders_number_seq start with 170;
+
+-- ---------------------------------------------------------------------
+-- 2. O `default` da coluna
+--
+-- `lpad(…, 4, '0')` e um PISO, nao um teto: `0170`, `0171`, … e, passado o
+-- 9999, `10000` com cinco digitos. A coluna e `text` desde 2026-04 justamente
+-- para o zero a esquerda ser VALOR — tratado como inteiro, o pedido `0170`
+-- viraria `170` e a busca do painel por `0170` deixaria de acha-lo.
+--
+-- `set default` e idempotente por natureza (declara o estado, nao o delta), e
+-- valor EXPLICITO continua vencendo o default: e o que mantem o importador da
+-- Nuvemshop gravando `NS-<numero>` sem tocar na sequence.
+-- ---------------------------------------------------------------------
+alter table public.orders
+	alter column order_number set default lpad(nextval('public.orders_number_seq'::regclass)::text, 4, '0');
+
+-- ---------------------------------------------------------------------
+-- 3. Quem pode puxar o proximo numero
+--
+-- O `default` e avaliado pelo papel que INSERE, e sem `usage` na sequence o
+-- insert morre com "permission denied for sequence" — a venda inteira, por uma
+-- permissao que nada no codigo acusa. Quem grava pedido e a edge function
+-- `checkout`, e ela e service-role (`AD-035`).
+--
+-- `anon` NAO aparece aqui, e a ausencia e a regra deste arquivo: nenhum grant
+-- EXPLICITO alcanca o papel publico.
+--
+-- E o que isso NAO quer dizer, medido contra o Postgres local em 2026-09-22 e
+-- escrito aqui para ninguem tirar a conclusao errada de ler o arquivo:
+-- `has_sequence_privilege('anon', 'public.orders_number_seq', 'USAGE')` devolve
+-- VERDADEIRO. O `anon` herda `usage` das *default privileges* do schema
+-- `public`, sem nenhum grant nosso — e nada neste repositorio o removeu.
+--
+-- O que impede a insercao forjada NAO e a permissao da sequence: e a RLS.
+-- Medido no mesmo probe — `set local role anon; insert into orders …` morre com
+-- "new row violates row-level security policy", porque nao existe policy de
+-- INSERT para `anon`. Trocar essa ordem de leitura e o modo de falha que
+-- `AD-012` descreve: afirmacao sobre schema escrita a mao e nunca verificada.
+-- ---------------------------------------------------------------------
+grant usage, select on sequence public.orders_number_seq to service_role;

@@ -2431,7 +2431,7 @@ describe('create-payment — gatilho de e-mail (TRG-04, TRG-05, TRG-08, TRG-09, 
     expect((await response.json()).qr_code).toBe('PIX-COPIA-E-COLA')
     const emails = resendCalls(fetchDouble)
     expect(emails).toHaveLength(1)
-    expect(emails[0].body.subject).toBe('Pedido NP-EMAIL01 recebido — aguardando o PIX')
+    expect(emails[0].body.subject).toBe('Pedido #NP-EMAIL01 recebido — aguardando o PIX')
     expect(emails[0].body.to).toBe('cliente@estrelinha.test')
   })
 
@@ -2463,7 +2463,7 @@ describe('create-payment — gatilho de e-mail (TRG-04, TRG-05, TRG-08, TRG-09, 
     expect(response.status).toBe(200)
     const emails = resendCalls(fetchDouble)
     expect(emails).toHaveLength(1)
-    expect(emails[0].body.subject).toBe('Pagamento aprovado — pedido NP-EMAIL01')
+    expect(emails[0].body.subject).toBe('Pagamento aprovado — pedido #NP-EMAIL01')
     expect(emails[0].body.subject).not.toContain('recebido')
   })
 
@@ -2547,7 +2547,7 @@ describe('webhook — gatilho de e-mail (TRG-01, TRG-02, TRG-03)', () => {
     expect(await response.json()).toEqual({ received: true })
     const emails = resendCalls(fetchDouble)
     expect(emails).toHaveLength(1)
-    expect(emails[0].body.subject).toBe('Pagamento aprovado — pedido NP-EMAIL01')
+    expect(emails[0].body.subject).toBe('Pagamento aprovado — pedido #NP-EMAIL01')
   })
 
   it('TRG-02: webhook reentregue (RPC no-op, applied=false) → ZERO e-mails', async () => {
