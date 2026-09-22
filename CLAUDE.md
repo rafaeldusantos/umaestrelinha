@@ -130,7 +130,8 @@ Ao planejar/implementar features, use a Skill **`tlc-spec-driven`** com estas co
     busca de produto do painel), a `52` (entrega de e-mail comprovada), a `53` (a aba de
     Notificações), a `54` (templates de e-mail de auth), a `55` (configurações por seções) e a `56`
     (Notificações legíveis, e o padrão das Configurações) também estão FECHADAS. A `57`
-    (os avisos para a dona, e o endereço que os recebe) também está FECHADA. A próxima é a `58`.**
+    (os avisos para a dona, e o endereço que os recebe) e a `58` (pagamento PIX em rota própria)
+    também estão FECHADAS. A próxima é a `59`.**
   - **A `46` e a `47` correram EM PARALELO, em worktrees separados**, e é o segundo caso do projeto
     (o primeiro, a `45`, dividiu uma working tree só). O que mudou: a divisão foi por **árvore**, não
     por arquivo — a `47` nasceu de um `git worktree` sobre o HEAD local e trouxe a `46` por
@@ -233,6 +234,7 @@ com as duas cópias divergindo, e quem descobre é a cliente ou o Google.
 | `39` | **o DESENHO do menu, de novo** — `MenuBarPreview.tsx` redesenhava a barra do topo à mão no painel, com a paleta do admin, e anunciava `/crie-seu-botton`, que **nunca foi rota**. É o mesmo defeito que a `25` apagou da Home; no menu ele nunca tinha saído. E, ao lado dele, o **papel** de cada categoria (barra × painel), que uma coluna nova teria dessincronizado no primeiro "mover categoria" | a prévia É a loja, num iframe (`MenuLivePreview`), e o papel é **derivado da árvore** dentro de `menuItems(input, surface)` — a porta única das quatro superfícies |
 | `49` | **três donos de uma vez, e o pior deles ainda não existia.** (1) "Este e-mail pode seguir como convidada?" ia nascer **duas vezes** — uma na tela, para mostrar o desafio de código, outra no servidor, para recusar a gravação —, e divergir faria a loja deixar passar quem o servidor recusa. (2) "Como nasce um pedido" ia ficar com **dois caminhos**, o `insert` do navegador para quem tem sessão e a function para a convidada. (3) `corsHeaders` já estava escrito **três vezes** nas edge functions, e a function nova seria a quarta | `resolveCheckoutIdentity` em `@estrelinha/core/checkout`, chamado igual pela tela e pelo servidor; **uma** function grava todos os pedidos, com `pedidoComDonoUnico.test.ts` recusando a volta; e `_shared/http.ts`, de onde as outras **reexportam** (`toBe`, não `toEqual`) |
 | `56` | **o contador de caracteres, escrito CINCO vezes à mão dentro de um card** — e ausente dos quatro campos com limite das outras seções, onde o teto ia embutido no rótulo ("Título padrão (até 60 caracteres)") com o número **cravado na frase**, longe do `maxLength` que de fato limita. Ao lado dele, a **mesma string de classes** do botão de salvar escrita em três arquivos de Configurações, um deles já sem o `h-11` | `shared/ui/CharCounter.tsx` e `shared/ui/SettingsSaveButton.tsx`, com `contadorComDonoUnico.test.ts` recusando a sexta escrita dentro de Configurações |
+| `58` | **DUAS superfícies montando o mesmo pagamento PIX** — o bloco 3 do acordeão do checkout e um diálogo em `/conta`, e a segunda já nascia errada: montava sem `amount`, então o valor em destaque (`CNF-01`) não aparecia justamente para quem voltava a pagar. Ao lado, o **`#` do número do pedido**, colado à mão em quatro grafias ao mesmo tempo — a loja sem prefixo, a conta e o painel com um, o e-mail com outro | a rota `/pedido/:id/pagamento` é a **única** casa do PIX (`AD-042`), com `pagamentoComDonoUnico.test.ts` recusando `qrcode.react`, o pedido de PIX e o retorno de `PixPayment.tsx`; e `formatOrderNumber` em `@estrelinha/core/orders` (`AD-043`), com `numeroDoPedidoComDonoUnico.test.ts` recusando o prefixo colado nas duas grafias e nas duas formas de juntar |
 | `50` | **o esqueleto de carga e a revalidação, que eram a MESMA chamada** — `fetchSections()`/`fetchCategories()` significavam "carregar" e "revalidar" ao mesmo tempo, e a tela só sabia ler a primeira: toda gravação trocava a árvore por `<TableSkeleton/>`, o que **desmontava o `<iframe>` da prévia** e recarregava a loja a cada clique. E, ao lado, dois campos **de tela** do rascunho a um `insert` de distância de virar `PGRST204` | `fetchX(modo)` com o tipo `FetchMode` em **um** arquivo (`shared/lib/fetchMode.ts`) — dois nomes para o mesmo modo seriam o defeito no tamanho de um tipo, e o terceiro hook nasceria com um terceiro nome —, mais `toNewItems` como a única tradução rascunho → colunas, com `toNewItems.test.ts` recusando a oitava chave |
 
 Consequências práticas, nesta ordem:
@@ -359,6 +361,9 @@ migrations, e `vercelRedirects` lê o `vercel.json`.
 | `authEmailTemplates.test.ts` | store `shared/lib/__tests__` (varre `supabase/templates/`) | qualquer um dos 3 templates de auth (`magic_link`, `confirmation`, `recovery`) perder `{{ .Token }}` ou ganhar `{{ .ConfirmationURL }}`; `<style>`/`<link>`/`@font-face`/`<script>` entrarem (a régua varre fora do comentário do topo — que CITA essas formas em prosa de propósito, a mesma armadilha que já mordeu `authSenderDomain.test.ts`); cor hex fora da paleta de `ESTRELINHA` (`layout.ts`, lido como texto — nunca importado, por não ter precedente cruzar para o workspace de `supabase/functions`); `#B8945F` virar `color:` (texto); o casco (faixa, wordmark, fio, card, caixa do código, rodapé) divergir entre os 3 fora das 3 regiões que legitimamente variam (título, parágrafo de abertura, nota final); o preheader oculto sumir, ganhar `<style>`, ou deixar de repetir o parágrafo de abertura já aprovado. **Nenhum outro comando lê `supabase/templates/`** — são 3 arquivos colados à mão num dashboard sem `config pull` |
 | `emailCheckWorkflow.test.ts` | idem (varre `.github/workflows/`) | o `email-check.yml` medir a si mesmo em vez da produção: **qualquer literal do domínio verificado**, inclusive em comentário; a declaração de cegueira sumindo (o parágrafo que diz que ele NÃO prova SMTP nem templates do GoTrue — apagá-lo faz o próximo leitor achar que o auth está coberto); o remetente do auth virando literal em vez de vir de `config.toml`; 429/timeout deixarem de ser **indisponibilidade**; o passo 1 largando o par `200` **+** chave `from` (sem os dois, um bundle velho responde **400** com JSON válido e o sensor acusa "configuração errada" com o defeito sendo deploy velho). **Também guarda a `DLV-26`**: o passo de divergência do `Supabase Deploy` avisa e **nunca** falha o job. Recorte por bloco, que devolve `null` e **reprova** — a primeira escrita usava `[\s\S]*?` sobre o arquivo inteiro e casava o passo ERRADO |
 | `pedidoComDonoUnico.test.ts` | idem (varre `apps/store/**` e `apps/backoffice/**`) | qualquer arquivo de produção gravar em `orders` ou `order_items` pelo PostgREST — desde a `49` quem grava é a edge function `checkout`, e as policies de `INSERT` continuam abertas no banco de propósito (`BL-030`), então **este guarda é a única contenção**. **Zero allowlist**, âncora dupla, e sensores que provam: as duas formas de gravação (compacta e quebrada em linhas), que **ler** não é acusado, que um `insert` em outra tabela no meio não é atribuído a `orders`, e o removedor de comentário com CRLF e LF |
+| `pagamentoComDonoUnico.test.ts` | store `shared/lib/__tests__` (varre `apps/store/**`) | uma SEGUNDA superfície de pagamento PIX (feature `58`, `AD-042`). Três réguas: importar `qrcode.react` fora de `features/order-payment`; **pedir um PIX** ao `create-payment` de qualquer arquivo de produção fora do dono; e `PixPayment.tsx` voltar ao disco ou ao barrel. A régua do pedido exige o **fecho** (`,`/`}`/`)`) depois do literal, que é o que separa *chamar* a porta de *declarar* a porta — sem ele o guarda nascia acusando `useCreatePayment.ts`, o arquivo que ele existe para proteger. A do QR casa o `from`, e não o nome do componente, senão dublar a biblioteca num teste do próprio dono passaria a ser proibido. **Âncora dupla**, **allowlist de UM** e a **metade positiva**: o dono chama a porta e desenha o QR, e as duas telas (`/conta` e `/pedido/:id`) LINKAM para a rota — sem ela, apagar a ação deixaria a ausência verdadeira e vazia |
+| `numeroDoPedidoComDonoUnico.test.ts` | store `shared/lib/__tests__` (varre `apps/**` e `supabase/functions/**`) | o `#` colado ao número à mão — **interpolação** (template literal e JSX) e **concatenação** —, nas duas grafias do identificador (`order_number` e `orderNumber`, que é o mesmo dado com outro nome de prop). Antes da `58` havia **quatro** grafias convivendo. **Metade positiva**: as oito superfícies chamam `formatOrderNumber`, e o lado Deno o alcança por caminho relativo **com `.ts` explícito**. Recorte à direita por token exato (`L-034`) |
+| `orderNumberSchema.test.ts` | idem (lê a migration da `58`) | a sequência sumir, nascer em outro número, o `default` deixar de usar `lpad(…, 4, '0')`, a migration escrever dado, ou `orders.order_number` perder o índice único. **Sensor por mutação em cada asserção** |
 | `orderAccessSingleOwner.test.ts` | idem | qualquer arquivo fora de `entities/order/model/orderAccess.ts` citar `estrelinha-order-access` — o token é a **única** credencial de um pedido de convidada, e uma segunda leitura à mão faria a confirmação abrir vazia logo depois de ela pagar; o dono trocar `localStorage` por `sessionStorage` (fechar a aba apagaria o caminho de volta) |
 | `desafioDeCodigoUnico.test.ts` | idem | um segundo campo de 6 dígitos em `apps/store/**` fora de `features/auth/ui/steps` — com o passo existente vêm o reenvio, o cooldown de 60s e a distinção entre código errado e expirado. **Tem o sentido positivo junto**: o desafio do checkout precisa **conter** `AuthCodeStep`, senão a ausência de um segundo campo seria verdadeira por não haver campo nenhum |
 | `denoReach.test.ts` | `packages/core/src/checkout/__tests__` | um especificador relativo sem `.ts` — `import type` incluso — nos arquivos que a edge function importa por caminho (`identity.ts`, `guestAccess.ts`), ou um import de React/Supabase/Deno neles. O barrel fica **fora do escopo**, com a razão escrita no arquivo. Leitor injetável, com sensor de `import type`, do par com extensão, de CRLF e do removedor de comentário — que **reprovou o próprio arquivo certo** na primeira escrita, porque o cabeçalho dele cita `from './types'` em prosa |
@@ -449,7 +454,119 @@ quando mudarem de verdade.
 | --- | --- | --- |
 | **Lint** | **26 erros / 6 warnings** — backoffice 24/4 · store 2/2 | `pnpm lint` |
 | **Tipos** | **0 · 0 · 0** (store · backoffice · catalog-import) | `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` |
-| **Testes** | **10161 em 522 arquivos** — store **3548/223** · backoffice **3017/166** · core **2432/96** · functions **652/14** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
+| **Testes** | **10442 em 532 arquivos** — store **3787/232** · backoffice **3024/166** · core **2459/97** · functions **660/14** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
+
+**A feature `58` (pagamento PIX em rota própria) somou +281 em QUATRO workspaces**, com a SAÍDA
+medida em 2026-09-22 um por vez, exit code fora de pipe e `--testTimeout=20000` nos dois apps:
+**store 3548/223 → 3787/232** (+239/+9 — o formatador do número, os três guardas novos, a máquina do
+PIX, as duas telas e a rota), **core 2432/96 → 2459/97** (+27/+1 — `core/orders/format.ts` e a rota
+nova em `NON_INDEXABLE_PATHS`), **functions 652/14 → 660/14** (+8 — a régua de `createOrder`
+**invertida**: ela exigia `/^NP-/` e passou a exigir que a function **não mande** `order_number`) e
+**backoffice 3017/166 → 3024/166** (+7 — a busca aceitando `#0244`, `0244` e `244`). Catalog-import
+não foi tocado e foi remedido, idêntico. Lint em **26/6** e tipos em **0 · 0**, sem mexer;
+`pnpm build` verde nos dois apps, e `packages/core/src/payment/**` com **zero** arquivos alterados.
+
+> ⚠️ **O "antes" desta linha é a tabela acima, não uma medição da sessão.** As fases 1 e 2 correram
+> em outra sessão e o que foi medido com a árvore parada no começo da fase 3 é a **entrada dela**
+> (store 3716/230 · core 2459/97 · backoffice 3024/166 · functions 660/14 · catalog 512/23) — que
+> bateu exatamente o que as fases 1 e 2 tinham deixado. O delta de **+227** é `saída − tabela`; o
+> delta que esta sessão mediu ponta a ponta é o **+17 do store** da fase 3.
+
+> **A fase 3 sozinha somou +17 no store, e dentro dela há uma queda de 24 declarada.**
+> `PixPayment.test.tsx` foi apagado com o componente, e os 24 casos dele reaparecem — com folga — em
+> `usePixPayment.test.tsx` (24), `PaymentProgress.test.tsx` (21) e `PixSurface.test.tsx` (45), todos
+> escritos na fase 2, **antes** de o arquivo antigo sair. A aritmética fecha:
+> `19 (guarda novo) − 24 + 9 + 6 + 5 + 2 = +17`.
+
+> **A VERIFICAÇÃO INDEPENDENTE REPROVOU a primeira entrega, e os +54 do store entre 3733 e 3787 são
+> o conserto** — 21 mutações na rodada 1, **5 sobreviventes**, e um CTA morto em produção.
+>
+> **O achado nº 1 é o defeito que esta própria feature existe para remover.** "Entrar com código" em
+> `/pedido/:id/pagamento` chamava `openAuth()`, que só liga uma flag: os **dois** lugares que
+> renderizam o `AuthOverlay` são o `StoreLayout` e o `CheckoutPage`, e a rota nova está fora dos
+> dois. A convidada com token expirado via um botão que não fazia nada — o mesmo `Success Criteria`
+> que a spec escreve ("nenhuma tela do fluxo mostra um CTA que não faz nada"). O teste não via
+> porque **dublava `@/features/auth` inteiro** e media a chamada da função, não o overlay; e um
+> comentário no código afirmava que o widget da recusa tinha teste próprio — **não tinha**. O
+> conserto trocou o dublê pela **store real** e provou por mutação **de posição**: mover o overlay
+> para dentro do ramo da recusa (mutação sintaticamente válida) também morre.
+>
+> Os outros quatro sobreviventes têm a assinatura de sempre — a asserção verdadeira nos dois mundos:
+>
+> | Mutante | O que passava | Consequência real |
+> | --- | --- | --- |
+> | `PIX_SLOW_MS` 8000 → 30000 | 5 arquivos verdes: o teste importava a própria constante e media contra ela | acima do timeout de 15s a linha "a espera está mais longa" **nunca aparece**, e a tela vai de progresso silencioso direto para a falha |
+> | `podePagarComPix` alargado | as duas suítes de página verdes | `rejected`/`refunded` passariam a exibir "Pagar com PIX". O módulo foi extraído **por ser regra pura com dois leitores** e nasceu sem arquivo de teste |
+> | `layout.ts` sem a extensão `.ts` | functions 14/14 e os dois guardas do store verdes | **worker de e-mail morto antes da primeira linha** — a régua de extensão nomeava `vars.ts` e lia **um** dos dois importadores (`L-035` de novo) |
+> | a trava `jaConcluiu` apagada | tudo verde | limpeza e `markCartRecovered` repetindo |
+>
+> **E a rodada 2 procurou o buraco que o CONSERTO criou** — a lição da `48`, de que consolidar num
+> dono só **move** o ônus da prova em vez de eliminá-lo. `orderIdentity` é estado novo em
+> `sessionStorage`: das 9 mutações sobre ele, 7 morreram e 2 sobreviveram, as duas fechadas no
+> fecho. A segunda tem mecanismo estreito e real: `ensureRequestId()` cunha a chave de idempotência
+> **antes** de `setOrder` gravar o `orderId`, e sem o recorte `!orderId` um evento de auth naquela
+> janela apagaria a chave em uso — a retentativa criaria um **segundo pedido** (`PED-04`).
+>
+> **Um achado é do verificador contra si mesmo**: a rodada 1 marcou `PIX-P2-03` como lacuna de
+> precisão por não exercitar o timeout de 15s; a rodada 2 mostrou que a régua existe **na casa do
+> dono** (`useCreatePayment.test.tsx`) e a cadeia fecha em dois arquivos. Ele tinha procurado num só.
+>
+> **`BATIDA_MS` continua sem régua, declarado e não consertado**: a duração da batida de confirmação
+> é *assumption* não confirmada da spec, não AC, e cravar `toBe(1200)` escreveria no teste um número
+> que ninguém mediu. A distinção contra `PIX_SLOW_MS` — cujo 8000 tem origem declarada e por isso
+> ganhou régua **relacional lida do dono** — é o padrão a seguir.
+
+> **A limpeza do carrinho MUDOU DE CASA e ganhou um recorte que antes não precisava existir.**
+> Com o QR dentro do checkout, o pedido aprovado era **por construção** o que aquele rascunho tinha
+> criado. Com o pagamento em rota própria isso deixa de ser verdade: a rota é alcançável por link,
+> por `/conta` e por `/pedido/:id`, e quem chega por ali pode estar pagando um pedido **antigo** com
+> uma sacola **nova** montada. O recorte é `checkoutStore.orderId === id` (`PIX-P1-08`), com caso
+> nos dois sentidos — sem ele, pagar um pedido de ontem esvaziaria o carrinho de hoje, em silêncio,
+> no instante em que a cliente mais confia na loja.
+
+> **Três casos de `IDN-07` mudaram de CAMINHO, não de assunto.** Eles precisam da página montada
+> **depois** de o pedido existir, e no PIX ela já entregou o bastão para a rota. O único caminho que
+> mantém a cliente no checkout com um pedido `pending` em curso é o **cartão recusado** (`PGM-08`).
+> Medido: pelo PIX, dois deles passavam a reprovar e o terceiro virava **verdadeiro sobre o nada** —
+> a asserção era sobre o store, e o store continua igual com a página desmontada. O caso inverso
+> ganhou uma asserção de que a região "Pagamento" ainda está no DOM, exatamente por isso.
+
+> **A asserção de ORDEM de `PIX-P1-02` não pode ser "o checkout não chamou `create-payment`"** —
+> isso é verdade nos dois mundos, porque quem chama é a rota, e ela chama depois. A régua é o número
+> de chamadas medido **de dentro da rota de destino**, no instante em que ela monta: tem de ser
+> **zero**. O mutante que pede o código antes de navegar morre por essa asserção e por nenhuma outra.
+
+> **Um erro de tipo da fase 2 derrubava o `tsc` do app inteiro, e o gate anterior não o viu.** O
+> dublê de `usePixPayment` em `OrderPaymentPage.test.tsx` era `vi.fn(() => …)` — zero argumentos —
+> chamado com um, e `as never` na chamada **não salva**: `tsc` confere **aridade**, não só tipo.
+> Corrigido declarando o parâmetro. A lição prática: `pnpm build` não checa tipo, e um dublê mal
+> tipado num arquivo de teste é erro de compilação do app, não do teste.
+
+> **PROVA EM NAVEGADOR, com os cinco estados forçados e o percurso inteiro medido** (2026-09-22,
+> Chromium, dev server em :8082). O Docker não estava de pé, então `/rest/v1/**` e `/functions/v1/**`
+> foram **interceptados** — mais determinístico que esperar o relógio. O bundle **servido** foi
+> conferido antes de medir.
+>
+> | | 390 × 844 | 1440 × 900 |
+> | --- | --- | --- |
+> | rolagem horizontal do body, em 9 cenários | **zero** | **zero** |
+> | clique no CTA → `PaymentProgress` em `/checkout`, sem CTA e sem blocos | **sim** | **sim** |
+> | pedido criado → `/pedido/:id/pagamento`, com `#0244` e o passo 1 concluído | **sim** | **sim** |
+> | **F5 na rota** | QR volta · **0 chamadas de `create-order`** | idem |
+> | "Copiar código" · "Gerar um código novo" · "Tentar de novo" | **48px** | 48px |
+> | "Pagar com PIX" em `/pedido/:id` pendente | **64 × 358**, cheia | 64 × 736 |
+> | a batida da confirmação | **1194 ms** → `/pedido/:id` | 1188 ms |
+> | o tempo a 09:46 / a 03:59 | `ink` / `primary` | idem |
+>
+> ⚠️ **A linha dos 8s empurra o bloco de valor em +104px (390) e +84px (1440)** — os passos **não**
+> se movem, e nada sai da dobra (o documento continua com 844px em 390). Reservar o espaço seria
+> pior: a linha só aparece numa espera anormal, e a reserva deixaria um vão permanente que 100% das
+> compras veem. Medido e aceito.
+>
+> ⚠️ **Duas armadilhas do arnês de medição**, registradas porque produziriam medida falsa: o
+> **Playwright avalia rotas em ordem INVERSA de registro** (um `**/rest/v1/**` registrado por último
+> devolvia `[]` para o pedido, e a tela caía em "Pedido não encontrado"), e a fixture do pedido
+> perdeu o `...extra` do argumento — dois cenários teriam **passado medindo o estado errado**.
 
 **A máscara de telefone e CEP nos formulários da loja somou +19 em DOIS workspaces**, medidos em
 2026-09-21 um por vez, com exit code fora de pipe e `--testTimeout=20000` nos dois apps: **core
@@ -1895,6 +2012,26 @@ completo (framework, `installCommand` na raiz do monorepo, headers de cache e de
   os identificadores não.
 
 ## Estado conhecido / dívidas
+
+- **A `58` TEM prova em navegador (os cinco estados e o percurso inteiro, em 390 e 1440), e NÃO tem
+  verificação independente.** Autor = verificador; nove mutantes foram reinjetados nos arquivos
+  reais e os nove morreram por asserção. O que ficou fora da medição, e é o que a próxima sessão
+  deve fechar:
+  - **O caminho do CARTÃO não foi caminhado em navegador** — o Brick precisa do SDK do Mercado
+    Pago, que não sobe sem chave e sem rede. O que a feature garante sobre ele é **ausência de
+    mudança**: um mutante prova que a tela de progresso não o alcança, e os casos de `PGM-06 …
+    PGM-08` seguem verdes sem uma asserção tocada.
+  - **A escrita no banco não foi remedida na fase 4** (o Docker estava fora). A numeração `0170` /
+    `0171` foi provada na fase 1, com dois `insert` reais no Postgres local.
+  - **O QR não foi escaneado por um celular de verdade** — a string medida é sintética. O tamanho
+    (174×176 dentro de uma caixa de 200, em 390) está medido; a legibilidade por câmera não.
+  - **Rede lenta, LCP e CLS da rota nova** não foram medidos, e a rota é uma página `lazy` a mais.
+  - **`prefers-reduced-motion` não foi conferido.** O único movimento das telas novas é o
+    `animate-spin` do anel de progresso — indicador, não enfeite —, e ele não tem par
+    `motion-reduce:`.
+  - **O WhatsApp da tela de falha não foi visto renderizado**: as medições rodaram com
+    `store_settings` vazio, e o portão de 10 dígitos (mesma régua de `PolicyContact`) o esconde.
+    Em produção o número está configurado, mas isso não foi conferido nesta rodada.
 
 - **A prova em navegador do esqueleto da Home FOI FEITA** (2026-09-21) e está na seção de baselines:
   o defeito foi reproduzido A/B com o mutante reinjetado, e o hero desligado deixou de aparecer nos

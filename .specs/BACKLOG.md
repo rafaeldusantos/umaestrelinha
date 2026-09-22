@@ -1303,7 +1303,25 @@ uma linha por policy (`drop policy … on public.orders`), e o guarda que já ex
 
 ## BL-031 — `orders.order_number` ainda carrega o prefixo da marca anterior
 
-**Aberto por**: feature `49`, 2026-09-13, ao mover a geração do navegador para o servidor.
+- **Status**: **FECHADO em 2026-09-22** pela feature `58` (`PIX-P4-01`, `AD-043`).
+- **Aberto por**: feature `49`, 2026-09-13, ao mover a geração do navegador para o servidor.
+
+> **Como foi fechado**: o prefixo não foi *trocado* — **o gerador saiu do JavaScript**. Quem numera
+> pedido agora é o banco, por `default` de coluna alimentado por uma `sequence` que começa em 170
+> (`20260921120000_58-order-number-sequence.sql`), e a edge function `checkout` deixou de mandar
+> `order_number`. Pedido novo nasce `0170`, `0171`, … — provado com **dois `insert` reais** no
+> Postgres local. `createOrder.test.ts` teve a régua **invertida**: ela exigia `/^NP-/` e passou a
+> exigir que a function **não mande** a coluna, senão a suíte ficaria verde a favor do
+> comportamento removido (lição da `41`).
+>
+> **Os pedidos antigos NÃO foram renumerados**, e isso é decisão registrada na `spec.md` da `58`: são
+> 35 `NS-…` (numeração real da Nuvemshop) e 2 `NP-…`, e renumerar reescreveria número já citado em
+> e-mail enviado e em link de pedido. Os três formatos convivem, e quem os escreve na tela é
+> `formatOrderNumber` (`@estrelinha/core/orders`), com `numeroDoPedidoComDonoUnico.test.ts`
+> recusando um `#` colado à mão em qualquer das três pontas.
+>
+> **A colisão continua não sendo modo de falha alcançável**, e agora por construção: `nextval` é
+> seguro sob concorrência, e `orders_order_number_key` segue como última linha de defesa.
 
 > ⚠️ **Esta entrada nasceu ERRADA e foi corrigida no mesmo dia, pela verificação independente.** A
 > primeira escrita afirmava que `orders.order_number` era "`text` **sem índice único**" e que uma
@@ -1323,8 +1341,10 @@ com 36⁴ ≈ 1,7 milhão de sufixos por milissegundo, a colisão deixa de ser u
 neste volume. `createOrder.test.ts` assere 40 números distintos com o **relógio fixo** — se o sufixo
 sumir, a colisão é certa e o caso reprova.
 
-**Ao fechar**: trocar o prefixo é uma linha em `supabase/functions/checkout/handlers.ts`, e a
-decisão é da dona — o número muda para quem já comprou.
+~~**Ao fechar**: trocar o prefixo é uma linha em `supabase/functions/checkout/handlers.ts`, e a
+decisão é da dona — o número muda para quem já comprou.~~ A saída escolhida foi outra, e melhor: o
+número **novo** passou a vir do banco e o **antigo** ficou como está, então ninguém que já comprou
+teve o número trocado.
 
 ---
 

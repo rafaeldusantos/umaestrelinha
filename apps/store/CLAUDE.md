@@ -850,6 +850,48 @@ Quatro faixas de largura cheia, nesta ordem e com estas cores dos artboards: `1 
   (lê o pedido do banco), nunca estado interno da página — assim sobrevive ao reload; o carrinho e o
   cupom são limpos **só** na aprovação.
 
+### O PIX tem endereço, e o checkout entrega o bastão (feature `58`, `AD-042`)
+
+`/pedido/:id/pagamento` é a **única** casa do pagamento PIX. O checkout termina quando o pedido
+existe: ele troca a tela pela espera nomeada, cria o pedido e **navega**. O cartão não passa por
+aqui — o Brick precisa continuar montado no bloco 3 para a retentativa de recusa funcionar
+(`PGM-08`), e o caminho dele não tem uma linha alterada.
+
+- **O que isso apagou**: o QR nascia **dentro do bloco 3 do acordeão**, abaixo da dobra no celular,
+  com o CTA fixo por cima dizendo "Pagar R$ X com PIX" — um botão que já não fazia nada —, e a tela
+  **não tinha endereço**: não sobrevivia a fechar a aba, não voltava pelo histórico e não abria em
+  outro aparelho. `/conta` montava a **segunda** superfície, num `<Dialog>`, e ela já nascia errada:
+  sem `amount`, o valor em destaque (`CNF-01`) não aparecia justamente para quem voltava a pagar.
+- **A ORDEM é o requisito** (`PIX-P1-02`): a navegação acontece **antes** de qualquer pedido de
+  código ao Mercado Pago. Quem pede o código é a rota, no instante em que monta. Pedi-lo no checkout
+  e navegar depois devolveria a espera a uma tela que a pessoa está prestes a deixar — e, se a
+  navegação falhasse, o código nasceria numa tela sem QR.
+- **A espera é UMA tela com dois passos nomeados** (`PaymentProgress`), montada pelas **duas**
+  páginas. Nenhum passo avança por tempo decorrido: quem decide é a prop `step`, e ela só muda
+  quando a resposta chega. Por isso não há barra de progresso — uma barra precisa de uma fração, e a
+  fração teria de ser inventada.
+- **A limpeza do carrinho mudou de casa, e ganhou um recorte** (`PIX-P1-08`). Com o QR dentro do
+  checkout, o pedido aprovado era **por construção** o daquele rascunho; a rota é alcançável por
+  link, por `/conta` e por `/pedido/:id`, e quem chega por ali pode estar pagando um pedido antigo
+  com uma sacola nova montada. A limpeza só acontece com `checkoutStore.orderId === id`.
+  `markCartRecovered` fica **fora** do recorte de propósito: ele responde "este pedido recuperou um
+  carrinho abandonado?", e a resposta é do **pedido** — que traz o próprio e-mail —, não do rascunho,
+  que pode nem existir quando a rota abre em outro aparelho.
+- **`/pedido/:id` pendente de PIX oferece "Pagar com PIX"**, e ele é a **única pílula cheia** da área
+  de ação: "Acompanhar pedido" desce para contorno (`CNF-05`). Quem responde "esta tela oferece o
+  caminho de pagar?" é `podePagarComPix` (`entities/order`), lido pela confirmação **e** por
+  `/conta`. **A régua da ROTA é deliberadamente mais larga** — ela recusa pago, cancelado e cartão, e
+  nada mais: um pedido cujo `payment_status` ficou `rejected` não é anunciado por tela nenhuma, mas
+  quem chegar nele pelo endereço tem de conseguir gerar um código novo.
+- **`features/checkout/ui/PixPayment.tsx` foi APAGADO**, e com ele a segunda medição das mesmas
+  regras. `pagamentoComDonoUnico.test.ts` recusa a volta por três caminhos — importar `qrcode.react`
+  fora de `features/order-payment`, pedir um PIX ao `create-payment` de qualquer arquivo de produção
+  fora do dono, e o arquivo reaparecer no disco ou no barrel.
+- **O número do pedido vem do BANCO** (`AD-043`): sequência com `default` de coluna, `0170`, `0171`,
+  … O `#` é apresentação e tem um dono só — `formatOrderNumber` (`@estrelinha/core/orders`) —, e a
+  coluna guarda apenas os dígitos. Os pedidos antigos (`NS-…` da Nuvemshop e 2 `NP-…`) continuam com
+  o número que têm, e o formatador os escreve com **um** `#`.
+
 - **Todo campo formatado da loja tem um dono em `@estrelinha/core/validators`**, e o campo só o
   chama: `maskCep` (CEP, em `DeliveryBlock` e no `ShippingCalc` da página do produto), `maskDocument`
   (CPF/CNPJ, `PaymentBlock`) e `maskPhone` (WhatsApp, `ContactBlock`). **A máscara é da tela; o

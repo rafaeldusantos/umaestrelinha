@@ -1029,9 +1029,123 @@
 - **Date**: 2026-09-21
 - **Status**: active
 
+### AD-042
+- **Decision**: **A superfície de pagamento de um pedido tem UM dono, e ele é a rota
+  `/pedido/:id/pagamento`.** O checkout deixa de mostrar QR: ele cria o pedido e **entrega o
+  bastão**, navegando para o endereço do pedido **antes** de pedir o código ao Mercado Pago. O
+  diálogo de `/conta` deixa de montar o pagamento e passa a **linkar**;
+  `features/checkout/ui/PixPayment.tsx` foi apagado do disco e do barrel. O cartão **não** passa por
+  aqui: o Brick continua montado no bloco 3, sem uma linha alterada.
+- **Reason**: havia **duas** superfícies montando o mesmo pagamento — o bloco 3 do acordeão e um
+  diálogo em `/conta` —, e a segunda já nascia errada: montava sem `amount`, então o valor em
+  destaque (`CNF-01`) simplesmente não aparecia para quem voltava a pagar. É o "defeito 01" no
+  caminho do dinheiro, e ele não quebrava nada — as duas renderizavam, cada uma do seu jeito. Ao
+  lado disso, nenhuma das duas tinha **endereço**: a tela do PIX não sobrevivia a fechar a aba, não
+  voltava pelo histórico e não abria em outro aparelho, e o QR nascia abaixo da dobra no celular com
+  o CTA fixo por cima dizendo "Pagar R$ X com PIX" — um botão que já não fazia nada. Uma rota resolve
+  as quatro coisas de uma vez, e é o mesmo movimento que `CNF-03` fez com a confirmação.
+- **Trade-off**: a **navegação antes do código** é o custo aceito — se ela falhar, o pedido existe e
+  o código não foi pedido. É melhor que o inverso (código pedido numa tela que a pessoa está
+  deixando), e a rota é alcançável pelo endereço, por `/pedido/:id` e por `/conta`. A **limpeza do
+  carrinho mudou de casa** e ganhou um recorte que antes não precisava existir
+  (`checkoutStore.orderId === id`): o checkout montado garantia que o pedido aprovado era o do
+  rascunho em curso; a rota não garante nada disso, e sem o recorte pagar um pedido antigo apagaria
+  uma sacola nova. Os três casos de `IDN-07` migraram para o caminho do **cartão recusado**, que é o
+  único que mantém a página montada com um pedido `pending` — sem isso, dois deles reprovariam e o
+  terceiro viraria verdadeiro sobre o nada.
+- **Guarda**: `pagamentoComDonoUnico.test.ts` (store `shared/lib/__tests__`) recusa três formas — a
+  importação de `qrcode.react` fora de `features/order-payment`, um pedido de PIX ao `create-payment`
+  de qualquer arquivo de produção fora do dono, e o retorno de `PixPayment.tsx` ao disco ou ao
+  barrel —, com âncora dupla, allowlist de UM e a **metade positiva** (o dono chama a porta e desenha
+  o QR; as duas telas LINKAM). A régua do pedido de PIX exige o fecho depois do literal, que é o que
+  separa *chamar* a porta de *declarar* a porta: sem ele o guarda nascia acusando `useCreatePayment`.
+- **Scope**: `apps/store/src/pages/{CheckoutPage,OrderPaymentPage,OrderConfirmationPage,AccountPage}.tsx`,
+  `apps/store/src/features/checkout/ui/PaymentBlock.tsx`, `apps/store/src/features/checkout/index.ts`,
+  `apps/store/src/entities/order/lib/podePagarComPix.ts`,
+  `apps/store/src/shared/lib/__tests__/pagamentoComDonoUnico.test.ts`
+- **Date**: 2026-09-22
+- **Status**: active
+
+### AD-043
+- **Decision**: **O número do pedido é do BANCO, por sequência.** `orders.order_number` ganhou
+  `default lpad(nextval('orders_number_seq')::text, 4, '0')`, com a sequência começando em **170**, e
+  a edge function `checkout` deixou de cunhar número. Quem **escreve** o número numa tela chama
+  `formatOrderNumber` (`@estrelinha/core/orders`): o `#` é apresentação e tem um dono só; a coluna
+  guarda apenas os dígitos.
+- **Reason**: o gerador era JavaScript (`NP-` + base36 do relógio + 4 aleatórios) e produzia
+  `NP-MUBBLKLYGOMR` — ninguém dita isso no WhatsApp e a Adri não confere isso numa lista. Entre as
+  três saídas possíveis, `default` de coluna é a única em que **um dono só enxerga todas as
+  transações**: `nextval` é seguro sob concorrência por construção, o índice único
+  (`orders_order_number_key`) continua como última linha de defesa, e quem inserir por outro caminho
+  (importador, seed) nasce numerado. Uma RPC `next_order_number()` teria um round-trip a mais e um
+  ponto a mais para esquecer de chamar; um contador em tabela serializaria toda venda num lock de
+  linha.
+- **Trade-off**: **a sequência pula número quando uma transação é revertida**, e isso é aceito por
+  escrito na spec — número pulado não é defeito. Os pedidos antigos **não foram renumerados**: 35
+  `NS-…` (numeração real da Nuvemshop, importada) e 2 `NP-…` continuam como estão, porque renumerar
+  reescreveria número já citado em e-mail enviado e em link de pedido. A consequência é que três
+  formatos convivem na mesma coluna — e é exatamente por isso que o `#` precisa ter um dono: quatro
+  telas escreviam o prefixo à mão, cada uma do seu jeito, e a loja era a única que **não** o
+  escrevia.
+- **Guarda**: `orderNumberSchema.test.ts` lê a migration do disco (sequência, número inicial,
+  `lpad(…,4,'0')`, ausência de escrita de dado, permanência do índice único), com sensor por mutação
+  em cada asserção; `numeroDoPedidoComDonoUnico.test.ts` recusa o `#` colado à mão nas duas grafias
+  do identificador e nas duas formas de juntar, **com a metade positiva** — as oito superfícies
+  chamam o formatador, e o lado Deno o alcança por caminho relativo com `.ts` explícito.
+- **Prova**: `AD-012` — dois `insert` reais no Postgres local devolveram `0170` e `0171`. Inspeção
+  de tipo não prova gravação.
+- **Scope**: `supabase/migrations/20260921120000_58-order-number-sequence.sql`,
+  `packages/core/src/orders/format.ts`, `supabase/functions/checkout/handlers.ts`,
+  `supabase/functions/send-notification/render/{vars,layout}.ts`,
+  `apps/store/src/shared/lib/__tests__/{orderNumberSchema,numeroDoPedidoComDonoUnico}.test.ts`
+- **Date**: 2026-09-22
+- **Status**: active
+
 ## Handoff
 
-### ATUAL — 2026-09-20 · `57-avisos-para-a-dona` **IMPLEMENTADA — 10 de 10 tasks**
+### ATUAL — 2026-09-22 · `58-pagamento-pix-em-rota-propria` **IMPLEMENTADA — 15 de 15 tasks**
+
+- **Feature**: `.specs/features/58-pagamento-pix-em-rota-propria/` (`spec.md`, `design.md`,
+  `tasks.md`, `validation.md`). Decisões: **`AD-042`** (a superfície do pagamento tem um dono, e é a
+  rota) e **`AD-043`** (o número do pedido é do banco, por sequência). Fecha **`BL-031`**.
+- **Origem**: defeito relatado — quem escolhia PIX clicava em "Pagar R$ X com PIX" e **a tela não
+  mudava**: o botão ficava apagado por até 30s enquanto duas chamadas de rede aconteciam, e o QR
+  nascia dentro do bloco 3 do acordeão, abaixo da dobra, com o CTA morto por cima. A tela do
+  pagamento não tinha endereço. No mesmo movimento, o número do pedido saía `NP-MUBBLKLYGOMR`.
+- **O que mudou**:
+  - **Fase 1** — `packages/core/src/orders/format.ts` (o dono do `#`) · migration da sequência
+    (`0170`, `0171`, …) · a edge function deixou de cunhar número · as oito superfícies pelo dono ·
+    a busca do painel aceita `#0244`, `0244` e `244`.
+  - **Fase 2** — `widgets/checkout-header` · `features/order-payment` (`usePixPayment`,
+    `PaymentProgress`, `PixSurface`) · `pages/OrderPaymentPage.tsx` e a rota
+    `/pedido/:id/pagamento` · `widgets/order-access-refusal`.
+  - **Fase 3** — o CTA vira espera nomeada e navega **antes** de pedir o código · `PaymentBlock`
+    deixou de trocar o bloco 3 pelo QR · a limpeza do carrinho migrou para a rota **com o recorte**
+    de `PIX-P1-08` · `/pedido/:id` pendente ganhou "Pagar com PIX" (board `58 I`) · `/conta` linka ·
+    `PixPayment.tsx` apagado, com `pagamentoComDonoUnico.test.ts` recusando a volta.
+- **Medido em 2026-09-22**, um workspace por vez, exit code fora de pipe: **10388 em 530** (store
+  **3733/230**, core 2459/97, backoffice 3024/166, functions 660/14, catalog-import 512/23). Lint
+  **26/6**, tipos **0 · 0**, `pnpm build` verde, `packages/core/src/payment/**` com **zero** arquivos
+  alterados.
+- **Prova**: 9 mutantes reinjetados nos arquivos reais (9 mortos, 0 sobreviventes, nenhum por
+  compilação) + **navegador Chromium em 390×844 e 1440×900**, com os cinco estados do PIX forçados
+  por interceptação e o percurso inteiro do checkout até o QR. Detalhe em `validation.md`.
+- **Próximo número de feature**: `59`.
+
+#### O que esta feature NÃO fechou
+
+- **Verificação independente**: autor = verificador. Os nove mutantes reduzem o viés, não o
+  eliminam.
+- **A escrita no banco não foi remedida na fase 4** — o Docker estava fora. A numeração foi provada
+  na fase 1, com dois `insert` reais.
+- **O caminho do CARTÃO não foi caminhado em navegador** (o Brick precisa do SDK do Mercado Pago).
+  O que a fase 3 garante sobre ele é *ausência de mudança*: um mutante prova que a tela de progresso
+  não o alcança.
+- **Rede lenta, LCP e CLS da rota nova** não foram medidos, e `prefers-reduced-motion` não foi
+  conferido (o único movimento é o `animate-spin` do anel, que é indicador de progresso).
+- **`/politicas`, o rodapé em 768 e as demais pendências abertas** seguem como estavam.
+
+### 2026-09-20 · `57-avisos-para-a-dona` **IMPLEMENTADA — 10 de 10 tasks**
 
 - **Feature**: `.specs/features/57-avisos-para-a-dona/` (`spec.md`, `design.md`, `tasks.md`,
   `validation.md`). Decisões: `AD-039` (na 56) e `AD-040`.
