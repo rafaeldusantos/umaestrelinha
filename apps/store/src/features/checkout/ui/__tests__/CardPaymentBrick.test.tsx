@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import CardPaymentBrick from '../CardPaymentBrick'
+import { useCheckoutStore } from '../../model/checkoutStore'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -123,5 +124,59 @@ describe('CardPaymentBrick — mensagem de erro por prop (PAY-02, CNF-06)', () =
     expect(container.innerHTML).not.toMatch(
       /bg-(yellow|blue|purple|green|red)-|text-(green|red|yellow|blue|purple)-[0-9]/,
     )
+  })
+})
+
+/**
+ * O sinal que destrava "Pagar" no cartão (2026-10-04). O SDK não tem evento de validade do
+ * formulário; o único sinal enquanto a pessoa digita é `onBinChange`, o número reconhecido.
+ */
+describe('CardPaymentBrick — o número reconhecido chega ao checkout', () => {
+  beforeEach(() => useCheckoutStore.getState().reset())
+  const reconhecido = () => useCheckoutStore.getState().cardNumberRecognized
+
+  it('nasce não reconhecido', () => {
+    renderBrick()
+    expect(reconhecido()).toBe(false)
+  })
+
+  it('BIN de 6 dígitos ou mais marca o número como reconhecido', () => {
+    renderBrick()
+    act(() => capturedProps.onBinChange('411111'))
+    expect(reconhecido()).toBe(true)
+  })
+
+  it('BIN curto, vazio ou ausente desmarca — o número foi apagado ou está incompleto', () => {
+    renderBrick()
+    act(() => capturedProps.onBinChange('41111111'))
+    act(() => capturedProps.onBinChange('4111'))
+    expect(reconhecido()).toBe(false)
+
+    act(() => capturedProps.onBinChange('41111111'))
+    act(() => capturedProps.onBinChange(undefined))
+    expect(reconhecido()).toBe(false)
+  })
+
+  it('desmontar (trocar de método, fechar o bloco) derruba o sinal — o Brick volta vazio', () => {
+    const { unmount } = renderBrick()
+    act(() => capturedProps.onBinChange('41111111'))
+    unmount()
+    expect(reconhecido()).toBe(false)
+  })
+
+  it('valor novo recria o Brick e derruba o sinal — o cartão digitado se perde', () => {
+    const { rerender } = renderBrick({ amount: 100 })
+    act(() => capturedProps.onBinChange('41111111'))
+    expect(reconhecido()).toBe(true)
+
+    rerender(<CardPaymentBrick amount={120} payerEmail="marina@email.com" errorMessage={null} />)
+    expect(reconhecido()).toBe(false)
+  })
+
+  it('o sinal NÃO entra no rascunho — digitar o cartão não invalida o pedido em curso (CHK-08)', () => {
+    renderBrick()
+    const antes = JSON.stringify(useCheckoutStore.getState().draft())
+    act(() => capturedProps.onBinChange('41111111'))
+    expect(JSON.stringify(useCheckoutStore.getState().draft())).toBe(antes)
   })
 })

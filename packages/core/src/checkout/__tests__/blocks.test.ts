@@ -187,18 +187,42 @@ describe('isPaymentComplete', () => {
     expect(isPaymentComplete({ method: 'pix', cpf: VALID_CNPJ })).toBe(true)
   })
 
-  it('cartão com CPF válido => completo', () => {
-    expect(isPaymentComplete({ method: 'card', cpf: VALID_CPF })).toBe(true)
+  // 2026-10-04: no cartão o método NÃO basta mais — era isso que habilitava "Pagar" com o
+  // formulário de cartão vazio. Estes três casos diziam "completo" e foram INVERTIDOS.
+  const reconhecido = { cardNumberRecognized: true }
+  const naoReconhecido = { cardNumberRecognized: false }
+
+  it('cartão sem o número reconhecido pelo Brick => incompleto', () => {
+    expect(isPaymentComplete({ method: 'card', cpf: VALID_CPF }, naoReconhecido)).toBe(false)
+  })
+
+  it('cartão sem sinal nenhum => incompleto (o padrão trava, nunca libera)', () => {
+    expect(isPaymentComplete({ method: 'card', cpf: VALID_CPF })).toBe(false)
+  })
+
+  it('cartão com o número reconhecido => completo', () => {
+    expect(isPaymentComplete({ method: 'card', cpf: VALID_CPF }, reconhecido)).toBe(true)
   })
 
   // PGM-06: no cartão o documento sai do Brick, que valida no submit — exigi-lo aqui
   // manteria o CTA desabilitado com o formulário de cartão preenchido.
-  it('cartão SEM documento => completo (o Brick valida no submit)', () => {
-    expect(isPaymentComplete({ method: 'card', cpf: '' })).toBe(true)
+  it('cartão reconhecido SEM documento no rascunho => completo (o Brick valida no submit)', () => {
+    expect(isPaymentComplete({ method: 'card', cpf: '' }, reconhecido)).toBe(true)
   })
 
-  it('cartão com documento inválido => completo (o documento não é do bloco)', () => {
-    expect(isPaymentComplete({ method: 'card', cpf: '529.982.247-26' })).toBe(true)
+  it('cartão reconhecido com documento inválido no rascunho => completo (não é do bloco)', () => {
+    expect(isPaymentComplete({ method: 'card', cpf: '529.982.247-26' }, reconhecido)).toBe(true)
+  })
+
+  it('o sinal do cartão não mexe no PIX: CPF inválido segue incompleto', () => {
+    expect(isPaymentComplete({ method: 'pix', cpf: '529.982.247-26' }, reconhecido)).toBe(false)
+  })
+
+  it('resolveFlow leva o sinal até `complete`: cartão sem número fica com 2 de 3', () => {
+    const draft = completeDraft()
+    draft.payment.method = 'card'
+    expect(resolveFlow(draft, flow(), 'guest', naoReconhecido).complete).not.toContain('payment')
+    expect(resolveFlow(draft, flow(), 'guest', reconhecido).complete).toContain('payment')
   })
 
   it('sem método escolhido => incompleto', () => {

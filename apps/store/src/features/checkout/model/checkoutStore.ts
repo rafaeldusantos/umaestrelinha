@@ -76,6 +76,13 @@ interface CheckoutState extends CheckoutDraft {
    * Semear de `customers`/`addresses` não suja: é o que preserva ADR-02.
    */
   dirty: BlockId[]
+  /**
+   * O Brick de cartão reconheceu o número (`CardFormSignal`, em `core`). Estado da TELA, não do
+   * rascunho: fica de fora do `partialize` — recarregar remonta o Brick vazio, e um `true` velho
+   * habilitaria "Pagar" com o formulário em branco — e de `draft()`, para digitar o cartão não
+   * contar como "o rascunho mudou desde o pedido" (CHK-08).
+   */
+  cardNumberRecognized: boolean
 
   setContact: (patch: Partial<ContactDraft>) => void
   setAddress: (patch: Partial<AddressDraft>) => void
@@ -83,6 +90,7 @@ interface CheckoutState extends CheckoutDraft {
   setPayment: (patch: Partial<PaymentDraft>) => void
   toggleBump: (checked?: boolean) => void
   markDirty: (id: BlockId) => void
+  setCardNumberRecognized: (recognized: boolean) => void
   /**
    * `identity` é o `user.id` de quem acionou o CTA — `null` para convidada (`IDN-07`). Opcional
    * para os chamadores que não decidem identidade nenhuma, e nesses o valor é `null`, que é o
@@ -109,6 +117,7 @@ export const useCheckoutStore = create<CheckoutState>()(
       clientRequestId: null,
       orderIdentity: null,
       dirty: [],
+      cardNumberRecognized: false,
 
       setContact: (patch) => set((s) => ({ contact: { ...s.contact, ...patch } })),
       setAddress: (patch) => set((s) => ({ address: { ...s.address, ...patch } })),
@@ -118,6 +127,8 @@ export const useCheckoutStore = create<CheckoutState>()(
       // Patch vazio quando o bloco já está sujo: devolver um array novo a cada tecla faria a
       // página re-renderizar à toa (o seletor compara por referência).
       markDirty: (id) => set((s) => (s.dirty.includes(id) ? {} : { dirty: [...s.dirty, id] })),
+      setCardNumberRecognized: (recognized) =>
+        set((s) => (s.cardNumberRecognized === recognized ? {} : { cardNumberRecognized: recognized })),
 
       setOrder: (id, snapshot, identity = null) =>
         set({ orderId: id, orderSnapshot: snapshot, orderIdentity: identity }),
@@ -144,6 +155,7 @@ export const useCheckoutStore = create<CheckoutState>()(
           clientRequestId: null,
           orderIdentity: null,
           dirty: [],
+          cardNumberRecognized: false,
         })
         useCheckoutStore.persist.clearStorage()
       },
@@ -152,7 +164,10 @@ export const useCheckoutStore = create<CheckoutState>()(
         const { contact, address, shipping, payment, bumpChecked } = get()
         return { contact, address, shipping, payment, bumpChecked }
       },
-      blocks: (identity) => resolveBlocks(get().draft(), identity),
+      blocks: (identity) =>
+        resolveBlocks(get().draft(), identity, {
+          cardNumberRecognized: get().cardNumberRecognized,
+        }),
       isStale: () => isOrderStale(get().draft(), get().orderSnapshot),
     }),
     {

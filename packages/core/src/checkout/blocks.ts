@@ -65,16 +65,40 @@ export function isDeliveryComplete(delivery: DeliveryDraft): boolean {
 }
 
 /**
+ * O que a TELA sabe do formulário de cartão — estado do Brick do Mercado Pago, nunca do rascunho.
+ *
+ * Fica fora de `PaymentDraft` de propósito: não é dado do pedido, não é persistido e não pode
+ * entrar no `billingFingerprint` — senão digitar o cartão invalidaria o pedido em curso.
+ */
+export interface CardFormSignal {
+  /**
+   * O Brick reconheceu o número do cartão (`onBinChange` com os primeiros 6+ dígitos).
+   *
+   * É o único sinal que o Brick dá enquanto a pessoa digita: o SDK (`@mercadopago/sdk-react`
+   * 1.0.7) expõe `onReady`, `onError`, `onBinChange` e `onSubmit`, e **nenhum evento de
+   * validade**. Validade, CVV, nome e documento continuam validados no clique, por
+   * `getCardFormData()` — que pinta os erros de campo e não cobra nada (PGM-06).
+   */
+  cardNumberRecognized: boolean
+}
+
+const NO_CARD_SIGNAL: CardFormSignal = { cardNumberRecognized: false }
+
+/**
  * CHK-03: método escolhido e, no PIX, documento válido (CPF ou CNPJ — DOC-02).
  *
- * PGM-06: no cartão basta o método. O documento e os dados do cartão vêm do Brick, que valida
- * no submit — apertar o CTA com o formulário vazio pinta os erros de campo e não cobra nada.
- * Espelhar essa validação aqui exigiria ler estado interno do Brick.
+ * No cartão, o número reconhecido pelo Brick (2026-10-04, decisão do usuário). Até aqui bastava o
+ * método, e o CTA "Pagar" habilitava com o formulário de cartão vazio. O sinal é parcial — ver
+ * `CardFormSignal` —, e o padrão é **não reconhecido**: quem não informar o sinal fica travado no
+ * cartão, nunca liberado.
  *
  * O filtro "método habilitado nas settings" é do `PaymentBlock` — aqui só existe o rascunho.
  */
-export function isPaymentComplete(payment: PaymentDraft): boolean {
-  if (payment?.method === 'card') return true
+export function isPaymentComplete(
+  payment: PaymentDraft,
+  card: CardFormSignal = NO_CARD_SIGNAL,
+): boolean {
+  if (payment?.method === 'card') return card.cardNumberRecognized
   if (payment?.method === 'pix') return isValidDocument(payment?.cpf ?? '')
   return false
 }
@@ -86,11 +110,12 @@ export function isPaymentComplete(payment: PaymentDraft): boolean {
 export function resolveBlocks(
   draft: CheckoutDraft,
   identity: CheckoutIdentity,
+  card: CardFormSignal = NO_CARD_SIGNAL,
 ): { open: BlockId | null; complete: BlockId[] } {
   const done: Record<BlockId, boolean> = {
     contact: isContactComplete(draft.contact, identity),
     delivery: isDeliveryComplete(draft),
-    payment: isPaymentComplete(draft.payment),
+    payment: isPaymentComplete(draft.payment, card),
   }
 
   return {
@@ -117,8 +142,9 @@ export function resolveFlow(
   draft: CheckoutDraft,
   flow: FlowState,
   identity: CheckoutIdentity,
+  card: CardFormSignal = NO_CARD_SIGNAL,
 ): { open: BlockId | null; complete: BlockId[]; settled: BlockId[] } {
-  const { complete } = resolveBlocks(draft, identity)
+  const { complete } = resolveBlocks(draft, identity, card)
 
   const settled = BLOCK_ORDER.filter(
     (id, index) =>

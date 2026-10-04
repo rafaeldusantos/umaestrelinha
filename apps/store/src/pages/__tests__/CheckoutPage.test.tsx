@@ -75,16 +75,34 @@ vi.mock('@/entities/product/api/useProducts', () => ({
 vi.mock('@/features/checkout/api/useCepLookup', () => ({ useCepLookup: vi.fn() }))
 vi.mock('@/features/checkout/api/useShippingQuote', () => ({ useShippingQuote: vi.fn() }))
 vi.mock('@/features/apply-coupon/ui/CouponInput', () => ({ default: () => null }))
-vi.mock('@/features/checkout/ui/CardPaymentBrick', () => ({
-  default: ({ amount, payerEmail, errorMessage }: any) => (
-    <div
-      data-testid="card-brick"
-      data-amount={amount}
-      data-email={payerEmail}
-      data-error={errorMessage ?? ''}
-    />
-  ),
-}))
+/**
+ * Se o dublê do Brick "digita" o cartão ao montar. O Brick real reporta o número reconhecido ao
+ * store por `onBinChange` (provado em `CardPaymentBrick.test.tsx`); sem esse sinal o CTA não
+ * habilita no cartão (2026-10-04). Os casos de cartão desta suíte pressupõem a cliente com o
+ * cartão digitado — os que provam o contrário desligam a chave.
+ */
+const brickDigitaOCartao = { current: true }
+vi.mock('@/features/checkout/ui/CardPaymentBrick', async () => {
+  const { useEffect } = await vi.importActual<typeof import('react')>('react')
+  const { useCheckoutStore: store } = await vi.importActual<
+    typeof import('@/features/checkout/model/checkoutStore')
+  >('@/features/checkout/model/checkoutStore')
+  const BrickDuble = ({ amount, payerEmail, errorMessage }: any) => {
+    useEffect(() => {
+      if (brickDigitaOCartao.current) store.getState().setCardNumberRecognized(true)
+      return () => store.getState().setCardNumberRecognized(false)
+    }, [])
+    return (
+      <div
+        data-testid="card-brick"
+        data-amount={amount}
+        data-email={payerEmail}
+        data-error={errorMessage ?? ''}
+      />
+    )
+  }
+  return { default: BrickDuble }
+})
 
 // O overlay real arrasta o SDK de OTP; o que a página precisa provar é o estado do store.
 vi.mock('@/features/auth', async () => {
@@ -355,6 +373,7 @@ const approveWithCard = async () => {
 }
 
 beforeEach(() => {
+  brickDigitaOCartao.current = true
   useCheckoutStore.getState().reset()
   realClearCoupon()
   clearCartSpy = vi.fn(realClearCart)
@@ -1145,6 +1164,13 @@ describe('CheckoutPage — criação do pedido (CHK-07, CHK-08)', () => {
     fireEvent.change(region('Contato').getByLabelText('Nome completo'), {
       target: { value: 'Marina Y.' },
     })
+    // Abrir o Contato fecha o Pagamento, e o Brick desmonta levando o cartão digitado: "Pagar"
+    // trava (2026-10-04). Antes ele seguia habilitado e, no app real, o clique não fazia nada —
+    // `getCardFormData()` não acha o Brick e devolve `null` em silêncio. O percurso real é
+    // confirmar o bloco, o Brick voltar e o cartão ser digitado de novo.
+    expect(cta()).toBeDisabled()
+    fireEvent.click(region('Contato').getByRole('button', { name: 'Continuar' }))
+    expect(cta()).toBeEnabled()
     fireEvent.click(cta())
 
     await waitFor(() => expect(createOrderMutateAsync).toHaveBeenCalledTimes(2))
@@ -1538,6 +1564,47 @@ describe('CheckoutPage — um CTA, dois caminhos (PGM-06 … PGM-08, DOC-05)', (
     renderPage()
     fireEvent.click(cta())
   }
+
+  // 2026-10-04: "Pagar" só habilita com os dados obrigatórios do pagamento. No cartão, o sinal é
+  // o número reconhecido pelo Brick — até aqui o CTA habilitava com o formulário vazio.
+  it('cartão escolhido SEM o número reconhecido: "Pagar" fica desabilitado', () => {
+    brickDigitaOCartao.current = false
+    fillAll('card')
+    renderPage()
+
+    expect(screen.getByTestId('card-brick')).toBeInTheDocument()
+    expect(cta()).toBeDisabled()
+  })
+
+  it('cartão com o número reconhecido: "Pagar" habilita', () => {
+    fillAll('card')
+    renderPage()
+
+    expect(cta()).toBeEnabled()
+  })
+
+  it('o Brick reconhecer o número DEPOIS de montado habilita "Pagar" na hora', () => {
+    brickDigitaOCartao.current = false
+    fillAll('card')
+    renderPage()
+    expect(cta()).toBeDisabled()
+
+    act(() => useCheckoutStore.getState().setCardNumberRecognized(true))
+
+    expect(cta()).toBeEnabled()
+  })
+
+  it('trocar para PIX e voltar ao cartão trava "Pagar" de novo — o Brick volta vazio', () => {
+    fillAll('card')
+    renderPage()
+    expect(cta()).toBeEnabled()
+
+    brickDigitaOCartao.current = false
+    act(() => useCheckoutStore.getState().setPayment({ method: 'pix', cpf: '' }))
+    act(() => useCheckoutStore.getState().setPayment({ method: 'card' }))
+
+    expect(cta()).toBeDisabled()
+  })
 
   it('cartão inválido: nenhum pedido, nenhuma cobrança, nenhum documento gravado (PGM-06)', async () => {
     getCardFormDataMock.mockResolvedValue(null)

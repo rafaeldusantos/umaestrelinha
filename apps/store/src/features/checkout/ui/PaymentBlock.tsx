@@ -123,7 +123,7 @@ const PaymentBlock = ({ open, complete, onEdit, amount, cardError = null }: Prop
           Pagamento
         </h2>
         <p className="text-[13px] text-estrelinha-ink-soft">
-          Processado pelo Mercado Pago — seus dados não passam pela loja
+          Selecione o método de pagamento
         </p>
       </div>
     </header>

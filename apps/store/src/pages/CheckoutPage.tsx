@@ -104,6 +104,8 @@ const CheckoutPage = () => {
   // que decide criar ou reusar o pedido — assinar a mudança aqui faria a página renderizar de novo
   // sem nada para mostrar de diferente.
   const dirty = useCheckoutStore((s) => s.dirty)
+  /** Cartão: o Brick reconheceu o número (`CardFormSignal`). Sem isso "Pagar" não habilita. */
+  const cardNumberRecognized = useCheckoutStore((s) => s.cardNumberRecognized)
 
   const { pricingItems, bump, bumpProduct, totals, promotionDiscount, applied } =
     useCheckoutTotals()
@@ -181,8 +183,20 @@ const CheckoutPage = () => {
         { contact, address, shipping, payment, bumpChecked },
         { dirty, confirmed, editing },
         identity,
+        { cardNumberRecognized },
       ),
-    [contact, address, shipping, payment, bumpChecked, dirty, confirmed, editing, identity],
+    [
+      contact,
+      address,
+      shipping,
+      payment,
+      bumpChecked,
+      dirty,
+      confirmed,
+      editing,
+      identity,
+      cardNumberRecognized,
+    ],
   )
   const openBlock = flow.open
   const isComplete = (id: BlockId) => flow.complete.includes(id)

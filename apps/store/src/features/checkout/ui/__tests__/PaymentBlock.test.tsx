@@ -114,6 +114,15 @@ describe('PaymentBlock — métodos filtrados pelas settings (CHK-03)', () => {
   })
 })
 
+describe('PaymentBlock — subtítulo do bloco aberto', () => {
+  it('pede a escolha do método (2026-10-04)', () => {
+    renderBlock()
+
+    expect(screen.getByText('Selecione o método de pagamento')).toBeInTheDocument()
+    expect(screen.queryByText(/seus dados não passam pela loja/)).not.toBeInTheDocument()
+  })
+})
+
 describe('PaymentBlock — cards de método (PGM-01, PGM-02)', () => {
   const methodCard = (name: RegExp) => screen.getByRole('button', { name })
 

@@ -2,6 +2,8 @@ import { useMemo, useEffect } from 'react'
 import { CardPayment } from '@mercadopago/sdk-react'
 import { documentLabel, stripDocument } from '@estrelinha/core/validators'
 import { usePaymentSettings } from '@estrelinha/core/hooks/useStoreSettings'
+import { useCheckoutStore } from '../model/checkoutStore'
+import { binRecognized } from '../lib/cardBrick'
 
 interface Props {
   amount: number
@@ -27,13 +29,17 @@ interface Props {
  */
 const CardPaymentBrick = ({ amount, payerEmail, payerDocument, errorMessage }: Props) => {
   const settings = usePaymentSettings()
+  const setCardNumberRecognized = useCheckoutStore((s) => s.setCardNumberRecognized)
 
   useEffect(
     () => () => {
       // PGM-09: trocar de método (ou sair do bloco) libera o container do Brick.
       window.cardPaymentBrickController?.unmount()
+      // E o número digitado vai junto: voltar ao cartão remonta o Brick vazio, e um `true` velho
+      // habilitaria "Pagar" com o formulário em branco.
+      setCardNumberRecognized(false)
     },
-    [],
+    [setCardNumberRecognized],
   )
 
   // PAY-15: max_installments limitado também pelo valor mínimo de parcela.
@@ -57,6 +63,13 @@ const CardPaymentBrick = ({ amount, payerEmail, payerDocument, errorMessage }: P
     }
   }, [amount, payerEmail, payerDocument])
 
+  // `initialization` novo recria o Brick (o valor muda com cupom, frete ou order bump) e o cartão
+  // digitado se perde. O sinal precisa cair junto, senão "Pagar" ficaria habilitado sobre um
+  // formulário que acabou de ser esvaziado.
+  useEffect(() => {
+    setCardNumberRecognized(false)
+  }, [initialization, setCardNumberRecognized])
+
   return (
     <div className="space-y-3">
       <CardPayment
@@ -72,6 +85,10 @@ const CardPaymentBrick = ({ amount, payerEmail, payerDocument, errorMessage }: P
             style: { customVariables: { baseColor: '#B0176B' } },
           },
         }}
+        // O único sinal que o Brick dá enquanto a pessoa digita: o número do cartão reconhecido.
+        // Validade, CVV, nome e documento seguem validados no clique (PGM-06) — o SDK não tem
+        // evento de validade do formulário (ver `CardFormSignal`).
+        onBinChange={(bin) => setCardNumberRecognized(binRecognized(bin))}
         // Desabilitado por `hidePaymentButton`; a tipagem do SDK ainda o exige.
         onSubmit={async () => {}}
       />

@@ -34,3 +34,13 @@ export async function getCardFormData(): Promise<CardPaymentFormData | null> {
     return null
   }
 }
+
+/**
+ * Quantos dígitos o Brick precisa ter lido para o número contar como reconhecido. O BIN tem 6
+ * (ou 8) dígitos; menos que isso não identifica bandeira nenhuma.
+ */
+const BIN_MIN_DIGITS = 6
+
+/** O sinal que `isPaymentComplete` lê no cartão (`CardFormSignal`, em `core`). */
+export const binRecognized = (bin: string | null | undefined): boolean =>
+  (bin ?? '').replace(/\D/g, '').length >= BIN_MIN_DIGITS
