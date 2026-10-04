@@ -11,19 +11,17 @@
 // sem piscar, sem vocabulário de urgência — nos últimos 5 minutos ele apenas troca de `ink` para
 // `primary`, que é a régua de `CNF-06`. Esta loja é memorial: contagem regressiva que grita é
 // exatamente o que o `DESIGN.md` §1 proíbe.
-import { Link } from 'react-router-dom'
 import { QRCodeSVG } from 'qrcode.react'
 
-import { formatPrice } from '@estrelinha/core/formatters'
 import {
   useGeneralSettings,
   usePaymentSettings,
 } from '@estrelinha/core/hooks/useStoreSettings'
 import { formatOrderNumber } from '@estrelinha/core/orders'
 
-import { TAP_ROW } from '@/shared/lib/touchTarget'
-
 import type { PixState } from '../model/usePixPayment'
+import PaymentApproved from './PaymentApproved'
+import { Aviso, Cartao, Moldura } from './PaymentFrame'
 
 /**
  * A partir de quando o tempo troca de cor — `CNF-06`, `PIX-P2-05`.
@@ -61,89 +59,6 @@ export interface PixSurfaceProps {
   onCopy: () => void
   copied: boolean
 }
-
-const Eyebrow = ({ numero, situacao }: { numero: string; situacao: string }) => (
-  <p className="estrelinha-eyebrow text-center text-estrelinha-ink-soft">
-    Pedido <span>{formatOrderNumber(numero)}</span> · {situacao}
-  </p>
-)
-
-/** A moldura comum aos quatro estados: é ela que faz a tela ruim não parecer outro site. */
-const Moldura = ({
-  numero,
-  situacao,
-  titulo,
-  lead,
-  amount,
-  nota,
-  children,
-  rodape,
-  orderHref,
-}: {
-  numero: string
-  situacao: string
-  titulo: string
-  lead: string
-  amount: number
-  nota: string
-  children: React.ReactNode
-  rodape: string
-  orderHref: string
-}) => (
-  // `min-w-0` na coluna e `w-full` no cartão: nada aqui pode contribuir com min-content maior que
-  // a viewport de 390 — é o defeito que a auditoria da `27` mediu na página do produto.
-  <div className="mx-auto flex w-full min-w-0 max-w-[680px] flex-col items-center px-6 pb-12 pt-9 md:pt-12">
-    <Eyebrow numero={numero} situacao={situacao} />
-    <h1 className="mt-3 text-center font-heading text-[30px] font-bold leading-9 tracking-[-0.02em] text-estrelinha-ink md:text-[38px] md:leading-[44px]">
-      {titulo}
-    </h1>
-    <p className="mt-3 max-w-[460px] text-center text-[15px] leading-6 text-estrelinha-ink-soft">
-      {lead}
-    </p>
-
-    <p className="mt-6 font-heading text-[40px] font-bold leading-[44px] tracking-[-0.03em] text-estrelinha-ink">
-      {formatPrice(amount)}
-    </p>
-    <p className="mt-1 text-center text-sm font-medium text-estrelinha-primary">{nota}</p>
-
-    {children}
-
-    <p className="mt-6 max-w-[460px] text-center text-[13px] leading-5 text-estrelinha-ink-soft">
-      {rodape}
-    </p>
-    {/*
-      `PIX-P2-04`: o caminho manual para o pedido fica VISÍVEL nos quatro estados — inclusive no de
-      sucesso, onde a navegação automática pode falhar e deixar a pessoa presa numa tela que diz
-      que deu certo e não vai a lugar nenhum.
-
-      `TAP_ROW` e não `TAP_44`: é texto em fluxo, e um quadrado de 44 centrado num rótulo de 180px
-      deixaria as pontas fora do alvo.
-    */}
-    <Link
-      to={orderHref}
-      className={`${TAP_ROW} mt-3.5 text-sm font-semibold text-estrelinha-primary hover:underline`}
-    >
-      Ver os detalhes do pedido
-    </Link>
-  </div>
-)
-
-/** O cartão que muda entre os estados. Superfície única: `ground-deep`, raio de caixa. */
-const Cartao = ({ children }: { children: React.ReactNode }) => (
-  <div className="mt-6 flex w-full flex-col items-center gap-4 rounded-lg bg-estrelinha-ground-deep p-5 md:p-8">
-    {children}
-  </div>
-)
-
-/** O aviso de fundo sereno — informação de estado, nunca alarme. */
-const Aviso = ({ titulo, corpo }: { titulo: string; corpo: string }) => (
-  <p className="mt-4 flex w-full items-start gap-2.5 rounded-md bg-estrelinha-serenity px-4 py-3.5 text-[13px] leading-5 text-estrelinha-ink-soft">
-    <span aria-hidden className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-estrelinha-primary" />
-    <span>
-      <strong className="font-semibold text-estrelinha-ink">{titulo}</strong> {corpo}
-    </span>
-  </p>
-)
 
 /** A pílula cheia — **uma por estado** (`DESIGN.md` §8). Ação é retângulo de 6px, nunca pílula. */
 const AcaoPrincipal = ({
@@ -195,52 +110,14 @@ const PixSurface = ({
   const desconto = pagamento.pix_discount_percent > 0 ? pagamento.pix_discount_percent : null
 
   if (state.kind === 'approved') {
-    const hora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
     return (
-      <Moldura
-        numero={orderNumber}
-        situacao="Pagamento confirmado"
-        titulo="Pagamento confirmado"
-        lead="Seu banco confirmou agora. Não precisa fazer mais nada."
+      <PaymentApproved
+        method="pix"
         amount={amount}
-        nota="pagos com PIX"
-        rodape="Seu pedido também fica guardado em Minha conta → Pedidos, com o comprovante."
+        orderNumber={orderNumber}
         orderHref={orderHref}
-      >
-        <Cartao>
-          {/* Tique de tinta sobre disco de ouro: `ink` sobre `accent` mede 4,78:1 — o único par em
-              que o acento carrega texto nesta identidade. */}
-          <span className="flex h-14 w-14 items-center justify-center rounded-full bg-estrelinha-accent text-estrelinha-ink">
-            <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden>
-              <path
-                d="M8.8 14.3 12.3 17.8 19.3 10.8"
-                stroke="currentColor"
-                strokeWidth="2.6"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </span>
-          <p className="text-center font-heading text-[20px] font-bold text-estrelinha-ink">
-            Confirmado às {hora}
-          </p>
-          {customerEmail ? (
-            <p className="max-w-[300px] text-center text-sm leading-[22px] text-estrelinha-ink-soft">
-              O comprovante está indo para{' '}
-              <strong className="font-semibold text-estrelinha-ink">{customerEmail}</strong>.
-              Abrindo os detalhes do seu pedido…
-            </p>
-          ) : (
-            <p className="max-w-[300px] text-center text-sm leading-[22px] text-estrelinha-ink-soft">
-              Abrindo os detalhes do seu pedido…
-            </p>
-          )}
-        </Cartao>
-        <Aviso
-          titulo="Abrindo os detalhes do pedido"
-          corpo="Se a tela não avançar em alguns segundos, toque em “Ver os detalhes do pedido”."
-        />
-      </Moldura>
+        customerEmail={customerEmail}
+      />
     )
   }
 

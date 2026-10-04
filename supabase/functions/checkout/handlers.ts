@@ -271,7 +271,7 @@ export async function createOrder(
   // reavaliado: a pessoa já passou por essa porta.
   const { data: jaExiste } = await deps.supabase
     .from('orders')
-    .select('id, guest_access_hash, guest_access_expires_at')
+    .select('id, order_number, guest_access_hash, guest_access_expires_at')
     .eq('client_request_id', clientRequestId)
     .maybeSingle()
 
@@ -300,7 +300,12 @@ export async function createOrder(
     }
 
     log({ action: 'create-order', status: 'reused', order_id: jaExiste.id })
-    return json({ order_id: jaExiste.id, access_token: tokenNovo, reused: true })
+    return json({
+      order_id: jaExiste.id,
+      order_number: jaExiste.order_number ?? null,
+      access_token: tokenNovo,
+      reused: true,
+    })
   }
 
   const { identity, customerId: customerIdDaSessao } = await resolveIdentity(deps, req, email)
@@ -330,10 +335,12 @@ export async function createOrder(
   }
   pedido.customer_email = email
 
+  // `order_number` é LIDO de volta, nunca escrito: o `default` da coluna o cunhou agora. A espera
+  // do cartão (board `58 K`) o mostra no passo 2 — é o que responde "perdi minha compra?".
   const { data: criado, error: erroPedido } = await deps.supabase
     .from('orders')
     .insert(pedido)
-    .select('id')
+    .select('id, order_number')
     .single()
 
   if (erroPedido || !criado?.id) {
@@ -374,7 +381,11 @@ export async function createOrder(
     // O pedido ficou órfão? É o sinal de que a criação de conta falhou — e a venda seguiu.
     linked: Boolean(customerId),
   })
-  return json({ order_id: orderId, access_token: accessToken })
+  return json({
+    order_id: orderId,
+    order_number: (criado.order_number as string | null) ?? null,
+    access_token: accessToken,
+  })
 }
 
 /**

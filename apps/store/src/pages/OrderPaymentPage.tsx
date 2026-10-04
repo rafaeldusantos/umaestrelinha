@@ -23,19 +23,18 @@ import {
 } from '@/features/abandoned-cart/model/useAbandonedCartTracker'
 import { AuthOverlay } from '@/features/auth'
 import { useCheckoutStore } from '@/features/checkout/model/checkoutStore'
-import { PaymentProgress, PixSurface, usePixPayment } from '@/features/order-payment'
+import {
+  BATIDA_MS,
+  PaymentProgress,
+  PixSurface,
+  usePixPayment,
+} from '@/features/order-payment'
 import { CheckoutHeader } from '@/widgets/checkout-header'
 import { OrderAccessRefusal } from '@/widgets/order-access-refusal'
 
-/**
- * A batida entre a confirmação e a navegação (`PIX-P2-04`).
- *
- * Quem está olhando para o QR precisa **ver a causa** do que vai acontecer: sem a pausa, a tela
- * troca sozinha e a pessoa não sabe se o pagamento caiu ou se ela clicou em algo. E a tela de
- * sucesso mantém o link manual à vista justamente para a pessoa não ficar presa se esta navegação
- * falhar.
- */
-export const BATIDA_MS = 1200
+// `BATIDA_MS` mudou para `features/order-payment` quando o cartão ganhou a mesma batida; o
+// reexport mantém o endereço que o teste desta página já importava.
+export { BATIDA_MS }
 
 /**
  * O casco da rota — e o `AuthOverlay` mora aqui pelo mesmo motivo que ele mora no `CheckoutPage`.

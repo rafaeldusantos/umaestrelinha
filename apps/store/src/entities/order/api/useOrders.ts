@@ -171,6 +171,11 @@ export interface CreateOrderResult {
   id: string
   /** `PED-05`: a prova de posse da convidada. `null` para quem tem sessão — o JWT já é a prova. */
   access_token: string | null
+  /**
+   * O número que o banco cunhou (`default` da coluna, feature `58`). Opcional: uma function
+   * publicada antes de devolvê-lo responde sem ele, e a espera do cartão simplesmente não o diz.
+   */
+  order_number?: string | null
 }
 
 /**
@@ -209,6 +214,7 @@ export const useCreateOrder = () => {
       const corpo = (data ?? (await lerCorpoDoErro(error))) as {
         order_id?: string
         access_token?: string | null
+        order_number?: string | null
         reason?: string
         error?: string
       } | null
@@ -218,7 +224,11 @@ export const useCreateOrder = () => {
         throw new Error(corpo?.error || error?.message || 'Erro ao criar pedido')
       }
 
-      return { id: corpo.order_id, access_token: corpo.access_token ?? null }
+      return {
+        id: corpo.order_id,
+        access_token: corpo.access_token ?? null,
+        ...(corpo.order_number ? { order_number: corpo.order_number } : {}),
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['orders'] })

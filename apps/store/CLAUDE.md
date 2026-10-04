@@ -888,9 +888,36 @@ Quatro faixas de largura cheia, nesta ordem e com estas cores dos artboards: `1 
 ### O PIX tem endereço, e o checkout entrega o bastão (feature `58`, `AD-042`)
 
 `/pedido/:id/pagamento` é a **única** casa do pagamento PIX. O checkout termina quando o pedido
-existe: ele troca a tela pela espera nomeada, cria o pedido e **navega**. O cartão não passa por
-aqui — o Brick precisa continuar montado no bloco 3 para a retentativa de recusa funcionar
-(`PGM-08`), e o caminho dele não tem uma linha alterada.
+existe: ele troca a tela pela espera nomeada, cria o pedido e **navega**. O cartão não ganha rota —
+ver a seção seguinte.
+
+### O cartão espera POR CIMA do checkout (boards `58 J`–`58 N`, 2026-10-04)
+
+Desenho na página **"58 · Checkout — pagamento PIX"** do Paper, na fileira do cartão. A espera do
+cartão é a **mesma** `PaymentProgress` do PIX (prop `method="card"`), e a aprovação é a **mesma**
+`PaymentApproved` — duas telas por meio divergiriam sem nada quebrar.
+
+- **Camada, não troca de tela.** O PIX troca o checkout pela espera e navega; o cartão **não pode**:
+  o Brick precisa continuar montado para a retentativa de recusa (`PGM-08`) — desmontá-lo apaga o
+  cartão digitado e o `cardPaymentBrickController`. A espera é um `fixed inset-0` por cima, e o
+  checkout embaixo ganha `aria-hidden` mas fica no DOM. `CheckoutPage.test.tsx` mede as duas
+  metades juntas (a camada está lá **e** o Brick também).
+- **A camada só entra depois que o Mercado Pago aceita o formulário** (`getCardFormData`). Antes
+  disso, um cartão inválido faria ela aparecer e sumir na mesma fração de segundo. Retentativa com
+  pedido já criado começa direto no passo 2.
+- **Aprovado tem a batida do PIX** (`BATIDA_MS`, agora em `features/order-payment/model/batida.ts`,
+  um número para os dois meios), e a sacola só é limpa **depois** dela.
+  - ⚠️ **Nos testes, a batida vaza entre casos**: um caso que aprova sem esperar deixa o
+    `setTimeout` pendente, e ele roda `handlePaymentSuccess` do checkout antigo **dentro do caso
+    seguinte**, esvaziando a sacola dele. Por isso `CheckoutPage.test.tsx` dubla `BATIDA_MS` com um
+    getter (zero por padrão) e só os casos que medem a batida ligam o valor real.
+- **Recusa não tem tela**: a camada sai e o aviso (`features/checkout/lib/cardNotice.ts`) vai para o
+  **topo** do formulário do cartão, com rolagem até ele. A régua do aviso é uma assimetria: recusa
+  respondida pode dizer "nada foi cobrado"; timeout ou erro de rede **não** — a loja não sabe. Quem
+  impede a cobrança dupla na retentativa é o 409 do `create-payment` para pedido já aprovado.
+- **O número do pedido no passo 2 vem do `create-order`**, que passou a devolver `order_number`
+  **lido** do insert (o dono continua sendo o `default` da coluna). Uma function publicada antes
+  disso responde sem ele, e a espera simplesmente não o diz.
 
 - **O que isso apagou**: o QR nascia **dentro do bloco 3 do acordeão**, abaixo da dobra no celular,
   com o CTA fixo por cima dizendo "Pagar R$ X com PIX" — um botão que já não fazia nada —, e a tela

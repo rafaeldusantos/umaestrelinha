@@ -34,6 +34,29 @@ import CheckoutPage, { MISSING_DOCUMENT_MESSAGE, ORDER_FAILED_MESSAGE } from '..
 // CNF-05: carrinho e cupom limpos exatamente 1× e **só** na aprovação.
 
 const createOrderMutateAsync = vi.fn()
+/**
+ * A batida do cartão aprovado (board `58 L`), controlável por caso.
+ *
+ * **Zero por padrão, e não é para economizar tempo.** Vários casos aprovam o cartão e terminam sem
+ * esperar a navegação; com a batida real de 1,2s, o `setTimeout` pendente de um caso dispara DENTRO
+ * do seguinte e roda `handlePaymentSuccess` do checkout antigo — que esvazia a sacola e o rascunho
+ * do caso novo. Em produção isso é o certo (a compra fechou, mesmo que a pessoa tenha saído pelo
+ * link); aqui é vazamento entre casos. Os casos que MEDEM a batida ligam o valor real e esperam a
+ * navegação até o fim.
+ */
+const batida = { ms: 0 }
+const BATIDA_REAL = 1200
+vi.mock('@/features/order-payment', async () => {
+  const actual = await vi.importActual<typeof import('@/features/order-payment')>(
+    '@/features/order-payment',
+  )
+  return {
+    ...actual,
+    get BATIDA_MS() {
+      return batida.ms
+    },
+  }
+})
 const createPaymentMutateAsync = vi.fn()
 const getCardFormDataMock = vi.fn()
 const saveCpfMutateAsync = vi.fn()
@@ -109,7 +132,7 @@ vi.mock('@/features/checkout/ui/CardPaymentBrick', async () => {
   const { useCheckoutStore: store } = await vi.importActual<
     typeof import('@/features/checkout/model/checkoutStore')
   >('@/features/checkout/model/checkoutStore')
-  const BrickDuble = ({ amount, payerEmail, errorMessage }: any) => {
+  const BrickDuble = ({ amount, payerEmail, errorMessage, notice }: any) => {
     useEffect(() => {
       // O Brick real entrega o BIN por `onBinChange`; é ele que reconhece o número E abre a tabela.
       if (brickDigitaOCartao.current) store.getState().setCardBin('42356477')
@@ -121,6 +144,8 @@ vi.mock('@/features/checkout/ui/CardPaymentBrick', async () => {
         data-amount={amount}
         data-email={payerEmail}
         data-error={errorMessage ?? ''}
+        data-notice-title={notice?.title ?? ''}
+        data-notice-footer={notice?.footer ?? ''}
       />
     )
   }
@@ -422,11 +447,21 @@ const handOffToPixRoute = async () => {
  * A limpeza de carrinho/cupom do caminho PIX **mudou de casa** na feature `58` (`PIX-P1-08`), e é
  * provada em `OrderPaymentPage.test.tsx`, com o recorte que aqui não precisa existir.
  */
+/**
+ * A confirmação do cartão chega DEPOIS da batida (board `58 L`, `BATIDA_MS`): a tela de aprovado
+ * fica de pé ~1,2s antes de navegar, e o teto padrão do `waitFor` (1s) desistiria antes.
+ */
+const esperarConfirmacao = () =>
+  waitFor(() => expect(screen.getByText('rota-confirmacao:order-1')).toBeInTheDocument(), {
+    // Folga larga: sob a contenção da suíte cheia a aprovação inteira já mediu 3,3s.
+    timeout: BATIDA_REAL + 8000,
+  })
+
 const approveWithCard = async () => {
   fillAll('card')
   renderPage()
   fireEvent.click(cta())
-  await waitFor(() => expect(screen.getByText('rota-confirmacao:order-1')).toBeInTheDocument())
+  await esperarConfirmacao()
 }
 
 beforeEach(() => {
@@ -454,6 +489,7 @@ beforeEach(() => {
   // Feature 49: o token de posse mora em `localStorage`, e ele sobrevive entre casos.
   globalThis.localStorage.clear()
   createOrderMutateAsync.mockReset().mockResolvedValue({ id: 'order-1' })
+  batida.ms = 0
   createPaymentMutateAsync.mockReset().mockResolvedValue({
     status: 'approved',
     status_detail: 'accredited',
@@ -1763,7 +1799,7 @@ describe('CheckoutPage — um CTA, dois caminhos (PGM-06 … PGM-08, DOC-05)', (
   it('cartão aprovado cobra o pedido criado e navega para a confirmação', async () => {
     payWithCard()
 
-    await waitFor(() => expect(screen.getByText('rota-confirmacao:order-1')).toBeInTheDocument())
+    await esperarConfirmacao()
     expect(createPaymentMutateAsync).toHaveBeenCalledWith({
       order_id: 'order-1',
       method: 'card',
@@ -1996,21 +2032,28 @@ describe('CheckoutPage — o PIX entrega o bastão para a rota (PIX-P1-01, PIX-P
     expect(screen.queryByText(/^rota-pagamento/)).not.toBeInTheDocument()
   })
 
-  it('o CARTÃO não passa pela tela de progresso — o Brick segue montado (PGM-08)', async () => {
-    // O par inverso. Sem ele, uma espera que substituísse o checkout nos DOIS métodos passaria nos
-    // casos acima e levaria embora o formulário preenchido e o token do cartão.
-    getCardFormDataMock.mockImplementation(
-      () => new Promise((resolve) => setTimeout(() => resolve(CARD_FORM_DATA), 0)),
+  it('o CARTÃO ganha a espera POR CIMA, e o Brick segue montado embaixo (PGM-08, board 58 J)', async () => {
+    // O par inverso, REESCRITO quando o cartão ganhou a espera dele. A régua antiga ("o cartão não
+    // passa pela tela de progresso") ficaria verde a favor do comportamento que os boards `58 J`–`L`
+    // removem. O que ela protegia continua protegido: a espera do cartão NÃO substitui o checkout —
+    // uma que o substituísse levaria embora o formulário preenchido e o token do cartão.
+    let liberarPedido: (v: unknown) => void = () => {}
+    createOrderMutateAsync.mockImplementation(
+      () => new Promise((resolve) => (liberarPedido = resolve)),
     )
     fillAll('card')
     renderPage()
 
     fireEvent.click(cta())
 
-    expect(screen.queryByText('Passo 1 de 2')).not.toBeInTheDocument()
+    expect(
+      await screen.findByRole('heading', { name: 'Estamos registrando seu pedido' }),
+    ).toBeInTheDocument()
+    expect(screen.getByText('Confirmando com o banco')).toBeInTheDocument()
     expect(screen.getByTestId('card-brick')).toBeInTheDocument()
 
-    await waitFor(() => expect(screen.getByText('rota-confirmacao:order-1')).toBeInTheDocument())
+    await act(async () => liberarPedido({ id: 'order-1' }))
+    await esperarConfirmacao()
   })
 })
 
@@ -2050,7 +2093,7 @@ describe('CheckoutPage — aprovação do cartão navega para a confirmação (C
     render(checkoutSempreMontado())
     fireEvent.click(cta())
 
-    await waitFor(() => expect(screen.getByText('rota-confirmacao:order-1')).toBeInTheDocument())
+    await esperarConfirmacao()
     // Dá a uma eventual guarda tardia a chance de disparar antes de medir.
     await act(async () => { await new Promise((r) => setTimeout(r, 50)) })
     expect(passagensPeloCarrinho.current).toBe(0)
@@ -2272,5 +2315,179 @@ describe('CheckoutPage — material afetivo no pedido (MAT-05, MAT-06, MAT-07)',
     expect(com.discount).toBe(sem.discount)
     expect(com.promotion_discount).toBe(sem.promotion_discount)
     expect(com.items[0].unit_price).toBe(sem.items[0].unit_price)
+  })
+})
+
+/**
+ * A espera do CARTÃO — boards `58 J`, `58 K`, `58 L` e `58 M` no Paper.
+ *
+ * O PIX troca a tela inteira e entrega o bastão para a rota; o cartão NÃO pode fazer isso: o Brick
+ * precisa continuar montado para a retentativa de uma recusa (`PGM-08`). Por isso a espera do
+ * cartão é uma CAMADA por cima do checkout, e os casos abaixo medem as duas metades ao mesmo
+ * tempo — a camada está lá **e** o Brick continua no DOM.
+ */
+describe('CheckoutPage — a espera do cartão (boards 58 J–M)', () => {
+  const brick = () => screen.getByTestId('card-brick')
+
+  it('a batida que os casos ligam é a de verdade — lida do dono, não copiada', async () => {
+    // Sem isto, `BATIDA_REAL` seria um segundo número que a constante de produção poderia deixar
+    // para trás, e o caso da batida passaria a medir uma pausa que a loja não faz.
+    const { BATIDA_MS } = await vi.importActual<
+      typeof import('@/features/order-payment/model/batida')
+    >('@/features/order-payment/model/batida')
+    expect(BATIDA_REAL).toBe(BATIDA_MS)
+  })
+
+  it('cartão inválido NÃO acende a espera — a tokenização decide antes', async () => {
+    getCardFormDataMock.mockResolvedValue(null)
+    fillAll('card')
+    renderPage()
+
+    fireEvent.click(cta())
+
+    await waitFor(() => expect(getCardFormDataMock).toHaveBeenCalledTimes(1))
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    expect(cta()).toBeInTheDocument()
+  })
+
+  it('passo 2: o banco respondendo, com o número do pedido guardado (58 K)', async () => {
+    createOrderMutateAsync.mockResolvedValue({ id: 'order-1', order_number: '0244' })
+    let liberarPagamento: (v: unknown) => void = () => {}
+    createPaymentMutateAsync.mockImplementation(
+      () => new Promise((resolve) => (liberarPagamento = resolve)),
+    )
+    fillAll('card')
+    renderPage()
+
+    fireEvent.click(cta())
+
+    expect(
+      await screen.findByRole('heading', { name: 'Confirmando seu pagamento' }),
+    ).toBeInTheDocument()
+    expect(screen.getByText('#0244')).toBeInTheDocument()
+    expect(screen.getByText('Pedido registrado')).toBeInTheDocument()
+    // O checkout embaixo sai da árvore de acessibilidade, mas continua MONTADO.
+    expect(brick()).toBeInTheDocument()
+    expect(brick().closest('[aria-hidden="true"]')).not.toBeNull()
+
+    await act(async () => liberarPagamento({ status: 'approved' }))
+    await esperarConfirmacao()
+  })
+
+  it('aprovado: a batida mostra "Pagamento aprovado" ANTES de navegar, com a sacola intacta (58 L)', async () => {
+    batida.ms = BATIDA_REAL
+    createOrderMutateAsync.mockResolvedValue({ id: 'order-1', order_number: '0244' })
+    fillAll('card')
+    renderPage()
+
+    fireEvent.click(cta())
+
+    expect(await screen.findByRole('heading', { name: 'Pagamento aprovado' })).toBeInTheDocument()
+    // A batida é o instante em que a pessoa vê a causa: a navegação e a limpeza vêm DEPOIS.
+    expect(screen.queryByText('rota-confirmacao:order-1')).not.toBeInTheDocument()
+    expect(useCartStore.getState().items).toHaveLength(1)
+    expect(screen.getByRole('link', { name: 'Ver os detalhes do pedido' })).toHaveAttribute(
+      'href',
+      '/pedido/order-1',
+    )
+
+    await esperarConfirmacao()
+    expect(useCartStore.getState().items).toHaveLength(0)
+  })
+
+  it('recusa: a camada sai, o Brick está lá, e o aviso diz que nada foi cobrado (58 M)', async () => {
+    createOrderMutateAsync.mockResolvedValue({ id: 'order-1', order_number: '0244' })
+    createPaymentMutateAsync.mockResolvedValue({
+      status: 'rejected',
+      status_detail: 'cc_rejected_insufficient_amount',
+    })
+    fillAll('card')
+    renderPage()
+
+    fireEvent.click(cta())
+
+    await waitFor(() =>
+      expect(brick().getAttribute('data-notice-title')).toBe('O banco não aprovou este cartão'),
+    )
+    expect(brick().getAttribute('data-notice-footer')).toBe(
+      'Pedido #0244 · guardado, e nada foi cobrado',
+    )
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    expect(brick().closest('[aria-hidden="true"]')).toBeNull()
+    expect(cta()).toBeEnabled()
+  })
+
+  it('sem resposta do banco: o aviso NÃO diz que nada foi cobrado', async () => {
+    createOrderMutateAsync.mockResolvedValue({ id: 'order-1', order_number: '0244' })
+    createPaymentMutateAsync.mockRejectedValue(
+      new Error('O pagamento demorou demais para responder.'),
+    )
+    fillAll('card')
+    renderPage()
+
+    fireEvent.click(cta())
+
+    await waitFor(() =>
+      expect(brick().getAttribute('data-notice-title')).toBe(
+        'Não conseguimos concluir o pagamento',
+      ),
+    )
+    expect(brick().getAttribute('data-notice-footer')).toBe('Pedido #0244 · continua guardado')
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+
+  it('passado de 8s no passo 2, a linha de espera longa entra — e só ali (PIX-P1-07)', async () => {
+    // `shouldAdvanceTime`: o relógio falso anda sozinho, então as promessas e o `waitFor` seguem
+    // funcionando; o salto de 8s é o único que o caso controla.
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    try {
+      createPaymentMutateAsync.mockImplementation(() => new Promise(() => {}))
+      fillAll('card')
+      renderPage()
+
+      fireEvent.click(cta())
+
+      expect(
+        await screen.findByRole('heading', { name: 'Confirmando seu pagamento' }),
+      ).toBeInTheDocument()
+      expect(screen.queryByText('A espera está mais longa que o normal.')).not.toBeInTheDocument()
+
+      await act(async () => {
+        vi.advanceTimersByTime(8000)
+      })
+      expect(screen.getByText('A espera está mais longa que o normal.')).toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('retentativa depois da recusa começa direto no passo 2 — o pedido já existe', async () => {
+    createOrderMutateAsync.mockResolvedValue({ id: 'order-1', order_number: '0244' })
+    createPaymentMutateAsync.mockResolvedValueOnce({
+      status: 'rejected',
+      status_detail: 'cc_rejected_insufficient_amount',
+    })
+    fillAll('card')
+    renderPage()
+
+    fireEvent.click(cta())
+    await waitFor(() => expect(brick().getAttribute('data-notice-title')).not.toBe(''))
+
+    // A tela é medida PARADA no meio da retentativa — a leitura das variações fica no ar. Medida no
+    // fim, a asserção abaixo era verdadeira nos dois mundos: uma retentativa que recomeçasse no
+    // passo 1 já teria passado para o 2 quando o `findByRole` olhasse (mutante M5, sobrevivente na
+    // primeira escrita deste caso).
+    gridRowsMock.mockImplementation((() => new Promise(() => {})) as any)
+    fireEvent.click(cta())
+
+    expect(
+      await screen.findByRole('heading', { name: 'Confirmando seu pagamento' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('heading', { name: 'Estamos registrando seu pedido' }),
+    ).not.toBeInTheDocument()
+    expect(createOrderMutateAsync).toHaveBeenCalledTimes(1)
+    // E o aviso da tentativa anterior não sobrevive à nova.
+    expect(brick().getAttribute('data-notice-title')).toBe('')
   })
 })

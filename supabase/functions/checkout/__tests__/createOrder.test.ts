@@ -752,3 +752,35 @@ describe('create-order — CPF e endereço (PED-08, ADR-G1, ADR-G2)', () => {
     expect(supabase.inserts.find((i) => i.table === 'addresses')).toBeUndefined()
   })
 })
+
+describe('create-order — o número que o banco cunhou volta na resposta (board 58 K)', () => {
+  // A espera do cartão mostra o número no passo 2 — é o que responde "perdi minha compra?". O
+  // número é LIDO de volta do insert, nunca escrito: as réguas acima continuam provando que a
+  // function não manda a coluna. Uma não substitui a outra — devolver sem ler (inventando aqui)
+  // passaria nesta e reprovaria naquelas.
+  it('pedido novo: devolve o `order_number` do insert', async () => {
+    const supabase = cenario({ inserted: { orders: { id: 'ord-1', order_number: '0244' } } })
+    const corpo = await (await route(criarDeps(supabase), pedir(PEDIDO))).json()
+
+    expect(corpo.order_id).toBe('ord-1')
+    expect(corpo.order_number).toBe('0244')
+    expect(linhaDoPedido(supabase)).not.toHaveProperty('order_number')
+  })
+
+  it('retentativa: devolve o número do pedido que já existia', async () => {
+    const supabase = cenario({
+      rows: { orders: { id: 'ord-ja-existe', order_number: '0243' }, customers: { id: 'cus-1' } },
+    })
+    const corpo = await (await route(criarDeps(supabase), pedir(PEDIDO))).json()
+
+    expect(corpo.reused).toBe(true)
+    expect(corpo.order_number).toBe('0243')
+  })
+
+  it('sem número na linha, a resposta diz `null` — nunca um número inventado', async () => {
+    const supabase = cenario()
+    const corpo = await (await route(criarDeps(supabase), pedir(PEDIDO))).json()
+
+    expect(corpo.order_number).toBeNull()
+  })
+})

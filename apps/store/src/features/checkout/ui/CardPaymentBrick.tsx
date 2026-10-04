@@ -1,9 +1,10 @@
-import { useCallback, useMemo, useEffect } from 'react'
+import { useCallback, useMemo, useEffect, useRef } from 'react'
 import { CardPayment } from '@mercadopago/sdk-react'
 import { documentLabel, stripDocument } from '@estrelinha/core/validators'
 import { useCheckoutStore } from '../model/checkoutStore'
 import { useCardInstallmentOptions } from '../model/useCardInstallmentOptions'
 import InstallmentPicker from './InstallmentPicker'
+import type { CardNotice } from '../lib/cardNotice'
 
 /**
  * BUG-20261004-brick-recriado-a-cada-render: **toda prop do `CardPayment` precisa de identidade
@@ -41,6 +42,11 @@ interface Props {
   payerDocument?: string
   /** PGM-06: erro da última tentativa. Quem tenta é o CTA da página — este componente só desenha. */
   errorMessage: string | null
+  /**
+   * Board `58 M`: o mesmo erro, com o que o aviso pode afirmar. Quando existe, ele substitui a
+   * linha crua de `errorMessage` — as duas juntas diriam a mesma coisa duas vezes.
+   */
+  notice?: CardNotice | null
 }
 
 /**
@@ -52,7 +58,13 @@ interface Props {
  * e a submissão inteira passa pelo CTA único da página, via `getCardFormData()` (PGM-05, PGM-06).
  * Recusa mantém a cliente aqui, com mensagem amigável vinda por prop (PAY-02).
  */
-const CardPaymentBrick = ({ amount, payerEmail, payerDocument, errorMessage }: Props) => {
+const CardPaymentBrick = ({
+  amount,
+  payerEmail,
+  payerDocument,
+  errorMessage,
+  notice = null,
+}: Props) => {
   const setCardNumberRecognized = useCheckoutStore((s) => s.setCardNumberRecognized)
   const setCardBin = useCheckoutStore((s) => s.setCardBin)
   const installments = useCardInstallmentOptions(amount)
@@ -121,8 +133,51 @@ const CardPaymentBrick = ({ amount, payerEmail, payerDocument, errorMessage }: P
     setCardNumberRecognized(false)
   }, [initialization, setCardNumberRecognized])
 
+  // Board `58 M`: a pessoa volta da espera para cá, e o aviso é a primeira coisa que ela precisa
+  // ver. No celular o bloco Pagamento começa abaixo da dobra; sem rolar, ela voltaria ao topo do
+  // checkout sem saber que o banco recusou. `?.`: jsdom não implementa `scrollIntoView`.
+  const avisoRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (notice) avisoRef.current?.scrollIntoView?.({ block: 'center', behavior: 'smooth' })
+  }, [notice])
+
   return (
     <div className="flex flex-col gap-5">
+      {/* No TOPO do formulário, e não embaixo dele: embaixo ele caía fora da dobra, depois do
+          formulário inteiro e das parcelas. CNF-06: se distingue por superfície, não por vermelho. */}
+      {notice && (
+        <div
+          ref={avisoRef}
+          role="alert"
+          className="flex flex-col gap-3 rounded-md border border-estrelinha-primary/30 bg-estrelinha-ground-deep p-4"
+        >
+          <div className="flex items-start gap-2.5">
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 20 20"
+              fill="none"
+              aria-hidden
+              className="mt-px shrink-0 text-estrelinha-primary"
+            >
+              <circle cx="10" cy="10" r="8.25" stroke="currentColor" strokeWidth="1.5" />
+              <path d="M10 6v4.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+              <circle cx="10" cy="13.6" r="1" fill="currentColor" />
+            </svg>
+            <div className="flex min-w-0 flex-col gap-1">
+              <p className="text-[15px] font-semibold leading-5 text-estrelinha-ink">
+                {notice.title}
+              </p>
+              <p className="text-sm leading-[21px] text-estrelinha-ink-soft">{notice.message}</p>
+            </div>
+          </div>
+          {notice.footer ? (
+            <p className="border-t border-estrelinha-line pt-3 text-[13px] leading-[18px] text-estrelinha-ink-soft">
+              {notice.footer}
+            </p>
+          ) : null}
+        </div>
+      )}
       <CardPayment
         initialization={initialization}
         customization={customization}
@@ -131,7 +186,7 @@ const CardPaymentBrick = ({ amount, payerEmail, payerDocument, errorMessage }: P
       />
       <InstallmentPicker state={installments} />
       {/* CNF-06: recusa se distingue por superfície + geleia, não por vermelho fora da paleta. */}
-      {errorMessage && (
+      {errorMessage && !notice && (
         <p
           role="alert"
           className="text-sm text-estrelinha-primary bg-estrelinha-ground-deep border border-estrelinha-primary/30 rounded-xl p-3"

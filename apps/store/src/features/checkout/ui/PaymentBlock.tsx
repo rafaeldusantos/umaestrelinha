@@ -28,6 +28,7 @@ import { PixIcon } from '@estrelinha/ui/icons'
 import { useCheckoutStore } from '../model/checkoutStore'
 import { useCardInstallmentHeadline } from '../model/useCardInstallmentOptions'
 import CardPaymentBrick from './CardPaymentBrick'
+import type { CardNotice } from '../lib/cardNotice'
 
 interface Props {
   open: boolean
@@ -43,6 +44,8 @@ interface Props {
   amount: number
   /** PGM-06: erro da última tentativa de cartão. Quem tenta é o CTA da página, não este bloco. */
   cardError?: string | null
+  /** Board `58 M`: o aviso do cartão que não fechou, com título e a linha do pedido guardado. */
+  cardNotice?: CardNotice | null
 }
 
 export const CPF_JUSTIFICATION =
@@ -59,7 +62,14 @@ export const DOC_FIELD_LABEL = 'CPF ou CNPJ do pagador'
 export const NO_METHOD_MESSAGE =
   'Nenhum método de pagamento disponível no momento. Fale com a gente pelo WhatsApp.'
 
-const PaymentBlock = ({ open, complete, onEdit, amount, cardError = null }: Props) => {
+const PaymentBlock = ({
+  open,
+  complete,
+  onEdit,
+  amount,
+  cardError = null,
+  cardNotice = null,
+}: Props) => {
   const { customer } = useAuthContext()
   const { pix_enabled, pix_discount_percent, card_enabled } = usePaymentSettings()
   const payment = useCheckoutStore((s) => s.payment)
@@ -293,6 +303,7 @@ const PaymentBlock = ({ open, complete, onEdit, amount, cardError = null }: Prop
           payerEmail={contactEmail}
           payerDocument={customer?.cpf ?? undefined}
           errorMessage={cardError}
+          notice={cardNotice}
         />
       )}
     </section>

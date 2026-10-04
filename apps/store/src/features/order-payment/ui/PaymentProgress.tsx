@@ -6,6 +6,11 @@
 // qual passo está em curso, não o layout. Dois desenhos, um por página, produziriam uma troca de
 // tela no meio da espera exatamente onde a pessoa está mais insegura.
 //
+// **O cartão usa a mesma tela** (boards `58 J`, `58 K` e `58 N`): o que muda é o rótulo do passo 2,
+// o meio ao lado do valor e a frase de baixo — no PIX a cobrança acontece no app do banco, depois;
+// no cartão ela É o passo 2. Uma segunda tela de espera para o cartão seria o "defeito 01" no
+// tamanho de uma página: as duas divergiriam sem nada quebrar.
+//
 // Os dois consumidores são PÁGINAS (`CheckoutPage` e `OrderPaymentPage`), nunca uma feature
 // importando a outra (`AD-033`).
 //
@@ -15,8 +20,16 @@
 import { formatPrice } from '@estrelinha/core/formatters'
 import { formatOrderNumber } from '@estrelinha/core/orders'
 
-/** Qual das duas esperas está em curso. Literal de string, nunca booleano (`strictNullChecks`). */
+/**
+ * Qual das duas esperas está em curso. Literal de string, nunca booleano (`strictNullChecks`).
+ *
+ * `code` é o segundo passo — o banco respondendo. No PIX ele devolve o código; no cartão, a
+ * aprovação. O nome ficou o do PIX porque foi ele que nasceu primeiro.
+ */
 export type PaymentStep = 'order' | 'code'
+
+/** O meio de pagamento da espera. Ausente é PIX — a tela nasceu para ele (feature `58`). */
+export type PaymentMethod = 'pix' | 'card'
 
 export interface PaymentProgressProps {
   step: PaymentStep
@@ -31,9 +44,12 @@ export interface PaymentProgressProps {
   orderNumber?: string
   /** `PIX-P1-07`: a espera passou de 8s. É estado, e ele ACRESCENTA — não substitui os passos. */
   slow?: boolean
+  method?: PaymentMethod
+  /** Cartão: em quantas parcelas. 1 (ou ausente) não é anunciado — à vista é o que se espera. */
+  installments?: number | null
 }
 
-const COPY = {
+const COPY_PIX = {
   order: {
     eyebrow: 'Passo 1 de 2',
     title: 'Estamos registrando seu pedido',
@@ -49,9 +65,33 @@ const COPY = {
   },
 } as const
 
+const COPY_CARD = {
+  order: {
+    eyebrow: 'Passo 1 de 2',
+    title: 'Estamos registrando seu pedido',
+    lead: COPY_PIX.order.lead,
+    footnote: 'Nada foi cobrado ainda. A cobrança só acontece se o banco aprovar o cartão.',
+  },
+  code: {
+    eyebrow: 'Passo 2 de 2',
+    title: 'Confirmando seu pagamento',
+    lead: 'O banco está conferindo o cartão. Não feche esta página — ela avança sozinha.',
+    footnote:
+      'Seu pedido já está guardado. Se o banco não aprovar, nada é cobrado e você pode tentar de novo.',
+  },
+} as const
+
 const PASSO_1 = 'Registrando seu pedido'
 const PASSO_1_FEITO = 'Pedido registrado'
-const PASSO_2 = 'Gerando o código PIX com o banco'
+// "Confirmando o pagamento com o banco" embrulha em duas linhas dentro do cartão de 326px (board
+// `58 K`), e o rótulo do PIX não — o curto mantém os dois passos com a mesma altura.
+const PASSO_2 = { pix: 'Gerando o código PIX com o banco', card: 'Confirmando com o banco' } as const
+
+/** O que vem depois do valor: o meio, e no cartão parcelado, em quantas vezes. */
+const meio = (method: PaymentMethod, installments?: number | null) => {
+  if (method === 'pix') return '· PIX'
+  return installments && installments > 1 ? `· cartão em ${installments}x` : '· cartão'
+}
 
 /**
  * O anel de progresso.
@@ -121,8 +161,15 @@ const Passo = ({
   </li>
 )
 
-const PaymentProgress = ({ step, amount, orderNumber, slow }: PaymentProgressProps) => {
-  const copy = COPY[step]
+const PaymentProgress = ({
+  step,
+  amount,
+  orderNumber,
+  slow,
+  method = 'pix',
+  installments,
+}: PaymentProgressProps) => {
+  const copy = (method === 'card' ? COPY_CARD : COPY_PIX)[step]
   const registrando = step === 'order'
 
   return (
@@ -156,7 +203,7 @@ const PaymentProgress = ({ step, amount, orderNumber, slow }: PaymentProgressPro
         </li>
         <Passo
           marca={registrando ? <Pendente /> : <Anel size={20} />}
-          rotulo={PASSO_2}
+          rotulo={PASSO_2[method]}
           ativo={!registrando}
         />
 
@@ -190,7 +237,7 @@ const PaymentProgress = ({ step, amount, orderNumber, slow }: PaymentProgressPro
         <span className="font-heading text-[19px] font-bold text-estrelinha-ink">
           {formatPrice(amount)}
         </span>
-        <span className="font-medium">· PIX</span>
+        <span className="font-medium">{meio(method, installments)}</span>
       </p>
       <p className="mt-3.5 max-w-[420px] text-center text-[13px] leading-5 text-estrelinha-ink-soft">
         {copy.footnote}

@@ -40,7 +40,17 @@ import {
   PAYMENT_UNAVAILABLE_MESSAGE,
 } from '@/features/checkout/api/useCreatePayment'
 import { useCartStore, useCartUiStore } from '@/entities/cart'
-import { PaymentProgress } from '@/features/order-payment'
+import {
+  BATIDA_MS,
+  PIX_SLOW_MS,
+  PaymentApproved,
+  PaymentProgress,
+} from '@/features/order-payment'
+import {
+  declinedNotice,
+  unansweredNotice,
+  type CardNotice,
+} from '@/features/checkout/lib/cardNotice'
 import { CartDrawer } from '@/widgets/cart-drawer'
 import { CheckoutHeader } from '@/widgets/checkout-header'
 import { useCouponStore } from '@/entities/coupon'
@@ -122,6 +132,29 @@ const CheckoutPage = () => {
   /** Erro da tentativa de cartão. Não vai para o store: é de uma tentativa, não do rascunho. */
   const [cardError, setCardError] = useState<string | null>(null)
   /**
+   * Board `58 M`: o mesmo erro, com o que o aviso pode AFIRMAR — título, motivo e a linha do pedido
+   * guardado. `cardError` continua sendo a mensagem crua (o Brick a desenha quando não há aviso).
+   */
+  const [cardNotice, setCardNotice] = useState<CardNotice | null>(null)
+  /**
+   * Boards `58 J`, `58 K` e `58 L`: a espera do cartão. `null` é o checkout à vista.
+   *
+   * **A espera entra POR CIMA do checkout, e não no lugar dele** — ao contrário do PIX, que troca a
+   * tela inteira. O Brick precisa continuar montado: se o banco recusar, a pessoa volta ao
+   * formulário com o cartão ainda digitado e tenta de novo (`PGM-08`). Desmontá-lo apagaria o
+   * cartão e o `cardPaymentBrickController` junto.
+   */
+  const [cardStage, setCardStage] = useState<'order' | 'code' | 'approved' | null>(null)
+  /** `PIX-P1-07` no cartão: a resposta do banco passou de 8s. Só vale no passo 2. */
+  const [cardSlow, setCardSlow] = useState(false)
+  /**
+   * O número do pedido em curso, para o passo 2 e para o aviso de recusa.
+   *
+   * Chega UMA vez, na resposta da criação; a retentativa reusa o pedido e reusa o número. Depois de
+   * um reload ele não existe mais — e a espera simplesmente não o diz, em vez de inventar.
+   */
+  const [cardOrderNumber, setCardOrderNumber] = useState<string | null>(null)
+  /**
    * BUG-20261004-cartao-aprovado-cai-na-home: a compra terminou e a sacola vai ser esvaziada.
    *
    * Ref, e não estado: precisa valer na MESMA renderização que a limpeza provoca. Ver a guarda de
@@ -186,6 +219,15 @@ const CheckoutPage = () => {
     if (!orderId || orderIdentity === (user?.id ?? null)) return
     useCheckoutStore.getState().invalidateOrder()
   }, [user?.id, loading])
+
+  // `PIX-P1-07`: a linha de espera longa ACRESCENTA, e só no passo em que quem espera é o banco.
+  // A mesma régua de 8s do PIX (`PIX_SLOW_MS`) — dois números seriam duas esperas "normais".
+  useEffect(() => {
+    setCardSlow(false)
+    if (cardStage !== 'code') return
+    const id = setTimeout(() => setCardSlow(true), PIX_SLOW_MS)
+    return () => clearTimeout(id)
+  }, [cardStage])
 
   const flow = useMemo(
     () =>
@@ -325,6 +367,12 @@ const CheckoutPage = () => {
     const isCard = payment.method === 'card'
     setBusy(true)
     setCardError(null)
+    setCardNotice(null)
+    /** A aprovação deixa a camada de pé até a página sair; qualquer outro fim a tira. */
+    let aprovado = false
+    // O estado só atualiza na próxima renderização: na PRIMEIRA tentativa o número chega no meio
+    // desta função, e o aviso de recusa precisa dele aqui mesmo.
+    let numeroDoPedido = cardOrderNumber
     try {
       // PGM-06: tokenizar primeiro. `null` = formulário inválido (o Brick já pintou os erros de
       // campo) ⇒ zero efeito: nenhum pedido, nenhuma cobrança.
@@ -341,6 +389,11 @@ const CheckoutPage = () => {
           setCardError(MISSING_DOCUMENT_MESSAGE)
           return
         }
+
+        // Board `58 J`: o formulário foi aceito, e só agora a espera entra. Antes disto um cartão
+        // inválido faria a camada aparecer e sumir na mesma fração de segundo. Pedido já criado
+        // (retentativa de recusa, `PGM-08`) começa direto no passo 2 — o 1 já aconteceu.
+        setCardStage(useCheckoutStore.getState().orderId ? 'code' : 'order')
       }
 
       // `PED-08`/`ADR-G1`: **o CPF e o endereço passaram a ser gravados pela edge function**, no
@@ -440,6 +493,10 @@ const CheckoutPage = () => {
             .getState()
             .setOrder(newOrderId, useCheckoutStore.getState().draft(), user?.id ?? null)
           setEditing(null)
+          if (order.order_number) {
+            numeroDoPedido = order.order_number
+            setCardOrderNumber(order.order_number)
+          }
           payingOrderId = newOrderId
         } catch (err) {
           // IDN-08: o servidor recusou porque o e-mail já tem conta. É a ÚNICA falha de criação
@@ -480,6 +537,7 @@ const CheckoutPage = () => {
         return
       }
       if (!cardForm) return
+      setCardStage('code')
 
       // PAY-06: `useCreatePayment` gera `idempotency_key` nova a cada chamada, então retentar uma
       // recusa sobre o MESMO pedido não duplica cobrança (PGM-08).
@@ -492,22 +550,71 @@ const CheckoutPage = () => {
           card: { ...cardForm, installments: cardInstallments.selected?.count ?? 1 },
         })) as CardPaymentResponse
         if (response.status === 'approved') {
+          // Board `58 L`: a batida antes de navegar — a mesma do PIX. Sem ela a tela trocava
+          // sozinha para o pedido, e quem acabou de pagar não via a causa. A sacola só é limpa
+          // DEPOIS, em `handlePaymentSuccess`: limpar antes faria a guarda de sacola vazia
+          // disputar o destino com esta tela.
+          aprovado = true
+          setCardStage('approved')
+          await new Promise((resolve) => setTimeout(resolve, BATIDA_MS))
           await handlePaymentSuccess()
           return
         }
         // PAY-02 (e AD-003: `action_required` segue tratado como recusa): a cliente fica aqui, com
         // o Brick montado e o CTA acionável para tentar de novo.
         setCardError(friendlyMessage(response.status_detail))
+        setCardNotice(declinedNotice(response.status_detail, numeroDoPedido))
       } catch (err) {
-        setCardError(err instanceof Error ? err.message : PAYMENT_UNAVAILABLE_MESSAGE)
+        const message = err instanceof Error ? err.message : PAYMENT_UNAVAILABLE_MESSAGE
+        setCardError(message)
+        // Sem resposta do banco a loja não sabe se cobrou: o aviso não diz "nada foi cobrado".
+        setCardNotice(unansweredNotice(message, numeroDoPedido))
       }
     } finally {
       setBusy(false)
+      if (!aprovado) setCardStage(null)
     }
   }
 
+  /** A camada de espera do cartão (boards `58 J`–`58 N`). Fora dela, nada. */
+  const cardLayer = cardStage ? (
+    // `fixed` com rolagem própria, e o checkout continua montado embaixo — ver `cardStage`.
+    <div
+      role="status"
+      aria-live="polite"
+      className="fixed inset-0 z-50 overflow-y-auto overscroll-contain bg-white"
+    >
+      <CheckoutHeader />
+      {cardStage === 'approved' ? (
+        <PaymentApproved
+          method="card"
+          amount={totals.total}
+          orderNumber={cardOrderNumber ?? ''}
+          orderHref={`/pedido/${useCheckoutStore.getState().orderId}`}
+          customerEmail={contact.email || undefined}
+          installments={cardInstallments.selected}
+        />
+      ) : (
+        <PaymentProgress
+          method="card"
+          step={cardStage}
+          amount={totals.total}
+          orderNumber={cardStage === 'code' ? cardOrderNumber ?? undefined : undefined}
+          slow={cardStage === 'code' && cardSlow}
+          installments={cardInstallments.selected?.count}
+        />
+      )}
+    </div>
+  ) : null
+
   return (
-    <div className="min-h-screen bg-white pb-10 lg:pb-0">
+    <>
+      {/* Com a espera do cartão de pé, o checkout embaixo sai da árvore de acessibilidade: ele
+          continua montado só para o Brick não perder o cartão. */}
+      <div
+        className="min-h-screen bg-white pb-10 lg:pb-0"
+        aria-hidden={cardStage ? true : undefined}
+      >
       <CheckoutHeader />
 
       <div className="container py-6 lg:py-10">
@@ -571,6 +678,7 @@ const CheckoutPage = () => {
               onEdit={() => setEditing('payment')}
               amount={totals.total}
               cardError={cardError}
+              cardNotice={cardNotice}
             />
 
             <OrderBump />
@@ -612,7 +720,9 @@ const CheckoutPage = () => {
       {/* Fora do `StoreLayout`, a gaveta precisa ser montada aqui — mesmo motivo do `AuthOverlay`. */}
       <CartDrawer />
       <AuthOverlay />
-    </div>
+      </div>
+      {cardLayer}
+    </>
   )
 }
 
