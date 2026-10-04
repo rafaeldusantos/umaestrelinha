@@ -340,6 +340,35 @@ convidada e para quem tem sessão.
     ficha. **Sem ele, `CSC-08` seria falso**: o pedido órfão existiria, a cliente teria o token, e o
     pagamento seria recusado com 422 por falta de CPF que ela já informou.
 
+### A conta da cliente no banco (feature `59`, migration `20261004120000_59-minha-conta.sql`)
+
+- **`customers` tem a linha inteira liberada pela policy de UPDATE da própria cliente**
+  (`20260727120100…`), e até a `59` isso incluía **e-mail e CPF**. Quem segura agora é o gatilho
+  `guard_customer_identity` (`before update`): para `authenticated`/`anon` que não é admin, recusa
+  com `42501` mudar `email`, `user_id`, e `cpf` **já preenchido** (vazio → preenchido passa, uma vez).
+  - **As três saídas são admin (`has_role`), `service_role` e `current_user` fora de
+    `authenticated`/`anon`.** A terceira existe para manutenção direta (SQL Editor, `db query`,
+    migration), onde não há JWT e `has_role(null)` é falso. **Por isso a função NÃO é
+    `security definer`** — com ele, `current_user` viraria o dono e a cliente passaria pela terceira
+    saída. `minhaContaSchema.test.ts` recusa o `security definer` por mutação.
+  - **Risco residual declarado**: uma função `security definer` futura que grave `customers` em nome
+    da cliente roda como o dono e passa pela terceira saída. Quem escrever uma tem de refazer a
+    checagem dentro dela.
+- **`customer_order_events(p_order_id)`** devolve `status` + `created_at` de `order_status_history`
+  só do pedido da própria cliente (`security definer`, `search_path = ''`), e **zero linhas** para
+  pedido alheio ou inexistente — sem distinguir os dois. `note` e `created_by` (notas internas da
+  Adri) não saem. `anon` não executa. É a fonte das datas de "Postado" e "Entregue" da linha do
+  tempo; uma coluna `shipped_at` seria segundo dono da mesma data.
+- **`addresses_one_default`** — índice único **parcial** `(customer_id) where is_default`. Antes dele
+  a migration desliga duplicatas (mantém o padrão mais recente).
+- **Os 2 pedidos `NP-…` foram renumerados pela sequência da `58`** (`AD-044`), por `created_at`,
+  num laço idempotente pelo próprio recorte. Os 35 `NS-…` ficam.
+- **`checkout`**: `get-order` devolve `order.status_events` (`[{status, at}]`) para a convidada
+  desenhar a mesma linha do tempo; `persistirConveniencias` passou a gravar o CPF **só quando
+  vazio** (com service role o gatilho não pega, então a regra mora no filtro) e a criar o primeiro
+  endereço como `is_default` — sem isso `useDefaultAddress` nunca achava nada e o caixa não
+  pré-preenchia.
+
 ### `melhor-envio` — cotação e etiquetas
 
 `action=quote` (loja) · `create` · `print` · `tracking` (painel). `verify_jwt = false`, com

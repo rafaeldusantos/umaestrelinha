@@ -1101,9 +1101,51 @@
 - **Date**: 2026-09-22
 - **Status**: active
 
+### AD-044
+- **Decision**: **Os 2 pedidos `NP-…` ganham número da sequência; os 35 `NS-…` ficam como estão.**
+  Migration nova (feature `59`), com recorte `order_number like 'NP-%'`, em ordem de `created_at`,
+  usando `lpad(nextval('orders_number_seq')::text, 4, '0')`. Revoga em parte o trade-off de `AD-043`,
+  que não renumerava nenhum pedido antigo.
+- **Reason**: decisão do usuário em 2026-10-04, ao ver na conta de produção o `#NP-MUBBLKLYGOMR`
+  quebrando o layout no celular. São só dois pedidos, com prefixo da marca anterior. Os `NS-…` são
+  curtos (`NS-169`) e são o número que clientes reais da Nuvemshop citam no WhatsApp.
+- **Trade-off**: o número antigo dos dois pedidos `NP-` deixa de bater com o que saiu nos e-mails
+  já enviados. Aceito por serem dois pedidos.
+- **Guarda**: a migration é nova (as da `58` são imutáveis, `AD-017`), e um guarda prova o recorte,
+  a idempotência e que nenhum `NS-%` é tocado.
+
 ## Handoff
 
-### ATUAL — 2026-09-22 · `58-pagamento-pix-em-rota-propria` **IMPLEMENTADA — 15 de 15 tasks**
+### ATUAL — 2026-10-04 · `59-minha-conta-v2` **IMPLEMENTADA — 28 de 28 tasks, Verifier PASS (rodada 2)**
+
+- **Feature**: `.specs/features/59-minha-conta-v2/` (`spec.md`, `context.md`, `design.md`,
+  `tasks.md`, `validation.md`). Decisão: **`AD-044`** (os 2 pedidos `NP-` renumerados). Fecha
+  **`BL-032`** (os ganchos ganharam consumidor) e **`BL-036`** (opção b). Desenho no Paper, páginas
+  "Minha Conta — como está hoje" e "59 · Minha Conta V2 — proposta".
+- **Origem**: print de produção da conta — número `#NP-MUBBLKLYGOMR` quebrando o layout e empurrando
+  o total, pedido pago lido como "Pendente", avatar espremido, nada de rastreio, linha do tempo,
+  código do material, dados editáveis, nem PIX novo para pedido expirado.
+- **O que mudou**: `core/orders` (`orderSituation`, `podeGerarNovoPix`, `orderJourney`,
+  `parcelTrackingUrl`) · migration `20261004120000_59-minha-conta.sql` (eventos do próprio pedido,
+  gatilho de identidade, um endereço padrão, renumeração `NP-`) · `checkout` (`get-order` com
+  eventos; CPF só quando vazio; primeiro endereço padrão) · `/pedido/:id` reescrita como o detalhe
+  (título por número, subtítulo por etapa, rastreio, jornada, material, peças, pagamento, ajuda) ·
+  `/conta` lista + pendências · `/conta/dados` (dados com cadeado, endereço) · 3 guardas novos.
+- **Medido em 2026-10-04**, um workspace por vez, exit code fora de pipe: **10971 em 556** (store
+  **4215/251**, core 2546/102, functions 674/14, backoffice 3024/166, catalog-import 512/23). Lint
+  **26/6**, tipos **0 · 0**, `pnpm build` verde, `packages/core/src/payment/**` com **zero**
+  arquivos alterados. ~13 casos do store são de outra sessão (checkout), registrados no `CLAUDE.md`.
+- **Prova**: Verifier independente — rodada 1 FAIL (`MAT-05` sem prova), rodada 2 PASS (58
+  mutantes, 57 mortos por asserção, o sobrevivente fechado depois). Probes SQL no banco local.
+  Navegador Chromium em 390/1024/1280/1440 com interceptação: zero rolagem horizontal; achou e
+  fechou quatro defeitos (coluna do título com 38px no computador, depois colunas desalinhadas;
+  campo do material com 21px; folga da bolha de 8px; promessa de confirmação no PIX expirado).
+- **Ao fazer deploy**: a migration **renumera os 2 pedidos `NP-` em produção** (decisão do usuário)
+  e passa a recusar troca de e-mail/CPF pela cliente. Conferir depois do `db push`:
+  `select order_number from orders where order_number like 'NP-%'` deve voltar vazio.
+- **Próximo número de feature**: `60`.
+
+### 2026-09-22 · `58-pagamento-pix-em-rota-propria` **IMPLEMENTADA — 15 de 15 tasks**
 
 - **Feature**: `.specs/features/58-pagamento-pix-em-rota-propria/` (`spec.md`, `design.md`,
   `tasks.md`, `validation.md`). Decisões: **`AD-042`** (a superfície do pagamento tem um dono, e é a

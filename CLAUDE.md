@@ -131,7 +131,7 @@ Ao planejar/implementar features, use a Skill **`tlc-spec-driven`** com estas co
     Notificações), a `54` (templates de e-mail de auth), a `55` (configurações por seções) e a `56`
     (Notificações legíveis, e o padrão das Configurações) também estão FECHADAS. A `57`
     (os avisos para a dona, e o endereço que os recebe) e a `58` (pagamento PIX em rota própria)
-    também estão FECHADAS. A próxima é a `59`.**
+    também estão FECHADAS. A `59` (Minha Conta V2) também está FECHADA. A próxima é a `60`.**
   - **A `46` e a `47` correram EM PARALELO, em worktrees separados**, e é o segundo caso do projeto
     (o primeiro, a `45`, dividiu uma working tree só). O que mudou: a divisão foi por **árvore**, não
     por arquivo — a `47` nasceu de um `git worktree` sobre o HEAD local e trouxe a `46` por
@@ -364,6 +364,9 @@ migrations, e `vercelRedirects` lê o `vercel.json`.
 | `pagamentoComDonoUnico.test.ts` | store `shared/lib/__tests__` (varre `apps/store/**`) | uma SEGUNDA superfície de pagamento PIX (feature `58`, `AD-042`). Três réguas: importar `qrcode.react` fora de `features/order-payment`; **pedir um PIX** ao `create-payment` de qualquer arquivo de produção fora do dono; e `PixPayment.tsx` voltar ao disco ou ao barrel. A régua do pedido exige o **fecho** (`,`/`}`/`)`) depois do literal, que é o que separa *chamar* a porta de *declarar* a porta — sem ele o guarda nascia acusando `useCreatePayment.ts`, o arquivo que ele existe para proteger. A do QR casa o `from`, e não o nome do componente, senão dublar a biblioteca num teste do próprio dono passaria a ser proibido. **Âncora dupla**, **allowlist de UM** e a **metade positiva**: o dono chama a porta e desenha o QR, e as duas telas (`/conta` e `/pedido/:id`) LINKAM para a rota — sem ela, apagar a ação deixaria a ausência verdadeira e vazia |
 | `numeroDoPedidoComDonoUnico.test.ts` | store `shared/lib/__tests__` (varre `apps/**` e `supabase/functions/**`) | o `#` colado ao número à mão — **interpolação** (template literal e JSX) e **concatenação** —, nas duas grafias do identificador (`order_number` e `orderNumber`, que é o mesmo dado com outro nome de prop). Antes da `58` havia **quatro** grafias convivendo. **Metade positiva**: as oito superfícies chamam `formatOrderNumber`, e o lado Deno o alcança por caminho relativo **com `.ts` explícito**. Recorte à direita por token exato (`L-034`) |
 | `orderNumberSchema.test.ts` | idem (lê a migration da `58`) | a sequência sumir, nascer em outro número, o `default` deixar de usar `lpad(…, 4, '0')`, a migration escrever dado, ou `orders.order_number` perder o índice único. **Sensor por mutação em cada asserção** |
+| `minhaContaSchema.test.ts` | store `shared/lib/__tests__` (lê a migration da `59`) | a migration afrouxar, **uma régua por comando** (`L-033`): `customer_order_events` perder `security definer`, `search_path = ''`, o filtro por `auth.uid()` ou o `revoke` de `anon`, ou passar a devolver `note`/`created_by`; o gatilho `guard_customer_identity` deixar de recusar `email`, `user_id` ou o `cpf` já preenchido, ou virar `security definer` (perderia a saída por `current_user`); o índice de endereço padrão deixar de ser **parcial**; a renumeração deixar de recortar `like 'NP-%'` ou tocar `NS-%`. `mutar()` **lança** quando a mutação não muda nada |
+| `situacaoComDonoUnico.test.ts` | store `shared/lib/__tests__` (varre `apps/store/**`) | uma segunda tabela de rótulos de status do pedido na loja — entrada de mapa ou `case` com o vocabulário de `orders.status`/`payment_status` como chave. Quem responde "em que pé está este pedido?" é `orderSituation` (`@estrelinha/core/orders`), desenhado por `OrderSituationBadge`. Era o defeito da conta: 5 rótulos à mão contra 6 status do banco, e o pedido **pago** aparecia "Pendente". **Zero allowlist**, âncora no dono em `core`, sensores de CRLF/LF/glob e o inverso. Pegou o próprio autor na `59`: um mapa de subtítulo com chave `paid` |
+| `movimentoDaContaRespeitaMovimento.test.ts` | store `shared/lib/__tests__` | classe de `transition-*`/`animate-*` sem par `motion-reduce:` **que desligue movimento** na mesma linha, nas 14 telas da conta e do detalhe do pedido (`ACB-03`). **Escopo literal** (molde de `animacaoRespeitaMovimento` do painel) e régua **mais estreita** que o molde: `motion-reduce:opacity-100` não vale como par (mutante sobrevivente da verificação, rodada 2). Âncora 52 tokens / 26 pares, medida com a própria régua |
 | `orderAccessSingleOwner.test.ts` | idem | qualquer arquivo fora de `entities/order/model/orderAccess.ts` citar `estrelinha-order-access` — o token é a **única** credencial de um pedido de convidada, e uma segunda leitura à mão faria a confirmação abrir vazia logo depois de ela pagar; o dono trocar `localStorage` por `sessionStorage` (fechar a aba apagaria o caminho de volta) |
 | `desafioDeCodigoUnico.test.ts` | idem | um segundo campo de 6 dígitos em `apps/store/**` fora de `features/auth/ui/steps` — com o passo existente vêm o reenvio, o cooldown de 60s e a distinção entre código errado e expirado. **Tem o sentido positivo junto**: o desafio do checkout precisa **conter** `AuthCodeStep`, senão a ausência de um segundo campo seria verdadeira por não haver campo nenhum |
 | `denoReach.test.ts` | `packages/core/src/checkout/__tests__` | um especificador relativo sem `.ts` — `import type` incluso — nos arquivos que a edge function importa por caminho (`identity.ts`, `guestAccess.ts`), ou um import de React/Supabase/Deno neles. O barrel fica **fora do escopo**, com a razão escrita no arquivo. Leitor injetável, com sensor de `import type`, do par com extensão, de CRLF e do removedor de comentário — que **reprovou o próprio arquivo certo** na primeira escrita, porque o cabeçalho dele cita `from './types'` em prosa |
@@ -454,7 +457,31 @@ quando mudarem de verdade.
 | --- | --- | --- |
 | **Lint** | **26 erros / 6 warnings** — backoffice 24/4 · store 2/2 | `pnpm lint` |
 | **Tipos** | **0 · 0 · 0** (store · backoffice · catalog-import) | `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` |
-| **Testes** | **10446 em 532 arquivos** — store **3791/232** · backoffice **3024/166** · core **2459/97** · functions **660/14** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
+| **Testes** | **10971 em 556 arquivos** — store **4215/251** · backoffice **3024/166** · core **2546/102** · functions **674/14** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
+
+**A feature `59` (Minha Conta V2) somou +525 em TRÊS workspaces**, medidos em 2026-10-04 um por
+vez, exit code fora de pipe e `--testTimeout=20000` nos dois apps: **store 3791/232 → 4215/251**,
+**core 2459/97 → 2546/102** (`situation`, `repix`, `journey`, `tracking` e a pureza de `core/orders`)
+e **functions 660/14 → 674/14** (`get-order` com eventos, `persistirConveniencias`). Backoffice e
+catalog-import não foram tocados e foram remedidos — idênticos. Lint em **26/6** e tipos em
+**0 · 0**; `packages/core/src/payment/**` com **zero** arquivos alterados.
+
+> ⚠️ **Cerca de 13 dos +424 do store são de OUTRA sessão** que editava o checkout na mesma working
+> tree durante esta feature (`CardPaymentBrick`, `CheckoutPage`). A linha da tabela é a árvore
+> medida; o delta atribuível à `59` é ~+411. Quem abrir a próxima feature mede de novo.
+
+> **A verificação independente REPROVOU a rodada 1 e aprovou a rodada 2.** O achado nº 1 foi o de
+> sempre — a asserção ao lado do ponto: apagar a releitura do pedido depois de enviar o código do
+> material (`MAT-05`) deixava 92 testes verdes, porque o único caso conferia o campo esvaziar. A
+> régua nova é o **estado do cache** (`isInvalidated`), nos dois sentidos: a chave certa vira e a
+> vizinha não. Rodada 2: 58 mutantes, 57 mortos por asserção; o sobrevivente era um ponto cego
+> **herdado do guarda copiado** (`motion-reduce:` qualquer na linha valia como par) e foi fechado.
+
+> **Dois guardas antigos mudaram de ENDEREÇO, não de régua.** `pagamentoComDonoUnico` e
+> `numeroDoPedidoComDonoUnico` exigiam o link do PIX e o formatador dentro de `AccountPage.tsx`; a
+> conta virou lista + pendências e quem escreve isso são os widgets. As réguas passaram a ler os
+> widgets **e** a exigir que a página os monte — só a primeira metade seria "peça certa, endereço
+> errado".
 
 **A feature `58` (pagamento PIX em rota própria) somou +281 em QUATRO workspaces**, com a SAÍDA
 medida em 2026-09-22 um por vez, exit code fora de pipe e `--testTimeout=20000` nos dois apps:
@@ -2012,6 +2039,19 @@ completo (framework, `installCommand` na raiz do monorepo, headers de cache e de
   os identificadores não.
 
 ## Estado conhecido / dívidas
+
+- **A `59` TEM prova em navegador e verificação independente (rodada 2 PASS).** O que ficou fora:
+  - **`MAT-05` de ponta a ponta não foi caminhado em navegador** (enviar o código e ver a pendência
+    sumir). A releitura está provada pelo estado do cache; o percurso, não.
+  - **A bolha do WhatsApp cobre 64px do cartão de pedidos em 1024** enquanto se rola — a folga
+    (`WHATSAPP_FLOAT_CLEARANCE`) protege o FIM da página, não o meio. Em 1440 há 144px livres.
+    Observação, não defeito: é o comportamento de toda bolha flutuante da loja.
+  - **O link do Melhor Rastreio foi conferido** (`/rastreio/{código}` → 301 → página do pacote com a
+    transportadora detectada), com código sintético.
+  - **A renumeração dos `NP-` roda no `db push` de produção** — ver o handoff da `59` no `STATE.md`.
+  - **As oito escritas antigas de `wa.me` continuam à mão**; só as peças novas usam `whatsappHref`.
+  - **"Fale com a Adri pelo WhatsApp — ela responde pessoalmente"** (bloco de ajuda da coluna
+    lateral) é afirmação de operação escrita sem a dona confirmar.
 
 - **A `58` TEM prova em navegador (os cinco estados e o percurso inteiro, em 390 e 1440), e NÃO tem
   verificação independente.** Autor = verificador; nove mutantes foram reinjetados nos arquivos

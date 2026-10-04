@@ -1137,6 +1137,53 @@ ninguém é avisado.
 - **`useProducts(slug)` faz roll-up da descendência** (`descendantIds`): sem isso o "Ver todos →" do
   menu levaria a uma página sem os produtos que o menu acabou de listar.
 
+## Minha conta e o detalhe do pedido (feature `59`)
+
+Desenho: Paper, página **"59 · Minha Conta V2 — proposta"**. O retrato do que existia antes está em
+**"Minha Conta — como está hoje"**.
+
+- **O detalhe do pedido tem UM dono: `/pedido/:id`.** A conta é **lista + pendências**; tocar num
+  pedido leva ao detalhe, que é a mesma página da confirmação pós-compra. Um segundo detalhe dentro
+  de `/conta` seria o "defeito 01" que a `58` apagou do PIX (`AD-042`), e a convidada continuaria
+  vendo o pedido só em `/pedido/:id`.
+- **`/conta` e `/conta/dados` são rotas IRMÃS auto-fechadas com o mesmo `element`.** A aba vem do
+  endereço, não de estado — sobrevive a F5 e ao voltar. `/conta/dados` está em
+  `NON_INDEXABLE_PATHS`. No celular são abas; a partir de `lg`, coluna lateral de 264px.
+- **"Em que pé está o pedido?" é `orderSituation` (`@estrelinha/core/orders`), desenhado por
+  `OrderSituationBadge`.** Pagar **não** muda `orders.status`, só `payment_status`, então nenhuma
+  coluna sozinha responde: a régua junta pedido, pagamento e material, em 9 regras na ordem do
+  quadro "Régua dos selos" do Paper. Antes, a conta tinha 5 rótulos à mão contra 6 status do banco e
+  o pedido **pago** aparecia "Pendente". `situacaoComDonoUnico.test.ts` recusa a volta.
+  - Os tons usam seis tokens novos (`wait`, `alert`, `done` e os `-soft`), declarados nos dois
+    arquivos da paleta. Nenhuma cor padrão do Tailwind sobrou na conta.
+- **As pendências ("Precisa da sua atenção") são `accountAttention` (`entities/order`)**, e a
+  janela do PIX novo é `podeGerarNovoPix` (`core`): **7 dias** depois do pedido, decisão do usuário.
+  É regra de **oferta**, não de autorização — o servidor aceita gerar PIX para `expired`/`rejected`
+  sem prazo. `podePagarComPix` (`pending`) **não mudou**: a regra dos 7 dias é irmã, não alteração.
+- **O título do detalhe é o número** ("Pedido #0231"), e a frase calorosa é subtítulo por etapa
+  (`confirmationHeadline`): "É nosso!" pago e no ateliê, "Pedido registrado" sem pagamento, nada
+  depois de enviado, entregue, cancelado ou reembolsado. Decisão do usuário em 2026-10-04 — um
+  pedido entregue em agosto não abre dizendo "É nosso!". "Pago" é `paid_at`, a mesma coluna da frase
+  de e-mail ao lado (`STO-01`).
+- **A linha do tempo (`OrderJourney`) substituiu a `OrderTimeline` horizontal de 4 estágios**, e
+  data cada etapa pela **fonte dela**: `created_at`, `paid_at`, `material_received_at`, e o
+  **primeiro** evento `separating`/`shipped`/`delivered` do histórico. Sem fonte, sem data — nunca
+  `updated_at` (`L-017`). Os eventos chegam em `useOrder().status_events`, pela RPC
+  `customer_order_events` (sessão) ou pelo `get-order` (convidada), no mesmo formato.
+- **O campo do código do material é o estado do topo do detalhe** quando o material está pendente,
+  e **some para a convidada** (que vê o WhatsApp): a RPC é fechada a `anon` (`BL-036`, opção b).
+  Gravado o código, o detalhe **e** a lista da conta releem (`MAT-05`) — sem a segunda, a pendência
+  seguiria cobrando o código até o cache vencer.
+- **"Meus dados" reusa `useSaveAddress`, `useDefaultAddress` e `useSaveCustomerCpf`**, que estavam
+  sem consumidor (`BL-032`). E-mail e CPF preenchido têm cadeado — e quem recusa de verdade é o
+  **banco** (gatilho `guard_customer_identity`; ver `supabase/CLAUDE.md`). `useCepLookup` mudou para
+  `entities/address` (dois consumidores), com `features/checkout` reexportando.
+- **O link do WhatsApp das peças novas sai de `whatsappHref` (`shared/lib`)**, com o portão de 10
+  dígitos. As oito escritas antigas de `wa.me` continuam à mão — dívida registrada, não migrada.
+- **O rastreio do pacote leva ao Melhor Rastreio** (`parcelTrackingUrl`, `core/orders/tracking.ts`),
+  que reconhece a transportadora pelo código. O formato do link direto é premissa — ver a prova em
+  navegador no `validation.md` da `59`.
+
 ## Auth (loja)
 
 Overlay único (`features/auth`) com steps entry → code → name, mais password, reset → reset-code →

@@ -1350,6 +1350,13 @@ teve o número trocado.
 
 ## BL-032 — `useSaveCustomerCpf` e `useSaveAddress` ficaram sem consumidor de produção
 
+- **Status**: **FECHADO em 2026-10-04** pela feature `59`, pelo caminho oposto ao previsto: os dois
+  ganchos **ganharam consumidor** em vez de serem apagados. "Meus dados" (`/conta/dados`) edita o
+  endereço padrão por `useSaveAddress`/`useDefaultAddress` e preenche o CPF uma vez por
+  `useSaveCustomerCpf`. O segundo gravador que esta entrada temia é contido pelo banco: o gatilho
+  `guard_customer_identity` recusa trocar CPF já preenchido, e o `checkout` passou a gravar CPF só
+  quando vazio.
+
 **Aberto por**: feature `49`, 2026-09-13.
 
 O CPF do pagador e o endereço passaram a ser gravados pela edge function `checkout`, no mesmo fluxo
@@ -1523,6 +1530,10 @@ descobrir exige abrir pedido a pedido.
 ---
 
 ## BL-036 — A convidada vê o formulário de rastreio do material, e ele não funciona
+
+- **Status**: **FECHADO em 2026-10-04** pela feature `59` (`MAT-06`), pela opção **(b)**: sem sessão o
+  campo não monta e a convidada vê o caminho do WhatsApp. A opção (a) — autorizar a porta pelo
+  `access_token` — continua possível e é a coerente com a `49`, mas não foi feita.
 
 **Aberto por**: auditoria de comunicação com a cliente, 2026-09-17. **Regressão de feature cruzada.**
 
