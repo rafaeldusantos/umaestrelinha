@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, within } from '@testing-library/react'
 import type { Product } from '@estrelinha/supabase/types'
 import type { ShippingQuote } from '@estrelinha/supabase/types/shipping'
 import { useCartStore } from '@/entities/cart'
@@ -278,23 +278,150 @@ describe('DeliveryBlock — endereço salvo (ADR-02)', () => {
       city: 'São Paulo',
       state: 'SP',
     })
-    render(
-      <DeliveryBlock
-        open={false}
-        complete
-        onEdit={onEdit}
-        onContinue={onContinue}
-        canContinue
-      />,
-    )
+    renderCollapsed()
 
-    expect(
-      screen.getByText('Av. Brigadeiro Faria Lima, 3477 — São Paulo/SP'),
-    ).toBeInTheDocument()
+    expect(screen.getByText('Av. Brigadeiro Faria Lima, 3477')).toBeInTheDocument()
     expect(screen.queryByLabelText('CEP')).not.toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Alterar' }))
     expect(onEdit).toHaveBeenCalledTimes(1)
+  })
+})
+
+const renderCollapsed = (complete = true) =>
+  render(
+    <DeliveryBlock
+      open={false}
+      complete={complete}
+      onEdit={onEdit}
+      onContinue={onContinue}
+      canContinue
+    />,
+  )
+
+const ENDERECO = {
+  cep: '04538133',
+  street: 'Av. Brigadeiro Faria Lima',
+  number: '3477',
+  complement: 'Apto 42',
+  neighborhood: 'Itaim Bibi',
+  city: 'São Paulo',
+  state: 'SP',
+}
+
+/**
+ * O bloco fechado mostra o que foi preenchido (2026-10-04, página "60" do Paper): o endereço em
+ * três linhas e o frete escolhido numa faixa própria, com data e preço. Antes era uma linha com
+ * `truncate` e um rodapé sem data.
+ */
+describe('DeliveryBlock — prévia do bloco fechado', () => {
+  it('o endereço sai em três linhas: rua com complemento, bairro e cidade, CEP', () => {
+    useCheckoutStore.getState().setAddress(ENDERECO)
+    renderCollapsed()
+
+    expect(screen.getByText('Av. Brigadeiro Faria Lima, 3477, Apto 42')).toBeInTheDocument()
+    expect(screen.getByText('Itaim Bibi · São Paulo/SP')).toBeInTheDocument()
+    // O CEP é mascarado na exibição mesmo quando o rascunho guarda só dígitos (endereço salvo).
+    expect(screen.getByText('CEP 04538-133')).toBeInTheDocument()
+  })
+
+  it('sem complemento nem bairro, nenhuma vírgula ou ponto solto', () => {
+    useCheckoutStore.getState().setAddress({ ...ENDERECO, complement: '', neighborhood: '' })
+    renderCollapsed()
+
+    expect(screen.getByText('Av. Brigadeiro Faria Lima, 3477')).toBeInTheDocument()
+    expect(screen.getByText('São Paulo/SP')).toBeInTheDocument()
+  })
+
+  it('a prévia QUEBRA a linha em vez de cortar — nada de `truncate` no bloco fechado', () => {
+    useCheckoutStore.getState().setAddress(ENDERECO)
+    const { container } = renderCollapsed()
+
+    expect(container.querySelector('.truncate')).toBeNull()
+    expect(screen.getByText('Itaim Bibi · São Paulo/SP').parentElement!.className).toMatch(
+      /\bbreak-words\b/,
+    )
+  })
+
+  it('o frete escolhido mostra transportadora, serviço, a DATA cotada e o preço', () => {
+    useCheckoutStore.getState().setAddress(ENDERECO)
+    cepLookup(RESOLVED)
+    quoteState({ data: [PAC, SEDEX] })
+    useCheckoutStore.getState().setShipping({
+      serviceId: '2',
+      serviceName: 'SEDEX',
+      carrier: 'Correios',
+      cost: 24.8,
+      estimateMin: '2026-07-30',
+      estimateMax: '2026-07-30',
+    })
+    renderCollapsed()
+
+    const faixa = within(screen.getByRole('group', { name: 'Frete escolhido' }))
+    expect(faixa.getByText('Correios SEDEX')).toBeInTheDocument()
+    expect(faixa.getByText('Chega em 30 de julho')).toBeInTheDocument()
+    expect(faixa.getByText('R$ 24,80')).toBeInTheDocument()
+  })
+
+  it('a data sai do rascunho mesmo sem a cotação de volta — no fuso local, sem perder um dia', () => {
+    // `new Date('2026-08-04')` seria meia-noite UTC — 3 de agosto em Porto Alegre.
+    useCheckoutStore.getState().setAddress(ENDERECO)
+    useCheckoutStore.getState().setShipping({
+      serviceId: '1',
+      serviceName: 'PAC',
+      carrier: 'Correios',
+      cost: 14.9,
+      estimateMin: '2026-08-04',
+      estimateMax: '2026-08-06',
+    })
+    renderCollapsed()
+
+    expect(screen.getByText('Chega entre 4 e 6 de agosto')).toBeInTheDocument()
+  })
+
+  it('frete grátis: "Grátis" com o preço cotado riscado ao lado', () => {
+    setCartSubtotal(200)
+    useCheckoutStore.getState().setAddress(ENDERECO)
+    cepLookup(RESOLVED)
+    quoteState({ data: [PAC, SEDEX] })
+    useCheckoutStore.getState().setShipping({
+      serviceId: '1',
+      serviceName: 'PAC',
+      carrier: 'Correios',
+      cost: 0,
+      estimateMin: '2026-08-04',
+      estimateMax: '2026-08-06',
+    })
+    renderCollapsed()
+
+    const faixa = within(screen.getByRole('group', { name: 'Frete escolhido' }))
+    expect(faixa.getByText('Grátis')).toBeInTheDocument()
+    expect(faixa.getByText('R$ 14,90')).toHaveClass('line-through')
+  })
+
+  it('frete padrão, sem cotação: não inventa data', () => {
+    useCheckoutStore.getState().setAddress(ENDERECO)
+    useCheckoutStore.getState().setShipping({
+      serviceId: 'default',
+      serviceName: 'Frete padrão',
+      carrier: 'Correios',
+      cost: 9.9,
+      estimateMin: '',
+      estimateMax: '',
+    })
+    renderCollapsed()
+
+    expect(screen.getByText('Prazo confirmado após a postagem')).toBeInTheDocument()
+    expect(screen.queryByText(/^Chega/)).not.toBeInTheDocument()
+  })
+
+  it('incompleta: nem endereço, nem faixa de frete — só o convite e "Preencher"', () => {
+    renderCollapsed(false)
+
+    expect(screen.getByText('Informe seu CEP e escolha o envio')).toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: 'Frete escolhido' })).not.toBeInTheDocument()
+    expect(screen.queryByText(/^CEP/)).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Preencher' })).toBeInTheDocument()
   })
 })
 

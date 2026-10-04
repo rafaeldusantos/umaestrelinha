@@ -13,6 +13,12 @@
 //
 // A marca é **SVG inline** (`EstrelinhaSignature`), nunca `<img src>`: o header não pode ter
 // estado de carregamento. O degrau da assinatura tem piso de 190px e aqui ela sai a 200.
+//
+// **Abaixo de `sm` ela sai a 180px, ABAIXO do piso, e é exceção declarada** (decisão do usuário,
+// 2026-10-04): no celular a marca disputava a linha com "Ambiente seguro". O piso foi calculado em
+// pixel CSS com DPR 1 — a 180px o traço da marca mede 0,96px CSS, que num celular (DPR 2–3) são
+// 1,9–2,9 pixels físicos e sai nítido. A exceção é feita pelo CSS, com o componente recebendo 200:
+// passar `width={180}` faria a escada trocar a assinatura pelo símbolo, que é outro desenho.
 import { Link } from 'react-router-dom'
 import { Lock, MessageCircle } from 'lucide-react'
 
@@ -22,7 +28,7 @@ const CheckoutHeader = () => (
   <header className="border-b border-estrelinha-line bg-white">
     <div className="container flex items-center justify-between py-5">
       <Link to="/" aria-label="Uma Estrelinha">
-        <EstrelinhaSignature width={200} />
+        <EstrelinhaSignature width={200} className="h-auto w-[180px] sm:w-[200px]" />
       </Link>
       <div className="flex items-center gap-5 text-sm font-medium">
         <span className="flex items-center gap-[7px] text-estrelinha-ink">

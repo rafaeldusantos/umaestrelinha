@@ -231,17 +231,48 @@ describe('ContactBlock — captação de carrinho abandonado (CHK-11)', () => {
 })
 
 describe('ContactBlock — colapsado (CHK-04)', () => {
-  it('exibe nome e e-mail numa linha e não renderiza os campos', () => {
+  it('mostra nome, e-mail e WhatsApp, um por linha, e não renderiza os campos', () => {
+    // 2026-10-04 (página "60" do Paper): era uma linha só, "nome · e-mail", cortada no celular.
     useCheckoutStore.getState().setContact({
       name: 'Marina Yamashita',
       email: 'marina@email.com',
-      whatsapp: '11987654321',
+      whatsapp: '(11) 98765-4321',
     })
     renderCollapsed()
 
-    expect(screen.getByText('Marina Yamashita · marina@email.com')).toBeInTheDocument()
+    expect(screen.getByText('Marina Yamashita')).toBeInTheDocument()
+    expect(screen.getByText('marina@email.com')).toBeInTheDocument()
+    expect(screen.getByText('(11) 98765-4321')).toBeInTheDocument()
     expect(screen.queryByLabelText('Nome completo')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('E-mail')).not.toBeInTheDocument()
+  })
+
+  it('o e-mail longo quebra a linha em vez de ser cortado', () => {
+    useCheckoutStore.getState().setContact({
+      name: 'Marina Albuquerque',
+      email: 'marina.albuquerque.de.souza@provedor-de-email.com.br',
+    })
+    const { container } = renderCollapsed()
+
+    expect(container.querySelector('.truncate')).toBeNull()
+    expect(
+      screen.getByText('marina.albuquerque.de.souza@provedor-de-email.com.br').parentElement!
+        .className,
+    ).toMatch(/\bbreak-words\b/)
+  })
+
+  it('campo vazio não vira linha nem pontuação solta', () => {
+    useCheckoutStore.getState().setContact({ name: 'Marina', email: 'marina@email.com' })
+    const { container } = renderCollapsed()
+
+    expect(container.textContent).not.toContain('·')
+    expect(screen.getByRole('region', { name: 'Contato' }).querySelectorAll('.pl-11 > span')).toHaveLength(2)
+  })
+
+  it('sem nome nem e-mail, o bloco fechado convida a preencher', () => {
+    renderCollapsed()
+
+    expect(screen.getByText('Informe seu nome e e-mail')).toBeInTheDocument()
   })
 
   it('a ação "Alterar" chama onEdit', () => {

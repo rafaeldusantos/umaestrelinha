@@ -7,7 +7,6 @@
 // Nenhum `bg-estrelinha-primary` neste arquivo: a única pílula geleia da tela é o CTA (CHK-04).
 // Por isso o disco de "feito" é tinta, e não geleia como no board.
 import { useEffect, useRef } from 'react'
-import { Check } from 'lucide-react'
 import { Button } from '@estrelinha/ui/button'
 import { Input } from '@estrelinha/ui/input'
 import { Label } from '@estrelinha/ui/label'
@@ -18,7 +17,11 @@ import { setGuestEmail } from '@/features/abandoned-cart/model/useAbandonedCartT
 import { MARKETING_CONSENT_LABEL } from '@/shared/lib/consent'
 import { useAccountLookup } from '../api/useAccountLookup'
 import CheckoutSignInChallenge from './CheckoutSignInChallenge'
+import CollapsedBlock from './CollapsedBlock'
 import { useCheckoutStore } from '../model/checkoutStore'
+
+/** O que o Contato fechado diz quando ainda não há nome nem e-mail. */
+export const CONTACT_EMPTY_SUMMARY = 'Informe seu nome e e-mail'
 
 interface Props {
   open: boolean
@@ -84,37 +87,28 @@ const ContactBlock = ({
   }, [contact.email, contact.consent])
 
   if (!open) {
+    // A prévia do que foi digitado, uma informação por linha (2026-10-04): o nome em destaque, o
+    // e-mail e o WhatsApp abaixo. Linha vazia não é desenhada — juntar campos vazios produzia
+    // um " · " solto, que se lê como tela quebrada.
+    const nome = contact.name.trim()
+    const email = contact.email.trim()
+    const whatsapp = contact.whatsapp.trim()
     return (
-      <section
-        aria-label="Contato"
-        className="flex items-center gap-3 rounded-lg border border-estrelinha-line bg-white px-4 py-[22px]"
+      <CollapsedBlock
+        label="Contato"
+        step={1}
+        complete={complete}
+        completeLabel="Contato preenchido"
+        actionLabel="Alterar"
+        onAction={onEdit}
       >
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-estrelinha-ink">
-          {complete ? (
-            <Check className="h-4 w-4 text-white" aria-label="Contato preenchido" />
-          ) : (
-            <span className="font-heading text-base font-semibold text-white">1</span>
-          )}
-        </span>
-        <div className="flex min-w-0 grow flex-col gap-[3px]">
-          <span className="text-xs font-semibold uppercase tracking-[0.1em] text-estrelinha-ink-soft">
-            Contato
-          </span>
-          <span className="truncate text-[15px] font-semibold text-estrelinha-ink">
-            {contact.name} · {contact.email}
-          </span>
-        </div>
-        {/* BUG-20260728-alterar-alvo-de-toque-28px: 44px de alvo, aparência de link mantida.
-            Entrega e Pagamento já tinham recebido o `min-h-11`; este ficou para trás e media
-            28px — medido em 390×844. */}
-        <button
-          type="button"
-          onClick={onEdit}
-          className="flex min-h-11 shrink-0 items-center rounded-sm px-3 text-sm font-semibold text-estrelinha-primary hover:underline"
-        >
-          Alterar
-        </button>
-      </section>
+        {nome && <span className="text-[15px] font-semibold text-estrelinha-ink">{nome}</span>}
+        {email && <span className="text-sm text-estrelinha-ink-soft">{email}</span>}
+        {whatsapp && <span className="text-sm text-estrelinha-ink-soft">{whatsapp}</span>}
+        {!nome && !email && (
+          <span className="text-sm text-estrelinha-ink-soft">{CONTACT_EMPTY_SUMMARY}</span>
+        )}
+      </CollapsedBlock>
     )
   }
 

@@ -11,7 +11,7 @@
 // Zero preço e zero prazo literais aqui: preço vem da cotação (ou de `default_shipping_cost`)
 // e a data vem de `formatEstimate`. Nenhum `bg-estrelinha-primary` — a única pílula geleia é o CTA.
 import { useEffect, useMemo, useRef } from 'react'
-import { AlertTriangle, Check } from 'lucide-react'
+import { AlertTriangle, Truck } from 'lucide-react'
 import { Button } from '@estrelinha/ui/button'
 import { Input } from '@estrelinha/ui/input'
 import { Label } from '@estrelinha/ui/label'
@@ -28,6 +28,7 @@ import { useDefaultAddress } from '@/entities/address'
 import { useCepLookup } from '../api/useCepLookup'
 import { useShippingQuote } from '../api/useShippingQuote'
 import { useCheckoutStore } from '../model/checkoutStore'
+import CollapsedBlock from './CollapsedBlock'
 
 interface Props {
   open: boolean
@@ -59,6 +60,23 @@ interface DeliveryOption extends ShippingDraft {
 /** `YYYY-MM-DD` a partir das partes locais — `toISOString` deslocaria o dia por fuso. */
 const toIsoDate = (date: Date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+
+/**
+ * O inverso de `toIsoDate`: a data do rascunho volta a ser o texto de `formatEstimate`.
+ *
+ * `new Date('2026-10-14')` seria meia-noite **UTC**, que em Porto Alegre é o dia anterior — por
+ * isso as partes são lidas à mão e montadas no fuso local, como `toIsoDate` as escreveu. Rascunho
+ * do frete padrão tem as duas datas vazias e devolve `null`: sem cotação não há data honesta.
+ */
+const draftEstimateLabel = ({ estimateMin, estimateMax }: ShippingDraft): string | null => {
+  const parse = (iso: string) => {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso)
+    return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null
+  }
+  const min = parse(estimateMin)
+  const max = parse(estimateMax)
+  return min && max ? formatEstimate(min, max) : null
+}
 
 /** Descarta o que é só apresentação: `ShippingDraft` é o que entra no pedido (SHP-07). */
 const toDraft = ({
@@ -244,50 +262,83 @@ const DeliveryBlock = ({ open, complete, onEdit, onContinue, canContinue }: Prop
     : 'border-estrelinha-line'
 
   if (!open) {
+    // BUG-20260728-bloco-vazio-parece-preenchido: sem dado não se monta a pontuação — `, — /`
+    // lia-se como tela quebrada para quem nunca preencheu. Daí o recorte por `complete`.
+    //
+    // A prévia (2026-10-04): o endereço em três linhas — rua, bairro e cidade, CEP — e o frete
+    // escolhido numa faixa própria, com a data e o preço. Antes era uma linha cortada e um rodapé
+    // cinza sem data; a cliente fechava o bloco e não sabia mais quando a joia chegava.
+    const rua = [address.street, address.number, address.complement]
+      .map((parte) => parte?.trim())
+      .filter(Boolean)
+      .join(', ')
+    const cidade = [address.neighborhood?.trim(), `${address.city}/${address.state}`]
+      .filter(Boolean)
+      .join(' · ')
+    // A data sai do RASCUNHO, que é o que entra no pedido — a prévia diz o que vai ser gravado.
+    // Da opção cotada vem só o preço antes do frete grátis, que o rascunho não guarda.
+    const chegada = shipping ? draftEstimateLabel(shipping) : null
+    const escolhida = shipping
+      ? options.find((o) => o.serviceId === shipping.serviceId)
+      : undefined
+
     return (
-      <section
-        aria-label="Entrega"
-        className="flex items-center gap-3 rounded-lg border border-estrelinha-line bg-white px-4 py-[22px]"
+      <CollapsedBlock
+        label="Entrega"
+        step={2}
+        complete={complete}
+        completeLabel="Entrega preenchida"
+        actionLabel={complete ? 'Alterar' : 'Preencher'}
+        onAction={onEdit}
+        footer={
+          complete &&
+          shipping && (
+            <div
+              role="group"
+              aria-label="Frete escolhido"
+              className="flex items-center gap-[18px] rounded-sm bg-estrelinha-ground-deep py-3 pl-[6px] pr-[14px]"
+            >
+              <Truck
+                className="h-5 w-5 shrink-0 text-estrelinha-ink"
+                strokeWidth={1.5}
+                aria-hidden
+              />
+              <span className="flex min-w-0 grow flex-col gap-[2px]">
+                <span className="text-[15px] font-semibold text-estrelinha-ink">
+                  {shipping.carrier} {shipping.serviceName}
+                </span>
+                <span className="text-[13px] text-estrelinha-ink-soft">
+                  {chegada ? `Chega ${chegada}` : 'Prazo confirmado após a postagem'}
+                </span>
+              </span>
+              <span className="flex shrink-0 flex-col items-end gap-[2px]">
+                <span
+                  className={`font-heading text-base font-semibold ${
+                    shipping.cost === 0 ? 'text-estrelinha-primary' : 'text-estrelinha-ink'
+                  }`}
+                >
+                  {shipping.cost === 0 ? 'Grátis' : formatPrice(shipping.cost)}
+                </span>
+                {shipping.cost === 0 && escolhida && escolhida.price > 0 && (
+                  <span className="text-xs text-estrelinha-ink-soft line-through">
+                    {formatPrice(escolhida.price)}
+                  </span>
+                )}
+              </span>
+            </div>
+          )
+        }
       >
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-estrelinha-ink">
-          {complete ? (
-            <Check className="h-4 w-4 text-white" aria-label="Entrega preenchida" />
-          ) : (
-            <span className="font-heading text-base font-semibold text-white">2</span>
-          )}
-        </span>
-        <div className="flex min-w-0 grow flex-col gap-[3px]">
-          <span className="text-xs font-semibold uppercase tracking-[0.1em] text-estrelinha-ink-soft">
-            Entrega
-          </span>
-          <span
-            className={`truncate text-[15px] font-semibold ${
-              complete ? 'text-estrelinha-ink' : 'text-estrelinha-ink-soft'
-            }`}
-          >
-            {/* BUG-20260728-bloco-vazio-parece-preenchido: sem dado não se monta a pontuação —
-                `, — /` lia-se como tela quebrada para quem nunca preencheu. */}
-            {complete
-              ? `${address.street}, ${address.number} — ${address.city}/${address.state}`
-              : DELIVERY_EMPTY_SUMMARY}
-          </span>
-          {complete && shipping && (
-            <span className="truncate text-[13px] text-estrelinha-ink-soft">
-              {shipping.carrier} {shipping.serviceName} ·{' '}
-              {shipping.cost === 0 ? 'Grátis' : formatPrice(shipping.cost)}
-            </span>
-          )}
-        </div>
-        {/* BUG-20260728-alterar-alvo-de-toque-28px: `min-h-11` = 44px, o mínimo da premissa
-            mobile do projeto. A aparência de link continua a do board. */}
-        <button
-          type="button"
-          onClick={onEdit}
-          className="flex min-h-11 shrink-0 items-center rounded-sm px-3 text-sm font-semibold text-estrelinha-primary hover:underline"
-        >
-          {complete ? 'Alterar' : 'Preencher'}
-        </button>
-      </section>
+        {complete ? (
+          <>
+            <span className="text-[15px] font-semibold text-estrelinha-ink">{rua}</span>
+            <span className="text-sm text-estrelinha-ink-soft">{cidade}</span>
+            <span className="text-sm text-estrelinha-ink-soft">CEP {maskCep(address.cep)}</span>
+          </>
+        ) : (
+          <span className="text-sm text-estrelinha-ink-soft">{DELIVERY_EMPTY_SUMMARY}</span>
+        )}
+      </CollapsedBlock>
     )
   }
 

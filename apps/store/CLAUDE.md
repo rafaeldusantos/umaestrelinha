@@ -96,6 +96,12 @@ marca. Leia [`../../CLAUDE.md`](../../CLAUDE.md) (regras do repositório) e
   | 2 | `EstrelinhaSignature` | **190px** | header (202px), rodapé, menu, checkout, auth |
   | 3 | `EstrelinhaSymbol` | **48px** | favicon, selo, superfície pequena |
 
+  **Exceção declarada: o header do checkout sai a 180px abaixo de `sm`** (decisão do usuário,
+  2026-10-04). O componente recebe 200 — senão a escada trocaria pelo símbolo — e a largura vem do
+  CSS (`w-[180px] sm:w-[200px] h-auto`). O piso foi calculado em pixel CSS com DPR 1; a 180px o
+  traço mede 0,96px CSS, que no celular (DPR 2–3) são ~2–3 pixels físicos. `CheckoutHeader.test.tsx`
+  prende a forma. Medido em 390: 180 × 39px, viewBox da assinatura.
+
   **O lockup completo não cabe em nenhuma tela da loja, e isso é resultado medido, não descuido**: a
   marca é monoline, o traço é fração fixa da largura, e a 48px de altura o lockup mediria 176px de
   largura com a assinatura em 0,29px — abaixo de 1px o traço vira cinza de antialias. A coluna de

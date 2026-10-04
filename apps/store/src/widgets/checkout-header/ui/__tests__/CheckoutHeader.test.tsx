@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 
+import { SIGNATURE } from '@/shared/ui/brand/paths'
 import CheckoutHeader from '../CheckoutHeader'
 
 /**
@@ -31,6 +32,20 @@ describe('CheckoutHeader — a marca', () => {
 
     expect(container.querySelector('a[aria-label="Uma Estrelinha"] svg')).toBeInTheDocument()
     expect(container.querySelector('img')).toBeNull()
+  })
+
+  it('no celular a assinatura sai a 180px, e continua sendo a ASSINATURA, não o símbolo', () => {
+    // Exceção declarada ao piso de 190px (2026-10-04). A largura menor vem do CSS; o componente
+    // recebe 200 justamente para a escada não trocar o desenho pelo símbolo da estrela.
+    const { container } = montar()
+    const svg = container.querySelector('a[aria-label="Uma Estrelinha"] svg')!
+    const classes = (svg.getAttribute('class') ?? '').split(/\s+/)
+
+    expect(svg).toHaveAttribute('viewBox', SIGNATURE.viewBox)
+    expect(classes).toContain('w-[180px]')
+    expect(classes).toContain('sm:w-[200px]')
+    // Sem `h-auto` o atributo `height` do SVG (de 200px) ficaria valendo e a marca distorceria.
+    expect(classes).toContain('h-auto')
   })
 })
 

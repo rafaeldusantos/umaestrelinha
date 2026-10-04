@@ -13,7 +13,7 @@
 // `CHK-02` foi **removida**, e quem convida a entrar é o `SignInInvite`, sem obrigar ninguém.
 import { useEffect, useMemo, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Lock, Package, RefreshCw, ShieldCheck } from 'lucide-react'
+import { ArrowLeft, Lock, ShieldCheck } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@estrelinha/ui/button'
 import { formatPrice } from '@estrelinha/core/formatters'
@@ -77,12 +77,13 @@ interface DbGridRow {
   product_variants: { is_active: boolean; price: number | null }[] | null
 }
 
-/** CHK-12: só o que `pages/ReturnsPolicyPage.tsx` realmente promete. */
-const TRUST_ITEMS = [
-  { icon: ShieldCheck, label: 'Mercado Pago' },
-  { icon: RefreshCw, label: 'Troca de produto com defeito em 7 dias' },
-  { icon: Package, label: 'Embalagem protegida' },
-]
+/**
+ * CHK-12: só o que a loja realmente garante sob o CTA.
+ *
+ * A troca em 7 dias e a embalagem protegida saíram daqui em 2026-10-04, por decisão do usuário: a
+ * faixa sob o botão de pagar ficou com uma afirmação só, a de quem processa o pagamento.
+ */
+const TRUST_ITEMS = [{ icon: ShieldCheck, label: 'Pagamento processado por Mercado Pago' }]
 
 const CheckoutPage = () => {
   const navigate = useNavigate()
@@ -474,11 +475,12 @@ const CheckoutPage = () => {
 
         <div className="grid gap-8 lg:grid-cols-[1fr_400px]">
           {/* `min-w-0`: item de grid nasce com `min-width: auto`, ou seja **não encolhe abaixo do
-              próprio min-content**. Os blocos colapsados usam `truncate` (= `white-space: nowrap`),
-              então o min-content deles é o texto INTEIRO — um endereço longo media 436px dentro de
-              uma viewport de 390 e punha scroll horizontal no body, que a premissa mobile do
-              projeto proíbe. O `min-w-0` dos filhos não bastava: quem precisa poder encolher é o
-              item de grid. Medido em 390×844: 452px → 390px. */}
+              próprio min-content**. Os blocos colapsados usavam `truncate` (= `white-space:
+              nowrap`), então o min-content deles era o texto INTEIRO — um endereço longo media
+              436px dentro de uma viewport de 390 e punha scroll horizontal no body, que a premissa
+              mobile do projeto proíbe. Desde 2026-10-04 a prévia quebra linha (`break-words`), mas
+              o `min-w-0` continua sendo carga: `break-word` não reduz o min-content, e um e-mail
+              sem espaço é uma palavra só. Medido em 390×844: 452px → 390px. */}
           <div className="flex min-w-0 flex-col gap-3">
             <div className="flex flex-col gap-1">
               {/* Abre a gaveta em vez de navegar: rever a sacola não deve custar a saída do

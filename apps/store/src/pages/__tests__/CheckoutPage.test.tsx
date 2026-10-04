@@ -1025,8 +1025,9 @@ describe('CheckoutPage — endereço salvo colapsa a Entrega (ADR-02)', () => {
 
     expect(region('Entrega').queryByLabelText('CEP')).not.toBeInTheDocument()
     expect(
-      region('Entrega').getByText('Av. Brigadeiro Faria Lima, 3477 — São Paulo/SP'),
+      region('Entrega').getByText('Av. Brigadeiro Faria Lima, 3477, Apto 42'),
     ).toBeInTheDocument()
+    expect(region('Entrega').getByText('Itaim Bibi · São Paulo/SP')).toBeInTheDocument()
     expect(region('Entrega').getByRole('button', { name: 'Alterar' })).toBeInTheDocument()
   })
 
@@ -1912,12 +1913,13 @@ describe('CheckoutPage — header, confiança e paleta (CHK-10, CHK-12)', () => 
     expect(screen.queryByRole('navigation')).not.toBeInTheDocument()
   })
 
-  it('faixa de confiança afirma só o que ReturnsPolicyPage promete', () => {
+  it('a faixa sob o CTA diz só quem processa o pagamento', () => {
     renderPage()
 
-    expect(screen.getByText('Mercado Pago')).toBeInTheDocument()
-    expect(screen.getByText('Troca de produto com defeito em 7 dias')).toBeInTheDocument()
-    expect(screen.getByText('Embalagem protegida')).toBeInTheDocument()
+    expect(screen.getByText('Pagamento processado por Mercado Pago')).toBeInTheDocument()
+    // Removidas em 2026-10-04 por decisão do usuário — a ausência é a regra agora.
+    expect(screen.queryByText('Troca de produto com defeito em 7 dias')).not.toBeInTheDocument()
+    expect(screen.queryByText('Embalagem protegida')).not.toBeInTheDocument()
     expect(screen.queryByText(/desist/i)).not.toBeInTheDocument()
   })
 
