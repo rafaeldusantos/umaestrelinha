@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { afterEach, describe, it, expect, vi, beforeEach } from 'vitest'
 import { act, render, screen } from '@testing-library/react'
 import CardPaymentBrick from '../CardPaymentBrick'
 import { useCheckoutStore } from '../../model/checkoutStore'
@@ -178,5 +178,89 @@ describe('CardPaymentBrick — o número reconhecido chega ao checkout', () => {
     const antes = JSON.stringify(useCheckoutStore.getState().draft())
     act(() => capturedProps.onBinChange('41111111'))
     expect(JSON.stringify(useCheckoutStore.getState().draft())).toBe(antes)
+  })
+})
+
+/**
+ * BUG-20261004-brick-recriado-a-cada-render.
+ *
+ * O `CardPayment` do SDK recria o Brick — e esvazia o cartão digitado — sempre que muda a
+ * IDENTIDADE de `initialization`, `customization`, `onBinChange`, `onReady`, `onError` ou
+ * `onSubmit` (é a lista de dependências do `useEffect` dele, em `@mercadopago/sdk-react` 1.0.7).
+ * Objeto literal ou função inline no JSX é uma identidade nova por render. Em produção isso apagava
+ * o cartão ao digitar o número (o sinal de BIN renderiza a página) e ao clicar em "Pagar" (o
+ * `setBusy` também). A régua aqui é a do SDK: `toBe`, nunca `toEqual`.
+ */
+describe('CardPaymentBrick — renderizar de novo NÃO recria o Brick', () => {
+  const DEPENDENCIAS_DO_SDK = [
+    'initialization',
+    'customization',
+    'onBinChange',
+    'onReady',
+    'onError',
+    'onSubmit',
+  ] as const
+  const congelar = () => Object.fromEntries(DEPENDENCIAS_DO_SDK.map((k) => [k, capturedProps[k]]))
+  const props = { amount: 100, payerEmail: 'marina@email.com' }
+
+  it('a mensagem de erro mudar (o CTA terminou uma tentativa) mantém a identidade de todas', () => {
+    const { rerender } = render(<CardPaymentBrick {...props} errorMessage={null} />)
+    const antes = congelar()
+
+    rerender(<CardPaymentBrick {...props} errorMessage="Saldo insuficiente no cartão." />)
+
+    for (const k of DEPENDENCIAS_DO_SDK) expect(capturedProps[k], k).toBe(antes[k])
+  })
+
+  it('o pai renderizar de novo com as MESMAS props mantém a identidade de todas', () => {
+    const { rerender } = render(<CardPaymentBrick {...props} errorMessage={null} />)
+    const antes = congelar()
+
+    rerender(<CardPaymentBrick {...props} errorMessage={null} />)
+
+    for (const k of DEPENDENCIAS_DO_SDK) expect(capturedProps[k], k).toBe(antes[k])
+  })
+
+  it('o número reconhecido chegar ao store mantém a identidade de todas', () => {
+    useCheckoutStore.getState().reset()
+    render(<CardPaymentBrick {...props} errorMessage={null} />)
+    const antes = congelar()
+
+    act(() => capturedProps.onBinChange('42356477'))
+
+    expect(useCheckoutStore.getState().cardNumberRecognized).toBe(true)
+    for (const k of DEPENDENCIAS_DO_SDK) expect(capturedProps[k], k).toBe(antes[k])
+  })
+
+  it('o valor mudar AINDA recria — é o caso legítimo, o Brick precisa do valor novo', () => {
+    const { rerender } = render(<CardPaymentBrick {...props} errorMessage={null} />)
+    const antes = capturedProps.initialization
+
+    rerender(<CardPaymentBrick {...props} amount={120} errorMessage={null} />)
+
+    expect(capturedProps.initialization).not.toBe(antes)
+  })
+})
+
+/**
+ * BUG-20261004-brick-com-cor-da-loja-anterior: o formulário de cartão pintava foco e seleção em
+ * `#B0176B` — o magenta da loja anterior, escrito à mão no componente. O dono da paleta é
+ * `App.css` (`--estrelinha-primary`, guardado por `palette.test.ts`); o Brick lê de lá.
+ */
+describe('CardPaymentBrick — a cor do formulário é a da marca', () => {
+  afterEach(() => document.documentElement.style.removeProperty('--estrelinha-primary'))
+
+  it('o `baseColor` vem de `--estrelinha-primary`, o token da loja', () => {
+    document.documentElement.style.setProperty('--estrelinha-primary', '#34495e')
+    renderBrick()
+
+    expect(capturedProps.customization.visual.style.customVariables.baseColor).toBe('#34495e')
+  })
+
+  it('nunca o magenta da loja anterior', () => {
+    document.documentElement.style.setProperty('--estrelinha-primary', '#34495e')
+    renderBrick()
+
+    expect(capturedProps.customization.visual.style.customVariables.baseColor).not.toMatch(/b0176b/i)
   })
 })

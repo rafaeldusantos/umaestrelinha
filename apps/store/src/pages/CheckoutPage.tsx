@@ -11,7 +11,7 @@
 // sem navegação de categorias, e o CTA fixo do rodapé não pode disputar espaço com o `MobileNav`.
 // Por isso o `AuthOverlay` é montado aqui — mas desde a feature `49` ele não abre mais sozinho:
 // `CHK-02` foi **removida**, e quem convida a entrar é o `SignInInvite`, sem obrigar ninguém.
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Lock, ShieldCheck } from 'lucide-react'
 import { toast } from 'sonner'
@@ -118,6 +118,13 @@ const CheckoutPage = () => {
   const [busy, setBusy] = useState(false)
   /** Erro da tentativa de cartão. Não vai para o store: é de uma tentativa, não do rascunho. */
   const [cardError, setCardError] = useState<string | null>(null)
+  /**
+   * BUG-20261004-cartao-aprovado-cai-na-home: a compra terminou e a sacola vai ser esvaziada.
+   *
+   * Ref, e não estado: precisa valer na MESMA renderização que a limpeza provoca. Ver a guarda de
+   * sacola vazia, abaixo.
+   */
+  const compraConcluida = useRef(false)
 
   /**
    * `IDN-02`: o e-mail que já tem conta e ainda não foi provado.
@@ -222,8 +229,17 @@ const CheckoutPage = () => {
   }
 
   // Edge case da spec: carrinho vazio volta ao carrinho em vez de renderizar blocos.
+  //
+  // **Exceto depois de uma compra aprovada** (BUG-20261004-cartao-aprovado-cai-na-home). A
+  // aprovação navega para `/pedido/:id` e esvazia a sacola; `/pedido/:id` vive dentro do
+  // `StoreLayout`, sob o `Suspense` de topo, e enquanto a página nova carrega o React ESCONDE este
+  // checkout sem desmontá-lo. Ele segue ouvindo a sacola e, sem esta exceção, renderizava a guarda:
+  // medido em produção, `/pedido/:id` → 29 ms → `/carrinho` → `/`, e a cliente que acabou de pagar
+  // caía na Home com a sacola vazia, sem confirmação — e, num produto afetivo, sem as instruções
+  // de envio do material. A ordem "navegar antes de limpar" não decide nada: as duas são
+  // atualizações agendadas.
   if (items.length === 0) {
-    return <Navigate to="/carrinho" replace />
+    return compraConcluida.current ? null : <Navigate to="/carrinho" replace />
   }
 
   /**
@@ -269,8 +285,9 @@ const CheckoutPage = () => {
       await markCartRecovered(contact.email, currentOrderId)
     }
     // CNF-03: a confirmação é a rota `/pedido/:id`, não um estado interno desta página — assim
-    // ela sobrevive ao reload. A navegação vem **antes** da limpeza: com o carrinho já vazio, a
-    // guarda de carrinho vazio acima disputaria o redirecionamento com esta rota.
+    // ela sobrevive ao reload. A marca vem ANTES da limpeza: é ela, e não a ordem das chamadas,
+    // que impede a guarda de sacola vazia de disputar o destino com esta rota.
+    compraConcluida.current = true
     if (currentOrderId) navigate(`/pedido/${currentOrderId}`)
     clearGuestEmail()
     clearCart()

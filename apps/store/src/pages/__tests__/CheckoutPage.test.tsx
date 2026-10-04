@@ -284,11 +284,44 @@ const PaymentRoute = () => {
  * A árvore, separada do `render` — `IDN-07` precisa **remontar** a mesma árvore depois de trocar a
  * identidade, e `rerender` exige o elemento.
  */
+/**
+ * BUG-20261004-cartao-aprovado-cai-na-home: quantas vezes a rota `/carrinho` chegou a montar.
+ * `queryByText('rota-carrinho')` no fim não basta — no navegador `/carrinho` redireciona para `/`
+ * e some da tela, então a passagem por ela é o que precisa ser contado.
+ */
+const passagensPeloCarrinho = { current: 0 }
+const CarrinhoRoute = () => {
+  passagensPeloCarrinho.current += 1
+  return <div>rota-carrinho</div>
+}
+
+/**
+ * BUG-20261004-cartao-aprovado-cai-na-home — o estado que o navegador produz e esta suíte não.
+ *
+ * No app, `/checkout` fica FORA do `StoreLayout` e `/pedido/:id` DENTRO dele, sob o `Suspense` de
+ * topo. A troca de rota suspende, e o React ESCONDE o checkout sem desmontá-lo enquanto a página
+ * nova carrega — ele segue ouvindo a sacola e, quando ela esvazia, renderiza a guarda de sacola
+ * vazia. Medido: `/pedido/:id` → 29 ms → `/carrinho` → `/`. Com o checkout dentro das `Routes`,
+ * como `pageTree` o monta, a troca de rota o desmonta antes e a guarda nunca dispara: o caso de
+ * `CNF-03` passava com o defeito em produção. Esta árvore monta o checkout FORA das rotas, que é o
+ * estado que importa: montado no instante em que a sacola esvazia.
+ */
+const checkoutSempreMontado = () => (
+  <MemoryRouter initialEntries={['/checkout']}>
+    <CheckoutPage />
+    <Routes>
+      <Route path="/carrinho" element={<CarrinhoRoute />} />
+      <Route path="/pedido/:id" element={<ConfirmationRoute />} />
+      <Route path="*" element={null} />
+    </Routes>
+  </MemoryRouter>
+)
+
 const pageTree = () => (
   <MemoryRouter initialEntries={['/checkout']}>
     <Routes>
       <Route path="/checkout" element={<CheckoutPage />} />
-      <Route path="/carrinho" element={<div>rota-carrinho</div>} />
+      <Route path="/carrinho" element={<CarrinhoRoute />} />
       <Route path="/pedido/:id" element={<ConfirmationRoute />} />
       <Route path="/pedido/:id/pagamento" element={<PaymentRoute />} />
     </Routes>
@@ -374,6 +407,7 @@ const approveWithCard = async () => {
 
 beforeEach(() => {
   brickDigitaOCartao.current = true
+  passagensPeloCarrinho.current = 0
   useCheckoutStore.getState().reset()
   realClearCoupon()
   clearCartSpy = vi.fn(realClearCart)
@@ -1908,6 +1942,19 @@ describe('CheckoutPage — aprovação do cartão navega para a confirmação (C
     await approveWithCard()
 
     expect(screen.queryByText('rota-carrinho')).not.toBeInTheDocument()
+    expect(passagensPeloCarrinho.current).toBe(0)
+  })
+
+  it('com o checkout AINDA MONTADO quando a sacola esvazia (como no app), a cliente fica na confirmação', async () => {
+    fillAll('card')
+    render(checkoutSempreMontado())
+    fireEvent.click(cta())
+
+    await waitFor(() => expect(screen.getByText('rota-confirmacao:order-1')).toBeInTheDocument())
+    // Dá a uma eventual guarda tardia a chance de disparar antes de medir.
+    await act(async () => { await new Promise((r) => setTimeout(r, 50)) })
+    expect(passagensPeloCarrinho.current).toBe(0)
+    expect(screen.getByText('rota-confirmacao:order-1')).toBeInTheDocument()
   })
 
   it('o rascunho e o `order_id` são descartados depois de navegar', async () => {
