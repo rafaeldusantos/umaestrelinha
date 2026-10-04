@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, act } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import WhatsAppFloat from '../WhatsAppFloat'
+import { WHATSAPP_FLOAT_CLEARANCE } from '../../lib/clearance'
 
 /**
  * `COP-08` — o WhatsApp fala pelo nome que a admin cadastrou.
@@ -102,6 +103,38 @@ describe('WhatsAppFloat — some na página do produto, pelo caminho novo', () =
     renderFloat('/joias-afetivas/joia-de-leite-materno')
 
     expect(screen.getByLabelText('Abrir conversa no WhatsApp')).toBeInTheDocument()
+  })
+})
+
+/**
+ * Feature 59 — `ACB-02`: na conta e no detalhe do pedido, a bolha não cobre o último bloco.
+ *
+ * Na conta, a página reserva a folga `WHATSAPP_FLOAT_CLEARANCE`, cuja medida é DA BOLHA — por isso a
+ * régua relacional mora aqui: mexer na posição ou no tamanho do botão sem mexer na folga reprova.
+ * No detalhe (`/pedido/:id`) e no pagamento, a bolha nem existe — e é isso que se prende.
+ */
+describe('WhatsAppFloat — a bolha não cobre o fim da conta nem do detalhe (ACB-02)', () => {
+  it('a folga da página acompanha a posição e o tamanho do botão', () => {
+    renderFloat('/conta')
+
+    const botao = screen.getByLabelText('Abrir conversa no WhatsApp')
+    const conteiner = botao.parentElement!
+    const tokens = (el: Element) => el.className.split(/\s+/)
+    // celular: bottom-20 (5rem) + h-14 (3,5rem) = 8,5rem ⇒ pb-40 (10rem). A primeira escrita era
+    // pb-36 (9rem), e o navegador mediu 8px entre o último bloco e a bolha — folga de papel, não de
+    // dedo. Com 10rem sobram ~24px (prova em navegador da `59`, 2026-10-04).
+    // NOTA: a folga do celular é a soma +1,5rem; a régua abaixo prende os dois lados da conta.
+    // md: bottom-6 (1,5rem) + 3,5rem = 5rem ⇒ md:pb-24 (6rem).
+    expect(tokens(conteiner)).toEqual(expect.arrayContaining(['bottom-20', 'md:bottom-6']))
+    expect(tokens(botao)).toEqual(expect.arrayContaining(['h-14']))
+    expect(WHATSAPP_FLOAT_CLEARANCE).toBe('pb-40 md:pb-24')
+    expect(WHATSAPP_FLOAT_CLEARANCE.split(/\s+/)).not.toContain('pb-36')
+  })
+
+  it.each(['/pedido/abc', '/pedido/abc/pagamento'])('não renderiza em %s', (path) => {
+    const { container } = renderFloat(path)
+
+    expect(container).toBeEmptyDOMElement()
   })
 })
 

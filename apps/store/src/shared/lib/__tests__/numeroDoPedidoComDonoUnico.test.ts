@@ -281,7 +281,15 @@ describe('ninguém cola o `#` à mão (PIX-P4-03)', () => {
 describe('as três superfícies chamam o formatador — a metade positiva', () => {
   it.each([
     ['a loja, em /pedido/:id', 'apps/store/src/pages/OrderConfirmationPage.tsx'],
-    ['a loja, em /conta', 'apps/store/src/pages/AccountPage.tsx'],
+    // Feature `59`: a conta deixou de escrever o número ela mesma — as linhas são do widget da
+    // lista e as pendências citam o pedido. A montagem dos dois pela página NÃO é cobrada aqui: o
+    // `<AttentionList` é exigido em `pagamentoComDonoUnico.test.ts`, e as duas peças renderizadas pela
+    // página real, em `pages/__tests__/AccountPage.test.tsx`.
+    ['a loja, em /conta (a lista)', 'apps/store/src/widgets/order-list/ui/OrderList.tsx'],
+    [
+      'a loja, em /conta (as pendências)',
+      'apps/store/src/widgets/order-attention/ui/AttentionList.tsx',
+    ],
     // Feature 58 — as duas telas do pagamento PIX. Elas citam o número justamente no momento em
     // que a pessoa mais precisa reconhecê-lo ("perdi minha compra?"), então são as que mais teriam
     // a ganhar com um `#` digitado à mão.

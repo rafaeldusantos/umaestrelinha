@@ -71,6 +71,20 @@ export default {
           whatsapp: "#25D366",
           /** Borda de campo (3,63:1 ✓ WCAG 1.4.11). */
           field: "#8C8073",
+          // Os tons do selo da situação do pedido (feature 59, `SIT-13`) —
+          // pares texto × fundo; o papel de cada um está em `App.css`.
+          /** "Aguardando" — texto (6,47:1 sobre `wait-soft`). */
+          wait: "#6B4F24",
+          /** Fundo do selo "aguardando". Nunca texto. */
+          "wait-soft": "#F4ECDF",
+          /** Pagamento com problema — texto (7,51:1 sobre `alert-soft`). */
+          alert: "#7E2F2B",
+          /** Fundo do selo de alerta. Nunca texto. */
+          "alert-soft": "#F6E7E5",
+          /** Entregue — texto (6,69:1 sobre `done-soft`). */
+          done: "#3F5A3B",
+          /** Fundo do selo "entregue". Nunca texto. */
+          "done-soft": "#EEF0EC",
         },
       },
       borderRadius: {

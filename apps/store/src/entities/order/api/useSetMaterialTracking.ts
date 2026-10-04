@@ -75,7 +75,12 @@ export const useSetMaterialTracking = (orderId: string | undefined) => {
     onSuccess: (resultado) => {
       // Só invalida quando algo mudou de fato. Invalidar numa recusa recarregaria o pedido para
       // mostrar exatamente o mesmo estado.
-      if (resultado.ok) qc.invalidateQueries({ queryKey: ['orders', 'id', orderId] })
+      if (!resultado.ok) return
+      qc.invalidateQueries({ queryKey: ['orders', 'id', orderId] })
+      // Feature 59 (`MAT-05`): a lista da conta também precisa reler — é dela que sai a pendência
+      // "Aguardamos o seu material". Sem isto ela seguiria cobrando o código que a cliente acabou
+      // de informar até o cache vencer. O prefixo alcança `['orders', 'customer', id]`.
+      qc.invalidateQueries({ queryKey: ['orders', 'customer'] })
     },
   })
 }

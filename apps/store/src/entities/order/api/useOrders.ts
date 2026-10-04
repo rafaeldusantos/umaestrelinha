@@ -8,6 +8,8 @@ export interface OrderItem {
   product_image: string | null
   size: string | null
   finish: string | null
+  /** Snapshot legível das opções (`4,5 cm · Fosco`) — pedidos novos; os antigos usam `size`/`finish`. */
+  variant_label?: string | null
   quantity: number
   unit_price: number
   /** Feature 22 — snapshot do que a linha exigiu e do que vai gravado (`MAT-05`). */
@@ -33,6 +35,13 @@ export interface Order {
   shipping_service_id?: string | null
   delivery_estimate_min?: string | null
   delivery_estimate_max?: string | null
+  /**
+   * Feature 59 — o que a lista e as pendências da conta leem. As colunas sempre vieram no
+   * `select('*')`; era o TIPO que não as declarava (`AD-012`).
+   */
+  paid_at?: string | null
+  material_status?: string | null
+  tracking_code?: string | null
   created_at: string
   order_items: OrderItem[]
 }
@@ -61,8 +70,10 @@ export const useOrdersByCustomerId = (customerId: string | undefined) =>
         .select('*, order_items(*)')
         .eq('customer_id', customerId!)
         .order('created_at', { ascending: false })
-      if (error || !data) return []
-      return data as unknown as Order[]
+      // `LST-08`: falha LANÇA. Devolver `[]` aqui fazia uma queda de rede virar "você ainda não fez
+      // nenhum pedido" — a tela não tinha como distinguir as duas coisas.
+      if (error) throw new Error(error.message)
+      return (data ?? []) as unknown as Order[]
     },
     enabled: !!customerId,
   })

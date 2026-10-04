@@ -175,6 +175,14 @@ describe('rotas — segmento estático vence o dinâmico (a armadilha de AD-018)
     expect(screen.queryByRole('heading', { name: 'Joias afetivas' })).not.toBeInTheDocument()
   })
 
+  it('`/conta/dados` monta a AccountPage e NÃO a CategoryPage de duas partes (feature 59)', async () => {
+    renderAt('/conta/dados')
+
+    expect(await screen.findByText('pagina:conta')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Essa página não existe.' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Joias afetivas' })).not.toBeInTheDocument()
+  })
+
   it('`/pedido/abc` monta a confirmação e NÃO a CategoryPage de duas partes', async () => {
     renderAt('/pedido/abc')
 

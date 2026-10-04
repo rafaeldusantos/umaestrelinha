@@ -251,6 +251,82 @@ describe('AuthContext.updateDisplayName (AUTH-04)', () => {
   })
 })
 
+// Feature 59 — "Meus dados" (`DAD-02`, `DAD-09`). A régua do formulário mora em
+// `features/edit-profile/model/profileRefusal.ts`; aqui se prova a GRAVAÇÃO.
+describe('AuthContext.updateCustomerProfile (DAD-02, DAD-09)', () => {
+  const comSessao = async () => {
+    const user = { id: 'u1', email: 'ana@x.com' }
+    auth.getSession.mockResolvedValue({ data: { session: { user } } })
+    auth.getUser.mockResolvedValue({ data: { user } })
+    auth.updateUser.mockResolvedValue({ data: {}, error: null })
+    fromResults.user_roles = { data: null, error: null }
+    fromResults.customers = {
+      data: { id: 'c1', user_id: 'u1', name: 'Ana', email: 'ana@x.com', phone: '' },
+      error: null,
+    }
+    const hook = await mountAuth()
+    await waitFor(() => expect(hook.result.current.customer?.name).toBe('Ana'))
+    return hook
+  }
+
+  it('grava nome aparado e WhatsApp só com dígitos em `customers`, e o nome no auth', async () => {
+    const { result } = await comSessao()
+    fromResults.customers = { data: [{ id: 'c1' }], error: null }
+
+    let res: { error: string | null } = { error: 'unset' }
+    await act(async () => {
+      res = await result.current.updateCustomerProfile({ name: '  Ana Nunes ', phone: '(51) 99876-5432' })
+    })
+
+    expect(queries.customers.update).toHaveBeenCalledWith({ name: 'Ana Nunes', phone: '51998765432' })
+    expect(queries.customers.eq).toHaveBeenCalledWith('user_id', 'u1')
+    // O `.select()` vem DEPOIS do update — é ele que devolve as linhas afetadas. (A leitura inicial do
+    // cliente também chama `select`, por isso a régua é a ordem e não a presença.)
+    expect(Math.max(...queries.customers.select.mock.invocationCallOrder)).toBeGreaterThan(
+      queries.customers.update.mock.invocationCallOrder[0],
+    )
+    expect(auth.updateUser).toHaveBeenCalledWith({ data: { full_name: 'Ana Nunes' } })
+    expect(res.error).toBeNull()
+    // O contexto passa a mostrar o que foi gravado, sem recarregar.
+    expect(result.current.customer).toMatchObject({ name: 'Ana Nunes', phone: '51998765432' })
+  })
+
+  it('zero linhas afetadas (RLS que nega em silêncio) é FALHA, e o contexto não muda', async () => {
+    const { result } = await comSessao()
+    fromResults.customers = { data: [], error: null }
+
+    let res: { error: string | null } = { error: null }
+    await act(async () => {
+      res = await result.current.updateCustomerProfile({ name: 'Ana Nunes', phone: '51998765432' })
+    })
+
+    expect(res.error).toBe('Não foi possível salvar agora. Tente de novo.')
+    expect(auth.updateUser).not.toHaveBeenCalled()
+    expect(result.current.customer).toMatchObject({ name: 'Ana', phone: '' })
+  })
+
+  it('erro do PostgREST não vaza cru para a cliente', async () => {
+    const { result } = await comSessao()
+    fromResults.customers = { data: null, error: { message: 'permission denied for table customers' } }
+
+    let res: { error: string | null } = { error: null }
+    await act(async () => {
+      res = await result.current.updateCustomerProfile({ name: 'Ana Nunes', phone: '51998765432' })
+    })
+
+    expect(res.error).toBe('Não foi possível salvar agora. Tente de novo.')
+    expect(auth.updateUser).not.toHaveBeenCalled()
+  })
+
+  it('`patchCustomer` acerta o cliente do contexto (o CPF gravado fora dele)', async () => {
+    const { result } = await comSessao()
+
+    act(() => result.current.patchCustomer({ cpf: '52998224725' }))
+
+    expect(result.current.customer).toMatchObject({ name: 'Ana', cpf: '52998224725' })
+  })
+})
+
 describe('AuthContext.resetPassword (AUTH-08)', () => {
   it('requests a reset for a normalized email, without a redirect URL', async () => {
     auth.resetPasswordForEmail.mockResolvedValue({ data: {}, error: null })

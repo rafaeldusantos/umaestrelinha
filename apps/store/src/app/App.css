@@ -147,6 +147,22 @@
    * candidatos existentes reprovam — `line` 1,25:1 e `accent` 2,66:1. */
   --estrelinha-field: #8c8073;
 
+  /* ── Os tons do selo da situação do pedido (feature 59, `SIT-13`) ─────
+   * A régua dos selos do Paper: cada tom é um PAR texto × fundo. O texto
+   * passa de 4,5:1 sobre o próprio fundo E sobre as três superfícies claras
+   * (`contrast.test.ts` mede os doze pares); o fundo nunca é texto.
+   * "Em andamento" usa `primary-strong` sobre `serenity` e "encerrado" usa
+   * `ink` sobre `ground-deep` — os dois pares já existiam na paleta. */
+  /* Ouro escuro — "aguardando" (6,47:1 sobre `wait-soft`). */
+  --estrelinha-wait: #6b4f24;
+  --estrelinha-wait-soft: #f4ecdf;
+  /* Rosa-terra — pagamento com problema (7,51:1 sobre `alert-soft`). */
+  --estrelinha-alert: #7e2f2b;
+  --estrelinha-alert-soft: #f6e7e5;
+  /* Verde-musgo — entregue (6,69:1 sobre `done-soft`). */
+  --estrelinha-done: #3f5a3b;
+  --estrelinha-done-soft: #eef0ec;
+
   /* Véus de tinta usados sobre superfície escura (rodapé, faixa, card ink). */
   --estrelinha-on-ink-strong: rgba(255, 255, 255, 0.8);
   --estrelinha-on-ink: rgba(255, 255, 255, 0.62);

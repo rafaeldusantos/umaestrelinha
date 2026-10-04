@@ -388,9 +388,18 @@ describe('a metade positiva — o dono continua sendo o dono', () => {
   it('`/conta` LINKA para a rota do pagamento em vez de montar uma superfície', () => {
     // A ausência sozinha seria verdadeira com a ação apagada da tela: quem saiu do PIX sem pagar
     // voltaria a não ter caminho nenhum, que é o estado anterior a esta feature.
+    //
+    // Feature `59`: o link mudou de ENDEREÇO, não de dono. A conta passou a ser lista +
+    // pendências, e quem oferece "Pagar com PIX" e "Gerar novo PIX" é o widget das pendências.
+    // A régua segue a cadeia inteira — o widget LINKA **e** a página MONTA o widget. Só a primeira
+    // metade seria "peça certa, endereço errado": apagar `<AttentionList` da página deixaria o
+    // link vivo num arquivo que ninguém renderiza.
     const conta = cita('apps/store/src/pages/AccountPage.tsx')
-    expect(/orderPaymentPath\s*\(/.test(conta.fonte)).toBe(true)
+    const pendencias = cita('apps/store/src/widgets/order-attention/ui/AttentionList.tsx')
+    expect(/orderPaymentPath\s*\(/.test(pendencias.fonte)).toBe(true)
+    expect(/<AttentionList\b/.test(conta.fonte)).toBe(true)
     expect(REGUA_QR.test(conta.fonte)).toBe(false)
+    expect(REGUA_QR.test(pendencias.fonte)).toBe(false)
   })
 
   it('`/pedido/:id` LINKA para a rota do pagamento quando o pedido ainda pode ser pago', () => {

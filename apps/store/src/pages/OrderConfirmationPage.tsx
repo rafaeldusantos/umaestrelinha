@@ -1,20 +1,40 @@
-// Confirmação do pedido como **rota** (`/pedido/:id`) — CNF-03, CNF-04, CNF-05.
+// `/pedido/:id` — o DETALHE do pedido, e o único (feature 59, `DET-01..12`; antes: CNF-03..05).
 //
-// A superfície é a rota, não um estado interno do `CheckoutPage`: a página lê o pedido do banco
-// por `useOrder(id)`, então recarregar depois da aprovação continua mostrando a confirmação.
-// Ela não toca no carrinho nem no cupom — a limpeza acontece **só** na aprovação, dentro do
-// checkout (CNF-05).
+// A mesma página é a confirmação logo depois da compra e a volta pela conta: duas superfícies
+// desenhando o mesmo pedido divergiriam (é o raciocínio do `AD-042` para o PIX). A conta é lista +
+// pendências e LINKA para cá.
+//
+// A superfície é a rota, não um estado interno do `CheckoutPage`: a página lê o pedido do banco por
+// `useOrder(id)`, então recarregar continua mostrando o pedido. Ela não toca no carrinho nem no
+// cupom — a limpeza acontece **só** na aprovação, dentro do fluxo de pagamento (CNF-05).
+//
+// Ordem dos blocos (`design.md`): cabeçalho · estado do topo · rastreio · linha do tempo · material ·
+// peças · pagamento e entrega · ajuda · as duas ações do `CNF-05`.
 //
 // Escopo: o board `06` também desenha um bloco de upsell pós-compra. Ele está explicitamente
 // fora de escopo (tabela Out of Scope da spec) — exige cobrar de novo sem novo checkout.
 import { Link, useParams } from 'react-router-dom'
-import { PackageCheck } from 'lucide-react'
+import { ChevronLeft, PackageCheck } from 'lucide-react'
+import { useAuthContext } from '@estrelinha/auth'
 import { formatPrice } from '@estrelinha/core/formatters'
 import { formatOrderNumber } from '@estrelinha/core/orders'
-import { formatEstimate } from '@estrelinha/core/shipping'
-import { PixIcon } from '@estrelinha/ui/icons'
-import { OrderTimeline, orderPaymentPath, podePagarComPix, useOrder } from '@/entities/order'
+import {
+  CONFIRMATION_HEADLINES,
+  confirmationHeadline,
+  OrderItemsSummary,
+  OrderJourney,
+  OrderPaymentDelivery,
+  OrderSituationBadge,
+  OrderTrackingCard,
+  orderDateLabel,
+  orderPaymentPath,
+  piecesLabel,
+  podePagarComPix,
+  useOrder,
+} from '@/entities/order'
 import { OrderAccessRefusal } from '@/widgets/order-access-refusal'
+import { ACAO_PRIMARIA, OrderActionPanel, orderActionState } from '@/widgets/order-action'
+import { OrderHelp } from '@/widgets/order-help'
 import { OrderMaterialBlock } from '@/widgets/order-material'
 
 /**
@@ -34,20 +54,13 @@ const materiaisDoPedido = (items: { material_kinds?: string[] | null }[] = []): 
 }
 
 const Shell = ({ children }: { children: React.ReactNode }) => (
-  <div className="container mx-auto max-w-3xl py-14 md:py-20">{children}</div>
+  <div className="container mx-auto max-w-2xl py-6 md:py-12">{children}</div>
 )
-
-/** `formatEstimate(d, d)` é a formatação pt-BR de data única: `"em 27 de julho"`. */
-const paidStamp = (paidAt: string | null): string => {
-  if (!paidAt) return 'AGUARDANDO PAGAMENTO'
-  const date = new Date(paidAt)
-  if (Number.isNaN(date.getTime())) return 'PAGAMENTO CONFIRMADO'
-  return `PAGO ${formatEstimate(date, date).toUpperCase()}`
-}
 
 const OrderConfirmationPage = () => {
   const { id } = useParams<{ id: string }>()
   const { data: order, isLoading, isError } = useOrder(id)
+  const { user } = useAuthContext()
 
   if (isLoading) {
     return (
@@ -67,95 +80,111 @@ const OrderConfirmationPage = () => {
     )
   }
 
-  const paid = !!order.paid_at
-  const estimate =
-    order.delivery_estimate_min && order.delivery_estimate_max
-      ? { min: order.delivery_estimate_min, max: order.delivery_estimate_max }
-      : null
+  const headline = confirmationHeadline(order)
+  const kinds = materiaisDoPedido(order.order_items)
+  // `DET-02`: o estado que pede ação, um por vez. A janela de 7 dias do PIX novo é lida contra o
+  // relógio do aparelho — limite conhecido e aceito na spec (regra de oferta, não de autorização).
+  const acao = orderActionState(order, new Date())
+  // `CNF-05`: uma pílula cheia só. Quando o topo traz a ação da vez — pagar o PIX em aberto
+  // (`podePagarComPix`), gerar um PIX novo, enviar o código do material —, "Acompanhar pedido"
+  // desce para contorno: duas pílulas cheias deixam de dizer qual é a ação.
+  const acaoNoTopo = podePagarComPix(order) || (acao !== null && ACAO_PRIMARIA.includes(acao))
+  const feitoEm = orderDateLabel(order.created_at)
 
   return (
     <Shell>
-      <div className="flex flex-col gap-10">
-        <div className="flex flex-col items-center gap-5 text-center">
-          <div className="flex flex-col items-center gap-[10px]">
-            <p className="estrelinha-eyebrow text-estrelinha-ink-soft">
-              PEDIDO {formatOrderNumber(order.order_number)} · {paidStamp(order.paid_at)}
-            </p>
-            <h1 className="font-heading text-[38px] font-semibold leading-[1.1] tracking-[-0.035em] text-estrelinha-ink md:text-[50px]">
-              {paid ? 'É nosso!' : 'Pedido registrado'}
-            </h1>
-            {/* STO-01: a promessa de e-mail agora É verdadeira (feature 10), e é diferenciada por
-                `paid_at` — a variante pendente NÃO pode alegar comprovante enviado, porque o e-mail
-                de aprovação só sai quando o pagamento cai. */}
-            <p className="max-w-[480px] text-lg leading-[28px] text-estrelinha-ink-soft">
-              {paid
+      <div className="flex flex-col gap-4">
+        <header className="flex flex-col gap-2">
+          {/* `DET-01`: "Meus pedidos" só com sessão — a convidada não tem conta em que voltar. */}
+          {user && (
+            <Link
+              to="/conta"
+              className="flex min-h-11 items-center gap-1 self-start text-sm font-semibold text-estrelinha-primary hover:underline"
+            >
+              <ChevronLeft className="h-4 w-4" aria-hidden />
+              Meus pedidos
+            </Link>
+          )}
+          {/* `DET-01` (decisão do usuário, 2026-10-04): o título é o NÚMERO, que é o que a cliente
+              cita no WhatsApp — e ele aparece uma vez só na página. A frase calorosa virou
+              subtítulo e muda com a etapa (`confirmationHeadline`). Revoga a linha em caixa alta
+              "PEDIDO #N · PAGO EM …" (`PIX-P4-03`) e o título "É nosso!" (`CNF-04`). */}
+          <h1 className="font-heading text-[28px] font-semibold leading-[34px] tracking-[-0.02em] text-estrelinha-ink">
+            Pedido {formatOrderNumber(order.order_number)}
+          </h1>
+          {headline && (
+            <p className="font-heading text-lg text-estrelinha-ink">{CONFIRMATION_HEADLINES[headline]}</p>
+          )}
+          <p className="text-sm text-estrelinha-ink-soft">
+            {feitoEm ? `Feito em ${feitoEm} · ` : ''}
+            {piecesLabel(order.order_items)} · {formatPrice(order.total)}
+          </p>
+          {/* STO-01: a promessa de e-mail é verdadeira (feature 10), e é diferenciada por
+              `paid_at` — a variante pendente NÃO pode alegar comprovante enviado, porque o e-mail
+              de aprovação só sai quando o pagamento cai. Ela anda junto com o subtítulo: depois de
+              enviado, "já estamos preparando sua joia" deixa de ser verdade. */}
+          {headline && (
+            <p className="text-[15px] leading-[22px] text-estrelinha-ink-soft">
+              {headline === 'pago'
                 ? 'Pagamento confirmado — já estamos preparando sua joia. Enviamos o comprovante para '
                 : 'Estamos aguardando a confirmação do pagamento. Avisamos por e-mail assim que ele cair, em '}
               <strong className="font-semibold text-estrelinha-ink">{order.customer_email}</strong>. Este
               pedido também fica guardado em Minha conta → Pedidos.
             </p>
-          </div>
+          )}
+          <OrderSituationBadge order={order} events={order.status_events} className="self-start" />
+        </header>
 
-          <p className="flex flex-wrap items-baseline justify-center gap-2 text-[15px] text-estrelinha-ink-soft">
-            {paid ? 'Valor pago' : 'Valor do pedido'}
-            <span className="font-heading text-xl font-semibold text-estrelinha-primary">
-              {formatPrice(order.total)}
-            </span>
-          </p>
-        </div>
-
-        <OrderTimeline status={order.status} paidAt={order.paid_at} estimate={estimate} />
-
-        {/* MAT-11. Fica DEPOIS da linha do tempo e antes dos CTAs: a linha do tempo é sobre o
-            pagamento e a entrega — duas máquinas de estado independentes desta. O bloco some sozinho
-            quando o pedido não espera material. */}
-        <OrderMaterialBlock
-          orderId={order.id}
-          materialStatus={order.material_status}
-          trackingCode={order.material_tracking_code}
-          kinds={materiaisDoPedido(order.order_items)}
-          cancelled={order.status === 'cancelled'}
+        <OrderActionPanel
+          order={order}
+          state={acao}
+          paymentHref={orderPaymentPath(order.id)}
+          materialKinds={kinds}
         />
 
-        {/*
-          `PIX-P3-01`/`PIX-P3-02` (feature `58`): o pedido pendente de PIX ganhou **caminho de volta
-          para pagar**. Até aqui esta tela oferecia "Acompanhar pedido" e "Ver mais joias", e nenhum
-          caminho para pagar — quem saía do PIX sem pagar só voltava pelo diálogo de `/conta`, que a
-          convidada não alcança sem entrar por código.
+        <OrderTrackingCard code={order.tracking_code} carrier={order.shipping_carrier} />
 
-          `CNF-05` continua valendo, e é por isso que "Acompanhar pedido" **desce para contorno**
-          quando o botão de pagar existe: duas pílulas cheias na mesma tela deixam de dizer qual é a
-          ação da vez, justamente onde a ação da vez é pagar.
-        */}
-        <div className="flex flex-col gap-3">
-          {podePagarComPix(order) ? (
-            <Link
-              to={orderPaymentPath(order.id)}
-              className="flex items-center justify-center gap-[10px] rounded-sm bg-estrelinha-primary px-[30px] py-[19px] font-heading text-[17px] font-semibold text-white transition-all hover:opacity-95"
-            >
-              <PixIcon className="h-[18px] w-[18px]" aria-hidden />
-              Pagar com PIX
-            </Link>
-          ) : null}
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <Link
-              to="/conta"
-              className={
-                podePagarComPix(order)
-                  ? 'flex flex-1 items-center justify-center gap-[10px] rounded-sm border-2 border-estrelinha-ink px-7 py-[17px] font-heading text-[17px] font-semibold text-estrelinha-ink transition-all hover:scale-[1.02]'
-                  : 'flex flex-1 items-center justify-center gap-[10px] rounded-sm bg-estrelinha-primary px-[30px] py-[19px] font-heading text-[17px] font-semibold text-white transition-all hover:opacity-95'
-              }
-            >
-              <PackageCheck className="h-[19px] w-[19px]" aria-hidden />
-              Acompanhar pedido
-            </Link>
-            <Link
-              to="/"
-              className="flex flex-1 items-center justify-center rounded-sm border-2 border-estrelinha-ink px-7 py-[17px] font-heading text-[17px] font-semibold text-estrelinha-ink transition-all hover:scale-[1.02]"
-            >
-              Ver mais joias
-            </Link>
-          </div>
+        {/* `DET-08`: cancelado, a linha do tempo dá lugar a "Pedido cancelado" — e quem o desenha é
+            o estado do topo, então ela não se repete aqui. */}
+        {acao !== 'cancelled' && <OrderJourney order={order} events={order.status_events} />}
+
+        {/* MAT-11 / `DET-09`. Quando o material é a ação da vez ele já está no topo; aqui mora o
+            bloco dos demais estados. O bloco some sozinho quando o pedido não espera material. */}
+        {acao !== 'material' && (
+          <OrderMaterialBlock
+            orderId={order.id}
+            orderNumber={order.order_number}
+            materialStatus={order.material_status}
+            trackingCode={order.material_tracking_code}
+            kinds={kinds}
+            cancelled={order.status === 'cancelled'}
+          />
+        )}
+
+        <OrderItemsSummary order={order} />
+
+        <OrderPaymentDelivery order={order} />
+
+        <OrderHelp orderNumber={order.order_number} />
+
+        <div className="flex flex-col gap-3 pt-2 sm:flex-row">
+          <Link
+            to="/conta"
+            className={
+              acaoNoTopo
+                ? 'flex flex-1 items-center justify-center gap-[10px] rounded-sm border-2 border-estrelinha-ink px-7 py-[17px] font-heading text-[17px] font-semibold text-estrelinha-ink transition-all hover:scale-[1.02] motion-reduce:transition-none'
+                : 'flex flex-1 items-center justify-center gap-[10px] rounded-sm bg-estrelinha-primary px-[30px] py-[19px] font-heading text-[17px] font-semibold text-white transition-all hover:opacity-95 motion-reduce:transition-none'
+            }
+          >
+            <PackageCheck className="h-[19px] w-[19px]" aria-hidden />
+            Acompanhar pedido
+          </Link>
+          <Link
+            to="/"
+            className="flex flex-1 items-center justify-center rounded-sm border-2 border-estrelinha-ink px-7 py-[17px] font-heading text-[17px] font-semibold text-estrelinha-ink transition-all hover:scale-[1.02] motion-reduce:transition-none"
+          >
+            Ver mais joias
+          </Link>
         </div>
       </div>
     </Shell>

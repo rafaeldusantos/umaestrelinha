@@ -119,3 +119,46 @@ describe('NTF-13 — o aviso do rastreio registrado', () => {
     expect(invokeMock).not.toHaveBeenCalled()
   })
 })
+
+// Feature 59 — `MAT-05`: gravado o código, o detalhe E a lista da conta releem. A régua é o estado
+// do cache (`isInvalidated`), nunca "invalidateQueries foi chamado": invalidar a chave errada
+// chamaria o método do mesmo jeito.
+describe('MAT-05 — depois de gravar, o pedido e a lista da conta releem', () => {
+  const comCache = () => {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    })
+    client.setQueryData(['orders', 'id', ORDER_ID], { id: ORDER_ID })
+    client.setQueryData(['orders', 'customer', 'c-1'], [{ id: ORDER_ID }])
+    client.setQueryData(['orders', 'id', 'outro-pedido'], { id: 'outro-pedido' })
+    const comCliente = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    )
+    const hook = renderHook(() => useSetMaterialTracking(ORDER_ID), { wrapper: comCliente })
+    const invalidada = (key: unknown[]) => client.getQueryState(key)?.isInvalidated
+    return { hook, invalidada }
+  }
+
+  it('registro bem-sucedido invalida o pedido e a lista da conta — e só o pedido certo', async () => {
+    rpcMock.mockResolvedValue({ data: { ok: true, status: 'material_enviado', reason: null }, error: null })
+    const { hook, invalidada } = comCache()
+
+    hook.result.current.mutate('AA123456789BR')
+
+    await waitFor(() => expect(hook.result.current.isSuccess).toBe(true))
+    expect(invalidada(['orders', 'id', ORDER_ID])).toBe(true)
+    expect(invalidada(['orders', 'customer', 'c-1'])).toBe(true)
+    expect(invalidada(['orders', 'id', 'outro-pedido'])).toBe(false)
+  })
+
+  it('recusa da RPC não invalida nada — não houve mudança para reler', async () => {
+    rpcMock.mockResolvedValue({ data: { ok: false, status: 'aguardando_material', reason: 'empty_code' }, error: null })
+    const { hook, invalidada } = comCache()
+
+    hook.result.current.mutate('AA123456789BR')
+
+    await waitFor(() => expect(hook.result.current.isSuccess).toBe(true))
+    expect(invalidada(['orders', 'id', ORDER_ID])).toBe(false)
+    expect(invalidada(['orders', 'customer', 'c-1'])).toBe(false)
+  })
+})

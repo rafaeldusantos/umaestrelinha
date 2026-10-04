@@ -39,6 +39,13 @@ const PALETA = {
   serenity: '#DCE6EC', // faixa pontual — nunca texto
   whatsapp: '#25D366', // só o botão do WhatsApp
   field: '#8C8073', // borda de input e de controle — nasceu na feature 20
+  // Feature 59 — os tons do selo da situação do pedido (`SIT-13`), pares texto × fundo.
+  wait: '#6B4F24', // "aguardando" — texto
+  'wait-soft': '#F4ECDF', // fundo do selo "aguardando"
+  alert: '#7E2F2B', // pagamento com problema — texto
+  'alert-soft': '#F6E7E5', // fundo do selo de alerta
+  done: '#3F5A3B', // entregue — texto
+  'done-soft': '#EEF0EC', // fundo do selo "entregue"
 } as const
 
 function cssTokens(): Record<string, string> {

@@ -177,6 +177,36 @@ describe('contraste — o chão não entra sozinho', () => {
   })
 })
 
+describe('contraste — os tons do selo da situação do pedido (feature 59, SIT-13)', () => {
+  // Cada tom é um PAR (texto, fundo do selo). O texto do selo tem 12px: não é texto grande, então
+  // a régua é 4,5:1. E o texto também é medido sobre as três superfícies claras, porque o mesmo
+  // token pode sair fora da pílula (o rótulo de um estado do topo do detalhe, por exemplo).
+  const PARES: [Token, Token][] = [
+    ['wait', 'wait-soft'],
+    ['alert', 'alert-soft'],
+    ['done', 'done-soft'],
+    ['primary-strong', 'serenity'],
+    ['ink', 'ground-deep'],
+  ]
+
+  it.each(PARES)('`%s` é AA como texto sobre `%s` (≥ 4,5:1)', (texto, fundo) => {
+    expect(pisoDeTexto(texto, fundo, 4.5)).toBe(`${texto} sobre ${fundo}: OK`)
+  })
+
+  it.each(
+    (['wait', 'alert', 'done'] as Token[]).flatMap((t) => CLARAS.map((f) => [t, f] as const)),
+  )('`%s` é AA como texto sobre `%s` (≥ 4,5:1)', (texto, fundo) => {
+    expect(pisoDeTexto(texto, fundo, 4.5)).toBe(`${texto} sobre ${fundo}: OK`)
+  })
+
+  it.each(['wait-soft', 'alert-soft', 'done-soft'] as Token[])(
+    '`%s` é fundo, nunca texto sobre o chão',
+    (fundo) => {
+      expect(tetoDeNaoTexto(fundo, 'ground', 4.5)).toBe(`${fundo} sobre ground: não é texto`)
+    },
+  )
+})
+
 describe('contrastRatio — o instrumento', () => {
   // Sem isto, toda medida acima é uma afirmação sobre uma função não conferida.
   it('preto sobre branco dá 21:1', () => {

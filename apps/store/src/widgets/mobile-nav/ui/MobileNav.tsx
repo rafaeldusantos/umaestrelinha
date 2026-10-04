@@ -41,7 +41,9 @@ const MobileNav = () => {
   const { user } = useAuthContext()
 
   const onHome = location.pathname === '/'
-  const onAccount = location.pathname === '/conta'
+  // Feature 59: `/conta/dados` é a aba "Meus dados" da MESMA página — a aba Conta continua acesa.
+  // Recorte por segmento, nunca prefixo cru: `/contato` não é a conta.
+  const onAccount = location.pathname === '/conta' || location.pathname.startsWith('/conta/')
   const onSearch = searchOpen || location.pathname === '/busca'
 
   // Artboard 23, "Mobile Bottom Nav": a aba ativa é Carmim e a inativa é

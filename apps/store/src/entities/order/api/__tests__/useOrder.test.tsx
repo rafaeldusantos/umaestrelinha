@@ -14,16 +14,16 @@ import type { ReactNode } from 'react'
  * edge function passaria nos casos da convidada e quebraria `/conta` — onde não há token nenhum.
  */
 
-const { invoke, maybeSingle, eq, select, from } = vi.hoisted(() => {
+const { invoke, maybeSingle, eq, select, from, rpc } = vi.hoisted(() => {
   const maybeSingle = vi.fn()
   const eq = vi.fn(() => ({ maybeSingle }))
   const select = vi.fn(() => ({ eq }))
   const from = vi.fn(() => ({ select }))
-  return { invoke: vi.fn(), maybeSingle, eq, select, from }
+  return { invoke: vi.fn(), maybeSingle, eq, select, from, rpc: vi.fn() }
 })
 
 vi.mock('@estrelinha/supabase/client', () => ({
-  supabase: { from, functions: { invoke } },
+  supabase: { from, functions: { invoke }, rpc },
 }))
 
 import { useOrder } from '../useOrder'
@@ -37,6 +37,21 @@ const wrapper = ({ children }: { children: ReactNode }) => (
 
 const PEDIDO = { id: 'ord-1', customer_name: 'Marina Yamashita', order_items: [] }
 
+/**
+ * Feature 59 (`LIN-01`): o caminho com sessão funde o histórico da RPC ao pedido. As linhas da RPC
+ * chegam como `{ status, created_at }` e saem como `{ status, at }` — o formato do `get-order`.
+ */
+const LINHAS_DA_RPC = [
+  { status: 'separating', created_at: '2026-10-02T13:00:00Z' },
+  { status: 'shipped', created_at: '2026-10-03T15:00:00Z' },
+]
+const EVENTOS = [
+  { status: 'separating', at: '2026-10-02T13:00:00Z' },
+  { status: 'shipped', at: '2026-10-03T15:00:00Z' },
+]
+/** O pedido como o hook o devolve pelo PostgREST: a linha de `orders` + o histórico da RPC. */
+const LIDO = { ...PEDIDO, status_events: EVENTOS }
+
 const ler = async (id = 'ord-1') => {
   const { result } = renderHook(() => useOrder(id), { wrapper })
   await waitFor(() => expect(result.current.isLoading).toBe(false))
@@ -48,6 +63,7 @@ beforeEach(() => {
   invoke.mockReset()
   from.mockClear()
   maybeSingle.mockReset().mockResolvedValue({ data: PEDIDO, error: null })
+  rpc.mockReset().mockResolvedValue({ data: LINHAS_DA_RPC, error: null })
 })
 
 describe('useOrder — com sessão, o caminho é o de sempre', () => {
@@ -55,7 +71,7 @@ describe('useOrder — com sessão, o caminho é o de sempre', () => {
     // O caso inverso, e o mais importante deste arquivo: `/conta` não tem token nenhum.
     const { data } = await ler()
 
-    expect(data).toEqual(PEDIDO)
+    expect(data).toEqual(LIDO)
     expect(from).toHaveBeenCalledWith('orders')
     expect(invoke).not.toHaveBeenCalled()
   })
@@ -79,11 +95,11 @@ describe('useOrder — com sessão, o caminho é o de sempre', () => {
 describe('useOrder — a convidada lê com o token (CSC-06)', () => {
   it('com token guardado, lê pela function e NÃO toca o PostgREST', async () => {
     rememberAccess('ord-1', 'tok-abc')
-    invoke.mockResolvedValue({ data: { order: PEDIDO }, error: null })
+    invoke.mockResolvedValue({ data: { order: { ...PEDIDO, status_events: EVENTOS } }, error: null })
 
     const { data } = await ler()
 
-    expect(data).toEqual(PEDIDO)
+    expect(data).toEqual(LIDO)
     expect(invoke).toHaveBeenCalledWith('checkout?action=get-order', {
       body: { order_id: 'ord-1', access_token: 'tok-abc' },
     })
@@ -109,7 +125,7 @@ describe('useOrder — token recusado dá lugar ao caminho normal', () => {
 
     const { data } = await ler()
 
-    expect(data).toEqual(PEDIDO)
+    expect(data).toEqual(LIDO)
     expect(from).toHaveBeenCalledWith('orders')
   })
 
@@ -131,7 +147,7 @@ describe('useOrder — token recusado dá lugar ao caminho normal', () => {
     const { data, isError } = await ler()
 
     expect(isError).toBe(false)
-    expect(data).toEqual(PEDIDO)
+    expect(data).toEqual(LIDO)
   })
 
   it('corpo sem `order` conta como recusa', async () => {
@@ -140,7 +156,7 @@ describe('useOrder — token recusado dá lugar ao caminho normal', () => {
 
     const { data } = await ler()
 
-    expect(data).toEqual(PEDIDO)
+    expect(data).toEqual(LIDO)
     expect(from).toHaveBeenCalledWith('orders')
   })
 
@@ -148,6 +164,67 @@ describe('useOrder — token recusado dá lugar ao caminho normal', () => {
     forgetAccess('ord-1')
 
     const { data } = await ler()
-    expect(data).toEqual(PEDIDO)
+    expect(data).toEqual(LIDO)
+  })
+})
+
+describe('useOrder — o histórico do pedido (feature 59, LIN-01 / LIN-04)', () => {
+  it('com sessão, pede os eventos à RPC do PRÓPRIO pedido, pelo id da rota', async () => {
+    await ler('ord-1')
+
+    expect(rpc).toHaveBeenCalledTimes(1)
+    expect(rpc).toHaveBeenCalledWith('customer_order_events', { p_order_id: 'ord-1' })
+  })
+
+  it('as linhas da RPC saem como `{ status, at }`, na ordem em que vieram', async () => {
+    const { data } = await ler()
+
+    expect(data?.status_events).toEqual(EVENTOS)
+  })
+
+  it('RPC com erro: o pedido chega inteiro, só sem eventos — nunca uma rejeição', async () => {
+    rpc.mockResolvedValue({ data: null, error: { message: 'permission denied' } })
+
+    const { data, isError } = await ler()
+
+    expect(isError).toBe(false)
+    expect(data).toEqual({ ...PEDIDO, status_events: [] })
+  })
+
+  it('RPC lançando (rede) também vira lista vazia, e o pedido continua na tela', async () => {
+    rpc.mockRejectedValue(new Error('Failed to fetch'))
+
+    const { data, isError } = await ler()
+
+    expect(isError).toBe(false)
+    expect(data).toEqual({ ...PEDIDO, status_events: [] })
+  })
+
+  it('pedido inexistente não pergunta histórico nenhum', async () => {
+    maybeSingle.mockResolvedValue({ data: null, error: null })
+
+    const { data } = await ler()
+
+    expect(data).toBeNull()
+    expect(rpc).not.toHaveBeenCalled()
+  })
+
+  it('a convidada lê os eventos da própria resposta do `get-order`, sem chamar a RPC', async () => {
+    rememberAccess('ord-1', 'tok-abc')
+    invoke.mockResolvedValue({ data: { order: { ...PEDIDO, status_events: EVENTOS } }, error: null })
+
+    const { data } = await ler()
+
+    expect(data?.status_events).toEqual(EVENTOS)
+    expect(rpc).not.toHaveBeenCalled()
+  })
+
+  it('resposta da convidada sem `status_events` vira lista vazia, nunca `undefined`', async () => {
+    rememberAccess('ord-1', 'tok-abc')
+    invoke.mockResolvedValue({ data: { order: PEDIDO }, error: null })
+
+    const { data } = await ler()
+
+    expect(data?.status_events).toEqual([])
   })
 })

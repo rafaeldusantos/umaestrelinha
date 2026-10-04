@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { renderHook } from '@testing-library/react'
+import { renderHook, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 
@@ -21,13 +21,18 @@ import type { ReactNode } from 'react'
  * sem mexer, devolver o acesso, e **distinguir o 409 de `needs_otp`** dos demais erros.
  */
 
-const { invoke } = vi.hoisted(() => ({ invoke: vi.fn() }))
+const { invoke, from } = vi.hoisted(() => ({ invoke: vi.fn(), from: vi.fn() }))
 
 vi.mock('@estrelinha/supabase/client', () => ({
-  supabase: { functions: { invoke }, from: vi.fn() },
+  supabase: { functions: { invoke }, from },
 }))
 
-import { NeedsOtpError, useCreateOrder, type CreateOrderInput } from '../useOrders'
+import {
+  NeedsOtpError,
+  useCreateOrder,
+  useOrdersByCustomerId,
+  type CreateOrderInput,
+} from '../useOrders'
 
 const wrapper = ({ children }: { children: ReactNode }) => (
   <QueryClientProvider client={new QueryClient({ defaultOptions: { mutations: { retry: false } } })}>
@@ -204,5 +209,76 @@ describe('useCreateOrder — falha (CHK-09)', () => {
     invoke.mockResolvedValue({ data: {}, error: null })
 
     await expect(criar()).rejects.toThrow('Erro ao criar pedido')
+  })
+})
+
+/**
+ * Feature 59, `LST-08` — a lista da conta distingue FALHA de VAZIO.
+ *
+ * O hook devolvia `[]` em erro, e a conta dizia "Você ainda não fez nenhum pedido." para quem só
+ * tinha perdido a rede. Agora o erro rejeita, e a tela pode oferecer "Tentar de novo".
+ */
+describe('useOrdersByCustomerId — falha não é lista vazia (LST-08)', () => {
+  const order = vi.fn()
+  const eq = vi.fn(() => ({ order }))
+  const select = vi.fn(() => ({ eq }))
+
+  const listar = async (id: string | undefined = 'cust-1') => {
+    const queryWrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider
+        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+      >
+        {children}
+      </QueryClientProvider>
+    )
+    const { result } = renderHook(() => useOrdersByCustomerId(id), { wrapper: queryWrapper })
+    await waitFor(() => expect(result.current.isFetching).toBe(false))
+    return result.current
+  }
+
+  beforeEach(() => {
+    from.mockReset().mockReturnValue({ select })
+    select.mockClear()
+    eq.mockClear()
+    order.mockReset().mockResolvedValue({ data: [{ id: 'o-1' }, { id: 'o-2' }], error: null })
+  })
+
+  it('lê os pedidos DA cliente, do mais recente para o mais antigo', async () => {
+    const { data } = await listar('cust-1')
+
+    expect(from).toHaveBeenCalledWith('orders')
+    expect(eq).toHaveBeenCalledWith('customer_id', 'cust-1')
+    expect(order).toHaveBeenCalledWith('created_at', { ascending: false })
+    expect(data).toEqual([{ id: 'o-1' }, { id: 'o-2' }])
+  })
+
+  it('erro do PostgREST REJEITA, em vez de virar uma lista vazia', async () => {
+    order.mockResolvedValue({ data: null, error: { message: 'timeout' } })
+
+    const { data, isError, error } = await listar()
+
+    expect(isError).toBe(true)
+    expect(data).toBeUndefined()
+    expect((error as Error).message).toBe('timeout')
+  })
+
+  it('lista vazia resolvida continua sendo lista vazia — o par inverso', async () => {
+    order.mockResolvedValue({ data: [], error: null })
+
+    const { data, isError } = await listar()
+
+    expect(isError).toBe(false)
+    expect(data).toEqual([])
+  })
+
+  it('sem cliente, não consulta nada', async () => {
+    const { result } = renderHook(() => useOrdersByCustomerId(undefined), {
+      wrapper: ({ children }: { children: ReactNode }) => (
+        <QueryClientProvider client={new QueryClient()}>{children}</QueryClientProvider>
+      ),
+    })
+
+    expect(result.current.fetchStatus).toBe('idle')
+    expect(from).not.toHaveBeenCalled()
   })
 })

@@ -3,9 +3,10 @@ import { supabase } from '@estrelinha/supabase/client'
 import { MIN_PASSWORD_LENGTH } from '@estrelinha/core/constants'
 import { authErrorMessage } from '@estrelinha/core/auth'
 import { passwordChangeRefusal } from '@estrelinha/core/admin-users'
+import { stripPhone } from '@estrelinha/core/validators'
 import type { User } from '@supabase/supabase-js'
 
-interface Customer {
+export interface Customer {
   id: string
   user_id: string
   name: string
@@ -25,6 +26,8 @@ interface AuthContextType {
   signInWithOtp: (email: string) => Promise<{ error: string | null }>
   verifyOtp: (email: string, token: string) => Promise<{ error: string | null; isNewUser: boolean }>
   updateDisplayName: (name: string) => Promise<{ error: string | null }>
+  updateCustomerProfile: (profile: { name: string; phone: string }) => Promise<{ error: string | null }>
+  patchCustomer: (patch: Partial<Customer>) => void
   resetPassword: (email: string) => Promise<{ error: string | null }>
   verifyRecoveryCode: (email: string, token: string) => Promise<{ error: string | null }>
   updatePassword: (password: string) => Promise<{ error: string | null }>
@@ -210,6 +213,45 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return { error: null }
   }
 
+  /**
+   * "Meus dados" (feature 59, `DAD-02`): grava nome e WhatsApp em `customers` e o nome também em
+   * `user_metadata.full_name` — o mesmo caminho de `updateDisplayName`.
+   *
+   * Fino de propósito: a régua (nome ≥ 2, WhatsApp de 10–11 dígitos) mora em
+   * `apps/store/src/features/edit-profile/model/profileRefusal.ts`, que tem runner — este pacote
+   * não tem. O telefone vai só com dígitos, como o caixa grava.
+   *
+   * ⚠️ Checa as linhas afetadas: `.update()` não lança quando a RLS nega, devolve zero linhas sem
+   * `error` (o mesmo defeito que `useSaveCustomerCpf` documenta). Sem o `.select()`, a tela voltaria
+   * ao modo leitura dizendo que salvou o que o banco recusou.
+   */
+  const updateCustomerProfile = async ({ name, phone }: { name: string; phone: string }) => {
+    const nome = name.trim()
+    const digitos = stripPhone(phone)
+    const { data: { user: current } } = await supabase.auth.getUser()
+    if (!current) return { error: 'Sessão expirada. Entre novamente.' }
+    const { data, error } = await supabase
+      .from('customers')
+      .update({ name: nome, phone: digitos })
+      .eq('user_id', current.id)
+      .select()
+    if (error || !data || data.length === 0) {
+      return { error: 'Não foi possível salvar agora. Tente de novo.' }
+    }
+    await supabase.auth.updateUser({ data: { full_name: nome } })
+    setCustomer((prev) => (prev ? { ...prev, name: nome, phone: digitos } : prev))
+    return { error: null }
+  }
+
+  /**
+   * Acerta o cliente do contexto depois de uma gravação feita FORA dele — hoje, o CPF preenchido uma
+   * vez em "Meus dados" (`useSaveCustomerCpf`). Sem isso a tela seguiria mostrando o campo vazio até
+   * recarregar a página.
+   */
+  const patchCustomer = (patch: Partial<Customer>) => {
+    setCustomer((prev) => (prev ? { ...prev, ...patch } : prev))
+  }
+
   // Envia o e-mail de recuperação. O template usa {{ .Token }} (código de 6
   // dígitos), então não há redirectTo: quem verifica é verifyRecoveryCode.
   const resetPassword = async (email: string) => {
@@ -275,7 +317,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }
 
   return (
-    <AuthContext.Provider value={{ user, customer, isAdmin, loading, signIn, signUp, signInWithGoogle, signInWithOtp, verifyOtp, updateDisplayName, resetPassword, verifyRecoveryCode, updatePassword, changeOwnPassword, signOut }}>
+    <AuthContext.Provider value={{ user, customer, isAdmin, loading, signIn, signUp, signInWithGoogle, signInWithOtp, verifyOtp, updateDisplayName, updateCustomerProfile, patchCustomer, resetPassword, verifyRecoveryCode, updatePassword, changeOwnPassword, signOut }}>
       {children}
     </AuthContext.Provider>
   )

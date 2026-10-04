@@ -80,6 +80,18 @@ describe('MobileNav — comportamento das abas', () => {
     expect(screen.getByLabelText('Minha conta')).toHaveAttribute('aria-current', 'page')
   })
 
+  it('Feature 59: em /conta/dados (Meus dados) a aba Conta continua acesa', () => {
+    authState.user = { id: 'u1' }
+    renderNav('/conta/dados')
+    expect(screen.getByLabelText('Minha conta')).toHaveAttribute('aria-current', 'page')
+  })
+
+  it('Feature 59: o recorte é por segmento — um caminho que só COMEÇA com "conta" não acende a aba', () => {
+    authState.user = { id: 'u1' }
+    renderNav('/contato')
+    expect(screen.getByLabelText('Minha conta')).not.toHaveAttribute('aria-current')
+  })
+
   it('a barra reserva a safe area do rodapé do iPhone', () => {
     renderNav()
     const nav = screen.getByLabelText('Navegação principal')

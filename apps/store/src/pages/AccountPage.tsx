@@ -1,133 +1,128 @@
-import { useState, useEffect } from 'react'
-import { User, Package, ChevronDown, ChevronUp, Clock, CheckCircle2, Truck, XCircle, LogOut, QrCode } from 'lucide-react'
-import { Button } from '@estrelinha/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@estrelinha/ui/card'
-import { Badge } from '@estrelinha/ui/badge'
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@estrelinha/ui/collapsible'
-import { Link } from 'react-router-dom'
-import { useOrdersByCustomerId, type Order } from '@/entities/order/api/useOrders'
-import { orderPaymentPath, podePagarComPix } from '@/entities/order'
-import { formatPrice } from '@estrelinha/core/formatters'
-import { formatOrderNumber } from '@estrelinha/core/orders'
-import { useAuthContext } from '@estrelinha/auth'
+// `/conta` e `/conta/dados` — a área da cliente (feature 59, `LST-01`, `LST-04`, `LST-05`, `LST-09`,
+// `LST-10`).
+//
+// Uma página, duas rotas irmãs: a aba vem do ENDEREÇO, não de um estado interno, então "Meus dados"
+// sobrevive a recarregar e ao botão voltar. A conta é lista + pendências — o detalhe de um pedido
+// tem um dono só, `/pedido/:id`, e cada linha leva até lá.
+//
+// Celular (o caso principal): saudação, as abas "Pedidos" e "Meus dados", e o conteúdo da aba. No
+// computador (`lg`) a mesma árvore vira duas colunas — a lateral de 264px (saudação, navegação,
+// ajuda) e a principal. É UMA árvore só, rearranjada por classe: duas cópias (uma escondida por CSS)
+// dariam dois links para cada destino e duas leituras para o leitor de tela.
+//
+// A tabela de rótulos que morava aqui (`statusConfig`) era o defeito que abriu a feature `59`:
+// conhecia 5 dos 6 status do banco e lia só `orders.status`, então pedido pago aparecia "Pendente".
+// O selo agora vem do dono único (`orderSituation`, via `OrderSituationBadge`, dentro da lista), e
+// `situacaoComDonoUnico.test.ts` recusa a volta.
+import { useEffect } from 'react'
+import { Link, useLocation } from 'react-router-dom'
+import { Heart, LogOut, MessageCircle } from 'lucide-react'
+import { useAuthContext, type Customer } from '@estrelinha/auth'
+import { useGeneralSettings } from '@estrelinha/core/hooks/useStoreSettings'
+import { useOrdersByCustomerId } from '@/entities/order'
 import { useAuthUiStore } from '@/features/auth'
+import { AddressCard } from '@/features/edit-address'
+import { ProfileCard } from '@/features/edit-profile'
+import { whatsappHref } from '@/shared/lib/whatsapp'
+import { AttentionList } from '@/widgets/order-attention'
+import { OrderList } from '@/widgets/order-list'
+import { WHATSAPP_FLOAT_CLEARANCE } from '@/widgets/whatsapp-float'
 
-const statusConfig: Record<string, { label: string; icon: React.ElementType; className: string }> = {
-  pending: { label: 'Pendente', icon: Clock, className: 'bg-yellow-100 text-yellow-800 border-yellow-200' },
-  confirmed: { label: 'Confirmado', icon: CheckCircle2, className: 'bg-blue-100 text-blue-800 border-blue-200' },
-  shipped: { label: 'Enviado', icon: Truck, className: 'bg-purple-100 text-purple-800 border-purple-200' },
-  delivered: { label: 'Entregue', icon: CheckCircle2, className: 'bg-green-100 text-green-800 border-green-200' },
-  cancelled: { label: 'Cancelado', icon: XCircle, className: 'bg-red-100 text-red-800 border-red-200' },
+/** As duas abas e os endereços delas. */
+const ABAS = {
+  pedidos: { path: '/conta', rotulo: 'Pedidos' },
+  dados: { path: '/conta/dados', rotulo: 'Meus dados' },
+} as const
+
+type Aba = keyof typeof ABAS
+
+/** "AN" de "Ana Nunes"; cai para o e-mail quando não há nome. */
+const iniciais = (nome: string | null | undefined, email: string | null | undefined): string => {
+  const partes = (nome ?? '').trim().split(/\s+/).filter(Boolean)
+  if (partes.length >= 2) return (partes[0][0] + partes[partes.length - 1][0]).toUpperCase()
+  if (partes.length === 1) return partes[0].slice(0, 2).toUpperCase()
+  return (email ?? '?').slice(0, 2).toUpperCase()
 }
 
-const StatusBadge = ({ status }: { status: string }) => {
-  const config = statusConfig[status] || statusConfig.pending
-  const Icon = config.icon
+const ITEM_NAV =
+  'flex h-12 items-center gap-2 px-3 text-[15px] font-semibold transition-colors motion-reduce:transition-none'
+
+/** "Precisa de ajuda?" da coluna lateral — some sem número da loja configurado. */
+const AjudaLateral = () => {
+  const { whatsapp } = useGeneralSettings()
+  const href = whatsappHref(whatsapp, 'Olá! Preciso de ajuda com a minha conta.')
+  if (!href) return null
   return (
-    <Badge variant="outline" className={`${config.className} gap-1 font-medium`}>
-      <Icon className="w-3 h-3" />
-      {config.label}
-    </Badge>
+    <div className="hidden flex-col gap-2 rounded-md bg-estrelinha-ground-deep p-4 lg:flex">
+      <p className="text-[15px] font-semibold text-estrelinha-ink">Precisa de ajuda?</p>
+      <p className="text-sm text-estrelinha-ink-soft">
+        Fale com a Adri pelo WhatsApp — ela responde pessoalmente.
+      </p>
+      <a
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex min-h-11 items-center gap-2 self-start text-[15px] font-semibold text-estrelinha-primary hover:underline"
+      >
+        <MessageCircle className="h-4 w-4" aria-hidden />
+        Conversar no WhatsApp
+      </a>
+    </div>
   )
 }
 
-const OrderCard = ({ order }: { order: Order }) => {
-  const [open, setOpen] = useState(false)
-  const date = new Date(order.created_at).toLocaleDateString('pt-BR')
-
-  return (
-    <Collapsible open={open} onOpenChange={setOpen}>
-      <Card className="bg-white border border-estrelinha-line rounded-2xl overflow-hidden hover:border-estrelinha-primary/30 transition-colors">
-        <CollapsibleTrigger asChild>
-          <CardHeader className="cursor-pointer hover:bg-estrelinha-ground-deep/50 transition-colors p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex flex-col gap-1">
-                <div className="flex items-center gap-3">
-                  <CardTitle className="text-base font-bold text-estrelinha-ink">
-                    {formatOrderNumber(order.order_number)}
-                  </CardTitle>
-                  <StatusBadge status={order.status} />
-                </div>
-                <p className="text-sm text-estrelinha-ink-soft">{date}</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="font-heading font-bold text-estrelinha-primary text-lg">
-                  {formatPrice(order.total)}
-                </span>
-                {open ? <ChevronUp className="w-4 h-4 text-estrelinha-ink-soft" /> : <ChevronDown className="w-4 h-4 text-estrelinha-ink-soft" />}
-              </div>
-            </div>
-          </CardHeader>
-        </CollapsibleTrigger>
-        {/*
-          `PIX-P3-04` (feature `58`): **a conta LINKA, não monta o pagamento.**
-
-          Aqui existia um `<Dialog>` que montava a superfície do PIX dentro da lista. Duas
-          superfícies montando o mesmo pagamento são dois donos de "onde se paga um pedido
-          pendente" — e esta já nascia errada: o diálogo montava sem `amount`, então o valor em
-          destaque (`CNF-01`) simplesmente não aparecia, e o QR vivia dentro de um `DialogContent`,
-          que é a forma que `dialogGridTrack.test.ts` existe para vigiar.
-
-          O link leva ao endereço do pedido, que é a mesma casa a que `/pedido/:id` leva — e que
-          sobrevive a fechar a aba.
-        */}
-        {podePagarComPix(order) && (
-          <div className="px-4 pb-3">
-            <Button
-              asChild
-              size="sm"
-              className="rounded-sm bg-estrelinha-primary text-white border-0 hover:bg-estrelinha-primary hover:opacity-95 transition-all gap-1.5"
-            >
-              <Link to={orderPaymentPath(order.id)}>
-                <QrCode className="w-4 h-4" /> Pagar com PIX
-              </Link>
-            </Button>
-          </div>
-        )}
-        <CollapsibleContent>
-          <CardContent className="p-4 pt-0 border-t border-estrelinha-line">
-            <div className="space-y-3 mt-3">
-              {order.order_items.map((item) => (
-                <div key={item.id} className="flex items-center gap-3">
-                  {item.product_image && (
-                    <img src={item.product_image} alt={item.product_name} className="w-12 h-12 rounded-lg object-cover border border-estrelinha-line" />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-estrelinha-ink truncate">{item.product_name}</p>
-                    <p className="text-xs text-estrelinha-ink-soft">
-                      {[item.size, item.finish].filter(Boolean).join(' · ')}
-                      {' · '}Qtd: {item.quantity}
-                    </p>
-                  </div>
-                  <span className="text-sm font-semibold text-estrelinha-ink">
-                    {formatPrice(item.unit_price * item.quantity)}
-                  </span>
-                </div>
-              ))}
-            </div>
-            <div className="mt-4 pt-3 border-t border-estrelinha-line text-sm text-estrelinha-ink-soft space-y-1">
-              <div className="flex justify-between"><span>Subtotal</span><span>{formatPrice(order.subtotal)}</span></div>
-              {order.shipping_cost > 0 && <div className="flex justify-between"><span>Frete</span><span>{formatPrice(order.shipping_cost)}</span></div>}
-              {order.discount > 0 && <div className="flex justify-between text-green-600"><span>Desconto</span><span>-{formatPrice(order.discount)}</span></div>}
-              <div className="flex justify-between font-bold text-estrelinha-ink"><span>Total</span><span>{formatPrice(order.total)}</span></div>
-            </div>
-          </CardContent>
-        </CollapsibleContent>
-      </Card>
-    </Collapsible>
-  )
-}
+/**
+ * A aba "Meus dados" (`DAD-01`): "Dados pessoais", "Endereço de entrega" e "Sair da conta".
+ *
+ * A região leva o nome "Dados pessoais" e abraça os dois cartões: no sentido da aba, endereço também é
+ * dado pessoal. No computador quem oferece "Sair da conta" é a navegação lateral; aqui o botão é do
+ * celular.
+ */
+const AccountDataPanel = ({
+  customer,
+  email,
+  onSaveProfile,
+  onDocumentSaved,
+  onSignOut,
+}: {
+  customer: Customer | null
+  email: string | null | undefined
+  onSaveProfile: (profile: { name: string; phone: string }) => Promise<{ error: string | null }>
+  onDocumentSaved: (cpf: string) => void
+  onSignOut: () => void
+}) => (
+  <section aria-label="Dados pessoais" className="flex flex-col gap-4">
+    <ProfileCard
+      customer={customer}
+      email={email}
+      onSaveProfile={onSaveProfile}
+      onDocumentSaved={onDocumentSaved}
+    />
+    <AddressCard customerId={customer?.id} />
+    <button
+      type="button"
+      onClick={onSignOut}
+      className="flex h-12 w-full items-center justify-center gap-2 rounded-sm border border-estrelinha-field px-5 text-[15px] font-semibold text-estrelinha-ink transition-colors hover:bg-estrelinha-ground-deep motion-reduce:transition-none lg:hidden"
+    >
+      <LogOut className="h-4 w-4" aria-hidden />
+      Sair da conta
+    </button>
+  </section>
+)
 
 const AccountPage = () => {
-  const { user, customer, loading, signOut } = useAuthContext()
+  const { user, customer, loading, signOut, updateCustomerProfile, patchCustomer } = useAuthContext()
   const openAuth = useAuthUiStore((s) => s.open)
-  const { data: orders, isLoading } = useOrdersByCustomerId(customer?.id)
+  const { pathname } = useLocation()
+  const aba: Aba = pathname === ABAS.dados.path ? 'dados' : 'pedidos'
+  const { data: orders, isLoading, isError, refetch } = useOrdersByCustomerId(customer?.id)
 
+  // `LST-09`: sem sessão, o login abre e devolve à aba em que ela estava.
   useEffect(() => {
     if (!loading && !user) {
-      openAuth({ returnTo: '/conta' })
+      openAuth({ returnTo: ABAS[aba].path })
     }
-  }, [loading, user, openAuth])
+  }, [loading, user, openAuth, aba])
 
   if (loading) {
     return <div className="container py-20 text-center text-estrelinha-ink-soft">Carregando...</div>
@@ -135,48 +130,113 @@ const AccountPage = () => {
 
   if (!user) return null
 
-  const initials = (customer?.name || user.email || '?').slice(0, 2).toUpperCase()
+  const nome = customer?.name?.trim() || ''
+  const primeiroNome = nome.split(/\s+/)[0] || ''
+  const contagem = orders?.length ?? 0
 
   return (
-    <div className="container py-12 max-w-2xl">
-      <div className="bg-white rounded-2xl border border-estrelinha-line p-6 mb-8">
-        <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-full bg-estrelinha-primary flex items-center justify-center text-white font-bold text-lg">
-            {initials}
+    // `ACB-02`: o fim da página reserva o espaço da bolha do WhatsApp — a medida é dela.
+    <div className={`container max-w-5xl pt-6 lg:pt-12 ${WHATSAPP_FLOAT_CLEARANCE}`}>
+      <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[264px_minmax(0,1fr)] lg:items-start lg:gap-10">
+        <aside className="flex min-w-0 flex-col gap-4 lg:gap-6">
+          {/* `LST-05`: o avatar não encolhe; o e-mail corta com reticências. */}
+          <div className="flex min-w-0 items-center gap-3">
+            <span
+              aria-hidden
+              data-testid="account-avatar"
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-estrelinha-primary font-body text-base font-semibold text-estrelinha-on-primary lg:h-14 lg:w-14 lg:text-lg"
+            >
+              {iniciais(nome, user.email)}
+            </span>
+            <div className="flex min-w-0 flex-col">
+              <p className="font-heading text-2xl font-semibold leading-tight text-estrelinha-ink lg:text-[26px]">
+                {primeiroNome ? `Olá, ${primeiroNome}` : 'Olá'}
+              </p>
+              <p className="truncate text-sm text-estrelinha-ink-soft">{user.email}</p>
+            </div>
           </div>
-          <div className="flex-1">
-            <h1 className="font-heading text-xl font-bold text-estrelinha-ink">{customer?.name || 'Minha Conta'}</h1>
-            <p className="text-sm text-estrelinha-ink-soft">{user.email}</p>
+
+          {/* As abas no celular; a navegação lateral no computador. */}
+          <nav aria-label="Minha conta" className="flex border-b border-estrelinha-line lg:flex-col lg:gap-1 lg:border-b-0">
+            {(Object.keys(ABAS) as Aba[]).map((chave) => {
+              const ativa = chave === aba
+              return (
+                <Link
+                  key={chave}
+                  to={ABAS[chave].path}
+                  aria-current={ativa ? 'page' : undefined}
+                  className={`${ITEM_NAV} flex-1 justify-center border-b-2 lg:flex-none lg:justify-start lg:rounded-md lg:border lg:border-transparent ${
+                    ativa
+                      ? 'border-b-estrelinha-primary text-estrelinha-ink lg:border-estrelinha-line lg:bg-estrelinha-surface'
+                      : 'border-b-transparent text-estrelinha-ink-soft hover:text-estrelinha-ink'
+                  }`}
+                >
+                  {ABAS[chave].rotulo}
+                  {chave === 'pedidos' && contagem > 0 && (
+                    <span className="rounded-pill bg-estrelinha-serenity px-2 py-0.5 text-xs font-semibold text-estrelinha-primary-strong">
+                      {contagem}
+                    </span>
+                  )}
+                </Link>
+              )
+            })}
+            <Link
+              to="/favoritos"
+              className={`${ITEM_NAV} hidden rounded-md text-estrelinha-ink-soft hover:text-estrelinha-ink lg:flex`}
+            >
+              <Heart className="h-4 w-4" aria-hidden />
+              Favoritos
+            </Link>
+            <span aria-hidden className="mx-3 my-2 hidden h-px bg-estrelinha-line lg:block" />
+            <button
+              type="button"
+              onClick={signOut}
+              data-testid="account-signout-lateral"
+              className={`${ITEM_NAV} hidden rounded-md text-estrelinha-ink-soft hover:text-estrelinha-ink lg:flex`}
+            >
+              <LogOut className="h-4 w-4" aria-hidden />
+              Sair da conta
+            </button>
+          </nav>
+
+          <AjudaLateral />
+        </aside>
+
+        <div className="flex min-w-0 flex-col gap-6">
+          {/* O título da página: visível no computador; no celular a saudação e as abas já dizem onde
+              ela está, e o título fica para o leitor de tela. */}
+          <div className="sr-only lg:not-sr-only lg:flex lg:flex-col lg:gap-1">
+            <h1 className="font-heading text-[34px] font-semibold leading-tight tracking-[-0.02em] text-estrelinha-ink">
+              {ABAS[aba].rotulo}
+            </h1>
+            {aba === 'pedidos' && (
+              <p className="text-[15px] text-estrelinha-ink-soft">
+                Acompanhe cada joia, da chegada do material até a entrega.
+              </p>
+            )}
           </div>
-          <Button variant="outline" size="sm" onClick={signOut} className="min-h-11 rounded-xl border-2 border-estrelinha-primary text-estrelinha-primary hover:bg-estrelinha-ground-deep gap-1.5">
-            <LogOut className="w-4 h-4" /> Sair
-          </Button>
+
+          {aba === 'pedidos' ? (
+            <>
+              {!isLoading && !isError && <AttentionList orders={orders} />}
+              <OrderList
+                orders={orders}
+                isLoading={isLoading}
+                isError={isError}
+                onRetry={() => void refetch?.()}
+              />
+            </>
+          ) : (
+            <AccountDataPanel
+              customer={customer}
+              email={user.email}
+              onSaveProfile={updateCustomerProfile}
+              onDocumentSaved={(cpf) => patchCustomer({ cpf })}
+              onSignOut={signOut}
+            />
+          )}
         </div>
       </div>
-
-      <h2 className="font-heading text-lg font-bold text-estrelinha-ink mb-4">Meus Pedidos</h2>
-
-      {isLoading && (
-        <div className="text-center py-8 text-estrelinha-ink-soft">Carregando pedidos...</div>
-      )}
-
-      {!isLoading && (!orders || orders.length === 0) && (
-        <div className="bg-white rounded-2xl border border-estrelinha-line p-8 text-center">
-          <Package className="w-12 h-12 text-estrelinha-ink-soft mx-auto mb-3" />
-          <p className="text-estrelinha-ink-soft">Você ainda não fez nenhum pedido.</p>
-          <Button asChild variant="outline" className="mt-4 min-h-11 rounded-xl border-2 border-estrelinha-primary text-estrelinha-primary hover:bg-estrelinha-ground-deep">
-            <Link to="/"><Package className="w-4 h-4 mr-2" /> Continuar Comprando</Link>
-          </Button>
-        </div>
-      )}
-
-      {orders && orders.length > 0 && (
-        <div className="space-y-4">
-          {orders.map((order) => (
-            <OrderCard key={order.id} order={order} />
-          ))}
-        </div>
-      )}
     </div>
   )
 }

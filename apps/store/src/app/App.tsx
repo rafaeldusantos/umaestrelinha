@@ -167,6 +167,13 @@ const App = () => (
                   element={<Navigate to="/como-enviar-seu-material-de-dna" replace />}
                 />
                 <Route path="/conta" element={<AccountPage />} />
+                {/*
+                  Feature 59: a aba "Meus dados" tem endereço próprio, para sobreviver a recarregar e
+                  ao botão voltar. Rota IRMÃ e auto-fechada, com o mesmo elemento — a página lê a aba
+                  do endereço. Aninhar sob `/conta` exigiria um `<Outlet>` que a página não tem, e o
+                  segmento estático continua vencendo `/:parentSlug/:slug`.
+                */}
+                <Route path="/conta/dados" element={<AccountPage />} />
                 <Route path="/favoritos" element={<WishlistPage />} />
                 <Route path="/entrar" element={<AuthPage />} />
                 <Route path="/:slug" element={<CategoryPage />} />
