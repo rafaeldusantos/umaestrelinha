@@ -14,7 +14,8 @@
 // Paleta: o cart drawer usa manteiga sobre branco; aqui **não** — pó de açúcar na faixa e
 // geleia só no texto (nenhuma pílula geleia: a única da tela é o CTA, CHK-04).
 import { useState } from 'react'
-import { Check, ChevronDown, ShoppingBag, Tag, X } from 'lucide-react'
+import { Check, ChevronDown, Tag, X } from 'lucide-react'
+import { SacolaIcon } from '@estrelinha/ui/icons'
 import { formatPrice } from '@estrelinha/core/formatters'
 import { renditionUrl } from '@estrelinha/core/media'
 import { usePaymentSettings } from '@estrelinha/core/hooks/useStoreSettings'
@@ -299,7 +300,7 @@ const OrderSummary = ({ variant }: Props) => {
           onClick={() => setExpanded((v) => !v)}
           className="flex w-full items-center gap-[10px] bg-estrelinha-ground-deep px-4 py-[14px] text-left"
         >
-          <ShoppingBag className="h-[18px] w-[18px] shrink-0 text-estrelinha-primary" aria-hidden />
+          <SacolaIcon className="h-5 w-5 shrink-0 text-estrelinha-primary" aria-hidden />
           {/* RSM-07: em 390px a linha inteira cabe; `truncate` garante que uma contagem maior
               encolha em vez de embrulhar em duas linhas. */}
           <span className="min-w-0 grow truncate text-sm font-semibold leading-[18px] text-estrelinha-ink">

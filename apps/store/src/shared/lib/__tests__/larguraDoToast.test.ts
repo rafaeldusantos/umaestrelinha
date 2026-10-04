@@ -165,11 +165,12 @@ describe('o aviso do sonner cabe no trilho', () => {
     expect(larguraIndefinida(classes), larguraIndefinida(classes) ?? '').toBeNull()
   })
 
-  // ── Âncora do outro lado: a varredura precisa ACHAR quem chama `toast.custom`. Zero chamadas
-  // encontradas não é "está tudo certo", é régua varrendo o diretório errado.
-  it('acha quem chama `toast.custom` nos dois apps', () => {
+  // ── Âncora do outro lado: a varredura precisa LER os dois apps. Até 2026-10-04 ela também exigia
+  // achar ao menos um `toast.custom` — o único era o aviso de "adicionado ao carrinho", que deu
+  // lugar à gaveta. Hoje zero chamadas é o estado verdadeiro, e quem prova que o recorte ainda
+  // enxerga uma chamada é o sensor positivo abaixo (não a presença de um consumidor inventado).
+  it('lê os dois apps, e todo `toast.custom` encontrado é recortável', () => {
     expect(arquivos.length).toBeGreaterThan(300)
-    expect(comToastCustom.length).toBeGreaterThan(0)
     for (const { nome, chamadas } of comToastCustom) {
       expect(chamadas, `${nome}: parêntese não fechou, e o recorte é cego`).not.toBeNull()
     }
@@ -220,6 +221,14 @@ describe('o aviso do sonner cabe no trilho', () => {
   it('SENSOR — parêntese que não fecha devolve `null`, em vez de lista vazia', () => {
     expect(chamadasDeToastCustom('toast.custom(() => <div className="truncate">')).toBeNull()
     expect(chamadasDeToastCustom('const x = 1')).toEqual([])
+  })
+
+  it('SENSOR — o recorte ENXERGA uma chamada real, inclusive com parênteses aninhados', () => {
+    const fonte = 'toast.custom(() => (<div className="min-w-0"><p className="truncate">{f(x)}</p></div>))'
+    const chamadas = chamadasDeToastCustom(fonte)
+    expect(chamadas).toHaveLength(1)
+    expect(conteudoQueEmpurra(chamadas![0])).toBeNull()
+    expect(conteudoQueEmpurra(chamadasDeToastCustom('toast.custom(() => <p className="truncate" />)')![0])).not.toBeNull()
   })
 
   it('SENSOR — a régua do conteúdo acusa `truncate` sozinho e absolve o par', () => {

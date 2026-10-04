@@ -51,17 +51,17 @@ export function useRecoverCart() {
         const cart = data
 
         if (error || !cart) {
-          toast.error('Carrinho não encontrado ou expirado')
+          toast.error('Sacola não encontrada ou expirada')
           return
         }
 
         if (cart.status === 'recovered') {
-          toast.info('Este carrinho já foi finalizado')
+          toast.info('Esta sacola já foi finalizada')
           return
         }
 
         if (!cart.items || cart.items.length === 0) {
-          toast.error('Este carrinho está vazio')
+          toast.error('Esta sacola está vazia')
           return
         }
 
@@ -113,11 +113,11 @@ export function useRecoverCart() {
         }
 
         if (restored === 0) {
-          toast.error('Os produtos deste carrinho não estão mais disponíveis')
+          toast.error('Os produtos desta sacola não estão mais disponíveis')
         } else if (missing > 0) {
-          toast.success(`Carrinho recuperado! ${missing} item(ns) indisponível(is) foi(ram) removido(s)`)
+          toast.success(`Sacola recuperada. ${missing} item(ns) indisponível(is) foi(ram) removido(s)`)
         } else {
-          toast.success('Carrinho recuperado com sucesso!')
+          toast.success('Sacola recuperada.')
         }
 
         // Limpa o param sem disparar nova navegação
@@ -125,7 +125,7 @@ export function useRecoverCart() {
         next.delete('recover')
         setParams(next, { replace: true })
       } catch {
-        toast.error('Não foi possível recuperar seu carrinho')
+        toast.error('Não foi possível recuperar sua sacola')
       } finally {
         setRecovering(false)
       }

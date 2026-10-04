@@ -180,7 +180,7 @@ describe('PrivacyPolicyPage — o consentimento citado é o do checkout (POL-13)
     // política que descreve o opt-in sem dizer isso está calada sobre o único uso dele.
     montar()
 
-    expect(screen.getByText(/carrinho que ficou pela metade/)).toBeInTheDocument()
+    expect(screen.getByText(/sacola que ficou pela metade/)).toBeInTheDocument()
   })
 })
 

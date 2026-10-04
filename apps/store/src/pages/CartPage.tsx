@@ -37,7 +37,7 @@ const CartPage = () => {
     return (
       <div className="container py-20 text-center">
         <Loader2 className="mx-auto mb-4 h-10 w-10 animate-spin text-estrelinha-primary" aria-hidden />
-        <h1 className="font-heading text-2xl font-bold text-estrelinha-ink">Recuperando seu carrinho…</h1>
+        <h1 className="font-heading text-2xl font-bold text-estrelinha-ink">Recuperando sua sacola…</h1>
         <p className="mt-2 text-estrelinha-ink-soft">Estamos restaurando seus itens. Só um instante.</p>
       </div>
     )

@@ -490,7 +490,7 @@ const CheckoutPage = () => {
                 className="flex items-center gap-[6px] self-start text-sm font-medium text-estrelinha-ink-soft hover:text-estrelinha-primary"
               >
                 <ArrowLeft className="h-[14px] w-[14px]" aria-hidden />
-                Voltar ao carrinho
+                Voltar à sacola
               </button>
               <h1 className="font-heading text-3xl font-semibold tracking-[-0.03em] text-estrelinha-ink">
                 Finalizar compra

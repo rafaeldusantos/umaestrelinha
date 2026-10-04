@@ -138,7 +138,7 @@ const PrivacyPolicyPage = () => {
           {MARKETING_CONSENT_LABEL}”
         </p>
         <p>
-          Marcá-la é o que nos autoriza a escrever para você sobre a loja e a lembrá-la de um carrinho
+          Marcá-la é o que nos autoriza a escrever para você sobre a loja e a lembrá-la de uma sacola
           que ficou pela metade. Deixá-la desmarcada não muda nada no seu pedido — você continua
           recebendo os e-mails sobre a compra, que não são publicidade.
         </p>

@@ -149,7 +149,7 @@ const CartDrawerRow = ({ item, onNavigate }: Props) => {
             <button
               type="button"
               onClick={() => removeItem(product.id, size, finish, variantId, engravingText)}
-              aria-label={`Remover ${product.name} do carrinho`}
+              aria-label={`Remover ${product.name} da sacola`}
               className={`${TAP_44} text-estrelinha-ink transition-colors hover:text-estrelinha-primary`}
             >
               <Trash2 className="h-4 w-4" strokeWidth={2} />

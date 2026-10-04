@@ -49,7 +49,7 @@ class ChunkErrorBoundary extends Component<Props, State> {
             Não conseguimos carregar esta página
           </h1>
           <p className="mx-auto max-w-[420px] text-[16px] leading-relaxed text-estrelinha-ink-soft">
-            A conexão falhou no meio do caminho. Recarregar costuma resolver, e nada do seu carrinho
+            A conexão falhou no meio do caminho. Recarregar costuma resolver, e nada da sua sacola
             se perde.
           </p>
         </div>

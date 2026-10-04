@@ -1,6 +1,6 @@
 import { useLocation } from 'react-router-dom'
 import { TAP_44 } from '@/shared/lib/touchTarget'
-import { Heart, Minus, MessageCircle, Plus, ShoppingCart } from 'lucide-react'
+import { Heart, Minus, MessageCircle, Plus } from 'lucide-react'
 import { formatPrice } from '@estrelinha/core/formatters'
 import { resolveInstallments } from '@estrelinha/core/payment/installments'
 import { pixPrice } from '@estrelinha/core/payment/pix'
@@ -17,7 +17,7 @@ import { PAGE_MAX_AXES } from '../lib/variantSelection'
 import type { ProductPurchase } from '../model/useProductPurchase'
 import EngravingField from './EngravingField'
 import VariantPicker from './VariantPicker'
-import { PixIcon } from '@estrelinha/ui/icons'
+import { PixIcon, SacolaIcon } from '@estrelinha/ui/icons'
 
 interface Props {
   product: Product
@@ -87,7 +87,7 @@ const ProductInfo = ({ product, categoryName, purchase }: Props) => {
         </div>
       )}
 
-      <h1 className="font-display text-[28px] font-semibold leading-[34px] tracking-[-0.02em] text-estrelinha-ink md:text-[36px] md:leading-[42px]">
+      <h1 className="font-display text-[20px] font-semibold leading-[26px] tracking-[-0.02em] text-estrelinha-ink">
         {product.name}
       </h1>
 
@@ -217,8 +217,8 @@ const ProductInfo = ({ product, categoryName, purchase }: Props) => {
           disabled={!canAdd}
           className="flex h-12 flex-1 items-center justify-center gap-2 rounded-sm bg-estrelinha-primary font-display text-[15px] font-semibold text-white transition-transform hover:scale-[1.01] disabled:scale-100 disabled:opacity-50"
         >
-          <ShoppingCart className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden />
-          {canAdd ? 'Adicionar ao carrinho' : 'Indisponível'}
+          <SacolaIcon className="h-5 w-5" aria-hidden />
+          {canAdd ? 'Adicionar à sacola' : 'Indisponível'}
         </button>
 
         <button

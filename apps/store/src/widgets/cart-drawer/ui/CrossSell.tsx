@@ -86,7 +86,7 @@ const CrossSell = ({ products, onNavigate }: Props) => {
                 <button
                   type="button"
                   onClick={() => addItem(product)}
-                  aria-label={`Adicionar ${product.name} ao carrinho`}
+                  aria-label={`Adicionar ${product.name} à sacola`}
                   className={`${TAP_44} flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-estrelinha-primary text-white transition-transform hover:scale-105 active:scale-95`}
                 >
                   <Plus className="h-4 w-4" strokeWidth={2.6} />

@@ -5,14 +5,15 @@
 // em 35 produtos —, e perguntar ao produto mostraria o campo para quem escolheu a linha que não
 // grava, levando o texto para o pedido.
 
-import { act, render, renderHook } from '@testing-library/react'
+import { act, renderHook } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Product, ProductVariant } from '@estrelinha/supabase/types'
 import { useCartStore } from '@/entities/cart/model/cartStore'
+import { useCartUiStore } from '@/entities/cart/model/cartUiStore'
 import { useProductPurchase } from '../useProductPurchase'
 
 const toastError = vi.hoisted(() => vi.fn())
-/** O aviso de "adicionado ao carrinho" tem foto — e `PRF-02` pede que ela venha em rendição. */
+/** Espiado para provar que o "adicionado" NÃO desenha mais aviso — quem confirma é a gaveta. */
 const toastCustom = vi.hoisted(() => vi.fn())
 vi.mock('sonner', () => ({ toast: { error: toastError, custom: toastCustom } }))
 
@@ -258,29 +259,31 @@ describe('useProductPurchase — semente vinda do ?variant=', () => {
 })
 
 /**
- * `PRF-02` (AC 5) — o aviso de "adicionado ao carrinho" também pede rendição.
+ * Adicionar ao carrinho ABRE A GAVETA — e não mostra mais o aviso no canto.
  *
- * A vaga tem 48px e o aviso aparece a cada clique em "adicionar". É a superfície mais fácil de
- * esquecer, porque ela nasce de um `toast.custom` e não de uma tela — e era exatamente por isso que
- * ela servia o original de 1024px.
+ * Na página do produto o celular não tem a aba do carrinho (a barra de compra ocupa o rodapé), e o
+ * toast com "Ver carrinho" era o único caminho até a sacola — e sumia sozinho.
  */
-describe('o aviso de "adicionado ao carrinho" pede a foto do tamanho da vaga (PRF-02 AC 5)', () => {
-  const STORAGE =
-    'https://hgkrsfpupypxtygjgthf.supabase.co/storage/v1/object/public/product-images/pingente.webp'
+describe('adicionar abre a gaveta do carrinho', () => {
+  beforeEach(() => useCartUiStore.setState({ open: false }))
 
-  /** O `toast.custom` recebe uma FUNÇÃO que devolve o elemento — é ela que se desenha aqui. */
-  const avisoDesenhado = () => {
-    const [desenhar] = toastCustom.mock.calls[0] as [() => JSX.Element]
-    return render(desenhar()).container
-  }
-
-  it('busca a rendição de 160, e não o objeto original', () => {
-    const { result } = renderHook(() => useProductPurchase({ ...semGravacao(), image_url: STORAGE }))
+  it('com o item no carrinho, a gaveta abre e nenhum aviso é desenhado', () => {
+    const { result } = renderHook(() => useProductPurchase(semGravacao()))
     act(() => result.current.add())
 
-    const foto = avisoDesenhado().querySelector('img')
-    expect(foto?.getAttribute('src')).toContain('/render/image/public/')
-    expect(foto?.getAttribute('src')).toContain('width=160')
-    expect(foto?.getAttribute('src')).not.toContain('/object/public/')
+    expect(useCartStore.getState().items).toHaveLength(1)
+    expect(useCartUiStore.getState().open).toBe(true)
+    expect(toastCustom).not.toHaveBeenCalled()
+  })
+
+  it('recusado (esgotado), a gaveta NÃO abre — a recusa é o aviso de erro', () => {
+    const { result } = renderHook(() =>
+      useProductPurchase({ ...semGravacao(), stock_total: 0 } as Product),
+    )
+    act(() => result.current.add())
+
+    expect(useCartStore.getState().items).toHaveLength(0)
+    expect(useCartUiStore.getState().open).toBe(false)
+    expect(toastError).toHaveBeenCalled()
   })
 })

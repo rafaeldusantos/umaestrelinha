@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { User, Menu, Heart, ChevronLeft, ChevronRight } from 'lucide-react'
 import { EstrelinhaSignature } from '@/shared/ui/brand'
 import { useWishlistStore } from '@/entities/wishlist/model/wishlistStore'
@@ -9,6 +9,7 @@ import { useAuthUiStore } from '@/features/auth'
 import CartButton from '@/widgets/cart-drawer/ui/CartButton'
 import { useScrollDirection } from '@/shared/lib/useScrollDirection'
 import { useOverflowAffordance } from '@/shared/lib/useOverflowAffordance'
+import { ownsBottomBar } from '@/shared/lib/storeChrome'
 import MegaMenu from './MegaMenu'
 
 /**
@@ -59,6 +60,13 @@ const SETA =
  * ninguém usa e deixava dois lugares para consertar cada comportamento. Favoritos fica porque não é
  * aba, e o menu porque é o único caminho para as coleções.
  *
+ * **Exceção: a página do produto troca Favoritos por Carrinho.** Ali a barra de compra ocupa o
+ * rodapé no lugar do `MobileNav` (`ownsBottomBar`), e com ela some a aba do carrinho — sem esta
+ * troca a cliente não tinha como abrir a sacola. A pergunta "esta rota dispensa as abas?" é a
+ * MESMA que o `StoreLayout` faz, e por isso sai da mesma porta: um segundo critério aqui deixaria
+ * as duas barras discordarem sobre onde o carrinho mora. O favoritar continua ao alcance na própria
+ * barra de compra.
+ *
  * As duas superfícies de menu vivem fora daqui (feature 16): `MegaMenu` no desktop e o widget
  * `mobile-menu` — uma folha de tela cheia — no celular. O que existia neste arquivo era um
  * `AnimatePresence` de 80 linhas com a lista de categorias e `categories.slice(0, 4)` na barra do
@@ -97,6 +105,9 @@ const Header = () => {
   // `mobile-menu`, que também pede a dela por nome. Escolher por viewport faria o hook responder
   // uma coisa no servidor de prévia e outra no navegador da cliente.
   const { items } = useMenu('desktop')
+  // Na página do produto a aba do carrinho não existe (a barra de compra ocupa o rodapé), então o
+  // carrinho sobe para o topo no celular, no lugar dos favoritos.
+  const cartOnTop = ownsBottomBar(useLocation().pathname)
   const { direction, atTop } = useScrollDirection()
   const hidden = direction === 'down' && !atTop
   // A pista de que a faixa rola (`BL-028`). Em jsdom toda medida de layout é 0, então `antes` e
@@ -171,7 +182,11 @@ const Header = () => {
         </div>
 
         <div className="flex shrink-0 items-center gap-2 md:gap-4">
-          <Link to="/favoritos" className={ICON_BUTTON} aria-label="Favoritos">
+          <Link
+            to="/favoritos"
+            className={`${ICON_BUTTON} ${cartOnTop ? 'hidden md:flex' : ''}`}
+            aria-label="Favoritos"
+          >
             <Heart className="h-5 w-5 text-estrelinha-on-primary" strokeWidth={1.8} />
             {wishlistCount > 0 && <span className={BADGE}>{wishlistCount}</span>}
           </Link>
@@ -192,8 +207,9 @@ const Header = () => {
           )}
           {/* Carrinho só no desktop: no celular a aba do `MobileNav` é o gatilho da gaveta, e o
               mesmo ícone com o mesmo badge em duas barras na mesma tela é ruído — a de baixo está
-              ao alcance do polegar, a de cima não. */}
-          <div className="hidden md:block">
+              ao alcance do polegar, a de cima não. Na página do produto não há aba (`cartOnTop`),
+              e aí ele aparece também no celular, no lugar dos favoritos. */}
+          <div className={cartOnTop ? 'block' : 'hidden md:block'}>
             <CartButton />
           </div>
           {/* O botão só ABRE. Quem fecha é o X de dentro da folha, e o próprio `Sheet` no toque fora

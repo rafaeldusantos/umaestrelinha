@@ -143,7 +143,7 @@ describe('MENU-16 — a folha inteira', () => {
     expect(screen.getByText(/O que você está procurando/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Coleção Afetivas' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Conta/ })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /Wishlist/ })).toHaveAttribute('href', '/favoritos')
+    expect(screen.getByRole('link', { name: /Favoritos/ })).toHaveAttribute('href', '/favoritos')
     expect(screen.getByRole('button', { name: /Pedidos/ })).toBeInTheDocument()
   })
 
@@ -176,7 +176,7 @@ describe('NAV-01 — a curadoria daqui é a do CELULAR', () => {
     const { container } = renderSheet([])
     expect(container.querySelector('[aria-label="Coleções"]')).toBeNull()
     // …e os atalhos continuam lá: a folha não fica inútil por causa de um menu vazio.
-    expect(screen.getByRole('link', { name: /Wishlist/ })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Favoritos/ })).toBeInTheDocument()
   })
 })
 
@@ -330,7 +330,7 @@ describe('MENU-20 — alvos de toque', () => {
     expect(screen.getByRole('button', { name: 'Coleção Afetivas' }).className).toContain('min-h-[56px]')
     fireEvent.click(screen.getByRole('button', { name: 'Coleção Afetivas' }))
     expect(screen.getByRole('link', { name: 'Cinzas de cremação' }).className).toContain('min-h-11')
-    expect(screen.getByRole('link', { name: /Wishlist/ }).className).toContain('h-11')
+    expect(screen.getByRole('link', { name: /Favoritos/ }).className).toContain('h-11')
     expect(screen.getByText(/O que você está procurando/).className).toContain('h-11')
   })
 

@@ -148,7 +148,7 @@ describe('card de produto — superfícies', () => {
     // palco não teria quem o acusasse. O rótulo é EXATO: o favorito também começa com "Adicionar".
     renderCard(product())
 
-    expect(screen.queryByRole('button', { name: 'Adicionar ao carrinho' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Adicionar à sacola' })).toBeNull()
     expect(screen.queryByRole('button', { name: /sacola/i })).toBeNull()
   })
 
@@ -293,7 +293,7 @@ describe('card de produto — cada miniatura troca a imagem em destaque (COR-11)
 
     expect(screen.queryByText('rota-produto')).toBeNull()
     expect(screen.queryByRole('dialog')).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Adicionar ao carrinho' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Adicionar à sacola' })).toBeNull()
   })
 
   it('cor SEM foto mantém a imagem atual — não esvazia o palco', () => {

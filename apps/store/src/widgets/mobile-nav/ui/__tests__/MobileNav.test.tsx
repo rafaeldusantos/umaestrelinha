@@ -49,9 +49,9 @@ describe('MobileNav — comportamento das abas', () => {
     expect(openSearch).toHaveBeenCalledTimes(1)
   })
 
-  it('Carrinho abre a gaveta e anuncia a quantidade', () => {
+  it('Sacola abre a gaveta e anuncia a quantidade', () => {
     renderNav()
-    const tab = screen.getByLabelText('Carrinho, 2 itens')
+    const tab = screen.getByLabelText('Sacola, 2 itens')
     fireEvent.click(tab)
     expect(openCart).toHaveBeenCalledTimes(1)
   })

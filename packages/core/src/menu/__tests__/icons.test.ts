@@ -5,11 +5,11 @@ import { MENU_ICON_KEYS, MENU_ICON_LABELS, menuIconKey } from '../icons'
 // NAV-21 — um dono só do conjunto
 // ---------------------------------------------------------------------------
 describe('o catálogo de chaves (NAV-21)', () => {
-  it('tem as 28 chaves do conjunto da loja — âncora de contagem', () => {
+  it('tem as 29 chaves do conjunto da loja — âncora de contagem', () => {
     // Sem âncora, uma lista que encolhesse pela metade passaria em silêncio: todo teste abaixo
-    // continuaria verde com uma chave só. 28 é o registro `ESTRELINHA_ICONS` menos o `pix`, que é
+    // continuaria verde com uma chave só. 29 é o registro `ESTRELINHA_ICONS` menos o `pix`, que é
     // marca de meio de pagamento e não obedece às regras do conjunto.
-    expect(MENU_ICON_KEYS).toHaveLength(28)
+    expect(MENU_ICON_KEYS).toHaveLength(29)
     expect(MENU_ICON_KEYS).toContain('corrente')
     expect(MENU_ICON_KEYS).toContain('pingente')
     expect(MENU_ICON_KEYS).toContain('gota-afetiva')

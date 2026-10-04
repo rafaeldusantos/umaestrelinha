@@ -1,10 +1,10 @@
 import type { RefObject } from 'react'
-import { Heart, ShoppingCart } from 'lucide-react'
+import { Heart } from 'lucide-react'
 import { formatPrice } from '@estrelinha/core/formatters'
 import { usePaymentSettings } from '@estrelinha/core/hooks/useStoreSettings'
 import { pixPrice } from '@estrelinha/core/payment/pix'
 import type { Product } from '@estrelinha/supabase/types'
-import { PixIcon } from '@estrelinha/ui/icons'
+import { PixIcon, SacolaIcon } from '@estrelinha/ui/icons'
 import type { ProductPurchase } from '@/entities/product'
 import { ENGRAVING_FIELD_ID } from '@/entities/product/ui/EngravingField'
 import { useWishlistStore } from '@/entities/wishlist/model/wishlistStore'
@@ -173,9 +173,9 @@ const ProductBuyBar = ({ product, purchase, revealAfter }: Props) => {
             }`}
           >
             {canAdd && (
-              <ShoppingCart className="h-[17px] w-[17px] shrink-0" strokeWidth={1.9} aria-hidden />
+              <SacolaIcon className="h-5 w-5 shrink-0" aria-hidden />
             )}
-            {canAdd ? 'Adicionar ao carrinho' : engravingRefusal ? 'Revisar a gravação' : 'Esgotado'}
+            {canAdd ? 'Adicionar à sacola' : engravingRefusal ? 'Revisar a gravação' : 'Esgotado'}
           </button>
 
           <button

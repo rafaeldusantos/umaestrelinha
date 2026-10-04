@@ -87,7 +87,7 @@ describe('ChunkErrorBoundary — o chunk que não baixa (PRF-10)', () => {
     )
 
     expect(
-      screen.getByText(/Recarregar costuma resolver, e nada do seu carrinho se perde\./),
+      screen.getByText(/Recarregar costuma resolver, e nada da sua sacola se perde\./),
     ).toBeInTheDocument()
   })
 

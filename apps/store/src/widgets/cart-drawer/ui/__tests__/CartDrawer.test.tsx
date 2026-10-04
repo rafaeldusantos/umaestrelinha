@@ -128,13 +128,13 @@ beforeEach(() => {
 describe('CartDrawer — quem abre', () => {
   it('nasce fechada e não renderiza nada do painel', () => {
     renderDrawer()
-    expect(screen.queryByText('Seu Carrinho')).not.toBeInTheDocument()
+    expect(screen.queryByText('Sua sacola')).not.toBeInTheDocument()
   })
 
   it('abre por qualquer chamador do `cartUiStore`, sem gatilho próprio', () => {
     renderDrawer()
     open()
-    expect(screen.getByText('Seu Carrinho')).toBeInTheDocument()
+    expect(screen.getByText('Sua sacola')).toBeInTheDocument()
   })
 })
 
@@ -210,7 +210,7 @@ describe('CartDrawer — a lista', () => {
   it('remover uma linha COM variação esvazia a sacola — a chave leva o `variantId`', () => {
     renderDrawer()
     open()
-    fireEvent.click(screen.getByLabelText('Remover Pin Gojo Satoru do carrinho'))
+    fireEvent.click(screen.getByLabelText('Remover Pin Gojo Satoru da sacola'))
     expect(useCartStore.getState().items).toHaveLength(0)
   })
 

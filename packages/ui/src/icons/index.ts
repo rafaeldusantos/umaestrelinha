@@ -61,6 +61,7 @@ export { default as PlasticoFilmeIcon } from './PlasticoFilmeIcon'
 export { default as PoteCinzasIcon } from './PoteCinzasIcon'
 export { default as PoteTampaIcon } from './PoteTampaIcon'
 export { default as SacoIdentificadoIcon } from './SacoIdentificadoIcon'
+export { default as SacolaIcon } from './SacolaIcon'
 export { default as TampaVedadaIcon } from './TampaVedadaIcon'
 export { default as UnhaIcon } from './UnhaIcon'
 
@@ -91,6 +92,7 @@ import PlasticoFilmeIcon from './PlasticoFilmeIcon'
 import PoteCinzasIcon from './PoteCinzasIcon'
 import PoteTampaIcon from './PoteTampaIcon'
 import SacoIdentificadoIcon from './SacoIdentificadoIcon'
+import SacolaIcon from './SacolaIcon'
 import TampaVedadaIcon from './TampaVedadaIcon'
 import UnhaIcon from './UnhaIcon'
 import type { IconProps } from './types'
@@ -130,6 +132,7 @@ export const ESTRELINHA_ICONS = {
   'pote-cinzas': PoteCinzasIcon,
   'pote-tampa': PoteTampaIcon,
   'saco-identificado': SacoIdentificadoIcon,
+  sacola: SacolaIcon,
   'tampa-vedada': TampaVedadaIcon,
   unha: UnhaIcon,
 } satisfies Record<string, (props: IconProps) => JSX.Element>

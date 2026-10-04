@@ -242,7 +242,7 @@ describe('ProductInfo — página do produto (PST-05 AC 1)', () => {
       }),
     )
 
-    expect(screen.getByRole('button', { name: /Adicionar ao carrinho/ })).toBeEnabled()
+    expect(screen.getByRole('button', { name: /Adicionar à sacola/ })).toBeEnabled()
   })
 
   it('produto sem grade e sem saldo, em policy track, fica indisponível', () => {

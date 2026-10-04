@@ -2,7 +2,8 @@ import { useMemo } from 'react'
 import { TAP_44 } from '@/shared/lib/touchTarget'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ShoppingBag, Truck, X } from 'lucide-react'
+import { Truck, X } from 'lucide-react'
+import { SacolaIcon } from '@estrelinha/ui/icons'
 import {
   Sheet,
   SheetClose,
@@ -106,7 +107,7 @@ const CartDrawer = () => {
         <SheetHeader className="flex shrink-0 flex-row items-center justify-between space-y-0 border-b border-estrelinha-line px-5 py-4 text-left md:px-6 md:py-5">
           <div className="flex items-center gap-2.5">
             <SheetTitle className="font-heading text-[17px] font-bold leading-6 text-estrelinha-ink md:text-lg">
-              Seu Carrinho
+              Sua sacola
             </SheetTitle>
             {count > 0 && (
               <span className="rounded-pill bg-estrelinha-primary px-2 py-0.5 text-xs font-bold leading-[18px] text-white md:px-2.5">
@@ -119,7 +120,7 @@ const CartDrawer = () => {
             Itens adicionados à sacola, com o resumo do pedido e o acesso ao checkout.
           </SheetDescription>
           <SheetClose
-            aria-label="Fechar carrinho"
+            aria-label="Fechar sacola"
             className={`${TAP_44} flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-estrelinha-ground-deep text-estrelinha-ink transition-colors hover:bg-estrelinha-line`}
           >
             <X className="h-3.5 w-3.5" strokeWidth={2.5} />
@@ -129,7 +130,7 @@ const CartDrawer = () => {
         {items.length === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-4 px-8 text-center">
             <div className="flex h-20 w-20 items-center justify-center rounded-full bg-estrelinha-ground-deep">
-              <ShoppingBag className="h-8 w-8 text-estrelinha-primary" strokeWidth={1.6} />
+              <SacolaIcon className="h-8 w-8 text-estrelinha-primary" aria-hidden />
             </div>
             <div>
               <p className="font-heading text-lg font-semibold text-estrelinha-ink">
@@ -283,7 +284,7 @@ const CartDrawer = () => {
                   onClick={() => goTo('/checkout')}
                   className="h-[52px] w-full gap-2.5 rounded-2xl border-0 bg-estrelinha-primary font-display text-[15px] font-bold text-white transition-transform hover:bg-estrelinha-primary hover:opacity-95 active:scale-[0.99]"
                 >
-                  <ShoppingBag className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden />
+                  <SacolaIcon className="h-5 w-5" aria-hidden />
                   Finalizar Pedido
                 </Button>
               </div>

@@ -104,7 +104,7 @@ describe('ProductInfo × gatilho de material — o fio', () => {
 
     const texto = container.textContent ?? ''
     const gatilho = texto.indexOf('Como enviar seu material de DNA')
-    const carrinho = texto.indexOf('Adicionar ao carrinho')
+    const carrinho = texto.indexOf('Adicionar à sacola')
 
     expect(carrinho).toBeGreaterThanOrEqual(0)
     expect(gatilho).toBeLessThan(carrinho)

@@ -1,5 +1,6 @@
 import { Link, useLocation } from 'react-router-dom'
-import { Home, Search, ShoppingCart, User } from 'lucide-react'
+import { Home, Search, User } from 'lucide-react'
+import { SacolaIcon } from '@estrelinha/ui/icons'
 import { useAuthContext } from '@estrelinha/auth'
 import { useCartStore } from '@/entities/cart/model/cartStore'
 import { useCartUiStore } from '@/entities/cart/model/cartUiStore'
@@ -16,7 +17,8 @@ import { useAuthUiStore } from '@/features/auth'
  * - **Busca** abre a busca em tela cheia (board "Mobile Search Open - v3"). Navegar para `/busca`
  *   tirava a cliente da página em que ela estava — e a rota, com o campo vazio e sem histórico, era
  *   pior que o overlay em tudo. `/busca?q=` continua sendo o destino do "Ver todos".
- * - **Carrinho** abre a gaveta, a única superfície de sacola da loja.
+ * - **Sacola** abre a gaveta, a única superfície de sacola da loja. O ícone é a sacola da biblioteca
+ *   (monoline, sem versão preenchida) — o estado ativo dela fica na cor e no peso do rótulo.
  * - **Conta**, deslogada, abre o overlay de auth **no lugar**. Ir para `/conta` sem sessão levava a
  *   uma página que renderiza `null`: quem fechasse o overlay ficava numa tela branca, sem header e
  *   sem caminho de volta. Logada, navega normalmente.
@@ -91,14 +93,14 @@ const MobileNav = () => {
           className={`${TAB_CLASS} ${tint(cartOpen)}`}
           aria-label={
             uniqueItems > 0
-              ? `Carrinho, ${uniqueItems} ${uniqueItems === 1 ? 'item' : 'itens'}`
-              : 'Carrinho'
+              ? `Sacola, ${uniqueItems} ${uniqueItems === 1 ? 'item' : 'itens'}`
+              : 'Sacola'
           }
           aria-haspopup="dialog"
           aria-expanded={cartOpen}
         >
           <span className="relative">
-            <ShoppingCart {...iconProps(cartOpen)} />
+            <SacolaIcon className="h-5 w-5" aria-hidden />
             {uniqueItems > 0 && (
               <span
                 aria-hidden
@@ -108,7 +110,7 @@ const MobileNav = () => {
               </span>
             )}
           </span>
-          <span className="text-[10px]">Carrinho</span>
+          <span className="text-[10px]">Sacola</span>
         </button>
 
         {user ? (

@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { variantLabel } from '@estrelinha/core/pricing'
-import { renditionUrl } from '@estrelinha/core/media'
 import {
   engravingLimit,
   engravingRefusal,
@@ -139,29 +138,11 @@ export const useProductPurchase = (
     const engravingText = engravingEnabled ? normalizeEngraving(engraving) : null
     for (let i = 0; i < qty; i++) addItem(product, '', '', input, engravingText)
 
-    toast.custom(() => (
-      <div className="flex items-center gap-3 rounded-md border border-estrelinha-line bg-white p-3 shadow-estrelinha-soft">
-        {/* Vaga de 48px no aviso do canto — o original de 1024px por clique em "adicionar". */}
-        <img
-          src={renditionUrl(product.image_url, 160)}
-          alt={product.name}
-          className="h-12 w-12 rounded-sm object-cover"
-        />
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-estrelinha-ink">{product.name}</p>
-          <p className="text-xs text-estrelinha-ink-soft">
-            {qty}x adicionado ao carrinho
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => useCartUiStore.getState().openCart()}
-          className="whitespace-nowrap text-xs font-semibold text-estrelinha-primary hover:underline"
-        >
-          Ver carrinho
-        </button>
-      </div>
-    ))
+    // A confirmação é a PRÓPRIA gaveta, e não um aviso no canto. O toast dizia "adicionado" e pedia
+    // um segundo toque em "Ver carrinho" — e na página do produto o celular não tem a aba do
+    // carrinho (`ownsBottomBar`), então o aviso era o único caminho até a sacola e sumia sozinho.
+    // A gaveta mostra a linha recém-entrada, o subtotal e o caminho para o checkout de uma vez.
+    useCartUiStore.getState().openCart()
   }
 
   return {

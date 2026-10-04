@@ -179,7 +179,7 @@ const MobileMenu = () => {
             </button>
           )}
           <Link to="/favoritos" onClick={() => leaveTo()} className={CHIP}>
-            <Heart className="h-4 w-4" strokeWidth={2} aria-hidden /> Wishlist
+            <Heart className="h-4 w-4" strokeWidth={2} aria-hidden /> Favoritos
           </Link>
           {user ? (
             <Link to="/conta" onClick={() => leaveTo()} className={CHIP}>

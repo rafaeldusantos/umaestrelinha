@@ -454,7 +454,7 @@ quando mudarem de verdade.
 | --- | --- | --- |
 | **Lint** | **26 erros / 6 warnings** — backoffice 24/4 · store 2/2 | `pnpm lint` |
 | **Tipos** | **0 · 0 · 0** (store · backoffice · catalog-import) | `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` |
-| **Testes** | **10442 em 532 arquivos** — store **3787/232** · backoffice **3024/166** · core **2459/97** · functions **660/14** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
+| **Testes** | **10446 em 532 arquivos** — store **3791/232** · backoffice **3024/166** · core **2459/97** · functions **660/14** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
 
 **A feature `58` (pagamento PIX em rota própria) somou +281 em QUATRO workspaces**, com a SAÍDA
 medida em 2026-09-22 um por vez, exit code fora de pipe e `--testTimeout=20000` nos dois apps:

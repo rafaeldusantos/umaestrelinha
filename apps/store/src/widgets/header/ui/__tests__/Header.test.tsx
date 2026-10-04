@@ -35,7 +35,8 @@ vi.mock('../MegaMenu', () => ({
   ),
 }))
 
-const renderHeader = () => render(<MemoryRouter><Header /></MemoryRouter>)
+const renderHeader = (rota = '/') =>
+  render(<MemoryRouter initialEntries={[rota]}><Header /></MemoryRouter>)
 
 /** Um `MenuItem` de categoria, na forma exata em que `menuItems` o devolve. */
 const item = (id: string, name: string) => ({
@@ -118,6 +119,27 @@ describe('Header sem os duplicados do MobileNav', () => {
     const wrapper = screen.getByTestId('cart-button').parentElement!
     expect(wrapper.className).toContain('hidden')
     expect(wrapper.className).toContain('md:block')
+  })
+})
+
+/** Token exato: `'hidden md:flex'.includes('flex')` é `true`, e `md:block` contém `block`. */
+const temClasse = (el: Element, token: string) => el.className.split(/\s+/).includes(token)
+
+describe('Header — na página do produto o carrinho toma o lugar dos favoritos no celular', () => {
+  it('fora do produto: favoritos visível no celular, carrinho só no desktop', () => {
+    renderHeader('/')
+    expect(temClasse(screen.getByLabelText('Favoritos'), 'hidden')).toBe(false)
+    expect(temClasse(screen.getByTestId('cart-button').parentElement!, 'hidden')).toBe(true)
+  })
+
+  it('no produto: carrinho visível no celular, favoritos só no desktop', () => {
+    renderHeader('/produtos/pingente-gota')
+    const fav = screen.getByLabelText('Favoritos')
+    expect(temClasse(fav, 'hidden')).toBe(true)
+    expect(temClasse(fav, 'md:flex')).toBe(true)
+    const cart = screen.getByTestId('cart-button').parentElement!
+    expect(temClasse(cart, 'hidden')).toBe(false)
+    expect(temClasse(cart, 'block')).toBe(true)
   })
 })
 

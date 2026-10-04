@@ -50,6 +50,7 @@ export const MENU_ICON_KEYS = [
   'pote-cinzas',
   'pote-tampa',
   'saco-identificado',
+  'sacola',
   'tampa-vedada',
   'unha',
 ] as const
@@ -91,6 +92,7 @@ export const MENU_ICON_LABELS: Record<MenuIconKey, string> = {
   'pote-cinzas': 'Pote de cinzas',
   'pote-tampa': 'Pote com tampa',
   'saco-identificado': 'Saco identificado',
+  sacola: 'Sacola',
   'tampa-vedada': 'Tampa vedada',
   unha: 'Unha',
 }
