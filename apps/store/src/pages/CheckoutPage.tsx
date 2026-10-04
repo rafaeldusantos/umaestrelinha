@@ -50,6 +50,7 @@ import { rememberAccess } from '@/entities/order/model/orderAccess'
 import { AuthOverlay, useAuthUiStore } from '@/features/auth'
 import { useCheckoutStore } from '@/features/checkout/model/checkoutStore'
 import { useCheckoutTotals } from '@/features/checkout/model/useCheckoutTotals'
+import { useCardInstallmentOptions } from '@/features/checkout/model/useCardInstallmentOptions'
 import SignInInvite from '@/features/checkout/ui/SignInInvite'
 import ContactBlock from '@/features/checkout/ui/ContactBlock'
 import DeliveryBlock from '@/features/checkout/ui/DeliveryBlock'
@@ -109,6 +110,8 @@ const CheckoutPage = () => {
 
   const { pricingItems, bump, bumpProduct, totals, promotionDiscount, applied } =
     useCheckoutTotals()
+  /** A tabela de parcelas do cartão digitado e a escolhida (`InstallmentPicker` lê a mesma). */
+  const cardInstallments = useCardInstallmentOptions(totals.total)
   const createOrder = useCreateOrder()
   const createPayment = useCreatePayment()
 
@@ -266,9 +269,15 @@ const CheckoutPage = () => {
     )
   }
 
-  const ctaLabel = `Pagar ${formatPrice(totals.total)} ${
-    payment.method === 'card' ? 'no cartão' : 'com PIX'
-  }`
+  // A parcela nomeada no botão é a MESMA da lista (`useCardInstallmentOptions` é o dono das duas).
+  const cardChoice = cardInstallments.selected
+  const ctaLabel =
+    payment.method === 'card' && cardChoice && cardChoice.count > 1
+      ? `Pagar ${cardChoice.count}x de ${formatPrice(cardChoice.value)}`
+      : `Pagar ${formatPrice(totals.total)} ${payment.method === 'card' ? 'no cartão' : 'com PIX'}`
+  /** Com o cartão reconhecido e a tabela ainda chegando, não há parcela escolhida para cobrar. */
+  const cardInstallmentsPending =
+    payment.method === 'card' && cardNumberRecognized && cardInstallments.selected === null
 
   /**
    * Aprovação **do cartão** — o carrinho e o cupom são limpos aqui (CNF-05).
@@ -475,10 +484,12 @@ const CheckoutPage = () => {
       // PAY-06: `useCreatePayment` gera `idempotency_key` nova a cada chamada, então retentar uma
       // recusa sobre o MESMO pedido não duplica cobrança (PGM-08).
       try {
+        // O Brick monta com `maxInstallments: 1`, então o `installments` do `formData` é sempre 1.
+        // As parcelas são as da lista da loja — o token do cartão não depende delas.
         const response = (await createPayment.mutateAsync({
           order_id: payingOrderId,
           method: 'card',
-          card: cardForm,
+          card: { ...cardForm, installments: cardInstallments.selected?.count ?? 1 },
         })) as CardPaymentResponse
         if (response.status === 'approved') {
           await handlePaymentSuccess()
@@ -496,7 +507,7 @@ const CheckoutPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-white pb-40 lg:pb-0">
+    <div className="min-h-screen bg-white pb-10 lg:pb-0">
       <CheckoutHeader />
 
       <div className="container py-6 lg:py-10">
@@ -564,13 +575,15 @@ const CheckoutPage = () => {
 
             <OrderBump />
 
-            {/* CHK-10: no mobile o CTA fica fixo no rodapé; no desktop segue no fluxo. */}
-            <div className="fixed inset-x-0 bottom-0 z-40 flex flex-col items-center gap-3 border-t border-estrelinha-line bg-white px-4 pb-6 pt-4 lg:static lg:border-0 lg:px-0 lg:pb-0 lg:pt-2">
+            {/* CHK-10 revisto (2026-10-04, pedido da dona): o CTA segue no fluxo também no celular,
+                logo abaixo do pagamento. Fixo no rodapé ele cobria o fim do formulário do cartão e
+                a escolha das parcelas, que é exatamente o que a cliente confere antes de pagar. */}
+            <div className="flex flex-col items-center gap-3 pt-2">
               {/* FLW-07: o gate é `complete`, não `open`. Com o Pagamento sempre aberto
                   (FLW-05), `open` nunca é `null` e olhar para ele travaria o CTA para sempre. */}
               <Button
                 onClick={() => void handleConfirm()}
-                disabled={flow.complete.length !== 3 || busy}
+                disabled={flow.complete.length !== 3 || busy || cardInstallmentsPending}
                 className="h-auto w-full gap-[11px] rounded-sm border-0 bg-estrelinha-primary py-[19px] font-heading text-[17px] font-semibold text-white transition-all hover:bg-estrelinha-primary hover:opacity-95 disabled:opacity-50 lg:text-[19px]"
               >
                 <Lock className="h-5 w-5" aria-hidden />

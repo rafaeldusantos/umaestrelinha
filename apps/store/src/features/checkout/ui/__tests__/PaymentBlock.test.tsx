@@ -30,6 +30,11 @@ vi.mock('../CardPaymentBrick', () => ({
   ),
 }))
 
+// A tabela de parcelas do Mercado Pago — dublê, porque o bloco é montado sem `QueryClientProvider`.
+// Por padrão ainda não chegou (`data: undefined`), que é o estado antes do número do cartão.
+const tabelaDeParcelas: { data: unknown; isError: boolean } = { data: undefined, isError: false }
+vi.mock('../../api/useCardInstallments', () => ({ useCardInstallments: () => tabelaDeParcelas }))
+
 const paymentSettings = {
   pix_enabled: true,
   pix_discount_percent: 5,
@@ -52,6 +57,8 @@ const renderBlock = (props: Partial<Parameters<typeof PaymentBlock>[0]> = {}) =>
   render(<PaymentBlock open complete={false} onEdit={onEdit} amount={100} {...props} />)
 
 beforeEach(() => {
+  tabelaDeParcelas.data = undefined
+  tabelaDeParcelas.isError = false
   useCheckoutStore.getState().reset()
   sessionStorage.clear()
   onEdit.mockClear()
@@ -403,5 +410,46 @@ describe('PaymentBlock — bloco vazio não se apresenta como pronto (BUG-202607
     // jsdom não faz layout: a asserção é sobre a classe que garante os 44px.
     // A medição real (getBoundingClientRect em 390x844) fica no roteiro de re-caminhada.
     expect(screen.getByRole('button', { name: 'Preencher' }).className).toContain('min-h-11')
+  })
+})
+
+// 2026-10-04: o card do cartão dizia "Até 4x sem juros" pelas settings enquanto a lista, logo abaixo,
+// mostrava juros desde 2x — a conta do Mercado Pago não tinha parcelamento sem juros. Com a tabela
+// na mão, o card diz o que ela diz.
+describe('PaymentBlock — o resumo do cartão não contradiz a lista de parcelas', () => {
+  const cartao = () => screen.getByRole('button', { name: /Cartão de crédito/ })
+  const linha = (n: number, rate: number) => ({
+    installments: n,
+    installment_rate: rate,
+    installment_amount: rate === 0 ? 100 / n : (100 * 1.1) / n,
+    total_amount: rate === 0 ? 100 : 110,
+  })
+
+  it('antes do número do cartão, anuncia as parcelas sem juros das settings (o mesmo da vitrine)', () => {
+    renderBlock()
+    expect(cartao()).toHaveTextContent(/Até 6x de R\$\s?16,67 sem juros/)
+  })
+
+  it('com 1 parcela sem juros nas settings, não promete "sem juros" — oferece o teto de 10x', () => {
+    paymentSettings.max_installments = 1
+    renderBlock()
+    expect(cartao()).toHaveTextContent('Parcele em até 10x')
+    expect(cartao()).not.toHaveTextContent('sem juros')
+    paymentSettings.max_installments = 6
+  })
+
+  it('com a tabela do Mercado Pago SEM parcela sem juros, o card deixa de prometer', () => {
+    tabelaDeParcelas.data = [linha(1, 0), linha(2, 9.64), linha(3, 11.23), linha(10, 20.65)]
+    useCheckoutStore.getState().setCardBin('54916700')
+    renderBlock()
+    expect(cartao()).toHaveTextContent('Parcele em até 10x')
+    expect(cartao()).not.toHaveTextContent('sem juros')
+  })
+
+  it('com a tabela dizendo 3x sem juros, o card diz 3x — mesmo com 6 nas settings', () => {
+    tabelaDeParcelas.data = [linha(1, 0), linha(2, 0), linha(3, 0), linha(4, 11.36)]
+    useCheckoutStore.getState().setCardBin('54916700')
+    renderBlock()
+    expect(cartao()).toHaveTextContent(/Até 3x de R\$\s?33,33 sem juros/)
   })
 })

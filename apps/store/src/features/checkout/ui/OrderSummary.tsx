@@ -25,7 +25,7 @@ import { useCouponStore } from '@/entities/coupon'
 import { EstrelinhaSymbol } from '@/shared/ui/brand'
 import { useCheckoutStore } from '../model/checkoutStore'
 import { useCheckoutTotals } from '../model/useCheckoutTotals'
-import { resolveInstallments } from '@estrelinha/core/payment/installments'
+import { useCardInstallmentHeadline } from '../model/useCardInstallmentOptions'
 
 interface Props {
   variant: 'sidebar' | 'bar'
@@ -56,7 +56,7 @@ const OrderSummary = ({ variant }: Props) => {
    * grátis em nenhuma outra tela.
    */
   const freteGratis = useFreeShipping(cartSubtotal)
-  const { card_enabled, max_installments, min_installment_value } = usePaymentSettings()
+  const { card_enabled } = usePaymentSettings()
   const [expanded, setExpanded] = useState(false)
 
   const unitCount = items.reduce((sum, item) => sum + item.quantity, 0) + (bumpProduct ? 1 : 0)
@@ -66,8 +66,12 @@ const OrderSummary = ({ variant }: Props) => {
    * dois divergem, e uma parcela derivada do total-com-desconto anunciaria um preço que o cartão
    * não pratica. `1x de R$ X` não é informação — a linha só aparece a partir de 2x.
    */
-  const cardInstallments = resolveInstallments(cardTotal, max_installments, min_installment_value)
-  const showInstallments = card_enabled && !!cardInstallments && cardInstallments.count >= 2
+  //
+  // 2026-10-04: a linha tem o MESMO dono que o card de cartão (`useCardInstallmentHeadline`) — com o
+  // cartão digitado, ela segue a tabela do Mercado Pago. Só aparece quando há parcela SEM juros: a
+  // linha diz "sem juros", e a conta pode não oferecer nenhuma.
+  const cardInstallments = useCardInstallmentHeadline(cardTotal).interestFree
+  const showInstallments = card_enabled && !!cardInstallments
 
   // Some inteira com o interruptor desligado: a faixa é o anúncio do benefício, e sem benefício ela
   // não tem o que dizer. O resumo abre direto nos itens.

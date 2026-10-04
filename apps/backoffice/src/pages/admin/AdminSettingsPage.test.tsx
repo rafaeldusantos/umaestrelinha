@@ -482,7 +482,7 @@ describe('Configurações › nenhum campo foi removido (Success Criteria)', () 
     ],
     vendas: [
       'Desconto no PIX (%)',
-      'Máximo de parcelas',
+      'Parcelas sem juros',
       'Valor mínimo da parcela',
       'Marcar como abandonado após (horas)',
     ],
@@ -915,11 +915,23 @@ describe('Configurações › os campos de dinheiro usam o input mascarado (CFG-
     abrirVendas()
 
     expect(screen.getByLabelText('Desconto no PIX (%)')).toHaveAttribute('type', 'number')
-    expect(screen.getByLabelText('Máximo de parcelas')).toHaveAttribute('type', 'number')
+    expect(screen.getByLabelText('Parcelas sem juros')).toHaveAttribute('type', 'number')
     expect(screen.getByLabelText('Marcar como abandonado após (horas)')).toHaveAttribute(
       'type',
       'number',
     )
+  })
+
+  // 2026-10-04: o campo deixou de ser "Máximo de parcelas" — o caixa oferece até 10x de qualquer
+  // jeito, e este número é o das parcelas SEM JUROS que a loja anuncia. Quem decide os juros na
+  // cobrança é a conta do Mercado Pago, e a dica tem de dizer isso, senão mudar o número aqui
+  // parece mudar o que a cliente paga.
+  it('as parcelas sem juros vão até 10 e avisam que quem cobra é o Mercado Pago', () => {
+    abrirVendas()
+    const campo = screen.getByLabelText('Parcelas sem juros')
+    expect(campo).toHaveAttribute('max', '10')
+    expect(campo.parentElement).toHaveTextContent(/painel do Mercado Pago/)
+    expect(campo.parentElement).toHaveTextContent(/até 10x/)
   })
 
   it('CFG-24: a parcela mínima grava o mesmo número de hoje', async () => {

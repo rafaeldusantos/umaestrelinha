@@ -55,7 +55,11 @@ vi.mock('@/features/checkout/api/useCreatePayment', () => ({
   useCreatePayment: () => ({ mutateAsync: createPaymentMutateAsync, isPending: false }),
   PAYMENT_UNAVAILABLE_MESSAGE: 'Não foi possível iniciar o pagamento. Tente novamente.',
 }))
-vi.mock('@/features/checkout/lib/cardBrick', () => ({
+// Só a tokenização é dublê; `binRecognized` é regra pura, e o `checkoutStore` a usa de verdade.
+vi.mock('@/features/checkout/lib/cardBrick', async () => ({
+  ...(await vi.importActual<typeof import('@/features/checkout/lib/cardBrick')>(
+    '@/features/checkout/lib/cardBrick',
+  )),
   getCardFormData: () => getCardFormDataMock(),
 }))
 vi.mock('@/entities/customer', () => ({
@@ -74,6 +78,24 @@ vi.mock('@/entities/product/api/useProducts', () => ({
 }))
 vi.mock('@/features/checkout/api/useCepLookup', () => ({ useCepLookup: vi.fn() }))
 vi.mock('@/features/checkout/api/useShippingQuote', () => ({ useShippingQuote: vi.fn() }))
+/**
+ * A tabela de parcelas do Mercado Pago para o cartão digitado (`useCardInstallments`). Dublê pelo
+ * mesmo motivo das promoções abaixo: a página é montada sem `QueryClientProvider`. Por padrão, a
+ * conta com 3x sem juros e juros a partir de 4x; os casos que provam a espera a esvaziam.
+ */
+const TABELA_TRES_SEM_JUROS = [
+  { installments: 1, installment_rate: 0, installment_amount: 114.9, total_amount: 114.9 },
+  { installments: 2, installment_rate: 0, installment_amount: 57.45, total_amount: 114.9 },
+  { installments: 3, installment_rate: 0, installment_amount: 38.3, total_amount: 114.9 },
+  { installments: 4, installment_rate: 11.36, installment_amount: 31.99, total_amount: 127.95 },
+]
+const tabelaDeParcelas: { data: typeof TABELA_TRES_SEM_JUROS | undefined; isError: boolean } = {
+  data: TABELA_TRES_SEM_JUROS,
+  isError: false,
+}
+vi.mock('@/features/checkout/api/useCardInstallments', () => ({
+  useCardInstallments: () => tabelaDeParcelas,
+}))
 vi.mock('@/features/apply-coupon/ui/CouponInput', () => ({ default: () => null }))
 /**
  * Se o dublê do Brick "digita" o cartão ao montar. O Brick real reporta o número reconhecido ao
@@ -89,7 +111,8 @@ vi.mock('@/features/checkout/ui/CardPaymentBrick', async () => {
   >('@/features/checkout/model/checkoutStore')
   const BrickDuble = ({ amount, payerEmail, errorMessage }: any) => {
     useEffect(() => {
-      if (brickDigitaOCartao.current) store.getState().setCardNumberRecognized(true)
+      // O Brick real entrega o BIN por `onBinChange`; é ele que reconhece o número E abre a tabela.
+      if (brickDigitaOCartao.current) store.getState().setCardBin('42356477')
       return () => store.getState().setCardNumberRecognized(false)
     }, [])
     return (
@@ -210,9 +233,10 @@ const shippingQuoteMock = vi.mocked(useShippingQuote)
 const CPF_VALIDO = '390.533.447-05'
 
 /** O que `getFormData()` devolve com o formulário do Brick válido (token + documento do titular). */
+// `installments: 1` é o que o Brick devolve de verdade desde que monta com `maxInstallments: 1`.
 const CARD_FORM_DATA = {
   token: 'tok_123',
-  installments: 3,
+  installments: 1,
   payment_method_id: 'visa',
   issuer_id: '1',
   transaction_amount: 114.9,
@@ -435,6 +459,8 @@ beforeEach(() => {
     status_detail: 'accredited',
   })
   getCardFormDataMock.mockReset().mockResolvedValue(CARD_FORM_DATA)
+  tabelaDeParcelas.data = TABELA_TRES_SEM_JUROS
+  tabelaDeParcelas.isError = false
   saveCpfMutateAsync.mockReset().mockResolvedValue('39053344705')
   saveAddressMutateAsync.mockReset().mockResolvedValue({ saved: true })
   defaultAddressMock.mockReset().mockReturnValue({ data: null })
@@ -1114,6 +1140,17 @@ describe('CheckoutPage — endereço salvo colapsa a Entrega (ADR-02)', () => {
 })
 
 describe('CheckoutPage — CTA (CHK-06)', () => {
+  // CHK-10 revisto (2026-10-04): fixo no rodapé do celular, o CTA cobria o fim do formulário do
+  // cartão e a escolha das parcelas. Ele segue no fluxo, logo depois do pagamento, nos dois tamanhos.
+  it('o CTA segue no fluxo da página, depois do bloco Pagamento — sem rodapé fixo no celular', () => {
+    fillAll('card')
+    renderPage()
+    const faixa = cta().parentElement as HTMLElement
+    expect(faixa.className.split(/\s+/)).not.toContain('fixed')
+    const pagamento = screen.getByRole('region', { name: 'Pagamento' })
+    expect(pagamento.compareDocumentPosition(cta()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
   it('CTA desabilitado enquanto algum bloco está incompleto', () => {
     fillContact()
     fillAddress()
@@ -1623,7 +1660,7 @@ describe('CheckoutPage — um CTA, dois caminhos (PGM-06 … PGM-08, DOC-05)', (
     renderPage()
     expect(cta()).toBeDisabled()
 
-    act(() => useCheckoutStore.getState().setCardNumberRecognized(true))
+    act(() => useCheckoutStore.getState().setCardBin('42356477'))
 
     expect(cta()).toBeEnabled()
   })
@@ -1658,6 +1695,69 @@ describe('CheckoutPage — um CTA, dois caminhos (PGM-06 … PGM-08, DOC-05)', (
     expect(getCardFormDataMock.mock.invocationCallOrder[0]).toBeLessThan(
       createOrderMutateAsync.mock.invocationCallOrder[0],
     )
+  })
+
+  // 2026-10-04: as parcelas saíram do Brick para a lista da loja (`InstallmentPicker`). O Brick
+  // devolve sempre `installments: 1`; o número cobrado é o da escolha, e o botão o nomeia.
+  it('a parcela escolhida na lista é a que vai no pagamento — nunca o 1 que o Brick devolve', async () => {
+    fillAll('card')
+    renderPage()
+    act(() => useCheckoutStore.getState().setCardInstallments(3))
+    fireEvent.click(cta())
+
+    await waitFor(() => expect(createPaymentMutateAsync).toHaveBeenCalledTimes(1))
+    expect(createPaymentMutateAsync.mock.calls[0][0].card).toEqual({
+      ...CARD_FORM_DATA,
+      installments: 3,
+    })
+  })
+
+  it('o botão nomeia a parcela escolhida, com o valor da tabela do Mercado Pago', () => {
+    fillAll('card')
+    renderPage()
+    act(() => useCheckoutStore.getState().setCardInstallments(4))
+    expect(cta()).toHaveTextContent(/Pagar 4x de R\$\s?31,99/)
+
+    act(() => useCheckoutStore.getState().setCardInstallments(1))
+    expect(cta()).toHaveTextContent(/no cartão/)
+  })
+
+  it('escolha que a tabela não tem cai para o à vista — o botão e a cobrança concordam', async () => {
+    fillAll('card')
+    renderPage()
+    act(() => useCheckoutStore.getState().setCardInstallments(9))
+    expect(cta()).toHaveTextContent(/no cartão/)
+    fireEvent.click(cta())
+
+    await waitFor(() => expect(createPaymentMutateAsync).toHaveBeenCalledTimes(1))
+    expect(createPaymentMutateAsync.mock.calls[0][0].card.installments).toBe(1)
+  })
+
+  it('com o número reconhecido e a tabela ainda chegando, "Pagar" espera — não há parcela para cobrar', () => {
+    tabelaDeParcelas.data = undefined
+    fillAll('card')
+    renderPage()
+    expect(cta()).toBeDisabled()
+  })
+
+  it('a tabela falhar não trava a compra: sobra o à vista, que é verdadeiro sem tabela', async () => {
+    tabelaDeParcelas.data = undefined
+    tabelaDeParcelas.isError = true
+    fillAll('card')
+    renderPage()
+    expect(cta()).toBeEnabled()
+    fireEvent.click(cta())
+
+    await waitFor(() => expect(createPaymentMutateAsync).toHaveBeenCalledTimes(1))
+    expect(createPaymentMutateAsync.mock.calls[0][0].card.installments).toBe(1)
+  })
+
+  it('trocar de cartão volta a escolha para o à vista — a tabela do outro cartão é outra', () => {
+    fillAll('card')
+    renderPage()
+    act(() => useCheckoutStore.getState().setCardInstallments(3))
+    act(() => useCheckoutStore.getState().setCardBin('51629200'))
+    expect(useCheckoutStore.getState().cardInstallments).toBe(1)
   })
 
   it('cartão aprovado cobra o pedido criado e navega para a confirmação', async () => {

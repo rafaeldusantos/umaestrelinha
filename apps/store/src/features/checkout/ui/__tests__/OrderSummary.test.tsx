@@ -49,6 +49,13 @@ vi.mock('@estrelinha/core/hooks/useStoreSettings', () => ({
   useShippingSettings: () => shippingSettings,
 }))
 
+// A tabela de parcelas do Mercado Pago (`useCardInstallments`) — dublê, porque o resumo é montado sem
+// `QueryClientProvider`. Por padrão ainda não chegou: a linha "no cartão" segue o anúncio das settings.
+const tabelaDeParcelas: { data: unknown; isError: boolean } = { data: undefined, isError: false }
+vi.mock('@/features/checkout/api/useCardInstallments', () => ({
+  useCardInstallments: () => tabelaDeParcelas,
+}))
+
 const active: { data: (ProgressivePromotion & { name: string })[] } = { data: [] }
 vi.mock('@estrelinha/core/hooks/usePromotions', () => ({
   useActivePromotions: () => ({ data: active.data, isLoading: false }),
@@ -109,6 +116,8 @@ const selectShipping = (cost: number) =>
   })
 
 beforeEach(() => {
+  tabelaDeParcelas.data = undefined
+  tabelaDeParcelas.isError = false
   useCheckoutStore.getState().reset()
   useCouponStore.getState().clearCoupon()
   sessionStorage.clear()
@@ -657,6 +666,31 @@ describe('OrderSummary — total e parcela (RSM-05, RSM-06)', () => {
     paymentSettings.min_installment_value = 200
     render(<OrderSummary variant="sidebar" />)
 
+    expect(screen.queryByText(/no cartão:/)).not.toBeInTheDocument()
+  })
+
+  // 2026-10-04: medido em navegador — o resumo dizia "4x sem juros" ao lado de uma lista com 3x.
+  // Com a tabela do Mercado Pago na mão, a linha diz o que ela diz, como o card de cartão.
+  it('com o cartão digitado, a linha segue a tabela do Mercado Pago — a mesma da lista', () => {
+    tabelaDeParcelas.data = [
+      { installments: 1, installment_rate: 0, installment_amount: 110, total_amount: 110 },
+      { installments: 2, installment_rate: 0, installment_amount: 55, total_amount: 110 },
+      { installments: 3, installment_rate: 9.64, installment_amount: 40.2, total_amount: 120.6 },
+    ]
+    useCheckoutStore.getState().setCardBin('54916700')
+    selectShipping(10)
+    render(<OrderSummary variant="sidebar" />)
+    expect(screen.getByText(/no cartão:/)).toHaveTextContent('no cartão: 2x de R$ 55,00 sem juros')
+  })
+
+  it('com a tabela sem nenhuma parcela sem juros, a linha "sem juros" some', () => {
+    tabelaDeParcelas.data = [
+      { installments: 1, installment_rate: 0, installment_amount: 110, total_amount: 110 },
+      { installments: 2, installment_rate: 9.64, installment_amount: 60.3, total_amount: 120.6 },
+    ]
+    useCheckoutStore.getState().setCardBin('54916700')
+    selectShipping(10)
+    render(<OrderSummary variant="sidebar" />)
     expect(screen.queryByText(/no cartão:/)).not.toBeInTheDocument()
   })
 

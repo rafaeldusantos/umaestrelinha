@@ -20,6 +20,7 @@ import {
   type PaymentDraft,
   type ShippingDraft,
 } from '@estrelinha/core/checkout'
+import { binRecognized } from '../lib/cardBrick'
 
 export const CHECKOUT_STORAGE_KEY = 'estrelinha-checkout'
 
@@ -83,6 +84,18 @@ interface CheckoutState extends CheckoutDraft {
    * contar como "o rascunho mudou desde o pedido" (CHK-08).
    */
   cardNumberRecognized: boolean
+  /**
+   * O BIN que o Brick leu (6 a 8 dígitos), ou `null`. É a chave da tabela de parcelas do Mercado
+   * Pago para aquele cartão — e, como `cardNumberRecognized`, é estado da TELA, fora do rascunho e
+   * do `partialize`.
+   */
+  cardBin: string | null
+  /**
+   * Quantas parcelas a cliente escolheu na lista da loja (`InstallmentPicker`). O Brick monta com
+   * `maxInstallments: 1` e não desenha lista nenhuma; é este número que vai no pagamento. Volta a 1
+   * sempre que o cartão muda, porque a tabela de outro cartão pode não ter a opção escolhida.
+   */
+  cardInstallments: number
 
   setContact: (patch: Partial<ContactDraft>) => void
   setAddress: (patch: Partial<AddressDraft>) => void
@@ -91,6 +104,9 @@ interface CheckoutState extends CheckoutDraft {
   toggleBump: (checked?: boolean) => void
   markDirty: (id: BlockId) => void
   setCardNumberRecognized: (recognized: boolean) => void
+  /** O Brick leu um BIN novo (ou perdeu o número, com `null`). Deriva `cardNumberRecognized`. */
+  setCardBin: (bin: string | null) => void
+  setCardInstallments: (count: number) => void
   /**
    * `identity` é o `user.id` de quem acionou o CTA — `null` para convidada (`IDN-07`). Opcional
    * para os chamadores que não decidem identidade nenhuma, e nesses o valor é `null`, que é o
@@ -118,6 +134,8 @@ export const useCheckoutStore = create<CheckoutState>()(
       orderIdentity: null,
       dirty: [],
       cardNumberRecognized: false,
+      cardBin: null,
+      cardInstallments: 1,
 
       setContact: (patch) => set((s) => ({ contact: { ...s.contact, ...patch } })),
       setAddress: (patch) => set((s) => ({ address: { ...s.address, ...patch } })),
@@ -127,8 +145,23 @@ export const useCheckoutStore = create<CheckoutState>()(
       // Patch vazio quando o bloco já está sujo: devolver um array novo a cada tecla faria a
       // página re-renderizar à toa (o seletor compara por referência).
       markDirty: (id) => set((s) => (s.dirty.includes(id) ? {} : { dirty: [...s.dirty, id] })),
+      // `false` é "o formulário foi esvaziado" (Brick desmontado ou recriado): o BIN e a parcela
+      // escolhida caem junto, senão a lista mostraria a tabela de um cartão que não está mais lá.
       setCardNumberRecognized: (recognized) =>
-        set((s) => (s.cardNumberRecognized === recognized ? {} : { cardNumberRecognized: recognized })),
+        set((s) => {
+          if (recognized) return s.cardNumberRecognized ? {} : { cardNumberRecognized: true }
+          if (!s.cardNumberRecognized && s.cardBin === null && s.cardInstallments === 1) return {}
+          return { cardNumberRecognized: false, cardBin: null, cardInstallments: 1 }
+        }),
+      setCardBin: (bin) =>
+        set((s) => {
+          const digits = (bin ?? '').replace(/\D/g, '')
+          const next = binRecognized(digits) ? digits : null
+          if (next === s.cardBin && s.cardNumberRecognized === (next !== null)) return {}
+          return { cardBin: next, cardNumberRecognized: next !== null, cardInstallments: 1 }
+        }),
+      setCardInstallments: (count) =>
+        set((s) => (s.cardInstallments === count ? {} : { cardInstallments: Math.max(1, Math.floor(count) || 1) })),
 
       setOrder: (id, snapshot, identity = null) =>
         set({ orderId: id, orderSnapshot: snapshot, orderIdentity: identity }),
@@ -156,6 +189,8 @@ export const useCheckoutStore = create<CheckoutState>()(
           orderIdentity: null,
           dirty: [],
           cardNumberRecognized: false,
+          cardBin: null,
+          cardInstallments: 1,
         })
         useCheckoutStore.persist.clearStorage()
       },

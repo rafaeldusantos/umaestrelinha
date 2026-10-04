@@ -16,7 +16,7 @@
 // `isPaymentComplete` fica falso e o CTA não habilita.
 //
 // Nenhum `bg-estrelinha-primary`: a única pílula geleia da tela é o CTA (CHK-04).
-import { useEffect, useRef, useMemo } from 'react'
+import { useEffect, useRef } from 'react'
 import { Check, CreditCard, Info } from 'lucide-react'
 import { Input } from '@estrelinha/ui/input'
 import { Label } from '@estrelinha/ui/label'
@@ -26,7 +26,7 @@ import { usePaymentSettings } from '@estrelinha/core/hooks/useStoreSettings'
 import { useAuthContext } from '@estrelinha/auth'
 import { PixIcon } from '@estrelinha/ui/icons'
 import { useCheckoutStore } from '../model/checkoutStore'
-import { resolveInstallments } from '@estrelinha/core/payment/installments'
+import { useCardInstallmentHeadline } from '../model/useCardInstallmentOptions'
 import CardPaymentBrick from './CardPaymentBrick'
 
 interface Props {
@@ -61,17 +61,19 @@ export const NO_METHOD_MESSAGE =
 
 const PaymentBlock = ({ open, complete, onEdit, amount, cardError = null }: Props) => {
   const { customer } = useAuthContext()
-  const { pix_enabled, pix_discount_percent, card_enabled, max_installments, min_installment_value } =
-    usePaymentSettings()
+  const { pix_enabled, pix_discount_percent, card_enabled } = usePaymentSettings()
   const payment = useCheckoutStore((s) => s.payment)
   const setPayment = useCheckoutStore((s) => s.setPayment)
   /** PGM-05: é este e-mail que apaga o campo de e-mail do Brick — ele já foi pedido no bloco 1. */
   const contactEmail = useCheckoutStore((s) => s.contact.email)
 
-  const installments = useMemo(
-    () => resolveInstallments(amount, max_installments, min_installment_value),
-    [amount, max_installments, min_installment_value],
-  )
+  // `max_installments` é, desde 2026-10-04, o número de parcelas SEM JUROS que a loja anuncia. O
+  // anúncio do card tem dono (`useCardInstallmentHeadline`): com o cartão digitado ele diz o que a
+  // tabela do Mercado Pago diz, a mesma que a lista abaixo desenha.
+  const headline = useCardInstallmentHeadline(amount)
+  const cardSummary = headline.interestFree
+    ? `Até ${headline.interestFree.count}x de ${formatPrice(headline.interestFree.value)} sem juros`
+    : `Parcele em até ${headline.maxCount}x`
 
   // PGD-06: semeia o documento salvo uma única vez — o que a cliente digitar depois vence.
   // `maskDocument` e não `maskCpf`: `customers.cpf` guarda 11 **ou** 14 dígitos desde DOC-04.
@@ -234,9 +236,7 @@ const PaymentBlock = ({ open, complete, onEdit, amount, cardError = null }: Prop
               </span>
             </span>
             <span className="text-[13px] leading-[19px] text-estrelinha-ink-soft">
-              {installments
-                ? `Até ${installments.count}x de ${formatPrice(installments.value)} sem juros`
-                : `Até ${max_installments}x sem juros`}
+              {cardSummary}
             </span>
           </button>
         )}

@@ -1,9 +1,9 @@
 import { useCallback, useMemo, useEffect } from 'react'
 import { CardPayment } from '@mercadopago/sdk-react'
 import { documentLabel, stripDocument } from '@estrelinha/core/validators'
-import { usePaymentSettings } from '@estrelinha/core/hooks/useStoreSettings'
 import { useCheckoutStore } from '../model/checkoutStore'
-import { binRecognized } from '../lib/cardBrick'
+import { useCardInstallmentOptions } from '../model/useCardInstallmentOptions'
+import InstallmentPicker from './InstallmentPicker'
 
 /**
  * BUG-20261004-brick-recriado-a-cada-render: **toda prop do `CardPayment` precisa de identidade
@@ -45,15 +45,17 @@ interface Props {
 
 /**
  * Superfície do CardPayment Brick do Mercado Pago (PAY-01: tokenização no browser, zero inputs
- * próprios de PAN/CVV/validade). Parcelas limitadas pelas settings (PAY-15).
+ * próprios de PAN/CVV/validade). As parcelas são escolhidas em `InstallmentPicker`, pela tabela do
+ * Mercado Pago, até 10x e com a parcela mínima das settings (PAY-15).
  *
  * Ele **não orquestra mais o pagamento**: com `hidePaymentButton` o `onSubmit` fica desabilitado
  * e a submissão inteira passa pelo CTA único da página, via `getCardFormData()` (PGM-05, PGM-06).
  * Recusa mantém a cliente aqui, com mensagem amigável vinda por prop (PAY-02).
  */
 const CardPaymentBrick = ({ amount, payerEmail, payerDocument, errorMessage }: Props) => {
-  const settings = usePaymentSettings()
   const setCardNumberRecognized = useCheckoutStore((s) => s.setCardNumberRecognized)
+  const setCardBin = useCheckoutStore((s) => s.setCardBin)
+  const installments = useCardInstallmentOptions(amount)
 
   useEffect(
     () => () => {
@@ -66,34 +68,36 @@ const CardPaymentBrick = ({ amount, payerEmail, payerDocument, errorMessage }: P
     [setCardNumberRecognized],
   )
 
-  // O único sinal que o Brick dá enquanto a pessoa digita: o número do cartão reconhecido.
-  // Validade, CVV, nome e documento seguem validados no clique (PGM-06) — o SDK não tem evento de
-  // validade do formulário (ver `CardFormSignal`). `useCallback`: ver o topo do arquivo.
-  const onBinChange = useCallback(
-    (bin: string) => setCardNumberRecognized(binRecognized(bin)),
-    [setCardNumberRecognized],
-  )
+  // O único sinal que o Brick dá enquanto a pessoa digita: o BIN do cartão. Ele reconhece o
+  // número (`CardFormSignal`) e é a chave da tabela de parcelas. Validade, CVV, nome e documento
+  // seguem validados no clique (PGM-06) — o SDK não tem evento de validade do formulário.
+  // `useCallback`: ver o topo do arquivo.
+  const onBinChange = useCallback((bin: string) => setCardBin(bin), [setCardBin])
 
-  // PAY-15: max_installments limitado também pelo valor mínimo de parcela.
-  const byMinValue =
-    settings.min_installment_value > 0
-      ? Math.floor(amount / settings.min_installment_value)
-      : settings.max_installments
-  const maxInstallments = Math.max(1, Math.min(settings.max_installments, byMinValue))
-
-  // Memorizado pelo único valor que muda: um objeto novo a cada render recriava o Brick vazio.
+  // Sem dependência nenhuma: um objeto novo a cada render recriava o Brick vazio.
   const customization = useMemo(
     () => ({
-      paymentMethods: { maxInstallments },
+      // `maxInstallments: 1` esconde a lista de parcelas do Brick (medido em navegador: com uma
+      // opção só ele não desenha a seção). Quem desenha a escolha é `InstallmentPicker`, e o número
+      // escolhido substitui o `installments` que `getFormData()` devolve — o token do cartão não
+      // depende das parcelas.
+      paymentMethods: { maxInstallments: 1 },
       visual: {
         // PGM-05: sem botão próprio (o CTA da página é o único) e sem o título duplicado — o
         // bloco 3 já se chama "Pagamento".
         hidePaymentButton: true,
         hideFormTitle: true,
-        style: { customVariables: { baseColor: corDaMarca() } },
+        style: {
+          customVariables: {
+            baseColor: corDaMarca(),
+            // O bloco já tem o respiro dele (`p-4`): o recuo padrão do Brick (~32px) somava ao do
+            // bloco e espremia os campos a ~280px numa tela de 390.
+            formPadding: '0px',
+          },
+        },
       },
     }),
-    [maxInstallments],
+    [],
   )
 
   // Objeto novo a cada render remontaria o Brick e apagaria o cartão já digitado.
@@ -118,13 +122,14 @@ const CardPaymentBrick = ({ amount, payerEmail, payerDocument, errorMessage }: P
   }, [initialization, setCardNumberRecognized])
 
   return (
-    <div className="space-y-3">
+    <div className="flex flex-col gap-5">
       <CardPayment
         initialization={initialization}
         customization={customization}
         onBinChange={onBinChange}
         onSubmit={SEM_SUBMIT}
       />
+      <InstallmentPicker state={installments} />
       {/* CNF-06: recusa se distingue por superfície + geleia, não por vermelho fora da paleta. */}
       {errorMessage && (
         <p

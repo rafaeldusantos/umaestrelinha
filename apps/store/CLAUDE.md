@@ -851,10 +851,39 @@ Quatro faixas de largura cheia, nesta ordem e com estas cores dos artboards: `1 
   resumo persistente e **um único CTA**. Não existe passo "Revisão". As regras de completude, bloco
   aberto e invalidação do pedido são domínio puro em `@estrelinha/core/checkout` (`resolveBlocks`,
   `isOrderStale`); o rascunho + o `order_id` em curso vivem no `checkoutStore` (Zustand em
-  **`sessionStorage`**). A rota `/checkout` fica **fora do `StoreLayout`** (header próprio + CTA fixo
-  no rodapé) e por isso monta o `AuthOverlay` por conta própria. A confirmação é a rota `/pedido/:id`
+  **`sessionStorage`**). A rota `/checkout` fica **fora do `StoreLayout`** (header próprio) e por
+  isso monta o `AuthOverlay` por conta própria. **O CTA segue no fluxo, logo abaixo do pagamento,
+  também no celular** (2026-10-04): fixo no rodapé ele cobria o fim do formulário do cartão e a
+  escolha das parcelas. A confirmação é a rota `/pedido/:id`
   (lê o pedido do banco), nunca estado interno da página — assim sobrevive ao reload; o carrinho e o
   cupom são limpos **só** na aprovação.
+
+### As parcelas do cartão são da loja, e os juros são do Mercado Pago (2026-10-04)
+
+- **O Brick monta com `maxInstallments: 1`, e com isso não desenha lista de parcelas** (medido em
+  navegador). Quem desenha a escolha é `features/checkout/ui/InstallmentPicker`: as sem juros primeiro,
+  com selo, e as com juros atrás de "Mais parcelas, com juros", com o total escrito ao lado. O
+  `installments` que `getFormData()` devolve é sempre 1 — o CTA o **substitui** pela escolha. O token
+  do cartão não depende das parcelas.
+- **A tabela é a do Mercado Pago** (`useCardInstallments` → `getInstallments` do SDK, pelo BIN que o
+  Brick entrega em `onBinChange`), cortada por `cardInstallmentOptions` em `core`: até
+  `CARD_INSTALLMENTS_CEILING` (10x) e pela parcela mínima das settings. **"Sem juros" é
+  `installment_rate === 0` na resposta**, nunca o número do painel da loja — é a tabela do Mercado
+  Pago que a cobrança segue, e rotular pelo painel seria mostrar um preço e cobrar outro.
+- **`useCardInstallmentOptions` é o dono do que a lista mostra E do que o botão diz** ("Pagar 3x de
+  R$ 92,42"), e `useCardInstallmentHeadline` (mesmo arquivo) é o do anúncio curto — o card de cartão
+  do bloco Pagamento e a linha "no cartão" do resumo. Com a tabela na mão o anúncio segue a tabela;
+  antes dela, as settings. Escrito em dois lugares, o resumo dizia "4x sem juros" ao lado de uma
+  lista com 3x (medido em navegador).
+- **`store_settings.payment.max_installments` passou a ser "Parcelas sem juros"** no painel: é o
+  que a vitrine, a página do produto e o card de cartão ANUNCIAM antes de haver cartão digitado.
+  **Quem torna isso verdade é a conta do Mercado Pago** ("Oferecer parcelamento sem juros", no
+  painel dele) — os dois números precisam ser iguais, e nada no código os sincroniza. Medido em
+  2026-10-04: a conta **não tinha nenhuma** parcela sem juros (2x a 9,64%) e a loja anunciava "até
+  4x sem juros".
+- **Cartão que só aceita à vista** (pré-pago, e o Visa de teste `4235 6477 2802 5682` na conta da
+  loja) recebe só `1x` do Mercado Pago. Era o "seletor de parcelas sumiu" das QAs de sandbox: o
+  Brick esconde a seção quando há uma opção só.
 
 ### O PIX tem endereço, e o checkout entrega o bastão (feature `58`, `AD-042`)
 

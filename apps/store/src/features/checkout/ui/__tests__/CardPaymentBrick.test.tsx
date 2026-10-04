@@ -18,6 +18,11 @@ vi.mock('@mercadopago/sdk-react', () => ({
   },
 }))
 
+// A tabela de parcelas do Mercado Pago. Dublê pelo mesmo motivo da página: o componente é montado
+// sem `QueryClientProvider`. A lista em si (`InstallmentPicker`) tem suíte própria.
+const tabelaDeParcelas: { data: unknown; isError: boolean } = { data: undefined, isError: false }
+vi.mock('../../api/useCardInstallments', () => ({ useCardInstallments: () => tabelaDeParcelas }))
+
 vi.mock('@estrelinha/core/hooks/useStoreSettings', () => ({
   usePaymentSettings: () => ({
     pix_enabled: true,
@@ -44,11 +49,23 @@ describe('CardPaymentBrick — superfície do cartão', () => {
     expect(container.querySelectorAll('input').length).toBe(0)
   })
 
-  it('inicializa o Brick com amount e parcelas limitadas pelas settings (PAY-15)', () => {
+  it('inicializa o Brick com o valor e SEM a lista de parcelas dele — quem desenha a escolha é a loja', () => {
     renderBrick({ amount: 30 })
     expect(capturedProps.initialization.amount).toBe(30)
-    // max_installments=6, min_installment_value=10 → floor(30/10)=3
-    expect(capturedProps.customization.paymentMethods.maxInstallments).toBe(3)
+    // Medido em navegador (2026-10-04): com uma opção só o Brick não desenha a seção de parcelas.
+    // O teto e a parcela mínima (PAY-15) passaram para `cardInstallmentOptions`, em `core`.
+    expect(capturedProps.customization.paymentMethods.maxInstallments).toBe(1)
+  })
+
+  it('o Brick não soma o recuo dele ao do bloco — os campos ganham a largura da tela', () => {
+    renderBrick()
+    expect(capturedProps.customization.visual.style.customVariables.formPadding).toBe('0px')
+  })
+
+  it('a escolha das parcelas aparece abaixo do formulário, pedindo o número antes da tabela', () => {
+    renderBrick()
+    expect(screen.getByRole('group', { name: 'Em quantas vezes?' })).toBeInTheDocument()
+    expect(screen.getByText('Digite o número do cartão para ver as parcelas.')).toBeInTheDocument()
   })
 
   it('desmonta o Brick via cardPaymentBrickController no unmount (PGM-09)', () => {

@@ -327,3 +327,61 @@ describe('checkoutStore — reset', () => {
     expect(sessionStorage.getItem(CHECKOUT_STORAGE_KEY)).toBeNull()
   })
 })
+
+// 2026-10-04: as parcelas saíram do Brick. O BIN abre a tabela do Mercado Pago e a escolha vai no
+// pagamento — os dois são estado da TELA, como o número reconhecido.
+describe('checkoutStore — o cartão digitado e a parcela escolhida', () => {
+  beforeEach(() => {
+    sessionStorage.clear()
+    useCheckoutStore.getState().reset()
+  })
+
+  it('um BIN de 6+ dígitos reconhece o número e guarda só os dígitos', () => {
+    useCheckoutStore.getState().setCardBin('4235 6477')
+    const s = useCheckoutStore.getState()
+    expect(s.cardBin).toBe('42356477')
+    expect(s.cardNumberRecognized).toBe(true)
+  })
+
+  it('BIN curto ou vazio desmarca e esquece o BIN', () => {
+    useCheckoutStore.getState().setCardBin('42356477')
+    useCheckoutStore.getState().setCardBin('4235')
+    expect(useCheckoutStore.getState().cardBin).toBeNull()
+    expect(useCheckoutStore.getState().cardNumberRecognized).toBe(false)
+  })
+
+  it('trocar de cartão volta a parcela para o à vista; o MESMO BIN repetido não', () => {
+    const st = useCheckoutStore.getState()
+    st.setCardBin('42356477')
+    st.setCardInstallments(3)
+    st.setCardBin('42356477')
+    expect(useCheckoutStore.getState().cardInstallments).toBe(3)
+    st.setCardBin('51629200')
+    expect(useCheckoutStore.getState().cardInstallments).toBe(1)
+  })
+
+  it('o formulário esvaziado (Brick desmontado ou recriado) leva o BIN e a parcela junto', () => {
+    const st = useCheckoutStore.getState()
+    st.setCardBin('42356477')
+    st.setCardInstallments(3)
+    st.setCardNumberRecognized(false)
+    const s = useCheckoutStore.getState()
+    expect([s.cardNumberRecognized, s.cardBin, s.cardInstallments]).toEqual([false, null, 1])
+  })
+
+  it('nada disso entra no sessionStorage nem no rascunho — digitar o cartão não invalida o pedido', () => {
+    const st = useCheckoutStore.getState()
+    st.setCardBin('42356477')
+    st.setCardInstallments(3)
+    const salvo = JSON.parse(sessionStorage.getItem(CHECKOUT_STORAGE_KEY) ?? '{}').state ?? {}
+    expect(salvo).not.toHaveProperty('cardBin')
+    expect(salvo).not.toHaveProperty('cardInstallments')
+    expect(st.draft()).not.toHaveProperty('cardInstallments')
+  })
+
+  it('o reset devolve o à vista', () => {
+    useCheckoutStore.getState().setCardInstallments(5)
+    useCheckoutStore.getState().reset()
+    expect(useCheckoutStore.getState().cardInstallments).toBe(1)
+  })
+})

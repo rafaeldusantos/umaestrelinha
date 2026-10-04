@@ -20,9 +20,13 @@ import {
   type PaymentSettings,
 } from '@estrelinha/supabase/types/settings'
 import { FormCard, FieldGroup, InfoBanner, MoneyInput, SettingsSaveButton, SWITCH_TAP_44, ToggleField } from '@/shared/ui'
+import { CARD_INSTALLMENTS_CEILING } from '@estrelinha/core/payment/installments'
 import { useSettingsSave } from '../model/useSettingsSave'
 import CheckoutSettingsCard from './CheckoutSettingsCard'
 import { SettingsLoading } from './settingsParts'
+
+export const PARCELAS_SEM_JUROS_HINT =
+  'Precisa ser o mesmo número de "Oferecer parcelamento sem juros" no painel do Mercado Pago — é ele quem cobra. O caixa oferece até 10x; as demais saem com os juros do Mercado Pago.'
 
 export const SalesSection = () => {
   const { data, isLoading } = useStoreSettings()
@@ -71,12 +75,21 @@ export const SalesSection = () => {
         />
 
         <div className="grid gap-4 sm:grid-cols-2">
-          {/* Contagem, não dinheiro — fica como está (`CFG-25`). */}
-          <FieldGroup label="Máximo de parcelas" htmlFor="max-parcelas">
+          {/* Contagem, não dinheiro — fica como está (`CFG-25`).
+              Desde 2026-10-04 o campo é o número de parcelas SEM JUROS que a loja anuncia (vitrine,
+              página do produto e o card de cartão do caixa). O caixa oferece até 10x de qualquer
+              jeito; as acima deste número saem com os juros do Mercado Pago. Quem decide se uma
+              parcela tem juros na COBRANÇA é a conta do Mercado Pago, e a dica diz isso — sem ela,
+              a dona mudaria o número aqui achando que mudou o que a cliente paga. */}
+          <FieldGroup
+            label="Parcelas sem juros"
+            htmlFor="max-parcelas"
+            hint={PARCELAS_SEM_JUROS_HINT}
+          >
             <Input id="max-parcelas"
               type="number"
               min={1}
-              max={12}
+              max={CARD_INSTALLMENTS_CEILING}
               value={payment.max_installments}
               onChange={e =>
                 setPayment({ ...payment, max_installments: Number(e.target.value) || 1 })
