@@ -188,3 +188,129 @@ describe('ProductGallery — a foto do tamanho do palco (PRF-02 AC 5-6)', () => 
     expect(ativas.every(src => src!.includes('/render/image/public/'))).toBe(true)
   })
 })
+
+/**
+ * Arrastar com o dedo troca de foto no celular (2026-10-04).
+ *
+ * jsdom não tem layout nem gesto nativo: o que se prova é a regra do gesto — eixo, limiar, volta
+ * circular e o toque que NÃO é arrasto continuar abrindo a tela cheia. A sensação sob o dedo é de
+ * navegador, em 390.
+ */
+describe('ProductGallery — arrastar troca de foto', () => {
+  const TRES = [STORAGE, SEGUNDA, 'https://cdn.parceiro.example/terceira.jpg']
+
+  /** O palco do celular — o `<img sizes>` é só dele; o do desktop é o `ImageZoom`. */
+  const palco = (container: HTMLElement) =>
+    container.querySelector('img[sizes]')!.closest('.touch-pan-y') as HTMLElement
+
+  // Num navegador `touches` e `changedTouches` chegam sempre preenchidos, e o `react-remove-scroll`
+  // do diálogo lê o segundo em todo toque — um evento sintético sem ele derruba a suíte.
+  const toque = (x: number, y: number) => [{ clientX: x, clientY: y }]
+  const inicio = (el: HTMLElement, x: number, y: number) =>
+    fireEvent.touchStart(el, { touches: toque(x, y), changedTouches: toque(x, y) })
+  const mover = (el: HTMLElement, x: number, y: number) =>
+    fireEvent.touchMove(el, { touches: toque(x, y), changedTouches: toque(x, y) })
+  const soltar = (el: HTMLElement, x: number, y: number) =>
+    fireEvent.touchEnd(el, { touches: [], changedTouches: toque(x, y) })
+
+  const arrastar = (el: HTMLElement, dx: number, dy = 0) => {
+    inicio(el, 200, 300)
+    mover(el, 200 + dx, 300 + dy)
+    soltar(el, 200 + dx, 300 + dy)
+  }
+
+  const ativa = () =>
+    screen.getAllByRole('button', { name: /^Ver imagem \d de \d$/ }).findIndex(
+      b => b.getAttribute('aria-current') === 'true',
+    )
+
+  it('arrastar para a esquerda avança para a próxima foto', () => {
+    const { container } = galeria(TRES)
+    arrastar(palco(container), -100)
+
+    expect(ativa()).toBe(1)
+  })
+
+  it('arrastar para a direita na primeira foto volta para a última', () => {
+    const { container } = galeria(TRES)
+    arrastar(palco(container), 100)
+
+    expect(ativa()).toBe(2)
+  })
+
+  it('arrasto curto, abaixo do limiar, não troca de foto', () => {
+    const { container } = galeria(TRES)
+    arrastar(palco(container), -30)
+
+    expect(ativa()).toBe(0)
+  })
+
+  it('movimento VERTICAL é da página: não troca de foto e não move a foto', () => {
+    const { container } = galeria(TRES)
+    const el = palco(container)
+    inicio(el, 200, 300)
+    mover(el, 180, 400)
+
+    expect((el.firstElementChild as HTMLElement).style.transform).toBe('')
+    soltar(el, 140, 400)
+    expect(ativa()).toBe(0)
+  })
+
+  it('a foto acompanha o dedo durante o arrasto e volta ao soltar', () => {
+    const { container } = galeria(TRES)
+    const el = palco(container)
+    const trilho = el.firstElementChild as HTMLElement
+
+    inicio(el, 200, 300)
+    mover(el, 140, 302)
+    expect(trilho.style.transform).toBe('translateX(-60px)')
+
+    soltar(el, 140, 302)
+    expect(trilho.style.transform).toBe('')
+  })
+
+  it('o clique que segue um arrasto NÃO abre a tela cheia', () => {
+    const { container } = galeria(TRES)
+    const el = palco(container)
+    arrastar(el, -100)
+    fireEvent.click(el)
+
+    expect(document.querySelector('[role="dialog"]')).toBeNull()
+  })
+
+  it('um toque sem arrasto continua abrindo a tela cheia — inclusive logo depois de um arrasto', () => {
+    const { container } = galeria(TRES)
+    const el = palco(container)
+    // Arrasto SEM o clique depois — o navegador costuma não dispará-lo quando o dedo andou. A
+    // marca do arrasto fica de pé, e é o toque NOVO que tem de zerá-la; se o clique viesse, ele
+    // mesmo a consumiria e o caso passaria sem medir nada.
+    arrastar(el, -100)
+
+    // Toque novo: começa e termina no mesmo ponto.
+    inicio(el, 200, 300)
+    soltar(el, 200, 300)
+    fireEvent.click(el)
+
+    expect(document.querySelector('[role="dialog"]')).not.toBeNull()
+  })
+
+  it('com uma foto só, arrastar não move nada', () => {
+    const { container } = galeria([STORAGE])
+    const el = palco(container)
+    inicio(el, 200, 300)
+    mover(el, 100, 300)
+
+    expect((el.firstElementChild as HTMLElement).style.transform).toBe('')
+  })
+
+  it('na tela cheia, arrastar também troca de foto', () => {
+    galeria(TRES)
+    fireEvent.click(screen.getByLabelText('Ver imagem em tela cheia'))
+    const dialogo = document.querySelector('[role="dialog"]')!
+    const area = dialogo.querySelector('.touch-pan-y') as HTMLElement
+
+    arrastar(area, -100)
+
+    expect(dialogo.querySelector('img')!.getAttribute('src')).toBe(SEGUNDA)
+  })
+})

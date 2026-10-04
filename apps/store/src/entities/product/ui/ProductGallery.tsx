@@ -1,10 +1,11 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronLeft, ChevronRight, ImageOff, ZoomIn } from 'lucide-react'
 import type { ProductImage } from '@estrelinha/supabase/types'
 import { GALLERY_STAGE_SIZES, renditionSrcSet, renditionUrl } from '@estrelinha/core/media'
 import ImageZoom from './ImageZoom'
 import { TAP_44 } from '@/shared/lib/touchTarget'
+import { useSwipe } from '@/shared/lib/useSwipe'
 import { Dialog, DialogContent } from '@estrelinha/ui/dialog'
 import { cn } from '@estrelinha/ui/lib/utils'
 
@@ -60,6 +61,17 @@ const PALCO_PX = 720
 const FITA_PX = 160
 
 /**
+ * A foto acompanha o dedo enquanto ele arrasta e volta ao lugar ao soltar.
+ *
+ * Sem transição durante o arrasto (a foto tem de estar sob o dedo, não atrás dele), e com uma curta
+ * na volta — sem ela, soltar abaixo do limiar faria a foto saltar de volta num quadro.
+ */
+const dragStyle = (offset: number): CSSProperties =>
+  offset
+    ? { transform: `translateX(${offset}px)`, transition: 'none' }
+    : { transition: 'transform 200ms ease-out' }
+
+/**
  * A galeria do produto — boards "Desktop Product Detail - v3" e "Mobile Product Detail - v3".
  *
  * Uma estrutura, duas leituras: no desktop o palco é quadrado com a lupa no canto e uma fita de
@@ -67,11 +79,19 @@ const FITA_PX = 160
  * são a única indicação de que há mais de uma imagem quando a fita sai do campo de visão.
  *
  * As setas laterais são **só desktop**: no celular elas cobririam 1/8 da foto para fazer o que o
- * toque na miniatura já faz.
+ * toque na miniatura e o **arrastar com o dedo** (`useSwipe`, no palco e na tela cheia) já fazem.
  */
 const ProductGallery = ({ images, name, focusUrl = null, badges, action }: Props) => {
   const [current, setCurrent] = useState(0)
   const [fullscreen, setFullscreen] = useState(false)
+
+  const total = images.length
+  const step = (delta: number) => setCurrent(c => (c + delta + total) % total)
+  // Dois gestos independentes: o palco do celular e a tela cheia nunca recebem o dedo ao mesmo
+  // tempo, mas cada um precisa do próprio deslocamento ao vivo. Com uma foto só não há para onde
+  // arrastar, e a foto não se move.
+  const stageSwipe = useSwipe({ onStep: step, enabled: total > 1 })
+  const fullscreenSwipe = useSwipe({ onStep: step, enabled: total > 1 })
 
   // PMD-06 AC 2-3: a escolha da variação manda no destaque. Sem imagem própria — ou com uma que
   // já saiu da galeria — volta para a principal.
@@ -95,7 +115,6 @@ const ProductGallery = ({ images, name, focusUrl = null, badges, action }: Props
   const index = Math.min(current, images.length - 1)
   const active = images[index]
   const many = images.length > 1
-  const step = (delta: number) => setCurrent(c => (c + delta + images.length) % images.length)
 
   return (
     <div className="flex flex-col gap-2 md:gap-3">
@@ -108,27 +127,39 @@ const ProductGallery = ({ images, name, focusUrl = null, badges, action }: Props
           <ImageZoom src={renditionUrl(active.url, PALCO_PX)} alt={altOf(active, name, index)} />
         </div>
 
-        {/* Mobile: toque abre a tela cheia. */}
-        <div className="h-full w-full md:hidden" onClick={() => setFullscreen(true)}>
-          <AnimatePresence mode="wait">
-            {/* O LCP da página do produto no celular — 90% dos acessos da loja. `eager` e
-                `fetchpriority="high"` porque é a maior imagem da dobra, e nada acima dela compete.
-                A grafia minúscula sai por spread: o React 18.3 não conhece `fetchPriority` e avisa
-                no console pedindo exatamente esta. */}
-            <motion.img
-              key={index}
-              src={renditionUrl(active.url, PALCO_PX)}
-              srcSet={renditionSrcSet(active.url) || undefined}
-              sizes={GALLERY_STAGE_SIZES}
-              loading="eager"
-              {...({ fetchpriority: 'high' } as Record<string, string>)}
-              alt={altOf(active, name, index)}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="h-full w-full object-cover"
-            />
-          </AnimatePresence>
+        {/* Mobile: toque abre a tela cheia; arrastar na horizontal troca de foto. `touch-pan-y`
+            entrega a rolagem vertical ao navegador — a página continua rolando com o dedo sobre a
+            foto —, e o eixo horizontal fica com `useSwipe`. */}
+        <div
+          className="h-full w-full touch-pan-y md:hidden"
+          {...stageSwipe.handlers}
+          onClick={() => {
+            if (stageSwipe.consumeSwipe()) return
+            setFullscreen(true)
+          }}
+        >
+          <div className="h-full w-full" style={dragStyle(stageSwipe.offset)}>
+            <AnimatePresence mode="wait">
+              {/* O LCP da página do produto no celular — 90% dos acessos da loja. `eager` e
+                  `fetchpriority="high"` porque é a maior imagem da dobra, e nada acima dela compete.
+                  A grafia minúscula sai por spread: o React 18.3 não conhece `fetchPriority` e avisa
+                  no console pedindo exatamente esta. */}
+              <motion.img
+                key={index}
+                src={renditionUrl(active.url, PALCO_PX)}
+                srcSet={renditionSrcSet(active.url) || undefined}
+                sizes={GALLERY_STAGE_SIZES}
+                loading="eager"
+                {...({ fetchpriority: 'high' } as Record<string, string>)}
+                alt={altOf(active, name, index)}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="h-full w-full object-cover"
+                draggable={false}
+              />
+            </AnimatePresence>
+          </div>
         </div>
 
         {badges && <div className="absolute left-3 top-3 z-10 flex gap-1.5">{badges}</div>}
@@ -218,10 +249,15 @@ const ProductGallery = ({ images, name, focusUrl = null, badges, action }: Props
 
       <Dialog open={fullscreen} onOpenChange={setFullscreen}>
         <DialogContent className="max-h-[95vh] max-w-[95vw] border-none bg-black/95 p-2">
-          <div className="relative flex h-[85vh] items-center justify-center">
+          <div
+            className="relative flex h-[85vh] touch-pan-y items-center justify-center"
+            {...fullscreenSwipe.handlers}
+          >
             <img
               src={active.url}
               alt={altOf(active, name, index)}
+              draggable={false}
+              style={dragStyle(fullscreenSwipe.offset)}
               className="max-h-full max-w-full object-contain"
             />
             {many && (
