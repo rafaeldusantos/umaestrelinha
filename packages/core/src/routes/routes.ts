@@ -236,6 +236,10 @@ export const NON_INDEXABLE_PATHS: readonly { path: string; reason: string }[] = 
       'mesmo tempo: o conteúdo é de um pedido só, e a página existe para cobrar',
   },
   { path: '/conta', reason: 'privado, atrás de autenticação' },
+  {
+    path: '/conta/dados',
+    reason: 'privado, atrás de autenticação — a aba "Meus dados" da conta (feature 59)',
+  },
   { path: '/favoritos', reason: 'privado, por navegador' },
   { path: '/entrar', reason: 'autenticação' },
   { path: '/busca', reason: 'espaço de rastreio infinito: uma URL por combinação de parâmetro' },

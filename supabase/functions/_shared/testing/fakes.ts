@@ -96,6 +96,14 @@ export interface UpdateCall {
   values: Record<string, unknown>
   /** `[coluna, valor]` do `.eq()` que escopa o update. */
   eq: [string, unknown] | null
+  /**
+   * O filtro de `.or()` que também escopa o update, cru como o PostgREST o recebe — ou `null`.
+   *
+   * Feature `59`: o CPF só é gravado quando a ficha ainda não tem um (`cpf.is.null,cpf.eq.`). Sem
+   * enxergar o filtro, o dublê registraria o update do mesmo jeito com ou sem ele, e "só quando
+   * vazio" seria uma regra inauditável.
+   */
+  or?: string | null
 }
 
 export interface RpcCall {
@@ -160,9 +168,19 @@ export interface AuthUserFixture {
  * teste, dando falso verde no gatilho.
  */
 export type RowFixture =
-  | ((eq: [string, unknown] | null, select: string) => unknown | null)
+  | ((eq: [string, unknown] | null, select: string, eqs: Array<[string, unknown]>) => unknown | null)
   | unknown
   | null
+
+/**
+ * Fixture de lista (a cadeia que termina sem `.single()`). A forma de função existe pelo mesmo
+ * motivo da de linha, e nasceu na feature `59`: `get-order` lê `order_status_history` filtrando por
+ * `order_id`, e uma lista fixa seria devolvida com qualquer filtro — trocar a coluna do `.eq()`
+ * passaria verde. Recebe TODOS os `.eq()`, na ordem, e o `select`.
+ */
+export type ListFixture =
+  | unknown[]
+  | ((eqs: Array<[string, unknown]>, select: string) => unknown[] | null)
 
 export interface FakeSupabaseOptions {
   /** Usuário devolvido por `auth.getUser`. `null` → 401 nos handlers. */
@@ -170,7 +188,7 @@ export interface FakeSupabaseOptions {
   /** Linha devolvida por `.single()`/`.maybeSingle()` de cada tabela. */
   rows?: Record<string, RowFixture>
   /** Lista devolvida quando a query termina sem `.single()` (ex.: order_items, products). */
-  lists?: Record<string, unknown[]>
+  lists?: Record<string, ListFixture>
   /** Resultado de `.rpc()` para QUALQUER nome de função. Fallback de `rpcByFn`. */
   rpc?: { data?: unknown; error?: unknown }
   /**
@@ -252,6 +270,7 @@ export function createFakeSupabase(options: FakeSupabaseOptions = {}): FakeSupab
     /** Todos os `.eq()`, não só o último — um delete escopado por duas colunas precisa dos dois. */
     const eqTodos: Array<[string, unknown]> = []
     let selectColumns = ''
+    let orFilter: string | null = null
     let pendingUpdate: Record<string, unknown> | null = null
     let inseriu = false
     let pendingDelete = false
@@ -262,7 +281,14 @@ export function createFakeSupabase(options: FakeSupabaseOptions = {}): FakeSupab
 
     const result = () => {
       if (pendingUpdate) {
-        updates.push({ table, values: pendingUpdate, eq: eqPair })
+        // `or` só entra quando houve `.or()`: as asserções antigas comparam o registro inteiro com
+        // `toEqual`, e uma chave `or: null` a mais as reprovaria sem nada ter mudado.
+        updates.push({
+          table,
+          values: pendingUpdate,
+          eq: eqPair,
+          ...(orFilter !== null ? { or: orFilter } : {}),
+        })
         return { data: null, error: options.updateError ?? null }
       }
       // A gravação já foi registrada em `.insert()` — aqui só o desfecho. Registrar nos dois
@@ -277,7 +303,15 @@ export function createFakeSupabase(options: FakeSupabaseOptions = {}): FakeSupab
       if (headCount) {
         return { data: null, count: options.counts?.[table] ?? 0, error: null }
       }
-      return { data: options.lists?.[table] ?? null, error: null }
+      const lista = options.lists?.[table]
+      const data =
+        typeof lista === 'function'
+          ? (lista as (eqs: Array<[string, unknown]>, select: string) => unknown[] | null)(
+              [...eqTodos],
+              selectColumns,
+            )
+          : lista
+      return { data: data ?? null, error: null }
     }
 
     const row = () => {
@@ -287,10 +321,13 @@ export function createFakeSupabase(options: FakeSupabaseOptions = {}): FakeSupab
         ? (options.inserted?.[table] ?? null)
         : (options.rows?.[table] ?? null)
       return typeof fixture === 'function'
-        ? (fixture as (eq: [string, unknown] | null, select: string) => unknown | null)(
-            eqPair,
-            selectColumns,
-          )
+        ? (
+            fixture as (
+              eq: [string, unknown] | null,
+              select: string,
+              eqs: Array<[string, unknown]>,
+            ) => unknown | null
+          )(eqPair, selectColumns, [...eqTodos])
         : fixture
     }
 
@@ -306,6 +343,10 @@ export function createFakeSupabase(options: FakeSupabaseOptions = {}): FakeSupab
         return chain
       },
       in: () => chain,
+      or: (filtro: string) => {
+        orFilter = filtro
+        return chain
+      },
       update: (values: Record<string, unknown>) => {
         pendingUpdate = values
         return chain

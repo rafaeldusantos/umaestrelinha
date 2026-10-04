@@ -621,12 +621,50 @@ describe('create-order — falha de gravação', () => {
 
 describe('create-order — CPF e endereço (PED-08, ADR-G1, ADR-G2)', () => {
   it('o CPF vai para `customers.cpf`, só com dígitos — é de lá que `buildPayer` lê', async () => {
+    // Reescrito pela feature `59` (`DAD-05`/`DAD-06`), sem perder nenhum valor da asserção antiga:
+    // ela exigia CPF e telefone num update SÓ, e isso deixou de ser possível. O CPF agora leva o
+    // filtro "só quando vazio" — e, no mesmo update, esse filtro impediria o TELEFONE de ser
+    // gravado para quem já tem CPF. Os dois viraram updates irmãos, cada um com a sua asserção.
     const supabase = cenario()
     await route(criarDeps(supabase), pedir(PEDIDO))
-    const ficha = supabase.updates.find((u) => u.table === 'customers')
+    const fichas = supabase.updates.filter((u) => u.table === 'customers')
+    const doCpf = fichas.find((u) => 'cpf' in u.values)
+    const doTelefone = fichas.find((u) => 'phone' in u.values)
 
-    expect(ficha?.values).toEqual({ cpf: '52998224725', phone: '11988887777' })
-    expect(ficha?.eq).toEqual(['id', 'cus-1'])
+    expect(doCpf?.values).toEqual({ cpf: '52998224725' })
+    expect(doCpf?.eq).toEqual(['id', 'cus-1'])
+    expect(doTelefone?.values).toEqual({ phone: '11988887777' })
+    expect(doTelefone?.eq).toEqual(['id', 'cus-1'])
+  })
+
+  it('DAD-05: o CPF só é gravado quando a ficha ainda não tem um — o filtro "vazio" vai no update', async () => {
+    // A service role passa pelo gatilho `guard_customer_identity` (é a saída dela), então o "CPF
+    // travado" só vale para o checkout se o próprio update se recusar a sobrescrever. Sem o filtro,
+    // a segunda compra com outro documento trocaria o pagador da ficha em silêncio.
+    const supabase = cenario()
+    await route(criarDeps(supabase), pedir(PEDIDO))
+    const doCpf = supabase.updates.find((u) => u.table === 'customers' && 'cpf' in u.values)
+
+    expect(doCpf?.or).toBe('cpf.is.null,cpf.eq.')
+  })
+
+  it('o telefone NÃO leva o filtro do CPF — senão quem já tem CPF nunca atualizaria o WhatsApp', async () => {
+    const supabase = cenario()
+    await route(criarDeps(supabase), pedir(PEDIDO))
+    const doTelefone = supabase.updates.find((u) => u.table === 'customers' && 'phone' in u.values)
+
+    expect(doTelefone).toBeDefined()
+    expect(doTelefone).not.toHaveProperty('or')
+    expect(doTelefone?.values).not.toHaveProperty('cpf')
+  })
+
+  it('sem CPF no corpo, nenhum update de CPF — e o telefone segue gravado', async () => {
+    const supabase = cenario()
+    await route(criarDeps(supabase), pedir({ ...PEDIDO, customer_document: '' }))
+    const fichas = supabase.updates.filter((u) => u.table === 'customers')
+
+    expect(fichas.some((u) => 'cpf' in u.values)).toBe(false)
+    expect(fichas.find((u) => 'phone' in u.values)?.values).toEqual({ phone: '11988887777' })
   })
 
   it('o endereço é gravado para a próxima compra (ADR-G1)', async () => {
@@ -667,6 +705,43 @@ describe('create-order — CPF e endereço (PED-08, ADR-G1, ADR-G2)', () => {
     await route(criarDeps(supabase), pedir({ ...PEDIDO, address_zip: undefined }))
 
     expect(supabase.inserts.find((i) => i.table === 'addresses')).toBeUndefined()
+  })
+
+  /**
+   * "A cliente já tem endereço padrão?" — a fixture é função para o dublê ENXERGAR os dois `.eq()`:
+   * só a leitura escopada pela ficha DESTA cliente e por `is_default` devolve o padrão. Sem os dois
+   * filtros, o endereço de outra cliente (ou um não-padrão) decidiria por esta.
+   */
+  const comPadrao = (_eq: unknown, _select: string, eqs: Array<[string, unknown]>) =>
+    eqs.some(([c, v]) => c === 'customer_id' && v === 'cus-1') &&
+    eqs.some(([c, v]) => c === 'is_default' && v === true)
+      ? { id: 'end-padrao' }
+      : null
+
+  it('DAD-08: o primeiro endereço da cliente nasce padrão — é o que o próximo caixa lê', async () => {
+    const supabase = cenario({ rows: { orders: null, customers: { id: 'cus-1' }, addresses: null } })
+    await route(criarDeps(supabase), pedir(PEDIDO))
+    const endereco = supabase.inserts.find((i) => i.table === 'addresses')?.values
+
+    expect(endereco).toEqual(expect.objectContaining({ customer_id: 'cus-1', is_default: true }))
+  })
+
+  it('quem JÁ tem padrão ganha o endereço novo como não-padrão — o padrão dela não muda', async () => {
+    const supabase = cenario({ rows: { orders: null, customers: { id: 'cus-1' }, addresses: comPadrao } })
+    await route(criarDeps(supabase), pedir(PEDIDO))
+    const endereco = supabase.inserts.find((i) => i.table === 'addresses')?.values
+
+    expect(endereco).toEqual(expect.objectContaining({ customer_id: 'cus-1', is_default: false }))
+  })
+
+  it('o padrão de OUTRA ficha não conta — a leitura é escopada por esta cliente', async () => {
+    const deOutra = (_eq: unknown, _select: string, eqs: Array<[string, unknown]>) =>
+      eqs.some(([c, v]) => c === 'customer_id' && v === 'cus-outra') ? { id: 'end-alheio' } : null
+    const supabase = cenario({ rows: { orders: null, customers: { id: 'cus-1' }, addresses: deOutra } })
+    await route(criarDeps(supabase), pedir(PEDIDO))
+    const endereco = supabase.inserts.find((i) => i.table === 'addresses')?.values
+
+    expect(endereco).toEqual(expect.objectContaining({ is_default: true }))
   })
 
   it('pedido órfão não grava conveniência em ficha nenhuma', async () => {

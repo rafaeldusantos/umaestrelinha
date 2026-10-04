@@ -175,3 +175,67 @@ describe('createFakeSupabase — insert, delete e contagem', () => {
     })
   })
 })
+
+// ---------------------------------------------------------------------------------------------
+// Feature 59 — o dublê passa a ENXERGAR o filtro das listas, todos os `.eq()` de uma linha e o
+// `.or()` de um update. Mesma régua dos blocos acima: só o que a feature acrescentou tem teste, e
+// o motivo é o de sempre — um dublê que não enxerga o filtro torna a regra inauditável.
+// ---------------------------------------------------------------------------------------------
+
+describe('createFakeSupabase — o que a feature 59 acrescentou', () => {
+  it('lista em forma de função recebe TODOS os `.eq()` e o `select`', async () => {
+    const vistos: unknown[] = []
+    const { client } = createFakeSupabase({
+      lists: {
+        order_status_history: (eqs, select) => {
+          vistos.push({ eqs, select })
+          return eqs.some(([c, v]) => c === 'order_id' && v === 'o1') ? [{ to_status: 'paid' }] : []
+        },
+      },
+    })
+
+    const certo = await client.from('order_status_history').select('to_status').eq('order_id', 'o1')
+    const errado = await client.from('order_status_history').select('to_status').eq('id', 'o1')
+
+    expect(certo.data).toEqual([{ to_status: 'paid' }])
+    expect(errado.data).toEqual([])
+    expect(vistos[0]).toEqual({ eqs: [['order_id', 'o1']], select: 'to_status' })
+  })
+
+  it('linha em forma de função recebe, no terceiro argumento, TODOS os `.eq()`', async () => {
+    const { client } = createFakeSupabase({
+      rows: {
+        addresses: (_eq, _select, eqs) =>
+          eqs.length === 2 && eqs[0][0] === 'customer_id' && eqs[1][0] === 'is_default'
+            ? { id: 'a1' }
+            : null,
+      },
+    })
+
+    const dois = await client
+      .from('addresses')
+      .select('id')
+      .eq('customer_id', 'c1')
+      .eq('is_default', true)
+      .maybeSingle()
+    const um = await client.from('addresses').select('id').eq('customer_id', 'c1').maybeSingle()
+
+    expect(dois.data).toEqual({ id: 'a1' })
+    expect(um.data).toBeNull()
+  })
+
+  it('`.or()` de um update é registrado — e update sem `.or()` não ganha a chave', async () => {
+    const { client, updates } = createFakeSupabase({})
+
+    await client.from('customers').update({ cpf: '1' }).eq('id', 'c1').or('cpf.is.null,cpf.eq.')
+    await client.from('customers').update({ phone: '2' }).eq('id', 'c1')
+
+    expect(updates[0]).toEqual({
+      table: 'customers',
+      values: { cpf: '1' },
+      eq: ['id', 'c1'],
+      or: 'cpf.is.null,cpf.eq.',
+    })
+    expect(updates[1]).not.toHaveProperty('or')
+  })
+})

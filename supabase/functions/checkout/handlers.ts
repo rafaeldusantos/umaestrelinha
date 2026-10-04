@@ -425,6 +425,20 @@ async function ensureGuestCustomer(
  * de quem **coleta** o documento, e isso não muda.
  *
  * `ADR-G2`: falha aqui não derruba o pedido. É a mesma regra de `ADR-03`, que a loja já aplicava.
+ *
+ * Feature `59` mudou duas coisas, e as duas pela mesma razão — a conta passou a mostrar e a editar
+ * o que esta função grava:
+ *
+ * - **O CPF só é gravado quando a ficha ainda não tem um** (`DAD-05`). A service role passa pelo
+ *   gatilho `guard_customer_identity` (é uma das saídas dele), então o "CPF travado" só vale para
+ *   o checkout se o próprio update se recusar a sobrescrever. Sem o filtro, a segunda compra com
+ *   outro documento trocaria o pagador da ficha em silêncio. O telefone vai num update **irmão**:
+ *   no mesmo update, o filtro do CPF impediria o WhatsApp de quem já tem CPF de ser atualizado.
+ * - **O primeiro endereço da cliente nasce padrão** (`DAD-08`). Ele nascia `is_default = false`, e
+ *   `useDefaultAddress` nunca achava nada: o caixa não pré-preenchia e a conta não teria endereço a
+ *   mostrar. Quem já tem padrão ganha o novo como não-padrão — o padrão é escolha dela, na conta.
+ *   Duas compras simultâneas de quem não tinha padrão esbarram no índice único parcial
+ *   `addresses_one_default`, e a segunda gravação falha — o que `ADR-G2` já aceita.
  */
 async function persistirConveniencias(
   deps: Deps,
@@ -435,12 +449,21 @@ async function persistirConveniencias(
   const cpf = (body?.customer_document ?? '').replace(/\D/g, '')
   const telefone = (body?.customer_phone ?? '').trim()
 
-  const ficha: Record<string, unknown> = {}
-  if (cpf) ficha.cpf = cpf
-  if (telefone) ficha.phone = telefone
-  if (Object.keys(ficha).length > 0) {
+  if (telefone) {
     try {
-      await deps.supabase.from('customers').update(ficha).eq('id', customerId)
+      await deps.supabase.from('customers').update({ phone: telefone }).eq('id', customerId)
+    } catch {
+      /* conveniência */
+    }
+  }
+
+  if (cpf) {
+    try {
+      await deps.supabase
+        .from('customers')
+        .update({ cpf })
+        .eq('id', customerId)
+        .or('cpf.is.null,cpf.eq.')
     } catch {
       /* conveniência */
     }
@@ -448,6 +471,13 @@ async function persistirConveniencias(
 
   if (!body?.address_zip) return
   try {
+    const { data: padrao } = await deps.supabase
+      .from('addresses')
+      .select('id')
+      .eq('customer_id', customerId)
+      .eq('is_default', true)
+      .maybeSingle()
+
     await deps.supabase.from('addresses').insert({
       customer_id: customerId,
       cep: body.address_zip,
@@ -457,6 +487,7 @@ async function persistirConveniencias(
       neighborhood: body.address_neighborhood ?? '',
       city: body.address_city ?? '',
       state: body.address_state ?? '',
+      is_default: !padrao?.id,
     })
   } catch {
     /* ADR-G2: conveniência para a próxima compra, nunca pré-requisito desta */
@@ -523,8 +554,49 @@ export async function getOrder(
     ...publico
   } = pedido
 
+  const status_events = await eventosDoPedido(deps, orderId)
+
   log({ action: 'get-order', status: 'ok', order_id: orderId })
-  return json({ order: publico })
+  return json({ order: { ...publico, status_events } })
+}
+
+/**
+ * `LIN-04` (feature `59`): os eventos da linha do tempo, no MESMO formato que a loja monta a partir
+ * da RPC `customer_order_events` — `{ status, at }`, em ordem de data. A convidada não tem sessão,
+ * então a RPC (que recorta por `auth.uid()`) não serve a ela; quem autoriza aqui é o token, já
+ * conferido por `accessGrant` antes desta leitura.
+ *
+ * Só `to_status` e `created_at` são pedidos: `note` é texto interno da Adri e `created_by` diz quem
+ * mexeu — nenhum dos dois é da cliente. A ordem é feita aqui, e não confiada ao banco, para o
+ * formato não depender de um `order by` que alguém pode tirar.
+ *
+ * Falha de leitura devolve lista vazia: a linha do tempo perde as datas, a página não.
+ */
+async function eventosDoPedido(
+  deps: Deps,
+  orderId: string,
+): Promise<Array<{ status: string; at: string }>> {
+  try {
+    const { data } = await deps.supabase
+      .from('order_status_history')
+      .select('to_status, created_at')
+      .eq('order_id', orderId)
+
+    return (Array.isArray(data) ? data : [])
+      .filter(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (h: any) =>
+          typeof h?.to_status === 'string' &&
+          h.to_status !== '' &&
+          typeof h?.created_at === 'string' &&
+          !Number.isNaN(new Date(h.created_at).getTime()),
+      )
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .map((h: any) => ({ status: h.to_status as string, at: h.created_at as string }))
+      .sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime())
+  } catch {
+    return []
+  }
 }
 
 // ---------------------------------------------------------------------------------------------

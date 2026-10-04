@@ -161,3 +161,108 @@ describe('get-order — as recusas (PED-07)', () => {
     expect(res.status).toBe(403)
   })
 })
+
+describe('get-order — os eventos da linha do tempo (LIN-04, feature 59)', () => {
+  /**
+   * O histórico de DOIS pedidos, fora de ordem, com as colunas internas que NÃO podem sair.
+   *
+   * A fixture é uma função para o dublê ENXERGAR o filtro: só o `.eq('order_id', 'ord-1')` devolve
+   * as linhas deste pedido. Uma lista fixa seria devolvida com qualquer filtro, e trocar a coluna
+   * do `.eq()` passaria verde — entregando à convidada o histórico de outro pedido.
+   */
+  const HISTORICO = [
+    { order_id: 'ord-1', to_status: 'shipped', created_at: '2026-09-12T10:00:00Z', note: 'NOTA INTERNA', created_by: 'adm-1', from_status: 'paid' },
+    { order_id: 'ord-1', to_status: 'paid', created_at: '2026-09-10T10:00:00Z', note: null, created_by: null, from_status: 'pending' },
+    { order_id: 'ord-2', to_status: 'cancelled', created_at: '2026-09-11T10:00:00Z', note: 'de outro pedido', created_by: 'adm-1', from_status: 'pending' },
+  ]
+
+  const leituras: Array<{ eqs: Array<[string, unknown]>; select: string }> = []
+  const historicoVisto = (eqs: Array<[string, unknown]>, select: string) => {
+    leituras.push({ eqs, select })
+    const id = eqs.find(([coluna]) => coluna === 'order_id')?.[1]
+    return HISTORICO.filter((h) => id !== undefined && h.order_id === id)
+  }
+
+  it('devolve os eventos do pedido, em ordem de data, só com `status` e `at`', async () => {
+    leituras.length = 0
+    const token = newAccessToken()
+    const supabase = createFakeSupabase({
+      rows: { orders: await pedidoCom(token) },
+      lists: { order_status_history: historicoVisto },
+    })
+    const res = await route(criarDeps(supabase), pedir({ order_id: 'ord-1', access_token: token }))
+    const { order } = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(order.status_events).toEqual([
+      { status: 'paid', at: '2026-09-10T10:00:00Z' },
+      { status: 'shipped', at: '2026-09-12T10:00:00Z' },
+    ])
+  })
+
+  it('a leitura é de `order_status_history`, filtrada por `order_id`, sem pedir `note` nem `created_by`', async () => {
+    leituras.length = 0
+    const token = newAccessToken()
+    const supabase = createFakeSupabase({
+      rows: { orders: await pedidoCom(token) },
+      lists: { order_status_history: historicoVisto },
+    })
+    const res = await route(criarDeps(supabase), pedir({ order_id: 'ord-1', access_token: token }))
+    const texto = await res.text()
+
+    expect(leituras).toHaveLength(1)
+    expect(leituras[0].eqs).toEqual([['order_id', 'ord-1']])
+    expect(leituras[0].select).not.toMatch(/note|created_by/)
+    // E nada das colunas internas, nem do pedido vizinho, atravessa a resposta.
+    expect(texto).not.toContain('NOTA INTERNA')
+    expect(texto).not.toContain('adm-1')
+    expect(texto).not.toContain('de outro pedido')
+  })
+
+  it('a recusa continua sem eventos — e o histórico nem é lido', async () => {
+    leituras.length = 0
+    const supabase = createFakeSupabase({
+      rows: { orders: await pedidoCom(newAccessToken()) },
+      lists: { order_status_history: historicoVisto },
+    })
+    const res = await route(
+      criarDeps(supabase),
+      pedir({ order_id: 'ord-1', access_token: newAccessToken() }),
+    )
+
+    expect(res.status).toBe(403)
+    expect(await res.text()).not.toContain('status_events')
+    expect(leituras).toHaveLength(0)
+  })
+
+  it('histórico ilegível devolve lista vazia — a linha do tempo perde datas, não a página', async () => {
+    const token = newAccessToken()
+    const supabase = createFakeSupabase({
+      rows: { orders: await pedidoCom(token) },
+      lists: { order_status_history: () => null },
+    })
+    const res = await route(criarDeps(supabase), pedir({ order_id: 'ord-1', access_token: token }))
+    const { order } = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(order.status_events).toEqual([])
+  })
+
+  it('registro com data ilegível ou sem status é descartado, sem derrubar os outros', async () => {
+    const token = newAccessToken()
+    const supabase = createFakeSupabase({
+      rows: { orders: await pedidoCom(token) },
+      lists: {
+        order_status_history: () => [
+          { to_status: 'paid', created_at: '2026-09-10T10:00:00Z' },
+          { to_status: 'shipped', created_at: null },
+          { to_status: null, created_at: '2026-09-11T10:00:00Z' },
+        ],
+      },
+    })
+    const res = await route(criarDeps(supabase), pedir({ order_id: 'ord-1', access_token: token }))
+    const { order } = await res.json()
+
+    expect(order.status_events).toEqual([{ status: 'paid', at: '2026-09-10T10:00:00Z' }])
+  })
+})
