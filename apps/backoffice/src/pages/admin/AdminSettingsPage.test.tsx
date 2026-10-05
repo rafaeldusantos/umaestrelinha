@@ -926,12 +926,29 @@ describe('Configurações › os campos de dinheiro usam o input mascarado (CFG-
   // jeito, e este número é o das parcelas SEM JUROS que a loja anuncia. Quem decide os juros na
   // cobrança é a conta do Mercado Pago, e a dica tem de dizer isso, senão mudar o número aqui
   // parece mudar o que a cliente paga.
-  it('as parcelas sem juros vão até 10 e avisam que quem cobra é o Mercado Pago', () => {
+  it('as parcelas sem juros vão até 10, e a dica diz o que o número digitado faz', () => {
     abrirVendas()
     const campo = screen.getByLabelText('Parcelas sem juros')
     expect(campo).toHaveAttribute('max', '10')
-    expect(campo.parentElement).toHaveTextContent(/painel do Mercado Pago/)
-    expect(campo.parentElement).toHaveTextContent(/até 10x/)
+
+    fireEvent.change(campo, { target: { value: '4' } })
+    expect(campo.parentElement).toHaveTextContent(
+      'Até 4x sem juros. De 5x a 10x, com os juros do Mercado Pago.',
+    )
+    fireEvent.change(campo, { target: { value: '1' } })
+    expect(campo.parentElement).toHaveTextContent('Sem juros só à vista. De 2x a 10x')
+  })
+
+  // QA de 2026-10-04: com 4 no campo a dona viu todas as parcelas com juros na loja — a conta do
+  // Mercado Pago não tinha parcelamento sem juros. O aviso diz quem cobra, e onde se liga.
+  it('o aviso acima do campo diz que quem deixa de cobrar os juros é o Mercado Pago', () => {
+    abrirVendas()
+    const aviso = screen.getByTestId('aviso-parcelas-sem-juros')
+    expect(aviso).toHaveTextContent('Quem deixa de cobrar os juros é o Mercado Pago')
+    expect(aviso).toHaveTextContent('Oferecer parcelamento sem juros')
+    // Acima do campo: é o que ela precisa saber ANTES de digitar.
+    const campo = screen.getByLabelText('Parcelas sem juros')
+    expect(aviso.compareDocumentPosition(campo) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   it('CFG-24: a parcela mínima grava o mesmo número de hoje', async () => {

@@ -10,7 +10,7 @@
 // *Out of Scope* da spec.
 
 import { useEffect, useState } from 'react'
-import { ShoppingCart } from 'lucide-react'
+import { CreditCard, ShoppingCart } from 'lucide-react'
 import { Input } from '@estrelinha/ui/input'
 import { useStoreSettings } from '@estrelinha/core/hooks/useStoreSettings'
 import {
@@ -25,8 +25,20 @@ import { useSettingsSave } from '../model/useSettingsSave'
 import CheckoutSettingsCard from './CheckoutSettingsCard'
 import { SettingsLoading } from './settingsParts'
 
-export const PARCELAS_SEM_JUROS_HINT =
-  'Precisa ser o mesmo número de "Oferecer parcelamento sem juros" no painel do Mercado Pago — é ele quem cobra. O caixa oferece até 10x; as demais saem com os juros do Mercado Pago.'
+/**
+ * A dica do campo, com o número que a dona acabou de digitar — "4" vira "até 4x sem juros; de 5x a
+ * 10x, com juros". Um texto fixo ("o caixa oferece até 10x…") não respondia a pergunta que ela faz
+ * ao olhar o campo: *o que acontece com este número?* (QA de 2026-10-04).
+ */
+export const parcelasSemJurosHint = (n: number): string => {
+  const semJuros = Math.max(1, Math.min(CARD_INSTALLMENTS_CEILING, Math.floor(n) || 1))
+  if (semJuros >= CARD_INSTALLMENTS_CEILING) return `Até ${CARD_INSTALLMENTS_CEILING}x sem juros.`
+  const inicio = semJuros === 1 ? 'Sem juros só à vista' : `Até ${semJuros}x sem juros`
+  return `${inicio}. De ${semJuros + 1}x a ${CARD_INSTALLMENTS_CEILING}x, com os juros do Mercado Pago.`
+}
+
+export const MERCADO_PAGO_SEM_JUROS_AVISO =
+  'Quem deixa de cobrar os juros é o Mercado Pago. Este número é o que a loja ANUNCIA (vitrine, página do produto e caixa). Para a cliente pagar sem juros de verdade, ative "Oferecer parcelamento sem juros" no painel do Mercado Pago (Seu negócio → Configurações) com o mesmo número. Sem isso, o caixa mostra todas as parcelas com os juros do Mercado Pago.'
 
 export const SalesSection = () => {
   const { data, isLoading } = useStoreSettings()
@@ -74,6 +86,13 @@ export const SalesSection = () => {
           switchClassName={SWITCH_TAP_44}
         />
 
+        {/* QA de 2026-10-04: com 4 no campo, a dona viu todas as parcelas com juros na loja e
+            concluiu que o campo não funcionava. Ele funciona — anuncia; quem cobra é o Mercado Pago.
+            O aviso fica ACIMA do campo, porque é o que ela precisa saber antes de digitar. */}
+        <InfoBanner icon={CreditCard} data-testid="aviso-parcelas-sem-juros">
+          <p>{MERCADO_PAGO_SEM_JUROS_AVISO}</p>
+        </InfoBanner>
+
         <div className="grid gap-4 sm:grid-cols-2">
           {/* Contagem, não dinheiro — fica como está (`CFG-25`).
               Desde 2026-10-04 o campo é o número de parcelas SEM JUROS que a loja anuncia (vitrine,
@@ -84,7 +103,7 @@ export const SalesSection = () => {
           <FieldGroup
             label="Parcelas sem juros"
             htmlFor="max-parcelas"
-            hint={PARCELAS_SEM_JUROS_HINT}
+            hint={parcelasSemJurosHint(payment.max_installments)}
           >
             <Input id="max-parcelas"
               type="number"
