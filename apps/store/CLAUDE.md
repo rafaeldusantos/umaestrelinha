@@ -92,9 +92,16 @@ marca. Leia [`../../CLAUDE.md`](../../CLAUDE.md) (regras do repositório) e
 
   | degrau | componente | piso | onde aparece |
   | --- | --- | ---: | --- |
-  | 1 | `EstrelinhaLockup` | **600px** | e-mail, papelaria, embalagem, `og-image.png` |
-  | 2 | `EstrelinhaSignature` | **190px** | header (202px), rodapé, menu, checkout, auth |
+  | 1 | `EstrelinhaLockup` | **600px** | papelaria, embalagem, `og-image.png` |
+  | 2 | `EstrelinhaSignature` | **190px** | header (202px), rodapé, menu, checkout, auth — **e os e-mails** |
   | 3 | `EstrelinhaSymbol` | **48px** | favicon, selo, superfície pequena |
+
+  **O e-mail usa a ASSINATURA, não o lockup, e em PNG** (feature `60`, `AD-045`). O card do e-mail
+  tem 560px e 496 úteis — abaixo do piso de 600 do lockup — e o Gmail remove SVG. O arquivo é
+  `public/email/assinatura-v1@3x.png` (606 × 132, fundo #283A4A opaco), derivado do SVG-fonte por
+  `.specs/brand/uma-estrelinha/_raster-email.ps1`, servido com cache `immutable` e **nunca
+  alterado**: e-mail entregue aponta para ele para sempre. Quem escreve a tag é `brandHeader`, em
+  `supabase/functions/send-notification/render/layout.ts` (ver `supabase/CLAUDE.md`).
 
   **Exceção declarada: o header do checkout sai a 180px abaixo de `sm`** (decisão do usuário,
   2026-10-04). O componente recebe 200 — senão a escada trocaria pelo símbolo — e a largura vem do

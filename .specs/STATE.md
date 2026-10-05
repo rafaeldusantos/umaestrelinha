@@ -1114,9 +1114,49 @@
 - **Guarda**: a migration é nova (as da `58` são imutáveis, `AD-017`), e um guarda prova o recorte,
   a idempotência e que nenhum `NS-%` é tocado.
 
+### AD-045
+- **Decision**: **A marca nos e-mails é um PNG versionado e IMUTÁVEL servido pela loja**
+  (`apps/store/public/email/assinatura-v1@3x.png`, derivado do SVG-fonte por
+  `.specs/brand/uma-estrelinha/_raster-email.ps1`). `brandHeader` (`send-notification/render/layout.ts`)
+  é o **dono** da tag; os três templates de auth carregam uma **cópia** com
+  `src="{{ .SiteURL }}/…"`, conferida byte a byte contra `brandHeader('{{ .SiteURL }}')` por teste.
+- **Reason**: feature `60`. SVG não sobrevive a Gmail nem a Outlook. O GoTrue não chama função, então
+  a tag do auth não pode ter dono em código — só cópia com guarda (regra 3 do defeito 01).
+  `{{ .SiteURL }}` em vez da URL por extenso por decisão do usuário (2026-10-05): o domínio da loja
+  ainda vai mudar, e escrevê-lo nos templates seria um segundo dono dele.
+- **Trade-off**: o `site_url` do hospedado não é legível por comando; ele é conferido à mão antes de
+  colar os templates. E o `v1` **nunca** muda nem sai do ar — e-mails entregues apontam para ele para
+  sempre; arte nova entra como `v2`.
+- **Guarda**: `emailBrandImage.test.ts` (store — dimensão 3× a declarada, opacidade, cor do traço,
+  peso, piso, SHA-256) e a comparação de tag na suíte das functions.
+- **Date**: 2026-10-05
+- **Status**: active
+
 ## Handoff
 
-### ATUAL — 2026-10-04 · `59-minha-conta-v2` **IMPLEMENTADA — 28 de 28 tasks, Verifier PASS (rodada 2)**
+### ATUAL — 2026-10-05 · `60-logo-nos-emails` **IMPLEMENTADA — 8 de 8 tasks, Verifier PASS (23 mutantes, 23 mortos)**
+
+- **Feature**: `.specs/features/60-logo-nos-emails/` (`spec.md`, `design.md`, `tasks.md`). Decisão:
+  **`AD-045`** (a marca nos e-mails é um PNG versionado e imutável servido pela loja; `brandHeader`
+  é o dono da tag e os templates de auth são cópia guardada por teste).
+- **Origem**: os e-mails abriam com o texto "UMA ESTRELINHA" no cabeçalho, sem a cara da marca.
+- **O que mudou**: `brandHeader` em `send-notification/render/layout.ts`; `emailShell`/`renderEmail`
+  recebem a origem da loja (5º parâmetro, nunca variável de template); `dispatch.ts` e
+  `handlers.ts` passam `STORE_PUBLIC_URL`; os 3 templates de auth trocam o `<span>` pela tag com
+  `{{ .SiteURL }}`; `apps/store/public/email/assinatura-v1@3x.png` (606 × 132, 16 KB) gerado por
+  `.specs/brand/uma-estrelinha/_raster-email.ps1`; header `immutable` em `/email/(.*)`.
+- **Desvio medido na prova em navegador (`LOGO-02`)**: o `alt` sai a 17px, não 26, e o `style`
+  não declara `height:auto` — senão a caixa da imagem quebrada crescia além da faixa de hoje.
+- **PÓS-DEPLOY — passo de operação, nada disso é automático**:
+  1. `curl -sD - -o /dev/null <loja>/email/assinatura-v1@3x.png | grep -i content-type` → `image/png`
+     (não o shell do SPA).
+  2. No dashboard do Supabase, conferir que o `site_url` é a origem da loja, **sem barra final**.
+  3. Colar os 3 templates (`magic_link`, `confirmation`, `recovery`) **sem o comentário do topo**.
+     Os 17 transacionais **não** precisam de nada no dashboard — saem com o deploy da function.
+  4. Abrir um transacional e um código de acesso no Gmail (web e app, claro e escuro) e no Outlook,
+     inclusive com imagens bloqueadas.
+
+### 2026-10-04 · `59-minha-conta-v2` **IMPLEMENTADA — 28 de 28 tasks, Verifier PASS (rodada 2)**
 
 - **Feature**: `.specs/features/59-minha-conta-v2/` (`spec.md`, `context.md`, `design.md`,
   `tasks.md`, `validation.md`). Decisão: **`AD-044`** (os 2 pedidos `NP-` renumerados). Fecha

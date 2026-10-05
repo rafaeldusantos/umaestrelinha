@@ -565,6 +565,22 @@ serifado como o display da loja, porque cair de serifa para sans muda família e
 **Helvetica/Arial** no corpo. Tudo inline, layout em `<table>`, sem `<style>`, sem `<link>`, sem
 `background-image`.
 
+**A marca do cabeçalho é uma IMAGEM, e ela tem dono** (feature `60`, `AD-045`). O Gmail remove SVG e
+o Outlook desktop não o renderiza, então a faixa escura leva um PNG — a assinatura negativa em 3×,
+com o fundo da faixa gravado nela (`apps/store/public/email/assinatura-v1@3x.png`), servido pela
+loja. Quem escreve a tag é `brandHeader(origem)` em `render/layout.ts`; os transacionais a chamam com
+`STORE_PUBLIC_URL`, e os três templates de auth carregam a saída de `brandHeader('{{ .SiteURL }}')`
+**copiada** — o GoTrue não chama função — e conferida byte a byte por `brandHeader.test.ts`.
+
+- **Origem vazia devolve o wordmark em texto de antes**, nunca uma imagem com `src` relativo.
+- **O texto alternativo é 17px, não os 26px do wordmark**, e o `style` não declara `height:auto`:
+  medido no Chromium, as duas coisas faziam a caixa da imagem quebrada crescer além da faixa.
+- **O `v1` é eterno.** E-mail entregue aponta para ele para sempre; arte nova é `v2`, com o caminho
+  novo em `EMAIL_BRAND`. O SHA-256 está fixado em `emailBrandImage.test.ts`.
+- **Mudar a tag exige colar os três templates de novo no dashboard**, e antes disso conferir que o
+  `site_url` do hospedado é a origem da loja **sem barra final** (senão o `src` sai com `//email/`) e
+  que o arquivo é entregue como `image/png`. Não há comando que faça essa conferência por você.
+
 ## Secrets
 
 Todos no `.env` da **raiz** (ver `.env.example`), resolvidos no local por `[edge_runtime.secrets]` do
