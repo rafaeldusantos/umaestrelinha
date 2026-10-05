@@ -854,3 +854,20 @@ describe('DLV-05 — a porta: aberta, síncrona e sem I/O', () => {
     expect(response.headers.get('Content-Type')).toBe('application/json')
   })
 })
+
+// =================================================================================================
+// Feature 60 — a prévia do painel desenha a mesma marca do envio
+// =================================================================================================
+
+describe('LOGO-09 — `preview` traz a imagem da marca, servida pela origem da env', () => {
+  const ORIGEM = 'https://loja-previa.exemplo.invalid'
+
+  it('o HTML da prévia aponta a marca para STORE_PUBLIC_URL', async () => {
+    const { deps } = setup({ env: { storePublicUrl: ORIGEM } })
+
+    const body = await (await route(deps, request('preview', { event: 'order_paid', channel: 'email' }))).json()
+
+    expect(body.html).toContain(`src="${ORIGEM}/email/assinatura-v1@3x.png"`)
+    expect(body.html).not.toContain('UMA ESTRELINHA')
+  })
+})

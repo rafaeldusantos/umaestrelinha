@@ -231,7 +231,7 @@ export async function preview(deps: Deps, req: Request, body: any): Promise<Resp
     enderecoAtelie: settings.atelie,
   })
 
-  const rendered = renderEmail(event as NotificationEvent, order, fields, vars)
+  const rendered = renderEmail(event as NotificationEvent, order, fields, vars, deps.env.storePublicUrl)
   return json({ ...rendered, sample: !orderIdOf({ order_id: body?.order_id }) })
 }
 

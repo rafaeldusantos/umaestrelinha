@@ -87,11 +87,17 @@ function ctaHref(event: NotificationEvent, vars: NotificationVars): string {
   return EVENT_AUDIENCE[event] === 'owner' ? (vars.link_pedido_admin ?? '') : (vars.link_conta ?? '')
 }
 
+/**
+ * `storeUrl` é a origem da loja, de onde a imagem da marca do cabeçalho é servida (feature 60). Ela
+ * viaja como parâmetro, e não em `vars`: `vars` é o vocabulário que a dona escreve nos textos, e uma
+ * variável de "origem da loja" seria vocabulário novo no editor sem ninguém ter pedido.
+ */
 export function renderEmail(
   event: NotificationEvent,
   order: EmailOrder,
   fields: EmailFields,
   vars: NotificationVars,
+  storeUrl: string | null | undefined,
 ): RenderedEmail {
   const subject = interpolate(fields.subject, vars)
   const heading = interpolate(fields.heading, vars)
@@ -112,7 +118,7 @@ export function renderEmail(
 
   return {
     subject,
-    html: emailShell(escapeHtml(heading), escapeHtml(lead), body),
+    html: emailShell(escapeHtml(heading), escapeHtml(lead), body, storeUrl),
     text: textBody(heading, lead, order, href, [...extra, ...fixedTextLines(event, order)]),
   }
 }

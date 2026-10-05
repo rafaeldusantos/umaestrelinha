@@ -305,7 +305,7 @@ async function deliver(
     whatsapp: settings.general?.whatsapp,
     enderecoAtelie: atelieAddress(settings.material),
   })
-  const rendered = renderEmail(event, order as EmailOrder, bloco.fields, vars)
+  const rendered = renderEmail(event, order as EmailOrder, bloco.fields, vars, deps.env.storePublicUrl)
 
   const redirect = deps.env.resendDevRedirectTo?.trim()
   const to = redirect ? redirect : destino.to

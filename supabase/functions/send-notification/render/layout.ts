@@ -88,6 +88,50 @@ export function firstName(fullName: string): string {
   return trimmed === '' ? '' : trimmed.split(/\s+/)[0]
 }
 
+/**
+ * A marca no cabeçalho (feature 60, `AD-045`). PNG e não SVG: o Gmail remove SVG e o Outlook desktop
+ * não o renderiza. O arquivo é a assinatura NEGATIVA rasterizada em 3× com o fundo da faixa gravado
+ * nele (`apps/store/public/email/`, gerado por `.specs/brand/uma-estrelinha/_raster-email.ps1`), e é
+ * IMUTÁVEL: e-mails entregues apontam para ele para sempre — arte nova entra como `v2`.
+ *
+ * 202 × 44 é a medida do header da loja (`EstrelinhaSignature width={202}`), acima do piso da
+ * assinatura. `emailBrandImage.test.ts` (suíte da loja) lê estes números daqui e confere o arquivo.
+ */
+export const EMAIL_BRAND = {
+  path: '/email/assinatura-v1@3x.png',
+  width: 202,
+  height: 44,
+  alt: 'Uma Estrelinha',
+} as const
+
+const WORDMARK_STYLE = `font-family:${WORDMARK_FONT};font-size:26px;letter-spacing:0.14em;line-height:1.2;color:${ESTRELINHA.onPrimary};`
+
+// SPEC_DEVIATION: LOGO-02 pedia o alt com os 26px do wordmark; ele sai a 17px.
+// Reason: medido no Chromium (T07) — a 26px "UMA ESTRELINHA" mede 286px numa caixa de 202, quebra em
+// duas linhas e a caixa da imagem quebrada fica mais alta que a faixa de hoje. A 17px mede 187px:
+// cabe numa linha, com folga para o Times da pilha de reserva. Pelo mesmo motivo o style NÃO declara
+// `height:auto` nem `max-width` — `height:auto` vence o atributo `height="44"` e deixava a caixa
+// crescer até caber o texto. A imagem tem 202px, menos que qualquer card, então `max-width` não
+// compra nada.
+const ALT_STYLE = `font-family:${WORDMARK_FONT};font-size:17px;letter-spacing:0.14em;line-height:1.2;color:${ESTRELINHA.onPrimary};text-transform:uppercase;`
+
+/**
+ * O conteúdo da faixa escura. Dono da tag: os templates de auth (`supabase/templates/*.html`)
+ * carregam a saída de `brandHeader('{{ .SiteURL }}')` copiada, e um teste compara byte a byte.
+ *
+ * O `style` do `<img>` repete o do wordmark porque cliente que bloqueia imagem pinta o `alt` com o
+ * estilo do elemento: o e-mail bloqueado fica igual ao de antes. Sem origem, devolve o próprio
+ * wordmark — um `src` relativo desenharia o ícone de imagem quebrada no lugar da marca.
+ */
+export function brandHeader(storeUrl: string | null | undefined): string {
+  if (!storeUrl || storeUrl.trim() === '') {
+    return `<span style="${WORDMARK_STYLE}">UMA ESTRELINHA</span>`
+  }
+
+  const src = escapeHtml(storeLink(storeUrl.trim(), EMAIL_BRAND.path))
+  return `<img src="${src}" width="${EMAIL_BRAND.width}" height="${EMAIL_BRAND.height}" alt="${EMAIL_BRAND.alt}" style="display:block;margin:0 auto;border:0;outline:none;text-decoration:none;${ALT_STYLE}">`
+}
+
 /** Caixa de destaque (molde da caixa do código nos templates de auth). Conteúdo já escapado. */
 export function highlightBox(label: string, value: string, hint?: string): string {
   return `<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${ESTRELINHA.groundDeep};border:1px solid ${ESTRELINHA.line};border-radius:12px;margin:0 0 24px;">
@@ -233,8 +277,11 @@ export function ctaButton(href: string, label: string): string {
 </table>`
 }
 
-/** Envelope completo: fundo, card, header com wordmark, corpo, rodapé. */
-export function emailShell(heading: string, lead: string, body: string): string {
+/**
+ * Envelope completo: fundo, card, header com a marca, corpo, rodapé. `storeUrl` é a origem da loja,
+ * de onde a imagem da marca é servida (`brandHeader`); vazia, a faixa volta ao wordmark em texto.
+ */
+export function emailShell(heading: string, lead: string, body: string, storeUrl: string | null | undefined): string {
   // O envelope é o MESMO dos templates de auth (supabase/templates/*.html): mesma faixa escura,
   // mesmo card de 560px, mesmo raio de 20px da escala do DS. Duas famílias de e-mail que chegam na
   // mesma caixa de entrada e não se parecem é a loja falando com duas vozes.
@@ -244,7 +291,7 @@ export function emailShell(heading: string, lead: string, body: string): string 
       <table width="560" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;width:100%;background:${ESTRELINHA.white};border:1px solid ${ESTRELINHA.line};border-radius:20px;">
         <tr>
           <td align="center" style="background:${ESTRELINHA.primaryStrong};padding:28px 32px;border-radius:20px 20px 0 0;">
-            <span style="font-family:${WORDMARK_FONT};font-size:26px;letter-spacing:0.14em;line-height:1.2;color:${ESTRELINHA.onPrimary};">UMA ESTRELINHA</span>
+            ${brandHeader(storeUrl)}
             <div style="width:48px;height:1px;background:${ESTRELINHA.accent};margin:12px auto 0;line-height:1px;font-size:1px;">&nbsp;</div>
           </td>
         </tr>

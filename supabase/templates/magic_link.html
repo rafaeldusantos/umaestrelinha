@@ -15,6 +15,10 @@
     no corpo.
   · O acento #B8945F NUNCA é texto sobre claro (2,66:1 sobre o chão). Aqui ele
     é só o fio sob a marca, dentro da faixa escura.
+  · A marca é uma IMAGEM servida pela loja ({{ .SiteURL }}/email/…), porque
+    cliente de e-mail remove vetor. A tag tem DONO em layout.ts (brandHeader)
+    e é conferida byte a byte por teste: não edite só aqui. Com a imagem
+    bloqueada, o texto alternativo herda o estilo do wordmark de antes.
   · O preheader (as duas <div> ocultas logo abaixo) é a MESMA frase do parágrafo
     de abertura, para a caixa de entrada não mostrar nada que a loja não disse
     em outro lugar. A segunda <div> é só enchimento invisível, para o cliente de
@@ -28,7 +32,7 @@
       <table width="560" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;width:100%;background:#FFFFFF;border:1px solid #E6DFD4;border-radius:20px;">
         <tr>
           <td align="center" style="background:#283A4A;padding:28px 32px;border-radius:20px 20px 0 0;">
-            <span style="font-family:Georgia,'Times New Roman',serif;font-size:26px;letter-spacing:0.14em;line-height:1.2;color:#F7F3EC;">UMA ESTRELINHA</span>
+            <img src="{{ .SiteURL }}/email/assinatura-v1@3x.png" width="202" height="44" alt="Uma Estrelinha" style="display:block;margin:0 auto;border:0;outline:none;text-decoration:none;font-family:Georgia,'Times New Roman',serif;font-size:17px;letter-spacing:0.14em;line-height:1.2;color:#F7F3EC;text-transform:uppercase;">
             <div style="width:48px;height:1px;background:#B8945F;margin:12px auto 0;line-height:1px;font-size:1px;">&nbsp;</div>
           </td>
         </tr>

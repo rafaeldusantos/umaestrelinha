@@ -181,3 +181,40 @@ describe('templates de e-mail de auth — preheader oculto (AET-06)', () => {
     expect(new Set(texts).size).toBe(FILES.length)
   })
 })
+
+/**
+ * Feature 60 (`LOGO-20`…`LOGO-22`) — a marca é imagem, e o fio fica.
+ *
+ * A comparação BYTE A BYTE da tag com o dono (`brandHeader`, em `layout.ts`) mora na suíte das
+ * functions, que importa a função de verdade. Aqui fica a FORMA, lida fora do comentário do topo —
+ * que explica a restrição em prosa e não pode ser o que faz o teste passar ou reprovar.
+ */
+describe('templates de e-mail de auth — a marca é imagem, servida pela loja (LOGO-20, LOGO-21, LOGO-22)', () => {
+  const SRC = 'src="{{ .SiteURL }}/email/assinatura-v1@3x.png"'
+  const FIO = '<div style="width:48px;height:1px;background:#B8945F;'
+
+  /** A régua da ausência, como função, para o sensor chamar a mesma coisa. */
+  const recusaMarca = (body: string): string | null => {
+    if (body.toLowerCase().includes('<svg')) return 'tem <svg'
+    if (body.includes('UMA ESTRELINHA')) return 'ainda tem o wordmark em texto'
+    if (!body.includes(SRC)) return 'não tem a imagem da marca'
+    return null
+  }
+
+  it.each(FILES)('%s: a imagem da marca, sem vetor e sem o wordmark em texto', (name) => {
+    expect(recusaMarca(stripComment(RAW[name]))).toBeNull()
+  })
+
+  it.each(FILES)('%s: o fio dourado vem logo depois da imagem (LOGO-22)', (name) => {
+    const body = stripComment(RAW[name])
+    const img = body.indexOf('<img')
+    expect(img, `${name} sem <img`).toBeGreaterThanOrEqual(0)
+    const depois = body.slice(body.indexOf('>', img) + 1)
+    expect(depois.trimStart().startsWith(FIO)).toBe(true)
+  })
+
+  it('sensor: o casco antigo, com o wordmark em texto, reprova', () => {
+    expect(recusaMarca('<td><span>UMA ESTRELINHA</span></td>')).not.toBeNull()
+    expect(recusaMarca(`<td><svg></svg><img ${SRC}></td>`)).toBe('tem <svg')
+  })
+})

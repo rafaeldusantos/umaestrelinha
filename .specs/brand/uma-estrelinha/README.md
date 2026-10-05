@@ -126,6 +126,18 @@ resolve isso na própria prancha do favicon, e a tira de escala dele (64 · 48 �
 32 · 24 · 16) usa a **arte reduzida** nos cinco tamanhos. O selo fica aqui como
 ativo de carimbo, etiqueta e embalagem, que é o uso que o board lhe dá.
 
+## A marca nos e-mails (feature 60, `AD-045`)
+
+`_raster-email.ps1` rasteriza `uma-estrelinha-assinatura-negativo.svg` em
+`apps/store/public/email/assinatura-v1@3x.png`: **606 × 132**, exatamente 3× a caixa exibida no
+e-mail (202 × 44, a mesma largura do header da loja), traço `#F7F3EC` sobre fundo **opaco**
+`#283A4A` — a cor da faixa do cabeçalho, gravada no arquivo para o modo escuro de um cliente não
+apagar a marca. PNG porque o Gmail remove SVG e o Outlook desktop não o renderiza.
+
+Medido na geração: traço da lua e estrela 1,08px exibido (acima do piso), ornamento 0,58px — o
+mesmo que ele mede no header da loja a 202px. **O arquivo é imutável**: o script recusa
+sobrescrevê-lo, e `emailBrandImage.test.ts` fixa o SHA-256. Arte nova entra como `v2`.
+
 ## O que NÃO está aqui
 
 - **`516-0` ("Home Loja — Desktop (re-skin)") e `5I2-0` ("Kit de Ícones Custom") estão vazios** — zero

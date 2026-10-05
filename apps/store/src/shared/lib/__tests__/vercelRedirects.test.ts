@@ -231,7 +231,8 @@ describe('vercel.json — as duas rotas do Google Shopping (feature 30)', () => 
     // achando o que procuram, com o arquivo já pela metade.
     // Feature 33: subiu de 3 para 4 com o `Content-Type` de `/sitemap.xml`.
     // Feature 38: subiu de 4 para 5 com o `immutable` de `/fonts/(.*)`.
-    expect(CONFIG.headers).toHaveLength(5)
+    // Feature 60: subiu de 5 para 6 com o `immutable` de `/email/(.*)`.
+    expect(CONFIG.headers).toHaveLength(6)
 
     const assets = CONFIG.headers.find((entry) => entry.source === '/assets/(.*)')
     expect(assets).toBeDefined()
@@ -291,6 +292,33 @@ describe('vercel.json — as fontes próprias (feature 38)', () => {
     // Um ano de cache sobre um nome estável é um ano sem conserto possível. A versão no nome é o
     // que transforma "trocar a fonte" em "publicar outra URL".
     for (const caminho of SERVIDOS) expect(caminho).toMatch(/-v\d+-/)
+  })
+})
+
+/**
+ * Feature 60 (`LOGO-15`) — a marca dos e-mails.
+ *
+ * Os e-mails apontam para `/email/assinatura-v1@3x.png` por URL absoluta, e e-mail entregue não se
+ * atualiza: o arquivo é imutável (`AD-045`), então um ano de cache `immutable` é o certo. A versão
+ * mora no nome (`-v1@`), pela mesma razão das fontes acima.
+ *
+ * A ENTREGA (`Content-Type: image/png`, e não o shell do SPA) só se prova no domínio publicado — a
+ * Vercel serve `public/` antes dos rewrites, e é o `curl` do checklist pós-deploy que confere isso.
+ * Daqui o que se prova é que nenhum rewrite reivindica o caminho.
+ */
+describe('vercel.json — a marca dos e-mails (feature 60)', () => {
+  it('`/email/(.*)` é servido com um ano de cache `immutable`', () => {
+    const email = CONFIG.headers.find((entry) => entry.source === '/email/(.*)')
+    expect(email).toBeDefined()
+    expect(email.headers).toEqual([
+      { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+    ])
+  })
+
+  it('nenhum rewrite reivindica `/email`', () => {
+    for (const rewrite of CONFIG.rewrites) {
+      expect(rewrite.source.startsWith('/email'), rewrite.source).toBe(false)
+    }
   })
 })
 

@@ -60,7 +60,7 @@ function render(event: NotificationEvent, order: EmailOrder = orderFixture(), st
     whatsapp: '(51) 99999-0000',
     enderecoAtelie: 'Rua do Ateliê, 10\nPorto Alegre - RS\n90000-000',
   })
-  return renderEmail(event, order, fields, vars)
+  return renderEmail(event, order, fields, vars, storeUrl)
 }
 
 const shippedFixture = (over: Partial<EmailOrder> = {}) =>
@@ -116,6 +116,28 @@ const comPrefixo = (texto: string): string => {
   return partes.join('#NP-ABC123')
 }
 
+/**
+ * A ÚNICA divergência que a feature `60` introduz no HTML dos quatro legados: o wordmark em texto
+ * do cabeçalho vira a imagem da marca (`LOGO-08`). Mesmo movimento de `comPrefixo` — aplicado à
+ * fixture, nunca ao motor, e com as fixtures intocadas.
+ *
+ * As duas pontas são LITERAIS da spec (`LOGO-01`/`LOGO-02`), e não `brandHeader(STORE)`: usar a
+ * função aqui faria o cabeçalho do motor ser comparado com ele mesmo.
+ */
+const WORDMARK_LEGADO =
+  `<span style="font-family:Georgia,'Times New Roman',serif;font-size:26px;letter-spacing:0.14em;line-height:1.2;color:#F7F3EC;">UMA ESTRELINHA</span>`
+const MARCA_ESPERADA =
+  `<img src="${STORE}/email/assinatura-v1@3x.png" width="202" height="44" alt="Uma Estrelinha" style="display:block;margin:0 auto;border:0;outline:none;text-decoration:none;font-family:Georgia,'Times New Roman',serif;font-size:17px;letter-spacing:0.14em;line-height:1.2;color:#F7F3EC;text-transform:uppercase;">`
+
+const comCabecalho = (html: string): string => {
+  const partes = html.split(WORDMARK_LEGADO)
+  // Âncora: o wordmark tem de estar na fixture UMA vez — zero faria a troca virar identidade.
+  if (partes.length !== 2) {
+    throw new Error(`fixture com ${partes.length - 1} ocorrências do wordmark; esperava 1`)
+  }
+  return partes.join(MARCA_ESPERADA)
+}
+
 describe('T12 — os quatro legados saem idênticos ao que templates.ts produzia', () => {
   const casos = [
     ['order_received', legacyOrder()],
@@ -130,10 +152,15 @@ describe('T12 — os quatro legados saem idênticos ao que templates.ts produzia
     )
   })
 
-  it.each(casos)('%s — o HTML é idêntico, byte a byte', (event, pedido) => {
-    // O HTML **não** muda: o número não aparece no corpo, só no assunto e na versão texto. Medido
-    // ao escrever a `58` — as doze fixtures `.html` têm zero ocorrência dele.
-    expect(render(event as NotificationEvent, pedido).html).toBe(legacy(event, 'html'))
+  it.each(casos)('%s — o HTML é idêntico, byte a byte, a menos do cabeçalho de marca (feature 60)', (event, pedido) => {
+    // O número não aparece no corpo, só no assunto e na versão texto. Medido ao escrever a `58` —
+    // as doze fixtures `.html` têm zero ocorrência dele. A única mudança é a da `60`.
+    expect(render(event as NotificationEvent, pedido).html).toBe(comCabecalho(legacy(event, 'html')))
+  })
+
+  it('sensor — a troca do cabeçalho acusa fixture sem o wordmark', () => {
+    expect(() => comCabecalho('<td>sem marca</td>')).toThrow(/esperava 1/)
+    expect(comCabecalho(`<td>${WORDMARK_LEGADO}</td>`)).toBe(`<td>${MARCA_ESPERADA}</td>`)
   })
 
   it.each(casos)('%s — o HTML não cita o número, e é por isso que ele segue congelado', (event) => {
@@ -189,7 +216,9 @@ describe('TPL-01 — shape do retorno', () => {
     for (const event of NOTIFICATION_EVENTS) {
       const email = render(event, shippedFixture({ material_status: 'material_enviado', material_tracking_code: 'BB1BR' }))
       expect(email.subject.length, `${event} sem assunto`).toBeGreaterThan(0)
-      expect(email.html, `${event} sem corpo`).toContain('UMA ESTRELINHA')
+      // Feature 60: a marca do envelope deixou de ser o texto UMA ESTRELINHA e passou a ser a
+      // imagem — a régua continua sendo "o envelope está lá", agora pela tag que o desenha.
+      expect(email.html, `${event} sem corpo`).toContain(`src="${STORE}/email/assinatura-v1@3x.png"`)
     }
   })
 
@@ -244,7 +273,10 @@ describe('TPL-03 — escape de valores vindos de dados (injeção)', () => {
       }),
     )
 
-    expect(html).not.toMatch(/<img\b/i)
+    // Feature 60: o envelope passou a ter UMA `<img>` legítima, a da marca. A régua continua sendo
+    // "nenhuma tag veio do dado": tirada a marca (literal da spec), não pode sobrar `<img>` nenhuma.
+    expect(html.split(MARCA_ESPERADA)).toHaveLength(2)
+    expect(html.replace(MARCA_ESPERADA, '')).not.toMatch(/<img\b/i)
     expect(html).toContain('&lt;img src=x onerror=alert(1)&gt;')
   })
 
@@ -411,7 +443,10 @@ describe('TPL-08 — identidade Uma Estrelinha', () => {
     for (const hex of ['#23303A', '#54616B', '#34495E', '#283A4A', '#F7F3EC', '#FAF8F4', '#E6DFD4']) {
       expect(html).toContain(hex)
     }
-    expect(html).toContain('>UMA ESTRELINHA<')
+    // Feature 60 (`LOGO-01`): INVERTIDA, não apagada. O wordmark em texto só sobrevive como estado
+    // de falha (origem vazia, `LOGO-03`); com a origem da loja, a marca é a imagem.
+    expect(html).toContain(`src="${STORE}/email/assinatura-v1@3x.png"`)
+    expect(html).not.toContain('>UMA ESTRELINHA<')
     expect(html).toContain('Uma Estrelinha — eternizando suas lembranças.')
   })
 
@@ -691,5 +726,51 @@ describe('material_received — tom e conteúdo', () => {
     expect(html).toContain('Pingente Gota')
     expect(html).toContain(`R$${NBSP}60,50`)
     expect(html).toContain('Rua das Flores, 42')
+  })
+})
+
+// =================================================================================================
+// Feature 60 — a marca no cabeçalho, nos dezessete eventos
+// =================================================================================================
+
+describe('LOGO-01/03/05/07/22 — a marca no envelope de todo evento', () => {
+  const pedido = () => shippedFixture({ material_status: 'material_enviado', material_tracking_code: 'BB1BR' })
+  const SRC = `src="${STORE}/email/assinatura-v1@3x.png"`
+  const FIO = '<div style="width:48px;height:1px;background:#B8945F;'
+  const contar = (texto: string, trecho: string) => texto.split(trecho).length - 1
+
+  it('a varredura percorre os dezessete eventos', () => {
+    // Âncora: lista vazia faria os `it.each` abaixo não rodarem nada, e passarem.
+    expect(NOTIFICATION_EVENTS).toHaveLength(17)
+  })
+
+  it.each([...NOTIFICATION_EVENTS])('%s — exatamente uma imagem da marca, e nenhum wordmark em texto', (event) => {
+    const { html } = render(event, pedido())
+    expect(contar(html, '<img')).toBe(1)
+    expect(contar(html, SRC)).toBe(1)
+    expect(html).toContain(MARCA_ESPERADA)
+    expect(html).not.toContain('UMA ESTRELINHA')
+  })
+
+  it.each([...NOTIFICATION_EVENTS])('%s — o fio dourado vem logo depois da imagem (LOGO-22)', (event) => {
+    const { html } = render(event, pedido())
+    const depois = html.slice(html.indexOf(MARCA_ESPERADA) + MARCA_ESPERADA.length)
+    expect(depois.trimStart().startsWith(FIO)).toBe(true)
+  })
+
+  it.each([...NOTIFICATION_EVENTS])('%s — nenhum SVG (LOGO-05)', (event) => {
+    expect(render(event, pedido()).html.toLowerCase()).not.toContain('<svg')
+  })
+
+  it.each([...NOTIFICATION_EVENTS])('%s — sem origem, o cabeçalho de hoje e nenhuma imagem (LOGO-03)', (event) => {
+    const { html } = render(event, pedido(), '')
+    expect(html).toContain(WORDMARK_LEGADO)
+    expect(html).not.toContain('<img')
+  })
+
+  it.each([...NOTIFICATION_EVENTS])('%s — a versão texto não ganha imagem nem endereço dela (LOGO-07)', (event) => {
+    const { text } = render(event, pedido())
+    expect(text).not.toContain('<img')
+    expect(text).not.toContain('email/assinatura')
   })
 })

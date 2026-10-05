@@ -82,6 +82,7 @@ interface SetupOptions {
   networkError?: boolean
   providers?: NotificationProvider[]
   supabase?: Partial<FakeSupabaseOptions>
+  env?: Partial<typeof ENV>
 }
 
 function setup(options: SetupOptions = {}) {
@@ -107,7 +108,7 @@ function setup(options: SetupOptions = {}) {
   const deps: NotificationDeps = {
     supabase: supabase.client,
     fetch: fetchDouble.fetch,
-    env: ENV,
+    env: { ...ENV, ...(options.env ?? {}) },
     providers: options.providers ?? [createResendProvider({ apiKey: ENV.resendApiKey, from: ENV.resendFrom })],
   }
 
@@ -549,5 +550,32 @@ describe('recuo, dev e reenvio', () => {
     await dispatchEvent(deps, { orderId: ORDER_ID, event: 'material_instructions' })
 
     expect(fetchDouble.calls[0].body.text).toContain('Adri Muniz, Rua do Ateliê, 10')
+  })
+})
+
+// =================================================================================================
+// Feature 60 — o e-mail entregue ao provedor leva a marca da origem configurada
+// =================================================================================================
+
+describe('LOGO-01 — o envio passa a origem da loja ao render', () => {
+  // Origem DIFERENTE da do ENV e da de `render.test.ts`: com a mesma, a asserção seria verdadeira
+  // mesmo se o motor ignorasse a env e usasse uma constante.
+  const ORIGEM = 'https://loja-envio.exemplo.invalid'
+
+  it('o HTML entregue ao provedor traz a imagem servida pela origem da env', async () => {
+    const { deps, fetchDouble } = setup({ ligados: ['order_paid'], env: { storePublicUrl: ORIGEM } })
+
+    await dispatchEvent(deps, { orderId: ORDER_ID, event: 'order_paid' })
+
+    expect(fetchDouble.calls[0].body.html).toContain(`src="${ORIGEM}/email/assinatura-v1@3x.png"`)
+  })
+
+  it('sem a env, o HTML entregue sai com o wordmark em texto e sem imagem (LOGO-03)', async () => {
+    const { deps, fetchDouble } = setup({ ligados: ['order_paid'], env: { storePublicUrl: '' } })
+
+    await dispatchEvent(deps, { orderId: ORDER_ID, event: 'order_paid' })
+
+    expect(fetchDouble.calls[0].body.html).toContain('>UMA ESTRELINHA</span>')
+    expect(fetchDouble.calls[0].body.html).not.toContain('<img')
   })
 })
