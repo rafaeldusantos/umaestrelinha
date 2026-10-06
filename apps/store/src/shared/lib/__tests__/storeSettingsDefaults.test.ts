@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
+  DEFAULT_ANALYTICS,
   DEFAULT_GENERAL,
   DEFAULT_GOOGLE_SHOPPING,
   DEFAULT_NOTIFICATIONS,
@@ -413,5 +414,53 @@ describe('free_shipping_enabled — o interruptor diz o mesmo nos dois lados (FR
 
   it('a migration alcança a chave `shipping`, e só ela', () => {
     expect(SQL_FRETE_GRATIS).toMatch(/WHERE\s+key\s*=\s*'shipping'/i)
+  })
+})
+
+/**
+ * A chave `analytics` nasceu na feature 61, na sua própria migration, escrita no MESMO formato de
+ * INSERT da 30 — de propósito, para o mesmo parser `bloco` servir. Uma terceira grafia sairia da
+ * varredura sem ninguém notar, e as comparações abaixo passariam comparando vazio com vazio.
+ */
+const SQL_ANALYTICS = readFileSync(`${MIGRATIONS}/20261005120000_61-google-analytics.sql`, 'utf8')
+const analyticsSql = bloco(SQL_ANALYTICS, 'analytics')
+
+describe('analytics — a medição diz o mesmo nos dois lados (feature 61)', () => {
+  it('ÂNCORA: leu a migration da 61 e extraiu os três campos', () => {
+    expect(SQL_ANALYTICS).toContain('jsonb_build_object')
+    expect(Object.keys(analyticsSql).sort()).toEqual(['enabled', 'measurement_id', 'production_host'])
+  })
+
+  it('o parser DISCRIMINA — chave ausente devolve vazio', () => {
+    // Sensor embutido: sem ele, um `bloco` que sempre devolvesse `{}` faria a comparação campo a
+    // campo abaixo passar sobre nada.
+    expect(bloco(SQL_ANALYTICS, 'chave_que_nao_existe')).toEqual({})
+  })
+
+  it('nasce DESLIGADO no SQL e no TypeScript', () => {
+    expect(DEFAULT_ANALYTICS.enabled).toBe(false)
+    expect(analyticsSql.enabled).toBe(false)
+  })
+
+  it('o ID de medição é a propriedade real, nos dois lados', () => {
+    expect(DEFAULT_ANALYTICS.measurement_id).toBe('G-SQL517XDQZ')
+    expect(analyticsSql.measurement_id).toBe(DEFAULT_ANALYTICS.measurement_id)
+  })
+
+  it('o host de produção é o mesmo nos dois lados', () => {
+    expect(DEFAULT_ANALYTICS.production_host).toBe('umaestrelinha.com.br')
+    expect(analyticsSql.production_host).toBe(DEFAULT_ANALYTICS.production_host)
+  })
+
+  it('o SQL e o TypeScript têm EXATAMENTE os mesmos campos e valores', () => {
+    // Igualdade, não "contém": um campo a mais no TS sem semente no SQL também é divergência.
+    expect(analyticsSql).toEqual(DEFAULT_ANALYTICS)
+  })
+
+  it('a semeadura é `on conflict (key) do nothing` — não religa nem desliga o que a dona escolheu', () => {
+    const insert = SQL_ANALYTICS.match(/insert into public\.store_settings[\s\S]*?on conflict \(key\) do nothing;/i)?.[0]
+    expect(insert).toBeDefined()
+    expect(insert).toContain("'analytics'")
+    expect(insert).not.toMatch(/do update/i)
   })
 })

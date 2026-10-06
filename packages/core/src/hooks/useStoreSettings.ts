@@ -11,6 +11,8 @@ import {
   DEFAULT_MATERIAL,
   DEFAULT_MENU,
   DEFAULT_NOTIFICATIONS,
+  DEFAULT_ANALYTICS,
+  type AnalyticsSettings,
   type GeneralSettings,
   type ShippingSettings,
   type PaymentSettings,
@@ -44,6 +46,9 @@ const DEFAULTS: SettingsMap = {
   // `fetchAllSettings` descartaria a linha `notifications` em silêncio (o `if (key in map)`
   // abaixo). O hook `useNotificationSettings` e o teste que prova a leitura são da T19.
   notifications: DEFAULT_NOTIFICATIONS,
+  // Feature 61 — a medição do GA4. Sem esta linha `fetchAllSettings` descartaria a linha
+  // `analytics` em silêncio, e a loja e o painel leriam "desligado" com a medição ligada no banco.
+  analytics: DEFAULT_ANALYTICS,
 }
 
 async function fetchAllSettings(): Promise<SettingsMap> {
@@ -137,6 +142,18 @@ export function useGoogleShoppingSettings(): GoogleShoppingSettings {
 export function useNotificationSettings(): NotificationSettings {
   const { data } = useStoreSettings()
   return data?.notifications ?? DEFAULT_NOTIFICATIONS
+}
+
+/**
+ * A medição do Google Analytics 4 (feature 61, `ANL-08`).
+ *
+ * Mesmo molde de `useGoogleShoppingSettings`. **Leitura que falha devolve `DEFAULT_ANALYTICS`, que é
+ * desligado** — `fetchAllSettings` cai nos defaults quando o `select` erra —, então a loja não
+ * carrega o gtag sem saber que pode. Desligado é o estado seguro.
+ */
+export function useAnalyticsSettings(): AnalyticsSettings {
+  const { data } = useStoreSettings()
+  return data?.analytics ?? DEFAULT_ANALYTICS
 }
 
 type UpdateInput = { [K in SettingsKey]: { key: K; value: SettingsMap[K] } }[SettingsKey]

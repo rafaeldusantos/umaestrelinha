@@ -289,6 +289,40 @@ export const DEFAULT_GOOGLE_SHOPPING: GoogleShoppingSettings = {
 }
 
 /**
+ * A medição do Google Analytics 4 (feature 61, `ANL-*`).
+ *
+ * **Os três campos são públicos por natureza**, e é por isso que moram aqui: o ID aparece no HTML de
+ * qualquer página que carrega o gtag, e `store_settings` é legível por `anon`. A chave secreta do
+ * Measurement Protocol **não** mora aqui — ela está em `public.analytics_secrets`, tabela sem policy,
+ * que só a service role alcança.
+ */
+export interface AnalyticsSettings {
+  /** Ligado por ato explícito da dona (`AD-027`). Desligado ⇒ a loja não carrega o gtag e o servidor não envia `purchase`. */
+  enabled: boolean
+  /** O ID de medição do GA4 (`G-…`). Quem valida a forma é `measurementIdRefusal` (`@estrelinha/core/analytics`). */
+  measurement_id: string
+  /**
+   * O host onde o tráfego **não** é interno. Em qualquer outro host (homologação, preview,
+   * `localhost`) todo evento leva `traffic_type=internal`. Lido pelos DOIS lados — navegador e
+   * servidor — por `trafficType`, para "sou produção?" ter um dono só.
+   */
+  production_host: string
+}
+
+/**
+ * O default da medição.
+ *
+ * Precisa dizer o MESMO que a migration `20261005120000_61-google-analytics.sql` grava —
+ * `storeSettingsDefaults.test.ts` lê o `.sql` do disco e compara campo a campo. É também o que vale
+ * quando a leitura de `store_settings` falha: **desligado é o estado seguro** (edge case da spec).
+ */
+export const DEFAULT_ANALYTICS: AnalyticsSettings = {
+  enabled: false,
+  measurement_id: 'G-SQL517XDQZ',
+  production_host: 'umaestrelinha.com.br',
+}
+
+/**
  * Os itens de **link** do menu (feature 39, `NAV-08`).
  *
  * **Por que aqui, e não em `categories`.** Link não é conjunto de produtos: não tem página de
@@ -332,6 +366,7 @@ export type SettingsKey =
   | 'google_shopping'
   | 'menu'
   | 'notifications'
+  | 'analytics'
 
 export interface SettingsMap {
   general: GeneralSettings
@@ -344,4 +379,5 @@ export interface SettingsMap {
   google_shopping: GoogleShoppingSettings
   menu: MenuSettings
   notifications: NotificationSettings
+  analytics: AnalyticsSettings
 }

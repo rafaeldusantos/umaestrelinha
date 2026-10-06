@@ -30,7 +30,8 @@
     "./sitemap": "./src/sitemap/index.ts",
     "./notifications": "./src/notifications/index.ts",
     "./admin-users": "./src/admin-users/index.ts",
-    "./orders": "./src/orders/index.ts"
+    "./orders": "./src/orders/index.ts",
+    "./analytics": "./src/analytics/index.ts"
   },
   "scripts": {
     "test": "vitest run"

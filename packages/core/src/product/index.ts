@@ -16,6 +16,12 @@ import type {
   ProductVariant,
   StockPolicy,
 } from '@estrelinha/supabase/types'
+import { embeddedDisplayCategory } from './displayCategory.ts'
+
+// A categoria de exibição (`PST-06`) — a régua tem um dono, e ele não importa nada para o Deno o
+// alcançar. A edge function `mercado-pago` o importa pelo ARQUIVO, nunca por este barrel, que
+// importa `@estrelinha/supabase/types` e derrubaria o worker no grafo de tipos.
+export * from './displayCategory.ts'
 
 const STOCK_POLICIES: readonly StockPolicy[] = ['track', 'backorder', 'none']
 
@@ -101,6 +107,11 @@ export const normalizeVariants = (raw: unknown, productId: string): ProductVaria
 /**
  * Os vínculos N:N do produto. Linha sem `category_id` legível é descartada: viraria um candidato de
  * selo que nenhuma categoria resolve.
+ *
+ * Feature 61: quando o `select` embute `categories(slug, sort_order, active)` no vínculo, ele atravessa
+ * como `category` — é o que dá à loja o `item_category` do GA4 sem consulta extra. Sem o embed a
+ * chave nem aparece: o vínculo continua igual ao de antes, e o painel (que não pede o embed) não vê
+ * diferença. A leitura do embed é de `embeddedDisplayCategory`, a MESMA que o servidor usa.
  */
 export const normalizeCategoryLinks = (raw: unknown): ProductCategoryLink[] => {
   if (!Array.isArray(raw)) return []
@@ -109,10 +120,12 @@ export const normalizeCategoryLinks = (raw: unknown): ProductCategoryLink[] => {
     if (entry === null || typeof entry !== 'object') return
     const link = entry as Record<string, unknown>
     if (typeof link.category_id !== 'string' || link.category_id === '') return
+    const category = embeddedDisplayCategory(link.categories)
     out.push({
       category_id: link.category_id,
       position:
         typeof link.position === 'number' && Number.isFinite(link.position) ? link.position : index,
+      ...(category !== undefined ? { category } : {}),
     })
   })
   return out

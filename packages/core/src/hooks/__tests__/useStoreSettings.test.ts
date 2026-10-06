@@ -4,6 +4,7 @@ import { renderHook, waitFor } from '@testing-library/react'
 import { createElement, type ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  DEFAULT_ANALYTICS,
   DEFAULT_CHECKOUT,
   DEFAULT_NOTIFICATIONS,
   DEFAULT_SHIPPING,
@@ -20,6 +21,7 @@ vi.mock('@estrelinha/supabase/client', () => ({
 }))
 
 import {
+  useAnalyticsSettings,
   useCheckoutSettings,
   useNotificationSettings,
   useShippingSettings,
@@ -46,6 +48,7 @@ async function loadSettings() {
       checkout: useCheckoutSettings(),
       shipping: useShippingSettings(),
       notifications: useNotificationSettings(),
+      analytics: useAnalyticsSettings(),
     }),
     { wrapper: makeWrapper() },
   )
@@ -160,5 +163,76 @@ describe('useNotificationSettings', () => {
     selectMock.mockResolvedValue({ data: null, error: { message: 'relation does not exist' } })
     const result = await loadSettings()
     expect(result.current.notifications).toEqual(DEFAULT_NOTIFICATIONS)
+  })
+})
+
+// Feature 61 — `ANL-08` e o edge "a leitura de `store_settings` falha ⇒ a loja não carrega o gtag".
+describe('useAnalyticsSettings', () => {
+  it('chave ausente no banco ⇒ DESLIGADO, com o ID semeado', async () => {
+    rows([{ key: 'general', value: { store_name: 'Uma Estrelinha' } }])
+    const result = await loadSettings()
+    expect(result.current.analytics.enabled).toBe(false)
+    expect(result.current.analytics).toEqual({
+      enabled: false,
+      measurement_id: 'G-SQL517XDQZ',
+      production_host: 'umaestrelinha.com.br',
+    })
+  })
+
+  it('a linha `analytics` do banco sobrevive ao fetchAllSettings e não é descartada', async () => {
+    // Sem `analytics` em DEFAULTS, o `if (key in map)` descartaria a linha e a tela leria
+    // "desligado" com a medição ligada no banco.
+    rows([{ key: 'analytics', value: { enabled: true, measurement_id: 'G-ABC123XYZ', production_host: 'loja.exemplo.com' } }])
+    const result = await loadSettings()
+    expect(result.current.analytics).toEqual({
+      enabled: true,
+      measurement_id: 'G-ABC123XYZ',
+      production_host: 'loja.exemplo.com',
+    })
+  })
+
+  it('linha parcial completa os campos ausentes com os defaults', async () => {
+    rows([{ key: 'analytics', value: { enabled: true } }])
+    const result = await loadSettings()
+    expect(result.current.analytics).toEqual({ ...DEFAULT_ANALYTICS, enabled: true })
+  })
+
+  it('erro na consulta ⇒ DESLIGADO (o estado seguro)', async () => {
+    selectMock.mockResolvedValue({ data: null, error: { message: 'relation does not exist' } })
+    const result = await loadSettings()
+    expect(result.current.analytics.enabled).toBe(false)
+    expect(result.current.analytics).toEqual(DEFAULT_ANALYTICS)
+  })
+
+  // C10 da verificação: os casos acima passam por `fetchAllSettings`, que já devolve os defaults no
+  // erro. O recuo do PRÓPRIO hook (`data` ainda indefinido) só é alcançado com a leitura pendente ou
+  // com o `queryFn` rejeitando — e trocá-lo por "ligado" deixava a suíte verde. Na loja, isso
+  // carregaria o gtag numa rejeição de rede com a medição desligada no banco.
+  it('leitura ainda PENDENTE ⇒ DESLIGADO (o recuo do hook, antes de existir dado)', () => {
+    selectMock.mockReturnValue(new Promise(() => {}))
+    const { result } = renderHook(
+      () => ({ query: useStoreSettings(), analytics: useAnalyticsSettings() }),
+      { wrapper: makeWrapper() },
+    )
+    expect(result.current.query.isPending).toBe(true) // âncora: o dado ainda não existe
+    expect(result.current.query.data).toBeUndefined()
+    expect(result.current.analytics.enabled).toBe(false)
+    expect(result.current.analytics).toEqual(DEFAULT_ANALYTICS)
+  })
+
+  it('`queryFn` que REJEITA ⇒ DESLIGADO (o recuo do hook, com a leitura já encerrada)', async () => {
+    selectMock.mockRejectedValue(new TypeError('Failed to fetch'))
+    const { result } = renderHook(
+      () => ({ query: useStoreSettings(), analytics: useAnalyticsSettings() }),
+      { wrapper: makeWrapper() },
+    )
+    await waitFor(() => expect(result.current.query.isError).toBe(true)) // âncora: a rejeição chegou
+    expect(result.current.query.data).toBeUndefined()
+    expect(result.current.analytics.enabled).toBe(false)
+    expect(result.current.analytics).toEqual(DEFAULT_ANALYTICS)
+  })
+
+  it('DEFAULT_ANALYTICS nasce desligado', () => {
+    expect(DEFAULT_ANALYTICS.enabled).toBe(false)
   })
 })

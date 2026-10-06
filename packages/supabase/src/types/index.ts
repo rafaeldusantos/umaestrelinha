@@ -561,12 +561,27 @@ export interface Product {
   material_kinds?: string[]
   /** Teto do texto de gravação desta peça. Ausente ou `null` cai em `DEFAULT_ENGRAVING_MAX_CHARS`. */
   engraving_max_chars?: number | null
+  /**
+   * Feature 61 (`EVT-13`) — o id do produto na Nuvemshop, quando ele veio de lá.
+   *
+   * É o que `publicProductId` (`@estrelinha/core/shopping`) usa para o `item_id` de todo evento do
+   * GA4 — o mesmo `item_group_id` do feed. Ausente ou `null` cai no UUID, e a vitrine e a compra
+   * deixam de se ligar no relatório sem nada quebrar. Por isso `PRODUCT_CARD_SELECT` o pede, e
+   * `cardSelect.test.ts` o exige.
+   */
+  nuvemshop_id?: number | null
 }
 
 /** Um vínculo produto↔categoria. `position` é a ordem que o admin arrastou (PST-06 AC 3). */
 export interface ProductCategoryLink {
   category_id: string
   position: number
+  /**
+   * A categoria embutida no vínculo, quando o `select` pede `categories(slug, sort_order, active)` (feature
+   * 61). Ausente quando não pediu; `null` quando pediu e não resolveu. É o que a régua de exibição
+   * (`@estrelinha/core/product`, `displayCategorySlug`) lê para o `item_category` do GA4.
+   */
+  category?: { slug: string; sort_order: number } | null
 }
 
 export interface Category {
