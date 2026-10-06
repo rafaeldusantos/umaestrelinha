@@ -7,6 +7,7 @@ import ProductCardSkeleton from '@/entities/product/ui/ProductCardSkeleton'
 import SectionHeading from '@/shared/ui/SectionHeading'
 import type { Product } from '@estrelinha/supabase/types'
 import { renditionSrcSet, renditionUrl } from '@estrelinha/core/media'
+import { useTrackList, type AnalyticsList } from '@/shared/lib/analytics/useTrackList'
 
 /**
  * O chão da seção — board `7CF-0`.
@@ -115,6 +116,11 @@ interface Props {
    * mudar a fileira de coleção, e omitir a prop tem de significar exatamente o de antes.
    */
   layout?: CarouselLayout
+  /**
+   * Feature 61 · EVT-02/03 — a listagem que esta fileira é para o GA4. Sem ela a fileira não mede:
+   * quem a monta sabe o que ela é (uma coleção, a vitrine escolhida a dedo), o carrossel não.
+   */
+  list?: AnalyticsList
 }
 
 const ProductCarousel = ({
@@ -129,7 +135,10 @@ const ProductCarousel = ({
   loading = false,
   skeletonCount = 4,
   layout = 'row',
+  list,
 }: Props) => {
+  // Antes da guarda de saída: hook não pode ficar atrás de um `return`.
+  useTrackList(list, loading ? null : products)
   const forma = LAYOUTS[layout]
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -217,7 +226,11 @@ const ProductCarousel = ({
               cru faria o segundo card se achar o primeiro da tela (`PRF-03`). */}
           {products.map((product, i) => (
             <div key={product.id} className={forma.vaga}>
-              <ProductCard product={product} index={banner ? i + 1 : i} />
+              <ProductCard
+                product={product}
+                index={banner ? i + 1 : i}
+                list={list ? { ...list, index: i } : undefined}
+              />
             </div>
           ))}
           {/*

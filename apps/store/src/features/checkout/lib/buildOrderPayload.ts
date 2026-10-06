@@ -46,6 +46,11 @@ export interface OrderPayloadInput {
   applied: { promotion_id: string }[]
   promotionDiscount: number
   materialStatus: string
+  /**
+   * Feature 61 · CMP-01 — os ids do GA e a recusa. Opcional: sem medição na tela, nada vai.
+   * Com recusa, os ids NÃO vão — a escolha da cliente vale também para o que sai daqui.
+   */
+  analytics?: { clientId: string | null; sessionId: string | null; declined: boolean }
 }
 
 /**
@@ -163,5 +168,19 @@ export function buildOrderPayload(input: OrderPayloadInput): CreateOrderInput {
     promotion_discount: input.promotionDiscount,
     material_status: input.materialStatus,
     items: buildOrderItems(input),
+    ...analyticsFields(input.analytics),
+  }
+}
+
+/** Os três campos do GA, só os que existem — `undefined` não viaja e o servidor não grava lixo. */
+function analyticsFields(
+  a: OrderPayloadInput['analytics'],
+): Pick<CreateOrderInput, 'ga_client_id' | 'ga_session_id' | 'analytics_declined'> {
+  if (!a) return {}
+  if (a.declined) return { analytics_declined: true }
+  return {
+    analytics_declined: false,
+    ...(a.clientId ? { ga_client_id: a.clientId } : {}),
+    ...(a.sessionId ? { ga_session_id: a.sessionId } : {}),
   }
 }

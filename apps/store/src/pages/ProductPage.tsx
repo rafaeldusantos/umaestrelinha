@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { TAP_ROW } from '@/shared/lib/touchTarget'
 import { useParams, Link, Navigate, useLocation, useSearchParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
@@ -19,6 +19,9 @@ import ProductGallery from '@/entities/product/ui/ProductGallery'
 import ProductInfo from '@/entities/product/ui/ProductInfo'
 import ProductDetailsAccordion from '@/entities/product/ui/ProductDetailsAccordion'
 import { useWishlistStore } from '@/entities/wishlist/model/wishlistStore'
+import { toggleWishlist } from '@/entities/wishlist/model/toggleWishlist'
+import { viewItemEvent } from '@estrelinha/core/analytics'
+import { productItem, track } from '@/shared/lib/analytics'
 import RelatedProducts from '@/widgets/related-products/ui/RelatedProducts'
 import { ProductBuyBar } from '@/widgets/product-buy-bar'
 import { MaterialDrawer } from '@/widgets/material-drawer'
@@ -166,7 +169,21 @@ const ProductPageBody = ({
    * testes da confirmação de pedido na feature 22.
    */
   const { data: faqs } = useProductFaqs(product.id)
-  const toggleWishlist = useWishlistStore(s => s.toggleItem)
+
+  /*
+   * Feature 61 · EVT-04 — um `view_item` por produto aberto. O item leva o preço e o rótulo da
+   * variação EM QUE A PÁGINA ABRE (a do `?variant=` do anúncio, ou a primeira vendável); trocar de
+   * variação depois não é ver outro produto. A chave é o id: navegar de um produto a outro na mesma
+   * montagem (relacionados) emite de novo.
+   */
+  useEffect(() => {
+    track(
+      viewItemEvent({
+        item: productItem(product, { price: purchase.price, variant: purchase.variantLabel }),
+      }),
+    )
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [product.id])
   const isWishlisted = useWishlistStore(s => s.hasItem(product.id))
 
   const galleryBadges = (
@@ -242,7 +259,7 @@ const ProductPageBody = ({
             action={
               <button
                 type="button"
-                onClick={() => toggleWishlist(product.id)}
+                onClick={() => toggleWishlist(product)}
                 aria-label={isWishlisted ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
                 /* 44px: o board desenha 32, que fica abaixo do alvo de toque mínimo. */
                 className="flex h-11 w-11 items-center justify-center rounded-full bg-white/85 backdrop-blur"

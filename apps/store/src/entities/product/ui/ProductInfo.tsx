@@ -10,6 +10,7 @@ import {
 } from '@estrelinha/core/hooks/useStoreSettings'
 import type { Product } from '@estrelinha/supabase/types'
 import { useWishlistStore } from '@/entities/wishlist/model/wishlistStore'
+import { toggleWishlist } from '@/entities/wishlist/model/toggleWishlist'
 import { MaterialSendTrigger } from '@/entities/material'
 import ShareButtons from '@/features/share-product/ui/ShareButtons'
 import ShippingCalc from '@/features/shipping-calc/ui/ShippingCalc'
@@ -52,7 +53,6 @@ const STOCK_TONE = {
 const ProductInfo = ({ product, categoryName, purchase }: Props) => {
   const { qty, setQty, selected, select, sellableGrid, price, savings, stock, canAdd, add } =
     purchase
-  const toggleWishlist = useWishlistStore(s => s.toggleItem)
   const isWishlisted = useWishlistStore(s => s.hasItem(product.id))
   const location = useLocation()
   const { whatsapp, store_name } = useGeneralSettings()
@@ -223,7 +223,7 @@ const ProductInfo = ({ product, categoryName, purchase }: Props) => {
 
         <button
           type="button"
-          onClick={() => toggleWishlist(product.id)}
+          onClick={() => toggleWishlist(product)}
           aria-label={isWishlisted ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
           className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-md border-2 transition-colors ${
             isWishlisted

@@ -3,7 +3,14 @@ import {
   mapDbToProduct,
   PRODUCT_CARD_SELECT,
   PRODUCT_CARD_SELECT_BY_CATEGORY,
+  PRODUCT_SELECT,
 } from '../mapProduct'
+import { productItem } from '@/shared/lib/analytics/items'
+import { toAnalyticsItem } from '@estrelinha/core/analytics'
+// O recorte do PostgREST saiu deste arquivo na feature 61: o embed `categories(slug, sort_order, active)`
+// passou a viver DENTRO de `product_categories(...)`, e o teste de paridade do `item_category`
+// recorta a mesma linha pelos dois `select`. Um recorte só, para os dois testes.
+import { parseSelect, recortar as recortarSelect, topLevelParts } from '@/test/postgrestRecorte'
 
 /**
  * O guarda de `PRF-08`: **a consulta traz o que o card desenha, e o card desenha o que a consulta
@@ -19,61 +26,6 @@ import {
  * que a cliente veria vazio.
  */
 
-/** Separa por vírgula de topo — vírgula dentro de `(...)` é do embed, não da lista. */
-const topLevelParts = (select: string): string[] => {
-  const parts: string[] = []
-  let depth = 0
-  let atual = ''
-  for (const ch of select) {
-    if (ch === '(') depth += 1
-    if (ch === ')') depth -= 1
-    if (ch === ',' && depth === 0) {
-      parts.push(atual.trim())
-      atual = ''
-      continue
-    }
-    atual += ch
-  }
-  if (atual.trim() !== '') parts.push(atual.trim())
-  return parts
-}
-
-interface Recorte {
-  /** Colunas escalares pedidas. */
-  colunas: string[]
-  /** Embeds pedidos: nome da relação → colunas internas. Alias vira chave própria. */
-  embeds: { alias: string; relacao: string; colunas: string[] }[]
-}
-
-/** Lê o `select` como o PostgREST leria: colunas de topo e embeds, com alias e FK nomeada. */
-const parseSelect = (select: string): Recorte => {
-  const colunas: string[] = []
-  const embeds: Recorte['embeds'] = []
-
-  for (const parte of topLevelParts(select)) {
-    const abre = parte.indexOf('(')
-    if (abre === -1) {
-      colunas.push(parte)
-      continue
-    }
-    const cabeca = parte.slice(0, abre)
-    const dentro = parte.slice(abre + 1, parte.lastIndexOf(')'))
-    // `filtro:product_categories!inner` → alias `filtro`, relação `product_categories`.
-    const [aliasOuRelacao, relacaoDepoisDoAlias] = cabeca.includes(':')
-      ? [cabeca.split(':')[0], cabeca.split(':')[1]]
-      : [null, cabeca]
-    // `categories!products_category_id_fkey` → relação `categories`.
-    const relacao = relacaoDepoisDoAlias.split('!')[0]
-    embeds.push({
-      alias: aliasOuRelacao ?? relacao,
-      relacao,
-      colunas: dentro.split(',').map(c => c.trim()),
-    })
-  }
-
-  return { colunas, embeds }
-}
-
 /**
  * Uma linha COMPLETA de `products`, como o banco tem — com as colunas que o enxuto deixa de fora.
  *
@@ -82,6 +34,7 @@ const parseSelect = (select: string): Recorte => {
  */
 const LINHA_COMPLETA: Record<string, unknown> = {
   id: 'prod-1',
+  nuvemshop_id: 140827001,
   name: 'Colar de leite materno',
   slug: 'colar-de-leite-materno',
   base_price: 289.9,
@@ -141,37 +94,26 @@ const LINHA_COMPLETA: Record<string, unknown> = {
       created_at: '2026-01-02T00:00:00Z',
     },
   ],
+  // As categorias de verdade, embutidas no vínculo como o banco as tem — com colunas que o `select`
+  // NÃO pede (`name`, `banner_url`), para o recorte provar que só `slug` e `sort_order` atravessam.
+  // A de `position` 1 tem a MENOR `sort_order`: é ela a de exibição (`PST-06`), não a primeira.
   product_categories: [
-    { category_id: 'cat-colares', position: 0 },
-    { category_id: 'cat-joias', position: 1 },
+    {
+      category_id: 'cat-colares',
+      position: 0,
+      categories: { slug: 'colares', name: 'Colares', sort_order: 4, banner_url: 'b.webp' },
+    },
+    {
+      category_id: 'cat-joias',
+      position: 1,
+      categories: { slug: 'joias-afetivas', name: 'Joias afetivas', sort_order: 1, banner_url: null },
+    },
   ],
 }
 
 /** A linha que o PostgREST devolveria para este `select` — nada além do que foi pedido. */
-const recortar = (select: string, linha = LINHA_COMPLETA): Record<string, unknown> => {
-  const { colunas, embeds } = parseSelect(select)
-  const out: Record<string, unknown> = {}
-
-  for (const coluna of colunas) {
-    if (coluna in linha) out[coluna] = linha[coluna]
-  }
-
-  for (const embed of embeds) {
-    const valor = linha[embed.relacao]
-    const recorteDeUm = (row: Record<string, unknown>) => {
-      const filtrado: Record<string, unknown> = {}
-      for (const c of embed.colunas) if (c in row) filtrado[c] = row[c]
-      return filtrado
-    }
-    if (Array.isArray(valor)) {
-      out[embed.alias] = valor.map(row => recorteDeUm(row as Record<string, unknown>))
-    } else if (valor && typeof valor === 'object') {
-      out[embed.alias] = recorteDeUm(valor as Record<string, unknown>)
-    }
-  }
-
-  return out
-}
+const recortar = (select: string, linha = LINHA_COMPLETA): Record<string, unknown> =>
+  recortarSelect(select, linha)
 
 const mapeado = (select = PRODUCT_CARD_SELECT) => mapDbToProduct(recortar(select))
 
@@ -235,8 +177,15 @@ describe('PRODUCT_CARD_SELECT — a forma do select', () => {
 
   it('nomeia a FK ao embutir categories, senão o PostgREST devolve 300 PGRST201', () => {
     expect(PRODUCT_CARD_SELECT).toContain('categories!products_category_id_fkey(')
-    const ambiguo = /(^|[^_])\bcategories\(/.test(PRODUCT_CARD_SELECT)
-    expect(ambiguo).toBe(false)
+    // A ambiguidade é de TOPO: de `products` há dois caminhos para `categories`. Dentro de
+    // `product_categories(...)` há um só (`category_id`), e o embed aninhado da feature 61 é legítimo.
+    const ambiguoNoTopo = topLevelParts(PRODUCT_CARD_SELECT).filter(p => /^categories\(/.test(p))
+    expect(ambiguoNoTopo).toEqual([])
+  })
+
+  it('sensor: um `categories(` de topo SEM a FK é acusado pela régua acima', () => {
+    const ambiguo = `${PRODUCT_CARD_SELECT}, categories(slug)`
+    expect(topLevelParts(ambiguo).filter(p => /^categories\(/.test(p))).toEqual(['categories(slug)'])
   })
 
   it('PST-06: o filtro por categoria continua num embed ALIASED, e product_categories volta inteiro', () => {
@@ -246,8 +195,9 @@ describe('PRODUCT_CARD_SELECT — a forma do select', () => {
 
     expect(filtro.relacao).toBe('product_categories')
     expect(PRODUCT_CARD_SELECT_BY_CATEGORY).toContain('filtro:product_categories!inner(')
-    // O embed do selo NÃO é `!inner`: recortado, `displayCategory` escolheria outra categoria.
-    expect(selo.colunas).toEqual(['category_id', 'position'])
+    // O embed do selo NÃO é `!inner`: recortado, `displayCategory` escolheria outra categoria. E
+    // ele traz a categoria embutida (feature 61) — o `item_category` do GA4 sai dela.
+    expect(selo.colunas).toEqual(['category_id', 'position', 'categories(slug, sort_order, active)'])
   })
 })
 
@@ -275,9 +225,27 @@ describe('PRODUCT_CARD_SELECT — a linha recortada ainda preenche o card', () =
     const p = mapeado()
     expect(p.category_slug).toBe('colares')
     expect(p.category_links).toEqual([
-      { category_id: 'cat-colares', position: 0 },
-      { category_id: 'cat-joias', position: 1 },
+      { category_id: 'cat-colares', position: 0, category: { slug: 'colares', sort_order: 4 } },
+      { category_id: 'cat-joias', position: 1, category: { slug: 'joias-afetivas', sort_order: 1 } },
     ])
+  })
+
+  it('feature 61: o item_category do GA4 é o slug da categoria de EXIBIÇÃO, vindo do embed', () => {
+    // Menor `sort_order` vence — `joias-afetivas`, e não `colares` (a primeira do vínculo, e a da
+    // coluna legada). Nos dois `select` da loja.
+    for (const select of [PRODUCT_CARD_SELECT, PRODUCT_SELECT]) {
+      const item = toAnalyticsItem(productItem(mapDbToProduct(recortar(select))))
+      expect(item.item_category, select).toBe('joias-afetivas')
+    }
+  })
+
+  it('sensor: sem o embed aninhado, o item_category some — a régua acima não passa por acaso', () => {
+    const sem = PRODUCT_CARD_SELECT.replace(
+      'product_categories(category_id, position, categories(slug, sort_order, active))',
+      'product_categories(category_id, position)',
+    )
+    expect(sem).not.toBe(PRODUCT_CARD_SELECT)
+    expect(toAnalyticsItem(productItem(mapDbToProduct(recortar(sem)))).item_category).toBeUndefined()
   })
 
   it('a grade: options e a variação vendável, com preço, estoque e amostra de cor', () => {
@@ -321,10 +289,32 @@ describe('PRODUCT_CARD_SELECT — a linha recortada ainda preenche o card', () =
     expect(p.engraving_max_chars).toBe(20)
   })
 
+  it('feature 61 (EVT-13): nuvemshop_id chega — sem ele o item_id do GA4 cairia no UUID', () => {
+    expect(parseSelect(PRODUCT_CARD_SELECT).colunas).toContain('nuvemshop_id')
+    expect(mapeado().nuvemshop_id).toBe(140827001)
+  })
+
   it('a descrição chega VAZIA — é a economia, e ela é deliberada', () => {
     // O contraponto do teste acima: o que sai do select tem de sair de verdade. Se `description`
     // voltasse, a economia de 293 KB seria só uma frase no comentário.
     expect(mapeado().description).toBe('')
+  })
+})
+
+describe('mapDbToProduct — nuvemshop_id (feature 61, EVT-13)', () => {
+  it('com valor, devolve o número', () => {
+    expect(mapDbToProduct({ id: 'p', nuvemshop_id: 99 }).nuvemshop_id).toBe(99)
+  })
+
+  it('sem valor (ausente ou null), devolve null — nunca 0, que não é id', () => {
+    expect(mapDbToProduct({ id: 'p' }).nuvemshop_id).toBeNull()
+    expect(mapDbToProduct({ id: 'p', nuvemshop_id: null }).nuvemshop_id).toBeNull()
+  })
+
+  it('sensor: tirar `nuvemshop_id` do select REPROVA — o mapper devolveria null', () => {
+    const sem = PRODUCT_CARD_SELECT.replace('slug, nuvemshop_id', 'slug')
+    expect(sem).not.toBe(PRODUCT_CARD_SELECT)
+    expect(mapDbToProduct(recortar(sem)).nuvemshop_id).toBeNull()
   })
 })
 

@@ -18,6 +18,7 @@
 // Nenhum `bg-estrelinha-primary`: a única pílula geleia da tela é o CTA (CHK-04).
 import { useEffect, useRef } from 'react'
 import { Check, CreditCard, Info } from 'lucide-react'
+import { trackPaymentInfo } from '../model/checkoutAnalytics'
 import { Input } from '@estrelinha/ui/input'
 import { Label } from '@estrelinha/ui/label'
 import { documentLabel, isValidDocument, maskDocument } from '@estrelinha/core/validators'
@@ -204,7 +205,11 @@ const PaymentBlock = ({
           <button
             type="button"
             aria-pressed={payment.method === 'pix'}
-            onClick={() => setPayment({ method: 'pix' })}
+            // Feature 61 · EVT-12: o toque da cliente — a pré-seleção automática não é escolha.
+            onClick={() => {
+              setPayment({ method: 'pix' })
+              trackPaymentInfo('pix')
+            }}
             className={`flex basis-0 grow flex-col gap-2 rounded-md border-2 p-[18px] text-left transition-colors ${
               payment.method === 'pix'
                 ? 'border-estrelinha-primary bg-estrelinha-ground-deep'
@@ -232,7 +237,10 @@ const PaymentBlock = ({
           <button
             type="button"
             aria-pressed={payment.method === 'card'}
-            onClick={() => setPayment({ method: 'card' })}
+            onClick={() => {
+              setPayment({ method: 'card' })
+              trackPaymentInfo('card')
+            }}
             className={`flex basis-0 grow flex-col gap-2 rounded-md border-2 p-[18px] text-left transition-colors ${
               payment.method === 'card'
                 ? 'border-estrelinha-primary bg-estrelinha-ground-deep'

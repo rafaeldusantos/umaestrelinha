@@ -3,6 +3,10 @@ import { TAP_ROW } from '@/shared/lib/touchTarget'
 import { categoryHref, type MenuCategory } from '@estrelinha/core/menu'
 import ProductCard from '@/entities/product/ui/ProductCard'
 import type { Category, Product } from '@estrelinha/supabase/types'
+import { useTrackList, type AnalyticsList } from '@/shared/lib/analytics/useTrackList'
+
+/** Feature 61 · EVT-02 — a listagem "Você também vai curtir" da página do produto. */
+const LISTA: AnalyticsList = { id: 'relacionados', name: 'Você também vai curtir' }
 
 interface Props {
   products: Product[]
@@ -22,6 +26,7 @@ interface Props {
  * coleção à direita do título.
  */
 const RelatedProducts = ({ products, category, categories }: Props) => {
+  useTrackList(LISTA, products)
   if (products.length === 0) return null
 
   return (
@@ -42,8 +47,8 @@ const RelatedProducts = ({ products, category, categories }: Props) => {
       </div>
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-5">
-        {products.map(p => (
-          <ProductCard key={p.id} product={p} />
+        {products.map((p, i) => (
+          <ProductCard key={p.id} product={p} list={{ ...LISTA, index: i }} />
         ))}
       </div>
     </section>

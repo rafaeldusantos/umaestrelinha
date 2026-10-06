@@ -17,6 +17,22 @@ import { accessFor } from '@/entities/order/model/orderAccess'
 import { markCartRecovered, clearGuestEmail } from '@/features/abandoned-cart/model/useAbandonedCartTracker'
 import { DOC_FIELD_LABEL } from '@/features/checkout/ui/PaymentBlock'
 import CheckoutPage, { MISSING_DOCUMENT_MESSAGE, ORDER_FAILED_MESSAGE } from '../CheckoutPage'
+import { useCookieConsentStore } from '@/entities/cookie-consent'
+import { resetAnalyticsForTests, setAnalyticsSettings } from '@/shared/lib/analytics'
+
+// Feature 61 · T18 — o dublê do `track` registra e repassa ao de verdade (que em teste é no-op).
+// Nenhum caso anterior a esta feature olha para ele.
+const { trackSpy } = vi.hoisted(() => ({ trackSpy: vi.fn() }))
+vi.mock('@/shared/lib/analytics', async importOriginal => {
+  const real = await importOriginal<typeof import('@/shared/lib/analytics')>()
+  return {
+    ...real,
+    track: (e: Parameters<typeof real.track>[0]) => {
+      trackSpy(e)
+      real.track(e)
+    },
+  }
+})
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -2489,5 +2505,234 @@ describe('CheckoutPage — a espera do cartão (boards 58 J–M)', () => {
     expect(createOrderMutateAsync).toHaveBeenCalledTimes(1)
     // E o aviso da tentativa anterior não sobrevive à nova.
     expect(brick().getAttribute('data-notice-title')).toBe('')
+  })
+})
+
+describe('feature 61 — o funil do checkout no GA4 (EVT-10..12, CMP-01)', () => {
+  const eventos = (nome: string) =>
+    trackSpy.mock.calls.map(c => c[0]).filter(e => e && e.name === nome) as {
+      params: Record<string, unknown> & { items: Record<string, unknown>[] }
+    }[]
+
+  // EVT-13 nos eventos do funil: a sacola ganha uma peça com identidade PÚBLICA (id da Nuvemshop) e
+  // categoria de exibição, para que o item esperado seja escrito por extenso — e não recalculado pela
+  // mesma função que o produz. Com `category_slug` vazio e sem `nuvemshop_id` (a sacola padrão deste
+  // arquivo), `item_id` e `item_category` não discriminariam nada.
+  const sacolaComIdentidade = () =>
+    useCartStore.setState({
+      items: [{
+        product: product({
+          nuvemshop_id: 169,
+          category_links: [
+            { category_id: 'c1', position: 0, category: { slug: 'colares', sort_order: 1 } },
+          ],
+        } as Partial<Product>),
+        size: '', finish: '', quantity: 2,
+        variantId: null, variantLabel: '', optionValues: {}, unitPrice: 50,
+      }],
+    })
+  const ITEM_ESPERADO = {
+    item_id: '169',
+    item_name: 'Pin Gojo Satoru',
+    item_brand: 'Uma Estrelinha',
+    item_category: 'colares',
+    price: 50,
+    quantity: 2,
+  }
+  const comCupom = () =>
+    useCouponStore.setState({ applied: { id: 'cp1', code: 'ESTRELA10' } as any })
+
+  beforeEach(() => {
+    trackSpy.mockClear()
+    resetAnalyticsForTests()
+    useCookieConsentStore.setState({ statistics: true, notice: 'answered', preferencesOpen: false })
+    for (const nome of ['_ga', '_ga_SQL517XDQZ']) {
+      document.cookie = `${nome}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`
+    }
+  })
+
+  it('EVT-10: abrir o checkout com itens ⇒ UM begin_checkout, com os itens da sacola', () => {
+    const { rerender } = renderPage()
+    expect(eventos('begin_checkout')).toHaveLength(1)
+    expect(eventos('begin_checkout')[0].params.items[0]).toMatchObject({ quantity: 2, price: 50 })
+    rerender(pageTree())
+    expect(eventos('begin_checkout')).toHaveLength(1)
+  })
+
+  it('EVT-10: com cupom aplicado, o begin_checkout leva o código', () => {
+    comCupom()
+    renderPage()
+    expect(eventos('begin_checkout')).toHaveLength(1)
+    expect(eventos('begin_checkout')[0].params.coupon).toBe('ESTRELA10')
+  })
+
+  it('EVT-10: sem cupom, o begin_checkout não carrega coupon', () => {
+    renderPage()
+    expect(eventos('begin_checkout')).toHaveLength(1)
+    expect(eventos('begin_checkout')[0].params.coupon).toBeUndefined()
+  })
+
+  it('EVT-10: sacola vazia ⇒ nenhum begin_checkout', () => {
+    useCartStore.setState({ items: [] })
+    renderPage()
+    expect(eventos('begin_checkout')).toHaveLength(0)
+  })
+
+  // EVT-11 e EVT-12 têm a MESMA política: só o toque da cliente emite. Antes, o frete contava a
+  // pré-seleção e o pagamento não (achado da verificação) — o funil media coisas diferentes em
+  // dois passos irmãos. Os inversos abaixo prendem a política nos dois blocos.
+  it('EVT-11: tocar numa opção de frete ⇒ add_shipping_info com o nome do serviço', () => {
+    fillContact()
+    fillAddress()
+    renderPage()
+    expect(eventos('add_shipping_info')).toHaveLength(0) // âncora: nada antes do toque
+    fireEvent.click(region('Entrega').getByText('Correios SEDEX'))
+    const enviados = eventos('add_shipping_info')
+    expect(enviados).toHaveLength(1)
+    expect(enviados[0].params.shipping_tier).toBe('SEDEX')
+  })
+
+  it('EVT-11 + EVT-13: o add_shipping_info leva o item da sacola no formato do GA4', () => {
+    sacolaComIdentidade()
+    fillContact()
+    fillAddress()
+    renderPage()
+    fireEvent.click(region('Entrega').getByText('Correios SEDEX'))
+    expect(eventos('add_shipping_info')).toHaveLength(1)
+    expect(eventos('add_shipping_info')[0].params.items).toEqual([ITEM_ESPERADO])
+  })
+
+  it('EVT-11: tocar de novo na opção JÁ selecionada conta — cada toque é uma escolha', () => {
+    fillContact()
+    fillAddress()
+    renderPage()
+    const sedex = () => region('Entrega').getByText('Correios SEDEX')
+    fireEvent.click(sedex())
+    expect(useCheckoutStore.getState().shipping?.serviceName).toBe('SEDEX') // âncora: já selecionada
+    fireEvent.click(sedex())
+    expect(eventos('add_shipping_info').map(e => e.params.shipping_tier)).toEqual(['SEDEX', 'SEDEX'])
+  })
+
+  it('EVT-11: com cupom aplicado, o add_shipping_info leva o código', () => {
+    comCupom()
+    fillContact()
+    fillAddress()
+    renderPage()
+    fireEvent.click(region('Entrega').getByText('Correios SEDEX'))
+    expect(eventos('add_shipping_info')).toHaveLength(1)
+    expect(eventos('add_shipping_info')[0].params.coupon).toBe('ESTRELA10')
+  })
+
+  it('EVT-11: frete restaurado do rascunho NÃO emite (não houve escolha nesta visita)', () => {
+    fillContact()
+    fillAddress()
+    fillShipping()
+    renderPage()
+    expect(useCheckoutStore.getState().shipping?.serviceName).toBe('PAC') // âncora
+    expect(eventos('add_shipping_info')).toHaveLength(0)
+  })
+
+  it('EVT-11: a pré-seleção automática (opção única) NÃO emite', () => {
+    shippingQuoteMock.mockReturnValue({ data: [PAC], isError: false, isLoading: false, isSuccess: true } as any)
+    fillContact()
+    fillAddress()
+    renderPage()
+    expect(useCheckoutStore.getState().shipping?.serviceName).toBe('PAC') // âncora: pré-selecionou
+    expect(eventos('add_shipping_info')).toHaveLength(0)
+  })
+
+  it('EVT-12: a pré-seleção do meio de pagamento NÃO emite', () => {
+    fillContact()
+    fillAddress()
+    fillShipping()
+    renderPage()
+    expect(useCheckoutStore.getState().payment.method).not.toBeNull() // âncora: pré-selecionou
+    expect(eventos('add_payment_info')).toHaveLength(0)
+  })
+
+  it('EVT-12: tocar em PIX ou cartão ⇒ add_payment_info com o meio', () => {
+    fillContact()
+    fillAddress()
+    fillShipping()
+    renderPage()
+    const pagamento = region('Pagamento')
+    fireEvent.click(pagamento.getByRole('button', { name: /cart[aã]o/i }))
+    expect(eventos('add_payment_info').map(e => e.params.payment_type)).toEqual(['Cartão de crédito'])
+  })
+
+  // A metade PIX, que a rodada 2 achou solta: o caso acima só toca no cartão, e trocar o que o toque
+  // no PIX mede ('pix' → 'card') deixava a suíte inteira verde.
+  it('EVT-12: tocar em PIX ⇒ add_payment_info com payment_type PIX', () => {
+    fillContact()
+    fillAddress()
+    fillShipping()
+    renderPage()
+    fireEvent.click(region('Pagamento').getByRole('button', { name: /^PIX/ }))
+    expect(eventos('add_payment_info').map(e => e.params.payment_type)).toEqual(['PIX'])
+  })
+
+  it('EVT-12 + EVT-13: o add_payment_info leva o item da sacola no formato do GA4', () => {
+    sacolaComIdentidade()
+    fillContact()
+    fillAddress()
+    fillShipping()
+    renderPage()
+    fireEvent.click(region('Pagamento').getByRole('button', { name: /^PIX/ }))
+    expect(eventos('add_payment_info')).toHaveLength(1)
+    expect(eventos('add_payment_info')[0].params.items).toEqual([ITEM_ESPERADO])
+  })
+
+  it('EVT-12: com cupom aplicado, o add_payment_info leva o código', () => {
+    comCupom()
+    fillContact()
+    fillAddress()
+    fillShipping()
+    renderPage()
+    fireEvent.click(region('Pagamento').getByRole('button', { name: /cart[aã]o/i }))
+    expect(eventos('add_payment_info')).toHaveLength(1)
+    expect(eventos('add_payment_info')[0].params.coupon).toBe('ESTRELA10')
+  })
+
+  it('CMP-01: o pedido leva os ids do GA e analytics_declined false', async () => {
+    setAnalyticsSettings({ enabled: true, measurement_id: 'G-SQL517XDQZ', production_host: 'x' })
+    document.cookie = '_ga=GA1.1.1234567890.1700000000; path=/'
+    document.cookie = '_ga_SQL517XDQZ=GS2.1.s1759700000$o3$g1; path=/'
+    fillAll()
+    renderPage()
+    fireEvent.click(cta())
+    await waitFor(() => expect(createOrderMutateAsync).toHaveBeenCalledTimes(1))
+    const payload = createOrderMutateAsync.mock.calls[0][0]
+    expect(payload.ga_client_id).toBe('1234567890.1700000000')
+    expect(payload.ga_session_id).toBe('1759700000')
+    expect(payload.analytics_declined).toBe(false)
+    // Nunca no item: `order_items` é inserido com o espalhamento do item.
+    for (const item of payload.items) {
+      expect(item).not.toHaveProperty('ga_client_id')
+      expect(item).not.toHaveProperty('analytics_declined')
+    }
+  })
+
+  it('CMP-01: com RECUSA, o pedido diz analytics_declined true e não leva id nenhum', async () => {
+    setAnalyticsSettings({ enabled: true, measurement_id: 'G-SQL517XDQZ', production_host: 'x' })
+    document.cookie = '_ga=GA1.1.1234567890.1700000000; path=/'
+    useCookieConsentStore.setState({ statistics: false })
+    fillAll()
+    renderPage()
+    fireEvent.click(cta())
+    await waitFor(() => expect(createOrderMutateAsync).toHaveBeenCalledTimes(1))
+    const payload = createOrderMutateAsync.mock.calls[0][0]
+    expect(payload.analytics_declined).toBe(true)
+    expect(payload).not.toHaveProperty('ga_client_id')
+    expect(payload).not.toHaveProperty('ga_session_id')
+  })
+
+  it('CMP-01: sem cookie do GA (bloqueador), o pedido não leva id — e não diz que recusou', async () => {
+    fillAll()
+    renderPage()
+    fireEvent.click(cta())
+    await waitFor(() => expect(createOrderMutateAsync).toHaveBeenCalledTimes(1))
+    const payload = createOrderMutateAsync.mock.calls[0][0]
+    expect(payload.analytics_declined).toBe(false)
+    expect(payload).not.toHaveProperty('ga_client_id')
   })
 })

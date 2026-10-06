@@ -16,6 +16,7 @@ import { MIN_QUERY_LENGTH, searchProducts } from '../lib/searchProducts'
 import { pickTrendingCategories } from '@estrelinha/core/home'
 import { useSearchUiStore } from '../model/searchUiStore'
 import { clearRecentSearches, pushRecentSearch, readRecentSearches } from '../model/recentSearches'
+import { trackSearch } from '../model/trackSearch'
 
 /** Quantas linhas cabem antes de virar rolagem cega no celular. O resto vai em "Ver todos". */
 const PREVIEW_LIMIT = 6
@@ -88,6 +89,7 @@ const SearchOverlay = () => {
     const clean = term.trim()
     if (clean.length < MIN_QUERY_LENGTH) return
     remember(clean)
+    trackSearch(clean)
     navigate(`/busca?q=${encodeURIComponent(clean)}`)
   }
 

@@ -1,4 +1,6 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
+import { viewCartEvent } from '@estrelinha/core/analytics'
+import { cartLineItem, track } from '@/shared/lib/analytics'
 import { TAP_44 } from '@/shared/lib/touchTarget'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -66,6 +68,20 @@ const CartDrawer = () => {
     enabled: open && items.length > 0 && progress.active && !progress.reached,
   })
   const suggestions = useMemo(() => pickCrossSell(catalog, items), [catalog, items])
+
+  /*
+   * Feature 61 · EVT-07 — `view_cart` na TRANSIÇÃO fechado → aberto, com itens. A gaveta vive
+   * montada; o efeito olha a borda de subida do `open`, não o valor, e mexer na quantidade com a
+   * gaveta aberta não é ver a sacola de novo.
+   */
+  const estavaAberta = useRef(false)
+  useEffect(() => {
+    if (open && !estavaAberta.current && items.length > 0) {
+      track(viewCartEvent({ items: items.map(i => cartLineItem(i)) }))
+    }
+    estavaAberta.current = open
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
 
   const units = items.reduce((sum, i) => sum + i.quantity, 0)
   /**

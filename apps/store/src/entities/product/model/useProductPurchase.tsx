@@ -10,6 +10,8 @@ import {
 import type { OptionValues, Product, ProductVariant } from '@estrelinha/supabase/types'
 import { useCartStore } from '@/entities/cart/model/cartStore'
 import { useCartUiStore } from '@/entities/cart/model/cartUiStore'
+import { addToCartEvent } from '@estrelinha/core/analytics'
+import { productItem, track } from '@/shared/lib/analytics'
 import {
   PAGE_MAX_AXES,
   canAddSelection,
@@ -30,6 +32,8 @@ export interface ProductPurchase {
   sellableGrid: boolean
   /** O que vai ser cobrado por unidade — preço da LINHA, nunca o `base_price` da vitrine. */
   price: number
+  /** O rótulo da linha escolhida (`Aço / 45cm`), ou `null` em produto simples. */
+  variantLabel: string | null
   savings: ReturnType<typeof savingsOf>
   stock: StockLine
   canAdd: boolean
@@ -137,6 +141,13 @@ export const useProductPurchase = (
     // de gravação em branco na bancada.
     const engravingText = engravingEnabled ? normalizeEngraving(engraving) : null
     for (let i = 0; i < qty; i++) addItem(product, '', '', input, engravingText)
+    // Feature 61 · EVT-05: UM evento com a quantidade adicionada, FORA do laço — o laço chama
+    // `addItem` uma vez por unidade, e um evento por volta contaria três adições onde houve uma.
+    track(
+      addToCartEvent({
+        item: productItem(product, { price, variant: input?.variantLabel ?? null, quantity: qty }),
+      }),
+    )
 
     // A confirmação é a PRÓPRIA gaveta, e não um aviso no canto. O toast dizia "adicionado" e pedia
     // um segundo toque em "Ver carrinho" — e na página do produto o celular não tem a aba do
@@ -153,6 +164,7 @@ export const useProductPurchase = (
     variant,
     sellableGrid,
     price,
+    variantLabel: variant ? variantLabel(product.options, variant.option_values) : null,
     savings: savingsOf(product, price),
     stock: stockLineOf(product, variant),
     canAdd,

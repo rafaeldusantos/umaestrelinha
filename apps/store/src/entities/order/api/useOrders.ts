@@ -127,6 +127,18 @@ export interface CreateOrderInput {
    * existe morta. Nunca é o valor cobrado — esse é sempre o recálculo do servidor (`PAY-03`).
    */
   promotion_discount?: number
+  /**
+   * Feature 61 · CMP-01 — o que o servidor precisa para o `purchase` pelo Measurement Protocol.
+   *
+   * `ga_client_id` e `ga_session_id` vêm dos cookies do GA (`gaIds`) e podem faltar — bloqueador,
+   * primeira página, cookie limpo —, e aí o servidor usa um identificador sintético. A RECUSA é
+   * outra coisa: `analytics_declined` diz que a cliente desligou Estatísticas, e com ela o pedido
+   * NÃO gera `purchase` (`CMP-04`). Vão no PEDIDO, nunca no item: `order_items` é inserido com o
+   * espalhamento do item, e campo novo ali iria ao banco.
+   */
+  ga_client_id?: string
+  ga_session_id?: string
+  analytics_declined?: boolean
   items: {
     product_id: string
     product_name: string

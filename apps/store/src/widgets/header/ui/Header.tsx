@@ -5,6 +5,7 @@ import { useWishlistStore } from '@/entities/wishlist/model/wishlistStore'
 import { useMenu, useMenuUiStore } from '@/entities/category'
 import SearchDropdown from '@/features/search/ui/SearchDropdown'
 import { useAuthContext } from '@estrelinha/auth'
+import { useGoogleLoginReturn } from '@/features/auth/model/authAnalytics'
 import { useAuthUiStore } from '@/features/auth'
 import CartButton from '@/widgets/cart-drawer/ui/CartButton'
 import { useScrollDirection } from '@/shared/lib/useScrollDirection'
@@ -99,6 +100,8 @@ const Header = () => {
   const menuOpen = useMenuUiStore((s) => s.open)
   const wishlistCount = useWishlistStore((s) => s.count())
   const { user, customer } = useAuthContext()
+  // Feature 61 · EVT-16: a volta do Google aterrissa numa rota da loja, e o cabeçalho está em todas.
+  useGoogleLoginReturn()
   const openAuth = useAuthUiStore((s) => s.open)
   // `'desktop'` cravado, e não derivado da largura: a faixa de departamentos é `hidden md:block`,
   // então o que ela desenha é sempre a curadoria do computador. Quem lê a do celular é a folha do

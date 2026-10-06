@@ -51,7 +51,10 @@ const DIREITOS_LGPD = [
 const COM_QUEM_COMPARTILHAMOS = [
   'Meio de pagamento, para processar a cobrança — os dados do seu cartão são digitados no ambiente dele e não ficam guardados conosco;',
   'Transportadora e Correios, para levar a encomenda até o seu endereço;',
-  'Serviço de envio de e-mail, para mandar a confirmação do pedido e os avisos sobre ele.',
+  'Serviço de envio de e-mail, para mandar a confirmação do pedido e os avisos sobre ele;',
+  // Feature 61 (`PRV-02`). A medição de audiência é um compartilhamento de verdade — omiti-la
+  // deixaria a lista dizendo menos do que a loja faz.
+  'Google Analytics, para medir a audiência da loja — quais páginas são vistas e como as compras acontecem, sem o seu nome, e-mail, telefone ou endereço.',
 ]
 
 const PrivacyPolicyPage = () => {
@@ -158,6 +161,27 @@ const PrivacyPolicyPage = () => {
           Parte dessas informações fica guardada apenas no seu próprio navegador — é o que mantém a
           sua sacola e a sua lista de favoritos entre uma visita e outra. Limpar os dados do site no
           navegador apaga essas informações.
+        </p>
+      </PolicySection>
+
+      {/* Feature 61 (`PRV-01`). A base legal é o legítimo interesse (decisão de 2026-10-05), e a
+          seção diz as três coisas que a sustentam: o que é medido, o que nunca sai daqui, e como
+          deixar de ser medida. Texto proposto no Apêndice A da spec, sujeito à aprovação da dona. */}
+      <PolicySection titulo="Medição de audiência">
+        <p>
+          Para entender como a loja é usada, usamos o Google Analytics. Ele registra as páginas
+          vistas, os produtos acessados, o que vai para a sacola e as etapas da compra, junto com
+          informações gerais do aparelho, como o tipo de navegador e a cidade aproximada.
+        </p>
+        <p>
+          Não enviamos ao Google o seu nome, e-mail, telefone, CPF, endereço nem o texto gravado na
+          sua joia. Esses dados também não são usados para anúncios.
+        </p>
+        <p>
+          Fazemos essa medição com base no legítimo interesse da loja em melhorar o site, como
+          permite a Lei Geral de Proteção de Dados. Se preferir não ser medida, abra “Preferências de
+          cookies” — no aviso da loja ou no rodapé — e desligue “Estatísticas”. A partir daí, nada
+          mais é enviado do seu navegador.
         </p>
       </PolicySection>
 

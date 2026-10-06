@@ -5,6 +5,9 @@ import { productPath } from '@estrelinha/core/routes'
 import { renditionUrl } from '@estrelinha/core/media'
 import { useCartStore, type CartItem } from '@/entities/cart/model/cartStore'
 import { useWishlistStore } from '@/entities/wishlist/model/wishlistStore'
+import { toggleWishlist } from '@/entities/wishlist/model/toggleWishlist'
+import { removeFromCartEvent } from '@estrelinha/core/analytics'
+import { cartLineItem, track } from '@/shared/lib/analytics'
 import { TAP_44 } from '@/shared/lib/touchTarget'
 import { lowStockLabel, variantChips } from '../model/drawerFacts'
 
@@ -26,7 +29,6 @@ interface Props {
 const CartDrawerRow = ({ item, onNavigate }: Props) => {
   const removeItem = useCartStore((s) => s.removeItem)
   const updateQuantity = useCartStore((s) => s.updateQuantity)
-  const toggleWishlist = useWishlistStore((s) => s.toggleItem)
   const wishlisted = useWishlistStore((s) => s.items.includes(item.product.id))
 
   const { product, size, finish, variantId, quantity, engravingText } = item
@@ -39,8 +41,16 @@ const CartDrawerRow = ({ item, onNavigate }: Props) => {
   //
   // Desde a feature 22 o **texto de gravação** também compõe a chave (MAT-04): sem passá-lo, mexer
   // na quantidade de "Ana" acertaria a linha de "Léo" — a mesma classe de defeito, de novo.
-  const setQty = (qty: number) =>
+  const setQty = (qty: number) => {
+    // Feature 61 · EVT-06: diminuir é retirar — o evento leva a quantidade RETIRADA, não a que fica.
+    // Aumentar aqui não é `add_to_cart`: a spec mede a adição pela página e pela sugestão.
+    if (qty < quantity) track(removeFromCartEvent({ item: cartLineItem(item, quantity - Math.max(qty, 0)) }))
     updateQuantity(product.id, size, finish, qty, variantId, engravingText)
+  }
+  const remover = () => {
+    track(removeFromCartEvent({ item: cartLineItem(item) }))
+    removeItem(product.id, size, finish, variantId, engravingText)
+  }
 
   return (
     <li className="flex gap-3 border-b border-estrelinha-line px-5 py-3.5 md:gap-3.5 md:px-6 md:py-4">
@@ -130,7 +140,7 @@ const CartDrawerRow = ({ item, onNavigate }: Props) => {
           <div className="flex items-center gap-4">
             <button
               type="button"
-              onClick={() => toggleWishlist(product.id)}
+              onClick={() => toggleWishlist(product)}
               aria-label={wishlisted ? `Remover ${product.name} dos favoritos` : `Favoritar ${product.name}`}
               aria-pressed={wishlisted}
               /* **A cor é o ESTADO, não o enfeite.** O coração saía sempre em
@@ -148,7 +158,7 @@ const CartDrawerRow = ({ item, onNavigate }: Props) => {
             </button>
             <button
               type="button"
-              onClick={() => removeItem(product.id, size, finish, variantId, engravingText)}
+              onClick={remover}
               aria-label={`Remover ${product.name} da sacola`}
               className={`${TAP_44} text-estrelinha-ink transition-colors hover:text-estrelinha-primary`}
             >

@@ -10,6 +10,9 @@ import { usePaymentSettings } from '@estrelinha/core/hooks/useStoreSettings'
 import { productPath } from '@estrelinha/core/routes'
 import { TAP_44 } from '@/shared/lib/touchTarget'
 import { useWishlistStore } from '@/entities/wishlist/model/wishlistStore'
+import { toggleWishlist } from '@/entities/wishlist/model/toggleWishlist'
+import { selectItemEvent } from '@estrelinha/core/analytics'
+import { productItem, track, type AnalyticsList } from '@/shared/lib/analytics'
 import { Skeleton } from '@estrelinha/ui/skeleton'
 import { cn } from '@estrelinha/ui/lib/utils'
 import {
@@ -58,8 +61,19 @@ const CardBadge = ({ tone, children }: { tone: 'jam' | 'ink'; children: React.Re
  * Sobrou uma interação no palco, e ela não decide compra: a fileira de cores (`COR-11`), que troca
  * a foto em destaque e o preço exibido.
  */
-const ProductCard = ({ product, index }: { product: Product; index?: number }) => {
-  const toggleWishlist = useWishlistStore((s) => s.toggleItem)
+const ProductCard = ({
+  product,
+  index,
+  list,
+}: {
+  product: Product
+  index?: number
+  /**
+   * Feature 61 · EVT-03 — a listagem de origem e a posição do card NELA. Separada de `index`, que
+   * decide a prioridade da foto e conta o banner da fileira: a posição do produto na lista não conta.
+   */
+  list?: AnalyticsList & { index: number }
+}) => {
   const isWishlisted = useWishlistStore((s) => s.hasItem(product.id))
   // PST-05: a escolha é um mapa de eixo → valor, não mais duas strings fixas. Começa na primeira
   // combinação disponível, para a foto e o preço do card nascerem numa linha que existe de verdade.
@@ -150,7 +164,7 @@ const ProductCard = ({ product, index }: { product: Product; index?: number }) =
   const handleWishlist = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    toggleWishlist(product.id)
+    toggleWishlist(product)
   }
 
   return (
@@ -161,7 +175,20 @@ const ProductCard = ({ product, index }: { product: Product; index?: number }) =
       transition={{ duration: 0.3 }}
       className="group cursor-pointer"
     >
-      <Link to={productPath(product.slug)} className="block">
+      <Link
+        to={productPath(product.slug)}
+        className="block"
+        onClick={() => {
+          if (!list) return
+          track(
+            selectItemEvent({
+              listId: list.id,
+              listName: list.name,
+              item: productItem(product, { index: list.index }),
+            }),
+          )
+        }}
+      >
         {/*
           Palco do produto: **retrato 4:5**, em pó de açúcar. A foto é a única cor.
 

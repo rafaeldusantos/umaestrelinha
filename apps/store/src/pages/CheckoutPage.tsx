@@ -54,6 +54,10 @@ import {
 import { CartDrawer } from '@/widgets/cart-drawer'
 import { CheckoutHeader } from '@/widgets/checkout-header'
 import { useCouponStore } from '@/entities/coupon'
+import { useCookieConsentStore } from '@/entities/cookie-consent'
+import { gaIds } from '@/shared/lib/analytics'
+import { useBeginCheckout } from '@/features/checkout/model/checkoutAnalytics'
+import { useGoogleLoginReturn } from '@/features/auth/model/authAnalytics'
 import { NeedsOtpError, useCreateOrder } from '@/entities/order/api/useOrders'
 import { orderPaymentPath } from '@/entities/order/lib/podePagarComPix'
 import { rememberAccess } from '@/entities/order/model/orderAccess'
@@ -104,6 +108,10 @@ const CheckoutPage = () => {
   const clearCart = useCartStore((s) => s.clearCart)
   const coupon = useCouponStore((s) => s.applied)
   const clearCoupon = useCouponStore((s) => s.clearCoupon)
+  // Feature 61 · EVT-10 — antes de qualquer `return`: hook não pode ficar atrás da guarda da sacola.
+  useBeginCheckout(items)
+  // Feature 61 · EVT-16: quem entra pelo Google a partir do checkout volta para cá, fora do cabeçalho.
+  useGoogleLoginReturn()
 
   const contact = useCheckoutStore((s) => s.contact)
   const address = useCheckoutStore((s) => s.address)
@@ -475,6 +483,11 @@ const CheckoutPage = () => {
               // MAT-07: um item que exige material põe o pedido inteiro na fila — inclusive quando
               // exige SEM dizer qual. A fila é sobre "algo está a caminho", não sobre saber o quê.
               materialStatus: initialMaterialStatus(orderItems),
+              // Feature 61 · CMP-01: os ids do GA e a recusa, lidos NO INSTANTE de criar o pedido.
+              analytics: {
+                ...gaIds(),
+                declined: !useCookieConsentStore.getState().statistics,
+              },
             }),
             customer_id: customer?.id ?? null,
             // PED-04: a MESMA chave na retentativa faz o servidor devolver o mesmo pedido, em vez

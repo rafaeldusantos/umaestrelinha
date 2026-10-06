@@ -9,6 +9,7 @@ import { productPath } from '@estrelinha/core/routes'
 import { renditionUrl } from '@estrelinha/core/media'
 import { motion, AnimatePresence } from 'framer-motion'
 import { pushRecentSearch } from '../model/recentSearches'
+import { trackSearch } from '../model/trackSearch'
 import { MIN_QUERY_LENGTH, searchProducts } from '../lib/searchProducts'
 
 /**
@@ -88,6 +89,7 @@ const SearchDropdown = ({ onClose, mobile }: Props) => {
     const clean = query.trim()
     if (clean.length < MIN_QUERY_LENGTH) return
     pushRecentSearch(clean)
+    trackSearch(clean)
     navigate(`/busca?q=${encodeURIComponent(clean)}`)
     setOpen(false)
     onClose?.()

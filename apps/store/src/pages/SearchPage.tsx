@@ -4,7 +4,8 @@ import { Search as SearchIcon, X } from 'lucide-react'
 import { useAllProducts } from '@/entities/product/api/useProducts'
 import { useCategories } from '@/entities/category/api/useCategories'
 import ProductCard from '@/entities/product/ui/ProductCard'
-import { MIN_QUERY_LENGTH, pushRecentSearch, searchProducts } from '@/features/search'
+import { MIN_QUERY_LENGTH, pushRecentSearch, searchProducts, trackSearch } from '@/features/search'
+import { useTrackList, type AnalyticsList } from '@/shared/lib/analytics/useTrackList'
 
 /**
  * A lista completa de resultados — o destino do "Ver todos" da busca em tela cheia e do dropdown do
@@ -15,6 +16,9 @@ import { MIN_QUERY_LENGTH, pushRecentSearch, searchProducts } from '@/features/s
  * e link de busca compartilhado por WhatsApp — que é como se manda produto para uma amiga — não
  * mostrava nada.
  */
+/** Feature 61 · EVT-02. */
+const LISTA_DA_BUSCA: AnalyticsList = { id: 'busca', name: 'Resultados da busca' }
+
 const SearchPage = () => {
   const [params, setParams] = useSearchParams()
   const urlQuery = params.get('q') ?? ''
@@ -39,6 +43,15 @@ const SearchPage = () => {
 
   const searching = query.trim().length >= MIN_QUERY_LENGTH
 
+  /*
+   * Feature 61 · EVT-02 — a lista de resultados é UMA listagem por termo. O termo não entra no id
+   * (seria dado da cliente no relatório de listas); ele já vai no `search` (`EVT-09`). Trocar de
+   * termo zera a memória pela chave dos ids — os resultados novos são outro conjunto.
+   */
+  const listaDaBusca = searching ? LISTA_DA_BUSCA : null
+  const resultados = useMemo(() => results.map(r => r.product), [results])
+  useTrackList(listaDaBusca, resultados)
+
   const commit = (value: string) => {
     setQuery(value)
     // `replace` para não empilhar uma entrada de histórico por tecla digitada — o botão "voltar"
@@ -61,6 +74,10 @@ const SearchPage = () => {
         <input
           value={query}
           onChange={(e) => commit(e.target.value)}
+          // Feature 61 · EVT-09: o Enter é o envio desta página; digitar não é.
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && query.trim().length >= MIN_QUERY_LENGTH) trackSearch(query)
+          }}
           placeholder="Buscar joias, coleções..."
           aria-label="Buscar joias"
           type="text"
@@ -95,8 +112,8 @@ const SearchPage = () => {
       )}
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4">
-        {results.map(({ product }) => (
-          <ProductCard key={product.id} product={product} />
+        {results.map(({ product }, i) => (
+          <ProductCard key={product.id} product={product} list={{ ...LISTA_DA_BUSCA, index: i }} />
         ))}
       </div>
 

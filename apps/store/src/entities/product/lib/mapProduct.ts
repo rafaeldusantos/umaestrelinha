@@ -27,7 +27,7 @@ import type { Product } from '@estrelinha/supabase/types'
  * a vitrine mostra zero produtos, sem erro visível. Nomear a FK desfaz a ambiguidade.
  */
 export const PRODUCT_SELECT =
-  '*, categories!products_category_id_fkey(slug, name), product_variants(*), product_categories(category_id, position)'
+  '*, categories!products_category_id_fkey(slug, name), product_variants(*), product_categories(category_id, position, categories(slug, sort_order, active))'
 
 /**
  * O mesmo `select`, mais um embed **aliased** só para filtrar por categoria no servidor.
@@ -80,7 +80,9 @@ export const PRODUCT_SELECT_BY_CATEGORY =
  * prova, coluna a coluna, que a linha recortada por este `select` ainda preenche o card inteiro.
  */
 export const PRODUCT_CARD_SELECT = [
-  'id, name, slug',
+  // `nuvemshop_id` — feature 61 (`EVT-13`): o `item_id` dos eventos do GA4 é `publicProductId`, e
+  // sem a coluna ele cairia no UUID em silêncio — a vitrine deixaria de se ligar à compra.
+  'id, name, slug, nuvemshop_id',
   'base_price, original_price',
   // A FK nomeada pela mesma razão de `PRODUCT_SELECT`: sem ela o PostgREST devolve 300 PGRST201 e
   // a vitrine fica vazia sem erro. `name` sai — o mapper lê só o `slug`.
@@ -104,7 +106,10 @@ export const PRODUCT_CARD_SELECT = [
   // variação não têm leitor de listagem. `product_id` ausente cai no id do produto, dentro do
   // próprio `normalizeVariants`.
   'product_variants(id, name, price, compare_price, stock, image_url, is_active, position, option_values)',
-  'product_categories(category_id, position)',
+  // `categories(slug, sort_order, active)` DENTRO do vínculo — feature 61: é o que dá ao `item_category` do
+  // GA4 a categoria de exibição sem consulta extra. Não reabre a ambiguidade da FK: de
+  // `product_categories` para `categories` existe um caminho só (`category_id`).
+  'product_categories(category_id, position, categories(slug, sort_order, active))',
 ].join(', ')
 
 /**
@@ -155,5 +160,8 @@ export const mapDbToProduct = (p: any): Product => ({
   material_kinds: toMaterialKinds(p.material_kinds),
   engraving_max_chars:
     typeof p.engraving_max_chars === 'number' ? p.engraving_max_chars : null,
+  // Feature 61 (`EVT-13`). Sem `?? 0`: zero não é id, e `publicProductId` trata ausente e `null`
+  // caindo no UUID — que é o recuo certo.
+  nuvemshop_id: typeof p.nuvemshop_id === 'number' ? p.nuvemshop_id : null,
 })
 /* eslint-enable @typescript-eslint/no-explicit-any */

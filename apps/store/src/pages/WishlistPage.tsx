@@ -5,11 +5,16 @@ import { useAllProducts } from '@/entities/product/api/useProducts'
 import ProductCard from '@/entities/product/ui/ProductCard'
 import { Button } from '@estrelinha/ui/button'
 import { motion } from 'framer-motion'
+import { useTrackList, type AnalyticsList } from '@/shared/lib/analytics/useTrackList'
+
+/** Feature 61 · EVT-02. */
+const LISTA: AnalyticsList = { id: 'favoritos', name: 'Meus favoritos' }
 
 const WishlistPage = () => {
   const items = useWishlistStore((s) => s.items)
   const { data: products } = useAllProducts()
   const wishlistProducts = (products ?? []).filter((p) => items.includes(p.id))
+  useTrackList(LISTA, wishlistProducts)
 
   return (
     <div className="container py-8">
@@ -39,8 +44,8 @@ const WishlistPage = () => {
         </motion.div>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {wishlistProducts.map((p) => (
-            <ProductCard key={p.id} product={p} />
+          {wishlistProducts.map((p, i) => (
+            <ProductCard key={p.id} product={p} list={{ ...LISTA, index: i }} />
           ))}
         </div>
       )}

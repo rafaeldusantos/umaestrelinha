@@ -12,6 +12,7 @@
 // e a data vem de `formatEstimate`. Nenhum `bg-estrelinha-primary` — a única pílula geleia é o CTA.
 import { useEffect, useMemo, useRef } from 'react'
 import { AlertTriangle, Truck } from 'lucide-react'
+import { trackShippingInfo } from '../model/checkoutAnalytics'
 import { Button } from '@estrelinha/ui/button'
 import { Input } from '@estrelinha/ui/input'
 import { Label } from '@estrelinha/ui/label'
@@ -251,9 +252,16 @@ const DeliveryBlock = ({ open, complete, onEdit, onContinue, canContinue }: Prop
     setShipping(toDraft(target))
   }, [options, quotes, address.cep, setShipping])
 
+  /*
+   * Feature 61 · EVT-11 — um `add_shipping_info` por TOQUE da cliente numa opção de frete, a mesma
+   * política do pagamento (`EVT-12`): a pré-seleção automática (opção única, ou a mais barata do
+   * endereço salvo) e o rascunho restaurado não são escolha, e por isso não emitem. Antes, o frete
+   * contava a pré-seleção e o pagamento não — irmãos do mesmo funil medindo coisas diferentes.
+   */
   const select = (option: DeliveryOption) => {
     markDirty('delivery')
     setShipping(toDraft(option))
+    trackShippingInfo(option.serviceName)
   }
 
   const locked = !address.manual

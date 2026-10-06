@@ -8,6 +8,7 @@ import { PixIcon, SacolaIcon } from '@estrelinha/ui/icons'
 import type { ProductPurchase } from '@/entities/product'
 import { ENGRAVING_FIELD_ID } from '@/entities/product/ui/EngravingField'
 import { useWishlistStore } from '@/entities/wishlist/model/wishlistStore'
+import { toggleWishlist } from '@/entities/wishlist/model/toggleWishlist'
 import { BUY_BAR_H } from '@/shared/lib/storeChrome'
 import { useScrolledPast } from '@/shared/lib/useScrolledPast'
 
@@ -65,7 +66,6 @@ interface Props {
  */
 const ProductBuyBar = ({ product, purchase, revealAfter }: Props) => {
   const { price, savings, canAdd, add, engravingRefusal } = purchase
-  const toggleWishlist = useWishlistStore(s => s.toggleItem)
   const isWishlisted = useWishlistStore(s => s.hasItem(product.id))
   const { pix_enabled, pix_discount_percent } = usePaymentSettings()
   const visivel = useScrolledPast(revealAfter)
@@ -180,7 +180,7 @@ const ProductBuyBar = ({ product, purchase, revealAfter }: Props) => {
 
           <button
             type="button"
-            onClick={() => toggleWishlist(product.id)}
+            onClick={() => toggleWishlist(product)}
             aria-label={isWishlisted ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
             /* Ficha em vez de caixa com borda de 2px: ao lado de um CTA sólido de largura inteira, a
                borda competia por atenção sem ser a ação principal. */

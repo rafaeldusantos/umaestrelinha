@@ -127,7 +127,19 @@ describe('PrivacyPolicyPage — o compartilhamento é o real (POL-12)', () => {
     /Meio de pagamento, para processar a cobrança/,
     /Transportadora e Correios, para levar a encomenda até o seu endereço/,
     /Serviço de envio de e-mail, para mandar a confirmação do pedido/,
+    // Feature 61 (`PRV-02`): a lista ganhou o quarto parceiro, sem perder nenhum dos três.
+    /Google Analytics, para medir a audiência da loja/,
   ]
+
+  it('a lista de compartilhamento tem exatamente quatro entradas', () => {
+    // Âncora de contagem: sem ela, uma quinta entrada (um pixel de anúncio, por exemplo) entraria
+    // sem ninguém revisar o texto.
+    montar()
+
+    const titulo = screen.getByRole('heading', { name: 'Com quem os seus dados são compartilhados' })
+    const secao = titulo.closest('section') ?? titulo.parentElement
+    expect(secao?.querySelectorAll('li')).toHaveLength(4)
+  })
 
   it.each(COMPARTILHAMENTOS.map((c) => [c.source.slice(0, 40), c]))(
     'nomeia o compartilhamento "%s…"',
@@ -243,5 +255,68 @@ describe('PrivacyPolicyPage — o tom', () => {
     const texto = document.body.textContent ?? ''
     expect(texto).not.toMatch(/🎉|🥳|✨|💜|💖|😢|👋/)
     expect(texto).not.toMatch(/botton|\bpin\b|\bpins\b|alfinete/i)
+  })
+})
+
+/**
+ * Feature 61, `PRV-01` — a seção "Medição de audiência" diz o que o Apêndice A aprovou.
+ *
+ * A AC tem duas metades: a seção EXISTE (o guarda da política conta títulos) **e** diz X. Só a
+ * primeira tinha asserção, e reescrever a seção para afirmar o oposto — que nome, e-mail e CPF vão ao
+ * Google, ou que a base legal é consentimento — deixava a suíte verde (S30/S31 da verificação). Por
+ * isso a régua é o parágrafo INTEIRO (`L-009`), mais os inversos, que reprovam a afirmação contrária
+ * mesmo se alguém reescrever a frase inteira de novo.
+ */
+describe('PrivacyPolicyPage — a medição de audiência (PRV-01)', () => {
+  const PARAGRAFOS_DA_MEDICAO = [
+    'Para entender como a loja é usada, usamos o Google Analytics. Ele registra as páginas vistas, os produtos acessados, o que vai para a sacola e as etapas da compra, junto com informações gerais do aparelho, como o tipo de navegador e a cidade aproximada.',
+    'Não enviamos ao Google o seu nome, e-mail, telefone, CPF, endereço nem o texto gravado na sua joia. Esses dados também não são usados para anúncios.',
+    'Fazemos essa medição com base no legítimo interesse da loja em melhorar o site, como permite a Lei Geral de Proteção de Dados. Se preferir não ser medida, abra “Preferências de cookies” — no aviso da loja ou no rodapé — e desligue “Estatísticas”. A partir daí, nada mais é enviado do seu navegador.',
+  ]
+
+  // A régua do "envia" mora num lugar só: a asserção e o sensor dela usam ESTA constante. Escrita
+  // duas vezes, mudar uma deixaria o sensor provando uma régua que a asserção já não usa.
+  // (`match` com a flag `g` ignora e zera o `lastIndex`, então reusar a mesma instância é seguro.)
+  const REGUA_DO_ENVIA = /(?<!não |nada mais é )\b(?:enviamos|envia|enviados?)\b[^.]*/gi
+
+  const textoDaSecao = () => {
+    const titulo = screen.getByRole('heading', { name: 'Medição de audiência' })
+    const secao = titulo.closest('section') ?? titulo.parentElement
+    const paragrafos = Array.from(secao?.querySelectorAll('p') ?? []).map((p) =>
+      (p.textContent ?? '').replace(/\s+/g, ' ').trim(),
+    )
+    return { paragrafos, texto: paragrafos.join(' ') }
+  }
+
+  it('tem exatamente os três parágrafos aprovados, na ordem', () => {
+    montar()
+
+    expect(textoDaSecao().paragrafos).toEqual(PARAGRAFOS_DA_MEDICAO)
+  })
+
+  it('não afirma que a loja ENVIA ao Google dado pessoal ou o texto gravado', () => {
+    montar()
+
+    const { texto } = textoDaSecao()
+    // Toda ocorrência de "envia" na seção tem de ser negada ("Não enviamos", "nada mais é enviado").
+    const afirmacoes = texto.match(REGUA_DO_ENVIA) ?? []
+    expect(afirmacoes).toEqual([])
+    expect(texto).toMatch(/Não enviamos ao Google o seu nome, e-mail, telefone, CPF/)
+    expect(texto).not.toMatch(/\bEnviamos ao Google\b/)
+    expect(texto).not.toMatch(/(?<!Não )(?:compartilhamos|repassamos) .*\b(?:nome|e-mail|CPF)\b/i)
+  })
+
+  it('a base legal é o legítimo interesse, e não o consentimento', () => {
+    montar()
+
+    const { texto } = textoDaSecao()
+    expect(texto).toMatch(/com base no legítimo interesse da loja/)
+    expect(texto).not.toMatch(/consentimento/i)
+  })
+
+  it('sensor: a régua do "envia" acusa a frase invertida e poupa a negada', () => {
+    const regua = REGUA_DO_ENVIA
+    expect('Enviamos ao Google o seu nome, e-mail e CPF.'.match(regua)).not.toBeNull()
+    expect('Não enviamos ao Google o seu nome. Nada mais é enviado do seu navegador.'.match(regua)).toBeNull()
   })
 })

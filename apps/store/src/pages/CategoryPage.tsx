@@ -9,6 +9,7 @@ import { useCategoryRedirect } from '@/entities/category/api/useCategoryRedirect
 import { resolveCategoryRoute } from '@/entities/category/lib/resolveCategoryRoute'
 import { useCanonical } from '@/shared/lib/useCanonical'
 import { PRODUCTS_PER_PAGE, useInfiniteWindow } from '@/shared/lib/useInfiniteWindow'
+import { useTrackList } from '@/shared/lib/analytics/useTrackList'
 import NotFound from '@/pages/NotFound'
 import ProductCard from '@/entities/product/ui/ProductCard'
 import ProductCardSkeleton from '@/entities/product/ui/ProductCardSkeleton'
@@ -156,6 +157,15 @@ const CategoryPage = ({ legacy = false }: Props) => {
    */
   const listKey = `${category?.slug ?? ''}|${sort}|${JSON.stringify(filters)}`
   const { visibleCount, hasMore, loadMore, sentinelRef } = useInfiniteWindow(visible.length, listKey)
+
+  /*
+   * Feature 61 · EVT-02 — a listagem é o que está NA TELA: a janela, não a coleção inteira. Cada
+   * leva da rolagem infinita emite só os cards novos, com a posição deles na lista. A lista é a
+   * coleção; filtro e ordenação não mudam o id (seria uma lista por combinação no relatório).
+   */
+  const listaDaColecao = category ? { id: `colecao-${category.slug}`, name: category.name } : null
+  const naTela = useMemo(() => visible.slice(0, visibleCount), [visible, visibleCount])
+  useTrackList(listaDaColecao, naTela)
 
   if (legacy) return <Navigate to={legacyRedirectTo(pathname) ?? '/'} replace />
 
@@ -404,8 +414,13 @@ const CategoryPage = ({ legacy = false }: Props) => {
                     e sem opacidade zero, e o primeiro leva `fetchpriority="high"`. Sem passá-lo
                     daqui, a decisão existiria no `ProductCard` e nunca seria tomada — esta é a
                     listagem que media LCP de 15,6 s. */}
-                {visible.slice(0, visibleCount).map((p, i) => (
-                  <ProductCard key={p.id} product={p} index={i} />
+                {naTela.map((p, i) => (
+                  <ProductCard
+                    key={p.id}
+                    product={p}
+                    index={i}
+                    list={listaDaColecao ? { ...listaDaColecao, index: i } : undefined}
+                  />
                 ))}
               </div>
 

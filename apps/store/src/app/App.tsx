@@ -8,6 +8,10 @@ import ChunkErrorBoundary from "@/app/ChunkErrorBoundary";
 import RuntimeSettingsLoader from "@/app/RuntimeSettingsLoader";
 import { createQueryClient } from "@/app/queryClient";
 import ScrollToTop from "@/app/ScrollToTop";
+import AnalyticsLoader from "@/app/AnalyticsLoader";
+import PageViewTracker from "@/app/PageViewTracker";
+import { setPreviewMode } from "@/shared/lib/analytics";
+import { CookieNotice } from "@/widgets/cookie-notice";
 import AbandonedCartTracker from "@/features/abandoned-cart/ui/AbandonedCartTracker";
 import RouteFallback from "@/shared/ui/RouteFallback";
 
@@ -65,6 +69,12 @@ const previewMode =
   typeof window !== "undefined" &&
   isPreviewWindow(window.location.search, window.parent !== window);
 
+/*
+ * Feature 61 · AVS-08 — a prévia do painel nunca mede. Marcado no módulo de medição além de não
+ * montar o carregador, para que um `track` de qualquer tela também recuse.
+ */
+setPreviewMode(previewMode);
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -89,6 +99,14 @@ const App = () => (
           o endereço dela (`PRV-05`).
         */}
         {!previewMode && <AbandonedCartTracker />}
+        {/*
+          Feature 61 — a medição e o aviso de cookies. Fora das `Routes` pela mesma razão do
+          `ScrollToTop`: o checkout e o 404 vivem fora do `StoreLayout`, e o aviso vale neles
+          também. Nenhum dos três existe na prévia do painel (`AVS-08`).
+        */}
+        {!previewMode && <AnalyticsLoader />}
+        {!previewMode && <PageViewTracker />}
+        {!previewMode && <CookieNotice />}
         {/*
           O limite de erro fica ACIMA do `Suspense`: quem falha é o `import()` de dentro dele, e um
           limite irmão não pegaria. Sem ele, um chunk que não baixa — rede que caiu, ou um deploy novo

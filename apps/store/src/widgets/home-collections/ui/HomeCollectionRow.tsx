@@ -66,6 +66,8 @@ const HomeCollectionRow = ({
       banner={banner}
       loading={isLoading}
       skeletonCount={vagas}
+      // Feature 61 · EVT-02: o mesmo id da listagem da coleção, porque é a mesma coleção.
+      list={{ id: `colecao-${collection.slug}`, name: collection.name }}
     />
   )
 }

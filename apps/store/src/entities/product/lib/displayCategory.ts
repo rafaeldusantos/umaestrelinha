@@ -4,10 +4,13 @@
 // card e o breadcrumb têm espaço para **uma**. A escolha não pode ser arbitrária: se ela mudar entre
 // dois renders, o mesmo produto aparece em "Anime" na home e em "K-Pop" na busca.
 //
-// A regra é `menor categories.sort_order`, com desempate por `product_categories.position` —
-// primeiro a ordem editorial da loja, depois a ordem que o admin arrastou no formulário. Empate nos
-// dois cai no `category_id`, para o resultado ser determinístico em qualquer caso.
+// A regra — `menor categories.sort_order`, desempate por `product_categories.position`, depois o
+// `category_id` — mora em `@estrelinha/core/product` (`pickDisplayCategory`) desde a feature 61: o
+// `purchase` do servidor precisa da MESMA escolha para o `item_category` do GA4, e a cópia que ele
+// tinha já divergia da loja. Aqui fica só a ponte para a árvore de categorias da loja e a rede da
+// coluna legada.
 
+import { pickDisplayCategory } from '@estrelinha/core/product'
 import type { Category, ProductCategoryLink } from '@estrelinha/supabase/types'
 
 export interface DisplayCategoryProduct {
@@ -27,21 +30,18 @@ export const displayCategory = (
   if (!categories?.length) return null
   const byId = new Map(categories.map(c => [c.id, c]))
 
-  const candidates = product.category_links
-    .map(link => ({ link, category: byId.get(link.category_id) }))
-    .filter((entry): entry is { link: ProductCategoryLink; category: Category } => !!entry.category)
-
-  if (candidates.length === 0) {
-    // Produto ainda sem linha em `product_categories`: o backfill da T4 cobriu os existentes, mas
-    // um insert direto no banco pode não ter. A coluna legada é a rede.
-    return (product.category_id && byId.get(product.category_id)) || null
-  }
-
-  candidates.sort(
-    (a, b) =>
-      a.category.sort_order - b.category.sort_order ||
-      a.link.position - b.link.position ||
-      a.link.category_id.localeCompare(b.link.category_id),
+  // A categoria vem da ÁRVORE da loja (a mesma que o header já carregou), não do embed do vínculo:
+  // o selo precisa do nome, e a árvore é quem diz que a categoria está ativa.
+  const escolhida = pickDisplayCategory(
+    product.category_links.map(link => ({
+      category_id: link.category_id,
+      position: link.position,
+      category: byId.get(link.category_id) ?? null,
+    })),
   )
-  return candidates[0].category
+  if (escolhida) return escolhida
+
+  // Produto ainda sem linha em `product_categories`: o backfill da T4 cobriu os existentes, mas
+  // um insert direto no banco pode não ter. A coluna legada é a rede.
+  return (product.category_id && byId.get(product.category_id)) || null
 }

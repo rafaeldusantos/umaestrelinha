@@ -52,6 +52,8 @@ const FeaturedProducts = ({ section, items }: Props) => {
        * para desenhar três abriria um buraco.
        */
       skeletonCount={ids.length}
+      // Feature 61 · EVT-02: um id por bloco — a Home pode ter mais de uma vitrine escolhida.
+      list={{ id: `destaque-${section.id}`, name: section.config?.title || 'Produtos em destaque' }}
     />
   )
 }

@@ -96,7 +96,8 @@ describe('politicaComDonoUnico — âncoras da varredura (L-021)', () => {
     // abaixo compararia listas vazias. As contagens são das DUAS páginas desta feature; a de
     // cuidados com a joia é de outra, e ancorá-la aqui faria esta suíte quebrar quando aquela mudar.
     expect(titulosDeclarados(ler(TROCAS))).toHaveLength(11)
-    expect(titulosDeclarados(ler(PRIVACIDADE))).toHaveLength(9)
+    expect(titulosDeclarados(ler(PRIVACIDADE))).toHaveLength(10)
+    expect(titulosDeclarados(ler(PRIVACIDADE))).toContain('Medição de audiência')
     expect(titulosDeclarados(ler(TROCAS))).toContain('Cuidados com a peça')
   })
 

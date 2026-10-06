@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom'
 import { TAP_44 } from '@/shared/lib/touchTarget'
 import { ChevronRight, Plus } from 'lucide-react'
+import { addToCartEvent } from '@estrelinha/core/analytics'
+import { productItem, track } from '@/shared/lib/analytics'
 import { formatPrice } from '@estrelinha/core/formatters'
 import { productPath } from '@estrelinha/core/routes'
 import { renditionUrl } from '@estrelinha/core/media'
@@ -85,7 +87,11 @@ const CrossSell = ({ products, onNavigate }: Props) => {
               ) : (
                 <button
                   type="button"
-                  onClick={() => addItem(product)}
+                  onClick={() => {
+                    addItem(product)
+                    // Feature 61 · EVT-05 — a sugestão da sacola é produto simples, uma unidade.
+                    track(addToCartEvent({ item: productItem(product, { quantity: 1 }) }))
+                  }}
                   aria-label={`Adicionar ${product.name} à sacola`}
                   className={`${TAP_44} flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-estrelinha-primary text-white transition-transform hover:scale-105 active:scale-95`}
                 >

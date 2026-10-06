@@ -1,7 +1,8 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import Footer from '../Footer'
+import { useCookieConsentStore } from '@/entities/cookie-consent'
 
 /**
  * **A marca do rodapé, contra o fundo do rodapé.**
@@ -311,5 +312,22 @@ describe('Footer — as bandeiras de pagamento', () => {
     renderFooter()
 
     expect(screen.getByRole('list', { name: 'Formas de pagamento aceitas' })).toBeInTheDocument()
+  })
+})
+
+describe('Footer — "Preferências de cookies" (feature 61, AVS-06)', () => {
+  it('o rodapé oferece o caminho de volta à escolha, e ele ABRE a folha', () => {
+    useCookieConsentStore.setState({ preferencesOpen: false })
+    renderFooter()
+    const botao = screen.getByRole('button', { name: 'Preferências de cookies' })
+    fireEvent.click(botao)
+    expect(useCookieConsentStore.getState().preferencesOpen).toBe(true)
+    useCookieConsentStore.setState({ preferencesOpen: false })
+  })
+
+  it('o controle tem o alvo de 44px de texto em fluxo (TAP_ROW)', () => {
+    renderFooter()
+    const botao = screen.getByRole('button', { name: 'Preferências de cookies' })
+    expect(botao.className).toContain('before:h-11')
   })
 })

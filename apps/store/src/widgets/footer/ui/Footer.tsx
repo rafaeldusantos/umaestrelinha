@@ -9,6 +9,7 @@ import {
   PRIVACY_POLICY_PATH,
   RETURNS_POLICY_PATH,
 } from '@estrelinha/core/routes'
+import { useCookieConsentStore } from '@/entities/cookie-consent'
 import { EstrelinhaSignature } from '@/shared/ui/brand'
 import { TAP_ROW } from '@/shared/lib/touchTarget'
 import InstagramStrip, { INSTAGRAM_URL } from './InstagramStrip'
@@ -99,6 +100,7 @@ const FooterLink = ({ to, children }: { to: string; children: React.ReactNode })
  */
 const Footer = () => {
   const { data: categories } = useCategories()
+  const openCookiePreferences = useCookieConsentStore((s) => s.openPreferences)
 
   return (
     <footer className="mt-16 bg-estrelinha-ground">
@@ -190,6 +192,17 @@ const Footer = () => {
                   inventar termos de uso, que é redigir contrato no lugar da dona. O link volta no dia
                   em que existir o texto. */}
               <FooterLink to={PRIVACY_POLICY_PATH}>Política de privacidade</FooterLink>
+              {/* Feature 61 (`AVS-06`): o caminho para mudar a escolha depois de o aviso sumir. É
+                  botão, e não link — não leva a lugar nenhum, abre a folha por cima da página. */}
+              <li>
+                <button
+                  type="button"
+                  onClick={openCookiePreferences}
+                  className={`${TAP_ROW} text-left text-[13px] font-light text-estrelinha-ink-soft transition-colors hover:text-estrelinha-primary md:text-[13.5px]`}
+                >
+                  Preferências de cookies
+                </button>
+              </li>
               <FooterLink to="/sobre">Sobre nós</FooterLink>
             </FooterColumn>
           </div>

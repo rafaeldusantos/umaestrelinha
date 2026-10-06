@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { useAuthContext } from '@estrelinha/auth'
 import { useAuthUiStore } from './authUiStore'
+import { markGoogleLogin, trackLogin, trackSignUp } from './authAnalytics'
 
 /**
  * Orchestrates the login flow: wires each step's action to the AuthContext
@@ -43,8 +44,14 @@ export function useAuthFlow() {
   const submitCode = async (token: string) => {
     const { error, isNewUser } = await verifyOtp(email, token)
     if (error) return { error }
-    if (isNewUser) goTo('name')
-    else finish()
+    // Feature 61 · EVT-16/17: conta nova é `sign_up`; conta que já existia é `login`.
+    if (isNewUser) {
+      trackSignUp('codigo')
+      goTo('name')
+    } else {
+      trackLogin('codigo')
+      finish()
+    }
     return { error: null }
   }
 
@@ -56,7 +63,10 @@ export function useAuthFlow() {
 
   const loginWithPassword = async (emailInput: string, password: string) => {
     const { error } = await signIn(emailInput, password)
-    if (!error) finish()
+    if (!error) {
+      trackLogin('senha')
+      finish()
+    }
     return { error }
   }
 
@@ -82,7 +92,11 @@ export function useAuthFlow() {
     return { error }
   }
 
-  const loginWithGoogle = () => signInWithGoogle(returnTo ?? '/conta')
+  const loginWithGoogle = () => {
+    // O `login` sai na VOLTA (`useGoogleLoginReturn`); aqui só se marca que foi pelo Google.
+    markGoogleLogin()
+    return signInWithGoogle(returnTo ?? '/conta')
+  }
 
   return {
     email,
