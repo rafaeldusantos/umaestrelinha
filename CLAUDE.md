@@ -132,7 +132,8 @@ Ao planejar/implementar features, use a Skill **`tlc-spec-driven`** com estas co
     (Notificações legíveis, e o padrão das Configurações) também estão FECHADAS. A `57`
     (os avisos para a dona, e o endereço que os recebe) e a `58` (pagamento PIX em rota própria)
     também estão FECHADAS. A `59` (Minha Conta V2) também está FECHADA. A `60` (a marca no
-    cabeçalho dos e-mails) também está FECHADA. A próxima é a `61`.**
+    cabeçalho dos e-mails) também está FECHADA. A `61` (Google Analytics 4 na loja) também está
+    FECHADA. A próxima é a `62`.**
   - **A `46` e a `47` correram EM PARALELO, em worktrees separados**, e é o segundo caso do projeto
     (o primeiro, a `45`, dividiu uma working tree só). O que mudou: a divisão foi por **árvore**, não
     por arquivo — a `47` nasceu de um `git worktree` sobre o HEAD local e trouxe a `46` por
@@ -283,7 +284,10 @@ Consequências práticas, nesta ordem:
     chave de `localStorage` é descartar carrinho e wishlist de gente de verdade.
   - Chaves em uso hoje: `estrelinha-cart`, `estrelinha-wishlist`, `estrelinha-coupon`,
     `estrelinha-checkout` (**`sessionStorage`**), `estrelinha-guest-consent`, `estrelinha-guest-email`,
-    `estrelinha-recent-searches`, `estrelinha-product-draft`, `estrelinha.admin.*`.
+    `estrelinha-recent-searches`, `estrelinha-product-draft`, `estrelinha.admin.*`,
+    `estrelinha-cookie-consent` (o aviso e as preferências de cookies, feature `61`) e
+    `estrelinha-google-login` (**`sessionStorage`** — marca o retorno do login pelo Google para o
+    evento `login`, feature `61`).
 - **Sem credenciais no código.** Cada app tem `.env` (gitignored) com `VITE_SUPABASE_URL` e
   `VITE_SUPABASE_PUBLISHABLE_KEY` (ver `.env.example`); o client (`@estrelinha/supabase`) lança erro
   se faltarem. Secrets de servidor ficam no `.env` da **raiz**. Detalhe em `supabase/CLAUDE.md`.
@@ -460,7 +464,27 @@ quando mudarem de verdade.
 | --- | --- | --- |
 | **Lint** | **26 erros / 7 warnings** — backoffice 24/5 · store 2/2 | `pnpm lint` |
 | **Tipos** | **0 · 0 · 0** (store · backoffice · catalog-import) | `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` |
-| **Testes** | **11201 em 564 arquivos** — store **4311/258** · backoffice **3026/166** · core **2554/102** · functions **798/15** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
+| **Testes** | **11760 em 593 arquivos** — store **4559/270** · backoffice **3119/173** · core **2662/109** · functions **908/18** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
+
+**A feature `61` (Google Analytics 4 na loja) somou +559 em QUATRO workspaces**, medidos em
+2026-10-06 um por vez, exit code fora de pipe e `--testTimeout=20000` nos dois apps: **store
+4311/258 → 4559/270**, **backoffice 3026/166 → 3119/173**, **core 2554/102 → 2662/109** e
+**functions 798/15 → 908/18**. Catalog-import não foi tocado e foi remedido. Lint em **26/7** (a
+feature acrescentou 6 warnings e os consertou no fecho), tipos **0 · 0**, `pnpm build` verde,
+`packages/core/src/payment/**` com **zero** arquivos alterados. Decisões `AD-046` e `AD-047`.
+
+> **A verificação independente REPROVOU duas rodadas e aprovou a terceira — por cobertura, nunca
+> por defeito de produto.** 79 + 28 + 28 mutantes nos arquivos reais. Os sobreviventes tinham a
+> assinatura de sempre: a seção nova da política reescrita para dizer o OPOSTO passava (o guarda
+> contava seções, não lia o corpo — `L-036` em texto jurídico); o dublê de erro de rede não tinha a
+> forma do Deno, que põe a URL **com a chave** na mensagem, então "nenhum log contém a chave" era
+> verdadeiro nos dois mundos; e o recuo do próprio hook (`?? DEFAULT`) era provado só por uma função
+> vizinha.
+
+> **A prova em navegador achou um defeito que NÃO é de código**: a propriedade `G-SQL517XDQZ` tem a
+> medição otimizada de histórico ligada, e numa SPA ela soma um `page_view` a cada troca de rota
+> (8 para 6 páginas). Desligá-la é passo de operação **obrigatório antes de ligar a medição** —
+> Apêndice B da spec.
 
 **A feature `60` (a marca no cabeçalho dos e-mails) somou +145 em DOIS workspaces**, medidos em
 2026-10-05 um por vez, exit code fora de pipe e `--testTimeout=20000` nos dois apps, **contra a

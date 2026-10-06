@@ -1132,9 +1132,81 @@
 - **Date**: 2026-10-05
 - **Status**: active
 
+### AD-046
+- **Decision**: **Refina `AD-038`: uma tela de INTEGRAÇÃO com até três seções pode desenhar o
+  registro como fileira de links**, e não como rail. Tudo o mais de `AD-038` continua valendo: o
+  registro das seções é um arquivo (`shared/lib/googleSections.ts`), a seção aberta é a URL
+  (`/admin/google/:secao`, rotas irmãs auto-fechadas), o corpo vem de um mapa `slug → componente`,
+  e só a seção ativa é montada.
+- **Reason**: feature `61`, seção Google (Analytics + Shopping). O motivo de `AD-038` era a contagem
+  de abas morar no CSS e quebrar em 390px com oito delas. Com duas seções, os dois rótulos cabem numa
+  linha em 390px com folga, e um rail de duas linhas ocuparia uma coluna inteira para dizer menos que
+  a fileira. A forma visual muda; a mecânica (endereço, registro, montagem condicional) não.
+- **Trade-off**: a quarta seção faz a tela voltar ao rail. O registro não muda — só o componente que
+  o desenha.
+- **Scope**: `apps/backoffice/src/shared/lib/googleSections.ts`, `apps/backoffice/src/pages/admin/AdminGooglePage.tsx`
+- **Date**: 2026-10-05
+- **Status**: active
+
+### AD-047
+- **Decision**: **Medição: o `purchase` do GA4 tem UM dono, e ele é o servidor**
+  (`mercado-pago/analytics.ts`, disparado pelo `applied` de `apply_payment_approval`); o navegador
+  manda todos os outros eventos por **um** módulo (`apps/store/src/shared/lib/analytics`) com os
+  builders em `@estrelinha/core/analytics`. A **chave secreta** do Measurement Protocol mora em
+  `public.analytics_secrets`, **sem policy nenhuma** e com `revoke` de `anon`/`authenticated`,
+  gravada e consultada só pela edge function `google-analytics` com `requireAdmin`. O ID de medição,
+  público por natureza, mora em `store_settings.analytics` com interruptor próprio (`AD-027`).
+- **Reason**: feature `61`. A compra do PIX é aprovada com a aba muitas vezes fechada, e
+  `/pedido/:id` recarregado duplicaria; só a aprovação aplicada uma vez é exatamente uma vez.
+  `store_settings` tem leitura pública, então a chave lá estaria publicada.
+- **Trade-off**: quem desligar "Estatísticas" não tem o `purchase` enviado, e a receita do GA fica
+  abaixo da do painel por esse recorte — a receita verdadeira continua sendo a do painel de vendas.
+  Envio que falha é registrado e não reenviado (fora de escopo).
+- **Guarda**: um teste recusa `gtag(`/`dataLayer` fora do módulo dono e o nome `purchase` em
+  `apps/**`; outro recusa a migration abrindo policy ou `grant` em `analytics_secrets`.
+- **Scope**: `packages/core/src/analytics/**`, `apps/store/src/shared/lib/analytics/**`,
+  `supabase/functions/mercado-pago/analytics.ts`, `supabase/functions/google-analytics/**`
+- **Date**: 2026-10-05
+- **Status**: active
+
 ## Handoff
 
-### ATUAL — 2026-10-05 · `60-logo-nos-emails` **IMPLEMENTADA — 8 de 8 tasks, Verifier PASS (23 mutantes, 23 mortos)**
+### ATUAL — 2026-10-06 · `61-google-analytics` **IMPLEMENTADA — 26 de 26 tasks, Verifier PASS (rodada 3)**
+
+- **Feature**: `.specs/features/61-google-analytics/` (`spec.md`, `context.md`, `design.md`,
+  `tasks.md`, `validation.md`). Decisões: **`AD-046`** (tela de integração com ≤ 3 seções desenha o
+  registro como fileira de links) e **`AD-047`** (o `purchase` é do servidor; a chave secreta mora
+  em tabela sem policy). Desenho: Paper, página "61 · Google — Analytics e Shopping".
+- **O que mudou**: `core/analytics` (builders de evento e da compra), `core/product/displayCategory`
+  (a regra da categoria de exibição, agora com um dono para loja e servidor) · migration
+  `20261005120000_61-google-analytics.sql` (`store_settings.analytics`, `analytics_secrets`, 5
+  colunas em `orders`) · functions: `_shared/auth.ts` (dono único de `requireAdmin`, eram três
+  cópias), `google-analytics` (nova), `checkout` (ids do GA), `mercado-pago/analytics.ts`
+  (`sendPurchase`) · loja: o gtag com um dono (`shared/lib/analytics`), aviso de cookies e
+  preferências, eventos de vitrine, produto, sacola, busca, checkout e conta, política de
+  privacidade · painel: seção **Google** (`/admin/google/:secao`, Analytics + Shopping),
+  `/admin/google-shopping` redireciona.
+- **Base legal**: legítimo interesse (decisão do usuário). Mede desde a primeira página; o aviso é
+  informativo, e "Preferências" → Estatísticas desligada para tudo, inclusive o `purchase`.
+- **Medido em 2026-10-06**: **11760 em 593** (store 4559/270, backoffice 3119/173, core 2662/109,
+  functions 908/18, catalog-import 512/23). Lint 26/7, tipos 0 · 0, build verde, `payment/**` intacto.
+- **ANTES DE LIGAR A MEDIÇÃO — passo de operação, nada disso é automático** (Apêndice B da spec):
+  1. `db push` da migration (sai no deploy).
+  2. No GA4, **desligar** "Mudanças de página com base em eventos do histórico do navegador"
+     (medição otimizada) — sem isso, `page_view` em dobro em toda navegação.
+  3. Ativar o filtro de dados "Tráfego interno" (a homologação manda `traffic_type=internal`).
+  4. Criar a chave do Measurement Protocol no GA4 e colar em `/admin/google/analytics`.
+  5. **A Adri aprovar o texto** da seção "Medição de audiência" da Política de Privacidade.
+  6. Ligar a medição no painel. Na troca de domínio: desvincular o GA4 da Nuvemshop, apagar a chave
+     antiga no GA e verificar o Search Console por DNS.
+- **Não provado**: o `purchase` de ponta a ponta pelo Measurement Protocol e o DebugView (a
+  `mercado-pago` não sobe no edge runtime LOCAL por um `import type` antigo em
+  `core/pricing/index.ts`; em produção ela responde normalmente — conferido em 2026-10-06).
+- **Dívida declarada**: `core/shopping` (`pickCategoryProductCategory`, taxonomia do feed) ainda usa
+  outro desempate de categoria (ordem e depois nome) — terceira regra, fora do escopo.
+- **Próximo número de feature**: `62`.
+
+### 2026-10-05 · `60-logo-nos-emails` **IMPLEMENTADA — 8 de 8 tasks, Verifier PASS (23 mutantes, 23 mortos)**
 
 - **Feature**: `.specs/features/60-logo-nos-emails/` (`spec.md`, `design.md`, `tasks.md`). Decisão:
   **`AD-045`** (a marca nos e-mails é um PNG versionado e imutável servido pela loja; `brandHeader`
