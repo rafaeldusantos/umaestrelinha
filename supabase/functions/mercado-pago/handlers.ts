@@ -38,6 +38,8 @@ import { isPriceError, resolveItemPrice } from "../../../packages/core/src/prici
 // com um dono e um teste puro; aqui ela nem aparece.
 import { type NotificationEnv, dispatchTrigger } from "../send-notification/dispatch.ts"
 import type { NotificationTrigger } from "../../../packages/core/src/notifications/index.ts"
+// Feature 61: a compra no GA4 sai DAQUI, e só daqui — no instante em que a aprovação é aplicada.
+import { type PurchaseDeps, sendPurchase } from "./analytics.ts"
 
 /** Tudo que os handlers tocam fora do próprio processo. O wiring (index.ts) fornece o real. */
 export interface Deps {
@@ -66,6 +68,11 @@ export interface Deps {
   /** Os provedores registrados neste deploy — o `index.ts` monta. Ver `AD-032`. */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   providers: any[]
+  /**
+   * O envio do `purchase` ao GA4 (feature 61). Opcional: ausente ⇒ o real (`analytics.ts`). Existe
+   * para o teste poder fazê-lo LANÇAR e provar que a resposta do pagamento não muda.
+   */
+  sendPurchase?: (deps: PurchaseDeps, orderId: string) => Promise<void>
 }
 
 /**
@@ -100,6 +107,32 @@ async function fireTrigger(deps: Deps, orderId: string, trigger: NotificationTri
       order_id: orderId,
       trigger,
       message: err instanceof Error ? err.message : String(err),
+    })
+  }
+}
+
+/**
+ * Envia a compra ao GA4 sem NUNCA afetar o resultado do pagamento (feature 61, `CMP-07`).
+ *
+ * Mesmo molde de `fireTrigger`: `sendPurchase` promete não lançar, e o try/catch é a carga que
+ * segura a promessa quebrada — um throw aqui viraria 500 na cobrança. O orçamento (2000 ms) é do
+ * próprio `sendPurchase`, separado do das notificações (`AD-008`).
+ *
+ * Chamado só quando a aprovação foi aplicada AGORA (`applied` da RPC) — e ainda assim o
+ * `sendPurchase` reivindica o envio no banco, que é o que torna a corrida cartão × webhook inócua.
+ */
+async function firePurchase(deps: Deps, orderId: string) {
+  try {
+    await (deps.sendPurchase ?? sendPurchase)(
+      { supabase: deps.supabase, fetch: deps.fetch, storePublicUrl: deps.notifications?.storePublicUrl },
+      orderId,
+    )
+  } catch (err) {
+    log({
+      action: "ga_purchase_failed",
+      order_id: orderId,
+      // Só o nome: a mensagem de um erro de fetch poderia carregar a URL, e a URL carrega a chave.
+      error: err instanceof Error ? err.name : "unknown",
     })
   }
 }
@@ -850,6 +883,10 @@ export async function createPayment(deps: Deps, req: Request, body: any) {
   if (gatilho) {
     await fireTrigger(deps, order_id, gatilho, NOTIFY_BUDGET_CREATE_MS)
   }
+  // CMP-02: o cartão aprovado AGORA. Depois do e-mail, para o aviso à cliente não esperar o Google.
+  if (approvalApplied) {
+    await firePurchase(deps, order_id)
+  }
 
   if (method === "pix") {
     // D5: `expires_at` é calculado aqui, não lido da order — o MP ecoa a duração `PT30M` que
@@ -1050,6 +1087,11 @@ export async function webhook(deps: Deps, req: Request, url: URL) {
 
   if (gatilhoDoWebhook) {
     await fireTrigger(deps, order.id, gatilhoDoWebhook, NOTIFY_BUDGET_WEBHOOK_MS)
+  }
+  // CMP-02/CMP-03: só a aprovação aplicada AGORA. Reentrega (`applied === false`) e as outras
+  // transições (`refunded`, `expired`…) não enviam compra nenhuma.
+  if (applied && target === "approved") {
+    await firePurchase(deps, order.id)
   }
 
   return json({ received: true })

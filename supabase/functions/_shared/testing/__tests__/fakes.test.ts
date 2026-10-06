@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createFakeSupabase } from '../fakes.ts'
+import { createFakeFetch, createFakeSupabase } from '../fakes.ts'
 
 // Só o que a T3 acrescentou aos dublês tem teste próprio: `rpcByFn`. O resto da superfície
 // (`fetch`, builder de query) já é exercitado de ponta a ponta pelos 93 testes da `mercado-pago`, e
@@ -237,5 +237,63 @@ describe('createFakeSupabase — o que a feature 59 acrescentou', () => {
       or: 'cpf.is.null,cpf.eq.',
     })
     expect(updates[1]).not.toHaveProperty('or')
+  })
+})
+
+// Feature 61 — o que a reivindicação do `purchase` e a chave secreta pedem do dublê.
+describe('createFakeSupabase — update … returning, `.is()` e `.upsert()` (feature 61)', () => {
+  it('`.is()` entra no registro do update SÓ quando há — os registros antigos não mudam de forma', async () => {
+    const { client, updates } = createFakeSupabase()
+    await client.from('orders').update({ a: 1 }).eq('id', 'p1')
+    await client.from('orders').update({ b: 2 }).eq('id', 'p1').is('ga_purchase_status', null).select('id').maybeSingle()
+
+    expect(updates[0]).toEqual({ table: 'orders', values: { a: 1 }, eq: ['id', 'p1'] })
+    expect(updates[1]).toEqual({ table: 'orders', values: { b: 2 }, eq: ['id', 'p1'], is: [['ga_purchase_status', null]] })
+  })
+
+  it('update … select … maybeSingle devolve o que `updatedRows` decide, vendo eq, is e values', async () => {
+    const vistos: unknown[] = []
+    const { client, updates } = createFakeSupabase({
+      updatedRows: {
+        orders: (eqs: unknown, is: unknown, values: unknown) => {
+          vistos.push({ eqs, is, values })
+          return { id: 'p1' }
+        },
+      },
+    })
+    const { data } = await client.from('orders').update({ s: 'x' }).eq('id', 'p1').is('s', null).select('id').maybeSingle()
+
+    expect(data).toEqual({ id: 'p1' })
+    expect(vistos).toEqual([{ eqs: [['id', 'p1']], is: [['s', null]], values: { s: 'x' } }])
+    expect(updates).toHaveLength(1) // registrado uma vez só
+  })
+
+  it('sem `updatedRows`, o update … returning devolve null (nenhuma linha casou)', async () => {
+    const { client } = createFakeSupabase()
+    const { data } = await client.from('orders').update({ s: 'x' }).eq('id', 'p1').select('id').maybeSingle()
+    expect(data).toBeNull()
+  })
+
+  it('`.upsert()` registra tabela, valores e onConflict; o erro é por tabela', async () => {
+    const { client, upserts } = createFakeSupabase({ upsertErrorByTable: { ruim: { code: 'x' } } })
+    const ok = await client.from('analytics_secrets').upsert({ key: 'k' }, { onConflict: 'key' })
+    const falha = await client.from('ruim').upsert({ key: 'k' })
+
+    expect(ok.error).toBeNull()
+    expect(falha.error).toEqual({ code: 'x' })
+    expect(upserts).toEqual([
+      { table: 'analytics_secrets', values: { key: 'k' }, onConflict: 'key' },
+      { table: 'ruim', values: { key: 'k' }, onConflict: null },
+    ])
+  })
+})
+
+describe('createFakeFetch — status sem corpo (feature 61)', () => {
+  it('204 responde sem corpo, em vez de lançar como `new Response("{}", {status: 204})` lançaria', async () => {
+    const { fetch } = createFakeFetch([{ match: 'mp/collect', status: 204 }])
+    const res = await fetch('https://www.google-analytics.com/mp/collect')
+    expect(res.status).toBe(204)
+    expect(res.ok).toBe(true)
+    expect(await res.text()).toBe('')
   })
 })

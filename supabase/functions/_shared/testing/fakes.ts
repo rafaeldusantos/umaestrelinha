@@ -75,6 +75,12 @@ export function createFakeFetch(routes: FetchRoute[] = []): FakeFetch {
     }
 
     const status = route.status ?? 200
+    // 204/205/304 não podem ter corpo — `new Response('{}', { status: 204 })` LANÇA. O Measurement
+    // Protocol do GA4 responde 204 (feature `61`), e sem isto o dublê transformaria o sucesso real
+    // numa exceção de rede.
+    if (status === 204 || status === 205 || status === 304) {
+      return new Response(null, { status })
+    }
     if (route.rawBody !== undefined) {
       return new Response(route.rawBody, { status, headers: { 'Content-Type': 'text/html' } })
     }
@@ -104,6 +110,14 @@ export interface UpdateCall {
    * vazio" seria uma regra inauditável.
    */
   or?: string | null
+  /**
+   * Os `.is()` que escopam o update, `[coluna, valor]` — ou ausente.
+   *
+   * Feature `61`: a reivindicação do envio do `purchase` é `update … where ga_purchase_status is
+   * null`. Sem enxergar o `.is()`, o dublê registraria o update do mesmo jeito com ou sem o recorte,
+   * e "uma vez só" seria uma regra inauditável (a lição da `49`).
+   */
+  is?: Array<[string, unknown]>
 }
 
 export interface RpcCall {
@@ -114,6 +128,13 @@ export interface RpcCall {
 export interface InsertCall {
   table: string
   values: Record<string, unknown>
+}
+
+export interface UpsertCall {
+  table: string
+  values: Record<string, unknown>
+  /** O `onConflict` passado — a coluna que decide "atualiza em vez de duplicar". */
+  onConflict: string | null
 }
 
 export interface DeleteCall {
@@ -228,6 +249,22 @@ export interface FakeSupabaseOptions {
    * (`inserts` e `adminCalls`) não prova sequência — é verdadeiro nos dois mundos.
    */
   onAdminCall?: (call: AdminCall) => void
+  /**
+   * Erro de `.upsert()` **por tabela** (feature `61`). Ausente ⇒ a gravação passa.
+   */
+  upsertErrorByTable?: Record<string, unknown>
+  /**
+   * O que `.update(...)….select(...).maybeSingle()/.single()` devolve, **por tabela** (feature
+   * `61`). Recebe os `.eq()` e os `.is()` do update, para a fixtura poder responder como o banco
+   * responderia a um `update … where … is null returning` — a linha, se o recorte casou; `null`, se
+   * não. Ausente ⇒ `null`.
+   */
+  updatedRows?: Record<
+    string,
+    | ((eqs: Array<[string, unknown]>, is: Array<[string, unknown]>, values: Record<string, unknown>) => unknown | null)
+    | unknown
+    | null
+  >
   /** Força erro em todo `.delete()`. */
   deleteError?: unknown
   /**
@@ -253,6 +290,8 @@ export interface FakeSupabase {
   updates: UpdateCall[]
   inserts: InsertCall[]
   deletes: DeleteCall[]
+  /** Toda chamada a `.upsert()`, na ordem (feature `61`). */
+  upserts: UpsertCall[]
   rpcs: RpcCall[]
   /** Toda chamada a `auth.admin.*`, na ordem. É o que prova "zero chamadas" num caminho de recusa. */
   adminCalls: AdminCall[]
@@ -262,6 +301,7 @@ export function createFakeSupabase(options: FakeSupabaseOptions = {}): FakeSupab
   const updates: UpdateCall[] = []
   const inserts: InsertCall[] = []
   const deletes: DeleteCall[] = []
+  const upserts: UpsertCall[] = []
   const rpcs: RpcCall[] = []
   const adminCalls: AdminCall[] = []
 
@@ -271,6 +311,8 @@ export function createFakeSupabase(options: FakeSupabaseOptions = {}): FakeSupab
     const eqTodos: Array<[string, unknown]> = []
     let selectColumns = ''
     let orFilter: string | null = null
+    const isTodos: Array<[string, unknown]> = []
+    let upsertou = false
     let pendingUpdate: Record<string, unknown> | null = null
     let inseriu = false
     let pendingDelete = false
@@ -279,16 +321,40 @@ export function createFakeSupabase(options: FakeSupabaseOptions = {}): FakeSupab
     /** Por tabela vence o global, no molde de `rpcByFn` sobre `rpc`. */
     const erroDeInsert = () => options.insertErrorByTable?.[table] ?? options.insertError ?? null
 
+    /** Registra o update uma vez só, venha ele por `then` ou por `.single()`/`.maybeSingle()`. */
+    let updateRegistrado = false
+    const registrarUpdate = () => {
+      if (updateRegistrado || !pendingUpdate) return
+      updateRegistrado = true
+      updates.push({
+        table,
+        values: pendingUpdate,
+        eq: eqPair,
+        ...(orFilter !== null ? { or: orFilter } : {}),
+        ...(isTodos.length > 0 ? { is: [...isTodos] } : {}),
+      })
+    }
+
+    /** A linha que um `update … returning` devolve, decidida pela fixtura `updatedRows`. */
+    const linhaAtualizada = () => {
+      const fixture = options.updatedRows?.[table] ?? null
+      return typeof fixture === 'function'
+        ? (
+            fixture as (
+              eqs: Array<[string, unknown]>,
+              is: Array<[string, unknown]>,
+              values: Record<string, unknown>,
+            ) => unknown | null
+          )([...eqTodos], [...isTodos], pendingUpdate ?? {})
+        : fixture
+    }
+
     const result = () => {
+      if (upsertou) return { data: null, error: options.upsertErrorByTable?.[table] ?? null }
       if (pendingUpdate) {
         // `or` só entra quando houve `.or()`: as asserções antigas comparam o registro inteiro com
         // `toEqual`, e uma chave `or: null` a mais as reprovaria sem nada ter mudado.
-        updates.push({
-          table,
-          values: pendingUpdate,
-          eq: eqPair,
-          ...(orFilter !== null ? { or: orFilter } : {}),
-        })
+        registrarUpdate()
         return { data: null, error: options.updateError ?? null }
       }
       // A gravação já foi registrada em `.insert()` — aqui só o desfecho. Registrar nos dois
@@ -343,6 +409,15 @@ export function createFakeSupabase(options: FakeSupabaseOptions = {}): FakeSupab
         return chain
       },
       in: () => chain,
+      is: (column: string, value: unknown) => {
+        isTodos.push([column, value])
+        return chain
+      },
+      upsert: (values: Record<string, unknown>, opts?: { onConflict?: string }) => {
+        upsertou = true
+        upserts.push({ table, values, onConflict: opts?.onConflict ?? null })
+        return chain
+      },
       or: (filtro: string) => {
         orFilter = filtro
         return chain
@@ -355,7 +430,10 @@ export function createFakeSupabase(options: FakeSupabaseOptions = {}): FakeSupab
         inseriu = true
         // Registra AQUI, e não em `result()`: a cadeia pode terminar em `.select().single()`, que
         // não passa por `result()` — e uma gravação invisível é uma asserção impossível.
-        inserts.push({ table, values })
+        // O cast é só de tipo: `insert` recebe linha OU lista, e `InsertCall` descreve a linha. Sem
+        // ele, o `tsc` da LOJA reprova este arquivo — que ela alcança pelo teste de paridade do
+        // `item_category` (feature 61), o primeiro a importar este dublê fora de `supabase/`.
+        inserts.push({ table, values: values as Record<string, unknown> })
         return chain
       },
       delete: () => {
@@ -369,10 +447,24 @@ export function createFakeSupabase(options: FakeSupabaseOptions = {}): FakeSupab
           const erro = erroDeInsert()
           if (erro) return { data: null, error: erro }
         }
+        if (pendingUpdate) {
+          registrarUpdate()
+          if (options.updateError) return { data: null, error: options.updateError }
+          const linha = linhaAtualizada() ?? null
+          return { data: linha, error: linha ? null : { message: 'not found' } }
+        }
         const data = row()
         return { data, error: data ? null : { message: 'not found' } }
       },
-      maybeSingle: async () => ({ data: row(), error: null }),
+      maybeSingle: async () => {
+        // `update … returning`: o desfecho é a linha que o recorte casou (ou nenhuma).
+        if (pendingUpdate) {
+          registrarUpdate()
+          if (options.updateError) return { data: null, error: options.updateError }
+          return { data: linhaAtualizada() ?? null, error: null }
+        }
+        return { data: row(), error: null }
+      },
       // Torna a cadeia awaitable sem `.single()` — é como os handlers leem order_items e products.
       then: (resolve: (value: unknown) => unknown, reject?: (reason: unknown) => unknown) =>
         Promise.resolve(result()).then(resolve, reject),
@@ -450,5 +542,5 @@ export function createFakeSupabase(options: FakeSupabaseOptions = {}): FakeSupab
     },
   }
 
-  return { client, updates, inserts, deletes, rpcs, adminCalls }
+  return { client, updates, inserts, deletes, upserts, rpcs, adminCalls }
 }

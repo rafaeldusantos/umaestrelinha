@@ -235,6 +235,38 @@ const COLUNAS_DO_PEDIDO = [
 ] as const
 
 /**
+ * Os ids do GA4 e a recusa da medição (feature `61`, `CMP-01`) — o que o `sendPurchase` da
+ * `mercado-pago` lê depois, quando a aprovação chega.
+ *
+ * Ficam FORA de `COLUNAS_DO_PEDIDO` de propósito: aquela lista copia o valor como veio, e estes três
+ * passam por validação antes. Um `ga_client_id` com lixo não derruba o pedido — **é descartado** e o
+ * pedido nasce assim mesmo, porque medição nunca pode custar uma venda (o servidor cai no
+ * `client_id` sintético derivado do pedido, `CMP-05`).
+ *
+ *  - os dois ids: texto de até 64 caracteres, só dígitos e ponto — a forma do cookie `_ga`
+ *    (`<int>.<int>`) e do `session_id` (`<int>`). Qualquer outra coisa é descartada.
+ *  - `analytics_declined`: booleano **estrito**. `"true"`, `1` ou ausente não gravam nada, e a
+ *    coluna fica no default `false` do banco.
+ *
+ * Nada disto vai para `order_items` — os itens são gravados com spread do corpo do item, nunca do
+ * corpo do pedido.
+ */
+const ID_DO_GA = /^[0-9.]{1,64}$/
+
+export function idsDaMedicao(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  body: any,
+): { ga_client_id?: string; ga_session_id?: string; analytics_declined?: boolean } {
+  const saida: { ga_client_id?: string; ga_session_id?: string; analytics_declined?: boolean } = {}
+  for (const coluna of ['ga_client_id', 'ga_session_id'] as const) {
+    const valor = body?.[coluna]
+    if (typeof valor === 'string' && ID_DO_GA.test(valor)) saida[coluna] = valor
+  }
+  if (typeof body?.analytics_declined === 'boolean') saida.analytics_declined = body.analytics_declined
+  return saida
+}
+
+/**
  * Grava o pedido, e é a **única** porta que faz isso — para convidada e para quem tem sessão.
  *
  * **A ORDEM das escritas é requisito** (`CSC-08`), e é o que separa esta implementação de uma
@@ -333,6 +365,7 @@ export async function createOrder(
   for (const coluna of COLUNAS_DO_PEDIDO) {
     if (body?.[coluna] !== undefined) pedido[coluna] = body[coluna]
   }
+  Object.assign(pedido, idsDaMedicao(body))
   pedido.customer_email = email
 
   // `order_number` é LIDO de volta, nunca escrito: o `default` da coluna o cunhou agora. A espera

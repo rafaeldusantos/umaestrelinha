@@ -44,44 +44,15 @@ function log(entry: Record<string, unknown>) {
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-type AuthOutcome = { ok: true; userId: string } | { ok: false; status: number; error: string }
+// Feature `61`: `currentUser` e `requireAdmin` têm dono único em `_shared/auth.ts` — esta era uma
+// de TRÊS cópias (com `admin-users` e `melhor-envio`). Reexportados, e não redeclarados.
+// EML-03/EML-04 seguem iguais: sem header → 401; anon key como bearer → 401; cliente logado → 403;
+// `has_role` que erra → 403, com log distinto.
+export { currentUser, requireAdmin } from '../_shared/auth.ts'
+import { type AuthOutcome, currentUser, requireAdmin } from '../_shared/auth.ts'
 
-/**
- * EML-03/EML-04. Três casos fecham o acesso do navegador da loja:
- *  - sem header            → 401
- *  - anon key como bearer  → é JWT válido do projeto mas NÃO tem `sub`, então `getUser` erra → 401
- *  - cliente logado        → `getUser` passa, `has_role` é falso → 403
- *
- * A checagem de papel usa o client SERVICE-ROLE e a função canônica `has_role`, a mesma que toda
- * policy de admin do schema usa — não uma leitura própria de `user_roles`, para não criar uma segunda
- * definição de "admin". Falha da RPC fecha o acesso (403) e loga distinto, para não virar mistério.
- */
-async function requireAdmin(deps: Deps, req: Request): Promise<AuthOutcome> {
-  const user = await currentUser(deps, req)
-  if (!user) return { ok: false, status: 401, error: 'Não autenticado' }
-
-  const { data: isAdmin, error: roleError } = await deps.supabase.rpc('has_role', {
-    _user_id: user.id,
-    _role: 'admin',
-  })
-  if (roleError) {
-    log({ action: 'send-notification', status: 'admin_check_failed', message: String(roleError.message ?? roleError) })
-    return { ok: false, status: 403, error: 'Acesso restrito ao admin' }
-  }
-  if (isAdmin !== true) return { ok: false, status: 403, error: 'Acesso restrito ao admin' }
-
-  return { ok: true, userId: user.id }
-}
-
-async function currentUser(deps: Deps, req: Request): Promise<{ id: string } | null> {
-  const jwt = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '').trim()
-  if (jwt === '') return null
-
-  const { data, error } = await deps.supabase.auth.getUser(jwt)
-  const user = data?.user
-  if (error || !user?.id) return null
-  return { id: user.id }
-}
+/** O rótulo do log é desta function; a regra é a do dono. */
+const exigirAdmin = (deps: Deps, req: Request) => requireAdmin(deps, req, 'send-notification')
 
 /**
  * A porta da CLIENTE. Autoriza pelo MESMO predicado da RPC `set_material_tracking`: o pedido é dela
@@ -124,7 +95,7 @@ function orderIdOf(body: any): string | null {
 // O corpo aceita `{ order_id, event, channel? }`. `to`, `subject`, `html` e `from` mandados pelo
 // chamador são ignorados: o destinatário vem do banco, lido com a service role (EML-01).
 export async function send(deps: Deps, req: Request, body: any): Promise<Response> {
-  const auth = await requireAdmin(deps, req)
+  const auth = await exigirAdmin(deps, req)
   if (!auth.ok) return json({ error: auth.error }, auth.status)
 
   // `type` continua aceito ao lado de `event`: durante a janela de deploy o bundle antigo do painel
@@ -160,7 +131,7 @@ export async function send(deps: Deps, req: Request, body: any): Promise<Respons
 
 // ACTION: trigger — "isto aconteceu". Quais mensagens saem é decisão de `core` (`AD-032`).
 export async function trigger(deps: Deps, req: Request, body: any): Promise<Response> {
-  const auth = await requireAdmin(deps, req)
+  const auth = await exigirAdmin(deps, req)
   if (!auth.ok) return json({ error: auth.error }, auth.status)
   return await runTrigger(deps, body)
 }
@@ -205,7 +176,7 @@ async function runTrigger(deps: Deps, body: any): Promise<Response> {
 // renderizador no backoffice seria o "defeito 01" — a dona aprovaria um desenho e a cliente
 // receberia outro. Não reivindica linha, não chama provedor, não grava.
 export async function preview(deps: Deps, req: Request, body: any): Promise<Response> {
-  const auth = await requireAdmin(deps, req)
+  const auth = await exigirAdmin(deps, req)
   if (!auth.ok) return json({ error: auth.error }, auth.status)
 
   const event = body?.event

@@ -11,7 +11,8 @@ import {
   hashAccessToken,
   newAccessToken,
 } from '../../../../packages/core/src/checkout/guestAccess.ts'
-import { createDeps, createFakeFetch, createFakeSupabase, TEST_ENV } from './fakes.ts'
+import { createDeps, createFakeFetch, createFakeSupabase, type FakeSupabaseOptions, TEST_ENV } from './fakes.ts'
+import type { Deps } from '../handlers.ts'
 
 // Smoke tests do harness (T7). Escolhidos por serem verdadeiros ANTES e DEPOIS da migração para a
 // API de Orders — não é teste descartável: nenhum dos dois muda de resposta quando o endpoint troca.
@@ -2239,7 +2240,19 @@ describe('webhook — transições, RPC e duplicidade (WHK-04, LOG-01)', () => {
       },
     ])
     // Os efeitos são da RPC: o handler não grava payment_status por fora dela.
-    expect(supabase.updates).toHaveLength(0)
+    //
+    // Feature 61: a ÚNICA escrita fora da RPC é a reivindicação do `purchase` do GA4 — e a lista é
+    // comparada INTEIRA, então qualquer outra escrita (um `payment_status` por fora) continua
+    // reprovando como antes. Era `toHaveLength(0)`; a régua ficou igualmente estrita e passou a
+    // nomear a escrita nova em vez de ignorá-la.
+    expect(supabase.updates).toEqual([
+      {
+        table: 'orders',
+        values: { ga_purchase_status: 'sending' },
+        eq: ['id', ORDER_ID],
+        is: [['ga_purchase_status', null]],
+      },
+    ])
   })
 
   it('WHK-04: transição não permitida por canTransition não regride o pedido', async () => {
@@ -2932,5 +2945,230 @@ describe('create-payment — a convidada paga com o token do pedido (PED-06)', (
 
     expect(response.status).toBe(403)
     expect(fetchDouble.calls).toHaveLength(0)
+  })
+})
+
+// =================================================================================================
+// Feature 61 · T10 — a compra no GA4 sai nos dois pontos de aprovação, e só neles (CMP-02, CMP-03)
+// =================================================================================================
+
+describe('GA4 purchase — fiação nos dois pontos de aprovação (CMP-02, CMP-03, CMP-07)', () => {
+  const GA_ROUTE = { match: 'google-analytics.com/mp/collect', status: 204 }
+  const gaCalls = (f: ReturnType<typeof createFakeFetch>) =>
+    f.calls.filter((c) => c.url.includes('google-analytics.com/mp/collect'))
+
+  const ANALYTICS = { enabled: true, measurement_id: 'G-SQL517XDQZ', production_host: 'umaestrelinha.com.br' }
+
+  /**
+   * Um banco onde a compra PODE sair: medição ligada, chave guardada, e a reivindicação funcionando
+   * como no Postgres — a primeira casa o `is null`, a segunda não. É o estado compartilhado que
+   * torna a corrida cartão × webhook observável.
+   */
+  const bancoComMedicao = (base: FakeSupabaseOptions) => {
+    let reivindicado = false
+    return createFakeSupabase({
+      ...base,
+      rows: {
+        ...(base.rows ?? {}),
+        store_settings: (eq: [string, unknown] | null) => (eq?.[1] === 'analytics' ? { value: ANALYTICS } : null),
+        analytics_secrets: { value: 'chave-de-teste' },
+      },
+      updatedRows: {
+        orders: (eqs: Array<[string, unknown]>, is: Array<[string, unknown]>) => {
+          const recorte = is.some(([c, v]) => c === 'ga_purchase_status' && v === null)
+          if (!recorte || reivindicado || !eqs.some(([c, v]) => c === 'id' && v === ORDER_ID)) return null
+          reivindicado = true
+          return {
+            id: ORDER_ID,
+            order_number: '0244',
+            total: 48,
+            shipping_cost: 0,
+            discount: 0,
+            promotion_discount: 0,
+            pix_discount: 0,
+            coupon_code: null,
+            ga_client_id: '111.222',
+            ga_session_id: null,
+            analytics_declined: false,
+          }
+        },
+      },
+    })
+  }
+
+  const cartaoAprovado = (rpcApplied: boolean) =>
+    bancoComMedicao({
+      user: { id: USER_ID },
+      rows: paymentRows(),
+      lists: paymentLists,
+      rpcByFn: { apply_payment_approval: { data: rpcApplied } },
+    })
+
+  const notify = () => signedNotification(MP_ORDER_ID, { type: 'order', data: { id: MP_ORDER_ID } })
+
+  it('cartão aprovado AGORA ⇒ UM envio ao GA4, com o número do pedido', async () => {
+    const supabase = cartaoAprovado(true)
+    const fetchDouble = createFakeFetch([
+      { match: '/v1/orders', body: mpOrderResponse({ status: 'processed', status_detail: 'accredited' }) },
+      RESEND_ROUTE,
+      GA_ROUTE,
+    ])
+
+    const response = await createPayment(createDeps(supabase, fetchDouble), paymentRequest(), cardBody)
+
+    expect((await response.json()).status).toBe('approved')
+    expect(gaCalls(fetchDouble)).toHaveLength(1)
+    expect(gaCalls(fetchDouble)[0].body.events[0].params.transaction_id).toBe('0244')
+  })
+
+  it('cartão com aprovação JÁ aplicada (RPC false) ⇒ zero envio, e nem reivindica', async () => {
+    const supabase = cartaoAprovado(false)
+    const fetchDouble = createFakeFetch([
+      { match: '/v1/orders', body: mpOrderResponse({ status: 'processed', status_detail: 'accredited' }) },
+      RESEND_ROUTE,
+      GA_ROUTE,
+    ])
+
+    await createPayment(createDeps(supabase, fetchDouble), paymentRequest(), cardBody)
+
+    expect(gaCalls(fetchDouble)).toHaveLength(0)
+    expect(supabase.updates.filter((u) => 'ga_purchase_status' in u.values)).toHaveLength(0)
+  })
+
+  it('PIX criado (pendente) ⇒ zero envio — compra só existe aprovada', async () => {
+    const supabase = cartaoAprovado(true)
+    const fetchDouble = createFakeFetch([{ match: '/v1/orders', body: mpOrderResponse() }, RESEND_ROUTE, GA_ROUTE])
+
+    await createPayment(createDeps(supabase, fetchDouble), paymentRequest(), pixBody)
+
+    expect(gaCalls(fetchDouble)).toHaveLength(0)
+  })
+
+  it('webhook approved com applied=true ⇒ UM envio', async () => {
+    const { req, url } = await notify()
+    const supabase = bancoComMedicao({ rows: { orders: orderRow() }, rpcByFn: { apply_payment_approval: { data: true } } })
+    const fetchDouble = createFakeFetch([{ match: '/v1/orders/', body: mpOrderLookup() }, RESEND_ROUTE, GA_ROUTE])
+
+    const response = await webhook(createDeps(supabase, fetchDouble), req, url)
+
+    expect(await response.json()).toEqual({ received: true })
+    expect(gaCalls(fetchDouble)).toHaveLength(1)
+  })
+
+  it('webhook reentregue (applied=false) ⇒ ZERO envio', async () => {
+    const { req, url } = await notify()
+    const supabase = bancoComMedicao({ rows: { orders: orderRow() }, rpcByFn: { apply_payment_approval: { data: false } } })
+    const fetchDouble = createFakeFetch([{ match: '/v1/orders/', body: mpOrderLookup() }, RESEND_ROUTE, GA_ROUTE])
+
+    await webhook(createDeps(supabase, fetchDouble), req, url)
+
+    expect(gaCalls(fetchDouble)).toHaveLength(0)
+  })
+
+  it.each(['refunded', 'expired', 'canceled'])(
+    'webhook de %s (applied=true pelo update) ⇒ ZERO envio — não é compra',
+    async (mpStatus) => {
+      const { req, url } = await notify()
+      const supabase = bancoComMedicao({
+        rows: { orders: orderRow({ payment_status: 'approved' }) },
+        rpcByFn: { apply_payment_approval: { data: true } },
+      })
+      const fetchDouble = createFakeFetch([
+        { match: '/v1/orders/', body: mpOrderLookup({ status: mpStatus }) },
+        RESEND_ROUTE,
+        GA_ROUTE,
+      ])
+
+      await webhook(createDeps(supabase, fetchDouble), req, url)
+
+      expect(gaCalls(fetchDouble)).toHaveLength(0)
+    },
+  )
+
+  it('CORRIDA cartão + webhook do MESMO pedido, os dois com applied=true ⇒ UM envio no total', async () => {
+    // O `applied` da RPC já é único no banco real; aqui os DOIS caminhos recebem `true` de
+    // propósito, para provar que a reivindicação sozinha segura a segunda compra.
+    const supabase = bancoComMedicao({
+      user: { id: USER_ID },
+      rows: paymentRows(),
+      lists: paymentLists,
+      rpcByFn: { apply_payment_approval: { data: true } },
+    })
+    const fetchDouble = createFakeFetch([
+      { match: '/v1/orders/', body: mpOrderLookup() },
+      { match: '/v1/orders', body: mpOrderResponse({ status: 'processed', status_detail: 'accredited' }) },
+      RESEND_ROUTE,
+      GA_ROUTE,
+    ])
+    const deps = createDeps(supabase, fetchDouble)
+
+    await createPayment(deps, paymentRequest(), cardBody)
+    const { req, url } = await notify()
+    await webhook(deps, req, url)
+
+    expect(supabase.rpcs.filter((r) => r.fn === 'apply_payment_approval')).toHaveLength(2) // âncora
+    expect(gaCalls(fetchDouble)).toHaveLength(1)
+  })
+
+  it('sendPurchase que LANÇA não altera a resposta do cartão — idêntica à de quem não envia', async () => {
+    const corpoCom = async (sendPurchase?: Deps['sendPurchase']) => {
+      const supabase = cartaoAprovado(true)
+      const fetchDouble = createFakeFetch([
+        { match: '/v1/orders', body: mpOrderResponse({ status: 'processed', status_detail: 'accredited' }) },
+        RESEND_ROUTE,
+        GA_ROUTE,
+      ])
+      const deps = { ...createDeps(supabase, fetchDouble), sendPurchase }
+      const res = await createPayment(deps, paymentRequest(), cardBody)
+      return { status: res.status, body: await res.json() }
+    }
+    let chamadas = 0
+    const explode: Deps['sendPurchase'] = async () => {
+      chamadas++
+      throw new Error('boom no GA4')
+    }
+
+    const baseline = await corpoCom(async () => {})
+    const comFalha = await corpoCom(explode)
+
+    expect(chamadas).toBe(1) // âncora: o caminho que lança foi de fato percorrido
+    expect(comFalha).toEqual(baseline)
+    expect(comFalha).toEqual({ status: 200, body: { status: 'approved', status_detail: 'accredited' } })
+  })
+
+  it('sendPurchase que LANÇA no webhook: segue 200 {received:true}, sem 500 que faria o MP retentar', async () => {
+    const { req, url } = await notify()
+    const supabase = bancoComMedicao({ rows: { orders: orderRow() }, rpcByFn: { apply_payment_approval: { data: true } } })
+    const fetchDouble = createFakeFetch([{ match: '/v1/orders/', body: mpOrderLookup() }, RESEND_ROUTE, GA_ROUTE])
+    let chamadas = 0
+    const deps: Deps = {
+      ...createDeps(supabase, fetchDouble),
+      sendPurchase: async () => {
+        chamadas++
+        throw new Error('boom no GA4')
+      },
+    }
+
+    const response = await webhook(deps, req, url)
+
+    expect(chamadas).toBe(1)
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ received: true })
+  })
+
+  it('o envio recebe a origem da loja (para traffic_type) e o pedido certo', async () => {
+    const recebido: Array<{ storePublicUrl: unknown; orderId: string }> = []
+    const { req, url } = await notify()
+    const supabase = bancoComMedicao({ rows: { orders: orderRow() }, rpcByFn: { apply_payment_approval: { data: true } } })
+    const fetchDouble = createFakeFetch([{ match: '/v1/orders/', body: mpOrderLookup() }, RESEND_ROUTE, GA_ROUTE])
+    await webhook(
+      {
+        ...createDeps(supabase, fetchDouble),
+        sendPurchase: async (d, orderId) => void recebido.push({ storePublicUrl: d.storePublicUrl, orderId }),
+      },
+      req,
+      url,
+    )
+    expect(recebido).toEqual([{ storePublicUrl: 'https://umaestrelinha.com.br', orderId: ORDER_ID }])
   })
 })

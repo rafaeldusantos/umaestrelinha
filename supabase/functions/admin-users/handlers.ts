@@ -79,53 +79,19 @@ function log(entry: Record<string, unknown>) {
 }
 
 
-type AuthOutcome = { ok: true; userId: string } | { ok: false; status: number; error: string }
+// Feature `61`: `currentUser` e `requireAdmin` têm dono único em `_shared/auth.ts` — esta era a
+// primeira de TRÊS cópias (com `send-notification` e `melhor-envio`), e a function
+// `google-analytics` seria a quarta. Reexportados, e não redeclarados: `_shared/__tests__/auth.test.ts`
+// confere a MESMA referência.
+//
+// Os quatro desfechos (`USR-01`, `USR-02`, `USR-03`, `USR-19`) continuam os mesmos: sem header →
+// 401; anon key como bearer → 401; autenticada sem papel → 403; `has_role` que erra → **403**, com
+// log distinto — falha de verificação nunca vira permissão.
+export { currentUser, requireAdmin } from '../_shared/auth.ts'
+import { requireAdmin } from '../_shared/auth.ts'
 
-async function currentUser(deps: Deps, req: Request): Promise<{ id: string } | null> {
-  const jwt = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '').trim()
-  if (jwt === '') return null
-
-  const { data, error } = await deps.supabase.auth.getUser(jwt)
-  const user = data?.user
-  if (error || !user?.id) return null
-  return { id: user.id }
-}
-
-/**
- * `USR-01`, `USR-02`, `USR-03`, `USR-19`. Quatro desfechos, e os quatro fecham a porta:
- *
- *  - sem header            → 401
- *  - anon key como bearer  → é JWT válido do projeto mas NÃO tem `sub`, então `getUser` erra → 401
- *  - autenticada sem papel → `has_role` é falso → 403
- *  - a RPC `has_role` erra → **403**, e log distinto
- *
- * O último não é detalhe: falha de verificação que virasse permissão transformaria uma instabilidade
- * do banco em acesso administrativo. Fecha, e diz no log por quê.
- *
- * A checagem usa o client SERVICE-ROLE e a função canônica `has_role` — a mesma que toda policy de
- * admin do schema usa —, não uma leitura própria de `user_roles`, para não criar uma segunda
- * definição de "admin".
- */
-async function requireAdmin(deps: Deps, req: Request): Promise<AuthOutcome> {
-  const user = await currentUser(deps, req)
-  if (!user) return { ok: false, status: 401, error: 'Não autenticado' }
-
-  const { data: isAdmin, error: roleError } = await deps.supabase.rpc('has_role', {
-    _user_id: user.id,
-    _role: 'admin',
-  })
-  if (roleError) {
-    log({
-      action: 'admin-users',
-      status: 'admin_check_failed',
-      message: String(roleError.message ?? roleError),
-    })
-    return { ok: false, status: 403, error: 'Acesso restrito ao admin' }
-  }
-  if (isAdmin !== true) return { ok: false, status: 403, error: 'Acesso restrito ao admin' }
-
-  return { ok: true, userId: user.id }
-}
+/** O rótulo do log é desta function; a regra é a do dono. */
+const exigirAdmin = (deps: Deps, req: Request) => requireAdmin(deps, req, 'admin-users')
 
 /**
  * ACTION: list — quem tem acesso ao painel (`USR-20`, `USR-26`).
@@ -140,7 +106,7 @@ async function requireAdmin(deps: Deps, req: Request): Promise<AuthOutcome> {
  * "tentar de novo".
  */
 async function list(deps: Deps, req: Request): Promise<Response> {
-  const auth = await requireAdmin(deps, req)
+  const auth = await exigirAdmin(deps, req)
   if (!auth.ok) return json({ error: auth.error }, auth.status)
 
   const { data: papeis, error: papeisError } = await deps.supabase
@@ -241,7 +207,7 @@ async function jaEhAdmin(deps: Deps, userId: string): Promise<boolean> {
  * tem acesso nenhum ao painel. Ninguém descobre, porque do lado de fora o desfecho é só "deu erro".
  */
 async function create(deps: Deps, req: Request, body: any): Promise<Response> {
-  const auth = await requireAdmin(deps, req)
+  const auth = await exigirAdmin(deps, req)
   if (!auth.ok) return json({ error: auth.error }, auth.status)
 
   const name = String(body?.name ?? '')
@@ -303,7 +269,7 @@ async function create(deps: Deps, req: Request, body: any): Promise<Response> {
  * mostrando a mesma pessoa — deixá-las divergir é o defeito 01 na sua forma mais visível.
  */
 async function update(deps: Deps, req: Request, body: any): Promise<Response> {
-  const auth = await requireAdmin(deps, req)
+  const auth = await exigirAdmin(deps, req)
   if (!auth.ok) return json({ error: auth.error }, auth.status)
 
   const id = targetIdOf(body)
@@ -360,7 +326,7 @@ async function update(deps: Deps, req: Request, body: any): Promise<Response> {
  * reversível com um clique.
  */
 async function revoke(deps: Deps, req: Request, body: any): Promise<Response> {
-  const auth = await requireAdmin(deps, req)
+  const auth = await exigirAdmin(deps, req)
   if (!auth.ok) return json({ error: auth.error }, auth.status)
 
   const id = targetIdOf(body)
@@ -433,7 +399,7 @@ async function contarHistorico(deps: Deps, userId: string): Promise<AccountHisto
  * línguas dependendo de por onde se bateu nela.
  */
 async function remove(deps: Deps, req: Request, body: any): Promise<Response> {
-  const auth = await requireAdmin(deps, req)
+  const auth = await exigirAdmin(deps, req)
   if (!auth.ok) return json({ error: auth.error }, auth.status)
 
   const id = targetIdOf(body)
@@ -492,7 +458,7 @@ async function remove(deps: Deps, req: Request, body: any): Promise<Response> {
  * permanente ao e-mail de outra pessoa.
  */
 async function resetPassword(deps: Deps, req: Request, body: any): Promise<Response> {
-  const auth = await requireAdmin(deps, req)
+  const auth = await exigirAdmin(deps, req)
   if (!auth.ok) return json({ error: auth.error }, auth.status)
 
   const id = targetIdOf(body)

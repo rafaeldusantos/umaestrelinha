@@ -784,3 +784,95 @@ describe('create-order — o número que o banco cunhou volta na resposta (board
     expect(corpo.order_number).toBeNull()
   })
 })
+
+// ---------------------------------------------------------------------------------------------
+// Feature 61 · CMP-01 — os ids do GA4 e a recusa da medição chegam ao pedido
+// ---------------------------------------------------------------------------------------------
+
+describe('create-order — os ids do GA4 (feature 61, CMP-01)', () => {
+  const COM_GA = {
+    ...PEDIDO,
+    ga_client_id: '1234567890.1728000000',
+    ga_session_id: '1728000123',
+    analytics_declined: false,
+  }
+
+  it('os três chegam ao insert de `orders`, como vieram', async () => {
+    const supabase = cenario()
+    const res = await route(criarDeps(supabase), pedir(COM_GA))
+    const linha = linhaDoPedido(supabase)
+
+    expect(res.status).toBe(200)
+    expect(linha.ga_client_id).toBe('1234567890.1728000000')
+    expect(linha.ga_session_id).toBe('1728000123')
+    expect(linha.analytics_declined).toBe(false)
+  })
+
+  it('a recusa (`true`) também chega — é ela que impede o `purchase` (CMP-04)', async () => {
+    const supabase = cenario()
+    await route(criarDeps(supabase), pedir({ ...COM_GA, analytics_declined: true }))
+    expect(linhaDoPedido(supabase).analytics_declined).toBe(true)
+  })
+
+  it.each([
+    ['letra', 'GA1.1.123.456'],
+    ['espaço', '123 456'],
+    ['vazio', ''],
+    ['65 caracteres', '1'.repeat(65)],
+    ['número em vez de texto', 1234567890],
+    ['injeção', "1'; drop table orders; --"],
+  ])('id fora do formato (%s) é DESCARTADO, e o pedido nasce assim mesmo', async (_r, lixo) => {
+    const supabase = cenario()
+    const res = await route(criarDeps(supabase), pedir({ ...COM_GA, ga_client_id: lixo, ga_session_id: lixo }))
+    const linha = linhaDoPedido(supabase)
+
+    expect(res.status).toBe(200)
+    expect(linha).not.toHaveProperty('ga_client_id')
+    expect(linha).not.toHaveProperty('ga_session_id')
+    // o booleano válido do mesmo corpo continua chegando — o descarte é por campo
+    expect(linha.analytics_declined).toBe(false)
+  })
+
+  it('64 caracteres só de dígitos e ponto passam (o teto é inclusivo)', async () => {
+    const supabase = cenario()
+    const id = `${'1'.repeat(32)}.${'2'.repeat(31)}`
+    expect(id).toHaveLength(64)
+    await route(criarDeps(supabase), pedir({ ...COM_GA, ga_client_id: id }))
+    expect(linhaDoPedido(supabase).ga_client_id).toBe(id)
+  })
+
+  it.each([
+    ['texto "true"', 'true'],
+    ['número 1', 1],
+    ['nulo', null],
+  ])('recusa que não é booleano estrito (%s) não grava nada — fica o default do banco', async (_r, valor) => {
+    const supabase = cenario()
+    const res = await route(criarDeps(supabase), pedir({ ...COM_GA, analytics_declined: valor }))
+    expect(res.status).toBe(200)
+    expect(linhaDoPedido(supabase)).not.toHaveProperty('analytics_declined')
+  })
+
+  it('sem nenhum dos três no corpo, nenhuma das colunas é inventada', async () => {
+    const supabase = cenario()
+    await route(criarDeps(supabase), pedir(PEDIDO))
+    const linha = linhaDoPedido(supabase)
+    for (const coluna of ['ga_client_id', 'ga_session_id', 'analytics_declined']) {
+      expect(linha).not.toHaveProperty(coluna)
+    }
+  })
+
+  it('NADA disso chega a `order_items`', async () => {
+    const supabase = cenario()
+    await route(criarDeps(supabase), pedir(COM_GA))
+    const itens = supabase.inserts.find((i) => i.table === 'order_items')?.values as unknown as Array<
+      Record<string, unknown>
+    >
+
+    expect(itens).toHaveLength(1) // âncora: os itens foram gravados, e é sobre eles a ausência
+    for (const item of itens) {
+      for (const coluna of ['ga_client_id', 'ga_session_id', 'analytics_declined']) {
+        expect(item).not.toHaveProperty(coluna)
+      }
+    }
+  })
+})

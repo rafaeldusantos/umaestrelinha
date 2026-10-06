@@ -2,6 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1"
 
 // Feature `49`: dono único em `_shared/http.ts` — eram três cópias idênticas nas functions.
 import { corsHeaders } from "../_shared/http.ts"
+import { requireAdmin } from "../_shared/auth.ts"
 
 const ME_TOKEN = Deno.env.get("MELHOR_ENVIO_TOKEN")!
 const ME_SENDER = JSON.parse(Deno.env.get("MELHOR_ENVIO_SENDER_JSON") || "{}")
@@ -27,17 +28,11 @@ const adminClient = () => createClient(supabaseUrl, supabaseKey)
  */
 const PUBLIC_ACTIONS = new Set(["quote"])
 
-type AuthOutcome = { ok: true; userId: string } | { ok: false; status: number; error: string }
-
 /**
- * Mesmo molde de `send-email/handlers.ts` — de propósito, para não existir uma segunda definição de
- * "admin" nas edge functions.
+ * Feature `61`: a checagem de admin tem dono único em `_shared/auth.ts` — esta era uma de TRÊS
+ * cópias (com `admin-users` e `send-notification`), iguais no comportamento e diferentes só no
+ * rótulo do log. Os três desfechos continuam os mesmos:
  *
- * `verify_jwt = false` no `config.toml` e checagem manual aqui, porque `verify_jwt = true` seria
- * teatro: a anon key pública É um JWT válido do projeto e passaria pelo gateway. O que importa é o
- * papel, e papel só se checa dentro do handler.
- *
- * Três casos fecham o acesso de quem não é a dona:
  *  - sem header           → 401
  *  - anon key como bearer → JWT válido, mas sem `sub`; `getUser` erra → 401
  *  - cliente logada       → `getUser` passa, `has_role` é falso → 403
@@ -45,31 +40,7 @@ type AuthOutcome = { ok: true; userId: string } | { ok: false; status: number; e
  * Falha da RPC **fecha** o acesso e loga distinto: indisponibilidade do banco não pode virar porta
  * aberta para comprar etiqueta.
  */
-async function requireAdmin(req: Request): Promise<AuthOutcome> {
-  const jwt = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "").trim()
-  if (jwt === "") return { ok: false, status: 401, error: "Não autenticado" }
-
-  const supabase = adminClient()
-  const { data, error } = await supabase.auth.getUser(jwt)
-  const user = data?.user
-  if (error || !user?.id) return { ok: false, status: 401, error: "Não autenticado" }
-
-  const { data: isAdmin, error: roleError } = await supabase.rpc("has_role", {
-    _user_id: user.id,
-    _role: "admin",
-  })
-  if (roleError) {
-    console.log(JSON.stringify({
-      action: "melhor-envio",
-      status: "admin_check_failed",
-      message: String(roleError.message ?? roleError),
-    }))
-    return { ok: false, status: 403, error: "Acesso restrito ao admin" }
-  }
-  if (isAdmin !== true) return { ok: false, status: 403, error: "Acesso restrito ao admin" }
-
-  return { ok: true, userId: user.id }
-}
+const exigirAdmin = (req: Request) => requireAdmin({ supabase: adminClient() }, req, "melhor-envio")
 
 function meHeaders() {
   return {
@@ -384,7 +355,7 @@ Deno.serve(async (req) => {
     // Sem isto, `create` era um endpoint público que comprava etiqueta com o saldo da carteira e
     // escrevia em `orders` com service role, a partir de um `order_id` de qualquer origem.
     if (!PUBLIC_ACTIONS.has(action ?? "")) {
-      const auth = await requireAdmin(req)
+      const auth = await exigirAdmin(req)
       if (!auth.ok) {
         return new Response(JSON.stringify({ error: auth.error }), {
           status: auth.status,

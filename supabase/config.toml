@@ -569,3 +569,11 @@ verify_jwt = false
 # sessão quando existe, o token de posse do pedido quando não.
 [functions.checkout]
 verify_jwt = false
+
+# Feature 61 — a chave secreta do Measurement Protocol do GA4. MESMA razão da admin-users: a anon
+# key publicada é um JWT válido e passaria pelo gateway; quem fecha a porta é `requireAdmin`
+# (`_shared/auth.ts`) dentro do handler — 401 sem JWT, 403 sem papel ou com `has_role` falhando. E
+# com `verify_jwt = true` o gateway recusaria o preflight OPTIONS do painel (que nunca leva header
+# de auth), e a tela quebraria por CORS antes de chegar ao handler.
+[functions.google-analytics]
+verify_jwt = false
