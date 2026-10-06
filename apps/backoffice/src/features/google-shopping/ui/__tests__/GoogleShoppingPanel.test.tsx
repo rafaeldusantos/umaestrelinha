@@ -6,6 +6,10 @@ import { CUTOVER_STEPS } from '@/features/google-shopping/lib/cutover'
 /**
  * Feature 30 · `GSH-15`..`GSH-17`, `GSH-22` — a tela que liga o feed.
  *
+ * Feature 61 (`ANL-02`): a tela virou a seção Shopping de `/admin/google`, e este arquivo veio de
+ * `pages/admin/AdminGoogleShoppingPage.test.tsx` **sem perder uma asserção** — só o alvo mudou de
+ * nome. A rota antiga redireciona para cá (`app/__tests__/rotasDoGoogle.test.ts`).
+ *
  * O que precisa ser provado aqui não é layout: é que **desligar depois de ligado avisa o efeito**, e
  * que **erro de leitura não vira zero**. As duas coisas custam o catálogo do Google se estiverem
  * erradas, e nenhuma das duas quebra nada visível quando quebra.
@@ -56,12 +60,12 @@ vi.mock('@/shared/lib/storeOrigin', () => ({
 }))
 vi.mock('@estrelinha/ui/hooks/use-toast', () => ({ toast: vi.fn() }))
 
-import AdminGoogleShoppingPage from './AdminGoogleShoppingPage'
+import GoogleShoppingPanel from '../GoogleShoppingPanel'
 
 const renderPage = () =>
   render(
     <MemoryRouter>
-      <AdminGoogleShoppingPage />
+      <GoogleShoppingPanel />
     </MemoryRouter>,
   )
 
@@ -229,6 +233,25 @@ describe('o interruptor (GSH-15, GSH-16)', () => {
     fireEvent.click(within(dialogo).getByRole('button', { name: /desligar mesmo assim/i }))
     await waitFor(() => expect(salvar).toHaveBeenCalled())
     expect(salvar.mock.calls[0][0].value.ever_enabled).toBe(true)
+  })
+})
+
+describe('o painel dentro da seção Google (feature 61, ANL-02)', () => {
+  it('os três blocos continuam: estado, a ordem da virada e o que o feed publica', () => {
+    renderPage()
+    expect(screen.getByRole('heading', { name: 'Integração desligada' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'A ordem da virada' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'O que o feed publica' })).toBeTruthy()
+  })
+
+  it('não carrega título de página próprio — quem nomeia a tela é "Google"', () => {
+    renderPage()
+    expect(screen.queryByRole('heading', { level: 1 })).toBeNull()
+  })
+
+  it('o interruptor tem a área de toque de 44px (ANL-09)', () => {
+    renderPage()
+    expect(screen.getByRole('switch').className).toMatch(/(?:^|\s)before:-top-\[10px\](?![-\w])/)
   })
 })
 

@@ -1,5 +1,9 @@
 // Feature 30 — a tela onde o feed do Google Shopping é ligado (`GSH-15`..`GSH-17`, `GSH-22`).
 //
+// **Desde a feature 61 é a seção Shopping de `/admin/google`** (`ANL-01`/`ANL-02`): o corpo saiu de
+// `pages/admin/AdminGoogleShoppingPage.tsx` para cá sem mudar uma linha de comportamento. O que saiu
+// junto foi só o `PageHeader` — o título da tela agora é "Google", e é da página.
+//
 // A loja tem 3.235 ofertas aprovadas na conta Merchant Center `685367464`, alimentadas hoje pela
 // Content API do app da Nuvemshop. Esta tela é o que troca a fonte sem perder o catálogo — e o que
 // impede a troca de acontecer na ordem errada.
@@ -11,7 +15,7 @@
 
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { AlertTriangle, Check, Copy, ExternalLink, ShoppingBag } from 'lucide-react'
+import { AlertTriangle, Check, Copy, ExternalLink } from 'lucide-react'
 import { Button } from '@estrelinha/ui/button'
 import { Switch } from '@estrelinha/ui/switch'
 import { toast } from '@estrelinha/ui/hooks/use-toast'
@@ -21,10 +25,10 @@ import {
 } from '@estrelinha/core/hooks/useStoreSettings'
 import { FEED_EXCLUSIONS, type FeedExclusion } from '@estrelinha/core/shopping'
 import { storeOrigin } from '@/shared/lib/storeOrigin'
-import { PageHeader } from '@/shared/ui'
-import { CUTOVER_STEPS, feedUrl } from '@/features/google-shopping/lib/cutover'
-import { useFeedInventory } from '@/features/google-shopping/model/useFeedInventory'
-import { DisableFeedDialog } from '@/features/google-shopping/ui/DisableFeedDialog'
+import { SWITCH_TAP_44 } from '@/shared/ui'
+import { CUTOVER_STEPS, feedUrl } from '../lib/cutover'
+import { useFeedInventory } from '../model/useFeedInventory'
+import { DisableFeedDialog } from './DisableFeedDialog'
 
 const MOTIVO_LABEL: Record<FeedExclusion, string> = {
   produto_inativo: 'Produto desativado',
@@ -32,7 +36,7 @@ const MOTIVO_LABEL: Record<FeedExclusion, string> = {
   sem_preco: 'Variação sem preço',
 }
 
-const AdminGoogleShoppingPage = () => {
+const GoogleShoppingPanel = () => {
   const settings = useGoogleShoppingSettings()
   const { mutateAsync: salvar, isPending } = useUpdateSettings()
   const { data: inventario, isLoading, isError } = useFeedInventory()
@@ -74,11 +78,6 @@ const AdminGoogleShoppingPage = () => {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Google Shopping"
-        subtitle="O feed que publica o catálogo no Google, de graça, e nas campanhas quando houver."
-        icon={ShoppingBag}
-      />
 
       {/* ---------------------------------------------------------------- estado */}
       <section className="rounded-lg border border-border bg-card p-6" aria-labelledby="gs-estado">
@@ -98,6 +97,9 @@ const AdminGoogleShoppingPage = () => {
             onCheckedChange={onToggle}
             disabled={isPending}
             aria-label="Ligar integração com o Google Shopping"
+            // Feature 61 (`ANL-09`): a seção passou a viver numa tela que promete 44px a todo
+            // controle em 390. O `Switch` é 24px de altura; a classe estende só a área clicável.
+            className={SWITCH_TAP_44}
           />
         </div>
 
@@ -260,4 +262,4 @@ const AdminGoogleShoppingPage = () => {
   )
 }
 
-export default AdminGoogleShoppingPage
+export default GoogleShoppingPanel

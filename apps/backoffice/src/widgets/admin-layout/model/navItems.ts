@@ -47,7 +47,7 @@ export interface NavGroup {
  * porque é o que se visita menos: produto e categoria se cadastram toda semana, a biblioteca de
  * perguntas se ajusta de vez em quando.
  *
- * **`Google Shopping` entra em `Loja`, depois de `Menu da loja`** (feature 30): é o que a cliente vê
+ * **`Google` (era `Google Shopping` até a feature 61) entra em `Loja`, depois de `Menu da loja`** (feature 30): é o que a cliente vê
  * **antes** de chegar — mesma família de Home e Menu, que é curadoria de vitrine e não cadastro. É
  * também o item que se visita menos dos três: a Home se ajusta toda semana, o menu de vez em quando,
  * e o feed do Google se liga uma vez e se confere quando algo estranha.
@@ -96,7 +96,9 @@ export const navGroups: NavGroup[] = [
       // Feature 46. Entra em `Loja` e não em `Catálogo` porque é curadoria do que a cliente VÊ — a
       // mesma régua que trouxe o Menu da loja para cá. O conteúdo que ela cura mora na Biblioteca.
       { to: '/admin/perguntas-frequentes', icon: MessageCircleQuestion, label: 'Página de perguntas' },
-      { to: '/admin/google-shopping', icon: Store, label: 'Google Shopping' },
+      // Feature 61: era "Google Shopping" → `/admin/google-shopping`. Virou a seção Google, com o
+      // Analytics e o Shopping lado a lado (`ANL-01`), e o endereço antigo redireciona (`ANL-02`).
+      { to: '/admin/google', icon: Store, label: 'Google' },
     ],
   },
 ]

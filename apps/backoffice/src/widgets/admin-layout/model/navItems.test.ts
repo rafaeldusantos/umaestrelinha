@@ -86,7 +86,9 @@ describe('navGroups — os quatro eixos', () => {
       '/admin/home',
       '/admin/menu',
       '/admin/perguntas-frequentes',
-      '/admin/google-shopping',
+      // Feature 61: a seção Google substituiu a tela do Google Shopping (`ANL-01`). A lista foi
+      // reescrita, e ganhou vizinha (o caso do redirect, abaixo) em vez de virar `toContain`.
+      '/admin/google',
     ])
 
     const catalogo = navGroups.find(g => g.label === 'Catálogo')!
@@ -141,25 +143,34 @@ describe('navGroups — os quatro eixos', () => {
       'Home',
       'Menu da loja',
       'Página de perguntas',
-      'Google Shopping',
+      'Google',
     ])
   })
 
-  it('`Google Shopping` fecha o grupo Loja (feature 30)', () => {
+  it('`Google` fecha o grupo Loja (features 30 e 61)', () => {
     // É vitrine, não cadastro: o que a cliente vê **antes** de chegar. E é o item que se visita
     // menos dos três — a Home se ajusta toda semana, o menu de vez em quando, e o feed se liga uma
     // vez e se confere quando algo estranha.
     const loja = navGroups.find(g => g.label === 'Loja')!
-    expect(loja.items[loja.items.length - 1].to).toBe('/admin/google-shopping')
+    expect(loja.items[loja.items.length - 1].to).toBe('/admin/google')
 
     const catalogo = navGroups.find(g => g.label === 'Catálogo')!
-    expect(catalogo.items.map(i => i.to)).not.toContain('/admin/google-shopping')
+    expect(catalogo.items.map(i => i.to)).not.toContain('/admin/google')
   })
 
-  it('`/admin/google-shopping` está registrada em `App.tsx`, depois de `/admin/menu`', () => {
+  it('`/admin/google` está registrada em `App.tsx`, depois de `/admin/menu` (feature 61)', () => {
     const rotas = appRoutePaths()
-    expect(rotas).toContain('/admin/google-shopping')
-    expect(rotas.indexOf('/admin/menu')).toBeLessThan(rotas.indexOf('/admin/google-shopping'))
+    expect(rotas).toContain('/admin/google')
+    expect(rotas.indexOf('/admin/menu')).toBeLessThan(rotas.indexOf('/admin/google'))
+  })
+
+  it('o endereço antigo do Shopping NÃO é destino da sidebar — continua só como redirect (ANL-02)', () => {
+    // A sidebar aponta para a seção nova; a rota antiga existe para links salvos não quebrarem.
+    // Um item para ela seria a mesma tela em dois destinos.
+    expect(allItems.map(i => i.to)).not.toContain('/admin/google-shopping')
+    expect(appRoutePaths()).toContain('/admin/google-shopping')
+    // A subrota da seção também não é destino de primeiro nível — mesma régua do editor da Home.
+    expect(allItems.map(i => i.to)).not.toContain('/admin/google/:secao')
   })
 
   it('`/admin/home` está registrada em `App.tsx`, antes de `/admin/menu`', () => {

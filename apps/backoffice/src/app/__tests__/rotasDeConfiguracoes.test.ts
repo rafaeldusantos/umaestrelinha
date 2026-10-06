@@ -77,6 +77,21 @@ const rotas = (texto: string): { path: string; autoFechada: boolean }[] => {
 
 const ROTA_DA_SECAO = `${SETTINGS_ROOT}/:secao`
 
+/**
+ * Os únicos caminhos que podem ser redirect no painel, escritos LITERALMENTE (feature 61, `ANL-02`):
+ * o endereço antigo da tela do Google Shopping, que passou a ser a seção Shopping de `/admin/google`.
+ */
+const REDIRECTS_PERMITIDOS = ['/admin/google-shopping']
+
+/** Caminhos de rota cujo `element` é um `<Navigate>` fora da allowlist — e todo `<Navigate>` solto. */
+const redirectsIndevidos = (texto: string): string[] => {
+  const total = (texto.match(/<Navigate\b/g) ?? []).length
+  const emRota = [...texto.matchAll(/<Route\s+path="([^"]+)"\s+element=\{<Navigate\b/g)].map(m => m[1])
+  const indevidos = emRota.filter(p => !REDIRECTS_PERMITIDOS.includes(p))
+  if (total !== emRota.length) indevidos.push('<Navigate> fora do element de uma rota')
+  return indevidos
+}
+
 describe('as rotas de Configurações — âncora', () => {
   it('o `App.tsx` foi lido e tem conteúdo', () => {
     expect(fonte.length).toBeGreaterThan(2000)
@@ -116,7 +131,28 @@ describe('as duas rotas existem e apontam para a mesma tela (CFG-15, CFG-16, CFG
   it('NÃO há redirect da rota-mãe (CFG-17)', () => {
     // A rota-mãe renderiza conteúdo por si. Um `<Navigate>` a trocaria pelo endereço da primeira
     // seção, e o item do rodapé da sidebar passaria a apontar para um lugar que ele não nomeia.
-    expect(codigo).not.toMatch(/<Navigate/)
+    //
+    // Feature 61 (`ANL-02`): a régua era "nenhum `<Navigate>` no arquivo", e o endereço antigo do
+    // Google Shopping passou a redirecionar. Ela foi REESCRITA para uma allowlist literal de UM
+    // caminho — mais estreita que "nenhum em Configurações": um redirect novo em qualquer rota, ou
+    // um `<Navigate>` fora de um `element` de rota, continua reprovando. O sensor está abaixo.
+    expect(redirectsIndevidos(codigo)).toEqual([])
+    expect(codigo).toMatch(
+      /<Route\s+path="\/admin\/google-shopping"\s+element=\{<Navigate\s+to="\/admin\/google\/shopping"/,
+    )
+  })
+
+  it('SENSOR: um redirect na rota-mãe de Configurações REPROVA na mesma régua', () => {
+    const mae = `<Route path="${SETTINGS_ROOT}" element={<AdminSettingsPage />} />`
+    expect(codigo).toContain(mae)
+    const mutado = codigo.replace(
+      mae,
+      `<Route path="${SETTINGS_ROOT}" element={<Navigate to="${ROTA_DA_SECAO}" replace />} />`,
+    )
+    expect(mutado).not.toBe(codigo)
+    expect(redirectsIndevidos(mutado)).toEqual([SETTINGS_ROOT])
+    // E um `<Navigate>` solto, fora de `element`, também.
+    expect(redirectsIndevidos(`${codigo}\n<Navigate to="/admin" />`)).not.toEqual([])
   })
 })
 

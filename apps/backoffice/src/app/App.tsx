@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@estrelinha/ui/sonner";
 import { Toaster } from "@estrelinha/ui/toaster";
 import { TooltipProvider } from "@estrelinha/ui/tooltip";
@@ -18,7 +18,7 @@ import AdminFaqsPage from "@/pages/admin/AdminFaqsPage";
 import AdminHomePage from "@/pages/admin/AdminHomePage";
 import AdminMenuPage from "@/pages/admin/AdminMenuPage";
 import AdminStoreFaqPage from "@/pages/admin/AdminStoreFaqPage";
-import AdminGoogleShoppingPage from "@/pages/admin/AdminGoogleShoppingPage";
+import AdminGooglePage from "@/pages/admin/AdminGooglePage";
 import AdminClientsPage from "@/pages/admin/AdminClientsPage";
 import AdminClientPage from "@/pages/admin/AdminClientPage";
 import AdminSettingsPage from "@/pages/admin/AdminSettingsPage";
@@ -89,7 +89,15 @@ const App = () => (
             <Route path="/admin/home/:sectionId" element={<AdminHomePage />} />
             <Route path="/admin/menu" element={<AdminMenuPage />} />
             <Route path="/admin/perguntas-frequentes" element={<AdminStoreFaqPage />} />
-            <Route path="/admin/google-shopping" element={<AdminGoogleShoppingPage />} />
+            {/* Feature 61 — as integrações com o Google numa tela só, com uma seção por endereço
+                (`AD-046`, molde de Configurações). As três são IRMÃS AUTO-FECHADAS pelo mesmo motivo
+                escrito abaixo, em Configurações: `rotasSobGuarda.test.ts` exige UM `</Route>` no
+                arquivo. A rota-mãe renderiza a seção Analytics por si — é ela que mora em
+                `navGroups`. O endereço antigo do Shopping (feature 30) vira redirect (`ANL-02`):
+                links salvos não quebram. `rotasDoGoogle.test.ts` guarda as três. */}
+            <Route path="/admin/google" element={<AdminGooglePage />} />
+            <Route path="/admin/google/:secao" element={<AdminGooglePage />} />
+            <Route path="/admin/google-shopping" element={<Navigate to="/admin/google/shopping" replace />} />
 
             {/* Rodapé da sidebar — administração do sistema, não um dos quatro eixos da loja.
                 A ordem segue `footerNavItems`: a loja → o sistema → eu (feature 48). */}
