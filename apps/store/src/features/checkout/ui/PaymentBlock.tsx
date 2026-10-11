@@ -36,13 +36,23 @@ interface Props {
   complete: boolean
   onEdit: () => void
   /**
-   * Total a pagar do método selecionado — o rótulo do CTA mostra o mesmo número, e o Brick de
-   * cartão o recebe para montar as parcelas.
+   * Total a pagar do método selecionado — o rótulo do CTA mostra o mesmo número. O cartão NÃO lê
+   * este valor: ver `cardAmount`.
    *
    * Até a feature `58` ele servia também ao valor em destaque do PIX (`CNF-01`), porque o bloco
    * trocava de conteúdo quando o pedido nascia. Hoje quem mostra esse valor é a rota do pagamento.
    */
   amount: number
+  /**
+   * O total no CARTÃO — com cupom, promoção e bump, e **sem** o desconto PIX —, qualquer que seja o
+   * método selecionado (`cardTotal` de `useCheckoutTotals`). É dele que saem o anúncio de parcelas
+   * do card do cartão e o valor do Brick.
+   *
+   * Até 2026-10-10 o card lia `amount`, que com o PIX selecionado é o total COM o desconto PIX: o
+   * card anunciava uma parcela que o cartão não pratica, e o número mudava ao tocar no cartão. É a
+   * mesma razão de `RSM-06`, que o resumo já seguia.
+   */
+  cardAmount: number
   /** PGM-06: erro da última tentativa de cartão. Quem tenta é o CTA da página, não este bloco. */
   cardError?: string | null
   /** Board `58 M`: o aviso do cartão que não fechou, com título e a linha do pedido guardado. */
@@ -60,6 +70,8 @@ export const PAYMENT_EMPTY_SUMMARY = 'Escolha como pagar'
 /** DOC-02: um campo, dois documentos — a mensagem tem de nomear os dois, senão acusa o certo. */
 export const DOC_ERROR_MESSAGE = 'CPF ou CNPJ inválido — confira os números.'
 export const DOC_FIELD_LABEL = 'CPF ou CNPJ do pagador'
+/** O anúncio do card do cartão quando o total só cabe em 1x. */
+export const CARD_CASH_ONLY = 'À vista no cartão'
 export const NO_METHOD_MESSAGE =
   'Nenhum método de pagamento disponível no momento. Fale com a gente pelo WhatsApp.'
 
@@ -68,6 +80,7 @@ const PaymentBlock = ({
   complete,
   onEdit,
   amount,
+  cardAmount,
   cardError = null,
   cardNotice = null,
 }: Props) => {
@@ -81,10 +94,14 @@ const PaymentBlock = ({
   // `max_installments` é, desde 2026-10-04, o número de parcelas SEM JUROS que a loja anuncia. O
   // anúncio do card tem dono (`useCardInstallmentHeadline`): com o cartão digitado ele diz o que a
   // tabela do Mercado Pago diz, a mesma que a lista abaixo desenha.
-  const headline = useCardInstallmentHeadline(amount)
+  const headline = useCardInstallmentHeadline(cardAmount)
   const cardSummary = headline.interestFree
     ? `Até ${headline.interestFree.count}x de ${formatPrice(headline.interestFree.value)} sem juros`
-    : `Parcele em até ${headline.maxCount}x`
+    : headline.maxCount > 1
+      ? `Parcele em até ${headline.maxCount}x`
+      : // QA 2026-10-10: com o total abaixo de 2 × a parcela mínima o cartão só aceita à vista, e
+        // "Parcele em até 1x" prometia parcelamento a quem não pode parcelar.
+        CARD_CASH_ONLY
 
   // PGD-06: semeia o documento salvo uma única vez — o que a cliente digitar depois vence.
   // `maskDocument` e não `maskCpf`: `customers.cpf` guarda 11 **ou** 14 dígitos desde DOC-04.
@@ -307,7 +324,7 @@ const PaymentBlock = ({
           existir pedido. Era esperar o pedido que criava o "segundo checkout dentro do primeiro". */}
       {payment.method === 'card' && (
         <CardPaymentBrick
-          amount={amount}
+          amount={cardAmount}
           payerEmail={contactEmail}
           payerDocument={customer?.cpf ?? undefined}
           errorMessage={cardError}

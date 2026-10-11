@@ -2,13 +2,15 @@
 //
 // O Brick do Mercado Pago monta com `maxInstallments: 1` e não desenha lista nenhuma (medido em
 // navegador, 2026-10-04); a lista dele não deixava destacar o que importa para quem parcela: quais
-// opções são **sem juros**. Aqui elas vêm primeiro, com selo, e as com juros ficam atrás de um
-// toque, com o total que a cliente vai pagar escrito ao lado — nunca escondido.
+// opções são **sem juros**. Aqui elas vêm primeiro, com selo, e as com juros vêm logo abaixo, com o
+// total que a cliente vai pagar escrito ao lado — nunca escondido.
+//
+// 2026-10-10: as com juros ficavam atrás de um toque ("Mais parcelas, com juros"), recolhidas. Com a
+// conta do Mercado Pago sem nenhuma parcela sem juros, isso deixava só "À vista" à mostra, e parecia
+// que o cartão não parcelava. Pedido da dona: a lista inteira aberta, até o teto de 10x.
 //
 // O que é "sem juros" vem da tabela do Mercado Pago (`cardInstallmentOptions`), não do painel da
 // loja: é a tabela dele que a cobrança segue.
-import { useState } from 'react'
-import { ChevronDown } from 'lucide-react'
 import { formatPrice } from '@estrelinha/core/formatters'
 import type { CardInstallmentOption } from '@estrelinha/core/payment/installments'
 import { useCheckoutStore } from '../model/checkoutStore'
@@ -18,7 +20,7 @@ export const INSTALLMENTS_TITLE = 'Em quantas vezes?'
 export const INSTALLMENTS_IDLE = 'Digite o número do cartão para ver as parcelas.'
 export const INSTALLMENTS_ERROR =
   'Não conseguimos carregar as parcelas deste cartão agora. Você pode pagar à vista ou tentar de novo em instantes.'
-export const MORE_INSTALLMENTS = 'Mais parcelas, com juros'
+export const INTEREST_NOTE = 'Juros do Mercado Pago, já somados ao total de cada opção.'
 
 const Row = ({
   option,
@@ -78,13 +80,10 @@ const Row = ({
 
 const InstallmentPicker = ({ state }: { state: CardInstallmentsState }) => {
   const setCardInstallments = useCheckoutStore((s) => s.setCardInstallments)
-  const [showMore, setShowMore] = useState(false)
   const { status, options, selected } = state
 
   const free = options.filter((o) => o.interestFree)
   const withInterest = options.filter((o) => !o.interestFree)
-  // Escolher uma parcela com juros e depois recolher a lista a esconderia: a escolhida fica à vista.
-  const expanded = showMore || (selected !== null && !selected.interestFree)
 
   const row = (o: CardInstallmentOption) => (
     <Row
@@ -125,28 +124,10 @@ const InstallmentPicker = ({ state }: { state: CardInstallmentsState }) => {
           )}
 
           {withInterest.length > 0 && (
-            <>
-              <button
-                type="button"
-                aria-expanded={expanded}
-                onClick={() => setShowMore((v) => !v)}
-                className="flex min-h-11 items-center justify-between gap-2 rounded-sm text-left text-sm font-semibold text-estrelinha-primary"
-              >
-                {MORE_INSTALLMENTS} (até {withInterest[withInterest.length - 1].count}x)
-                <ChevronDown
-                  aria-hidden
-                  className={`h-4 w-4 shrink-0 transition-transform motion-reduce:transition-none ${expanded ? 'rotate-180' : ''}`}
-                />
-              </button>
-              {expanded && (
-                <div className="flex flex-col gap-2">
-                  <p className="text-[13px] text-estrelinha-ink-soft">
-                    Juros do Mercado Pago, já somados ao total de cada opção.
-                  </p>
-                  {withInterest.map(row)}
-                </div>
-              )}
-            </>
+            <div className="flex flex-col gap-2">
+              <p className="text-[13px] text-estrelinha-ink-soft">{INTEREST_NOTE}</p>
+              {withInterest.map(row)}
+            </div>
           )}
         </>
       )}

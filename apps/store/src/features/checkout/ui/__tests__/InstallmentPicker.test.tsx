@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { cardInstallmentOptions } from '@estrelinha/core/payment/installments'
-import InstallmentPicker, { INSTALLMENTS_ERROR, INSTALLMENTS_IDLE, MORE_INSTALLMENTS } from '../InstallmentPicker'
+import InstallmentPicker, { INSTALLMENTS_ERROR, INSTALLMENTS_IDLE, INTEREST_NOTE } from '../InstallmentPicker'
 import { useCheckoutStore } from '../../model/checkoutStore'
 import type { CardInstallmentsState } from '../../model/useCardInstallmentOptions'
 
@@ -36,26 +36,32 @@ beforeEach(() => {
 })
 
 describe('InstallmentPicker — as parcelas sem juros primeiro', () => {
-  it('as sem juros aparecem de cara, com selo; as com juros ficam atrás de um toque', () => {
+  it('todas as parcelas aparecem de cara: as sem juros com selo, as com juros logo abaixo', () => {
     renderComStore()
     expect(radio(/À vista/)).toBeChecked()
     expect(radio(/2x de/)).toBeInTheDocument()
     expect(radio(/3x de R\$\s?92,42/)).toBeInTheDocument()
     expect(screen.getAllByText('Sem juros')).toHaveLength(2) // 2x e 3x — o à vista não leva selo
-    expect(screen.queryByRole('radio', { name: /4x de/ })).not.toBeInTheDocument()
+    // 2026-10-10: as com juros ficavam atrás de um toque; agora a lista inteira está aberta.
+    expect(radio(/4x de/)).toBeInTheDocument()
+    expect(radio(/10x de/)).toBeInTheDocument()
+    expect(screen.getAllByRole('radio')).toHaveLength(TABELA.length)
+    expect(screen.queryByRole('button')).not.toBeInTheDocument()
   })
 
-  it('as com juros mostram o total que a cliente vai pagar, sem selo', () => {
+  it('as com juros mostram o total que a cliente vai pagar, sem selo, e a nota dos juros', () => {
     renderComStore()
-    const mais = screen.getByRole('button', { name: new RegExp(MORE_INSTALLMENTS) })
-    expect(mais).toHaveAttribute('aria-expanded', 'false')
-    expect(mais).toHaveTextContent('(até 10x)')
-    fireEvent.click(mais)
-
+    expect(screen.getByText(INTEREST_NOTE)).toBeInTheDocument()
     const quatro = radio(/4x de R\$\s?77,19/)
     const linha = quatro.closest('label') as HTMLElement
     expect(linha).toHaveTextContent(/Total R\$\s?308,75/)
     expect(linha).not.toHaveTextContent('Sem juros')
+  })
+
+  it('a ordem é a do número de parcelas: sem juros primeiro, depois as com juros', () => {
+    renderComStore()
+    const contagens = screen.getAllByRole('radio').map((r) => Number((r as HTMLInputElement).value))
+    expect(contagens).toEqual([1, 2, 3, 4, 10])
   })
 
   it('escolher uma parcela grava no store — é esse número que vai no pagamento', () => {
@@ -67,24 +73,32 @@ describe('InstallmentPicker — as parcelas sem juros primeiro', () => {
     expect(radio(/À vista/)).not.toBeChecked()
   })
 
-  it('com uma parcela com juros escolhida, a lista não se recolhe por cima dela', () => {
-    useCheckoutStore.getState().setCardInstallments(4)
-    renderComStore()
+  it('uma parcela com juros pode ser escolhida direto, sem abrir nada', () => {
+    const { rerender } = renderComStore()
+    fireEvent.click(radio(/4x de/))
+    expect(useCheckoutStore.getState().cardInstallments).toBe(4)
+    rerender()
     expect(radio(/4x de/)).toBeChecked()
-    expect(screen.getByRole('button', { name: new RegExp(MORE_INSTALLMENTS) })).toHaveAttribute(
-      'aria-expanded',
-      'true',
-    )
   })
 
-  it('a conta SEM parcelamento sem juros: só o à vista de cara, e nenhum selo inventado', () => {
+  // Era "só o à vista de cara" — o defeito relatado em 2026-10-10: com a conta sem parcela sem
+  // juros, as nove com juros ficavam recolhidas e o cartão parecia não parcelar.
+  it('a conta SEM parcelamento sem juros: todas as parcelas à mostra, e nenhum selo inventado', () => {
     const semPromo = TABELA.map((c) =>
       c.installments === 1 ? c : { ...c, installment_rate: 9.64, total_amount: c.total_amount + 26 },
     )
     const options = cardInstallmentOptions(277.25, semPromo, 10)
     render(<InstallmentPicker state={{ status: 'ready', options, selected: options[0] }} />)
-    expect(screen.getAllByRole('radio')).toHaveLength(1)
+    expect(screen.getAllByRole('radio')).toHaveLength(TABELA.length)
     expect(screen.queryByText('Sem juros')).not.toBeInTheDocument()
+    expect(radio(/2x de/).closest('label')).toHaveTextContent(/Total R\$/)
+  })
+
+  it('cartão que só aceita à vista: uma linha, e nenhuma nota de juros sem parcela que a explique', () => {
+    const options = cardInstallmentOptions(277.25, [TABELA[0]], 10)
+    render(<InstallmentPicker state={{ status: 'ready', options, selected: options[0] }} />)
+    expect(screen.getAllByRole('radio')).toHaveLength(1)
+    expect(screen.queryByText(INTEREST_NOTE)).not.toBeInTheDocument()
   })
 
   it('cada linha é um alvo de toque de pelo menos 56px de altura (a linha inteira é o rótulo)', () => {

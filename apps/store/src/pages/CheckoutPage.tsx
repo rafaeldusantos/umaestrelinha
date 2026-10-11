@@ -126,10 +126,13 @@ const CheckoutPage = () => {
   /** Cartão: o Brick reconheceu o número (`CardFormSignal`). Sem isso "Pagar" não habilita. */
   const cardNumberRecognized = useCheckoutStore((s) => s.cardNumberRecognized)
 
-  const { pricingItems, bump, bumpProduct, totals, promotionDiscount, applied } =
+  const { pricingItems, bump, bumpProduct, totals, cardTotal, promotionDiscount, applied } =
     useCheckoutTotals()
-  /** A tabela de parcelas do cartão digitado e a escolhida (`InstallmentPicker` lê a mesma). */
-  const cardInstallments = useCardInstallmentOptions(totals.total)
+  /**
+   * A tabela de parcelas do cartão digitado e a escolhida (`InstallmentPicker` lê a mesma). Sobre o
+   * total do CARTÃO, sem desconto PIX — o mesmo valor que o card do cartão anuncia.
+   */
+  const cardInstallments = useCardInstallmentOptions(cardTotal)
   const createOrder = useCreateOrder()
   const createPayment = useCreatePayment()
 
@@ -690,6 +693,7 @@ const CheckoutPage = () => {
               complete={isComplete('payment')}
               onEdit={() => setEditing('payment')}
               amount={totals.total}
+              cardAmount={cardTotal}
               cardError={cardError}
               cardNotice={cardNotice}
             />

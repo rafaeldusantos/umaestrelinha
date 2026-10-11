@@ -7,6 +7,7 @@ import PaymentBlock, {
   DOC_FIELD_LABEL,
   CPF_JUSTIFICATION,
   NO_METHOD_MESSAGE,
+  CARD_CASH_ONLY,
 } from '../PaymentBlock'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -54,7 +55,9 @@ const CPF_VALIDO = '390.533.447-05'
 const onEdit = vi.fn()
 
 const renderBlock = (props: Partial<Parameters<typeof PaymentBlock>[0]> = {}) =>
-  render(<PaymentBlock open complete={false} onEdit={onEdit} amount={100} {...props} />)
+  render(
+    <PaymentBlock open complete={false} onEdit={onEdit} amount={100} cardAmount={100} {...props} />,
+  )
 
 beforeEach(() => {
   tabelaDeParcelas.data = undefined
@@ -235,7 +238,7 @@ describe('PaymentBlock — o bloco não é mais superfície de pagamento (PIX-P1
   // com o formulário preenchido e o token, que é o que permite retentar uma recusa sem recomeçar.
   it('no cartão o Brick segue montado com o valor do pedido', () => {
     useCheckoutStore.getState().setPayment({ method: 'card' })
-    renderBlock({ amount: 49 })
+    renderBlock({ amount: 49, cardAmount: 49 })
 
     expect(screen.getByTestId('card-brick').getAttribute('data-amount')).toBe('49')
   })
@@ -444,6 +447,48 @@ describe('PaymentBlock — o resumo do cartão não contradiz a lista de parcela
     renderBlock()
     expect(cartao()).toHaveTextContent('Parcele em até 10x')
     expect(cartao()).not.toHaveTextContent('sem juros')
+  })
+
+  // 2026-10-10: com o PIX selecionado, `amount` é o total COM o desconto PIX. O card do cartão lia
+  // ele, anunciava a parcela de um valor que o cartão não cobra, e o número mudava ao tocar no
+  // cartão. O card lê `cardAmount` — o total sem o desconto PIX, com os outros descontos.
+  it('com o PIX selecionado, o card do cartão anuncia o total SEM o desconto PIX', () => {
+    useCheckoutStore.getState().setPayment({ method: 'pix' })
+    renderBlock({ amount: 95, cardAmount: 100 })
+    expect(cartao()).toHaveTextContent(/Até 6x de R\$\s?16,67 sem juros/)
+    expect(cartao()).not.toHaveTextContent(/15,83/)
+  })
+
+  it('o card do cartão diz o MESMO valor com PIX e com cartão selecionados', () => {
+    useCheckoutStore.getState().setPayment({ method: 'pix' })
+    const { unmount } = renderBlock({ amount: 95, cardAmount: 100 })
+    const comPix = cartao().textContent
+    unmount()
+    useCheckoutStore.getState().setPayment({ method: 'card' })
+    renderBlock({ amount: 100, cardAmount: 100 })
+    expect(cartao().textContent).toBe(comPix)
+  })
+
+  it('o Brick recebe o total do cartão, nunca o do PIX', () => {
+    useCheckoutStore.getState().setPayment({ method: 'card' })
+    renderBlock({ amount: 95, cardAmount: 100 })
+    expect(screen.getByTestId('card-brick').getAttribute('data-amount')).toBe('100')
+  })
+
+  // QA 2026-10-10: carrinho de R$ 32 com parcela mínima de R$ 25 — o card dizia "Parcele em até 1x".
+  it('com o total abaixo de 2 × a parcela mínima, o card diz "À vista no cartão", nunca "até 1x"', () => {
+    renderBlock({ amount: 14, cardAmount: 15 }) // parcela mínima das settings do teste: R$ 10
+    expect(cartao()).toHaveTextContent(CARD_CASH_ONLY)
+    expect(cartao()).not.toHaveTextContent(/até 1x/)
+    expect(cartao()).not.toHaveTextContent('sem juros')
+  })
+
+  it('com a tabela do Mercado Pago de uma linha só (cartão que só aceita à vista), o card diz "À vista no cartão"', () => {
+    tabelaDeParcelas.data = [linha(1, 0)]
+    useCheckoutStore.getState().setCardBin('54916700')
+    renderBlock()
+    expect(cartao()).toHaveTextContent(CARD_CASH_ONLY)
+    expect(cartao()).not.toHaveTextContent(/até 1x/)
   })
 
   it('com a tabela dizendo 3x sem juros, o card diz 3x — mesmo com 6 nas settings', () => {
