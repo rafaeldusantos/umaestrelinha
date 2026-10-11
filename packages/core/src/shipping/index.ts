@@ -5,3 +5,4 @@ export * from './estimate'
 // arquivo garante é que `freeShipping` não seja o motivo quando isso for consertado.
 export * from './freeShipping.ts'
 export * from './quotePayload.ts'
+export * from './services.ts'

@@ -3,6 +3,12 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1"
 // Feature `49`: dono único em `_shared/http.ts` — eram três cópias idênticas nas functions.
 import { corsHeaders } from "../_shared/http.ts"
 import { requireAdmin } from "../_shared/auth.ts"
+// Quais fretes a loja oferece (Correios PAC e SEDEX) tem dono único em `core` — as três telas que
+// cotam leem esta resposta, então filtrar aqui vale para as três.
+import {
+  ALLOWED_SHIPPING_SERVICES_PARAM,
+  isAllowedShippingService,
+} from "../../../packages/core/src/shipping/services.ts"
 
 const ME_TOKEN = Deno.env.get("MELHOR_ENVIO_TOKEN")!
 const ME_SENDER = JSON.parse(Deno.env.get("MELHOR_ENVIO_SENDER_JSON") || "{}")
@@ -86,6 +92,8 @@ async function handleQuote(body: any) {
       insurance_value: p.insurance_value || p.price || 10,
       quantity: p.quantity || 1,
     })),
+    // Pede à API só os serviços oferecidos; o filtro abaixo garante o mesmo se ela ignorar o campo.
+    services: ALLOWED_SHIPPING_SERVICES_PARAM,
   }
 
   const data = await meFetch("/api/v2/me/shipment/calculate", {
@@ -93,9 +101,9 @@ async function handleQuote(body: any) {
     body: JSON.stringify(payload),
   })
 
-  // Filter only available services
+  // Só serviços disponíveis E oferecidos pela loja (Correios PAC e SEDEX).
   const available = Array.isArray(data)
-    ? data.filter((s: any) => !s.error).map((s: any) => ({
+    ? data.filter((s: any) => !s.error && isAllowedShippingService(s.id)).map((s: any) => ({
         id: s.id,
         name: s.name,
         company: s.company?.name,
