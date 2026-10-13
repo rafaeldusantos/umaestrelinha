@@ -222,7 +222,7 @@ describe('`BL-009` — o host do Storage não tem mais fallback cravado', () => 
     // `@estrelinha/supabase` para toda imagem enviada apontar para OUTRO projeto, sem erro nenhum.
     // Antes de 2026-08-29 o valor cravado era um ref que nem existe na conta.
     //
-    // `vitest.config.ts` fixa `VITE_SUPABASE_URL` como `http://127.0.0.1:54341`. A asserção mede o
+    // `vitest.config.ts` fixa `VITE_SUPABASE_URL` como `http://127.0.0.1:54441`. A asserção mede o
     // env, não uma constante — se o `||` voltar, o valor gravado deixa de acompanhá-lo.
     expect(storagePublicPrefix('menu-images')).toBe(
       `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/menu-images/`,

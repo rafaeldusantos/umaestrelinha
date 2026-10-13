@@ -40,7 +40,7 @@ const main = async () => {
     // Sem .env na raiz: as variáveis podem vir do ambiente. `exigir` reclama do que faltar.
   }
 
-  const supabaseUrl = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?? 'http://127.0.0.1:54341'
+  const supabaseUrl = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?? 'http://127.0.0.1:54441'
   const serviceRoleKey = exigir('SUPABASE_SERVICE_ROLE_KEY')
 
   const nuvemshop = createNuvemshopClient(

@@ -21,7 +21,7 @@ export default defineConfig({
      * porque na máquina de quem desenvolve o `.env` existe.
      */
     env: {
-      VITE_SUPABASE_URL: "http://127.0.0.1:54341",
+      VITE_SUPABASE_URL: "http://127.0.0.1:54441",
       VITE_SUPABASE_PUBLISHABLE_KEY: "test-publishable-key",
     },
   },

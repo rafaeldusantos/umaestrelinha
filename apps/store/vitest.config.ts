@@ -27,7 +27,7 @@ export default defineConfig({
      * existir, e a URL só precisa ser parseável por `createClient`.
      */
     env: {
-      VITE_SUPABASE_URL: "http://127.0.0.1:54341",
+      VITE_SUPABASE_URL: "http://127.0.0.1:54441",
       VITE_SUPABASE_PUBLISHABLE_KEY: "test-publishable-key",
     },
   },

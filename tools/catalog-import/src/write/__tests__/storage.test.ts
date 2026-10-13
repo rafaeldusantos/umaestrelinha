@@ -76,7 +76,7 @@ const deps = (
         }),
       },
     },
-    supabaseUrl: 'http://127.0.0.1:54341',
+    supabaseUrl: 'http://127.0.0.1:54441',
     cache: createMemoryCache(),
     sleep: async (ms: number) => { sleeps.push(ms) },
   }
@@ -161,7 +161,7 @@ describe('ensureImage — idempotência pelo caminho determinístico (CAT-03)', 
     expect(out.kind).toBe('reused')
     if (out.kind !== 'failed') {
       expect(out.url).toBe(
-        'http://127.0.0.1:54341/storage/v1/object/public/product-images/nuvemshop/279680049/1230884211.webp',
+        'http://127.0.0.1:54441/storage/v1/object/public/product-images/nuvemshop/279680049/1230884211.webp',
       )
     }
   })

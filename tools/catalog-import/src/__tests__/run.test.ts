@@ -69,7 +69,7 @@ const harness = (over: Partial<RunDeps> = {}, uploadError: unknown = null) => {
       listProducts: async () => { fases.push('produtos'); return prods },
     },
     supabase: db as never,
-    supabaseUrl: 'http://127.0.0.1:54341',
+    supabaseUrl: 'http://127.0.0.1:54441',
     cache: createMemoryCache(),
     fetch: (async () => {
       fases.push('imagem')
@@ -240,10 +240,10 @@ describe('run — a foto de cada variação (COR-01, COR-02)', () => {
     // `joia-afetiva-gota…` (produto 302967873): duas variações apontam para imagens DIFERENTES da
     // própria galeria — é isso que prova que o casamento é por id, e não "a primeira foto".
     expect(fotos(of).get(1348437201)).toBe(
-      'http://127.0.0.1:54341/storage/v1/object/public/product-images/nuvemshop/302967873/1217733178.webp',
+      'http://127.0.0.1:54441/storage/v1/object/public/product-images/nuvemshop/302967873/1217733178.webp',
     )
     expect(fotos(of).get(1348437210)).toBe(
-      'http://127.0.0.1:54341/storage/v1/object/public/product-images/nuvemshop/302967873/1217733184.webp',
+      'http://127.0.0.1:54441/storage/v1/object/public/product-images/nuvemshop/302967873/1217733184.webp',
     )
 
     // Recorte real: 34 das 37 variações gravadas têm o vínculo resolvível na própria galeria.
