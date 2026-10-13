@@ -17,8 +17,9 @@ import { FaqQuestion, FaqSubjectNav, faqSubjectId, useFaqPage, useFaqSearch } fr
 import PolicyContact from '@/shared/ui/PolicyContact'
 import Trilha, { COLUNA_INSTITUCIONAL } from '@/shared/ui/Trilha'
 import { useCanonical } from '@/shared/lib/useCanonical'
-import { useDocumentMeta } from '@/shared/lib/useDocumentMeta'
 import { useJsonLd } from '@/shared/lib/useJsonLd'
+import { staticPageMeta } from '@estrelinha/core/seo'
+import { usePageMeta } from '@/shared/lib/usePageMeta'
 
 const TITULO = 'Perguntas frequentes'
 const DESCRICAO =
@@ -42,7 +43,8 @@ const FaqPage = () => {
   )
 
   useCanonical(FAQ_PATH)
-  useDocumentMeta({ title: `${TITULO} · Uma Estrelinha`, description: DESCRICAO })
+  // Feature 62: o metadado tem dono em `core/seo` — o mesmo das outras páginas fixas.
+  usePageMeta(staticPageMeta(FAQ_PATH))
   // A origem vem do próprio navegador, e não de uma env: a página sabe onde está, e uma segunda
   // fonte para isso divergiria no dia do cutover de domínio. O `url` do JSON-LD precisa ser
   // absoluto — relativo, o rastreador o resolve contra a base que achar.

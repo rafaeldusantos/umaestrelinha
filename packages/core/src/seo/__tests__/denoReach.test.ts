@@ -1,0 +1,86 @@
+/**
+ * `core/seo` é importado pela edge function `product-page` por caminho relativo — e o grafo
+ * TRANSITIVO dele (`core/faq/block.ts`, `core/routes/routes.ts`) tem de ser alcançável por Deno.
+ *
+ * Deno exige extensão explícita em todo especificador relativo, **`import type` incluso**, e resolve
+ * o grafo de tipos antes da primeira linha: um `.ts` faltando derruba o worker com
+ * `Failed resolving types`. Vite e vitest resolvem as duas formas, então nada mais acusa.
+ * Molde: `core/checkout/__tests__/denoReach.test.ts`, com o leitor injetável para o sensor.
+ */
+import { readFileSync } from 'node:fs'
+import { dirname, join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { describe, expect, it } from 'vitest'
+
+const DIR = join(dirname(fileURLToPath(import.meta.url)), '..')
+const ENTRADA = join(DIR, 'index.ts')
+
+type Leitor = (caminho: string) => string
+
+const semComentario = (fonte: string): string =>
+  fonte.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n\r]*/g, '')
+
+const especificadores = (fonte: string): string[] =>
+  [...semComentario(fonte).matchAll(/(?:from\s+|import\s*\(\s*)['"]([^'"]+)['"]/g)].map(m => m[1])
+
+const caminhar = (entrada: string, ler: Leitor) => {
+  const visitados = new Set<string>()
+  const semExtensao: string[] = []
+  const externos: string[] = []
+  const fila = [entrada]
+  while (fila.length > 0) {
+    const atual = fila.shift()!
+    if (visitados.has(atual)) continue
+    visitados.add(atual)
+    for (const esp of especificadores(ler(atual))) {
+      if (!esp.startsWith('.')) {
+        externos.push(`${atual} → ${esp}`)
+        continue
+      }
+      if (!esp.endsWith('.ts')) {
+        semExtensao.push(`${atual} → ${esp}`)
+        continue
+      }
+      fila.push(resolve(dirname(atual), esp))
+    }
+  }
+  return { visitados: [...visitados], semExtensao, externos }
+}
+
+const disco: Leitor = c => readFileSync(c, 'utf8')
+
+describe('core/seo é alcançável por Deno', () => {
+  const grafo = caminhar(ENTRADA, disco)
+
+  it('âncora: o grafo alcança seo, faq/block e routes (≥ 7 arquivos)', () => {
+    const nomes = grafo.visitados.map(c => c.replace(/\\/g, '/'))
+    expect(nomes.some(n => n.endsWith('seo/pages.ts'))).toBe(true)
+    expect(nomes.some(n => n.endsWith('faq/block.ts'))).toBe(true)
+    expect(nomes.some(n => n.endsWith('routes/routes.ts'))).toBe(true)
+    expect(grafo.visitados.length).toBeGreaterThanOrEqual(7)
+  })
+
+  it('todo especificador relativo do grafo tem `.ts` explícito', () => {
+    expect(grafo.semExtensao).toEqual([])
+  })
+
+  it('nenhum arquivo do grafo importa pacote (React, Supabase, alias @estrelinha)', () => {
+    expect(grafo.externos).toEqual([])
+  })
+
+  it('sensor: um `import type` sem extensão num vizinho é acusado', () => {
+    const ler: Leitor = c =>
+      c.replace(/\\/g, '/').endsWith('seo/brand.ts')
+        ? `import type { X } from './types'\n${disco(c)}`
+        : disco(c)
+    expect(caminhar(ENTRADA, ler).semExtensao.length).toBe(1)
+  })
+
+  it('sensor: um import de pacote é acusado, e o comentário que o cita não é', () => {
+    const ler: Leitor = c =>
+      c.replace(/\\/g, '/').endsWith('seo/text.ts')
+        ? `// citado em prosa: import x from 'react'\r\nimport { y } from '@estrelinha/supabase/types'\n${disco(c)}`
+        : disco(c)
+    expect(caminhar(ENTRADA, ler).externos).toHaveLength(1)
+  })
+})

@@ -18,6 +18,8 @@
 import { JEWELRY_CARE_PATH } from '@estrelinha/core/routes'
 import PolicyDocument, { PolicyList, PolicySection } from '@/shared/ui/PolicyDocument'
 import { useCanonical } from '@/shared/lib/useCanonical'
+import { staticPageMeta } from '@estrelinha/core/seo'
+import { usePageMeta } from '@/shared/lib/usePageMeta'
 
 const CUIDADOS_GERAIS = [
   'Evite dormir com ela.',
@@ -53,6 +55,8 @@ const CUIDADOS_BANHADAS = [
 ]
 
 const JewelryCarePage = () => {
+  // Feature 62: o <title> e a descrição desta rota (`core/seo`).
+  usePageMeta(staticPageMeta(JEWELRY_CARE_PATH))
   useCanonical(JEWELRY_CARE_PATH)
 
   return (

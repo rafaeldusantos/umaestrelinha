@@ -2,12 +2,16 @@ import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { Button } from '@estrelinha/ui/button'
 import { useAuthUiStore } from '@/features/auth'
+import { staticPageMeta } from '@estrelinha/core/seo'
+import { usePageMeta } from '@/shared/lib/usePageMeta'
 
 /**
  * /entrar — deep-link/fallback route. The login itself lives in the
  * contextual AuthOverlay (mounted in StoreLayout); this route just opens it.
  */
 const AuthPage = () => {
+  // Feature 62: o <title> e a descrição desta rota (`core/seo`).
+  usePageMeta(staticPageMeta('/entrar'))
   const isOpen = useAuthUiStore((s) => s.isOpen)
   const openAuth = useAuthUiStore((s) => s.open)
 

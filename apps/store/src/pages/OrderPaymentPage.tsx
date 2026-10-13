@@ -31,6 +31,8 @@ import {
 } from '@/features/order-payment'
 import { CheckoutHeader } from '@/widgets/checkout-header'
 import { OrderAccessRefusal } from '@/widgets/order-access-refusal'
+import { staticPageMeta } from '@estrelinha/core/seo'
+import { usePageMeta } from '@/shared/lib/usePageMeta'
 
 // `BATIDA_MS` mudou para `features/order-payment` quando o cartão ganhou a mesma batida; o
 // reexport mantém o endereço que o teste desta página já importava.
@@ -141,6 +143,8 @@ const PagamentoEmCurso = ({
 }
 
 const OrderPaymentPage = () => {
+  // Feature 62: o <title> e a descrição desta rota (`core/seo`).
+  usePageMeta(staticPageMeta('/pedido/:id/pagamento'))
   const { id } = useParams<{ id: string }>()
   const { data: order, isLoading, isError } = useOrder(id)
 

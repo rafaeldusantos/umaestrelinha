@@ -45,9 +45,14 @@ import {
   renditionUrl,
 } from '../../../packages/core/src/media/rendition.ts'
 import { escapeXml } from '../../../packages/core/src/xml/escape.ts'
+// Feature 62 — o título, a descrição e o card da joia. A MESMA função que a loja chama no cliente
+// (`usePageMeta`), por arquivo e com `.ts` (`core/seo/__tests__/denoReach.test.ts` guarda o grafo).
+import { productPageMeta } from '../../../packages/core/src/seo/pages.ts'
+import { productPath } from '../../../packages/core/src/routes/routes.ts'
 
 export interface ProductPageData {
-  product: OfferInputProduct
+  /** A copy de busca curada entra junto (feature 62); ausente cai no nome e na descrição. */
+  product: OfferInputProduct & { seo_title?: string | null; seo_description?: string | null }
   variants: OfferInputVariant[]
 }
 
@@ -58,6 +63,11 @@ export interface ProductPageDeps {
   readProduct: (slug: string) => Promise<ProductPageData | null>
   origin: string
   defaultProductCategory?: string | null
+  /**
+   * `store_settings.seo.description` — o recuo da descrição quando o produto não tem nenhuma
+   * aproveitável (A16). Ausente ⇒ a `description` que o próprio shell já declara.
+   */
+  storeDescription?: string | null
 }
 
 const log = (entry: Record<string, unknown>): void => console.log(JSON.stringify(entry))
@@ -150,6 +160,94 @@ export const imagePreloadLink = (imageUrl: string): string => {
   return `<link ${atributos.join(' ')}>`
 }
 
+/** `<`, `>`, `&` e `"` — o conjunto que fecha um atributo `content="…"` ou abre markup. */
+export const escapeHtmlAttr = (valor: string): string =>
+  valor.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+
+/**
+ * A largura da foto do card (feature 62, A15). Pedida pela RENDIÇÃO, não pelo original: as fotos do
+ * catálogo estão em WebP, e o transformador do Storage entrega **JPEG** a quem não anuncia WebP —
+ * medido em 2026-10-06 no hospedado, com o `User-Agent` do WhatsApp: original `image/webp`,
+ * `render/image` `image/jpeg`. WebP não é aceito por todo mensageiro. Foto fora do Storage volta
+ * inalterada (`renditionUrl`).
+ */
+export const OG_IMAGE_WIDTH = 1200
+
+/** As tags genéricas do shell que a página de produto SUBSTITUI. As de imagem, só com foto. */
+const TAGS_DE_TEXTO = [
+  'description',
+  'og:title',
+  'og:description',
+  'og:type',
+  'og:url',
+  'twitter:title',
+  'twitter:description',
+]
+const TAGS_DE_IMAGEM = [
+  'og:image',
+  'og:image:type',
+  'og:image:width',
+  'og:image:height',
+  'og:image:alt',
+  'twitter:image',
+  'twitter:image:alt',
+]
+
+const escapeRegex = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+/** A `description` que o shell declara — o recuo quando a configuração não respondeu. */
+const descricaoDoShell = (shell: string): string | null =>
+  shell.match(/<meta\s+name="description"\s+content="([^"]*)"/i)?.[1] ?? null
+
+export interface ProductHead {
+  title: string
+  description: string
+  /** Absoluta, sem query — a canônica. `null` quando a origem não é absoluta: nunca `og:url` relativo. */
+  url: string | null
+  /** A foto do produto. `null` ⇒ o card padrão do shell continua. */
+  image: string | null
+}
+
+/**
+ * Troca o `<head>` genérico pelo do produto (`MTA-15`..`MTA-17`).
+ *
+ * **Substitui, nunca duplica**: duas `og:title` no mesmo documento é comportamento indefinido em
+ * todo rastreador. Cada tag gerenciada é RETIRADA do shell antes de o bloco novo entrar, e o
+ * `<title>` é trocado no lugar.
+ */
+export const productHeadTags = (shell: string, head: ProductHead): string => {
+  const gerenciadas = head.image ? [...TAGS_DE_TEXTO, ...TAGS_DE_IMAGEM] : TAGS_DE_TEXTO
+  let saida = shell
+  for (const chave of gerenciadas) {
+    // A linha inteira sai (recuo e quebra), para o shell não ficar com linhas em branco no lugar.
+    const re = new RegExp(
+      `[ \\t]*<meta\\s+(?:name|property)="${escapeRegex(chave)}"[^>]*>[ \\t]*\\r?\\n?`,
+      'gi',
+    )
+    saida = saida.replace(re, '')
+  }
+
+  const titulo = `<title>${head.title.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</title>`
+  saida = /<title>[\s\S]*?<\/title>/i.test(saida)
+    ? saida.replace(/<title>[\s\S]*?<\/title>/i, () => titulo)
+    : injectIntoHead(saida, titulo)
+
+  const meta = (atributo: 'name' | 'property', chave: string, valor: string) =>
+    `<meta ${atributo}="${chave}" content="${escapeHtmlAttr(valor)}">`
+  const bloco = [
+    meta('name', 'description', head.description),
+    meta('property', 'og:type', 'product'),
+    meta('property', 'og:title', head.title),
+    meta('property', 'og:description', head.description),
+    head.url ? meta('property', 'og:url', head.url) : '',
+    meta('name', 'twitter:title', head.title),
+    meta('name', 'twitter:description', head.description),
+    head.image ? meta('property', 'og:image', head.image) : '',
+    head.image ? meta('name', 'twitter:image', head.image) : '',
+  ].join('')
+  return injectIntoHead(saida, bloco)
+}
+
 /** Insere o bloco imediatamente antes de `</head>`. Sem `</head>`, devolve o shell intacto. */
 export const injectIntoHead = (shell: string, bloco: string): string => {
   const i = shell.toLowerCase().indexOf('</head>')
@@ -208,10 +306,22 @@ export const handleProductPage = async (
     defaultProductCategory: deps.defaultProductCategory,
   })
 
+  // Feature 62: o título, a descrição e o card DESTA joia — a mesma derivação do cliente.
+  const meta = productPageMeta(
+    dados.product,
+    deps.storeDescription ?? descricaoDoShell(shell),
+  )
+  const comHead = productHeadTags(shell, {
+    title: meta.title,
+    description: meta.description,
+    url: /^https?:\/\//.test(deps.origin) ? `${deps.origin}${productPath(dados.product.slug)}` : null,
+    image: oferta.imageLink ? renditionUrl(oferta.imageLink, OG_IMAGE_WIDTH) : null,
+  })
+
   // O preload vem ANTES do JSON-LD: o rastreador lê o documento inteiro de qualquer jeito, e a
   // cliente ganha os bytes da foto começando mais cedo.
   return html(
-    injectIntoHead(shell, imagePreloadLink(oferta.imageLink) + jsonLdScript(productJsonLd(oferta))),
+    injectIntoHead(comHead, imagePreloadLink(oferta.imageLink) + jsonLdScript(productJsonLd(oferta))),
   )
 }
 

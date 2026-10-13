@@ -21,6 +21,26 @@ const INDEX = readFileSync(resolve(STORE, 'index.html'), 'utf8')
 /** Todo `href`/`content` do `<head>` que aponta para um arquivo do próprio site. */
 const REFERENCIADOS = [...INDEX.matchAll(/(?:href|content)="\/([^"]+)"/g)].map((m) => m[1])
 
+/**
+ * Largura e altura de um JPEG, lidas do marcador SOF. Lança fora do que sabe
+ * ler — um leitor que devolvesse zero para arquivo estranho faria a régua de
+ * dimensão passar em silêncio.
+ */
+const tamanhoJpeg = (b: Buffer): { largura: number; altura: number } => {
+  if (b[0] !== 0xff || b[1] !== 0xd8) throw new Error('não é JPEG')
+  let i = 2
+  while (i + 9 < b.length) {
+    if (b[i] !== 0xff) throw new Error('JPEG malformado')
+    const marcador = b[i + 1]
+    const comprimento = b.readUInt16BE(i + 2)
+    if (marcador >= 0xc0 && marcador <= 0xcf && ![0xc4, 0xc8, 0xcc].includes(marcador)) {
+      return { altura: b.readUInt16BE(i + 5), largura: b.readUInt16BE(i + 7) }
+    }
+    i += 2 + comprimento
+  }
+  throw new Error('JPEG sem SOF')
+}
+
 describe('todo arquivo que o index.html referencia existe no disco', () => {
   it('a leitura encontrou as referências locais', () => {
     // Âncora: um `index.html` lido do lugar errado não referencia nada, e um
@@ -469,15 +489,35 @@ describe('index.html — os metadados dos dois apps (COP-03)', () => {
     expect(statSync(resolve(PUBLIC, arquivo)).size).toBeGreaterThan(5000)
   })
 
-  it('as dimensões declaradas do card são as do arquivo gerado', () => {
-    // 1200×630 é o que `_build-og.ps1` rende. Declarar outra medida faz o
-    // rastreador recortar por conta própria.
+  it('as dimensões declaradas do card são as do arquivo DECLARADO', () => {
+    // Declarar outra medida faz o rastreador recortar por conta própria.
+    // Feature 62: a régua lia `og-image.png` pelo NOME — com a troca da arte
+    // ela passaria medindo um arquivo que o `index.html` já não usa. Agora o
+    // arquivo é o que a `og:image` aponta, e o formato é o que `og:image:type`
+    // afirma.
     expect(meta(INDEX, 'og:image:width')).toBe('1200')
     expect(meta(INDEX, 'og:image:height')).toBe('630')
+    expect(meta(INDEX, 'og:image:type')).toBe('image/jpeg')
 
-    const png = readFileSync(resolve(PUBLIC, 'og-image.png'))
-    expect(png.readUInt32BE(16)).toBe(1200)
-    expect(png.readUInt32BE(20)).toBe(630)
+    const og = meta(INDEX, 'og:image') ?? ''
+    const jpeg = readFileSync(resolve(PUBLIC, og.slice(og.lastIndexOf('/') + 1)))
+    expect(tamanhoJpeg(jpeg)).toEqual({ largura: 1200, altura: 630 })
+  })
+
+  it('sensor: o leitor de JPEG recusa o que não é JPEG, e lê um quadro sintético', () => {
+    expect(() => tamanhoJpeg(readFileSync(resolve(PUBLIC, 'icon-512.png')))).toThrow(/JPEG/)
+    // SOI · APP0 vazio · SOF0 com altura 2, largura 3
+    const sintetico = Buffer.from([
+      0xff, 0xd8, 0xff, 0xe0, 0x00, 0x02, 0xff, 0xc0, 0x00, 0x0b, 0x08, 0x00, 0x02, 0x00, 0x03,
+      0x01, 0x01, 0x11, 0x00,
+    ])
+    expect(tamanhoJpeg(sintetico)).toEqual({ largura: 3, altura: 2 })
+  })
+
+  it('o card tem texto alternativo, igual no OG e no Twitter', () => {
+    const alt = meta(INDEX, 'og:image:alt') ?? ''
+    expect(alt.length).toBeGreaterThan(10)
+    expect(meta(INDEX, 'twitter:image:alt')).toBe(alt)
   })
 
   it('`theme-color` é um token da paleta nova, lido do App.css', () => {

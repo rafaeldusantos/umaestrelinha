@@ -3,6 +3,8 @@ import { Navigate } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
 import { useCartUiStore } from '@/entities/cart/model/cartUiStore'
 import { useRecoverCart } from '@/features/recover-cart/model/useRecoverCart'
+import { staticPageMeta } from '@estrelinha/core/seo'
+import { usePageMeta } from '@/shared/lib/usePageMeta'
 
 /**
  * `/carrinho` é atalho, não tela.
@@ -17,6 +19,8 @@ import { useRecoverCart } from '@/features/recover-cart/model/useRecoverCart'
  * senão o lembrete leva para uma home com o carrinho vazio.
  */
 const CartPage = () => {
+  // Feature 62: o <title> e a descrição desta rota (`core/seo`).
+  usePageMeta(staticPageMeta('/carrinho'))
   const { recovering, isRecovering } = useRecoverCart()
   const openCart = useCartUiStore((s) => s.openCart)
 

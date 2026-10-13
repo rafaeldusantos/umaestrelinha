@@ -48,11 +48,47 @@ vi.mock('@/widgets/store-layout/ui/StoreLayout', () => ({
     </div>
   ),
 }))
-vi.mock('@/pages/HomePage', () => ({ default: () => <div>pagina:home</div> }))
-vi.mock('@/pages/SearchPage', () => ({ default: () => <div>pagina:busca</div> }))
-vi.mock('@/pages/AboutPage', () => ({ default: () => <div>pagina:sobre</div> }))
-vi.mock('@/pages/CheckoutPage', () => ({ default: () => <div>pagina:checkout</div> }))
-vi.mock('@/pages/OrderPaymentPage', () => ({ default: () => <div>pagina:pagamento</div> }))
+/**
+ * Feature 62 — as páginas-marcador DECLARAM o metadado pelo hook REAL (`usePageMeta`), porque é a
+ * declaração que solta o `page_view`. Um marcador mudo mediria só o prazo de 3 s.
+ *
+ * `ProductPage` declara depois de `produtoAtraso.ms` — é a página que carrega dado — e a
+ * `WishlistPage` nunca declara (o caminho do prazo).
+ *
+ * O hook chega por `registro`, preenchido em `montarApp` DEPOIS do `vi.resetModules()`: o mock de
+ * uma página é avaliado uma vez e sobrevive ao reset, e se ele importasse o hook direto declararia
+ * para o registro de sinais de um `App` que já não está montado.
+ */
+const { marcador, produtoAtraso, registro } = vi.hoisted(() => {
+  const produtoAtraso = { ms: 1500 }
+  const registro = { usePageMeta: null as null | typeof import('@/shared/lib/usePageMeta').usePageMeta }
+  const marcador = (nome: string, title: string | null, atrasoMs?: () => number) => async () => {
+    const React = await import('react')
+    const Marcador = () => {
+      const [pronto, setPronto] = React.useState(!atrasoMs)
+      React.useEffect(() => {
+        if (!atrasoMs) return
+        const t = setTimeout(() => setPronto(true), atrasoMs())
+        return () => clearTimeout(t)
+      }, [])
+      registro.usePageMeta!(
+        title && pronto ? { title, description: `descrição ${nome}`, indexable: true } : null,
+      )
+      return <div>pagina:{nome}</div>
+    }
+    return { default: Marcador }
+  }
+  return { marcador, produtoAtraso, registro }
+})
+
+vi.mock('@/pages/HomePage', marcador('home', 'Título Home'))
+vi.mock('@/pages/SearchPage', marcador('busca', 'Título Busca'))
+vi.mock('@/pages/AboutPage', marcador('sobre', 'Título Sobre'))
+vi.mock('@/pages/CheckoutPage', marcador('checkout', 'Título Checkout'))
+vi.mock('@/pages/OrderPaymentPage', marcador('pagamento', 'Título Pagamento'))
+vi.mock('@/pages/HowToSendMaterialPage', marcador('guia', 'Título Guia'))
+vi.mock('@/pages/WishlistPage', marcador('favoritos', null))
+vi.mock('@/pages/ProductPage', marcador('produto', 'Título Produto', () => produtoAtraso.ms))
 
 const LIGADA = {
   key: 'analytics',
@@ -79,6 +115,7 @@ const parentOriginal = Object.getOwnPropertyDescriptor(window, 'parent')
 const montarApp = async (path: string) => {
   window.history.replaceState({}, '', path)
   vi.resetModules()
+  registro.usePageMeta = (await import('@/shared/lib/usePageMeta')).usePageMeta
   const { default: App } = await import('../App')
   return render(<App />)
 }
@@ -189,7 +226,7 @@ describe('PageViewTracker pelo App (EVT-01)', () => {
     await waitFor(() => expect(pageViews()).toHaveLength(1), { timeout: 2000 })
     expect(pageViews()[0].params).toEqual({
       page_location: 'http://localhost:3000/',
-      page_title: document.title,
+      page_title: 'Título Home',
     })
   })
 
@@ -200,6 +237,8 @@ describe('PageViewTracker pelo App (EVT-01)', () => {
     await screen.findByText('pagina:sobre')
     await waitFor(() => expect(pageViews()).toHaveLength(2), { timeout: 2000 })
     expect(pageViews()[1].params.page_location).toBe('http://localhost:3000/sobre')
+    // Feature 62 · MTA-11: o título é o que a página nova DECLAROU, não o da anterior.
+    expect(pageViews()[1].params.page_title).toBe('Título Sobre')
   })
 
   it('mudança SÓ de query string ⇒ nenhum page_view a mais', async () => {
@@ -216,6 +255,70 @@ describe('PageViewTracker pelo App (EVT-01)', () => {
     await montarApp('/checkout')
     await screen.findByText('pagina:checkout')
     await waitFor(() => expect(pageViews()).toHaveLength(1), { timeout: 2000 })
+  })
+})
+
+describe('PageViewTracker — o título da página certa (feature 62, MTA-11..MTA-14)', () => {
+  beforeEach(() => {
+    produtoAtraso.ms = 1500
+  })
+
+  it('MTA-12: a página que carrega dado é esperada — o page_view sai com o título DELA, nunca o da anterior', async () => {
+    await montarApp('/')
+    await waitFor(() => expect(pageViews()).toHaveLength(1), { timeout: 2000 })
+    navegar('/produtos/anel')
+    await screen.findByText('pagina:produto')
+    // Passados os 500 ms que a feature 61 esperava, nada saiu ainda: o produto não declarou.
+    await new Promise(r => setTimeout(r, 800))
+    expect(pageViews()).toHaveLength(1)
+    await waitFor(() => expect(pageViews()).toHaveLength(2), { timeout: 3000 })
+    expect(pageViews()[1].params).toEqual({
+      page_location: 'http://localhost:3000/produtos/anel',
+      page_title: 'Título Produto',
+    })
+  })
+
+  it('MTA-13: a página que nunca declara sai depois de 3 s, com o título do momento', async () => {
+    await montarApp('/')
+    await waitFor(() => expect(pageViews()).toHaveLength(1), { timeout: 2000 })
+    navegar('/favoritos')
+    await screen.findByText('pagina:favoritos')
+    await new Promise(r => setTimeout(r, 2500))
+    expect(pageViews()).toHaveLength(1)
+    await waitFor(() => expect(pageViews()).toHaveLength(2), { timeout: 2000 })
+    expect(pageViews()[1].params).toEqual({
+      page_location: 'http://localhost:3000/favoritos',
+      page_title: document.title,
+    })
+  })
+
+  it('MTA-14: a rota substituída (REPLACE) antes de declarar não gera page_view; o destino gera o seu', async () => {
+    // `/como-enviar-o-material` é `<Navigate replace>` para o guia — um redirect, não uma visita.
+    await montarApp('/como-enviar-o-material')
+    await screen.findByText('pagina:guia')
+    await waitFor(() => expect(pageViews()).toHaveLength(1), { timeout: 2000 })
+    await new Promise(r => setTimeout(r, 3300))
+    expect(pageViews()).toHaveLength(1)
+    expect(pageViews()[0].params).toEqual({
+      page_location: 'http://localhost:3000/como-enviar-seu-material-de-dna',
+      page_title: 'Título Guia',
+    })
+  })
+
+  it('sair por PUSH antes de a página declarar ⇒ ela sai com o título do momento (61, mantido)', async () => {
+    produtoAtraso.ms = 10_000
+    await montarApp('/')
+    await waitFor(() => expect(pageViews()).toHaveLength(1), { timeout: 2000 })
+    navegar('/produtos/anel')
+    await screen.findByText('pagina:produto')
+    navegar('/sobre')
+    await screen.findByText('pagina:sobre')
+    await waitFor(() => expect(pageViews()).toHaveLength(3), { timeout: 2000 })
+    expect(pageViews()[1].params).toEqual({
+      page_location: 'http://localhost:3000/produtos/anel',
+      page_title: 'Título Home',
+    })
+    expect(pageViews()[2].params.page_title).toBe('Título Sobre')
   })
 })
 

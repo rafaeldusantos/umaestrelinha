@@ -508,3 +508,41 @@ describe('CategoryPage — a grade do desktop', () => {
     expect(gradeDe(comEsqueleto)).toBe(gradeDe(comCards))
   })
 })
+
+/**
+ * Feature 62 — a fiação: a PÁGINA alimenta `usePageMeta` com a categoria resolvida (`MTA-04`).
+ */
+describe('CategoryPage — o <title> e a descrição da coleção (MTA-04, MTA-05, MTA-08)', () => {
+  const descricao = () =>
+    document.head.querySelector('meta[name="description"]')?.getAttribute('content') ?? null
+
+  beforeEach(() => {
+    document.title = 'título anterior'
+    document.head.querySelector('meta[name="robots"]')?.remove()
+  })
+
+  it('categoria resolvida: "{nome} | Uma Estrelinha", com a descrição derivada do nome', () => {
+    renderAt('/joias-afetivas')
+    expect(document.title).toBe('Joias afetivas | Uma Estrelinha')
+    expect(descricao()).toBe(
+      'Joias afetivas: joias afetivas feitas à mão em resina por Adri Muniz, em Porto Alegre.',
+    )
+  })
+
+  it('subcategoria pela forma de dois segmentos: o título é o da FILHA', () => {
+    renderAt('/joias-afetivas/joia-de-leite-materno')
+    expect(document.title).toBe('Joia de leite materno | Uma Estrelinha')
+  })
+
+  it('enquanto a árvore carrega, nada é escrito', () => {
+    useCategoriesMock.mockReturnValue({ data: undefined, isFetching: true })
+    renderAt('/joias-afetivas')
+    expect(document.title).toBe('título anterior')
+  })
+
+  it('slug inexistente: o título da 404 e noindex', () => {
+    renderAt('/nao-existe')
+    expect(document.title).toBe('Página não encontrada | Uma Estrelinha')
+    expect(document.head.querySelector('meta[name="robots"]')?.getAttribute('content')).toBe('noindex')
+  })
+})

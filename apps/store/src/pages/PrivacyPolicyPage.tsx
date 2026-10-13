@@ -23,6 +23,8 @@ import PolicyContact from '@/shared/ui/PolicyContact'
 import PolicyDocument, { PolicyList, PolicySection } from '@/shared/ui/PolicyDocument'
 import { MARKETING_CONSENT_LABEL } from '@/shared/lib/consent'
 import { useCanonical } from '@/shared/lib/useCanonical'
+import { staticPageMeta } from '@estrelinha/core/seo'
+import { usePageMeta } from '@/shared/lib/usePageMeta'
 
 // O endereço vem de `@estrelinha/core/routes` pelo mesmo motivo do irmão — ver `ReturnsPolicyPage`.
 
@@ -58,6 +60,8 @@ const COM_QUEM_COMPARTILHAMOS = [
 ]
 
 const PrivacyPolicyPage = () => {
+  // Feature 62: o <title> e a descrição desta rota (`core/seo`).
+  usePageMeta(staticPageMeta(PRIVACY_POLICY_PATH))
   useCanonical(PRIVACY_POLICY_PATH)
 
   return (

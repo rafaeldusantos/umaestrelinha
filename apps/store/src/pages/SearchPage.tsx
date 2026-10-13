@@ -6,6 +6,8 @@ import { useCategories } from '@/entities/category/api/useCategories'
 import ProductCard from '@/entities/product/ui/ProductCard'
 import { MIN_QUERY_LENGTH, pushRecentSearch, searchProducts, trackSearch } from '@/features/search'
 import { useTrackList, type AnalyticsList } from '@/shared/lib/analytics/useTrackList'
+import { searchPageMeta } from '@estrelinha/core/seo'
+import { usePageMeta } from '@/shared/lib/usePageMeta'
 
 /**
  * A lista completa de resultados — o destino do "Ver todos" da busca em tela cheia e do dropdown do
@@ -22,6 +24,9 @@ const LISTA_DA_BUSCA: AnalyticsList = { id: 'busca', name: 'Resultados da busca'
 const SearchPage = () => {
   const [params, setParams] = useSearchParams()
   const urlQuery = params.get('q') ?? ''
+  // Feature 62: o termo vai no título da aba. Trocar de termo não é página nova — nenhum
+  // `page_view` a mais sai, porque o `PageViewTracker` olha só o `pathname`.
+  usePageMeta(searchPageMeta(urlQuery))
   const [query, setQuery] = useState(urlQuery)
 
   const { data: products } = useAllProducts()

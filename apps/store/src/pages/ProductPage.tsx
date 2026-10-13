@@ -25,6 +25,9 @@ import { productItem, track } from '@/shared/lib/analytics'
 import RelatedProducts from '@/widgets/related-products/ui/RelatedProducts'
 import { ProductBuyBar } from '@/widgets/product-buy-bar'
 import { MaterialDrawer } from '@/widgets/material-drawer'
+import { productPageMeta } from '@estrelinha/core/seo'
+import { useSeoSettings } from '@estrelinha/core/hooks/useStoreSettings'
+import { usePageMeta } from '@/shared/lib/usePageMeta'
 
 /**
  * Página do produto — boards "Desktop Product Detail - v3" e "Mobile Product Detail - v3".
@@ -74,6 +77,15 @@ const ProductPage = ({ legacy = false }: ProductPageProps) => {
   // `URL-01`: a canônica do produto é `/produtos/<slug>` — o formato que a loja em produção publica
   // e que o Google indexou. Sai do `<head>` quando a página desmonta.
   useCanonical(product ? productPath(product.slug) : null)
+
+  // Feature 62 (`MTA-02`, `MTA-03`): o título e a descrição DESTA joia, pela mesma função que a
+  // edge function `product-page` usa no HTML servido. Só quando a página vai de fato mostrar o
+  // produto: carregando, ela não escreve nada (A9); rota legada ou slug antigo vão navegar para outro
+  // endereço, e declarar aqui atribuiria o título ao endereço errado; não encontrado é a `NotFound`
+  // quem declara.
+  const { description: descricaoDaLoja } = useSeoSettings()
+  const vaiMostrar = product && !legacy && product.slug === slug
+  usePageMeta(vaiMostrar ? productPageMeta(product, descricaoDaLoja) : null)
 
   if (legacy) return <Navigate to={legacyRedirectTo(pathname) ?? '/'} replace />
 

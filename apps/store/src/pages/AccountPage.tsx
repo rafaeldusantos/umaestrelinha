@@ -27,6 +27,8 @@ import { whatsappHref } from '@/shared/lib/whatsapp'
 import { AttentionList } from '@/widgets/order-attention'
 import { OrderList } from '@/widgets/order-list'
 import { WHATSAPP_FLOAT_CLEARANCE } from '@/widgets/whatsapp-float'
+import { staticPageMeta } from '@estrelinha/core/seo'
+import { usePageMeta } from '@/shared/lib/usePageMeta'
 
 /** As duas abas e os endereços delas. */
 const ABAS = {
@@ -115,6 +117,8 @@ const AccountPage = () => {
   const openAuth = useAuthUiStore((s) => s.open)
   const { pathname } = useLocation()
   const aba: Aba = pathname === ABAS.dados.path ? 'dados' : 'pedidos'
+  // Feature 62: cada aba tem endereço próprio, e por isso título próprio (`core/seo`).
+  usePageMeta(staticPageMeta(ABAS[aba].path))
   const { data: orders, isLoading, isError, refetch } = useOrdersByCustomerId(customer?.id)
 
   // `LST-09`: sem sessão, o login abre e devolve à aba em que ela estava.

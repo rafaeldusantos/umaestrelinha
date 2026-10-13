@@ -31,7 +31,8 @@
     "./notifications": "./src/notifications/index.ts",
     "./admin-users": "./src/admin-users/index.ts",
     "./orders": "./src/orders/index.ts",
-    "./analytics": "./src/analytics/index.ts"
+    "./analytics": "./src/analytics/index.ts",
+    "./seo": "./src/seo/index.ts"
   },
   "scripts": {
     "test": "vitest run"

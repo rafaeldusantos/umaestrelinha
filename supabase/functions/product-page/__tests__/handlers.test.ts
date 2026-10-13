@@ -8,6 +8,7 @@ import {
   renditionUrl,
 } from '../../../../packages/core/src/media/rendition.ts'
 import { escapeXml } from '../../../../packages/core/src/xml/escape.ts'
+import { productPageMeta } from '../../../../packages/core/src/seo/pages.ts'
 import { productJsonLd } from '../../../../packages/core/src/shopping/index.ts'
 import { renderFeedXml, resolveOffer } from '../../../../packages/core/src/shopping/index.ts'
 import {
@@ -17,6 +18,7 @@ import {
   imagePreloadLink,
   injectIntoHead,
   jsonLdScript,
+  productHeadTags,
   type ProductPageData,
   type ProductPageDeps,
 } from '../handlers.ts'
@@ -103,22 +105,30 @@ describe('handleProductPage — o bloco é injetado', () => {
     const corpo = await (
       await handleProductPage(deps(), url('?slug=pulseira-7-nos-ajustavel-protecao-kabbalah'))
     ).text()
-    // A function injeta exatamente DUAS coisas: o `preload` da foto principal (`PRF-06`) e o
-    // JSON-LD. Retirar as duas tem de devolver o shell byte a byte — é o que prova que nada mais
-    // no documento foi tocado. A asserção não afrouxou: ganhou a segunda injeção a descontar.
+    // A function mexe em exatamente TRÊS coisas: o `preload` da foto principal (`PRF-06`), o
+    // JSON-LD e — desde a feature 62 — o `<head>` do produto (o `<title>` trocado no lugar e as
+    // `<meta>` de descrição e card). Retirar as três tem de devolver o shell byte a byte, com o
+    // `<title>` original — é o que prova que nada mais no documento foi tocado. A asserção não
+    // afrouxou: ganhou a terceira modificação a descontar.
     const semInjecao = corpo
       .replace(/<link rel="preload"[^>]*>/, '')
       .replace(/<script type="application\/ld\+json">[\s\S]*?<\/script>/, '')
+      .replace(/<meta [^>]*>/g, '')
+      .replace(/<title>[^<]*<\/title>/, '<title>Uma Estrelinha</title>')
     expect(semInjecao).toBe(SHELL)
   })
 
-  it('são DUAS injeções, e só duas — a vizinha da asserção acima', async () => {
+  it('são TRÊS modificações, e só três — a vizinha da asserção acima', async () => {
     const corpo = await (
       await handleProductPage(deps(), url('?slug=pulseira-7-nos-ajustavel-protecao-kabbalah'))
     ).text()
     // Sem esta, o `replace` acima poderia estar descontando algo que não deveria existir.
     expect(corpo.match(/<link rel="preload"/g)).toHaveLength(1)
     expect(corpo.match(/<script type="application\/ld\+json">/g)).toHaveLength(1)
+    expect(corpo.match(/<title>/g)).toHaveLength(1)
+    // as nove do bloco do head: description, og:type/title/description/url,
+    // twitter:title/description, og:image e twitter:image
+    expect(corpo.match(/<meta /g)).toHaveLength(9)
   })
 
   it('declara Product com nome, imagem, sku e oferta', async () => {
@@ -479,13 +489,21 @@ describe('handleProductPage — o preload da foto principal (PRF-06)', () => {
   })
 
   it('produto SEM foto responde o que respondia antes desta feature — byte a byte', async () => {
-    // A prova de que a injeção é ADITIVA: sem foto, a resposta é exatamente o shell mais o JSON-LD,
-    // que é o que a feature 30 entregava.
+    // A prova de que a injeção do preload é ADITIVA: sem foto, a resposta é exatamente o shell com
+    // o `<head>` do produto (feature 62) mais o JSON-LD — nenhum `preload` no meio. A régua continua
+    // byte a byte; ganhou a peça da 62, que sem foto não leva `og:image`.
     const d = semFoto()
     const corpo = await corpoDe(d)
 
     const oferta = resolveOffer(d.product, d.variants[0], { origin: ORIGEM })
-    expect(corpo).toBe(injectIntoHead(SHELL, jsonLdScript(productJsonLd(oferta))))
+    const meta = productPageMeta(d.product)
+    const head = productHeadTags(SHELL, {
+      title: meta.title,
+      description: meta.description,
+      url: `${ORIGEM}/produtos/${d.product.slug}`,
+      image: null,
+    })
+    expect(corpo).toBe(injectIntoHead(head, jsonLdScript(productJsonLd(oferta))))
   })
 
   it('o preload vem antes do JSON-LD, e os dois dentro do `<head>`', async () => {

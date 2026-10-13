@@ -36,6 +36,8 @@ import { OrderAccessRefusal } from '@/widgets/order-access-refusal'
 import { ACAO_PRIMARIA, OrderActionPanel, orderActionState } from '@/widgets/order-action'
 import { OrderHelp } from '@/widgets/order-help'
 import { OrderMaterialBlock } from '@/widgets/order-material'
+import { staticPageMeta } from '@estrelinha/core/seo'
+import { usePageMeta } from '@/shared/lib/usePageMeta'
 
 /**
  * Os materiais do pedido, do **snapshot dos itens** — nunca de uma releitura do catálogo.
@@ -58,6 +60,8 @@ const Shell = ({ children }: { children: React.ReactNode }) => (
 )
 
 const OrderConfirmationPage = () => {
+  // Feature 62: o <title> e a descrição desta rota (`core/seo`).
+  usePageMeta(staticPageMeta('/pedido/:id'))
   const { id } = useParams<{ id: string }>()
   const { data: order, isLoading, isError } = useOrder(id)
   const { user } = useAuthContext()

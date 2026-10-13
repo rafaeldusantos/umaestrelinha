@@ -1,6 +1,9 @@
 import { useHomePreview, useHomeSections } from '@/entities/home'
 import { HomeRenderer, HomeSkeleton } from '@/widgets/home-renderer'
 import { PREVIEW_SECTION_ATTR } from '@estrelinha/core/home'
+import { homePageMeta } from '@estrelinha/core/seo'
+import { useStoreSettings } from '@estrelinha/core/hooks/useStoreSettings'
+import { usePageMeta } from '@/shared/lib/usePageMeta'
 
 /**
  * A home — e a partir da feature 24 ela **não conhece seção nenhuma**.
@@ -25,6 +28,12 @@ import { PREVIEW_SECTION_ATTR } from '@estrelinha/core/home'
  */
 const HomePage = () => {
   const { preview, sections: rascunho, highlightId, selectSection } = useHomePreview()
+
+  // Feature 62 (A6): título e descrição da Home são os que a dona edita em Configurações
+  // (`store_settings.seo`). Enquanto a configuração carrega, nada é escrito — o `page_view` espera
+  // e sai com o título configurado, não com um provisório.
+  const { data: configuracao, isLoading: carregandoConfiguracao } = useStoreSettings()
+  usePageMeta(carregandoConfiguracao ? null : homePageMeta(configuracao?.seo))
 
   // Em modo prévia a consulta é **desligada**, não filtrada depois (`PRV-02`): uma leitura viva em
   // paralelo daria à página duas fontes para a mesma pergunta, e a do banco chegaria depois,

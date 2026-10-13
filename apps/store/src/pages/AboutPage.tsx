@@ -21,6 +21,8 @@ import { EstrelinhaStarIcon } from '@estrelinha/ui/icons'
 import { EstrelinhaSymbol } from '@/shared/ui/brand'
 import Trilha, { COLUNA_INSTITUCIONAL } from '@/shared/ui/Trilha'
 import { useCanonical } from '@/shared/lib/useCanonical'
+import { staticPageMeta } from '@estrelinha/core/seo'
+import { usePageMeta } from '@/shared/lib/usePageMeta'
 
 export const ABOUT_PATH = '/sobre'
 
@@ -106,6 +108,8 @@ const LegendaDaFoto = ({ className = '' }: { className?: string }) => (
  */
 
 const AboutPage = () => {
+  // Feature 62: o <title> e a descrição desta rota (`core/seo`).
+  usePageMeta(staticPageMeta('/'))
   useCanonical(ABOUT_PATH)
 
   // Mesmo portão do `WhatsAppFloat`: número curto demais é número não configurado, e a ação sai de

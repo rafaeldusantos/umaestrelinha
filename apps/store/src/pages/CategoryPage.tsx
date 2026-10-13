@@ -19,13 +19,11 @@ import {
   SORT_LABELS,
   activeFilterChips,
   clearFilterChip,
-  collectTags,
   defaultFilters,
   filterProducts,
   hasActiveFilters,
   priceBounds,
   sortProducts,
-  toggleTag,
   type CategoryFilters,
   type SortOption,
 } from '@/features/category-filters'
@@ -37,6 +35,8 @@ import {
   SelectValue,
 } from '@estrelinha/ui/select'
 import { Skeleton } from '@estrelinha/ui/skeleton'
+import { categoryPageMeta } from '@estrelinha/core/seo'
+import { usePageMeta } from '@/shared/lib/usePageMeta'
 
 /**
  * Listagem de uma coleção — boards "Desktop Category Page - v3" e "Mobile Category Page - v3".
@@ -122,10 +122,13 @@ const CategoryPage = ({ legacy = false }: Props) => {
     enabled: route.kind === 'ok',
   })
   useCanonical(route.kind === 'ok' ? route.canonical : null)
+  // Feature 62 (`MTA-04`): o título e a descrição da coleção. Só com a rota resolvida e fora do modo
+  // legado — o legado navega para outro endereço, e declarar aqui atribuiria o título a ele. A 404 é
+  // a `NotFound` quem declara.
+  usePageMeta(route.kind === 'ok' && !legacy ? categoryPageMeta(route.category) : null)
 
   const products = useMemo(() => allProducts ?? [], [allProducts])
   const bounds = useMemo(() => priceBounds(products), [products])
-  const tags = useMemo(() => collectTags(products), [products])
 
   const [sort, setSort] = useState<SortOption>('relevancia')
   const [filters, setFilters] = useState<CategoryFilters>(() => defaultFilters(bounds))
@@ -319,36 +322,6 @@ const CategoryPage = ({ legacy = false }: Props) => {
             )}
           </button>
         </div>
-
-        {tags.length > 0 && (
-          <div className="-mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <button
-              type="button"
-              onClick={() => setFilters({ ...filters, tags: [] })}
-              className={`${TAP_ROW} shrink-0 rounded-pill px-3.5 py-1.5 text-[12px] leading-3 transition-colors ${
-                filters.tags.length === 0
-                  ? 'bg-estrelinha-primary font-semibold text-white'
-                  : 'bg-estrelinha-ground-deep font-medium text-estrelinha-ink-soft'
-              }`}
-            >
-              Todos
-            </button>
-            {tags.map(tag => (
-              <button
-                key={tag}
-                type="button"
-                onClick={() => setFilters(toggleTag(filters, tag))}
-                className={`${TAP_ROW} shrink-0 rounded-pill px-3.5 py-1.5 text-[12px] leading-3 transition-colors ${
-                  filters.tags.includes(tag)
-                    ? 'bg-estrelinha-primary font-semibold text-white'
-                    : 'bg-estrelinha-ground-deep font-medium text-estrelinha-ink-soft'
-                }`}
-              >
-                {tag}
-              </button>
-            ))}
-          </div>
-        )}
       </div>
 
       <div className="container flex gap-8 pb-16 md:pt-8">
@@ -373,7 +346,6 @@ const CategoryPage = ({ legacy = false }: Props) => {
             filters={filters}
             onChange={setFilters}
             bounds={bounds}
-            tags={tags}
           />
         </aside>
 
@@ -504,7 +476,6 @@ const CategoryPage = ({ legacy = false }: Props) => {
         filters={filters}
         onChange={setFilters}
         bounds={bounds}
-        tags={tags}
         resultCount={visible.length}
       />
     </div>

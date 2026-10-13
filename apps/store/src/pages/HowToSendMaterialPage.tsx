@@ -33,11 +33,15 @@ import {
   VideoGallery,
   VideoLightbox,
 } from '@/widgets/material-guide'
+import { staticPageMeta } from '@estrelinha/core/seo'
+import { usePageMeta } from '@/shared/lib/usePageMeta'
 
 /** O caminho canônico. Reexportado do slice para quem já importava a constante desta página. */
 export const HOW_TO_SEND_PATH = GUIA_MATERIAL_PATH
 
 const HowToSendMaterialPage = () => {
+  // Feature 62: o <title> e a descrição desta rota (`core/seo`).
+  usePageMeta(staticPageMeta(HOW_TO_SEND_PATH))
   useCanonical(HOW_TO_SEND_PATH)
 
   // Resolvido UMA vez e distribuído: sete fichas assinando `matchMedia` por conta própria seriam sete

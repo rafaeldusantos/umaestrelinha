@@ -28,6 +28,8 @@ vi.mock('@/entities/product/ui/ProductCard', () => ({
   default: ({ product }: any) => <div data-testid="produto">{product.name}</div>,
 }))
 vi.mock('@estrelinha/core/hooks/useStoreSettings', () => ({
+  // Feature 62: a Home lê título e descrição da configuração da loja (`store_settings.seo`).
+  useStoreSettings: () => ({ data: undefined, isLoading: false }),
   usePaymentSettings: () => ({ pix_enabled: true, pix_discount_percent: 5, max_installments: 6 }),
   useShippingSettings: () => ({ free_shipping_enabled: true, free_shipping_threshold: 150 }),
 }))

@@ -1,7 +1,11 @@
 import { Link, useLocation } from "react-router-dom";
 import { useEffect } from "react";
+import { notFoundPageMeta } from "@estrelinha/core/seo";
+import { usePageMeta } from "@/shared/lib/usePageMeta";
 
 const NotFound = () => {
+  // Feature 62: o <title> e a descrição desta rota (`core/seo`).
+  usePageMeta(notFoundPageMeta());
   const location = useLocation();
 
   useEffect(() => {

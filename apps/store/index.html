@@ -78,21 +78,31 @@
     <!-- `primary-strong` — a mesma superfície do header, que é o que o topo do
          navegador encosta no celular. -->
     <meta name="theme-color" content="#283A4A">
-    <!-- Ativo do PRÓPRIO projeto, gerado do lockup por
-         `.specs/brand/uma-estrelinha/_build-og.ps1`. Até a T35 esta linha
-         apontava para um bucket do template original, servindo a arte de outro
-         produto por um CDN que ninguém daqui controla.
+    <!-- A imagem do card de compartilhamento — a que o Google, o WhatsApp, o
+         Facebook e o X mostram quando alguém cola um link da loja. Feature 62:
+         é a arte "Joias afetivas com leite materno" da dona (2026-10-06), no
+         lugar do lockup (`og-image.png`, que continua em `public/`).
 
-         É a única superfície do produto onde o degrau 1 da escada de marca
-         cabe: o piso do lockup é 600px de largura, e o card tem 1200.
+         JPEG 1200×630, e as duas coisas são decisão: WebP (o formato em que a
+         arte chegou) não é aceito por todo mensageiro, e o card largo recorta
+         para ~1,91:1 — a arte quadrada perderia o título "JOIAS AFETIVAS". Por
+         isso ela entra INTEIRA (630×630) no centro, sobre o próprio fundo
+         #F2F2F2 dela.
+
+         Vale para toda rota servida por este arquivo; a página de produto é
+         servida pela edge function `product-page`, que troca estas tags pela
+         foto da joia.
 
          A URL é ABSOLUTA de propósito: o rastreador do Facebook não resolve
-         caminho relativo, e um `og:image` que ele não resolve não vira card
-         nenhum. O domínio é o mesmo das landing pages. -->
-    <meta property="og:image" content="https://umaestrelinha.com.br/og-image.png">
+         caminho relativo. O domínio é o da loja — até o cutover ele ainda é a
+         Nuvemshop, e a imagem só responde lá depois da virada. -->
+    <meta property="og:image" content="https://umaestrelinha.com.br/joia-afetiva-leite-materno-uma-estrelinha.jpg">
+    <meta property="og:image:type" content="image/jpeg">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
-    <meta name="twitter:image" content="https://umaestrelinha.com.br/og-image.png">
+    <meta property="og:image:alt" content="Joias afetivas com leite materno — Amor em forma de joia">
+    <meta name="twitter:image" content="https://umaestrelinha.com.br/joia-afetiva-leite-materno-uma-estrelinha.jpg">
+    <meta name="twitter:image:alt" content="Joias afetivas com leite materno — Amor em forma de joia">
   </head>
   <body>
     <div id="root"></div>

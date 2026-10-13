@@ -58,7 +58,7 @@ import { useCookieConsentStore } from '@/entities/cookie-consent'
 import { gaIds } from '@/shared/lib/analytics'
 import { useBeginCheckout } from '@/features/checkout/model/checkoutAnalytics'
 import { useGoogleLoginReturn } from '@/features/auth/model/authAnalytics'
-import { NeedsOtpError, useCreateOrder } from '@/entities/order/api/useOrders'
+import { NeedsOtpError, PickupUnavailableError, useCreateOrder } from '@/entities/order/api/useOrders'
 import { orderPaymentPath } from '@/entities/order/lib/podePagarComPix'
 import { rememberAccess } from '@/entities/order/model/orderAccess'
 import { AuthOverlay, useAuthUiStore } from '@/features/auth'
@@ -75,8 +75,16 @@ import {
   markCartRecovered,
   clearGuestEmail,
 } from '@/features/abandoned-cart/model/useAbandonedCartTracker'
+import { staticPageMeta } from '@estrelinha/core/seo'
+import { usePageMeta } from '@/shared/lib/usePageMeta'
 
 export const ORDER_FAILED_MESSAGE = 'Não conseguimos criar seu pedido. Tente novamente.'
+/**
+ * Feature 63 (`RET-12`): o servidor recusou a retirada no escritório. "Tente novamente" mentiria —
+ * a mesma escolha seria recusada de novo —, então a mensagem pede outra forma de envio.
+ */
+export const PICKUP_UNAVAILABLE_MESSAGE =
+  'A retirada no escritório não está disponível para este pedido. Escolha uma opção de envio.'
 /**
  * DOC-05: o documento do cartão sai do Brick; sem ele, do `customers.cpf` já salvo. Faltando os
  * dois, o servidor montaria o pagamento sem pagador — melhor pedir aqui do que gravar um pedido
@@ -101,6 +109,8 @@ interface DbGridRow {
 const TRUST_ITEMS = [{ icon: ShieldCheck, label: 'Pagamento processado por Mercado Pago' }]
 
 const CheckoutPage = () => {
+  // Feature 62: o <title> e a descrição desta rota (`core/seo`).
+  usePageMeta(staticPageMeta('/checkout'))
   const navigate = useNavigate()
   const { user, customer, loading } = useAuthContext()
 
@@ -521,6 +531,15 @@ const CheckoutPage = () => {
           if (err instanceof NeedsOtpError) {
             setChallengeEmail(contact.email)
             setEditing('contact')
+            return
+          }
+          // Feature 63: a retirada foi recusada pelo servidor. A escolha é desfeita (senão a
+          // retentativa repetiria a recusa) e o bloco de entrega reabre para ela escolher outra.
+          // O resto do rascunho e o carrinho ficam intactos, como em CHK-09.
+          if (err instanceof PickupUnavailableError) {
+            useCheckoutStore.getState().setShipping(null)
+            setEditing('delivery')
+            toast.error(PICKUP_UNAVAILABLE_MESSAGE)
             return
           }
           // CHK-09: rascunho e carrinho intactos; o CTA continua acionável.

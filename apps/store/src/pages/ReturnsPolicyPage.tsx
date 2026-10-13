@@ -28,6 +28,8 @@ import PolicyDocument, {
   PolicySubsection,
 } from '@/shared/ui/PolicyDocument'
 import { useCanonical } from '@/shared/lib/useCanonical'
+import { staticPageMeta } from '@estrelinha/core/seo'
+import { usePageMeta } from '@/shared/lib/usePageMeta'
 
 // O endereço vem de `@estrelinha/core/routes`, e **não** é declarado aqui: quem linka para esta
 // página (o rodapé, um `widget`; o índice, outra `page`) não pode importar deste módulo — o rodapé
@@ -60,6 +62,8 @@ const EVITE = [
 ]
 
 const ReturnsPolicyPage = () => {
+  // Feature 62: o <title> e a descrição desta rota (`core/seo`).
+  usePageMeta(staticPageMeta(RETURNS_POLICY_PATH))
   useCanonical(RETURNS_POLICY_PATH)
 
   return (

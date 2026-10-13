@@ -6,11 +6,15 @@ import ProductCard from '@/entities/product/ui/ProductCard'
 import { Button } from '@estrelinha/ui/button'
 import { motion } from 'framer-motion'
 import { useTrackList, type AnalyticsList } from '@/shared/lib/analytics/useTrackList'
+import { staticPageMeta } from '@estrelinha/core/seo'
+import { usePageMeta } from '@/shared/lib/usePageMeta'
 
 /** Feature 61 · EVT-02. */
 const LISTA: AnalyticsList = { id: 'favoritos', name: 'Meus favoritos' }
 
 const WishlistPage = () => {
+  // Feature 62: o <title> e a descrição desta rota (`core/seo`).
+  usePageMeta(staticPageMeta('/favoritos'))
   const items = useWishlistStore((s) => s.items)
   const { data: products } = useAllProducts()
   const wishlistProducts = (products ?? []).filter((p) => items.includes(p.id))

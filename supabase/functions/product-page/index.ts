@@ -34,11 +34,14 @@ const lerShell = createShellCache(async () => {
 
 const COLUNAS_PRODUTO =
   'id,nuvemshop_id,name,slug,description,images,is_active,stock_policy,' +
-  'brand,mpn,age_group,gender,google_product_category,identifier_exists'
+  'brand,mpn,age_group,gender,google_product_category,identifier_exists,' +
+  // Feature 62: a copy de busca curada — o título e a descrição do card da joia.
+  'seo_title,seo_description'
 
 const COLUNAS_VARIACAO = 'id,nuvemshop_id,price,compare_price,stock,image_url,is_active,position'
 
 Deno.serve(async req => {
+  const configuracoes = await lerConfiguracoes()
   const deps: ProductPageDeps = {
     fetchShell: lerShell,
 
@@ -56,22 +59,37 @@ Deno.serve(async req => {
 
     origin: storeUrl,
 
-    defaultProductCategory: await categoriaPadrao(),
+    defaultProductCategory: configuracoes.categoriaPadrao,
+    storeDescription: configuracoes.descricaoDaLoja,
   }
 
   return await handleProductPage(deps, new URL(req.url))
 })
 
-/** Lida por requisição de propósito: mudar a categoria padrão no painel não pode exigir redeploy. */
-async function categoriaPadrao(): Promise<string | null> {
+/**
+ * Lidas por requisição de propósito: mudar a categoria padrão ou a descrição da loja no painel não
+ * pode exigir redeploy. Uma consulta só para as duas chaves. Falha ⇒ `null` nas duas, e a página
+ * sai assim mesmo: a descrição cai na do shell (A16).
+ */
+async function lerConfiguracoes(): Promise<{
+  categoriaPadrao: string | null
+  descricaoDaLoja: string | null
+}> {
   try {
     const { data } = await supabase
       .from('store_settings')
-      .select('value')
-      .eq('key', 'google_shopping')
-      .maybeSingle()
-    return (data?.value as { default_product_category?: string })?.default_product_category ?? null
+      .select('key,value')
+      .in('key', ['google_shopping', 'seo'])
+    const valor = (chave: string) =>
+      ((data ?? []) as { key: string; value: Record<string, unknown> }[]).find(l => l.key === chave)
+        ?.value
+    const descricao = valor('seo')?.description
+    return {
+      categoriaPadrao:
+        (valor('google_shopping')?.default_product_category as string | undefined) ?? null,
+      descricaoDaLoja: typeof descricao === 'string' && descricao.trim() !== '' ? descricao : null,
+    }
   } catch {
-    return null
+    return { categoriaPadrao: null, descricaoDaLoja: null }
   }
 }
