@@ -11,7 +11,8 @@ import { semComentarios } from '@/test/sourceScan'
 /**
  * `PDP-02`/`PDP-10` — a seção "Detalhes do Produto" passa a abrir com a descrição.
  *
- * A `PIN-05` continua valendo: sem nada a dizer, a seção não é montada e quem abre é "Cuidados".
+ * A `PIN-05` continua valendo: sem descrição, a seção não é montada. Desde 2026-10-10 ela traz só
+ * a descrição — tamanho, peso e a seção "Cuidados e Conservação" saíram.
  */
 
 const produto = (over: Partial<Product> = {}): Product =>
@@ -58,47 +59,32 @@ describe('ProductDetailsAccordion — a descrição na seção (PDP-02)', () => 
     expect(screen.getByText('Guarda leite materno.')).toBeVisible()
   })
 
-  it('a descrição vem ANTES dos bullets de medida', () => {
-    // Ordem no DOM, não presença: "acima" é a AC, e presença passaria com a ordem invertida.
-    const { container } = render(
+  // 2026-10-10: tamanho e peso saíram da seção. O produto TEM as medidas cadastradas — sem elas o
+  // caso passaria nos dois mundos, porque a ausência seria verdade de qualquer jeito.
+  it('com medidas cadastradas, a seção traz só a descrição', () => {
+    render(
       <ProductDetailsAccordion
-        product={produto({ description: DESCRICAO, width_cm: 0.8, weight_kg: 0.004 })}
+        product={produto({ description: DESCRICAO, width_cm: 15, height_cm: 3, weight_kg: 0.3 })}
       />,
     )
 
-    const html = container.innerHTML
-    expect(html.indexOf('Guarda leite materno.')).toBeLessThan(html.indexOf('Tamanho: 0,8 cm'))
-  })
-
-  it('com descrição e sem medida, a seção traz só a descrição', () => {
-    render(<ProductDetailsAccordion product={produto({ description: DESCRICAO })} />)
-
     expect(screen.getByText('Guarda leite materno.')).toBeInTheDocument()
-    expect(screen.queryByText(/^Tamanho:/)).toBeNull()
-    expect(screen.queryByText(/^Peso:/)).toBeNull()
-  })
-
-  it('sem descrição e com medida, a seção traz só os bullets', () => {
-    render(<ProductDetailsAccordion product={produto({ width_cm: 0.8 })} />)
-
-    expect(screen.getByText('• Tamanho: 0,8 cm')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Detalhes do Produto' })).toBeInTheDocument()
+    expect(screen.queryByText(/Tamanho:/)).toBeNull()
+    expect(screen.queryByText(/Peso:/)).toBeNull()
   })
 })
 
 describe('ProductDetailsAccordion — quando não há nada a dizer (PDP-10, preserva PIN-05)', () => {
-  it('sem descrição e sem medida, a seção não é montada', () => {
+  it('sem descrição, a seção não é montada', () => {
     render(<ProductDetailsAccordion product={produto()} />)
 
     expect(screen.queryByRole('button', { name: 'Detalhes do Produto' })).toBeNull()
   })
 
-  it('sem descrição e sem medida, quem abre é "Cuidados e Conservação"', () => {
-    render(<ProductDetailsAccordion product={produto()} />)
+  it('sem descrição, medida sozinha não monta a seção', () => {
+    render(<ProductDetailsAccordion product={produto({ width_cm: 0.8, weight_kg: 0.004 })} />)
 
-    expect(
-      screen.getByText('• Limpe com pano seco e macio. Nada de produto de limpeza, álcool ou ultrassom.'),
-    ).toBeVisible()
+    expect(screen.queryByRole('button', { name: 'Detalhes do Produto' })).toBeNull()
   })
 
   it('descrição que a limpeza esvazia conta como ausente', () => {
@@ -107,33 +93,25 @@ describe('ProductDetailsAccordion — quando não há nada a dizer (PDP-10, pres
 
     expect(screen.queryByRole('button', { name: 'Detalhes do Produto' })).toBeNull()
   })
-
-  it('descrição que a limpeza esvazia ainda monta a seção se houver medida', () => {
-    render(
-      <ProductDetailsAccordion
-        product={produto({ description: '<script>alert(1)</script>', weight_kg: 0.004 })}
-      />,
-    )
-
-    expect(screen.getByText('• Peso: 4g')).toBeInTheDocument()
-  })
 })
 
-describe('ProductDetailsAccordion — "Política de Trocas" saiu do acordeão (2026-09-11)', () => {
-  it('as três seções existem quando há descrição e perguntas', () => {
+describe('ProductDetailsAccordion — "Cuidados e Conservação" e "Política de Trocas" saíram', () => {
+  it('com descrição e perguntas, só as duas seções existem', () => {
     render(<ProductDetailsAccordion product={produto({ description: DESCRICAO })} faqs={FAQS} />)
 
     expect(screen.getByRole('button', { name: 'Detalhes do Produto' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Cuidados e Conservação' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Política de Trocas' })).toBeNull()
     expect(screen.getByRole('button', { name: 'Perguntas Frequentes' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Cuidados e Conservação' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Política de Trocas' })).toBeNull()
   })
 
-  it('Cuidados continua presente mesmo sem pergunta nenhuma, e Trocas não volta', () => {
-    render(<ProductDetailsAccordion product={produto({ description: DESCRICAO })} />)
+  it('o texto de cuidados não sobra no fonte', () => {
+    const HERE = dirname(fileURLToPath(import.meta.url))
+    const CODIGO = semComentarios(readFileSync(join(HERE, '..', 'ProductDetailsAccordion.tsx'), 'utf8'))
 
-    expect(screen.getByRole('button', { name: 'Cuidados e Conservação' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Política de Trocas' })).toBeNull()
+    expect(CODIGO.length).toBeGreaterThan(500)
+    expect(CODIGO).not.toContain('Cuidados e Conservação')
+    expect(CODIGO).not.toContain('pano seco')
   })
 })
 
@@ -178,11 +156,20 @@ describe('ProductDetailsAccordion — as perguntas frequentes vêm do cadastro',
   })
 
   // A última seção visível não leva risco embaixo — e quem é a última deixou de ser fixo.
-  it('sem perguntas, "Cuidados e Conservação" vira a última e perde o risco', () => {
+  it('sem perguntas, "Detalhes do Produto" vira a última e perde o risco', () => {
     const { container } = render(<ProductDetailsAccordion product={produto({ description: DESCRICAO })} />)
-    const cuidados = container.querySelector('[data-state][class*="border-b-0"]')
+    const detalhes = container.querySelector('[data-state][class*="border-b-0"]')
 
-    expect(cuidados).not.toBeNull()
+    expect(detalhes).not.toBeNull()
+  })
+
+  it('com perguntas, "Detalhes do Produto" mantém o risco', () => {
+    const { container } = render(
+      <ProductDetailsAccordion product={produto({ description: DESCRICAO })} faqs={FAQS} />,
+    )
+    const itens = container.querySelectorAll('[data-state][class*="border-"]')
+
+    expect(itens[0].className).toContain('border-estrelinha-line')
   })
 })
 

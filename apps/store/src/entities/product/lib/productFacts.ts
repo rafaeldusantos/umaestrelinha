@@ -1,11 +1,12 @@
-// Os números que a página do produto anuncia — economia, saldo e ficha técnica.
+// Os números que a página do produto anuncia — economia e saldo.
 //
-// Boards "Desktop Product Detail - v3" e "Mobile Product Detail - v3": a linha "Economize R$ 1,60",
-// o "Em estoque — apenas 8 restantes" e os bullets do acordeão "Detalhes do Produto".
+// Boards "Desktop Product Detail - v3" e "Mobile Product Detail - v3": a linha "Economize R$ 1,60"
+// e o "Em estoque — apenas 8 restantes". Os bullets de tamanho e peso do acordeão saíram em
+// 2026-10-10 (decisão do usuário): a seção "Detalhes do Produto" traz só a descrição.
 //
-// Função pura, e não JSX: o que precisa de prova aqui é a **conta**, não o DOM. E as três respostas
-// aparecem em duas superfícies cada uma (coluna de informação e barra fixa do mobile; acordeão
-// desktop e mobile) — duas cópias seriam dois lugares para a regra divergir.
+// Função pura, e não JSX: o que precisa de prova aqui é a **conta**, não o DOM. E as duas respostas
+// aparecem em duas superfícies cada uma (coluna de informação e barra fixa do mobile) — duas cópias
+// seriam dois lugares para a regra divergir.
 
 import type { Product, ProductVariant } from '@estrelinha/supabase/types'
 import { hasSellableGrid } from './variantSelection'
@@ -70,40 +71,3 @@ export const stockLineOf = (product: Product, variant: ProductVariant | null): S
     note: low ? `— apenas ${remaining} ${remaining === 1 ? 'restante' : 'restantes'}` : null,
   }
 }
-
-/**
- * Os bullets de "Detalhes do Produto" — **só o que está cadastrado** (`PIN-05`).
- *
- * A ficha anterior afirmava três coisas à mão em todo produto: um material fixo (metal), uma
- * fixação fixa (alfinete) e a autoria da arte pela loja. Eram verdades de **botton**, e numa joia
- * de resina com material do cliente as três são falsas — material varia
- * (prata 925, aço, folheado), não há alfinete, e a peça não é "arte exclusiva" da loja: o que a
- * torna única é o que a cliente enviou.
- *
- * Não foram substituídas por três novas verdades escritas à mão: quem sabe o material daquela peça é
- * o cadastro. Enquanto ele não tiver o campo, o bullet não existe — uma ficha curta e certa vale
- * mais que uma completa e inventada, e é a mesma régua que já valia para as medidas.
- *
- * Tamanho e peso saem das colunas que alimentam a cotação de frete (`SHP-02`). Sem nenhuma das
- * duas, a ficha volta **vazia**, e quem renderiza é que decide não mostrar a seção.
- */
-export const productSpecs = (product: Product): string[] => {
-  const specs: string[] = []
-
-  // `width_cm ?? height_cm`: a medida que houver, sem afirmar a forma. O rótulo dizia "de diâmetro",
-  // que só descreve um disco — a quarta verdade de botton da lista.
-  const size = product.width_cm ?? product.height_cm
-  if (typeof size === 'number' && size > 0) {
-    specs.push(`Tamanho: ${formatCm(size)} cm`)
-  }
-
-  if (typeof product.weight_kg === 'number' && product.weight_kg > 0) {
-    specs.push(`Peso: ${Math.round(product.weight_kg * 1000)}g`)
-  }
-
-  return specs
-}
-
-/** `3.8` → `3,8`; `4` → `4`. Vírgula decimal, sem casa à toa. */
-const formatCm = (value: number) =>
-  (Math.round(value * 10) / 10).toString().replace('.', ',')

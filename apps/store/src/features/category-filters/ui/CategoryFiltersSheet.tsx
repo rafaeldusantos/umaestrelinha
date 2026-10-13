@@ -9,7 +9,6 @@ interface Props {
   filters: CategoryFilters
   onChange: (filters: CategoryFilters) => void
   bounds: [number, number]
-  tags: string[]
   /** Quantos produtos a seleção atual devolve — é o rótulo do CTA. */
   resultCount: number
 }
@@ -27,7 +26,6 @@ const CategoryFiltersSheet = ({
   filters,
   onChange,
   bounds,
-  tags,
   resultCount,
 }: Props) => (
   <Sheet open={open} onOpenChange={onOpenChange}>
@@ -59,7 +57,6 @@ const CategoryFiltersSheet = ({
         filters={filters}
         onChange={onChange}
         bounds={bounds}
-        tags={tags}
       />
 
       <div className="flex gap-3 pt-4">

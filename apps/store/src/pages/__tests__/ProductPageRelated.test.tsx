@@ -35,6 +35,9 @@ vi.mock('@/entities/product/ui/ProductInfo', () => ({ default: () => <div>info</
 // subgrafo quebrando por `undefined is not a function` em vez de dizer o que faltou.
 vi.mock('@estrelinha/core/hooks/useStoreSettings', async (importOriginal) => ({
   ...((await importOriginal()) as object),
+  // Feature 62: a página do produto lê a descrição da loja (recuo do metadado), e este arquivo
+  // dubla as configurações em vez de montar um QueryClient.
+  useSeoSettings: () => ({ title: '', description: '', og_image: '' }),
   usePaymentSettings: () => ({
     max_installments: 6,
     min_installment_value: 10,

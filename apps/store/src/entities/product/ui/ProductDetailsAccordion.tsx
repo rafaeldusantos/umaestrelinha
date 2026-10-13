@@ -8,26 +8,25 @@ import {
 import type { Product } from '@estrelinha/supabase/types'
 import type { ResolvedFaq } from '@estrelinha/core/faq'
 import { sanitizeHtml } from '@/shared/lib/sanitizeHtml'
-import { productSpecs } from '../lib/productFacts'
 import ProductDescription from './ProductDescription'
 import ProductFaq from './ProductFaq'
 
 /**
- * "Detalhes do Produto / Cuidados / Perguntas Frequentes" — boards de Produto.
+ * "Detalhes do Produto / Perguntas Frequentes" — boards de Produto.
  *
- * Três seções, a primeira aberta: é a única que traz dado do cadastro, e deixar tudo fechado
- * esconderia a ficha técnica atrás de um clique que quase toda visita dá.
+ * Duas seções, a primeira aberta: é a que traz a **descrição completa**, e deixar tudo fechado
+ * esconderia o texto da peça atrás de um clique que quase toda visita dá. A descrição chegou aqui na
+ * feature 27: ela vivia entre o preço e o seletor de variação, e com mediana de 2.271 caracteres
+ * empurrava o CTA para fora da primeira tela.
  *
- * A primeira traz a **descrição completa** e, abaixo dela, os bullets de `productSpecs` (as medidas
- * do produto, quando existem). A descrição chegou aqui na feature 27: ela vivia entre o preço e o
- * seletor de variação, e com mediana de 2.271 caracteres empurrava o CTA para fora da primeira tela.
- * "Cuidados" é política da loja, igual para todo o catálogo — texto mesmo, não cadastro.
- * "Política de Trocas" saiu do acordeão (2026-09-11): a informação segue na `PoliciesPage`, e este
- * componente não precisa repeti-la.
+ * A seção traz **só a descrição** (2026-10-10, decisão do usuário): os bullets de tamanho e peso
+ * saíram — as colunas que os alimentavam existem para a cotação de frete, não para a vitrine. Pelo
+ * mesmo pedido saiu "Cuidados e Conservação", que era texto fixo igual para todo o catálogo; o
+ * cuidado com a joia continua na página `/cuidados-com-sua-joia-afetiva`. "Política de Trocas" já
+ * tinha saído antes (2026-09-11), e segue na página própria.
  *
- * Desde a `PIN-05` a seção pode vir **vazia** (produto sem medida cadastrada): aí ela não é montada,
- * e a que abre é "Cuidados". Uma seção aberta e vazia seria pior que ausente. A `PDP-10` mantém a
- * regra e só acrescenta a descrição à conta do que é "vazia".
+ * Sem descrição que sobreviva à limpeza, a seção **não é montada** (`PIN-05`/`PDP-10`): uma seção
+ * aberta e vazia seria pior que ausente.
  *
  * **`faqs` chega por PROP, e não de um hook aqui dentro** (`FAQ-01`). Um `useQuery` dentro de um
  * componente que várias telas montam obrigaria todas elas a ter `QueryClientProvider` — foi
@@ -41,8 +40,6 @@ const ProductDetailsAccordion = ({
   product: Product
   faqs?: readonly ResolvedFaq[]
 }) => {
-  const specs = productSpecs(product)
-
   /**
    * A mesma função que o `ProductDescription` chama, e de propósito.
    *
@@ -52,48 +49,20 @@ const ProductDetailsAccordion = ({
    * abriria uma seção em branco se a decisão olhasse o campo cru.
    */
   const temDescricao = useMemo(() => sanitizeHtml(product.description) !== '', [product.description])
-  const temDetalhes = temDescricao || specs.length > 0
 
   return (
-  <Accordion type="single" collapsible defaultValue={temDetalhes ? 'detalhes' : 'cuidados'} className="w-full">
-    {temDetalhes && (
-    <AccordionItem value="detalhes" className="border-estrelinha-line">
+  <Accordion type="single" collapsible defaultValue={temDescricao ? 'detalhes' : undefined} className="w-full">
+    {/* A última seção visível não leva risco embaixo: sem perguntas, quem fecha o acordeão é esta. */}
+    {temDescricao && (
+    <AccordionItem value="detalhes" className={faqs.length > 0 ? 'border-estrelinha-line' : 'border-b-0'}>
       <AccordionTrigger className="py-3.5 font-body text-[15px] font-bold leading-[18px] text-estrelinha-ink hover:no-underline">
         Detalhes do Produto
       </AccordionTrigger>
       <AccordionContent className="pb-4">
         <ProductDescription html={product.description} />
-        {specs.length > 0 && (
-          <ul className="mt-4 flex flex-col gap-1.5 text-[13px] leading-[20px] text-estrelinha-ink-soft first:mt-0">
-            {specs.map(spec => (
-              <li key={spec}>• {spec}</li>
-            ))}
-          </ul>
-        )}
       </AccordionContent>
     </AccordionItem>
     )}
-
-    {/* A última seção visível não leva risco embaixo. Com o FAQ agora condicional, quem é a última
-        deixou de ser fixo — sem isto, o produto sem pergunta ganharia um risco solto no rodapé do
-        acordeão. Desde que "Política de Trocas" saiu, "Cuidados" é quem herda essa borda condicional. */}
-    <AccordionItem value="cuidados" className={faqs.length > 0 ? 'border-estrelinha-line' : 'border-b-0'}>
-      <AccordionTrigger className="py-3.5 font-body text-[15px] font-bold leading-[18px] text-estrelinha-ink hover:no-underline">
-        Cuidados e Conservação
-      </AccordionTrigger>
-      <AccordionContent className="pb-4">
-        {/* Cuidado de JOIA — prata 925, aço, folheado e resina. Até a feature 20 este bloco falava
-            em alfinete e em metal manchando: era cuidado de botton, e nenhuma peça daqui tem
-            alfinete. Resina não vai em ultrassom nem em produto de limpeza, e folheado sai com
-            perfume — são as três formas reais de a cliente estragar a homenagem que encomendou. */}
-        <ul className="flex flex-col gap-1.5 text-[13px] leading-[20px] text-estrelinha-ink-soft">
-          <li>• Limpe com pano seco e macio. Nada de produto de limpeza, álcool ou ultrassom.</li>
-          <li>• Perfume, hidratante e cloro por último: espere secar antes de colocar a joia.</li>
-          <li>• Guarde separada de outras peças, longe de umidade e de sol direto.</li>
-          <li>• Prata escurece com o tempo — é natural, e volta com flanela própria para prata.</li>
-        </ul>
-      </AccordionContent>
-    </AccordionItem>
 
     {/* `FAQ-02`: a seção mostra as perguntas DAQUELE produto, e some quando ele não tem nenhuma.
         Até a feature 28 havia aqui um `<dl>` cravado com "Em quanto tempo chega?" e "Dá para

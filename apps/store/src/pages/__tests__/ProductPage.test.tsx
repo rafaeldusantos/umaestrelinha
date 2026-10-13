@@ -42,6 +42,9 @@ vi.mock('@/entities/product/ui/ProductInfo', () => ({ default: () => <div>info</
 // subgrafo quebrando por `undefined is not a function` em vez de dizer o que faltou.
 vi.mock('@estrelinha/core/hooks/useStoreSettings', async (importOriginal) => ({
   ...((await importOriginal()) as object),
+  // Feature 62: a página do produto lê a descrição da loja (recuo do metadado), e este arquivo
+  // dubla as configurações em vez de montar um QueryClient.
+  useSeoSettings: () => ({ title: '', description: '', og_image: '' }),
   usePaymentSettings: () => ({
     max_installments: 6,
     min_installment_value: 10,
@@ -218,14 +221,13 @@ describe('ProductPage — sem as avaliações de demonstração (PIN-07)', () =>
     renderAt('/produtos/botton-sailor-moon')
 
     const page = screen.getByText('galeria').closest('div.container')!
-    const marcos = ['galeria', 'info', 'Cuidados e Conservação', 'Perguntas Frequentes']
+    const marcos = ['galeria', 'info', 'Perguntas Frequentes']
     for (const marco of marcos) expect(screen.getByText(marco)).toBeInTheDocument()
 
     // A ordem no documento é a do board menos o bloco removido — se a coluna tivesse desmontado, ou
     // a ficha técnica tivesse subido para dentro da grade de cima, esta sequência mudaria.
     const texto = page.textContent ?? ''
-    expect(texto.indexOf('galeria')).toBeLessThan(texto.indexOf('Cuidados e Conservação'))
-    expect(texto.indexOf('Cuidados e Conservação')).toBeLessThan(texto.indexOf('Perguntas Frequentes'))
+    expect(texto.indexOf('galeria')).toBeLessThan(texto.indexOf('Perguntas Frequentes'))
   })
 
   // `FAQ-01`: a página é quem consulta as perguntas e as repassa ao acordeão. Sem esta asserção, o
@@ -283,5 +285,58 @@ describe('ProductPage — a grade de topo encolhe no mobile (sem scroll horizont
       expect(grade.className).toContain('grid-cols-[minmax(0,1fr)]')
       expect(grade.className).toContain('md:grid-cols-[minmax(0,600px)_minmax(0,1fr)]')
     }
+  })
+})
+
+/**
+ * Feature 62 — a fiação: a PÁGINA alimenta `usePageMeta` com o produto carregado. O guarda
+ * `metaPorRota.test.ts` só prova que a chamada existe; aqui se prova que ela recebe o produto.
+ */
+describe('ProductPage — o <title> e a descrição da joia (MTA-02, MTA-03, MTA-05, MTA-08)', () => {
+  const descricao = () =>
+    document.head.querySelector('meta[name="description"]')?.getAttribute('content') ?? null
+  const robots = () => document.head.querySelector('meta[name="robots"]')
+
+  beforeEach(() => {
+    document.title = 'título anterior'
+    document.head.querySelector('meta[name="robots"]')?.remove()
+  })
+
+  it('produto com copy curada: o <title> é o seo_title com a marca, e a descrição é a curada', () => {
+    useProductMock.mockReturnValue({
+      data: { ...product('botton-sailor-moon'), seo_title: 'Botton Sailor Moon', seo_description: 'Curada.' },
+      isFetching: false,
+    })
+    renderAt('/produtos/botton-sailor-moon')
+    expect(document.title).toBe('Botton Sailor Moon | Uma Estrelinha')
+    expect(descricao()).toBe('Curada.')
+    expect(robots()).toBeNull()
+  })
+
+  it('produto sem seo_title: o <title> é o nome do produto', () => {
+    useProductMock.mockReturnValue({ data: product('botton-sailor-moon'), isFetching: false })
+    renderAt('/produtos/botton-sailor-moon')
+    expect(document.title).toBe('Botton Sailor Moon | Uma Estrelinha')
+  })
+
+  it('enquanto carrega, nada é escrito — o título anterior fica (A9)', () => {
+    useProductMock.mockReturnValue({ data: undefined, isFetching: true })
+    renderAt('/produtos/botton-sailor-moon')
+    expect(document.title).toBe('título anterior')
+  })
+
+  it('produto inexistente: o título da 404 e noindex', () => {
+    useProductMock.mockReturnValue({ data: undefined, isFetching: false })
+    renderAt('/produtos/nao-existe')
+    expect(document.title).toBe('Página não encontrada | Uma Estrelinha')
+    expect(robots()?.getAttribute('content')).toBe('noindex')
+  })
+
+  it('slug antigo que vai redirecionar NÃO declara o produto no endereço velho; o novo declara', () => {
+    useProductMock.mockReturnValue({ data: product('botton-sailor-moon'), isFetching: false })
+    renderAt('/produtos/sailor-moon-antigo')
+    // a página do slug atual montou e escreveu; o endereço final é o novo
+    expect(screen.getByText('url:/produtos/botton-sailor-moon')).toBeInTheDocument()
+    expect(document.title).toBe('Botton Sailor Moon | Uma Estrelinha')
   })
 })

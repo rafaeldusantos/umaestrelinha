@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { PRODUCT_SELECT } from '../mapProduct'
+import { PRODUCT_SELECT, mapDbToProduct } from '../mapProduct'
 
 // Regressão de BUG-20260802-loja-nao-mostra-nenhum-produto.
 //
@@ -46,5 +46,19 @@ describe('PRODUCT_SELECT', () => {
     ]) {
       expect(PRODUCT_SELECT).toContain(parte)
     }
+  })
+})
+
+describe('mapDbToProduct — a copy de busca curada (feature 62, MTA-02/MTA-03)', () => {
+  it('carrega seo_title e seo_description da linha — antes eram descartados aqui', () => {
+    const p = mapDbToProduct({ id: '1', name: 'Anel', slug: 'anel', seo_title: 'Anel de Leite', seo_description: 'Curada.' })
+    expect(p.seo_title).toBe('Anel de Leite')
+    expect(p.seo_description).toBe('Curada.')
+  })
+
+  it('ausentes (select enxuto da vitrine) viram null, nunca string vazia', () => {
+    const p = mapDbToProduct({ id: '1', name: 'Anel', slug: 'anel' })
+    expect(p.seo_title).toBeNull()
+    expect(p.seo_description).toBeNull()
   })
 })

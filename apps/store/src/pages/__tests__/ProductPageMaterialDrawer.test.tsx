@@ -40,6 +40,9 @@ vi.mock('@/features/shipping-calc/ui/ShippingCalc', () => ({ default: () => null
 
 vi.mock('@estrelinha/core/hooks/useStoreSettings', () => ({
   useGeneralSettings: () => ({ whatsapp: '5551999999999', store_name: 'Uma Estrelinha' }),
+  // Feature 62: a página do produto lê a descrição da loja (recuo do metadado), e este arquivo
+  // dubla as configurações em vez de montar um QueryClient.
+  useSeoSettings: () => ({ title: '', description: '', og_image: '' }),
   usePaymentSettings: () => ({
     max_installments: 6,
     min_installment_value: 10,

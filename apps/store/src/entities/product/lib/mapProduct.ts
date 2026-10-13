@@ -135,6 +135,9 @@ export const mapDbToProduct = (p: any): Product => ({
   category_id: p.category_id ?? '',
   category_slug: p.categories?.slug ?? '',
   description: p.description ?? '',
+  // Feature 62: a copy de busca curada chegava no `select *` e era descartada aqui.
+  seo_title: p.seo_title ?? null,
+  seo_description: p.seo_description ?? null,
   // VAR-11: `images` chega como jsonb. `''` em vez de `undefined` porque `image_url` alimenta
   // `<img src>` em 6 componentes — `src={undefined}` renderiza a URL da página como imagem.
   image_url: primaryImage(p.images)?.url ?? '',

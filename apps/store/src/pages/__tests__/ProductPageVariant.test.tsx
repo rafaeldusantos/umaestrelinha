@@ -21,6 +21,12 @@ vi.mock('@/entities/product/api/useProduct', () => ({ useProduct: useProductMock
 vi.mock('@/entities/product/api/useProducts', () => ({ useProducts: () => ({ data: [] }) }))
 vi.mock('@/entities/product/api/useProductFaqs', () => ({ useProductFaqs: () => ({ data: [] }) }))
 vi.mock('@/entities/category/api/useCategories', () => ({ useCategories: () => ({ data: [] }) }))
+vi.mock('@estrelinha/core/hooks/useStoreSettings', async (importOriginal) => ({
+  ...((await importOriginal()) as object),
+  // Feature 62: a página do produto lê a descrição da loja (recuo do metadado), e este arquivo
+  // dubla as configurações em vez de montar um QueryClient.
+  useSeoSettings: () => ({ title: '', description: '', og_image: '' }),
+}))
 vi.mock('@/entities/product/ui/ProductGallery', () => ({ default: () => <div>galeria</div> }))
 vi.mock('@/features/shipping-calc/ui/ShippingCalc', () => ({ default: () => null }))
 vi.mock('@/widgets/related-products/ui/RelatedProducts', () => ({ default: () => null }))

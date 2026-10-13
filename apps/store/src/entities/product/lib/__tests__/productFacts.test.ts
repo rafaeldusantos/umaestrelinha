@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Product, ProductVariant } from '@estrelinha/supabase/types'
-import { productSpecs, savingsOf, stockLineOf } from '../productFacts'
+import { savingsOf, stockLineOf } from '../productFacts'
 
 const product = (overrides: Partial<Product> = {}): Product =>
   ({
@@ -120,35 +120,5 @@ describe('stockLineOf — o saldo que a página anuncia (PST-08)', () => {
   it('com grade e nenhuma linha casada, a página não promete estoque', () => {
     const p = product({ ...GRID, stock_total: 500, variants: [variant()] })
     expect(stockLineOf(p, null).tone).toBe('out')
-  })
-})
-
-describe('productSpecs — a ficha do acordeão', () => {
-  it('tira a medida e o peso do cadastro, com vírgula decimal e gramas', () => {
-    const specs = productSpecs(product({ width_cm: 3.8, weight_kg: 0.01 }))
-    expect(specs).toEqual(['Tamanho: 3,8 cm', 'Peso: 10g'])
-  })
-
-  it('sem medida cadastrada o item some — não se publica um 3,8 cm inventado', () => {
-    const specs = productSpecs(product({ weight_kg: 0.01 }))
-    expect(specs.some(s => s.startsWith('Tamanho:'))).toBe(false)
-    expect(specs).toEqual(['Peso: 10g'])
-  })
-
-  it('cai em height_cm quando só ela está cadastrada', () => {
-    expect(productSpecs(product({ height_cm: 5 }))).toEqual(['Tamanho: 5 cm'])
-  })
-
-  // PIN-05: as três frases abaixo eram escritas à mão em TODO produto e são falsas numa joia de
-  // resina — o material varia, não há alfinete, e o que torna a peça única é o material da cliente.
-  it('não afirma material, fixação nem autoria — nenhuma delas vem do cadastro', () => {
-    const specs = productSpecs(product({ width_cm: 3.8, weight_kg: 0.01 }))
-    expect(specs.some(s => s.startsWith('Material:'))).toBe(false)
-    expect(specs.some(s => s.startsWith('Fixação:'))).toBe(false)
-    expect(specs.some(s => /Arte exclusiva/i.test(s))).toBe(false)
-  })
-
-  it('sem nenhum dado a ficha volta VAZIA — a seção não é montada', () => {
-    expect(productSpecs(product())).toEqual([])
   })
 })
