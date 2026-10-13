@@ -348,3 +348,45 @@ describe('useAdminResolvedHome — o ramo de CATEGORIA não mudou de comportamen
     expect(entry.items.map(i => i.label)).toEqual(['Leite materno'])
   })
 })
+
+describe('useAdminResolvedHome — a Lista de categorias (feature 64, LCT-24)', () => {
+  const lista = (items: HomeSection['items']): HomeSection => ({
+    id: 'lista',
+    type: 'category_grid',
+    position: 1,
+    active: true,
+    config: {},
+    items,
+  })
+  const circulo = (n: number, category_id: string | null) => ({
+    id: `c${n}`,
+    section_id: 'lista',
+    position: n,
+    category_id,
+    product_id: null,
+    href: null,
+    image_url: `/c${n}.png`,
+    alt: null,
+    title: null,
+    label_snapshot: 'Coleção',
+  })
+
+  it('sem item, o painel diz que não vai aparecer, e por quê — nunca deriva', () => {
+    const entry = de('category_grid', [lista([])])
+    expect(entry.renders).toBe(false)
+    expect(entry.hiddenReason).toBe('Não vai aparecer: nenhuma categoria escolhida.')
+    expect(entry.items).toEqual([])
+  })
+
+  it('a coleção desativada conta como "saiu do ar" e só ela é pulada', () => {
+    const entry = de('category_grid', [lista([circulo(0, 'oculta'), circulo(1, 'leite')])])
+    expect(entry.droppedCount).toBe(1)
+    expect(entry.items.map(i => i.label)).toEqual(['Leite materno'])
+  })
+
+  it('a arte do item é a enviada — o `banner_url` da coleção não entra no círculo', () => {
+    const entry = de('category_grid', [lista([circulo(0, 'leite')])])
+    expect(entry.items[0].imageUrl).toBe('/c0.png')
+    expect(entry.items[0].imageUrl).not.toBe('leite.webp')
+  })
+})

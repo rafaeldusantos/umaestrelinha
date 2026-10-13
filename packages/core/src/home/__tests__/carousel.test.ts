@@ -8,6 +8,8 @@ import {
   heroCarouselWidth,
   heroSlideArt,
   nextSlideIndex,
+  ordinal,
+  ordinalF,
   slideIndexFromScroll,
 } from '../carousel'
 import { surfaceArt } from '../../media/surfaceArt'
@@ -347,5 +349,16 @@ describe('slideIndexFromScroll', () => {
 
   it('lista vazia devolve 0', () => {
     expect(slideIndexFromScroll(120, 390, 0)).toBe(0)
+  })
+})
+
+describe('ordinal e ordinalF — a palavra que numera os itens dos blocos', () => {
+  it('o masculino escreve “3º”', () => {
+    expect(ordinal(3)).toBe('3º')
+  })
+
+  it('o feminino escreve “3ª” (feature 64, “A 3ª categoria…”)', () => {
+    expect(ordinalF(3)).toBe('3ª')
+    expect(ordinalF(12)).toBe('12ª')
   })
 })

@@ -5,12 +5,12 @@
 // os remove.
 //
 // O modo de falha que este guarda existe para impedir é o do `AD-012`, e ele é silencioso nos três
-// instrumentos que costumam pegar defeito: `NewHomeSectionItem` tem as sete colunas **opcionais**,
+// instrumentos que costumam pegar defeito: `NewHomeSectionItem` tem as oito colunas **opcionais**,
 // então um campo a mais no objeto não é erro de tipo; o `pnpm build` não checa tipo; e o teste de
 // componente do editor mocka o client. Quem responde é o PostgREST, em produção, com `PGRST204` —
 // e a dona perde a curadoria inteira sem uma palavra de explicação na tela.
 //
-// Por isso a régua é **igualdade de chaves**, e não "contém as sete": uma régua de presença aprova
+// Por isso a régua é **igualdade de chaves**, e não "contém as oito": uma régua de presença aprova
 // o oitavo campo, que é exatamente o que se quer recusar.
 
 import { describe, expect, it } from 'vitest'
@@ -31,6 +31,9 @@ const COLUNAS_GRAVADAS = [
   'image_url',
   'label_snapshot',
   'product_id',
+  // Feature 64: o título embaixo do círculo da Lista de categorias é COLUNA
+  // (`home_section_items.title`), então ele vai ao `insert`. A régua continua igualdade.
+  'title',
 ] as const
 
 /** Os dois campos que existem só na tela. */
@@ -41,25 +44,26 @@ const item = (over: Partial<DraftItem> = {}): DraftItem => ({
   ...over,
 })
 
-describe('âncora — a régua mede sete colunas, e o rascunho tem exatamente nove campos', () => {
-  it('a lista de colunas gravadas tem sete entradas', () => {
+describe('âncora — a régua mede oito colunas, e o rascunho tem exatamente dez campos', () => {
+  it('a lista de colunas gravadas tem oito entradas', () => {
     // Sem esta âncora, apagar uma entrada da lista acima faria a asserção principal comparar duas
     // listas curtas e passar — aprovando uma coluna que deixou de ser gravada.
-    expect(COLUNAS_GRAVADAS).toHaveLength(7)
+    expect(COLUNAS_GRAVADAS).toHaveLength(8)
   })
 
-  it('`DraftItem` é as sete colunas MAIS os dois campos de tela — e nada além', () => {
+  it('`DraftItem` é as oito colunas MAIS os dois campos de tela — e nada além', () => {
     // Segunda âncora, no objeto medido: um campo novo em `DraftItem` derruba este caso e obriga
     // quem o acrescentou a decidir se ele é coluna ou tela. É a decisão que, esquecida, produz o
     // `PGRST204`.
     expect(Object.keys(emptyDraftItem()).sort()).toEqual(
       [...COLUNAS_GRAVADAS, ...CAMPOS_DE_TELA].sort(),
     )
+    expect(Object.keys(emptyDraftItem())).toHaveLength(10)
   })
 })
 
-describe('toNewItems — devolve EXATAMENTE as sete colunas', () => {
-  it('as chaves de um item gravável são as sete colunas', () => {
+describe('toNewItems — devolve EXATAMENTE as oito colunas', () => {
+  it('as chaves de um item gravável são as oito colunas', () => {
     const [saida] = toNewItems([item({ product_id: 'p1', product_slug: 'pingente-gota' })])
     expect(Object.keys(saida).sort()).toEqual([...COLUNAS_GRAVADAS])
   })
@@ -74,7 +78,7 @@ describe('toNewItems — devolve EXATAMENTE as sete colunas', () => {
     expect(saida).not.toHaveProperty('product_slug')
   })
 
-  it('o VALOR das sete colunas passa intacto — remover campo de tela não pode limpar dado', () => {
+  it('o VALOR das oito colunas passa intacto — remover campo de tela não pode limpar dado', () => {
     const [saida] = toNewItems([
       item({
         product_id: 'p1',
@@ -84,6 +88,7 @@ describe('toNewItems — devolve EXATAMENTE as sete colunas', () => {
         image_url: 'https://cdn/arte.webp',
         image_mobile_url: 'https://cdn/arte-celular.webp',
         alt: 'Pingente com leite materno',
+        title: 'Leite materno',
         label_snapshot: 'Pingente Gota',
       }),
     ])
@@ -95,6 +100,7 @@ describe('toNewItems — devolve EXATAMENTE as sete colunas', () => {
       image_url: 'https://cdn/arte.webp',
       image_mobile_url: 'https://cdn/arte-celular.webp',
       alt: 'Pingente com leite materno',
+      title: 'Leite materno',
       label_snapshot: 'Pingente Gota',
     })
   })
@@ -134,7 +140,7 @@ describe('SENSOR — um oitavo campo REPROVA na mesma régua', () => {
   it('a régua de igualdade recusa também a FALTA de uma coluna', () => {
     // O sentido inverso: uma tradução que passasse a omitir `label_snapshot` apagaria o nome
     // congelado do destino apagado, e uma régua de "contém" aprovaria isso.
-    const semColuna = { alt: null, category_id: null, href: null, image_mobile_url: null, image_url: null, product_id: null }
+    const semColuna = { alt: null, category_id: null, href: null, image_mobile_url: null, image_url: null, product_id: null, title: null }
     expect(Object.keys(semColuna).sort()).not.toEqual([...COLUNAS_GRAVADAS])
   })
 })
@@ -182,7 +188,7 @@ describe('toDraftItems — o slug é semeado a partir do item salvo', () => {
     expect(rascunho.product_slug).toBeNull()
   })
 
-  it('o rascunho semeado volta às sete colunas na tradução', () => {
+  it('o rascunho semeado volta às oito colunas na tradução', () => {
     // A volta completa: ler do banco, semear e gravar de novo não pode acrescentar coluna nenhuma.
     const saida = toNewItems(
       toDraftItems([
@@ -243,5 +249,35 @@ describe('itemsChanged — o campo de tela não conta como alteração', () => {
     // verdadeira num mundo em que `itemsChanged` nunca acusa nada.
     const comColunaMudada = toDraftItems(section.items).map(i => ({ ...i, alt: 'outra descrição' }))
     expect(itemsChanged(section, comColunaMudada)).toBe(true)
+  })
+})
+
+describe('toDraftItems — o título da Lista de categorias (feature 64, LCT-28)', () => {
+  it('lê `title` do banco; ausente vira `null`', () => {
+    const base = {
+      section_id: 's1',
+      category_id: 'c1',
+      product_id: null,
+      href: null,
+      image_url: '/c.png',
+      image_mobile_url: null,
+      alt: null,
+      label_snapshot: 'Cinzas',
+    }
+    const [com, sem] = toDraftItems([
+      { ...base, id: 'i1', position: 1, title: 'Cinzas do pet' },
+      { ...base, id: 'i2', position: 2 },
+    ])
+    expect(com.title).toBe('Cinzas do pet')
+    expect(sem.title).toBeNull()
+  })
+
+  it('o item novo nasce sem título', () => {
+    expect(emptyDraftItem().title).toBeNull()
+  })
+
+  it('`title` chega ao `insert` com o valor intacto', () => {
+    const [saida] = toNewItems([item({ category_id: 'c1', title: 'Cinzas do pet' })])
+    expect(saida.title).toBe('Cinzas do pet')
   })
 })

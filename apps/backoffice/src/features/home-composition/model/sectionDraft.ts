@@ -27,7 +27,7 @@ export interface DraftItem {
    *
    * **Quem o deixar chegar ao `insert` quebra a gravação inteira**, com `PGRST204` e sem nada no
    * `tsc` acusando — o modo de falha do `AD-012`. Por isso `toNewItems` remove os dois campos de
-   * tela, e `toNewItems.test.ts` assere as sete colunas restantes por igualdade de chaves.
+   * tela, e `toNewItems.test.ts` assere as oito colunas restantes por igualdade de chaves.
    */
   product_slug: string | null
   category_id: string | null
@@ -36,6 +36,11 @@ export interface DraftItem {
   image_url: string | null
   image_mobile_url: string | null
   alt: string | null
+  /**
+   * O título curto embaixo do círculo da Lista de categorias (feature 64) — **coluna**, e por isso
+   * `toNewItems` o mantém. Só `category_grid` o lê; vazio usa o nome da coleção.
+   */
+  title: string | null
   label_snapshot: string | null
 }
 
@@ -56,6 +61,7 @@ export const emptyDraftItem = (): DraftItem => ({
   image_url: null,
   image_mobile_url: null,
   alt: null,
+  title: null,
   label_snapshot: null,
 })
 
@@ -71,6 +77,7 @@ export const toDraftItems = (items: readonly HomeSectionItem[] | undefined): Dra
       image_url: item.image_url ?? null,
       image_mobile_url: item.image_mobile_url ?? null,
       alt: item.alt ?? null,
+      title: item.title ?? null,
       label_snapshot: item.label_snapshot ?? null,
     }))
 
@@ -81,7 +88,7 @@ export const toDraftItems = (items: readonly HomeSectionItem[] | undefined): Dra
  * banco; `product_slug` também não — ele é do embed de `products`. Um terceiro campo de tela que
  * esquecesse esta linha faria toda gravação de curadoria morrer com `PGRST204`, e nem o build nem o
  * `tsc` diriam uma palavra: o objeto extra passa por `NewHomeSectionItem` sem reclamar porque todas
- * as sete colunas são opcionais. Quem acusa é `toNewItems.test.ts`, por igualdade de chaves.
+ * as oito colunas são opcionais. Quem acusa é `toNewItems.test.ts`, por igualdade de chaves.
  */
 export const toNewItems = (drafts: readonly DraftItem[]): NewHomeSectionItem[] =>
   drafts.map(({ key: _key, product_slug: _slug, ...resto }) => resto)
@@ -140,6 +147,9 @@ export const applyDraft = (
             // acabou com a prévia da Home.
             image_mobile_url: item.image_mobile_url,
             alt: item.alt,
+            // O título da Lista de categorias (feature 64): sem ele a prévia mostraria o nome da
+            // coleção embaixo do círculo enquanto a dona digita outro (`LCT-40`).
+            title: item.title,
             label_snapshot: item.label_snapshot,
           })) as HomeSectionItem[],
         }

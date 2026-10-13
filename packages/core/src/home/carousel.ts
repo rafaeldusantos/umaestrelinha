@@ -95,6 +95,15 @@ export const heroSlideArt = (
  */
 export const ordinal = (n: number): string => `${n}º`
 
+/**
+ * O mesmo número, no feminino — “3ª categoria”, “3ª fileira”.
+ *
+ * Mudou-se do painel para cá na feature 64: a recusa da Lista de categorias mora em `core` e diz “A 3ª
+ * categoria está sem imagem.”. O `ordinalF` do painel **reexporta** este — uma segunda escrita da
+ * mesma palavra divergiria (`3a` × `3ª`) sem quebrar nada.
+ */
+export const ordinalF = (n: number): string => `${n}ª`
+
 const vazio = (valor: string | null | undefined): boolean => (valor ?? '').trim() === ''
 
 /**

@@ -13,7 +13,7 @@
 // casos o `tsc` achou o código certo — porque o tipo mentia — e só um probe contra o banco real
 // acusou.
 //
-// O que o probe gravou e leu de verdade (2026-08-15, `:54341`):
+// O que o probe gravou e leu de verdade (2026-08-15, `:54441`):
 //
 //   1. `insert` de seção com `type`/`position`/`active`/`config` → devolveu as 7 colunas.
 //   2. seção criada sem `active` nasceu `false` (HOME-10).
@@ -117,6 +117,14 @@ export interface DbHomeSectionItem {
    */
   image_mobile_url: string | null
   alt: string | null
+  /**
+   * O título curto do item, até 28 caracteres (feature 64), ou `null`.
+   *
+   * Só o bloco Lista de categorias o lê. Quem decide o rótulo é `categoryListLabel`, em
+   * `@estrelinha/core/home`; este tipo só descreve a coluna. Opcional porque linha lida antes da
+   * migration da 64 não a traz.
+   */
+  title?: string | null
   /**
    * O rótulo congelado no momento da escolha.
    *

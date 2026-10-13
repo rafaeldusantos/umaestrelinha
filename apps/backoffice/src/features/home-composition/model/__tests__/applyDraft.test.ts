@@ -28,6 +28,7 @@ const item = (over: Partial<DraftItem> & { key: string }): DraftItem => ({
   image_url: null,
   image_mobile_url: null,
   alt: null,
+  title: null,
   label_snapshot: null,
   ...over,
 })
@@ -191,5 +192,31 @@ describe('a arte de celular atravessa a tradução (BNR-07)', () => {
     const [aplicada] = applyDraft([secao('s1', { type: 'hero_carousel' })], 's1', { config: {}, items: rascunho })
 
     expect(aplicada.items![0].image_mobile_url).toBeNull()
+  })
+})
+
+describe('o título da Lista de categorias atravessa a tradução (feature 64, LCT-40)', () => {
+  it('a prévia recebe o título do rascunho, antes de salvar', () => {
+    // Sem isto a prévia mostraria o nome da coleção embaixo do círculo enquanto a dona digita outro
+    // título — e ela leria a prévia como "o título não pegou".
+    const rascunho = [item({ key: 'k1', category_id: 'c1', image_url: '/c.png', title: 'Cinzas do pet' })]
+
+    const [aplicada] = applyDraft([secao('s1', { type: 'category_grid' })], 's1', {
+      config: {},
+      items: rascunho,
+    })
+
+    expect(aplicada.items![0].title).toBe('Cinzas do pet')
+  })
+
+  it('item sem título chega com `null` — a resolução cai no nome da coleção', () => {
+    const rascunho = [item({ key: 'k1', category_id: 'c1', image_url: '/c.png' })]
+
+    const [aplicada] = applyDraft([secao('s1', { type: 'category_grid' })], 's1', {
+      config: {},
+      items: rascunho,
+    })
+
+    expect(aplicada.items![0].title).toBeNull()
   })
 })

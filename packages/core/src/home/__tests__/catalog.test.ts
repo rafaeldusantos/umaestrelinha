@@ -141,20 +141,17 @@ describe('sectionMeta — rótulo, unicidade e a faixa de limite', () => {
 })
 
 describe('sectionMeta — o que ainda é "em breve" (emenda E3)', () => {
-  it('a grade de coleções é o ÚNICO `comingSoon` (DST-23)', () => {
-    // Está no catálogo porque o `check` da migration a aceita e o TypeScript não pode divergir dele
-    // (`HOME-06`) — mas não tem renderer nem editor. A bandeja a mostra esmaecida em vez de prometer
-    // o que não existe.
-    //
-    // **Esta asserção foi VIRADA na feature 50, não descartada**: ela dizia
-    // `['product_carousel', 'category_grid']`. O carrossel de produtos ganhou tela, e é exatamente
-    // por isso que a lista tem de continuar sendo medida — apagar a asserção deixaria o segundo
-    // entrar de carona no dia em que alguém mexesse na constante.
+  it('NENHUM tipo é "em breve" desde a feature 64 (LCT-14, LCT-29)', () => {
+    // **Esta asserção foi VIRADA duas vezes, nunca descartada.** Ela dizia
+    // `['product_carousel', 'category_grid']`; a feature 50 tirou o primeiro e a 64 o segundo (a
+    // Lista de categorias). Continuar medindo a lista vazia é o que obriga um tipo novo que entre no
+    // catálogo sem tela a ser declarado aqui de propósito — sem ela, ele entraria esmaecido, ou
+    // pior, oferecido pela bandeja sem editor, sem ninguém decidir nada.
     const emBreve = HOME_SECTION_TYPES.filter(t => sectionMeta(t)!.comingSoon)
-    expect(emBreve).toEqual(['category_grid'])
+    expect(emBreve).toEqual([])
   })
 
-  it('os outros dez NÃO são "em breve" — os nove de antes mais os produtos em destaque', () => {
+  it('os ONZE estão prontos — os dez de antes mais a Lista de categorias', () => {
     const prontos = HOME_SECTION_TYPES.filter(t => !sectionMeta(t)!.comingSoon)
     expect(prontos).toEqual([
       'hero',
@@ -166,8 +163,30 @@ describe('sectionMeta — o que ainda é "em breve" (emenda E3)', () => {
       'newsletter',
       'collection_feature',
       'product_carousel',
+      'category_grid',
       'hero_carousel',
     ])
+  })
+
+  it('a Lista de categorias tem o rótulo que a dona lê, e é repetível (LCT-14)', () => {
+    expect(sectionMeta('category_grid')).toEqual({
+      type: 'category_grid',
+      label: 'Lista de categorias',
+      comingSoon: false,
+      limit: null,
+      unique: false,
+    })
+    // O nome não colide com os vizinhos da bandeja.
+    const rotulos = HOME_SECTION_TYPES.filter(t => t !== 'category_grid').map(
+      t => sectionMeta(t)!.label,
+    )
+    expect(rotulos).not.toContain('Lista de categorias')
+  })
+
+  it('a Lista de categorias NÃO tem faixa de `limit` — o teto dela é RECUSA (LCT-30)', () => {
+    // `config.limit` é lido por `resolveHomeSections`, que corta a lista. Quem recusa a 25ª
+    // categoria é `categoryListRefusal`.
+    expect(sectionMeta('category_grid')!.limit).toBeNull()
   })
 
   it('Produtos em destaque NÃO nasce "em breve" — ele tem renderer e editor (DST-01)', () => {

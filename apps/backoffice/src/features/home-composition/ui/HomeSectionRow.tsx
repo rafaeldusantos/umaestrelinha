@@ -7,6 +7,7 @@
 
 import {
   ChevronRight,
+  CircleDot,
   CornerDownRight,
   GalleryHorizontal,
   GripVertical,
@@ -51,7 +52,9 @@ const ICONS: Record<HomeSectionType, LucideIcon> = {
   newsletter: Mail,
   collection_feature: Quote,
   product_carousel: ShoppingBag,
-  category_grid: LayoutGrid,
+  // Feature 64: a Lista de categorias é uma fileira de círculos, não uma grade — e `GalleryHorizontal`
+  // já é do Banner principal, logo abaixo. Dois blocos com o mesmo ícone se confundem na lista.
+  category_grid: CircleDot,
   hero_carousel: GalleryHorizontal,
 }
 
@@ -107,6 +110,13 @@ const resumo = (entry: ResolvedSection): string => {
       return aspas(config.title) ?? 'convite para receber novidades'
     case 'collection_feature':
       return [aspas(config.title), items[0]?.label, fonte].filter(Boolean).join(' · ')
+    // A Lista de categorias (feature 64) é SÓ curadoria — nunca derivada —, e sem este ramo a linha
+    // cairia no padrão e diria "automático" para um bloco que nunca é. O número é o que vai aparecer
+    // na loja; quem saiu do ar é contado à parte pela linha (`droppedCount`).
+    case 'category_grid':
+      return [aspas(config.title), plural(items.length, 'categoria', 'categorias')]
+        .filter(Boolean)
+        .join(' · ')
     default:
       return fonte
   }

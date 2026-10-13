@@ -1,5 +1,6 @@
 import type { HomeSection, HomeSectionItem, HomeSectionType } from './types'
 import { orderSections } from './order'
+import { categoryListItem } from './categoryList'
 
 /**
  * Um item já resolvido — o que a loja desenha e o que o painel nomeia.
@@ -115,7 +116,9 @@ const EMPTY_SOURCE_REASON: Record<HomeSectionType, string> = {
   // Por isso o motivo fala da ESCOLHA, e não de uma fonte que a dona não configura em lugar nenhum.
   // O outro ramo — escolhi e todos saíram do ar — é `todosForaDoAr`, e não muda (`DST-20`).
   product_carousel: 'Não vai aparecer: nenhum produto escolhido.',
-  category_grid: 'Não vai aparecer: o catálogo ainda não tem coleção para mostrar.',
+  // Feature 64: como o `product_carousel`, a Lista de categorias **só existe por curadoria** — o
+  // motivo fala da escolha que falta (LCT-24).
+  category_grid: 'Não vai aparecer: nenhuma categoria escolhida.',
   hero_carousel: 'Não vai aparecer: nenhum banner enviado.',
 }
 
@@ -159,7 +162,14 @@ export const resolveHomeSections = (
       // Curadoria é a PRESENÇA de itens. Com itens, a lista é a dela, na ordem dela, e a vaga que
       // sobra **fica vazia**: completar com o automático poria na Home item que ela não escolheu.
       for (const item of curados) {
-        const resolvido = ctx.resolveItem(item, section)
+        const generico = ctx.resolveItem(item, section)
+        // Feature 64 — a Lista de categorias corrige o que o resolvedor genérico faz certo para os
+        // outros blocos e errado para este: o rótulo é o título (ou o nome ao vivo), a arte é só a
+        // enviada, e destino que não é coleção não desenha. Aplicado AQUI, e não em cada
+        // `resolveItem`, para a loja e o painel não terem duas cópias da regra — e o que vira
+        // `null` conta como "saiu do ar", igual a qualquer órfão (LCT-12).
+        const resolvido =
+          generico && section.type === 'category_grid' ? categoryListItem(item, generico) : generico
         if (resolvido) items.push(resolvido)
         else droppedCount += 1
       }

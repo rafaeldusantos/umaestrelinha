@@ -11,11 +11,13 @@
 // primeiro ajuste, que é o "defeito 01" do projeto.
 
 import {
+  categoryListRefusal as categoryListRefusalDoCore,
   configRefusal,
   ctaHrefRefusal,
   destinationRefusal,
   featuredProductsRefusal,
   heroCarouselSlidesRefusal,
+  ordinalF as ordinalFDoCore,
   type HomeSectionConfig,
   type HomeSectionType,
 } from '@estrelinha/core/home'
@@ -38,8 +40,12 @@ const vazioNaTela = (valor: string | null | undefined): boolean => (valor ?? '')
  * Vive ao lado de `ordinal` e não dentro do editor de fileiras pelo motivo que criou `ordinal`: a
  * palavra aparece no botão (“Acrescentar a 3ª fileira”), no rótulo do seletor e na recusa (“3ª
  * fileira: escolha a coleção”), e os três **têm** de dizer o mesmo número da mesma forma.
+ *
+ * **Desde a feature 64 é o de `core`, reexportado** — a recusa da Lista de categorias mora lá e
+ * escreve “A 3ª categoria…”. A identidade é asserida por `toBe` em `sectionRefusals.test.ts`: uma
+ * cópia colada passaria num `toEqual`.
  */
-export const ordinalF = (n: number): string => `${n}ª`
+export const ordinalF = ordinalFDoCore
 
 /**
  * O hero: `alt` obrigatório quando há foto (`HOME-18`) e destino que a loja serve (`HOME-20`).
@@ -157,6 +163,23 @@ export const productCarouselRefusal = (
   items: readonly DraftItem[],
 ): string | null =>
   featuredProductsRefusal(config, items) ?? configRefusal('product_carousel', config)
+
+/**
+ * A **Lista de categorias** (feature 64).
+ *
+ * **Não redige uma linha de regra**: o título da seção, o teto de 24 e, por item, imagem → coleção →
+ * título longo, nessa ordem, são `categoryListRefusal` de `core` — a mesma função que
+ * `categoryList.test.ts` prova e que conhece o limite do `check` do banco. Aqui só se compõe com o
+ * `configRefusal` do tipo, no molde dos vizinhos.
+ *
+ * **Lista vazia não é recusa** (`LCT-15`): o bloco nasce sem itens, e quem diz que ele não aparece
+ * é o `hiddenReason` da resolução, na linha da seção.
+ */
+export const categoryListRefusal = (
+  config: HomeSectionConfig,
+  items: readonly DraftItem[],
+): string | null =>
+  categoryListRefusalDoCore(config, items) ?? configRefusal('category_grid', config)
 
 /**
  * As seções de texto: limite dentro da faixa do tipo (`HOME-42`) e link de escape que a loja serve.

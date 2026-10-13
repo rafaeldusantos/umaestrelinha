@@ -5,8 +5,9 @@
 // carrega a **recusa** do tipo, porque quem sabe o que aquele formulário exige é o próprio
 // formulário — o casco não pode adivinhar se falta `alt`, se falta destino ou se o limite estourou.
 //
-// **Tipo sem editor não é erro**: os dois de P3 entram no catálogo sem tela e podem nunca ganhar
-// uma. O casco desenha um cartão dizendo isso, em vez de uma tela em branco.
+// **Tipo sem editor não é erro**: um tipo pode entrar no catálogo antes de ganhar tela, e o casco
+// desenha um cartão dizendo isso, em vez de uma tela em branco. Desde a feature 64 todo tipo do
+// catálogo tem editor — os dois de P3 ganharam (`product_carousel` na 50, `category_grid` na 64).
 
 import type { ComponentType } from 'react'
 import type { HomeSection, HomeSectionConfig, HomeSectionType } from '@estrelinha/core/home'
@@ -14,6 +15,7 @@ import type { AdminCategory } from '@/entities/category'
 import type { DraftItem } from '../model/sectionDraft'
 import {
   bannerGridRefusal,
+  categoryListRefusal,
   collectionFeatureRefusal,
   collectionRowsRefusal,
   heroCarouselRefusal,
@@ -22,6 +24,7 @@ import {
   textSectionRefusal,
 } from '../model/sectionRefusals'
 import BannerGridEditor from './BannerGridEditor'
+import CategoryListEditor from './CategoryListEditor'
 import CollectionFeatureEditor from './CollectionFeatureEditor'
 import CollectionRowsEditor from './CollectionRowsEditor'
 import FeaturedProductsEditor from './FeaturedProductsEditor'
@@ -83,6 +86,9 @@ export const SECTION_EDITORS: Partial<Record<HomeSectionType, SectionEditorEntry
   // Feature 50 — o único bloco da Home que fala de PEÇA, e não de coleção. O tipo é o
   // `product_carousel` que o `check` já aceitava desde a 24; o que faltava era tela.
   product_carousel: { Body: FeaturedProductsEditor, refusal: productCarouselRefusal },
+  // Feature 64 — a fileira de círculos. O tipo é o `category_grid` que o `check` aceita desde a 24;
+  // a recusa é a de `core` (imagem, coleção, título e o teto de 24), cobrada antes de gravar.
+  category_grid: { Body: CategoryListEditor, refusal: categoryListRefusal },
   // Quatro tipos, UM editor: a faixa institucional, os chips, a newsletter e a faixa de vantagens
   // fazem a mesma pergunta, e o que muda entre elas é a lista de campos — que é dado. A recusa
   // recebe o tipo por fora porque a faixa aceita de `limit` é de cada um.

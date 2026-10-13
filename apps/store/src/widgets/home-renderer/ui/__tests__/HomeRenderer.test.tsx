@@ -85,14 +85,17 @@ describe('HomeRenderer — o registro tipo → componente', () => {
     expect(news.compareDocumentPosition(hero) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
-  it('a grade de coleções ainda não tem desenho', () => {
-    // A ausência é declarada, não acidental: ela entra no catálogo (a bandeja a mostra como "em
-    // breve") e ganha renderer quando ganhar tela.
-    //
-    // **Esta asserção foi VIRADA na feature 50, não apagada**: ela cobria os dois tipos de P3, e
-    // `product_carousel` ganhou desenho. Medir a que sobrou é o que impede a segunda entrar de
-    // carona no dia em que alguém mexer no registro.
-    expect(HOME_SECTION_RENDERERS.category_grid).toBeNull()
+  it('a Lista de categorias GANHOU desenho na feature 64 — e nenhum tipo do catálogo ficou sem', () => {
+    // **Esta asserção foi VIRADA duas vezes, nunca apagada.** Ela dizia que `product_carousel` e
+    // `category_grid` não tinham desenho; a feature 50 virou o primeiro e a 64 o segundo. O que ela
+    // mede agora é a ausência de qualquer `null` no registro — um tipo novo que entre no catálogo
+    // sem tela reprova aqui, e quem o acrescentar decide de propósito.
+    expect(HOME_SECTION_RENDERERS.category_grid).not.toBeNull()
+    expect(
+      Object.entries(HOME_SECTION_RENDERERS)
+        .filter(([, renderer]) => renderer === null)
+        .map(([tipo]) => tipo),
+    ).toEqual([])
   })
 
   it('Produtos em destaque GANHOU desenho na feature 50 (DST-04)', () => {
@@ -104,9 +107,16 @@ describe('HomeRenderer — o registro tipo → componente', () => {
   })
 
   it('tipo sem renderer é pulado e NÃO quebra a página', () => {
+    // A fixture era `category_grid`, e a feature 64 deu desenho a ele: com a fixture antiga este caso
+    // ficaria verdadeiro nos dois mundos (a seção sem itens não desenha de qualquer jeito). Passou a
+    // ser um tipo que o registro NÃO conhece — a linha gravada por uma versão mais nova —, com a
+    // asserção de que ele de fato não tem entrada.
+    const tipo = 'bloco_de_versao_nova' as never
+    expect(HOME_SECTION_RENDERERS[tipo]).toBeUndefined()
+
     renderHome([
       secao('hero', { position: 1 }),
-      { id: 'p3', type: 'category_grid', position: 2, active: true, config: {} },
+      { id: 'p3', type: tipo, position: 2, active: true, config: {} },
       secao('newsletter', { position: 3 }),
     ])
 
@@ -338,5 +348,104 @@ describe('HomeRenderer — Produtos em destaque (DST-04)', () => {
     expect(screen.getByRole('heading', { name: 'Primeiro bloco' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Segundo bloco' })).toBeInTheDocument()
     expect(screen.getAllByTestId('produto')).toHaveLength(2)
+  })
+})
+
+/**
+ * A **Lista de categorias** chega à Home — `LCT-01`, `LCT-11`, `LCT-12`.
+ *
+ * Pela página de verdade: o `HomeRenderer` resolve a seção (com `categoryListItem` em `core`) e o
+ * registro desenha. Apagar a entrada do registro, ou o pós-processamento da resolução, reprova aqui.
+ */
+describe('HomeRenderer — Lista de categorias (LCT-01)', () => {
+  const STORAGE = 'https://proj.supabase.co/storage/v1/object/public/home-images/'
+
+  const lista = (itens: Array<{ category_id: string | null; title?: string | null }>, over: any = {}) =>
+    ({
+      id: 'lista',
+      type: 'category_grid',
+      position: 2,
+      active: true,
+      config: { title: 'Escolha pelo material' },
+      items: itens.map((it, i) => ({
+        id: `circulo-${i}`,
+        section_id: 'lista',
+        position: i,
+        category_id: it.category_id,
+        product_id: null,
+        product_slug: null,
+        href: null,
+        image_url: `${STORAGE}c${i}.png`,
+        image_mobile_url: null,
+        alt: null,
+        title: it.title ?? null,
+        label_snapshot: it.category_id ? null : 'Coleção apagada',
+      })),
+      ...over,
+    }) as HomeSection
+
+  it('a seção ativa DESENHA os círculos, na posição dela e na ordem da dona', () => {
+    renderHome([
+      secao('hero', { position: 1 }),
+      lista([{ category_id: 'colecao-2', title: 'Leite materno' }, { category_id: 'colecao-1' }]),
+      secao('newsletter', { position: 3 }),
+    ])
+
+    const nav = screen.getByRole('navigation', { name: 'Categorias' })
+    const links = Array.from(nav.querySelectorAll('a'))
+    // O título vence; sem título, o nome ATUAL da coleção.
+    expect(links.map(a => a.textContent)).toEqual(['Leite materno', 'Coleção 1'])
+    expect(links.map(a => a.getAttribute('href'))).toEqual(['/colecao-2', '/colecao-1'])
+
+    // Na posição da seção: depois do hero, antes da newsletter.
+    const hero = screen.getByRole('heading', { level: 1 })
+    const news = screen.getByRole('heading', { name: 'Quer saber das novidades?' })
+    expect(hero.compareDocumentPosition(nav) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(nav.compareDocumentPosition(news) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('a coleção órfã é pulada e só ela (LCT-12)', () => {
+    renderHome([lista([{ category_id: null }, { category_id: 'colecao-3' }])])
+
+    const links = Array.from(
+      screen.getByRole('navigation', { name: 'Categorias' }).querySelectorAll('a'),
+    )
+    expect(links.map(a => a.textContent)).toEqual(['Coleção 3'])
+  })
+
+  it('a coleção DESATIVADA também é pulada na loja, e só ela (LCT-12)', () => {
+    const antes = categorias.data
+    categorias.data = antes.map(c => (c.id === 'colecao-1' ? { ...c, active: false } : c))
+    try {
+      renderHome([lista([{ category_id: 'colecao-1' }, { category_id: 'colecao-2' }])])
+      const links = Array.from(
+        screen.getByRole('navigation', { name: 'Categorias' }).querySelectorAll('a'),
+      )
+      expect(links.map(a => a.textContent)).toEqual(['Coleção 2'])
+    } finally {
+      categorias.data = antes
+    }
+  })
+
+  it('sem item resolvido a seção não desenha NADA — nem o título (LCT-11)', () => {
+    const { container } = renderHome([lista([{ category_id: null }])])
+    expect(container.querySelectorAll('section')).toHaveLength(0)
+    expect(screen.queryByRole('heading', { name: 'Escolha pelo material' })).toBeNull()
+
+    const vazia = renderHome([lista([])])
+    expect(vazia.container.querySelectorAll('section')).toHaveLength(0)
+  })
+
+  it('a arte é a ENVIADA, nunca o `banner_url` da coleção', () => {
+    const antes = categorias.data
+    categorias.data = antes.map(c => ({ ...c, banner_url: 'https://cdn.test/banner-largo.webp' }))
+    try {
+      const { container } = renderHome([lista([{ category_id: 'colecao-1' }])])
+      const img = container.querySelector('nav[aria-label="Categorias"] img')!
+      expect(img.getAttribute('src')).toContain('/home-images/c0.png')
+      expect(img.getAttribute('src')).not.toContain('banner-largo')
+    } finally {
+      categorias.data = antes
+    }
   })
 })

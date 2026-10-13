@@ -207,6 +207,41 @@ describe('useAdminHomeSections — leitura', () => {
     const { result } = await montar()
     expect(result.current.sections.map(s => s.id)).toEqual(['mm', 'aa', 'zz'])
   })
+
+  it('o título do item chega mapeado, e a linha sem a coluna chega com null (LCT-28)', async () => {
+    // O mapper do painel enumera coluna a coluna, como o da loja: sem a linha nele, o editor abriria
+    // o item com o título vazio e o próximo salvar APAGARIA o título gravado.
+    const item = (over: Record<string, unknown>) => ({
+      id: 'i',
+      section_id: 'sec-lista',
+      position: 1,
+      category_id: 'cat-1',
+      product_id: null,
+      href: null,
+      image_url: 'a.webp',
+      image_mobile_url: null,
+      alt: null,
+      label_snapshot: 'Leite materno',
+      ...over,
+    })
+    readResponse = {
+      data: [
+        {
+          id: 'sec-lista',
+          type: 'category_grid',
+          position: 1,
+          active: false,
+          config: {},
+          items: [item({ id: 'com', title: 'Leite' }), item({ id: 'sem', position: 2 })],
+        },
+      ],
+      error: null,
+    }
+    const { result } = await montar()
+    const itens = result.current.sections[0].items!
+    expect(itens.find(i => i.id === 'com')!.title).toBe('Leite')
+    expect(itens.find(i => i.id === 'sem')).toHaveProperty('title', null)
+  })
 })
 
 describe('useAdminHomeSections — criar (HOME-10)', () => {
@@ -222,6 +257,21 @@ describe('useAdminHomeSections — criar (HOME-10)', () => {
       active: false,
       config: {},
     })
+  })
+
+  it('a Lista de categorias nasce DESLIGADA e SEM itens (feature 64, LCT-15)', async () => {
+    const { result } = await montar()
+    await act(async () => {
+      await result.current.createSection('category_grid')
+    })
+    expect(escritas('home_sections')[0].insert).toEqual({
+      type: 'category_grid',
+      position: 4,
+      active: false,
+      config: {},
+    })
+    // Criar não grava curadoria: nenhuma linha em `home_section_items`.
+    expect(escritas('home_section_items')).toEqual([])
   })
 
   it('entra no FIM da lista: a posição é a maior existente mais um', async () => {
@@ -340,7 +390,13 @@ describe('useAdminHomeSections — curar', () => {
     const { result } = await montar()
     await act(async () => {
       await result.current.curateSection('sec-banners', [
-        { category_id: 'cat-1', image_url: 'a.webp', alt: 'Leite materno', label_snapshot: 'Leite materno' },
+        {
+          category_id: 'cat-1',
+          image_url: 'a.webp',
+          alt: 'Leite materno',
+          title: 'Leite materno',
+          label_snapshot: 'Leite materno',
+        },
         { href: '/como-enviar', image_url: 'b.webp', alt: 'Como enviar' },
       ])
     })
@@ -358,6 +414,7 @@ describe('useAdminHomeSections — curar', () => {
         image_url: 'a.webp',
         image_mobile_url: null,
         alt: 'Leite materno',
+        title: 'Leite materno',
         label_snapshot: 'Leite materno',
       },
       {
@@ -369,6 +426,7 @@ describe('useAdminHomeSections — curar', () => {
         image_url: 'b.webp',
         image_mobile_url: null,
         alt: 'Como enviar',
+        title: null,
         label_snapshot: null,
       },
     ])

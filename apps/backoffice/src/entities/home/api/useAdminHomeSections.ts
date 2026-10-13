@@ -56,6 +56,8 @@ export interface NewHomeSectionItem {
   image_url?: string | null
   image_mobile_url?: string | null
   alt?: string | null
+  /** O título embaixo do círculo da Lista de categorias (feature 64). */
+  title?: string | null
   label_snapshot?: string | null
 }
 
@@ -72,6 +74,7 @@ const mapItem = (row: DbHomeSectionItem): HomeSectionItem => ({
   image_url: row.image_url ?? null,
   image_mobile_url: row.image_mobile_url ?? null,
   alt: row.alt ?? null,
+  title: row.title ?? null,
   label_snapshot: row.label_snapshot ?? null,
 })
 
@@ -300,6 +303,10 @@ export const useAdminHomeSections = () => {
           image_url: item.image_url ?? null,
           image_mobile_url: item.image_mobile_url ?? null,
           alt: item.alt ?? null,
+          // Feature 64. A lista é escrita coluna a coluna, e por isso uma coluna nova que não entra
+          // AQUI nunca é gravada — com todos os testes de tela verdes, porque eles dublam o client
+          // (`AD-012`). O teste do payload a cobra por igualdade exata.
+          title: item.title ?? null,
           label_snapshot: item.label_snapshot ?? null,
         })),
       )

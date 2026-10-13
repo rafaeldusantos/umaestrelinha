@@ -45,6 +45,8 @@ const mapItem = (row: DbHomeSectionItem): HomeSectionItem => ({
   // ignoravam. Campo novo na tabela é campo novo AQUI, ou ele não chega à tela.
   image_mobile_url: row.image_mobile_url ?? null,
   alt: row.alt ?? null,
+  // Feature 64 — o título embaixo do círculo da Lista de categorias. Mesma regra da linha acima.
+  title: row.title ?? null,
   label_snapshot: row.label_snapshot ?? null,
 })
 

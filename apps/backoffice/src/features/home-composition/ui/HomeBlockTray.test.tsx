@@ -55,18 +55,22 @@ describe('HomeBlockTray — tipo único que já está na Home', () => {
   })
 })
 
-// A emenda `E3` pôs os DOIS tipos de P3 como "em breve". A feature 50 implementou um deles, e as
-// três asserções abaixo foram **viradas, não removidas**: `product_carousel` passa a ser oferecido,
-// `category_grid` continua sendo o único esmaecido, e a régua do teto muda de sujeito.
+// A emenda `E3` pôs os DOIS tipos de P3 como "em breve". A feature 50 implementou um deles e a 64 o
+// outro (a Lista de categorias), e as asserções abaixo foram **viradas, não removidas**: as duas
+// vezes o sujeito mudou e a régua continuou medindo. Hoje NENHUM bloco é "em breve", e este bloco
+// existe para que, se alguém devolver um tipo a `COMING_SOON`, a suíte diga isso em vez de aprovar
+// um bloco que a Adri nunca descobriria que existe.
 //
-// Queda de contagem sem reaparecimento do outro lado é deleção silenciosa — e este bloco existe
-// para que, se alguém devolver `product_carousel` a `COMING_SOON`, a suíte diga isso em vez de
-// aprovar um bloco que a Adri nunca descobriria que existe.
-describe('HomeBlockTray — o tipo de P3 que sobrou (emenda E3, feature 50)', () => {
-  it('SÓ a grade de coleções aparece como "em breve"', () => {
+// Queda de contagem sem reaparecimento do outro lado é deleção silenciosa — os seis casos de antes
+// continuam seis.
+describe('HomeBlockTray — os tipos de P3 ganharam tela (emenda E3, features 50 e 64)', () => {
+  it('NENHUM bloco aparece como "em breve" (LCT-14)', () => {
     montar()
-    expect(bloco('category_grid')).toBeDisabled()
-    expect(screen.getByTestId('motivo-category_grid')).toHaveTextContent('em breve')
+    const blocos = screen.getAllByTestId(/^bloco-/)
+    // Âncora: a varredura alcançou o catálogo inteiro, senão a ausência abaixo seria vazia.
+    expect(blocos).toHaveLength(11)
+    for (const b of blocos) expect(b).not.toHaveTextContent('em breve')
+    expect(screen.queryByTitle('Este bloco ainda não existe na loja.')).toBeNull()
   })
 
   it('Produtos em destaque é oferecido — não esmaecido, não "em breve" (DST-01)', () => {
@@ -99,17 +103,31 @@ describe('HomeBlockTray — o tipo de P3 que sobrou (emenda E3, feature 50)', ()
     expect(onAdd).toHaveBeenCalledWith('product_carousel')
   })
 
-  it('a frase do que ainda não existe fala da GRADE DE COLEÇÕES', () => {
-    montar()
-    expect(bloco('category_grid')).toHaveAttribute(
-      'title',
-      'Este bloco ainda não existe na loja.',
-    )
+  it('a Lista de categorias é oferecida pelo nome novo, e acrescentá-la funciona — também duas vezes (LCT-14)', () => {
+    // Era aqui que a bandeja dizia "Este bloco ainda não existe na loja." sobre a grade de coleções.
+    const comUma: HomeSection[] = [
+      ...DEFAULT_HOME_COMPOSITION,
+      { id: 'cg1', type: 'category_grid', position: 99, active: true, config: {} },
+    ]
+    const onAdd = montar(comUma)
+    const alvo = bloco('category_grid')
+
+    expect(alvo).not.toBeDisabled()
+    expect(alvo).toHaveTextContent('Lista de categorias')
+    expect(alvo).not.toHaveTextContent('Grade de coleções')
+    expect(alvo).not.toHaveTextContent('em breve')
+    expect(alvo).not.toHaveAttribute('title', 'Este bloco ainda não existe na loja.')
+    expect(screen.queryByTestId('motivo-category_grid')).toBeNull()
+
+    fireEvent.click(alvo)
+    expect(onAdd).toHaveBeenCalledWith('category_grid')
   })
 
-  it('"em breve" vence o teto: com a Home cheia, o P3 continua dizendo "em breve"', () => {
-    // Dizer "a Home já tem 30 seções" sobre uma grade que nem tem editor mandaria a dona apagar
-    // uma seção à toa. O sujeito mudou; a regra de precedência, não.
+  it('com a Home cheia, a Lista de categorias é recusada pelo TETO — como qualquer tipo', () => {
+    // Antes: "em breve" vencia o teto, porque dizer "a Home já tem 30 seções" sobre um bloco sem
+    // editor mandaria a dona apagar uma seção à toa. A regra de precedência continua no componente
+    // (`HomeBlockTray.tsx`); o que mudou é que ela não tem mais sujeito no catálogo, e a Lista de
+    // categorias passa a ser recusada pelo motivo verdadeiro.
     const cheia: HomeSection[] = Array.from({ length: MAX_HOME_SECTIONS }, (_, i) => ({
       id: `s${i}`,
       type: 'banner_grid',
@@ -118,10 +136,11 @@ describe('HomeBlockTray — o tipo de P3 que sobrou (emenda E3, feature 50)', ()
       config: {},
     }))
     montar(cheia)
-    expect(screen.getByTestId('motivo-category_grid')).toHaveTextContent('em breve')
+    expect(bloco('category_grid')).toBeDisabled()
+    expect(screen.getByTestId('motivo-category_grid')).toHaveTextContent('Home cheia')
+    expect(screen.getByTestId('motivo-category_grid')).not.toHaveTextContent('em breve')
 
-    // E o par: agora que Produtos em destaque existe, ele é recusado pelo TETO, como qualquer
-    // tipo — e não mais por "em breve".
+    // E o par: Produtos em destaque, idem.
     expect(screen.getByTestId('motivo-product_carousel')).toHaveTextContent('Home cheia')
   })
 })

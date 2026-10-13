@@ -40,6 +40,8 @@ const ProductPicker = ({ escolhidos, onPick }: Props) => (
         image_url: null,
         image_mobile_url: null,
         alt: null,
+        // Só a Lista de categorias lê o título (feature 64); a peça grava `null` na coluna.
+        title: null,
         // O nome do momento da escolha. Depois que a peça sai do catálogo é a única fonte que sobra
         // para o painel dizer **qual** delas se perdeu (`DST-16`).
         label_snapshot: produto.name,

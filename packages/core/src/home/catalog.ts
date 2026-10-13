@@ -99,7 +99,10 @@ const LABELS: Record<HomeSectionType, string> = {
   // fita ou grade (`config.display`). O identificador `product_carousel` é COLUNA, e renomeá-lo
   // custaria migration destrutiva para não ganhar nada; o que a dona lê é este rótulo.
   product_carousel: 'Produtos em destaque',
-  category_grid: 'Grade de coleções',
+  // "Lista de categorias" (feature 64, A-01): é o nome que a dona usa para a fileira de círculos. O
+  // identificador `category_grid` é COLUNA desde a 24 e fica — o motivo é o mesmo do
+  // `product_carousel` logo acima. "Grade de coleções" saiu porque o bloco não é grade.
+  category_grid: 'Lista de categorias',
   // "Banner principal", e não "Carrossel de banners": o que a dona escolhe na bandeja é o PAPEL do
   // bloco na página, não o mecanismo dele. E o nome não pode colidir com "Chamada principal" (o
   // hero) nem com "Grade de banners" — três blocos com nome parecido é como a curadoria erra de
@@ -110,10 +113,10 @@ const LABELS: Record<HomeSectionType, string> = {
 /**
  * As faixas de `limit`, **só onde o desenho declarou uma**.
  *
- * `category_grid` tem `limit` no `config` mas nenhuma faixa declarada, e ela **não é inventada
- * aqui**: ele entra no catálogo sem renderer e sem editor, e a faixa nasce junto com a tela que a
- * cobra. Faixa chutada seria regra sem origem, e é o tipo de número que ninguém depois consegue
- * justificar.
+ * **`category_grid` ganhou tela na feature 64 e também fica fora daqui** (`LCT-30`), pelo motivo
+ * do `product_carousel` abaixo: o teto dele é `CATEGORY_LIST_MAX_ITEMS`, cobrado como **recusa**
+ * (`categoryList.ts`). Uma faixa de `limit` faria `resolveHomeSections` cortar a lista, e "quantas
+ * categorias aparecem" teria dois donos.
  *
  * **`product_carousel` ganhou tela na feature 50 e continua fora daqui, de propósito**: o teto dele
  * é `FEATURED_PRODUCTS_MAX`, cobrado como **recusa** (`featured.ts`). `config.limit` é lido por
@@ -134,10 +137,13 @@ const LIMITS: Partial<Record<HomeSectionType, SectionLimit>> = {
  *
  * **Eram dois até a feature 50, e `product_carousel` saiu** (`DST-01`): ele ganhou renderer na loja e
  * editor no painel, e continuar esmaecido faria o painel esconder um bloco que existe — a dona nunca
- * descobriria que podia usá-lo. É a mesma virada que o banner principal teve na 41. `category_grid`
- * fica, porque implementar os dois só por estarem na mesma linha é escopo que ninguém pediu.
+ * descobriria que podia usá-lo. É a mesma virada que o banner principal teve na 41.
+ *
+ * **Desde a feature 64 a lista está VAZIA** (`LCT-14`): `category_grid` ganhou a Lista de
+ * categorias. A constante fica, e não é zelo — ela é a porta por onde um tipo novo entra no catálogo
+ * (porque o `check` o aceitou) antes de ganhar tela, e `catalog.test.ts` mede o conteúdo dela.
  */
-const COMING_SOON: readonly HomeSectionType[] = ['category_grid']
+const COMING_SOON: readonly HomeSectionType[] = []
 
 /**
  * O que o painel precisa saber sobre um tipo — ou `null` quando o tipo não existe.

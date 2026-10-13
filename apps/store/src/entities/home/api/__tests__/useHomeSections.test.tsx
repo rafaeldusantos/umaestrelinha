@@ -124,6 +124,7 @@ describe('useHomeSections — o que o banco devolve chega mapeado', () => {
         image_url: 'https://cdn.test/campanha.webp',
         image_mobile_url: null,
         alt: 'Campanha de outono',
+        title: null,
         label_snapshot: 'Prata 925',
         product_slug: null,
       },
@@ -145,6 +146,26 @@ describe('useHomeSections — o que o banco devolve chega mapeado', () => {
     expect(result.current.data[0].items[0].image_mobile_url).toBe(
       'https://cdn.test/campanha-celular.webp',
     )
+  })
+
+  it('o título do item chega mapeado (LCT-28)', async () => {
+    // Mesmo sensor do caso acima, para a coluna da feature 64: sem a linha no mapper, o título
+    // gravado pela dona nunca chegaria ao círculo e a loja mostraria o nome da coleção no lugar.
+    respondeCom([linhaDoBanco({ items: [itemDoBanco({ title: 'Leite materno' })] })])
+
+    const result = await ler()
+
+    expect(result.current.data[0].items[0].title).toBe('Leite materno')
+  })
+
+  it('linha sem a coluna title (lida antes da migration da 64) chega com title null', async () => {
+    const semColuna = itemDoBanco()
+    delete (semColuna as { title?: unknown }).title
+    respondeCom([linhaDoBanco({ items: [semColuna] })])
+
+    const result = await ler()
+
+    expect(result.current.data[0].items[0]).toHaveProperty('title', null)
   })
 
   it('seção sem curadoria chega com a lista vazia — que é a derivação de hoje, não "sem conteúdo"', async () => {

@@ -211,6 +211,14 @@ export interface HomeSectionItem {
   image_mobile_url?: string | null
   alt: string | null
   /**
+   * O título curto do item (feature 64), até 28 caracteres. Só `category_grid` o lê.
+   *
+   * Não é `alt` (descrição da imagem) nem `label_snapshot` (nome congelado, lido só no órfão).
+   * Vazio ⇒ o nome ATUAL da coleção de destino — quem decide é `categoryListLabel`, em
+   * `categoryList.ts`, e as duas telas o chamam.
+   */
+  title?: string | null
+  /**
    * O rótulo congelado no momento da escolha.
    *
    * Não é desnormalização preguiçosa: depois do `SET NULL` não há de onde ler o nome da coleção

@@ -456,3 +456,157 @@ describe('resolveHomeSections — produtos em destaque (DST-20)', () => {
     expect(resolvidas.filter(r => r.renders)).toHaveLength(2)
   })
 })
+
+describe('resolveHomeSections — lista de categorias (LCT-01, LCT-02, LCT-11, LCT-12, LCT-24, LCT-39)', () => {
+  /**
+   * O dublê faz o que o `resolveItem` genérico dos dois apps faz: `label` é `alt || nome da
+   * coleção` e `imageUrl` é `image_url || banner_url`. Com o banner sempre preenchido, um item sem
+   * arte enviada sairia com o banner largo da coleção — a não ser que a regra do bloco corrija.
+   */
+  const BANNER = 'https://cdn.test/banner-largo.webp'
+  const generico = ctx({
+    resolveItem: i =>
+      i.category_id
+        ? resolvido(i.id, {
+            categoryId: i.category_id,
+            label: i.alt || 'Cinzas',
+            imageUrl: i.image_url || BANNER,
+            imageMobileUrl: BANNER,
+            description: 'Joias com cinzas',
+            curated: true,
+          })
+        : i.product_id
+          ? resolvido(i.id, { productId: i.product_id, label: 'Pingente', curated: true })
+          : null,
+  })
+
+  it('com título, o item sai com o TÍTULO; sem título, com o nome da coleção', () => {
+    const secoes = [
+      secao('l', 'category_grid', 1, {
+        items: [
+          item('com', 0, { category_id: 'c1', image_url: 'a.png', title: 'Cinzas e flores' }),
+          item('sem', 1, { category_id: 'c2', image_url: 'b.png', title: null }),
+        ],
+      }),
+    ]
+    const [r] = resolveHomeSections(secoes, generico)
+
+    expect(r.renders).toBe(true)
+    expect(r.items.map(i => i.label)).toEqual(['Cinzas e flores', 'Cinzas'])
+  })
+
+  it('a imagem é a DO ITEM — o banner da coleção nunca entra, nem como recuo', () => {
+    const secoes = [
+      secao('l', 'category_grid', 1, {
+        items: [
+          item('com', 0, { category_id: 'c1', image_url: 'a.png' }),
+          item('sem', 1, { category_id: 'c2', image_url: null }),
+        ],
+      }),
+    ]
+    const [r] = resolveHomeSections(secoes, generico)
+
+    expect(r.items.map(i => i.imageUrl)).toEqual(['a.png', null])
+    expect(r.items.every(i => i.imageMobileUrl === null && i.description === null)).toBe(true)
+  })
+
+  it('destino de PEÇA conta como saído do ar; os outros desenham (LCT-12)', () => {
+    const secoes = [
+      secao('l', 'category_grid', 1, {
+        items: [
+          item('ok', 0, { category_id: 'c1', image_url: 'a.png' }),
+          item('peca', 1, { product_id: 'p1', image_url: 'b.png' }),
+        ],
+      }),
+    ]
+    const [r] = resolveHomeSections(secoes, generico)
+
+    expect(r.items.map(i => i.id)).toEqual(['ok'])
+    expect(r.droppedCount).toBe(1)
+  })
+
+  it('o MESMO item de peça numa grade de banners NÃO é afetado — a regra é do tipo', () => {
+    const secoes = [
+      secao('g', 'banner_grid', 1, {
+        items: [item('peca', 0, { product_id: 'p1', image_url: 'b.png' })],
+      }),
+    ]
+    const [r] = resolveHomeSections(secoes, generico)
+
+    expect(r.items.map(i => i.id)).toEqual(['peca'])
+    expect(r.droppedCount).toBe(0)
+  })
+
+  it('e numa grade de banners o banner da coleção continua sendo o recuo da arte', () => {
+    const secoes = [
+      secao('g', 'banner_grid', 1, { items: [item('sem', 0, { category_id: 'c1', image_url: null })] }),
+    ]
+    const [r] = resolveHomeSections(secoes, generico)
+
+    expect(r.items[0].imageUrl).toBe(BANNER)
+  })
+
+  it('zero itens: não renderiza, e o motivo fala da escolha (LCT-24)', () => {
+    const [r] = resolveHomeSections([secao('l', 'category_grid', 1)], generico)
+
+    expect(r.renders).toBe(false)
+    expect(r.hiddenReason).toBe('Não vai aparecer: nenhuma categoria escolhida.')
+  })
+
+  it('todos órfãos: a frase de "saíram do ar", com a contagem (LCT-11, LCT-24)', () => {
+    const secoes = [
+      secao('l', 'category_grid', 1, {
+        items: [item('a', 0, { category_id: null }), item('b', 1, { category_id: null })],
+      }),
+    ]
+    const [r] = resolveHomeSections(secoes, generico)
+
+    expect(r.renders).toBe(false)
+    expect(r.hiddenReason).toBe('Não vai aparecer: os 2 itens escolhidos saíram do ar.')
+    expect(r.droppedCount).toBe(2)
+  })
+
+  it('desligada: o motivo é o de desligada, mesmo com itens', () => {
+    const secoes = [
+      secao('l', 'category_grid', 1, {
+        active: false,
+        items: [item('a', 0, { category_id: 'c1', image_url: 'a.png' })],
+      }),
+    ]
+    const [r] = resolveHomeSections(secoes, generico)
+
+    expect(r.hiddenReason).toBe('Desligada: não aparece na loja.')
+  })
+
+  it('a ordem é a `position` da dona, não a ordem de chegada (LCT-01)', () => {
+    const secoes = [
+      secao('l', 'category_grid', 1, {
+        items: [
+          item('terceiro', 3, { category_id: 'c3', image_url: 'c.png' }),
+          item('primeiro', 1, { category_id: 'c1', image_url: 'a.png' }),
+          item('segundo', 2, { category_id: 'c2', image_url: 'b.png' }),
+        ],
+      }),
+    ]
+    const [r] = resolveHomeSections(secoes, generico)
+
+    expect(r.items.map(i => i.id)).toEqual(['primeiro', 'segundo', 'terceiro'])
+  })
+
+  it('renomear a coleção muda o rótulo de quem não tem título, e não o de quem tem (LCT-39)', () => {
+    const renomeada = ctx({
+      resolveItem: i => resolvido(i.id, { categoryId: i.category_id, label: 'Cinzas e memória', curated: true }),
+    })
+    const secoes = [
+      secao('l', 'category_grid', 1, {
+        items: [
+          item('sem', 0, { category_id: 'c1', image_url: 'a.png' }),
+          item('com', 1, { category_id: 'c1', image_url: 'a.png', title: 'Cinzas' }),
+        ],
+      }),
+    ]
+    const [r] = resolveHomeSections(secoes, renomeada)
+
+    expect(r.items.map(i => i.label)).toEqual(['Cinzas e memória', 'Cinzas'])
+  })
+})

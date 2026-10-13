@@ -77,6 +77,55 @@ const abrirAcoes = async (id: string) => {
 
 beforeAll(enableRadixSelectInJsdom)
 
+describe('HomeSectionList — a Lista de categorias (feature 64, LCT-24)', () => {
+  const lista = (n: number): HomeSection => ({
+    id: 'lista',
+    type: 'category_grid',
+    position: 99,
+    active: true,
+    config: { title: 'Escolha pelo material' },
+    items: Array.from({ length: n }, (_, i) => ({
+      id: `c${i}`,
+      section_id: 'lista',
+      position: i,
+      category_id: `cat-${i}`,
+      product_id: null,
+      href: null,
+      image_url: `/c${i}.png`,
+      alt: null,
+      label_snapshot: `Coleção ${i}`,
+    })),
+  })
+
+  it('o resumo diz quantas categorias — e NUNCA "automático", porque o bloco é só curadoria', () => {
+    montar(resolver([lista(3)]))
+    const alvo = linha('lista')
+    expect(alvo).toHaveTextContent('“Escolha pelo material” · 3 categorias')
+    expect(alvo).not.toHaveTextContent('automático')
+  })
+
+  it('uma categoria no singular', () => {
+    montar(resolver([lista(1)]))
+    expect(linha('lista')).toHaveTextContent('1 categoria')
+    expect(linha('lista')).not.toHaveTextContent('1 categorias')
+  })
+
+  it('sem nenhuma, a linha diz por que não vai aparecer', () => {
+    // O bloco nunca é derivado: nos dois apps `derive` devolve `[]` para ele (provado em
+    // `useAdminResolvedHome.test.ts`). O contexto daqui deriva para qualquer tipo, então este caso
+    // usa um que não deriva — senão a seção vazia "acharia" três coleções que a loja nunca mostra.
+    montar(resolver([lista(0)], { ...cheio, derive: () => [] }))
+    expect(linha('lista')).toHaveTextContent('Não vai aparecer: nenhuma categoria escolhida.')
+  })
+
+  it('o nome é o da bandeja, e o ícone é o da fileira de círculos — não o da grade de banners', () => {
+    montar(resolver([lista(2)]))
+    expect(linha('lista')).toHaveTextContent('Lista de categorias')
+    expect(linha('lista').querySelector('svg.lucide-circle-dot')).not.toBeNull()
+    expect(linha('lista').querySelector('svg.lucide-layout-grid')).toBeNull()
+  })
+})
+
 describe('HomeSectionList — a lista (HOME-08)', () => {
   it('lista TODAS as seções na ordem da Home, com tipo e resumo', () => {
     montar(resolver())
