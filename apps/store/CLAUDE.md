@@ -191,6 +191,51 @@ que a página continua abrindo pelo endereço novo. É a mesma decisão que a `3
   encontrada". A tabela `collections` **nunca existiu em migration nenhuma** (`PGRST205`), o hook
   engolia o erro e a tela mostrava grade vazia para sempre. **Não recriar.**
 
+### O `<title>` e a descrição de cada rota (feature `62`, `AD-048`)
+
+**Toda página da loja chama `usePageMeta`** (`shared/lib/usePageMeta.ts`), e quem decide o valor é
+`@estrelinha/core/seo` — a mesma regra que a edge function `product-page` usa no HTML servido. Até a
+`62`, 17 de 18 páginas herdavam o `<title>` do `index.html`, e com o GA4 ligado todo `page_view` saía
+com o mesmo título.
+
+- **Rota fixa** → `staticPageMeta(caminho)`, pela chave do `App.tsx` (`'/pedido/:id'`, não o id). A
+  tabela cobre exatamente `SITEMAP_STATIC_PATHS` ∪ `NON_INDEXABLE_PATHS`, e a indexabilidade é
+  **derivada** de `NON_INDEXABLE_PATHS` (rota não indexável ganha `<meta name="robots"
+  content="noindex">`, criada e removida pelo hook). Caminho sem entrada **lança**.
+- **Home** → `homePageMeta(store_settings.seo)`: os campos "Título padrão" e "Descrição padrão" do
+  painel, que até a `62` nenhuma tela da loja lia.
+- **Produto** → `productPageMeta`: `seo_title` → `name`, com a marca **só quando o título não a
+  traz** (247 curados já terminam em `| Uma Estrelinha` e 166 em `| UE`); descrição `seo_description`
+  **íntegra** → a da peça sem o bloco de FAQ, cortada em 160 no limite de palavra. `Product` carrega
+  os dois campos desde a `62` (o `select *` sempre os trouxe; o mapper os descartava).
+- **Categoria** → `categoryPageMeta` (nome; descrição derivada — 35 de 35 categorias não têm).
+- **404** → `notFoundPageMeta()`, `noindex`. **Busca** → `searchPageMeta(q)`, com o termo no título.
+
+**`null` não escreve nada, e desmontar não reverte nada** — as duas coisas são a regra, não descuido:
+a página que carrega dado passa `null` até ter o produto, e reverter ao título do `index.html` entre
+duas rotas produziria uma troca intermediária que o `page_view` mediria. A contrapartida é
+**`pages/__tests__/metaPorRota.test.ts`**: ele lê o `App.tsx`, colhe as 18 páginas `lazy` e exige
+`usePageMeta(` em código em cada uma. **Página nova sem a chamada herda o título da ANTERIOR.**
+
+- Produto e categoria **não declaram** quando vão navegar (rota legada, slug antigo, pai errado):
+  o `<Navigate>` filho troca o endereço antes do efeito da página rodar, e a declaração cairia no
+  endereço errado.
+- `og:url`, `og:image` e `og:type` **não** são tocados no cliente: quem os lê não executa
+  JavaScript. A imagem de compartilhamento padrão está no `index.html`
+  (`joia-afetiva-leite-materno-uma-estrelinha.jpg`, JPEG 1200×630 com a arte quadrada inteira no
+  centro); a de produto é trocada pela `product-page`. `og-image.png` (o lockup) continua em
+  `public/` e deixou de ser referenciado.
+
+**O `page_view` espera a página DECLARAR** (`shared/lib/pageMeta.ts` → `PageViewTracker`), com prazo
+de 3 s; página substituída por `REPLACE` antes de declarar (redirect) não gera `page_view`. O
+`PageViewTracker` fica **antes** das `Routes` no `App.tsx` de propósito: no mesmo commit, o efeito
+dele roda antes do da página, e a assinatura existe quando a declaração chega.
+
+> ⚠️ **No arnês de `analytics.test.tsx`, o mock de página sobrevive ao `vi.resetModules()`** e
+> seguraria a instância ANTIGA do módulo de sinais — a declaração iria para um registro que nenhum
+> `App` escuta, e o caso cairia no prazo. Por isso o hook chega aos marcadores por `registro`,
+> preenchido em `montarApp` depois do reset.
+
 ### A rolagem ao trocar de página — `app/ScrollToTop.tsx`
 
 Numa SPA o documento **não recarrega**: o `pushState` troca o conteúdo e o navegador mantém a posição
@@ -312,9 +357,11 @@ coleção toda. Quem pagina é a **janela** (`shared/lib/useInfiniteWindow`), n�
   cabeçalho também não afirma "0 produtos" enquanto carrega.
 - **`isLoading`, nunca `isPending`.** Com o interruptor de `URL-04` desligado a consulta fica pendente
   para sempre, e o esqueleto pulsaria embaixo da 404 até a cliente sair da página.
-- **Sabido e em aberto**: enquanto carrega não há como saber se a coleção tem universos, então a
-  faixa de chips aparece só depois — a grade desce ~48px nesse momento. Reservar a faixa trocaria
-  esse salto por outro nas coleções sem tag.
+- **As tags NÃO aparecem na tela** (2026-10-11, decisão do usuário): a seção "Universo" da sidebar /
+  folha de filtros e a fita de chips acima da grade foram removidas. **A lógica ficou** —
+  `filters.tags`, `toggleTag`, `collectTags` e o filtro por tag em `filterProducts` seguem em
+  `features/category-filters/model`, sem consumidor de tela. Com isso também sumiu o salto de ~48px
+  que a fita causava ao aparecer depois da carga.
 - **O esqueleto e o card têm guarda de paridade desde a feature `40`** (`cardSkeletonBox.test.ts`).
   Ele não mede altura — continua sendo impossível em jsdom —, mas lê os **dois arquivos do disco** e
   compara as quatro classes que produzem os 431px. O par do nome é assimétrico de propósito:
@@ -473,9 +520,12 @@ edita é `/admin/home` (ver [`../backoffice/CLAUDE.md`](../backoffice/CLAUDE.md)
   e era esta, no app que executa a regra, a cópia divergente. Quem ainda carregava a premissa
   revogada em CÓDIGO era o `placeholderData` de `useHomeSections`, removido em 2026-09-21.
 - `widgets/category-grid` **continua no repositório mas não é montado**: a grade de tiles saiu da home
-  quando a grade de banners tomou o lugar dela no board. **`category_grid` continua no catálogo sem
-  renderer** e o renderizador o pula sem quebrar a página; **`product_carousel` GANHOU o dele na
-  feature `50`** — ver abaixo.
+  quando a grade de banners tomou o lugar dela no board. **Desde a feature `64` nenhum tipo do
+  catálogo fica sem renderer**: `product_carousel` ganhou o dele na `50` e `category_grid` — o mesmo
+  identificador, agora com o rótulo **"Lista de categorias"** — ganhou `widgets/category-list` (ver
+  abaixo). O widget antigo é dívida: código morto com o nome do tipo, a um import de confundir alguém.
+  O renderizador continua pulando **tipo desconhecido** (linha gravada por versão mais nova) sem
+  quebrar a página, e `HomeRenderer.test.tsx` prova isso com um tipo que o registro não conhece.
 
 ## Produtos em destaque — o bloco de peças escolhidas a dedo (feature `50`)
 
@@ -545,6 +595,46 @@ Home tem um desenho só, e ele mora aqui.**
 - **O invólucro `data-home-section-id` só existe em modo prévia.** Em modo normal cada seção segue
   saindo num `Fragment`, porque `homeComposition.test.tsx` mede o DOM renderizado — e um invólucro por
   seção mudaria a árvore sem mudar um estilo. `HomeRendererPreview.test.tsx` guarda os dois modos.
+
+## A Lista de categorias — os círculos que levam às coleções (feature `64`)
+
+`widgets/category-list` desenha o bloco `category_grid`: uma fileira de círculos, cada um a **arte
+que a dona enviou** com um rótulo embaixo e um link para a coleção. Desenho no Paper, página
+**"64 · Lista de categorias na Home"**.
+
+- **O círculo é da arte, não da tela.** A vaga é um quadrado `h-20 w-20 md:h-[104px] md:w-[104px]`
+  com `object-contain` e **nada mais** — sem fundo, borda, sombra, raio nem recorte, e o teste
+  recusa cada um por token exato. A dona envia PNG circular de cantos transparentes; arte de fundo
+  opaco aparece quadrada, e é o certo (LCT-35): a loja não "conserta" recortando. **O alfa
+  sobrevive** ao envio (canvas → WebP) e à rendição do Storage — medido em navegador, canto com alfa
+  0 no objeto e nas rendições de 104 e 208 (A-14).
+- **Tudo chega decidido por `core`** (`categoryListItem`, aplicado dentro de `resolveHomeSections`):
+  o rótulo (título > `alt` > nome **ao vivo** da coleção), a arte (**nunca** o `banner_url` da
+  coleção) e quem saiu do ar. O widget não escreve `title || nome` nenhum.
+- **O rolador é `<nav aria-label="Categorias">`**, e o elemento não é gosto: o ref de
+  `useOverflowAffordance` é `HTMLElement`, que `<ul>` e `<div>` não aceitam (TS2322).
+- **Centraliza por margem automática, nunca `justify-center`**: `ml-auto` no primeiro `<li>` e
+  `mr-auto` no último. A margem se resolve em zero quando a fileira estoura; `justify-center` num
+  contêiner rolável corta o começo.
+- **O `<ul>` é `w-max min-w-full`, e isso foi achado em navegador.** Com o `<ul>` em 100%, quem
+  transbordava eram os itens, e o recuo final do rolador ficava **fora** da área rolável: em 1440 com
+  8 itens a seta "Próximas" rolava **8px**, e em 390 o último item encostava na borda. Com `w-max` é
+  o `<ul>` que transborda e o recuo entra; `min-w-full` devolve a largura toda às margens
+  automáticas quando cabe. Medido depois: 56px de rolagem em 1440, 16px de recuo em 390.
+- **As setas são só do computador** (`hidden md:flex`), pelo estado medido do rolador: nenhuma
+  quando cabe, só a da direita no começo, as duas no meio, só a da esquerda no fim. `TAP_44` vem
+  **primeiro** no `cn`, e o centro da seta é o centro do círculo de 104 (`top-[52px]` +
+  `-translate-y-1/2`, medido: 778 e 778). O título fica **fora** do invólucro `relative`.
+- **Só o `loading` sai de `imagePriority`**; `fetchPriority` não é repassado. O círculo nunca é o
+  LCP — medido com o bloco logo abaixo do Banner principal, o LCP continua sendo a arte do banner, e
+  uma dica `high` no primeiro círculo disputaria com ela.
+- **Medido em navegador**: 390 → `body.scrollWidth` 390, 3 círculos e 68% do 4º com 8 itens;
+  1440 → 7 inteiros e 67% do 8º na área livre com 8, centrada e sem setas com 3 e 4. O rótulo de 28
+  caracteres sem espaço quebra em duas linhas (`[overflow-wrap:anywhere]`) com os itens alinhados
+  pelo topo.
+- **Item sem arte** (só pela prévia de um rascunho, ou por escrita direta) desenha a **vaga vazia do
+  mesmo tamanho**, sem `<img src="">` e sem ícone; foto que falha some **só ela**
+  (`visibility: hidden`), e a vaga e o rótulo ficam.
 
 ## Página do produto
 
@@ -1099,6 +1189,47 @@ ninguém é avisado.
     três sensores no arquivo provam o CRLF, o LF e o glob. **A forma do glob importa**: um que
     termine em `**/` fecha o bloco sozinho e não reproduz nada — o que cega é `apps/**` seguido, mais
     abaixo, de um bloco de verdade que forneça o fecha-bloco.
+
+## Retirada no escritório (feature `63`, `AD-049`)
+
+Cliente com CEP do RS pode buscar a joia no escritório, sem frete. **A retirada não é uma cotação**:
+ela não passa pelo Melhor Envio nem entra em `ShippingQuote`, e é por isso que o filtro `> 0`, o
+`cheapestQuoteId`, o fallback "Frete padrão" (SHP-05) e o frete grátis por valor continuam
+exatamente como eram — a retirada simplesmente não está na lista que eles leem.
+
+- **Um dono para a regra**: `@estrelinha/core/shipping` (`pickup.ts`) — `isRsCep`, `pickupLocation`,
+  `pickupAvailable`, `isPickupOrder`. A loja o alcança por `entities/pickup` (`AD-033`: dois
+  features do mesmo app): `usePickupOption(cep)` / `usePickupOptionState(cep)` para a calculadora e
+  o checkout (com o portão do CEP e do interruptor), e `usePickupLocation()` para pedido **já feito**
+  (sem portão — desligar a retirada depois não muda onde a cliente vai buscar). Os três leem
+  `useStoreSettings()`, então todo dublê de `@estrelinha/core/hooks/useStoreSettings` de uma tela
+  que alcança a retirada precisa desse export.
+- **O que acende**: interruptor `shipping.pickup_enabled` (nasce **ligado**) **e** endereço do
+  Material com rua, bairro e cidade **e** CEP de `90000-000` a `99999-999`. A linha é
+  `Escritório - Uma Estrelinha - {rua}, {bairro}, {cidade}/{UF}`, **nunca** com número nem
+  complemento. Sem horário de atendimento (decisão do usuário).
+- **Página do produto** (`ShippingCalc`): grupo `Retirar em` abaixo dos Correios, que ganham o
+  título `Envio a domicílio` só quando há retirada. A retirada responde ao CEP **consultado**, e
+  aparece **também** quando a cotação falha ou volta vazia (RET-04). O componente que lê a
+  configuração só monta para CEP do RS — é o que mantém os casos antigos sem dublê novo.
+- **Checkout** (`DeliveryBlock`): a opção é `pickupOption`, **separada** de `options`, e **nunca**
+  pré-selecionada (RET-08). Escolhida, grava `serviceId: 'retirada'`, `serviceName: 'Retirada no
+  escritório'`, `carrier: 'Uma Estrelinha'`, custo `0`, sem datas; o endereço da cliente continua
+  obrigatório (RET-09). A escolha é desfeita quando a retirada some **com a configuração já
+  carregada** — nunca enquanto ela carrega, senão o rascunho restaurado da `sessionStorage` perderia
+  a escolha por um "ainda não sei". O resumo do pedido diz só `Retirada no escritório` (sem o
+  `Frete · {transportadora}`).
+- **O servidor recusa a forjada** (`checkout?action=create-order`, 422 `pickup_unavailable`, nada
+  gravado): CEP de fora, custo ≠ 0, interruptor desligado ou escritório incompleto. A tela **não**
+  trata o 422 como falha genérica ("Tente novamente" nunca passaria): `useCreateOrder` lança
+  `PickupUnavailableError`, e o `CheckoutPage` mostra `PICKUP_UNAVAILABLE_MESSAGE`, desfaz a escolha
+  de frete e reabre o bloco Entrega — sacola e o resto do formulário ficam. A retentativa com o mesmo
+  `client_request_id` cria o pedido, porque a recusa não grava nada.
+- **Pós-compra**: a confirmação, `/pedido/:id` e `/conta` mostram `Retirada no escritório` + a linha
+  (`OrderPaymentDelivery`), a jornada **omite** "A caminho" e termina em `Retirado no escritório`
+  (`core/orders/journey.ts`), e o selo de pedido concluído diz `Retirado` (`core/orders/situation.ts`
+  — mesma chave e tom de `delivered`). O endereço do escritório é lido da configuração **atual**, não
+  gravado no pedido.
 
 ## Menu (consumo)
 

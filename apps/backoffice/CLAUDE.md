@@ -289,6 +289,40 @@ desenho.
   `categoria.active === false`. Sem isso o painel — que lê como admin e **enxerga** produto
   despublicado — diria "tudo certo" sobre um bloco que a Home desenha pela metade.
 
+### O editor da "Lista de categorias" (feature `64`)
+
+- **Dois `FormCard`s**: **Título da seção** (opcional; vazio, a fileira aparece sem título) e
+  **Categorias** (contador `n de 24` e a lista `draggable`). **Um item aberto por vez**, e o item
+  novo nasce aberto; aberto, ele pede nesta ordem **Imagem** → **Leva para a coleção** → **Título
+  embaixo do círculo** (até 28; vazio usa o nome da coleção) → **Remover categoria**.
+- **A arte já é o círculo.** O envio é `uploadHomeImage(file, CATEGORY_LIST_ART)` (800×800): a
+  orientação pede PNG com os cantos transparentes, o aviso de proporção **não recusa**, e a falha de
+  envio vira recado sem mexer no rascunho. **O canal alfa sobrevive** ao canvas → WebP e à rendição
+  do Storage — medido em navegador na T16 (canto com alfa 0 no objeto gravado e nas rendições de 104
+  e 208). A miniatura da linha fechada é `object-contain`, **sem** `rounded-full`.
+- **Escolher a coleção congela `label_snapshot` no mesmo gesto.** A linha fechada diz o rótulo por
+  `categoryListLabel` (de `core` — o mesmo da loja) e o estado do destino em **quatro** casos: não
+  escolhida, apagada, desativada ("fora do ar") e no ar.
+  - ⚠️ **O `cruzar` dos quatro estados é cópia do de `CollectionRowsEditor`** — dívida declarada
+    (`design-r2` R3): extrair agora mexeria num editor que a `64` não foi pedida para tocar.
+- **Nenhuma regra é redigida no painel**: `sectionRefusals.ts` compõe `categoryListRefusal` de
+  `core` com `configRefusal('category_grid', …)`. O teto de 24 também deixa "Adicionar categoria"
+  indisponível, com o motivo **visível** ("Até 24 categorias por bloco.") — botão desligado sem
+  frase não diz nada a ninguém.
+- **A recusa é provada pelo `HomeSectionEditor` real**, nunca pelo editor montado à mão: sem
+  imagem, sem coleção e acima do teto, `onSave` não é chamado e o rascunho fica na tela. Sensor
+  reinjetado: tirar `refusal:` da entrada de `SECTION_EDITORS` derruba quatro casos.
+- **A linha da lista** ganhou o ícone `CircleDot` (o `GalleryHorizontal` já é do Banner principal) e
+  o resumo **"N categorias"** — sem o `case`, ela cairia no padrão e diria "automático" de um bloco
+  que nunca é derivado.
+- **`title` entrou na gravação em DOIS lugares, e os dois são listas à mão**: o `insert` de
+  `curateSection` (`useAdminHomeSections.ts`) e `toNewItems` (`sectionDraft.ts`). `toNewItems.test.ts`
+  passou de **sete para oito** colunas, por igualdade de chaves, com a âncora de **dez** campos no
+  rascunho (oito + `key` + `product_slug`). **`ProductPicker` também monta `DraftItem`** e passou a
+  escrever `title: null` — fora do *Where* planejado, e necessário: com o campo obrigatório o `tsc`
+  recusava, e com ele opcional o item de peça sairia de `toNewItems` com sete chaves — a forma que
+  `toNewItems.test.ts` existe para recusar (o `curateSection` normaliza, mas é a segunda lista à mão).
+
 ### A busca de produto: **um** dono para as cinco telas (feature `51`, `AD-036`)
 
 Escolher uma peça é uma pergunta só, e o painel a respondia de **cinco maneiras diferentes**, nenhuma
@@ -605,6 +639,22 @@ deste formato:
     precisa do alvo maior passa a própria classe `before:` (molde do `TAP_44` da loja, nunca
     importado — criaria um segundo dono da medida); os outros 7 usos de `ToggleField` continuam com
     o `Switch` cru.
+
+## Retirada no escritório no painel (feature `63`, `AD-049`)
+
+- **Configurações › Frete e Material**: interruptor "Retirada no escritório"
+  (`shipping.pickup_enabled`, `SWITCH_TAP_44`), que nasce **ligado** pela migration da `63`; chave
+  ausente aparece ligada (`?? DEFAULT_SHIPPING.pickup_enabled`). Ligado com o endereço **gravado** do
+  Material sem rua, bairro ou cidade, o cartão avisa que a retirada não aparece na loja — a régua é
+  `pickupLocation(material) === null`, o mesmo dono que a loja e a function `checkout` chamam.
+- **O pedido de retirada** (`shipping_service_id = 'retirada'`, `isPickupOrder`): o cartão Entrega
+  mostra `Retirada no escritório` + a linha do escritório (`entities/order/ui/PickupLocation`, montado
+  só para retirada) e **esconde** o rastreio de saída; o bloco do Melhor Envio diz que não há
+  etiqueta e não oferece cotar nem gerar; o próximo passo vai de `separating` direto a `delivered`
+  com o botão **"Marcar como retirado"** (`nextStep.actionLabel`). As pendências de "enviado sem
+  rastreio" são recortadas por `status = 'shipped'`, que a retirada não alcança pelo próximo passo.
+- **A prova é pela página real**: `AdminOrderPage.retirada.test.tsx` monta o `MelhorEnvioTab`
+  verdadeiro (o arquivo irmão o dubla) e espiona `supabase.functions.invoke`.
 
 ## Configurações › Notificações — os 15 eventos do motor (feature `53`)
 

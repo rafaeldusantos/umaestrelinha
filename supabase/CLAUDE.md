@@ -3,7 +3,7 @@
 `@estrelinha/functions`. Um único backend para os dois apps: migrations, RLS, edge functions, auth e
 e-mail. Leia [`../CLAUDE.md`](../CLAUDE.md) antes deste arquivo.
 
-**Dev roda contra o Supabase local** (`http://127.0.0.1:54341`), na faixa 54341–54349. `supabase start`
+**Dev roda contra o Supabase local** (`http://127.0.0.1:54441`), na faixa 54440–54449. `supabase start`
 sobe **junto** com as outras instâncias da máquina — **nunca use `supabase stop --all`**, que derruba
 as dos outros projetos.
 
@@ -256,6 +256,11 @@ dos quinze. Ligar um dos onze continua sendo ato explícito da Adri, feito ali �
   cabeçalho de todo e-mail, as URLs são públicas, o resto são booleanos, e **a chave nunca sai, nem
   prefixo nem tamanho**. Ela existe para o `Email check` poder provar *o valor da produção* contra o
   Resend, em vez de provar um valor escrito no próprio sensor.
+- **Pedido de retirada no escritório** (feature `63`): `order_shipped` é recusado com `pickup_order`
+  (`precondition.ts`, antes das outras checagens), e o bloco de endereço dos e-mails troca "Entrega"
+  + endereço da cliente por **"Retirada"** + `Retirada no escritório` + a linha de `pickupLocation`
+  (sem número nem complemento). `ORDER_COLUMNS` traz `shipping_service_id`, e o `store_settings.material`
+  cru entra em `renderEmail` como 6º parâmetro opcional — o motor e a prévia o passam.
 - **Falha de e-mail nunca altera o pagamento**: a chamada é `await` limitado por `AbortController`
   (2500ms do `create-payment`, 8000ms do webhook — **nunca trabalho em background**, `AD-008`) e vive
   dentro de `try/catch`. Um throw ali viraria **500 na cobrança**.
@@ -339,6 +344,14 @@ convidada e para quem tem sessão.
   - A única mudança adjacente é o recuo do pagador para `orders.customer_document` quando não há
     ficha. **Sem ele, `CSC-08` seria falso**: o pedido órfão existiria, a cliente teria o token, e o
     pagamento seria recusado com 422 por falta de CPF que ela já informou.
+- **Retirada no escritório forjada é recusada AQUI** (feature `63`, `RET-12`, `AD-049`). Pedido com
+  `shipping_service_id = 'retirada'` lê `store_settings` (`shipping` e `material`, por
+  `.eq('key', …)`) e passa por `pickupRefusal` (`core/shipping/pickup.ts`, import relativo com
+  `.ts`): CEP fora do RS, custo ≠ 0, interruptor desligado ou escritório incompleto ⇒ **422
+  `pickup_unavailable` sem nenhuma escrita**. Fica **depois** da idempotência (a retentativa de uma
+  retirada já gravada continua devolvendo o pedido) e antes da identidade. `pickup_enabled` ausente
+  no jsonb vale como ligado — o default do TypeScript é resolvido aqui, porque `pickupRefusal` exige
+  `true` estrito. Pedido dos Correios **não** lê configuração nenhuma.
 
 ### A conta da cliente no banco (feature `59`, migration `20261004120000_59-minha-conta.sql`)
 
@@ -385,6 +398,22 @@ origem. Provado nos dois sentidos no dia do conserto — `quote` sem header segu
 `create`/`print`/`tracking` e uma ação inventada devolvem 401, inclusive com a anon key como bearer
 (ela é JWT válido do projeto, mas não tem `sub`).
 
+
+**`create` recusa pedido de retirada no escritório** (feature `63`, `RET-15`): 422 `pickup_order`
+logo depois de ler o pedido e **antes** da primeira chamada à API — a primeira já põe a etiqueta no
+carrinho do Melhor Envio. **`create` mora em `melhor-envio/handlers.ts`** desde a rodada 3 da
+verificação (`AD-004`): o client service-role, a chamada à API (`meFetch`) e o remetente entram por
+`CreateDeps`, e `__tests__/handlers.test.ts` prova a regra **executando** — linha de retirada ⇒ 422,
+**zero** chamadas ao `meFetch` injetado e nenhuma gravação em `orders`, com o par dos Correios
+chegando ao carrinho e o fluxo inteiro pinado (ordem, corpos, gravação, o 500 do carrinho sem id, o
+`catch` do tracking). A **decisão** continua em `melhor-envio/pickupGate.ts` (puro, teste próprio).
+`quote`, `print`, `tracking` e o choke point do `requireAdmin` ficaram no `index.ts`, que para
+`create` é só fiação. Antes disso a regra era guardada lendo a fonte do `index.ts`, e três rodadas
+seguidas acharam formas sintáticas novas que compravam a etiqueta e passavam.
+`_shared/__tests__/retiradaSemEtiqueta.test.ts` encolheu para o que o vitest não alcança: o
+`case "create"` delega a `handleCreate` de `./handlers.ts` com o client, o `meFetch` e o remetente
+**reais**, todo import de `handlers.ts` é relativo com `.ts`, e o `body` é lido uma vez só
+(`order_id`, `service_id`).
 
 **A function rodou meses sem credencial e ninguém viu.** Até 2026-09-05 as três
 `MELHOR_ENVIO_*` não existiam em lugar nenhum — nem no `config.toml`, nem no `.env.example`, nem na
@@ -461,7 +490,7 @@ que é a leitura honesta — não "corrija" isso para bater com o painel.
 **Prova de fecho é o CORPO, nunca o status.** Mesma régua do `BUG-20260829`:
 
 ```bash
-curl -s -X POST "http://127.0.0.1:54341/functions/v1/melhor-envio?action=quote" \
+curl -s -X POST "http://127.0.0.1:54441/functions/v1/melhor-envio?action=quote" \
   -H "Content-Type: application/json" \
   -d '{"postal_code_to":"01310100","products":[{"id":"p1","width":11,"height":2,"length":16,"weight":0.1,"insurance_value":50,"quantity":1}]}'
 ```
@@ -486,7 +515,7 @@ admin; o backoffice usa `RequireAdmin`.
 ### O SMTP local segue DESLIGADO — e o de produção não é verificável por comando
 
 O bloco `[auth.email.smtp]` está comentado, e o e-mail de auth do desenvolvimento cai no **Mailpit**
-(`http://127.0.0.1:54344`). **A feature `52` chegou a ligá-lo e voltou atrás**, e a razão vale mais
+(`http://127.0.0.1:54444`). **A feature `52` chegou a ligá-lo e voltou atrás**, e a razão vale mais
 que a decisão: a pendência `C-08` mandava ligar para *validar que o remetente é aceito pela chave* —
 e quem faz essa validação agora é o `Email check`, todo dia, sem efeito colateral. Ligar o SMTP local
 custaria o Mailpit (dev deixa de funcionar offline e passa a mandar e-mail real, sujeito a limite) e
@@ -516,7 +545,7 @@ function nossa, e aí o SMTP deixa de ser usado.
 > padrão do GoTrue, em inglês, com um **link** — enquanto a loja chama `verifyOtp` e pede um código
 > de 6 dígitos que aquele e-mail não traz. *Parece* funcionar, porque o e-mail chega.
 
-- Antes disso, o e-mail de login caía no **Mailpit** (`http://127.0.0.1:54344`).
+- Antes disso, o e-mail de login caía no **Mailpit** (`http://127.0.0.1:54444`).
 - O remetente de produção é `acesso@loja.umaestrelinha.com.br`. **Até 2026-09-06 este arquivo, o
   `config.toml` e o `.env.example` prescreviam um subdomínio `send.` que nunca existiu na conta** — o
   403 medido em 2026-08-08 era isso, não DNS pendente. O único domínio verificado na conta Resend é

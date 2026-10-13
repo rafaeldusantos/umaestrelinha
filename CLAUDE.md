@@ -91,16 +91,17 @@ pnpm --filter @estrelinha/store <script>    # rodar num workspace específico
 - **`pnpm test | tail` esconde a falha** — o código de saída que sai do pipe é o do `tail`. Capture o
   de verdade.
 
-**Supabase local roda na faixa 54341–54349**, escolhida para conviver com as outras instâncias da
-máquina (54320–54329 e 54330–54339 já estavam ocupadas):
+**Supabase local roda na faixa 54440–54449**, escolhida para conviver com as outras instâncias da
+máquina (54320–54329 e 54330–54339 já estavam ocupadas; ProductDock usa 55321–55327) e fora da faixa
+que o Hyper-V/WinNAT reservou (54293–54392 — conferir com `netsh interface ipv4 show excludedportrange protocol=tcp`):
 
 | Serviço | Porta |
 | --- | --- |
-| API (`VITE_SUPABASE_URL`) | **54341** |
-| Postgres | 54342 · shadow 54340 · pooler 54349 |
-| Studio | 54343 |
-| **Mailpit** (todo e-mail de dev cai aqui) | **54344** |
-| analytics · edge inspector | 54347 · 8085 |
+| API (`VITE_SUPABASE_URL`) | **54441** |
+| Postgres | 54442 · shadow 54440 · pooler 54449 |
+| Studio | 54443 |
+| **Mailpit** (todo e-mail de dev cai aqui) | **54444** |
+| analytics · edge inspector | 54447 · 8085 |
 
 `project_id = "uma-estrelinha-store"`. `supabase start` sobe **junto** com as outras instâncias —
 nunca use `supabase stop --all`, que derruba as dos outros projetos.
@@ -133,7 +134,12 @@ Ao planejar/implementar features, use a Skill **`tlc-spec-driven`** com estas co
     (os avisos para a dona, e o endereço que os recebe) e a `58` (pagamento PIX em rota própria)
     também estão FECHADAS. A `59` (Minha Conta V2) também está FECHADA. A `60` (a marca no
     cabeçalho dos e-mails) também está FECHADA. A `61` (Google Analytics 4 na loja) também está
-    FECHADA. A próxima é a `62`.**
+    FECHADA. A `62` (título e metadados por rota) também está FECHADA — é a primeira fatia da `36`,
+    que continua só com `spec.md`. A `63` (retirada no escritório) está IMPLEMENTADA, verificada
+    (três rodadas + a extração do `create` da `melhor-envio`) e provada em navegador, e **sem
+    commit** — aguarda o pedido de commit do usuário. A `64`
+    (lista de categorias na Home) está IMPLEMENTADA (17 de 17 tasks), provada no banco local e em
+    navegador, verificada por agente independente (PASS) e **sem commit** — aguarda o pedido de commit. A próxima é a `65`.**
   - **A `46` e a `47` correram EM PARALELO, em worktrees separados**, e é o segundo caso do projeto
     (o primeiro, a `45`, dividiu uma working tree só). O que mudou: a divisão foi por **árvore**, não
     por arquivo — a `47` nasceu de um `git worktree` sobre o HEAD local e trouxe a `46` por
@@ -237,6 +243,8 @@ com as duas cópias divergindo, e quem descobre é a cliente ou o Google.
 | `49` | **três donos de uma vez, e o pior deles ainda não existia.** (1) "Este e-mail pode seguir como convidada?" ia nascer **duas vezes** — uma na tela, para mostrar o desafio de código, outra no servidor, para recusar a gravação —, e divergir faria a loja deixar passar quem o servidor recusa. (2) "Como nasce um pedido" ia ficar com **dois caminhos**, o `insert` do navegador para quem tem sessão e a function para a convidada. (3) `corsHeaders` já estava escrito **três vezes** nas edge functions, e a function nova seria a quarta | `resolveCheckoutIdentity` em `@estrelinha/core/checkout`, chamado igual pela tela e pelo servidor; **uma** function grava todos os pedidos, com `pedidoComDonoUnico.test.ts` recusando a volta; e `_shared/http.ts`, de onde as outras **reexportam** (`toBe`, não `toEqual`) |
 | `56` | **o contador de caracteres, escrito CINCO vezes à mão dentro de um card** — e ausente dos quatro campos com limite das outras seções, onde o teto ia embutido no rótulo ("Título padrão (até 60 caracteres)") com o número **cravado na frase**, longe do `maxLength` que de fato limita. Ao lado dele, a **mesma string de classes** do botão de salvar escrita em três arquivos de Configurações, um deles já sem o `h-11` | `shared/ui/CharCounter.tsx` e `shared/ui/SettingsSaveButton.tsx`, com `contadorComDonoUnico.test.ts` recusando a sexta escrita dentro de Configurações |
 | `58` | **DUAS superfícies montando o mesmo pagamento PIX** — o bloco 3 do acordeão do checkout e um diálogo em `/conta`, e a segunda já nascia errada: montava sem `amount`, então o valor em destaque (`CNF-01`) não aparecia justamente para quem voltava a pagar. Ao lado, o **`#` do número do pedido**, colado à mão em quatro grafias ao mesmo tempo — a loja sem prefixo, a conta e o painel com um, o e-mail com outro | a rota `/pedido/:id/pagamento` é a **única** casa do PIX (`AD-042`), com `pagamentoComDonoUnico.test.ts` recusando `qrcode.react`, o pedido de PIX e o retorno de `PixPayment.tsx`; e `formatOrderNumber` em `@estrelinha/core/orders` (`AD-043`), com `numeroDoPedidoComDonoUnico.test.ts` recusando o prefixo colado nas duas grafias e nas duas formas de juntar |
+| `62` | **o `<head>` de cada rota, que não tinha dono nenhum** — 17 de 18 páginas herdavam o `<title>` do `index.html`, e a página de produto servida trazia o JSON-LD da joia ao lado do título e do card **da loja**. Com o GA4 ligado, todo `page_view` saía com o mesmo título. Escrito no cliente e no servidor separadamente, o título da aba e o do card do WhatsApp divergiriam | `@estrelinha/core/seo` (`AD-048`), lido pelo hook `usePageMeta` **e** pela `product-page`; `metaPorRota.test.ts` exige a chamada em toda página `lazy`, e `seo.test.ts` exige que a tabela das rotas fixas cubra `SITEMAP_STATIC_PATHS` ∪ `NON_INDEXABLE_PATHS` nos dois sentidos |
+| `63` | **"este pedido é de retirada?" e "a retirada está disponível?", perguntados por SETE lugares** — a calculadora e o checkout da loja, a confirmação e a conta, a function `checkout` (que recusa a forjada), a `melhor-envio` (que não gera etiqueta), o motor de e-mail e o painel. Escrita em cada um, a loja ofereceria a retirada que o servidor recusa, ou o e-mail diria "postamos" de uma peça que a cliente busca no balcão | `packages/core/src/shipping/pickup.ts` (`AD-049`), **sem import nenhum** para ser alcançável pelo Deno por caminho; a identidade é `shipping_service_id = 'retirada'`, e a retirada mora FORA da cotação (`ShippingQuote` intocado); `shipping/__tests__/denoReach.test.ts` e `retiradaSemEtiqueta.test.ts` guardam as duas pontas que nenhuma outra ferramenta lê |
 | `50` | **o esqueleto de carga e a revalidação, que eram a MESMA chamada** — `fetchSections()`/`fetchCategories()` significavam "carregar" e "revalidar" ao mesmo tempo, e a tela só sabia ler a primeira: toda gravação trocava a árvore por `<TableSkeleton/>`, o que **desmontava o `<iframe>` da prévia** e recarregava a loja a cada clique. E, ao lado, dois campos **de tela** do rascunho a um `insert` de distância de virar `PGRST204` | `fetchX(modo)` com o tipo `FetchMode` em **um** arquivo (`shared/lib/fetchMode.ts`) — dois nomes para o mesmo modo seriam o defeito no tamanho de um tipo, e o terceiro hook nasceria com um terceiro nome —, mais `toNewItems` como a única tradução rascunho → colunas, com `toNewItems.test.ts` recusando a oitava chave |
 
 Consequências práticas, nesta ordem:
@@ -385,6 +393,10 @@ migrations, e `vercelRedirects` lê o `vercel.json`.
 | `orderStatus.test.ts` · `catalogMatch.test.ts` · `order.test.ts` | `tools/catalog-import/src/map/__tests__` | o de-para divergir do `CHECK` do banco (**lido do disco**); `separating` ser produzido; valor fora do vocabulário deixar de abortar; o SKU voltar a casar item; o recorte de parênteses deixar de ser balanceado; a fila de material perder um dos **dois** cortes (terminal e pagamento) |
 | `orders.test.ts` | `tools/catalog-import/src/write/__tests__` | a re-execução sobrescrever coluna operacional sem `--ressincronizar-estado`; os itens deixarem de ser imutáveis; a leitura de estado atual sair do `selectAll` |
 | `orderList.test.ts` (cobrança) | backoffice `features/order-list/model` | um `chargeMaterialUrl(` de `AdminOrdersPage.tsx` deixar de passar `customer_phone` — o link volta a sair **sem número**, em silêncio |
+| `metaPorRota.test.ts` | store `pages/__tests__` | uma página `lazy` do `App.tsx` sem `usePageMeta(` em **código** — o hook não reverte ao desmontar (`AD-048`), então a página que esquece herda o título da ANTERIOR. **Âncora cravada** (18 páginas) e sensores: a página sem a chamada, a chamada só em comentário (CRLF e LF), e o colhedor achando página nova e ignorando a citada em prosa |
+| `seo.test.ts` · `denoReach.test.ts` | `packages/core/src/seo/__tests__` | a tabela de metadado das rotas fixas divergir de `SITEMAP_STATIC_PATHS` ∪ `NON_INDEXABLE_PATHS` (**bidirecional**, âncora 16); dois títulos fixos iguais; rota desconhecida deixar de **lançar**; a marca sair em dobro (`\| Uma Estrelinha`, `\| UE`); a descrição derivada passar de 160 ou cortar palavra. O segundo caminha o grafo **transitivo** de `core/seo` (que a `product-page` resolve no Deno) e recusa especificador relativo sem `.ts` — `import type` incluso — ou import de pacote |
+| `denoReach.test.ts` (shipping) | `packages/core/src/shipping/__tests__` | `pickup.ts` ganhar um import — relativo sem `.ts` (`import type` incluso) ou de pacote. Três functions o importam por caminho relativo (`checkout`, `melhor-envio`, `send-notification` via `core/notifications` e `core/orders`), e o barrel de `shipping` **não** é alcançável pelo Deno (`estimate.ts` usa alias). Remove comentário depois de normalizar CRLF |
+| `retiradaSemEtiqueta.test.ts` · `melhor-envio/__tests__/handlers.test.ts` | `supabase/functions/_shared/__tests__` e `supabase/functions/melhor-envio/__tests__` | **Desde a rodada 3 da verificação RET-15 é provada por EXECUÇÃO**: `handleCreate` saiu do `index.ts` para `melhor-envio/handlers.ts` (`AD-004`), com o client, a chamada à API (`meFetch`) e o remetente **injetados**, e o teste de unidade alimenta uma linha de retirada e assere `422 pickup_order` **e zero chamadas** ao `meFetch` injetado **e** nenhuma gravação em `orders` — com o **par** dos Correios chegando ao carrinho, para "zero chamadas" não ser verdade num handler que nunca chama nada. A leitura de `orders` do dublê só devolve `shipping_service_id` quando o `select` o pede, então a coluna também é provada executando. As três rodadas anteriores guardavam pela fonte e cada uma achou formas novas que passavam (recusa aninhada noutro `if`, em arrow nunca chamada, `meFetch` com outro nome, helper de módulo antes do portão, `try/finally`, `order` sombreado); execução nenhuma dessas burla. O guarda de fonte **encolheu** para o que o vitest não alcança: o `index.ts` importa `handleCreate` de `./handlers.ts` (com extensão), não declara um próprio, e o `case "create"` o chama com **exatamente** `{ supabase: adminClient(), meFetch, sender: ME_SENDER }` e o `body`; `meFetch` é função do `index.ts` que chama `fetch`; todo import de `handlers.ts` é relativo com `.ts`; e dentro de `handleCreate` o `body` é lido **uma vez**, desestruturando só `order_id` e `service_id` — o que torna genérico o que o teste de corpo hostil (`force`, `debug`, `bypass`…) só amostra. Pela AST, com âncoras e sensores para cada régua |
 | `sitemapRoutes.test.ts` | store `app/__tests__` | rota nova no `App.tsx` que não entrou em `SITEMAP_STATIC_PATHS` nem em `NON_INDEXABLE_PATHS`; entrada classificada que deixou de ser rota. **Bidirecional**, e provado nos dois sentidos |
 | `routes.test.ts` | store `app/__tests__` | `ROUTE_SLUGS`/`LEGACY_REDIRECTS` divergirem das rotas; `legacyRedirectTo` deixar de casar caminho fixo antes de prefixo |
 | `scrollToTop.test.tsx` | idem | o `ScrollToTop` sair do `App.tsx` ou de dentro do `BrowserRouter`; o botão voltar (`POP`) passar a rolar ao topo; mudança só de query string passar a rolar (a busca daria um pulo por tecla); âncora de outra página com alvo existente deixar de ir até ele |
@@ -407,7 +419,7 @@ migrations, e `vercelRedirects` lê o `vercel.json`.
 | `previaUnica.test.ts` | backoffice `features/home-composition` | um segundo desenho da Home, do MENU **ou do CARROSSEL** voltar ao painel; `MenuBarPreview.tsx` reaparecer; um arquivo de `store-menu` importar `menuPanelColumns` ou `resolveMenuBanners` (calcular o desenho do painel da loja **é** o segundo desenho); qualquer dos dois importar de `apps/store`. **Cobre as features `25`, `39`, `41` e `47`**, com âncora dupla e sensor de CRLF/LF. A régua do carrossel é a **mecânica** (`snap-x`, `scroll-snap`, `aria-roledescription="carrossel"`, `setInterval`), não o nome do arquivo — "só uma mini-prévia para conferir a ordem dos banners" é o pedido razoável que traz o defeito de volta. **Desde a `47`** também recusa a tela cheia virando prévia nova: arquivo `…Preview` novo nas duas pastas de UI, um segundo `<iframe>` em qualquer arquivo, ou o palco ramificando por tipo de seção dentro do modo. O sensor **cria um palco sintético em `mkdtemp` e chama a régua de verdade** — simular o que ela devolveria não prova régua nenhuma |
 | `animacaoRespeitaMovimento.test.ts` | backoffice `shared/lib/__tests__` | uma classe de `transition-*` ou `animate-*` sem o par `motion-reduce:` **na mesma linha**, em qualquer dos **nove** arquivos de UI em escopo — os oito que a `50` tocou mais o `ProductSearchField` da `51`, que **entrou na mesma task em que nasceu**, com as âncoras de contagem subidas junto (8/4 → 14/7). A régua é de **token exato** (`(?![-\w])`, `L-034`): `animate-spin` é dispensado — é indicador de progresso, não enfeite, e congelá-lo apagaria o único sinal de que a gravação está em curso —, mas `animate-spinner` e `animate-spin-slow` **são acusados**. **Âncora TRIPLA** (arquivos lidos · tokens de movimento encontrados · pares encontrados) e sete sensores: a classe sem par reprova e com par passa, `hover:` na frente não desculpa, `transition` pelado é acusado, a prosa que explica a regra **não** é (com CRLF **e** com LF), e o par a três linhas de distância não cobre nada. **O escopo é literal e estreito de propósito** — ver a dívida em *Estado conhecido* |
 | `layoutDoCarrossel` (`ProductCarouselLayout.test.tsx`) | store `widgets/product-carousel/ui/__tests__` | as três formas do `ProductCarousel` (`row`, `slider`, `grid`) saírem de mais de um mapa, ou uma delas mudar de classe. `row` é a Home de hoje e é **imóvel** (`HOME-04`); `slider` rola nos dois tamanhos e `grid` embrulha em 2 colunas no celular e 4 a partir de `md`. Régua por **token exato**, com asserção positiva no celular **e** no `md` (`L-029`) — sem as duas, a metade fácil provaria a AC inteira |
-| `toNewItems.test.ts` | backoffice `features/home-composition/model/__tests__` | um campo **de tela** do rascunho (`key`, `product_slug`) chegar ao `insert`. A régua é **igualdade de chaves** com as sete colunas, nunca "contém as sete": uma régua de presença aprova o oitavo campo, que é exatamente o que ela existe para recusar. É o modo de falha do `AD-012` — `PGRST204` em produção, com a curadoria inteira perdida e nada na tela —, invisível para `tsc` (as sete colunas são opcionais), para o `build` e para o teste do editor, que mocka o client |
+| `toNewItems.test.ts` | backoffice `features/home-composition/model/__tests__` | um campo **de tela** do rascunho (`key`, `product_slug`) chegar ao `insert`. A régua é **igualdade de chaves** com as **oito** colunas desde a `64` (`title` entrou; eram sete), nunca "contém as oito": uma régua de presença aprova o oitavo campo, que é exatamente o que ela existe para recusar. É o modo de falha do `AD-012` — `PGRST204` em produção, com a curadoria inteira perdida e nada na tela —, invisível para `tsc` (as sete colunas são opcionais), para o `build` e para o teste do editor, que mocka o client |
 | `buscaDeProdutoComDonoUnico.test.ts` | backoffice `shared/lib/__tests__` | **três réguas, ZERO allowlist** (feature `51`, `AD-036`). (1) qualquer arquivo de `apps/backoffice/src/**` fora de `entities/product/api/**` consultar `products` **filtrando por nome** — e a régua casa **as duas formas**, porque o dono não usa a que a spec presumia: ele monta `` `name.ilike.%…%` `` como **string** para o `.or()`, e a chamada de método que existe no arquivo é sobre `sku`. Uma régua só de método teria nascido **verde sobre nada** (`L-033`). O recorte à esquerda é por token exato, senão `customer_name.ilike.` — a busca de PEDIDO, legítima — cairia junto (`L-034`). (2) a **declaração** da dobra de busca fora de `shared/lib/texto.ts`: a régua **caminha pela cadeia de chamadas** e acusa a que **termina** no acento — o gerador de slug e a normalização de tag continuam depois dele (hífen, espaço) e são outra função, e o sensor prova que um slug que perca a junção por hífen **volta a ser acusado**. (3) o catálogo virando `<option>`/`<SelectItem>` fora de `entities/product/**`; **o alcance desta terceira é o NOME da variável, e isso está declarado no arquivo** — uma régua puramente estrutural acusaria as doze listas de categoria do painel, que têm a forma idêntica. **Âncora dupla**, com a terceira ancorada no extrator de JSX (o dono é `<ul>` de `<li>` por `BUS-17`, então não há ocorrência legítima nele — fingir uma seria âncora falsa), e **treze sensores**, incluindo o glob de dois asteriscos (`BL-027`), o CRLF, o LF, e os inversos que provam que a busca de pedido, o gerador de slug e as listas de categoria **não** são acusados |
 | `navItems.test.ts` | backoffice `widgets/admin-layout` | ordem das rotas em `App.tsx` divergir de `navGroups` |
 | `settingsSections.test.ts` | backoffice `shared/lib/__tests__` | o registro das 4 seções de Configurações mudar de ordem, ganhar slug fora de kebab-case, ou `findSettingsSection` deixar de devolver `null` para slug inexistente, vazio e ausente — é lá que `CFG-18` mora, num lugar só. Também recusa duas descrições iguais (duas linhas do rail indistinguíveis abaixo do rótulo) e uma cópia no lugar da referência do registro |
@@ -432,7 +444,8 @@ migrations, e `vercelRedirects` lê o `vercel.json`.
 | `purity.test.ts` | idem | um arquivo de `core/shopping` importar React, Supabase ou Deno |
 | `urls.test.ts` · `render.test.ts` | `packages/core/src/sitemap/__tests__` | produto fora de `/produtos/:slug`; subcategoria em um segmento; `<loc>` relativa, com barra final ou com query; forma legada presente; `changefreq`/`priority` voltarem; o escape sair na ordem errada. Carrega **sensor embutido**: assere que um gerador ingênuo (`'/' + slug`) **reprova** na mesma régua |
 | `readAll.test.ts` | `packages/core/src/paging/__tests__` | leitura truncada aceita; total lido divergir da contagem e passar; página vazia não interromper o laço |
-| `catalog.test.ts` · `defaults.test.ts` | `packages/core/src/home/__tests__` | um arquivo de `core/home` importar React ou Supabase; a varredura render menos de 9 arquivos; a semente divergir do que a loja desenha |
+| `catalog.test.ts` · `defaults.test.ts` | `packages/core/src/home/__tests__` | um arquivo de `core/home` importar React ou Supabase; a varredura render menos de 10 arquivos; a semente divergir do que a loja desenha. **Invertido na `64`**: nenhum tipo está mais "em breve" (`COMING_SOON` vazio) e os onze tipos prontos são listados por extenso — ao lado dele, `HomeRenderer.test.tsx` (store) passou a exigir componente para **todo** tipo do registro e `HomeBlockTray.test.tsx` (backoffice) a oferecer "Lista de categorias" habilitada |
+| `categoryListSchema.test.ts` | store `shared/lib/__tests__` (lê a migration da `64`) | `home_section_items.title` sem `add column if not exists`; o número do `check` divergir de `CATEGORY_LIST_ITEM_TITLE_MAX` (**importado** de `@estrelinha/core/home` — a tela recusaria o que o banco aceita, ou o contrário); `grant` alcançar `anon`; a migration escrever dado. **Âncora dupla** (arquivo lido e número extraído) e `mutar()` que **lança** sem alvo, com um sensor por asserção |
 | `orderList.test.ts` | backoffice `features/order-list/model` | o "limpar filtros" voltar a ignorar um eixo; a busca perder uma das cinco colunas; `Precisa de ação` deixar de ser a união dos três acionáveis ou passar a incluir o Pix; o lote de material abortar na primeira recusa, ou parar de separar RECUSA de FALHA; o teto de 50 sumir; a cobrança por WhatsApp ganhar urgência fabricada ou passar a nomear o material (`BL-015`) |
 | `orderDetail.test.ts` | backoffice `features/order-detail/model` | o histórico deixar de fundir os três fios ou de ordenar por tempo; e-mail que falhou parar de dizer que a cliente não soube; o "próximo passo" bloquear em vez de explicar; `delivered`/`cancelled` deixarem de ser fim de linha |
 | `pickSlip.test.ts` | backoffice `features/pick-slip` | a folha perder itens, gravação, material esperado ou endereço; o conteúdo deixar de ser escapado; a folha voltar a carregar CSS do painel; o lote parar de gerar uma folha por pedido |
@@ -464,7 +477,106 @@ quando mudarem de verdade.
 | --- | --- | --- |
 | **Lint** | **26 erros / 7 warnings** — backoffice 24/5 · store 2/2 | `pnpm lint` |
 | **Tipos** | **0 · 0 · 0** (store · backoffice · catalog-import) | `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` |
-| **Testes** | **11760 em 593 arquivos** — store **4559/270** · backoffice **3119/173** · core **2662/109** · functions **908/18** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
+| **Testes** | **12226 em 611 arquivos** — store **4732/275** · backoffice **3202/176** · core **2806/115** · functions **974/22** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
+
+**A feature `64` (lista de categorias na Home) somou +166 em TRÊS workspaces**, medidos em
+2026-10-12 um por vez, exit code fora de pipe e `--testTimeout=20000` nos dois apps, **contra a
+entrada** (core 2757/114 · store 4672/273 · backoffice 3145/174, que bate a linha anterior desta tabela;
+core medido com a árvore parada, store e backoffice descontando os casos que o próprio lote 1 já
+tinha escrito quando a medição correu): **core +49/+1** (`categoryList.ts`, `ordinalF`, a resolução por tipo e o catálogo
+invertido), **store +60/+2** (o guarda `categoryListSchema`, o widget `category-list` com as setas, o
+`title` na leitura e o `HomeRenderer` invertido) e **backoffice +57/+2** (o editor, a recusa pelo
+`HomeSectionEditor` real, o rascunho de oito colunas, a bandeja invertida e o resumo da linha).
+Functions e catalog-import não foram tocados e foram remedidos — idênticos. Lint **26/7**, tipos
+**0 · 0**, `pnpm build` verde, `packages/core/src/payment/**` com **zero** arquivos alterados. Uma
+migration (`20261012120000_64-lista-de-categorias.sql`), sem escrita de dado.
+
+> **A prova em navegador achou um defeito de layout que a suíte inteira aprovava**, e ele custou
+> **+1** no store: com o `<ul>` em 100% do rolador, o recuo final ficava fora da área rolável — em
+> 1440 com 8 itens a seta "Próximas" rolava **8px**, e em 390 o último círculo encostava na borda.
+> jsdom devolve 0 para toda medida de layout, então os 33 casos do widget passavam. O teste novo
+> exige `w-max min-w-full` e reprovou antes do conserto; o número de verdade foi remedido no bundle
+> servido (56px em 1440, 16px de recuo em 390).
+
+> **A-14 provada, não suposta**: a arte circular transparente (PNG RGBA) passa pelo canvas do painel,
+> vira WebP no Storage e chega à loja com **alfa 0 nos cantos** — no objeto gravado e nas rendições
+> de 104 e 208, decodificadas no navegador. O `title` foi provado gravando **pelo painel**, não só
+> pelo probe HTTP: o `curateSection` lista as colunas à mão (`AD-012`).
+
+> **A verificação independente APROVOU, com 42 mutantes nos arquivos reais: 41 mortos por asserção,
+> 0 por compilação, 1 sobrevivente** — e o sobrevivente é a lição de sempre: o comentário de
+> `categoryListRefusal` afirmava que contar o título CRU (como o `check` do banco) era necessário, e
+> trocar por `.trim().length` deixava a suíte verde, porque nenhum caso tinha espaço no fim. As
+> lacunas que ela ranqueou viraram **+5 casos** (o título com espaço final, a tipografia do título e
+> do rótulo no celular e no `md`, o `accept` do upload e a coleção **desativada** pulada também na
+> loja), cada um provado por mutante reinjetado — 5 mortos por asserção. A precedência título >
+> `alt` > nome, que vem do `design.md` e não da letra da spec, virou `SPEC_DEVIATION` declarado na
+> `LCT-02`.
+
+**A feature `63` (retirada no escritório) somou +161 em QUATRO workspaces**, medidos em 2026-10-11
+um por vez, exit code fora de pipe e `--testTimeout=20000` nos dois apps, **contra a entrada medida
+com a árvore parada** (core 2704/112 · store 4605/271 · backoffice 3119/173 · functions 923/19 ·
+catalog-import 512/23 = 11863/598): **core +51/+2** (`pickup.ts`, o `denoReach` de `shipping`, a
+pré-condição, a jornada e o selo), **store +56/+2** (`entities/pickup`, calculadora, checkout, payload,
+pedido, resumo), **backoffice +26/+1** (o interruptor, a página do pedido de retirada com o
+`MelhorEnvioTab` real, o próximo passo) e **functions +28/+1** (a recusa da retirada forjada no
+`checkout`, o guarda `retiradaSemEtiqueta`, o e-mail de retirada pelo render **e** pelo motor).
+Catalog-import não foi tocado e foi remedido. Lint **26/7**, tipos **0 · 0 · 0**, `pnpm build` verde,
+`packages/core/src/payment/**` com **zero** arquivos alterados. Decisão `AD-049`.
+
+> **A verificação independente da `63` REPROVOU a rodada 1 por cobertura (7 mutantes sobreviventes
+> em 45, nenhum defeito de produto), e o conserto somou +23** — medidos em 2026-10-11 um workspace por
+> vez: **store 4661 → 4671** (+10: a pré-seleção com a cotação chegando DEPOIS da configuração, os
+> dois grupos nomeados, o cupom de frete grátis com a retirada, e o `422 pickup_unavailable` pela
+> página real e pelo hook), **core 2755 → 2757** (`enabled` ausente ou nulo não liga) e **functions
+> 951/20 → 962/21** (a prévia de e-mail de um pedido de retirada com `order_id`, e a recusa da
+> `melhor-envio` extraída para `melhor-envio/pickupGate.ts`, puro e com teste de unidade, com o
+> guarda de fonte passando a medir a FIAÇÃO — a linha inteira chega ao portão e o `if` decide só por
+> ele). Os 7 sobreviventes foram reinjetados nos arquivos reais e morreram por asserção. **O conserto
+> também mudou comportamento**: a recusa da retirada pelo servidor deixou de cair no toast genérico
+> ("Tente novamente", que nunca passaria) e passou a desfazer a escolha, reabrir o bloco Entrega e
+> pedir outra forma de envio. Backoffice e catalog-import remedidos, idênticos; lint 26/7; tipos 0 · 0.
+
+> **A rodada 2 da verificação REPROVOU de novo por cobertura (28 mutantes, 7 sobreviventes, nenhum
+> defeito de produto), e o conserto somou +8**: **functions 962 → 969** e **store 4671 → 4672**. O
+> achado é a lição da `48` repetida: extrair a decisão para `pickupGate.ts` **moveu** o ônus de
+> RET-15 para o guarda de fonte, e ele aceitava a recusa montada **sem `return`**, o resultado em
+> `let` reatribuído antes do `if`, e a API chamada por `globalThis.fetch` — três formas que ainda
+> comprariam a etiqueta. RET-12 só era provada **sem sessão**. Os 7 reinjetados nos arquivos reais
+> morreram por asserção; nenhum código de produto mudou. Medido um workspace por vez: core, backoffice
+> e catalog-import idênticos; lint 26/7; tipos 0 · 0; `payment/**` intocado.
+
+> **A rodada 3 REPROVOU por cobertura só no guarda de RET-15 (7 formas novas, G01–G07), e o
+> conserto foi de FORMA, não de régua: `handleCreate` virou `melhor-envio/handlers.ts` (`AD-004`).**
+> functions **969/21 → 974/22**: `+10` no teste de unidade do handler, `−5` no guarda de fonte, que
+> encolheu de 18 para 13 casos porque o que ele tentava enumerar agora é medido executando. Os 7
+> sobreviventes (G01–G07), mais N01, N07, F05, F06, a leitura sem a coluna e dois mutantes da fiação
+> do `index.ts`, foram reinjetados nos arquivos reais (SHA-256 conferido na restauração): **14 mortos
+> por asserção, zero por compilação**. Comportamento dos pedidos dos Correios idêntico (mesmas
+> chamadas, mesma ordem, mesmos corpos, mesma gravação — pinados no teste). Boot local conferido:
+> `create` sem header 401, `create` de admin com pedido inexistente 404 vindo do handler novo,
+> `quote` 200 com PAC e SEDEX. Os outros quatro workspaces remedidos, idênticos.
+
+> **A linha anterior desta tabela estava velha em core (+42/+3) e store (+46/+1)** quando a `63`
+> abriu — o trabalho da `62` não tinha sido remedido aqui. O delta acima é contra a entrada medida.
+
+> **PROVA EM NAVEGADOR da `63`** (2026-10-11, Chromium, dev server em :8082, **Supabase local de pé**,
+> cotação real do Melhor Envio, com rodadas extras interceptadas para dois serviços e para a falha):
+> RET-01..11 e RET-19 passam em **390×844 e 1440×900**. Zero rolagem horizontal; a linha do
+> escritório embrulha dentro da caixa (3 linhas em 390, 2 em 1440); a retirada nunca é
+> pré-selecionada; trocar para CEP de SP desfaz a escolha; RET-04 com a cotação em 500 mostra a
+> retirada. **Pedido real gravado** (`0181`, convidada, PIX): `shipping_service_id = 'retirada'`,
+> custo 0, sem datas de transportadora, total = itens − desconto PIX — e depois **apagado** do banco
+> local. Fora da `63`: o `mercado-pago` local responde **503 BOOT_ERROR** (`Failed resolving types`
+> em `core/pricing/index.ts`, o `import type` de `@estrelinha/supabase/types` — arquivos não tocados
+> aqui), e a página do produto mostra "Últimas unidades — apenas 3 restantes", que este arquivo
+> proíbe.
+
+> **Medição anterior, sem Verifier e sem prova em navegador.** 31 mutações nas
+> fases 3–4 (T07–T13), 33 execuções (duas medidas também na suíte do consumidor), reinjetados nos arquivos reais com restauração conferida byte a byte: **33
+> mortes por asserção, zero por compilação, zero sobreviventes** — autor = verificador, então isso
+> reduz o viés e não o elimina. Na medição do lote, a suíte de `core` reprovou **1 caso por
+> `Test timed out in 5000ms`** (`menu.test.ts`, varredura de disco) e passou inteira remedida sozinha.
 
 **A feature `61` (Google Analytics 4 na loja) somou +559 em QUATRO workspaces**, medidos em
 2026-10-06 um por vez, exit code fora de pipe e `--testTimeout=20000` nos dois apps: **store
@@ -2083,6 +2195,22 @@ completo (framework, `installCommand` na raiz do monorepo, headers de cache e de
 
 ## Estado conhecido / dívidas
 
+- **A `64` (lista de categorias) TEM prova no banco local, em navegador e verificação independente
+  (PASS, 42 mutantes).** A prova achou um defeito e ele foi consertado na mesma tarefa (o recuo final do
+  rolador fora da área rolável — `apps/store/CLAUDE.md`). O que ficou fora da medição: o arrasto
+  com o dedo em 390 (medido só o `scroll-snap-type`), leitor de tela, LCP em Slow 4G, o aviso de
+  proporção e a falha de envio em navegador, e o painel em 390. Dívidas declaradas pela feature:
+  - **O `cruzar` de quatro estados do `CategoryListEditor` é cópia do de `CollectionRowsEditor`**
+    (`design-r2` R3). Dois editores dizendo "a coleção saiu do ar" com duas escritas divergem sem
+    nada quebrar.
+  - **O arrasto `soltar` ganhou a SEXTA cópia** no painel. Cada editor de lista reordena à mão.
+  - **`config.limit` corta qualquer tipo** em `resolveHomeSections`, e a `64` (como a `50`) não o
+    usa: o teto é recusa. Uma escrita direta de `limit` num `category_grid` cortaria a fileira sem a
+    dona ver o porquê.
+  - **`widgets/category-grid` está morto no repositório** e tem o nome do tipo que agora é desenhado
+    por `widgets/category-list`.
+  - **`ProductPicker.tsx` foi tocado fora do *Where* planejado** (`title: null` no item de peça) —
+    sem isso o `tsc` do painel recusava.
 - **A `59` TEM prova em navegador e verificação independente (rodada 2 PASS).** O que ficou fora:
   - **`MAT-05` de ponta a ponta não foi caminhado em navegador** (enviar o código e ver a pendência
     sumir). A releitura está provada pelo estado do cache; o percurso, não.
@@ -2557,6 +2685,8 @@ código — mas todas explicam por que uma tela parece vazia:
 | O banner de campanha | `/admin/home`, bloco **Banner principal** | a `41` **não semeia nenhum** ⇒ a Home abre com a "Chamada principal" de sempre. O bloco existe na bandeja e espera arte, destino e o interruptor |
 | Perguntas frequentes | `/admin/perguntas` e a aba `Perguntas` do produto | a `28` semeou 67 entradas e 3.475 vínculos das descrições |
 | **As peças em destaque** | `/admin/home`, bloco **Produtos em destaque** | a `50` **não semeia nada** ⇒ o bloco nem existe na Home. Ele espera ser acrescentado pela bandeja, ganhar título, receber as peças (até 12, na ordem dela), a escolha Slider/Grade e o interruptor |
+| **A lista de categorias** | `/admin/home`, bloco **Lista de categorias** | a `64` **não semeia nada** ⇒ o bloco nem existe na Home. Ele espera ser acrescentado pela bandeja, receber as categorias (até 24) — cada uma com a **arte circular em PNG de cantos transparentes**, a coleção de destino e, se quiser, um título curto —, e o interruptor. Nasce desligado, como todo bloco novo |
 | **Quem mais entra no painel** | `/admin/usuarios` | a `48` **não semeia conta nenhuma** ⇒ a lista mostra só a do `seed.sql`. Enquanto for uma linha, o painel segue com um ponto único de falha humano — e o próprio guarda do banco recusa remover o último acesso |
 | **Os 11 avisos novos de e-mail** | `/admin/configuracoes` → aba **Notificações** | a `53` tornou os 15 eventos legíveis, editáveis e com prévia — mas **não ligou nenhum**: os 11 novos nascem desligados por decisão da `42` (`PNL-06`), e a Adri precisa ler o texto de cada um antes da primeira cliente recebê-lo. Duas pendências ficam de fora desta tela e são operação, não curadoria: o **endereço do ateliê** (aba Material — sem ele, `material_instructions` é recusado ao tentar ligar) e o **`ADMIN_PUBLIC_URL` de produção** (secret de servidor — sem ele, os dois avisos "para você" mostram o aviso de link fora de produção) |
+| **O endereço do escritório (retirada)** | `/admin/configuracoes` → **Frete e Material**, card Material | medido em 2026-10-11: o banco de **produção não tem a linha `material`** em `store_settings`. A retirada (feature `63`) nasce **ligada**, mas só aparece com rua, bairro e cidade preenchidos — até lá nenhuma cliente do RS a vê, e o painel avisa (`RET-21`). Preencher também a **UF**: sem ela a linha sai `…, Porto Alegre` sem o `/RS` |
 | **As parcelas sem juros** | painel do **Mercado Pago** → "Oferecer parcelamento sem juros", e `/admin/configuracoes` → Vendas → *Parcelas sem juros*, **com o mesmo número** | medido em 2026-10-04: a conta do Mercado Pago **não tem nenhuma** parcela sem juros (2x já a 9,64%), e a loja anuncia "até 4x sem juros" na vitrine e no produto. Desde 2026-10-04 o caixa mostra a tabela real do Mercado Pago (`InstallmentPicker`, até 10x) — então, até a conta ser configurada, **o caixa mostra juros desde 2x enquanto a vitrine promete sem juros**. Nada no código sincroniza os dois números (`apps/store/CLAUDE.md`, *As parcelas do cartão*) |

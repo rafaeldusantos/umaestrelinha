@@ -39,7 +39,7 @@ sem ela a varredura passa com zero arquivo lido, que é a pior falha possível n
 | `./pricing` · `./formatters` | formatação e conta de exibição | os dois apps |
 | `./routes` | `ROUTE_SLUGS`, `RESERVED_SLUGS`, `LEGACY_REDIRECTS`, `productPath`, `MATERIAL_GUIDE_PATH` | router da loja, `vercel.json`, cadastro do painel |
 | `./menu` | `menuItems`, `menuPanelColumns`, `resolveMenuTarget`/`menuTargetRefusal`, `resolveMenuBanners`, `MENU_ICON_KEYS`, `descendantIds`, `bySortOrder`, `categoryHref`, o canal `preview.ts` | 4 superfícies nos 2 apps |
-| `./home` | catálogo de blocos, `DEFAULT_HOME_COMPOSITION`, `derive.ts`, `preview.ts`, `carousel.ts`, **`featured.ts`** | loja, painel |
+| `./home` | catálogo de blocos, `DEFAULT_HOME_COMPOSITION`, `derive.ts`, `preview.ts`, `carousel.ts`, `featured.ts`, **`categoryList.ts`** | loja, painel |
 | `./faq` | `resolveProductFaqs`, `faqOverrideOf`, `rankFaqSuggestions`, `block.ts` | loja, painel, importador |
 | `./material` | máquina de estado, `requiresMaterial()`, `materialSummary` | loja, painel, RPC (cópia em SQL) |
 | `./shopping` | `ShoppingOffer` e as duas serializações | `google-feed`, `product-page`, loja, painel |
@@ -244,6 +244,26 @@ empatou em `sort_order = 0`.
   `COMING_SOON`, que ficou só com `category_grid`, e o `label` passou a ser
   `'Produtos em destaque'` — o identificador é **coluna**, o rótulo é interface. A âncora de contagem
   da varredura de pureza subiu de **9 para 10** arquivos (`L-021`) com a chegada do `featured.ts`.
+- **`categoryList.ts` é o dono do bloco "Lista de categorias"** (feature `64`, tipo `category_grid`):
+  `CATEGORY_LIST_MAX_ITEMS` (**24**), `CATEGORY_LIST_ITEM_TITLE_MAX` (**28**, o par do `check` da
+  migration — `categoryListSchema.test.ts`, na suíte da loja, lê o `.sql` e compara),
+  `CATEGORY_LIST_TITLE_MAX` (60), `CATEGORY_LIST_ART` (800×800), e três funções:
+  - `categoryListLabel(item, nome)` — **título aparado > `alt` > nome ao vivo da coleção**. É o dono
+    único do rótulo: a loja o recebe já resolvido e o painel o chama para a linha fechada do editor.
+  - `categoryListItem(item, resolved)` — aplicada **dentro** de `resolveHomeSections`, só para
+    seções `category_grid`, por isso os dois `resolveItem` (loja e painel) não mudaram. Destino que
+    não é coleção ⇒ `null` (conta em `droppedCount`); a arte vem **só** de `image_url` do item,
+    **nunca** do `banner_url` da coleção.
+  - `categoryListRefusal(config, items)` — `string | null`, com as cobranças **em ordem**: título da
+    seção → teto → por item, sem imagem → sem coleção → título longo, com o ordinal **feminino**
+    ("A 3ª categoria está sem imagem."). O comprimento é contado **sem aparar**, como o
+    `char_length` do banco — aparar deixaria a tela aceitar o que o banco recusa.
+  - **O teto é RECUSA, não `config.limit`** — pela mesma razão do `featured.ts`.
+  - `ordinalF` nasceu em `carousel.ts` ao lado de `ordinal`, e o `sectionRefusals.ts` do painel
+    **reexporta** o de `core` (`toBe`, identidade).
+- **`COMING_SOON` ficou VAZIO na `64`**: `category_grid` era o último tipo "em breve". O caso de
+  `catalog.test.ts` que dizia "a grade de coleções é o ÚNICO `comingSoon`" foi **invertido** para
+  "nenhum tipo está em breve", e a lista dos prontos passou a conter os onze, por extenso.
 
 ## `checkout/identity.ts` — quem está fechando o pedido (feature `49`, `AD-035`)
 

@@ -1169,9 +1169,114 @@
 - **Date**: 2026-10-05
 - **Status**: active
 
+### AD-048
+- **Decision**: **O `<head>` de cada rota tem UM dono, `@estrelinha/core/seo`, lido por dois
+  escritores**: o hook `usePageMeta` da loja (navegação) e a edge function `product-page` (HTML
+  servido de `/produtos/:slug`). O hook **não reverte ao desmontar** — a próxima página sobrescreve —,
+  e a contrapartida é o guarda `metaPorRota.test.ts`, que exige a chamada em toda página `lazy` do
+  `App.tsx`. O `page_view` do GA4 sai quando a página **declara** o metadado (`declarePageMeta`),
+  com prazo de 3 s; página substituída por `REPLACE` antes de declarar não é medida.
+- **Reason**: feature `62`. 17 de 18 páginas herdavam o `<title>` do `index.html`, e todo
+  `page_view` saía com o mesmo título. Reverter ao desmontar produziria uma troca intermediária de
+  título entre duas rotas, e o `page_view` a mediria; observar o `<title>` (o desenho da `61`)
+  disparava na primeira troca e esperava só 500 ms, menos que a leitura de um produto.
+- **Trade-off**: rota nova que esquecer o hook herda o título da ANTERIOR (pior que o genérico) —
+  por isso o guarda é obrigatório, não opcional. Home, categoria e institucionais continuam servindo o
+  `<head>` genérico a quem não executa JavaScript (o transporte é `BL-017`/A1 da `36`).
+- **Scope**: `packages/core/src/seo/**`, `apps/store/src/shared/lib/{usePageMeta,pageMeta}.ts`,
+  `apps/store/src/app/PageViewTracker.tsx`, `supabase/functions/product-page/**`
+- **Date**: 2026-10-06
+- **Status**: active
+
+### AD-049
+- **Decision**: **A retirada no escritório tem UM dono, `packages/core/src/shipping/pickup.ts`, e
+  é uma SEGUNDA origem de opção de frete, fora da cotação.** O arquivo não importa nada (as edge
+  functions o importam por caminho relativo com `.ts`; o barrel de `shipping` não é alcançável pelo
+  Deno) e responde as três perguntas: "o CEP é do RS?" (`isRsCep`, faixa `90000-000`…`99999-999`),
+  "a retirada está disponível?" (`pickupAvailable`/`pickupRefusal`: interruptor **e** endereço do
+  Material com rua, bairro e cidade **e** CEP do RS, e no servidor custo exatamente `0`) e "este
+  pedido é de retirada?" (`isPickupOrder`). **A identidade do pedido é
+  `orders.shipping_service_id = 'retirada'`** — coluna `text` que já existia; os ids do Melhor Envio
+  são numéricos e não colidem. A linha do escritório (`pickupLocation`) nunca escreve número nem
+  complemento.
+- **Reason**: feature `63`. Quatro superfícies da loja (calculadora, checkout, confirmação/conta) e
+  três servidores (`checkout`, `melhor-envio`, `send-notification`), mais o painel, fazem a mesma
+  pergunta — escrita em cada um, a loja ofereceria a retirada que o servidor recusa, ou o e-mail
+  diria "postamos" de uma peça que a cliente busca no balcão. A retirada fora de `ShippingQuote`
+  deixa intocados o filtro `> 0`, o `cheapestQuoteId`, o fallback SHP-05 e o frete grátis por valor
+  (RET-08 por construção).
+- **Trade-off**: o endereço do escritório NÃO é gravado no pedido — telas e e-mails o leem da
+  configuração **atual** (`store_settings.material`). Mudar o endereço do Material muda o que pedidos
+  antigos de retirada mostram. O servidor continua confiando em `shipping_cost` para PAC/SEDEX
+  (dívida anterior); esta decisão fecha só o caso da retirada.
+- **Scope**: `packages/core/src/shipping/pickup.ts`, `apps/store/src/entities/pickup/**`,
+  `supabase/functions/{checkout,melhor-envio,send-notification}/**`,
+  `packages/core/src/{notifications/precondition.ts,orders/journey.ts,orders/situation.ts}`,
+  backoffice `AdminOrderPage`/`MelhorEnvioTab`/`nextStep`/`ShippingMaterialSection`
+- **Date**: 2026-10-11
+- **Status**: active
+
 ## Handoff
 
-### ATUAL — 2026-10-06 · `61-google-analytics` **IMPLEMENTADA — 26 de 26 tasks, Verifier PASS (rodada 3)**
+### ATUAL — 2026-10-12 · `64-lista-de-categorias-na-home` **IMPLEMENTADA — 17 de 17 tasks, SEM VERIFIER E SEM COMMIT**
+
+- **Feature**: `.specs/features/64-lista-de-categorias-na-home/` (`spec.md`, `design.md` r2,
+  `tasks.md`, `validation.md` com a seção do autor, `reviews/`). Tipo `category_grid` que já existia,
+  rótulo "Lista de categorias"; coluna `home_section_items.title` (≤ 28) na migration
+  `20261012120000_64-lista-de-categorias.sql`; regra em `core/home/categoryList.ts` aplicada dentro
+  de `resolveHomeSections`; widget `widgets/category-list`; editor `CategoryListEditor`.
+- **NÃO COMMITADA**: os commits só saem quando o usuário pedir (regra do projeto e do orquestrador).
+  A árvore tem a `63` e trabalho de outras sessões misturados — commitar exige separar por arquivo.
+- **Provado**: probe HTTP no banco local (28 ⇒ 201, 29 ⇒ `23514`, `anon` lê `title`; migration
+  aplicada com `migration up`, reaplicada sem erro) e navegador em 390×844 e 1440×900 com dado real
+  gravado **pelo painel**: A-14 (alfa 0 nos cantos no objeto e nas rendições), a prévia que muda sem
+  recarregar o iframe, contagens de círculos, setas por estado, rótulo de 28 em duas linhas, LCP
+  (o círculo nunca é o LCP). Registro em `validation.md`.
+- **Defeito achado pela prova e consertado**: o recuo final do rolador ficava fora da área rolável
+  (8px de rolagem em 1440 com 8 itens) — `<ul>` com `w-max min-w-full`, com teste que reprovou antes.
+- **Desvio declarado**: `ProductPicker.tsx` ganhou `title: null` fora do *Where* da T10.
+- **Verificação independente: PASS** — 42 mutantes nos arquivos reais, 41 mortos por asserção. O
+  sobrevivente (título contado com `.trim()`) e as lacunas de cobertura (tipografia, `accept`, coleção
+  desativada na loja) foram fechados por +5 casos, cada um provado por mutante; a precedência
+  título > `alt` > nome virou `SPEC_DEVIATION` declarado na `LCT-02`.
+- **Pendente, nesta ordem**: (1) commit quando o usuário pedir; (2) a migration sai no `db push` do
+  deploy; (3) a dona monta o bloco (nasce inexistente).
+- **Medido em 2026-10-12**: **12226 em 611** (store 4732/275, backoffice 3202/176, core 2806/115,
+  functions 974/22, catalog-import 512/23). Lint 26/7, tipos 0 · 0, build verde, `payment/**`
+  intacto. O banco local ficou como estava, exceto pela migration aplicada.
+- **Próximo número de feature**: `65`.
+
+### 2026-10-11 · `63-retirada-no-escritorio` **IMPLEMENTADA — 14 de 14 tasks, SEM COMMIT**
+
+- **Feature**: `.specs/features/63-retirada-no-escritorio/` (`spec.md`, `design.md`, `tasks.md`).
+  Decisão: **`AD-049`** (dono único da retirada em `core/shipping/pickup.ts`; identidade
+  `shipping_service_id = 'retirada'`; a retirada é uma segunda origem de opção, fora da cotação).
+- **NÃO COMMITADA**: os commits só saem quando o usuário pedir (regra do projeto e memória). A árvore
+  tem mudanças de outra sessão misturadas — commitar exige separar por arquivo.
+- **Pendente, nesta ordem**: (1) **Verifier independente** (autor ≠ verificador) — as 31 mutações
+  das fases 3–4 foram do autor; (2) **prova em navegador** em 390×844 e 1440: página do produto e
+  checkout com CEP `91240-010` (retirada aparece, pedido fecha com frete R$ 0,00) e `01310-100` (não
+  aparece), o painel com um pedido de retirada (sem etiqueta, "Marcar como retirado"), e a
+  confirmação; (3) `deno check` das três functions tocadas (Deno não está instalado nesta máquina);
+  (4) a migration `20261011120000_63-retirada.sql` sai no `db push` do deploy.
+- **O que mudou** (fases 3–5): `checkout/handlers.ts` (422 `pickup_unavailable`, sem escrita);
+  `melhor-envio/index.ts` (422 `pickup_order` antes da API) + guarda `retiradaSemEtiqueta.test.ts`;
+  painel: interruptor e aviso em Frete e Material, `AdminOrderPage` (bloco de retirada, sem rastreio
+  de saída), `MelhorEnvioTab` (sem cotar/gerar), `nextStep` (`separating → delivered`, "Marcar como
+  retirado"); `core/notifications/precondition.ts` (`order_shipped` ⇒ `pickup_order`);
+  `send-notification` (coluna no select, bloco "Retirada" no HTML e no texto); `core/orders`
+  (`journey` sem "A caminho", última etapa "Retirado no escritório"; selo "Retirado"); loja:
+  `OrderPaymentDelivery`, `usePickupLocation`, `OrderSummary` sem "Frete · Uma Estrelinha".
+- **Desvios declarados**: o rastreio de saída some do cartão Entrega para retirada (a spec não pede;
+  sem isso "Salvar rastreio" levaria a retirada a `shipped`); o selo `Retirado` em `situation.ts`
+  (vem da assunção da spec, não de uma AC); o endereço do escritório é lido da configuração atual,
+  não gravado no pedido.
+- **Medido em 2026-10-11**: **12024 em 604** (store 4661/273, backoffice 3145/174, core 2755/114,
+  functions 951/20, catalog-import 512/23). Lint 26/7, tipos 0 · 0 · 0, build verde, `payment/**`
+  intacto.
+- **Próximo número de feature**: `64`.
+
+### 2026-10-06 · `61-google-analytics` **IMPLEMENTADA — 26 de 26 tasks, Verifier PASS (rodada 3)**
 
 - **Feature**: `.specs/features/61-google-analytics/` (`spec.md`, `context.md`, `design.md`,
   `tasks.md`, `validation.md`). Decisões: **`AD-046`** (tela de integração com ≤ 3 seções desenha o
