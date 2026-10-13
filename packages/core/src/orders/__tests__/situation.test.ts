@@ -288,3 +288,23 @@ describe('formatShortDate — "8 out", sem ponto', () => {
     expect(formatShortDate('não é data')).toBeNull()
   })
 })
+
+describe('orderSituation — retirada no escritório (RET-19, feature 63)', () => {
+  it('retirada entregue: a chave e o tom são os de `delivered`, e o rótulo é "Retirado"', () => {
+    expect(orderSituation({ ...base, status: 'delivered', shipping_service_id: 'retirada' })).toEqual({
+      key: 'delivered',
+      label: 'Retirado',
+      tone: 'done',
+    })
+  })
+
+  it('o par: o mesmo pedido pelos Correios continua "Entregue"', () => {
+    expect(orderSituation({ ...base, status: 'delivered', shipping_service_id: '1' }).label).toBe('Entregue')
+  })
+
+  it('a retirada não muda os outros selos — em produção continua "Em produção"', () => {
+    expect(
+      orderSituation({ ...base, payment_status: 'approved', status: 'separating', shipping_service_id: 'retirada' }).label,
+    ).toBe('Em produção')
+  })
+})

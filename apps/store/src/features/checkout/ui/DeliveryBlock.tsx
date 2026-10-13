@@ -10,15 +10,27 @@
 //
 // Zero preço e zero prazo literais aqui: preço vem da cotação (ou de `default_shipping_cost`)
 // e a data vem de `formatEstimate`. Nenhum `bg-estrelinha-primary` — a única pílula geleia é o CTA.
-import { useEffect, useMemo, useRef } from 'react'
-import { AlertTriangle, Truck } from 'lucide-react'
+//
+// Feature 63 — a retirada no escritório (RET-06..11). Ela NÃO entra em `options`: é uma segunda
+// origem de opção, para CEP do RS, mantida à parte. Assim a pré-seleção, a "mais barata" e o frete
+// grátis por valor (SHP-05, SHP-06, ADR-02) não a enxergam — RET-08 por construção.
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { AlertTriangle, MapPin, Truck } from 'lucide-react'
 import { trackShippingInfo } from '../model/checkoutAnalytics'
 import { Button } from '@estrelinha/ui/button'
 import { Input } from '@estrelinha/ui/input'
 import { Label } from '@estrelinha/ui/label'
 import { formatPrice } from '@estrelinha/core/formatters'
 import { maskCep, stripCep } from '@estrelinha/core/validators'
-import { cheapestQuoteId, formatEstimate, quoteToEstimate } from '@estrelinha/core/shipping'
+import {
+  PICKUP_CARRIER,
+  PICKUP_METHOD_NAME,
+  PICKUP_SERVICE_ID,
+  cheapestQuoteId,
+  formatEstimate,
+  isRsCep,
+  quoteToEstimate,
+} from '@estrelinha/core/shipping'
 import { useShippingSettings } from '@estrelinha/core/hooks/useStoreSettings'
 import { useFreeShipping } from '@estrelinha/core/hooks/useFreeShipping'
 import { useAuthContext } from '@estrelinha/auth'
@@ -26,6 +38,7 @@ import type { ShippingDraft } from '@estrelinha/core/checkout'
 import { useCartStore } from '@/entities/cart'
 import { useCouponStore } from '@/entities/coupon'
 import { useDefaultAddress } from '@/entities/address'
+import { usePickupOptionState, type PickupOption } from '@/entities/pickup'
 import { useCepLookup } from '../api/useCepLookup'
 import { useShippingQuote } from '../api/useShippingQuote'
 import { useCheckoutStore } from '../model/checkoutStore'
@@ -87,6 +100,49 @@ const toDraft = ({
   ...draft
 }: DeliveryOption): ShippingDraft => draft
 
+/** O rascunho da retirada — é o que entra no pedido (RET-07). Sem datas: não há transportadora. */
+const PICKUP_DRAFT: ShippingDraft = {
+  serviceId: PICKUP_SERVICE_ID,
+  serviceName: PICKUP_METHOD_NAME,
+  carrier: PICKUP_CARRIER,
+  cost: 0,
+  estimateMin: '',
+  estimateMax: '',
+}
+
+/**
+ * Lê a configuração da retirada e a entrega ao bloco. Só é montado para CEP do RS: fora dele não
+ * há o que ler.
+ *
+ * Também desfaz uma retirada que deixou de estar disponível — o rascunho restaurado da
+ * `sessionStorage` depois de a dona desligá-la, ou de o endereço do Material sumir (edge case da
+ * spec). Só depois de a configuração CHEGAR: enquanto ela carrega, a opção é `null` pelos defaults,
+ * e "ainda não sei" desfaria a escolha de toda cliente que recarrega o checkout.
+ */
+const PickupSource = ({
+  cep,
+  onChange,
+}: {
+  cep: string
+  onChange: (option: PickupOption | null) => void
+}) => {
+  const { option, settled } = usePickupOptionState(cep)
+  const setShipping = useCheckoutStore((s) => s.setShipping)
+
+  useEffect(() => {
+    onChange(option)
+  }, [option, onChange])
+
+  useEffect(() => () => onChange(null), [onChange])
+
+  useEffect(() => {
+    if (!settled || option) return
+    if (useCheckoutStore.getState().shipping?.serviceId === PICKUP_SERVICE_ID) setShipping(null)
+  }, [settled, option, setShipping])
+
+  return null
+}
+
 const DeliveryBlock = ({ open, complete, onEdit, onContinue, canContinue }: Props) => {
   const { customer } = useAuthContext()
   const address = useCheckoutStore((s) => s.address)
@@ -124,6 +180,20 @@ const DeliveryBlock = ({ open, complete, onEdit, onContinue, canContinue }: Prop
 
   // `today` fixo por montagem: a data exibida não pode pular enquanto a cliente preenche.
   const today = useMemo(() => new Date(), [])
+
+  // Feature 63 — a retirada, só para CEP do RS. `PickupSource` a lê e a entrega aqui; fora do RS
+  // ela não existe, mesmo que o valor guardado ainda seja o do CEP anterior.
+  const rsCep = isRsCep(address.cep)
+  const [pickupRead, setPickupRead] = useState<PickupOption | null>(null)
+  const onPickup = useCallback((option: PickupOption | null) => setPickupRead(option), [])
+  const pickup = rsCep ? pickupRead : null
+
+  // Rascunho restaurado com retirada e um CEP de fora do RS: a escolha não vale (RET-10). A troca
+  // de CEP já desfaz qualquer escolha pelo efeito abaixo; este cobre o rascunho que nasceu assim.
+  useEffect(() => {
+    if (rsCep) return
+    if (useCheckoutStore.getState().shipping?.serviceId === PICKUP_SERVICE_ID) setShipping(null)
+  }, [rsCep, setShipping])
 
   // ADR-02: semeia o endereço salvo uma única vez, sem sobrescrever o que já foi digitado.
   //
@@ -264,6 +334,21 @@ const DeliveryBlock = ({ open, complete, onEdit, onContinue, canContinue }: Prop
     trackShippingInfo(option.serviceName)
   }
 
+  /** RET-06/RET-07: a retirada se escolhe como qualquer outra opção, e grava frete zero. */
+  const selectPickup = () => {
+    markDirty('delivery')
+    setShipping(PICKUP_DRAFT)
+    trackShippingInfo(PICKUP_METHOD_NAME)
+  }
+
+  // RET-06: "Envio a domicílio" só vira grupo nomeado quando há as duas origens na tela.
+  const domicilioId = useId()
+  const domicilioAgrupado = !!pickup && options.length > 0
+
+  const pickupSource = rsCep ? (
+    <PickupSource cep={stripCep(address.cep)} onChange={onPickup} />
+  ) : null
+
   const locked = !address.manual
   const lockedFieldClass = locked
     ? 'border-estrelinha-line bg-estrelinha-ground-deep text-estrelinha-ink-soft'
@@ -289,8 +374,11 @@ const DeliveryBlock = ({ open, complete, onEdit, onContinue, canContinue }: Prop
     const escolhida = shipping
       ? options.find((o) => o.serviceId === shipping.serviceId)
       : undefined
+    const retirada = shipping?.serviceId === PICKUP_SERVICE_ID
 
     return (
+      <>
+      {pickupSource}
       <CollapsedBlock
         label="Entrega"
         step={2}
@@ -300,7 +388,35 @@ const DeliveryBlock = ({ open, complete, onEdit, onContinue, canContinue }: Prop
         onAction={onEdit}
         footer={
           complete &&
-          shipping && (
+          shipping &&
+          (retirada ? (
+            // RET-11: a retirada não tem transportadora nem prazo de entrega — mostra o método, o
+            // endereço do escritório e "Grátis".
+            <div
+              role="group"
+              aria-label="Frete escolhido"
+              className="flex items-center gap-[18px] rounded-sm bg-estrelinha-ground-deep py-3 pl-[6px] pr-[14px]"
+            >
+              <MapPin
+                className="h-5 w-5 shrink-0 text-estrelinha-ink"
+                strokeWidth={1.5}
+                aria-hidden
+              />
+              <span className="flex min-w-0 grow flex-col gap-[2px]">
+                <span className="text-[15px] font-semibold text-estrelinha-ink">
+                  {PICKUP_METHOD_NAME}
+                </span>
+                {pickup && (
+                  <span className="break-words text-[13px] text-estrelinha-ink-soft">
+                    {pickup.location}
+                  </span>
+                )}
+              </span>
+              <span className="shrink-0 font-heading text-base font-semibold text-estrelinha-primary">
+                Grátis
+              </span>
+            </div>
+          ) : (
             <div
               role="group"
               aria-label="Frete escolhido"
@@ -334,7 +450,7 @@ const DeliveryBlock = ({ open, complete, onEdit, onContinue, canContinue }: Prop
                 )}
               </span>
             </div>
-          )
+          ))
         }
       >
         {complete ? (
@@ -347,8 +463,11 @@ const DeliveryBlock = ({ open, complete, onEdit, onContinue, canContinue }: Prop
           <span className="text-sm text-estrelinha-ink-soft">{DELIVERY_EMPTY_SUMMARY}</span>
         )}
       </CollapsedBlock>
+      </>
     )
   }
+
+  const pickupSelected = shipping?.serviceId === PICKUP_SERVICE_ID
 
   return (
     <section
@@ -479,6 +598,8 @@ const DeliveryBlock = ({ open, complete, onEdit, onContinue, canContinue }: Prop
         </div>
       </div>
 
+      {pickupSource}
+
       <div className="flex flex-col gap-[10px] pt-[6px]">
         <span className="text-[13px] font-semibold text-estrelinha-ink">Forma de envio</span>
 
@@ -502,7 +623,21 @@ const DeliveryBlock = ({ open, complete, onEdit, onContinue, canContinue }: Prop
           </p>
         )}
 
-        <div className="flex flex-col gap-2">
+        {/* RET-06: com a retirada, as duas origens ganham título de grupo. Sem ela, a tela é a de
+            antes da feature 63. */}
+        {domicilioAgrupado && (
+          <span id={domicilioId} className="pt-1 text-[13px] text-estrelinha-ink-soft">
+            Envio a domicílio
+          </span>
+        )}
+
+        {/* RET-06: com a retirada, as opções dos Correios são um GRUPO nomeado pelo título acima,
+            como "Retirar em" — para quem navega por leitor de tela, os dois grupos são simétricos. */}
+        <div
+          role={domicilioAgrupado ? 'group' : undefined}
+          aria-labelledby={domicilioAgrupado ? domicilioId : undefined}
+          className="flex flex-col gap-2"
+        >
           {options.map((option) => {
             const selected = shipping?.serviceId === option.serviceId
             return (
@@ -552,6 +687,44 @@ const DeliveryBlock = ({ open, complete, onEdit, onContinue, canContinue }: Prop
             )
           })}
         </div>
+
+        {pickup && (
+          <div role="group" aria-label="Retirar em" className="flex flex-col gap-2 pt-1">
+            <span className="text-[13px] text-estrelinha-ink-soft">Retirar em</span>
+            <button
+              type="button"
+              aria-pressed={pickupSelected}
+              onClick={selectPickup}
+              className={`flex w-full items-center gap-[14px] rounded-md border-2 p-3 text-left transition-colors ${
+                pickupSelected
+                  ? 'border-estrelinha-primary bg-estrelinha-ground-deep'
+                  : 'border-estrelinha-line bg-white hover:border-estrelinha-primary/40'
+              }`}
+            >
+              <span
+                className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
+                  pickupSelected ? 'border-estrelinha-primary' : 'border-estrelinha-line'
+                }`}
+              >
+                {pickupSelected && (
+                  <span className="h-[10px] w-[10px] rounded-full bg-estrelinha-ink" />
+                )}
+              </span>
+              <span className="flex min-w-0 grow flex-col gap-[2px]">
+                {/* Sem `truncate`: a linha do endereço é longa e tem de caber inteira em 390px. */}
+                <span className="break-words text-[15px] font-semibold text-estrelinha-ink">
+                  {pickup.location}
+                </span>
+                <span className="text-[13px] text-estrelinha-ink-soft">
+                  {`Pronta para retirada ${pickup.readyLabel}`}
+                </span>
+              </span>
+              <span className="shrink-0 font-heading text-[17px] font-semibold text-estrelinha-primary">
+                Grátis
+              </span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* FLW-02/FLW-03: contorno de tinta, não geleia sólida — CHK-04 reserva a única pílula

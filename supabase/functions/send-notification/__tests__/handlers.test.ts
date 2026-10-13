@@ -871,3 +871,86 @@ describe('LOGO-09 — `preview` traz a imagem da marca, servida pela origem da e
     expect(body.html).not.toContain('UMA ESTRELINHA')
   })
 })
+
+// =================================================================================================
+// Feature 63 — a PRÉVIA de um pedido de retirada (RET-18)
+// =================================================================================================
+
+/**
+ * A prévia com `order_id` real de um pedido de retirada tem de mostrar o que o e-mail de verdade vai
+ * mostrar: "Retirada" e a linha do escritório. O motor está provado em `dispatch.test.ts`; a prévia
+ * tem o próprio `select` e a própria leitura de `store_settings`, e cada uma das três peças
+ * (a coluna no `select`, guardar o `material`, passá-lo ao render) era um mutante sobrevivente.
+ *
+ * A fixtura de `orders` é FUNÇÃO do `select` — o molde de `dispatch.test.ts`: `shipping_service_id`
+ * só chega se a prévia a pediu, como no banco. E o `material` é COMPLETO (rua, bairro, cidade):
+ * o de `settingsRows` acima não tem bairro, e com ele a linha do escritório seria `null` nos dois
+ * mundos.
+ */
+describe('feature 63 — `preview` de um pedido de retirada (RET-18)', () => {
+  const MATERIAL_COMPLETO = {
+    recipient: 'Adri Muniz',
+    street: 'Rua do Ateliê',
+    number: '10',
+    complement: 'Sala 3',
+    neighborhood: 'Centro',
+    city: 'Porto Alegre',
+    state: 'RS',
+    zip: '90010-000',
+  }
+
+  function setupRetirada(shippingServiceId: string) {
+    const settings = settingsRows().map((r) => (r.key === 'material' ? { key: 'material', value: MATERIAL_COMPLETO } : r))
+    const supabase = createFakeSupabase({
+      user: ADMIN,
+      rows: {
+        orders: (_eq: unknown, select: string) => {
+          const linha: Record<string, unknown> = orderRow({ shipping_service_id: shippingServiceId, shipping_cost: 0 })
+          if (!/\bshipping_service_id\b/.test(select)) delete linha.shipping_service_id
+          return linha
+        },
+      },
+      lists: { store_settings: settings },
+      rpcByFn: { has_role: { data: true } },
+    })
+    const fetchDouble = createFakeFetch([OK_ROUTE])
+    const deps = {
+      supabase: supabase.client,
+      fetch: fetchDouble.fetch,
+      env: ENV,
+      providers: [createResendProvider({ apiKey: 're_test_key', from: ENV.resendFrom })],
+    }
+    return { deps, fetchDouble }
+  }
+
+  it('com `order_id` de uma retirada: "Retirada" e a linha do escritório, sem o endereço da cliente', async () => {
+    const { deps, fetchDouble } = setupRetirada('retirada')
+
+    const response = await route(deps, request('preview', { event: 'order_paid', channel: 'email', order_id: ORDER_ID }))
+    const body = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(body.sample).toBe(false)
+    expect(body.html).toContain('>Retirada</strong>')
+    expect(body.html).toContain('Escritório - Uma Estrelinha - Rua do Ateliê, Centro, Porto Alegre/RS')
+    expect(body.html).not.toContain('>Entrega</strong>')
+    expect(body.html).not.toContain('Rua das Flores')
+    // RET-03: nem o número nem o complemento do escritório.
+    expect(body.html).not.toContain('Sala 3')
+    expect(body.text).toContain('Escritório - Uma Estrelinha - Rua do Ateliê, Centro, Porto Alegre/RS')
+    expect(fetchDouble.calls).toHaveLength(0)
+  })
+
+  it('o par: com `order_id` de um pedido dos Correios, "Entrega" e o endereço da cliente', async () => {
+    const { deps } = setupRetirada('1')
+
+    const body = await (
+      await route(deps, request('preview', { event: 'order_paid', channel: 'email', order_id: ORDER_ID }))
+    ).json()
+
+    expect(body.html).toContain('>Entrega</strong>')
+    expect(body.html).toContain('Rua das Flores')
+    expect(body.html).not.toContain('>Retirada</strong>')
+    expect(body.html).not.toContain('Escritório - Uma Estrelinha')
+  })
+})

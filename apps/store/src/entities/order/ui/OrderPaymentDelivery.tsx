@@ -5,12 +5,34 @@
 // para as próximas compras e não muda pedido feito (`DAD-08`).
 import { formatShortDate } from '@estrelinha/core/orders'
 import { maskCep } from '@estrelinha/core/validators'
+import { isPickupOrder, PICKUP_METHOD_NAME } from '@estrelinha/core/shipping'
+import { usePickupLocation } from '@/entities/pickup'
 import {
   addressLines,
   limpo,
   paymentMethodLabel,
   type OrderDeliveryInput,
 } from '../lib/paymentDelivery'
+
+/**
+ * RET-19 (feature 63): a entrega de um pedido de retirada — "Retirada no escritório" e a linha do
+ * escritório, no lugar do endereço da cliente. Componente à parte porque é o ÚNICO ponto que lê a
+ * configuração da loja: montado só para retirada, o pedido dos Correios continua sem essa leitura.
+ */
+const PickupDelivery = () => {
+  const local = usePickupLocation()
+  return (
+    <div className="flex flex-col gap-1">
+      <p className="estrelinha-eyebrow text-estrelinha-ink-soft">Entrega</p>
+      <p className="text-[15px] font-medium text-estrelinha-ink">{PICKUP_METHOD_NAME}</p>
+      {local && (
+        <p data-testid="local-da-retirada" className="break-words text-[15px] leading-6 text-estrelinha-ink">
+          {local}
+        </p>
+      )}
+    </div>
+  )
+}
 
 export interface OrderPaymentDeliveryProps {
   order: OrderDeliveryInput
@@ -43,7 +65,9 @@ const OrderPaymentDelivery = ({ order }: OrderPaymentDeliveryProps) => {
         {aprovadoEm && <p className="text-[13px] text-estrelinha-ink-soft">Aprovado em {aprovadoEm}</p>}
       </div>
 
-      {temEndereco && (
+      {isPickupOrder(order) ? (
+        <PickupDelivery />
+      ) : temEndereco && (
         <div className="flex flex-col gap-1">
           <p className="estrelinha-eyebrow text-estrelinha-ink-soft">Entrega</p>
           <address className="flex flex-col text-[15px] not-italic leading-6 text-estrelinha-ink">

@@ -247,3 +247,44 @@ describe('orderJourney — cancelado (DET-08)', () => {
     expect(j).toEqual({ kind: 'cancelled', cancelledAt: '2026-10-05T10:00:00Z' })
   })
 })
+
+describe('orderJourney — retirada no escritório (RET-19, feature 63)', () => {
+  const retirada = (extra: Partial<JourneyInput> = {}) => pedido({ shipping_service_id: 'retirada', ...extra })
+
+  it('omite "A caminho" e chama a última etapa de "Retirado no escritório"', () => {
+    const steps = etapas(retirada({ material_status: 'aguardando_material' }))
+    expect(steps.map((s) => s.key)).toEqual(['received', 'paid', 'material', 'production', 'delivered'])
+    expect(steps.map((s) => s.label)).not.toContain('A caminho')
+    expect(steps[steps.length - 1].label).toBe('Retirado no escritório')
+  })
+
+  it('o par: o mesmo pedido pelos Correios mantém as seis etapas de hoje', () => {
+    const steps = etapas(pedido({ shipping_service_id: '1', material_status: 'aguardando_material' }))
+    expect(steps.map((s) => s.key)).toEqual(['received', 'paid', 'material', 'production', 'shipped', 'delivered'])
+    expect(steps[steps.length - 1].label).toBe('Entregue')
+  })
+
+  it('em separação, a produção é a etapa em curso e a retirada a próxima', () => {
+    const steps = etapas(retirada({ status: 'separating', payment_status: 'approved', paid_at: PAGO }))
+    expect(estados(steps)).toEqual([
+      'received:complete',
+      'paid:complete',
+      'production:current',
+      'delivered:future',
+    ])
+  })
+
+  it('retirada concluída: tudo completo, com a data do registro `delivered`', () => {
+    const steps = etapas(retirada({ status: 'delivered', payment_status: 'approved', paid_at: PAGO }), [
+      { status: 'separating', at: '2026-10-03T10:00:00Z' },
+      { status: 'delivered', at: '2026-10-05T15:00:00Z' },
+    ])
+    expect(estados(steps)).toEqual([
+      'received:complete',
+      'paid:complete',
+      'production:complete',
+      'delivered:complete',
+    ])
+    expect(steps[3]).toMatchObject({ label: 'Retirado no escritório', at: '2026-10-05T15:00:00Z' })
+  })
+})

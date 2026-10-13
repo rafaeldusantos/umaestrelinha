@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@estrelinha/supabase/client'
+import { PICKUP_REFUSAL } from '@estrelinha/core/shipping'
 import type { PaymentStatus } from '@estrelinha/supabase/types'
 
 export interface OrderItem {
@@ -201,6 +202,17 @@ export class NeedsOtpError extends Error {
 }
 
 /**
+ * Feature 63 (`RET-12`): o servidor recusou a RETIRADA no escritório (`422 pickup_unavailable`) —
+ * a dona desligou a retirada, o endereço do escritório ficou incompleto, ou o CEP não é do RS.
+ *
+ * A tela precisa distinguir esta falha da genérica: tentar de novo com a mesma escolha nunca vai
+ * passar, e o caminho é escolher outra forma de envio.
+ */
+export class PickupUnavailableError extends Error {
+  readonly reason = PICKUP_REFUSAL
+}
+
+/**
  * Cria o pedido — **pela edge function `checkout`, nunca pelo PostgREST** (feature `49`, `PED-01`).
  *
  * O caminho antigo montava a linha de `orders` aqui e inseria direto, escopado por RLS. Ele não
@@ -232,6 +244,7 @@ export const useCreateOrder = () => {
       } | null
 
       if (corpo?.reason === NEEDS_OTP) throw new NeedsOtpError(corpo.error ?? '')
+      if (corpo?.error === PICKUP_REFUSAL) throw new PickupUnavailableError(corpo.error)
       if (error || !corpo?.order_id) {
         throw new Error(corpo?.error || error?.message || 'Erro ao criar pedido')
       }

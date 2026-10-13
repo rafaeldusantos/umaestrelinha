@@ -3,6 +3,7 @@ import {
   addBusinessDays,
   cheapestQuoteId,
   formatEstimate,
+  formatPickupReady,
   quoteToEstimate,
   type ShippingQuote,
 } from '../index'
@@ -121,6 +122,17 @@ describe('formatEstimate', () => {
     expect(formatEstimate(new Date(2026, 6, 30), new Date(2026, 7, 3))).toBe(
       'entre 30 de julho e 3 de agosto',
     )
+  })
+})
+
+// Feature 63 · RET-01 — "Pronta para retirada a partir de {dia} de {mês}".
+describe('formatPickupReady', () => {
+  it('escreve "a partir de {dia} de {mês}"', () => {
+    expect(formatPickupReady(new Date(2026, 9, 14))).toBe('a partir de 14 de outubro')
+  })
+
+  it('dia de um algarismo sai sem zero à esquerda, e o mês é o da data', () => {
+    expect(formatPickupReady(new Date(2026, 2, 3))).toBe('a partir de 3 de março')
   })
 })
 

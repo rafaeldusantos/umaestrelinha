@@ -8,6 +8,12 @@
 // Módulo PURO: zero I/O, zero `Deno`. Roda no vitest (AD-002/AD-004).
 import { formatPrice } from '../../../../packages/core/src/formatters/price.ts'
 import { formatOrderNumber } from '../../../../packages/core/src/orders/format.ts'
+import {
+  isPickupOrder,
+  pickupLocation,
+  PICKUP_METHOD_NAME,
+  type PickupAddress,
+} from '../../../../packages/core/src/shipping/pickup.ts'
 
 /**
  * Paleta Uma Estrelinha (DESIGN.md), medida sobre `ground` #FAF8F4:
@@ -189,6 +195,12 @@ export interface EmailOrder {
    * `{{rastreio}}` conforme o evento.
    */
   material_tracking_code?: string | null
+  /**
+   * Feature 63. `'retirada'` é pedido de retirada no escritório: o bloco de endereço do e-mail
+   * deixa de ser "Entrega" com o endereço da cliente e passa a ser "Retirada" com o escritório
+   * (`RET-18`). Quem responde "é retirada?" é `isPickupOrder`.
+   */
+  shipping_service_id?: string | null
   order_items: EmailOrderItem[]
 }
 
@@ -252,7 +264,28 @@ export function addressLines(order: EmailOrder): string[] {
     .filter((part) => part !== '')
 }
 
-export function addressBlock(order: EmailOrder): string {
+/**
+ * RET-18 (feature 63): o bloco de um pedido de retirada no escritório. O título é `Retirada`, e a
+ * linha é a do escritório — `pickupLocation`, o mesmo dono que a loja usa, que nunca escreve número
+ * nem complemento (`RET-03`). O endereço da CLIENTE não aparece: ela não vai receber nada nele, e
+ * escrevê-lo sob "Retirada" diria que a peça vai até lá.
+ *
+ * `null` quando o pedido não é de retirada — quem chama segue para o bloco de entrega de sempre.
+ */
+function pickupLines(order: EmailOrder, pickup: PickupAddress | null | undefined): string[] | null {
+  if (!isPickupOrder(order)) return null
+  const local = pickupLocation(pickup)
+  return local ? [PICKUP_METHOD_NAME, local] : [PICKUP_METHOD_NAME]
+}
+
+export function addressBlock(order: EmailOrder, pickup?: PickupAddress | null): string {
+  const retirada = pickupLines(order, pickup)
+  if (retirada) {
+    return `<div style="font-family:${BODY_FONT};font-size:13px;line-height:1.6;color:${ESTRELINHA.inkSoft};margin:0 0 24px;">
+  <strong style="color:${ESTRELINHA.ink};">Retirada</strong><br>${retirada.map(escapeHtml).join('<br>')}
+</div>`
+  }
+
   const lines = addressLines(order)
   if (lines.length === 0) return ''
 
@@ -314,7 +347,14 @@ ${body}
 }
 
 /** Versão texto — mandada explícita em vez de deixar o Resend derivar do HTML. */
-export function textBody(heading: string, lead: string, order: EmailOrder, href: string, extra: string[] = []): string {
+export function textBody(
+  heading: string,
+  lead: string,
+  order: EmailOrder,
+  href: string,
+  extra: string[] = [],
+  pickup?: PickupAddress | null,
+): string {
   const items = order.order_items.map((item) => {
     const variant = variantLabel(item)
     return `- ${item.quantity}x ${item.product_name}${variant ? ` (${variant})` : ''} — ${formatPrice(
@@ -330,7 +370,13 @@ export function textBody(heading: string, lead: string, order: EmailOrder, href:
   if (order.pix_discount) totals.push(`Desconto PIX: -${formatPrice(order.pix_discount)}`)
   totals.push(`Total: ${formatPrice(order.total)}`)
 
+  const retirada = pickupLines(order, pickup)
   const address = addressLines(order)
+  const blocoDeEndereco = retirada
+    ? ['', 'Retirada:', ...retirada]
+    : address.length
+      ? ['', 'Entrega:', ...address]
+      : []
 
   return [
     heading,
@@ -343,7 +389,7 @@ export function textBody(heading: string, lead: string, order: EmailOrder, href:
     ...items,
     '',
     ...totals,
-    ...(address.length ? ['', 'Entrega:', ...address] : []),
+    ...blocoDeEndereco,
     '',
     `Acompanhe em ${href}`,
     '',

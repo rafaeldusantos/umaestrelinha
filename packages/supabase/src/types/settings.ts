@@ -83,6 +83,15 @@ export interface ShippingSettings {
   origin_zip: string
   /** Dias úteis de produção somados ao prazo do transportador (SHP-09). */
   handling_days: number
+  /**
+   * Feature 63 — a retirada no escritório, para CEP do RS (`RET-20`). Nasce **ligada** (decisão do
+   * usuário), pela migration `20261011120000_63-retirada.sql`, aditiva e idempotente.
+   *
+   * Ligada não basta para aparecer: o endereço do escritório é o do cartão Material
+   * (`MaterialSettings`), e sem rua, bairro e cidade a retirada não aparece em tela nenhuma.
+   * Quem responde "aparece para este CEP?" é `pickupAvailable` em `@estrelinha/core/shipping`.
+   */
+  pickup_enabled: boolean
 }
 
 /** Order bump do checkout one-page (BMP-01). */
@@ -177,6 +186,8 @@ export const DEFAULT_SHIPPING: ShippingSettings = {
   default_shipping_cost: 9.9,
   origin_zip: '',
   handling_days: 2,
+  // Igual ao que a migration da 63 grava — `storeSettingsDefaults.test.ts` lê o `.sql` e compara.
+  pickup_enabled: true,
 }
 
 export const DEFAULT_CHECKOUT: CheckoutSettings = {

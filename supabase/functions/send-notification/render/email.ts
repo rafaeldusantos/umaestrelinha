@@ -33,6 +33,7 @@ import {
   textBody,
   totalsTable,
 } from './layout.ts'
+import type { PickupAddress } from '../../../../packages/core/src/shipping/pickup.ts'
 
 export interface RenderedEmail {
   subject: string
@@ -98,6 +99,11 @@ export function renderEmail(
   fields: EmailFields,
   vars: NotificationVars,
   storeUrl: string | null | undefined,
+  /**
+   * Feature 63: o endereço do escritório (`store_settings.material`), lido só quando o pedido é de
+   * retirada. Opcional — sem ele, o bloco de retirada diz só "Retirada no escritório".
+   */
+  pickup?: PickupAddress | null,
 ): RenderedEmail {
   const subject = interpolate(fields.subject, vars)
   const heading = interpolate(fields.heading, vars)
@@ -110,7 +116,7 @@ export function renderEmail(
     fixedBlock(event, order, vars),
     itemsTable(order.order_items ?? []),
     totalsTable(order),
-    addressBlock(order),
+    addressBlock(order, pickup),
     ctaButton(href, label),
   ]
     .filter((bloco) => bloco !== '')
@@ -119,6 +125,6 @@ export function renderEmail(
   return {
     subject,
     html: emailShell(escapeHtml(heading), escapeHtml(lead), body, storeUrl),
-    text: textBody(heading, lead, order, href, [...extra, ...fixedTextLines(event, order)]),
+    text: textBody(heading, lead, order, href, [...extra, ...fixedTextLines(event, order)], pickup),
   }
 }

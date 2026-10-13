@@ -19,6 +19,7 @@ import { SacolaIcon } from '@estrelinha/ui/icons'
 import { formatPrice } from '@estrelinha/core/formatters'
 import { renditionUrl } from '@estrelinha/core/media'
 import { usePaymentSettings } from '@estrelinha/core/hooks/useStoreSettings'
+import { PICKUP_SERVICE_ID } from '@estrelinha/core/shipping'
 import { useFreeShipping } from '@estrelinha/core/hooks/useFreeShipping'
 import CouponInput from '@/features/apply-coupon/ui/CouponInput'
 import { useCouponStore } from '@/entities/coupon'
@@ -192,7 +193,13 @@ const OrderSummary = ({ variant }: Props) => {
       </div>
       <div className="flex items-center justify-between">
         <span className="text-[15px] leading-[18px] text-estrelinha-ink-soft">
-          {shipping ? `Frete · ${shipping.carrier} ${shipping.serviceName}` : 'Frete'}
+          {/* RET-07 (feature 63): a retirada não tem transportadora — "Frete · Uma Estrelinha
+              Retirada no escritório" seria a loja se chamando de transportadora. */}
+          {shipping
+            ? shipping.serviceId === PICKUP_SERVICE_ID
+              ? shipping.serviceName
+              : `Frete · ${shipping.carrier} ${shipping.serviceName}`
+            : 'Frete'}
         </span>
         {shipping && totals.shipping === 0 ? (
           <span className="text-[15px] font-semibold leading-[18px] text-estrelinha-primary">Grátis</span>

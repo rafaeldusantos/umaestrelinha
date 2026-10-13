@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useCartStore } from '@/entities/cart'
@@ -34,8 +34,19 @@ vi.mock('@estrelinha/auth', () => ({ useAuthContext: () => ({ user: authUser.cur
 // em `store_settings`. A página continua montada SEM `QueryClientProvider` (o caso do material,
 // abaixo, depende disso), então a leitura das configurações é dublada aqui.
 const { lojaSettings } = vi.hoisted(() => ({ lojaSettings: { whatsapp: '' } }))
+// Feature 63: o pedido de retirada mostra a linha do escritório, lida de `store_settings.material`
+// pelo `usePickupLocation` — só ele chama `useStoreSettings`, e só para pedido de retirada.
+const { escritorio } = vi.hoisted(() => ({
+  escritorio: {
+    material: {
+      recipient: 'Adri Muniz', street: 'Rua Dona Laura', number: '455', complement: 'Sala 7',
+      neighborhood: 'Rio Branco', city: 'Porto Alegre', state: 'RS', zip: '90430091', notes: '',
+    },
+  },
+}))
 vi.mock('@estrelinha/core/hooks/useStoreSettings', () => ({
   useGeneralSettings: () => lojaSettings,
+  useStoreSettings: () => ({ data: { material: escritorio.material }, isFetched: true }),
 }))
 
 const useOrderMock = vi.mocked(useOrder)
@@ -805,5 +816,58 @@ describe('OrderConfirmationPage — o subtítulo muda com a etapa (DET-01)', () 
 
     expect(screen.queryByText('É nosso!')).not.toBeInTheDocument()
     expect(screen.queryByText('Pedido registrado')).not.toBeInTheDocument()
+  })
+})
+
+describe('OrderConfirmationPage — pedido de retirada no escritório (RET-19, feature 63)', () => {
+  const LINHA = 'Escritório - Uma Estrelinha - Rua Dona Laura, Rio Branco, Porto Alegre/RS'
+  const retirada = (over: Partial<OrderDetail> = {}) =>
+    order({
+      shipping_service_id: 'retirada',
+      shipping_method: 'Retirada no escritório',
+      shipping_carrier: 'Uma Estrelinha',
+      shipping_cost: 0,
+      total: 100,
+      delivery_estimate_min: null,
+      delivery_estimate_max: null,
+      address_street: 'Rua da Cliente',
+      address_number: '12',
+      address_neighborhood: 'Petrópolis',
+      address_city: 'Porto Alegre',
+      address_state: 'RS',
+      address_zip: '90460000',
+      ...over,
+    } as Partial<OrderDetail>)
+
+  it('a entrega diz "Retirada no escritório" e a linha do escritório — não o endereço da cliente', () => {
+    mockOrder({ data: retirada() })
+    renderPage()
+    const bloco = screen.getByRole('region', { name: 'Pagamento e entrega' })
+
+    expect(within(bloco).getByText('Retirada no escritório')).toBeInTheDocument()
+    expect(within(bloco).getByText(LINHA)).toBeInTheDocument()
+    expect(bloco.textContent).not.toContain('Rua da Cliente')
+    expect(bloco.textContent).not.toContain('455')
+    expect(bloco.textContent).not.toContain('Sala 7')
+  })
+
+  it('a jornada não tem "A caminho" e termina em "Retirado no escritório"', () => {
+    mockOrder({ data: retirada({ status: 'separating' } as Partial<OrderDetail>) })
+    renderPage()
+
+    expect(screen.getByText('Retirado no escritório')).toBeInTheDocument()
+    expect(screen.queryByText('A caminho')).not.toBeInTheDocument()
+  })
+
+  it('o par: o mesmo pedido pelos Correios mostra o endereço da cliente e "A caminho"', () => {
+    mockOrder({
+      data: retirada({ shipping_service_id: '1', shipping_method: 'PAC', status: 'separating' } as Partial<OrderDetail>),
+    })
+    renderPage()
+    const bloco = screen.getByRole('region', { name: 'Pagamento e entrega' })
+
+    expect(bloco.textContent).toContain('Rua da Cliente')
+    expect(within(bloco).queryByText('Retirada no escritório')).not.toBeInTheDocument()
+    expect(screen.getByText('A caminho')).toBeInTheDocument()
   })
 })

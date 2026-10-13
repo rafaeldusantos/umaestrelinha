@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { act, cleanup, render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
@@ -16,7 +16,11 @@ import { useAuthUiStore } from '@/features/auth'
 import { accessFor } from '@/entities/order/model/orderAccess'
 import { markCartRecovered, clearGuestEmail } from '@/features/abandoned-cart/model/useAbandonedCartTracker'
 import { DOC_FIELD_LABEL } from '@/features/checkout/ui/PaymentBlock'
-import CheckoutPage, { MISSING_DOCUMENT_MESSAGE, ORDER_FAILED_MESSAGE } from '../CheckoutPage'
+import CheckoutPage, {
+  MISSING_DOCUMENT_MESSAGE,
+  ORDER_FAILED_MESSAGE,
+  PICKUP_UNAVAILABLE_MESSAGE,
+} from '../CheckoutPage'
 import { useCookieConsentStore } from '@/entities/cookie-consent'
 import { resetAnalyticsForTests, setAnalyticsSettings } from '@/shared/lib/analytics'
 
@@ -240,10 +244,17 @@ const shippingSettings = {
   origin_zip: '',
   handling_days: 2,
 }
+// Feature 63: a retirada lê `shipping` + `material` por `useStoreSettings`, e só para CEP do RS —
+// os casos anteriores, com CEP de São Paulo, nunca a alcançam. `undefined` = sem configuração.
+const storeSettingsMock: {
+  data: { shipping: Record<string, unknown>; material: Record<string, unknown> } | undefined
+  isFetched: boolean
+} = { data: undefined, isFetched: true }
 vi.mock('@estrelinha/core/hooks/useStoreSettings', () => ({
   usePaymentSettings: () => paymentSettings,
   useCheckoutSettings: () => checkoutSettings,
   useShippingSettings: () => shippingSettings,
+  useStoreSettings: () => storeSettingsMock,
 }))
 
 // A feature 17 pôs uma query de promoções no caminho do carrinho e do resumo. O dublê nasce **vazio**
@@ -2734,5 +2745,147 @@ describe('feature 61 — o funil do checkout no GA4 (EVT-10..12, CMP-01)', () =>
     const payload = createOrderMutateAsync.mock.calls[0][0]
     expect(payload.analytics_declined).toBe(false)
     expect(payload).not.toHaveProperty('ga_client_id')
+  })
+})
+
+/**
+ * Feature 63 — RET-07 pela PÁGINA REAL: a cliente escolhe a retirada no bloco Entrega, e o pedido
+ * sai com frete zero. O bloco, o resumo, o total e o montador do pedido são os de verdade; só a
+ * cotação e a configuração da loja são dublês.
+ *
+ * Sacola de R$ 100 (2 × 50), PIX com 5%: R$ 95,00 com a retirada, contra R$ 109,90 com o PAC.
+ */
+describe('CheckoutPage — retirada no escritório (feature 63, RET-07)', () => {
+  beforeEach(() => {
+    storeSettingsMock.isFetched = true
+    storeSettingsMock.data = {
+      shipping: { handling_days: 2, pickup_enabled: true },
+      material: {
+        street: 'Rua Dona Laura',
+        number: '455',
+        complement: 'Sala 3',
+        neighborhood: 'Rio Branco',
+        city: 'Porto Alegre',
+        state: 'RS',
+      },
+    }
+  })
+
+  afterEach(() => {
+    storeSettingsMock.data = undefined
+  })
+
+  const preencherNoRs = () => {
+    fillContact()
+    useCheckoutStore.getState().setAddress({
+      cep: '91240-010',
+      street: 'Rua Coronel Bordini',
+      number: '120',
+      complement: '',
+      neighborhood: 'Auxiliadora',
+      city: 'Porto Alegre',
+      state: 'RS',
+      manual: false,
+    })
+    fillPayment('pix')
+  }
+
+  it('escolher a retirada zera o frete do total, e o pedido grava a retirada', async () => {
+    preencherNoRs()
+    renderPage()
+
+    const retirada = within(region('Entrega').getByRole('group', { name: 'Retirar em' }))
+    fireEvent.click(retirada.getByRole('button'))
+    fireEvent.click(region('Entrega').getByRole('button', { name: 'Continuar' }))
+
+    expect(cta()).toHaveTextContent('R$ 95,00')
+
+    fireEvent.click(cta())
+
+    await waitFor(() => expect(createOrderMutateAsync).toHaveBeenCalledTimes(1))
+    const payload = createOrderMutateAsync.mock.calls[0][0]
+    expect(payload.shipping_service_id).toBe('retirada')
+    expect(payload.shipping_method).toBe('Retirada no escritório')
+    expect(payload.shipping_cost).toBe(0)
+    expect(payload.total).toBe(95)
+    expect(payload.delivery_estimate_min).toBeUndefined()
+    expect(payload.delivery_estimate_max).toBeUndefined()
+    // RET-09: o endereço da cliente continua indo no pedido.
+    expect(payload.address_zip).toBe('91240010')
+    expect(payload.address_number).toBe('120')
+  })
+
+  it('o par: o PAC no mesmo CEP cobra o frete — o total muda por causa da escolha, não do CEP', async () => {
+    preencherNoRs()
+    renderPage()
+
+    fireEvent.click(region('Entrega').getByText('Correios PAC'))
+    fireEvent.click(region('Entrega').getByRole('button', { name: 'Continuar' }))
+
+    expect(cta()).toHaveTextContent('R$ 109,90')
+
+    fireEvent.click(cta())
+    await waitFor(() => expect(createOrderMutateAsync).toHaveBeenCalledTimes(1))
+    expect(createOrderMutateAsync.mock.calls[0][0].shipping_cost).toBe(14.9)
+  })
+
+  /**
+   * O servidor recusou a retirada (`422 pickup_unavailable`): a dona a desligou entre a tela e o
+   * envio, por exemplo. "Tente novamente" mentiria — a mesma escolha seria recusada outra vez.
+   * A escolha é desfeita, o bloco Entrega reabre, e a retentativa com o PAC passa.
+   */
+  it('422 pickup_unavailable: mensagem própria, a escolha é desfeita, e a retentativa com outro frete passa', async () => {
+    const { PickupUnavailableError } = await vi.importActual<
+      typeof import('@/entities/order/api/useOrders')
+    >('@/entities/order/api/useOrders')
+    createOrderMutateAsync
+      .mockRejectedValueOnce(new PickupUnavailableError('pickup_unavailable'))
+      .mockResolvedValueOnce({ id: 'order-1' })
+    preencherNoRs()
+    renderPage()
+
+    fireEvent.click(within(region('Entrega').getByRole('group', { name: 'Retirar em' })).getByRole('button'))
+    fireEvent.click(region('Entrega').getByRole('button', { name: 'Continuar' }))
+    fireEvent.click(cta())
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith(
+        'A retirada no escritório não está disponível para este pedido. Escolha uma opção de envio.',
+      ),
+    )
+    expect(PICKUP_UNAVAILABLE_MESSAGE).toBe(
+      'A retirada no escritório não está disponível para este pedido. Escolha uma opção de envio.',
+    )
+    expect(toast.error).not.toHaveBeenCalledWith(ORDER_FAILED_MESSAGE)
+    expect(useCheckoutStore.getState().shipping).toBeNull()
+    expect(useCheckoutStore.getState().orderId).toBeNull()
+    // O resto do rascunho e o carrinho ficam intactos.
+    expect(useCheckoutStore.getState().address.cep).toBe('91240-010')
+    expect(useCartStore.getState().items).toHaveLength(1)
+    // O bloco Entrega reabriu, com a retirada desmarcada.
+    const retirada = within(region('Entrega').getByRole('group', { name: 'Retirar em' }))
+    expect(retirada.getByRole('button')).toHaveAttribute('aria-pressed', 'false')
+
+    fireEvent.click(region('Entrega').getByText('Correios PAC'))
+    fireEvent.click(region('Entrega').getByRole('button', { name: 'Continuar' }))
+    fireEvent.click(cta())
+
+    await waitFor(() => expect(createOrderMutateAsync).toHaveBeenCalledTimes(2))
+    expect(createOrderMutateAsync.mock.calls[1][0].shipping_service_id).toBe('1')
+    expect(createOrderMutateAsync.mock.calls[1][0].shipping_cost).toBe(14.9)
+  })
+
+  it('o par: uma falha GENÉRICA com a retirada escolhida mantém a escolha e o toast de sempre', async () => {
+    createOrderMutateAsync.mockRejectedValueOnce(new Error('boom'))
+    preencherNoRs()
+    renderPage()
+
+    fireEvent.click(within(region('Entrega').getByRole('group', { name: 'Retirar em' })).getByRole('button'))
+    fireEvent.click(region('Entrega').getByRole('button', { name: 'Continuar' }))
+    fireEvent.click(cta())
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(ORDER_FAILED_MESSAGE))
+    expect(toast.error).not.toHaveBeenCalledWith(PICKUP_UNAVAILABLE_MESSAGE)
+    expect(useCheckoutStore.getState().shipping?.serviceId).toBe('retirada')
   })
 })

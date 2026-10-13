@@ -28,6 +28,8 @@ export interface OrderDeliveryInput {
   address_city?: string | null
   address_state?: string | null
   address_zip?: string | null
+  /** Feature 63: `'retirada'` é pedido de retirada no escritório (`isPickupOrder`). */
+  shipping_service_id?: string | null
 }
 
 export const limpo = (v: string | null | undefined): string => (v ?? '').trim()

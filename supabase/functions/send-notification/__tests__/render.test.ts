@@ -774,3 +774,82 @@ describe('LOGO-01/03/05/07/22 — a marca no envelope de todo evento', () => {
     expect(text).not.toContain('email/assinatura')
   })
 })
+
+// ---------------------------------------------------------------------------------------------
+
+describe('RET-18 (feature 63) — o e-mail de um pedido de retirada no escritório', () => {
+  const ESCRITORIO = {
+    street: 'Rua Dona Laura',
+    number: '455',
+    complement: 'Sala 7',
+    neighborhood: 'Rio Branco',
+    city: 'Porto Alegre',
+    state: 'RS',
+  }
+  const LINHA = 'Escritório - Uma Estrelinha - Rua Dona Laura, Rio Branco, Porto Alegre/RS'
+
+  const retirada = (over: Partial<EmailOrder> = {}) =>
+    orderFixture({
+      shipping_service_id: 'retirada',
+      shipping_cost: 0,
+      total: 48,
+      address_street: 'Rua da Cliente',
+      address_number: '12',
+      address_complement: 'casa 3',
+      address_neighborhood: 'Petrópolis',
+      address_city: 'Porto Alegre',
+      address_state: 'RS',
+      address_zip: '90460-000',
+      ...over,
+    })
+
+  const renderRetirada = (event: NotificationEvent, order: EmailOrder, pickup: unknown = ESCRITORIO) => {
+    const fields = DEFAULT_NOTIFICATIONS.events[event].email.fields
+    const vars = buildVars(event, order, {
+      storeUrl: STORE,
+      adminUrl: ADMIN,
+      whatsapp: '(51) 99999-0000',
+      enderecoAtelie: '',
+    })
+    return renderEmail(event, order, fields, vars, STORE, pickup as never)
+  }
+
+  it('o HTML troca o bloco "Entrega" por "Retirada", com a linha do escritório', () => {
+    const { html } = renderRetirada('order_paid', retirada())
+    expect(html).toContain('<strong style="color:#23303A;">Retirada</strong>')
+    expect(html).toContain('Retirada no escritório')
+    expect(html).toContain(escapeHtml(LINHA))
+    expect(html).not.toContain('>Entrega</strong>')
+  })
+
+  it('o HTML NÃO traz o endereço da cliente, nem o número e o complemento do escritório', () => {
+    const { html } = renderRetirada('order_paid', retirada())
+    for (const proibido of ['Rua da Cliente', 'Petrópolis', 'casa 3', '90460-000', '455', 'Sala 7']) {
+      expect(html, proibido).not.toContain(proibido)
+    }
+  })
+
+  it('a versão texto faz o mesmo: "Retirada:" com a linha, sem "Entrega:" e sem o endereço da cliente', () => {
+    const { text } = renderRetirada('order_paid', retirada())
+    expect(text).toContain(`Retirada:\nRetirada no escritório\n${LINHA}`)
+    expect(text).not.toContain('Entrega:')
+    for (const proibido of ['Rua da Cliente', 'Petrópolis', 'casa 3', '455', 'Sala 7']) {
+      expect(text, proibido).not.toContain(proibido)
+    }
+  })
+
+  it('sem o endereço do escritório configurado, diz só "Retirada no escritório" — nunca o da cliente', () => {
+    const { html, text } = renderRetirada('order_received', retirada(), { street: '', neighborhood: '', city: '' })
+    expect(html).toContain('>Retirada</strong><br>Retirada no escritório\n</div>')
+    expect(text).toContain('Retirada:\nRetirada no escritório')
+    expect(html).not.toContain('Rua da Cliente')
+  })
+
+  it('o par: o mesmo pedido pelos Correios mantém "Entrega" com o endereço da cliente', () => {
+    const { html, text } = renderRetirada('order_paid', retirada({ shipping_service_id: '1' }))
+    expect(html).toContain('>Entrega</strong>')
+    expect(html).toContain('Rua da Cliente, 12')
+    expect(html).not.toContain('>Retirada</strong>')
+    expect(text).toContain('Entrega:')
+  })
+})

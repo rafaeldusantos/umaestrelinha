@@ -227,3 +227,57 @@ describe('buildOrderPayload — o corpo do pedido', () => {
     expect(buildOrderPayload(entrada()).items).toHaveLength(1)
   })
 })
+
+// Feature 63 — o pedido de retirada no escritório (RET-07). Nenhum código novo no montador: o
+// rascunho da retirada já carrega o que o pedido precisa, e estes casos fixam isso.
+describe('buildOrderPayload — pedido de retirada (RET-07)', () => {
+  const retirada = () =>
+    buildOrderPayload(
+      entrada({
+        address: {
+          cep: '91240-010',
+          street: 'Rua Coronel Bordini',
+          number: '120',
+          complement: 'Casa 2',
+          neighborhood: 'Auxiliadora',
+          city: 'Porto Alegre',
+          state: 'RS',
+        },
+        shipping: {
+          serviceId: 'retirada',
+          serviceName: 'Retirada no escritório',
+          carrier: 'Uma Estrelinha',
+          estimateMin: '',
+          estimateMax: '',
+        },
+        totals: { subtotal: 100, couponDiscount: 0, shipping: 0, total: 100 },
+      }),
+    )
+
+  it("grava `shipping_service_id: 'retirada'`, o método e frete zero", () => {
+    const corpo = retirada()
+
+    expect(corpo.shipping_service_id).toBe('retirada')
+    expect(corpo.shipping_method).toBe('Retirada no escritório')
+    expect(corpo.shipping_carrier).toBe('Uma Estrelinha')
+    expect(corpo.shipping_cost).toBe(0)
+    expect(corpo.total).toBe(100)
+  })
+
+  it('não leva prazo de transportadora: as duas datas ficam AUSENTES, não vazias', () => {
+    const corpo = retirada()
+
+    expect(corpo.delivery_estimate_min).toBeUndefined()
+    expect(corpo.delivery_estimate_max).toBeUndefined()
+  })
+
+  it('o endereço da cliente continua no pedido (RET-09)', () => {
+    const corpo = retirada()
+
+    expect(corpo.address_street).toBe('Rua Coronel Bordini')
+    expect(corpo.address_number).toBe('120')
+    expect(corpo.address_complement).toBe('Casa 2')
+    expect(corpo.address_zip).toBe('91240010')
+    expect(corpo.address_city).toBe('Porto Alegre')
+  })
+})

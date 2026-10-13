@@ -8,6 +8,7 @@ import { useCheckoutStore } from '../../model/checkoutStore'
 import { useCepLookup } from '../../api/useCepLookup'
 import { useShippingQuote } from '../../api/useShippingQuote'
 import { useDefaultAddress } from '@/entities/address'
+import { isDeliveryComplete } from '@estrelinha/core/checkout'
 import DeliveryBlock, { QUOTE_UNAVAILABLE_MESSAGE } from '../DeliveryBlock'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -32,8 +33,15 @@ const shippingSettings = {
   origin_zip: '',
   handling_days: 2,
 }
+// Feature 63: a retirada lê `shipping` + `material` por `useStoreSettings`. Só é chamada para CEP
+// do RS — os casos anteriores à feature, todos com CEP de São Paulo, nunca a alcançam.
+const storeSettings: {
+  data: { shipping: Record<string, unknown>; material: Record<string, unknown> } | undefined
+  isFetched: boolean
+} = { data: undefined, isFetched: true }
 vi.mock('@estrelinha/core/hooks/useStoreSettings', () => ({
   useShippingSettings: () => shippingSettings,
+  useStoreSettings: () => storeSettings,
 }))
 
 const authState: { customer: { id: string } | null } = { customer: { id: 'c1' } }
@@ -837,5 +845,328 @@ describe('DeliveryBlock — o interruptor do frete gratis (FRG-07)', () => {
     expect(screen.getByText('Correios Frete padrão')).toBeInTheDocument()
     expect(screen.queryByText('Grátis')).not.toBeInTheDocument()
     expect(useCheckoutStore.getState().shipping?.cost).toBe(9.9)
+  })
+})
+
+/**
+ * Feature 63 — a retirada no escritório no checkout (RET-06..11).
+ *
+ * O endereço do Material tem número e complemento DISTINTOS (`455`, `Sala 3`), para a ausência
+ * deles ser mensurável; e os preços são distintos (PAC 14,90, SEDEX 24,80, retirada 0), para a
+ * retirada nunca coincidir com a "mais barata" por acaso. Datas: seg 27/07 + 2 dias úteis = 29/07.
+ */
+describe('DeliveryBlock — retirada no escritório (feature 63)', () => {
+  const MATERIAL = {
+    recipient: 'Adri Muniz',
+    street: 'Rua Dona Laura',
+    number: '455',
+    complement: 'Sala 3',
+    neighborhood: 'Rio Branco',
+    city: 'Porto Alegre',
+    state: 'RS',
+    zip: '90430091',
+    notes: '',
+  }
+  const LINHA = 'Escritório - Uma Estrelinha - Rua Dona Laura, Rio Branco, Porto Alegre/RS'
+  const CEP_RS = '91240-010'
+  const RESOLVED_RS = {
+    street: 'Rua Coronel Bordini',
+    neighborhood: 'Auxiliadora',
+    city: 'Porto Alegre',
+    state: 'RS',
+    manual: false,
+  }
+  const RASCUNHO_RETIRADA = {
+    serviceId: 'retirada',
+    serviceName: 'Retirada no escritório',
+    carrier: 'Uma Estrelinha',
+    cost: 0,
+    estimateMin: '',
+    estimateMax: '',
+  }
+
+  beforeEach(() => {
+    storeSettings.isFetched = true
+    storeSettings.data = {
+      shipping: { handling_days: 2, pickup_enabled: true },
+      material: { ...MATERIAL },
+    }
+  })
+
+  afterEach(() => {
+    storeSettings.data = undefined
+  })
+
+  const grupoRetirada = () => within(screen.getByRole('group', { name: 'Retirar em' }))
+
+  it('CEP do RS: dois grupos, "Envio a domicílio" e "Retirar em" com a linha, a data e "Grátis" (RET-06)', () => {
+    withCep(CEP_RS)
+    cepLookup(RESOLVED_RS)
+    quoteState({ data: [PAC, SEDEX] })
+    renderOpen()
+
+    expect(screen.getByText('Envio a domicílio')).toBeInTheDocument()
+    expect(screen.getByText('Correios PAC')).toBeInTheDocument()
+    expect(grupoRetirada().getByText('Retirar em')).toBeInTheDocument()
+    expect(grupoRetirada().getByText(LINHA)).toBeInTheDocument()
+    expect(grupoRetirada().getByText('Pronta para retirada a partir de 29 de julho')).toBeInTheDocument()
+    expect(grupoRetirada().getByText('Grátis')).toBeInTheDocument()
+    expect(screen.queryByText(/455/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Sala 3/)).not.toBeInTheDocument()
+  })
+
+  it('CEP de São Paulo: nenhum dos dois títulos de grupo (RET-02)', () => {
+    withCep()
+    cepLookup(RESOLVED)
+    quoteState({ data: [PAC, SEDEX] })
+    renderOpen()
+
+    expect(screen.queryByText('Envio a domicílio')).not.toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: 'Retirar em' })).not.toBeInTheDocument()
+  })
+
+  it('escolher a retirada grava o rascunho com frete zero e sem datas (RET-06, RET-07)', () => {
+    withCep(CEP_RS)
+    cepLookup(RESOLVED_RS)
+    quoteState({ data: [PAC, SEDEX] })
+    renderOpen()
+
+    const botao = grupoRetirada().getByRole('button')
+    expect(botao).toHaveAttribute('aria-pressed', 'false')
+    fireEvent.click(botao)
+
+    expect(useCheckoutStore.getState().shipping).toEqual(RASCUNHO_RETIRADA)
+    expect(grupoRetirada().getByRole('button')).toHaveAttribute('aria-pressed', 'true')
+    expect(useCheckoutStore.getState().dirty).toEqual(['delivery'])
+  })
+
+  it('endereço is_default do RS: a pré-seleção continua sendo o PAC mais barato, não a retirada (RET-08)', () => {
+    defaultAddressMock.mockReturnValue({
+      data: { ...DEFAULT_ADDRESS, cep: CEP_RS, city: 'Porto Alegre', state: 'RS' },
+    } as any)
+    cepLookup(RESOLVED_RS)
+    quoteState({ data: [SEDEX, PAC] })
+    renderOpen()
+
+    expect(screen.getByRole('group', { name: 'Retirar em' })).toBeInTheDocument()
+    expect(useCheckoutStore.getState().shipping?.serviceId).toBe('1')
+    expect(useCheckoutStore.getState().shipping?.cost).toBe(14.9)
+  })
+
+  it('endereço is_default do RS com a cotação CHEGANDO DEPOIS da configuração: a pré-seleção é o PAC, não a retirada (RET-08)', () => {
+    // A ordem do navegador: `store_settings` já está no cache (a retirada aparece no primeiro
+    // render) e a cotação ainda está no ar. O caso acima resolve a cotação no primeiro render, e
+    // nele a pré-seleção roda ANTES de a retirada existir — um defeito que escolhesse a retirada
+    // para o endereço salvo nunca a enxergaria ali (mutante S03 da verificação).
+    defaultAddressMock.mockReturnValue({
+      data: { ...DEFAULT_ADDRESS, cep: CEP_RS, city: 'Porto Alegre', state: 'RS' },
+    } as any)
+    cepLookup(RESOLVED_RS)
+    quoteState({ isLoading: true })
+    const { rerender } = renderOpen()
+
+    expect(screen.getByText('Consultando as transportadoras…')).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Retirar em' })).toBeInTheDocument()
+    expect(useCheckoutStore.getState().shipping).toBeNull()
+
+    quoteState({ data: [SEDEX, PAC] })
+    rerender(
+      <DeliveryBlock open complete={false} onEdit={onEdit} onContinue={onContinue} canContinue={false} />,
+    )
+
+    expect(useCheckoutStore.getState().shipping?.serviceId).toBe('1')
+    expect(useCheckoutStore.getState().shipping?.cost).toBe(14.9)
+    expect(grupoRetirada().getByRole('button')).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('CEP do RS: "Envio a domicílio" e "Retirar em" são DOIS grupos nomeados, cada um com a sua opção (RET-06)', () => {
+    withCep(CEP_RS)
+    cepLookup(RESOLVED_RS)
+    quoteState({ data: [PAC, SEDEX] })
+    renderOpen()
+
+    const domicilio = within(screen.getByRole('group', { name: 'Envio a domicílio' }))
+    expect(domicilio.getByText('Correios PAC')).toBeInTheDocument()
+    expect(domicilio.getByText('Correios SEDEX')).toBeInTheDocument()
+    expect(domicilio.queryByText(LINHA)).not.toBeInTheDocument()
+    expect(grupoRetirada().getByText(LINHA)).toBeInTheDocument()
+    expect(grupoRetirada().queryByText('Correios PAC')).not.toBeInTheDocument()
+  })
+
+  it('CEP de São Paulo: as opções dos Correios não viram grupo nomeado (a tela de antes)', () => {
+    withCep()
+    cepLookup(RESOLVED)
+    quoteState({ data: [PAC, SEDEX] })
+    renderOpen()
+
+    expect(screen.queryByRole('group', { name: 'Envio a domicílio' })).not.toBeInTheDocument()
+    // E nenhum grupo SEM nome em volta das opções dos Correios: um `role="group"` incondicional
+    // (o mutante N15 da rodada 2) escaparia da consulta por nome acima. Asserção no PRÓPRIO botão,
+    // subindo até o bloco: fora do RS não há grupo nenhum no caminho.
+    for (const nome of [/Correios PAC/, /Correios SEDEX/]) {
+      const opcao = screen.getByRole('button', { name: nome })
+      expect(opcao.closest('[role="group"]'), String(nome)).toBeNull()
+    }
+  })
+
+  it('cupom de frete grátis num CEP do RS: PAC e SEDEX ficam Grátis, e a retirada continua Grátis com custo 0 (edge case)', () => {
+    useCouponStore.getState().setCoupon({
+      id: 'cp1',
+      code: 'FRETEGRATIS',
+      discount: 0,
+      freeShipping: true,
+    } as any)
+    setCartSubtotal(50)
+    withCep(CEP_RS)
+    cepLookup(RESOLVED_RS)
+    quoteState({ data: [PAC, SEDEX] })
+    renderOpen()
+
+    // Três "Grátis": PAC e SEDEX (com o preço riscado, como hoje) e a retirada.
+    expect(screen.getAllByText('Grátis')).toHaveLength(3)
+    expect(screen.getByText('R$ 14,90')).toHaveClass('line-through')
+    expect(screen.getByText('R$ 24,80')).toHaveClass('line-through')
+    expect(grupoRetirada().getByText('Grátis')).toBeInTheDocument()
+
+    fireEvent.click(grupoRetirada().getByRole('button'))
+    expect(useCheckoutStore.getState().shipping).toEqual(RASCUNHO_RETIRADA)
+
+    fireEvent.click(screen.getByText('Correios SEDEX'))
+    expect(useCheckoutStore.getState().shipping?.serviceId).toBe('2')
+    expect(useCheckoutStore.getState().shipping?.cost).toBe(0)
+  })
+
+  it('cotação com uma opção só num CEP do RS: pré-seleciona o PAC, nunca a retirada (RET-08)', () => {
+    withCep(CEP_RS)
+    cepLookup(RESOLVED_RS)
+    quoteState({ data: [PAC] })
+    renderOpen()
+
+    expect(useCheckoutStore.getState().shipping?.serviceId).toBe('1')
+  })
+
+  it('frete grátis atingido: o PAC mais barato fica Grátis e a retirada não "rouba" o posto (RET-08)', () => {
+    setCartSubtotal(200)
+    withCep(CEP_RS)
+    cepLookup(RESOLVED_RS)
+    quoteState({ data: [SEDEX, PAC] })
+    renderOpen()
+
+    // Dois "Grátis": o do PAC (com o preço riscado) e o da retirada.
+    expect(screen.getAllByText('Grátis')).toHaveLength(2)
+    expect(screen.getByText('R$ 14,90')).toHaveClass('line-through')
+    expect(screen.getByText('R$ 24,80')).not.toHaveClass('line-through')
+
+    fireEvent.click(screen.getByText('Correios PAC'))
+    expect(useCheckoutStore.getState().shipping?.cost).toBe(0)
+    expect(useCheckoutStore.getState().shipping?.serviceId).toBe('1')
+  })
+
+  it('cotação indisponível num CEP do RS: "Frete padrão" E a retirada (SHP-05 + RET-06)', () => {
+    withCep(CEP_RS)
+    cepLookup(RESOLVED_RS)
+    quoteState({ isError: true })
+    renderOpen()
+
+    expect(screen.getByRole('alert')).toHaveTextContent(QUOTE_UNAVAILABLE_MESSAGE)
+    expect(screen.getByText('Correios Frete padrão')).toBeInTheDocument()
+    expect(grupoRetirada().getByText(LINHA)).toBeInTheDocument()
+    // SHP-05 pré-seleciona a opção única de fallback — e ela continua sendo o frete padrão.
+    expect(useCheckoutStore.getState().shipping?.serviceId).toBe('default')
+  })
+
+  it('retirada desligada no painel: o grupo não aparece num CEP do RS (RET-05)', () => {
+    storeSettings.data!.shipping.pickup_enabled = false
+    withCep(CEP_RS)
+    cepLookup(RESOLVED_RS)
+    quoteState({ data: [PAC, SEDEX] })
+    renderOpen()
+
+    expect(screen.queryByRole('group', { name: 'Retirar em' })).not.toBeInTheDocument()
+    expect(screen.queryByText('Envio a domicílio')).not.toBeInTheDocument()
+  })
+
+  it('trocar para um CEP de São Paulo desfaz a retirada e esconde a opção (RET-10)', () => {
+    withCep(CEP_RS)
+    cepLookup(RESOLVED_RS)
+    quoteState({ data: [PAC, SEDEX] })
+    renderOpen()
+
+    fireEvent.click(grupoRetirada().getByRole('button'))
+    expect(useCheckoutStore.getState().shipping?.serviceId).toBe('retirada')
+
+    fireEvent.change(screen.getByLabelText('CEP'), { target: { value: '01310100' } })
+
+    expect(useCheckoutStore.getState().shipping).toBeNull()
+    expect(screen.queryByRole('group', { name: 'Retirar em' })).not.toBeInTheDocument()
+  })
+
+  it('rascunho restaurado com retirada, e a retirada foi desligada: a escolha é desfeita (edge case)', () => {
+    storeSettings.data!.shipping.pickup_enabled = false
+    withCep(CEP_RS)
+    cepLookup(RESOLVED_RS)
+    quoteState({ data: [PAC, SEDEX] })
+    useCheckoutStore.getState().setShipping(RASCUNHO_RETIRADA)
+    renderOpen()
+
+    expect(useCheckoutStore.getState().shipping).toBeNull()
+  })
+
+  it('rascunho restaurado com retirada enquanto a configuração CARREGA: a escolha fica', () => {
+    // Sem a configuração, os defaults dão Material vazio e a opção sai `null` — "ainda não sei"
+    // não pode desfazer a escolha de quem recarregou o checkout.
+    storeSettings.data = undefined
+    storeSettings.isFetched = false
+    withCep(CEP_RS)
+    cepLookup(RESOLVED_RS)
+    quoteState({ data: [PAC, SEDEX] })
+    useCheckoutStore.getState().setShipping(RASCUNHO_RETIRADA)
+    renderOpen()
+
+    expect(useCheckoutStore.getState().shipping).toEqual(RASCUNHO_RETIRADA)
+  })
+
+  it('rascunho restaurado com retirada e um CEP de fora do RS: a escolha é desfeita (RET-10)', () => {
+    withCep()
+    cepLookup(RESOLVED)
+    quoteState({ data: [PAC, SEDEX] })
+    useCheckoutStore.getState().setShipping(RASCUNHO_RETIRADA)
+    renderOpen()
+
+    expect(useCheckoutStore.getState().shipping).toBeNull()
+  })
+
+  it('recolhido com a retirada: "Retirada no escritório", a linha e "Grátis" — sem prazo de transportadora (RET-11)', () => {
+    useCheckoutStore.getState().setAddress({
+      ...ENDERECO,
+      cep: '91240010',
+      city: 'Porto Alegre',
+      state: 'RS',
+    })
+    useCheckoutStore.getState().setShipping(RASCUNHO_RETIRADA)
+    renderCollapsed()
+
+    const faixa = within(screen.getByRole('group', { name: 'Frete escolhido' }))
+    expect(faixa.getByText('Retirada no escritório')).toBeInTheDocument()
+    expect(faixa.getByText(LINHA)).toBeInTheDocument()
+    expect(faixa.getByText('Grátis')).toBeInTheDocument()
+    expect(screen.queryByText(/^Chega/)).not.toBeInTheDocument()
+    expect(screen.queryByText('Prazo confirmado após a postagem')).not.toBeInTheDocument()
+    expect(faixa.queryByText(/Uma Estrelinha Retirada/)).not.toBeInTheDocument()
+  })
+
+  it('com a retirada escolhida, o endereço da cliente continua obrigatório: sem número, incompleto (RET-09)', () => {
+    const address = {
+      cep: '91240010',
+      street: 'Rua Coronel Bordini',
+      number: '',
+      complement: '',
+      neighborhood: 'Auxiliadora',
+      city: 'Porto Alegre',
+      state: 'RS',
+      manual: false,
+    }
+    expect(isDeliveryComplete({ address, shipping: RASCUNHO_RETIRADA })).toBe(false)
+    expect(isDeliveryComplete({ address: { ...address, number: '120' }, shipping: RASCUNHO_RETIRADA })).toBe(true)
   })
 })

@@ -74,6 +74,17 @@ export function formatEstimate(min: Date, max: Date): string {
 }
 
 /**
+ * `"a partir de 14 de outubro"` — a data em que a peça fica pronta para retirada no escritório
+ * (feature 63, RET-01). Quem calcula a data é quem chama (`addBusinessDays(hoje, handling_days)`).
+ *
+ * Mora aqui, e não em `pickup.ts`, porque só a loja exibe a data e este arquivo já é o dono dos
+ * nomes dos meses; `pickup.ts` precisa continuar sem import nenhum para o Deno.
+ */
+export function formatPickupReady(date: Date): string {
+  return `a partir de ${date.getDate()} de ${MONTHS_PT_BR[date.getMonth()]}`
+}
+
+/**
  * `id` da opção de menor preço. `price` vem como string do Melhor Envio e é comparado
  * como número — comparação textual colocaria "18.90" antes de "9.90".
  */

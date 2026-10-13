@@ -876,3 +876,217 @@ describe('create-order — os ids do GA4 (feature 61, CMP-01)', () => {
     }
   })
 })
+
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * `RET-12` (feature `63`) — a retirada no escritório forjada.
+ *
+ * A tela só mostra a retirada para CEP do RS, com o interruptor ligado e o endereço do escritório
+ * preenchido. O corpo, porém, vem do navegador: esta é a regra. Cada ramo de recusa assere **zero**
+ * gravação em qualquer tabela e zero conta criada — um 422 com o pedido já gravado seria verdadeiro
+ * no status e falso no banco.
+ *
+ * A fixtura de `store_settings` é uma FUNÇÃO de propósito: ela enxerga o `.eq('key', …)` e registra
+ * o que foi lido. Uma fixtura de valor devolveria a mesma linha para qualquer chave, e "lê `shipping`
+ * e `material`" — ou "pedido dos Correios não lê nada" — seria inauditável.
+ */
+describe('create-order — retirada no escritório (RET-12)', () => {
+  const ESCRITORIO = {
+    street: 'Rua Dona Laura',
+    number: '455',
+    complement: 'Sala 7',
+    neighborhood: 'Rio Branco',
+    city: 'Porto Alegre',
+    state: 'RS',
+  }
+
+  const RETIRADA = {
+    ...PEDIDO,
+    address_zip: '91240010',
+    address_street: 'Rua da Cliente',
+    address_number: '12',
+    address_neighborhood: 'Petrópolis',
+    address_city: 'Porto Alegre',
+    address_state: 'RS',
+    shipping_service_id: 'retirada',
+    shipping_method: 'Retirada no escritório',
+    shipping_carrier: 'Uma Estrelinha',
+    shipping_cost: 0,
+    total: 100,
+  }
+
+  /**
+   * O cenário com `store_settings` legível por chave, registrando cada chave lida. Com `sessao`, o
+   * dublê responde a `getUser` com uma conta e o `customers` dela — o caminho de quem tem login
+   * (`PED-02`), que tem de passar pela MESMA recusa (o mutante N18 da rodada 2 a pulava com sessão).
+   */
+  const comConfiguracao = (
+    config: { shipping?: unknown; material?: unknown },
+    pedidoExistente: unknown = null,
+    { sessao = false }: { sessao?: boolean } = {},
+  ) => {
+    const lidas: string[] = []
+    const supabase = cenario({
+      ...(sessao ? { user: { id: 'usr-logada' }, rpcByFn: { account_exists: { data: true } } } : {}),
+      rows: {
+        orders: pedidoExistente,
+        customers: { id: sessao ? 'cus-logada' : 'cus-1' },
+        store_settings: (eq: [string, unknown] | null) => {
+          if (eq?.[0] !== 'key') return null
+          const chave = String(eq[1])
+          lidas.push(chave)
+          const valor = (config as Record<string, unknown>)[chave]
+          return valor === undefined ? null : { value: valor }
+        },
+      },
+    })
+    return { supabase, lidas }
+  }
+
+  const LIGADA = { shipping: { pickup_enabled: true, handling_days: 3 }, material: ESCRITORIO }
+
+  const nadaGravado = (supabase: ReturnType<typeof createFakeSupabase>) => {
+    expect(supabase.inserts).toEqual([])
+    expect(supabase.updates).toEqual([])
+    expect(supabase.upserts).toEqual([])
+    expect(criacoesDeConta(supabase)).toEqual([])
+  }
+
+  it('retirada válida ⇒ 200, e o pedido é gravado como retirada com custo zero', async () => {
+    const { supabase, lidas } = comConfiguracao(LIGADA)
+    const res = await route(criarDeps(supabase), pedir(RETIRADA))
+
+    expect(res.status).toBe(200)
+    expect(tabelasGravadas(supabase)).toContain('orders')
+    expect(tabelasGravadas(supabase)).toContain('order_items')
+    const linha = linhaDoPedido(supabase)
+    expect(linha.shipping_service_id).toBe('retirada')
+    expect(linha.shipping_method).toBe('Retirada no escritório')
+    expect(linha.shipping_cost).toBe(0)
+    // Âncora: a regra LEU as duas chaves — é sobre elas que os ramos de recusa abaixo decidem.
+    expect(lidas).toEqual(['shipping', 'material'])
+  })
+
+  it('a chave `pickup_enabled` AUSENTE vale como ligada (o default do TypeScript)', async () => {
+    const { supabase } = comConfiguracao({ shipping: { handling_days: 3 }, material: ESCRITORIO })
+    const res = await route(criarDeps(supabase), pedir(RETIRADA))
+
+    expect(res.status).toBe(200)
+    expect(linhaDoPedido(supabase).shipping_service_id).toBe('retirada')
+  })
+
+  it('CEP de fora do RS ⇒ 422 `pickup_unavailable` e nada gravado', async () => {
+    const { supabase } = comConfiguracao(LIGADA)
+    const res = await route(criarDeps(supabase), pedir({ ...RETIRADA, address_zip: '01310100' }))
+
+    expect(res.status).toBe(422)
+    expect(await res.json()).toEqual({ error: 'pickup_unavailable' })
+    nadaGravado(supabase)
+  })
+
+  it('custo de frete diferente de zero ⇒ 422 e nada gravado', async () => {
+    const { supabase } = comConfiguracao(LIGADA)
+    const res = await route(criarDeps(supabase), pedir({ ...RETIRADA, shipping_cost: 9.9 }))
+
+    expect(res.status).toBe(422)
+    expect(await res.json()).toEqual({ error: 'pickup_unavailable' })
+    nadaGravado(supabase)
+  })
+
+  it('custo de frete ausente no corpo ⇒ 422 (não vira zero por omissão)', async () => {
+    const { supabase } = comConfiguracao(LIGADA)
+    const { shipping_cost: _semCusto, ...semCusto } = RETIRADA
+    const res = await route(criarDeps(supabase), pedir(semCusto))
+
+    expect(res.status).toBe(422)
+    nadaGravado(supabase)
+  })
+
+  it('a retirada DESLIGADA no painel ⇒ 422 e nada gravado', async () => {
+    const { supabase } = comConfiguracao({ ...LIGADA, shipping: { pickup_enabled: false } })
+    const res = await route(criarDeps(supabase), pedir(RETIRADA))
+
+    expect(res.status).toBe(422)
+    expect(await res.json()).toEqual({ error: 'pickup_unavailable' })
+    nadaGravado(supabase)
+  })
+
+  it('o endereço do escritório sem rua ⇒ 422 e nada gravado', async () => {
+    const { supabase } = comConfiguracao({ ...LIGADA, material: { ...ESCRITORIO, street: '' } })
+    const res = await route(criarDeps(supabase), pedir(RETIRADA))
+
+    expect(res.status).toBe(422)
+    expect(await res.json()).toEqual({ error: 'pickup_unavailable' })
+    nadaGravado(supabase)
+  })
+
+  it('sem a linha `material` em `store_settings` ⇒ 422 e nada gravado', async () => {
+    const { supabase } = comConfiguracao({ shipping: { pickup_enabled: true } })
+    const res = await route(criarDeps(supabase), pedir(RETIRADA))
+
+    expect(res.status).toBe(422)
+    nadaGravado(supabase)
+  })
+
+  describe('com SESSÃO (Authorization: Bearer) — a recusa não depende de quem compra', () => {
+    const SESSAO = { Authorization: 'Bearer jwt' }
+
+    it('âncora: a retirada válida com sessão passa e nasce ligada à conta, sem criar conta', async () => {
+      const { supabase } = comConfiguracao(LIGADA, null, { sessao: true })
+      const res = await route(criarDeps(supabase), pedir(RETIRADA, SESSAO))
+
+      expect(res.status).toBe(200)
+      expect(linhaDoPedido(supabase).shipping_service_id).toBe('retirada')
+      expect(linhaDoPedido(supabase).customer_id).toBe('cus-logada')
+      expect(criacoesDeConta(supabase)).toEqual([])
+    })
+
+    it('CEP de fora do RS com sessão ⇒ 422 `pickup_unavailable` e nada gravado', async () => {
+      const { supabase } = comConfiguracao(LIGADA, null, { sessao: true })
+      const res = await route(criarDeps(supabase), pedir({ ...RETIRADA, address_zip: '01310100' }, SESSAO))
+
+      expect(res.status).toBe(422)
+      expect(await res.json()).toEqual({ error: 'pickup_unavailable' })
+      nadaGravado(supabase)
+    })
+
+    it('custo diferente de zero com sessão ⇒ 422 `pickup_unavailable` e nada gravado', async () => {
+      const { supabase } = comConfiguracao(LIGADA, null, { sessao: true })
+      const res = await route(criarDeps(supabase), pedir({ ...RETIRADA, shipping_cost: 9.9 }, SESSAO))
+
+      expect(res.status).toBe(422)
+      expect(await res.json()).toEqual({ error: 'pickup_unavailable' })
+      nadaGravado(supabase)
+    })
+  })
+
+  it('pedido dos Correios NÃO lê `store_settings` e grava como hoje', async () => {
+    const { supabase, lidas } = comConfiguracao({ shipping: { pickup_enabled: false } })
+    const res = await route(
+      criarDeps(supabase),
+      pedir({ ...PEDIDO, shipping_service_id: '1', shipping_method: 'PAC', shipping_cost: 10 }),
+    )
+
+    expect(res.status).toBe(200)
+    expect(lidas).toEqual([])
+    expect(linhaDoPedido(supabase).shipping_service_id).toBe('1')
+  })
+
+  it('a retentativa de uma retirada JÁ gravada devolve o pedido, mesmo com a retirada desligada', async () => {
+    // A idempotência vem antes: o pedido já passou pela porta, e desligar a retirada depois não
+    // pode fazer a cliente perder o acesso a ele.
+    const { supabase, lidas } = comConfiguracao(
+      { shipping: { pickup_enabled: false }, material: ESCRITORIO },
+      { id: 'ord-ja-existe' },
+    )
+    const res = await route(criarDeps(supabase), pedir(RETIRADA))
+    const corpo = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(corpo.order_id).toBe('ord-ja-existe')
+    expect(corpo.reused).toBe(true)
+    expect(supabase.inserts).toEqual([])
+    expect(lidas).toEqual([])
+  })
+})

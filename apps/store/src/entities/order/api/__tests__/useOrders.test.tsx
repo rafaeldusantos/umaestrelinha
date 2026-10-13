@@ -29,6 +29,7 @@ vi.mock('@estrelinha/supabase/client', () => ({
 
 import {
   NeedsOtpError,
+  PickupUnavailableError,
   useCreateOrder,
   useOrdersByCustomerId,
   type CreateOrderInput,
@@ -178,6 +179,24 @@ describe('useCreateOrder — o 409 de `needs_otp` é distinguível (IDN-08)', ()
     expect(erro).toBeInstanceOf(Error)
     expect(erro).not.toBeInstanceOf(NeedsOtpError)
     expect(erro.message).toBe('Não conseguimos criar seu pedido.')
+  })
+})
+
+describe('useCreateOrder — o 422 de `pickup_unavailable` é distinguível (feature 63, RET-12)', () => {
+  it('rejeita com `PickupUnavailableError` quando o servidor recusa a retirada', async () => {
+    invoke.mockResolvedValue(erroDaFunction(422, { error: 'pickup_unavailable' }))
+
+    const erro = await criar().catch((e) => e)
+    expect(erro).toBeInstanceOf(PickupUnavailableError)
+    expect(erro).not.toBeInstanceOf(NeedsOtpError)
+  })
+
+  it('outro 422 da function NÃO vira `PickupUnavailableError`', async () => {
+    invoke.mockResolvedValue(erroDaFunction(422, { error: 'missing_payer_cpf' }))
+
+    const erro = await criar().catch((e) => e)
+    expect(erro).toBeInstanceOf(Error)
+    expect(erro).not.toBeInstanceOf(PickupUnavailableError)
   })
 })
 

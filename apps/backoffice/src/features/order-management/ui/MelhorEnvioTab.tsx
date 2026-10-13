@@ -5,7 +5,7 @@ import { supabase } from '@estrelinha/supabase/client'
 import { toast } from 'sonner'
 import { Truck, Printer, Package, RefreshCw, CheckCircle2, Loader2 } from 'lucide-react'
 import { formatPrice } from '@estrelinha/core/formatters'
-import { toQuoteProducts } from '@estrelinha/core/shipping'
+import { isPickupOrder, toQuoteProducts } from '@estrelinha/core/shipping'
 import type { DbOrder, DbOrderItem } from '@estrelinha/supabase/types'
 
 interface ShippingQuote {
@@ -140,6 +140,19 @@ const MelhorEnvioTab = ({ order, items, onUpdate }: Props) => {
     } finally {
       setCheckingTracking(false)
     }
+  }
+
+  // RET-14 (feature 63): pedido de retirada no escritório não tem cotação nem etiqueta. A
+  // function `melhor-envio` também recusa (`RET-15`); aqui a tela nem oferece o botão.
+  if (isPickupOrder(order)) {
+    return (
+      <div className="rounded-xl border border-border bg-muted/40 p-4 text-sm" data-testid="melhor-envio-retirada">
+        <p className="font-medium">Pedido de retirada no escritório — sem etiqueta.</p>
+        <p className="mt-1 text-muted-foreground">
+          A cliente busca a joia no escritório: não há cotação nem etiqueta do Melhor Envio.
+        </p>
+      </div>
+    )
   }
 
   // Label already generated

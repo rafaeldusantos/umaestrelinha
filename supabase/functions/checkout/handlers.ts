@@ -28,6 +28,10 @@ import {
   newAccessToken,
 } from '../../../packages/core/src/checkout/guestAccess.ts'
 import { isValidEmail, normalizeEmail } from '../../../packages/core/src/validators/email.ts'
+import {
+  PICKUP_SERVICE_ID,
+  pickupRefusal,
+} from '../../../packages/core/src/shipping/pickup.ts'
 import { corsHeaders, json, preflight } from '../_shared/http.ts'
 
 /** Tudo que os handlers tocam fora do próprio processo. O wiring (`index.ts`) fornece o real. */
@@ -267,6 +271,38 @@ export function idsDaMedicao(
 }
 
 /**
+ * Lê `store_settings` (`shipping` e `material`) e pergunta ao dono da regra se a retirada vale para
+ * este corpo. Só é chamada para pedido de retirada — pedido dos Correios não lê configuração nenhuma.
+ *
+ * O jsonb é lido cru, então o default do interruptor é resolvido AQUI: chave ausente vale como
+ * ligada, igual a `DEFAULT_SHIPPING.pickup_enabled` (a migration da `63` a grava, mas um banco que
+ * ainda não a recebeu não pode recusar toda retirada por isso).
+ */
+async function recusaDeRetirada(
+  deps: Deps,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  body: any,
+): Promise<string | null> {
+  const ler = async (chave: string) => {
+    const { data } = await deps.supabase
+      .from('store_settings')
+      .select('value')
+      .eq('key', chave)
+      .maybeSingle()
+    return data?.value ?? null
+  }
+  const shipping = await ler('shipping')
+  const material = await ler('material')
+  const cost = Number(body?.shipping_cost)
+  return pickupRefusal({
+    enabled: shipping?.pickup_enabled ?? true,
+    material,
+    zip: body?.address_zip,
+    cost,
+  })
+}
+
+/**
  * Grava o pedido, e é a **única** porta que faz isso — para convidada e para quem tem sessão.
  *
  * **A ORDEM das escritas é requisito** (`CSC-08`), e é o que separa esta implementação de uma
@@ -338,6 +374,18 @@ export async function createOrder(
       access_token: tokenNovo,
       reused: true,
     })
+  }
+
+  // RET-12 (feature `63`): a retirada no escritório só vale para CEP do RS, com custo zero, com o
+  // interruptor ligado e o endereço do escritório preenchido. A tela já esconde a opção fora disso;
+  // esta é a regra, porque o corpo vem do navegador. Fica DEPOIS da idempotência (a retentativa de
+  // um pedido já gravado continua devolvendo o pedido) e ANTES de qualquer escrita.
+  if (body?.shipping_service_id === PICKUP_SERVICE_ID) {
+    const recusaDaRetirada = await recusaDeRetirada(deps, body)
+    if (recusaDaRetirada) {
+      log({ action: 'create-order', status: 'pickup_refused' })
+      return json({ error: recusaDaRetirada }, 422)
+    }
   }
 
   const { identity, customerId: customerIdDaSessao } = await resolveIdentity(deps, req, email)

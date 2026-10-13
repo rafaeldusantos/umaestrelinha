@@ -202,7 +202,7 @@ export async function preview(deps: Deps, req: Request, body: any): Promise<Resp
     enderecoAtelie: settings.atelie,
   })
 
-  const rendered = renderEmail(event as NotificationEvent, order, fields, vars, deps.env.storePublicUrl)
+  const rendered = renderEmail(event as NotificationEvent, order, fields, vars, deps.env.storePublicUrl, settings.material)
   return json({ ...rendered, sample: !orderIdOf({ order_id: body?.order_id }) })
 }
 
@@ -226,6 +226,8 @@ async function readNotificationSettings(deps: Deps) {
     if (row?.key === 'general') saida.general = row.value
     if (row?.key === 'material') {
       const m = row.value ?? {}
+      // Feature 63: o endereço cru, para o bloco de retirada da prévia (`pickupLocation`).
+      saida.material = m
       saida.atelie = [m.recipient, [m.street, m.number].filter(Boolean).join(', '), m.complement, m.neighborhood, [m.city, m.state].filter(Boolean).join(' - '), m.zip]
         .map((p: unknown) => String(p ?? '').trim())
         .filter((p) => p !== '')
@@ -248,7 +250,7 @@ async function previewOrder(deps: Deps, orderId: unknown): Promise<EmailOrder> {
   const { data } = await deps.supabase
     .from('orders')
     .select(
-      'id, order_number, customer_name, customer_email, status, payment_status, paid_at, tracking_code, shipping_carrier, material_status, material_tracking_code, subtotal, shipping_cost, discount, pix_discount, total, address_street, address_number, address_complement, address_neighborhood, address_city, address_state, address_zip, order_items ( product_name, size, finish, quantity, unit_price )',
+      'id, order_number, customer_name, customer_email, status, payment_status, paid_at, tracking_code, shipping_carrier, shipping_service_id, material_status, material_tracking_code, subtotal, shipping_cost, discount, pix_discount, total, address_street, address_number, address_complement, address_neighborhood, address_city, address_state, address_zip, order_items ( product_name, size, finish, quantity, unit_price )',
     )
     .eq('id', id)
     .maybeSingle()

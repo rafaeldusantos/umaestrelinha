@@ -12,6 +12,7 @@
 // painel e mentiria sobre quando a etapa aconteceu.
 
 import { firstEventAt, type StatusEvent } from './situation.ts'
+import { isPickupOrder } from '../shipping/pickup.ts'
 
 export interface JourneyInput {
   status: string | null
@@ -22,6 +23,8 @@ export interface JourneyInput {
   material_received_at?: string | null
   delivery_estimate_min?: string | null
   delivery_estimate_max?: string | null
+  /** Feature 63: `'retirada'` é pedido de retirada no escritório (`isPickupOrder`). */
+  shipping_service_id?: string | null
 }
 
 export type JourneyStepKey = 'received' | 'paid' | 'material' | 'production' | 'shipped' | 'delivered'
@@ -53,6 +56,12 @@ export const JOURNEY_STEP_LABELS: Record<JourneyStepKey, string> = {
   delivered: 'Entregue',
 }
 
+/**
+ * RET-19 (feature 63): a última etapa de um pedido de retirada. Ele não passa por "A caminho" —
+ * não há postagem —, e "Entregue" diria que alguém o levou até a cliente.
+ */
+export const PICKUP_DONE_LABEL = 'Retirado no escritório'
+
 /** Os estados do material em que ele já está no ateliê. */
 const MATERIAL_NO_ATELIE = ['material_recebido', 'em_producao']
 
@@ -68,6 +77,7 @@ export function orderJourney(o: JourneyInput, events: StatusEvent[] | null | und
     return { kind: 'cancelled', cancelledAt: firstEventAt(events, 'cancelled') }
   }
 
+  const retirada = isPickupOrder(o)
   const enviado = o.status === 'shipped' || o.status === 'delivered'
   const exigeMaterial = !!o.material_status && o.material_status !== 'nao_aplicavel'
 
@@ -82,12 +92,13 @@ export function orderJourney(o: JourneyInput, events: StatusEvent[] | null | und
       at: o.material_received_at ?? null,
     })
   }
-  rascunho.push(
-    // A produção só se dá por concluída quando o pacote sai — antes disso ela é a etapa em curso.
-    { key: 'production', aconteceu: enviado, at: firstEventAt(events, 'separating') },
-    { key: 'shipped', aconteceu: enviado, at: firstEventAt(events, 'shipped') },
-    { key: 'delivered', aconteceu: o.status === 'delivered', at: firstEventAt(events, 'delivered') },
-  )
+  // A produção só se dá por concluída quando o pacote sai — antes disso ela é a etapa em curso.
+  rascunho.push({ key: 'production', aconteceu: enviado, at: firstEventAt(events, 'separating') })
+  // A retirada não tem "A caminho" (RET-19): a etapa é OMITIDA, não marcada como pulada.
+  if (!retirada) {
+    rascunho.push({ key: 'shipped', aconteceu: enviado, at: firstEventAt(events, 'shipped') })
+  }
+  rascunho.push({ key: 'delivered', aconteceu: o.status === 'delivered', at: firstEventAt(events, 'delivered') })
 
   // Uma etapa posterior concluída implica as anteriores. É o que mantém coerente o pedido
   // importado da Nuvemshop, entregue com o pagamento num vocabulário que esta régua não lê.
@@ -96,7 +107,7 @@ export function orderJourney(o: JourneyInput, events: StatusEvent[] | null | und
 
   const steps = rascunho.map<JourneyStep>((r, i) => ({
     key: r.key,
-    label: JOURNEY_STEP_LABELS[r.key],
+    label: retirada && r.key === 'delivered' ? PICKUP_DONE_LABEL : JOURNEY_STEP_LABELS[r.key],
     state: i <= ultimaConcluida ? 'complete' : i === atual ? 'current' : 'future',
     at: r.at,
   }))

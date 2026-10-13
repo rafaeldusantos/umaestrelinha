@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { formatPrice } from '@estrelinha/core/formatters'
 import { formatOrderNumber } from '@estrelinha/core/orders'
 import { queueAgeLabel } from '@estrelinha/core/material'
+import { isPickupOrder, PICKUP_METHOD_NAME } from '@estrelinha/core/shipping'
 import { Button } from '@estrelinha/ui/button'
 import { Input } from '@estrelinha/ui/input'
 
@@ -18,6 +19,7 @@ import {
 } from '@/entities/order/api/orderQuery'
 import StatusBadge from '@/entities/order/ui/StatusBadge'
 import MaterialStatusBadge from '@/entities/order/ui/MaterialStatusBadge'
+import PickupLocation from '@/entities/order/ui/PickupLocation'
 import OrderMaterialCard from '@/features/order-management/ui/OrderMaterialCard'
 import MelhorEnvioTab from '@/features/order-management/ui/MelhorEnvioTab'
 import OrderCancelDialog from '@/features/order-management/ui/OrderCancelDialog'
@@ -126,6 +128,9 @@ const AdminOrderPage = () => {
     navigator.clipboard.writeText(valor)
     toast.success(`${oQue} copiado`)
   }
+
+  // RET-14 (feature 63): pedido de retirada no escritório — sem postagem, sem rastreio de saída.
+  const retirada = isPickupOrder(order)
 
   const enderecoLinhas = [
     [order.address_street, order.address_number].filter(Boolean).join(', '),
@@ -446,6 +451,13 @@ const AdminOrderPage = () => {
               )}
             </div>
 
+            {retirada && (
+              <div className="mb-3 rounded-lg bg-muted/40 p-2" data-testid="entrega-retirada">
+                <p className="text-sm font-medium">{PICKUP_METHOD_NAME}</p>
+                <PickupLocation className="text-sm text-muted-foreground" />
+              </div>
+            )}
+
             {enderecoLinhas.length > 0 ? (
               <p className="text-sm">
                 {enderecoLinhas.map(linha => (
@@ -457,12 +469,17 @@ const AdminOrderPage = () => {
             )}
 
             {/* O rastreio DE SAÍDA, rotulado com a direção. O de entrada está no bloco de material,
-                e os dois nunca aparecem lado a lado. */}
-            <h3 className="mt-4 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-              Rastreio da joia (saída)
-            </h3>
+                e os dois nunca aparecem lado a lado.
 
-            {order.tracking_code ? (
+                Pedido de retirada não tem saída pelo correio (RET-14): o bloco inteiro some, senão
+                "Salvar rastreio" levaria um pedido que a cliente busca no escritório a "enviado". */}
+            {!retirada && (
+              <h3 className="mt-4 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                Rastreio da joia (saída)
+              </h3>
+            )}
+
+            {retirada ? null : order.tracking_code ? (
               <p className="mt-1 flex items-center gap-2 font-mono text-sm">
                 {order.tracking_code}
                 <Button

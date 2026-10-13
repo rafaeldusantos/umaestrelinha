@@ -579,3 +579,70 @@ describe('LOGO-01 — o envio passa a origem da loja ao render', () => {
     expect(fetchDouble.calls[0].body.html).not.toContain('<img')
   })
 })
+
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * Feature 63 — a retirada no escritório, pelo MOTOR (a fiação, não só o render).
+ *
+ * A fixtura de `orders` é uma FUNÇÃO do `select`: a coluna `shipping_service_id` só chega se o motor
+ * a pediu, como no banco. Uma fixtura de valor a devolveria com qualquer `select`, e tirar a coluna
+ * de `ORDER_COLUMNS` — que faria `isPickupOrder` ler `undefined` e aprovar tudo — passaria verde.
+ */
+describe('feature 63 — o motor com um pedido de retirada (RET-17, RET-18)', () => {
+  const pedidoQueSoTrazOQueFoiPedido = (over: Record<string, unknown>) =>
+    (_eq: unknown, select: string) => {
+      const linha: Record<string, unknown> = baseOrder(over)
+      if (!/\bshipping_service_id\b/.test(select)) delete linha.shipping_service_id
+      return linha
+    }
+
+  it('RET-17: `order_shipped` de uma retirada é recusado com `pickup_order`, e nada é enviado', async () => {
+    const { deps, fetchDouble, supabase } = setup({
+      supabase: {
+        rows: {
+          orders: pedidoQueSoTrazOQueFoiPedido({
+            status: 'shipped',
+            tracking_code: 'NA123456789BR',
+            shipping_service_id: 'retirada',
+          }),
+        },
+      },
+    })
+    const r = await dispatchEvent(deps, { orderId: ORDER_ID, event: 'order_shipped' })
+
+    expect(r).toEqual([{ ok: false, event: 'order_shipped', channel: null, precondition: 'pickup_order' }])
+    expect(fetchDouble.calls).toEqual([])
+    expect(claims(supabase)).toEqual([])
+  })
+
+  it('RET-18: o e-mail de um pedido de retirada sai com "Retirada" e a linha do escritório', async () => {
+    const { deps, fetchDouble } = setup({
+      supabase: {
+        rows: {
+          orders: pedidoQueSoTrazOQueFoiPedido({ shipping_service_id: 'retirada', shipping_cost: 0 }),
+        },
+      },
+    })
+    const r = await dispatchEvent(deps, { orderId: ORDER_ID, event: 'order_paid' })
+
+    expect(r[0]).toMatchObject({ ok: true })
+    const html = fetchDouble.calls[0].body.html as string
+    // O escritório vem de `store_settings.material` (o `settingsRows` acima): Rua do Ateliê, Centro.
+    expect(html).toContain('Escritório - Uma Estrelinha - Rua do Ateliê, Centro, Porto Alegre/RS')
+    expect(html).toContain('>Retirada</strong>')
+    expect(html).not.toContain('Rua das Acácias')
+    expect(fetchDouble.calls[0].body.text).toContain('Retirada:')
+  })
+
+  it('o par: pedido dos Correios continua com "Entrega" e o endereço da cliente', async () => {
+    const { deps, fetchDouble } = setup({
+      supabase: { rows: { orders: pedidoQueSoTrazOQueFoiPedido({ shipping_service_id: '1' }) } },
+    })
+    await dispatchEvent(deps, { orderId: ORDER_ID, event: 'order_paid' })
+
+    const html = fetchDouble.calls[0].body.html as string
+    expect(html).toContain('>Entrega</strong>')
+    expect(html).toContain('Rua das Acácias')
+  })
+})

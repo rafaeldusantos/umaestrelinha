@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react'
 import { Truck, Loader2 } from 'lucide-react'
 import { formatPrice } from '@estrelinha/core/formatters'
-import { formatEstimate, quoteToEstimate } from '@estrelinha/core/shipping'
+import { formatEstimate, isRsCep, quoteToEstimate } from '@estrelinha/core/shipping'
 import { useShippingSettings } from '@estrelinha/core/hooks/useStoreSettings'
 import { maskCep, stripCep } from '@estrelinha/core/validators'
 import { supabase } from '@estrelinha/supabase/client'
 import type { Product, ShippingQuote } from '@estrelinha/supabase/types'
 import { toQuotePayload } from '@/entities/cart'
+import { usePickupOption, type PickupOption } from '@/entities/pickup'
 
 /**
  * Cálculo de frete da página do produto, na coluna de informação (`ProductInfo`) — no lugar em
@@ -22,6 +23,11 @@ const ShippingCalc = ({ product }: { product: Product }) => {
   const [quotes, setQuotes] = useState<ShippingQuote[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  /**
+   * Feature 63 — o CEP que foi de fato CONSULTADO (o mesmo enviado à cotação), e não o que está
+   * sendo digitado: a retirada responde à mesma pergunta que a lista dos Correios ao lado dela.
+   */
+  const [consulted, setConsulted] = useState('')
 
   /**
    * SHP-09 também vale aqui. Antes esta tela exibia o prazo CRU da transportadora
@@ -39,9 +45,11 @@ const ShippingCalc = ({ product }: { product: Product }) => {
     const cleanCep = stripCep(cep)
     if (cleanCep.length !== 8) {
       setError('CEP inválido')
+      setConsulted('')
       return
     }
     setError('')
+    setConsulted(cleanCep)
     setLoading(true)
     setQuotes([])
 
@@ -111,35 +119,112 @@ const ShippingCalc = ({ product }: { product: Product }) => {
         </button>
       </form>
 
-      {error && <p className="text-[12px] text-destructive">{error}</p>}
-
-      {quotes.length > 0 && (
-        <ul className="flex flex-col gap-1.5">
-          {quotes.map(q => (
-            <li
-              key={q.id}
-              className="flex items-center justify-between gap-3 rounded-sm border border-estrelinha-line bg-white px-3.5 py-2.5"
-            >
-              <span className="flex min-w-0 flex-col gap-0.5">
-                <span className="truncate text-[13px] font-semibold leading-4 text-estrelinha-ink">
-                  {q.name} — {q.company}
-                </span>
-                <span className="text-[12px] leading-4 text-estrelinha-ink-soft">
-                  {(() => {
-                    const { min, max } = quoteToEstimate(q, handling_days, today)
-                    return `Chega ${formatEstimate(min, max)}`
-                  })()}
-                </span>
-              </span>
-              <span className="shrink-0 font-display text-[16px] font-semibold leading-5 text-estrelinha-primary">
-                {formatPrice(parseFloat(q.price))}
-              </span>
-            </li>
-          ))}
-        </ul>
+      {/* A retirada só existe para CEP do RS; fora dele a tela é a de sempre, sem os títulos de
+          grupo (RET-02). O componente que lê a configuração da retirada só monta para CEP do RS. */}
+      {!loading && isRsCep(consulted) ? (
+        <CalcResultsWithPickup
+          cep={consulted}
+          quotes={quotes}
+          error={error}
+          handlingDays={handling_days}
+          today={today}
+        />
+      ) : (
+        <CalcResults
+          quotes={quotes}
+          error={error}
+          handlingDays={handling_days}
+          today={today}
+          pickup={null}
+        />
       )}
     </div>
   )
+}
+
+interface CalcResultsProps {
+  quotes: ShippingQuote[]
+  error: string
+  handlingDays: number
+  today: Date
+  /** Feature 63 — a retirada no escritório, ou `null` quando ela não aparece. */
+  pickup: PickupOption | null
+}
+
+/**
+ * O resultado do cálculo: a mensagem, as opções dos Correios e, para CEP do RS, o grupo
+ * "Retirar em" (RET-01). Com a retirada, as duas listas ganham título de grupo; sem ela a tela é
+ * exatamente a de antes da feature 63.
+ *
+ * A retirada aparece também quando a cotação falha ou volta vazia (RET-04): ela não depende do
+ * Melhor Envio, e a mensagem de falha continua acima dela.
+ */
+const CalcResults = ({ quotes, error, handlingDays, today, pickup }: CalcResultsProps) => (
+  <>
+    {error && <p className="text-[12px] text-destructive">{error}</p>}
+
+    {quotes.length > 0 && pickup && (
+      <h3 className="text-[13px] font-semibold leading-4 text-estrelinha-ink">Envio a domicílio</h3>
+    )}
+
+    {quotes.length > 0 && (
+      // RET-06: com a retirada na tela, a lista dos Correios é nomeada como a de "Retirar em".
+      <ul className="flex flex-col gap-1.5" aria-label={pickup ? 'Envio a domicílio' : undefined}>
+        {quotes.map(q => (
+          <li
+            key={q.id}
+            className="flex items-center justify-between gap-3 rounded-sm border border-estrelinha-line bg-white px-3.5 py-2.5"
+          >
+            <span className="flex min-w-0 flex-col gap-0.5">
+              <span className="truncate text-[13px] font-semibold leading-4 text-estrelinha-ink">
+                {q.name} — {q.company}
+              </span>
+              <span className="text-[12px] leading-4 text-estrelinha-ink-soft">
+                {(() => {
+                  const { min, max } = quoteToEstimate(q, handlingDays, today)
+                  return `Chega ${formatEstimate(min, max)}`
+                })()}
+              </span>
+            </span>
+            <span className="shrink-0 font-display text-[16px] font-semibold leading-5 text-estrelinha-primary">
+              {formatPrice(parseFloat(q.price))}
+            </span>
+          </li>
+        ))}
+      </ul>
+    )}
+
+    {pickup && (
+      <>
+        <h3 className="text-[13px] font-semibold leading-4 text-estrelinha-ink">Retirar em</h3>
+        <ul className="flex flex-col gap-1.5" aria-label="Retirar em">
+          <li className="flex items-center justify-between gap-3 rounded-sm border border-estrelinha-line bg-white px-3.5 py-2.5">
+            <span className="flex min-w-0 flex-col gap-0.5">
+              {/* Sem `truncate`: a linha do endereço é longa e precisa caber inteira em 390px. */}
+              <span className="break-words text-[13px] font-semibold leading-4 text-estrelinha-ink">
+                {pickup.location}
+              </span>
+              <span className="text-[12px] leading-4 text-estrelinha-ink-soft">
+                {`Pronta para retirada ${pickup.readyLabel}`}
+              </span>
+            </span>
+            <span className="shrink-0 font-display text-[16px] font-semibold leading-5 text-estrelinha-primary">
+              Grátis
+            </span>
+          </li>
+        </ul>
+      </>
+    )}
+  </>
+)
+
+/** Só monta para CEP do RS: é aqui, e só aqui, que a configuração da retirada é lida. */
+const CalcResultsWithPickup = ({
+  cep,
+  ...props
+}: Omit<CalcResultsProps, 'pickup'> & { cep: string }) => {
+  const pickup = usePickupOption(cep)
+  return <CalcResults {...props} pickup={pickup} />
 }
 
 export default ShippingCalc

@@ -11,6 +11,7 @@
 // `status = 'pending'` e a pré-condição óbvia faria o e-mail nunca sair.
 
 import type { NotificationEvent } from './events.ts'
+import { isPickupOrder } from '../shipping/pickup.ts'
 
 /**
  * O recorte do pedido que a pré-condição lê. Tudo opcional porque a origem é uma linha do banco
@@ -25,6 +26,11 @@ export interface OrderSnapshot {
   material_status?: string | null
   /** A remessa de ENTRADA (cliente → ateliê). Não é `tracking_code`, que é a de saída. */
   material_tracking_code?: string | null
+  /**
+   * Feature 63: `'retirada'` é pedido de retirada no escritório — sem postagem. Quem responde "é
+   * retirada?" é `isPickupOrder`, de `shipping/pickup.ts`.
+   */
+  shipping_service_id?: string | null
 }
 
 /**
@@ -103,7 +109,12 @@ export function preconditionFailure(
       if (order.material_status !== 'em_producao') return 'material_not_in_production'
       return null
 
+    // RET-17 (feature 63): retirada no escritório não é postada. A recusa vem ANTES das outras —
+    // um pedido de retirada levado a `shipped` à mão, com um código no campo de rastreio, passaria
+    // pelas duas checagens abaixo e a cliente leria "sua joia foi postada" sobre uma peça que ela
+    // vai buscar no balcão.
     case 'order_shipped':
+      if (isPickupOrder(order)) return 'pickup_order'
       if (order.status !== 'shipped') return 'order_not_shipped'
       if (blank(order.tracking_code)) return 'no_tracking_code'
       return null

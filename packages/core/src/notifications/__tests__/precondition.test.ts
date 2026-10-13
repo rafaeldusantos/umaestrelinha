@@ -316,3 +316,35 @@ describe('o e-mail da dona não influencia evento nenhum da cliente', () => {
     expect(preconditionFailure(event, pedido, DONA)).toBe(preconditionFailure(event, pedido, {}))
   })
 })
+
+describe('order_shipped — pedido de retirada no escritório é recusado (RET-17)', () => {
+  it('retirada com `shipped` E rastreio preenchido ⇒ `pickup_order` — o caso que só esta regra recusa', () => {
+    expect(
+      preconditionFailure(
+        'order_shipped',
+        pago({ status: 'shipped', tracking_code: 'BB000000000BR', shipping_service_id: 'retirada' }),
+      ),
+    ).toBe('pickup_order')
+  })
+
+  it('a recusa da retirada vem ANTES das outras checagens', () => {
+    expect(
+      preconditionFailure('order_shipped', pago({ status: 'separating', tracking_code: '', shipping_service_id: 'retirada' })),
+    ).toBe('pickup_order')
+  })
+
+  it('o par: o mesmo pedido pelos Correios continua passando', () => {
+    expect(
+      preconditionFailure(
+        'order_shipped',
+        pago({ status: 'shipped', tracking_code: 'BB000000000BR', shipping_service_id: '1' }),
+      ),
+    ).toBeNull()
+  })
+
+  it('a retirada NÃO muda os outros eventos — `order_delivered` passa para retirada entregue', () => {
+    expect(
+      preconditionFailure('order_delivered', pago({ status: 'delivered', shipping_service_id: 'retirada' })),
+    ).toBeNull()
+  })
+})

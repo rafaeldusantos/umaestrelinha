@@ -325,6 +325,13 @@ export interface DbOrder {
   total: number
   tracking_code: string | null
   shipping_carrier: string | null
+  /**
+   * O serviço de envio escolhido no checkout — o id numérico do Melhor Envio, `'default'` no frete
+   * padrão, ou `'retirada'` na retirada no escritório (feature 63). A coluna `text` existe desde
+   * `20260727120000`; o tipo não a declarava, e `isPickupOrder` leria `undefined` em silêncio
+   * (`AD-012`). Opcional porque nem toda leitura do pedido a pede no `select`.
+   */
+  shipping_service_id?: string | null
   cancel_reason: string | null
   melhor_envio_id: string | null
   melhor_envio_label_url: string | null
@@ -507,6 +514,13 @@ export interface Product {
   category_id: string
   category_slug: string
   description: string
+  /**
+   * A copy de busca curada (`products.seo_title`/`seo_description`) — feature 62. Opcionais porque o
+   * `select` enxuto da vitrine não os pede; quem os lê é `productPageMeta`, que cai no nome e na
+   * descrição quando faltam.
+   */
+  seo_title?: string | null
+  seo_description?: string | null
   /** A URL da imagem principal, ou `''`. Derivada de `images` por `primaryImage`. */
   image_url: string
   /**

@@ -73,7 +73,7 @@ const OrderNextStep = ({ order, onAdvance, busy = false }: Props) => {
             disabled={busy}
             onClick={() => onAdvance(passo.status!)}
           >
-            {passo.blockedReason ? 'Avançar mesmo assim' : STATUS_LABELS[passo.status]}
+            {passo.blockedReason ? 'Avançar mesmo assim' : (passo.actionLabel ?? STATUS_LABELS[passo.status])}
             <ArrowRight className="ml-1 h-4 w-4" />
           </Button>
         </div>

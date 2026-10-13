@@ -170,3 +170,25 @@ describe('OrderSituationBadge — o rótulo vem do dono (SIT-11) e a data també
     expect(selo().textContent).toBe('Aguardando pagamento')
   })
 })
+
+describe('OrderSituationBadge — retirada no escritório (RET-19, feature 63)', () => {
+  // É o selo da lista de `/conta` (`OrderList`) e do detalhe: o rótulo vem de `orderSituation`.
+  it('retirada concluída diz "Retirado", com a data do registro', () => {
+    render(
+      <OrderSituationBadge
+        order={{ status: 'delivered', payment_status: 'approved', shipping_service_id: 'retirada' }}
+        events={[{ status: 'delivered', at: '2026-08-12T15:00:00Z' }]}
+      />,
+    )
+    expect(selo()).toHaveTextContent('Retirado em 12 ago')
+    expect(selo()).not.toHaveTextContent('Entregue')
+    expect(selo().getAttribute('data-tone')).toBe('done')
+  })
+
+  it('o par: pedido dos Correios entregue continua "Entregue"', () => {
+    render(
+      <OrderSituationBadge order={{ status: 'delivered', payment_status: 'approved', shipping_service_id: '1' }} />,
+    )
+    expect(selo()).toHaveTextContent('Entregue')
+  })
+})

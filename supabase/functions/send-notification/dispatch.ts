@@ -139,7 +139,7 @@ export interface DispatchEventOptions {
 const ORDER_COLUMNS = `
   id, order_number, customer_name, customer_email, customer_phone,
   status, payment_status, paid_at, mp_order_id,
-  tracking_code, shipping_carrier, material_status, material_tracking_code,
+  tracking_code, shipping_carrier, shipping_service_id, material_status, material_tracking_code,
   subtotal, shipping_cost, discount, pix_discount, total,
   address_street, address_number, address_complement, address_neighborhood,
   address_city, address_state, address_zip,
@@ -305,7 +305,7 @@ async function deliver(
     whatsapp: settings.general?.whatsapp,
     enderecoAtelie: atelieAddress(settings.material),
   })
-  const rendered = renderEmail(event, order as EmailOrder, bloco.fields, vars, deps.env.storePublicUrl)
+  const rendered = renderEmail(event, order as EmailOrder, bloco.fields, vars, deps.env.storePublicUrl, settings.material)
 
   const redirect = deps.env.resendDevRedirectTo?.trim()
   const to = redirect ? redirect : destino.to

@@ -230,3 +230,50 @@ describe('FIX-02 — rótulo de cada evento no histórico', () => {
     expect(ev.detail).toBe('resend_forbidden')
   })
 })
+
+describe('nextStep — a retirada no escritório (RET-16)', () => {
+  // O MESMO pedido, variando só `shipping_service_id`: o par prova que é a retirada, e nada mais,
+  // que muda o caminho.
+  const retirada = (over: Partial<DbOrder> = {}) =>
+    order({ shipping_service_id: 'retirada', material_status: 'material_recebido', ...over } as Partial<DbOrder>)
+  const correios = (over: Partial<DbOrder> = {}) =>
+    order({ shipping_service_id: '1', material_status: 'material_recebido', ...over } as Partial<DbOrder>)
+
+  it('retirada em `separating` vai DIRETO a `delivered`, com o botão "Marcar como retirado"', () => {
+    const passo = nextStep(retirada({ status: 'separating' }))
+    expect(passo.status).toBe('delivered')
+    expect(passo.actionLabel).toBe('Marcar como retirado')
+    expect(passo.label).toBe('Próximo passo: Retirado no escritório')
+    // Sem rastreio por definição — e não há o que cobrar.
+    expect(passo.blockedReason).toBeNull()
+  })
+
+  it('o par: o mesmo pedido pelos Correios em `separating` vai a `shipped`, sem rótulo próprio', () => {
+    const passo = nextStep(correios({ status: 'separating' }))
+    expect(passo.status).toBe('shipped')
+    expect(passo.actionLabel).toBeUndefined()
+    expect(passo.label).toBe('Próximo passo: Enviado')
+  })
+
+  it('`paid` é igual para os dois — a separação continua sendo o próximo passo', () => {
+    expect(nextStep(retirada({ status: 'paid' })).status).toBe('separating')
+    expect(nextStep(correios({ status: 'paid' })).status).toBe('separating')
+    // O material continua segurando a separação da retirada também.
+    expect(nextStep(retirada({ status: 'paid', material_status: 'aguardando_material' })).blockedReason).toContain(
+      'registrado como recebido',
+    )
+  })
+
+  it('`shipped` sem rastreio: Correios avisa da postagem; retirada levada a `shipped` à mão não', () => {
+    expect(nextStep(correios({ status: 'shipped', tracking_code: null })).blockedReason).toContain(
+      'não recebeu o aviso de postagem',
+    )
+    const passo = nextStep(retirada({ status: 'shipped', tracking_code: null }))
+    expect(passo.status).toBe('delivered')
+    expect(passo.blockedReason).toBeNull()
+  })
+
+  it('retirada `delivered` é fim de linha, como qualquer pedido', () => {
+    expect(nextStep(retirada({ status: 'delivered' })).status).toBeNull()
+  })
+})

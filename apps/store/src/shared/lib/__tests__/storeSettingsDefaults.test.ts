@@ -464,3 +464,92 @@ describe('analytics — a medição diz o mesmo nos dois lados (feature 61)', ()
     expect(insert).not.toMatch(/do update/i)
   })
 })
+
+/**
+ * Feature 63 — `RET-20`. A chave `shipping` ganhou `pickup_enabled` na sua própria migration, no
+ * molde aditivo da 37 (o mesmo `campoAditivo` serve). Cada régua de forma vem com um sensor por
+ * mutação: a régua é aplicada à MESMA migration com o trecho que ela protege trocado, e tem de
+ * reprovar — sem isso, uma régua quebrada aprovaria qualquer arquivo.
+ */
+const SQL_RETIRADA = readFileSync(`${MIGRATIONS}/20261011120000_63-retirada.sql`, 'utf8')
+
+/** Aplica a mutação e LANÇA se ela não mudou nada — mutação que vira no-op não prova régua. */
+function mutar(fonte: string, de: RegExp, para: string): string {
+  const saida = fonte.replace(de, para)
+  if (saida === fonte) throw new Error(`mutação sem efeito: ${de}`)
+  return saida
+}
+
+/** O SQL sem comentário, com o CRLF normalizado antes — a prosa do cabeçalho cita as formas. */
+const semComentarioSql = (fonte: string): string =>
+  fonte.replace(/\r\n/g, '\n').replace(/--[^\n]*/g, '')
+
+const ehAditiva = (fonte: string): boolean =>
+  /SET\s+value\s*=\s*value\s*\|\|\s*jsonb_build_object\(\s*'pickup_enabled'/i.test(
+    semComentarioSql(fonte),
+  )
+const ehIdempotente = (fonte: string): boolean =>
+  /NOT\s+value\s*\?\s*'pickup_enabled'/i.test(semComentarioSql(fonte))
+const soAChaveShipping = (fonte: string): boolean =>
+  /WHERE\s+key\s*=\s*'shipping'/i.test(semComentarioSql(fonte))
+
+describe('pickup_enabled — o interruptor da retirada diz o mesmo nos dois lados (RET-20)', () => {
+  it('ÂNCORA: leu a migration da 63 do disco', () => {
+    expect(SQL_RETIRADA).toContain('store_settings')
+    expect(SQL_RETIRADA).toContain('jsonb_build_object')
+  })
+
+  it('o parser DISCRIMINA — campo ausente devolve undefined', () => {
+    expect(campoAditivo(SQL_RETIRADA, 'campo_que_nao_existe')).toBeUndefined()
+    expect(campoAditivo(SQL_RETIRADA, 'pickup_enabled')).toBeDefined()
+  })
+
+  it('nasce LIGADO no SQL e no TypeScript', () => {
+    expect(DEFAULT_SHIPPING.pickup_enabled).toBe(true)
+    expect(campoAditivo(SQL_RETIRADA, 'pickup_enabled')).toBe(true)
+    expect(campoAditivo(SQL_RETIRADA, 'pickup_enabled')).toBe(DEFAULT_SHIPPING.pickup_enabled)
+  })
+
+  it('a migration é ADITIVA — `value ||` preserva os outros campos de `shipping`', () => {
+    expect(ehAditiva(SQL_RETIRADA)).toBe(true)
+  })
+
+  it('sensor: sem o `value ||` (troca da linha inteira) a régua reprova', () => {
+    const mutante = mutar(SQL_RETIRADA, /value\s*\|\|\s*jsonb_build_object/, 'jsonb_build_object')
+    expect(ehAditiva(mutante)).toBe(false)
+  })
+
+  it('a migration é IDEMPOTENTE — o segundo `db push` não religa o que a dona desligou', () => {
+    expect(ehIdempotente(SQL_RETIRADA)).toBe(true)
+  })
+
+  it("sensor: sem o `NOT value ? 'pickup_enabled'` a régua reprova", () => {
+    const mutante = mutar(SQL_RETIRADA, /\n\s*AND\s+NOT\s+value\s*\?\s*'pickup_enabled'/i, '')
+    expect(ehIdempotente(mutante)).toBe(false)
+  })
+
+  it('sensor: a forma só citada em comentário não conta como idempotência', () => {
+    const mutante = mutar(
+      SQL_RETIRADA,
+      /\n\s*AND\s+NOT\s+value\s*\?\s*'pickup_enabled'/i,
+      "\n-- AND NOT value ? 'pickup_enabled'",
+    )
+    expect(ehIdempotente(mutante)).toBe(false)
+  })
+
+  it('a migration alcança a chave `shipping`, e só ela', () => {
+    expect(soAChaveShipping(SQL_RETIRADA)).toBe(true)
+    expect(soAChaveShipping(mutar(SQL_RETIRADA, /key\s*=\s*'shipping'/, "key = 'material'"))).toBe(
+      false,
+    )
+  })
+
+  it('a 63 não cria coluna, não escreve pedido e não mexe em policy', () => {
+    const sem = semComentarioSql(SQL_RETIRADA).toLowerCase()
+    expect(sem).not.toContain('alter table')
+    expect(sem).not.toContain('public.orders')
+    expect(sem).not.toContain('delete from')
+    expect(sem).not.toContain('create policy')
+    expect(sem).not.toContain('grant ')
+  })
+})

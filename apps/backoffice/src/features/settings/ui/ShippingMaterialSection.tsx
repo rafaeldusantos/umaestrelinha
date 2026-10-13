@@ -6,12 +6,12 @@
 // telas do painel que falam de pacote no correio.
 
 import { useEffect, useState } from 'react'
-import { PackageOpen } from 'lucide-react'
+import { PackageOpen, Store } from 'lucide-react'
 import { Input } from '@estrelinha/ui/input'
 import { Textarea } from '@estrelinha/ui/textarea'
 import { useToast } from '@estrelinha/ui/hooks/use-toast'
 import { useStoreSettings } from '@estrelinha/core/hooks/useStoreSettings'
-import { freeShippingRefusal } from '@estrelinha/core/shipping'
+import { freeShippingRefusal, pickupLocation } from '@estrelinha/core/shipping'
 import {
   DEFAULT_MATERIAL,
   DEFAULT_SHIPPING,
@@ -149,6 +149,34 @@ export const ShippingMaterialSection = () => {
           A chave continua no banco (migration aplicada é imutável) e em `DEFAULT_SHIPPING`;
           `originZipNotRead.test.ts` impede que alguma tela volte a lê-la.
         */}
+        {/*
+          RET-20/RET-21 (feature 63) — a retirada no escritório.
+
+          O interruptor nasce LIGADO (migration da 63), e a opção só aparece na loja para CEP do RS
+          **e** com o endereço do Material completo. Quem decide "completo" é `pickupLocation`, o
+          mesmo dono que a loja e a function `checkout` chamam: uma segunda régua aqui ("tem rua?")
+          faria o painel dizer "tudo certo" enquanto a loja esconde a opção.
+
+          O aviso lê o endereço GRAVADO (`data.material`), não o que está sendo digitado no cartão
+          abaixo: o que a loja mostra é o que está no banco.
+        */}
+        <ToggleField
+          label="Retirada no escritório"
+          description="Clientes com CEP do Rio Grande do Sul podem retirar a joia no endereço do Material, sem custo de frete."
+          checked={shipping.pickup_enabled ?? DEFAULT_SHIPPING.pickup_enabled}
+          onChange={v => setShipping({ ...shipping, pickup_enabled: v })}
+          switchClassName={SWITCH_TAP_44}
+        />
+        {(shipping.pickup_enabled ?? DEFAULT_SHIPPING.pickup_enabled) &&
+          pickupLocation(data?.material) === null && (
+            <InfoBanner icon={Store} role="status" data-testid="aviso-retirada-sem-endereco">
+              <p>
+                A retirada no escritório não aparece na loja enquanto o endereço do Material não
+                tiver logradouro, bairro e cidade.
+              </p>
+            </InfoBanner>
+          )}
+
         <p className="text-sm text-muted-foreground">
           O CEP de origem dos cálculos é o endereço cadastrado na sua conta do Melhor Envio — o mesmo
           que é impresso na etiqueta. Para alterá-lo, mude o endereço lá.

@@ -768,3 +768,28 @@ describe('OrderSummary — a miniatura pede o tamanho da vaga (PRF-02 AC 5)', ()
     expect(container.querySelectorAll('img')).toHaveLength(0)
   })
 })
+
+describe('OrderSummary — a linha do frete com a retirada no escritório (RET-07, feature 63)', () => {
+  it('com a retirada escolhida, a linha diz só "Retirada no escritório", sem transportadora, e "Grátis"', () => {
+    useCheckoutStore.getState().setShipping({
+      serviceId: 'retirada',
+      serviceName: 'Retirada no escritório',
+      carrier: 'Uma Estrelinha',
+      cost: 0,
+      estimateMin: '',
+      estimateMax: '',
+    })
+    render(<OrderSummary variant="sidebar" />)
+
+    expect(screen.getByText('Retirada no escritório')).toBeInTheDocument()
+    expect(screen.queryByText(/Frete · Uma Estrelinha/)).not.toBeInTheDocument()
+    expect(screen.getByText('Grátis')).toBeInTheDocument()
+  })
+
+  it('o par: com o PAC, a linha continua "Frete · Correios PAC"', () => {
+    selectShipping(21.5)
+    render(<OrderSummary variant="sidebar" />)
+    expect(screen.getByText('Frete · Correios PAC')).toBeInTheDocument()
+    expect(screen.queryByText('Retirada no escritório')).not.toBeInTheDocument()
+  })
+})

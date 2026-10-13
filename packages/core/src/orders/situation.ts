@@ -10,8 +10,11 @@
 // porque o segundo consumidor fora da loja é previsível (o e-mail, o painel "o que a cliente vê").
 // Escrita duas vezes, ela divergiria sem nada quebrar — que é o defeito que abriu esta feature.
 //
-// ⚠️ Este arquivo NÃO importa nada, de propósito: o diretório é alcançado pelo Deno por caminho
-// relativo (via `format.ts`), e zero import é a forma de não ter como errar a extensão.
+// ⚠️ O diretório é alcançado pelo Deno por caminho relativo (via `format.ts`): todo import daqui é
+// relativo e com a extensão explícita. Desde a feature `63` o único é o dono de "este pedido é de
+// retirada?" (`shipping/pickup.ts`), que por sua vez não importa nada.
+
+import { isPickupOrder } from '../shipping/pickup.ts'
 
 export type SituationKey =
   | 'cancelled'
@@ -32,6 +35,8 @@ export interface SituationInput {
   payment_status: string | null
   material_status?: string | null
   delivery_estimate_max?: string | null
+  /** Feature 63: `'retirada'` é pedido de retirada no escritório (`isPickupOrder`). */
+  shipping_service_id?: string | null
 }
 
 export interface Situation {
@@ -108,10 +113,18 @@ const chaveDa = (o: SituationInput | null | undefined): SituationKey => {
   return 'awaiting_payment'
 }
 
+/**
+ * RET-19 (feature 63): o rótulo de um pedido de retirada concluído. A CHAVE continua `delivered` (é
+ * o mesmo estado, com o mesmo tom); só a palavra muda — "Entregue" diria que alguém levou a joia
+ * até a cliente.
+ */
+export const PICKUP_DELIVERED_LABEL = 'Retirado'
+
 /** O selo de um pedido: chave, rótulo e tom, sempre da MESMA chave. */
 export function orderSituation(o: SituationInput): Situation {
   const key = chaveDa(o)
-  return { key, label: SITUATION_LABELS[key], tone: SITUATION_TONES[key] }
+  const label = key === 'delivered' && isPickupOrder(o) ? PICKUP_DELIVERED_LABEL : SITUATION_LABELS[key]
+  return { key, label, tone: SITUATION_TONES[key] }
 }
 
 // ---------------------------------------------------------------------------------------------

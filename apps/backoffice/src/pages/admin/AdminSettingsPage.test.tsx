@@ -1167,3 +1167,114 @@ describe('Configurações › LEG-20 — o botão de salvar tem um dono, e ele �
     unmount()
   })
 })
+
+// ───────────────────────────────────────────────────────────────────────────────
+// Feature 63 — a retirada no escritório (RET-20, RET-21)
+// ───────────────────────────────────────────────────────────────────────────────
+
+describe('Configurações › Frete — a retirada no escritório (RET-20, RET-21)', () => {
+  const ENDERECO_COMPLETO = {
+    recipient: 'Adri Muniz', street: 'Rua Dona Laura', number: '455', complement: 'Sala 7',
+    neighborhood: 'Rio Branco', city: 'Porto Alegre', state: 'RS', zip: '90430091', notes: '',
+  }
+  const AVISO =
+    'A retirada no escritório não aparece na loja enquanto o endereço do Material não tiver logradouro, bairro e cidade.'
+
+  const interruptorDaRetirada = () => screen.getByRole('switch', { name: /Retirada no escritório/i })
+
+  const comRetirada = (pickup_enabled: boolean | undefined, material = ENDERECO_COMPLETO) => {
+    state.data = state.montar({ ...material })
+    state.data.shipping = { ...state.data.shipping, ...(pickup_enabled === undefined ? {} : { pickup_enabled }) }
+  }
+
+  it('o interruptor existe no cartão Frete, e a chave AUSENTE no banco aparece ligada (o default)', () => {
+    comRetirada(undefined)
+    abrirFreteEMaterial()
+    expect(interruptorDaRetirada()).toBeChecked()
+  })
+
+  it('reflete o valor gravado quando desligado', () => {
+    comRetirada(false)
+    abrirFreteEMaterial()
+    expect(interruptorDaRetirada()).not.toBeChecked()
+  })
+
+  it('desligar e salvar manda `pickup_enabled: false` na chave `shipping`', async () => {
+    comRetirada(true)
+    abrirFreteEMaterial()
+    fireEvent.click(interruptorDaRetirada())
+    salvarFrete()
+
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalled())
+    expect(mutateAsync).toHaveBeenCalledWith({
+      key: 'shipping',
+      value: expect.objectContaining({ pickup_enabled: false, free_shipping_threshold: 150 }),
+    })
+  })
+
+  it('religar e salvar manda `pickup_enabled: true`', async () => {
+    comRetirada(false)
+    abrirFreteEMaterial()
+    fireEvent.click(interruptorDaRetirada())
+    salvarFrete()
+
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalled())
+    expect(mutateAsync).toHaveBeenCalledWith({
+      key: 'shipping',
+      value: expect.objectContaining({ pickup_enabled: true }),
+    })
+  })
+
+  it('o interruptor tem a área de toque de 44px (`SWITCH_TAP_44`)', () => {
+    comRetirada(true)
+    abrirFreteEMaterial()
+    expect(temClasse(interruptorDaRetirada(), 'relative')).toBe(true)
+    expect(interruptorDaRetirada().className).toContain('before:-top-[10px]')
+  })
+
+  it('RET-21: ligada com o Material VAZIO, o painel avisa com a frase inteira', () => {
+    comRetirada(true, state.vazio())
+    abrirFreteEMaterial()
+    expect(screen.getByText(AVISO)).toBeInTheDocument()
+    expect(screen.getByTestId('aviso-retirada-sem-endereco')).toHaveAttribute('role', 'status')
+  })
+
+  it.each([
+    ['street', 'logradouro'],
+    ['neighborhood', 'bairro'],
+    ['city', 'cidade'],
+  ] as const)('RET-21: sem %s (%s), o aviso aparece — um caso por campo', (campo, _rotulo) => {
+    comRetirada(true, { ...ENDERECO_COMPLETO, [campo]: '   ' })
+    abrirFreteEMaterial()
+    expect(screen.getByText(AVISO)).toBeInTheDocument()
+  })
+
+  it('RET-21: sem número nem complemento o endereço basta — sem aviso', () => {
+    // A linha da retirada nunca mostra número nem complemento (RET-03): a falta deles não esconde a
+    // opção, e o aviso não pode dizer o contrário.
+    comRetirada(true, { ...ENDERECO_COMPLETO, number: '', complement: '' })
+    abrirFreteEMaterial()
+    expect(screen.queryByText(AVISO)).toBeNull()
+  })
+
+  it('com o endereço completo, nenhum aviso', () => {
+    comRetirada(true)
+    abrirFreteEMaterial()
+    expect(interruptorDaRetirada()).toBeChecked() // âncora: a retirada está ligada
+    expect(screen.queryByTestId('aviso-retirada-sem-endereco')).toBeNull()
+  })
+
+  it('com a retirada DESLIGADA, nenhum aviso — mesmo com o Material vazio', () => {
+    comRetirada(false, state.vazio())
+    abrirFreteEMaterial()
+    expect(screen.queryByText(AVISO)).toBeNull()
+  })
+
+  it('desligar na tela tira o aviso na hora', () => {
+    comRetirada(true, state.vazio())
+    abrirFreteEMaterial()
+    expect(screen.getByText(AVISO)).toBeInTheDocument()
+    fireEvent.click(interruptorDaRetirada())
+    expect(screen.queryByText(AVISO)).toBeNull()
+  })
+})
