@@ -169,6 +169,7 @@ const App = () => (
                 <Route path="/cuidados-com-sua-joia-afetiva" element={<JewelryCarePage />} />
                 {/* Feature 46 — a página de perguntas da loja. Slug novo, sem legado a preservar. */}
                 <Route path="/perguntas-frequentes" element={<FaqPage />} />
+                <Route path="/perguntas-frequentes/:pergunta" element={<FaqPage />} />
                 <Route
                   path="/como-enviar-seu-material-de-dna"
                   element={<HowToSendMaterialPage />}

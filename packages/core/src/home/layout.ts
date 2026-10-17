@@ -31,6 +31,16 @@ const LAYOUTS: Record<HomeBannerLayout, readonly SlotSpec[]> = {
     { width: 588, height: 510 },
     { width: 588, height: 510 },
   ],
+  /**
+   * Três faixas 2:1. A razão é MEDIDA, não suposta: as três artes do site anterior têm 640 × 320. Os
+   * pixels recomendados são o dobro disso, porque no celular cada faixa ocupa a largura cheia
+   * (358px CSS, ~1080 físicos em DPR 3) e 640 sairia borrado.
+   */
+  trio: [
+    { width: 1280, height: 640 },
+    { width: 1280, height: 640 },
+    { width: 1280, height: 640 },
+  ],
   hero_pair: [
     { width: 1176, height: 1020 },
     { width: 1176, height: 486 },

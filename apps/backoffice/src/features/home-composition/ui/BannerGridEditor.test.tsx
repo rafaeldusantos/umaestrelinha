@@ -113,10 +113,10 @@ beforeEach(() => {
 })
 
 describe('BannerGridEditor — o arranjo manda nas vagas (HOME-22, emenda E3)', () => {
-  it('oferece os quatro arranjos e grava o escolhido', async () => {
+  it('oferece os cinco arranjos e grava o escolhido', async () => {
     renderEditor()
 
-    for (const rotulo of ['1 imagem', '2 lado a lado', '1 grande + 2', '4 em fila']) {
+    for (const rotulo of ['1 imagem', '2 lado a lado', '3 lado a lado', '1 grande + 2', '4 em fila']) {
       expect(screen.getByRole('button', { name: rotulo })).toBeInTheDocument()
     }
 
@@ -125,6 +125,17 @@ describe('BannerGridEditor — o arranjo manda nas vagas (HOME-22, emenda E3)', 
 
     await waitFor(() => expect(onSave).toHaveBeenCalled())
     expect(gravado().config).toMatchObject({ layout: 'quad' })
+  })
+
+  it('"3 lado a lado" grava `trio`, com três vagas', async () => {
+    renderEditor()
+
+    fireEvent.click(screen.getByRole('button', { name: '3 lado a lado' }))
+    expect(screen.getByTestId('contador-banners')).toHaveTextContent(`0 de ${layoutSlots('trio')}`)
+    salvar()
+
+    await waitFor(() => expect(onSave).toHaveBeenCalled())
+    expect(gravado().config).toMatchObject({ layout: 'trio' })
   })
 
   it('o número de vagas sai de `layoutSlots`, não de um número na tela', () => {

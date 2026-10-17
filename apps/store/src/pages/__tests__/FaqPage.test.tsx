@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import type { FaqPageGroup } from '@estrelinha/core/faq'
 
 /**
@@ -318,5 +318,175 @@ describe('FaqPage — a moldura institucional', () => {
     // O par que reprovava: largura cravada com recusa de encolher.
     expect(coluna!.className).not.toContain('lg:w-[720px]')
     expect(coluna!.className).not.toContain('lg:shrink-0')
+  })
+})
+
+/**
+ * O endereço próprio de cada pergunta — `/perguntas-frequentes/<texto>-<chave>`.
+ *
+ * As fixturas acima usam `id` curto (`a1`), que não é chave de endereço nenhuma; aqui o `id` tem a
+ * forma do banco (UUID), porque é dos 8 primeiros caracteres dele que o endereço é feito.
+ */
+describe('FaqPage — o link de uma pergunta', () => {
+  const CINZAS = {
+    id: '3f9a1c2e-0000-4000-8000-000000000001',
+    question: 'Quanto de cinzas preciso enviar?',
+    answer: 'Um copinho de café de 50 ml.',
+    overridden: false,
+  }
+  const LEITE = {
+    id: '7b2d4e6f-0000-4000-8000-000000000002',
+    question: 'Como envio o leite materno?',
+    answer: 'Congelado, se puder.',
+    overridden: false,
+  }
+  const COM_UUID: FaqPageGroup[] = [
+    { category: 'envio-do-material', label: 'Envio do material', items: [LEITE, CINZAS] },
+  ]
+  const CAMINHO_CINZAS = '/perguntas-frequentes/quanto-de-cinzas-preciso-enviar-3f9a1c2e'
+
+  const Onde = () => {
+    const local = useLocation()
+    return <p data-testid="onde">{`${local.pathname}${local.hash}`}</p>
+  }
+
+  const abrirEm = (entrada: string) =>
+    render(
+      <MemoryRouter initialEntries={[entrada]}>
+        <Routes>
+          <Route path="/perguntas-frequentes" element={<><FaqPage /><Onde /></>} />
+          <Route path="/perguntas-frequentes/:pergunta" element={<><FaqPage /><Onde /></>} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+  const detalhes = (id: string) => document.getElementById(`p-${id}`) as HTMLDetailsElement
+
+  beforeEach(() => {
+    comEstado({ data: COM_UUID })
+    Element.prototype.scrollIntoView = vi.fn()
+  })
+
+  it('abre a pergunta do endereço, e só ela', () => {
+    abrirEm(CAMINHO_CINZAS)
+
+    expect(detalhes(CINZAS.id).open).toBe(true)
+    expect(detalhes(LEITE.id).open).toBe(false)
+    expect(screen.getByTestId('onde')).toHaveTextContent(CAMINHO_CINZAS)
+  })
+
+  it('leva a tela até a pergunta aberta', () => {
+    abrirEm(CAMINHO_CINZAS)
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalled()
+  })
+
+  it('declara a pergunta como canônica, título e descrição', async () => {
+    abrirEm(CAMINHO_CINZAS)
+
+    await waitFor(() =>
+      expect(document.head.querySelector('link[rel="canonical"]')?.getAttribute('href')).toMatch(
+        new RegExp(`${CAMINHO_CINZAS}$`),
+      ),
+    )
+    expect(document.title).toContain('Quanto de cinzas preciso enviar?')
+    expect(document.head.querySelector('meta[name="description"]')?.getAttribute('content')).toBe(
+      'Um copinho de café de 50 ml.',
+    )
+  })
+
+  it('o JSON-LD do endereço da pergunta declara SÓ ela', async () => {
+    abrirEm(CAMINHO_CINZAS)
+
+    await waitFor(() => expect(jsonLd()).not.toBeNull())
+    const doc = JSON.parse(jsonLd()?.textContent ?? '{}')
+    expect(doc.mainEntity).toHaveLength(1)
+    expect(doc.mainEntity[0].name).toBe(CINZAS.question)
+    expect(doc.url).toMatch(new RegExp(`${CAMINHO_CINZAS}$`))
+  })
+
+  // O link já enviado por WhatsApp não pode quebrar quando a dona corrige a pergunta no painel.
+  it('texto desatualizado no endereço leva ao endereço de hoje, pela chave', () => {
+    abrirEm('/perguntas-frequentes/quanto-de-cinza-eu-mando-3f9a1c2e')
+
+    expect(screen.getByTestId('onde')).toHaveTextContent(CAMINHO_CINZAS)
+    expect(detalhes(CINZAS.id).open).toBe(true)
+  })
+
+  it('chave que não acha pergunta leva à página geral, sem nenhuma aberta', () => {
+    abrirEm('/perguntas-frequentes/pergunta-apagada-deadbeef')
+
+    expect(screen.getByTestId('onde')).toHaveTextContent(/^\/perguntas-frequentes$/)
+    expect(detalhes(CINZAS.id).open).toBe(false)
+  })
+
+  it('a âncora antiga (#p-<id>) vira o endereço próprio', () => {
+    window.location.hash = `#p-${CINZAS.id}`
+    try {
+      abrirEm(`/perguntas-frequentes#p-${CINZAS.id}`)
+      expect(screen.getByTestId('onde')).toHaveTextContent(CAMINHO_CINZAS)
+      expect(detalhes(CINZAS.id).open).toBe(true)
+    } finally {
+      window.location.hash = ''
+    }
+  })
+
+  it('não redireciona enquanto carrega: sem a leitura não há como saber se a pergunta existe', () => {
+    comEstado({ isLoading: true })
+    abrirEm('/perguntas-frequentes/pergunta-apagada-deadbeef')
+    expect(screen.getByTestId('onde')).toHaveTextContent('/perguntas-frequentes/pergunta-apagada-deadbeef')
+  })
+
+  it('cada pergunta traz o link dela, como <a href> que o rastreador segue', () => {
+    abrirEm('/perguntas-frequentes')
+
+    const links = screen.getAllByRole('link', { name: 'Compartilhar esta pergunta' })
+    expect(links.map(a => a.getAttribute('href'))).toEqual([
+      '/perguntas-frequentes/como-envio-o-leite-materno-7b2d4e6f',
+      CAMINHO_CINZAS,
+    ])
+  })
+
+  it('o clique copia o link absoluto quando não há compartilhar do sistema', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'share', { value: undefined, configurable: true })
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+    abrirEm('/perguntas-frequentes')
+
+    // `fireEvent` devolve `false` quando o clique foi cancelado. Medir pelo endereço não serviria:
+    // em jsdom um `<a href>` não navega nem sem o `preventDefault`, e a asserção seria verdadeira
+    // nos dois mundos — no navegador, sem ele, o clique trocaria a página em vez de copiar.
+    const naoCancelado = fireEvent.click(
+      screen.getAllByRole('link', { name: 'Compartilhar esta pergunta' })[1],
+    )
+    expect(naoCancelado).toBe(false)
+
+    await waitFor(() =>
+      expect(writeText).toHaveBeenCalledWith(`${window.location.origin}${CAMINHO_CINZAS}`),
+    )
+  })
+
+  it('Ctrl/Cmd + clique NÃO é interceptado — quem pediu nova aba quer a página', () => {
+    abrirEm('/perguntas-frequentes')
+    const link = screen.getAllByRole('link', { name: 'Compartilhar esta pergunta' })[1]
+    expect(fireEvent.click(link, { ctrlKey: true })).toBe(true)
+    expect(fireEvent.click(link, { metaKey: true })).toBe(true)
+  })
+
+  it('no celular, o clique abre o compartilhar do sistema com o link absoluto', async () => {
+    const share = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'share', { value: share, configurable: true })
+    try {
+      abrirEm('/perguntas-frequentes')
+      fireEvent.click(screen.getAllByRole('link', { name: 'Compartilhar esta pergunta' })[1])
+
+      await waitFor(() =>
+        expect(share).toHaveBeenCalledWith({
+          title: CINZAS.question,
+          url: `${window.location.origin}${CAMINHO_CINZAS}`,
+        }),
+      )
+    } finally {
+      Object.defineProperty(navigator, 'share', { value: undefined, configurable: true })
+    }
   })
 })

@@ -35,10 +35,11 @@ const razaoDaClasse = (className: string): number => {
 
 const links = () => screen.getAllByRole('link')
 
-describe('HomeBannerGrid — os quatro arranjos (HOME-22)', () => {
+describe('HomeBannerGrid — os cinco arranjos (HOME-22)', () => {
   it.each([
     ['single', 1],
     ['pair', 2],
+    ['trio', 3],
     ['hero_pair', 3],
     ['quad', 4],
   ] as const)('`%s` desenha %i banner(s), mesmo com 4 disponíveis', (layout, vagas) => {
@@ -69,7 +70,7 @@ describe('HomeBannerGrid — os quatro arranjos (HOME-22)', () => {
   it('as proporções desenhadas são as que `core/home` declara para o arranjo', () => {
     // O Tailwind compila classe estática, então a classe não pode ser montada a partir da medida —
     // as duas cópias existem, e é esta comparação que as prende uma à outra.
-    for (const layout of ['single', 'pair', 'hero_pair', 'quad'] as const) {
+    for (const layout of ['single', 'pair', 'trio', 'hero_pair', 'quad'] as const) {
       const { unmount } = renderGrade([1, 2, 3, 4].map(n => banner(n)), layout)
       const medidas = layoutRatios(layout)
 
@@ -87,7 +88,7 @@ describe('HomeBannerGrid — os quatro arranjos (HOME-22)', () => {
 })
 
 describe('HomeBannerGrid — o celular empilha tudo (HOME-26)', () => {
-  it.each(['single', 'pair', 'hero_pair', 'quad'] as const)(
+  it.each(['single', 'pair', 'trio', 'hero_pair', 'quad'] as const)(
     'em `%s` o contêiner é coluna até `md`, e cada banner ocupa a largura cheia',
     layout => {
       // Medido: o contêiner deixa 358px em 390, e `quad` proporcional daria 82px por célula — a arte
@@ -131,6 +132,27 @@ describe('HomeBannerGrid — o celular empilha tudo (HOME-26)', () => {
       expect(grade.className).toContain('md:grid-cols-2')
     },
   )
+
+  it('`trio` vira TRÊS colunas só a partir de `lg` — em `md` continua empilhado', () => {
+    // Em `md` (768) cada faixa teria ~240px, e o "Saiba mais" desenhado dentro da arte não se lê.
+    // As duas metades precisam de asserção: a positiva (três colunas no `lg`) e a de que o `md`
+    // não forma a grade de duas, que deixaria a terceira faixa sozinha numa segunda linha.
+    const { container } = renderGrade([1, 2, 3].map(n => banner(n)), 'trio')
+
+    const tokens = container.querySelector('section > div')!.className.split(/\s+/)
+    expect(tokens).toContain('lg:grid')
+    expect(tokens).toContain('lg:grid-cols-3')
+    expect(tokens).not.toContain('md:grid')
+    expect(tokens).not.toContain('md:grid-cols-2')
+  })
+
+  it('`trio` declara a vaga de um terço da linha no `srcset`', () => {
+    renderGrade([1, 2, 3].map(n => banner(n, { imageUrl: STORAGE_BANNER })), 'trio')
+
+    for (const arte of screen.getAllByRole('img')) {
+      expect(arte.getAttribute('sizes')).toBe('(min-width: 1024px) 33vw, 100vw')
+    }
+  })
 
   it('`single` NÃO vira grade no desktop: uma vaga só não é mosaico', () => {
     const { container } = renderGrade([banner(1)], 'single')

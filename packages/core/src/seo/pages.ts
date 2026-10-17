@@ -197,6 +197,27 @@ export const notFoundPageMeta = (): PageMeta => ({
 })
 
 /** A busca: o termo no título quando há termo, sempre `noindex` (`NON_INDEXABLE_PATHS`). */
+export interface FaqQuestionMetaInput {
+  question: string
+  /** A resposta em TEXTO — `faqAnswerPlainText`, a mesma que o JSON-LD declara. */
+  answerText: string
+}
+
+/**
+ * Uma pergunta da página de perguntas frequentes, no endereço próprio dela.
+ *
+ * O título é a pergunta — é o que a pessoa digitou no buscador — e a descrição é o começo da
+ * resposta, que é o que o resultado da busca e o card do WhatsApp mostram embaixo.
+ */
+export const faqQuestionPageMeta = (item: FaqQuestionMetaInput): PageMeta => {
+  const pergunta = texto(item.question)
+  return {
+    title: brandedTitle(pergunta),
+    description: summarize(item.answerText) || staticPageMeta(FAQ_PATH).description,
+    indexable: true,
+  }
+}
+
 export const searchPageMeta = (termo?: string | null): PageMeta => {
   const base = staticPageMeta('/busca')
   const limpo = texto(termo)

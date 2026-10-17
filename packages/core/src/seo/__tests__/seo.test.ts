@@ -6,6 +6,7 @@ import {
   STATIC_PAGE_META_PATHS,
   STORE_DESCRIPTION_FLOOR,
   categoryPageMeta,
+  faqQuestionPageMeta,
   homePageMeta,
   notFoundPageMeta,
   productPageMeta,
@@ -223,5 +224,30 @@ describe('a tabela das rotas fixas (MTA-01, MTA-10 b)', () => {
 
   it('rota desconhecida LANÇA, em vez de cair num título genérico', () => {
     expect(() => staticPageMeta('/nao-existe')).toThrow(/sem metadado/)
+  })
+})
+
+describe('faqQuestionPageMeta — o endereço próprio de uma pergunta', () => {
+  it('o título é a pergunta, com a marca; a descrição é o começo da resposta', () => {
+    const meta = faqQuestionPageMeta({
+      question: 'Quanto de cinzas preciso enviar?',
+      answerText: 'Um copinho de café de 50 ml.',
+    })
+    expect(meta).toEqual({
+      title: 'Quanto de cinzas preciso enviar? | Uma Estrelinha',
+      description: 'Um copinho de café de 50 ml.',
+      indexable: true,
+    })
+  })
+
+  it('resposta longa é cortada no limite da descrição', () => {
+    const meta = faqQuestionPageMeta({ question: 'P?', answerText: 'palavra '.repeat(60) })
+    expect(meta.description.length).toBeLessThanOrEqual(DESCRIPTION_MAX)
+  })
+
+  it('resposta vazia cai na descrição da página de perguntas, nunca em vazio', () => {
+    expect(faqQuestionPageMeta({ question: 'P?', answerText: '' }).description).toBe(
+      staticPageMeta('/perguntas-frequentes').description,
+    )
   })
 })

@@ -151,7 +151,7 @@ describe('guia de material — o conteúdo dos artboards', () => {
     for (const [anchor, quantidade] of [
       ['leite-materno', '10 ml'],
       ['cabelo', '1 mecha'],
-      ['cinzas', 'a que desejar'],
+      ['cinzas', 'um copinho de café de 50 ml*'],
     ] as const) {
       const ficha = document.getElementById(anchor) as HTMLElement
       expect(ficha, `ficha ausente: ${anchor}`).not.toBeNull()

@@ -10,15 +10,22 @@
 // aqui exigiria uma segunda versão do componente que já é dono do bloco de contato em três páginas —
 // e branco sobre `#25D366` mede ~1,9:1, que `contrast.test.ts` reprovaria de qualquer forma.
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { Navigate, useParams } from 'react-router-dom'
 import { FAQ_PATH } from '@estrelinha/core/routes'
-import { faqPageJsonLd } from '@estrelinha/core/faq'
+import {
+  faqAnswerPlainText,
+  faqPageJsonLd,
+  faqQuestionPath,
+  faqQuestionSegment,
+  findFaqBySegment,
+} from '@estrelinha/core/faq'
 import { FaqQuestion, FaqSubjectNav, faqSubjectId, useFaqPage, useFaqSearch } from '@/entities/faq'
 import PolicyContact from '@/shared/ui/PolicyContact'
 import Trilha, { COLUNA_INSTITUCIONAL } from '@/shared/ui/Trilha'
 import { useCanonical } from '@/shared/lib/useCanonical'
 import { useJsonLd } from '@/shared/lib/useJsonLd'
-import { staticPageMeta } from '@estrelinha/core/seo'
+import { faqQuestionPageMeta, staticPageMeta } from '@estrelinha/core/seo'
 import { usePageMeta } from '@/shared/lib/usePageMeta'
 
 const TITULO = 'Perguntas frequentes'
@@ -36,33 +43,79 @@ const FaqPage = () => {
   const [termo, setTermo] = useState('')
   const { groups, matches, searching } = useFaqSearch(data, termo)
 
-  // A âncora é lida **uma vez, no mount**: reagir a cada mudança de hash reabriria a pergunta que a
-  // cliente acabou de fechar, porque clicar num assunto também troca o hash.
+  // Cada pergunta tem endereço próprio — `/perguntas-frequentes/<texto>-<chave>` (`core/faq/link`).
+  // É ele que o Google indexa e que a Adri manda por WhatsApp; a página é a MESMA, com a pergunta
+  // aberta. Quem acha a pergunta é a chave do fim, nunca o texto: corrigir a pergunta no painel muda
+  // o texto do endereço sem quebrar o link já enviado.
+  const { pergunta: segmento } = useParams()
+
+  // A âncora antiga (`#p-<id>`) é lida **uma vez, no mount**: reagir a cada mudança de hash
+  // reabriria a pergunta que a cliente acabou de fechar, porque clicar num assunto também troca o
+  // hash. Ela continua valendo — é o formato dos links compartilhados antes do endereço próprio.
   const [ancora] = useState(() =>
     typeof window === 'undefined' ? null : perguntaDaAncora(window.location.hash),
   )
 
-  useCanonical(FAQ_PATH)
-  // Feature 62: o metadado tem dono em `core/seo` — o mesmo das outras páginas fixas.
-  usePageMeta(staticPageMeta(FAQ_PATH))
+  const todas = useMemo(() => (data ?? []).flatMap(grupo => grupo.items), [data])
+  const alvo = segmento
+    ? findFaqBySegment(todas, segmento)
+    : ancora
+      ? (todas.find(item => item.id === ancora) ?? null)
+      : null
+  const caminhoDoAlvo = alvo ? faqQuestionPath(alvo) : null
+  // Só o endereço próprio fala por uma pergunta. A âncora antiga é trocada por ele logo abaixo.
+  const naPergunta = Boolean(segmento && alvo)
+
+  useCanonical(naPergunta ? caminhoDoAlvo : FAQ_PATH)
+  // Feature 62: o metadado tem dono em `core/seo`. Na pergunta, `null` até a leitura chegar — o
+  // título da página geral por um instante seria o `page_view` errado.
+  usePageMeta(
+    segmento
+      ? alvo
+        ? faqQuestionPageMeta({ question: alvo.question, answerText: faqAnswerPlainText(alvo.answer) })
+        : null
+      : staticPageMeta(FAQ_PATH),
+  )
   // A origem vem do próprio navegador, e não de uma env: a página sabe onde está, e uma segunda
   // fonte para isso divergiria no dia do cutover de domínio. O `url` do JSON-LD precisa ser
   // absoluto — relativo, o rastreador o resolve contra a base que achar.
+  //
+  // No endereço da pergunta o documento declara SÓ ela: o `FAQPage` descreve o que aquela URL
+  // responde, e as 67 repetidas em 67 endereços seriam a mesma marcação 67 vezes.
+  const origem = typeof window === 'undefined' ? '' : window.location.origin
   useJsonLd(
-    data && data.length > 0
-      ? faqPageJsonLd(data, {
-          url: typeof window === 'undefined' ? undefined : `${window.location.origin}${FAQ_PATH}`,
-        })
+    data && data.length > 0 && (!segmento || alvo)
+      ? naPergunta
+        ? faqPageJsonLd(
+            data
+              .map(grupo => ({ ...grupo, items: grupo.items.filter(item => item.id === alvo.id) }))
+              .filter(grupo => grupo.items.length > 0),
+            { url: origem ? `${origem}${caminhoDoAlvo}` : undefined },
+          )
+        : faqPageJsonLd(data, { url: origem ? `${origem}${FAQ_PATH}` : undefined })
       : null,
   )
 
   // Com o `<details>` da pergunta-alvo aberto, leva a viewport até ela. O navegador já faz isso em
   // carregamento normal, mas a página monta **depois** da leitura — quando o alvo aparece, o
   // documento já rolou.
+  const abertaId = alvo?.id ?? null
   useEffect(() => {
-    if (!ancora || !data) return
-    document.getElementById(`p-${ancora}`)?.scrollIntoView({ block: 'start' })
-  }, [ancora, data])
+    if (!abertaId) return
+    document.getElementById(`p-${abertaId}`)?.scrollIntoView({ block: 'start' })
+  }, [abertaId])
+
+  // Três desvios de endereço, todos com `replace` — o histórico não ganha uma entrada por eles:
+  //  · texto do endereço desatualizado (a pergunta foi editada) ⇒ o endereço canônico de hoje;
+  //  · chave que não acha pergunta (apagada, despublicada, link cortado) ⇒ a página geral;
+  //  · âncora antiga `#p-<id>` ⇒ o endereço próprio, para o link velho virar o novo ao ser aberto.
+  if (data && !isLoading && !error) {
+    if (segmento && !alvo) return <Navigate to={FAQ_PATH} replace />
+    if (segmento && alvo && decodeURIComponent(segmento) !== faqQuestionSegment(alvo)) {
+      return <Navigate to={caminhoDoAlvo} replace />
+    }
+    if (!segmento && alvo) return <Navigate to={caminhoDoAlvo} replace />
+  }
 
   return (
     <article className="flex flex-col">
@@ -182,7 +235,7 @@ const FaqPage = () => {
                       {grupo.label}
                     </h2>
                     {grupo.items.map(item => (
-                      <FaqQuestion key={item.id} item={item} open={item.id === ancora} />
+                      <FaqQuestion key={item.id} item={item} open={item.id === abertaId} />
                     ))}
                   </section>
                 ))

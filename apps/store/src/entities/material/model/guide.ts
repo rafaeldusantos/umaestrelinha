@@ -194,7 +194,10 @@ export const FICHAS_DE_MATERIAL: readonly FichaDeMaterial[] = [
     titulo: 'Cinzas de cremação',
     rotuloCurto: 'Cinzas',
     icone: 'pote-cinzas',
-    quantidade: { valor: 'a que desejar', nota: 'uma colher de chá já é suficiente' },
+    quantidade: {
+      valor: 'um copinho de café de 50 ml*',
+      nota: 'para a criação de uma joia. Para decorativos e pirâmides, envie uma quantidade maior',
+    },
     listaTitulo: 'Recipientes aceitos',
     lista: ['Pote pequeno com tampa', 'Saquinho zip bem fechado'],
     passos: [
@@ -206,7 +209,7 @@ export const FICHAS_DE_MATERIAL: readonly FichaDeMaterial[] = [
       {
         tom: 'calma',
         texto:
-          'Se preferir, pode enviar tudo — uso apenas o necessário para a joia e devolvo o restante junto com a sua peça, na mesma embalagem.',
+          '*Se preferir, pode enviar tudo — uso apenas o necessário para a joia e devolvo o restante junto com a sua peça, na mesma embalagem.',
       },
     ],
   },
@@ -420,7 +423,7 @@ export interface FormaDeEnvio {
 export const FORMAS_DE_ENVIO: readonly FormaDeEnvio[] = [
   {
     titulo: 'SEDEX — o mais rápido',
-    texto: 'Rastreável de ponta a ponta. Indicado para leite materno e cinzas.',
+    texto: 'Rastreável de ponta a ponta.',
     icone: 'envio',
   },
   {

@@ -25,8 +25,11 @@ import {
   renderSitemapXml,
   sitemapUrls,
   type SitemapCategory,
+  type SitemapFaqQuestion,
   type SitemapProduct,
 } from '../../../packages/core/src/sitemap/index.ts'
+import { resolveFaqPage } from '../../../packages/core/src/faq/page.ts'
+import type { FaqPageLink } from '../../../packages/core/src/faq/types.ts'
 import {
   POSTGREST_PAGE_SIZE,
   readAllPages,
@@ -43,6 +46,13 @@ export interface SitemapDeps {
   readProducts: (from: number, to: number) => Promise<SitemapProduct[]>
   /** Uma página de categorias, em ordem estável. */
   readCategories: (from: number, to: number) => Promise<SitemapCategory[]>
+  /**
+   * As colocações da página de perguntas frequentes, com a entrada embutida — a MESMA leitura que a
+   * página faz (`faq_page_items` + `faq:faqs(...)`). Quem decide quais aparecem é `resolveFaqPage`,
+   * o mesmo da página: o sitemap não anuncia pergunta que a página esconde, nem esconde uma que ela
+   * mostra.
+   */
+  readFaqLinks: () => Promise<FaqPageLink[]>
 }
 
 const texto = (corpo: string, status: number): Response =>
@@ -59,7 +69,11 @@ const log = (entry: Record<string, unknown>): void => console.log(JSON.stringify
  */
 export const readCatalog = async (
   deps: SitemapDeps,
-): Promise<{ products: SitemapProduct[]; categories: SitemapCategory[] }> => {
+): Promise<{
+  products: SitemapProduct[]
+  categories: SitemapCategory[]
+  faqQuestions: SitemapFaqQuestion[]
+}> => {
   const [totalProdutos, totalCategorias] = await Promise.all([
     deps.countProducts(),
     deps.countCategories(),
@@ -81,7 +95,14 @@ export const readCatalog = async (
     consequence: 'sitemap parcial descreve um catálogo menor do que o que existe',
   })
 
-  return { products, categories }
+  // Sem paginação: `faq_page_items` tem uma linha por pergunta (o `faq_id` é a chave), dezenas e
+  // não milhares. Falhar aqui falha o sitemap inteiro, pela mesma régua do resto: um documento sem
+  // as perguntas descreveria uma loja com menos páginas do que a que existe.
+  const faqQuestions = resolveFaqPage(await deps.readFaqLinks()).flatMap(grupo =>
+    grupo.items.map(item => ({ id: item.id, question: item.question })),
+  )
+
+  return { products, categories, faqQuestions }
 }
 
 export const handleSitemap = async (deps: SitemapDeps): Promise<Response> => {
@@ -91,7 +112,7 @@ export const handleSitemap = async (deps: SitemapDeps): Promise<Response> => {
     return texto('origem da loja não configurada', 503)
   }
 
-  let catalogo: { products: SitemapProduct[]; categories: SitemapCategory[] }
+  let catalogo: Awaited<ReturnType<typeof readCatalog>>
   try {
     catalogo = await readCatalog(deps)
   } catch (e) {
@@ -114,6 +135,7 @@ export const handleSitemap = async (deps: SitemapDeps): Promise<Response> => {
         origin: deps.origin,
         products: catalogo.products,
         categories: catalogo.categories,
+        faqQuestions: catalogo.faqQuestions,
       }),
     )
   } catch (e) {
@@ -127,6 +149,7 @@ export const handleSitemap = async (deps: SitemapDeps): Promise<Response> => {
     ok: true,
     produtos: catalogo.products.length,
     categorias: catalogo.categories.length,
+    perguntas: catalogo.faqQuestions.length,
   })
 
   return new Response(xml, {

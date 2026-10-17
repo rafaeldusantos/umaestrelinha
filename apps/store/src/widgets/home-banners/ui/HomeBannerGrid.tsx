@@ -31,6 +31,8 @@ const RATIOS: Record<HomeBannerLayout, string[]> = {
   /** 1176 × 1020 no desenho. */
   single: ['aspect-[588/510]'],
   pair: ['aspect-[588/510]', 'aspect-[588/510]'],
+  /** Três faixas 2:1 — 1280 × 640 no desenho. */
+  trio: ['aspect-[2/1]', 'aspect-[2/1]', 'aspect-[2/1]'],
   /** A grade de hoje: a grande (588 × 510) e duas faixas de metade da altura, menos a calha. */
   hero_pair: ['aspect-[588/510]', 'aspect-[588/243]', 'aspect-[588/243]'],
   quad: ['aspect-[588/510]', 'aspect-[588/510]', 'aspect-[588/510]', 'aspect-[588/510]'],
@@ -49,11 +51,14 @@ const BannerLink = ({
   src,
   alt,
   ratio,
+  sizes = '(min-width: 768px) 50vw, 100vw',
 }: {
   href: string
   src: string
   alt: string
   ratio: string
+  /** A largura da vaga para o `srcset`. O padrão é a de quase todo arranjo: metade da linha. */
+  sizes?: string
 }) => (
   /* A proporção e o chão vivem no LINK, não na imagem: é o que faz `HOME-29` valer — imagem que não
      carrega deixa um retângulo `ground-deep` do tamanho certo, e nada abaixo se desloca. */
@@ -66,7 +71,7 @@ const BannerLink = ({
     <img
       src={renditionUrl(src, 480)}
       srcSet={renditionSrcSet(src) || undefined}
-      sizes="(min-width: 768px) 50vw, 100vw"
+      sizes={sizes}
       alt={alt}
       loading="lazy"
       className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
@@ -101,6 +106,15 @@ const HomeBannerGrid = ({ banners, layout }: Props) => {
   // as outras duas empilham na outra. Os demais arranjos são uma lista de vagas iguais.
   const heroPair = arranjo === 'hero_pair'
 
+  // `trio` forma a linha só a partir de `lg`: em `md` cada faixa teria ~240px e o texto desenhado na
+  // arte não se lê. Até lá ele empilha, como todo arranjo no celular.
+  const trio = arranjo === 'trio'
+  const mosaico = trio
+    ? 'lg:grid lg:grid-cols-3'
+    : visiveis.length > 1
+      ? 'md:grid md:grid-cols-2'
+      : ''
+
   return (
     <section className="bg-estrelinha-surface">
       {heroPair ? (
@@ -133,9 +147,7 @@ const HomeBannerGrid = ({ banners, layout }: Props) => {
            `quad` proporcional daria 82px por célula num contêiner de 358px, e a arte desta loja tem
            texto embutido. O mosaico só existe do `md` para cima. */
         <div
-          className={`container flex flex-col gap-4 py-10 md:gap-6 md:py-20 ${
-            visiveis.length > 1 ? 'md:grid md:grid-cols-2' : ''
-          }`}
+          className={`container flex flex-col gap-4 py-10 md:gap-6 md:py-20 ${mosaico}`}
         >
           {visiveis.map((banner, i) => (
             <BannerLink
@@ -144,6 +156,7 @@ const HomeBannerGrid = ({ banners, layout }: Props) => {
               src={banner.imageUrl!}
               alt={banner.label}
               ratio={ratios[i]}
+              sizes={trio ? '(min-width: 1024px) 33vw, 100vw' : undefined}
             />
           ))}
         </div>

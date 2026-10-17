@@ -36,6 +36,7 @@ const deps = (over: Partial<SitemapDeps> = {}): SitemapDeps => ({
   countCategories: async () => CATEGORIAS.length,
   readProducts: async (from, to) => PRODUTOS.slice(from, to + 1),
   readCategories: async (from, to) => CATEGORIAS.slice(from, to + 1),
+  readFaqLinks: async () => [],
   ...over,
 })
 
@@ -191,5 +192,57 @@ describe('readCatalog — a paginação', () => {
     expect(categories).toHaveLength(2)
     expect(readProducts).toHaveBeenCalledWith(0, 999)
     expect(readCategories).toHaveBeenCalledWith(0, 999)
+  })
+})
+
+describe('handleSitemap — as perguntas frequentes', () => {
+  const vinculo = (id: string, question: string, over: Record<string, unknown> = {}) => ({
+    faq_id: id,
+    category: 'envio-do-material',
+    position: 0,
+    answer_override: null,
+    faq: { id, question, answer: 'Resposta.', is_active: true },
+    ...over,
+  })
+
+  it('cada pergunta da página vira uma `<loc>` própria', async () => {
+    const res = await handleSitemap(
+      deps({
+        readFaqLinks: async () => [
+          vinculo('3f9a1c2e-0000-4000-8000-000000000001', 'Quanto de cinzas preciso enviar?'),
+        ],
+      }),
+    )
+    expect(res.status).toBe(200)
+    const locs = [...parse(await res.text()).getElementsByTagName('loc')].map(l => l.textContent)
+    expect(locs).toContain(
+      'https://umaestrelinha.com.br/perguntas-frequentes/quanto-de-cinzas-preciso-enviar-3f9a1c2e',
+    )
+  })
+
+  it('pergunta que a página esconde (inativa, `faq: null` pela RLS) não é anunciada', async () => {
+    const res = await handleSitemap(
+      deps({
+        readFaqLinks: async () => [
+          vinculo('3f9a1c2e-0000-4000-8000-000000000001', 'Escondida?', { faq: null }),
+          vinculo('7b2d4e6f-0000-4000-8000-000000000002', 'Despublicada?', {
+            faq: { id: '7b2d4e6f-0000-4000-8000-000000000002', question: 'Despublicada?', answer: 'x', is_active: false },
+          }),
+        ],
+      }),
+    )
+    expect(await res.text()).not.toContain('/perguntas-frequentes/')
+  })
+
+  it('leitura das perguntas falhou: 503 sem sitemap — um documento sem elas descreveria uma loja menor', async () => {
+    const res = await handleSitemap(
+      deps({
+        readFaqLinks: async () => {
+          throw new Error('connection refused')
+        },
+      }),
+    )
+    expect(res.status).toBe(503)
+    await naoTemUrlset(res)
   })
 })

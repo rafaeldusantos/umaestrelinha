@@ -21,6 +21,7 @@ describe('layoutSlots — quantos banners cada arranjo desenha (HOME-22)', () =>
   it.each([
     ['single', 1],
     ['pair', 2],
+    ['trio', 3],
     ['hero_pair', 3],
     ['quad', 4],
   ] as const)('`%s` tem %i vaga(s)', (layout, vagas) => {
@@ -30,14 +31,14 @@ describe('layoutSlots — quantos banners cada arranjo desenha (HOME-22)', () =>
   it('a contagem é a da lista de proporções — nunca um segundo número', () => {
     // Se `layoutSlots` tivesse tabela própria, um arranjo novo entraria com contagem certa e
     // proporção faltando (ou o contrário), e a grade desenharia caixa sem medida.
-    for (const layout of ['single', 'pair', 'hero_pair', 'quad'] as const) {
+    for (const layout of ['single', 'pair', 'trio', 'hero_pair', 'quad'] as const) {
       expect(layoutSlots(layout)).toBe(layoutRatios(layout).length)
     }
   })
 
   it('a grade aceita no máximo 4 banners, que é o teto que a spec declara', () => {
     const maior = Math.max(
-      ...(['single', 'pair', 'hero_pair', 'quad'] as const).map(l => layoutSlots(l)),
+      ...(['single', 'pair', 'trio', 'hero_pair', 'quad'] as const).map(l => layoutSlots(l)),
     )
     expect(maior).toBe(4)
   })
@@ -68,7 +69,7 @@ describe('layoutRatios — `hero_pair` é a grade de hoje (HOME-04)', () => {
   })
 })
 
-describe('layoutRatios — os outros três arranjos', () => {
+describe('layoutRatios — os outros quatro arranjos', () => {
   it('`single` é uma vaga só, na proporção da grande', () => {
     expect(layoutRatios('single')).toEqual([{ width: 1176, height: 1020 }])
     expect(razao('single', 0)).toBeCloseTo(588 / 510, 5)
@@ -79,6 +80,15 @@ describe('layoutRatios — os outros três arranjos', () => {
       { width: 588, height: 510 },
       { width: 588, height: 510 },
     ])
+  })
+
+  it('`trio` são três faixas 2:1 iguais — a razão das artes do site anterior (640 × 320)', () => {
+    expect(layoutRatios('trio')).toEqual([
+      { width: 1280, height: 640 },
+      { width: 1280, height: 640 },
+      { width: 1280, height: 640 },
+    ])
+    for (let i = 0; i < 3; i += 1) expect(razao('trio', i)).toBeCloseTo(640 / 320, 5)
   })
 
   it('`quad` são quatro vagas iguais', () => {
@@ -115,7 +125,7 @@ describe('HERO_ART_SLOT — a vaga da figura do hero', () => {
   it('não é uma das vagas da grade de banners — são perguntas diferentes', () => {
     // A figura do hero é fotografia e aceita recorte; o banner de campanha tem texto dentro da arte
     // e por isso ganha aviso. Confundir as duas medidas devolveria aviso onde não cabe.
-    for (const layout of ['single', 'pair', 'hero_pair', 'quad'] as HomeBannerLayout[]) {
+    for (const layout of ['single', 'pair', 'trio', 'hero_pair', 'quad'] as HomeBannerLayout[]) {
       expect(layoutRatios(layout)).not.toContainEqual(HERO_ART_SLOT)
     }
   })

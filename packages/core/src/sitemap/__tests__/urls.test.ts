@@ -279,3 +279,34 @@ describe('originRefusal — a origem é configuração, e configuração errada 
     expect(originRefusal('ftp://umaestrelinha.com.br')).toMatch(/http ou https: ftp:/)
   })
 })
+
+describe('sitemapUrls — as perguntas frequentes, uma URL por pergunta', () => {
+  const CINZAS = { id: '3f9a1c2e-0000-4000-8000-000000000001', question: 'Quanto de cinzas preciso enviar?' }
+  const LEITE = { id: '7b2d4e6f-0000-4000-8000-000000000002', question: 'Como envio o leite materno?' }
+
+  it('cada pergunta sai no endereço que a página declara como canônico', () => {
+    expect(locs({ ...vazio, faqQuestions: [LEITE, CINZAS] })).toEqual(
+      expect.arrayContaining([
+        `${ORIGIN}/perguntas-frequentes/como-envio-o-leite-materno-7b2d4e6f`,
+        `${ORIGIN}/perguntas-frequentes/quanto-de-cinzas-preciso-enviar-3f9a1c2e`,
+      ]),
+    )
+  })
+
+  it('vêm logo depois das institucionais, na ordem da página', () => {
+    const todas = locs({ ...vazio, faqQuestions: [LEITE, CINZAS], products: [produto('anel')] })
+    const n = SITEMAP_STATIC_PATHS.length
+    expect(todas[n]).toMatch(/como-envio-o-leite-materno-7b2d4e6f$/)
+    expect(todas[n + 1]).toMatch(/quanto-de-cinzas-preciso-enviar-3f9a1c2e$/)
+    expect(todas.at(-1)).toBe(`${ORIGIN}/produtos/anel`)
+  })
+
+  it('sem perguntas, o documento é o de antes', () => {
+    expect(locs({ ...vazio, faqQuestions: [] })).toEqual(locs(vazio))
+  })
+
+  it('pergunta não declara `lastmod` — não há coluna de onde derivar a data', () => {
+    const url = sitemapUrls({ ...vazio, faqQuestions: [CINZAS] }).find(u => u.loc.includes('cinzas'))
+    expect(url?.lastmod).toBeNull()
+  })
+})

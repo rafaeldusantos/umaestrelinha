@@ -23,10 +23,18 @@ const ROOT = resolve(HERE, '../../../../../..')
 /** As duas árvores, escritas por extenso: a régua nunca é o objeto medido. */
 const ESCOPO = [join(ROOT, 'apps'), join(ROOT, 'supabase/functions')]
 
-/** Os **dois** leitores legítimos — um por app. Escritos literalmente, nunca derivados. */
+/**
+ * Os **três** leitores legítimos — um por app. Escritos literalmente, nunca derivados.
+ *
+ * O terceiro é a edge function do sitemap, que anuncia o endereço próprio de cada pergunta. Ela é
+ * outro app (Deno) e precisa ler a colocação — mas **não resolve por conta**: chama o mesmo
+ * `resolveFaqPage` da página, e o caso no fim deste arquivo exige isso. Sem essa metade, a régua
+ * aceitaria um sitemap com a própria regra de "quais perguntas aparecem", que é o defeito inteiro.
+ */
 const DONOS = [
   'apps/store/src/entities/faq/api/useFaqPage.ts',
   'apps/backoffice/src/features/faq-page/api/useAdminFaqPage.ts',
+  'supabase/functions/sitemap/index.ts',
 ]
 
 const EXTENSOES = ['.ts', '.tsx']
@@ -77,7 +85,7 @@ describe('faq_page_items tem um dono por app', () => {
 
   // ÂNCORA 2 — os donos existem e realmente abrem a tabela. Sem isto, renomear os dois arquivos
   // deixaria a lista de infratores vazia por vacuidade.
-  it('os dois donos existem e abrem a tabela', () => {
+  it('os três donos existem e abrem a tabela', () => {
     for (const dono of DONOS) {
       const fonte = semComentarios(readFileSync(join(ROOT, dono), 'utf8'))
       expect(fonte, dono).toMatch(/from\(\s*['"]faq_page_items['"]\s*\)/)
@@ -86,6 +94,16 @@ describe('faq_page_items tem um dono por app', () => {
 
   it('nenhum outro arquivo de produção abre `faq_page_items`', () => {
     expect(infratores).toEqual([])
+  })
+
+  // O sitemap lê a colocação, mas quem decide quais perguntas aparecem é `resolveFaqPage` — o MESMO
+  // da página. Uma segunda régua ali anunciaria pergunta que a página esconde, com tudo verde.
+  it('o sitemap resolve as perguntas por `resolveFaqPage`, e não por regra própria', () => {
+    const handlers = semComentarios(
+      readFileSync(join(ROOT, 'supabase/functions/sitemap/handlers.ts'), 'utf8'),
+    )
+    expect(handlers).toMatch(/import\s*\{[^}]*\bresolveFaqPage\b[^}]*\}\s*from\s*['"][^'"]*core\/src\/faq\/page\.ts['"]/)
+    expect(handlers).toMatch(/\bresolveFaqPage\(\s*await\s+deps\.readFaqLinks\(\)/)
   })
 })
 

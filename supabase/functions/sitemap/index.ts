@@ -15,6 +15,7 @@ import type {
   SitemapCategory,
   SitemapProduct,
 } from '../../../packages/core/src/sitemap/index.ts'
+import type { FaqPageLink } from '../../../packages/core/src/faq/types.ts'
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!
 
@@ -81,6 +82,19 @@ const ler = async <T>(tabela: string, colunas: string, from: number, to: number)
   return (data ?? []) as unknown as T[]
 }
 
+/**
+ * As perguntas da página, com a mesma forma que a loja lê (`useFaqPage`). Entrada inativa chega
+ * `faq: null` pela RLS, e `resolveFaqPage` a pula — igual à página.
+ */
+const lerPerguntas = async (): Promise<FaqPageLink[]> => {
+  const { data, error } = await supabase
+    .from('faq_page_items')
+    .select('faq_id, category, position, answer_override, faq:faqs(id, question, answer, is_active)')
+    .order('position', { ascending: true })
+  if (error) throw error
+  return (data ?? []) as unknown as FaqPageLink[]
+}
+
 Deno.serve(async () => {
   const deps: SitemapDeps = {
     origin: storeUrl,
@@ -88,6 +102,7 @@ Deno.serve(async () => {
     countCategories: () => contar('categories'),
     readProducts: (from, to) => ler<SitemapProduct>('products', COLUNAS_PRODUTO, from, to),
     readCategories: (from, to) => ler<SitemapCategory>('categories', COLUNAS_CATEGORIA, from, to),
+    readFaqLinks: lerPerguntas,
   }
 
   return await handleSitemap(deps)

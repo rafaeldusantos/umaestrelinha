@@ -39,7 +39,7 @@ describe('core/faq é puro', () => {
   it('a varredura encontrou os módulos do diretório', () => {
     expect(arquivos.length).toBeGreaterThanOrEqual(7)
     expect(arquivos.map(a => a.nome)).toEqual(
-      expect.arrayContaining(['faq.ts', 'text.ts', 'page.ts', 'jsonld.ts', 'block.ts', 'suggest.ts']),
+      expect.arrayContaining(['faq.ts', 'text.ts', 'page.ts', 'jsonld.ts', 'block.ts', 'suggest.ts', 'link.ts']),
     )
   })
 

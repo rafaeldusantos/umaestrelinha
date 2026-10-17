@@ -47,8 +47,12 @@ export type HomeSectionType =
  * No celular todo arranjo empilha em coluna de largura cheia. Medido: o contêiner deixa 358px em
  * 390, e `quad` proporcional daria **82px** por célula — a arte da loja tem texto embutido, e texto
  * dentro de 82px é ilegível em ~90% dos acessos.
+ *
+ * `trio` são três faixas 2:1 lado a lado — a fileira "Como enviar / Cuidados / Como comprar" do site
+ * anterior. Ele só forma a linha a partir de `lg`: em `md` (768) cada faixa teria ~240px, e o "Saiba
+ * mais" desenhado dentro da arte não se lê.
  */
-export type HomeBannerLayout = 'single' | 'pair' | 'hero_pair' | 'quad'
+export type HomeBannerLayout = 'single' | 'pair' | 'trio' | 'hero_pair' | 'quad'
 
 /**
  * A largura de uma seção `hero_carousel` (feature 41).

@@ -15,9 +15,10 @@
 //
 // Extensão explícita em todo import relativo: este grafo é carregado pelo **Deno** da edge function.
 
+import { faqQuestionPath } from '../faq/link.ts'
 import { categoryHref } from '../menu/index.ts'
 import { SITEMAP_STATIC_PATHS, productPath } from '../routes/index.ts'
-import type { SitemapCategory, SitemapProduct, SitemapUrl } from './types.ts'
+import type { SitemapCategory, SitemapFaqQuestion, SitemapProduct, SitemapUrl } from './types.ts'
 
 export interface SitemapUrlsInput {
   /** A origem pública da loja. Barra final é tolerada e normalizada. */
@@ -26,6 +27,11 @@ export interface SitemapUrlsInput {
   products: readonly SitemapProduct[]
   /** Categorias legíveis pela chave publicável — a RLS já filtrou `active`. */
   categories: readonly SitemapCategory[]
+  /**
+   * As perguntas que a página de perguntas frequentes mostra, cada uma com endereço próprio.
+   * Opcional: ausente, o sitemap sai sem elas — o mesmo documento de antes desta lista existir.
+   */
+  faqQuestions?: readonly SitemapFaqQuestion[]
   /** Sobrescrita só para teste; produção usa `SITEMAP_STATIC_PATHS`. */
   staticPaths?: readonly string[]
 }
@@ -99,6 +105,7 @@ export const sitemapUrls = ({
   origin,
   products,
   categories,
+  faqQuestions = [],
   staticPaths = SITEMAP_STATIC_PATHS,
 }: SitemapUrlsInput): SitemapUrl[] => {
   const base = normalizeOrigin(origin)
@@ -125,7 +132,14 @@ export const sitemapUrls = ({
       lastmod: product.updated_at ?? null,
     }))
 
-  const todas = [...estaticas, ...categorias, ...produtos]
+  // Na ordem da página, que é a ordem em que chegam. Quem monta o endereço é `faqQuestionPath` — o
+  // MESMO que a página declara como canônica —, então sitemap e canonical não podem divergir.
+  const perguntas: SitemapUrl[] = faqQuestions.map(item => ({
+    loc: absolute(base, faqQuestionPath(item)),
+    lastmod: null,
+  }))
+
+  const todas = [...estaticas, ...perguntas, ...categorias, ...produtos]
 
   const vistas = new Set<string>()
   for (const url of todas) {

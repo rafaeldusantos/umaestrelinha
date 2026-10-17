@@ -45,7 +45,7 @@ const declaredRoutes = (): string[] => [
  * As rotas que o **catálogo** cobre: uma linha do banco por URL. Não entram em lista fixa nenhuma
  * porque o número delas muda a cada cadastro — quem as enumera é a function do sitemap.
  */
-const DINAMICAS = ['/produtos/:slug', '/:slug', '/:parentSlug/:slug']
+const DINAMICAS = ['/produtos/:slug', '/:slug', '/:parentSlug/:slug', '/perguntas-frequentes/:pergunta']
 
 /** O curinga da 404. Não é conteúdo; é o que sobra. */
 const CURINGA = '*'
@@ -66,7 +66,8 @@ describe('sitemapRoutes — âncora da varredura (SMP-25)', () => {
     // Segunda metade: contou o que leu. Se uma rota sumir do arquivo, este número cai e alguém
     // precisa olhar — em vez de a classificação passar a cobrir um roteador menor sem aviso.
     // 24 desde a feature 59: `/conta/dados`, a aba "Meus dados", irmã de `/conta`.
-    expect(declaredRoutes()).toHaveLength(24)
+    // 25 com `/perguntas-frequentes/:pergunta`, o endereço próprio de cada pergunta.
+    expect(declaredRoutes()).toHaveLength(25)
   })
 })
 

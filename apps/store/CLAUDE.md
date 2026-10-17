@@ -898,6 +898,23 @@ A composição está no cabeçalho do próprio `pages/FaqPage.tsx`; o que vale r
   horizontal (medido em navegador: `scrollWidth` 1080 em 1024). É a lição do `minmax(0, …)` da `27`
   na roupa do flex, e **nenhum teste via**: jsdom devolve 0 para toda medida de layout.
 
+### O endereço próprio de cada pergunta (2026-10-17)
+
+`/perguntas-frequentes/<texto-da-pergunta>-<8 primeiros do id>` abre a **mesma** página com a
+pergunta aberta e rolada até ela, e com canonical, título, descrição e JSON-LD **dela**. A regra do
+endereço é `core/faq/link.ts` (`faqQuestionPath` / `findFaqBySegment`), lida pela página e pela
+edge function do sitemap — que anuncia uma `<loc>` por pergunta, resolvida pelo mesmo
+`resolveFaqPage` (o `faqPageSingleOwner.test.ts` exige isso).
+
+- **Quem acha a pergunta é a chave do fim, nunca o texto.** A dona corrige a pergunta no painel e o
+  link já enviado continua chegando nela: texto desatualizado redireciona (`replace`) para o endereço
+  de hoje; chave sem pergunta vai para a página geral; a âncora antiga `#p-<id>` vira o endereço novo.
+- **"Compartilhar esta pergunta" é `<a href>` de verdade** (link interno que o rastreador segue) com
+  o clique interceptado: compartilhar do sistema no celular, cópia do link fora dele. Ctrl/Cmd +
+  clique não é interceptado.
+- **O corpo das 67 URLs é a página inteira**, por decisão do usuário (a pergunta aberta, não uma
+  página dedicada). O risco declarado é o Google tratar as URLs como quase duplicadas.
+
 > **Pendência:** o rodapé da loja estoura a viewport em **768px** (`scrollWidth` 802) — a grade
 > `grid-cols-2 md:flex md:gap-14` das colunas de link. É anterior a esta mudança, vale para **toda**
 > página da loja, e não foi consertado aqui por ser outro widget.

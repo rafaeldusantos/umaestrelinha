@@ -28,6 +28,12 @@ export interface SitemapCategory extends MenuCategory {
   updated_at?: string | null
 }
 
+/** Uma pergunta da página de perguntas frequentes — só o que monta o endereço dela. */
+export interface SitemapFaqQuestion {
+  id: string
+  question: string
+}
+
 /** Uma entrada do documento. Sem `changefreq` e sem `priority` — o Google ignora as duas. */
 export interface SitemapUrl {
   /** Absoluta, sem barra final e sem query. */

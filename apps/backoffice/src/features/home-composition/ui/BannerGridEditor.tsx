@@ -34,10 +34,11 @@ import { emptyDraftItem, type DraftItem } from '../model/sectionDraft'
 import { ordinal } from '../model/sectionRefusals'
 import type { SectionEditorProps } from './sectionEditors'
 
-/** Os quatro arranjos, com o nome que a dona lê. O desenho de cada um é a contagem de vagas. */
+/** Os cinco arranjos, com o nome que a dona lê. O desenho de cada um é a contagem de vagas. */
 const ARRANJOS: { layout: HomeBannerLayout; label: string }[] = [
   { layout: 'single', label: '1 imagem' },
   { layout: 'pair', label: '2 lado a lado' },
+  { layout: 'trio', label: '3 lado a lado' },
   { layout: 'hero_pair', label: '1 grande + 2' },
   { layout: 'quad', label: '4 em fila' },
 ]

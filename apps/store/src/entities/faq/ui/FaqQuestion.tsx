@@ -1,7 +1,8 @@
-import type { ResolvedFaq } from '@estrelinha/core/faq'
+import { faqQuestionPath, type ResolvedFaq } from '@estrelinha/core/faq'
 import { TAP_ROW } from '@/shared/lib/touchTarget'
 import { faqAnchorId } from '../lib/anchors'
 import FaqAnswer from './FaqAnswer'
+import FaqShareLink from './FaqShareLink'
 
 /**
  * Uma pergunta da página — `FAQL-03`, `FAQL-07`, `FAQL-11`.
@@ -22,7 +23,9 @@ const FaqQuestion = ({ item, open }: { item: ResolvedFaq; open?: boolean }) => (
   <details
     id={faqAnchorId(item.id)}
     open={open}
-    className="group border-b border-estrelinha-line"
+    // A folga de rolagem é a altura do header fixo (64 no celular, 136 no computador) mais respiro:
+    // sem ela, abrir a pergunta pelo link a deixa escondida debaixo da barra.
+    className="group scroll-mt-20 border-b border-estrelinha-line md:scroll-mt-[152px]"
   >
     <summary
       className={`${TAP_ROW} flex cursor-pointer list-none flex-row items-start justify-between gap-4 py-4 text-[15.5px] font-medium leading-[22px] text-estrelinha-ink marker:hidden md:py-[22px] md:text-[18px] md:leading-[26px]`}
@@ -45,6 +48,7 @@ const FaqQuestion = ({ item, open }: { item: ResolvedFaq; open?: boolean }) => (
     </summary>
     <div className="pb-4 md:pb-[22px]">
       <FaqAnswer answer={item.answer} />
+      <FaqShareLink path={faqQuestionPath(item)} question={item.question} />
     </div>
   </details>
 )
