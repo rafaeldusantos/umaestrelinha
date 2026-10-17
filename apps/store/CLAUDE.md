@@ -632,8 +632,10 @@ que a dona enviou** com um rótulo embaixo e um link para a coleção. Desenho n
   1440 → 7 inteiros e 67% do 8º na área livre com 8, centrada e sem setas com 3 e 4. O rótulo de 28
   caracteres sem espaço quebra em duas linhas (`[overflow-wrap:anywhere]`) com os itens alinhados
   pelo topo.
-- **Item sem arte** (só pela prévia de um rascunho, ou por escrita direta) desenha a **vaga vazia do
-  mesmo tamanho**, sem `<img src="">` e sem ícone; foto que falha some **só ela**
+- **A arte é OPCIONAL** (2026-10-17, decisão do usuário). Item sem arte desenha um **círculo na cor
+  principal** (`bg-estrelinha-primary`, do tamanho da vaga) com o rótulo **dentro**, em `on-primary`
+  e até 3 linhas — e o rótulo **não** se repete embaixo. É a única vaga da fileira com fundo e raio, e
+  por isso o guarda "sem fundo, borda, raio" mede só as `<img>`. Foto que falha some **só ela**
   (`visibility: hidden`), e a vaga e o rótulo ficam.
 
 ## Página do produto

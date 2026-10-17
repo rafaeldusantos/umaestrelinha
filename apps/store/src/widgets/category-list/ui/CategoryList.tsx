@@ -15,6 +15,9 @@ import { TAP_44 } from '@/shared/lib/touchTarget'
  * inteira com `object-contain` (A-05, A-06). Uma arte de fundo opaco aparece como quadrado, e é o
  * certo (LCT-35): a loja não "conserta" recortando — quem orienta a arte circular é o painel.
  *
+ * **A arte é opcional.** Sem ela, a loja desenha o círculo: a cor principal, com o rótulo DENTRO —
+ * e não repete o rótulo embaixo, que diria o mesmo nome duas vezes.
+ *
  * Tudo o que este arquivo recebe já chega decidido por `resolveHomeSections` → `categoryListItem`
  * (`core/home/categoryList.ts`): o rótulo (título > `alt` > nome ao vivo da coleção), a arte (nunca
  * o `banner_url` da coleção) e quem saiu do ar. Aqui não se escreve `title || nome` nenhum.
@@ -31,6 +34,16 @@ const SIZES = '(min-width: 768px) 104px, 80px'
  * qualquer um deles, a cor e a forma deixariam de ser as da arte (LCT-05).
  */
 const VAGA = 'h-20 w-20 md:h-[104px] md:w-[104px]'
+
+/**
+ * O círculo de quem não tem arte: a cor principal, o rótulo dentro em `on-primary` (o par de texto
+ * que `contrast.test.ts` já mede). Mesmo tamanho da vaga, para o item não desalinhar dos vizinhos.
+ */
+const CIRCULO_SEM_ARTE =
+  'flex shrink-0 items-center justify-center rounded-full bg-estrelinha-primary px-2 text-center'
+
+const ROTULO_NO_CIRCULO =
+  'line-clamp-3 font-body text-[12px] font-semibold leading-[15px] text-estrelinha-on-primary [overflow-wrap:anywhere] md:text-[14px] md:leading-[18px]'
 
 /**
  * A seta do computador. **`TAP_44` vem PRIMEIRO** — o `relative` dele disputa com o `absolute`
@@ -78,27 +91,31 @@ const Item = ({ item, index, primeiro, ultimo }: ItemProps) => {
         className="flex flex-col items-center gap-2.5 text-center md:gap-3.5"
       >
         {url ? (
-          <img
-            src={renditionUrl(url, 208)}
-            srcSet={renditionSrcSet(url, LARGURAS) || undefined}
-            sizes={SIZES}
-            alt=""
-            width={104}
-            height={104}
-            loading={loading}
-            decoding="async"
-            onError={() => setFalhou(true)}
-            style={falhou ? { visibility: 'hidden' } : undefined}
-            className={cn(VAGA, 'object-contain')}
-          />
+          <>
+            <img
+              src={renditionUrl(url, 208)}
+              srcSet={renditionSrcSet(url, LARGURAS) || undefined}
+              sizes={SIZES}
+              alt=""
+              width={104}
+              height={104}
+              loading={loading}
+              decoding="async"
+              onError={() => setFalhou(true)}
+              style={falhou ? { visibility: 'hidden' } : undefined}
+              className={cn(VAGA, 'object-contain')}
+            />
+            <span className="line-clamp-2 w-full text-center font-body text-[14px] font-medium leading-[18px] text-estrelinha-ink [overflow-wrap:anywhere] md:text-[16px] md:leading-[21px]">
+              {item.label}
+            </span>
+          </>
         ) : (
-          // Item sem arte (só pela prévia de um rascunho, LCT-40, ou por escrita direta): a vaga
-          // vazia do mesmo tamanho, como a foto que falha. Nenhum `<img src="">`, nenhum ícone.
-          <span aria-hidden data-vaga-vazia="" className={cn(VAGA, 'block')} />
+          // Sem arte: o círculo na cor da loja, com o rótulo dentro. O texto é o nome acessível do
+          // link, então nada se perde para leitor de tela.
+          <span data-circulo-sem-arte="" className={cn(VAGA, CIRCULO_SEM_ARTE)}>
+            <span className={ROTULO_NO_CIRCULO}>{item.label}</span>
+          </span>
         )}
-        <span className="line-clamp-2 w-full text-center font-body text-[14px] font-medium leading-[18px] text-estrelinha-ink [overflow-wrap:anywhere] md:text-[16px] md:leading-[21px]">
-          {item.label}
-        </span>
       </Link>
     </li>
   )

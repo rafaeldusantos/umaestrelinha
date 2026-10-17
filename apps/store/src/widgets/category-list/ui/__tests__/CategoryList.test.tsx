@@ -50,8 +50,8 @@ const desenha = (items: ResolvedItem[], config: HomeSection['config'] = {}) =>
 /** As classes de um nó, por token — `'min-h-20'.includes('h-20')` é `true`, e token não é. */
 const tokens = (el: Element) => (el.getAttribute('class') ?? '').split(/\s+/).filter(Boolean)
 
-const vagas = (container: HTMLElement) =>
-  Array.from(container.querySelectorAll('img, [data-vaga-vazia]')) as HTMLElement[]
+/** As vagas de ARTE. O círculo de quem não tem arte é outra coisa, com fundo e raio de propósito. */
+const vagas = (container: HTMLElement) => Array.from(container.querySelectorAll('img')) as HTMLElement[]
 
 describe('CategoryList — a fileira (LCT-01..LCT-04)', () => {
   it('desenha um item por categoria, NA ORDEM recebida (LCT-01)', () => {
@@ -107,8 +107,10 @@ describe('CategoryList — a vaga é da arte (LCT-05, LCT-35)', () => {
   it('SEM fundo, borda, sombra, raio, overflow nem recorte — o círculo é o da arte', () => {
     // Com qualquer um desses, a arte de cantos transparentes ganharia um disco ou um quadrado de
     // cor que a dona não desenhou — e a arte opaca seria recortada, que LCT-35 proíbe.
-    const { container } = desenha([item(1), item(2, { imageUrl: null })])
+    const { container } = desenha([item(1), item(2)])
 
+    // Âncora: a varredura achou as duas vagas — sem ela, um seletor errado aprovaria o nada.
+    expect(vagas(container)).toHaveLength(2)
     for (const vaga of vagas(container)) {
       const proibidos = tokens(vaga).filter(c =>
         /^(?:[a-z-]+:)*(?:bg-|border|shadow|rounded|overflow-|clip-path|\[clip-path)/.test(c),
@@ -287,15 +289,44 @@ describe('CategoryList — o rótulo (LCT-10, LCT-37)', () => {
 })
 
 describe('CategoryList — a foto que falta (LCT-36, LCT-40)', () => {
-  it('item sem arte: a vaga do MESMO tamanho, sem `<img>`, e o rótulo visível', () => {
+  it('item sem arte: o círculo na cor da loja, do MESMO tamanho da vaga, sem `<img>`', () => {
     const { container } = desenha([item(1, { imageUrl: null, label: 'Penas' })])
 
     expect(container.querySelector('img')).toBeNull()
-    const vaga = container.querySelector('[data-vaga-vazia]')!
-    expect(tokens(vaga)).toEqual(
-      expect.arrayContaining(['h-20', 'w-20', 'md:h-[104px]', 'md:w-[104px]']),
+    const circulo = container.querySelector('[data-circulo-sem-arte]')!
+    expect(circulo).not.toBeNull()
+    expect(tokens(circulo)).toEqual(
+      expect.arrayContaining([
+        'h-20',
+        'w-20',
+        'md:h-[104px]',
+        'md:w-[104px]',
+        'rounded-full',
+        'bg-estrelinha-primary',
+      ]),
     )
-    expect(screen.getByRole('link', { name: 'Penas' })).toBeVisible()
+  })
+
+  it('item sem arte: o nome fica DENTRO do círculo, em `on-primary`, e não se repete embaixo', () => {
+    const { container } = desenha([item(1, { imageUrl: null, label: 'Penas' })])
+
+    const circulo = container.querySelector('[data-circulo-sem-arte]')!
+    const rotulo = within(circulo as HTMLElement).getByText('Penas')
+    expect(tokens(rotulo)).toEqual(
+      expect.arrayContaining(['text-estrelinha-on-primary', 'line-clamp-3', '[overflow-wrap:anywhere]']),
+    )
+    // Uma ocorrência só: o rótulo de baixo diria o mesmo nome duas vezes.
+    expect(screen.getAllByText('Penas')).toHaveLength(1)
+    // E o link continua nomeado pelo rótulo.
+    expect(screen.getByRole('link', { name: 'Penas' })).toHaveAttribute('href', expect.any(String))
+  })
+
+  it('item COM arte não ganha o círculo — e o rótulo continua embaixo', () => {
+    const { container } = desenha([item(1, { label: 'Cinzas' })])
+
+    expect(container.querySelector('[data-circulo-sem-arte]')).toBeNull()
+    expect(container.querySelector('img')).not.toBeNull()
+    expect(screen.getByText('Cinzas').closest('[data-circulo-sem-arte]')).toBeNull()
   })
 
   it('foto que não carrega: some só a imagem; a caixa e o rótulo ficam', () => {

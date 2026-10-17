@@ -255,8 +255,9 @@ empatou em `sort_order = 0`.
     não é coleção ⇒ `null` (conta em `droppedCount`); a arte vem **só** de `image_url` do item,
     **nunca** do `banner_url` da coleção.
   - `categoryListRefusal(config, items)` — `string | null`, com as cobranças **em ordem**: título da
-    seção → teto → por item, sem imagem → sem coleção → título longo, com o ordinal **feminino**
-    ("A 3ª categoria está sem imagem."). O comprimento é contado **sem aparar**, como o
+    seção → teto → por item, sem coleção → título longo, com o ordinal **feminino**
+    ("A 3ª categoria está sem coleção."). **Sem imagem não é recusa** desde 2026-10-17: a arte é
+    opcional e a loja desenha o círculo na cor principal. O comprimento é contado **sem aparar**, como o
     `char_length` do banco — aparar deixaria a tela aceitar o que o banco recusa.
   - **O teto é RECUSA, não `config.limit`** — pela mesma razão do `featured.ts`.
   - `ordinalF` nasceu em `carousel.ts` ao lado de `ordinal`, e o `sectionRefusals.ts` do painel

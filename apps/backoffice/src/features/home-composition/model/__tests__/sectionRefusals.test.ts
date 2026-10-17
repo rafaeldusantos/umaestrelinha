@@ -40,9 +40,9 @@ describe('categoryListRefusal — a recusa de `core` chega intacta à tela (feat
     expect(categoryListRefusal({}, [])).toBeNull()
   })
 
-  it('item sem imagem: a frase de `core`, com a posição', () => {
+  it('item sem imagem passa — a arte é opcional, e o painel concorda com `core`', () => {
     const itens = [pronto(1), pronto(2), { ...pronto(3), image_url: null }]
-    expect(categoryListRefusal({}, itens)).toBe('A 3ª categoria está sem imagem.')
+    expect(categoryListRefusal({}, itens)).toBeNull()
     expect(categoryListRefusal({}, itens)).toBe(categoryListRefusalDoCore({}, itens))
   })
 

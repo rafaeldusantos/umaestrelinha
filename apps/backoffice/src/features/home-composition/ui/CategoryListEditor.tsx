@@ -1,7 +1,7 @@
 // O editor da **Lista de categorias** (feature 64 — `LCT-15`..`LCT-23`, `LCT-25`).
 //
 // A dona monta uma fileira de círculos: para cada um, a arte de uma joia (já circular, com cantos
-// transparentes), a coleção para onde ele leva e, se quiser, um título curto embaixo. Quatro decisões
+// transparentes — ou nenhuma, e a loja desenha o círculo na cor da loja), a coleção para onde ele leva e, se quiser, um título curto embaixo. Quatro decisões
 // mandam nesta tela, e nenhuma é estética:
 //
 // 1. **Nenhuma regra é redigida aqui.** O rótulo que a linha fechada mostra é `categoryListLabel`, a
@@ -41,6 +41,10 @@ import type { SectionEditorProps } from './sectionEditors'
 /** A orientação da arte, literal da `LCT-17`. */
 const ORIENTACAO_DA_ARTE =
   'Arte circular em PNG com cantos transparentes, quadrada (800 × 800 px). A loja mostra a imagem como ela é — sem fundo e sem recorte.'
+
+/** O que a loja faz quando não há arte — a imagem é opcional, e a dona precisa saber o que entra. */
+const SEM_ARTE =
+  'A imagem é opcional. Sem ela, a loja mostra um círculo na cor da loja com o nome da categoria.'
 
 /** O que a linha fechada sabe de um item, já cruzado com o catálogo. */
 interface Linha {
@@ -283,9 +287,9 @@ const CategoryListEditor = ({
 
               {estaAberto && (
                 <div className="mt-3 space-y-4 pl-7" data-testid={`categoria-aberta-${indice}`}>
-                  {/* (a) Imagem — obrigatória, cobrada ao salvar. */}
+                  {/* (a) Imagem — opcional: sem ela, a loja desenha o círculo na cor da loja. */}
                   <div className="space-y-1.5" data-campo="imagem">
-                    <Label htmlFor={`categoria-arte-${indice}`}>Imagem</Label>
+                    <Label htmlFor={`categoria-arte-${indice}`}>Imagem (opcional)</Label>
                     <div className="flex items-start gap-3">
                       {item.image_url?.trim() ? (
                         <img
@@ -308,6 +312,21 @@ const CategoryListEditor = ({
                           className="w-full text-[11px] text-muted-foreground file:mr-1 file:rounded file:border file:border-input file:bg-card file:px-1.5 file:text-[11px] file:text-foreground"
                         />
                         <p className="text-[10px] text-muted-foreground">{ORIENTACAO_DA_ARTE}</p>
+                        <p className="text-[10px] text-muted-foreground">{SEM_ARTE}</p>
+                        {item.image_url?.trim() && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              recado(item.key, null)
+                              patch(item.key, { image_url: null })
+                            }}
+                            className="h-11 px-2 text-xs text-muted-foreground"
+                          >
+                            <Trash2 className="mr-1.5 h-3.5 w-3.5" aria-hidden /> Remover imagem
+                          </Button>
+                        )}
                       </div>
                     </div>
                     {recados[item.key] && (

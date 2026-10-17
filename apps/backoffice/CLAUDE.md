@@ -293,8 +293,10 @@ desenho.
 
 - **Dois `FormCard`s**: **Título da seção** (opcional; vazio, a fileira aparece sem título) e
   **Categorias** (contador `n de 24` e a lista `draggable`). **Um item aberto por vez**, e o item
-  novo nasce aberto; aberto, ele pede nesta ordem **Imagem** → **Leva para a coleção** → **Título
-  embaixo do círculo** (até 28; vazio usa o nome da coleção) → **Remover categoria**.
+  novo nasce aberto; aberto, ele pede nesta ordem **Imagem (opcional)** → **Leva para a coleção** →
+  **Título embaixo do círculo** (até 28; vazio usa o nome da coleção) → **Remover categoria**. Sem
+  imagem a loja desenha um círculo na cor da loja com o nome, e a tela diz isso; com imagem, há
+  **"Remover imagem"** para voltar a esse círculo.
 - **A arte já é o círculo.** O envio é `uploadHomeImage(file, CATEGORY_LIST_ART)` (800×800): a
   orientação pede PNG com os cantos transparentes, o aviso de proporção **não recusa**, e a falha de
   envio vira recado sem mexer no rascunho. **O canal alfa sobrevive** ao canvas → WebP e à rendição
@@ -310,7 +312,7 @@ desenho.
   indisponível, com o motivo **visível** ("Até 24 categorias por bloco.") — botão desligado sem
   frase não diz nada a ninguém.
 - **A recusa é provada pelo `HomeSectionEditor` real**, nunca pelo editor montado à mão: sem
-  imagem, sem coleção e acima do teto, `onSave` não é chamado e o rascunho fica na tela. Sensor
+  coleção e acima do teto, `onSave` não é chamado e o rascunho fica na tela; sem imagem, grava. Sensor
   reinjetado: tirar `refusal:` da entrada de `SECTION_EDITORS` derruba quatro casos.
 - **A linha da lista** ganhou o ícone `CircleDot` (o `GalleryHorizontal` já é do Banner principal) e
   o resumo **"N categorias"** — sem o `case`, ela cairia no padrão e diria "automático" de um bloco

@@ -200,16 +200,12 @@ describe('categoryListRefusal — o rascunho que pode ser salvo', () => {
     expect(categoryListRefusal({ title: '' }, validos(1))).toBeNull()
   })
 
-  it('item sem imagem: “A 3ª categoria está sem imagem.” (LCT-19)', () => {
+  it('item sem imagem NÃO é recusado — a arte é opcional', () => {
     const lista = validos(3)
     lista[2] = { ...lista[2], image_url: null }
-    expect(categoryListRefusal({}, lista)).toBe('A 3ª categoria está sem imagem.')
-  })
-
-  it('imagem de espaços é imagem nenhuma', () => {
-    const lista = validos(1)
-    lista[0] = { ...lista[0], image_url: '  ' }
-    expect(categoryListRefusal({}, lista)).toBe('A 1ª categoria está sem imagem.')
+    expect(categoryListRefusal({}, lista)).toBeNull()
+    lista[2] = { ...lista[2], image_url: '  ' }
+    expect(categoryListRefusal({}, lista)).toBeNull()
   })
 
   it('item sem coleção e sem nome congelado: “A 3ª categoria está sem coleção.” (LCT-19)', () => {
@@ -253,10 +249,10 @@ describe('categoryListRefusal — o rascunho que pode ser salvo', () => {
       expect(categoryListRefusal({}, lista)).toContain('Até 24 categorias por bloco')
     })
 
-    it('no mesmo item: sem imagem vem antes de sem coleção', () => {
+    it('no mesmo item: sem imagem não mascara a falta de coleção', () => {
       const lista = validos(1)
       lista[0] = { ...lista[0], image_url: null, category_id: null, label_snapshot: null }
-      expect(categoryListRefusal({}, lista)).toBe('A 1ª categoria está sem imagem.')
+      expect(categoryListRefusal({}, lista)).toBe('A 1ª categoria está sem coleção.')
     })
 
     it('no mesmo item: sem coleção vem antes do título longo', () => {

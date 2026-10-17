@@ -185,6 +185,33 @@ describe('o item aberto (LCT-17)', () => {
     ).toBeInTheDocument()
   })
 
+  it('a imagem é rotulada como opcional, e a tela diz o que a loja mostra sem ela', () => {
+    desenha([pronto()])
+    abrir(0)
+    expect(screen.getByText('Imagem (opcional)')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'A imagem é opcional. Sem ela, a loja mostra um círculo na cor da loja com o nome da categoria.',
+      ),
+    ).toBeInTheDocument()
+  })
+
+  it('"Remover imagem" limpa a arte do rascunho e mantém o resto do item', () => {
+    desenha([pronto({ title: 'Leite' })])
+    abrir(0)
+    fireEvent.click(screen.getByRole('button', { name: /Remover imagem/ }))
+
+    expect(ultimo.items[0]).toMatchObject({ image_url: null, category_id: 'leite', title: 'Leite' })
+    // Sem arte, não há o que remover.
+    expect(screen.queryByRole('button', { name: /Remover imagem/ })).toBeNull()
+  })
+
+  it('sem arte, "Remover imagem" não é oferecido', () => {
+    desenha([pronto({ image_url: null })])
+    abrir(0)
+    expect(screen.queryByRole('button', { name: /Remover imagem/ })).toBeNull()
+  })
+
   it('o campo da arte aceita só PNG, JPEG e WebP (LCT-17)', () => {
     desenha([pronto()])
     abrir(0)
@@ -507,15 +534,14 @@ describe('pelo casco: o registro monta o editor e a recusa barra a gravação (L
     expect(screen.getByRole('button', { name: /Adicionar categoria/ })).toBeEnabled()
   })
 
-  it('sem imagem: a frase com a posição, NENHUMA gravação, e o rascunho fica na tela', async () => {
+  it('sem imagem GRAVA — a arte é opcional, e o item vai sem `image_url`', async () => {
     const onSave = montarCasco([linha(0), linha(1, { image_url: null, title: 'Cinzas do pet' })])
     salvar()
 
-    await waitFor(() => expect(recusa()).toContain('A 2ª categoria está sem imagem.'))
-    expect(onSave).not.toHaveBeenCalled()
-    // O que a dona preencheu continua aqui.
-    expect(screen.getByTestId('categoria-resumo-1')).toHaveTextContent('Cinzas do pet')
-    expect(screen.getByTestId('categoria-1')).toBeInTheDocument()
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1))
+    expect(recusa()).toBe('')
+    const gravado = onSave.mock.calls[0][0] as { items: DraftItem[] }
+    expect(gravado.items[1]).toMatchObject({ image_url: null, title: 'Cinzas do pet' })
   })
 
   it('sem coleção: a frase com a posição, e nenhuma gravação', async () => {

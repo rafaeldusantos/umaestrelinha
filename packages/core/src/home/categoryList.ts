@@ -66,7 +66,8 @@ export const categoryListLabel = (
  * - o rótulo é o de `categoryListLabel`; o nome que chega em `resolved.label` é lido AO VIVO da
  *   coleção, então renomeá-la muda o rótulo de quem não tem título (LCT-39);
  * - a arte é **só** a enviada: nunca o `banner_url` da coleção, que é largo e viraria um retângulo
- *   espremido num círculo de 80px. Sem arte, `imageUrl` é `null` e a loja desenha a vaga vazia.
+ *   espremido num círculo de 80px. Sem arte, `imageUrl` é `null` e a loja desenha um círculo na cor
+ *   principal com o rótulo dentro — a arte é **opcional**.
  */
 export const categoryListItem = (
   item: HomeSectionItem,
@@ -88,8 +89,11 @@ const vazio = (valor: string | null | undefined): boolean => (valor ?? '').trim(
  * Por que este bloco não pode ser salvo — ou `null` quando pode.
  *
  * **A ordem das cobranças é regra**: o título da seção, o teto, e só então cada item na posição —
- * sem imagem, sem coleção, título longo. Lista **vazia não é recusa**: o bloco nasce sem itens
- * (LCT-15), e quem diz que ele não aparece é o `hiddenReason` da resolução (LCT-24).
+ * sem coleção, título longo. Lista **vazia não é recusa**: o bloco nasce sem itens (LCT-15), e quem
+ * diz que ele não aparece é o `hiddenReason` da resolução (LCT-24).
+ *
+ * **Item sem imagem também não é recusa**: a arte é opcional, e sem ela a loja desenha um círculo na
+ * cor principal com o rótulo dentro.
  *
  * `string | null`, e não união discriminada: `strictNullChecks: false` não estreita união por
  * literal booleano.
@@ -114,8 +118,6 @@ export const categoryListRefusal = (
   for (let i = 0; i < lista.length; i += 1) {
     const item = lista[i]
     const numero = ordinalF(i + 1)
-
-    if (vazio(item.image_url)) return `A ${numero} categoria está sem imagem.`
 
     if (vazio(item.category_id)) {
       // Sem coleção e com o nome congelado é o órfão que o `on delete set null` produz: a coleção
