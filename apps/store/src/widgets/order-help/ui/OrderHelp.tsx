@@ -32,7 +32,7 @@ const OrderHelp = ({ orderNumber }: OrderHelpProps) => {
           Alguma dúvida sobre este pedido?
         </h2>
         <p className="text-sm text-estrelinha-ink-soft">
-          Fale com a gente pelo WhatsApp — o número do pedido já vai na mensagem.
+          Fale comigo pelo WhatsApp — o número do pedido já vai na mensagem.
         </p>
       </div>
       <a

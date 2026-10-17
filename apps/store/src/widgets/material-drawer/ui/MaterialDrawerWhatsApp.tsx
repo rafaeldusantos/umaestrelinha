@@ -4,7 +4,7 @@ import { useGeneralSettings } from '@estrelinha/core/hooks/useStoreSettings'
 /**
  * A saída para o WhatsApp, dentro da gaveta.
  *
- * **Existe para o `Outro material`**, e não é enfeite: o cartão desse material diz "fale com a gente
+ * **Existe para o `Outro material`**, e não é enfeite: o cartão desse material diz "fale comigo
  * antes de enviar, para acertar quantidade e preparo" — e mandar fazer uma coisa sem oferecer como
  * fazê-la é pior do que não mandar. Era um Edge Case da spec que a primeira entrega não implementou,
  * achado pela verificação independente.
@@ -36,7 +36,7 @@ const MaterialDrawerWhatsApp = () => {
       className="flex h-12 items-center justify-center gap-2.5 rounded-sm bg-estrelinha-whatsapp text-[15px] font-semibold text-estrelinha-ink transition-opacity hover:opacity-90"
     >
       <MessageCircle aria-hidden className="h-[18px] w-[18px]" />
-      Falar com a gente no WhatsApp
+      Falar comigo no WhatsApp
     </a>
   )
 }

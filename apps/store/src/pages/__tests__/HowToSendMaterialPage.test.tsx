@@ -258,7 +258,7 @@ describe('guia de material — os vídeos de preparo', () => {
 describe('guia de material — o endereço nunca aparece pela metade', () => {
   it('endereço não configurado ⇒ NENHUM endereço, e o convite a falar com a loja', () => {
     abrir()
-    expect(screen.getByText(/confirme o endereço com a gente/i)).toBeInTheDocument()
+    expect(screen.getByText(/confirme o endereço comigo/i)).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /falar pelo whatsapp/i })).toBeInTheDocument()
   })
 
@@ -266,7 +266,7 @@ describe('guia de material — o endereço nunca aparece pela metade', () => {
     state.material = { ...state.material, street: 'Rua das Flores', number: '100' }
     abrir()
 
-    expect(screen.getByText(/confirme o endereço com a gente/i)).toBeInTheDocument()
+    expect(screen.getByText(/confirme o endereço comigo/i)).toBeInTheDocument()
     expect(screen.queryByText(/Rua das Flores/)).not.toBeInTheDocument()
   })
 
@@ -289,14 +289,14 @@ describe('guia de material — o endereço nunca aparece pela metade', () => {
     expect(screen.getByText('sala 2 · Centro')).toBeInTheDocument()
     expect(screen.getByText('Porto Alegre/RS · 90000100')).toBeInTheDocument()
     expect(screen.getByText('Recebo de segunda a sexta.')).toBeInTheDocument()
-    expect(screen.queryByText(/confirme o endereço com a gente/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/confirme o endereço comigo/i)).not.toBeInTheDocument()
   })
 
   it('sem WhatsApp configurado, nem o convite nem a faixa viram link quebrado', () => {
     state.whatsapp = ''
     abrir()
 
-    expect(screen.getByText(/confirme o endereço com a gente/i)).toBeInTheDocument()
+    expect(screen.getByText(/confirme o endereço comigo/i)).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /falar pelo whatsapp/i })).not.toBeInTheDocument()
     // A faixa do fim também some inteira, em vez de mostrar um botão que abre conversa com ninguém.
     expect(screen.queryByRole('link', { name: /falar com a adri/i })).not.toBeInTheDocument()

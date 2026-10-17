@@ -58,7 +58,7 @@ const AjudaLateral = () => {
     <div className="hidden flex-col gap-2 rounded-md bg-estrelinha-ground-deep p-4 lg:flex">
       <p className="text-[15px] font-semibold text-estrelinha-ink">Precisa de ajuda?</p>
       <p className="text-sm text-estrelinha-ink-soft">
-        Fale com a Adri pelo WhatsApp — ela responde pessoalmente.
+        Fale comigo pelo WhatsApp — eu respondo pessoalmente.
       </p>
       <a
         href={href}

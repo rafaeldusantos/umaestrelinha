@@ -114,7 +114,7 @@ const OrderActionPanel = ({ order, state, paymentHref, materialKinds }: OrderAct
       return (
         <Cartao borda="border-l-estrelinha-accent" titulo="Pagamento pendente">
           <p className="text-sm leading-[22px] text-estrelinha-ink-soft">
-            O código PIX deste pedido ainda está valendo. Assim que o pagamento cair, a gente começa
+            O código PIX deste pedido ainda está valendo. Assim que o pagamento cair, eu começo
             a preparar a sua joia.
           </p>
           <Valor total={order.total} />
@@ -143,7 +143,7 @@ const OrderActionPanel = ({ order, state, paymentHref, materialKinds }: OrderAct
       return (
         <Cartao borda="border-l-[#A6534F]" titulo="O pagamento não foi concluído">
           <p className="text-sm leading-[22px] text-estrelinha-ink-soft">
-            Fale com a Adri para retomar este pedido. Ela confere o valor e o prazo com você.
+            Fale comigo para retomar este pedido. Eu confiro o valor e o prazo com você.
           </p>
           <ConversarNoWhatsApp orderNumber={order.order_number} />
         </Cartao>

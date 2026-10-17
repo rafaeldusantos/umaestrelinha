@@ -2221,8 +2221,10 @@ completo (framework, `installCommand` na raiz do monorepo, headers de cache e de
     transportadora detectada), com código sintético.
   - **A renumeração dos `NP-` roda no `db push` de produção** — ver o handoff da `59` no `STATE.md`.
   - **As oito escritas antigas de `wa.me` continuam à mão**; só as peças novas usam `whatsappHref`.
-  - **"Fale com a Adri pelo WhatsApp — ela responde pessoalmente"** (bloco de ajuda da coluna
-    lateral) é afirmação de operação escrita sem a dona confirmar.
+  - **"Fale comigo pelo WhatsApp — eu respondo pessoalmente"** (bloco de ajuda da coluna
+    lateral) é afirmação de operação escrita sem a dona confirmar. Desde 2026-10-17 a copy da loja
+    fala na primeira pessoa da Adri ("fale comigo", "eu aviso"), nunca "a gente"/"nós": ela atende
+    sozinha. Mensagem técnica ("Não foi possível…") fica impessoal.
 
 - **A `58` TEM prova em navegador (os cinco estados e o percurso inteiro, em 390 e 1440), e NÃO tem
   verificação independente.** Autor = verificador; nove mutantes foram reinjetados nos arquivos

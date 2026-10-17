@@ -186,7 +186,7 @@ const AddressCard = ({ customerId }: AddressCardProps) => {
           </div>
           {naoAchouCep && (
             <p role="status" className="text-[13px] text-estrelinha-ink-soft">
-              Não localizamos esse CEP. Preencha o endereço à mão.
+              CEP não encontrado. Preencha o endereço à mão.
             </p>
           )}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1fr)_120px]">

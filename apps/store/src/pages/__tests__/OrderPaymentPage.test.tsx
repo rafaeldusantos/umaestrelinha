@@ -329,7 +329,7 @@ describe('OrderPaymentPage — pedido que não abre', () => {
     vi.mocked(useOrder).mockReturnValue({ data: undefined, isLoading: false, isError: true } as never)
     montar()
 
-    expect(screen.getByText('Não conseguimos abrir este pedido')).toBeInTheDocument()
+    expect(screen.getByText('Não foi possível abrir este pedido')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Ir para Minha conta' })).toBeInTheDocument()
   })
 

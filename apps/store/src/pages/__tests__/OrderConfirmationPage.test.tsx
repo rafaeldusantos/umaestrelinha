@@ -135,7 +135,7 @@ describe('OrderConfirmationPage — o pedido é lido por id (CNF-03)', () => {
     mockOrder({ isError: true })
     renderPage()
 
-    expect(screen.getByText('Não conseguimos abrir este pedido')).toBeInTheDocument()
+    expect(screen.getByText('Não foi possível abrir este pedido')).toBeInTheDocument()
   })
 
   it('pedido inexistente informa isso, sem fingir confirmação', () => {
@@ -194,7 +194,7 @@ describe('OrderConfirmationPage — sem sessão, o acesso expirado tem saída (f
     mockOrder({ isError: true })
     renderPage()
 
-    expect(screen.getByText('Não conseguimos abrir este pedido')).toBeInTheDocument()
+    expect(screen.getByText('Não foi possível abrir este pedido')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Entrar com código' })).not.toBeInTheDocument()
   })
 })
@@ -311,7 +311,7 @@ describe('OrderConfirmationPage — conteúdo da confirmação (CNF-04)', () => 
     mockOrder({ data: order() })
     const { container } = renderPage()
 
-    expect(container.textContent).toMatch(/enviamos o comprovante para/i)
+    expect(container.textContent).toMatch(/comprovante foi enviado para/i)
     expect(screen.getByText('marina@email.com')).toBeInTheDocument()
   })
 
@@ -319,7 +319,7 @@ describe('OrderConfirmationPage — conteúdo da confirmação (CNF-04)', () => 
     mockOrder({ data: order({ paid_at: null }) })
     const { container } = renderPage()
 
-    expect(container.textContent).toMatch(/avisamos por e-?mail assim que ele cair/i)
+    expect(container.textContent).toMatch(/aviso por e-?mail assim que ele cair/i)
     expect(container.textContent).not.toMatch(/enviamos o comprovante|comprovante foi enviado/i)
   })
 })
@@ -776,7 +776,7 @@ describe('OrderConfirmationPage — rastreio, peças, pagamento e ajuda (DET-03,
 
 // Feature 59 — `DET-01` (decisão do usuário, 2026-10-04): o subtítulo caloroso e a promessa de
 // e-mail (`STO-01`) só aparecem enquanto são verdade. Um pedido entregue em agosto não abre com
-// "É nosso!" nem com "já estamos preparando sua joia".
+// "É nosso!" nem com "já estou preparando sua joia".
 describe('OrderConfirmationPage — o subtítulo muda com a etapa (DET-01)', () => {
   it('pago e ainda no ateliê: "É nosso!" logo abaixo do título', () => {
     mockOrder({ data: order({ status: 'separating' }) })
@@ -795,7 +795,7 @@ describe('OrderConfirmationPage — o subtítulo muda com a etapa (DET-01)', () 
       expect(screen.getByRole('heading', { level: 1, name: 'Pedido #NP-4821' })).toBeInTheDocument()
       expect(screen.queryByText('É nosso!')).not.toBeInTheDocument()
       expect(screen.queryByText('Pedido registrado')).not.toBeInTheDocument()
-      expect(container.textContent).not.toMatch(/já estamos preparando sua joia/i)
+      expect(container.textContent).not.toMatch(/já estou preparando sua joia/i)
     },
   )
 

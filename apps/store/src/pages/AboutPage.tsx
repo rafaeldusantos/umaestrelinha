@@ -343,7 +343,7 @@ const AboutPage = () => {
                     strokeLinecap="round"
                   />
                 </svg>
-                Falar com a Adri
+                Falar comigo
               </a>
             )}
           </div>

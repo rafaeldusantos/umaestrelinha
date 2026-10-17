@@ -17,7 +17,7 @@ import { supabase } from '@estrelinha/supabase/client'
 import { isValidDocument, stripDocument } from '@estrelinha/core/validators'
 
 export const INVALID_CPF_MESSAGE = 'CPF ou CNPJ inválido'
-export const CPF_SAVE_FAILED_MESSAGE = 'Não conseguimos salvar seus dados. Tente novamente.'
+export const CPF_SAVE_FAILED_MESSAGE = 'Não foi possível salvar seus dados. Tente novamente.'
 
 export interface SaveCustomerCpfInput {
   customerId: string

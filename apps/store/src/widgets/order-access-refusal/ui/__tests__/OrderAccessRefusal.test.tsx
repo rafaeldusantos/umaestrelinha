@@ -7,7 +7,7 @@ import { useAuthUiStore } from '@/features/auth'
 import OrderAccessRefusal from '../OrderAccessRefusal'
 
 /**
- * "Não conseguimos abrir este pedido" — a recusa compartilhada por `/pedido/:id` e por
+ * "Não foi possível abrir este pedido" — a recusa compartilhada por `/pedido/:id` e por
  * `/pedido/:id/pagamento`.
  *
  * ---------------------------------------------------------------------------------------------
@@ -55,7 +55,7 @@ describe('OrderAccessRefusal — erro de leitura e pedido inexistente não se co
     montar({ isError: true })
 
     expect(
-      screen.getByRole('heading', { name: 'Não conseguimos abrir este pedido' }),
+      screen.getByRole('heading', { name: 'Não foi possível abrir este pedido' }),
     ).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Ir para Minha conta' })).toHaveAttribute(
       'href',

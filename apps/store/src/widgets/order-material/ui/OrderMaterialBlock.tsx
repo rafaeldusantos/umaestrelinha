@@ -83,7 +83,7 @@ const OrderMaterialBlock = ({
           Envie o seu material
         </h2>
         <p className="text-sm leading-[22px] text-estrelinha-ink-soft">
-          Quando postar o envelope, informe o código de rastreio. Assim a gente acompanha a chegada
+          Quando postar o envelope, informe o código de rastreio. Assim eu acompanho a chegada
           dele ao ateliê.
         </p>
         {user ? (
@@ -140,7 +140,7 @@ const OrderMaterialBlock = ({
       {materiais.length === 0 && (
         // "a combinar", nunca lista vazia — lista vazia se lê como "nenhum material".
         <p className="mt-3 text-[14px] leading-[22px] text-estrelinha-ink-soft">
-          O material desta joia é combinado com a gente — a gente entra em contato.
+          O material desta joia é combinado comigo — eu entro em contato.
         </p>
       )}
 
@@ -153,12 +153,12 @@ const OrderMaterialBlock = ({
 
       {cancelled ? (
         <p className="mt-4 text-[14px] leading-[22px] text-estrelinha-ink-soft">
-          Este pedido foi cancelado. Se você já enviou o material, fale com a gente — ele volta para
+          Este pedido foi cancelado. Se você já enviou o material, fale comigo — ele volta para
           você.
         </p>
       ) : jaRecebido ? (
         <p className="mt-4 text-[14px] leading-[22px] text-estrelinha-ink-soft">
-          Seu material já está com a gente. Não é preciso fazer mais nada por aqui.
+          Seu material já está comigo. Não é preciso fazer mais nada por aqui.
         </p>
       ) : user ? (
         <MaterialTrackingForm orderId={orderId} copy={COPY_BLOCO} />
@@ -228,7 +228,7 @@ const MaterialContactInstead = ({ orderNumber }: { orderNumber: string }) => {
   return (
     <div className="flex flex-col gap-3">
       <p className="text-sm leading-[22px] text-estrelinha-ink">
-        Para informar o código, fale com a gente
+        Para informar o código, fale comigo
       </p>
       {href && (
         <a
@@ -319,7 +319,7 @@ const MaterialTrackingForm = ({ orderId, copy }: { orderId: string; copy: FormCo
           id="material-tracking-hint"
           className="mt-2 text-[13px] leading-[20px] text-estrelinha-ink-soft"
         >
-          É opcional. Se preferir, avise a gente e registramos para você.{' '}
+          É opcional. Se preferir, me avise e eu registro para você.{' '}
           <Link
             to={MATERIAL_GUIDE_PATH}
             className={`${TAP_ROW} font-semibold text-estrelinha-primary hover:underline`}

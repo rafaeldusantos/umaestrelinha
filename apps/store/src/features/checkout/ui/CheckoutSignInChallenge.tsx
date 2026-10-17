@@ -60,7 +60,7 @@ const CheckoutSignInChallenge = ({ email }: Props) => {
               dela. O motivo em si tem dono único em `checkoutIdentityRefusal`, que é o mesmo texto
               do 409 do servidor — aqui a frase é a explicação do passo, não o veredito. */}
           <p className="text-[13px] leading-snug text-estrelinha-ink-soft">
-            Enviamos um código para <strong className="font-semibold">{email}</strong>. Digite-o
+            Um código foi enviado para <strong className="font-semibold">{email}</strong>. Digite-o
             para continuar com seus dados salvos.
           </p>
         </div>

@@ -127,7 +127,7 @@ describe('AuthContext.signInWithOtp (AUTH-02)', () => {
       res = await result.current.signInWithOtp('maria@email.com')
     })
 
-    expect(res.error).toBe('Não conseguimos enviar seu código agora. Tente de novo em instantes.')
+    expect(res.error).toBe('Não foi possível enviar seu código agora. Tente de novo em instantes.')
     expect(res.error).not.toContain('magic link')
   })
 })

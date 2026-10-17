@@ -152,7 +152,7 @@ describe('OrderList — vazio, carregando e erro (LST-06..08)', () => {
     const onRetry = vi.fn()
     montar({ orders: undefined, isError: true, onRetry })
 
-    expect(screen.getByText('Não conseguimos carregar seus pedidos.')).toBeInTheDocument()
+    expect(screen.getByText('Não foi possível carregar seus pedidos.')).toBeInTheDocument()
     expect(screen.queryByText('Você ainda não fez nenhum pedido.')).not.toBeInTheDocument()
     const botao = screen.getByRole('button', { name: 'Tentar de novo' })
     expect(botao.className.split(/\s+/)).toContain('min-h-11')

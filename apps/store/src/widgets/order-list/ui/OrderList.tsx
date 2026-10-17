@@ -138,7 +138,7 @@ const OrderList = ({ orders, isLoading = false, isError = false, onRetry }: Orde
   } else if (isError) {
     corpo = (
       <div role="alert" className="flex flex-col items-center gap-3 rounded-md border border-estrelinha-line bg-estrelinha-surface p-6 text-center">
-        <p className="text-[15px] text-estrelinha-ink">Não conseguimos carregar seus pedidos.</p>
+        <p className="text-[15px] text-estrelinha-ink">Não foi possível carregar seus pedidos.</p>
         <button
           type="button"
           onClick={() => onRetry?.()}

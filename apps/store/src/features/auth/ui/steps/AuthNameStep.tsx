@@ -29,7 +29,7 @@ const AuthNameStep = () => {
       <div className="w-16 h-16 rounded-2xl bg-estrelinha-primary/10 flex items-center justify-center mb-4">
         <MapPin className="w-7 h-7 text-estrelinha-primary" />
       </div>
-      <h2 className="font-heading text-2xl font-bold text-estrelinha-ink">Como podemos te chamar?</h2>
+      <h2 className="font-heading text-2xl font-bold text-estrelinha-ink">Como posso te chamar?</h2>
       <p className="text-sm text-estrelinha-ink-soft mt-1">Falta só o seu nome para criar sua conta</p>
 
       <form onSubmit={handleSubmit} className="w-full text-left mt-6 space-y-2">

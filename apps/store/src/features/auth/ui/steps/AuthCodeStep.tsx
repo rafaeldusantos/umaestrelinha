@@ -51,7 +51,7 @@ const AuthCodeStep = () => {
         <Mail className="w-7 h-7 text-estrelinha-primary" />
       </div>
       <h2 className="font-heading text-2xl font-bold text-estrelinha-ink">Digite o código</h2>
-      <p className="text-sm text-estrelinha-ink-soft mt-1">Enviamos um código de 6 dígitos para</p>
+      <p className="text-sm text-estrelinha-ink-soft mt-1">Um código de 6 dígitos foi enviado para</p>
       <p className="text-sm font-bold text-estrelinha-ink">{email}</p>
 
       <form onSubmit={handleSubmit} className="w-full flex flex-col items-center mt-6 gap-4">

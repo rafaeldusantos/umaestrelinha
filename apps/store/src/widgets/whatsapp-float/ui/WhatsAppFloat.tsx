@@ -95,7 +95,7 @@ const WhatsAppFloat = () => {
             </button>
           </div>
           <p className="text-xs text-estrelinha-ink-soft mb-3 leading-relaxed">
-            Alguma dúvida sobre as joias, o envio do material ou o seu pedido? A gente responde por aqui.
+            Alguma dúvida sobre as joias, o envio do material ou o seu pedido? Eu respondo por aqui.
           </p>
           <a
             href={link}

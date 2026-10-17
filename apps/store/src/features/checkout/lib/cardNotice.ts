@@ -19,7 +19,7 @@ export interface CardNotice {
 }
 
 export const DECLINED_TITLE = 'O banco não aprovou este cartão'
-export const UNANSWERED_TITLE = 'Não conseguimos concluir o pagamento'
+export const UNANSWERED_TITLE = 'Não foi possível concluir o pagamento'
 
 /** O banco respondeu `rejected` (ou `action_required`, que `AD-003` trata como recusa). */
 export const declinedNotice = (

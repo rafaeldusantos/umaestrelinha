@@ -77,9 +77,9 @@ describe('OrderMaterialBlock — quando aparece', () => {
     expect(screen.getByLabelText(/registre o código de rastreio/i)).toBeInTheDocument()
   })
 
-  it('pedido sem lista mostra "combinado com a gente", nunca lista vazia', () => {
+  it('pedido sem lista mostra "combinado comigo", nunca lista vazia', () => {
     montar({ kinds: [] })
-    expect(screen.getByText(/combinado com a gente/i)).toBeInTheDocument()
+    expect(screen.getByText(/combinado comigo/i)).toBeInTheDocument()
   })
 
   it('cada material leva à ficha dele', () => {
@@ -96,7 +96,7 @@ describe('OrderMaterialBlock — informar é OPCIONAL (MAT-11 AC 10)', () => {
     // Nada trava se ela não informar: a Adri registra pelo painel, ou marca o recebimento direto.
     montar()
     expect(screen.getByText(/é opcional/i)).toBeInTheDocument()
-    expect(screen.getByText(/registramos para você/i)).toBeInTheDocument()
+    expect(screen.getByText(/eu registro para você/i)).toBeInTheDocument()
   })
 
   it('código vazio NÃO chama a RPC', () => {
@@ -146,10 +146,10 @@ describe('OrderMaterialBlock — a escrita é por RPC, e só ela (MAT-11 AC 11)'
     fireEvent.click(screen.getByRole('button', { name: 'Registrar' }))
 
     await waitFor(() =>
-      expect(screen.getByText(/não conseguimos registrar o código/i)).toBeInTheDocument(),
+      expect(screen.getByText(/não foi possível registrar o código/i)).toBeInTheDocument(),
     )
     // E o caminho alternativo continua na tela: avisar a loja.
-    expect(screen.getByText(/a gente registra para você/i)).toBeInTheDocument()
+    expect(screen.getByText(/eu registro para você/i)).toBeInTheDocument()
   })
 
   it('erro de rede vira mensagem, não tela quebrada', async () => {
@@ -169,7 +169,7 @@ describe('OrderMaterialBlock — o estado nunca volta para trás (MAT-11 AC 12)'
       montar({ materialStatus: status })
 
       expect(screen.queryByLabelText(/registre o código/i)).not.toBeInTheDocument()
-      expect(screen.getByText(/já está com a gente/i)).toBeInTheDocument()
+      expect(screen.getByText(/já está comigo/i)).toBeInTheDocument()
     },
   )
 
@@ -253,7 +253,7 @@ describe('OrderMaterialBlock — o estado do topo (MAT-01)', () => {
 
     expect(
       await screen.findByText(
-        'Não conseguimos registrar o código neste pedido. Entre na sua conta e tente de novo, ou nos avise que a gente registra para você.',
+        'Não foi possível registrar o código neste pedido. Entre na sua conta e tente de novo, ou me avise que eu registro para você.',
       ),
     ).toBeInTheDocument()
     expect(campo).toHaveValue('AA1BR')
@@ -294,7 +294,7 @@ describe('OrderMaterialBlock — sem sessão, o WhatsApp no lugar do campo (MAT-
 
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /enviar código|registrar/i })).not.toBeInTheDocument()
-    expect(screen.getByText('Para informar o código, fale com a gente')).toBeInTheDocument()
+    expect(screen.getByText('Para informar o código, fale comigo')).toBeInTheDocument()
 
     const link = screen.getByRole('link', { name: 'Conversar no WhatsApp' })
     const url = new URL(link.getAttribute('href') as string)
@@ -310,15 +310,15 @@ describe('OrderMaterialBlock — sem sessão, o WhatsApp no lugar do campo (MAT-
     settings.whatsapp = ''
     montar({ variant: 'acao', orderNumber: '0244' })
 
-    expect(screen.getByText('Para informar o código, fale com a gente')).toBeInTheDocument()
+    expect(screen.getByText('Para informar o código, fale comigo')).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Conversar no WhatsApp' })).not.toBeInTheDocument()
   })
 
   it('sem sessão e com o material já no ateliê, não há campo a substituir — nem o WhatsApp', () => {
     montar({ materialStatus: 'material_recebido' })
 
-    expect(screen.getByText(/já está com a gente/i)).toBeInTheDocument()
-    expect(screen.queryByText('Para informar o código, fale com a gente')).not.toBeInTheDocument()
+    expect(screen.getByText(/já está comigo/i)).toBeInTheDocument()
+    expect(screen.queryByText('Para informar o código, fale comigo')).not.toBeInTheDocument()
   })
 
   it('o par inverso: COM sessão, o campo volta e o caminho do WhatsApp some', () => {
@@ -326,7 +326,7 @@ describe('OrderMaterialBlock — sem sessão, o WhatsApp no lugar do campo (MAT-
     montar({ variant: 'acao', orderNumber: '0244' })
 
     expect(screen.getByLabelText('Código de rastreio do envio')).toBeInTheDocument()
-    expect(screen.queryByText('Para informar o código, fale com a gente')).not.toBeInTheDocument()
+    expect(screen.queryByText('Para informar o código, fale comigo')).not.toBeInTheDocument()
   })
 })
 

@@ -61,8 +61,8 @@ const CookieNotice = () => {
             <div className="mx-auto flex max-w-[720px] flex-col gap-3">
               <div className="flex items-start gap-2">
                 <p className="min-w-0 flex-1 text-[14.5px] leading-[22px] text-estrelinha-ink-soft">
-                  Usamos cookies para melhorar a sua experiência. Ao continuar navegando, você
-                  concorda com a nossa{' '}
+                  A loja usa cookies para melhorar a sua experiência. Ao continuar navegando, você
+                  concorda com a{' '}
                   <Link
                     to={PRIVACY_POLICY_PATH}
                     className="text-estrelinha-ink underline underline-offset-2"

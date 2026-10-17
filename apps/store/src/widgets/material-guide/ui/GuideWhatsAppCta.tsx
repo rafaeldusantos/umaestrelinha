@@ -46,7 +46,7 @@ const GuideWhatsAppCta = () => {
           className="inline-flex min-h-[44px] items-center gap-2.5 rounded-sm bg-estrelinha-whatsapp px-7 py-3.5 text-[15px] font-semibold text-estrelinha-ink transition-opacity hover:opacity-90"
         >
           <MessageCircle className="h-[22px] w-[22px] shrink-0" aria-hidden />
-          Falar com a Adri
+          Falar comigo
         </a>
       </div>
     </section>

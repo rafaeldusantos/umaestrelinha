@@ -149,7 +149,7 @@ describe('AddressCard — o formulário (DAD-07)', () => {
 
     fireEvent.change(campo('CEP'), { target: { value: '00000000' } })
 
-    expect(await screen.findByText('Não localizamos esse CEP. Preencha o endereço à mão.')).toBeInTheDocument()
+    expect(await screen.findByText('CEP não encontrado. Preencha o endereço à mão.')).toBeInTheDocument()
     expect(campo('Rua')).not.toBeDisabled()
   })
 

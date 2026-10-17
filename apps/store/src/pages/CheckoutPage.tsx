@@ -78,7 +78,7 @@ import {
 import { staticPageMeta } from '@estrelinha/core/seo'
 import { usePageMeta } from '@/shared/lib/usePageMeta'
 
-export const ORDER_FAILED_MESSAGE = 'Não conseguimos criar seu pedido. Tente novamente.'
+export const ORDER_FAILED_MESSAGE = 'Não foi possível criar seu pedido. Tente novamente.'
 /**
  * Feature 63 (`RET-12`): o servidor recusou a retirada no escritório. "Tente novamente" mentiria —
  * a mesma escolha seria recusada de novo —, então a mensagem pede outra forma de envio.

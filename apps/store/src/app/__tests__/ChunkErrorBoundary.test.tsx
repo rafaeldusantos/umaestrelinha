@@ -65,7 +65,7 @@ describe('ChunkErrorBoundary — o chunk que não baixa (PRF-10)', () => {
     )
 
     expect(
-      screen.getByRole('heading', { name: 'Não conseguimos carregar esta página' }),
+      screen.getByRole('heading', { name: 'Não foi possível carregar esta página' }),
     ).toBeInTheDocument()
   })
 

@@ -36,7 +36,7 @@ const SignInInvite = () => {
           Já comprou aqui?
         </span>
         <span className="text-[13px] leading-snug text-estrelinha-ink-soft">
-          Entre e preenchemos seus dados de contato e entrega
+          Entre e seus dados de contato e entrega são preenchidos
         </span>
       </div>
       {/* Contorno de tinta, não geleia: `CHK-04` reserva a única pílula sólida da tela para o CTA de

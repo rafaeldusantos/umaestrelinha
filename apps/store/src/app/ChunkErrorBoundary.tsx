@@ -46,7 +46,7 @@ class ChunkErrorBoundary extends Component<Props, State> {
       >
         <div className="flex flex-col gap-2">
           <h1 className="font-display text-[28px] font-semibold leading-[1.15] tracking-[-0.03em] text-estrelinha-ink md:text-[38px]">
-            Não conseguimos carregar esta página
+            Não foi possível carregar esta página
           </h1>
           <p className="mx-auto max-w-[420px] text-[16px] leading-relaxed text-estrelinha-ink-soft">
             A conexão falhou no meio do caminho. Recarregar costuma resolver, e nada da sua sacola

@@ -126,12 +126,12 @@ const OrderConfirmationPage = () => {
           {/* STO-01: a promessa de e-mail é verdadeira (feature 10), e é diferenciada por
               `paid_at` — a variante pendente NÃO pode alegar comprovante enviado, porque o e-mail
               de aprovação só sai quando o pagamento cai. Ela anda junto com o subtítulo: depois de
-              enviado, "já estamos preparando sua joia" deixa de ser verdade. */}
+              enviado, "já estou preparando sua joia" deixa de ser verdade. */}
           {headline && (
             <p className="text-[15px] leading-[22px] text-estrelinha-ink-soft">
               {headline === 'pago'
-                ? 'Pagamento confirmado — já estamos preparando sua joia. Enviamos o comprovante para '
-                : 'Estamos aguardando a confirmação do pagamento. Avisamos por e-mail assim que ele cair, em '}
+                ? 'Pagamento confirmado — já estou preparando sua joia. O comprovante foi enviado para '
+                : 'Aguardando a confirmação do pagamento. Eu aviso por e-mail assim que ele cair, em '}
               <strong className="font-semibold text-estrelinha-ink">{order.customer_email}</strong>. Este
               pedido também fica guardado em Minha conta → Pedidos.
             </p>

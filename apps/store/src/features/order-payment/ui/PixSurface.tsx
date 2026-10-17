@@ -130,7 +130,7 @@ const PixSurface = ({
         lead="Nada foi cobrado e seu pedido continua guardado. É só gerar um código novo — o valor é o mesmo."
         amount={amount}
         nota={desconto ? `o mesmo valor, com os ${desconto}% do PIX` : 'o mesmo valor do pedido'}
-        rodape="Se você já pagou e o código expirou depois, não pague de novo: a confirmação pode levar alguns minutos e a gente avisa por e-mail."
+        rodape="Se você já pagou e o código expirou depois, não pague de novo: a confirmação pode levar alguns minutos e eu aviso por e-mail."
         orderHref={orderHref}
       >
         <Cartao>
@@ -159,7 +159,7 @@ const PixSurface = ({
       <Moldura
         numero={orderNumber}
         situacao="Aguardando pagamento"
-        titulo="Não conseguimos gerar o código agora"
+        titulo="Não foi possível gerar o código agora"
         lead="A falha foi do lado do banco, não do seu pedido — ele está guardado e continua valendo."
         amount={amount}
         nota="valor do pedido, ainda não cobrado"
@@ -208,7 +208,7 @@ const PixSurface = ({
               rel="noopener noreferrer"
               className="flex h-12 w-full items-center justify-center rounded-sm border-2 border-estrelinha-ink px-6 font-semibold text-estrelinha-ink transition-colors hover:bg-estrelinha-ground-deep"
             >
-              Falar com a gente no WhatsApp
+              Falar comigo no WhatsApp
             </a>
           ) : null}
         </Cartao>
@@ -224,7 +224,7 @@ const PixSurface = ({
       numero={orderNumber}
       situacao="Aguardando pagamento"
       titulo="Agora é só o PIX"
-      lead="Abra o app do seu banco e escaneie o código. A gente avisa aqui mesmo assim que o pagamento cair."
+      lead="Abra o app do seu banco e escaneie o código. Eu aviso aqui mesmo assim que o pagamento cair."
       amount={amount}
       nota={desconto ? `já com os ${desconto}% de desconto do PIX` : 'a pagar com PIX'}
       rodape="Se o código expirar, seu pedido continua guardado — você gera um novo aqui mesmo ou em Minha conta → Pedidos."
@@ -300,7 +300,7 @@ const PixSurface = ({
       </Cartao>
 
       <Aviso
-        titulo="Estamos de olho no seu pagamento"
+        titulo="Estou de olho no seu pagamento"
         corpo="Quando o banco confirmar, esta tela avança sozinha. Pode deixá-la aberta."
       />
     </Moldura>

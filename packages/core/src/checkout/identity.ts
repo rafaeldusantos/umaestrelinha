@@ -56,5 +56,5 @@ export function resolveCheckoutIdentity(input: {
  */
 export function checkoutIdentityRefusal(identity: CheckoutIdentity): string | null {
   if (identity !== 'challenge') return null
-  return 'Este e-mail já tem cadastro na loja. Confirme o código que enviamos para continuar.'
+  return 'Este e-mail já tem cadastro na loja. Confirme o código enviado para o seu e-mail para continuar.'
 }

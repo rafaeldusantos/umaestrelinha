@@ -50,12 +50,12 @@ describe('PrivacyPolicyPage — o endereço (POL-01)', () => {
 describe('PrivacyPolicyPage — o texto original foi preservado (POL-10)', () => {
   const FRASES_DO_SITE = [
     'Os dados cadastrais de clientes não são vendidos, trocados ou divulgados para terceiros, exceto quando essas informações são necessárias para o processo de entrega, para cobrança, ou para participação em promoções previamente solicitadas e autorizadas pelos clientes.',
-    'Seus dados pessoais são peça fundamental para que seu pedido chegue em segurança, na sua casa, de acordo com nosso prazo de entrega.',
-    'A loja Uma Estrelinha utiliza cookies e informações de sua navegação (sessão do browser) com o objetivo de traçar um perfil do público que visita o site e aperfeiçoar sempre nossos serviços, produtos, conteúdos e garantir as melhores ofertas e promoções para você.',
-    'Durante todo este processo mantemos suas informações em sigilo absoluto.',
+    'Seus dados pessoais são peça fundamental para que seu pedido chegue em segurança, na sua casa, de acordo com o prazo de entrega da loja.',
+    'A loja Uma Estrelinha utiliza cookies e informações de sua navegação (sessão do browser) com o objetivo de traçar um perfil do público que visita o site e aperfeiçoar sempre os serviços, produtos, conteúdos e garantir as melhores ofertas e promoções para você.',
+    'Durante todo este processo mantenho suas informações em sigilo absoluto.',
     'Vale lembrar que seus dados são registrados pela loja Uma Estrelinha de forma automatizada, dispensando manipulação humana.',
-    'Para que estes dados permaneçam intactos, nós desaconselhamos expressamente a divulgação de sua senha a terceiros, mesmo a amigos e parentes.',
-    'As alterações sobre nossa política de privacidade serão devidamente informadas neste espaço.',
+    'Para que estes dados permaneçam intactos, desaconselho expressamente a divulgação de sua senha a terceiros, mesmo a amigos e parentes.',
+    'As alterações sobre esta política de privacidade serão devidamente informadas neste espaço.',
   ]
 
   // Frase INTEIRA (`L-009`): asserir fragmento deixa a voz da dona ser reescrita sem quebrar teste.
@@ -88,10 +88,10 @@ describe('PrivacyPolicyPage — a LGPD e os direitos (POL-11)', () => {
   })
 
   const DIREITOS = [
-    'Confirmar que tratamos dados seus e acessar o que temos;',
+    'Confirmar que trato dados seus e acessar o que tenho;',
     'Corrigir dado incompleto, desatualizado ou errado;',
     'Pedir a eliminação dos dados tratados com o seu consentimento;',
-    'Saber com quem compartilhamos os seus dados;',
+    'Saber com quem compartilho os seus dados;',
     'Pedir a portabilidade dos seus dados a outro fornecedor;',
     'Revogar o consentimento que você tenha dado, a qualquer momento.',
   ]
@@ -165,7 +165,7 @@ describe('PrivacyPolicyPage — o compartilhamento é o real (POL-12)', () => {
     montar()
 
     expect(
-      screen.getByText(/não ficam guardados conosco/),
+      screen.getByText(/não ficam guardados comigo/),
     ).toBeInTheDocument()
   })
 })
@@ -211,14 +211,14 @@ describe('PrivacyPolicyPage — o material afetivo (POL-14)', () => {
   })
 
   it('a promessa sobre o que sobra é a MESMA do guia de envio, e linka para ele', () => {
-    // O guia já diz "usamos apenas o necessário para a joia e devolvemos o restante junto com a sua
+    // O guia já diz "uso apenas o necessário para a joia e devolvo o restante junto com a sua
     // peça, na mesma embalagem". Uma segunda redação da mesma promessa é o "defeito 01" na sua forma
     // mais cara: duas promessas sobre material insubstituível, divergindo sem nada quebrar.
     montar()
 
     expect(
       screen.getByText(
-        /Usamos apenas o necessário para a joia e devolvemos o restante junto com a sua peça, na mesma embalagem/,
+        /Uso apenas o necessário para a joia e devolvo o restante junto com a sua peça, na mesma embalagem/,
       ),
     ).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'guia de envio de material' })).toHaveAttribute(
@@ -269,15 +269,15 @@ describe('PrivacyPolicyPage — o tom', () => {
  */
 describe('PrivacyPolicyPage — a medição de audiência (PRV-01)', () => {
   const PARAGRAFOS_DA_MEDICAO = [
-    'Para entender como a loja é usada, usamos o Google Analytics. Ele registra as páginas vistas, os produtos acessados, o que vai para a sacola e as etapas da compra, junto com informações gerais do aparelho, como o tipo de navegador e a cidade aproximada.',
-    'Não enviamos ao Google o seu nome, e-mail, telefone, CPF, endereço nem o texto gravado na sua joia. Esses dados também não são usados para anúncios.',
-    'Fazemos essa medição com base no legítimo interesse da loja em melhorar o site, como permite a Lei Geral de Proteção de Dados. Se preferir não ser medida, abra “Preferências de cookies” — no aviso da loja ou no rodapé — e desligue “Estatísticas”. A partir daí, nada mais é enviado do seu navegador.',
+    'Para entender como a loja é usada, uso o Google Analytics. Ele registra as páginas vistas, os produtos acessados, o que vai para a sacola e as etapas da compra, junto com informações gerais do aparelho, como o tipo de navegador e a cidade aproximada.',
+    'Não envio ao Google o seu nome, e-mail, telefone, CPF, endereço nem o texto gravado na sua joia. Esses dados também não são usados para anúncios.',
+    'Faço essa medição com base no legítimo interesse da loja em melhorar o site, como permite a Lei Geral de Proteção de Dados. Se preferir não ser medida, abra “Preferências de cookies” — no aviso da loja ou no rodapé — e desligue “Estatísticas”. A partir daí, nada mais é enviado do seu navegador.',
   ]
 
   // A régua do "envia" mora num lugar só: a asserção e o sensor dela usam ESTA constante. Escrita
   // duas vezes, mudar uma deixaria o sensor provando uma régua que a asserção já não usa.
   // (`match` com a flag `g` ignora e zera o `lastIndex`, então reusar a mesma instância é seguro.)
-  const REGUA_DO_ENVIA = /(?<!não |nada mais é )\b(?:enviamos|envia|enviados?)\b[^.]*/gi
+  const REGUA_DO_ENVIA = /(?<!não |nada mais é )\b(?:envio|enviamos|envia|enviados?)\b[^.]*/gi
 
   const textoDaSecao = () => {
     const titulo = screen.getByRole('heading', { name: 'Medição de audiência' })
@@ -298,12 +298,12 @@ describe('PrivacyPolicyPage — a medição de audiência (PRV-01)', () => {
     montar()
 
     const { texto } = textoDaSecao()
-    // Toda ocorrência de "envia" na seção tem de ser negada ("Não enviamos", "nada mais é enviado").
+    // Toda ocorrência de "envia" na seção tem de ser negada ("Não envio", "nada mais é enviado").
     const afirmacoes = texto.match(REGUA_DO_ENVIA) ?? []
     expect(afirmacoes).toEqual([])
-    expect(texto).toMatch(/Não enviamos ao Google o seu nome, e-mail, telefone, CPF/)
-    expect(texto).not.toMatch(/\bEnviamos ao Google\b/)
-    expect(texto).not.toMatch(/(?<!Não )(?:compartilhamos|repassamos) .*\b(?:nome|e-mail|CPF)\b/i)
+    expect(texto).toMatch(/Não envio ao Google o seu nome, e-mail, telefone, CPF/)
+    expect(texto).not.toMatch(/\b(?:Envio|Enviamos) ao Google\b/)
+    expect(texto).not.toMatch(/(?<!Não )(?:compartilho|repasso|compartilhamos|repassamos) .*\b(?:nome|e-mail|CPF)\b/i)
   })
 
   it('a base legal é o legítimo interesse, e não o consentimento', () => {
@@ -317,6 +317,7 @@ describe('PrivacyPolicyPage — a medição de audiência (PRV-01)', () => {
   it('sensor: a régua do "envia" acusa a frase invertida e poupa a negada', () => {
     const regua = REGUA_DO_ENVIA
     expect('Enviamos ao Google o seu nome, e-mail e CPF.'.match(regua)).not.toBeNull()
-    expect('Não enviamos ao Google o seu nome. Nada mais é enviado do seu navegador.'.match(regua)).toBeNull()
+    expect('Envio ao Google o seu nome, e-mail e CPF.'.match(regua)).not.toBeNull()
+    expect('Não envio ao Google o seu nome. Nada mais é enviado do seu navegador.'.match(regua)).toBeNull()
   })
 })

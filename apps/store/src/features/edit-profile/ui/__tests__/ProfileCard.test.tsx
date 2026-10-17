@@ -89,7 +89,7 @@ describe('ProfileCard — o e-mail travado (DAD-04)', () => {
     expect(within(email).getByText('ana@x.com')).toBeInTheDocument()
     expect(within(email).getByTestId('cadeado')).toBeInTheDocument()
     expect(
-      within(email).getByText('É com ele que você entra na loja. Para trocar, fale com a gente.'),
+      within(email).getByText('É com ele que você entra na loja. Para trocar, fale comigo.'),
     ).toBeInTheDocument()
     expect(screen.queryByDisplayValue('ana@x.com')).not.toBeInTheDocument()
   })
@@ -112,7 +112,7 @@ describe('ProfileCard — o documento (DAD-05)', () => {
     expect(within(doc).getByTestId('cadeado')).toBeInTheDocument()
     expect(
       within(doc).getByText(
-        'Informado na primeira compra, ele identifica quem pagou. Para corrigir, fale com a gente.',
+        'Informado na primeira compra, ele identifica quem pagou. Para corrigir, fale comigo.',
       ),
     ).toBeInTheDocument()
     expect(screen.queryByRole('textbox', { name: 'CPF' })).not.toBeInTheDocument()
@@ -169,7 +169,7 @@ describe('ProfileCard — o documento (DAD-05)', () => {
     fireEvent.change(screen.getByRole('textbox', { name: 'CPF' }), { target: { value: CPF } })
     fireEvent.click(screen.getByRole('button', { name: 'Salvar CPF' }))
 
-    expect(await screen.findByText('Não conseguimos salvar seus dados. Tente novamente.')).toBeInTheDocument()
+    expect(await screen.findByText('Não foi possível salvar seus dados. Tente novamente.')).toBeInTheDocument()
     expect(screen.queryByText('cpf já informado')).not.toBeInTheDocument()
     expect(screen.getByRole('textbox', { name: 'CPF' })).toHaveValue('529.982.247-25')
     expect(onDocumentSaved).not.toHaveBeenCalled()

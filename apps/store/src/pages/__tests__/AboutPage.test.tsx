@@ -299,7 +299,7 @@ describe('Sobre — as duas ações (SOB-07, SOB-08, SOB-11)', () => {
   it('sem WhatsApp configurado, a ação some e a primária permanece (AC-6)', () => {
     renderPagina()
 
-    expect(screen.queryByRole('link', { name: /Falar com a Adri/ })).toBeNull()
+    expect(screen.queryByRole('link', { name: /Falar comigo/ })).toBeNull()
     expect(screen.getByRole('link', { name: /Conhecer as joias/ })).toHaveAttribute('href', '/busca')
   })
 
@@ -307,14 +307,14 @@ describe('Sobre — as duas ações (SOB-07, SOB-08, SOB-11)', () => {
     settingsGeral.whatsapp = '(51) 9865'
     renderPagina()
 
-    expect(screen.queryByRole('link', { name: /Falar com a Adri/ })).toBeNull()
+    expect(screen.queryByRole('link', { name: /Falar comigo/ })).toBeNull()
   })
 
   it('com WhatsApp, o link sai com os dígitos do número (AC-7)', () => {
     settingsGeral.whatsapp = '(51) 98655-0542'
     renderPagina()
 
-    const acao = screen.getByRole('link', { name: /Falar com a Adri/ })
+    const acao = screen.getByRole('link', { name: /Falar comigo/ })
     expect(acao.getAttribute('href')).toMatch(/^https:\/\/wa\.me\/5198655054/)
     expect(acao).toHaveAttribute('rel', 'noopener noreferrer')
   })
@@ -323,7 +323,7 @@ describe('Sobre — as duas ações (SOB-07, SOB-08, SOB-11)', () => {
     settingsGeral.whatsapp = '(51) 98655-0542'
     renderPagina()
 
-    for (const nome of [/Conhecer as joias/, /Falar com a Adri/]) {
+    for (const nome of [/Conhecer as joias/, /Falar comigo/]) {
       const acao = screen.getByRole('link', { name: nome })
       expect(acao.className).toContain('min-h-11')
       // Ação é 6px nesta loja; pílula é forma de rótulo.

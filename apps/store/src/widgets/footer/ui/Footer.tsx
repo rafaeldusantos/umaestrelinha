@@ -203,7 +203,7 @@ const Footer = () => {
                   Preferências de cookies
                 </button>
               </li>
-              <FooterLink to="/sobre">Sobre nós</FooterLink>
+              <FooterLink to="/sobre">Sobre mim</FooterLink>
             </FooterColumn>
           </div>
         </div>

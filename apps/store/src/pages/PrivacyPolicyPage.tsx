@@ -35,10 +35,10 @@ import { usePageMeta } from '@/shared/lib/usePageMeta'
  * é onde um deles desaparece sem ninguém notar.
  */
 const DIREITOS_LGPD = [
-  'Confirmar que tratamos dados seus e acessar o que temos;',
+  'Confirmar que trato dados seus e acessar o que tenho;',
   'Corrigir dado incompleto, desatualizado ou errado;',
   'Pedir a eliminação dos dados tratados com o seu consentimento;',
-  'Saber com quem compartilhamos os seus dados;',
+  'Saber com quem compartilho os seus dados;',
   'Pedir a portabilidade dos seus dados a outro fornecedor;',
   'Revogar o consentimento que você tenha dado, a qualquer momento.',
 ]
@@ -51,7 +51,7 @@ const DIREITOS_LGPD = [
  * original já diz que isso não existe aqui, e repeti-lo como ressalva enfraqueceria a afirmação.
  */
 const COM_QUEM_COMPARTILHAMOS = [
-  'Meio de pagamento, para processar a cobrança — os dados do seu cartão são digitados no ambiente dele e não ficam guardados conosco;',
+  'Meio de pagamento, para processar a cobrança — os dados do seu cartão são digitados no ambiente dele e não ficam guardados comigo;',
   'Transportadora e Correios, para levar a encomenda até o seu endereço;',
   'Serviço de envio de e-mail, para mandar a confirmação do pedido e os avisos sobre ele;',
   // Feature 61 (`PRV-02`). A medição de audiência é um compartilhamento de verdade — omiti-la
@@ -85,7 +85,7 @@ const PrivacyPolicyPage = () => {
     >
       <PolicySection titulo="O que a loja guarda">
         <p>
-          Guardamos o que é necessário para atender você e entregar o seu pedido: nome, e-mail,
+          Guardo o que é necessário para atender você e entregar o seu pedido: nome, e-mail,
           telefone ou WhatsApp, endereço de entrega, os dados exigidos para a emissão da cobrança e o
           histórico dos pedidos que você fez aqui.
         </p>
@@ -98,7 +98,7 @@ const PrivacyPolicyPage = () => {
       <PolicySection titulo="Para que os seus dados são usados">
         <p>
           Seus dados pessoais são peça fundamental para que seu pedido chegue em segurança, na sua
-          casa, de acordo com nosso prazo de entrega.
+          casa, de acordo com o prazo de entrega da loja.
         </p>
         <p>
           Eles também são usados para falar com você sobre o pedido — confirmação, andamento da
@@ -123,8 +123,8 @@ const PrivacyPolicyPage = () => {
           exclusivamente para produzir a sua peça.
         </p>
         <p>
-          Ele não é usado na peça de outra pessoa. Usamos apenas o necessário para a joia e
-          devolvemos o restante junto com a sua peça, na mesma embalagem — como está explicado no{' '}
+          Ele não é usado na peça de outra pessoa. Uso apenas o necessário para a joia e
+          devolvo o restante junto com a sua peça, na mesma embalagem — como está explicado no{' '}
           <Link
             to={MATERIAL_GUIDE_PATH}
             className="font-medium text-estrelinha-primary underline underline-offset-4 hover:text-estrelinha-primary-strong"
@@ -134,7 +134,7 @@ const PrivacyPolicyPage = () => {
           .
         </p>
         <p>
-          Sabemos o que esse material representa. Ele chega aqui com a história de alguém, e é tratado
+          Sei o que esse material representa. Ele chega aqui com a história de alguém, e é tratado
           com o mesmo cuidado que essa história merece.
         </p>
       </PolicySection>
@@ -158,7 +158,7 @@ const PrivacyPolicyPage = () => {
       <PolicySection titulo="Cookies e navegação">
         <p>
           A loja Uma Estrelinha utiliza cookies e informações de sua navegação (sessão do browser) com
-          o objetivo de traçar um perfil do público que visita o site e aperfeiçoar sempre nossos
+          o objetivo de traçar um perfil do público que visita o site e aperfeiçoar sempre os
           serviços, produtos, conteúdos e garantir as melhores ofertas e promoções para você.
         </p>
         <p>
@@ -173,16 +173,16 @@ const PrivacyPolicyPage = () => {
           deixar de ser medida. Texto proposto no Apêndice A da spec, sujeito à aprovação da dona. */}
       <PolicySection titulo="Medição de audiência">
         <p>
-          Para entender como a loja é usada, usamos o Google Analytics. Ele registra as páginas
+          Para entender como a loja é usada, uso o Google Analytics. Ele registra as páginas
           vistas, os produtos acessados, o que vai para a sacola e as etapas da compra, junto com
           informações gerais do aparelho, como o tipo de navegador e a cidade aproximada.
         </p>
         <p>
-          Não enviamos ao Google o seu nome, e-mail, telefone, CPF, endereço nem o texto gravado na
+          Não envio ao Google o seu nome, e-mail, telefone, CPF, endereço nem o texto gravado na
           sua joia. Esses dados também não são usados para anúncios.
         </p>
         <p>
-          Fazemos essa medição com base no legítimo interesse da loja em melhorar o site, como
+          Faço essa medição com base no legítimo interesse da loja em melhorar o site, como
           permite a Lei Geral de Proteção de Dados. Se preferir não ser medida, abra “Preferências de
           cookies” — no aviso da loja ou no rodapé — e desligue “Estatísticas”. A partir daí, nada
           mais é enviado do seu navegador.
@@ -190,9 +190,9 @@ const PrivacyPolicyPage = () => {
       </PolicySection>
 
       <PolicySection titulo="Segurança e sigilo">
-        <p>Durante todo este processo mantemos suas informações em sigilo absoluto.</p>
+        <p>Durante todo este processo mantenho suas informações em sigilo absoluto.</p>
         <p>
-          Para que estes dados permaneçam intactos, nós desaconselhamos expressamente a divulgação de
+          Para que estes dados permaneçam intactos, desaconselho expressamente a divulgação de
           sua senha a terceiros, mesmo a amigos e parentes.
         </p>
       </PolicySection>
@@ -201,7 +201,7 @@ const PrivacyPolicyPage = () => {
         <p>A Lei Geral de Proteção de Dados Pessoais garante a você, a qualquer momento:</p>
         <PolicyList itens={DIREITOS_LGPD} />
         <p>
-          Para exercer qualquer um deles, fale com a gente. Respondemos pelo mesmo canal em que você
+          Para exercer qualquer um deles, fale comigo. Respondo pelo mesmo canal em que você
           escrever.
         </p>
         <PolicyContact assunto="política de privacidade" />
@@ -212,7 +212,7 @@ const PrivacyPolicyPage = () => {
       </PolicySection>
 
       <PolicySection titulo="Alterações nesta política">
-        <p>As alterações sobre nossa política de privacidade serão devidamente informadas neste espaço.</p>
+        <p>As alterações sobre esta política de privacidade serão devidamente informadas neste espaço.</p>
       </PolicySection>
     </PolicyDocument>
   )

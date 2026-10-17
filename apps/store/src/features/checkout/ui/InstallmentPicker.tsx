@@ -19,7 +19,7 @@ import type { CardInstallmentsState } from '../model/useCardInstallmentOptions'
 export const INSTALLMENTS_TITLE = 'Em quantas vezes?'
 export const INSTALLMENTS_IDLE = 'Digite o número do cartão para ver as parcelas.'
 export const INSTALLMENTS_ERROR =
-  'Não conseguimos carregar as parcelas deste cartão agora. Você pode pagar à vista ou tentar de novo em instantes.'
+  'Não foi possível carregar as parcelas deste cartão agora. Você pode pagar à vista ou tentar de novo em instantes.'
 export const INTEREST_NOTE = 'Juros do Mercado Pago, já somados ao total de cada opção.'
 
 const Row = ({

@@ -114,7 +114,7 @@ const DocumentoUmaVez = ({ customerId, onSaved }: { customerId: string; onSaved:
           className={CAMPO}
         />
       </Campo>
-      <p className={AJUDA}>Você informa uma vez só. Depois de salvo, para corrigir, fale com a gente.</p>
+      <p className={AJUDA}>Você informa uma vez só. Depois de salvo, para corrigir, fale comigo.</p>
       <button type="submit" disabled={salvar.isPending} className={`${BOTAO_CONTORNO} self-start`}>
         Salvar {rotulo}
       </button>
@@ -230,13 +230,13 @@ const ProfileCard = ({ customer, email, onSaveProfile, onDocumentSaved }: Profil
         <LinhaTravada
           rotulo="E-mail de acesso"
           valor={email ?? ''}
-          ajuda="É com ele que você entra na loja. Para trocar, fale com a gente."
+          ajuda="É com ele que você entra na loja. Para trocar, fale comigo."
         />
         {documento && (
           <LinhaTravada
             rotulo={documentLabel(documento)}
             valor={hiddenDocument(documento)}
-            ajuda="Informado na primeira compra, ele identifica quem pagou. Para corrigir, fale com a gente."
+            ajuda="Informado na primeira compra, ele identifica quem pagou. Para corrigir, fale comigo."
           />
         )}
       </dl>

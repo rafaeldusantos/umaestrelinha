@@ -171,7 +171,7 @@ const FaqPage = () => {
                     {searching ? 'Nenhuma pergunta com esse texto.' : 'Ainda não há perguntas publicadas.'}
                   </p>
                   <p className="text-[14px] font-light leading-[24px] text-estrelinha-ink-soft">
-                    Me chame e eu respondo — cada história é única, e nem sempre a gente consegue
+                    Me chame e eu respondo — cada história é única, e nem sempre consigo
                     responder tudo numa página.
                   </p>
                 </div>
@@ -193,7 +193,7 @@ const FaqPage = () => {
                   Ainda ficou com dúvida?
                 </h2>
                 <p className="text-[14px] font-light leading-[24px] text-estrelinha-ink-soft md:text-[15px] md:leading-[26px]">
-                  Cada história é única, e nem sempre a gente consegue responder tudo numa página. Me
+                  Cada história é única, e nem sempre consigo responder tudo numa página. Me
                   chame — vou conhecer a sua e ajudar a encontrar a melhor forma de eternizá-la.
                 </p>
                 <PolicyContact assunto="página de perguntas frequentes" />

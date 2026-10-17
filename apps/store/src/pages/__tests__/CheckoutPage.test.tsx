@@ -2074,7 +2074,7 @@ describe('CheckoutPage — o PIX entrega o bastão para a rota (PIX-P1-01, PIX-P
     fireEvent.click(cta())
 
     expect(
-      await screen.findByRole('heading', { name: 'Estamos registrando seu pedido' }),
+      await screen.findByRole('heading', { name: 'Seu pedido está sendo registrado' }),
     ).toBeInTheDocument()
     expect(screen.getByText('Confirmando com o banco')).toBeInTheDocument()
     expect(screen.getByTestId('card-brick')).toBeInTheDocument()
@@ -2456,7 +2456,7 @@ describe('CheckoutPage — a espera do cartão (boards 58 J–M)', () => {
 
     await waitFor(() =>
       expect(brick().getAttribute('data-notice-title')).toBe(
-        'Não conseguimos concluir o pagamento',
+        'Não foi possível concluir o pagamento',
       ),
     )
     expect(brick().getAttribute('data-notice-footer')).toBe('Pedido #0244 · continua guardado')
@@ -2511,7 +2511,7 @@ describe('CheckoutPage — a espera do cartão (boards 58 J–M)', () => {
       await screen.findByRole('heading', { name: 'Confirmando seu pagamento' }),
     ).toBeInTheDocument()
     expect(
-      screen.queryByRole('heading', { name: 'Estamos registrando seu pedido' }),
+      screen.queryByRole('heading', { name: 'Seu pedido está sendo registrado' }),
     ).not.toBeInTheDocument()
     expect(createOrderMutateAsync).toHaveBeenCalledTimes(1)
     // E o aviso da tentativa anterior não sobrevive à nova.

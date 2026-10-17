@@ -56,7 +56,7 @@ const AuthResetCodeStep = () => {
       </div>
       <h2 className="font-heading text-2xl font-bold text-estrelinha-ink">Digite o código</h2>
       <p className="text-sm text-estrelinha-ink-soft mt-1">
-        Enviamos um código de 6 dígitos para redefinir a senha de
+        Um código de 6 dígitos foi enviado para redefinir a senha de
       </p>
       <p className="text-sm font-bold text-estrelinha-ink">{email}</p>
 

@@ -86,7 +86,7 @@ describe('CardPaymentBrick — aviso de recusa (board 58 M)', () => {
     renderBrick({ notice: unansweredNotice('O pagamento demorou demais.', '0244') })
 
     const aviso = screen.getByRole('alert')
-    expect(aviso).toHaveTextContent('Não conseguimos concluir o pagamento')
+    expect(aviso).toHaveTextContent('Não foi possível concluir o pagamento')
     expect(aviso).toHaveTextContent('Pedido #0244 · continua guardado')
     expect(aviso.textContent).not.toMatch(/cobrad/)
   })

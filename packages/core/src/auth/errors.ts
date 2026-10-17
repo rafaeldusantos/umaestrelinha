@@ -43,7 +43,7 @@ export const AUTH_ERROR_FALLBACK = 'Não foi possível concluir agora. Tente de 
 export const SAME_PASSWORD = 'A senha nova precisa ser diferente da atual.'
 
 const RATE_LIMITED = 'Aguarde alguns segundos para reenviar'
-const SEND_FAILED = 'Não conseguimos enviar seu código agora. Tente de novo em instantes.'
+const SEND_FAILED = 'Não foi possível enviar seu código agora. Tente de novo em instantes.'
 const SESSION_GONE = 'Sessão expirada. Entre novamente.'
 const OFFLINE = 'Sem conexão com o servidor. Verifique sua internet e tente de novo.'
 
@@ -64,14 +64,14 @@ const BY_CODE: Record<string, string> = {
   invalid_credentials: 'E-mail ou senha inválidos',
   validation_failed: 'E-mail inválido',
   email_address_invalid: 'E-mail inválido',
-  email_address_not_authorized: 'Não conseguimos enviar para este e-mail.',
+  email_address_not_authorized: 'Não foi possível enviar para este e-mail.',
   email_not_confirmed: 'Confirme seu e-mail antes de entrar.',
 
   signup_disabled: 'Cadastro por e-mail indisponível no momento.',
   email_provider_disabled: 'Cadastro por e-mail indisponível no momento.',
   provider_disabled: 'Esta forma de entrar está indisponível no momento.',
 
-  user_banned: 'Esta conta está bloqueada. Fale com a gente.',
+  user_banned: 'Esta conta está bloqueada. Fale comigo pelo WhatsApp.',
   user_not_found: 'Não encontramos uma conta com esse e-mail.',
 
   weak_password: `A senha precisa de pelo menos ${MIN_PASSWORD_LENGTH} caracteres`,
@@ -83,7 +83,7 @@ const BY_CODE: Record<string, string> = {
   refresh_token_not_found: SESSION_GONE,
 
   request_timeout: 'A conexão demorou demais. Tente de novo.',
-  captcha_failed: 'Não conseguimos confirmar que você não é um robô. Tente de novo.',
+  captcha_failed: 'Não foi possível confirmar que você não é um robô. Tente de novo.',
 }
 
 /**

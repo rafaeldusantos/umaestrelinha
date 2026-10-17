@@ -153,7 +153,7 @@ const CartDrawer = () => {
                 Sua sacola está vazia
               </p>
               <p className="mt-1 text-sm text-estrelinha-ink-soft">
-                Escolha uma peça — a gente embala com carinho.
+                Escolha uma peça — eu embalo com carinho.
               </p>
             </div>
             <Button

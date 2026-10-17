@@ -16,7 +16,7 @@ beforeEach(() => {
 describe('AuthNameStep (AUTH-04)', () => {
   it('renders the name prompt', () => {
     render(<AuthNameStep />)
-    expect(screen.getByText('Como podemos te chamar?')).toBeInTheDocument()
+    expect(screen.getByText('Como posso te chamar?')).toBeInTheDocument()
   })
 
   it('submits a valid name', async () => {

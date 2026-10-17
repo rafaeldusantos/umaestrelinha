@@ -68,7 +68,7 @@ export const PASSOS_DO_ENVIO: readonly PassoDoEnvio[] = [
     numero: '04',
     titulo: 'Poste e envie o código',
     texto:
-      'Prefira SEDEX ou PAC. Mande o código de rastreio no WhatsApp e acompanhamos junto com você.',
+      'Prefira SEDEX ou PAC. Mande o código de rastreio no WhatsApp e eu acompanho junto com você.',
     icone: 'envio',
   },
 ]
@@ -156,7 +156,7 @@ export const FICHAS_DE_MATERIAL: readonly FichaDeMaterial[] = [
       {
         tom: 'calma',
         texto:
-          'Guardamos seu leite congelado por até 1 ano — para uma nova joia, não precisa enviar de novo.',
+          'Guardo seu leite congelado por até 1 ano — para uma nova joia, não precisa enviar de novo.',
       },
     ],
     videoId: 'H4XRcc0ZoUA',
@@ -206,7 +206,7 @@ export const FICHAS_DE_MATERIAL: readonly FichaDeMaterial[] = [
       {
         tom: 'calma',
         texto:
-          'Se preferir, pode enviar tudo — usamos apenas o necessário para a joia e devolvemos o restante junto com a sua peça, na mesma embalagem.',
+          'Se preferir, pode enviar tudo — uso apenas o necessário para a joia e devolvo o restante junto com a sua peça, na mesma embalagem.',
       },
     ],
   },
@@ -278,7 +278,7 @@ export const CARTOES_DE_MATERIAL: readonly CartaoDeMaterial[] = [
     titulo: 'Outro material',
     icone: 'atendimento',
     itens: [
-      'Fale com a gente antes de enviar, para acertar quantidade e preparo',
+      'Fale comigo antes de enviar, para acertar quantidade e preparo',
       'Alguns materiais precisam de preparo específico — não envie antes dessa conversa',
     ],
   },
@@ -320,7 +320,7 @@ export const PREPARO_EM_CASA: readonly PreparoEmCasa[] = [
     anchor: 'sangue-desidratado',
     titulo: 'Sangue desidratado',
     icone: 'gota-afetiva',
-    aviso: 'O sangue precisa chegar já desidratado — não trabalhamos com coleta líquida',
+    aviso: 'O sangue precisa chegar já desidratado — não trabalho com coleta líquida',
     passos: [
       'Forre um recipiente plástico com plástico filme bem esticado',
       'Espalhe o sangue sobre o filme, numa camada bem fina',
@@ -453,13 +453,13 @@ export const DEPOIS_DE_POSTAR: readonly { titulo: string; texto: string; icone: 
     {
       titulo: 'Mande o código de rastreio',
       texto:
-        'Assim que postar, envie o código pelo WhatsApp. A partir daí acompanhamos a entrega junto com você e avisamos quando chegar.',
+        'Assim que postar, envie o código pelo WhatsApp. A partir daí acompanho a entrega junto com você e aviso quando chegar.',
       icone: 'atendimento',
     },
     {
       titulo: 'Mora em Porto Alegre e região?',
       texto:
-        'Na capital e região metropolitana você também pode enviar por aplicativo de entrega — combine com a gente pelo WhatsApp.',
+        'Na capital e região metropolitana você também pode enviar por aplicativo de entrega — combine comigo pelo WhatsApp.',
       icone: 'gota-afetiva',
     },
   ]

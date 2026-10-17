@@ -21,7 +21,7 @@ describe('PaymentProgress — cartão, passo 1', () => {
     render(<PaymentProgress method="card" step="order" amount={49} />)
 
     expect(screen.getByText('Passo 1 de 2')).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Estamos registrando seu pedido' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Seu pedido está sendo registrado' })).toBeInTheDocument()
     expect(screen.getByText(PASSO_2_CARTAO)).toBeInTheDocument()
     expect(screen.queryByText(PASSO_2_PIX)).not.toBeInTheDocument()
   })

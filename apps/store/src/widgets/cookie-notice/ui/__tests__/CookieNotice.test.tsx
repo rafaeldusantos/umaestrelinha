@@ -40,7 +40,7 @@ const ANALYTICS = {
 }
 
 const AVISO =
-  'Usamos cookies para melhorar a sua experiência. Ao continuar navegando, você concorda com a nossa Política de Privacidade.'
+  'A loja usa cookies para melhorar a sua experiência. Ao continuar navegando, você concorda com a Política de Privacidade.'
 
 type Janela = Window & { dataLayer?: unknown[]; gtag?: unknown }
 

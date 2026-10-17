@@ -77,16 +77,16 @@ const ReturnsPolicyPage = () => {
             técnicas artesanais para transformar histórias e sentimentos em lembranças únicas.
           </p>
           <p>
-            Sabemos que, especialmente no caso das joias afetivas, você não está enviando apenas um
-            material. Está confiando a nós uma parte importante da sua história.
+            Sei que, especialmente no caso das joias afetivas, você não está enviando apenas um
+            material. Está confiando a mim uma parte importante da sua história.
           </p>
           <p>
-            Por isso, buscamos trabalhar com transparência, responsabilidade e respeito ao
+            Por isso, busco trabalhar com transparência, responsabilidade e respeito ao
             consumidor, seguindo as normas aplicáveis do Código de Defesa do Consumidor (Lei nº
             8.078/1990).
           </p>
           <p>
-            Abaixo, explicamos como funcionam as situações de troca, devolução e arrependimento.
+            Abaixo, explico como funcionam as situações de troca, devolução e arrependimento.
           </p>
         </>
       }
@@ -106,7 +106,7 @@ const ReturnsPolicyPage = () => {
           de produção e a legislação aplicável.
         </p>
         <p>
-          Antes de iniciar a produção, recomendamos que você tenha certeza sobre o modelo, acabamento,
+          Antes de iniciar a produção, recomendo que você tenha certeza sobre o modelo, acabamento,
           tamanho e demais características escolhidas.
         </p>
       </PolicySection>
@@ -130,14 +130,14 @@ const ReturnsPolicyPage = () => {
       <PolicySection titulo="E se minha joia apresentar um defeito de fabricação?">
         <p>
           Se você identificar algum problema que possa caracterizar defeito ou vício de fabricação,
-          entre em contato conosco assim que possível.
+          entre em contato comigo assim que possível.
         </p>
         <p>
-          A peça será encaminhada para análise técnica, para que possamos identificar a causa do
+          A peça será encaminhada para análise técnica, para que eu possa identificar a causa do
           problema e indicar a solução adequada, de acordo com a legislação aplicável.
         </p>
         <p>
-          Dependendo do caso, poderemos realizar o reparo, refazer a peça quando tecnicamente
+          Dependendo do caso, poderei realizar o reparo, refazer a peça quando tecnicamente
           possível ou adotar outra solução prevista na legislação.
         </p>
       </PolicySection>
@@ -152,7 +152,7 @@ const ReturnsPolicyPage = () => {
           refazer uma peça dependerá da quantidade de material que ainda estiver disponível e das
           características do problema identificado.
         </p>
-        <p>Por isso, entre em contato conosco antes de realizar qualquer procedimento na peça.</p>
+        <p>Por isso, entre em contato comigo antes de realizar qualquer procedimento na peça.</p>
       </PolicySection>
 
       <PolicySection titulo="Semijoias e joias de prata não personalizadas">
@@ -169,7 +169,7 @@ const ReturnsPolicyPage = () => {
             Consumidor.
           </p>
           <p>
-            Caso queira exercer esse direito, entre em contato conosco dentro do prazo legal para
+            Caso queira exercer esse direito, entre em contato comigo dentro do prazo legal para
             receber as orientações sobre o procedimento de devolução.
           </p>
           <p>
@@ -200,21 +200,21 @@ const ReturnsPolicyPage = () => {
 
       <PolicySection titulo="Como solicitar uma troca ou devolução?">
         <p>
-          Para solicitar uma troca, devolução ou análise de possível defeito, entre em contato conosco
+          Para solicitar uma troca, devolução ou análise de possível defeito, entre em contato comigo
           por um destes canais:
         </p>
         <PolicyContact assunto="política de trocas e devoluções" />
         <p>Informe:</p>
         <PolicyList itens={O_QUE_INFORMAR} />
-        <p>Após recebermos as informações, orientaremos você sobre os próximos passos.</p>
+        <p>Após receber as informações, eu oriento você sobre os próximos passos.</p>
         {/* `POL-08`. É a instrução operacional mais cara da página: peça que chega ao ateliê sem
             aviso não tem pedido a que se ligar, e o material dentro dela é insubstituível. */}
-        <PolicyNote>Não envie a peça sem antes entrar em contato conosco.</PolicyNote>
+        <PolicyNote>Não envie a peça sem antes entrar em contato comigo.</PolicyNote>
       </PolicySection>
 
       <PolicySection titulo="Cuidados com a peça">
         <p>
-          Para preservar sua joia por mais tempo, recomendamos seguir as orientações de conservação
+          Para preservar sua joia por mais tempo, recomendo seguir as orientações de conservação
           fornecidas pela Uma Estrelinha.
         </p>
         <p>Evite:</p>
@@ -225,14 +225,14 @@ const ReturnsPolicyPage = () => {
         </p>
       </PolicySection>
 
-      <PolicySection titulo="Nosso compromisso">
+      <PolicySection titulo="Meu compromisso">
         <p>A Uma Estrelinha nasceu para eternizar histórias.</p>
         <p>
-          Por isso, sabemos que cada material enviado para nós tem um significado especial e merece
+          Por isso, sei que cada material enviado para mim tem um significado especial e merece
           ser tratado com cuidado, responsabilidade e respeito.
         </p>
         <p>
-          Nossa prioridade é oferecer uma experiência segura, transparente e acolhedora, desde o
+          Minha prioridade é oferecer uma experiência segura, transparente e acolhedora, desde o
           momento da compra até a entrega da sua joia.
         </p>
         <p>

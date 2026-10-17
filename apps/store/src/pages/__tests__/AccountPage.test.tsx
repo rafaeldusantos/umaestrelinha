@@ -302,7 +302,7 @@ describe('AccountPage — carregando e erro (LST-07, LST-08)', () => {
     consulta.isError = true
     renderPage('/conta')
 
-    expect(screen.getByText('Não conseguimos carregar seus pedidos.')).toBeInTheDocument()
+    expect(screen.getByText('Não foi possível carregar seus pedidos.')).toBeInTheDocument()
     expect(screen.queryByText('Você ainda não fez nenhum pedido.')).not.toBeInTheDocument()
     expect(screen.queryByText('Precisa da sua atenção')).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Tentar de novo' }))

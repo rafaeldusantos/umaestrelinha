@@ -26,10 +26,10 @@ const MaterialAddress = () => {
     return (
       <div className="rounded-md border border-estrelinha-field bg-estrelinha-ground-deep p-5">
         <h3 className="font-display text-lg font-semibold text-estrelinha-ink">
-          Confirme o endereço com a gente
+          Confirme o endereço comigo
         </h3>
         <p className="mt-2 text-[15px] leading-[24px] text-estrelinha-ink-soft">
-          Antes de postar, fale com a gente para confirmar o endereço de envio. É rápido, e evita que
+          Antes de postar, fale comigo para confirmar o endereço de envio. É rápido, e evita que
           o seu material siga para o lugar errado.
         </p>
         {phone.length >= 10 && (

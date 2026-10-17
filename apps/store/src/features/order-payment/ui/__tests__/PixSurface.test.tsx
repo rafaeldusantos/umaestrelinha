@@ -122,7 +122,7 @@ describe('PixSurface — código pronto (PIX-P1-03)', () => {
   it('afirma que a tela avança sozinha — é o que faz a pessoa não recarregar', () => {
     montar(pronto())
 
-    expect(screen.getByText(/Estamos de olho no seu pagamento/)).toBeInTheDocument()
+    expect(screen.getByText(/Estou de olho no seu pagamento/)).toBeInTheDocument()
   })
 })
 
@@ -238,7 +238,7 @@ describe('PixSurface — a falha é do banco (PIX-P2-03)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Tentar gerar o código de novo' }))
     expect(onGenerate).toHaveBeenCalledTimes(1)
 
-    const wa = screen.getByRole('link', { name: 'Falar com a gente no WhatsApp' })
+    const wa = screen.getByRole('link', { name: 'Falar comigo no WhatsApp' })
     expect(wa).toHaveAttribute('href', expect.stringContaining('https://wa.me/5199999888'))
     expect(wa).toHaveAttribute('rel', 'noopener noreferrer')
   })

@@ -61,7 +61,7 @@ export const DEFAULT_SHIPPING_SERVICE_ID = 'default'
  */
 export const DELIVERY_EMPTY_SUMMARY = 'Informe seu CEP e escolha o envio'
 export const QUOTE_UNAVAILABLE_MESSAGE =
-  'Não conseguimos consultar os prazos agora. Seguimos com o frete padrão da loja.'
+  'Não foi possível consultar os prazos agora. O pedido segue com o frete padrão da loja.'
 
 interface DeliveryOption extends ShippingDraft {
   /** Preço cotado antes do frete grátis — é o valor riscado ao lado de "Grátis". */

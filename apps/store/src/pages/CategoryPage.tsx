@@ -437,10 +437,10 @@ const CategoryPage = ({ legacy = false }: Props) => {
              */
             <div className="flex flex-col items-center gap-3 py-16 text-center">
               <p className="font-display text-[18px] font-medium text-estrelinha-ink">
-                Não conseguimos carregar as joias desta coleção.
+                Não foi possível carregar as joias desta coleção.
               </p>
               <p className="text-[14px] text-estrelinha-ink-soft">
-                A falha é nossa, não sua — os filtros estão como você deixou.
+                A falha foi da loja, não sua — os filtros estão como você deixou.
               </p>
               <button
                 type="button"

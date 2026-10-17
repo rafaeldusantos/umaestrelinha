@@ -119,7 +119,7 @@ const Pendencia = ({ item }: { item: AttentionItem }) => {
           tom="alert"
           icone={<AlertCircle className="h-5 w-5" />}
           titulo="O pagamento não foi concluído"
-          texto={`${pedidoEValor}. Fale com a Adri para retomar este pedido.`}
+          texto={`${pedidoEValor}. Fale comigo para retomar este pedido.`}
         >
           <ConversarNoWhatsApp orderNumber={order.order_number} />
         </Cartao>
@@ -130,7 +130,7 @@ const Pendencia = ({ item }: { item: AttentionItem }) => {
         <Cartao
           tom="wait"
           icone={<PackageOpen className="h-5 w-5" />}
-          titulo="Aguardamos o seu material"
+          titulo="Aguardo o seu material"
           texto={[`Pedido ${formatOrderNumber(order.order_number)}`, item.pieceName]
             .filter(Boolean)
             .join(' · ')}

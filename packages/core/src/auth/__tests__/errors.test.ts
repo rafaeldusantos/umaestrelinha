@@ -23,16 +23,16 @@ describe('authErrorMessage — por código', () => {
     ['over_request_rate_limit', 'Muitas tentativas. Espere um minuto e tente de novo.'],
     ['otp_expired', 'Código inválido ou expirado. Peça um novo.'],
     ['otp_disabled', 'Entrada por código indisponível no momento.'],
-    ['unexpected_failure', 'Não conseguimos enviar seu código agora. Tente de novo em instantes.'],
+    ['unexpected_failure', 'Não foi possível enviar seu código agora. Tente de novo em instantes.'],
     ['invalid_credentials', 'E-mail ou senha inválidos'],
     ['validation_failed', 'E-mail inválido'],
     ['email_address_invalid', 'E-mail inválido'],
-    ['email_address_not_authorized', 'Não conseguimos enviar para este e-mail.'],
+    ['email_address_not_authorized', 'Não foi possível enviar para este e-mail.'],
     ['email_not_confirmed', 'Confirme seu e-mail antes de entrar.'],
     ['signup_disabled', 'Cadastro por e-mail indisponível no momento.'],
     ['email_provider_disabled', 'Cadastro por e-mail indisponível no momento.'],
     ['provider_disabled', 'Esta forma de entrar está indisponível no momento.'],
-    ['user_banned', 'Esta conta está bloqueada. Fale com a gente.'],
+    ['user_banned', 'Esta conta está bloqueada. Fale comigo pelo WhatsApp.'],
     ['user_not_found', 'Não encontramos uma conta com esse e-mail.'],
     ['weak_password', `A senha precisa de pelo menos ${MIN_PASSWORD_LENGTH} caracteres`],
     ['same_password', 'A senha nova precisa ser diferente da atual.'],
@@ -41,7 +41,7 @@ describe('authErrorMessage — por código', () => {
     ['bad_jwt', 'Sessão expirada. Entre novamente.'],
     ['refresh_token_not_found', 'Sessão expirada. Entre novamente.'],
     ['request_timeout', 'A conexão demorou demais. Tente de novo.'],
-    ['captcha_failed', 'Não conseguimos confirmar que você não é um robô. Tente de novo.'],
+    ['captcha_failed', 'Não foi possível confirmar que você não é um robô. Tente de novo.'],
   ]
 
   it.each(cases)('%s → %s', (code, expected) => {
@@ -64,13 +64,13 @@ describe('authErrorMessage — por status, quando não há código', () => {
 
   it('500 vira a mensagem de falha de envio', () => {
     expect(authErrorMessage({ status: 500 })).toBe(
-      'Não conseguimos enviar seu código agora. Tente de novo em instantes.',
+      'Não foi possível enviar seu código agora. Tente de novo em instantes.',
     )
   })
 
   it('503 também', () => {
     expect(authErrorMessage({ status: 503 })).toBe(
-      'Não conseguimos enviar seu código agora. Tente de novo em instantes.',
+      'Não foi possível enviar seu código agora. Tente de novo em instantes.',
     )
   })
 
@@ -104,7 +104,7 @@ describe('authErrorMessage — a garantia do módulo', () => {
       status: 500,
     }
     expect(authErrorMessage(real)).toBe(
-      'Não conseguimos enviar seu código agora. Tente de novo em instantes.',
+      'Não foi possível enviar seu código agora. Tente de novo em instantes.',
     )
   })
 

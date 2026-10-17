@@ -115,7 +115,7 @@ describe('Newsletter — o envio', () => {
     expect(screen.getByText('Tudo certo!')).toBeInTheDocument()
     // Feature 42 (FIX-04): a frase deixou de prometer e-mail — a newsletter não persiste, não
     // inscreve e não envia. `copyInstitucional.test.tsx` guarda a régua do que ela NÃO pode dizer.
-    expect(screen.getByText('Anotado. Quando houver novidades, escrevemos.')).toBeInTheDocument()
+    expect(screen.getByText('Anotado. Quando houver novidades, eu escrevo.')).toBeInTheDocument()
   })
 
   it('e-mail vazio não confirma nada', () => {

@@ -136,7 +136,7 @@ describe('OrderActionPanel — pagamento perdido', () => {
 
     expect(titulosNaTela()).toEqual(['O pagamento não foi concluído'])
     expect(normaliza(container.textContent)).toContain(
-      'Fale com a Adri para retomar este pedido. Ela confere o valor e o prazo com você.',
+      'Fale comigo para retomar este pedido. Eu confiro o valor e o prazo com você.',
     )
     const link = screen.getByRole('link', { name: 'Conversar no WhatsApp' })
     const url = new URL(link.getAttribute('href') as string)

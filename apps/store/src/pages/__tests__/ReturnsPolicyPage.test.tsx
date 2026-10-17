@@ -61,7 +61,7 @@ describe('ReturnsPolicyPage — as dez seções, na ordem da dona (POL-05)', () 
     'O que não é considerado defeito de fabricação?',
     'Como solicitar uma troca ou devolução?',
     'Cuidados com a peça',
-    'Nosso compromisso',
+    'Meu compromisso',
   ]
 
   it('o título da página é o `<h1>`', () => {
@@ -137,7 +137,7 @@ describe('ReturnsPolicyPage — o que a lei fixa (POL-06)', () => {
 })
 
 describe('ReturnsPolicyPage — o aviso destacado (POL-08)', () => {
-  it('"Não envie a peça sem antes entrar em contato conosco" aparece, e fora do fluxo comum', () => {
+  it('"Não envie a peça sem antes entrar em contato comigo" aparece, e fora do fluxo comum', () => {
     montar()
 
     // **A asserção é sobre o bloco de aviso, não sobre o parágrafo.** A primeira escrita deste caso
@@ -146,7 +146,7 @@ describe('ReturnsPolicyPage — o aviso destacado (POL-08)', () => {
     // vizinho**. Mutante real, sobrevivente, achado na verificação: o aviso perdia o destaque, que é
     // a única coisa que este requisito pede, e os 26 testes seguiam verdes.
     const aviso = screen.getByTestId('policy-note')
-    expect(aviso).toHaveTextContent('Não envie a peça sem antes entrar em contato conosco.')
+    expect(aviso).toHaveTextContent('Não envie a peça sem antes entrar em contato comigo.')
 
     // E o destaque é o do desenho: fundo `ground-deep` com o ouro no TRAÇO, nunca no texto.
     expect(aviso.className).toContain('bg-estrelinha-ground-deep')

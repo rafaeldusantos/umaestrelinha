@@ -52,14 +52,14 @@ export interface PaymentProgressProps {
 const COPY_PIX = {
   order: {
     eyebrow: 'Passo 1 de 2',
-    title: 'Estamos registrando seu pedido',
-    lead: 'Costuma levar alguns segundos. Não feche esta página — a gente avisa aqui mesmo quando terminar.',
+    title: 'Seu pedido está sendo registrado',
+    lead: 'Costuma levar alguns segundos. Não feche esta página — ela avisa aqui mesmo quando terminar.',
     footnote: 'Nada foi cobrado ainda. A cobrança acontece quando você paga no app do seu banco.',
   },
   code: {
     eyebrow: 'Passo 2 de 2',
     title: 'Gerando seu código PIX',
-    lead: 'Estamos pedindo o código ao seu banco. Não feche esta página — ela avança sozinha.',
+    lead: 'Pedindo o código ao seu banco. Não feche esta página — ela avança sozinha.',
     footnote:
       'Seu pedido já está guardado. Nada foi cobrado ainda — a cobrança acontece quando você paga no app do banco.',
   },
@@ -68,7 +68,7 @@ const COPY_PIX = {
 const COPY_CARD = {
   order: {
     eyebrow: 'Passo 1 de 2',
-    title: 'Estamos registrando seu pedido',
+    title: 'Seu pedido está sendo registrado',
     lead: COPY_PIX.order.lead,
     footnote: 'Nada foi cobrado ainda. A cobrança só acontece se o banco aprovar o cartão.',
   },

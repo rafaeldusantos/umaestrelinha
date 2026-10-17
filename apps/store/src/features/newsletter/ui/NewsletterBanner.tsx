@@ -56,7 +56,7 @@ const NewsletterBanner = ({ content }: Props) => {
                 Tudo certo!
               </p>
               <p className="text-sm font-light text-estrelinha-on-primary/80">
-                Anotado. Quando houver novidades, escrevemos.
+                Anotado. Quando houver novidades, eu escrevo.
               </p>
             </div>
           ) : (

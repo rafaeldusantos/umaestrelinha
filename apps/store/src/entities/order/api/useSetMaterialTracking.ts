@@ -33,11 +33,11 @@ export const materialTrackingMessage = (reason: string | null): string => {
     case 'not_allowed':
       // "não é seu" e "não existe" respondem igual na RPC, de propósito: distinguir os dois
       // entregaria a existência de pedidos alheios. A mensagem cobre os dois e dá a saída.
-      return 'Não conseguimos registrar o código neste pedido. Entre na sua conta e tente de novo, ou nos avise que a gente registra para você.'
+      return 'Não foi possível registrar o código neste pedido. Entre na sua conta e tente de novo, ou me avise que eu registro para você.'
     case 'material_not_applicable':
       return 'Este pedido não espera material.'
     default:
-      return 'Não foi possível registrar o código agora. Tente de novo, ou nos avise que a gente registra para você.'
+      return 'Não foi possível registrar o código agora. Tente de novo, ou me avise que eu registro para você.'
   }
 }
 
@@ -78,7 +78,7 @@ export const useSetMaterialTracking = (orderId: string | undefined) => {
       if (!resultado.ok) return
       qc.invalidateQueries({ queryKey: ['orders', 'id', orderId] })
       // Feature 59 (`MAT-05`): a lista da conta também precisa reler — é dela que sai a pendência
-      // "Aguardamos o seu material". Sem isto ela seguiria cobrando o código que a cliente acabou
+      // "Aguardo o seu material". Sem isto ela seguiria cobrando o código que a cliente acabou
       // de informar até o cache vencer. O prefixo alcança `['orders', 'customer', id]`.
       qc.invalidateQueries({ queryKey: ['orders', 'customer'] })
     },

@@ -121,10 +121,10 @@ describe('Newsletter — a confirmação não promete o que a loja não envia (F
     return container
   }
 
-  it('confirma com "Anotado. Quando houver novidades, escrevemos."', () => {
+  it('confirma com "Anotado. Quando houver novidades, eu escrevo."', () => {
     confirmar()
 
-    expect(screen.getByText('Anotado. Quando houver novidades, escrevemos.')).toBeInTheDocument()
+    expect(screen.getByText('Anotado. Quando houver novidades, eu escrevo.')).toBeInTheDocument()
   })
 
   it('NÃO afirma que a cliente vai receber e-mail', () => {

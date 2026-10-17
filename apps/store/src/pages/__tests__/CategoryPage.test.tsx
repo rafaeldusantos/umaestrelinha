@@ -326,7 +326,7 @@ describe('CategoryPage — a listagem continua funcionando', () => {
 
     renderAt('/joias-afetivas')
 
-    expect(screen.getByText('Não conseguimos carregar as joias desta coleção.')).toBeInTheDocument()
+    expect(screen.getByText('Não foi possível carregar as joias desta coleção.')).toBeInTheDocument()
   })
 })
 

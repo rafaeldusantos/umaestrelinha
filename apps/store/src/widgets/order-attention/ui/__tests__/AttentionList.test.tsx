@@ -45,7 +45,7 @@ beforeEach(() => {
 })
 
 describe('AttentionList — uma pendência por tipo, com os literais da spec', () => {
-  it('material (PEN-01): "Aguardamos o seu material", o pedido, a peça e os dois caminhos', () => {
+  it('material (PEN-01): "Aguardo o seu material", o pedido, a peça e os dois caminhos', () => {
     montar([
       pedido({
         id: 'mat-1',
@@ -54,7 +54,7 @@ describe('AttentionList — uma pendência por tipo, com os literais da spec', (
       }),
     ])
 
-    const c = cartao('Aguardamos o seu material')
+    const c = cartao('Aguardo o seu material')
     expect(normaliza(c.textContent)).toContain('Pedido #0244 · Árvore da Vida')
     expect(within(c).getByRole('link', { name: 'Informar código de envio' })).toHaveAttribute(
       'href',
@@ -127,7 +127,7 @@ describe('AttentionList — o bloco e os alvos', () => {
 
     expect(screen.getByRole('heading', { name: 'Precisa da sua atenção' })).toBeInTheDocument()
     const titulos = screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)
-    expect(titulos).toEqual(['Pagamento pendente', 'Aguardamos o seu material'])
+    expect(titulos).toEqual(['Pagamento pendente', 'Aguardo o seu material'])
   })
 
   it('todo botão tem o alvo de 44px', () => {

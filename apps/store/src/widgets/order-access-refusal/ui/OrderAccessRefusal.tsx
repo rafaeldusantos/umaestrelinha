@@ -1,4 +1,4 @@
-// "Não conseguimos abrir este pedido" — a recusa, com um dono só.
+// "Não foi possível abrir este pedido" — a recusa, com um dono só.
 //
 // Ela nasceu dentro de `pages/OrderConfirmationPage.tsx` e tinha um consumidor. A feature `58`
 // criou o segundo (`pages/OrderPaymentPage.tsx`): as duas rotas leem o MESMO pedido, pela mesma
@@ -39,7 +39,7 @@ const OrderAccessRefusal = ({ returnTo, isError }: OrderAccessRefusalProps) => {
   return (
     <div className="flex flex-col items-center gap-4 text-center">
       <h1 className="font-heading text-3xl font-semibold tracking-[-0.03em] text-estrelinha-ink">
-        {isError ? 'Não conseguimos abrir este pedido' : 'Pedido não encontrado'}
+        {isError ? 'Não foi possível abrir este pedido' : 'Pedido não encontrado'}
       </h1>
       {/* Feature 49: sem sessão, "veja em Minha conta" é um conselho que não funciona — a conta
           da convidada existe, mas ela nunca entrou nela. O caminho honesto é o código por

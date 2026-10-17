@@ -73,7 +73,7 @@ export const DOC_FIELD_LABEL = 'CPF ou CNPJ do pagador'
 /** O anúncio do card do cartão quando o total só cabe em 1x. */
 export const CARD_CASH_ONLY = 'À vista no cartão'
 export const NO_METHOD_MESSAGE =
-  'Nenhum método de pagamento disponível no momento. Fale com a gente pelo WhatsApp.'
+  'Nenhum método de pagamento disponível no momento. Fale comigo pelo WhatsApp.'
 
 const PaymentBlock = ({
   open,
