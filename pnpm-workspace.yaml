@@ -8,6 +8,9 @@ packages:
   # e não em supabase/functions/ para o node_modules não cair no diretório bind-montado pelo
   # edge runtime local.
   - "supabase"
+# O pnpm 11 não lê mais as opções dele no `.npmrc`: sem esta linha o `node-linker=hoisted` de lá é
+# ignorado e a instalação sai `isolated`, sem vite/esbuild na raiz.
+nodeLinker: hoisted
 verifyDepsBeforeRun: false
 strictDepBuilds: false
 onlyBuiltDependencies:
@@ -16,4 +19,6 @@ onlyBuiltDependencies:
   - unrs-resolver
 allowBuilds:
   # Chegou com o `tsx` do @estrelinha/catalog-import. Já estava aprovado em onlyBuiltDependencies.
+  '@swc/core': true
   esbuild: true
+  unrs-resolver: true
