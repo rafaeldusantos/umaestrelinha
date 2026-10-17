@@ -92,13 +92,11 @@ describe('MaterialDrawer — a casca', () => {
     expect((cabecalho!.getAttribute('class') ?? '').split(/\s+/)).toContain('shrink-0')
   })
 
-  it('a nota de contexto sai INTEIRA', () => {
+  it('não traz a nota "Nada precisa ser enviado agora"', () => {
     abrir()
-    expect(
-      screen.getByText(
-        'Nada precisa ser enviado agora. Depois do pagamento confirmado, o endereço chega no seu WhatsApp.',
-      ),
-    ).toBeInTheDocument()
+    expect(screen.getByTestId('material-drawer').textContent).not.toContain(
+      'Nada precisa ser enviado agora',
+    )
   })
 
   it('tem um fecho rotulado, de 44px', () => {
@@ -121,20 +119,18 @@ describe('MaterialDrawer — a ordem do corpo (GAV-09)', () => {
     useMaterialDrawerStore.setState({ open: false, anchor: null })
   })
 
-  it('nota → pergunta → chips → passos', () => {
+  it('pergunta → chips → passos', () => {
     // A ordem é a decisão medida da feature: com os passos no topo, os chips caem abaixo da dobra
     // numa tela de 390×844 — e os chips são o motivo de a gaveta abrir. Sem este caso, uma
     // reordenação "mais lógica" desfaria a correção sem quebrar nada.
     abrir()
     const texto = screen.getByTestId('material-drawer').textContent ?? ''
 
-    const nota = texto.indexOf('Nada precisa ser enviado agora')
     const pergunta = texto.indexOf('Qual é o seu material?')
     const primeiroChip = texto.indexOf(ATALHOS_DE_MATERIAL[0].rotuloCurto)
     const caminho = texto.indexOf('O caminho')
 
-    expect(nota).toBeGreaterThanOrEqual(0)
-    expect(pergunta).toBeGreaterThan(nota)
+    expect(pergunta).toBeGreaterThanOrEqual(0)
     expect(primeiroChip).toBeGreaterThan(pergunta)
     expect(caminho).toBeGreaterThan(primeiroChip)
   })

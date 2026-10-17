@@ -1,4 +1,4 @@
-import { Info, X } from 'lucide-react'
+import { X } from 'lucide-react'
 import {
   Sheet,
   SheetClose,
@@ -88,14 +88,6 @@ const MaterialDrawer = () => {
         </header>
 
         <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-4 py-4 sm:px-7">
-          <p className="flex items-start gap-2.5 rounded-md bg-estrelinha-serenity px-3.5 py-3.5 text-[14px] leading-[21px] text-estrelinha-ink">
-            <Info aria-hidden className="mt-0.5 h-[18px] w-[18px] shrink-0 text-estrelinha-primary" />
-            <span>
-              Nada precisa ser enviado agora. Depois do pagamento confirmado, o endereço chega no seu
-              WhatsApp.
-            </span>
-          </p>
-
           <MaterialDrawerChips />
 
           {anchor && <MaterialDrawerBody anchor={anchor} />}
