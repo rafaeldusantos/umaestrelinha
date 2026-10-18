@@ -584,6 +584,17 @@ export interface Product {
    * `cardSelect.test.ts` o exige.
    */
   nuvemshop_id?: number | null
+  /**
+   * Feature 66 — os valores de filtro marcados neste produto (`product_filter_values.value_id`).
+   *
+   * Chega pelo embed `product_filter_values(value_id)` dos dois `select` da loja e passa pela RLS:
+   * marcação de grupo **inativo** não é entregue a anon, então o produto chega com a lista sem ela
+   * (ou `[]`). Quem interpreta é `@estrelinha/core/filters`, por id.
+   *
+   * Opcional pela mesma razão de `weight_kg`: os fixtures de `Product` são dezenas, e ausente
+   * significa o mesmo que `[]` (nenhuma marcação). O mapper da loja sempre devolve um array.
+   */
+  filter_value_ids?: string[]
 }
 
 /** Um vínculo produto↔categoria. `position` é a ordem que o admin arrastou (PST-06 AC 3). */
@@ -651,6 +662,15 @@ export interface Category {
    * forma que o banco não garante (`AD-012`).
    */
   menu_banners: unknown
+  /**
+   * Feature 66 — os grupos de filtro escondidos NESTA categoria (`category_hidden_filter_groups`).
+   *
+   * Curadoria é presença: sem linha, o grupo aparece. Chega pelo embed na consulta da árvore
+   * (`useCategories`), que é a única porta da loja para `categories`. Opcional porque os fixtures de
+   * `Category` são muitos e ausente significa o mesmo que `[]`; o mapper da loja sempre devolve um
+   * array. **Não herda** para subcategoria: cada categoria decide por si.
+   */
+  hidden_filter_group_ids?: string[]
 }
 
 export interface CartItem {
@@ -689,3 +709,7 @@ export * from './promotion'
 // === Home gerenciável (a composição da Home como dado) ===
 
 export * from './home'
+
+// === Filtros de produto (feature 66) ===
+
+export * from './filters'

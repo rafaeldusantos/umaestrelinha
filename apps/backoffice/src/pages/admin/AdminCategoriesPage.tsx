@@ -11,6 +11,7 @@ import { useMemo, useState } from 'react'
 import { ArrowUpDown, Plus, Search } from 'lucide-react'
 import { useAdminCategories, type AdminCategory } from '@/entities/category/api/useAdminCategories'
 import CategoryFormDialog from '@/features/category-form/ui/CategoryFormDialog'
+import CategoryFilterGroups from '@/features/category-form/ui/CategoryFilterGroups'
 import {
   buildCategoryTree, cascadeSelection, deletionImpact, filterCategoryRows, moveDestinations,
   moveSelection, persistCategoryRedirect, planMove, reorderWithinParent,
@@ -300,7 +301,10 @@ const AdminCategoriesPage = () => {
                 saving={busy}
                 onSave={handleSaveInspector}
                 onClose={() => setActiveId(null)}
-              />
+              >
+                {/* Feature 66 (`FLT-35`): grava na hora, fora do "Salvar" do inspetor. */}
+                <CategoryFilterGroups categoryId={active.id} />
+              </CategoryInspector>
             )}
           </div>
         )}

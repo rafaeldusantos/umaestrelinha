@@ -18,6 +18,16 @@ import { toMaterialKinds } from '@estrelinha/core/material'
 import type { Product } from '@estrelinha/supabase/types'
 
 /**
+ * Feature 66 — as marcações de filtro do produto, nos dois `select` (o completo e o enxuto).
+ *
+ * Embed e não consulta à parte: a categoria filtra no navegador sobre a lista que já baixou inteira,
+ * e uma segunda ida ao banco por página seria custo sem ganho. A RLS de `product_filter_values` só
+ * entrega a anon marcação de valor de grupo **ativo** e de produto ativo — então desligar um grupo
+ * no painel tira as marcações dele da loja sem tocar nelas (medido por probe HTTP no banco local).
+ */
+export const PRODUCT_FILTER_VALUES_EMBED = 'product_filter_values(value_id)'
+
+/**
  * O `select` que traz tudo o que este mapper lê. Uma string só, para os 3 hooks não divergirem.
  *
  * **`categories!products_category_id_fkey` não é preciosismo — sem o nome da FK a loja fica vazia.**
@@ -27,7 +37,7 @@ import type { Product } from '@estrelinha/supabase/types'
  * a vitrine mostra zero produtos, sem erro visível. Nomear a FK desfaz a ambiguidade.
  */
 export const PRODUCT_SELECT =
-  '*, categories!products_category_id_fkey(slug, name), product_variants(*), product_categories(category_id, position, categories(slug, sort_order, active))'
+  `*, categories!products_category_id_fkey(slug, name), product_variants(*), product_categories(category_id, position, categories(slug, sort_order, active)), ${PRODUCT_FILTER_VALUES_EMBED}`
 
 /**
  * O mesmo `select`, mais um embed **aliased** só para filtrar por categoria no servidor.
@@ -65,8 +75,10 @@ export const PRODUCT_SELECT_BY_CATEGORY =
  *
  * - `weight_kg`, `width_cm`, `height_cm`, `length_cm` — `SHP-02`. Sem eles a cotação de frete cai
  *   nos fallbacks `11/2/16/0.1` **em silêncio**, e a listagem adiciona ao carrinho.
- * - `tags`, `is_new`, `base_price`, `original_price` — os filtros e a ordenação da categoria
- *   (`LST-*`), que continuam rodando no cliente sobre a lista inteira.
+ * - `is_new`, `base_price`, `original_price` — os filtros e a ordenação da categoria (`LST-*`), que
+ *   continuam rodando no cliente sobre a lista inteira. `tags` continua no `select` porque a busca a
+ *   pontua (`searchProducts`); desde a feature 66 nenhum FILTRO a lê (`filtroSemTag.test.ts`).
+ * - `product_filter_values(value_id)` — os filtros curados (feature 66).
  * - `requires_material`, `material_kinds`, `engraving_max_chars` — feature `22`.
  * - `product_categories` COMPLETO — `displayCategory` (`PST-06`) escolhe o selo entre todas as
  *   categorias do produto; recortar aqui trocaria o selo sem quebrar nada.
@@ -110,6 +122,8 @@ export const PRODUCT_CARD_SELECT = [
   // GA4 a categoria de exibição sem consulta extra. Não reabre a ambiguidade da FK: de
   // `product_categories` para `categories` existe um caminho só (`category_id`).
   'product_categories(category_id, position, categories(slug, sort_order, active))',
+  // Feature 66 — os filtros curados da categoria e da busca (`core/filters`, por id).
+  PRODUCT_FILTER_VALUES_EMBED,
 ].join(', ')
 
 /**
@@ -124,6 +138,17 @@ export const PRODUCT_CARD_SELECT_BY_CATEGORY =
 
 /** A coluna do embed aliased, para o `.in()` do filtro. */
 export const CATEGORY_FILTER_COLUMN = 'filtro.category_id'
+
+/**
+ * O embed `product_filter_values(value_id)` → a lista de ids. Ausente (o `select` não pediu) ou
+ * torto vira `[]`: produto sem marcação, nunca página quebrada.
+ */
+const toFilterValueIds = (raw: unknown): string[] =>
+  Array.isArray(raw)
+    ? raw
+        .map(r => (r && typeof r === 'object' ? (r as { value_id?: unknown }).value_id : null))
+        .filter((id): id is string => typeof id === 'string' && id.length > 0)
+    : []
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export const mapDbToProduct = (p: any): Product => ({
@@ -166,5 +191,7 @@ export const mapDbToProduct = (p: any): Product => ({
   // Feature 61 (`EVT-13`). Sem `?? 0`: zero não é id, e `publicProductId` trata ausente e `null`
   // caindo no UUID — que é o recuo certo.
   nuvemshop_id: typeof p.nuvemshop_id === 'number' ? p.nuvemshop_id : null,
+  // Feature 66: sempre um array — `[]` quando o embed não veio.
+  filter_value_ids: toFilterValueIds(p.product_filter_values),
 })
 /* eslint-enable @typescript-eslint/no-explicit-any */

@@ -92,13 +92,34 @@ describe('navGroups — os quatro eixos', () => {
     ])
 
     const catalogo = navGroups.find(g => g.label === 'Catálogo')!
+    // Feature 66: o grupo foi de três para QUATRO — a lista foi reescrita para o conteúdo novo, e
+    // ganhou vizinha (o caso de `Filtros da loja`, abaixo) em vez de virar `toContain`.
     expect(catalogo.items.map(i => i.to)).toEqual([
       '/admin/produtos',
       '/admin/categorias',
+      '/admin/filtros',
       '/admin/perguntas',
     ])
     // A afirmação que importa aqui, e que a lista acima só ilustra.
     expect(catalogo.items.map(i => i.to)).not.toContain('/admin/menu')
+  })
+
+  it('`Filtros da loja` entra em Catálogo logo depois de Categorias (feature 66)', () => {
+    const catalogo = navGroups.find(g => g.label === 'Catálogo')!
+    const rotas = catalogo.items.map(i => i.to)
+    const filtros = catalogo.items.find(i => i.to === '/admin/filtros')
+
+    expect(filtros?.label).toBe('Filtros da loja')
+    expect(rotas.indexOf('/admin/filtros')).toBe(rotas.indexOf('/admin/categorias') + 1)
+    // As duas subrotas (o grupo aberto e a marcação em massa) não são destino de primeiro nível.
+    expect(allItems.map(i => i.to).some(to => to.startsWith('/admin/filtros/'))).toBe(false)
+    expect(appRoutePaths()).toEqual(
+      expect.arrayContaining([
+        '/admin/filtros',
+        '/admin/filtros/:groupId',
+        '/admin/filtros/:groupId/valores/:valueId',
+      ]),
+    )
   })
 
   it('`Biblioteca de perguntas` entra em Catálogo, por último (features 28 e 46)', () => {

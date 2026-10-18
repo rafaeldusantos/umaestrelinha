@@ -30,6 +30,10 @@ export const FOCUS_ROUTES: readonly string[] = [
   // Feature 55. Diferente das duas de cima, esta mora em `footerNavItems` e não em `navGroups` — o
   // trilho renderiza os dois, e a âncora de `focusRoutes.test.ts` foi ampliada para varrer os dois.
   '/admin/configuracoes',
+  // Feature 66. Lista de grupos + editor, e a marcação em massa de um valor (uma lista larga de
+  // peças com a barra de ação no pé): quem abre veio curar o catálogo, não navegar — a mesma frase
+  // de Configurações. As subrotas (`/admin/filtros/:groupId/…`) herdam pelo casamento por segmento.
+  '/admin/filtros',
 ]
 
 /**

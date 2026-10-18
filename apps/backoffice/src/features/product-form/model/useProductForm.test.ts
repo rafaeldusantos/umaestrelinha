@@ -260,3 +260,23 @@ describe('useProductForm — carga e isDirty', () => {
     expect(result.current.productId).toBeNull()
   })
 })
+
+// Feature 66 — as marcações de filtro entram no formulário pela carga.
+describe('productRowToForm — filtros da loja (FLT-11)', () => {
+  it('o select traz o embed das marcações', () => {
+    expect(PRODUCT_FORM_SELECT).toContain('product_filter_values(value_id)')
+  })
+
+  it('as marcações viram `filter_value_ids`, sem repetição', () => {
+    const form = productRowToForm({
+      id: 'p1',
+      product_filter_values: [{ value_id: 'a' }, { value_id: 'b' }, { value_id: 'a' }, { value_id: null }],
+    })
+    expect(form.filter_value_ids).toEqual(['a', 'b'])
+  })
+
+  it('sem o embed, nada marcado', () => {
+    expect(productRowToForm({ id: 'p1' }).filter_value_ids).toEqual([])
+    expect(emptyProductForm().filter_value_ids).toEqual([])
+  })
+})

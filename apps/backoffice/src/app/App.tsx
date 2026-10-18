@@ -14,6 +14,8 @@ import AdminQuickGridPage from '@/pages/admin/AdminQuickGridPage';
 import AdminOrdersPage from "@/pages/admin/AdminOrdersPage";
 import AdminOrderPage from "@/pages/admin/AdminOrderPage";
 import AdminCategoriesPage from "@/pages/admin/AdminCategoriesPage";
+import AdminFiltersPage from "@/pages/admin/AdminFiltersPage";
+import AdminFilterValuePage from "@/pages/admin/AdminFilterValuePage";
 import AdminFaqsPage from "@/pages/admin/AdminFaqsPage";
 import AdminHomePage from "@/pages/admin/AdminHomePage";
 import AdminMenuPage from "@/pages/admin/AdminMenuPage";
@@ -76,6 +78,14 @@ const App = () => (
             <Route path="/admin/produtos/novo" element={<AdminProductFormPage />} />
             <Route path="/admin/produtos/:id/editar" element={<AdminProductFormPage />} />
             <Route path="/admin/categorias" element={<AdminCategoriesPage />} />
+            {/* Feature 66 — os filtros da loja. Três rotas IRMÃS AUTO-FECHADAS (a regra de
+                Configurações, abaixo: `rotasSobGuarda.test.ts` exige um `</Route>` só). A rota-mãe e a
+                do grupo são a MESMA tela — o grupo aberto é a URL, e no celular ela decide se aparece a
+                lista ou o editor. A marcação em massa de um valor é outra tela, alcançada de dentro do
+                grupo; nenhuma das duas subrotas entra em `navGroups`. */}
+            <Route path="/admin/filtros" element={<AdminFiltersPage />} />
+            <Route path="/admin/filtros/:groupId" element={<AdminFiltersPage />} />
+            <Route path="/admin/filtros/:groupId/valores/:valueId" element={<AdminFilterValuePage />} />
             <Route path="/admin/perguntas" element={<AdminFaqsPage />} />
 
             {/* Loja — o que a cliente vê. A ordem segue `navGroups`, e `navItems.test.ts` lê este

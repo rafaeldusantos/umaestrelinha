@@ -109,6 +109,11 @@ const LINHA_COMPLETA: Record<string, unknown> = {
       categories: { slug: 'joias-afetivas', name: 'Joias afetivas', sort_order: 1, banner_url: null },
     },
   ],
+  // Feature 66 — as marcações de filtro, com `product_id` que o `select` NÃO pede.
+  product_filter_values: [
+    { product_id: 'prod-1', value_id: 'v-prata-925' },
+    { product_id: 'prod-1', value_id: 'v-pingente' },
+  ],
 }
 
 /** A linha que o PostgREST devolveria para este `select` — nada além do que foi pedido. */
@@ -137,6 +142,7 @@ describe('PRODUCT_CARD_SELECT — a forma do select', () => {
     expect(embeds.map(e => e.relacao).sort()).toEqual([
       'categories',
       'product_categories',
+      'product_filter_values',
       'product_variants',
     ])
   })
@@ -208,7 +214,7 @@ describe('PRODUCT_CARD_SELECT — a linha recortada ainda preenche o card', () =
     expect(p.compare_price).toBe(349.9)
   })
 
-  it('tags e is_new — os dois eixos que os filtros da categoria leem (LST-*)', () => {
+  it('tags (a busca as pontua) e is_new (o filtro "Novidades" da categoria, LST-*)', () => {
     const p = mapeado()
     expect(p.tags).toEqual(['leite-materno', 'colar'])
     expect(p.is_new).toBe(true)
@@ -298,6 +304,39 @@ describe('PRODUCT_CARD_SELECT — a linha recortada ainda preenche o card', () =
     // O contraponto do teste acima: o que sai do select tem de sair de verdade. Se `description`
     // voltasse, a economia de 293 KB seria só uma frase no comentário.
     expect(mapeado().description).toBe('')
+  })
+})
+
+describe('feature 66 — as marcações de filtro chegam pelos dois `select` (FLT-21)', () => {
+  it('o enxuto pede `product_filter_values(value_id)` — só o id, nunca `*`', () => {
+    const embed = parseSelect(PRODUCT_CARD_SELECT).embeds.find(
+      e => e.relacao === 'product_filter_values',
+    )!
+    expect(embed.colunas).toEqual(['value_id'])
+  })
+
+  it('nos dois `select`, a linha recortada chega com os ids marcados', () => {
+    for (const select of [PRODUCT_CARD_SELECT, PRODUCT_SELECT, PRODUCT_CARD_SELECT_BY_CATEGORY]) {
+      expect(mapDbToProduct(recortar(select)).filter_value_ids, select).toEqual([
+        'v-prata-925',
+        'v-pingente',
+      ])
+    }
+  })
+
+  it('sensor: sem o embed, o produto chega SEM marcação — a régua acima não passa por acaso', () => {
+    const sem = PRODUCT_CARD_SELECT.replace(', product_filter_values(value_id)', '')
+    expect(sem).not.toBe(PRODUCT_CARD_SELECT)
+    expect(mapDbToProduct(recortar(sem)).filter_value_ids).toEqual([])
+  })
+
+  it('o mapper devolve `[]` com o embed ausente, nulo ou torto — nunca `undefined`', () => {
+    expect(mapDbToProduct({ id: 'p' }).filter_value_ids).toEqual([])
+    expect(mapDbToProduct({ id: 'p', product_filter_values: null }).filter_value_ids).toEqual([])
+    expect(
+      mapDbToProduct({ id: 'p', product_filter_values: [{ value_id: 7 }, null, { value_id: 'v1' }] })
+        .filter_value_ids,
+    ).toEqual(['v1'])
   })
 })
 

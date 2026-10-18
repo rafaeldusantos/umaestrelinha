@@ -5,6 +5,8 @@ export * from './api/useAdminProducts'
 // própria não tem como se esconder atrás de um import diferente.
 export * from './api/useProductPool'
 export * from './api/useProductsByIds'
+// Feature 66: o catálogo com tags e categorias, para a marcação em massa dos filtros.
+export * from './api/useProductMarkingPool'
 export * from './lib/buscarProdutos'
 export { default as ProductSearchField } from './ui/ProductSearchField'
 export type { ProductSearchFieldProps } from './ui/ProductSearchField'

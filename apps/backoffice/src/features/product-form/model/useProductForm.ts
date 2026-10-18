@@ -103,6 +103,13 @@ export interface ProductFormState {
    * do `useFormDraft` e no `replaceForm` da restauração. Vínculo perdido num F5 é trabalho refeito.
    */
   faqs: ProductFaqSelection[]
+  /**
+   * Os valores de filtro marcados nesta peça (feature 66, `FLT-11`..`FLT-14`).
+   *
+   * No estado do formulário pelo mesmo motivo das perguntas: entra no rascunho e na restauração, e
+   * o save grava o DIFF contra o snapshot — só o que entrou e o que saiu vão ao banco.
+   */
+  filter_value_ids: string[]
 }
 
 /**
@@ -151,11 +158,12 @@ export const emptyProductForm = (): ProductFormState => ({
   material_kinds: [],
   engraving_max_chars: null,
   faqs: [],
+  filter_value_ids: [],
 })
 
 /** O `select` da carga do formulário. Traz a grade da TABELA e os vínculos N:N. */
 export const PRODUCT_FORM_SELECT =
-  '*, product_variants(*), product_categories(category_id, position), product_faqs(faq_id, position, answer_override)'
+  '*, product_variants(*), product_categories(category_id, position), product_faqs(faq_id, position, answer_override), product_filter_values(value_id)'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
@@ -223,6 +231,17 @@ export const productRowToForm = (row: any, opts: { asCopy?: boolean } = {}): Pro
         }))
         .filter((link: { faq_id: string }) => link.faq_id !== '')
     : [],
+  // Feature 66. O admin lê TODAS as marcações (a policy de escrita `for all` cobre a leitura), então
+  // as de grupo desligado também chegam — e continuam editáveis (`FLT-14`).
+  filter_value_ids: Array.isArray(row.product_filter_values)
+    ? [
+        ...new Set<string>(
+          row.product_filter_values
+            .map((l: any) => String(l?.value_id ?? ''))
+            .filter((id: string) => id !== ''),
+        ),
+      ]
+    : [],
 })
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
@@ -243,12 +262,19 @@ export interface UseProductFormResult {
     variants: ProductVariant[]
     slug: string
     faqIds: string[]
+    filterValueIds: string[]
   }) => void
   /**
    * O que estava no banco na última carga (ou no último save). É contra isto que o diff da grade e
    * das categorias é calculado (T21b) — sem snapshot, "o que mudou?" não é respondível.
    */
-  savedSnapshot: { categoryIds: string[]; variants: ProductVariant[]; slug: string; faqIds: string[] }
+  savedSnapshot: {
+    categoryIds: string[]
+    variants: ProductVariant[]
+    slug: string
+    faqIds: string[]
+    filterValueIds: string[]
+  }
   /**
    * Troca o formulário inteiro. É o que a oferta de restauração de rascunho (T24) chama.
    * Nasce **sujo**: o conteúdo restaurado difere do que está no banco, e é isso que o badge
@@ -277,7 +303,8 @@ export const useProductForm = (
     categoryIds: string[]
     variants: ProductVariant[]
     slug: string
-  }>({ categoryIds: [], variants: [], slug: '', faqIds: [] })
+    filterValueIds: string[]
+  }>({ categoryIds: [], variants: [], slug: '', faqIds: [], filterValueIds: [] })
   // A carga escreve no estado sem sujar o formulário. Sem esta distinção, abrir um produto e sair
   // sem tocar em nada dispararia a guarda de saída da T24 e o badge "Alterações não salvas".
   const loadingRef = useRef(false)
@@ -312,6 +339,7 @@ export const useProductForm = (
               variants: loaded.variants,
               slug: loaded.slug,
               faqIds: loaded.faqs.map(f => f.faq_id),
+              filterValueIds: loaded.filter_value_ids,
             })
           }
         }
@@ -338,7 +366,13 @@ export const useProductForm = (
   )
 
   const markSaved = useCallback(
-    (snapshot?: { categoryIds: string[]; variants: ProductVariant[]; slug: string; faqIds: string[] }) => {
+    (snapshot?: {
+      categoryIds: string[]
+      variants: ProductVariant[]
+      slug: string
+      faqIds: string[]
+      filterValueIds: string[]
+    }) => {
       setIsDirty(false)
       if (snapshot) setSavedSnapshot(snapshot)
     },

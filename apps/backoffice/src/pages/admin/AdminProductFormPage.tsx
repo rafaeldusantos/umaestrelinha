@@ -28,6 +28,7 @@ import DescriptionFaqNotice from '@/features/product-form/ui/DescriptionFaqNotic
 import { useAdminFaqs } from '@/features/faq-library/api/useAdminFaqs'
 import CategoryMultiSelect from '@/features/product-form/ui/CategoryMultiSelect'
 import MaterialCard from '@/features/product-form/ui/MaterialCard'
+import FilterValuesCard from '@/features/product-form/ui/FilterValuesCard'
 import TagInput from '@/features/product-form/ui/TagInput'
 import { hasEngravingAxis } from '@estrelinha/core/material'
 import { selectionLabel, tagCounterLabel } from '@/features/product-form/model/taxonomyLabels'
@@ -264,7 +265,12 @@ const AdminProductFormPage = () => {
       const relations = await persistProductRelations(
         supabase as unknown as PersistClient,
         savedId,
-        { categoryIds: form.category_ids, variants: form.variants, faqs: form.faqs },
+        {
+          categoryIds: form.category_ids,
+          variants: form.variants,
+          faqs: form.faqs,
+          filterValueIds: form.filter_value_ids,
+        },
         { ...savedSnapshot, faqs: savedSnapshot.faqIds },
       )
       if (isPersistFailure(relations)) {
@@ -285,7 +291,13 @@ const AdminProductFormPage = () => {
     // save faria a próxima abertura oferecer de volta um estado que já é o do banco.
     draft.discard()
     savedSlugRef.current = nextSlug
-    markSaved({ categoryIds: form.category_ids, variants: form.variants, slug: nextSlug, faqIds: form.faqs.map(f => f.faq_id) })
+    markSaved({
+      categoryIds: form.category_ids,
+      variants: form.variants,
+      slug: nextSlug,
+      faqIds: form.faqs.map(f => f.faq_id),
+      filterValueIds: form.filter_value_ids ?? [],
+    })
     navigate('/admin/produtos')
     setSaving(false)
   }
@@ -484,11 +496,19 @@ const AdminProductFormPage = () => {
                 </div>
               </FormCard>
 
+              {/* Feature 66 — os filtros da loja, logo depois das categorias: os dois são taxonomia
+                  que a cliente usa para chegar à peça. O estado é do formulário e o save grava o
+                  diff, depois de o produto existir (`FLT-13`). */}
+              <FilterValuesCard
+                selected={form.filter_value_ids}
+                onChange={ids => setField('filter_value_ids', ids)}
+              />
+
               {/* Os campos "Tamanhos" e "Acabamentos" saíram: eles eram os dois eixos FIXOS que o
                   `OptionsEditor` (aba Preços & variações) substituiu por eixos livres. */}
               <FormCard
                 title="Tags"
-                description="Alimentam a busca e os filtros da loja. Enter, vírgula ou colar da planilha."
+                description="Etiquetas para você e para a busca da loja — não aparecem como filtro. Enter, vírgula ou colar da planilha."
                 action={
                   <span
                     className="text-xs font-semibold text-muted-foreground"

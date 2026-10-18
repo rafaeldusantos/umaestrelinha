@@ -3,6 +3,7 @@ import {
   isTempVariantId,
   persistProductRelations,
   planCategoryLinks,
+  planFilterValues,
   planVariants,
   tempVariantId,
   type PersistClient,
@@ -343,5 +344,60 @@ describe('persistProductRelations — as duas tabelas com diff', () => {
 
     expect(result).toMatchObject({ ok: false, step: 'grade' })
     expect(calls.some(c => c.op === 'insert')).toBe(false)
+  })
+})
+
+// Feature 66 — as marcações de filtro (`FLT-13`). O mesmo molde das perguntas: diff contra o
+// snapshot, `undefined` = "esta tela não edita filtros".
+describe('planFilterValues — o diff das marcações', () => {
+  it('insere só as novas e apaga só as que saíram', () => {
+    expect(planFilterValues(['b', 'c'], ['a', 'b'])).toEqual({ toInsert: ['c'], toDelete: ['a'] })
+  })
+
+  it('sem mudança, não há o que gravar', () => {
+    expect(planFilterValues(['a'], ['a'])).toEqual({ toInsert: [], toDelete: [] })
+  })
+
+  it('repetição na seleção vira uma marcação só (a chave é produto × valor)', () => {
+    expect(planFilterValues(['a', 'a', ''], [])).toEqual({ toInsert: ['a'], toDelete: [] })
+  })
+})
+
+describe('persistProductRelations — marcações de filtro (feature 66)', () => {
+  it('apaga as que saíram e grava as novas com o product_id', async () => {
+    const { client, calls } = fakeClient()
+    const result = await persistProductRelations(
+      client,
+      'p1',
+      { categoryIds: [], variants: [], filterValueIds: ['b', 'c'] },
+      { categoryIds: [], variants: [], filterValueIds: ['a', 'b'] },
+    )
+    expect(result).toEqual({ ok: true })
+    expect(calls).toEqual([
+      { table: 'product_filter_values', op: 'delete', payload: ['a'] },
+      { table: 'product_filter_values', op: 'upsert', payload: [{ product_id: 'p1', value_id: 'c' }] },
+    ])
+  })
+
+  it('`filterValueIds` ausente NÃO apaga nada (a grade rápida e a edição em massa também chamam)', async () => {
+    const { client, calls } = fakeClient()
+    await persistProductRelations(
+      client,
+      'p1',
+      { categoryIds: [], variants: [] },
+      { categoryIds: [], variants: [], filterValueIds: ['a'] },
+    )
+    expect(calls.filter(c => c.table === 'product_filter_values')).toEqual([])
+  })
+
+  it('a falha nomeia o passo', async () => {
+    const { client } = fakeClient({ table: 'product_filter_values', op: 'upsert', message: 'boom' })
+    const result = await persistProductRelations(
+      client,
+      'p1',
+      { categoryIds: [], variants: [], filterValueIds: ['c'] },
+      { categoryIds: [], variants: [] },
+    )
+    expect(result).toEqual({ ok: false, step: 'marcações de filtro', message: 'boom' })
   })
 })

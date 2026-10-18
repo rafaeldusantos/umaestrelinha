@@ -72,6 +72,30 @@ vi.mock('@estrelinha/supabase/client', () => ({
   },
 }))
 
+// Feature 66: o inspetor ganhou "Filtros nesta categoria", que lê o catálogo de filtros e as linhas
+// de "escondido". Os dois hooks têm teste próprio (`entities/filter`); aqui o dublê serve para provar
+// a FIAÇÃO pela página real — e sem ele o hook real bateria no dublê de supabase acima, que não
+// conhece `select`.
+const filtros = vi.hoisted(() => ({
+  hidden: new Set<string>(['ocasiao']),
+  categoria: null as string | null,
+  setGroupVisible: vi.fn().mockResolvedValue(null),
+}))
+vi.mock('@/entities/filter', () => ({
+  useAdminFilterCatalog: () => ({
+    groups: [
+      { id: 'acab', name: 'Acabamento', slug: 'acabamento', is_active: true, sort_order: 0, created_at: '', values: [] },
+      { id: 'ocasiao', name: 'Ocasião', slug: 'ocasiao', is_active: true, sort_order: 1, created_at: '', values: [] },
+    ],
+    loading: false,
+    error: null,
+  }),
+  useCategoryHiddenGroups: (categoryId: string) => {
+    filtros.categoria = categoryId
+    return { hidden: filtros.hidden, loading: false, error: null, setGroupVisible: filtros.setGroupVisible }
+  },
+}))
+
 import AdminCategoriesPage from './AdminCategoriesPage'
 import { toast } from '@estrelinha/ui/hooks/use-toast'
 
@@ -313,5 +337,32 @@ describe('AdminCategoriesPage — o slug antigo vira redirect no save (SEO-02)',
       'kpop',
       expect.objectContaining({ slug: 'k-pop-br' }),
     )
+  })
+})
+
+describe('AdminCategoriesPage — "Filtros nesta categoria" no inspetor (feature 66, FLT-35/FLT-36)', () => {
+  it('abrir a categoria mostra a seção com um interruptor por grupo, lido DAQUELA categoria', () => {
+    render(<AdminCategoriesPage />)
+    fireEvent.click(screen.getByText('Anime'))
+
+    expect(screen.getByText('Filtros nesta categoria')).toBeInTheDocument()
+    expect(filtros.categoria).toBe('anime')
+    expect(screen.getByRole('switch', { name: 'Mostrar “Acabamento” nesta categoria' })).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByRole('switch', { name: 'Mostrar “Ocasião” nesta categoria' })).toHaveAttribute('aria-checked', 'false')
+    expect(screen.getByText('Escondido nesta categoria')).toBeInTheDocument()
+  })
+
+  it('desligar grava "escondido", religar apaga — sem passar pelo Salvar do inspetor', async () => {
+    filtros.setGroupVisible.mockClear()
+    render(<AdminCategoriesPage />)
+    fireEvent.click(screen.getByText('Anime'))
+
+    fireEvent.click(screen.getByRole('switch', { name: 'Mostrar “Acabamento” nesta categoria' }))
+    fireEvent.click(screen.getByRole('switch', { name: 'Mostrar “Ocasião” nesta categoria' }))
+
+    await waitFor(() => expect(filtros.setGroupVisible).toHaveBeenCalledTimes(2))
+    expect(filtros.setGroupVisible).toHaveBeenNthCalledWith(1, 'acab', false)
+    expect(filtros.setGroupVisible).toHaveBeenNthCalledWith(2, 'ocasiao', true)
+    expect(hook.updateCategory).not.toHaveBeenCalled()
   })
 })

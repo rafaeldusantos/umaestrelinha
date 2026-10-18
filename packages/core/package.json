@@ -32,7 +32,8 @@
     "./admin-users": "./src/admin-users/index.ts",
     "./orders": "./src/orders/index.ts",
     "./analytics": "./src/analytics/index.ts",
-    "./seo": "./src/seo/index.ts"
+    "./seo": "./src/seo/index.ts",
+    "./filters": "./src/filters/index.ts"
   },
   "scripts": {
     "test": "vitest run"

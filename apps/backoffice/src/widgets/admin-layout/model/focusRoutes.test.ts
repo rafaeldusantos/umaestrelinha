@@ -106,13 +106,22 @@ describe('FOCUS_ROUTES — âncora: toda rota de foco é um destino da navegaç�
     expect(destinosDoTrilho()).not.toContain('/admin/inventada')
   })
 
-  it('são exatamente TRÊS — as duas com prévia, mais Configurações (feature 55)', () => {
+  it('são exatamente QUATRO — as duas com prévia, Configurações (55) e os Filtros (66)', () => {
     // A lista foi REESCRITA para o conteúdo novo, e ganhou vizinhas (os dois casos de CFG-09 acima),
     // em vez de virar um `toContain` que deixaria passar uma quarta entrada silenciosa.
+    // Feature 66: QUATRO. Reescrita de novo para o conteúdo novo, com vizinha logo abaixo.
     expect([...FOCUS_ROUTES]).toEqual([
       '/admin/home',
       '/admin/menu',
       '/admin/configuracoes',
+      '/admin/filtros',
     ])
+  })
+
+  it('os filtros da loja pedem foco, com as duas subrotas — e o vizinho de prefixo não (feature 66)', () => {
+    expect(isFocusRoute('/admin/filtros')).toBe(true)
+    expect(isFocusRoute('/admin/filtros/8f3c')).toBe(true)
+    expect(isFocusRoute('/admin/filtros/8f3c/valores/1a2b')).toBe(true)
+    expect(isFocusRoute('/admin/filtros-antigos')).toBe(false)
   })
 })

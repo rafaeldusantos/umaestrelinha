@@ -53,6 +53,13 @@ vi.mock('@/features/faq-library/api/useAdminFaqs', () => ({
     remove: vi.fn(async () => null),
   }),
 }))
+// Feature 66: a aba Geral passou a ler o catálogo de filtros (`FilterValuesCard`). O dublê de supabase
+// deste arquivo não conhece `.order`, e sem este mock o hook real sobe `order is not a function` como
+// rejeição não tratada em todo caso — a suíte fica verde e o processo sai 1 (a mesma armadilha da 28,
+// acima). O bloco e a gravação dele são provados em `AdminProductFormPage.filtros.test.tsx`.
+vi.mock('@/entities/filter', () => ({
+  useAdminFilterCatalog: () => ({ groups: [], loading: false, error: null }),
+}))
 vi.mock('@/shared/ui/RichTextEditor', () => ({ default: () => <div>editor</div> }))
 vi.mock('@estrelinha/ui/hooks/use-toast', () => ({ toast: vi.fn() }))
 

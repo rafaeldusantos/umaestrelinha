@@ -22,6 +22,16 @@ vi.mock('@/entities/category/api/useCategoryRedirect', () => ({
   useCategoryRedirect: useCategoryRedirectMock,
 }))
 vi.mock('@/entities/product/api/useProducts', () => ({ useProducts: useProductsMock }))
+/*
+ * Feature 66: a página lê o catálogo de filtros (React Query), e esta suíte não monta
+ * `QueryClientProvider`. O dublê devolve o catálogo VAZIO — o mesmo que a página recebe enquanto ele
+ * carrega ou quando falha —, e o resto do módulo segue o real. A fiação dos filtros curados tem
+ * suíte própria (`CategoryPageFilters.test.tsx`).
+ */
+vi.mock('@/entities/filter', async importOriginal => {
+  const real = await importOriginal<typeof import('@/entities/filter')>()
+  return { ...real, useFilterCatalog: () => real.EMPTY_FILTER_CATALOG }
+})
 
 /**
  * O card vira dublê: o de verdade fala com `usePaymentSettings`, `useCategories`, os stores de

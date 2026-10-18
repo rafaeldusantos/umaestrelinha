@@ -29,6 +29,12 @@ interface Props {
   saving?: boolean
   onSave: (id: string, updates: Partial<DbCategory>) => Promise<unknown>
   onClose: () => void
+  /**
+   * Feature 66 — seções que gravam por conta própria (hoje, "Filtros nesta categoria"), desenhadas
+   * antes do rodapé. Slot e não import: quem monta é a página, e `features/` não importa de
+   * `features/`.
+   */
+  children?: React.ReactNode
 }
 
 interface FormState {
@@ -54,7 +60,7 @@ const toForm = (category: AdminCategory): FormState => ({
 })
 
 const CategoryInspector = ({
-  category, allCategories, productCount, saving = false, onSave, onClose,
+  category, allCategories, productCount, saving = false, onSave, onClose, children,
 }: Props) => {
   const [form, setForm] = useState<FormState>(() => toForm(category))
 
@@ -228,6 +234,8 @@ const CategoryInspector = ({
           />
         </div>
       </div>
+
+      {children && <div className="border-t border-border px-4 py-4">{children}</div>}
 
       <footer className="mt-auto flex items-center gap-2 border-t border-border bg-muted/40 px-4 py-3">
         <span className="text-[11.5px] text-muted-foreground">

@@ -1,4 +1,4 @@
-import { HelpCircle, House, LayoutDashboard, MessageCircleQuestion, Package, Percent, Tags, Menu, ShieldCheck, ShoppingCart, ShoppingBag, Store, Ticket, UserCog, Users, Settings } from 'lucide-react'
+import { HelpCircle, SlidersHorizontal, House, LayoutDashboard, MessageCircleQuestion, Package, Percent, Tags, Menu, ShieldCheck, ShoppingCart, ShoppingBag, Store, Ticket, UserCog, Users, Settings } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 export interface NavItem {
@@ -81,6 +81,9 @@ export const navGroups: NavGroup[] = [
     items: [
       { to: '/admin/produtos', icon: Package, label: 'Produtos' },
       { to: '/admin/categorias', icon: Tags, label: 'Categorias' },
+      // Feature 66. Depois de Categorias e antes da Biblioteca: filtro é taxonomia do catálogo, como
+      // a categoria, e se visita menos que ela — curar os filtros é trabalho de vez em quando.
+      { to: '/admin/filtros', icon: SlidersHorizontal, label: 'Filtros da loja' },
       // Renomeado na feature 46. Era "Perguntas frequentes", e virou "Biblioteca de perguntas"
       // porque a 46 acrescentou "Página de perguntas" no grupo Loja: dois itens quase homônimos em
       // grupos diferentes obrigariam a dona a lembrar qual é qual toda vez. O nome novo diz o que

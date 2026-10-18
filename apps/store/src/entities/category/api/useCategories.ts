@@ -32,7 +32,26 @@ interface CategoryRow {
   menu_desktop?: boolean | null
   menu_mobile?: boolean | null
   menu_banners?: unknown
+  /** Feature 66 — o embed `category_hidden_filter_groups(group_id)` da consulta da árvore. */
+  category_hidden_filter_groups?: unknown
 }
+
+/**
+ * Feature 66 — o `select` da árvore: tudo, mais os grupos de filtro escondidos em cada categoria.
+ *
+ * O "esconder" vem DENTRO desta consulta, e não numa leitura à parte, por duas razões: esta é a
+ * única porta da loja para `categories` (`categoryTreeSingleOwner.test.ts`), e a categoria que a
+ * página resolve já sai daqui — uma segunda ida ao banco para responder sobre a mesma linha seria o
+ * "defeito 01" no tamanho de uma requisição. A RLS entrega `category_hidden_filter_groups` inteira.
+ */
+export const CATEGORY_TREE_SELECT = '*, category_hidden_filter_groups(group_id)'
+
+const toHiddenGroupIds = (raw: unknown): string[] =>
+  Array.isArray(raw)
+    ? raw
+        .map(r => (r && typeof r === 'object' ? (r as { group_id?: unknown }).group_id : null))
+        .filter((id): id is string => typeof id === 'string' && id.length > 0)
+    : []
 
 /**
  * O mapper único da categoria na loja.
@@ -69,6 +88,8 @@ const mapCategory = (row: CategoryRow): Category => ({
   // Jsonb cru, entregue como veio: quem valida campo a campo é `resolveMenuBanners`, que é o único
   // lugar do projeto que sabe a forma do banner. Validar aqui seria o segundo dono dela.
   menu_banners: row.menu_banners ?? null,
+  // Feature 66: sempre um array — sem linha, o grupo aparece nesta categoria.
+  hidden_filter_group_ids: toHiddenGroupIds(row.category_hidden_filter_groups),
 })
 
 /**
@@ -103,7 +124,7 @@ export class CategoryQueryError extends Error {}
 export const categoriesQueryOptions = () => ({
   queryKey: ['categories'] as const,
   queryFn: async (): Promise<Category[]> => {
-    const { data, error } = await supabase.from('categories').select('*').order('sort_order')
+    const { data, error } = await supabase.from('categories').select(CATEGORY_TREE_SELECT).order('sort_order')
     /*
      * **A falha SOBE — ela não vira lista vazia.**
      *

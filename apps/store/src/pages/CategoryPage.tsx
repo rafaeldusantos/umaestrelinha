@@ -6,6 +6,7 @@ import { legacyRedirectTo } from '@estrelinha/core/routes'
 import { useProducts } from '@/entities/product/api/useProducts'
 import { useCategories } from '@/entities/category/api/useCategories'
 import { useCategoryRedirect } from '@/entities/category/api/useCategoryRedirect'
+import { useFilterCatalog } from '@/entities/filter'
 import { resolveCategoryRoute } from '@/entities/category/lib/resolveCategoryRoute'
 import { useCanonical } from '@/shared/lib/useCanonical'
 import { PRODUCTS_PER_PAGE, useInfiniteWindow } from '@/shared/lib/useInfiniteWindow'
@@ -17,14 +18,17 @@ import {
   CategoryFiltersPanel,
   CategoryFiltersSheet,
   SORT_LABELS,
+  SORT_OPTIONS,
   activeFilterChips,
+  catalogWithout,
   clearFilterChip,
-  defaultFilters,
+  clearFilters,
+  filterBlocks,
   filterProducts,
   hasActiveFilters,
   priceBounds,
   sortProducts,
-  type CategoryFilters,
+  useFilterUrlState,
   type SortOption,
 } from '@/features/category-filters'
 import {
@@ -42,7 +46,7 @@ import { usePageMeta } from '@/shared/lib/usePageMeta'
  * Listagem de uma coleção — boards "Desktop Category Page - v3" e "Mobile Category Page - v3".
  *
  * As duas telas são o mesmo estado com duas embalagens: no desktop os filtros são uma sidebar
- * permanente de 260px; no mobile viram um bottom sheet e uma faixa rolável de universos. O grid é
+ * permanente de 260px; no mobile viram um bottom sheet. O grid é
  * o mesmo `ProductCard` da home — é lá, e não aqui, que mora o quick add de variações.
  */
 interface Props {
@@ -130,24 +134,36 @@ const CategoryPage = ({ legacy = false }: Props) => {
   const products = useMemo(() => allProducts ?? [], [allProducts])
   const bounds = useMemo(() => priceBounds(products), [products])
 
-  const [sort, setSort] = useState<SortOption>('relevancia')
-  const [filters, setFilters] = useState<CategoryFilters>(() => defaultFilters(bounds))
+  /*
+   * Feature 66 — o catálogo de filtros curados, sem os grupos que a Adri escondeu NESTA categoria.
+   * Filtrar o catálogo (e não só os blocos) é o que faz um grupo escondido que chegue pela URL ser
+   * ignorado por inteiro: não filtra, não vira chip, não vira bloco. O "esconder" chega pela árvore
+   * (`useCategories`) e não herda para subcategoria. Falha do catálogo é catálogo vazio (`FLT-26`).
+   */
+  const filterCatalog = useFilterCatalog()
+  const hiddenKey = (category?.hidden_filter_group_ids ?? []).join(',')
+  const catalog = useMemo(
+    () => catalogWithout(filterCatalog, hiddenKey ? hiddenKey.split(',') : []),
+    [filterCatalog, hiddenKey],
+  )
+
+  /*
+   * O estado mora na URL (`FLT-29..34`): nasce dela, e mudar um filtro ou a ordem a reescreve com
+   * `replace`. Trocar de coleção é trocar de endereço, então o filtro da anterior não vaza — e a
+   * faixa de preço se recompõe sozinha quando os produtos chegam e os limites saem do palpite
+   * [0, 20], sem a reancoragem por `setState` que morava aqui.
+   */
+  const [filters, setFilters] = useFilterUrlState(catalog, bounds)
+  const sort = filters.sort
   const [sheetOpen, setSheetOpen] = useState(false)
   const [dense, setDense] = useState(true)
-  // A coleção mudou de rota: o preço filtrado ainda é o da coleção anterior. Reancorar pela
-  // identidade da faixa (e não por `slug`) também cobre a primeira carga, quando `products` chega
-  // depois da montagem e os limites saem do palpite [0, 20].
-  const [anchor, setAnchor] = useState(bounds)
-  if (anchor[0] !== bounds[0] || anchor[1] !== bounds[1]) {
-    setAnchor(bounds)
-    setFilters(defaultFilters(bounds))
-  }
 
   const visible = useMemo(
-    () => sortProducts(filterProducts(products, filters), sort),
-    [products, filters, sort],
+    () => sortProducts(filterProducts(products, filters, catalog), sort),
+    [products, filters, catalog, sort],
   )
-  const chips = activeFilterChips(filters)
+  const blocks = useMemo(() => filterBlocks(products, filters, catalog), [products, filters, catalog])
+  const chips = activeFilterChips(filters, catalog)
 
   /*
    * A janela da rolagem infinita.
@@ -202,7 +218,7 @@ const CategoryPage = ({ legacy = false }: Props) => {
   }`
 
   const sortSelect = (
-    <Select value={sort} onValueChange={v => setSort(v as SortOption)}>
+    <Select value={sort} onValueChange={v => setFilters({ ...filters, sort: v as SortOption })}>
       <SelectTrigger
         aria-label="Ordenar por"
         className={`${TAP_ROW} h-9 w-auto gap-1.5 rounded-[10px] border-0 bg-estrelinha-ground-deep px-3.5 text-[13px] font-medium text-estrelinha-ink focus:ring-0`}
@@ -211,7 +227,7 @@ const CategoryPage = ({ legacy = false }: Props) => {
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
-        {(Object.keys(SORT_LABELS) as SortOption[]).map(key => (
+        {SORT_OPTIONS.map(key => (
           <SelectItem key={key} value={key}>
             {SORT_LABELS[key]}
           </SelectItem>
@@ -334,7 +350,7 @@ const CategoryPage = ({ legacy = false }: Props) => {
             {hasActiveFilters(filters, bounds) && (
               <button
                 type="button"
-                onClick={() => setFilters(defaultFilters(bounds))}
+                onClick={() => setFilters(clearFilters(filters, bounds))}
                 className="text-[12px] font-semibold text-estrelinha-primary"
               >
                 Limpar
@@ -346,6 +362,7 @@ const CategoryPage = ({ legacy = false }: Props) => {
             filters={filters}
             onChange={setFilters}
             bounds={bounds}
+            blocks={blocks}
           />
         </aside>
 
@@ -456,11 +473,11 @@ const CategoryPage = ({ legacy = false }: Props) => {
                 Nenhuma joia com esses filtros.
               </p>
               <p className="text-[14px] text-estrelinha-ink-soft">
-                Tente afrouxar a faixa de preço ou tirar um universo.
+                Tente afrouxar a faixa de preço ou tirar um filtro.
               </p>
               <button
                 type="button"
-                onClick={() => setFilters(defaultFilters(bounds))}
+                onClick={() => setFilters(clearFilters(filters, bounds))}
                 className="mt-1 rounded-pill bg-estrelinha-primary px-5 py-2.5 text-[14px] font-semibold text-white"
               >
                 Limpar filtros
@@ -476,6 +493,7 @@ const CategoryPage = ({ legacy = false }: Props) => {
         filters={filters}
         onChange={setFilters}
         bounds={bounds}
+        blocks={blocks}
         resultCount={visible.length}
       />
     </div>

@@ -1,7 +1,7 @@
 import { SlidersHorizontal } from 'lucide-react'
 import { Sheet, SheetContent, SheetTitle } from '@estrelinha/ui/sheet'
 import CategoryFiltersPanel from './CategoryFiltersPanel'
-import { defaultFilters, type CategoryFilters } from '../model/filters'
+import { clearFilters, type CategoryFilters, type FilterBlock } from '../model/filters'
 
 interface Props {
   open: boolean
@@ -9,6 +9,8 @@ interface Props {
   filters: CategoryFilters
   onChange: (filters: CategoryFilters) => void
   bounds: [number, number]
+  /** Os blocos dos grupos curados (feature 66). Vazio = só os filtros de sistema. */
+  blocks?: readonly FilterBlock[]
   /** Quantos produtos a seleção atual devolve — é o rótulo do CTA. */
   resultCount: number
 }
@@ -26,6 +28,7 @@ const CategoryFiltersSheet = ({
   filters,
   onChange,
   bounds,
+  blocks = [],
   resultCount,
 }: Props) => (
   <Sheet open={open} onOpenChange={onOpenChange}>
@@ -45,7 +48,7 @@ const CategoryFiltersSheet = ({
         </div>
         <button
           type="button"
-          onClick={() => onChange(defaultFilters(bounds))}
+          onClick={() => onChange(clearFilters(filters, bounds))}
           className="text-[13px] font-semibold text-estrelinha-primary"
         >
           Limpar tudo
@@ -57,12 +60,13 @@ const CategoryFiltersSheet = ({
         filters={filters}
         onChange={onChange}
         bounds={bounds}
+        blocks={blocks}
       />
 
       <div className="flex gap-3 pt-4">
         <button
           type="button"
-          onClick={() => onChange(defaultFilters(bounds))}
+          onClick={() => onChange(clearFilters(filters, bounds))}
           className="flex h-[50px] flex-1 items-center justify-center rounded-[14px] bg-estrelinha-ground-deep text-[14px] font-semibold text-estrelinha-ink"
         >
           Limpar

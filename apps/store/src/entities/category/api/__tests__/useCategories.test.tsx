@@ -203,3 +203,31 @@ describe('useCategoryBySlug — o mesmo mapper', () => {
     expect('emoji' in result.current.data!).toBe(false)
   })
 })
+
+describe('useCategories — os grupos de filtro escondidos chegam pela árvore (feature 66, FLT-21)', () => {
+  it('a consulta da árvore embute `category_hidden_filter_groups(group_id)` — nenhuma leitura à parte', async () => {
+    respondeCom([linha()])
+    await ler()
+    expect(fromMock).toHaveBeenCalledTimes(1)
+    expect(fromMock).toHaveBeenCalledWith('categories')
+    expect(selectMock).toHaveBeenCalledWith('*, category_hidden_filter_groups(group_id)')
+  })
+
+  it('as linhas de "escondido" viram `hidden_filter_group_ids`, na ordem em que chegam', async () => {
+    respondeCom([
+      linha({ category_hidden_filter_groups: [{ group_id: 'g-tamanho' }, { group_id: 'g-cor' }] }),
+    ])
+    const result = await ler()
+    expect(result.current.data![0].hidden_filter_group_ids).toEqual(['g-tamanho', 'g-cor'])
+  })
+
+  it('sem embed (ou torto) é `[]` — curadoria é presença, e sem linha o grupo aparece', async () => {
+    respondeCom([
+      linha({ id: 'a' }),
+      linha({ id: 'b', category_hidden_filter_groups: null }),
+      linha({ id: 'c', category_hidden_filter_groups: [{ group_id: 3 }, null] }),
+    ])
+    const result = await ler()
+    expect(result.current.data!.map(c => c.hidden_filter_group_ids)).toEqual([[], [], []])
+  })
+})

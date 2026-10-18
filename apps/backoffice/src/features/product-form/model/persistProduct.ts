@@ -115,10 +115,32 @@ export const planVariants = (
   return { toInsert, toUpdate, toDelete: saved.filter(v => !keptIds.has(v.id)).map(v => v.id) }
 }
 
+// --- Plano das marcações de filtro (feature 66) -----------------------------------------------
+
+export interface FilterValuePlan {
+  /** Valores que a peça ganhou. */
+  toInsert: string[]
+  /** Valores que a peça perdeu. */
+  toDelete: string[]
+}
+
+/**
+ * O diff das marcações (`FLT-13`): só o que entrou e o que saiu. Sem `position` — a ordem de um
+ * valor é do grupo, não da peça —, então o que já estava marcado não é regravado.
+ */
+export const planFilterValues = (selected: readonly string[], saved: readonly string[]): FilterValuePlan => {
+  const atual = new Set(selected.filter(id => id !== ''))
+  const antes = new Set(saved)
+  return {
+    toInsert: [...atual].filter(id => !antes.has(id)),
+    toDelete: [...antes].filter(id => !atual.has(id)),
+  }
+}
+
 // --- Execução ----------------------------------------------------------------------------------
 
 /** Qual escrita falhou. Vai para a mensagem que o admin lê — "erro ao salvar" não é acionável. */
-export type PersistStep = 'categorias' | 'perguntas' | 'grade'
+export type PersistStep = 'categorias' | 'perguntas' | 'marcações de filtro' | 'grade'
 
 export interface PersistFailure {
   ok: false
@@ -172,11 +194,14 @@ export const persistProductRelations = async (
     categoryIds: readonly string[]
     variants: readonly ProductVariant[]
     faqs?: readonly ProductFaqSelection[]
+    /** Feature 66. `undefined` = "esta tela não edita filtros", nunca "apague todos" (molde de `faqs`). */
+    filterValueIds?: readonly string[]
   },
   saved: {
     categoryIds: readonly string[]
     variants: readonly ProductVariant[]
     faqs?: readonly string[]
+    filterValueIds?: readonly string[]
   },
 ): Promise<PersistResult> => {
   const categories = planCategoryLinks(input.categoryIds, saved.categoryIds)
@@ -221,6 +246,30 @@ export const persistProductRelations = async (
         { onConflict: 'product_id,faq_id' },
       )
       if (error) return { ok: false, step: 'perguntas', message: error.message }
+    }
+  }
+
+  // Filtros da loja (feature 66) — a terceira tabela de vínculo, no mesmo bloco e pelo mesmo motivo.
+  // Esta função só roda DEPOIS de o produto existir (o chamador passa o id que o banco devolveu), e
+  // é isso que faz o produto novo receber as marcações sem nunca perdê-las (`FLT-13`).
+  if (input.filterValueIds !== undefined) {
+    const filtros = planFilterValues(input.filterValueIds, saved.filterValueIds ?? [])
+
+    if (filtros.toDelete.length > 0) {
+      const { error } = await client
+        .from('product_filter_values')
+        .delete()
+        .eq('product_id', productId)
+        .in('value_id', filtros.toDelete)
+      if (error) return { ok: false, step: 'marcações de filtro', message: error.message }
+    }
+
+    if (filtros.toInsert.length > 0) {
+      const { error } = await client.from('product_filter_values').upsert(
+        filtros.toInsert.map(value_id => ({ product_id: productId, value_id })),
+        { onConflict: 'product_id,value_id' },
+      )
+      if (error) return { ok: false, step: 'marcações de filtro', message: error.message }
     }
   }
 

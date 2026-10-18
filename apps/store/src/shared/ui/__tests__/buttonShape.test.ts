@@ -35,7 +35,9 @@ const ACTION_TAGS = ['button', 'Button', 'a', 'Link', 'NavLink']
  */
 const ROTULO: Record<string, string> = {
   'pages/CategoryPage.tsx':
-    'Chips de filtro e de tag. São rótulos que alternam estado, não CTAs — o board os desenha em pílula.',
+    'Chips de filtro (os valores curados e os interruptores). São rótulos que alternam estado, não CTAs — o board os desenha em pílula.',
+  'pages/SearchPage.tsx':
+    'Os mesmos chips de filtro removíveis da categoria (feature 66), acima dos resultados da busca. São rótulos que desfazem um filtro, não CTAs; o "Limpar filtros" da busca sai em `rounded-sm`.',
   'features/category-filters/ui/CategoryFiltersPanel.tsx':
     'Trilho do interruptor de filtro. A pílula é a forma do controle, não de um botão.',
   'features/search/ui/SearchOverlay.tsx':
