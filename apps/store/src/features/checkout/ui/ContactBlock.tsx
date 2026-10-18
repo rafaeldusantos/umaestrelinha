@@ -54,6 +54,14 @@ const ContactBlock = ({
   const contact = useCheckoutStore((s) => s.contact)
   const setContact = useCheckoutStore((s) => s.setContact)
   const markDirty = useCheckoutStore((s) => s.markDirty)
+  const emailRef = useRef<HTMLInputElement>(null)
+
+  /** "Usar outro e-mail" do desafio: derruba o desafio e devolve o foco ao campo, já selecionado. */
+  const trocarEmail = () => {
+    onChallenge(null)
+    emailRef.current?.focus()
+    emailRef.current?.select()
+  }
 
   /**
    * FLW-01/FLW-04: sujar é o que impede o bloco de colapsar sozinho — por isso só passa por aqui
@@ -150,6 +158,7 @@ const ContactBlock = ({
           </Label>
           <Input
             id="contact-email"
+            ref={emailRef}
             type="email"
             value={contact.email}
             onChange={(e) => {
@@ -174,7 +183,9 @@ const ContactBlock = ({
       </div>
 
       {/* IDN-02/IDN-03: o desafio aparece DENTRO do bloco, entre o e-mail e o resto. */}
-      {challenging && <CheckoutSignInChallenge email={contact.email} />}
+      {challenging && (
+        <CheckoutSignInChallenge email={contact.email} onUseOtherEmail={trocarEmail} />
+      )}
 
       <div className="flex flex-col gap-[7px] sm:max-w-[260px]">
         <Label htmlFor="contact-whatsapp" className="text-[13px] font-semibold text-estrelinha-ink">

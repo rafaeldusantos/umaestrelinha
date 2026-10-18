@@ -109,3 +109,36 @@ describe('AuthCodeStep (AUTH-03, AUTH-07)', () => {
 afterEach(() => {
   vi.useRealTimers()
 })
+
+describe('AuthCodeStep — embutido no checkout (alvo explícito)', () => {
+  const alvo = { email: 'marina@exemplo.com', returnTo: '/checkout' }
+
+  it('verifica com o alvo, não com o e-mail do store', async () => {
+    flow.email = ''
+    try {
+      render(<AuthCodeStep target={alvo} onUseOtherEmail={vi.fn()} />)
+      typeCode('429831')
+      fireEvent.click(screen.getByRole('button', { name: 'Verificar código' }))
+      await waitFor(() => expect(flow.submitCode).toHaveBeenCalledWith('429831', alvo))
+    } finally {
+      flow.email = 'maria@email.com'
+    }
+  })
+
+  it('não repete o título nem o e-mail — quem os diz é o aviso de quem embute', () => {
+    render(<AuthCodeStep target={alvo} onUseOtherEmail={vi.fn()} />)
+
+    expect(screen.queryByText('Digite o código')).not.toBeInTheDocument()
+    expect(screen.queryByText('marina@exemplo.com')).not.toBeInTheDocument()
+  })
+
+  it('"Usar outro e-mail" chama quem embute, não o passo de entrada do overlay', () => {
+    const trocar = vi.fn()
+    render(<AuthCodeStep target={alvo} onUseOtherEmail={trocar} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Usar outro e-mail' }))
+
+    expect(trocar).toHaveBeenCalledTimes(1)
+    expect(flow.goTo).not.toHaveBeenCalled()
+  })
+})

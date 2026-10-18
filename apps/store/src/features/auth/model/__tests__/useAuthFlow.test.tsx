@@ -251,3 +251,52 @@ describe('useAuthFlow (AUTH-01, AUTH-05)', () => {
     expect(navigate).not.toHaveBeenCalled()
   })
 })
+
+/**
+ * O desafio do checkout (`CheckoutSignInChallenge`) traz o próprio alvo e NÃO usa o store do
+ * overlay. Era o store compartilhado que fazia as duas superfícies abrirem juntas — e fechar o
+ * overlay zerava o e-mail, de modo que o código digitado no bloco Contato era verificado contra ''.
+ */
+describe('useAuthFlow — alvo embutido (desafio do checkout)', () => {
+  const alvo = { email: 'maria@email.com', returnTo: '/checkout' }
+
+  it('sendCode com alvo envia sem abrir nem mexer no overlay', async () => {
+    mockCtx.signInWithOtp.mockResolvedValue({ error: null })
+    const { result } = renderHook(() => useAuthFlow())
+
+    await act(async () => {
+      await result.current.sendCode('maria@email.com', alvo)
+    })
+
+    expect(mockCtx.signInWithOtp).toHaveBeenCalledWith('maria@email.com')
+    expect(useAuthUiStore.getState()).toMatchObject({ isOpen: false, step: 'entry', email: '' })
+  })
+
+  it('submitCode com alvo verifica o e-mail DO ALVO, mesmo com o store zerado', async () => {
+    // O defeito: o overlay fechado deixava `email: ''` no store, e `verifyOtp('', código)`
+    // voltava erro de e-mail para quem digitou o código certo.
+    mockCtx.verifyOtp.mockResolvedValue({ error: null, isNewUser: false })
+    window.history.pushState({}, '', '/checkout')
+    const { result } = renderHook(() => useAuthFlow())
+
+    await act(async () => {
+      await result.current.submitCode('429831', alvo)
+    })
+
+    expect(mockCtx.verifyOtp).toHaveBeenCalledWith('maria@email.com', '429831')
+    expect(navigate).not.toHaveBeenCalled()
+  })
+
+  it('submitCode com alvo não leva ao passo de nome do overlay', async () => {
+    mockCtx.verifyOtp.mockResolvedValue({ error: null, isNewUser: true })
+    window.history.pushState({}, '', '/checkout')
+    const { result } = renderHook(() => useAuthFlow())
+
+    await act(async () => {
+      await result.current.submitCode('429831', alvo)
+    })
+
+    expect(useAuthUiStore.getState()).toMatchObject({ isOpen: false, step: 'entry' })
+    expect(navigate).not.toHaveBeenCalled()
+  })
+})

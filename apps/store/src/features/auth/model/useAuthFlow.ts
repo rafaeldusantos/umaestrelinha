@@ -4,6 +4,17 @@ import { useAuthUiStore } from './authUiStore'
 import { markGoogleLogin, trackLogin, trackSignUp } from './authAnalytics'
 
 /**
+ * O desafio de código que mora FORA do overlay (o bloco Contato do checkout). Ele traz o próprio
+ * e-mail e o próprio destino, e por isso **não lê nem escreve** o `authUiStore`: o store é do
+ * overlay, e compartilhá-lo fazia as duas superfícies aparecerem juntas — e fechar o overlay zerava
+ * o e-mail que o desafio verificava (`verifyOtp('', código)`).
+ */
+export interface InlineCodeTarget {
+  email: string
+  returnTo: string
+}
+
+/**
  * Orchestrates the login flow: wires each step's action to the AuthContext
  * methods, drives step transitions and resolves the post-login destination
  * (returnTo, or /conta). The cart is preserved automatically by cartStore's
@@ -27,31 +38,28 @@ export function useAuthFlow() {
   const close = useAuthUiStore((s) => s.close)
   const navigate = useNavigate()
 
-  const finish = () => {
-    const dest = returnTo ?? '/conta'
+  const finish = (dest: string = returnTo ?? '/conta') => {
     close()
     // Contextual open (returnTo === current route): just close, don't re-navigate.
     if (dest !== window.location.pathname) navigate(dest)
   }
 
-  const sendCode = async (emailInput: string) => {
-    setEmail(emailInput)
+  const sendCode = async (emailInput: string, target?: InlineCodeTarget) => {
+    if (!target) setEmail(emailInput)
     const { error } = await signInWithOtp(emailInput)
-    if (!error) goTo('code')
+    if (!error && !target) goTo('code')
     return { error }
   }
 
-  const submitCode = async (token: string) => {
-    const { error, isNewUser } = await verifyOtp(email, token)
+  const submitCode = async (token: string, target?: InlineCodeTarget) => {
+    const { error, isNewUser } = await verifyOtp(target?.email ?? email, token)
     if (error) return { error }
     // Feature 61 · EVT-16/17: conta nova é `sign_up`; conta que já existia é `login`.
-    if (isNewUser) {
-      trackSignUp('codigo')
-      goTo('name')
-    } else {
-      trackLogin('codigo')
-      finish()
-    }
+    if (isNewUser) trackSignUp('codigo')
+    else trackLogin('codigo')
+    // O passo de nome é do overlay. No desafio do checkout o nome já está no bloco Contato.
+    if (isNewUser && !target) goTo('name')
+    else finish(target?.returnTo)
     return { error: null }
   }
 

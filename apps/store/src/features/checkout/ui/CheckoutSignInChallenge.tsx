@@ -4,24 +4,38 @@
 // só que mais tarde no fluxo, depois de ela já ter digitado nome e telefone. O desafio é legítimo
 // (ninguém deve fechar compra no e-mail de outra pessoa), a interrupção não precisa ser.
 //
-// **`AuthCodeStep` é reusado inteiro**, e não reescrito: ele lê tudo do `authUiStore` e já traz o
-// reenvio com cooldown de 60s, o tratamento de código errado e a transição para o passo de nome de
-// quem nunca preencheu. Um segundo campo de 6 dígitos nesta loja seria duas máquinas de estado de
+// **`AuthCodeStep` é reusado inteiro**, e não reescrito: ele já traz o reenvio com cooldown de 60s
+// e o tratamento de código errado e expirado. Um segundo campo de 6 dígitos nesta loja seria duas máquinas de estado de
 // login divergindo no primeiro ajuste — e `desafioDeCodigoUnico` recusa que ele nasça.
-import { useEffect, useRef } from 'react'
+//
+// **E o overlay NÃO abre.** O desafio abria o overlay junto (por `authUiStore.open`), e as duas
+// superfícies pediam o mesmo código ao mesmo tempo; pior, fechar o overlay zerava o e-mail do store
+// e o código digitado aqui era verificado contra e-mail vazio. O alvo agora é explícito
+// (`InlineCodeTarget`) e o store do overlay não é tocado.
+import { useEffect, useMemo, useRef } from 'react'
 import { AlertCircle } from 'lucide-react'
-import { useAuthUiStore } from '@/features/auth'
-import { useAuthFlow } from '@/features/auth/model/useAuthFlow'
+import { useAuthFlow, type InlineCodeTarget } from '@/features/auth/model/useAuthFlow'
 import AuthCodeStep from '@/features/auth/ui/steps/AuthCodeStep'
 
 interface Props {
   /** O e-mail que a consulta (ou o servidor) disse já ter cadastro. */
   email: string
+  /** "Usar outro e-mail": devolve a pessoa ao campo de e-mail do bloco Contato. */
+  onUseOtherEmail: () => void
 }
 
-const CheckoutSignInChallenge = ({ email }: Props) => {
+/**
+ * `returnTo` no próprio checkout é o que faz concluir o código **não navegar**: `finish()` compara
+ * com `window.location.pathname` e só fecha. Navegar remontaria a página inteira.
+ */
+export const CHECKOUT_RETURN_TO = '/checkout'
+
+const CheckoutSignInChallenge = ({ email, onUseOtherEmail }: Props) => {
   const { sendCode } = useAuthFlow()
-  const setReturnTo = useAuthUiStore((s) => s.open)
+  const target = useMemo<InlineCodeTarget>(
+    () => ({ email, returnTo: CHECKOUT_RETURN_TO }),
+    [email],
+  )
 
   /**
    * O código é enviado **uma vez**, ao montar.
@@ -34,11 +48,8 @@ const CheckoutSignInChallenge = ({ email }: Props) => {
   useEffect(() => {
     if (enviado.current === email) return
     enviado.current = email
-    // `returnTo` no próprio checkout é o que faz `finish()` **não navegar** ao concluir: o fluxo
-    // compara com `window.location.pathname` e só fecha. Navegar remontaria a página inteira.
-    setReturnTo({ returnTo: '/checkout', step: 'code' })
-    void sendCode(email)
-  }, [email, sendCode, setReturnTo])
+    void sendCode(email, target)
+  }, [email, sendCode, target])
 
   return (
     <div
@@ -66,7 +77,7 @@ const CheckoutSignInChallenge = ({ email }: Props) => {
         </div>
       </div>
 
-      <AuthCodeStep />
+      <AuthCodeStep target={target} onUseOtherEmail={onUseOtherEmail} />
     </div>
   )
 }

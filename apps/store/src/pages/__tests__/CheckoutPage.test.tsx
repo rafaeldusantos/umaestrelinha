@@ -194,7 +194,13 @@ vi.mock('@/features/auth/model/useAuthFlow', () => ({
   useAuthFlow: () => ({ sendCode: sendCodeMock }),
 }))
 vi.mock('@/features/auth/ui/steps/AuthCodeStep', () => ({
-  default: () => <div data-testid="auth-code-step" />,
+  default: ({ onUseOtherEmail }: { onUseOtherEmail?: () => void }) => (
+    <div data-testid="auth-code-step">
+      <button type="button" onClick={onUseOtherEmail}>
+        Usar outro e-mail
+      </button>
+    </div>
+  ),
 }))
 vi.mock('@/features/checkout/api/useAccountLookup', () => ({
   useAccountLookup: () => ({ check: accountLookupMock }),
@@ -699,6 +705,24 @@ describe('CheckoutPage — e-mail que já tem conta pede o código (IDN-02 … I
     expect(
       within(contato).getByText('Este e-mail já tem cadastro na loja'),
     ).toBeInTheDocument()
+  })
+
+  it('o desafio NÃO abre o overlay de login por cima — o código é pedido só no bloco', async () => {
+    // O defeito: o desafio chamava `authUiStore.open`, o modal subia pedindo o mesmo código, e
+    // fechá-lo zerava o e-mail com que o bloco verificava o código.
+    useAuthUiStore.setState({ isOpen: false, step: 'entry', email: '', returnTo: null })
+    await desafiar()
+
+    expect(useAuthUiStore.getState().isOpen).toBe(false)
+  })
+
+  it('"Usar outro e-mail" derruba o desafio e devolve o foco ao campo de e-mail', async () => {
+    await desafiar()
+
+    fireEvent.click(region('Contato').getByRole('button', { name: 'Usar outro e-mail' }))
+
+    expect(screen.queryByTestId('auth-code-step')).not.toBeInTheDocument()
+    expect(campoEmail()).toHaveFocus()
   })
 
   it('o CTA de pagar fica DESABILITADO enquanto o desafio está pendente (IDN-04)', async () => {
