@@ -4,6 +4,7 @@ import { PREVIEW_SECTION_ATTR } from '@estrelinha/core/home'
 import { homePageMeta } from '@estrelinha/core/seo'
 import { useStoreSettings } from '@estrelinha/core/hooks/useStoreSettings'
 import { usePageMeta } from '@/shared/lib/usePageMeta'
+import { InstagramInvite } from '@/widgets/instagram-invite'
 
 /**
  * A home — e a partir da feature 24 ela **não conhece seção nenhuma**.
@@ -57,7 +58,17 @@ const HomePage = () => {
   // investigação de quem vier depois, e por isso o limite está declarado em vez de sugerido.
   const { data: sections, isLoading } = useHomeSections({ enabled: !preview })
 
-  if (!preview) return isLoading ? <HomeSkeleton /> : <HomeRenderer sections={sections ?? []} />
+  // O convite para o Instagram é sobreposição, não seção: não passa pelo `HomeRenderer` e só monta
+  // com a Home resolvida — o atraso dele começa a contar quando o conteúdo de verdade está na tela.
+  if (!preview) {
+    if (isLoading) return <HomeSkeleton />
+    return (
+      <>
+        <HomeRenderer sections={sections ?? []} />
+        <InstagramInvite />
+      </>
+    )
+  }
 
   return (
     <div

@@ -42,3 +42,6 @@ docs/qa/evidence/
 # Bytecode do Python — as skills de `.claude/skills/**` geram cache ao rodar.
 __pycache__/
 *.py[cod]
+# QA por feature (.specs/specflow.yaml › qa.docs_path) — views geradas e evidência volumosa
+.specs/features/*/qa/state.csv
+.specs/features/*/qa/evidence/

@@ -135,11 +135,9 @@ Ao planejar/implementar features, use a Skill **`tlc-spec-driven`** com estas co
     também estão FECHADAS. A `59` (Minha Conta V2) também está FECHADA. A `60` (a marca no
     cabeçalho dos e-mails) também está FECHADA. A `61` (Google Analytics 4 na loja) também está
     FECHADA. A `62` (título e metadados por rota) também está FECHADA — é a primeira fatia da `36`,
-    que continua só com `spec.md`. A `63` (retirada no escritório) está IMPLEMENTADA, verificada
-    (três rodadas + a extração do `create` da `melhor-envio`) e provada em navegador, e **sem
-    commit** — aguarda o pedido de commit do usuário. A `64`
-    (lista de categorias na Home) está IMPLEMENTADA (17 de 17 tasks), provada no banco local e em
-    navegador, verificada por agente independente (PASS) e **sem commit** — aguarda o pedido de commit. A próxima é a `65`.**
+    que continua só com `spec.md`. A `63` (retirada no escritório), a `64` (lista de categorias na
+    Home) e a `65` (convite para o Instagram na Home) também estão FECHADAS, com commit. A `66`
+    (filtros de produto) está em andamento. A próxima é a `67`.**
   - **A `46` e a `47` correram EM PARALELO, em worktrees separados**, e é o segundo caso do projeto
     (o primeiro, a `45`, dividiu uma working tree só). O que mudou: a divisão foi por **árvore**, não
     por arquivo — a `47` nasceu de um `git worktree` sobre o HEAD local e trouxe a `46` por
@@ -295,7 +293,8 @@ Consequências práticas, nesta ordem:
     `estrelinha-recent-searches`, `estrelinha-product-draft`, `estrelinha.admin.*`,
     `estrelinha-cookie-consent` (o aviso e as preferências de cookies, feature `61`) e
     `estrelinha-google-login` (**`sessionStorage`** — marca o retorno do login pelo Google para o
-    evento `login`, feature `61`).
+    evento `login`, feature `61`) e `estrelinha-instagram-invite` (o convite para o Instagram na
+    Home já foi visto neste navegador, feature `65`).
 - **Sem credenciais no código.** Cada app tem `.env` (gitignored) com `VITE_SUPABASE_URL` e
   `VITE_SUPABASE_PUBLISHABLE_KEY` (ver `.env.example`); o client (`@estrelinha/supabase`) lança erro
   se faltarem. Secrets de servidor ficam no `.env` da **raiz**. Detalhe em `supabase/CLAUDE.md`.
@@ -477,7 +476,13 @@ quando mudarem de verdade.
 | --- | --- | --- |
 | **Lint** | **26 erros / 7 warnings** — backoffice 24/5 · store 2/2 | `pnpm lint` |
 | **Tipos** | **0 · 0 · 0** (store · backoffice · catalog-import) | `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` |
-| **Testes** | **12226 em 611 arquivos** — store **4732/275** · backoffice **3202/176** · core **2806/115** · functions **974/22** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
+| **Testes** | **12289 em 614 arquivos** — store **4795/278** · backoffice **3202/176** · core **2806/115** · functions **974/22** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
+
+**A feature `65` (convite para o Instagram na Home) somou +63/+3 no store**, medido em 2026-10-18 com
+exit code fora de pipe e `--testTimeout=20000`: **4732/275 → 4795/278** (o convite, as cores da marca
+do terceiro em `shared/config`, e os dois consertos que a QA dela achou — a loja em branco sem
+armazenamento e o rodapé estourando em 768). Lint do store em **2/2** e tipos em **0**, sem mexer. Os
+outros quatro workspaces não foram tocados e não foram remedidos.
 
 **A feature `64` (lista de categorias na Home) somou +166 em TRÊS workspaces**, medidos em
 2026-10-12 um por vez, exit code fora de pipe e `--testTimeout=20000` nos dois apps, **contra a

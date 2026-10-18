@@ -12,7 +12,8 @@ import {
 import { useCookieConsentStore } from '@/entities/cookie-consent'
 import { EstrelinhaSignature } from '@/shared/ui/brand'
 import { TAP_ROW } from '@/shared/lib/touchTarget'
-import InstagramStrip, { INSTAGRAM_URL } from './InstagramStrip'
+import { INSTAGRAM_URL } from '@/shared/config/instagram'
+import InstagramStrip from './InstagramStrip'
 
 /**
  * As bandeiras que o CAIXA processa — não as que vieram no conjunto da arte.
@@ -145,7 +146,7 @@ const Footer = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-x-8 gap-y-10 md:flex md:gap-14">
+          <div className="grid grid-cols-2 gap-x-8 gap-y-10 xl:flex xl:gap-14">
             <FooterColumn title="Loja">
               <FooterLink to="/busca?sort=novidades">Novidades</FooterLink>
               <FooterLink to="/busca?sort=populares">Em destaque</FooterLink>

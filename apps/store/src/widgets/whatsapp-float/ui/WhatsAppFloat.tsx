@@ -22,7 +22,14 @@ const WhatsAppFloat = () => {
   // Badge "1 nova mensagem" apenas na primeira visita
   useEffect(() => {
     if (typeof window === 'undefined') return
-    const seen = localStorage.getItem(SEEN_KEY)
+    // Ler o `localStorage` lança quando ele está bloqueado, e erro em efeito derruba a árvore toda.
+    // Sem armazenamento, a bolha se comporta como primeira visita.
+    let seen: string | null = null
+    try {
+      seen = localStorage.getItem(SEEN_KEY)
+    } catch {
+      seen = null
+    }
     if (seen) return
     const showT = setTimeout(() => setShowBadge(true), 1500)
     const teaserT = setTimeout(() => setShowTeaser(true), 2200)

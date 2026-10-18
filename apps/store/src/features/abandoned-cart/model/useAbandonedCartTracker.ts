@@ -7,6 +7,29 @@ import { primaryImage } from '@estrelinha/core/media'
 import type { AbandonedCartItem } from '@estrelinha/supabase/types/abandonedCart'
 
 const STORAGE_KEY = 'estrelinha-guest-email'
+const CONSENT_KEY = 'estrelinha-guest-consent'
+
+/**
+ * O `sessionStorage` pode estar inacessível (bloqueio de dados do site, alguns modos privados) e,
+ * nesse caso, LÊ-LO lança `SecurityError`. Este hook é montado no `App`, então uma leitura sem
+ * guarda derrubava a loja inteira em branco (`BUG-20261017-loja-em-branco-sem-armazenamento`).
+ * Sem armazenamento, o rastreio de visitante simplesmente não acontece.
+ */
+function lerSessao(chave: string): string | null {
+  try {
+    return typeof window === 'undefined' ? null : window.sessionStorage.getItem(chave)
+  } catch {
+    return null
+  }
+}
+
+function escreverSessao(mudar: (s: Storage) => void): void {
+  try {
+    if (typeof window !== 'undefined') mudar(window.sessionStorage)
+  } catch {
+    // Sem armazenamento, o e-mail de visitante não fica guardado — a compra segue igual.
+  }
+}
 
 /**
  * O botton personalizado é um produto sintético: a "imagem" dele é o PNG do canvas em
@@ -42,8 +65,8 @@ export function useAbandonedCartTracker() {
 
   useEffect(() => {
     // Determina email + consentimento
-    const guestEmail = typeof window !== 'undefined' ? sessionStorage.getItem(STORAGE_KEY) : null
-    const guestConsentRaw = typeof window !== 'undefined' ? sessionStorage.getItem('estrelinha-guest-consent') : null
+    const guestEmail = lerSessao(STORAGE_KEY)
+    const guestConsentRaw = lerSessao(CONSENT_KEY)
 
     const email = customer?.email || user?.email || guestEmail || ''
     const name = customer?.name || null
@@ -115,15 +138,16 @@ export async function markCartRecovered(email: string, orderId: string) {
  * Salva email do guest em sessionStorage para o tracker capturar.
  */
 export function setGuestEmail(email: string, consent: boolean) {
-  if (typeof window === 'undefined') return
-  if (email) {
-    sessionStorage.setItem(STORAGE_KEY, email.toLowerCase().trim())
-    sessionStorage.setItem('estrelinha-guest-consent', consent ? 'true' : 'false')
-  }
+  if (!email) return
+  escreverSessao(s => {
+    s.setItem(STORAGE_KEY, email.toLowerCase().trim())
+    s.setItem(CONSENT_KEY, consent ? 'true' : 'false')
+  })
 }
 
 export function clearGuestEmail() {
-  if (typeof window === 'undefined') return
-  sessionStorage.removeItem(STORAGE_KEY)
-  sessionStorage.removeItem('estrelinha-guest-consent')
+  escreverSessao(s => {
+    s.removeItem(STORAGE_KEY)
+    s.removeItem(CONSENT_KEY)
+  })
 }

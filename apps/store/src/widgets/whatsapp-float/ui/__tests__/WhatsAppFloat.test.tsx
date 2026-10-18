@@ -186,3 +186,25 @@ describe('WhatsAppFloat — a bolha não desloca a caixa (PRF-18)', () => {
     })
   })
 })
+
+// BUG-20261017-loja-em-branco-sem-armazenamento: a bolha lê o `localStorage` num efeito, e erro em
+// efeito derruba a árvore inteira — o mesmo modo de falha do rastreio de carrinho.
+describe('WhatsAppFloat — sem armazenamento (BUG-20261017)', () => {
+  it('com a leitura do storage lançando, a bolha monta e trata como primeira visita', async () => {
+    vi.useFakeTimers()
+    const ler = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new DOMException('bloqueado', 'SecurityError')
+    })
+    try {
+      expect(() => renderFloat()).not.toThrow()
+      expect(ler).toHaveBeenCalled()
+      await act(async () => {
+        vi.advanceTimersByTime(1600)
+      })
+      expect(screen.getByLabelText('1 nova mensagem')).toBeInTheDocument()
+    } finally {
+      ler.mockRestore()
+      vi.useRealTimers()
+    }
+  })
+})

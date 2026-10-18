@@ -596,6 +596,37 @@ Home tem um desenho só, e ele mora aqui.**
   saindo num `Fragment`, porque `homeComposition.test.tsx` mede o DOM renderizado — e um invólucro por
   seção mudaria a árvore sem mudar um estilo. `HomeRendererPreview.test.tsx` guarda os dois modos.
 
+## O convite para o Instagram (feature `65`)
+
+Na primeira visita à Home, uma folha convida a seguir o perfil da Adri. Mora em
+`widgets/instagram-invite` e é montada **só pela `HomePage`**, no ramo normal e com a Home já
+resolvida — nunca no esqueleto, nunca na prévia do painel.
+
+- **É sobreposição, não seção.** Não é tipo de `home_sections` e não passa pelo `HomeRenderer`: um
+  tipo de bloco faria a dona poder pôr dois convites na Home, ou desligá-lo sem saber que existia.
+- **Abre uma vez por navegador**, cerca de 3 s depois de a Home resolver (`ATRASO_DO_CONVITE_MS`), e
+  **só com o aviso de cookies fora do caminho** — pendente ou com as preferências abertas, ele
+  espera, e abre assim que o aviso é respondido. A marca `estrelinha-instagram-invite` é gravada
+  **ao abrir**; sem `localStorage` (aba privada), a memória do módulo vale pela sessão.
+- **A folha vem num chunk próprio** (`lazy` dentro do próprio widget), e por isso o barrel exporta só
+  o portão: reexportar a folha a traria de volta ao chunk da Home.
+- **O handle e a URL são de `shared/config/instagram.ts`**, lidos também pela faixa do rodapé — widget
+  não importa de widget. Uma grafia só da URL, com `www`.
+- **O conteúdo é o `Content` do Radix, não o `SheetContent`**: aquele monta o próprio véu
+  (`bg-black/80`) e o próprio X. O véu aqui é `ink` a 55% e o X é `h-11 w-11` posicionado, sem
+  `TAP_44` (`alvoDeToqueNaoRoubaPosicao.test.ts`).
+- **V2 (2026-10-18): a marca do Instagram entra em três pontos e só neles** — o ícone colorido no
+  rótulo, o anel de story no avatar e o gradiente do botão. **As cores moram em
+  `shared/config/instagram.ts`, NÃO na paleta `estrelinha`**: são marca de terceiro, usadas só aqui,
+  e entrar na paleta as ofereceria a qualquer tela. `contrast.test.ts` não as alcança; a régua delas
+  é `shared/config/__tests__/instagramPalette.test.ts`, que mede o branco contra **cada** parada do
+  botão (o amarelo e o laranja ficam fora dele porque reprovam, e há sensor disso).
+  - **O gradiente vai por variável CSS** (`--ig-gradiente` + `[background-image:var(--ig-gradiente)]`),
+    não por `style.backgroundImage`: o jsdom **descarta `linear-gradient` do estilo em silêncio**, e o
+    teste não teria como provar que o anel e o botão recebem o gradiente do dono.
+  - **Dentro do anel vai o símbolo da loja**, não foto: não há foto da Adri, e foto inventada não
+    entra.
+
 ## A Lista de categorias — os círculos que levam às coleções (feature `64`)
 
 `widgets/category-list` desenha o bloco `category_grid`: uma fileira de círculos, cada um a **arte
@@ -915,9 +946,10 @@ edge function do sitemap — que anuncia uma `<loc>` por pergunta, resolvida pel
 - **O corpo das 67 URLs é a página inteira**, por decisão do usuário (a pergunta aberta, não uma
   página dedicada). O risco declarado é o Google tratar as URLs como quase duplicadas.
 
-> **Pendência:** o rodapé da loja estoura a viewport em **768px** (`scrollWidth` 802) — a grade
-> `grid-cols-2 md:flex md:gap-14` das colunas de link. É anterior a esta mudança, vale para **toda**
-> página da loja, e não foi consertado aqui por ser outro widget.
+> **A pendência do rodapé em 768 foi FECHADA em 2026-10-18** (`BUG-20261017-home-rola-na-horizontal-em-768`,
+> feature `65`): as colunas de link do rodapé só viram fila a partir de `xl`; antes disso, 2×2.
+> Medido: `scrollWidth` = largura da janela de 390 a 1440. A faixa de departamentos, que parecia a
+> causa, estoura **dentro** do próprio rolador e não conta.
 
 ## Página Sobre (feature `29`)
 
@@ -1153,8 +1185,8 @@ acabou de perder alguém.
     dela preenche a vaga inteira em azul, que é como o cartão é.
   - **Medido em navegador** (2026-09-14): 390 → fileira de 292px centrada, `scrollWidth` 390, as
     cinco artes carregadas; 768 → embrulha em duas linhas pelo `flex-wrap` e termina em 752; 1024 e
-    1440 → uma linha só. O `scrollWidth` 802 que o 768 acusa é a **pendência antiga** das colunas de
-    link, registrada abaixo, e o número não mudou com esta fileira.
+    1440 → uma linha só. O `scrollWidth` 802 que o 768 acusava era a pendência das colunas de
+    link, fechada em 2026-10-18 (ver a página de perguntas frequentes, abaixo).
 
 ## Frete grátis — um interruptor e um dono só (feature `37`)
 

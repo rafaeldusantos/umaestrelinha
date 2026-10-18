@@ -1,8 +1,5 @@
 import { Instagram } from 'lucide-react'
-
-/** O perfil da Adri — a única rede que a loja tem, e a que o board nomeia. */
-export const INSTAGRAM_HANDLE = '@umaestrelinha.adri'
-export const INSTAGRAM_URL = 'https://instagram.com/umaestrelinha.adri'
+import { INSTAGRAM_HANDLE, INSTAGRAM_URL } from '@/shared/config/instagram'
 
 /**
  * A faixa do Instagram — board `67P-0`.

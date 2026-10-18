@@ -1,0 +1,40 @@
+# Lido pelas skills do specflow. Guarda decisão e forma, nunca estado do código nem segredo.
+version: 1
+
+design:
+  fontes:
+    - nome: Paper por feature
+      tipo: paper
+      mecanica: "Servidor MCP `paper` (tools mcp__paper__*): abrir o arquivo indicado e ler as artboards da feature (get_basic_info, get_tree_summary, get_screenshot, get_jsx). Carregar antes o guia get_guide({ topic: 'paper-mcp-instructions' })."
+      localizador: { natureza: por-feature, onde: "seção de design do spec.md (arquivo e artboards do Paper)" }
+
+verificacao:
+  apps/store:
+    tipos:          { comando: "npx tsc --noEmit -p apps/store/tsconfig.app.json", origem: "CLAUDE.md › Comandos (armadilha: pnpm build não faz typecheck)" }
+    um_teste:       { comando: "pnpm --filter @estrelinha/store exec vitest run <arquivo>", origem: "confirmado pelo humano", confirmado_em: "2026-10-17" }
+    fechar_unidade: { origem: "CLAUDE.md › Baselines (lint, tipos e suíte do workspace com --testTimeout=20000, exit code fora de pipe)" }
+  apps/backoffice:
+    tipos:          { comando: "npx tsc --noEmit -p apps/backoffice/tsconfig.app.json", origem: "CLAUDE.md › Comandos" }
+    um_teste:       { comando: "pnpm --filter @estrelinha/backoffice exec vitest run <arquivo> --testTimeout=20000", origem: "sugerido de apps/backoffice/package.json", confirmado_em: "2026-10-17" }
+    fechar_unidade: { origem: "CLAUDE.md › Baselines (o gate inclui a suíte da loja: os guardas de lá varrem os dois apps)" }
+  packages/core:
+    um_teste:       { comando: "pnpm --filter @estrelinha/core exec vitest run <arquivo>", origem: "sugerido de packages/core/package.json", confirmado_em: "2026-10-17" }
+    fechar_unidade: { origem: "CLAUDE.md › Baselines (mudança em core tem gate de core, store e backoffice)" }
+  supabase:
+    um_teste:       { comando: "pnpm --filter @estrelinha/functions exec vitest run <arquivo>", origem: "sugerido de supabase/package.json", confirmado_em: "2026-10-17" }
+    fechar_unidade: { origem: "CLAUDE.md › Baselines" }
+  tools/catalog-import:
+    tipos:          { comando: "npx tsc --noEmit -p tools/catalog-import/tsconfig.json", origem: "tools/catalog-import/CLAUDE.md" }
+    um_teste:       { comando: "pnpm --filter @estrelinha/catalog-import exec vitest run <arquivo>", origem: "sugerido de tools/catalog-import/package.json", confirmado_em: "2026-10-17" }
+    fechar_unidade: { origem: "CLAUDE.md › Baselines" }
+
+ambiente_local:
+  supabase:
+    o_que: "Supabase local (project_id uma-estrelinha-store, API 54441, faixa 54440–54449)"
+    de_pe: sim
+    como_conferir: "supabase status"
+    como_aplicar_schema: "supabase migration up --local"
+    cuidado: "nunca `supabase stop --all` (derruba as instâncias dos outros projetos); nunca aplicar no hospedado"
+
+qa:
+  docs_path: ".specs/features/<NN-slug>/qa"   # a QA de cada feature mora na pasta dela

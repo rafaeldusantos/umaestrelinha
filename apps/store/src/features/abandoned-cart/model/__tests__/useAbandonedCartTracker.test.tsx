@@ -23,7 +23,7 @@ vi.mock('@estrelinha/auth', () => ({ useAuthContext: () => authState }))
 
 import { useCartStore } from '@/entities/cart/model/cartStore'
 import { useCouponStore } from '@/entities/coupon/model/couponStore'
-import { useAbandonedCartTracker } from '../useAbandonedCartTracker'
+import { clearGuestEmail, setGuestEmail, useAbandonedCartTracker } from '../useAbandonedCartTracker'
 
 const DATA_URL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUg'
 
@@ -142,5 +142,37 @@ describe('useAbandonedCartTracker — snapshot dos itens', () => {
     await track()
 
     expect(lastPayload().p_items[0].unit_price).toBe(9.4)
+  })
+})
+
+// BUG-20261017-loja-em-branco-sem-armazenamento: com o Web Storage bloqueado, LER o
+// `sessionStorage` lança. Este hook é montado no `App`, e a leitura sem guarda deixava a loja
+// inteira em branco. O bloqueio é dublado no protótipo, como o QA o simulou.
+describe('useAbandonedCartTracker — sem armazenamento (BUG-20261017)', () => {
+  const bloquear = () => {
+    for (const m of ['getItem', 'setItem', 'removeItem'] as const) {
+      vi.spyOn(Storage.prototype, m).mockImplementation(() => {
+        throw new DOMException('bloqueado', 'SecurityError')
+      })
+    }
+  }
+
+  afterEach(() => vi.restoreAllMocks())
+
+  it('montar o hook não lança, e quem tem sessão continua sendo rastreado', async () => {
+    authState.user = { id: 'u1', email: 'cliente@umaestrelinha.com.br' }
+    useCartStore.getState().addItem(product(), '4,5 cm', 'Fosco')
+    bloquear()
+
+    await track()
+
+    // A asserção do RPC é o que separa "não lançou" de "não rodou": o hook passou da leitura.
+    expect(lastPayload().p_email).toBe('cliente@umaestrelinha.com.br')
+  })
+
+  it('setGuestEmail e clearGuestEmail não lançam', () => {
+    bloquear()
+    expect(() => setGuestEmail('cliente@umaestrelinha.com.br', true)).not.toThrow()
+    expect(() => clearGuestEmail()).not.toThrow()
   })
 })

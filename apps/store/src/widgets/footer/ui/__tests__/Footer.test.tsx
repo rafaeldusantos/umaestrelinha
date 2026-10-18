@@ -90,7 +90,7 @@ describe('Footer — a faixa do Instagram (COP-07)', () => {
   it('leva ao perfil da Adri, e o arroba está escrito na tela', () => {
     renderFooter()
     const faixa = screen.getByTestId('instagram-strip')
-    expect(faixa).toHaveAttribute('href', 'https://instagram.com/umaestrelinha.adri')
+    expect(faixa).toHaveAttribute('href', 'https://www.instagram.com/umaestrelinha.adri')
     expect(faixa).toHaveTextContent('@umaestrelinha.adri')
   })
 
@@ -329,5 +329,29 @@ describe('Footer — "Preferências de cookies" (feature 61, AVS-06)', () => {
     renderFooter()
     const botao = screen.getByRole('button', { name: 'Preferências de cookies' })
     expect(botao.className).toContain('before:h-11')
+  })
+})
+
+// BUG-20261017-home-rola-na-horizontal-em-768: com as quatro colunas de link em fila já no `md`,
+// a linha do rodapé (marca + quatro colunas + 3 × 56px de vão) pedia 802px numa janela de 768, e a
+// loja INTEIRA rolava na horizontal — o rodapé está em toda página. A fila só cabe a partir de
+// `xl`; antes disso a grade 2×2 do celular continua. jsdom não mede largura: a medida é de
+// navegador (scrollWidth = largura da janela em 390, 768, 1024, 1279, 1280 e 1440, 2026-10-18), e
+// isto prende a forma que a produz.
+describe('Footer — as colunas de link não estouram a janela (BUG-20261017)', () => {
+  const tokens = (el: Element) => (el.getAttribute('class') ?? '').split(/\s+/)
+
+  it('a grade das colunas é 2×2 até `xl`, e só vira fila a partir dele', () => {
+    renderFooter()
+    const loja = screen.getByText('Loja', { selector: 'h3, h4, p, span, div' })
+    // A grade é o avô da coluna: título → coluna → grade.
+    const grade = loja.parentElement!.parentElement!
+    const t = tokens(grade)
+    expect(t).toEqual(expect.arrayContaining(['grid', 'grid-cols-2', 'xl:flex', 'xl:gap-14']))
+    // Token exato: `md:flex` ou `lg:flex` de volta é o estouro de volta.
+    expect(t).not.toContain('md:flex')
+    expect(t).not.toContain('lg:flex')
+    expect(t).not.toContain('md:gap-14')
+    expect(t).not.toContain('lg:gap-14')
   })
 })
