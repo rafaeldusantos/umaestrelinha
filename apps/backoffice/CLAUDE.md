@@ -19,7 +19,7 @@ Não pelo ciclo de vida do produto:
 | *(sem cabeçalho)* | Dashboard |
 | **Vendas** | Pedidos · Carrinhos abandonados · Clientes |
 | **Descontos** | Cupons · Promoções |
-| **Catálogo** | Produtos · Categorias · Perguntas frequentes |
+| **Catálogo** | Produtos · Categorias · Filtros da loja · Perguntas frequentes |
 | **Loja** | Home · Menu da loja · Google Shopping |
 | *(rodapé)* | Configurações · Usuários do painel · Minha conta |
 
@@ -852,6 +852,23 @@ conta — fazer isso seria o "defeito 01" nascendo dentro da tela que existe par
   "Gravação" —, e ela casa o **rótulo e a chave**: quem confere um valor gravado procura por
   `gota-afetiva`, não por "Gota afetiva". A cela "Sem ícone" **não é filtrada**: é a saída, não um
   resultado, e escondê-la tiraria o único jeito de limpar a escolha.
+
+## `/admin/filtros` — os filtros da loja (feature `66`, `AD-050`)
+
+- **Grupos e valores** em `/admin/filtros` (lista + editor; no celular, `/admin/filtros/:groupId` é o
+  editor em tela própria). A tela está em `FOCUS_ROUTES`. Toda recusa (nome, endereço, reservadas,
+  tetos de 12 e 60) vem de `@estrelinha/core/filters`; o `23505`/`23514` do banco vira a **mesma**
+  frase. A linha do grupo diz "N marcações" (soma por valor), não "produtos": a soma conta duas vezes
+  a peça com dois valores do mesmo grupo (`SPEC_DEVIATION` em `filter-editor/model/copy.ts`).
+- **Marcar em massa** em `/admin/filtros/:groupId/valores/:valueId`: busca com `dobrarTexto` sobre o
+  pool de `entities/product`, recortes por categoria, por tag e marcadas/não marcadas. **Uma** chamada
+  por lote (`upsert` com `ignoreDuplicates`; `delete … in`). "Selecionar todos" pega só os visíveis.
+- **No produto**, o card "Filtros da loja" (aba Geral) grava em `persistProduct` **depois** do
+  produto existir, por diff (molde de `product_faqs`); `filterValueIds` ausente não apaga nada.
+- **Na categoria**, "Filtros nesta categoria" mora no `CategoryInspector` (slot) e grava na hora:
+  desligar = linha em `category_hidden_filter_groups`.
+- Os três hooks (`useAdminFilterCatalog`, `useValueMarks`, `useCategoryHiddenGroups`) seguem
+  `fetchX(modo)` e têm **token de sequência**, provado por teste que resolve a leitura nova primeiro.
 
 ## Pedidos e a fila de material
 

@@ -137,7 +137,7 @@ Ao planejar/implementar features, use a Skill **`tlc-spec-driven`** com estas co
     FECHADA. A `62` (título e metadados por rota) também está FECHADA — é a primeira fatia da `36`,
     que continua só com `spec.md`. A `63` (retirada no escritório), a `64` (lista de categorias na
     Home) e a `65` (convite para o Instagram na Home) também estão FECHADAS, com commit. A `66`
-    (filtros de produto) está em andamento. A próxima é a `67`.**
+    (filtros de produto) está IMPLEMENTADA e verificada, aguardando o pedido de commit. A próxima é a `67`.**
   - **A `46` e a `47` correram EM PARALELO, em worktrees separados**, e é o segundo caso do projeto
     (o primeiro, a `45`, dividiu uma working tree só). O que mudou: a divisão foi por **árvore**, não
     por arquivo — a `47` nasceu de um `git worktree` sobre o HEAD local e trouxe a `46` por
@@ -476,7 +476,27 @@ quando mudarem de verdade.
 | --- | --- | --- |
 | **Lint** | **26 erros / 7 warnings** — backoffice 24/5 · store 2/2 | `pnpm lint` |
 | **Tipos** | **0 · 0 · 0** (store · backoffice · catalog-import) | `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` |
-| **Testes** | **12289 em 614 arquivos** — store **4795/278** · backoffice **3202/176** · core **2806/115** · functions **974/22** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
+| **Testes** | **12689 em 634 arquivos** — store **4946/284** · backoffice **3325/185** · core **2929/120** · functions **977/22** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
+
+**A feature `66` (filtros de produto) somou +373/+19 em TRÊS workspaces**, medidos em 2026-10-18 um
+por vez, exit code fora de pipe e `--testTimeout=20000` nos dois apps, **contra a entrada medida com a
+árvore parada** depois do commit da `65` (store 4795/278 · backoffice 3206/176 · core 2826/116 ·
+functions 977/22 · catalog-import 512/23 — a linha anterior desta tabela estava velha em core,
+functions e backoffice): **core +103/+4** (`core/filters`: regra, facetas, URL e a pureza do módulo),
+**store +151/+6** (o guarda da migration, `filtroSemTag`, os blocos do painel, a URL na categoria e a
+busca) e **backoffice +119/+9** (as telas de filtros, a marcação em massa, os blocos no produto e na
+categoria). Lint **26/7**, tipos **0 · 0**, `pnpm build` verde, `packages/core/src/payment/**` com
+**zero** arquivos alterados. Uma migration (`20261018120000_66-filtros-de-produto.sql`), sem escrita
+de dado. Decisão `AD-050`.
+
+> **A verificação independente reprovou três rodadas, sempre por cobertura e nunca por defeito de
+> produto**, e o fecho foi decisão do usuário (`validation.md`). 52 + 23 + 37 + 2 mutantes nos
+> arquivos reais. Os sobreviventes tinham as assinaturas de sempre: a fixture "cheia" movendo as
+> duas pontas do preço (mexer só no máximo nunca chegava à URL), o token de sequência declarado em
+> três hooks e provado em nenhum, e o limite de 8 do "Ver todos" testado só com 10.
+
+> ⚠️ **Ordem de publicação**: a vitrine e a árvore de categorias pedem as tabelas novas por embed.
+> A migration precisa ser aplicada **antes** do bundle — push da migration sozinho, depois o código.
 
 **A feature `65` (convite para o Instagram na Home) somou +63/+3 no store**, medido em 2026-10-18 com
 exit code fora de pipe e `--testTimeout=20000`: **4732/275 → 4795/278** (o convite, as cores da marca
@@ -2695,5 +2715,6 @@ código — mas todas explicam por que uma tela parece vazia:
 | **A lista de categorias** | `/admin/home`, bloco **Lista de categorias** | a `64` **não semeia nada** ⇒ o bloco nem existe na Home. Ele espera ser acrescentado pela bandeja, receber as categorias (até 24) — cada uma com a **arte circular em PNG de cantos transparentes**, a coleção de destino e, se quiser, um título curto —, e o interruptor. Nasce desligado, como todo bloco novo |
 | **Quem mais entra no painel** | `/admin/usuarios` | a `48` **não semeia conta nenhuma** ⇒ a lista mostra só a do `seed.sql`. Enquanto for uma linha, o painel segue com um ponto único de falha humano — e o próprio guarda do banco recusa remover o último acesso |
 | **Os 11 avisos novos de e-mail** | `/admin/configuracoes` → aba **Notificações** | a `53` tornou os 15 eventos legíveis, editáveis e com prévia — mas **não ligou nenhum**: os 11 novos nascem desligados por decisão da `42` (`PNL-06`), e a Adri precisa ler o texto de cada um antes da primeira cliente recebê-lo. Duas pendências ficam de fora desta tela e são operação, não curadoria: o **endereço do ateliê** (aba Material — sem ele, `material_instructions` é recusado ao tentar ligar) e o **`ADMIN_PUBLIC_URL` de produção** (secret de servidor — sem ele, os dois avisos "para você" mostram o aviso de link fora de produção) |
+| **Os filtros da loja** | `/admin/filtros`, a aba Geral do produto e o inspetor de categoria | a `66` **não semeia nada** ⇒ a categoria e a busca mostram só preço, estoque, desconto e novidade. A Adri precisa criar os grupos (ex.: Tipo de joia, Acabamento, Para quem), os valores, e marcar as peças — a marcação em massa tem o recorte "Com a tag…" para aproveitar as tags que já existem |
 | **O endereço do escritório (retirada)** | `/admin/configuracoes` → **Frete e Material**, card Material | medido em 2026-10-11: o banco de **produção não tem a linha `material`** em `store_settings`. A retirada (feature `63`) nasce **ligada**, mas só aparece com rua, bairro e cidade preenchidos — até lá nenhuma cliente do RS a vê, e o painel avisa (`RET-21`). Preencher também a **UF**: sem ela a linha sai `…, Porto Alegre` sem o `/RS` |
 | **As parcelas sem juros** | painel do **Mercado Pago** → "Oferecer parcelamento sem juros", e `/admin/configuracoes` → Vendas → *Parcelas sem juros*, **com o mesmo número** | medido em 2026-10-04: a conta do Mercado Pago **não tem nenhuma** parcela sem juros (2x já a 9,64%), e a loja anuncia "até 4x sem juros" na vitrine e no produto. Desde 2026-10-04 o caixa mostra a tabela real do Mercado Pago (`InstallmentPicker`, até 10x) — então, até a conta ser configurada, **o caixa mostra juros desde 2x enquanto a vitrine promete sem juros**. Nada no código sincroniza os dois números (`apps/store/CLAUDE.md`, *As parcelas do cartão*) |

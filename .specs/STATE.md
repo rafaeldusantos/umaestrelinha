@@ -1216,9 +1216,47 @@
 - **Date**: 2026-10-11
 - **Status**: active
 
+### AD-050
+- **Decision**: **Os filtros da loja são CURADOS, em tabela própria, e a regra de quem passa tem um
+  dono só, `packages/core/src/filters/`.** Quatro tabelas (`filter_groups`, `filter_values`,
+  `product_filter_values`, `category_hidden_filter_groups`); grupos **globais** com esconder por
+  categoria como **presença** de linha; **OU** dentro do grupo, **E** entre grupos e com os filtros
+  de sistema; contagem disjuntiva; estado na URL (`?<grupo>=<valor>,<valor>`, mais `preco`,
+  `estoque`, `desconto`, `novidades`, `ordem`) com as chaves de sistema reservadas no `check` do
+  banco **e** em `RESERVED_FILTER_KEYS`. A tag (`products.tags`) volta a ser só etiqueta interna —
+  continua alimentando a **busca**, nunca um filtro.
+- **Reason**: feature `66`. O filtro por tag ("Universo") saiu em `878ef19` porque a tag tinha dois
+  papéis: medido no banco local, as mais usadas misturam atributo (`Prata925`), fornecedor
+  (`Ali - Lancelot`), marcação de trabalho (`seo`, `Corrigir`, `dados2`) e grafias duplicadas. As
+  variações também não servem de fonte (`Tipo de elo` com cinco grafias de chave). Decisões do
+  usuário em 2026-10-18: origem curada no painel, grupos globais + esconder por categoria, marcação
+  no produto **e** em massa, superfícies categoria + busca + URL.
+- **Trade-off**: a curadoria inicial de 702 produtos é trabalho da dona (a marcação em massa com o
+  recorte "Com a tag…" existe para isso). Tetos de 12 grupos e 60 valores vivem em `core` e no
+  painel, **não** em trigger. A vitrine e a árvore de categorias passam a pedir as tabelas novas por
+  embed: **a migration tem de ser aplicada antes do bundle** — em produção isso pede o push da
+  migration separado do push do código.
+
 ## Handoff
 
-### ATUAL — 2026-10-12 · `64-lista-de-categorias-na-home` **IMPLEMENTADA — 17 de 17 tasks, SEM VERIFIER E SEM COMMIT**
+### ATUAL — 2026-10-18 · `66-filtros-de-produto` **IMPLEMENTADA — 19 de 19 tasks, verificada (3 rodadas + fecho), SEM COMMIT**
+
+- **Feature**: `.specs/features/66-filtros-de-produto/` (`spec.md`, `design.md`, `tasks.md`,
+  `prova-navegador.md`, `validation.md`). Decisão `AD-050`. Desenho do painel no Paper, página
+  "66 · Filtros de produto — painel". Migration `20261018120000_66-filtros-de-produto.sql`
+  (aplicada no banco **local** com `migration up`).
+- **A `65` foi commitada e enviada** (`7779c69`) antes de a `66` começar.
+- **NÃO COMMITADA**: aguarda o pedido do usuário. **Ordem de publicação obrigatória**: primeiro um
+  push com **só a migration** (o `Supabase Deploy` aplica), depois o push do código — o embed novo
+  de `products`/`categories` falha sem as tabelas e a vitrine ficaria vazia na janela.
+- **Banco local tem dados de PROVA**: 3 grupos (Tipo de joia, Acabamento, Para quem), 13 valores e
+  ~970 marcações criadas por SQL para a prova em navegador. Não vão para produção (a migration não
+  escreve dado); apagar com `delete from filter_groups` se atrapalhar.
+- **Próximo passo de operação (dona)**: montar os grupos em `/admin/filtros` e curar o catálogo.
+- **Dívidas achadas, fora da `66`**: a tabela de `/admin/categorias` encavala as colunas em 390 e o
+  rodapé do inspetor encosta na borda (ver `prova-navegador.md`).
+
+### 2026-10-12 · `64-lista-de-categorias-na-home` **IMPLEMENTADA — 17 de 17 tasks, SEM VERIFIER E SEM COMMIT**
 
 - **Feature**: `.specs/features/64-lista-de-categorias-na-home/` (`spec.md`, `design.md` r2,
   `tasks.md`, `validation.md` com a seção do autor, `reviews/`). Tipo `category_grid` que já existia,

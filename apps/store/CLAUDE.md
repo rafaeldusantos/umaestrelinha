@@ -357,11 +357,28 @@ coleção toda. Quem pagina é a **janela** (`shared/lib/useInfiniteWindow`), n�
   cabeçalho também não afirma "0 produtos" enquanto carrega.
 - **`isLoading`, nunca `isPending`.** Com o interruptor de `URL-04` desligado a consulta fica pendente
   para sempre, e o esqueleto pulsaria embaixo da 404 até a cliente sair da página.
-- **As tags NÃO aparecem na tela** (2026-10-11, decisão do usuário): a seção "Universo" da sidebar /
-  folha de filtros e a fita de chips acima da grade foram removidas. **A lógica ficou** —
-  `filters.tags`, `toggleTag`, `collectTags` e o filtro por tag em `filterProducts` seguem em
-  `features/category-filters/model`, sem consumidor de tela. Com isso também sumiu o salto de ~48px
-  que a fita causava ao aparecer depois da carga.
+- **As tags NÃO são filtro** (2026-10-11, e de vez na feature `66`): `toggleTag`, `collectTags` e
+  `filters.tags` foram **apagados**, e `filtroSemTag.test.ts` recusa a volta. A tag continua
+  alimentando a **busca** (`searchProducts`). Quem filtra são os **grupos curados** — ver abaixo.
+
+### Os filtros curados (feature `66`, `AD-050`)
+
+- **A regra é de `@estrelinha/core/filters`**, e a página só a chama: `filterProducts` aplica os
+  filtros de sistema e delega a seleção a `passesSelection`; `filterBlocks` usa `visibleGroups` +
+  `facetCounts`. OU dentro do grupo, E entre grupos; contagem disjuntiva; valor zerado e não marcado
+  aparece desabilitado com `(0)`, e valor sem peça na base não aparece.
+- **O catálogo é `useFilterCatalog`** (`entities/filter`, chave `['filter-catalog']`); falha vira
+  catálogo vazio na tela, e o React Query tenta de novo. Cada produto chega com `filter_value_ids`
+  pelo embed `product_filter_values(value_id)` dos dois `select`; os grupos escondidos chegam pela
+  árvore de `useCategories` (`hidden_filter_group_ids`), e `catalogWithout` os tira do catálogo
+  **antes** de ler a URL — um grupo escondido que chegue por link é ignorado por inteiro.
+- **O estado é DERIVADO da URL a cada render** (`useFilterUrlState`), e toda mudança reescreve com
+  `replace`. Busca: termo novo zera os filtros (mantém ordem e `utm_*`); "Limpar" preserva a ordem.
+- **No sheet, grupo com mais de 8 valores mostra 8 e "Ver todos (N)"**; valor marcado além do 8º
+  abre o bloco. O chip do sheet tem `h-11` próprio, não `TAP_44` (o pseudo invadiria o vizinho).
+- Medido em navegador (`.specs/features/66-filtros-de-produto/prova-navegador.md`): 390 e 1440 sem
+  rolagem horizontal, chips de 44px no sheet sem quebra de linha, F5 e link em aba nova mantendo o
+  resultado.
 - **O esqueleto e o card têm guarda de paridade desde a feature `40`** (`cardSkeletonBox.test.ts`).
   Ele não mede altura — continua sendo impossível em jsdom —, mas lê os **dois arquivos do disco** e
   compara as quatro classes que produzem os 431px. O par do nome é assimétrico de propósito:
