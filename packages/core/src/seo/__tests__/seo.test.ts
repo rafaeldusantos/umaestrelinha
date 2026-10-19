@@ -13,6 +13,7 @@ import {
   searchPageMeta,
   staticPageMeta,
 } from '../pages.ts'
+import { OPTION_TITLE_BRAND_MAX, productHead } from '../variant.ts'
 
 describe('brandedTitle — o sufixo da marca só quando ela ainda não está (A2)', () => {
   it('título sem marca ganha " | Uma Estrelinha"', () => {
@@ -249,5 +250,123 @@ describe('faqQuestionPageMeta — o endereço próprio de uma pergunta', () => {
     expect(faqQuestionPageMeta({ question: 'P?', answerText: '' }).description).toBe(
       staticPageMeta('/perguntas-frequentes').description,
     )
+  })
+})
+
+describe('productHead — SVR-08..11 (o <head> da página de opção)', () => {
+  const COR = 'Prata 925'
+  const v = (id: number, cor: string, position: number) => ({
+    id: `00000000-0000-4000-8000-00000000000${id}`,
+    nuvemshop_id: 1000 + id,
+    price: 99,
+    is_active: true,
+    position,
+    option_values: { Cor: cor },
+  })
+  const variants = [v(1, COR, 0), v(2, 'Prata 925 Folheado a Ouro', 1), v(3, COR, 2)]
+  const peca = (name: string, extra: Record<string, unknown> = {}) => ({
+    id: 'p-1',
+    is_active: true,
+    slug: 'pingente-pata',
+    name,
+    description: '<p>Pingente feito à mão em resina.</p>',
+    options: [{ name: 'Cor', values: [COR, 'Prata 925 Folheado a Ouro'], position: 0 }],
+    option_marks: [{ option_name: 'Cor', option_value: COR, value_id: 'prata' }],
+    ...extra,
+  })
+  const opcao = (name: string, extra: Record<string, unknown> = {}, texto = COR) => {
+    const vs = texto === COR ? variants : variants.map(x => (x.option_values.Cor === COR ? { ...x, option_values: { Cor: texto } } : x))
+    const p = peca(name, { options: [{ name: 'Cor', values: [texto, 'Prata 925 Folheado a Ouro'] }], option_marks: [{ option_name: 'Cor', option_value: texto, value_id: 'x' }], ...extra })
+    return productHead({ product: p, variants: vs }, '1001')
+  }
+  // `nome — Prata 925` tem 12 caracteres a mais que o nome; com a marca, mais 17.
+  const nomeDe = (total: number) => 'N'.repeat(total - ` — ${COR} | ${STORE_BRAND}`.length)
+
+  it('SVR-08: título "{nome} — {texto}" com a marca quando o resultado tem até 60 (exatamente 60)', () => {
+    const titulo = opcao(nomeDe(60)).meta.title
+    expect([...titulo].length).toBe(OPTION_TITLE_BRAND_MAX)
+    expect(OPTION_TITLE_BRAND_MAX).toBe(60)
+    expect(titulo).toBe(`${nomeDe(60)} — ${COR} | ${STORE_BRAND}`)
+  })
+
+  it('SVR-08: com 61 caracteres com a marca, sai SEM a marca — e nunca cortado', () => {
+    const nome = nomeDe(61)
+    expect(opcao(nome).meta.title).toBe(`${nome} — ${COR}`)
+  })
+
+  it('SVR-08: título longo nunca é cortado', () => {
+    const nome = 'Pingente Afetivo Pata com Cinzas de Cremação e Leite Materno em Resina'
+    expect(opcao(nome).meta.title).toBe(`${nome} — ${COR}`)
+  })
+
+  it('SVR-08: a contagem é em code points, não em unidades UTF-16', () => {
+    // 60 code points com a marca, mas 61 unidades UTF-16: o caractere astral conta UM
+    const nome = `${nomeDe(60).slice(1)}𝒜`
+    expect(opcao(nome).meta.title).toBe(`${nome} — ${COR} | ${STORE_BRAND}`)
+  })
+
+  it('SVR-08: espaços colapsados no nome e no texto', () => {
+    expect(opcao('  Anel   Afetivo  ', {}, ' Prata   925 ').meta.title).toBe(`Anel Afetivo — Prata 925 | ${STORE_BRAND}`)
+  })
+
+  it('SVR-08: o NOME, e não o seo_title, compõe o título de opção', () => {
+    expect(opcao('Anel', { seo_title: 'Anel de leite | UE' }).meta.title).toBe(`Anel — ${COR} | ${STORE_BRAND}`)
+  })
+
+  it('SVR-08: marca nunca em dobro — nome que já a traz (forma longa ou "| UE") não ganha outra', () => {
+    // Medido em 2026-10-19 no banco local: zero de 702 nomes trazem a marca. O caso trava o pressuposto.
+    expect(opcao('Anel Uma Estrelinha').meta.title).toBe(`Anel Uma Estrelinha — ${COR}`)
+    expect(opcao('Anel | UE').meta.title).toBe(`Anel | UE — ${COR}`)
+    for (const t of [opcao('Anel Uma Estrelinha').meta.title, opcao('Anel | UE').meta.title]) {
+      expect(t.match(/uma estrelinha|\|\s*UE\b/gi)).toHaveLength(1)
+    }
+  })
+
+  it('SVR-09: descrição = summarize("{texto}. {descrição da peça}"), começa pelo texto, ≤ 160', () => {
+    const d = opcao('Anel').meta.description
+    expect(d).toBe(`${COR}. Pingente feito à mão em resina.`)
+    const longa = opcao('Anel', { description: `<p>${'palavra '.repeat(60)}</p>` }).meta.description
+    expect(longa.startsWith(`${COR}. `)).toBe(true)
+    expect(longa.length).toBeLessThanOrEqual(DESCRIPTION_MAX)
+    expect(longa.endsWith('…')).toBe(true)
+  })
+
+  it('SVR-09: a descrição da peça é a de productPageMeta — curada passa a valer, e corta em 160', () => {
+    const curada = 'Descrição curada pela dona. '.repeat(10).trim()
+    const d = opcao('Anel', { seo_description: curada }).meta.description
+    expect(d).toBe(summarize(`${COR}. ${curada}`))
+    expect(d.length).toBeLessThanOrEqual(DESCRIPTION_MAX)
+  })
+
+  it('SVR-09: nunca vazia — sem descrição nenhuma cai na da loja, e no piso', () => {
+    expect(opcao('Anel', { description: '' }).meta.description).toBe(`${COR}. ${STORE_DESCRIPTION_FLOOR}`.length > 160
+      ? summarize(`${COR}. ${STORE_DESCRIPTION_FLOOR}`)
+      : `${COR}. ${STORE_DESCRIPTION_FLOOR}`)
+    const comLoja = productHead(
+      { product: peca('Anel', { description: '' }), variants },
+      '1001',
+      'Descrição da loja',
+    )
+    expect(comLoja.meta.description).toBe(`${COR}. Descrição da loja`)
+    expect(comLoja.meta.description).not.toBe('')
+  })
+
+  it('SVR-11: opção ⇒ canônica com o ?variant= da REPRESENTANTE, mesmo abrindo em outra do mesmo texto', () => {
+    const h = productHead({ product: peca('Anel'), variants }, '1003')
+    expect(h.page.kind).toBe('option')
+    expect(h.canonicalPath).toBe('/produtos/pingente-pata?variant=1001')
+    expect(h.meta.indexable).toBe(true)
+  })
+
+  it.each([
+    ['sem ?variant=', null],
+    ['?variant= de texto sem marcação', '1002'],
+    ['?variant= inválido', 'xyz'],
+  ])('SVR-10/11: %s ⇒ productPageMeta idêntico e canônica sem query', (_n, param) => {
+    const p = peca('Anel')
+    const h = productHead({ product: p, variants }, param, 'Descrição da loja')
+    expect(h.meta).toEqual(productPageMeta(p, 'Descrição da loja'))
+    expect(h.canonicalPath).toBe('/produtos/pingente-pata')
+    expect(h.page.kind).toBe('product')
   })
 })

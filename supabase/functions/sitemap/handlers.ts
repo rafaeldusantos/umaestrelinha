@@ -12,7 +12,8 @@
 //
 // Por isso todo caminho degradado responde **5xx sem corpo de sitemap**:
 //
-//   • leitura truncada (o teto de 1.000 do PostgREST)  ⇒ 503
+//   • leitura truncada (o teto de 1.000 do PostgREST)  ⇒ 503  (produtos, categorias e, desde a
+//     feature 68, variações e marcações por opção)
 //   • zero produtos                                     ⇒ 503  (credencial/RLS, não fato)
 //   • origem ausente ou malformada                      ⇒ 503  (719 <loc> erradas de uma vez)
 //
@@ -26,7 +27,9 @@ import {
   sitemapUrls,
   type SitemapCategory,
   type SitemapFaqQuestion,
+  type SitemapOptionMark,
   type SitemapProduct,
+  type SitemapVariant,
 } from '../../../packages/core/src/sitemap/index.ts'
 import { resolveFaqPage } from '../../../packages/core/src/faq/page.ts'
 import type { FaqPageLink } from '../../../packages/core/src/faq/types.ts'
@@ -53,6 +56,17 @@ export interface SitemapDeps {
    * mostra.
    */
   readFaqLinks: () => Promise<FaqPageLink[]>
+  /**
+   * Feature 68 · SVR-26 — as variações e as marcações por opção, com a mesma régua de produtos:
+   * contagem EXATA e páginas em ordem estável. São 3.380 variações, acima do teto de 1.000 do
+   * PostgREST; uma leitura truncada deixaria opções indexáveis de fora em silêncio, ou pior, faria
+   * uma opção perder a representante e anunciar outra. A RLS (chave publicável) já restringe as
+   * duas à peça ativa e, nas marcações, ao grupo ativo.
+   */
+  countVariants: () => Promise<number>
+  readVariants: (from: number, to: number) => Promise<SitemapVariant[]>
+  countOptionMarks: () => Promise<number>
+  readOptionMarks: (from: number, to: number) => Promise<SitemapOptionMark[]>
 }
 
 const texto = (corpo: string, status: number): Response =>
@@ -73,10 +87,14 @@ export const readCatalog = async (
   products: SitemapProduct[]
   categories: SitemapCategory[]
   faqQuestions: SitemapFaqQuestion[]
+  variants: SitemapVariant[]
+  optionMarks: SitemapOptionMark[]
 }> => {
-  const [totalProdutos, totalCategorias] = await Promise.all([
+  const [totalProdutos, totalCategorias, totalVariacoes, totalMarcacoes] = await Promise.all([
     deps.countProducts(),
     deps.countCategories(),
+    deps.countVariants(),
+    deps.countOptionMarks(),
   ])
 
   const products = await readAllPages<SitemapProduct>({
@@ -95,6 +113,24 @@ export const readCatalog = async (
     consequence: 'sitemap parcial descreve um catálogo menor do que o que existe',
   })
 
+  // Feature 68: as duas leituras das páginas de opção. Incompleta ⇒ lança ⇒ 503, como as outras —
+  // um sitemap sem as opções apagaria as páginas delas num dia e as devolveria no seguinte.
+  const variants = await readAllPages<SitemapVariant>({
+    total: totalVariacoes,
+    readPage: deps.readVariants,
+    pageSize: POSTGREST_PAGE_SIZE,
+    label: 'variações',
+    consequence: 'sitemap sem as páginas de opção, ou com a representante errada',
+  })
+
+  const optionMarks = await readAllPages<SitemapOptionMark>({
+    total: totalMarcacoes,
+    readPage: deps.readOptionMarks,
+    pageSize: POSTGREST_PAGE_SIZE,
+    label: 'marcações por opção',
+    consequence: 'sitemap sem as páginas de opção',
+  })
+
   // Sem paginação: `faq_page_items` tem uma linha por pergunta (o `faq_id` é a chave), dezenas e
   // não milhares. Falhar aqui falha o sitemap inteiro, pela mesma régua do resto: um documento sem
   // as perguntas descreveria uma loja com menos páginas do que a que existe.
@@ -102,7 +138,7 @@ export const readCatalog = async (
     grupo.items.map(item => ({ id: item.id, question: item.question })),
   )
 
-  return { products, categories, faqQuestions }
+  return { products, categories, faqQuestions, variants, optionMarks }
 }
 
 export const handleSitemap = async (deps: SitemapDeps): Promise<Response> => {
@@ -136,6 +172,8 @@ export const handleSitemap = async (deps: SitemapDeps): Promise<Response> => {
         products: catalogo.products,
         categories: catalogo.categories,
         faqQuestions: catalogo.faqQuestions,
+        variants: catalogo.variants,
+        optionMarks: catalogo.optionMarks,
       }),
     )
   } catch (e) {
@@ -150,6 +188,8 @@ export const handleSitemap = async (deps: SitemapDeps): Promise<Response> => {
     produtos: catalogo.products.length,
     categorias: catalogo.categories.length,
     perguntas: catalogo.faqQuestions.length,
+    variacoes: catalogo.variants.length,
+    marcacoes: catalogo.optionMarks.length,
   })
 
   return new Response(xml, {

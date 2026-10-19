@@ -52,12 +52,30 @@ const disco: Leitor = c => readFileSync(c, 'utf8')
 describe('core/seo é alcançável por Deno', () => {
   const grafo = caminhar(ENTRADA, disco)
 
-  it('âncora: o grafo alcança seo, faq/block e routes (≥ 7 arquivos)', () => {
+  it('âncora: o grafo alcança seo, faq/block e routes', () => {
     const nomes = grafo.visitados.map(c => c.replace(/\\/g, '/'))
     expect(nomes.some(n => n.endsWith('seo/pages.ts'))).toBe(true)
     expect(nomes.some(n => n.endsWith('faq/block.ts'))).toBe(true)
     expect(nomes.some(n => n.endsWith('routes/routes.ts'))).toBe(true)
-    expect(grafo.visitados.length).toBeGreaterThanOrEqual(7)
+  })
+
+  // Feature 68: `seo/variant.ts` puxou `shopping` e `filters/types.ts` para o grafo que a
+  // `product-page` resolve. Âncora = o número MEDIDO (15 em 2026-10-19), não um piso: um arquivo a
+  // mais ou a menos no grafo do Deno é uma mudança que alguém precisa olhar.
+  it('âncora: o grafo alcança seo/variant.ts, os arquivos de shopping e filters/types.ts (15 arquivos)', () => {
+    const nomes = grafo.visitados.map(c => c.replace(/\\/g, '/'))
+    for (const fim of [
+      'seo/variant.ts',
+      'shopping/identity.ts',
+      'shopping/eligibility.ts',
+      'shopping/offer.ts',
+      'shopping/pricing.ts',
+      'shopping/types.ts',
+      'filters/types.ts',
+    ]) {
+      expect(nomes.some(n => n.endsWith(fim)), fim).toBe(true)
+    }
+    expect(grafo.visitados.length).toBe(15)
   })
 
   it('todo especificador relativo do grafo tem `.ts` explícito', () => {

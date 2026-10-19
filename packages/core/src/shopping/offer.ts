@@ -9,7 +9,12 @@ import { htmlToText, stripFaqBlock } from '../faq/block.ts'
 import { feedExclusion } from './eligibility.ts'
 import { publicProductId, publicVariantId } from './identity.ts'
 import { offerAvailability, offerPricing } from './pricing.ts'
-import type { OfferInputProduct, OfferInputVariant, ShoppingOffer } from './types.ts'
+import type {
+  OfferInputProduct,
+  OfferInputVariant,
+  OfferVariantIdentity,
+  ShoppingOffer,
+} from './types.ts'
 
 /** O que o Google aceita de imagem extra por oferta. Acima disso ele ignora o excedente. */
 export const MAX_ADDITIONAL_IMAGES = 10
@@ -72,7 +77,19 @@ export const offerLink = (
   product: OfferInputProduct,
   variant: OfferInputVariant,
   origin: string,
-): string => `${trimOrigin(origin)}${productPath(product.slug)}?variant=${publicVariantId(variant)}`
+): string => `${trimOrigin(origin)}${variantPath(product, variant)}`
+
+/**
+ * Feature 68 · SVR-05, SVR-40 — o caminho de uma variação: `productPath` mais `?variant=` com o id
+ * público. **O construtor único de `?variant=`**: o `<g:link>` do feed (acima), a canônica da página
+ * de opção (`core/seo/variant.ts`) e o link do card da vitrine saem daqui. Sem origem, porque a loja
+ * e o sitemap absolutizam cada um com a sua.
+ *
+ * Sem `encodeURIComponent`: os dois formatos de id público (dígitos do `nuvemshop_id` e UUID) só têm
+ * caractere que a query aceita cru, e codificar daria a mesma string.
+ */
+export const variantPath = (product: { slug: string }, variant: OfferVariantIdentity): string =>
+  `${productPath(product.slug)}?variant=${publicVariantId(variant)}`
 
 /**
  * A descrição que vai para o Google: **a mesma que a loja mostra**, reduzida a texto.
@@ -141,10 +158,10 @@ export const representativeVariant = (
  *
  * Não há ambiguidade possível: UUID tem hífen, `nuvemshop_id` é só dígito.
  */
-export const variantByPublicId = (
-  variants: readonly OfferInputVariant[],
+export const variantByPublicId = <V extends OfferVariantIdentity>(
+  variants: readonly V[],
   id: string | null | undefined,
-): OfferInputVariant | null => {
+): V | null => {
   const alvo = String(id ?? '').trim()
   if (alvo === '') return null
   return variants.find(v => publicVariantId(v) === alvo || v.id === alvo) ?? null

@@ -9,7 +9,8 @@ import {
 } from '../../../../packages/core/src/media/rendition.ts'
 import { escapeXml } from '../../../../packages/core/src/xml/escape.ts'
 import { productPageMeta } from '../../../../packages/core/src/seo/pages.ts'
-import { productJsonLd } from '../../../../packages/core/src/shopping/index.ts'
+import { productHead, publicOptionMarks } from '../../../../packages/core/src/seo/variant.ts'
+import { productJsonLd, withPageUrl } from '../../../../packages/core/src/shopping/index.ts'
 import { renderFeedXml, resolveOffer } from '../../../../packages/core/src/shopping/index.ts'
 import {
   SHELL_TTL_MS,
@@ -105,20 +106,22 @@ describe('handleProductPage — o bloco é injetado', () => {
     const corpo = await (
       await handleProductPage(deps(), url('?slug=pulseira-7-nos-ajustavel-protecao-kabbalah'))
     ).text()
-    // A function mexe em exatamente TRÊS coisas: o `preload` da foto principal (`PRF-06`), o
-    // JSON-LD e — desde a feature 62 — o `<head>` do produto (o `<title>` trocado no lugar e as
-    // `<meta>` de descrição e card). Retirar as três tem de devolver o shell byte a byte, com o
-    // `<title>` original — é o que prova que nada mais no documento foi tocado. A asserção não
-    // afrouxou: ganhou a terceira modificação a descontar.
+    // A function mexe em exatamente QUATRO coisas: o `preload` da foto principal (`PRF-06`), o
+    // JSON-LD, o `<head>` do produto (feature 62: o `<title>` trocado no lugar e as `<meta>` de
+    // descrição e card) e — desde a feature 68 — a `<link rel="canonical">` (SVR-18). Retirar as
+    // quatro tem de devolver o shell byte a byte, com o `<title>` original — é o que prova que nada
+    // mais no documento foi tocado. A asserção não afrouxou: ganhou a quarta modificação a descontar,
+    // e a vizinha abaixo ganhou a contagem dela.
     const semInjecao = corpo
       .replace(/<link rel="preload"[^>]*>/, '')
+      .replace(/<link rel="canonical"[^>]*>/, '')
       .replace(/<script type="application\/ld\+json">[\s\S]*?<\/script>/, '')
       .replace(/<meta [^>]*>/g, '')
       .replace(/<title>[^<]*<\/title>/, '<title>Uma Estrelinha</title>')
     expect(semInjecao).toBe(SHELL)
   })
 
-  it('são TRÊS modificações, e só três — a vizinha da asserção acima', async () => {
+  it('são QUATRO modificações, e só quatro — a vizinha da asserção acima', async () => {
     const corpo = await (
       await handleProductPage(deps(), url('?slug=pulseira-7-nos-ajustavel-protecao-kabbalah'))
     ).text()
@@ -126,6 +129,7 @@ describe('handleProductPage — o bloco é injetado', () => {
     expect(corpo.match(/<link rel="preload"/g)).toHaveLength(1)
     expect(corpo.match(/<script type="application\/ld\+json">/g)).toHaveLength(1)
     expect(corpo.match(/<title>/g)).toHaveLength(1)
+    expect(corpo.match(/<link rel="canonical"/g)).toHaveLength(1)
     // as nove do bloco do head: description, og:type/title/description/url,
     // twitter:title/description, og:image e twitter:image
     expect(corpo.match(/<meta /g)).toHaveLength(9)
@@ -491,7 +495,8 @@ describe('handleProductPage — o preload da foto principal (PRF-06)', () => {
   it('produto SEM foto responde o que respondia antes desta feature — byte a byte', async () => {
     // A prova de que a injeção do preload é ADITIVA: sem foto, a resposta é exatamente o shell com
     // o `<head>` do produto (feature 62) mais o JSON-LD — nenhum `preload` no meio. A régua continua
-    // byte a byte; ganhou a peça da 62, que sem foto não leva `og:image`.
+    // byte a byte; ganhou a peça da 62, que sem foto não leva `og:image`, e a da 68: a canônica no
+    // `<head>` (que `productHeadTags` emite) e a `url` do `Product` (SVR-22, por `withPageUrl`).
     const d = semFoto()
     const corpo = await corpoDe(d)
 
@@ -503,7 +508,12 @@ describe('handleProductPage — o preload da foto principal (PRF-06)', () => {
       url: `${ORIGEM}/produtos/${d.product.slug}`,
       image: null,
     })
-    expect(corpo).toBe(injectIntoHead(head, jsonLdScript(productJsonLd(oferta))))
+    expect(corpo).toBe(
+      injectIntoHead(
+        head,
+        jsonLdScript(withPageUrl(productJsonLd(oferta), { url: `${ORIGEM}/produtos/${d.product.slug}` })),
+      ),
+    )
   })
 
   it('o preload vem antes do JSON-LD, e os dois dentro do `<head>`', async () => {
@@ -607,5 +617,258 @@ describe('fumaça de Deno — o grafo de imports desta function resolve fora do 
     expect(specs).toEqual(['./sem-extensao', '@estrelinha/supabase/types', './outro.ts'])
     expect(specs.filter((s) => s.startsWith('.') && !s.endsWith('.ts'))).toEqual(['./sem-extensao'])
     expect(specs.filter((s) => s.startsWith('@estrelinha/'))).toHaveLength(1)
+  })
+})
+
+/**
+ * Feature 68 — SVR-17..22, SVR-30, SVR-33: o HTML servido de uma URL de OPÇÃO diz o mesmo que a
+ * página escreve depois, pela MESMA função (`productHead`), e toda peça ganha UMA canônica servida.
+ */
+describe('feature 68 — a página de opção servida', () => {
+  const PRATA = 'Prata 925'
+  const OURO = 'Prata 925 Folheado a Ouro'
+  const ROSE = 'Prata 925 Folheado a Ouro Rose'
+  const SLUG = 'pingente-afetivo-pata'
+  const variacao = (n: number, cor: string, position: number) => ({
+    id: `00000000-0000-4000-8000-00000000000${n}`,
+    nuvemshop_id: 1349521830 + n,
+    price: 100 + n,
+    compare_price: null,
+    stock: 3,
+    image_url: null,
+    is_active: true,
+    position,
+    option_values: { Cor: cor },
+  })
+  const pata = (over: Partial<ProductPageData['product']> = {}, cores = [PRATA, OURO, ROSE]): ProductPageData => ({
+    product: {
+      id: 'p-pata',
+      nuvemshop_id: 300100200,
+      name: 'Pingente Afetivo Pata',
+      slug: SLUG,
+      description: '<p>Feito à mão em resina.</p>',
+      images: [{ url: 'https://cdn/pata.jpg' }],
+      is_active: true,
+      stock_policy: 'track',
+      options: [{ name: 'Cor', values: cores }],
+      ...over,
+    },
+    variants: [variacao(1, cores[0], 0), variacao(2, cores[1], 1), variacao(3, cores[2], 2), variacao(4, cores[2], 3)],
+  })
+  const linha = (option_value: string, is_active = true, option_name = 'Cor') => ({
+    option_name,
+    option_value,
+    value_id: `v-${option_value}`,
+    filter_values: { filter_groups: { is_active } },
+  })
+  const MARCAS = [linha(PRATA), linha(ROSE), linha(OURO, false)]
+  const servir = async (qs: string, over: Partial<ProductPageDeps> = {}, d = pata()) => {
+    const res = await handleProductPage(
+      deps({ readOptionMarks: async () => MARCAS, ...over }, d),
+      url(`?slug=${SLUG}${qs}`),
+    )
+    return { res, corpo: await res.text() }
+  }
+  const canonicas = (corpo: string) => [...corpo.matchAll(/<link rel="canonical" href="([^"]*)">/g)].map(m => m[1])
+  const metaDe = (corpo: string, chave: string) =>
+    [...corpo.matchAll(/<meta (?:name|property)="([^"]+)" content="([^"]*)"/g)].filter(m => m[1] === chave).map(m => m[2])
+  const tituloDe = (corpo: string) => [...corpo.matchAll(/<title>([^<]*)<\/title>/g)].map(m => m[1])
+  const daRegra = (d: ProductPageData, param: string | null, marcas = MARCAS) =>
+    productHead({ product: { ...d.product, option_marks: publicOptionMarks(marcas) }, variants: d.variants }, param)
+  const ROSE_REP = '1349521833'
+  const ROSE_OUTRA = '1349521834'
+
+  it('SVR-18: a peça sem ?variant= ganha UMA canônica absoluta, igual ao og:url', async () => {
+    const { corpo } = await servir('')
+    expect(canonicas(corpo)).toEqual([`${ORIGEM}/produtos/${SLUG}`])
+    expect(metaDe(corpo, 'og:url')).toEqual(canonicas(corpo))
+  })
+
+  it('SVR-17/18: ?variant= de opção ⇒ <title>, description, og e twitter de productHead, e a canônica da opção', async () => {
+    const { res, corpo } = await servir(`&variant=${ROSE_REP}`)
+    const regra = daRegra(pata(), ROSE_REP)
+    expect(res.status).toBe(200)
+    expect(regra.page.kind).toBe('option')
+    // com a marca passaria de 60 caracteres: sai sem ela (SVR-08)
+    expect(regra.meta.title).toBe(`Pingente Afetivo Pata — ${ROSE}`)
+    expect(tituloDe(corpo)).toEqual([regra.meta.title])
+    for (const chave of ['og:title', 'twitter:title']) expect(metaDe(corpo, chave)).toEqual([regra.meta.title])
+    for (const chave of ['description', 'og:description', 'twitter:description']) {
+      expect(metaDe(corpo, chave)).toEqual([regra.meta.description])
+    }
+    expect(regra.meta.description.startsWith(`${ROSE}. `)).toBe(true)
+    expect(canonicas(corpo)).toEqual([`${ORIGEM}/produtos/${SLUG}?variant=${ROSE_REP}`])
+    expect(metaDe(corpo, 'og:url')).toEqual(canonicas(corpo))
+  })
+
+  it('SVR-17: a canônica de opção é byte a byte o <g:link> da representante', async () => {
+    const d = pata()
+    const { corpo } = await servir(`&variant=${ROSE_REP}`)
+    expect(canonicas(corpo)).toEqual([resolveOffer(d.product, d.variants[2], { origin: ORIGEM }).link])
+  })
+
+  it('a NÃO representante do texto indexável: <head> da opção, canônica da representante, oferta da aberta', async () => {
+    const d = pata()
+    const { corpo } = await servir(`&variant=${ROSE_OUTRA}`)
+    expect(tituloDe(corpo)).toEqual([`Pingente Afetivo Pata — ${ROSE}`])
+    expect(canonicas(corpo)).toEqual([`${ORIGEM}/produtos/${SLUG}?variant=${ROSE_REP}`])
+    const dado = ld(corpo)!
+    expect(dado.sku).toBe(ROSE_OUTRA)
+    expect(dado.offers.url).toBe(resolveOffer(d.product, d.variants[3], { origin: ORIGEM }).link)
+    expect(dado.url).toBe(`${ORIGEM}/produtos/${SLUG}?variant=${ROSE_REP}`)
+  })
+
+  it('SVR-20: texto marcado em grupo INATIVO ⇒ <head> e canônica da peça', async () => {
+    const { corpo } = await servir('&variant=1349521832')
+    expect(tituloDe(corpo)).toEqual(['Pingente Afetivo Pata | Uma Estrelinha'])
+    expect(canonicas(corpo)).toEqual([`${ORIGEM}/produtos/${SLUG}`])
+  })
+
+  it('SVR-20: o mesmo texto com o grupo ATIVO teria página — o recorte é o grupo, não o texto', async () => {
+    const { corpo } = await servir('&variant=1349521832', { readOptionMarks: async () => [linha(OURO, true)] })
+    expect(canonicas(corpo)).toEqual([`${ORIGEM}/produtos/${SLUG}?variant=1349521832`])
+  })
+
+  it.each([
+    ['inválido', '&variant=xyz'],
+    ['desconhecido', '&variant=999'],
+    ['de texto sem marcação pública (Ouro, grupo inativo)', '&variant=1349521832'],
+  ])('?variant= %s ⇒ o <head> e a canônica da peça, como hoje', async (_n, qs) => {
+    const { corpo } = await servir(qs)
+    expect(tituloDe(corpo)).toEqual(['Pingente Afetivo Pata | Uma Estrelinha'])
+    expect(canonicas(corpo)).toEqual([`${ORIGEM}/produtos/${SLUG}`])
+  })
+
+  it('outros parâmetros (utm, gclid) nunca entram na canônica', async () => {
+    const { corpo } = await servir(`&variant=${ROSE_REP}&utm_source=x&gclid=abc`)
+    expect(canonicas(corpo)).toEqual([`${ORIGEM}/produtos/${SLUG}?variant=${ROSE_REP}`])
+  })
+
+  it('SVR-21: marcações que falham ⇒ 200, <head> e canônica da peça, e o log nomeia o slug', async () => {
+    const espiao = vi.spyOn(console, 'log').mockImplementation(() => {})
+    try {
+      const { res, corpo } = await servir(`&variant=${ROSE_REP}`, {
+        readOptionMarks: async () => {
+          throw new Error('marcações fora')
+        },
+      })
+      expect(res.status).toBe(200)
+      expect(tituloDe(corpo)).toEqual(['Pingente Afetivo Pata | Uma Estrelinha'])
+      expect(canonicas(corpo)).toEqual([`${ORIGEM}/produtos/${SLUG}`])
+      // a oferta continua a da variação aberta — o pagamento e a paridade com o feed não dependem disto
+      expect(ld(corpo)!.sku).toBe(ROSE_REP)
+      const logs = espiao.mock.calls.map(c => JSON.parse(String(c[0])))
+      expect(logs).toContainEqual(expect.objectContaining({ fn: 'product-page', erro: 'marcacoes', slug: SLUG }))
+    } finally {
+      espiao.mockRestore()
+    }
+  })
+
+  it('a leitura das marcações recebe o id da peça', async () => {
+    const leitura = vi.fn(async () => MARCAS)
+    await servir('', { readOptionMarks: leitura })
+    expect(leitura).toHaveBeenCalledWith('p-pata')
+  })
+
+  it('sem a leitura de marcações nas deps, a peça não tem opção com página', async () => {
+    const { corpo } = await servir(`&variant=${ROSE_REP}`, { readOptionMarks: undefined })
+    expect(canonicas(corpo)).toEqual([`${ORIGEM}/produtos/${SLUG}`])
+  })
+
+  it.each([
+    ['vazia', ''],
+    ['relativa', '/loja'],
+    ['sem esquema', 'umaestrelinha.com.br'],
+  ])('SVR-19: origem %s ⇒ nenhuma canônica e nenhum og:url — nunca relativos', async (_n, origin) => {
+    for (const qs of ['', `&variant=${ROSE_REP}`]) {
+      const { corpo } = await servir(qs, { origin })
+      expect(canonicas(corpo)).toEqual([])
+      expect(corpo).not.toContain('rel="canonical"')
+      expect(metaDe(corpo, 'og:url')).toEqual([])
+      // A metade do documento que a canônica não cobre (N09, rodada 2 da verificação): sem origem
+      // absoluta o JSON-LD não declara `url` nenhuma — nem `null` — e não vira `ProductGroup`, cujas
+      // `hasVariant[].url` sairiam relativas.
+      const dado = ld(corpo)!
+      expect(dado['@type']).toBe('Product')
+      expect(dado).not.toHaveProperty('url')
+      expect(dado).not.toHaveProperty('hasVariant')
+    }
+  })
+
+  it('SVR-18: um shell que já traga canônica fica com EXATAMENTE uma — a do produto', async () => {
+    const shell = SHELL.replace('</head>', '  <link rel="canonical" href="https://outra/">\n</head>')
+    const { corpo } = await servir('', { fetchShell: async () => shell })
+    expect(canonicas(corpo)).toEqual([`${ORIGEM}/produtos/${SLUG}`])
+    expect(corpo.match(/rel="canonical"/g)).toHaveLength(1)
+  })
+
+  it('SVR-30/31: a peça sem ?variant= com opções em Cor declara UM ProductGroup, no lugar do Product', async () => {
+    const d = pata()
+    const { corpo } = await servir('')
+    const dado = ld(corpo)!
+    expect(dado['@type']).toBe('ProductGroup')
+    // O nome é o da PEÇA (SVR-30), asserido no documento servido: `jsonld.test.ts` recebe o nome do
+    // próprio teste e não prova a fiação do handler (mutante M39, rodada 1 da verificação).
+    expect(dado.name).toBe('Pingente Afetivo Pata')
+    expect(dado.productGroupID).toBe('300100200')
+    expect(dado.variesBy).toBe('https://schema.org/color')
+    expect(dado.url).toBe(`${ORIGEM}/produtos/${SLUG}`)
+    expect(dado.hasVariant.map((v: any) => [v.name, v.color, v.sku, v.url])).toEqual([
+      [`Pingente Afetivo Pata — ${PRATA}`, PRATA, '1349521831', `${ORIGEM}/produtos/${SLUG}?variant=1349521831`],
+      [`Pingente Afetivo Pata — ${ROSE}`, ROSE, ROSE_REP, `${ORIGEM}/produtos/${SLUG}?variant=${ROSE_REP}`],
+    ])
+    expect(dado.hasVariant[1].offers).toEqual(productJsonLd(resolveOffer(d.product, d.variants[2], { origin: ORIGEM })).offers)
+    expect(corpo.match(/"@type":"Product(Group)?"/g)).toHaveLength(3) // o grupo + as duas variantes, num bloco só
+    expect(corpo.match(/application\/ld\+json/g)).toHaveLength(1)
+  })
+
+  it('SVR-33: com ?variant= válido, o Product da aberta ganha inProductGroupWithID e a url da canônica', async () => {
+    const { corpo } = await servir(`&variant=${ROSE_REP}`)
+    const dado = ld(corpo)!
+    expect(dado['@type']).toBe('Product')
+    expect(dado.inProductGroupWithID).toBe('300100200')
+    expect(dado.url).toBe(`${ORIGEM}/produtos/${SLUG}?variant=${ROSE_REP}`)
+    expect(dado).not.toHaveProperty('hasVariant')
+  })
+
+  it('SVR-33: ?variant= válido que resolve para a PEÇA continua com o Product da aberta, url da peça', async () => {
+    const { corpo } = await servir('&variant=1349521832')
+    const dado = ld(corpo)!
+    expect(dado['@type']).toBe('Product')
+    expect(dado.sku).toBe('1349521832')
+    expect(dado.url).toBe(`${ORIGEM}/produtos/${SLUG}`)
+  })
+
+  it('SVR-32: eixo fora da tabela (Tipos de elo) ⇒ o Product de hoje, com a url — sem ProductGroup', async () => {
+    const d = pata({ options: [{ name: 'Tipos de elo', values: [PRATA, OURO, ROSE] }] })
+    d.variants.forEach(v => (v.option_values = { 'Tipos de elo': v.option_values!.Cor }))
+    const { corpo } = await servir('', { readOptionMarks: async () => [linha(PRATA, true, 'Tipos de elo')] }, d)
+    const dado = ld(corpo)!
+    expect(dado['@type']).toBe('Product')
+    expect(dado.url).toBe(`${ORIGEM}/produtos/${SLUG}`)
+  })
+
+  it('SVR-22: preço, sku e offers.url com ?variant= de opção são os do feed para aquela variação', async () => {
+    const d = pata()
+    const { corpo } = await servir(`&variant=${ROSE_REP}`)
+    const oferta = resolveOffer(d.product, d.variants[2], { origin: ORIGEM })
+    const xml = renderFeedXml([oferta], { title: 't', link: ORIGEM, description: 'd' })
+    expect(ld(corpo)!.offers.price).toBe(xml.match(/<g:price>([\d.]+) BRL<\/g:price>/)![1])
+    expect(ld(corpo)!.offers.url).toBe(oferta.link)
+    expect(ld(corpo)!.sku).toBe(oferta.id)
+  })
+
+  it('edge case: texto da opção com &, < e aspas sai escapado no HTML e no JSON-LD', async () => {
+    const hostil = 'Prata "925" & <b>ouro</b>'
+    const d = pata({}, [hostil, OURO, ROSE])
+    const { corpo } = await servir('&variant=1349521831', { readOptionMarks: async () => [linha(hostil)] }, d)
+    expect(corpo).not.toContain('<b>ouro</b>')
+    expect(tituloDe(corpo)).toEqual(['Pingente Afetivo Pata — Prata "925" &amp; &lt;b&gt;ouro&lt;/b&gt;'])
+    expect(metaDe(corpo, 'og:title')).toEqual([
+      'Pingente Afetivo Pata — Prata &quot;925&quot; &amp; &lt;b&gt;ouro&lt;/b&gt;',
+    ])
+    expect(metaDe(corpo, 'description')[0].startsWith('Prata &quot;925&quot; &amp; &lt;b&gt;ouro&lt;/b&gt;. ')).toBe(true)
+    const bloco = corpo.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)![1]
+    expect(bloco).not.toContain('<')
   })
 })

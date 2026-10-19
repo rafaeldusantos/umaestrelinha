@@ -13,7 +13,9 @@ import {
 } from './handlers.ts'
 import type {
   SitemapCategory,
+  SitemapOptionMark,
   SitemapProduct,
+  SitemapVariant,
 } from '../../../packages/core/src/sitemap/index.ts'
 import type { FaqPageLink } from '../../../packages/core/src/faq/types.ts'
 
@@ -44,8 +46,21 @@ if (!publicKey) {
 
 const supabase = createClient(supabaseUrl, publicKey)
 
-/** Só o que vira `<loc>` e `<lastmod>`. Enumerado para o payload não crescer sem decisão. */
-const COLUNAS_PRODUTO = 'slug,updated_at'
+/**
+ * Só o que vira `<loc>` e `<lastmod>`. Enumerado para o payload não crescer sem decisão. Desde a
+ * feature 68 também o que decide as páginas de opção: o `id` (liga a peça às variações e marcações
+ * dela), `is_active` e os eixos.
+ */
+const COLUNAS_PRODUTO = 'id,slug,updated_at,is_active,options'
+
+/** Feature 68: só o que decide se a opção tem página e qual é o `?variant=` dela. */
+const COLUNAS_VARIACAO = 'id,product_id,nuvemshop_id,price,is_active,position,option_values'
+
+/** Feature 68: a marcação por opção. A RLS já recortou grupo ativo e peça ativa. */
+const COLUNAS_MARCACAO = 'product_id,option_name,option_value,value_id'
+
+/** A chave primária de `product_option_filter_values` — composta, sem `id` —, para a ordem estável. */
+const ORDEM_MARCACAO = ['product_id', 'option_name', 'option_value', 'value_id']
 
 /**
  * As colunas de `MenuCategory` mais `updated_at`.
@@ -66,18 +81,22 @@ const COLUNAS_CATEGORIA = 'id,name,slug,parent_id,sort_order,active,updated_at'
  * mesma sequência entre páginas, e linhas repetiriam ou sumiriam entre uma e outra — com a
  * contagem batendo, que é o pior caso.
  */
-const contar = async (tabela: string): Promise<number> => {
-  const { count, error } = await supabase.from(tabela).select('slug', { count: 'exact', head: true })
+const contar = async (tabela: string, coluna = 'slug'): Promise<number> => {
+  const { count, error } = await supabase.from(tabela).select(coluna, { count: 'exact', head: true })
   if (error) throw error
   return count ?? 0
 }
 
-const ler = async <T>(tabela: string, colunas: string, from: number, to: number): Promise<T[]> => {
-  const { data, error } = await supabase
-    .from(tabela)
-    .select(colunas)
-    .order('id', { ascending: true })
-    .range(from, to)
+const ler = async <T>(
+  tabela: string,
+  colunas: string,
+  from: number,
+  to: number,
+  ordem: readonly string[] = ['id'],
+): Promise<T[]> => {
+  let consulta = supabase.from(tabela).select(colunas)
+  for (const coluna of ordem) consulta = consulta.order(coluna, { ascending: true })
+  const { data, error } = await consulta.range(from, to)
   if (error) throw error
   return (data ?? []) as unknown as T[]
 }
@@ -103,6 +122,11 @@ Deno.serve(async () => {
     readProducts: (from, to) => ler<SitemapProduct>('products', COLUNAS_PRODUTO, from, to),
     readCategories: (from, to) => ler<SitemapCategory>('categories', COLUNAS_CATEGORIA, from, to),
     readFaqLinks: lerPerguntas,
+    countVariants: () => contar('product_variants', 'id'),
+    readVariants: (from, to) => ler<SitemapVariant>('product_variants', COLUNAS_VARIACAO, from, to),
+    countOptionMarks: () => contar('product_option_filter_values', 'product_id'),
+    readOptionMarks: (from, to) =>
+      ler<SitemapOptionMark>('product_option_filter_values', COLUNAS_MARCACAO, from, to, ORDEM_MARCACAO),
   }
 
   return await handleSitemap(deps)

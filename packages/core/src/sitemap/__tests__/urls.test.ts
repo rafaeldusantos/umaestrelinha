@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { SITEMAP_STATIC_PATHS, LEGACY_REDIRECTS } from '../../routes/index.ts'
+import { indexableOptions, resolveVariantPage } from '../../seo/variant.ts'
 import { originRefusal, sitemapUrls } from '../urls.ts'
 import type { SitemapCategory, SitemapProduct } from '../types.ts'
 
@@ -50,12 +51,206 @@ describe('sitemapUrls — produto (SMP-02)', () => {
     expect(saida).not.toContain('https://umaestrelinha.com.br/produto/colar-de-leite')
   })
 
-  it('nenhuma `<loc>` carrega query — em particular `?variant=` (SMP-07)', () => {
+  it('sem variações nem marcações, nenhuma `<loc>` carrega query (SMP-07, na forma que a 68 manteve)', () => {
     // O `<g:link>` do feed do Shopping carrega `?variant=`, e é o link mais visível do catálogo.
-    // Copiá-lo para o sitemap anunciaria 3.233 URLs no lugar de 680 canônicas.
+    // Copiá-lo para o sitemap anunciaria 3.233 URLs no lugar de 680 canônicas. A 68 revogou a
+    // SMP-07 só para a opção indexável (SVR-27, abaixo): o resto continua sem query.
     for (const loc of locs({ ...vazio, products: [produto('x')] })) {
       expect(loc).not.toContain('?')
     }
+  })
+})
+
+/**
+ * Feature 68 — as `<loc>` de opção (SVR-24..29).
+ *
+ * Fixture: a "Pingente Pata" com três cores e duas marcadas, mais uma peça sem marcação e uma com a
+ * marcação num texto que só existe em variação inativa.
+ */
+describe('sitemapUrls — as páginas de opção (feature 68)', () => {
+  const PRATA = 'Prata 925'
+  const OURO = 'Prata 925 Folheado a Ouro'
+  const ROSE = 'Prata 925 Folheado a Ouro Rose'
+  const cor = { name: 'Cor', values: [PRATA, OURO, ROSE], position: 0 }
+  const pata = { id: 'p-pata', slug: 'pingente-pata', updated_at: '2026-10-01T10:00:00+00:00', is_active: true, options: [cor] }
+  const anel = { id: 'p-anel', slug: 'anel', updated_at: '2026-10-02T10:00:00+00:00', is_active: true, options: [cor] }
+  const colar = { id: 'p-colar', slug: 'colar', updated_at: null, is_active: true, options: [cor] }
+  let n = 0
+  const variacao = (product_id: string, texto: string, position: number, extra: Record<string, unknown> = {}) => ({
+    id: `00000000-0000-4000-8000-${String(++n).padStart(12, '0')}`,
+    product_id,
+    nuvemshop_id: 9000 + n,
+    price: 100,
+    is_active: true,
+    position,
+    option_values: { Cor: texto },
+    ...extra,
+  })
+  const variants = [
+    variacao('p-pata', PRATA, 0),
+    variacao('p-pata', OURO, 1),
+    variacao('p-pata', ROSE, 2),
+    variacao('p-pata', ROSE, 3),
+    variacao('p-anel', PRATA, 0),
+    variacao('p-anel', OURO, 1),
+    variacao('p-colar', PRATA, 0),
+    variacao('p-colar', OURO, 1, { is_active: false }),
+    variacao('p-colar', ROSE, 2),
+  ]
+  const optionMarks = [
+    { product_id: 'p-pata', option_name: 'Cor', option_value: ROSE, value_id: 'rose' },
+    { product_id: 'p-pata', option_name: 'Cor', option_value: PRATA, value_id: 'prata' },
+    { product_id: 'p-colar', option_name: 'Cor', option_value: OURO, value_id: 'ouro' },
+  ]
+  const entrada = { ...vazio, staticPaths: [], products: [pata, anel, colar], variants, optionMarks }
+  const comoProduto = (id: string) => {
+    const p = [pata, anel, colar].find(x => x.id === id)!
+    return {
+      product: { ...p, option_marks: optionMarks.filter(m => m.product_id === id) },
+      variants: variants.filter(v => v.product_id === id),
+    }
+  }
+
+  it('SVR-24: uma `<loc>` por opção indexável, logo depois da peça, na ordem de SVR-01', () => {
+    expect(locs(entrada)).toEqual([
+      `${ORIGIN}/produtos/anel`,
+      `${ORIGIN}/produtos/colar`,
+      `${ORIGIN}/produtos/pingente-pata`,
+      `${ORIGIN}/produtos/pingente-pata?variant=${variants[0].nuvemshop_id}`,
+      `${ORIGIN}/produtos/pingente-pata?variant=${variants[2].nuvemshop_id}`,
+    ])
+  })
+
+  it('SVR-24: a ordem das `<loc>` de opção é a de options.values MESMO quando a grade discorda', () => {
+    // Na fixture acima `values` e grade concordam (Prata antes de Rose nas duas), então ela não
+    // separa "ordem de values" de "ordem da grade" (mutante M11, rodada 1). Aqui `values` põe a Rose
+    // primeiro e a grade continua começando pela Prata.
+    const roseAntes = { ...pata, options: [{ ...cor, values: [ROSE, OURO, PRATA] }] }
+    expect(variants[0].option_values.Cor).toBe(PRATA)
+    expect(locs({ ...entrada, products: [roseAntes] })).toEqual([
+      `${ORIGIN}/produtos/pingente-pata`,
+      `${ORIGIN}/produtos/pingente-pata?variant=${variants[2].nuvemshop_id}`,
+      `${ORIGIN}/produtos/pingente-pata?variant=${variants[0].nuvemshop_id}`,
+    ])
+  })
+
+  it('SVR-24/SVR-05: a `<loc>` de opção é o caminho canônico da regra, absolutizado', () => {
+    const esperado = indexableOptions(comoProduto('p-pata')).map(o => `${ORIGIN}${o.path}`)
+    expect(locs(entrada).filter(l => l.includes('?'))).toEqual(esperado)
+  })
+
+  it('SVR-25: o `lastmod` da `<loc>` de opção é o `updated_at` da peça', () => {
+    const urls = sitemapUrls(entrada).filter(u => u.loc.includes('pingente-pata'))
+    expect(urls).toHaveLength(3)
+    for (const u of urls) expect(u.lastmod).toBe('2026-10-01T10:00:00+00:00')
+  })
+
+  it('sem `variants`/`optionMarks` na entrada, o documento é idêntico ao de antes da 68', () => {
+    const antes = { ...vazio, products: [pata, anel, colar] }
+    expect(sitemapUrls(antes)).toEqual(sitemapUrls({ ...vazio, products: [produto('anel', '2026-10-02T10:00:00+00:00'), produto('colar'), produto('pingente-pata', '2026-10-01T10:00:00+00:00')] }))
+    expect(sitemapUrls({ ...antes, variants, optionMarks: [] })).toEqual(sitemapUrls(antes))
+  })
+
+  it('peça sem `id` (forma antiga da entrada) sai só com a `<loc>` dela', () => {
+    const { id: _id, ...semId } = pata
+    expect(locs({ ...entrada, products: [semId] })).toEqual([`${ORIGIN}/produtos/pingente-pata`])
+  })
+
+  it('peça desativada não ganha `<loc>` de opção', () => {
+    expect(locs({ ...entrada, products: [{ ...pata, is_active: false }] }).some(l => l.includes('?'))).toBe(false)
+  })
+
+  it('a duplicata continua LANÇANDO — inclusive a de uma `<loc>` de opção', () => {
+    expect(() => sitemapUrls({ ...entrada, products: [pata, { ...pata }] })).toThrow(/duplicada/)
+  })
+
+  // ------------------------------------------------------------------------------------------
+  // SVR-27 — a régua que substitui a SMP-07. Mais ESTREITA que "nenhum `?`": a única query aceita é
+  // `?variant=<id>`, e o id tem de ser de opção indexável SEGUNDO `indexableOptions`.
+  // ------------------------------------------------------------------------------------------
+  const opcoesIndexaveis = new Set(
+    [pata, anel, colar].flatMap(p => indexableOptions(comoProduto(p.id)).map(o => `${ORIGIN}${o.path}`)),
+  )
+  const recusaDeQuery = (loc: string, indexaveis: ReadonlySet<string>): string | null => {
+    const i = loc.indexOf('?')
+    if (i === -1) return null
+    if (!/^variant=[^&=?#]+$/.test(loc.slice(i + 1))) return `query fora da forma ?variant=<id>: ${loc}`
+    if (!indexaveis.has(loc)) return `?variant= que não é de opção indexável: ${loc}`
+    return null
+  }
+
+  it('SVR-27: toda `<loc>` passa pela régua — a única query é ?variant= de opção indexável', () => {
+    const saida = locs(entrada)
+    expect(saida.filter(l => l.includes('?'))).toHaveLength(2)
+    for (const loc of saida) expect(recusaDeQuery(loc, opcoesIndexaveis)).toBeNull()
+  })
+
+  it.each([
+    ['?variant= de variação não indexável (Ouro, sem marcação)', `${ORIGIN}/produtos/pingente-pata?variant=${variants[1].nuvemshop_id}`],
+    ['?variant= da NÃO representante de um texto indexável', `${ORIGIN}/produtos/pingente-pata?variant=${variants[3].nuvemshop_id}`],
+  ])('SENSOR SVR-27 — %s é recusado', (_n, loc) => {
+    expect(recusaDeQuery(loc, opcoesIndexaveis)).not.toBeNull()
+  })
+
+  // A FORMA da query é medida sozinha: o conjunto de indexáveis recebe a própria URL, para que só a
+  // régua de forma possa recusá-la. Sem isso, a checagem de pertinência recusaria estas URLs também
+  // e a régua de forma seria verdadeira nos dois mundos — apagá-la deixaria a suíte verde.
+  it.each([
+    ['?utm=', `${ORIGIN}/produtos/pingente-pata?utm_source=x`],
+    ['`&` extra depois de um ?variant= indexável', `${ORIGIN}/produtos/pingente-pata?variant=${variants[0].nuvemshop_id}&utm_source=x`],
+    ['?variant= vazio', `${ORIGIN}/produtos/pingente-pata?variant=`],
+    ['?variant= repetido', `${ORIGIN}/produtos/pingente-pata?variant=1&variant=2`],
+  ])('SENSOR SVR-27 — %s é recusado pela FORMA, mesmo que constasse do conjunto', (_n, loc) => {
+    expect(recusaDeQuery(loc, opcoesIndexaveis)).not.toBeNull()
+    expect(recusaDeQuery(loc, new Set([...opcoesIndexaveis, loc]))).not.toBeNull()
+  })
+
+  it('SENSOR SVR-27 inverso — a `<loc>` de opção indexável e a da peça passam', () => {
+    expect(recusaDeQuery(`${ORIGIN}/produtos/pingente-pata?variant=${variants[2].nuvemshop_id}`, opcoesIndexaveis)).toBeNull()
+    expect(recusaDeQuery(`${ORIGIN}/produtos/pingente-pata`, opcoesIndexaveis)).toBeNull()
+  })
+
+  // ------------------------------------------------------------------------------------------
+  // SVR-28 — sitemap ⊆ autocanônicas e autocanônicas ⊆ sitemap, com as funções que a produção chama.
+  // ------------------------------------------------------------------------------------------
+  it('SVR-28 (sitemap ⊆ autocanônicas): toda `<loc>` com ?variant= se declara canônica pela regra de SVR-07', () => {
+    const comQuery = locs(entrada).filter(l => l.includes('?variant='))
+    expect(comQuery.length).toBeGreaterThan(0)
+    for (const loc of comQuery) {
+      const url = new URL(loc)
+      const slug = url.pathname.split('/').pop()
+      const p = [pata, anel, colar].find(x => x.slug === slug)!
+      const pagina = resolveVariantPage(comoProduto(p.id), url.searchParams.get('variant'))
+      expect(pagina.kind).toBe('option')
+      if (pagina.kind === 'option') expect(`${ORIGIN}${pagina.option.path}`).toBe(loc)
+    }
+  })
+
+  it('SVR-28 (autocanônicas ⊆ sitemap): toda opção indexável de toda peça tem `<loc>`', () => {
+    const saida = new Set(locs(entrada))
+    expect(opcoesIndexaveis.size).toBe(2)
+    for (const u of opcoesIndexaveis) expect(saida.has(u)).toBe(true)
+  })
+
+  it.each([
+    ['a marcação é removida', { optionMarks: optionMarks.filter(m => m.option_value !== ROSE) }],
+    // grupo desligado: a RLS deixa de devolver a linha — é a mesma entrada que a remoção
+    ['o grupo é desligado (a RLS some com a marcação)', { optionMarks: optionMarks.filter(m => m.value_id !== 'rose') }],
+    [
+      'a opção perde a última variação elegível',
+      { variants: variants.map(v => (v.product_id === 'p-pata' && v.option_values.Cor === ROSE ? { ...v, price: null } : v)) },
+    ],
+  ])('SVR-29: quando %s, a `<loc>` some na próxima geração e a URL passa a canonizar para a peça', (_n, mudanca) => {
+    const rose = `${ORIGIN}/produtos/pingente-pata?variant=${variants[2].nuvemshop_id}`
+    const depois = { ...entrada, ...mudanca }
+    expect(locs(entrada)).toContain(rose)
+    expect(locs(depois)).not.toContain(rose)
+    expect(locs(depois)).toContain(`${ORIGIN}/produtos/pingente-pata?variant=${variants[0].nuvemshop_id}`)
+    const pecaDepois = {
+      product: { ...pata, option_marks: (depois.optionMarks ?? []).filter(m => m.product_id === 'p-pata') },
+      variants: (depois.variants ?? []).filter(v => v.product_id === 'p-pata'),
+    }
+    expect(resolveVariantPage(pecaDepois, String(variants[2].nuvemshop_id)).kind).toBe('product')
   })
 })
 

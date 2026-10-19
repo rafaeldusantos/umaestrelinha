@@ -13,6 +13,7 @@ import {
   type ProductPageData,
   type ProductPageDeps,
 } from './handlers.ts'
+import type { OptionMarkRow } from '../../../packages/core/src/seo/variant.ts'
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!
 const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -36,9 +37,16 @@ const COLUNAS_PRODUTO =
   'id,nuvemshop_id,name,slug,description,images,is_active,stock_policy,' +
   'brand,mpn,age_group,gender,google_product_category,identifier_exists,' +
   // Feature 62: a copy de busca curada — o título e a descrição do card da joia.
-  'seo_title,seo_description'
+  'seo_title,seo_description,' +
+  // Feature 68: os eixos, que decidem qual opção tem página própria.
+  'options'
 
-const COLUNAS_VARIACAO = 'id,nuvemshop_id,price,compare_price,stock,image_url,is_active,position'
+const COLUNAS_VARIACAO =
+  'id,nuvemshop_id,price,compare_price,stock,image_url,is_active,position,option_values'
+
+// Feature 68: a marcação e o grupo do valor — `publicOptionMarks` (em `handlers.ts`) restringe ao
+// grupo ativo, porque a chave de serviço ignora a RLS que faria isso.
+const COLUNAS_MARCACAO = 'option_name,option_value,value_id,filter_values(filter_groups(is_active))'
 
 Deno.serve(async req => {
   const configuracoes = await lerConfiguracoes()
@@ -55,6 +63,15 @@ Deno.serve(async req => {
       if (!data) return null
       const { product_variants, ...product } = data as any
       return { product, variants: product_variants ?? [] }
+    },
+
+    readOptionMarks: async (productId): Promise<OptionMarkRow[]> => {
+      const { data, error } = await supabase
+        .from('product_option_filter_values')
+        .select(COLUNAS_MARCACAO)
+        .eq('product_id', productId)
+      if (error) throw error
+      return (data ?? []) as unknown as OptionMarkRow[]
     },
 
     origin: storeUrl,

@@ -9,6 +9,7 @@ import {
   representativeVariant,
   resolveOffer,
   variantByPublicId,
+  variantPath,
 } from '../offer'
 
 /**
@@ -69,6 +70,40 @@ describe('offerLink — GSH-03 AC 4', () => {
   it('o variant do link é o MESMO valor do g:id da oferta', () => {
     const oferta = resolveOffer(produto, variacao, { origin: ORIGEM })
     expect(oferta.link).toContain(`?variant=${oferta.id}`)
+  })
+})
+
+describe('variantPath — SVR-05, SVR-40 (o construtor único de ?variant=)', () => {
+  const uuid = { ...variacao, nuvemshop_id: null }
+
+  it('é productPath mais ?variant= com o id público (nuvemshop_id)', () => {
+    expect(variantPath(produto, variacao)).toBe(
+      '/produtos/pulseira-7-nos-ajustavel-protecao-kabbalah?variant=1259936246',
+    )
+  })
+
+  it('sem nuvemshop_id, o id é o UUID (publicVariantId)', () => {
+    expect(variantPath(produto, uuid)).toBe(
+      '/produtos/pulseira-7-nos-ajustavel-protecao-kabbalah?variant=dd0e2171-4d3d-4e20-a868-21e5223bd917',
+    )
+  })
+
+  it('codificar o id seria identidade nos dois formatos — por isso não codifica', () => {
+    for (const v of [variacao, uuid]) {
+      const id = variantPath(produto, v).split('?variant=')[1]
+      expect(encodeURIComponent(id)).toBe(id)
+    }
+  })
+
+  // `offerLink` byte a byte igual ao de antes da 68: a forma antiga escrita por extenso, com os
+  // dois formatos de id — se a delegação mudasse um caractere, o feed mudaria junto.
+  it('offerLink continua byte a byte igual à forma anterior, nos dois formatos de id', () => {
+    for (const v of [variacao, uuid]) {
+      const antes = `${ORIGEM}${productPath(produto.slug)}?variant=${v.nuvemshop_id != null ? String(v.nuvemshop_id) : v.id}`
+      expect(offerLink(produto, v, ORIGEM)).toBe(antes)
+      expect(offerLink(produto, v, `${ORIGEM}/`)).toBe(antes)
+      expect(offerLink(produto, v, ORIGEM)).toBe(`${ORIGEM}${variantPath(produto, v)}`)
+    }
   })
 })
 

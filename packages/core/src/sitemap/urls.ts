@@ -18,7 +18,15 @@
 import { faqQuestionPath } from '../faq/link.ts'
 import { categoryHref } from '../menu/index.ts'
 import { SITEMAP_STATIC_PATHS, productPath } from '../routes/index.ts'
-import type { SitemapCategory, SitemapFaqQuestion, SitemapProduct, SitemapUrl } from './types.ts'
+import { indexableOptions } from '../seo/variant.ts'
+import type {
+  SitemapCategory,
+  SitemapFaqQuestion,
+  SitemapOptionMark,
+  SitemapProduct,
+  SitemapUrl,
+  SitemapVariant,
+} from './types.ts'
 
 export interface SitemapUrlsInput {
   /** A origem pública da loja. Barra final é tolerada e normalizada. */
@@ -32,6 +40,13 @@ export interface SitemapUrlsInput {
    * Opcional: ausente, o sitemap sai sem elas — o mesmo documento de antes desta lista existir.
    */
   faqQuestions?: readonly SitemapFaqQuestion[]
+  /**
+   * Feature 68: as variações e as marcações por opção legíveis pela chave publicável. Com elas, cada
+   * opção indexável (`indexableOptions`, a MESMA regra que a página usa para declarar a canônica)
+   * ganha a `<loc>` dela. Ausentes, o documento é o de antes.
+   */
+  variants?: readonly SitemapVariant[]
+  optionMarks?: readonly SitemapOptionMark[]
   /** Sobrescrita só para teste; produção usa `SITEMAP_STATIC_PATHS`. */
   staticPaths?: readonly string[]
 }
@@ -82,6 +97,17 @@ export const originRefusal = (origin: string): string | null => {
 const absolute = (origin: string, path: string): string =>
   path === '/' ? origin : `${origin}${path}`
 
+/** As linhas de uma tabela-filha de `products`, por `product_id`, na ordem em que chegaram. */
+const agruparPorPeca = <T extends { product_id: string }>(linhas: readonly T[]): Map<string, T[]> => {
+  const mapa = new Map<string, T[]>()
+  for (const linha of linhas) {
+    const lista = mapa.get(linha.product_id)
+    if (lista) lista.push(linha)
+    else mapa.set(linha.product_id, [linha])
+  }
+  return mapa
+}
+
 /** Ordem estável de categoria: a mesma da vitrine (`sort_order`), com o slug desempatando. */
 const byCategoryOrder = (a: SitemapCategory, b: SitemapCategory): number => {
   const oa = typeof a.sort_order === 'number' ? a.sort_order : 0
@@ -106,6 +132,8 @@ export const sitemapUrls = ({
   products,
   categories,
   faqQuestions = [],
+  variants = [],
+  optionMarks = [],
   staticPaths = SITEMAP_STATIC_PATHS,
 }: SitemapUrlsInput): SitemapUrl[] => {
   const base = normalizeOrigin(origin)
@@ -125,12 +153,34 @@ export const sitemapUrls = ({
     lastmod: category.updated_at ?? null,
   }))
 
+  const variacoesDe = agruparPorPeca(variants)
+  const marcasDe = agruparPorPeca(optionMarks)
+
+  // Feature 68 · SVR-24, SVR-25: as opções indexáveis da peça logo depois da `<loc>` dela, na ordem
+  // da regra, com o `lastmod` da peça — a página de opção É o conteúdo da peça, e marcar a opção não
+  // edita nada. Quem decide e quem monta o `?variant=` é `indexableOptions`: a mesma função com que a
+  // página declara a canônica, então `<loc>` de opção e canônica de opção não podem divergir.
   const produtos: SitemapUrl[] = [...products]
     .sort((a, b) => a.slug.localeCompare(b.slug))
-    .map(product => ({
-      loc: absolute(base, productPath(product.slug)),
-      lastmod: product.updated_at ?? null,
-    }))
+    .flatMap(product => {
+      const lastmod = product.updated_at ?? null
+      const opcoes =
+        product.id === undefined
+          ? []
+          : indexableOptions({
+              product: {
+                slug: product.slug,
+                is_active: product.is_active !== false,
+                options: product.options,
+                option_marks: marcasDe.get(product.id) ?? [],
+              },
+              variants: variacoesDe.get(product.id) ?? [],
+            })
+      return [
+        { loc: absolute(base, productPath(product.slug)), lastmod },
+        ...opcoes.map(o => ({ loc: absolute(base, o.path), lastmod })),
+      ]
+    })
 
   // Na ordem da página, que é a ordem em que chegam. Quem monta o endereço é `faqQuestionPath` — o
   // MESMO que a página declara como canônica —, então sitemap e canonical não podem divergir.

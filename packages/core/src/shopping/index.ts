@@ -28,6 +28,7 @@ export {
   representativeVariant,
   resolveOffer,
   variantByPublicId,
+  variantPath,
   type CategoryTaxonomy,
   type OfferContext,
 } from './offer.ts'
@@ -38,4 +39,13 @@ export {
   renderFeedXml,
   type FeedChannel,
 } from './xml.ts'
-export { payablePrice, productJsonLd, schemaAvailability } from './jsonld.ts'
+export {
+  VARIES_BY,
+  payablePrice,
+  productGroupJsonLd,
+  productJsonLd,
+  schemaAvailability,
+  variesByFor,
+  withPageUrl,
+  type ProductGroupVariant,
+} from './jsonld.ts'

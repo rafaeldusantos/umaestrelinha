@@ -3,7 +3,14 @@
 // Consumidor: `supabase/functions/sitemap`, que importa por **caminho relativo com extensão
 // explícita** (`../../../packages/core/src/sitemap/index.ts`), no precedente de `shopping` e
 // `payment`. O barrel serve a quem passa pelo Vite.
-export type { SitemapCategory, SitemapFaqQuestion, SitemapProduct, SitemapUrl } from './types.ts'
+export type {
+  SitemapCategory,
+  SitemapFaqQuestion,
+  SitemapOptionMark,
+  SitemapProduct,
+  SitemapUrl,
+  SitemapVariant,
+} from './types.ts'
 export { originRefusal, sitemapUrls, type SitemapUrlsInput } from './urls.ts'
 export {
   SITEMAP_MAX_BYTES,

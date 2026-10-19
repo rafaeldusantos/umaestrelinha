@@ -25,10 +25,14 @@
 // modo de falhar é **quadro branco**: 200 na página, 404 no `<script>`, nada no servidor acusando.
 
 import {
+  productGroupJsonLd,
   productJsonLd,
+  publicProductId,
   representativeVariant,
   resolveOffer,
   variantByPublicId,
+  variesByFor,
+  withPageUrl,
   type OfferInputProduct,
   type OfferInputVariant,
 } from '../../../packages/core/src/shopping/index.ts'
@@ -45,15 +49,30 @@ import {
   renditionUrl,
 } from '../../../packages/core/src/media/rendition.ts'
 import { escapeXml } from '../../../packages/core/src/xml/escape.ts'
-// Feature 62 — o título, a descrição e o card da joia. A MESMA função que a loja chama no cliente
-// (`usePageMeta`), por arquivo e com `.ts` (`core/seo/__tests__/denoReach.test.ts` guarda o grafo).
-import { productPageMeta } from '../../../packages/core/src/seo/pages.ts'
-import { productPath } from '../../../packages/core/src/routes/routes.ts'
+// Feature 62 e 68 — o título, a descrição, a canônica e o card da joia. A MESMA função que a loja
+// chama no cliente (`productHead`), por arquivo e com `.ts` (`core/seo/__tests__/denoReach.test.ts`
+// guarda o grafo).
+import {
+  indexableOptions,
+  optionPlainTitle,
+  productHead,
+  publicOptionMarks,
+  type OptionMarkRow,
+  type VariantSeoAxis,
+  type VariantSeoInput,
+} from '../../../packages/core/src/seo/variant.ts'
 
 export interface ProductPageData {
-  /** A copy de busca curada entra junto (feature 62); ausente cai no nome e na descrição. */
-  product: OfferInputProduct & { seo_title?: string | null; seo_description?: string | null }
-  variants: OfferInputVariant[]
+  /**
+   * A copy de busca curada entra junto (feature 62); ausente cai no nome e na descrição. Os eixos
+   * (feature 68) decidem qual opção tem página própria; ausentes, a peça não tem nenhuma.
+   */
+  product: OfferInputProduct & {
+    seo_title?: string | null
+    seo_description?: string | null
+    options?: readonly VariantSeoAxis[] | null
+  }
+  variants: (OfferInputVariant & { option_values?: Readonly<Record<string, string>> | null })[]
 }
 
 export interface ProductPageDeps {
@@ -61,6 +80,13 @@ export interface ProductPageDeps {
   fetchShell: () => Promise<string>
   /** `null` = slug desconhecido. Lançar é tratado como desconhecido. */
   readProduct: (slug: string) => Promise<ProductPageData | null>
+  /**
+   * Feature 68 — as marcações por opção da peça, com o grupo embutido, lidas com a chave de SERVIÇO
+   * (sem RLS: quem restringe é `publicOptionMarks`, SVR-20). Uma leitura SEPARADA do produto para
+   * poder falhar sozinha (SVR-21): sem ela a página continua, com o `<head>` da peça. Ausente ⇒ a
+   * peça não tem opção com página.
+   */
+  readOptionMarks?: (productId: string) => Promise<OptionMarkRow[]>
   origin: string
   defaultProductCategory?: string | null
   /**
@@ -202,7 +228,11 @@ const descricaoDoShell = (shell: string): string | null =>
 export interface ProductHead {
   title: string
   description: string
-  /** Absoluta, sem query — a canônica. `null` quando a origem não é absoluta: nunca `og:url` relativo. */
+  /**
+   * Absoluta — a canônica: a peça sem query, ou a opção com o `?variant=` dela (feature 68). Vira a
+   * `<link rel="canonical">` E o `og:url`, com o mesmo valor. `null` quando a origem não é absoluta:
+   * nenhuma das duas, nunca relativa.
+   */
   url: string | null
   /** A foto do produto. `null` ⇒ o card padrão do shell continua. */
   image: string | null
@@ -227,6 +257,9 @@ export const productHeadTags = (shell: string, head: ProductHead): string => {
     saida = saida.replace(re, '')
   }
 
+  // Exatamente UMA canônica no documento (SVR-18): a que o shell trouxer sai, a do produto entra.
+  saida = saida.replace(/[ \t]*<link\b[^>]*\brel="canonical"[^>]*>[ \t]*\r?\n?/gi, '')
+
   const titulo = `<title>${head.title.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</title>`
   saida = /<title>[\s\S]*?<\/title>/i.test(saida)
     ? saida.replace(/<title>[\s\S]*?<\/title>/i, () => titulo)
@@ -239,6 +272,7 @@ export const productHeadTags = (shell: string, head: ProductHead): string => {
     meta('property', 'og:type', 'product'),
     meta('property', 'og:title', head.title),
     meta('property', 'og:description', head.description),
+    head.url ? `<link rel="canonical" href="${escapeHtmlAttr(head.url)}">` : '',
     head.url ? meta('property', 'og:url', head.url) : '',
     meta('name', 'twitter:title', head.title),
     meta('name', 'twitter:description', head.description),
@@ -306,23 +340,80 @@ export const handleProductPage = async (
     defaultProductCategory: deps.defaultProductCategory,
   })
 
-  // Feature 62: o título, a descrição e o card DESTA joia — a mesma derivação do cliente.
-  const meta = productPageMeta(
-    dados.product,
-    deps.storeDescription ?? descricaoDoShell(shell),
-  )
+  // Feature 68 — as marcações por opção, restritas como a leitura pública (SVR-20). Falha ⇒ a peça,
+  // com log (SVR-21): declarar página de opção com dado parcial é pior que não declarar.
+  let marcas: ReturnType<typeof publicOptionMarks> = []
+  if (deps.readOptionMarks && (dados.product.options ?? []).length > 0) {
+    try {
+      marcas = publicOptionMarks(await deps.readOptionMarks(dados.product.id))
+    } catch (e) {
+      log({ fn: 'product-page', erro: 'marcacoes', slug, detalhe: String(e) })
+    }
+  }
+  const entrada = { product: { ...dados.product, option_marks: marcas }, variants: dados.variants }
+
+  // Feature 62 e 68: o título, a descrição, a canônica e o card DESTA URL — a mesma régua do cliente.
+  const head = productHead(entrada, url.searchParams.get('variant'), deps.storeDescription ?? descricaoDoShell(shell))
+  const origem = deps.origin.replace(/\/+$/, '')
+  const absoluta = /^https?:\/\//.test(origem)
+  const canonica = absoluta ? `${origem}${head.canonicalPath}` : null
   const comHead = productHeadTags(shell, {
-    title: meta.title,
-    description: meta.description,
-    url: /^https?:\/\//.test(deps.origin) ? `${deps.origin}${productPath(dados.product.slug)}` : null,
+    title: head.meta.title,
+    description: head.meta.description,
+    url: canonica,
     image: oferta.imageLink ? renditionUrl(oferta.imageLink, OG_IMAGE_WIDTH) : null,
   })
 
   // O preload vem ANTES do JSON-LD: o rastreador lê o documento inteiro de qualquer jeito, e a
   // cliente ganha os bytes da foto começando mais cedo.
   return html(
-    injectIntoHead(comHead, imagePreloadLink(oferta.imageLink) + jsonLdScript(productJsonLd(oferta))),
+    injectIntoHead(
+      comHead,
+      imagePreloadLink(oferta.imageLink) +
+        jsonLdScript(dadoEstruturado(dados, entrada, oferta, elegivel !== null, canonica, origem, deps)),
+    ),
   )
+}
+
+/**
+ * O JSON-LD da página, UM `@type` de produto por documento (SVR-22, SVR-30..33), nesta precedência:
+ *
+ * 1. `?variant=` válido e elegível ⇒ o `Product` da variação aberta — a oferta de sempre, com a
+ *    `url` da canônica e o `inProductGroupWithID`. Vale também quando a URL resolve para a peça: o
+ *    Merchant Center chega SEMPRE com `?variant=`, e a paridade com o feed mora neste `Product`.
+ * 2. sem `?variant=` válido, com opções indexáveis num eixo da tabela de `variesBy` e origem
+ *    absoluta ⇒ o `ProductGroup`, com a oferta da representante de cada opção.
+ * 3. senão ⇒ o `Product` da representante da peça, com a `url` da canônica — o de antes da 68.
+ */
+const dadoEstruturado = (
+  dados: ProductPageData,
+  entrada: VariantSeoInput<ProductPageData['variants'][number]>,
+  oferta: ReturnType<typeof resolveOffer>,
+  abriuVariacao: boolean,
+  canonica: string | null,
+  origem: string,
+  deps: ProductPageDeps,
+): Record<string, unknown> => {
+  const grupo = publicProductId(dados.product)
+  if (abriuVariacao) return withPageUrl(productJsonLd(oferta), { url: canonica, groupId: grupo })
+
+  const opcoes = indexableOptions(entrada)
+  const variesBy = variesByFor(opcoes[0]?.axis)
+  if (opcoes.length === 0 || !variesBy || !canonica) return withPageUrl(productJsonLd(oferta), { url: canonica })
+
+  const contexto = { origin: deps.origin, defaultProductCategory: deps.defaultProductCategory }
+  return productGroupJsonLd({
+    name: dados.product.name,
+    groupId: grupo,
+    variesBy,
+    url: canonica,
+    variants: opcoes.map(o => ({
+      offer: resolveOffer(dados.product, o.variant, contexto),
+      name: optionPlainTitle(dados.product.name, o.text),
+      value: o.text,
+      url: `${origem}${o.path}`,
+    })),
+  })
 }
 
 const isElegivel = (dados: ProductPageData, v: OfferInputVariant): boolean =>

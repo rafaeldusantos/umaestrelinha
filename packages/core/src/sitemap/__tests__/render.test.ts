@@ -95,6 +95,27 @@ describe('locValue — percent-encode ANTES do escape (SMP-10)', () => {
   })
 })
 
+describe('locValue — a `<loc>` com query da página de opção (feature 68)', () => {
+  it('?variant= com id numérico ou UUID passa intacto, e o documento é bem-formado', () => {
+    for (const loc of [
+      'https://x.com.br/produtos/pingente-pata?variant=1349521839',
+      'https://x.com.br/produtos/pingente-pata?variant=dd0e2171-4d3d-4e20-a868-21e5223bd917',
+    ]) {
+      expect(locValue(loc)).toBe(loc)
+      expect(parse(renderSitemapXml([url(loc)])).querySelector('loc').textContent).toBe(loc)
+    }
+  })
+
+  it('um `&` numa query é ESCAPADO (`&amp;`), e o parser lê a URL de volta inteira', () => {
+    // A régua de SVR-27 recusa `&` numa `<loc>`; este caso prova que, se um passasse, o documento
+    // continuaria bem-formado em vez de quebrar o arquivo inteiro.
+    const loc = 'https://x.com.br/produtos/p?variant=1&x=2'
+    const xml = renderSitemapXml([url(loc)])
+    expect(xml).toContain('?variant=1&amp;x=2')
+    expect(parse(xml).querySelector('loc').textContent).toBe(loc)
+  })
+})
+
 describe('renderSitemapXml — as recusas', () => {
   it('lança em lista vazia — `<urlset>` sem filho diz que a loja não tem página', () => {
     expect(() => renderSitemapXml([])).toThrow(/vazio/)
