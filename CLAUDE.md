@@ -138,8 +138,9 @@ Ao planejar/implementar features, use a Skill **`tlc-spec-driven`** com estas co
     que continua só com `spec.md`. A `63` (retirada no escritório), a `64` (lista de categorias na
     Home) e a `65` (convite para o Instagram na Home) também estão FECHADAS, com commit. A `66`
     (filtros de produto) também está FECHADA, com commit. A `67` (os filtros enxergam as variações)
-    está IMPLEMENTADA e verificada, aguardando o pedido de commit. A `68` (SEO por variação) tem
-    **só `spec.md`** e depende da `67`. A próxima é a `69`.**
+    também está FECHADA, com commit. A `68` (SEO por variação) está IMPLEMENTADA, com prova servida
+    no local, aguardando o pedido de commit — e a prova em produção só existe depois do deploy. A
+    próxima é a `69`.**
   - **A `46` e a `47` correram EM PARALELO, em worktrees separados**, e é o segundo caso do projeto
     (o primeiro, a `45`, dividiu uma working tree só). O que mudou: a divisão foi por **árvore**, não
     por arquivo — a `47` nasceu de um `git worktree` sobre o HEAD local e trouxe a `46` por
@@ -246,6 +247,7 @@ com as duas cópias divergindo, e quem descobre é a cliente ou o Google.
 | `62` | **o `<head>` de cada rota, que não tinha dono nenhum** — 17 de 18 páginas herdavam o `<title>` do `index.html`, e a página de produto servida trazia o JSON-LD da joia ao lado do título e do card **da loja**. Com o GA4 ligado, todo `page_view` saía com o mesmo título. Escrito no cliente e no servidor separadamente, o título da aba e o do card do WhatsApp divergiriam | `@estrelinha/core/seo` (`AD-048`), lido pelo hook `usePageMeta` **e** pela `product-page`; `metaPorRota.test.ts` exige a chamada em toda página `lazy`, e `seo.test.ts` exige que a tabela das rotas fixas cubra `SITEMAP_STATIC_PATHS` ∪ `NON_INDEXABLE_PATHS` nos dois sentidos |
 | `63` | **"este pedido é de retirada?" e "a retirada está disponível?", perguntados por SETE lugares** — a calculadora e o checkout da loja, a confirmação e a conta, a function `checkout` (que recusa a forjada), a `melhor-envio` (que não gera etiqueta), o motor de e-mail e o painel. Escrita em cada um, a loja ofereceria a retirada que o servidor recusa, ou o e-mail diria "postamos" de uma peça que a cliente busca no balcão | `packages/core/src/shipping/pickup.ts` (`AD-049`), **sem import nenhum** para ser alcançável pelo Deno por caminho; a identidade é `shipping_service_id = 'retirada'`, e a retirada mora FORA da cotação (`ShippingQuote` intocado); `shipping/__tests__/denoReach.test.ts` e `retiradaSemEtiqueta.test.ts` guardam as duas pontas que nenhuma outra ferramenta lê |
 | `50` | **o esqueleto de carga e a revalidação, que eram a MESMA chamada** — `fetchSections()`/`fetchCategories()` significavam "carregar" e "revalidar" ao mesmo tempo, e a tela só sabia ler a primeira: toda gravação trocava a árvore por `<TableSkeleton/>`, o que **desmontava o `<iframe>` da prévia** e recarregava a loja a cada clique. E, ao lado, dois campos **de tela** do rascunho a um `insert` de distância de virar `PGRST204` | `fetchX(modo)` com o tipo `FetchMode` em **um** arquivo (`shared/lib/fetchMode.ts`) — dois nomes para o mesmo modo seriam o defeito no tamanho de um tipo, e o terceiro hook nasceria com um terceiro nome —, mais `toNewItems` como a única tradução rascunho → colunas, com `toNewItems.test.ts` recusando a oitava chave |
+| `68` | **o endereço de uma variação, e a pergunta "esta opção tem página?"** — `?variant=` tinha **dois construtores** (o `offerLink` do feed e o card da `67`, à mão, com `encodeURIComponent`), e a regra de quais opções viram página teria **quatro leitores** (a página, a `product-page`, o sitemap e o painel). Escrita em cada um, o sitemap anunciaria uma URL que a página não declara canônica — e o juiz seria o Google, semanas depois | `variantPath` em `core/shopping/offer.ts` (o `<g:link>` delega a ele) e `core/seo/variant.ts` (`indexableOptions`, `productHead`), com `paginaDeOpcaoComDonoUnico.test.ts` recusando a montagem à mão e exigindo a chamada nos quatro (`AD-052`) |
 
 Consequências práticas, nesta ordem:
 
@@ -398,7 +400,7 @@ migrations, e `vercelRedirects` lê o `vercel.json`.
 | `orders.test.ts` | `tools/catalog-import/src/write/__tests__` | a re-execução sobrescrever coluna operacional sem `--ressincronizar-estado`; os itens deixarem de ser imutáveis; a leitura de estado atual sair do `selectAll` |
 | `orderList.test.ts` (cobrança) | backoffice `features/order-list/model` | um `chargeMaterialUrl(` de `AdminOrdersPage.tsx` deixar de passar `customer_phone` — o link volta a sair **sem número**, em silêncio |
 | `metaPorRota.test.ts` | store `pages/__tests__` | uma página `lazy` do `App.tsx` sem `usePageMeta(` em **código** — o hook não reverte ao desmontar (`AD-048`), então a página que esquece herda o título da ANTERIOR. **Âncora cravada** (18 páginas) e sensores: a página sem a chamada, a chamada só em comentário (CRLF e LF), e o colhedor achando página nova e ignorando a citada em prosa |
-| `seo.test.ts` · `denoReach.test.ts` | `packages/core/src/seo/__tests__` | a tabela de metadado das rotas fixas divergir de `SITEMAP_STATIC_PATHS` ∪ `NON_INDEXABLE_PATHS` (**bidirecional**, âncora 16); dois títulos fixos iguais; rota desconhecida deixar de **lançar**; a marca sair em dobro (`\| Uma Estrelinha`, `\| UE`); a descrição derivada passar de 160 ou cortar palavra. O segundo caminha o grafo **transitivo** de `core/seo` (que a `product-page` resolve no Deno) e recusa especificador relativo sem `.ts` — `import type` incluso — ou import de pacote |
+| `seo.test.ts` · `denoReach.test.ts` · `variant.test.ts` | `packages/core/src/seo/__tests__` | (feature `68`) a regra de quais opções têm página (SVR-01..07), o título de opção com a marca só até 60 caracteres e nunca cortado, a descrição começando pelo texto, a canônica da opção ser byte a byte o `<g:link>` da representante; o `denoReach` passou a exigir **exatamente 15** arquivos no grafo (era `≥ 7`), incluindo `seo/variant.ts` e os de `shopping`. E, de antes: a tabela de metadado das rotas fixas divergir de `SITEMAP_STATIC_PATHS` ∪ `NON_INDEXABLE_PATHS` (**bidirecional**, âncora 16); dois títulos fixos iguais; rota desconhecida deixar de **lançar**; a marca sair em dobro (`\| Uma Estrelinha`, `\| UE`); a descrição derivada passar de 160 ou cortar palavra. O segundo caminha o grafo **transitivo** de `core/seo` (que a `product-page` resolve no Deno) e recusa especificador relativo sem `.ts` — `import type` incluso — ou import de pacote |
 | `denoReach.test.ts` (shipping) | `packages/core/src/shipping/__tests__` | `pickup.ts` ganhar um import — relativo sem `.ts` (`import type` incluso) ou de pacote. Três functions o importam por caminho relativo (`checkout`, `melhor-envio`, `send-notification` via `core/notifications` e `core/orders`), e o barrel de `shipping` **não** é alcançável pelo Deno (`estimate.ts` usa alias). Remove comentário depois de normalizar CRLF |
 | `retiradaSemEtiqueta.test.ts` · `melhor-envio/__tests__/handlers.test.ts` | `supabase/functions/_shared/__tests__` e `supabase/functions/melhor-envio/__tests__` | **Desde a rodada 3 da verificação RET-15 é provada por EXECUÇÃO**: `handleCreate` saiu do `index.ts` para `melhor-envio/handlers.ts` (`AD-004`), com o client, a chamada à API (`meFetch`) e o remetente **injetados**, e o teste de unidade alimenta uma linha de retirada e assere `422 pickup_order` **e zero chamadas** ao `meFetch` injetado **e** nenhuma gravação em `orders` — com o **par** dos Correios chegando ao carrinho, para "zero chamadas" não ser verdade num handler que nunca chama nada. A leitura de `orders` do dublê só devolve `shipping_service_id` quando o `select` o pede, então a coluna também é provada executando. As três rodadas anteriores guardavam pela fonte e cada uma achou formas novas que passavam (recusa aninhada noutro `if`, em arrow nunca chamada, `meFetch` com outro nome, helper de módulo antes do portão, `try/finally`, `order` sombreado); execução nenhuma dessas burla. O guarda de fonte **encolheu** para o que o vitest não alcança: o `index.ts` importa `handleCreate` de `./handlers.ts` (com extensão), não declara um próprio, e o `case "create"` o chama com **exatamente** `{ supabase: adminClient(), meFetch, sender: ME_SENDER }` e o `body`; `meFetch` é função do `index.ts` que chama `fetch`; todo import de `handlers.ts` é relativo com `.ts`; e dentro de `handleCreate` o `body` é lido **uma vez**, desestruturando só `order_id` e `service_id` — o que torna genérico o que o teste de corpo hostil (`force`, `debug`, `bypass`…) só amostra. Pela AST, com âncoras e sensores para cada régua |
 | `sitemapRoutes.test.ts` | store `app/__tests__` | rota nova no `App.tsx` que não entrou em `SITEMAP_STATIC_PATHS` nem em `NON_INDEXABLE_PATHS`; entrada classificada que deixou de ser rota. **Bidirecional**, e provado nos dois sentidos |
@@ -446,7 +448,7 @@ migrations, e `vercelRedirects` lê o `vercel.json`.
 | `block.test.ts` | idem | o extrator perder um dos **dois** arranjos de HTML medidos; `stripFaqBlock` remover bloco sem par extraível |
 | `shoppingParity.test.ts` | `packages/core/src/shopping/__tests__` | o feed e o JSON-LD divergirem em preço ou disponibilidade, medidos pelas **serializações reais**. Sensor embutido |
 | `purity.test.ts` | idem | um arquivo de `core/shopping` importar React, Supabase ou Deno |
-| `urls.test.ts` · `render.test.ts` | `packages/core/src/sitemap/__tests__` | produto fora de `/produtos/:slug`; subcategoria em um segmento; `<loc>` relativa, com barra final ou com query; forma legada presente; `changefreq`/`priority` voltarem; o escape sair na ordem errada. Carrega **sensor embutido**: assere que um gerador ingênuo (`'/' + slug`) **reprova** na mesma régua |
+| `urls.test.ts` · `render.test.ts` | `packages/core/src/sitemap/__tests__` | produto fora de `/produtos/:slug`; subcategoria em um segmento; `<loc>` relativa, com barra final ou com query **que não seja `?variant=` de opção indexável** (a `SMP-07` foi revogada nessa forma pela `68` — `utm`, `&` extra e `?variant=` de opção não indexável continuam reprovando, e SVR-28 é provada nos dois sentidos: sitemap ⊆ autocanônicas e autocanônicas ⊆ sitemap); forma legada presente; `changefreq`/`priority` voltarem; o escape sair na ordem errada. Carrega **sensor embutido**: assere que um gerador ingênuo (`'/' + slug`) **reprova** na mesma régua |
 | `readAll.test.ts` | `packages/core/src/paging/__tests__` | leitura truncada aceita; total lido divergir da contagem e passar; página vazia não interromper o laço |
 | `catalog.test.ts` · `defaults.test.ts` | `packages/core/src/home/__tests__` | um arquivo de `core/home` importar React ou Supabase; a varredura render menos de 10 arquivos; a semente divergir do que a loja desenha. **Invertido na `64`**: nenhum tipo está mais "em breve" (`COMING_SOON` vazio) e os onze tipos prontos são listados por extenso — ao lado dele, `HomeRenderer.test.tsx` (store) passou a exigir componente para **todo** tipo do registro e `HomeBlockTray.test.tsx` (backoffice) a oferecer "Lista de categorias" habilitada |
 | `categoryListSchema.test.ts` | store `shared/lib/__tests__` (lê a migration da `64`) | `home_section_items.title` sem `add column if not exists`; o número do `check` divergir de `CATEGORY_LIST_ITEM_TITLE_MAX` (**importado** de `@estrelinha/core/home` — a tela recusaria o que o banco aceita, ou o contrário); `grant` alcançar `anon`; a migration escrever dado. **Âncora dupla** (arquivo lido e número extraído) e `mutar()` que **lança** sem alvo, com um sensor por asserção |
@@ -455,7 +457,9 @@ migrations, e `vercelRedirects` lê o `vercel.json`.
 | `pickSlip.test.ts` | backoffice `features/pick-slip` | a folha perder itens, gravação, material esperado ou endereço; o conteúdo deixar de ser escapado; a folha voltar a carregar CSS do painel; o lote parar de gerar uma folha por pedido |
 | `apiShape.test.ts` | `tools/catalog-import` | a Nuvemshop mudar a forma de um campo que o mapeamento lê; a fixture perder um caso de borda |
 | `db.test.ts` (`selectAll`) | idem | uma leitura de "o que já existe" voltar a `select` simples e ser truncada em 1.000 linhas pelo PostgREST |
-| `handlers.test.ts` (sitemap) | `supabase/functions/sitemap/__tests__` | um caminho degradado responder 200; **um corpo de erro carregar `<urlset>`**; o `Content-Type` da resposta boa deixar de ser `application/xml` |
+| `handlers.test.ts` (sitemap) | `supabase/functions/sitemap/__tests__` | um caminho degradado responder 200; **um corpo de erro carregar `<urlset>`**; o `Content-Type` da resposta boa deixar de ser `application/xml`. **Desde a `68`**: leitura de variações ou de marcações falhando ou truncada (acima de 1.000) também é degradada, nunca um sitemap 200 sem as páginas de opção |
+| `paginaDeOpcaoComDonoUnico.test.ts` | store `shared/lib/__tests__` (varre `apps/store`, `apps/backoffice` e `supabase/functions`, só produção) | fora de `packages/core`: `?variant=` montado à mão (interpolação ou concatenação), chamada a `brandedTitle(`, ou o travessão emendando um nome e um texto de opção (feature `68`, SVR-39/40). **Metade positiva**: a `ProductPage` e a `product-page` chamam `productHead`, o `ProductCard` chama `variantPath`, e `core/sitemap/urls.ts` chama `indexableOptions`. A régua do travessão exige os **dois lados** e tem inverso provando que dez templates de copy com travessão não são acusados. Âncora dupla, sensores de CRLF/LF/glob |
+| `sitemapCheckWorkflow.test.ts` | store `shared/lib/__tests__` (lê `.github/workflows/sitemap-check.yml`) | o passo da canônica do sensor diário perder a comparação de **origem** (SVR-41 — a canônica servida tem a origem de onde o sitemap foi buscado), a igualdade canônica == `<loc>` da opção (SVR-34), ou passar a falhar com zero `?variant=` (SVR-35); literal de domínio, slug ou id no passo (SVR-36). Recorte por bloco que devolve `null` e **reprova**, e `mutar()` que lança sem alvo |
 
 > **Guarda que recusa uma STRING é quebrado pela prosa que explica o defeito.** Aconteceu duas vezes
 > com formas diferentes: o bundler do `supabase start` morreu por um comentário que escrevia um
@@ -481,7 +485,36 @@ quando mudarem de verdade.
 | --- | --- | --- |
 | **Lint** | **26 erros / 7 warnings** — backoffice 24/5 · store 2/2 | `pnpm lint` |
 | **Tipos** | **0 · 0 · 0** (store · backoffice · catalog-import) | `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` |
-| **Testes** | **13151 em 654 arquivos** — store **5164/289** · backoffice **3487/198** · core **3011/122** · functions **977/22** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
+| **Testes** | **13353 em 658 arquivos** — store **5222/292** · backoffice **3493/198** · core **3116/123** · functions **1010/22** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
+
+**A feature `68` (SEO por variação) somou +202/+4 em QUATRO workspaces**, medidos em 2026-10-19 um
+por vez, exit code fora de pipe, contra a entrada medida com a árvore parada (que bateu exatamente a
+linha anterior, 13151/654): **core +105/+1** (`core/seo/variant.ts` — a regra de quais opções têm
+página, `productHead` e `publicOptionMarks` —, `variantPath`, `ProductGroup`/`withPageUrl` e o sitemap
+com as `<loc>` de opção), **functions +33** (a canônica servida e o `<head>` de opção na
+`product-page`; variações e marcações paginadas no `sitemap`), **store +58/+3** (a página real com
+`productHead`, o guarda `paginaDeOpcaoComDonoUnico` e o `sitemapCheckWorkflow`) e **backoffice +6**
+("Tem página própria no Google"). Lint **26/7**, tipos **0 · 0 · 0**, `pnpm build` verde,
+`packages/core/src/payment/**` com zero arquivos alterados e `shoppingParity.test.ts` com **zero
+linhas** alteradas. **Sem migration.** Decisão `AD-052`.
+
+> **O lint pegou duas coisas que a suíte aprovava, e as duas foram consertadas pela causa.** Um
+> `?? []` recriado a cada render virou dependência do `useMemo` novo do painel (warning de
+> `exhaustive-deps`), e o teste que prova o SVR-14 com o `PageViewTracker` real morava em
+> `pages/__tests__` importando de `app/` — fronteira FSD ao contrário. Ele mudou para
+> `app/__tests__`, que é a camada que compõe página e rastreador.
+
+> **A prova servida achou que o ambiente local não sabia servir a `product-page`**, e o desenho
+> vale como receita (`.specs/features/68-seo-por-variacao/prova-servida.md`): dentro do container,
+> `localhost` é o próprio container (502 no shell), e o Vite recusa `Host: host.docker.internal`
+> (403). O shell estático numa porta própria + `supabase functions serve --env-file` com
+> `STORE_PUBLIC_URL=http://host.docker.internal:<porta>` dá a mesma origem ao sitemap e à canônica.
+> O feed foi provado **idêntico byte a byte** contra o HEAD servido de um `git worktree`.
+
+> ⚠️ **Um hit real saiu para o GA4 durante a prova** (uma requisição, `tt=internal`, de
+> `localhost`): a interceptação cobria `*google-analytics.com` e o `gtag` envia para
+> `analytics.google.com`. **Intercepte por caminho (`**/g/collect*`), nunca por domínio.** Em
+> desenvolvimento a loja não mede — o `page_view` só existe num build (`vite preview`).
 
 **A feature `67` (os filtros enxergam as variações) somou +462/+20 em TRÊS workspaces**, medidos em
 2026-10-18/19 um por vez, exit code fora de pipe, contra a entrada medida com a árvore parada (que
@@ -2159,7 +2192,7 @@ Três workflows em `.github/workflows/`:
 | --- | --- | --- |
 | `ci.yml` | PR **e** push em `master` | `turbo run test --concurrency=1`, depois `pnpm build`. Lint e typecheck rodam com `continue-on-error` |
 | `supabase-deploy.yml` | push em `master` (sem filtro de `paths`) | `supabase db push --linked` e, condicionalmente, `supabase functions deploy` |
-| `sitemap-check.yml` | **cron diário** + `workflow_dispatch` | Prova a **entrega** de `/sitemap.xml`: tipo entregue, documento parseando, contagem acima do piso, `robots.txt` coerente e uma `<loc>` respondendo 200. Não regenera nada — o sitemap é servido ao vivo |
+| `sitemap-check.yml` | **cron diário** + `workflow_dispatch` | Prova a **entrega** de `/sitemap.xml`: tipo entregue, documento parseando, contagem acima do piso, `robots.txt` coerente e uma `<loc>` respondendo 200. Não regenera nada — o sitemap é servido ao vivo. **Desde a `68`**: imprime quantas `<loc>` têm `?variant=` e confere a `rel="canonical"` servida — a de uma peça sem query e, havendo, a de uma opção (igual à própria `<loc>`) —, falhando se a **origem** da canônica não for a de onde o sitemap foi buscado (o `STORE_PUBLIC_URL` esquecido no dia do domínio próprio) |
 | `email-check.yml` | **cron diário** + `workflow_dispatch` | Prova que o e-mail **ainda pode sair** (feature `52`). Sete passos: pergunta à produção com o que ela está configurada (`send-notification?action=config-check`), e prova **esse** valor contra o Resend. **Não** prova o SMTP nem os templates do GoTrue, e declara isso por extenso |
 
 - **`--concurrency=1` no CI é de propósito**: rodar store e backoffice em paralelo satura o runner de
@@ -2247,6 +2280,15 @@ completo (framework, `installCommand` na raiz do monorepo, headers de cache e de
 
 ## Estado conhecido / dívidas
 
+- **A régua da `68` é uma só, mas a ENTRADA dela não é** (achado da verificação, rodada 1). A loja
+  passa `options` já normalizado por `normalizeOptions` (`@estrelinha/core/product`: apara o nome do
+  eixo, descarta eixo sem `values`); a `product-page` e o `sitemap` passam o `options` **cru** do
+  banco, porque `core/product/index.ts` importa tipos de `@estrelinha/supabase/types` e **não é
+  alcançável pelo Deno**. Com um eixo `" Cor "`, loja e servidor responderiam diferente sobre a mesma
+  URL. **Medido em 2026-10-19: zero** eixos com nome mal aparado e zero sem `values`, em 707 eixos,
+  no banco local **e** em produção — por isso não foi consertado dentro da `68`. O conserto é levar
+  `normalizeOptions` para um arquivo-folha alcançável (molde de `shipping/pickup.ts`) e chamá-la
+  dentro de `indexableOptions`.
 - **A `64` (lista de categorias) TEM prova no banco local, em navegador e verificação independente
   (PASS, 42 mutantes).** A prova achou um defeito e ele foi consertado na mesma tarefa (o recuo final do
   rolador fora da área rolável — `apps/store/CLAUDE.md`). O que ficou fora da medição: o arrasto

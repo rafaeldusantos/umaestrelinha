@@ -185,7 +185,22 @@ que a página continua abrindo pelo endereço novo. É a mesma decisão que a `3
   catálogo — nunca tela branca, nunca a listagem completa.
 - **A tag canônica é injetada por JS** (`useCanonical`), e `curl` não a vê: a loja é SPA sem SSR. A
   verificação é partida — `curl -I` prova status e `Location`; a canônica se prova em navegador
-  headless. Não é falha escondida, é o método.
+  headless. Não é falha escondida, é o método. **Exceção desde a `68`: `/produtos/:slug`** — a edge
+  function `product-page` serve uma `rel="canonical"` no HTML, e ali `curl` (com o `Content-Type`
+  entregue) é a prova.
+- **A página do produto tem DUAS canônicas possíveis, e quem escolhe é `core`** (feature `68`,
+  `AD-052`). `?variant=` de uma opção marcada num filtro (pela régua de `indexableOptions`: o primeiro
+  eixo de `options` com marcação e ≥ 2 textos elegíveis) ⇒ a canônica é a URL **da opção**, com o
+  `?variant=` da representante dela, e o título é "Peça — Opção". Qualquer outro `?variant=` (letra,
+  gravação, opção sem marcação, id inválido) ⇒ a peça, como antes. A `ProductPage` passa o **produto
+  inteiro** a `productHead` e usa o `meta` e o `canonicalPath` dele — ela não lê `option_marks`
+  (`marcacaoPorOpcaoComDonoUnico`) nem monta `?variant=` (`paginaDeOpcaoComDonoUnico`).
+  - **O `<head>` acompanha a URL, não o seletor.** Trocar a cor na página não muda o endereço nem o
+    título. Navegar de `?variant=A` para `?variant=B` da mesma peça **remonta o corpo**: a chave é
+    `produto + ?variant=`, e com só `product.id` o título diria uma cor e a página mostraria outra.
+  - **O redirect do slug antigo preserva a query** — antes ele descartava o `?variant=`.
+  - **O link do card vem de `variantPath`** (`@estrelinha/core/shopping`), o mesmo construtor do
+    `<g:link>` do feed. Era montado à mão aqui, com `encodeURIComponent`.
 - **Conjunto de produtos é CATEGORIA — só ela** (`AD-014`). "Coleção" na loja já é a categoria: a
   `CategoryPage` vem de `categories`, o widget da home se chama "Coleções" e o 404 diz "Coleção não
   encontrada". A tabela `collections` **nunca existiu em migration nenhuma** (`PGRST205`), o hook

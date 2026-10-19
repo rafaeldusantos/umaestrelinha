@@ -66,33 +66,49 @@ opção marcada ganha título, canônica e entrada no sitemap próprios; o resto
 | --- | --- | --- | --- |
 | Quais URLs viram página própria | uma por (peça × opção marcada num filtro) | decisão do usuário (2026-10-18) | y |
 | Feature separada da `67` | sim, implementada depois dela | decisão do usuário | y |
-| Forma da URL indexável | `/produtos/<slug>?variant=<publicVariantId da representante>` — **byte a byte igual** ao `<g:link>` que o feed já publica para aquela variação | a página, o card da `67` e o feed já falam `?variant=`; um segundo esquema (`?cor=prata-925`) seria um segundo dono do endereço de uma variação, e a página do anúncio e a página orgânica da mesma oferta passariam a ser URLs diferentes | n |
-| A representante de uma opção | entre as variações **elegíveis** da peça com aquele texto (ativa e com preço, `feedExclusion === null`), a de menor `position`; empate pelo `publicVariantId` em ordem crescente. **Estoque não entra** | a canônica tem de ser estável. Preferir estoque (como `representativeVariant` e o card da `67` fazem) trocaria a canônica de id cada vez que a primeira cor esgota e volta — canônica que muda de id é pior que nenhuma. Medido: zero empates de `position` entre variações ativas da mesma peça hoje; o desempate existe para o dia em que houver | n |
-| Estabilidade quando a grade muda | aceita-se que a representante mude quando a Adri reordena, desativa, tira o preço ou apaga a variação representante. A URL antiga continua abrindo (se a variação existe e é elegível, ela canoniza para a nova representante; se não, para a peça) | o painel atualiza variação **no lugar** (`persistProduct.ts:289`, medido pela `67`), então o id só muda quando a linha sai da grade, que é raro. Fixar a representante em coluna seria um segundo dono de "qual é a página desta opção" | n |
-| Peça com marcação em dois eixos (Cor **e** Tipo de elo) | **um eixo só** gera página: o primeiro, na ordem de `products.options`, que tem ao menos um texto indexável. Os textos marcados dos outros eixos canonizam para a peça | duas páginas por eixo podem ter a **mesma** representante (a primeira variação é Prata 925 **e** Chaveiro), e aí uma URL teria dois títulos. Dentro de um eixo só, textos diferentes têm representantes diferentes por construção. Medido: com essa regra o teto é ~1.575 páginas se tudo for marcado (Cor 958, eixos de elo ~455, resto ~160); combinação passaria disso | n |
-| Eixo com um texto só entre as variações elegíveis | não gera página | a página da opção seria a página da peça com outro título — duplicata exata | n |
-| Título da página de opção | `"{nome da peça} — {texto da opção}"`, com espaço colapsado; com a marca (`brandedTitle`) **só se** o resultado couber em 60 caracteres, senão sem a marca | o **texto da opção** (e não o nome do valor de filtro) porque é o que a página mostra no seletor, é único dentro do eixo, e uma opção pode ter vários valores marcados (Prata 925 **e** Folheado a ouro) ou dois textos podem ter o mesmo valor — o nome do valor colidiria. O **nome** (e não o `seo_title`) porque 413 `seo_title` já terminam em marca (`\| Uma Estrelinha`, `\| UE`, medido pela `62` no hospedado), e emendar a opção depois da marca é frágil. Sem marca acima de 60 porque o buscador corta por volta disso e a opção, que é o que distingue esta página, está no fim. Medido: mediana de 68 caracteres sem a marca, e **1.059 de 1.107** pares passariam de 60 com ela | n |
-| Nome da peça que já cita material ("… em Prata 925 — Prata 925 Folheado a Ouro Rose") | aceito sem tratamento | medido: 162 das 395 peças com `Cor` citam material no nome. Tirar palavras do nome é reescrever cadastro por regex, e erra | n |
-| Descrição da página de opção | `summarize("{texto da opção}. {descrição da peça}")`, com a descrição da peça vinda de `productPageMeta` (curada → derivada → loja → piso), cortada em 160 | é derivada, então vale o teto da derivação (`DESCRIPTION_MAX`). Sem o prefixo, as 1.107 páginas teriam a mesma descrição da peça | n |
-| `?variant=` de uma variação **não representante** de uma opção indexável (ex.: Prata 925 com Letra B) | a página abre nela (como hoje); título e descrição são os **da opção**; canônica é a da **opção** (a representante) | todas as letras de Prata 925 são o mesmo conteúdo para o buscador e se agrupam numa URL. Mandá-las para a peça perderia o sinal da cor que o link carrega | n |
-| `?variant=` inválido, de outra peça, inativo ou sem preço | canônica e `<head>` da peça | é o mesmo recuo que a página e a function já fazem para a seleção | n |
-| Outros parâmetros na URL (`utm_*`, `gclid`, `fbclid`) | ignorados no `<head>`: a canônica nunca os carrega | link de campanha não é página nova | n |
-| Página que canoniza para outra | sem `noindex` | canônica e `noindex` juntos são sinal contraditório; a canônica basta | n |
-| `<head>` acompanha a URL, não a seleção | título e canônica saem do `?variant=` lido **na abertura** e não mudam quando a cliente troca de cor no seletor (a URL também não muda) | o `<head>` descreve o endereço. Mudar o título a cada toque produziria um `page_view` por toque | n |
-| Navegação SPA de `?variant=A` para `?variant=B` da mesma peça (voltar, card da `67`) | a página reabre na variação de B, e o `<head>` passa a ser o de B | hoje a variação da URL é lida uma vez por montagem do corpo (`key={product.id}`), e a mesma peça não remonta: o título diria Prata e a página mostraria Ouro | n |
-| De onde vêm as marcações no servidor | a `product-page` lê com a chave de **serviço** (ignora RLS), então aplica à mão as mesmas restrições da leitura pública (grupo ativo, peça ativa) antes de chamar a regra | sem isso o HTML servido declararia página para um grupo desligado, enquanto o cliente e o sitemap (que leem pela RLS) não — três respostas para "esta opção tem página?" | n |
-| Falha ao ler as marcações (cliente, servidor) | o `<head>` cai no da peça; nunca declara página de opção com dado parcial | declarar canônica errada é pior que não declarar (`useCanonical.ts`, comentário) | n |
-| Falha ao ler as marcações ou as variações no sitemap | resposta degradada, **não 200**, como a falha de produtos hoje | sitemap 200 sem as páginas de opção apagaria 1.000 URLs num dia e as devolveria no seguinte; o guarda `handlers.test.ts` do sitemap já recusa caminho degradado com 200 | n |
-| `lastmod` da URL de opção | o `updated_at` da peça | a página de opção é o conteúdo da peça. Marcar a opção não atualiza `products.updated_at`, e carimbar outra data seria inventar edição (`L-017`, candidata) | n |
-| `offers.url` no JSON-LD | continua sendo o `<g:link>` da variação aberta (com `?variant=`). O `Product` ganha `url` = a canônica do documento. **Revoga a `SEO-18` da `36`** | a `SEO-18` partia da premissa de que a canônica era sempre a peça sem query, e que `?variant=` em `offers.url` declarava "dois endereços para a mesma oferta". Com a `68`, `?variant=` passa a ser forma canônica, e cada variação é uma oferta com URL própria — o que o Google espera de variante. Manter `offers.url` = `<g:link>` preserva a asserção "a página e o feed apontam para a mesma URL" de `shoppingParity.test.ts:108`, que é a que o Merchant Center confere | n |
-| JSON-LD da página **da peça** com opções indexáveis | `ProductGroup` com `hasVariant` (uma por opção indexável) e `variesBy`, **no lugar** do `Product` avulso; páginas com `?variant=` continuam com o `Product` da variação aberta, mais `inProductGroupWithID` (P2) | o Merchant Center sempre chega com `?variant=` (comentário de `representativeVariant`), então a paridade fica no `Product`; a página sem query é a do resultado orgânico. Um `@type` de produto por documento (`SEO-21` da `36`) | n |
-| `variesBy` | tabela fixa em `core`: eixo `Cor` → `https://schema.org/color`, `Tamanho` → `https://schema.org/size` (nome do eixo comparado com a dobra de acento e caixa, igualdade exata). Eixo indexável fora da tabela ⇒ sem `ProductGroup`, `Product` como hoje | "Tipos de elo" mistura formato e acabamento (medido pela `67`) e não tem propriedade de `schema.org`. Declarar `material` para "Chaveiro" seria afirmação falsa | n |
-| Piso do `sitemap-check.yml` | continua 700 | é piso, não igualdade; as páginas de opção nascem zero (dependem da curadoria) | n |
+| Forma da URL indexável | `/produtos/<slug>?variant=<publicVariantId da representante>` — **byte a byte igual** ao `<g:link>` que o feed já publica para aquela variação | a página, o card da `67` e o feed já falam `?variant=`; um segundo esquema (`?cor=prata-925`) seria um segundo dono do endereço de uma variação, e a página do anúncio e a página orgânica da mesma oferta passariam a ser URLs diferentes | y (2026-10-19) |
+| A representante de uma opção | entre as variações **elegíveis** da peça com aquele texto (ativa e com preço, `feedExclusion === null`), a de menor `position`; empate pelo `publicVariantId` em ordem crescente. **Estoque não entra** | a canônica tem de ser estável. Preferir estoque (como `representativeVariant` e o card da `67` fazem) trocaria a canônica de id cada vez que a primeira cor esgota e volta — canônica que muda de id é pior que nenhuma. Medido: zero empates de `position` entre variações ativas da mesma peça hoje; o desempate existe para o dia em que houver | y (2026-10-19) |
+| Estabilidade quando a grade muda | aceita-se que a representante mude quando a Adri reordena, desativa, tira o preço ou apaga a variação representante. A URL antiga continua abrindo (se a variação existe e é elegível, ela canoniza para a nova representante; se não, para a peça) | o painel atualiza variação **no lugar** (`persistProduct.ts:289`, medido pela `67`), então o id só muda quando a linha sai da grade, que é raro. Fixar a representante em coluna seria um segundo dono de "qual é a página desta opção" | y (2026-10-19) |
+| Peça com marcação em dois eixos (Cor **e** Tipo de elo) | **um eixo só** gera página: o primeiro, na ordem de `products.options`, que tem ao menos um texto indexável. Os textos marcados dos outros eixos canonizam para a peça | duas páginas por eixo podem ter a **mesma** representante (a primeira variação é Prata 925 **e** Chaveiro), e aí uma URL teria dois títulos. Dentro de um eixo só, textos diferentes têm representantes diferentes por construção. Medido: com essa regra o teto é ~1.575 páginas se tudo for marcado (Cor 958, eixos de elo ~455, resto ~160); combinação passaria disso | y (2026-10-19) |
+| Eixo com um texto só entre as variações elegíveis | não gera página | a página da opção seria a página da peça com outro título — duplicata exata | y (2026-10-19) |
+| Título da página de opção | `"{nome da peça} — {texto da opção}"`, com espaço colapsado; com a marca (`brandedTitle`) **só se** o resultado couber em 60 caracteres, senão sem a marca | o **texto da opção** (e não o nome do valor de filtro) porque é o que a página mostra no seletor, é único dentro do eixo, e uma opção pode ter vários valores marcados (Prata 925 **e** Folheado a ouro) ou dois textos podem ter o mesmo valor — o nome do valor colidiria. O **nome** (e não o `seo_title`) porque 413 `seo_title` já terminam em marca (`\| Uma Estrelinha`, `\| UE`, medido pela `62` no hospedado), e emendar a opção depois da marca é frágil. Sem marca acima de 60 porque o buscador corta por volta disso e a opção, que é o que distingue esta página, está no fim. Medido: mediana de 68 caracteres sem a marca, e **1.059 de 1.107** pares passariam de 60 com ela | y (2026-10-19) |
+| Nome da peça que já cita material ("… em Prata 925 — Prata 925 Folheado a Ouro Rose") | aceito sem tratamento | medido: 162 das 395 peças com `Cor` citam material no nome. Tirar palavras do nome é reescrever cadastro por regex, e erra | y (2026-10-19) |
+| Descrição da página de opção | `summarize("{texto da opção}. {descrição da peça}")`, com a descrição da peça vinda de `productPageMeta` (curada → derivada → loja → piso), cortada em 160 | é derivada, então vale o teto da derivação (`DESCRIPTION_MAX`). Sem o prefixo, as 1.107 páginas teriam a mesma descrição da peça | y (2026-10-19) |
+| `?variant=` de uma variação **não representante** de uma opção indexável (ex.: Prata 925 com Letra B) | a página abre nela (como hoje); título e descrição são os **da opção**; canônica é a da **opção** (a representante) | todas as letras de Prata 925 são o mesmo conteúdo para o buscador e se agrupam numa URL. Mandá-las para a peça perderia o sinal da cor que o link carrega | y (2026-10-19) |
+| `?variant=` inválido, de outra peça, inativo ou sem preço | canônica e `<head>` da peça | é o mesmo recuo que a página e a function já fazem para a seleção | y (2026-10-19) |
+| Outros parâmetros na URL (`utm_*`, `gclid`, `fbclid`) | ignorados no `<head>`: a canônica nunca os carrega | link de campanha não é página nova | y (2026-10-19) |
+| Página que canoniza para outra | sem `noindex` | canônica e `noindex` juntos são sinal contraditório; a canônica basta | y (2026-10-19) |
+| `<head>` acompanha a URL, não a seleção | título e canônica saem do `?variant=` lido **na abertura** e não mudam quando a cliente troca de cor no seletor (a URL também não muda) | o `<head>` descreve o endereço. Mudar o título a cada toque produziria um `page_view` por toque | y (2026-10-19) |
+| Navegação SPA de `?variant=A` para `?variant=B` da mesma peça (voltar, card da `67`) | a página reabre na variação de B, e o `<head>` passa a ser o de B | hoje a variação da URL é lida uma vez por montagem do corpo (`key={product.id}`), e a mesma peça não remonta: o título diria Prata e a página mostraria Ouro | y (2026-10-19) |
+| De onde vêm as marcações no servidor | a `product-page` lê com a chave de **serviço** (ignora RLS), então aplica à mão as mesmas restrições da leitura pública (grupo ativo, peça ativa) antes de chamar a regra | sem isso o HTML servido declararia página para um grupo desligado, enquanto o cliente e o sitemap (que leem pela RLS) não — três respostas para "esta opção tem página?" | y (2026-10-19) |
+| Falha ao ler as marcações (cliente, servidor) | o `<head>` cai no da peça; nunca declara página de opção com dado parcial | declarar canônica errada é pior que não declarar (`useCanonical.ts`, comentário) | y (2026-10-19) |
+| Falha ao ler as marcações ou as variações no sitemap | resposta degradada, **não 200**, como a falha de produtos hoje | sitemap 200 sem as páginas de opção apagaria 1.000 URLs num dia e as devolveria no seguinte; o guarda `handlers.test.ts` do sitemap já recusa caminho degradado com 200 | y (2026-10-19) |
+| `lastmod` da URL de opção | o `updated_at` da peça | a página de opção é o conteúdo da peça. Marcar a opção não atualiza `products.updated_at`, e carimbar outra data seria inventar edição (`L-017`, candidata) | y (2026-10-19) |
+| `offers.url` no JSON-LD | continua sendo o `<g:link>` da variação aberta (com `?variant=`). O `Product` ganha `url` = a canônica do documento. **Revoga a `SEO-18` da `36`** | a `SEO-18` partia da premissa de que a canônica era sempre a peça sem query, e que `?variant=` em `offers.url` declarava "dois endereços para a mesma oferta". Com a `68`, `?variant=` passa a ser forma canônica, e cada variação é uma oferta com URL própria — o que o Google espera de variante. Manter `offers.url` = `<g:link>` preserva a asserção "a página e o feed apontam para a mesma URL" de `shoppingParity.test.ts:108`, que é a que o Merchant Center confere | y (2026-10-19) |
+| JSON-LD da página **da peça** com opções indexáveis | `ProductGroup` com `hasVariant` (uma por opção indexável) e `variesBy`, **no lugar** do `Product` avulso; páginas com `?variant=` continuam com o `Product` da variação aberta, mais `inProductGroupWithID` (P2) | o Merchant Center sempre chega com `?variant=` (comentário de `representativeVariant`), então a paridade fica no `Product`; a página sem query é a do resultado orgânico. Um `@type` de produto por documento (`SEO-21` da `36`) | y (2026-10-19) |
+| `variesBy` | tabela fixa em `core`: eixo `Cor` → `https://schema.org/color`, `Tamanho` → `https://schema.org/size` (nome do eixo comparado com a dobra de acento e caixa, igualdade exata). Eixo indexável fora da tabela ⇒ sem `ProductGroup`, `Product` como hoje | "Tipos de elo" mistura formato e acabamento (medido pela `67`) e não tem propriedade de `schema.org`. Declarar `material` para "Chaveiro" seria afirmação falsa | y (2026-10-19) |
+| Piso do `sitemap-check.yml` | continua 700 | é piso, não igualdade; as páginas de opção nascem zero (dependem da curadoria) | y (2026-10-19) |
 | Tom | nenhuma palavra nova visível à cliente; o título é nome + opção | registro memorial do `CLAUDE.md`: nada de "nova cor!", "disponível em" | y (regra do projeto) |
-| Medida de sucesso | Search Console, relatório "Páginas" filtrado pelo sitemap, 4 e 8 semanas depois de a Adri marcar as cores: proporção de URLs com `?variant=` em "Indexada" e contagem de "Duplicada: o Google escolheu uma canônica diferente" | é o único lugar que diz se o Google aceitou as canônicas; nada no repositório mede isso | n |
+| Medida de sucesso | Search Console, relatório "Páginas" filtrado pelo sitemap, 4 e 8 semanas depois de a Adri marcar as cores: proporção de URLs com `?variant=` em "Indexada" e contagem de "Duplicada: o Google escolheu uma canônica diferente" | é o único lugar que diz se o Google aceitou as canônicas; nada no repositório mede isso | y (2026-10-19) |
 
-**Open questions:** nenhuma. As duas decisões estruturais foram tomadas pelo usuário; o resto está
-acima com o default e o motivo, `Confirmed? n`, para a revisão da spec.
+**Open questions:** nenhuma. Revisão de 2026-10-19 com o usuário: todas confirmadas no default.
+Três notas saíram dela:
+
+- **A representante da opção NÃO é `representativeVariant`** (`offer.ts:122`, que prefere estoque).
+  A função nova tem nome próprio — duas funções "representante" com regras diferentes e o mesmo nome
+  seriam o "defeito 01" no tamanho de um identificador.
+- **SVR-23 foi medido ANTES do código** (2026-10-19, loja publicada, peça
+  `colar-personalizado-com-nome-minha-gata`, 3 cores): sem query, o JSON-LD servido traz `sku`
+  `1250307141` (a primeira); com `?variant=1349521839` (a terceira) e com
+  `?variant=1349521839&utm_source=x`, traz `sku` e `offers.url` da terceira — o `rewrite`, cujo
+  destino já carrega `?slug=:slug`, **repassa a query de entrada**. `Content-Type` entregue:
+  `text/html; charset=utf-8` nos três. `rel="canonical"` servido: **zero** nos três. A prova de fecho
+  de SVR-23 continua sendo a canônica servida igual à URL, que só existe depois da `68`.
+- **A origem da canônica tem dois donos**: o cliente usa `window.location.origin`
+  (`useCanonical.ts`), a `product-page` e o `sitemap` usam `STORE_PUBLIC_URL`. Hoje coincidem (o
+  `.vercel.app` provisório). No dia do domínio próprio, um secret esquecido faria o HTML servido
+  declarar o `.vercel.app` canônico — antes a divergência só tocava `og:url`, que não pesa na
+  indexação. Decisão do usuário: o sensor diário confere (**SVR-41**).
 
 ---
 
@@ -165,6 +181,14 @@ quero ver na aba e no resultado o nome da peça **e** da cor, e cair na página 
    esse título e com o `?variant=` no `page_location`.
 8. **SVR-15** WHEN a leitura das marcações falha no cliente THEN o `<head>` SHALL ser o da peça, e a
    página SHALL abrir normalmente na variação da URL.
+   > **SPEC_DEVIATION (2026-10-19, registrado depois da verificação, rodada 1)**: no cliente as
+   > marcações **não têm leitura própria** — elas vêm embutidas no mesmo `select` do produto desde a
+   > `67` (`PRODUCT_OPTION_MARKS_EMBED`, `mapProduct.ts`). A falha delas é a falha da consulta do
+   > produto, que já leva à página de não encontrado, como antes da `68`. O ramo "marcações falham e a
+   > peça abre" não existe no cliente; o que existe, e está provado, é o produto chegar **sem**
+   > marcações (campo ausente ou vazio) ⇒ `<head>` da peça e a variação da URL aberta. Criar uma
+   > leitura separada só para tornar esta AC alcançável custaria uma consulta a mais por página e
+   > reabriria SVR-13. No servidor o ramo existe e é SVR-21.
 9. **SVR-16** WHEN a URL muda, por navegação, de `?variant=A` para `?variant=B` da mesma peça THEN a
    página SHALL reabrir na variação de B e o `<head>` SHALL passar a ser o de B.
 
@@ -247,7 +271,11 @@ preço de cada uma.
 1. **SVR-30** WHEN a página resolve para **peça** e a peça tem opções indexáveis num eixo da tabela
    de `variesBy` THEN o JSON-LD SHALL ser um `ProductGroup` com `name` (nome da peça),
    `productGroupID` (= `publicProductId`, o `<g:item_group_id>`), `variesBy` e `hasVariant` com um
-   `Product` por opção indexável, **no lugar** do `Product` avulso.
+   `Product` por opção indexável, **no lugar** do `Product` avulso. **Só quando a URL não traz
+   `?variant=` de uma variação elegível** (ausente ou inválido): um `?variant=` válido que resolve
+   para peça (texto não marcado, Letra) segue SVR-33 — o `Product` da variação aberta, porque é ali
+   que o Merchant Center chega e confere a oferta (Assumption "JSON-LD da página da peça"). Precisado
+   em 2026-10-19 depois da verificação, rodada 1; o código e `handlers.test.ts` já seguiam esta forma.
 2. **SVR-31** Cada `Product` de `hasVariant` SHALL ter `name` (o título de SVR-08 sem a marca),
    `sku`, `image`, a propriedade do eixo (`color`/`size`) com o texto da opção, `url` igual ao
    caminho canônico da opção, e `offers` montado por `resolveOffer` da representante — o mesmo
@@ -274,6 +302,9 @@ de se declarar canônicas em produção.
    são zero (estado legítimo antes da curadoria). O piso continua 700.
 3. **SVR-36** O sensor SHALL derivar a URL do documento entregue, sem literal de domínio, slug ou id
    no `.yml` (`AD-037`).
+4. **SVR-41** O sensor SHALL falhar quando a origem da `rel="canonical"` servida de **qualquer**
+   página de produto que ele busca (com ou sem `?variant=`) for diferente da origem de onde ele buscou
+   o sitemap. Origem é esquema + host + porta, comparada exata.
 
 ---
 
@@ -370,17 +401,17 @@ de se declarar canônicas em produção.
 
 | ID | Story | Phase | Status |
 | --- | --- | --- | --- |
-| SVR-01..07 | P1: A regra de quais opções têm página (AC 1–7) | Design | Pending |
-| SVR-08..16 | P1: A página de opção na loja (AC 1–9) | Design | Pending |
-| SVR-17..23 | P1: O HTML servido diz o mesmo (AC 1–7) | Design | Pending |
-| SVR-24..29 | P1: O sitemap anuncia as páginas de opção (AC 1–6) | Design | Pending |
-| SVR-30..33 | P2: `ProductGroup` na página da peça (AC 1–4) | Design | Pending |
-| SVR-34..36 | P2: O sensor diário confere a canônica servida (AC 1–3) | Design | Pending |
-| SVR-37..38 | P3: O painel diz quais opções ganharam página (AC 1–2) | Design | Pending |
-| SVR-39 | Restrição: dono único da regra e do título de opção, com guarda | Design | Pending |
-| SVR-40 | Restrição: um construtor só para `?variant=` | Design | Pending |
+| SVR-01..07 | P1: A regra de quais opções têm página (AC 1–7) | Design | Done |
+| SVR-08..16 | P1: A página de opção na loja (AC 1–9) | Design | Done |
+| SVR-17..23 | P1: O HTML servido diz o mesmo (AC 1–7) | Design | Done (SVR-23: medido em produção só na metade do `rewrite`; a canônica servida, depois do deploy) |
+| SVR-24..29 | P1: O sitemap anuncia as páginas de opção (AC 1–6) | Design | Done |
+| SVR-30..33 | P2: `ProductGroup` na página da peça (AC 1–4) | Design | Done |
+| SVR-34..36, SVR-41 | P2: O sensor diário confere a canônica servida (AC 1–4) | Design | Done (local; produção depois do deploy) |
+| SVR-37..38 | P3: O painel diz quais opções ganharam página (AC 1–2) | Design | Done |
+| SVR-39 | Restrição: dono único da regra e do título de opção, com guarda | Design | Done |
+| SVR-40 | Restrição: um construtor só para `?variant=` | Design | Done |
 
-**Coverage:** 40 total, 0 mapeados a tasks (o `tasks.md` mapeia).
+**Coverage:** 41 total, 41 mapeados a tasks T01–T13 (`tasks.md`); provas de produção pendentes do deploy: SVR-23, SVR-34..36/41 (primeira execução do `Sitemap check`).
 
 **Requisitos de outras features que esta revoga, por escrito:**
 

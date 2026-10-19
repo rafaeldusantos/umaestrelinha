@@ -1256,9 +1256,73 @@
   recusadas por criarem um segundo dono de "quem passa". A vitrine pede a tabela nova por embed:
   **migration antes do bundle**, como no `AD-050`. A feature `68` (SEO por variação) lê esta tabela.
 
+### AD-052
+- **Decision**: **A URL de uma opção marcada é a canônica dela — e "esta opção tem página, e qual é
+  o endereço?" tem UM dono, `packages/core/src/seo/variant.ts`, alcançável pelo Deno.** Uma página
+  por (peça × texto marcado num filtro) no **primeiro eixo** de `options` com marcação e ≥ 2 textos
+  elegíveis; endereço `/produtos/<slug>?variant=<id>` da **representante da opção** (elegível, menor
+  `position`, desempate por `publicVariantId`, **estoque fora** — função própria, distinta de
+  `representativeVariant`), byte a byte igual ao `<g:link>` do feed (`variantPath`, o construtor
+  único de `?variant=`). A régua é `productHead(...)`, chamada igual pela loja (`usePageMeta` +
+  `useCanonical`), pela `product-page` (`<title>`, meta, `<link rel="canonical">`, `og:url`) e — via
+  `indexableOptions` — pelo sitemap e pelo painel. Toda outra URL com `?variant=` canoniza para a
+  peça. `offers.url` continua o `<g:link>` da variação aberta; a canônica vai em `Product.url`.
+- **Reason**: feature `68`. O seletor não muda a URL e a página já abre na variação do `?variant=`,
+  mas o `<head>` ignorava isso nos dois lados, e o HTML servido não tinha canônica nenhuma (medido em
+  2026-10-19). Três leitores (página, function, sitemap) escrevendo a regra cada um seria o "defeito
+  01" com o Google como juiz: o sitemap anunciaria uma URL que a página não declara canônica, e nada
+  quebraria. Representante sem estoque porque canônica que troca de id quando a primeira cor esgota é
+  pior que nenhuma.
+- **Trade-off**: revoga por escrito a `SEO-18` da `36` (na forma), a `SMP-07` da `33` (a única query
+  numa `<loc>` passa a ser `?variant=` de opção indexável) e acrescenta a exceção ao `URL-01` da
+  `23`. A canônica do cliente usa `window.location.origin` e a do servidor/sitemap usa
+  `STORE_PUBLIC_URL` — dois donos da origem, aceitos e **vigiados** pelo `sitemap-check.yml`
+  (SVR-41). Reordenar ou desativar a representante muda o id da canônica. Medido em produção antes
+  do código: o `rewrite` da Vercel repassa a query de entrada à function (SVR-23).
+- **Scope**: `packages/core/src/seo/variant.ts`, `packages/core/src/shopping/{offer,jsonld}.ts`,
+  `packages/core/src/sitemap/**`, `apps/store/src/pages/ProductPage.tsx`,
+  `apps/store/src/entities/product/ui/ProductCard.tsx`, `supabase/functions/{product-page,sitemap}/**`,
+  `.github/workflows/sitemap-check.yml`, backoffice `features/product-form` (P3)
+- **Date**: 2026-10-19
+- **Status**: active
+
 ## Handoff
 
-### ATUAL — 2026-10-19 · `67-filtros-nas-variacoes` **IMPLEMENTADA — 18 de 18 tasks, verificada (3 rodadas), SEM COMMIT**
+### ATUAL — 2026-10-19 · `68-seo-por-variacao` **IMPLEMENTADA — 14 de 14 tasks (a prova de produção espera o deploy), verificada (2 rodadas, PASS), SEM COMMIT**
+
+- **Feature**: `.specs/features/68-seo-por-variacao/` (`spec.md`, `context.md`, `design.md`,
+  `tasks.md`, `prova-servida.md`, `validation.md`). Decisão `AD-052`. **Sem migration** — a `68` lê a
+  tabela da `67`, que já está no HEAD.
+- **NÃO COMMITADA**: aguarda o pedido do usuário. Executada em dois lotes de sub-agentes (T01–T07 e
+  T08–T12), T13–T14 inline; nenhum commit, stash ou worktree na árvore principal.
+- **Medido em 2026-10-19**: **13353 em 658** (store 5222/292, backoffice 3493/198, core 3116/123,
+  functions 1010/22, catalog-import 512/23), todos exit 0. Lint **26/7** (= baseline), tipos 0 · 0 · 0,
+  build verde, `payment/**` e `shoppingParity.test.ts` sem diff.
+- **Verificação**: rodada 1 FAIL por cobertura (39 mutantes, 2 sobreviventes — ordem por `values` e o
+  `name` do `ProductGroup` servido), consertada; rodada 2 **PASS** (18 mutantes, 2 sobreviventes
+  não-bloqueantes; N09 fechado depois pelo autor). Lições `L-038`, `L-039` em `LESSONS.md`.
+- **Prova servida no LOCAL** (`prova-servida.md`): sitemap 758 → 761 com três cores marcadas; 3/3
+  canônicas servidas iguais à `<loc>`; grupo desligado tira a `<loc>`; feed idêntico byte a byte ao
+  do HEAD; `page_view` com o título da opção no build. Banco local **restaurado** (zero marcações).
+  ⚠️ **Um hit real saiu para o GA4** (`G-SQL517XDQZ`, `tt=internal`, uma requisição) — registrado.
+- **Medido em produção ANTES do código**: o `rewrite` da Vercel repassa `?variant=` à function
+  (SVR-23, metade), e o HTML servido não tinha canônica nenhuma.
+- **ORDEM DE PUBLICAÇÃO (medido em 2026-10-19)**: a migration da `67` (`20261019120000`) **não está
+  aplicada no hospedado** (`migration list --linked`: `remote` vazio), e o `master` está 3 commits à
+  frente do `origin` (os três da `67`). A regra do `AD-050`/`AD-051` vale para as duas: **primeiro um
+  push só com a migration**, depois o código. Para a `68` o risco é o `sitemap`: sem a tabela, a
+  leitura das marcações falha e ele responde **503** (SVR-26 — caminho degradado, de propósito). No
+  `Supabase Deploy` o `db push` roda antes do `functions deploy`, então o push conjunto das functions
+  é seguro; o que não é seguro é a loja da Vercel publicada antes do `db push` (o embed da `67`).
+- **Pendente, só depois do push**: `curl` na loja publicada (tipo entregue, `rel="canonical"` da peça
+  servida, `og:url` igual, **zero** `<loc>` com `?variant=` — a tabela está vazia em produção) e a
+  primeira execução do `Sitemap check` com o passo novo. SVR-23 de **opção** em produção só existe
+  depois de a Adri marcar uma cor no painel.
+- **Dívida declarada**: a entrada da regra difere entre loja (`normalizeOptions`) e servidor (cru);
+  medido zero dado sujo em local e produção (`CLAUDE.md`, Estado conhecido).
+- **Próximo número livre**: `69`.
+
+### 2026-10-19 · `67-filtros-nas-variacoes` **IMPLEMENTADA — 18 de 18 tasks, verificada (3 rodadas), COMMITADA (`0ae1044d`..`9284bb11`)**
 
 - **Feature**: `.specs/features/67-filtros-nas-variacoes/` (`spec.md`, `context.md`, `design.md`,
   `tasks.md`, `prova-navegador.md`, `validation.md`). Decisão `AD-051`. Desenho no Paper, página

@@ -96,6 +96,13 @@ item quando discordam — com 3.233 ofertas apontando para lá, duas escritas se
 produzir exatamente essa divergência sem nada quebrar.
 
 - `shoppingParity.test.ts` mede a igualdade pelas **serializações reais**, com sensor embutido.
+- **`?variant=` tem UM construtor, `variantPath`** (feature `68`): o `<g:link>` (`offerLink`) delega
+  a ele, o card da loja o chama, e a canônica de uma opção é ele. `productJsonLd` **não mudou**: a
+  canônica entra por `withPageUrl` e o `ProductGroup` por `productGroupJsonLd`, ao lado.
+- **`seo/variant.ts` é o dono de "esta opção tem página, e qual é o endereço?"** (`AD-052`). A
+  representante da opção é `optionRepresentative` — **outra** regra que `representativeVariant`:
+  menor `position`, desempate por `publicVariantId`, **estoque fora**, porque canônica que troca de
+  id quando a primeira cor esgota é pior que nenhuma. Os dois nomes são diferentes de propósito.
 - **`offer_id` é `product_variants.nuvemshop_id` cru**, e `item_group_id` é `products.nuvemshop_id` —
   os mesmos que já estão indexados. Produto criado no admin (sem `nuvemshop_id`) usa o UUID da
   variação: hoje são zero linhas, mas a regra precisa existir antes da primeira.

@@ -194,6 +194,18 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: useHomeSections.ts:84 `placeholderData` x migration 41 `drop trigger guard_hero_home_section` (AD-029/AD-041)
 - last seen: 2026-09-21T00:00:00Z
 
+### L-038 — AC de ORDEM precisa de fixture em que a ordem pedida e a ordem de recuo discordam: com `options.values` na mesma ordem da grade, ordenar por uma ou pela outra da o mesmo resultado e a asserção e verdadeira nos dois mundos.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `packages/core/**` · harmful: 0
+- features: 68-seo-por-variacao
+- evidence: SVR-01/SVR-24, M11 — `core/src/seo/variant.ts:155-156` (ordem por `posicao()` trocada pela da grade: core, functions, loja e painel verdes)
+- last seen: 2026-10-19T00:00:00Z
+
+### L-039 — Campo que o HANDLER passa a um construtor de `core` precisa de asserção no documento servido: o teste de unidade do construtor recebe o valor do proprio teste e nao prova a fiacao. Confira campo a campo o payload montado no handler, nao so os que o construtor calcula.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `supabase/functions/**` · harmful: 0
+- features: 68-seo-por-variacao
+- evidence: SVR-30, M39 — `supabase/functions/product-page/handlers.ts:406` (`name: dados.product.slug` com functions 1010/1010 verdes)
+- last seen: 2026-10-19T00:00:00Z
+
 ## Quarantined (failed when applied — ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.

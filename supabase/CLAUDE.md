@@ -168,7 +168,7 @@ assere.
 | `send-notification` | `false` | o motor de notificação (feature `42`) — os 15 eventos pela API HTTP do Resend. Cinco portas: `send · trigger · notify · preview · config-check` |
 | `google-feed` | `false` | o feed RSS 2.0 do Merchant Center |
 | `product-page` | `false` | a página do produto servida com JSON-LD no `<head>` |
-| `sitemap` | `false` | `/sitemap.xml` — 719 URLs canônicas, lidas com a chave **publicável** |
+| `sitemap` | `false` | `/sitemap.xml` — as URLs canônicas (719 em 2026-08-29), lidas com a chave **publicável**; desde a `68`, mais uma `<loc>` com `?variant=` por opção indexável, com variações e marcações lidas por `readAllPages` (falha ou truncamento ⇒ 503, nunca 200 parcial) |
 | `admin-users` | `false` | quem entra no painel — a **porta única** da service role (`AD-034`) |
 | `checkout` | `false` | cria **todo** pedido (convidada e logada), responde "este e-mail tem conta?" e devolve o pedido da convidada |
 
@@ -281,6 +281,26 @@ obrigatoriamente por último** — `vercelRedirects.test.ts` assere a ordem por 
 - **O shell é BUSCADO do deploy vivo, nunca embutido.** O Vite emite asset com hash a cada build, e um
   shell velho responde 200 apontando para um `<script>` que já não existe — quadro branco sem erro em
   lugar nenhum.
+- **A `product-page` serve a canônica desde a `68`** (`AD-052`): exatamente uma
+  `<link rel="canonical">` e um `og:url` com o mesmo valor, ambos omitidos quando `STORE_PUBLIC_URL`
+  não é absoluta. Título, descrição e canônica vêm de `productHead` (`core/seo/variant.ts`, por
+  arquivo e com `.ts`), a MESMA função da loja. Duas coisas são desta function e de nenhuma outra:
+  - **As marcações por opção são uma leitura SEPARADA** (`readOptionMarks`), para poder falhar
+    sozinha: falha ⇒ 200 com o `<head>` da peça e log `{fn:'product-page', erro:'marcacoes', slug}`.
+    Embutidas na leitura do produto, a falha delas devolveria o shell intacto, sem `<head>` nenhum.
+  - **Ela lê com service role, então reaplica a policy da `67`** por `publicOptionMarks` (grupo
+    **ativo**). A peça ativa não precisa de réplica: `feedExclusion` já a exige de toda variação
+    elegível. Sem isso, o HTML servido declararia página para um grupo desligado enquanto o cliente e
+    o sitemap (que leem pela RLS) não — provado na T13 desligando o grupo.
+  - O `offers.url` do JSON-LD continua o `<g:link>` da variação aberta; a canônica vai em
+    `Product.url` (`withPageUrl`). Página sem `?variant=` válido, com eixo indexável `Cor`/`Tamanho`,
+    vira `ProductGroup`/`hasVariant`.
+- **Servir a `product-page` LOCALMENTE exige montagem** (medido na `68`): dentro do container,
+  `localhost` é o próprio container (502 ao buscar o shell), e o Vite recusa
+  `Host: host.docker.internal` (403). A receita está em
+  `.specs/features/68-seo-por-variacao/prova-servida.md`: o `index.html` servido estático numa porta
+  própria e `supabase functions serve --env-file` com
+  `STORE_PUBLIC_URL=http://host.docker.internal:<porta>`.
 - **O feed é URL pública, sem segredo.** O catálogo já é público; exigir credencial acrescenta um
   segredo a rotacionar para proteger dado que qualquer pessoa lê na vitrine.
 - **O interruptor desligado responde 404**, e nasce desligado. Antes do cutover a fonte nem existe no

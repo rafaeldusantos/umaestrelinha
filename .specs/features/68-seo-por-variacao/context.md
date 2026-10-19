@@ -2,7 +2,8 @@
 
 **Gathered:** 2026-10-18
 **Spec:** `.specs/features/68-seo-por-variacao/spec.md`
-**Status:** Spec escrita — aguardando revisão (as *Assumptions* estão com `Confirmed? n`)
+**Status:** Spec revisada com o usuário em 2026-10-19 — todas as *Assumptions* confirmadas no
+default; SVR-23 medido antes do código; SVR-41 (origem da canônica no sensor) acrescentado
 **Depende de:** `67-filtros-nas-variacoes` (a tabela `product_option_filter_values`). Implementar
 só depois dela; publicar a migration da `67` antes do código da `68`.
 
