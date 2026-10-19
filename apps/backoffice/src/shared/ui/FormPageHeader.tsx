@@ -101,7 +101,7 @@ const FormPageHeader = ({
   return (
     <header
       className={cn(
-        'sticky top-0 z-20 mb-6 border-b border-border bg-background/95 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80',
+        'sticky top-14 z-20 mb-6 md:top-0 border-b border-border bg-background/95 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80',
         bleed && '-mx-4 px-4',
       )}
     >

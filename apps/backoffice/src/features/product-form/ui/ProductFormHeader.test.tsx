@@ -163,3 +163,27 @@ describe('ProductFormHeader — atalho ⌘S / Ctrl+S (AC 11)', () => {
     expect(p.onPublish).not.toHaveBeenCalled()
   })
 })
+
+// Feature 67, D1 da prova em navegador: com o `main` do painel deixando de ser contêiner de rolagem,
+// este `sticky` passou a GRUDAR de verdade — e no celular, com três linhas, ocuparia 165px do topo. E o grupo das três ações media 453px numa coluna de 342 em 390:
+// o `overflow-auto` do `main` escondia isso numa rolagem horizontal do próprio `main`.
+describe('ProductFormHeader — posição e largura no celular', () => {
+  const tokens = (el: Element) => (el.getAttribute('class') ?? '').split(/\s+/)
+
+  it('gruda só a partir de md (no topo); no celular rola — 165px presos de 844 seria demais', () => {
+    const { container } = render(<ProductFormHeader {...props()} />)
+    const header = container.querySelector('header')!
+    expect(tokens(header)).toContain('md:sticky')
+    expect(tokens(header)).toContain('md:top-0')
+    // Token exato: `md:sticky` não é `sticky`.
+    expect(tokens(header)).not.toContain('sticky')
+    expect(tokens(header)).not.toContain('top-0')
+  })
+
+  it('o grupo das ações embrulha e tem teto de largura — não estoura a coluna em 390', () => {
+    render(<ProductFormHeader {...props()} />)
+    const grupo = screen.getByRole('button', { name: /Descartar/ }).parentElement!
+    expect(tokens(grupo)).toContain('flex-wrap')
+    expect(tokens(grupo)).toContain('max-w-full')
+  })
+})

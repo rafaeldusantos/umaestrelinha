@@ -33,7 +33,12 @@ vi.mock('@estrelinha/supabase/client', () => ({
 vi.mock('@/entities/product/api/useProducts', () => ({ useAllProducts: produtosMock }))
 vi.mock('@/entities/category/api/useCategories', () => ({ useCategories: categoriasMock }))
 vi.mock('@/entities/product/ui/ProductCard', () => ({
-  default: ({ product }: { product: Product }) => <article data-testid="product-card">{product.name}</article>,
+  // Feature 67: o dublê expõe a `matchedVariant` que a PÁGINA passou — é a fiação de VFL-17.
+  default: ({ product, matchedVariant }: { product: Product; matchedVariant?: { id: string } | null }) => (
+    <article data-testid="product-card" data-variant={matchedVariant?.id ?? ''}>
+      {product.name}
+    </article>
+  ),
 }))
 
 import SearchPage from '../SearchPage'
@@ -94,6 +99,28 @@ const PRODUTOS = [
   // Fora da categoria "Pingentes" — senão a busca o acharia pelo nome da categoria.
   { ...produto('p3', 'Anel de prata', 120, ['v-prata', 'v-anel']), category_id: 'c-aneis', category_slug: 'aneis', category_links: [] },
 ]
+
+
+/**
+ * Feature 67 — a página REAL passa ao card a variação pela qual a peça passou (VFL-12, VFL-16,
+ * VFL-17). A peça nova vende prata e ouro, e só as OPÇÕES estão marcadas — a peça toda não carrega
+ * acabamento nenhum. O dublê do card expõe a `matchedVariant` que recebeu.
+ */
+const linha = (id: string, cor: string, price: number, position: number) => ({
+  id, product_id: 'p5', option_values: { Cor: cor }, name: null, sku: null, price, compare_price: null,
+  stock: 3, weight_kg: null, image_url: null, is_active: true, position, nuvemshop_id: null,
+})
+const DUAS_CORES = {
+  ...produto('p5', 'Pingente duas cores', 100, []),
+  options: [{ name: 'Cor', values: ['Folheado a Ouro', 'Prata 925'], position: 0 }],
+  variants: [linha('p5-ouro', 'Folheado a Ouro', 120, 0), linha('p5-prata', 'Prata 925', 140, 1)],
+  option_marks: [
+    { option_name: 'Cor', option_value: 'Prata 925', value_id: 'v-prata' },
+    { option_name: 'Cor', option_value: 'Folheado a Ouro', value_id: 'v-ouro' },
+  ],
+} as Product
+const variantes = () =>
+  Object.fromEntries(screen.queryAllByTestId('product-card').map(c => [c.textContent, c.getAttribute('data-variant')]))
 
 // A categoria das peças ESCONDE o Acabamento — e a busca não se importa (FLT-41).
 const CATEGORIAS = [
@@ -237,5 +264,30 @@ describe('sem esconder por categoria (FLT-41)', () => {
     await comCatalogo()
     expect(within(sidebar()).getByRole('heading', { name: 'Acabamento' })).toBeInTheDocument()
     expect(cards()).toEqual(['Pingente coração'])
+  })
+})
+
+describe('feature 67 — a busca abre o card na variação que casou, pela mesma regra (VFL-17)', () => {
+  beforeEach(() => {
+    produtosMock.mockReturnValue({ data: [...PRODUTOS, DUAS_CORES] })
+  })
+
+  it('sem filtro, nenhum card recebe variação', async () => {
+    montar('/busca?q=pingente')
+    await comCatalogo()
+    expect(variantes()).toEqual({ 'Pingente estrela': '', 'Pingente coração': '', 'Pingente duas cores': '' })
+  })
+
+  it('com Folheado a ouro, a peça da opção recebe a linha do ouro', async () => {
+    montar('/busca?q=pingente&acabamento=ouro')
+    await comCatalogo()
+    expect(variantes()).toEqual({ 'Pingente coração': '', 'Pingente duas cores': 'p5-ouro' })
+  })
+
+  it('tirar o filtro pelo chip devolve o card de hoje', async () => {
+    montar('/busca?q=pingente&acabamento=ouro')
+    await comCatalogo()
+    fireEvent.click(screen.getByRole('button', { name: /Folheado a ouro.*Remover filtro/ }))
+    expect(variantes()['Pingente duas cores']).toBe('')
   })
 })

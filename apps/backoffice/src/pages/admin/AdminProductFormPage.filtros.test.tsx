@@ -18,6 +18,8 @@ const h = vi.hoisted(() => ({
   diario: [] as { op: string; table: string; payload?: unknown; filters?: unknown[] }[],
   produto: null as Record<string, unknown> | null,
   grupos: [] as unknown[],
+  /** Feature 67: a tabela cuja escrita responde erro. */
+  falhar: null as string | null,
 }))
 
 vi.mock('@estrelinha/supabase/client', () => {
@@ -27,6 +29,7 @@ vi.mock('@estrelinha/supabase/client', () => {
     let payload: unknown
     const fim = () => {
       if (op !== 'select') h.diario.push({ op, table, payload, filters: filtros })
+      if (op !== 'select' && h.falhar === table) return { data: null, error: { message: 'boom' }, count: 0 }
       return { data: null, error: null, count: 0 }
     }
     const b: Record<string, unknown> = {}
@@ -66,11 +69,15 @@ vi.mock('@/entities/category/api/useAdminCategories', () => ({
 vi.mock('@/features/faq-library/api/useAdminFaqs', () => ({
   useAdminFaqs: () => ({ faqs: [], loading: false, error: null }),
 }))
-vi.mock('@/entities/filter', () => ({
+// Desde a 67 o resto do barrel é o ORIGINAL (`L-030`): o bloco lê as recusas da peça pelo client
+// dublado acima, que responde contagem zero.
+vi.mock('@/entities/filter', async importOriginal => ({
+  ...(await importOriginal<typeof import('@/entities/filter')>()),
   useAdminFilterCatalog: () => ({ groups: h.grupos, loading: false, error: null }),
 }))
 vi.mock('@/shared/ui/RichTextEditor', () => ({ default: () => <div>editor</div> }))
 vi.mock('@estrelinha/ui/hooks/use-toast', () => ({ toast: vi.fn() }))
+import { toast } from '@estrelinha/ui/hooks/use-toast'
 
 import AdminProductFormPage from './AdminProductFormPage'
 
@@ -79,6 +86,8 @@ const valor = (id: string, group_id: string, name: string, sort_order: number) =
 })
 
 beforeEach(() => {
+  h.falhar = null
+  vi.mocked(toast).mockClear()
   window.sessionStorage.clear()
   window.localStorage.clear()
   h.diario = []
@@ -193,5 +202,166 @@ describe('FLT-13 — o save grava as marcações pelo diff', () => {
     expect(criou).toBeGreaterThanOrEqual(0)
     expect(marcou).toBeGreaterThan(criou)
     expect(h.diario[marcou].payload).toEqual([{ product_id: 'novo', value_id: 'ouro' }])
+  })
+})
+
+// Feature 67 (T06/T07) — a seção "Pelas variações" na PÁGINA real, e o save gravando por opção.
+describe('VFL-01/03/08 — as marcações por opção pela página do produto', () => {
+  beforeEach(() => {
+    h.produto = {
+      ...h.produto,
+      options: [{ name: 'Cor', values: ['Prata 925', 'Folheado a Ouro'], position: 0 }],
+      product_variants: [
+        { id: 'v1', product_id: 'p1', option_values: { Cor: 'Prata 925' }, is_active: true, position: 0, price: 100, stock: 1 },
+        { id: 'v2', product_id: 'p1', option_values: { Cor: 'Folheado a Ouro' }, is_active: true, position: 1, price: 100, stock: 1 },
+      ],
+      product_filter_values: [],
+      product_option_filter_values: [{ option_name: 'Cor', option_value: 'Prata 925', value_id: 'prata' }],
+    }
+  })
+
+  const linha = (rotulo: string) => screen.getByRole('group', { name: rotulo })
+
+  it('a página monta a seção com a marcação que veio do banco', async () => {
+    montar('/admin/produtos/p1/editar')
+    await waitFor(() => expect(screen.getByRole('region', { name: 'Pelas variações' })).toBeInTheDocument())
+    expect(within(linha('Cor = Prata 925')).getByRole('button', { name: 'Acabamento › Prata 925' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+  })
+
+  it('salvar grava o DIFF por opção: apaga pelos quatro campos e insere a nova, depois do produto', async () => {
+    montar('/admin/produtos/p1/editar')
+    await waitFor(() => expect(screen.getByRole('region', { name: 'Pelas variações' })).toBeInTheDocument())
+    fireEvent.click(within(linha('Cor = Prata 925')).getByRole('button', { name: 'Acabamento › Prata 925' }))
+    fireEvent.click(await within(linha('Cor = Folheado a Ouro')).findByRole('button', { name: 'Aceitar' }))
+    await salvarRascunho()
+
+    const porOpcao = h.diario.filter(e => e.table === 'product_option_filter_values')
+    expect(porOpcao).toEqual([
+      {
+        op: 'delete',
+        table: 'product_option_filter_values',
+        payload: undefined,
+        filters: [
+          ['eq', 'product_id', 'p1'],
+          ['eq', 'option_name', 'Cor'],
+          ['eq', 'option_value', 'Prata 925'],
+          ['in', 'value_id', ['prata']],
+        ],
+      },
+      {
+        op: 'upsert',
+        table: 'product_option_filter_values',
+        payload: [{ product_id: 'p1', option_name: 'Cor', option_value: 'Folheado a Ouro', value_id: 'ouro' }],
+        filters: [],
+      },
+    ])
+    const ordem = h.diario.map(e => `${e.op} ${e.table}`)
+    expect(ordem.indexOf('update products')).toBeLessThan(ordem.indexOf('delete product_option_filter_values'))
+    // "Aceitar" não gravou nada sozinho: a única escrita de recusa seria em outra tabela.
+    expect(h.diario.some(e => e.table === 'filter_suggestion_dismissals')).toBe(false)
+  })
+
+  it('sem mexer, o save não toca nas marcações por opção', async () => {
+    montar('/admin/produtos/p1/editar')
+    await waitFor(() => expect(screen.getByRole('region', { name: 'Pelas variações' })).toBeInTheDocument())
+    await salvarRascunho()
+    expect(h.diario.filter(e => e.table === 'product_option_filter_values')).toEqual([])
+  })
+
+  it('produto NOVO (duplicado): as marcações por opção saem DEPOIS de o produto existir, com o id novo', async () => {
+    montar('/admin/produtos/novo?from=p1')
+    await waitFor(() => expect(screen.getByRole('region', { name: 'Pelas variações' })).toBeInTheDocument())
+    await salvarRascunho()
+    const ordem = h.diario.map(e => `${e.op} ${e.table}`)
+    const criou = ordem.indexOf('insert products')
+    const marcou = ordem.indexOf('upsert product_option_filter_values')
+    expect(criou).toBeGreaterThanOrEqual(0)
+    expect(marcou).toBeGreaterThan(criou)
+    expect(h.diario[marcou].payload).toEqual([
+      { product_id: 'novo', option_name: 'Cor', option_value: 'Prata 925', value_id: 'prata' },
+    ])
+  })
+
+  // Rodada 2 da verificação (B25): as duas pontas — `marcacoesVigentes` e `persistProduct` — já
+  // tinham teste; o FIO entre elas, na página, não. Trocar a projeção pela lista crua deixava a
+  // página verde. Estes dois casos editam os eixos pela UI REAL (`OptionsEditor`, aba Preços) e
+  // leem o diário do client: sem a projeção, o save não escreve nada e os dois reprovam.
+  const abrirPrecos = () => fireEvent.mouseDown(screen.getByRole('tab', { name: 'Preços & variações' }))
+
+  it('VFL-05 — renomear o eixo pela tela e salvar: a marcação vai com o nome NOVO, e a do antigo sai', async () => {
+    montar('/admin/produtos/p1/editar')
+    await waitFor(() => expect(screen.getByRole('region', { name: 'Pelas variações' })).toBeInTheDocument())
+    abrirPrecos()
+    fireEvent.change(await screen.findByLabelText('Eixo 1'), { target: { value: 'Metal' } })
+    await salvarRascunho()
+
+    const porOpcao = h.diario.filter(e => e.table === 'product_option_filter_values')
+    const upserts = porOpcao.filter(e => e.op === 'upsert')
+    const deletes = porOpcao.filter(e => e.op === 'delete')
+    expect(upserts).toHaveLength(1)
+    expect(upserts[0].payload).toEqual([
+      { product_id: 'p1', option_name: 'Metal', option_value: 'Prata 925', value_id: 'prata' },
+    ])
+    // Nenhuma linha gravada com o nome antigo.
+    expect(JSON.stringify(upserts)).not.toContain('"Cor"')
+    expect(deletes).toEqual([
+      {
+        op: 'delete',
+        table: 'product_option_filter_values',
+        payload: undefined,
+        filters: [
+          ['eq', 'product_id', 'p1'],
+          ['eq', 'option_name', 'Cor'],
+          ['eq', 'option_value', 'Prata 925'],
+          ['in', 'value_id', ['prata']],
+        ],
+      },
+    ])
+  })
+
+  it('VFL-06 — remover o texto da opção pela tela e salvar: a marcação daquele texto é apagada', async () => {
+    montar('/admin/produtos/p1/editar')
+    await waitFor(() => expect(screen.getByRole('region', { name: 'Pelas variações' })).toBeInTheDocument())
+    abrirPrecos()
+    fireEvent.click(await screen.findByRole('button', { name: 'Remover valor Prata 925' }))
+    await salvarRascunho()
+
+    const porOpcao = h.diario.filter(e => e.table === 'product_option_filter_values')
+    expect(porOpcao).toEqual([
+      {
+        op: 'delete',
+        table: 'product_option_filter_values',
+        payload: undefined,
+        filters: [
+          ['eq', 'product_id', 'p1'],
+          ['eq', 'option_name', 'Cor'],
+          ['eq', 'option_value', 'Prata 925'],
+          ['in', 'value_id', ['prata']],
+        ],
+      },
+    ])
+  })
+
+  it('VFL-08 — a falha nomeia o passo, NÃO diz salvo e mantém a seleção na tela', async () => {
+    h.falhar = 'product_option_filter_values'
+    montar('/admin/produtos/p1/editar')
+    await waitFor(() => expect(screen.getByRole('region', { name: 'Pelas variações' })).toBeInTheDocument())
+    fireEvent.click(await within(linha('Cor = Folheado a Ouro')).findByRole('button', { name: 'Aceitar' }))
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Salvar rascunho' }))
+    })
+    await waitFor(() =>
+      expect(toast).toHaveBeenCalledWith(
+        expect.objectContaining({ title: 'O produto foi salvo, mas as marcações por variação não', variant: 'destructive' }),
+      ),
+    )
+    expect(screen.queryByText('lista')).toBeNull()
+    expect(toast).not.toHaveBeenCalledWith(expect.objectContaining({ title: 'Produto atualizado!' }))
+    expect(
+      within(linha('Cor = Folheado a Ouro')).getByRole('button', { name: 'Acabamento › Folheado a ouro' }),
+    ).toHaveAttribute('aria-pressed', 'true')
   })
 })

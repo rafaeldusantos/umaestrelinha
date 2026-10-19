@@ -17,6 +17,11 @@ const p = (id: string, name: string, extra: Partial<ProdutoParaMarcar> = {}): Pr
   base_price: 100,
   tags: [],
   category_ids: [],
+  thumb: null,
+  options: [],
+  variants: [],
+  filter_value_ids: [],
+  option_marks: [],
   ...extra,
 })
 
@@ -40,13 +45,17 @@ beforeEach(() => {
   onUnmark = vi.fn().mockResolvedValue(null)
 })
 
-const montar = (marcadas: string[] = ['c1']) =>
+const montar = (
+  marcadas: string[] = ['c1'],
+  porOpcao?: Map<string, { option_name: string; option_value: string }[]>,
+) =>
   render(
     <BulkAssignPanel
       valueName="Prata 925"
       produtos={PRODUTOS}
       categorias={CATEGORIAS}
       marcadas={new Set(marcadas)}
+      porOpcao={porOpcao}
       onMark={onMark}
       onUnmark={onUnmark}
     />,
@@ -80,10 +89,11 @@ describe('FLT-15 — os recortes da lista', () => {
     expect(nomesVisiveis()).toEqual(['Anel Coração com Cinzas', 'Colar Estrela'])
   })
 
-  it('a coluna diz "Marcada" / "Não marcada" pelo que o banco devolveu', () => {
+  // Feature 67 (`VFL-32`): a peça marcada passou a dizer COMO — "Peça toda" no lugar de "Marcada".
+  it('a coluna diz "Peça toda" / "Não marcada" pelo que o banco devolveu', () => {
     montar(['c1'])
-    expect(screen.getByTestId('situacao-c1')).toHaveTextContent('Marcada')
-    expect(screen.getByTestId('situacao-a1')).toHaveTextContent('Não marcada')
+    expect(screen.getByTestId('situacao-c1').textContent).toBe('Peça toda')
+    expect(screen.getByTestId('situacao-a1').textContent).toBe('Não marcada')
   })
 })
 
@@ -187,5 +197,56 @@ describe('FLT-42/FLT-43 — "Com a tag…" só recorta', () => {
     fireEvent.change(screen.getByLabelText('Com a tag…'), { target: { value: 'Prata925' } })
     buscar('colar')
     expect(nomesVisiveis()).toEqual(['Colar Gota de Leite'])
+  })
+})
+
+// Feature 67 (T10) — a marcação por opção na marcação em massa (`VFL-32`, `VFL-34`).
+describe('VFL-32 — a coluna "Hoje" com as três formas', () => {
+  const opcoes = new Map([
+    ['a2', [{ option_name: 'Cor', option_value: 'Prata 925' }, { option_name: 'Tipos de elo', option_value: 'Prata 925' }]],
+  ])
+
+  it('peça toda, por opção (com eixo e texto) e nada', () => {
+    montar(['c1'], opcoes)
+    expect(screen.getByTestId('situacao-c1').textContent).toBe('Peça toda')
+    expect(screen.getByTestId('situacao-a2').textContent).toBe('Por opção: Cor = Prata 925, Tipos de elo = Prata 925')
+    expect(screen.getByTestId('situacao-a1').textContent).toBe('Não marcada')
+  })
+
+  it('"Marcadas" conta as duas formas', () => {
+    montar(['c1'], opcoes)
+    fireEvent.click(screen.getByRole('button', { name: 'Marcadas' }))
+    expect(nomesVisiveis()).toEqual(['Anel Infinito Pelo de Pet', 'Colar Gota de Leite'])
+  })
+})
+
+describe('VFL-34 — "Remover de N" tira as duas formas, e a confirmação diz isso', () => {
+  const opcoes = new Map([['a2', [{ option_name: 'Cor', option_value: 'Prata 925' }]]])
+
+  it('com marcação por opção na seleção: confirma, e só então remove as duas', async () => {
+    montar(['c1'], opcoes)
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Colar Gota de Leite' }))
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Anel Infinito Pelo de Pet' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Remover de 2 produtos' }))
+    const dialogo = await screen.findByRole('alertdialog')
+    expect(within(dialogo).getByText('Remover “Prata 925” de 2 produtos?')).toBeInTheDocument()
+    expect(
+      within(dialogo).getByText(
+        'Saem as duas formas de marcação: na peça toda e por opção (1 peça marcada por opção). As peças continuam no catálogo.',
+      ),
+    ).toBeInTheDocument()
+    expect(onUnmark).not.toHaveBeenCalled()
+    await act(async () => {
+      fireEvent.click(within(dialogo).getByRole('button', { name: 'Remover' }))
+    })
+    expect(onUnmark).toHaveBeenCalledWith(['c1', 'a2'])
+  })
+
+  it('"Manter" não remove nada', async () => {
+    montar([], opcoes)
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Anel Infinito Pelo de Pet' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Remover de 1 produto' }))
+    fireEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Manter' }))
+    expect(onUnmark).not.toHaveBeenCalled()
   })
 })

@@ -25,8 +25,9 @@ import {
 } from '@estrelinha/ui/alert-dialog'
 import { FILTER_VALUES_MAX, filterSlug, valueLimitRefusal } from '@estrelinha/core/filters'
 import type { AdminFilterGroup, AdminFilterValue } from '@/entities/filter'
-import { pecasMarcadasLabel, perdaDoValor } from '../model/copy'
+import { contagemDoValor, perdaDoValor } from '../model/copy'
 import { moverParaPosicao } from '../model/ordem'
+import SuggestTermsField from './SuggestTermsField'
 
 interface Props {
   group: AdminFilterGroup
@@ -34,6 +35,8 @@ interface Props {
   onUpdate: (id: string, patch: { name: string; slug: string }) => Promise<string | null>
   onRemove: (id: string) => Promise<string | null>
   onReorder: (ids: string[]) => Promise<string | null>
+  /** Feature 67 (`VFL-35`): grava os termos de sugestão do valor. Ausente: o campo não aparece. */
+  onUpdateTerms?: (id: string, termos: string[]) => Promise<string | null>
 }
 
 const LinhaEmEdicao = ({
@@ -78,7 +81,7 @@ const LinhaEmEdicao = ({
   )
 }
 
-const ValueList = ({ group, onCreate, onUpdate, onRemove, onReorder }: Props) => {
+const ValueList = ({ group, onCreate, onUpdate, onRemove, onReorder, onUpdateTerms }: Props) => {
   const [novoNome, setNovoNome] = useState('')
   const [recusa, setRecusa] = useState<string | null>(null)
   const [editando, setEditando] = useState<string | null>(null)
@@ -97,7 +100,8 @@ const ValueList = ({ group, onCreate, onUpdate, onRemove, onReorder }: Props) =>
   }
 
   const pedirRemocao = async (valor: AdminFilterValue) => {
-    if (valor.marked_count > 0) {
+    // Feature 67: a marcação por opção também é perda — e a cascata a leva junto.
+    if (valor.marked_count > 0 || (valor.option_marked_count ?? 0) > 0) {
       setConfirmando(valor)
       return
     }
@@ -150,22 +154,33 @@ const ValueList = ({ group, onCreate, onUpdate, onRemove, onReorder }: Props) =>
             >
               <GripVertical aria-hidden className="h-4 w-4 shrink-0 cursor-grab text-muted-foreground" />
               {editando === valor.id ? (
-                <LinhaEmEdicao
-                  valor={valor}
-                  onCancelar={() => setEditando(null)}
-                  onSalvar={async patch => {
-                    const motivo = await onUpdate(valor.id, patch)
-                    if (!motivo) setEditando(null)
-                    return motivo
-                  }}
-                />
+                <div className="min-w-0 flex-1 space-y-3">
+                  <LinhaEmEdicao
+                    valor={valor}
+                    onCancelar={() => setEditando(null)}
+                    onSalvar={async patch => {
+                      const motivo = await onUpdate(valor.id, patch)
+                      if (!motivo) setEditando(null)
+                      return motivo
+                    }}
+                  />
+                  {onUpdateTerms && (
+                    <SuggestTermsField
+                      nomeDoValor={valor.name}
+                      termos={valor.suggest_terms ?? []}
+                      onChange={termos => onUpdateTerms(valor.id, termos)}
+                    />
+                  )}
+                </div>
               ) : (
                 <>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-foreground">{valor.name}</p>
-                    <p className="truncate text-xs text-muted-foreground">
+                    {/* Sem `truncate`: com as duas formas a contagem é a parte longa da linha, e cortá-la
+                        em 390 esconderia justamente o número que mudou (D2 da 67). */}
+                    <p className="break-words text-xs text-muted-foreground">
                       <span className="hidden sm:inline">{valor.slug} · </span>
-                      {pecasMarcadasLabel(valor.marked_count)}
+                      {contagemDoValor(valor.marked_count, valor.option_marked_count ?? 0)}
                     </p>
                   </div>
                   <Button asChild variant="secondary" size="sm" className="h-11 shrink-0">
@@ -229,7 +244,7 @@ const ValueList = ({ group, onCreate, onUpdate, onRemove, onReorder }: Props) =>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Remover “{confirmando?.name}”?</AlertDialogTitle>
-            <AlertDialogDescription>{confirmando ? perdaDoValor(confirmando.marked_count) : ''}</AlertDialogDescription>
+            <AlertDialogDescription>{confirmando ? perdaDoValor(confirmando.marked_count, confirmando.option_marked_count ?? 0) : ''}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Manter</AlertDialogCancel>

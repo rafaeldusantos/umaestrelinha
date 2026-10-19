@@ -60,8 +60,11 @@ const ProductFormHeader = ({
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [canPublish, onPublish, onSaveDraft, saving])
 
+  // Gruda só a partir de `md` (feature 67, D1). Até a 67 este `sticky` nunca grudou — o `main` do
+  // painel era `overflow-auto` —, e no celular o cabeçalho embrulha em três linhas: medido, 165px
+  // de 844 presos no topo, abaixo da barra de 56 do painel. No celular ele rola, como sempre rolou.
   return (
-    <header className="sticky top-0 z-20 -mx-4 mb-4 border-b border-border bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+    <header className="z-20 -mx-4 md:sticky md:top-0 mb-4 border-b border-border bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80">
       <div className="flex flex-wrap items-center gap-3">
         <div className="min-w-0 flex-1">
           <nav className="flex items-center gap-1 text-xs text-muted-foreground" aria-label="Trilha">
@@ -90,7 +93,7 @@ const ProductFormHeader = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex max-w-full flex-wrap items-center gap-2">
           <Button type="button" variant="ghost" size="sm" onClick={onDiscard} disabled={saving}>
             <Trash2 className="mr-1 h-4 w-4" /> Descartar
           </Button>

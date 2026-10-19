@@ -468,3 +468,83 @@ describe('useAdminFilterCatalog — valor (FLT-06, FLT-07)', () => {
     expect(result.current.groups[0].values[0].name).toBe('Prata 925')
   })
 })
+
+// Feature 67 (T05/T11) — o catálogo traz os termos de sugestão e a contagem por opção.
+describe('useAdminFilterCatalog — as colunas da 67', () => {
+  it('o select pede `suggest_terms` e o agregado das marcações por opção', async () => {
+    await renderCatalog()
+    expect(FILTER_CATALOG_SELECT).toBe(
+      'id, name, slug, is_active, sort_order, created_at, filter_values(id, group_id, name, slug, sort_order, suggest_terms, product_filter_values(count), product_option_filter_values(count))',
+    )
+  })
+
+  it('os termos e a contagem por opção chegam ao valor; ausentes, viram vazio e zero', async () => {
+    leitura = {
+      data: [
+        linhaGrupo('a', 0, [
+          linhaValor('a1', 'a', 0, 3, {
+            suggest_terms: ['Dourado', 7],
+            product_option_filter_values: [{ count: 71 }],
+          }),
+          linhaValor('a2', 'a', 1, 0),
+        ]),
+      ],
+      error: null,
+    }
+    const { result } = await renderCatalog()
+    const [a1, a2] = result.current.groups[0].values
+    expect(a1).toMatchObject({ marked_count: 3, option_marked_count: 71, suggest_terms: ['Dourado'] })
+    expect(a2).toMatchObject({ marked_count: 0, option_marked_count: 0, suggest_terms: [] })
+  })
+})
+
+// Feature 67 (T11, `VFL-35`..`VFL-37`) — os termos de sugestão gravados inteiros, pela régua de core.
+describe('useAdminFilterCatalog — updateValueTerms', () => {
+  it('grava a lista INTEIRA, aparada, no valor certo, e relê (a fila vê o termo sem recarregar)', async () => {
+    const { result } = await renderCatalog()
+    calls.length = 0
+    leitura = {
+      data: [linhaGrupo('a', 0, [linhaValor('a1', 'a', 0, 183, { name: 'Prata 925', suggest_terms: ['Dourado', 'Prateada'] })])],
+      error: null,
+    }
+    let erro: string | null = 'x'
+    await act(async () => {
+      erro = await result.current.updateValueTerms('a1', ['Dourado', '  Prateada '])
+    })
+    expect(erro).toBeNull()
+    expect(escritas()).toHaveLength(1)
+    expect(escritas()[0]).toMatchObject({ table: 'filter_values', update: { suggest_terms: ['Dourado', 'Prateada'] } })
+    expect(escritas()[0].filters).toEqual([{ method: 'eq', args: ['id', 'a1'] }])
+    expect(leituras()).toHaveLength(1)
+    expect(result.current.groups[0].values[0].suggest_terms).toEqual(['Dourado', 'Prateada'])
+  })
+
+  it.each([
+    [['  '], 'Escreva o termo.'],
+    [['prata  925'], 'O nome do valor já sugere sozinho.'],
+    [['Dourado', 'dourado'], 'Este termo já está na lista.'],
+    [['x'.repeat(41)], 'O termo pode ter até 40 caracteres.'],
+    [Array.from({ length: 11 }, (_, i) => `t${i}`), 'Um valor aceita até 10 termos.'],
+  ])('recusa ANTES da rede: %j → %s', async (termos, frase) => {
+    const { result } = await renderCatalog()
+    calls.length = 0
+    let erro: string | null = null
+    await act(async () => {
+      erro = await result.current.updateValueTerms('a1', termos)
+    })
+    expect(erro).toBe(frase)
+    expect(escritas()).toHaveLength(0)
+  })
+
+  it('o 23514 do banco vira a frase dos tetos, e não relê', async () => {
+    const { result } = await renderCatalog()
+    calls.length = 0
+    erroDeEscrita = { message: 'violates check constraint', code: '23514' } as never
+    let erro: string | null = null
+    await act(async () => {
+      erro = await result.current.updateValueTerms('a1', ['Dourado'])
+    })
+    expect(erro).toBe('Um valor aceita até 10 termos, de até 40 caracteres cada.')
+    expect(leituras()).toHaveLength(0)
+  })
+})

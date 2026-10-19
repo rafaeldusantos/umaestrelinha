@@ -16,10 +16,10 @@ import {
   clearFilterChip,
   clearFilters,
   filterBlocks,
-  filterProducts,
+  filterMatches,
   hasActiveFilters,
   priceBounds,
-  sortProducts,
+  sortMatches,
   useFilterUrlState,
   type SortOption,
 } from '@/features/category-filters'
@@ -87,10 +87,12 @@ const SearchPage = () => {
   const [filters, setFilters] = useFilterUrlState(catalog, bounds)
   const [sheetOpen, setSheetOpen] = useState(false)
 
+  // Feature 67: pares peça × variação, pela mesma regra da categoria (VFL-17).
   const visible = useMemo(
-    () => sortProducts(filterProducts(base, filters, catalog), filters.sort),
+    () => sortMatches(filterMatches(base, filters, catalog), filters.sort),
     [base, filters, catalog],
   )
+  const pecasVisiveis = useMemo(() => visible.map(m => m.product), [visible])
   const blocks = useMemo(() => filterBlocks(base, filters, catalog), [base, filters, catalog])
   const chips = activeFilterChips(filters, catalog)
   const filtrando = searching && base.length > 0
@@ -102,7 +104,7 @@ const SearchPage = () => {
    */
   const listaDaBusca = searching ? LISTA_DA_BUSCA : null
   // O que está NA TELA (`EVT-02`): com filtro, a lista filtrada.
-  useTrackList(listaDaBusca, visible)
+  useTrackList(listaDaBusca, pecasVisiveis)
 
   const commit = (value: string) => {
     setQuery(value)
@@ -263,8 +265,13 @@ const SearchPage = () => {
           )}
 
           <div className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4 lg:grid-cols-4">
-            {visible.map((product, i) => (
-              <ProductCard key={product.id} product={product} list={{ ...LISTA_DA_BUSCA, index: i }} />
+            {visible.map((m, i) => (
+              <ProductCard
+                key={m.product.id}
+                product={m.product}
+                matchedVariant={m.variant}
+                list={{ ...LISTA_DA_BUSCA, index: i }}
+              />
             ))}
           </div>
 

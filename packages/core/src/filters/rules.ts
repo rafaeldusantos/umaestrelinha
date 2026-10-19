@@ -12,6 +12,8 @@
 // Veredito como `string | null`, e não união discriminada por booleano: com
 // `strictNullChecks: false` a união não estreita e ler o motivo no `else` é TS2339.
 
+import { foldTokens } from './suggest.ts'
+
 /** Nome de grupo e de valor: até 40 caracteres (o `check` de `filter_groups`/`filter_values`). */
 export const FILTER_NAME_MAX = 40
 
@@ -138,5 +140,46 @@ export const valueRefusal = (
   if (slug === '') return 'Dê um endereço no filtro ao valor.'
   if (!FILTER_SLUG_PATTERN.test(slug)) return SLUG_FORMAT_REFUSAL
   if (demais.some(v => v.slug === slug)) return 'Este endereço já é usado por outro valor deste grupo.'
+  return null
+}
+
+// -------------------------------------------------------------------------------------------
+// Feature 67 — o texto da opção e os termos de sugestão
+// -------------------------------------------------------------------------------------------
+//
+// Os três números têm par na migration da 67 (`variantFiltersSchema.test.ts` compara).
+
+/**
+ * Teto do eixo e do texto de uma marcação por opção (o `check` de `product_option_filter_values`).
+ * Sanidade, não regra de negócio: medido em 2026-10-18, o maior eixo do catálogo tem 20 caracteres e
+ * o maior texto, 40.
+ */
+export const FILTER_OPTION_TEXT_MAX = 120
+
+/** Até 10 termos extras de sugestão por valor (VFL-35). */
+export const FILTER_SUGGEST_TERMS_MAX = 10
+
+// SPEC_DEVIATION: o `design.md` compara o comprimento do termo com `FILTER_NAME_MAX`. São regras
+// diferentes que hoje coincidem em 40 — o nome do valor e um termo que o sugere —, e uma constante
+// própria impede que subir uma arraste a outra. O guarda da migration importa esta.
+/** Cada termo de sugestão: até 40 caracteres (VFL-35). */
+export const FILTER_SUGGEST_TERM_MAX = 40
+
+/**
+ * A recusa de um termo novo de sugestão (VFL-37), em ordem: teto → vazio → longo → igual ao nome →
+ * repetido. "Igual" e "repetido" comparam pelos TOKENS dobrados (sem maiúscula, sem acento, sem
+ * pontuação), que é exatamente como o termo casa: dois termos com os mesmos tokens sugerem as mesmas
+ * peças, e o segundo não acrescenta nada. Termo só de pontuação não tem token e nunca casaria nada.
+ *
+ * `outros` são os termos que o valor já tem (sem o que está sendo editado).
+ */
+export const suggestTermRefusal = (termo: string, outros: readonly string[], nomeDoValor: string): string | null => {
+  if (outros.length >= FILTER_SUGGEST_TERMS_MAX) return `Um valor aceita até ${FILTER_SUGGEST_TERMS_MAX} termos.`
+  if (termo.trim() === '') return 'Escreva o termo.'
+  if (comprimento(termo) > FILTER_SUGGEST_TERM_MAX) return `O termo pode ter até ${FILTER_SUGGEST_TERM_MAX} caracteres.`
+  const chave = foldTokens(termo).join(' ')
+  if (chave === '') return 'O termo precisa ter letras ou números.'
+  if (chave === foldTokens(nomeDoValor).join(' ')) return 'O nome do valor já sugere sozinho.'
+  if (outros.some(t => foldTokens(t).join(' ') === chave)) return 'Este termo já está na lista.'
   return null
 }

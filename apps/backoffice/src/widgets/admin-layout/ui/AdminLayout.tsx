@@ -218,7 +218,12 @@ const AdminLayout = () => {
             Uma Estrelinha Admin
           </Link>
         </header>
-        <main className="flex-1 p-6 overflow-auto">
+        {/* O `main` NÃO tem `overflow` (feature 67, D1 da prova em navegador). Qualquer valor diferente
+            de `visible` faz dele o contêiner de rolagem de todo `sticky` de dentro — e como quem rola
+            é o BODY, não ele, nenhum `sticky` do painel grudava: a barra "Aprovar N" da fila de
+            sugestões nascia a 13.993px numa janela de 900, e os cabeçalhos de salvar dos formulários
+            rolavam junto. Conteúdo largo rola dentro do PRÓPRIO contêiner, nunca no `main`. */}
+        <main className="flex-1 min-w-0 p-6">
           <Outlet />
         </main>
       </div>

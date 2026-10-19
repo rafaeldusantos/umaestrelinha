@@ -66,10 +66,12 @@ const semComentarios = (fonte: string): string =>
     .replace(/\/\*[\s\S]*?\*\//g, '')
 
 const CATEGORY_PAGE = 'pages/CategoryPage.tsx'
+const SEARCH_PAGE = 'pages/SearchPage.tsx'
 const USE_PRODUCT = 'entities/product/api/useProduct.ts'
 const GALLERY = 'entities/product/ui/ProductGallery.tsx'
 
 const categoria = semComentarios(ler(CATEGORY_PAGE))
+const busca = semComentarios(ler(SEARCH_PAGE))
 const useProduct = semComentarios(ler(USE_PRODUCT))
 const galeria = semComentarios(ler(GALLERY))
 
@@ -77,6 +79,11 @@ describe('a varredura leu os arquivos que diz ler', () => {
   it('a CategoryPage foi lida e tem corpo', () => {
     expect(categoria.length).toBeGreaterThan(2000)
     expect(categoria).toContain('CategoryPage')
+  })
+
+  it('a SearchPage foi lida e tem corpo', () => {
+    expect(busca.length).toBeGreaterThan(2000)
+    expect(busca).toContain('SearchPage')
   })
 
   it('o useProduct foi lido e tem corpo', () => {
@@ -119,6 +126,54 @@ describe('a listagem passa o índice ao card (PRF-03 AC 1)', () => {
 
     it('a régua não casa o índice de OUTRO componente', () => {
       expect('<OutraCoisa index={i} />\n<ProductCard product={p} />').not.toMatch(CARD_COM_INDICE)
+    })
+  })
+})
+
+/**
+ * **Feature 67 · VFL-17 — as duas listagens passam a variação que casou ao card.**
+ *
+ * Mesma lacuna da lacuna 1, noutra prop: o `ProductCard` tem teste para `matchedVariant`, e o
+ * filtro tem teste para a variação que escolhe — o que nenhum dos dois prova é que a PÁGINA liga um
+ * ao outro. Sem a prop, a peça continua passando pelo filtro e o card abre na peça, com o preço
+ * dela: a cliente filtra por Prata 925 e cai na página em outra cor.
+ *
+ * A prova por render mora nos testes das páginas (`CategoryPageFilters`, `SearchPageFilters`), com
+ * o dublê do card expondo a prop recebida. Esta é a régua de fonte, que não depende do dublê.
+ */
+describe('as duas listagens passam `matchedVariant` ao card (VFL-17)', () => {
+  /** `<ProductCard … matchedVariant={x.variant} />`, vinda do par de `filterMatches`. */
+  const CARD_COM_VARIACAO = /<ProductCard\b[^>]*\bmatchedVariant=\{\s*\w+\.variant\s*\}/
+
+  it('a CategoryPage passa a variação do par', () => {
+    expect(categoria).toMatch(CARD_COM_VARIACAO)
+    expect(categoria).toMatch(/\bfilterMatches\(/)
+  })
+
+  it('a SearchPage passa a variação do par', () => {
+    expect(busca).toMatch(CARD_COM_VARIACAO)
+    expect(busca).toMatch(/\bfilterMatches\(/)
+  })
+
+  describe('sensores', () => {
+    it('o card sem a prop é REPROVADO', () => {
+      expect('<ProductCard key={m.product.id} product={m.product} index={i} />').not.toMatch(CARD_COM_VARIACAO)
+    })
+
+    it('a prop com literal (`null`) é REPROVADA — ela tem de vir do par', () => {
+      expect('<ProductCard product={m.product} matchedVariant={null} />').not.toMatch(CARD_COM_VARIACAO)
+    })
+
+    it('props em várias linhas continuam sendo encontradas', () => {
+      expect('<ProductCard\n  key={m.product.id}\n  product={m.product}\n  matchedVariant={m.variant}\n/>').toMatch(
+        CARD_COM_VARIACAO,
+      )
+    })
+
+    it('a prop de OUTRO componente não conta', () => {
+      expect('<Outro matchedVariant={m.variant} />\n<ProductCard product={m.product} />').not.toMatch(
+        CARD_COM_VARIACAO,
+      )
     })
   })
 })

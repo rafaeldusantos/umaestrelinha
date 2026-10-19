@@ -25,6 +25,11 @@ export interface FilterValue {
   name: string
   slug: string
   sort_order: number
+  /**
+   * Os termos extras que também sugerem este valor (feature 67, VFL-35). Opcional: a loja não os lê,
+   * e o catálogo da 66 continua válido sem eles. O nome do valor sugere sempre, com ou sem termos.
+   */
+  suggest_terms?: readonly string[] | null
 }
 
 /** O catálogo inteiro: grupos e valores, como chegam do banco (sem ordem garantida). */
@@ -41,7 +46,35 @@ export interface FilterCatalog {
  */
 export type FilterSelection = Record<string, string[]>
 
-/** O mínimo que a regra precisa de um produto: os ids dos valores marcados nele. */
-export interface FilterableProduct {
+/**
+ * Uma marcação por OPÇÃO da peça (feature 67): "nesta peça, `Cor` = `Prata 925` é o valor X". O eixo
+ * e o texto são EXATOS, como em `products.options` — é o texto que `option_values` da variação usa,
+ * e não há id de opção no schema. Vale só para a peça que a carrega.
+ */
+export interface OptionMark {
+  option_name: string
+  option_value: string
+  value_id: string
+}
+
+/**
+ * O mínimo que a regra precisa de uma variação. `position` é a ordem do painel (a de menor posição
+ * abre o card quando várias casam); ausente, vale a ordem de chegada.
+ */
+export interface FilterableVariant {
+  id: string
+  option_values: Readonly<Record<string, string>> | null
+  is_active: boolean
+  position?: number | null
+}
+
+/**
+ * O mínimo que a regra precisa de um produto: os ids dos valores marcados na peça toda e, desde a
+ * 67, as marcações por opção e as variações. Os dois campos novos são opcionais: sem eles a peça se
+ * comporta exatamente como na 66 — e é isso que mantém os casos de lá intocados.
+ */
+export interface FilterableProduct<V extends FilterableVariant = FilterableVariant> {
   filter_value_ids: readonly string[]
+  option_marks?: readonly OptionMark[] | null
+  variants?: readonly V[] | null
 }

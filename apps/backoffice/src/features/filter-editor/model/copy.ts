@@ -16,9 +16,51 @@ export const pecasMarcadasLabel = (n: number): string => (n === 1 ? '1 peça mar
  */
 export const marcacoesLabel = (n: number): string => (n === 1 ? '1 marcação' : `${n} marcações`)
 
-/** A frase da confirmação de remover um VALOR com peças marcadas (`FLT-07`). */
-export const perdaDoValor = (n: number): string =>
-  `${n === 1 ? '1 peça perde' : `${n} peças perdem`} esta marcação. As peças continuam no catálogo.`
+/**
+ * A contagem da linha de um VALOR em `/admin/filtros` — feature 67 (D2 da prova em navegador).
+ *
+ * A linha dizia "Chaveiro · 0 peças marcadas" com 145 marcações por opção: o número ignorava a forma
+ * nova, e aprovar uma sugestão por opção não mudava nada na tela (`VFL-24` pela metade).
+ *
+ * As duas formas vêm em UNIDADES diferentes, e a frase não as soma: `marked_count` conta PEÇAS (a
+ * chave de `product_filter_values` é peça × valor), `option_marked_count` conta MARCAÇÕES (uma peça
+ * pode ter o valor em duas opções — "Chaveiro" e "Chaveiro Inox"). Peças distintas com o valor
+ * exigiriam trazer cada marcação ao navegador; somar diria "peças" contando a mesma peça duas vezes
+ * (a que tem as duas formas, ou duas opções). Sem marcação por opção, a frase é a da 66, intacta.
+ */
+export const contagemDoValor = (naPeca: number, porOpcao = 0): string => {
+  if (porOpcao === 0) return pecasMarcadasLabel(naPeca)
+  const opcoes = `${marcacoesLabel(porOpcao)} por opção`
+  if (naPeca === 0) return opcoes
+  return `${naPeca === 1 ? '1 peça' : `${naPeca} peças`} na peça toda · ${opcoes}`
+}
+
+/**
+ * O cabeçalho da marcação em massa de UM valor — feature 67 (D2). Ali as duas formas chegam POR PEÇA
+ * (os ids da peça toda e o mapa peça → opções), então as peças distintas SÃO deriváveis: a união.
+ * A peça com as duas formas conta uma vez no total, e aparece nas duas parcelas.
+ */
+export const pecasDoValor = (naPeca: ReadonlySet<string>, porOpcao: Iterable<string>): string => {
+  const opcao = new Set(porOpcao)
+  if (opcao.size === 0) return pecasMarcadasLabel(naPeca.size)
+  const total = new Set([...naPeca, ...opcao]).size
+  if (naPeca.size === 0) return `${pecasMarcadasLabel(total)} por opção`
+  return `${pecasMarcadasLabel(total)} · ${naPeca.size} na peça toda · ${opcao.size} por opção`
+}
+
+/**
+ * A frase da confirmação de remover um VALOR com peças marcadas (`FLT-07`).
+ *
+ * Desde a feature 67 o valor também pode estar marcado POR OPÇÃO, e a cascata leva essas junto: a
+ * frase soma as duas (edge case da spec da 67). Sem marcação por opção, a frase é a da 66, intacta.
+ */
+export const perdaDoValor = (n: number, porOpcao = 0): string => {
+  if (porOpcao === 0)
+    return `${n === 1 ? '1 peça perde' : `${n} peças perdem`} esta marcação. As peças continuam no catálogo.`
+  const opcoes = porOpcao === 1 ? '1 marcação por opção' : `${porOpcao} marcações por opção`
+  if (n === 0) return `Saem junto ${opcoes}. As peças continuam no catálogo.`
+  return `${n === 1 ? '1 peça perde' : `${n} peças perdem`} esta marcação, e saem junto ${opcoes}. As peças continuam no catálogo.`
+}
 
 /** A frase da confirmação de remover um GRUPO (`FLT-08`). */
 export const perdaDoGrupo = (valores: number, marcacoes: number): string =>

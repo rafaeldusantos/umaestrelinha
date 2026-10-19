@@ -62,3 +62,7 @@ export const dividirSelecao = (selecionadas: ReadonlySet<string>, marcadas: Read
 })
 
 export const produtosLabel = (n: number): string => (n === 1 ? '1 produto' : `${n} produtos`)
+
+/** Feature 67 (`VFL-32`): "Por opção: Cor = Prata 925, Tipos de elo = Prata 925". */
+export const porOpcaoLabel = (opcoes: readonly { option_name: string; option_value: string }[]): string =>
+  `Por opção: ${opcoes.map(o => `${o.option_name} = ${o.option_value}`).join(', ')}`

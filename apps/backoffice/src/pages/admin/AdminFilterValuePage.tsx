@@ -9,24 +9,28 @@ import { Link, useParams } from 'react-router-dom'
 import { SlidersHorizontal } from 'lucide-react'
 import { Button } from '@estrelinha/ui/button'
 import { EmptyState, PageHeader, TableSkeleton } from '@/shared/ui'
-import { useAdminFilterCatalog, useValueMarks } from '@/entities/filter'
+import { useAdminFilterCatalog, useOptionMarks, useValueMarks } from '@/entities/filter'
 import { useProductMarkingPool } from '@/entities/product'
 import { useAdminCategories } from '@/entities/category'
 import { BulkAssignPanel } from '@/features/filter-bulk-assign'
-import { pecasMarcadasLabel } from '@/features/filter-editor'
+import { pecasDoValor } from '@/features/filter-editor'
+import { useAtualizarFila, useFila } from '@/features/filter-suggestions'
 
 const AdminFilterValuePage = () => {
   const { groupId, valueId } = useParams<{ groupId: string; valueId: string }>()
   const catalogo = useAdminFilterCatalog()
   const marcas = useValueMarks(valueId)
+  const porOpcao = useOptionMarks(valueId)
   const pool = useProductMarkingPool()
+  const fila = useFila(catalogo.groups)
+  const atualizarFila = useAtualizarFila()
   const { categories } = useAdminCategories()
 
   const grupo = catalogo.groups.find(g => g.id === groupId)
   const valor = grupo?.values.find(v => v.id === valueId)
   const voltarPara = grupo ? `/admin/filtros/${grupo.id}` : '/admin/filtros'
 
-  if (catalogo.loading || marcas.loading || pool.carregando) return <TableSkeleton rows={8} cols={3} />
+  if (catalogo.loading || marcas.loading || porOpcao.loading || pool.carregando) return <TableSkeleton rows={8} cols={3} />
 
   if (!grupo || !valor) {
     return (
@@ -43,11 +47,23 @@ const AdminFilterValuePage = () => {
   }
 
   const depoisDeGravar = async (motivo: string | null) => {
-    if (!motivo) await catalogo.fetchCatalog('revalidar')
+    if (!motivo) await Promise.all([catalogo.fetchCatalog('revalidar'), atualizarFila()])
     return motivo
   }
 
-  const erroDeLeitura = catalogo.error ?? marcas.error ?? pool.erro
+  /** As duas formas (`VFL-34`): a da peça toda primeiro, as por opção depois — cada uma numa chamada. */
+  const removerAsDuas = async (ids: string[]) => {
+    const naPeca = ids.filter(id => marcas.marked.has(id))
+    const naOpcao = ids.filter(id => porOpcao.porPeca.has(id))
+    const motivo = (await marcas.unmark(naPeca)) ?? (await porOpcao.unmark(naOpcao))
+    return depoisDeGravar(motivo)
+  }
+
+  const sugestoesDoValor = fila.fila
+    .filter(g => g.value_id === valor.id)
+    .reduce((soma, g) => soma + g.suggestions.length, 0)
+
+  const erroDeLeitura = catalogo.error ?? marcas.error ?? porOpcao.error ?? pool.erro
 
   return (
     <div>
@@ -57,8 +73,15 @@ const AdminFilterValuePage = () => {
         subtitle={`Filtros da loja › ${grupo.name} — marque as peças deste valor. Nada muda até você tocar no botão.`}
         actions={
           <>
+            {sugestoesDoValor > 0 && (
+              <Button asChild variant="outline" className="h-11">
+                <Link to={`/admin/filtros/sugestoes?valor=${valor.id}`}>
+                  {sugestoesDoValor === 1 ? 'Ver 1 sugestão deste valor' : `Ver ${sugestoesDoValor} sugestões deste valor`}
+                </Link>
+              </Button>
+            )}
             <span data-testid="contador-marcadas" className="rounded-full bg-muted px-3 py-1 text-xs font-medium text-foreground">
-              {pecasMarcadasLabel(marcas.marked.size)}
+              {pecasDoValor(marcas.marked, porOpcao.porPeca.keys())}
             </span>
             <Button asChild variant="outline" className="h-11">
               <Link to={voltarPara}>Voltar a {grupo.name}</Link>
@@ -76,8 +99,9 @@ const AdminFilterValuePage = () => {
         produtos={pool.produtos}
         categorias={categories}
         marcadas={marcas.marked}
+        porOpcao={porOpcao.porPeca}
         onMark={async ids => depoisDeGravar(await marcas.mark(ids))}
-        onUnmark={async ids => depoisDeGravar(await marcas.unmark(ids))}
+        onUnmark={removerAsDuas}
       />
     </div>
   )

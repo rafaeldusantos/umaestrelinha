@@ -280,3 +280,27 @@ describe('productRowToForm — filtros da loja (FLT-11)', () => {
     expect(emptyProductForm().filter_value_ids).toEqual([])
   })
 })
+
+// Feature 67 — as marcações por opção entram pela carga, e o snapshot guarda os eixos.
+describe('productRowToForm — marcações por opção (VFL-01, VFL-03)', () => {
+  it('o select traz o embed das marcações por opção', () => {
+    expect(PRODUCT_FORM_SELECT).toContain('product_option_filter_values(option_name, option_value, value_id)')
+  })
+
+  it('viram `option_marks`, sem as incompletas', () => {
+    const form = productRowToForm({
+      id: 'p1',
+      product_option_filter_values: [
+        { option_name: 'Cor', option_value: 'Prata 925', value_id: 'prata' },
+        { option_name: 'Cor', option_value: '', value_id: 'prata' },
+        { option_name: null, option_value: 'X', value_id: 'prata' },
+      ],
+    })
+    expect(form.option_marks).toEqual([{ option_name: 'Cor', option_value: 'Prata 925', value_id: 'prata' }])
+  })
+
+  it('sem o embed, nenhuma', () => {
+    expect(productRowToForm({ id: 'p1' }).option_marks).toEqual([])
+    expect(emptyProductForm().option_marks).toEqual([])
+  })
+})

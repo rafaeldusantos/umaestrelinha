@@ -44,6 +44,14 @@ export type { MenuBanner, MenuBanners } from '../../../core/src/menu/banners.ts'
 import type { MenuBanners } from '../../../core/src/menu/banners.ts'
 
 /**
+ * Uma marcação de filtro por OPÇÃO da peça (feature 67) — `product_option_filter_values`.
+ *
+ * Mesma inversão do `MenuPromo`: quem usa a forma é a regra (`@estrelinha/core/filters`, que não
+ * importa pacote nenhum), e este pacote só a importa para descrever o campo do `Product`.
+ */
+import type { OptionMark } from '../../../core/src/filters/types.ts'
+
+/**
  * `show_in_menu` e `menu_promo` nasceram na migration `20260803120000_16-store-menu.sql`, e a
  * gravação das duas foi **provada por probe HTTP** antes desta linha existir (`AD-012`): `PATCH` com
  * `Prefer: return=representation` devolvendo os valores persistidos, não `PGRST204`.
@@ -595,6 +603,15 @@ export interface Product {
    * significa o mesmo que `[]` (nenhuma marcação). O mapper da loja sempre devolve um array.
    */
   filter_value_ids?: string[]
+  /**
+   * Feature 67 — as marcações por opção da peça (eixo + texto exatos → valor de filtro), pelo embed
+   * `product_option_filter_values` dos dois `select` da loja. A RLS só entrega a anon a marcação de
+   * grupo ativo e peça ativa. Quem interpreta é `@estrelinha/core/filters` (`matchProduct`): ela
+   * decide quem passa e em qual variação o card abre.
+   *
+   * Opcional pela razão de `filter_value_ids`; o mapper da loja sempre devolve um array.
+   */
+  option_marks?: OptionMark[]
 }
 
 /** Um vínculo produto↔categoria. `position` é a ordem que o admin arrastou (PST-06 AC 3). */

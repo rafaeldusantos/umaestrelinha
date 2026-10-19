@@ -35,17 +35,27 @@ import {
   perdaDoGrupo,
   valoresLabel,
 } from '@/features/filter-editor'
+import { useFila } from '@/features/filter-suggestions'
 
 const FILTERS_ROOT = '/admin/filtros'
 
+/**
+ * FLT-01: a soma das marcações por valor — e desde a 67 (D2) das DUAS formas. A unidade é
+ * "marcações" justamente porque a soma conta a mesma peça mais de uma vez; somar as por opção não
+ * muda a natureza do número, só o deixa de mentir sobre quantas existem. É também o que a remoção do
+ * grupo leva junto (`perdaDoGrupo`): a cascata apaga as duas.
+ */
 const marcacoesDoGrupo = (grupo: AdminFilterGroup): number =>
-  grupo.values.reduce((soma, v) => soma + v.marked_count, 0)
+  grupo.values.reduce((soma, v) => soma + v.marked_count + (v.option_marked_count ?? 0), 0)
 
 const AdminFiltersPage = () => {
   const { groupId } = useParams<{ groupId: string }>()
   const navigate = useNavigate()
   const catalogo = useAdminFilterCatalog()
   const { groups, loading, error } = catalogo
+  // Feature 67 (`VFL-28`): o total da fila, pela MESMA leitura que a fila usa — os dois números são o
+  // mesmo por construção.
+  const sugestoes = useFila(groups)
 
   const [criando, setCriando] = useState(false)
   const [removendo, setRemovendo] = useState<AdminFilterGroup | null>(null)
@@ -80,17 +90,26 @@ const AdminFiltersPage = () => {
 
   const novoGrupo = (
     <div className="flex flex-col items-end gap-1">
-      <Button
-        className="h-11"
-        disabled={!!teto}
-        onClick={() => {
-          setCriando(true)
-          setAviso(null)
-        }}
-      >
-        <Plus className="mr-2 h-4 w-4" />
-        Novo grupo
-      </Button>
+      <div className="flex flex-wrap justify-end gap-2">
+        {groups.length > 0 && (
+          <Button asChild variant="outline" className="h-11">
+            <Link to={`${FILTERS_ROOT}/sugestoes`}>
+              {sugestoes.carregando ? 'Sugestões' : `Sugestões (${sugestoes.total})`}
+            </Link>
+          </Button>
+        )}
+        <Button
+          className="h-11"
+          disabled={!!teto}
+          onClick={() => {
+            setCriando(true)
+            setAviso(null)
+          }}
+        >
+          <Plus className="mr-2 h-4 w-4" />
+          Novo grupo
+        </Button>
+      </div>
       {teto && <p className="text-xs text-muted-foreground">{teto}</p>}
     </div>
   )
@@ -255,6 +274,7 @@ const AdminFiltersPage = () => {
                       onUpdate={(id, patch) => catalogo.updateValue(id, patch)}
                       onRemove={id => catalogo.deleteValue(id)}
                       onReorder={ids => catalogo.reorderValues(grupoExibido.id, ids)}
+                      onUpdateTerms={(id, termos) => catalogo.updateValueTerms(id, termos)}
                     />
                   </FormCard>
                 </>

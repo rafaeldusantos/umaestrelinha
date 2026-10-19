@@ -21,6 +21,7 @@ import { useProductForm } from '@/features/product-form/model/useProductForm'
 import { buildChecklist, computeMargin } from '@/features/product-form/model/checklist'
 import { useFormDraft } from '@/features/product-form/model/useFormDraft'
 import { isPersistFailure, isTempVariantId, persistProductRelations, type PersistClient } from '@/features/product-form/model/persistProduct'
+import { marcacoesVigentes } from '@/features/product-form/model/optionMarks'
 import PublishChecklist from '@/features/product-form/ui/PublishChecklist'
 import PricingTab from '@/features/product-form/ui/tabs/PricingTab'
 import FaqTab from '@/features/product-form/ui/tabs/FaqTab'
@@ -84,6 +85,10 @@ const AdminProductFormPage = () => {
   // inativo e leva o `required` do input com ele.
   const { form, setField, setFields, isDirty, savedSnapshot, markSaved, replaceForm, loading, isEdit } =
     useProductForm(id, fromId)
+  // Feature 67: a projeção das marcações por opção — renomear eixo leva junto (`VFL-05`), remover
+  // texto apaga (`VFL-06`). O bloco e o save leem ESTA lista, nunca o campo cru, então o que a tela
+  // mostra marcado é exatamente o que vai ao banco. Rascunho antigo sem o campo vale lista vazia.
+  const optionMarksVigentes = marcacoesVigentes(savedSnapshot.options, form.options, form.option_marks ?? [])
   // PFM-13: rascunho por produto em `sessionStorage`, com guarda de saída.
   const draft = useFormDraft({ productId: id, form, isDirty })
   const [saving, setSaving] = useState(false)
@@ -270,6 +275,7 @@ const AdminProductFormPage = () => {
           variants: form.variants,
           faqs: form.faqs,
           filterValueIds: form.filter_value_ids,
+          optionMarks: optionMarksVigentes,
         },
         { ...savedSnapshot, faqs: savedSnapshot.faqIds },
       )
@@ -297,6 +303,8 @@ const AdminProductFormPage = () => {
       slug: nextSlug,
       faqIds: form.faqs.map(f => f.faq_id),
       filterValueIds: form.filter_value_ids ?? [],
+      optionMarks: optionMarksVigentes,
+      options: form.options,
     })
     navigate('/admin/produtos')
     setSaving(false)
@@ -502,6 +510,15 @@ const AdminProductFormPage = () => {
               <FilterValuesCard
                 selected={form.filter_value_ids}
                 onChange={ids => setField('filter_value_ids', ids)}
+                optionMarks={optionMarksVigentes}
+                onOptionMarksChange={marks => setField('option_marks', marks)}
+                product={{
+                  id: isEdit ? (id ?? null) : null,
+                  name: form.name,
+                  tags: form.tags,
+                  options: form.options,
+                  variants: form.variants,
+                }}
               />
 
               {/* Os campos "Tamanhos" e "Acabamentos" saíram: eles eram os dois eixos FIXOS que o
@@ -668,8 +685,12 @@ const AdminProductFormPage = () => {
           </Tabs>
         </div>
 
-        {/* Coluna lateral (sticky) */}
-        <aside className="lg:col-span-1 space-y-6 lg:sticky lg:top-6 self-start">
+        {/* Coluna lateral. NÃO é `sticky` (feature 67): o `lg:sticky lg:top-6` daqui nunca grudou — o
+            `main` do painel era `overflow-auto` e prendia todo `sticky` de dentro. Com o `main`
+            consertado ele passaria a grudar, e a coluna mede ~1.300px numa janela de 900: grudada no
+            topo, o fim dela (gravação, SEO) ficaria fora de alcance até o fim do formulário, e o topo
+            passaria por baixo do cabeçalho de salvar, que é quem gruda nesta tela. */}
+        <aside className="lg:col-span-1 space-y-6 self-start">
           <FormCard title="Publicação">
             <div className="flex flex-col gap-4">
               {/* O switch "Ativo" saiu na T25: quem decide se o produto vai à loja são as ações

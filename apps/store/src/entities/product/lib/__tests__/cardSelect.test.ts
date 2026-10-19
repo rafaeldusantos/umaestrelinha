@@ -114,6 +114,10 @@ const LINHA_COMPLETA: Record<string, unknown> = {
     { product_id: 'prod-1', value_id: 'v-prata-925' },
     { product_id: 'prod-1', value_id: 'v-pingente' },
   ],
+  // Feature 67 — as marcações por opção, também com `product_id` que o `select` NÃO pede.
+  product_option_filter_values: [
+    { product_id: 'prod-1', option_name: 'Banho', option_value: 'Ouro', value_id: 'v-ouro' },
+  ],
 }
 
 /** A linha que o PostgREST devolveria para este `select` — nada além do que foi pedido. */
@@ -143,6 +147,7 @@ describe('PRODUCT_CARD_SELECT — a forma do select', () => {
       'categories',
       'product_categories',
       'product_filter_values',
+      'product_option_filter_values',
       'product_variants',
     ])
   })
@@ -340,6 +345,62 @@ describe('feature 66 — as marcações de filtro chegam pelos dois `select` (FL
   })
 })
 
+describe('feature 67 — as marcações por opção e a identidade da variação (VFL-09, VFL-11)', () => {
+  it('os dois `select` embutem `product_option_filter_values` com as três colunas, nunca `*`', () => {
+    for (const select of [PRODUCT_CARD_SELECT, PRODUCT_SELECT]) {
+      const embed = parseSelect(select).embeds.find(e => e.relacao === 'product_option_filter_values')
+      expect(embed, select).toBeDefined()
+      expect(embed!.colunas).toEqual(['option_name', 'option_value', 'value_id'])
+    }
+  })
+
+  it('nos três `select` da vitrine, a linha recortada chega com a marcação por opção', () => {
+    for (const select of [PRODUCT_CARD_SELECT, PRODUCT_SELECT, PRODUCT_CARD_SELECT_BY_CATEGORY]) {
+      expect(mapDbToProduct(recortar(select)).option_marks, select).toEqual([
+        { option_name: 'Banho', option_value: 'Ouro', value_id: 'v-ouro' },
+      ])
+    }
+  })
+
+  it('sensor: sem o embed, o produto chega SEM marcação por opção', () => {
+    const sem = PRODUCT_CARD_SELECT.replace(
+      ', product_option_filter_values(option_name, option_value, value_id)',
+      '',
+    )
+    expect(sem).not.toBe(PRODUCT_CARD_SELECT)
+    expect(mapDbToProduct(recortar(sem)).option_marks).toEqual([])
+  })
+
+  it('o mapper devolve `[]` com o embed ausente, nulo ou torto — nunca `undefined`', () => {
+    expect(mapDbToProduct({ id: 'p' }).option_marks).toEqual([])
+    expect(mapDbToProduct({ id: 'p', product_option_filter_values: null }).option_marks).toEqual([])
+    expect(
+      mapDbToProduct({
+        id: 'p',
+        product_option_filter_values: [
+          null,
+          { option_name: '', option_value: 'Ouro', value_id: 'v1' },
+          { option_name: 'Cor', option_value: '', value_id: 'v1' },
+          { option_name: 'Cor', option_value: 'Ouro', value_id: 7 },
+          { option_name: 'Cor', option_value: 'Prata 925', value_id: 'v-prata' },
+        ],
+      }).option_marks,
+    ).toEqual([{ option_name: 'Cor', option_value: 'Prata 925', value_id: 'v-prata' }])
+  })
+
+  it('a variação do enxuto chega com `nuvemshop_id` — é o `?variant=` do card que abre nela', () => {
+    expect(parseSelect(PRODUCT_CARD_SELECT).embeds.find(e => e.relacao === 'product_variants')!.colunas)
+      .toContain('nuvemshop_id')
+    expect(mapeado().variants[0].nuvemshop_id).toBe(1259936246)
+  })
+
+  it('sensor: tirar o `nuvemshop_id` da variação REPROVA — o link sairia com o UUID', () => {
+    const sem = PRODUCT_CARD_SELECT.replace('option_values, nuvemshop_id)', 'option_values)')
+    expect(sem).not.toBe(PRODUCT_CARD_SELECT)
+    expect(mapDbToProduct(recortar(sem)).variants[0].nuvemshop_id).toBeNull()
+  })
+})
+
 describe('mapDbToProduct — nuvemshop_id (feature 61, EVT-13)', () => {
   it('com valor, devolve o número', () => {
     expect(mapDbToProduct({ id: 'p', nuvemshop_id: 99 }).nuvemshop_id).toBe(99)
@@ -377,7 +438,10 @@ describe('PRODUCT_CARD_SELECT — sensores da régua', () => {
     expect(recorte.created_at).toBeUndefined()
     const [variante] = recorte.product_variants as Record<string, unknown>[]
     expect(variante.sku).toBeUndefined()
-    expect(variante.nuvemshop_id).toBeUndefined()
+    // Era `nuvemshop_id`, até a feature 67 pedi-lo. `created_at` segue fora, e prova o mesmo.
+    expect(variante.created_at).toBeUndefined()
+    const [marca] = recorte.product_option_filter_values as Record<string, unknown>[]
+    expect(marca.product_id).toBeUndefined()
   })
 
   it('sensor do recorte: o select COMPLETO deixaria a descrição passar', () => {

@@ -4,16 +4,33 @@
 // caixas; e quem grava são os dois botões do pé, cada um numa requisição só. Nada é otimista: a
 // coluna "Marcada" só muda depois que o banco respondeu (`FLT-19`), e uma falha deixa a seleção
 // exatamente como estava.
+//
+// **Desde a feature 67 uma peça pode estar no valor de DUAS formas** — na peça toda ou por opção
+// ("Cor = Prata 925"). A coluna "Hoje" diz qual (`VFL-32`), "Marcadas / Não marcadas" contam as duas,
+// e "Remover de N" tira as duas (`VFL-34`). Quando a seleção leva marcação por opção, o remover passa
+// a pedir confirmação dizendo isso — sem marcação por opção não há o que acrescentar, e o fluxo da 66
+// fica igual (um clique).
 
 import { useMemo, useState } from 'react'
 import { Check, Search } from 'lucide-react'
 import { Button } from '@estrelinha/ui/button'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@estrelinha/ui/alert-dialog'
 import { Input } from '@estrelinha/ui/input'
 import { cn } from '@estrelinha/ui/lib/utils'
 import type { ProdutoParaMarcar } from '@/entities/product'
 import {
   RECORTE_INICIAL,
   dividirSelecao,
+  porOpcaoLabel,
   produtosLabel,
   recortar,
   tagsComContagem,
@@ -26,8 +43,13 @@ interface Props {
   produtos: readonly ProdutoParaMarcar[]
   categorias: readonly { id: string; name: string }[]
   marcadas: ReadonlySet<string>
+  /**
+   * Feature 67 — as marcações POR OPÇÃO deste valor, por peça. Ausente: nenhuma (o painel da 66).
+   */
+  porOpcao?: ReadonlyMap<string, readonly { option_name: string; option_value: string }[]>
   /** Grava as marcações. Devolve a frase do erro, ou `null`. */
   onMark: (ids: string[]) => Promise<string | null>
+  /** Tira as DUAS formas de marcação das peças (`VFL-34`). */
   onUnmark: (ids: string[]) => Promise<string | null>
 }
 
@@ -39,7 +61,12 @@ const SITUACOES: { valor: Situacao; rotulo: string }[] = [
 
 const SELECT_CLASS = 'h-11 min-w-0 rounded-md border border-input bg-background px-3 text-sm text-foreground'
 
-const BulkAssignPanel = ({ valueName, produtos, categorias, marcadas, onMark, onUnmark }: Props) => {
+const SEM_OPCAO: ReadonlyMap<string, readonly { option_name: string; option_value: string }[]> = new Map()
+
+const BulkAssignPanel = ({ valueName, produtos, categorias, marcadas: naPeca, porOpcao = SEM_OPCAO, onMark, onUnmark }: Props) => {
+  // "Marcada" é qualquer das duas formas: é o que "Marcadas / Não marcadas" e o "Remover" leem.
+  const marcadas = useMemo(() => new Set([...naPeca, ...porOpcao.keys()]), [naPeca, porOpcao])
+  const [confirmando, setConfirmando] = useState(false)
   const [recorte, setRecorte] = useState<Recorte>(RECORTE_INICIAL)
   const [selecionadas, setSelecionadas] = useState<Set<string>>(() => new Set())
   const [gravando, setGravando] = useState(false)
@@ -72,7 +99,15 @@ const BulkAssignPanel = ({ valueName, produtos, categorias, marcadas, onMark, on
 
   const { marcar, remover } = dividirSelecao(selecionadas, marcadas)
 
+  const comOpcao = remover.filter(id => porOpcao.has(id))
+
+  const pedirRemocao = () => {
+    if (comOpcao.length > 0) setConfirmando(true)
+    else void gravar('remover')
+  }
+
   const gravar = async (acao: 'marcar' | 'remover') => {
+    setConfirmando(false)
     setGravando(true)
     setErro(null)
     const motivo = acao === 'marcar' ? await onMark(marcar) : await onUnmark(remover)
@@ -185,9 +220,19 @@ const BulkAssignPanel = ({ valueName, produtos, categorias, marcadas, onMark, on
                   </span>
                   <span
                     data-testid={`situacao-${p.id}`}
-                    className={cn('shrink-0 text-xs', marcada ? 'font-semibold text-foreground' : 'text-muted-foreground')}
+                    className={cn(
+                      'max-w-[45%] shrink-0 text-right text-xs',
+                      marcada ? 'font-semibold text-foreground' : 'text-muted-foreground',
+                    )}
                   >
-                    {marcada ? 'Marcada' : 'Não marcada'}
+                    {naPeca.has(p.id)
+                      ? 'Peça toda'
+                      : porOpcao.has(p.id)
+                        ? porOpcaoLabel(porOpcao.get(p.id)!)
+                        : // SPEC_DEVIATION (VFL-32): a spec diz "ou nada" para a peça sem marcação; a
+                          // tela mantém "Não marcada", a copy que esta coluna já tinha na feature 66.
+                          // Decisão registrada na rodada 2 de `validation.md` da 67.
+                          'Não marcada'}
                   </span>
                 </label>
               </li>
@@ -214,7 +259,7 @@ const BulkAssignPanel = ({ valueName, produtos, categorias, marcadas, onMark, on
           variant="outline"
           className="h-11"
           disabled={gravando || remover.length === 0}
-          onClick={() => void gravar('remover')}
+          onClick={pedirRemocao}
         >
           Remover de {produtosLabel(remover.length)}
         </Button>
@@ -223,6 +268,25 @@ const BulkAssignPanel = ({ valueName, produtos, categorias, marcadas, onMark, on
           Marcar {produtosLabel(marcar.length)}
         </Button>
       </div>
+
+      <AlertDialog open={confirmando} onOpenChange={aberto => !aberto && setConfirmando(false)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Remover “{valueName}” de {produtosLabel(remover.length)}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Saem as duas formas de marcação: na peça toda e por opção (
+              {comOpcao.length === 1 ? '1 peça marcada por opção' : `${comOpcao.length} peças marcadas por opção`}). As
+              peças continuam no catálogo.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Manter</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void gravar('remover')}>Remover</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </section>
   )
 }

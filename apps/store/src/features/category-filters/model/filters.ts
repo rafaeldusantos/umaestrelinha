@@ -11,6 +11,12 @@
 // faceta disjuntiva. Este arquivo só soma os filtros de SISTEMA (preço, estoque, desconto,
 // novidade), que são da loja, e traduz a regra para o que o painel desenha. A tag do produto é
 // etiqueta interna da dona e nenhum filtro a lê (`filtroSemTag.test.ts`).
+//
+// **Feature 67 — a peça também passa pela VARIAÇÃO.** Quem decide é `matchProduct` (`core`): os
+// grupos que a peça toda não satisfaz têm de ser satisfeitos pela mesma variação ativa, e ela devolve
+// em qual variação o card abre. Este arquivo entrega a `core` os filtros de sistema nas duas formas —
+// sobre a peça (`passesSystem`) e sobre a variação candidata (`passesSystemVariant`, com o preço, o
+// estoque e o desconto DELA) — e nunca lê a marcação por opção: ela atravessa dentro do produto.
 
 import { isProductOutOfStock } from '@/entities/product/lib/availability'
 import {
@@ -18,15 +24,17 @@ import {
   FILTER_SORT_OPTIONS,
   defaultFilterState,
   facetCounts,
-  passesSelection,
+  matchProduct,
   visibleGroups,
   type FilterCatalog,
   type FilterGroup,
   type FilterSort,
   type FilterState,
   type FilterValue,
+  type MatchOptions,
 } from '@estrelinha/core/filters'
-import type { Product } from '@estrelinha/supabase/types'
+import { isVariantAvailable } from '@estrelinha/core/pricing'
+import type { Product, ProductVariant } from '@estrelinha/supabase/types'
 
 export type SortOption = FilterSort
 
@@ -103,8 +111,42 @@ export const passesSystem = (p: Product, f: CategoryFilters): boolean => {
   return true
 }
 
-/** O produto como a regra de `core` o lê: só os ids marcados, nunca `undefined`. */
-const filtravel = (p: Product) => ({ filter_value_ids: p.filter_value_ids ?? [] })
+/**
+ * Os filtros de sistema sobre a VARIAÇÃO candidata (feature 67, VFL-10) — quando a peça só passa
+ * pela opção, o card mostra a variação, e é o número DELA que o filtro tem de testar: testar o da
+ * peça mostraria R$ 95 sob "até R$ 80".
+ *
+ * Preço é `price ?? preço da peça`, o mesmo recuo do card; o "de" riscado, idem. Estoque é o da
+ * linha (`isVariantAvailable`, que respeita a `stock_policy`). Novidade é da peça — a variação não
+ * tem `is_new` —, e entra aqui porque, com a variação decidindo, `core` não chama o teste da peça.
+ */
+export const passesSystemVariant = (p: Product, v: ProductVariant, f: CategoryFilters): boolean => {
+  const preco = v.price ?? p.price
+  const de = v.compare_price ?? p.compare_price
+  if (preco < f.priceRange[0] || preco > f.priceRange[1]) return false
+  if (f.inStockOnly && !isVariantAvailable(v, p.stock_policy)) return false
+  if (f.onSaleOnly && !(de !== null && de > preco)) return false
+  if (f.newOnly && !p.is_new) return false
+  return true
+}
+
+/**
+ * O produto como a regra de `core` o lê: ele mesmo, com os ids marcados nunca `undefined`. O spread
+ * leva junto as variações e a marcação por opção — este arquivo não as nomeia (`VFL-38`).
+ */
+const filtravel = (p: Product) => ({ ...p, filter_value_ids: p.filter_value_ids ?? [] })
+type Filtravel = ReturnType<typeof filtravel>
+
+/**
+ * Os filtros de sistema nas duas formas que `core` pede, e a preferência entre as candidatas: a
+ * variação com estoque vence o empate de posição (VFL-11), para o card não abrir numa esgotada
+ * quando há outra que casa.
+ */
+const opcoesDaLoja = (f: CategoryFilters): MatchOptions<Filtravel> => ({
+  productPass: p => passesSystem(p, f),
+  variantPass: (v, p) => passesSystemVariant(p, v, f),
+  prefer: (v, p) => isVariantAvailable(v, p.stock_policy),
+})
 
 /**
  * A ordem que a Adri arrastou no painel (`sort_order`). Comparação por função, e não pela subtração
@@ -181,12 +223,41 @@ export const toggleFilterValue = (
   }
 }
 
+/**
+ * Uma peça que passou, e a variação em que o card abre: `null` quando ela passa pela peça toda (ou
+ * não há seleção), que é o card de hoje (VFL-13).
+ */
+export interface ProductMatch {
+  product: Product
+  variant: ProductVariant | null
+}
+
+// SPEC_DEVIATION: o `tasks.md` (T13) pede que `filterProducts` devolva os pares. Os pares saem de
+// `filterMatches`, e `filterProducts` continua devolvendo as peças — a projeção dela. Assim os casos
+// da 66 que medem `filterProducts` seguem sem uma linha alterada, como régua de não-regressão.
+/**
+ * Quem passa pelos filtros, e em qual variação (VFL-09..11). É a lista que a categoria e a busca
+ * desenham (VFL-17), e a variação vai ao card como `matchedVariant`.
+ */
+export const filterMatches = (
+  products: readonly Product[],
+  f: CategoryFilters,
+  catalog: FilterCatalog,
+): ProductMatch[] => {
+  const opts = opcoesDaLoja(f)
+  const out: ProductMatch[] = []
+  for (const product of products) {
+    const r = matchProduct(filtravel(product), f.selection ?? {}, catalog, opts)
+    if (r.passes) out.push({ product, variant: r.variant })
+  }
+  return out
+}
+
 export const filterProducts = (
   products: readonly Product[],
   f: CategoryFilters,
   catalog: FilterCatalog,
-): Product[] =>
-  products.filter(p => passesSystem(p, f) && passesSelection(filtravel(p), f.selection ?? {}, catalog))
+): Product[] => filterMatches(products, f, catalog).map(m => m.product)
 
 /** Um valor como o painel o desenha. */
 export interface FilterBlockValue {
@@ -215,8 +286,9 @@ export const filterBlocks = (
   f: CategoryFilters,
   catalog: FilterCatalog,
 ): FilterBlock[] => {
-  const base = products.map(p => ({ p, ...filtravel(p) }))
-  const counts = facetCounts(catalog, base, f.selection ?? {}, item => passesSystem(item.p, f))
+  const base = products.map(filtravel)
+  // A mesma regra da lista, com a variação: a peça conta uma vez por valor (VFL-15).
+  const counts = facetCounts(catalog, base, f.selection ?? {}, opcoesDaLoja(f))
   return visibleGroups(catalog, base).map(({ group, values }) => ({
     group,
     values: values.map(value => {
@@ -227,16 +299,38 @@ export const filterBlocks = (
   }))
 }
 
-export const sortProducts = (products: readonly Product[], sort: SortOption): Product[] => {
-  const out = [...products]
+const ordenar = <T>(
+  items: readonly T[],
+  sort: SortOption,
+  peca: (item: T) => Product,
+  preco: (item: T) => number = item => peca(item).price,
+): T[] => {
+  const out = [...items]
   switch (sort) {
     case 'menor-preco':
-      return out.sort((a, b) => a.price - b.price)
+      return out.sort((a, b) => preco(a) - preco(b))
     case 'maior-preco':
-      return out.sort((a, b) => b.price - a.price)
+      return out.sort((a, b) => preco(b) - preco(a))
     case 'novidades':
-      return out.sort((a, b) => Number(b.is_new) - Number(a.is_new))
+      return out.sort((a, b) => Number(peca(b).is_new) - Number(peca(a).is_new))
     default:
       return out
   }
 }
+
+export const sortProducts = (products: readonly Product[], sort: SortOption): Product[] =>
+  ordenar(products, sort, p => p)
+
+/**
+ * O preço que o card mostra para o par: o da variação casada (`v.price ?? p.price`, o mesmo recuo do
+ * card e de `passesSystemVariant`), ou o da peça quando ela passou pela peça toda.
+ */
+export const matchPrice = (m: ProductMatch): number => m.variant?.price ?? m.product.price
+
+/**
+ * A mesma ordem, sobre os pares de `filterMatches`. "Menor/maior preço" ordena pelo preço que o card
+ * MOSTRA (`matchPrice`) — decisão do usuário na pós-verificação da 67: ordenar pela peça deixava um
+ * card de R$ 130 antes de um de R$ 95 em "menor preço". Relevância e Novidades não mudam.
+ */
+export const sortMatches = (matches: readonly ProductMatch[], sort: SortOption): ProductMatch[] =>
+  ordenar(matches, sort, m => m.product, matchPrice)

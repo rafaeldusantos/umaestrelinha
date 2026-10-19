@@ -15,6 +15,7 @@ import { normalizeImages, primaryImage } from '@estrelinha/core/media'
 // lugar nenhum. Nasceram aqui na 07/T18 e foram promovidos, não copiados.
 import { normalizeCategoryLinks, normalizeOptions, normalizeVariants, toStockPolicy } from '@estrelinha/core/product'
 import { toMaterialKinds } from '@estrelinha/core/material'
+import type { OptionMark } from '@estrelinha/core/filters'
 import type { Product } from '@estrelinha/supabase/types'
 
 /**
@@ -28,6 +29,16 @@ import type { Product } from '@estrelinha/supabase/types'
 export const PRODUCT_FILTER_VALUES_EMBED = 'product_filter_values(value_id)'
 
 /**
+ * Feature 67 — as marcações por OPÇÃO da peça ("nesta peça, Cor = Prata 925 é o valor X"), nos dois
+ * `select`, pela mesma razão do embed acima: a regra roda no navegador sobre a lista já baixada.
+ *
+ * Este arquivo é o ÚNICO da loja que nomeia a tabela, e o mapper o único que lê o campo do produto:
+ * quem decide com ele é `@estrelinha/core/filters` (`marcacaoPorOpcaoComDonoUnico.test.ts`). A RLS
+ * entrega a anon só a marcação de grupo ativo e de peça ativa (probe HTTP no banco local, `AD-012`).
+ */
+export const PRODUCT_OPTION_MARKS_EMBED = 'product_option_filter_values(option_name, option_value, value_id)'
+
+/**
  * O `select` que traz tudo o que este mapper lê. Uma string só, para os 3 hooks não divergirem.
  *
  * **`categories!products_category_id_fkey` não é preciosismo — sem o nome da FK a loja fica vazia.**
@@ -37,7 +48,7 @@ export const PRODUCT_FILTER_VALUES_EMBED = 'product_filter_values(value_id)'
  * a vitrine mostra zero produtos, sem erro visível. Nomear a FK desfaz a ambiguidade.
  */
 export const PRODUCT_SELECT =
-  `*, categories!products_category_id_fkey(slug, name), product_variants(*), product_categories(category_id, position, categories(slug, sort_order, active)), ${PRODUCT_FILTER_VALUES_EMBED}`
+  `*, categories!products_category_id_fkey(slug, name), product_variants(*), product_categories(category_id, position, categories(slug, sort_order, active)), ${PRODUCT_FILTER_VALUES_EMBED}, ${PRODUCT_OPTION_MARKS_EMBED}`
 
 /**
  * O mesmo `select`, mais um embed **aliased** só para filtrar por categoria no servidor.
@@ -78,7 +89,8 @@ export const PRODUCT_SELECT_BY_CATEGORY =
  * - `is_new`, `base_price`, `original_price` — os filtros e a ordenação da categoria (`LST-*`), que
  *   continuam rodando no cliente sobre a lista inteira. `tags` continua no `select` porque a busca a
  *   pontua (`searchProducts`); desde a feature 66 nenhum FILTRO a lê (`filtroSemTag.test.ts`).
- * - `product_filter_values(value_id)` — os filtros curados (feature 66).
+ * - `product_filter_values(value_id)` — os filtros curados (feature 66), e a marcação por opção
+ *   (feature 67), que decide em qual variação o card abre.
  * - `requires_material`, `material_kinds`, `engraving_max_chars` — feature `22`.
  * - `product_categories` COMPLETO — `displayCategory` (`PST-06`) escolhe o selo entre todas as
  *   categorias do produto; recortar aqui trocaria o selo sem quebrar nada.
@@ -114,16 +126,20 @@ export const PRODUCT_CARD_SELECT = [
   'is_new, is_featured, tags',
   'weight_kg, width_cm, height_cm, length_cm',
   'requires_material, material_kinds, engraving_max_chars',
-  // Lista explícita, nunca `*`: `created_at`, `product_id`, `sku`, `weight_kg` e `nuvemshop_id` da
-  // variação não têm leitor de listagem. `product_id` ausente cai no id do produto, dentro do
-  // próprio `normalizeVariants`.
-  'product_variants(id, name, price, compare_price, stock, image_url, is_active, position, option_values)',
+  // Lista explícita, nunca `*`: `created_at`, `product_id`, `sku` e `weight_kg` da variação não têm
+  // leitor de listagem. `product_id` ausente cai no id do produto, dentro do próprio
+  // `normalizeVariants`. `nuvemshop_id` entrou na feature 67: o card que abre na variação linka
+  // `?variant=<publicVariantId>`, e sem a coluna o link sairia com o UUID em vez do id que o Google
+  // Shopping já indexou — a mesma página, com outro endereço.
+  'product_variants(id, name, price, compare_price, stock, image_url, is_active, position, option_values, nuvemshop_id)',
   // `categories(slug, sort_order, active)` DENTRO do vínculo — feature 61: é o que dá ao `item_category` do
   // GA4 a categoria de exibição sem consulta extra. Não reabre a ambiguidade da FK: de
   // `product_categories` para `categories` existe um caminho só (`category_id`).
   'product_categories(category_id, position, categories(slug, sort_order, active))',
   // Feature 66 — os filtros curados da categoria e da busca (`core/filters`, por id).
   PRODUCT_FILTER_VALUES_EMBED,
+  // Feature 67 — a marcação por opção, que faz a peça passar pela variação (`matchProduct`).
+  PRODUCT_OPTION_MARKS_EMBED,
 ].join(', ')
 
 /**
@@ -148,6 +164,23 @@ const toFilterValueIds = (raw: unknown): string[] =>
     ? raw
         .map(r => (r && typeof r === 'object' ? (r as { value_id?: unknown }).value_id : null))
         .filter((id): id is string => typeof id === 'string' && id.length > 0)
+    : []
+
+/**
+ * O embed das marcações por opção → `{ option_name, option_value, value_id }[]`. Linha sem as três
+ * strings é descartada: eixo vazio nunca casa variação, e um id ausente não nomeia valor nenhum.
+ * Ausente (o `select` não pediu) ou torto vira `[]`, como o embed da 66.
+ */
+const toOptionMarks = (raw: unknown): OptionMark[] =>
+  Array.isArray(raw)
+    ? raw.flatMap(r => {
+        if (!r || typeof r !== 'object') return []
+        const { option_name, option_value, value_id } = r as Record<string, unknown>
+        if (typeof option_name !== 'string' || option_name.length === 0) return []
+        if (typeof option_value !== 'string' || option_value.length === 0) return []
+        if (typeof value_id !== 'string' || value_id.length === 0) return []
+        return [{ option_name, option_value, value_id }]
+      })
     : []
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -193,5 +226,7 @@ export const mapDbToProduct = (p: any): Product => ({
   nuvemshop_id: typeof p.nuvemshop_id === 'number' ? p.nuvemshop_id : null,
   // Feature 66: sempre um array — `[]` quando o embed não veio.
   filter_value_ids: toFilterValueIds(p.product_filter_values),
+  // Feature 67: sempre um array — `[]` quando o embed não veio.
+  option_marks: toOptionMarks(p.product_option_filter_values),
 })
 /* eslint-enable @typescript-eslint/no-explicit-any */

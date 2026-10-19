@@ -40,7 +40,12 @@ vi.mock('@/entities/category/api/useCategoryRedirect', () => ({
 vi.mock('@/entities/product/api/useProducts', () => ({ useProducts: useProductsMock }))
 /** O card vira dublê — o de verdade pede settings, carrinho e favoritos que nada têm a ver aqui. */
 vi.mock('@/entities/product/ui/ProductCard', () => ({
-  default: ({ product }: { product: Product }) => <article data-testid="product-card">{product.name}</article>,
+  // Feature 67: o dublê expõe a `matchedVariant` que a PÁGINA passou — é a fiação de VFL-17.
+  default: ({ product, matchedVariant }: { product: Product; matchedVariant?: { id: string } | null }) => (
+    <article data-testid="product-card" data-variant={matchedVariant?.id ?? ''}>
+      {product.name}
+    </article>
+  ),
 }))
 
 import CategoryPage from '../CategoryPage'
@@ -137,6 +142,28 @@ const PRODUTOS = [
   produto('p3', 'Pingente prata pet', 150, ['v-prata', 'v-pet']),
   produto('p4', 'Pingente ouro pet', 180, ['v-ouro', 'v-pet']),
 ]
+
+
+/**
+ * Feature 67 — a página REAL passa ao card a variação pela qual a peça passou (VFL-12, VFL-16,
+ * VFL-17). A peça nova vende prata e ouro, e só as OPÇÕES estão marcadas — a peça toda não carrega
+ * acabamento nenhum. O dublê do card expõe a `matchedVariant` que recebeu.
+ */
+const linha = (id: string, cor: string, price: number, position: number) => ({
+  id, product_id: 'p5', option_values: { Cor: cor }, name: null, sku: null, price, compare_price: null,
+  stock: 3, weight_kg: null, image_url: null, is_active: true, position, nuvemshop_id: null,
+})
+const DUAS_CORES = {
+  ...produto('p5', 'Pingente duas cores', 100, []),
+  options: [{ name: 'Cor', values: ['Folheado a Ouro', 'Prata 925'], position: 0 }],
+  variants: [linha('p5-ouro', 'Folheado a Ouro', 120, 0), linha('p5-prata', 'Prata 925', 140, 1)],
+  option_marks: [
+    { option_name: 'Cor', option_value: 'Prata 925', value_id: 'v-prata' },
+    { option_name: 'Cor', option_value: 'Folheado a Ouro', value_id: 'v-ouro' },
+  ],
+} as Product
+const variantes = () =>
+  Object.fromEntries(screen.queryAllByTestId('product-card').map(c => [c.textContent, c.getAttribute('data-variant')]))
 
 const TREE = [
   cat({ id: 'c-ping', slug: 'pingentes', name: 'Pingentes' }),
@@ -512,5 +539,54 @@ describe('o estado na URL (FLT-29..34)', () => {
     expect(p.get('gclid')).toBe('abc')
     expect(p.get('fbclid')).toBe('xyz')
     expect(p.get('para-quem')).toBe('pet')
+  })
+})
+
+describe('feature 67 — a categoria abre o card na variação que casou (VFL-12, VFL-16, VFL-17)', () => {
+  beforeEach(() => {
+    useProductsMock.mockReturnValue({ data: [...PRODUTOS, DUAS_CORES], isError: false, isLoading: false })
+  })
+
+  it('sem filtro, nenhum card recebe variação — o card de hoje', async () => {
+    renderAt(['/pingentes'])
+    await comCatalogo()
+    expect(Object.values(variantes())).toEqual(['', '', '', '', ''])
+  })
+
+  it('o valor marcado só pela opção conta a peça e acende no bloco', async () => {
+    renderAt(['/pingentes'])
+    await comCatalogo()
+    const acab = within(sidebar()).getByRole('region', { name: 'Acabamento' })
+    expect(within(acab).getAllByRole('button').map(b => b.textContent)).toEqual([
+      'Prata 925 (3)',
+      'Folheado a ouro (3)',
+    ])
+  })
+
+  it('com Prata 925, a peça que passa pela opção recebe a linha da prata; as que passam pela peça, nada', async () => {
+    renderAt(['/pingentes?acabamento=prata-925'])
+    await comCatalogo()
+    expect(variantes()).toEqual({
+      'Pingente prata mãe': '',
+      'Pingente prata pet': '',
+      'Pingente duas cores': 'p5-prata',
+    })
+  })
+
+  it('trocar para Folheado a ouro troca a linha; tirar o último valor devolve o card de hoje', async () => {
+    renderAt(['/pingentes?acabamento=prata-925'])
+    await comCatalogo()
+    fireEvent.click(within(sidebar()).getByRole('button', { name: /^Folheado a ouro/ }))
+    fireEvent.click(within(sidebar()).getByRole('button', { name: /^Prata 925/ }))
+    expect(variantes()['Pingente duas cores']).toBe('p5-ouro')
+    fireEvent.click(within(sidebar()).getByRole('button', { name: /^Folheado a ouro/ }))
+    expect(variantes()['Pingente duas cores']).toBe('')
+    expect(busca().get('acabamento')).toBeNull()
+  })
+
+  it('o preço da faixa é o da variação: a prata a R$ 140 some em "até R$ 130"', async () => {
+    renderAt(['/pingentes?acabamento=prata-925&preco=100-130'])
+    await comCatalogo()
+    expect(Object.keys(variantes())).toEqual(['Pingente prata mãe'])
   })
 })

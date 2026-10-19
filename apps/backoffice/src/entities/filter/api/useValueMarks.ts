@@ -48,6 +48,34 @@ export const lerMarcacoesDoValor = async (valueId: string): Promise<string[]> =>
   return linhas.map(l => l.product_id)
 }
 
+/**
+ * Feature 67 — marcar na peça toda pares (peça, valor) de valores diferentes numa requisição só: é o
+ * "Aprovar" da fila de sugestões, que aprova de uma vez peças que podem estar em valores distintos.
+ */
+export const gravarMarcacoesNaPeca = async (
+  linhas: readonly { product_id: string; value_id: string }[],
+): Promise<string | null> => {
+  if (linhas.length === 0) return null
+  const { error } = await supabase
+    .from('product_filter_values')
+    .upsert(
+      linhas.map(l => ({ product_id: l.product_id, value_id: l.value_id })),
+      { onConflict: 'product_id,value_id', ignoreDuplicates: true },
+    )
+  return error ? mensagem(error, 'Não foi possível marcar as peças.') : null
+}
+
+/** Feature 67 — tirar a marcação da peça toda de UM valor em N peças (a troca de `VFL-27`). */
+export const apagarMarcacoesNaPeca = async (valueId: string, productIds: readonly string[]): Promise<string | null> => {
+  if (productIds.length === 0) return null
+  const { error } = await supabase
+    .from('product_filter_values')
+    .delete()
+    .eq('value_id', valueId)
+    .in('product_id', [...productIds])
+  return error ? mensagem(error, 'Não foi possível tirar a marcação da peça toda.') : null
+}
+
 export const useValueMarks = (valueId: string | undefined) => {
   const [marked, setMarked] = useState<Set<string>>(() => new Set())
   const [loading, setLoading] = useState(true)

@@ -2,12 +2,13 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Heart } from 'lucide-react'
-import type { Product } from '@estrelinha/supabase/types'
+import type { Product, ProductVariant } from '@estrelinha/supabase/types'
 import { formatPrice } from '@estrelinha/core/formatters'
 import { imagePriority, renditionSrcSet, renditionUrl } from '@estrelinha/core/media'
 import { resolveInstallments } from '@estrelinha/core/payment/installments'
 import { usePaymentSettings } from '@estrelinha/core/hooks/useStoreSettings'
 import { productPath } from '@estrelinha/core/routes'
+import { publicVariantId } from '@estrelinha/core/shopping'
 import { TAP_44 } from '@/shared/lib/touchTarget'
 import { useWishlistStore } from '@/entities/wishlist/model/wishlistStore'
 import { toggleWishlist } from '@/entities/wishlist/model/toggleWishlist'
@@ -21,6 +22,7 @@ import {
   findVariant,
   hasSellableGrid,
   initialSelection,
+  selectionForVariant,
   type ColorThumb,
 } from '../lib/variantSelection'
 import ColorPreview from './ColorPreview'
@@ -65,6 +67,7 @@ const ProductCard = ({
   product,
   index,
   list,
+  matchedVariant,
 }: {
   product: Product
   index?: number
@@ -73,11 +76,23 @@ const ProductCard = ({
    * decide a prioridade da foto e conta o banner da fileira: a posição do produto na lista não conta.
    */
   list?: AnalyticsList & { index: number }
+  /**
+   * Feature 67 · VFL-11..13 — a variação pela qual a peça passou nos filtros (`filterMatches`). Com
+   * ela o card abre NELA: o link leva `?variant=`, e a foto, o preço e o "de" são os dela. Ausente
+   * (sem filtro, ou a peça passou pela peça toda), o card é exatamente o de antes.
+   */
+  matchedVariant?: ProductVariant | null
 }) => {
   const isWishlisted = useWishlistStore((s) => s.hasItem(product.id))
-  // PST-05: a escolha é um mapa de eixo → valor, não mais duas strings fixas. Começa na primeira
-  // combinação disponível, para a foto e o preço do card nascerem numa linha que existe de verdade.
-  const [selected, setSelected] = useState(() => initialSelection(product, CARD_MAX_AXES))
+  /*
+    PST-05: a escolha é um mapa de eixo → valor, não mais duas strings fixas. Começa na primeira
+    combinação disponível, para a foto e o preço do card nascerem numa linha que existe de verdade —
+    ou, desde a 67, na linha que casou com o filtro, para a fileira de cor marcar a cor dela.
+  */
+  const selecaoInicial = () =>
+    selectionForVariant(product, matchedVariant ?? null, CARD_MAX_AXES) ??
+    initialSelection(product, CARD_MAX_AXES)
+  const [selected, setSelected] = useState(selecaoInicial)
   const [imgLoaded, setImgLoaded] = useState(false)
   /*
     COR-11: a foto que a cliente escolheu na fileira de cores. `null` = ninguém escolheu ainda, e o
@@ -86,8 +101,31 @@ const ProductCard = ({
     Guarda a URL em vez de derivá-la de `selected`: a miniatura já resolveu QUAL foto representa
     aquela cor (a primeira variação da cor que tem imagem — nem toda linha tem), e re-derivar aqui
     seria uma segunda escrita da mesma busca, livre para divergir do que a cliente clicou.
+
+    Feature 67: a foto da variação que casou é o VALOR INICIAL do palco. Tocar numa cor continua
+    trocando, e uma cor sem foto mantém a da variação — o mesmo "mantém a imagem atual" de sempre.
   */
-  const [corEscolhida, setCorEscolhida] = useState<string | null>(null)
+  const [corEscolhida, setCorEscolhida] = useState<string | null>(() => matchedVariant?.image_url ?? null)
+  /*
+    Feature 67: enquanto a cliente não tocar na fileira, o preço é o da variação que casou — ela pode
+    ter um eixo além dos dois que o card mostra (a letra, a gravação), e `findVariant` pelos dois
+    eixos acharia a primeira linha daquela cor, que não é necessariamente ela.
+  */
+  const [tocouCor, setTocouCor] = useState(false)
+  /*
+    A variação muda quando o filtro muda, e o card não remonta (a chave é o produto). Reancorar
+    durante o render — o padrão da janela da listagem — devolve o estado inicial da variação nova, e
+    tirar o último filtro devolve o card de antes (VFL-16).
+  */
+  const ancora = matchedVariant?.id ?? null
+  const [ancoraVista, setAncoraVista] = useState(ancora)
+  if (ancoraVista !== ancora) {
+    setAncoraVista(ancora)
+    setSelected(selecaoInicial())
+    setCorEscolhida(matchedVariant?.image_url ?? null)
+    setTocouCor(false)
+  }
+  const daVariacao = matchedVariant && !tocouCor ? matchedVariant : null
   const { max_installments, min_installment_value } = usePaymentSettings()
 
   // PST-10: variação ativa com `options` vazio é grade meio-cadastrada — o produto vale como
@@ -104,7 +142,7 @@ const ProductCard = ({
     product.stock_total > 0 &&
     product.stock_total <= product.low_stock_threshold
 
-  const selectedVariant = sellableGrid ? findVariant(product.variants, selected) : null
+  const selectedVariant = daVariacao ?? (sellableGrid ? findVariant(product.variants, selected) : null)
   const selectedPrice = selectedVariant?.price ?? product.price
 
   /*
@@ -157,9 +195,44 @@ const ProductCard = ({
   const pickColor = (thumb: ColorThumb) => {
     const axis = colorAxis(product.options)
     if (!axis) return
+    /*
+      Feature 67, pós-verificação: voltar à cor da variação que casou devolve o card a ELA — link,
+      preço e "de". `findVariant` pelos dois eixos visíveis acharia a primeira linha daquela cor, que
+      não é necessariamente a casada (a gravação, o terceiro eixo).
+    */
+    if (matchedVariant && matchedVariant.option_values?.[axis.name] === thumb.value) {
+      setSelected(selecaoInicial())
+      setTocouCor(false)
+      const foto = matchedVariant.image_url ?? thumb.imageUrl
+      if (foto) setCorEscolhida(foto)
+      return
+    }
     setSelected(prev => ({ ...prev, [axis.name]: thumb.value }))
+    setTocouCor(true)
     if (thumb.imageUrl) setCorEscolhida(thumb.imageUrl)
   }
+
+  /*
+    Feature 67 · VFL-11: o link leva a variação que casou, pelo id PÚBLICO (`publicVariantId`) — o
+    mesmo `?variant=` que a Shopping manda e que a página do produto já resolve
+    (`findVariantByPublicId`). Escrever o UUID aqui abriria a página certa por um endereço que o
+    Google não conhece.
+  */
+  /*
+    Pós-verificação da 67 (decisão do usuário, 2026-10-18): depois que a cliente toca numa cor, o
+    link acompanha — leva a variação daquela cor, a MESMA que dá o preço (`selectedVariant`, por
+    `findVariant` sobre a seleção). Vale também sem filtro: tocar numa cor é escolher. Se a cor
+    tocada não resolve uma linha vendável (ativa e com preço), o link volta a ser o da peça. Sem
+    toque, nada muda: com filtro é a casada, sem filtro é a peça (VFL-13).
+  */
+  const variacaoDoLink = tocouCor
+    ? selectedVariant && selectedVariant.is_active && selectedVariant.price !== null
+      ? selectedVariant
+      : null
+    : (matchedVariant ?? null)
+  const destino = variacaoDoLink
+    ? `${productPath(product.slug)}?variant=${encodeURIComponent(publicVariantId(variacaoDoLink))}`
+    : productPath(product.slug)
 
   const handleWishlist = (e: React.MouseEvent) => {
     e.preventDefault()
@@ -176,7 +249,7 @@ const ProductCard = ({
       className="group cursor-pointer"
     >
       <Link
-        to={productPath(product.slug)}
+        to={destino}
         className="block"
         onClick={() => {
           if (!list) return

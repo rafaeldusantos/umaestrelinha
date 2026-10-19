@@ -24,10 +24,10 @@ import {
   clearFilterChip,
   clearFilters,
   filterBlocks,
-  filterProducts,
+  filterMatches,
   hasActiveFilters,
   priceBounds,
-  sortProducts,
+  sortMatches,
   useFilterUrlState,
   type SortOption,
 } from '@/features/category-filters'
@@ -158,8 +158,12 @@ const CategoryPage = ({ legacy = false }: Props) => {
   const [sheetOpen, setSheetOpen] = useState(false)
   const [dense, setDense] = useState(true)
 
+  /*
+   * Feature 67: a lista é de PARES — a peça e a variação em que o card abre (`null` quando ela passa
+   * pela peça toda). A variação vai ao card como `matchedVariant` (VFL-17, a mesma regra da busca).
+   */
   const visible = useMemo(
-    () => sortProducts(filterProducts(products, filters, catalog), sort),
+    () => sortMatches(filterMatches(products, filters, catalog), sort),
     [products, filters, catalog, sort],
   )
   const blocks = useMemo(() => filterBlocks(products, filters, catalog), [products, filters, catalog])
@@ -184,7 +188,8 @@ const CategoryPage = ({ legacy = false }: Props) => {
    */
   const listaDaColecao = category ? { id: `colecao-${category.slug}`, name: category.name } : null
   const naTela = useMemo(() => visible.slice(0, visibleCount), [visible, visibleCount])
-  useTrackList(listaDaColecao, naTela)
+  const pecasNaTela = useMemo(() => naTela.map(m => m.product), [naTela])
+  useTrackList(listaDaColecao, pecasNaTela)
 
   if (legacy) return <Navigate to={legacyRedirectTo(pathname) ?? '/'} replace />
 
@@ -403,10 +408,11 @@ const CategoryPage = ({ legacy = false }: Props) => {
                     e sem opacidade zero, e o primeiro leva `fetchpriority="high"`. Sem passá-lo
                     daqui, a decisão existiria no `ProductCard` e nunca seria tomada — esta é a
                     listagem que media LCP de 15,6 s. */}
-                {naTela.map((p, i) => (
+                {naTela.map((m, i) => (
                   <ProductCard
-                    key={p.id}
-                    product={p}
+                    key={m.product.id}
+                    product={m.product}
+                    matchedVariant={m.variant}
                     index={i}
                     list={listaDaColecao ? { ...listaDaColecao, index: i } : undefined}
                   />

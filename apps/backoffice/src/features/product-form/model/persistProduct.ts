@@ -15,7 +15,9 @@
 // admin reabre o formulário e vê o que entrou; o alternativo é um "salvo!" mentiroso.
 
 import type { ProductCategoryLink, ProductVariant } from '@estrelinha/supabase/types'
+import type { OptionMark } from '@estrelinha/core/filters'
 import { planFaqLinks, type ProductFaqSelection } from './planFaqLinks'
+import { diffOptionMarks } from './optionMarks'
 
 // --- Identidade de linha nova ------------------------------------------------------------------
 
@@ -140,7 +142,10 @@ export const planFilterValues = (selected: readonly string[], saved: readonly st
 // --- Execução ----------------------------------------------------------------------------------
 
 /** Qual escrita falhou. Vai para a mensagem que o admin lê — "erro ao salvar" não é acionável. */
-export type PersistStep = 'categorias' | 'perguntas' | 'marcações de filtro' | 'grade'
+// SPEC_DEVIATION: o `design.md` chama a etapa nova de `'filtros-opcao'`. O passo vai para o toast
+// ("O produto foi salvo, mas as <passo> não"), e as outras quatro etapas são escritas para serem
+// lidas — um identificador ali diria "mas as filtros-opcao não". Ficou `'marcações por variação'`.
+export type PersistStep = 'categorias' | 'perguntas' | 'marcações de filtro' | 'grade' | 'marcações por variação'
 
 export interface PersistFailure {
   ok: false
@@ -159,6 +164,18 @@ export type PersistResult = { ok: true } | PersistFailure
  */
 export const isPersistFailure = (result: PersistResult): result is PersistFailure => !result.ok
 
+type PersistResponse = Promise<{ error: { message: string } | null }>
+
+/**
+ * O `delete` encadeável: `eq` volta a ele mesmo, e `in` fecha. A marcação por opção (feature 67) é
+ * a primeira tabela cuja linha só se identifica por TRÊS colunas além do produto — eixo, texto e
+ * valor —, então o `delete` dela precisa de mais de um `eq` antes do `in`.
+ */
+export interface PersistDeleteFilter {
+  eq: (column: string, value: string) => PersistDeleteFilter
+  in: (column: string, values: readonly string[]) => PersistResponse
+}
+
 /** A fatia de `supabase-js` que esta função usa. Dublê pequeno = teste que prova o que importa. */
 export interface PersistClient {
   from: (table: string) => {
@@ -170,14 +187,7 @@ export interface PersistClient {
     update: (values: unknown) => {
       eq: (column: string, value: string) => Promise<{ error: { message: string } | null }>
     }
-    delete: () => {
-      eq: (
-        column: string,
-        value: string,
-      ) => {
-        in: (column: string, values: readonly string[]) => Promise<{ error: { message: string } | null }>
-      }
-    }
+    delete: () => PersistDeleteFilter
   }
 }
 
@@ -196,12 +206,18 @@ export const persistProductRelations = async (
     faqs?: readonly ProductFaqSelection[]
     /** Feature 66. `undefined` = "esta tela não edita filtros", nunca "apague todos" (molde de `faqs`). */
     filterValueIds?: readonly string[]
+    /**
+     * Feature 67 — as marcações por opção, JÁ projetadas (`marcacoesVigentes`: renomeação aplicada e
+     * opções removidas fora). `undefined` = "esta tela não edita", como os dois de cima.
+     */
+    optionMarks?: readonly OptionMark[]
   },
   saved: {
     categoryIds: readonly string[]
     variants: readonly ProductVariant[]
     faqs?: readonly string[]
     filterValueIds?: readonly string[]
+    optionMarks?: readonly OptionMark[]
   },
 ): Promise<PersistResult> => {
   const categories = planCategoryLinks(input.categoryIds, saved.categoryIds)
@@ -297,6 +313,39 @@ export const persistProductRelations = async (
       .from('product_variants')
       .insert(grid.toInsert.map(v => ({ ...v, product_id: productId })))
     if (error) return { ok: false, step: 'grade', message: error.message }
+  }
+
+  // Marcações por opção (feature 67, `VFL-03`, `VFL-08`) — DEPOIS da grade, porque a marcação é do
+  // texto da opção e não da linha: nenhuma depende do id de variação, e uma falha aqui não deixa a
+  // grade pela metade. Mesmo molde das marcações da peça toda: apaga as que saíram (uma requisição
+  // por opção, com os três campos da identidade) e grava só as novas, com o `product_id` que o
+  // banco devolveu — o que faz o produto NOVO recebê-las sem nunca perdê-las.
+  if (input.optionMarks !== undefined) {
+    const plano = diffOptionMarks(saved.optionMarks ?? [], input.optionMarks)
+
+    for (const opcao of plano.toDelete) {
+      const { error } = await client
+        .from('product_option_filter_values')
+        .delete()
+        .eq('product_id', productId)
+        .eq('option_name', opcao.option_name)
+        .eq('option_value', opcao.option_value)
+        .in('value_id', opcao.value_ids)
+      if (error) return { ok: false, step: 'marcações por variação', message: error.message }
+    }
+
+    if (plano.toInsert.length > 0) {
+      const { error } = await client.from('product_option_filter_values').upsert(
+        plano.toInsert.map(m => ({
+          product_id: productId,
+          option_name: m.option_name,
+          option_value: m.option_value,
+          value_id: m.value_id,
+        })),
+        { onConflict: 'product_id,option_name,option_value,value_id' },
+      )
+      if (error) return { ok: false, step: 'marcações por variação', message: error.message }
+    }
   }
 
   return { ok: true }

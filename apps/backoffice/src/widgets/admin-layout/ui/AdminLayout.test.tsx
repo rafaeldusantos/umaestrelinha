@@ -351,6 +351,86 @@ describe('AdminLayout — a sidebar fixa, lida do fonte', () => {
     expect(raiz).not.toContain('overflow-hidden')
   })
 
+  /**
+   * A régua do `main`, como PREDICADO — a asserção e os sensores chamam a mesma função. Rodada 2 da
+   * verificação (B23): a primeira escrita era `^overflow…$` e deixava passar `md:overflow-auto`, que
+   * no computador (onde mora a barra "Aprovar N") é exatamente o defeito. Aceita qualquer cadeia de
+   * prefixos de variante (`md:`, `lg:`, `hover:md:`…).
+   *
+   * Rodada 3 (R11–R12): também o modificador `!` (na frente, depois das variantes ou no fim) e o valor
+   * arbitrário `[overflow:…]`/`[overflow-x:…]`, que compilam para a mesma propriedade. `visible` é a
+   * única que não faz do `main` contêiner de rolagem, nas duas grafias.
+   */
+  const rolaOMain = (c: string) =>
+    /^!?(?:[\w-]+:)*!?(?:overflow(?:-[xy])?-(?:auto|hidden|scroll|clip)|\[overflow(?:-[xy])?:(?!visible\])[^\]]+\])!?$/.test(c)
+
+  /**
+   * Rodada 3 (R13): o `style` inline do elemento, lido do fonte, e se ele declara `overflow` com um
+   * valor que não seja `visible`. A régua de classe não alcança `style={{ overflow: 'auto' }}`.
+   */
+  const estiloDe = (tag: string, fonteLida: string = fonte): string =>
+    fonteLida.match(new RegExp(`<${tag}\\b[^>]*?\\bstyle=\\{\\{([\\s\\S]*?)\\}\\}`))?.[1] ?? ''
+  const estiloRola = (estilo: string) => /\boverflow(?:X|Y)?\s*:(?!\s*['"`]visible['"`])/.test(estilo)
+
+  it('o `main` NÃO é contêiner de rolagem — senão nenhum `sticky` de dentro gruda (67, D1)', () => {
+    // Quem rola é o body. Um `overflow` qualquer no `main` faz dele o contêiner do `sticky` sem que
+    // ele role, e a barra "Aprovar N" da fila ficava a 13.993px numa janela de 900.
+    const main = classesDe('main').split(/\s+/)
+    expect(main).not.toEqual([''])
+    expect(main).toContain('flex-1')
+    expect(main).toContain('min-w-0')
+    expect(main.filter(rolaOMain)).toEqual([])
+    expect(estiloRola(estiloDe('main'))).toBe(false)
+  })
+
+  it('SENSOR D: a declaração antiga do `main` reprova na mesma régua', () => {
+    const antiga = classesDe('main', '<main className="flex-1 p-6 overflow-auto">').split(/\s+/)
+    expect(antiga.filter(rolaOMain)).toEqual(['overflow-auto'])
+  })
+
+  it('SENSOR D2: com prefixo de breakpoint também reprova (B23)', () => {
+    const comPrefixo = classesDe(
+      'main',
+      '<main className="flex-1 min-w-0 p-6 md:overflow-auto lg:overflow-y-hidden hover:md:overflow-x-scroll">',
+    ).split(/\s+/)
+    expect(comPrefixo.filter(rolaOMain)).toEqual(['md:overflow-auto', 'lg:overflow-y-hidden', 'hover:md:overflow-x-scroll'])
+  })
+
+  it('SENSOR D3 (inverso): `overflow-visible` e classes vizinhas não são acusadas', () => {
+    expect(['overflow-visible', 'md:overflow-visible', 'min-w-0', 'flex-1', 'text-ellipsis'].filter(rolaOMain)).toEqual([])
+    expect(['!overflow-visible', '[overflow:visible]', 'md:[overflow-x:visible]', '[min-width:0]'].filter(rolaOMain)).toEqual([])
+  })
+
+  it('SENSOR D4 (R11): o modificador `!` não esconde o `overflow`', () => {
+    const comImportante = classesDe(
+      'main',
+      '<main className="flex-1 min-w-0 p-6 !overflow-auto md:!overflow-y-scroll !lg:overflow-hidden overflow-x-clip!">',
+    ).split(/\s+/)
+    expect(comImportante.filter(rolaOMain)).toEqual([
+      '!overflow-auto',
+      'md:!overflow-y-scroll',
+      '!lg:overflow-hidden',
+      'overflow-x-clip!',
+    ])
+  })
+
+  it('SENSOR D5 (R12): o valor arbitrário `[overflow:…]` reprova, com ou sem variante', () => {
+    const arbitrario = classesDe(
+      'main',
+      '<main className="flex-1 min-w-0 p-6 [overflow:auto] md:[overflow-y:scroll] ![overflow-x:hidden]">',
+    ).split(/\s+/)
+    expect(arbitrario.filter(rolaOMain)).toEqual(['[overflow:auto]', 'md:[overflow-y:scroll]', '![overflow-x:hidden]'])
+  })
+
+  it('SENSOR D6 (R13): `style` com overflow reprova; `style` sem overflow, e com `visible`, não', () => {
+    expect(estiloRola(estiloDe('main', `<main className="flex-1 min-w-0 p-6" style={{ overflow: 'auto' }}>`))).toBe(true)
+    expect(estiloRola(estiloDe('main', `<main style={{ minWidth: 0, overflowY: "scroll" }} className="p-6">`))).toBe(true)
+    expect(estiloRola(estiloDe('main', `<main className="p-6" style={{ minWidth: 0 }}>`))).toBe(false)
+    expect(estiloRola(estiloDe('main', `<main className="p-6" style={{ overflow: 'visible' }}>`))).toBe(false)
+    // A âncora do leitor: sem `style` nenhum, devolve vazio — e um `style` de OUTRO elemento não vaza.
+    expect(estiloDe('main', `<main className="p-6"><div style={{ overflow: 'auto' }} /></main>`)).toBe('')
+  })
+
   it('a barra do celular também não sai da tela', () => {
     // No celular a sidebar É o botão do menu: se ele rola para fora, navegar exige voltar ao topo
     // de uma listagem de 680 linhas.

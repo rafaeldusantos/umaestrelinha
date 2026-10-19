@@ -7,8 +7,10 @@
 //
 // Inventário de `vi.mock` desta página (`L-030`): só `@/entities/filter`. Nada mais é dublado.
 
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import * as React from 'react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AdminFilterGroup } from '@/entities/filter'
 
@@ -22,12 +24,38 @@ const cat = vi.hoisted(() => ({
   deleteGroup: vi.fn(),
   createValue: vi.fn(),
   updateValue: vi.fn(),
+  updateValueTerms: vi.fn(),
   deleteValue: vi.fn(),
   reorderGroups: vi.fn(),
   reorderValues: vi.fn(),
+  /** Rodada 2 (VFL-36): quem está montado e ouvindo o dublê do catálogo — ver `publicar`. */
+  ouvintes: new Set<() => void>(),
 }))
 
-vi.mock('@/entities/filter', () => ({ useAdminFilterCatalog: () => cat }))
+// Feature 67 (`L-030`): a página passou a ler a fila para o "Sugestões (N)". As duas leituras dela
+// (recusas e o pool da marcação) são dubladas aqui; a regra que transforma as duas em fila é a REAL.
+const fila = vi.hoisted(() => ({ produtos: [] as unknown[], recusas: [] as unknown[], carregando: false }))
+vi.mock('@/entities/filter', async importOriginal => ({
+  ...(await importOriginal<typeof import('@/entities/filter')>()),
+  // Rodada 2 (VFL-36): o dublê re-renderiza quem o lê quando `publicar()` é chamado — é a forma da
+  // releitura do hook real (provada em `useAdminFilterCatalog.test.ts`, B28), sem a rede. Sem isto
+  // o único jeito de a página ver um catálogo novo era remontar, e remontar é recarregar.
+  useAdminFilterCatalog: () => {
+    const [, forcar] = React.useReducer((x: number) => x + 1, 0)
+    React.useEffect(() => {
+      cat.ouvintes.add(forcar)
+      return () => {
+        cat.ouvintes.delete(forcar)
+      }
+    }, [])
+    return cat
+  },
+  useSuggestionDismissals: () => ({ recusas: fila.recusas, carregando: fila.carregando, erro: null }),
+}))
+vi.mock('@/entities/product', async importOriginal => ({
+  ...(await importOriginal<typeof import('@/entities/product')>()),
+  useProductMarkingPool: () => ({ produtos: fila.produtos, carregando: fila.carregando, erro: null, recarregar: vi.fn() }),
+}))
 
 import AdminFiltersPage from './AdminFiltersPage'
 
@@ -55,6 +83,9 @@ const grupo = (
 })
 
 beforeEach(() => {
+  fila.produtos = []
+  fila.recusas = []
+  fila.carregando = false
   cat.groups = [
     grupo('acab', 'Acabamento', 'acabamento', [
       ['prata', 'Prata 925', 'prata-925', 183],
@@ -67,13 +98,14 @@ beforeEach(() => {
   cat.error = null
   for (const k of [
     'fetchCatalog', 'createGroup', 'updateGroup', 'deleteGroup', 'createValue', 'updateValue',
-    'deleteValue', 'reorderGroups', 'reorderValues',
+    'updateValueTerms', 'deleteValue', 'reorderGroups', 'reorderValues',
   ] as const) cat[k].mockReset()
   cat.createGroup.mockResolvedValue({ error: null, id: 'novo' })
   cat.updateGroup.mockResolvedValue(null)
   cat.deleteGroup.mockResolvedValue(null)
   cat.createValue.mockResolvedValue({ error: null, id: 'v-novo' })
   cat.updateValue.mockResolvedValue(null)
+  cat.updateValueTerms.mockResolvedValue(null)
   cat.deleteValue.mockResolvedValue(null)
   cat.reorderGroups.mockResolvedValue(null)
   cat.reorderValues.mockResolvedValue(null)
@@ -87,13 +119,15 @@ const Onde = () => {
 
 const montar = (rota = '/admin/filtros') =>
   render(
-    <MemoryRouter initialEntries={[rota]}>
-      <Routes>
-        <Route path="/admin/filtros" element={<><AdminFiltersPage /><Onde /></>} />
-        <Route path="/admin/filtros/:groupId" element={<><AdminFiltersPage /><Onde /></>} />
-        <Route path="/admin/filtros/:groupId/valores/:valueId" element={<Onde />} />
-      </Routes>
-    </MemoryRouter>,
+    <QueryClientProvider client={new QueryClient()}>
+      <MemoryRouter initialEntries={[rota]}>
+        <Routes>
+          <Route path="/admin/filtros" element={<><AdminFiltersPage /><Onde /></>} />
+          <Route path="/admin/filtros/:groupId" element={<><AdminFiltersPage /><Onde /></>} />
+          <Route path="/admin/filtros/:groupId/valores/:valueId" element={<Onde />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
   )
 
 const listaDeGrupos = () => screen.getByRole('region', { name: 'Grupos' })
@@ -407,5 +441,210 @@ describe('celular — a URL decide lista ou editor', () => {
     expect(screen.getByTestId('editor-do-grupo').className).not.toContain('hidden')
     expect(listaDeGrupos().parentElement?.className).toContain('hidden lg:block')
     expect(screen.getByRole('button', { name: 'Voltar' })).toBeInTheDocument()
+  })
+})
+
+// Feature 67 (T09, `VFL-28`) — o link para a fila, com o total de sugestões pendentes.
+describe('VFL-28 — "Sugestões (N)" em /admin/filtros', () => {
+  const peca = (id: string, name: string, tags: string[] = []) => ({
+    id, name, slug: id, is_active: true, base_price: 1, tags, category_ids: [], thumb: null,
+    options: [], variants: [], filter_value_ids: [], option_marks: [],
+  })
+
+  it('o total vem da MESMA regra da fila (nome e tag contam), e o link leva a ela', () => {
+    fila.produtos = [peca('a', 'Anel Prata 925'), peca('b', 'Colar', ['Prata925']), peca('c', 'Brinco')]
+    montar()
+    const link = screen.getByRole('link', { name: 'Sugestões (2)' })
+    expect(link).toHaveAttribute('href', '/admin/filtros/sugestoes')
+  })
+
+  it('a recusa gravada tira a sugestão do total', () => {
+    fila.produtos = [peca('a', 'Anel Prata 925'), peca('b', 'Colar', ['Prata925'])]
+    fila.recusas = [{ product_id: 'b', value_id: 'prata', option_name: '', option_value: '' }]
+    montar()
+    expect(screen.getByRole('link', { name: 'Sugestões (1)' })).toBeInTheDocument()
+  })
+
+  it('enquanto a fila carrega, o link não afirma número', () => {
+    fila.carregando = true
+    montar()
+    expect(screen.getByRole('link', { name: 'Sugestões' })).toBeInTheDocument()
+  })
+
+  it('sem grupo nenhum não há link (não há o que sugerir)', () => {
+    cat.groups = []
+    montar()
+    expect(screen.queryByRole('link', { name: /^Sugestões/ })).toBeNull()
+  })
+})
+
+// Feature 67 — a confirmação de remover valor soma as marcações por opção (edge case da spec).
+describe('remover valor com marcações por opção', () => {
+  const comOpcao = (marked: number, porOpcao: number) => {
+    const g = cat.groups[0] as AdminFilterGroup
+    cat.groups = [{ ...g, values: g.values.map(v => (v.id === 'rodio' ? { ...v, marked_count: marked, option_marked_count: porOpcao } : v)) }, ...cat.groups.slice(1)]
+  }
+
+  it('as duas formas somam na frase', async () => {
+    comOpcao(3, 71)
+    montar('/admin/filtros/acab')
+    fireEvent.click(screen.getByRole('button', { name: 'Remover “Ródio”' }))
+    const dialogo = await screen.findByRole('alertdialog')
+    expect(
+      within(dialogo).getByText('3 peças perdem esta marcação, e saem junto 71 marcações por opção. As peças continuam no catálogo.'),
+    ).toBeInTheDocument()
+  })
+
+  it('só por opção (nenhuma peça toda) também pede confirmação', async () => {
+    comOpcao(0, 1)
+    montar('/admin/filtros/acab')
+    fireEvent.click(screen.getByRole('button', { name: 'Remover “Ródio”' }))
+    const dialogo = await screen.findByRole('alertdialog')
+    expect(within(dialogo).getByText('Saem junto 1 marcação por opção. As peças continuam no catálogo.')).toBeInTheDocument()
+    expect(cat.deleteValue).not.toHaveBeenCalled()
+  })
+})
+
+// Feature 67 — D2 da prova em navegador: "Chaveiro · 0 peças marcadas" com 145 marcações por opção.
+// O número do grupo é a soma das marcações por valor (FLT-01) — das DUAS formas —, e a linha do valor
+// diz as duas formas, cada uma na própria unidade (peças × marcações), sem somá-las como "peças".
+describe('D2 — as contagens de /admin/filtros contam a marcação por opção', () => {
+  const comContagens = (porValor: Record<string, [number, number]>) => {
+    const g = cat.groups[0] as AdminFilterGroup
+    cat.groups = [
+      {
+        ...g,
+        values: g.values.map(v =>
+          porValor[v.id] ? { ...v, marked_count: porValor[v.id][0], option_marked_count: porValor[v.id][1] } : v,
+        ),
+      },
+      ...cat.groups.slice(1),
+    ]
+  }
+
+  it('o grupo soma as duas formas: 183 + 171 + 152 + 145 = 651 marcações', () => {
+    comContagens({ prata: [183, 171], rodio: [0, 145] })
+    montar()
+    const linhas = within(listaDeGrupos()).getAllByRole('listitem')
+    expect(within(linhas[0]).getByRole('link').textContent).toBe('Acabamento3 valores · 651 marcações')
+  })
+
+  it('o valor diz as duas formas, cada uma na própria unidade — e o só-por-opção não diz "0 peças"', () => {
+    comContagens({ prata: [183, 171], rodio: [0, 145] })
+    montar('/admin/filtros/acab')
+    // O endereço vem num `<span>` à parte (some no celular): a régua é o texto do `<p>` inteiro.
+    const linha = (t: string) => screen.queryAllByText((_, el) => el?.tagName === 'P' && el.textContent === t)
+    expect(linha('prata-925 · 183 peças na peça toda · 171 marcações por opção')).toHaveLength(1)
+    expect(linha('rodio · 145 marcações por opção')).toHaveLength(1)
+    // Sem marcação por opção, a frase da 66, intacta.
+    expect(linha('folheado-a-ouro · 152 peças marcadas')).toHaveLength(1)
+    expect(screen.queryAllByText((_, el) => el?.tagName === 'P' && /(?:^|\s)0 peças marcadas/.test(el.textContent ?? ''))).toEqual([])
+  })
+
+  it('remover o grupo diz o que a cascata leva: as duas formas', async () => {
+    comContagens({ prata: [183, 171], rodio: [0, 145] })
+    montar('/admin/filtros/acab')
+    fireEvent.click(screen.getByRole('button', { name: /Remover grupo/ }))
+    const dialogo = await screen.findByRole('alertdialog')
+    expect(within(dialogo).getByText('Saem junto 3 valores e 651 marcações. As peças continuam no catálogo.')).toBeInTheDocument()
+  })
+})
+
+// Feature 67 (T11, `VFL-35`..`VFL-37`) — o campo de termos no valor em edição.
+describe('VFL-35..37 — "Também sugerir quando o texto tiver…"', () => {
+  const editar = () => {
+    montar('/admin/filtros/acab')
+    fireEvent.click(screen.getByRole('button', { name: 'Renomear “Folheado a ouro”' }))
+  }
+
+  it('o campo, os dois contadores, e acrescentar grava a lista inteira', async () => {
+    const g = cat.groups[0] as AdminFilterGroup
+    cat.groups = [{ ...g, values: g.values.map(v => (v.id === 'ouro' ? { ...v, suggest_terms: ['Amarelo'] } : v)) }, ...cat.groups.slice(1)]
+    editar()
+    const campo = screen.getByLabelText('Também sugerir quando o texto tiver…')
+    expect(screen.getByTestId('contador-termos')).toHaveTextContent('1 de 10')
+    fireEvent.change(campo, { target: { value: 'Dourado' } })
+    expect(screen.getByTestId('contador-termo')).toHaveTextContent('7/40')
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Acrescentar' }))
+    })
+    expect(cat.updateValueTerms).toHaveBeenCalledWith('ouro', ['Amarelo', 'Dourado'])
+    expect(campo).toHaveValue('')
+  })
+
+  it.each([
+    ['', 'Escreva o termo.'],
+    ['FOLHEADO a OURO', 'O nome do valor já sugere sozinho.'],
+  ])('recusa %j com o motivo, sem gravar, e mantém o que foi digitado', async (termo, frase) => {
+    editar()
+    const campo = screen.getByLabelText('Também sugerir quando o texto tiver…')
+    fireEvent.change(campo, { target: { value: termo } })
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Acrescentar' }))
+    })
+    expect(screen.getByRole('alert')).toHaveTextContent(frase)
+    expect(cat.updateValueTerms).not.toHaveBeenCalled()
+    expect(campo).toHaveValue(termo)
+  })
+
+  it('o repetido, sem diferenciar acento e caixa', async () => {
+    const g = cat.groups[0] as AdminFilterGroup
+    cat.groups = [{ ...g, values: g.values.map(v => (v.id === 'ouro' ? { ...v, suggest_terms: ['Dourádo'] } : v)) }, ...cat.groups.slice(1)]
+    editar()
+    fireEvent.change(screen.getByLabelText('Também sugerir quando o texto tiver…'), { target: { value: 'dourado' } })
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Acrescentar' }))
+    })
+    expect(screen.getByRole('alert')).toHaveTextContent('Este termo já está na lista.')
+  })
+
+  it('tirar um termo grava a lista sem ele', async () => {
+    const g = cat.groups[0] as AdminFilterGroup
+    cat.groups = [{ ...g, values: g.values.map(v => (v.id === 'ouro' ? { ...v, suggest_terms: ['Amarelo', 'Dourado'] } : v)) }, ...cat.groups.slice(1)]
+    editar()
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Tirar o termo “Amarelo”' }))
+    })
+    expect(cat.updateValueTerms).toHaveBeenCalledWith('ouro', ['Dourado'])
+  })
+
+  it('a fila considera o termo: o "Sugestões (N)" conta o que o termo casa', () => {
+    fila.produtos = [{ id: 'd', name: 'Colar Dourado', slug: 'd', is_active: true, base_price: 1, tags: [], category_ids: [],
+      thumb: null, options: [], variants: [], filter_value_ids: [], option_marks: [] }]
+    montar()
+    expect(screen.getByRole('link', { name: 'Sugestões (0)' })).toBeInTheDocument()
+    const g = cat.groups[0] as AdminFilterGroup
+    cat.groups = [{ ...g, values: g.values.map(v => (v.id === 'ouro' ? { ...v, suggest_terms: ['Dourado'] } : v)) }, ...cat.groups.slice(1)]
+    cleanup()
+    montar()
+    expect(screen.getByRole('link', { name: 'Sugestões (1)' })).toBeInTheDocument()
+  })
+
+  it('VFL-36 — sessão CONTÍNUA: acrescentar o termo pela tela faz o "Sugestões (N)" contar a peça nova, sem remontar', async () => {
+    // Rodada 2: o caso acima remonta a página (`cleanup()` + `montar()`), e por isso prova o
+    // recálculo, não o "sem recarregar". Aqui a página fica montada do começo ao fim: o termo entra
+    // pelo campo de verdade, o dublê do catálogo faz o que o hook real faz depois de gravar (relê e
+    // publica o catálogo novo), e o número da fila muda na MESMA árvore.
+    fila.produtos = [{ id: 'd', name: 'Colar Dourado', slug: 'd', is_active: true, base_price: 1, tags: [], category_ids: [],
+      thumb: null, options: [], variants: [], filter_value_ids: [], option_marks: [] }]
+    cat.updateValueTerms.mockImplementation(async (valueId: string, termos: string[]) => {
+      const g = cat.groups[0] as AdminFilterGroup
+      cat.groups = [
+        { ...g, values: g.values.map(v => (v.id === valueId ? { ...v, suggest_terms: termos } : v)) },
+        ...cat.groups.slice(1),
+      ]
+      act(() => cat.ouvintes.forEach(f => f()))
+      return null
+    })
+    editar()
+    const link = screen.getByRole('link', { name: 'Sugestões (0)' })
+    fireEvent.change(screen.getByLabelText('Também sugerir quando o texto tiver…'), { target: { value: 'Dourado' } })
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Acrescentar' }))
+    })
+    expect(cat.updateValueTerms).toHaveBeenCalledWith('ouro', ['Dourado'])
+    await waitFor(() => expect(screen.getByRole('link', { name: 'Sugestões (1)' })).toBeInTheDocument())
+    // A MESMA árvore: o nó do link é o de antes do termo, não um remontado.
+    expect(screen.getByRole('link', { name: 'Sugestões (1)' })).toBe(link)
   })
 })

@@ -200,14 +200,17 @@ const fakeClient = (fail?: { table: string; op: Call['op']; message: string }) =
           return result(table, 'update')
         },
       }),
-      delete: () => ({
-        eq: () => ({
+      delete: () => {
+        // Feature 67: o `eq` encadeia (a marcação por opção apaga por três colunas).
+        const filtro: ReturnType<ReturnType<PersistClient['from']>['delete']> = {
+          eq: () => filtro,
           in: (_column, values) => {
             calls.push({ table, op: 'delete', payload: values })
             return result(table, 'delete')
           },
-        }),
-      }),
+        }
+        return filtro
+      },
     }),
   }
   return { client, calls }

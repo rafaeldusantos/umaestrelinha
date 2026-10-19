@@ -41,7 +41,7 @@ const DescriptionFaqNotice = ({ description, onRemove, onGoToFaqTab }: Props) =>
           aqui — as perguntas do produto ficam na aba Perguntas.
         </p>
       </div>
-      <div className="flex shrink-0 gap-2">
+      <div className="flex max-w-full shrink-0 flex-wrap gap-2">
         <Button type="button" size="sm" variant="ghost" onClick={onGoToFaqTab}>
           Ver a aba Perguntas
         </Button>

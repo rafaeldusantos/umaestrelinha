@@ -110,3 +110,15 @@ describe('DescriptionFaqNotice — o que oferece', () => {
     expect(screen.queryByTestId('description-faq-notice')).toBeNull()
   })
 })
+
+// Feature 67 (D1 da prova em navegador): com o `main` do painel sem `overflow`, o grupo dos dois
+// botões — 389px numa coluna de 292 em 390 — passaria a rolar o BODY na horizontal.
+describe('DescriptionFaqNotice — os botões cabem na coluna do celular', () => {
+  it('o grupo embrulha e tem teto de largura', () => {
+    montar(COM_BLOCO)
+    const grupo = screen.getByRole('button', { name: 'Ver a aba Perguntas' }).parentElement!
+    const tokens = (grupo.getAttribute('class') ?? '').split(/\s+/)
+    expect(tokens).toContain('flex-wrap')
+    expect(tokens).toContain('max-w-full')
+  })
+})

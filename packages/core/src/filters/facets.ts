@@ -9,10 +9,17 @@
 //   blocos visíveis   = grupos ativos, fora dos escondidos, com ≥ 1 valor presente na base
 //   valores visíveis  = valores com ≥ 1 produto na base, na ordem de `sort_order`
 //
+// Desde a 67 a peça também pode carregar o valor por OPÇÃO (eixo + texto), e quem decide se ela passa
+// é `matchProduct` (`match.ts`): os grupos que a peça toda não satisfaz têm de ser satisfeitos pela
+// MESMA variação ativa. Sem marcação por opção, o resultado é idêntico ao da 66 — os casos de lá são a
+// régua disso, e não mudaram uma linha.
+//
 // O produto carrega as marcações por ID (`filter_value_ids`); a seleção chega por SLUG (é a forma da
 // URL), e a tradução acontece aqui, pelo catálogo. Slug desconhecido é ignorado, nunca erro: link
 // velho continua abrindo a página.
 
+import { activeVariantsInOrder, matchResolved, resolveSelection, variantCarries } from './match.ts'
+import type { MatchOptions } from './match.ts'
 import type { FilterCatalog, FilterGroup, FilterSelection, FilterValue, FilterableProduct } from './types.ts'
 
 export interface VisibleFilterGroup {
@@ -23,36 +30,34 @@ export interface VisibleFilterGroup {
 
 const porOrdem = <T extends { sort_order: number }>(a: T, b: T): number => a.sort_order - b.sort_order
 
-/** A seleção traduzida para id: grupo ativo → valores conhecidos dele. Grupo sem valor válido some. */
-const resolverSelecao = (selection: FilterSelection, catalog: FilterCatalog): Map<string, Set<string>> => {
-  const out = new Map<string, Set<string>>()
-  for (const [groupSlug, valueSlugs] of Object.entries(selection ?? {})) {
-    const grupo = catalog.groups.find(g => g.slug === groupSlug && g.is_active)
-    if (!grupo || !valueSlugs?.length) continue
-    const ids = new Set(
-      catalog.values.filter(v => v.group_id === grupo.id && valueSlugs.includes(v.slug)).map(v => v.id),
-    )
-    if (ids.size > 0) out.set(grupo.id, ids)
-  }
-  return out
-}
-
-const atende = (produto: FilterableProduct, ids: Set<string>): boolean =>
-  (produto.filter_value_ids ?? []).some(id => ids.has(id))
-
-/** Os grupos que o produto NÃO atende, entre os que têm seleção. */
-const gruposFalhos = (produto: FilterableProduct, selecao: Map<string, Set<string>>): string[] => {
-  const falhos: string[] = []
-  for (const [groupId, ids] of selecao) if (!atende(produto, ids)) falhos.push(groupId)
-  return falhos
-}
-
-/** O produto passa pela seleção dos grupos: OU dentro de cada grupo, E entre os grupos. */
-export const passesSelection = (
-  product: FilterableProduct,
+/**
+ * O produto passa pela seleção dos grupos: OU dentro de cada grupo, E entre os grupos — e os grupos
+ * que só a variação satisfaz, pela mesma variação. `opts` é opcional: sem ele, como na 66, só os
+ * grupos contam.
+ */
+export const passesSelection = <P extends FilterableProduct>(
+  product: P,
   selection: FilterSelection,
   catalog: FilterCatalog,
-): boolean => gruposFalhos(product, resolverSelecao(selection, catalog)).length === 0
+  opts: MatchOptions<P> = {},
+): boolean => matchResolved(product, resolveSelection(selection, catalog), opts).passes
+
+/**
+ * Os valores que a peça carrega de algum jeito: na peça toda, ou por uma marcação de opção que uma
+ * variação ATIVA dela de fato vende. Marcação por opção sem variação ativa não vende nada, e por isso
+ * não acende bloco nem conta.
+ */
+const valoresCarregados = (produto: FilterableProduct): Set<string> => {
+  const ids = new Set(produto.filter_value_ids ?? [])
+  const marcas = produto.option_marks ?? []
+  if (marcas.length === 0) return ids
+  const ativas = activeVariantsInOrder(produto.variants)
+  for (const m of marcas) {
+    if (ids.has(m.value_id)) continue
+    if (ativas.some(v => variantCarries(v, [m], new Set([m.value_id])))) ids.add(m.value_id)
+  }
+  return ids
+}
 
 /**
  * Os blocos que a página mostra. `hiddenGroupIds` é o "esconder nesta categoria" (presença de linha
@@ -64,7 +69,7 @@ export const visibleGroups = (
   hiddenGroupIds: readonly string[] = [],
 ): VisibleFilterGroup[] => {
   const presentes = new Set<string>()
-  for (const p of base) for (const id of p.filter_value_ids ?? []) presentes.add(id)
+  for (const p of base) for (const id of valoresCarregados(p)) presentes.add(id)
   return [...catalog.groups]
     .filter(g => g.is_active && !hiddenGroupIds.includes(g.id))
     .sort(porOrdem)
@@ -78,13 +83,23 @@ export const visibleGroups = (
 /**
  * A contagem de cada valor (por id), com os filtros de sistema e a seleção dos OUTROS grupos
  * aplicados. Valor de grupo ativo sem produto conta `0` — é o `(0)` desabilitado do FLT-24.
+ *
+ * Desde a 67 a conta é, literalmente, a pergunta da faceta disjuntiva: "esta peça passaria se a
+ * seleção do grupo G fosse só {v}?" (VFL-15). O atalho da 66 — "com uma falha só, conta no grupo que
+ * falhou" — deixou de valer, porque a MESMA variação tem de satisfazer vários grupos ao mesmo tempo, e
+ * uma peça pode atender G e H separadamente sem atender os dois juntos. A peça conta uma vez por
+ * valor, quantas variações casarem.
+ *
+ * `systemPass` aceita a função da 66 (o filtro de sistema sobre a peça) ou as `MatchOptions` inteiras,
+ * quando a loja precisa testar preço e estoque da variação.
  */
 export const facetCounts = <P extends FilterableProduct>(
   catalog: FilterCatalog,
   base: readonly P[],
   selection: FilterSelection,
-  systemPass: (product: P) => boolean = () => true,
+  systemPass: ((product: P) => boolean) | MatchOptions<P> = {},
 ): Record<string, number> => {
+  const opts: MatchOptions<P> = typeof systemPass === 'function' ? { productPass: systemPass } : systemPass
   const ativos = new Set(catalog.groups.filter(g => g.is_active).map(g => g.id))
   const grupoDoValor = new Map<string, string>()
   const counts: Record<string, number> = {}
@@ -93,17 +108,15 @@ export const facetCounts = <P extends FilterableProduct>(
     grupoDoValor.set(v.id, v.group_id)
     counts[v.id] = 0
   }
-  const selecao = resolverSelecao(selection, catalog)
+  const selecao = resolveSelection(selection, catalog)
   for (const p of base) {
-    if (!systemPass(p)) continue
-    const falhos = gruposFalhos(p, selecao)
-    if (falhos.length > 1) continue
-    for (const id of new Set(p.filter_value_ids ?? [])) {
+    // Só os valores que a peça carrega podem contar: para os outros, S_G := {v} nunca se satisfaz.
+    for (const id of valoresCarregados(p)) {
       const grupo = grupoDoValor.get(id)
       if (grupo === undefined) continue
-      // Sem falha: conta em todo grupo. Com uma falha só: conta APENAS no grupo que falhou — tocar
-      // num valor dele é o que faria este produto passar.
-      if (falhos.length === 0 || falhos[0] === grupo) counts[id] += 1
+      const hipotese = new Map(selecao)
+      hipotese.set(grupo, new Set([id]))
+      if (matchResolved(p, hipotese, opts).passes) counts[id] += 1
     }
   }
   return counts

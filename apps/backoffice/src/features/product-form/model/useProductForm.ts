@@ -24,6 +24,7 @@ import type {
   ProductVariant,
   StockPolicy,
 } from '@estrelinha/supabase/types'
+import type { OptionMark } from '@estrelinha/core/filters'
 import type { ProductFaqSelection } from './planFaqLinks'
 
 /**
@@ -110,6 +111,36 @@ export interface ProductFormState {
    * o save grava o DIFF contra o snapshot — só o que entrou e o que saiu vão ao banco.
    */
   filter_value_ids: string[]
+  /**
+   * As marcações por OPÇÃO da peça (feature 67, `VFL-01`..`VFL-08`): "nesta peça, `Cor` = `Prata 925`
+   * é o valor X". No estado pelo mesmo motivo das marcações da peça toda — rascunho, restauração e
+   * diff contra o snapshot. O que vai ao bloco e ao save é a PROJEÇÃO `marcacoesVigentes` (renomear
+   * eixo leva junto, remover texto apaga), nunca este campo cru.
+   */
+  option_marks: OptionMark[]
+}
+
+/** O que estava no banco na última carga (ou no último save) — é contra isto que o diff é feito. */
+export interface ProductFormSnapshot {
+  categoryIds: string[]
+  variants: ProductVariant[]
+  slug: string
+  faqIds: string[]
+  filterValueIds: string[]
+  /** Feature 67. */
+  optionMarks: OptionMark[]
+  /** Feature 67: os eixos como estavam, para detectar a renomeação por posição (`VFL-05`). */
+  options: ProductOption[]
+}
+
+const SNAPSHOT_VAZIO: ProductFormSnapshot = {
+  categoryIds: [],
+  variants: [],
+  slug: '',
+  faqIds: [],
+  filterValueIds: [],
+  optionMarks: [],
+  options: [],
 }
 
 /**
@@ -159,11 +190,12 @@ export const emptyProductForm = (): ProductFormState => ({
   engraving_max_chars: null,
   faqs: [],
   filter_value_ids: [],
+  option_marks: [],
 })
 
 /** O `select` da carga do formulário. Traz a grade da TABELA e os vínculos N:N. */
 export const PRODUCT_FORM_SELECT =
-  '*, product_variants(*), product_categories(category_id, position), product_faqs(faq_id, position, answer_override), product_filter_values(value_id)'
+  '*, product_variants(*), product_categories(category_id, position), product_faqs(faq_id, position, answer_override), product_filter_values(value_id), product_option_filter_values(option_name, option_value, value_id)'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
@@ -242,6 +274,16 @@ export const productRowToForm = (row: any, opts: { asCopy?: boolean } = {}): Pro
         ),
       ]
     : [],
+  // Feature 67. Como as da peça toda: o admin lê todas, inclusive as de grupo desligado.
+  option_marks: Array.isArray(row.product_option_filter_values)
+    ? row.product_option_filter_values
+        .map((m: any) => ({
+          option_name: typeof m?.option_name === 'string' ? m.option_name : '',
+          option_value: typeof m?.option_value === 'string' ? m.option_value : '',
+          value_id: String(m?.value_id ?? ''),
+        }))
+        .filter((m: OptionMark) => m.option_name !== '' && m.option_value !== '' && m.value_id !== '')
+    : [],
 })
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
@@ -257,24 +299,12 @@ export interface UseProductFormResult {
    * Zera o `isDirty` sem tocar no conteúdo, e opcionalmente adota um novo snapshot de "o que está no
    * banco". Chamado no save bem-sucedido.
    */
-  markSaved: (snapshot?: {
-    categoryIds: string[]
-    variants: ProductVariant[]
-    slug: string
-    faqIds: string[]
-    filterValueIds: string[]
-  }) => void
+  markSaved: (snapshot?: ProductFormSnapshot) => void
   /**
    * O que estava no banco na última carga (ou no último save). É contra isto que o diff da grade e
    * das categorias é calculado (T21b) — sem snapshot, "o que mudou?" não é respondível.
    */
-  savedSnapshot: {
-    categoryIds: string[]
-    variants: ProductVariant[]
-    slug: string
-    faqIds: string[]
-    filterValueIds: string[]
-  }
+  savedSnapshot: ProductFormSnapshot
   /**
    * Troca o formulário inteiro. É o que a oferta de restauração de rascunho (T24) chama.
    * Nasce **sujo**: o conteúdo restaurado difere do que está no banco, e é isso que o badge
@@ -298,13 +328,7 @@ export const useProductForm = (
   const [form, setForm] = useState<ProductFormState>(emptyProductForm)
   const [loading, setLoading] = useState(!!productId || !!copyFromId)
   const [isDirty, setIsDirty] = useState(false)
-  const [savedSnapshot, setSavedSnapshot] = useState<{
-    faqIds: string[]
-    categoryIds: string[]
-    variants: ProductVariant[]
-    slug: string
-    filterValueIds: string[]
-  }>({ categoryIds: [], variants: [], slug: '', faqIds: [], filterValueIds: [] })
+  const [savedSnapshot, setSavedSnapshot] = useState<ProductFormSnapshot>(SNAPSHOT_VAZIO)
   // A carga escreve no estado sem sujar o formulário. Sem esta distinção, abrir um produto e sair
   // sem tocar em nada dispararia a guarda de saída da T24 e o badge "Alterações não salvas".
   const loadingRef = useRef(false)
@@ -340,6 +364,8 @@ export const useProductForm = (
               slug: loaded.slug,
               faqIds: loaded.faqs.map(f => f.faq_id),
               filterValueIds: loaded.filter_value_ids,
+              optionMarks: loaded.option_marks,
+              options: loaded.options,
             })
           }
         }
@@ -366,13 +392,7 @@ export const useProductForm = (
   )
 
   const markSaved = useCallback(
-    (snapshot?: {
-      categoryIds: string[]
-      variants: ProductVariant[]
-      slug: string
-      faqIds: string[]
-      filterValueIds: string[]
-    }) => {
+    (snapshot?: ProductFormSnapshot) => {
       setIsDirty(false)
       if (snapshot) setSavedSnapshot(snapshot)
     },

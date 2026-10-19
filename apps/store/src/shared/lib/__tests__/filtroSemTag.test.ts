@@ -17,7 +17,7 @@ import { describe, expect, it } from 'vitest'
  * não oferece a tag como opção. Ela está fora do escopo de propósito.
  *
  * ÂNCORA DUPLA: (1) a varredura leu os arquivos do escopo — contados e nomeados; (2) a metade
- * POSITIVA: o modelo do slice delega a `passesSelection` de `core`, e as duas páginas leem o
+ * POSITIVA: o modelo do slice delega a `matchProduct` de `core`, e as duas páginas leem o
  * catálogo curado. Sem a (2), apagar o filtro inteiro deixaria a ausência de tag verdadeira e vazia.
  *
  * A régua é escrita LITERALMENTE aqui e roda sobre o fonte SEM COMENTÁRIO — os arquivos do escopo
@@ -96,9 +96,11 @@ describe('nenhum filtro da loja lê a tag (FLT-44)', () => {
     for (const a of escopo) expect(a.fonte.length, a.rel).toBeGreaterThan(50)
   })
 
-  it('âncora 2 (metade positiva): o modelo delega a `passesSelection` e as páginas leem o catálogo curado', () => {
+  it('âncora 2 (metade positiva): o modelo delega a `matchProduct` e as páginas leem o catálogo curado', () => {
     const fonte = (rel: string) => semComentario(escopo.find(a => a.rel === rel)!.fonte)
-    expect(fonte('features/category-filters/model/filters.ts')).toMatch(/passesSelection\(/)
+    // Era `passesSelection(` até a feature 67: a lista passou a sair de `matchProduct`, que devolve
+    // também a variação — a mesma regra de `core`, um degrau abaixo (`passesSelection` a chama).
+    expect(fonte('features/category-filters/model/filters.ts')).toMatch(/matchProduct\(/)
     expect(fonte('features/category-filters/model/filters.ts')).toMatch(/facetCounts\(/)
     expect(fonte('pages/CategoryPage.tsx')).toMatch(/useFilterCatalog\(\)/)
     expect(fonte('pages/SearchPage.tsx')).toMatch(/useFilterCatalog\(\)/)

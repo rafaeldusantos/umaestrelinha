@@ -5,7 +5,8 @@ import type { ProdutoParaMarcar } from '@/entities/product'
 import { RECORTE_INICIAL, dividirSelecao, produtosLabel, recortar, tagsComContagem } from '../recorte'
 
 const p = (id: string, name: string, extra: Partial<ProdutoParaMarcar> = {}): ProdutoParaMarcar => ({
-  id, name, slug: id, is_active: true, base_price: null, tags: [], category_ids: [], ...extra,
+  id, name, slug: id, is_active: true, base_price: null, tags: [], category_ids: [],
+  thumb: null, options: [], variants: [], filter_value_ids: [], option_marks: [], ...extra,
 })
 
 const POOL = Array.from({ length: 30 }, (_, i) => p(`p${i}`, `Anel ${String(i).padStart(2, '0')}`))

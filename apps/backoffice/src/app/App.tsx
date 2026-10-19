@@ -16,6 +16,7 @@ import AdminOrderPage from "@/pages/admin/AdminOrderPage";
 import AdminCategoriesPage from "@/pages/admin/AdminCategoriesPage";
 import AdminFiltersPage from "@/pages/admin/AdminFiltersPage";
 import AdminFilterValuePage from "@/pages/admin/AdminFilterValuePage";
+import AdminFilterSuggestionsPage from "@/pages/admin/AdminFilterSuggestionsPage";
 import AdminFaqsPage from "@/pages/admin/AdminFaqsPage";
 import AdminHomePage from "@/pages/admin/AdminHomePage";
 import AdminMenuPage from "@/pages/admin/AdminMenuPage";
@@ -84,6 +85,9 @@ const App = () => (
                 lista ou o editor. A marcação em massa de um valor é outra tela, alcançada de dentro do
                 grupo; nenhuma das duas subrotas entra em `navGroups`. */}
             <Route path="/admin/filtros" element={<AdminFiltersPage />} />
+            {/* Feature 67 — a fila de sugestões, mais uma irmã auto-fechada. O caminho estático vence
+                `:groupId` no ranking do react-router v6 (`app/__tests__/rotaDasSugestoes.test.tsx`). */}
+            <Route path="/admin/filtros/sugestoes" element={<AdminFilterSuggestionsPage />} />
             <Route path="/admin/filtros/:groupId" element={<AdminFiltersPage />} />
             <Route path="/admin/filtros/:groupId/valores/:valueId" element={<AdminFilterValuePage />} />
             <Route path="/admin/perguntas" element={<AdminFaqsPage />} />

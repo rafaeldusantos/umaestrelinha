@@ -68,7 +68,13 @@ describe('FormPageHeader — a sangria é opcional', () => {
   it('a barra continua fixa nos dois casos — a sangria não é o que a gruda no topo', () => {
     setup()
     expect(temToken(barra(), 'sticky')).toBe(true)
-    expect(temToken(barra(), 'top-0')).toBe(true)
+    // No celular o painel tem a própria barra `sticky top-0 h-14` (z-30) acima de tudo: grudar em
+    // `top-0` ali poria o save EMBAIXO dela. A partir de `md` aquela barra some e o topo é o 0.
+    // (Até a feature 67 nenhum `sticky` de dentro do `main` grudava — o `main` era `overflow-auto` —,
+    // e por isso o `top-0` puro nunca tinha sido visto brigando com a barra.)
+    expect(temToken(barra(), 'top-14')).toBe(true)
+    expect(temToken(barra(), 'md:top-0')).toBe(true)
+    expect(temToken(barra(), 'top-0')).toBe(false)
   })
 
   it('SENSOR: a régua é de token exato — `px-4` sozinho NÃO conta como sangria', () => {

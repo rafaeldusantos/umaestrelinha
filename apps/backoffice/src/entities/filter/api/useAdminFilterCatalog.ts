@@ -20,7 +20,10 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '@estrelinha/supabase/client'
 import {
   FILTER_SLUG_TAKEN_REFUSAL,
+  FILTER_SUGGEST_TERMS_MAX,
+  FILTER_SUGGEST_TERM_MAX,
   groupRefusal,
+  suggestTermRefusal,
   valueRefusal,
   type FilterDraft,
 } from '@estrelinha/core/filters'
@@ -30,6 +33,13 @@ import type { FetchMode } from '@/shared/lib/fetchMode'
 export interface AdminFilterValue extends DbFilterValue {
   /** Quantas peças têm esta marcação. Exato: a chave de `product_filter_values` é produto × valor. */
   marked_count: number
+  /**
+   * Feature 67: quantas marcações POR OPÇÃO o valor tem (uma peça pode ter várias — uma por opção).
+   * É o que a confirmação de remover o valor soma ao que vai embora junto.
+   */
+  option_marked_count?: number
+  /** Feature 67 (`VFL-35`): os termos extras que também sugerem este valor. */
+  suggest_terms?: string[]
 }
 
 export interface AdminFilterGroup extends DbFilterGroup {
@@ -44,7 +54,7 @@ export interface AdminFilterGroup extends DbFilterGroup {
  * traria cada marcação para o navegador só para ser contada aqui.
  */
 export const FILTER_CATALOG_SELECT =
-  'id, name, slug, is_active, sort_order, created_at, filter_values(id, group_id, name, slug, sort_order, product_filter_values(count))'
+  'id, name, slug, is_active, sort_order, created_at, filter_values(id, group_id, name, slug, sort_order, suggest_terms, product_filter_values(count), product_option_filter_values(count))'
 
 /** A mensagem que o painel mostra quando o banco recusa o endereço do VALOR por repetição. */
 export const VALUE_SLUG_TAKEN_REFUSAL = 'Este endereço já é usado por outro valor deste grupo.'
@@ -79,6 +89,8 @@ export const toAdminFilterGroup = (row: any): AdminFilterGroup => ({
       slug: v.slug,
       sort_order: Number(v.sort_order ?? 0),
       marked_count: contagemDe(v.product_filter_values),
+      option_marked_count: contagemDe(v.product_option_filter_values),
+      suggest_terms: Array.isArray(v.suggest_terms) ? v.suggest_terms.filter((t: unknown) => typeof t === 'string') : [],
     }))
     .sort(porOrdem),
 })
@@ -232,6 +244,30 @@ export const useAdminFilterCatalog = () => {
     return null
   }
 
+  /**
+   * Os termos de sugestão do valor (feature 67, `VFL-35`..`VFL-37`), gravados INTEIROS — a lista é a
+   * coluna `text[]`, e gravar só o termo novo apagaria os outros. Cada termo passa pela régua de
+   * `core` contra os que vêm antes dele (vazio, longo, igual ao nome, repetido, teto), aparado; o
+   * `check` do banco recusa os mesmos tetos e vira a mesma família de frase.
+   */
+  const updateValueTerms = async (id: string, terms: readonly string[]): Promise<string | null> => {
+    const valor = atual.current.flatMap(g => g.values).find(v => v.id === id)
+    if (!valor) return 'Este valor não existe mais.'
+    const limpos = terms.map(t => t.trim())
+    for (let i = 0; i < limpos.length; i++) {
+      const recusa = suggestTermRefusal(limpos[i], limpos.slice(0, i), valor.name)
+      if (recusa) return recusa
+    }
+    const { error: erro } = await supabase.from('filter_values').update({ suggest_terms: limpos }).eq('id', id)
+    if (erro)
+      return motivoDoErro(
+        erro,
+        `Um valor aceita até ${FILTER_SUGGEST_TERMS_MAX} termos, de até ${FILTER_SUGGEST_TERM_MAX} caracteres cada.`,
+      )
+    await fetchCatalog('revalidar')
+    return null
+  }
+
   /** Apaga o valor; as marcações saem junto (`on delete cascade`). */
   const deleteValue = async (id: string): Promise<string | null> => {
     const { error: erro } = await supabase.from('filter_values').delete().eq('id', id)
@@ -287,6 +323,7 @@ export const useAdminFilterCatalog = () => {
     deleteGroup,
     createValue,
     updateValue,
+    updateValueTerms,
     deleteValue,
     reorderGroups,
     reorderValues,

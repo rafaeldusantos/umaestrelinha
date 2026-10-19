@@ -59,6 +59,10 @@ vi.mock('@/features/faq-library/api/useAdminFaqs', () => ({
 // acima). O bloco e a gravação dele são provados em `AdminProductFormPage.filtros.test.tsx`.
 vi.mock('@/entities/filter', () => ({
   useAdminFilterCatalog: () => ({ groups: [], loading: false, error: null }),
+  // Feature 67: o bloco "Filtros da loja" passou a ler as recusas da peça (`L-030`).
+  useSuggestionDismissals: () => ({ recusas: [], carregando: false, erro: null }),
+  gravarRecusas: async () => null,
+  invalidarRecusas: async () => undefined,
 }))
 vi.mock('@/shared/ui/RichTextEditor', () => ({ default: () => <div>editor</div> }))
 vi.mock('@estrelinha/ui/hooks/use-toast', () => ({ toast: vi.fn() }))

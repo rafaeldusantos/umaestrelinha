@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { Product } from '@estrelinha/supabase/types'
+import type { Product, ProductVariant } from '@estrelinha/supabase/types'
 import type { FilterCatalog } from '@estrelinha/core/filters'
 import {
   activeFilterChips,
@@ -8,9 +8,13 @@ import {
   clearFilters,
   defaultFilters,
   filterBlocks,
+  filterMatches,
   filterProducts,
   hasActiveFilters,
+  passesSystem,
+  passesSystemVariant,
   priceBounds,
+  sortMatches,
   sortProducts,
   toggleFilterValue,
 } from '../filters'
@@ -398,5 +402,276 @@ describe('sortProducts', () => {
   it('novidades sobe os is_new e não muta a lista original', () => {
     expect(sortProducts(items, 'novidades')[0].id).toBe('b')
     expect(items.map(p => p.id)).toEqual(['a', 'b', 'c'])
+  })
+})
+
+/**
+ * Feature 67 — a peça passa pela VARIAÇÃO (VFL-09..11, VFL-13, VFL-15).
+ *
+ * A fixture DIVERGE de propósito (`L-013`): a peça custa R$ 50 e a prata, R$ 95. Com os dois preços
+ * iguais, testar o preço da peça e o da variação daria o mesmo veredito e nenhuma asserção abaixo
+ * distinguiria as duas regras. A prata tem duas linhas, a primeira SEM estoque, para a preferência
+ * pelo estoque (VFL-11) ter o que escolher.
+ */
+describe('filterMatches — a peça que passa pela variação (feature 67)', () => {
+  const bounds: [number, number] = [0, 200]
+  const base = defaultFilters(bounds)
+  const prata = { acabamento: ['prata-925'] }
+  const ouro = { acabamento: ['ouro'] }
+
+  const linha = (over: Partial<ProductVariant>): ProductVariant => ({
+    id: 'v',
+    product_id: 'colar',
+    option_values: {},
+    name: null,
+    sku: null,
+    price: null,
+    compare_price: null,
+    stock: 5,
+    weight_kg: null,
+    image_url: null,
+    is_active: true,
+    position: 0,
+    nuvemshop_id: null,
+    ...over,
+  })
+
+  const colar = (over: Partial<Product> = {}): Product =>
+    product({
+      id: 'colar',
+      price: 50,
+      options: [
+        { name: 'Cor', values: ['Folheado a Ouro', 'Prata 925'], position: 0 },
+        { name: 'Letra', values: ['A', 'B'], position: 1 },
+      ],
+      variants: [
+        linha({ id: 'v-ouro-a', option_values: { Cor: 'Folheado a Ouro', Letra: 'A' }, price: 60, position: 0 }),
+        linha({ id: 'v-prata-a', option_values: { Cor: 'Prata 925', Letra: 'A' }, price: 95, stock: 0, position: 1 }),
+        linha({
+          id: 'v-prata-b',
+          option_values: { Cor: 'Prata 925', Letra: 'B' },
+          price: 95,
+          compare_price: 120,
+          stock: 2,
+          position: 2,
+        }),
+      ],
+      filter_value_ids: ['v-pingente'],
+      option_marks: [
+        { option_name: 'Cor', option_value: 'Prata 925', value_id: 'v-prata' },
+        { option_name: 'Cor', option_value: 'Folheado a Ouro', value_id: 'v-ouro' },
+      ],
+      ...over,
+    })
+
+  const um = (ps: Product[], f = base) => filterMatches(ps, f, CATALOGO)
+  const variante = (ps: Product[], f = base) => um(ps, f).map(m => m.variant?.id ?? null)
+
+  it('passa pela opção e abre na variação com estoque, mesmo com outra de posição menor (VFL-11)', () => {
+    expect(variante([colar()], { ...base, selection: prata })).toEqual(['v-prata-b'])
+  })
+
+  it('sem estoque em jogo (stock_policy none), vence a de MENOR posição — a preferência só desempata', () => {
+    expect(variante([colar({ stock_policy: 'none' })], { ...base, selection: prata })).toEqual(['v-prata-a'])
+  })
+
+  it('o preço testado é o DA VARIAÇÃO: prata a R$ 95 não passa em "até R$ 80", com a peça a R$ 50 (VFL-10)', () => {
+    const f = { ...base, selection: prata, priceRange: [0, 80] as [number, number] }
+    expect(um([colar()], f)).toEqual([])
+    // Sensor: a regra antiga — o filtro de sistema só sobre a peça — deixaria passar.
+    expect(passesSystem(colar(), f)).toBe(true)
+  })
+
+  it('e o contrário: a prata entra em "R$ 90 a R$ 100" com a peça a R$ 50 fora da faixa', () => {
+    const f = { ...base, selection: prata, priceRange: [90, 100] as [number, number] }
+    expect(variante([colar()], f)).toEqual(['v-prata-b'])
+    // Sem seleção, a mesma faixa testa a peça, como na 66: o card de hoje mostra o preço dela.
+    expect(um([colar()], { ...base, priceRange: [90, 100] })).toEqual([])
+  })
+
+  it('o ouro, a R$ 60, passa em "até R$ 80" e abre na linha dele', () => {
+    const f = { ...base, selection: ouro, priceRange: [0, 80] as [number, number] }
+    expect(variante([colar()], f)).toEqual(['v-ouro-a'])
+  })
+
+  it('variação sem preço cai no preço da peça (`price ?? preço base`)', () => {
+    const p = colar({
+      variants: [linha({ id: 'v-prata-sem', option_values: { Cor: 'Prata 925', Letra: 'A' }, price: null })],
+    })
+    expect(variante([p], { ...base, selection: prata, priceRange: [0, 80] })).toEqual(['v-prata-sem'])
+    expect(um([p], { ...base, selection: prata, priceRange: [60, 80] })).toEqual([])
+  })
+
+  it('"em estoque" exige estoque DA VARIAÇÃO: sem a prata B, a A esgotada não abre o card (VFL-10)', () => {
+    const f = { ...base, selection: prata, inStockOnly: true }
+    expect(variante([colar()], f)).toEqual(['v-prata-b'])
+    const semB = colar({ variants: colar().variants.map(v => (v.id === 'v-prata-b' ? { ...v, stock: 0 } : v)) })
+    expect(um([semB], f)).toEqual([])
+    // Sensor: a regra da peça diz "em estoque" — a grade tem linha ativa com preço.
+    expect(passesSystem(semB, f)).toBe(true)
+  })
+
+  it('"com desconto" olha o "de" DA VARIAÇÃO: a prata B tem, o ouro não', () => {
+    expect(variante([colar()], { ...base, selection: prata, onSaleOnly: true })).toEqual(['v-prata-b'])
+    expect(um([colar()], { ...base, selection: ouro, onSaleOnly: true })).toEqual([])
+  })
+
+  it('"novidades" continua sendo da peça, também quando a variação decide', () => {
+    expect(um([colar()], { ...base, selection: prata, newOnly: true })).toEqual([])
+    expect(variante([colar({ is_new: true })], { ...base, selection: prata, newOnly: true })).toEqual(['v-prata-b'])
+  })
+
+  it('a marcação na PEÇA TODA vence a da opção: passa sem variação, o card de hoje (VFL-13)', () => {
+    const p = colar({ filter_value_ids: ['v-pingente', 'v-prata'] })
+    expect(variante([p], { ...base, selection: prata })).toEqual([null])
+  })
+
+  it('seleção só de grupo satisfeito pela peça toda (Pingente) não escolhe variação', () => {
+    expect(variante([colar()], { ...base, selection: { tipo: ['pingente'] } })).toEqual([null])
+  })
+
+  it('sem seleção nenhuma, ninguém abre em variação — tirar o último filtro devolve o card de hoje', () => {
+    expect(variante([colar(), ANEL_PRATA])).toEqual([null, null])
+  })
+
+  it('peça sem a marcação por opção se comporta exatamente como na 66', () => {
+    const f = { ...base, selection: prata }
+    expect(filterProducts(BASE, f, CATALOGO).map(p => p.id)).toEqual(['a', 'c'])
+    expect(um(BASE, f).map(m => m.variant)).toEqual([null, null])
+  })
+
+  it('`filterProducts` é a projeção de `filterMatches` — as duas não divergem', () => {
+    const f = { ...base, selection: prata, priceRange: [90, 100] as [number, number] }
+    const lista = [colar(), PINGENTE_PRATA, ANEL_PRATA]
+    expect(filterProducts(lista, f, CATALOGO)).toEqual(um(lista, f).map(m => m.product))
+    expect(ids(filterProducts(lista, f, CATALOGO))).toEqual(['colar'])
+  })
+
+  it('o produto devolvido é o MESMO objeto que entrou, não a cópia que vai a `core`', () => {
+    const p = colar()
+    expect(um([p], { ...base, selection: prata })[0].product).toBe(p)
+  })
+})
+
+describe('passesSystemVariant — os filtros de sistema sobre a linha (feature 67)', () => {
+  const base = defaultFilters([0, 200])
+  const p = product({ id: 'x', price: 50, compare_price: 70, stock_policy: 'track' })
+  const v = (over: Partial<ProductVariant>): ProductVariant => ({
+    id: 'v', product_id: 'x', option_values: {}, name: null, sku: null, price: 95, compare_price: null,
+    stock: 1, weight_kg: null, image_url: null, is_active: true, position: 0, nuvemshop_id: null, ...over,
+  })
+
+  it('a faixa usa o preço da linha, inclusiva nas duas pontas', () => {
+    expect(passesSystemVariant(p, v({}), { ...base, priceRange: [95, 95] })).toBe(true)
+    expect(passesSystemVariant(p, v({}), { ...base, priceRange: [0, 94.99] })).toBe(false)
+  })
+
+  it('o "de" ausente na linha cai no da peça — e R$ 70 sobre R$ 95 não é desconto', () => {
+    expect(passesSystemVariant(p, v({}), { ...base, onSaleOnly: true })).toBe(false)
+    expect(passesSystemVariant(p, v({ price: null }), { ...base, onSaleOnly: true })).toBe(true)
+  })
+
+  it('estoque zero com `track` reprova, com `backorder` passa', () => {
+    expect(passesSystemVariant(p, v({ stock: 0 }), { ...base, inStockOnly: true })).toBe(false)
+    expect(passesSystemVariant({ ...p, stock_policy: 'backorder' }, v({ stock: 0 }), { ...base, inStockOnly: true })).toBe(true)
+  })
+})
+
+describe('filterBlocks — as contagens com a variação (feature 67, VFL-15)', () => {
+  const base = defaultFilters([0, 200])
+  const linha = (id: string, cor: string, price: number, position: number): ProductVariant => ({
+    id, product_id: 'colar', option_values: { Cor: cor }, name: null, sku: null, price, compare_price: null,
+    stock: 3, weight_kg: null, image_url: null, is_active: true, position, nuvemshop_id: null,
+  })
+  // Três linhas de prata (letras diferentes, no mesmo texto de opção) e uma de ouro.
+  const COLAR = product({
+    id: 'colar',
+    price: 50,
+    options: [{ name: 'Cor', values: ['Prata 925', 'Folheado a Ouro'], position: 0 }],
+    variants: [
+      linha('p1', 'Prata 925', 95, 0),
+      { ...linha('p2', 'Prata 925', 95, 1), option_values: { Cor: 'Prata 925', Letra: 'B' } },
+      { ...linha('p3', 'Prata 925', 95, 2), option_values: { Cor: 'Prata 925', Letra: 'C' } },
+      linha('o1', 'Folheado a Ouro', 60, 3),
+    ],
+    filter_value_ids: [],
+    option_marks: [
+      { option_name: 'Cor', option_value: 'Prata 925', value_id: 'v-prata' },
+      { option_name: 'Cor', option_value: 'Folheado a Ouro', value_id: 'v-ouro' },
+    ],
+  })
+  const contagem = (f = base) =>
+    Object.fromEntries(
+      filterBlocks([COLAR], f, CATALOGO).flatMap(b => b.values.map(v => [v.value.id, v.count])),
+    )
+
+  it('o valor marcado só por opção acende o bloco e conta a peça UMA vez, com três linhas casando', () => {
+    expect(contagem()).toEqual({ 'v-prata': 1, 'v-ouro': 1 })
+  })
+
+  it('o preço da variação entra na conta: em "até R$ 80" a prata zera e o ouro segue', () => {
+    expect(contagem({ ...base, priceRange: [0, 80] })).toEqual({ 'v-prata': 0, 'v-ouro': 1 })
+  })
+})
+
+describe('sortMatches — sem variação casada, a ordem dos pares é a das peças', () => {
+  const pares = [
+    { product: product({ id: 'a', price: 12 }), variant: null },
+    { product: product({ id: 'b', price: 7, is_new: true }), variant: null },
+    { product: product({ id: 'c', price: 9 }), variant: null },
+  ]
+
+  it('mesma ordem que `sortProducts` nas quatro opções, carregando a variação junto', () => {
+    for (const sort of ['relevancia', 'menor-preco', 'maior-preco', 'novidades'] as const) {
+      expect(sortMatches(pares, sort).map(m => m.product.id), sort).toEqual(
+        sortProducts(pares.map(m => m.product), sort).map(p => p.id),
+      )
+    }
+    expect(sortMatches(pares, 'menor-preco').map(m => m.product.id)).toEqual(['b', 'c', 'a'])
+  })
+})
+
+/**
+ * Pós-verificação da 67 (decisão do usuário): "menor/maior preço" ordena pelo preço que o CARD
+ * MOSTRA — o da variação casada, com recuo no da peça. As fixtures invertem a ordem de propósito
+ * (`L-013`): pela peça, `a` (R$ 40) vem antes de `b` (R$ 60); pelo card, `a` mostra R$ 130 e `b`,
+ * R$ 70. Uma ordenação que ainda olhasse a peça reprova as duas asserções de preço.
+ */
+describe('sortMatches — ordena pelo preço que o card mostra', () => {
+  const varia = (over: Partial<ProductVariant>): ProductVariant => ({
+    id: 'v', product_id: 'p', option_values: {}, name: null, sku: null, price: null,
+    compare_price: null, stock: 3, weight_kg: null, image_url: null, is_active: true, position: 0,
+    nuvemshop_id: null,
+    ...over,
+  })
+  const pares = [
+    { product: product({ id: 'a', price: 40 }), variant: varia({ id: 'va', price: 130 }) },
+    { product: product({ id: 'b', price: 60, is_new: true }), variant: varia({ id: 'vb', price: 70 }) },
+    // Sem variação casada: vale o preço da peça (R$ 100).
+    { product: product({ id: 'c', price: 100 }), variant: null },
+    // Variação sem preço: recua no da peça (R$ 80), como o card. Fica no MEIO da ordem de propósito:
+    // um `null` tratado como zero a mandaria para a ponta.
+    { product: product({ id: 'd', price: 80 }), variant: varia({ id: 'vd', price: null }) },
+  ]
+  const ids = (sort: Parameters<typeof sortMatches>[1]) => sortMatches(pares, sort).map(m => m.product.id)
+
+  it('menor preço: 70 (b) · 80 (d, recuo) · 100 (c, peça) · 130 (a)', () => {
+    expect(ids('menor-preco')).toEqual(['b', 'd', 'c', 'a'])
+    // A ordem pela peça seria outra — a fixture discrimina.
+    expect(sortProducts(pares.map(m => m.product), 'menor-preco').map(p => p.id)).toEqual(['a', 'b', 'd', 'c'])
+  })
+
+  it('maior preço: o inverso, pela mesma régua', () => {
+    expect(ids('maior-preco')).toEqual(['a', 'c', 'd', 'b'])
+  })
+
+  it('a variação viaja com a peça na ordem nova', () => {
+    expect(sortMatches(pares, 'menor-preco').map(m => m.variant?.id ?? null)).toEqual(['vb', 'vd', null, 'va'])
+  })
+
+  it('relevância e novidades não mudam, e a lista original não é mutada', () => {
+    expect(ids('relevancia')).toEqual(['a', 'b', 'c', 'd'])
+    expect(ids('novidades')[0]).toBe('b')
+    expect(pares.map(m => m.product.id)).toEqual(['a', 'b', 'c', 'd'])
   })
 })
