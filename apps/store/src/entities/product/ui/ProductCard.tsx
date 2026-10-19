@@ -8,7 +8,7 @@ import { imagePriority, renditionSrcSet, renditionUrl } from '@estrelinha/core/m
 import { resolveInstallments } from '@estrelinha/core/payment/installments'
 import { usePaymentSettings } from '@estrelinha/core/hooks/useStoreSettings'
 import { productPath } from '@estrelinha/core/routes'
-import { publicVariantId } from '@estrelinha/core/shopping'
+import { variantPath } from '@estrelinha/core/shopping'
 import { TAP_44 } from '@/shared/lib/touchTarget'
 import { useWishlistStore } from '@/entities/wishlist/model/wishlistStore'
 import { toggleWishlist } from '@/entities/wishlist/model/toggleWishlist'
@@ -230,9 +230,11 @@ const ProductCard = ({
       ? selectedVariant
       : null
     : (matchedVariant ?? null)
-  const destino = variacaoDoLink
-    ? `${productPath(product.slug)}?variant=${encodeURIComponent(publicVariantId(variacaoDoLink))}`
-    : productPath(product.slug)
+  /*
+    Feature 68 · SVR-40: o `?variant=` sai do construtor único de `core` — o mesmo do `<g:link>` do
+    feed e da canônica da página de opção. Montá-lo aqui à mão seria a segunda escrita do formato.
+  */
+  const destino = variacaoDoLink ? variantPath(product, variacaoDoLink) : productPath(product.slug)
 
   const handleWishlist = (e: React.MouseEvent) => {
     e.preventDefault()

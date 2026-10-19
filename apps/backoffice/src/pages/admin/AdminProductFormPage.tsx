@@ -518,6 +518,8 @@ const AdminProductFormPage = () => {
                   tags: form.tags,
                   options: form.options,
                   variants: form.variants,
+                  slug: form.slug,
+                  is_active: form.is_active,
                 }}
               />
 

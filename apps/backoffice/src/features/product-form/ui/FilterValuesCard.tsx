@@ -27,7 +27,13 @@ import { cn } from '@estrelinha/ui/lib/utils'
 import { suggestMarks, suggestionReason, type OptionMark, type Suggestion } from '@estrelinha/core/filters'
 import { FormCard } from '@/shared/ui'
 import { gravarRecusas, invalidarRecusas, useAdminFilterCatalog, useSuggestionDismissals } from '@/entities/filter'
-import { cartoesDeEixo, opcoesLabel, type VariacaoDoFormulario } from '../model/optionRows'
+import {
+  cartoesDeEixo,
+  opcoesLabel,
+  paginasNoGoogle,
+  SO_O_PRIMEIRO_EIXO,
+  type VariacaoDoFormulario,
+} from '../model/optionRows'
 import OptionMarkRow from './OptionMarkRow'
 import SuggestionStrip from './SuggestionStrip'
 
@@ -37,7 +43,19 @@ export interface PecaDoFormulario {
   name: string
   tags: readonly string[]
   options: readonly { name: string; values: readonly string[]; position: number }[]
-  variants: readonly (VariacaoDoFormulario & { id: string; position?: number | null })[]
+  variants: readonly (VariacaoDoFormulario & {
+    id: string
+    position?: number | null
+    /** Feature 68: a regra das páginas no Google só conta variação com preço (`feedExclusion`). */
+    price?: number | null
+    nuvemshop_id?: number | null
+  })[]
+  /**
+   * Feature 68 — o slug e o interruptor da peça, para `paginasNoGoogle`. Ausentes, a peça não tem
+   * página nenhuma: a tela não afirma o que não sabe.
+   */
+  slug?: string
+  is_active?: boolean
 }
 
 interface Props {
@@ -63,7 +81,9 @@ const FilterValuesCard = ({ selected, onChange, optionMarks, onOptionMarksChange
 
   // Rascunho restaurado de antes da feature 66 não tem o campo: tratado como nada marcado.
   const marcados = new Set(selected ?? [])
-  const porOpcao = optionMarks ?? []
+  // Memorizado: o `?? []` daria um array novo a cada render, e a derivação das páginas (abaixo) o
+  // tem como dependência — sem isto ela recalcularia a cada tecla.
+  const porOpcao = useMemo(() => optionMarks ?? [], [optionMarks])
 
   const valores = useMemo(() => groups.flatMap(g => g.values), [groups])
   const rotulos = useMemo(() => {
@@ -147,6 +167,34 @@ const FilterValuesCard = ({ selected, onChange, optionMarks, onOptionMarksChange
     sugestoes.filter(s => s.source === 'option' && s.option_name === eixo && s.option_value === texto)
 
   const cartoes = product && onOptionMarksChange ? cartoesDeEixo(product.options, product.variants) : []
+
+  /*
+   * Feature 68 · SVR-37/38 — que opções ganham página própria no Google, pela regra da loja
+   * (`paginasNoGoogle` → `indexableOptions`), com as marcações do RASCUNHO restritas a grupo ativo.
+   */
+  const valoresAtivos = useMemo(
+    () => new Set(groups.filter(g => g.is_active).flatMap(g => g.values.map(v => v.id))),
+    [groups],
+  )
+  const paginas = useMemo(
+    () =>
+      product
+        ? paginasNoGoogle(
+            { slug: product.slug ?? '', is_active: product.is_active ?? false, options: product.options },
+            product.variants.map((v, i) => ({
+              id: v.id,
+              nuvemshop_id: v.nuvemshop_id ?? null,
+              is_active: v.is_active,
+              price: v.price ?? null,
+              position: v.position ?? i,
+              option_values: v.option_values,
+            })),
+            porOpcao,
+            valoresAtivos,
+          )
+        : null,
+    [product, porOpcao, valoresAtivos],
+  )
   const podeRecusar = !!product?.id
 
   return (
@@ -269,6 +317,11 @@ const FilterValuesCard = ({ selected, onChange, optionMarks, onOptionMarksChange
                   const marcasDoEixo = porOpcao.filter(m => m.option_name === cartao.name)
                   const temSugestao = sugestoes.some(s => s.source === 'option' && s.option_name === cartao.name)
                   const aberto = eixosTocados.get(cartao.name) ?? (marcasDoEixo.length > 0 || temSugestao)
+                  // SVR-38: este eixo tem marcação (de grupo ligado), mas a página é de outro eixo.
+                  const foraDaPagina =
+                    !!paginas?.eixo &&
+                    paginas.eixo !== cartao.name &&
+                    marcasDoEixo.some(m => valoresAtivos.has(m.value_id))
                   const alternarEixo = () =>
                     setEixosTocados(atual => new Map(atual).set(cartao.name, !aberto))
                   return (
@@ -289,6 +342,11 @@ const FilterValuesCard = ({ selected, onChange, optionMarks, onOptionMarksChange
                           {!aberto && marcasDoEixo.length === 0 ? ' · nenhuma marcada' : ''}
                         </span>
                       </button>
+                      {foraDaPagina && (
+                        <p className="border-t border-border px-4 py-2 text-xs text-muted-foreground">
+                          {SO_O_PRIMEIRO_EIXO}
+                        </p>
+                      )}
                       {aberto && (
                         <div className="border-t border-border">
                           {cartao.linhas.map(linha => (
@@ -300,6 +358,9 @@ const FilterValuesCard = ({ selected, onChange, optionMarks, onOptionMarksChange
                                 .filter(m => m.option_name === linha.option_name && m.option_value === linha.option_value)
                                 .map(m => m.value_id)}
                               naPecaToda={marcados}
+                              temPaginaNoGoogle={
+                                paginas?.eixo === linha.option_name && paginas.textos.has(linha.option_value)
+                              }
                               rotulos={rotulos}
                               nomes={nomes}
                               sugestoes={daOpcao(linha.option_name, linha.option_value)}

@@ -8,13 +8,16 @@
 // - já vale para a peça toda (`VFL-04`): desabilitado, com o motivo em texto — a marcação da peça
 //   toda vence a da opção na loja;
 // - sem variação ativa (`VFL-07`): apagado e removível, com a frase dizendo que não casa nada.
+//
+// Feature 68 (SVR-37): a linha cuja opção ganhou página própria no Google diz isso, em texto. Quem
+// decide é a seção (`paginasNoGoogle`, a regra da loja); a linha só escreve.
 
-import { Check, X } from 'lucide-react'
+import { Check, Search, X } from 'lucide-react'
 import { cn } from '@estrelinha/ui/lib/utils'
 import type { Suggestion } from '@estrelinha/core/filters'
 import type { AdminFilterGroup } from '@/entities/filter'
 import type { LinhaDeOpcao } from '../model/optionRows'
-import { variacoesAtivasLabel } from '../model/optionRows'
+import { TEM_PAGINA_NO_GOOGLE, variacoesAtivasLabel } from '../model/optionRows'
 import MarkPopover from './MarkPopover'
 import SuggestionStrip from './SuggestionStrip'
 
@@ -35,6 +38,8 @@ interface Props {
   onRecusar: (s: Suggestion) => void
   podeRecusar: boolean
   recusando: boolean
+  /** Feature 68 · SVR-37 — esta opção ganhou página própria no Google (`paginasNoGoogle`). */
+  temPaginaNoGoogle?: boolean
 }
 
 const CHIP = 'inline-flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-full border px-4 text-sm'
@@ -53,6 +58,7 @@ const OptionMarkRow = ({
   onRecusar,
   podeRecusar,
   recusando,
+  temPaginaNoGoogle = false,
 }: Props) => {
   const rotulo = `${linha.option_name} = ${linha.option_value}`
   const semAtiva = linha.ativas === 0
@@ -77,6 +83,12 @@ const OptionMarkRow = ({
             </span>
           ) : (
             <p className="text-xs text-muted-foreground">{variacoesAtivasLabel(linha.ativas)}</p>
+          )}
+          {temPaginaNoGoogle && (
+            <p className="mt-0.5 flex items-center gap-1 text-xs font-medium text-foreground">
+              <Search aria-hidden className="h-3.5 w-3.5 shrink-0" />
+              {TEM_PAGINA_NO_GOOGLE}
+            </p>
           )}
         </div>
       </div>

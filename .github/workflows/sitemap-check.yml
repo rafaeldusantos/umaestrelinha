@@ -94,4 +94,50 @@ jobs:
           [ "$status" = "200" ] \
             || { echo "::error::a URL de amostra respondeu $status: $amostra"; exit 1; }
 
-          echo "OK — $total URLs, tipo $tipo, robots.txt coerente, amostra 200."
+          # 6. Feature 68 — a CANÔNICA servida (SVR-34, SVR-35, SVR-41). Tudo derivado do documento
+          #    entregue e da origem de onde ele foi buscado: nenhum endereço, slug ou id escrito aqui
+          #    (SVR-36, AD-037). Origem é esquema + host + porta, comparada exata.
+          #
+          #    - SVR-41: a página de produto declara a canônica na MESMA origem de onde o sitemap veio.
+          #      A origem da canônica servida tem dois donos (o secret da edge function e o domínio
+          #      que serve a loja); no dia do domínio próprio, um secret esquecido faria o HTML
+          #      declarar o endereço antigo como canônico, e só este passo veria.
+          #    - SVR-34: a página de uma OPÇÃO (`?variant=`) se declara canônica de si mesma — a
+          #      canônica servida é igual, byte a byte, à <loc> que o sitemap anuncia.
+          #    - SVR-35: zero <loc> de opção é estado legítimo (antes da curadoria) e só é impresso.
+          origem_de() { printf '%s\n' "$1" | awk -F/ '{print $1 "//" $3}'; }
+          desescapar() { sed -e 's/&amp;/\&/g'; }
+          canonica_de() {
+            curl -sS -m 30 "$1" | tr '\n' ' ' \
+              | grep -oiE '<link[^>]*rel="canonical"[^>]*>' | head -1 \
+              | grep -oiE 'href="[^"]*"' | sed -e 's/^href="//' -e 's/"$//' | desescapar || true
+          }
+          origem_do_sitemap=$(origem_de "$ORIGEM")
+          locs=$(grep -o '<loc>[^<]*</loc>' sitemap.xml | sed 's/<[^>]*>//g' | desescapar)
+          de_opcao=$(printf '%s\n' "$locs" | grep -c '?variant=' || true)
+          echo "<loc> de opção (?variant=): $de_opcao"
+
+          conferir_canonica() {
+            local url="$1" exigir_igual="$2" canonica
+            canonica=$(canonica_de "$url")
+            echo "canônica servida de $url: ${canonica:-(nenhuma)}"
+            [ -n "$canonica" ] \
+              || { echo "::error::a página $url não serve <link rel=\"canonical\"> — o HTML servido tem de declarar a canônica (SVR-18)"; exit 1; }
+            [ "$(origem_de "$canonica")" = "$origem_do_sitemap" ] \
+              || { echo "::error::a canônica de $url está em $(origem_de "$canonica"), mas o sitemap foi buscado em $origem_do_sitemap — confira o secret STORE_PUBLIC_URL da edge function (SVR-41)"; exit 1; }
+            if [ "$exigir_igual" = "sim" ]; then
+              [ "$canonica" = "$url" ] \
+                || { echo "::error::a página de opção $url declara a canônica $canonica — a página de opção tem de ser canônica de si mesma (SVR-34)"; exit 1; }
+            fi
+          }
+
+          peca=$(printf '%s\n' "$locs" | grep '/produtos/' | grep -v '?' | head -1 || true)
+          [ -n "$peca" ] || { echo "::error::nenhuma <loc> de produto sem query no sitemap"; exit 1; }
+          conferir_canonica "$peca" nao
+
+          if [ "$de_opcao" -gt 0 ]; then
+            opcao=$(printf '%s\n' "$locs" | grep '?variant=' | head -1)
+            conferir_canonica "$opcao" sim
+          fi
+
+          echo "OK — $total URLs, tipo $tipo, robots.txt coerente, amostra 200, canônica na origem do sitemap, $de_opcao <loc> de opção."

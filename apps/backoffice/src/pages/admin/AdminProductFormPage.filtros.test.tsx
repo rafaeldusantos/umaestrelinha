@@ -365,3 +365,115 @@ describe('VFL-01/03/08 — as marcações por opção pela página do produto', 
     ).toHaveAttribute('aria-pressed', 'true')
   })
 })
+
+// Feature 68 (T11, SVR-37/38) — "Tem página própria no Google", pela seção REAL na página real. As
+// frases esperadas são escritas à mão: chamar `paginasNoGoogle` aqui faria o teste concordar com
+// qualquer coisa que a regra devolvesse.
+describe('SVR-37/38 — quais opções ganham página própria no Google', () => {
+  const variante = (id: string, cor: string, tamanho: string, position: number) => ({
+    id, product_id: 'p1', option_values: { Cor: cor, Tamanho: tamanho }, is_active: true, position, price: 189, stock: 1,
+  })
+
+  beforeEach(() => {
+    h.produto = {
+      ...h.produto,
+      is_active: true,
+      options: [
+        { name: 'Cor', values: ['Prata 925', 'Folheado a Ouro', 'Rose'], position: 0 },
+        { name: 'Tamanho', values: ['P', 'G'], position: 1 },
+      ],
+      product_variants: [
+        variante('v1', 'Prata 925', 'P', 0),
+        variante('v2', 'Prata 925', 'G', 1),
+        variante('v3', 'Folheado a Ouro', 'P', 2),
+        variante('v4', 'Rose', 'P', 3),
+      ],
+      product_filter_values: [],
+      product_option_filter_values: [
+        { option_name: 'Cor', option_value: 'Prata 925', value_id: 'prata' },
+        { option_name: 'Cor', option_value: 'Rose', value_id: 'ouro' },
+        // Grupo DESLIGADO na loja: a marcação existe, mas a loja não a enxerga — não dá página.
+        { option_name: 'Cor', option_value: 'Folheado a Ouro', value_id: 'maes' },
+        { option_name: 'Tamanho', option_value: 'P', value_id: 'prata' },
+      ],
+    }
+  })
+
+  const TEM_PAGINA = 'Tem página própria no Google'
+  const SO_O_PRIMEIRO =
+    'Só o primeiro eixo marcado ganha página própria no Google; as marcações deste continuam valendo para o filtro.'
+  const linha = (rotulo: string) => screen.getByRole('group', { name: rotulo })
+  const cartao = (eixo: string) =>
+    screen.getByRole('button', { name: new RegExp(`^${eixo}`) }).parentElement as HTMLElement
+  const secao = () => screen.getByRole('region', { name: 'Pelas variações' })
+
+  it('SVR-37 — as cores marcadas dizem que têm página; a de grupo desligado e o segundo eixo, não', async () => {
+    montar('/admin/produtos/p1/editar')
+    await waitFor(() => expect(within(linha('Cor = Prata 925')).getByText(TEM_PAGINA)).toBeInTheDocument())
+    expect(within(linha('Cor = Rose')).getByText(TEM_PAGINA)).toBeInTheDocument()
+    expect(within(linha('Cor = Folheado a Ouro')).queryByText(TEM_PAGINA)).toBeNull()
+    expect(within(linha('Tamanho = P')).queryByText(TEM_PAGINA)).toBeNull()
+    expect(within(linha('Tamanho = G')).queryByText(TEM_PAGINA)).toBeNull()
+    expect(within(secao()).getAllByText(TEM_PAGINA)).toHaveLength(2)
+  })
+
+  it('SVR-38 — o eixo marcado que não gera página diz isso, e o que gera não', async () => {
+    montar('/admin/produtos/p1/editar')
+    await waitFor(() => expect(within(cartao('Tamanho')).getByText(SO_O_PRIMEIRO)).toBeInTheDocument())
+    expect(within(cartao('Cor')).queryByText(SO_O_PRIMEIRO)).toBeNull()
+    expect(within(secao()).getAllByText(SO_O_PRIMEIRO)).toHaveLength(1)
+  })
+
+  it('segue o RASCUNHO: tirar a marcação da Prata tira a página dela antes de salvar', async () => {
+    montar('/admin/produtos/p1/editar')
+    await waitFor(() => expect(within(linha('Cor = Prata 925')).getByText(TEM_PAGINA)).toBeInTheDocument())
+    fireEvent.click(within(linha('Cor = Prata 925')).getByRole('button', { name: 'Acabamento › Prata 925' }))
+    expect(within(linha('Cor = Prata 925')).queryByText(TEM_PAGINA)).toBeNull()
+    expect(within(linha('Cor = Rose')).getByText(TEM_PAGINA)).toBeInTheDocument()
+  })
+
+  it('só marcação de grupo DESLIGADO no primeiro eixo: a página passa para o eixo seguinte', async () => {
+    h.produto = {
+      ...h.produto,
+      product_option_filter_values: [
+        { option_name: 'Cor', option_value: 'Prata 925', value_id: 'maes' },
+        { option_name: 'Tamanho', option_value: 'P', value_id: 'prata' },
+      ],
+    }
+    montar('/admin/produtos/p1/editar')
+    await waitFor(() => expect(within(linha('Tamanho = P')).getByText(TEM_PAGINA)).toBeInTheDocument())
+    expect(within(secao()).getAllByText(TEM_PAGINA)).toHaveLength(1)
+    // A Cor só tem marcação desligada: não é "outro eixo marcado" para a loja.
+    expect(within(secao()).queryByText(SO_O_PRIMEIRO)).toBeNull()
+  })
+
+  it('o mesmo texto em dois eixos: só a linha do eixo que gera página diz que tem', async () => {
+    // Pingente e corrente com o mesmo metal escrito igual — a página é da Cor, nunca da Corrente.
+    h.produto = {
+      ...h.produto,
+      options: [
+        { name: 'Cor', values: ['Prata 925', 'Rose'], position: 0 },
+        { name: 'Corrente', values: ['Prata 925', 'Aço'], position: 1 },
+      ],
+      product_variants: [
+        { id: 'v1', product_id: 'p1', option_values: { Cor: 'Prata 925', Corrente: 'Prata 925' }, is_active: true, position: 0, price: 189, stock: 1 },
+        { id: 'v2', product_id: 'p1', option_values: { Cor: 'Rose', Corrente: 'Aço' }, is_active: true, position: 1, price: 189, stock: 1 },
+      ],
+      product_option_filter_values: [
+        { option_name: 'Cor', option_value: 'Prata 925', value_id: 'prata' },
+        { option_name: 'Corrente', option_value: 'Prata 925', value_id: 'prata' },
+      ],
+    }
+    montar('/admin/produtos/p1/editar')
+    await waitFor(() => expect(within(linha('Cor = Prata 925')).getByText(TEM_PAGINA)).toBeInTheDocument())
+    expect(within(linha('Corrente = Prata 925')).queryByText(TEM_PAGINA)).toBeNull()
+  })
+
+  it('peça fora do ar: nenhuma opção tem página, e a tela não diz que tem', async () => {
+    h.produto = { ...h.produto, is_active: false }
+    montar('/admin/produtos/p1/editar')
+    await waitFor(() => expect(secao()).toBeInTheDocument())
+    expect(within(secao()).queryByText(TEM_PAGINA)).toBeNull()
+    expect(within(secao()).queryByText(SO_O_PRIMEIRO)).toBeNull()
+  })
+})

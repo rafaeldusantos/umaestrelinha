@@ -25,7 +25,7 @@ import { productItem, track } from '@/shared/lib/analytics'
 import RelatedProducts from '@/widgets/related-products/ui/RelatedProducts'
 import { ProductBuyBar } from '@/widgets/product-buy-bar'
 import { MaterialDrawer } from '@/widgets/material-drawer'
-import { productPageMeta } from '@estrelinha/core/seo'
+import { productHead } from '@estrelinha/core/seo'
 import { useSeoSettings } from '@estrelinha/core/hooks/useStoreSettings'
 import { usePageMeta } from '@/shared/lib/usePageMeta'
 
@@ -54,7 +54,14 @@ const RELATED_CARDS = 4
 
 const ProductPage = ({ legacy = false }: ProductPageProps) => {
   const { slug } = useParams<{ slug: string }>()
-  const { pathname } = useLocation()
+  const { pathname, search } = useLocation()
+  /*
+   * Feature 68 · SVR-12, SVR-16 — o `?variant=` lido no nível da PÁGINA, e não só como semente do
+   * corpo: é ele que decide o `<head>` (opção ou peça). O seletor não mexe na URL, então trocar de cor
+   * não muda este valor e o `<head>` fica onde a URL o pôs; navegar para outro `?variant=` muda.
+   */
+  const [searchParams] = useSearchParams()
+  const variantParam = searchParams.get('variant')
   const { data: product, isFetching } = useProduct(slug || '')
   // PMD-06 AC 3: o seletor vive no `ProductInfo` e a galeria é irmã dele — o estado da linha
   // escolhida precisa estar no pai comum para a imagem em destaque acompanhar a escolha.
@@ -74,18 +81,29 @@ const ProductPage = ({ legacy = false }: ProductPageProps) => {
    */
   const { data: categoryProducts } = useProducts(category?.slug, { limit: RELATED_CARDS + 1 })
 
-  // `URL-01`: a canônica do produto é `/produtos/<slug>` — o formato que a loja em produção publica
-  // e que o Google indexou. Sai do `<head>` quando a página desmonta.
-  useCanonical(product ? productPath(product.slug) : null)
-
-  // Feature 62 (`MTA-02`, `MTA-03`): o título e a descrição DESTA joia, pela mesma função que a
-  // edge function `product-page` usa no HTML servido. Só quando a página vai de fato mostrar o
-  // produto: carregando, ela não escreve nada (A9); rota legada ou slug antigo vão navegar para outro
-  // endereço, e declarar aqui atribuiria o título ao endereço errado; não encontrado é a `NotFound`
-  // quem declara.
+  // Feature 62 (`MTA-02`, `MTA-03`) e feature 68 (SVR-08..13): o título, a descrição e a canônica
+  // DESTA URL, pela mesma função que a edge function `product-page` usa no HTML servido
+  // (`productHead`). Opção marcada ⇒ o `<head>` da opção, com a canônica da opção; todo o resto ⇒ o
+  // da peça, com `/produtos/<slug>` (`URL-01`). Só quando a página vai de fato mostrar o produto:
+  // carregando, ela não escreve nada (A9, SVR-13 — as marcações chegam no MESMO `select` da peça);
+  // rota legada ou slug antigo vão navegar para outro endereço, e declarar aqui atribuiria o título ao
+  // endereço errado; não encontrado é a `NotFound` quem declara.
+  //
+  // A página passa a peça INTEIRA: quem lê as marcações é `core`. `is_active: true` porque a loja só
+  // recebe peça ativa — a policy pública de `products` é `is_active = true`, e peça fora do ar é 404.
+  //
+  // SPEC_DEVIATION: SVR-15 ("as marcações falham e a peça abre") não tem ramo no cliente.
+  // Reason: as marcações chegam no MESMO `select` do produto (feature 67), então a falha delas é a
+  // falha da consulta do produto — que vai para a página de não encontrado, como antes. O que existe
+  // é o produto sem marcações ⇒ `<head>` da peça. Registrado na spec, ao lado de SVR-15.
   const { description: descricaoDaLoja } = useSeoSettings()
   const vaiMostrar = product && !legacy && product.slug === slug
-  usePageMeta(vaiMostrar ? productPageMeta(product, descricaoDaLoja) : null)
+  const head = vaiMostrar
+    ? productHead({ product: { ...product, is_active: true }, variants: product.variants }, variantParam, descricaoDaLoja)
+    : null
+  // A canônica sai do `<head>` quando a página desmonta (`useCanonical`).
+  useCanonical(head ? head.canonicalPath : null)
+  usePageMeta(head ? head.meta : null)
 
   if (legacy) return <Navigate to={legacyRedirectTo(pathname) ?? '/'} replace />
 
@@ -93,8 +111,9 @@ const ProductPage = ({ legacy = false }: ProductPageProps) => {
   // volta é o ATUAL. Trocar a URL preserva o link que a cliente salvou e evita que a página fique
   // sob um endereço que já não é o do produto. `replace` para o botão "voltar" não reentrar na
   // URL morta. Sem redirect os dois slugs coincidem — nunca há um segundo salto.
+  // Feature 68: a query vai junto — o `?variant=` de um link antigo continua abrindo a opção.
   if (product && slug && product.slug !== slug) {
-    return <Navigate to={productPath(product.slug)} replace />
+    return <Navigate to={`${productPath(product.slug)}${search}`} replace />
   }
 
   if (!product) {
@@ -108,7 +127,10 @@ const ProductPage = ({ legacy = false }: ProductPageProps) => {
 
   return (
     <ProductPageBody
-      key={product.id}
+      // SVR-16: a chave leva o `?variant=` da URL — navegar de `?variant=A` para `?variant=B` da
+      // mesma peça remonta o corpo e reabre em B. Trocar de cor no seletor não muda a URL, então
+      // não remonta nada.
+      key={`${product.id}:${variantParam ?? ''}`}
       product={product}
       category={category}
       categories={categories ?? []}
@@ -133,8 +155,9 @@ interface BodyProps {
  * O corpo da página, separado só para poder chamar hooks depois das guardas de 404/redirect —
  * `useProductPurchase` precisa do produto carregado, e hook não pode viver atrás de um `return`.
  *
- * O `key={product.id}` no chamador é o que reseta quantidade e variação ao trocar de produto: sem
- * ele, navegar de uma joia para outra carregaria a quantidade 3 escolhida na anterior.
+ * O `key` no chamador (id da peça + `?variant=` da URL) é o que reseta quantidade e variação ao
+ * trocar de produto ou de variação por navegação: sem ele, navegar de uma joia para outra carregaria
+ * a quantidade 3 escolhida na anterior.
  */
 const ProductPageBody = ({
   product,
