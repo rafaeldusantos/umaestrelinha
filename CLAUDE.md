@@ -137,7 +137,9 @@ Ao planejar/implementar features, use a Skill **`tlc-spec-driven`** com estas co
     FECHADA. A `62` (título e metadados por rota) também está FECHADA — é a primeira fatia da `36`,
     que continua só com `spec.md`. A `63` (retirada no escritório), a `64` (lista de categorias na
     Home) e a `65` (convite para o Instagram na Home) também estão FECHADAS, com commit. A `66`
-    (filtros de produto) está IMPLEMENTADA e verificada, aguardando o pedido de commit. A próxima é a `67`.**
+    (filtros de produto) também está FECHADA, com commit. A `67` (os filtros enxergam as variações)
+    está IMPLEMENTADA e verificada, aguardando o pedido de commit. A `68` (SEO por variação) tem
+    **só `spec.md`** e depende da `67`. A próxima é a `69`.**
   - **A `46` e a `47` correram EM PARALELO, em worktrees separados**, e é o segundo caso do projeto
     (o primeiro, a `45`, dividiu uma working tree só). O que mudou: a divisão foi por **árvore**, não
     por arquivo — a `47` nasceu de um `git worktree` sobre o HEAD local e trouxe a `46` por
@@ -340,6 +342,9 @@ migrations, e `vercelRedirects` lê o `vercel.json`.
 | `freeShippingSingleOwner.test.ts` | idem | qualquer arquivo de `apps/**` fora de um allowlist de **dois** ler `free_shipping_threshold`; `freeShippingProgress` ou `FreeShippingBar` voltarem a existir em produção; copy com o valor da faixa cravada em JSX. **Âncora dupla** e **seis sensores embutidos** — o removedor de comentário provado com CRLF, com LF, contra o glob de dois asteriscos que o cegava (`BL-027`, fechada em 2026-09-06: linha e bloco na **mesma** varredura) e contra uma leitura nova escondida atrás desse mesmo glob |
 | `alvoDeToqueNaoRoubaPosicao.test.ts` | store `shared/lib/__tests__` (varre `apps/**` e `packages/ui/**`) | um controle posicionado perder a posição para **um dos TRÊS auxiliares** — `TAP_44`/`TAP_ROW` da loja e, desde a `55`, `SWITCH_TAP_44` do painel, **lido do disco** (importá-lo criaria o segundo dono que o guarda existe para impedir), com a extração lançando quando não acha —, **nas duas formas de juntar classe**: `cn(classes, TAP_44)`, onde o `relative` do auxiliar **apaga** o `absolute` na fusão do `twMerge`; e `` `${TAP_44} absolute …` ``, onde não há fusão, as **duas** classes chegam ao DOM e `.relative` vence por vir **depois** de `.absolute` na folha com a mesma especificidade. A régua **calcula** — chama o `cn` de verdade e recusa o par ambíguo —, nunca confere a ordem dos argumentos, que é o proxy que falhou quando a forma mudou. **Âncora tripla** (arquivos lidos, **as duas formas** encontradas, e o `relative` ainda presente nos auxiliares) e **dez sensores**, incluindo o inverso das duas formas, o par que prova que controle em fluxo **não** é acusado, e o que prova que posição escrita por **outra** interpolação não é atribuída ao literal |
 | `importOrder.test.ts` | idem | `App.css` importado **antes** de `@estrelinha/ui/styles.css` no `main.tsx` |
+| `variantFiltersSchema.test.ts` | store `shared/lib/__tests__` (lê a migration da `67`) | a migration das marcações por opção afrouxar: `if not exists` sumindo; as cascatas; os limites (120, 10 termos, 40) divergirem de `core` (**importados**); a leitura pública da marcação por opção perder uma das **duas** condições (grupo ativo **e** peça ativa); as recusas ganharem leitura pública; `with check` faltando; escrita de dado. Uma régua por comando (`L-033`) e `mutar()` que lança |
+| `marcacaoPorOpcaoComDonoUnico.test.ts` | idem (varre `apps/store/**`) | qualquer arquivo da loja fora de `mapProduct.ts` citar a tabela das marcações por opção ou o campo `option_marks` — quem decide é `matchProduct` em `core`. Metade positiva: a listagem chama `matchProduct` e `facetCounts` |
+| `marcacaoSoPorAcao.test.ts` | idem (varre `apps/**`, `packages/**` e `supabase/functions`) | **pela AST do TypeScript**: escrita nas três tabelas de marcação/recusa fora do allowlist literal de portas; tabela que não resolve para literal (acusada em qualquer arquivo); export novo de um arquivo-porta sem classificação (**colhido do disco**, por igualdade); uso de uma porta — chamada, `?.(`, genérico, referência, alias de import ou de barril — fora dos chamadores de Salvar, Aprovar, marcação em massa e Recusar; RPC chamada que não está na lista literal; migration que escreva nessas tabelas. É o Success Criterion "nenhuma sugestão vira marcação sem um toque da Adri". O cabeçalho declara o que **não** mede |
 | `reservedSlugs.test.ts` | idem | rota nova no `App.tsx` que não entrou em `ROUTE_SLUGS`; entrada de `ROUTE_SLUGS` que deixou de ser rota. **Bidirecional** |
 | `vercelRedirects.test.ts` | idem | `vercel.json` divergir de `LEGACY_REDIRECTS`; `trailingSlash` deixar de ser `false`; redirect usando `permanent` (que produz 308); o catch-all do SPA sair do fim da lista de `rewrites`; os headers de segurança mudarem; o `rewrite` ou o `Content-Type` de `/sitemap.xml` sumirem |
 | `robotsSource.test.ts` | idem | `public/robots.txt` perder a linha `Sitemap:`, ganhar uma segunda, declará-la relativa, ou apontar fora de `/sitemap.xml`; uma diretiva `Disallow` entrar de carona |
@@ -476,7 +481,29 @@ quando mudarem de verdade.
 | --- | --- | --- |
 | **Lint** | **26 erros / 7 warnings** — backoffice 24/5 · store 2/2 | `pnpm lint` |
 | **Tipos** | **0 · 0 · 0** (store · backoffice · catalog-import) | `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` |
-| **Testes** | **12689 em 634 arquivos** — store **4946/284** · backoffice **3325/185** · core **2929/120** · functions **977/22** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
+| **Testes** | **13151 em 654 arquivos** — store **5164/289** · backoffice **3487/198** · core **3011/122** · functions **977/22** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
+
+**A feature `67` (os filtros enxergam as variações) somou +462/+20 em TRÊS workspaces**, medidos em
+2026-10-18/19 um por vez, exit code fora de pipe, contra a entrada medida com a árvore parada (que
+bateu exatamente a linha anterior, 12689/634): **core +82/+2** (`match.ts`, `suggest.ts` e a faceta
+delegando, com os casos da `66` intocados), **store +218/+5** (o mapper, a listagem pela variação, o
+card, e os guardas `variantFiltersSchema`, `marcacaoPorOpcaoComDonoUnico` e `marcacaoSoPorAcao`) e
+**backoffice +162/+13** (o bloco "Pelas variações", a fila de sugestões, as contagens, os termos e o
+`AdminLayout` sem `overflow`). Lint **26/7**, tipos **0 · 0**, `pnpm build` verde,
+`packages/core/src/payment/**` com zero arquivos alterados. Uma migration
+(`20261019120000_67-filtros-nas-variacoes.sql`), sem escrita de dado. Decisão `AD-051`.
+
+> **A prova em navegador achou quatro defeitos de UI que a suíte aprovava, e um deles era do painel
+> inteiro**: a barra de Aprovar da fila era `sticky` e ficava a 14 mil pixels, porque o `<main>` do
+> `AdminLayout` tinha `overflow-auto`. Com ele, **nenhum** `sticky` do painel grudava de verdade.
+> Tirá-lo expôs três estouros horizontais em 390 que já existiam e estavam escondidos.
+
+> **A verificação independente reprovou a rodada 1 por cobertura** (64 mutantes, 4 sobreviventes, e o
+> guarda prometido pelo Success Criterion SC5 não existia). A rodada 2 aprovou, mas mostrou que o
+> guarda novo, escrito por regex, deixava passar 14 de 26 formas de escrita: tabela em variável, alias
+> de import, vírgula final, porta nova não listada. A rodada 3 o reescreveu sobre a AST do TypeScript,
+> com 25 de 26 mutantes mortos (o sobrevivente é o inverso, que tem de passar). **Régua de uso por
+> regex mede a grafia, não a chamada.**
 
 **A feature `66` (filtros de produto) somou +373/+19 em TRÊS workspaces**, medidos em 2026-10-18 um
 por vez, exit code fora de pipe e `--testTimeout=20000` nos dois apps, **contra a entrada medida com a

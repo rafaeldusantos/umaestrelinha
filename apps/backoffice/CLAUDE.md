@@ -870,6 +870,31 @@ conta — fazer isso seria o "defeito 01" nascendo dentro da tela que existe par
 - Os três hooks (`useAdminFilterCatalog`, `useValueMarks`, `useCategoryHiddenGroups`) seguem
   `fetchX(modo)` e têm **token de sequência**, provado por teste que resolve a leitura nova primeiro.
 
+### As variações e as sugestões (feature `67`, `AD-051`)
+
+- **O card "Filtros da loja" do produto tem duas seções**: "Na peça toda" (a da `66`) e "Pelas
+  variações", com um cartão por eixo e uma linha por texto de opção. Eixos sem marcação nem sugestão
+  aparecem recolhidos. O estado é `option_marks` no `useProductForm`. No save, `marcacoesVigentes`
+  (`model/optionMarks.ts`) faz renomear eixo levar as marcações junto (por **posição**) e remover
+  texto apagá-las, e `persistProduct` grava na etapa "marcações por variação", por diff. "Sem variação
+  ativa" é o selo da marcação que não casa nada.
+- **A sugestão é de `core`** (`suggestMarks`/`groupSuggestions`), e a mesma função serve ao formulário
+  e à fila. No formulário, "Aceitar" só muda o estado (grava no Salvar) e "Recusar" grava na hora.
+- **A fila é `/admin/filtros/sugestoes`** (irmã auto-fechada, vence `:groupId` por ser estática). O
+  motivo aberto e o recorte por valor vão na URL. "Aprovar" faz uma requisição por tabela, e na troca
+  peça toda → opção grava a opção **antes** de apagar a da peça toda (ordem provada temporalmente). A
+  recusa vai para `filter_suggestion_dismissals` por **alvo** (a da peça toda cala nome e tag).
+- **As contagens contam as duas formas**: no valor, "N peças na peça toda · M marcações por opção";
+  no grupo, a soma; na marcação em massa, peças **distintas** (`contagemDoValor`/`pecasDoValor` em
+  `filter-editor/model/copy.ts`).
+- **O `<main>` do `AdminLayout` não tem `overflow` desde a `67`.** Com `overflow-auto` nenhum
+  `sticky` do painel grudava, e a barra de Aprovar ficava a 14 mil pixels. Tirar o overflow expôs três
+  estouros em 390 que já existiam (`ProductFormHeader`, `RecordPageHeader`, `DescriptionFaqNotice`,
+  agora com `flex-wrap`). Também mudou: `FormPageHeader` gruda em `top-14 md:top-0` (abaixo da barra de
+  56px do celular), `ProductFormHeader` gruda só a partir de `md`, e a coluna lateral do produto perdeu
+  um `lg:sticky` que nunca funcionou. `AdminLayout.test.tsx` recusa `overflow` no `main` em qualquer
+  forma (prefixo, `!`, valor arbitrário, `style`).
+
 ## Pedidos e a fila de material
 
 - **`orders.material_tracking_code` NÃO é `orders.tracking_code`.** A primeira é a remessa **de

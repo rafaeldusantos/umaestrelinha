@@ -1237,9 +1237,47 @@
   embed: **a migration tem de ser aplicada antes do bundle** — em produção isso pede o push da
   migration separado do push do código.
 
+### AD-051
+- **Decision**: **A marcação de filtro pode morar numa OPÇÃO da peça** — `(peça, eixo, texto da
+  opção, valor)` em `product_option_filter_values` —, valendo para toda variação ativa com aquele
+  texto. Na loja, os grupos que só se satisfazem por opção têm de ser satisfeitos pela **mesma**
+  variação, e o card abre nela (`?variant=` por `publicVariantId`, foto, preço). Quem decide é
+  `matchProduct` em `core/filters`. O painel **sugere** a partir de nome, tags e opções
+  (`suggestMarks`, casamento por tokens contíguos depois da dobra), e a sugestão só vira marcação por
+  "Aprovar" ou pelo "Salvar" do produto. A recusa é gravada por alvo (`filter_suggestion_dismissals`).
+- **Reason**: feature `67`. Medido no banco local: 3.380 variações em 702 peças, até 144 numa peça
+  (Cor × Letra × gravação), e acabamento/formato vivem nas variações. A marcação por linha de variação
+  seriam 144 cliques numa peça; um dicionário global "texto ⇒ valor" marcaria peça nova sem ninguém
+  olhar. Decisões do usuário em 2026-10-18: opção da peça, mesma variação, card mostra a variação,
+  recusa lembrada.
+- **Trade-off**: a identidade da opção é o **texto** (`options` não tem id). Renomear no painel leva a
+  marcação junto; uma grafia nova vinda da Nuvemshop a deixa em "Sem variação ativa". Recusadas não têm
+  tela para desfazer. As abordagens RPC e trigger foram
+  recusadas por criarem um segundo dono de "quem passa". A vitrine pede a tabela nova por embed:
+  **migration antes do bundle**, como no `AD-050`. A feature `68` (SEO por variação) lê esta tabela.
+
 ## Handoff
 
-### ATUAL — 2026-10-18 · `66-filtros-de-produto` **IMPLEMENTADA — 19 de 19 tasks, verificada (3 rodadas + fecho), SEM COMMIT**
+### ATUAL — 2026-10-19 · `67-filtros-nas-variacoes` **IMPLEMENTADA — 18 de 18 tasks, verificada (3 rodadas), SEM COMMIT**
+
+- **Feature**: `.specs/features/67-filtros-nas-variacoes/` (`spec.md`, `context.md`, `design.md`,
+  `tasks.md`, `prova-navegador.md`, `validation.md`). Decisão `AD-051`. Desenho no Paper, página
+  "67 · Filtros nas variações — painel". Migration `20261019120000_67-filtros-nas-variacoes.sql`
+  (aplicada no banco **local** com `migration up`).
+- **NÃO COMMITADA**: aguarda o pedido do usuário. **Ordem de publicação obrigatória** (a do `AD-050`):
+  primeiro um push só com a migration, depois o código, porque a vitrine pede a tabela nova por embed.
+- **Medido em 2026-10-19**: **13151 em 654** (store 5164/289, backoffice 3487/198, core 3011/122,
+  functions 977/22, catalog-import 512/23). Lint 26/7, tipos 0 · 0, build verde, `payment/**` intacto.
+- **Fora do escopo planejado, e declarado**: o `<main>` do `AdminLayout` perdeu `overflow-auto` (os
+  `sticky` do painel inteiro passaram a grudar); três cabeçalhos ganharam `flex-wrap`; o
+  `FormPageHeader` gruda em `top-14 md:top-0`. Medido em 38 rotas, sem rolagem horizontal.
+- **Decididas pelo usuário depois da verificação (2026-10-19)**: o link do card acompanha a cor
+  tocada, e "menor/maior preço" ordena pelo preço que o card mostra (`matchPrice`). +11 casos, 6
+  mutantes mortos.
+- **Banco local**: as tabelas novas estão vazias; os dados de prova da `66` (970 marcações) intactos.
+- **Próximo**: `68-seo-por-variacao` (só `spec.md`, depende da `67`). Próximo número livre: `69`.
+
+### 2026-10-18 · `66-filtros-de-produto` **IMPLEMENTADA — 19 de 19 tasks, verificada (3 rodadas + fecho), COMMITADA (`32a3a59`..`f305b52`)**
 
 - **Feature**: `.specs/features/66-filtros-de-produto/` (`spec.md`, `design.md`, `tasks.md`,
   `prova-navegador.md`, `validation.md`). Decisão `AD-050`. Desenho do painel no Paper, página

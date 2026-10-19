@@ -379,6 +379,39 @@ coleção toda. Quem pagina é a **janela** (`shared/lib/useInfiniteWindow`), n�
 - Medido em navegador (`.specs/features/66-filtros-de-produto/prova-navegador.md`): 390 e 1440 sem
   rolagem horizontal, chips de 44px no sheet sem quebra de linha, F5 e link em aba nova mantendo o
   resultado.
+### Os filtros enxergam as variações (feature `67`, `AD-051`)
+
+- **A marcação pode morar numa OPÇÃO da peça** (`product_option_filter_values`: peça, eixo, texto,
+  valor), e vale para toda variação **ativa** cujo `option_values[eixo] = texto`. Chega pelo embed
+  `PRODUCT_OPTION_MARKS_EMBED` nos dois `select` e vira `option_marks` no mapper (`[]` sem o embed).
+  O card pede também `nuvemshop_id` da variação, porque é dele que o `?variant=` sai
+  (`publicVariantId`).
+- **Quem decide é `matchProduct`** (`core/filters/match.ts`), chamado por `filterMatches`:
+  grupos satisfeitos na peça toda não restringem variação, e os demais têm de ser satisfeitos pela
+  **mesma** variação, que também passa por `passesSystemVariant` (preço `v.price ?? p.price`, estoque
+  e "de" **da variação**; novidade é da peça). Empate vai para a com estoque e, depois, para a de menor
+  `position`. `filterProducts` é a projeção de `filterMatches` (`SPEC_DEVIATION`), para os casos da
+  `66` seguirem intactos.
+- **O card com `matchedVariant`** linka `?variant=`, mostra a foto (recuo: a da peça), o preço e o
+  "de" dela, e nasce com a cor dela na fileira. **Sem a prop, ele é idêntico ao de antes** (VFL-13).
+  Categoria e Busca passam a prop, e `fiacaoDaVitrine` guarda isso.
+- **Duas escolhas que a spec não cobria**, revistas pelo usuário na pós-verificação (2026-10-18):
+  - **O link acompanha a cor tocada.** Depois do toque, o `?variant=` é o da variação que dá o
+    preço (`findVariant` sobre a seleção) — com filtro **e sem filtro**. Se a cor tocada não
+    resolve uma linha vendável (ativa e com preço), o link volta a ser o da peça. Voltar à cor da
+    variação que casou devolve **a casada** (link, preço e "de"), não a primeira linha daquela cor.
+    Sem toque nada muda: com filtro, a casada; sem filtro, a peça (VFL-13).
+  - **"Menor/maior preço" ordena pelo preço que o card mostra** (`matchPrice`: `variant.price ??
+    product.price`, ou o da peça sem variação casada). `sortProducts` e "Relevância"/"Novidades"
+    não mudaram.
+- **`marcacaoPorOpcaoComDonoUnico.test.ts`**: só o mapper cita a tabela ou o campo na loja.
+  **`marcacaoSoPorAcao.test.ts`**: guarda por AST (molde de `wiringResolve`) de que só as portas de
+  Salvar, Aprovar, marcação em massa e Recusar gravam nas três tabelas de marcação. O cabeçalho dele
+  declara o que não mede (acesso computado, `fetch` cru).
+- Medido em navegador (`.specs/features/67-filtros-nas-variacoes/prova-navegador.md`): com Prata 925,
+  171 de 171 cards por opção apontam a variação certa, com o preço e a foto dela; Prata 925 + Chaveiro
+  derruba 143 das 145 peças que vendem os dois em variações diferentes.
+
 - **O esqueleto e o card têm guarda de paridade desde a feature `40`** (`cardSkeletonBox.test.ts`).
   Ele não mede altura — continua sendo impossível em jsdom —, mas lê os **dois arquivos do disco** e
   compara as quatro classes que produzem os 431px. O par do nome é assimétrico de propósito:
