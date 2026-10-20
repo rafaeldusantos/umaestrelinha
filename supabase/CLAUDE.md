@@ -168,7 +168,7 @@ assere.
 | `send-notification` | `false` | o motor de notificação (feature `42`) — os 15 eventos pela API HTTP do Resend. Cinco portas: `send · trigger · notify · preview · config-check` |
 | `google-feed` | `false` | o feed RSS 2.0 do Merchant Center |
 | `product-page` | `false` | **removida do repositório na `69`** (`AD-053`); ainda implantada no hospedado até ser apagada |
-| `sitemap` | `false` | `/sitemap.xml` — as URLs canônicas (719 em 2026-08-29), lidas com a chave **publicável**; desde a `68`, mais uma `<loc>` com `?variant=` por opção indexável, com variações e marcações lidas por `readAllPages` (falha ou truncamento ⇒ 503, nunca 200 parcial) |
+| `sitemap` | `false` | **removida do repositório na `70`** — `/sitemap.xml` sai da função `api/page` da Vercel (`apps/store/CLAUDE.md`); ainda implantada no hospedado até ser apagada depois do deploy conferido |
 | `admin-users` | `false` | quem entra no painel — a **porta única** da service role (`AD-034`) |
 | `checkout` | `false` | cria **todo** pedido (convidada e logada), responde "este e-mail tem conta?" e devolve o pedido da convidada |
 
@@ -316,6 +316,11 @@ obrigatoriamente por último** — `vercelRedirects.test.ts` assere a ordem por 
   de 4 **fica em aberto** e só se reconcilia com o export da conta.
 
 ### `sitemap` (feature `33`, `AD-022`)
+
+> **SAIU do repositório na feature `70`.** `/sitemap.xml` passou a ser servido pela função `api/page`
+> da Vercel, com a regra em `@estrelinha/core/sitemap/serve.ts` e o cache de borda de uma hora que o
+> `rewrite` externo nunca teve (TTFB de 4,7 a 9,3 s, sempre `MISS`). O texto abaixo é **histórico**;
+> a chave publicável, o 503 degradado e a ausência de interruptor continuam valendo, lá.
 
 Irmã das duas acima, exposta pelo mesmo mecanismo. **Duas diferenças, e as duas são desenho:**
 

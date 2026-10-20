@@ -43,7 +43,8 @@ sem ela a varredura passa com zero arquivo lido, que é a pior falha possível n
 | `./faq` | `resolveProductFaqs`, `faqOverrideOf`, `rankFaqSuggestions`, `block.ts` | loja, painel, importador |
 | `./material` | máquina de estado, `requiresMaterial()`, `materialSummary` | loja, painel, RPC (cópia em SQL) |
 | `./shopping` | `ShoppingOffer` e as duas serializações | `google-feed`, `core/page`, loja, painel |
-| `./page` | **`classifyPath`, `servePage`, `applyHead`, `resolveCategoryRoute`, `productPageImages`** — a resposta HTML de cada caminho (feature `69`, `AD-053`). `images.ts` é folha alcançável pelo Deno (o sitemap a usa) | função `api/page` da Vercel (`apps/store/server`), loja, function `sitemap` |
+| `./page` | **`classifyPath`, `servePage`, `applyHead`, `resolveCategoryRoute`, `productPageImages`** — a resposta HTML de cada caminho (feature `69`, `AD-053`). `images.ts` é folha alcançável pelo Deno (a régua fica, sem consumidor Deno desde a `70`) | função `api/page` da Vercel (`apps/store/server`), loja |
+| `./sitemap` | `sitemapUrls`, `renderSitemapXml`, **`serveSitemap`** (`{ status, headers, body }`, 503 `no-store` em todo caminho degradado, `s-maxage=3600` no 200 — feature `70`) | função `api/page` da Vercel |
 | `./checkout` | `resolveBlocks`, `isOrderStale`, **`resolveCheckoutIdentity`** e **`guestAccess`** | loja, edge function `checkout`, `mercado-pago` |
 | `./validators/email` | `isValidEmail`, `normalizeEmail` | loja, edge function `checkout` |
 | `./shipping` | `freeShippingState` + `freeShippingRefusal` (o frete grátis tem **um** dono), `estimate.ts` | 8 superfícies nos 2 apps |
