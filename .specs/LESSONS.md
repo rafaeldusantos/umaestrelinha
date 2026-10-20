@@ -224,6 +224,18 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: rodadas 2 e 3 — `packages/core/src/shopping/jsonld.ts:31-32` (`payablePrice`); N02 e N16 equivalentes para a página
 - last seen: 2026-10-19T00:00:00Z
 
+### L-043 — Adaptador que lê N fontes precisa de um caso de ERRO por fonte, pela porta que o usuário chama: provar o erro só na primeira tabela deixa as outras livres para engolir o erro, e o resultado é a resposta parcial com status de sucesso que a spec proíbe.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `apps/store/server/**` · harmful: 0
+- features: 70-sitemap-servido-na-vercel
+- evidence: M01 — `apps/store/server/sitemap.ts` (`readFaqLinks` sem `throw` deixava o sitemap 200 sem as perguntas, com 5340 verdes)
+- last seen: 2026-10-20T00:00:00Z
+
+### L-044 — Teste que cria diretório temporário dentro de uma árvore que outro guarda VARRE produz flake de ENOENT entre suítes paralelas; ponha o temporário em `node_modules/.cache` da raiz (nenhuma varredura entra, e a resolução de módulos continua subindo até o `node_modules` do repositório).
+- signal: `flake` · recurrence: 1 feature(s) · scope: `apps/store/scripts/**` · harmful: 0
+- features: 70-sitemap-servido-na-vercel
+- evidence: `apps/store/scripts/__tests__/{shell,robots}.test.ts` × `chaveDeServidorForaDoNavegador.test.ts` (1 em 4 execuções)
+- last seen: 2026-10-20T00:00:00Z
+
 ## Quarantined (failed when applied — ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.

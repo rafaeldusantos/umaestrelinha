@@ -1311,6 +1311,22 @@
   `packages/core/src/sitemap/**`, `apps/store/{api,server,scripts}/**`, `apps/store/vercel.json`,
   `supabase/functions/{product-page,sitemap}/**`, migration `69`
 - **Date**: 2026-10-19
+- **Status**: active — **provada em plataforma em 2026-10-20** (preview: `X-Vercel-Cache: HIT` e `pdx1`; produção: produto 200 `HIT` 0,25 s, 404 e 301 por `curl`). A function `product-page` hospedada foi apagada no mesmo dia.
+
+### AD-054
+- **Decision**: **`/sitemap.xml` também sai da função `api/page` da Vercel**, com a regra em
+  `core/sitemap/serve.ts` (`serveSitemap`, `readCatalog`), leitura pela chave publicável e
+  `s-maxage=3600`; degradado é 503 `no-store`, nunca 200 parcial. **E a linha `Sitemap:` do
+  `robots.txt` deixa de ser escrita à mão**: o build a gera de `STORE_PUBLIC_URL` (`scripts/robots.mjs`),
+  e falha na Vercel sem a env. O `robots.txt` continua arquivo estático de `dist/`.
+- **Reason**: feature `70`. O sitemap era o último rewrite para `*.supabase.co` que rastreador lê, e
+  respondia em 4,7–9,3 s sempre `MISS` (2026-10-20). A linha do `robots.txt` era o terceiro dono da
+  origem da loja; agora são dois (env da Vercel e secret da Supabase), e o dia do DNS troca as duas.
+  Cache de 1 h por escolha do usuário.
+- **Supera**: a parte de transporte da `AD-022` (a regra de quais URLs existem continua em
+  `core/sitemap`, e a visibilidade continua sendo a RLS) e o "segundo dono da origem" que ela aceitou.
+- **Scope**: `packages/core/src/sitemap/**`, `apps/store/{server,scripts}/**`, `apps/store/{vercel.json,public/robots.txt,package.json}`, `turbo.json`, `supabase/functions/sitemap/**` (removida)
+- **Date**: 2026-10-20
 - **Status**: active
 
 ## Handoff

@@ -141,8 +141,9 @@ Ao planejar/implementar features, use a Skill **`tlc-spec-driven`** com estas co
     também está FECHADA, com commit. A `68` (SEO por variação) também está FECHADA, com commit — a
     prova em produção só existe depois do deploy. A `69` (o `<head>` servido de dentro da Vercel:
     produto com cache, categoria e páginas fixas com título no HTML, 404 de verdade e imagens no
-    sitemap) está IMPLEMENTADA, **sem commit**, com prova local; a prova em plataforma (preview e
-    produção) está pendente. A próxima é a `70`.**
+    sitemap) também está FECHADA, com commit e em produção (`HIT` e `pdx1` medidos). A `70` (o
+    sitemap servido de dentro da Vercel, e o `robots.txt` gerado de `STORE_PUBLIC_URL`) está
+    IMPLEMENTADA, sem commit. A próxima é a `71`.**
   - **A `46` e a `47` correram EM PARALELO, em worktrees separados**, e é o segundo caso do projeto
     (o primeiro, a `45`, dividiu uma working tree só). O que mudou: a divisão foi por **árvore**, não
     por arquivo — a `47` nasceu de um `git worktree` sobre o HEAD local e trouxe a `46` por
@@ -493,7 +494,15 @@ quando mudarem de verdade.
 | --- | --- | --- |
 | **Lint** | **26 erros / 7 warnings** — backoffice 24/5 · store 2/2 | `pnpm lint` |
 | **Tipos** | **0 · 0 · 0 · 0** (store · backoffice · catalog-import · `apps/store/tsconfig.server.json`, desde a `69`) | `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` |
-| **Testes** | **13626 em 671 arquivos** — store **5313/297** · backoffice **3493/198** · core **3382/132** · functions **926/21** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
+| **Testes** | **13658 em 672 arquivos** — store **5349/299** · backoffice **3493/198** · core **3414/133** · functions **890/19** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
+
+**A feature `70` (o sitemap servido de dentro da Vercel) somou +32/+1**, medidos em 2026-10-20 um
+workspace por vez: **core +32/+1** (`core/sitemap/serve.ts`, os 30 casos da function `sitemap`
+mudaram de casa mais 2), **store +36/+2** (`server/sitemap.ts` com erro em cada tabela e a régua de colunas por comportamento, o guarda do `turbo.json`, o gerador do `robots.txt` executado
+de verdade com o par positivo, `robotsSource` reescrito) e **functions −36/−2** — **queda
+declarada**: os 34 casos da function `sitemap` reaparecem em core e store, e o `wiringResolve` perde
+os 2 dela. O XML servido pela função foi comparado com o da function antiga contra o banco local:
+**idêntico** (`cmp`, 2.327 `<loc>`, 3.735 `<image:loc>`). Decisão `AD-054`.
 
 **A feature `69` (o `<head>` servido de dentro da Vercel) somou +273/+13**, medidos em 2026-10-19
 um workspace por vez, exit code fora de pipe: **core +266/+9** (`core/page`: classificação,
@@ -2307,21 +2316,13 @@ completo (framework, `installCommand` na raiz do monorepo, headers de cache e de
 
 ## Estado conhecido / dívidas
 
-- **A `69` NÃO tem prova em plataforma ainda, e ela é o que fecha a feature.** O transporte foi
-  provado localmente (o bundle de `api/page` importado por `node` contra o Supabase local, treze
-  caminhos com status, `Cache-Control` e `<head>` conferidos), mas o que só a Vercel responde não foi
-  medido: se ela detecta `api/page.mjs` reexportando o `.server/page.mjs` gerado no build (plano B:
-  `SAIDA` em `scripts/build-server.mjs`), se o rewrite `/:path*` entrega `__path` e `?variant=`, se
-  `regions: ["pdx1"]` vale no plano da conta, e o `X-Vercel-Cache: HIT` com TTFB < 300 ms. O preview
-  do branch descartável `69-spike` existe e está atrás do login da Vercel.
-  - **Três passos de operação antes do deploy da `69`**: (1) criar **`STORE_PUBLIC_URL` no projeto
-    da Vercel** (`umaestrelinha-store`) — ela passa a ter **dois donos**, o secret da Supabase (feed,
-    sitemap, e-mail) e a env da Vercel (canônica servida), e os dois mudam juntos no dia do domínio,
-    com a linha `Sitemap:` do `robots.txt`; sem a env, a página sai sem canônica, nunca com a errada;
-    (2) a migration da `69` antes ou junto do bundle — sem ela a RPC falha e categoria inativa vira
-    "sem inativa" (404), nunca erro; (3) depois do deploy conferido, apagar a edge function
-    `product-page` do projeto hospedado — o `Supabase Deploy` vai avisar a divergência até lá.
-  - **`STORE_PUBLIC_URL` sem barra final**; o `turbo.json` declara `.server/**` como saída do build.
+- **A `69` está PROVADA em plataforma** (2026-10-20): preview com `X-Vercel-Cache: HIT` e `pdx1`;
+  produção com produto 200 (`MISS` 0,9 s, `HIT` 0,25 s), 404 com `noindex`, 301 de categoria inativa
+  e 308 da barra final, por `curl`. A function `product-page` hospedada foi apagada.
+  - **Dia do DNS**: trocar a env `STORE_PUBLIC_URL` da Vercel e o secret `STORE_PUBLIC_URL` da
+    Supabase, e fazer redeploy da loja — desde a `70` o `robots.txt` sai da env no build.
+  - **A `70` espera deploy**: depois dele, apagar a edge function `sitemap` do hospedado e medir
+    `HIT` em `/sitemap.xml`. A env `STORE_PUBLIC_URL` precisa estar disponível no BUILD da Vercel.
   - **Um `seo_title` curado já com a marca dentro sai com a marca duas vezes** ("…| Uma… | Uma
     Estrelinha"), medido na prova local da `69` num produto. É dado, não código da `69`: a régua de
     `core/seo` corta o título curado e acrescenta a marca. Curadoria em `/admin/produtos`.
