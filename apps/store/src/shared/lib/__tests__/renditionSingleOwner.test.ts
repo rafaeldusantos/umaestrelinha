@@ -206,7 +206,7 @@ describe('rendition — âncoras da varredura', () => {
  */
 const ALLOWLIST: Record<string, string> = {
   'packages/core/src/media/rendition.ts':
-    'O dono. É ele quem troca `/object/public/` por `/render/image/public/` e escreve `width` e `quality` — e é por isso que ele não tem import nenhum: a edge function `sitemap` o alcança por caminho relativo (via `core/page/images.ts`), e o `<head>` servido o empacota fora do Vite.',
+    'O dono. É ele quem troca `/object/public/` por `/render/image/public/` e escreve `width` e `quality` — e é por isso que ele não tem import nenhum: a edge function `sitemap` o alcançava por caminho relativo (via `core/page/images.ts`) até a feature 70, e a função `api/page` da Vercel o empacota fora do Vite.',
 }
 
 describe('ninguém monta a URL de rendição à mão (PRF-15)', () => {

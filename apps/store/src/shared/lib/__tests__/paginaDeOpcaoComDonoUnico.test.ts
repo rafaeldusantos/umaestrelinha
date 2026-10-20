@@ -197,7 +197,8 @@ describe('a página de opção com dono único — âncoras da varredura', () =>
         'apps/store/src/pages/ProductPage.tsx',
         'apps/store/src/entities/product/ui/ProductCard.tsx',
         'apps/backoffice/src/features/product-form/ui/OptionMarkRow.tsx',
-        'supabase/functions/sitemap/handlers.ts',
+        // Feature 70: a leitura do sitemap saiu da edge function para a função da loja.
+        'apps/store/server/sitemap.ts',
       ]),
     )
   })

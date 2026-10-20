@@ -3,20 +3,21 @@
 # ---------------------------------------------------------------------------------------------
 # POR QUE ISTO EXISTE, E POR QUE NÃO REGENERA NADA
 # ---------------------------------------------------------------------------------------------
-# O sitemap é servido AO VIVO por uma edge function: produto ou categoria cadastrada no painel
-# aparece na requisição seguinte, sem deploy e sem regeneração. Não há artefato para envelhecer,
-# então não há o que um cron reconstruir.
+# O sitemap é servido AO VIVO pela função `api/page` da loja (feature 70; até a 69, por uma edge
+# function): produto ou categoria cadastrada no painel aparece no máximo uma hora depois (o
+# `s-maxage=3600` da borda), sem deploy e sem regeneração. Não há artefato para envelhecer, então não
+# há o que um cron reconstruir.
 #
 # O que um cron pode fazer aqui — e é o único mecanismo do projeto capaz disso — é provar que o que
 # é **entregue** continua sendo um sitemap. Esta rota falha em silêncio: o `BUG-20260829` devolvia
 # 200, corpo certo e JSON-LD certo, com a página quebrada, e o ritual de fecho que o repositório
 # prescrevia (`curl -I`) teria declarado verde. Nenhum teste do repositório alcança isso, porque a
-# asserção e a entrega têm donos diferentes: os testes medem o `Response` que a function CONSTRÓI, e
-# quem reescreve o `Content-Type` é o gateway.
+# asserção e a entrega têm donos diferentes: os testes medem a resposta que a função CONSTRÓI, e quem
+# entrega é a borda.
 #
-# E não é hipótese: medido em 2026-08-29, o gateway `*.supabase.co` entrega `application/xml` como
-# `text/plain`. Quem desfaz isso é um header do `vercel.json` — comportamento não documentado da
-# Vercel, do qual esta rota passou a depender.
+# E não é hipótese: medido em 2026-08-29, o gateway `*.supabase.co` entregava `application/xml` como
+# `text/plain`, e um header do `vercel.json` o desfazia. Desde a feature 70 o gateway saiu do caminho
+# e o header também — o tipo entregue continua sendo a prova.
 #
 # DIÁRIO, e não semanal: a verificação custa duas requisições HTTP e nenhuma credencial, e o que se
 # compra com a frequência é o teto do tempo em que uma quebra passa despercebida — 24 h em vez de
@@ -41,7 +42,8 @@ jobs:
         env:
           # `vars`, não `secrets`: a origem pública da loja não é segredo, e mascará-la no log só
           # atrapalharia quem estivesse depurando. O default é a loja provisória — trocar aqui faz
-          # parte do mesmo passo de cutover que troca `STORE_PUBLIC_URL` e a linha do `robots.txt`.
+          # parte do mesmo passo de cutover que troca `STORE_PUBLIC_URL` (desde a feature 70 a linha
+          # do `robots.txt` é gerada dela no build — `apps/store/scripts/robots.mjs`).
           ORIGEM: ${{ vars.STORE_PUBLIC_URL || 'https://umaestrelinha-store-five.vercel.app' }}
           # Âncora de contagem, no molde dos guardas de varredura do repositório: o catálogo tinha
           # 719 URLs em 2026-08-29. É PISO, não igualdade — o catálogo cresce por curadoria, e um
@@ -57,7 +59,7 @@ jobs:
           echo "content-type entregue: $tipo"
           case "$tipo" in
             *xml*) ;;
-            *) echo "::error::/sitemap.xml entregue como '$tipo' — precisa ser XML. text/html significa que o catch-all do vercel.json voltou a engolir a rota; text/plain significa que o header do vercel.json sumiu e o gateway da Supabase reescreveu o tipo."; exit 1 ;;
+            *) echo "::error::/sitemap.xml entregue como '$tipo' — precisa ser XML. text/html significa que a função api/page deixou de desviar /sitemap.xml antes de servePage, ou que um rewrite novo engoliu a rota; text/plain é o 503 da função (leitura falhou ou STORE_PUBLIC_URL ausente na Vercel)."; exit 1 ;;
           esac
 
           # 2. O corpo abre como XML e PARSEIA. Um `&` cru numa <loc> passaria por qualquer grep.
@@ -72,9 +74,10 @@ jobs:
           [ "$total" -ge "$PISO" ] \
             || { echo "::error::apenas $total URLs, abaixo do piso de $PISO — leitura truncada ou catálogo parcial"; exit 1; }
 
-          # 4. O robots.txt aponta para o MESMO host. É a contenção do segundo dono da origem: a
-          #    linha do robots.txt é literal, o host das <loc> vem de STORE_PUBLIC_URL, e o Google
-          #    IGNORA referência de sitemap entre domínios — divergir apaga a descoberta em silêncio.
+          # 4. O robots.txt aponta para o MESMO host. Desde a feature 70 a linha é gerada no build a
+          #    partir de STORE_PUBLIC_URL, a mesma env do host das <loc>; o passo continua porque um
+          #    build com a env velha (sem redeploy depois de trocá-la) divergiria, e o Google IGNORA
+          #    referência de sitemap entre domínios — divergir apaga a descoberta em silêncio.
           curl -sS -m 30 "$ORIGEM/robots.txt" -o robots.txt
           linhas=$(grep -ci '^sitemap:' robots.txt || true)
           [ "$linhas" = "1" ] \
@@ -128,7 +131,7 @@ jobs:
             [ -n "$canonica" ] \
               || { echo "::error::a página $url não serve <link rel=\"canonical\"> — o HTML servido tem de declarar a canônica (SVR-18)"; exit 1; }
             [ "$(origem_de "$canonica")" = "$origem_do_sitemap" ] \
-              || { echo "::error::a canônica de $url está em $(origem_de "$canonica"), mas o sitemap foi buscado em $origem_do_sitemap — confira o secret STORE_PUBLIC_URL da edge function (SVR-41)"; exit 1; }
+              || { echo "::error::a canônica de $url está em $(origem_de "$canonica"), mas o sitemap foi buscado em $origem_do_sitemap — confira a env STORE_PUBLIC_URL da Vercel (SVR-41)"; exit 1; }
             if [ "$exigir_igual" = "sim" ]; then
               [ "$canonica" = "$url" ] \
                 || { echo "::error::a página de opção $url declara a canônica $canonica — a página de opção tem de ser canônica de si mesma (SVR-34)"; exit 1; }

@@ -12,6 +12,10 @@
 //
 // O shell é o `dist/index.html` do MESMO build, embutido no bundle pelo `define` de
 // `scripts/build-server.mjs` (SSV-04) — nunca buscado por HTTP em runtime.
+//
+// Desde a feature 70 a mesma função atende `/sitemap.xml` (SMV-01): o `rewrite` para a edge function
+// `sitemap` não era cacheado pela Vercel. O caminho é desviado ANTES de `servePage`, que trata todo
+// caminho com extensão como 404; as leituras estão em `./sitemap.ts` e a regra em `serveSitemap`.
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import {
@@ -22,6 +26,8 @@ import {
   type ProductPageData,
   type ServedResponse,
 } from '@estrelinha/core/page'
+import { serveSitemap } from '@estrelinha/core/sitemap'
+import { sitemapDeps } from './sitemap'
 
 /** A linha de marcação que `servePage` espera — tirada do contrato, sem import de `core/seo`. */
 type OptionMarkRow = Awaited<ReturnType<PageDeps['readOptionMarks']>>[number]
@@ -31,6 +37,9 @@ declare const __SHELL__: string
 
 /** O parâmetro pelo qual o `rewrite` do `vercel.json` entrega o caminho original. */
 export const PATH_PARAM = '__path'
+
+/** O caminho do sitemap — o único que esta função serve sem passar por `servePage` (feature 70). */
+export const SITEMAP_PATH = '/sitemap.xml'
 
 // As colunas são as da `product-page` (features 30, 38, 62 e 68): o mesmo `<head>`, o mesmo JSON-LD.
 export const COLUNAS_PRODUTO =
@@ -195,10 +204,20 @@ export const createPageHandler = (opts: HandlerOptions) => {
 
   return async (request: Request): Promise<Response> => {
     const url = originalUrl(request.url)
+    const sitemap = url.pathname === SITEMAP_PATH
     const supabaseUrl = opts.env.VITE_SUPABASE_URL ?? ''
     const chave = opts.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? ''
     if (supabaseUrl === '' || chave === '') {
       log({ fn: 'page', erro: 'env', path: url.pathname, faltando: { url: supabaseUrl === '', chave: chave === '' } })
+      // O sitemap não tem shell a que recuar: sem leitura, 503 `no-store` — nunca o HTML da loja
+      // com 200 num endereço que o rastreador lê como XML (SMV-03).
+      if (sitemap) {
+        return toResponse({
+          status: 503,
+          headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' },
+          body: 'catálogo indisponível',
+        })
+      }
       return toResponse({
         status: 200,
         headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' },
@@ -207,6 +226,7 @@ export const createPageHandler = (opts: HandlerOptions) => {
     }
     client ??= makeClient(supabaseUrl, chave)
     const origin = (opts.env.STORE_PUBLIC_URL ?? '').replace(/\/+$/, '')
+    if (sitemap) return toResponse(await serveSitemap(sitemapDeps(client, { origin, log })))
     const servida = await servePage(pageDeps(client, { shell: opts.shell, origin, log }), url)
     return toResponse(servida)
   }

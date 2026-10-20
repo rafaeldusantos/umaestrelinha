@@ -16,6 +16,13 @@ const arquivo = (nome: string, conteudo: string) => {
   return caminho
 }
 
+// Os temporários moram no `node_modules/.cache` da RAIZ, e não em `apps/store`: lá dentro eles caíam
+// na varredura de `chaveDeServidorForaDoNavegador.test.ts`, que achava um diretório no meio da leitura
+// e apagado logo depois — ENOENT em 1 de 4 execuções (achado da verificação da 70). Dentro de
+// `node_modules` nenhuma varredura entra, e o `esbuild` continua resolvendo pelo `node_modules` de cima.
+const TEMP = join(resolve(dirname(fileURLToPath(import.meta.url)), '../../../..'), 'node_modules', '.cache', 'estrelinha-testes')
+mkdirSync(TEMP, { recursive: true })
+
 describe('lerShell — o build só embute o shell da loja', () => {
   it('devolve o conteúdo de um index.html com a raiz do SPA', () => {
     const html = '<!doctype html><html><head><title>x</title></head><body><div id="root"></div></body></html>'
@@ -46,7 +53,7 @@ describe('build-server.mjs — sem shell, o build PARA; com shell, gera o bundle
   const loja = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 
   const rodar = (comShell: string | null) => {
-    const raiz = mkdtempSync(join(loja, '.tmp-build-server-'))
+    const raiz = mkdtempSync(join(TEMP, 'tmp-build-server-'))
     try {
       mkdirSync(join(raiz, 'scripts'))
       mkdirSync(join(raiz, 'server'))

@@ -18,20 +18,12 @@
   ],
   "rewrites": [
     {
-      "source": "/sitemap.xml",
-      "destination": "https://hgkrsfpupypxtygjgthf.supabase.co/functions/v1/sitemap"
-    },
-    {
       "source": "/feeds/google-shopping.xml",
       "destination": "https://hgkrsfpupypxtygjgthf.supabase.co/functions/v1/google-feed"
     },
     { "source": "/:path*", "destination": "/api/page?__path=/:path*" }
   ],
   "headers": [
-    {
-      "source": "/sitemap.xml",
-      "headers": [{ "key": "Content-Type", "value": "application/xml; charset=utf-8" }]
-    },
     {
       "source": "/assets/(.*)",
       "headers": [

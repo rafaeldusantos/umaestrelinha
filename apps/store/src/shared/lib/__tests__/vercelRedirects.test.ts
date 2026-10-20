@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { LEGACY_REDIRECTS } from '@estrelinha/core/routes'
@@ -191,15 +191,13 @@ describe('vercel.json — as duas rotas do Google Shopping (feature 30)', () => 
     expect(i('/feeds/google-shopping.xml')).toBeLessThan(i(CATCH_ALL.source))
   })
 
-  it('feed e sitemap apontam para o MESMO host — meia configuração é pior que nenhuma', () => {
-    const host = (source: string) => new URL(porSource(source).destination).host
-    expect(host('/feeds/google-shopping.xml')).toBe(host('/sitemap.xml'))
-  })
-
-  it('o host é um projeto Supabase', () => {
-    for (const source of ['/feeds/google-shopping.xml', '/sitemap.xml']) {
-      expect(new URL(porSource(source).destination).host).toMatch(/\.supabase\.co$/)
-    }
+  /**
+   * Feature 70: a asserção "feed e sitemap apontam para o MESMO host" saiu, porque o sitemap deixou
+   * de ter host externo — ele sai da função da loja, pelo catch-all. A positiva dele mora no bloco da
+   * feature 70, abaixo. A do host do feed continua, agora sobre o único rewrite externo.
+   */
+  it('o host do feed é um projeto Supabase', () => {
+    expect(new URL(porSource('/feeds/google-shopping.xml').destination).host).toMatch(/\.supabase\.co$/)
   })
 
   /**
@@ -223,18 +221,23 @@ describe('vercel.json — as duas rotas do Google Shopping (feature 30)', () => 
    * feature 69 o `vercel.json` reimpunha o tipo em `/produtos/:slug`. Com a página saindo da função
    * da própria loja o tipo é NOSSO (`servePage` declara `text/html; charset=utf-8`), e o override
    * deixou de ter carga (`AD-053`). A asserção antiga foi invertida, e a regra que sobra é a de
-   * sempre: override de `Content-Type` só onde há um gateway de terceiro reescrevendo — hoje, só o
-   * sitemap. A prova da entrega continua sendo o `curl` contra o deploy, nunca o arquivo.
+   * sempre: override de `Content-Type` só onde há um gateway de terceiro reescrevendo. Desde a
+   * feature 70 o sitemap também sai da função da loja, e **não sobra override nenhum** (SMV-04). A
+   * prova da entrega continua sendo o `curl` contra o deploy, nunca o arquivo.
    */
   it('não reimpõe Content-Type em /produtos/:slug — o tipo vem da função da loja (feature 69)', () => {
     expect(CONFIG.headers.find((entry) => entry.source === '/produtos/:slug')).toBeUndefined()
   })
 
-  it('o único override de Content-Type é o do sitemap', () => {
+  it('SMV-04: nenhum override de Content-Type sobra — os dois tipos servidos são da função da loja', () => {
+    // Reescrita na feature 70: antes, o único override era o do sitemap. O feed é o único rewrite
+    // externo que resta e NUNCA teve override — o Merchant Center o lê, e a prova dele é o `curl`.
     const comTipo = CONFIG.headers
       .filter((entry) => entry.headers.some((h) => h.key.toLowerCase() === 'content-type'))
       .map((entry) => entry.source)
-    expect(comTipo).toEqual(['/sitemap.xml'])
+    expect(comTipo).toEqual([])
+    // A âncora: a varredura acima leu entradas de verdade.
+    expect(CONFIG.headers.every((entry) => entry.headers.length > 0)).toBe(true)
   })
 
   it('os headers existentes ficam intactos', () => {
@@ -245,7 +248,8 @@ describe('vercel.json — as duas rotas do Google Shopping (feature 30)', () => 
     // Feature 60: subiu de 5 para 6 com o `immutable` de `/email/(.*)`.
     // Feature 69: desceu de 6 para 5 — saiu o `Content-Type` de `/produtos/:slug` (asserção
     // invertida acima, com a positiva de que só o sitemap reimpõe tipo).
-    expect(CONFIG.headers).toHaveLength(5)
+    // Feature 70: desceu de 5 para 4 — saiu o `Content-Type` de `/sitemap.xml` (SMV-04).
+    expect(CONFIG.headers).toHaveLength(4)
 
     const assets = CONFIG.headers.find((entry) => entry.source === '/assets/(.*)')
     expect(assets).toBeDefined()
@@ -336,60 +340,53 @@ describe('vercel.json — a marca dos e-mails (feature 60)', () => {
 })
 
 /**
- * Feature 33 (`SMP-01`, `SMP-26`) — o sitemap.
+ * Feature 33 (`SMP-01`, `SMP-26`) — o sitemap, e desde a feature 70 (SMV-01, SMV-04) o transporte dele.
  *
- * As asserções desta seção **ganharam vizinhas**; nenhuma existente foi afrouxada. A âncora de
- * `headers` subiu de 3 para 4 e a de `rewrites` passou a ser conferida, que é o oposto de afrouxar.
+ * Até a `69`, `/sitemap.xml` era um `rewrite` para a edge function `sitemap`, com o `Content-Type`
+ * reimposto aqui — o gateway `*.supabase.co` trocava `application/xml` por `text/plain` (medido em
+ * 2026-08-29, assinatura do `BUG-20260829`). Na feature 70 ele passou a sair da função `api/page`, no
+ * deploy da loja, porque o `rewrite` externo nunca era cacheado (TTFB de 4,7 a 9,3 s, sempre MISS).
+ * As asserções antigas foram INVERTIDAS, não apagadas — e cada uma ganhou a positiva ao lado: o
+ * catch-all leva o caminho à função, nada em `public/` o encobre, e a função o atende.
  */
-describe('vercel.json — o sitemap (feature 33)', () => {
+describe('vercel.json — o sitemap (features 33 e 70)', () => {
+  const STORE = join(ROOT, 'apps/store')
   const porSource = (source: string) => CONFIG.rewrites.find((r) => r.source === source)
 
-  it('`/sitemap.xml` é exposto sob o domínio da loja', () => {
-    // Hoje a rota cai no catch-all e devolve **200 com o HTML da SPA** — medido em 2026-08-29:
-    // `Content-Type: text/html`, 3.945 bytes abrindo em `<!doctype html>`. Um rastreador que pede o
-    // sitemap recebe a home, e nenhuma checagem de status code acusa.
-    const sitemap = porSource('/sitemap.xml')
-    expect(sitemap).toBeDefined()
-    expect(sitemap.destination).toMatch(/\/functions\/v1\/sitemap$/)
+  it('SMV-04: `/sitemap.xml` NÃO tem rewrite próprio — nem para `*.supabase.co`, nem para lugar nenhum', () => {
+    expect(porSource('/sitemap.xml')).toBeUndefined()
+    for (const r of CONFIG.rewrites) expect(r.destination, r.source).not.toMatch(/functions\/v1\/sitemap/)
   })
 
-  it('vem ANTES do catch-all', () => {
-    const i = (source: string) => CONFIG.rewrites.findIndex((r) => r.source === source)
-    expect(i('/sitemap.xml')).toBeGreaterThanOrEqual(0)
-    expect(i('/sitemap.xml')).toBeLessThan(i(CATCH_ALL.source))
+  it('SMV-04: nenhum header reimpõe tipo em `/sitemap.xml`', () => {
+    expect(CONFIG.headers.find((entry) => entry.source === '/sitemap.xml')).toBeUndefined()
   })
 
-  it('aponta para o MESMO host do feed', () => {
-    const host = (source: string) => new URL(porSource(source).destination).host
-    expect(host('/sitemap.xml')).toBe(host('/feeds/google-shopping.xml'))
+  it('SMV-01: o caminho chega à função pelo catch-all — e nada em `public/` o encobre', () => {
+    // A Vercel serve o arquivo estático ANTES dos rewrites: um `public/sitemap.xml` viraria
+    // `dist/sitemap.xml` e congelaria o sitemap no do build, sem erro nenhum.
+    expect(existsSync(join(STORE, 'public/sitemap.xml'))).toBe(false)
+    expect(CONFIG.rewrites[CONFIG.rewrites.length - 1]).toEqual(CATCH_ALL)
+    // Âncora: o diretório lido é o certo (o modelo do `robots.txt` mora nele).
+    expect(existsSync(join(STORE, 'public/robots.txt'))).toBe(true)
   })
 
-  it('âncora de contagem dos rewrites: são 3, e o último é o catch-all', () => {
+  it('SMV-01: a função atende `/sitemap.xml` antes de `servePage` — lido do disco', () => {
+    // Lido do disco e não importado: o `server/` tem tipos de Node e fica fora do `tsconfig.app.json`.
+    const fonte = readFileSync(join(STORE, 'server/page.ts'), 'utf8')
+    expect(fonte).toMatch(/export const SITEMAP_PATH = '\/sitemap\.xml'/)
+    expect(fonte).toMatch(/if \(sitemap\) return toResponse\(await serveSitemap\(sitemapDeps\(/)
+    // A ordem: o desvio vem ANTES da chamada de `servePage`, que trataria o caminho como 404.
+    expect(fonte.indexOf('await serveSitemap(')).toBeLessThan(fonte.indexOf('await servePage('))
+  })
+
+  it('âncora de contagem dos rewrites: são 2 — o feed e o catch-all, nesta ordem', () => {
     // Sem a âncora, uma entrada removida por edição deixaria as buscas acima achando o que procuram
     // num arquivo já pela metade. Feature 69: desceu de 4 para 3 — saiu o `/produtos/:slug`.
-    expect(CONFIG.rewrites).toHaveLength(3)
-    expect(CONFIG.rewrites[2]).toEqual(CATCH_ALL)
-  })
-
-  /**
-   * **Este header é CARGA, não zelo — e agora está medido.**
-   *
-   * Em 2026-08-29, contra o projeto hospedado, a function respondeu
-   * `Content-Type: application/xml; charset=utf-8` e o gateway `*.supabase.co` entregou
-   * **`text/plain`**, com `nosniff` acrescentado e o `Cache-Control` intacto. É a **mesma
-   * assinatura** do `BUG-20260829`, que trocou `text/html` por `text/plain`: os headers da function
-   * são respeitados, e só o tipo é reescrito.
-   *
-   * A pergunta que a `AD-021` deixou aberta — *"`application/xml` atravessa?"* — está respondida:
-   * **não atravessa**. Sem esta linha, `/sitemap.xml` responde 200 com XML correto no corpo e
-   * `text/plain` na entrega, que é a forma de quebrar que este projeto mais paga caro.
-   */
-  it('reimpõe application/xml em /sitemap.xml — a Supabase troca por text/plain (medido)', () => {
-    const rota = CONFIG.headers.find((entry) => entry.source === '/sitemap.xml')
-    expect(rota).toBeDefined()
-    expect(rota.headers).toEqual([
-      { key: 'Content-Type', value: 'application/xml; charset=utf-8' },
-    ])
+    // Feature 70: desceu de 3 para 2 — saiu o `/sitemap.xml`.
+    expect(CONFIG.rewrites).toHaveLength(2)
+    expect(CONFIG.rewrites[0].source).toBe('/feeds/google-shopping.xml')
+    expect(CONFIG.rewrites[1]).toEqual(CATCH_ALL)
   })
 })
 
@@ -459,11 +456,12 @@ describe('vercel.json — a página servida pela função da loja (feature 69)',
     expect(CONFIG.rewrites[CONFIG.rewrites.length - 1]).toEqual(CATCH_ALL)
   })
 
-  it('só o sitemap e o feed saem para fora do deploy — nenhum outro rewrite para `*.supabase.co`', () => {
+  it('SMV-04: só o feed sai para fora do deploy — o único rewrite para `*.supabase.co`', () => {
+    // Feature 70: o sitemap saiu desta lista — ele também é servido pela função da loja.
     const externos = CONFIG.rewrites.filter((r) => /^https?:\/\//.test(r.destination))
-    expect(externos.map((r) => r.source).sort()).toEqual(['/feeds/google-shopping.xml', '/sitemap.xml'])
+    expect(externos.map((r) => r.source)).toEqual(['/feeds/google-shopping.xml'])
     const supabase = CONFIG.rewrites.filter((r) => /\.supabase\.co/.test(r.destination))
-    expect(supabase).toHaveLength(2)
+    expect(supabase).toHaveLength(1)
   })
 
   it('nenhum rewrite reivindica `/api` — a função é endereçada pelo filesystem, não por rewrite', () => {
@@ -480,10 +478,15 @@ describe('vercel.json — a página servida pela função da loja (feature 69)',
     expect(script).toContain('__SHELL__')
   })
 
-  it('o `build` da loja empacota a função DEPOIS do `vite build`', () => {
+  it('o `build` da loja escreve o `robots.txt` e empacota a função DEPOIS do `vite build`', () => {
+    // Feature 70 (SMV-05): o `build-robots.mjs` entrou entre os dois — ele reescreve o
+    // `dist/robots.txt` que o `vite build` acabou de copiar, e falha o deploy na Vercel sem a env.
     const pkg = JSON.parse(readFileSync(join(STORE, 'package.json'), 'utf8')) as { scripts: Record<string, string> }
-    expect(pkg.scripts.build).toBe('vite build && node scripts/build-server.mjs')
+    expect(pkg.scripts.build).toBe('vite build && node scripts/build-robots.mjs && node scripts/build-server.mjs')
     expect(CONFIG.buildCommand).toBe('pnpm build')
+    const script = readFileSync(join(STORE, 'scripts/build-robots.mjs'), 'utf8')
+    expect(script).toContain("'public/robots.txt'")
+    expect(script).toContain("'dist/robots.txt'")
   })
 
   it('o bundle gerado não é versionado', () => {

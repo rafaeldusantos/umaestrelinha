@@ -293,8 +293,8 @@ assere é a chamada, nunca a posição. A prova de que a página abre no topo é
 
 ## O HTML servido — a função `api/page` (feature `69`, `AD-053`)
 
-Toda URL que não é arquivo de `dist/` (a home `/`, `/assets`, `/robots.txt`…) nem `/sitemap.xml` ou o
-feed passa pelo catch-all do `vercel.json` para **uma** função Node da Vercel, em `pdx1` (o banco está
+Toda URL que não é arquivo de `dist/` (a home `/`, `/assets`, `/robots.txt`…) nem o feed passa pelo
+catch-all do `vercel.json` para **uma** função Node da Vercel, em `pdx1` (o banco está
 em us-west-2). Ela devolve 200, 301 ou 404 com o `<head>` certo **no HTML**, e o cache de borda é por
 ramo: `s-maxage=300` para produto e categoria, `60` para 404, `3600` para página fixa e rota de app,
 `no-store` quando a leitura falha (que **nunca** vira 404).
@@ -310,52 +310,58 @@ ramo: `s-maxage=300` para produto e categoria, `60` para 404, `3600` para págin
   o compilador de funções da Vercel não reescreve a extensão.
 - **O caminho original chega em `?__path=`**; o resto da query (`?variant=`) é preservado.
 - **Env da Vercel**: `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` e **`STORE_PUBLIC_URL`**
-  (sem barra final). Esta última é o segundo dono da origem, ao lado do secret da Supabase e da linha
-  `Sitemap:` do `robots.txt` — os três mudam juntos no dia do domínio. Sem ela, a página sai **sem**
-  canônica, nunca com a errada.
+  (sem barra final), esta **no build e no runtime**: o build escreve a linha `Sitemap:` do
+  `robots.txt` com ela (feature `70`) e **falha** na Vercel sem ela; a função a usa nas canônicas e
+  nas `<loc>`. Ela continua ao lado do secret `STORE_PUBLIC_URL` da Supabase (lido pelo feed e pelos
+  e-mails) — os dois mudam juntos no dia do domínio. Sem ela no runtime, a página sai **sem**
+  canônica, nunca com a errada, e o sitemap responde 503.
 - **Em dev (`pnpm dev:store`) a função não roda**: o Vite serve o SPA para tudo. A prova local é
   `pnpm build` e importar `api/page.mjs` com `node --env-file=.env`, chamando `fetch` com `?__path=`.
 
-## Sitemap — `/sitemap.xml` (feature `33`, `AD-022`)
+## Sitemap — `/sitemap.xml` (features `33` e `70`, `AD-022`)
 
-**É servido ao vivo por uma edge function** (`supabase/functions/sitemap`), exposta por `rewrite` do
-`vercel.json`. Produto, categoria ou página cadastrada no painel entra na **requisição seguinte** —
-não há artefato de build para envelhecer, e é por isso que a saída "gerar no build" foi recusada: a
-curadoria da Adri acontece no painel, que não faz deploy.
+**É servido ao vivo pela função `api/page`** (desde a feature `70`; até a `69`, pela edge function
+`sitemap`, por `rewrite`). `server/page.ts` desvia `/sitemap.xml` **antes** de `servePage` — que
+trataria o caminho com extensão como 404 — para `serveSitemap` (`@estrelinha/core/sitemap`), com as
+leituras em `server/sitemap.ts`. O cache de borda é **`s-maxage=3600`** no 200: produto, categoria ou
+pergunta cadastrada no painel entra em até uma hora, sem deploy. "Gerar no build" continua recusado:
+a curadoria da Adri acontece no painel, que não faz deploy.
 
-- **A regra é pura e mora em `@estrelinha/core/sitemap`** (`sitemapUrls`, `renderSitemapXml`,
-  `originRefusal`). A function é wiring. Quem monta a URL é `productPath` e `categoryHref` —
-  **jamais** concatenação local: `categoryHref` é a **mesma** função que `resolveCategoryRoute` usa
-  para declarar a canônica da página, então sitemap e `<link rel="canonical">` não podem divergir.
-- **A function lê com a chave PUBLICÁVEL, não com service role** — é a única diferença deliberada
-  em relação à `google-feed`. Com ela, a visibilidade do sitemap **é** a RLS (`is_active`/`active`);
-  com service role seria preciso repetir os dois predicados num `.eq()`, e essa segunda escrita
-  divergiria da primeira sem quebrar nada.
-- **Todo caminho degradado é 5xx sem corpo de sitemap**: leitura truncada (o teto de 1.000 do
-  PostgREST, via `readAllPages`), zero produtos, ou origem ausente/malformada. Um sitemap parcial não
-  parece parcial — **parece uma loja menor**, e o rastreador acredita.
-- **O `Content-Type` de `/sitemap.xml` é reimposto no `vercel.json`, e isso é CARGA.** Medido em
-  2026-08-29: a function responde `application/xml; charset=utf-8` e o gateway `*.supabase.co`
-  entrega **`text/plain`**, com `nosniff`, e o `Cache-Control` intacto — assinatura idêntica à do
-  `BUG-20260829`. Não é específico de `text/html`. Sem o header, a rota devolve 200 com XML correto
-  e entrega inutilizável.
-- **A linha `Sitemap:` do `robots.txt` é o SEGUNDO dono da origem**, e foi assumido de propósito. O
-  primeiro é o secret `STORE_PUBLIC_URL`. Servir o `robots.txt` pela function daria um dono só e foi
-  **recusado por assimetria de dano**: `robots.txt` em 5xx faz o Google parar de rastrear o site
-  inteiro, e sitemap em 5xx custa uma releitura. A contenção é dupla — `robotsSource.test.ts` fixa a
-  forma da linha, e `sitemap-check.yml` confere todo dia que o **host** dela é o host que serve.
-  - **No cutover de domínio, três coisas mudam juntas**: o secret `STORE_PUBLIC_URL`, a linha do
-    `robots.txt` e a variável `STORE_PUBLIC_URL` do workflow. Trocar só uma apaga a descoberta em
-    silêncio — o Google **ignora** referência de sitemap entre domínios.
+- **A regra é pura e mora em `@estrelinha/core/sitemap`** (`serveSitemap`, `readCatalog`,
+  `sitemapUrls`, `renderSitemapXml`, `originRefusal`). Quem monta a URL é `productPath` e
+  `categoryHref` — **jamais** concatenação local: `categoryHref` é a **mesma** função que
+  `resolveCategoryRoute` usa para declarar a canônica da página.
+- **A leitura é com a chave PUBLICÁVEL** (a mesma da página): a visibilidade do sitemap **é** a RLS
+  (`is_active`/`active`). As colunas são exatamente as que a edge function pedia, e
+  `server/__tests__/sitemap.test.ts` as lê do disco.
+- **Todo caminho degradado é 503 `no-store` em `text/plain`, sem `<urlset>`**: leitura que falha ou
+  volta truncada (o teto de 1.000 do PostgREST, via `readAllPages`), zero produtos, origem ausente ou
+  malformada, e as envs do Supabase ausentes (aqui **não** há shell a que recuar). Um sitemap parcial
+  não parece parcial — **parece uma loja menor**. `no-store` porque um 503 cacheado por uma hora
+  prenderia uma falha de um segundo.
+- **Não há override de `Content-Type` no `vercel.json`** (SMV-04): o gateway `*.supabase.co`, que
+  trocava `application/xml` por `text/plain` (`BUG-20260829`), saiu do caminho. O único rewrite
+  externo que resta é o feed.
+- **A linha `Sitemap:` do `robots.txt` é GERADA no build** (`scripts/build-robots.mjs` +
+  `robots.mjs`), de `STORE_PUBLIC_URL` sem barra final. `public/robots.txt` é o **modelo**, e a linha
+  **saiu** dele em vez de virar marcador: um marcador não substituído seria publicado como URL
+  relativa, que o Google ignora calado; e o gerador **recusa** modelo que traga uma. Na Vercel
+  (`VERCEL` definido) sem a env, o build **falha**; fora dela, `http://localhost:8082`. O arquivo
+  continua estático em `dist/` (`AD-022`): `robots.txt` em 5xx faz o Google parar de rastrear o site
+  inteiro. `turbo.json` declara as duas envs — filtradas, nunca chegariam ao script.
+  - **No cutover de domínio**: a env `STORE_PUBLIC_URL` da Vercel (que agora cobre o `robots.txt`), o
+    secret `STORE_PUBLIC_URL` da Supabase (feed e e-mails) e a variável do workflow. Um dono a menos
+    que antes.
 - **Rota nova precisa ser classificada.** `SITEMAP_STATIC_PATHS` e `NON_INDEXABLE_PATHS`
   (`@estrelinha/core/routes`) mais as dinâmicas e as legadas têm de cobrir o `App.tsx` inteiro, nas
-  duas direções (`sitemapRoutes.test.ts`). Sem isso a próxima página pública nasceria fora do sitemap
-  por esquecimento, e nada quebraria.
+  duas direções (`sitemapRoutes.test.ts`).
 - **A prova de que está de pé nunca é o status code** (`AD-021`): é o `Content-Type` **entregue**, o
-  documento parseando e a contagem batendo o catálogo.
+  documento parseando e a contagem batendo o catálogo. Local: `pnpm build` e `api/page.mjs` com
+  `?__path=/sitemap.xml` (seção acima). Medido em 2026-10-20 contra o banco local: **byte a byte** o
+  documento da edge function antiga (2.327 `<loc>`, 3.735 `<image:loc>`).
   ```bash
-  curl -sD - -o /tmp/s.xml <origem>/sitemap.xml | grep -i content-type   # tem de conter "xml"
-  grep -c '<loc>' /tmp/s.xml                                             # 719 em 2026-08-29
+  curl -sD - -o /tmp/s.xml <origem>/sitemap.xml | grep -i -e content-type -e x-vercel-cache
+  grep -c '<loc>' /tmp/s.xml
   curl -s <origem>/robots.txt | grep -ci '^Sitemap:'                     # exatamente 1
   ```
 

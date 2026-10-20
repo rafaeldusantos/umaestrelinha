@@ -125,9 +125,13 @@ describe('menu por superfície — âncoras da varredura', () => {
     expect(varridos.length).toBeGreaterThan(400)
     expect(varridos.some((a) => a.rel.startsWith('apps/store/src/'))).toBe(true)
     expect(varridos.some((a) => a.rel.startsWith('apps/backoffice/src/'))).toBe(true)
-    // A terceira ponta, nomeada por um arquivo que precisa existir: o `sitemap` é quem lê categoria
-    // do banco fora dos apps, e era ele que trazia `show_in_menu` no `select`.
-    expect(varridos.some((a) => a.rel === 'supabase/functions/sitemap/index.ts')).toBe(true)
+    // A terceira ponta, nomeada por um arquivo que precisa existir. Era o `index.ts` da edge function
+    // `sitemap` — quem lia categoria do banco fora das telas, e trazia `show_in_menu` no `select`. Na
+    // feature 70 a leitura mudou para a função da loja (`apps/store/server/sitemap.ts`, fora de
+    // `src/`), e a edge function foi aposentada: as duas pontas são nomeadas, a leitora nova e uma
+    // function que prova que `supabase/functions` continua sendo varrido.
+    expect(varridos.some((a) => a.rel === 'apps/store/server/sitemap.ts')).toBe(true)
+    expect(varridos.some((a) => a.rel === 'supabase/functions/google-feed/index.ts')).toBe(true)
   })
 
   it('a varredura separa produção de teste, e sobra produção de verdade', () => {
@@ -230,9 +234,9 @@ describe('nenhum arquivo do PAINEL lê a curadoria legada (NAV-01)', () => {
   })
 
   it('nem a EDGE FUNCTION lê a coluna legada — nem no `select` de colunas', () => {
-    // A function do sitemap fala com o mesmo banco e não tem tela: ela pedia `show_in_menu` na lista
-    // de colunas, sem decidir nada com ela. Pedir coluna legado é como um leitor volta a existir —
-    // primeiro chega no payload, depois alguém a usa.
+    // A function do sitemap (aposentada na feature 70) falava com o mesmo banco e não tinha tela: ela
+    // pedia `show_in_menu` na lista de colunas, sem decidir nada com ela. Pedir coluna legado é como
+    // um leitor volta a existir — primeiro chega no payload, depois alguém a usa.
     const nasFunctions = procurar(LEGADO).filter((o) => o.arquivo.startsWith('supabase/functions/'))
 
     expect(

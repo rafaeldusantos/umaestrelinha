@@ -26,15 +26,17 @@ const ESCOPO = [join(ROOT, 'apps'), join(ROOT, 'supabase/functions')]
 /**
  * Os **três** leitores legítimos — um por app. Escritos literalmente, nunca derivados.
  *
- * O terceiro é a edge function do sitemap, que anuncia o endereço próprio de cada pergunta. Ela é
- * outro app (Deno) e precisa ler a colocação — mas **não resolve por conta**: chama o mesmo
- * `resolveFaqPage` da página, e o caso no fim deste arquivo exige isso. Sem essa metade, a régua
- * aceitaria um sitemap com a própria regra de "quais perguntas aparecem", que é o defeito inteiro.
+ * O terceiro é a leitura do sitemap, que anuncia o endereço próprio de cada pergunta. Até a feature
+ * 69 ela era a edge function `sitemap` (Deno); desde a 70 é a função `api/page` da loja
+ * (`apps/store/server/sitemap.ts`), fora do bundle do navegador. Ela precisa ler a colocação — mas
+ * **não resolve por conta**: `serveSitemap` (`core/sitemap/serve.ts`) chama o mesmo `resolveFaqPage`
+ * da página, e o caso no fim deste arquivo exige isso. Sem essa metade, a régua aceitaria um sitemap
+ * com a própria regra de "quais perguntas aparecem", que é o defeito inteiro.
  */
 const DONOS = [
   'apps/store/src/entities/faq/api/useFaqPage.ts',
   'apps/backoffice/src/features/faq-page/api/useAdminFaqPage.ts',
-  'supabase/functions/sitemap/index.ts',
+  'apps/store/server/sitemap.ts',
 ]
 
 const EXTENSOES = ['.ts', '.tsx']
@@ -99,11 +101,16 @@ describe('faq_page_items tem um dono por app', () => {
   // O sitemap lê a colocação, mas quem decide quais perguntas aparecem é `resolveFaqPage` — o MESMO
   // da página. Uma segunda régua ali anunciaria pergunta que a página esconde, com tudo verde.
   it('o sitemap resolve as perguntas por `resolveFaqPage`, e não por regra própria', () => {
-    const handlers = semComentarios(
-      readFileSync(join(ROOT, 'supabase/functions/sitemap/handlers.ts'), 'utf8'),
+    // Feature 70: a regra mudou de casa — era o `handlers.ts` da edge function `sitemap`.
+    const serve = semComentarios(
+      readFileSync(join(ROOT, 'packages/core/src/sitemap/serve.ts'), 'utf8'),
     )
-    expect(handlers).toMatch(/import\s*\{[^}]*\bresolveFaqPage\b[^}]*\}\s*from\s*['"][^'"]*core\/src\/faq\/page\.ts['"]/)
-    expect(handlers).toMatch(/\bresolveFaqPage\(\s*await\s+deps\.readFaqLinks\(\)/)
+    expect(serve).toMatch(/import\s*\{[^}]*\bresolveFaqPage\b[^}]*\}\s*from\s*['"]\.\.\/faq\/page\.ts['"]/)
+    expect(serve).toMatch(/\bresolveFaqPage\(\s*await\s+deps\.readFaqLinks\(\)/)
+    // E a leitura do sitemap só entrega as linhas: nenhuma chamada de `resolveFaqPage` nem filtro
+    // próprio de `is_active` na função da loja.
+    const leitura = semComentarios(readFileSync(join(ROOT, 'apps/store/server/sitemap.ts'), 'utf8'))
+    expect(leitura).not.toMatch(/resolveFaqPage|is_active['"]?\s*,\s*true/)
   })
 })
 
