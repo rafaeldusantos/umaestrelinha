@@ -88,7 +88,11 @@ jobs:
             || { echo "::error::o robots.txt aponta para $host_anunciado, mas quem serve é $host_servido — o Google ignora sitemap de outro domínio"; exit 1; }
 
           # 5. Uma <loc> do documento responde 200. Sitemap que lista URL morta é pior que curto.
-          amostra=$(grep -o '<loc>[^<]*</loc>' sitemap.xml | sed 's/<[^>]*>//g' | grep '/produtos/' | head -1)
+          # `sed -n '1p'` e não `head -1`: com `pipefail`, o `head` fecha o pipe depois da primeira
+          # linha, o `grep` de um sitemap grande (2.300+ URLs desde a 68) morre com SIGPIPE e o
+          # `set -e` derruba o job SEM mensagem nenhuma — foi o que fez este check falhar todo dia
+          # desde 2026-10-19 com o sitemap servido correto. O `sed` lê a entrada inteira.
+          amostra=$(grep -o '<loc>[^<]*</loc>' sitemap.xml | sed 's/<[^>]*>//g' | grep '/produtos/' | sed -n '1p')
           echo "amostra: $amostra"
           status=$(curl -sS -o /dev/null -w '%{http_code}' -m 30 "$amostra")
           [ "$status" = "200" ] \
@@ -131,12 +135,12 @@ jobs:
             fi
           }
 
-          peca=$(printf '%s\n' "$locs" | grep '/produtos/' | grep -v '?' | head -1 || true)
+          peca=$(printf '%s\n' "$locs" | grep '/produtos/' | grep -v '?' | sed -n '1p' || true)
           [ -n "$peca" ] || { echo "::error::nenhuma <loc> de produto sem query no sitemap"; exit 1; }
           conferir_canonica "$peca" nao
 
           if [ "$de_opcao" -gt 0 ]; then
-            opcao=$(printf '%s\n' "$locs" | grep '?variant=' | head -1)
+            opcao=$(printf '%s\n' "$locs" | grep '?variant=' | sed -n '1p')
             conferir_canonica "$opcao" sim
           fi
 
