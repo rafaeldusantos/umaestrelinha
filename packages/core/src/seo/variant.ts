@@ -1,7 +1,7 @@
 /**
  * A página de uma OPÇÃO da peça — feature 68 (SVR-01..11, SVR-20).
  *
- * **Um dono, quatro leitores**: a página do produto na loja, a edge function `product-page` (o
+ * **Um dono, quatro leitores**: a página do produto na loja, a função `api/page` via `core/page` (o
  * `<head>` servido), o gerador do sitemap e o painel. Escrita em cada um, a pergunta "esta opção tem
  * página própria, e qual é o endereço dela?" teria quatro respostas, e o juiz da divergência seria o
  * Google: o sitemap anunciaria uma URL que a página não declara canônica, e nada quebraria.
@@ -182,7 +182,7 @@ export const resolveVariantPage = <V extends VariantSeoVariant>(
 }
 
 /**
- * Uma linha de `product_option_filter_values` como a `product-page` a lê: com a chave de serviço, que
+ * Uma linha de `product_option_filter_values` como a `product-page` a lia até a feature 69: com a chave de serviço, que
  * ignora RLS, e com o grupo do valor embutido.
  */
 export interface OptionMarkRow extends OptionMark {
@@ -236,7 +236,7 @@ const optionTitle = (nome: string, texto: string): string => {
 
 /**
  * O `<head>` de `/produtos/<slug>?variant=<param>` — **a régua única** de SVR-08..11, chamada igual
- * pela página da loja e pela edge function `product-page`.
+ * pela página da loja e pela função `api/page` (`core/page`).
  *
  * - **opção** ⇒ título de opção; descrição `summarize("{texto}. {descrição da peça}")`, com a
  *   descrição da peça vinda de `productPageMeta` (curada → derivada → loja → piso); canônica = o

@@ -370,3 +370,108 @@ describe('feature 68 — as páginas de opção', () => {
     expect(await locsDe(res)).toContain('https://umaestrelinha.com.br/produtos/pingente-pata?variant=6000')
   })
 })
+
+/**
+ * Feature 69 · SSV-24..30 — as fotos chegam ao documento servido. A regra mora em `core/sitemap` e
+ * `core/page/images.ts`; aqui se prova que a function as entrega pelo caminho real (leitura paginada
+ * → `sitemapUrls` → `renderSitemapXml`), com o tipo e o parser do caminho bom.
+ */
+describe('feature 69 — as fotos dos produtos', () => {
+  const NS_IMAGEM = 'http://www.google.com/schemas/sitemap-image/1.1'
+  const STORAGE = 'https://hgk.supabase.co/storage/v1/object/public/products'
+  const RENDER = 'https://hgk.supabase.co/storage/v1/render/image/public/products'
+  const rendida = (nome: string) => `${RENDER}/${nome}.webp?width=1200&resize=contain&quality=75`
+
+  const PATA: SitemapProduct = {
+    id: 'p-pata',
+    slug: 'pingente-pata',
+    is_active: true,
+    stock_policy: 'track',
+    options: [{ name: 'Cor', values: ['Prata 925', 'Ouro'], position: 0 }],
+    images: [{ url: `${STORAGE}/a.webp` }, { url: `${STORAGE}/b.webp` }],
+  }
+  const NUA: SitemapProduct = { id: 'p-nua', slug: 'peca-nua', is_active: true, stock_policy: 'track', images: [] }
+  const VARIACOES: SitemapVariant[] = [
+    {
+      id: '00000000-0000-4000-8000-000000000001',
+      product_id: 'p-pata',
+      nuvemshop_id: 7001,
+      price: 100,
+      is_active: true,
+      position: 0,
+      stock: 0,
+      image_url: `${STORAGE}/prata.webp`,
+      option_values: { Cor: 'Prata 925' },
+    },
+    {
+      id: '00000000-0000-4000-8000-000000000002',
+      product_id: 'p-pata',
+      nuvemshop_id: 7002,
+      price: 100,
+      is_active: true,
+      position: 1,
+      stock: 5,
+      image_url: `${STORAGE}/ouro.webp`,
+      option_values: { Cor: 'Ouro' },
+    },
+  ]
+  const MARCAS: SitemapOptionMark[] = [
+    { product_id: 'p-pata', option_name: 'Cor', option_value: 'Prata 925', value_id: 'a' },
+  ]
+  const comFotos = () =>
+    deps({
+      countProducts: async () => 2,
+      readProducts: async (from, to) => [PATA, NUA].slice(from, to + 1),
+      countVariants: async () => VARIACOES.length,
+      readVariants: async (from, to) => VARIACOES.slice(from, to + 1),
+      countOptionMarks: async () => MARCAS.length,
+      readOptionMarks: async (from, to) => MARCAS.slice(from, to + 1),
+    })
+
+  /** `<loc>` da `<url>` → as `<image:loc>` dela, pelo namespace. */
+  const fotosPorUrl = (xml: string): Record<string, string[]> => {
+    const doc = parse(xml)
+    const saida: Record<string, string[]> = {}
+    for (const url of [...doc.getElementsByTagName('url')]) {
+      const loc = url.getElementsByTagName('loc')[0].textContent
+      const fotos = [...url.getElementsByTagNameNS(NS_IMAGEM, 'loc')].map(n => n.textContent)
+      if (fotos.length > 0) saida[loc] = fotos
+    }
+    return saida
+  }
+
+  it('SSV-24/26/28: 200, e só a `<url>` da peça leva fotos — a da representante primeiro', async () => {
+    const res = await handleSitemap(comFotos())
+    expect(res.status).toBe(200)
+    expect(res.headers.get('Content-Type')).toBe('application/xml; charset=utf-8')
+    const xml = await res.text()
+    // A Prata (posição 0) está esgotada: a representante é a Ouro, e a foto dela abre a lista.
+    expect(fotosPorUrl(xml)).toEqual({
+      'https://umaestrelinha.com.br/produtos/pingente-pata': [rendida('ouro'), rendida('a'), rendida('b')],
+    })
+    // A `<url>` de opção existe e não leva foto (SSV-28).
+    expect([...parse(xml).getElementsByTagName('loc')].map(n => n.textContent)).toContain(
+      'https://umaestrelinha.com.br/produtos/pingente-pata?variant=7001',
+    )
+  })
+
+  it('SSV-25: o documento declara o namespace de imagens', async () => {
+    const doc = parse(await (await handleSitemap(comFotos())).text())
+    expect(doc.documentElement.getAttribute('xmlns:image')).toBe(NS_IMAGEM)
+  })
+
+  it('SSV-29: o `&` da URL de rendição sai escapado no corpo servido', async () => {
+    const xml = await (await handleSitemap(comFotos())).text()
+    expect(xml).toContain(
+      `<image:loc>${RENDER}/a.webp?width=1200&amp;resize=contain&amp;quality=75</image:loc>`,
+    )
+    expect(xml).not.toMatch(/<image:loc>[^<]*&(?!amp;|lt;|gt;|quot;|apos;)/)
+  })
+
+  it('SSV-27: peça sem foto sai sem `<image:image>`, e nenhum `<image:loc>` é vazio', async () => {
+    const xml = await (await handleSitemap(comFotos())).text()
+    expect(fotosPorUrl(xml)['https://umaestrelinha.com.br/produtos/peca-nua']).toBeUndefined()
+    expect(xml).not.toContain('<image:loc></image:loc>')
+    expect(xml.match(/<image:image>/g)).toHaveLength(3)
+  })
+})

@@ -49,12 +49,19 @@ const supabase = createClient(supabaseUrl, publicKey)
 /**
  * Só o que vira `<loc>` e `<lastmod>`. Enumerado para o payload não crescer sem decisão. Desde a
  * feature 68 também o que decide as páginas de opção: o `id` (liga a peça às variações e marcações
- * dela), `is_active` e os eixos.
+ * dela), `is_active` e os eixos. Desde a 69, as fotos (`images`, uma `<image:image>` cada) e
+ * `stock_policy`, que com o `stock` da variação decide a representante — a dona da primeira foto,
+ * que é o `og:image` da página. Sem as duas a primeira `<image:loc>` divergiria do `og:image` em
+ * silêncio (`wiring.test.ts` lê estas constantes do disco).
  */
-const COLUNAS_PRODUTO = 'id,slug,updated_at,is_active,options'
+const COLUNAS_PRODUTO = 'id,slug,updated_at,is_active,options,images,stock_policy'
 
-/** Feature 68: só o que decide se a opção tem página e qual é o `?variant=` dela. */
-const COLUNAS_VARIACAO = 'id,product_id,nuvemshop_id,price,is_active,position,option_values'
+/**
+ * Feature 68: só o que decide se a opção tem página e qual é o `?variant=` dela. Feature 69: a foto
+ * da linha e o saldo, que decidem a primeira foto da peça.
+ */
+const COLUNAS_VARIACAO =
+  'id,product_id,nuvemshop_id,price,is_active,position,option_values,image_url,stock'
 
 /** Feature 68: a marcação por opção. A RLS já recortou grupo ativo e peça ativa. */
 const COLUNAS_MARCACAO = 'product_id,option_name,option_value,value_id'

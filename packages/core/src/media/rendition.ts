@@ -6,8 +6,8 @@
 // O vizinho `./index.ts` faz `import type { ProductImage } from '@estrelinha/supabase/types'`.
 // Isso é inofensivo no Vite e **fatal no Deno**: medido na feature `33`, o Deno resolve o grafo de
 // TIPOS também, e um `import type` de pacote com alias derruba o worker com `Failed resolving
-// types` **antes da primeira linha rodar**. A edge function `product-page` precisa desta mesma
-// função para montar o `<link rel="preload">` (`PRF-06`), e a alcança por caminho relativo
+// types` **antes da primeira linha rodar**. A edge function `sitemap` (via `core/page/images.ts`) precisa desta mesma
+// função para montar as fotos do sitemap (feature 69), e a alcança por caminho relativo
 // (`../../../packages/core/src/media/rendition.ts`) — nunca pelo barrel.
 //
 // Import novo aqui — inclusive `import type` — quebra a edge function sem quebrar nada mais:
@@ -75,7 +75,7 @@ export const STORAGE_CACHE_CONTROL = '31536000'
  * O `sizes` do palco da galeria do produto.
  *
  * Mora aqui, e não dentro de `ProductGallery`, porque a partir da `PRF-06` ele tem **dois**
- * leitores: a galeria e o `<link rel="preload" as="image">` que a edge function `product-page`
+ * leitores: a galeria e o `<link rel="preload" as="image">` que `core/page` (a função `api/page`)
  * injeta no `<head>`. O navegador escolhe o candidato do `srcset` pelo `sizes` — com os dois
  * divergindo, ele escolhe uma largura no preload e OUTRA na galeria, e **baixa as duas fotos**.
  * Fica pior do que sem preload nenhum, e nada acusa: a página funciona, só pesa o dobro.

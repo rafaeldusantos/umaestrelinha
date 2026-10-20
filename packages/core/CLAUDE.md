@@ -42,11 +42,12 @@ sem ela a varredura passa com zero arquivo lido, que é a pior falha possível n
 | `./home` | catálogo de blocos, `DEFAULT_HOME_COMPOSITION`, `derive.ts`, `preview.ts`, `carousel.ts`, `featured.ts`, **`categoryList.ts`** | loja, painel |
 | `./faq` | `resolveProductFaqs`, `faqOverrideOf`, `rankFaqSuggestions`, `block.ts` | loja, painel, importador |
 | `./material` | máquina de estado, `requiresMaterial()`, `materialSummary` | loja, painel, RPC (cópia em SQL) |
-| `./shopping` | `ShoppingOffer` e as duas serializações | `google-feed`, `product-page`, loja, painel |
+| `./shopping` | `ShoppingOffer` e as duas serializações | `google-feed`, `core/page`, loja, painel |
+| `./page` | **`classifyPath`, `servePage`, `applyHead`, `resolveCategoryRoute`, `productPageImages`** — a resposta HTML de cada caminho (feature `69`, `AD-053`). `images.ts` é folha alcançável pelo Deno (o sitemap a usa) | função `api/page` da Vercel (`apps/store/server`), loja, function `sitemap` |
 | `./checkout` | `resolveBlocks`, `isOrderStale`, **`resolveCheckoutIdentity`** e **`guestAccess`** | loja, edge function `checkout`, `mercado-pago` |
 | `./validators/email` | `isValidEmail`, `normalizeEmail` | loja, edge function `checkout` |
 | `./shipping` | `freeShippingState` + `freeShippingRefusal` (o frete grátis tem **um** dono), `estimate.ts` | 8 superfícies nos 2 apps |
-| `./media` | `renditionUrl`/`renditionSrcSet`/`imagePriority` (`rendition.ts`) e **`surfaceArt`** (`AD-030`) | loja, painel, `product-page` |
+| `./media` | `renditionUrl`/`renditionSrcSet`/`imagePriority` (`rendition.ts`) e **`surfaceArt`** (`AD-030`) | loja, painel, `core/page` |
 | `./validators` · `./product` · `./auth` | utilitários de domínio | vários |
 | `./hooks/*` | **exceção declarada** — `useStoreSettings`, `useCoupons` tocam Supabase | os dois apps |
 

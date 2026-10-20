@@ -2,7 +2,7 @@
  * O metadado de cada página da loja — feature 62.
  *
  * **Um dono, dois consumidores**: o hook `usePageMeta` da loja (o `<head>` atualizado na navegação)
- * e a edge function `product-page` (o `<head>` servido para quem não executa JavaScript). Escritas
+ * e a função `api/page` via `core/page` (o `<head>` servido para quem não executa JavaScript). Escritas
  * em dois lugares, o título que o WhatsApp mostra e o que a aba mostra divergiriam sem nada quebrar
  * — o "defeito 01".
  *
@@ -190,6 +190,14 @@ export const categoryPageMeta = (category: CategoryMetaInput): PageMeta => {
 }
 
 /** A 404 da loja (`MTA-05`): título próprio, `noindex`. */
+/**
+ * O dono da `<meta name="robots">` que a loja escreve (feature 69). O servidor (`core/page`, no HTML
+ * da 404) e o cliente (`usePageMeta`) marcam a tag com ESTE valor, para que a navegação seguinte no
+ * SPA reconheça a tag servida como sua e a remova — sem a marca, a página indexável aberta a partir
+ * de uma 404 herdaria o `noindex`, e a hidratação da 404 escreveria um segundo.
+ */
+export const ROBOTS_META_OWNER = 'estrelinha-spa'
+
 export const notFoundPageMeta = (): PageMeta => ({
   title: brandedTitle('Página não encontrada'),
   description: 'A página que você procurou não existe na Uma Estrelinha.',

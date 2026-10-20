@@ -1,6 +1,6 @@
 // Feature 30 — a API pública de `@estrelinha/core/shopping`.
 //
-// Consumidores: `supabase/functions/google-feed`, `supabase/functions/product-page`,
+// Consumidores: `supabase/functions/google-feed`, `core/page` (a função `api/page` da loja),
 // `apps/store` (o `?variant=`) e `apps/backoffice` (a contagem do que fica de fora).
 //
 // **As edge functions NÃO importam por este barrel**: Deno resolve por caminho relativo com extensão

@@ -1,7 +1,7 @@
 /**
  * O nome da loja no `<title>` — feature 62, `MTA-02`.
  *
- * Folha sem import nenhum: a edge function `product-page` alcança este arquivo por caminho relativo.
+ * Folha sem import nenhum: a edge function `sitemap` alcança este arquivo por caminho relativo.
  */
 export const STORE_BRAND = 'Uma Estrelinha'
 

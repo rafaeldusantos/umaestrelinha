@@ -19,6 +19,8 @@ import { faqQuestionPath } from '../faq/link.ts'
 import { categoryHref } from '../menu/index.ts'
 import { SITEMAP_STATIC_PATHS, productPath } from '../routes/index.ts'
 import { indexableOptions } from '../seo/variant.ts'
+import { productPageImages } from '../page/images.ts'
+import { SITEMAP_MAX_IMAGES_PER_URL } from './render.ts'
 import type {
   SitemapCategory,
   SitemapFaqQuestion,
@@ -176,10 +178,32 @@ export const sitemapUrls = ({
               },
               variants: variacoesDe.get(product.id) ?? [],
             })
-      return [
-        { loc: absolute(base, productPath(product.slug)), lastmod },
-        ...opcoes.map(o => ({ loc: absolute(base, o.path), lastmod })),
-      ]
+      // Feature 69 · SSV-24, SSV-26, SSV-28, SSV-30: as fotos só na `<url>` da peça — nunca na de
+      // opção, que é o mesmo conteúdo e repetiria as fotos. Quem diz quais e em que ordem é
+      // `productPageImages`, o MESMO dono do `og:image` da página: a primeira `<image:loc>` é ele,
+      // byte a byte. Sem `images` lidas, nenhuma foto — o documento de antes da 69.
+      const fotos =
+        product.images == null
+          ? []
+          : productPageImages(
+              {
+                images: [...product.images],
+                is_active: product.is_active !== false,
+                stock_policy: product.stock_policy ?? 'track',
+              },
+              (product.id === undefined ? [] : variacoesDe.get(product.id) ?? []).map(v => ({
+                is_active: v.is_active,
+                price: v.price,
+                stock: v.stock ?? 0,
+                image_url: v.image_url ?? null,
+                position: v.position ?? undefined,
+              })),
+            ).slice(0, SITEMAP_MAX_IMAGES_PER_URL)
+      const peca: SitemapUrl =
+        fotos.length > 0
+          ? { loc: absolute(base, productPath(product.slug)), lastmod, images: fotos }
+          : { loc: absolute(base, productPath(product.slug)), lastmod }
+      return [peca, ...opcoes.map(o => ({ loc: absolute(base, o.path), lastmod }))]
     })
 
   // Na ordem da página, que é a ordem em que chegam. Quem monta o endereço é `faqQuestionPath` — o

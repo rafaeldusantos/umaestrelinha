@@ -1,9 +1,10 @@
 // Feature 33 — as formas mínimas que o sitemap precisa ler do catálogo.
 //
-// Deliberadamente **estruturais e menores que as do banco**: o sitemap não conhece preço, estoque,
-// imagem nem descrição. Declarar aqui só `slug` e `updated_at` é o que impede a próxima coluna de
-// entrar por acidente — e é o que deixa o teste montar uma entrada de três campos em vez de um
-// produto inteiro.
+// Deliberadamente **estruturais e menores que as do banco**: o sitemap não conhece descrição nem
+// nome. (Preço e saldo entraram na 68 e na 69 só para decidir a representante — a opção indexável e
+// a primeira foto —, nunca para serem anunciados.) Declarar aqui só o que é lido é o que impede a
+// próxima coluna de entrar por acidente — e é o que deixa o teste montar uma entrada de três campos
+// em vez de um produto inteiro.
 
 import type { OptionMark } from '../filters/types.ts'
 import type { MenuCategory } from '../menu/index.ts'
@@ -22,6 +23,13 @@ export interface SitemapProduct {
   /** A RLS já filtrou; ausente vale como ativa. */
   is_active?: boolean | null
   options?: readonly VariantSeoAxis[] | null
+  /**
+   * Feature 69 · SSV-24: as fotos (`products.images`) e a política de estoque, que decide a
+   * representante e por isso a primeira foto. Ausentes, a `<url>` sai sem `<image:image>` — o
+   * documento de antes da 69.
+   */
+  images?: readonly { url: string }[] | null
+  stock_policy?: 'track' | 'backorder' | 'none'
 }
 
 /** Uma linha de `product_variants` — só o que decide se a opção tem página e qual é o `?variant=`. */
@@ -33,6 +41,13 @@ export interface SitemapVariant {
   is_active: boolean
   position?: number | null
   option_values?: Readonly<Record<string, string>> | null
+  /**
+   * Feature 69: a foto da linha e o saldo — os dois decidem a primeira `<image:loc>` (a da
+   * representante, que é o `og:image` da página). Sem `stock`, toda linha de peça `track` pareceria
+   * esgotada e a representante mudaria.
+   */
+  image_url?: string | null
+  stock?: number
 }
 
 /** Uma linha de `product_option_filter_values`, já filtrada pela RLS (grupo ativo, peça ativa). */
@@ -66,4 +81,9 @@ export interface SitemapUrl {
   loc: string
   /** W3C Datetime, ou ausente. */
   lastmod?: string | null
+  /**
+   * Feature 69 · SSV-24..30: as fotos da página, absolutas, cada uma vira um `<image:image>`. Só em
+   * `<url>` de produto sem `?variant=`; ausente ou vazia ⇒ nenhum bloco.
+   */
+  images?: readonly string[]
 }

@@ -298,3 +298,27 @@ export const legacyRedirectTo = (pathname: string): string | null => {
   const entry = LEGACY_REDIRECTS.find(r => r.from.includes(':slug') && r.from.split('/')[1] === prefix)
   return entry ? entry.to.replace(':slug', slug) : null
 }
+
+/**
+ * As rotas de APLICAÇÃO do `App.tsx` — feature 69 (`AD-053`, SSV-10).
+ *
+ * São as rotas que a função da Vercel responde com **200 e o shell intacto**: não são produto, nem
+ * categoria, nem página fixa indexável, e por isso não têm `<head>` próprio servido — quem as resolve
+ * é a SPA. Sem esta lista, a função não teria como distinguir `/pedido/<id>` (uma rota de verdade) de
+ * `/qualquer/coisa` (404), e responderia 200 para tudo — o *soft 404* que a 69 existe para remover.
+ *
+ * **Composta, não escrita à mão**: as não indexáveis vêm de `NON_INDEXABLE_PATHS` e as legadas de
+ * `LEGACY_REDIRECTS` — os dois já são donos dessas listas, e uma segunda escrita delas aqui
+ * divergiria na primeira rota nova. As legadas são `301` no edge (o `vercel.json` responde antes da
+ * função); estão aqui porque no roteador elas EXISTEM, e se o edge um dia não responder, a SPA
+ * responde — nunca a 404.
+ *
+ * Bidirecional com o `App.tsx` lido do disco: `apps/store/src/app/__tests__/rotasDeApp.test.ts`.
+ */
+export const APP_ROUTE_PATTERNS: readonly string[] = [
+  ...NON_INDEXABLE_PATHS.map(r => r.path),
+  // O endereço próprio de cada pergunta (2026-10-17). Indexável, mas com o `<head>` de hoje — fora
+  // do escopo da 69 (spec, P2 fixas · AC3): quem o resolve é a SPA, a partir da página geral.
+  `${FAQ_PATH}/:pergunta`,
+  ...LEGACY_REDIRECTS.map(r => r.from),
+]

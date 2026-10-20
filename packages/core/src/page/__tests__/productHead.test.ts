@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { renditionUrl } from '../../../../packages/core/src/media/rendition.ts'
-import {
-  OG_IMAGE_WIDTH,
-  handleProductPage,
-  type ProductPageData,
-  type ProductPageDeps,
-} from '../handlers.ts'
+import { renditionUrl } from '../../media/rendition.ts'
+import { OG_IMAGE_WIDTH } from '../images.ts'
+import { servePage, type PageDeps, type ProductPageData } from '../serve.ts'
 
 /**
+ * Portado de `supabase/functions/product-page/__tests__/productHead.test.ts` na feature 69 (T03/T05):
+ * os 15 casos, contra `servePage` (que monta o `<head>` por `applyHead`). Um mudou de veredito pela
+ * spec — slug desconhecido passa de "shell intacto" a **404 com noindex** (SSV-07).
+ *
  * Feature 62 · `MTA-15`..`MTA-18` — o HTML servido de um produto traz o título, a descrição e o card
  * DA JOIA. É a única superfície do produto que o WhatsApp lê: ele não executa JavaScript.
  *
@@ -64,19 +64,27 @@ const produto = (over: Partial<ProductPageData['product']> = {}): ProductPageDat
   ],
 })
 
-const deps = (over: Partial<ProductPageDeps> = {}, d: ProductPageData | null = produto()): ProductPageDeps => ({
-  fetchShell: async () => SHELL_REAL,
-  readProduct: async () => d,
+type Over = Partial<PageDeps> & { storeDescription?: string }
+
+const deps = ({ storeDescription, ...over }: Over = {}, d: ProductPageData | null = produto()): PageDeps => ({
+  shell: SHELL_REAL,
   origin: ORIGEM,
+  readProduct: async () => d,
+  readOptionMarks: async () => [],
+  readProductRedirect: async () => null,
+  readCategories: async () => [],
+  readCategoryRedirect: async () => null,
+  readInactiveFallback: async () => null,
+  readSettings: async () => ({ defaultProductCategory: null, storeDescription: storeDescription ?? null }),
+  log: () => {},
   ...over,
 })
 
 const servido = async (
-  over: Partial<ProductPageDeps> = {},
+  over: Over = {},
   p: Partial<ProductPageData['product']> = {},
-  qs = `?slug=${SLUG}`,
-): Promise<string> =>
-  (await handleProductPage(deps(over, produto(p)), new URL(`https://x/functions/v1/product-page${qs}`))).text()
+  qs = '',
+): Promise<string> => (await servePage(deps(over, produto(p)), new URL(`https://x/produtos/${SLUG}${qs}`))).body
 
 /** O `content` de cada `<meta>` com aquele `name`/`property`, na ordem do documento. */
 const metaDe = (corpo: string, chave: string): string[] =>
@@ -124,7 +132,7 @@ describe('o <head> servido do produto (MTA-15)', () => {
 
 describe('o card do produto (MTA-16)', () => {
   it('og:type é product, e og:url é a canônica absoluta SEM o ?variant=', async () => {
-    const corpo = await servido({}, {}, `?slug=${SLUG}&variant=1259936246`)
+    const corpo = await servido({}, {}, '?variant=1259936246')
     expect(metaDe(corpo, 'og:type')).toEqual(['product'])
     expect(metaDe(corpo, 'og:url')).toEqual([`${ORIGEM}/produtos/${SLUG}`])
   })
@@ -209,21 +217,23 @@ describe('uma instância de cada, e escape (MTA-17)', () => {
 })
 
 describe('os caminhos de falha servem a página com o <head> genérico (MTA-18)', () => {
-  it('slug desconhecido: o shell sai intacto', async () => {
-    const res = await handleProductPage(deps({}, null), new URL('https://x/fn?slug=nao-existe'))
-    expect(await res.text()).toBe(SHELL_REAL)
+  it('slug desconhecido: 404 com noindex (SSV-07) — o corpo continua o shell', async () => {
+    const res = await servePage(deps({}, null), new URL('https://x/produtos/nao-existe'))
+    expect(res.status).toBe(404)
+    expect(res.body).toContain('<meta name="robots" content="noindex" data-owner="estrelinha-spa">')
+    expect(res.body).toContain('<div id="root"></div>')
   })
 
   it('leitura que falha: o shell sai intacto, com 200', async () => {
-    const res = await handleProductPage(
+    const res = await servePage(
       deps({
         readProduct: async () => {
           throw new Error('banco fora')
         },
       }),
-      new URL(`https://x/fn?slug=${SLUG}`),
+      new URL(`https://x/produtos/${SLUG}`),
     )
     expect(res.status).toBe(200)
-    expect(await res.text()).toBe(SHELL_REAL)
+    expect(res.body).toBe(SHELL_REAL)
   })
 })

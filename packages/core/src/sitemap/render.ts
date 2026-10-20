@@ -10,6 +10,12 @@ import type { SitemapUrl } from './types.ts'
 
 const NS = 'http://www.sitemaps.org/schemas/sitemap/0.9'
 
+/** Feature 69 · SSV-25 — a extensão de imagens do Google. */
+export const SITEMAP_IMAGE_NS = 'http://www.google.com/schemas/sitemap-image/1.1'
+
+/** Feature 69 · SSV-30 — o teto do protocolo de imagens, por `<url>`. Quem recorta é `sitemapUrls`. */
+export const SITEMAP_MAX_IMAGES_PER_URL = 1000
+
 /**
  * Os tetos do protocolo, por arquivo. Estão aqui como **dado**, não como comentário, porque a
  * decisão de não ter `<sitemapindex>` foi tomada contra estes números (719 URLs hoje) e precisa
@@ -37,7 +43,16 @@ const entry = (url: SitemapUrl): string => {
       ? ''
       : `    <lastmod>${escapeXml(String(url.lastmod))}</lastmod>\n`
 
-  return `  <url>\n    <loc>${locValue(url.loc)}</loc>\n${lastmod}  </url>\n`
+  // Feature 69 · SSV-27, SSV-29: uma `<image:image>` por foto, escapada como texto XML. Só
+  // `escapeXml`, sem o `encodeURI` da `<loc>`: a foto já chega como URL (do banco, ou montada por
+  // `renditionUrl`), e codificar de novo transformaria um `%20` em `%2520` — outra foto. Vazia não
+  // emite nada, nunca um `<image:loc>` vazio.
+  const imagens = (url.images ?? [])
+    .filter(foto => typeof foto === 'string' && foto !== '')
+    .map(foto => `    <image:image>\n      <image:loc>${escapeXml(foto)}</image:loc>\n    </image:image>\n`)
+    .join('')
+
+  return `  <url>\n    <loc>${locValue(url.loc)}</loc>\n${lastmod}${imagens}  </url>\n`
 }
 
 /**
@@ -62,7 +77,9 @@ export const renderSitemapXml = (urls: readonly SitemapUrl[]): string => {
 
   return (
     '<?xml version="1.0" encoding="UTF-8"?>\n' +
-    `<urlset xmlns="${NS}">\n` +
+    // SSV-25: o namespace de imagens é declarado sempre — declarar sem usar é válido, e um documento
+    // que o declarasse só às vezes mudaria de cabeçalho conforme o catálogo.
+    `<urlset xmlns="${NS}" xmlns:image="${SITEMAP_IMAGE_NS}">\n` +
     urls.map(entry).join('') +
     '</urlset>\n'
   )

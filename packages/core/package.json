@@ -33,7 +33,8 @@
     "./orders": "./src/orders/index.ts",
     "./analytics": "./src/analytics/index.ts",
     "./seo": "./src/seo/index.ts",
-    "./filters": "./src/filters/index.ts"
+    "./filters": "./src/filters/index.ts",
+    "./page": "./src/page/index.ts"
   },
   "scripts": {
     "test": "vitest run"

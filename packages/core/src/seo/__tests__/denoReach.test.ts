@@ -1,6 +1,9 @@
 /**
- * `core/seo` é importado pela edge function `product-page` por caminho relativo — e o grafo
- * TRANSITIVO dele (`core/faq/block.ts`, `core/routes/routes.ts`) tem de ser alcançável por Deno.
+ * `core/seo` é alcançado pela edge function `sitemap` por caminho relativo (via `core/sitemap/urls.ts`
+ * → `seo/variant.ts`), e pelo `<head>` servido (`core/page/serve.ts`, feature 69), que é empacotado
+ * FORA do Vite. A edge function da página de produto, que o importava antes, foi aposentada na `69`
+ * — o leitor mudou, a exigência não. O grafo TRANSITIVO (`core/faq/block.ts`, `core/routes/routes.ts`)
+ * tem de ser alcançável por Deno.
  *
  * Deno exige extensão explícita em todo especificador relativo, **`import type` incluso**, e resolve
  * o grafo de tipos antes da primeira linha: um `.ts` faltando derruba o worker com
@@ -59,8 +62,8 @@ describe('core/seo é alcançável por Deno', () => {
     expect(nomes.some(n => n.endsWith('routes/routes.ts'))).toBe(true)
   })
 
-  // Feature 68: `seo/variant.ts` puxou `shopping` e `filters/types.ts` para o grafo que a
-  // `product-page` resolve. Âncora = o número MEDIDO (15 em 2026-10-19), não um piso: um arquivo a
+  // Feature 68: `seo/variant.ts` puxou `shopping` e `filters/types.ts` para o grafo que o Deno
+  // resolve (na `68`, pela edge function da página de produto; desde a `69`, pelo `sitemap`). Âncora = o número MEDIDO (15 em 2026-10-19), não um piso: um arquivo a
   // mais ou a menos no grafo do Deno é uma mudança que alguém precisa olhar.
   it('âncora: o grafo alcança seo/variant.ts, os arquivos de shopping e filters/types.ts (15 arquivos)', () => {
     const nomes = grafo.visitados.map(c => c.replace(/\\/g, '/'))

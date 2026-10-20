@@ -13,7 +13,9 @@ export type {
 } from './types.ts'
 export { originRefusal, sitemapUrls, type SitemapUrlsInput } from './urls.ts'
 export {
+  SITEMAP_IMAGE_NS,
   SITEMAP_MAX_BYTES,
+  SITEMAP_MAX_IMAGES_PER_URL,
   SITEMAP_MAX_URLS,
   locValue,
   renderSitemapXml,

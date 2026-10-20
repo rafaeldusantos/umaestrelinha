@@ -5,7 +5,7 @@
  * o bloco de perguntas que a feature 28 promoveu a cadastro, e `htmlToText` faz "tag some, entidade
  * vira caractere, espaço colapsa" — a mesma redução que o feed do Google usa.
  *
- * Os dois imports entram por ARQUIVO e com `.ts`: a edge function `product-page` chega aqui por
+ * Os dois imports entram por ARQUIVO e com `.ts`: a edge function `sitemap` chega aqui por
  * caminho relativo, e o barrel de `core/faq` não é alcançável por Deno.
  */
 import { htmlToText, stripFaqBlock } from '../faq/block.ts'
