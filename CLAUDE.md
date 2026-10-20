@@ -73,7 +73,7 @@ pnpm install            # instala tudo (node-linker=hoisted)
 pnpm dev                # sobe os dois apps
 pnpm dev:store          # só a loja      (:8082)
 pnpm dev:backoffice     # só o admin     (:8083)
-pnpm build              # build dos dois (dist/ por app)
+pnpm build              # build dos dois (dist/ por app; a loja gera também .server/page.mjs, a função api/page)
 pnpm test               # vitest em todos
 pnpm lint               # eslint em todos
 pnpm --filter @estrelinha/store <script>    # rodar num workspace específico
@@ -138,9 +138,11 @@ Ao planejar/implementar features, use a Skill **`tlc-spec-driven`** com estas co
     que continua só com `spec.md`. A `63` (retirada no escritório), a `64` (lista de categorias na
     Home) e a `65` (convite para o Instagram na Home) também estão FECHADAS, com commit. A `66`
     (filtros de produto) também está FECHADA, com commit. A `67` (os filtros enxergam as variações)
-    também está FECHADA, com commit. A `68` (SEO por variação) está IMPLEMENTADA, com prova servida
-    no local, aguardando o pedido de commit — e a prova em produção só existe depois do deploy. A
-    próxima é a `69`.**
+    também está FECHADA, com commit. A `68` (SEO por variação) também está FECHADA, com commit — a
+    prova em produção só existe depois do deploy. A `69` (o `<head>` servido de dentro da Vercel:
+    produto com cache, categoria e páginas fixas com título no HTML, 404 de verdade e imagens no
+    sitemap) está IMPLEMENTADA, **sem commit**, com prova local; a prova em plataforma (preview e
+    produção) está pendente. A próxima é a `70`.**
   - **A `46` e a `47` correram EM PARALELO, em worktrees separados**, e é o segundo caso do projeto
     (o primeiro, a `45`, dividiu uma working tree só). O que mudou: a divisão foi por **árvore**, não
     por arquivo — a `47` nasceu de um `git worktree` sobre o HEAD local e trouxe a `46` por
@@ -248,6 +250,7 @@ com as duas cópias divergindo, e quem descobre é a cliente ou o Google.
 | `63` | **"este pedido é de retirada?" e "a retirada está disponível?", perguntados por SETE lugares** — a calculadora e o checkout da loja, a confirmação e a conta, a function `checkout` (que recusa a forjada), a `melhor-envio` (que não gera etiqueta), o motor de e-mail e o painel. Escrita em cada um, a loja ofereceria a retirada que o servidor recusa, ou o e-mail diria "postamos" de uma peça que a cliente busca no balcão | `packages/core/src/shipping/pickup.ts` (`AD-049`), **sem import nenhum** para ser alcançável pelo Deno por caminho; a identidade é `shipping_service_id = 'retirada'`, e a retirada mora FORA da cotação (`ShippingQuote` intocado); `shipping/__tests__/denoReach.test.ts` e `retiradaSemEtiqueta.test.ts` guardam as duas pontas que nenhuma outra ferramenta lê |
 | `50` | **o esqueleto de carga e a revalidação, que eram a MESMA chamada** — `fetchSections()`/`fetchCategories()` significavam "carregar" e "revalidar" ao mesmo tempo, e a tela só sabia ler a primeira: toda gravação trocava a árvore por `<TableSkeleton/>`, o que **desmontava o `<iframe>` da prévia** e recarregava a loja a cada clique. E, ao lado, dois campos **de tela** do rascunho a um `insert` de distância de virar `PGRST204` | `fetchX(modo)` com o tipo `FetchMode` em **um** arquivo (`shared/lib/fetchMode.ts`) — dois nomes para o mesmo modo seriam o defeito no tamanho de um tipo, e o terceiro hook nasceria com um terceiro nome —, mais `toNewItems` como a única tradução rascunho → colunas, com `toNewItems.test.ts` recusando a oitava chave |
 | `68` | **o endereço de uma variação, e a pergunta "esta opção tem página?"** — `?variant=` tinha **dois construtores** (o `offerLink` do feed e o card da `67`, à mão, com `encodeURIComponent`), e a regra de quais opções viram página teria **quatro leitores** (a página, a `product-page`, o sitemap e o painel). Escrita em cada um, o sitemap anunciaria uma URL que a página não declara canônica — e o juiz seria o Google, semanas depois | `variantPath` em `core/shopping/offer.ts` (o `<g:link>` delega a ele) e `core/seo/variant.ts` (`indexableOptions`, `productHead`), com `paginaDeOpcaoComDonoUnico.test.ts` recusando a montagem à mão e exigindo a chamada nos quatro (`AD-052`) |
+| `69` | **o `<head>` servido, que ia ganhar uma SEGUNDA casa** — a edge function `product-page` já montava o de produto no Deno, e categoria, página fixa e 404 precisavam do mesmo trabalho num segundo runtime (a função da Vercel). Escrito nos dois, a regra de canônica, de cache e de status divergiria entre produto e o resto. E `resolveCategoryRoute` vivia em `entities/category` da loja, com o servidor prestes a precisar da mesma decisão | `@estrelinha/core/page` (`AD-053`): `classifyPath` + `servePage` + `applyHead`, chamados pela função `api/page`; `resolveCategoryRoute` subiu para `core/page` e a loja reexporta (`toBe`); o código da `product-page` saiu do repositório, com `paginaDeOpcaoComDonoUnico` exigindo `productHead` em `core/page/serve.ts` |
 
 Consequências práticas, nesta ordem:
 
@@ -348,7 +351,7 @@ migrations, e `vercelRedirects` lê o `vercel.json`.
 | `marcacaoPorOpcaoComDonoUnico.test.ts` | idem (varre `apps/store/**`) | qualquer arquivo da loja fora de `mapProduct.ts` citar a tabela das marcações por opção ou o campo `option_marks` — quem decide é `matchProduct` em `core`. Metade positiva: a listagem chama `matchProduct` e `facetCounts` |
 | `marcacaoSoPorAcao.test.ts` | idem (varre `apps/**`, `packages/**` e `supabase/functions`) | **pela AST do TypeScript**: escrita nas três tabelas de marcação/recusa fora do allowlist literal de portas; tabela que não resolve para literal (acusada em qualquer arquivo); export novo de um arquivo-porta sem classificação (**colhido do disco**, por igualdade); uso de uma porta — chamada, `?.(`, genérico, referência, alias de import ou de barril — fora dos chamadores de Salvar, Aprovar, marcação em massa e Recusar; RPC chamada que não está na lista literal; migration que escreva nessas tabelas. É o Success Criterion "nenhuma sugestão vira marcação sem um toque da Adri". O cabeçalho declara o que **não** mede |
 | `reservedSlugs.test.ts` | idem | rota nova no `App.tsx` que não entrou em `ROUTE_SLUGS`; entrada de `ROUTE_SLUGS` que deixou de ser rota. **Bidirecional** |
-| `vercelRedirects.test.ts` | idem | `vercel.json` divergir de `LEGACY_REDIRECTS`; `trailingSlash` deixar de ser `false`; redirect usando `permanent` (que produz 308); o catch-all do SPA sair do fim da lista de `rewrites`; os headers de segurança mudarem; o `rewrite` ou o `Content-Type` de `/sitemap.xml` sumirem |
+| `vercelRedirects.test.ts` | idem | `vercel.json` divergir de `LEGACY_REDIRECTS`; `trailingSlash` deixar de ser `false`; redirect usando `permanent` (que produz 308); o catch-all deixar de ser a função `api/page?__path=/:path*` ou sair do fim da lista de `rewrites` (desde a `69`; nenhum rewrite volta a `/index.html`); `regions` deixar de ser `pdx1`; um `rewrite` para `*.supabase.co` além do sitemap e do feed, ou um override de `Content-Type` em `/produtos/:slug` voltarem; os headers de segurança mudarem; o `rewrite` ou o `Content-Type` de `/sitemap.xml` sumirem |
 | `robotsSource.test.ts` | idem | `public/robots.txt` perder a linha `Sitemap:`, ganhar uma segunda, declará-la relativa, ou apontar fora de `/sitemap.xml`; uma diretiva `Disallow` entrar de carona |
 | `chaveDeServidorForaDoNavegador.test.ts` | store `shared/lib/__tests__` (varre `apps/**`) | qualquer arquivo dos **dois apps** nomear `SUPABASE_SERVICE_ROLE_KEY`, carregar a string `service_role` ou chamar `auth.admin.*` — a chave ignora toda RLS, e um `createClient` com ela em `apps/**` **funcionaria perfeitamente**, entregando o banco inteiro a qualquer visitante. A porta é a function `admin-users` (`AD-034`). **Âncora TRIPLA** (arquivos lidos · um arquivo de cada app nomeado, `L-035` · a porta legítima encontrada) e **treze sensores**, incluindo as três formas de `auth.admin.`, o CRLF, o LF, o glob de dois asteriscos (`BL-027`) e os **dois inversos** que provam que `functions.invoke` e a auth do próprio usuário não são acusados. **Allowlist de UM**, escrito literalmente — o próprio guarda, que precisa carregar as formas proibidas nos sensores —, com um caso provando que outro arquivo de teste **seria** acusado |
 | `rotasSobGuarda.test.ts` | backoffice `app/__tests__` | qualquer rota `/admin/*` do `App.tsx` ficar **fora** do `<Route>` cujo element é o `RequireAdmin` — menos `/admin/login`, que precisa estar fora e tem asserção própria dizendo isso. Mede **posição**, não presença: `navItems.test.ts` lê o mesmo arquivo com um regex plano e é **cego a aninhamento**, o que deixou duas telas vazarem com 2328 testes verdes. Também recusa o `RequireAdmin` perder o `loginPath="/admin/login"` (sem ele a lojista é mandada para a tela de cliente da LOJA). **Âncora tripla** — arquivo lido, bloco **recortado** (recorte que falha devolve `null` e REPROVA, em vez de virar bloco vazio que aprova tudo), e exatamente **um** `</Route>`, para que aninhar um Route com filhos faça o guarda gritar em vez de encolher. Seis sensores, incluindo o inverso e o `RequireAdmin` sumindo |
@@ -400,7 +403,7 @@ migrations, e `vercelRedirects` lê o `vercel.json`.
 | `orders.test.ts` | `tools/catalog-import/src/write/__tests__` | a re-execução sobrescrever coluna operacional sem `--ressincronizar-estado`; os itens deixarem de ser imutáveis; a leitura de estado atual sair do `selectAll` |
 | `orderList.test.ts` (cobrança) | backoffice `features/order-list/model` | um `chargeMaterialUrl(` de `AdminOrdersPage.tsx` deixar de passar `customer_phone` — o link volta a sair **sem número**, em silêncio |
 | `metaPorRota.test.ts` | store `pages/__tests__` | uma página `lazy` do `App.tsx` sem `usePageMeta(` em **código** — o hook não reverte ao desmontar (`AD-048`), então a página que esquece herda o título da ANTERIOR. **Âncora cravada** (18 páginas) e sensores: a página sem a chamada, a chamada só em comentário (CRLF e LF), e o colhedor achando página nova e ignorando a citada em prosa |
-| `seo.test.ts` · `denoReach.test.ts` · `variant.test.ts` | `packages/core/src/seo/__tests__` | (feature `68`) a regra de quais opções têm página (SVR-01..07), o título de opção com a marca só até 60 caracteres e nunca cortado, a descrição começando pelo texto, a canônica da opção ser byte a byte o `<g:link>` da representante; o `denoReach` passou a exigir **exatamente 15** arquivos no grafo (era `≥ 7`), incluindo `seo/variant.ts` e os de `shopping`. E, de antes: a tabela de metadado das rotas fixas divergir de `SITEMAP_STATIC_PATHS` ∪ `NON_INDEXABLE_PATHS` (**bidirecional**, âncora 16); dois títulos fixos iguais; rota desconhecida deixar de **lançar**; a marca sair em dobro (`\| Uma Estrelinha`, `\| UE`); a descrição derivada passar de 160 ou cortar palavra. O segundo caminha o grafo **transitivo** de `core/seo` (que a `product-page` resolve no Deno) e recusa especificador relativo sem `.ts` — `import type` incluso — ou import de pacote |
+| `seo.test.ts` · `denoReach.test.ts` · `variant.test.ts` | `packages/core/src/seo/__tests__` | (feature `68`) a regra de quais opções têm página (SVR-01..07), o título de opção com a marca só até 60 caracteres e nunca cortado, a descrição começando pelo texto, a canônica da opção ser byte a byte o `<g:link>` da representante; o `denoReach` passou a exigir **exatamente 15** arquivos no grafo (era `≥ 7`), incluindo `seo/variant.ts` e os de `shopping`. E, de antes: a tabela de metadado das rotas fixas divergir de `SITEMAP_STATIC_PATHS` ∪ `NON_INDEXABLE_PATHS` (**bidirecional**, âncora 16); dois títulos fixos iguais; rota desconhecida deixar de **lançar**; a marca sair em dobro (`\| Uma Estrelinha`, `\| UE`); a descrição derivada passar de 160 ou cortar palavra. O segundo caminha o grafo **transitivo** de `core/seo` (que a function `sitemap` resolve no Deno, desde a `69`) e recusa especificador relativo sem `.ts` — `import type` incluso — ou import de pacote |
 | `denoReach.test.ts` (shipping) | `packages/core/src/shipping/__tests__` | `pickup.ts` ganhar um import — relativo sem `.ts` (`import type` incluso) ou de pacote. Três functions o importam por caminho relativo (`checkout`, `melhor-envio`, `send-notification` via `core/notifications` e `core/orders`), e o barrel de `shipping` **não** é alcançável pelo Deno (`estimate.ts` usa alias). Remove comentário depois de normalizar CRLF |
 | `retiradaSemEtiqueta.test.ts` · `melhor-envio/__tests__/handlers.test.ts` | `supabase/functions/_shared/__tests__` e `supabase/functions/melhor-envio/__tests__` | **Desde a rodada 3 da verificação RET-15 é provada por EXECUÇÃO**: `handleCreate` saiu do `index.ts` para `melhor-envio/handlers.ts` (`AD-004`), com o client, a chamada à API (`meFetch`) e o remetente **injetados**, e o teste de unidade alimenta uma linha de retirada e assere `422 pickup_order` **e zero chamadas** ao `meFetch` injetado **e** nenhuma gravação em `orders` — com o **par** dos Correios chegando ao carrinho, para "zero chamadas" não ser verdade num handler que nunca chama nada. A leitura de `orders` do dublê só devolve `shipping_service_id` quando o `select` o pede, então a coluna também é provada executando. As três rodadas anteriores guardavam pela fonte e cada uma achou formas novas que passavam (recusa aninhada noutro `if`, em arrow nunca chamada, `meFetch` com outro nome, helper de módulo antes do portão, `try/finally`, `order` sombreado); execução nenhuma dessas burla. O guarda de fonte **encolheu** para o que o vitest não alcança: o `index.ts` importa `handleCreate` de `./handlers.ts` (com extensão), não declara um próprio, e o `case "create"` o chama com **exatamente** `{ supabase: adminClient(), meFetch, sender: ME_SENDER }` e o `body`; `meFetch` é função do `index.ts` que chama `fetch`; todo import de `handlers.ts` é relativo com `.ts`; e dentro de `handleCreate` o `body` é lido **uma vez**, desestruturando só `order_id` e `service_id` — o que torna genérico o que o teste de corpo hostil (`force`, `debug`, `bypass`…) só amostra. Pela AST, com âncoras e sensores para cada régua |
 | `sitemapRoutes.test.ts` | store `app/__tests__` | rota nova no `App.tsx` que não entrou em `SITEMAP_STATIC_PATHS` nem em `NON_INDEXABLE_PATHS`; entrada classificada que deixou de ser rota. **Bidirecional**, e provado nos dois sentidos |
@@ -458,7 +461,12 @@ migrations, e `vercelRedirects` lê o `vercel.json`.
 | `apiShape.test.ts` | `tools/catalog-import` | a Nuvemshop mudar a forma de um campo que o mapeamento lê; a fixture perder um caso de borda |
 | `db.test.ts` (`selectAll`) | idem | uma leitura de "o que já existe" voltar a `select` simples e ser truncada em 1.000 linhas pelo PostgREST |
 | `handlers.test.ts` (sitemap) | `supabase/functions/sitemap/__tests__` | um caminho degradado responder 200; **um corpo de erro carregar `<urlset>`**; o `Content-Type` da resposta boa deixar de ser `application/xml`. **Desde a `68`**: leitura de variações ou de marcações falhando ou truncada (acima de 1.000) também é degradada, nunca um sitemap 200 sem as páginas de opção |
-| `paginaDeOpcaoComDonoUnico.test.ts` | store `shared/lib/__tests__` (varre `apps/store`, `apps/backoffice` e `supabase/functions`, só produção) | fora de `packages/core`: `?variant=` montado à mão (interpolação ou concatenação), chamada a `brandedTitle(`, ou o travessão emendando um nome e um texto de opção (feature `68`, SVR-39/40). **Metade positiva**: a `ProductPage` e a `product-page` chamam `productHead`, o `ProductCard` chama `variantPath`, e `core/sitemap/urls.ts` chama `indexableOptions`. A régua do travessão exige os **dois lados** e tem inverso provando que dez templates de copy com travessão não são acusados. Âncora dupla, sensores de CRLF/LF/glob |
+| `paginaDeOpcaoComDonoUnico.test.ts` | store `shared/lib/__tests__` (varre `apps/store/src`, `apps/store/server`, `apps/backoffice` e `supabase/functions`, só produção) | fora de `packages/core`: `?variant=` montado à mão (interpolação ou concatenação), chamada a `brandedTitle(`, ou o travessão emendando um nome e um texto de opção (feature `68`, SVR-39/40). **Metade positiva**: a `ProductPage` e `core/page/serve.ts` (desde a `69`; nenhuma edge function chama mais) chamam `productHead`, o `ProductCard` chama `variantPath`, e `core/sitemap/urls.ts` chama `indexableOptions`. A régua do travessão exige os **dois lados** e tem inverso provando que dez templates de copy com travessão não são acusados. Âncora dupla, sensores de CRLF/LF/glob |
+| `serve.test.ts` · `classify.test.ts` · `head.test.ts` · `categoryRoute.test.ts` · `productHead.test.ts` · `purity.test.ts` | `packages/core/src/page/__tests__` | (feature `69`) a resposta de cada caminho: status (200/301/404), `Cache-Control` por ramo (`s-maxage=300` página · `60` 404 · `3600` fixa e app · `no-store` erro), `noindex` **no HTML** do 404, `Location` exato, a precedência ativa > `category_redirects` > inativa > 404, erro de leitura nunca virando 404, `applyHead` sem tag duplicada; os 90 casos que eram da `product-page` moraram aqui. `purity` recusa React, Supabase, `node:`, Deno e alias |
+| `images.test.ts` · `imagesDenoReach.test.ts` (core `page`) · `images.test.ts` (core `sitemap`) · `wiring.test.ts` (function `sitemap`) | idem | (feature `69`) `productPageImages` com o `[0]` byte a byte o `og:image` da página; `<image:image>` só na `<url>` de produto, escapado, até 1.000, namespace declarado; a function pedindo `images`, `stock_policy`, `image_url` e `stock` (sem `stock` a representante muda e a primeira foto deixa de ser o `og:image`); o grafo de `images.ts` alcançável pelo Deno |
+| `rotasDeApp.test.ts` · `paginasFixasServidas.test.ts` | store `app/__tests__` | (feature `69`) `APP_ROUTE_PATTERNS` divergir do `App.tsx` (**bidirecional**, âncora 25 rotas / 14 de app); página de `SITEMAP_STATIC_PATHS` − `/` não classificada `static` ou servida sem o `<title>`, a descrição e a canônica de `staticPageMeta`, e o inverso |
+| `categoryFallbackSchema.test.ts` | store `shared/lib/__tests__` (lê a migration da `69`) | `category_fallback` perder `security definer`, `search_path = ''` ou `stable`; ler coluna além de `id`/`slug`/`parent_id`/`active`; `execute` alcançar papel além de `anon`/`authenticated`; escrever dado; o sentinela `00000000-…` mudar. Uma régua por comando e `mutar()` que lança |
+| `page.test.ts` | store `server/__tests__` | (feature `69`) a função `api/page` pedir as colunas e os filtros certos (dublê que registra tabela, `eq`, `order` e args de RPC), reconstruir a URL de `__path` preservando `?variant=` (e recusando `//host`), e responder `no-store` sem env. **Nunca nomeia a chave de serviço** |
 | `sitemapCheckWorkflow.test.ts` | store `shared/lib/__tests__` (lê `.github/workflows/sitemap-check.yml`) | o passo da canônica do sensor diário perder a comparação de **origem** (SVR-41 — a canônica servida tem a origem de onde o sitemap foi buscado), a igualdade canônica == `<loc>` da opção (SVR-34), ou passar a falhar com zero `?variant=` (SVR-35); literal de domínio, slug ou id no passo (SVR-36). Recorte por bloco que devolve `null` e **reprova**, e `mutar()` que lança sem alvo |
 
 > **Guarda que recusa uma STRING é quebrado pela prosa que explica o defeito.** Aconteceu duas vezes
@@ -484,8 +492,25 @@ quando mudarem de verdade.
 | Medida | Baseline | Como medir |
 | --- | --- | --- |
 | **Lint** | **26 erros / 7 warnings** — backoffice 24/5 · store 2/2 | `pnpm lint` |
-| **Tipos** | **0 · 0 · 0** (store · backoffice · catalog-import) | `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` |
-| **Testes** | **13353 em 658 arquivos** — store **5222/292** · backoffice **3493/198** · core **3116/123** · functions **1010/22** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
+| **Tipos** | **0 · 0 · 0 · 0** (store · backoffice · catalog-import · `apps/store/tsconfig.server.json`, desde a `69`) | `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` |
+| **Testes** | **13626 em 671 arquivos** — store **5313/297** · backoffice **3493/198** · core **3382/132** · functions **926/21** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
+
+**A feature `69` (o `<head>` servido de dentro da Vercel) somou +273/+13**, medidos em 2026-10-19
+um workspace por vez, exit code fora de pipe: **core +266/+9** (`core/page`: classificação,
+`servePage`, `applyHead`, `resolveCategoryRoute` movida, `productPageImages`, e o sitemap com
+imagens), **store +91/+5** (a função `api/page`, a leitura do shell do build, `rotasDeApp`, `paginasFixasServidas`,
+`categoryFallbackSchema`, `vercelRedirects` reescrito; −12 de `resolveCategoryRoute`, que subiu) e
+**functions −84/−1** — **queda declarada**: os 90 casos da `product-page` reaparecem em
+`core/page/__tests__` (78 portados; os 12 restantes mediam o cache e a busca do shell e o grafo Deno
+dela, que deixaram de existir), −2 do `wiringResolve` (derivado por function) e +8 do sitemap.
+Backoffice e catalog-import remedidos, idênticos. Lint **26/7**, tipos **0** nos quatro projetos,
+`pnpm build` verde (gera `apps/store/.server/page.mjs`), `packages/core/src/payment/**` com zero
+arquivos alterados e `shoppingParity.test.ts` com zero linhas. Uma migration
+(`20261020120000_69-categoria-inativa.sql`, a RPC `category_fallback`, sem escrita de dado).
+Decisão `AD-053`. **Executada por cinco agentes em paralelo** (pedido do usuário), com propriedade
+de arquivo disjunta escrita no `tasks.md`: a árvore foi uma só, e o único choque foi um guarda de
+`core/menu` acusando o literal de coleção num teste de outra frente — pego pela suíte inteira, não
+pela do arquivo.
 
 **A feature `68` (SEO por variação) somou +202/+4 em QUATRO workspaces**, medidos em 2026-10-19 um
 por vez, exit code fora de pipe, contra a entrada medida com a árvore parada (que bateu exatamente a
@@ -2237,6 +2262,8 @@ completo (framework, `installCommand` na raiz do monorepo, headers de cache e de
     A da `39` **converte `show_in_menu` em coluna gerada** e é idempotente por construção; a
     conversão é guardada por `attgenerated = ''` justamente porque uma segunda execução sobre a
     coluna já derivada apagaria curadoria em silêncio.
+- **Desde a `69` a `product-page` saiu do repositório** (`AD-053`): o `<head>` servido vem da função
+  `api/page` da Vercel. Ela continua implantada no hospedado até ser apagada depois do deploy.
 - **As TRÊS edge functions estão implantadas** (`google-feed`, `product-page` e, desde 2026-08-29, a
   `sitemap` da feature `33`), e a loja provisória está no ar em
   `umaestrelinha-store-five.vercel.app` (o painel, em `umaestrelinha-backoffice.vercel.app`).
@@ -2280,9 +2307,30 @@ completo (framework, `installCommand` na raiz do monorepo, headers de cache e de
 
 ## Estado conhecido / dívidas
 
+- **A `69` NÃO tem prova em plataforma ainda, e ela é o que fecha a feature.** O transporte foi
+  provado localmente (o bundle de `api/page` importado por `node` contra o Supabase local, treze
+  caminhos com status, `Cache-Control` e `<head>` conferidos), mas o que só a Vercel responde não foi
+  medido: se ela detecta `api/page.mjs` reexportando o `.server/page.mjs` gerado no build (plano B:
+  `SAIDA` em `scripts/build-server.mjs`), se o rewrite `/:path*` entrega `__path` e `?variant=`, se
+  `regions: ["pdx1"]` vale no plano da conta, e o `X-Vercel-Cache: HIT` com TTFB < 300 ms. O preview
+  do branch descartável `69-spike` existe e está atrás do login da Vercel.
+  - **Três passos de operação antes do deploy da `69`**: (1) criar **`STORE_PUBLIC_URL` no projeto
+    da Vercel** (`umaestrelinha-store`) — ela passa a ter **dois donos**, o secret da Supabase (feed,
+    sitemap, e-mail) e a env da Vercel (canônica servida), e os dois mudam juntos no dia do domínio,
+    com a linha `Sitemap:` do `robots.txt`; sem a env, a página sai sem canônica, nunca com a errada;
+    (2) a migration da `69` antes ou junto do bundle — sem ela a RPC falha e categoria inativa vira
+    "sem inativa" (404), nunca erro; (3) depois do deploy conferido, apagar a edge function
+    `product-page` do projeto hospedado — o `Supabase Deploy` vai avisar a divergência até lá.
+  - **`STORE_PUBLIC_URL` sem barra final**; o `turbo.json` declara `.server/**` como saída do build.
+  - **Um `seo_title` curado já com a marca dentro sai com a marca duas vezes** ("…| Uma… | Uma
+    Estrelinha"), medido na prova local da `69` num produto. É dado, não código da `69`: a régua de
+    `core/seo` corta o título curado e acrescenta a marca. Curadoria em `/admin/produtos`.
+  - **Categoria inativa aberta por link interno continua 404 no cliente** (o servidor dá 301): o
+    cliente não vê a RPC (`L-027`). Só acontece por link interno, e o menu só lista ativas.
+
 - **A régua da `68` é uma só, mas a ENTRADA dela não é** (achado da verificação, rodada 1). A loja
   passa `options` já normalizado por `normalizeOptions` (`@estrelinha/core/product`: apara o nome do
-  eixo, descarta eixo sem `values`); a `product-page` e o `sitemap` passam o `options` **cru** do
+  eixo, descarta eixo sem `values`); a função `api/page` (antes a `product-page`) e o `sitemap` passam o `options` **cru** do
   banco, porque `core/product/index.ts` importa tipos de `@estrelinha/supabase/types` e **não é
   alcançável pelo Deno**. Com um eixo `" Cor "`, loja e servidor responderiam diferente sobre a mesma
   URL. **Medido em 2026-10-19: zero** eixos com nome mal aparado e zero sem `values`, em 707 eixos,

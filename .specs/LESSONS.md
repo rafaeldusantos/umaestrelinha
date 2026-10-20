@@ -206,6 +206,24 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: SVR-30, M39 — `supabase/functions/product-page/handlers.ts:406` (`name: dados.product.slug` com functions 1010/1010 verdes)
 - last seen: 2026-10-19T00:00:00Z
 
+### L-040 — Quando a verificação acusa colunas faltando numa leitura, o conserto não é acrescentar AS colunas citadas à lista do teste: a lista vira o objeto medido e só tapa os mutantes nomeados. A régua que fecha a família é de comportamento — o dublê devolve só o que o `select` pediu, e o documento servido tem de ser idêntico ao da linha inteira.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `apps/store/server/**` · harmful: 0
+- features: 69-seo-servido-na-vercel
+- evidence: rodada 2, N01/N02/N15/N16 — `apps/store/server/__tests__/page.test.ts` (lista à mão com `stock`/`stock_policy` acrescentados depois de M34/M35; `position` e `description` fora dela com 5302 verdes)
+- last seen: 2026-10-19T00:00:00Z
+
+### L-041 — Teste que executa um script num ambiente montado precisa do PAR POSITIVO no mesmo ambiente: sem ele, a falha que o teste exige pode vir do ambiente incompleto (arquivo de entrada ausente), e o mutante que tira a parada do script passa.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `apps/store/scripts/**` · harmful: 0
+- features: 69-seo-servido-na-vercel
+- evidence: rodada 3, N04 — `apps/store/scripts/__tests__/shell.test.ts` (a cópia temporária sem `server/page.ts` fazia o esbuild falhar com ou sem `process.exit(1)`)
+- last seen: 2026-10-19T00:00:00Z
+
+### L-042 — Alegação de que um mutante é "relevante" (ou equivalente) se decide pelo consumidor real, não pelo nome do campo: `compare_price` parecia o "de/por" que o Merchant Center compara, e o JSON-LD servido só declara `salePrice ?? price`. Meça com a régua de comportamento antes de pedir a asserção.
+- signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `packages/core/src/shopping/**` · harmful: 0
+- features: 69-seo-servido-na-vercel
+- evidence: rodadas 2 e 3 — `packages/core/src/shopping/jsonld.ts:31-32` (`payablePrice`); N02 e N16 equivalentes para a página
+- last seen: 2026-10-19T00:00:00Z
+
 ## Quarantined (failed when applied — ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.

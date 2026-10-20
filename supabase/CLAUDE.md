@@ -167,7 +167,7 @@ assere.
 | `mercado-pago` | `false` | pagamento — `create-payment` e `webhook` |
 | `send-notification` | `false` | o motor de notificação (feature `42`) — os 15 eventos pela API HTTP do Resend. Cinco portas: `send · trigger · notify · preview · config-check` |
 | `google-feed` | `false` | o feed RSS 2.0 do Merchant Center |
-| `product-page` | `false` | a página do produto servida com JSON-LD no `<head>` |
+| `product-page` | `false` | **removida do repositório na `69`** (`AD-053`); ainda implantada no hospedado até ser apagada |
 | `sitemap` | `false` | `/sitemap.xml` — as URLs canônicas (719 em 2026-08-29), lidas com a chave **publicável**; desde a `68`, mais uma `<loc>` com `?variant=` por opção indexável, com variações e marcações lidas por `readAllPages` (falha ou truncamento ⇒ 503, nunca 200 parcial) |
 | `admin-users` | `false` | quem entra no painel — a **porta única** da service role (`AD-034`) |
 | `checkout` | `false` | cria **todo** pedido (convidada e logada), responde "este e-mail tem conta?" e devolve o pedido da convidada |
@@ -268,6 +268,12 @@ dos quinze. Ligar um dos onze continua sendo ato explícito da Adri, feito ali �
   `RESEND_DEV_REDIRECT_TO`.
 
 ### `google-feed` e `product-page` (feature `30`, `AD-020`)
+
+> **A `product-page` SAIU do repositório na feature `69` (`AD-053`).** O `<head>` servido de
+> produto, categoria, página fixa e 404 vem da função `api/page` **da Vercel**, com a regra em
+> `@estrelinha/core/page` (`apps/store/CLAUDE.md`). A function continua implantada no hospedado até
+> ser apagada depois do deploy da `69` conferido. O texto abaixo sobre ela é **histórico**; o que
+> vale para a `google-feed` continua valendo.
 
 As duas ficam sob o domínio da loja por `rewrites` do `vercel.json`, **com o catch-all do SPA
 obrigatoriamente por último** — `vercelRedirects.test.ts` assere a ordem por índice.

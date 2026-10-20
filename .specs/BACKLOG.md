@@ -748,7 +748,9 @@ infraestrutura existir, e as duas têm quadro branco como sintoma.
 
 ## BL-017 — Mover a injeção do JSON-LD para dentro do deploy da Vercel
 
-- **Status**: aberto, **condicional** · **Registrado em**: 2026-08-29 · **Decisão**:
+- **Status**: **IMPLEMENTADO na feature `69`** (2026-10-19, `AD-053`) — a prova em plataforma
+  (`X-Vercel-Cache: HIT`, `text/html` entregue, JSON-LD no corpo) fecha de vez depois do deploy ·
+  **Registrado em**: 2026-08-29 · **Decisão**:
   [`AD-021`](./STATE.md) · **Origem**: [`BUG-20260829`](../docs/qa/bugs/BUG-20260829-product-page-servida-como-text-plain.md)
 
 **O que é.** Hoje `/produtos/:slug` é um `rewrite` da Vercel para uma edge function da Supabase, que

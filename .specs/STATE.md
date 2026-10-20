@@ -410,7 +410,7 @@
   `apps/store/{vercel.json,src/pages/ProductPage.tsx,src/entities/product/lib/variantSelection.ts}`,
   `apps/backoffice/src/{pages/admin/AdminGoogleShoppingPage.tsx,features/google-shopping}`
 - **Date**: 2026-08-16
-- **Status**: active, **com a incerteza declarada agora RESOLVIDA — e no sentido ruim.** Implementada
+- **Status**: **transporte superado por `AD-053`** (2026-10-19); a regra de oferta com um dono continua active. active, **com a incerteza declarada agora RESOLVIDA — e no sentido ruim.** Implementada
   pela feature [`30-google-shopping`](./features/30-google-shopping/spec.md) em 2026-08-16 (T0–T25);
   implantada e servindo desde 2026-08-29. A decisão dizia: *"não confirmei que a Vercel cacheia
   proxy para host externo, e se não cachear a decisão precisa ser revista antes do cutover"*.
@@ -453,7 +453,7 @@
 - **Scope**: `apps/store/vercel.json`, `apps/store/src/shared/lib/__tests__/vercelRedirects.test.ts`,
   `supabase/functions/product-page/**`, `docs/qa/bugs/BUG-20260829-*.md`
 - **Date**: 2026-08-29
-- **Status**: active — **supera a parte do `AD-020` que assumia que a function podia servir HTML.** O
+- **Status**: **override de `Content-Type` superado por `AD-053`** (2026-10-19); "a prova é o tipo entregue" continua active. active — **supera a parte do `AD-020` que assumia que a function podia servir HTML.** O
   resto do `AD-020` continua valendo: a oferta tem um dono (`@estrelinha/core/shopping`) e as duas
   serializações partem dele. O que muda é o **transporte**, não o domínio.
 
@@ -1186,7 +1186,7 @@
 - **Scope**: `packages/core/src/seo/**`, `apps/store/src/shared/lib/{usePageMeta,pageMeta}.ts`,
   `apps/store/src/app/PageViewTracker.tsx`, `supabase/functions/product-page/**`
 - **Date**: 2026-10-06
-- **Status**: active
+- **Status**: active — **o segundo escritor passa a ser `core/page` (`AD-053`)**
 
 ### AD-049
 - **Decision**: **A retirada no escritório tem UM dono, `packages/core/src/shipping/pickup.ts`, e
@@ -1286,7 +1286,45 @@
 - **Date**: 2026-10-19
 - **Status**: active
 
+### AD-053
+- **Decision**: **O HTML servido de qualquer rota que não é arquivo estático nem a home sai de UMA
+  função Node da Vercel (`api/page`), dentro do deploy da loja, em `pdx1`; a regra de qual resposta
+  dar mora em `@estrelinha/core/page`.** A função lê o banco com a chave publicável, tem o shell do
+  próprio build embutido no bundle (esbuild, no `pnpm build`), e devolve 200, 301 ou 404 com o
+  `<head>` da rota. Categoria inativa é resolvida pela RPC `category_fallback`, que devolve só o id do
+  ancestral ativo. A edge function `product-page` sai do repositório; a hospedada é apagada depois do
+  deploy conferido.
+- **Reason**: feature `69`, condição de revisão da `AD-020` atingida (`BL-017`): a Vercel não cacheia
+  `rewrite` para host externo, e cada visita a produto pagava 1,5–2,2 s com `X-Vercel-Cache: MISS`
+  (medido em 2026-10-19). O banco está em us-west-2 e a borda do Brasil é `gru1`, então a função mora
+  ao lado do banco. Categoria e páginas fixas chegavam com o `<head>` da home a quem não executa
+  JavaScript, e endereço inexistente respondia 200 (*soft 404*). O shell embutido elimina o quadro
+  branco pós-deploy por construção. Escolha do usuário entre três arquiteturas (2026-10-19).
+- **Trade-off**: o `<head>` servido passa a depender de um empacotamento próprio (esbuild), porque
+  `@estrelinha/core` importa com `.ts` explícito (exigência do Deno) e o compilador de funções da
+  Vercel não reescreve essa extensão. Toda rota de app passa pela função (cache de 1 h por deploy).
+  Categoria inativa aberta por link interno continua 404 no cliente (`L-027`).
+- **Supera**: a parte de **transporte** da `AD-020` (a regra de oferta com um dono continua); o
+  override de `Content-Type` da `AD-021` deixa de ser necessário (a regra "a prova é o tipo entregue"
+  continua); e o segundo escritor da `AD-048` passa de `product-page` para `core/page`.
+- **Scope**: `packages/core/src/page/**`, `packages/core/src/routes/routes.ts`,
+  `packages/core/src/sitemap/**`, `apps/store/{api,server,scripts}/**`, `apps/store/vercel.json`,
+  `supabase/functions/{product-page,sitemap}/**`, migration `69`
+- **Date**: 2026-10-19
+- **Status**: active
+
 ## Handoff
+
+### ATUAL — 2026-10-19 · `69-seo-servido-na-vercel` **IMPLEMENTADA — T02..T13 feitas, T01 (spike) e a prova de plataforma PENDENTES, verificada em 3 rodadas (a 3ª FAIL por um teste de fiação, já corrigido pelo autor e não re-verificado), SEM COMMIT**
+
+- **Feito**: `core/page` (classificação, `servePage`, `applyHead`, `resolveCategoryRoute` movida, `productPageImages`), sitemap com `<image:image>`, migration `category_fallback`, função `api/page` da Vercel (`apps/store/{server,scripts,api}`), `vercel.json` (catch-all para a função, `pdx1`), código da `product-page` removido, guardas atualizados e novos. Executada por 5 agentes em paralelo (frentes A, B, C, D1, D2), com propriedade de arquivo disjunta.
+- **Gates** (2026-10-19): core 3382/132 · store 5313/297 · functions 926/21 · backoffice 3493/198 · catalog-import 512/23; lint 26/7; `tsc` 0 nos quatro projetos; `pnpm build` verde.
+- **Verificação**: rodada 1 FAIL (colunas `stock`/`stock_policy`, build sem teste, `data-owner`), rodada 2 FAIL (lista de colunas à mão), rodada 3 FAIL só por N04 (teste de fiação passando pelo motivo errado). Os três consertos estão feitos; o último (N04 + par positivo) foi provado pelo autor com mutante reinjetado, **não** por um verificador. `compare_price` e `brand` confirmados equivalentes para a página (`jsonld.ts:31-32`). Lições L-040..L-042 como candidatas.
+- **Pendente**:
+  1. **T01 — medir o preview** do branch `69-spike` (`umaestrelinha-store-git-69-spike-aproximmas-projects.vercel.app/spike/...`), atrás do login da Vercel: detecção de `api/page.mjs` → `.server`, `__path` e `?variant=` entregues, `pdx1`, env em runtime. Plano B: `SAIDA` em `scripts/build-server.mjs`. O worktree `../store-69-spike` e o branch remoto `69-spike` são descartáveis.
+  2. **Operação antes do deploy**: env `STORE_PUBLIC_URL` no projeto Vercel `umaestrelinha-store`; migration da `69` no `db push` (vai junto no push); depois do deploy conferido, apagar a function `product-page` do hospedado.
+  3. **Prova em produção**: `X-Vercel-Cache: HIT` e TTFB < 300 ms no produto, `text/html` + JSON-LD no corpo, 404/301 por `curl`.
+- **Próximo número de feature**: `70`.
 
 ### ATUAL — 2026-10-19 · `68-seo-por-variacao` **IMPLEMENTADA — 14 de 14 tasks (a prova de produção espera o deploy), verificada (2 rodadas, PASS), SEM COMMIT**
 
