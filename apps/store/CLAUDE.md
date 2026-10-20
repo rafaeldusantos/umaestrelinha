@@ -185,9 +185,9 @@ que a página continua abrindo pelo endereço novo. É a mesma decisão que a `3
   catálogo — nunca tela branca, nunca a listagem completa.
 - **A tag canônica é injetada por JS** (`useCanonical`), e `curl` não a vê: a loja é SPA sem SSR. A
   verificação é partida — `curl -I` prova status e `Location`; a canônica se prova em navegador
-  headless. Não é falha escondida, é o método. **Exceção desde a `68`: `/produtos/:slug`** — a edge
-  function `product-page` serve uma `rel="canonical"` no HTML, e ali `curl` (com o `Content-Type`
-  entregue) é a prova.
+  headless. Não é falha escondida, é o método. **Exceção desde a `68`: `/produtos/:slug`**, e **desde a `69`, categoria e páginas fixas
+  também**: a função `api/page` da Vercel serve a `rel="canonical"` no HTML, e ali `curl` (com o
+  `Content-Type` entregue) é a prova.
 - **A página do produto tem DUAS canônicas possíveis, e quem escolhe é `core`** (feature `68`,
   `AD-052`). `?variant=` de uma opção marcada num filtro (pela régua de `indexableOptions`: o primeiro
   eixo de `options` com marcação e ≥ 2 textos elegíveis) ⇒ a canônica é a URL **da opção**, com o
@@ -209,7 +209,7 @@ que a página continua abrindo pelo endereço novo. É a mesma decisão que a `3
 ### O `<title>` e a descrição de cada rota (feature `62`, `AD-048`)
 
 **Toda página da loja chama `usePageMeta`** (`shared/lib/usePageMeta.ts`), e quem decide o valor é
-`@estrelinha/core/seo` — a mesma regra que a edge function `product-page` usa no HTML servido. Até a
+`@estrelinha/core/seo` — a mesma regra que a função `api/page` (`core/page`, feature `69`) usa no HTML servido. Até a
 `62`, 17 de 18 páginas herdavam o `<title>` do `index.html`, e com o GA4 ligado todo `page_view` saía
 com o mesmo título.
 
@@ -238,7 +238,7 @@ duas rotas produziria uma troca intermediária que o `page_view` mediria. A cont
 - `og:url`, `og:image` e `og:type` **não** são tocados no cliente: quem os lê não executa
   JavaScript. A imagem de compartilhamento padrão está no `index.html`
   (`joia-afetiva-leite-materno-uma-estrelinha.jpg`, JPEG 1200×630 com a arte quadrada inteira no
-  centro); a de produto é trocada pela `product-page`. `og-image.png` (o lockup) continua em
+  centro); a de produto é trocada pela função `api/page` (`core/page`). `og-image.png` (o lockup) continua em
   `public/` e deixou de ser referenciado.
 
 **O `page_view` espera a página DECLARAR** (`shared/lib/pageMeta.ts` → `PageViewTracker`), com prazo
@@ -290,6 +290,31 @@ não `useEffect`: corrigir depois da pintura é um flash visível justamente no 
 de que o componente está **montado** — existir sem ninguém montar passaria em build, `tsc` e em todos
 os outros testes. **jsdom devolve 0 para toda medida de layout e não implementa rolagem**: o que se
 assere é a chamada, nunca a posição. A prova de que a página abre no topo é de navegador, em 390.
+
+## O HTML servido — a função `api/page` (feature `69`, `AD-053`)
+
+Toda URL que não é arquivo de `dist/` (a home `/`, `/assets`, `/robots.txt`…) nem `/sitemap.xml` ou o
+feed passa pelo catch-all do `vercel.json` para **uma** função Node da Vercel, em `pdx1` (o banco está
+em us-west-2). Ela devolve 200, 301 ou 404 com o `<head>` certo **no HTML**, e o cache de borda é por
+ramo: `s-maxage=300` para produto e categoria, `60` para 404, `3600` para página fixa e rota de app,
+`no-store` quando a leitura falha (que **nunca** vira 404).
+
+- **A regra é de `@estrelinha/core/page`** (`classifyPath`, `servePage`, `applyHead`); `server/page.ts`
+  só tem env, as leituras (chave **publicável**, RLS) e a conversão para `Response`. Nada de SEO se
+  decide em `server/`, e `paginaDeOpcaoComDonoUnico` varre a pasta.
+- **O shell é embutido no bundle no build** (`scripts/build-server.mjs`, esbuild, `define: __SHELL__`
+  lido de `dist/index.html`). É o mesmo build por construção; o build **falha** sem `dist/index.html`.
+  O bundle vai para `.server/page.mjs` (gitignored) e `api/page.mjs` (versionado) o reexporta —
+  `SAIDA` no script é o único ponto a trocar se a Vercel não detectar esse layout.
+- **Empacotar não é opcional**: `@estrelinha/core` importa com `.ts` explícito (exigência do Deno), e
+  o compilador de funções da Vercel não reescreve a extensão.
+- **O caminho original chega em `?__path=`**; o resto da query (`?variant=`) é preservado.
+- **Env da Vercel**: `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` e **`STORE_PUBLIC_URL`**
+  (sem barra final). Esta última é o segundo dono da origem, ao lado do secret da Supabase e da linha
+  `Sitemap:` do `robots.txt` — os três mudam juntos no dia do domínio. Sem ela, a página sai **sem**
+  canônica, nunca com a errada.
+- **Em dev (`pnpm dev:store`) a função não roda**: o Vite serve o SPA para tudo. A prova local é
+  `pnpm build` e importar `api/page.mjs` com `node --env-file=.env`, chamando `fetch` com `?__path=`.
 
 ## Sitemap — `/sitemap.xml` (feature `33`, `AD-022`)
 

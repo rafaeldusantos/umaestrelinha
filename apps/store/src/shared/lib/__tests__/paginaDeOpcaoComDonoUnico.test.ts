@@ -12,8 +12,8 @@ import { describe, expect, it } from 'vitest'
  * ---------------------------------------------------------------------------------------------
  *
  * "Esta opção tem página própria, qual é o título dela e qual é o endereço?" tem QUATRO leitores: a
- * página do produto na loja, a edge function `product-page` (o `<head>` servido), o sitemap e o
- * painel. A resposta mora em `@estrelinha/core/seo` (`productHead`, `indexableOptions`) e o endereço
+ * página do produto na loja, o `<head>` servido (`servePage`, em `@estrelinha/core/page` desde a
+ * feature `69` — antes, a edge function da página de produto, aposentada), o sitemap e o painel. A resposta mora em `@estrelinha/core/seo` (`productHead`, `indexableOptions`) e o endereço
  * tem um construtor só, `variantPath` (`@estrelinha/core/shopping`). Uma segunda escrita de qualquer
  * um dos três pedaços não quebra build, `tsc` nem teste de componente: o sitemap anunciaria uma URL
  * que a página não declara canônica, e o juiz da divergência seria o Google, semanas depois.
@@ -69,6 +69,13 @@ import { describe, expect, it } from 'vitest'
  * Uma regra de ausência sobrevive à feature medindo o nada: apagar a canônica de opção da loja
  * deixaria as três negativas verdadeiras e vazias. Os quatro leitores são cobrados por CHAMAR o dono.
  *
+ * **Feature `69` — o leitor servido MUDOU DE ENDEREÇO** (`AD-053`): o `<head>` servido saiu da edge
+ * function e foi para `packages/core/src/page/serve.ts`, que fica FORA do escopo das negativas (é
+ * `core`, o dono) e é lido à parte pela positiva — o molde de `SITEMAP_URLS`. Uma positiva que
+ * continuasse lendo o endereço velho reprovaria por "fora da varredura"; uma que fosse apagada
+ * deixaria o `<head>` servido livre para perder a página de opção sem nada acusar. E a volta de um
+ * SEGUNDO escritor servido nas functions é recusada por asserção própria, abaixo.
+ *
  * Âncora dupla: arquivos lidos **e** a forma encontrada. O escopo está escrito literalmente aqui —
  * a régua nunca pode ser o objeto medido.
  */
@@ -77,7 +84,9 @@ const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(HERE, '../../../../../..')
 
 /** Escopo literal: os dois apps e as edge functions. `packages/core` é o dono e fica de fora. */
-const ESCOPO = ['apps/store/src', 'apps/backoffice/src', 'supabase/functions']
+// Feature 69: `apps/store/server` é a camada fina da função da Vercel (`api/page`) — também não
+// monta `?variant=` nem título com a marca à mão; quem monta é `core/page`.
+const ESCOPO = ['apps/store/src', 'apps/store/server', 'apps/backoffice/src', 'supabase/functions']
 
 const IGNORADOS = new Set(['node_modules', 'dist', '.turbo', '.temp', 'coverage', '.git'])
 const EXTENSOES = ['.ts', '.tsx']
@@ -168,8 +177,10 @@ const cita = (rel: string): Arquivo => {
   return achado
 }
 
-/** O consumidor de `packages/core` que a metade positiva cobra — fora do escopo, lido à parte. */
+/** Os consumidores de `packages/core` que a metade positiva cobra — fora do escopo, lidos à parte. */
 const SITEMAP_URLS = ler(join(ROOT, 'packages/core/src/sitemap/urls.ts'))
+/** O `<head>` servido desde a feature `69` (`AD-053`) — o endereço novo do leitor servido. */
+const SERVE_PAGE = ler(join(ROOT, 'packages/core/src/page/serve.ts'))
 
 /** "Este arquivo CHAMA esta função" — token exato à esquerda, e `productHeadTags(` não é `productHead(`. */
 const chama = (fonte: string, funcao: string) => new RegExp(`(?<![-\\w])${funcao}\\s*\\(`).test(fonte)
@@ -186,7 +197,6 @@ describe('a página de opção com dono único — âncoras da varredura', () =>
         'apps/store/src/pages/ProductPage.tsx',
         'apps/store/src/entities/product/ui/ProductCard.tsx',
         'apps/backoffice/src/features/product-form/ui/OptionMarkRow.tsx',
-        'supabase/functions/product-page/handlers.ts',
         'supabase/functions/sitemap/handlers.ts',
       ]),
     )
@@ -221,8 +231,17 @@ describe('a metade positiva — os leitores chamam o dono', () => {
     expect(chama(cita('apps/store/src/pages/ProductPage.tsx').fonte, 'productHead')).toBe(true)
   })
 
-  it('a edge function `product-page` chama `productHead`', () => {
-    expect(chama(cita('supabase/functions/product-page/handlers.ts').fonte, 'productHead')).toBe(true)
+  it('o `<head>` servido (`core/page/serve.ts`, feature 69) chama `productHead`', () => {
+    expect(chama(SERVE_PAGE.fonte, 'productHead')).toBe(true)
+  })
+
+  it('nenhuma edge function volta a ser um segundo escritor do `<head>` servido (feature 69)', () => {
+    // O escritor servido é UM: `servePage`. Uma function que chamasse `productHead` seria o par que a
+    // `69` desfez — dois `<head>` da mesma página, divergindo sem nada quebrar (o defeito 01).
+    const functions = producao.filter(a => a.rel.startsWith('supabase/functions/'))
+    expect(functions.length).toBeGreaterThan(20) // âncora: a varredura alcança as functions
+    expect(functions.filter(a => chama(a.fonte, 'productHead')).map(a => a.rel)).toEqual([])
+    expect(varridos.filter(a => a.rel.startsWith('supabase/functions/product-page/'))).toEqual([])
   })
 
   it('o card da vitrine chama `variantPath`', () => {

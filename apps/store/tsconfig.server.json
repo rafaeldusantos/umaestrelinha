@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["node", "vitest/globals"],
+    "baseUrl": "../..",
+    "paths": {
+      "@estrelinha/core": ["packages/core/src/index.ts"],
+      "@estrelinha/core/*": ["packages/core/src/*"]
+    }
+  },
+  "include": ["server"]
+}

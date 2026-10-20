@@ -1,12 +1,12 @@
 import { useEffect } from 'react'
-import type { PageMeta } from '@estrelinha/core/seo'
+import { ROBOTS_META_OWNER, type PageMeta } from '@estrelinha/core/seo'
 import { declarePageMeta } from '@/shared/lib/pageMeta'
 
 /**
  * O `<head>` da página montada — feature 62. **Toda** página da loja chama este hook, e
  * `metaPorRota.test.ts` derruba a suíte quando uma não chama.
  *
- * Quem decide o valor é `@estrelinha/core/seo` — a mesma função que a edge function `product-page`
+ * Quem decide o valor é `@estrelinha/core/seo` — a mesma função que a função `api/page` da Vercel (`core/page`)
  * usa para o HTML servido. Este hook só escreve.
  *
  * - **`null` não escreve nada** (A9). É o estado "ainda carregando": escrever um título provisório
@@ -51,7 +51,7 @@ const escreverMeta = (atributo: 'name' | 'property', chave: string, valor: strin
   tag.setAttribute('content', valor)
 }
 
-const ROBOTS = 'meta[name="robots"][data-owner="estrelinha-spa"]'
+const ROBOTS = `meta[name="robots"][data-owner="${ROBOTS_META_OWNER}"]`
 
 const marcarRobots = (indexable: boolean): void => {
   const existente = document.head.querySelector(ROBOTS)
@@ -63,6 +63,6 @@ const marcarRobots = (indexable: boolean): void => {
   const tag = document.createElement('meta')
   tag.setAttribute('name', 'robots')
   tag.setAttribute('content', 'noindex')
-  tag.setAttribute('data-owner', 'estrelinha-spa')
+  tag.setAttribute('data-owner', ROBOTS_META_OWNER)
   document.head.appendChild(tag)
 }

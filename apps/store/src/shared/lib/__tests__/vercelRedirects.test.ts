@@ -36,7 +36,9 @@ const VERCEL_JSON = join(ROOT, 'apps/store/vercel.json')
 type Redirect = { source?: string; destination?: string; statusCode?: number; permanent?: boolean }
 type VercelConfig = {
   framework?: string
+  regions?: string[]
   trailingSlash?: boolean
+  buildCommand?: string
   redirects?: Redirect[]
   rewrites?: { source?: string; destination?: string }[]
   headers?: { source?: string; headers?: { key?: string; value?: string }[] }[]
@@ -44,6 +46,13 @@ type VercelConfig = {
 
 const RAW = readFileSync(VERCEL_JSON, 'utf8')
 const CONFIG = JSON.parse(RAW) as VercelConfig
+
+/**
+ * Feature 69 (`AD-053`): o catch-all deixou de ser o `index.html` do SPA e passou a ser a função
+ * `api/page`, que serve o `<head>` de cada rota (produto, categoria, página fixa, rota de app, 404).
+ * Escrito por extenso — a régua nunca é o objeto medido.
+ */
+const CATCH_ALL = { source: '/:path*', destination: '/api/page?__path=/:path*' }
 
 describe('vercel.json — âncora da leitura', () => {
   it('o arquivo lido tem conteúdo de verdade', () => {
@@ -132,8 +141,17 @@ describe('vercel.json — barra final e o que já existia', () => {
    * elemento só; agora tem três, e o que precisa ser guardado deixou de ser a igualdade e passou a
    * ser a **ordem**.
    */
-  it('o rewrite do SPA continua existindo — sem ele nenhuma rota profunda responde no F5', () => {
-    expect(CONFIG.rewrites).toContainEqual({ source: '/(.*)', destination: '/index.html' })
+  /**
+   * Feature 69: reescrita porque a spec mudou o comportamento — o catch-all aponta para a função, e
+   * ganhou a vizinha que recusa a volta do `index.html` (que serviria o shell sem `<head>` de rota e
+   * com 200 para qualquer URL inexistente).
+   */
+  it('o catch-all existe e aponta para a função `api/page` — sem ele nenhuma rota profunda responde no F5', () => {
+    expect(CONFIG.rewrites).toContainEqual(CATCH_ALL)
+  })
+
+  it('nenhum rewrite volta a servir o `index.html` do SPA (feature 69)', () => {
+    for (const r of CONFIG.rewrites) expect(r.destination, r.source).not.toBe('/index.html')
   })
 
   it('o catch-all é o ÚLTIMO — a Vercel avalia rewrites por ordem', () => {
@@ -141,8 +159,10 @@ describe('vercel.json — barra final e o que já existia', () => {
     // passariam a devolver o `index.html` do SPA, o Merchant Center leria HTML no lugar do RSS e a
     // landing page voltaria a não ter JSON-LD. Nada quebraria; só pararia de funcionar.
     const ultimo = CONFIG.rewrites[CONFIG.rewrites.length - 1]
-    expect(ultimo).toEqual({ source: '/(.*)', destination: '/index.html' })
-    expect(CONFIG.rewrites.filter((r) => r.source === '/(.*)')).toHaveLength(1)
+    expect(ultimo).toEqual(CATCH_ALL)
+    expect(CONFIG.rewrites.filter((r) => r.source === CATCH_ALL.source)).toHaveLength(1)
+    // E a forma antiga não sobrevive ao lado da nova, em posição nenhuma.
+    expect(CONFIG.rewrites.filter((r) => r.source === '/(.*)')).toHaveLength(0)
   })
 })
 
@@ -155,26 +175,29 @@ describe('vercel.json — as duas rotas do Google Shopping (feature 30)', () => 
     expect(feed.destination).toMatch(/\/functions\/v1\/google-feed$/)
   })
 
-  it('a página do produto passa pela function que injeta o JSON-LD', () => {
-    const pagina = porSource('/produtos/:slug')
-    expect(pagina).toBeDefined()
-    expect(pagina.destination).toMatch(/\/functions\/v1\/product-page\?slug=:slug$/)
+  /**
+   * Feature 69 (`AD-053`): a página do produto deixou de ser um `rewrite` para a edge function
+   * `product-page` e passou a sair da função `api/page`, no mesmo deploy, pelo catch-all. A asserção
+   * antiga ("passa pela function") foi INVERTIDA, e a positiva mora no bloco da feature 69 abaixo.
+   */
+  it('a página do produto NÃO tem mais rewrite próprio — sai do catch-all, pela função da loja', () => {
+    expect(porSource('/produtos/:slug')).toBeUndefined()
+    for (const r of CONFIG.rewrites) expect(r.destination, r.source).not.toMatch(/product-page/)
   })
 
-  it('as duas vêm ANTES do catch-all', () => {
+  it('o feed vem ANTES do catch-all', () => {
     const i = (source: string) => CONFIG.rewrites.findIndex((r) => r.source === source)
-    const catchAll = i('/(.*)')
-    expect(i('/feeds/google-shopping.xml')).toBeLessThan(catchAll)
-    expect(i('/produtos/:slug')).toBeLessThan(catchAll)
+    expect(i('/feeds/google-shopping.xml')).toBeGreaterThanOrEqual(0)
+    expect(i('/feeds/google-shopping.xml')).toBeLessThan(i(CATCH_ALL.source))
   })
 
-  it('as duas apontam para o MESMO host — meia configuração é pior que nenhuma', () => {
+  it('feed e sitemap apontam para o MESMO host — meia configuração é pior que nenhuma', () => {
     const host = (source: string) => new URL(porSource(source).destination).host
-    expect(host('/feeds/google-shopping.xml')).toBe(host('/produtos/:slug'))
+    expect(host('/feeds/google-shopping.xml')).toBe(host('/sitemap.xml'))
   })
 
   it('o host é um projeto Supabase', () => {
-    for (const source of ['/feeds/google-shopping.xml', '/produtos/:slug']) {
+    for (const source of ['/feeds/google-shopping.xml', '/sitemap.xml']) {
       expect(new URL(porSource(source).destination).host).toMatch(/\.supabase\.co$/)
     }
   })
@@ -187,7 +210,7 @@ describe('vercel.json — as duas rotas do Google Shopping (feature 30)', () => 
    * backlog. Substituído pelo ref real, o teste sai de cena sozinho.
    */
   it('enquanto o host for marcador, a pendência está declarada no BACKLOG', () => {
-    const host = new URL(porSource('/produtos/:slug').destination).host
+    const host = new URL(porSource('/feeds/google-shopping.xml').destination).host
     const ehMarcador = /[A-Z]/.test(host)
     if (!ehMarcador) return
     const backlog = readFileSync(join(ROOT, '.specs/BACKLOG.md'), 'utf8')
@@ -196,34 +219,22 @@ describe('vercel.json — as duas rotas do Google Shopping (feature 30)', () => 
   })
 
   /**
-   * `BUG-20260829` — a plataforma da Supabase **reescreve `text/html` para `text/plain`** no domínio
-   * compartilhado `*.supabase.co`, e acrescenta `nosniff`. Medido: a `google-feed` define
-   * `text/plain; charset=utf-8` e chega idêntica; a `product-page` define `text/html; charset=utf-8`
-   * e chega `text/plain`. O `Cache-Control` da mesma resposta atravessa intacto — só o `text/html` é
-   * trocado.
-   *
-   * O efeito é a pior forma de quebrar: **HTTP 200, corpo correto, JSON-LD correto**, e o navegador
-   * mostrando o código-fonte como texto. Toda checagem de status code passa.
-   *
-   * Este header é a tentativa de reimpor o tipo na borda da Vercel. **Ele não prova a entrega** — só
-   * um `curl` contra o deploy prova, e por isso a asserção viva mora no arquivo do bug, não aqui. O
-   * que este teste garante é que a linha não seja removida por limpeza sem ninguém ler o bug.
+   * `BUG-20260829` — o gateway `*.supabase.co` reescreve `text/html` para `text/plain`, e até a
+   * feature 69 o `vercel.json` reimpunha o tipo em `/produtos/:slug`. Com a página saindo da função
+   * da própria loja o tipo é NOSSO (`servePage` declara `text/html; charset=utf-8`), e o override
+   * deixou de ter carga (`AD-053`). A asserção antiga foi invertida, e a regra que sobra é a de
+   * sempre: override de `Content-Type` só onde há um gateway de terceiro reescrevendo — hoje, só o
+   * sitemap. A prova da entrega continua sendo o `curl` contra o deploy, nunca o arquivo.
    */
-  it('reimpõe text/html em /produtos/:slug — a Supabase troca por text/plain (BUG-20260829)', () => {
-    const rota = CONFIG.headers.find((entry) => entry.source === '/produtos/:slug')
-    expect(rota).toBeDefined()
-    expect(rota.headers).toEqual([{ key: 'Content-Type', value: 'text/html; charset=utf-8' }])
+  it('não reimpõe Content-Type em /produtos/:slug — o tipo vem da função da loja (feature 69)', () => {
+    expect(CONFIG.headers.find((entry) => entry.source === '/produtos/:slug')).toBeUndefined()
   })
 
-  it('enquanto o override existir, o bug que o explica está registrado', () => {
-    const rota = CONFIG.headers.find((entry) => entry.source === '/produtos/:slug')
-    if (!rota) return
-    const bug = readFileSync(
-      join(ROOT, 'docs/qa/bugs/BUG-20260829-product-page-servida-como-text-plain.md'),
-      'utf8',
-    )
-    expect(bug).toContain('text/plain')
-    expect(bug).toContain('/produtos/:slug')
+  it('o único override de Content-Type é o do sitemap', () => {
+    const comTipo = CONFIG.headers
+      .filter((entry) => entry.headers.some((h) => h.key.toLowerCase() === 'content-type'))
+      .map((entry) => entry.source)
+    expect(comTipo).toEqual(['/sitemap.xml'])
   })
 
   it('os headers existentes ficam intactos', () => {
@@ -232,7 +243,9 @@ describe('vercel.json — as duas rotas do Google Shopping (feature 30)', () => 
     // Feature 33: subiu de 3 para 4 com o `Content-Type` de `/sitemap.xml`.
     // Feature 38: subiu de 4 para 5 com o `immutable` de `/fonts/(.*)`.
     // Feature 60: subiu de 5 para 6 com o `immutable` de `/email/(.*)`.
-    expect(CONFIG.headers).toHaveLength(6)
+    // Feature 69: desceu de 6 para 5 — saiu o `Content-Type` de `/produtos/:slug` (asserção
+    // invertida acima, com a positiva de que só o sitemap reimpõe tipo).
+    expect(CONFIG.headers).toHaveLength(5)
 
     const assets = CONFIG.headers.find((entry) => entry.source === '/assets/(.*)')
     expect(assets).toBeDefined()
@@ -342,19 +355,20 @@ describe('vercel.json — o sitemap (feature 33)', () => {
 
   it('vem ANTES do catch-all', () => {
     const i = (source: string) => CONFIG.rewrites.findIndex((r) => r.source === source)
-    expect(i('/sitemap.xml')).toBeLessThan(i('/(.*)'))
+    expect(i('/sitemap.xml')).toBeGreaterThanOrEqual(0)
+    expect(i('/sitemap.xml')).toBeLessThan(i(CATCH_ALL.source))
   })
 
-  it('aponta para o MESMO host das outras duas rotas servidas', () => {
+  it('aponta para o MESMO host do feed', () => {
     const host = (source: string) => new URL(porSource(source).destination).host
-    expect(host('/sitemap.xml')).toBe(host('/produtos/:slug'))
+    expect(host('/sitemap.xml')).toBe(host('/feeds/google-shopping.xml'))
   })
 
-  it('âncora de contagem dos rewrites: são 4, e o último é o catch-all', () => {
+  it('âncora de contagem dos rewrites: são 3, e o último é o catch-all', () => {
     // Sem a âncora, uma entrada removida por edição deixaria as buscas acima achando o que procuram
-    // num arquivo já pela metade.
-    expect(CONFIG.rewrites).toHaveLength(4)
-    expect(CONFIG.rewrites[3]).toEqual({ source: '/(.*)', destination: '/index.html' })
+    // num arquivo já pela metade. Feature 69: desceu de 4 para 3 — saiu o `/produtos/:slug`.
+    expect(CONFIG.rewrites).toHaveLength(3)
+    expect(CONFIG.rewrites[2]).toEqual(CATCH_ALL)
   })
 
   /**
@@ -419,5 +433,61 @@ describe('vercel.json — a loja autoriza ser embutida pelo painel (BL-013)', ()
     // enquadrarem a loja. Ela liberaria **qualquer** projeto hospedado em vercel.app a embutir a
     // loja — inclusive o de um terceiro —, que é um vetor de clickjacking sobre o checkout.
     expect(csp.value).not.toContain('*')
+  })
+})
+
+/**
+ * Feature 69 (`AD-053`, SSV-02/03/04) — o HTML servido sai da função `api/page`, no deploy da loja.
+ *
+ * O que se prova aqui é o que está ESCRITO: a região, o catch-all e quem mais sai para fora do
+ * deploy. Que a Vercel detecta a função, entrega `__path` e `?variant=`, roda em `pdx1` e cacheia
+ * com `HIT` só um `curl` contra o preview prova — e é a T14 que faz isso.
+ */
+describe('vercel.json — a página servida pela função da loja (feature 69)', () => {
+  const STORE = join(ROOT, 'apps/store')
+
+  it('a função roda em `pdx1` — a região do banco (us-west-2), não a borda do Brasil', () => {
+    expect(CONFIG.regions).toEqual(['pdx1'])
+  })
+
+  it('o catch-all entrega o caminho original em `__path` — o mesmo parâmetro que a função lê', () => {
+    // Lido do disco e não importado: o `server/` tem tipos de Node e fica fora do `tsconfig.app.json`.
+    const fonte = readFileSync(join(STORE, 'server/page.ts'), 'utf8')
+    const PATH_PARAM = fonte.match(/export const PATH_PARAM = '([^']+)'/)?.[1]
+    expect(PATH_PARAM).toBe('__path')
+    expect(CATCH_ALL.destination).toBe(`/api/page?${PATH_PARAM}=/:path*`)
+    expect(CONFIG.rewrites[CONFIG.rewrites.length - 1]).toEqual(CATCH_ALL)
+  })
+
+  it('só o sitemap e o feed saem para fora do deploy — nenhum outro rewrite para `*.supabase.co`', () => {
+    const externos = CONFIG.rewrites.filter((r) => /^https?:\/\//.test(r.destination))
+    expect(externos.map((r) => r.source).sort()).toEqual(['/feeds/google-shopping.xml', '/sitemap.xml'])
+    const supabase = CONFIG.rewrites.filter((r) => /\.supabase\.co/.test(r.destination))
+    expect(supabase).toHaveLength(2)
+  })
+
+  it('nenhum rewrite reivindica `/api` — a função é endereçada pelo filesystem, não por rewrite', () => {
+    for (const r of CONFIG.rewrites) expect(r.source.startsWith('/api'), r.source).toBe(false)
+  })
+
+  it('a entrada `api/page.mjs` existe e reexporta o bundle que o build gera', () => {
+    const entrada = readFileSync(join(STORE, 'api/page.mjs'), 'utf8')
+    expect(entrada).toMatch(/export\s*\{\s*default\s*\}\s*from\s*'\.\.\/\.server\/page\.mjs'/)
+    const script = readFileSync(join(STORE, 'scripts/build-server.mjs'), 'utf8')
+    expect(script).toContain("'.server/page.mjs'")
+    expect(script).toContain("'server/page.ts'")
+    expect(script).toContain("'dist/index.html'")
+    expect(script).toContain('__SHELL__')
+  })
+
+  it('o `build` da loja empacota a função DEPOIS do `vite build`', () => {
+    const pkg = JSON.parse(readFileSync(join(STORE, 'package.json'), 'utf8')) as { scripts: Record<string, string> }
+    expect(pkg.scripts.build).toBe('vite build && node scripts/build-server.mjs')
+    expect(CONFIG.buildCommand).toBe('pnpm build')
+  })
+
+  it('o bundle gerado não é versionado', () => {
+    const ignorados = readFileSync(join(STORE, '.gitignore'), 'utf8').split(/\r?\n/)
+    expect(ignorados).toContain('.server')
   })
 })

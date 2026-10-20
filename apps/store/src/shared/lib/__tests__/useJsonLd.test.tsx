@@ -50,7 +50,7 @@ describe('useJsonLd', () => {
     expect(nossos()).toHaveLength(0)
   })
 
-  // ⚠️ A `product-page` (edge function) injeta o JSON-LD do produto NO HTML SERVIDO, antes de o
+  // ⚠️ O `<head>` servido (`servePage`, feature 69) injeta o JSON-LD do produto NO HTML, antes de o
   // React existir. Um seletor genérico o arrancaria ao desmontar esta página — e o produto perderia
   // o dado estruturado que o Merchant Center compara com o feed.
   it('não remove um script de outro dono, como o que a edge function serve', () => {

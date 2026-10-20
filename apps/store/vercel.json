@@ -5,6 +5,7 @@
   "installCommand": "cd ../.. && pnpm install --frozen-lockfile",
   "buildCommand": "pnpm build",
   "trailingSlash": false,
+  "regions": ["pdx1"],
   "redirects": [
     { "source": "/produto/:slug", "destination": "/produtos/:slug", "statusCode": 301 },
     { "source": "/colecao/:slug", "destination": "/:slug", "statusCode": 301 },
@@ -24,17 +25,9 @@
       "source": "/feeds/google-shopping.xml",
       "destination": "https://hgkrsfpupypxtygjgthf.supabase.co/functions/v1/google-feed"
     },
-    {
-      "source": "/produtos/:slug",
-      "destination": "https://hgkrsfpupypxtygjgthf.supabase.co/functions/v1/product-page?slug=:slug"
-    },
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "source": "/:path*", "destination": "/api/page?__path=/:path*" }
   ],
   "headers": [
-    {
-      "source": "/produtos/:slug",
-      "headers": [{ "key": "Content-Type", "value": "text/html; charset=utf-8" }]
-    },
     {
       "source": "/sitemap.xml",
       "headers": [{ "key": "Content-Type", "value": "application/xml; charset=utf-8" }]

@@ -1014,7 +1014,7 @@ catálogo — e impede que a troca aconteça na ordem errada.
   precedência fixa `produto_inativo` > `variacao_inativa` > `sem_preco`. O critério é **o que a dona
   faria a seguir**: com o produto inteiro fora do ar, dizer "esta linha está sem preço" manda
   consertar a coisa errada.
-- **A tela não serve o feed** — quem serve são as edge functions `google-feed` e `product-page`. Ver
+- **A tela não serve o feed** — quem serve é a edge function `google-feed` (e, desde a `69`, a página de produto vem da função `api/page` da loja). Ver
   [`../../supabase/CLAUDE.md`](../../supabase/CLAUDE.md).
 
 ## `/admin/usuarios` e `/admin/conta` — quem entra no painel (feature `48`)

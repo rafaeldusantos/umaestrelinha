@@ -62,7 +62,7 @@ export const opcoesLabel = (n: number): string => (n === 1 ? '1 opção' : `${n}
 /**
  * O que a seção mostra sobre o Google: o eixo que gera página (ou `null`) e os textos dele que
  * ganharam página. Quem decide é `indexableOptions` (`@estrelinha/core/seo`) — a MESMA regra que a
- * página da loja, a edge function `product-page` e o sitemap usam. Escrita aqui, a tela diria "tem
+ * página da loja, a função `api/page` da loja e o sitemap usam. Escrita aqui, a tela diria "tem
  * página" para uma cor que o sitemap não anuncia, e nada quebraria.
  */
 export interface PaginasNoGoogle {

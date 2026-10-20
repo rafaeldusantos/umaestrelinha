@@ -8,7 +8,7 @@ import { useEffect } from 'react'
  * numa página que não é ela. Dado estruturado errado é pior que nenhum — ele afirma ao buscador algo
  * que a página não mostra, e é justamente isso que um rastreador de IA cita.
  *
- * **`data-owner` é o que torna a remoção segura.** A `product-page` (edge function) injeta o JSON-LD
+ * **`data-owner` é o que torna a remoção segura.** A função `api/page` da Vercel (`core/page`) injeta o JSON-LD
  * do produto **no HTML servido**, antes de o React existir; um `querySelector` genérico por
  * `script[type="application/ld+json"]` acharia aquele e o arrancaria ao desmontar esta página. O
  * atributo marca o que é nosso, e só o que é nosso sai.

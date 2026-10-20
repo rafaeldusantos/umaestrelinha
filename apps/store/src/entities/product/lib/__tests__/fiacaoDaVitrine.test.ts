@@ -250,7 +250,7 @@ describe('o removedor de comentário não engole URL', () => {
  * único teste. Hoje não muda comportamento nenhum — é um mutante equivalente —, e é exatamente por
  * isso que ele é perigoso: **nada amarra a galeria à constante**.
  *
- * O estrago vem depois. A edge function `product-page` injeta
+ * O estrago vem depois. O `<head>` servido (`servePage`, `@estrelinha/core/page`, feature 69) injeta
  * `<link rel="preload" imagesizes="…">` a partir de `GALLERY_STAGE_SIZES`. Com a galeria presa a um
  * literal, mudar a constante move o `preload` e **não** move a galeria — e aí o navegador escolhe um
  * candidato do `srcset` para o preload e **outro** para o `<img>`, e baixa as **duas** fotos. É

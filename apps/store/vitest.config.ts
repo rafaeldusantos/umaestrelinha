@@ -10,7 +10,7 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
-    include: ["src/**/*.{test,spec}.{ts,tsx}"],
+    include: ["src/**/*.{test,spec}.{ts,tsx}", "server/**/*.{test,spec}.ts", "scripts/**/*.{test,spec}.ts"],
     /**
      * O client de `@estrelinha/supabase` LANÇA no carregamento do módulo quando estas duas faltam
      * — de propósito, para que a falta de configuração não vire fallback silencioso. Mas o `.env`

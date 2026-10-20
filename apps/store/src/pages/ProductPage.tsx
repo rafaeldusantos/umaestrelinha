@@ -82,7 +82,7 @@ const ProductPage = ({ legacy = false }: ProductPageProps) => {
   const { data: categoryProducts } = useProducts(category?.slug, { limit: RELATED_CARDS + 1 })
 
   // Feature 62 (`MTA-02`, `MTA-03`) e feature 68 (SVR-08..13): o título, a descrição e a canônica
-  // DESTA URL, pela mesma função que a edge function `product-page` usa no HTML servido
+  // DESTA URL, pela mesma função que a função `api/page` (`core/page`) usa no HTML servido
   // (`productHead`). Opção marcada ⇒ o `<head>` da opção, com a canônica da opção; todo o resto ⇒ o
   // da peça, com `/produtos/<slug>` (`URL-01`). Só quando a página vai de fato mostrar o produto:
   // carregando, ela não escreve nada (A9, SVR-13 — as marcações chegam no MESMO `select` da peça);

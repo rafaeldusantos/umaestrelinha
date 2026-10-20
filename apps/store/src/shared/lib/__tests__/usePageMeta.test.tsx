@@ -90,6 +90,20 @@ describe('usePageMeta — robots (MTA-06)', () => {
     expect(document.head.querySelector('meta[name="robots"]')).toBeNull()
   })
 
+  it('o robots que o SERVIDOR pôs na 404 (feature 69) não ganha um segundo, e sai ao navegar para página indexável', () => {
+    const servido = document.createElement('meta')
+    servido.setAttribute('name', 'robots')
+    servido.setAttribute('content', 'noindex')
+    servido.setAttribute('data-owner', 'estrelinha-spa')
+    document.head.appendChild(servido)
+    const { rerender } = renderHook(({ m }: { m: PageMeta }) => usePageMeta(m), {
+      initialProps: { m: { title: 'Página não encontrada | Uma Estrelinha', description: 'x', indexable: false } },
+    })
+    expect(document.head.querySelectorAll('meta[name="robots"]')).toHaveLength(1)
+    rerender({ m: { title: 'Joias | Uma Estrelinha', description: 'y', indexable: true } })
+    expect(document.head.querySelector('meta[name="robots"]')).toBeNull()
+  })
+
   it('rota indexável não remove um robots que não é nosso', () => {
     const alheio = document.createElement('meta')
     alheio.setAttribute('name', 'robots')

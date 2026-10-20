@@ -4,7 +4,9 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**"],
+      // Feature 69: `.server/**` é o bundle da função `api/page` (esbuild, depois do `vite build`).
+      // Sem ele num acerto de cache o Turbo restauraria `dist/` e deixaria a função sem bundle.
+      "outputs": ["dist/**", ".server/**"],
       // O Turbo roda cada task num ambiente FILTRADO: variável que não estiver
       // declarada aqui NÃO chega ao `vite build`.
       //
