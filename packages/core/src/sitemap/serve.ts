@@ -1,7 +1,13 @@
-// Feature 33 — o sitemap que o rastreador busca.
+// Feature 70 — a resposta de `/sitemap.xml`, servida pela função `api/page` da Vercel.
 //
-// `index.ts` é só wiring (env, client, `Deno.serve`); toda a lógica está aqui, com dependências
-// injetadas, para rodar em vitest fora do Deno (`AD-004`). Mesmo molde da `google-feed`.
+// Era o `handlers.ts` da edge function `sitemap` (features 33, 46, 68 e 69), e mudou de casa sem
+// mudar de regra: a leitura paginada, o 503 degradado e o documento são os mesmos. O que mudou é o
+// transporte — o `rewrite` para `*.supabase.co` não era cacheado pela Vercel (TTFB de 4,7 a 9,3 s,
+// sempre `MISS`), e a função da loja, no mesmo deploy, é (`s-maxage=3600`).
+//
+// Molde de `servePage` (`core/page/serve.ts`): pura, leituras injetadas, e a saída é
+// `{ status, headers, body }` — sem `Response`, para ser testável sem runtime nenhum. A função da
+// Vercel é só env, client e a tradução para `Response`.
 //
 // ---------------------------------------------------------------------------------------------
 // A REGRA QUE NÃO PODE SER AFROUXADA: SITEMAP PARCIAL NÃO PARECE PARCIAL
@@ -10,33 +16,32 @@
 // o rastreador acredita. Diferente do feed do Merchant Center, a ausência aqui não remove nada; ela
 // simplesmente adia descoberta, em silêncio e por tempo indeterminado.
 //
-// Por isso todo caminho degradado responde **5xx sem corpo de sitemap**:
+// Por isso todo caminho degradado responde **503 sem corpo de sitemap, e `no-store`** (SMV-03):
 //
-//   • leitura truncada (o teto de 1.000 do PostgREST)  ⇒ 503  (produtos, categorias e, desde a
-//     feature 68, variações e marcações por opção)
+//   • leitura truncada (o teto de 1.000 do PostgREST)  ⇒ 503  (produtos, categorias, variações e
+//     marcações por opção)
 //   • zero produtos                                     ⇒ 503  (credencial/RLS, não fato)
-//   • origem ausente ou malformada                      ⇒ 503  (719 <loc> erradas de uma vez)
+//   • origem ausente ou malformada                      ⇒ 503  (todas as <loc> erradas de uma vez)
 //
-// O corpo de erro é `text/plain` de propósito: é o único tipo que já se **mediu** atravessar o
-// gateway `*.supabase.co` intacto (`BUG-20260829`), e um erro que chegasse como XML poderia ser
-// lido como sitemap vazio.
+// O `no-store` é a metade nova e é carga: com o 200 cacheado por uma hora, um 503 cacheado do
+// mesmo jeito prenderia a falha de um segundo por uma hora inteira na borda.
+//
+// O corpo de erro é `text/plain`: um erro que chegasse como XML poderia ser lido como sitemap vazio.
+//
+// Imports por ARQUIVO e com extensão explícita: a função empacota este módulo fora do Vite.
 
-import {
-  originRefusal,
-  renderSitemapXml,
-  sitemapUrls,
-  type SitemapCategory,
-  type SitemapFaqQuestion,
-  type SitemapOptionMark,
-  type SitemapProduct,
-  type SitemapVariant,
-} from '../../../packages/core/src/sitemap/index.ts'
-import { resolveFaqPage } from '../../../packages/core/src/faq/page.ts'
-import type { FaqPageLink } from '../../../packages/core/src/faq/types.ts'
-import {
-  POSTGREST_PAGE_SIZE,
-  readAllPages,
-} from '../../../packages/core/src/paging/index.ts'
+import { resolveFaqPage } from '../faq/page.ts'
+import type { FaqPageLink } from '../faq/types.ts'
+import { POSTGREST_PAGE_SIZE, readAllPages } from '../paging/readAll.ts'
+import { renderSitemapXml } from './render.ts'
+import type {
+  SitemapCategory,
+  SitemapFaqQuestion,
+  SitemapOptionMark,
+  SitemapProduct,
+  SitemapVariant,
+} from './types.ts'
+import { originRefusal, sitemapUrls } from './urls.ts'
 
 export interface SitemapDeps {
   /** A origem pública da loja (`STORE_PUBLIC_URL`). Sem ela não há `<loc>` possível. */
@@ -67,19 +72,40 @@ export interface SitemapDeps {
   readVariants: (from: number, to: number) => Promise<SitemapVariant[]>
   countOptionMarks: () => Promise<number>
   readOptionMarks: (from: number, to: number) => Promise<SitemapOptionMark[]>
+  log: (entry: Record<string, unknown>) => void
 }
 
-const texto = (corpo: string, status: number): Response =>
-  new Response(corpo, { status, headers: { 'Content-Type': 'text/plain; charset=utf-8' } })
+/** A mesma forma de `ServedResponse` (`core/page`) — a função traduz as duas pelo mesmo `toResponse`. */
+export interface SitemapResponse {
+  status: number
+  headers: Record<string, string>
+  body: string
+}
 
-const log = (entry: Record<string, unknown>): void => console.log(JSON.stringify(entry))
+/**
+ * O `Cache-Control` dos dois desfechos (SMV-01, SMV-03). Uma hora no 200 é decisão do usuário
+ * (2026-10-20): o teto de atraso entre cadastrar uma peça no painel e ela entrar no sitemap — que o
+ * rastreador relê em dias, não em minutos.
+ */
+export const SITEMAP_CACHE = {
+  ok: 'public, s-maxage=3600',
+  error: 'no-store',
+} as const
+
+export const SITEMAP_CONTENT_TYPE = 'application/xml; charset=utf-8'
+
+const indisponivel = (corpo: string): SitemapResponse => ({
+  status: 503,
+  headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': SITEMAP_CACHE.error },
+  body: corpo,
+})
 
 /**
  * O catálogo inteiro, ou **falha**.
  *
- * Usa `readAllPages` (`@estrelinha/core/paging`), o mesmo mecanismo da `google-feed` — o teto de
- * 1.000 linhas do PostgREST é um só, e uma segunda implementação dele divergiria só no volume real,
- * que é onde ninguém está olhando.
+ * Usa `readAllPages` (`core/paging`), o mesmo mecanismo da `google-feed` — o teto de 1.000 linhas
+ * do PostgREST é um só, e uma segunda implementação dele divergiria só no volume real, que é onde
+ * ninguém está olhando.
  */
 export const readCatalog = async (
   deps: SitemapDeps,
@@ -141,27 +167,27 @@ export const readCatalog = async (
   return { products, categories, faqQuestions, variants, optionMarks }
 }
 
-export const handleSitemap = async (deps: SitemapDeps): Promise<Response> => {
+export const serveSitemap = async (deps: SitemapDeps): Promise<SitemapResponse> => {
   const recusa = originRefusal(deps.origin)
   if (recusa) {
-    log({ fn: 'sitemap', erro: 'origem', detalhe: recusa })
-    return texto('origem da loja não configurada', 503)
+    deps.log({ fn: 'sitemap', erro: 'origem', detalhe: recusa })
+    return indisponivel('origem da loja não configurada')
   }
 
   let catalogo: Awaited<ReturnType<typeof readCatalog>>
   try {
     catalogo = await readCatalog(deps)
   } catch (e) {
-    log({ fn: 'sitemap', erro: 'leitura', detalhe: String(e) })
-    return texto('catálogo indisponível', 503)
+    deps.log({ fn: 'sitemap', erro: 'leitura', detalhe: String(e) })
+    return indisponivel('catálogo indisponível')
   }
 
   // Zero produto público não é um catálogo vazio — é quase sempre credencial errada ou RLS fechada.
-  // Servir 4 URLs institucionais no lugar de 680 seria a resposta mais enganosa possível: XML
+  // Servir as URLs institucionais no lugar do catálogo seria a resposta mais enganosa possível: XML
   // válido, status 200, e o rastreador concluindo que a loja perdeu o catálogo inteiro.
   if (catalogo.products.length === 0) {
-    log({ fn: 'sitemap', erro: 'catalogo_vazio' })
-    return texto('catálogo indisponível', 503)
+    deps.log({ fn: 'sitemap', erro: 'catalogo_vazio' })
+    return indisponivel('catálogo indisponível')
   }
 
   let xml: string
@@ -178,11 +204,11 @@ export const handleSitemap = async (deps: SitemapDeps): Promise<Response> => {
     )
   } catch (e) {
     // `<loc>` duplicada e teto de 50.000 chegam aqui. Recusar é o desfecho certo nos dois.
-    log({ fn: 'sitemap', erro: 'geracao', detalhe: String(e) })
-    return texto('sitemap indisponível', 503)
+    deps.log({ fn: 'sitemap', erro: 'geracao', detalhe: String(e) })
+    return indisponivel('sitemap indisponível')
   }
 
-  log({
+  deps.log({
     fn: 'sitemap',
     ok: true,
     produtos: catalogo.products.length,
@@ -192,16 +218,12 @@ export const handleSitemap = async (deps: SitemapDeps): Promise<Response> => {
     marcacoes: catalogo.optionMarks.length,
   })
 
-  return new Response(xml, {
+  return {
     status: 200,
-    headers: {
-      // A Supabase reescreve `text/html` no domínio compartilhado (`BUG-20260829`); `application/xml`
-      // nunca foi medido atravessando. Por isso o `vercel.json` reimpõe este MESMO valor na borda —
-      // o tipo entregue é o que prova a rota (`AD-021`), e aqui ele é declarado, não presumido.
-      'Content-Type': 'application/xml; charset=utf-8',
-      // A Vercel **não cacheia** `rewrite` para host externo (medido: 4 batidas, 4 MISS). O header
-      // fica para intermediários que respeitem, e para o dia em que o transporte mudar (`BL-017`).
-      'Cache-Control': 'public, max-age=600',
-    },
-  })
+    // O tipo é NOSSO desde a feature 70: a resposta sai da função da loja, sem o gateway
+    // `*.supabase.co` no meio para reescrevê-lo (`BUG-20260829`), e o `vercel.json` deixou de
+    // reimpô-lo (SMV-04). A prova da entrega continua sendo o tipo ENTREGUE (`AD-021`).
+    headers: { 'Content-Type': SITEMAP_CONTENT_TYPE, 'Cache-Control': SITEMAP_CACHE.ok },
+    body: xml,
+  }
 }

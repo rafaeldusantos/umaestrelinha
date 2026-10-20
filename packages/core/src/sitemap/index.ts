@@ -1,8 +1,8 @@
 // Feature 33 — a API pública de `@estrelinha/core/sitemap`.
 //
-// Consumidor: `supabase/functions/sitemap`, que importa por **caminho relativo com extensão
-// explícita** (`../../../packages/core/src/sitemap/index.ts`), no precedente de `shopping` e
-// `payment`. O barrel serve a quem passa pelo Vite.
+// Consumidor: desde a feature 70, a função `api/page` da Vercel (`apps/store/server`), que empacota
+// o módulo por esbuild FORA do Vite — por isso a extensão explícita em todo reexport. Até a `69`
+// quem o lia era a edge function `sitemap`, por caminho relativo; ela foi aposentada.
 export type {
   SitemapCategory,
   SitemapFaqQuestion,
@@ -20,3 +20,11 @@ export {
   locValue,
   renderSitemapXml,
 } from './render.ts'
+export {
+  SITEMAP_CACHE,
+  SITEMAP_CONTENT_TYPE,
+  readCatalog,
+  serveSitemap,
+  type SitemapDeps,
+  type SitemapResponse,
+} from './serve.ts'

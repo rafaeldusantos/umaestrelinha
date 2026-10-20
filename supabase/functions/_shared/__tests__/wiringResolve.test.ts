@@ -194,7 +194,10 @@ const arquivos = entrypoints()
 describe('wiring das edge functions — âncoras', () => {
   it('há um index.ts para CADA diretório de function — âncora derivada, não número cravado', () => {
     // `>= 7` deixava uma function perder o `index.ts` sem a âncora notar, e o número cravado já
-    // nasceu errado na documentação (são oito, não sete). Derivar do disco fecha os dois.
+    // nasceu errado na documentação (eram oito, não sete). Derivar do disco fecha os dois.
+    // Feature 70: o piso desceu de 8 para 7 — a function `sitemap` foi aposentada (o sitemap passou a
+    // sair da função `api/page` da loja). A âncora que mede de verdade é a igualdade logo abaixo; o
+    // piso é o número de hoje, para um diretório de functions esvaziado não passar por vacuidade.
     const diretorios = readdirSync(FUNCTIONS).filter((n) => !n.startsWith('_')).filter((n) => {
       try {
         return statSync(join(FUNCTIONS, n)).isDirectory()
@@ -202,7 +205,7 @@ describe('wiring das edge functions — âncoras', () => {
         return false
       }
     })
-    expect(diretorios.length).toBeGreaterThanOrEqual(8)
+    expect(diretorios.length).toBeGreaterThanOrEqual(7)
     expect(arquivos.length).toBe(diretorios.length)
   })
 

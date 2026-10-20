@@ -1,9 +1,10 @@
 /**
- * `core/seo` é alcançado pela edge function `sitemap` por caminho relativo (via `core/sitemap/urls.ts`
- * → `seo/variant.ts`), e pelo `<head>` servido (`core/page/serve.ts`, feature 69), que é empacotado
- * FORA do Vite. A edge function da página de produto, que o importava antes, foi aposentada na `69`
- * — o leitor mudou, a exigência não. O grafo TRANSITIVO (`core/faq/block.ts`, `core/routes/routes.ts`)
- * tem de ser alcançável por Deno.
+ * `core/seo` era alcançado por Deno pela edge function da página de produto (aposentada na `69`) e
+ * depois pela `sitemap` (via `core/sitemap/urls.ts` → `seo/variant.ts`), aposentada na `70`. Hoje
+ * quem o lê é a função `api/page` da Vercel (`<head>` servido e `/sitemap.xml`), empacotada por
+ * esbuild FORA do Vite — **e a régua fica**: o grafo TRANSITIVO (`core/faq/block.ts`,
+ * `core/routes/routes.ts`, `shopping`) é o mesmo que a `google-feed` resolve em parte, e uma function
+ * que volte a importar `core/seo` não pode descobrir no deploy que o grafo deixou de ser alcançável.
  *
  * Deno exige extensão explícita em todo especificador relativo, **`import type` incluso**, e resolve
  * o grafo de tipos antes da primeira linha: um `.ts` faltando derruba o worker com
@@ -63,7 +64,8 @@ describe('core/seo é alcançável por Deno', () => {
   })
 
   // Feature 68: `seo/variant.ts` puxou `shopping` e `filters/types.ts` para o grafo que o Deno
-  // resolve (na `68`, pela edge function da página de produto; desde a `69`, pelo `sitemap`). Âncora = o número MEDIDO (15 em 2026-10-19), não um piso: um arquivo a
+  // resolve (na `68`, pela edge function da página de produto; na `69`, pelo `sitemap`; desde a `70`,
+  // por nenhuma function — a régua fica, ver o cabeçalho). Âncora = o número MEDIDO (15 em 2026-10-19), não um piso: um arquivo a
   // mais ou a menos no grafo do Deno é uma mudança que alguém precisa olhar.
   it('âncora: o grafo alcança seo/variant.ts, os arquivos de shopping e filters/types.ts (15 arquivos)', () => {
     const nomes = grafo.visitados.map(c => c.replace(/\\/g, '/'))

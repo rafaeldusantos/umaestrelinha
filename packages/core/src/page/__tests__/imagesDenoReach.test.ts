@@ -1,8 +1,11 @@
 /**
  * Feature 69 · T08 — `core/page/images.ts` tem de ser alcançável por Deno.
  *
- * A function `sitemap` importa `productPageImages` por caminho relativo, e a página servida também
- * o lê. Deno resolve por caminho com extensão explícita **e resolve o grafo de TIPOS junto**: um
+ * Até a feature 70 a function `sitemap` importava `productPageImages` por caminho relativo. Ela foi
+ * aposentada (o sitemap passou a sair da função `api/page` da Vercel, que empacota por esbuild), e
+ * hoje nenhuma edge function alcança este arquivo — **a régua fica**, porque `images.ts` continua
+ * sendo folha que uma function pode voltar a importar, e o custo de a exigência sumir só aparece no
+ * dia em que alguém importar. Deno resolve por caminho com extensão explícita **e resolve o grafo de TIPOS junto**: um
  * especificador relativo sem `.ts`, ou um alias de pacote num `import type`, derruba o worker com
  * `Failed resolving types` antes da primeira linha rodar — e Vite e vitest resolvem as duas formas,
  * então nada acusaria aqui dentro.

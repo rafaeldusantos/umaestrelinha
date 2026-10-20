@@ -551,14 +551,6 @@ verify_jwt = false
 [functions.google-feed]
 verify_jwt = false
 
-# Feature 33 — o sitemap. Quem busca é rastreador, que não manda JWT nenhum, e o conteúdo é a lista
-# de endereços que a vitrine já publica. Diferente das irmãs em UM ponto: a function lê com a chave
-# PUBLICÁVEL, não com service role, para que a visibilidade do sitemap seja a própria RLS em vez de
-# uma segunda cópia dela. Não há interruptor — sitemap ausente só adia descoberta, ao contrário do
-# feed do Merchant Center, cuja ausência REMOVE catálogo.
-[functions.sitemap]
-verify_jwt = false
-
 # A porta do checkout sem conta (feature 49). Aqui `verify_jwt = false` NÃO é teatro de segurança
 # como nas outras: a convidada não tem JWT nenhum, por definição. Quem autoriza é o handler — a
 # sessão quando existe, o token de posse do pedido quando não.

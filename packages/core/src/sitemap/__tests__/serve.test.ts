@@ -1,15 +1,17 @@
 import { describe, it, expect, vi } from 'vitest'
 import { JSDOM } from 'jsdom'
-import { handleSitemap, readCatalog, type SitemapDeps } from '../handlers.ts'
-import type {
-  SitemapCategory,
-  SitemapOptionMark,
-  SitemapProduct,
-  SitemapVariant,
-} from '../../../../packages/core/src/sitemap/index.ts'
+import { SITEMAP_CACHE, serveSitemap, readCatalog, type SitemapDeps, type SitemapResponse } from '../serve.ts'
+import type { SitemapCategory, SitemapOptionMark, SitemapProduct, SitemapVariant } from '../types.ts'
 
 /**
- * `SMP-16`..`SMP-20` — a function.
+ * `SMP-16`..`SMP-20` e, desde a feature 70, `SMV-01`..`SMV-03` — a resposta de `/sitemap.xml`.
+ *
+ * Os casos MUDARAM DE CASA na feature 70: eram o `handlers.test.ts` da edge function `sitemap`
+ * (30 casos), contra o `handleSitemap` da edge function que devolvia `Response`. A regra foi para
+ * `core/sitemap/serve.ts`, que devolve `{ status, headers, body }`, e cada caso veio com ela — mesmas
+ * fixturas, mesmas asserções. O que mudou: o `Cache-Control` do 200 (`max-age=600` → `s-maxage=3600`,
+ * SMV-01) e o `no-store` que TODO 503 passou a carregar (SMV-03), asserido no mesmo ajudante que já
+ * recusava o `<urlset>`.
  *
  * A propriedade central deste arquivo é **negativa**: nenhum caminho degradado pode devolver um
  * `<urlset>`. É por isso que quase todo caso assere a **ausência** do elemento, e não só o status —
@@ -47,31 +49,35 @@ const deps = (over: Partial<SitemapDeps> = {}): SitemapDeps => ({
   readVariants: async () => [],
   countOptionMarks: async () => 0,
   readOptionMarks: async () => [],
+  log: () => {},
   ...over,
 })
 
 const parse = (xml: string) => new JSDOM(xml, { contentType: 'text/xml' }).window.document
 
 /** Todo corpo de erro passa por aqui: um 5xx não pode carregar sitemap nenhum. */
-const naoTemUrlset = async (res: Response) => {
-  const corpo = await res.text()
+const naoTemUrlset = (res: SitemapResponse) => {
+  const corpo = res.body
   expect(corpo).not.toContain('<urlset')
   expect(corpo).not.toContain('<url>')
-  expect(res.headers.get('Content-Type')).toBe('text/plain; charset=utf-8')
+  expect(res.headers['Content-Type']).toBe('text/plain; charset=utf-8')
+  // SMV-03: com o 200 cacheado por uma hora na borda, um 503 cacheado do mesmo jeito prenderia a
+  // falha de um segundo por uma hora inteira.
+  expect(res.headers['Cache-Control']).toBe('no-store')
 }
 
-describe('handleSitemap — o caminho bom', () => {
+describe('serveSitemap — o caminho bom', () => {
   it('responde 200 com `application/xml; charset=utf-8`', async () => {
-    const res = await handleSitemap(deps())
+    const res = await serveSitemap(deps())
 
     expect(res.status).toBe(200)
-    // O tipo é declarado aqui E reimposto no `vercel.json`: a Supabase reescreve `text/html` no
-    // domínio compartilhado, e `application/xml` nunca foi medido atravessando (`BUG-20260829`).
-    expect(res.headers.get('Content-Type')).toBe('application/xml; charset=utf-8')
+    // SMV-01: o tipo é NOSSO desde a feature 70 — sem o gateway `*.supabase.co` no meio, o
+    // `vercel.json` deixou de reimpô-lo, e esta é a única declaração dele.
+    expect(res.headers['Content-Type']).toBe('application/xml; charset=utf-8')
   })
 
   it('o corpo é um `<urlset>` que parseia, com as URLs canônicas', async () => {
-    const doc = parse(await (await handleSitemap(deps())).text())
+    const doc = parse((await serveSitemap(deps())).body)
     const locs = [...doc.querySelectorAll('loc')].map(n => n.textContent)
 
     expect(doc.documentElement.tagName).toBe('urlset')
@@ -83,44 +89,68 @@ describe('handleSitemap — o caminho bom', () => {
     expect(locs).toHaveLength(11)
   })
 
-  it('declara `Cache-Control` — inútil na Vercel hoje, e correto quando o transporte mudar', async () => {
-    // Medido em 2026-08-29: a Vercel NÃO cacheia `rewrite` para host externo (4 batidas, 4 MISS).
-    // O header não é encenação: é o que passa a valer sozinho no dia da `BL-017`.
-    const res = await handleSitemap(deps())
-    expect(res.headers.get('Cache-Control')).toBe('public, max-age=600')
+  it('SMV-01: `Cache-Control: public, s-maxage=3600` — uma hora de cache de borda na Vercel', async () => {
+    // Reescrito na feature 70 porque a spec mudou o comportamento: até a `69` o valor era
+    // `public, max-age=600`, inútil atrás de um `rewrite` externo que a Vercel não cacheia (medido:
+    // sempre MISS). Na função da loja ele vale, e o número é decisão do usuário (2026-10-20).
+    const res = await serveSitemap(deps())
+    expect(res.headers['Cache-Control']).toBe('public, s-maxage=3600')
+    expect(SITEMAP_CACHE).toEqual({ ok: 'public, s-maxage=3600', error: 'no-store' })
+  })
+
+  it('SMV-01: os headers do 200 são exatamente os dois — nada de `max-age` de navegador de carona', async () => {
+    const res = await serveSitemap(deps())
+    expect(res.headers).toEqual({
+      'Content-Type': 'application/xml; charset=utf-8',
+      'Cache-Control': 'public, s-maxage=3600',
+    })
+  })
+
+  it('o log do caminho bom conta o que leu — é o que separa "200 vazio" de "200 cheio" no log da Vercel', async () => {
+    const log = vi.fn()
+    await serveSitemap(deps({ log }))
+    expect(log).toHaveBeenCalledWith({
+      fn: 'sitemap',
+      ok: true,
+      produtos: 2,
+      categorias: 2,
+      perguntas: 0,
+      variacoes: 0,
+      marcacoes: 0,
+    })
   })
 })
 
-describe('handleSitemap — a origem (SMP-18)', () => {
+describe('serveSitemap — a origem (SMP-18)', () => {
   it('503 sem origem configurada, e sem tocar no banco', async () => {
     const countProducts = vi.fn(async () => 2)
-    const res = await handleSitemap(deps({ origin: '', countProducts }))
+    const res = await serveSitemap(deps({ origin: '', countProducts }))
 
     expect(res.status).toBe(503)
-    await naoTemUrlset(res)
+    naoTemUrlset(res)
     // Consultar o banco para depois descartar o resultado gastaria leitura por nada — e é o tipo de
     // guarda que a `L-004` cobra: todo retorno antecipado prova zero chamadas de saída.
     expect(countProducts).not.toHaveBeenCalled()
   })
 
   it('503 com origem relativa — 719 `<loc>` sem host seriam XML válido', async () => {
-    const res = await handleSitemap(deps({ origin: '/loja' }))
+    const res = await serveSitemap(deps({ origin: '/loja' }))
     expect(res.status).toBe(503)
-    await naoTemUrlset(res)
+    naoTemUrlset(res)
   })
 
   it('503 com esquema que não é http(s)', async () => {
-    const res = await handleSitemap(deps({ origin: 'ftp://umaestrelinha.com.br' }))
+    const res = await serveSitemap(deps({ origin: 'ftp://umaestrelinha.com.br' }))
     expect(res.status).toBe(503)
-    await naoTemUrlset(res)
+    naoTemUrlset(res)
   })
 })
 
-describe('handleSitemap — leitura truncada (SMP-16, SMP-19)', () => {
+describe('serveSitemap — leitura truncada (SMP-16, SMP-19)', () => {
   it('503 quando a leitura de produtos vem menor que a contagem', async () => {
     // O teto de 1.000 do PostgREST em forma pura: a contagem diz 3.233, a leitura entrega 1.000, e
     // não há erro em lugar nenhum. Servir o que veio anunciaria um catálogo de 1.000 peças.
-    const res = await handleSitemap(
+    const res = await serveSitemap(
       deps({
         countProducts: async () => 3233,
         readProducts: async (from, to) => (from === 0 ? Array.from({ length: to - from + 1 }, (_, i) => produto(`p${i}`)) : []),
@@ -128,22 +158,22 @@ describe('handleSitemap — leitura truncada (SMP-16, SMP-19)', () => {
     )
 
     expect(res.status).toBe(503)
-    await naoTemUrlset(res)
+    naoTemUrlset(res)
   })
 
   it('503 quando a leitura de CATEGORIAS vem menor — as duas tabelas são conferidas', async () => {
     // Sem este caso, uma implementação que conferisse só produtos passaria: categorias são 35 hoje
     // e nunca truncam, então o defeito ficaria latente até a loja crescer.
-    const res = await handleSitemap(
+    const res = await serveSitemap(
       deps({ countCategories: async () => 99, readCategories: async () => [] }),
     )
 
     expect(res.status).toBe(503)
-    await naoTemUrlset(res)
+    naoTemUrlset(res)
   })
 
   it('503 quando a consulta levanta erro', async () => {
-    const res = await handleSitemap(
+    const res = await serveSitemap(
       deps({
         readProducts: async () => {
           throw new Error('PGRST301')
@@ -152,34 +182,34 @@ describe('handleSitemap — leitura truncada (SMP-16, SMP-19)', () => {
     )
 
     expect(res.status).toBe(503)
-    await naoTemUrlset(res)
+    naoTemUrlset(res)
   })
 })
 
-describe('handleSitemap — catálogo vazio (SMP-17)', () => {
+describe('serveSitemap — catálogo vazio (SMP-17)', () => {
   it('503 com zero produtos, em vez de um sitemap só com as institucionais', async () => {
     // Zero produto público é quase sempre credencial errada ou RLS fechada. Servir 4 URLs no lugar
     // de 680, com status 200 e XML válido, seria a resposta mais enganosa possível.
-    const res = await handleSitemap(deps({ countProducts: async () => 0, readProducts: async () => [] }))
+    const res = await serveSitemap(deps({ countProducts: async () => 0, readProducts: async () => [] }))
 
     expect(res.status).toBe(503)
-    await naoTemUrlset(res)
+    naoTemUrlset(res)
   })
 
   it('categoria vazia NÃO derruba — uma loja sem categoria ainda tem produtos', async () => {
-    const res = await handleSitemap(
+    const res = await serveSitemap(
       deps({ countCategories: async () => 0, readCategories: async () => [] }),
     )
 
     expect(res.status).toBe(200)
-    const locs = [...parse(await res.text()).querySelectorAll('loc')].map(n => n.textContent)
+    const locs = [...parse(res.body).querySelectorAll('loc')].map(n => n.textContent)
     expect(locs).toContain('https://umaestrelinha.com.br/produtos/anel')
   })
 })
 
-describe('handleSitemap — `<loc>` duplicada', () => {
+describe('serveSitemap — `<loc>` duplicada', () => {
   it('503 em vez de um sitemap com URL repetida', async () => {
-    const res = await handleSitemap(
+    const res = await serveSitemap(
       deps({
         countProducts: async () => 2,
         readProducts: async () => [produto('a'), produto('a')],
@@ -187,7 +217,7 @@ describe('handleSitemap — `<loc>` duplicada', () => {
     )
 
     expect(res.status).toBe(503)
-    await naoTemUrlset(res)
+    naoTemUrlset(res)
   })
 })
 
@@ -205,7 +235,7 @@ describe('readCatalog — a paginação', () => {
   })
 })
 
-describe('handleSitemap — as perguntas frequentes', () => {
+describe('serveSitemap — as perguntas frequentes', () => {
   const vinculo = (id: string, question: string, over: Record<string, unknown> = {}) => ({
     faq_id: id,
     category: 'envio-do-material',
@@ -216,7 +246,7 @@ describe('handleSitemap — as perguntas frequentes', () => {
   })
 
   it('cada pergunta da página vira uma `<loc>` própria', async () => {
-    const res = await handleSitemap(
+    const res = await serveSitemap(
       deps({
         readFaqLinks: async () => [
           vinculo('3f9a1c2e-0000-4000-8000-000000000001', 'Quanto de cinzas preciso enviar?'),
@@ -224,14 +254,14 @@ describe('handleSitemap — as perguntas frequentes', () => {
       }),
     )
     expect(res.status).toBe(200)
-    const locs = [...parse(await res.text()).getElementsByTagName('loc')].map(l => l.textContent)
+    const locs = [...parse(res.body).getElementsByTagName('loc')].map(l => l.textContent)
     expect(locs).toContain(
       'https://umaestrelinha.com.br/perguntas-frequentes/quanto-de-cinzas-preciso-enviar-3f9a1c2e',
     )
   })
 
   it('pergunta que a página esconde (inativa, `faq: null` pela RLS) não é anunciada', async () => {
-    const res = await handleSitemap(
+    const res = await serveSitemap(
       deps({
         readFaqLinks: async () => [
           vinculo('3f9a1c2e-0000-4000-8000-000000000001', 'Escondida?', { faq: null }),
@@ -241,11 +271,11 @@ describe('handleSitemap — as perguntas frequentes', () => {
         ],
       }),
     )
-    expect(await res.text()).not.toContain('/perguntas-frequentes/')
+    expect(res.body).not.toContain('/perguntas-frequentes/')
   })
 
   it('leitura das perguntas falhou: 503 sem sitemap — um documento sem elas descreveria uma loja menor', async () => {
-    const res = await handleSitemap(
+    const res = await serveSitemap(
       deps({
         readFaqLinks: async () => {
           throw new Error('connection refused')
@@ -253,7 +283,7 @@ describe('handleSitemap — as perguntas frequentes', () => {
       }),
     )
     expect(res.status).toBe(503)
-    await naoTemUrlset(res)
+    naoTemUrlset(res)
   })
 })
 
@@ -296,12 +326,12 @@ describe('feature 68 — as páginas de opção', () => {
       readOptionMarks: async (from, to) => MARCAS.slice(from, to + 1),
       ...over,
     })
-  const locsDe = async (res: Response) => [...parse(await res.text()).querySelectorAll('loc')].map(n => n.textContent)
+  const locsDe = (res: SitemapResponse) => [...parse(res.body).querySelectorAll('loc')].map(n => n.textContent)
 
   it('SVR-24: duas cores marcadas ⇒ duas `<loc>` com ?variant=, logo depois da peça', async () => {
-    const res = await handleSitemap(comOpcoes())
+    const res = await serveSitemap(comOpcoes())
     expect(res.status).toBe(200)
-    const locs = await locsDe(res)
+    const locs = locsDe(res)
     const i = locs.indexOf('https://umaestrelinha.com.br/produtos/pingente-pata')
     expect(locs.slice(i, i + 3)).toEqual([
       'https://umaestrelinha.com.br/produtos/pingente-pata',
@@ -312,7 +342,7 @@ describe('feature 68 — as páginas de opção', () => {
   })
 
   it('SVR-25: o `<lastmod>` da `<loc>` de opção é o `updated_at` da peça', async () => {
-    const doc = parse(await (await handleSitemap(comOpcoes())).text())
+    const doc = parse((await serveSitemap(comOpcoes())).body)
     const urls = [...doc.querySelectorAll('url')].filter(u => u.querySelector('loc')!.textContent!.includes('pingente-pata'))
     expect(urls.map(u => u.querySelector('lastmod')?.textContent)).toEqual([
       '2026-10-01T10:00:00+00:00',
@@ -322,9 +352,9 @@ describe('feature 68 — as páginas de opção', () => {
   })
 
   it('SVR-29: sem marcações (removidas, ou grupo desligado pela RLS) não há `<loc>` de opção', async () => {
-    const res = await handleSitemap(comOpcoes({ countOptionMarks: async () => 0, readOptionMarks: async () => [] }))
+    const res = await serveSitemap(comOpcoes({ countOptionMarks: async () => 0, readOptionMarks: async () => [] }))
     expect(res.status).toBe(200)
-    expect((await locsDe(res)).some(l => l!.includes('?'))).toBe(false)
+    expect((locsDe(res)).some(l => l!.includes('?'))).toBe(false)
   })
 
   it.each([
@@ -333,9 +363,9 @@ describe('feature 68 — as páginas de opção', () => {
     ['a contagem de marcações lança', { countOptionMarks: async () => { throw new Error('fora') } }],
     ['a leitura de marcações lança', { readOptionMarks: async () => { throw new Error('fora') } }],
   ])('SVR-26: %s ⇒ 503 `text/plain`, sem `<urlset>`', async (_n, over) => {
-    const res = await handleSitemap(comOpcoes(over as Partial<SitemapDeps>))
+    const res = await serveSitemap(comOpcoes(over as Partial<SitemapDeps>))
     expect(res.status).toBe(503)
-    await naoTemUrlset(res)
+    naoTemUrlset(res)
   })
 
   // O teto do PostgREST em forma pura: a contagem diz 1001, a primeira página entrega 1000, a
@@ -344,30 +374,30 @@ describe('feature 68 — as páginas de opção', () => {
     from === 0 ? Array.from({ length: to - from + 1 }, (_, i) => gerar(i)) : []
 
   it('SVR-26: variações truncadas (1001 contadas, 1000 lidas) ⇒ 503 sem `<urlset>`', async () => {
-    const res = await handleSitemap(
+    const res = await serveSitemap(
       comOpcoes({ countVariants: async () => 1001, readVariants: truncada(i => variacao(i, 'Prata 925')) }),
     )
     expect(res.status).toBe(503)
-    await naoTemUrlset(res)
+    naoTemUrlset(res)
   })
 
   it('SVR-26: marcações truncadas (1001 contadas, 1000 lidas) ⇒ 503 sem `<urlset>`', async () => {
-    const res = await handleSitemap(
+    const res = await serveSitemap(
       comOpcoes({ countOptionMarks: async () => 1001, readOptionMarks: truncada(i => ({ ...MARCAS[0], value_id: `v${i}` })) }),
     )
     expect(res.status).toBe(503)
-    await naoTemUrlset(res)
+    naoTemUrlset(res)
   })
 
   it('SVR-26: acima de 1.000 a leitura é PAGINADA em faixas inclusivas, e completa passa', async () => {
     const muitas = Array.from({ length: 1001 }, (_, i) => ({ ...variacao(i, i === 1000 ? 'Rose' : 'Prata 925'), position: i, nuvemshop_id: 5000 + i }))
     const readVariants = vi.fn(async (from: number, to: number) => muitas.slice(from, to + 1))
-    const res = await handleSitemap(comOpcoes({ countVariants: async () => 1001, readVariants }))
+    const res = await serveSitemap(comOpcoes({ countVariants: async () => 1001, readVariants }))
     expect(res.status).toBe(200)
     expect(readVariants).toHaveBeenCalledWith(0, 999)
     expect(readVariants).toHaveBeenCalledWith(1000, 1999)
     // a Rose só existe na linha 1001 — chegou porque a segunda página foi lida
-    expect(await locsDe(res)).toContain('https://umaestrelinha.com.br/produtos/pingente-pata?variant=6000')
+    expect(locsDe(res)).toContain('https://umaestrelinha.com.br/produtos/pingente-pata?variant=6000')
   })
 })
 
@@ -441,10 +471,10 @@ describe('feature 69 — as fotos dos produtos', () => {
   }
 
   it('SSV-24/26/28: 200, e só a `<url>` da peça leva fotos — a da representante primeiro', async () => {
-    const res = await handleSitemap(comFotos())
+    const res = await serveSitemap(comFotos())
     expect(res.status).toBe(200)
-    expect(res.headers.get('Content-Type')).toBe('application/xml; charset=utf-8')
-    const xml = await res.text()
+    expect(res.headers['Content-Type']).toBe('application/xml; charset=utf-8')
+    const xml = res.body
     // A Prata (posição 0) está esgotada: a representante é a Ouro, e a foto dela abre a lista.
     expect(fotosPorUrl(xml)).toEqual({
       'https://umaestrelinha.com.br/produtos/pingente-pata': [rendida('ouro'), rendida('a'), rendida('b')],
@@ -456,12 +486,12 @@ describe('feature 69 — as fotos dos produtos', () => {
   })
 
   it('SSV-25: o documento declara o namespace de imagens', async () => {
-    const doc = parse(await (await handleSitemap(comFotos())).text())
+    const doc = parse((await serveSitemap(comFotos())).body)
     expect(doc.documentElement.getAttribute('xmlns:image')).toBe(NS_IMAGEM)
   })
 
   it('SSV-29: o `&` da URL de rendição sai escapado no corpo servido', async () => {
-    const xml = await (await handleSitemap(comFotos())).text()
+    const xml = (await serveSitemap(comFotos())).body
     expect(xml).toContain(
       `<image:loc>${RENDER}/a.webp?width=1200&amp;resize=contain&amp;quality=75</image:loc>`,
     )
@@ -469,7 +499,7 @@ describe('feature 69 — as fotos dos produtos', () => {
   })
 
   it('SSV-27: peça sem foto sai sem `<image:image>`, e nenhum `<image:loc>` é vazio', async () => {
-    const xml = await (await handleSitemap(comFotos())).text()
+    const xml = (await serveSitemap(comFotos())).body
     expect(fotosPorUrl(xml)['https://umaestrelinha.com.br/produtos/peca-nua']).toBeUndefined()
     expect(xml).not.toContain('<image:loc></image:loc>')
     expect(xml.match(/<image:image>/g)).toHaveLength(3)
