@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { cardInstallmentOptions } from '@estrelinha/core/payment/installments'
-import InstallmentPicker, { INSTALLMENTS_ERROR, INSTALLMENTS_IDLE, INTEREST_NOTE } from '../InstallmentPicker'
+import InstallmentPicker, { INSTALLMENTS_ERROR, INSTALLMENTS_IDLE } from '../InstallmentPicker'
 import { useCheckoutStore } from '../../model/checkoutStore'
 import type { CardInstallmentsState } from '../../model/useCardInstallmentOptions'
 
@@ -49,9 +49,9 @@ describe('InstallmentPicker — as parcelas sem juros primeiro', () => {
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
   })
 
-  it('as com juros mostram o total que a cliente vai pagar, sem selo, e a nota dos juros', () => {
+  it('as com juros mostram o total que a cliente vai pagar, sem selo, e sem nota sobre os juros acima delas', () => {
     renderComStore()
-    expect(screen.getByText(INTEREST_NOTE)).toBeInTheDocument()
+    expect(screen.queryByText(/Juros do Mercado Pago/)).not.toBeInTheDocument()
     const quatro = radio(/4x de R\$\s?77,19/)
     const linha = quatro.closest('label') as HTMLElement
     expect(linha).toHaveTextContent(/Total R\$\s?308,75/)
@@ -94,11 +94,10 @@ describe('InstallmentPicker — as parcelas sem juros primeiro', () => {
     expect(radio(/2x de/).closest('label')).toHaveTextContent(/Total R\$/)
   })
 
-  it('cartão que só aceita à vista: uma linha, e nenhuma nota de juros sem parcela que a explique', () => {
+  it('cartão que só aceita à vista: uma linha só', () => {
     const options = cardInstallmentOptions(277.25, [TABELA[0]], 10)
     render(<InstallmentPicker state={{ status: 'ready', options, selected: options[0] }} />)
     expect(screen.getAllByRole('radio')).toHaveLength(1)
-    expect(screen.queryByText(INTEREST_NOTE)).not.toBeInTheDocument()
   })
 
   it('cada linha é um alvo de toque de pelo menos 56px de altura (a linha inteira é o rótulo)', () => {

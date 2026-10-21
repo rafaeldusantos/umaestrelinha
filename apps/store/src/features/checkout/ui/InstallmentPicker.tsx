@@ -5,6 +5,9 @@
 // opções são **sem juros**. Aqui elas vêm primeiro, com selo, e as com juros vêm logo abaixo, com o
 // total que a cliente vai pagar escrito ao lado — nunca escondido.
 //
+// 2026-10-21: saiu a nota sobre os juros acima das parcelas com juros (pedido da dona); o total de
+// cada linha continua dizendo quanto a cliente paga.
+//
 // 2026-10-10: as com juros ficavam atrás de um toque ("Mais parcelas, com juros"), recolhidas. Com a
 // conta do Mercado Pago sem nenhuma parcela sem juros, isso deixava só "À vista" à mostra, e parecia
 // que o cartão não parcelava. Pedido da dona: a lista inteira aberta, até o teto de 10x.
@@ -20,7 +23,6 @@ export const INSTALLMENTS_TITLE = 'Em quantas vezes?'
 export const INSTALLMENTS_IDLE = 'Digite o número do cartão para ver as parcelas.'
 export const INSTALLMENTS_ERROR =
   'Não foi possível carregar as parcelas deste cartão agora. Você pode pagar à vista ou tentar de novo em instantes.'
-export const INTEREST_NOTE = 'Juros do Mercado Pago, já somados ao total de cada opção.'
 
 const Row = ({
   option,
@@ -125,7 +127,6 @@ const InstallmentPicker = ({ state }: { state: CardInstallmentsState }) => {
 
           {withInterest.length > 0 && (
             <div className="flex flex-col gap-2">
-              <p className="text-[13px] text-estrelinha-ink-soft">{INTEREST_NOTE}</p>
               {withInterest.map(row)}
             </div>
           )}
