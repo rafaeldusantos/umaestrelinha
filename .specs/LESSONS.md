@@ -236,6 +236,84 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: `apps/store/scripts/__tests__/{shell,robots}.test.ts` × `chaveDeServidorForaDoNavegador.test.ts` (1 em 4 execuções)
 - last seen: 2026-10-20T00:00:00Z
 
+### L-045 — AC que enumera as partes de um controle (ícone, rótulo, alvo, estado atual) precisa de uma asserção POR PARTE: a suíte que confere rótulo, altura e `aria-current` deixa o ícone sair sem nada acusar.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `apps/mobile-adm/**` · harmful: 0
+- features: 72-mobile-adm-fundacao
+- evidence: M24 — `apps/mobile-adm/src/widgets/tab-bar/ui/TabBar.tsx:38` (o `<Icon>` apagado, 118/118 verdes; `MAF-14`)
+- last seen: 2026-10-22T00:00:00Z
+
+### L-046 — Quando o design troca o que a AC nomeia (a biblioteca, o componente, a fonte do dado), a spec tem de ser emendada ou ganhar SPEC_DEVIATION no mesmo movimento; senão a AC fica falsa com a suíte verde e o verificador é quem descobre.
+- signal: `spec_deviation` · recurrence: 1 feature(s) · scope: `.specs/features/**` · harmful: 0
+- features: 72-mobile-adm-fundacao
+- evidence: `MAF-14` ("ícone de `@estrelinha/ui/icons`") × `design.md:45` e `widgets/tab-bar/model/tabs.ts:1` (`lucide-react`)
+- last seen: 2026-10-22T00:00:00Z
+
+### L-047 — Leitura de autorização que engole erro de rede e devolve "não autorizado" produz uma recusa confiante e falsa; a spec de um app que depende de rede precisa separar "sem rede" (o navegador sabe) de "rede presente e inútil" (só a falha da leitura sabe), com AC para o segundo.
+- signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `packages/auth/**` · harmful: 0
+- features: 72-mobile-adm-fundacao
+- evidence: `packages/auth/src/AuthContext.tsx:40-53` (`checkAdmin` → `false` na falha) × a linha *Dependência externa* da spec da `72`; medido em `prova-navegador.md`
+- last seen: 2026-10-22T00:00:00Z
+
+### L-048 — `queryByRole('link')` nulo não prova que o link sumiu: um `<a>` SEM `href` não tem papel de link, então o texto "Abrir o X" pode ficar na tela como CTA morto com a asserção verde. Prove a ausência pelo texto (`queryByText`) ou pelo elemento, não pelo papel.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `apps/*/src/**/*.test.tsx` · harmful: 0
+- features: 72-mobile-adm-fundacao
+- evidence: r2 N9 — `apps/mobile-adm/src/app/layout/MobileLayout.tsx` `{url && (` → `{(url ?? true) && (` sobrevive a `TabBar.test.tsx` "SEM a env, … o link não é desenhado"
+- last seen: 2026-10-22T00:00:00Z
+
+### L-049 — Guarda de andaime que confere o `--filter <nome>` do script da raiz precisa conferir também que um workspace COM esse nome existe: `pnpm --filter` sem correspondência imprime "No projects matched" e sai com 0, então renomear o pacote deixa o script mudo e o guarda verde.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `apps/*/src/app/__tests__/**` · harmful: 0
+- features: 72-mobile-adm-fundacao
+- evidence: r2 N12 — `apps/mobile-adm/package.json` `"name"` renomeado; `scaffold.test.ts` 126/126 verdes
+- last seen: 2026-10-22T00:00:00Z
+
+### L-050 — Fluxo de vários passos cujo último passo devolve a decisão a outro dono (`onEntrou`, `onDone`) precisa de caso para a FALHA desse passo: os casos de sucesso e de recusa local passam com um `return` apagado do ramo de erro, e o fluxo segue para o desfecho de sucesso com a operação não feita.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `apps/*/src/features/**` · harmful: 0
+- features: 72-mobile-adm-fundacao
+- evidence: r3 S09 — `apps/mobile-adm/src/features/recovery/ui/RecoveryFlow.tsx` `gravarSenha`, o `return` do erro de `updatePassword` apagado; 128/128 verdes
+- last seen: 2026-10-22T00:00:00Z
+
+### L-051 — O comando de gate por `pnpm --filter <nome>` fica MUDO quando a mutação renomeia o pacote: sai com 0 sem rodar teste nenhum. Arnês de mutação que mexe em `package.json` mede de dentro do workspace (`node_modules/.bin/vitest run`) e confere que a linha `Tests` existe, senão "exit 0" vira morte ou sobrevivência falsa.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `apps/*/package.json` · harmful: 0
+- features: 72-mobile-adm-fundacao
+- evidence: r3 reinjeção de N12 pelo arnês da r2: exit 0 sem `Tests`; de dentro do app: 2 falhas em `scaffold.test.ts`
+- last seen: 2026-10-22T00:00:00Z
+
+### L-052 — Teste que grava `history.state` e depois chama um arnês de montagem precisa conferir que o arnês não sobrescreve o estado: `montarApp` faz `pushState({}, …)`, então o caso "passo com só o e-mail no estado" mediu "passo sem estado" e passou com a regra apagada.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `apps/*/src/test/**` · harmful: 0
+- features: 72-mobile-adm-fundacao
+- evidence: Fase 6 V12 — `RecoveryFlow.tsx` sem a exigência de `conferido`; `RecoveryFlow.test.tsx:279` verde
+- last seen: 2026-10-22T00:00:00Z
+
+### L-053 — No jsdom o histórico SOBREVIVE entre os testes de um arquivo: "o voltar devolve a X" fica verdadeiro pela sobra de um teste anterior. Prova de voltar precisa do mutante `push → replace` morto, ancorada no histórico que o próprio teste montou (`history.length` ou a entrada anterior conhecida).
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `apps/*/src/**/__tests__/**` · harmful: 0
+- features: 72-mobile-adm-fundacao
+- evidence: Fase 6 V16 — `LoginPage.tsx` "Esqueci minha senha" com `replace: true`; `RecoveryFlow.test.tsx:226` verde
+- last seen: 2026-10-22T00:00:00Z
+
+### L-054 — Um teto aplicado a N leituras em paralelo precisa de um dublê que pendure CADA uma: o dublê só pendurava o papel, e o teto do cadastro pode sumir com a promessa "sai em 8 s" verde, mesmo sendo o caso real (sem saída de rede, tudo pendura junto). Mesma família de L-043.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `packages/auth/**` · harmful: 0
+- features: 72-mobile-adm-fundacao
+- evidence: Fase 6 V26 — `AuthContext.tsx` `comTeto(fetchCustomer…)` trocado por `fetchCustomer(...)`; mobile-adm 204/204 verdes
+- last seen: 2026-10-22T00:00:00Z
+
+### L-055 — Dublê de client de auth precisa reproduzir os EVENTOS que o client de verdade emite sozinho, não só as respostas das chamadas: o supabase-js emite `INITIAL_SESSION` com `null` quando a leitura da sessão falha, e `SIGNED_IN` a cada volta da aba. Sem eles no dublê, "a falha vira `unknown`" passa no teste e é desfeita em produção pelo evento que o dublê não emite. Confira contra o client real (`createClient` com `fetch` falso) antes de dar a regra por provada.
+- signal: `failed_ac` · recurrence: 1 feature(s) · scope: `apps/*/src/test/**`, `packages/auth/**` · harmful: 0
+- features: 72-mobile-adm-fundacao
+- evidence: Fase 6 r2 — sonda com supabase-js 2.110.7 real, sessão vencida e renovação com falha de rede: `unknown` aos 8 s e `not-admin`/`user = null` ~40 s depois (o `INITIAL_SESSION` nulo); `fakeSupabase.ts` não emite nenhum dos dois eventos
+- last seen: 2026-10-22T00:00:00Z
+
+### L-056 — Mudar o que um provider COMPARTILHADO guarda como "resolvido" muda o comportamento de todo consumidor que lê `loading`: no app, reperguntar o papel a cada evento é o que se quer; na loja, cada `SIGNED_IN` de volta da aba vira `loading = true`, e o checkout se desmonta em "Carregando...". Ao mexer num provider de dois apps, liste o que cada consumidor faz com `loading = true` antes de aceitar a precisão.
+- signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `packages/auth/**`, `apps/store/src/pages/**` · harmful: 0
+- features: 72-mobile-adm-fundacao
+- evidence: Fase 6 r2 — sonda com supabase-js real: papel com falha ⇒ `unknown`; `visibilitychange` ⇒ `SIGNED_IN` ⇒ `unknown|true` (o `loading` voltou); `CheckoutPage.tsx:293` desenha "Carregando..." em `loading`; em `b6449bd2` o `resolvedFor` era gravado também na falha
+- last seen: 2026-10-22T00:00:00Z
+
+### L-057 — Toda ref de dedupe ou de "já resolvido" que um caminho de SAÍDA zera (logout, "Tentar de novo") precisa de um caso de RE-ENTRADA pelo mesmo id: sair e entrar com a mesma conta, sair com a checagem em voo, tentar de novo com uma repergunta em voo. Sem ele, apagar o reset deixa a suíte verde e o provider preso (`loading` eterno, ou a sessão nova ignorada).
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `packages/auth/**` · harmful: 0
+- features: 72-mobile-adm-fundacao
+- evidence: Fase 6 r3 — X05 (`presente` não zera no logout), X06 (`emVoo` não zera no logout) e X07 (`retryAdminCheck` não zera `emVoo`) sobrevivem a mobile-adm 249/249 + os arquivos com o `AuthProvider` real da loja e do painel; sonda com o client real: X06 ⇒ entra e a tela segue deslogada; X07 ⇒ `unknown|true` por 20 s
+- last seen: 2026-10-22T00:00:00Z
+
 ## Quarantined (failed when applied — ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.

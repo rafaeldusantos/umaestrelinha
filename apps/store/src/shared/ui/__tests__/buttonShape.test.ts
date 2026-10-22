@@ -127,9 +127,13 @@ describe('forma de ação — 14px, nunca pílula', () => {
     // elemento e quem vencia era a última no CSS. Com a ação em 6px o valor
     // cabe em `sm`, o merge resolve sozinho, e a chave saiu. Se ela voltar,
     // volta junto a dependência de ordem de declaração que ninguém enxerga.
-    const config = readFileSync(resolve(SRC, '../tailwind.config.ts'), 'utf8')
-    const radiusBlock = config.slice(config.indexOf('borderRadius:'))
-    const keys = [...radiusBlock.slice(0, radiusBlock.indexOf('},')).matchAll(/^\s*"?([a-z0-9]+)"?:\s*"/gm)].map(
+    //
+    // Feature 72: a escala saiu do `tailwind.config.ts` para o dono único da marca,
+    // `packages/ui/src/tokens/estrelinha.ts` — é lá que a chave voltaria. A régua lê o
+    // bloco do dono; a loja entregar ESTE objeto ao Tailwind é `palette.test.ts` (`toBe`).
+    const config = readFileSync(resolve(SRC, '../../../packages/ui/src/tokens/estrelinha.ts'), 'utf8')
+    const radiusBlock = config.slice(config.indexOf('export const ESTRELINHA_RADIUS'))
+    const keys = [...radiusBlock.slice(0, radiusBlock.indexOf('\n}')).matchAll(/^\s*"?([a-z0-9]+)"?:\s*"/gm)].map(
       (m) => m[1],
     )
 

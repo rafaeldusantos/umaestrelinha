@@ -54,6 +54,17 @@ interno não carrega marca.
 **A loja usa `--estrelinha-*`**, declarados em `apps/store/src/app/App.css` +
 `apps/store/tailwind.config.ts`.
 
+### Os tokens da MARCA moram aqui desde a `72` — `src/tokens/estrelinha.ts`
+
+`ESTRELINHA_COLORS`, `ESTRELINHA_RADIUS`, `ESTRELINHA_SHADOW` e `ESTRELINHA_FONTS` saíram de dentro
+de `apps/store/tailwind.config.ts` quando o app do ateliê (`apps/mobile-adm`) virou o segundo leitor
+do objeto. Os dois `tailwind.config.ts` os importam por caminho **relativo** (config não passa pelo
+alias do Vite), e `palette.test.ts` (suíte da loja) exige que o objeto de cada config **seja** o daqui
+(`toBe`): uma cópia literal com os mesmos valores reprova. As variáveis CSS da loja continuam no
+`App.css` dela, comparadas com este objeto pelo mesmo guarda. **Não confundir com os tokens do
+painel**: este arquivo não toca `--estrelinha-admin-*`. E, como o resto do pacote, ele não passa por
+ESLint (`BL-002`).
+
 ### A separação depende da ORDEM de dois imports
 
 Em `apps/store/src/main.tsx`, `App.css` vem **depois** de `@estrelinha/ui/styles.css`. **Inverter

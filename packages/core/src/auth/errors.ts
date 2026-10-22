@@ -42,7 +42,20 @@ export const AUTH_ERROR_FALLBACK = 'Não foi possível concluir agora. Tente de 
  */
 export const SAME_PASSWORD = 'A senha nova precisa ser diferente da atual.'
 
-const RATE_LIMITED = 'Aguarde alguns segundos para reenviar'
+/**
+ * O reenvio pedido antes do intervalo do GoTrue. Exportado (feature 72, `MAF-25`) para o app do
+ * ateliê reconhecer "já houve um envio há pouco" pela MESMA frase que o mapper escreve, sem uma
+ * segunda leitura do erro cru.
+ */
+export const AUTH_RATE_LIMITED = 'Aguarde alguns segundos para reenviar'
+const RATE_LIMITED = AUTH_RATE_LIMITED
+
+/**
+ * O papel de quem entrou não pôde ser conferido — a consulta falhou ou não respondeu (feature 72,
+ * `MAF-23`, a `BL-048`). É "não sei", nunca "não": o painel e o app do ateliê dizem esta frase, e
+ * nunca a de conta sem acesso, nesse estado.
+ */
+export const ACCESS_UNCHECKED = 'Não consegui conferir seu acesso.'
 const SEND_FAILED = 'Não foi possível enviar seu código agora. Tente de novo em instantes.'
 const SESSION_GONE = 'Sessão expirada. Entre novamente.'
 const OFFLINE = 'Sem conexão com o servidor. Verifique sua internet e tente de novo.'

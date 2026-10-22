@@ -3,6 +3,13 @@ import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import tailwindConfig from '../../../../tailwind.config'
+import atelieConfig from '../../../../../mobile-adm/tailwind.config'
+import {
+  ESTRELINHA_COLORS,
+  ESTRELINHA_FONTS,
+  ESTRELINHA_RADIUS,
+  ESTRELINHA_SHADOW,
+} from '@estrelinha/ui/tokens/estrelinha'
 
 /**
  * A paleta da Uma Estrelinha é declarada em DOIS lugares — `src/app/App.css` e
@@ -137,5 +144,77 @@ describe('paleta Uma Estrelinha — as sombras', () => {
       .map(([name]) => name)
 
     expect(rosa).toEqual([])
+  })
+})
+
+/**
+ * Feature 72 — o objeto da marca tem UM dono, `packages/ui/src/tokens/estrelinha.ts`.
+ *
+ * Os testes acima comparam VALORES, e por isso passariam com uma cópia literal do objeto colada de
+ * volta no config: a cópia nasce igual e diverge depois, sem nada quebrar (o "defeito 01"). A régua
+ * aqui é de IDENTIDADE — o objeto que o config entrega ao Tailwind é o mesmo objeto exportado pelo
+ * dono. O app do ateliê é medido pela mesma função, mais abaixo.
+ */
+type ConfigLido = { theme?: { extend?: Record<string, unknown> } }
+
+function objetosDoConfig(config: ConfigLido) {
+  const extend = config.theme?.extend ?? {}
+  return {
+    colors: (extend.colors as Record<string, unknown> | undefined)?.estrelinha,
+    fontFamily: extend.fontFamily,
+    borderRadius: extend.borderRadius,
+    boxShadow: extend.boxShadow,
+  }
+}
+
+/** Devolve os nomes dos objetos que NÃO são a referência do dono. Vazio = config conforme. */
+function copiasDoDono(config: ConfigLido): string[] {
+  const lidos = objetosDoConfig(config)
+  const donos = {
+    colors: ESTRELINHA_COLORS,
+    fontFamily: ESTRELINHA_FONTS,
+    borderRadius: ESTRELINHA_RADIUS,
+    boxShadow: ESTRELINHA_SHADOW,
+  } as const
+  return (Object.keys(donos) as (keyof typeof donos)[]).filter((k) => lidos[k] !== donos[k])
+}
+
+describe('paleta Uma Estrelinha — o dono do objeto (feature 72)', () => {
+  it('o config da loja entrega ao Tailwind os objetos de `@estrelinha/ui/tokens` (identidade)', () => {
+    const lidos = objetosDoConfig(tailwindConfig as ConfigLido)
+    expect(lidos.colors).toBe(ESTRELINHA_COLORS)
+    expect(lidos.fontFamily).toBe(ESTRELINHA_FONTS)
+    expect(lidos.borderRadius).toBe(ESTRELINHA_RADIUS)
+    expect(lidos.boxShadow).toBe(ESTRELINHA_SHADOW)
+    expect(copiasDoDono(tailwindConfig as ConfigLido)).toEqual([])
+  })
+
+  it('o config do app do ateliê (`apps/mobile-adm`) entrega os MESMOS objetos', () => {
+    // O terceiro leitor da paleta. Sem esta asserção, ele poderia nascer com uma cópia.
+    expect(copiasDoDono(atelieConfig as ConfigLido)).toEqual([])
+    expect(objetosDoConfig(atelieConfig as ConfigLido).colors).toBe(ESTRELINHA_COLORS)
+  })
+
+  it('o dono declara a paleta canônica inteira', () => {
+    // Âncora: o objeto do dono tem exatamente os tokens da PALETA escrita à mão acima.
+    expect(Object.keys(ESTRELINHA_COLORS).sort()).toEqual(Object.keys(PALETA).sort())
+  })
+
+  it('sensor: um config com CÓPIA literal (valores iguais, outro objeto) reprova', () => {
+    const copia: ConfigLido = {
+      theme: {
+        extend: {
+          colors: { estrelinha: { ...ESTRELINHA_COLORS } },
+          fontFamily: ESTRELINHA_FONTS,
+          borderRadius: { ...ESTRELINHA_RADIUS },
+          boxShadow: ESTRELINHA_SHADOW,
+        },
+      },
+    }
+    expect(copiasDoDono(copia)).toEqual(['colors', 'borderRadius'])
+  })
+
+  it('sensor: um config sem a paleta reprova nos quatro', () => {
+    expect(copiasDoDono({})).toEqual(['colors', 'fontFamily', 'borderRadius', 'boxShadow'])
   })
 })
