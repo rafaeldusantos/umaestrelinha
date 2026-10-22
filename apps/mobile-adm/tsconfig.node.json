@@ -1,0 +1,18 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "types": [
+      "node"
+    ]
+  },
+  "include": [
+    "vite.config.ts",
+    "pwa.config.ts",
+    "splashEstatica.ts",
+    "tailwind.config.ts",
+    "postcss.config.js",
+    "../../packages/ui/src/tokens/estrelinha.ts",
+    "../../packages/ui/tailwind.preset.ts"
+  ]
+}

@@ -1396,6 +1396,12 @@
   ícones. `*.supabase.co` é sempre rede e nunca cache (guarda lendo a configuração do workbox). Sem
   conexão o app diz "sem conexão" e não mostra dado nenhum.
 - **Decision**: **notificação push é feature própria, a última do programa** (`79`).
+- **Decision — branches**: o programa tem uma branch de integração, **`feature/mobile-adm`** (criada de
+  `master` em 2026-10-22). Cada feature nasce na própria branch (`feat/72-mobile-adm-fundacao`,
+  `feat/73-mobile-adm-inicio`…) **a partir de `feature/mobile-adm`**, e só é mergeada nela depois de
+  **finalizada e testada**: tasks concluídas, Verificador independente com PASS, gates sem regressão
+  e a prova em navegador escrita. `master` não recebe nada do programa até o usuário decidir levar
+  `feature/mobile-adm` para lá. (Pedido do usuário, 2026-10-22.)
 - **Decision — o roteiro**: `72` fundação · `73` início · `74` pedidos (leitura) · `75` ações do
   pedido · `76` clientes · `77` cupons · `78` promoções · `79` aviso de pedido. O detalhe está em
   `.specs/features/72-mobile-adm-fundacao/spec.md`. A `72` tem spec completa. As outras nasceram como
@@ -1412,7 +1418,28 @@
 
 ## Handoff
 
-### ATUAL — 2026-10-22 · `71-visitas-unicas-no-dashboard` **IMPLEMENTADA — 32 de 32 tasks, verificada em 3 rodadas (r3 FAIL por UMA lacuna de cobertura, G9, consertada depois pelo orquestrador — sem r4), SEM COMMIT**
+### ATUAL — 2026-10-22 · `72-mobile-adm-fundacao` **IMPLEMENTADA — 15 de 15 tasks, com prova em navegador, SEM verificador independente ainda, SEM COMMIT**
+
+- **Feature**: `.specs/features/72-mobile-adm-fundacao/` (`spec.md`, `design.md`, `tasks.md`,
+  `baseline.md`, `prova-navegador.md`). Decisão `AD-056`. Branch `feat/72-mobile-adm-fundacao`; o
+  merge vai para `feature/mobile-adm`, nunca para a `master`. Sem migration.
+- **NÃO COMMITADA**: aguarda o pedido do usuário.
+- **O que entrega**: `apps/mobile-adm` (porta 8084) — PWA só-casca instalável, splash com o lockup
+  negativo a 300 px (exceção declarada), login com a regra do `BUG-20260802`, recuperação por código,
+  recusa de conta sem papel, as quatro abas em construção sob o `RequireAdmin`, menu da conta, tela
+  sem conexão, `vercel.json`. Paleta com dono em `packages/ui/src/tokens/estrelinha.ts`, fontes
+  copiadas com guarda, `RequireAdmin` com `fallback` opcional.
+- **Gates no fecho** (um workspace por vez, exit code fora de pipe): mobile-adm **118/17** · store
+  **5743/313** · backoffice **3648/207** (sem asserção tocada); `tsc` 0 nos três apps; lint
+  backoffice 23/5 · store 2/2 · mobile-adm 0/0; `pnpm build` verde.
+- **Prova em navegador**: build servido, 390×844 e 1440×900, `Page.getInstallabilityErrors` vazio.
+  Três defeitos de layout consertados; **um não consertado**: sem internet de verdade com o
+  navegador dizendo online, `checkAdmin` (`packages/auth`) devolve `false` na falha e o app termina
+  em "Esta conta não tem acesso ao painel." — vale também para o Backoffice. Precisa de decisão.
+- **Próximo**: o verificador independente (`validation.md`); a instalação num Android real (usuário);
+  depois o commit, quando o usuário pedir.
+
+### ANTERIOR — 2026-10-22 · `71-visitas-unicas-no-dashboard` **IMPLEMENTADA — 32 de 32 tasks, verificada em 3 rodadas (r3 FAIL por UMA lacuna de cobertura, G9, consertada depois pelo orquestrador — sem r4), SEM COMMIT**
 
 - **Feature**: `.specs/features/71-visitas-unicas-no-dashboard/` (`spec.md`, `design.md`, `tasks.md`,
   `baseline.md`, `validation.md`, `probes/`, `prova-em-navegador.md`, `prova-navegador.md`). Decisão

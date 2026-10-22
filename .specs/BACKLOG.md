@@ -1922,3 +1922,65 @@ A resposta certa para "o que espera alguma ação minha?" já existe e tem dono:
 
 **Por que ficou de fora da `71`**: é outro card, com outra pergunta, e consertá-lo muda o número que a
 dona está acostumada a ler sem ninguém ter pedido.
+
+## BL-048 — `checkAdmin` lê falha de rede como "não é admin"
+
+- **Status**: **FECHADO em 2026-10-22**, na Fase 6 da própria `72` (T16/T17, `MAF-22`/`MAF-23`), por
+  decisão do usuário depois do ciclo de QA. O `AuthProvider` expõe `adminStatus` (`admin` ·
+  `not-admin` · `unknown`) e `retryAdminCheck()`; erro, exceção e silêncio por 8 s
+  (`ADMIN_CHECK_TIMEOUT_MS`) são `unknown`, e a leitura inicial da sessão tem o mesmo teto (um só na
+  abertura). `isAdmin` continua, igual a `adminStatus === 'admin'` — a mudança é aditiva. O
+  `RequireAdmin` ganhou `unknownFallback` (sem ele, a frase do painel com "Tentar de novo"); o app
+  mostra "Não consegui conferir seu acesso." sem "Sair" (o QA achou que "Sair" apagava a sessão
+  salva), e o `AdminLoginPage` do painel diz a mesma frase (`ACCESS_UNCHECKED`, `@estrelinha/core/auth`).
+  Regressão: `apps/mobile-adm/src/app/__tests__/papelEmTresEstados.test.tsx` e
+  `AdminLoginPage.test.tsx` › "papel não conferido". Sem commit ainda.
+- **Achado**: prova em navegador e verificação r1 da feature `72` (2026-10-22).
+- **O defeito**: com o aparelho dizendo "online" e sem internet de verdade (Wi-Fi sem saída, túnel,
+  captive portal), a consulta de papel em `packages/auth/src/AuthContext.tsx` falha e o `checkAdmin`
+  devolve `false`. O app do ateliê fica ~10 s na splash e termina em "Esta conta não tem acesso ao
+  painel.", uma recusa **confiante e falsa** para quem é admin. O Backoffice se comporta igual hoje.
+  É da mesma classe do `BUG-20260802` (recusa por estado ainda não sabido).
+- **Por que não foi consertado na `72`**: o conserto é no `AuthProvider` compartilhado pelos dois apps
+  (e pela loja), e muda o contrato de `isAdmin` de booleano para três estados (sim · não · não sei).
+- **Conserto proposto**: distinguir "a consulta respondeu que não" de "a consulta não respondeu";
+  no segundo caso expor um estado de erro, e o `RequireAdmin` mostrar "Não consegui conferir seu
+  acesso" com "Tentar de novo".
+- **Prazo**: antes da `73` (a primeira feature do app com leitura de dado, `MAI-08`).
+
+
+## BL-049 — O arnês do client real roda com `autoRefreshToken: false` e não enxerga a armadilha do 401
+
+- **Status**: aberto · **Registrado em**: 2026-10-22 · **Origem**: verificação r3 da Fase 6 da feature
+  `72` (lacuna 6), registrada como dívida por decisão do usuário.
+
+Os dois arnês do supabase-js real (`apps/mobile-adm/src/test/clientReal.ts` e a cópia pareada da loja,
+`apps/store/src/test/clientReal.ts`, guardada por `clientRealPareado.test.ts`) criam o client com
+`autoRefreshToken: false`. **Produção usa o padrão, `true`** (`packages/supabase/src/client.ts`): o
+ticker do `GoTrueClient` renova o token sozinho e emite `TOKEN_REFRESHED` sem que nenhum teste o veja.
+As sondas da r3 mostraram que os defeitos da r2 e os logouts se comportam igual nos dois modos, mas
+nenhuma régua **permanente** cobre o ticker.
+
+E o `fetchFalso` **não confere o `Authorization`**: ele responde a `/rest/v1/user_roles` igual com ou
+sem o token da sessão. Por isso o mutante **X09** sobrevive — o ouvinte do `onAuthStateChange`
+chamando `loadUserData` na hora, sem o `setTimeout(0)`. É a armadilha do `BUG-20260802`
+(a requisição sai antes de a sessão nova estar acoplada ao client, e o PostgREST responde **401**),
+anterior à `72`: hoje ela só é protegida pelo comentário em `AuthContext.tsx` e pela prova manual
+daquele bug. Família do "dublê que não enxerga torna a regra inauditável".
+
+**O que custaria cobrir**:
+
+1. **O 401 (X09)**: o `fetchFalso` passar a exigir `Authorization: Bearer token-<id>` nas rotas
+   `/rest/v1/*` que o provider lê, respondendo `401` sem ele (ou com o token da chave publicável), e
+   um caso que entre com `signInWithPassword` e exija `admin` — com o mutante X09 reinjetado para
+   provar a morte. Risco: confirmar primeiro, no 2.110.7, que o client real de fato manda o token
+   velho dentro do callback (a armadilha pode depender de detalhe de versão); se não mandar, a régua
+   nasce verdadeira nos dois mundos e o caso tem de ser outro. Mudar o arnês mexe nas duas cópias no
+   mesmo movimento (o guarda de pareamento obriga).
+2. **O ticker**: um parâmetro `auto` no `Cenario` (padrão `false`, para não mudar os casos que
+   existem) e uma vizinha por régua de "não pisca" com `auto: true`, andando o relógio além do
+   `EXPIRY_MARGIN` para o `TOKEN_REFRESHED` sair. `stopAutoRefresh()` no `afterEach` já existe. Custo:
+   ~10 casos novos nos dois apps e o cuidado de o ticker não vazar entre testes.
+
+**Por que ficou de fora**: X09 é anterior à `72` e o conserto é de prova, não de produto; a r3 era a
+última rodada do loop.

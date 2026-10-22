@@ -109,7 +109,9 @@ como um app.
 ### P1: As quatro abas ⭐ MVP
 
 1. WHEN ela está logada THEN uma barra inferior fixa SHALL mostrar Início, Pedidos, Clientes e
-   Descontos, com ícone de `@estrelinha/ui/icons` e rótulo **visível**, alvo de toque ≥ 48 px de altura
+   Descontos, **cada aba com o seu ícone** (do `lucide-react` quando ele já tem o desenho, e de
+   `@estrelinha/ui/icons` só quando não tem: a regra de `apps/store/CLAUDE.md`, *Ícones e marca*) e
+   rótulo **visível**, alvo de toque ≥ 48 px de altura
    e a aba atual marcada (`aria-current="page"`). (`MAF-14`)
 2. WHEN o Android usa navegação por gestos THEN a barra SHALL respeitar
    `env(safe-area-inset-bottom)` e nada clicável SHALL ficar sob a barra do sistema. (`MAF-15`)
@@ -131,11 +133,55 @@ como um app.
 
 ---
 
+### P1: Rodada de conserto do QA (2026-10-22) ⭐ MVP
+
+> Emenda de 2026-10-22, decisão do usuário: o ciclo de QA (`docs/qa/reports/2026-10-22-mobile-adm-fundacao.md`)
+> achou três defeitos que pediam decisão e cinco paper cuts; todos são resolvidos dentro da `72`,
+> antes de avançar. O primeiro fecha a `BL-048` e mexe no `@estrelinha/auth` compartilhado.
+
+1. WHEN a consulta do papel admin falha ou não responde em **8 s** THEN o `AuthProvider` SHALL expor um
+   terceiro estado (`adminStatus: 'admin' | 'not-admin' | 'unknown'`; `isAdmin` continua sendo
+   `adminStatus === 'admin'`), e a leitura inicial da sessão também SHALL ter o mesmo teto. (`MAF-22`)
+2. WHEN o estado é `unknown` THEN o app SHALL mostrar "Não consegui conferir seu acesso." com
+   "Tentar de novo" (que refaz a consulta), SHALL nunca dizer "Esta conta não tem acesso ao painel." e
+   SHALL nunca oferecer "Sair" como única saída nem apagar a sessão salva. A splash SHALL sair em no
+   máximo 8 s nesse caminho. O Backoffice SHALL deixar de mostrar a recusa falsa no mesmo estado. (`MAF-23`)
+3. WHEN ela toca "Esqueci minha senha" THEN a recuperação SHALL ter rota própria fora do guarda
+   (`/recuperar`), e cada passo SHALL entrar no histórico: o voltar do Android SHALL voltar um passo, e
+   do primeiro passo SHALL voltar ao Login, sem interceptar o gesto. (`MAF-24`)
+4. WHEN o pedido de código responde 429 (já houve um envio há pouco) THEN o app SHALL ir ao passo do
+   código mesmo assim, dizendo "Já enviamos um código há pouco para <e-mail>.", com o reenvio contando. (`MAF-25`)
+5. WHEN ela toca "Entrar" com e-mail ou senha vazios THEN o app SHALL dizer "Informe o e-mail e a
+   senha." sem ir à rede. (`MAF-26`)
+6. WHEN o app é aberto no navegador THEN o `index.html` SHALL declarar o ícone da aba, e `/favicon.ico`
+   ou o ícone declarado SHALL responder 200. (`MAF-27`)
+7. WHEN o HTML chega e o JavaScript ainda não THEN a primeira pintura SHALL ser a splash (fundo
+   `primary-strong`, o mesmo lockup, o rótulo), injetada no `index.html` no build a partir do MESMO
+   arquivo do lockup, e SHALL ser substituída sem salto visível quando o React monta. (`MAF-28`)
+8. WHEN ela troca de aba THEN o título do documento SHALL ser o da aba ("Pedidos · Ateliê") e o foco
+   SHALL ir para o título da página, para o leitor de tela anunciar a tela nova. (`MAF-29`)
+9. WHEN a rede cai com o app aberto THEN a tela "Sem conexão" SHALL ser anunciada ao leitor de tela
+   (região viva assertiva). (`MAF-30`)
+
+> **Precisões da verificação independente da Fase 6** (2026-10-22, decididas pelo orquestrador dentro
+> do escopo das ACs acima):
+> - `MAF-22`: "a consulta falha" inclui as três formas, `{ error }`, exceção lançada e promessa
+>   rejeitada, tanto na consulta do papel quanto na leitura da sessão e na do cadastro. Uma resposta
+>   que chega depois de a sessão mudar (logout, outra conta, outro "Tentar de novo") é **descartada**:
+>   ela nunca promove a admin quem já saiu. A corrida existia antes desta feature e o painel também a tinha.
+> - `MAF-23`: `unknown` nunca é guardado como resolvido; a próxima checagem sempre vai à rede.
+> - `MAF-26`: e-mail ou senha **só com espaços** contam como vazios.
+> - Mudanças de comportamento aceitas, fora do app: na loja, com a leitura da sessão pendurada, a tela
+>   passa a se desenhar como deslogada aos 8 s, em vez de carregar para sempre; no painel, o guarda
+>   desenha "Não consegui conferir seu acesso." no `unknown`, em vez de mandar ao login.
+
 ## Edge Cases
 
 - WHEN a sessão expira com o app aberto THEN a próxima leitura com 401 SHALL levar ao Login, sem toast genérico.
-- WHEN a conta perde o papel admin com o app aberto THEN as gravações SHALL ser recusadas pelo banco
-  (RLS) e a tela SHALL dizer que o acesso foi removido (mesma limitação de `A-06` da `48`).
+- ~~WHEN a conta perde o papel admin com o app aberto THEN as gravações SHALL ser recusadas pelo banco
+  (RLS) e a tela SHALL dizer que o acesso foi removido.~~ **Movido para a `73`** (emenda de
+  2026-10-22, achado da verificação r1): a `72` não lê nem grava dado, então não há recusa para mostrar.
+  A `73` é a primeira feature com leitura e herda este caso.
 - WHEN a env `VITE_BACKOFFICE_URL` falta THEN o link do rodapé SHALL não ser desenhado, e o resto do app funciona.
 - WHEN o usuário abre o app no navegador sem instalar THEN tudo SHALL funcionar igual, só sem `standalone`.
 
@@ -157,13 +203,14 @@ como um app.
 
 | ID | Story | Status |
 | --- | --- | --- |
-| MAF-01..04 | Instalável e deploy | Pending |
-| MAF-05..07 | Splash | Pending |
-| MAF-08..13 | Login | Pending |
-| MAF-14..18 | Abas | Pending |
-| MAF-19..21 | Offline | Pending |
+| MAF-01..04 | Instalável e deploy | Implemented (T04–T06) |
+| MAF-05..07 | Splash | Implemented (T07–T08) |
+| MAF-08..13 | Login | Implemented (T11–T13) |
+| MAF-14..18 | Abas | Implemented (T08–T09) |
+| MAF-19..21 | Offline | Implemented (T05, T10) |
+| MAF-22..30 | Rodada de conserto do QA | Implemented (T16–T22), sem verificador independente ainda |
 
-**Coverage:** 21 total, 0 mapeados para tasks (a fazer no `tasks.md`).
+**Coverage:** 30 total (21 + 9 da rodada de QA); os 30 mapeados para tasks e implementados; prova em navegador em `prova-navegador.md`.
 
 ## Success Criteria
 

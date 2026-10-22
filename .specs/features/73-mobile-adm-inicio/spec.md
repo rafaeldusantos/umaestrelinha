@@ -35,6 +35,10 @@ Dashboard do Backoffice responde, mas no computador.
 5. WHEN ela puxa a tela para baixo THEN os dados SHALL ser relidos (pull-to-refresh). (`MAI-05`)
 6. WHEN a tela abre THEN o rodapé "Produtos, vitrine e configurações da loja seguem no Backoffice" SHALL estar presente. (`MAI-06`)
 
+7. WHEN a conta perde o papel admin com o app aberto THEN a leitura recusada pela RLS SHALL levar a uma tela que diz que o acesso foi removido, com "Sair", e nunca a números vazios ou zerados. Herdado da `72` (emenda de 2026-10-22). (`MAI-07`)
+8. WHEN a checagem de admin falha por rede (e não por papel) THEN o app SHALL dizer que não conseguiu conferir o acesso, com "Tentar de novo", e nunca "Esta conta não tem acesso". Depende da `BL-048`. (`MAI-08`)
+   > **Nota (2026-10-22):** a `BL-048` foi FECHADA na `72` (Fase 6, `MAF-22`/`MAF-23`): o `AuthProvider` expõe `adminStatus` (`unknown` no erro e no teto de 8 s) e `retryAdminCheck()`, e o app já tem a tela "Não consegui conferir seu acesso." (`features/access-check`). O critério continua valendo para as leituras de dado da `73`: falha de rede numa leitura não é recusa.
+
 ## Perguntas abertas
 - "Joias mais pedidas": por quantidade de itens ou por número de pedidos? Variações agrupadas no produto?
 - O gráfico de 7 dias conta **pedidos** (texto do protótipo) ou **faturamento** (eixo em R$ mil)? Hoje o protótipo diz as duas coisas.

@@ -1,0 +1,18 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": "../..",
+    "types": ["vite/client"],
+    "paths": {
+      "@/*": ["apps/mobile-adm/src/*"],
+      "@estrelinha/ui": ["packages/ui/src/index.ts"],
+      "@estrelinha/ui/*": ["packages/ui/src/*"],
+      "@estrelinha/supabase": ["packages/supabase/src/index.ts"],
+      "@estrelinha/supabase/*": ["packages/supabase/src/*"],
+      "@estrelinha/auth": ["packages/auth/src/index.ts"],
+      "@estrelinha/core": ["packages/core/src/index.ts"],
+      "@estrelinha/core/*": ["packages/core/src/*"]
+    }
+  },
+  "include": ["src"]
+}

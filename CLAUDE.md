@@ -26,6 +26,7 @@ Este arquivo carrega o que vale em **todo** o repositório. O que é específico
 | --- | --- | --- |
 | `apps/store/**` | [`apps/store/CLAUDE.md`](apps/store/CLAUDE.md) | tokens da loja, ícones, marca, home, página do produto, carrinho, checkout, URLs, guia de material |
 | `apps/backoffice/**` | [`apps/backoffice/CLAUDE.md`](apps/backoffice/CLAUDE.md) | sidebar, molde dos formulários, editores de desconto, `/admin/home` e a ponte da prévia, perguntas, Google Shopping |
+| `apps/mobile-adm/**` | [`apps/mobile-adm/CLAUDE.md`](apps/mobile-adm/CLAUDE.md) | o painel do ateliê no celular (`AD-056`): PWA só-casca, acesso igual ao do Backoffice, splash, abas, sem conexão |
 | `packages/core/**` | [`packages/core/CLAUDE.md`](packages/core/CLAUDE.md) | a regra pura de cada domínio, e por que ela mora lá e não na tela |
 | `packages/ui/**` | [`packages/ui/CLAUDE.md`](packages/ui/CLAUDE.md) | shadcn, preset Tailwind, tokens `--estrelinha-admin-*`, **a biblioteca de ícones** (`@estrelinha/ui/icons`, desde a `39`) |
 | `supabase/**` | [`supabase/CLAUDE.md`](supabase/CLAUDE.md) | migrations, RLS, edge functions, auth, e-mail, secrets |
@@ -51,8 +52,9 @@ Contexto de decisão: [`.specs/STATE.md`](.specs/STATE.md) (decisões `AD-001`..
 apps/
   store/         @estrelinha/store       loja pública       (Vite, porta 8082)
   backoffice/    @estrelinha/backoffice  painel admin       (Vite, porta 8083)
+  mobile-adm/    @estrelinha/mobile-adm  painel do ateliê no celular, PWA (Vite, porta 8084)
 packages/
-  ui/            @estrelinha/ui          shadcn/ui + preset Tailwind + tokens (styles.css)
+  ui/            @estrelinha/ui          shadcn/ui + preset Tailwind + tokens (styles.css) + tokens da marca (tokens/estrelinha.ts)
   supabase/      @estrelinha/supabase    client (via env) + types de domínio
   auth/          @estrelinha/auth        AuthProvider, useAuthContext, useAuth, RequireAdmin
   core/          @estrelinha/core        TODA regra que dois consumidores compartilham
@@ -70,10 +72,11 @@ Sempre na raiz (Turbo orquestra os workspaces):
 
 ```bash
 pnpm install            # instala tudo (node-linker=hoisted)
-pnpm dev                # sobe os dois apps
+pnpm dev                # sobe os três apps
 pnpm dev:store          # só a loja      (:8082)
 pnpm dev:backoffice     # só o admin     (:8083)
-pnpm build              # build dos dois (dist/ por app; a loja gera também .server/page.mjs, a função api/page)
+pnpm dev:mobile-adm     # só o ateliê    (:8084)
+pnpm build              # build dos três (dist/ por app; a loja gera também .server/page.mjs, a função api/page; o ateliê, manifest.webmanifest e sw.js)
 pnpm test               # vitest em todos
 pnpm lint               # eslint em todos
 pnpm --filter @estrelinha/store <script>    # rodar num workspace específico
@@ -146,8 +149,12 @@ Ao planejar/implementar features, use a Skill **`tlc-spec-driven`** com estas co
     IMPLEMENTADA, sem commit. A `71` (visitas únicas no Dashboard: o contador próprio, o bloco
     "Movimento da loja" e a régua de dia de Brasília no banco) está IMPLEMENTADA, sem commit,
     verificada em três rodadas (a terceira FAIL por uma lacuna de cobertura, G9, não consertada). A `72`..`79` são o programa mobile-adm (`AD-056`): o painel do ateliê
-    no celular, em `apps/mobile-adm`. A `72` (fundação) tem spec completa; da `73` à `79` são
-    rascunhos, a detalhar ao abrir. A próxima livre é a `80`.**
+    no celular, em `apps/mobile-adm`. A `72` (fundação) está IMPLEMENTADA, sem commit,
+    com prova em navegador, e com a rodada de conserto do QA (`MAF-22`..`MAF-30`, Fase 6) feita —
+    ela fechou a `BL-048`, mexendo no `@estrelinha/auth` compartilhado; da `73` à `79` são
+    rascunhos, a detalhar ao abrir. Cada feature do programa é mergeada na branch de integração
+    `feature/mobile-adm` depois de finalizada e testada, nunca direto na `master` (`AD-056`). A
+    próxima livre é a `80`.**
   - **A `46` e a `47` correram EM PARALELO, em worktrees separados**, e é o segundo caso do projeto
     (o primeiro, a `45`, dividiu uma working tree só). O que mudou: a divisão foi por **árvore**, não
     por arquivo — a `47` nasceu de um `git worktree` sobre o HEAD local e trouxe a `46` por
@@ -346,7 +353,8 @@ migrations, e `vercelRedirects` lê o `vercel.json`.
 
 | Guarda | Onde | O que derruba a suíte |
 | --- | --- | --- |
-| `palette.test.ts` | store `shared/lib/__tests__` | `App.css` e `tailwind.config.ts` divergirem num único token; a escala de raio mudar |
+| `palette.test.ts` | store `shared/lib/__tests__` | `App.css` e `tailwind.config.ts` divergirem num único token; a escala de raio mudar. **Desde a `72`**: o objeto de cores, raio, sombra e fontes do config da loja **e** do `apps/mobile-adm` deixar de SER (`toBe`) o de `packages/ui/src/tokens/estrelinha.ts` — uma cópia literal com os mesmos valores reprova (sensor) |
+| `fontesDoAteliePareadas.test.ts` | idem (lê `apps/store/public/fonts` e `apps/mobile-adm/public/fonts`) | (feature `72`) um dos três `woff2` copiados para o app do ateliê divergir da loja no SHA-256, faltar ou sobrar. Âncora cravada de 3 arquivos dos dois lados e sensor com um buffer alterado |
 | `contrast.test.ts` | idem | qualquer token de texto abaixo de 4,5:1 sobre `ground`/`ground-deep`/`surface`; `accent` deixar de ser proibido como texto |
 | `fieldBorder.test.ts` | idem | um `<input>`/`<Input>`/`<select>`/`<textarea>` voltar a `line` ou `accent` |
 | `accentText.test.ts` | idem | texto ouro fora da lista curta; `ink` **com opacidade** dentro de superfície `accent` |
@@ -430,7 +438,16 @@ migrations, e `vercelRedirects` lê o `vercel.json`.
 | `copyInstitucional.test.tsx` | idem | copy institucional voltar a prometer o que a loja não cumpre |
 | `HomeRendererPreview.test.tsx` | store `widgets/home-renderer` | o invólucro da prévia vazar para o **modo normal** |
 | `faqNoDuplicate.test.tsx` | store `entities/product/ui/__tests__` | a descrição voltar a exibir uma pergunta que já está na seção de FAQ |
-| `buttonShape.test.ts` | store `shared/ui/__tests__` | ação voltar a pílula; a chave custom de raio voltar ao config |
+| `buttonShape.test.ts` | store `shared/ui/__tests__` | ação voltar a pílula; a chave custom de raio voltar ao config — desde a `72` lida no **dono** (`packages/ui/src/tokens/estrelinha.ts`), não mais no `tailwind.config.ts` da loja |
+| `rotasSobGuarda.test.ts` (ateliê) | mobile-adm `app/__tests__` | (feature `72`) rota do app fora do bloco do `RequireAdmin` (menos `/login` e, desde a Fase 6, os três passos de `/recuperar`, com a razão escrita na lista); o bloco sem `loginPath="/login"`, `fallback={<Splash />}` e `unknownFallback`; mais de um `</Route>`. Molde do guarda do painel, âncora tripla e sete sensores |
+| `passosSaoRotas.test.ts` | mobile-adm `features/recovery/__tests__` | (feature `72`, `MAF-24`) `PASSOS_DA_RECUPERACAO` e as rotas `/recuperar…` do `App.tsx` divergirem, ou uma rota desenhar o passo errado. Bidirecional, com sensores |
+| `splashEstatica.test.tsx` | mobile-adm `app/__tests__` | (feature `72`, `MAF-27`/`MAF-28`) o `index.html` sem o ícone da aba ou com um ícone que não é o PNG de 192 do disco; a splash estática do `#root` sem o lockup **idêntico** ao asset que a `Splash` importa, com cor digitada em vez de `ESTRELINHA_COLORS`, sem o primeiro quadro da animação do React, ou o plugin desligado do `vite.config.ts`. Sensores: um byte do lockup trocado, a raiz ausente (o build lança) |
+| `reentradaComClientReal.test.tsx` · `contratoComClientReal.test.tsx` | mobile-adm `app/__tests__` | (feature `72`, Fase 6) **sobre o supabase-js real**: o `INITIAL_SESSION` nulo de uma leitura que falhou desfazendo o `unknown`; a volta da aba pondo `loading` ao reperguntar o papel; o dedupe `emVoo`; e, desde o fecho da r3, os resets das refs — sair com a checagem em voo e entrar de novo ficando deslogado (X06), o "Tentar de novo" com uma repergunta em voo preso no `loading` (X07), a reentrada da mesma conta sem a splash (X05) e o `not-admin` conferido reperguntado a cada evento (X04) |
+| `clientRealPareado.test.ts` | mobile-adm `test/__tests__` (lê os dois `clientReal.ts`) | (fecho da r3 da `72`) a cópia do arnês do client real na loja divergir da do app fora do comentário do topo. Âncora (os dois lidos, cada cabeçalho cita o guarda, o corte não apaga demais), dois sensores e o inverso |
+| `checkoutSobreviveAVoltaDaAba.test.tsx` · `contaSobreviveAVoltaDaAba.test.tsx` | store `pages/__tests__` | (feature `72`) o `SIGNED_IN` da volta da aba, para o mesmo usuário, desmontando o checkout ou a conta ("Carregando..." e o nó trocado) — o `CheckoutPage` e a `AccountPage` reais sob o `AuthProvider` e o client reais. A vizinha do checkout prova que a mesma vigia enxerga o "Carregando..." de uma identidade nova |
+| `abasSaoAsRotas.test.ts` | mobile-adm `widgets/tab-bar/__tests__` | `TABS` e as rotas do `App.tsx` do ateliê divergirem, nos dois sentidos (aba sem rota, rota sem aba) |
+| `swSemDadosDaLoja.test.ts` · `manifest.test.ts` · `vercelConfig.test.ts` | mobile-adm `app/__tests__` | (feature `72`) o service worker ganhar `runtimeCaching`, casar o host do banco ou pré-carregar `json` (`MAF-20`); um campo do manifest (`MAF-01`), a cor digitada em vez de vir de `ESTRELINHA_COLORS`, um ícone com tamanho diferente do declarado (lido do cabeçalho PNG) ou a fiação com o `VitePWA`; os headers de `MAF-04`, `sw.js`/manifest em cache, o rewrite da SPA capturando os dois |
+| `lockupDaSplashPareado.test.ts` · `Splash.test.tsx` | mobile-adm `features/splash/__tests__` | (feature `72`) a cópia do lockup negativo da splash divergir do SVG-fonte de `.specs/brand` (byte a byte, com sensor); a splash ganhar `<img>`, perder os 300/120 px ou o rótulo, ou uma animação sem `motion-reduce:animate-none` no mesmo nó |
 | `dialogGridTrack.test.ts` | store `shared/lib/__tests__` (varre `packages/ui/src/dialog.tsx` e `alert-dialog.tsx`) | `DialogContent` ou `AlertDialogContent` declararem `grid` sem trilha de piso zero. A coluna implícita `auto` toma como base a maior contribuição de **min-content** dos filhos, e `truncate` (que é `white-space: nowrap`) contribui com a linha inteira — `min-w-0` e `overflow` no caminho dão piso zero ao item, **não teto à contribuição**. Medido: trilha de 1141px num cartão de 660. **Mora na suíte da loja pelo mesmo motivo que `icons.test.ts`**; varre os dois arquivos porque o `alert-dialog` é cópia literal da mesma linha do shadcn. **Âncora dupla** (arquivos lidos **e** classe encontrada em cada um), **quarta âncora** lendo o preset para provar que `grid-cols-1` É `minmax(0, 1fr)`, e seis sensores — inclusive o par que prova que `grid` casa por token e não por prefixo de `grid-cols-1` |
 | `icons.test.ts` | store `shared/lib/__tests__` (varre `packages/ui/src/icons`) | ícone fora da grade `0 0 24 24`; escala × traço ≠ 1,5; cor fora de `ICON_ACCENT`; ícone que não chegou ao barrel. **Mora na suíte da loja porque `packages/ui` não tem runner** — guarda que não roda é pior que guarda nenhum |
 | `paths.test.ts` | store `shared/ui/brand/__tests__` | `paths.ts` divergir do SVG-fonte em um caractere; dois `<path>` do mesmo SVG com a mesma espessura |
@@ -513,9 +530,126 @@ quando mudarem de verdade.
 
 | Medida | Baseline | Como medir |
 | --- | --- | --- |
-| **Lint** | **25 erros / 7 warnings** — backoffice 23/5 · store 2/2 | `pnpm lint` |
-| **Tipos** | **0 · 0 · 0 · 0** (store · backoffice · catalog-import · `apps/store/tsconfig.server.json`, desde a `69`) | `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` |
-| **Testes** | **14355 em 701 arquivos** — store **5731/312** · backoffice **3648/207** · core **3507/138** · functions **957/21** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
+| **Lint** | **25 erros / 7 warnings** — backoffice 23/5 · store 2/2 · mobile-adm 0/0 | `npx eslint .` em cada app (o `pnpm lint` para no primeiro app que reprova) |
+| **Tipos** | **0 · 0 · 0 · 0 · 0** (store · backoffice · catalog-import · `apps/store/tsconfig.server.json`, desde a `69` · mobile-adm, desde a `72`) | `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` |
+| **Testes** | **14644 em 731 arquivos** — store **5748/315** · backoffice **3653/208** · mobile-adm **267/26** · core **3507/138** · functions **957/21** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
+
+**A feature `72` (fundação do app do ateliê) somou +147/+19 em DOIS workspaces**, medidos em
+2026-10-22 um por vez, exit code fora de pipe, contra a entrada medida com a árvore parada
+(`.specs/features/72-mobile-adm-fundacao/baseline.md`: store 5733/312 — a linha anterior desta tabela
+estava velha em +2, pelo commit `214ae94d`): **mobile-adm 135/18, novo** (splash, guarda de rotas,
+abas, sem conexão, login, recuperação por código, menu da conta, PWA e `vercel.json`, todos pela
+árvore real do `<App />` sobre o `AuthProvider` real) e **store +10/+1** (`palette.test.ts` com a
+régua de identidade do dono em `packages/ui`, `fontesDoAteliePareadas.test.ts` e `buttonShape.test.ts`
+lendo o dono). Backoffice remedido, idêntico, **sem asserção tocada** (o `fallback` do `RequireAdmin`
+é opcional). Core, functions e catalog-import não foram tocados e não foram remedidos. Tipos **0** nos
+três apps, lint do app novo **0/0**, `pnpm build` verde nos três, `apps/backoffice/**` e
+`packages/core/src/payment/**` sem uma linha alterada. Sem migration. Decisão `AD-056`. Prova em
+navegador no build servido (`prova-navegador.md`): instalabilidade sem erro pelo próprio Chromium,
+390 e 1440 sem rolagem horizontal; três defeitos de layout achados e consertados, e uma recusa falsa
+sem internet (o `checkAdmin` do `AuthProvider`) achada e **não** consertada (`BL-048`) — **fechada na
+Fase 6 da mesma feature**, abaixo.
+
+**A Fase 6 da `72` (a rodada de conserto do QA, `MAF-22`..`MAF-30`) somou +64/+4 no mobile-adm e +3
+no backoffice**, medidos em 2026-10-22 um workspace por vez, exit code fora de pipe, contra a entrada
+da fase (mobile-adm **140/18** — os +5 dos dois consertos do ciclo de QA —, store 5743/313, backoffice
+3648/207): **mobile-adm 204/22** e **backoffice 3651/207** (três casos novos em `AdminLoginPage.test.tsx`,
+nenhuma asserção antiga tocada). Store remedido, idêntico; core remedido, idêntico em contagem (3507/138:
+duas constantes novas em `core/auth`, sem teste próprio — elas são provadas pelos leitores). Tipos 0
+nos três apps, lint do painel 23/5 e do app 0/0, `pnpm --filter @estrelinha/mobile-adm build` verde.
+Sensor do autor: 19 mutantes reinjetados nos arquivos reais (SHA-256 conferido), **19 mortos por
+asserção** (tabela no `tasks.md` da `72`). **O verificador independente reprovou a rodada 1** (por
+cobertura: 7 sobreviventes em 28, duas provas vazias de `MAF-24`, e a corrida P3).
+
+**O conserto r1 da Fase 6 somou +33/+1 no mobile-adm e +2/+1 no backoffice** (medidos em 2026-10-22,
+um workspace por vez, exit code fora de pipe): **mobile-adm 237/23**, **backoffice 3653/208**
+(`papelDaSessaoQueCaiu.test.tsx`, o `AuthProvider`, a `AdminLoginPage` e o `RequireAdmin` reais).
+Store e core remedidos, idênticos. Tipos 0 nos três apps e no `tsconfig.node.json` do app, lint do
+painel 23/5 e do app 0/0. 14 mutantes reinjetados (SHA-256 conferido): 13 mortos por asserção e 1
+equivalente declarado (o e-mail só de espaços: `type="email"` apaga os espaços antes do `onChange`).
+
+**O conserto r2 da Fase 6 somou +12/+1 no mobile-adm e +2/+1 no store** (medidos em 2026-10-22, um
+workspace por vez, exit code fora de pipe): **mobile-adm 249/24** (`contratoComClientReal.test.tsx`, 10,
+sobre o supabase-js REAL, e 2 casos no `corridasDoPapel` sobre o dublê com paridade de eventos) e
+**store 5745/314** (`contaSobreviveAVoltaDaAba.test.tsx`, a `AccountPage` real sob o `AuthProvider` real
+e o client real). Backoffice e core remedidos, idênticos. Tipos 0 nos três apps e no
+`tsconfig.node.json` do app, lint 0/0 · 23/5 · 2/2. A r2 do verificador reprovou a r1 **contra o client
+de verdade**: o dublê não emitia `INITIAL_SESSION` nem o `SIGNED_IN` da volta da aba (`L-055`).
+
+**O fecho das lacunas da r3 da Fase 6 somou +12/+2 no mobile-adm e +3/+1 no store** (medidos em
+2026-10-22, um workspace por vez, exit code fora de pipe): **mobile-adm 261/26**
+(`reentradaComClientReal.test.tsx`, 6 — a reentrada da mesma conta e o "Tentar de novo" com uma
+repergunta em voo, pelo provider e pelo `<App />` —, 1 vizinha de `not-admin` em
+`contratoComClientReal`, e `clientRealPareado.test.ts`, 5, o guarda da cópia do arnês) e **store
+5748/315** (`checkoutSobreviveAVoltaDaAba.test.tsx`, o `CheckoutPage` real sob o `AuthProvider` e o
+client reais). Backoffice e core remedidos, idênticos. **Só testes e guarda**: `AuthContext.tsx` com o
+mesmo SHA-256. Os mutantes X04–X07 do verificador, o defeito da r2 no checkout e dois no arnês foram
+reinjetados: 7 mortos por asserção. Autor = verificador (a r3 era a última rodada), declarado no
+`validation.md`. A lacuna 6 (o arnês com `autoRefreshToken: false` e o 401 sem régua) é `BL-049`.
+O guarda `originZipNotRead` do **painel** acusou o mock de settings do checkout da loja — mais um caso
+de guarda de um app varrendo o outro.
+
+> **`packages/auth`: `loading` só muda na PRIMEIRA resolução e na TROCA DE IDENTIDADE — e a loja
+> depende disso.** `CheckoutPage` e `AccountPage` desenham "Carregando..." no lugar da página enquanto
+> `loading` é verdadeiro; piscá-lo desmonta a página e leva o Brick do cartão e o que a cliente
+> preencheu. A r1 tinha feito o papel `unknown` ser reperguntado em todo evento de auth **pondo
+> `loading`**, e o supabase-js emite `SIGNED_IN` a cada volta da aba: com o papel de uma cliente
+> falhando uma vez (3G), o checkout se desmontava a cada troca de aba. Agora o evento do MESMO usuário
+> já presente só repergunta o que falta (o papel `unknown`, o cadastro que estourou o teto), sem tocar
+> em `loading`; o "Tentar de novo" é a única exceção, e devolve `loading` ao terminar. **O
+> `INITIAL_SESSION` sem sessão é ignorado**: o client o emite com `null` também quando a leitura
+> FALHA, e obedecê-lo levava ao Login (app e painel) quem tem a sessão salva. Quem decide é a leitura
+> do provider (`{ error }` ⇒ `unknown`). O logout de verdade (`SIGNED_OUT`, sessão ausente) continua.
+> A prova é contra o supabase-js real (`apps/mobile-adm/src/test/clientReal.ts` e a cópia da loja).
+
+> **A corrida P1 do `packages/auth` está CONSERTADA, e ela existia antes da `72` — no painel também.**
+> A resposta da consulta do papel que chegava depois de a sessão cair (logout em outra aba, token
+> revogado) promovia a admin a conta que já tinha saído, e a `AdminLoginPage` a levava ao painel. O
+> `AuthProvider` agora numera cada resolução (`geracao`) e toda conclusão — sucesso, falha ou teto —
+> só grava se ainda for a vigente; a mesma régua fecha a P3 (o teto de um "Tentar de novo" apagando um
+> `admin` conferido). O sensor do conserto achou mais dois defeitos no código de antes, também
+> consertados: a leitura da sessão que respondia `{ error }` virava "sem sessão", e a que lançava na
+> hora não gravava estado nenhum.
+
+> **O que mudou em `packages/auth` (API, aditiva)**: `useAuthContext()` ganhou `adminStatus:
+> 'admin' | 'not-admin' | 'unknown'` e `retryAdminCheck()`; `isAdmin` continua, e é
+> `adminStatus === 'admin'`. `unknown` é "não sei": a consulta do papel FALHOU (antes virava `false`,
+> a `BL-048`) ou não respondeu no teto de `ADMIN_CHECK_TIMEOUT_MS` (8 s, exportado). A leitura
+> inicial da sessão tem o MESMO teto, e na abertura ele é **um só** para a sessão e o papel juntos.
+> `RequireAdmin` ganhou `unknownFallback` (opcional): sem ele, desenha a frase do painel com "Tentar de
+> novo"; nunca o `Navigate` ao login, que levaria à recusa falsa. A frase mora em `@estrelinha/core/auth`
+> (`ACCESS_UNCHECKED`, "Não consegui conferir seu acesso."), lida pelos dois apps. `AdminLoginPage` do
+> painel passou a dizê-la no `unknown`, com uma vizinha provando que `not-admin` ainda recebe a recusa.
+> **Quem lê `isAdmin` sozinho trata `unknown` como "não é admin"** — é o comportamento de antes, e é
+> por isso que a mudança é aditiva; tela que DECIDE recusar tem de olhar `adminStatus`.
+
+> **A verificação independente da `72` REPROVOU a rodada 1 por cobertura** (25 mutantes, 2
+> sobreviventes, nenhum defeito de produto), e o conserto somou **+8/+1 no mobile-adm** (118/17 →
+> 126/18): o ícone de cada aba provado contra o par aba → ícone **escrito por extenso** (derivar de
+> `TABS` deixaria passar a troca dentro de `TABS`), a troca de conta sem `SIGNED_OUT` que é o único
+> estado em que o `!authLoading` da recusa decide, e `scaffold.test.ts` (`MAF-03`: o script da raiz, a
+> porta 8084 e a `VITE_BACKOFFICE_URL` no `env` do Turbo). Os mutantes M24 (ícone apagado, ícones
+> trocados em `TABS`, ícone da aba vizinha no `TabBar`) e M06 foram reinjetados nos arquivos reais,
+> SHA-256 conferido: todos mortos por asserção. Store e backoffice remedidos, idênticos.
+
+> **A rodada 2 reprovou de novo por cobertura** (18 mutantes, 3 sobreviventes, nenhum defeito de
+> produto), e o conserto somou **+2 no mobile-adm** (126 → 128). N9: um `<a>` sem `href` com o texto
+> do link passava, porque a ausência era procurada por `queryByRole('link')` e um `<a>` sem `href`
+> não tem papel de link. A régua passou a ser o texto e a tag. N5: a env só com espaços não tinha
+> caso. N12: `scaffold.test.ts` não conferia que o workspace `@estrelinha/mobile-adm` existe, e
+> `pnpm --filter` com nome sem correspondência sai com 0. Os três foram reinjetados nos arquivos
+> reais e morreram por asserção.
+
+> **A rodada 3 reprovou por cobertura** (21 mutantes, 6 sobreviventes, nenhum defeito de produto) e
+> fechou as 3 iterações. O usuário mandou ajustar as lacunas, e o conserto somou **+7 no mobile-adm**
+> (128 → 135), com o mesmo arnês das rodadas (alvo que não existe é mutante inválido, SHA-256 na
+> restauração): a gravação da senha que falha não leva à Início (S09, o que importava: o código já
+> abriu a sessão no passo 2), `navigateFallback` e `autoUpdate` com régua (S15, S21), a splash
+> segurando a abertura também em `/login` (S05), o toque duplo em "Sair" (S11), a região viva da tela
+> sem conexão (S04) e o rodapé sem controle nenhum sem a env (H1). Os 7 reinjetados morreram por
+> asserção. O caso do toque duplo reprovou na primeira escrita por **método**: dois cliques dentro do
+> mesmo `act` não são o que um celular entrega, porque o React aplica o update de um evento discreto
+> antes do próximo.
 
 **A feature `71` (visitas únicas no Dashboard) somou +673/+28 em QUATRO workspaces**, remedidos no
 fecho (2026-10-22, um workspace por vez, exit code fora de pipe, `--testTimeout=20000` sem o `--`)
