@@ -71,7 +71,7 @@ const FooterLink = ({ to, children }: { to: string; children: React.ReactNode })
   <li>
     <Link
       to={to}
-      className={`${TAP_ROW} text-[13px] font-light text-estrelinha-ink-soft transition-colors hover:text-estrelinha-primary md:text-[13.5px]`}
+      className={`${TAP_ROW} text-[13px] font-light text-estrelinha-ink-soft transition-colors hover:text-estrelinha-primary md:text-[13.5px] md:before:hidden`}
     >
       {children}
     </Link>
@@ -199,7 +199,7 @@ const Footer = () => {
                 <button
                   type="button"
                   onClick={openCookiePreferences}
-                  className={`${TAP_ROW} text-left text-[13px] font-light text-estrelinha-ink-soft transition-colors hover:text-estrelinha-primary md:text-[13.5px]`}
+                  className={`${TAP_ROW} text-left text-[13px] font-light text-estrelinha-ink-soft transition-colors hover:text-estrelinha-primary md:text-[13.5px] md:before:hidden`}
                 >
                   Preferências de cookies
                 </button>
