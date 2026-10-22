@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { navGroups, footerNavItems } from './navItems'
+import { accountNavItem, navGroups, footerNavItems } from './navItems'
 
 // A estrutura da sidebar não tinha teste nenhum, e ela é um contrato com duas coisas: as rotas de
 // `app/App.tsx` e o hábito de quem usa o admin todo dia. Mover um item de grupo é fácil; mover sem
@@ -236,20 +236,18 @@ describe('navGroups — os quatro eixos', () => {
     expect(allItems.map(i => i.to)).not.toContain('/admin/produtos/grade-rapida')
   })
 
-  it('o rodapé tem TRÊS destinos, na ordem "a loja → o sistema → eu" (feature 48)', () => {
-    // A lista foi REESCRITA, e não afrouxada para `toContain`: a feature 48 mudou o comportamento,
-    // então a asserção acompanha e ganha vizinhas (os dois casos abaixo). É a mesma régua que a 30 e
-    // a 46 aplicaram ao grupo `Loja`.
-    expect(footerNavItems.map(i => i.to)).toEqual([
-      '/admin/configuracoes',
-      '/admin/usuarios',
-      '/admin/conta',
-    ])
-    expect(footerNavItems.map(i => i.label)).toEqual([
-      'Configurações',
-      'Usuários do painel',
-      'Minha conta',
-    ])
+  it('o rodapé tem DOIS destinos, na ordem "a loja → quem entra nela" (2026-10-21)', () => {
+    // REESCRITA, não afrouxada: `Minha conta` saiu do rodapé para o menu da conta, junto de "Abrir a
+    // loja" e "Sair". A vizinha abaixo prova para onde ela foi — sem ela, apagar a tela da navegação
+    // inteira passaria por aqui.
+    expect(footerNavItems.map(i => i.to)).toEqual(['/admin/configuracoes', '/admin/usuarios'])
+    expect(footerNavItems.map(i => i.label)).toEqual(['Configurações', 'Usuários do painel'])
+  })
+
+  it('`Minha conta` continua declarada — como `accountNavItem`, fora do rodapé e dos grupos', () => {
+    expect(accountNavItem.to).toBe('/admin/conta')
+    expect(accountNavItem.label).toBe('Minha conta')
+    expect(footerNavItems.map(i => i.to)).not.toContain('/admin/conta')
   })
 
   it('nenhum destino do rodapé aparece também nos grupos', () => {
@@ -275,8 +273,9 @@ describe('navGroups — os quatro eixos', () => {
     // Mesma régua de PRM-20, agora valendo para o rodapé: a sequência textual é o contrato, e nada
     // acusaria se ela divergisse.
     const rotas = appRoutePaths()
-    const declaradas = rotas.filter(p => footerNavItems.some(i => i.to === p))
-    expect(declaradas).toEqual(footerNavItems.map(i => i.to))
+    const rodape = [...footerNavItems, accountNavItem]
+    const declaradas = rotas.filter(p => rodape.some(i => i.to === p))
+    expect(declaradas).toEqual(rodape.map(i => i.to))
   })
 
   it('bidirecional: TODA entrada do rodapé é uma rota de `App.tsx`', () => {

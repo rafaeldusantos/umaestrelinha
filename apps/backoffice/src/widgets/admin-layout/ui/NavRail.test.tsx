@@ -12,6 +12,8 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 import NavRail from './NavRail'
+
+vi.mock('@estrelinha/auth', () => ({ useAuthContext: () => ({ user: { email: 'adri@exemplo.invalid' } }) }))
 import { footerNavItems, navGroups } from '../model/navItems'
 
 const destinos = [...navGroups.flatMap(grupo => grupo.items), ...footerNavItems]
@@ -19,7 +21,7 @@ const destinos = [...navGroups.flatMap(grupo => grupo.items), ...footerNavItems]
 const renderTrilho = (pathname = '/admin/home', onExpand = vi.fn()) =>
   render(
     <MemoryRouter initialEntries={[pathname]}>
-      <NavRail pathname={pathname} onExpand={onExpand} />
+      <NavRail pathname={pathname} onExpand={onExpand} onLogout={vi.fn()} />
     </MemoryRouter>,
   )
 
@@ -109,7 +111,7 @@ describe('NavRail — FOCO-09: alvo de 44px, e a medida com um dono só', () => 
     renderTrilho()
 
     const clicaveis = [...screen.getAllByRole('link'), ...screen.getAllByRole('button')]
-    expect(clicaveis.length).toBe(destinos.length + 1) // os destinos + o botão de expandir
+    expect(clicaveis.length).toBe(destinos.length + 2) // os destinos + expandir + o avatar da conta
 
     // Por TOKEN exato: `h-11` é substring de `min-h-11`, e `toContain` aceitaria a forma errada.
     const tokenExato = (token: string) => new RegExp(`(?:^|\\s)${token}(?![-\\w])`)

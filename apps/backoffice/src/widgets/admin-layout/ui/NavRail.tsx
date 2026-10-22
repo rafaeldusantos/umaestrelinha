@@ -19,11 +19,14 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@estre
 import { cn } from '@estrelinha/ui/lib/utils'
 import { isNavActive } from '@/widgets/admin-layout/lib/isNavActive'
 import { footerNavItems, navGroups, type NavItem } from '@/widgets/admin-layout/model/navItems'
+import AccountMenu from '@/widgets/admin-layout/ui/AccountMenu'
 
 interface Props {
   pathname: string
   /** Devolve a navegação de 240px com os rótulos escritos. */
   onExpand: () => void
+  /** O "Sair" do menu da conta, que no trilho vira o avatar do pé da coluna. */
+  onLogout: () => void
 }
 
 const ItemDoTrilho = ({ item, pathname }: { item: NavItem; pathname: string }) => {
@@ -61,7 +64,7 @@ const ItemDoTrilho = ({ item, pathname }: { item: NavItem; pathname: string }) =
   )
 }
 
-const NavRail = ({ pathname, onExpand }: Props) => (
+const NavRail = ({ pathname, onExpand, onLogout }: Props) => (
   // O provider é local para o trilho funcionar em qualquer árvore — inclusive nos testes, que
   // montam o layout sem o `App.tsx`. Aninhar providers do Radix é suportado e não duplica estado.
   <TooltipProvider delayDuration={200}>
@@ -116,6 +119,8 @@ const NavRail = ({ pathname, onExpand }: Props) => (
         {footerNavItems.map(item => (
           <ItemDoTrilho key={item.to} item={item} pathname={pathname} />
         ))}
+        <span aria-hidden className="my-1 h-px w-7 shrink-0 bg-estrelinha-admin-border" />
+        <AccountMenu variant="rail" pathname={pathname} onLogout={onLogout} />
       </div>
     </div>
   </TooltipProvider>

@@ -21,12 +21,27 @@ Não pelo ciclo de vida do produto:
 | **Descontos** | Cupons · Promoções |
 | **Catálogo** | Produtos · Categorias · Filtros da loja · Perguntas frequentes |
 | **Loja** | Home · Menu da loja · Google Shopping |
-| *(rodapé)* | Configurações · Usuários do painel · Minha conta |
+| *(rodapé)* | Configurações · Usuários do painel |
+| *(menu da conta, no pé)* | Minha conta · Abrir a loja · Sair |
 
 **O rodapé é o lugar da administração do SISTEMA**, e por isso os dois itens da feature `48` entram
-ali e não num dos quatro eixos: ninguém abre o painel de manhã para conferir quem tem acesso. A ordem
-vai do mais amplo ao mais pessoal — **a loja → o sistema → eu** —, e `Minha conta` fica encostada em
-`Sair`, que é onde se procura o que é da própria pessoa.
+ali e não num dos quatro eixos: ninguém abre o painel de manhã para conferir quem tem acesso.
+
+**O que é da própria pessoa mora atrás de UM botão** (`ui/AccountMenu.tsx`, 2026-10-21): o cartão da
+conta no pé da coluna abre *Minha conta · Abrir a loja · Sair*. O rodapé tinha cinco linhas (~266px)
+e cortava o grupo `Catálogo` numa viewport de 900; com o cartão ele mede **182px**, medido em
+navegador. O mesmo menu aparece como avatar no **trilho** de foco e na **barra do celular** — a
+gaveta do celular deixa de desenhar o cartão (`comConta={false}`), para não haver dois gatilhos na
+mesma tela.
+
+- **`Minha conta` continua declarada em `navItems.ts`, como `accountNavItem`** — o arquivo segue
+  dono de "quais telas a navegação conhece", e o gatilho se marca em `/admin/conta` pela mesma
+  `isNavActive`.
+- **"Abrir a loja" lê `storeOrigin()`** e abre em nova aba; sem `VITE_STORE_URL` o item some. O
+  "Ver Loja" que ele substituiu era `<Link to="/">`, e o painel não tem a rota `/`: o clique caía na
+  404 do próprio painel.
+- **O menu lê o e-mail por `useAuthContext`**, então todo teste que monta o `AdminLayout` real precisa
+  dublar `@estrelinha/auth` (em produção o `AuthProvider` envolve o app em `main.tsx`).
 
 **`Vendas` vem primeiro porque é o único eixo que ACUMULA**: pedido esperando envio, carrinho
 esfriando, cliente esperando resposta. Cadastrar e curar vitrine são trabalho de quando não há fila —

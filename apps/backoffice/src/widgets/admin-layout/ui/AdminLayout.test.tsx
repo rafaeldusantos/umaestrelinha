@@ -3,13 +3,17 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import AdminLayout from './AdminLayout'
 import { STORAGE_KEY } from '@/widgets/admin-layout/model/navCollapse'
+import { enableRadixSelectInJsdom, RADIX_POINTER_DOWN } from '@/test/radix'
 
+const signOut = vi.hoisted(() => vi.fn().mockResolvedValue({ error: null }))
 vi.mock('@estrelinha/supabase/client', () => ({
-  supabase: { auth: { signOut: vi.fn().mockResolvedValue({ error: null }) } },
+  supabase: { auth: { signOut } },
 }))
+vi.mock('@estrelinha/auth', () => ({ useAuthContext: () => ({ user: { email: 'adri@exemplo.invalid' } }) }))
+vi.mock('@/shared/lib/storeOrigin', () => ({ storeOrigin: () => 'https://loja.exemplo.invalid' }))
 
 const renderEm = (pathname: string) =>
   render(
@@ -29,6 +33,8 @@ const sidebar = () => screen.getAllByRole('navigation')[0]
 const coluna = () => document.querySelector('aside')!
 
 const cabecalho = (label: string) => within(sidebar()).getByRole('button', { name: new RegExp(label, 'i') })
+
+beforeAll(enableRadixSelectInJsdom)
 
 beforeEach(() => {
   window.localStorage.clear()
@@ -128,11 +134,35 @@ describe('AdminLayout — os grupos colapsam', () => {
 })
 
 describe('AdminLayout — o rodapé', () => {
-  it('Configurações, Ver Loja e Sair estão na coluna', () => {
+  it('Configurações, Usuários do painel e o cartão da conta estão na coluna', () => {
     renderEm('/admin/produtos')
     expect(within(coluna()).getByRole('link', { name: 'Configurações' })).toBeInTheDocument()
-    expect(within(coluna()).getByRole('link', { name: 'Ver Loja' })).toBeInTheDocument()
-    expect(within(coluna()).getByRole('button', { name: 'Sair' })).toBeInTheDocument()
+    expect(within(coluna()).getByRole('link', { name: 'Usuários do painel' })).toBeInTheDocument()
+    expect(within(coluna()).getByRole('button', { name: /sua conta/i })).toBeInTheDocument()
+  })
+
+  it('"Ver Loja", "Minha conta" e "Sair" NÃO são mais linhas da coluna — moram no menu da conta', () => {
+    // O rodapé tinha cinco linhas (~250px) e cortava o grupo `Catálogo` numa viewport de 900. E o
+    // "Ver Loja" era `<Link to="/">`, que no painel cai na 404.
+    renderEm('/admin/produtos')
+    expect(within(coluna()).queryByRole('link', { name: 'Ver Loja' })).not.toBeInTheDocument()
+    expect(within(coluna()).queryByRole('link', { name: 'Minha conta' })).not.toBeInTheDocument()
+    expect(within(coluna()).queryByRole('button', { name: 'Sair' })).not.toBeInTheDocument()
+  })
+
+  it('o menu da conta, aberto pelo cartão da coluna, sai do painel', async () => {
+    renderEm('/admin/produtos')
+    fireEvent.pointerDown(within(coluna()).getByRole('button', { name: /sua conta/i }), RADIX_POINTER_DOWN)
+    const menu = await screen.findByRole('menu')
+
+    expect(within(menu).getByRole('menuitem', { name: 'Minha conta' })).toHaveAttribute('href', '/admin/conta')
+    fireEvent.click(within(menu).getByRole('menuitem', { name: 'Sair' }))
+    expect(signOut).toHaveBeenCalled()
+  })
+
+  it('o cartão da conta fica FORA do `<nav>` que rola', () => {
+    renderEm('/admin')
+    expect(within(sidebar()).queryByRole('button', { name: /sua conta/i })).not.toBeInTheDocument()
   })
 
   it('o rodapé fica FORA do `<nav>` que rola', () => {
@@ -252,6 +282,22 @@ describe('AdminLayout — FOCO-01/04/05/07: a navegação recolhe nas duas telas
     const gaveta = screen.getByRole('dialog')
     expect(within(gaveta).getByRole('link', { name: 'Produtos' })).toBeInTheDocument()
     expect(within(gaveta).queryByRole('button', { name: 'Recolher a navegação' })).not.toBeInTheDocument()
+  })
+
+  it('no celular a conta mora no avatar da barra do topo, e a gaveta fica só com a navegação', () => {
+    renderEm('/admin/pedidos')
+    const barra = document.querySelector('header')!
+    expect(within(barra).getByRole('button', { name: /sua conta/i })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Abrir menu' }))
+    const gaveta = screen.getByRole('dialog')
+    expect(within(gaveta).getByRole('link', { name: 'Configurações' })).toBeInTheDocument()
+    expect(within(gaveta).queryByRole('button', { name: /sua conta/i })).not.toBeInTheDocument()
+  })
+
+  it('recolhida, a conta continua alcançável pelo avatar do trilho', () => {
+    renderEm('/admin/home')
+    expect(within(screen.getByTestId('trilho-de-navegacao')).getByRole('button', { name: /sua conta/i })).toBeInTheDocument()
   })
 
   it('FOCO-03: recolhida, a navegação continua respondendo onde eu estou', () => {

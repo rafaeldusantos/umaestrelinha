@@ -3,7 +3,9 @@
 // Inventário de `vi.mock` (`L-030`): o client do supabase (o dublê que enxerga e que GUARDA estado —
 // gravar uma marcação muda o que a próxima leitura devolve, que é como "a fila atualiza sem
 // recarregar" se prova de verdade) e `useAdminFilterCatalog` (provado por conta própria; aqui o
-// `fetchCatalog` é espião). O pool da marcação, as recusas, a regra de `core` e as escritas são REAIS.
+// `fetchCatalog` é espião), mais `@estrelinha/auth` — o caso D1 monta o `AdminLayout` real, e o menu
+// da conta dele lê o e-mail da sessão (em produção o `AuthProvider` envolve o app inteiro, em
+// `main.tsx`). O pool da marcação, as recusas, a regra de `core` e as escritas são REAIS.
 
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -19,6 +21,7 @@ const h = vi.hoisted(() => ({
 vi.mock('@estrelinha/supabase/client', () => ({
   supabase: { from: h.fromMock, auth: { signOut: vi.fn().mockResolvedValue({ error: null }) } },
 }))
+vi.mock('@estrelinha/auth', () => ({ useAuthContext: () => ({ user: null }) }))
 vi.mock('@/entities/filter', async importOriginal => ({
   ...(await importOriginal<typeof import('@/entities/filter')>()),
   useAdminFilterCatalog: () => ({ groups: h.grupos, loading: false, error: null, fetchCatalog: h.fetchCatalog }),

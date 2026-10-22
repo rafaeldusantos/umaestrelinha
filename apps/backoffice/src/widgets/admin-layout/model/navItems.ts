@@ -107,17 +107,26 @@ export const navGroups: NavGroup[] = [
 ]
 
 /**
- * Vai no bloco de rodapé, junto de Ver Loja / Sair.
+ * Vai no bloco de rodapé da sidebar, logo acima do cartão da conta.
  *
- * **Os dois itens da feature 48 entram AQUI, e não em `navGroups`**, porque não são um dos quatro
- * eixos por fila da loja: ninguém abre o painel de manhã para conferir quem tem acesso. É
- * administração do sistema, mesma família de Configurações — e `Minha conta` ainda ganha a vizinhança
- * certa, encostada em `Sair`, que é onde se procura o que é da própria pessoa.
+ * **Os dois itens são administração do SISTEMA**, e por isso não entram em `navGroups`: não são um
+ * dos quatro eixos por fila da loja — ninguém abre o painel de manhã para conferir quem tem acesso.
+ * A ordem vai do mais amplo ao mais restrito: **a loja → quem entra nela**.
  *
- * A ordem vai do mais amplo ao mais pessoal: **a loja → o sistema → eu**.
+ * `Minha conta` morava aqui até 2026-10-21 e saiu para o menu da conta (`accountNavItem`), junto de
+ * "Abrir a loja" e "Sair": o rodapé tinha cinco linhas (~250px) e cortava o grupo `Catálogo` numa
+ * viewport de 900. O que é da própria pessoa passou a morar atrás de um botão só.
  */
 export const footerNavItems: NavItem[] = [
   { to: '/admin/configuracoes', icon: Settings, label: 'Configurações' },
   { to: '/admin/usuarios', icon: ShieldCheck, label: 'Usuários do painel' },
-  { to: '/admin/conta', icon: UserCog, label: 'Minha conta' },
 ]
+
+/**
+ * A tela pessoal — alcançada pelo menu da conta (`ui/AccountMenu`), não por uma linha da sidebar.
+ *
+ * Continua declarada AQUI, e não escrita dentro do menu, porque este arquivo é o dono de "quais telas
+ * a navegação conhece": a rota em `App.tsx` segue logo depois das do rodapé, e o botão da conta se
+ * marca como ativo com a mesma `isNavActive` dos outros itens.
+ */
+export const accountNavItem: NavItem = { to: '/admin/conta', icon: UserCog, label: 'Minha conta' }

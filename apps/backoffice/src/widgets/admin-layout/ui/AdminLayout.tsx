@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
-import { ChevronDown, LogOut, PanelLeftClose, Pin, Store, Menu } from 'lucide-react'
+import { ChevronDown, PanelLeftClose, Pin, Menu } from 'lucide-react'
 import { supabase } from '@estrelinha/supabase/client'
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@estrelinha/ui/sheet'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@estrelinha/ui/collapsible'
@@ -11,6 +11,7 @@ import { groupHasActive, isCollapsed, useNavCollapse } from '@/widgets/admin-lay
 import { isFocusRoute } from '@/widgets/admin-layout/model/focusRoutes'
 import { useNavRail } from '@/widgets/admin-layout/model/navRail'
 import NavRail from '@/widgets/admin-layout/ui/NavRail'
+import AccountMenu from '@/widgets/admin-layout/ui/AccountMenu'
 
 /** Id estável do cabeçalho, para o `aria-labelledby` do grupo. */
 const groupId = (label: string) => `nav-group-${label.toLowerCase().normalize('NFD').replace(/[^a-z]/g, '')}`
@@ -52,9 +53,15 @@ interface NavProps {
    * (`FOCO-07`). Ausente também na gaveta do celular, onde a navegação já sai da frente sozinha.
    */
   onCollapse?: () => void
+  /**
+   * Desenha o cartão da conta no pé da coluna. Desligado na gaveta do celular: lá o menu da conta
+   * mora no avatar da barra do topo, que está à vista sem abrir gaveta nenhuma — dois gatilhos do
+   * mesmo menu na mesma tela seriam ruído.
+   */
+  comConta?: boolean
 }
 
-const NavContent = ({ pathname, onNavigate, onLogout, onCollapse }: NavProps) => {
+const NavContent = ({ pathname, onNavigate, onLogout, onCollapse, comConta = true }: NavProps) => {
   const { collapsed, toggle } = useNavCollapse()
 
   return (
@@ -138,12 +145,11 @@ const NavContent = ({ pathname, onNavigate, onLogout, onCollapse }: NavProps) =>
         {footerNavItems.map((item) => (
           <NavLink key={item.to} item={item} pathname={pathname} onNavigate={onNavigate} />
         ))}
-        <Link to="/" onClick={onNavigate} className="flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium text-estrelinha-admin-text-secondary hover:bg-estrelinha-admin-bg hover:text-estrelinha-admin-text transition-colors">
-          <Store className="w-4 h-4" /> Ver Loja
-        </Link>
-        <button onClick={onLogout} className="flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium text-estrelinha-admin-text-secondary hover:bg-estrelinha-admin-bg hover:text-estrelinha-admin-pink transition-colors w-full">
-          <LogOut className="w-4 h-4" /> Sair
-        </button>
+        {comConta && (
+          <div className="mt-2 pt-2 border-t border-estrelinha-admin-border">
+            <AccountMenu variant="sidebar" pathname={pathname} onLogout={onLogout} onNavigate={onNavigate} />
+          </div>
+        )}
       </div>
     </div>
   )
@@ -168,7 +174,7 @@ const AdminLayout = () => {
     <div className="min-h-screen flex bg-estrelinha-admin-bg">
       {/* A sidebar é FIXA na viewport, e isso conserta um defeito: como o `aside` era só um filho de
           flex sem altura, ele esticava até a altura do DOCUMENTO — numa listagem de 680 produtos o
-          rodapé (Configurações · Ver Loja · Sair) ia para o fim da página, a dezenas de telas de
+          rodapé (Configurações · Sair) ia para o fim da página, a dezenas de telas de
           distância, e "desaparecia".
           `sticky` em vez de `fixed`: mantém a largura reservada no fluxo (com `fixed` o conteúdo
           principal passaria por baixo) e preserva a rolagem do BODY, que é a que se comporta bem no
@@ -178,7 +184,7 @@ const AdminLayout = () => {
           estados, e `AdminLayout.test.tsx` os lê do disco enxergando esta forma dinâmica. */}
       <aside className={cn('hidden md:block shrink-0 sticky top-0 self-start h-screen bg-white border-r border-estrelinha-admin-border', recolhido ? 'w-14' : 'w-60')}>
         {recolhido ? (
-          <NavRail pathname={location.pathname} onExpand={alternar} />
+          <NavRail pathname={location.pathname} onExpand={alternar} onLogout={handleLogout} />
         ) : (
           <NavContent
             pathname={location.pathname}
@@ -208,6 +214,7 @@ const AdminLayout = () => {
                 pathname={location.pathname}
                 onNavigate={() => setMenuOpen(false)}
                 onLogout={handleLogout}
+                comConta={false}
               />
             </SheetContent>
           </Sheet>
@@ -217,6 +224,7 @@ const AdminLayout = () => {
           >
             Uma Estrelinha Admin
           </Link>
+          <AccountMenu variant="header" pathname={location.pathname} onLogout={handleLogout} />
         </header>
         {/* O `main` NÃO tem `overflow` (feature 67, D1 da prova em navegador). Qualquer valor diferente
             de `visible` faz dele o contêiner de rolagem de todo `sticky` de dentro — e como quem rola

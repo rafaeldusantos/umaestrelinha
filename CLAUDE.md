@@ -494,7 +494,11 @@ quando mudarem de verdade.
 | --- | --- | --- |
 | **Lint** | **26 erros / 7 warnings** — backoffice 24/5 · store 2/2 | `pnpm lint` |
 | **Tipos** | **0 · 0 · 0 · 0** (store · backoffice · catalog-import · `apps/store/tsconfig.server.json`, desde a `69`) | `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` |
-| **Testes** | **13658 em 672 arquivos** — store **5349/299** · backoffice **3493/198** · core **3414/133** · functions **890/19** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
+| **Testes** | **13676 em 673 arquivos** — store **5349/299** · backoffice **3511/199** · core **3414/133** · functions **890/19** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
+
+**O menu da conta na sidebar do painel (2026-10-21, fora de feature) somou +18/+1 no backoffice**
+(3493/198 → 3511/199): `AccountMenu.test.tsx` novo, mais os casos do rodapé em `AdminLayout.test.tsx`
+e `navItems.test.ts`. Store remedido, idêntico (5349/299). Tipos 0, lint do painel 24/5, sem mexer.
 
 **A feature `70` (o sitemap servido de dentro da Vercel) somou +32/+1**, medidos em 2026-10-20 um
 workspace por vez: **core +32/+1** (`core/sitemap/serve.ts`, os 30 casos da function `sitemap`
