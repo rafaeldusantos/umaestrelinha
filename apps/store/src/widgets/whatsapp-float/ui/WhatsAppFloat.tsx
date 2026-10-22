@@ -6,6 +6,13 @@ import { productPath } from '@estrelinha/core/routes'
 
 const SEEN_KEY = 'estrelinha_wa_seen_v1'
 
+// O convite espera a cliente navegar um pouco (20 a 30 s) antes de aparecer.
+const INVITE_DELAY_MS = 25_000
+const TEASER_VISIBLE_MS = 8000
+
+// Quem responde no WhatsApp é a Adri, e o nome do atendimento diz isso.
+const ATTENDANT_NAME = 'Adri - Uma Estrelinha'
+
 const WhatsAppFloat = () => {
   const { whatsapp, whatsapp_message, store_name } = useGeneralSettings()
   const location = useLocation()
@@ -31,9 +38,9 @@ const WhatsAppFloat = () => {
       seen = null
     }
     if (seen) return
-    const showT = setTimeout(() => setShowBadge(true), 1500)
-    const teaserT = setTimeout(() => setShowTeaser(true), 2200)
-    const hideTeaserT = setTimeout(() => setShowTeaser(false), 8000)
+    const showT = setTimeout(() => setShowBadge(true), INVITE_DELAY_MS)
+    const teaserT = setTimeout(() => setShowTeaser(true), INVITE_DELAY_MS)
+    const hideTeaserT = setTimeout(() => setShowTeaser(false), INVITE_DELAY_MS + TEASER_VISIBLE_MS)
     return () => {
       clearTimeout(showT)
       clearTimeout(teaserT)
@@ -88,7 +95,7 @@ const WhatsAppFloat = () => {
               </div>
               <div>
                 <p className="text-sm font-heading font-semibold text-estrelinha-ink leading-tight">
-                  {store_name || 'Uma Estrelinha'}
+                  {ATTENDANT_NAME}
                 </p>
                 <p className="text-[11px] text-estrelinha-ink-soft">Normalmente responde em minutos</p>
               </div>
@@ -138,7 +145,7 @@ const WhatsAppFloat = () => {
       {!open && showTeaser && (
         <button
           onClick={handleToggle}
-          className="absolute bottom-full right-0 mb-3 bg-white border border-estrelinha-line rounded-2xl rounded-br-sm shadow-lg px-3 py-2 max-w-[220px] text-left animate-in fade-in slide-in-from-right-2 duration-300 hover:border-[hsl(142_70%_45%)] transition-colors"
+          className="absolute bottom-full right-0 mb-3 bg-white border border-estrelinha-line rounded-2xl rounded-br-sm shadow-lg px-3 py-2 w-[220px] text-left animate-in fade-in slide-in-from-right-2 duration-300 hover:border-[hsl(142_70%_45%)] transition-colors"
           aria-label="Abrir mensagem"
         >
           {/*
@@ -152,7 +159,7 @@ const WhatsAppFloat = () => {
             passa a ter **um** verde, não dois.
           */}
           <p className="text-[11px] font-semibold text-[hsl(142_71%_30%)] mb-0.5">
-            {store_name || 'Uma Estrelinha'}
+            {ATTENDANT_NAME}
           </p>
           <p className="text-xs text-estrelinha-ink leading-snug">
             Olá! Posso te ajudar com alguma coisa?

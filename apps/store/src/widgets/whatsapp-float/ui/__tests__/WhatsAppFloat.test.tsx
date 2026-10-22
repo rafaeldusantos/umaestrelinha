@@ -40,7 +40,7 @@ describe('WhatsAppFloat — o nome da loja (COP-08)', () => {
 
     fireEvent.click(screen.getByLabelText('Abrir conversa no WhatsApp'))
 
-    expect(screen.getByText('Uma Estrelinha Joias')).toBeInTheDocument()
+    expect(screen.getByText('Adri - Uma Estrelinha')).toBeInTheDocument()
     const link = screen.getByText('Iniciar conversa').closest('a')!
     expect(decodeURIComponent(link.getAttribute('href')!)).toContain('Uma Estrelinha Joias')
   })
@@ -50,7 +50,7 @@ describe('WhatsAppFloat — o nome da loja (COP-08)', () => {
 
     fireEvent.click(screen.getByLabelText('Abrir conversa no WhatsApp'))
 
-    expect(screen.getByText('Uma Estrelinha')).toBeInTheDocument()
+    expect(screen.getByText('Adri - Uma Estrelinha')).toBeInTheDocument()
     const href = decodeURIComponent(
       screen.getByText('Iniciar conversa').closest('a')!.getAttribute('href')!,
     )
@@ -152,13 +152,40 @@ describe('WhatsAppFloat — a bolha não cobre o fim da conta nem do detalhe (AC
  * jsdom devolve 0 para toda medida de layout, então o que se assere é a **forma**: a bolha fora do
  * fluxo, ancorada acima do botão. A prova de que não há salto é de navegador.
  */
+// O convite espera 25 s de navegação e a bolha tem largura própria: absoluta dentro de um contêiner do
+// tamanho do botão, sem largura ela encolhia a 56px e o texto quebrava palavra por palavra.
+describe('WhatsAppFloat — o convite espera e tem largura', () => {
+  it('não aparece antes dos 20 s, aparece aos 25 s e some depois de 8 s', () => {
+    vi.useFakeTimers()
+    try {
+      renderFloat()
+      act(() => {
+        vi.advanceTimersByTime(20_000)
+      })
+      expect(screen.queryByLabelText('Abrir mensagem')).toBeNull()
+      act(() => {
+        vi.advanceTimersByTime(5_500)
+      })
+      const teaser = screen.getByLabelText('Abrir mensagem')
+      expect(teaser.className).toContain('w-[220px]')
+      expect(teaser.className).not.toContain('max-w-')
+      act(() => {
+        vi.advanceTimersByTime(8_000)
+      })
+      expect(screen.queryByLabelText('Abrir mensagem')).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})
+
 describe('WhatsAppFloat — a bolha não desloca a caixa (PRF-18)', () => {
   const comBolhaVisivel = (fn: (teaser: HTMLElement) => void) => {
     vi.useFakeTimers()
     try {
       renderFloat()
       act(() => {
-        vi.advanceTimersByTime(2500)
+        vi.advanceTimersByTime(25_500)
       })
       fn(screen.getByLabelText('Abrir mensagem'))
     } finally {
@@ -199,7 +226,7 @@ describe('WhatsAppFloat — sem armazenamento (BUG-20261017)', () => {
       expect(() => renderFloat()).not.toThrow()
       expect(ler).toHaveBeenCalled()
       await act(async () => {
-        vi.advanceTimersByTime(1600)
+        vi.advanceTimersByTime(25_100)
       })
       expect(screen.getByLabelText('1 nova mensagem')).toBeInTheDocument()
     } finally {
