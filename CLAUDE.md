@@ -145,8 +145,9 @@ Ao planejar/implementar features, use a Skill **`tlc-spec-driven`** com estas co
     sitemap servido de dentro da Vercel, e o `robots.txt` gerado de `STORE_PUBLIC_URL`) está
     IMPLEMENTADA, sem commit. A `71` (visitas únicas no Dashboard: o contador próprio, o bloco
     "Movimento da loja" e a régua de dia de Brasília no banco) está IMPLEMENTADA, sem commit,
-    verificada em três rodadas (a terceira FAIL por uma lacuna de cobertura, G9, não consertada). A
-    próxima é a `72`.**
+    verificada em três rodadas (a terceira FAIL por uma lacuna de cobertura, G9, não consertada). A `72`..`79` são o programa mobile-adm (`AD-056`): o painel do ateliê
+    no celular, em `apps/mobile-adm`. A `72` (fundação) tem spec completa; da `73` à `79` são
+    rascunhos, a detalhar ao abrir. A próxima livre é a `80`.**
   - **A `46` e a `47` correram EM PARALELO, em worktrees separados**, e é o segundo caso do projeto
     (o primeiro, a `45`, dividiu uma working tree só). O que mudou: a divisão foi por **árvore**, não
     por arquivo — a `47` nasceu de um `git worktree` sobre o HEAD local e trouxe a `46` por

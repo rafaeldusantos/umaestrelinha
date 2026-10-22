@@ -1380,6 +1380,36 @@
 - **Date**: 2026-10-22
 - **Status**: active
 
+### AD-056
+- **Decision**: **o painel do ateliê no celular é um app próprio do monorepo**: `apps/mobile-adm`
+  (`@estrelinha/mobile-adm`, porta 8084), PWA **só para Android**, num **projeto Vercel próprio**.
+  O Backoffice não muda e continua sendo o único lugar de produtos, vitrine, configurações, Home,
+  menu, filtros, perguntas e usuários. O app cobre pedidos, clientes, métricas, cupons e promoções.
+- **Decision**: **o acesso é o mesmo do Backoffice**: as mesmas contas, o mesmo `has_role(admin)`, o
+  mesmo `RequireAdmin`. Quem entra no painel entra no app, e quem é removido em `/admin/usuarios`
+  perde os dois. O app não tem papel, tabela nem convite próprio.
+- **Decision**: **toda regra que o app ler e o Backoffice já tiver sobe para `packages/core`** antes
+  de o app consumi-la. O painel passa a importá-la de lá sem mudar comportamento: a suíte dele
+  continua verde **sem asserção tocada**. Isso vale para os rótulos e recortes de pedido, `nextStep`,
+  `history`, `chargeMaterial`, o schema do cupom e o da promoção, e `storeMovement`.
+- **Decision**: **offline é só a casca.** O service worker pré-carrega HTML, JS, CSS, fontes e
+  ícones. `*.supabase.co` é sempre rede e nunca cache (guarda lendo a configuração do workbox). Sem
+  conexão o app diz "sem conexão" e não mostra dado nenhum.
+- **Decision**: **notificação push é feature própria, a última do programa** (`79`).
+- **Decision — o roteiro**: `72` fundação · `73` início · `74` pedidos (leitura) · `75` ações do
+  pedido · `76` clientes · `77` cupons · `78` promoções · `79` aviso de pedido. O detalhe está em
+  `.specs/features/72-mobile-adm-fundacao/spec.md`. A `72` tem spec completa. As outras nasceram como
+  **rascunho** e passam pelo Specify completo ao serem abertas.
+- **Reason**: pedido do usuário (2026-10-22): autonomia da Adri pelo celular, com a UI desenhada no
+  Claude Design (`a780eec8-8aba-4d6e-8b4c-2c485e2750c7`). Repositório separado foi descartado porque
+  as ~3.000 linhas de regra que o app precisa estão em `apps/backoffice/src/features/*/model` e
+  `entities/*/api`: num segundo repositório elas seriam copiadas, e o painel e o app responderiam
+  diferente sobre o mesmo pedido com as duas suítes verdes (defeito 01).
+- **Trade-off**: cada feature do programa carrega uma extração para `core` antes da tela, então as
+  primeiras entregas são mais lentas. O gate de cada uma inclui as suítes do **painel e da loja**,
+  porque os guardas varrem `apps/**`. A splash do Android é a do manifest (ícone sobre fundo) até o JS
+  carregar, e só depois vem a desenhada. Sem iOS.
+
 ## Handoff
 
 ### ATUAL — 2026-10-22 · `71-visitas-unicas-no-dashboard` **IMPLEMENTADA — 32 de 32 tasks, verificada em 3 rodadas (r3 FAIL por UMA lacuna de cobertura, G9, consertada depois pelo orquestrador — sem r4), SEM COMMIT**
