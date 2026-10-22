@@ -327,16 +327,20 @@ const DeliveryBlock = ({ open, complete, onEdit, onContinue, canContinue }: Prop
    * política do pagamento (`EVT-12`): a pré-seleção automática (opção única, ou a mais barata do
    * endereço salvo) e o rascunho restaurado não são escolha, e por isso não emitem. Antes, o frete
    * contava a pré-seleção e o pagamento não — irmãos do mesmo funil medindo coisas diferentes.
+   *
+   * Com o bloco FECHADO (2026-10-22) a troca não suja: sujar reabriria a Entrega (FLW-01), e o
+   * pedido foi justamente trocar o envio sem passar por "Alterar". O endereço não muda, então o
+   * bloco continua completo — só o preço e a data mudam, no resumo do pedido.
    */
   const select = (option: DeliveryOption) => {
-    markDirty('delivery')
+    if (open) markDirty('delivery')
     setShipping(toDraft(option))
     trackShippingInfo(option.serviceName)
   }
 
   /** RET-06/RET-07: a retirada se escolhe como qualquer outra opção, e grava frete zero. */
   const selectPickup = () => {
-    markDirty('delivery')
+    if (open) markDirty('delivery')
     setShipping(PICKUP_DRAFT)
     trackShippingInfo(PICKUP_METHOD_NAME)
   }
@@ -348,6 +352,120 @@ const DeliveryBlock = ({ open, complete, onEdit, onContinue, canContinue }: Prop
   const pickupSource = rsCep ? (
     <PickupSource cep={stripCep(address.cep)} onChange={onPickup} />
   ) : null
+
+  const pickupSelected = shipping?.serviceId === PICKUP_SERVICE_ID
+  /** Quantas escolhas há — com uma só, o bloco fechado mostra o resumo do frete, não a lista. */
+  const choiceCount = options.length + (pickup ? 1 : 0)
+
+  // As opções de envio têm UM desenho, usado nos dois estados do bloco: aberto, abaixo do endereço,
+  // e fechado, no lugar do resumo do frete (2026-10-22). Escritas duas vezes, a de um estado
+  // divergiria da do outro sem nada quebrar.
+  const optionList = (
+    <>
+      {/* RET-06: com a retirada, as duas origens ganham título de grupo. Sem ela, a tela é a de
+          antes da feature 63. */}
+      {domicilioAgrupado && (
+        <span id={domicilioId} className="pt-1 text-[13px] text-estrelinha-ink-soft">
+          Envio a domicílio
+        </span>
+      )}
+
+      {/* RET-06: com a retirada, as opções dos Correios são um GRUPO nomeado pelo título acima,
+          como "Retirar em" — para quem navega por leitor de tela, os dois grupos são simétricos. */}
+      <div
+        role={domicilioAgrupado ? 'group' : undefined}
+        aria-labelledby={domicilioAgrupado ? domicilioId : undefined}
+        className="flex flex-col gap-2"
+      >
+        {options.map((option) => {
+          const selected = shipping?.serviceId === option.serviceId
+          return (
+            <button
+              key={option.serviceId}
+              type="button"
+              aria-pressed={selected}
+              onClick={() => select(option)}
+              className={`flex w-full items-center gap-[14px] rounded-md border-2 p-3 text-left transition-colors ${
+                selected
+                  ? 'border-estrelinha-primary bg-estrelinha-ground-deep'
+                  : 'border-estrelinha-line bg-white hover:border-estrelinha-primary/40'
+              }`}
+            >
+              <span
+                className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
+                  selected ? 'border-estrelinha-primary' : 'border-estrelinha-line'
+                }`}
+              >
+                {selected && <span className="h-[10px] w-[10px] rounded-full bg-estrelinha-ink" />}
+              </span>
+              <span className="flex min-w-0 grow flex-col gap-[2px]">
+                <span className="text-[15px] font-semibold text-estrelinha-ink">
+                  {option.carrier} {option.serviceName}
+                </span>
+                <span className="text-[13px] text-estrelinha-ink-soft">
+                  {option.estimateLabel
+                    ? `Chega ${option.estimateLabel}`
+                    : 'Prazo confirmado após a postagem'}
+                </span>
+              </span>
+              <span className="flex shrink-0 flex-col items-end gap-[2px]">
+                <span
+                  className={`font-heading text-[17px] font-semibold ${
+                    option.free ? 'text-estrelinha-primary' : 'text-estrelinha-ink'
+                  }`}
+                >
+                  {option.free ? 'Grátis' : formatPrice(option.price)}
+                </span>
+                {option.free && (
+                  <span className="text-xs text-estrelinha-ink-soft line-through">
+                    {formatPrice(option.price)}
+                  </span>
+                )}
+              </span>
+            </button>
+          )
+        })}
+      </div>
+
+      {pickup && (
+        <div role="group" aria-label="Retirar em" className="flex flex-col gap-2 pt-1">
+          <span className="text-[13px] text-estrelinha-ink-soft">Retirar em</span>
+          <button
+            type="button"
+            aria-pressed={pickupSelected}
+            onClick={selectPickup}
+            className={`flex w-full items-center gap-[14px] rounded-md border-2 p-3 text-left transition-colors ${
+              pickupSelected
+                ? 'border-estrelinha-primary bg-estrelinha-ground-deep'
+                : 'border-estrelinha-line bg-white hover:border-estrelinha-primary/40'
+            }`}
+          >
+            <span
+              className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
+                pickupSelected ? 'border-estrelinha-primary' : 'border-estrelinha-line'
+              }`}
+            >
+              {pickupSelected && (
+                <span className="h-[10px] w-[10px] rounded-full bg-estrelinha-ink" />
+              )}
+            </span>
+            <span className="flex min-w-0 grow flex-col gap-[2px]">
+              {/* Sem `truncate`: a linha do endereço é longa e tem de caber inteira em 390px. */}
+              <span className="break-words text-[15px] font-semibold text-estrelinha-ink">
+                {pickup.location}
+              </span>
+              <span className="text-[13px] text-estrelinha-ink-soft">
+                {`Pronta para retirada ${pickup.readyLabel}`}
+              </span>
+            </span>
+            <span className="shrink-0 font-heading text-[17px] font-semibold text-estrelinha-primary">
+              Grátis
+            </span>
+          </button>
+        </div>
+      )}
+    </>
+  )
 
   const locked = !address.manual
   const lockedFieldClass = locked
@@ -387,70 +505,78 @@ const DeliveryBlock = ({ open, complete, onEdit, onContinue, canContinue }: Prop
         actionLabel={complete ? 'Alterar' : 'Preencher'}
         onAction={onEdit}
         footer={
-          complete &&
-          shipping &&
-          (retirada ? (
-            // RET-11: a retirada não tem transportadora nem prazo de entrega — mostra o método, o
-            // endereço do escritório e "Grátis".
-            <div
-              role="group"
-              aria-label="Frete escolhido"
-              className="flex items-center gap-[18px] rounded-sm bg-estrelinha-ground-deep py-3 pl-[6px] pr-[14px]"
-            >
-              <MapPin
-                className="h-5 w-5 shrink-0 text-estrelinha-ink"
-                strokeWidth={1.5}
-                aria-hidden
-              />
-              <span className="flex min-w-0 grow flex-col gap-[2px]">
-                <span className="text-[15px] font-semibold text-estrelinha-ink">
-                  {PICKUP_METHOD_NAME}
-                </span>
-                {pickup && (
-                  <span className="break-words text-[13px] text-estrelinha-ink-soft">
-                    {pickup.location}
-                  </span>
-                )}
-              </span>
-              <span className="shrink-0 font-heading text-base font-semibold text-estrelinha-primary">
-                Grátis
-              </span>
+          // Com duas ou mais escolhas, o bloco fechado mostra as opções e deixa trocar ali mesmo,
+          // sem "Alterar" (2026-10-22): mudar o envio não é mudar o endereço. Com uma só, o resumo.
+          complete && choiceCount > 1 ? (
+            <div role="group" aria-label="Forma de envio" className="flex flex-col gap-2">
+              {optionList}
             </div>
           ) : (
-            <div
-              role="group"
-              aria-label="Frete escolhido"
-              className="flex items-center gap-[18px] rounded-sm bg-estrelinha-ground-deep py-3 pl-[6px] pr-[14px]"
-            >
-              <Truck
-                className="h-5 w-5 shrink-0 text-estrelinha-ink"
-                strokeWidth={1.5}
-                aria-hidden
-              />
-              <span className="flex min-w-0 grow flex-col gap-[2px]">
-                <span className="text-[15px] font-semibold text-estrelinha-ink">
-                  {shipping.carrier} {shipping.serviceName}
-                </span>
-                <span className="text-[13px] text-estrelinha-ink-soft">
-                  {chegada ? `Chega ${chegada}` : 'Prazo confirmado após a postagem'}
-                </span>
-              </span>
-              <span className="flex shrink-0 flex-col items-end gap-[2px]">
-                <span
-                  className={`font-heading text-base font-semibold ${
-                    shipping.cost === 0 ? 'text-estrelinha-primary' : 'text-estrelinha-ink'
-                  }`}
-                >
-                  {shipping.cost === 0 ? 'Grátis' : formatPrice(shipping.cost)}
-                </span>
-                {shipping.cost === 0 && escolhida && escolhida.price > 0 && (
-                  <span className="text-xs text-estrelinha-ink-soft line-through">
-                    {formatPrice(escolhida.price)}
+            complete &&
+            shipping &&
+            (retirada ? (
+              // RET-11: a retirada não tem transportadora nem prazo de entrega — mostra o método, o
+              // endereço do escritório e "Grátis".
+              <div
+                role="group"
+                aria-label="Frete escolhido"
+                className="flex items-center gap-[18px] rounded-sm bg-estrelinha-ground-deep py-3 pl-[6px] pr-[14px]"
+              >
+                <MapPin
+                  className="h-5 w-5 shrink-0 text-estrelinha-ink"
+                  strokeWidth={1.5}
+                  aria-hidden
+                />
+                <span className="flex min-w-0 grow flex-col gap-[2px]">
+                  <span className="text-[15px] font-semibold text-estrelinha-ink">
+                    {PICKUP_METHOD_NAME}
                   </span>
-                )}
-              </span>
-            </div>
-          ))
+                  {pickup && (
+                    <span className="break-words text-[13px] text-estrelinha-ink-soft">
+                      {pickup.location}
+                    </span>
+                  )}
+                </span>
+                <span className="shrink-0 font-heading text-base font-semibold text-estrelinha-primary">
+                  Grátis
+                </span>
+              </div>
+            ) : (
+              <div
+                role="group"
+                aria-label="Frete escolhido"
+                className="flex items-center gap-[18px] rounded-sm bg-estrelinha-ground-deep py-3 pl-[6px] pr-[14px]"
+              >
+                <Truck
+                  className="h-5 w-5 shrink-0 text-estrelinha-ink"
+                  strokeWidth={1.5}
+                  aria-hidden
+                />
+                <span className="flex min-w-0 grow flex-col gap-[2px]">
+                  <span className="text-[15px] font-semibold text-estrelinha-ink">
+                    {shipping.carrier} {shipping.serviceName}
+                  </span>
+                  <span className="text-[13px] text-estrelinha-ink-soft">
+                    {chegada ? `Chega ${chegada}` : 'Prazo confirmado após a postagem'}
+                  </span>
+                </span>
+                <span className="flex shrink-0 flex-col items-end gap-[2px]">
+                  <span
+                    className={`font-heading text-base font-semibold ${
+                      shipping.cost === 0 ? 'text-estrelinha-primary' : 'text-estrelinha-ink'
+                    }`}
+                  >
+                    {shipping.cost === 0 ? 'Grátis' : formatPrice(shipping.cost)}
+                  </span>
+                  {shipping.cost === 0 && escolhida && escolhida.price > 0 && (
+                    <span className="text-xs text-estrelinha-ink-soft line-through">
+                      {formatPrice(escolhida.price)}
+                    </span>
+                  )}
+                </span>
+              </div>
+            ))
+          )
         }
       >
         {complete ? (
@@ -466,8 +592,6 @@ const DeliveryBlock = ({ open, complete, onEdit, onContinue, canContinue }: Prop
       </>
     )
   }
-
-  const pickupSelected = shipping?.serviceId === PICKUP_SERVICE_ID
 
   return (
     <section
@@ -623,108 +747,7 @@ const DeliveryBlock = ({ open, complete, onEdit, onContinue, canContinue }: Prop
           </p>
         )}
 
-        {/* RET-06: com a retirada, as duas origens ganham título de grupo. Sem ela, a tela é a de
-            antes da feature 63. */}
-        {domicilioAgrupado && (
-          <span id={domicilioId} className="pt-1 text-[13px] text-estrelinha-ink-soft">
-            Envio a domicílio
-          </span>
-        )}
-
-        {/* RET-06: com a retirada, as opções dos Correios são um GRUPO nomeado pelo título acima,
-            como "Retirar em" — para quem navega por leitor de tela, os dois grupos são simétricos. */}
-        <div
-          role={domicilioAgrupado ? 'group' : undefined}
-          aria-labelledby={domicilioAgrupado ? domicilioId : undefined}
-          className="flex flex-col gap-2"
-        >
-          {options.map((option) => {
-            const selected = shipping?.serviceId === option.serviceId
-            return (
-              <button
-                key={option.serviceId}
-                type="button"
-                aria-pressed={selected}
-                onClick={() => select(option)}
-                className={`flex w-full items-center gap-[14px] rounded-md border-2 p-3 text-left transition-colors ${
-                  selected
-                    ? 'border-estrelinha-primary bg-estrelinha-ground-deep'
-                    : 'border-estrelinha-line bg-white hover:border-estrelinha-primary/40'
-                }`}
-              >
-                <span
-                  className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
-                    selected ? 'border-estrelinha-primary' : 'border-estrelinha-line'
-                  }`}
-                >
-                  {selected && <span className="h-[10px] w-[10px] rounded-full bg-estrelinha-ink" />}
-                </span>
-                <span className="flex min-w-0 grow flex-col gap-[2px]">
-                  <span className="text-[15px] font-semibold text-estrelinha-ink">
-                    {option.carrier} {option.serviceName}
-                  </span>
-                  <span className="text-[13px] text-estrelinha-ink-soft">
-                    {option.estimateLabel
-                      ? `Chega ${option.estimateLabel}`
-                      : 'Prazo confirmado após a postagem'}
-                  </span>
-                </span>
-                <span className="flex shrink-0 flex-col items-end gap-[2px]">
-                  <span
-                    className={`font-heading text-[17px] font-semibold ${
-                      option.free ? 'text-estrelinha-primary' : 'text-estrelinha-ink'
-                    }`}
-                  >
-                    {option.free ? 'Grátis' : formatPrice(option.price)}
-                  </span>
-                  {option.free && (
-                    <span className="text-xs text-estrelinha-ink-soft line-through">
-                      {formatPrice(option.price)}
-                    </span>
-                  )}
-                </span>
-              </button>
-            )
-          })}
-        </div>
-
-        {pickup && (
-          <div role="group" aria-label="Retirar em" className="flex flex-col gap-2 pt-1">
-            <span className="text-[13px] text-estrelinha-ink-soft">Retirar em</span>
-            <button
-              type="button"
-              aria-pressed={pickupSelected}
-              onClick={selectPickup}
-              className={`flex w-full items-center gap-[14px] rounded-md border-2 p-3 text-left transition-colors ${
-                pickupSelected
-                  ? 'border-estrelinha-primary bg-estrelinha-ground-deep'
-                  : 'border-estrelinha-line bg-white hover:border-estrelinha-primary/40'
-              }`}
-            >
-              <span
-                className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
-                  pickupSelected ? 'border-estrelinha-primary' : 'border-estrelinha-line'
-                }`}
-              >
-                {pickupSelected && (
-                  <span className="h-[10px] w-[10px] rounded-full bg-estrelinha-ink" />
-                )}
-              </span>
-              <span className="flex min-w-0 grow flex-col gap-[2px]">
-                {/* Sem `truncate`: a linha do endereço é longa e tem de caber inteira em 390px. */}
-                <span className="break-words text-[15px] font-semibold text-estrelinha-ink">
-                  {pickup.location}
-                </span>
-                <span className="text-[13px] text-estrelinha-ink-soft">
-                  {`Pronta para retirada ${pickup.readyLabel}`}
-                </span>
-              </span>
-              <span className="shrink-0 font-heading text-[17px] font-semibold text-estrelinha-primary">
-                Grátis
-              </span>
-            </button>
-          </div>
-        )}
+        {optionList}
       </div>
 
       {/* FLW-02/FLW-03: contorno de tinta, não geleia sólida — CHK-04 reserva a única pílula

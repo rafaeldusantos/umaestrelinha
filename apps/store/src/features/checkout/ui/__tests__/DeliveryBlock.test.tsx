@@ -351,10 +351,10 @@ describe('DeliveryBlock — prévia do bloco fechado', () => {
     )
   })
 
-  it('o frete escolhido mostra transportadora, serviço, a DATA cotada e o preço', () => {
+  it('com UMA opção cotada, o resumo mostra transportadora, serviço, a DATA cotada e o preço', () => {
     useCheckoutStore.getState().setAddress(ENDERECO)
     cepLookup(RESOLVED)
-    quoteState({ data: [PAC, SEDEX] })
+    quoteState({ data: [SEDEX] })
     useCheckoutStore.getState().setShipping({
       serviceId: '2',
       serviceName: 'SEDEX',
@@ -391,7 +391,7 @@ describe('DeliveryBlock — prévia do bloco fechado', () => {
     setCartSubtotal(200)
     useCheckoutStore.getState().setAddress(ENDERECO)
     cepLookup(RESOLVED)
-    quoteState({ data: [PAC, SEDEX] })
+    quoteState({ data: [PAC] })
     useCheckoutStore.getState().setShipping({
       serviceId: '1',
       serviceName: 'PAC',
@@ -421,6 +421,61 @@ describe('DeliveryBlock — prévia do bloco fechado', () => {
 
     expect(screen.getByText('Prazo confirmado após a postagem')).toBeInTheDocument()
     expect(screen.queryByText(/^Chega/)).not.toBeInTheDocument()
+  })
+
+  // 2026-10-22: com duas ou mais opções, o bloco fechado mostra as formas de envio e deixa trocar
+  // ali mesmo, sem "Alterar". Mudar o envio não é mudar o endereço.
+  it('com duas opções cotadas, o bloco fechado lista as formas de envio, com a escolhida marcada', () => {
+    useCheckoutStore.getState().setAddress(ENDERECO)
+    cepLookup(RESOLVED)
+    quoteState({ data: [PAC, SEDEX] })
+    useCheckoutStore.getState().setShipping({
+      serviceId: '1',
+      serviceName: 'PAC',
+      carrier: 'Correios',
+      cost: 14.9,
+      estimateMin: '2026-08-04',
+      estimateMax: '2026-08-06',
+    })
+    renderCollapsed()
+
+    const lista = within(screen.getByRole('group', { name: 'Forma de envio' }))
+    expect(lista.getByRole('button', { name: /Correios PAC/ })).toHaveAttribute('aria-pressed', 'true')
+    expect(lista.getByRole('button', { name: /Correios SEDEX/ })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    )
+    expect(screen.queryByRole('group', { name: 'Frete escolhido' })).not.toBeInTheDocument()
+    // O endereço continua no resumo, e "Alterar" continua sendo a porta para ele.
+    expect(screen.getByText('CEP 04538-133')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Alterar' })).toBeInTheDocument()
+  })
+
+  it('tocar noutra opção com o bloco fechado troca o frete SEM sujar nem abrir o bloco', () => {
+    useCheckoutStore.getState().setAddress(ENDERECO)
+    cepLookup(RESOLVED)
+    quoteState({ data: [PAC, SEDEX] })
+    useCheckoutStore.getState().setShipping({
+      serviceId: '1',
+      serviceName: 'PAC',
+      carrier: 'Correios',
+      cost: 14.9,
+      estimateMin: '2026-08-04',
+      estimateMax: '2026-08-06',
+    })
+    renderCollapsed()
+
+    fireEvent.click(screen.getByRole('button', { name: /Correios SEDEX/ }))
+
+    const state = useCheckoutStore.getState()
+    expect(state.shipping).toMatchObject({ serviceId: '2', serviceName: 'SEDEX', cost: 24.8 })
+    // Sujar reabriria a Entrega (FLW-01) — que é exatamente o "Alterar" que a troca evita.
+    expect(state.dirty).not.toContain('delivery')
+    expect(onEdit).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: /Correios SEDEX/ })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
   })
 
   it('incompleta: nem endereço, nem faixa de frete — só o convite e "Preencher"', () => {
