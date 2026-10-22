@@ -12,9 +12,16 @@
 // **Persistência à mão, com `try/catch`, e não `persist` do zustand.** Em aba privada o
 // `localStorage` pode lançar na leitura ou na escrita; a escolha precisa valer na sessão em curso
 // mesmo assim, e o aviso reaparecer na visita seguinte (edge case da spec).
+//
+// **Feature 71 — o contador de visitas também ouve esta escolha.** Recusar apaga o código do
+// contador na mesma ação (`VIS-24`), e o contador relê a escolha do armazenamento no instante de
+// decidir (`syncFromStorage`, `VIS-25`), para uma recusa feita em outra aba valer aqui.
 
 import { create } from 'zustand'
 import { applyConsent, clearGaCookies, setConsentReader } from '@/shared/lib/analytics'
+// Do módulo do marcador, e não do barril de `shared/lib/visits`: o barril carrega também o envio, e
+// com ele o client do Supabase — que a escolha de cookies não tem por que levar junto.
+import { forgetVisitorId } from '@/shared/lib/visits/visitor'
 
 export const COOKIE_CONSENT_KEY = 'estrelinha-cookie-consent'
 
@@ -40,11 +47,25 @@ function ler(): Persistido | null {
   }
 }
 
+/**
+ * A escolha em memória que o armazenamento NÃO recebeu (a última gravação lançou). Enquanto ela for
+ * verdadeira, o registro que está no armazenamento é ANTERIOR à memória, e `syncFromStorage` não o
+ * aplica — senão uma recusa feita numa aba que não grava voltaria a "aceito" pelo registro antigo.
+ *
+ * SPEC_DEVIATION: o design (C12) diz só "aplica registro válido". Esta marca acrescenta "e posterior
+ * à memória".
+ * Reason: `VIS-25` pede que a releitura nunca desfaça uma recusa em memória, e um armazenamento que
+ * lê mas não grava (cota cheia) tem um registro válido e ANTIGO.
+ */
+let memoriaSemGravar = false
+
 function gravar(p: Persistido): void {
   try {
     window.localStorage.setItem(COOKIE_CONSENT_KEY, JSON.stringify(p))
+    memoriaSemGravar = false
   } catch {
     // Aba privada: a escolha vale em memória, nesta sessão.
+    memoriaSemGravar = true
   }
 }
 
@@ -60,8 +81,18 @@ interface CookieConsentState {
   save: (statistics: boolean) => void
   openPreferences: () => void
   closePreferences: () => void
-  /** Relê o armazenamento — para os testes e para uma aba que mudou de escolha em outra. */
+  /**
+   * "Qual é a escolha GRAVADA?" — relê o armazenamento e **zera** para o padrão quando não há
+   * registro. É o estado de quem acabou de abrir a página; serve aos testes.
+   */
   hydrate: () => void
+  /**
+   * "Outra aba mudou a escolha?" (`VIS-25`) — aplica o registro do armazenamento **só quando ele é
+   * válido e posterior à memória**. Ausente, ilegível, ou anterior a uma escolha que esta aba não
+   * conseguiu gravar ⇒ a memória fica. Não fecha a folha. Chamada pelo contador de visitas no
+   * instante de decidir — um mecanismo só, sem ouvinte de `storage`.
+   */
+  syncFromStorage: () => void
 }
 
 const inicial = (): Pick<CookieConsentState, 'notice' | 'statistics'> => {
@@ -86,11 +117,25 @@ export const useCookieConsentStore = create<CookieConsentState>()((set, get) => 
     save: statistics => {
       persistir({ notice: 'answered', statistics })
       set({ preferencesOpen: false })
-      if (!statistics) clearGaCookies()
+      if (!statistics) {
+        clearGaCookies()
+        // `VIS-24`: o código do contador sai na mesma ação; o prazo do dia fica, para reaceitar
+        // hoje não contar de novo.
+        forgetVisitorId()
+      }
     },
     openPreferences: () => set({ preferencesOpen: true }),
     closePreferences: () => set({ preferencesOpen: false }),
-    hydrate: () => set({ ...inicial(), preferencesOpen: false }),
+    hydrate: () => {
+      memoriaSemGravar = false
+      set({ ...inicial(), preferencesOpen: false })
+    },
+    syncFromStorage: () => {
+      if (memoriaSemGravar) return
+      const p = typeof window === 'undefined' ? null : ler()
+      if (!p) return
+      set({ notice: p.notice, statistics: p.statistics })
+    },
   }
 })
 

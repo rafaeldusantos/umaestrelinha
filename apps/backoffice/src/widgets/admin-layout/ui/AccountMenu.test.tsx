@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { optOutHref } from '@estrelinha/core/visits'
 import AccountMenu, { type AccountMenuVariant } from './AccountMenu'
 import { enableRadixSelectInJsdom, RADIX_POINTER_DOWN } from '@/test/radix'
 
@@ -89,12 +90,13 @@ describe('AccountMenu — o gatilho', () => {
 })
 
 describe('AccountMenu — os itens', () => {
-  it('Minha conta, Abrir a loja e Sair, nessa ordem', async () => {
+  it('Minha conta, Abrir a loja, Abrir a loja sem contar e Sair, nessa ordem', async () => {
     renderMenu()
     const menu = await abrir()
     expect(within(menu).getAllByRole('menuitem').map(item => item.textContent)).toEqual([
       'Minha conta',
       'Abrir a loja(abre em nova aba)',
+      'Abrir a loja sem contar(abre em nova aba)',
       'Sair',
     ])
   })
@@ -110,7 +112,10 @@ describe('AccountMenu — os itens', () => {
     // clique caía na 404 dele mesmo.
     renderMenu()
     const menu = await abrir()
-    const link = within(menu).getByRole('menuitem', { name: /abrir a loja/i })
+    // Nome acessível EXATO desde a feature 71: `/abrir a loja/i` passou a casar também "Abrir a loja
+    // sem contar" e o `getByRole` lançaria "multiple elements". (O nome acessível junta o texto
+    // `sr-only` com espaço; o `textContent`, sem.)
+    const link = within(menu).getByRole('menuitem', { name: 'Abrir a loja (abre em nova aba)' })
     expect(link).toHaveAttribute('href', 'https://loja.exemplo.invalid')
     expect(link).toHaveAttribute('target', '_blank')
     expect(link.getAttribute('rel')).toContain('noopener')
@@ -120,6 +125,7 @@ describe('AccountMenu — os itens', () => {
     loja.origem = null
     renderMenu()
     const menu = await abrir()
+    // A regex continua ampla de propósito: sem a env, NENHUM dos dois itens da loja pode aparecer.
     expect(within(menu).queryByRole('menuitem', { name: /abrir a loja/i })).not.toBeInTheDocument()
     expect(within(menu).getByRole('menuitem', { name: 'Sair' })).toBeInTheDocument()
   })
@@ -135,5 +141,43 @@ describe('AccountMenu — os itens', () => {
     renderMenu({ variant: 'rail' })
     const menu = await abrir()
     expect(within(menu).getByText('adri@exemplo.invalid')).toBeInTheDocument()
+  })
+})
+
+// Feature 71 · `VIS-43` — a saída da dona para não inflar a contagem de visitas com a própria
+// navegação. O link sai do construtor de `core/visits` (`VIS-42`: um dono para o nome do parâmetro,
+// lido pela loja e escrito aqui).
+describe('AccountMenu — "Abrir a loja sem contar" (VIS-43)', () => {
+  it('aponta para a loja com o parâmetro ligado, em nova aba, com o mesmo `rel` de "Abrir a loja"', async () => {
+    renderMenu()
+    const menu = await abrir()
+    const item = within(menu).getByRole('menuitem', { name: 'Abrir a loja sem contar (abre em nova aba)' })
+    const loja = within(menu).getByRole('menuitem', { name: 'Abrir a loja (abre em nova aba)' })
+    expect(item).toHaveAttribute('href', optOutHref('https://loja.exemplo.invalid', true))
+    expect(item.getAttribute('href')).not.toBe(loja.getAttribute('href'))
+    expect(item).toHaveAttribute('target', '_blank')
+    expect(item.getAttribute('rel')).toBe(loja.getAttribute('rel'))
+  })
+
+  it('vem logo depois de "Abrir a loja"', async () => {
+    renderMenu()
+    const menu = await abrir()
+    const nomes = within(menu).getAllByRole('menuitem').map(item => item.textContent)
+    expect(nomes.indexOf('Abrir a loja sem contar(abre em nova aba)')).toBe(nomes.indexOf('Abrir a loja(abre em nova aba)') + 1)
+  })
+
+  it('some sem `VITE_STORE_URL`, junto com "Abrir a loja"', async () => {
+    loja.origem = null
+    renderMenu()
+    const menu = await abrir()
+    expect(within(menu).queryByRole('menuitem', { name: /sem contar/i })).not.toBeInTheDocument()
+    expect(within(menu).getAllByRole('menuitem').map(item => item.textContent)).toEqual(['Minha conta', 'Sair'])
+  })
+
+  it('alvo de 44px, a mesma régua das outras linhas do menu (token exato)', async () => {
+    renderMenu()
+    const menu = await abrir()
+    const item = within(menu).getByRole('menuitem', { name: 'Abrir a loja sem contar (abre em nova aba)' })
+    expect(item.className.split(/\s+/)).toContain('min-h-11')
   })
 })

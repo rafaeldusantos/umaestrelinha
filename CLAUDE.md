@@ -143,7 +143,10 @@ Ao planejar/implementar features, use a Skill **`tlc-spec-driven`** com estas co
     produto com cache, categoria e páginas fixas com título no HTML, 404 de verdade e imagens no
     sitemap) também está FECHADA, com commit e em produção (`HIT` e `pdx1` medidos). A `70` (o
     sitemap servido de dentro da Vercel, e o `robots.txt` gerado de `STORE_PUBLIC_URL`) está
-    IMPLEMENTADA, sem commit. A próxima é a `71`.**
+    IMPLEMENTADA, sem commit. A `71` (visitas únicas no Dashboard: o contador próprio, o bloco
+    "Movimento da loja" e a régua de dia de Brasília no banco) está IMPLEMENTADA, sem commit,
+    verificada em três rodadas (a terceira FAIL por uma lacuna de cobertura, G9, não consertada). A
+    próxima é a `72`.**
   - **A `46` e a `47` correram EM PARALELO, em worktrees separados**, e é o segundo caso do projeto
     (o primeiro, a `45`, dividiu uma working tree só). O que mudou: a divisão foi por **árvore**, não
     por arquivo — a `47` nasceu de um `git worktree` sobre o HEAD local e trouxe a `46` por
@@ -302,7 +305,11 @@ Consequências práticas, nesta ordem:
     `estrelinha-cookie-consent` (o aviso e as preferências de cookies, feature `61`) e
     `estrelinha-google-login` (**`sessionStorage`** — marca o retorno do login pelo Google para o
     evento `login`, feature `61`) e `estrelinha-instagram-invite` (o convite para o Instagram na
-    Home já foi visto neste navegador, feature `65`).
+    Home já foi visto neste navegador, feature `65`), `estrelinha-visitor` (o código aleatório do
+    navegador e o prazo da próxima contagem de visita, feature `71`) e `estrelinha-nao-contar` (a
+    marca de "não contar este navegador", feature `71`). As duas do contador têm **um** dono,
+    `apps/store/src/shared/lib/visits/visitor.ts`, e `visitanteComDonoUnico.test.ts` recusa a chave em
+    qualquer outro arquivo dos dois apps, testes inclusos.
 - **Sem credenciais no código.** Cada app tem `.env` (gitignored) com `VITE_SUPABASE_URL` e
   `VITE_SUPABASE_PUBLISHABLE_KEY` (ver `.env.example`); o client (`@estrelinha/supabase`) lança erro
   se faltarem. Secrets de servidor ficam no `.env` da **raiz**. Detalhe em `supabase/CLAUDE.md`.
@@ -469,6 +476,19 @@ migrations, e `vercelRedirects` lê o `vercel.json`.
 | `categoryFallbackSchema.test.ts` | store `shared/lib/__tests__` (lê a migration da `69`) | `category_fallback` perder `security definer`, `search_path = ''` ou `stable`; ler coluna além de `id`/`slug`/`parent_id`/`active`; `execute` alcançar papel além de `anon`/`authenticated`; escrever dado; o sentinela `00000000-…` mudar. Uma régua por comando e `mutar()` que lança |
 | `page.test.ts` | store `server/__tests__` | (feature `69`) a função `api/page` pedir as colunas e os filtros certos (dublê que registra tabela, `eq`, `order` e args de RPC), reconstruir a URL de `__path` preservando `?variant=` (e recusando `//host`), e responder `no-store` sem env. **Nunca nomeia a chave de serviço** |
 | `sitemapCheckWorkflow.test.ts` | store `shared/lib/__tests__` (lê `.github/workflows/sitemap-check.yml`) | o passo da canônica do sensor diário perder a comparação de **origem** (SVR-41 — a canônica servida tem a origem de onde o sitemap foi buscado), a igualdade canônica == `<loc>` da opção (SVR-34), ou passar a falhar com zero `?variant=` (SVR-35); literal de domínio, slug ou id no passo (SVR-36). Recorte por bloco que devolve `null` e **reprova**, e `mutar()` que lança sem alvo |
+| `visitasSchema.test.ts` | store `shared/lib/__tests__` (lê a migration da `71`) | **uma régua por comando** (`L-033`): `store_visits` com coluna além de `visitor_id`/`day` ou sem PK nas duas; as duas tabelas sem RLS, sem `revoke all` dos três papéis ou com `create policy`; `prune_store_visits` `definer` ou com `grant`; `record_store_visit`/`store_clock` sem `definer`, sem `search_path = ''` ou **sem `grant execute … to service_role`** (o `revoke … from public` o tira junto); `store_movement` sem `has_role` **no corpo**, com `execute` a `anon`; chamada sem `public.` nos corpos; `sum(` sem `coalesce(`; `ate`/`agora` sem `::bigint`; o nome do fuso fora de `store_time_zone()`, repetido ou diferente de `STORE_TIME_ZONE` (**importado**); `current_date`, `now()::date`, `paid_at::date`, `date_trunc('week'`, offset fixo; o teto de 5.000 e a poda de 7 dias; o agendamento do `pg_cron` fora do `if exists` ou com `create extension`; escrita de dado fora de função. Âncora: arquivo + 2 tabelas + 9 funções + o bloco do `pg_cron`; `mutar()` que lança |
+| `fusoComDonoUnico.test.ts` | idem (varre `apps/*/src`, `apps/store/server`, `packages/*/src` e `supabase/functions`, só produção) | o nome do fuso da loja escrito fora de `packages/core/src/time/zone.ts` — **sem allowlist**. Metade positiva: as quatro escritas antigas (`core/orders/situation.ts`, o `copy.ts` e o `AnalyticsSecretField.tsx` do GA no painel, `orderMeta.ts` da loja) **importam e usam** `STORE_TIME_ZONE`. A do importador fica fora, declarada |
+| `visitanteComDonoUnico.test.ts` | idem (varre `apps/*/src`, **testes inclusos**) | as duas chaves do contador fora de `shared/lib/visits/visitor.ts`; os testes do contador deixarem de **importar** as constantes. Allowlist de um (o próprio guarda), com o caso que prova que um teste irmão **seria** acusado |
+| `parametroNaoContarComDonoUnico.test.ts` | idem (varre `apps/*/src` e os quatro `packages/*/src`, testes inclusos) | o nome do parâmetro de "não contar" escrito fora de `core/visits/optOut.ts` (token com fronteira de hífen, `L-034` — a chave do armazenamento, que termina com o mesmo nome, passa). **Metade positiva**: o `VisitCounter` chama `readOptOutParam` e o menu da conta chama `optOutHref`. Allowlist de três, literal (o dono, o teste do dono e o guarda) |
+| `contadorSemGa.test.ts` | idem (lê `shared/lib/visits/**` e `app/VisitCounter.tsx`) | o contador lendo o interruptor do GA4, o ID de medição ou `canMeasure` — desligar o GA4 não pode zerar as visitas. Sensor: `analytics/index.ts` **seria** acusado |
+| `politicaDoContador.test.ts` | store `pages/__tests__` | o contador existir sem o parágrafo do Apêndice A na `PrivacyPolicyPage` (`VIS-37`); uma palavra trocada no parágrafo reprova |
+| `contadorMontado.test.tsx` | store `app/__tests__` | o `VisitCounter` fora do `App.tsx`, dentro das `Routes` ou sem `!previewMode` |
+| `denoReach.test.ts` · `bots.test.ts` | `packages/core/src/visits/__tests__` | uma folha de `visits` (ou `time/zone.ts`) com import, `import type` incluso; o barril com especificador sem `.ts`; a lista de robôs diferente de **20** ou classificando um dos cinco inversos (Safari de iPhone, Chrome de Android, Instagram, WhatsApp, `CUBOT_X30`) — com o sensor de que um `/bot/i` ingênuo reprova na mesma régua |
+| `rateLimit.test.ts` | `supabase/functions/_shared/__tests__` | a `checkout` deixar de reexportar a **mesma** referência de `createRateLimiter`/`clientIp` (`toBe`); uma segunda declaração nas functions |
+| `AdminDashboard.test.tsx` | backoffice `pages/admin` | o bloco "Movimento da loja" deixar de ser o primeiro irmão do cabeçalho; mais de **um** `supabase.channel(` com o Dashboard montado (re-render incluso); o aviso do canal deixar de reler as estatísticas **e** o movimento (provado pelo que muda na tela); os dois cards de "hoje" em UTC voltarem (`VIS-35`, assunção pendente). Página real e widget real |
+| `semPessoas.test.ts` | backoffice `widgets/store-movement/__tests__` | "pessoas" ou "usuários" nos literais do bloco (`VIS-41`): o número é de navegadores |
+| `idDoVisitanteSoNoEnvio.test.ts` | store `shared/lib/__tests__` (varre `apps/store/src` e `apps/backoffice/src`, só produção) | (feature `71`, `VIS-12`) um segundo consumidor do id do navegador: fora de `shared/lib/visits`, só `app/VisitCounter.tsx` importa ou reexporta `ensureVisitorId`, `postVisit` ou `readMarker` — por import nomeado, de namespace, `export … from` ou `import()` dinâmico; dentro da pasta, só `send.ts` faz rede (`fetch`, `sendBeacon`, `XMLHttpRequest`); e o `VisitCounter` não faz rede própria. Nasceu do conserto r1 da verificação: até ali "o id não vai em outra requisição" era verdade só por leitura |
+| `infoGutter.test.tsx` | backoffice `widgets/store-movement/ui/__tests__` | o `PopoverContent` do ⓘ perder o `collisionPadding={16}` ou o teto `w-[min(18rem,calc(100vw-32px))]` (token exato) — sem eles o balão encosta na borda da tela em 390, achado na prova de ponta a ponta da `71` (molde de `stripEPopover.test.tsx`) |
 
 > **Guarda que recusa uma STRING é quebrado pela prosa que explica o defeito.** Aconteceu duas vezes
 > com formas diferentes: o bundler do `supabase start` morreu por um comentário que escrevia um
@@ -492,9 +512,41 @@ quando mudarem de verdade.
 
 | Medida | Baseline | Como medir |
 | --- | --- | --- |
-| **Lint** | **26 erros / 7 warnings** — backoffice 24/5 · store 2/2 | `pnpm lint` |
+| **Lint** | **25 erros / 7 warnings** — backoffice 23/5 · store 2/2 | `pnpm lint` |
 | **Tipos** | **0 · 0 · 0 · 0** (store · backoffice · catalog-import · `apps/store/tsconfig.server.json`, desde a `69`) | `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` |
-| **Testes** | **13676 em 673 arquivos** — store **5349/299** · backoffice **3511/199** · core **3414/133** · functions **890/19** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
+| **Testes** | **14355 em 701 arquivos** — store **5731/312** · backoffice **3648/207** · core **3507/138** · functions **957/21** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
+
+**A feature `71` (visitas únicas no Dashboard) somou +673/+28 em QUATRO workspaces**, remedidos no
+fecho (2026-10-22, um workspace por vez, exit code fora de pipe, `--testTimeout=20000` sem o `--`)
+contra a **entrada medida com a árvore parada** (`.specs/features/71-visitas-unicas-no-dashboard/baseline.md`:
+13677/673 — a linha anterior desta tabela estava velha em +1 no store, pelo commit do balão do
+WhatsApp): **core +93/+5** (`core/time` e `core/visits`), **functions +67/+2** (`_shared/rateLimit.ts`,
+movido da `checkout` sem queda, e a function `visit`), **store +376/+13** (o guarda da migration, o
+contador e os guardas novos) e **backoffice +137/+8** (o bloco "Movimento da loja", o canal único de
+pedidos, o `StatCard` com esqueleto e ⓘ, o Dashboard pela página real e o item "Abrir a loja sem
+contar"). Catalog-import não foi tocado e foi remedido, idêntico. **Nenhuma queda**: nenhum arquivo de
+teste saiu, e os casos do limitador por IP mudaram de casa com a reexportação provada por `toBe`. Do
+total, +68 vieram depois da entrega (14287 → 14355: a régua de `store_clock` que fechou a G9 da r3, os consertos das verificações r1 e r2 e os dois do ⓘ achados na
+prova de ponta a ponta). **Lint caiu para 25/7** (o painel de 24/5 para 23/5: o `(sum, o: any)` de
+`revenueToday` saiu com os cards de "hoje"), tipos **0** nos quatro projetos, `packages/core/src/payment/**`
+com zero arquivos alterados. Uma migration (`20261021120000_71-visitas-unicas.sql`), sem escrita de
+dado, aplicada só no banco local. Decisão `AD-055`. Verifier independente em **três rodadas**, a
+terceira **FAIL por uma lacuna de cobertura (G9)**, sem defeito de produto aberto — ver *Estado
+conhecido*.
+
+> **O guarda de RPCs da `67` (`marcacaoSoPorAcao.test.ts`, suíte da LOJA) reprovou duas vezes, e
+> foi o guarda certo nas duas**: ele compara por igualdade a lista de RPCs chamadas em `apps/**`, e a
+> `71` passou a chamar `record_store_visit`/`store_clock` (pela function) e `store_movement` (pelo
+> painel). As três entraram na lista literal, com `it.each` conferindo o `create function` na
+> migration. **Toda RPC nova chamada pelo painel ou por uma function quebra este guarda** — e é por
+> isso que o gate de uma feature do painel inclui a suíte da loja.
+
+> **A prova em navegador achou que o Playwright é recusado pelo próprio filtro de robô**
+> (`navigator.webdriver` verdadeiro e `HeadlessChrome` no UA): sem neutralizar os dois, a prova mede
+> **zero** visitas — e convida alguém a afrouxar o filtro. A prova registra o par: sem neutralização,
+> zero chamadas no cliente e `robô` na function chamada direto. Achou também que o **banco local**
+> guarda `image_url` de seções da Home no Storage **hospedado**: abrir a Home local faz GETs públicos
+> de imagem lá. Desde então a prova bloqueia `*.supabase.co` por rota.
 
 **O menu da conta na sidebar do painel (2026-10-21, fora de feature) somou +18/+1 no backoffice**
 (3493/198 → 3511/199): `AccountMenu.test.tsx` novo, mais os casos do rodapé em `AdminLayout.test.tsx`
@@ -2320,6 +2372,25 @@ completo (framework, `installCommand` na raiz do monorepo, headers de cache e de
 
 ## Estado conhecido / dívidas
 
+- **A `71` está IMPLEMENTADA e provada no banco local e em navegador** (`prova-em-navegador.md`, com
+  a leitura interceptada, e `prova-navegador.md`, de ponta a ponta contra o banco local), e foi
+  **verificada em três rodadas**: r1 FAIL (cobertura e um defeito raro, G4 — consertado), r2 FAIL
+  (cobertura, G7/G8 — consertados), **r3 FAIL por uma lacuna de cobertura nova, G9, NÃO consertada**:
+  o prazo `ate` que `store_clock` devolve nas respostas `robô`, `interno` e `limite` não tem régua nem
+  probe — só o do outro produtor (`record_store_visit`) é provado, e o teste do handler dubla o valor.
+  O código de hoje devolve o prazo certo (a fixtura do verificador passa nele); o conserto é só de
+  prova e está escrito no apêndice da r3 do `validation.md`. Os dois consertos do ⓘ (`StatCard` e
+  `StoreMovement.tsx`) vieram **depois** da r3 e não passaram por verificador independente. Antes do deploy: (1) o usuário confirma as cinco
+  assunções `n — confirmar` da spec — entre elas a **saída dos cards "Pedidos Hoje" e "Fat. Hoje"**
+  (só a task 27; revertê-la os devolve); (2) a Adri aprova o texto do Apêndice A; (3) **a ordem de publicação é
+  migration → function → bundles**: a migration num push sozinha (sem as tabelas e as RPCs, o bloco
+  do painel cai em erro e a function `visit` responde 500), e o `notice` do `db push` diz se o job de
+  poda foi agendado; depois a function `visit` (nova, `verify_jwt = false` pelo `config.toml`) — o
+  mesmo deploy republica a `checkout`, que passou a reexportar o limitador de `_shared/rateLimit.ts`;
+  por último os dois apps. (4) Antes de cada deploy que mexa na migration ou nas RPCs, rodar os
+  probes de `.specs/features/71-visitas-unicas-no-dashboard/probes/` contra o banco local — a metade
+  semântica do SQL só é provada por eles, e eles não rodam no CI. O handoff no `STATE.md` lista quem
+  decide cada uma.
 - **A `69` está PROVADA em plataforma** (2026-10-20): preview com `X-Vercel-Cache: HIT` e `pdx1`;
   produção com produto 200 (`MISS` 0,9 s, `HIT` 0,25 s), 404 com `noindex`, 301 de categoria inativa
   e 308 da barra final, por `curl`. A function `product-page` hospedada foi apagada.
@@ -2839,4 +2910,5 @@ código — mas todas explicam por que uma tela parece vazia:
 | **Os 11 avisos novos de e-mail** | `/admin/configuracoes` → aba **Notificações** | a `53` tornou os 15 eventos legíveis, editáveis e com prévia — mas **não ligou nenhum**: os 11 novos nascem desligados por decisão da `42` (`PNL-06`), e a Adri precisa ler o texto de cada um antes da primeira cliente recebê-lo. Duas pendências ficam de fora desta tela e são operação, não curadoria: o **endereço do ateliê** (aba Material — sem ele, `material_instructions` é recusado ao tentar ligar) e o **`ADMIN_PUBLIC_URL` de produção** (secret de servidor — sem ele, os dois avisos "para você" mostram o aviso de link fora de produção) |
 | **Os filtros da loja** | `/admin/filtros`, a aba Geral do produto e o inspetor de categoria | a `66` **não semeia nada** ⇒ a categoria e a busca mostram só preço, estoque, desconto e novidade. A Adri precisa criar os grupos (ex.: Tipo de joia, Acabamento, Para quem), os valores, e marcar as peças — a marcação em massa tem o recorte "Com a tag…" para aproveitar as tags que já existem |
 | **O endereço do escritório (retirada)** | `/admin/configuracoes` → **Frete e Material**, card Material | medido em 2026-10-11: o banco de **produção não tem a linha `material`** em `store_settings`. A retirada (feature `63`) nasce **ligada**, mas só aparece com rua, bairro e cidade preenchidos — até lá nenhuma cliente do RS a vê, e o painel avisa (`RET-21`). Preencher também a **UF**: sem ela a linha sai `…, Porto Alegre` sem o `/RS` |
+| **O texto da Política sobre o contador de visitas** | o Apêndice A de `.specs/features/71-visitas-unicas-no-dashboard/spec.md` (o quarto parágrafo de "Medição de audiência" e a frase da categoria "Estatísticas") | a `71` escreveu o texto palavra por palavra e o pôs na loja; **a aprovação da Adri é pré-condição do DEPLOY** — o contador começa a contar no primeiro acesso depois da publicação. Até o dia do DNS ele não conta nada (o host de produção gravado é o domínio próprio), e o painel diz isso |
 | **As parcelas sem juros** | painel do **Mercado Pago** → "Oferecer parcelamento sem juros", e `/admin/configuracoes` → Vendas → *Parcelas sem juros*, **com o mesmo número** | medido em 2026-10-04: a conta do Mercado Pago **não tem nenhuma** parcela sem juros (2x já a 9,64%), e a loja anuncia "até 4x sem juros" na vitrine e no produto. Desde 2026-10-04 o caixa mostra a tabela real do Mercado Pago (`InstallmentPicker`, até 10x) — então, até a conta ser configurada, **o caixa mostra juros desde 2x enquanto a vitrine promete sem juros**. Nada no código sincroniza os dois números (`apps/store/CLAUDE.md`, *As parcelas do cartão*) |

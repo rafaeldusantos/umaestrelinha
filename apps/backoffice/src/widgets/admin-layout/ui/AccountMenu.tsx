@@ -13,9 +13,14 @@
 //   nenhum é pior que link nenhum.
 // - **O gatilho se marca quando a rota é `Minha conta`**, pela mesma `isNavActive` dos outros itens:
 //   tirar a tela da sidebar não pode tirar dela a resposta a "onde eu estou".
+// - **"Abrir a loja sem contar"** (feature 71, `VIS-43`) abre a loja com o parâmetro que tira ESTE
+//   navegador da contagem de visitas, para a navegação da própria dona não inflar um número de ~50
+//   por dia. O link sai de `optOutHref` (`@estrelinha/core/visits`) — o mesmo dono que a loja lê;
+//   escrito aqui à mão, uma grafia diferente faria a loja ignorar o link sem nada quebrar. Some sem
+//   `VITE_STORE_URL`, junto com "Abrir a loja".
 
 import { Link } from 'react-router-dom'
-import { ChevronsUpDown, ExternalLink, LogOut } from 'lucide-react'
+import { ChevronsUpDown, EyeOff, ExternalLink, LogOut } from 'lucide-react'
 import { useAuthContext } from '@estrelinha/auth'
 import {
   DropdownMenu,
@@ -26,6 +31,7 @@ import {
   DropdownMenuTrigger,
 } from '@estrelinha/ui/dropdown-menu'
 import { cn } from '@estrelinha/ui/lib/utils'
+import { optOutHref } from '@estrelinha/core/visits'
 import { storeOrigin } from '@/shared/lib/storeOrigin'
 import { isNavActive } from '@/widgets/admin-layout/lib/isNavActive'
 import { accountNavItem } from '@/widgets/admin-layout/model/navItems'
@@ -120,6 +126,15 @@ const AccountMenu = ({ variant, pathname, onLogout, onNavigate }: Props) => {
             <a href={loja} target="_blank" rel="noopener noreferrer">
               <ExternalLink className="h-4 w-4 shrink-0" aria-hidden />
               Abrir a loja
+              <span className="sr-only">(abre em nova aba)</span>
+            </a>
+          </DropdownMenuItem>
+        )}
+        {loja && (
+          <DropdownMenuItem asChild className={ITEM}>
+            <a href={optOutHref(loja, true)} target="_blank" rel="noopener noreferrer">
+              <EyeOff className="h-4 w-4 shrink-0" aria-hidden />
+              Abrir a loja sem contar
               <span className="sr-only">(abre em nova aba)</span>
             </a>
           </DropdownMenuItem>

@@ -24,6 +24,9 @@ vi.mock('@/shared/lib/analytics', () => ({
 
 const CHAVE = 'estrelinha-cookie-consent'
 
+// Feature 71: a chave do contador é IMPORTADA do dono (`visitanteComDonoUnico.test.ts`).
+import { VISITOR_KEY } from '@/shared/lib/visits/visitor'
+
 /** Importa a store do zero, como uma visita nova: ela lê o armazenamento no carregamento. */
 const visitaNova = async () => {
   vi.resetModules()
@@ -136,5 +139,121 @@ describe('localStorage que lança (aba privada)', () => {
     const { useCookieConsentStore } = await visitaNova()
     expect(useCookieConsentStore.getState().notice).toBeNull()
     expect(useCookieConsentStore.getState().statistics).toBe(true)
+  })
+})
+
+/*
+ * Feature 71 — a escolha da cliente e o contador de visitas (`VIS-24`, `VIS-25`).
+ *
+ * O marcador é o de verdade (`shared/lib/visits/visitor.ts`, sem dublê): o que se mede é o que fica
+ * no armazenamento depois da recusa, não que uma função foi chamada.
+ */
+describe('VIS-24 — recusar apaga o código do contador, e só o código', () => {
+  const ID = '3f2b8c1e-9a4d-4e6f-8b2a-1c3d5e7f9a0b'
+  const gravarMarcador = () =>
+    window.localStorage.setItem(VISITOR_KEY, JSON.stringify({ v: 1, id: ID, ate: 2000, em: 1000 }))
+  const marcador = () => JSON.parse(window.localStorage.getItem(VISITOR_KEY)!)
+
+  it('"Salvar escolhas" com Estatísticas DESLIGADA: id nulo, prazo intacto', async () => {
+    gravarMarcador()
+    const { useCookieConsentStore } = await visitaNova()
+    useCookieConsentStore.getState().save(false)
+    expect(marcador()).toEqual({ v: 1, id: null, ate: 2000, em: 1000 })
+  })
+
+  it('com Estatísticas LIGADA o marcador não é tocado', async () => {
+    gravarMarcador()
+    const { useCookieConsentStore } = await visitaNova()
+    useCookieConsentStore.getState().save(true)
+    expect(marcador()).toEqual({ v: 1, id: ID, ate: 2000, em: 1000 })
+  })
+
+  it('"Aceitar" e o X também não tocam o marcador', async () => {
+    gravarMarcador()
+    const { useCookieConsentStore } = await visitaNova()
+    useCookieConsentStore.getState().accept()
+    useCookieConsentStore.getState().dismiss()
+    expect(marcador()).toEqual({ v: 1, id: ID, ate: 2000, em: 1000 })
+  })
+})
+
+describe('VIS-25 — syncFromStorage relê a escolha feita em outra aba', () => {
+  const gravarEscolha = (statistics: boolean) =>
+    window.localStorage.setItem(CHAVE, JSON.stringify({ v: 1, notice: 'answered', statistics }))
+
+  it('a recusa gravada por outra aba, SEM evento nenhum, passa a valer nesta', async () => {
+    const { useCookieConsentStore } = await visitaNova()
+    expect(useCookieConsentStore.getState().statistics).toBe(true)
+    gravarEscolha(false)
+    useCookieConsentStore.getState().syncFromStorage()
+    expect(useCookieConsentStore.getState().statistics).toBe(false)
+    expect(useCookieConsentStore.getState().notice).toBe('answered')
+  })
+
+  it('o aceite gravado por outra aba também passa a valer (registro válido é aplicado)', async () => {
+    gravarEscolha(false)
+    const { useCookieConsentStore } = await visitaNova()
+    expect(useCookieConsentStore.getState().statistics).toBe(false)
+    gravarEscolha(true)
+    useCookieConsentStore.getState().syncFromStorage()
+    expect(useCookieConsentStore.getState().statistics).toBe(true)
+  })
+
+  it('armazenamento AUSENTE mantém a memória — não volta ao padrão "aceito"', async () => {
+    const { useCookieConsentStore } = await visitaNova()
+    useCookieConsentStore.setState({ statistics: false, notice: 'answered' })
+    window.localStorage.removeItem(CHAVE)
+    useCookieConsentStore.getState().syncFromStorage()
+    expect(useCookieConsentStore.getState().statistics).toBe(false)
+    expect(useCookieConsentStore.getState().notice).toBe('answered')
+  })
+
+  it('registro corrompido mantém a memória', async () => {
+    const { useCookieConsentStore } = await visitaNova()
+    useCookieConsentStore.setState({ statistics: false })
+    window.localStorage.setItem(CHAVE, '{não é json')
+    useCookieConsentStore.getState().syncFromStorage()
+    expect(useCookieConsentStore.getState().statistics).toBe(false)
+  })
+
+  it('aba privada antiga: setItem que lança + recusa + syncFromStorage ⇒ a recusa continua', async () => {
+    const { useCookieConsentStore } = await visitaNova()
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('QuotaExceededError')
+    })
+    useCookieConsentStore.getState().save(false)
+    useCookieConsentStore.getState().syncFromStorage()
+    expect(useCookieConsentStore.getState().statistics).toBe(false)
+  })
+
+  it('leitura que lança + recusa em memória ⇒ a recusa continua', async () => {
+    const { useCookieConsentStore } = await visitaNova()
+    useCookieConsentStore.getState().save(false)
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('SecurityError')
+    })
+    useCookieConsentStore.getState().syncFromStorage()
+    expect(useCookieConsentStore.getState().statistics).toBe(false)
+  })
+
+  it('setItem que lança com um ACEITE ANTIGO gravado: a recusa em memória não é desfeita por ele', async () => {
+    // O armazenamento lê, mas não grava mais (cota cheia): o registro que está lá é anterior à
+    // recusa, e aplicá-lo traria "aceito" de volta.
+    gravarEscolha(true)
+    const { useCookieConsentStore } = await visitaNova()
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('QuotaExceededError')
+    })
+    useCookieConsentStore.getState().save(false)
+    useCookieConsentStore.getState().syncFromStorage()
+    expect(useCookieConsentStore.getState().statistics).toBe(false)
+  })
+
+  it('não fecha a folha de preferências aberta', async () => {
+    const { useCookieConsentStore } = await visitaNova()
+    useCookieConsentStore.getState().openPreferences()
+    gravarEscolha(false)
+    useCookieConsentStore.getState().syncFromStorage()
+    expect(useCookieConsentStore.getState().preferencesOpen).toBe(true)
   })
 })

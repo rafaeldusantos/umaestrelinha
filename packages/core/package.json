@@ -34,7 +34,9 @@
     "./analytics": "./src/analytics/index.ts",
     "./seo": "./src/seo/index.ts",
     "./filters": "./src/filters/index.ts",
-    "./page": "./src/page/index.ts"
+    "./page": "./src/page/index.ts",
+    "./time": "./src/time/index.ts",
+    "./visits": "./src/visits/index.ts"
   },
   "scripts": {
     "test": "vitest run"

@@ -1881,3 +1881,44 @@ que só existe no painel" continua existindo, só fica bem menor.
 três corpos passam pelo `layout.ts` dos transacionais (provavelmente sim — é o mesmo defeito 01 se
 nascerem separados); e estender o `Email check` para provar o caminho inteiro, retirando o parágrafo
 de cegueira que a `52` escreveu.
+
+## BL-046 — O gráfico de vendas e o "Fat. do Mês" do Dashboard contam em outra régua de dia e de venda
+
+- **Status**: aberto · **Registrado em**: 2026-10-22 · **Origem**: feature `71` (spec, *Assumptions*,
+  linha "Gráfico e Fat. do Mês", `n — confirmar com o usuário`)
+
+Desde a `71` o Dashboard tem **duas réguas** na mesma tela, e só uma delas está certa:
+
+| Superfície | Dia | O que conta como venda | Teto |
+| --- | --- | --- | --- |
+| bloco "Movimento da loja" (`store_movement`) | **Brasília**, decidido no banco (`store_day`) | `payment_status = 'approved'` e `status <> 'cancelled'`, no dia de `paid_at` | nenhum (agrega no banco) |
+| `SalesChart` (30 dias) e card "Fat. do Mês" (`useAdminStats`) | **UTC** (`toISOString().slice(0, 10)`) e o mês do relógio do navegador | pedido **criado** e não cancelado — **inclusive PIX que nunca foi pago** | **1.000 linhas** do PostgREST (`select` sem `range`) |
+
+Consequências, todas silenciosas: um pedido feito às 22h de Porto Alegre cai no dia seguinte do
+gráfico; "Fat. do Mês" soma PIX pendente; e acima de 1.000 pedidos em 30 dias o gráfico encolhe sem
+erro (família `BL-008`). O bloco novo e o gráfico podem dar números diferentes para o mesmo dia.
+
+**Por que ficou de fora da `71`**: o pedido do usuário era o bloco de quatro cards. Alinhar o gráfico
+e o card do mês muda duas telas que ninguém pediu para mudar, e a decisão é dele. Os cards "Pedidos
+Hoje" e "Fat. Hoje", que tinham o mesmo defeito, **saíram** na task 27 da `71` — também como
+assunção pendente de confirmação.
+
+**Ao fechar**: uma RPC (ou a extensão de `store_movement`) que devolva a série diária e o mês na
+régua de `store_day` + lista positiva de venda, e o `SalesChart` lendo dela. O fuso continua tendo
+um dono no banco (`store_time_zone()`, `AD-055`); nada de `toISOString` decidindo dia no painel.
+
+## BL-047 — O card "Pendentes" do Dashboard conta pedido já pago
+
+- **Status**: aberto · **Registrado em**: 2026-10-22 · **Origem**: feature `71` (spec, *Out of Scope*)
+
+"Pendentes" é `count(*) where status = 'pending'`. A aprovação do pagamento muda `payment_status`
+(e `paid_at`), **não** `orders.status` — então um pedido pago hoje aparece **ao mesmo tempo** em
+Vendas, no bloco "Movimento da loja", e em "Pendentes", na grade de baixo. E o `AlertsPanel` repete
+o mesmo número ("pedidos pendentes").
+
+A resposta certa para "o que espera alguma ação minha?" já existe e tem dono: `orderSituation`
+(`@estrelinha/core/orders`, feature `59`) e as contagens da fila de `/admin/pedidos` (feature `34`).
+"Pendentes" deveria ser uma delas, não uma terceira leitura da coluna crua.
+
+**Por que ficou de fora da `71`**: é outro card, com outra pergunta, e consertá-lo muda o número que a
+dona está acostumada a ler sem ninguém ter pedido.

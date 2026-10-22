@@ -10,6 +10,7 @@ import { createQueryClient } from "@/app/queryClient";
 import ScrollToTop from "@/app/ScrollToTop";
 import AnalyticsLoader from "@/app/AnalyticsLoader";
 import PageViewTracker from "@/app/PageViewTracker";
+import VisitCounter from "@/app/VisitCounter";
 import { setPreviewMode } from "@/shared/lib/analytics";
 import { CookieNotice } from "@/widgets/cookie-notice";
 import AbandonedCartTracker from "@/features/abandoned-cart/ui/AbandonedCartTracker";
@@ -107,6 +108,12 @@ const App = () => (
         {!previewMode && <AnalyticsLoader />}
         {!previewMode && <PageViewTracker />}
         {!previewMode && <CookieNotice />}
+        {/*
+          Feature 71 — o contador de visitas únicas. Fora das `Routes` pela mesma razão dos três
+          acima (o checkout e o 404 também contam), e fora da prévia do painel (`VIS-22`). Ele não
+          depende da medição do GA4: desligar o GA4 no painel não para a contagem.
+        */}
+        {!previewMode && <VisitCounter />}
         {/*
           O limite de erro fica ACIMA do `Suspense`: quem falha é o `import()` de dentro dele, e um
           limite irmão não pegaria. Sem ele, um chunk que não baixa — rede que caiu, ou um deploy novo

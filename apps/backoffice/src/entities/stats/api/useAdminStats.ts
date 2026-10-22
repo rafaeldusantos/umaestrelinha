@@ -14,9 +14,11 @@ interface SalesDataPoint {
   revenue: number
 }
 
+// Feature 71 · `VIS-35` (assunção PENDENTE de confirmação do usuário): `ordersToday` e
+// `revenueToday` saíram. Eles definiam "hoje" pelo dia em UTC e contavam pedido criado, inclusive PIX
+// não pago — ao lado do bloco "Movimento da loja" dariam duas respostas para "quanto vendi hoje?".
+// O gráfico e o "Fat. do Mês" continuam na régua antiga, declarada no backlog (`BL-046`).
 interface AdminStats {
-  ordersToday: number
-  revenueToday: number
   monthRevenue: number
   activeProducts: number
   newCustomers: number
@@ -29,7 +31,7 @@ interface AdminStats {
 
 export const useAdminStats = () => {
   const [stats, setStats] = useState<AdminStats>({
-    ordersToday: 0, revenueToday: 0, monthRevenue: 0, activeProducts: 0,
+    monthRevenue: 0, activeProducts: 0,
     newCustomers: 0, pendingOrders: 0, lowStockProducts: 0,
     recentOrders: [], topProducts: [], salesData: [],
   })
@@ -37,13 +39,11 @@ export const useAdminStats = () => {
 
   const fetchStats = useCallback(async () => {
     setLoading(true)
-    const today = new Date().toISOString().slice(0, 10)
     const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()
     const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString()
     const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString()
 
     const [
-      { data: todayOrders },
       { data: monthOrders },
       { count: activeCount },
       { count: custCount },
@@ -53,7 +53,6 @@ export const useAdminStats = () => {
       { data: last30Orders },
       { data: weekItems },
     ] = await Promise.all([
-      supabase.from('orders').select('id, total').gte('created_at', today).neq('status', 'cancelled'),
       supabase.from('orders').select('total').gte('created_at', monthStart).neq('status', 'cancelled'),
       supabase.from('products').select('*', { count: 'exact', head: true }).eq('is_active', true),
       supabase.from('customers').select('*', { count: 'exact', head: true }).gte('created_at', monthStart),
@@ -96,8 +95,6 @@ export const useAdminStats = () => {
       .slice(0, 5)
 
     setStats({
-      ordersToday: todayOrders?.length ?? 0,
-      revenueToday: todayOrders?.reduce((sum, o: any) => sum + (o.total || 0), 0) ?? 0,
       monthRevenue: monthOrders?.reduce((sum, o: any) => sum + (o.total || 0), 0) ?? 0,
       activeProducts: activeCount ?? 0,
       newCustomers: custCount ?? 0,
@@ -110,17 +107,11 @@ export const useAdminStats = () => {
     setLoading(false)
   }, [])
 
+  // Feature 71 · `VIS-10 (d)`: o hook NÃO assina o canal de pedidos. O dono do canal é
+  // `useOrdersRealtime` (`entities/order`), chamado uma vez pelo Dashboard, que repassa o aviso a
+  // `refetch` e ao bloco "Movimento da loja" — dois canais seriam duas inscrições para o mesmo aviso.
   useEffect(() => {
     fetchStats()
-
-    const channel = supabase
-      .channel('admin-orders-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
-        fetchStats()
-      })
-      .subscribe()
-
-    return () => { supabase.removeChannel(channel) }
   }, [fetchStats])
 
   return { stats, loading, refetch: fetchStats }

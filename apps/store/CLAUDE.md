@@ -1525,6 +1525,64 @@ Desenho: Paper, página **"59 · Minha Conta V2 — proposta"**. O retrato do qu
   que reconhece a transportadora pelo código. O formato do link direto é premissa — ver a prova em
   navegador no `validation.md` da `59`.
 
+## O contador de visitas únicas (feature `71`, `AD-055`)
+
+`app/VisitCounter.tsx` + `shared/lib/visits/`. É **independente do GA4**: conta com a medição
+desligada no painel, e a decisão (`visitRefusal`) **não recebe** o interruptor, o ID de medição nem a
+resposta do GA4 sobre "posso medir?" — `contadorSemGa.test.ts` guarda a fonte.
+
+- **Montado no `App.tsx`, fora das `Routes` e só fora da prévia** (`{!previewMode && <VisitCounter />}`),
+  ao lado do `AnalyticsLoader`: o checkout e o 404 também contam, e a dona conferindo a vitrine no
+  iframe do painel não conta. `contadorMontado.test.tsx` lê o `App.tsx` e recusa as outras formas.
+- **A chamada sai fora do caminho crítico**: `requestIdleCallback`; sem ele, `setTimeout(…, 0)` —
+  **direto** quando `document.readyState === 'complete'` (numa troca de rota o `load` já passou, e um
+  ouvinte novo nunca dispararia: medido no WebKit, que não tem `requestIdleCallback`) e depois do
+  `load` enquanto a página carrega. Nenhum `fetch` síncrono na montagem.
+- **Uma vez por dia por navegador, e quem garante é o SERVIDOR** (uma linha por id e dia). O marcador
+  do navegador só poupa chamadas: guarda o prazo **no relógio local**, convertido por duração
+  (`Date.now() + (ate − agora)` do servidor), então um aparelho adiantado não vira uma chamada por
+  navegação. O cliente **nunca** calcula o dia de Brasília. Medido em navegador: 5 rotas ⇒ 1 chamada,
+  recarregar ⇒ 0.
+- **As duas chaves do armazenamento têm um dono só**, `shared/lib/visits/visitor.ts`, e os testes
+  **importam** as constantes (`visitanteComDonoUnico.test.ts` varre `apps/*/src` com testes). A lista
+  das chaves em uso está no `CLAUDE.md` da raiz.
+- **O id nasce sob trava** (`navigator.locks`, relendo a chave dentro dela): duas abas abertas juntas
+  produzem **um** id. Sem a API, duas abas no primeiro instante podem dar dois — limite declarado.
+  Armazenamento que lança ou ausência de `crypto.randomUUID` ⇒ **não conta**, e nada de id em
+  memória (um id por página faria cada página virar uma visita).
+- **O envio é `fetch` cru com SÓ a chave publicável** (`send.ts`), nunca `supabase.functions.invoke`:
+  o invoke mandaria o JWT da sessão, e a visita não pode carregar a identidade de quem está logada.
+  `@estrelinha/supabase` exporta `SUPABASE_URL` e `SUPABASE_PUBLISHABLE_KEY` para isso — ele continua
+  o único leitor das env. Corpo **exatamente** `{"id":"…"}`; resposta sem `ate`/`agora` numéricos é
+  falha; falha dá direito a **mais uma** tentativa na aba, na próxima navegação; `429` grava o prazo.
+- **A recusa apaga o id na mesma ação**: `save(false)` da folha de cookies chama `forgetVisitorId` ao
+  lado de `clearGaCookies`, mantendo só o prazo (reaceitar no mesmo dia não conta de novo). Uma
+  resposta que chega **depois** da recusa não traz o id de volta (`saveClock` relê e nunca o
+  restaura).
+- **A recusa feita em OUTRA aba vale antes da próxima chamada**: a decisão chama
+  `syncFromStorage()` no instante da tentativa, e a releitura aplica **só registro válido** — e não
+  aplica nada enquanto a última gravação desta aba falhou (a marca `memoriaSemGravar`,
+  `SPEC_DEVIATION` no `cookieConsentStore.ts`), senão uma aba privada que não grava voltaria a
+  "aceito". Medido em navegador: recusa na aba A, a aba B com o prazo vencido não chama mais.
+- **A categoria "Estatísticas" aparece SEMPRE na folha "Preferências de cookies"**, com o GA4 ligado
+  ou desligado — inverte o `AVS-02` da feature `61`, de propósito: sem isso, com o GA4 desligado a
+  cliente não teria como recusar a contagem. O caso de teste foi **invertido**, não apagado. A frase
+  da categoria e o quarto parágrafo de "Medição de audiência" na `/politica-de-privacidade` são o
+  texto do Apêndice A da spec, **que espera a aprovação da Adri antes do deploy**;
+  `politicaDoContador.test.ts` reprova o contador sem o parágrafo.
+- **`?nao-contar=1` em qualquer rota tira este navegador da contagem** (`?nao-contar=0` devolve): grava
+  a marca, apaga o id, mostra o aviso e tira o parâmetro por `navigate(…, { replace: true })` —
+  preservando os outros (`utm_*`) e sem entrada nova no histórico. O nome e o construtor do link são
+  de `@estrelinha/core/visits` (o painel monta o link no menu da conta). Risco declarado: um link
+  com o parâmetro repassado a uma cliente a tira da contagem — tirar o parâmetro da URL impede que
+  ela repasse adiante. O `page_view` do GA4 leva o parâmetro uma vez, e isso também é declarado.
+- **Robô**: `navigator.webdriver` e a lista de `core/visits` (a mesma que a function lê). ⚠️ **O
+  Playwright é recusado pelo próprio filtro** (`webdriver` verdadeiro e `HeadlessChrome` no UA):
+  uma prova em navegador que não neutralize os dois mede **zero** visitas e convida alguém a afrouxar
+  o filtro. Roteiro em `.specs/features/71-visitas-unicas-no-dashboard/prova-em-navegador.md`.
+- **Até o dia do DNS a loja não conta nada**: o host de produção gravado é o domínio próprio, e o
+  `.vercel.app` é `interno` — na loja e, de novo, no servidor. O painel diz isso.
+
 ## Auth (loja)
 
 Overlay único (`features/auth`) com steps entry → code → name, mais password, reset → reset-code →

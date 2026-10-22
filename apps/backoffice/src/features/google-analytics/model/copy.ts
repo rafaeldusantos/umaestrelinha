@@ -2,7 +2,9 @@
 // componente: o Fast Refresh só preserva estado de arquivo que exporta apenas componentes, e os
 // testes leem estas frases diretamente (`AnalyticsPanel.test.tsx`).
 
-const FUSO = 'America/Sao_Paulo'
+import { STORE_TIME_ZONE } from '@estrelinha/core/time'
+
+const FUSO = STORE_TIME_ZONE
 
 /** "Hoje, 14:32" quando foi hoje no fuso da loja; "03/10/2026, 14:32" quando não. */
 export const formatSentAt = (iso: string, agora: Date = new Date()): string => {

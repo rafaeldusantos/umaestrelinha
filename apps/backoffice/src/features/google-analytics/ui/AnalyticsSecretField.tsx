@@ -16,11 +16,12 @@ import { Loader2, Lock } from 'lucide-react'
 import { Button } from '@estrelinha/ui/button'
 import { Input } from '@estrelinha/ui/input'
 import { Label } from '@estrelinha/ui/label'
+import { STORE_TIME_ZONE } from '@estrelinha/core/time'
 import { useAnalyticsSecretStatus, useSaveAnalyticsSecret } from '../model/useAnalyticsSecret'
 
 /** A data de gravação, no fuso da loja — a dona está em Porto Alegre, não em UTC. */
 const formatSecretDate = (iso: string): string =>
-  new Date(iso).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })
+  new Date(iso).toLocaleDateString('pt-BR', { timeZone: STORE_TIME_ZONE })
 
 const SECRET_FIELD_ID = 'analytics-api-secret'
 const SECRET_HINT_ID = 'analytics-api-secret-hint'

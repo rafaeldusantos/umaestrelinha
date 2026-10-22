@@ -1,5 +1,9 @@
-import { Package, ShoppingCart, Users, TrendingUp, DollarSign, Clock } from 'lucide-react'
+import { Package, Users, TrendingUp, Clock } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useAdminStats } from '@/entities/stats/api/useAdminStats'
+import { STORE_MOVEMENT_KEY } from '@/entities/stats'
+import { useOrdersRealtime } from '@/entities/order'
+import { StoreMovement } from '@/widgets/store-movement'
 import StatusBadge from '@/entities/order/ui/StatusBadge'
 import SalesChart from '@/widgets/sales-chart/ui/SalesChart'
 import AlertsPanel from '@/widgets/alerts-panel/ui/AlertsPanel'
@@ -12,11 +16,21 @@ import { formatOrderNumber } from '@estrelinha/core/orders'
 type RecentOrder = ReturnType<typeof useAdminStats>['stats']['recentOrders'][number]
 
 const AdminDashboard = () => {
-  const { stats, loading } = useAdminStats()
+  const { stats, loading, refetch } = useAdminStats()
+  const queryClient = useQueryClient()
 
+  // Feature 71 · `VIS-10 (d)`: UM canal de pedidos (`entities/order`), e o aviso dele relê as duas
+  // coisas — as estatísticas e o bloco "Movimento da loja". O bloco continua sendo o único dono da
+  // consulta dele; aqui só se invalida a chave.
+  useOrdersRealtime(() => {
+    void refetch()
+    void queryClient.invalidateQueries({ queryKey: STORE_MOVEMENT_KEY })
+  })
+
+  // Feature 71 · `VIS-35` (assunção PENDENTE de confirmação do usuário): "Pedidos Hoje" e "Fat. Hoje"
+  // saíram — contavam o dia em UTC e pedido não pago, e o bloco acima responde "hoje" pela régua do
+  // banco. Reverter a task 27 devolve os dois.
   const statCards = [
-    { label: 'Pedidos Hoje', value: stats.ordersToday, icon: ShoppingCart, color: 'text-estrelinha-admin-pink' },
-    { label: 'Fat. Hoje', value: formatPrice(stats.revenueToday), icon: DollarSign, color: 'text-emerald-500' },
     { label: 'Fat. do Mês', value: formatPrice(stats.monthRevenue), icon: TrendingUp, color: 'text-estrelinha-admin-violet' },
     { label: 'Produtos Ativos', value: stats.activeProducts, icon: Package, color: 'text-estrelinha-admin-cyan' },
     { label: 'Clientes Novos', value: stats.newCustomers, icon: Users, color: 'text-estrelinha-admin-yellow' },
@@ -37,8 +51,11 @@ const AdminDashboard = () => {
     <div className="space-y-6">
       <PageHeader title="Dashboard" />
 
+      {/* Feature 71 · `VIS-01`: a primeira seção depois do cabeçalho. */}
+      <StoreMovement />
+
       {/* Stats Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {statCards.map(s => (
           <StatCard key={s.label} label={s.label} value={s.value} icon={s.icon} accent={s.color} />
         ))}

@@ -22,7 +22,7 @@ Não pelo ciclo de vida do produto:
 | **Catálogo** | Produtos · Categorias · Filtros da loja · Perguntas frequentes |
 | **Loja** | Home · Menu da loja · Google Shopping |
 | *(rodapé)* | Configurações · Usuários do painel |
-| *(menu da conta, no pé)* | Minha conta · Abrir a loja · Sair |
+| *(menu da conta, no pé)* | Minha conta · Abrir a loja · Abrir a loja sem contar · Sair |
 
 **O rodapé é o lugar da administração do SISTEMA**, e por isso os dois itens da feature `48` entram
 ali e não num dos quatro eixos: ninguém abre o painel de manhã para conferir quem tem acesso.
@@ -40,6 +40,14 @@ mesma tela.
 - **"Abrir a loja" lê `storeOrigin()`** e abre em nova aba; sem `VITE_STORE_URL` o item some. O
   "Ver Loja" que ele substituiu era `<Link to="/">`, e o painel não tem a rota `/`: o clique caía na
   404 do próprio painel.
+- **"Abrir a loja sem contar"** (feature `71`, `VIS-43`) abre a mesma origem com o parâmetro que tira
+  **este navegador** da contagem de visitas — a navegação da própria dona não infla um número de ~50
+  por dia. O link sai de `optOutHref` (`@estrelinha/core/visits`), o mesmo dono que a loja lê; uma
+  grafia à mão faria a loja ignorar o link sem nada quebrar (`parametroNaoContarComDonoUnico.test.ts`,
+  na suíte da loja, recusa e exige a chamada). Some sem `VITE_STORE_URL`, junto com "Abrir a loja".
+  - ⚠️ **No teste, o nome acessível dos dois itens tem ESPAÇO antes do parêntese**
+    (`'Abrir a loja (abre em nova aba)'`) — é o `sr-only` juntado pelo cálculo de nome; o
+    `textContent` não tem o espaço. Uma regex `/abrir a loja/i` passou a casar os dois itens.
 - **O menu lê o e-mail por `useAuthContext`**, então todo teste que monta o `AdminLayout` real precisa
   dublar `@estrelinha/auth` (em produção o `AuthProvider` envolve o app em `main.tsx`).
 
@@ -145,6 +153,60 @@ em vez de 69%.
   `AdminHomePage.tsx` não importa nada de `admin-layout`.
 - **Fora dessas duas rotas nada muda**, e não existe nem o controle de recolher. Abaixo de `md` também
   não: a navegação continua sendo a gaveta do botão da barra.
+
+## O Dashboard e o bloco "Movimento da loja" (feature `71`, `AD-055`)
+
+O primeiro bloco depois do cabeçalho de `/admin` é **Movimento da loja**: Visitas únicas, Vendas,
+Faturamento e Ticket médio, nas abas Hoje · Ontem · Esta semana (`widgets/store-movement`).
+
+- **UMA leitura, e o painel não diz ao banco que dia é.** `useStoreMovement` (`entities/stats`) chama
+  `rpc('store_movement')` **sem argumento**; os três períodos, os dias (como texto), o host de
+  produção e os instantes de "contando desde", "última visita" e "teto atingido" vêm na mesma
+  resposta. Trocar de aba não lê nada. Os textos são de `model/labels.ts`, que só **escreve** o que o
+  banco devolveu — nenhum `new Date('AAAA-MM-DD')`, que em fuso negativo vira o dia anterior.
+- **Visitas é uma contagem de NAVEGADORES DISTINTOS no período** — "Esta semana" nunca é a soma dos
+  dias. O ⓘ diz isso por extenso (`VISIT_INFO_TEXT`, constante única), e nenhum texto do bloco chama
+  o número de "pessoas" ou "usuários" (`semPessoas.test.ts`).
+- **Três estados, e uma releitura nunca vira esqueleto** (o defeito da `50`): primeira carga ⇒
+  esqueleto nos quatro cards e `aria-busy`; erro **sem** dado ⇒ uma frase e "Tentar de novo"; com
+  dado ⇒ os valores, mesmo com a releitura no ar ou falhada, e "Atualizado às" fica com a hora da
+  última leitura boa.
+- **Quando relê**: ao montar, no foco da janela (React Query, `staleTime: 0`), na virada do dia — o
+  timer mede a **duração do servidor** (`expira_em − lido_em`), nunca o relógio do navegador da
+  dona, com piso de 1 s; contra o relógio local, um computador adiantado entraria em laço até a
+  meia-noite do servidor —, e no aviso de tempo real de `orders`.
+- **O canal de pedidos tem UM dono: `useOrdersRealtime` (`entities/order`)**, chamado uma vez pelo
+  `AdminDashboard`, que repassa o aviso às duas releituras (`refetch` das estatísticas e
+  `invalidateQueries` da `STORE_MOVEMENT_KEY`). `useAdminStats` **deixou de assinar** o canal. O
+  callback mais recente vive num `ref` e o efeito tem dependência vazia: com uma seta inline, depender
+  do callback recriaria o canal a cada render. O segundo canal de `orders` (`useAdminOrders`, da lista
+  de pedidos) é de outra tela e não foi migrado — dívida nomeada.
+- **"Pedidos Hoje" e "Fat. Hoje" SAÍRAM** (`VIS-35`, **assunção pendente de confirmação do
+  usuário**, isolada na task 27 para poder ser revertida). Eles decidiam "hoje" pelo dia em UTC
+  (`toISOString().slice(0, 10)` — em Porto Alegre esse "hoje" começa às 21h da véspera) e contavam
+  pedido **criado**, inclusive PIX não pago: ao lado do bloco, dariam duas respostas para "quanto
+  vendi hoje?". A grade de baixo ficou com Fat. do Mês · Produtos Ativos · Clientes Novos · Pendentes
+  em `grid-cols-2 lg:grid-cols-4`. **O gráfico e o "Fat. do Mês" continuam na régua antiga**
+  (`BL-046`), e "Pendentes" conta pedido já pago (`BL-047`).
+- **`StatCard` ganhou `loading` e `info`, aditivos e opcionais**: sem eles a saída é a de antes (a
+  suíte compara o HTML com uma cópia do desenho anterior). O esqueleto ocupa o **lugar** do `<p>` do
+  valor, nunca fica dentro dele.
+- **O ⓘ é `Popover`, nunca `Tooltip`** (o do Radix não abre por toque), com gatilho `h-11 w-11 -m-3.5`
+  — 44×44 de alvo sem crescer o cabeçalho do card. Medido em navegador: o toque 5px fora do desenho do
+  ícone abre; Enter e Espaço abrem; Esc fecha e devolve o foco; toque fora fecha.
+  - ⚠️ **O ícone decorativo do `StatCard` roubava a borda direita do alvo**, e a primeira prova não
+    viu porque tocou só um lado: com `-m-3.5` (14px) e `gap-2` (8px), o olho fica 6px DENTRO do alvo
+    e, pintado depois, recebia o toque. Achado na prova de ponta a ponta (`prova-navegador.md`); o
+    ícone do ramo `info` passou a `pointer-events-none`. E o balão encostava na borda da tela em 390
+    (Radix só desloca até encostar): `collisionPadding={16}` + teto `w-[min(18rem,calc(100vw-32px))]`,
+    molde do `MarkPopover` (`infoGutter.test.tsx`).
+- **A prova é a página real** (`pages/admin/AdminDashboard.test.tsx`): só o client e os widgets
+  alheios ao bloco são dublados, e o teste exige o bloco como **primeiro irmão** do cabeçalho, **um**
+  canal mesmo com re-render, e as duas releituras pelo que muda na tela. Medido em navegador
+  (`.specs/features/71-visitas-unicas-no-dashboard/prova-em-navegador.md`): 390 e 1440 sem rolagem
+  horizontal, `R$ 99.999,99` numa linha dentro de um card de 165px.
+- ⚠️ **Toda RPC nova que o painel chama quebra `marcacaoSoPorAcao.test.ts`, na suíte da LOJA**: a
+  lista literal de RPCs é comparada por igualdade (feature `67`). Aconteceu duas vezes na `71`.
 
 ## Molde dos formulários
 
@@ -1072,7 +1134,11 @@ moram) recusa qualquer arquivo de `apps/**` que nomeie a chave de serviço ou aq
 
 ## Dívidas conhecidas deste app
 
-- **A baseline de testes do painel é 2704 em 148 arquivos**, todos passando (2026-09-14, no fecho da
+- **A baseline de testes do painel é 3648 em 207 arquivos**, todos passando (2026-10-22, depois da
+  prova de ponta a ponta da `71` — +3/+1 dos dois consertos do ⓘ; era 3645/206 no fecho da
+  feature `71` e dos consertos da verificação r1 dela, um workspace por vez e com exit code capturado fora de pipe). *(Dizia `2704/148`,
+  do fecho da `51`, e estava velha havia vinte features.)* A linha de antes:
+- **A baseline de testes do painel era 2704 em 148 arquivos**, todos passando (2026-09-14, no fecho da
   feature `51`, um workspace por vez e com exit code capturado fora de pipe). *(Dizia `2204/129` até
   aqui, medida na árvore mesclada `46` + `47` — duas features a atravessaram sem que o número
   acompanhasse, que é o envelhecimento silencioso que o `CLAUDE.md` da raiz registra desde a `45`.)*
@@ -1082,7 +1148,10 @@ moram) recusa qualquer arquivo de `apps/**` que nomeie a chave de serviço ou aq
     sessões que corriam em paralelo em 2026-09-12 chegaram a esse diagnóstico separadamente. Antes
     de investigar uma reprovação do painel, confira se o erro diz `Test timed out in 5000ms`.
   - O gate é "sem regressão". Ver [`../../CLAUDE.md`](../../CLAUDE.md).
-- **A baseline de lint do painel é 25 erros / 4 warnings**, em boa parte
+- **A baseline de lint do painel é 23 erros / 5 warnings** (medido em 2026-10-22, no fecho da `71`:
+  ela saiu de 24/5 quando os cards de "hoje" levaram junto um `(sum, o: any)`). *(A linha abaixo
+  dizia 25/4, e já estava velha.)* Antes:
+- **A baseline de lint do painel era 25 erros / 4 warnings**, em boa parte
   `@typescript-eslint/no-explicit-any` nos hooks admin (`entities/*/api/useAdmin*`). O gate é "sem
   erros novos". *(Dizia 28/7 até 2026-09-05: a `34` apagou `OrderDetailDialog.tsx` e levou junto três
   `no-explicit-any`, e o número aqui não acompanhou. **Baseline que cai também precisa ser anotada** —

@@ -55,6 +55,12 @@ const ARQUIVOS = [
   'features/notification-settings/ui/EventCard.tsx',
   'features/notification-settings/ui/EmailPreviewFrame.tsx',
   'features/notification-settings/ui/NotificationsTab.tsx',
+  // Feature 71 — o `StatCard` ganhou o esqueleto que pulsa (`VIS-05`), e a transição de borda que
+  // ele já tinha ganhou o par na mesma task. Entrou aqui na task em que o movimento nasceu.
+  'shared/ui/StatCard.tsx',
+  // Feature 71, task 25 — o bloco "Movimento da loja". O único movimento dele é a entrada do
+  // Popover do ⓘ (vem de `@estrelinha/ui`), desarmada no próprio `PopoverContent`.
+  'widgets/store-movement/ui/StoreMovement.tsx',
 ] as const
 
 /**
@@ -144,7 +150,7 @@ const FONTES = ARQUIVOS.map(caminho => ({
 }))
 
 describe('o movimento do painel respeita `prefers-reduced-motion` (ANI-05)', () => {
-  it('ÂNCORA: os treze arquivos foram lidos, e a varredura ACHOU movimento neles', () => {
+  it('ÂNCORA: os arquivos em escopo foram lidos, e a varredura ACHOU movimento neles', () => {
     // Âncora dupla. Sem a segunda, um regex quebrado varreria os arquivos certos, encontraria zero
     // classe e a asserção de baixo (`[] === []`) passaria — a pior falha possível num teste que lê
     // fonte, porque ele parece saudável.
@@ -152,13 +158,14 @@ describe('o movimento do painel respeita `prefers-reduced-motion` (ANI-05)', () 
     expect(FONTES.every(f => f.fonte.length > 0)).toBe(true)
 
     const tokens = FONTES.flatMap(f => movimentoDe(semComentarios(f.fonte)))
-    // 8/4 na 50, 14/7 na 51, 38/18 na 56 — o número sobe com o escopo, sempre medido, nunca
-    // arredondado para baixo "por segurança": uma âncora folgada é uma âncora que para de acusar.
-    expect(tokens.length).toBeGreaterThanOrEqual(38)
+    // 8/4 na 50, 14/7 na 51, 38/18 na 56, 44/20 na 71 (task 24, com o `StatCard`), 45/21 com o bloco (task 25) — o número sobe
+    // com o escopo, sempre medido, nunca arredondado para baixo "por segurança": uma âncora folgada
+    // é uma âncora que para de acusar.
+    expect(tokens.length).toBeGreaterThanOrEqual(45)
 
     // E a terceira: os pares existem mesmo. Uma régua que nunca visse `motion-reduce:` também
     // passaria na segunda âncora, acusando tudo — ou, com o filtro invertido, nada.
-    expect(tokens.filter(t => t.ehOPar).length).toBeGreaterThanOrEqual(18)
+    expect(tokens.filter(t => t.ehOPar).length).toBeGreaterThanOrEqual(21)
   })
 
   it('nenhum arquivo em escopo declara movimento sem o par `motion-reduce:`', () => {

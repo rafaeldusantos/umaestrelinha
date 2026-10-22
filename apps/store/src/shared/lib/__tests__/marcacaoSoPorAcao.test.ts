@@ -161,9 +161,16 @@ const RPCS = [
   'has_role',
   'increment_coupon_usage',
   'mark_cart_recovered',
+  // Feature 71 — a function `visit` (gravação de visita única e o relógio do banco). Nenhuma das
+  // duas toca as tabelas de marcação; a varredura das migrations abaixo é quem prova.
+  'record_store_visit',
   'set_kit_showcase',
   'set_material_status',
   'set_material_tracking',
+  'store_clock',
+  // Feature 71, task 22 — a leitura do bloco "Movimento da loja" no Dashboard do painel. Só lê, e é
+  // admin: o `has_role` está no corpo dela.
+  'store_movement',
   'track_abandoned_cart',
   'upsert_promotion',
 ]

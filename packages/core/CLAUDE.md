@@ -49,6 +49,8 @@ sem ela a varredura passa com zero arquivo lido, que é a pior falha possível n
 | `./validators/email` | `isValidEmail`, `normalizeEmail` | loja, edge function `checkout` |
 | `./shipping` | `freeShippingState` + `freeShippingRefusal` (o frete grátis tem **um** dono), `estimate.ts` | 8 superfícies nos 2 apps |
 | `./media` | `renditionUrl`/`renditionSrcSet`/`imagePriority` (`rendition.ts`) e **`surfaceArt`** (`AD-030`) | loja, painel, `core/page` |
+| `./time` | **`STORE_TIME_ZONE`** (o nome do fuso da loja, a cópia TypeScript de `store_time_zone()` do banco) e `formatDayMonth`/`formatStoreHour` (`21/10`, `15h32`) — feature `71`, `AD-055` | `core/orders/situation.ts`, painel (GA e o bloco "Movimento da loja"), loja (`orderMeta`) |
+| `./visits` | `isBotUserAgent` (as 20 assinaturas de robô), `visitBody`/`visitBodyRefusal`/`isVisitorId` (o corpo da visita) e `OPT_OUT_PARAM`/`optOutHref`/`readOptOutParam` (o parâmetro de "não contar") — feature `71` | loja (`VisitCounter`), edge function `visit`, painel (menu da conta) |
 | `./validators` · `./product` · `./auth` | utilitários de domínio | vários |
 | `./hooks/*` | **exceção declarada** — `useStoreSettings`, `useCoupons` tocam Supabase | os dois apps |
 
@@ -310,6 +312,35 @@ sem build, `tsc` ou teste de componente acusarem — desta vez com o CTA de dinh
 - **O arquivo não importa NADA, e é de propósito.** `core/media/index.ts` importa
   `@estrelinha/supabase/types`, e o Deno morre nesse `import type`; `core/menu/banners.ts` — que a
   edge function do sitemap alcança — o consome por caminho relativo com `.ts`, nunca pelo barrel.
+
+## `time` e `visits` — folhas, e por que o DIA não mora aqui (feature `71`, `AD-055`)
+
+- **"Que dia de Brasília é?" NÃO é pergunta deste pacote.** Quem decide é o banco
+  (`store_day`/`store_day_start`/`store_week_start`, lendo `store_time_zone()`), e o navegador da
+  cliente, o da dona e a edge function só repassam ou escrevem o que ele devolveu. `core/time` existe
+  para **escrever** a hora de um instante já decidido — `formatStoreHour` e `formatDayMonth` —, e para
+  ser o **único** dono do nome do fuso em TypeScript. As quatro escritas que existiam em `apps/` e
+  `packages/` passaram a importá-lo, e `fusoComDonoUnico.test.ts` (suíte da loja) recusa a quinta,
+  **sem allowlist**. O nome também aparece na migration da `71`, e é **cópia deliberada**:
+  `visitasSchema.test.ts` lê a migration e compara com `STORE_TIME_ZONE` importado. A do importador
+  (`tools/catalog-import`) fica fora do guarda, declarada.
+  - ⚠️ **O formatador é montado no carregamento do módulo** (`Intl.DateTimeFormat` no topo). Teste que
+    troca `process.env.TZ` precisa **reimportar** o módulo depois da troca — senão o `describe.each`
+    de fusos mede o fuso do processo três vezes e passa. `format.test.ts` e o `labels.test.ts` do
+    painel carregam o sensor de que a troca pegou.
+- **Os arquivos de `visits` e `time/zone.ts` são FOLHAS, sem import nenhum**, e os barris importam
+  com `.ts` explícito: a edge function `visit` os alcança por caminho relativo, no Deno.
+  `visits/__tests__/denoReach.test.ts` recusa import nas folhas (`import type` incluso) e especificador
+  sem extensão no barril.
+- **A lista de robôs tem 20 assinaturas por extenso, e casa por SUBSTRING sem diferenciar
+  maiúsculas** — nunca `/bot/i`, que pega o aparelho Cubot (`CUBOT_X30`). O sensor está no teste: o
+  regex ingênuo reprova na mesma régua. A mesma lista é lida pela loja (que nem chama) e pela function
+  (que responde `robô`): duas barreiras, um dono.
+- **O parâmetro de "não contar" tem dois consumidores em dois apps que não se importam** — a loja
+  lê (`readOptOutParam`), o painel escreve o link (`optOutHref`). `readOptOutParam` devolve
+  `'on' | 'off' | null`, string e não booleano, pela regra de `strictNullChecks`.
+  `parametroNaoContarComDonoUnico.test.ts` (suíte da loja) recusa o nome escrito à mão fora do dono
+  e exige as duas chamadas.
 
 ## Convenções de tipo
 

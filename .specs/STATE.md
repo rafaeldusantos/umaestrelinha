@@ -1329,7 +1329,157 @@
 - **Date**: 2026-10-20
 - **Status**: active
 
+### AD-055
+- **Decision**: **"Que dia de Brasília é?" tem UM dono, o banco** (`store_time_zone()` →
+  `store_day`/`store_day_start`/`store_week_start`), e **"qual é o host de produção do contador?" tem
+  uma leitura no servidor** (`store_production_host()`, lida pela function por `store_clock` e pelo
+  painel por `store_movement`). O TypeScript tem **um** dono do nome do fuso (`@estrelinha/core/time`),
+  usado só para **escrever** a hora de um instante que o banco devolveu.
+- **Decision**: **visita única é contada por um contador PRÓPRIO, independente do GA4**: id aleatório
+  por navegador em `localStorage` (`estrelinha-visitor`), gravado no máximo uma vez por dia pela edge
+  function `visit` (pública, `verify_jwt = false`, sem ler `Authorization`) na tabela
+  `store_visits(day, visitor_id)`, fechada a `anon`/`authenticated` e podada para 8 dias na gravação,
+  na leitura e por `pg_cron` onde ele existir. **Os períodos contam `count(distinct)` — nunca a soma
+  dos dias.** A leitura é **uma** RPC admin (`store_movement`), e o painel não passa data nenhuma.
+- **Decision — os períodos, por extenso**: o fuso é `America/Sao_Paulo` (o nome mora em
+  `store_time_zone()` no banco e em `STORE_TIME_ZONE` no TypeScript, cópia deliberada comparada por
+  `visitasSchema.test.ts`). **Hoje** = o dia de Brasília corrente, de 00:00 até agora; **Ontem** = o
+  dia de Brasília anterior, inteiro; **Esta semana** = de **segunda-feira 00:00 de Brasília** até
+  agora, **incluindo hoje** (numa segunda-feira, Esta semana é igual a Hoje). Em Visitas, cada período
+  é a contagem de **navegadores distintos** no intervalo — o mesmo id visto na segunda, na terça e na
+  quarta conta **1** na semana. Nenhum cliente calcula o dia: o navegador guarda o prazo por duração
+  (`ate − agora` do servidor) e o painel só escreve o que o banco devolveu.
+- **Decision — retenção**: 8 dias em `store_visits` (hoje e os 7 anteriores, o bastante para Ontem e
+  para a semana mais longa), podados sempre pela mesma `prune_store_visits`. Depois disso o banco não
+  consegue ligar um id entre semanas, e por isso o id **não** é rotacionado no navegador. Teto de
+  5.000 linhas novas por dia (`capped_day` avisa no painel) e 30 chamadas por minuto por IP na
+  function, como cortesia.
+- **Decision**: **venda, no bloco, é lista positiva**: `payment_status = 'approved'` e
+  `status <> 'cancelled'`, no dia de Brasília de `paid_at` — inclusive pedidos importados da
+  Nuvemshop. Ticket médio é `round(soma / n, 2)` no banco, `NULL` sem venda (a tela desenha `—`).
+- **Decision**: o filtro de robô, o contrato do corpo da visita e o parâmetro `nao-contar` são folhas
+  de `core/visits`, sem import nenhum, lidas pela loja, pela function e pelo painel.
+- **Reason**: pedido do usuário (2026-10-21): o bloco Visitas únicas · Vendas · Faturamento · Ticket
+  médio em Hoje / Ontem / Esta semana, como o painel da Nuvemshop, **sem nunca somar o mesmo
+  navegador**. Defeito 01 aplicado ao dia, ao host e aos contratos: o `useAdminStats` decidia "hoje"
+  pelo dia em UTC, e o bloco novo ao lado daria duas respostas para "quanto vendi hoje?".
+- **Trade-off**: o número é de **navegadores**, não de pessoas (o ⓘ diz isso); o teto por IP é
+  cortesia (`x-forwarded-for` é de quem chama); ids forjados podem encher o teto de 5.000 do dia — o
+  painel diz quando isso acontece (`VIS-44`), mas não recupera a contagem; `started_at`,
+  `last_recorded_at` e `capped_day` são instantes da loja, fora da tabela de visitas e sem ligação a
+  id; quando a leitura de `store_settings` falha a loja decide com o default e o servidor corrige
+  respondendo `interno`.
+- **Supera**: `AVS-02` da feature `61` — a categoria "Estatísticas" aparece **sempre** na folha de
+  cookies, com o GA4 ligado ou desligado (sem isso, com o GA4 desligado a cliente não teria como
+  recusar a contagem). Inversão declarada; o caso de teste foi invertido, não apagado.
+- **Scope**: `supabase/migrations/20261021120000_71-visitas-unicas.sql`,
+  `supabase/functions/{visit,_shared/rateLimit.ts}`, `packages/core/src/{visits,time}/**`,
+  `packages/supabase/src/client.ts`,
+  `apps/store/src/{shared/lib/visits,app/VisitCounter.tsx,entities/cookie-consent,widgets/cookie-notice}`,
+  `apps/backoffice/src/{entities/stats,entities/order,widgets/store-movement,widgets/admin-layout,pages/admin/AdminDashboard.tsx}`
+- **Date**: 2026-10-22
+- **Status**: active
+
 ## Handoff
+
+### ATUAL — 2026-10-22 · `71-visitas-unicas-no-dashboard` **IMPLEMENTADA — 32 de 32 tasks, verificada em 3 rodadas (r3 FAIL por UMA lacuna de cobertura, G9, consertada depois pelo orquestrador — sem r4), SEM COMMIT**
+
+- **Feature**: `.specs/features/71-visitas-unicas-no-dashboard/` (`spec.md`, `design.md`, `tasks.md`,
+  `baseline.md`, `validation.md`, `probes/`, `prova-em-navegador.md`, `prova-navegador.md`). Decisão
+  `AD-055`. Migration `20261021120000_71-visitas-unicas.sql`, aplicada **só no banco local**
+  (`migration up --local`).
+- **NÃO COMMITADA**: aguarda o pedido do usuário. Nenhum commit, stash ou push.
+- **O que entrega**: o bloco **Movimento da loja** no topo de `/admin` — Visitas únicas, Vendas,
+  Faturamento e Ticket médio em Hoje · Ontem · Esta semana —, lido por **uma** RPC admin
+  (`store_movement`) que decide o dia de Brasília no banco; o contador próprio da loja
+  (`VisitCounter` + function `visit` + `store_visits`), independente do GA4, uma linha por navegador
+  e dia, e os períodos por `count(distinct)` (a semana nunca é a soma dos dias); o item "Abrir a loja
+  sem contar" no menu da conta; a categoria "Estatísticas" sempre presente na folha de cookies e o
+  parágrafo novo da Política de Privacidade.
+- **Gates no fecho** (2026-10-22, um workspace por vez, `--testTimeout=20000` sem o `--`, exit code
+  fora de pipe): store **5726/312** · backoffice **3648/207** · core **3507/138** · functions
+  **957/21** · catalog-import 512/23 = **14350/701**, todos exit 0, contra a entrada medida
+  **13677/673** (`baseline.md`) ⇒ **+673/+28**, sem queda; lint **25/7** (backoffice 23/5 · store
+  2/2 — o painel caiu 1 erro); `tsc` 0 em store, backoffice, `tsconfig.server.json` e catalog-import;
+  `packages/core/src/payment/**` com zero arquivos alterados.
+- **Provas**: `prova-em-navegador.md` (390×844 e 1440, loja em build de produção; 5 rotas ⇒ 1 POST,
+  recarregar ⇒ 0, duas abas ⇒ um id, recusa numa aba cala a outra, `?nao-contar=1`, prévia ⇒ 0,
+  WebKit sem `requestIdleCallback`) e `prova-navegador.md` (ponta a ponta contra o banco local:
+  fixturas nas bordas de 21h–24h de Brasília, a leitura do gateway como admin batendo os números
+  calculados à mão — a semana com o mesmo id em três dias contou **1**, e a soma dos dias seria 4 —,
+  papéis `anon`/cliente/admin recusados na tabela, e o Dashboard real mostrando os mesmos números em
+  390 e 1440). Banco local **restaurado** nas duas.
+- **Verificação independente** (`validation.md`): r1 **FAIL** (6 sobreviventes e o defeito raro G4 —
+  a recusa de cookies durante a trava do id deixava um código novo gravado), consertada pela causa;
+  r2 **FAIL** (G7, G8, cobertura), consertada; **r3 FAIL** por **G9**: o prazo `ate` que
+  `store_clock` devolve nas respostas `robô`, `interno` e `limite` (`VIS-16`, `VIS-27`) não tem
+  régua, probe nem teste — só o do outro produtor (`record_store_visit`) é provado, e o teste do
+  handler dubla `store_clock` com o valor certo. **O código de hoje está certo** (a fixtura do
+  verificador passa nele e mata os mutantes S33/S33b); falta a prova. **Consertada em 2026-10-22,
+  depois do fecho**: a fixtura virou `probes/relogio.sql` (exit 0, todos `ok` no banco local) e a
+  régua do prazo de `visitasSchema.test.ts` passou a cobrir `record_store_visit` **e** `store_clock`
+  (`it.each`, com os sensores S33/S33b por `mutarNoBloco`); o S33 injetado no arquivo real da
+  migration derruba a régua por asserção, restaurado por SHA-256. Store 5726 → **5731**. **Sem r4**:
+  quem consertou não é o verificador.
+  - **Fora de toda rodada**: os dois consertos do ⓘ achados na prova de ponta a ponta (o ícone do
+    `StatCard` com `pointer-events-none` no ramo `info`, e `collisionPadding`/teto no balão de
+    `StoreMovement.tsx`) vieram **depois** da r3 — têm teste e sensor do autor, não de verificador.
+- **Pendências e quem decide**:
+  1. **Usuário — a saída dos cards "Pedidos Hoje" e "Fat. Hoje"** (`VIS-35`): **CONFIRMADA pelo
+     usuário em 2026-10-22** ("pode seguir o padrão"); isolada na task 27 — revertê-la devolve os dois cards. Eles decidiam
+     "hoje" pelo dia em UTC (`toISOString().slice(0, 10)`, que em Brasília começa às 21h da véspera)
+     e contavam pedido criado, inclusive PIX não pago: ao lado do bloco, dariam duas respostas para
+     "quanto vendi hoje?". Mais quatro assunções `n — confirmar` da spec, também pelo padrão: (b) o
+     gráfico e o "Fat. do Mês" ficaram na régua antiga (`BL-046`); (c) pedido marcado como pago à
+     mão **não** conta em Vendas; (d) ticket sem venda é `—`, não `R$ 0,00`; (e) pedidos importados
+     da Nuvemshop **contam** em Vendas.
+  2. **Adri — o texto do Apêndice A da spec**, já na loja e **pré-condição do DEPLOY** (o contador
+     começa a contar no primeiro acesso depois da publicação; `politicaDoContador.test.ts` impede o
+     contador sem o parágrafo, mas não sabe se ela aprovou). O quarto parágrafo de "Medição de
+     audiência" na `/politica-de-privacidade`:
+     > Além disso, conto quantas visitas a loja recebe a cada dia. Para isso, o seu navegador guarda
+     > um código aleatório, que não identifica você pelo nome e não tem relação com os seus pedidos.
+     > Em cada dia em que você visita a loja, o meu servidor registra esse código e a data — e nada
+     > mais: não guardo o seu IP junto dessa contagem, nem as páginas que você viu. Esses registros
+     > são apagados depois de 8 dias e não são compartilhados com ninguém, nem com o Google.
+     > Desligar “Estatísticas” também desliga essa contagem e apaga o código do seu navegador; limpar
+     > os dados do site no navegador tem o mesmo efeito.
+
+     E a frase da categoria "Estatísticas" na folha de preferências: *"Ajudam a entender como a loja
+     é visitada, para melhorá-la, sem identificar você pelo nome."* (sai "de forma anônima").
+  3. **Operação — ordem de publicação: migration → function → bundles.**
+     1. **Push só com a migration.** O `Supabase Deploy` roda `db push`; conferir no `notice` se o
+        job `prune-store-visits` foi agendado (só onde o `pg_cron` já existe; nos outros, a poda roda
+        na gravação e na leitura). Antes, rodar os probes de `probes/` contra o banco local.
+     2. **A function `visit`** (nova; `verify_jwt = false` vem do `config.toml`, `[functions.visit]`).
+        O `functions deploy` do CI só roda quando `supabase/functions/**` muda, e republica também a
+        `checkout` (que passou a reexportar o limitador de `_shared/rateLimit.ts`). Conferir em
+        `supabase functions list` que ela está lá e que um `POST` só com `apikey` responde `200`
+        `interno` (até o DNS).
+     3. **Os bundles** da loja e do painel. Se function e bundles forem no mesmo push, a janela em
+        que a loja chama uma function ainda não publicada só gasta a tentativa extra da aba — nada é
+        gravado errado; o painel já funciona desde o passo 1.
+  4. **Operação — até o dia do DNS o contador NÃO conta**: `production_host` é `umaestrelinha.com.br`
+     e a loja roda no `.vercel.app`; tudo responde `interno`, e o painel diz isso (`VIS-39`). É o
+     estado esperado. No dia do DNS, conferir a "Última visita registrada" no bloco depois do
+     primeiro acesso real (prova do gateway hospedado com só `apikey`).
+  5. **Medir em aparelho real**: o navegador interno do Instagram/WhatsApp apaga o armazenamento
+     entre sessões? (spec, *Assumptions*, `n — medir`).
+- **Dívidas nomeadas**: G9 (acima); o **segundo canal de `orders`** (`useAdminOrders.ts`,
+  `admin-orders-rt`) não migrado para `useOrdersRealtime`; o `page_view` do GA4 leva `?nao-contar=1`
+  uma vez por navegador da dona; `BL-046` e `BL-047` (o "Pendentes" conta pedido pago); `Popover` sem
+  `collisionPadding` como default em `packages/ui` (segunda ocorrência, ver *Lições candidatas* da
+  `prova-navegador.md`).
+- ⚠️ **A metade SEMÂNTICA do SQL da `71` só é provada pelos probes, e os probes NÃO rodam no CI.**
+  `visitasSchema.test.ts` prende a forma; o comportamento (a venda paga às 00:00, os instantes do
+  contador, o ticket por período, os papéis, o teto, a concorrência) só reprova rodando
+  `probes/*.sql`, `concorrencia.sh` e `ponta-a-ponta.sh` contra o banco local — a r3 mediu **11**
+  mutantes de SQL que só os probes matam e a suíte inteira da loja não vê.
+- **Observação, não desta feature**: o GA4 da `61` segue medindo na aba A depois de a cliente recusar
+  na aba B (o `setConsentReader` lê a memória da aba); o contador desta feature relê o armazenamento
+  no instante da decisão e não tem esse defeito. E o banco **local** guarda `image_url` de seções da
+  Home no Storage **hospedado**: abrir a Home local faz GETs públicos lá (dado, não código).
+- **Próximo**: as quatro assunções restantes do item 1 e o texto do item 2 (G9 consertada, sem r4); depois o commit, quando o usuário pedir. **Próximo número de feature**: `72`.
 
 ### ATUAL — 2026-10-19 · `69-seo-servido-na-vercel` **IMPLEMENTADA — T02..T13 feitas, T01 (spike) e a prova de plataforma PENDENTES, verificada em 3 rodadas (a 3ª FAIL por um teste de fiação, já corrigido pelo autor e não re-verificado), SEM COMMIT**
 

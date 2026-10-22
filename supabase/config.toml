@@ -564,3 +564,11 @@ verify_jwt = false
 # de auth), e a tela quebraria por CORS antes de chegar ao handler.
 [functions.google-analytics]
 verify_jwt = false
+
+# Feature 71 — a gravação de uma visita única. A loja chama esta function só com a chave publicável,
+# NUNCA com o JWT da sessão (VIS-13: a visita não pode carregar a identidade de quem está logada), e
+# o handler não lê Authorization. Com `verify_jwt = true` o gateway exigiria um JWT que, por
+# desenho, a chamada não leva — e a anon key publicada passaria do mesmo jeito sem provar nada. Quem
+# decide se a visita conta é o handler: teto por IP, corpo, robô e origem, e o teto diário no banco.
+[functions.visit]
+verify_jwt = false

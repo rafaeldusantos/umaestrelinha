@@ -1,0 +1,82 @@
+banco {"vHoje":"2","vOntem":"2","vSemana":"3","somaDias":"6"}
+ok    390 sem os cards antigos "Pedidos Hoje"/"Fat. Hoje" 0 
+ok    390 aba Hoje selecionada "true" 
+ok    390 Hoje: rótulos ["Visitas únicas","Vendas","Faturamento","Ticket médio"] 
+ok    390 Hoje: valores ["2","0","R$ 0,00","—sem vendas no período"] 
+ok    390 Hoje: linha do período "Hoje, 22/10" 
+390_hoje_subtitulo_visitas "Contando desde 22/10 às 05h41"
+390_hoje_rodape ["Última visita registrada: hoje às 05h41","Atualizado às 05h47"]
+390_hoje_medidas {"scroll":[390,390,390],"colunas":2,"alvos":[{"nome":"Hoje","w":61,"h":44},{"nome":"Ontem","w":74,"h":44},{"nome":"Esta semana","w":114,"h":44},{"nome":"O que conta como visita única","w":44,"h":44}]}
+ok    390 Hoje: sem rolagem horizontal true 
+ok    390 Hoje: alvos ≥ 44 [] 
+ok    390 aba Ontem selecionada "true" 
+ok    390 Ontem: rótulos ["Visitas únicas","Vendas","Faturamento","Ticket médio"] 
+ok    390 Ontem: valores ["2","2","R$ 120,00","R$ 60,00"] 
+ok    390 Ontem: linha do período "Ontem, 21/10" 
+390_ontem_subtitulo_visitas "Contando desde 22/10 às 05h41"
+390_ontem_rodape ["Última visita registrada: hoje às 05h41","Atualizado às 05h47"]
+390_ontem_medidas {"scroll":[390,390,390],"colunas":2,"alvos":[{"nome":"Hoje","w":61,"h":44},{"nome":"Ontem","w":74,"h":44},{"nome":"Esta semana","w":114,"h":44},{"nome":"O que conta como visita única","w":44,"h":44}]}
+ok    390 Ontem: sem rolagem horizontal true 
+ok    390 Ontem: alvos ≥ 44 [] 
+ok    390 aba Esta semana selecionada "true" 
+ok    390 Esta semana: rótulos ["Visitas únicas","Vendas","Faturamento","Ticket médio"] 
+ok    390 Esta semana: valores ["3","3","R$ 170,00","R$ 56,67"] 
+ok    390 Esta semana: linha do período "De 19/10 a 22/10" 
+390_semana_subtitulo_visitas "Contando desde 22/10 às 05h41"
+390_semana_rodape ["Última visita registrada: hoje às 05h41","Atualizado às 05h47"]
+390_semana_medidas {"scroll":[390,390,390],"colunas":2,"alvos":[{"nome":"Hoje","w":61,"h":44},{"nome":"Ontem","w":74,"h":44},{"nome":"Esta semana","w":114,"h":44},{"nome":"O que conta como visita única","w":44,"h":44}]}
+ok    390 Esta semana: sem rolagem horizontal true 
+ok    390 Esta semana: alvos ≥ 44 [] 
+390_info_caixa {"w":44,"h":44}
+ok    390 ⓘ abre por toque (aria-expanded) "true" 
+390_popover_texto "Cada navegador conta uma vez no período: uma vez por dia em Hoje e em Ontem, e uma vez na semana em Esta semana. Celular e computador contam como dois. Abrir a loja pelo Instagram e depois pelo navegador do celular também conta como dois, e cada janela anônima conta como um navegador novo. Quem recusa as estatísticas no aviso de cookies não é contado. As suas próprias visitas à loja também contam."
+390_popover_caixa {"x":86,"w":288,"direita":374}
+ok    390 popover com 16px de folga dos dois lados true 
+ok    390 ⓘ fecha com toque fora "false" 
+390_rede {"ga":[],"bloqueadas":{"fonts.googleapis.com":1}}
+ok    1440 sem os cards antigos 0 
+ok    1440 aba Hoje selecionada "true" 
+ok    1440 Hoje: rótulos ["Visitas únicas","Vendas","Faturamento","Ticket médio"] 
+ok    1440 Hoje: valores ["2","0","R$ 0,00","—sem vendas no período"] 
+ok    1440 Hoje: linha do período "Hoje, 22/10" 
+1440_hoje_subtitulo_visitas "Contando desde 22/10 às 05h41"
+1440_hoje_rodape ["Última visita registrada: hoje às 05h41","Atualizado às 05h47"]
+1440_hoje_medidas {"scroll":[1440,1440,1440],"colunas":4,"alvos":[{"nome":"Hoje","w":61,"h":44},{"nome":"Ontem","w":74,"h":44},{"nome":"Esta semana","w":114,"h":44},{"nome":"O que conta como visita única","w":44,"h":44}]}
+ok    1440 Hoje: sem rolagem horizontal true 
+ok    1440 Hoje: alvos ≥ 44 [] 
+ok    1440 aba Ontem selecionada "true" 
+ok    1440 Ontem: rótulos ["Visitas únicas","Vendas","Faturamento","Ticket médio"] 
+ok    1440 Ontem: valores ["2","2","R$ 120,00","R$ 60,00"] 
+ok    1440 Ontem: linha do período "Ontem, 21/10" 
+1440_ontem_subtitulo_visitas "Contando desde 22/10 às 05h41"
+1440_ontem_rodape ["Última visita registrada: hoje às 05h41","Atualizado às 05h47"]
+1440_ontem_medidas {"scroll":[1440,1440,1440],"colunas":4,"alvos":[{"nome":"Hoje","w":61,"h":44},{"nome":"Ontem","w":74,"h":44},{"nome":"Esta semana","w":114,"h":44},{"nome":"O que conta como visita única","w":44,"h":44}]}
+ok    1440 Ontem: sem rolagem horizontal true 
+ok    1440 Ontem: alvos ≥ 44 [] 
+ok    1440 aba Esta semana selecionada "true" 
+ok    1440 Esta semana: rótulos ["Visitas únicas","Vendas","Faturamento","Ticket médio"] 
+ok    1440 Esta semana: valores ["3","3","R$ 170,00","R$ 56,67"] 
+ok    1440 Esta semana: linha do período "De 19/10 a 22/10" 
+1440_semana_subtitulo_visitas "Contando desde 22/10 às 05h41"
+1440_semana_rodape ["Última visita registrada: hoje às 05h41","Atualizado às 05h47"]
+1440_semana_medidas {"scroll":[1440,1440,1440],"colunas":4,"alvos":[{"nome":"Hoje","w":61,"h":44},{"nome":"Ontem","w":74,"h":44},{"nome":"Esta semana","w":114,"h":44},{"nome":"O que conta como visita única","w":44,"h":44}]}
+ok    1440 Esta semana: sem rolagem horizontal true 
+ok    1440 Esta semana: alvos ≥ 44 [] 
+ok    1440 ⓘ Enter abre "true" 
+ok    1440 ⓘ Esc fecha "false" 
+ok    1440 foco volta ao ⓘ true 
+ok    1440 ⓘ Espaço abre "true" 
+ok    1440 seta para a direita leva a Ontem "true" 
+390_erro_botao {"w":127,"h":44}
+ok    390 erro: nenhum card de valor 0 
+ok    390 erro: "Tentar de novo" ≥ 44 de altura true 
+ok    390 erro: sem rolagem horizontal true 
+ok    390 "Tentar de novo" → esqueleto nos 4 cards 4 
+ok    390 depois do erro, os valores de Hoje ["2","0","R$ 0,00","—sem vendas no período"] 
+1440_erro_botao {"w":127,"h":44}
+ok    1440 erro: nenhum card de valor 0 
+ok    1440 erro: "Tentar de novo" ≥ 44 de altura true 
+ok    1440 erro: sem rolagem horizontal true 
+ok    1440 "Tentar de novo" → esqueleto nos 4 cards 4 
+ok    1440 depois do erro, os valores de Hoje ["2","0","R$ 0,00","—sem vendas no período"] 
+FALHAS: 0 []

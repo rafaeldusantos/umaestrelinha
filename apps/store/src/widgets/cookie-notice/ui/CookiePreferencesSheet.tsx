@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { X } from 'lucide-react'
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@estrelinha/ui/sheet'
-import { useAnalyticsSettings } from '@estrelinha/core/hooks/useStoreSettings'
 import { useCookieConsent } from '@/entities/cookie-consent'
 import { TAP_44, TAP_ROW } from '@/shared/lib/touchTarget'
 
@@ -16,7 +15,9 @@ const MARCA_NO_HISTORICO = 'estrelinhaCookiePreferences'
  * (interruptor já ligado). "Preferências" e "Marketing" não têm o que controlar nesta loja hoje, e
  * um interruptor que não muda nada seria afirmar o que a loja não faz.
  *
- * Com a medição desligada no painel a categoria Estatísticas some (`AVS-02`): não há o que recusar.
+ * **Estatísticas aparece SEMPRE**, com o GA4 ligado ou desligado no painel (feature `71`, `VIS-26`,
+ * inversão declarada de `AVS-02`): a categoria cobre também o contador de visitas da loja, que não
+ * depende do GA4. Escondê-la com o GA4 desligado deixaria a cliente sem como recusar a contagem.
  *
  * **O gesto de voltar fecha a folha** (`AVS-07`). Ao abrir, ela empilha uma entrada no histórico com
  * o MESMO endereço; o voltar consome essa entrada e a folha fecha, em vez de a cliente sair da
@@ -25,7 +26,6 @@ const MARCA_NO_HISTORICO = 'estrelinhaCookiePreferences'
  */
 const CookiePreferencesSheet = () => {
   const { preferencesOpen, statistics, save, accept, closePreferences } = useCookieConsent()
-  const { enabled: medicaoLigada } = useAnalyticsSettings()
   const [estatisticas, setEstatisticas] = useState(statistics)
   const empilhou = useRef(false)
 
@@ -92,42 +92,41 @@ const CookiePreferencesSheet = () => {
           </span>
         </div>
 
-        {medicaoLigada && (
-          <div className="flex items-start gap-4 border-b border-estrelinha-line py-4">
-            <div className="flex min-w-0 flex-1 flex-col gap-1">
-              <h3
-                id="cookies-estatisticas"
-                className="text-[15.5px] font-semibold leading-5 text-estrelinha-ink"
-              >
-                Estatísticas
-              </h3>
-              <p className="text-[14px] leading-[21px] text-estrelinha-ink-soft">
-                Ajudam a entender como a loja é visitada, de forma anônima, para melhorá-la.
-              </p>
-            </div>
-            {/* O interruptor do board (44 × 26, disco de 20). Desenhado aqui, e não o `Switch` do
-                pacote de UI: aquele pinta com os tokens do painel. O alvo de 44px vem do `TAP_44`. */}
-            <button
-              type="button"
-              role="switch"
-              aria-checked={estatisticas}
-              aria-labelledby="cookies-estatisticas"
-              onClick={() => setEstatisticas(v => !v)}
-              className={`${TAP_44} mt-[9px] flex h-[26px] w-11 shrink-0 items-center rounded-full p-[3px] transition-colors motion-reduce:transition-none ${
-                estatisticas
-                  ? 'justify-end bg-estrelinha-primary'
-                  : 'justify-start border border-estrelinha-field bg-estrelinha-ground-deep'
-              }`}
+        <div className="flex items-start gap-4 border-b border-estrelinha-line py-4">
+          <div className="flex min-w-0 flex-1 flex-col gap-1">
+            <h3
+              id="cookies-estatisticas"
+              className="text-[15.5px] font-semibold leading-5 text-estrelinha-ink"
             >
-              <span aria-hidden className="block h-5 w-5 rounded-full bg-estrelinha-surface shadow-sm" />
-            </button>
+              Estatísticas
+            </h3>
+            <p className="text-[14px] leading-[21px] text-estrelinha-ink-soft">
+              Ajudam a entender como a loja é visitada, para melhorá-la, sem identificar você pelo
+              nome.
+            </p>
           </div>
-        )}
+          {/* O interruptor do board (44 × 26, disco de 20). Desenhado aqui, e não o `Switch` do
+              pacote de UI: aquele pinta com os tokens do painel. O alvo de 44px vem do `TAP_44`. */}
+          <button
+            type="button"
+            role="switch"
+            aria-checked={estatisticas}
+            aria-labelledby="cookies-estatisticas"
+            onClick={() => setEstatisticas(v => !v)}
+            className={`${TAP_44} mt-[9px] flex h-[26px] w-11 shrink-0 items-center rounded-full p-[3px] transition-colors motion-reduce:transition-none ${
+              estatisticas
+                ? 'justify-end bg-estrelinha-primary'
+                : 'justify-start border border-estrelinha-field bg-estrelinha-ground-deep'
+            }`}
+          >
+            <span aria-hidden className="block h-5 w-5 rounded-full bg-estrelinha-surface shadow-sm" />
+          </button>
+        </div>
 
         <div className="flex items-center justify-between gap-3 pt-4">
           <button
             type="button"
-            onClick={() => save(medicaoLigada ? estatisticas : statistics)}
+            onClick={() => save(estatisticas)}
             className={`${TAP_ROW} px-1 text-[14px] leading-[18px] text-estrelinha-ink-soft underline underline-offset-2`}
           >
             Salvar escolhas

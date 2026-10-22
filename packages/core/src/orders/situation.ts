@@ -15,6 +15,7 @@
 // retirada?" (`shipping/pickup.ts`), que por sua vez não importa nada.
 
 import { isPickupOrder } from '../shipping/pickup.ts'
+import { STORE_TIME_ZONE } from '../time/zone.ts'
 
 export type SituationKey =
   | 'cancelled'
@@ -136,9 +137,10 @@ const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'o
 
 /**
  * O fuso da loja. Fixo, e não o do aparelho: a mesma entrega não pode ter "dia 12" num celular e
- * "dia 13" noutro, e o teste não pode depender da máquina que o roda.
+ * "dia 13" noutro, e o teste não pode depender da máquina que o roda. O nome tem um dono só
+ * (`core/time/zone.ts`, feature `71`).
  */
-const FUSO = 'America/Sao_Paulo'
+const FUSO = STORE_TIME_ZONE
 
 /** Dia, mês (1–12) e ano de uma data do banco, no fuso da loja. `null` quando ilegível. */
 export function calendarParts(

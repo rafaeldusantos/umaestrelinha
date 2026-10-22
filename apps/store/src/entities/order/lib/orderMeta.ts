@@ -5,6 +5,7 @@
 // `core` (`formatShortDate` + `calendarParts`), nunca de um segundo formatador: o dia e o mês saem
 // iguais aos do selo e da linha do tempo.
 import { calendarParts, formatShortDate } from '@estrelinha/core/orders'
+import { STORE_TIME_ZONE } from '@estrelinha/core/time'
 
 /** A soma das quantidades — duas unidades da mesma peça são duas peças. */
 export const piecesCount = (items: readonly { quantity?: number | null }[] | null | undefined): number =>
@@ -27,7 +28,7 @@ export const orderDateLabel = (valor: string | null | undefined): string | null 
 const PRAZO = new Intl.DateTimeFormat('pt-BR', {
   day: 'numeric',
   month: 'long',
-  timeZone: 'America/Sao_Paulo',
+  timeZone: STORE_TIME_ZONE,
 })
 
 /**

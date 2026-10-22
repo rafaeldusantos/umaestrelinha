@@ -274,6 +274,14 @@ describe('PrivacyPolicyPage — a medição de audiência (PRV-01)', () => {
     'Faço essa medição com base no legítimo interesse da loja em melhorar o site, como permite a Lei Geral de Proteção de Dados. Se preferir não ser medida, abra “Preferências de cookies” — no aviso da loja ou no rodapé — e desligue “Estatísticas”. A partir daí, nada mais é enviado do seu navegador.',
   ]
 
+  /**
+   * Feature `71`, `VIS-36` — o quarto parágrafo, o do contador de visitas, palavra por palavra do
+   * Apêndice A da spec (aprovação da Adri é pré-condição do DEPLOY, não do código). Os três de cima
+   * continuam intactos, e a asserção deles fica ao lado, não substituída.
+   */
+  const PARAGRAFO_DO_CONTADOR =
+    'Além disso, conto quantas visitas a loja recebe a cada dia. Para isso, o seu navegador guarda um código aleatório, que não identifica você pelo nome e não tem relação com os seus pedidos. Em cada dia em que você visita a loja, o meu servidor registra esse código e a data — e nada mais: não guardo o seu IP junto dessa contagem, nem as páginas que você viu. Esses registros são apagados depois de 8 dias e não são compartilhados com ninguém, nem com o Google. Desligar “Estatísticas” também desliga essa contagem e apaga o código do seu navegador; limpar os dados do site no navegador tem o mesmo efeito.'
+
   // A régua do "envia" mora num lugar só: a asserção e o sensor dela usam ESTA constante. Escrita
   // duas vezes, mudar uma deixaria o sensor provando uma régua que a asserção já não usa.
   // (`match` com a flag `g` ignora e zera o `lastIndex`, então reusar a mesma instância é seguro.)
@@ -288,10 +296,29 @@ describe('PrivacyPolicyPage — a medição de audiência (PRV-01)', () => {
     return { paragrafos, texto: paragrafos.join(' ') }
   }
 
-  it('tem exatamente os três parágrafos aprovados, na ordem', () => {
+  it('tem exatamente quatro parágrafos: os três aprovados da `61` e o do contador (VIS-36), na ordem', () => {
     montar()
 
-    expect(textoDaSecao().paragrafos).toEqual(PARAGRAFOS_DA_MEDICAO)
+    expect(textoDaSecao().paragrafos).toEqual([...PARAGRAFOS_DA_MEDICAO, PARAGRAFO_DO_CONTADOR])
+  })
+
+  it('os três parágrafos da `61` continuam os três primeiros, sem mudança', () => {
+    montar()
+
+    expect(textoDaSecao().paragrafos.slice(0, 3)).toEqual(PARAGRAFOS_DA_MEDICAO)
+  })
+
+  it('o parágrafo do contador não chama a contagem de anônima nem promete "nunca registramos"', () => {
+    // Um código persistente junto de um IP é dado PSEUDONIMIZADO (LGPD, art. 12), não anônimo; e os
+    // logs da plataforma registram IP de qualquer requisição — a loja declara só o que controla.
+    montar()
+
+    const contador = textoDaSecao().paragrafos[3]
+    expect(contador).toBe(PARAGRAFO_DO_CONTADOR)
+    expect(contador).not.toMatch(/an[ôo]nim/i)
+    expect(contador).not.toMatch(/nunca registr/i)
+    expect(contador).toMatch(/são apagados depois de 8 dias/)
+    expect(contador).toMatch(/não guardo o seu IP junto dessa contagem/)
   })
 
   it('não afirma que a loja ENVIA ao Google dado pessoal ou o texto gravado', () => {

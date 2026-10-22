@@ -51,7 +51,7 @@ ausente seria indistinguível de run quebrado na aba Actions.
 
 ## Migrations
 
-49 arquivos em `migrations/`. **Nenhuma credencial no código.**
+64 arquivos em `migrations/` (contados em 2026-10-22, no fecho da `71`). **Nenhuma credencial no código.**
 
 > **A migration do banner principal (`41`) é o caso de "trocar um guarda sem ficar sem nenhum"**, e o
 > molde é o dos dois sentidos. `guard_hero_home_section` (`HOME-08`) tornava o hero indelével; ele foi
@@ -171,6 +171,7 @@ assere.
 | `sitemap` | `false` | **removida do repositório na `70`** — `/sitemap.xml` sai da função `api/page` da Vercel (`apps/store/CLAUDE.md`); ainda implantada no hospedado até ser apagada depois do deploy conferido |
 | `admin-users` | `false` | quem entra no painel — a **porta única** da service role (`AD-034`) |
 | `checkout` | `false` | cria **todo** pedido (convidada e logada), responde "este e-mail tem conta?" e devolve o pedido da convidada |
+| `visit` | `false` | grava uma **visita única** por navegador por dia (feature `71`, `AD-055`). A loja chama com **só** a chave publicável, e o handler **não lê** `Authorization` |
 
 **`verify_jwt = true` seria teatro de segurança** onde está `false`: a anon key publicada no `.env` da
 loja é um JWT válido que qualquer pessoa lê no bundle. Onde há papel a exigir, a checagem é **manual**
@@ -383,6 +384,58 @@ convidada e para quem tem sessão.
   retirada já gravada continua devolvendo o pedido) e antes da identidade. `pickup_enabled` ausente
   no jsonb vale como ligado — o default do TypeScript é resolvido aqui, porque `pickupRefusal` exige
   `true` estrito. Pedido dos Correios **não** lê configuração nenhuma.
+
+### `visit` — a visita única (feature `71`, `AD-055`)
+
+Grava `(dia de Brasília, id do navegador)` no máximo uma vez por dia. O desenho inteiro está em
+`.specs/features/71-visitas-unicas-no-dashboard/design.md` (C1–C11); o que vale para quem mexer aqui:
+
+- **Os portões têm ORDEM, e cada resposta escreve UMA linha de log** (menos o preflight):
+  `OPTIONS` ⇒ preflight · outro método ⇒ `405 inválido` · teto por IP ⇒ `429 limite` · corpo ⇒
+  `400 inválido` · `store_clock` ⇒ `500 erro` se falhar · robô ⇒ `200 robô` · origem fora do host
+  de produção (ou ausente) ⇒ `200 interno` · `record_store_visit` ⇒ `200 gravada | repetida | teto`.
+  A linha de log é `{"fn":"visit","desfecho":…}` e **nunca** carrega id, IP nem user agent (`VIS-29`).
+- **`verify_jwt = false` aqui é requisito, não conveniência**: a visita não pode carregar a
+  identidade de quem está logada (`VIS-13`), então a loja chama com a chave publicável e nada mais.
+  A justificativa está escrita no `config.toml`. O teste do handler dubla os cabeçalhos com um objeto
+  que **lança** ao ler `authorization` — é isso que prova "não lê", em todos os casos de uma vez.
+- **O dia não é calculado na function.** Quem decide é o banco (`store_day`, `store_day_start`,
+  `store_week_start`, todas lendo o fuso de `store_time_zone()`), e a function repassa o que
+  `store_clock()` e `record_store_visit()` devolvem: `{ dia, ate, agora }`, os dois últimos em
+  milissegundos **inteiros** (`::bigint`). O navegador converte o prazo por **duração** (`ate − agora`),
+  então relógio errado no aparelho não vira uma chamada por navegação.
+- **O host de produção é lido pelo servidor** (`store_production_host()`, via `store_clock`), nunca
+  confiado ao navegador. Até o dia do DNS ele é o domínio próprio e a loja roda no `.vercel.app`:
+  **tudo responde `interno` e nada é gravado** — é o estado esperado, e o painel diz isso.
+- **O teto por IP é cortesia** (30 por minuto, por isolate, `x-forwarded-for` é de quem chama). Sem
+  IP, **libera** — a forma da `checkout` (um balde único deixaria 30 visitantes sem cabeçalho
+  esgotarem a loja inteira). O `429` sai com o relógio de um `ClockCache` injetado, para a recusa não
+  ler o banco a cada vez. **Quem de fato segura a tabela é o teto de 5.000 linhas novas por dia**, no
+  banco: acima disso `teto`, e o dia fica anotado em `store_visit_counter.capped_day` para o painel
+  avisar (`VIS-44`).
+- **`_shared/rateLimit.ts` é o dono de `createRateLimiter`, `RateLimiter` e `clientIp`**, que moravam
+  na `checkout`; ela **reexporta** os três, e o teste compara por `toBe` (não `toEqual`: igualdade
+  estrutural passaria com uma cópia colada). Mesmo molde do `_shared/http.ts` para o CORS.
+- **A tabela é fechada**: `store_visits` e `store_visit_counter` com RLS ligada, `revoke all` de
+  `public`/`anon`/`authenticated` e **nenhuma** policy. Só `service_role` executa `record_store_visit`
+  e `store_clock`, e o `grant` é **explícito** — `revoke … from public` tira o `service_role` junto, e
+  sem o grant toda visita daria 500 com a migration aplicando limpa. `prune_store_visits` é
+  `security invoker` sem grant nenhum: quem a chama são as duas RPCs `definer` e o job.
+- **A poda roda em TRÊS caminhos**, sempre pela mesma função (8 dias: hoje e os 7 anteriores): dentro
+  da gravação, dentro da leitura do painel e, **onde o `pg_cron` já estiver instalado**, num job
+  diário `prune-store-visits`. A migration **não** cria a extensão (um `do $$` agenda só se ela
+  existir), então no hospedado o `notice` do `db push` é o que diz se o job nasceu. No banco local
+  ele existe (`cron.job`).
+- **A leitura do painel é `store_movement()`**, `security definer` com `has_role(auth.uid(), 'admin')`
+  **dentro** do corpo e `execute` só a `authenticated`. Devolve só escalares (contagens distintas por
+  período, vendas pela lista positiva, faturamento com `coalesce` para nunca `NULL`, ticket por
+  `round(…, 2)`), os dias como texto e `lido_em`/`expira_em`. Nenhuma linha atravessa a rede.
+- **Provas**: os probes em `.specs/features/71-visitas-unicas-no-dashboard/probes/` rodam em
+  `begin … rollback` contra a 54442, derrubando os objetos da `71` antes de aplicar a migration
+  dentro da transação — um probe sobre a migration já aplicada mede o banco, não o arquivo (um
+  `grant` apagado do arquivo sobreviveria). `function-visit.sh` prova a function **servida**
+  (`supabase functions serve`), semeando `production_host = 'localhost'` só no banco local e
+  restaurando por `trap`.
 
 ### A conta da cliente no banco (feature `59`, migration `20261004120000_59-minha-conta.sql`)
 

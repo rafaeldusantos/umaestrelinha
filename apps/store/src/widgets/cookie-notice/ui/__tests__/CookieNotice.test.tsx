@@ -184,13 +184,14 @@ describe('a folha "Preferências de cookies" (AVS-04)', () => {
       ),
     ).toBeInTheDocument()
     expect(within(f).getByText('Sempre ativos')).toBeInTheDocument()
-    // A categoria depende da configuração, que chega depois do primeiro render.
     expect(await within(f).findByText('Estatísticas')).toBeInTheDocument()
+    // Feature 71 (Apêndice A): a frase não chama de anônimo um código que é pseudonimizado.
     expect(
       within(f).getByText(
-        'Ajudam a entender como a loja é visitada, de forma anônima, para melhorá-la.',
+        'Ajudam a entender como a loja é visitada, para melhorá-la, sem identificar você pelo nome.',
       ),
     ).toBeInTheDocument()
+    expect(f.textContent).not.toMatch(/anônim/i)
     const interruptores = within(f).getAllByRole('switch')
     // UM interruptor: Necessários não tem.
     expect(interruptores).toHaveLength(1)
@@ -225,18 +226,46 @@ describe('a folha "Preferências de cookies" (AVS-04)', () => {
     await waitFor(() => expect(folha()).toBeNull())
   })
 
-  it('medição DESLIGADA no painel ⇒ a folha não mostra Estatísticas (AVS-02)', async () => {
-    settingsRows.atual = [{ key: 'analytics', value: { ...ANALYTICS, enabled: false } }]
+  /*
+   * Feature 71 · VIS-26 — INVERSÃO DECLARADA de `AVS-02` (feature 61). Este caso dizia "medição
+   * DESLIGADA ⇒ a folha NÃO mostra Estatísticas". O contador de visitas não depende do interruptor
+   * do GA4, e sem a categoria a cliente ficaria sem como recusá-lo — a política diz "desligue
+   * Estatísticas". O caso foi invertido, não apagado.
+   */
+  it('medição DESLIGADA no painel ⇒ a folha MOSTRA Estatísticas (VIS-26 inverte AVS-02)', async () => {
+    settingsRows.atual = [
+      { key: 'analytics', value: { ...ANALYTICS, enabled: false, measurement_id: '' } },
+    ]
     renderAviso()
     // O aviso continua existindo: os cookies necessários existem de qualquer forma.
     expect(aviso()).not.toBeNull()
     fireEvent.click(within(aviso()!).getByRole('button', { name: 'Preferências' }))
     await waitFor(() => expect(folha()).not.toBeNull())
-    // Dá tempo à configuração chegar (o padrão já é desligado — a asserção vale nos dois instantes).
+    // Dá tempo à configuração chegar: a asserção tem de valer DEPOIS de ela dizer "desligado".
     await new Promise(r => setTimeout(r, 20))
-    expect(within(folha()!).queryByText('Estatísticas')).toBeNull()
-    expect(within(folha()!).queryByRole('switch')).toBeNull()
+    expect(within(folha()!).getByText('Estatísticas')).toBeInTheDocument()
+    expect(within(folha()!).getByRole('switch', { name: 'Estatísticas' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    )
     expect(within(folha()!).getByText('Necessários')).toBeInTheDocument()
+  })
+
+  it('medição DESLIGADA: "Salvar escolhas" grava a escolha do interruptor (VIS-26)', async () => {
+    settingsRows.atual = [
+      { key: 'analytics', value: { ...ANALYTICS, enabled: false, measurement_id: '' } },
+    ]
+    renderAviso()
+    fireEvent.click(within(aviso()!).getByRole('button', { name: 'Preferências' }))
+    await waitFor(() => expect(folha()).not.toBeNull())
+    await new Promise(r => setTimeout(r, 20))
+    fireEvent.click(screen.getByRole('switch', { name: 'Estatísticas' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar escolhas' }))
+    expect(useCookieConsentStore.getState().statistics).toBe(false)
+    expect(JSON.parse(window.localStorage.getItem('estrelinha-cookie-consent')!)).toMatchObject({
+      notice: 'answered',
+      statistics: false,
+    })
   })
 
   it('sensor do caso acima: com a medição LIGADA, Estatísticas aparece', async () => {

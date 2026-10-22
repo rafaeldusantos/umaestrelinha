@@ -1,0 +1,27 @@
+linhas_hoje_entrada "0"
+S0_webdriver true
+S0_posts 0
+S1_webdriver false
+S1_posts_apos_6_paginas 1
+S1_posts_apos_reload_e_mais_1_pagina 1
+S1_requisicoes [{"corpo":"{\"id\":\"7100e2e0-0000-4000-8000-00000000000a\"}","status":200,"resposta":{"desfecho":"gravada","dia":"2026-10-22","ate":1792724400000,"agora":1792658463078},"authorization":null,"apikey_publicavel":true}]
+S1_marcador {"v":1,"id":"7100e2e0-0000-4000-8000-00000000000a","ate":1792724400010,"em":1792658463088}
+S1_linhas_de_A_hoje "1"
+S1_linhas_hoje_total "1"
+S1_scrollWidth [390,390,390]
+S1_rede {"ga":["/gtag/js","/gtag/js"],"bloqueadas":{"hgkrsfpupypxtygjgthf.supabase.co":10,"i.ytimg.com":10}}
+S2_marcador_antes {"v":1,"id":"0acd25e4-0e38-4653-8220-bd6342115593","ate":1792724400008,"em":1792658483438}
+S2_posts_antes 1
+S2_resposta_antes ["gravada"]
+S2_linha_do_id_novo_hoje "1"
+S2_switch_inicial "true"
+S2_switch_depois "false"
+S2_marcador_depois_da_recusa {"v":1,"id":null,"ate":1792724400008,"em":1792658483438}
+S2_posts_depois_da_recusa 1
+S2_marcador_final {"v":1,"id":null,"ate":1,"em":0}
+S3_frame "http://localhost:8082/?preview=1"
+S3_frame_tem_conteudo true
+S3_marcador_no_frame null
+S3_posts 0
+linhas_hoje_saida "2"
+contador "2026-10-22 08:41:03.078104+00 | 2026-10-22 08:41:23.430488+00"
