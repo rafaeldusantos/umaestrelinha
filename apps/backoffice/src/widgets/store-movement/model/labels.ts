@@ -20,12 +20,6 @@ export const VISIT_INFO_TEXT =
   'navegador novo. Quem recusa as estatísticas no aviso de cookies não é contado. As suas próprias ' +
   'visitas à loja também contam.'
 
-/** O que se desenha no lugar de um valor que não existe. */
-export const TICKET_VAZIO = '—'
-
-/** `VIS-07` — o texto `sr-only` ao lado do `—` do ticket sem venda. */
-export const SEM_VENDAS_TEXT = 'sem vendas no período'
-
 const INTEIRO = new Intl.NumberFormat('pt-BR')
 
 /** `VIS-07` — inteiro com separador de milhar pt-BR: `1.234`. */
@@ -50,24 +44,24 @@ export interface PeriodValues {
   visitas: string
   vendas: string
   faturamento: string
-  /** `null` sem venda: a tela desenha `TICKET_VAZIO` com `SEM_VENDAS_TEXT` em `sr-only`. */
-  ticket: string | null
+  ticket: string
 }
 
 /**
  * `VIS-07` — os quatro valores do período, escritos.
  *
  * O ticket é o valor que o BANCO arredondou (`round(soma / n, 2)`); `formatPrice` só formata.
- * Recalcular aqui seria uma segunda régua de arredondamento. Visitas é `—` enquanto o contador nunca
- * registrou nada (`VIS-39`): `0` afirmaria que ninguém visitou, e o que se sabe é que nada foi contado.
+ * Recalcular aqui seria uma segunda régua de arredondamento. Card sem valor mostra ZERO, nunca `—`
+ * (decisão do usuário, 2026-10-22): ticket sem venda é `R$ 0,00`, e Visitas com o contador nunca
+ * usado é `0` — quem explica por quê é `emptyCounterLine` (`VIS-39`), logo abaixo do número.
  */
 export const periodValues = (aba: MovementPeriodKey, m: StoreMovement): PeriodValues => {
   const p = m.periodos[aba]
   return {
-    visitas: m.contagem_desde === null ? TICKET_VAZIO : formatCount(p.visitas),
+    visitas: formatCount(p.visitas),
     vendas: formatCount(p.vendas),
     faturamento: formatPrice(p.faturamento),
-    ticket: p.ticket === null ? null : formatPrice(p.ticket),
+    ticket: formatPrice(p.ticket ?? 0),
   }
 }
 
@@ -86,7 +80,7 @@ export const countingSinceLine = (aba: MovementPeriodKey, m: StoreMovement): str
   return `Contando desde ${formatDayMonth(m.contagem_desde_dia)} às ${formatStoreHour(m.contagem_desde)}`
 }
 
-/** `VIS-39` — por que Visitas é `—`. O host é o que o BANCO usa, nunca o do hook de configurações. */
+/** `VIS-39` — por que Visitas está em `0`. O host é o que o BANCO usa, nunca o do hook de configurações. */
 export const emptyCounterLine = (m: StoreMovement): string | null => {
   if (m.contagem_desde !== null) return null
   const host = m.production_host.trim()

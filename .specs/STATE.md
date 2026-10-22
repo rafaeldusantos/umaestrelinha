@@ -1431,8 +1431,10 @@
      e contavam pedido criado, inclusive PIX não pago: ao lado do bloco, dariam duas respostas para
      "quanto vendi hoje?". Mais quatro assunções `n — confirmar` da spec, também pelo padrão: (b) o
      gráfico e o "Fat. do Mês" ficaram na régua antiga (`BL-046`); (c) pedido marcado como pago à
-     mão **não** conta em Vendas; (d) ticket sem venda é `—`, não `R$ 0,00`; (e) pedidos importados
-     da Nuvemshop **contam** em Vendas.
+     mão **não** conta em Vendas; (d) ~~ticket sem venda é `—`~~ — **decidido em 2026-10-22: card sem valor mostra ZERO**
+     (ticket `R$ 0,00`, Visitas `0` com o contador nunca usado); (e) pedidos importados da Nuvemshop
+     **contam** em Vendas — **confirmado em 2026-10-22**. Domínio canônico da loja: **sem www**
+     (`umaestrelinha.com.br`, decisão de 2026-10-22); o painel em `backoffice.umaestrelinha.com.br`.
   2. **Adri — o texto do Apêndice A da spec**, já na loja e **pré-condição do DEPLOY** (o contador
      começa a contar no primeiro acesso depois da publicação; `politicaDoContador.test.ts` impede o
      contador sem o parágrafo, mas não sabe se ela aprovou). O quarto parágrafo de "Medição de

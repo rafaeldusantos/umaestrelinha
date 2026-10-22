@@ -21,8 +21,6 @@ import { Button } from '@estrelinha/ui/button'
 import { useStoreMovement, type MovementPeriodKey, type StoreMovement as Movimento } from '@/entities/stats'
 import StatCard from '@/shared/ui/StatCard'
 import {
-  SEM_VENDAS_TEXT,
-  TICKET_VAZIO,
   VISIT_INFO_TEXT,
   cappedLine,
   countingSinceLine,
@@ -115,12 +113,7 @@ const Periodo = ({ aba, m }: { aba: MovementPeriodKey; m: Movimento | undefined 
           loading={carregando}
           value={
             <Valor>
-              {v?.ticket ?? (
-                <>
-                  <span aria-hidden="true">{TICKET_VAZIO}</span>
-                  <span className="sr-only">{SEM_VENDAS_TEXT}</span>
-                </>
-              )}
+              {v?.ticket}
             </Valor>
           }
           icon={Receipt}

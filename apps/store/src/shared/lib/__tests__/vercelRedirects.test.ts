@@ -412,12 +412,12 @@ describe('vercel.json — a loja autoriza ser embutida pelo painel (BL-013)', ()
    * pode ser o objeto medido. Trocar o domínio do painel no `vercel.json` sem passar por aqui é
    * precisamente o erro que este teste existe para pegar.
    */
-  const PAINEL = 'https://umaestrelinha-backoffice.vercel.app'
+  // O domínio próprio do painel (2026-10-22) e o `.vercel.app`, que segue respondendo na transição.
+  const PAINEIS = ['https://backoffice.umaestrelinha.com.br', 'https://umaestrelinha-backoffice.vercel.app']
 
-  it('declara `frame-ancestors` com a origem do painel', () => {
+  it('declara `frame-ancestors` com as origens do painel — e só elas, além de `self`', () => {
     expect(csp).toBeDefined()
-    expect(csp.value).toContain('frame-ancestors')
-    expect(csp.value).toContain(PAINEL)
+    expect(csp.value).toBe(`frame-ancestors 'self' ${PAINEIS.join(' ')}`)
   })
 
   it('`X-Frame-Options` não coexiste — o enquadramento tem UM dono', () => {

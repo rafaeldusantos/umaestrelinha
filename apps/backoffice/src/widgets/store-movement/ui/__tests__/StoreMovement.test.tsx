@@ -227,7 +227,7 @@ describe('VIS-06 — a leitura falha', () => {
 })
 
 describe('VIS-07, VIS-39, VIS-44 — o que se desenha', () => {
-  it('período sem venda: Vendas `0`, Faturamento `R$ 0,00`, Ticket `—` com o texto `sr-only`', async () => {
+  it('período sem venda: Vendas `0`, Faturamento `R$ 0,00`, Ticket `R$ 0,00` — nunca `—`', async () => {
     rpc.mockResolvedValue({
       data: movimento({ periodos: { hoje: periodo({ visitas: 5 }), ontem: periodo(), semana: periodo() } }),
       error: null,
@@ -239,14 +239,11 @@ describe('VIS-07, VIS-39, VIS-44 — o que se desenha', () => {
     expect(visitas.valor).toBe('5')
     expect(vendas.valor).toBe('0')
     expect(faturamento.valor).toBe(reais('R$ 0,00'))
-    const p = ticket.el.querySelectorAll('p')[1]
-    const travessao = within(p as HTMLElement).getByText('—')
-    expect(travessao.getAttribute('aria-hidden')).toBe('true')
-    const leitor = within(p as HTMLElement).getByText('sem vendas no período')
-    expect(temToken(leitor, 'sr-only')).toBe(true)
+    expect(ticket.valor).toBe(reais('R$ 0,00'))
+    expect(secao().textContent).not.toContain('—')
   })
 
-  it('contador nunca usado: Visitas `—` (nunca `0`), e o texto que diz por quê', async () => {
+  it('contador nunca usado: Visitas `0` (nunca `—`), e o texto que diz por quê', async () => {
     rpc.mockResolvedValue({
       data: movimento({
         contagem_desde: null, contagem_desde_dia: null, ultima_visita: null, ultima_visita_dia: null,
@@ -257,7 +254,7 @@ describe('VIS-07, VIS-39, VIS-44 — o que se desenha', () => {
     montar()
     await screen.findByText('Hoje, 21/10')
 
-    expect(cards()[0].valor).toBe('—')
+    expect(cards()[0].valor).toBe('0')
     expect(
       screen.getByText('Nenhuma visita registrada ainda. O contador só conta na loja em umaestrelinha.com.br.'),
     ).toBeTruthy()

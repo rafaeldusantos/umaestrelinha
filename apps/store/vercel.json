@@ -49,7 +49,7 @@
         { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
         {
           "key": "Content-Security-Policy",
-          "value": "frame-ancestors 'self' https://umaestrelinha-backoffice.vercel.app"
+          "value": "frame-ancestors 'self' https://backoffice.umaestrelinha.com.br https://umaestrelinha-backoffice.vercel.app"
         }
       ]
     }

@@ -107,10 +107,10 @@ Toda ambiguidade fica resolvida aqui ou registrada como assunção.
 | Definição de **Vendas** | Lista positiva: `payment_status = 'approved'` **e** `status <> 'cancelled'`, no dia de `paid_at` (`VIS-31`). É o mesmo critério de dinheiro da tela de Clientes (`CLI-04`, migration da `34`) | Pedido criado e não pago não é venda | n |
 | Pedido marcado como pago à mão | **Não conta.** Mover para `paid` no painel grava só `status`, sem `paid_at` e sem `payment_status = 'approved'`. O painel já avisa que esse pagamento não veio do Mercado Pago | Contar exigiria uma segunda definição de "pago" | **n — confirmar com o usuário** |
 | Pedido pago e depois cancelado ou estornado | **Sai do período em que foi pago**, e o número de um dia fechado muda (fixture em `VIS-31`) | Lista positiva. Um estorno não é venda | n |
-| **Pedidos importados da Nuvemshop** | **Contam em Vendas.** No banco local, 40 dos 44 pedidos `approved` têm `nuvemshop_id`. Até o dia do DNS, se o importador rodar, o bloco pode mostrar vendas com Visitas em `—` (o texto de `VIS-39` diz por quê) | São vendas da loja, e a tela de Clientes os conta pelo mesmo critério (`CLI-04`). Filtrar daria duas respostas para "quanto vendi?" no mesmo painel | **n — confirmar com o usuário** |
+| **Pedidos importados da Nuvemshop** | **Contam em Vendas.** No banco local, 40 dos 44 pedidos `approved` têm `nuvemshop_id`. Até o dia do DNS, se o importador rodar, o bloco pode mostrar vendas com Visitas em `0` (o texto de `VIS-39` diz por quê) | São vendas da loja, e a tela de Clientes os conta pelo mesmo critério (`CLI-04`). Filtrar daria duas respostas para "quanto vendi?" no mesmo painel | **s — confirmado pelo usuário em 2026-10-22** |
 | Pedidos de homologação e de preview | **Contam em Vendas**, porque escrevem no mesmo banco. Visitas excluem esse tráfego. A conversão que a dona calcula de cabeça sai um pouco inflada | Separar exigiria marcar a origem do pedido, que não existe hoje | n |
 | Definição de **Faturamento** | Soma de `orders.total` (numeric, em reais, com frete) das vendas acima | Mesma base do painel | n |
-| **Ticket médio sem venda** | **`—`**, com texto `sr-only` "sem vendas no período" (`VIS-07`). O rascunho dizia `R$ 0,00` | É o precedente da tela de Clientes (`avg_ticket` NULL e travessão, migration da `34`): ticket de R$ 0,00 afirma uma média que não existe | **n — confirmar com o usuário** |
+| **Ticket médio sem venda** | **`R$ 0,00`** — decisão do usuário em 2026-10-22: card sem valor mostra ZERO, nunca `—` (vale também para Visitas com o contador nunca usado, `VIS-39`) | É o precedente da tela de Clientes (`avg_ticket` NULL e travessão, migration da `34`): ticket de R$ 0,00 afirma uma média que não existe | **s — decidido pelo usuário em 2026-10-22 (reverte o `—`)** |
 | Arredondamento do ticket | `round(soma / vendas, 2)` **no banco**, metade para longe de zero (o `round(numeric)` do Postgres). A tela só formata com `formatPrice` | `formatPrice` formata e não arredonda | y (requisito) |
 | Retenção | **8 dias** (hoje e os 7 anteriores). A limpeza roda **dentro da própria gravação** (`VIS-30`), dentro da leitura do painel e, **onde `pg_cron` já estiver instalado**, num job diário (a migration não cria a extensão) | O período mais antigo que o bloco lê começa no máximo 6 dias atrás. O job sozinho não basta: no hospedado não se sabe se a extensão existe, e o molde segue em silêncio quando ela falta. No banco local ela existe (`pg_cron 1.6.4`) | n |
 | Início da contagem e última visita | Dois instantes gravados fora da tabela de visitas: `started_at` (gravado uma vez, nunca recalculado) e `last_recorded_at` (atualizado a cada linha nova), mais o dia do teto (`VIS-44`). São instantes **da loja**, sem ligação com id nenhum | `min(day)` de uma tabela que é podada avança sozinho. A última visita é o que distingue "zero visitas" de "contador quebrado" | y (requisito) |
@@ -198,7 +198,7 @@ o movimento está bom.
    - **Ticket médio**: `formatPrice` do valor **que o banco devolveu**.
 
    WHEN o período não tem venda THEN Vendas SHALL ser `0`, Faturamento `R$ 0,00`, e Ticket médio
-   SHALL ser `—` com o texto `sr-only` "sem vendas no período". WHEN o contador está ativo e o
+   SHALL ser `R$ 0,00` (decisão do usuário, 2026-10-22: card sem valor mostra zero, nunca `—`). WHEN o contador está ativo e o
    período não tem visita THEN Visitas SHALL ser `0`. (Contador parado ou nunca usado: `VIS-39`.)
 8. **VIS-08** WHEN a dona aciona o ⓘ de **Visitas únicas** THEN o painel SHALL:
    - usar um `<button>` com `aria-label="O que conta como visita única"` e `aria-expanded`, com alvo
@@ -564,7 +564,7 @@ de uma configuração errada.
    - **Ontem** e **Esta semana** mostram "Contando desde 21/10 às 15h32";
    - **Hoje** (que começa em 22/10 00:00) **não** mostra.
 2. **VIS-39** WHEN `contagem_desde` é NULL (nenhuma visita registrada ainda) THEN o valor de Visitas
-   únicas SHALL ser `—`, **nunca** `0`, com um destes textos:
+   únicas SHALL ser `0` (decisão do usuário, 2026-10-22; era `—`), com um destes textos:
    - com `production_host` preenchido: "Nenhuma visita registrada ainda. O contador só conta na loja
      em {production_host}.";
    - com `production_host` vazio: "O contador está parado: falta configurar o endereço de produção

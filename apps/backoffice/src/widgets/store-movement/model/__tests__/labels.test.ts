@@ -103,22 +103,20 @@ describe.each(FUSOS)('no fuso de processo %s', (fuso) => {
       expect(L.periodValues('ontem', m).faturamento).toBe(reais('R$ 1.234,56'))
     })
 
-    it('sem venda: Vendas `0`, Faturamento `R$ 0,00`, Ticket `null` (a tela desenha `—` + sr-only)', () => {
+    it('sem venda: Vendas `0`, Faturamento `R$ 0,00`, Ticket `R$ 0,00` (nunca `—`)', () => {
       const m = base({ periodos: { hoje: periodo({ visitas: 0 }), ontem: periodo(), semana: periodo() } })
       expect(L.periodValues('hoje', m)).toEqual({
         visitas: '0',
         vendas: '0',
         faturamento: reais('R$ 0,00'),
-        ticket: null,
+        ticket: reais('R$ 0,00'),
       })
-      expect(L.TICKET_VAZIO).toBe('—')
-      expect(L.SEM_VENDAS_TEXT).toBe('sem vendas no período')
     })
 
-    it('VIS-39: contador nunca usado ⇒ Visitas `—`, NUNCA `0`', () => {
-      const m = base({ contagem_desde: null, contagem_desde_dia: null })
-      expect(L.periodValues('hoje', m).visitas).toBe('—')
-      expect(L.periodValues('semana', m).visitas).toBe('—')
+    it('VIS-39: contador nunca usado ⇒ Visitas `0`, NUNCA `—`', () => {
+      const m = base({ contagem_desde: null, contagem_desde_dia: null, periodos: { hoje: periodo(), ontem: periodo(), semana: periodo() } })
+      expect(L.periodValues('hoje', m).visitas).toBe('0')
+      expect(L.periodValues('semana', m).visitas).toBe('0')
     })
   })
 
