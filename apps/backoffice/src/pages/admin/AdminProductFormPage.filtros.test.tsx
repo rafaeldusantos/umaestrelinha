@@ -10,7 +10,7 @@
 
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { PRODUCT_POOL_KEY } from '@/entities/product'
 
@@ -20,6 +20,10 @@ const h = vi.hoisted(() => ({
   grupos: [] as unknown[],
   /** Feature 67: a tabela cuja escrita responde erro. */
   falhar: null as string | null,
+  /** Quantas leituras de `products` o formulário fez — a carga e a releitura depois do save. */
+  leituras: 0,
+  /** A partir de qual leitura `products` responde erro (`null` = nunca). */
+  falharLeituraDesde: null as number | null,
 }))
 
 vi.mock('@estrelinha/supabase/client', () => {
@@ -44,8 +48,14 @@ vi.mock('@estrelinha/supabase/client', () => {
     b.update = (p: unknown) => ((op = 'update'), (payload = p), b)
     b.upsert = (p: unknown) => ((op = 'upsert'), (payload = p), b)
     b.delete = () => ((op = 'delete'), b)
-    b.maybeSingle = () =>
-      Promise.resolve(table === 'products' && op === 'select' ? { data: h.produto, error: null } : fim())
+    b.maybeSingle = () => {
+      if (table !== 'products' || op !== 'select') return Promise.resolve(fim())
+      h.leituras += 1
+      if (h.falharLeituraDesde !== null && h.leituras >= h.falharLeituraDesde) {
+        return Promise.resolve({ data: null, error: { message: 'boom' } })
+      }
+      return Promise.resolve({ data: h.produto, error: null })
+    }
     b.then = (ok: (v: unknown) => unknown, ko?: (e: unknown) => unknown) => Promise.resolve(fim()).then(ok, ko)
     return b
   }
@@ -87,6 +97,8 @@ const valor = (id: string, group_id: string, name: string, sort_order: number) =
 
 beforeEach(() => {
   h.falhar = null
+  h.leituras = 0
+  h.falharLeituraDesde = null
   vi.mocked(toast).mockClear()
   window.sessionStorage.clear()
   window.localStorage.clear()
@@ -108,6 +120,8 @@ beforeEach(() => {
   }
 })
 
+const Endereco = () => <output data-testid="endereco">{useLocation().pathname}</output>
+
 const montar = (rota: string) => {
   const client = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity } } })
   client.setQueryData(PRODUCT_POOL_KEY, [])
@@ -119,6 +133,7 @@ const montar = (rota: string) => {
           <Route path="/admin/produtos/:id/editar" element={<AdminProductFormPage />} />
           <Route path="/admin/produtos" element={<p>lista</p>} />
         </Routes>
+        <Endereco />
       </MemoryRouter>
     </QueryClientProvider>,
   )
@@ -131,7 +146,8 @@ const salvarRascunho = async () => {
   await act(async () => {
     fireEvent.click(screen.getByRole('button', { name: 'Salvar rascunho' }))
   })
-  await waitFor(() => expect(screen.getByText('lista')).toBeInTheDocument())
+  // Salvar não sai mais da página: o fim do save é o aviso de sucesso.
+  await waitFor(() => expect(toast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Rascunho salvo' })))
 }
 
 describe('FLT-11 — o bloco na aba Geral', () => {
@@ -359,7 +375,7 @@ describe('VFL-01/03/08 — as marcações por opção pela página do produto', 
       ),
     )
     expect(screen.queryByText('lista')).toBeNull()
-    expect(toast).not.toHaveBeenCalledWith(expect.objectContaining({ title: 'Produto atualizado!' }))
+    expect(toast).not.toHaveBeenCalledWith(expect.objectContaining({ title: 'Rascunho salvo' }))
     expect(
       within(linha('Cor = Folheado a Ouro')).getByRole('button', { name: 'Acabamento › Folheado a ouro' }),
     ).toHaveAttribute('aria-pressed', 'true')
@@ -475,5 +491,50 @@ describe('SVR-37/38 — quais opções ganham página própria no Google', () =>
     await waitFor(() => expect(secao()).toBeInTheDocument())
     expect(within(secao()).queryByText(TEM_PAGINA)).toBeNull()
     expect(within(secao()).queryByText(SO_O_PRIMEIRO)).toBeNull()
+  })
+})
+
+// Salvar NÃO volta para a listagem: a página continua aberta, com o aviso de sucesso dizendo o que
+// mudou na loja. A releitura do banco depois do save é o que troca o id provisório das variações
+// novas pelo real — sem ela o segundo save inseriria a grade de novo.
+describe('Salvar mantém a página do produto aberta', () => {
+  it('editando: fica na página, avisa e relê o produto do banco', async () => {
+    montar('/admin/produtos/p1/editar')
+    await waitFor(() => expect(screen.getByDisplayValue('Anel Coração')).toBeInTheDocument())
+    expect(h.leituras).toBe(1)
+
+    // O que o banco devolve na releitura — se a tela mostrar isto, ela releu.
+    h.produto = { ...h.produto, name: 'Anel Coração (do banco)' }
+    await salvarRascunho()
+
+    expect(screen.getByTestId('endereco')).toHaveTextContent('/admin/produtos/p1/editar')
+    expect(screen.queryByText('lista')).toBeNull()
+    expect(toast).toHaveBeenCalledWith({
+      title: 'Rascunho salvo',
+      description: 'O produto fica fora da loja até você publicar.',
+    })
+    expect(h.leituras).toBe(2)
+    await waitFor(() => expect(screen.getByDisplayValue('Anel Coração (do banco)')).toBeInTheDocument())
+    expect(screen.queryByText(/Alterações não salvas/)).toBeNull()
+  })
+
+  it('produto novo: vai para a rota de edição dele, para o próximo save não criar outro', async () => {
+    // Duplicar é o caminho de produto novo que já nasce publicável num rascunho.
+    montar('/admin/produtos/novo?from=p1')
+    await waitFor(() => expect(screen.getByDisplayValue(/Anel Coração/)).toBeInTheDocument())
+    await salvarRascunho()
+
+    await waitFor(() => expect(screen.getByTestId('endereco')).toHaveTextContent('/admin/produtos/novo/editar'))
+    expect(screen.queryByText('lista')).toBeNull()
+    expect(h.diario.filter(e => e.table === 'products' && e.op === 'insert')).toHaveLength(1)
+  })
+
+  it('se a releitura falha, volta para a listagem em vez de ficar com a grade provisória', async () => {
+    h.falharLeituraDesde = 2
+    montar('/admin/produtos/p1/editar')
+    await waitFor(() => expect(screen.getByDisplayValue('Anel Coração')).toBeInTheDocument())
+    await salvarRascunho()
+
+    await waitFor(() => expect(screen.getByText('lista')).toBeInTheDocument())
   })
 })

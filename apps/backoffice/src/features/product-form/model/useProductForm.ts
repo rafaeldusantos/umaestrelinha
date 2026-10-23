@@ -287,6 +287,10 @@ export const productRowToForm = (row: any, opts: { asCopy?: boolean } = {}): Pro
 })
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
+/** A leitura do formulário — a mesma na carga e na releitura depois do save. */
+const fetchRow = (id: string) =>
+  supabase.from('products').select(PRODUCT_FORM_SELECT).eq('id', id).maybeSingle()
+
 export interface UseProductFormResult {
   form: ProductFormState
   /** Um campo por vez, tipado pela chave — é o que as abas chamam. */
@@ -311,6 +315,13 @@ export interface UseProductFormResult {
    * "Alterações não salvas" tem de dizer.
    */
   replaceForm: (next: ProductFormState) => void
+  /**
+   * Relê o produto em edição do banco, sem passar por `loading` (que trocaria a página por
+   * "Carregando…"). Chamado depois do save, para a página continuar aberta: as variações novas
+   * nascem com id provisório, e só a releitura troca pelo id real — sem ela o próximo save
+   * inseriria a grade de novo. Devolve `false` se a leitura falhou.
+   */
+  reload: () => Promise<boolean>
   loading: boolean
   isEdit: boolean
   /** Editando um produto existente: o id dele. Duplicando ou criando: `null`. */
@@ -333,6 +344,27 @@ export const useProductForm = (
   // sem tocar em nada dispararia a guarda de saída da T24 e o badge "Alterações não salvas".
   const loadingRef = useRef(false)
 
+  const adopt = useCallback(
+    (data: Parameters<typeof productRowToForm>[0], opts: { asCopy: boolean }) => {
+      const loaded = productRowToForm(data, opts)
+      setForm(loaded)
+      // Duplicar cria linhas NOVAS: o snapshot fica vazio de propósito, senão o diff acharia
+      // que a grade da cópia já existe no banco e tentaria dar `update` nos ids da origem.
+      if (productId) {
+        setSavedSnapshot({
+          categoryIds: loaded.category_ids,
+          variants: loaded.variants,
+          slug: loaded.slug,
+          faqIds: loaded.faqs.map(f => f.faq_id),
+          filterValueIds: loaded.filter_value_ids,
+          optionMarks: loaded.option_marks,
+          options: loaded.options,
+        })
+      }
+    },
+    [productId],
+  )
+
   useEffect(() => {
     const loadId = productId || copyFromId
     if (!loadId) {
@@ -343,32 +375,12 @@ export const useProductForm = (
     let cancelled = false
     const load = async () => {
       loadingRef.current = true
-      const { data, error } = await supabase
-        .from('products')
-        .select(PRODUCT_FORM_SELECT)
-        .eq('id', loadId)
-        .maybeSingle()
+      const { data, error } = await fetchRow(loadId)
 
       if (!cancelled) {
         // Falha de leitura deixa o formulário nos defaults em vez de travar em "Carregando…" —
         // o admin ainda consegue sair da tela.
-        if (!error && data) {
-          const loaded = productRowToForm(data, { asCopy: !!copyFromId && !productId })
-          setForm(loaded)
-          // Duplicar cria linhas NOVAS: o snapshot fica vazio de propósito, senão o diff acharia
-          // que a grade da cópia já existe no banco e tentaria dar `update` nos ids da origem.
-          if (productId) {
-            setSavedSnapshot({
-              categoryIds: loaded.category_ids,
-              variants: loaded.variants,
-              slug: loaded.slug,
-              faqIds: loaded.faqs.map(f => f.faq_id),
-              filterValueIds: loaded.filter_value_ids,
-              optionMarks: loaded.option_marks,
-              options: loaded.options,
-            })
-          }
-        }
+        if (!error && data) adopt(data, { asCopy: !!copyFromId && !productId })
         setLoading(false)
       }
       loadingRef.current = false
@@ -377,7 +389,16 @@ export const useProductForm = (
     return () => {
       cancelled = true
     }
-  }, [productId, copyFromId])
+  }, [productId, copyFromId, adopt])
+
+  const reload = useCallback(async () => {
+    if (!productId) return false
+    const { data, error } = await fetchRow(productId)
+    if (error || !data) return false
+    adopt(data, { asCopy: false })
+    setIsDirty(false)
+    return true
+  }, [productId, adopt])
 
   const setFields = useCallback((patch: Partial<ProductFormState>) => {
     setForm(current => ({ ...current, ...patch }))
@@ -412,6 +433,7 @@ export const useProductForm = (
     savedSnapshot,
     markSaved,
     replaceForm,
+    reload,
     loading,
     isEdit: !!productId,
     productId: productId ?? null,

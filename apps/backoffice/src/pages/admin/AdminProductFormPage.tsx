@@ -72,6 +72,18 @@ const TABS: { id: TabId; label: string }[] = [
 
 const slugify = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
 
+/** O aviso de sucesso diz o que mudou NA LOJA, que é a pergunta de quem acabou de salvar. */
+const savedToast = (isEdit: boolean, intent: 'draft' | 'publish') =>
+  intent === 'publish'
+    ? {
+        title: isEdit ? 'Produto atualizado' : 'Produto criado',
+        description: isEdit ? 'As alterações já estão na loja.' : 'O produto já está na loja.',
+      }
+    : {
+        title: 'Rascunho salvo',
+        description: 'O produto fica fora da loja até você publicar.',
+      }
+
 const AdminProductFormPage = () => {
   const { id } = useParams()
   const [searchParams] = useSearchParams()
@@ -83,7 +95,7 @@ const AdminProductFormPage = () => {
   // 11/T21: o estado saiu da página. Eram ~30 campos num `useState` só, e é por isso que PFM-11
   // (validar campo de aba FECHADA) não tinha onde morar — o `Tabs` do Radix desmonta o conteúdo
   // inativo e leva o `required` do input com ele.
-  const { form, setField, setFields, isDirty, savedSnapshot, markSaved, replaceForm, loading, isEdit } =
+  const { form, setField, setFields, isDirty, savedSnapshot, markSaved, replaceForm, reload, loading, isEdit } =
     useProductForm(id, fromId)
   // Feature 67: a projeção das marcações por opção — renomear eixo leva junto (`VFL-05`), remover
   // texto apaga (`VFL-06`). O bloco e o save leem ESTA lista, nunca o campo cru, então o que a tela
@@ -292,7 +304,6 @@ const AdminProductFormPage = () => {
       }
     }
 
-    toast({ title: isEdit ? 'Produto atualizado!' : 'Produto criado!' })
     // P1.7 AC 8: o rascunho existe para sobreviver a um F5, não a um save. Mantê-lo depois do
     // save faria a próxima abertura oferecer de volta um estado que já é o do banco.
     draft.discard()
@@ -306,7 +317,24 @@ const AdminProductFormPage = () => {
       optionMarks: optionMarksVigentes,
       options: form.options,
     })
-    navigate('/admin/produtos')
+
+    // Salvar mantém a página aberta. A releitura não é enfeite: as variações novas nasceram com id
+    // provisório, e sem trocar pelo id real o próximo save inseriria a grade de novo. Produto novo
+    // vai para a própria rota de edição — ficar em `/novo` faria o segundo save criar outro produto
+    // —, e a troca de `id` já relê pelo efeito do `useProductForm`.
+    if (!savedId) {
+      toast(savedToast(isEdit, intent))
+      navigate('/admin/produtos')
+    } else if (!isEdit) {
+      toast(savedToast(false, intent))
+      navigate(`/admin/produtos/${savedId}/editar`, { replace: true })
+    } else if (await reload()) {
+      toast(savedToast(true, intent))
+    } else {
+      // Gravou, mas não deu para reler: continuar na página arriscaria a grade duplicada.
+      toast(savedToast(true, intent))
+      navigate('/admin/produtos')
+    }
     setSaving(false)
   }
 
