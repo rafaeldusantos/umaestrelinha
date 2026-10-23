@@ -1,0 +1,33 @@
+— forma e dia
+ok — hoje é o dia de Brasília do instante
+ok — mês AAAA-MM
+ok — expira na próxima 00:00 de Brasília
+ok — lido_em é p_agora
+ok — as chaves de topo são as de OVERVIEW_KEYS.topo
+— semana (7 dias, do mais antigo a hoje, virada às 00:00 de Brasília)
+ok — 7 dias
+ok — 21:30 e 23:59 caem no dia 28; 00:00 no dia 1; o cancelado e o pago depois do instante ficam fora; o dia sem venda vem com 0; segunda é dow 1; X2 soma no dia 2
+ok — chaves do dia
+— mês (do dia 1 de Brasília até agora)
+ok — março: C + E2 + F2 + G3 + X2 = 5 vendas, R$ 550 (sem as de fevereiro, o cancelado e o futuro)
+ok — chaves do mês
+— clientes novas (primeira venda da vida no mês)
+ok — só c73 e g3: a convidada de fevereiro (e-mail com outra caixa), a cadastrada que adotou o pedido antigo e a conta x@ com pedido de fevereiro pelo customer_id (e-mail y@) não contam
+— joias mais pedidas no mês
+ok — a órfã pelo nome congelado, o produto pelo nome do catálogo (variações somadas), empate por nome — também no corte do 4º (o Berloque empatado fica fora) —, limit 4
+ok — a chave: uuid do produto, ou nome: da órfã
+ok — chaves da joia
+— a fila (por diferença: ela não tem recorte de data)
+ok — cada bloco ganhou o seu pedido (Q5 está em dois)
+ok — a UNIÃO ganhou 4 (Q1, Q2, Q3, Q5), não 5 — Q5 conta uma vez; Q4 (Pix) e Q6 (com rastreio) fora
+ok — chaves da fila
+— a fila bate com o PostgREST de hoje (o mesmo `orders`, contado do jeito do painel)
+ok — as quatro contagens, a idade e a união = as consultas do painel (fetchTiles e a visão)
+— últimos pedidos
+ok — os 4 mais recentes por created_at, de qualquer estado (Pix pendente incluso)
+ok — chaves do pedido recente
+— a recusa
+ok — anon: 42501 (sem execute)
+ok — cliente (sem papel admin): 42501 do has_role
+— restaurado
+ok — nenhum pedido PRB- sobrou: 0

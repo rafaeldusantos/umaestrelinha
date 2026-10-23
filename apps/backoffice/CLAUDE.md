@@ -207,6 +207,15 @@ Faturamento e Ticket médio, nas abas Hoje · Ontem · Esta semana (`widgets/sto
   horizontal, `R$ 99.999,99` numa linha dentro de um card de 165px.
 - ⚠️ **Toda RPC nova que o painel chama quebra `marcacaoSoPorAcao.test.ts`, na suíte da LOJA**: a
   lista literal de RPCs é comparada por igualdade (feature `67`). Aconteceu duas vezes na `71`.
+- **Desde a `73` (`AD-057`), os dois hooks e o tipo moram em `packages/core`**, porque o app do
+  ateliê lê o mesmo bloco: `useStoreMovement` e `STORE_MOVEMENT_KEY` em `core/hooks/useStoreMovement.ts`,
+  `useOrdersRealtime` em `core/hooks/useOrdersRealtime.ts` (o NOME do canal virou parâmetro — o
+  Dashboard passa `ORDERS_REALTIME_CHANNEL`, o app passa o dele) e `StoreMovement` em
+  `core/stats/movement.ts`. O painel **reexporta** pelos caminhos de antes (`entities/stats`,
+  `entities/order`), e `entities/__tests__/reexportaDeCore.test.ts` exige a MESMA referência (`toBe`).
+  Os testes dos dois hooks mudaram de casa sem asserção tocada; `AdminDashboard.test.tsx` não mudou.
+  `useStoreMovement` ganhou `{ retry }` opcional, com padrão `1`: o painel não muda, e o app passa o
+  dele.
 
 ## Molde dos formulários
 
@@ -973,6 +982,16 @@ conta — fazer isso seria o "defeito 01" nascendo dentro da tela que existe par
   forma (prefixo, `!`, valor arbitrário, `style`).
 
 ## Pedidos e a fila de material
+
+- **A regra dos blocos da fila é DADO em `core/orders/queue.ts`** (feature `73`, `AD-057`):
+  `QUEUE_BLOCKS` (id, rótulo, frase, acento, regra), `toPostgrestFilter` e `needsActionOrFilter`.
+  `orderQuery.ts` monta `PRECISA_ACAO_OR` e `QUEUE_TILES` a partir dela (o `apply`, que é estado da
+  tela, fica aqui), e `fetchTiles` conta cada bloco com `toPostgrestFilter(bloco.rule)`. A RPC
+  `store_overview` conta os mesmos blocos em SQL, com a cópia guardada byte a byte por
+  `filaComDonoUnico.test.ts` (suíte da loja). **Mudar um bloco é mudar `core`**: o painel e o celular
+  mudam juntos, e a migration precisa de uma migration nova com o SQL de `toSqlPredicate`. As duas
+  formas de hoje (o bloco "Pago, a separar" com `in (…)` e a união com `is null or in (…)`) foram
+  **preservadas**; medido na `73`, a diferença é zero no local e em produção.
 
 - **`orders.material_tracking_code` NÃO é `orders.tracking_code`.** A primeira é a remessa **de
   entrada** (cliente → ateliê, o envelope com o material); a segunda é a **de saída** e alimenta o

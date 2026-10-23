@@ -171,6 +171,9 @@ const RPCS = [
   // Feature 71, task 22 — a leitura do bloco "Movimento da loja" no Dashboard do painel. Só lê, e é
   // admin: o `has_role` está no corpo dela.
   'store_movement',
+  // Feature 73 — o resumo do ateliê (`core/hooks/useStoreOverview.ts`), lido pela Início do app do
+  // celular. Só lê, e é admin: o `has_role` está no corpo dela (`overviewSchema.test.ts`).
+  'store_overview',
   'track_abandoned_cart',
   'upsert_promotion',
 ]

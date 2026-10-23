@@ -110,7 +110,27 @@ describe('a barra e a área do sistema (MAF-15)', () => {
 })
 
 describe('as abas nesta feature (MAF-18)', () => {
-  it.each(TABS.map((t) => [t.path, t.label]))('%s mostra o título "%s" e o estado em construção, sem dado nenhum', async (caminho, titulo) => {
+  // MUDANÇA DE ASSERÇÃO DECLARADA (feature `73`, T18): a Início saiu do "em construção" — ela agora
+  // lê `store_movement` e `store_overview` (provado em `pages/__tests__/InicioPage.test.tsx`). Saem
+  // daqui SÓ o `/` e a régua `leiturasDeDado()` dele. As outras três abas continuam com a régua
+  // inteira, e a vizinha abaixo escreve as três por extenso: derivar de TABS deixaria uma quarta aba
+  // nova (ou a saída de uma delas) passar calada.
+  const EM_CONSTRUCAO = TABS.filter((t) => t.path !== '/')
+
+  it('as abas que seguem em construção são exatamente Pedidos, Clientes e Descontos', () => {
+    expect(EM_CONSTRUCAO.map((t) => [t.path, t.label])).toEqual([
+      ['/pedidos', 'Pedidos'],
+      ['/clientes', 'Clientes'],
+      ['/descontos', 'Descontos'],
+    ])
+  })
+
+  it('a Início NÃO é mais "em construção"', async () => {
+    await montarApp('/')
+    expect(screen.getByRole('main').textContent).not.toContain('Esta parte do app chega em breve.')
+  })
+
+  it.each(EM_CONSTRUCAO.map((t) => [t.path, t.label]))('%s mostra o título "%s" e o estado em construção, sem dado nenhum', async (caminho, titulo) => {
     await montarApp(caminho)
     const main = screen.getByRole('main')
     expect(within(main).getByRole('heading', { level: 1 })).toHaveTextContent(titulo)

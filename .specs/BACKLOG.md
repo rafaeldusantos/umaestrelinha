@@ -1984,3 +1984,22 @@ daquele bug. Família do "dublê que não enxerga torna a regra inauditável".
 
 **Por que ficou de fora**: X09 é anterior à `72` e o conserto é de prova, não de produto; a r3 era a
 última rodada do loop.
+
+## BL-050 — A semântica de `store_overview` é provada só por probe, fora do CI
+
+- **Status**: aberto · **Registrado em**: 2026-10-22 · **Origem**: verificação r1 da feature `73`
+  (lacuna 2), lição `L-059`.
+
+Seis mutantes da migration `20261023120000_73-resumo-do-atelie.sql` — S01 (borda superior do dia
+`<` → `<=`), S02 (`left join vendas` → `join`), S03 (`count(v.id)` → `count(*)` na semana), S04 (o
+agregado das joias ordenado por nome), S06 (clientes novas só de hoje) e S11 (a joia pelo nome
+congelado mesmo com produto) — passam `overviewSchema.test.ts` e `filaComDonoUnico.test.ts` (que medem
+a FORMA do `.sql`) e só morrem em `.specs/features/73-mobile-adm-inicio/probes/01-resumo.sql`, que
+precisa do Postgres local (54442) e **não roda em suíte automática nenhuma**. Os testes do app dublam a
+RPC. Hoje a proteção é uma regra escrita (`supabase/CLAUDE.md`, `apps/mobile-adm/CLAUDE.md`): toda
+migration que recrie a função roda o probe antes do deploy. É a mesma situação dos probes da `71`.
+
+**O que custaria cobrir**: um job de CI com `supabase start` (ou um serviço Postgres com as
+migrations aplicadas) que rode os probes `.sql` das features `71` e `73` com `ON_ERROR_STOP=1`. Custo:
+minutos de runner por push e a manutenção de subir o Supabase local no CI; o ganho é que a semântica
+das RPCs do painel e do ateliê deixa de depender de memória.

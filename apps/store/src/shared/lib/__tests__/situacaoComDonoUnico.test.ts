@@ -38,10 +38,13 @@ import { describe, expect, it } from 'vitest'
  * Escopo e âncora
  * ---------------------------------------------------------------------------------------------
  *
- * O escopo é a LOJA, escrito literalmente: o painel (`apps/backoffice`) tem o vocabulário dele —
- * "Em Separação", "Estornado" —, que responde outra pergunta ("o que a Adri faz com este pedido?")
- * e não é o selo da cliente. ÂNCORA DUPLA: arquivos lidos **e** a régua encontrando o que procura
- * no dono, que mora fora do escopo e é lido à parte. Zero allowlist.
+ * O escopo é a LOJA **e o app do ateliê** (`apps/mobile-adm`, desde o conserto do QA da `73`),
+ * escritos literalmente: o painel (`apps/backoffice`) tem o vocabulário dele — "Em Separação",
+ * "Estornado" —, que responde outra pergunta ("o que a Adri faz com este pedido?") e não é o selo.
+ * O app do ateliê desenha o MESMO selo, na voz do ateliê (`orderSituation(pedido, 'atelie')`), e é
+ * o consumidor que mais tentaria escrever a própria tabela "só para trocar a palavra". ÂNCORA
+ * TRIPLA: arquivos lidos nos dois apps, a régua encontrando o que procura no dono (que mora fora do
+ * escopo e é lido à parte), e o dono declarando os dois públicos. Zero allowlist.
  */
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -49,6 +52,8 @@ const ROOT = resolve(HERE, '../../../../../..')
 
 /** Escopo literal — a régua nunca é o objeto medido. */
 const ESCOPO = 'apps/store/src'
+/** O app do ateliê (conserto do QA da `73`): o segundo leitor do selo. */
+const ESCOPO_ATELIE = 'apps/mobile-adm/src'
 
 /** O dono, fora do escopo, lido à parte para a âncora provar que a régua casa. */
 const DONO = 'packages/core/src/orders/situation.ts'
@@ -93,7 +98,7 @@ const lerArquivo = (caminho: string): Arquivo => ({
   linhas: semComentarios(readFileSync(caminho, 'utf8')),
 })
 
-const varridos: Arquivo[] = arquivos(join(ROOT, ESCOPO)).map(lerArquivo)
+const varridos: Arquivo[] = [...arquivos(join(ROOT, ESCOPO)), ...arquivos(join(ROOT, ESCOPO_ATELIE))].map(lerArquivo)
 
 /** Só o que a loja executa — teste pode nomear o que quiser, inclusive este arquivo. */
 const producao = varridos.filter((a) => !eTeste(a.rel))
@@ -163,6 +168,19 @@ describe('situação do pedido — âncoras da varredura', () => {
     expect(producao.some((a) => a.rel.includes('__tests__/'))).toBe(false)
   })
 
+  it('a varredura enxerga também o app do ateliê, e o selo dele mora lá', () => {
+    const doAtelie = producao.filter((a) => a.rel.startsWith(`${ESCOPO_ATELIE}/`))
+    expect(doAtelie.length).toBeGreaterThan(40)
+    expect(doAtelie.some((a) => a.rel === 'apps/mobile-adm/src/entities/order/ui/SituacaoDoPedido.tsx')).toBe(true)
+  })
+
+  it('o dono declara os DOIS públicos, e o app pede o do ateliê — âncora do conserto', () => {
+    const dono = lerArquivo(join(ROOT, DONO)).linhas.join('\n')
+    expect(dono).toMatch(/SITUATION_LABELS_BY_AUDIENCE[^=]*=\s*\{\s*cliente:\s*SITUATION_LABELS,\s*atelie:/)
+    const selo = producao.find((a) => a.rel === 'apps/mobile-adm/src/entities/order/ui/SituacaoDoPedido.tsx')
+    expect(selo?.linhas.join('\n')).toMatch(/orderSituation\(\s*pedido\s*,\s*'atelie'\s*\)/)
+  })
+
   it('a régua ENCONTRA a tabela no dono — âncora da forma', () => {
     // `SITUATION_LABELS` mora em `core`, fora do escopo. Se a régua não o casasse, as asserções de
     // ausência abaixo passariam por não saber reconhecer o que procuram.
@@ -210,8 +228,8 @@ describe('situação do pedido — âncoras da varredura', () => {
 // A regra
 // ───────────────────────────────────────────────────────────────────────────
 
-describe('nenhuma tabela de rótulos de status na loja (SIT-11)', () => {
-  it('nenhuma entrada de mapa status → rótulo em apps/store', () => {
+describe('nenhuma tabela de rótulos de status na loja nem no app do ateliê (SIT-11)', () => {
+  it('nenhuma entrada de mapa status → rótulo em apps/store e apps/mobile-adm', () => {
     expect(
       comoTexto(procurar(ENTRADA_DE_MAPA)),
       'o rótulo vem de `orderSituation` (@estrelinha/core/orders) — desenhe com `OrderSituationBadge`',
@@ -262,6 +280,20 @@ describe('situação do pedido — sensores', () => {
     )
 
     expect(procurar(ENTRADA_DE_MAPA, [variantes]).map((o) => o.linha)).toEqual([1, 2, 3, 4])
+  })
+
+  it('uma tabela "só para trocar a palavra" no app do ateliê SERIA acusada — sensor do escopo novo', () => {
+    const atelie = sintetico(
+      'apps/mobile-adm/src/entities/order/ui/SituacaoDoPedido.tsx',
+      [
+        'const ROTULO_DO_ATELIE = {',
+        "  awaiting_material: 'Aguardando material',",
+        "  shipped: 'Enviado',",
+        '}',
+      ].join('\n'),
+    )
+
+    expect(procurar(ENTRADA_DE_MAPA, [atelie]).map((o) => o.linha)).toEqual([2, 3])
   })
 
   it('o `switch` de rótulo SERIA acusado — sensor da segunda forma', () => {

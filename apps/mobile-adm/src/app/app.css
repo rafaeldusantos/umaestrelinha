@@ -54,7 +54,10 @@
 
 /* As cores e as famílias saem do config do Tailwind por `theme()`, nunca escritas aqui: um hex
  * nesta folha seria uma segunda escrita da paleta. */
+/* `overscroll-behavior-y: contain` (feature `73`, `MAI-19`): sem ele, o puxar para atualizar da
+ * Início, no Chrome em ABA, também recarregaria a página inteira. */
 body {
+  overscroll-behavior-y: contain;
   background-color: theme("colors.estrelinha.ground");
   color: theme("colors.estrelinha.ink");
   font-family: theme("fontFamily.body");

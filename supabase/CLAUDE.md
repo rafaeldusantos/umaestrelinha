@@ -437,6 +437,29 @@ Grava `(dia de Brasília, id do navegador)` no máximo uma vez por dia. O desenh
   (`supabase functions serve`), semeando `production_host = 'localhost'` só no banco local e
   restaurando por `trap`.
 
+### `store_overview` — o resumo do ateliê (feature `73`, `AD-057`)
+
+- **Migration `20261023120000_73-resumo-do-atelie.sql`**: `store_overview()` é `security definer`,
+  `has_role(auth.uid(), 'admin')` **dentro** do corpo (`42501` para quem não é admin) e `execute` só a
+  `authenticated`, no molde de `store_movement`. Sem argumento de data: semana, mês, clientes novas,
+  joias, fila e recentes saem do dono do dia (`store_day`/`store_day_start`, `AD-055`). A cópia SQL da
+  regra da fila é guardada byte a byte contra `core/orders/queue.ts` (`filaComDonoUnico.test.ts`).
+- ⚠️ **Toda migration que recrie `store_overview` roda o probe contra o banco local ANTES do deploy**
+  — é parte do gate, e não roda no CI (não há banco lá, `BL-050`):
+
+  ```bash
+  psql "postgresql://postgres:postgres@127.0.0.1:54442/postgres" -v ON_ERROR_STOP=1 \
+    -f .specs/features/73-mobile-adm-inicio/probes/01-resumo.sql
+  ```
+
+  Exit 0 e só linhas `ok —` (a saída de referência está em `probes/01-resumo.saida.txt`). O probe
+  reaplica **o arquivo** da migration dentro de `begin … rollback`, então mede o `.sql` e não o banco.
+  **Ele é a única régua de seis mutantes medidos na verificação da `73`** (S01–S04, S06, S11: a borda
+  superior do dia, o `left join` da semana, `count(v.id)` × `count(*)`, a ordem do agregado das
+  joias, as clientes novas do mês e a coluna do nome da joia) — os guardas de fonte da loja passam
+  com os seis. Uma migration NOVA que recrie a função precisa ganhar o próprio `\ir` no probe (ele
+  aponta para o arquivo da `73`), senão o probe mede a versão antiga.
+
 ### A conta da cliente no banco (feature `59`, migration `20261004120000_59-minha-conta.sql`)
 
 - **`customers` tem a linha inteira liberada pela policy de UPDATE da própria cliente**

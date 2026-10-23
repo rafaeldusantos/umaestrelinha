@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 // Feature 71 · task 21 · `VIS-10 (d)` — o canal de pedidos tem UM dono.
 //
 // O Dashboard assina mudanças em `orders` para reler os números, e com o bloco "Movimento da loja"
@@ -47,7 +48,12 @@ vi.mock('@estrelinha/supabase/client', () => ({
   supabase: { channel, removeChannel },
 }))
 
-import { useOrdersRealtime } from './useOrdersRealtime'
+// Feature `73`: o hook subiu do painel para `core` com o NOME do canal por parâmetro. Os casos vieram
+// sem asserção tocada; as chamadas passam o nome que o Dashboard passa (`admin-orders-realtime`).
+import { useOrdersRealtime as useOrdersRealtimeComNome } from '../useOrdersRealtime'
+
+const CANAL = 'admin-orders-realtime'
+const useOrdersRealtime = (cb: () => void) => useOrdersRealtimeComNome(CANAL, cb)
 
 beforeEach(() => {
   channel.mockClear()
@@ -100,5 +106,26 @@ describe('useOrdersRealtime — o canal de pedidos do Dashboard', () => {
 
     expect(removeChannel).toHaveBeenCalledTimes(1)
     expect(removeChannel.mock.calls[0][0]).toBe(aberto)
+  })
+})
+
+describe('useOrdersRealtime — o nome do canal é parâmetro (feature 73)', () => {
+  it('abre o canal com o nome recebido — o app do ateliê abre o dele', () => {
+    renderHook(() => useOrdersRealtimeComNome('atelie-orders-realtime', () => {}))
+    expect(channel).toHaveBeenCalledTimes(1)
+    expect(channel).toHaveBeenCalledWith('atelie-orders-realtime')
+  })
+
+  it('trocar o nome fecha o canal antigo e abre o novo; o mesmo nome não recria', () => {
+    const { rerender } = renderHook(({ nome }) => useOrdersRealtimeComNome(nome, () => {}), {
+      initialProps: { nome: 'a' },
+    })
+    rerender({ nome: 'a' })
+    expect(channel).toHaveBeenCalledTimes(1)
+    const primeiro = canais[0]
+    rerender({ nome: 'b' })
+    expect(removeChannel).toHaveBeenCalledTimes(1)
+    expect(removeChannel.mock.calls[0][0]).toBe(primeiro)
+    expect(channel).toHaveBeenLastCalledWith('b')
   })
 })

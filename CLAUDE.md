@@ -151,7 +151,10 @@ Ao planejar/implementar features, use a Skill **`tlc-spec-driven`** com estas co
     verificada em três rodadas (a terceira FAIL por uma lacuna de cobertura, G9, não consertada). A `72`..`79` são o programa mobile-adm (`AD-056`): o painel do ateliê
     no celular, em `apps/mobile-adm`. A `72` (fundação) está IMPLEMENTADA, sem commit,
     com prova em navegador, e com a rodada de conserto do QA (`MAF-22`..`MAF-30`, Fase 6) feita —
-    ela fechou a `BL-048`, mexendo no `@estrelinha/auth` compartilhado; da `73` à `79` são
+    ela fechou a `BL-048`, mexendo no `@estrelinha/auth` compartilhado. A `73` (a Início do
+    ateliê: o movimento, a fila, a semana, o mês e os últimos pedidos, `AD-057`) está IMPLEMENTADA,
+    sem commit, na branch `feat/73-mobile-adm-inicio`, com prova em navegador e uma migration
+    (`store_overview`) aplicada só no local — falta o Verificador independente. Da `74` à `79` são
     rascunhos, a detalhar ao abrir. Cada feature do programa é mergeada na branch de integração
     `feature/mobile-adm` depois de finalizada e testada, nunca direto na `master` (`AD-056`). A
     próxima livre é a `80`.**
@@ -495,6 +498,8 @@ migrations, e `vercelRedirects` lê o `vercel.json`.
 | `page.test.ts` | store `server/__tests__` | (feature `69`) a função `api/page` pedir as colunas e os filtros certos (dublê que registra tabela, `eq`, `order` e args de RPC), reconstruir a URL de `__path` preservando `?variant=` (e recusando `//host`), e responder `no-store` sem env. **Nunca nomeia a chave de serviço** |
 | `sitemapCheckWorkflow.test.ts` | store `shared/lib/__tests__` (lê `.github/workflows/sitemap-check.yml`) | o passo da canônica do sensor diário perder a comparação de **origem** (SVR-41 — a canônica servida tem a origem de onde o sitemap foi buscado), a igualdade canônica == `<loc>` da opção (SVR-34), ou passar a falhar com zero `?variant=` (SVR-35); literal de domínio, slug ou id no passo (SVR-36). Recorte por bloco que devolve `null` e **reprova**, e `mutar()` que lança sem alvo |
 | `visitasSchema.test.ts` | store `shared/lib/__tests__` (lê a migration da `71`) | **uma régua por comando** (`L-033`): `store_visits` com coluna além de `visitor_id`/`day` ou sem PK nas duas; as duas tabelas sem RLS, sem `revoke all` dos três papéis ou com `create policy`; `prune_store_visits` `definer` ou com `grant`; `record_store_visit`/`store_clock` sem `definer`, sem `search_path = ''` ou **sem `grant execute … to service_role`** (o `revoke … from public` o tira junto); `store_movement` sem `has_role` **no corpo**, com `execute` a `anon`; chamada sem `public.` nos corpos; `sum(` sem `coalesce(`; `ate`/`agora` sem `::bigint`; o nome do fuso fora de `store_time_zone()`, repetido ou diferente de `STORE_TIME_ZONE` (**importado**); `current_date`, `now()::date`, `paid_at::date`, `date_trunc('week'`, offset fixo; o teto de 5.000 e a poda de 7 dias; o agendamento do `pg_cron` fora do `if exists` ou com `create extension`; escrita de dado fora de função. Âncora: arquivo + 2 tabelas + 9 funções + o bloco do `pg_cron`; `mutar()` que lança |
+| `overviewSchema.test.ts` | store `shared/lib/__tests__` (lê a migration da `73`) | (feature `73`) **uma régua por comando** (`L-033`): `store_overview` sem `has_role` ⇒ `42501` antes de qualquer leitura, sem `security definer`, sem `search_path = ''` ou `stable`; `execute` a `anon`/`public`; a venda sem o par do `AD-055` (`approved` **e** `<> 'cancelled'`); recorte de dia por `current_date`, `now()::date`, `date_trunc('month', now())` ou sem `store_day_start`; o `limit 4` das joias ou dos recentes sumindo; chamada sem `public.`; escrita de dado. Âncora: arquivo, função e as 8 CTEs; 22 sensores com `mutar()` que lança |
+| `filaComDonoUnico.test.ts` | idem (lê a migration da `73` e importa `core/orders`) | (feature `73`, `AD-057`) a cópia SQL da regra da fila divergir do dono: cada um dos 4 blocos de `QUEUE_BLOCKS` exige **exatamente** `count(*) filter (where <toSqlPredicate(bloco)>)` na migration, e "Precisa de ação" o `or` dos três (`needsActionSqlPredicate`) — nunca a soma; a idade (`aguardando_desde`) e a fila sem recorte de data. Um sensor por bloco e por régua, e um mutante em `queue.ts` que derruba o guarda |
 | `fusoComDonoUnico.test.ts` | idem (varre `apps/*/src`, `apps/store/server`, `packages/*/src` e `supabase/functions`, só produção) | o nome do fuso da loja escrito fora de `packages/core/src/time/zone.ts` — **sem allowlist**. Metade positiva: as quatro escritas antigas (`core/orders/situation.ts`, o `copy.ts` e o `AnalyticsSecretField.tsx` do GA no painel, `orderMeta.ts` da loja) **importam e usam** `STORE_TIME_ZONE`. A do importador fica fora, declarada |
 | `visitanteComDonoUnico.test.ts` | idem (varre `apps/*/src`, **testes inclusos**) | as duas chaves do contador fora de `shared/lib/visits/visitor.ts`; os testes do contador deixarem de **importar** as constantes. Allowlist de um (o próprio guarda), com o caso que prova que um teste irmão **seria** acusado |
 | `parametroNaoContarComDonoUnico.test.ts` | idem (varre `apps/*/src` e os quatro `packages/*/src`, testes inclusos) | o nome do parâmetro de "não contar" escrito fora de `core/visits/optOut.ts` (token com fronteira de hífen, `L-034` — a chave do armazenamento, que termina com o mesmo nome, passa). **Metade positiva**: o `VisitCounter` chama `readOptOutParam` e o menu da conta chama `optOutHref`. Allowlist de três, literal (o dono, o teste do dono e o guarda) |
@@ -531,8 +536,71 @@ quando mudarem de verdade.
 | Medida | Baseline | Como medir |
 | --- | --- | --- |
 | **Lint** | **25 erros / 7 warnings** — backoffice 23/5 · store 2/2 · mobile-adm 0/0 | `npx eslint .` em cada app (o `pnpm lint` para no primeiro app que reprova) |
-| **Tipos** | **0 · 0 · 0 · 0 · 0** (store · backoffice · catalog-import · `apps/store/tsconfig.server.json`, desde a `69` · mobile-adm, desde a `72`) | `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` |
-| **Testes** | **14644 em 731 arquivos** — store **5748/315** · backoffice **3653/208** · mobile-adm **267/26** · core **3507/138** · functions **957/21** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
+| **Tipos** | **0 · 0 · 0 · 0 · 0** (store · backoffice · catalog-import · `apps/store/tsconfig.server.json`, desde a `69` · mobile-adm, desde a `72`) — e **`packages/core` em 11**, herdados (medido na `73`: idênticos na base, nenhum em arquivo tocado) | `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` · `npx tsc --noEmit -p packages/core/tsconfig.json` |
+| **Testes** | **15184 em 756 arquivos** — store **5815/317** · backoffice **3648/209** · mobile-adm **406/39** · core **3846/147** · functions **957/21** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
+
+**Os dois bugs que o QA da `73` deixou para decisão somaram +32/+2** (2026-10-23, um workspace por vez,
+exit code fora de pipe; functions e catalog-import não tocados): **core +20/+1**
+(`situationAudience.test.ts`: o selo com dois públicos), **mobile-adm +6** (o par do material e a
+linha que quebra com a fonte grande, em `RecentOrders.test.tsx`), **store +3** (o guarda
+`situacaoComDonoUnico` ampliado a `apps/mobile-adm/src`, com âncora e sensor; nenhuma outra asserção
+da loja tocada) e **backoffice +3/+1** (`rotulosDoPainel.test.ts`: os rótulos de status subiram para
+`core/orders/labels.ts` e o painel os reexporta por referência). Tipos 0 · 0 · 0, lint 0/0 · 23/5. 8
+mutantes reinjetados com SHA-256 conferido, 8 mortos por asserção. Reteste em navegador:
+`docs/qa/reports/2026-10-23-mobile-adm-inicio-reteste-2.md`.
+
+**A feature `73` (a Início do ateliê) somou +478/+22 em QUATRO workspaces**, medidos em
+2026-10-22 um por vez, exit code fora de pipe, contra a entrada medida com a árvore parada
+(`.specs/features/73-mobile-adm-inicio/baseline.md`, 14644/731, que bateu esta tabela):
+**core +304/+8** (`orders/queue.ts`, `stats/*`, `formatPriceWhole` e os três hooks em `core/hooks`),
+**mobile-adm +120/+13** (o arnês com `rpc`/`channel`, o `QueryClient`, a vigia da recusa, o puxar, os
+seis blocos, a página pelo `<App />` real e o contrato com o client real), **store +64/+2** (os guardas
+`overviewSchema` e `filaComDonoUnico`, e `store_overview` em `marcacaoSoPorAcao`) e **backoffice
+−10/−1** — **queda declarada**: os 14 casos de `useStoreMovement`/`useOrdersRealtime` mudaram de casa
+para `core` sem asserção tocada, e o painel ganhou +4 da reexportação (`toBe`). Functions e
+catalog-import remedidos, idênticos. Tipos 0 nos apps; lint 0/0 · 23/5 · 2/2;
+`pnpm --filter @estrelinha/mobile-adm build` verde; `packages/core/src/payment/**` com zero arquivos
+alterados. Uma migration (`20261023120000_73-resumo-do-atelie.sql`, a RPC `store_overview`, sem
+escrita de dado), aplicada só no local. Decisão `AD-057`. A prova em navegador
+(`prova-navegador.md`) achou que **o app parava de reler depois de a rede cair e voltar** (o
+`QueryClientProvider` dentro do ramo offline desligava o `onlineManager` do React Query) — consertado
+com teste; e a T18 achou, pelo `<App />` real, **o laço da vigia da recusa** com o papel ainda admin —
+consertado com teste. Sensor do autor: 15 mutantes nos arquivos reais da página, da vigia e do hook,
+SHA-256 conferido na restauração, 15 mortos por asserção.
+
+**O QA da `73` (2026-10-22, `docs/qa/reports/2026-10-22-mobile-adm-inicio.md` e o reteste) somou +1
+no mobile-adm** (399/39 → **400/39**): com a fonte do sistema a 130 %+, o faturamento era pintado por
+cima das vendas ("R$ 99.1099") e o card do mês por cima das clientes novas
+(`BUG-20261022-numeros-se-sobrepoem-com-fonte-grande`). As duas grades (`MovementHero`, `MonthCards`)
+viraram `auto-fit` com piso em `rem`; a régua de `MAI-28` do `MonthCards` foi reescrita com o sentido
+que faltava (não afrouxada). 3 mutantes reinjetados, SHA-256 na restauração, 3 mortos por asserção.
+Core, store e backoffice remedidos, idênticos; `tsc` 0 · 0 · 0; eslint 0/0 · 23/5. Toda tela nova do
+programa deve ser andada também a 130 % e 200 % de fonte.
+
+**O fecho das lacunas da r3 da `73` somou +5 no mobile-adm** (394/39 → **399/39**, medidos em
+2026-10-22 um workspace por vez, exit fora de pipe): os casos de borda do puxar (`scrollY = 1` e o dedo
+subindo), o esqueleto no lugar de cada número do topo, o piso de 4 px num dia de R$ 10 e o bloco
+vencendo a visão em `lerDestinoDePedidos`; o resto foram asserções novas em casos existentes (o aviso
+de releitura ausente na falha inicial, e `aria-busy` ausente na falha de cinco blocos). O probe ganhou
+duas fixturas (a conta com pedido antigo de outro e-mail, e o 5º produto empatado no corte do 4º) e
+segue 23 `ok —`. Só teste e fixtura: nenhum código de produto mudou. Core, store e backoffice
+remedidos, idênticos. Autor = verificador nesta passada (a r3 era a última rodada; precedente da
+`72`).
+
+**O conserto da r2 da verificação da `73` somou +4/+1** (medidos em 2026-10-22, um workspace por vez,
+exit fora de pipe): **mobile-adm 392 → 394** (o irmão de `MAI-18` para o resumo, e `MAI-22` com troca
+de conta; o caso da volta da rede foi reescrito, sem mudar de contagem) e **backoffice 3643/207 →
+3645/208** (`useAdminOrderList.test.ts`: a cadeia da consulta da idade por igualdade). Core e store
+remedidos, idênticos. Só teste e dublê (o canal ganhou `unsubscribe`); nenhum código de produto
+mudou. Os quatro sobreviventes (N15, N02, P04, N20) e o inválido N09 foram reinjetados: 5 mortos por
+asserção.
+
+> **Os tipos de `packages/core` nunca estiveram na baseline, e não são zero.** `tsc -p
+> packages/core/tsconfig.json` dá 11 erros (`home/__tests__/carousel` 5, `pickHomeBanners` 1,
+> `pickHomeCollections` 1, `sitemap/__tests__/urls` 2, `packages/supabase/src/client.ts` 2),
+> **idênticos linha a linha** na base `feature/mobile-adm` medida num `git worktree` fora do
+> repositório. Herdados; a linha *Tipos* agora os registra para a próxima feature não os ler como
+> regressão.
 
 **A feature `72` (fundação do app do ateliê) somou +147/+19 em DOIS workspaces**, medidos em
 2026-10-22 um por vez, exit code fora de pipe, contra a entrada medida com a árvore parada

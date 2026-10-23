@@ -21,8 +21,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '@estrelinha/supabase/client'
 import { readAllPages } from '@estrelinha/core/paging'
+import { QUEUE_BLOCKS, queueBlock, toPostgrestFilter } from '@estrelinha/core/orders'
 import {
-  MATERIAL_NAO_SEGURA_LISTA,
   ORDER_LIST_FROM,
   ORDER_LIST_SELECT,
   ORDER_SORT_COLUMN,
@@ -155,30 +155,27 @@ export const useAdminOrderList = (query: OrderQuery): OrderListResult => {
       return count ?? 0
     }
 
-    const [aguardando, aSeparar, semRastreio, pix] = await Promise.all([
-      contar(q => q.eq('material_status', 'aguardando_material')),
-      // **Pago E com o material resolvido.** Contar só `status = 'paid'` incluiria os pedidos que
-      // ainda esperam o envelope — e o próprio texto do tile diz "material já recebido ou não
-      // exigido". Medido no navegador: o tile dizia 3 e o clique trazia 4, porque dois pedidos
-      // estavam nos dois contadores ao mesmo tempo.
-      contar(q => q.eq('status', 'paid').in('material_status', MATERIAL_NAO_SEGURA_LISTA)),
-      contar(q => q.eq('status', 'shipped').is('tracking_code', null)),
-      contar(q => q.eq('payment_method', 'pix').eq('payment_status', 'pending')),
-    ])
+    // A regra de cada bloco é DADO em `@estrelinha/core/orders` (`QUEUE_BLOCKS`, feature `73`,
+    // `AD-057`): o app do ateliê e a RPC `store_overview` contam a mesma fila. Cada contagem é a
+    // regra do bloco traduzida para o `.or()` do PostgREST — uma condição sozinha, ou `and(…)`.
+    //
+    // O "Pago, a separar" é **pago E com o material resolvido**. Contar só `status = 'paid'`
+    // incluiria os pedidos que ainda esperam o envelope — medido no navegador: o tile dizia 3 e o
+    // clique trazia 4, porque dois pedidos estavam nos dois contadores ao mesmo tempo.
+    const contagens = await Promise.all(
+      QUEUE_BLOCKS.map(async bloco => [bloco.id, await contar(q => q.or(toPostgrestFilter(bloco.rule)))] as const),
+    )
 
-    setTileCounts({
-      aguardando,
-      'a-separar': aSeparar,
-      'sem-rastreio': semRastreio,
-      'pix-aguardando': pix,
-    })
+    setTileCounts(Object.fromEntries(contagens))
 
     // A idade do mais antigo é o que transforma "5 pedidos" em "5 pedidos, e um deles há 9 dias".
-    // Uma linha só, ordenada — não a fila inteira para achar o mínimo no cliente.
+    // Uma linha só, ordenada — não a fila inteira para achar o mínimo no cliente. O recorte é a regra
+    // do bloco "Aguardando material" de `QUEUE_BLOCKS` — o mesmo que a RPC `store_overview` usa para
+    // `aguardando_desde` —, nunca o predicado escrito de novo aqui (conserto r1 da verificação da `73`).
     const { data: maisAntigo } = await supabase
       .from('orders')
       .select('created_at')
-      .eq('material_status', 'aguardando_material')
+      .or(toPostgrestFilter(queueBlock('aguardando').rule))
       .order('created_at', { ascending: true })
       .limit(1)
 
