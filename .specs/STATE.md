@@ -1380,9 +1380,46 @@
 - **Date**: 2026-10-22
 - **Status**: active
 
+### AD-057
+- **Decision**: **o fornecedor da peça mora em duas tabelas próprias, só de admin** (`suppliers` e
+  `product_suppliers`, RLS `for all to authenticated` com `has_role` no `using` e no `with check`, e
+  `revoke all … from anon`), **nunca em coluna de `products`**. Feature `80`.
+- **Reason**: a policy `public read products … using (is_active = true)` não recorta coluna — qualquer
+  visitante lê toda coluna de todo produto ativo pela chave pública. Medido por probe HTTP no banco
+  local: sem o `revoke`, o anon leria a tabela vazia; com ele, qualquer pedido público que nomeie a
+  tabela (inclusive um embed em `products`) responde **401**, o que é mais seguro que vir vazio.
+- **Decision**: o nome do fornecedor é reaproveitado entre produtos pela **mesma** régua da sugestão
+  (`dobrarTexto`, sem acento e sem maiúsculas — `entities/supplier/model/suggest.ts`). O banco segura a
+  duplicata exata (`unique (lower(btrim(name)))`); o acento é decidido na tela. Na corrida do nome único
+  (23505), o save **relê a lista** e procura pela mesma régua, em vez de um `ilike`.
+- **Decision**: os limites (120 no nome, 2000 no link, `^https?://`) moram em `@estrelinha/core/suppliers`
+  e o guarda da migration os importa — dois leitores, tela e banco.
+- **Consequence**: `products.cost_price` tem o MESMO problema de exposição e **não** foi corrigido pela `80`
+  (fora de escopo, registrado como dívida). Toda edge function roda com a chave de serviço e ignora o
+  RLS — por isso `fornecedorForaDaLoja.test.ts` recusa o nome das tabelas em `apps/store` e em
+  `supabase/functions`.
+
 ## Handoff
 
-### ATUAL — 2026-10-22 · `71-visitas-unicas-no-dashboard` **IMPLEMENTADA — 32 de 32 tasks, verificada em 3 rodadas (r3 FAIL por UMA lacuna de cobertura, G9, consertada depois pelo orquestrador — sem r4), SEM COMMIT**
+### ATUAL — 2026-10-22 · `80-fornecedor-da-peca` **IMPLEMENTADA, provada no banco local e em navegador, SEM COMMIT**
+
+- **Feature**: `.specs/features/80-fornecedor-da-peca/` (`spec.md`, `tasks.md`, `probes/rls.sh`,
+  `prova-navegador.md`, `validation.md`). Decisão `AD-057`. Worktree `../store-80-fornecedor`, branch
+  `feat/80-fornecedor-da-peca`, base `master` em `41ea7040`.
+- **O que entrega**: nome do fornecedor (com sugestão sem acento e "Criar") e link da peça no card
+  **Fornecedor** da aba Preços & variações, abaixo do Custo; o fornecedor **salvo** na coluna lateral,
+  com o link em nova aba; coluna e filtro (no servidor) na listagem de produtos.
+- **Migration** `20261022150000_80-fornecedor-da-peca.sql`, aplicada **só no banco local** (por `psql`,
+  sem registro em `schema_migrations` — um `supabase db reset` a reaplica). O prefixo fica **antes** do
+  `20261023120000` da `73` de propósito: se a `80` for aplicada primeiro, a da `73` continua mais nova.
+- **Ordem de publicação**: a migration num push sozinho, depois o painel. Sem as tabelas, o `select` da
+  listagem e do formulário (que embutem `product_suppliers`) falharia inteiro.
+- **Dívidas achadas**: `products.cost_price` legível pela chave pública (mesma causa do `AD-057`); a
+  página do produto rola na horizontal em 390 por causa da tabela de Variações (825px), anterior à `80`.
+- **Banco local**: a prova deixou o fornecedor "Ateliê Prata Fina" ligado a dois produtos
+  (`5ed2e69f…`, `86e899bf…`).
+
+### 2026-10-22 · `71-visitas-unicas-no-dashboard` **IMPLEMENTADA — 32 de 32 tasks, verificada em 3 rodadas (r3 FAIL por UMA lacuna de cobertura, G9, consertada depois pelo orquestrador — sem r4), SEM COMMIT**
 
 - **Feature**: `.specs/features/71-visitas-unicas-no-dashboard/` (`spec.md`, `design.md`, `tasks.md`,
   `baseline.md`, `validation.md`, `probes/`, `prova-em-navegador.md`, `prova-navegador.md`). Decisão

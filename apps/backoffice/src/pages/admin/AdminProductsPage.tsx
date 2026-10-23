@@ -35,6 +35,8 @@ import CsvImportDialog from '@/features/csv-import/ui/CsvImportDialog'
 import FilterChips from '@/features/product-list/ui/FilterChips'
 import InlineEditCell from '@/features/product-list/ui/InlineEditCell'
 import CategoriesCell from '@/features/product-list/ui/CategoriesCell'
+import SupplierCell from '@/features/product-list/ui/SupplierCell'
+import { useSuppliers } from '@/entities/supplier'
 import { priceCell, rowBadges, statusCell, stockCell } from '@/features/product-list/model/rowSummary'
 import { LIST_COLUMNS, isVisible, useColumnPrefs } from '@/features/product-list/model/columns'
 import { useSavedViews } from '@/features/product-list/model/savedViews'
@@ -68,6 +70,7 @@ const AdminProductsPage = () => {
   } = useAdminProductList(query)
   const viewCounts = useProductViewCounts()
   const { categories } = useAdminCategories()
+  const { suppliers } = useSuppliers()
   const { views: savedViews, save: saveView } = useSavedViews()
   const { prefs, toggle, setDensity } = useColumnPrefs()
   const [deleting, setDeleting] = useState<string | null>(null)
@@ -216,6 +219,10 @@ const AdminProductsPage = () => {
     toast({ title: `${deleted} produto(s) excluídos` })
   }
 
+  const supplierNames = useMemo(
+    () => Object.fromEntries(suppliers.map(s => [s.id, s.name])) as Record<string, string>,
+    [suppliers],
+  )
   const categoryNames = useMemo(
     () => Object.fromEntries(categories.map(c => [c.id, c.name])) as Record<string, string>,
     [categories],
@@ -353,6 +360,10 @@ const AdminProductsPage = () => {
       ),
     },
     {
+      key: 'fornecedor', header: 'Fornecedor',
+      cell: row => <SupplierCell supplier={row.supplier} />,
+    },
+    {
       key: 'price', header: 'Preço', align: 'right', sortable: true,
       cell: row => {
         const cell = priceCell(row)
@@ -465,7 +476,7 @@ const AdminProductsPage = () => {
   ]
 
   const columnIdFor: Record<string, string> = {
-    name: 'produto', categorias: 'categorias', price: 'preco',
+    name: 'produto', categorias: 'categorias', fornecedor: 'fornecedor', price: 'preco',
     stock: 'estoque', status: 'status', atualizado: 'atualizado',
   }
   const visibleColumns = columns.filter(c => {
@@ -572,6 +583,18 @@ const AdminProductsPage = () => {
           </SelectContent>
         </Select>
 
+        {/* Feature 80 (FOR-18): o filtro por fornecedor, no servidor como o de categoria. */}
+        <Select
+          value={query.filters.supplierIds?.[0] ?? 'all'}
+          onValueChange={v => setFilters({ ...query.filters, supplierIds: v === 'all' ? [] : [v] })}
+        >
+          <SelectTrigger className="w-[180px]" aria-label="Fornecedor"><SelectValue placeholder="Fornecedor" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos fornecedores</SelectItem>
+            {suppliers.map(f => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+
         {/* PLS-09 AC 13 */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -620,7 +643,7 @@ const AdminProductsPage = () => {
       </div>
 
       <div className="mb-3">
-        <FilterChips filters={query.filters} categoryNames={categoryNames} onChange={setFilters} />
+        <FilterChips filters={query.filters} categoryNames={categoryNames} supplierNames={supplierNames} onChange={setFilters} />
       </div>
 
       {/* PLS-05 AC 1 / RFN-01: a barra de massa, com as seis ações. */}

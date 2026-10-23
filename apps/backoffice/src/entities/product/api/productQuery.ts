@@ -35,6 +35,8 @@ export type ProductSortKey = 'name' | 'price' | 'stock' | 'created'
 export interface ProductFilters {
   view: ProductViewId
   categoryIds: string[]
+  /** Feature 80 (FOR-18): os fornecedores. Visão salva antes da 80 não tem o campo — ver `savedViews`. */
+  supplierIds: string[]
   tags: string[]
   priceMin: number | null
   priceMax: number | null
@@ -51,6 +53,7 @@ export interface ProductQuery {
 export const emptyFilters = (): ProductFilters => ({
   view: 'todos',
   categoryIds: [],
+  supplierIds: [],
   tags: [],
   priceMin: null,
   priceMax: null,
@@ -67,6 +70,7 @@ export const defaultQuery = (): ProductQuery => ({
 /** Quantos filtros (fora a visão) estão ativos — alimenta os chips e o "limpar". */
 export const activeFilterCount = (filters: ProductFilters): number =>
   (filters.categoryIds.length > 0 ? 1 : 0) +
+  ((filters.supplierIds ?? []).length > 0 ? 1 : 0) +
   (filters.tags.length > 0 ? 1 : 0) +
   (filters.priceMin !== null || filters.priceMax !== null ? 1 : 0)
 
@@ -103,6 +107,8 @@ export interface AdminListRow {
   options: ProductOption[]
   variants: ProductVariant[]
   category_ids: string[]
+  /** Feature 80 (FOR-17): o fornecedor da peça, só do painel. `null` = sem fornecedor. */
+  supplier?: { name: string; url: string } | null
   seo_title: string | null
   seo_description: string | null
   scheduled_at: string | null

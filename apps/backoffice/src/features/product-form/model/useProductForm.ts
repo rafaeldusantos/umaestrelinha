@@ -69,6 +69,13 @@ export interface ProductFormState {
   length_cm: number
   seo_title: string
   seo_description: string
+  /**
+   * Feature 80 — o fornecedor da peça, só do painel. Moram em `suppliers`/`product_suppliers`, e
+   * não em `products`, porque `products` é legível pela chave pública coluna a coluna.
+   */
+  supplier_name: string
+  /** O link da peça na loja do fornecedor. */
+  supplier_url: string
   // Feature 30 — o que o feed do Google Shopping emite por produto (`GSH-19`). Vazio grava `null`:
   // uma tag `<g:brand></g:brand>` reprova a oferta, e string vazia no banco é indistinguível de
   // "preenchi com nada".
@@ -131,6 +138,8 @@ export interface ProductFormSnapshot {
   optionMarks: OptionMark[]
   /** Feature 67: os eixos como estavam, para detectar a renomeação por posição (`VFL-05`). */
   options: ProductOption[]
+  /** Feature 80: o fornecedor como está no banco — o que a coluna lateral mostra (FOR-16) e a base do FOR-13. */
+  supplier?: { name: string; url: string }
 }
 
 const SNAPSHOT_VAZIO: ProductFormSnapshot = {
@@ -141,6 +150,7 @@ const SNAPSHOT_VAZIO: ProductFormSnapshot = {
   filterValueIds: [],
   optionMarks: [],
   options: [],
+  supplier: { name: '', url: '' },
 }
 
 /**
@@ -179,6 +189,8 @@ export const emptyProductForm = (): ProductFormState => ({
   age_group: '',
   gender: '',
   google_product_category: '',
+  supplier_name: '',
+  supplier_url: '',
   identifier_exists: null,
   scheduled_at: '',
   related_product_ids: [],
@@ -195,9 +207,21 @@ export const emptyProductForm = (): ProductFormState => ({
 
 /** O `select` da carga do formulário. Traz a grade da TABELA e os vínculos N:N. */
 export const PRODUCT_FORM_SELECT =
-  '*, product_variants(*), product_categories(category_id, position), product_faqs(faq_id, position, answer_override), product_filter_values(value_id), product_option_filter_values(option_name, option_value, value_id)'
+  '*, product_variants(*), product_categories(category_id, position), product_faqs(faq_id, position, answer_override), product_filter_values(value_id), product_option_filter_values(option_name, option_value, value_id), product_suppliers(url, suppliers(name))'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
+/**
+ * O fornecedor do embed. A chave de `product_suppliers` é o `product_id`, então o PostgREST devolve
+ * OBJETO (um-para-um); o array fica aceito para não depender disso.
+ */
+const supplierFromRow = (row: any): { supplier_name: string; supplier_url: string } => {
+  const link = Array.isArray(row?.product_suppliers) ? row.product_suppliers[0] : row?.product_suppliers
+  return {
+    supplier_name: typeof link?.suppliers?.name === 'string' ? link.suppliers.name : '',
+    supplier_url: typeof link?.url === 'string' ? link.url : '',
+  }
+}
+
 /**
  * Linha do banco → estado do formulário.
  *
@@ -241,6 +265,8 @@ export const productRowToForm = (row: any, opts: { asCopy?: boolean } = {}): Pro
   age_group: row.age_group ?? '',
   gender: row.gender ?? '',
   google_product_category: row.google_product_category ?? '',
+  // FOR-15: duplicar traz o fornecedor do original — a cópia costuma ser a mesma peça noutra versão.
+  ...supplierFromRow(row),
   identifier_exists:
     typeof row.identifier_exists === 'boolean' ? row.identifier_exists : null,
   scheduled_at: row.scheduled_at ? String(row.scheduled_at).slice(0, 16) : '',
@@ -359,6 +385,7 @@ export const useProductForm = (
           filterValueIds: loaded.filter_value_ids,
           optionMarks: loaded.option_marks,
           options: loaded.options,
+          supplier: { name: loaded.supplier_name, url: loaded.supplier_url },
         })
       }
     },

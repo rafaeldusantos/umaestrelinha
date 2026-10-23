@@ -5,7 +5,7 @@
 // operadores é schema sem demanda — e a decisão está registrada na spec, não improvisada aqui.
 
 import { useCallback, useState } from 'react'
-import type { ProductFilters } from '@/entities/product/api/productQuery'
+import { emptyFilters, type ProductFilters } from '@/entities/product/api/productQuery'
 
 const STORAGE_KEY = 'estrelinha.admin.product-views'
 
@@ -22,10 +22,14 @@ export const readSavedViews = (storage: Storage): SavedView[] => {
     if (!raw) return []
     const parsed = JSON.parse(raw)
     if (!Array.isArray(parsed)) return []
-    return parsed.filter(
-      (v): v is SavedView =>
-        !!v && typeof v.id === 'string' && typeof v.name === 'string' && !!v.filters,
-    )
+    return parsed
+      .filter(
+        (v): v is SavedView =>
+          !!v && typeof v.id === 'string' && typeof v.name === 'string' && !!v.filters,
+      )
+      // FOR-19: visão salva antes de um filtro existir não tem o campo dele. Completar com o vazio
+      // é o que faz a visão antiga abrir em vez de quebrar a tela no `.length` do campo ausente.
+      .map(v => ({ ...v, filters: { ...emptyFilters(), ...v.filters } }))
   } catch {
     return []
   }

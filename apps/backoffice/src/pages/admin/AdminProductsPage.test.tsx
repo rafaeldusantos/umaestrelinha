@@ -8,7 +8,7 @@ import type { AdminListRow } from '@/entities/product/api/productQuery'
 
 const {
   listMock, countsMock, toastMock, updateMock, eqMock, fromMock, refetchMock, navigateMock,
-  fetchAllMock, updateBatchMock, createBatchMock, deleteBatchMock, applyCategoryMock, categorias,
+  fetchAllMock, updateBatchMock, createBatchMock, deleteBatchMock, applyCategoryMock, categorias, fornecedores,
 } = vi.hoisted(() => ({
   listMock: vi.fn(),
   countsMock: vi.fn(),
@@ -24,6 +24,7 @@ const {
   deleteBatchMock: vi.fn(),
   applyCategoryMock: vi.fn(),
   categorias: { atual: [{ id: 'cat-anime', name: 'Anime' }] },
+  fornecedores: { atual: [] as { id: string; name: string }[] },
 }))
 
 vi.mock('@/entities/product/api/useAdminProducts', () => ({
@@ -32,6 +33,12 @@ vi.mock('@/entities/product/api/useAdminProducts', () => ({
 }))
 vi.mock('@/entities/category/api/useAdminCategories', () => ({
   useAdminCategories: () => ({ categories: categorias.atual }),
+}))
+// Feature 80: a leitura dos fornecedores é React Query, e este arquivo não monta provedor — a
+// listagem é provada com a leitura dublada, como a de categorias logo acima.
+vi.mock('@/entities/supplier', async importOriginal => ({
+  ...(await importOriginal<typeof import('@/entities/supplier')>()),
+  useSuppliers: () => ({ suppliers: fornecedores.atual, loading: false, error: null }),
 }))
 vi.mock('@/features/csv-import/ui/CsvImportDialog', () => ({ default: () => null }))
 vi.mock('@estrelinha/ui/hooks/use-toast', () => ({ toast: toastMock }))
@@ -114,6 +121,7 @@ beforeEach(() => {
 
   seq = 0
   categorias.atual = [{ id: 'cat-anime', name: 'Anime' }]
+  fornecedores.atual = []
   toastMock.mockReset()
   refetchMock.mockReset().mockResolvedValue(undefined)
   navigateMock.mockReset()
@@ -591,5 +599,61 @@ describe('a coluna Categorias', () => {
     setup([row({ category_ids: [] })])
     expect(screen.queryByRole('button', { name: /categorias de/ })).toBeNull()
     expect(screen.getAllByText('—').length).toBeGreaterThan(0)
+  })
+})
+
+describe('feature 80 — o fornecedor na listagem', () => {
+  it('FOR-17 — a coluna mostra o nome e o atalho para a peça em nova aba', () => {
+    setup([row({ supplier: { name: 'Ateliê Prata', url: 'https://www.exemplo.com/item/9' } })])
+
+    expect(screen.getByRole('columnheader', { name: 'Fornecedor' })).toBeInTheDocument()
+    expect(screen.getByText('Ateliê Prata')).toBeInTheDocument()
+    const a = screen.getByRole('link', { name: 'Abrir a peça em Ateliê Prata (exemplo.com/item/9), em nova aba' })
+    expect(a).toHaveAttribute('href', 'https://www.exemplo.com/item/9')
+    expect(a).toHaveAttribute('target', '_blank')
+    expect(a).toHaveAttribute('rel', 'noopener noreferrer')
+  })
+
+  it('FOR-17 — sem link, só o nome; sem fornecedor, o travessão', () => {
+    setup([
+      row({ id: 'a', name: 'Com nome', supplier: { name: 'Resinas do Sul', url: '' } }),
+      row({ id: 'b', name: 'Sem nada', supplier: null }),
+    ])
+    expect(screen.getByText('Resinas do Sul')).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /Abrir a peça/ })).toBeNull()
+    const linhaSem = screen.getByText('Sem nada').closest('tr')!
+    expect(within(linhaSem).getAllByText('—').length).toBeGreaterThan(0)
+  })
+
+  it('FOR-17 — a coluna é configurável: desmarcar "Fornecedor" em Colunas a esconde', async () => {
+    setup([row({ supplier: { name: 'Ateliê Prata', url: '' } })])
+    expect(screen.getByRole('columnheader', { name: 'Fornecedor' })).toBeInTheDocument()
+
+    // O idioma do arquivo para abrir menu do Radix: Enter no gatilho.
+    fireEvent.keyDown(screen.getByRole('button', { name: /Colunas/ }), { key: 'Enter' })
+    fireEvent.click(await screen.findByRole('menuitem', { name: /Fornecedor/ }))
+    // Fechar o menu ANTES de medir: aberto, o Radix deixa o resto da tela `aria-hidden`, e "o
+    // cabeçalho sumiu" seria verdade com a coluna ainda lá.
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' })
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull())
+
+    expect(screen.queryByRole('columnheader', { name: 'Fornecedor' })).toBeNull()
+    expect(screen.queryByText('Ateliê Prata')).toBeNull()
+    expect(screen.getByRole('columnheader', { name: 'Categorias' })).toBeInTheDocument()
+  })
+
+  it('FOR-18 — escolher o fornecedor no filtro pede a lista filtrada, e o chip mostra o nome', async () => {
+    fornecedores.atual = [{ id: 'atelie', name: 'Ateliê Prata' }]
+    setup()
+
+    fireEvent.click(screen.getByRole('combobox', { name: 'Fornecedor' }))
+    fireEvent.click(await screen.findByRole('option', { name: 'Ateliê Prata' }))
+
+    await waitFor(() =>
+      expect(listMock).toHaveBeenLastCalledWith(
+        expect.objectContaining({ filters: expect.objectContaining({ supplierIds: ['atelie'] }) }),
+      ),
+    )
+    expect(screen.getByRole('button', { name: 'Remover filtro Fornecedor: Ateliê Prata' })).toBeInTheDocument()
   })
 })

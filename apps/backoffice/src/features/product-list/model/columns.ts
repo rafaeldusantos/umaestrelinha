@@ -6,11 +6,12 @@
 
 import { useCallback, useState } from 'react'
 
-export type ColumnId = 'produto' | 'categorias' | 'preco' | 'estoque' | 'status' | 'atualizado'
+export type ColumnId = 'produto' | 'categorias' | 'fornecedor' | 'preco' | 'estoque' | 'status' | 'atualizado'
 
 export const LIST_COLUMNS: { id: ColumnId; label: string; fixed?: boolean }[] = [
   { id: 'produto', label: 'Produto', fixed: true },
   { id: 'categorias', label: 'Categorias' },
+  { id: 'fornecedor', label: 'Fornecedor' },
   { id: 'preco', label: 'Preço' },
   { id: 'estoque', label: 'Estoque' },
   { id: 'status', label: 'Status' },

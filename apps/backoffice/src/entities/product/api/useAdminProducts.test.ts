@@ -42,6 +42,7 @@ let calls: Recorded[] = []
 let productsResponse: { data: unknown[]; error: unknown; count: number | null }
 let variantsResponse: { data: unknown[] }
 let categoryLinksResponse: { data: unknown[] }
+let supplierLinksResponse: { data: unknown[] }
 let insertResponse: { data: unknown[]; error: unknown }
 
 const CHAINABLE = ['eq', 'neq', 'in', 'or', 'not', 'gte', 'lte', 'contains', 'ilike'] as const
@@ -80,6 +81,7 @@ beforeEach(() => {
   productsResponse = { data: [], error: null, count: 0 }
   variantsResponse = { data: [] }
   categoryLinksResponse = { data: [] }
+  supplierLinksResponse = { data: [] }
   insertResponse = { data: [], error: null }
 
   fromMock.mockReset().mockImplementation((table: string) => {
@@ -89,6 +91,7 @@ beforeEach(() => {
     const resolve = () => {
       if (table === 'product_variants') return variantsResponse
       if (table === 'product_categories') return categoryLinksResponse
+      if (table === 'product_suppliers') return supplierLinksResponse
       if (record.insert !== undefined) return insertResponse
       if (record.update !== undefined) return { error: null }
       if (record.deleted) return { error: null }
@@ -292,6 +295,46 @@ describe('useAdminProductList — busca e filtros (PLS-02 AC 5-6)', () => {
     await renderList({ filters: { ...emptyFilters(), categoryIds: ['cat-anime'] } })
 
     expect(filterArgs(lastProductsCall(), 'in')).toContainEqual(['id', ['p1', 'p2']])
+  })
+
+  it('FOR-18 — filtro de fornecedor resolve o vínculo no servidor e restringe por id', async () => {
+    supplierLinksResponse = { data: [{ product_id: 'p1' }, { product_id: 'p3' }] }
+
+    await renderList({ filters: { ...emptyFilters(), supplierIds: ['atelie'] } })
+
+    const vinculo = calls.find(c => c.table === 'product_suppliers')!
+    expect(vinculo.select?.[0]).toBe('product_id')
+    expect(filterArgs(vinculo, 'in')).toEqual([['supplier_id', ['atelie']]])
+    expect(filterArgs(lastProductsCall(), 'in')).toContainEqual(['id', ['p1', 'p3']])
+  })
+
+  it('FOR-18 — com categoria E fornecedor vale a interseção', async () => {
+    categoryLinksResponse = { data: [{ product_id: 'p1' }, { product_id: 'p2' }] }
+    supplierLinksResponse = { data: [{ product_id: 'p2' }, { product_id: 'p3' }] }
+
+    await renderList({ filters: { ...emptyFilters(), categoryIds: ['c1'], supplierIds: ['atelie'] } })
+
+    expect(filterArgs(lastProductsCall(), 'in')).toEqual([['id', ['p2']]])
+  })
+
+  it('FOR-18 — fornecedor sem produto devolve vazio sem consultar o catálogo', async () => {
+    const { result } = await renderList({ filters: { ...emptyFilters(), supplierIds: ['ninguem'] } })
+    expect(result.current.total).toBe(0)
+    expect(productsCall()).toHaveLength(0)
+  })
+
+  it('FOR-18 — o filtro de fornecedor conta como filtro ativo', () => {
+    expect(activeFilterCount({ ...emptyFilters(), supplierIds: ['atelie'] })).toBe(1)
+  })
+
+  it('FOR-17 — a linha traz o fornecedor do embed, e `null` sem ele', () => {
+    expect(LIST_SELECT).toContain('product_suppliers(url, suppliers(name))')
+    const base = { id: 'p1', name: 'Anel' }
+    expect(toListRow({ ...base, product_suppliers: { url: 'https://x.com/p', suppliers: { name: 'Ateliê' } } }).supplier)
+      .toEqual({ name: 'Ateliê', url: 'https://x.com/p' })
+    expect(toListRow({ ...base, product_suppliers: { url: null, suppliers: { name: 'Ateliê' } } }).supplier)
+      .toEqual({ name: 'Ateliê', url: '' })
+    expect(toListRow({ ...base, product_suppliers: null }).supplier).toBeNull()
   })
 
   it('categoria sem nenhum produto devolve lista vazia sem consultar o catálogo', async () => {

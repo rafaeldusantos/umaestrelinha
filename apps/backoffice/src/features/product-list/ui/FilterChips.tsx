@@ -10,11 +10,12 @@ import { buildChips } from '../model/filterChips'
 interface Props {
   filters: ProductFilters
   categoryNames: Record<string, string>
+  supplierNames?: Record<string, string>
   onChange: (next: ProductFilters) => void
 }
 
-const FilterChips = ({ filters, categoryNames, onChange }: Props) => {
-  const chips = buildChips(filters, categoryNames)
+const FilterChips = ({ filters, categoryNames, supplierNames, onChange }: Props) => {
+  const chips = buildChips(filters, categoryNames, supplierNames)
   if (chips.length === 0) return null
 
   return (

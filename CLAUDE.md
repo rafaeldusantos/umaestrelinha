@@ -146,7 +146,8 @@ Ao planejar/implementar features, use a Skill **`tlc-spec-driven`** com estas co
     IMPLEMENTADA, sem commit. A `71` (visitas únicas no Dashboard: o contador próprio, o bloco
     "Movimento da loja" e a régua de dia de Brasília no banco) está IMPLEMENTADA, sem commit,
     verificada em três rodadas (a terceira FAIL por uma lacuna de cobertura, G9, não consertada). A
-    próxima é a `72`.**
+    `72`..`79` são o programa mobile-adm (`AD-056`), noutra branch. A `80` (o fornecedor da peça no
+    painel) está IMPLEMENTADA, sem commit (`AD-057`). A próxima livre é a `81`.**
   - **A `46` e a `47` correram EM PARALELO, em worktrees separados**, e é o segundo caso do projeto
     (o primeiro, a `45`, dividiu uma working tree só). O que mudou: a divisão foi por **árvore**, não
     por arquivo — a `47` nasceu de um `git worktree` sobre o HEAD local e trouxe a `46` por
@@ -488,6 +489,8 @@ migrations, e `vercelRedirects` lê o `vercel.json`.
 | `AdminDashboard.test.tsx` | backoffice `pages/admin` | o bloco "Movimento da loja" deixar de ser o primeiro irmão do cabeçalho; mais de **um** `supabase.channel(` com o Dashboard montado (re-render incluso); o aviso do canal deixar de reler as estatísticas **e** o movimento (provado pelo que muda na tela); os dois cards de "hoje" em UTC voltarem (`VIS-35`, assunção pendente). Página real e widget real |
 | `semPessoas.test.ts` | backoffice `widgets/store-movement/__tests__` | "pessoas" ou "usuários" nos literais do bloco (`VIS-41`): o número é de navegadores |
 | `idDoVisitanteSoNoEnvio.test.ts` | store `shared/lib/__tests__` (varre `apps/store/src` e `apps/backoffice/src`, só produção) | (feature `71`, `VIS-12`) um segundo consumidor do id do navegador: fora de `shared/lib/visits`, só `app/VisitCounter.tsx` importa ou reexporta `ensureVisitorId`, `postVisit` ou `readMarker` — por import nomeado, de namespace, `export … from` ou `import()` dinâmico; dentro da pasta, só `send.ts` faz rede (`fetch`, `sendBeacon`, `XMLHttpRequest`); e o `VisitCounter` não faz rede própria. Nasceu do conserto r1 da verificação: até ali "o id não vai em outra requisição" era verdade só por leitura |
+| `fornecedorSchema.test.ts` | store `shared/lib/__tests__` (lê a migration da `80`) | (feature `80`, `AD-057`) uma régua por comando: as duas tabelas sem `if not exists`; o teto do nome e do link divergirem de `@estrelinha/core/suppliers` (**importados**); o nome deixar de ser único por `lower(btrim(name))`; o vínculo perder a chave `product_id` com `on delete cascade` ou o `on delete restrict` do fornecedor; o `check` do link perder o `^https?://`; RLS desligada, `revoke all … from anon` ausente, policy sem `has_role` no `using` **e** no `with check`, `to public`, uma **segunda** policy; `grant` ao anon; escrita de dado. `mutar()` que lança — e o sensor da policy carrega o **nome da tabela**, porque os dois corpos são idênticos e a mutação só do corpo acertava a tabela errada |
+| `fornecedorForaDaLoja.test.ts` | idem (varre `apps/store/src`, `apps/store/server` e `supabase/functions`) | (feature `80`) o nome de `suppliers`/`product_suppliers` como token em qualquer arquivo que serve a cliente — inclusive as edge functions, que rodam com a chave de serviço e ignoram o RLS. Allowlist de dois (os dois guardas), âncora por escopo e piso de 300 arquivos, sensores com CRLF e o inverso |
 | `infoGutter.test.tsx` | backoffice `widgets/store-movement/ui/__tests__` | o `PopoverContent` do ⓘ perder o `collisionPadding={16}` ou o teto `w-[min(18rem,calc(100vw-32px))]` (token exato) — sem eles o balão encosta na borda da tela em 390, achado na prova de ponta a ponta da `71` (molde de `stripEPopover.test.tsx`) |
 
 > **Guarda que recusa uma STRING é quebrado pela prosa que explica o defeito.** Aconteceu duas vezes
@@ -514,7 +517,29 @@ quando mudarem de verdade.
 | --- | --- | --- |
 | **Lint** | **25 erros / 7 warnings** — backoffice 23/5 · store 2/2 | `pnpm lint` |
 | **Tipos** | **0 · 0 · 0 · 0** (store · backoffice · catalog-import · `apps/store/tsconfig.server.json`, desde a `69`) | `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` |
-| **Testes** | **14355 em 701 arquivos** — store **5731/312** · backoffice **3648/207** · core **3507/138** · functions **957/21** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
+| **Testes** | **14445 em 708 arquivos** — store **5754/314** · backoffice **3706/211** · core **3516/139** · functions **957/21** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
+
+**A feature `80` (o fornecedor da peça) somou +87/+7 em TRÊS workspaces**, medidos em 2026-10-22 um
+por vez, exit code fora de pipe, contra a entrada medida em `41ea7040` (store 5733/312 · backoffice
+3654/207 — a linha anterior desta tabela estava velha, sem os commits das categorias em reticências
+e do salvar que fica na página): **backoffice +52/+4** (a página do produto com o diário de escritas,
+`persistSupplier`, a sugestão, o filtro no servidor, a coluna, o chip e as visões antigas), **store
++21/+2** (`fornecedorSchema`, `fornecedorForaDaLoja`) e **core +9/+1** (`core/suppliers`). Functions e
+catalog-import não foram tocados e não foram remedidos. Tipos 0 · 0, lint 23/5 · 2/2. Uma migration
+(`20261022150000_80-fornecedor-da-peca.sql`), sem escrita de dado, aplicada só no banco local.
+
+> **A verificação independente reprovou a rodada 1 por cobertura** (42 mutantes, 7 sobreviventes,
+> nenhum defeito de produto), e o conserto achou um defeito de verdade: salvar **antes** de a lista de
+> fornecedores carregar criava "Atelie Prata" ao lado de "Ateliê Prata" (o índice único só segura a
+> duplicata exata). `persistSupplier` passou a reler a lista antes de criar. Outro achado da rodada: no
+> "Salvar e publicar" a recusa do fornecedor vinha DEPOIS do checklist e nunca era alcançada — ela
+> subiu para antes dele. E uma asserção de ausência com o menu do Radix aberto era verdadeira nos dois
+> mundos (o menu deixa a tela `aria-hidden`).
+
+> **O guarda `buscaDeProdutoComDonoUnico` (BUS-21) acusou um `.ilike('name', …)` em `suppliers`** — falso
+> positivo (a régua mira `products`), mas o conserto foi pelo código e não pelo guarda: a corrida do
+> nome único passou a reler a lista e casar pela mesma régua sem acento da sugestão, o que também
+> tirou uma segunda comparação de nome do caminho.
 
 **A feature `71` (visitas únicas no Dashboard) somou +673/+28 em QUATRO workspaces**, remedidos no
 fecho (2026-10-22, um workspace por vez, exit code fora de pipe, `--testTimeout=20000` sem o `--`)
@@ -2372,6 +2397,13 @@ completo (framework, `installCommand` na raiz do monorepo, headers de cache e de
 
 ## Estado conhecido / dívidas
 
+- **A `80` (o fornecedor da peça) está IMPLEMENTADA, sem commit.** Ordem de publicação: a migration
+  `20261022150000_80-fornecedor-da-peca.sql` num push sozinho, depois o painel — a listagem e o
+  formulário embutem `product_suppliers` no `select`, e sem a tabela a leitura inteira falharia. Duas
+  dívidas achadas por ela e **não** consertadas: `products.cost_price` é legível pela chave pública (a
+  mesma causa do `AD-057`; o conserto é mover o custo para uma tabela de admin, ou trocar a policy
+  pública por uma view sem a coluna), e a página do produto no painel rola na horizontal em 390 por
+  causa da tabela de Variações (825px).
 - **A `71` está IMPLEMENTADA e provada no banco local e em navegador** (`prova-em-navegador.md`, com
   a leitura interceptada, e `prova-navegador.md`, de ponta a ponta contra o banco local), e foi
   **verificada em três rodadas**: r1 FAIL (cobertura e um defeito raro, G4 — consertado), r2 FAIL

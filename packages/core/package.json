@@ -36,7 +36,8 @@
     "./filters": "./src/filters/index.ts",
     "./page": "./src/page/index.ts",
     "./time": "./src/time/index.ts",
-    "./visits": "./src/visits/index.ts"
+    "./visits": "./src/visits/index.ts",
+    "./suppliers": "./src/suppliers/index.ts"
   },
   "scripts": {
     "test": "vitest run"

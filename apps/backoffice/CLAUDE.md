@@ -1132,6 +1132,27 @@ moram) recusa qualquer arquivo de `apps/**` que nomeie a chave de serviço ou aq
 > toda policy de escrita chama `has_role`, avaliado por requisição. Limitação declarada, não
 > escondida.
 
+## O fornecedor da peça (feature `80`, `AD-057`)
+
+Só do painel, e **por construção**: as tabelas `suppliers` e `product_suppliers` não têm leitura
+pública (a `products` tem, e sem recorte de coluna — é por isso que o fornecedor não é coluna dela).
+
+- **Onde edita**: aba *Preços & variações*, card **Fornecedor** logo abaixo de *Preço padrão*
+  (`features/product-form/ui/SupplierCard.tsx`, pelo slot `afterPrice` do `PricingTab`). O **Custo**
+  é o valor da peça no fornecedor.
+- **Onde lê**: a coluna lateral mostra o fornecedor **salvo** (`SupplierSummaryCard`, lendo
+  `savedSnapshot.supplier`, nunca o rascunho) com o link em nova aba; a listagem tem coluna
+  (`SupplierCell`) e filtro no servidor (`supplierIds`, interseção com a categoria).
+- **A sugestão do nome** (`entities/supplier/ui/SupplierNameField.tsx`) é um combobox com `listbox`,
+  não `<datalist>`. Quem decide "já existe" é `findSupplierByName`, pela dobra de busca do painel — a
+  mesma régua que o save usa para reaproveitar o fornecedor. Não há tela de cadastro: o fornecedor
+  nasce no save do produto.
+- **A gravação** é `features/product-form/model/persistSupplier.ts`, depois de o produto existir; sem
+  mudança desde a carga ela não escreve (FOR-13). As recusas (link sem nome, link sem `http(s)://`)
+  vêm de `@estrelinha/core/suppliers` e valem **nos dois botões**, antes de qualquer gravação.
+- **Visões salvas** antigas não têm `supplierIds`: `readSavedViews` completa com `emptyFilters()`. Filtro
+  novo em `ProductFilters` precisa do mesmo cuidado.
+
 ## Dívidas conhecidas deste app
 
 - **A baseline de testes do painel é 3648 em 207 arquivos**, todos passando (2026-10-22, depois da

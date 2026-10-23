@@ -29,6 +29,8 @@ interface Props {
   setField: <K extends keyof ProductFormState>(key: K, value: ProductFormState[K]) => void
   /** Atalho do aviso de precedência: leva o admin até a grade (PFM-15 AC 15). */
   onGoToGrid: () => void
+  /** Feature 80 (FOR-05): o card do fornecedor, logo abaixo do preço — custo e fornecedor andam juntos. */
+  afterPrice?: React.ReactNode
 }
 
 /**
@@ -38,7 +40,7 @@ interface Props {
  * exclusivos, e o card de preço padrão passa a dizer em voz alta quando **não é ele** quem manda no
  * valor cobrado.
  */
-const PricingTab = ({ form, setField, onGoToGrid }: Props) => {
+const PricingTab = ({ form, setField, onGoToGrid, afterPrice }: Props) => {
   const margin = computeMargin(form.price, form.cost_price)
   // A faixa que a vitrine anuncia. Conta só linha ativa com preço — a mesma regra do rodapé da grade.
   const range = priceRange(form.variants)
@@ -99,6 +101,10 @@ const PricingTab = ({ form, setField, onGoToGrid }: Props) => {
               value={form.cost_price}
               onChange={value => setField('cost_price', value ?? 0)}
             />
+            {/* FOR-06: o custo é o que a peça custa no fornecedor (o card logo abaixo). */}
+            <p className="text-xs text-muted-foreground">
+              Quanto a peça custa no fornecedor.
+            </p>
           </div>
         </div>
 
@@ -117,6 +123,8 @@ const PricingTab = ({ form, setField, onGoToGrid }: Props) => {
           </div>
         )}
       </FormCard>
+
+      {afterPrice}
 
       <FormCard title="Estoque" description="Como este produto se esgota na loja.">
         <div

@@ -15,6 +15,7 @@ export interface FilterChip {
 export const buildChips = (
   filters: ProductFilters,
   categoryNames: Record<string, string>,
+  supplierNames: Record<string, string> = {},
 ): FilterChip[] => {
   const chips: FilterChip[] = []
 
@@ -23,6 +24,14 @@ export const buildChips = (
       key: `cat-${id}`,
       label: `Categoria: ${categoryNames[id] ?? id}`,
       clear: f => ({ ...f, categoryIds: f.categoryIds.filter(c => c !== id) }),
+    })
+  }
+
+  for (const id of filters.supplierIds ?? []) {
+    chips.push({
+      key: `forn-${id}`,
+      label: `Fornecedor: ${supplierNames[id] ?? id}`,
+      clear: f => ({ ...f, supplierIds: (f.supplierIds ?? []).filter(s => s !== id) }),
     })
   }
 

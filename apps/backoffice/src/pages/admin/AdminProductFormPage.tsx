@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { Package, Image as ImageIcon, Layers, Weight } from 'lucide-react'
 import { Button } from '@estrelinha/ui/button'
@@ -24,6 +25,11 @@ import { isPersistFailure, isTempVariantId, persistProductRelations, type Persis
 import { marcacoesVigentes } from '@/features/product-form/model/optionMarks'
 import PublishChecklist from '@/features/product-form/ui/PublishChecklist'
 import PricingTab from '@/features/product-form/ui/tabs/PricingTab'
+import SupplierCard from '@/features/product-form/ui/SupplierCard'
+import SupplierSummaryCard from '@/features/product-form/ui/SupplierSummaryCard'
+import { persistSupplier, type SupplierClient } from '@/features/product-form/model/persistSupplier'
+import { fetchSuppliers, invalidateSuppliers, useSuppliers } from '@/entities/supplier'
+import { supplierRefusal } from '@estrelinha/core/suppliers'
 import FaqTab from '@/features/product-form/ui/tabs/FaqTab'
 import DescriptionFaqNotice from '@/features/product-form/ui/DescriptionFaqNotice'
 import { useAdminFaqs } from '@/features/faq-library/api/useAdminFaqs'
@@ -91,6 +97,9 @@ const AdminProductFormPage = () => {
   const navigate = useNavigate()
   const { createProduct, updateProduct } = useAdminProducts()
   const { categories, createCategory } = useAdminCategories()
+  // Feature 80: os fornecedores cadastrados — a sugestão do nome e o "reaproveitar ou criar" do save.
+  const { suppliers } = useSuppliers()
+  const queryClient = useQueryClient()
 
   // 11/T21: o estado saiu da página. Eram ~30 campos num `useState` só, e é por isso que PFM-11
   // (validar campo de aba FECHADA) não tinha onde morar — o `Tabs` do Radix desmonta o conteúdo
@@ -182,6 +191,15 @@ const AdminProductFormPage = () => {
 
   const handleSubmit = async (e: React.FormEvent, intent: 'draft' | 'publish' = 'publish') => {
     e.preventDefault()
+    // FOR-09/FOR-10: nos DOIS botões, antes de qualquer gravação — e antes do checklist de
+    // publicação, senão no "publicar" esta recusa nunca seria alcançada. Rascunho também: o `check`
+    // do banco recusaria o link depois de o produto já gravado, e o aviso viraria "salvo, mas…".
+    const fornecedorRecusado = supplierRefusal(form.supplier_name, form.supplier_url)
+    if (fornecedorRecusado) {
+      toast({ title: fornecedorRecusado, variant: 'destructive' })
+      focusField('precos', form.supplier_name.trim() === '' ? 'supplier_name' : 'supplier_url')
+      return
+    }
     // PFM-11 AC 1: o bloqueio vem daqui, não do `required` do input — que o Radix desmonta junto com
     // a aba inativa. Rascunho passa: o objetivo dele é justamente não perder trabalho incompleto.
     if (intent === 'publish' && hasBlockingErrors(issues)) {
@@ -304,6 +322,26 @@ const AdminProductFormPage = () => {
       }
     }
 
+    // Feature 80 (FOR-11..14): o fornecedor, depois de o produto existir.
+    const fornecedor = { name: form.supplier_name, url: form.supplier_url }
+    const fornecedorSalvo = savedSnapshot.supplier ?? { name: '', url: '' }
+    if (savedId) {
+      const supplierError = await persistSupplier(
+        supabase as unknown as SupplierClient,
+        savedId,
+        fornecedor,
+        fornecedorSalvo,
+        suppliers,
+        fetchSuppliers,
+      )
+      if (supplierError) {
+        toast({ title: 'O produto foi salvo, mas o fornecedor não', description: supplierError, variant: 'destructive' })
+        setSaving(false)
+        return
+      }
+      void invalidateSuppliers(queryClient)
+    }
+
     // P1.7 AC 8: o rascunho existe para sobreviver a um F5, não a um save. Mantê-lo depois do
     // save faria a próxima abertura oferecer de volta um estado que já é o do banco.
     draft.discard()
@@ -316,6 +354,7 @@ const AdminProductFormPage = () => {
       filterValueIds: form.filter_value_ids ?? [],
       optionMarks: optionMarksVigentes,
       options: form.options,
+      supplier: { name: fornecedor.name.trim().replace(/\s+/g, ' '), url: fornecedor.url.trim() },
     })
 
     // Salvar mantém a página aberta. A releitura não é enfeite: as variações novas nasceram com id
@@ -633,6 +672,15 @@ const AdminProductFormPage = () => {
                 form={form}
                 setField={setField}
                 onGoToGrid={() => focusField('precos', 'variants')}
+                afterPrice={
+                  <SupplierCard
+                    name={form.supplier_name}
+                    url={form.supplier_url}
+                    suppliers={suppliers}
+                    onNameChange={v => setField('supplier_name', v)}
+                    onUrlChange={v => setField('supplier_url', v)}
+                  />
+                }
               />
 
               {/* PFM-01: eixos e grade moram na MESMA aba do preço agora — era o ponto da spec.
@@ -806,6 +854,9 @@ const AdminProductFormPage = () => {
               </dl>
             </div>
           </FormCard>
+
+          {/* Feature 80 (FOR-16): o fornecedor SALVO, com o link da peça em nova aba. */}
+          <SupplierSummaryCard name={savedSnapshot.supplier?.name ?? ''} url={savedSnapshot.supplier?.url ?? ''} />
 
           {/* PFM-17 / RFN-07 AC 8: como o card vai aparecer na loja, com o estado atual. */}
           <FormCard

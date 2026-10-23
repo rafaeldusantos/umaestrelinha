@@ -99,9 +99,17 @@ export const LIST_SELECT = [
   'seo_title', 'seo_description', 'scheduled_at', 'created_at', 'updated_at',
   'product_variants(id, product_id, sku, name, price, compare_price, stock, weight_kg, image_url, is_active, position, option_values)',
   'product_categories(category_id, position)',
+  // Feature 80: só o admin lê (RLS). A chave é o `product_id`, então o embed vem como OBJETO.
+  'product_suppliers(url, suppliers(name))',
 ].join(', ')
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
+const supplierOfRow = (row: any): AdminListRow['supplier'] => {
+  const link = Array.isArray(row.product_suppliers) ? row.product_suppliers[0] : row.product_suppliers
+  const name = link?.suppliers?.name
+  return typeof name === 'string' && name !== '' ? { name, url: typeof link.url === 'string' ? link.url : '' } : null
+}
+
 export const toListRow = (row: any): AdminListRow => ({
   id: row.id,
   name: row.name ?? '',
@@ -117,6 +125,7 @@ export const toListRow = (row: any): AdminListRow => ({
   options: normalizeOptions(row.options),
   variants: normalizeVariants(row.product_variants, row.id),
   category_ids: categoryIdsFromLinks(row.product_categories),
+  supplier: supplierOfRow(row),
   seo_title: row.seo_title ?? null,
   seo_description: row.seo_description ?? null,
   scheduled_at: row.scheduled_at ?? null,
@@ -246,6 +255,21 @@ export const useAdminProductList = (query: ProductQuery): ProductListResult => {
         .select('product_id')
         .in('category_id', current.filters.categoryIds)
       categoryProductIds = [...new Set((links ?? []).map((l: any) => l.product_id as string))]
+      if (categoryProductIds.length === 0) return null
+    }
+
+    // Feature 80 (FOR-18): o mesmo caminho da categoria — o vínculo é tabela própria. Com os dois
+    // filtros, vale a INTERSEÇÃO (produto da categoria E do fornecedor).
+    const supplierIds = current.filters.supplierIds ?? []
+    if (supplierIds.length > 0) {
+      const { data: links } = await supabase
+        .from('product_suppliers')
+        .select('product_id')
+        .in('supplier_id', supplierIds)
+      const supplierProductIds = new Set((links ?? []).map((l: any) => l.product_id as string))
+      categoryProductIds = categoryProductIds
+        ? categoryProductIds.filter(id => supplierProductIds.has(id))
+        : [...supplierProductIds]
       if (categoryProductIds.length === 0) return null
     }
 
