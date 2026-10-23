@@ -1,19 +1,18 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@estrelinha/supabase/client'
 import type { DbOrder, DbOrderItem, DbOrderStatusHistory, DbOrderNote } from '@estrelinha/supabase/types'
+import { ORDER_STATUS_LABELS } from '@estrelinha/core/orders'
 import { notifyOrder } from './notifyOrder'
 
 export const ORDER_STATUSES = ['pending', 'paid', 'separating', 'shipped', 'delivered', 'cancelled'] as const
 export type OrderStatus = typeof ORDER_STATUSES[number]
 
-export const STATUS_LABELS: Record<string, string> = {
-  pending: 'Pendente',
-  paid: 'Pago',
-  separating: 'Em Separação',
-  shipped: 'Enviado',
-  delivered: 'Entregue',
-  cancelled: 'Cancelado',
-}
+/**
+ * Os rótulos de `orders.status`. Moram em `@estrelinha/core/orders` (`ORDER_STATUS_LABELS`) desde o
+ * conserto do QA da feature `73`: o selo do app do ateliê lê as mesmas palavras. Reexportado por
+ * REFERÊNCIA — `rotulosDoPainel.test.ts` confere com `toBe`.
+ */
+export const STATUS_LABELS: Record<string, string> = ORDER_STATUS_LABELS
 
 const PAGE_SIZE = 20
 

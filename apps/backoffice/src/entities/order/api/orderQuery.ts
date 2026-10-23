@@ -10,7 +10,14 @@
 // `and(...)` aninhado, `count` exato com `Range`, e `head=true` para contar sem carregar linha.
 
 import { queueAge, type QueueAge } from '@estrelinha/core/material'
-import { stripOrderNumberPrefix } from '@estrelinha/core/orders'
+import {
+  MATERIAL_NAO_SEGURA_LISTA,
+  ORDER_PAYMENT_STATUS_LABELS,
+  QUEUE_BLOCKS,
+  needsActionOrFilter,
+  stripOrderNumberPrefix,
+  type QueueBlockId,
+} from '@estrelinha/core/orders'
 import type { PaymentStatus } from '@estrelinha/supabase/types'
 
 export { pageRange, rangeLabel, escapeSearchTerm } from '@estrelinha/core/paging'
@@ -30,15 +37,12 @@ import { escapeSearchTerm } from '@estrelinha/core/paging'
  *
  * O vocabulário é fechado no banco (`orders_payment_status_check`), então `Record<PaymentStatus,…>`
  * é uma afirmação verificável: um estado novo no CHECK sem rótulo aqui não compila.
+ *
+ * Desde o conserto do QA da feature `73` o dono é `ORDER_PAYMENT_STATUS_LABELS`, em
+ * `@estrelinha/core/orders` — o selo do app do ateliê diz "Estornado" com a mesma palavra. Este é
+ * uma REFERÊNCIA ao de lá (`rotulosDoPainel.test.ts`, `toBe`).
  */
-export const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
-  pending: 'Pendente',
-  approved: 'Aprovado',
-  rejected: 'Recusado',
-  refunded: 'Estornado',
-  expired: 'Expirado',
-  cancelled: 'Cancelado',
-}
+export const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = ORDER_PAYMENT_STATUS_LABELS
 
 /** Os meios de pagamento, para chip e CSV. `payment_method` é texto livre no banco. */
 export const PAYMENT_METHOD_LABELS: Record<string, string> = {
@@ -59,12 +63,11 @@ export const MATERIAL_QUEUE_STATES = [
 /**
  * Os estados de material que **não seguram** a separação: o pedido pode andar.
  *
- * Exportado porque o contador do tile e o predicado da visão precisam ser a MESMA lista. Quando
- * eram duas, o tile "Pago, a separar" dizia 3 e o clique trazia 4 — dois pedidos que ainda
- * esperavam o envelope contavam como prontos para separar.
+ * Desde a feature `73` o dono é `@estrelinha/core/orders` (`queue.ts`, `AD-057`): o app do ateliê e
+ * a RPC `store_overview` contam a mesma fila, e a lista não pode ter uma escrita por consumidor.
+ * Reexportada daqui para os chamadores de antes não mudarem.
  */
-export const MATERIAL_NAO_SEGURA_LISTA = ['nao_aplicavel', 'material_recebido', 'em_producao']
-const MATERIAL_NAO_SEGURA = MATERIAL_NAO_SEGURA_LISTA
+export { MATERIAL_NAO_SEGURA_LISTA }
 
 export type OrderViewId =
   | 'precisa-acao'
@@ -224,8 +227,6 @@ export const SEARCH_DEBOUNCE_MS = 300
 // Visões — o predicado de cada uma
 // -------------------------------------------------------------------------------------------
 
-const naoSeguraLista = MATERIAL_NAO_SEGURA.join(',')
-
 /**
  * `Precisa de ação` é a **união dos três tiles acionáveis**, e nada mais:
  *
@@ -235,12 +236,11 @@ const naoSeguraLista = MATERIAL_NAO_SEGURA.join(',')
  *
  * O Pix aguardando fica **de fora de propósito**: ele expira sozinho e não é fila. Somá-lo faria a
  * Adri olhar 19 pendências e achar que deve algo a alguém.
+ *
+ * Desde a feature `73` a união é montada por `needsActionOrFilter()` (`@estrelinha/core/orders`), a
+ * partir da mesma regra que conta cada bloco — o app do ateliê e a RPC `store_overview` leem a mesma.
  */
-const PRECISA_ACAO_OR = [
-  'material_status.eq.aguardando_material',
-  `and(status.eq.paid,or(material_status.is.null,material_status.in.(${naoSeguraLista})))`,
-  'and(status.eq.shipped,tracking_code.is.null)',
-].join(',')
+const PRECISA_ACAO_OR = needsActionOrFilter()
 
 export interface ViewPredicate {
   /** Um `or=(…)`, quando a visão não é expressável por igualdade simples. */
@@ -270,7 +270,8 @@ export const viewPredicate = (view: OrderViewId): ViewPredicate | null => {
 // Os quatro contadores do topo — PED-12
 // -------------------------------------------------------------------------------------------
 
-export type QueueTileId = 'aguardando' | 'a-separar' | 'sem-rastreio' | 'pix-aguardando'
+/** Os ids dos blocos — o vocabulário é o de `QUEUE_BLOCKS`, em `core` (feature `73`). */
+export type QueueTileId = QueueBlockId
 
 export interface QueueTile {
   id: QueueTileId
@@ -283,55 +284,39 @@ export interface QueueTile {
   apply: (filters: OrderFilters) => OrderFilters
 }
 
-export const QUEUE_TILES: QueueTile[] = [
-  {
-    id: 'aguardando',
-    label: 'Aguardando material',
-    hint: 'Ninguém pode fazer nada até o envelope chegar',
-    // O único que ACUMULA, e por isso o único com acento. Ele carrega a idade do mais antigo, que
-    // é o que transforma "5 pedidos" em "5 pedidos, e um deles há 9 dias".
-    accent: true,
-    apply: f => ({ ...f, view: 'tudo', materialStatuses: ['aguardando_material'], semRastreio: false }),
-  },
-  {
-    id: 'a-separar',
-    label: 'Pago, a separar',
-    hint: 'Material já recebido ou não exigido',
-    accent: false,
-    // Aplica EXATAMENTE o que conta: pago **e** com o material resolvido. Usar a visão
-    // `a-separar` (que inclui `separating`) faria o clique trazer mais linhas que o número.
-    apply: f => ({
-      ...f,
-      view: 'tudo',
-      statuses: ['paid'],
-      materialStatuses: [...MATERIAL_NAO_SEGURA_LISTA],
-      semRastreio: false,
-    }),
-  },
-  {
-    id: 'sem-rastreio',
-    label: 'Enviado sem rastreio',
-    hint: 'A cliente não foi avisada da postagem',
-    accent: false,
-    apply: f => ({ ...f, view: 'em-transito', materialStatuses: [], semRastreio: true }),
-  },
-  {
-    id: 'pix-aguardando',
-    label: 'Pix aguardando',
-    // A frase existe para dizer que **não é fila**. Sem ela, quatro números lado a lado sugerem
-    // quatro dívidas — e esta expira sozinha.
-    hint: 'Expiram sozinhos — nada a fazer',
-    accent: false,
-    apply: f => ({
-      ...f,
-      view: 'tudo',
-      paymentMethods: ['pix'],
-      paymentStatuses: ['pending'],
-      materialStatuses: [],
-      semRastreio: false,
-    }),
-  },
-]
+/**
+ * O filtro que o clique em cada bloco aplica na tela do painel. É estado DESTA tela, e por isso fica
+ * aqui; o rótulo, a frase, o acento e a regra da contagem vêm de `QUEUE_BLOCKS` (feature `73`).
+ */
+const QUEUE_TILE_APPLY: Record<QueueBlockId, QueueTile['apply']> = {
+  aguardando: f => ({ ...f, view: 'tudo', materialStatuses: ['aguardando_material'], semRastreio: false }),
+  // Aplica EXATAMENTE o que conta: pago **e** com o material resolvido. Usar a visão `a-separar`
+  // (que inclui `separating`) faria o clique trazer mais linhas que o número.
+  'a-separar': f => ({
+    ...f,
+    view: 'tudo',
+    statuses: ['paid'],
+    materialStatuses: [...MATERIAL_NAO_SEGURA_LISTA],
+    semRastreio: false,
+  }),
+  'sem-rastreio': f => ({ ...f, view: 'em-transito', materialStatuses: [], semRastreio: true }),
+  'pix-aguardando': f => ({
+    ...f,
+    view: 'tudo',
+    paymentMethods: ['pix'],
+    paymentStatuses: ['pending'],
+    materialStatuses: [],
+    semRastreio: false,
+  }),
+}
+
+export const QUEUE_TILES: QueueTile[] = QUEUE_BLOCKS.map(b => ({
+  id: b.id,
+  label: b.label,
+  hint: b.hint,
+  accent: b.accent,
+  apply: QUEUE_TILE_APPLY[b.id],
+}))
 
 // -------------------------------------------------------------------------------------------
 // A linha da listagem

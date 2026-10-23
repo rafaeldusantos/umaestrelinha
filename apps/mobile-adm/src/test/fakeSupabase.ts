@@ -13,6 +13,30 @@ import { vi } from 'vitest'
  */
 
 type Sessao = { user: { id: string; email: string } } | null
+
+/** A resposta de uma RPC, na forma do supabase-js: ele NÃO rejeita, devolve `{ error }`. */
+export type RespostaRpc = { data: unknown; error: null | { message: string; code?: string } }
+/** Como uma RPC responde à `n`-ésima chamada (1, 2, …). Pode devolver uma promessa (segurar). */
+type ComportamentoRpc = (n: number, args: unknown) => RespostaRpc | Promise<RespostaRpc>
+
+/** Uma inscrição feita em `canal.on(tipo, filtro, cb)`. */
+type Inscricao = { tipo: string; filtro: Record<string, unknown>; cb: (payload: unknown) => void }
+
+/** Um canal do Realtime, como o supabase-js o devolve: `on` encadeia e `subscribe` o liga. */
+export interface CanalFalso {
+  nome: string
+  inscricoes: Inscricao[]
+  inscrito: boolean
+  removido: boolean
+  on: (tipo: string, filtro: Record<string, unknown>, cb: (payload: unknown) => void) => CanalFalso
+  subscribe: () => CanalFalso
+  /**
+   * Sai do canal SEM removê-lo do client (`RealtimeChannel.unsubscribe`, que o supabase-js oferece).
+   * Registrado para que uma troca de `removeChannel` por `unsubscribe` morra por asserção (o canal
+   * deixa de estar aberto, e `removeChannel` não é chamado), e não por `is not a function` (N09).
+   */
+  unsubscribe: ReturnType<typeof vi.fn>
+}
 export type FormaDeFalha = 'erro' | 'lanca' | 'rejeita'
 
 const FALHA_DE_REDE = { message: 'Failed to fetch' }
@@ -41,6 +65,12 @@ const criar = () => {
     erroDoCodigo: null as null | { message: string; code?: string; status?: number },
     tabelas: [] as string[],
     ouvintes: new Set<Ouvinte>(),
+    /** Feature `73`: o comportamento de cada RPC, por nome. Sem entrada, `{ data: null }`. */
+    rpcs: new Map<string, ComportamentoRpc>(),
+    /** Toda chamada de RPC, com o nome E os argumentos — a régua de "sem argumento" e de "uma chamada". */
+    chamadasRpc: [] as { nome: string; args: unknown[] }[],
+    /** Todo canal aberto por `channel(nome)`, inclusive os já removidos. */
+    canais: [] as CanalFalso[],
   }
 
   const emitir = (evento: string) => {
@@ -131,9 +161,38 @@ const criar = () => {
       getUser: vi.fn(async () => ({ data: { user: estado.sessao?.user ?? null } })),
     },
     from: vi.fn(consulta),
-    rpc: vi.fn((nome: string) => {
+    rpc: vi.fn((nome: string, ...args: unknown[]) => {
       estado.tabelas.push(`rpc:${nome}`)
-      return Promise.resolve({ data: null, error: null })
+      estado.chamadasRpc.push({ nome, args })
+      const n = estado.chamadasRpc.filter((c) => c.nome === nome).length
+      const comportamento = estado.rpcs.get(nome)
+      return Promise.resolve(comportamento ? comportamento(n, args[0]) : { data: null, error: null })
+    }),
+    channel: vi.fn((nome: string) => {
+      const canal: CanalFalso = {
+        nome,
+        inscricoes: [],
+        inscrito: false,
+        removido: false,
+        on(tipo, filtro, cb) {
+          canal.inscricoes.push({ tipo, filtro, cb })
+          return canal
+        },
+        subscribe() {
+          canal.inscrito = true
+          return canal
+        },
+        unsubscribe: vi.fn(async () => {
+          canal.inscrito = false
+          return 'ok' as const
+        }),
+      }
+      estado.canais.push(canal)
+      return canal
+    }),
+    removeChannel: vi.fn(async (canal: CanalFalso) => {
+      canal.removido = true
+      return 'ok' as const
     }),
   }
 
@@ -185,6 +244,49 @@ const criar = () => {
       estado.sessao = null
       emitir('SIGNED_OUT')
     },
+    // ---- RPC (feature `73`) -------------------------------------------------------------------
+    /** A RPC responde com este dado, em toda chamada. */
+    responderRpc(nome: string, data: unknown) {
+      estado.rpcs.set(nome, () => ({ data, error: null }))
+    },
+    /** A RPC responde com `{ error }` (o supabase-js não rejeita). Ex.: `{ code: '42501' }`. */
+    falharRpc(nome: string, erro: { message: string; code?: string }) {
+      estado.rpcs.set(nome, () => ({ data: null, error: erro }))
+    },
+    /** A RPC nunca responde (L-054: cada leitura pendura sozinha). */
+    pendurarRpc(nome: string) {
+      estado.rpcs.set(nome, () => new Promise<RespostaRpc>(() => {}))
+    },
+    /** Comportamento por chamada: `(n, args) => resposta`, `n` a partir de 1. */
+    aoChamarRpc(nome: string, comportamento: ComportamentoRpc) {
+      estado.rpcs.set(nome, comportamento)
+    },
+    /** As chamadas de uma RPC, cada uma com os argumentos depois do nome. */
+    chamadasDe(nome: string) {
+      return estado.chamadasRpc.filter((c) => c.nome === nome)
+    },
+    // ---- Realtime (feature `73`) --------------------------------------------------------------
+    /** Os canais ligados e ainda não removidos. */
+    canaisAbertos() {
+      return estado.canais.filter((c) => c.inscrito && !c.removido)
+    },
+    /**
+     * Um aviso de `postgres_changes` chega: todo canal aberto inscrito na `tabela` recebe o payload.
+     * Devolve quantos callbacks foram chamados (zero é um aviso que ninguém ouviu).
+     */
+    emitir(tabela = 'orders', payload: unknown = { eventType: 'UPDATE', table: tabela }) {
+      let chamados = 0
+      for (const canal of estado.canais) {
+        if (!canal.inscrito || canal.removido) continue
+        for (const i of canal.inscricoes) {
+          if (i.tipo === 'postgres_changes' && i.filtro.table === tabela) {
+            i.cb(payload)
+            chamados++
+          }
+        }
+      }
+      return chamados
+    },
     /** Só as leituras que NÃO são do próprio `AuthProvider` (o papel e o cadastro de quem entrou). */
     leiturasDeDado() {
       return estado.tabelas.filter((t) => t !== 'user_roles' && t !== 'customers')
@@ -204,9 +306,14 @@ const criar = () => {
       estado.erroDoCodigo = null
       estado.tabelas = []
       estado.ouvintes.clear()
+      estado.rpcs.clear()
+      estado.chamadasRpc = []
+      estado.canais = []
       for (const f of Object.values(client.auth)) f.mockClear()
       client.from.mockClear()
       client.rpc.mockClear()
+      client.channel.mockClear()
+      client.removeChannel.mockClear()
     },
   }
 }

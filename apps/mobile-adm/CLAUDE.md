@@ -7,13 +7,13 @@ para o celular da Adri, instalável no Android como app. Leia [`../../CLAUDE.md`
 
 **Só Android.** iOS/Safari não é testado nem otimizado (pedido do usuário).
 
-## O que existe hoje (feature `72`, a fundação)
+## O que existe hoje (feature `72`, a fundação, e `73`, a Início)
 
 | Rota | O quê |
 | --- | --- |
 | `/login` | entrar (e-mail e senha) |
 | `/recuperar` · `/recuperar/codigo` · `/recuperar/senha` | recuperar o acesso por **código de 6 dígitos**, um passo por rota (`MAF-24`), fora do guarda |
-| `/` | Início — em construção (feature `73`) |
+| `/` | Início — o movimento, "Precisa de você", a semana, o mês, as joias e os últimos pedidos (feature `73`, abaixo) |
 | `/pedidos` | Pedidos — em construção (`74`, `75`) |
 | `/clientes` | Clientes — em construção (`76`) |
 | `/descontos` | Descontos — em construção (`77`, `78`) |
@@ -104,6 +104,12 @@ Não existe papel, tabela nem convite próprio do app.
 1. **`useOnline`** — sem rede, `OfflineScreen` e mais nada: o `AuthProvider` nem monta, então
    nenhuma chamada ao Supabase sai (`MAF-19`). Quando a rede volta, tudo monta de novo e a sessão é
    relida.
+   - ⚠️ **O `QueryClientProvider` fica ACIMA deste ramo** (achado da prova em navegador da `73`). O
+     `onlineManager` do React Query só ouve `online`/`offline` enquanto há um `QueryClient` montado;
+     com o provider dentro do ramo, o `offline` chegava, o provider desmontava e o `online` da volta
+     não era ouvido — toda leitura ficava **pausada** e a Início nunca mais relia. O cliente é criado
+     por `useState` no `<App />` (`criarQueryClient`), então o cache sobrevive à queda: ao voltar, a
+     tela mostra o dado anterior com "Atualizado às" e relê (`MAI-18`).
 2. **`AuthProvider`** e **`BootGate`** — a splash da abertura, até o piso de 600 ms passar **e** a
    sessão resolver pela primeira vez (no máximo 8 s: o teto do provider; no `unknown` a tela é da
    rota, não do portão, para a recuperação continuar alcançável). Ela trava na primeira resolução: o provider volta a `loading`
@@ -112,6 +118,75 @@ Não existe papel, tabela nem convite próprio do app.
    `72` acrescentou; sem ele o painel continua vendo o esqueleto dele).
 4. **`app/layout/MobileLayout`** — cabeçalho com o menu da conta, a aba, o rodapé do Backoffice e a
    barra inferior. Mora em `app/` porque compõe dois widgets (`tab-bar` e `account-menu`).
+
+## A Início (feature `73`, `AD-057`)
+
+`pages/InicioPage.tsx` compõe seis widgets (`movement-hero`, `queue-tiles`, `week-chart`,
+`month-cards`, `top-jewels`, `recent-orders`), o `PullToRefresh` e o Realtime. **Nenhuma regra de
+número mora no app.**
+
+- **Só RPC admin, duas leituras** (`MAI-23`): o movimento por `useMovimento` e o resumo por `useResumo`
+  (`entities/stats`), que chamam `store_movement` e `store_overview` **sem argumento** — o dia, a
+  semana e o mês são do banco (`AD-055`). Nenhuma leitura de `orders` pelo PostgREST: a RLS devolveria
+  à conta sem papel os pedidos DELA, e a contagem seria um número falso e plausível. A regra dos
+  quatro blocos da fila mora em `core/orders/queue.ts`, e a cópia SQL na migration é guardada byte a
+  byte (`filaComDonoUnico.test.ts`, suíte da loja).
+- **`useMovimento` existe por causa do `retry`.** `useStoreMovement` (`core`) declara `retry: 1` no
+  próprio hook (o painel depende disso), e opção de query vence a do `QueryClient`: sem passar
+  `retryUnlessDenied`, um `42501` seria repetido antes da recusa. A Início lê o movimento SÓ por aqui.
+- **Três estados por bloco** (`shared/ui/leitura.tsx`): esqueleto (`aria-busy`), falha sem dado (frase
+  e "Tentar de novo", nunca um zero), e dado — inclusive com a releitura falhada (`MAI-18`). Cada
+  leitura falha e pendura sozinha.
+- **"Atualizado às 14h32"** é `formatStoreHour` do `lido_em` do SERVIDOR (o mais antigo dos dois na
+  tela), nunca o relógio do aparelho; "Não consegui atualizar agora." entra na mesma linha quando uma
+  releitura falhou com dado na tela.
+- **Releem**: o aviso do Realtime (canal `atelie-orders-realtime`, **um** por montagem, fechado ao
+  trocar de aba e ao sair), o puxar, a volta ao primeiro plano (`refetchOnWindowFocus`) e a virada do
+  dia (o timer por duração do servidor, nos hooks). Resposta antiga que chega depois da nova é
+  descartada (o React Query cancela por chave).
+- **`42501` ⇒ a recusa da `72`.** `useRecusaDePapel` reconfere o papel (`retryAdminCheck`) e o
+  `RequireAdmin` leva ao Login com "Esta conta não tem acesso ao painel.". Erro de rede (sem código,
+  ou 500) **nunca** é recusa. Enquanto há recusa, nenhum bloco desenha número, nem o de antes.
+  - ⚠️ **A reconferência é UMA por episódio, não por montagem**: `retryAdminCheck` põe `loading`, o
+    `RequireAdmin` desmonta a página, e um `useRef` morria com ela — com o papel ainda `admin` (a
+    recusa era da função), a tela entrava em laço. A marca mora fora do React, e se desfaz quando
+    nenhuma leitura está mais recusada ou a conta muda (achado da T18).
+- **Os endereços de `/pedidos`** (`?visao=` e `?bloco=`) são de `pedidosHref` (`entities/order`), o
+  mesmo arquivo que a `74` vai ler. As linhas de "Últimos pedidos" são texto até a `75`.
+- **O selo fala com o ateliê** (`BUG-20261022-situacao-fala-com-a-cliente-no-atelie`, reteste de
+  2026-10-23). `SituacaoDoPedido` chama `orderSituation(pedido, 'atelie')`: a MESMA chave e o MESMO tom
+  da loja, com as palavras de quem administra — "Aguardando material", "Material a caminho",
+  "Material recebido", "Enviado", "Estornado" —, nunca o "seu material" da cliente. As palavras moram
+  em `core` (`SITUATION_LABELS_BY_AUDIENCE`, de `MATERIAL_STATUS_LABELS` e dos rótulos do painel em
+  `core/orders/labels.ts`). **Nenhuma tabela de rótulo no app**: `situacaoComDonoUnico.test.ts` (suíte
+  da loja) varre `apps/mobile-adm/src` desde então, e acusa até a tabela "só para trocar a palavra".
+  As telas da `74`/`75` que desenharem a situação usam o mesmo componente, ou o mesmo público.
+- **A linha de Últimos pedidos quebra com a fonte grande**
+  (`BUG-20261023-ultimos-pedidos-estoura-com-fonte-maxima`): `flex-wrap`, o nome com piso em rem
+  (`min-w-[min(100%,6rem)]`) e a coluna do total e do selo podendo ceder (`ml-auto min-w-0 max-w-full`,
+  nunca `shrink-0`). E o rótulo do selo **não** é `truncate`: a 165 %+ em 360 a pílula sozinha é mais
+  larga que a linha, e cortar viraria "Aguardando pag…"; o texto desce para uma segunda linha dentro
+  dela. Medido de 100 a 200 % em 360 e 412: `scrollWidth` igual à tela, nada sobreposto, nada cortado.
+- **Limitação declarada — o Realtime fica mudo quando o papel cai** (observação do QA, aceita em
+  2026-10-23). Sem o papel de admin, a RLS de `orders` não entrega o aviso, e a Início mostra os números
+  da última leitura boa, com o "Atualizado às" daquela hora, até o próximo foco, puxar ou virada do dia
+  — quando a leitura é recusada (`42501`) e a recusa da `72` assume. É o mesmo limite do painel (`A-06`
+  da `48`: revogar o acesso não derruba a sessão ativa). Reconferir o papel num intervalo foi
+  recusado: a revogação é rara, e os números na tela são de quando a conta era admin.
+- ⚠️ **A semântica de `store_overview` só é provada por probe, e o probe não roda no CI** (`BL-050`).
+  Toda migration que recrie a função roda, antes do deploy:
+
+  ```bash
+  psql "postgresql://postgres:postgres@127.0.0.1:54442/postgres" -v ON_ERROR_STOP=1 \
+    -f .specs/features/73-mobile-adm-inicio/probes/01-resumo.sql
+  ```
+
+  e confere exit 0 com só `ok —` (detalhe em `supabase/CLAUDE.md`). Os testes do app dublam a RPC: eles
+  provam o desenho, nunca o número.
+- **Relógio falso discorda do esperado** (`L-058`): prova de "pelo banco, não pelo aparelho" põe o
+  aparelho no meio de outro mês e noutra faixa de hora (`MonthCards`, a saudação e a data do
+  `MovementHero`). O relógio real do dia da suíte pode coincidir com a fixtura — durante o 22/10/2026
+  em UTC, ler a data do aparelho passaria.
 
 ## PWA — só a casca
 
@@ -190,6 +265,8 @@ Não existe papel, tabela nem convite próprio do app.
 | `vercelConfig.test.ts` | idem | os headers de `MAF-04`, `sw.js`/manifest em cache, o rewrite da SPA capturando os dois |
 | `scaffold.test.ts` | idem | o script `dev:mobile-adm` da raiz filtrando outro workspace, a porta 8084 (dev e preview), a `VITE_BACKOFFICE_URL` fora do `env` do build do `turbo.json`. Que o build gera `manifest.webmanifest`/`sw.js` é provado executando o build, não por este guarda |
 | `TabBar.test.tsx` | `src/widgets/tab-bar/__tests__` | (além do comportamento) a aba sem ícone, ou com o ícone de outra: o par aba → ícone (casa, sacola, pessoas, etiqueta) é escrito por extenso no teste, nunca derivado de `TABS` |
+| `InicioPage.test.tsx` | `src/pages/__tests__` | (feature `73`, pelo `<App />` real) uma chamada de cada RPC, sem argumento, e nenhuma tabela lida; erro **e** pendura de cada leitura sozinha; a recusa (`42501`) de cada RPC ⇒ uma chamada e o Login, sem número; o laço da vigia; rede nunca vira recusa; um canal, fechado ao trocar de aba e ao sair; o aviso, o puxar, o foco, a virada e a volta da rede relendo as duas; resposta antiga descartada |
+| `inicioComClientReal.test.tsx` | `src/app/__tests__` | (feature `73`, sobre o supabase-js REAL) o 403 `42501` do PostgREST levando à recusa; o 500 e a falha de rede levando à falha do bloco, nunca à recusa |
 | `lockupDaSplashPareado.test.ts` | `src/features/splash/__tests__` | a cópia do lockup divergindo do SVG-fonte |
 | `Splash.test.tsx` | idem | `<img>` na splash, a largura de 300/120, o rótulo, animação sem o par `motion-reduce:` |
 
@@ -220,6 +297,12 @@ Na suíte da **loja**, por ler a loja junto: `palette.test.ts` (o config daqui �
   `fetchFalso` não confere o `Authorization` — por isso a armadilha do 401 (o `setTimeout(0)` do
   ouvinte) não tem régua; dívida em `BL-049`. Na volta da aba, conte os `SIGNED_IN`: o `visibilitychange`
   sem `bubbles` não chega ao client, e uma régua de "não pisca" passaria sobre um evento que não saiu.
+- **Feature `73`**: o dublê ganhou `rpc()` (registra nome **e** argumentos; `responderRpc`,
+  `falharRpc`, `pendurarRpc`, `aoChamarRpc` por chamada, `chamadasDe`) e o Realtime (`channel`,
+  `removeChannel`, `canaisAbertos()` e `emitir()`). O arnês do client real ganhou `rpc` no cenário
+  (`{ status, corpo }`, `rede`, `pendura`; RPC sem entrada responde `null` com 200, que a tela lê como
+  "ainda sem dado") — nas **duas** cópias. O `onlineManager` do React Query é do MÓDULO: teste que
+  derruba a rede o devolve a `online` no `afterEach`.
 - `montarApp(caminho, { estado })` monta a entrada já com o `location.state` (o React Router o lê de
   `history.state.usr`). Gravar o estado antes com `replaceState` **não serve**: o `pushState` do
   `montarApp` cria uma entrada nova, sem ele — foi assim que um caso de `MAF-24` virou cópia do caso

@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 // Feature 71 · task 22 · `VIS-04`, `VIS-10 (a, b, c)`, `VIS-33` (forma) — a leitura do bloco.
 //
 // O que cada caso prova, e o mundo errado em que ele seria falso:
@@ -19,8 +20,11 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 const { rpc } = vi.hoisted(() => ({ rpc: vi.fn() }))
 vi.mock('@estrelinha/supabase/client', () => ({ supabase: { rpc } }))
 
-import { STORE_MOVEMENT_KEY, useStoreMovement } from './useStoreMovement'
-import type { MovementPeriod, MovementPeriodKey, StoreMovement } from '../model/storeMovement'
+// Feature `73`: o hook e o tipo subiram do painel para `core` (`AD-056`), e este arquivo veio junto,
+// caso a caso, sem asserção tocada — só os dois caminhos de import abaixo mudaram.
+import { STORE_MOVEMENT_KEY, useStoreMovement } from '../useStoreMovement'
+import { retryUnlessDenied } from '../useStoreOverview'
+import type { MovementPeriod, MovementPeriodKey, StoreMovement } from '../../stats/movement.ts'
 
 const HORA = 3_600_000
 const DIA = 24 * HORA
@@ -164,6 +168,43 @@ describe('useStoreMovement — a leitura (VIS-04, VIS-33)', () => {
     expect(result.current.isError).toBe(true)
     expect(result.current.data).toBeUndefined()
     expect(rpc).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('useStoreMovement — o `retry` é de quem lê (feature 73, MAI-22)', () => {
+  // O app do ateliê passa `retryUnlessDenied`: a recusa por papel não repete (ir à recusa logo), a
+  // falha de rede repete uma vez. Sem o parâmetro, o `retry: 1` do hook venceria o do app.
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'] })
+    vi.setSystemTime(new Date('2026-10-21T18:00:00.000Z'))
+  })
+
+  const useComRetry = () => {
+    const q = useStoreMovement({ retry: retryUnlessDenied })
+    void q.isError
+    void q.data
+    return q
+  }
+
+  it('`42501` com `retryUnlessDenied`: UMA chamada só, e o erro chega com o código', async () => {
+    rpc.mockResolvedValue({ data: null, error: { message: 'sem acesso', code: '42501' } })
+    const { result } = renderHook(useComRetry, { wrapper })
+    await escoar()
+    await avancar(10_000)
+
+    expect(rpc).toHaveBeenCalledTimes(1)
+    expect(result.current.isError).toBe(true)
+    expect((result.current.error as { code?: string } | null)?.code).toBe('42501')
+  })
+
+  it('falha de rede com `retryUnlessDenied`: DUAS chamadas (uma nova tentativa), depois erro', async () => {
+    rpc.mockResolvedValue({ data: null, error: { message: 'Failed to fetch' } })
+    const { result } = renderHook(useComRetry, { wrapper })
+    await escoar()
+    await avancar(10_000)
+
+    expect(rpc).toHaveBeenCalledTimes(2)
+    expect(result.current.isError).toBe(true)
   })
 })
 

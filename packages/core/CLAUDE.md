@@ -49,10 +49,12 @@ sem ela a varredura passa com zero arquivo lido, que é a pior falha possível n
 | `./validators/email` | `isValidEmail`, `normalizeEmail` | loja, edge function `checkout` |
 | `./shipping` | `freeShippingState` + `freeShippingRefusal` (o frete grátis tem **um** dono), `estimate.ts` | 8 superfícies nos 2 apps |
 | `./media` | `renditionUrl`/`renditionSrcSet`/`imagePriority` (`rendition.ts`) e **`surfaceArt`** (`AD-030`) | loja, painel, `core/page` |
+| `./orders` | `orderSituation` (com o público `'cliente' \| 'atelie'`), `SITUATION_LABELS_BY_AUDIENCE`, `ORDER_STATUS_LABELS`/`ORDER_PAYMENT_STATUS_LABELS` (`labels.ts`, subidos do painel), `formatOrderNumber`, **`queue.ts`** (`QUEUE_BLOCKS`, `NEEDS_ACTION_BLOCKS`, `toPostgrestFilter`, `needsActionOrFilter`, `toSqlPredicate` — feature `73`, `AD-057`) | loja, painel, app do ateliê, migration (cópia SQL guardada) |
+| `./stats` | **`StoreMovement`** (movido da `71`), **`StoreOverview`** e `OVERVIEW_KEYS`, `turnDelayMs`, os rótulos da Início (`greetingFor`, `longDateLine`, `monthName`, `weekdayShort`, `piecesLabel`, `paidOrdersLabel`, `relativeAge`, `storeHour`) — feature `73` | painel (reexporta o tipo), app do ateliê |
 | `./time` | **`STORE_TIME_ZONE`** (o nome do fuso da loja, a cópia TypeScript de `store_time_zone()` do banco) e `formatDayMonth`/`formatStoreHour` (`21/10`, `15h32`) — feature `71`, `AD-055` | `core/orders/situation.ts`, painel (GA e o bloco "Movimento da loja"), loja (`orderMeta`) |
 | `./visits` | `isBotUserAgent` (as 20 assinaturas de robô), `visitBody`/`visitBodyRefusal`/`isVisitorId` (o corpo da visita) e `OPT_OUT_PARAM`/`optOutHref`/`readOptOutParam` (o parâmetro de "não contar") — feature `71` | loja (`VisitCounter`), edge function `visit`, painel (menu da conta) |
 | `./validators` · `./product` · `./auth` | utilitários de domínio | vários |
-| `./hooks/*` | **exceção declarada** — `useStoreSettings`, `useCoupons` tocam Supabase | os dois apps |
+| `./hooks/*` | **exceção declarada** — `useStoreSettings`, `useCoupons` tocam Supabase; desde a `73`, também **`useStoreMovement`**, **`useStoreOverview`** (com `retryUnlessDenied` e `ACCESS_DENIED_CODE`) e **`useOrdersRealtime(nomeDoCanal, aoMudar)`** | os dois apps e o app do ateliê |
 
 ## Dinheiro — a regra que não muda por acaso
 
@@ -341,6 +343,41 @@ sem build, `tsc` ou teste de componente acusarem — desta vez com o CTA de dinh
   `'on' | 'off' | null`, string e não booleano, pela regra de `strictNullChecks`.
   `parametroNaoContarComDonoUnico.test.ts` (suíte da loja) recusa o nome escrito à mão fora do dono
   e exige as duas chamadas.
+
+## `orders/queue.ts` e `stats` — a Início do ateliê (feature `73`, `AD-057`)
+
+- **"Este pedido está em qual bloco da fila?" é DADO, com dois tradutores.** `QUEUE_BLOCKS` carrega a
+  regra de cada bloco como condições (`eq`, `in`, `is_null`, e `any` para o "ou"); `toPostgrestFilter`
+  a escreve para o `.or()` do PostgREST (o painel) e `toSqlPredicate` para o SQL (a RPC
+  `store_overview`). A cópia SQL é **deliberada** — a Início do app só lê RPC admin, porque a RLS de
+  `orders` daria a uma conta sem papel os pedidos dela, sem erro — e `filaComDonoUnico.test.ts`
+  (suíte da loja) exige a saída de `toSqlPredicate` byte a byte na migration. `queue.ts` não importa
+  nada: alcançável pelo Deno por construção.
+- **"Precisa de ação" é a UNIÃO dos três primeiros, nunca a soma.** Um pedido pode estar em dois
+  blocos; a soma o contaria duas vezes.
+- **`stats` só escreve o que o banco decidiu.** Os dias chegam como texto `AAAA-MM-DD`, e os rótulos
+  os cortam por texto — nenhum `new Date('AAAA-MM-DD')`; `labels.test.ts` roda em fusos negativos com
+  o módulo reimportado. A saudação usa a hora de Brasília do `lido_em` do servidor.
+- **Os hooks seguem o molde de `useStoreMovement`**: uma RPC sem argumento, o `throw` do `{ error }`
+  (o supabase-js não rejeita), e a releitura da virada pela DURAÇÃO do servidor (`turnDelayMs`). O
+  `retry` de `useStoreOverview` é `retryUnlessDenied` (`42501` não repete); o de `useStoreMovement` é
+  parâmetro, com padrão `1` pelo painel.
+
+## `orders/situation.ts` — um selo, duas vozes (conserto do QA da `73`)
+
+- **`orderSituation(o, publico = 'cliente')`.** A chave e o tom são os mesmos para os dois públicos;
+  só a palavra muda. A loja **não passa** o argumento e não mudou uma letra; o app do ateliê passa
+  `'atelie'` (`BUG-20261022-situacao-fala-com-a-cliente-no-atelie`).
+- **As palavras moram num mapa só**, `SITUATION_LABELS_BY_AUDIENCE`: `cliente` É o `SITUATION_LABELS`
+  de sempre (referência), e `atelie` não tem literal novo — sai de `MATERIAL_STATUS_LABELS`
+  (`core/material`) e de `ORDER_STATUS_LABELS`/`ORDER_PAYMENT_STATUS_LABELS` (`orders/labels.ts`), que
+  subiram do painel; o painel reexporta por referência (`rotulosDoPainel.test.ts`, `toBe`).
+- **No ateliê o material diz mais que a chave**: `awaiting_material` vira "Aguardando material" ou
+  "Material a caminho" pelo `material_status`, e `in_production` com `material_recebido` vira
+  "Material recebido". Para a cliente os dois primeiros continuam o mesmo selo (`SIT-04`).
+- `situation.ts` importa `material/material.ts` e `orders/labels.ts`, as duas **folhas sem import** — o
+  diretório continua alcançável pelo Deno (`purity.test.ts`).
+- `situacaoComDonoUnico.test.ts` (suíte da loja) varre a loja **e** `apps/mobile-adm/src`.
 
 ## Convenções de tipo
 

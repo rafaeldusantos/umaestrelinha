@@ -225,10 +225,10 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - last seen: 2026-10-19T00:00:00Z
 
 ### L-043 — Adaptador que lê N fontes precisa de um caso de ERRO por fonte, pela porta que o usuário chama: provar o erro só na primeira tabela deixa as outras livres para engolir o erro, e o resultado é a resposta parcial com status de sucesso que a spec proíbe.
-- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `apps/store/server/**` · harmful: 0
-- features: 70-sitemap-servido-na-vercel
-- evidence: M01 — `apps/store/server/sitemap.ts` (`readFaqLinks` sem `throw` deixava o sitemap 200 sem as perguntas, com 5340 verdes)
-- last seen: 2026-10-20T00:00:00Z
+- signal: `surviving_mutant` · recurrence: 2 feature(s) · scope: `apps/store/server/**`, `apps/mobile-adm/src/pages/**` · harmful: 0
+- features: 70-sitemap-servido-na-vercel, 73-mobile-adm-inicio
+- evidence: M01 — `apps/store/server/sitemap.ts` (`readFaqLinks` sem `throw` deixava o sitemap 200 sem as perguntas, com 5340 verdes); `73` r2, N15 — `InicioPage.tsx` com o aviso "Não consegui atualizar agora." calculado só pelo movimento sobrevive a mobile-adm 392/392: o caso da RELEITURA que falha (`MAI-18`) existe só para `store_movement`, e o cabeçalho do arquivo afirma "cada leitura tem o seu caso de erro" (vale para a primeira leitura, não para a releitura)
+- last seen: 2026-10-22T00:00:00Z
 
 ### L-044 — Teste que cria diretório temporário dentro de uma árvore que outro guarda VARRE produz flake de ENOENT entre suítes paralelas; ponha o temporário em `node_modules/.cache` da raiz (nenhuma varredura entra, e a resolução de módulos continua subindo até o `node_modules` do repositório).
 - signal: `flake` · recurrence: 1 feature(s) · scope: `apps/store/scripts/**` · harmful: 0
@@ -309,9 +309,45 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - last seen: 2026-10-22T00:00:00Z
 
 ### L-057 — Toda ref de dedupe ou de "já resolvido" que um caminho de SAÍDA zera (logout, "Tentar de novo") precisa de um caso de RE-ENTRADA pelo mesmo id: sair e entrar com a mesma conta, sair com a checagem em voo, tentar de novo com uma repergunta em voo. Sem ele, apagar o reset deixa a suíte verde e o provider preso (`loading` eterno, ou a sessão nova ignorada).
-- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `packages/auth/**` · harmful: 0
-- features: 72-mobile-adm-fundacao
-- evidence: Fase 6 r3 — X05 (`presente` não zera no logout), X06 (`emVoo` não zera no logout) e X07 (`retryAdminCheck` não zera `emVoo`) sobrevivem a mobile-adm 249/249 + os arquivos com o `AuthProvider` real da loja e do painel; sonda com o client real: X06 ⇒ entra e a tela segue deslogada; X07 ⇒ `unknown|true` por 20 s
+- signal: `surviving_mutant` · recurrence: 2 feature(s) · scope: `packages/auth/**`, `apps/mobile-adm/src/features/**` · harmful: 0
+- features: 72-mobile-adm-fundacao, 73-mobile-adm-inicio
+- evidence: `73` r2, N02 — `useRecusaDePapel.ts` com `reconferidoPara !== null` no lugar de `=== conta` (a troca de conta deixa de reabrir o episódio de recusa) sobrevive a mobile-adm 392/392: falta o caso de re-entrada por OUTRO id (conta A recusada, conta B entra e é recusada); Fase 6 r3 — X05 (`presente` não zera no logout), X06 (`emVoo` não zera no logout) e X07 (`retryAdminCheck` não zera `emVoo`) sobrevivem a mobile-adm 249/249 + os arquivos com o `AuthProvider` real da loja e do painel; sonda com o client real: X06 ⇒ entra e a tela segue deslogada; X07 ⇒ `unknown|true` por 20 s
+- last seen: 2026-10-22T00:00:00Z
+
+### L-058 — Prova de "pelo dia do banco, não do aparelho" precisa de um relógio falso em que o UTC do aparelho e o valor esperado DISCORDEM no campo medido: um instante na virada (31/12 23:59 de Brasília) já é janeiro em UTC, e a leitura do relógio do aparelho por `toISOString()` passa como se fosse a do banco. Escolha o meio de outro mês, longe de toda borda.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `apps/mobile-adm/src/widgets/**` · harmful: 0
+- features: 73-mobile-adm-inicio
+- evidence: A32 — `MonthCards.tsx` `monthName(r.mes)` → `monthName(new Date().toISOString())` sobrevive a mobile-adm 387/387; `MonthCards.test.tsx:22-28` fixa o relógio em `2025-12-31T23:59-03:00` (= `2026-01-01T02:59Z`) com `mes: '2026-01'`; e no conserto r1 a mesma armadilha SEM relógio falso: os casos da saudação e da data do `MovementHero` usavam o relógio real, e durante o 22/10/2026 em UTC (o dia da fixtura) ler a data do aparelho passaria — a régua dependia da hora em que a suíte rodava. Agora cada caso põe o aparelho em 15/06 numa faixa de hora diferente da esperada
+- last seen: 2026-10-22T00:00:00Z
+
+### L-059 — A semântica de uma RPC (borda de dia, `left join`, `count(col)` × `count(*)`, ordem do agregado final, a coluna do nome) só é provada por probe contra o banco; o guarda de fonte mede a forma e deixa esses mutantes passarem. Probe que não roda no CI precisa ser rodado no gate da feature e no de toda migration que recrie a função.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `supabase/migrations/**` · harmful: 0
+- features: 73-mobile-adm-inicio
+- evidence: S01, S02, S03, S04, S06, S11 — `overviewSchema.test.ts` e `filaComDonoUnico.test.ts` verdes com o mutante na migration da `73`; só `.specs/features/73-mobile-adm-inicio/probes/01-resumo.sql` reprova (todos mortos, mas fora de toda suíte automática); r3: J2, J3, J4, C2, C3, C4, R1, R2 mortos só pelo probe, e C1/J1 nem por ele (`L-062`)
+- last seen: 2026-10-22T00:00:00Z
+
+### L-060 — Guarda de "nenhum predicado escrito à mão" por VOCABULÁRIO é cego a constante e a concatenação (`'aguardando' + '_material'`), e a âncora positiva que o salva ("a consulta monta o filtro pela regra de `core`") prova PRESENÇA, não exclusividade: um predicado extra encadeado ao lado da regra (`.neq('status', 'cancelled')`) passa as duas. Para "o recorte é SÓ a regra do dono", meça a cadeia inteira da consulta (os métodos entre o `from` e o `order`) por igualdade, ou prove por comportamento com um dublê que registra os filtros.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `packages/core/src/orders/__tests__/**`, `apps/backoffice/src/entities/order/api/**` · harmful: 0
+- features: 73-mobile-adm-inicio
+- evidence: `73` r2 — P01 (`.eq(COL, ESTADO)` com constantes concatenadas) morto só pela âncora, a régua de vocabulário passou; P04 (regra de `core` + `.neq('status', 'cancelled')` na idade do mais antigo de `useAdminOrderList.ts`) sobrevive a core 3826/3826 e às suítes de pedidos do painel
+- last seen: 2026-10-22T00:00:00Z
+
+### L-061 — Gesto com limiar ("só no topo", "acima de N px") precisa de régua nas DUAS bordas e no sentido contrário: provar "fora do topo" com a página rolada 120 px deixa passar `scrollY > 100`, e puxar só para baixo deixa passar `Math.abs` (puxar para cima também relê). Meça com 1 px de rolagem e com o dedo subindo.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `apps/mobile-adm/src/shared/ui/**` · harmful: 0
+- features: 73-mobile-adm-inicio
+- evidence: `73` r3, T1 (`PullToRefresh.tsx` `window.scrollY > 0` → `> 100`) e T2 (`Math.max(0, y - inicio)` → `Math.abs(…)`) sobrevivem a mobile-adm 394/394; `PullToRefresh.test.tsx` usa `rolarPara(120)` e só `clientY` crescente
+- last seen: 2026-10-22T00:00:00Z
+
+### L-062 — Probe de RPC que agrupa por "A ou B" (cadastro por `customer_id` OU convidada por e-mail) e corta por `order by … limit N` precisa de fixtura em que as duas chaves DISCORDEM e em que haja um empate exatamente no corte: com o e-mail do pedido igual ao da conta, tirar o `customer_id` do `on` dá o mesmo número; com só N candidatos, a ordem do recorte não decide quem entra.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `.specs/features/*/probes/**`, `supabase/migrations/**` · harmful: 0
+- features: 73-mobile-adm-inicio
+- evidence: `73` r3, C1 (`primeira` casando só por `lower(customer_email)`) e J1 (`order by pecas desc, nome desc` só na CTE `joias`) passam `01-resumo.sql` 23/23
+- last seen: 2026-10-22T00:00:00Z
+
+### L-063 — Bloco de três estados (dado · falha · carregando) precisa de asserção de EXCLUSIVIDADE em cada estado, não só da marca do próprio: o caso de carregamento que confere `aria-busy` e "nenhum número" passa com o esqueleto apagado; o de falha que confere a frase passa com `aria-busy` ligado; o de falha inicial passa com o aviso de RELEITURA na tela.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `apps/mobile-adm/src/widgets/**`, `apps/mobile-adm/src/pages/**` · harmful: 0
+- features: 73-mobile-adm-inicio
+- evidence: `73` r3, S1 (`MovementHero.tsx` sem `Traco` nos números), G3/Q1 (`WeekChart`/`QueueTiles` `carregando = !r`) e N15d (`InicioPage.tsx` aviso por `resumo.isError` sem dado) sobrevivem a mobile-adm 394/394
 - last seen: 2026-10-22T00:00:00Z
 
 ## Quarantined (failed when applied — ignore)

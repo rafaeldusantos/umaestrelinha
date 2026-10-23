@@ -33,7 +33,15 @@ export interface Cenario {
   cadastro: Resposta
   /** Quanto a resposta do papel e do cadastro demora (ms). */
   atrasoMs?: number
+  /**
+   * Como cada RPC responde (`/rest/v1/rpc/<nome>`), feature `73`: um status HTTP com corpo (o 403
+   * `42501` do Postgres, um 500), `rede` (o `fetch` rejeita) ou `pendura`. RPC sem entrada responde
+   * `null` com 200 — o mesmo `{ data: null }` do dublê, que a tela lê como "ainda sem dado".
+   */
+  rpc?: Record<string, RespostaRpcReal>
 }
+
+export type RespostaRpcReal = { status: number; corpo: unknown } | 'rede' | 'pendura'
 
 export const USUARIO = {
   id: 'u-adri',
@@ -105,6 +113,12 @@ const criarReal = (cenario: Cenario) => {
       if (estado.cadastro === 'pendura') await new Promise<never>(() => {})
       const uid = (url.searchParams.get('user_id') ?? '').replace(/^eq\./, '')
       return json([{ id: 'c-adri', user_id: uid, name: 'Adri Muniz', email: USUARIO.email, phone: '51999990000' }])
+    }
+    if (url.pathname.startsWith('/rest/v1/rpc/')) {
+      const r = estado.rpc?.[url.pathname.slice('/rest/v1/rpc/'.length)]
+      if (r === 'rede') throw FALHA()
+      if (r === 'pendura') await new Promise<never>(() => {})
+      return typeof r === 'object' ? json(r.corpo, r.status) : json(null)
     }
     return json([])
   }

@@ -1416,6 +1416,24 @@
   porque os guardas varrem `apps/**`. A splash do Android é a do manifest (ícone sobre fundo) até o JS
   carregar, e só depois vem a desenhada. Sem iOS.
 
+### AD-057
+- **Decision**: **"em qual bloco da fila este pedido está?" é DADO em `core/orders/queue.ts`**
+  (`QUEUE_BLOCKS`, com a regra de cada bloco como lista de condições), traduzido por
+  `toPostgrestFilter` para a lista de pedidos (painel e `74`) e por `toSqlPredicate` para o SQL. Toda
+  escrita da regra em SQL é **cópia deliberada guardada byte a byte** (`filaComDonoUnico.test.ts`, na
+  suíte da loja), no molde de `materialTransitions.test.ts`. "Precisa de ação" é a **união** dos três
+  primeiros blocos, nunca a soma.
+- **Decision**: **tela do app que mostra agregado da loja só lê RPC admin** (`has_role` ⇒ `42501`),
+  nunca `orders` pelo PostgREST. A Início (`73`) lê `store_movement` e `store_overview`.
+- **Reason**: a RLS de `orders` devolve à conta sem papel admin **os pedidos dela como cliente**, e
+  não erro: uma contagem `head: true` de uma conta que perdeu o acesso desenha um número plausível e
+  falso (`MAI-23`). A RPC recusa por construção. Escolha do usuário entre duas abordagens
+  (2026-10-22, design da `73`).
+- **Trade-off**: a regra da fila passa a ter duas escritas (PostgREST e SQL), contidas pelo guarda;
+  uma mudança de regra exige migration nova recriando a função. A lista de pedidos da `74` continua
+  lendo `orders` pelo PostgREST (ela lista linhas, não agrega), e por isso precisa da sua própria
+  resposta a `MAI-23`.
+
 ## Handoff
 
 ### ATUAL — 2026-10-22 · `72-mobile-adm-fundacao` **IMPLEMENTADA — 15 de 15 tasks, com prova em navegador, SEM verificador independente ainda, SEM COMMIT**
