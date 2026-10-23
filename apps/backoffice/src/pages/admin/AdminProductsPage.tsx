@@ -34,6 +34,7 @@ import { useAdminCategories } from '@/entities/category/api/useAdminCategories'
 import CsvImportDialog from '@/features/csv-import/ui/CsvImportDialog'
 import FilterChips from '@/features/product-list/ui/FilterChips'
 import InlineEditCell from '@/features/product-list/ui/InlineEditCell'
+import CategoriesCell from '@/features/product-list/ui/CategoriesCell'
 import { priceCell, rowBadges, statusCell, stockCell } from '@/features/product-list/model/rowSummary'
 import { LIST_COLUMNS, isVisible, useColumnPrefs } from '@/features/product-list/model/columns'
 import { useSavedViews } from '@/features/product-list/model/savedViews'
@@ -345,9 +346,10 @@ const AdminProductsPage = () => {
     {
       key: 'categorias', header: 'Categorias',
       cell: row => (
-        <span className="text-muted-foreground">
-          {row.category_ids.map(id => categoryNames[id]).filter(Boolean).join(', ') || '—'}
-        </span>
+        <CategoriesCell
+          names={row.category_ids.map(id => categoryNames[id]).filter(Boolean)}
+          productName={row.name}
+        />
       ),
     },
     {

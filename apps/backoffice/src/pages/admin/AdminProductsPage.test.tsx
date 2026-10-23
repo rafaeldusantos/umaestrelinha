@@ -8,7 +8,7 @@ import type { AdminListRow } from '@/entities/product/api/productQuery'
 
 const {
   listMock, countsMock, toastMock, updateMock, eqMock, fromMock, refetchMock, navigateMock,
-  fetchAllMock, updateBatchMock, createBatchMock, deleteBatchMock, applyCategoryMock,
+  fetchAllMock, updateBatchMock, createBatchMock, deleteBatchMock, applyCategoryMock, categorias,
 } = vi.hoisted(() => ({
   listMock: vi.fn(),
   countsMock: vi.fn(),
@@ -23,6 +23,7 @@ const {
   createBatchMock: vi.fn(),
   deleteBatchMock: vi.fn(),
   applyCategoryMock: vi.fn(),
+  categorias: { atual: [{ id: 'cat-anime', name: 'Anime' }] },
 }))
 
 vi.mock('@/entities/product/api/useAdminProducts', () => ({
@@ -30,7 +31,7 @@ vi.mock('@/entities/product/api/useAdminProducts', () => ({
   useProductViewCounts: countsMock,
 }))
 vi.mock('@/entities/category/api/useAdminCategories', () => ({
-  useAdminCategories: () => ({ categories: [{ id: 'cat-anime', name: 'Anime' }] }),
+  useAdminCategories: () => ({ categories: categorias.atual }),
 }))
 vi.mock('@/features/csv-import/ui/CsvImportDialog', () => ({ default: () => null }))
 vi.mock('@estrelinha/ui/hooks/use-toast', () => ({ toast: toastMock }))
@@ -112,6 +113,7 @@ beforeEach(() => {
   window.HTMLElement.prototype.releasePointerCapture = vi.fn()
 
   seq = 0
+  categorias.atual = [{ id: 'cat-anime', name: 'Anime' }]
   toastMock.mockReset()
   refetchMock.mockReset().mockResolvedValue(undefined)
   navigateMock.mockReset()
@@ -551,5 +553,43 @@ describe('AdminProductsPage — as seis ações da barra (RFN-01…RFN-04)', () 
     // `category_ids` saiu do update de coluna, e o diff não teve o que escrever.
     expect(updateBatchMock).toHaveBeenCalledWith([])
     expect(applyCategoryMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('a coluna Categorias', () => {
+  const muitas = [
+    { id: 'c1', name: 'Cinzas' },
+    { id: 'c2', name: 'Pingentes' },
+    { id: 'c3', name: 'Colares' },
+    { id: 'c4', name: 'Leite materno' },
+  ]
+
+  it('mostra só as duas primeiras, termina em reticências e abre todas ao tocar', async () => {
+    categorias.atual = muitas
+    setup([row({ category_ids: ['c1', 'c2', 'c3', 'c4'] })])
+
+    const gatilho = screen.getByRole('button', { name: 'Ver as 4 categorias de Botton Sailor Moon' })
+    expect(gatilho).toHaveTextContent('Cinzas, Pingentes…')
+    expect(gatilho).not.toHaveTextContent('Colares')
+    expect(screen.queryByText('Leite materno')).toBeNull()
+
+    fireEvent.click(gatilho)
+    const balao = await screen.findByRole('dialog')
+    expect(within(balao).getAllByRole('listitem').map(li => li.textContent))
+      .toEqual(['Cinzas', 'Pingentes', 'Colares', 'Leite materno'])
+  })
+
+  it('com até duas categorias não há botão nem reticências', () => {
+    categorias.atual = muitas
+    setup([row({ category_ids: ['c1', 'c2'] })])
+
+    expect(screen.getByText('Cinzas, Pingentes')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /categorias de/ })).toBeNull()
+  })
+
+  it('sem categoria mostra o travessão', () => {
+    setup([row({ category_ids: [] })])
+    expect(screen.queryByRole('button', { name: /categorias de/ })).toBeNull()
+    expect(screen.getAllByText('—').length).toBeGreaterThan(0)
   })
 })
