@@ -4,7 +4,7 @@
 // app. Uma tabela no app que repetisse uma delas divergiria do painel sem nada quebrar: build, `tsc` e
 // teste de componente passam com as duas cópias discordando (o "defeito 01").
 //
-// Duas réguas — uma por FORMA (`L-033`):
+// Três réguas — uma por FORMA (`L-033`):
 //
 // 1. **Mapa ou `case` com chave do vocabulário**: uma entrada de objeto (`shipped: …`, `'a-separar': …`)
 //    ou um `case 'pix':` cuja chave é uma visão (`ORDER_VIEWS`), um status (`ORDER_STATUS_LABELS`), um
@@ -16,6 +16,14 @@
 //    `payment_status`, `payment_method`, `tracking_code`) num filtro do PostgREST — pela chamada
 //    (`.eq('status', …)`, `.in('material_status', …)`) ou pela string de `.or()` (`status.eq.shipped`,
 //    `tracking_code.is.null`). Quem traduz recorte em filtro é `applyOrderSlice`.
+// 3. **Comparação de estado** (feature `75`, rodada 1 do Verificador, M45): uma coluna de estado
+//    (`status`, `payment_status`, `material_status`, `payment_method`) comparada por `===`/`!==`/`==`/`!=`
+//    a um literal do vocabulário DAQUELA coluna, nos dois sentidos (`pedido.status !== 'cancelled'`,
+//    `'pix' === row.payment_method`). É a forma de "decidir pelo status" no app — quem decide é `core`
+//    (`appPrimaryAction`, `rowSummary`, `trackingSheet`…). Cada coluna casa SÓ com o próprio vocabulário:
+//    é isso que deixa passar `PromiseSettledResult.status === 'rejected'` (`lerComPapel.ts`) — `rejected`
+//    é status de PAGAMENTO, nunca de pedido. Alcance declarado: a comparação direta; `includes`, `in` e
+//    um literal guardado em variável antes de comparar NÃO são acusados por esta régua.
 //
 // O que NÃO é acusado (E8, e os inversos nos sensores): os filtros de IDENTIDADE do detalhe
 // (`.eq('id', id)`, `.eq('order_id', id)`), ler o veredito de `core` (`rowSummary(row).action ===
@@ -30,6 +38,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import { MATERIAL_STATUSES } from '@estrelinha/core/material'
 import {
   ORDER_PAYMENT_STATUS_LABELS,
   ORDER_STATUS_LABELS,
@@ -92,7 +101,29 @@ const PREDICADO_POR_CHAMADA = new RegExp(`\\.(?:${OPERADORES})\\(\\s*['"\`](?:${
 /** Régua 2b — a string de `.or()`: `status.eq.shipped`, `tracking_code.is.null`. Fronteira à esquerda. */
 const PREDICADO_POR_STRING = new RegExp(`(?<![\\w.])(?:${COLUNAS})\\.(?:${OPERADORES})\\.`)
 
-const REGUAS = { ENTRADA_DE_MAPA, CASE_DE_SWITCH, PREDICADO_POR_CHAMADA, PREDICADO_POR_STRING }
+/**
+ * Régua 3 — comparação de estado: cada coluna com o vocabulário DELA (importado de `core`). A coluna
+ * tem fronteira à esquerda por `[\w$]` (`customer_status` não é `status`), e o `.`/`?.` antes dela é
+ * livre (`pedido.status`, `row?.payment_status`, ou o nome solto depois de desestruturar).
+ */
+const VOCABULARIO_POR_COLUNA: Record<string, readonly string[]> = {
+  status: Object.keys(ORDER_STATUS_LABELS),
+  payment_status: Object.keys(ORDER_PAYMENT_STATUS_LABELS),
+  material_status: MATERIAL_STATUSES,
+  payment_method: Object.keys(PAYMENT_METHOD_LABELS),
+}
+const COMPARACAO = '[!=]==?'
+const COMPARACAO_DE_ESTADO = new RegExp(
+  Object.entries(VOCABULARIO_POR_COLUNA)
+    .map(([coluna, voc]) => {
+      const literal = `['"\`](?:${voc.map(escapar).join('|')})['"\`]`
+      const col = `(?<![\\w$])${coluna}(?![\\w$])`
+      return `${col}\\s*${COMPARACAO}\\s*${literal}|${literal}\\s*${COMPARACAO}\\s*(?:[\\w$\\]\\)]+\\??\\.)*${col}`
+    })
+    .join('|'),
+)
+
+const REGUAS = { ENTRADA_DE_MAPA, CASE_DE_SWITCH, PREDICADO_POR_CHAMADA, PREDICADO_POR_STRING, COMPARACAO_DE_ESTADO }
 
 /**
  * Allowlist de UMA linha, escrita por extenso (arquivo + texto exato). `'a-separar'` é também o id de
@@ -118,9 +149,11 @@ const procurar = (alvo: Arquivo[]): string[] =>
 const sintetico = (fonte: string): Arquivo[] => [{ rel: 'sintetico.tsx', linhas: semComentarios(fonte) }]
 
 describe('a regra do pedido mora em `core` (MAP-49) — âncoras', () => {
-  it('a varredura lê o app, inclusive os arquivos que a `74` criou', () => {
-    // Medido no fecho da T28: 83 arquivos de produção.
-    expect(PRODUCAO.length).toBeGreaterThanOrEqual(80)
+  it('a varredura lê o app, inclusive os arquivos que a `74` e a `75` criaram', () => {
+    // Medido no fecho da T28 da `74`: 83 arquivos de produção; na T20 da `75` (a porta, o estado em
+    // módulo e os hooks das ações): 94; na T27 da `75` (a tela das ações): 104. O piso sobe junto —
+    // nunca desce.
+    expect(PRODUCAO.length).toBeGreaterThanOrEqual(100)
     const rels = PRODUCAO.map((a) => a.rel)
     for (const r of [
       'entities/order/api/useListaDePedidos.ts',
@@ -131,6 +164,15 @@ describe('a regra do pedido mora em `core` (MAP-49) — âncoras', () => {
       'widgets/tab-bar/model/selo.ts',
       'pages/PedidoPage.tsx',
       'pages/PedidosPage.tsx',
+      'features/order-actions/api/gravarAcao.ts',
+      'features/order-actions/model/useAcaoDoPedido.ts',
+      'features/order-actions/model/useFolhaNoHistorico.ts',
+      'features/order-actions/ui/RodapeDaAcao.tsx',
+      'features/order-actions/ui/BotaoDaAcao.tsx',
+      'features/order-actions/ui/FolhaDoRastreio.tsx',
+      'features/order-actions/ui/EditarRastreio.tsx',
+      'features/order-actions/ui/LembreteDoEnvio.tsx',
+      'features/order-actions/ui/AvisoDaAcao.tsx',
     ])
       expect(rels).toContain(r)
     expect(rels.some((r) => r.includes('__tests__/'))).toBe(false)
@@ -138,7 +180,21 @@ describe('a regra do pedido mora em `core` (MAP-49) — âncoras', () => {
 
   it('o vocabulário importado de `core` não está vazio: as seis visões, os status, os pagamentos e os meios', () => {
     expect(ORDER_VIEWS).toHaveLength(6)
+    // A régua 3: cada coluna com vocabulário não vazio, e `rejected` FORA do de `status` — é o que deixa
+    // o `PromiseSettledResult` de `lerComPapel.ts` passar (se `core` o acrescentasse, o inverso abaixo
+    // e a varredura do app reprovariam, em vez de a régua encolher em silêncio).
+    for (const voc of Object.values(VOCABULARIO_POR_COLUNA)) expect(voc.length).toBeGreaterThan(0)
+    expect(VOCABULARIO_POR_COLUNA.status).toContain('cancelled')
+    expect(VOCABULARIO_POR_COLUNA.status).not.toContain('rejected')
+    expect(VOCABULARIO_POR_COLUNA.material_status).toContain('material_recebido')
     for (const k of ['precisa-acao', 'a-separar', 'shipped', 'approved', 'refunded', 'pix', 'credit_card']) expect(VOCABULARIO).toContain(k)
+  })
+
+  it('a régua 3 alcança uma linha REAL do app: `lerComPapel.ts` compara `.status` e é a ocorrência que ela tem de deixar passar', () => {
+    const ler = PRODUCAO.find((a) => a.rel === 'entities/order/api/lerComPapel.ts')!
+    const comparacoes = ler.linhas.filter((l) => /\.status\s*===\s*'rejected'/.test(l))
+    expect(comparacoes.length).toBeGreaterThanOrEqual(1)
+    expect(procurar([{ rel: ler.rel, linhas: comparacoes }])).toEqual([])
   })
 
   it('a ocorrência legítima existe: o hook da lista entrega o recorte a `applyOrderSlice(`', () => {
@@ -148,7 +204,7 @@ describe('a regra do pedido mora em `core` (MAP-49) — âncoras', () => {
 })
 
 describe('a regra do pedido mora em `core` (MAP-49) — o app', () => {
-  it('nenhum arquivo de produção do app declara mapa/`case` do vocabulário nem predicado de recorte', () => {
+  it('nenhum arquivo de produção do app declara mapa/`case` do vocabulário, predicado de recorte nem comparação de estado', () => {
     expect(procurar(PRODUCAO)).toEqual([])
   })
 })
@@ -166,6 +222,15 @@ describe('SENSORES', () => {
     ['q = q.not("tracking_code", "is", null)', 'PREDICADO_POR_CHAMADA'],
     ["q = q.or('status.eq.shipped,tracking_code.is.null')", 'PREDICADO_POR_STRING'],
     ['q = q.or(`payment_method.eq.pix`)', 'PREDICADO_POR_STRING'],
+    // M45, a forma exata da rodada 1 do Verificador:
+    ["const temBotao = acao.tipo !== 'nenhuma' && pedido.status !== 'cancelled'", 'COMPARACAO_DE_ESTADO'],
+    ["if (row.status === 'shipped') return null", 'COMPARACAO_DE_ESTADO'],
+    ["const ok = row?.status == 'paid'", 'COMPARACAO_DE_ESTADO'],
+    ["if ('separating' === pedido.status) x()", 'COMPARACAO_DE_ESTADO'],
+    ['const pago = pedido.payment_status === "approved"', 'COMPARACAO_DE_ESTADO'],
+    ["const chegou = pedido.material_status !== 'material_recebido'", 'COMPARACAO_DE_ESTADO'],
+    ["const ehPix = row.payment_method === 'pix'", 'COMPARACAO_DE_ESTADO'],
+    ["const { status } = pedido; if (status === 'delivered') y()", 'COMPARACAO_DE_ESTADO'],
   ])('acusa: %s ⇒ %s', (fonte, regua) => {
     const achados = procurar(sintetico(fonte))
     expect(achados.length).toBeGreaterThanOrEqual(1)
@@ -181,6 +246,13 @@ describe('SENSORES', () => {
     ["const linha = { status: 'paid', payment_status: 'approved' }"],
     ["q = q.order('created_at', { ascending: false })"],
     ['const s = row.customer_status.eq.x'],
+    // A régua 3 — os inversos:
+    ["if (relogio.status === 'rejected') throw relogio.reason"],
+    ["if (leitura.status === 'fulfilled') return leitura.value"],
+    ["const x = row.customer_status === 'cancelled'"],
+    ["const y = pedido.status === estadoDeCore"],
+    ["const z = resposta.status === 404"],
+    ["const w = plano.tipo !== 'nenhuma'"],
   ])('NÃO acusa (inverso): %s', (fonte) => {
     expect(procurar(sintetico(fonte))).toEqual([])
   })

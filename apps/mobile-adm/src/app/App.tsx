@@ -18,6 +18,7 @@ import OfflineScreen from './OfflineScreen'
 import MobileLayout from './layout/MobileLayout'
 import { criarQueryClient } from './queryClient'
 import { esquecerTermos } from '@/shared/lib/useTermoDaEntrada'
+import { esquecerAcoes } from '@/features/order-actions'
 
 /**
  * O app do ateliê (feature 72).
@@ -78,6 +79,8 @@ const LimparCacheNaTrocaDeConta = () => {
     if (anterior.current !== null && anterior.current !== id) {
       // B02: o termo da busca guardado por entrada também é da conta que saiu.
       esquecerTermos()
+      // Feature `75` (A20): a trava, a confirmação e o erro de cada pedido também são da conta que saiu.
+      esquecerAcoes()
       if (id === null) queryClient.clear()
       else void queryClient.resetQueries()
     }

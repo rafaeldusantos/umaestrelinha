@@ -7,7 +7,7 @@
 // enquanto a leitura da nova não volta.
 process.env.TZ = 'UTC'
 
-import { act, fireEvent, screen } from '@testing-library/react'
+import { act, fireEvent, renderHook, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { pedidoHref } from '@/entities/order'
@@ -17,6 +17,7 @@ import { NOTA, detalhe, item, linha, statusRow } from '@/test/pedidos'
 import { resumo } from '@/test/resumo'
 import { CANAL_DA_LISTA } from '@/pages/PedidosPage'
 import { esquecerTermos } from '@/shared/lib/useTermoDaEntrada'
+import { definirErro, esquecerAcoes, lerErro, mostrarAviso, travar, useAviso } from '@/features/order-actions'
 
 vi.mock('@estrelinha/supabase/client', async () => ({ supabase: (await import('@/test/fakeSupabase')).fake.client }))
 
@@ -67,6 +68,7 @@ beforeEach(() => {
   fake.reset()
   fake.comSessao(A, { admin: true })
   esquecerTermos()
+  esquecerAcoes()
   vi.useFakeTimers({ shouldAdvanceTime: true })
 })
 afterEach(() => {
@@ -199,5 +201,62 @@ describe('a troca de conta esquece os termos da busca (B02)', () => {
     await andar(50)
     expect(window.location.pathname).toBe('/pedidos')
     expect((screen.getByRole('searchbox', { name: 'Buscar pedido' }) as HTMLInputElement).value).toBe('')
+  })
+
+  // Feature `75` · T17 (A20, `L-057`) — a trava, o erro e a confirmação das ações são da conta.
+  const sujarAcoesDeA = () => {
+    act(() => {
+      expect(travar(ID)).toBe(true)
+      definirErro(ID, { frase: 'Não consegui salvar. Tente de novo.', retentativa: { tipo: 'primaria' } })
+      mostrarAviso({ titulo: 'Material registrado.', frase: 'O pedido #0244 foi para a bancada.' })
+    })
+  }
+
+  it('A → B sem sair: B não herda a trava, o erro nem a confirmação de A (feature 75)', async () => {
+    responderContaA()
+    await montarApp('/pedidos?visao=tudo')
+    await andar(50)
+    expect(await screen.findAllByTestId('linha-do-pedido')).toHaveLength(1)
+    const aviso = renderHook(() => useAviso())
+    sujarAcoesDeA()
+    expect(aviso.result.current?.titulo).toBe('Material registrado.')
+
+    pendurarTudo()
+    await entrarComo(B)
+    await andar(50)
+    expect(lerErro(ID)).toBeNull()
+    expect(aviso.result.current).toBeNull()
+    expect(travar(ID)).toBe(true)
+  })
+
+  it('sair e entrar de novo com a MESMA conta: a reentrada não herda a trava nem o erro (feature 75, L-057)', async () => {
+    responderContaA()
+    await montarApp('/pedidos?visao=tudo')
+    await andar(50)
+    expect(await screen.findAllByTestId('linha-do-pedido')).toHaveLength(1)
+    sujarAcoesDeA()
+
+    await act(async () => {
+      fake.perderSessao()
+      await vi.advanceTimersByTimeAsync(50)
+    })
+    pendurarTudo()
+    await entrarComo(A)
+    expect(lerErro(ID)).toBeNull()
+    expect(travar(ID)).toBe(true)
+  })
+
+  it('a volta da aba com o MESMO usuário NÃO esquece a trava nem o erro (a ação em voo continua dona dela)', async () => {
+    responderContaA()
+    await montarApp('/pedidos?visao=tudo')
+    await andar(50)
+    expect(await screen.findAllByTestId('linha-do-pedido')).toHaveLength(1)
+    sujarAcoesDeA()
+    await act(async () => {
+      fake.voltarAba()
+      await vi.advanceTimersByTimeAsync(50)
+    })
+    expect(lerErro(ID)?.frase).toBe('Não consegui salvar. Tente de novo.')
+    expect(travar(ID)).toBe(false)
   })
 })

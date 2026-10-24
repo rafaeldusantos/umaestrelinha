@@ -7,15 +7,15 @@ para o celular da Adri, instalável no Android como app. Leia [`../../CLAUDE.md`
 
 **Só Android.** iOS/Safari não é testado nem otimizado (pedido do usuário).
 
-## O que existe hoje (feature `72`, a fundação, `73`, a Início, e `74`, os Pedidos)
+## O que existe hoje (feature `72`, a fundação, `73`, a Início, `74`, os Pedidos, e `75`, as ações)
 
 | Rota | O quê |
 | --- | --- |
 | `/login` | entrar (e-mail e senha) |
 | `/recuperar` · `/recuperar/codigo` · `/recuperar/senha` | recuperar o acesso por **código de 6 dígitos**, um passo por rota (`MAF-24`), fora do guarda |
 | `/` | Início — o movimento, "Precisa de você", a semana, o mês, as joias e os últimos pedidos (feature `73`, abaixo) |
-| `/pedidos` | Pedidos — a lista só de leitura, com os seis recortes, os quatro blocos da Início e a busca (feature `74`, abaixo); as ações são da `75` |
-| `/pedidos/:id` | o detalhe de um pedido, só de leitura (feature `74`); subrota da aba Pedidos, dentro do guarda |
+| `/pedidos` | Pedidos — a lista com os seis recortes, os quatro blocos da Início e a busca (feature `74`), e a ação primária no cartão (feature `75`, abaixo) |
+| `/pedidos/:id` | o detalhe de um pedido (feature `74`), com o rodapé da ação, a folha do rastreio, "Informar/Alterar" na Entrega e o lembrete no WhatsApp (feature `75`); subrota da aba Pedidos, dentro do guarda |
 | `/clientes` | Clientes — em construção (`76`) |
 | `/descontos` | Descontos — em construção (`77`, `78`) |
 | `*` | caminho desconhecido ⇒ `/` (dentro do guarda) |
@@ -230,6 +230,64 @@ recorte, frase, rótulo ou número mora no app**. Tudo o que o painel também re
 - **O `h1` existe em todo estado** (E5) — o foco da troca de aba vai a ele mesmo com a leitura
   pendente; o detalhe intitula o documento "Pedido · Ateliê" → "Pedido #0244 · Ateliê".
 
+## Ações no pedido (feature `75`, `AD-059`)
+
+O app passa a GRAVAR: "Recebi o material", "Iniciar separação", "Marcar como enviado"/"Salvar
+rastreio" (a folha), "Marcar como retirado", "Informar/Alterar" o rastreio na Entrega, e o lembrete do
+material no WhatsApp. **Nada disso tem regra no app.**
+
+- **Quem decide a ação é `core`**: `appPrimaryAction(row)` (o rótulo e o PLANO, com a guarda de status
+  de origem) e `trackingSheet(row, origem)` (`core/orders/appAction.ts`). O app nunca testa `status`
+  (`regraDePedidoSoNoCore`). As frases fixas (falha, "mudou", parcial, confirmação) também são de
+  `core` (`fraseDaAcaoSoNoCore`, sem allowlist).
+- **Quem grava é o dono, `@estrelinha/core/order-actions`** (`runAppAction`) — o MESMO que o painel
+  chama. O app entra por **uma porta**, `features/order-actions/api/gravarAcao.ts`, que só ENTREGA o
+  client ao dono (nunca é receptor de `from`/`rpc`/`functions`, `escritaSoPelaPorta` pela AST) e traduz
+  o desfecho: `sem-papel` ⇒ lança `{ code: '42501' }` (a recusa da `72`); **zero linhas é pergunta,
+  nunca resultado** — `conferirPapel` (`atelie_clock`) responde: `42501` ⇒ a recusa, papel de pé ⇒
+  "Este pedido mudou enquanto você olhava.", sem rede ⇒ falha (rede nunca é recusa). A prova é sobre o
+  supabase-js REAL (`acoesComClientReal`): o PostgREST responde **200 com `[]`** ao `update` que a RLS
+  filtra.
+- **O estado da ação mora em MÓDULO** (`model/travas.ts`, `avisos.ts`, `erros.ts`): a trava por
+  pedido (o segundo toque no mesmo tique não sai), a confirmação (`AvisoDaAcao` no `MobileLayout`,
+  `role="status"`, 5 s, sem roubar o foco) e o erro (`role="alert"`, até a próxima ação), lidos igual
+  pelo rodapé, pelo cartão e pela folha. A troca de conta os esquece (`esquecerAcoes`, pela geração).
+  Depois de todo desfecho que chegou à rede, relê o pedido, todos os recortes da lista e o resumo do
+  selo — nunca `setQueryData`.
+- **A folha do rastreio mora no HISTÓRICO** (`useFolhaNoHistorico`): abrir empurra uma entrada com o
+  MESMO endereço e o marcador só no `state` (nada na URL; `pedidosHref` segue o único dono); o voltar
+  do Android a fecha sem sair do pedido. **F5 com a folha aberta** ⇒ `navigate(-1)` só pelo usuário da
+  ORIGEM do marcador (B01: o `replace` da spec deixava um voltar morto, e os dois usuários do detalhe —
+  rodapé e Entrega — voltavam duas vezes; no jsdom as duas voltas caem na mesma entrada, no Chromium
+  se somam). O teclado virtual sobe a folha (`useTecladoVirtual`, `visualViewport`).
+- **Menos movimento** (R2): o `SheetContent` anima por `data-[state=…]:animate-…`, e só o par NO MESMO
+  seletor desliga (`motion-reduce:data-[state=open]:animate-none`). O FUNDO também: o
+  `SheetContent` de `packages/ui` ganhou `overlayClassName?` (B02) — sem ele o `fade` do fundo animava
+  com "menos movimento".
+- **O rodapé** (`RodapeDaAcao`) é fixo acima da barra de abas, com a reserva no fim do conteúdo
+  (`shared/ui/alturas.ts`, `--altura-do-rodape`); o **cartão** da lista leva o botão como IRMÃO do link
+  (nunca botão dentro de `<a>`).
+- **O lembrete no WhatsApp** só aparece com `canChargeMaterial` (aguardando material, não cancelado,
+  `normalizeBrPhone(customer_phone)` válido); o texto é `chargeMaterialUrl` de `core/orders/charge.ts`,
+  o MESMO do painel (byte a byte, provado em navegador), sem nomear o material (`BL-015`).
+- **A retentativa diz o que reenvia** (C01 do QA): o "Tentar de novo" da falha parcial guarda
+  `{ tipo: 'primaria', espera: 'separar' }`; se a linha relida já oferece OUTRA ação, `runAppAction`
+  devolve `mudou` **sem ir à rede** ("Este pedido mudou enquanto você olhava.", sem novo "Tentar de
+  novo"). Sem a `espera`, uma retirada relida em `separating` gravaria `delivered`. Rodapé **e** cartão
+  repassam a retentativa — cada superfície tem a sua régua (`L-064`).
+- **"Alterar rastreio" só afirma o aviso que saiu** (C02): a frase "já recebeu o aviso de postagem" exige
+  `order_shipped` em `sent` (`shippedNoticeSent`, das mesmas linhas do histórico; leitura em erro ⇒
+  `false`). `SPEC_DEVIATION` em A10.
+- **O foco volta a quem abriu a folha** (C03): `onOpenAutoFocus` guarda o `activeElement` (nunca o
+  `<body>`), `onCloseAutoFocus` o devolve com `preventScroll`; se ele saiu da tela, o `main h1`
+  (`tabindex="-1"`).
+- **O botão do cartão diz de qual pedido é** (C04): `aria-label` = o texto visível primeiro +
+  `nomeDaLinha(linha)` (`entities/order/model/nomeDaLinha.ts`, o mesmo nome do link).
+- **Prova**: o probe `.specs/features/75-mobile-adm-acoes-do-pedido/probes/01-paridade.*` (app × painel
+  contra o banco local, e a conta sem papel), `prova-navegador.md` e o reteste do QA
+  (`docs/qa/reports/2026-10-24-mobile-adm-acoes-do-pedido-reteste.md`). Pendente: o Android real
+  (TalkBack, o gesto de voltar, o teclado).
+
 ## PWA — só a casca
 
 - `pwa.config.ts` é um arquivo **separado** do `vite.config.ts` para os guardas lerem a configuração
@@ -313,7 +371,11 @@ recorte, frase, rótulo ou número mora no app**. Tudo o que o painel também re
 | `leituraSoComPapel.test.ts` | `src/entities/order/api/__tests__` | (feature `74`, pela AST) o client importado fora de `lerComPapel.ts` e dos dois hooks; `.from(` alcançável fora de `lerComPapel(` |
 | `enderecoDePedidosComDonoUnico.test.ts` | `src/entities/order/__tests__` | (feature `74`) o endereço de Pedidos lido ou escrito fora de `pedidosHref.ts` |
 | `regraDePedidoSoNoCore.test.ts` | `src/shared/lib/__tests__` | (feature `74`) mapa ou `case` com vocabulário de visão/status/pagamento/meio (importado de `core`), ou predicado de recorte, fora de `core` |
-| `movimentoDosPedidos.test.ts` | idem | (feature `74`) `transition-*`/`animate-*` sem par `motion-reduce:` que desligue, nos 21 arquivos de UI da `74` |
+| `movimentoDosPedidos.test.ts` | idem | (feature `74`) `transition-*`/`animate-*` sem par `motion-reduce:` que desligue, nos arquivos de UI da `74` e da `75` (28, escopo literal); desde a `75` vê a variante de estado (`data-[state=open]:`) e só a cobre com o par do MESMO estado, e exige os dois pares em todo arquivo que monta `SheetContent`. Âncora 8 tokens / 6 pares (B02) |
+| `escritaSoPelaPorta.test.ts` | `src/entities/order/api/__tests__` | (feature `75`, pela AST) escrita de tabela, `functions.invoke` ou `rpc(` fora de `lerComPapel.ts`; o client importado fora dos quatro arquivos (os três da `74` e a porta), ou usado como receptor na porta |
+| `fraseDaAcaoSoNoCore.test.ts` | `src/shared/lib/__tests__` | (feature `75`, pela AST, sem allowlist) as frases fixas da ação escritas no app |
+| `acoesComClientReal.test.tsx` | `src/app/__tests__` | (feature `75`, sobre o client REAL) PATCH `[]` + `atelie_clock` 403 ⇒ a recusa e nenhuma confirmação (lida por passo e por `MutationObserver`); `not_admin` ⇒ recusa; 500 ⇒ falha; a conferência sem rede ⇒ nem recusa nem reconferência; o que vai no PATCH do rastreio |
+| `escritaNoArnes.test.ts` | `src/test/__tests__` | (feature `75`) os dois arneses (`fakeSupabase` e `clientReal`) deixando de registrar a escrita (valores, cadeia, método, corpo) |
 | `trocaDeContaLimpaCache.test.tsx` | `src/app/__tests__` | (feature `74`) nada da conta anterior desenhado depois de A → B ou de sair e voltar; a volta da aba do mesmo usuário piscando |
 | `lockupDaSplashPareado.test.ts` | `src/features/splash/__tests__` | a cópia do lockup divergindo do SVG-fonte |
 | `Splash.test.tsx` | idem | `<img>` na splash, a largura de 300/120, o rótulo, animação sem o par `motion-reduce:` |

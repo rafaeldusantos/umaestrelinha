@@ -5,8 +5,8 @@
 //
 // **Pela AST do TypeScript**, não por regex (a lição do guarda da `67`: régua de uso por regex mede a
 // grafia, não a chamada). Três réguas:
-//   1. só três arquivos de produção importam o client (`@estrelinha/supabase/client`): `lerComPapel.ts`
-//      e os dois hooks — allowlist literal;
+//   1. só quatro arquivos de produção importam o client (`@estrelinha/supabase/client`): `lerComPapel.ts`,
+//      os dois hooks e, desde a `75`, a porta de escrita — allowlist literal;
 //   2. nos dois hooks, toda referência a `supabase` é o receptor de um `.from(` (nada de passar o client
 //      adiante, nada de `const db = supabase`), e toda chamada `supabase.from(` é ALCANÇÁVEL SÓ por
 //      `lerComPapel`: ou está dentro de uma função passada a `lerComPapel(`, ou dentro de uma função
@@ -25,7 +25,12 @@ import { describe, expect, it } from 'vitest'
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..')
 const LER_COM_PAPEL = 'entities/order/api/lerComPapel.ts'
 const HOOKS = ['entities/order/api/useListaDePedidos.ts', 'entities/order/api/usePedido.ts']
-const IMPORTAM_O_CLIENT = [LER_COM_PAPEL, ...HOOKS]
+// Feature `75` (T16): a porta de ESCRITA (`gravarAcao.ts`) é o quarto importador. Ela não lê tabela
+// nenhuma e não usa o client como receptor — só o entrega ao dono da escrita —, e quem mede isso é o
+// vizinho `escritaSoPelaPorta.test.ts` (régua 2). A igualdade abaixo continua por igualdade: um quinto
+// importador reprova aqui E lá.
+const PORTA_DE_ESCRITA = 'features/order-actions/api/gravarAcao.ts'
+const IMPORTAM_O_CLIENT = [LER_COM_PAPEL, ...HOOKS, PORTA_DE_ESCRITA]
 
 const arquivos = (dir: string): string[] =>
   readdirSync(dir).flatMap((nome) => {
@@ -136,12 +141,12 @@ const lidos = arquivos(SRC).map((caminho) => {
 })
 
 describe('toda leitura do app passa por lerComPapel (MAP-37)', () => {
-  it('âncora: o app foi lido, com os três arquivos da allowlist', () => {
+  it('âncora: o app foi lido, com os quatro arquivos da allowlist', () => {
     expect(lidos.length).toBeGreaterThan(40)
     for (const rel of IMPORTAM_O_CLIENT) expect(lidos.map((l) => l.rel)).toContain(rel)
   })
 
-  it('régua 1: só lerComPapel e os dois hooks importam o client — por igualdade', () => {
+  it('régua 1: só lerComPapel, os dois hooks e a porta de escrita importam o client — por igualdade', () => {
     const importam = lidos.filter((l) => importaOClient(parse(l.rel, l.texto))).map((l) => l.rel).sort()
     expect(importam).toEqual([...IMPORTAM_O_CLIENT].sort())
   })

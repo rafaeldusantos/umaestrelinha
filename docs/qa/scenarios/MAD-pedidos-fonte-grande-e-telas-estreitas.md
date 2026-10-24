@@ -6,7 +6,7 @@ persona: Adri no celular
 journey: J-achar-um-pedido
 expected: Em 360, 390 e 412 px e com a fonte a 130 % e 200 %, o body não rola para o lado, nada se sobrepõe, o selo não é cortado e todo alvo tem 44 px
 entry_points: /pedidos; /pedidos/<id>
-qa_status: pass
+qa_status: untested
 bug_ids:
 fix_status:
 retest_status:
@@ -17,3 +17,5 @@ overlaps:
 ---
 
 Feature `74` (`MAP-42`..`MAP-45`). Régua do `BUG-20261023-ultimos-pedidos-estoura-com-fonte-maxima` (175 % também). Cliente de nome comprido e total de R$ 99.999,90 (fixturas da prova). `prefers-reduced-motion`: esqueleto e troca de recorte parados.
+
+Reaberto em 2026-10-24 pelo planejamento da `75`: a superfície mudou (rodapé de ação no detalhe e botão no cartão da lista). O veredito anterior está em `last_report`; o novo vem do re-walk do ciclo `75`.

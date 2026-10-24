@@ -50,6 +50,7 @@ sem ela a varredura passa com zero arquivo lido, que é a pior falha possível n
 | `./shipping` | `freeShippingState` + `freeShippingRefusal` (o frete grátis tem **um** dono), `estimate.ts` | 8 superfícies nos 2 apps |
 | `./media` | `renditionUrl`/`renditionSrcSet`/`imagePriority` (`rendition.ts`) e **`surfaceArt`** (`AD-030`) | loja, painel, `core/page` |
 | `./orders` | `orderSituation` (com o público `'cliente' \| 'atelie'`), `SITUATION_LABELS_BY_AUDIENCE`, `ORDER_STATUS_LABELS`/`ORDER_PAYMENT_STATUS_LABELS` (`labels.ts`, subidos do painel), `formatOrderNumber`, **`queue.ts`** (`QUEUE_BLOCKS`, `NEEDS_ACTION_BLOCKS`, `toPostgrestFilter`, `needsActionOrFilter`, `toSqlPredicate` — feature `73`, `AD-057`) e, desde a `74` (`AD-058`), **`views.ts`** (`ORDER_VIEWS`, `viewPredicate`, `OrderSlice`, `applyOrderSlice`), **`search.ts`** (`buildOrderSearchCondition`, `SEARCH_DEBOUNCE_MS`), **`row.ts`**, **`rowSummary.ts`**, **`nextStep.ts`**, **`history.ts`** (`buildHistory`), **`delivery.ts`** (`shippingLine`), **`list.ts`** (página, cursor, `listCountLine`, `emptyHint`, `isOrderId`) e `PAYMENT_METHOD_LABELS`/`PAYMENT_STATUS_TONES` em `labels.ts` | loja, painel, app do ateliê, migration (cópia SQL guardada) |
+| `./order-actions` | **a escrita do pedido** (feature `75`, `AD-059`): `writeOrderStatus`, `writeTrackingCode`, `writeMaterialStatus`, `triggerOrderNotification` e a ação composta do app `runAppAction` — client e notificador INJETADOS, efeito conferido por `.select('id')` | painel (`useAdminOrders`, `notifyOrder`), app do ateliê (`gravarAcao`) |
 | `./stats` | **`StoreMovement`** (movido da `71`), **`StoreOverview`** e `OVERVIEW_KEYS`, `turnDelayMs`, os rótulos da Início (`greetingFor`, `longDateLine`, `monthName`, `weekdayShort`, `piecesLabel`, `paidOrdersLabel`, `relativeAge`, `storeHour`) — feature `73` | painel (reexporta o tipo), app do ateliê |
 | `./time` | **`STORE_TIME_ZONE`** (o nome do fuso da loja, a cópia TypeScript de `store_time_zone()` do banco) e `formatDayMonth`/`formatStoreHour` (`21/10`, `15h32`) — feature `71`, `AD-055` | `core/orders/situation.ts`, painel (GA e o bloco "Movimento da loja"), loja (`orderMeta`) |
 | `./visits` | `isBotUserAgent` (as 20 assinaturas de robô), `visitBody`/`visitBodyRefusal`/`isVisitorId` (o corpo da visita) e `OPT_OUT_PARAM`/`optOutHref`/`readOptOutParam` (o parâmetro de "não contar") — feature `71` | loja (`VisitCounter`), edge function `visit`, painel (menu da conta) |
@@ -393,6 +394,29 @@ sem build, `tsc` ou teste de componente acusarem — desta vez com o CTA de dinh
 - `situation.ts` importa `material/material.ts` e `orders/labels.ts`, as duas **folhas sem import** — o
   diretório continua alcançável pelo Deno (`purity.test.ts`).
 - `situacaoComDonoUnico.test.ts` (suíte da loja) varre a loja **e** `apps/mobile-adm/src`.
+
+## `order-actions` — a escrita do pedido tem UM dono (feature `75`, `AD-059`)
+
+- **É a única escrita PostgREST de `orders` e `order_status_history` em `apps/*/src` e
+  `packages/*/src`** (menos o `cancelOrder` do painel, entrada única de allowlist), e a única sequência
+  "RPC `set_material_status` → aviso". Guarda: `pedidoGravadoSoPeloDono.test.ts` (suíte da loja, pela
+  AST). As functions e o importador gravam `orders` com service role e são outros donos por construção.
+- **O client é injetado** (`OrderWriteDeps`): o módulo não importa client nenhum (o de
+  `@estrelinha/supabase` lança sem env), e o supabase-js entra só em `import type` (`purity.test.ts`).
+  `notify` é a função notificadora; o booleano que decide se o aviso sai chama-se `avisar`.
+- **Zero linhas nunca é sucesso**: toda escrita termina em `.select('id')`; resposta sem linha é
+  `nenhuma-linha`, e quem decide o que ela significa é o chamador (o app reconfere o papel; o painel diz
+  "Nenhum pedido foi alterado."). O histórico é gravado e o resultado dele ignorado, e o aviso fica FORA
+  do `try` — paridade com o painel; a escrita atômica é `BL-051`.
+- **A regra da ação mora em `orders/appAction.ts`, não aqui**: `appPrimaryAction` (rótulo e plano, com
+  a guarda de status de origem), `trackingSheet` (a folha por origem), `trackingEdit`,
+  `canChargeMaterial`, `actionConfirmation` e as frases fixas. `orders/tracking.ts` normaliza e recusa o
+  código (A8: só no app — `writeTrackingCode` **não** normaliza nem valida, senão o painel mudaria o que
+  grava). `orders/charge.ts` é o lembrete do WhatsApp, subido do painel byte a byte.
+- **Todo especificador relativo leva `.ts`**, como o resto de `orders`: o grafo é o mesmo que um dia
+  uma edge function poderá importar.
+- A prova contra o banco é o probe `.specs/features/75-mobile-adm-acoes-do-pedido/probes/01-paridade.*`
+  (app × painel no mesmo pedido semeado duas vezes; dois mutantes no dono mortos por ele).
 
 ## Convenções de tipo
 

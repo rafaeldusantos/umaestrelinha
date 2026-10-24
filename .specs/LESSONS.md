@@ -350,6 +350,30 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: `73` r3, S1 (`MovementHero.tsx` sem `Traco` nos números), G3/Q1 (`WeekChart`/`QueueTiles` `carregando = !r`) e N15d (`InicioPage.tsx` aviso por `resumo.isError` sem dado) sobrevivem a mobile-adm 394/394
 - last seen: 2026-10-22T00:00:00Z
 
+### L-064 — Conserto de uma ação que vive em DUAS superfícies (o rodapé do detalhe e o botão do cartão da lista) precisa de régua em cada uma: o teste do conserto que toca só o rodapé deixa a segunda superfície repassar a retentativa antiga com a suíte inteira verde, e o bug do QA volta exatamente lá.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `apps/mobile-adm/src/features/**`, `apps/mobile-adm/src/pages/__tests__/**` · harmful: 0
+- features: 75-mobile-adm-acoes-do-pedido
+- evidence: `75` r3, V05 — `BotaoDaAcao.tsx` reenviando `{ tipo: 'primaria' }` sem `espera` sobrevive a mobile-adm 1096/1096; o `it.each` do C01 em `acoesDoPedido.test.tsx` só toca o rodapé
+- last seen: 2026-10-24T00:00:00Z
+
+### L-065 — Valor derivado de uma leitura que pode FALHAR ("o aviso saiu?" lido de `order_notifications`) precisa de caso com a leitura em erro, não só com cada valor que ela pode devolver: `sent`, `failed` e ausente provam a regra, e o mutante "erro ⇒ verdadeiro" volta a afirmar o que ninguém sabe.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `apps/mobile-adm/src/entities/**` · harmful: 0
+- features: 75-mobile-adm-acoes-do-pedido
+- evidence: `75` r3, V10 — `usePedido.ts` com a leitura de `order_notifications` em erro devolvendo `avisoDePostagemSaiu = true` sobrevive; os três casos novos de `usePedido.test.tsx` cobrem `sent`, `failed` e id inválido
+- last seen: 2026-10-24T00:00:00Z
+
+### L-066 — Devolver o foco "a quem abriu" precisa de um caso em que NINGUÉM tinha o foco ao abrir (`document.activeElement === document.body`, o toque no Safari/iOS e o `controle.abrir()` por script): o teste que foca o controle antes de abrir prova o caminho do teclado e deixa o `<body>` virar "quem abriu" — o bug de volta, noutro navegador.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `apps/mobile-adm/src/features/**` · harmful: 0
+- features: 75-mobile-adm-acoes-do-pedido
+- evidence: `75` r3, V12 — `FolhaDoRastreio.tsx` sem o `!== document.body` sobrevive; todos os casos do C03 focam o controle de origem antes de abrir
+- last seen: 2026-10-24T00:00:00Z
+
+### L-067 — O histórico do jsdom não é o do navegador: duas chamadas de `navigate(-1)`/`history.back()` no mesmo tique caem na MESMA entrada no jsdom e se SOMAM no Chromium, e uma entrada substituída por `replace` continua um voltar morto. Teste de folha/modal que mora no histórico precisa montar o histórico que o app de fato produz (abrir pelo app, recarregar com o `state`), e a prova do voltar é em navegador.
+- signal: `browser_only_defect` · recurrence: 1 feature(s) · scope: `apps/mobile-adm/src/features/**` · harmful: 0
+- features: 75-mobile-adm-acoes-do-pedido
+- evidence: `75` T31, B01 — o F5 com a folha aberta deixava um voltar morto e, consertado, os dois usuários da folha no detalhe (rodapé e Entrega) voltavam duas vezes; a suíte aprovava porque o teste montava um histórico que o app nunca produz
+- last seen: 2026-10-24T00:00:00Z
+
 ## Quarantined (failed when applied — ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.

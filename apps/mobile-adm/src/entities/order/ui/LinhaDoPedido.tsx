@@ -2,26 +2,32 @@ import { Link } from 'react-router-dom'
 import { cn } from '@estrelinha/ui/lib/utils'
 import { formatPrice } from '@estrelinha/core/formatters'
 import { queueAgeLabel, toMaterialStatus } from '@estrelinha/core/material'
-import { formatOrderNumber, purchaseOrdinalLabel, rowQueueAge, rowSummary, type PrimaryActionId } from '@estrelinha/core/orders'
+import {
+  appPrimaryAction,
+  formatOrderNumber,
+  purchaseOrdinalLabel,
+  rowQueueAge,
+  rowSummary,
+  type AppActionId,
+} from '@estrelinha/core/orders'
 import { relativeAge } from '@estrelinha/core/stats'
 
 import type { LinhaDaLista } from '../model/linha'
+import { nomeDaLinha } from '../model/nomeDaLinha'
 import { pedidoHref } from '../model/pedidosHref'
 import SituacaoDoPedido from './SituacaoDoPedido'
 
 /**
  * A cor do ponto da frase (`MAP-17`): acento quando o material espera, alerta no enviado sem
- * rastreio, primário nos outros. Decidida pela AÇÃO que `rowSummary` (`core`) já escolheu — nunca
- * pelo status cru (`MAP-49`): o app não reescreve "o que segura este pedido".
+ * rastreio, primário nos outros. Decidida pela AÇÃO que `core` já escolheu — nunca pelo status cru
+ * (`MAP-49`). Desde a feature `75` (A14b) a ação é a de `appPrimaryAction`, a MESMA do botão do
+ * cartão e do rodapé: `marcar-retirado` cai no primário. A frase continua de `rowSummary`.
  */
-const PONTO_DA_ACAO: Partial<Record<PrimaryActionId, string>> = {
+const PONTO_DA_ACAO: Partial<Record<AppActionId, string>> = {
   'registrar-recebimento': 'bg-estrelinha-accent',
   'salvar-rastreio': 'bg-estrelinha-alert',
 }
 
-/** O nome acessível da linha (`MAP-19`): "Pedido #0244, Marina Duarte". */
-const nomeDaLinha = (l: Pick<LinhaDaLista, 'order_number' | 'customer_name' | 'customer_email'>): string =>
-  `Pedido ${formatOrderNumber(l.order_number)}, ${l.customer_name || l.customer_email}`
 
 /**
  * Uma linha da lista de pedidos (feature `74`, `MAP-16`..`MAP-19`, `MAP-42`, `MAP-43`).
@@ -32,8 +38,9 @@ const nomeDaLinha = (l: Pick<LinhaDaLista, 'order_number' | 'customer_name' | 'c
  *   `rowSummary(row).blocker` — vazia em entregue e cancelado pela própria regra.
  * - **A idade só aparece esperando o envelope** (`MAP-17`): é o único estado que acumula espera, e é o
  *   rótulo do bloco da Início (`queueAgeLabel`).
- * - **Nenhum botão nem texto de ação** (`MAP-18`): a linha diz o que segura o pedido; o que fazer é do
- *   detalhe. `actionLabel` não é lido.
+ * - **Nenhum botão nem texto de ação DENTRO da linha** (`MAP-18`): a linha diz o que segura o pedido.
+ *   `actionLabel` não é lido. Desde a feature `75` o botão da ação é IRMÃO desta linha no `<li>`
+ *   (`BotaoDaAcao`, composto pela página) — nunca dentro do `<Link>` (Q5).
  * - **A linha inteira é o alvo** (`MAP-19`, `MAP-42`), com 44 px no mínimo, e navega com
  *   `state: { doApp: true }` (E7): o "Voltar" do detalhe sabe que veio de dentro do app.
  * - **Número e total quebram** em vez de estourar (`MAP-43`): nenhum `whitespace-nowrap` ou
@@ -41,6 +48,7 @@ const nomeDaLinha = (l: Pick<LinhaDaLista, 'order_number' | 'customer_name' | 'c
  */
 const LinhaDoPedido = ({ linha, lidoEm }: { linha: LinhaDaLista; lidoEm: string }) => {
   const resumo = rowSummary(linha)
+  const acao = appPrimaryAction(linha).action
   const ordinal = purchaseOrdinalLabel(linha.purchase_ordinal)
   const tempo = relativeAge(linha.created_at, lidoEm)
   const esperaEnvelope = toMaterialStatus(linha.material_status) === 'aguardando_material'
@@ -71,8 +79,8 @@ const LinhaDoPedido = ({ linha, lidoEm }: { linha: LinhaDaLista; lidoEm: string 
           <div data-parte="frase" className="mt-1 flex items-center gap-1.5 text-xs text-estrelinha-ink">
             <span
               aria-hidden="true"
-              data-ponto={resumo.action}
-              className={cn('h-1.5 w-1.5 shrink-0 rounded-full', PONTO_DA_ACAO[resumo.action] ?? 'bg-estrelinha-primary')}
+              data-ponto={acao}
+              className={cn('h-1.5 w-1.5 shrink-0 rounded-full', PONTO_DA_ACAO[acao] ?? 'bg-estrelinha-primary')}
             />
             <span className="min-w-0">
               {resumo.blocker}

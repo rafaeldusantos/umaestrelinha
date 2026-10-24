@@ -43,11 +43,20 @@ export interface Cenario {
    * Como cada tabela ou view responde (`/rest/v1/<nome>`), feature `74`: a mesma forma de `rpc`.
    * Tabela sem entrada responde `[]` com 200, como antes. `user_roles` e `customers` NÃO passam por
    * aqui: são o papel e o cadastro, e têm campo próprio.
+   *
+   * Feature `75` (T14): a entrada pode responder POR MÉTODO (`{ porMetodo: { GET, PATCH, POST } }`) —
+   * a leitura e a escrita da mesma tabela respondem diferente (o PATCH de `orders` com `[]`, o GET com
+   * a linha). Método sem entrada responde `[]` com 200.
    */
-  tabelas?: Record<string, RespostaRpcReal>
+  tabelas?: Record<string, RespostaRpcReal | RespostaPorMetodo>
 }
 
 export type RespostaRpcReal = { status: number; corpo: unknown } | 'rede' | 'pendura'
+export type MetodoHttp = 'GET' | 'POST' | 'PATCH' | 'DELETE'
+export type RespostaPorMetodo = { porMetodo: Partial<Record<MetodoHttp, RespostaRpcReal>> }
+
+/** Uma chamada HTTP que saiu, com o método, o caminho, a busca (os filtros do PostgREST) e o corpo. */
+export type ChamadaHttp = { metodo: string; caminho: string; busca: string; corpo: unknown }
 
 export const USUARIO = {
   id: 'u-adri',
@@ -95,11 +104,23 @@ const criarReal = (cenario: Cenario) => {
   const estado = { ...cenario }
   /** Cada pedido que saiu, pelo caminho (`/rest/v1/user_roles`, `/auth/v1/token`…). */
   const pedidos: string[] = []
+  /** Feature `75`: cada pedido com o método, a busca e o corpo (o `PATCH` de uma escrita). */
+  const chamadas: ChamadaHttp[] = []
   const eventos: string[] = []
 
   const fetchFalso = async (entrada: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const url = new URL(String(entrada))
     pedidos.push(url.pathname)
+    const metodo = (init?.method ?? 'GET').toUpperCase()
+    let corpo: unknown = init?.body ?? null
+    if (typeof corpo === 'string') {
+      try {
+        corpo = JSON.parse(corpo)
+      } catch {
+        // corpo que não é JSON fica como veio
+      }
+    }
+    chamadas.push({ metodo, caminho: url.pathname, busca: url.search, corpo })
     if (url.pathname === '/auth/v1/token') {
       if (url.searchParams.get('grant_type') === 'refresh_token') throw FALHA()
       const { email } = JSON.parse(String(init?.body ?? '{}')) as { email: string }
@@ -126,7 +147,11 @@ const criarReal = (cenario: Cenario) => {
       if (r === 'pendura') await new Promise<never>(() => {})
       return typeof r === 'object' ? json(r.corpo, r.status) : json(null)
     }
-    const t = estado.tabelas?.[url.pathname.slice('/rest/v1/'.length)]
+    const entradaDaTabela = estado.tabelas?.[url.pathname.slice('/rest/v1/'.length)]
+    const t =
+      typeof entradaDaTabela === 'object' && 'porMetodo' in entradaDaTabela
+        ? entradaDaTabela.porMetodo[metodo as MetodoHttp]
+        : entradaDaTabela
     if (t === 'rede') throw FALHA()
     if (t === 'pendura') await new Promise<never>(() => {})
     if (typeof t === 'object') return json(t.corpo, t.status)
@@ -145,6 +170,9 @@ const criarReal = (cenario: Cenario) => {
     client,
     estado,
     pedidos,
+    chamadas,
+    /** As chamadas de um método num caminho (`chamadasDe('PATCH', '/rest/v1/orders')`). */
+    chamadasDe: (metodo: string, caminho: string) => chamadas.filter((c) => c.metodo === metodo && c.caminho === caminho),
     /** Os eventos que o client emitiu, na ordem (`INITIAL_SESSION:null`, `SIGNED_IN:com`…). */
     eventos,
     /** A sessão continua salva? (o supabase-js NÃO a apaga numa falha de rede retentável). */

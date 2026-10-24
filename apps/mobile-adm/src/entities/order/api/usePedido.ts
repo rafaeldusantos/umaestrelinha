@@ -3,6 +3,7 @@ import { retryUnlessDenied } from '@estrelinha/core/hooks/useStoreOverview'
 import {
   buildHistory,
   isOrderId,
+  shippedNoticeSent,
   type HistoryNoteRow,
   type HistoryNotificationRow,
   type HistoryStatusRow,
@@ -59,7 +60,9 @@ const ler = async <T>(leitura: PromiseLike<{ data: unknown; error: unknown }>): 
 const bloco = <T>(lida: Lida<T>): Bloco<T> => (lida.error ? { estado: 'falhou' } : { estado: 'ok', dado: lida.data as T })
 
 const lerDetalhe = async (id: string): Promise<DetalheDoPedido> => {
-  if (!isOrderId(id)) return { pedido: null, itens: { estado: 'falhou' }, historico: { estado: 'falhou' }, lido_em: null }
+  if (!isOrderId(id)) {
+    return { pedido: null, itens: { estado: 'falhou' }, historico: { estado: 'falhou' }, avisoDePostagemSaiu: false, lido_em: null }
+  }
 
   const { resultado, lido_em } = await lerComPapel(async () => {
     const [pedido, itens, status, notas, notificacoes] = await Promise.all([
@@ -74,7 +77,8 @@ const lerDetalhe = async (id: string): Promise<DetalheDoPedido> => {
       status.error || notas.error || notificacoes.error
         ? { estado: 'falhou' }
         : { estado: 'ok', dado: buildHistory(status.data ?? [], notificacoes.data ?? [], notas.data ?? []) }
-    return { pedido: pedido.data, itens: bloco(itens), historico }
+    const avisoDePostagemSaiu = !notificacoes.error && shippedNoticeSent(notificacoes.data ?? [])
+    return { pedido: pedido.data, itens: bloco(itens), historico, avisoDePostagemSaiu }
   })
 
   return { ...resultado, lido_em }

@@ -1018,6 +1018,23 @@ conta — fazer isso seria o "defeito 01" nascendo dentro da tela que existe par
   dela é `md5(lower(email))::uuid` — determinístico e estável, para `/admin/clientes/:id` funcionar
   igual nos dois casos.
 
+- **A escrita do pedido tem UM dono, e não é o painel** (feature `75`, `AD-059`).
+  `useAdminOrders.updateStatus`, `addTrackingCode` e `setMaterialStatus` **delegam** a
+  `writeOrderStatus`/`writeTrackingCode`/`writeMaterialStatus` de `@estrelinha/core/order-actions` — o
+  mesmo dono que o app do ateliê chama —, com o client e o `notifyOrder` injetados, e traduzem o
+  desfecho para a forma de retorno de sempre (a tabela de §3.3 do design da `75`, um caso por linha em
+  `useAdminOrders.delega.test.ts`). O painel **não** passa a guarda de status (`expectedFrom`/
+  `statusIn`) nem valida o código de rastreio (A8: a normalização é do app). **A única mudança de
+  comportamento**: o dono confere o efeito por `.select('id')`, então um `update` que não alterou linha
+  vira erro ("Nenhum pedido foi alterado.") em vez de sucesso com histórico e aviso — TQ8/A24,
+  **n — confirmar**. `cancelOrder` continua escrevendo aqui, e é a ÚNICA entrada da allowlist de
+  `pedidoGravadoSoPeloDono.test.ts` (suíte da loja), por declaração: uma escrita nova no mesmo arquivo,
+  fora dela, é acusada. `notifyOrder` delega a `triggerOrderNotification` do dono.
+- **O lembrete do WhatsApp (`chargeMaterialText`/`chargeMaterialUrl`) subiu para
+  `core/orders/charge.ts`** (feature `75`, `MAA-28`), byte a byte, com o ramo sem número; o painel
+  reexporta por referência (`lembreteNoCore.test.ts`, `toBe`). O app do ateliê o abre só com um número
+  válido (`canChargeMaterial`); o painel continua como antes.
+
 ## As duas listagens de Vendas (feature `34`)
 
 - **O topo diz o que COBRA, não o que existe.** Quatro contadores clicáveis, e só o primeiro

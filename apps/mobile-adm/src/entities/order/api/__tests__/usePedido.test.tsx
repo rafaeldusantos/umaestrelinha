@@ -92,6 +92,7 @@ describe('as cinco leituras (§3.4, §13 M3)', () => {
       pedido: detalhe(),
       itens: { estado: 'ok', dado: [item(), ITEM_COM_GRAVACAO] },
       historico: { estado: 'ok', dado: buildHistory([statusRow()], [EMAIL_FALHO], [NOTA]) },
+      avisoDePostagemSaiu: false,
       lido_em: LIDO_EM,
     })
     // Os três fios estão lá — inclusive o e-mail que falhou.
@@ -171,6 +172,42 @@ describe('os estados (MAP-29, MAP-30, MAP-34)', () => {
     await waitFor(() => expect(result.current.data?.itens).toEqual({ estado: 'ok', dado: [item()] }))
     expect(fake.chamadasDe('atelie_clock')).toHaveLength(2)
     for (const t of RELACOES) expect(fake.cadeiasDe(t)).toHaveLength(2)
+  })
+})
+
+// BUG-20261024-folha-afirma-aviso-que-falhou: o detalhe diz à folha se o aviso de postagem SAIU,
+// das MESMAS linhas que o histórico lê.
+describe('o aviso de postagem saiu? (avisoDePostagemSaiu)', () => {
+  const postagem = (status: string) => ({ ...EMAIL_FALHO, id: `n-${status}`, event: 'order_shipped', status })
+
+  it('`order_shipped` em sent ⇒ true', async () => {
+    fake.responderTabela('order_notifications', { data: [EMAIL_FALHO, postagem('sent')], error: null })
+    const { result } = montar()
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(result.current.data?.avisoDePostagemSaiu).toBe(true)
+  })
+
+  it('`order_shipped` em failed ⇒ false (o histórico mostra a falha)', async () => {
+    fake.responderTabela('order_notifications', { data: [postagem('failed')], error: null })
+    const { result } = montar()
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(result.current.data?.avisoDePostagemSaiu).toBe(false)
+  })
+
+  // Revalidação V10: a leitura de `order_notifications` que FALHA não sabe se o aviso saiu — e a folha
+  // não pode afirmar que a cliente o recebeu. Falha ⇒ `false`, a frase neutra.
+  it('a leitura de `order_notifications` em erro ⇒ false (não sei, então não afirmo)', async () => {
+    fake.falharTabela('order_notifications', REDE)
+    const { result } = montar()
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(result.current.data?.historico).toEqual({ estado: 'falhou' })
+    expect(result.current.data?.avisoDePostagemSaiu).toBe(false)
+  })
+
+  it('id que não é uuid ⇒ false, sem rede', async () => {
+    const { result } = montar('abc')
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(result.current.data?.avisoDePostagemSaiu).toBe(false)
   })
 })
 
