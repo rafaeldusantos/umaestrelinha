@@ -803,7 +803,7 @@ describe('"Informar" / "Alterar" na Entrega (MAA-11, MAA-14, MAA-16)', () => {
 // ---------------------------------------------------------------------------------------------
 
 describe('"Lembrar do envio no WhatsApp" (MAA-17..MAA-19)', () => {
-  const lembrete = () => screen.queryByRole('link', { name: 'Lembrar do envio no WhatsApp' })
+  const lembrete = () => screen.queryByRole('link', { name: 'Lembrar do envio no WhatsApp (abre em outra aba)' })
 
   it('aguardando, com número: um link para o `wa.me`, em nova aba, com a URL de `core` e a idade da LEITURA', async () => {
     // O relógio do aparelho 40 dias DEPOIS da leitura: se a idade viesse dele, o texto mudaria de faixa.
@@ -818,7 +818,7 @@ describe('"Lembrar do envio no WhatsApp" (MAA-17..MAA-19)', () => {
     expect(a).toHaveAttribute('target', '_blank')
     expect(a).toHaveAttribute('rel', 'noopener noreferrer')
     expect(tokens(a)).toEqual(expect.arrayContaining(['min-h-11', 'w-full']))
-    expect(within(screen.getByRole('region', { name: 'Material afetivo' })).getByRole('link', { name: 'Lembrar do envio no WhatsApp' })).toBe(a)
+    expect(within(screen.getByRole('region', { name: 'Material afetivo' })).getByRole('link', { name: 'Lembrar do envio no WhatsApp (abre em outra aba)' })).toBe(a)
   })
 
   it('o texto do `href`: sem nomear o material, sem urgência — e byte a byte o que o painel monta (MAA-19)', async () => {

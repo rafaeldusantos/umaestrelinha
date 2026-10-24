@@ -12,6 +12,7 @@ import InicioPage from '@/pages/InicioPage'
 import PedidosPage from '@/pages/PedidosPage'
 import PedidoPage from '@/pages/PedidoPage'
 import ClientesPage from '@/pages/ClientesPage'
+import ClientePage from '@/pages/ClientePage'
 import DescontosPage from '@/pages/DescontosPage'
 import BootGate from './BootGate'
 import OfflineScreen from './OfflineScreen'
@@ -28,8 +29,8 @@ import { esquecerAcoes } from '@/features/order-actions'
  *   sessão é relida do zero.
  * - **Toda rota fora do login e da recuperação está DENTRO do `RequireAdmin`** (`MAF-16`), e
  *   `rotasSobGuarda.test.ts` mede a POSIÇÃO. As rotas são as de `TABS`, e o guarda de abas compara as
- *   duas listas nos dois sentidos. `/pedidos/:id` (feature `74`, `MAP-54`) é SUBROTA da aba Pedidos —
- *   sem aba própria, e a aba Pedidos fica marcada nela (`MAP-55`). A recuperação (`MAF-24`) fica FORA pela mesma razão do login:
+ *   duas listas nos dois sentidos. `/pedidos/:id` (feature `74`, `MAP-54`) e `/clientes/:id` (feature
+ *   `76`, `MAC-36`) são SUBROTAS de aba — sem aba própria, e a aba pai fica marcada nelas (`MAP-55`). A recuperação (`MAF-24`) fica FORA pela mesma razão do login:
  *   quem recupera ainda não entrou. As três rotas dela são as de `PASSOS_DA_RECUPERACAO`.
  * - O papel NÃO CONFERIDO (`MAF-23`) tem tela própria no guarda (`unknownFallback`): nunca o
  *   `Navigate` ao login, que desenharia a recusa falsa.
@@ -105,6 +106,7 @@ const Arvore = () => (
             <Route path="/pedidos" element={<PedidosPage />} />
             <Route path="/pedidos/:id" element={<PedidoPage />} />
             <Route path="/clientes" element={<ClientesPage />} />
+            <Route path="/clientes/:id" element={<ClientePage />} />
             <Route path="/descontos" element={<DescontosPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>

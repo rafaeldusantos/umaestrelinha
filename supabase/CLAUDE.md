@@ -460,6 +460,20 @@ Grava `(dia de Brasília, id do navegador)` no máximo uma vez por dia. O desenh
   com os seis. Uma migration NOVA que recrie a função precisa ganhar o próprio `\ir` no probe (ele
   aponta para o arquivo da `73`), senão o probe mede a versão antiga.
 
+### `orders_open` — a coluna das clientes em aberto (feature `76`, `AD-060`, migration `20261025120000_76-clientes-em-aberto.sql`)
+
+- **Só acrescenta**: `orders_open` no FIM de `customer_stats` (19 colunas) e de `customer_list` (11), com o
+  corpo da migration `34` copiado, as duas views seguem `security_invoker`, e nenhum `grant`, `drop` ou
+  escrita de dado. É a saída de `openOrdersSqlFilter('v')` (`payment_status = 'approved'` e `status` em
+  `pending`/`paid`/`separating`/`shipped`): um Pix expirado fica `pending` e não pode deixar a cliente "em
+  aberto" para sempre. Guardas: `clientesSchema.test.ts` e `emAbertoComDonoUnico.test.ts` (loja); a
+  semântica, só pelo probe `.specs/features/76-mobile-adm-clientes/probes/02-em-aberto.sh`.
+- ⚠️ **Ordem de publicação: migration → bundle.** O `select` da lista do app pede `orders_open`; com o app
+  antes da migration a lista cai em falha. `db push` sozinho, depois o app. O painel não é afetado (as
+  mesmas 18 colunas e uma 19ª que ele ignora).
+- **Custo**: com 3.000 pessoas a primeira página leva ~7,9 s — já levava antes (o `OR` do CTE `vinculo`).
+  `BL-053`.
+
 ### A conta da cliente no banco (feature `59`, migration `20261004120000_59-minha-conta.sql`)
 
 - **`customers` tem a linha inteira liberada pela policy de UPDATE da própria cliente**

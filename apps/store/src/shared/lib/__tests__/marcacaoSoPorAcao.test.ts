@@ -67,7 +67,7 @@ const ESCOPO = [
   'apps/store/src',
   'apps/backoffice/src',
   // Feature 74: o app do ateliê passa a chamar uma RPC própria (`atelie_clock`, em
-  // `entities/order/api/lerComPapel.ts`). Sem ele no escopo, a régua 4 ("o conjunto chamado em produção
+  // `shared/api/lerComPapel.ts`). Sem ele no escopo, a régua 4 ("o conjunto chamado em produção
   // = RPCS") não o enxergava — e a régua 1 não veria um `from()` nas três tabelas vindo dele.
   'apps/mobile-adm/src',
   'packages/core/src',
@@ -159,7 +159,7 @@ const RPCS = [
   'anonymize_customer',
   'apply_payment_approval',
   // Feature 74 — a confirmação de papel que o app do celular faz em paralelo com cada leitura de
-  // pedido (`apps/mobile-adm/src/entities/order/api/lerComPapel.ts`). Não lê tabela nenhuma: só
+  // pedido (`apps/mobile-adm/src/shared/api/lerComPapel.ts`). Não lê tabela nenhuma: só
   // `has_role` e o instante do banco (`atelieClockSchema.test.ts`).
   'atelie_clock',
   'claim_order_notification',

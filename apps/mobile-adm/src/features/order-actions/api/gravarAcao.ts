@@ -8,7 +8,8 @@ import {
 } from '@estrelinha/core/order-actions'
 import { ACCESS_DENIED_CODE, isAccessDenied } from '@estrelinha/core/hooks/useStoreOverview'
 
-import { conferirPapel, type LinhaDaLista } from '@/entities/order'
+import type { LinhaDaLista } from '@/entities/order'
+import { conferirPapel } from '@/shared/api/lerComPapel'
 
 /**
  * A ÚNICA porta de escrita do app do ateliê (feature `75`, design §3.4; `MAA-04`, `MAA-21`,

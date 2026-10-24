@@ -167,7 +167,9 @@ Ao planejar/implementar features, use a Skill **`tlc-spec-driven`** com estas co
     pronta para merge em `feature/mobile-adm`, com probe de paridade app × painel contra o banco local,
     prova em navegador (B01, B02 consertados), Verificador independente (rodadas 1 e 3 FAIL por
     cobertura, a 2 PASS; as lacunas da 3 fechadas sem rodada 4) e QA com quatro bugs achados e
-    retestados (C01..C04) — **sem migration**. Da `76` à `79` são rascunhos, a detalhar ao abrir. Cada feature do programa é mergeada na branch de integração
+    retestados (C01..C04) — **sem migration**. A `76` (Clientes: a lista, a ficha e o "Ver cliente", `AD-060`/`AD-061`) está IMPLEMENTADA, com
+    commit na branch `feat/76-mobile-adm-clientes` (worktree `store-76-mobile-adm-clientes`), pronta para merge em `feature/mobile-adm`, com uma migration
+    (`orders_open`) aplicada só no local, probes de banco e de paridade, prova em navegador, Verificador independente (a última rodada PASS) e QA (dez de doze bugs consertados; B03 e B12 esperam decisão humana) — falta o Android real. Da `77` à `79` são rascunhos, a detalhar ao abrir. Cada feature do programa é mergeada na branch de integração
     `feature/mobile-adm` depois de finalizada e testada, nunca direto na `master` (`AD-056`). A
     próxima livre é a `80`.**
   - **A `46` e a `47` correram EM PARALELO, em worktrees separados**, e é o segundo caso do projeto
@@ -540,6 +542,12 @@ migrations, e `vercelRedirects` lê o `vercel.json`.
 | `useAdminOrders.delega.test.ts` | backoffice `entities/order/api` | (feature `75`, `MAA-27`, A24) o painel delega as três escritas ao dono e traduz cada desfecho para a forma de retorno de sempre, uma linha da tabela de §3.3 por caso — inclusive o que ele NÃO passa (`expectedFrom`, `statusIn`); zero linhas vira "Nenhum pedido foi alterado." também no painel (TQ8, `n — confirmar`) |
 | `purity.test.ts` (order-actions) | `packages/core/src/order-actions/__tests__` | (feature `75`) o dono da escrita importar React, `@estrelinha/*`, alias, URL ou relativo sem `.ts` (`import type` incluso), ou o supabase-js como VALOR — o client e o notificador são INJETADOS, e o supabase-js só entra em `import type`. Âncora de contagem e de uso, sensores nos dois sentidos |
 | `acoesComClientReal.test.tsx` | mobile-adm `app/__tests__` | (feature `75`, `MAA-21`..`MAA-23`, Success Criterion 2) o `<App />` real sobre o supabase-js REAL, pelo rodapé e pelo cartão: PATCH 200 `[]` + `atelie_clock` 403 `42501` ⇒ a recusa da `72` e **nenhuma** confirmação — lida no `body` a cada 50 ms **e** num `MutationObserver` (a releitura recusada desmonta a tela no mesmo passo em que a confirmação apareceria); `not_admin` da RPC ⇒ recusa; PATCH 500 ⇒ falha, nunca recusa; a rede da conferência caída ⇒ nem recusa nem reconferência; o PATCH do rastreio sem `shipping_carrier` e com `status=in.(separating,shipped)`. Três mutantes no `gravarAcao.ts` real mortos por asserção |
+| `clientesSchema.test.ts` · `emAbertoComDonoUnico.test.ts` | store `shared/lib/__tests__` (leem a migration da `76`) | (G9, G10, feature `76`) a migration acrescentar fora do fim das views, perder `security_invoker`, ganhar `grant`/`drop`/escrita de dado; o filtro SQL de "em aberto" divergir byte a byte de `openOrdersSqlFilter('v')` (o par `approved` + os quatro status). Uma régua por comando, `mutar()` que lança |
+| `regrasDeClienteNoCore.test.ts` | backoffice `app/__tests__` | (G11) `voltaram` do painel deixar de ser o recorte de `core/customers` por referência (`toBe`), ou a lista dos seis recortes do painel mudar |
+| `purity.test.ts` · `denoReach.test.ts` (customers) | `packages/core/src/customers/__tests__` | (G12) `core/customers` importar React, Supabase, alias ou `node:`, ou um especificador relativo sem `.ts` (`import type` incluso) no grafo transitivo |
+| `enderecoDeClientesComDonoUnico.test.ts` · `regraDeClienteSoNoCore.test.ts` · `semDadoSensivelDeClienteNoApp.test.ts` | mobile-adm `entities/customer/__tests__` e `shared/lib/__tests__` | (G1, G3, G4, feature `76`) o endereço de Clientes fora de `clientesHref.ts`; recorte, filtro ou `ilike` escritos à mão no app; `cpf`, endereço completo, nota ou `nuvemshop_*` nas colunas lidas. Detalhe na tabela de `apps/mobile-adm/CLAUDE.md` |
+| `whatsappComDonoUnico.test.ts` · `semDadoDeClienteNoAparelho.test.ts` · `tomMemorialDeClientes.test.ts` · `movimentoDeClientes.test.ts` | mobile-adm `shared/lib/__tests__` | (G5..G8) `wa.me` fora de `core`; dado de cliente em storage, console, título, URL ou `history.state`; emoji, urgência e "ranking" nos literais; movimento sem par `motion-reduce:` |
+| `clientesComClientReal.test.tsx` | mobile-adm `app/__tests__` | (feature `76`, sobre o client REAL) as linhas DA CLIENTE do outro lado e `atelie_clock` em 403 `42501` ⇒ a recusa e nenhum texto dela em ~80 instantes, em `/clientes`, `/clientes/:id` e no "Ver cliente"; a recusa vence a falha da consulta; rede caída é falha, nunca recusa. Cinco mutantes de `lerComPapel`/`useJanelaPaginada` mortos |
 
 > **Guarda que recusa uma STRING é quebrado pela prosa que explica o defeito.** Aconteceu duas vezes
 > com formas diferentes: o bundler do `supabase start` morreu por um comentário que escrevia um
@@ -565,7 +573,36 @@ quando mudarem de verdade.
 | --- | --- | --- |
 | **Lint** | **25 erros / 7 warnings** — backoffice 23/5 · store 2/2 · mobile-adm 0/0 | `npx eslint .` em cada app (o `pnpm lint` para no primeiro app que reprova) |
 | **Tipos** | **0 · 0 · 0 · 0 · 0** (store · backoffice · catalog-import · `apps/store/tsconfig.server.json`, desde a `69` · mobile-adm, desde a `72`) — e **`packages/core` em 11**, herdados (medido na `73`: idênticos na base, nenhum em arquivo tocado) | `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` · `npx tsc --noEmit -p packages/core/tsconfig.json` |
-| **Testes** | **16371 em 818 arquivos** — store **5885/320** · backoffice **3696/212** · mobile-adm **1102/76** · core **4219/166** · functions **957/21** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
+| **Testes** | **17214 em 866 arquivos** — store **5908/322** · backoffice **3707/214** · mobile-adm **1765/111** · core **4365/175** · functions **957/21** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
+
+**A feature `76` (Clientes no app do ateliê) somou +843/+48 em QUATRO workspaces** no fecho (números do fecho final, depois do QA e do Verificador; os por workspace abaixo são da entrega), medidos em
+2026-10-24 um workspace por vez, exit code fora de pipe, contra a entrada medida com a árvore parada
+(`.specs/features/76-mobile-adm-clientes/baseline.md`, 16371/818 — a linha desta tabela, 15819/792, estava
+**envelhecida** desde o fecho da `74`/`75`): **mobile-adm +596/+31** (a lista, a ficha, o "Ver cliente", a
+infra extraída de Pedidos e os guardas), **core +94/+9** (`core/customers` e `whatsappChatUrl`), **store
++23/+2** (`clientesSchema`, `emAbertoComDonoUnico`) e **backoffice +10/+1** (`regrasDeClienteNoCore`; nenhum
+teste antigo tocado). Functions e catalog-import remedidos, idênticos. Tipos 0 nos apps, 11 herdados em core;
+lint 0/0 · 23/5 · 2/2; builds do mobile-adm e do backoffice verdes; `payment/**` sem alteração. **Uma
+migration** (`20261025120000_76-clientes-em-aberto.sql`, `orders_open`), aplicada só no local; ordem de
+publicação **migration → bundle**. Provas: `probes/03-paridade` (42 `ok`, 2 mutantes em `core` mortos),
+`clientesComClientReal` (12 casos, 5 mutantes mortos) e `prova-navegador.md` (60 medidas de layout em
+360/390/412/1440 × 100/130/200 %, privacidade, conta sem papel). **NÃO provado: o Android real** (teclado,
+gesto de voltar com o campo focado, área segura, fonte do aparelho) — TQ10, pendente do usuário.
+
+**Fecho final da `76` medido em 2026-10-24: mobile-adm 1765/111 (+663/+35), core 4365/175 (+146/+9), store 5908/322 (+23/+2), backoffice 3707/214 (+11/+2); functions e catalog-import idênticos.**
+
+**O conserto do QA da `76` somou +63/+4 em TRÊS workspaces** (medidos em 2026-10-24, um workspace por vez,
+exit code fora de pipe, contra o fecho do Verificador): **mobile-adm +38/+3** (1698/107 → 1736/110: a vigia
+da recusa, o aviso de aba nova, a barra de abas diante da busca, o anúncio do vazio e do "Limpar", o foco de
+"Ver mais pedidos", o nome acessível da linha e o cabeçalho da ficha), **core +24** (4313 → 4337: o que se
+cola na busca) e **backoffice +1/+1** (3706/213 → 3707/214: o vínculo da ficha do painel). Store remedido,
+idêntico (5908/322). Tipos 0 nos apps, 11 herdados em core; lint 0/0 · 23/5 · 2/2; build do mobile-adm verde.
+**Dez dos doze bugs consertados** (cada um com teste que reprovou antes e mutante reinjetado, 20 mortos por
+asserção); **dois esperam decisão humana**: a busca sem acento (`unaccent` no banco) e o material no nome do
+item da ficha (`MAC-18` × `MAC-35`). Uma armadilha nova: a vigia de `useRecusaDePapel` só encerra o episódio
+com uma LEITURA BOA (segundo argumento), porque o React Query apaga o erro de uma consulta sem dado enquanto
+ela relê — `test/setup.ts` esquece o episódio entre os casos (import dinâmico: um estático carregaria o
+client do supabase antes do `vi.mock`).
 
 **A feature `75` (ações no pedido no app do ateliê) somou +552/+26 em QUATRO workspaces** no fecho
 (core **+203/+8** · mobile-adm **+291/+15** · store **+33/+1** · backoffice **+25/+2**, remedidos em
@@ -2676,6 +2713,13 @@ completo (framework, `installCommand` na raiz do monorepo, headers de cache e de
 
 ## Estado conhecido / dívidas
 
+- **A `76` (Clientes no app do ateliê) está pronta para merge, com pendências declaradas.** Falta o
+  **Android real** (teclado, gesto de voltar com o campo focado, área segura, fonte do aparelho; TQ10) e o
+  reteste em navegador com toque de bug-16/18 e a 130 %/200 % de bug-17/B13 — jsdom não mede layout. Dois
+  bugs do QA esperam decisão humana: **B03** (a busca não acha nome com acento digitado sem acento; a saída é
+  `unaccent` no banco) e **B12** (`MAC-18` × `MAC-35`: o nome do item da ficha traz o material). `BL-052`
+  (o painel sem o escape de `ilike`) e `BL-053` (custo de `customer_stats`, ~7,9 s com 3.000 pessoas). **Ordem
+  de publicação: migration → bundle** (o `select` pede `orders_open`).
 - **A `71` está IMPLEMENTADA e provada no banco local e em navegador** (`prova-em-navegador.md`, com
   a leitura interceptada, e `prova-navegador.md`, de ponta a ponta contra o banco local), e foi
   **verificada em três rodadas**: r1 FAIL (cobertura e um defeito raro, G4 — consertado), r2 FAIL

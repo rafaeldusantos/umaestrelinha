@@ -119,13 +119,21 @@ describe('as abas nesta feature (MAF-18)', () => {
   // MUDANÇA DE ASSERÇÃO DECLARADA (feature `74`, T21): Pedidos saiu do "em construção" — a lista lê
   // `order_list` com a confirmação de papel (provado em `pages/__tests__/PedidosPage.test.tsx`). Sai
   // daqui SÓ o `/pedidos`, pelo mesmo molde da Início; Clientes e Descontos seguem com a régua inteira.
-  const EM_CONSTRUCAO = TABS.filter((t) => t.path !== '/' && t.path !== '/pedidos')
+  //
+  // MUDANÇA DE ASSERÇÃO DECLARADA (feature `76`, T24): Clientes saiu do "em construção" — a lista lê
+  // `customer_list` com a confirmação de papel (provado em `pages/__tests__/clientesPage.test.tsx`). Sai
+  // daqui SÓ o `/clientes`, pelo mesmo molde; Descontos segue com a régua inteira.
+  const EM_CONSTRUCAO = TABS.filter((t) => t.path !== '/' && t.path !== '/pedidos' && t.path !== '/clientes')
 
-  it('as abas que seguem em construção são exatamente Clientes e Descontos', () => {
-    expect(EM_CONSTRUCAO.map((t) => [t.path, t.label])).toEqual([
-      ['/clientes', 'Clientes'],
-      ['/descontos', 'Descontos'],
-    ])
+  it('a aba que segue em construção é exatamente Descontos', () => {
+    expect(EM_CONSTRUCAO.map((t) => [t.path, t.label])).toEqual([['/descontos', 'Descontos']])
+  })
+
+  it('Clientes NÃO é mais "em construção" (feature `76`)', async () => {
+    await montarApp('/clientes')
+    const main = screen.getByRole('main')
+    expect(within(main).getByRole('heading', { level: 1 })).toHaveTextContent('Clientes')
+    expect(main.textContent).not.toContain('Esta parte do app chega em breve.')
   })
 
   it('a Início NÃO é mais "em construção"', async () => {

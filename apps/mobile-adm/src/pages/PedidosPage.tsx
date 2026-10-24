@@ -62,7 +62,7 @@ const PedidosPage = () => {
   const lista = useListaDePedidos(recorte, termo)
   const [recusaBruta, setRecusaBruta] = useState<unknown>(null)
   const recusaDaAcao = useRecusaDaAcao(recusaBruta, lista.dataUpdatedAt)
-  const recusada = useRecusaDePapel([lista.error, lista.erroDaProxima, recusaDaAcao])
+  const recusada = useRecusaDePapel([lista.error, lista.erroDaProxima, recusaDaAcao], !!lista.data && !lista.isError)
   const acaoDaLinha = useCallback((l: LinhaDaLista) => <BotaoDaAcao linha={l} aoRecusa={setRecusaBruta} />, [])
 
   const trocarRecorte = useCallback(

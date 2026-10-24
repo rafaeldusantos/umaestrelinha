@@ -18,7 +18,13 @@
 // cadastro e convidada e já traz o agregado junto — o que permite ordenar por "Gastou" no servidor.
 
 export { pageRange, rangeLabel, escapeSearchTerm } from '@estrelinha/core/paging'
-import { escapeSearchTerm } from '@estrelinha/core/paging'
+// Feature `76` (`MAC-23`, `MAC-25`): a busca de clientes subiu para `core/customers` BYTE A BYTE, porque
+// o app do ateliê a lê também. O painel a reexporta por referência (`regrasDeClienteNoCore.test.ts`).
+export {
+  CUSTOMER_SEARCH_COLUMNS,
+  CUSTOMER_SEARCH_DEBOUNCE_MS,
+  buildCustomerSearchCondition,
+} from '@estrelinha/core/customers'
 
 export type CustomerViewId =
   | 'todas'
@@ -90,17 +96,6 @@ export const activeCustomerFilterCount = (filters: CustomerFilters, search = '')
   (filters.lastPurchase !== 'all' ? 1 : 0) +
   (filters.materialKinds.length > 0 ? 1 : 0) +
   (search.trim() !== '' ? 1 : 0)
-
-/** `CLI-01` — a busca alcança as quatro coisas que se tem em mãos ao procurar alguém. */
-export const CUSTOMER_SEARCH_COLUMNS = ['name', 'email', 'phone', 'cpf'] as const
-
-export const buildCustomerSearchCondition = (search: string): string | null => {
-  const term = escapeSearchTerm(search)
-  if (term === '') return null
-  return CUSTOMER_SEARCH_COLUMNS.map(c => `${c}.ilike.%${term}%`).join(',')
-}
-
-export const CUSTOMER_SEARCH_DEBOUNCE_MS = 300
 
 /**
  * Uma linha da view `customer_list`.

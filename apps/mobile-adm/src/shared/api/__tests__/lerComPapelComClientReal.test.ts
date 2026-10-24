@@ -16,7 +16,6 @@ import {
 
 import { ACCESS_DENIED_CODE } from '@estrelinha/core/hooks/useStoreOverview'
 
-import { COLUNAS_DA_LISTA } from '../../model/linha'
 import { lerComPapel } from '../lerComPapel'
 
 /** A régua da vigia (`ehRecusaDePapel`, features/access-check): o código de recusa de `core`. */
@@ -55,6 +54,9 @@ const montar = (respostas: Record<string, Resposta>) => {
     global: { fetch: fetchFalso as typeof fetch },
   })
 }
+
+/** O `select` não importa para a prova (o `fetch` falso não o lê); literal local, porque `shared` não importa de `entities`. */
+const COLUNAS_DA_LISTA = 'id,order_number,status'
 
 const lista = () => async () => {
   const { data, error } = await cliente.from('order_list').select(COLUNAS_DA_LISTA)

@@ -10,9 +10,11 @@ process.env.TZ = 'UTC'
 import { act, fireEvent, renderHook, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { clienteHref } from '@/entities/customer'
 import { pedidoHref } from '@/entities/order'
 import { fake, type RespostaTabela } from '@/test/fakeSupabase'
 import { montarApp } from '@/test/montarApp'
+import { cliente, fichaDeCliente, pedidoDaFicha } from '@/test/clientes'
 import { NOTA, detalhe, item, linha, statusRow } from '@/test/pedidos'
 import { resumo } from '@/test/resumo'
 import { CANAL_DA_LISTA } from '@/pages/PedidosPage'
@@ -20,6 +22,14 @@ import { esquecerTermos } from '@/shared/lib/useTermoDaEntrada'
 import { definirErro, esquecerAcoes, lerErro, mostrarAviso, travar, useAviso } from '@/features/order-actions'
 
 vi.mock('@estrelinha/supabase/client', async () => ({ supabase: (await import('@/test/fakeSupabase')).fake.client }))
+
+// Feature `76` (G15): o teste das chaves de cliente precisa LER o cache que o `<App />` criou. O mock
+// devolve o client de verdade e guarda a instância — nada do comportamento muda para os outros casos.
+const capturado = vi.hoisted(() => ({ cliente: null as import('@tanstack/react-query').QueryClient | null }))
+vi.mock('../queryClient', async (original) => {
+  const real = await original<typeof import('../queryClient')>()
+  return { ...real, criarQueryClient: () => (capturado.cliente = real.criarQueryClient()) }
+})
 
 const A = 'adri@exemplo.invalid'
 const B = 'bia@exemplo.invalid'
@@ -258,5 +268,105 @@ describe('a troca de conta esquece os termos da busca (B02)', () => {
     })
     expect(lerErro(ID)?.frase).toBe('Não consegui salvar. Tente de novo.')
     expect(travar(ID)).toBe(false)
+  })
+})
+
+// Feature `76` · T28 (G15, `MAC-38`) — a lista de clientes, a ficha e os pedidos da ficha também são da
+// CONTA: nome, e-mail e telefone de quem A atende não podem aparecer para B nem depois de A sair.
+describe('a troca de conta esquece os clientes (MAC-38, G15)', () => {
+  const FAMILIAS = ['atelie-clientes', 'atelie-cliente', 'atelie-cliente-pedidos']
+  const IDC = cliente().id
+  const doCliente = () => capturado.cliente!.getQueryCache().getAll().filter((q) => FAMILIAS.includes(String(q.queryKey[0])))
+  const comDado = () => doCliente().filter((q) => q.state.data !== undefined)
+  const caixa = () => screen.getByRole('searchbox', { name: 'Buscar cliente' }) as HTMLInputElement
+
+  const responderClientesDeA = () => {
+    fake.responderRpc('atelie_clock', { lido_em: LIDO_EM })
+    fake.responderRpc('store_overview', resumo())
+    fake.responderTabela('customer_list', (cadeia): RespostaTabela =>
+      cadeia.some((e) => e.metodo === 'maybeSingle')
+        ? { data: fichaDeCliente({ name: 'Marina Duarte' }), error: null }
+        : { data: [cliente({ name: 'Marina Duarte' })], error: null, count: 1 },
+    )
+    fake.responderTabela('order_list', (cadeia): RespostaTabela =>
+      cadeia.some((e) => e.metodo === 'not')
+        ? { data: [{ address_city: 'Porto Alegre', address_state: 'RS' }], error: null }
+        : { data: [pedidoDaFicha()], error: null, count: 1 },
+    )
+    fake.responderTabela('order_items', { data: [{ order_id: pedidoDaFicha().id, product_name: 'Pingente Gota' }], error: null })
+  }
+
+  const montarComFichaAberta = async () => {
+    responderClientesDeA()
+    await montarApp('/clientes')
+    await andar(50)
+    fireEvent.change(caixa(), { target: { value: 'Marina' } })
+    await andar(350)
+    await andar(100)
+    fireEvent.click(screen.getByTestId('linha-do-cliente'))
+    await andar(100)
+    await andar(100)
+    expect(window.location.pathname).toBe(clienteHref(IDC))
+    expect(screen.getByText('Marina Duarte')).toBeInTheDocument()
+    expect(screen.getAllByTestId('pedido-da-cliente')).toHaveLength(1)
+  }
+
+  it('PRÉ-CONDIÇÃO: com a lista buscada, a ficha e os pedidos abertos, as TRÊS famílias de chave estão no cache, com dado', async () => {
+    await montarComFichaAberta()
+    const familias = new Set(comDado().map((q) => String(q.queryKey[0])))
+    expect([...familias].sort()).toEqual([...FAMILIAS].sort())
+  })
+
+  it('A → B sem sair: nenhuma consulta de cliente guarda dado de A, nada de A é desenhado, e a busca de A foi esquecida', async () => {
+    await montarComFichaAberta()
+    const h1Antes = screen.getByRole('heading', { level: 1 })
+    pendurarTudo()
+    fake.pendurarTabela('customer_list')
+    await entrarComo(B)
+    await andar(50)
+    expect(screen.getByRole('heading', { level: 1 })).toBe(h1Antes)
+    expect(comDado()).toEqual([])
+    expect(screen.getByRole('main').textContent).not.toMatch(/Marina|marina@|Porto Alegre|R\$/)
+    expect(screen.queryAllByTestId('pedido-da-cliente')).toHaveLength(0)
+
+    // Voltar à lista: a entrada é a mesma, e a caixa de busca de A não pode estar lá.
+    await act(async () => {
+      window.history.back()
+      await vi.advanceTimersByTimeAsync(50)
+    })
+    await andar(50)
+    expect(window.location.pathname).toBe('/clientes')
+    expect(caixa().value).toBe('')
+    expect(screen.queryAllByTestId('linha-do-cliente')).toHaveLength(0)
+    expect(comDado()).toEqual([])
+  })
+
+  it('sair: o cache fica SEM nenhuma chave de cliente, e entrar de novo não desenha o que estava antes', async () => {
+    await montarComFichaAberta()
+    await act(async () => {
+      fake.perderSessao()
+      await vi.advanceTimersByTimeAsync(50)
+    })
+    expect(window.location.pathname).toBe('/login')
+    expect(doCliente()).toEqual([])
+    pendurarTudo()
+    fake.pendurarTabela('customer_list')
+    await entrarComo(A)
+    await navegar('/clientes')
+    expect(screen.queryAllByTestId('linha-do-cliente')).toHaveLength(0)
+    expect(document.body.textContent).not.toMatch(/Marina|marina@/)
+    expect(caixa().value).toBe('')
+  })
+
+  it('a volta da aba com o MESMO usuário NÃO esquece a ficha (o cache fica, a tela não pisca)', async () => {
+    await montarComFichaAberta()
+    pendurarTudo()
+    fake.pendurarTabela('customer_list')
+    await act(async () => {
+      fake.voltarAba()
+      await vi.advanceTimersByTimeAsync(50)
+    })
+    expect(screen.getByText('Marina Duarte')).toBeInTheDocument()
+    expect(comDado().length).toBeGreaterThanOrEqual(3)
   })
 })

@@ -62,3 +62,25 @@ Reabertos (`untested`) porque a superfície mudou: `MAD-pedido-abrir-e-entender`
 `MAD-pedido-retirada-no-escritorio`, `MAD-pedidos-fonte-grande-e-telas-estreitas`,
 `MAD-pedidos-com-leitor-de-tela`. Fixturas e restauração: `.specs/features/75-mobile-adm-acoes-do-pedido/prova/`.
 Sem bug aberto da `75` no registro na hora do planejamento.
+
+## Ciclo planejado — feature `76` (Clientes), nível *targeted*
+
+Planejado em 2026-10-24 (`qa-report`), não executado. Duas jornadas novas, `J-achar-uma-cliente` e
+`J-ver-uma-cliente` (31 cenários `MAD-cliente*`, todos `untested`), mais quatro cenários da `74`/`72`
+reabertos (`MAD-pedido-whatsapp-da-cliente`, `MAD-pedido-abrir-e-entender`, `MAD-pedido-voltar-mantem-recorte`,
+`MAD-navegar-pelas-quatro-abas`). Banco local com as fixturas de `.specs/features/76-mobile-adm-clientes/prova/`
+(ids `-d076-`, e-mails `@exemplo.invalid`); **não capturar tela com e-mail ou telefone de cliente real**.
+Ordem por risco:
+
+| # | Charter | Tour | Caixa |
+| --- | --- | --- | --- |
+| 1 | `CH-clientes-achar-quem-me-escreveu` | Paste | 60 |
+| 2 | `CH-clientes-conta-sem-acesso` | Garbage | 30 |
+| 3 | `CH-clientes-numeros-batem-com-o-painel` | Money | 60 |
+| 4 | `CH-clientes-do-pedido-a-ficha-e-voltar` | Back-Button | 60 |
+| 5 | `CH-clientes-com-rede-ruim` | Network | 60 |
+| 6 | `CH-clientes-privacidade-no-aparelho` | Garbage | 30 |
+| 7 | `CH-clientes-com-fonte-grande` | Feature | 60 |
+| 8 | `CH-clientes-com-leitor-de-tela` | Feature | 60 |
+| 9 | `CH-clientes-ficha-ao-vivo-e-troca-de-conta` | Multi-Tab | 30 |
+| canário | `CH-pedidos-achar-o-pedido-da-cliente` (WhatsApp do pedido) e `CH-pedidos-voltar-do-android` (re-run) | — | — |

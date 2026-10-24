@@ -37,4 +37,11 @@ instalarIntersectionObserver();
 // Feature `74`: jsdom não implementa `window.scrollTo` (só loga "Not implemented"). A lista restaura a
 // rolagem ao voltar (`useRolagemRestaurada`); os testes que medem isso trocam por um `vi.fn`.
 Object.defineProperty(window, "scrollTo", { writable: true, configurable: true, value: () => {} });
-beforeEach(() => instalarIntersectionObserver());
+beforeEach(async () => {
+  instalarIntersectionObserver();
+  // O episódio da recusa é do módulo; cada caso começa sem o do vizinho. O import é DINÂMICO de
+  // propósito: um import estático aqui carregaria o client do supabase antes do `vi.mock` do arquivo
+  // de teste, e o dublê deixaria de valer.
+  const { esquecerReconferencia } = await import("@/features/access-check/model/useRecusaDePapel");
+  esquecerReconferencia();
+});

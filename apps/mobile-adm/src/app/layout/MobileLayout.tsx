@@ -4,6 +4,7 @@ import { abaDoCaminho, TabBar, tituloDaAba } from '@/widgets/tab-bar'
 import { AccountMenu } from '@/widgets/account-menu'
 import { useResumo } from '@/entities/stats'
 import { backofficeUrl } from '@/shared/config/backoffice'
+import { useBuscaEmFoco } from '@/shared/lib/useBuscaEmFoco'
 import { RESERVA_DA_BARRA } from '@/shared/ui/alturas'
 import { AvisoDaAcao } from '@/features/order-actions'
 
@@ -23,6 +24,9 @@ import { AvisoDaAcao } from '@/features/order-actions'
  * repetia "Clientes, atual". O foco NÃO se move na primeira montagem: quem abre o app não trocou de
  * nada, e roubar o foco ali só atrapalharia.
  *
+ * **A barra sai de cena enquanto se digita uma busca** (`useBuscaEmFoco`, conserto do QA da `76`): com o
+ * teclado aberto ela cobria a primeira linha do resultado. A reserva dela no fim da página permanece.
+ *
  * **O selo da aba Pedidos** (feature `74`, `MAP-31`..`MAP-33`, A24, A25) é `fila.precisa_acao` de
  * `store_overview`, lido por `useResumo` — a MESMA chave de cache da Início, então com a Início aberta
  * é UMA leitura (dedupe do React Query). Relê com ela: ao montar, no primeiro plano e quando a lista ou
@@ -37,6 +41,7 @@ const MobileLayout = () => {
   const conteudo = useRef<HTMLElement>(null)
   const anterior = useRef<string | null>(null)
   const resumo = useResumo()
+  const buscando = useBuscaEmFoco()
   const precisaDeVoce = resumo.isError || !resumo.data ? null : resumo.data.fila.precisa_acao
 
   useEffect(() => {
@@ -75,7 +80,7 @@ const MobileLayout = () => {
 
       <div data-testid="reserva-da-barra" aria-hidden="true" className={`${RESERVA_DA_BARRA} shrink-0`} />
       <AvisoDaAcao />
-      <TabBar selos={{ '/pedidos': precisaDeVoce }} />
+      {!buscando && <TabBar selos={{ '/pedidos': precisaDeVoce }} />}
     </div>
   )
 }

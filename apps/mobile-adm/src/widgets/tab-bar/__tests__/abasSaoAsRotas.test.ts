@@ -41,10 +41,10 @@ const divergencias = (abas: string[], rotas: string[], subrotas: string[] = []) 
 const fonte = readFileSync(resolve(__dirname, '../../../app/App.tsx'), 'utf8')
 
 describe('TABS × rotas do App.tsx', () => {
-  it('âncora — quatro abas, quatro rotas de aba e UMA subrota (`/pedidos/:id`)', () => {
+  it('âncora — quatro abas, quatro rotas de aba e DUAS subrotas (`/pedidos/:id`, `/clientes/:id`)', () => {
     expect(TABS).toHaveLength(4)
     expect(rotasDoApp(fonte)).toHaveLength(4)
-    expect(subrotasDoApp(fonte)).toEqual(['/pedidos/:id'])
+    expect(subrotasDoApp(fonte)).toEqual(['/pedidos/:id', '/clientes/:id'])
   })
 
   it('as duas listas são a mesma, na mesma ordem — e toda subrota mora numa aba', () => {

@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '@estrelinha/supabase/client'
 import { readAllPages } from '@estrelinha/core/paging'
+import { applyCustomerSlice } from '@estrelinha/core/customers'
 import {
   CUSTOMER_LIST_SELECT,
   CUSTOMER_SORT_COLUMN,
@@ -50,7 +51,7 @@ const applyView = (builder: any, view: CustomerFilters['view']): any => {
     case 'todas':
       return builder
     case 'voltaram':
-      return builder.gte('orders_paid', 2)
+      return applyCustomerSlice(builder, 'recorrentes')
     case 'confiaram-material':
       return builder.gte('orders_with_material', 1)
     case 'uma-vez':

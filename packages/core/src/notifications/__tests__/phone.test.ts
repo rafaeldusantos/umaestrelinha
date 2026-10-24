@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { normalizeBrPhone } from '../phone.ts'
+import { normalizeBrPhone, whatsappChatUrl } from '../phone.ts'
 
 /**
  * PNL-07 — o comportamento de `whatsappNumber` (backoffice), agora com um dono em `core`. Os quatro
@@ -41,5 +41,24 @@ describe('normalizeBrPhone', () => {
 
   it('só letras → null', () => {
     expect(normalizeBrPhone('sem telefone')).toBeNull()
+  })
+})
+
+describe('whatsappChatUrl (feature 76, MAC-26)', () => {
+  it('monta o wa.me do número normalizado, por extenso', () => {
+    expect(whatsappChatUrl('+55 (51) 99812-4471')).toBe('https://wa.me/5551998124471')
+    expect(whatsappChatUrl('5551998124471')).toBe('https://wa.me/5551998124471')
+    expect(whatsappChatUrl('(51) 3012-3456')).toBe('https://wa.me/555130123456')
+  })
+
+  it('número que não presta, vazio, nulo e indefinido → null', () => {
+    expect(whatsappChatUrl('123')).toBeNull()
+    expect(whatsappChatUrl('')).toBeNull()
+    expect(whatsappChatUrl(null)).toBeNull()
+    expect(whatsappChatUrl(undefined)).toBeNull()
+  })
+
+  it('nunca carrega mensagem pronta', () => {
+    expect(whatsappChatUrl('(51) 99812-4471')).not.toContain('text=')
   })
 })

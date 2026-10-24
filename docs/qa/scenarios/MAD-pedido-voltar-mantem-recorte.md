@@ -9,11 +9,13 @@ entry_points: /pedidos?bloco=<id> → rola → linha → voltar
 qa_status: pass
 bug_ids: BUG-20261024-voltar-do-pedido-buscado-perde-a-busca
 fix_status: fixed
-retest_status: pass (2026-10-24 r2)
+retest_status: passed
 fix_commits:
 evidence:
-last_report: reports/2026-10-24-mobile-adm-pedidos.md
+last_report: reports/2026-10-24-mobile-adm-clientes.md
 overlaps: MAD-navegar-pelas-quatro-abas
 ---
 
 Feature `74` (`MAP-20` emendado E7, A28, G-A28). Trocar chips não empilha histórico: voltar da lista não passeia pelos chips. Revalidação ao voltar que recusa faz o cache sumir (`MAP-36`).
+
+Reset em 2026-10-24 (qa-report, feature 76): o BlocoCliente passa a usar whatsappChatUrl e ganha Ver cliente; a rota /clientes/:id entra na aba Clientes.

@@ -97,7 +97,7 @@ describe('o cliente (MAP-22, A20, A21)', () => {
     expect(within(bloco).getByText('3ª compra')).toBeInTheDocument()
     expect(within(bloco).getByText('marina@exemplo.invalid')).toBeInTheDocument()
     expect(bloco.querySelector('[data-parte="telefone"]')?.textContent).toBe('(51) 99999-0000')
-    const zap = within(bloco).getByRole('link', { name: 'WhatsApp' })
+    const zap = within(bloco).getByRole('link', { name: 'WhatsApp (abre em outra aba)' })
     expect(zap).toHaveAttribute('href', 'https://wa.me/5551999990000')
     expect(zap).toHaveAttribute('target', '_blank')
     expect(zap).toHaveAttribute('rel', 'noopener noreferrer')
@@ -107,13 +107,13 @@ describe('o cliente (MAP-22, A20, A21)', () => {
   it('telefone gravado com +55 sai igual, e o link aponta para o mesmo número', () => {
     montar(<BlocoCliente pedido={detalhe({ customer_phone: '+55 (51) 99999-0000' })} />)
     expect(document.querySelector('[data-parte="telefone"]')?.textContent).toBe('(51) 99999-0000')
-    expect(screen.getByRole('link', { name: 'WhatsApp' })).toHaveAttribute('href', 'https://wa.me/5551999990000')
+    expect(screen.getByRole('link', { name: 'WhatsApp (abre em outra aba)' })).toHaveAttribute('href', 'https://wa.me/5551999990000')
   })
 
   it.each([null, '', '1234-5'])('sem telefone válido (%j): nem o telefone nem o "WhatsApp"', (fone) => {
     montar(<BlocoCliente pedido={detalhe({ customer_phone: fone })} />)
     expect(document.querySelector('[data-parte="telefone"]')).toBeNull()
-    expect(screen.queryByRole('link', { name: 'WhatsApp' })).toBeNull()
+    expect(screen.queryByRole('link', { name: 'WhatsApp (abre em outra aba)' })).toBeNull()
   })
 
   it('sem nome: o e-mail no lugar do nome; primeira compra também diz a ordinal', () => {

@@ -1,6 +1,7 @@
 import { canChargeMaterial, chargeMaterialUrl } from '@estrelinha/core/orders'
 
 import type { PedidoDoDetalhe } from '@/entities/order'
+import { nomeDoLinkExterno } from '@/shared/config/novaAba'
 import { WHATSAPP_FUNDO, WHATSAPP_TEXTO } from '@/shared/config/whatsapp'
 
 export const LEMBRAR_DO_ENVIO = 'Lembrar do envio no WhatsApp'
@@ -29,6 +30,7 @@ const LembreteDoEnvio = ({ pedido, lidoEm }: LembreteDoEnvioProps) => {
     <a
       href={chargeMaterialUrl(pedido, pedido.customer_phone, new Date(lidoEm))}
       target="_blank"
+      aria-label={nomeDoLinkExterno(LEMBRAR_DO_ENVIO)}
       rel="noopener noreferrer"
       data-testid="lembrete-do-envio"
       style={{ backgroundColor: WHATSAPP_FUNDO, color: WHATSAPP_TEXTO }}

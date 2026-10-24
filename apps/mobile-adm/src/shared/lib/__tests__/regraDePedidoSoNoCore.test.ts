@@ -191,7 +191,7 @@ describe('a regra do pedido mora em `core` (MAP-49) — âncoras', () => {
   })
 
   it('a régua 3 alcança uma linha REAL do app: `lerComPapel.ts` compara `.status` e é a ocorrência que ela tem de deixar passar', () => {
-    const ler = PRODUCAO.find((a) => a.rel === 'entities/order/api/lerComPapel.ts')!
+    const ler = PRODUCAO.find((a) => a.rel === 'shared/api/lerComPapel.ts')!
     const comparacoes = ler.linhas.filter((l) => /\.status\s*===\s*'rejected'/.test(l))
     expect(comparacoes.length).toBeGreaterThanOrEqual(1)
     expect(procurar([{ rel: ler.rel, linhas: comparacoes }])).toEqual([])

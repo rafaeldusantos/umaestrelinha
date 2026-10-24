@@ -21,7 +21,8 @@ import {
   type ItemDoPedido,
   type PedidoDoDetalhe,
 } from '../model/linha'
-import { lerComPapel } from './lerComPapel'
+import { lerComPapel } from '@/shared/api/lerComPapel'
+import { ler, type Lida } from '@/shared/api/lerSemLancar'
 
 /**
  * O detalhe de um pedido (feature `74`, Design §3.4, emenda E2; `MAP-29`, `MAP-30`, `MAP-36`,
@@ -44,18 +45,6 @@ import { lerComPapel } from './lerComPapel'
 
 export const PEDIDO_KEY = 'atelie-pedido'
 export const chaveDoPedido = (id: string) => [PEDIDO_KEY, id] as const
-
-type Lida<T> = { data: T | null; error: unknown }
-
-/** O supabase-js não rejeita; um `fetch` que lança, sim. As duas formas viram `{ error }`. */
-const ler = async <T>(leitura: PromiseLike<{ data: unknown; error: unknown }>): Promise<Lida<T>> => {
-  try {
-    const { data, error } = await leitura
-    return { data: (data as T) ?? null, error: error ?? null }
-  } catch (error) {
-    return { data: null, error }
-  }
-}
 
 const bloco = <T>(lida: Lida<T>): Bloco<T> => (lida.error ? { estado: 'falhou' } : { estado: 'ok', dado: lida.data as T })
 
