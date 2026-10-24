@@ -9,6 +9,9 @@ import { vi } from 'vitest'
  * pode ser SEGURADA (`segurarPapel`) — é o que reproduz o `BUG-20260802`: o login aceito antes de o
  * provider saber que a conta é admin.
  *
+ * Desde a feature `74` ele também registra a CADEIA inteira de cada leitura de tabela de dado
+ * (`cadeiasDe`), e uma tabela sem resposta configurada lança (`responderTabela`).
+ *
  * Uso: `vi.mock('@estrelinha/supabase/client', async () => ({ supabase: (await import('@/test/fakeSupabase')).fake.client }))`.
  */
 
@@ -38,6 +41,40 @@ export interface CanalFalso {
   unsubscribe: ReturnType<typeof vi.fn>
 }
 export type FormaDeFalha = 'erro' | 'lanca' | 'rejeita'
+
+/**
+ * Feature `74` (R9, `L-060`) — uma chamada da cadeia de uma leitura de tabela: o método e os
+ * argumentos, na ordem em que o código os encadeou. `select` com as opções (`{ count: 'exact' }`)
+ * entra inteiro, e um `.neq` a mais aparece na cadeia — a régua é a IGUALDADE com a cadeia de `core`.
+ */
+export type Elo = { metodo: string; args: unknown[] }
+/** O que uma leitura de tabela devolve, na forma do supabase-js (ele NÃO rejeita). */
+export type RespostaTabela = { data: unknown; error: null | { message: string; code?: string }; count?: number | null }
+/** Como a tabela responde à `n`-ésima leitura, vendo a cadeia inteira. Pode devolver promessa (segurar). */
+type ComportamentoTabela = (cadeia: Elo[], n: number) => RespostaTabela | Promise<RespostaTabela>
+
+/** A leitura de tabela do dublê, tipada como o builder do supabase-js é usado: encadeia e é `thenable`. */
+export interface ConsultaFalsa extends PromiseLike<RespostaTabela> {
+  select(...args: unknown[]): ConsultaFalsa
+  or(...args: unknown[]): ConsultaFalsa
+  in(...args: unknown[]): ConsultaFalsa
+  eq(...args: unknown[]): ConsultaFalsa
+  neq(...args: unknown[]): ConsultaFalsa
+  is(...args: unknown[]): ConsultaFalsa
+  ilike(...args: unknown[]): ConsultaFalsa
+  gt(...args: unknown[]): ConsultaFalsa
+  lt(...args: unknown[]): ConsultaFalsa
+  gte(...args: unknown[]): ConsultaFalsa
+  lte(...args: unknown[]): ConsultaFalsa
+  order(...args: unknown[]): ConsultaFalsa
+  limit(...args: unknown[]): ConsultaFalsa
+  range(...args: unknown[]): ConsultaFalsa
+  maybeSingle(): Promise<RespostaTabela>
+  single(): Promise<RespostaTabela>
+}
+
+/** Os métodos de filtro e de forma que o dublê aceita e registra. Fora desta lista, `is not a function`. */
+const METODOS_DA_CADEIA = ['select', 'or', 'in', 'eq', 'neq', 'is', 'ilike', 'gt', 'lt', 'gte', 'lte', 'order', 'limit', 'range'] as const
 
 const FALHA_DE_REDE = { message: 'Failed to fetch' }
 type Ouvinte = (evento: string, sessao: Sessao) => void
@@ -71,14 +108,53 @@ const criar = () => {
     chamadasRpc: [] as { nome: string; args: unknown[] }[],
     /** Todo canal aberto por `channel(nome)`, inclusive os já removidos. */
     canais: [] as CanalFalso[],
+    /** Feature `74`: como cada tabela de DADO responde. Sem entrada, ler a tabela LANÇA. */
+    respostasDeTabela: new Map<string, ComportamentoTabela>(),
+    /** Toda leitura de tabela de dado, com a cadeia inteira, na ordem em que saiu. */
+    leituras: [] as { tabela: string; cadeia: Elo[]; final: 'then' | 'maybeSingle' | 'single' }[],
   }
 
   const emitir = (evento: string) => {
     for (const o of estado.ouvintes) o(evento, estado.sessao)
   }
 
-  const consulta = (tabela: string) => {
+  /**
+   * Feature `74` — a leitura de uma tabela de DADO (`order_list`, `order_items`…). Registra a cadeia
+   * inteira e só responde quando é aguardada (o builder do supabase-js é `thenable`), ou no
+   * `maybeSingle`/`single`. Uma tabela sem resposta configurada LANÇA na hora: devolver `[]` em
+   * silêncio faria uma consulta ao lugar errado passar por "lista vazia".
+   */
+  const leituraDeDado = (tabela: string): ConsultaFalsa => {
+    const comportamento = estado.respostasDeTabela.get(tabela)
+    if (!comportamento) throw new Error(`fakeSupabase: a tabela "${tabela}" não tem resposta configurada (responderTabela)`)
+    const cadeia: Elo[] = []
+    const responder = (final: 'then' | 'maybeSingle' | 'single') => {
+      estado.leituras.push({ tabela, cadeia, final })
+      const n = estado.leituras.filter((l) => l.tabela === tabela).length
+      return Promise.resolve(comportamento(cadeia, n))
+    }
+    const builder: Record<string, unknown> = {}
+    for (const metodo of METODOS_DA_CADEIA) {
+      builder[metodo] = (...args: unknown[]) => {
+        cadeia.push({ metodo, args })
+        return builder
+      }
+    }
+    builder.maybeSingle = () => {
+      cadeia.push({ metodo: 'maybeSingle', args: [] })
+      return responder('maybeSingle')
+    }
+    builder.single = () => {
+      cadeia.push({ metodo: 'single', args: [] })
+      return responder('single')
+    }
+    builder.then = (ok: (v: RespostaTabela) => unknown, erro?: (e: unknown) => unknown) => responder('then').then(ok, erro)
+    return builder as unknown as ConsultaFalsa
+  }
+
+  const consulta = (tabela: string): ConsultaFalsa => {
     estado.tabelas.push(tabela)
+    if (tabela !== 'user_roles' && tabela !== 'customers') return leituraDeDado(tabela)
     const falha = tabela === 'user_roles' ? estado.falhaDoPapel : tabela === 'customers' ? estado.falhaDoCadastro : null
     if (falha === 'lanca') throw new TypeError('Failed to fetch')
     const filtros: Record<string, unknown> = {}
@@ -101,7 +177,8 @@ const criar = () => {
         return { data: null, error: null }
       },
     }
-    return cadeia
+    // A cadeia do papel e do cadastro só tem `select`/`eq`/`maybeSingle` — é o que o AuthProvider usa.
+    return cadeia as unknown as ConsultaFalsa
   }
 
   const client = {
@@ -287,6 +364,23 @@ const criar = () => {
       }
       return chamados
     },
+    // ---- Tabelas de dado (feature `74`) --------------------------------------------------------
+    /** A tabela responde com esta resposta (ou função da cadeia e do número da leitura). */
+    responderTabela(tabela: string, resposta: RespostaTabela | ComportamentoTabela) {
+      estado.respostasDeTabela.set(tabela, typeof resposta === 'function' ? resposta : () => resposta)
+    },
+    /** A tabela responde `{ error }` (o supabase-js não rejeita). */
+    falharTabela(tabela: string, erro: { message: string; code?: string } = FALHA_DE_REDE) {
+      estado.respostasDeTabela.set(tabela, () => ({ data: null, error: erro }))
+    },
+    /** A leitura da tabela nunca responde (L-054: cada leitura pendura sozinha). */
+    pendurarTabela(tabela: string) {
+      estado.respostasDeTabela.set(tabela, () => new Promise<RespostaTabela>(() => {}))
+    },
+    /** As cadeias de cada leitura da tabela, na ordem — a régua de `L-060` é a igualdade. */
+    cadeiasDe(tabela: string) {
+      return estado.leituras.filter((l) => l.tabela === tabela).map((l) => l.cadeia)
+    },
     /** Só as leituras que NÃO são do próprio `AuthProvider` (o papel e o cadastro de quem entrou). */
     leiturasDeDado() {
       return estado.tabelas.filter((t) => t !== 'user_roles' && t !== 'customers')
@@ -309,6 +403,8 @@ const criar = () => {
       estado.rpcs.clear()
       estado.chamadasRpc = []
       estado.canais = []
+      estado.respostasDeTabela.clear()
+      estado.leituras = []
       for (const f of Object.values(client.auth)) f.mockClear()
       client.from.mockClear()
       client.rpc.mockClear()

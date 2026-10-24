@@ -8,7 +8,7 @@
 
 import { MATERIAL_STATUS_LABELS, toMaterialStatus } from '@estrelinha/core/material'
 import { STATUS_LABELS } from '@/entities/order/api/useAdminOrders'
-import { ORDER_VIEWS, type OrderFilters } from '@/entities/order/api/orderQuery'
+import { ORDER_VIEWS, PAYMENT_METHOD_LABELS, type OrderFilters } from '@/entities/order/api/orderQuery'
 
 export interface OrderFilterChip {
   key: string
@@ -25,12 +25,6 @@ const PAYMENT_STATUS_LABELS: Record<string, string> = {
   cancelled: 'cancelado',
 }
 
-const PAYMENT_METHOD_LABELS: Record<string, string> = {
-  pix: 'PIX',
-  credit_card: 'Cartão de crédito',
-  boleto: 'Boleto',
-  manual: 'Manual',
-}
 
 const lista = (valores: string[], rotulos: Record<string, string>): string =>
   valores.map(v => rotulos[v] ?? v).join(', ')

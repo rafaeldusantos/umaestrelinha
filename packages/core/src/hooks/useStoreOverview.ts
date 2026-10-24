@@ -20,9 +20,12 @@ export const STORE_OVERVIEW_KEY = ['store-overview'] as const
 /** O código do Postgres para "sem privilégio" — o que `has_role` levanta numa RPC admin. */
 export const ACCESS_DENIED_CODE = '42501'
 
+/** A leitura foi recusada por PAPEL (`42501`), e não por rede. O único dono desta pergunta. */
+export const isAccessDenied = (erro: unknown): boolean =>
+  (erro as { code?: unknown } | null | undefined)?.code === ACCESS_DENIED_CODE
+
 /** Repete uma vez, menos quando a RPC recusou por papel. */
-export const retryUnlessDenied = (falhas: number, erro: unknown): boolean =>
-  (erro as { code?: string } | null)?.code !== ACCESS_DENIED_CODE && falhas < 1
+export const retryUnlessDenied = (falhas: number, erro: unknown): boolean => !isAccessDenied(erro) && falhas < 1
 
 const lerResumo = async (): Promise<StoreOverview> => {
   // Sem segundo argumento: `p_agora` existe só para probe.

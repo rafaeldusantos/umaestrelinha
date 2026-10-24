@@ -1,7 +1,6 @@
 import { useCallback } from 'react'
 import { useQueryClient, type UseQueryResult } from '@tanstack/react-query'
 import { useOrdersRealtime } from '@estrelinha/core/hooks/useOrdersRealtime'
-import { formatStoreHour } from '@estrelinha/core/time'
 import { STORE_MOVEMENT_KEY, STORE_OVERVIEW_KEY, useMovimento, useResumo } from '@/entities/stats'
 import { useRecusaDePapel } from '@/features/access-check'
 import { MovementHero } from '@/widgets/movement-hero'
@@ -11,7 +10,7 @@ import { MonthCards } from '@/widgets/month-cards'
 import { TopJewels } from '@/widgets/top-jewels'
 import { RecentOrders } from '@/widgets/recent-orders'
 import PullToRefresh from '@/shared/ui/PullToRefresh'
-import type { Leitura } from '@/shared/ui/leitura'
+import { LinhaDeFrescor, type Leitura } from '@/shared/ui/leitura'
 
 /**
  * O canal de pedidos da Início. Outro nome que o do Dashboard do painel (`admin-orders-realtime`): os
@@ -19,7 +18,9 @@ import type { Leitura } from '@/shared/ui/leitura'
  */
 export const CANAL_DA_INICIO = 'atelie-orders-realtime'
 
-export const NAO_ATUALIZOU = 'Não consegui atualizar agora.'
+// A frase subiu para `shared/ui/leitura.tsx` na `74` (a lista de pedidos diz a mesma); reexportada
+// aqui para o teste da `73` não mudar.
+export { NAO_ATUALIZOU } from '@/shared/ui/leitura'
 
 /**
  * O que um bloco sabe de uma query. Com recusa por papel (`42501`), nenhum número — nem o dado de
@@ -80,12 +81,7 @@ const InicioPage = () => {
     <PullToRefresh onRefresh={reler}>
       <div className="space-y-6">
         <MovementHero leitura={doMovimento} />
-        {lidoEm && (
-          <p data-testid="frescor" aria-live="polite" className="text-xs text-estrelinha-ink-soft">
-            {naoAtualizou && <span className="block font-medium text-estrelinha-ink">{NAO_ATUALIZOU}</span>}
-            {`Atualizado às ${formatStoreHour(lidoEm)}.`}
-          </p>
-        )}
+        {lidoEm && <LinhaDeFrescor lidoEm={lidoEm} naoAtualizou={naoAtualizou} />}
         <QueueTiles leitura={doResumo} />
         <section aria-labelledby="o-mes-e-a-semana" className="space-y-3">
           <h2 id="o-mes-e-a-semana" className="sr-only">

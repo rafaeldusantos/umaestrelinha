@@ -8,7 +8,7 @@
 // ser IGUAL à esperada — qualquer chamada a mais, a menos ou em outra ordem reprova.
 import { renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { queueBlock, toPostgrestFilter } from '@estrelinha/core/orders'
+import { needsActionOrFilter, queueBlock, toPostgrestFilter } from '@estrelinha/core/orders'
 
 type Chamada = [metodo: string, args: unknown[]]
 const consultas: { tabela: string; cadeia: Chamada[] }[] = []
@@ -44,7 +44,7 @@ vi.mock('@estrelinha/supabase/client', () => {
   return { supabase: { from: (tabela: string) => builder(tabela) } }
 })
 
-import { defaultOrderQuery } from './orderQuery'
+import { ORDER_LIST_SELECT, defaultOrderQuery } from './orderQuery'
 import { useAdminOrderList } from './useAdminOrderList'
 
 beforeEach(() => {
@@ -80,5 +80,51 @@ describe('a idade do mais antigo da fila (P04 da r2 da `73`)', () => {
     ]
     const mutada: Chamada[] = [esperada[0], esperada[1], ['neq', ['status', 'cancelled']], esperada[2], esperada[3]]
     expect(mutada).not.toEqual(esperada)
+  })
+})
+
+// Feature `74` (`MAP-47`, T08): o `applyView` do painel passou a DELEGAR a `applyOrderSlice`
+// (`@estrelinha/core/orders`). A cadeia que cada visão manda ao PostgREST tem de ser a de antes — o
+// `or` do predicado e depois cada `in` —, escrita aqui POR EXTENSO (derivá-la de `applyOrderSlice`
+// provaria que a função é igual a si mesma). Os casos acima, da `73`, só mediam a consulta da idade.
+describe('a visão chega ao PostgREST pela mesma cadeia de antes (feature `74`)', () => {
+  const contagemDa = (cadeia: Chamada[]): boolean =>
+    cadeia[0]?.[0] === 'select' && cadeia[0][1][0] === 'id' && (cadeia[0][1][1] as { head?: boolean })?.head === true
+
+  it('a lista em "Precisa de ação": o `or` da união, a ordem e a página — e nada a mais', async () => {
+    const query = defaultOrderQuery()
+    const { result } = renderHook(() => useAdminOrderList(query))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    const lista = consultas.filter((c) => c.tabela === 'order_list')
+    expect(lista.length).toBeGreaterThanOrEqual(1)
+    expect(lista[0].cadeia).toEqual([
+      ['select', [ORDER_LIST_SELECT, { count: 'exact' }]],
+      ['or', [needsActionOrFilter()]],
+      ['order', ['created_at', { ascending: false }]],
+      ['range', [0, 24]],
+    ])
+  })
+
+  it('a contagem de cada aba manda o predicado da visão, na ordem de antes', async () => {
+    const query = defaultOrderQuery()
+    const { result } = renderHook(() => useAdminOrderList(query))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    // Seis contagens de aba e, depois delas, as quatro dos blocos do topo (`fetchTiles`): as seis
+    // primeiras são as abas, na ordem de `ORDER_VIEWS` (o `map` as cria antes do primeiro `await`).
+    await waitFor(() => expect(consultas.filter((c) => contagemDa(c.cadeia))).toHaveLength(10))
+
+    const filtrosDasAbas = consultas
+      .filter((c) => c.tabela === 'orders' && contagemDa(c.cadeia))
+      .slice(0, 6)
+      .map((c) => c.cadeia.slice(1))
+    expect(filtrosDasAbas).toEqual([
+      [['or', [needsActionOrFilter()]]],
+      [],
+      [['in', ['material_status', ['aguardando_material', 'material_enviado', 'material_recebido', 'em_producao']]]],
+      [['in', ['status', ['paid', 'separating']]]],
+      [['in', ['status', ['shipped']]]],
+      [['in', ['status', ['delivered', 'cancelled']]]],
+    ])
   })
 })

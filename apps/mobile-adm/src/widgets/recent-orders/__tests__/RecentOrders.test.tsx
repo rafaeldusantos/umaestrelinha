@@ -1,11 +1,18 @@
 // Feature `73` · T17 · `MAI-14`..`MAI-16` — os últimos pedidos.
-import { fireEvent, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 import { formatPrice } from '@estrelinha/core/formatters'
 import { resumo } from '@/test/resumo'
 import { destino, montarNaInicio } from '@/test/rotas'
 import { FALHA_DE_LEITURA, TENTAR_DE_NOVO } from '@/shared/ui/leitura'
 import RecentOrders, { SEM_PEDIDOS } from '../ui/RecentOrders'
+
+/** O endereço e o `location.state` a que a linha levou. */
+const EstadoDoDestino = () => {
+  const { pathname, state } = useLocation()
+  return <p data-testid="estado">{`${pathname} ${JSON.stringify(state)}`}</p>
+}
 
 const comDado = (r = resumo()) => ({ dado: r, falhou: false, tentarDeNovo: vi.fn() })
 const linhas = () => screen.getAllByTestId('pedido-recente')
@@ -66,16 +73,36 @@ describe('RecentOrders — com dado', () => {
     expect(screen.queryByText('Quinta Pessoa')).toBeNull()
   })
 
-  it('as linhas NÃO são links: nem `<a>`, nem `role` (MAI-15)', () => {
+  // INVERTIDO na feature `74` (`MAP-52`, G-A29): até a `73` as linhas eram texto (`MAI-15`); agora cada
+  // uma é o link para o detalhe. A asserção de AUSÊNCIA virou de PRESENÇA, com o endereço e o estado.
+  it('cada linha É um link para `/pedidos/<id>`, a linha inteira, com o número e a cliente no nome (MAP-52)', () => {
     montarNaInicio(<RecentOrders leitura={comDado()} />)
-    for (const l of linhas()) {
-      expect(l.querySelector('a')).toBeNull()
-      expect(l.querySelector('[role]')).toBeNull()
-      expect(l.getAttribute('role')).toBeNull()
-      expect(l.closest('a')).toBeNull()
-    }
-    // O único link da seção é "Ver todos".
-    expect(screen.getAllByRole('link').map((a) => a.textContent)).toEqual(['Ver todos'])
+    const r = resumo()
+    const ls = linhas()
+    expect(ls.map((l) => l.tagName)).toEqual(['A', 'A', 'A', 'A'])
+    expect(ls.map((l) => l.getAttribute('href'))).toEqual(r.recentes.map((p) => `/pedidos/${p.id}`))
+    expect(ls.map((l) => l.getAttribute('aria-label'))).toEqual([
+      'Pedido #0244, Marina Souza',
+      'Pedido #0243, Júlia Ramos',
+      'Pedido #0242, Ana Lima',
+      'Pedido #0241, Clara Dias',
+    ])
+    for (const l of ls) expect((l.getAttribute('class') ?? '').split(/\s+/)).toContain('min-h-11')
+    // Os links da seção: "Ver todos" e as quatro linhas.
+    expect(screen.getAllByRole('link')).toHaveLength(5)
+  })
+
+  it('tocar na linha leva ao detalhe com `state.doApp` — o "Voltar" de lá volta à Início (E7)', () => {
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <Routes>
+          <Route path="/" element={<RecentOrders leitura={comDado()} />} />
+          <Route path="/pedidos/:id" element={<EstadoDoDestino />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    fireEvent.click(screen.getByRole('link', { name: 'Pedido #0243, Júlia Ramos' }))
+    expect(screen.getByTestId('estado').textContent).toBe('/pedidos/o2 {"doApp":true}')
   })
 
   it('"Ver todos" leva à visão "Tudo", com alvo de 44 px (MAI-15, token exato)', () => {

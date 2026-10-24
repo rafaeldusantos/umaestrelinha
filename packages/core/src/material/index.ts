@@ -3,3 +3,4 @@
 // duas formas, então a ausência não acusa aqui e derruba um worker Deno lá. Lição da feature 33.
 export * from './material.ts'
 export * from './aging.ts'
+export * from './steps.ts'

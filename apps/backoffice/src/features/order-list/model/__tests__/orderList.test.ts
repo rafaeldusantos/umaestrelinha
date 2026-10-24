@@ -259,6 +259,13 @@ describe('os chips dizem e desfazem cada filtro (PED-15)', () => {
   it('sem filtro nenhum, nenhum chip', () => {
     expect(buildOrderChips(emptyOrderFilters(), '')).toEqual([])
   })
+
+  // Conserto do QA da `74` (B01): o chip lia uma TERCEIRA cópia do mapa dos meios, sem `card` — o
+  // meio que o checkout da loja grava. Agora lê o de `core`.
+  it('o chip do meio usa as palavras de core — `card` é "Cartão de crédito"', () => {
+    const chip = buildOrderChips({ ...emptyOrderFilters(), paymentMethods: ['pix', 'card'] }).find(c => c.key === 'payment-method')
+    expect(chip?.label).toBe('Meio: PIX, Cartão de crédito')
+  })
 })
 
 describe('o lote de material não aborta (PED-17, D5)', () => {

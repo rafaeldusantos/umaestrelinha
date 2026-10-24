@@ -21,7 +21,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '@estrelinha/supabase/client'
 import { readAllPages } from '@estrelinha/core/paging'
-import { QUEUE_BLOCKS, queueBlock, toPostgrestFilter } from '@estrelinha/core/orders'
+import { QUEUE_BLOCKS, applyOrderSlice, queueBlock, toPostgrestFilter } from '@estrelinha/core/orders'
 import {
   ORDER_LIST_FROM,
   ORDER_LIST_SELECT,
@@ -29,7 +29,6 @@ import {
   ORDER_VIEWS,
   buildOrderSearchCondition,
   pageRange,
-  viewPredicate,
   type AdminOrderRow,
   type OrderFilters,
   type OrderQuery,
@@ -76,15 +75,14 @@ const applyFilters = (builder: any, filters: OrderFilters, search: string): any 
   return q
 }
 
-const applyView = (builder: any, view: OrderViewId): any => {
-  const predicado = viewPredicate(view)
-  if (!predicado) return builder
-
-  let q = builder
-  if (predicado.or) q = q.or(predicado.or)
-  for (const [coluna, valores] of Object.entries(predicado.in ?? {})) q = q.in(coluna, valores)
-  return q
-}
+/**
+ * A visão chega ao builder por `applyOrderSlice` (`@estrelinha/core/orders`, feature `74`): a mesma
+ * tradução que a lista do app do ateliê usa. A sequência de chamadas é a de antes — o `or` do
+ * predicado e depois cada `in`, na ordem de `Object.entries` —, e é ela que
+ * `useAdminOrderList.test.ts` registra. Escrever o laço aqui de novo seria a segunda escrita de
+ * "como um `ViewPredicate` vira filtro".
+ */
+const applyView = (builder: any, view: OrderViewId): any => applyOrderSlice(builder, { visao: view })
 
 const contagemVazia = (): Record<OrderViewId, number> =>
   Object.fromEntries(ORDER_VIEWS.map(v => [v.id, 0])) as Record<OrderViewId, number>

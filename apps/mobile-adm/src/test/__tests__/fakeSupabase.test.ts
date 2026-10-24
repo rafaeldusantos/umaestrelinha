@@ -77,3 +77,85 @@ describe('channel', () => {
     expect(aviso).toHaveBeenCalledTimes(1)
   })
 })
+
+// Feature `74` · T11 — o dublê registra a CADEIA inteira de uma leitura de tabela (R9, `L-060`). Sem
+// isto, "o recorte é só a regra de `core`" seria uma asserção sobre um dublê que não vê os filtros
+// (memória "dublê que não enxerga torna a regra inauditável").
+describe('tabelas de dado', () => {
+  it('registra a cadeia inteira, na ordem exata, com as opções do select', async () => {
+    fake.responderTabela('order_list', { data: [{ id: 'a' }], error: null, count: 7 })
+    const r = await fake.client
+      .from('order_list')
+      .select('id, status', { count: 'exact' })
+      .or('status.eq.paid')
+      .in('status', ['paid', 'separating'])
+      .order('created_at', { ascending: true })
+      .order('id', { ascending: true })
+      .limit(25)
+    expect(r).toEqual({ data: [{ id: 'a' }], error: null, count: 7 })
+    expect(fake.cadeiasDe('order_list')).toEqual([
+      [
+        { metodo: 'select', args: ['id, status', { count: 'exact' }] },
+        { metodo: 'or', args: ['status.eq.paid'] },
+        { metodo: 'in', args: ['status', ['paid', 'separating']] },
+        { metodo: 'order', args: ['created_at', { ascending: true }] },
+        { metodo: 'order', args: ['id', { ascending: true }] },
+        { metodo: 'limit', args: [25] },
+      ],
+    ])
+  })
+
+  it('um filtro a mais aparece na cadeia (a régua é a igualdade, não a presença)', async () => {
+    fake.responderTabela('order_list', { data: [], error: null })
+    await fake.client.from('order_list').select('id').neq('status', 'cancelled').limit(25)
+    expect(fake.cadeiasDe('order_list')[0].map((e) => e.metodo)).toEqual(['select', 'neq', 'limit'])
+  })
+
+  it('`maybeSingle` encerra a cadeia e devolve a resposta configurada', async () => {
+    fake.responderTabela('order_list', (cadeia) => ({
+      data: cadeia.some((e) => e.metodo === 'eq' && e.args[1] === 'x') ? { id: 'x' } : null,
+      error: null,
+    }))
+    expect(await fake.client.from('order_list').select('id').eq('id', 'x').maybeSingle()).toEqual({ data: { id: 'x' }, error: null })
+    expect(await fake.client.from('order_list').select('id').eq('id', 'y').maybeSingle()).toEqual({ data: null, error: null })
+    expect(fake.cadeiasDe('order_list')[0].at(-1)).toEqual({ metodo: 'maybeSingle', args: [] })
+  })
+
+  it('uma tabela sem resposta configurada LANÇA — nunca devolve `[]` em silêncio', () => {
+    expect(() => fake.client.from('order_items')).toThrow('a tabela "order_items" não tem resposta configurada')
+  })
+
+  it('falha (`{ error }`, sem rejeitar) e pendura UMA tabela sem pendurar a outra', async () => {
+    vi.useFakeTimers()
+    fake.falharTabela('order_notes', { message: 'x', code: '500' })
+    fake.pendurarTabela('order_items')
+    let respondeu = false
+    void Promise.resolve(fake.client.from('order_items').select('id')).then(() => (respondeu = true))
+    const notas = await fake.client.from('order_notes').select('id')
+    await vi.advanceTimersByTimeAsync(60_000)
+    vi.useRealTimers()
+    expect(respondeu).toBe(false)
+    expect(notas).toEqual({ data: null, error: { message: 'x', code: '500' } })
+  })
+
+  it('a resposta pode depender do número da leitura', async () => {
+    fake.responderTabela('order_list', (_c, n) => ({ data: n, error: null }))
+    await fake.client.from('order_list').select('id')
+    expect((await fake.client.from('order_list').select('id')).data).toBe(2)
+  })
+
+  it('o papel e o cadastro continuam no caminho do AuthProvider (não exigem resposta)', async () => {
+    expect(await fake.client.from('user_roles').select('role').eq('user_id', 'u').eq('role', 'admin').maybeSingle()).toEqual({
+      data: null,
+      error: null,
+    })
+  })
+
+  it('o reset apaga respostas e cadeias', async () => {
+    fake.responderTabela('order_list', { data: [], error: null })
+    await fake.client.from('order_list').select('id')
+    fake.reset()
+    expect(fake.cadeiasDe('order_list')).toEqual([])
+    expect(() => fake.client.from('order_list')).toThrow()
+  })
+})

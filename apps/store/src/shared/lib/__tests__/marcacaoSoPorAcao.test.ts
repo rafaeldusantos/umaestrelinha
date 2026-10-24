@@ -66,6 +66,10 @@ const ROOT = resolve(HERE, '../../../../../..')
 const ESCOPO = [
   'apps/store/src',
   'apps/backoffice/src',
+  // Feature 74: o app do ateliê passa a chamar uma RPC própria (`atelie_clock`, em
+  // `entities/order/api/lerComPapel.ts`). Sem ele no escopo, a régua 4 ("o conjunto chamado em produção
+  // = RPCS") não o enxergava — e a régua 1 não veria um `from()` nas três tabelas vindo dele.
+  'apps/mobile-adm/src',
   'packages/core/src',
   'packages/supabase/src',
   'packages/auth/src',
@@ -154,6 +158,10 @@ const RPCS = [
   'account_exists',
   'anonymize_customer',
   'apply_payment_approval',
+  // Feature 74 — a confirmação de papel que o app do celular faz em paralelo com cada leitura de
+  // pedido (`apps/mobile-adm/src/entities/order/api/lerComPapel.ts`). Não lê tabela nenhuma: só
+  // `has_role` e o instante do banco (`atelieClockSchema.test.ts`).
+  'atelie_clock',
   'claim_order_notification',
   'customer_order_events',
   'finish_order_notification',

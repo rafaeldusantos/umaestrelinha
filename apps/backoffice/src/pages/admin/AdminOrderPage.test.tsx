@@ -331,7 +331,7 @@ describe('histórico é UM fluxo (PED-27, PED-28)', () => {
     )
     renderPage()
 
-    expect(screen.getByText('Falha ao enviar aviso de postagem enviado (E-mail)')).toBeInTheDocument()
+    expect(screen.getByText('Falha ao enviar o aviso: Pedido postado (E-mail)')).toBeInTheDocument()
     expect(screen.getByText('SMTP timeout')).toBeInTheDocument()
     expect(screen.getByText('Reenviar')).toBeInTheDocument()
   })

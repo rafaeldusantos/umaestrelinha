@@ -7,14 +7,15 @@ para o celular da Adri, instalável no Android como app. Leia [`../../CLAUDE.md`
 
 **Só Android.** iOS/Safari não é testado nem otimizado (pedido do usuário).
 
-## O que existe hoje (feature `72`, a fundação, e `73`, a Início)
+## O que existe hoje (feature `72`, a fundação, `73`, a Início, e `74`, os Pedidos)
 
 | Rota | O quê |
 | --- | --- |
 | `/login` | entrar (e-mail e senha) |
 | `/recuperar` · `/recuperar/codigo` · `/recuperar/senha` | recuperar o acesso por **código de 6 dígitos**, um passo por rota (`MAF-24`), fora do guarda |
 | `/` | Início — o movimento, "Precisa de você", a semana, o mês, as joias e os últimos pedidos (feature `73`, abaixo) |
-| `/pedidos` | Pedidos — em construção (`74`, `75`) |
+| `/pedidos` | Pedidos — a lista só de leitura, com os seis recortes, os quatro blocos da Início e a busca (feature `74`, abaixo); as ações são da `75` |
+| `/pedidos/:id` | o detalhe de um pedido, só de leitura (feature `74`); subrota da aba Pedidos, dentro do guarda |
 | `/clientes` | Clientes — em construção (`76`) |
 | `/descontos` | Descontos — em construção (`77`, `78`) |
 | `*` | caminho desconhecido ⇒ `/` (dentro do guarda) |
@@ -188,6 +189,47 @@ número mora no app.**
   `MovementHero`). O relógio real do dia da suíte pode coincidir com a fixtura — durante o 22/10/2026
   em UTC, ler a data do aparelho passaria.
 
+## Pedidos (feature `74`, `AD-058`)
+
+`pages/PedidosPage.tsx` (lista) e `pages/PedidoPage.tsx` (detalhe) compõem; **nenhuma regra de
+recorte, frase, rótulo ou número mora no app**. Tudo o que o painel também responde subiu para
+`core/orders` (`views`, `search`, `row`, `rowSummary`, `nextStep`, `history`, `delivery`, `list`) e
+`core/material/steps.ts`, byte a byte, e o painel reexporta por referência (`regrasDoPedidoNoCore`).
+
+- **O endereço é a verdade** (`MAP-03`/`04`): `?visao=<id>` ou `?bloco=<id>`, lidos SÓ por
+  `recorteDoEndereco` e escritos SÓ por `pedidosHref` (`entities/order/model/pedidosHref.ts`) — o mesmo
+  dono que a Início usa. Valor fora do vocabulário ⇒ o padrão ("Precisa de ação"). Chip e "Limpar
+  filtro" trocam o endereço por **substituição**. O termo da busca é estado da página (fora da URL).
+- **Toda leitura passa por `lerComPapel`** (`entities/order/api/lerComPapel.ts`, `MAP-36`..`38`): a
+  RPC `atelie_clock` (migration `20261024120000`, sem tabela) sai EM PARALELO com a consulta, e o dado
+  só sai se ela respondeu. A RLS de `orders` devolve a uma conta SEM papel os pedidos DELA, sem erro —
+  sem a RPC a lista os desenharia como a fila da loja. Ordem (E2): a recusa da RPC vence, depois o erro
+  da consulta. `Promise.allSettled`, nunca `all`. O nome da RPC é **literal**, só ali
+  (`marcacaoSoPorAcao` da loja). Com `42501`, a vigia (`useRecusaDePapel`) reconfere o papel e a
+  recusa da `72` assume; enquanto isso, nenhuma linha, nem a do cache. Rede nunca é recusa. O
+  `lido_em` da RPC é o relógio de "há N dias" (nada pelo relógio do aparelho).
+- **A lista** (`useListaDePedidos`): janela de 25, `count: 'exact'` só na primeira; a próxima página
+  pelo cursor `(created_at, id)` com as strings do servidor (µs); o anexar é descartado se a
+  **geração** da chave mudou (E3); a sentinela (`IntersectionObserver`, `rootMargin` 600 px) se
+  rearma a cada janela (E4). `staleTime: 0`, `refetchOnWindowFocus`, `retry: retryUnlessDenied`.
+- **O detalhe** (`usePedido`): as cinco leituras (`order_list`, `order_items`, `order_status_history`,
+  `order_notes`, `order_notifications`) dentro de UM `lerComPapel`; cada bloco falha sozinho, e o
+  "Tentar de novo" de um bloco relê a query inteira sem trocar os bons por esqueleto (TE4). O
+  "Voltar" volta por `navigate(-1)` só quando a entrada veio do app (`state.doApp`), senão `/pedidos`
+  por substituição (E7). Total é `orders.total`, nunca a soma das linhas.
+- **O canal do Realtime abre depois da primeira leitura com o papel CONFIRMADO** e fecha na recusa
+  (`atelie-pedidos-realtime`, `atelie-pedido-realtime`); relê a lista/o pedido e o resumo da Início.
+- **O selo da aba** (`widgets/tab-bar/model/selo.ts`) é `fila.precisa_acao` do resumo da Início
+  (`useResumo`, a mesma consulta, deduplicada): `99+` acima de 99, nada com 0, erro ou sem dado; o
+  número vai no `aria-label` do link, o selo é `aria-hidden`.
+- **"Últimos pedidos" da Início viraram links** para o detalhe (`MAP-52`).
+- **Troca de conta limpa o cache** (`LimparCacheNaTrocaDeConta` em `App.tsx`). ⚠️ `SPEC_DEVIATION`
+  de E6, medida: logout (`id` → `null`) ⇒ `queryClient.clear()`; troca A → B ⇒ `resetQueries()`.
+  `clear()` não avisa quem observa (a página de A seguia montada com o selo de A), e `resetQueries()`
+  no logout relia as consultas montadas e reenchia o cache.
+- **O `h1` existe em todo estado** (E5) — o foco da troca de aba vai a ele mesmo com a leitura
+  pendente; o detalhe intitula o documento "Pedido · Ateliê" → "Pedido #0244 · Ateliê".
+
 ## PWA — só a casca
 
 - `pwa.config.ts` é um arquivo **separado** do `vite.config.ts` para os guardas lerem a configuração
@@ -267,6 +309,12 @@ número mora no app.**
 | `TabBar.test.tsx` | `src/widgets/tab-bar/__tests__` | (além do comportamento) a aba sem ícone, ou com o ícone de outra: o par aba → ícone (casa, sacola, pessoas, etiqueta) é escrito por extenso no teste, nunca derivado de `TABS` |
 | `InicioPage.test.tsx` | `src/pages/__tests__` | (feature `73`, pelo `<App />` real) uma chamada de cada RPC, sem argumento, e nenhuma tabela lida; erro **e** pendura de cada leitura sozinha; a recusa (`42501`) de cada RPC ⇒ uma chamada e o Login, sem número; o laço da vigia; rede nunca vira recusa; um canal, fechado ao trocar de aba e ao sair; o aviso, o puxar, o foco, a virada e a volta da rede relendo as duas; resposta antiga descartada |
 | `inicioComClientReal.test.tsx` | `src/app/__tests__` | (feature `73`, sobre o supabase-js REAL) o 403 `42501` do PostgREST levando à recusa; o 500 e a falha de rede levando à falha do bloco, nunca à recusa |
+| `pedidosComClientReal.test.tsx` | `src/app/__tests__` | (feature `74`, sobre o client REAL) `/pedidos` e `/pedidos/<id>` com `order_list` devolvendo as linhas DA CLIENTE e `atelie_clock` em 403 `42501` ⇒ a recusa e nenhum texto delas em nenhum instante lido; com `order_list` em 500 a recusa ainda vence; RPC sem rede ⇒ falha de leitura |
+| `leituraSoComPapel.test.ts` | `src/entities/order/api/__tests__` | (feature `74`, pela AST) o client importado fora de `lerComPapel.ts` e dos dois hooks; `.from(` alcançável fora de `lerComPapel(` |
+| `enderecoDePedidosComDonoUnico.test.ts` | `src/entities/order/__tests__` | (feature `74`) o endereço de Pedidos lido ou escrito fora de `pedidosHref.ts` |
+| `regraDePedidoSoNoCore.test.ts` | `src/shared/lib/__tests__` | (feature `74`) mapa ou `case` com vocabulário de visão/status/pagamento/meio (importado de `core`), ou predicado de recorte, fora de `core` |
+| `movimentoDosPedidos.test.ts` | idem | (feature `74`) `transition-*`/`animate-*` sem par `motion-reduce:` que desligue, nos 21 arquivos de UI da `74` |
+| `trocaDeContaLimpaCache.test.tsx` | `src/app/__tests__` | (feature `74`) nada da conta anterior desenhado depois de A → B ou de sair e voltar; a volta da aba do mesmo usuário piscando |
 | `lockupDaSplashPareado.test.ts` | `src/features/splash/__tests__` | a cópia do lockup divergindo do SVG-fonte |
 | `Splash.test.tsx` | idem | `<img>` na splash, a largura de 300/120, o rótulo, animação sem o par `motion-reduce:` |
 
@@ -303,6 +351,13 @@ Na suíte da **loja**, por ler a loja junto: `palette.test.ts` (o config daqui �
   (`{ status, corpo }`, `rede`, `pendura`; RPC sem entrada responde `null` com 200, que a tela lê como
   "ainda sem dado") — nas **duas** cópias. O `onlineManager` do React Query é do MÓDULO: teste que
   derruba a rede o devolve a `online` no `afterEach`.
+- **Feature `74`**: o dublê registra a **cadeia inteira** de cada tabela (`select` com opções, `or`,
+  `eq`, `order`, `limit`, `maybeSingle`…; `responderTabela`, `falharTabela`, `pendurarTabela`,
+  `cadeiasDe`) e **lança** para tabela sem resposta configurada; `src/test/intersecao.ts` instala um
+  `IntersectionObserver` falso em todo teste (`dispararInterseccao`); `src/test/pedidos.ts` tem as
+  fixturas (chaves de `COLUNAS_DA_LISTA`/`COLUNAS_DO_DETALHE`, conferidas contra o PostgREST pelo
+  probe `02`). O arnês do client real ganhou `tabelas` (a mesma forma de `rpc`, para tabela ou view;
+  `user_roles` e `customers` seguem com campo próprio) — nas **duas** cópias.
 - `montarApp(caminho, { estado })` monta a entrada já com o `location.state` (o React Router o lê de
   `history.state.usr`). Gravar o estado antes com `replaceState` **não serve**: o `pushState` do
   `montarApp` cria uma entrada nova, sem ele — foi assim que um caso de `MAF-24` virou cópia do caso

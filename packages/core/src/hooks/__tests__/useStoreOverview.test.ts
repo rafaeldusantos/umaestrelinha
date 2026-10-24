@@ -17,7 +17,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 const { rpc } = vi.hoisted(() => ({ rpc: vi.fn() }))
 vi.mock('@estrelinha/supabase/client', () => ({ supabase: { rpc } }))
 
-import { ACCESS_DENIED_CODE, STORE_OVERVIEW_KEY, retryUnlessDenied, useStoreOverview } from '../useStoreOverview'
+import { ACCESS_DENIED_CODE, STORE_OVERVIEW_KEY, isAccessDenied, retryUnlessDenied, useStoreOverview } from '../useStoreOverview'
 import type { StoreOverview } from '../../stats/overview.ts'
 
 const HORA = 3_600_000
@@ -138,6 +138,15 @@ describe('useStoreOverview — o erro (MAI-17, MAI-22, MAI-24)', () => {
     expect(retryUnlessDenied(0, new Error('rede'))).toBe(true)
     expect(retryUnlessDenied(1, new Error('rede'))).toBe(false)
     expect(retryUnlessDenied(0, null)).toBe(true)
+  })
+
+  it('`isAccessDenied`, puro: só o `42501` é recusa — rede, outro código, nulo e indefinido não', () => {
+    expect(isAccessDenied({ code: '42501', message: 'acesso restrito' })).toBe(true)
+    expect(isAccessDenied({ code: 'PGRST301' })).toBe(false)
+    expect(isAccessDenied({ code: 42501 })).toBe(false)
+    expect(isAccessDenied(new Error('Failed to fetch'))).toBe(false)
+    expect(isAccessDenied(null)).toBe(false)
+    expect(isAccessDenied(undefined)).toBe(false)
   })
 })
 

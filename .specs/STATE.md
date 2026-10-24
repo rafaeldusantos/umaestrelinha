@@ -1434,9 +1434,65 @@
   lendo `orders` pelo PostgREST (ela lista linhas, não agrega), e por isso precisa da sua própria
   resposta a `MAI-23`.
 
+### AD-058
+
+- **Status**: active (feature `74`, aprovada no gate do Design em 2026-10-23, implementada e commitada em 2026-10-24)
+- **Decision**: **tela do app do ateliê que LISTA LINHAS de pedido lê pelo PostgREST pareada, na
+  MESMA leitura, com a RPC admin `atelie_clock()`** (`has_role` ⇒ `42501`, devolve `lido_em`). As
+  duas saem em paralelo (`lerComPapel`, `entities/order/api`), e o dado só é devolvido se a RPC
+  respondeu sem recusa — a recusa vence mesmo com linhas na resposta. Nenhum outro arquivo do app
+  chama `supabase.from(` (guarda `leituraSoComPapel.test.ts`). O "há N dias" de toda linha usa o
+  `lido_em` dessa RPC, nunca o relógio do aparelho.
+- **Decision**: as regras de linha e de detalhe do pedido que o painel tinha (`ORDER_VIEWS`,
+  `viewPredicate`, busca, `rowSummary`, `nextStep`, `buildHistory`, `queueSince`, rótulos de meio de
+  pagamento) moram em `core/orders` com entrada ESTRUTURAL (sem `@estrelinha/supabase/types`), e o
+  painel as reexporta por referência (`AD-056`).
+- **Reason**: a view `order_list` é `security_invoker` e a RLS de `orders` devolve à conta sem papel
+  os pedidos DELA como cliente (`MAI-23`); reescrever os seis recortes e a busca em SQL (RPC paginada)
+  seria a terceira escrita da regra (defeito 01). Só o guarda do cliente deixaria o vazamento aberto.
+- **Trade-off**: uma RPC a mais por leitura (barata: sem tabela); uma migration mínima; a garantia
+  depende de nenhum caminho do app ler `orders` sem passar por `lerComPapel` — contida pelo guarda.
+  Complementa `AD-057` (agregado só por RPC admin).
+
 ## Handoff
 
-### ATUAL — 2026-10-22 · `72-mobile-adm-fundacao` **IMPLEMENTADA — 15 de 15 tasks, com prova em navegador, SEM verificador independente ainda, SEM COMMIT**
+### ATUAL — 2026-10-24 · `74-mobile-adm-pedidos` **IMPLEMENTADA E COMMITADA — 31 tasks + B01..B03, Verificador (4 rodadas) e QA (3 bugs, retestados); pronta para merge em `feature/mobile-adm`**
+
+- **Feature**: `.specs/features/74-mobile-adm-pedidos/` (`spec.md`, `design.md`, `tasks.md`,
+  `baseline.md`, `probes/`, `prova-navegador.md`, `prova/`). Decisão `AD-058`. Worktree
+  `/Users/rafael.santos/Projetos/uma-estrelinha/store-74-mobile-adm-pedidos`, branch
+  `feat/74-mobile-adm-pedidos` (de `feature/mobile-adm`, `775e407e`); o merge vai para
+  `feature/mobile-adm`, nunca para a `master`. Migration `20261024120000_74-relogio-do-atelie.sql`
+  (a RPC `atelie_clock`), aplicada **só no local**.
+- **COMMIT ÚNICO** na `feat/74-mobile-adm-pedidos`, depois do Verificador e do QA; `git merge-tree`
+  contra `feature/mobile-adm` limpo. **O merge é do usuário.**
+- **O que entrega**: a aba Pedidos do app do ateliê — lista só de leitura com os seis recortes, os
+  quatro blocos da Início pelo endereço (`pedidosHref`/`recorteDoEndereco`), busca, rolagem
+  paginada por cursor; o detalhe `/pedidos/:id`; o selo da aba ("Precisa de ação"); "Últimos
+  pedidos" levando ao detalhe; toda leitura sob `lerComPapel` (a RPC `atelie_clock` em paralelo, a
+  recusa vence). As regras subiram do painel para `core/orders` e `core/material/steps.ts`, byte a
+  byte, com o painel reexportando por referência.
+- **Gates no fecho** (2026-10-24, um workspace por vez, exit fora de pipe): store **5849/318** ·
+  backoffice **3670/210** · mobile-adm **790/61** · core **3988/158** · functions 957/21 ·
+  catalog-import 512/23 = **15766/791** (+582/+35 contra a entrada 15184/756); `tsc` 0 nos apps, 11
+  herdados em core; lint 0/0 · 23/5 · 2/2; `pnpm --filter @estrelinha/mobile-adm build` verde.
+- **Fecho** (2026-10-24, depois do QA, um workspace por vez): store **5852/319** · backoffice
+  **3671/210** · mobile-adm **811/61** · core **4016/158** · functions 957/21 · catalog-import 512/23 =
+  **15819/792** (+635/+36). `tsc` 0 nos apps, 11 herdados em core; lint 2/2 · 23/5 · 0/0; build do
+  mobile-adm verde.
+- **Verificador**: rodadas 1–4 FAIL (cobertura; na 4ª o defeito D2 de `MAP-36`), todas consertadas;
+  **a rodada 5 (sobre o conserto de D2/G7/G8) NÃO correu** — pendência. Conserto do QA: B01/B02 FAIL
+  por duas lacunas de B02 (fechadas: W1 e W2 reinjetados e mortos no fecho), B03 PASS.
+- **QA**: três bugs, os três fixed e retestados (`docs/qa/bugs/BUG-20261024-*`). **Decisão para o
+  usuário**: B03 muda a frase da linha de falha de aviso também no painel (`SPEC_DEVIATION` em
+  `MAP-47`/`MAP-48`). Limpeza pendente: `.specs/features/74-mobile-adm-pedidos/prova/limpa.sql` no
+  banco local.
+- **Prova em navegador** (da entrega): nenhum defeito da `74`. Duas observações herdadas (iguais no painel), para
+  a dona decidir: "há 0 dias" (`queueAgeLabel`) e "Falha ao enviar … enviado" (`buildHistory`).
+- **Próximo**: o usuário mergeia em `feature/mobile-adm`; opcional, a rodada 5 do Verificador sobre
+  D2/G7/G8; depois a `75`.
+
+### ANTERIOR — 2026-10-22 · `72-mobile-adm-fundacao` **IMPLEMENTADA — 15 de 15 tasks, com prova em navegador, SEM verificador independente ainda, SEM COMMIT**
 
 - **Feature**: `.specs/features/72-mobile-adm-fundacao/` (`spec.md`, `design.md`, `tasks.md`,
   `baseline.md`, `prova-navegador.md`). Decisão `AD-056`. Branch `feat/72-mobile-adm-fundacao`; o

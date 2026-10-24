@@ -39,6 +39,12 @@ export interface Cenario {
    * `null` com 200 — o mesmo `{ data: null }` do dublê, que a tela lê como "ainda sem dado".
    */
   rpc?: Record<string, RespostaRpcReal>
+  /**
+   * Como cada tabela ou view responde (`/rest/v1/<nome>`), feature `74`: a mesma forma de `rpc`.
+   * Tabela sem entrada responde `[]` com 200, como antes. `user_roles` e `customers` NÃO passam por
+   * aqui: são o papel e o cadastro, e têm campo próprio.
+   */
+  tabelas?: Record<string, RespostaRpcReal>
 }
 
 export type RespostaRpcReal = { status: number; corpo: unknown } | 'rede' | 'pendura'
@@ -120,6 +126,10 @@ const criarReal = (cenario: Cenario) => {
       if (r === 'pendura') await new Promise<never>(() => {})
       return typeof r === 'object' ? json(r.corpo, r.status) : json(null)
     }
+    const t = estado.tabelas?.[url.pathname.slice('/rest/v1/'.length)]
+    if (t === 'rede') throw FALHA()
+    if (t === 'pendura') await new Promise<never>(() => {})
+    if (typeof t === 'object') return json(t.corpo, t.status)
     return json([])
   }
 

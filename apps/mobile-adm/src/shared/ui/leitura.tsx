@@ -1,4 +1,5 @@
 import { cn } from '@estrelinha/ui/lib/utils'
+import { formatStoreHour } from '@estrelinha/core/time'
 
 /**
  * O que um bloco da Início sabe de uma leitura (feature `73`, `MAI-17`, `MAI-30`). Três estados, e só
@@ -15,6 +16,24 @@ export interface Leitura<T> {
 
 export const FALHA_DE_LEITURA = 'Não consegui carregar.'
 export const TENTAR_DE_NOVO = 'Tentar de novo'
+
+/**
+ * A releitura falhou com dado na tela (`MAI-18`, `MAP-35`). Morava em `InicioPage.tsx` (feature `73`)
+ * e subiu na `74`: a Início e as páginas de pedidos dizem a mesma frase, e duas escritas divergiriam.
+ */
+export const NAO_ATUALIZOU = 'Não consegui atualizar agora.'
+
+/**
+ * "Atualizado às 14h32." — a hora de Brasília do `lido_em` que o SERVIDOR devolveu (`formatStoreHour`),
+ * nunca o relógio do aparelho; com a releitura falhada, "Não consegui atualizar agora." na mesma
+ * linha (`MAI-18`, `MAP-35`). A Início e a lista de pedidos desenham esta MESMA linha.
+ */
+export const LinhaDeFrescor = ({ lidoEm, naoAtualizou }: { lidoEm: string; naoAtualizou: boolean }) => (
+  <p data-testid="frescor" aria-live="polite" className="text-xs text-estrelinha-ink-soft">
+    {naoAtualizou && <span className="block font-medium text-estrelinha-ink">{NAO_ATUALIZOU}</span>}
+    {`Atualizado às ${formatStoreHour(lidoEm)}.`}
+  </p>
+)
 
 /** A falha de um bloco sem dado: a frase e a ação. Nenhum número. */
 export const FalhaDoBloco = ({ tentarDeNovo, escuro = false }: { tentarDeNovo: () => void; escuro?: boolean }) => (
