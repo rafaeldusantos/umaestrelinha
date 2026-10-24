@@ -1,0 +1,54 @@
+=== fase real (sem fixtura) ===
+# FASE real
+ok — a admin do seed entra
+ok — P1 [todas] as janelas somadas não repetem ninguém (48 linhas)
+ok — P1 [todas] os 48 `id` distintos cobrem customer_list inteira (psql)
+ok — P2 [todas] a contagem do chip (API, count exact) = psql count(*) where true
+ok — P1 [todas] a ordem é last_activity_at desc nulls last, id asc
+   · linhas da lista com orders_open >= 1: 18
+ok — P3 o selo "Em aberto" (orders_open >= 1 nas linhas lidas) = o chip "Com pedido em aberto" (psql)
+ok — P1 [recorrentes] as janelas somadas não repetem ninguém (3 linhas)
+ok — P1 [recorrentes] os 3 `id` distintos cobrem customer_list inteira (psql)
+ok — P2 [recorrentes] a contagem do chip (API, count exact) = psql count(*) where orders_paid >= 2
+ok — P1 [recorrentes] a ordem é last_activity_at desc nulls last, id asc
+ok — P1 [em-aberto] as janelas somadas não repetem ninguém (18 linhas)
+ok — P1 [em-aberto] os 18 `id` distintos cobrem customer_list inteira (psql)
+ok — P2 [em-aberto] a contagem do chip (API, count exact) = psql count(*) where orders_open >= 1
+ok — P1 [em-aberto] a ordem é last_activity_at desc nulls last, id asc
+ok — fase real: todas = 48
+ok — fase real: recorrentes = 3
+ok — fase real: em aberto = 18
+ok — P4 para TODA pessoa (48, 0 sem e-mail) o total lido pela cadeia da ficha = orders_total
+
+TUDO OK
+=== fase fixturas ===
+# FASE fixturas
+ok — a admin do seed entra
+ok — P1 [todas] as janelas somadas não repetem ninguém (73 linhas)
+ok — P1 [todas] os 73 `id` distintos cobrem customer_list inteira (psql)
+ok — P2 [todas] a contagem do chip (API, count exact) = psql count(*) where true
+ok — P1 [todas] a ordem é last_activity_at desc nulls last, id asc
+   · linhas da lista com orders_open >= 1: 37
+ok — P3 o selo "Em aberto" (orders_open >= 1 nas linhas lidas) = o chip "Com pedido em aberto" (psql)
+ok — P1 [recorrentes] as janelas somadas não repetem ninguém (3 linhas)
+ok — P1 [recorrentes] os 3 `id` distintos cobrem customer_list inteira (psql)
+ok — P2 [recorrentes] a contagem do chip (API, count exact) = psql count(*) where orders_paid >= 2
+ok — P1 [recorrentes] a ordem é last_activity_at desc nulls last, id asc
+ok — P1 [em-aberto] as janelas somadas não repetem ninguém (37 linhas)
+ok — P1 [em-aberto] os 37 `id` distintos cobrem customer_list inteira (psql)
+ok — P2 [em-aberto] a contagem do chip (API, count exact) = psql count(*) where orders_open >= 1
+ok — P1 [em-aberto] a ordem é last_activity_at desc nulls last, id asc
+ok — P4 para TODA pessoa (73, 0 sem e-mail) o total lido pela cadeia da ficha = orders_total
+ok — P4 VROSA_RJ e VROSAXRJ: um pedido cada, nenhum puxa o do vizinho (o vínculo é exato)
+ok — P4 a convidada (sem customers): o pedido dela vem pelo e-mail
+ok — "Ver cliente": o e-mail exato, sem caixa, acha a pessoa
+ok — P5 a conta sem papel entra com senha
+ok — P5 sem papel, a cadeia dos pedidos responde SEM erro e traz o pedido DELA (a RLS filtra, não recusa)
+ok — P5 sem papel, customer_list responde sem erro
+   · sem papel, customer_list devolve 1 linha(s) — a RLS decide; a recusa é da RPC
+ok — P5 sem papel, order_list inteira = só o pedido dela (nenhum da loja)
+ok — P5 sem papel: atelie_clock recusa com 42501 — é a recusa que fecha o dado falso-plausível
+ok — controle: a admin recebe lido_em
+
+TUDO OK
+banco restaurado: 54/9/48 orders/customers/customer_list (antes: 54/9/48)

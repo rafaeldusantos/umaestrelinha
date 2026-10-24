@@ -7,7 +7,7 @@ para o celular da Adri, instalável no Android como app. Leia [`../../CLAUDE.md`
 
 **Só Android.** iOS/Safari não é testado nem otimizado (pedido do usuário).
 
-## O que existe hoje (feature `72`, a fundação, `73`, a Início, `74`, os Pedidos, e `75`, as ações)
+## O que existe hoje (feature `72`, a fundação, `73`, a Início, `74`, os Pedidos, `75`, as ações, e `76`, os Clientes)
 
 | Rota | O quê |
 | --- | --- |
@@ -16,7 +16,8 @@ para o celular da Adri, instalável no Android como app. Leia [`../../CLAUDE.md`
 | `/` | Início — o movimento, "Precisa de você", a semana, o mês, as joias e os últimos pedidos (feature `73`, abaixo) |
 | `/pedidos` | Pedidos — a lista com os seis recortes, os quatro blocos da Início e a busca (feature `74`), e a ação primária no cartão (feature `75`, abaixo) |
 | `/pedidos/:id` | o detalhe de um pedido (feature `74`), com o rodapé da ação, a folha do rastreio, "Informar/Alterar" na Entrega e o lembrete no WhatsApp (feature `75`); subrota da aba Pedidos, dentro do guarda |
-| `/clientes` | Clientes — em construção (`76`) |
+| `/clientes` | Clientes — a lista com três recortes e a busca (feature `76`, abaixo) |
+| `/clientes/:id` | a ficha de uma cliente (feature `76`); subrota da aba Clientes, dentro do guarda |
 | `/descontos` | Descontos — em construção (`77`, `78`) |
 | `*` | caminho desconhecido ⇒ `/` (dentro do guarda) |
 
@@ -200,7 +201,7 @@ recorte, frase, rótulo ou número mora no app**. Tudo o que o painel também re
   `recorteDoEndereco` e escritos SÓ por `pedidosHref` (`entities/order/model/pedidosHref.ts`) — o mesmo
   dono que a Início usa. Valor fora do vocabulário ⇒ o padrão ("Precisa de ação"). Chip e "Limpar
   filtro" trocam o endereço por **substituição**. O termo da busca é estado da página (fora da URL).
-- **Toda leitura passa por `lerComPapel`** (`entities/order/api/lerComPapel.ts`, `MAP-36`..`38`): a
+- **Toda leitura passa por `lerComPapel`** (`shared/api/lerComPapel.ts`, `MAP-36`..`38`): a
   RPC `atelie_clock` (migration `20261024120000`, sem tabela) sai EM PARALELO com a consulta, e o dado
   só sai se ela respondeu. A RLS de `orders` devolve a uma conta SEM papel os pedidos DELA, sem erro —
   sem a RPC a lista os desenharia como a fila da loja. Ordem (E2): a recusa da RPC vence, depois o erro
@@ -287,6 +288,35 @@ material no WhatsApp. **Nada disso tem regra no app.**
   contra o banco local, e a conta sem papel), `prova-navegador.md` e o reteste do QA
   (`docs/qa/reports/2026-10-24-mobile-adm-acoes-do-pedido-reteste.md`). Pendente: o Android real
   (TalkBack, o gesto de voltar, o teclado).
+
+## Clientes (feature `76`, `AD-060`, `AD-061`)
+
+- **Duas telas e um botão**: `/clientes` (busca por nome, e-mail e telefone; recortes "Todas", "Compraram mais
+  de uma vez" e "Com pedido em aberto"; 25 por vez, por cursor), `/clientes/:id` (cabeçalho, três números,
+  contato com "Conversar no WhatsApp", pedidos de 20 em 20) e "Ver cliente" no bloco Cliente do detalhe do
+  pedido. **Só leitura**: nada de nota, CPF, endereço completo, ranking nem "melhores clientes" (nota de cliente
+  e CPF ficam no Backoffice; `semDadoSensivelDeClienteNoApp` recusa as colunas).
+- **A regra mora em `@estrelinha/core/customers`** (recortes como dado, "em aberto", cursor, vínculo exato,
+  escape de `ilike`, busca) — o painel reexporta por referência. Nenhum recorte, filtro ou frase de regra é
+  escrito no app (`regraDeClienteSoNoCore.test.ts`). "Em aberto" = `payment_status = 'approved'` e `status` em
+  `pending`/`paid`/`separating`/`shipped`; a coluna `orders_open` vem da migration `20261025120000`.
+- **A infra é compartilhada com Pedidos, e tem UM dono cada**: `shared/api/lerComPapel.ts` (toda leitura;
+  a RPC `atelie_clock` em paralelo, a recusa vence), `shared/api/useJanelaPaginada.ts` (a janela por cursor,
+  geração e recusa da próxima página), `shared/lib/useSentinela`, `shared/ui/CampoDeBusca`. Os hooks de
+  cliente (`entities/customer/api`) só montam a CONSULTA; `buscarClientePorEmail` ("Ver cliente") escolhe, em
+  e-mail repetido, a conta e depois a mais antiga.
+- **O endereço leva só o recorte** (`/clientes?recorte=…`, `clientesHref`/`recorteDeClientesDoEndereco`, dono
+  único); a ficha é `/clientes/<uuid>`. **Nome, e-mail e telefone nunca vão para a URL, o `history.state`
+  (só `{ doApp: true }`), o `document.title` (`Cliente · Ateliê`), o storage nem o console**
+  (`semDadoDeClienteNoAparelho.test.ts`). O voltar traz o mesmo recorte, busca e posição.
+- **O `wa.me` tem dono único** em `core/notifications/phone.ts` (`whatsappChatUrl`, sem texto: a conversa
+  abre em branco) — `whatsappComDonoUnico.test.ts`. Tom memorial (`tomMemorialDeClientes.test.ts`): nada de
+  emoji, "VIP", "melhor", urgência.
+- **Troca de conta** limpa as chaves `atelie-clientes`, `atelie-cliente`, `atelie-cliente-pedidos` e o
+  termo guardado (`trocaDeContaLimpaCache.test.tsx`).
+- **Provas**: probes `.specs/features/76-mobile-adm-clientes/probes/01..03` (o `03-paridade` contra o banco
+  local, com a conta sem papel), `clientesComClientReal.test.tsx` e `prova-navegador.md` (360/390/412/1440 ×
+  fonte 100/130/200 %, 60 medidas). **Pendente: o Android real** (teclado, gesto de voltar, área segura).
 
 ## PWA — só a casca
 
@@ -377,6 +407,15 @@ material no WhatsApp. **Nada disso tem regra no app.**
 | `acoesComClientReal.test.tsx` | `src/app/__tests__` | (feature `75`, sobre o client REAL) PATCH `[]` + `atelie_clock` 403 ⇒ a recusa e nenhuma confirmação (lida por passo e por `MutationObserver`); `not_admin` ⇒ recusa; 500 ⇒ falha; a conferência sem rede ⇒ nem recusa nem reconferência; o que vai no PATCH do rastreio |
 | `escritaNoArnes.test.ts` | `src/test/__tests__` | (feature `75`) os dois arneses (`fakeSupabase` e `clientReal`) deixando de registrar a escrita (valores, cadeia, método, corpo) |
 | `trocaDeContaLimpaCache.test.tsx` | `src/app/__tests__` | (feature `74`) nada da conta anterior desenhado depois de A → B ou de sair e voltar; a volta da aba do mesmo usuário piscando |
+| `clientesComClientReal.test.tsx` | `src/app/__tests__` | (feature `76`, sobre o client REAL) `customer_list`/`customer_directory`/`order_list` com as linhas DA CLIENTE e `atelie_clock` em 403 `42501` ⇒ a recusa e nenhum texto dela em ~80 instantes, nas rotas `/clientes`, `/clientes/:id` e no "Ver cliente"; consultas em 500 não vencem a recusa; rede caída é falha, nunca recusa; a ficha aberta cujo papel cai |
+| `enderecoDeClientesComDonoUnico.test.ts` | `src/entities/customer/__tests__` | (G1) o endereço de Clientes lido ou escrito fora de `clientesHref.ts` |
+| `regraDeClienteSoNoCore.test.ts` | `src/shared/lib/__tests__` | (G3) mapa/`case` com os recortes de `CUSTOMER_SLICES`, predicado de recorte ou `ilike` montado à mão no app |
+| `semDadoSensivelDeClienteNoApp.test.ts` | idem | (G4) `cpf`, endereço completo, nota ou `nuvemshop_*` nas colunas lidas |
+| `whatsappComDonoUnico.test.ts` | idem | (G5) o literal `wa.me` fora de `core/notifications/phone.ts` e `core/orders/charge.ts` |
+| `semDadoDeClienteNoAparelho.test.ts` | idem | (G6) storage, `console.`, `document.title` com valor, `pushState`, `state` diferente de `{ doApp: true }` e `navigate(` fora dos construtores de endereço, nos arquivos de cliente |
+| `tomMemorialDeClientes.test.ts` | idem | (G7) emoji, `!`, "VIP", "melhor", "ranking", urgência e os sete materiais nos literais de cliente |
+| `movimentoDeClientes.test.ts` | idem | (G8) `transition-*`/`animate-*` sem par `motion-reduce:` que desligue, nos arquivos de UI da `76` |
+| `trocaDeContaLimpaCache.test.tsx` | `src/app/__tests__` | (G15, ampliado) as chaves de cliente no cache depois de A → B ou de sair |
 | `lockupDaSplashPareado.test.ts` | `src/features/splash/__tests__` | a cópia do lockup divergindo do SVG-fonte |
 | `Splash.test.tsx` | idem | `<img>` na splash, a largura de 300/120, o rótulo, animação sem o par `motion-reduce:` |
 

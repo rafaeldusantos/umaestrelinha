@@ -5,6 +5,7 @@ import { useOrdersRealtime } from '@estrelinha/core/hooks/useOrdersRealtime'
 import { PEDIDOS_PATH, chaveDoPedido, usePedido } from '@/entities/order'
 import { STORE_OVERVIEW_KEY } from '@/entities/stats'
 import { useRecusaDePapel } from '@/features/access-check'
+import { VerCliente } from '@/features/open-customer'
 import { EditarRastreio, LembreteDoEnvio, RodapeDaAcao, useAcaoDoPedido, useRecusaDaAcao } from '@/features/order-actions'
 import {
   BlocoCliente,
@@ -61,6 +62,8 @@ const Esqueletos = () => (
  *   lembrete no Material — os três de `features/order-actions`, compostos aqui (os blocos só recebem o
  *   nó). A ação do pedido é UMA instância (`useAcaoDoPedido`), e a recusa que a porta lança
  *   (`erroBruto`) entra na MESMA vigia da leitura: um episódio só (R11).
+ * - **"Ver cliente"** (feature `76`, `MAC-21`): o botão do bloco Cliente é composto aqui, e a recusa que a
+ *   leitura da ficha lança entra na mesma vigia.
  */
 const PedidoPage = () => {
   const { id = '' } = useParams()
@@ -68,7 +71,20 @@ const PedidoPage = () => {
   const pedido = usePedido(id)
   const acao = useAcaoDoPedido(id)
   const recusaDaAcao = useRecusaDaAcao(acao.erroBruto, pedido.dataUpdatedAt)
-  const recusada = useRecusaDePapel([pedido.error, recusaDaAcao])
+  // "Ver cliente" (feature `76`): a recusa que a leitura da ficha lança entra na MESMA vigia, com a
+  // mesma régua de validade da recusa da ação (um episódio só). E relê o pedido: se a função segue
+  // recusando, o `42501` fica no erro da PRÓPRIA leitura — que sobrevive à troca da página pela splash
+  // da reconferência —, e a tela não volta a desenhar o pedido do cache; se confirma, a recusa expira.
+  const [recusaDoVerCliente, setRecusaDoVerCliente] = useState<unknown>(null)
+  const recusaDaFicha = useRecusaDaAcao(recusaDoVerCliente, pedido.dataUpdatedAt)
+  const recusaDoBotao = useCallback(
+    (erro: unknown) => {
+      setRecusaDoVerCliente(erro)
+      void pedido.refetch()
+    },
+    [pedido],
+  )
+  const recusada = useRecusaDePapel([pedido.error, recusaDaAcao, recusaDaFicha], !!pedido.data && !pedido.isError)
   const detalhe = recusada ? undefined : pedido.data
   const naoAtualizou = !recusada && pedido.isError && !!pedido.data
   const tentarDeNovo = useCallback(() => {
@@ -123,7 +139,7 @@ const PedidoPage = () => {
           <>
             <LinhaDeFrescor lidoEm={lidoEm} naoAtualizou={naoAtualizou} />
             <ProximoPasso pedido={p} />
-            <BlocoCliente pedido={p} />
+            <BlocoCliente pedido={p} verCliente={<VerCliente email={p.customer_email} aoRecusa={recusaDoBotao} />} />
             <BlocoMaterial pedido={p} lidoEm={lidoEm} lembrete={<LembreteDoEnvio pedido={p} lidoEm={lidoEm} />} />
             <BlocoItens itens={detalhe.itens} tentarDeNovo={tentarDeNovo} />
             <BlocoValores pedido={p} />

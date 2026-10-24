@@ -4,7 +4,7 @@ import { EMPTY_TITLE, emptyHint, listCountLine, type OrderSlice } from '@estreli
 import { LinhaDoPedido, type JanelaDaLista, type LinhaDaLista } from '@/entities/order'
 import { FalhaDoBloco, Traco } from '@/shared/ui/leitura'
 
-import { useSentinela } from '../model/useSentinela'
+import { useSentinela } from '@/shared/lib/useSentinela'
 
 /** Quantas linhas de esqueleto a primeira leitura mostra. */
 export const LINHAS_DE_ESQUELETO = 4

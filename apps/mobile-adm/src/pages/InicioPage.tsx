@@ -57,7 +57,10 @@ const InicioPage = () => {
   const movimento = useMovimento()
   const resumo = useResumo()
   const queryClient = useQueryClient()
-  const recusada = useRecusaDePapel([movimento.error, resumo.error])
+  const recusada = useRecusaDePapel(
+    [movimento.error, resumo.error],
+    (!!movimento.data && !movimento.isError) || (!!resumo.data && !resumo.isError),
+  )
 
   const reler = useCallback(
     () =>

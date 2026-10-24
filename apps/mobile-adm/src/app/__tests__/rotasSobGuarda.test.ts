@@ -63,7 +63,7 @@ describe('as rotas do ateliê — âncora tripla', () => {
     expect(bloco!.fim).toBeGreaterThan(bloco!.inicio)
   })
 
-  it('a varredura encontra as dez rotas — o login, os três passos da recuperação, as quatro abas, o detalhe do pedido (`74`) e o desconhecido', () => {
+  it('a varredura encontra as onze rotas — o login, os três passos da recuperação, as quatro abas, o detalhe do pedido (`74`), a ficha da cliente (`76`) e o desconhecido', () => {
     expect(rotas(codigo).map((r) => r.path)).toEqual([
       '/login',
       '/recuperar',
@@ -73,6 +73,7 @@ describe('as rotas do ateliê — âncora tripla', () => {
       '/pedidos',
       '/pedidos/:id',
       '/clientes',
+      '/clientes/:id',
       '/descontos',
       '*',
     ])

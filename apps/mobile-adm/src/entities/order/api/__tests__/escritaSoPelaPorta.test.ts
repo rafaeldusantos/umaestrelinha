@@ -11,7 +11,7 @@
 //      `upsert` em QUALQUER receptor, e `delete` cuja cadeia passa por uma chamada `from(` ou nasce no
 //      identificador `supabase` —, nenhuma invocação de function (a propriedade `invoke` de
 //      `functions`), e nenhuma `rpc(` fora de `lerComPapel.ts`;
-//   2. quem importa o client são EXATAMENTE quatro arquivos (os três da `74` e a porta) — a mesma
+//   2. quem importa o client são EXATAMENTE oito arquivos (os três da `74`, a porta e, desde a `76`, os quatro de cliente) — a mesma
 //      lista que `leituraSoComPapel` compara por igualdade —, e na porta o identificador `supabase`
 //      só aparece como VALOR passado (nunca receptor de um acesso por ponto);
 //   3. metade positiva: a porta chama `runAppAction(` e `conferirPapel(`.
@@ -22,7 +22,7 @@
 // já é recusada por `leituraSoComPapel` (o client só pode ser receptor de `from(` dentro de
 // `lerComPapel`) e pela régua 2 aqui.
 //
-// Âncoras: os arquivos lidos (com a porta), os quatro importadores achados, e as duas chamadas da
+// Âncoras: os arquivos lidos (com a porta), os oito importadores achados, e as duas chamadas da
 // metade positiva achadas na porta.
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { dirname, join, relative, resolve } from 'node:path'
@@ -32,13 +32,18 @@ import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..')
-const LER_COM_PAPEL = 'entities/order/api/lerComPapel.ts'
+const LER_COM_PAPEL = 'shared/api/lerComPapel.ts'
 const PORTA = 'features/order-actions/api/gravarAcao.ts'
 const IMPORTAM_O_CLIENT = [
   LER_COM_PAPEL,
   'entities/order/api/useListaDePedidos.ts',
   'entities/order/api/usePedido.ts',
   PORTA,
+  // Feature `76` (T20, G2): os quatro de cliente. Leem — nenhum escreve —, e a régua 1 acima prova isso.
+  'entities/customer/api/useListaDeClientes.ts',
+  'entities/customer/api/useCliente.ts',
+  'entities/customer/api/usePedidosDoCliente.ts',
+  'entities/customer/api/buscarClientePorEmail.ts',
 ]
 const COMANDOS_DE_TABELA = new Set(['update', 'insert', 'upsert'])
 
@@ -126,7 +131,7 @@ const lidos = arquivos(SRC).map((caminho) => ({ rel: relative(SRC, caminho).spli
 const textoDe = (rel: string) => lidos.find((l) => l.rel === rel)!.texto
 
 describe('toda escrita do app passa pela porta (MAA-29, AD-059)', () => {
-  it('âncora: o app foi lido, com a porta e os quatro importadores do client', () => {
+  it('âncora: o app foi lido, com a porta e os oito importadores do client', () => {
     expect(lidos.length).toBeGreaterThan(80)
     for (const rel of IMPORTAM_O_CLIENT) expect(lidos.map((l) => l.rel)).toContain(rel)
   })
@@ -135,7 +140,7 @@ describe('toda escrita do app passa pela porta (MAA-29, AD-059)', () => {
     expect(lidos.flatMap((l) => escritasProibidas(l.rel, l.texto))).toEqual([])
   })
 
-  it('régua 2: só quatro arquivos importam o client — por igualdade', () => {
+  it('régua 2: só oito arquivos importam o client — por igualdade', () => {
     const importam = lidos.filter((l) => importaOClient(parse(l.rel, l.texto))).map((l) => l.rel).sort()
     expect(importam).toEqual([...IMPORTAM_O_CLIENT].sort())
   })

@@ -23,7 +23,7 @@ vi.mock('@estrelinha/core/order-actions', () => ({
   runAppAction: dono.runAppAction,
   triggerOrderNotification: dono.triggerOrderNotification,
 }))
-vi.mock('@/entities/order', () => ({ conferirPapel: dono.conferirPapel }))
+vi.mock('@/shared/api/lerComPapel', () => ({ conferirPapel: dono.conferirPapel }))
 
 const LINHA = { id: 'o-1', status: 'paid', material_status: 'nao_aplicavel' } as unknown as LinhaDaLista
 const PRIMARIA = { tipo: 'primaria' } as const

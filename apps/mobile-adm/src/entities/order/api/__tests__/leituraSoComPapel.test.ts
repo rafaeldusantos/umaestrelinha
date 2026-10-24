@@ -5,8 +5,9 @@
 //
 // **Pela AST do TypeScript**, não por regex (a lição do guarda da `67`: régua de uso por regex mede a
 // grafia, não a chamada). Três réguas:
-//   1. só quatro arquivos de produção importam o client (`@estrelinha/supabase/client`): `lerComPapel.ts`,
-//      os dois hooks e, desde a `75`, a porta de escrita — allowlist literal;
+//   1. só oito arquivos de produção importam o client (`@estrelinha/supabase/client`): `lerComPapel.ts`,
+//      os dois hooks de pedido, a porta de escrita (`75`) e, desde a `76`, os quatro de cliente —
+//      allowlist literal;
 //   2. nos dois hooks, toda referência a `supabase` é o receptor de um `.from(` (nada de passar o client
 //      adiante, nada de `const db = supabase`), e toda chamada `supabase.from(` é ALCANÇÁVEL SÓ por
 //      `lerComPapel`: ou está dentro de uma função passada a `lerComPapel(`, ou dentro de uma função
@@ -23,14 +24,22 @@ import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..')
-const LER_COM_PAPEL = 'entities/order/api/lerComPapel.ts'
+const LER_COM_PAPEL = 'shared/api/lerComPapel.ts'
 const HOOKS = ['entities/order/api/useListaDePedidos.ts', 'entities/order/api/usePedido.ts']
 // Feature `75` (T16): a porta de ESCRITA (`gravarAcao.ts`) é o quarto importador. Ela não lê tabela
 // nenhuma e não usa o client como receptor — só o entrega ao dono da escrita —, e quem mede isso é o
 // vizinho `escritaSoPelaPorta.test.ts` (régua 2). A igualdade abaixo continua por igualdade: um quinto
 // importador reprova aqui E lá.
 const PORTA_DE_ESCRITA = 'features/order-actions/api/gravarAcao.ts'
-const IMPORTAM_O_CLIENT = [LER_COM_PAPEL, ...HOOKS, PORTA_DE_ESCRITA]
+// Feature `76` (T20, G2): os quatro de cliente. Leem tabelas e, como os de pedido, só dentro de
+// `lerComPapel(` ou do `consultar` de `useJanelaPaginada(` (o segundo ponto de pareamento).
+const HOOKS_DE_CLIENTE = [
+  'entities/customer/api/useListaDeClientes.ts',
+  'entities/customer/api/useCliente.ts',
+  'entities/customer/api/usePedidosDoCliente.ts',
+  'entities/customer/api/buscarClientePorEmail.ts',
+]
+const IMPORTAM_O_CLIENT = [LER_COM_PAPEL, ...HOOKS, PORTA_DE_ESCRITA, ...HOOKS_DE_CLIENTE]
 
 const arquivos = (dir: string): string[] =>
   readdirSync(dir).flatMap((nome) => {
@@ -58,12 +67,28 @@ const importaOClient = (fonte: ts.SourceFile): boolean =>
 const ehChamadaDe = (no: ts.Node, nome: string): no is ts.CallExpression =>
   ts.isCallExpression(no) && ts.isIdentifier(no.expression) && no.expression.text === nome
 
-/** O nó está dentro de uma função que é ARGUMENTO de `lerComPapel(`? */
+/**
+ * O arrow é o `consultar` de uma chamada a `useJanelaPaginada({ … })`? (Feature `76`, T12: a janela
+ * paginada tem UM dono, que embrulha CADA chamada a `consultar` em `lerComPapel` — a régua 4 abaixo
+ * prova isso no dono. Passar a consulta como `consultar` é, portanto, o mesmo contrato que passá-la a
+ * `lerComPapel(`.)
+ */
+const ehConsultarDaJanela = (p: ts.Node): boolean =>
+  (ts.isArrowFunction(p) || ts.isFunctionExpression(p)) &&
+  ts.isPropertyAssignment(p.parent) &&
+  ts.isIdentifier(p.parent.name) &&
+  p.parent.name.text === 'consultar' &&
+  ts.isObjectLiteralExpression(p.parent.parent) &&
+  ehChamadaDe(p.parent.parent.parent, 'useJanelaPaginada') &&
+  (p.parent.parent.parent as ts.CallExpression).arguments.includes(p.parent.parent as ts.Expression)
+
+/** O nó está dentro de uma função que é ARGUMENTO de `lerComPapel(` (ou o `consultar` da janela)? */
 const dentroDeLerComPapel = (no: ts.Node): boolean => {
   for (let p: ts.Node | undefined = no.parent; p; p = p.parent) {
     if ((ts.isArrowFunction(p) || ts.isFunctionExpression(p)) && p.parent && ehChamadaDe(p.parent, 'lerComPapel')) {
       if ((p.parent as ts.CallExpression).arguments.includes(p as ts.Expression)) return true
     }
+    if (ehConsultarDaJanela(p)) return true
   }
   return false
 }
@@ -115,7 +140,7 @@ const medir = (rel: string, texto: string, { podeLer }: { podeLer: boolean }): A
   const fonte = parse(rel, texto)
   const achado: Achado = { froms: 0, chamadasLerComPapel: 0, problemas: [] }
   visitar(fonte, (n) => {
-    if (ehChamadaDe(n, 'lerComPapel')) achado.chamadasLerComPapel++
+    if (ehChamadaDe(n, 'lerComPapel') || ehChamadaDe(n, 'useJanelaPaginada')) achado.chamadasLerComPapel++
     if (!ts.isIdentifier(n) || n.text !== 'supabase') return
     if (ts.isImportSpecifier(n.parent)) return
     const acesso = n.parent
@@ -135,18 +160,34 @@ const medir = (rel: string, texto: string, { podeLer }: { podeLer: boolean }): A
   return achado
 }
 
+/** Feature `76` (MAC-30): chamadas de ESCRITA (ou RPC) num arquivo de cliente, pela AST. */
+const COMANDOS_QUE_ESCREVEM = new Set(['insert', 'update', 'upsert', 'delete', 'rpc'])
+const escritasEmArquivoDeCliente = (rel: string, texto: string): string[] => {
+  const fonte = parse(rel, texto)
+  const achados: string[] = []
+  visitar(fonte, (n) => {
+    if (!ts.isCallExpression(n)) return
+    const e = n.expression
+    const nome = ts.isPropertyAccessExpression(e) ? e.name.text : ts.isIdentifier(e) ? e.text : null
+    if (nome && COMANDOS_QUE_ESCREVEM.has(nome)) {
+      achados.push(`${rel}:${fonte.getLineAndCharacterOfPosition(n.getStart()).line + 1} — ${nome}(`)
+    }
+  })
+  return achados
+}
+
 const lidos = arquivos(SRC).map((caminho) => {
   const rel = relative(SRC, caminho).split('\\').join('/')
   return { rel, texto: readFileSync(caminho, 'utf8') }
 })
 
 describe('toda leitura do app passa por lerComPapel (MAP-37)', () => {
-  it('âncora: o app foi lido, com os quatro arquivos da allowlist', () => {
+  it('âncora: o app foi lido, com os oito arquivos da allowlist', () => {
     expect(lidos.length).toBeGreaterThan(40)
     for (const rel of IMPORTAM_O_CLIENT) expect(lidos.map((l) => l.rel)).toContain(rel)
   })
 
-  it('régua 1: só lerComPapel, os dois hooks e a porta de escrita importam o client — por igualdade', () => {
+  it('régua 1: só lerComPapel, os hooks de pedido e de cliente e a porta de escrita importam o client — por igualdade', () => {
     const importam = lidos.filter((l) => importaOClient(parse(l.rel, l.texto))).map((l) => l.rel).sort()
     expect(importam).toEqual([...IMPORTAM_O_CLIENT].sort())
   })
@@ -159,11 +200,85 @@ describe('toda leitura do app passa por lerComPapel (MAP-37)', () => {
     expect(porArquivo.flatMap((a) => a.problemas)).toEqual([])
   })
 
+  it('régua 2 (feature 76): nos quatro hooks de cliente, toda supabase.from( só é alcançável por lerComPapel ou pelo `consultar` da janela', () => {
+    const porArquivo = HOOKS_DE_CLIENTE.map((rel) => medir(rel, lidos.find((l) => l.rel === rel)!.texto, { podeLer: true }))
+    // Âncora CONTADA, não digitada: as chamadas `supabase.from(` que a AST acha são as mesmas que um
+    // segundo olhar (o texto sem comentário) acha — e há ao menos uma por arquivo. Um parser cego
+    // zeraria os dois e passaria; um arquivo novo de leitura aumentaria os dois e seria medido.
+    for (const [i, rel] of HOOKS_DE_CLIENTE.entries()) {
+      const textoSemComentario = lidos.find((l) => l.rel === rel)!.texto.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n\r]*/g, '')
+      const porTexto = [...textoSemComentario.matchAll(/\bsupabase\s*\.from\(/g)].length
+      expect(porArquivo[i].froms).toBe(porTexto)
+      expect(porArquivo[i].froms).toBeGreaterThan(0)
+      expect(porArquivo[i].chamadasLerComPapel).toBeGreaterThan(0)
+    }
+    expect(porArquivo.flatMap((a) => a.problemas)).toEqual([])
+  })
+
+  it('régua 2 (feature 76, MAC-30): os quatro de cliente só LEEM — nenhum insert, update, upsert, delete ou rpc(', () => {
+    const achados = HOOKS_DE_CLIENTE.flatMap((rel) => escritasEmArquivoDeCliente(rel, lidos.find((l) => l.rel === rel)!.texto))
+    expect(achados).toEqual([])
+  })
+
   it('régua 3: lerComPapel.ts não lê tabela — só a RPC', () => {
     const a = medir(LER_COM_PAPEL, lidos.find((l) => l.rel === LER_COM_PAPEL)!.texto, { podeLer: false })
     expect(a.froms).toBe(0)
     expect(a.problemas).toEqual([])
     expect(lidos.find((l) => l.rel === LER_COM_PAPEL)!.texto).toMatch(/supabase\.rpc\('atelie_clock'\)/)
+  })
+})
+
+/** Régua 4 (feature `76`): no dono da janela, TODA chamada à consulta injetada está dentro de `lerComPapel(`. */
+const DONO_DA_JANELA = 'shared/api/useJanelaPaginada.ts'
+const medirDonoDaJanela = (texto: string): { chamadas: number; lerComPapel: number; problemas: string[] } => {
+  const fonte = parse(DONO_DA_JANELA, texto)
+  const r = { chamadas: 0, lerComPapel: 0, problemas: [] as string[] }
+  visitar(fonte, (n) => {
+    if (ehChamadaDe(n, 'lerComPapel')) r.lerComPapel++
+    if (ts.isCallExpression(n) && ts.isIdentifier(n.expression) && /^consult(ar|aDaVez)$/.test(n.expression.text)) {
+      r.chamadas++
+      if (!dentroDeLerComPapel(n)) r.problemas.push(`${DONO_DA_JANELA}:${fonte.getLineAndCharacterOfPosition(n.getStart()).line + 1} — a consulta injetada fora de lerComPapel`)
+    }
+  })
+  return r
+}
+
+describe('regra 4 (feature 76): o dono da janela só chama a consulta injetada dentro de lerComPapel', () => {
+  const texto = () => lidos.find((l) => l.rel === DONO_DA_JANELA)!.texto
+
+  it('âncora: o dono foi lido, não importa o client, chama lerComPapel e a consulta nos dois pontos (releitura e próxima)', () => {
+    expect(lidos.map((l) => l.rel)).toContain(DONO_DA_JANELA)
+    expect(importaOClient(parse(DONO_DA_JANELA, texto()))).toBe(false)
+    const r = medirDonoDaJanela(texto())
+    expect(r.chamadas).toBe(2)
+    expect(r.lerComPapel).toBe(2)
+    expect(r.problemas).toEqual([])
+  })
+
+  it('acusa: a consulta chamada solta (sem lerComPapel)', () => {
+    const solto = texto().replace('await lerComPapel(() => consultar({ limite, contar: true }))', 'await { resultado: await consultar({ limite, contar: true }), lido_em: "" }')
+    expect(solto).not.toBe(texto())
+    expect(medirDonoDaJanela(solto).problemas).toHaveLength(1)
+  })
+
+  it('acusa: a consulta da próxima página chamada solta', () => {
+    const solto = texto().replace(/await lerComPapel\(\(\) =>\s*consultaDaVez\(\{ limite: tamanhoDaPagina, cursor: cursor\(ultima\), contar: false \}\),\s*\)/, '{ resultado: await consultaDaVez({ limite: tamanhoDaPagina, cursor: cursor(ultima), contar: false }) }')
+    expect(solto).not.toBe(texto())
+    expect(medirDonoDaJanela(solto).problemas).toHaveLength(1)
+  })
+})
+
+describe('sensores — o `consultar` da janela é o mesmo contrato de lerComPapel (feature 76)', () => {
+  const H = 'entities/order/api/useListaDePedidos.ts'
+  const imp = `import { supabase } from '@estrelinha/supabase/client'\n`
+  it('inverso: o `from` dentro do `consultar` de useJanelaPaginada não é acusado', () => {
+    const a = medir(H, `${imp}export const h = () => useJanelaPaginada({ consultar: (p) => supabase.from('order_list').select('id') })`, { podeLer: true })
+    expect(a.problemas).toEqual([])
+    expect(a.chamadasLerComPapel).toBe(1)
+  })
+  it('acusa: o `from` em OUTRA propriedade da janela (cursorDe) ou em outra chamada com `consultar`', () => {
+    expect(medir(H, `${imp}export const h = () => useJanelaPaginada({ cursorDe: (p) => supabase.from('order_list').select('id') })`, { podeLer: true }).problemas).toHaveLength(1)
+    expect(medir(H, `${imp}export const h = () => outra({ consultar: (p) => supabase.from('order_list').select('id') })`, { podeLer: true }).problemas).toHaveLength(1)
   })
 })
 
@@ -210,5 +325,42 @@ describe('sensores — a régua acusa a leitura fora de lerComPapel e não acusa
 
   it('o comentário que cita supabase.from( não conta (é AST)', () => {
     expect(medirH(`// supabase.from('order_list') aqui seria errado\nexport const h = 1`).froms).toBe(0)
+  })
+})
+
+describe('sensores (feature 76) — os quatro de cliente só leem, e leem por lerComPapel', () => {
+  const H = 'entities/customer/api/useCliente.ts'
+  const imp = `import { supabase } from '@estrelinha/supabase/client'\n`
+
+  it('acusa: uma consulta fora de lerComPapel e fora do `consultar` da janela, num hook de cliente', () => {
+    expect(medir(H, `${imp}export const h = async () => supabase.from('customer_list').select('id')`, { podeLer: true }).problemas).toHaveLength(1)
+  })
+
+  it('inverso: a consulta dentro do `consultar` da janela ou de lerComPapel passa', () => {
+    expect(medir(H, `${imp}export const h = () => useJanelaPaginada({ consultar: () => supabase.from('customer_list').select('id') })`, { podeLer: true }).problemas).toEqual([])
+    expect(medir(H, `${imp}export const h = () => lerComPapel(async () => supabase.from('customer_list').select('id'))`, { podeLer: true }).problemas).toEqual([])
+  })
+
+  it.each([
+    ["supabase.from('customer_list').insert({ name: 'x' })", 'insert'],
+    ["supabase.from('customer_list').update({ name: 'x' }).eq('id', 1)", 'update'],
+    ["supabase.from('customer_list').upsert({ name: 'x' })", 'upsert'],
+    ["supabase.from('customer_list').delete().eq('id', 1)", 'delete'],
+    ["supabase.rpc('qualquer')", 'rpc'],
+    ["rpc('qualquer')", 'rpc'],
+  ])('acusa a escrita: %s', (codigo, nome) => {
+    const achados = escritasEmArquivoDeCliente(H, `${imp}export const h = () => ${codigo}`)
+    expect(achados).toHaveLength(1)
+    expect(achados[0]).toContain(`${nome}(`)
+  })
+
+  it('não acusa o que só lê, nem a palavra em comentário ou em texto', () => {
+    expect(escritasEmArquivoDeCliente(H, `${imp}// update insert rpc(\nexport const h = () => supabase.from('customer_list').select('id').eq('id', 1)\nconst x = 'delete'`)).toEqual([])
+  })
+
+  it('a régua 1 acusa um QUINTO arquivo de cliente que importe o client (a igualdade tem oito)', () => {
+    const importam = [...IMPORTAM_O_CLIENT, 'entities/customer/api/useOutro.ts'].sort()
+    expect(importam).not.toEqual([...IMPORTAM_O_CLIENT].sort())
+    expect(IMPORTAM_O_CLIENT).toHaveLength(8)
   })
 })

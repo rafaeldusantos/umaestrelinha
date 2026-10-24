@@ -1,0 +1,199 @@
+[
+ {
+  "ok": true,
+  "t": "privacidade em \"Início\" (url /, título \"Início · Ateliê\", chaves de storage: sb-127-auth-token / —)"
+ },
+ {
+  "ok": true,
+  "t": "Pedidos: a busca por nome acha a convidada de prova",
+  "d": 2
+ },
+ {
+  "ok": true,
+  "t": "privacidade em \"Pedidos com busca por nome\" (url /pedidos, título \"Pedidos · Ateliê\", chaves de storage: sb-127-auth-token / —)"
+ },
+ {
+  "ok": true,
+  "t": "privacidade em \"detalhe do pedido\" (url /pedidos/00000000-0000-4000-d076-000000000002, título \"Pedido #P76-L02 · Ateliê\", chaves de storage: sb-127-auth-token / —)"
+ },
+ {
+  "ok": true,
+  "t": "\"Ver cliente\" abre a ficha da pessoa certa (id da view)",
+  "d": "http://localhost:4376/clientes/2989b52b-28f8-54a3-3fc9-83d65d73e02a"
+ },
+ {
+  "ok": true,
+  "t": "privacidade em \"ficha aberta pelo Ver cliente\" (url /clientes/2989b52b-28f8-54a3-3fc9-83d65d73e02a, título \"Cliente · Ateliê\", chaves de storage: sb-127-auth-token / —)"
+ },
+ {
+  "ok": true,
+  "t": "ficha → um pedido dela",
+  "d": "/pedidos/00000000-0000-4000-d076-000000000001"
+ },
+ {
+  "ok": true,
+  "t": "Voltar do pedido: de volta à ficha"
+ },
+ {
+  "ok": true,
+  "t": "Voltar da ficha: de volta ao pedido de onde veio"
+ },
+ {
+  "ok": true,
+  "t": "o chip troca o endereço (só o recorte)",
+  "d": "http://localhost:4376/clientes?recorte=em-aberto"
+ },
+ {
+  "ok": true,
+  "t": "privacidade em \"ficha aberta pela linha da lista\" (url /clientes/6ddfc34c-e7b4-3939-2dd2-770cbf5856ea, título \"Cliente · Ateliê\", chaves de storage: sb-127-auth-token / —)"
+ },
+ {
+  "ok": true,
+  "t": "Voltar da ficha traz a MESMA posição e as mesmas linhas",
+  "d": {
+   "antes": 1477,
+   "depois": 1477,
+   "linhasAntes": 53,
+   "linhasDepois": 53
+  }
+ },
+ {
+  "ok": true,
+  "t": "a busca NÃO vai ao endereço (só o recorte)",
+  "d": "http://localhost:4376/clientes?recorte=recorrentes"
+ },
+ {
+  "ok": true,
+  "t": "busca \"rosa\" em Todas acha as mesmas pessoas que o psql (as duas de prova, VROSA_RJ e VROSAXRJ, mais quem já tinha Rosa no nome)",
+  "d": {
+   "app": 3,
+   "sql": 3
+  }
+ },
+ {
+  "ok": true,
+  "t": "privacidade em \"busca por nome na lista\" (url /clientes, título \"Clientes · Ateliê\", chaves de storage: sb-127-auth-token / —)"
+ },
+ {
+  "ok": true,
+  "t": "Voltar traz o mesmo recorte E a mesma busca",
+  "d": {
+   "termo": "rosa",
+   "linhasVolta": 3,
+   "pressionado": "todas"
+  }
+ },
+ {
+  "ok": true,
+  "t": "busca por telefone com máscara acha a pessoa pelos dígitos",
+  "d": 1
+ },
+ {
+  "ok": true,
+  "t": "privacidade em \"busca por telefone\" (url /clientes, título \"Clientes · Ateliê\", chaves de storage: sb-127-auth-token / —)"
+ },
+ {
+  "ok": true,
+  "t": "com o teclado de 338 px, o último resultado fica acima dele",
+  "d": {
+   "fundo": 305,
+   "visivelAte": 506
+  }
+ },
+ {
+  "ok": true,
+  "t": "o campo de busca visível com o teclado aberto",
+  "d": {
+   "topo": 96,
+   "fundo": 144,
+   "visivelAte": 506
+  }
+ },
+ {
+  "ok": true,
+  "t": "Enter tira o foco do campo (fecha o teclado)"
+ },
+ {
+  "ok": true,
+  "t": "history.back() com o campo focado sai da aba e a tela seguinte desenha",
+  "d": {
+   "path": "/pedidos/00000000-0000-4000-d076-000000000002",
+   "h1": "Pedido #P76-L02"
+  }
+ },
+ {
+  "ok": true,
+  "t": "nenhuma requisição fora do Supabase local e do próprio app",
+  "d": [
+   "localhost:4376",
+   "127.0.0.1:54441"
+  ]
+ },
+ {
+  "ok": true,
+  "t": "nada para *.supabase.co nem GA",
+  "d": []
+ },
+ {
+  "ok": true,
+  "t": "o console (1 mensagens) não carrega nome, e-mail nem telefone",
+  "d": []
+ },
+ {
+  "ok": true,
+  "t": "nenhum erro de página",
+  "d": []
+ },
+ {
+  "ok": true,
+  "t": "os títulos do documento nunca carregam dado de cliente",
+  "d": [
+   "Início · Ateliê",
+   "Pedidos · Ateliê",
+   "Pedido #P76-L02 · Ateliê",
+   "Cliente · Ateliê",
+   "Clientes · Ateliê"
+  ]
+ },
+ {
+  "ok": true,
+  "t": "menos movimento ligado e desligado mostram os MESMOS estados",
+  "d": {
+   "a": {
+    "h1": "Clientes",
+    "contagem": "4 clientes · das atividades mais recentes para as mais antigas",
+    "linhas": 4,
+    "pressionado": "recorrentes"
+   },
+   "b": {
+    "h1": "Clientes",
+    "contagem": "4 clientes · das atividades mais recentes para as mais antigas",
+    "linhas": 4,
+    "pressionado": "recorrentes"
+   }
+  }
+ },
+ {
+  "ok": true,
+  "t": "só a transição do chip muda: nenhuma propriedade com menos movimento, cores sem ele",
+  "d": {
+   "ligado": "none",
+   "desligado": "color, background-color, border-color, text-decoration-color, fill, stroke"
+  }
+ },
+ {
+  "ok": false,
+  "t": "a conta de cliente SEM papel recebe a recusa no login",
+  "d": {
+   "path": "/login"
+  }
+ },
+ {
+  "ok": true,
+  "t": "direto em /clientes: nenhum texto dela em instante nenhum, e o app a leva ao login",
+  "d": {
+   "path": "/login",
+   "respostas": []
+  }
+ }
+]

@@ -1485,9 +1485,70 @@
   da `75`) e a exceção síncrona do client como `rpc_failed`/`{ error }`. Complementa `AD-058`
   (leitura) do lado da escrita.
 
+### AD-060
+
+- **Status**: accepted (feature `76`, Specify, respostas do validador independente em 2026-10-24)
+- **Decision**: (1) `customer_notes` fica fora do app do ateliê (nem ler, nem escrever). (2) "Pedido em
+  aberto" de uma cliente = `payment_status = 'approved'` e `status` em `pending`/`paid`/`separating`/
+  `shipped`; o predicado vive em `core/customers` e a cópia SQL é guardada byte a byte. (3) `orders_open`
+  entra no fim de `customer_stats` e `customer_list` por migration aditiva (recorte e selo leem a mesma
+  coluna). (4) A lista ordena por `last_activity_at` e mostra a última compra paga. (5) `whatsappChatUrl`
+  nasce em `core` e o `BlocoCliente` da `74` passa a usá-lo; `wa.me` tem dono único no app.
+- **Reason**: defeito 01 (a regra de "em aberto" e o `wa.me` teriam terceira escrita) e a RLS que
+  devolve a linha da própria conta sem erro. Os `pending` com Pix expirado ficariam "em aberto" para
+  sempre pela regra do rascunho.
+- **Trade-off**: migration em view que o painel lê (aditiva, no fim); `SPEC_DEVIATION` no critério 2 do
+  rascunho e na troca de `whatsappHref` por `whatsappChatUrl`. Complementa `AD-058`.
+
+### AD-061
+
+- **Status**: accepted (feature `76`, Design aprovado no portão em 2026-10-24; implementada na T12 e provada pelos probes e pela prova em navegador)
+- **Decision**: (1) todo valor de `ilike` que vem de dado do usuário ou do banco (termo de busca,
+  e-mail de vínculo) passa por `ilikeContains`/`ilikeExact` de `core/customers/like.ts` — entre aspas,
+  com `\`, `%` e `_` escapados; o app do ateliê não monta `ilike` à mão. (2) A paginação por janela e
+  cursor do app tem **um** dono, `apps/mobile-adm/src/shared/api/useJanelaPaginada.ts`; a lista de
+  pedidos, a de clientes e a janela de pedidos da ficha são chamadas dele.
+- **Reason**: o escape de `ilike` não existia (`escapeSearchTerm` troca `( ) ,` por espaço e deixa `%` e
+  `_` valerem como curinga — medido); e a concorrência da janela (geração, recusa da próxima presa ao
+  `dataUpdatedAt`) custou quatro rodadas de verificação na `74`: uma segunda cópia herdaria os defeitos
+  já consertados e os que ainda não foram achados.
+- **Trade-off**: o painel segue sem o escape (`BL-052`, T33); a extração toca o hook da `74`, provada
+  pela suíte da `74` com o diff de testes vazio (T12). Se a extração não fechar, a saída é cópia + guarda
+  de paridade, decisão do validador. Complementa `AD-058` e `AD-060`.
+
 ## Handoff
 
-### ATUAL — 2026-10-24 · `75-mobile-adm-acoes-do-pedido` **IMPLEMENTADA E COMMITADA — 31 tasks + B01/B02, Verificador (3 rodadas) e QA (4 bugs, retestados); pronta para merge em `feature/mobile-adm`**
+### ATUAL — 2026-10-24 · `76-mobile-adm-clientes` **IMPLEMENTADA E COMMITADA — T01–T33, Verificador (PASS na última rodada) e QA (10 de 12 bugs consertados); pronta para merge em `feature/mobile-adm`; falta o Android real**
+
+- **Feature**: `.specs/features/76-mobile-adm-clientes/` (`spec.md`, `design.md`, `tasks.md`,
+  `baseline.md`, `context.md`, `validation.md`, `probes/01..03`, `prova-navegador.md`, `prova/`).
+  Decisões `AD-060` e `AD-061`; backlog `BL-052` (painel sem o escape) e `BL-053` (custo de `customer_stats`).
+  Worktree `store-worktrees/store-76-mobile-adm-clientes`, branch `feat/76-mobile-adm-clientes` (de
+  `feature/mobile-adm`, `146d1c8b`); o merge vai para `feature/mobile-adm`, nunca para a `master`.
+- **O que entrega**: as telas Clientes (`/clientes`: busca por nome, e-mail e telefone, três recortes,
+  lista por cursor de 25) e Cliente (`/clientes/:id`: cabeçalho, três números, contato com WhatsApp,
+  pedidos de 20 em 20), o botão "Ver cliente" no detalhe do pedido; `core/customers` (recortes, "em
+  aberto", cursor, vínculo exato, escape de `ilike`, busca) com o painel reexportando por referência;
+  `whatsappChatUrl` em `core/notifications`; `lerComPapel`, `useJanelaPaginada`, `useSentinela` e
+  `CampoDeBusca` extraídos para `shared/` do app sem mudar o comportamento de Pedidos. **Uma migration**
+  (`20261025120000_76-clientes-em-aberto.sql`: `orders_open` no fim de `customer_stats` e
+  `customer_list`), aplicada **só no local**.
+- **Gates no fecho final** (2026-10-24, depois do QA e do Verificador, um workspace por vez, exit fora de pipe): core **4365/175** · mobile-adm
+  **1765/111** · store **5908/322** · backoffice **3707/214** · functions 957/21 · catalog-import 512/23 =
+  **17214/866** (+843/+48 contra 16371/818); `tsc` 0 nos apps (store app e server, backoffice, mobile-adm app e node), 11 herdados em core; lint 0/0 · 23/5 · 2/2;
+  build do mobile-adm verde; `payment/**` sem diff.
+- **Decisões humanas abertas**: B03 (busca sem acento, `unaccent` no banco) e B12 (`MAC-18` × `MAC-35`, o material no nome do item da ficha).
+- **Provas**: probes `01-banco` (46 `ok`), `02-em-aberto` (8), `03-paridade` (42, 2 mutantes mortos);
+  `clientesComClientReal` (12 casos, 5 mutantes mortos); prova em navegador (60 medidas de layout, percurso,
+  privacidade, conta sem papel) sem defeito.
+- **Pendências**: o **Android real** (TQ10: teclado de verdade, o gesto de voltar com o campo focado, a
+  área segura e a fonte do aparelho); o reteste em navegador de bug-16/17/18 e B13 (toque real e 130/200 %); as assunções `n — confirmar`;
+  **a ordem de publicação em produção: migration → bundle** (o `select` da lista pede `orders_open`; o
+  `db push` sozinho, depois o app). `BL-053`: a lista leva ~7,9 s com 3.000 pessoas (já era assim antes da
+  `76`); com as 48 de hoje é desprezível.
+- **Commit**: um só, `feat(mobile-adm): clientes, lista e detalhe (feature 76)`, na branch `feat/76-mobile-adm-clientes`; sem merge e sem push.
+
+### ANTERIOR — 2026-10-24 · `75-mobile-adm-acoes-do-pedido` **IMPLEMENTADA E COMMITADA — 31 tasks + B01/B02, Verificador (3 rodadas) e QA (4 bugs, retestados); pronta para merge em `feature/mobile-adm`**
 
 - **Feature**: `.specs/features/75-mobile-adm-acoes-do-pedido/` (`spec.md`, `design.md`, `tasks.md`,
   `baseline.md`, `probes/01-paridade.*`, `prova-navegador.md`, `prova/`). Decisão `AD-059`, backlog

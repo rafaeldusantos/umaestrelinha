@@ -50,6 +50,7 @@ sem ela a varredura passa com zero arquivo lido, que é a pior falha possível n
 | `./shipping` | `freeShippingState` + `freeShippingRefusal` (o frete grátis tem **um** dono), `estimate.ts` | 8 superfícies nos 2 apps |
 | `./media` | `renditionUrl`/`renditionSrcSet`/`imagePriority` (`rendition.ts`) e **`surfaceArt`** (`AD-030`) | loja, painel, `core/page` |
 | `./orders` | `orderSituation` (com o público `'cliente' \| 'atelie'`), `SITUATION_LABELS_BY_AUDIENCE`, `ORDER_STATUS_LABELS`/`ORDER_PAYMENT_STATUS_LABELS` (`labels.ts`, subidos do painel), `formatOrderNumber`, **`queue.ts`** (`QUEUE_BLOCKS`, `NEEDS_ACTION_BLOCKS`, `toPostgrestFilter`, `needsActionOrFilter`, `toSqlPredicate` — feature `73`, `AD-057`) e, desde a `74` (`AD-058`), **`views.ts`** (`ORDER_VIEWS`, `viewPredicate`, `OrderSlice`, `applyOrderSlice`), **`search.ts`** (`buildOrderSearchCondition`, `SEARCH_DEBOUNCE_MS`), **`row.ts`**, **`rowSummary.ts`**, **`nextStep.ts`**, **`history.ts`** (`buildHistory`), **`delivery.ts`** (`shippingLine`), **`list.ts`** (página, cursor, `listCountLine`, `emptyHint`, `isOrderId`) e `PAYMENT_METHOD_LABELS`/`PAYMENT_STATUS_TONES` em `labels.ts` | loja, painel, app do ateliê, migration (cópia SQL guardada) |
+| `./customers` | **os recortes e o "em aberto"** (`CUSTOMER_SLICES`, `RETURNING_CUSTOMER_RULE`, `OPEN_CUSTOMER_RULE`, `openOrdersSqlFilter`), `customerCursorFilter`, `customerOrdersCondition`/`directoryEmailCondition` (vínculo exato) e `escapeLike`/`ilikeContains`/`ilikeExact` (feature `76`, `AD-060`/`AD-061`) | app do ateliê, painel (reexporta `voltaram`) |
 | `./order-actions` | **a escrita do pedido** (feature `75`, `AD-059`): `writeOrderStatus`, `writeTrackingCode`, `writeMaterialStatus`, `triggerOrderNotification` e a ação composta do app `runAppAction` — client e notificador INJETADOS, efeito conferido por `.select('id')` | painel (`useAdminOrders`, `notifyOrder`), app do ateliê (`gravarAcao`) |
 | `./stats` | **`StoreMovement`** (movido da `71`), **`StoreOverview`** e `OVERVIEW_KEYS`, `turnDelayMs`, os rótulos da Início (`greetingFor`, `longDateLine`, `monthName`, `weekdayShort`, `piecesLabel`, `paidOrdersLabel`, `relativeAge`, `storeHour`) — feature `73` | painel (reexporta o tipo), app do ateliê |
 | `./time` | **`STORE_TIME_ZONE`** (o nome do fuso da loja, a cópia TypeScript de `store_time_zone()` do banco) e `formatDayMonth`/`formatStoreHour` (`21/10`, `15h32`) — feature `71`, `AD-055` | `core/orders/situation.ts`, painel (GA e o bloco "Movimento da loja"), loja (`orderMeta`) |
@@ -394,6 +395,20 @@ sem build, `tsc` ou teste de componente acusarem — desta vez com o CTA de dinh
 - `situation.ts` importa `material/material.ts` e `orders/labels.ts`, as duas **folhas sem import** — o
   diretório continua alcançável pelo Deno (`purity.test.ts`).
 - `situacaoComDonoUnico.test.ts` (suíte da loja) varre a loja **e** `apps/mobile-adm/src`.
+
+## `customers` — as regras de cliente com dois leitores (feature `76`, `AD-060`, `AD-061`)
+
+- **Folha, alcançável por Node, Deno e navegador**: todo especificador leva `.ts` (`import type` incluso) e o
+  diretório não importa React, Supabase nem alias (`purity.test.ts`, `denoReach.test.ts`).
+- **Os recortes são DADO** (`CUSTOMER_SLICES`, `applyCustomerSlice`); "Voltaram" do painel e "Compraram mais
+  de uma vez" do app são o MESMO predicado (`RETURNING_CUSTOMER_RULE`, `orders_paid >= 2`). A cópia SQL de
+  "em aberto" na migration é guardada byte a byte contra `openOrdersSqlFilter` (`emAbertoComDonoUnico`).
+- **O escape de `ilike` tem um dono** (`like.ts`): `\`, `%` e `_` escapados e o valor entre aspas; o `*` vira
+  `_` porque o PostgREST o troca por `%` mesmo escapado (medido no probe `01-banco`). O vínculo da ficha
+  (`customerOrdersCondition`) é por `customer_id` OU e-mail exato — `VROSA_RJ` não puxa `VROSAXRJ`. O painel
+  ainda não o usa (`BL-052`).
+- **O cursor** (`customerCursorFilter`) são as strings do servidor, com microssegundos, em três ramos (mais
+  antigo; mesma data com `id` maior; os nulos). `whatsappChatUrl` mora em `notifications/phone.ts`.
 
 ## `order-actions` — a escrita do pedido tem UM dono (feature `75`, `AD-059`)
 

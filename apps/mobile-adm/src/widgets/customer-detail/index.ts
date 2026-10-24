@@ -1,0 +1,6 @@
+export { default as TopoDaFicha, TITULO_DA_FICHA } from './ui/TopoDaFicha'
+export { default as CabecalhoDaCliente } from './ui/CabecalhoDaCliente'
+export { default as NumerosDaCliente } from './ui/NumerosDaCliente'
+export { default as ContatoDaCliente, ROTULO_DO_WHATSAPP } from './ui/ContatoDaCliente'
+export { default as PedidosDaCliente, VER_MAIS_PEDIDOS, type PedidosDaClienteProps } from './ui/PedidosDaCliente'
+export { default as LinhaDoPedidoDaCliente } from './ui/LinhaDoPedidoDaCliente'

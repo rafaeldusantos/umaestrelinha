@@ -38,7 +38,8 @@
     "./page": "./src/page/index.ts",
     "./time": "./src/time/index.ts",
     "./visits": "./src/visits/index.ts",
-    "./stats": "./src/stats/index.ts"
+    "./stats": "./src/stats/index.ts",
+    "./customers": "./src/customers/index.ts"
   },
   "scripts": {
     "test": "vitest run"

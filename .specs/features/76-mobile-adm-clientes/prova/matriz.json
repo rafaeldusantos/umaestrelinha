@@ -1,0 +1,3170 @@
+[
+ {
+  "vp": "360",
+  "fonte": 100,
+  "tela": "lista",
+  "erros": 0,
+  "scrollW": 360,
+  "innerW": 360,
+  "bodyW": 360,
+  "semRolagemHorizontal": true,
+  "cortados": [],
+  "alvos": {
+   "linhaDoCliente": {
+    "n": 25,
+    "h": 64,
+    "w": 294
+   },
+   "chips": {
+    "n": 3,
+    "h": 44,
+    "w": 71
+   },
+   "whatsapp": null,
+   "verMais": null,
+   "verCliente": null,
+   "pedidoDaCliente": null,
+   "busca": {
+    "n": 1,
+    "h": 48,
+    "w": 328
+   },
+   "abas": {
+    "n": 4,
+    "h": 64,
+    "w": 90
+   }
+  },
+  "chips": {
+   "scrollW": 511,
+   "clientW": 360,
+   "rolaDentro": true,
+   "overflowX": "auto",
+   "afordanciaVisivel": "true"
+  },
+  "sobrepostos": [],
+  "linhasAoFim": 53,
+  "idsDistintos": 53,
+  "contagem": "53 clientes · das atividades mais recentes para as mais antigas",
+  "semRolagemHorizontalAoFim": true,
+  "falhas": []
+ },
+ {
+  "vp": "360",
+  "fonte": 100,
+  "tela": "lista-em-aberto",
+  "erros": 0,
+  "scrollW": 360,
+  "innerW": 360,
+  "bodyW": 360,
+  "semRolagemHorizontal": true,
+  "cortados": [],
+  "alvos": {
+   "linhaDoCliente": {
+    "n": 19,
+    "h": 94,
+    "w": 294
+   },
+   "chips": {
+    "n": 3,
+    "h": 44,
+    "w": 71
+   },
+   "whatsapp": null,
+   "verMais": null,
+   "verCliente": null,
+   "pedidoDaCliente": null,
+   "busca": {
+    "n": 1,
+    "h": 48,
+    "w": 328
+   },
+   "abas": {
+    "n": 4,
+    "h": 64,
+    "w": 90
+   }
+  },
+  "chips": {
+   "scrollW": 511,
+   "clientW": 360,
+   "rolaDentro": true,
+   "overflowX": "auto",
+   "afordanciaVisivel": "true"
+  },
+  "sobrepostos": [],
+  "falhas": []
+ },
+ {
+  "vp": "360",
+  "fonte": 100,
+  "tela": "ficha-longa",
+  "erros": 0,
+  "scrollW": 360,
+  "innerW": 360,
+  "bodyW": 360,
+  "semRolagemHorizontal": true,
+  "cortados": [],
+  "alvos": {
+   "linhaDoCliente": null,
+   "chips": null,
+   "whatsapp": {
+    "n": 1,
+    "h": 44,
+    "w": 294
+   },
+   "verMais": null,
+   "verCliente": null,
+   "pedidoDaCliente": {
+    "n": 22,
+    "h": 94,
+    "w": 294
+   },
+   "busca": null,
+   "abas": {
+    "n": 4,
+    "h": 64,
+    "w": 90
+   }
+  },
+  "sobrepostos": [],
+  "numeros": {
+   "itens": [
+    {
+     "n": "compras",
+     "top": -1803,
+     "left": 16,
+     "w": 158
+    },
+    {
+     "n": "total",
+     "top": -1803,
+     "left": 186,
+     "w": 158
+    },
+    {
+     "n": "ticket",
+     "top": -1727,
+     "left": 16,
+     "w": 158
+    }
+   ],
+   "empilhados": false,
+   "lado": false
+  },
+  "pedidosAntes": 20,
+  "pedidosDepois": 22,
+  "verMaisDepois": 0,
+  "falhas": []
+ },
+ {
+  "vp": "360",
+  "fonte": 100,
+  "tela": "ficha-sem-nome",
+  "erros": 0,
+  "scrollW": 360,
+  "innerW": 360,
+  "bodyW": 360,
+  "semRolagemHorizontal": true,
+  "cortados": [],
+  "alvos": {
+   "linhaDoCliente": null,
+   "chips": null,
+   "whatsapp": null,
+   "verMais": null,
+   "verCliente": null,
+   "pedidoDaCliente": null,
+   "busca": null,
+   "abas": {
+    "n": 4,
+    "h": 64,
+    "w": 90
+   }
+  },
+  "sobrepostos": [],
+  "numeros": {
+   "itens": [
+    {
+     "n": "compras",
+     "top": 306,
+     "left": 16,
+     "w": 158
+    },
+    {
+     "n": "total",
+     "top": 306,
+     "left": 186,
+     "w": 158
+    },
+    {
+     "n": "ticket",
+     "top": 382,
+     "left": 16,
+     "w": 158
+    }
+   ],
+   "empilhados": false,
+   "lado": false
+  },
+  "falhas": []
+ },
+ {
+  "vp": "360",
+  "fonte": 100,
+  "tela": "ficha-telefone",
+  "erros": 0,
+  "scrollW": 360,
+  "innerW": 360,
+  "bodyW": 360,
+  "semRolagemHorizontal": true,
+  "cortados": [],
+  "alvos": {
+   "linhaDoCliente": null,
+   "chips": null,
+   "whatsapp": {
+    "n": 1,
+    "h": 44,
+    "w": 294
+   },
+   "verMais": null,
+   "verCliente": null,
+   "pedidoDaCliente": null,
+   "busca": null,
+   "abas": {
+    "n": 4,
+    "h": 64,
+    "w": 90
+   }
+  },
+  "sobrepostos": [],
+  "numeros": {
+   "itens": [
+    {
+     "n": "compras",
+     "top": 284,
+     "left": 16,
+     "w": 158
+    },
+    {
+     "n": "total",
+     "top": 284,
+     "left": 186,
+     "w": 158
+    },
+    {
+     "n": "ticket",
+     "top": 360,
+     "left": 16,
+     "w": 158
+    }
+   ],
+   "empilhados": false,
+   "lado": false
+  },
+  "falhas": []
+ },
+ {
+  "vp": "360",
+  "fonte": 130,
+  "tela": "lista",
+  "erros": 0,
+  "scrollW": 360,
+  "innerW": 360,
+  "bodyW": 360,
+  "semRolagemHorizontal": true,
+  "cortados": [],
+  "alvos": {
+   "linhaDoCliente": {
+    "n": 25,
+    "h": 112,
+    "w": 275
+   },
+   "chips": {
+    "n": 3,
+    "h": 57,
+    "w": 92
+   },
+   "whatsapp": null,
+   "verMais": null,
+   "verCliente": null,
+   "pedidoDaCliente": null,
+   "busca": {
+    "n": 1,
+    "h": 62,
+    "w": 318
+   },
+   "abas": {
+    "n": 4,
+    "h": 83,
+    "w": 90
+   }
+  },
+  "chips": {
+   "scrollW": 662,
+   "clientW": 360,
+   "rolaDentro": true,
+   "overflowX": "auto",
+   "afordanciaVisivel": "true"
+  },
+  "sobrepostos": [],
+  "linhasAoFim": 53,
+  "idsDistintos": 53,
+  "contagem": "53 clientes · das atividades mais recentes para as mais antigas",
+  "semRolagemHorizontalAoFim": true,
+  "falhas": []
+ },
+ {
+  "vp": "360",
+  "fonte": 130,
+  "tela": "lista-em-aberto",
+  "erros": 0,
+  "scrollW": 360,
+  "innerW": 360,
+  "bodyW": 360,
+  "semRolagemHorizontal": true,
+  "cortados": [],
+  "alvos": {
+   "linhaDoCliente": {
+    "n": 19,
+    "h": 152,
+    "w": 275
+   },
+   "chips": {
+    "n": 3,
+    "h": 57,
+    "w": 92
+   },
+   "whatsapp": null,
+   "verMais": null,
+   "verCliente": null,
+   "pedidoDaCliente": null,
+   "busca": {
+    "n": 1,
+    "h": 62,
+    "w": 318
+   },
+   "abas": {
+    "n": 4,
+    "h": 83,
+    "w": 90
+   }
+  },
+  "chips": {
+   "scrollW": 662,
+   "clientW": 360,
+   "rolaDentro": true,
+   "overflowX": "auto",
+   "afordanciaVisivel": "true"
+  },
+  "sobrepostos": [],
+  "falhas": []
+ },
+ {
+  "vp": "360",
+  "fonte": 130,
+  "tela": "ficha-longa",
+  "erros": 0,
+  "scrollW": 360,
+  "innerW": 360,
+  "bodyW": 360,
+  "semRolagemHorizontal": true,
+  "cortados": [],
+  "alvos": {
+   "linhaDoCliente": null,
+   "chips": null,
+   "whatsapp": {
+    "n": 1,
+    "h": 57,
+    "w": 275
+   },
+   "verMais": null,
+   "verCliente": null,
+   "pedidoDaCliente": {
+    "n": 22,
+    "h": 147,
+    "w": 275
+   },
+   "busca": null,
+   "abas": {
+    "n": 4,
+    "h": 83,
+    "w": 90
+   }
+  },
+  "sobrepostos": [],
+  "numeros": {
+   "itens": [
+    {
+     "n": "compras",
+     "top": -3184,
+     "left": 21,
+     "w": 151
+    },
+    {
+     "n": "total",
+     "top": -3184,
+     "left": 188,
+     "w": 151
+    },
+    {
+     "n": "ticket",
+     "top": -3049,
+     "left": 21,
+     "w": 151
+    }
+   ],
+   "empilhados": false,
+   "lado": false
+  },
+  "pedidosAntes": 20,
+  "pedidosDepois": 22,
+  "verMaisDepois": 0,
+  "falhas": []
+ },
+ {
+  "vp": "360",
+  "fonte": 130,
+  "tela": "ficha-sem-nome",
+  "erros": 0,
+  "scrollW": 360,
+  "innerW": 360,
+  "bodyW": 360,
+  "semRolagemHorizontal": true,
+  "cortados": [],
+  "alvos": {
+   "linhaDoCliente": null,
+   "chips": null,
+   "whatsapp": null,
+   "verMais": null,
+   "verCliente": null,
+   "pedidoDaCliente": null,
+   "busca": null,
+   "abas": {
+    "n": 4,
+    "h": 83,
+    "w": 90
+   }
+  },
+  "sobrepostos": [],
+  "numeros": {
+   "itens": [
+    {
+     "n": "compras",
+     "top": 481,
+     "left": 21,
+     "w": 151
+    },
+    {
+     "n": "total",
+     "top": 481,
+     "left": 188,
+     "w": 151
+    },
+    {
+     "n": "ticket",
+     "top": 579,
+     "left": 21,
+     "w": 151
+    }
+   ],
+   "empilhados": false,
+   "lado": false
+  },
+  "falhas": []
+ },
+ {
+  "vp": "360",
+  "fonte": 130,
+  "tela": "ficha-telefone",
+  "erros": 0,
+  "scrollW": 360,
+  "innerW": 360,
+  "bodyW": 360,
+  "semRolagemHorizontal": true,
+  "cortados": [],
+  "alvos": {
+   "linhaDoCliente": null,
+   "chips": null,
+   "whatsapp": {
+    "n": 1,
+    "h": 57,
+    "w": 275
+   },
+   "verMais": null,
+   "verCliente": null,
+   "pedidoDaCliente": null,
+   "busca": null,
+   "abas": {
+    "n": 4,
+    "h": 83,
+    "w": 90
+   }
+  },
+  "sobrepostos": [],
+  "numeros": {
+   "itens": [
+    {
+     "n": "compras",
+     "top": 445,
+     "left": 21,
+     "w": 151
+    },
+    {
+     "n": "total",
+     "top": 445,
+     "left": 188,
+     "w": 151
+    },
+    {
+     "n": "ticket",
+     "top": 543,
+     "left": 21,
+     "w": 151
+    }
+   ],
+   "empilhados": false,
+   "lado": false
+  },
+  "falhas": []
+ },
+ {
+  "vp": "360",
+  "fonte": 200,
+  "tela": "lista",
+  "erros": 0,
+  "scrollW": 360,
+  "innerW": 360,
+  "bodyW": 360,
+  "semRolagemHorizontal": true,
+  "cortados": [],
+  "alvos": {
+   "linhaDoCliente": {
+    "n": 25,
+    "h": 276,
+    "w": 230
+   },
+   "chips": {
+    "n": 3,
+    "h": 88,
+    "w": 140
+   },
+   "whatsapp": null,
+   "verMais": null,
+   "verCliente": null,
+   "pedidoDaCliente": null,
+   "busca": {
+    "n": 1,
+    "h": 96,
+    "w": 296
+   },
+   "abas": {
+    "n": 4,
+    "h": 128,
+    "w": 90
+   }
+  },
+  "chips": {
+   "scrollW": 1016,
+   "clientW": 360,
+   "rolaDentro": true,
+   "overflowX": "auto",
+   "afordanciaVisivel": "true"
+  },
+  "sobrepostos": [],
+  "linhasAoFim": 53,
+  "idsDistintos": 53,
+  "contagem": "53 clientes · das atividades mais recentes para as mais antigas",
+  "semRolagemHorizontalAoFim": true,
+  "falhas": []
+ },
+ {
+  "vp": "360",
+  "fonte": 200,
+  "tela": "lista-em-aberto",
+  "erros": 0,
+  "scrollW": 360,
+  "innerW": 360,
+  "bodyW": 360,
+  "semRolagemHorizontal": true,
+  "cortados": [],
+  "alvos": {
+   "linhaDoCliente": {
+    "n": 19,
+    "h": 318,
+    "w": 230
+   },
+   "chips": {
+    "n": 3,
+    "h": 88,
+    "w": 140
+   },
+   "whatsapp": null,
+   "verMais": null,
+   "verCliente": null,
+   "pedidoDaCliente": null,
+   "busca": {
+    "n": 1,
+    "h": 96,
+    "w": 296
+   },
+   "abas": {
+    "n": 4,
+    "h": 128,
+    "w": 90
+   }
+  },
+  "chips": {
+   "scrollW": 1016,
+   "clientW": 360,
+   "rolaDentro": true,
+   "overflowX": "auto",
+   "afordanciaVisivel": "true"
+  },
+  "sobrepostos": [],
+  "falhas": []
+ },
+ {
+  "vp": "360",
+  "fonte": 200,
+  "tela": "ficha-longa",
+  "erros": 0,
+  "scrollW": 360,
+  "innerW": 360,
+  "bodyW": 360,
+  "semRolagemHorizontal": true,
+  "cortados": [],
+  "alvos": {
+   "linhaDoCliente": null,
+   "chips": null,
+   "whatsapp": {
+    "n": 1,
+    "h": 152,
+    "w": 230
+   },
+   "verMais": null,
+   "verCliente": null,
+   "pedidoDaCliente": {
+    "n": 22,
+    "h": 273,
+    "w": 230
+   },
+   "busca": null,
+   "abas": {
+    "n": 4,
+    "h": 128,
+    "w": 90
+   }
+  },
+  "sobrepostos": [],
+  "numeros": {
+   "itens": [
+    {
+     "n": "compras",
+     "top": -6469,
+     "left": 32,
+     "w": 296
+    },
+    {
+     "n": "total",
+     "top": -6319,
+     "left": 32,
+     "w": 296
+    },
+    {
+     "n": "ticket",
+     "top": -6169,
+     "left": 32,
+     "w": 296
+    }
+   ],
+   "empilhados": true,
+   "lado": false
+  },
+  "pedidosAntes": 20,
+  "pedidosDepois": 22,
+  "verMaisDepois": 0,
+  "falhas": []
+ },
+ {
+  "vp": "360",
+  "fonte": 200,
+  "tela": "ficha-sem-nome",
+  "erros": 0,
+  "scrollW": 360,
+  "innerW": 360,
+  "bodyW": 360,
+  "semRolagemHorizontal": true,
+  "cortados": [],
+  "alvos": {
+   "linhaDoCliente": null,
+   "chips": null,
+   "whatsapp": null,
+   "verMais": null,
+   "verCliente": null,
+   "pedidoDaCliente": null,
+   "busca": null,
+   "abas": {
+    "n": 4,
+    "h": 128,
+    "w": 90
+   }
+  },
+  "sobrepostos": [],
+  "numeros": {
+   "itens": [
+    {
+     "n": "compras",
+     "top": 836,
+     "left": 32,
+     "w": 296
+    },
+    {
+     "n": "total",
+     "top": 986,
+     "left": 32,
+     "w": 296
+    },
+    {
+     "n": "ticket",
+     "top": 1136,
+     "left": 32,
+     "w": 296
+    }
+   ],
+   "empilhados": true,
+   "lado": false
+  },
+  "falhas": []
+ },
+ {
+  "vp": "360",
+  "fonte": 200,
+  "tela": "ficha-telefone",
+  "erros": 0,
+  "scrollW": 360,
+  "innerW": 360,
+  "bodyW": 360,
+  "semRolagemHorizontal": true,
+  "cortados": [],
+  "alvos": {
+   "linhaDoCliente": null,
+   "chips": null,
+   "whatsapp": {
+    "n": 1,
+    "h": 152,
+    "w": 230
+   },
+   "verMais": null,
+   "verCliente": null,
+   "pedidoDaCliente": null,
+   "busca": null,
+   "abas": {
+    "n": 4,
+    "h": 128,
+    "w": 90
+   }
+  },
+  "sobrepostos": [],
+  "numeros": {
+   "itens": [
+    {
+     "n": "compras",
+     "top": 780,
+     "left": 32,
+     "w": 296
+    },
+    {
+     "n": "total",
+     "top": 930,
+     "left": 32,
+     "w": 296
+    },
+    {
+     "n": "ticket",
+     "top": 1080,
+     "left": 32,
+     "w": 296
+    }
+   ],
+   "empilhados": true,
+   "lado": false
+  },
+  "falhas": []
+ },
+ {
+  "vp": "390",
+  "fonte": 100,
+  "tela": "lista",
+  "erros": 0,
+  "scrollW": 390,
+  "innerW": 390,
+  "bodyW": 390,
+  "semRolagemHorizontal": true,
+  "cortados": [],
+  "alvos": {
+   "linhaDoCliente": {
+    "n": 25,
+    "h": 64,
+    "w": 324
+   },
+   "chips": {
+    "n": 3,
+    "h": 44,
+    "w": 71
+   },
+   "whatsapp": null,
+   "verMais": null,
+   "verCliente": null,
+   "pedidoDaCliente": null,
+   "busca": {
+    "n": 1,
+    "h": 48,
+    "w": 358
+   },
+   "abas": {
+    "n": 4,
+    "h": 64,
+    "w": 98
+   }
+  },
+  "chips": {
+   "scrollW": 511,
+   "clientW": 390,
+   "rolaDentro": true,
+   "overflowX": "auto",
+   "afordanciaVisivel": "true"
+  },
+  "sobrepostos": [],
+  "linhasAoFim": 53,
+  "idsDistintos": 53,
+  "contagem": "53 clientes · das atividades mais recentes para as mais antigas",
+  "semRolagemHorizontalAoFim": true,
+  "falhas": []
+ },
+ {
+  "vp": "390",
+  "fonte": 100,
+  "tela": "lista-em-aberto",
+  "erros": 0,
+  "scrollW": 390,
+  "innerW": 390,
+  "bodyW": 390,
+  "semRolagemHorizontal": true,
+  "cortados": [],
+  "alvos": {
+   "linhaDoCliente": {
+    "n": 19,
+    "h": 94,
+    "w": 324
+   },
+   "chips": {
+    "n": 3,
+    "h": 44,
+    "w": 71
+   },
+   "whatsapp": null,
+   "verMais": null,
+   "verCliente": null,
+   "pedidoDaCliente": null,
+   "busca": {
+    "n": 1,
+    "h": 48,
+    "w": 358
+   },
+   "abas": {
+    "n": 4,
+    "h": 64,
+    "w": 98
+   }
+  },
+  "chips": {
+   "scrollW": 511,
+   "clientW": 390,
+   "rolaDentro": true,
+   "overflowX": "auto",
+   "afordanciaVisivel": "true"
+  },
+  "sobrepostos": [],
+  "falhas": []
+ },
+ {
+  "vp": "390",
+  "fonte": 100,
+  "tela": "ficha-longa",
+  "erros": 0,
+  "scrollW": 390,
+  "innerW": 390,
+  "bodyW": 390,
+  "semRolagemHorizontal": true,
+  "cortados": [],
+  "alvos": {
+   "linhaDoCliente": null,
+   "chips": null,
+   "whatsapp": {
+    "n": 1,
+    "h": 44,
+    "w": 324
+   },
+   "verMais": null,
+   "verCliente": null,
+   "pedidoDaCliente": {
+    "n": 22,
+    "h": 94,
+    "w": 324
+   },
+   "busca": null,
+   "abas": {
+    "n": 4,
+    "h": 64,
+    "w": 98
+   }
+  },
+  "sobrepostos": [],
+  "numeros": {
+   "itens": [
+    {
+     "n": "compras",
+     "top": -1759,
+     "left": 16,
+     "w": 173
+    },
+    {
+     "n": "total",
+     "top": -1759,
+     "left": 201,
+     "w": 173
+    },
+    {
+     "n": "ticket",
+     "top": -1683,
+     "left": 16,
+     "w": 173
+    }
+   ],
+   "empilhados": false,
+   "lado": false
+  },
+  "pedidosAntes": 20,
+  "pedidosDepois": 22,
+  "verMaisDepois": 0,
+  "falhas": []
+ },
+ {
+  "vp": "390",
+  "fonte": 100,
+  "tela": "ficha-sem-nome",
+  "erros": 0,
+  "scrollW": 390,
+  "innerW": 390,
+  "bodyW": 390,
+  "semRolagemHorizontal": true,
+  "cortados": [],
+  "alvos": {
+   "linhaDoCliente": null,
+   "chips": null,
+   "whatsapp": null,
+   "verMais": null,
+   "verCliente": null,
+   "pedidoDaCliente": null,
+   "busca": null,
+   "abas": {
+    "n": 4,
+    "h": 64,
+    "w": 98
+   }
+  },
+  "sobrepostos": [],
+  "numeros": {
+   "itens": [
+    {
+     "n": "compras",
+     "top": 306,
+     "left": 16,
+     "w": 173
+    },
+    {
+     "n": "total",
+     "top": 306,
+     "left": 201,
+     "w": 173
+    },
+    {
+     "n": "ticket",
+     "top": 382,
+     "left": 16,
+     "w": 173
+    }
+   ],
+   "empilhados": false,
+   "lado": false
+  },
+  "falhas": []
+ },
+ {
+  "vp": "390",
+  "fonte": 100,
+  "tela": "ficha-telefone",
+  "erros": 0,
+  "scrollW": 390,
+  "innerW": 390,
+  "bodyW": 390,
+  "semRolagemHorizontal": true,
+  "cortados": [],
+  "alvos": {
+   "linhaDoCliente": null,
+   "chips": null,
+   "whatsapp": {
+    "n": 1,
+    "h": 44,
+    "w": 324
+   },
+   "verMais": null,
+   "verCliente": null,
+   "pedidoDaCliente": null,
+   "busca": null,
+   "abas": {
+    "n": 4,
+    "h": 64,
+    "w": 98
+   }
+  },
+  "sobrepostos": [],
+  "numeros": {
+   "itens": [
+    {
+     "n": "compras",
+     "top": 284,
+     "left": 16,
+     "w": 173
+    },
+    {
+     "n": "total",
+     "top": 284,
+     "left": 201,
+     "w": 173
+    },
+    {
+     "n": "ticket",
+     "top": 360,
+     "left": 16,
+     "w": 173
+    }
+   ],
+   "empilhados": false,
+   "lado": false
+  },
+  "falhas": []
+ },
+ {
+  "vp": "390",
+  "fonte": 130,
+  "tela": "lista",
+  "erros": 0,
+  "scrollW": 390,
+  "innerW": 390,
+  "bodyW": 390,
+  "semRolagemHorizontal": true,
+  "cortados": [],
+  "alvos": {
+   "linhaDoCliente": {
+    "n": 25,
+    "h": 83,
+    "w": 305
+   },
+   "chips": {
+    "n": 3,
+    "h": 57,
+    "w": 92
+   },
+   "whatsapp": null,
+   "verMais": null,
+   "verCliente": null,
+   "pedidoDaCliente": null,
+   "busca": {
+    "n": 1,
+    "h": 62,
+    "w": 348
+   },
+   "abas": {
+    "n": 4,
+    "h": 83,
+    "w": 98
+   }
+  },
+  "chips": {
+   "scrollW": 662,
+   "clientW": 390,
+   "rolaDentro": true,
+   "overflowX": "auto",
+   "afordanciaVisivel": "true"
+  },
+  "sobrepostos": [],
+  "linhasAoFim": 53,
+  "idsDistintos": 53,
+  "contagem": "53 clientes · das atividades mais recentes para as mais antigas",
+  "semRolagemHorizontalAoFim": true,
+  "falhas": []
+ },
+ {
+  "vp": "390",
+  "fonte": 130,
+  "tela": "lista-em-aberto",
+  "erros": 0,
+  "scrollW": 390,
+  "innerW": 390,
+  "bodyW": 390,
+  "semRolagemHorizontal": true,
+  "cortados": [],
+  "alvos": {
+   "linhaDoCliente": {
+    "n": 19,
+    "h": 152,
+    "w": 305
+   },
+   "chips": {
+    "n": 3,
+    "h": 57,
+    "w": 92
+   },
+   "whatsapp": null,
+   "verMais": null,
+   "verCliente": null,
+   "pedidoDaCliente": null,
+   "busca": {
+    "n": 1,
+    "h": 62,
+    "w": 348
+   },
+   "abas": {
+    "n": 4,
+    "h": 83,
+    "w": 98
+   }
+  },
+  "chips": {
+   "scrollW": 662,
+   "clientW": 390,
+   "rolaDentro": true,
+   "overflowX": "auto",
+   "afordanciaVisivel": "true"
+  },
+  "sobrepostos": [],
+  "falhas": []
+ },
+ {
+  "vp": "390",
+  "fonte": 130,
+  "tela": "ficha-longa",
+  "erros": 0,
+  "scrollW": 390,
+  "innerW": 390,
+  "bodyW": 390,
+  "semRolagemHorizontal": true,
+  "cortados": [],
+  "alvos": {
+   "linhaDoCliente": null,
+   "chips": null,
+   "whatsapp": {
+    "n": 1,
+    "h": 57,
+    "w": 305
+   },
+   "verMais": null,
+   "verCliente": null,
+   "pedidoDaCliente": {
+    "n": 22,
+    "h": 147,
+    "w": 305
+   },
+   "busca": null,
+   "abas": {
+    "n": 4,
+    "h": 83,
+    "w": 98
+   }
+  },
+  "sobrepostos": [],
+  "numeros": {
+   "itens": [
+    {
+     "n": "compras",
+     "top": -3087,
+     "left": 21,
+     "w": 166
+    },
+    {
+     "n": "total",
+     "top": -3087,
+     "left": 203,
+     "w": 166
+    },
+    {
+     "n": "ticket",
+     "top": -2952,
+     "left": 21,
+     "w": 166
+    }
+   ],
+   "empilhados": false,
+   "lado": false
+  },
+  "pedidosAntes": 20,
+  "pedidosDepois": 22,
+  "verMaisDepois": 0,
+  "falhas": []
+ },
+ {
+  "vp": "390",
+  "fonte": 130,
+  "tela": "ficha-sem-nome",
+  "erros": 0,
+  "scrollW": 390,
+  "innerW": 390,
+  "bodyW": 390,
+  "semRolagemHorizontal": true,
+  "cortados": [],
+  "alvos": {
+   "linhaDoCliente": null,
+   "chips": null,
+   "whatsapp": null,
+   "verMais": null,
+   "verCliente": null,
+   "pedidoDaCliente": null,
+   "busca": null,
+   "abas": {
+    "n": 4,
+    "h": 83,
+    "w": 98
+   }
+  },
+  "sobrepostos": [],
+  "numeros": {
+   "itens": [
+    {
+     "n": "compras",
+     "top": 398,
+     "left": 21,
+     "w": 166
+    },
+    {
+     "n": "total",
+     "top": 398,
+     "left": 203,
+     "w": 166
+    },
+    {
+     "n": "ticket",
+     "top": 496,
+     "left": 21,
+     "w": 166
+    }
+   ],
+   "empilhados": false,
+   "lado": false
+  },
+  "falhas": []
+ },
+ {
+  "vp": "390",
+  "fonte": 130,
+  "tela": "ficha-telefone",
+  "erros": 0,
+  "scrollW": 390,
+  "innerW": 390,
+  "bodyW": 390,
+  "semRolagemHorizontal": true,
+  "cortados": [],
+  "alvos": {
+   "linhaDoCliente": null,
+   "chips": null,
+   "whatsapp": {
+    "n": 1,
+    "h": 57,
+    "w": 305
+   },
+   "verMais": null,
+   "verCliente": null,
+   "pedidoDaCliente": null,
+   "busca": null,
+   "abas": {
+    "n": 4,
+    "h": 83,
+    "w": 98
+   }
+  },
+  "sobrepostos": [],
+  "numeros": {
+   "itens": [
+    {
+     "n": "compras",
+     "top": 369,
+     "left": 21,
+     "w": 166
+    },
+    {
+     "n": "total",
+     "top": 369,
+     "left": 203,
+     "w": 166
+    },
+    {
+     "n": "ticket",
+     "top": 467,
+     "left": 21,
+     "w": 166
+    }
+   ],
+   "empilhados": false,
+   "lado": false
+  },
+  "falhas": []
+ },
+ {
+  "vp": "390",
+  "fonte": 200,
+  "tela": "lista",
+  "erros": 0,
+  "scrollW": 390,
+  "innerW": 390,
+  "bodyW": 390,
+  "semRolagemHorizontal": true,
+  "cortados": [],
+  "alvos": {
+   "linhaDoCliente": {
+    "n": 25,
+    "h": 244,
+    "w": 260
+   },
+   "chips": {
+    "n": 3,
+    "h": 88,
+    "w": 140
+   },
+   "whatsapp": null,
+   "verMais": null,
+   "verCliente": null,
+   "pedidoDaCliente": null,
+   "busca": {
+    "n": 1,
+    "h": 96,
+    "w": 326
+   },
+   "abas": {
+    "n": 4,
+    "h": 128,
+    "w": 98
+   }
+  },
+  "chips": {
+   "scrollW": 1016,
+   "clientW": 390,
+   "rolaDentro": true,
+   "overflowX": "auto",
+   "afordanciaVisivel": "true"
+  },
+  "sobrepostos": [],
+  "linhasAoFim": 53,
+  "idsDistintos": 53,
+  "contagem": "53 clientes · das atividades mais recentes para as mais antigas",
+  "semRolagemHorizontalAoFim": true,
+  "falhas": []
+ },
+ {
+  "vp": "390",
+  "fonte": 200,
+  "tela": "lista-em-aberto",
+  "erros": 0,
+  "scrollW": 390,
+  "innerW": 390,
+  "bodyW": 390,
+  "semRolagemHorizontal": true,
+  "cortados": [],
+  "alvos": {
+   "linhaDoCliente": {
+    "n": 19,
+    "h": 318,
+    "w": 260
+   },
+   "chips": {
+    "n": 3,
+    "h": 88,
+    "w": 140
+   },
+   "whatsapp": null,
+   "verMais": null,
+   "verCliente": null,
+   "pedidoDaCliente": null,
+   "busca": {
+    "n": 1,
+    "h": 96,
+    "w": 326
+   },
+   "abas": {
+    "n": 4,
+    "h": 128,
+    "w": 98
+   }
+  },
+  "chips": {
+   "scrollW": 1016,
+   "clientW": 390,
+   "rolaDentro": true,
+   "overflowX": "auto",
+   "afordanciaVisivel": "true"
+  },
+  "sobrepostos": [],
+  "falhas": []
+ },
+ {
+  "vp": "390",
+  "fonte": 200,
+  "tela": "ficha-longa",
+  "erros": 0,
+  "scrollW": 390,
+  "innerW": 390,
+  "bodyW": 390,
+  "semRolagemHorizontal": true,
+  "cortados": [],
+  "alvos": {
+   "linhaDoCliente": null,
+   "chips": null,
+   "whatsapp": {
+    "n": 1,
+    "h": 112,
+    "w": 260
+   },
+   "verMais": null,
+   "verCliente": null,
+   "pedidoDaCliente": {
+    "n": 22,
+    "h": 273,
+    "w": 260
+   },
+   "busca": null,
+   "abas": {
+    "n": 4,
+    "h": 128,
+    "w": 98
+   }
+  },
+  "sobrepostos": [],
+  "numeros": {
+   "itens": [
+    {
+     "n": "compras",
+     "top": -6375,
+     "left": 32,
+     "w": 326
+    },
+    {
+     "n": "total",
+     "top": -6225,
+     "left": 32,
+     "w": 326
+    },
+    {
+     "n": "ticket",
+     "top": -6075,
+     "left": 32,
+     "w": 326
+    }
+   ],
+   "empilhados": true,
+   "lado": false
+  },
+  "pedidosAntes": 20,
+  "pedidosDepois": 22,
+  "verMaisDepois": 0,
+  "falhas": []
+ },
+ {
+  "vp": "390",
+  "fonte": 200,
+  "tela": "ficha-sem-nome",
+  "erros": 0,
+  "scrollW": 390,
+  "innerW": 390,
+  "bodyW": 390,
+  "semRolagemHorizontal": true,
+  "cortados": [],
+  "alvos": {
+   "linhaDoCliente": null,
+   "chips": null,
+   "whatsapp": null,
+   "verMais": null,
+   "verCliente": null,
+   "pedidoDaCliente": null,
+   "busca": null,
+   "abas": {
+    "n": 4,
+    "h": 128,
+    "w": 98
+   }
+  },
+  "sobrepostos": [],
+  "numeros": {
+   "itens": [
+    {
+     "n": "compras",
+     "top": 836,
+     "left": 32,
+     "w": 326
+    },
+    {
+     "n": "total",
+     "top": 986,
+     "left": 32,
+     "w": 326
+    },
+    {
+     "n": "ticket",
+     "top": 1136,
+     "left": 32,
+     "w": 326
+    }
+   ],
+   "empilhados": true,
+   "lado": false
+  },
+  "falhas": []
+ },
+ {
+  "vp": "390",
+  "fonte": 200,
+  "tela": "ficha-telefone",
+  "erros": 0,
+  "scrollW": 390,
+  "innerW": 390,
+  "bodyW": 390,
+  "semRolagemHorizontal": true,
+  "cortados": [],
+  "alvos": {
+   "linhaDoCliente": null,
+   "chips": null,
+   "whatsapp": {
+    "n": 1,
+    "h": 112,
+    "w": 260
+   },
+   "verMais": null,
+   "verCliente": null,
+   "pedidoDaCliente": null,
+   "busca": null,
+   "abas": {
+    "n": 4,
+    "h": 128,
+    "w": 98
+   }
+  },
+  "sobrepostos": [],
+  "numeros": {
+   "itens": [
+    {
+     "n": "compras",
+     "top": 780,
+     "left": 32,
+     "w": 326
+    },
+    {
+     "n": "total",
+     "top": 930,
+     "left": 32,
+     "w": 326
+    },
+    {
+     "n": "ticket",
+     "top": 1080,
+     "left": 32,
+     "w": 326
+    }
+   ],
+   "empilhados": true,
+   "lado": false
+  },
+  "falhas": []
+ },
+ {
+  "vp": "412",
+  "fonte": 100,
+  "tela": "lista",
+  "erros": 0,
+  "scrollW": 412,
+  "innerW": 412,
+  "bodyW": 412,
+  "semRolagemHorizontal": true,
+  "cortados": [],
+  "alvos": {
+   "linhaDoCliente": {
+    "n": 25,
+    "h": 64,
+    "w": 346
+   },
+   "chips": {
+    "n": 3,
+    "h": 44,
+    "w": 71
+   },
+   "whatsapp": null,
+   "verMais": null,
+   "verCliente": null,
+   "pedidoDaCliente": null,
+   "busca": {
+    "n": 1,
+    "h": 48,
+    "w": 380
+   },
+   "abas": {
+    "n": 4,
+    "h": 64,
+    "w": 103
+   }
+  },
+  "chips": {
+   "scrollW": 511,
+   "clientW": 412,
+   "rolaDentro": true,
+   "overflowX": "auto",
+   "afordanciaVisivel": "true"
+  },
+  "sobrepostos": [],
+  "linhasAoFim": 53,
+  "idsDistintos": 53,
+  "contagem": "53 clientes · das atividades mais recentes para as mais antigas",
+  "semRolagemHorizontalAoFim": true,
+  "falhas": []
+ },
+ {
+  "vp": "412",
+  "fonte": 100,
+  "tela": "lista-em-aberto",
+  "erros": 0,
+  "scrollW": 412,
+  "innerW": 412,
+  "bodyW": 412,
+  "semRolagemHorizontal": true,
+  "cortados": [],
+  "alvos": {
+   "linhaDoCliente": {
+    "n": 19,
+    "h": 94,
+    "w": 346
+   },
+   "chips": {
+    "n": 3,
+    "h": 44,
+    "w": 71
+   },
+   "whatsapp": null,
+   "verMais": null,
+   "verCliente": null,
+   "pedidoDaCliente": null,
+   "busca": {
+    "n": 1,
+    "h": 48,
+    "w": 380
+   },
+   "abas": {
+    "n": 4,
+    "h": 64,
+    "w": 103
+   }
+  },
+  "chips": {
+   "scrollW": 511,
+   "clientW": 412,
+   "rolaDentro": true,
+   "overflowX": "auto",
+   "afordanciaVisivel": "true"
+  },
+  "sobrepostos": [],
+  "falhas": []
+ },
+ {
+  "vp": "412",
+  "fonte": 100,
+  "tela": "ficha-longa",
+  "erros": 0,
+  "scrollW": 412,
+  "innerW": 412,
+  "bodyW": 412,
+  "semRolagemHorizontal": true,
+  "cortados": [],
+  "alvos": {
+   "linhaDoCliente": null,
+   "chips": null,
+   "whatsapp": {
+    "n": 1,
+    "h": 44,
+    "w": 346
+   },
+   "verMais": null,
+   "verCliente": null,
+   "pedidoDaCliente": {
+    "n": 22,
+    "h": 94,
+    "w": 346
+   },
+   "busca": null,
+   "abas": {
+    "n": 4,
+    "h": 64,
+    "w": 103
+   }
+  },
+  "sobrepostos": [],
+  "numeros": {
+   "itens": [
+    {
+     "n": "compras",
+     "top": -1640,
+     "left": 16,
+     "w": 119
+    },
+    {
+     "n": "total",
+     "top": -1640,
+     "left": 147,
+     "w": 119
+    },
+    {
+     "n": "ticket",
+     "top": -1640,
+     "left": 277,
+     "w": 119
+    }
+   ],
+   "empilhados": false,
+   "lado": true
+  },
+  "pedidosAntes": 20,
+  "pedidosDepois": 22,
+  "verMaisDepois": 0,
+  "falhas": []
+ },
+ {
+  "vp": "412",
+  "fonte": 100,
+  "tela": "ficha-sem-nome",
+  "erros": 0,
+  "scrollW": 412,
+  "innerW": 412,
+  "bodyW": 412,
+  "semRolagemHorizontal": true,
+  "cortados": [],
+  "alvos": {
+   "linhaDoCliente": null,
+   "chips": null,
+   "whatsapp": null,
+   "verMais": null,
+   "verCliente": null,
+   "pedidoDaCliente": null,
+   "busca": null,
+   "abas": {
+    "n": 4,
+    "h": 64,
+    "w": 103
+   }
+  },
+  "sobrepostos": [],
+  "numeros": {
+   "itens": [
+    {
+     "n": "compras",
+     "top": 306,
+     "left": 16,
+     "w": 119
+    },
+    {
+     "n": "total",
+     "top": 306,
+     "left": 147,
+     "w": 119
+    },
+    {
+     "n": "ticket",
+     "top": 306,
+     "left": 277,
+     "w": 119
+    }
+   ],
+   "empilhados": false,
+   "lado": true
+  },
+  "falhas": []
+ },
+ {
+  "vp": "412",
+  "fonte": 100,
+  "tela": "ficha-telefone",
+  "erros": 0,
+  "scrollW": 412,
+  "innerW": 412,
+  "bodyW": 412,
+  "semRolagemHorizontal": true,
+  "cortados": [],
+  "alvos": {
+   "linhaDoCliente": null,
+   "chips": null,
+   "whatsapp": {
+    "n": 1,
+    "h": 44,
+    "w": 346
+   },
+   "verMais": null,
+   "verCliente": null,
+   "pedidoDaCliente": null,
+   "busca": null,
+   "abas": {
+    "n": 4,
+    "h": 64,
+    "w": 103
+   }
+  },
+  "sobrepostos": [],
+  "numeros": {
+   "itens": [
+    {
+     "n": "compras",
+     "top": 284,
+     "left": 16,
+     "w": 119
+    },
+    {
+     "n": "total",
+     "top": 284,
+     "left": 147,
+     "w": 119
+    },
+    {
+     "n": "ticket",
+     "top": 284,
+     "left": 277,
+     "w": 119
+    }
+   ],
+   "empilhados": false,
+   "lado": true
+  },
+  "falhas": []
+ },
+ {
+  "vp": "412",
+  "fonte": 130,
+  "tela": "lista",
+  "erros": 0,
+  "scrollW": 412,
+  "innerW": 412,
+  "bodyW": 412,
+  "semRolagemHorizontal": true,
+  "cortados": [],
+  "alvos": {
+   "linhaDoCliente": {
+    "n": 25,
+    "h": 83,
+    "w": 327
+   },
+   "chips": {
+    "n": 3,
+    "h": 57,
+    "w": 92
+   },
+   "whatsapp": null,
+   "verMais": null,
+   "verCliente": null,
+   "pedidoDaCliente": null,
+   "busca": {
+    "n": 1,
+    "h": 62,
+    "w": 370
+   },
+   "abas": {
+    "n": 4,
+    "h": 83,
+    "w": 103
+   }
+  },
+  "chips": {
+   "scrollW": 662,
+   "clientW": 412,
+   "rolaDentro": true,
+   "overflowX": "auto",
+   "afordanciaVisivel": "true"
+  },
+  "sobrepostos": [],
+  "linhasAoFim": 53,
+  "idsDistintos": 53,
+  "contagem": "53 clientes · das atividades mais recentes para as mais antigas",
+  "semRolagemHorizontalAoFim": true,
+  "falhas": []
+ },
+ {
+  "vp": "412",
+  "fonte": 130,
+  "tela": "lista-em-aberto",
+  "erros": 0,
+  "scrollW": 412,
+  "innerW": 412,
+  "bodyW": 412,
+  "semRolagemHorizontal": true,
+  "cortados": [],
+  "alvos": {
+   "linhaDoCliente": {
+    "n": 19,
+    "h": 121,
+    "w": 327
+   },
+   "chips": {
+    "n": 3,
+    "h": 57,
+    "w": 92
+   },
+   "whatsapp": null,
+   "verMais": null,
+   "verCliente": null,
+   "pedidoDaCliente": null,
+   "busca": {
+    "n": 1,
+    "h": 62,
+    "w": 370
+   },
+   "abas": {
+    "n": 4,
+    "h": 83,
+    "w": 103
+   }
+  },
+  "chips": {
+   "scrollW": 662,
+   "clientW": 412,
+   "rolaDentro": true,
+   "overflowX": "auto",
+   "afordanciaVisivel": "true"
+  },
+  "sobrepostos": [],
+  "falhas": []
+ },
+ {
+  "vp": "412",
+  "fonte": 130,
+  "tela": "ficha-longa",
+  "erros": 0,
+  "scrollW": 412,
+  "innerW": 412,
+  "bodyW": 412,
+  "semRolagemHorizontal": true,
+  "cortados": [],
+  "alvos": {
+   "linhaDoCliente": null,
+   "chips": null,
+   "whatsapp": {
+    "n": 1,
+    "h": 57,
+    "w": 327
+   },
+   "verMais": null,
+   "verCliente": null,
+   "pedidoDaCliente": {
+    "n": 22,
+    "h": 147,
+    "w": 327
+   },
+   "busca": null,
+   "abas": {
+    "n": 4,
+    "h": 83,
+    "w": 103
+   }
+  },
+  "sobrepostos": [],
+  "numeros": {
+   "itens": [
+    {
+     "n": "compras",
+     "top": -3016,
+     "left": 21,
+     "w": 177
+    },
+    {
+     "n": "total",
+     "top": -3016,
+     "left": 214,
+     "w": 177
+    },
+    {
+     "n": "ticket",
+     "top": -2881,
+     "left": 21,
+     "w": 177
+    }
+   ],
+   "empilhados": false,
+   "lado": false
+  },
+  "pedidosAntes": 20,
+  "pedidosDepois": 22,
+  "verMaisDepois": 0,
+  "falhas": []
+ },
+ {
+  "vp": "412",
+  "fonte": 130,
+  "tela": "ficha-sem-nome",
+  "erros": 0,
+  "scrollW": 412,
+  "innerW": 412,
+  "bodyW": 412,
+  "semRolagemHorizontal": true,
+  "cortados": [],
+  "alvos": {
+   "linhaDoCliente": null,
+   "chips": null,
+   "whatsapp": null,
+   "verMais": null,
+   "verCliente": null,
+   "pedidoDaCliente": null,
+   "busca": null,
+   "abas": {
+    "n": 4,
+    "h": 83,
+    "w": 103
+   }
+  },
+  "sobrepostos": [],
+  "numeros": {
+   "itens": [
+    {
+     "n": "compras",
+     "top": 398,
+     "left": 21,
+     "w": 177
+    },
+    {
+     "n": "total",
+     "top": 398,
+     "left": 214,
+     "w": 177
+    },
+    {
+     "n": "ticket",
+     "top": 496,
+     "left": 21,
+     "w": 177
+    }
+   ],
+   "empilhados": false,
+   "lado": false
+  },
+  "falhas": []
+ },
+ {
+  "vp": "412",
+  "fonte": 130,
+  "tela": "ficha-telefone",
+  "erros": 0,
+  "scrollW": 412,
+  "innerW": 412,
+  "bodyW": 412,
+  "semRolagemHorizontal": true,
+  "cortados": [],
+  "alvos": {
+   "linhaDoCliente": null,
+   "chips": null,
+   "whatsapp": {
+    "n": 1,
+    "h": 57,
+    "w": 327
+   },
+   "verMais": null,
+   "verCliente": null,
+   "pedidoDaCliente": null,
+   "busca": null,
+   "abas": {
+    "n": 4,
+    "h": 83,
+    "w": 103
+   }
+  },
+  "sobrepostos": [],
+  "numeros": {
+   "itens": [
+    {
+     "n": "compras",
+     "top": 369,
+     "left": 21,
+     "w": 177
+    },
+    {
+     "n": "total",
+     "top": 369,
+     "left": 214,
+     "w": 177
+    },
+    {
+     "n": "ticket",
+     "top": 467,
+     "left": 21,
+     "w": 177
+    }
+   ],
+   "empilhados": false,
+   "lado": false
+  },
+  "falhas": []
+ },
+ {
+  "vp": "412",
+  "fonte": 200,
+  "tela": "lista",
+  "erros": 0,
+  "scrollW": 412,
+  "innerW": 412,
+  "bodyW": 412,
+  "semRolagemHorizontal": true,
+  "cortados": [],
+  "alvos": {
+   "linhaDoCliente": {
+    "n": 25,
+    "h": 204,
+    "w": 282
+   },
+   "chips": {
+    "n": 3,
+    "h": 88,
+    "w": 140
+   },
+   "whatsapp": null,
+   "verMais": null,
+   "verCliente": null,
+   "pedidoDaCliente": null,
+   "busca": {
+    "n": 1,
+    "h": 96,
+    "w": 348
+   },
+   "abas": {
+    "n": 4,
+    "h": 128,
+    "w": 103
+   }
+  },
+  "chips": {
+   "scrollW": 1016,
+   "clientW": 412,
+   "rolaDentro": true,
+   "overflowX": "auto",
+   "afordanciaVisivel": "true"
+  },
+  "sobrepostos": [],
+  "linhasAoFim": 53,
+  "idsDistintos": 53,
+  "contagem": "53 clientes · das atividades mais recentes para as mais antigas",
+  "semRolagemHorizontalAoFim": true,
+  "falhas": []
+ },
+ {
+  "vp": "412",
+  "fonte": 200,
+  "tela": "lista-em-aberto",
+  "erros": 0,
+  "scrollW": 412,
+  "innerW": 412,
+  "bodyW": 412,
+  "semRolagemHorizontal": true,
+  "cortados": [],
+  "alvos": {
+   "linhaDoCliente": {
+    "n": 19,
+    "h": 265,
+    "w": 282
+   },
+   "chips": {
+    "n": 3,
+    "h": 88,
+    "w": 140
+   },
+   "whatsapp": null,
+   "verMais": null,
+   "verCliente": null,
+   "pedidoDaCliente": null,
+   "busca": {
+    "n": 1,
+    "h": 96,
+    "w": 348
+   },
+   "abas": {
+    "n": 4,
+    "h": 128,
+    "w": 103
+   }
+  },
+  "chips": {
+   "scrollW": 1016,
+   "clientW": 412,
+   "rolaDentro": true,
+   "overflowX": "auto",
+   "afordanciaVisivel": "true"
+  },
+  "sobrepostos": [],
+  "falhas": []
+ },
+ {
+  "vp": "412",
+  "fonte": 200,
+  "tela": "ficha-longa",
+  "erros": 0,
+  "scrollW": 412,
+  "innerW": 412,
+  "bodyW": 412,
+  "semRolagemHorizontal": true,
+  "cortados": [],
+  "alvos": {
+   "linhaDoCliente": null,
+   "chips": null,
+   "whatsapp": {
+    "n": 1,
+    "h": 112,
+    "w": 282
+   },
+   "verMais": null,
+   "verCliente": null,
+   "pedidoDaCliente": {
+    "n": 22,
+    "h": 273,
+    "w": 282
+   },
+   "busca": null,
+   "abas": {
+    "n": 4,
+    "h": 128,
+    "w": 103
+   }
+  },
+  "sobrepostos": [],
+  "numeros": {
+   "itens": [
+    {
+     "n": "compras",
+     "top": -6247,
+     "left": 32,
+     "w": 348
+    },
+    {
+     "n": "total",
+     "top": -6097,
+     "left": 32,
+     "w": 348
+    },
+    {
+     "n": "ticket",
+     "top": -5947,
+     "left": 32,
+     "w": 348
+    }
+   ],
+   "empilhados": true,
+   "lado": false
+  },
+  "pedidosAntes": 20,
+  "pedidosDepois": 22,
+  "verMaisDepois": 0,
+  "falhas": []
+ },
+ {
+  "vp": "412",
+  "fonte": 200,
+  "tela": "ficha-sem-nome",
+  "erros": 0,
+  "scrollW": 412,
+  "innerW": 412,
+  "bodyW": 412,
+  "semRolagemHorizontal": true,
+  "cortados": [],
+  "alvos": {
+   "linhaDoCliente": null,
+   "chips": null,
+   "whatsapp": null,
+   "verMais": null,
+   "verCliente": null,
+   "pedidoDaCliente": null,
+   "busca": null,
+   "abas": {
+    "n": 4,
+    "h": 128,
+    "w": 103
+   }
+  },
+  "sobrepostos": [],
+  "numeros": {
+   "itens": [
+    {
+     "n": "compras",
+     "top": 796,
+     "left": 32,
+     "w": 348
+    },
+    {
+     "n": "total",
+     "top": 946,
+     "left": 32,
+     "w": 348
+    },
+    {
+     "n": "ticket",
+     "top": 1096,
+     "left": 32,
+     "w": 348
+    }
+   ],
+   "empilhados": true,
+   "lado": false
+  },
+  "falhas": []
+ },
+ {
+  "vp": "412",
+  "fonte": 200,
+  "tela": "ficha-telefone",
+  "erros": 0,
+  "scrollW": 412,
+  "innerW": 412,
+  "bodyW": 412,
+  "semRolagemHorizontal": true,
+  "cortados": [],
+  "alvos": {
+   "linhaDoCliente": null,
+   "chips": null,
+   "whatsapp": {
+    "n": 1,
+    "h": 112,
+    "w": 282
+   },
+   "verMais": null,
+   "verCliente": null,
+   "pedidoDaCliente": null,
+   "busca": null,
+   "abas": {
+    "n": 4,
+    "h": 128,
+    "w": 103
+   }
+  },
+  "sobrepostos": [],
+  "numeros": {
+   "itens": [
+    {
+     "n": "compras",
+     "top": 740,
+     "left": 32,
+     "w": 348
+    },
+    {
+     "n": "total",
+     "top": 890,
+     "left": 32,
+     "w": 348
+    },
+    {
+     "n": "ticket",
+     "top": 1040,
+     "left": 32,
+     "w": 348
+    }
+   ],
+   "empilhados": true,
+   "lado": false
+  },
+  "falhas": []
+ },
+ {
+  "vp": "1440",
+  "fonte": 100,
+  "tela": "lista",
+  "erros": 0,
+  "scrollW": 1440,
+  "innerW": 1440,
+  "bodyW": 1440,
+  "semRolagemHorizontal": true,
+  "cortados": [],
+  "alvos": {
+   "linhaDoCliente": {
+    "n": 25,
+    "h": 64,
+    "w": 1374
+   },
+   "chips": {
+    "n": 3,
+    "h": 44,
+    "w": 71
+   },
+   "whatsapp": null,
+   "verMais": null,
+   "verCliente": null,
+   "pedidoDaCliente": null,
+   "busca": {
+    "n": 1,
+    "h": 48,
+    "w": 1408
+   },
+   "abas": {
+    "n": 4,
+    "h": 64,
+    "w": 128
+   }
+  },
+  "chips": {
+   "scrollW": 1440,
+   "clientW": 1440,
+   "rolaDentro": false,
+   "overflowX": "auto",
+   "afordanciaVisivel": "false"
+  },
+  "sobrepostos": [],
+  "linhasAoFim": 53,
+  "idsDistintos": 53,
+  "contagem": "53 clientes · das atividades mais recentes para as mais antigas",
+  "semRolagemHorizontalAoFim": true,
+  "falhas": []
+ },
+ {
+  "vp": "1440",
+  "fonte": 100,
+  "tela": "lista-em-aberto",
+  "erros": 0,
+  "scrollW": 1440,
+  "innerW": 1440,
+  "bodyW": 1440,
+  "semRolagemHorizontal": true,
+  "cortados": [],
+  "alvos": {
+   "linhaDoCliente": {
+    "n": 19,
+    "h": 94,
+    "w": 1374
+   },
+   "chips": {
+    "n": 3,
+    "h": 44,
+    "w": 71
+   },
+   "whatsapp": null,
+   "verMais": null,
+   "verCliente": null,
+   "pedidoDaCliente": null,
+   "busca": {
+    "n": 1,
+    "h": 48,
+    "w": 1408
+   },
+   "abas": {
+    "n": 4,
+    "h": 64,
+    "w": 128
+   }
+  },
+  "chips": {
+   "scrollW": 1440,
+   "clientW": 1440,
+   "rolaDentro": false,
+   "overflowX": "auto",
+   "afordanciaVisivel": "false"
+  },
+  "sobrepostos": [],
+  "falhas": []
+ },
+ {
+  "vp": "1440",
+  "fonte": 100,
+  "tela": "ficha-longa",
+  "erros": 0,
+  "scrollW": 1440,
+  "innerW": 1440,
+  "bodyW": 1440,
+  "semRolagemHorizontal": true,
+  "cortados": [],
+  "alvos": {
+   "linhaDoCliente": null,
+   "chips": null,
+   "whatsapp": {
+    "n": 1,
+    "h": 44,
+    "w": 1374
+   },
+   "verMais": null,
+   "verCliente": null,
+   "pedidoDaCliente": {
+    "n": 22,
+    "h": 94,
+    "w": 1374
+   },
+   "busca": null,
+   "abas": {
+    "n": 4,
+    "h": 64,
+    "w": 128
+   }
+  },
+  "sobrepostos": [],
+  "numeros": {
+   "itens": [
+    {
+     "n": "compras",
+     "top": -1567,
+     "left": 16,
+     "w": 461
+    },
+    {
+     "n": "total",
+     "top": -1567,
+     "left": 489,
+     "w": 461
+    },
+    {
+     "n": "ticket",
+     "top": -1567,
+     "left": 963,
+     "w": 461
+    }
+   ],
+   "empilhados": false,
+   "lado": true
+  },
+  "pedidosAntes": 20,
+  "pedidosDepois": 22,
+  "verMaisDepois": 0,
+  "falhas": []
+ },
+ {
+  "vp": "1440",
+  "fonte": 100,
+  "tela": "ficha-sem-nome",
+  "erros": 0,
+  "scrollW": 1440,
+  "innerW": 1440,
+  "bodyW": 1440,
+  "semRolagemHorizontal": true,
+  "cortados": [],
+  "alvos": {
+   "linhaDoCliente": null,
+   "chips": null,
+   "whatsapp": null,
+   "verMais": null,
+   "verCliente": null,
+   "pedidoDaCliente": null,
+   "busca": null,
+   "abas": {
+    "n": 4,
+    "h": 64,
+    "w": 128
+   }
+  },
+  "sobrepostos": [],
+  "numeros": {
+   "itens": [
+    {
+     "n": "compras",
+     "top": 284,
+     "left": 16,
+     "w": 461
+    },
+    {
+     "n": "total",
+     "top": 284,
+     "left": 489,
+     "w": 461
+    },
+    {
+     "n": "ticket",
+     "top": 284,
+     "left": 963,
+     "w": 461
+    }
+   ],
+   "empilhados": false,
+   "lado": true
+  },
+  "falhas": []
+ },
+ {
+  "vp": "1440",
+  "fonte": 100,
+  "tela": "ficha-telefone",
+  "erros": 0,
+  "scrollW": 1440,
+  "innerW": 1440,
+  "bodyW": 1440,
+  "semRolagemHorizontal": true,
+  "cortados": [],
+  "alvos": {
+   "linhaDoCliente": null,
+   "chips": null,
+   "whatsapp": {
+    "n": 1,
+    "h": 44,
+    "w": 1374
+   },
+   "verMais": null,
+   "verCliente": null,
+   "pedidoDaCliente": null,
+   "busca": null,
+   "abas": {
+    "n": 4,
+    "h": 64,
+    "w": 128
+   }
+  },
+  "sobrepostos": [],
+  "numeros": {
+   "itens": [
+    {
+     "n": "compras",
+     "top": 284,
+     "left": 16,
+     "w": 461
+    },
+    {
+     "n": "total",
+     "top": 284,
+     "left": 489,
+     "w": 461
+    },
+    {
+     "n": "ticket",
+     "top": 284,
+     "left": 963,
+     "w": 461
+    }
+   ],
+   "empilhados": false,
+   "lado": true
+  },
+  "falhas": []
+ },
+ {
+  "vp": "1440",
+  "fonte": 130,
+  "tela": "lista",
+  "erros": 0,
+  "scrollW": 1440,
+  "innerW": 1440,
+  "bodyW": 1440,
+  "semRolagemHorizontal": true,
+  "cortados": [],
+  "alvos": {
+   "linhaDoCliente": {
+    "n": 25,
+    "h": 83,
+    "w": 1355
+   },
+   "chips": {
+    "n": 3,
+    "h": 57,
+    "w": 92
+   },
+   "whatsapp": null,
+   "verMais": null,
+   "verCliente": null,
+   "pedidoDaCliente": null,
+   "busca": {
+    "n": 1,
+    "h": 62,
+    "w": 1398
+   },
+   "abas": {
+    "n": 4,
+    "h": 83,
+    "w": 166
+   }
+  },
+  "chips": {
+   "scrollW": 1440,
+   "clientW": 1440,
+   "rolaDentro": false,
+   "overflowX": "auto",
+   "afordanciaVisivel": "false"
+  },
+  "sobrepostos": [],
+  "linhasAoFim": 53,
+  "idsDistintos": 53,
+  "contagem": "53 clientes · das atividades mais recentes para as mais antigas",
+  "semRolagemHorizontalAoFim": true,
+  "falhas": []
+ },
+ {
+  "vp": "1440",
+  "fonte": 130,
+  "tela": "lista-em-aberto",
+  "erros": 0,
+  "scrollW": 1440,
+  "innerW": 1440,
+  "bodyW": 1440,
+  "semRolagemHorizontal": true,
+  "cortados": [],
+  "alvos": {
+   "linhaDoCliente": {
+    "n": 19,
+    "h": 121,
+    "w": 1355
+   },
+   "chips": {
+    "n": 3,
+    "h": 57,
+    "w": 92
+   },
+   "whatsapp": null,
+   "verMais": null,
+   "verCliente": null,
+   "pedidoDaCliente": null,
+   "busca": {
+    "n": 1,
+    "h": 62,
+    "w": 1398
+   },
+   "abas": {
+    "n": 4,
+    "h": 83,
+    "w": 166
+   }
+  },
+  "chips": {
+   "scrollW": 1440,
+   "clientW": 1440,
+   "rolaDentro": false,
+   "overflowX": "auto",
+   "afordanciaVisivel": "false"
+  },
+  "sobrepostos": [],
+  "falhas": []
+ },
+ {
+  "vp": "1440",
+  "fonte": 130,
+  "tela": "ficha-longa",
+  "erros": 0,
+  "scrollW": 1440,
+  "innerW": 1440,
+  "bodyW": 1440,
+  "semRolagemHorizontal": true,
+  "cortados": [],
+  "alvos": {
+   "linhaDoCliente": null,
+   "chips": null,
+   "whatsapp": {
+    "n": 1,
+    "h": 57,
+    "w": 1355
+   },
+   "verMais": null,
+   "verCliente": null,
+   "pedidoDaCliente": {
+    "n": 22,
+    "h": 121,
+    "w": 1355
+   },
+   "busca": null,
+   "abas": {
+    "n": 4,
+    "h": 83,
+    "w": 166
+   }
+  },
+  "sobrepostos": [],
+  "numeros": {
+   "itens": [
+    {
+     "n": "compras",
+     "top": -2273,
+     "left": 21,
+     "w": 456
+    },
+    {
+     "n": "total",
+     "top": -2273,
+     "left": 492,
+     "w": 456
+    },
+    {
+     "n": "ticket",
+     "top": -2273,
+     "left": 963,
+     "w": 456
+    }
+   ],
+   "empilhados": false,
+   "lado": true
+  },
+  "pedidosAntes": 20,
+  "pedidosDepois": 22,
+  "verMaisDepois": 0,
+  "falhas": []
+ },
+ {
+  "vp": "1440",
+  "fonte": 130,
+  "tela": "ficha-sem-nome",
+  "erros": 0,
+  "scrollW": 1440,
+  "innerW": 1440,
+  "bodyW": 1440,
+  "semRolagemHorizontal": true,
+  "cortados": [],
+  "alvos": {
+   "linhaDoCliente": null,
+   "chips": null,
+   "whatsapp": null,
+   "verMais": null,
+   "verCliente": null,
+   "pedidoDaCliente": null,
+   "busca": null,
+   "abas": {
+    "n": 4,
+    "h": 83,
+    "w": 166
+   }
+  },
+  "sobrepostos": [],
+  "numeros": {
+   "itens": [
+    {
+     "n": "compras",
+     "top": 369,
+     "left": 21,
+     "w": 456
+    },
+    {
+     "n": "total",
+     "top": 369,
+     "left": 492,
+     "w": 456
+    },
+    {
+     "n": "ticket",
+     "top": 369,
+     "left": 963,
+     "w": 456
+    }
+   ],
+   "empilhados": false,
+   "lado": true
+  },
+  "falhas": []
+ },
+ {
+  "vp": "1440",
+  "fonte": 130,
+  "tela": "ficha-telefone",
+  "erros": 0,
+  "scrollW": 1440,
+  "innerW": 1440,
+  "bodyW": 1440,
+  "semRolagemHorizontal": true,
+  "cortados": [],
+  "alvos": {
+   "linhaDoCliente": null,
+   "chips": null,
+   "whatsapp": {
+    "n": 1,
+    "h": 57,
+    "w": 1355
+   },
+   "verMais": null,
+   "verCliente": null,
+   "pedidoDaCliente": null,
+   "busca": null,
+   "abas": {
+    "n": 4,
+    "h": 83,
+    "w": 166
+   }
+  },
+  "sobrepostos": [],
+  "numeros": {
+   "itens": [
+    {
+     "n": "compras",
+     "top": 369,
+     "left": 21,
+     "w": 456
+    },
+    {
+     "n": "total",
+     "top": 369,
+     "left": 492,
+     "w": 456
+    },
+    {
+     "n": "ticket",
+     "top": 369,
+     "left": 963,
+     "w": 456
+    }
+   ],
+   "empilhados": false,
+   "lado": true
+  },
+  "falhas": []
+ },
+ {
+  "vp": "1440",
+  "fonte": 200,
+  "tela": "lista",
+  "erros": 0,
+  "scrollW": 1440,
+  "innerW": 1440,
+  "bodyW": 1440,
+  "semRolagemHorizontal": true,
+  "cortados": [],
+  "alvos": {
+   "linhaDoCliente": {
+    "n": 25,
+    "h": 128,
+    "w": 1310
+   },
+   "chips": {
+    "n": 3,
+    "h": 88,
+    "w": 140
+   },
+   "whatsapp": null,
+   "verMais": null,
+   "verCliente": null,
+   "pedidoDaCliente": null,
+   "busca": {
+    "n": 1,
+    "h": 96,
+    "w": 1376
+   },
+   "abas": {
+    "n": 4,
+    "h": 128,
+    "w": 256
+   }
+  },
+  "chips": {
+   "scrollW": 1440,
+   "clientW": 1440,
+   "rolaDentro": false,
+   "overflowX": "auto",
+   "afordanciaVisivel": "false"
+  },
+  "sobrepostos": [],
+  "linhasAoFim": 53,
+  "idsDistintos": 53,
+  "contagem": "53 clientes · das atividades mais recentes para as mais antigas",
+  "semRolagemHorizontalAoFim": true,
+  "falhas": []
+ },
+ {
+  "vp": "1440",
+  "fonte": 200,
+  "tela": "lista-em-aberto",
+  "erros": 0,
+  "scrollW": 1440,
+  "innerW": 1440,
+  "bodyW": 1440,
+  "semRolagemHorizontal": true,
+  "cortados": [],
+  "alvos": {
+   "linhaDoCliente": {
+    "n": 19,
+    "h": 185,
+    "w": 1310
+   },
+   "chips": {
+    "n": 3,
+    "h": 88,
+    "w": 140
+   },
+   "whatsapp": null,
+   "verMais": null,
+   "verCliente": null,
+   "pedidoDaCliente": null,
+   "busca": {
+    "n": 1,
+    "h": 96,
+    "w": 1376
+   },
+   "abas": {
+    "n": 4,
+    "h": 128,
+    "w": 256
+   }
+  },
+  "chips": {
+   "scrollW": 1440,
+   "clientW": 1440,
+   "rolaDentro": false,
+   "overflowX": "auto",
+   "afordanciaVisivel": "false"
+  },
+  "sobrepostos": [],
+  "falhas": []
+ },
+ {
+  "vp": "1440",
+  "fonte": 200,
+  "tela": "ficha-longa",
+  "erros": 0,
+  "scrollW": 1440,
+  "innerW": 1440,
+  "bodyW": 1440,
+  "semRolagemHorizontal": true,
+  "cortados": [],
+  "alvos": {
+   "linhaDoCliente": null,
+   "chips": null,
+   "whatsapp": {
+    "n": 1,
+    "h": 88,
+    "w": 1310
+   },
+   "verMais": null,
+   "verCliente": null,
+   "pedidoDaCliente": {
+    "n": 22,
+    "h": 185,
+    "w": 1310
+   },
+   "busca": null,
+   "abas": {
+    "n": 4,
+    "h": 128,
+    "w": 256
+   }
+  },
+  "sobrepostos": [],
+  "numeros": {
+   "itens": [
+    {
+     "n": "compras",
+     "top": -3989,
+     "left": 32,
+     "w": 443
+    },
+    {
+     "n": "total",
+     "top": -3989,
+     "left": 499,
+     "w": 443
+    },
+    {
+     "n": "ticket",
+     "top": -3989,
+     "left": 965,
+     "w": 443
+    }
+   ],
+   "empilhados": false,
+   "lado": true
+  },
+  "pedidosAntes": 20,
+  "pedidosDepois": 22,
+  "verMaisDepois": 0,
+  "falhas": []
+ },
+ {
+  "vp": "1440",
+  "fonte": 200,
+  "tela": "ficha-sem-nome",
+  "erros": 0,
+  "scrollW": 1440,
+  "innerW": 1440,
+  "bodyW": 1440,
+  "semRolagemHorizontal": true,
+  "cortados": [],
+  "alvos": {
+   "linhaDoCliente": null,
+   "chips": null,
+   "whatsapp": null,
+   "verMais": null,
+   "verCliente": null,
+   "pedidoDaCliente": null,
+   "busca": null,
+   "abas": {
+    "n": 4,
+    "h": 128,
+    "w": 256
+   }
+  },
+  "sobrepostos": [],
+  "numeros": {
+   "itens": [
+    {
+     "n": "compras",
+     "top": 568,
+     "left": 32,
+     "w": 443
+    },
+    {
+     "n": "total",
+     "top": 568,
+     "left": 499,
+     "w": 443
+    },
+    {
+     "n": "ticket",
+     "top": 568,
+     "left": 965,
+     "w": 443
+    }
+   ],
+   "empilhados": false,
+   "lado": true
+  },
+  "falhas": []
+ },
+ {
+  "vp": "1440",
+  "fonte": 200,
+  "tela": "ficha-telefone",
+  "erros": 0,
+  "scrollW": 1440,
+  "innerW": 1440,
+  "bodyW": 1440,
+  "semRolagemHorizontal": true,
+  "cortados": [],
+  "alvos": {
+   "linhaDoCliente": null,
+   "chips": null,
+   "whatsapp": {
+    "n": 1,
+    "h": 88,
+    "w": 1310
+   },
+   "verMais": null,
+   "verCliente": null,
+   "pedidoDaCliente": null,
+   "busca": null,
+   "abas": {
+    "n": 4,
+    "h": 128,
+    "w": 256
+   }
+  },
+  "sobrepostos": [],
+  "numeros": {
+   "itens": [
+    {
+     "n": "compras",
+     "top": 568,
+     "left": 32,
+     "w": 443
+    },
+    {
+     "n": "total",
+     "top": 568,
+     "left": 499,
+     "w": 443
+    },
+    {
+     "n": "ticket",
+     "top": 568,
+     "left": 965,
+     "w": 443
+    }
+   ],
+   "empilhados": false,
+   "lado": true
+  },
+  "falhas": []
+ }
+]

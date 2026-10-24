@@ -11,7 +11,6 @@ export { default as LinhaDoPedido } from './ui/LinhaDoPedido'
 export { nomeDaLinha } from './model/nomeDaLinha'
 export { LISTA_DE_PEDIDOS_KEY, chaveDaLista, tamanhoDaJanela, useListaDePedidos } from './api/useListaDePedidos'
 export { PEDIDO_KEY, chaveDoPedido, usePedido } from './api/usePedido'
-export { conferirPapel } from './api/lerComPapel'
 export type {
   Bloco,
   DetalheDoPedido,

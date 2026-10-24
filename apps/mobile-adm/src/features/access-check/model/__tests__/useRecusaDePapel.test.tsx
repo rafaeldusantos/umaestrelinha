@@ -12,9 +12,9 @@ vi.mock('@estrelinha/supabase/client', async () => ({ supabase: (await import('@
 const RECUSA = { message: 'permission denied for function store_overview', code: '42501' }
 const REDE = { message: 'Failed to fetch' }
 
-const Sonda = ({ erros }: { erros: unknown[] }) => {
+const Sonda = ({ erros, boa = erros.length === 0 }: { erros: unknown[]; boa?: boolean }) => {
   const { loading } = useAuthContext()
-  const recusada = useRecusaDePapel(erros)
+  const recusada = useRecusaDePapel(erros, boa)
   return <p data-testid="sonda">{`${loading ? 'carregando' : 'pronto'}:${recusada ? 'recusada' : 'ok'}`}</p>
 }
 
@@ -109,6 +109,41 @@ describe('useRecusaDePapel', () => {
     await new Promise((r) => setTimeout(r, 50))
     expect(consultasDoPapel()).toBe(1)
     expect(screen.getByTestId('sonda').textContent).toBe('pronto:ok')
+  })
+})
+
+describe('o episódio só acaba com uma leitura BOA (BUG-20261024-recusa-com-papel-admin-vira-tempestade)', () => {
+  it('sem erro porque a consulta recomeçou (nenhuma leitura boa) NÃO encerra o episódio: o `42501` seguinte não reconfere', async () => {
+    const { rerender } = await montar([])
+    rerender(
+      <AuthProvider>
+        <Sonda erros={[RECUSA]} />
+      </AuthProvider>,
+    )
+    await waitFor(() => expect(consultasDoPapel()).toBe(2))
+
+    // A consulta recomeçou: o React Query apagou o erro, e ainda não há dado.
+    rerender(
+      <AuthProvider>
+        <Sonda erros={[]} boa={false} />
+      </AuthProvider>,
+    )
+    await new Promise((r) => setTimeout(r, 20))
+    rerender(
+      <AuthProvider>
+        <Sonda erros={[{ ...RECUSA }]} />
+      </AuthProvider>,
+    )
+    await new Promise((r) => setTimeout(r, 50))
+    expect(consultasDoPapel()).toBe(2)
+
+    // Encerra o episódio (a marca é do módulo): uma leitura boa.
+    rerender(
+      <AuthProvider>
+        <Sonda erros={[]} boa />
+      </AuthProvider>,
+    )
+    await new Promise((r) => setTimeout(r, 20))
   })
 })
 

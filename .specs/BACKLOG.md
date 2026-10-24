@@ -2022,3 +2022,41 @@ molde de `materialTransitions.test.ts`; a entrada da RPC na lista literal de `ma
 dublê do painel passando a ver `rpc` em vez de `update` (asserções do painel reescritas — por isso
 ficou fora da `75`, que prometeu nenhuma asserção do painel tocada, `AD-056`).
 
+
+
+## BL-053 — `customer_stats` junta pedido e pessoa por `OR`, e a lista custa segundos com milhares de pessoas
+
+- **Status**: aberto · **Registrado em**: 2026-10-24 · **Origem**: probe `02-desempenho.sql` da
+  feature `76` (T10), `.specs/features/76-mobile-adm-clientes/probes/02-em-aberto.saida.txt`.
+
+Com 3.000 pessoas e 6.000 pedidos de fixtura (transação desfeita), a primeira página de
+`customer_list` (`order by last_activity_at desc nulls last, id limit 25`) leva **~7,9 s**. **Não vem
+da `orders_open`**: a mesma consulta sobre a definição ANTIGA da migration `34`, medida na mesma carga,
+levou ~7,8 s. A causa é o `CTE vinculo`, que junta `customer_directory` a `orders` por
+`o.customer_id = d.id OR lower(o.customer_email) = lower(d.email)`: o `OR` impede hash join e o
+planejador cai num `Nested Loop` com ~18,5 milhões de linhas removidas pelo filtro de junção.
+
+Com os 48 clientes de hoje o custo é desprezível; o problema aparece perto de milhares. **A saída**:
+separar o vínculo em dois ramos (`UNION ALL` de "por id" e "por e-mail sem id", deduplicando), ou
+materializar o e-mail normalizado numa expressão indexada e juntar por igualdade. **Custo**: migration
+nova que reescreve `customer_stats` (e prova de paridade das 19 colunas antes e depois, como a da T08
+da `76`). A `76` não conserta: a spec manda abrir a entrada.
+
+## BL-052 — O painel monta o vínculo cliente × pedido e a busca sem o escape de `ilike`
+
+- **Status**: aberto · **Registrado em**: 2026-10-24 · **Origem**: feature `76` (T33), `AD-061`, TQ7.
+
+O app do ateliê passa todo valor de `ilike` por `ilikeContains`/`ilikeExact` (`core/customers/like.ts`:
+entre aspas, `\`, `%` e `_` escapados). O **painel** (`apps/backoffice/src/entities/customer`) continua
+com `escapeSearchTerm` (troca só `( ) ,` por espaço) e o vínculo da ficha pelo e-mail com curinga: a
+ficha de `VROSA_RJ` puxa o pedido de `VROSAXRJ` (medido, com controle, em `probes/01-banco.ts` e
+`03-paridade.ts` da `76`). **Não foi consertado na `76`** — a spec prometeu o painel sem asserção tocada
+(`AD-056`). **A saída**: o painel chamar `customerOrdersCondition` e `buildCustomerSearchCondition`
+com `literal`; muda o comportamento da busca do painel (a busca por `%` deixa de ser curinga), então é
+decisão do usuário e leva testes do painel reescritos.
+
+**Parcialmente fechada no QA da `76` (2026-10-24)**: o **vínculo da ficha** do painel
+(`useAdminCustomer`) passou a chamar `customerOrdersCondition` — a ficha de `VROSA_RJ` não puxa mais o
+pedido de `VROSAXRJ` (`BUG-20261024-painel-ficha-puxa-pedido-de-outra-pessoa-por-underscore`, teste novo
+`useAdminCustomer.vinculo.test.ts`, nenhum teste antigo tocado). **Fica aberta a BUSCA do painel** (a lista
+ainda usa `escapeSearchTerm`, e `%`/`_` digitados valem como curinga).

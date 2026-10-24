@@ -74,6 +74,7 @@ export interface ConsultaFalsa extends PromiseLike<RespostaTabela> {
   eq(...args: unknown[]): ConsultaFalsa
   neq(...args: unknown[]): ConsultaFalsa
   is(...args: unknown[]): ConsultaFalsa
+  not(...args: unknown[]): ConsultaFalsa
   ilike(...args: unknown[]): ConsultaFalsa
   gt(...args: unknown[]): ConsultaFalsa
   lt(...args: unknown[]): ConsultaFalsa
@@ -87,7 +88,7 @@ export interface ConsultaFalsa extends PromiseLike<RespostaTabela> {
 }
 
 /** Os métodos de filtro e de forma que o dublê aceita e registra. Fora desta lista, `is not a function`. */
-const METODOS_DA_CADEIA = ['select', 'or', 'in', 'eq', 'neq', 'is', 'ilike', 'gt', 'lt', 'gte', 'lte', 'order', 'limit', 'range'] as const
+const METODOS_DA_CADEIA = ['select', 'or', 'in', 'eq', 'neq', 'is', 'not', 'ilike', 'gt', 'lt', 'gte', 'lte', 'order', 'limit', 'range'] as const
 
 /** Os comandos de escrita que o dublê aceita (feature `75`). O primeiro elo decide o modo da consulta. */
 const COMANDOS_DE_ESCRITA = ['update', 'insert', 'upsert', 'delete'] as const

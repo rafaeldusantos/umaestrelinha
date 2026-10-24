@@ -6,6 +6,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@estrelinha/supabase/client'
+import { customerOrdersCondition } from '@estrelinha/core/customers'
 import type { DbAddress, DbCustomerNote, DbOrder } from '@estrelinha/supabase/types'
 import type { CustomerListRow } from './customerQuery'
 
@@ -80,7 +81,9 @@ export const useAdminCustomer = (id: string | undefined): AdminCustomerDetail =>
       supabase
         .from('orders')
         .select('*')
-        .or(`customer_id.eq.${id},customer_email.ilike.${pessoa.email}`)
+        // O e-mail vai EXATO e escapado (A10, `BL-052`): cru, o `_` de `VROSA_RJ@…` era curinga e a ficha
+        // puxava o pedido de `VROSAXRJ@…`. O dono é `core/customers`, o mesmo do app do ateliê.
+        .or(customerOrdersCondition(pessoa.id, pessoa.email))
         .order('created_at', { ascending: false }),
       // `CLI-09` — a tabela `addresses` existe desde a migration inicial e o painel NUNCA a leu.
       supabase

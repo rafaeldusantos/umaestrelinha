@@ -7,7 +7,6 @@ import { fake, type RespostaRpc } from '@/test/fakeSupabase'
 import { isAccessDenied } from '@estrelinha/core/hooks/useStoreOverview'
 
 import { conferirPapel, lerComPapel } from '../lerComPapel'
-import * as slice from '../..'
 
 vi.mock('@estrelinha/supabase/client', async () => ({ supabase: (await import('@/test/fakeSupabase')).fake.client }))
 
@@ -150,10 +149,5 @@ describe('conferirPapel (feature 75)', () => {
     expect(erro).toBeInstanceOf(Error)
     expect(erro.message).toBe('atelie_clock respondeu sem lido_em')
     expect(isAccessDenied(erro)).toBe(false)
-  })
-
-  it('é exportada pelo slice (a porta de escrita a importa de `@/entities/order`)', () => {
-    expect(typeof conferirPapel).toBe('function')
-    expect(slice.conferirPapel).toBe(conferirPapel)
   })
 })
