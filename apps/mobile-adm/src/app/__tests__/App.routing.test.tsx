@@ -69,6 +69,11 @@ describe('o router do ateliê', () => {
 
   it('MAF-06 — com a sessão resolvida na hora, a splash fica até 600 ms e sai aos 600', async () => {
     fake.comSessao('adri@exemplo.invalid', { admin: true })
+    // A fronteira 599/600 é medida no relógio FALSO só: com `shouldAdvanceTime` o relógio falso anda
+    // junto do real, e o tempo real gasto montando a árvore (desde a `74`, a `PedidosPage` de verdade)
+    // consumia a margem — 1 reprovação em 5 execuções completas (O-r2-1 da verificação da `74`).
+    vi.useRealTimers()
+    vi.useFakeTimers({ shouldAdvanceTime: false })
     await montarApp('/pedidos', { passarPiso: false })
     await act(() => vi.advanceTimersByTimeAsync(599))
     expect(splash()).toBeInTheDocument()

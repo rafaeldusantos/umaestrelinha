@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { abaDoCaminho, TabBar, tituloDaAba } from '@/widgets/tab-bar'
 import { AccountMenu } from '@/widgets/account-menu'
+import { useResumo } from '@/entities/stats'
 import { backofficeUrl } from '@/shared/config/backoffice'
 
 /**
@@ -19,12 +20,22 @@ import { backofficeUrl } from '@/shared/config/backoffice'
  * Ateliê") e o foco vai ao título da página, para o leitor de tela ler a tela nova — antes ele só
  * repetia "Clientes, atual". O foco NÃO se move na primeira montagem: quem abre o app não trocou de
  * nada, e roubar o foco ali só atrapalharia.
+ *
+ * **O selo da aba Pedidos** (feature `74`, `MAP-31`..`MAP-33`, A24, A25) é `fila.precisa_acao` de
+ * `store_overview`, lido por `useResumo` — a MESMA chave de cache da Início, então com a Início aberta
+ * é UMA leitura (dedupe do React Query). Relê com ela: ao montar, no primeiro plano e quando a lista ou
+ * o detalhe recebem o aviso do Realtime (eles invalidam `STORE_OVERVIEW_KEY`). Sem leitura boa —
+ * pendente, em falha, releitura falhada com dado, recusa — não há selo: nunca o número do cache, nunca
+ * zero (`MAP-32`). **Sem `useRecusaDePapel`** (G-A24): no `42501` o selo só some; quem leva à recusa é
+ * a tela, uma vez por episódio.
  */
 const MobileLayout = () => {
   const url = backofficeUrl()
   const { pathname } = useLocation()
   const conteudo = useRef<HTMLElement>(null)
   const anterior = useRef<string | null>(null)
+  const resumo = useResumo()
+  const precisaDeVoce = resumo.isError || !resumo.data ? null : resumo.data.fila.precisa_acao
 
   useEffect(() => {
     const aba = abaDoCaminho(pathname)
@@ -61,7 +72,7 @@ const MobileLayout = () => {
       </footer>
 
       <div data-testid="reserva-da-barra" aria-hidden="true" className="h-[calc(4rem+env(safe-area-inset-bottom))] shrink-0" />
-      <TabBar />
+      <TabBar selos={{ '/pedidos': precisaDeVoce }} />
     </div>
   )
 }

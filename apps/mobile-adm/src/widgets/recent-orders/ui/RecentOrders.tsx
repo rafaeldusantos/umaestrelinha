@@ -3,7 +3,7 @@ import { cn } from '@estrelinha/ui/lib/utils'
 import { formatPrice } from '@estrelinha/core/formatters'
 import { formatOrderNumber } from '@estrelinha/core/orders'
 import { relativeAge, type StoreOverview } from '@estrelinha/core/stats'
-import { SituacaoDoPedido, pedidosHref } from '@/entities/order'
+import { SituacaoDoPedido, pedidoHref, pedidosHref } from '@/entities/order'
 import { FalhaDoBloco, Traco, type Leitura } from '@/shared/ui/leitura'
 
 export const MAXIMO_DE_RECENTES = 4
@@ -21,8 +21,10 @@ export const SEM_PEDIDOS = 'Ainda não há pedidos.'
  * Antes ela era `shrink-0`, e a 175 % em 360 px media 327 px numa linha de 295 — a página rolava
  * para o lado.
  *
- * As linhas **não** são links nesta feature (decisão do usuário): o detalhe do pedido é da `75`. Só
- * "Ver todos" navega, à visão "Tudo".
+ * **Cada linha leva ao detalhe** (feature `74`, `MAP-52`, G-A29): a linha inteira é o link para
+ * `/pedidos/<id>`, com 44 px no mínimo e o nome acessível "Pedido #0244, <cliente>" (o número de
+ * `formatOrderNumber`, TE1). Ela navega com `state: { doApp: true }` (E7): o "Voltar" do detalhe volta
+ * à Início. Até a `73` as linhas eram texto; "Ver todos" continua levando à visão "Tudo".
  */
 const RecentOrders = ({ leitura }: { leitura: Leitura<StoreOverview> }) => {
   const r = leitura.dado
@@ -52,7 +54,14 @@ const RecentOrders = ({ leitura }: { leitura: Leitura<StoreOverview> }) => {
         ) : (
           <ul>
             {pedidos.map((p, i) => (
-              <li key={p.id} data-testid="pedido-recente" className={cn('flex flex-wrap items-center gap-x-3 gap-y-1 py-3', i > 0 && 'border-t border-estrelinha-line')}>
+              <li key={p.id} className={cn(i > 0 && 'border-t border-estrelinha-line')}>
+                <Link
+                  to={pedidoHref(p.id)}
+                  state={{ doApp: true }}
+                  aria-label={`Pedido ${formatOrderNumber(p.order_number)}, ${p.customer_name}`}
+                  data-testid="pedido-recente"
+                  className="flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1 py-3 text-estrelinha-ink"
+                >
                 <div className="min-w-[min(100%,6rem)] flex-1">
                   <div className="truncate text-sm font-medium">{p.customer_name}</div>
                   <div className="mt-0.5 text-xs text-estrelinha-ink-soft">
@@ -63,6 +72,7 @@ const RecentOrders = ({ leitura }: { leitura: Leitura<StoreOverview> }) => {
                   <span className="whitespace-nowrap font-display text-sm font-bold text-estrelinha-primary">{formatPrice(p.total)}</span>
                   <SituacaoDoPedido pedido={p} />
                 </div>
+                </Link>
               </li>
             ))}
           </ul>

@@ -1,10 +1,20 @@
 export {
-  PARAM_BLOCO,
-  PARAM_VISAO,
   PEDIDOS_PATH,
   lerDestinoDePedidos,
+  pedidoHref,
   pedidosHref,
+  recorteDoEndereco,
   type DestinoDePedidos,
-  type VisaoDaInicio,
 } from './model/pedidosHref'
 export { default as SituacaoDoPedido } from './ui/SituacaoDoPedido'
+export { default as LinhaDoPedido } from './ui/LinhaDoPedido'
+export { LISTA_DE_PEDIDOS_KEY, chaveDaLista, tamanhoDaJanela, useListaDePedidos } from './api/useListaDePedidos'
+export { PEDIDO_KEY, chaveDoPedido, usePedido } from './api/usePedido'
+export type {
+  Bloco,
+  DetalheDoPedido,
+  ItemDoPedido,
+  JanelaDaLista,
+  LinhaDaLista,
+  PedidoDoDetalhe,
+} from './model/linha'

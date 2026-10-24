@@ -208,8 +208,17 @@ describe('o painel lê a regra da fila de `core` (feature 73)', () => {
     expect(lista).toContain('const fetchTiles')
   })
 
+  // Desde a feature `74` o predicado das visões mora em `core/orders/views.ts` e o painel o
+  // REEXPORTA — a régua seguiu o endereço novo (a declaração está lá, e o painel não declara).
   it('a visão "Precisa de ação" é `needsActionOrFilter()`, e nenhuma lista de condições própria', () => {
-    expect(orderQuery).toMatch(/const PRECISA_ACAO_OR = needsActionOrFilter\(\)\n/)
+    const views = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '..', 'views.ts'), 'utf8')
+      .replace(/\r\n/g, '\n')
+      .replace(/\/\*[\s\S]*?\*\/|\/\/[^\n\r]*/g, '')
+    expect(views).toMatch(/const PRECISA_ACAO_OR = needsActionOrFilter\(\)\n/)
+    expect(views).not.toMatch(/material_status\.eq\.aguardando_material/)
+    expect(views).not.toMatch(/tracking_code\.is\.null/)
+    expect(orderQuery).not.toMatch(/PRECISA_ACAO_OR|const viewPredicate|function viewPredicate/)
+    expect(orderQuery).toMatch(/export \{[^}]*\bviewPredicate\b[^}]*\} from '@estrelinha\/core\/orders'/)
     expect(orderQuery).not.toMatch(/material_status\.eq\.aguardando_material/)
     expect(orderQuery).not.toMatch(/tracking_code\.is\.null/)
   })

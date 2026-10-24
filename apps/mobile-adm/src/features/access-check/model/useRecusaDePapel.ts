@@ -1,10 +1,9 @@
 import { useEffect } from 'react'
 import { useAuthContext } from '@estrelinha/auth'
-import { ACCESS_DENIED_CODE } from '@estrelinha/core/hooks/useStoreOverview'
+import { isAccessDenied } from '@estrelinha/core/hooks/useStoreOverview'
 
-/** A leitura foi recusada por PAPEL (`42501` de uma RPC admin) — e não por rede. */
-export const ehRecusaDePapel = (erro: unknown): boolean =>
-  (erro as { code?: unknown } | null | undefined)?.code === ACCESS_DENIED_CODE
+/** A leitura foi recusada por PAPEL (`42501` de uma RPC admin) — e não por rede. O dono é `core`. */
+export const ehRecusaDePapel = isAccessDenied
 
 /**
  * Para QUEM a recusa já foi reconferida neste episódio (o id da conta), ou `null`. Fora do React de

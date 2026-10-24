@@ -24,7 +24,7 @@
 import { MATERIAL_STATUS_LABELS } from '../material/material.ts'
 import { isPickupOrder } from '../shipping/pickup.ts'
 import { STORE_TIME_ZONE } from '../time/zone.ts'
-import { ORDER_PAYMENT_STATUS_LABELS, ORDER_STATUS_LABELS } from './labels.ts'
+import { ORDER_PAYMENT_STATUS_LABELS, ORDER_STATUS_LABELS, type SituationTone } from './labels.ts'
 
 export type SituationKey =
   | 'cancelled'
@@ -37,8 +37,8 @@ export type SituationKey =
   | 'payment_rejected'
   | 'awaiting_payment'
 
-/** A família de cor do selo. As cores em si são tokens da loja; aqui mora só a classificação. */
-export type SituationTone = 'neutral' | 'done' | 'progress' | 'wait' | 'alert'
+/** A família de cor do selo — declarada em `labels.ts` desde a `74`, reexportada aqui (R5). */
+export type { SituationTone }
 
 export interface SituationInput {
   status: string | null

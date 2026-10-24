@@ -14,6 +14,7 @@ flowchart TD
     Q -->|Ver pedidos| Q3[/pedidos?visao=precisa-acao/]
     I --> R[Vendas 7 dias, mês, clientes novas, joias, últimos pedidos]
     R -->|Ver todos| R2[/pedidos?visao=tudo/]
+    R -->|toca uma linha de Últimos pedidos, desde a 74| R3[/pedidos/id: J-ver-um-pedido/]
     I --> U[Puxa a tela para baixo] --> U2[Atualizando… e some; números relidos]
     I --> V[Side effect: pedido novo no banco] --> V2[Realtime relê: número e Últimos pedidos mudam sozinhos]
     I --> W[A rede cai] --> W2[Sem conexão] -->|volta| I
@@ -67,7 +68,7 @@ journey:
 
 | Dimensão | Onde |
 | --- | --- |
-| Jornada | `MAD-inicio-abrir-e-entender-o-dia`, `MAD-inicio-precisa-de-voce-leva-a-pedidos` |
+| Jornada | `MAD-inicio-abrir-e-entender-o-dia`, `MAD-inicio-precisa-de-voce-leva-a-pedidos`; a chegada a Pedidos continua em `J-achar-um-pedido` e `J-ver-um-pedido` (feature `74`) |
 | Funcional | `MAD-inicio-trocar-periodo`, `MAD-inicio-puxar-para-atualizar`, `MAD-inicio-pedido-novo-ao-vivo` |
 | Experiencial | `MAD-inicio-com-leitor-de-tela`; tom memorial (nada festivo nos zeros) dentro de `MAD-inicio-loja-sem-venda` |
 | Borda/erro/vazio | `MAD-inicio-loja-sem-venda`, `MAD-inicio-numeros-grandes`, `MAD-inicio-leitura-falha-sem-numero`, `MAD-inicio-virada-do-dia` |

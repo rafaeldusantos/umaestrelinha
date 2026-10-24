@@ -1,0 +1,10 @@
+ok — a cliente entra com senha
+ok — a view order_list responde à cliente SEM erro
+ok — e devolve exatamente o pedido DELA (a RLS filtra, não recusa)
+ok — order_items também devolve o item dela, sem erro
+ok — a RPC atelie_clock recusa a cliente com 42501
+ok — controle: a admin recebe lido_em
+ok — controle: a admin vê 55 pedidos
+ok — anon é recusado com 42501
+TUDO OK
+banco restaurado: 54/9 pedidos/usuários (antes: 54/9)

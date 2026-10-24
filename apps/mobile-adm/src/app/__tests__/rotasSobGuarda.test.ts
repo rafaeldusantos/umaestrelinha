@@ -63,7 +63,7 @@ describe('as rotas do ateliê — âncora tripla', () => {
     expect(bloco!.fim).toBeGreaterThan(bloco!.inicio)
   })
 
-  it('a varredura encontra as nove rotas — o login, os três passos da recuperação, as quatro abas e o desconhecido', () => {
+  it('a varredura encontra as dez rotas — o login, os três passos da recuperação, as quatro abas, o detalhe do pedido (`74`) e o desconhecido', () => {
     expect(rotas(codigo).map((r) => r.path)).toEqual([
       '/login',
       '/recuperar',
@@ -71,6 +71,7 @@ describe('as rotas do ateliê — âncora tripla', () => {
       '/recuperar/senha',
       '/',
       '/pedidos',
+      '/pedidos/:id',
       '/clientes',
       '/descontos',
       '*',
@@ -85,6 +86,16 @@ describe('as rotas do ateliê — âncora tripla', () => {
 describe('toda rota fora do login está sob `RequireAdmin` (MAF-16)', () => {
   it('nenhuma rota fica FORA do bloco guardado', () => {
     expect(foraDoBloco(fonte)).toEqual([])
+  })
+
+  it('o detalhe do pedido (`/pedidos/:id`, MAP-54) está DENTRO do bloco — e movê-lo para fora é acusado', () => {
+    const rota = rotas(codigo).find((r) => r.path === '/pedidos/:id')!
+    expect(rota.at).toBeGreaterThan(bloco!.inicio)
+    expect(rota.at).toBeLessThan(bloco!.fim)
+    const linha = '            <Route path="/pedidos/:id" element={<PedidoPage />} />\n'
+    expect(fonte).toContain(linha)
+    const doente = fonte.replace(linha, '').replace('</Routes>', `  <Route path="/pedidos/:id" element={<PedidoPage />} />\n        </Routes>`)
+    expect(foraDoBloco(doente)).toEqual(['/pedidos/:id'])
   })
 
   it.each(FORA_POR_DESENHO)('`%s` está FORA, antes do bloco — quem não entrou precisa alcançá-lo', (caminho) => {

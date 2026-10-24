@@ -1,4 +1,7 @@
 import "@testing-library/jest-dom";
+import { beforeEach } from "vitest";
+
+import { instalarIntersectionObserver } from "./intersecao";
 
 Object.defineProperty(window, "matchMedia", {
   writable: true,
@@ -26,3 +29,12 @@ class ResizeObserverStub {
 Object.defineProperty(window, "ResizeObserver", { writable: true, value: ResizeObserverStub });
 globalThis.ResizeObserver =
   globalThis.ResizeObserver ?? (ResizeObserverStub as unknown as typeof ResizeObserver);
+
+// Feature `74` (R7): jsdom não tem IntersectionObserver, e a sentinela da lista depende dele. O dublê
+// não dispara sozinho — o teste decide quando a sentinela aparece (`@/test/intersecao`).
+instalarIntersectionObserver();
+
+// Feature `74`: jsdom não implementa `window.scrollTo` (só loga "Not implemented"). A lista restaura a
+// rolagem ao voltar (`useRolagemRestaurada`); os testes que medem isso trocam por um `vi.fn`.
+Object.defineProperty(window, "scrollTo", { writable: true, configurable: true, value: () => {} });
+beforeEach(() => instalarIntersectionObserver());

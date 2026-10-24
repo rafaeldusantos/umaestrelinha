@@ -1,0 +1,9 @@
+ok — admin recebe a chave lido_em
+ok — lido_em é o now() do banco
+ok — a resposta tem só a chave lido_em
+ok — conta sem papel admin ⇒ 42501
+ok — authenticated sem sub ⇒ 42501
+ok — anon ⇒ 42501 (permission denied)
+ok — anon sem execute
+ok — authenticated com execute
+ok — security definer, stable e search_path = ''

@@ -41,7 +41,7 @@ sem ela a varredura passa com zero arquivo lido, que é a pior falha possível n
 | `./menu` | `menuItems`, `menuPanelColumns`, `resolveMenuTarget`/`menuTargetRefusal`, `resolveMenuBanners`, `MENU_ICON_KEYS`, `descendantIds`, `bySortOrder`, `categoryHref`, o canal `preview.ts` | 4 superfícies nos 2 apps |
 | `./home` | catálogo de blocos, `DEFAULT_HOME_COMPOSITION`, `derive.ts`, `preview.ts`, `carousel.ts`, `featured.ts`, **`categoryList.ts`** | loja, painel |
 | `./faq` | `resolveProductFaqs`, `faqOverrideOf`, `rankFaqSuggestions`, `block.ts` | loja, painel, importador |
-| `./material` | máquina de estado, `requiresMaterial()`, `materialSummary` | loja, painel, RPC (cópia em SQL) |
+| `./material` | máquina de estado, `requiresMaterial()`, `materialSummary`, **`steps.ts`** (`MATERIAL_STEPS`, `materialProgress`, `materialSubline`, `MATERIAL_USED_TITLE` — feature `74`) | loja, painel, app do ateliê, RPC (cópia em SQL) |
 | `./shopping` | `ShoppingOffer` e as duas serializações | `google-feed`, `core/page`, loja, painel |
 | `./page` | **`classifyPath`, `servePage`, `applyHead`, `resolveCategoryRoute`, `productPageImages`** — a resposta HTML de cada caminho (feature `69`, `AD-053`). `images.ts` é folha alcançável pelo Deno (a régua fica, sem consumidor Deno desde a `70`) | função `api/page` da Vercel (`apps/store/server`), loja |
 | `./sitemap` | `sitemapUrls`, `renderSitemapXml`, **`serveSitemap`** (`{ status, headers, body }`, 503 `no-store` em todo caminho degradado, `s-maxage=3600` no 200 — feature `70`) | função `api/page` da Vercel |
@@ -49,7 +49,7 @@ sem ela a varredura passa com zero arquivo lido, que é a pior falha possível n
 | `./validators/email` | `isValidEmail`, `normalizeEmail` | loja, edge function `checkout` |
 | `./shipping` | `freeShippingState` + `freeShippingRefusal` (o frete grátis tem **um** dono), `estimate.ts` | 8 superfícies nos 2 apps |
 | `./media` | `renditionUrl`/`renditionSrcSet`/`imagePriority` (`rendition.ts`) e **`surfaceArt`** (`AD-030`) | loja, painel, `core/page` |
-| `./orders` | `orderSituation` (com o público `'cliente' \| 'atelie'`), `SITUATION_LABELS_BY_AUDIENCE`, `ORDER_STATUS_LABELS`/`ORDER_PAYMENT_STATUS_LABELS` (`labels.ts`, subidos do painel), `formatOrderNumber`, **`queue.ts`** (`QUEUE_BLOCKS`, `NEEDS_ACTION_BLOCKS`, `toPostgrestFilter`, `needsActionOrFilter`, `toSqlPredicate` — feature `73`, `AD-057`) | loja, painel, app do ateliê, migration (cópia SQL guardada) |
+| `./orders` | `orderSituation` (com o público `'cliente' \| 'atelie'`), `SITUATION_LABELS_BY_AUDIENCE`, `ORDER_STATUS_LABELS`/`ORDER_PAYMENT_STATUS_LABELS` (`labels.ts`, subidos do painel), `formatOrderNumber`, **`queue.ts`** (`QUEUE_BLOCKS`, `NEEDS_ACTION_BLOCKS`, `toPostgrestFilter`, `needsActionOrFilter`, `toSqlPredicate` — feature `73`, `AD-057`) e, desde a `74` (`AD-058`), **`views.ts`** (`ORDER_VIEWS`, `viewPredicate`, `OrderSlice`, `applyOrderSlice`), **`search.ts`** (`buildOrderSearchCondition`, `SEARCH_DEBOUNCE_MS`), **`row.ts`**, **`rowSummary.ts`**, **`nextStep.ts`**, **`history.ts`** (`buildHistory`), **`delivery.ts`** (`shippingLine`), **`list.ts`** (página, cursor, `listCountLine`, `emptyHint`, `isOrderId`) e `PAYMENT_METHOD_LABELS`/`PAYMENT_STATUS_TONES` em `labels.ts` | loja, painel, app do ateliê, migration (cópia SQL guardada) |
 | `./stats` | **`StoreMovement`** (movido da `71`), **`StoreOverview`** e `OVERVIEW_KEYS`, `turnDelayMs`, os rótulos da Início (`greetingFor`, `longDateLine`, `monthName`, `weekdayShort`, `piecesLabel`, `paidOrdersLabel`, `relativeAge`, `storeHour`) — feature `73` | painel (reexporta o tipo), app do ateliê |
 | `./time` | **`STORE_TIME_ZONE`** (o nome do fuso da loja, a cópia TypeScript de `store_time_zone()` do banco) e `formatDayMonth`/`formatStoreHour` (`21/10`, `15h32`) — feature `71`, `AD-055` | `core/orders/situation.ts`, painel (GA e o bloco "Movimento da loja"), loja (`orderMeta`) |
 | `./visits` | `isBotUserAgent` (as 20 assinaturas de robô), `visitBody`/`visitBodyRefusal`/`isVisitorId` (o corpo da visita) e `OPT_OUT_PARAM`/`optOutHref`/`readOptOutParam` (o parâmetro de "não contar") — feature `71` | loja (`VisitCounter`), edge function `visit`, painel (menu da conta) |
@@ -362,6 +362,21 @@ sem build, `tsc` ou teste de componente acusarem — desta vez com o CTA de dinh
   (o supabase-js não rejeita), e a releitura da virada pela DURAÇÃO do servidor (`turnDelayMs`). O
   `retry` de `useStoreOverview` é `retryUnlessDenied` (`42501` não repete); o de `useStoreMovement` é
   parâmetro, com padrão `1` pelo painel.
+
+## `orders/views` … `list` — a lista de pedidos com dois leitores (feature `74`, `AD-058`)
+
+- **Subiram do painel BYTE A BYTE** (`MAP-48`): as frases (`rowSummary`, `nextStep`, `buildHistory`,
+  `shippingLine`) foram copiadas do disco do painel no `775e407e` para os testes **antes** de o painel
+  passar a reexportar, e `regrasDoPedidoNoCore.test.ts` (painel) exige cada símbolo por `toBe`. Mudar
+  uma frase aqui muda as duas telas — é o ponto.
+- **O recorte é UM objeto com dois tradutores**: `applyOrderSlice(q, slice)` monta a cadeia do
+  PostgREST para visão **ou** bloco (`OrderSlice`), e o painel (`applyView`) e o app chamam a mesma
+  função. Bloco e visão de nome parecido não são a mesma coisa (`views.test.ts`).
+- **O cursor é a string do servidor**, com microssegundos: `new Date(…).toISOString()` trunca e faz a
+  próxima página repetir ou pular pedido (`list.test.ts`, caso R1).
+- `HISTORY_FILTERS`/`filterHistory` **ficaram no painel**: o app não filtra histórico.
+- `material/steps.ts` importa só `./material.ts`, e `stats/labels` só `time/zone`: `stepsDenoReach`
+  mantém o grafo alcançável pelo Deno. `purity.test.ts` lista os oito arquivos novos.
 
 ## `orders/situation.ts` — um selo, duas vozes (conserto do QA da `73`)
 

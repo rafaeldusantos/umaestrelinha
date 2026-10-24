@@ -330,7 +330,7 @@ describe('o Realtime de pedidos (MAI-20)', () => {
   it('trocar de aba FECHA o canal, e o aviso depois disso não relê nada', async () => {
     responderTudo()
     await abrir()
-    fireEvent.click(within(screen.getByRole('navigation', { name: 'Áreas do ateliê' })).getByRole('link', { name: 'Pedidos' }))
+    fireEvent.click(within(screen.getByRole('navigation', { name: 'Áreas do ateliê' })).getByRole('link', { name: /^Pedidos/ }))
     await andar(50)
     expect(fake.canaisAbertos()).toHaveLength(0)
     expect(fake.client.removeChannel).toHaveBeenCalledTimes(1)

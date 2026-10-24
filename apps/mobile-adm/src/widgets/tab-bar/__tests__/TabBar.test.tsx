@@ -115,11 +115,14 @@ describe('as abas nesta feature (MAF-18)', () => {
   // daqui SÓ o `/` e a régua `leiturasDeDado()` dele. As outras três abas continuam com a régua
   // inteira, e a vizinha abaixo escreve as três por extenso: derivar de TABS deixaria uma quarta aba
   // nova (ou a saída de uma delas) passar calada.
-  const EM_CONSTRUCAO = TABS.filter((t) => t.path !== '/')
+  //
+  // MUDANÇA DE ASSERÇÃO DECLARADA (feature `74`, T21): Pedidos saiu do "em construção" — a lista lê
+  // `order_list` com a confirmação de papel (provado em `pages/__tests__/PedidosPage.test.tsx`). Sai
+  // daqui SÓ o `/pedidos`, pelo mesmo molde da Início; Clientes e Descontos seguem com a régua inteira.
+  const EM_CONSTRUCAO = TABS.filter((t) => t.path !== '/' && t.path !== '/pedidos')
 
-  it('as abas que seguem em construção são exatamente Pedidos, Clientes e Descontos', () => {
+  it('as abas que seguem em construção são exatamente Clientes e Descontos', () => {
     expect(EM_CONSTRUCAO.map((t) => [t.path, t.label])).toEqual([
-      ['/pedidos', 'Pedidos'],
       ['/clientes', 'Clientes'],
       ['/descontos', 'Descontos'],
     ])
@@ -130,14 +133,22 @@ describe('as abas nesta feature (MAF-18)', () => {
     expect(screen.getByRole('main').textContent).not.toContain('Esta parte do app chega em breve.')
   })
 
+  it('Pedidos NÃO é mais "em construção" (feature `74`)', async () => {
+    await montarApp('/pedidos')
+    const main = screen.getByRole('main')
+    expect(within(main).getByRole('heading', { level: 1 })).toHaveTextContent('Pedidos')
+    expect(main.textContent).not.toContain('Esta parte do app chega em breve.')
+  })
+
   it.each(EM_CONSTRUCAO.map((t) => [t.path, t.label]))('%s mostra o título "%s" e o estado em construção, sem dado nenhum', async (caminho, titulo) => {
     await montarApp(caminho)
     const main = screen.getByRole('main')
     expect(within(main).getByRole('heading', { level: 1 })).toHaveTextContent(titulo)
     expect(main.textContent).toBe(`${titulo}Esta parte do app chega em breve.`)
-    // Nenhum número (valor, contagem, pedido) e nenhuma leitura de dado da loja.
+    // Nenhum número (valor, contagem, pedido) e nenhuma leitura de dado da loja além do resumo que o
+    // SELO da aba Pedidos lê em qualquer aba (feature `74`, `MAP-31`): a página em si não lê nada.
     expect(main.textContent).not.toMatch(/\d/)
-    expect(fake.leiturasDeDado()).toEqual([])
+    expect(fake.leiturasDeDado()).toEqual(['rpc:store_overview'])
   })
 })
 

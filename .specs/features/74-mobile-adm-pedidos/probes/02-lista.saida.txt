@@ -1,0 +1,52 @@
+ok — visão precisa-acao: app = painel = SQL (22)
+ok — visão precisa-acao: count exact = SQL (22)
+ok — visão tudo: app = painel = SQL (67)
+ok — visão tudo: count exact = SQL (67)
+ok — visão fila-material: app = painel = SQL (20)
+ok — visão fila-material: count exact = SQL (20)
+ok — visão a-separar: app = painel = SQL (14)
+ok — visão a-separar: count exact = SQL (14)
+ok — visão em-transito: app = painel = SQL (5)
+ok — visão em-transito: count exact = SQL (5)
+ok — visão concluidos: app = painel = SQL (35)
+ok — visão concluidos: count exact = SQL (35)
+ok — bloco aguardando: lista do app = SQL (19)
+ok — bloco aguardando: povoado (não é igualdade sobre o nada)
+ok — bloco aguardando: contagem do app = store_overview.fila = tile do painel = SQL
+ok — bloco a-separar: lista do app = SQL (1)
+ok — bloco a-separar: povoado (não é igualdade sobre o nada)
+ok — bloco a-separar: contagem do app = store_overview.fila = tile do painel = SQL
+ok — bloco sem-rastreio: lista do app = SQL (2)
+ok — bloco sem-rastreio: povoado (não é igualdade sobre o nada)
+ok — bloco sem-rastreio: contagem do app = store_overview.fila = tile do painel = SQL
+ok — bloco pix-aguardando: lista do app = SQL (1)
+ok — bloco pix-aguardando: povoado (não é igualdade sobre o nada)
+ok — bloco pix-aguardando: contagem do app = store_overview.fila = tile do painel = SQL
+ok — "Precisa de ação" da lista = store_overview.fila.precisa_acao (22)
+ok — o pago a separar está em "Precisa de ação"
+ok — R2: o Pix pendente cancelado NÃO está em "Precisa de ação"
+ok — R2: o Pix pendente com status cancelled está no bloco Pix aguardando
+ok — busca "#0244": app = painel = SQL (1)
+ok — busca "0244": app = painel = SQL (1)
+ok — busca "244": app = painel = SQL (2)
+ok — "0244" acha 1, "244" acha 2 (a busca não é um "tudo")
+ok — o oráculo cobre as 5 colunas da busca
+ok — três or= (visão aninhada + busca + cursor) = SQL (2)
+ok — visão + busca: count exact = SQL
+ok — "Tudo" tem ao menos 60 pedidos (67)
+ok — paginação: nenhum pedido repetido (68 linhas)
+ok — paginação: nenhum pedido do início pulado
+ok — o que entrou antes do cursor não aparece no meio
+ok — o que entrou depois do cursor aparece uma vez
+ok — R1: com a string do servidor, 4 pedidos no mesmo segundo saem de 1 em 1, na ordem, sem pular nem repetir
+ok — R1: o PostgREST devolve microssegundos (2030-01-02T10:00:00.123456+00:00)
+ok — SENSOR R1: o cursor passado por Date (ms) pula ou repete
+ok — a linha tem exatamente as chaves de COLUNAS_DA_LISTA
+ok — o pedido do detalhe tem exatamente as chaves de COLUNAS_DO_DETALHE
+ok — order_items: exatamente as chaves pedidas
+ok — order_status_history: exatamente as chaves pedidas
+ok — order_notes: exatamente as chaves pedidas
+ok — order_notifications: exatamente as chaves pedidas
+ok — pedido inexistente: maybeSingle devolve null, sem erro
+TUDO OK
+banco restaurado: 54 pedidos (antes: 54)

@@ -70,9 +70,18 @@ describe('core/orders é módulo puro e alcançável pelo Deno', () => {
         'queue.ts',
         // Conserto do QA da `73`: os rótulos de status do painel, que o selo do ateliê lê.
         'labels.ts',
+        // Feature `74`: as regras do pedido que subiram do painel e as que nasceram para o ateliê.
+        'views.ts',
+        'search.ts',
+        'list.ts',
+        'row.ts',
+        'rowSummary.ts',
+        'nextStep.ts',
+        'history.ts',
+        'delivery.ts',
       ]),
     )
-    expect(arquivos.length).toBeGreaterThanOrEqual(8)
+    expect(arquivos.length).toBeGreaterThanOrEqual(16)
   })
 
   it('todo especificador relativo leva `.ts` explícito', () => {
