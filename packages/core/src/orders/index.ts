@@ -49,7 +49,13 @@ export {
   type JourneyStepKey,
   type JourneyStepState,
 } from './journey.ts'
-export { PARCEL_TRACKING_BASE_URL, parcelTrackingUrl } from './tracking.ts'
+export {
+  PARCEL_TRACKING_BASE_URL,
+  TRACKING_CODE_MIN_LENGTH,
+  normalizeTrackingCode,
+  parcelTrackingUrl,
+  trackingCodeRefusal,
+} from './tracking.ts'
 export {
   MATERIAL_NAO_SEGURA_LISTA,
   NEEDS_ACTION_BLOCKS,
@@ -116,3 +122,26 @@ export {
   sliceOrder,
   type OrderCursor,
 } from './list.ts'
+export { chargeMaterialText, chargeMaterialUrl, type ChargeMaterialInput } from './charge.ts'
+export {
+  ACTION_FAILED,
+  ORDER_CHANGED,
+  PARTIAL_MATERIAL,
+  PARTIAL_TRACKING,
+  SAVING,
+  actionConfirmation,
+  appPrimaryAction,
+  canChargeMaterial,
+  shippedNoticeSent,
+  trackingEdit,
+  trackingSheet,
+  type AppAction,
+  type AppActionId,
+  type AppActionInput,
+  type AppActionPlan,
+  type Confirmation,
+  type ConfirmationInput,
+  type TrackingSheet,
+  type TrackingSheetContext,
+  type TrackingSheetOrigin,
+} from './appAction.ts'

@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom'
 import { cn } from '@estrelinha/ui/lib/utils'
+import { CLASSE_DA_BARRA } from '@/shared/ui/alturas'
 import { TABS, type Tab } from '../model/tabs'
 import { nomeDaAbaComSelo, textoDoSelo } from '../model/selo'
 
@@ -22,7 +23,8 @@ import { nomeDaAbaComSelo, textoDoSelo } from '../model/selo'
  *   barra recebe o número no nome do link ("Pedidos, 5 precisam de você"). A barra continua só
  *   desenhando: o número vem do layout.
  */
-export const TAB_BAR_HEIGHT = 'h-16'
+/** A altura da barra vem do dono das alturas do pé da tela (`shared/ui/alturas`, feature `75`). */
+export const TAB_BAR_HEIGHT = CLASSE_DA_BARRA
 
 export type SelosDasAbas = Partial<Record<Tab['path'], number | null>>
 

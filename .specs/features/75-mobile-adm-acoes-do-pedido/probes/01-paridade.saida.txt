@@ -1,0 +1,73 @@
+ok — a admin do seed entra
+ok — send-notification viva (sem auth responde 401, esperado 401)
+ok — 01 app: runAppAction devolve ok
+ok — 01 painel: a escrita devolve ok
+ok — 01 recebi o material: as mesmas colunas de orders
+ok — 01 recebi o material: o mesmo histórico (0 linha(s))
+ok — 01 recebi o material: os mesmos eventos [material_received/email]
+ok — 02 app: runAppAction devolve ok
+ok — 02 painel: a escrita devolve ok
+ok — 02 separar sem material: as mesmas colunas de orders
+ok — 02 separar sem material: o mesmo histórico (1 linha(s))
+ok — 02 separar sem material: os mesmos eventos []
+ok — 02 guarda: a linha velha ⇒ nenhuma-linha (o pedido mudou)
+ok — 02 guarda: nem status, nem histórico, nem evento novos
+ok — 03 app: runAppAction devolve ok
+ok — 03 painel: a escrita devolve ok
+ok — 03 painel: a escrita devolve ok
+ok — 03 separar com material: as mesmas colunas de orders
+ok — 03 separar com material: o mesmo histórico (1 linha(s))
+ok — 03 separar com material: os mesmos eventos []
+ok — 04 app: runAppAction devolve ok
+ok — 04 painel: a escrita devolve ok
+ok — 04 painel: a escrita devolve ok
+ok — 04 enviar com código: as mesmas colunas de orders
+ok — 04 enviar com código: o mesmo histórico (1 linha(s))
+ok — 04 enviar com código: os mesmos eventos [order_shipped/email]
+ok — 05 app: runAppAction devolve ok
+ok — 05 painel: a escrita devolve ok
+ok — 05 salvar rastreio de shipped: as mesmas colunas de orders
+ok — 05 salvar rastreio de shipped: o mesmo histórico (0 linha(s))
+ok — 05 salvar rastreio de shipped: os mesmos eventos [order_shipped/email]
+ok — 06 app: runAppAction devolve ok
+ok — 06 painel: a escrita devolve ok
+ok — 06 app: runAppAction devolve ok
+ok — 06 painel: a escrita devolve ok
+ok — 06 salvar e alterar rastreio de shipped: as mesmas colunas de orders
+ok — 06 salvar e alterar rastreio de shipped: o mesmo histórico (0 linha(s))
+ok — 06 salvar e alterar rastreio de shipped: os mesmos eventos [order_shipped/email]
+ok — 06 app: "Alterar" não gera um segundo order_shipped
+ok — 06 app: o código alterado ficou
+ok — 06 painel: "Alterar" não gera um segundo order_shipped
+ok — 06 painel: o código alterado ficou
+ok — 07 app: runAppAction devolve ok
+ok — 07 painel: a escrita devolve ok
+ok — 07 informar rastreio de delivered: as mesmas colunas de orders
+ok — 07 informar rastreio de delivered: o mesmo histórico (0 linha(s))
+ok — 07 informar rastreio de delivered: os mesmos eventos []
+ok — 08 app: runAppAction devolve ok
+ok — 08 painel: a escrita devolve ok
+ok — 08 marcar como retirado: as mesmas colunas de orders
+ok — 08 marcar como retirado: o mesmo histórico (1 linha(s))
+ok — 08 marcar como retirado: os mesmos eventos []
+ok — 09 app: runAppAction devolve ok
+ok — 09 painel: a escrita devolve ok
+ok — 09 painel: a escrita devolve ok
+ok — 09 normalização: app cru × painel normalizado: as mesmas colunas de orders
+ok — 09 normalização: app cru × painel normalizado: o mesmo histórico (1 linha(s))
+ok — 09 normalização: app cru × painel normalizado: os mesmos eventos [order_shipped/email]
+ok — 09 app: gravou o código aparado e em maiúsculas
+ok — 10 app: o código curto é recusado (falhou, sem rede)
+ok — 10 app: o pedido ficou intacto
+ok — 10 painel: a escrita devolve ok
+ok — 10 DIFERENÇA ESPERADA (A8): o painel grava o código como veio (" an 123 "), o app não grava
+ok — 04 app: shipping_carrier intocada (null, A9)
+ok — a conta sem papel entra com senha
+ok — sem papel: o pedido da loja ⇒ nenhuma-linha (a RLS filtra o update)
+ok — sem papel: o pedido DELA ⇒ nenhuma-linha
+ok — sem papel: a RPC do material ⇒ sem-papel
+ok — sem papel: o pedido da loja NÃO mudou (colunas, histórico, eventos)
+ok — sem papel: o pedido DELA NÃO mudou
+ok — sem papel: atelie_clock recusa com 42501 (a conferência do app)
+TUDO OK
+banco restaurado: 54/9 pedidos/usuários (antes: 54/9)

@@ -1,6 +1,7 @@
+import type { ReactNode } from 'react'
 import { cn } from '@estrelinha/ui/lib/utils'
 import { EMPTY_TITLE, emptyHint, listCountLine, type OrderSlice } from '@estrelinha/core/orders'
-import { LinhaDoPedido, type JanelaDaLista } from '@/entities/order'
+import { LinhaDoPedido, type JanelaDaLista, type LinhaDaLista } from '@/entities/order'
 import { FalhaDoBloco, Traco } from '@/shared/ui/leitura'
 
 import { useSentinela } from '../model/useSentinela'
@@ -19,6 +20,11 @@ export interface ListaDePedidosProps {
   carregarMais: () => void
   carregandoMais: boolean
   proximaFalhou: boolean
+  /**
+   * Feature `75` (`MAA-36`): o que vai ao lado da linha, no MESMO `<li>` e FORA do `<Link>` (botão
+   * dentro de link é interativo aninhado, Q5). Quem compõe é a página (`BotaoDaAcao`).
+   */
+  acaoDaLinha?: (linha: LinhaDaLista) => ReactNode
 }
 
 /**
@@ -44,6 +50,7 @@ const ListaDePedidos = ({
   carregarMais,
   carregandoMais,
   proximaFalhou,
+  acaoDaLinha,
 }: ListaDePedidosProps) => {
   const temMais = !!janela && !janela.fim && janela.linhas.length > 0
   const sentinela = useSentinela<HTMLDivElement>({
@@ -92,6 +99,7 @@ const ListaDePedidos = ({
         {janela.linhas.map((l, i) => (
           <li key={l.id} className={cn(i > 0 && 'border-t border-estrelinha-line')}>
             <LinhaDoPedido linha={l} lidoEm={janela.lido_em} />
+            {acaoDaLinha?.(l)}
           </li>
         ))}
       </ul>

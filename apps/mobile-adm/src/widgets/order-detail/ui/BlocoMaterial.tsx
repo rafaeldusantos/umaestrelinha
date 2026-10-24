@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { cn } from '@estrelinha/ui/lib/utils'
 import { materialProgress, materialSubline } from '@estrelinha/core/material'
 import type { PedidoDoDetalhe } from '@/entities/order'
@@ -10,8 +11,12 @@ import { BlocoDoDetalhe } from './BlocoDoDetalhe'
  *
  * Sem material (`nao_aplicavel`) o bloco não existe: `materialProgress` devolve `null`.
  * O passo atual leva `aria-current="step"`; com a joia já enviada ou entregue, os quatro estão feitos.
+ *
+ * **`lembrete`** (feature `75`, `MAA-17`): o "Lembrar do envio no WhatsApp" no fim do bloco. O bloco
+ * não decide quando ele aparece — quem compõe é a página (`LembreteDoEnvio`, que lê
+ * `canChargeMaterial` de `core`).
  */
-const BlocoMaterial = ({ pedido, lidoEm }: { pedido: PedidoDoDetalhe; lidoEm: string }) => {
+const BlocoMaterial = ({ pedido, lidoEm, lembrete }: { pedido: PedidoDoDetalhe; lidoEm: string; lembrete?: ReactNode }) => {
   const progresso = materialProgress(pedido.material_status, pedido.status)
   if (!progresso) return null
   return (
@@ -49,6 +54,7 @@ const BlocoMaterial = ({ pedido, lidoEm }: { pedido: PedidoDoDetalhe; lidoEm: st
           </li>
         ))}
       </ol>
+      {lembrete}
     </BlocoDoDetalhe>
   )
 }

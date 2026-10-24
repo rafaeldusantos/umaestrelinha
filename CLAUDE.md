@@ -160,8 +160,14 @@ Ao planejar/implementar features, use a Skill **`tlc-spec-driven`** com estas co
     `store-74-mobile-adm-pedidos`), pronta para merge em `feature/mobile-adm`, com prova em navegador,
     Verificador independente (quatro rodadas FAIL por cobertura e um defeito, todos consertados; o
     conserto da rodada 4 sem rodada 5), QA com três bugs achados e retestados, e uma migration
-    (`atelie_clock`) aplicada só no local. Da `75` à `79` são
-    rascunhos, a detalhar ao abrir. Cada feature do programa é mergeada na branch de integração
+    (`atelie_clock`) aplicada só no local. A `75` (ações no pedido: "Recebi o material", "Iniciar
+    separação", o rastreio e "Marcar como enviado", o lembrete no WhatsApp, a ação no cartão; o dono
+    único da escrita do pedido em `core/order-actions`, `AD-059`) está IMPLEMENTADA, com commit na
+    branch `feat/75-mobile-adm-acoes-do-pedido` (worktree `store-75-mobile-adm-acoes-do-pedido`),
+    pronta para merge em `feature/mobile-adm`, com probe de paridade app × painel contra o banco local,
+    prova em navegador (B01, B02 consertados), Verificador independente (rodadas 1 e 3 FAIL por
+    cobertura, a 2 PASS; as lacunas da 3 fechadas sem rodada 4) e QA com quatro bugs achados e
+    retestados (C01..C04) — **sem migration**. Da `76` à `79` são rascunhos, a detalhar ao abrir. Cada feature do programa é mergeada na branch de integração
     `feature/mobile-adm` depois de finalizada e testada, nunca direto na `master` (`AD-056`). A
     próxima livre é a `80`.**
   - **A `46` e a `47` correram EM PARALELO, em worktrees separados**, e é o segundo caso do projeto
@@ -271,6 +277,7 @@ com as duas cópias divergindo, e quem descobre é a cliente ou o Google.
 | `63` | **"este pedido é de retirada?" e "a retirada está disponível?", perguntados por SETE lugares** — a calculadora e o checkout da loja, a confirmação e a conta, a function `checkout` (que recusa a forjada), a `melhor-envio` (que não gera etiqueta), o motor de e-mail e o painel. Escrita em cada um, a loja ofereceria a retirada que o servidor recusa, ou o e-mail diria "postamos" de uma peça que a cliente busca no balcão | `packages/core/src/shipping/pickup.ts` (`AD-049`), **sem import nenhum** para ser alcançável pelo Deno por caminho; a identidade é `shipping_service_id = 'retirada'`, e a retirada mora FORA da cotação (`ShippingQuote` intocado); `shipping/__tests__/denoReach.test.ts` e `retiradaSemEtiqueta.test.ts` guardam as duas pontas que nenhuma outra ferramenta lê |
 | `50` | **o esqueleto de carga e a revalidação, que eram a MESMA chamada** — `fetchSections()`/`fetchCategories()` significavam "carregar" e "revalidar" ao mesmo tempo, e a tela só sabia ler a primeira: toda gravação trocava a árvore por `<TableSkeleton/>`, o que **desmontava o `<iframe>` da prévia** e recarregava a loja a cada clique. E, ao lado, dois campos **de tela** do rascunho a um `insert` de distância de virar `PGRST204` | `fetchX(modo)` com o tipo `FetchMode` em **um** arquivo (`shared/lib/fetchMode.ts`) — dois nomes para o mesmo modo seriam o defeito no tamanho de um tipo, e o terceiro hook nasceria com um terceiro nome —, mais `toNewItems` como a única tradução rascunho → colunas, com `toNewItems.test.ts` recusando a oitava chave |
 | `68` | **o endereço de uma variação, e a pergunta "esta opção tem página?"** — `?variant=` tinha **dois construtores** (o `offerLink` do feed e o card da `67`, à mão, com `encodeURIComponent`), e a regra de quais opções viram página teria **quatro leitores** (a página, a `product-page`, o sitemap e o painel). Escrita em cada um, o sitemap anunciaria uma URL que a página não declara canônica — e o juiz seria o Google, semanas depois | `variantPath` em `core/shopping/offer.ts` (o `<g:link>` delega a ele) e `core/seo/variant.ts` (`indexableOptions`, `productHead`), com `paginaDeOpcaoComDonoUnico.test.ts` recusando a montagem à mão e exigindo a chamada nos quatro (`AD-052`) |
+| `75` | **a escrita do pedido, que ia ganhar um SEGUNDO autor** — o app do ateliê passaria a gravar status, rastreio e material do mesmo pedido que o painel grava, e a sequência "update → histórico → aviso" estava escrita dentro de `useAdminOrders`. Duas cópias divergiriam sem nada quebrar — e a do painel já tinha o defeito: um `update` que a RLS ou a guarda filtrava respondia sem erro e sem linha, e passava como sucesso, gravando histórico e avisando a cliente. Ao lado, o lembrete do WhatsApp (`chargeMaterial*`) com o segundo leitor previsto | `@estrelinha/core/order-actions` (`AD-059`), com o client e o notificador injetados e o efeito conferido por `.select('id')`; o painel delega e o app chama pela porta única `gravarAcao`; `pedidoGravadoSoPeloDono.test.ts` (allowlist de UMA declaração, `cancelOrder`) e `escritaSoPelaPorta.test.ts` recusam a volta; o lembrete subiu para `core/orders/charge.ts` com o painel reexportando (`toBe`) |
 | `69` | **o `<head>` servido, que ia ganhar uma SEGUNDA casa** — a edge function `product-page` já montava o de produto no Deno, e categoria, página fixa e 404 precisavam do mesmo trabalho num segundo runtime (a função da Vercel). Escrito nos dois, a regra de canônica, de cache e de status divergiria entre produto e o resto. E `resolveCategoryRoute` vivia em `entities/category` da loja, com o servidor prestes a precisar da mesma decisão | `@estrelinha/core/page` (`AD-053`): `classifyPath` + `servePage` + `applyHead`, chamados pela função `api/page`; `resolveCategoryRoute` subiu para `core/page` e a loja reexporta (`toBe`); o código da `product-page` saiu do repositório, com `paginaDeOpcaoComDonoUnico` exigindo `productHead` em `core/page/serve.ts` |
 
 Consequências práticas, nesta ordem:
@@ -526,6 +533,13 @@ migrations, e `vercelRedirects` lê o `vercel.json`.
 | `movimentoDosPedidos.test.ts` | mobile-adm `shared/lib/__tests__` | (feature `74`, `MAP-45`) classe de `transition-*`/`animate-*` sem par `motion-reduce:` que DESLIGUE movimento, na mesma linha, nos 21 arquivos de UI da `74` (escopo literal, régua estreita da `59`). Âncora 4 tokens / 2 pares, medida com a própria régua |
 | `pedidosComClientReal.test.tsx` | mobile-adm `app/__tests__` | (feature `74`, `MAP-36`..`MAP-38`, Success Criterion 3) o `<App />` real sobre o supabase-js REAL, em `/pedidos` e `/pedidos/<id>`: `order_list` com as linhas DA CLIENTE e `atelie_clock` em 403 `42501` ⇒ a recusa da `72`, e **nenhum** texto delas no DOM em nenhum dos ~80 instantes lidos; com `order_list` em 500 a recusa ainda vence (E2); a RPC sem rede ⇒ falha de leitura, nunca a recusa. Par com a RPC em 200 provando que as linhas aparecem. Cinco mutantes de `lerComPapel` (ordem trocada, erro da RPC ignorado, dado antes da confirmação, `Promise.all`, rede como recusa) mortos por asserção |
 | `stepsDenoReach.test.ts` | `packages/core/src/material/__tests__` | (feature `74`) o grafo de `material/steps.ts` (e o de `stats/labels → time/zone`) com especificador relativo sem `.ts` — `import type` incluso — ou import de pacote |
+| `pedidoGravadoSoPeloDono.test.ts` | store `shared/lib/__tests__` (varre `apps/*/src` e `packages/*/src`, só produção) | (feature `75`, `MAA-39`, `AD-059`) **pela AST**: escrita PostgREST (`update`/`insert`/`upsert`/`delete`) em `orders` ou `order_status_history` fora de `packages/core/src/order-actions` — a cadeia seguida por `await`, parênteses, `as`, `!` e o alias do builder; tabela que não resolve para literal acusada em qualquer arquivo; builder que escapa sem `select` nem escrita acusado. **Allowlist literal de UMA entrada, por declaração**: o corpo de `cancelOrder` no painel (uma escrita nova no mesmo arquivo, fora dela, é acusada). Metade positiva: o painel e a porta do app chamam o dono. As functions e o importador são outros donos por construção, fora do escopo, declarado |
+| `escritaSoPelaPorta.test.ts` | mobile-adm `entities/order/api/__tests__` | (feature `75`, `MAA-29`) **pela AST**: no app, nenhuma escrita de tabela, nenhuma `functions.invoke`, nenhuma `rpc(` fora de `lerComPapel.ts`; o client importado por EXATAMENTE quatro arquivos (os três da `74` e a porta `gravarAcao.ts`), e na porta só como valor passado, nunca receptor; metade positiva: a porta chama `runAppAction(` e `conferirPapel(` |
+| `fraseDaAcaoSoNoCore.test.ts` | mobile-adm `shared/lib/__tests__` | (feature `75`, A11, `AD-008`) **pela AST**, sem allowlist: as cinco frases fixas da ação (falha, e-mail, aviso de postagem, "mudou", "rastreio salvo") escritas em qualquer literal de produção do app — string, pedaço de template, texto de JSX. Âncora positiva: as cinco existem em `core/orders/appAction.ts`, lido do disco; inversos (`ACCESS_UNCHECKED`, o rótulo "E-mail"); comentário fora por construção |
+| `lembreteNoCore.test.ts` | backoffice `app/__tests__` | (feature `75`, `MAA-28`) `chargeMaterialText`/`chargeMaterialUrl` e companhia subiram para `core/orders/charge.ts` e o painel os reexporta **por referência** (`toBe`) — uma cópia com o mesmo comportamento reprova |
+| `useAdminOrders.delega.test.ts` | backoffice `entities/order/api` | (feature `75`, `MAA-27`, A24) o painel delega as três escritas ao dono e traduz cada desfecho para a forma de retorno de sempre, uma linha da tabela de §3.3 por caso — inclusive o que ele NÃO passa (`expectedFrom`, `statusIn`); zero linhas vira "Nenhum pedido foi alterado." também no painel (TQ8, `n — confirmar`) |
+| `purity.test.ts` (order-actions) | `packages/core/src/order-actions/__tests__` | (feature `75`) o dono da escrita importar React, `@estrelinha/*`, alias, URL ou relativo sem `.ts` (`import type` incluso), ou o supabase-js como VALOR — o client e o notificador são INJETADOS, e o supabase-js só entra em `import type`. Âncora de contagem e de uso, sensores nos dois sentidos |
+| `acoesComClientReal.test.tsx` | mobile-adm `app/__tests__` | (feature `75`, `MAA-21`..`MAA-23`, Success Criterion 2) o `<App />` real sobre o supabase-js REAL, pelo rodapé e pelo cartão: PATCH 200 `[]` + `atelie_clock` 403 `42501` ⇒ a recusa da `72` e **nenhuma** confirmação — lida no `body` a cada 50 ms **e** num `MutationObserver` (a releitura recusada desmonta a tela no mesmo passo em que a confirmação apareceria); `not_admin` da RPC ⇒ recusa; PATCH 500 ⇒ falha, nunca recusa; a rede da conferência caída ⇒ nem recusa nem reconferência; o PATCH do rastreio sem `shipping_carrier` e com `status=in.(separating,shipped)`. Três mutantes no `gravarAcao.ts` real mortos por asserção |
 
 > **Guarda que recusa uma STRING é quebrado pela prosa que explica o defeito.** Aconteceu duas vezes
 > com formas diferentes: o bundler do `supabase start` morreu por um comentário que escrevia um
@@ -551,7 +565,46 @@ quando mudarem de verdade.
 | --- | --- | --- |
 | **Lint** | **25 erros / 7 warnings** — backoffice 23/5 · store 2/2 · mobile-adm 0/0 | `npx eslint .` em cada app (o `pnpm lint` para no primeiro app que reprova) |
 | **Tipos** | **0 · 0 · 0 · 0 · 0** (store · backoffice · catalog-import · `apps/store/tsconfig.server.json`, desde a `69` · mobile-adm, desde a `72`) — e **`packages/core` em 11**, herdados (medido na `73`: idênticos na base, nenhum em arquivo tocado) | `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` · `npx tsc --noEmit -p packages/core/tsconfig.json` |
-| **Testes** | **15819 em 792 arquivos** — store **5852/319** · backoffice **3671/210** · mobile-adm **811/61** · core **4016/158** · functions **957/21** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
+| **Testes** | **16371 em 818 arquivos** — store **5885/320** · backoffice **3696/212** · mobile-adm **1102/76** · core **4219/166** · functions **957/21** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
+
+**A feature `75` (ações no pedido no app do ateliê) somou +552/+26 em QUATRO workspaces** no fecho
+(core **+203/+8** · mobile-adm **+291/+15** · store **+33/+1** · backoffice **+25/+2**, remedidos em
+2026-10-24 depois do QA e das lacunas da rodada 3, um workspace por vez, exit fora de pipe); os números
+por workspace abaixo são da entrega, antes do Verificador e do QA (+497/+26). A entrega, medidos em
+2026-10-24 um por vez, exit code fora de pipe, contra a entrada medida com a árvore parada
+(`.specs/features/75-mobile-adm-acoes-do-pedido/baseline.md`, 15819/792, que bateu esta tabela):
+**core +190/+8** (`core/order-actions` — o dono da escrita, com o client e o notificador injetados e o
+efeito conferido por `.select('id')` —, `orders/appAction.ts`, `orders/tracking.ts` e o lembrete
+`orders/charge.ts`, subido do painel), **mobile-adm +249/+15** (a porta `gravarAcao`, a trava, o aviso e
+o erro em módulo, a folha no histórico, o teclado virtual, o rodapé, o cartão, o lembrete, os guardas
+`escritaSoPelaPorta` e `fraseDaAcaoSoNoCore`, e `acoesComClientReal` — a recusa sobre o supabase-js
+real), **store +33/+1** (`pedidoGravadoSoPeloDono`) e **backoffice +25/+2** (`lembreteNoCore` e
+`useAdminOrders.delega`; **nenhuma asserção antiga tocada** — `useAdminOrders.test.ts` mudou só no
+dublê, que ganhou `.select`). Functions e catalog-import remedidos, idênticos. Tipos 0 nos apps, 11
+herdados em core; lint 0/0 · 23/5 · 2/2; os builds do mobile-adm e do backoffice verdes;
+`packages/core/src/payment/**` sem alteração. **Sem migration.** Decisão `AD-059`. `packages/ui`
+ganhou `overlayClassName?` no `SheetContent` (aditivo, B02). Probe de paridade
+(`probes/01-paridade.*`): 71 `ok —` contra o banco local, com a `send-notification` servida do
+worktree por `functions serve` e uma chave do Resend inválida de propósito; dois mutantes no dono
+mortos pelo probe. A prova em navegador (`prova-navegador.md`) achou **dois defeitos que a suíte
+aprovava**: o F5 com a folha aberta deixava um voltar morto (o teste montava um histórico que o app
+nunca produz; e, consertado, os DOIS usuários da folha no detalhe voltavam duas vezes — no jsdom as
+duas voltas caem na mesma entrada, no Chromium se somam) e o fundo da folha animava com "menos
+movimento". Os dois com teste antes do conserto e reteste no build servido.
+
+**O Verificador e o QA da `75` (2026-10-24)**: três rodadas do Verificador independente — a 1 FAIL por
+cobertura (a folha fechando com a gravação no ar, a guarda de status cega à comparação), a 2 PASS, e a 3,
+sobre os consertos do QA, FAIL por cobertura (V05: o conserto do C01 provado só no rodapé, não no
+cartão; V10: "o aviso saiu?" com a leitura em erro; V12: a folha aberta com o `<body>` focado). **As três
+lacunas da r3 foram fechadas com +6 casos e os mutantes reinjetados, sem rodada 4** (precedente da `72`
+e da `73`). O QA (`docs/qa/reports/2026-10-24-mobile-adm-acoes-do-pedido*.md`) achou quatro bugs, todos
+com teste antes e retestados em navegador: o "Tentar de novo" dizendo falha sem ir à rede depois de outra
+escrita levar o pedido adiante (C01, `espera` + o desfecho `mudou` em `runAppAction`; o mutante achou que
+uma retirada relida em `separating` gravaria `delivered`), o "Alterar rastreio" afirmando o aviso de
+postagem que falhou (C02, `shippedNoticeSent`; `SPEC_DEVIATION` em A10), o foco caindo no `<body>` ao
+fechar a folha (C03) e o botão do cartão sem o pedido no nome acessível (C04, `nomeDaLinha`). Tipos 0
+nos apps e 11 herdados em core; lint 0/0 · 23/5 · 2/2; build do mobile-adm verde. **Falta o Android
+real** (TalkBack, o gesto de voltar, o teclado).
 
 **A feature `74` (Pedidos no app do ateliê) somou +635/+36 em QUATRO workspaces** no fecho (store
 **+37/+2** · backoffice **+23/+1** · mobile-adm **+405/+22** · core **+170/+11**, remedidos em 2026-10-24

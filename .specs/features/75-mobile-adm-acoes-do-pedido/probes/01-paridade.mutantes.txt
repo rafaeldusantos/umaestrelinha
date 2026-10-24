@@ -1,0 +1,15 @@
+Feature 75 · T29 — o probe contra mutantes no dono (packages/core/src/order-actions/status.ts),
+2026-10-24. Editado no lugar, probe rodado inteiro (fixturas semeadas e apagadas por trap),
+restaurado e SHA-256 conferido.
+
+MP1 — `.select('id')` apagado (o efeito deixa de ser conferido): exit 1, 10 FALHA(S)
+  FALHOU — 02 app/painel, 03 app (parcial material, nenhuma-linha) /painel, 04 app (parcial rastreio)
+  /painel, 08 app/painel, 09 app/painel: a escrita devolve nenhuma-linha em vez de ok.
+  banco restaurado: 54/9 (antes: 54/9)
+
+MP2 — `expectedFrom` ignorado (a guarda de status sai do update): exit 1, 2 FALHA(S)
+  FALHOU — 02 guarda: a linha velha ⇒ ok (o pedido mudou)
+  FALHOU — 02 guarda: nem status, nem histórico, nem evento novos
+  banco restaurado: 54/9 (antes: 54/9)
+
+Os dois mortos por asserção do probe; status.ts com o SHA-256 de antes depois de cada um.

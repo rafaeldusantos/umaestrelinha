@@ -93,6 +93,12 @@ export interface DetalheDoPedido {
   /** `buildHistory` já aplicado; em falha se QUALQUER das três fontes falhou (Q6). */
   historico: Bloco<HistoryEvent[]>
   /**
+   * O aviso de postagem deste pedido SAIU (`shippedNoticeSent`, das MESMAS linhas do histórico)?
+   * `false` também quando a leitura das notificações falhou: sem saber, a folha não afirma
+   * (`BUG-20261024-folha-afirma-aviso-que-falhou`).
+   */
+  avisoDePostagemSaiu: boolean
+  /**
    * O instante do banco da leitura confirmada. `null` só quando NÃO houve leitura: o endereço não é
    * um id de pedido (Q7), e "Não encontrei este pedido." sai sem ir à rede.
    */

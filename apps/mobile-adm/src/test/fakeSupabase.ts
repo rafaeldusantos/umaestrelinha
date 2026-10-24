@@ -12,6 +12,15 @@ import { vi } from 'vitest'
  * Desde a feature `74` ele também registra a CADEIA inteira de cada leitura de tabela de dado
  * (`cadeiasDe`), e uma tabela sem resposta configurada lança (`responderTabela`).
  *
+ * Desde a feature `75` (T14) ele também ESCREVE: `update`/`insert`/`upsert`/`delete` numa tabela de
+ * dado ficam em `escritasDe(tabela)` com os VALORES e a cadeia de filtros que veio depois (`eq`, `in`,
+ * `select`), e `functions.invoke` em `invocacoesDe(nome)`. A resposta de cada escrita, de cada RPC
+ * (`filaRpc`) e de cada invocação sai de uma FILA, uma por chamada, na ordem — e a fila que esgota
+ * (ou que nunca foi configurada) LANÇA e fica em `esgotamentos()`. Sem isso, "zero escritas" seria
+ * verdade por silêncio: uma escrita sem resposta configurada viraria `undefined` e a suíte não veria.
+ * `log()` é a ordem global das idas ao banco (`update orders`, `rpc set_material_status`,
+ * `invoke send-notification?action=trigger`…) — é com ele que se prova "o passo seguinte não roda".
+ *
  * Uso: `vi.mock('@estrelinha/supabase/client', async () => ({ supabase: (await import('@/test/fakeSupabase')).fake.client }))`.
  */
 
@@ -55,6 +64,10 @@ type ComportamentoTabela = (cadeia: Elo[], n: number) => RespostaTabela | Promis
 
 /** A leitura de tabela do dublê, tipada como o builder do supabase-js é usado: encadeia e é `thenable`. */
 export interface ConsultaFalsa extends PromiseLike<RespostaTabela> {
+  update(...args: unknown[]): ConsultaFalsa
+  insert(...args: unknown[]): ConsultaFalsa
+  upsert(...args: unknown[]): ConsultaFalsa
+  delete(...args: unknown[]): ConsultaFalsa
   select(...args: unknown[]): ConsultaFalsa
   or(...args: unknown[]): ConsultaFalsa
   in(...args: unknown[]): ConsultaFalsa
@@ -75,6 +88,17 @@ export interface ConsultaFalsa extends PromiseLike<RespostaTabela> {
 
 /** Os métodos de filtro e de forma que o dublê aceita e registra. Fora desta lista, `is not a function`. */
 const METODOS_DA_CADEIA = ['select', 'or', 'in', 'eq', 'neq', 'is', 'ilike', 'gt', 'lt', 'gte', 'lte', 'order', 'limit', 'range'] as const
+
+/** Os comandos de escrita que o dublê aceita (feature `75`). O primeiro elo decide o modo da consulta. */
+const COMANDOS_DE_ESCRITA = ['update', 'insert', 'upsert', 'delete'] as const
+export type ComandoDeEscrita = (typeof COMANDOS_DE_ESCRITA)[number]
+
+/** Uma escrita registrada: a tabela, o comando, os valores passados e a cadeia de filtros DEPOIS dele. */
+export type Escrita = { tabela: string; comando: ComandoDeEscrita; valores: unknown[]; cadeia: Elo[] }
+/** Uma resposta da fila: o valor, ou uma função (para segurar com promessa). */
+type NaFila<T> = T | (() => T | Promise<T>)
+/** O que `functions.invoke` devolve, na forma do supabase-js (ele NÃO rejeita). */
+export type RespostaInvocacao = { data: unknown; error: null | { message: string } }
 
 const FALHA_DE_REDE = { message: 'Failed to fetch' }
 type Ouvinte = (evento: string, sessao: Sessao) => void
@@ -112,6 +136,31 @@ const criar = () => {
     respostasDeTabela: new Map<string, ComportamentoTabela>(),
     /** Toda leitura de tabela de dado, com a cadeia inteira, na ordem em que saiu. */
     leituras: [] as { tabela: string; cadeia: Elo[]; final: 'then' | 'maybeSingle' | 'single' }[],
+    // ---- Escrita (feature `75`, T14) ----
+    /** A fila de respostas das escritas de cada tabela: uma por escrita, na ordem. */
+    filasDeEscrita: new Map<string, NaFila<RespostaTabela>[]>(),
+    /** Toda escrita, com os valores e a cadeia depois do comando. */
+    escritas: [] as Escrita[],
+    /** A fila de respostas de cada RPC posta em fila (`filaRpc`). */
+    filasDeRpc: new Map<string, NaFila<RespostaRpc>[]>(),
+    /** A fila de respostas de cada function (`functions.invoke`). */
+    filasDeInvocacao: new Map<string, NaFila<RespostaInvocacao>[]>(),
+    /** Toda invocação de function, com o nome e as opções (o corpo). */
+    invocacoes: [] as { nome: string; opcoes: unknown }[],
+    /** As filas que esgotaram (ou nunca existiram) — cada uma também LANÇOU. */
+    esgotamentos: [] as string[],
+    /** A ordem global das idas ao banco: `update orders`, `rpc atelie_clock`, `invoke …`. */
+    log: [] as string[],
+  }
+
+  /** Tira a próxima resposta da fila; a fila vazia (ou ausente) registra o esgotamento e LANÇA. */
+  const proxima = async <T,>(fila: NaFila<T>[] | undefined, rotulo: string): Promise<T> => {
+    const item = fila?.shift()
+    if (item === undefined) {
+      estado.esgotamentos.push(rotulo)
+      throw new Error(`fakeSupabase: a fila de "${rotulo}" esgotou (nenhuma resposta configurada para esta chamada)`)
+    }
+    return typeof item === 'function' ? (item as () => T | Promise<T>)() : item
   }
 
   const emitir = (evento: string) => {
@@ -126,9 +175,19 @@ const criar = () => {
    */
   const leituraDeDado = (tabela: string): ConsultaFalsa => {
     const comportamento = estado.respostasDeTabela.get(tabela)
-    if (!comportamento) throw new Error(`fakeSupabase: a tabela "${tabela}" não tem resposta configurada (responderTabela)`)
+    // Feature `75`: a tabela que só tem fila de ESCRITA não lança aqui; ler dela lança ao responder.
+    if (!comportamento && !estado.filasDeEscrita.has(tabela))
+      throw new Error(`fakeSupabase: a tabela "${tabela}" não tem resposta configurada (responderTabela/filaDeEscrita)`)
     const cadeia: Elo[] = []
-    const responder = (final: 'then' | 'maybeSingle' | 'single') => {
+    let escrita: Escrita | null = null
+    const responder = (final: 'then' | 'maybeSingle' | 'single'): Promise<RespostaTabela> => {
+      if (escrita) {
+        estado.log.push(`${escrita.comando} ${tabela}`)
+        return proxima(estado.filasDeEscrita.get(tabela), `${escrita.comando} ${tabela}`)
+      }
+      if (!comportamento)
+        return Promise.reject(new Error(`fakeSupabase: a tabela "${tabela}" não tem resposta de LEITURA configurada (responderTabela)`))
+      estado.log.push(`select ${tabela}`)
       estado.leituras.push({ tabela, cadeia, final })
       const n = estado.leituras.filter((l) => l.tabela === tabela).length
       return Promise.resolve(comportamento(cadeia, n))
@@ -137,6 +196,15 @@ const criar = () => {
     for (const metodo of METODOS_DA_CADEIA) {
       builder[metodo] = (...args: unknown[]) => {
         cadeia.push({ metodo, args })
+        return builder
+      }
+    }
+    for (const comando of COMANDOS_DE_ESCRITA) {
+      builder[comando] = (...valores: unknown[]) => {
+        if (escrita || cadeia.length > 0) throw new Error(`fakeSupabase: "${comando}" tem de ser o primeiro elo da consulta`)
+        // A cadeia da escrita é a mesma referência: os filtros que vêm DEPOIS entram nela.
+        escrita = { tabela, comando, valores, cadeia }
+        estado.escritas.push(escrita)
         return builder
       }
     }
@@ -241,10 +309,30 @@ const criar = () => {
     rpc: vi.fn((nome: string, ...args: unknown[]) => {
       estado.tabelas.push(`rpc:${nome}`)
       estado.chamadasRpc.push({ nome, args })
+      estado.log.push(`rpc ${nome}`)
+      // Feature `75`: a RPC posta em FILA responde dela, e a fila esgotada LANÇA (síncrono, como o
+      // client que lança na hora) — nunca o `{ data: null }` silencioso de uma RPC sem entrada.
+      if (estado.filasDeRpc.has(nome)) {
+        const fila = estado.filasDeRpc.get(nome)
+        const item = fila.shift()
+        if (item === undefined) {
+          estado.esgotamentos.push(`rpc ${nome}`)
+          throw new Error(`fakeSupabase: a fila de "rpc ${nome}" esgotou (nenhuma resposta configurada para esta chamada)`)
+        }
+        return Promise.resolve(typeof item === 'function' ? item() : item)
+      }
       const n = estado.chamadasRpc.filter((c) => c.nome === nome).length
       const comportamento = estado.rpcs.get(nome)
       return Promise.resolve(comportamento ? comportamento(n, args[0]) : { data: null, error: null })
     }),
+    functions: {
+      /** Feature `75`: registra o nome e as opções; responde da fila da function, e a fila vazia LANÇA. */
+      invoke: vi.fn((nome: string, opcoes?: unknown) => {
+        estado.invocacoes.push({ nome, opcoes })
+        estado.log.push(`invoke ${nome}`)
+        return proxima(estado.filasDeInvocacao.get(nome), `invoke ${nome}`)
+      }),
+    },
     channel: vi.fn((nome: string) => {
       const canal: CanalFalso = {
         nome,
@@ -381,6 +469,44 @@ const criar = () => {
     cadeiasDe(tabela: string) {
       return estado.leituras.filter((l) => l.tabela === tabela).map((l) => l.cadeia)
     },
+    // ---- Escrita (feature `75`, T14) -----------------------------------------------------------
+    /**
+     * Põe respostas na fila das ESCRITAS da tabela (`update`/`insert`/`upsert`/`delete`), uma por
+     * escrita, na ordem. A escrita que chega com a fila vazia LANÇA e fica em `esgotamentos()`.
+     */
+    filaDeEscrita(tabela: string, ...respostas: NaFila<RespostaTabela>[]) {
+      const fila = estado.filasDeEscrita.get(tabela) ?? []
+      fila.push(...respostas)
+      estado.filasDeEscrita.set(tabela, fila)
+    },
+    /** As escritas da tabela, na ordem, com os valores e a cadeia depois do comando. */
+    escritasDe(tabela: string) {
+      return estado.escritas.filter((e) => e.tabela === tabela)
+    },
+    /** Põe respostas na fila da RPC, uma por chamada. Com fila, a chamada sem resposta LANÇA. */
+    filaRpc(nome: string, ...respostas: NaFila<RespostaRpc>[]) {
+      const fila = estado.filasDeRpc.get(nome) ?? []
+      fila.push(...respostas)
+      estado.filasDeRpc.set(nome, fila)
+    },
+    /** Põe respostas na fila da function (`functions.invoke`), uma por invocação. */
+    filaDeInvocacao(nome: string, ...respostas: NaFila<RespostaInvocacao>[]) {
+      const fila = estado.filasDeInvocacao.get(nome) ?? []
+      fila.push(...respostas)
+      estado.filasDeInvocacao.set(nome, fila)
+    },
+    /** As invocações da function, com as opções (o corpo). */
+    invocacoesDe(nome: string) {
+      return estado.invocacoes.filter((i) => i.nome === nome)
+    },
+    /** As filas que esgotaram (cada uma lançou). Um teste que termina com isto não vazio mediu o nada. */
+    esgotamentos() {
+      return [...estado.esgotamentos]
+    },
+    /** A ordem global das idas ao banco e das invocações. */
+    log() {
+      return [...estado.log]
+    },
     /** Só as leituras que NÃO são do próprio `AuthProvider` (o papel e o cadastro de quem entrou). */
     leiturasDeDado() {
       return estado.tabelas.filter((t) => t !== 'user_roles' && t !== 'customers')
@@ -405,7 +531,15 @@ const criar = () => {
       estado.canais = []
       estado.respostasDeTabela.clear()
       estado.leituras = []
+      estado.filasDeEscrita.clear()
+      estado.escritas = []
+      estado.filasDeRpc.clear()
+      estado.filasDeInvocacao.clear()
+      estado.invocacoes = []
+      estado.esgotamentos = []
+      estado.log = []
       for (const f of Object.values(client.auth)) f.mockClear()
+      client.functions.invoke.mockClear()
       client.from.mockClear()
       client.rpc.mockClear()
       client.channel.mockClear()

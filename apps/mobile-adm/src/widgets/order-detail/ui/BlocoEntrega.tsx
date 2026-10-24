@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { shippingLine } from '@estrelinha/core/orders'
 import { PICKUP_METHOD_NAME, isPickupOrder } from '@estrelinha/core/shipping'
 import { maskCep } from '@estrelinha/core/validators'
@@ -20,9 +21,12 @@ const linhasDoEndereco = (p: PedidoDoDetalhe): string[] =>
  *   transportadora, sem prazo e sem linha de rastreio.
  * - Entrega pelos Correios: o endereço, o serviço e a linha do rastreio de SAÍDA, que é de
  *   `shippingLine` (`core`): "Rastreio <código>", "Enviado sem código de rastreio", "Ainda não
- *   postado" ou "Sem rastreio". Sem botão de editar: a `74` só lê.
+ *   postado" ou "Sem rastreio".
+ * - **`editar`** (feature `75`, `MAA-11`): o "Informar/Alterar" ao lado da linha do rastreio. O bloco
+ *   não decide quando ele aparece nem o que ele faz — quem compõe é a página (`EditarRastreio`, de
+ *   `features/order-actions`, que lê `trackingEdit` de `core`). Em retirada o bloco nem o desenha.
  */
-const BlocoEntrega = ({ pedido }: { pedido: PedidoDoDetalhe }) => {
+const BlocoEntrega = ({ pedido, editar }: { pedido: PedidoDoDetalhe; editar?: ReactNode }) => {
   if (isPickupOrder(pedido)) {
     return (
       <BlocoDoDetalhe id="entrega" titulo="Entrega">
@@ -41,8 +45,13 @@ const BlocoEntrega = ({ pedido }: { pedido: PedidoDoDetalhe }) => {
       {pedido.shipping_method && (
         <p data-parte="servico" className="mt-2 text-sm [overflow-wrap:anywhere]">{pedido.shipping_method}</p>
       )}
-      {rastreio && (
-        <p data-parte="rastreio" className="mt-1 text-sm text-estrelinha-ink-soft [overflow-wrap:anywhere]">{rastreio}</p>
+      {(rastreio || editar) && (
+        <div className="mt-1 flex flex-wrap items-center justify-between gap-x-3">
+          {rastreio && (
+            <p data-parte="rastreio" className="min-w-0 flex-1 text-sm text-estrelinha-ink-soft [overflow-wrap:anywhere]">{rastreio}</p>
+          )}
+          {editar}
+        </div>
       )}
     </BlocoDoDetalhe>
   )

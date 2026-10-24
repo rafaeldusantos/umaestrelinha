@@ -25,18 +25,42 @@ import { supabase } from '@estrelinha/supabase/client'
  * `Bloco 'falhou'`.
  *
  * **O nome da RPC é LITERAL, e só aqui** (E1): `marcacaoSoPorAcao.test.ts` (suíte da loja) exige
- * `rpc('<literal>')` em todo `apps/**` e compara o conjunto por igualdade. Nenhuma constante.
+ * `rpc('<literal>')` em todo `apps/**` e compara o conjunto por igualdade. Nenhuma constante — e,
+ * desde a `75`, uma chamada só (`perguntarAoRelogio`), lida pela leitura e por `conferirPapel`.
  */
+const perguntarAoRelogio = () => supabase.rpc('atelie_clock')
+
+/** O instante do banco na resposta da RPC — ou lança: 200 sem o instante não é confirmação. */
+const instanteDe = (data: unknown): string => {
+  const lido_em = (data as { lido_em?: unknown } | null)?.lido_em
+  if (typeof lido_em !== 'string') throw new Error('atelie_clock respondeu sem lido_em')
+  return lido_em
+}
+
 export const lerComPapel = async <T>(consulta: () => Promise<T>): Promise<{ resultado: T; lido_em: string }> => {
   // A consulta embrulhada num `async`: um `throw` síncrono dela vira rejeição e passa pela régua (1).
-  const [relogio, leitura] = await Promise.allSettled([supabase.rpc('atelie_clock'), (async () => consulta())()])
+  const [relogio, leitura] = await Promise.allSettled([perguntarAoRelogio(), (async () => consulta())()])
 
   if (relogio.status === 'rejected') throw relogio.reason
   if (relogio.value.error) throw relogio.value.error
-  const lido_em = (relogio.value.data as { lido_em?: unknown } | null)?.lido_em
   // Uma confirmação que não confirmou (200 sem o instante) não é confirmação: falha de leitura.
-  if (typeof lido_em !== 'string') throw new Error('atelie_clock respondeu sem lido_em')
+  const lido_em = instanteDe(relogio.value.data)
 
   if (leitura.status === 'rejected') throw leitura.reason
   return { resultado: leitura.value, lido_em }
+}
+
+/**
+ * "Quem é você?" — feature `75` (`MAA-21`, `MAA-23`, A3). Uma escrita que respondeu sem erro e sem
+ * linha é ambígua: o pedido mudou (a guarda de status filtrou) ou a conta perdeu o papel (a RLS
+ * filtrou). A porta de escrita do app pergunta à MESMA RPC da leitura:
+ *
+ * - `42501` ⇒ lança o erro da RPC (o `{ code: '42501' }` que `isAccessDenied` reconhece);
+ * - resposta com o instante ⇒ resolve (o papel está de pé: o pedido mudou);
+ * - rede, 5xx, ou 200 sem o instante ⇒ lança um erro SEM o código de recusa. Rede nunca é recusa.
+ */
+export const conferirPapel = async (): Promise<void> => {
+  const { data, error } = await perguntarAoRelogio()
+  if (error) throw error
+  instanteDe(data)
 }

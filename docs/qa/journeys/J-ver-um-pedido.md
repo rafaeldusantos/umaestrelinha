@@ -2,7 +2,7 @@
 
 Feature `74` (`MAP-20`..`MAP-30`, `MAP-52`, `MAP-55`). A pergunta da Adri, com a cliente esperando
 resposta no WhatsApp: *"o que ela comprou, com que gravação, o material chegou, já saiu?"*. Uma tela só,
-o próximo passo dito por `nextStep` (o mesmo do painel), **sem botão de ação** (as escritas são da `75`).
+o próximo passo dito por `nextStep` (o mesmo do painel), **sem botão de ação** (as escritas são da `75`). **Desde a `75`** o detalhe ganha o rodapé de ação, a folha do rastreio e o lembrete: essa jornada é `J-registrar-material-e-envio`.
 
 ```mermaid
 flowchart TD

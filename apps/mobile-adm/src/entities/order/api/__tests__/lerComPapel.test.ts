@@ -4,7 +4,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { fake, type RespostaRpc } from '@/test/fakeSupabase'
 
-import { lerComPapel } from '../lerComPapel'
+import { isAccessDenied } from '@estrelinha/core/hooks/useStoreOverview'
+
+import { conferirPapel, lerComPapel } from '../lerComPapel'
+import * as slice from '../..'
 
 vi.mock('@estrelinha/supabase/client', async () => ({ supabase: (await import('@/test/fakeSupabase')).fake.client }))
 
@@ -97,5 +100,60 @@ describe('lerComPapel — o caminho bom', () => {
     void lerComPapel(async () => 'dado').then(() => (saiu = true))
     for (let i = 0; i < 20; i++) await Promise.resolve()
     expect(saiu).toBe(false)
+  })
+})
+
+// Feature `75` · T15 — `conferirPapel`: a pergunta "quem é você?" depois de uma escrita que não mudou
+// linha nenhuma (`MAA-21`, `MAA-23`, A3). A mesma RPC da leitura, chamada pelo mesmo literal.
+describe('conferirPapel (feature 75)', () => {
+  it('42501 ⇒ LANÇA a recusa, com o código que `isAccessDenied` reconhece', async () => {
+    fake.falharRpc('atelie_clock', RECUSA)
+    const erro = await conferirPapel().then(
+      () => 'resolveu',
+      (e: unknown) => e,
+    )
+    expect(erro).toEqual({ message: 'acesso restrito ao painel', code: '42501' })
+    expect(isAccessDenied(erro)).toBe(true)
+  })
+
+  it('resposta boa ⇒ resolve, com UMA chamada à RPC pelo nome literal e sem argumento', async () => {
+    fake.responderRpc('atelie_clock', { lido_em: LIDO_EM })
+    await expect(conferirPapel()).resolves.toBeUndefined()
+    expect(fake.chamadasDe('atelie_clock')).toEqual([{ nome: 'atelie_clock', args: [] }])
+  })
+
+  it('rede como `{ error }` sem código ⇒ lança erro que NÃO é recusa (rede nunca é recusa)', async () => {
+    fake.falharRpc('atelie_clock', REDE)
+    const erro = await conferirPapel().catch((e: unknown) => e)
+    expect(erro).toEqual(REDE)
+    expect(isAccessDenied(erro)).toBe(false)
+  })
+
+  it('5xx (um `{ error }` com outro código) ⇒ lança erro que NÃO é recusa', async () => {
+    fake.falharRpc('atelie_clock', { message: 'boom', code: 'XX000' })
+    const erro = await conferirPapel().catch((e: unknown) => e)
+    expect(erro).toEqual({ message: 'boom', code: 'XX000' })
+    expect(isAccessDenied(erro)).toBe(false)
+  })
+
+  it('a RPC que REJEITA (o fetch lança) ⇒ o mesmo erro, que NÃO é recusa', async () => {
+    const falha = new TypeError('Failed to fetch')
+    fake.aoChamarRpc('atelie_clock', () => Promise.reject(falha))
+    const erro = await conferirPapel().catch((e: unknown) => e)
+    expect(erro).toBe(falha)
+    expect(isAccessDenied(erro)).toBe(false)
+  })
+
+  it('200 sem `lido_em` não confirma: lança erro que NÃO é recusa', async () => {
+    fake.responderRpc('atelie_clock', null)
+    const erro = (await conferirPapel().catch((e: unknown) => e)) as Error
+    expect(erro).toBeInstanceOf(Error)
+    expect(erro.message).toBe('atelie_clock respondeu sem lido_em')
+    expect(isAccessDenied(erro)).toBe(false)
+  })
+
+  it('é exportada pelo slice (a porta de escrita a importa de `@/entities/order`)', () => {
+    expect(typeof conferirPapel).toBe('function')
+    expect(slice.conferirPapel).toBe(conferirPapel)
   })
 })

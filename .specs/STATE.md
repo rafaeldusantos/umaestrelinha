@@ -1454,9 +1454,90 @@
   depende de nenhum caminho do app ler `orders` sem passar por `lerComPapel` — contida pelo guarda.
   Complementa `AD-057` (agregado só por RPC admin).
 
+
+### AD-059
+
+- **Status**: accepted (feature `75`, portão do Design fechado em 2026-10-24 pelo validador
+  independente, com dois ajustes de texto incorporados)
+- **Decision**: **toda escrita de status e rastreio de saída em `orders` (com a linha de
+  `order_status_history`) e a sequência "RPC `set_material_status` → aviso", feita a partir de
+  `apps/*/src` ou `packages/*/src`, têm UM dono, `@estrelinha/core/order-actions`**, que recebe o
+  client e o notificador **injetados** e confere o efeito com `.select('id')` — zero linhas nunca é
+  sucesso. O painel (`useAdminOrders`) e o app (`features/order-actions/api/gravarAcao.ts`) chamam o
+  dono; só `cancelOrder` escreve fora dele, como entrada literal de allowlist. Guarda:
+  `pedidoGravadoSoPeloDono.test.ts` (suíte da loja).
+- **Escopo**: `supabase/functions/**` (`checkout`, `mercado-pago`, `melhor-envio`) e
+  `tools/catalog-import` (`src/write/orders.ts`, `from('orders').update(patch)`) também gravam
+  `orders`, com service role no servidor — são **outros donos por construção**, fora do guarda, e o
+  cabeçalho dele diz por quê. Ampliar o guarda a eles quebraria o importador e as functions.
+- **Nomes**: em `OrderWriteDeps`, `notify` é a função notificadora; no input das escritas, o booleano
+  do aviso chama-se `avisar`.
+- **Decision**: **no app do ateliê, toda escrita passa pela porta única**, que nunca chama o client
+  (só o passa ao dono) e responde "zero linhas" perguntando ao banco quem é a conta (`conferirPapel` →
+  `atelie_clock`): `42501` é a recusa da `72`, resposta boa é "o pedido mudou". O app sempre passa a
+  guarda de estado de origem, e quem a escolhe é `core` (`appPrimaryAction`/`trackingSheet`). Guarda:
+  `escritaSoPelaPorta.test.ts` (app).
+- **Reason**: o painel e o app passam a gravar o mesmo pedido; duas sequências de
+  "update + histórico + aviso" divergem sem nada quebrar (defeito 01). A RLS de `orders` faz o
+  `update` de uma conta sem papel afetar zero linhas **sem erro**, então "sem erro" não é "gravou".
+- **Trade-off**: `update` e histórico continuam em duas idas, não atômicos (paridade com o painel); a
+  RPC atômica é `BL-051`. O painel passa a tratar zero linhas como erro (caso degenerado, A24 da spec
+  da `75`) e a exceção síncrona do client como `rpc_failed`/`{ error }`. Complementa `AD-058`
+  (leitura) do lado da escrita.
+
 ## Handoff
 
-### ATUAL — 2026-10-24 · `74-mobile-adm-pedidos` **IMPLEMENTADA E COMMITADA — 31 tasks + B01..B03, Verificador (4 rodadas) e QA (3 bugs, retestados); pronta para merge em `feature/mobile-adm`**
+### ATUAL — 2026-10-24 · `75-mobile-adm-acoes-do-pedido` **IMPLEMENTADA E COMMITADA — 31 tasks + B01/B02, Verificador (3 rodadas) e QA (4 bugs, retestados); pronta para merge em `feature/mobile-adm`**
+
+- **Feature**: `.specs/features/75-mobile-adm-acoes-do-pedido/` (`spec.md`, `design.md`, `tasks.md`,
+  `baseline.md`, `probes/01-paridade.*`, `prova-navegador.md`, `prova/`). Decisão `AD-059`, backlog
+  `BL-051`. Worktree `/Users/rafael.santos/Projetos/uma-estrelinha/store-worktrees/store-75-mobile-adm-acoes-do-pedido`,
+  branch `feat/75-mobile-adm-acoes-do-pedido` (de `feature/mobile-adm`, `2a285bab`); o merge vai para
+  `feature/mobile-adm`, nunca para a `master`. **Sem migration.**
+- **O que entrega**: as ações no pedido do app do ateliê — "Recebi o material", "Iniciar separação",
+  "Marcar como enviado"/"Salvar rastreio" (folha no histórico, teclado virtual), "Marcar como
+  retirado", "Informar/Alterar" o rastreio na Entrega, o lembrete do material no WhatsApp, e a ação
+  primária no cartão da lista; o dono único da escrita do pedido em `core/order-actions`, com o painel
+  delegando; o lembrete subido para `core/orders/charge.ts`. `packages/ui`: `SheetContent` ganhou
+  `overlayClassName?` (aditivo, B02).
+- **Gates no fecho** (2026-10-24, depois de B01/B02, um workspace por vez, exit fora de pipe): core
+  **4206/166** · mobile-adm **1060/76** · store **5885/320** · backoffice **3696/212** · functions
+  957/21 · catalog-import 512/23 = **16316/818** (+497/+26 contra a entrada 15819/792); `tsc` 0 nos apps,
+  11 herdados em core; lint 0/0 · 23/5 · 2/2; builds do mobile-adm e do backoffice verdes;
+  `payment/**`, `rowSummary.ts` e `nextStep.ts` sem diff; `useAdminOrders.test.ts` mudou só no dublê.
+- **Probe de paridade** (T29): 71 `ok —` contra o banco local (app × painel em 11 casos, a guarda de
+  status, a normalização e a diferença esperada de A8, a conta sem papel com pedido próprio); dois
+  mutantes no dono mortos. A `send-notification` local **não tinha container**: foi servida por
+  `supabase functions serve --env-file` a partir do WORKTREE (chave do Resend inválida de propósito,
+  nenhum e-mail saiu), sem `stop`/`start`, e derrubada no fim. **O Supabase local NÃO foi reiniciado**;
+  o edge runtime continua ausente, como na abertura — subi-lo de novo é decisão de quem precisar dele.
+- **Prova em navegador** (T31): os nove itens de §13 em 360/390/412/1440 e fonte 100/130/200 %. Dois
+  defeitos, os dois com teste antes do conserto e reteste: **B01** (F5 com a folha deixava um voltar
+  morto; `SPEC_DEVIATION` contra a letra de A23 — `navigate(-1)` no lugar do `replace`) e **B02** (o
+  fundo da folha animava com "menos movimento"). Banco restaurado.
+- **Assunções `n — confirmar`** (do usuário): A8 (o código de rastreio aparado, sem espaços, maiúsculo,
+  ≥ 8, só no app), A11/TQ5 (as frases de confirmação; e-mail só com `sent === true`), A17/TQ6 (o
+  lembrete some sem número válido), A23/TQ7 (o voltar fecha a folha; e o mecanismo do F5 mudou no
+  B01), A24/TQ8 (**zero linhas vira erro também no painel** — a única mudança de comportamento do
+  painel, contra a letra do `AD-056`), Q7/TQ9 (a confirmação some em 5 s), e o **Android real** (TQ10:
+  o teclado, o voltar, a área segura e a fonte do aparelho).
+- **Verificador independente** (`validation.md`): r1 FAIL por cobertura (consertos V01/V02), r2 PASS,
+  r3 (sobre os consertos do QA) FAIL por cobertura — V05 (C01 no cartão), V10 (o aviso com a leitura em
+  erro), V12 (o `<body>` focado ao abrir); as três fechadas com +6 casos e os mutantes reinjetados,
+  **sem rodada 4**. Nenhum defeito de produto aberto.
+- **QA** (`docs/qa/reports/2026-10-24-mobile-adm-acoes-do-pedido*.md`, bugs em `docs/qa/bugs/`): quatro
+  bugs, C01..C04 em `tasks.md`, todos `verified` no reteste em navegador. Decisões para o usuário: a
+  primeira frase de `MAA-40` numa corrida, e o `SPEC_DEVIATION` de A10 (C02) e de A23 (B01), registrados
+  no fim das assunções da `spec.md`.
+- **Gates no fecho final** (2026-10-24, depois do QA e das lacunas da r3): core **4219/166** · mobile-adm
+  **1102/76** · store 5885/320 · backoffice 3696/212 · functions 957/21 · catalog-import 512/23 =
+  **16371/818** (+552/+26); `tsc` 0 nos apps (store app e server, backoffice, mobile-adm app e node,
+  catalog-import), 11 herdados em core; lint 0/0 · 23/5 · 2/2; build do mobile-adm verde.
+- **Commit**: um só, `feat(mobile-adm): ações no pedido (feature 75)`, na branch
+  `feat/75-mobile-adm-acoes-do-pedido`; sem merge e sem push. O merge vai para `feature/mobile-adm`.
+- **Próximo**: o Android real (TQ10), as assunções `n — confirmar` acima, e a `76` (Clientes).
+
+### ANTERIOR — 2026-10-24 · `74-mobile-adm-pedidos` **IMPLEMENTADA E COMMITADA — 31 tasks + B01..B03, Verificador (4 rodadas) e QA (3 bugs, retestados); pronta para merge em `feature/mobile-adm`**
 
 - **Feature**: `.specs/features/74-mobile-adm-pedidos/` (`spec.md`, `design.md`, `tasks.md`,
   `baseline.md`, `probes/`, `prova-navegador.md`, `prova/`). Decisão `AD-058`. Worktree

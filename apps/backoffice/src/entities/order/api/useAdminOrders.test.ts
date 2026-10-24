@@ -31,7 +31,9 @@ vi.mock('@estrelinha/supabase/client', () => {
       insert: () => Promise.resolve({ error: null }),
       update: (values: Record<string, unknown>) => {
         updateCalls.push({ table, values })
-        return { eq: () => Promise.resolve(updateResult) }
+        // Feature 75: o dono da escrita confere o efeito com `.select('id')` (`MAA-27` autoriza
+        // esta mudança no dublê, e só nele).
+        return { eq: () => ({ select: () => Promise.resolve({ data: [{ id: 'ord-1' }], error: updateResult.error }) }) }
       },
       // Awaitable sem terminador — é como `fetchStatusCounts` lê `select('status')`.
       then: (resolve: (v: unknown) => unknown) =>

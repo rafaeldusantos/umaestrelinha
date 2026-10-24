@@ -3,9 +3,10 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { useOrdersRealtime } from '@estrelinha/core/hooks/useOrdersRealtime'
 import { isBlockSlice, type OrderSlice } from '@estrelinha/core/orders'
-import { LISTA_DE_PEDIDOS_KEY, pedidosHref, recorteDoEndereco, useListaDePedidos } from '@/entities/order'
+import { LISTA_DE_PEDIDOS_KEY, pedidosHref, recorteDoEndereco, useListaDePedidos, type LinhaDaLista } from '@/entities/order'
 import { STORE_OVERVIEW_KEY } from '@/entities/stats'
 import { useRecusaDePapel } from '@/features/access-check'
+import { BotaoDaAcao, useRecusaDaAcao } from '@/features/order-actions'
 import { ChipsDeRecorte, FaixaDoBloco } from '@/features/order-slice'
 import { BuscaDePedidos } from '@/features/order-search'
 import { ListaDePedidos } from '@/widgets/order-list'
@@ -48,6 +49,8 @@ const AvisoDePedidos = ({ aoMudar }: { aoMudar: () => void }) => {
  * - **O `h1` existe em todo estado** (E5): o foco do `MobileLayout` vai a ele ao trocar de aba, mesmo
  *   com a leitura pendente.
   * - O voltar restaura a rolagem da entrada (G-A28) só quando a lista volta do cache; sem cache, abre no topo.
+ * - **A ação no cartão** (feature `75`, `MAA-36`): `BotaoDaAcao` ao lado de cada linha, composto aqui.
+ *   A recusa que a porta lança (R11) volta por `aoRecusa` e entra na MESMA vigia da leitura.
  */
 const PedidosPage = () => {
   const { search } = useLocation()
@@ -57,7 +60,10 @@ const PedidosPage = () => {
   const [termo, setTermo] = useTermoDaEntrada()
 
   const lista = useListaDePedidos(recorte, termo)
-  const recusada = useRecusaDePapel([lista.error, lista.erroDaProxima])
+  const [recusaBruta, setRecusaBruta] = useState<unknown>(null)
+  const recusaDaAcao = useRecusaDaAcao(recusaBruta, lista.dataUpdatedAt)
+  const recusada = useRecusaDePapel([lista.error, lista.erroDaProxima, recusaDaAcao])
+  const acaoDaLinha = useCallback((l: LinhaDaLista) => <BotaoDaAcao linha={l} aoRecusa={setRecusaBruta} />, [])
 
   const trocarRecorte = useCallback(
     (slice: OrderSlice) => navigate(pedidosHref(slice), { replace: true }),
@@ -100,6 +106,7 @@ const PedidosPage = () => {
           }}
           carregandoMais={lista.carregandoMais}
           proximaFalhou={lista.proximaFalhou}
+          acaoDaLinha={acaoDaLinha}
         />
       </div>
     </PullToRefresh>

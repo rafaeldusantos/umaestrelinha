@@ -340,6 +340,10 @@ importers:
   packages/auth: {}
 
   packages/core:
+    dependencies:
+      '@supabase/supabase-js':
+        specifier: ^2.103.0
+        version: 2.110.7
     devDependencies:
       vitest:
         specifier: ^3.2.7

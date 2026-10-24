@@ -4,6 +4,8 @@ import { abaDoCaminho, TabBar, tituloDaAba } from '@/widgets/tab-bar'
 import { AccountMenu } from '@/widgets/account-menu'
 import { useResumo } from '@/entities/stats'
 import { backofficeUrl } from '@/shared/config/backoffice'
+import { RESERVA_DA_BARRA } from '@/shared/ui/alturas'
+import { AvisoDaAcao } from '@/features/order-actions'
 
 /**
  * A moldura das abas (feature 72): cabeçalho com o menu da conta, o conteúdo da aba, o rodapé que
@@ -71,7 +73,8 @@ const MobileLayout = () => {
         )}
       </footer>
 
-      <div data-testid="reserva-da-barra" aria-hidden="true" className="h-[calc(4rem+env(safe-area-inset-bottom))] shrink-0" />
+      <div data-testid="reserva-da-barra" aria-hidden="true" className={`${RESERVA_DA_BARRA} shrink-0`} />
+      <AvisoDaAcao />
       <TabBar selos={{ '/pedidos': precisaDeVoce }} />
     </div>
   )

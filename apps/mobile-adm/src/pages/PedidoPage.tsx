@@ -5,6 +5,7 @@ import { useOrdersRealtime } from '@estrelinha/core/hooks/useOrdersRealtime'
 import { PEDIDOS_PATH, chaveDoPedido, usePedido } from '@/entities/order'
 import { STORE_OVERVIEW_KEY } from '@/entities/stats'
 import { useRecusaDePapel } from '@/features/access-check'
+import { EditarRastreio, LembreteDoEnvio, RodapeDaAcao, useAcaoDoPedido, useRecusaDaAcao } from '@/features/order-actions'
 import {
   BlocoCliente,
   BlocoEntrega,
@@ -56,12 +57,18 @@ const Esqueletos = () => (
  * - **Releem**: o aviso do Realtime (um canal, aberto após a confirmação e fechado ao sair), que relê
  *   este pedido e o resumo da Início/selo (`STORE_OVERVIEW_KEY`, A25); o puxar; o primeiro plano.
  * - Abre no topo (`scrollTo(0, 0)` ao montar): quem vem do meio da lista não cai no meio do detalhe.
+ * - **As ações** (feature `75`): o rodapé fixo (`RodapeDaAcao`), "Informar/Alterar" na Entrega e o
+ *   lembrete no Material — os três de `features/order-actions`, compostos aqui (os blocos só recebem o
+ *   nó). A ação do pedido é UMA instância (`useAcaoDoPedido`), e a recusa que a porta lança
+ *   (`erroBruto`) entra na MESMA vigia da leitura: um episódio só (R11).
  */
 const PedidoPage = () => {
   const { id = '' } = useParams()
   const queryClient = useQueryClient()
   const pedido = usePedido(id)
-  const recusada = useRecusaDePapel([pedido.error])
+  const acao = useAcaoDoPedido(id)
+  const recusaDaAcao = useRecusaDaAcao(acao.erroBruto, pedido.dataUpdatedAt)
+  const recusada = useRecusaDePapel([pedido.error, recusaDaAcao])
   const detalhe = recusada ? undefined : pedido.data
   const naoAtualizou = !recusada && pedido.isError && !!pedido.data
   const tentarDeNovo = useCallback(() => {
@@ -117,11 +124,12 @@ const PedidoPage = () => {
             <LinhaDeFrescor lidoEm={lidoEm} naoAtualizou={naoAtualizou} />
             <ProximoPasso pedido={p} />
             <BlocoCliente pedido={p} />
-            <BlocoMaterial pedido={p} lidoEm={lidoEm} />
+            <BlocoMaterial pedido={p} lidoEm={lidoEm} lembrete={<LembreteDoEnvio pedido={p} lidoEm={lidoEm} />} />
             <BlocoItens itens={detalhe.itens} tentarDeNovo={tentarDeNovo} />
             <BlocoValores pedido={p} />
-            <BlocoEntrega pedido={p} />
+            <BlocoEntrega pedido={p} editar={<EditarRastreio pedido={p} acao={acao} avisoDePostagemSaiu={detalhe.avisoDePostagemSaiu} />} />
             <Historico historico={detalhe.historico} lidoEm={lidoEm} tentarDeNovo={tentarDeNovo} />
+            <RodapeDaAcao pedido={p} acao={acao} />
           </>
         )}
       </div>

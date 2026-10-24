@@ -3,7 +3,7 @@
 Feature `74` (`MAP-01`..`MAP-19`, `MAP-31`..`MAP-46`). A pergunta da Adri: *"quais pedidos esperam por
 mim?"* ou *"onde está o pedido que esta cliente me mandou no WhatsApp?"*. A lista obedece aos endereços
 que a Início monta (`lerDestinoDePedidos`) e responde o mesmo conjunto de `/admin/pedidos`, pelo mesmo
-predicado de `core` (`AD-057`). Só leitura: nenhum botão de ação.
+predicado de `core` (`AD-057`). Só leitura na `74`; **desde a `75`** o cartão com ação ganha o botão de `appPrimaryAction` (`MAA-36`), andado em `J-registrar-material-e-envio`.
 
 ```mermaid
 flowchart TD

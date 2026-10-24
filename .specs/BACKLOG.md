@@ -2003,3 +2003,22 @@ migration que recrie a função roda o probe antes do deploy. É a mesma situaç
 migrations aplicadas) que rode os probes `.sql` das features `71` e `73` com `ON_ERROR_STOP=1`. Custo:
 minutos de runner por push e a manutenção de subir o Supabase local no CI; o ganho é que a semântica
 das RPCs do painel e do ateliê deixa de depender de memória.
+
+## BL-051 — Status e histórico do pedido gravados em duas idas, sem transação
+
+- **Status**: aberto · **Registrado em**: 2026-10-24 · **Origem**: portão do Design da feature `75`
+  (abordagem B de §1.1, R6; decisões Q1 e Q8 do validador), `AD-059`.
+
+`writeOrderStatus` (`@estrelinha/core/order-actions`, o dono desde a `75`) faz o `update` de
+`orders.status` e depois o `insert` em `order_status_history` em duas requisições PostgREST, e
+ignora a falha do `insert` — paridade com o `updateStatus` do painel, que fazia o mesmo. Se a segunda
+ida falha, o pedido avança sem a linha do histórico, sem erro em lugar nenhum. É raro (a primeira ida
+acabou de dar certo) e o efeito é uma linha faltando, não um estado errado.
+
+**A saída**: uma RPC `advance_order_status(p_order_id, p_from, p_to, p_note)` que faz os dois numa
+transação, com `has_role` ⇒ `42501` no primeiro comando, e o dono TS passando a chamá-la. **Custo**:
+migration nova; uma terceira escrita da regra de origem (SQL × TS), que pede guarda de paridade no
+molde de `materialTransitions.test.ts`; a entrada da RPC na lista literal de `marcacaoSoPorAcao`; e o
+dublê do painel passando a ver `rpc` em vez de `update` (asserções do painel reescritas — por isso
+ficou fora da `75`, que prometeu nenhuma asserção do painel tocada, `AD-056`).
+
