@@ -2,7 +2,7 @@ import { Package, Users, TrendingUp, Clock } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAdminStats } from '@/entities/stats/api/useAdminStats'
 import { STORE_MOVEMENT_KEY } from '@/entities/stats'
-import { useOrdersRealtime } from '@/entities/order'
+import { ORDERS_REALTIME_CHANNEL, useOrdersRealtime } from '@/entities/order'
 import { StoreMovement } from '@/widgets/store-movement'
 import StatusBadge from '@/entities/order/ui/StatusBadge'
 import SalesChart from '@/widgets/sales-chart/ui/SalesChart'
@@ -22,7 +22,7 @@ const AdminDashboard = () => {
   // Feature 71 · `VIS-10 (d)`: UM canal de pedidos (`entities/order`), e o aviso dele relê as duas
   // coisas — as estatísticas e o bloco "Movimento da loja". O bloco continua sendo o único dono da
   // consulta dele; aqui só se invalida a chave.
-  useOrdersRealtime(() => {
+  useOrdersRealtime(ORDERS_REALTIME_CHANNEL, () => {
     void refetch()
     void queryClient.invalidateQueries({ queryKey: STORE_MOVEMENT_KEY })
   })

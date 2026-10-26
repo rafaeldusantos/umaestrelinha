@@ -1,0 +1,64 @@
+npm warn Unknown project config "node-linker". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+npm warn Unknown project config "verify-deps-before-run". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+npm warn Unknown project config "strict-dep-builds". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+ok — a admin do seed entra
+ok — customer_list: a linha da convidada Cursor A (id = md5 do e-mail)
+ok — COLUNAS_DA_LISTA: as chaves devolvidas são exatamente as pedidas
+ok — COLUNAS_DA_FICHA: idem
+ok — S1 orders_paid e orders_total (bigint) chegam como number
+ok — S1 total_spent e avg_ticket (numeric) chegam como number
+ok — S1 sem pedido: orders_paid 0, total_spent 0, avg_ticket null
+   · orders_open em customer_list ANTES da T08: erro 42703 (esperado)
+ok — COLUNAS_DO_PEDIDO: chaves exatas em order_list
+ok — S1 order_list.total chega como number
+ok — order_list traz customer_id e customer_email (o vínculo)
+ok — COLUNAS_DOS_ITENS: chaves exatas
+ok — COLUNAS_DA_CIDADE: chaves exatas
+ok — COLUNAS_DO_ACHADO: chaves exatas em customer_directory
+ok — S2 last_activity_at chega com microssegundos e +00:00
+   · lista inteira: 72 pessoas, 62 com data, 10 sem data
+ok — há ao menos dois nulos (as fixturas Nulo A/B)
+ok — o empate B/C existe, mesma data, ordenado por id asc
+ok — S3 cursor, página de 1 (1): as mesmas 72 pessoas, na ordem, sem repetir
+ok — S3 cursor, página de 2 (corta dentro do empate) (2): as mesmas 72 pessoas, na ordem, sem repetir
+ok — S3 cursor, página de 3 (3): as mesmas 72 pessoas, na ordem, sem repetir
+ok — S3 cursor, página de 7 (7): as mesmas 72 pessoas, na ordem, sem repetir
+ok — S3 cursor, página de até o último com data (62): as mesmas 72 pessoas, na ordem, sem repetir
+ok — S3 cursor, página de até o primeiro nulo (63): as mesmas 72 pessoas, na ordem, sem repetir
+ok — S3 cursor, página de até o segundo nulo (64): as mesmas 72 pessoas, na ordem, sem repetir
+ok — S3 cursor, página de página cheia exata (toda a lista) (72): as mesmas 72 pessoas, na ordem, sem repetir
+ok — S3 cursor, página de 25 (a página do app) (25): as mesmas 72 pessoas, na ordem, sem repetir
+ok — S4 %: escapado e entre aspas casa o literal e SÓ ele
+ok — S4 _: escapado e entre aspas casa o literal e SÓ ele
+ok — S4 \: escapado e entre aspas casa o literal e SÓ ele
+ok — S4 ": escapado e entre aspas casa o literal e SÓ ele
+ok — S4 ( , ): escapado e entre aspas casa o literal e SÓ ele
+ok — controle: sem escape, `100%` casa os DOIS (o % é curinga — o defeito que o escape corrige)
+ok — controle: sem escape, `a_b` casa os DOIS (o _ é curinga)
+   · ASTERISCO `\*` (escape só do PostgREST) => []
+   · ASTERISCO `*` cru entre aspas => ["P76 star*x","P76 starZx"]
+   · ASTERISCO `*` trocado por espaço => []
+   · ASTERISCO `*` trocado por `_` (curinga de UM caractere) => ["P76 star*x","P76 starZx"]
+   · ASTERISCO `\*` com UMA barra no fio => ["P76 star*x","P76 starZx"]
+ok — S5 `*` trocado por `_` ainda acha o nome com `*` (e nunca vira o curinga de vários caracteres)
+ok — S5 DECISÃO: o `*` cru VIRA CURINGA (casa 2 nomes); `\*` NÃO chega literal (casa [])
+ok — o `*` cru entre aspas ainda casa o próprio nome com `*`
+ok — S6/A10 vínculo sem curinga: a ficha de VROSA_RJ traz SÓ o pedido dela
+ok — controle: com o e-mail CRU o `_` é curinga e a ficha puxa o pedido de VROSAXRJ (o defeito do painel — BL-052)
+ok — S6 ilike exato sem % casa `P76Maria@Exemplo` com `p76maria@exemplo` (sem caixa)
+ok — S7/A18 dois cadastros, created_at diferentes: `has_account desc, created_at asc, limit 1` escolhe o mais antigo, sempre
+ok — S7/A18 com created_at EMPATADO, o terceiro critério `id asc` decide (d0003)
+   · A18 empate SEM `id asc`: devolveu 00000000-0000-4000-c076-0000000d0003 (estável por acaso do plano; só o terceiro critério garante)
+ok — a duplicata aparece com same_email_count = 2 (a regra de A18 é real)
+
+TUDO OK
+banco restaurado: 54/9/48 orders/customers/customer_list (antes: 54/9/48)
+
+# SENTIDOS QUE DECIDEM CÓDIGO (T02)
+# - bigint e numeric chegam como number: a leitura NÃO usa Number().
+# - last_activity_at chega "2031-05-01T10:00:00.123456+00:00"; o cursor devolve essa string entre aspas.
+# - ASTERISCO (TQ9): o `*` vira `%` no PostgREST mesmo escapado (`\*` ⇒ `\%`, que não casa nada).
+#   Não há como casar o `*` literal; `escapeLike` do app troca `*` por `_` (curinga de UM caractere):
+#   acha o nome com `*` e, no máximo, um vizinho de um caractere — falso positivo inofensivo, nunca
+#   falso negativo. Espaço perderia a pessoa.
+# - A18: com created_at empatado só `id asc` como terceiro critério é determinístico (recomendação da T19).

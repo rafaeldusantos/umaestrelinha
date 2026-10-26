@@ -55,12 +55,18 @@ interface SheetContentProps
    * (ex.: o header do sheet de variações da loja) — dois fechos empilhados no mesmo canto.
    */
   hideClose?: boolean;
+  /**
+   * Classes do FUNDO (`SheetOverlay`), que o `SheetContent` monta por dentro. Opcional e aditivo
+   * (feature `75`, B02): o app do ateliê desliga ali o `fade` com menos movimento. Sem ele, o fundo é o
+   * de sempre.
+   */
+  overlayClassName?: string;
 }
 
 const SheetContent = React.forwardRef<React.ElementRef<typeof SheetPrimitive.Content>, SheetContentProps>(
-  ({ side = "right", className, children, hideClose = false, ...props }, ref) => (
+  ({ side = "right", className, children, hideClose = false, overlayClassName, ...props }, ref) => (
     <SheetPortal>
-      <SheetOverlay />
+      <SheetOverlay className={overlayClassName} />
       <SheetPrimitive.Content ref={ref} className={cn(sheetVariants({ side }), className)} {...props}>
         {children}
         {!hideClose && (

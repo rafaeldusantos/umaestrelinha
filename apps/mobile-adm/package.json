@@ -1,0 +1,20 @@
+{
+  "name": "@estrelinha/mobile-adm",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "lint": "eslint .",
+    "preview": "vite preview",
+    "test": "vitest run --passWithNoTests",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@estrelinha/auth": "workspace:*",
+    "@estrelinha/core": "workspace:*",
+    "@estrelinha/supabase": "workspace:*",
+    "@estrelinha/ui": "workspace:*"
+  }
+}

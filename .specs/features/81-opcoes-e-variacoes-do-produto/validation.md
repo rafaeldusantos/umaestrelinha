@@ -233,7 +233,7 @@ estão provados por teste (`gridSync.test.ts:374-393`, `OptionsEditor.test.tsx:4
 | OPV-17 | ⚠️ "eixos" no card do formulário (G4) |
 | OPV-28 | ⏳ navegador (G5) |
 
-**Lições**: registradas à mão em `.specs/LESSONS.md` como candidatas (L-045, L-046) — a memória do
+**Lições**: registradas à mão em `.specs/LESSONS.md` como candidatas (L-068, L-069) — a memória do
 projeto manda não rodar `lessons.py` (o `list` reescreve o store).
 
 ---
@@ -486,7 +486,7 @@ depois (`git status` sem ele):
 | OPV-18, OPV-19 | ⚠️ unidade e editor ✅; **na página do produto** sem régua (G6); A2 dos conjuntos (G7) |
 | OPV-20 | ⚠️ a metade "o acréscimo compara pela dobra" sem régua (G8) |
 
-**Lição**: L-047 acrescentada à mão em `.specs/LESSONS.md` como candidata (guarda em camadas). G6 é
+**Lição**: L-070 acrescentada à mão em `.specs/LESSONS.md` como candidata (guarda em camadas). G6 é
 recorrência de "teste não monta a árvore que prova" e G7 de L-038 (fixture em que as alternativas
 discordam) — registradas aqui, sem lição nova.
 
@@ -694,7 +694,7 @@ arnês (SHA conferido) e apagadas depois:
   com a linha apontando para `fosco.webp`, remover essa foto na aba Mídia e salvar ⇒ hoje nenhuma
   linha gravada leva `fosco.webp`; com P02, o banco recebe a URL morta (a loja lê
   `product_variants.image_url`), e as 21 da página seguem verdes. Sonda S-I03 morta pelo I03. É
-  recorrência da L-047 (guarda em camadas) — evidência acrescentada lá.
+  recorrência da L-070 (guarda em camadas) — evidência acrescentada lá.
 - **E04 → G11 (OPV-19, decisão 2).** "Os chips SHALL continuar visíveis enquanto houver sugestão ainda
   não usada". Toda fixture do editor tem conjuntos sobrando quando há chips sobrando. Sonda S-E04:
   `Acabamento` com `Fosco` já na opção, biblioteca `values: ['Fosco','Brilhante']`, `sets: [Fosco]` ⇒
@@ -755,7 +755,7 @@ arnês (SHA conferido) e apagadas depois:
 | OPV-27 | ⚠️ provado na tela, não no banco (G10) |
 | OPV-04 | ✅, com G12 (dedupe do aviso) de baixo impacto |
 
-**Lição**: G10 é recorrência da L-047 (evidência acrescentada à mão em `.specs/LESSONS.md`, sem usar o
+**Lição**: G10 é recorrência da L-070 (evidência acrescentada à mão em `.specs/LESSONS.md`, sem usar o
 `lessons.py`); G11 é recorrência de L-038 (fixture em que as alternativas discordam) — sem lição nova.
 
 ---
@@ -938,7 +938,7 @@ useOptionLibrary, `b75988621620` picker, `2634376046e2` VariantsTable, `2a94b73c
 1. **G13 — o limiar de OPV-04 sem caso no limiar (O02).** Conserto proposto: em `orphans.test.ts`,
    `orphanVerdict('a', '3,5 cm', { orders: 1 }).outcome` === `'pause'`; e, se quiser a fiação, o caso da
    sonda pela página (`'v-um': 1` ⇒ linha pausada, nomeada, nenhum `delete`). Lição nova candidata
-   **L-048** registrada à mão em `.specs/LESSONS.md` (sem `lessons.py`, como manda a memória do projeto).
+   **L-071** registrada à mão em `.specs/LESSONS.md` (sem `lessons.py`, como manda a memória do projeto).
 
 ### Observações, sem lacuna (não reprovam)
 

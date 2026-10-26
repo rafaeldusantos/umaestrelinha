@@ -1380,7 +1380,181 @@
 - **Date**: 2026-10-22
 - **Status**: active
 
+### AD-056
+- **Decision**: **o painel do ateliê no celular é um app próprio do monorepo**: `apps/mobile-adm`
+  (`@estrelinha/mobile-adm`, porta 8084), PWA **só para Android**, num **projeto Vercel próprio**.
+  O Backoffice não muda e continua sendo o único lugar de produtos, vitrine, configurações, Home,
+  menu, filtros, perguntas e usuários. O app cobre pedidos, clientes, métricas, cupons e promoções.
+- **Decision**: **o acesso é o mesmo do Backoffice**: as mesmas contas, o mesmo `has_role(admin)`, o
+  mesmo `RequireAdmin`. Quem entra no painel entra no app, e quem é removido em `/admin/usuarios`
+  perde os dois. O app não tem papel, tabela nem convite próprio.
+- **Decision**: **toda regra que o app ler e o Backoffice já tiver sobe para `packages/core`** antes
+  de o app consumi-la. O painel passa a importá-la de lá sem mudar comportamento: a suíte dele
+  continua verde **sem asserção tocada**. Isso vale para os rótulos e recortes de pedido, `nextStep`,
+  `history`, `chargeMaterial`, o schema do cupom e o da promoção, e `storeMovement`.
+- **Decision**: **offline é só a casca.** O service worker pré-carrega HTML, JS, CSS, fontes e
+  ícones. `*.supabase.co` é sempre rede e nunca cache (guarda lendo a configuração do workbox). Sem
+  conexão o app diz "sem conexão" e não mostra dado nenhum.
+- **Decision**: **notificação push é feature própria, a última do programa** (`79`).
+- **Decision — branches**: o programa tem uma branch de integração, **`feature/mobile-adm`** (criada de
+  `master` em 2026-10-22). Cada feature nasce na própria branch (`feat/72-mobile-adm-fundacao`,
+  `feat/73-mobile-adm-inicio`…) **a partir de `feature/mobile-adm`**, e só é mergeada nela depois de
+  **finalizada e testada**: tasks concluídas, Verificador independente com PASS, gates sem regressão
+  e a prova em navegador escrita. `master` não recebe nada do programa até o usuário decidir levar
+  `feature/mobile-adm` para lá. (Pedido do usuário, 2026-10-22.)
+- **Decision — o roteiro**: `72` fundação · `73` início · `74` pedidos (leitura) · `75` ações do
+  pedido · `76` clientes · `77` cupons · `78` promoções · `79` aviso de pedido. O detalhe está em
+  `.specs/features/72-mobile-adm-fundacao/spec.md`. A `72` tem spec completa. As outras nasceram como
+  **rascunho** e passam pelo Specify completo ao serem abertas.
+- **Reason**: pedido do usuário (2026-10-22): autonomia da Adri pelo celular, com a UI desenhada no
+  Claude Design (`a780eec8-8aba-4d6e-8b4c-2c485e2750c7`). Repositório separado foi descartado porque
+  as ~3.000 linhas de regra que o app precisa estão em `apps/backoffice/src/features/*/model` e
+  `entities/*/api`: num segundo repositório elas seriam copiadas, e o painel e o app responderiam
+  diferente sobre o mesmo pedido com as duas suítes verdes (defeito 01).
+- **Trade-off**: cada feature do programa carrega uma extração para `core` antes da tela, então as
+  primeiras entregas são mais lentas. O gate de cada uma inclui as suítes do **painel e da loja**,
+  porque os guardas varrem `apps/**`. A splash do Android é a do manifest (ícone sobre fundo) até o JS
+  carregar, e só depois vem a desenhada. Sem iOS.
+
 ### AD-057
+- **Decision**: **"em qual bloco da fila este pedido está?" é DADO em `core/orders/queue.ts`**
+  (`QUEUE_BLOCKS`, com a regra de cada bloco como lista de condições), traduzido por
+  `toPostgrestFilter` para a lista de pedidos (painel e `74`) e por `toSqlPredicate` para o SQL. Toda
+  escrita da regra em SQL é **cópia deliberada guardada byte a byte** (`filaComDonoUnico.test.ts`, na
+  suíte da loja), no molde de `materialTransitions.test.ts`. "Precisa de ação" é a **união** dos três
+  primeiros blocos, nunca a soma.
+- **Decision**: **tela do app que mostra agregado da loja só lê RPC admin** (`has_role` ⇒ `42501`),
+  nunca `orders` pelo PostgREST. A Início (`73`) lê `store_movement` e `store_overview`.
+- **Reason**: a RLS de `orders` devolve à conta sem papel admin **os pedidos dela como cliente**, e
+  não erro: uma contagem `head: true` de uma conta que perdeu o acesso desenha um número plausível e
+  falso (`MAI-23`). A RPC recusa por construção. Escolha do usuário entre duas abordagens
+  (2026-10-22, design da `73`).
+- **Trade-off**: a regra da fila passa a ter duas escritas (PostgREST e SQL), contidas pelo guarda;
+  uma mudança de regra exige migration nova recriando a função. A lista de pedidos da `74` continua
+  lendo `orders` pelo PostgREST (ela lista linhas, não agrega), e por isso precisa da sua própria
+  resposta a `MAI-23`.
+
+### AD-058
+
+- **Status**: active (feature `74`, aprovada no gate do Design em 2026-10-23, implementada e commitada em 2026-10-24)
+- **Decision**: **tela do app do ateliê que LISTA LINHAS de pedido lê pelo PostgREST pareada, na
+  MESMA leitura, com a RPC admin `atelie_clock()`** (`has_role` ⇒ `42501`, devolve `lido_em`). As
+  duas saem em paralelo (`lerComPapel`, `entities/order/api`), e o dado só é devolvido se a RPC
+  respondeu sem recusa — a recusa vence mesmo com linhas na resposta. Nenhum outro arquivo do app
+  chama `supabase.from(` (guarda `leituraSoComPapel.test.ts`). O "há N dias" de toda linha usa o
+  `lido_em` dessa RPC, nunca o relógio do aparelho.
+- **Decision**: as regras de linha e de detalhe do pedido que o painel tinha (`ORDER_VIEWS`,
+  `viewPredicate`, busca, `rowSummary`, `nextStep`, `buildHistory`, `queueSince`, rótulos de meio de
+  pagamento) moram em `core/orders` com entrada ESTRUTURAL (sem `@estrelinha/supabase/types`), e o
+  painel as reexporta por referência (`AD-056`).
+- **Reason**: a view `order_list` é `security_invoker` e a RLS de `orders` devolve à conta sem papel
+  os pedidos DELA como cliente (`MAI-23`); reescrever os seis recortes e a busca em SQL (RPC paginada)
+  seria a terceira escrita da regra (defeito 01). Só o guarda do cliente deixaria o vazamento aberto.
+- **Trade-off**: uma RPC a mais por leitura (barata: sem tabela); uma migration mínima; a garantia
+  depende de nenhum caminho do app ler `orders` sem passar por `lerComPapel` — contida pelo guarda.
+  Complementa `AD-057` (agregado só por RPC admin).
+
+
+### AD-059
+
+- **Status**: accepted (feature `75`, portão do Design fechado em 2026-10-24 pelo validador
+  independente, com dois ajustes de texto incorporados)
+- **Decision**: **toda escrita de status e rastreio de saída em `orders` (com a linha de
+  `order_status_history`) e a sequência "RPC `set_material_status` → aviso", feita a partir de
+  `apps/*/src` ou `packages/*/src`, têm UM dono, `@estrelinha/core/order-actions`**, que recebe o
+  client e o notificador **injetados** e confere o efeito com `.select('id')` — zero linhas nunca é
+  sucesso. O painel (`useAdminOrders`) e o app (`features/order-actions/api/gravarAcao.ts`) chamam o
+  dono; só `cancelOrder` escreve fora dele, como entrada literal de allowlist. Guarda:
+  `pedidoGravadoSoPeloDono.test.ts` (suíte da loja).
+- **Escopo**: `supabase/functions/**` (`checkout`, `mercado-pago`, `melhor-envio`) e
+  `tools/catalog-import` (`src/write/orders.ts`, `from('orders').update(patch)`) também gravam
+  `orders`, com service role no servidor — são **outros donos por construção**, fora do guarda, e o
+  cabeçalho dele diz por quê. Ampliar o guarda a eles quebraria o importador e as functions.
+- **Nomes**: em `OrderWriteDeps`, `notify` é a função notificadora; no input das escritas, o booleano
+  do aviso chama-se `avisar`.
+- **Decision**: **no app do ateliê, toda escrita passa pela porta única**, que nunca chama o client
+  (só o passa ao dono) e responde "zero linhas" perguntando ao banco quem é a conta (`conferirPapel` →
+  `atelie_clock`): `42501` é a recusa da `72`, resposta boa é "o pedido mudou". O app sempre passa a
+  guarda de estado de origem, e quem a escolhe é `core` (`appPrimaryAction`/`trackingSheet`). Guarda:
+  `escritaSoPelaPorta.test.ts` (app).
+- **Reason**: o painel e o app passam a gravar o mesmo pedido; duas sequências de
+  "update + histórico + aviso" divergem sem nada quebrar (defeito 01). A RLS de `orders` faz o
+  `update` de uma conta sem papel afetar zero linhas **sem erro**, então "sem erro" não é "gravou".
+- **Trade-off**: `update` e histórico continuam em duas idas, não atômicos (paridade com o painel); a
+  RPC atômica é `BL-051`. O painel passa a tratar zero linhas como erro (caso degenerado, A24 da spec
+  da `75`) e a exceção síncrona do client como `rpc_failed`/`{ error }`. Complementa `AD-058`
+  (leitura) do lado da escrita.
+
+### AD-060
+
+- **Status**: accepted (feature `76`, Specify, respostas do validador independente em 2026-10-24)
+- **Decision**: (1) `customer_notes` fica fora do app do ateliê (nem ler, nem escrever). (2) "Pedido em
+  aberto" de uma cliente = `payment_status = 'approved'` e `status` em `pending`/`paid`/`separating`/
+  `shipped`; o predicado vive em `core/customers` e a cópia SQL é guardada byte a byte. (3) `orders_open`
+  entra no fim de `customer_stats` e `customer_list` por migration aditiva (recorte e selo leem a mesma
+  coluna). (4) A lista ordena por `last_activity_at` e mostra a última compra paga. (5) `whatsappChatUrl`
+  nasce em `core` e o `BlocoCliente` da `74` passa a usá-lo; `wa.me` tem dono único no app.
+- **Reason**: defeito 01 (a regra de "em aberto" e o `wa.me` teriam terceira escrita) e a RLS que
+  devolve a linha da própria conta sem erro. Os `pending` com Pix expirado ficariam "em aberto" para
+  sempre pela regra do rascunho.
+- **Trade-off**: migration em view que o painel lê (aditiva, no fim); `SPEC_DEVIATION` no critério 2 do
+  rascunho e na troca de `whatsappHref` por `whatsappChatUrl`. Complementa `AD-058`.
+
+### AD-061
+
+- **Status**: accepted (feature `76`, Design aprovado no portão em 2026-10-24; implementada na T12 e provada pelos probes e pela prova em navegador)
+- **Decision**: (1) todo valor de `ilike` que vem de dado do usuário ou do banco (termo de busca,
+  e-mail de vínculo) passa por `ilikeContains`/`ilikeExact` de `core/customers/like.ts` — entre aspas,
+  com `\`, `%` e `_` escapados; o app do ateliê não monta `ilike` à mão. (2) A paginação por janela e
+  cursor do app tem **um** dono, `apps/mobile-adm/src/shared/api/useJanelaPaginada.ts`; a lista de
+  pedidos, a de clientes e a janela de pedidos da ficha são chamadas dele.
+- **Reason**: o escape de `ilike` não existia (`escapeSearchTerm` troca `( ) ,` por espaço e deixa `%` e
+  `_` valerem como curinga — medido); e a concorrência da janela (geração, recusa da próxima presa ao
+  `dataUpdatedAt`) custou quatro rodadas de verificação na `74`: uma segunda cópia herdaria os defeitos
+  já consertados e os que ainda não foram achados.
+- **Trade-off**: o painel segue sem o escape (`BL-052`, T33); a extração toca o hook da `74`, provada
+  pela suíte da `74` com o diff de testes vazio (T12). Se a extração não fechar, a saída é cópia + guarda
+  de paridade, decisão do validador. Complementa `AD-058` e `AD-060`.
+
+### AD-062
+
+- **Status**: accepted (feature `79`, proposta no Design e aceita na entrega, 2026-10-25)
+- **Decision**: **o aviso no celular (Web Push) é um canal do motor de notificações, só para os quatro
+  eventos `owner_*`, por aparelho inscrito.** (1) Inscrições em `push_subscriptions`, **sem policy de
+  cliente** (nem `authenticated`), lidas e gravadas só pela service role: a edge function
+  `atelie-avisos` (`requireAdmin`) é a porta de escrita, e o app a chama de **um** arquivo
+  (`portaDeAvisos.ts`). (2) O envio é um ramo de `dispatch.ts` (`deliverPush`), fora do
+  `NotificationProvider` (um evento → N aparelhos), rodando **só em `dispatchTrigger`**, depois do
+  e-mail do mesmo evento, com a memória `order_notifications (…, channel = 'push')` — o reenvio nunca
+  manda push. (3) A biblioteca de Web Push (`jsr:@negrel/webpush`) é importada por **um** arquivo
+  (`_shared/webPush.ts`), atrás da interface `PushSender`. (4) A chave pública chega ao app pela porta,
+  derivada do mesmo secret que assina — não existe env pública dela.
+- **Reason**: e-mail e push independentes (`MAN-06`) sem um segundo dono de "já avisei?"; a RLS "só as
+  próprias" não deixava a inscrição trocar de dono (`MAN-27`); uma env pública da chave seria a segunda
+  cópia que diverge na primeira rotação.
+- **Trade-off**: dependência nova não auditada por especialista em cripto (isolada, versão fixa, prova
+  no Android real); duas fiações do motor (`send-notification` e `mercado-pago`) guardadas por teste.
+  Complementa `AD-005`, `AD-008`, `AD-056` e `AD-059`.
+
+### AD-063
+- **Decision**: **a grade de variações do produto é derivada das opções no momento da EDIÇÃO, por uma
+  função pura (`syncGrid`), e nunca na leitura.** O botão "Regerar do cruzamento" saiu; quem
+  sincroniza é a página, a cada mudança tipada do `OptionsEditor`. Feature `81`.
+- **Reason**: o banco pode guardar uma grade que diverge do cruzamento (órfãs vendidas e pausadas).
+  Sincronizar na abertura sujaria o formulário e apagaria linhas sem ninguém pedir (OPV-08).
+- **Decision**: linha com id real que sai do cruzamento **não** é apagada pela função: ela fica na
+  grade e volta em `orphans`, e a página só a tira depois de consultar `order_items` — vendida ou
+  consulta que falhou ⇒ pausada (a FK `order_items.variant_id` é `NO ACTION`). O veredito é aplicado
+  por id sobre a grade atual.
+- **Decision**: as sugestões de nome e valor do editor são **derivadas** de `products.options` do
+  catálogo inteiro (sem tabela de modelos — uma tabela seria um segundo dono do que o catálogo já diz).
+- **Consequence**: `syncGrid` mora em `features/product-form/model`, não em `core`: hoje há um
+  consumidor só (a grade rápida monta a grade no salvar, por outro caminho). Se um segundo aparecer,
+  sobe para `core/pricing/grid.ts`, ao lado de `diffGrid`. O número `AD-063` vem do `design.md` da `81`;
+  no merge com `feature/mobile-adm` (2026-10-26) o `AD-057` da `80` colidiu com o do programa mobile-adm
+  e foi renumerado para `AD-064`.
+
+### AD-064
 - **Decision**: **o fornecedor da peça mora em duas tabelas próprias, só de admin** (`suppliers` e
   `product_suppliers`, RLS `for all to authenticated` com `has_role` no `using` e no `with check`, e
   `revoke all … from anon`), **nunca em coluna de `products`**. Feature `80`.
@@ -1398,23 +1572,6 @@
   (fora de escopo, registrado como dívida). Toda edge function roda com a chave de serviço e ignora o
   RLS — por isso `fornecedorForaDaLoja.test.ts` recusa o nome das tabelas em `apps/store` e em
   `supabase/functions`.
-
-### AD-063
-- **Decision**: **a grade de variações do produto é derivada das opções no momento da EDIÇÃO, por uma
-  função pura (`syncGrid`), e nunca na leitura.** O botão "Regerar do cruzamento" saiu; quem
-  sincroniza é a página, a cada mudança tipada do `OptionsEditor`. Feature `81`.
-- **Reason**: o banco pode guardar uma grade que diverge do cruzamento (órfãs vendidas e pausadas).
-  Sincronizar na abertura sujaria o formulário e apagaria linhas sem ninguém pedir (OPV-08).
-- **Decision**: linha com id real que sai do cruzamento **não** é apagada pela função: ela fica na
-  grade e volta em `orphans`, e a página só a tira depois de consultar `order_items` — vendida ou
-  consulta que falhou ⇒ pausada (a FK `order_items.variant_id` é `NO ACTION`). O veredito é aplicado
-  por id sobre a grade atual.
-- **Decision**: as sugestões de nome e valor do editor são **derivadas** de `products.options` do
-  catálogo inteiro (sem tabela de modelos — uma tabela seria um segundo dono do que o catálogo já diz).
-- **Consequence**: `syncGrid` mora em `features/product-form/model`, não em `core`: hoje há um
-  consumidor só (a grade rápida monta a grade no salvar, por outro caminho). Se um segundo aparecer,
-  sobe para `core/pricing/grid.ts`, ao lado de `diffGrid`. O número `AD-063` vem do `design.md` da `81`;
-  nesta branch o anterior visível é o `AD-057` — conferir a numeração no merge com as outras branches.
 
 ## Handoff
 
@@ -1445,10 +1602,187 @@
   "Close" em inglês e os alvos pequenos do editor), Android real e leitor de tela, e o commit (só
   quando o usuário pedir).
 
+### ANTERIOR — 2026-10-25 · `79-mobile-adm-aviso-de-pedido` **IMPLEMENTADA, sem commit — T01–T29; falta o Verificador, o QA, o Chrome real e o Android real**
+
+- **Feature**: `.specs/features/79-mobile-adm-aviso-de-pedido/` (`spec.md`, `design.md`, `tasks.md`,
+  `baseline.md`, `reviews/`, `probes/01..05`, `prova-navegador.md`, `prova/`). O orquestrador a chamou
+  `81-79-…`, que é só um link simbólico para a pasta real; **80 e 81 não são features**, a próxima livre é
+  a `80`. Branch `feat/79-mobile-adm-aviso-de-pedido`; o merge vai para `feature/mobile-adm`.
+  Decisão `AD-062` (accepted).
+- **O que entrega**: Web Push no Android para os quatro eventos `owner_*`, por aparelho, independente do
+  e-mail; a tela `/avisos` ("Avisos neste celular": ativar, quatro interruptores, aviso de teste com teto
+  de 30 s por conta, "Parar avisos"); o "Sair" que para os avisos do aparelho; o toque abrindo
+  `/pedidos/<id>` (e o login voltando ao destino); o ramo `deliverPush` do motor; a edge function
+  `atelie-avisos`; `sw-avisos.js` por `importScripts`. **Uma migration**
+  (`20261026120000_79-avisos-no-celular.sql`), aplicada **só no local**.
+- **Decisões do usuário** (2026-10-25): os quatro eventos; o interruptor no app, por aparelho; sem
+  horário de silêncio; na tela de bloqueio só número e valor.
+- **Gates** (T29, um workspace por vez, exit fora de pipe): core **4451/176** · functions **1099/26** ·
+  mobile-adm **1982/124** · store **5985/323** · backoffice **3710/214** · catalog-import 512/23 =
+  **17739/886** (+525/+20 contra 17214/866); depois do Verificador r1 (V01..V05) e do QA: core **4452/176** ·
+  functions **1105/26** · mobile-adm **2005/125** = **17769/887** (+555/+21); `tsc` 0 nos apps, 11 herdados em core; lint 0/0 · 23/5 · 2/2;
+  os dois builds verdes; `payment/**` e `deno.lock` sem diff.
+- **Provas**: probes `01-biblioteca` (FCM real, também dentro do edge-runtime 1.77.4), `02-banco`,
+  `03-porta` (20/20), `04-layout.mjs`, `05-teto-do-teste` (reprova a regra antiga, passa a nova);
+  layout em navegador 144/144 (um defeito achado e consertado). **Não feito**: a chegada do aviso no
+  Chrome real (o usuário mandou seguir sem ela) e o Android real (TQ6).
+- **Pendências de operação**: a ordem **migration → secrets → functions → bundle**; ⚠️ as chaves VAPID de
+  **dev** estão no `.env` da raiz — `supabase secrets set` daí as gravaria em produção (`BL-044`): gerar
+  as de produção à parte e gravá-las de um diretório sem `.env`, conferindo `{"count":2}`.
+- **Verificador r1**: FAIL por cobertura (76 mutantes, 72 mortos, 4 sobreviventes, nenhum defeito);
+  consertado em V01..V05 (`tasks.md`), sem r2. **QA** (`docs/qa/reports/2026-10-25-mobile-adm-avisos-no-celular.md`):
+  14 Pass, foco no `<body>` consertado, e `BUG-20261025-teste-com-aparelho-descartado-deixa-a-tela-ligada`
+  **consertado em 2026-10-26** pela decisão do usuário (opção 1: volta a "Avisar neste celular" com "Este celular
+  deixou de receber avisos. Ative de novo."); mobile-adm 2014/125, store 5985/323, tsc 0, lint 0/0; reteste em navegador pendente.
+- **Ambiente de prova em produção (2026-10-26)**: projeto Vercel `umaestrelinha-atelie` criado (raiz `apps/mobile-adm`,
+  envs `VITE_SUPABASE_URL`/`VITE_BACKOFFICE_URL` em preview e development; a chave publicável o usuário grava) e
+  `.vercelignore` na raiz recusando todo `.env*`. Produção NÃO tem as migrations `73`, `74`, `76`, `79` e tem a
+  `20261022150000_80-fornecedor-da-peca` (de `origin/master`) que esta branch não tem — trazer a `master` antes de
+  qualquer `db push`. **O número `80` foi usado por outra sessão; o próximo livre é `81`.**
+- **Próximo**: o reteste do 410 em navegador; a prova em produção (migrations → secrets → `atelie-avisos` → preview),
+  cada passo com o ok do usuário; o COMMIT só quando o usuário pedir.
+
+### ANTERIOR — 2026-10-24 · `76-mobile-adm-clientes` **IMPLEMENTADA E COMMITADA — T01–T33, Verificador (PASS na última rodada) e QA (10 de 12 bugs consertados); pronta para merge em `feature/mobile-adm`; falta o Android real**
+
+- **Feature**: `.specs/features/76-mobile-adm-clientes/` (`spec.md`, `design.md`, `tasks.md`,
+  `baseline.md`, `context.md`, `validation.md`, `probes/01..03`, `prova-navegador.md`, `prova/`).
+  Decisões `AD-060` e `AD-061`; backlog `BL-052` (painel sem o escape) e `BL-053` (custo de `customer_stats`).
+  Worktree `store-worktrees/store-76-mobile-adm-clientes`, branch `feat/76-mobile-adm-clientes` (de
+  `feature/mobile-adm`, `146d1c8b`); o merge vai para `feature/mobile-adm`, nunca para a `master`.
+- **O que entrega**: as telas Clientes (`/clientes`: busca por nome, e-mail e telefone, três recortes,
+  lista por cursor de 25) e Cliente (`/clientes/:id`: cabeçalho, três números, contato com WhatsApp,
+  pedidos de 20 em 20), o botão "Ver cliente" no detalhe do pedido; `core/customers` (recortes, "em
+  aberto", cursor, vínculo exato, escape de `ilike`, busca) com o painel reexportando por referência;
+  `whatsappChatUrl` em `core/notifications`; `lerComPapel`, `useJanelaPaginada`, `useSentinela` e
+  `CampoDeBusca` extraídos para `shared/` do app sem mudar o comportamento de Pedidos. **Uma migration**
+  (`20261025120000_76-clientes-em-aberto.sql`: `orders_open` no fim de `customer_stats` e
+  `customer_list`), aplicada **só no local**.
+- **Gates no fecho final** (2026-10-24, depois do QA e do Verificador, um workspace por vez, exit fora de pipe): core **4365/175** · mobile-adm
+  **1765/111** · store **5908/322** · backoffice **3707/214** · functions 957/21 · catalog-import 512/23 =
+  **17214/866** (+843/+48 contra 16371/818); `tsc` 0 nos apps (store app e server, backoffice, mobile-adm app e node), 11 herdados em core; lint 0/0 · 23/5 · 2/2;
+  build do mobile-adm verde; `payment/**` sem diff.
+- **Decisões humanas abertas**: B03 (busca sem acento, `unaccent` no banco) e B12 (`MAC-18` × `MAC-35`, o material no nome do item da ficha).
+- **Provas**: probes `01-banco` (46 `ok`), `02-em-aberto` (8), `03-paridade` (42, 2 mutantes mortos);
+  `clientesComClientReal` (12 casos, 5 mutantes mortos); prova em navegador (60 medidas de layout, percurso,
+  privacidade, conta sem papel) sem defeito.
+- **Pendências**: o **Android real** (TQ10: teclado de verdade, o gesto de voltar com o campo focado, a
+  área segura e a fonte do aparelho); o reteste em navegador de bug-16/17/18 e B13 (toque real e 130/200 %); as assunções `n — confirmar`;
+  **a ordem de publicação em produção: migration → bundle** (o `select` da lista pede `orders_open`; o
+  `db push` sozinho, depois o app). `BL-053`: a lista leva ~7,9 s com 3.000 pessoas (já era assim antes da
+  `76`); com as 48 de hoje é desprezível.
+- **Commit**: um só, `feat(mobile-adm): clientes, lista e detalhe (feature 76)`, na branch `feat/76-mobile-adm-clientes`; sem merge e sem push.
+
+### ANTERIOR — 2026-10-24 · `75-mobile-adm-acoes-do-pedido` **IMPLEMENTADA E COMMITADA — 31 tasks + B01/B02, Verificador (3 rodadas) e QA (4 bugs, retestados); pronta para merge em `feature/mobile-adm`**
+
+- **Feature**: `.specs/features/75-mobile-adm-acoes-do-pedido/` (`spec.md`, `design.md`, `tasks.md`,
+  `baseline.md`, `probes/01-paridade.*`, `prova-navegador.md`, `prova/`). Decisão `AD-059`, backlog
+  `BL-051`. Worktree `/Users/rafael.santos/Projetos/uma-estrelinha/store-worktrees/store-75-mobile-adm-acoes-do-pedido`,
+  branch `feat/75-mobile-adm-acoes-do-pedido` (de `feature/mobile-adm`, `2a285bab`); o merge vai para
+  `feature/mobile-adm`, nunca para a `master`. **Sem migration.**
+- **O que entrega**: as ações no pedido do app do ateliê — "Recebi o material", "Iniciar separação",
+  "Marcar como enviado"/"Salvar rastreio" (folha no histórico, teclado virtual), "Marcar como
+  retirado", "Informar/Alterar" o rastreio na Entrega, o lembrete do material no WhatsApp, e a ação
+  primária no cartão da lista; o dono único da escrita do pedido em `core/order-actions`, com o painel
+  delegando; o lembrete subido para `core/orders/charge.ts`. `packages/ui`: `SheetContent` ganhou
+  `overlayClassName?` (aditivo, B02).
+- **Gates no fecho** (2026-10-24, depois de B01/B02, um workspace por vez, exit fora de pipe): core
+  **4206/166** · mobile-adm **1060/76** · store **5885/320** · backoffice **3696/212** · functions
+  957/21 · catalog-import 512/23 = **16316/818** (+497/+26 contra a entrada 15819/792); `tsc` 0 nos apps,
+  11 herdados em core; lint 0/0 · 23/5 · 2/2; builds do mobile-adm e do backoffice verdes;
+  `payment/**`, `rowSummary.ts` e `nextStep.ts` sem diff; `useAdminOrders.test.ts` mudou só no dublê.
+- **Probe de paridade** (T29): 71 `ok —` contra o banco local (app × painel em 11 casos, a guarda de
+  status, a normalização e a diferença esperada de A8, a conta sem papel com pedido próprio); dois
+  mutantes no dono mortos. A `send-notification` local **não tinha container**: foi servida por
+  `supabase functions serve --env-file` a partir do WORKTREE (chave do Resend inválida de propósito,
+  nenhum e-mail saiu), sem `stop`/`start`, e derrubada no fim. **O Supabase local NÃO foi reiniciado**;
+  o edge runtime continua ausente, como na abertura — subi-lo de novo é decisão de quem precisar dele.
+- **Prova em navegador** (T31): os nove itens de §13 em 360/390/412/1440 e fonte 100/130/200 %. Dois
+  defeitos, os dois com teste antes do conserto e reteste: **B01** (F5 com a folha deixava um voltar
+  morto; `SPEC_DEVIATION` contra a letra de A23 — `navigate(-1)` no lugar do `replace`) e **B02** (o
+  fundo da folha animava com "menos movimento"). Banco restaurado.
+- **Assunções `n — confirmar`** (do usuário): A8 (o código de rastreio aparado, sem espaços, maiúsculo,
+  ≥ 8, só no app), A11/TQ5 (as frases de confirmação; e-mail só com `sent === true`), A17/TQ6 (o
+  lembrete some sem número válido), A23/TQ7 (o voltar fecha a folha; e o mecanismo do F5 mudou no
+  B01), A24/TQ8 (**zero linhas vira erro também no painel** — a única mudança de comportamento do
+  painel, contra a letra do `AD-056`), Q7/TQ9 (a confirmação some em 5 s), e o **Android real** (TQ10:
+  o teclado, o voltar, a área segura e a fonte do aparelho).
+- **Verificador independente** (`validation.md`): r1 FAIL por cobertura (consertos V01/V02), r2 PASS,
+  r3 (sobre os consertos do QA) FAIL por cobertura — V05 (C01 no cartão), V10 (o aviso com a leitura em
+  erro), V12 (o `<body>` focado ao abrir); as três fechadas com +6 casos e os mutantes reinjetados,
+  **sem rodada 4**. Nenhum defeito de produto aberto.
+- **QA** (`docs/qa/reports/2026-10-24-mobile-adm-acoes-do-pedido*.md`, bugs em `docs/qa/bugs/`): quatro
+  bugs, C01..C04 em `tasks.md`, todos `verified` no reteste em navegador. Decisões para o usuário: a
+  primeira frase de `MAA-40` numa corrida, e o `SPEC_DEVIATION` de A10 (C02) e de A23 (B01), registrados
+  no fim das assunções da `spec.md`.
+- **Gates no fecho final** (2026-10-24, depois do QA e das lacunas da r3): core **4219/166** · mobile-adm
+  **1102/76** · store 5885/320 · backoffice 3696/212 · functions 957/21 · catalog-import 512/23 =
+  **16371/818** (+552/+26); `tsc` 0 nos apps (store app e server, backoffice, mobile-adm app e node,
+  catalog-import), 11 herdados em core; lint 0/0 · 23/5 · 2/2; build do mobile-adm verde.
+- **Commit**: um só, `feat(mobile-adm): ações no pedido (feature 75)`, na branch
+  `feat/75-mobile-adm-acoes-do-pedido`; sem merge e sem push. O merge vai para `feature/mobile-adm`.
+- **Próximo**: o Android real (TQ10), as assunções `n — confirmar` acima, e a `76` (Clientes).
+
+### ANTERIOR — 2026-10-24 · `74-mobile-adm-pedidos` **IMPLEMENTADA E COMMITADA — 31 tasks + B01..B03, Verificador (4 rodadas) e QA (3 bugs, retestados); pronta para merge em `feature/mobile-adm`**
+
+- **Feature**: `.specs/features/74-mobile-adm-pedidos/` (`spec.md`, `design.md`, `tasks.md`,
+  `baseline.md`, `probes/`, `prova-navegador.md`, `prova/`). Decisão `AD-058`. Worktree
+  `/Users/rafael.santos/Projetos/uma-estrelinha/store-74-mobile-adm-pedidos`, branch
+  `feat/74-mobile-adm-pedidos` (de `feature/mobile-adm`, `775e407e`); o merge vai para
+  `feature/mobile-adm`, nunca para a `master`. Migration `20261024120000_74-relogio-do-atelie.sql`
+  (a RPC `atelie_clock`), aplicada **só no local**.
+- **COMMIT ÚNICO** na `feat/74-mobile-adm-pedidos`, depois do Verificador e do QA; `git merge-tree`
+  contra `feature/mobile-adm` limpo. **O merge é do usuário.**
+- **O que entrega**: a aba Pedidos do app do ateliê — lista só de leitura com os seis recortes, os
+  quatro blocos da Início pelo endereço (`pedidosHref`/`recorteDoEndereco`), busca, rolagem
+  paginada por cursor; o detalhe `/pedidos/:id`; o selo da aba ("Precisa de ação"); "Últimos
+  pedidos" levando ao detalhe; toda leitura sob `lerComPapel` (a RPC `atelie_clock` em paralelo, a
+  recusa vence). As regras subiram do painel para `core/orders` e `core/material/steps.ts`, byte a
+  byte, com o painel reexportando por referência.
+- **Gates no fecho** (2026-10-24, um workspace por vez, exit fora de pipe): store **5849/318** ·
+  backoffice **3670/210** · mobile-adm **790/61** · core **3988/158** · functions 957/21 ·
+  catalog-import 512/23 = **15766/791** (+582/+35 contra a entrada 15184/756); `tsc` 0 nos apps, 11
+  herdados em core; lint 0/0 · 23/5 · 2/2; `pnpm --filter @estrelinha/mobile-adm build` verde.
+- **Fecho** (2026-10-24, depois do QA, um workspace por vez): store **5852/319** · backoffice
+  **3671/210** · mobile-adm **811/61** · core **4016/158** · functions 957/21 · catalog-import 512/23 =
+  **15819/792** (+635/+36). `tsc` 0 nos apps, 11 herdados em core; lint 2/2 · 23/5 · 0/0; build do
+  mobile-adm verde.
+- **Verificador**: rodadas 1–4 FAIL (cobertura; na 4ª o defeito D2 de `MAP-36`), todas consertadas;
+  **a rodada 5 (sobre o conserto de D2/G7/G8) NÃO correu** — pendência. Conserto do QA: B01/B02 FAIL
+  por duas lacunas de B02 (fechadas: W1 e W2 reinjetados e mortos no fecho), B03 PASS.
+- **QA**: três bugs, os três fixed e retestados (`docs/qa/bugs/BUG-20261024-*`). **Decisão para o
+  usuário**: B03 muda a frase da linha de falha de aviso também no painel (`SPEC_DEVIATION` em
+  `MAP-47`/`MAP-48`). Limpeza pendente: `.specs/features/74-mobile-adm-pedidos/prova/limpa.sql` no
+  banco local.
+- **Prova em navegador** (da entrega): nenhum defeito da `74`. Duas observações herdadas (iguais no painel), para
+  a dona decidir: "há 0 dias" (`queueAgeLabel`) e "Falha ao enviar … enviado" (`buildHistory`).
+- **Próximo**: o usuário mergeia em `feature/mobile-adm`; opcional, a rodada 5 do Verificador sobre
+  D2/G7/G8; depois a `75`.
+
+### ANTERIOR — 2026-10-22 · `72-mobile-adm-fundacao` **IMPLEMENTADA — 15 de 15 tasks, com prova em navegador, SEM verificador independente ainda, SEM COMMIT**
+
+- **Feature**: `.specs/features/72-mobile-adm-fundacao/` (`spec.md`, `design.md`, `tasks.md`,
+  `baseline.md`, `prova-navegador.md`). Decisão `AD-056`. Branch `feat/72-mobile-adm-fundacao`; o
+  merge vai para `feature/mobile-adm`, nunca para a `master`. Sem migration.
+- **NÃO COMMITADA**: aguarda o pedido do usuário.
+- **O que entrega**: `apps/mobile-adm` (porta 8084) — PWA só-casca instalável, splash com o lockup
+  negativo a 300 px (exceção declarada), login com a regra do `BUG-20260802`, recuperação por código,
+  recusa de conta sem papel, as quatro abas em construção sob o `RequireAdmin`, menu da conta, tela
+  sem conexão, `vercel.json`. Paleta com dono em `packages/ui/src/tokens/estrelinha.ts`, fontes
+  copiadas com guarda, `RequireAdmin` com `fallback` opcional.
+- **Gates no fecho** (um workspace por vez, exit code fora de pipe): mobile-adm **118/17** · store
+  **5743/313** · backoffice **3648/207** (sem asserção tocada); `tsc` 0 nos três apps; lint
+  backoffice 23/5 · store 2/2 · mobile-adm 0/0; `pnpm build` verde.
+- **Prova em navegador**: build servido, 390×844 e 1440×900, `Page.getInstallabilityErrors` vazio.
+  Três defeitos de layout consertados; **um não consertado**: sem internet de verdade com o
+  navegador dizendo online, `checkAdmin` (`packages/auth`) devolve `false` na falha e o app termina
+  em "Esta conta não tem acesso ao painel." — vale também para o Backoffice. Precisa de decisão.
+- **Próximo**: o verificador independente (`validation.md`); a instalação num Android real (usuário);
+  depois o commit, quando o usuário pedir.
+
 ### 2026-10-22 · `80-fornecedor-da-peca` **IMPLEMENTADA, provada no banco local e em navegador, SEM COMMIT**
 
 - **Feature**: `.specs/features/80-fornecedor-da-peca/` (`spec.md`, `tasks.md`, `probes/rls.sh`,
-  `prova-navegador.md`, `validation.md`). Decisão `AD-057`. Worktree `../store-80-fornecedor`, branch
+  `prova-navegador.md`, `validation.md`). Decisão `AD-064`. Worktree `../store-80-fornecedor`, branch
   `feat/80-fornecedor-da-peca`, base `master` em `41ea7040`.
 - **O que entrega**: nome do fornecedor (com sugestão sem acento e "Criar") e link da peça no card
   **Fornecedor** da aba Preços & variações, abaixo do Custo; o fornecedor **salvo** na coluna lateral,
@@ -1458,12 +1792,12 @@
   `20261023120000` da `73` de propósito: se a `80` for aplicada primeiro, a da `73` continua mais nova.
 - **Ordem de publicação**: a migration num push sozinho, depois o painel. Sem as tabelas, o `select` da
   listagem e do formulário (que embutem `product_suppliers`) falharia inteiro.
-- **Dívidas achadas**: `products.cost_price` legível pela chave pública (mesma causa do `AD-057`); a
+- **Dívidas achadas**: `products.cost_price` legível pela chave pública (mesma causa do `AD-064`); a
   página do produto rola na horizontal em 390 por causa da tabela de Variações (825px), anterior à `80`.
 - **Banco local**: a prova deixou o fornecedor "Ateliê Prata Fina" ligado a dois produtos
   (`5ed2e69f…`, `86e899bf…`).
 
-### 2026-10-22 · `71-visitas-unicas-no-dashboard` **IMPLEMENTADA — 32 de 32 tasks, verificada em 3 rodadas (r3 FAIL por UMA lacuna de cobertura, G9, consertada depois pelo orquestrador — sem r4), SEM COMMIT**
+### ANTERIOR — 2026-10-22 · `71-visitas-unicas-no-dashboard` **IMPLEMENTADA — 32 de 32 tasks, verificada em 3 rodadas (r3 FAIL por UMA lacuna de cobertura, G9, consertada depois pelo orquestrador — sem r4), SEM COMMIT**
 
 - **Feature**: `.specs/features/71-visitas-unicas-no-dashboard/` (`spec.md`, `design.md`, `tasks.md`,
   `baseline.md`, `validation.md`, `probes/`, `prova-em-navegador.md`, `prova-navegador.md`). Decisão

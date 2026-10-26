@@ -1922,3 +1922,141 @@ A resposta certa para "o que espera alguma ação minha?" já existe e tem dono:
 
 **Por que ficou de fora da `71`**: é outro card, com outra pergunta, e consertá-lo muda o número que a
 dona está acostumada a ler sem ninguém ter pedido.
+
+## BL-048 — `checkAdmin` lê falha de rede como "não é admin"
+
+- **Status**: **FECHADO em 2026-10-22**, na Fase 6 da própria `72` (T16/T17, `MAF-22`/`MAF-23`), por
+  decisão do usuário depois do ciclo de QA. O `AuthProvider` expõe `adminStatus` (`admin` ·
+  `not-admin` · `unknown`) e `retryAdminCheck()`; erro, exceção e silêncio por 8 s
+  (`ADMIN_CHECK_TIMEOUT_MS`) são `unknown`, e a leitura inicial da sessão tem o mesmo teto (um só na
+  abertura). `isAdmin` continua, igual a `adminStatus === 'admin'` — a mudança é aditiva. O
+  `RequireAdmin` ganhou `unknownFallback` (sem ele, a frase do painel com "Tentar de novo"); o app
+  mostra "Não consegui conferir seu acesso." sem "Sair" (o QA achou que "Sair" apagava a sessão
+  salva), e o `AdminLoginPage` do painel diz a mesma frase (`ACCESS_UNCHECKED`, `@estrelinha/core/auth`).
+  Regressão: `apps/mobile-adm/src/app/__tests__/papelEmTresEstados.test.tsx` e
+  `AdminLoginPage.test.tsx` › "papel não conferido". Sem commit ainda.
+- **Achado**: prova em navegador e verificação r1 da feature `72` (2026-10-22).
+- **O defeito**: com o aparelho dizendo "online" e sem internet de verdade (Wi-Fi sem saída, túnel,
+  captive portal), a consulta de papel em `packages/auth/src/AuthContext.tsx` falha e o `checkAdmin`
+  devolve `false`. O app do ateliê fica ~10 s na splash e termina em "Esta conta não tem acesso ao
+  painel.", uma recusa **confiante e falsa** para quem é admin. O Backoffice se comporta igual hoje.
+  É da mesma classe do `BUG-20260802` (recusa por estado ainda não sabido).
+- **Por que não foi consertado na `72`**: o conserto é no `AuthProvider` compartilhado pelos dois apps
+  (e pela loja), e muda o contrato de `isAdmin` de booleano para três estados (sim · não · não sei).
+- **Conserto proposto**: distinguir "a consulta respondeu que não" de "a consulta não respondeu";
+  no segundo caso expor um estado de erro, e o `RequireAdmin` mostrar "Não consegui conferir seu
+  acesso" com "Tentar de novo".
+- **Prazo**: antes da `73` (a primeira feature do app com leitura de dado, `MAI-08`).
+
+
+## BL-049 — O arnês do client real roda com `autoRefreshToken: false` e não enxerga a armadilha do 401
+
+- **Status**: aberto · **Registrado em**: 2026-10-22 · **Origem**: verificação r3 da Fase 6 da feature
+  `72` (lacuna 6), registrada como dívida por decisão do usuário.
+
+Os dois arnês do supabase-js real (`apps/mobile-adm/src/test/clientReal.ts` e a cópia pareada da loja,
+`apps/store/src/test/clientReal.ts`, guardada por `clientRealPareado.test.ts`) criam o client com
+`autoRefreshToken: false`. **Produção usa o padrão, `true`** (`packages/supabase/src/client.ts`): o
+ticker do `GoTrueClient` renova o token sozinho e emite `TOKEN_REFRESHED` sem que nenhum teste o veja.
+As sondas da r3 mostraram que os defeitos da r2 e os logouts se comportam igual nos dois modos, mas
+nenhuma régua **permanente** cobre o ticker.
+
+E o `fetchFalso` **não confere o `Authorization`**: ele responde a `/rest/v1/user_roles` igual com ou
+sem o token da sessão. Por isso o mutante **X09** sobrevive — o ouvinte do `onAuthStateChange`
+chamando `loadUserData` na hora, sem o `setTimeout(0)`. É a armadilha do `BUG-20260802`
+(a requisição sai antes de a sessão nova estar acoplada ao client, e o PostgREST responde **401**),
+anterior à `72`: hoje ela só é protegida pelo comentário em `AuthContext.tsx` e pela prova manual
+daquele bug. Família do "dublê que não enxerga torna a regra inauditável".
+
+**O que custaria cobrir**:
+
+1. **O 401 (X09)**: o `fetchFalso` passar a exigir `Authorization: Bearer token-<id>` nas rotas
+   `/rest/v1/*` que o provider lê, respondendo `401` sem ele (ou com o token da chave publicável), e
+   um caso que entre com `signInWithPassword` e exija `admin` — com o mutante X09 reinjetado para
+   provar a morte. Risco: confirmar primeiro, no 2.110.7, que o client real de fato manda o token
+   velho dentro do callback (a armadilha pode depender de detalhe de versão); se não mandar, a régua
+   nasce verdadeira nos dois mundos e o caso tem de ser outro. Mudar o arnês mexe nas duas cópias no
+   mesmo movimento (o guarda de pareamento obriga).
+2. **O ticker**: um parâmetro `auto` no `Cenario` (padrão `false`, para não mudar os casos que
+   existem) e uma vizinha por régua de "não pisca" com `auto: true`, andando o relógio além do
+   `EXPIRY_MARGIN` para o `TOKEN_REFRESHED` sair. `stopAutoRefresh()` no `afterEach` já existe. Custo:
+   ~10 casos novos nos dois apps e o cuidado de o ticker não vazar entre testes.
+
+**Por que ficou de fora**: X09 é anterior à `72` e o conserto é de prova, não de produto; a r3 era a
+última rodada do loop.
+
+## BL-050 — A semântica de `store_overview` é provada só por probe, fora do CI
+
+- **Status**: aberto · **Registrado em**: 2026-10-22 · **Origem**: verificação r1 da feature `73`
+  (lacuna 2), lição `L-059`.
+
+Seis mutantes da migration `20261023120000_73-resumo-do-atelie.sql` — S01 (borda superior do dia
+`<` → `<=`), S02 (`left join vendas` → `join`), S03 (`count(v.id)` → `count(*)` na semana), S04 (o
+agregado das joias ordenado por nome), S06 (clientes novas só de hoje) e S11 (a joia pelo nome
+congelado mesmo com produto) — passam `overviewSchema.test.ts` e `filaComDonoUnico.test.ts` (que medem
+a FORMA do `.sql`) e só morrem em `.specs/features/73-mobile-adm-inicio/probes/01-resumo.sql`, que
+precisa do Postgres local (54442) e **não roda em suíte automática nenhuma**. Os testes do app dublam a
+RPC. Hoje a proteção é uma regra escrita (`supabase/CLAUDE.md`, `apps/mobile-adm/CLAUDE.md`): toda
+migration que recrie a função roda o probe antes do deploy. É a mesma situação dos probes da `71`.
+
+**O que custaria cobrir**: um job de CI com `supabase start` (ou um serviço Postgres com as
+migrations aplicadas) que rode os probes `.sql` das features `71` e `73` com `ON_ERROR_STOP=1`. Custo:
+minutos de runner por push e a manutenção de subir o Supabase local no CI; o ganho é que a semântica
+das RPCs do painel e do ateliê deixa de depender de memória.
+
+## BL-051 — Status e histórico do pedido gravados em duas idas, sem transação
+
+- **Status**: aberto · **Registrado em**: 2026-10-24 · **Origem**: portão do Design da feature `75`
+  (abordagem B de §1.1, R6; decisões Q1 e Q8 do validador), `AD-059`.
+
+`writeOrderStatus` (`@estrelinha/core/order-actions`, o dono desde a `75`) faz o `update` de
+`orders.status` e depois o `insert` em `order_status_history` em duas requisições PostgREST, e
+ignora a falha do `insert` — paridade com o `updateStatus` do painel, que fazia o mesmo. Se a segunda
+ida falha, o pedido avança sem a linha do histórico, sem erro em lugar nenhum. É raro (a primeira ida
+acabou de dar certo) e o efeito é uma linha faltando, não um estado errado.
+
+**A saída**: uma RPC `advance_order_status(p_order_id, p_from, p_to, p_note)` que faz os dois numa
+transação, com `has_role` ⇒ `42501` no primeiro comando, e o dono TS passando a chamá-la. **Custo**:
+migration nova; uma terceira escrita da regra de origem (SQL × TS), que pede guarda de paridade no
+molde de `materialTransitions.test.ts`; a entrada da RPC na lista literal de `marcacaoSoPorAcao`; e o
+dublê do painel passando a ver `rpc` em vez de `update` (asserções do painel reescritas — por isso
+ficou fora da `75`, que prometeu nenhuma asserção do painel tocada, `AD-056`).
+
+
+
+## BL-053 — `customer_stats` junta pedido e pessoa por `OR`, e a lista custa segundos com milhares de pessoas
+
+- **Status**: aberto · **Registrado em**: 2026-10-24 · **Origem**: probe `02-desempenho.sql` da
+  feature `76` (T10), `.specs/features/76-mobile-adm-clientes/probes/02-em-aberto.saida.txt`.
+
+Com 3.000 pessoas e 6.000 pedidos de fixtura (transação desfeita), a primeira página de
+`customer_list` (`order by last_activity_at desc nulls last, id limit 25`) leva **~7,9 s**. **Não vem
+da `orders_open`**: a mesma consulta sobre a definição ANTIGA da migration `34`, medida na mesma carga,
+levou ~7,8 s. A causa é o `CTE vinculo`, que junta `customer_directory` a `orders` por
+`o.customer_id = d.id OR lower(o.customer_email) = lower(d.email)`: o `OR` impede hash join e o
+planejador cai num `Nested Loop` com ~18,5 milhões de linhas removidas pelo filtro de junção.
+
+Com os 48 clientes de hoje o custo é desprezível; o problema aparece perto de milhares. **A saída**:
+separar o vínculo em dois ramos (`UNION ALL` de "por id" e "por e-mail sem id", deduplicando), ou
+materializar o e-mail normalizado numa expressão indexada e juntar por igualdade. **Custo**: migration
+nova que reescreve `customer_stats` (e prova de paridade das 19 colunas antes e depois, como a da T08
+da `76`). A `76` não conserta: a spec manda abrir a entrada.
+
+## BL-052 — O painel monta o vínculo cliente × pedido e a busca sem o escape de `ilike`
+
+- **Status**: aberto · **Registrado em**: 2026-10-24 · **Origem**: feature `76` (T33), `AD-061`, TQ7.
+
+O app do ateliê passa todo valor de `ilike` por `ilikeContains`/`ilikeExact` (`core/customers/like.ts`:
+entre aspas, `\`, `%` e `_` escapados). O **painel** (`apps/backoffice/src/entities/customer`) continua
+com `escapeSearchTerm` (troca só `( ) ,` por espaço) e o vínculo da ficha pelo e-mail com curinga: a
+ficha de `VROSA_RJ` puxa o pedido de `VROSAXRJ` (medido, com controle, em `probes/01-banco.ts` e
+`03-paridade.ts` da `76`). **Não foi consertado na `76`** — a spec prometeu o painel sem asserção tocada
+(`AD-056`). **A saída**: o painel chamar `customerOrdersCondition` e `buildCustomerSearchCondition`
+com `literal`; muda o comportamento da busca do painel (a busca por `%` deixa de ser curinga), então é
+decisão do usuário e leva testes do painel reescritos.
+
+**Parcialmente fechada no QA da `76` (2026-10-24)**: o **vínculo da ficha** do painel
+(`useAdminCustomer`) passou a chamar `customerOrdersCondition` — a ficha de `VROSA_RJ` não puxa mais o
+pedido de `VROSAXRJ` (`BUG-20261024-painel-ficha-puxa-pedido-de-outra-pessoa-por-underscore`, teste novo
+`useAdminCustomer.vinculo.test.ts`, nenhum teste antigo tocado). **Fica aberta a BUSCA do painel** (a lista
+ainda usa `escapeSearchTerm`, e `%`/`_` digitados valem como curinga).

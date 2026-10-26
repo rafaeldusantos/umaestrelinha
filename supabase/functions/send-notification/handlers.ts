@@ -109,6 +109,9 @@ export async function send(deps: Deps, req: Request, body: any): Promise<Respons
   if (!orderId) return json({ error: 'order_id ausente ou não é um uuid' }, 400)
 
   const channel = typeof body?.channel === 'string' ? body.channel : undefined
+  // Feature 79 (`MAN-38`): o aviso no celular não se reenvia — push perdido não volta. A recusa vem
+  // antes de qualquer leitura: o motor nunca é chamado.
+  if (channel === 'push') return json({ error: 'channel inválido: push — o aviso no celular não se reenvia' }, 400)
   const { found, results } = await dispatchEventFull(deps, { orderId, event, channel })
 
   if (!found) return json({ error: 'Pedido não encontrado' }, 404)

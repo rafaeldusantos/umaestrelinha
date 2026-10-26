@@ -17,3 +17,14 @@ export const normalizeBrPhone = (input: string | null | undefined): string | nul
   if (digitos.length < 10) return null
   return digitos.startsWith('55') ? digitos : `55${digitos}`
 }
+
+/**
+ * O endereço de uma conversa de WhatsApp com o número, SEM mensagem pronta (`?text=`): quem escreve a
+ * mensagem é quem toca. `null` quando o número não presta (`normalizeBrPhone`). Feature `76`, `MAC-26`:
+ * o app do ateliê tinha uma escrita de `wa.me` e a lista de clientes seria a segunda — o endereço mora
+ * aqui, ao lado do número que ele usa. (`whatsappHref` da loja exige mensagem e é outro desenho.)
+ */
+export const whatsappChatUrl = (input: string | null | undefined): string | null => {
+  const numero = normalizeBrPhone(input)
+  return numero === null ? null : `https://wa.me/${numero}`
+}

@@ -21,15 +21,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '@estrelinha/supabase/client'
 import { readAllPages } from '@estrelinha/core/paging'
+import { QUEUE_BLOCKS, applyOrderSlice, queueBlock, toPostgrestFilter } from '@estrelinha/core/orders'
 import {
-  MATERIAL_NAO_SEGURA_LISTA,
   ORDER_LIST_FROM,
   ORDER_LIST_SELECT,
   ORDER_SORT_COLUMN,
   ORDER_VIEWS,
   buildOrderSearchCondition,
   pageRange,
-  viewPredicate,
   type AdminOrderRow,
   type OrderFilters,
   type OrderQuery,
@@ -76,15 +75,14 @@ const applyFilters = (builder: any, filters: OrderFilters, search: string): any 
   return q
 }
 
-const applyView = (builder: any, view: OrderViewId): any => {
-  const predicado = viewPredicate(view)
-  if (!predicado) return builder
-
-  let q = builder
-  if (predicado.or) q = q.or(predicado.or)
-  for (const [coluna, valores] of Object.entries(predicado.in ?? {})) q = q.in(coluna, valores)
-  return q
-}
+/**
+ * A visão chega ao builder por `applyOrderSlice` (`@estrelinha/core/orders`, feature `74`): a mesma
+ * tradução que a lista do app do ateliê usa. A sequência de chamadas é a de antes — o `or` do
+ * predicado e depois cada `in`, na ordem de `Object.entries` —, e é ela que
+ * `useAdminOrderList.test.ts` registra. Escrever o laço aqui de novo seria a segunda escrita de
+ * "como um `ViewPredicate` vira filtro".
+ */
+const applyView = (builder: any, view: OrderViewId): any => applyOrderSlice(builder, { visao: view })
 
 const contagemVazia = (): Record<OrderViewId, number> =>
   Object.fromEntries(ORDER_VIEWS.map(v => [v.id, 0])) as Record<OrderViewId, number>
@@ -155,30 +153,27 @@ export const useAdminOrderList = (query: OrderQuery): OrderListResult => {
       return count ?? 0
     }
 
-    const [aguardando, aSeparar, semRastreio, pix] = await Promise.all([
-      contar(q => q.eq('material_status', 'aguardando_material')),
-      // **Pago E com o material resolvido.** Contar só `status = 'paid'` incluiria os pedidos que
-      // ainda esperam o envelope — e o próprio texto do tile diz "material já recebido ou não
-      // exigido". Medido no navegador: o tile dizia 3 e o clique trazia 4, porque dois pedidos
-      // estavam nos dois contadores ao mesmo tempo.
-      contar(q => q.eq('status', 'paid').in('material_status', MATERIAL_NAO_SEGURA_LISTA)),
-      contar(q => q.eq('status', 'shipped').is('tracking_code', null)),
-      contar(q => q.eq('payment_method', 'pix').eq('payment_status', 'pending')),
-    ])
+    // A regra de cada bloco é DADO em `@estrelinha/core/orders` (`QUEUE_BLOCKS`, feature `73`,
+    // `AD-057`): o app do ateliê e a RPC `store_overview` contam a mesma fila. Cada contagem é a
+    // regra do bloco traduzida para o `.or()` do PostgREST — uma condição sozinha, ou `and(…)`.
+    //
+    // O "Pago, a separar" é **pago E com o material resolvido**. Contar só `status = 'paid'`
+    // incluiria os pedidos que ainda esperam o envelope — medido no navegador: o tile dizia 3 e o
+    // clique trazia 4, porque dois pedidos estavam nos dois contadores ao mesmo tempo.
+    const contagens = await Promise.all(
+      QUEUE_BLOCKS.map(async bloco => [bloco.id, await contar(q => q.or(toPostgrestFilter(bloco.rule)))] as const),
+    )
 
-    setTileCounts({
-      aguardando,
-      'a-separar': aSeparar,
-      'sem-rastreio': semRastreio,
-      'pix-aguardando': pix,
-    })
+    setTileCounts(Object.fromEntries(contagens))
 
     // A idade do mais antigo é o que transforma "5 pedidos" em "5 pedidos, e um deles há 9 dias".
-    // Uma linha só, ordenada — não a fila inteira para achar o mínimo no cliente.
+    // Uma linha só, ordenada — não a fila inteira para achar o mínimo no cliente. O recorte é a regra
+    // do bloco "Aguardando material" de `QUEUE_BLOCKS` — o mesmo que a RPC `store_overview` usa para
+    // `aguardando_desde` —, nunca o predicado escrito de novo aqui (conserto r1 da verificação da `73`).
     const { data: maisAntigo } = await supabase
       .from('orders')
       .select('created_at')
-      .eq('material_status', 'aguardando_material')
+      .or(toPostgrestFilter(queueBlock('aguardando').rule))
       .order('created_at', { ascending: true })
       .limit(1)
 

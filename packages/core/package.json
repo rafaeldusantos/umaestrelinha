@@ -31,16 +31,22 @@
     "./notifications": "./src/notifications/index.ts",
     "./admin-users": "./src/admin-users/index.ts",
     "./orders": "./src/orders/index.ts",
+    "./order-actions": "./src/order-actions/index.ts",
     "./analytics": "./src/analytics/index.ts",
     "./seo": "./src/seo/index.ts",
     "./filters": "./src/filters/index.ts",
     "./page": "./src/page/index.ts",
     "./time": "./src/time/index.ts",
     "./visits": "./src/visits/index.ts",
-    "./suppliers": "./src/suppliers/index.ts"
+    "./suppliers": "./src/suppliers/index.ts",
+    "./stats": "./src/stats/index.ts",
+    "./customers": "./src/customers/index.ts"
   },
   "scripts": {
     "test": "vitest run"
+  },
+  "peerDependencies": {
+    "@supabase/supabase-js": "^2.103.0"
   },
   "devDependencies": {
     "vitest": "^3.2.7"

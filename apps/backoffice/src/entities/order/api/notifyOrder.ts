@@ -1,5 +1,6 @@
 import { supabase } from '@estrelinha/supabase'
 import type { NotificationEvent, NotificationTrigger } from '@estrelinha/core/notifications'
+import { triggerOrderNotification } from '@estrelinha/core/order-actions'
 
 /**
  * Conta à `send-notification` que **algo aconteceu** com um pedido (`AD-032`).
@@ -18,14 +19,10 @@ import type { NotificationEvent, NotificationTrigger } from '@estrelinha/core/no
  * o motivo olha o histórico do pedido, que agora mostra cada tentativa.
  */
 export async function notifyOrder(orderId: string, trigger: NotificationTrigger): Promise<boolean> {
-  try {
-    const { data } = await supabase.functions.invoke('send-notification?action=trigger', {
-      body: { order_id: orderId, trigger },
-    })
-    return data?.sent === true
-  } catch {
-    return false
-  }
+  // Feature `75` (`AD-059`): o disparo subiu para `@estrelinha/core/order-actions`, com o client
+  // RECEBIDO — o app do ateliê dispara o mesmo fato pela mesma porta. Este invólucro fica para os
+  // chamadores do painel (e para o dono receber como `notify`).
+  return triggerOrderNotification(supabase, orderId, trigger)
 }
 
 /**

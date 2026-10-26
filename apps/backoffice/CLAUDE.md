@@ -207,6 +207,15 @@ Faturamento e Ticket médio, nas abas Hoje · Ontem · Esta semana (`widgets/sto
   horizontal, `R$ 99.999,99` numa linha dentro de um card de 165px.
 - ⚠️ **Toda RPC nova que o painel chama quebra `marcacaoSoPorAcao.test.ts`, na suíte da LOJA**: a
   lista literal de RPCs é comparada por igualdade (feature `67`). Aconteceu duas vezes na `71`.
+- **Desde a `73` (`AD-057`), os dois hooks e o tipo moram em `packages/core`**, porque o app do
+  ateliê lê o mesmo bloco: `useStoreMovement` e `STORE_MOVEMENT_KEY` em `core/hooks/useStoreMovement.ts`,
+  `useOrdersRealtime` em `core/hooks/useOrdersRealtime.ts` (o NOME do canal virou parâmetro — o
+  Dashboard passa `ORDERS_REALTIME_CHANNEL`, o app passa o dele) e `StoreMovement` em
+  `core/stats/movement.ts`. O painel **reexporta** pelos caminhos de antes (`entities/stats`,
+  `entities/order`), e `entities/__tests__/reexportaDeCore.test.ts` exige a MESMA referência (`toBe`).
+  Os testes dos dois hooks mudaram de casa sem asserção tocada; `AdminDashboard.test.tsx` não mudou.
+  `useStoreMovement` ganhou `{ retry }` opcional, com padrão `1`: o painel não muda, e o app passa o
+  dele.
 
 ## Molde dos formulários
 
@@ -974,6 +983,16 @@ conta — fazer isso seria o "defeito 01" nascendo dentro da tela que existe par
 
 ## Pedidos e a fila de material
 
+- **A regra dos blocos da fila é DADO em `core/orders/queue.ts`** (feature `73`, `AD-057`):
+  `QUEUE_BLOCKS` (id, rótulo, frase, acento, regra), `toPostgrestFilter` e `needsActionOrFilter`.
+  `orderQuery.ts` monta `PRECISA_ACAO_OR` e `QUEUE_TILES` a partir dela (o `apply`, que é estado da
+  tela, fica aqui), e `fetchTiles` conta cada bloco com `toPostgrestFilter(bloco.rule)`. A RPC
+  `store_overview` conta os mesmos blocos em SQL, com a cópia guardada byte a byte por
+  `filaComDonoUnico.test.ts` (suíte da loja). **Mudar um bloco é mudar `core`**: o painel e o celular
+  mudam juntos, e a migration precisa de uma migration nova com o SQL de `toSqlPredicate`. As duas
+  formas de hoje (o bloco "Pago, a separar" com `in (…)` e a união com `is null or in (…)`) foram
+  **preservadas**; medido na `73`, a diferença é zero no local e em produção.
+
 - **`orders.material_tracking_code` NÃO é `orders.tracking_code`.** A primeira é a remessa **de
   entrada** (cliente → ateliê, o envelope com o material); a segunda é a **de saída** e alimenta o
   e-mail `order_shipped`. Reusar aquela faria "postamos sua joia" sair com o código do envelope que a
@@ -998,6 +1017,23 @@ conta — fazer isso seria o "defeito 01" nascendo dentro da tela que existe par
   `customers`: a view une cadastro e convidada, agrupando a segunda por e-mail normalizado, e o id
   dela é `md5(lower(email))::uuid` — determinístico e estável, para `/admin/clientes/:id` funcionar
   igual nos dois casos.
+
+- **A escrita do pedido tem UM dono, e não é o painel** (feature `75`, `AD-059`).
+  `useAdminOrders.updateStatus`, `addTrackingCode` e `setMaterialStatus` **delegam** a
+  `writeOrderStatus`/`writeTrackingCode`/`writeMaterialStatus` de `@estrelinha/core/order-actions` — o
+  mesmo dono que o app do ateliê chama —, com o client e o `notifyOrder` injetados, e traduzem o
+  desfecho para a forma de retorno de sempre (a tabela de §3.3 do design da `75`, um caso por linha em
+  `useAdminOrders.delega.test.ts`). O painel **não** passa a guarda de status (`expectedFrom`/
+  `statusIn`) nem valida o código de rastreio (A8: a normalização é do app). **A única mudança de
+  comportamento**: o dono confere o efeito por `.select('id')`, então um `update` que não alterou linha
+  vira erro ("Nenhum pedido foi alterado.") em vez de sucesso com histórico e aviso — TQ8/A24,
+  **n — confirmar**. `cancelOrder` continua escrevendo aqui, e é a ÚNICA entrada da allowlist de
+  `pedidoGravadoSoPeloDono.test.ts` (suíte da loja), por declaração: uma escrita nova no mesmo arquivo,
+  fora dela, é acusada. `notifyOrder` delega a `triggerOrderNotification` do dono.
+- **O lembrete do WhatsApp (`chargeMaterialText`/`chargeMaterialUrl`) subiu para
+  `core/orders/charge.ts`** (feature `75`, `MAA-28`), byte a byte, com o ramo sem número; o painel
+  reexporta por referência (`lembreteNoCore.test.ts`, `toBe`). O app do ateliê o abre só com um número
+  válido (`canChargeMaterial`); o painel continua como antes.
 
 ## As duas listagens de Vendas (feature `34`)
 
@@ -1132,7 +1168,7 @@ moram) recusa qualquer arquivo de `apps/**` que nomeie a chave de serviço ou aq
 > toda policy de escrita chama `has_role`, avaliado por requisição. Limitação declarada, não
 > escondida.
 
-## O fornecedor da peça (feature `80`, `AD-057`)
+## O fornecedor da peça (feature `80`, `AD-064`)
 
 Só do painel, e **por construção**: as tabelas `suppliers` e `product_suppliers` não têm leitura
 pública (a `products` tem, e sem recorte de coluna — é por isso que o fornecedor não é coluna dela).

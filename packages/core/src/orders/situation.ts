@@ -11,11 +11,20 @@
 // Escrita duas vezes, ela divergiria sem nada quebrar — que é o defeito que abriu esta feature.
 //
 // ⚠️ O diretório é alcançado pelo Deno por caminho relativo (via `format.ts`): todo import daqui é
-// relativo e com a extensão explícita. Desde a feature `63` o único é o dono de "este pedido é de
-// retirada?" (`shipping/pickup.ts`), que por sua vez não importa nada.
+// relativo e com a extensão explícita, e todos são FOLHAS sem import: o dono de "este pedido é de
+// retirada?" (`shipping/pickup.ts`, feature `63`), o fuso (`time/zone.ts`), e — desde o conserto
+// do QA da `73` — o vocabulário do material (`material/material.ts`) e o do painel (`labels.ts`).
+//
+// **Dois públicos, uma régua** (`BUG-20261022-situacao-fala-com-a-cliente-no-atelie`). A CHAVE e o
+// TOM são os mesmos para a loja e para o app do ateliê; só a PALAVRA muda. A loja fala com a cliente
+// ("Aguardando seu material"); o ateliê lê o vocabulário que o painel já tinha ("Aguardando
+// material", "Material a caminho", "Enviado", "Estornado"), e ali o selo distingue o envelope que
+// ainda não saiu do que já foi postado — os dois são `awaiting_material` para a cliente.
 
+import { MATERIAL_STATUS_LABELS } from '../material/material.ts'
 import { isPickupOrder } from '../shipping/pickup.ts'
 import { STORE_TIME_ZONE } from '../time/zone.ts'
+import { ORDER_PAYMENT_STATUS_LABELS, ORDER_STATUS_LABELS, type SituationTone } from './labels.ts'
 
 export type SituationKey =
   | 'cancelled'
@@ -28,8 +37,8 @@ export type SituationKey =
   | 'payment_rejected'
   | 'awaiting_payment'
 
-/** A família de cor do selo. As cores em si são tokens da loja; aqui mora só a classificação. */
-export type SituationTone = 'neutral' | 'done' | 'progress' | 'wait' | 'alert'
+/** A família de cor do selo — declarada em `labels.ts` desde a `74`, reexportada aqui (R5). */
+export type { SituationTone }
 
 export interface SituationInput {
   status: string | null
@@ -39,6 +48,9 @@ export interface SituationInput {
   /** Feature 63: `'retirada'` é pedido de retirada no escritório (`isPickupOrder`). */
   shipping_service_id?: string | null
 }
+
+/** Para quem o selo fala. `'cliente'` é o padrão: a loja não passa nada e não muda. */
+export type SituationAudience = 'cliente' | 'atelie'
 
 export interface Situation {
   key: SituationKey
@@ -61,6 +73,26 @@ export const SITUATION_LABELS: Record<SituationKey, string> = {
   pix_expired: 'PIX expirado',
   payment_rejected: 'Pagamento recusado',
   awaiting_payment: 'Aguardando pagamento',
+}
+
+/**
+ * As palavras do ATELIÊ por chave. **Nenhum literal novo**: cada uma vem de um vocabulário que já
+ * tinha dono — o do material (`core/material`) e o das colunas do pedido (`labels.ts`, o mesmo que o
+ * painel reexporta) —, e o que não muda entre os públicos é a palavra da cliente, por referência.
+ * Sem pronome: "Aguardando material", nunca "seu".
+ */
+const ATELIE_LABELS: Record<SituationKey, string> = {
+  ...SITUATION_LABELS,
+  shipped: ORDER_STATUS_LABELS.shipped,
+  refunded: ORDER_PAYMENT_STATUS_LABELS.refunded,
+  awaiting_material: MATERIAL_STATUS_LABELS.aguardando_material,
+  in_production: MATERIAL_STATUS_LABELS.em_producao,
+}
+
+/** O mapa dos rótulos, um por público — o único lugar onde a palavra de cada chave mora. */
+export const SITUATION_LABELS_BY_AUDIENCE: Record<SituationAudience, Record<SituationKey, string>> = {
+  cliente: SITUATION_LABELS,
+  atelie: ATELIE_LABELS,
 }
 
 /**
@@ -121,10 +153,28 @@ const chaveDa = (o: SituationInput | null | undefined): SituationKey => {
  */
 export const PICKUP_DELIVERED_LABEL = 'Retirado'
 
-/** O selo de um pedido: chave, rótulo e tom, sempre da MESMA chave. */
-export function orderSituation(o: SituationInput): Situation {
+/**
+ * No ateliê, o estado do material diz mais que a chave: `awaiting_material` é tanto o envelope que
+ * não saiu quanto o que está a caminho, e `in_production` inclui o material que acabou de chegar.
+ * A palavra é a do próprio estado (`MATERIAL_STATUS_LABELS`). Fora desses dois casos, `null`.
+ */
+const palavraDoMaterial = (key: SituationKey, material: string | null | undefined): string | null => {
+  if (key === 'awaiting_material' && material === 'material_enviado') return MATERIAL_STATUS_LABELS.material_enviado
+  if (key === 'in_production' && material === 'material_recebido') return MATERIAL_STATUS_LABELS.material_recebido
+  return null
+}
+
+/**
+ * O selo de um pedido: chave, rótulo e tom, sempre da MESMA chave. `publico` escolhe só a palavra;
+ * sem ele, é a da cliente — a loja nunca passa o argumento.
+ */
+export function orderSituation(o: SituationInput, publico: SituationAudience = 'cliente'): Situation {
   const key = chaveDa(o)
-  const label = key === 'delivered' && isPickupOrder(o) ? PICKUP_DELIVERED_LABEL : SITUATION_LABELS[key]
+  const rotulos = SITUATION_LABELS_BY_AUDIENCE[publico] ?? SITUATION_LABELS
+  const label =
+    key === 'delivered' && isPickupOrder(o)
+      ? PICKUP_DELIVERED_LABEL
+      : (publico === 'atelie' ? palavraDoMaterial(key, o?.material_status) : null) ?? rotulos[key]
   return { key, label, tone: SITUATION_TONES[key] }
 }
 

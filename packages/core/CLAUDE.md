@@ -41,7 +41,7 @@ sem ela a varredura passa com zero arquivo lido, que é a pior falha possível n
 | `./menu` | `menuItems`, `menuPanelColumns`, `resolveMenuTarget`/`menuTargetRefusal`, `resolveMenuBanners`, `MENU_ICON_KEYS`, `descendantIds`, `bySortOrder`, `categoryHref`, o canal `preview.ts` | 4 superfícies nos 2 apps |
 | `./home` | catálogo de blocos, `DEFAULT_HOME_COMPOSITION`, `derive.ts`, `preview.ts`, `carousel.ts`, `featured.ts`, **`categoryList.ts`** | loja, painel |
 | `./faq` | `resolveProductFaqs`, `faqOverrideOf`, `rankFaqSuggestions`, `block.ts` | loja, painel, importador |
-| `./material` | máquina de estado, `requiresMaterial()`, `materialSummary` | loja, painel, RPC (cópia em SQL) |
+| `./material` | máquina de estado, `requiresMaterial()`, `materialSummary`, **`steps.ts`** (`MATERIAL_STEPS`, `materialProgress`, `materialSubline`, `MATERIAL_USED_TITLE` — feature `74`) | loja, painel, app do ateliê, RPC (cópia em SQL) |
 | `./shopping` | `ShoppingOffer` e as duas serializações | `google-feed`, `core/page`, loja, painel |
 | `./page` | **`classifyPath`, `servePage`, `applyHead`, `resolveCategoryRoute`, `productPageImages`** — a resposta HTML de cada caminho (feature `69`, `AD-053`). `images.ts` é folha alcançável pelo Deno (a régua fica, sem consumidor Deno desde a `70`) | função `api/page` da Vercel (`apps/store/server`), loja |
 | `./sitemap` | `sitemapUrls`, `renderSitemapXml`, **`serveSitemap`** (`{ status, headers, body }`, 503 `no-store` em todo caminho degradado, `s-maxage=3600` no 200 — feature `70`) | função `api/page` da Vercel |
@@ -49,10 +49,14 @@ sem ela a varredura passa com zero arquivo lido, que é a pior falha possível n
 | `./validators/email` | `isValidEmail`, `normalizeEmail` | loja, edge function `checkout` |
 | `./shipping` | `freeShippingState` + `freeShippingRefusal` (o frete grátis tem **um** dono), `estimate.ts` | 8 superfícies nos 2 apps |
 | `./media` | `renditionUrl`/`renditionSrcSet`/`imagePriority` (`rendition.ts`) e **`surfaceArt`** (`AD-030`) | loja, painel, `core/page` |
+| `./orders` | `orderSituation` (com o público `'cliente' \| 'atelie'`), `SITUATION_LABELS_BY_AUDIENCE`, `ORDER_STATUS_LABELS`/`ORDER_PAYMENT_STATUS_LABELS` (`labels.ts`, subidos do painel), `formatOrderNumber`, **`queue.ts`** (`QUEUE_BLOCKS`, `NEEDS_ACTION_BLOCKS`, `toPostgrestFilter`, `needsActionOrFilter`, `toSqlPredicate` — feature `73`, `AD-057`) e, desde a `74` (`AD-058`), **`views.ts`** (`ORDER_VIEWS`, `viewPredicate`, `OrderSlice`, `applyOrderSlice`), **`search.ts`** (`buildOrderSearchCondition`, `SEARCH_DEBOUNCE_MS`), **`row.ts`**, **`rowSummary.ts`**, **`nextStep.ts`**, **`history.ts`** (`buildHistory`), **`delivery.ts`** (`shippingLine`), **`list.ts`** (página, cursor, `listCountLine`, `emptyHint`, `isOrderId`) e `PAYMENT_METHOD_LABELS`/`PAYMENT_STATUS_TONES` em `labels.ts` | loja, painel, app do ateliê, migration (cópia SQL guardada) |
+| `./customers` | **os recortes e o "em aberto"** (`CUSTOMER_SLICES`, `RETURNING_CUSTOMER_RULE`, `OPEN_CUSTOMER_RULE`, `openOrdersSqlFilter`), `customerCursorFilter`, `customerOrdersCondition`/`directoryEmailCondition` (vínculo exato) e `escapeLike`/`ilikeContains`/`ilikeExact` (feature `76`, `AD-060`/`AD-061`) | app do ateliê, painel (reexporta `voltaram`) |
+| `./order-actions` | **a escrita do pedido** (feature `75`, `AD-059`): `writeOrderStatus`, `writeTrackingCode`, `writeMaterialStatus`, `triggerOrderNotification` e a ação composta do app `runAppAction` — client e notificador INJETADOS, efeito conferido por `.select('id')` | painel (`useAdminOrders`, `notifyOrder`), app do ateliê (`gravarAcao`) |
+| `./stats` | **`StoreMovement`** (movido da `71`), **`StoreOverview`** e `OVERVIEW_KEYS`, `turnDelayMs`, os rótulos da Início (`greetingFor`, `longDateLine`, `monthName`, `weekdayShort`, `piecesLabel`, `paidOrdersLabel`, `relativeAge`, `storeHour`) — feature `73` | painel (reexporta o tipo), app do ateliê |
 | `./time` | **`STORE_TIME_ZONE`** (o nome do fuso da loja, a cópia TypeScript de `store_time_zone()` do banco) e `formatDayMonth`/`formatStoreHour` (`21/10`, `15h32`) — feature `71`, `AD-055` | `core/orders/situation.ts`, painel (GA e o bloco "Movimento da loja"), loja (`orderMeta`) |
 | `./visits` | `isBotUserAgent` (as 20 assinaturas de robô), `visitBody`/`visitBodyRefusal`/`isVisitorId` (o corpo da visita) e `OPT_OUT_PARAM`/`optOutHref`/`readOptOutParam` (o parâmetro de "não contar") — feature `71` | loja (`VisitCounter`), edge function `visit`, painel (menu da conta) |
 | `./validators` · `./product` · `./auth` | utilitários de domínio | vários |
-| `./hooks/*` | **exceção declarada** — `useStoreSettings`, `useCoupons` tocam Supabase | os dois apps |
+| `./hooks/*` | **exceção declarada** — `useStoreSettings`, `useCoupons` tocam Supabase; desde a `73`, também **`useStoreMovement`**, **`useStoreOverview`** (com `retryUnlessDenied` e `ACCESS_DENIED_CODE`) e **`useOrdersRealtime(nomeDoCanal, aoMudar)`** | os dois apps e o app do ateliê |
 
 ## Dinheiro — a regra que não muda por acaso
 
@@ -341,6 +345,93 @@ sem build, `tsc` ou teste de componente acusarem — desta vez com o CTA de dinh
   `'on' | 'off' | null`, string e não booleano, pela regra de `strictNullChecks`.
   `parametroNaoContarComDonoUnico.test.ts` (suíte da loja) recusa o nome escrito à mão fora do dono
   e exige as duas chamadas.
+
+## `orders/queue.ts` e `stats` — a Início do ateliê (feature `73`, `AD-057`)
+
+- **"Este pedido está em qual bloco da fila?" é DADO, com dois tradutores.** `QUEUE_BLOCKS` carrega a
+  regra de cada bloco como condições (`eq`, `in`, `is_null`, e `any` para o "ou"); `toPostgrestFilter`
+  a escreve para o `.or()` do PostgREST (o painel) e `toSqlPredicate` para o SQL (a RPC
+  `store_overview`). A cópia SQL é **deliberada** — a Início do app só lê RPC admin, porque a RLS de
+  `orders` daria a uma conta sem papel os pedidos dela, sem erro — e `filaComDonoUnico.test.ts`
+  (suíte da loja) exige a saída de `toSqlPredicate` byte a byte na migration. `queue.ts` não importa
+  nada: alcançável pelo Deno por construção.
+- **"Precisa de ação" é a UNIÃO dos três primeiros, nunca a soma.** Um pedido pode estar em dois
+  blocos; a soma o contaria duas vezes.
+- **`stats` só escreve o que o banco decidiu.** Os dias chegam como texto `AAAA-MM-DD`, e os rótulos
+  os cortam por texto — nenhum `new Date('AAAA-MM-DD')`; `labels.test.ts` roda em fusos negativos com
+  o módulo reimportado. A saudação usa a hora de Brasília do `lido_em` do servidor.
+- **Os hooks seguem o molde de `useStoreMovement`**: uma RPC sem argumento, o `throw` do `{ error }`
+  (o supabase-js não rejeita), e a releitura da virada pela DURAÇÃO do servidor (`turnDelayMs`). O
+  `retry` de `useStoreOverview` é `retryUnlessDenied` (`42501` não repete); o de `useStoreMovement` é
+  parâmetro, com padrão `1` pelo painel.
+
+## `orders/views` … `list` — a lista de pedidos com dois leitores (feature `74`, `AD-058`)
+
+- **Subiram do painel BYTE A BYTE** (`MAP-48`): as frases (`rowSummary`, `nextStep`, `buildHistory`,
+  `shippingLine`) foram copiadas do disco do painel no `775e407e` para os testes **antes** de o painel
+  passar a reexportar, e `regrasDoPedidoNoCore.test.ts` (painel) exige cada símbolo por `toBe`. Mudar
+  uma frase aqui muda as duas telas — é o ponto.
+- **O recorte é UM objeto com dois tradutores**: `applyOrderSlice(q, slice)` monta a cadeia do
+  PostgREST para visão **ou** bloco (`OrderSlice`), e o painel (`applyView`) e o app chamam a mesma
+  função. Bloco e visão de nome parecido não são a mesma coisa (`views.test.ts`).
+- **O cursor é a string do servidor**, com microssegundos: `new Date(…).toISOString()` trunca e faz a
+  próxima página repetir ou pular pedido (`list.test.ts`, caso R1).
+- `HISTORY_FILTERS`/`filterHistory` **ficaram no painel**: o app não filtra histórico.
+- `material/steps.ts` importa só `./material.ts`, e `stats/labels` só `time/zone`: `stepsDenoReach`
+  mantém o grafo alcançável pelo Deno. `purity.test.ts` lista os oito arquivos novos.
+
+## `orders/situation.ts` — um selo, duas vozes (conserto do QA da `73`)
+
+- **`orderSituation(o, publico = 'cliente')`.** A chave e o tom são os mesmos para os dois públicos;
+  só a palavra muda. A loja **não passa** o argumento e não mudou uma letra; o app do ateliê passa
+  `'atelie'` (`BUG-20261022-situacao-fala-com-a-cliente-no-atelie`).
+- **As palavras moram num mapa só**, `SITUATION_LABELS_BY_AUDIENCE`: `cliente` É o `SITUATION_LABELS`
+  de sempre (referência), e `atelie` não tem literal novo — sai de `MATERIAL_STATUS_LABELS`
+  (`core/material`) e de `ORDER_STATUS_LABELS`/`ORDER_PAYMENT_STATUS_LABELS` (`orders/labels.ts`), que
+  subiram do painel; o painel reexporta por referência (`rotulosDoPainel.test.ts`, `toBe`).
+- **No ateliê o material diz mais que a chave**: `awaiting_material` vira "Aguardando material" ou
+  "Material a caminho" pelo `material_status`, e `in_production` com `material_recebido` vira
+  "Material recebido". Para a cliente os dois primeiros continuam o mesmo selo (`SIT-04`).
+- `situation.ts` importa `material/material.ts` e `orders/labels.ts`, as duas **folhas sem import** — o
+  diretório continua alcançável pelo Deno (`purity.test.ts`).
+- `situacaoComDonoUnico.test.ts` (suíte da loja) varre a loja **e** `apps/mobile-adm/src`.
+
+## `customers` — as regras de cliente com dois leitores (feature `76`, `AD-060`, `AD-061`)
+
+- **Folha, alcançável por Node, Deno e navegador**: todo especificador leva `.ts` (`import type` incluso) e o
+  diretório não importa React, Supabase nem alias (`purity.test.ts`, `denoReach.test.ts`).
+- **Os recortes são DADO** (`CUSTOMER_SLICES`, `applyCustomerSlice`); "Voltaram" do painel e "Compraram mais
+  de uma vez" do app são o MESMO predicado (`RETURNING_CUSTOMER_RULE`, `orders_paid >= 2`). A cópia SQL de
+  "em aberto" na migration é guardada byte a byte contra `openOrdersSqlFilter` (`emAbertoComDonoUnico`).
+- **O escape de `ilike` tem um dono** (`like.ts`): `\`, `%` e `_` escapados e o valor entre aspas; o `*` vira
+  `_` porque o PostgREST o troca por `%` mesmo escapado (medido no probe `01-banco`). O vínculo da ficha
+  (`customerOrdersCondition`) é por `customer_id` OU e-mail exato — `VROSA_RJ` não puxa `VROSAXRJ`. O painel
+  ainda não o usa (`BL-052`).
+- **O cursor** (`customerCursorFilter`) são as strings do servidor, com microssegundos, em três ramos (mais
+  antigo; mesma data com `id` maior; os nulos). `whatsappChatUrl` mora em `notifications/phone.ts`.
+
+## `order-actions` — a escrita do pedido tem UM dono (feature `75`, `AD-059`)
+
+- **É a única escrita PostgREST de `orders` e `order_status_history` em `apps/*/src` e
+  `packages/*/src`** (menos o `cancelOrder` do painel, entrada única de allowlist), e a única sequência
+  "RPC `set_material_status` → aviso". Guarda: `pedidoGravadoSoPeloDono.test.ts` (suíte da loja, pela
+  AST). As functions e o importador gravam `orders` com service role e são outros donos por construção.
+- **O client é injetado** (`OrderWriteDeps`): o módulo não importa client nenhum (o de
+  `@estrelinha/supabase` lança sem env), e o supabase-js entra só em `import type` (`purity.test.ts`).
+  `notify` é a função notificadora; o booleano que decide se o aviso sai chama-se `avisar`.
+- **Zero linhas nunca é sucesso**: toda escrita termina em `.select('id')`; resposta sem linha é
+  `nenhuma-linha`, e quem decide o que ela significa é o chamador (o app reconfere o papel; o painel diz
+  "Nenhum pedido foi alterado."). O histórico é gravado e o resultado dele ignorado, e o aviso fica FORA
+  do `try` — paridade com o painel; a escrita atômica é `BL-051`.
+- **A regra da ação mora em `orders/appAction.ts`, não aqui**: `appPrimaryAction` (rótulo e plano, com
+  a guarda de status de origem), `trackingSheet` (a folha por origem), `trackingEdit`,
+  `canChargeMaterial`, `actionConfirmation` e as frases fixas. `orders/tracking.ts` normaliza e recusa o
+  código (A8: só no app — `writeTrackingCode` **não** normaliza nem valida, senão o painel mudaria o que
+  grava). `orders/charge.ts` é o lembrete do WhatsApp, subido do painel byte a byte.
+- **Todo especificador relativo leva `.ts`**, como o resto de `orders`: o grafo é o mesmo que um dia
+  uma edge function poderá importar.
+- A prova contra o banco é o probe `.specs/features/75-mobile-adm-acoes-do-pedido/probes/01-paridade.*`
+  (app × painel no mesmo pedido semeado duas vezes; dois mutantes no dono mortos por ele).
 
 ## Convenções de tipo
 

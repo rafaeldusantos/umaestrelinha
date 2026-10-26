@@ -20,3 +20,33 @@ export function parcelTrackingUrl(code: string | null | undefined): string | nul
   if (codigo === '') return null
   return `${PARCEL_TRACKING_BASE_URL}${encodeURIComponent(codigo)}`
 }
+
+// ---------------------------------------------------------------------------------------------
+// Feature `75` (`MAA-12`, A8) — o código que a Adri digita no balcão do correio, no app do ateliê.
+// ---------------------------------------------------------------------------------------------
+// Sem formato imposto: Jadlog, Loggi e Melhor Envio não seguem a forma dos Correios, e recusar o
+// código de uma transportadora real seria pior que deixar passar um erro de digitação. O mínimo de 8
+// pega o código pela metade. Caixa e espaço não importam — `parcelTrackingUrl`, acima, já trata o
+// código como insensível a caixa.
+//
+// **Vale só no app.** O painel não passa a validar, e o dono da escrita (`core/order-actions`) grava
+// o código como o recebe: quem normaliza e recusa é a folha do app, antes de ir à rede.
+
+/** Abaixo disto o código está pela metade (`A8`). */
+export const TRACKING_CODE_MIN_LENGTH = 8
+
+/** Sem nenhum espaço — inclusive os do meio, tab e quebra de linha — e em maiúsculas. */
+export function normalizeTrackingCode(code: string | null | undefined): string {
+  if (typeof code !== 'string') return ''
+  return code.replace(/\s+/g, '').toUpperCase()
+}
+
+/**
+ * A frase da folha quando o código não serve, ou `null` quando serve. `string | null`, e não união
+ * discriminada por booleano (`strictNullChecks: false`).
+ */
+export function trackingCodeRefusal(code: string | null | undefined): string | null {
+  return normalizeTrackingCode(code).length < TRACKING_CODE_MIN_LENGTH
+    ? 'Confira o código — ele costuma ter 13 caracteres.'
+    : null
+}

@@ -1,21 +1,31 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@estrelinha/supabase/client'
 import type { DbOrder, DbOrderItem, DbOrderStatusHistory, DbOrderNote } from '@estrelinha/supabase/types'
+import { ORDER_STATUS_LABELS } from '@estrelinha/core/orders'
+import { writeMaterialStatus, writeOrderStatus, writeTrackingCode, type WriteOutcome } from '@estrelinha/core/order-actions'
 import { notifyOrder } from './notifyOrder'
 
 export const ORDER_STATUSES = ['pending', 'paid', 'separating', 'shipped', 'delivered', 'cancelled'] as const
 export type OrderStatus = typeof ORDER_STATUSES[number]
 
-export const STATUS_LABELS: Record<string, string> = {
-  pending: 'Pendente',
-  paid: 'Pago',
-  separating: 'Em Separação',
-  shipped: 'Enviado',
-  delivered: 'Entregue',
-  cancelled: 'Cancelado',
-}
+/**
+ * Os rótulos de `orders.status`. Moram em `@estrelinha/core/orders` (`ORDER_STATUS_LABELS`) desde o
+ * conserto do QA da feature `73`: o selo do app do ateliê lê as mesmas palavras. Reexportado por
+ * REFERÊNCIA — `rotulosDoPainel.test.ts` confere com `toBe`.
+ */
+export const STATUS_LABELS: Record<string, string> = ORDER_STATUS_LABELS
 
 const PAGE_SIZE = 20
+
+/**
+ * Feature `75` (A24): o `update` que não alterou nada (`nenhuma-linha`) deixou de passar como
+ * sucesso. Para uma admin com o id da lista ele é inalcançável; se acontecer, a tela recebe um erro
+ * em vez de um "salvo" falso. `falhou` devolve o erro do client, como antes.
+ */
+const falhaDaEscrita = (r: Exclude<WriteOutcome, { tipo: 'ok' }>) => ({
+  error: r.tipo === 'falhou' ? (r as { erro: unknown }).erro : new Error('Nenhum pedido foi alterado.'),
+  emailSent: false,
+})
 
 export const useAdminOrders = () => {
   const [orders, setOrders] = useState<DbOrder[]>([])
@@ -121,26 +131,19 @@ export const useAdminOrders = () => {
   }
 
   const updateStatus = async (id: string, status: string, note?: string) => {
-    const currentOrder = orders.find(o => o.id === id)
-    const { error } = await supabase.from('orders').update({ status }).eq('id', id)
-    if (error) return { error, emailSent: false }
-
-    await supabase.from('order_status_history').insert({
-      order_id: id,
-      from_status: currentOrder?.status ?? null,
-      to_status: status,
-      note: note || null,
-    })
-    // TRG-12: um dos dois lados do par. Se o rastreio ainda não foi salvo, a pré-condição barra e
-    // isto é no-op silencioso — o aviso sai quando `addTrackingCode` completar o par.
+    // Feature `75` (`AD-059`): a escrita mora em `@estrelinha/core/order-actions`, que o app do ateliê
+    // também chama. A sequência é a de sempre — update, histórico, `order_status_changed` —, com o
+    // efeito conferido por `.select('id')`.
     //
-    // O gatilho é `order_status_changed` para TODO status, e não só para `shipped` (`AD-032`): quais
-    // status têm aviso — `cancelled`, `shipped`, `delivered` — é decisão de `core`, e `processing`
-    // simplesmente não produz evento nenhum. Filtrar aqui seria a segunda cópia dessa lista.
-    const emailSent = await notifyOrder(id, 'order_status_changed')
+    // TRG-12: um dos dois lados do par. Se o rastreio ainda não foi salvo, a pré-condição barra e o
+    // aviso é no-op silencioso — ele sai quando `addTrackingCode` completar o par. O gatilho é
+    // `order_status_changed` para TODO status (`AD-032`): quais status têm aviso é decisão de `core`.
+    const from = orders.find(o => o.id === id)?.status
+    const r = await writeOrderStatus({ client: supabase, notify: notifyOrder }, { id, to: status, from, note })
+    if (r.tipo !== 'ok') return falhaDaEscrita(r)
     await fetchOrders()
     await fetchStatusCounts()
-    return { error: null, emailSent }
+    return { error: null, emailSent: r.emailSent }
   }
 
   const cancelOrder = async (id: string, reason: string) => {
@@ -164,15 +167,13 @@ export const useAdminOrders = () => {
   }
 
   const addTrackingCode = async (id: string, trackingCode: string, carrier: string) => {
-    const { error } = await supabase.from('orders').update({ tracking_code: trackingCode, shipping_carrier: carrier }).eq('id', id)
-    if (error) return { error, emailSent: false }
-
-    // O outro lado do par (TRG-12), tentado SEMPRE: se o pedido já está `shipped`, salvar o rastreio é
-    // o que completa e dispara. Se ainda não está, a pré-condição barra e nada acontece. Cobre
-    // também o caminho do Melhor Envio, que grava o rastreio sem tocar em `status`.
-    const emailSent = await notifyOrder(id, 'order_status_changed')
+    // O outro lado do par (TRG-12), tentado SEMPRE pelo dono: se o pedido já está `shipped`, salvar o
+    // rastreio é o que completa e dispara. Cobre também o caminho do Melhor Envio, que grava o rastreio
+    // sem tocar em `status`. O painel não normaliza nem valida o código (A8 vale só no app).
+    const r = await writeTrackingCode({ client: supabase, notify: notifyOrder }, { id, code: trackingCode, carrier })
+    if (r.tipo !== 'ok') return falhaDaEscrita(r)
     await fetchOrders()
-    return { error: null, emailSent }
+    return { error: null, emailSent: r.emailSent }
   }
 
   /**
@@ -183,28 +184,22 @@ export const useAdminOrders = () => {
    * uma só. Um `update` daqui contornaria a máquina de estado inteira.
    */
   const setMaterialStatus = async (id: string, status: string) => {
-    const { data, error } = await supabase.rpc('set_material_status', {
-      p_order_id: id,
-      p_status: status,
-    })
-    if (error) return { ok: false, reason: 'rpc_failed', emailSent: false }
-
-    const resultado = (data ?? {}) as { ok?: boolean; reason?: string | null }
-    if (resultado.ok !== true) {
-      return { ok: false, reason: resultado.reason ?? 'invalid_transition', emailSent: false }
+    // A RPC e o aviso moram no dono (`writeMaterialStatus`). O aviso é contido (MAT-09 + AD-008):
+    // falha de envio não reverte o estado nem vira erro para a admin. A tradução do desfecho para a
+    // forma de retorno de sempre é a tabela do design da `75` (§3.3).
+    const r = await writeMaterialStatus({ client: supabase, notify: notifyOrder }, { id, to: status })
+    switch (r.tipo) {
+      case 'ok':
+        await fetchOrders()
+        await fetchStatusCounts()
+        return { ok: true, reason: null, emailSent: r.emailSent }
+      case 'sem-papel':
+        return { ok: false, reason: 'not_admin', emailSent: false }
+      case 'material-recusado':
+        return { ok: false, reason: r.reason ?? 'invalid_transition', emailSent: false }
+      default:
+        return { ok: false, reason: 'rpc_failed', emailSent: false }
     }
-
-    // MAT-09 + AD-008: o aviso é contido. `notifyOrder` devolve booleano e NUNCA lança — falha de
-    // envio não reverte o estado nem vira erro para a admin. Ela acabou de conferir o envelope na
-    // bancada; desfazer isso porque o Resend caiu seria pior do que não avisar a cliente.
-    //
-    // Gatilho para TODA transição: `material_recebido` produz `material_received` e `em_producao`
-    // produz `in_production`; `aguardando_material` não produz nada. A lista é de `core`.
-    const emailSent = await notifyOrder(id, 'material_status_changed')
-
-    await fetchOrders()
-    await fetchStatusCounts()
-    return { ok: true, reason: null, emailSent }
   }
 
   /**

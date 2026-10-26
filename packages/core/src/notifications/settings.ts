@@ -9,8 +9,11 @@ import type { NotificationEvent } from './events.ts'
 import { NOTIFICATION_EVENTS } from './events.ts'
 import { DEFAULT_NOTIFICATIONS } from './defaults.ts'
 
-/** Os canais que a tabela `order_notifications` aceita. O WhatsApp é a feature 43. */
-export const NOTIFICATION_CHANNELS = ['email', 'whatsapp'] as const
+/**
+ * Os canais que a tabela `order_notifications` aceita. O WhatsApp é a feature 43; o `push` (o aviso no
+ * celular da dona) é a feature 79 — uma linha por pedido × evento, que resume os N aparelhos.
+ */
+export const NOTIFICATION_CHANNELS = ['email', 'whatsapp', 'push'] as const
 export type NotificationChannel = (typeof NOTIFICATION_CHANNELS)[number]
 
 export const isNotificationChannel = (value: unknown): value is NotificationChannel =>

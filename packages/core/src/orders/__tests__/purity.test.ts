@@ -66,9 +66,26 @@ describe('core/orders é módulo puro e alcançável pelo Deno', () => {
         'repix.ts',
         'journey.ts',
         'tracking.ts',
+        // Feature `73`: a regra da fila, que o painel, o app do ateliê e a migration leem.
+        'queue.ts',
+        // Conserto do QA da `73`: os rótulos de status do painel, que o selo do ateliê lê.
+        'labels.ts',
+        // Feature `74`: as regras do pedido que subiram do painel e as que nasceram para o ateliê.
+        'views.ts',
+        'search.ts',
+        'list.ts',
+        'row.ts',
+        'rowSummary.ts',
+        'nextStep.ts',
+        'history.ts',
+        'delivery.ts',
+        // Feature `75`: o lembrete do material, que subiu do painel.
+        'charge.ts',
+        // Feature `75`: a ação do app do ateliê, a folha do rastreio e a confirmação.
+        'appAction.ts',
       ]),
     )
-    expect(arquivos.length).toBeGreaterThanOrEqual(6)
+    expect(arquivos.length).toBeGreaterThanOrEqual(18)
   })
 
   it('todo especificador relativo leva `.ts` explícito', () => {

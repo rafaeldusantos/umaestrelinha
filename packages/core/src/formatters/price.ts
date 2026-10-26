@@ -10,3 +10,16 @@
 // Mesma regra de autocontenção de `payment/status.ts`. Não adicione import aqui.
 export const formatPrice = (value: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
+
+/**
+ * Dinheiro SEM centavos (`R$ 1.077`), arredondado ao real mais próximo — feature `73`, os números
+ * grandes da Início do ateliê (faturamento do período, do mês e dos 7 dias). O ticket médio e os
+ * pedidos continuam com centavos (`formatPrice`). Mesmo formatador, mesma moeda, mesmo espaço.
+ */
+export const formatPriceWhole = (value: number) =>
+  new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(value)

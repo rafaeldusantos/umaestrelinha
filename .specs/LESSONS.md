@@ -8,7 +8,13 @@
 
 Corroborated across multiple features. Safe to apply as guidance.
 
-_none_
+### L-046 — Quando o design troca o que a AC nomeia (a biblioteca, o componente, a fonte do dado), a spec tem de ser emendada ou ganhar SPEC_DEVIATION no mesmo movimento; senão a AC fica falsa com a suíte verde e o verificador é quem descobre.
+- signal: `spec_deviation` · recurrence: 2 feature(s) · scope: `.specs/features/**` · harmful: 0
+- features: 72-mobile-adm-fundacao, 79-mobile-adm-aviso-de-pedido
+- evidence: `MAF-14` ("ícone de `@estrelinha/ui/icons`") × `design.md:45` e `widgets/tab-bar/model/tabs.ts:1` (`lucide-react`)
+- evidence (79): `MAN-32` ("O aviso de teste não saiu. Tente de novo." para toda falha) × o conserto do QA de 2026-10-26 (`usePushNoAparelho.ts` `testar`: `gone`/`not_found` ⇒ `desligado` + `APARELHO_DESCARTADO`) — desvio registrado só em `tasks.md`, sem marcador `SPEC_DEVIATION` no código e sem emenda na `spec.md`
+- last seen: 2026-10-26T00:00:00Z
+- promovida a confirmed à mão (2026-10-26): o script não roda neste repositório (o `lessons.json` está dessincronizado do MD)
 
 ## Candidates (under observation — do NOT load as guidance yet)
 
@@ -225,10 +231,10 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - last seen: 2026-10-19T00:00:00Z
 
 ### L-043 — Adaptador que lê N fontes precisa de um caso de ERRO por fonte, pela porta que o usuário chama: provar o erro só na primeira tabela deixa as outras livres para engolir o erro, e o resultado é a resposta parcial com status de sucesso que a spec proíbe.
-- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `apps/store/server/**` · harmful: 0
-- features: 70-sitemap-servido-na-vercel
-- evidence: M01 — `apps/store/server/sitemap.ts` (`readFaqLinks` sem `throw` deixava o sitemap 200 sem as perguntas, com 5340 verdes)
-- last seen: 2026-10-20T00:00:00Z
+- signal: `surviving_mutant` · recurrence: 2 feature(s) · scope: `apps/store/server/**`, `apps/mobile-adm/src/pages/**` · harmful: 0
+- features: 70-sitemap-servido-na-vercel, 73-mobile-adm-inicio
+- evidence: M01 — `apps/store/server/sitemap.ts` (`readFaqLinks` sem `throw` deixava o sitemap 200 sem as perguntas, com 5340 verdes); `73` r2, N15 — `InicioPage.tsx` com o aviso "Não consegui atualizar agora." calculado só pelo movimento sobrevive a mobile-adm 392/392: o caso da RELEITURA que falha (`MAI-18`) existe só para `store_movement`, e o cabeçalho do arquivo afirma "cada leitura tem o seu caso de erro" (vale para a primeira leitura, não para a releitura)
+- last seen: 2026-10-22T00:00:00Z
 
 ### L-044 — Teste que cria diretório temporário dentro de uma árvore que outro guarda VARRE produz flake de ENOENT entre suítes paralelas; ponha o temporário em `node_modules/.cache` da raiz (nenhuma varredura entra, e a resolução de módulos continua subindo até o `node_modules` do repositório).
 - signal: `flake` · recurrence: 1 feature(s) · scope: `apps/store/scripts/**` · harmful: 0
@@ -236,26 +242,158 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: `apps/store/scripts/__tests__/{shell,robots}.test.ts` × `chaveDeServidorForaDoNavegador.test.ts` (1 em 4 execuções)
 - last seen: 2026-10-20T00:00:00Z
 
-### L-045 — Estado que só importa quando os dados chegaram de FORA (carga, releitura, rascunho) precisa de caso que edite um registro CARREGADO: testes que partem do formulário vazio, ou que só exercitam operações que dão o mesmo resultado com o estado errado (remover valor), deixam o reinício desse estado sem régua.
+### L-045 — AC que enumera as partes de um controle (ícone, rótulo, alvo, estado atual) precisa de uma asserção POR PARTE: a suíte que confere rótulo, altura e `aria-current` deixa o ícone sair sem nada acusar.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `apps/mobile-adm/**` · harmful: 0
+- features: 72-mobile-adm-fundacao
+- evidence: M24 — `apps/mobile-adm/src/widgets/tab-bar/ui/TabBar.tsx:38` (o `<Icon>` apagado, 118/118 verdes; `MAF-14`)
+- last seen: 2026-10-22T00:00:00Z
+
+### L-047 — Leitura de autorização que engole erro de rede e devolve "não autorizado" produz uma recusa confiante e falsa; a spec de um app que depende de rede precisa separar "sem rede" (o navegador sabe) de "rede presente e inútil" (só a falha da leitura sabe), com AC para o segundo.
+- signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `packages/auth/**` · harmful: 0
+- features: 72-mobile-adm-fundacao
+- evidence: `packages/auth/src/AuthContext.tsx:40-53` (`checkAdmin` → `false` na falha) × a linha *Dependência externa* da spec da `72`; medido em `prova-navegador.md`
+- last seen: 2026-10-22T00:00:00Z
+
+### L-048 — `queryByRole('link')` nulo não prova que o link sumiu: um `<a>` SEM `href` não tem papel de link, então o texto "Abrir o X" pode ficar na tela como CTA morto com a asserção verde. Prove a ausência pelo texto (`queryByText`) ou pelo elemento, não pelo papel.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `apps/*/src/**/*.test.tsx` · harmful: 0
+- features: 72-mobile-adm-fundacao
+- evidence: r2 N9 — `apps/mobile-adm/src/app/layout/MobileLayout.tsx` `{url && (` → `{(url ?? true) && (` sobrevive a `TabBar.test.tsx` "SEM a env, … o link não é desenhado"
+- last seen: 2026-10-22T00:00:00Z
+
+### L-049 — Guarda de andaime que confere o `--filter <nome>` do script da raiz precisa conferir também que um workspace COM esse nome existe: `pnpm --filter` sem correspondência imprime "No projects matched" e sai com 0, então renomear o pacote deixa o script mudo e o guarda verde.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `apps/*/src/app/__tests__/**` · harmful: 0
+- features: 72-mobile-adm-fundacao
+- evidence: r2 N12 — `apps/mobile-adm/package.json` `"name"` renomeado; `scaffold.test.ts` 126/126 verdes
+- last seen: 2026-10-22T00:00:00Z
+
+### L-050 — Fluxo de vários passos cujo último passo devolve a decisão a outro dono (`onEntrou`, `onDone`) precisa de caso para a FALHA desse passo: os casos de sucesso e de recusa local passam com um `return` apagado do ramo de erro, e o fluxo segue para o desfecho de sucesso com a operação não feita.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `apps/*/src/features/**` · harmful: 0
+- features: 72-mobile-adm-fundacao
+- evidence: r3 S09 — `apps/mobile-adm/src/features/recovery/ui/RecoveryFlow.tsx` `gravarSenha`, o `return` do erro de `updatePassword` apagado; 128/128 verdes
+- last seen: 2026-10-22T00:00:00Z
+
+### L-051 — O comando de gate por `pnpm --filter <nome>` fica MUDO quando a mutação renomeia o pacote: sai com 0 sem rodar teste nenhum. Arnês de mutação que mexe em `package.json` mede de dentro do workspace (`node_modules/.bin/vitest run`) e confere que a linha `Tests` existe, senão "exit 0" vira morte ou sobrevivência falsa.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `apps/*/package.json` · harmful: 0
+- features: 72-mobile-adm-fundacao
+- evidence: r3 reinjeção de N12 pelo arnês da r2: exit 0 sem `Tests`; de dentro do app: 2 falhas em `scaffold.test.ts`
+- last seen: 2026-10-22T00:00:00Z
+
+### L-052 — Teste que grava `history.state` e depois chama um arnês de montagem precisa conferir que o arnês não sobrescreve o estado: `montarApp` faz `pushState({}, …)`, então o caso "passo com só o e-mail no estado" mediu "passo sem estado" e passou com a regra apagada.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `apps/*/src/test/**` · harmful: 0
+- features: 72-mobile-adm-fundacao
+- evidence: Fase 6 V12 — `RecoveryFlow.tsx` sem a exigência de `conferido`; `RecoveryFlow.test.tsx:279` verde
+- last seen: 2026-10-22T00:00:00Z
+
+### L-053 — No jsdom o histórico SOBREVIVE entre os testes de um arquivo: "o voltar devolve a X" fica verdadeiro pela sobra de um teste anterior. Prova de voltar precisa do mutante `push → replace` morto, ancorada no histórico que o próprio teste montou (`history.length` ou a entrada anterior conhecida).
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `apps/*/src/**/__tests__/**` · harmful: 0
+- features: 72-mobile-adm-fundacao
+- evidence: Fase 6 V16 — `LoginPage.tsx` "Esqueci minha senha" com `replace: true`; `RecoveryFlow.test.tsx:226` verde
+- last seen: 2026-10-22T00:00:00Z
+
+### L-054 — Um teto aplicado a N leituras em paralelo precisa de um dublê que pendure CADA uma: o dublê só pendurava o papel, e o teto do cadastro pode sumir com a promessa "sai em 8 s" verde, mesmo sendo o caso real (sem saída de rede, tudo pendura junto). Mesma família de L-043.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `packages/auth/**` · harmful: 0
+- features: 72-mobile-adm-fundacao
+- evidence: Fase 6 V26 — `AuthContext.tsx` `comTeto(fetchCustomer…)` trocado por `fetchCustomer(...)`; mobile-adm 204/204 verdes
+- last seen: 2026-10-22T00:00:00Z
+
+### L-055 — Dublê de client de auth precisa reproduzir os EVENTOS que o client de verdade emite sozinho, não só as respostas das chamadas: o supabase-js emite `INITIAL_SESSION` com `null` quando a leitura da sessão falha, e `SIGNED_IN` a cada volta da aba. Sem eles no dublê, "a falha vira `unknown`" passa no teste e é desfeita em produção pelo evento que o dublê não emite. Confira contra o client real (`createClient` com `fetch` falso) antes de dar a regra por provada.
+- signal: `failed_ac` · recurrence: 1 feature(s) · scope: `apps/*/src/test/**`, `packages/auth/**` · harmful: 0
+- features: 72-mobile-adm-fundacao
+- evidence: Fase 6 r2 — sonda com supabase-js 2.110.7 real, sessão vencida e renovação com falha de rede: `unknown` aos 8 s e `not-admin`/`user = null` ~40 s depois (o `INITIAL_SESSION` nulo); `fakeSupabase.ts` não emite nenhum dos dois eventos
+- last seen: 2026-10-22T00:00:00Z
+
+### L-056 — Mudar o que um provider COMPARTILHADO guarda como "resolvido" muda o comportamento de todo consumidor que lê `loading`: no app, reperguntar o papel a cada evento é o que se quer; na loja, cada `SIGNED_IN` de volta da aba vira `loading = true`, e o checkout se desmonta em "Carregando...". Ao mexer num provider de dois apps, liste o que cada consumidor faz com `loading = true` antes de aceitar a precisão.
+- signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `packages/auth/**`, `apps/store/src/pages/**` · harmful: 0
+- features: 72-mobile-adm-fundacao
+- evidence: Fase 6 r2 — sonda com supabase-js real: papel com falha ⇒ `unknown`; `visibilitychange` ⇒ `SIGNED_IN` ⇒ `unknown|true` (o `loading` voltou); `CheckoutPage.tsx:293` desenha "Carregando..." em `loading`; em `b6449bd2` o `resolvedFor` era gravado também na falha
+- last seen: 2026-10-22T00:00:00Z
+
+### L-057 — Toda ref de dedupe ou de "já resolvido" que um caminho de SAÍDA zera (logout, "Tentar de novo") precisa de um caso de RE-ENTRADA pelo mesmo id: sair e entrar com a mesma conta, sair com a checagem em voo, tentar de novo com uma repergunta em voo. Sem ele, apagar o reset deixa a suíte verde e o provider preso (`loading` eterno, ou a sessão nova ignorada).
+- signal: `surviving_mutant` · recurrence: 2 feature(s) · scope: `packages/auth/**`, `apps/mobile-adm/src/features/**` · harmful: 0
+- features: 72-mobile-adm-fundacao, 73-mobile-adm-inicio
+- evidence: `73` r2, N02 — `useRecusaDePapel.ts` com `reconferidoPara !== null` no lugar de `=== conta` (a troca de conta deixa de reabrir o episódio de recusa) sobrevive a mobile-adm 392/392: falta o caso de re-entrada por OUTRO id (conta A recusada, conta B entra e é recusada); Fase 6 r3 — X05 (`presente` não zera no logout), X06 (`emVoo` não zera no logout) e X07 (`retryAdminCheck` não zera `emVoo`) sobrevivem a mobile-adm 249/249 + os arquivos com o `AuthProvider` real da loja e do painel; sonda com o client real: X06 ⇒ entra e a tela segue deslogada; X07 ⇒ `unknown|true` por 20 s
+- last seen: 2026-10-22T00:00:00Z
+
+### L-058 — Prova de "pelo dia do banco, não do aparelho" precisa de um relógio falso em que o UTC do aparelho e o valor esperado DISCORDEM no campo medido: um instante na virada (31/12 23:59 de Brasília) já é janeiro em UTC, e a leitura do relógio do aparelho por `toISOString()` passa como se fosse a do banco. Escolha o meio de outro mês, longe de toda borda.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `apps/mobile-adm/src/widgets/**` · harmful: 0
+- features: 73-mobile-adm-inicio
+- evidence: A32 — `MonthCards.tsx` `monthName(r.mes)` → `monthName(new Date().toISOString())` sobrevive a mobile-adm 387/387; `MonthCards.test.tsx:22-28` fixa o relógio em `2025-12-31T23:59-03:00` (= `2026-01-01T02:59Z`) com `mes: '2026-01'`; e no conserto r1 a mesma armadilha SEM relógio falso: os casos da saudação e da data do `MovementHero` usavam o relógio real, e durante o 22/10/2026 em UTC (o dia da fixtura) ler a data do aparelho passaria — a régua dependia da hora em que a suíte rodava. Agora cada caso põe o aparelho em 15/06 numa faixa de hora diferente da esperada
+- last seen: 2026-10-22T00:00:00Z
+
+### L-059 — A semântica de uma RPC (borda de dia, `left join`, `count(col)` × `count(*)`, ordem do agregado final, a coluna do nome) só é provada por probe contra o banco; o guarda de fonte mede a forma e deixa esses mutantes passarem. Probe que não roda no CI precisa ser rodado no gate da feature e no de toda migration que recrie a função.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `supabase/migrations/**` · harmful: 0
+- features: 73-mobile-adm-inicio
+- evidence: S01, S02, S03, S04, S06, S11 — `overviewSchema.test.ts` e `filaComDonoUnico.test.ts` verdes com o mutante na migration da `73`; só `.specs/features/73-mobile-adm-inicio/probes/01-resumo.sql` reprova (todos mortos, mas fora de toda suíte automática); r3: J2, J3, J4, C2, C3, C4, R1, R2 mortos só pelo probe, e C1/J1 nem por ele (`L-062`)
+- last seen: 2026-10-22T00:00:00Z
+
+### L-060 — Guarda de "nenhum predicado escrito à mão" por VOCABULÁRIO é cego a constante e a concatenação (`'aguardando' + '_material'`), e a âncora positiva que o salva ("a consulta monta o filtro pela regra de `core`") prova PRESENÇA, não exclusividade: um predicado extra encadeado ao lado da regra (`.neq('status', 'cancelled')`) passa as duas. Para "o recorte é SÓ a regra do dono", meça a cadeia inteira da consulta (os métodos entre o `from` e o `order`) por igualdade, ou prove por comportamento com um dublê que registra os filtros.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `packages/core/src/orders/__tests__/**`, `apps/backoffice/src/entities/order/api/**` · harmful: 0
+- features: 73-mobile-adm-inicio
+- evidence: `73` r2 — P01 (`.eq(COL, ESTADO)` com constantes concatenadas) morto só pela âncora, a régua de vocabulário passou; P04 (regra de `core` + `.neq('status', 'cancelled')` na idade do mais antigo de `useAdminOrderList.ts`) sobrevive a core 3826/3826 e às suítes de pedidos do painel
+- last seen: 2026-10-22T00:00:00Z
+
+### L-061 — Gesto com limiar ("só no topo", "acima de N px") precisa de régua nas DUAS bordas e no sentido contrário: provar "fora do topo" com a página rolada 120 px deixa passar `scrollY > 100`, e puxar só para baixo deixa passar `Math.abs` (puxar para cima também relê). Meça com 1 px de rolagem e com o dedo subindo.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `apps/mobile-adm/src/shared/ui/**` · harmful: 0
+- features: 73-mobile-adm-inicio
+- evidence: `73` r3, T1 (`PullToRefresh.tsx` `window.scrollY > 0` → `> 100`) e T2 (`Math.max(0, y - inicio)` → `Math.abs(…)`) sobrevivem a mobile-adm 394/394; `PullToRefresh.test.tsx` usa `rolarPara(120)` e só `clientY` crescente
+- last seen: 2026-10-22T00:00:00Z
+
+### L-062 — Probe de RPC que agrupa por "A ou B" (cadastro por `customer_id` OU convidada por e-mail) e corta por `order by … limit N` precisa de fixtura em que as duas chaves DISCORDEM e em que haja um empate exatamente no corte: com o e-mail do pedido igual ao da conta, tirar o `customer_id` do `on` dá o mesmo número; com só N candidatos, a ordem do recorte não decide quem entra.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `.specs/features/*/probes/**`, `supabase/migrations/**` · harmful: 0
+- features: 73-mobile-adm-inicio
+- evidence: `73` r3, C1 (`primeira` casando só por `lower(customer_email)`) e J1 (`order by pecas desc, nome desc` só na CTE `joias`) passam `01-resumo.sql` 23/23
+- last seen: 2026-10-22T00:00:00Z
+
+### L-063 — Bloco de três estados (dado · falha · carregando) precisa de asserção de EXCLUSIVIDADE em cada estado, não só da marca do próprio: o caso de carregamento que confere `aria-busy` e "nenhum número" passa com o esqueleto apagado; o de falha que confere a frase passa com `aria-busy` ligado; o de falha inicial passa com o aviso de RELEITURA na tela.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `apps/mobile-adm/src/widgets/**`, `apps/mobile-adm/src/pages/**` · harmful: 0
+- features: 73-mobile-adm-inicio
+- evidence: `73` r3, S1 (`MovementHero.tsx` sem `Traco` nos números), G3/Q1 (`WeekChart`/`QueueTiles` `carregando = !r`) e N15d (`InicioPage.tsx` aviso por `resumo.isError` sem dado) sobrevivem a mobile-adm 394/394
+- last seen: 2026-10-22T00:00:00Z
+
+### L-064 — Conserto de uma ação que vive em DUAS superfícies (o rodapé do detalhe e o botão do cartão da lista) precisa de régua em cada uma: o teste do conserto que toca só o rodapé deixa a segunda superfície repassar a retentativa antiga com a suíte inteira verde, e o bug do QA volta exatamente lá.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `apps/mobile-adm/src/features/**`, `apps/mobile-adm/src/pages/__tests__/**` · harmful: 0
+- features: 75-mobile-adm-acoes-do-pedido
+- evidence: `75` r3, V05 — `BotaoDaAcao.tsx` reenviando `{ tipo: 'primaria' }` sem `espera` sobrevive a mobile-adm 1096/1096; o `it.each` do C01 em `acoesDoPedido.test.tsx` só toca o rodapé
+- last seen: 2026-10-24T00:00:00Z
+
+### L-065 — Valor derivado de uma leitura que pode FALHAR ("o aviso saiu?" lido de `order_notifications`) precisa de caso com a leitura em erro, não só com cada valor que ela pode devolver: `sent`, `failed` e ausente provam a regra, e o mutante "erro ⇒ verdadeiro" volta a afirmar o que ninguém sabe.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `apps/mobile-adm/src/entities/**` · harmful: 0
+- features: 75-mobile-adm-acoes-do-pedido
+- evidence: `75` r3, V10 — `usePedido.ts` com a leitura de `order_notifications` em erro devolvendo `avisoDePostagemSaiu = true` sobrevive; os três casos novos de `usePedido.test.tsx` cobrem `sent`, `failed` e id inválido
+- last seen: 2026-10-24T00:00:00Z
+
+### L-066 — Devolver o foco "a quem abriu" precisa de um caso em que NINGUÉM tinha o foco ao abrir (`document.activeElement === document.body`, o toque no Safari/iOS e o `controle.abrir()` por script): o teste que foca o controle antes de abrir prova o caminho do teclado e deixa o `<body>` virar "quem abriu" — o bug de volta, noutro navegador.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `apps/mobile-adm/src/features/**` · harmful: 0
+- features: 75-mobile-adm-acoes-do-pedido
+- evidence: `75` r3, V12 — `FolhaDoRastreio.tsx` sem o `!== document.body` sobrevive; todos os casos do C03 focam o controle de origem antes de abrir
+- last seen: 2026-10-24T00:00:00Z
+
+### L-067 — O histórico do jsdom não é o do navegador: duas chamadas de `navigate(-1)`/`history.back()` no mesmo tique caem na MESMA entrada no jsdom e se SOMAM no Chromium, e uma entrada substituída por `replace` continua um voltar morto. Teste de folha/modal que mora no histórico precisa montar o histórico que o app de fato produz (abrir pelo app, recarregar com o `state`), e a prova do voltar é em navegador.
+- signal: `browser_only_defect` · recurrence: 1 feature(s) · scope: `apps/mobile-adm/src/features/**` · harmful: 0
+- features: 75-mobile-adm-acoes-do-pedido
+- evidence: `75` T31, B01 — o F5 com a folha aberta deixava um voltar morto e, consertado, os dois usuários da folha no detalhe (rodapé e Entrega) voltavam duas vezes; a suíte aprovava porque o teste montava um histórico que o app nunca produz
+- last seen: 2026-10-24T00:00:00Z
+
+### L-068 — Estado que só importa quando os dados chegaram de FORA (carga, releitura, rascunho) precisa de caso que edite um registro CARREGADO: testes que partem do formulário vazio, ou que só exercitam operações que dão o mesmo resultado com o estado errado (remover valor), deixam o reinício desse estado sem régua.
 - signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `apps/backoffice/src/pages/admin/**` · harmful: 0
 - features: 81-opcoes-e-variacoes-do-produto
 - evidence: M29 — `AdminProductFormPage.tsx:213` (`if (false)` no reinício do refletido: renomear a opção de um produto salvo orfanaria a grade inteira, com 71/71 verdes)
 - last seen: 2026-10-26T00:00:00Z
 
-### L-046 — "Aplicado por id, nunca por posição" só se prova com a lista MUDANDO DE FORMA (um item anterior saindo) entre a pergunta e a resposta assíncrona; casos que editam campos ou devolvem o mesmo item mantêm as posições e são verdadeiros nos dois mundos.
+### L-069 — "Aplicado por id, nunca por posição" só se prova com a lista MUDANDO DE FORMA (um item anterior saindo) entre a pergunta e a resposta assíncrona; casos que editam campos ou devolvem o mesmo item mantêm as posições e são verdadeiros nos dois mundos.
 - signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `apps/backoffice/src/**` · harmful: 0
 - features: 81-opcoes-e-variacoes-do-produto
 - evidence: M07 — `AdminProductFormPage.tsx:255` (veredito pela posição antiga caía na linha vizinha, que continua no cruzamento); M32 — o conjunto de conferidas sem a terceira volta (remover → devolver → remover)
 - last seen: 2026-10-26T00:00:00Z
 
-### L-047 — Guarda em camadas (a sugestão já exclui o repetido, e o acréscimo exclui de novo) precisa de um caso pela entrada que SÓ a camada de baixo protege: todo caso que entra pela sugestão chega ao acréscimo já sem o repetido, e apagar a dobra do acréscimo fica verde.
+### L-070 — Guarda em camadas (a sugestão já exclui o repetido, e o acréscimo exclui de novo) precisa de um caso pela entrada que SÓ a camada de baixo protege: todo caso que entra pela sugestão chega ao acréscimo já sem o repetido, e apagar a dobra do acréscimo fica verde.
 - signal: `surviving_mutant` · recurrence: 1 feature(s), 2 ocorrências · scope: `apps/backoffice/src/features/product-form/**` · harmful: 0
 - features: 81-opcoes-e-variacoes-do-produto
 - evidence: N29 (rodada 2) — `OptionsEditor.tsx:303-304` (`addValues` sem `dobrarTexto`: digitar "3,5 cm" com "3,5 CM" na opção cria um segundo valor, com 153/153 verdes)
 - evidence: P02 + I03 (rodada 3) — a página limpa o `image_url` da linha cuja foto sai da galeria (`clearMissingVariantImages`) e o `VariantImagePicker` esconde a URL que não está na galeria; o caso de OPV-27 olha só o botão, então apagar qualquer uma das duas camadas fica verde (82/82 e 73/73) — e sem a da página o banco recebe a URL morta
 - last seen: 2026-10-26T00:00:00Z
 
-### L-048 — Limiar de contagem ("vendida" = pelo menos UM pedido) precisa de caso NO limiar: fixtures com 0 e 2 provam `> 0` tanto quanto `> 1`, e a fronteira que separa "apagar" de "pausar" fica sem régua.
+### L-071 — Limiar de contagem ("vendida" = pelo menos UM pedido) precisa de caso NO limiar: fixtures com 0 e 2 provam `> 0` tanto quanto `> 1`, e a fronteira que separa "apagar" de "pausar" fica sem régua.
 - signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `apps/backoffice/src/features/product-form/**` · harmful: 0
 - features: 81-opcoes-e-variacoes-do-produto
 - evidence: O02 (rodada 4) — `orphans.ts:34` `check.orders > 0` → `> 1`: 57/57 verdes (`orphans.test.ts` usa `orders: 2`, a página usa `'v-vendida': 2`); sonda pela página real com `'v-um': 1` reprova no mutante (a linha some da grade e o aviso não aparece)

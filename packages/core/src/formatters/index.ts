@@ -1,6 +1,6 @@
 // API pública inalterada: `@estrelinha/core/formatters` segue exportando os dois nomes, para que o
 // split em `price.ts` / `date.ts` não toque em nenhum call site.
-export { formatPrice } from './price'
+export { formatPrice, formatPriceWhole } from './price'
 export { formatRelativeDate } from './date'
 
 // Máscaras de CAMPO DE ENTRADA (feature 07 / T8, requisito PFM-10).

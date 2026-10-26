@@ -11,6 +11,7 @@
 // `status = 'pending'` e a pré-condição óbvia faria o e-mail nunca sair.
 
 import type { NotificationEvent } from './events.ts'
+import { EVENT_AUDIENCE } from './events.ts'
 import { isPickupOrder } from '../shipping/pickup.ts'
 
 /**
@@ -51,12 +52,29 @@ const blank = (value: unknown): boolean => String(value ?? '').trim() === ''
 /**
  * `null` quando o estado do pedido autoriza o evento; senão, o motivo — um slug curto que vai para o
  * log e para o histórico, nunca uma frase.
+ *
+ * É estado + contato: `orderStateFailure` e, para os eventos da dona, um endereço para quem avisar.
+ * A saída é a mesma de antes da feature `79` para todo caso.
  */
 export function preconditionFailure(
   event: NotificationEvent,
   order: OrderSnapshot,
   ctx: PreconditionContext = {},
 ): string | null {
+  const estado = orderStateFailure(event, order)
+  if (estado) return estado
+  if (EVENT_AUDIENCE[event] === 'owner' && blank(ctx.ownerEmail)) return 'no_owner_contact'
+  return null
+}
+
+/**
+ * Só o ESTADO do pedido — sem o contato de e-mail da dona (feature `79`, `MAN-06`).
+ *
+ * O aviso no celular dos eventos `owner_*` confere o estado e nada mais: o push sai mesmo com o
+ * e-mail da dona vazio ou desligado, porque push e e-mail são canais independentes. Quem decide se há
+ * e-mail para quem avisar continua sendo `preconditionFailure`.
+ */
+export function orderStateFailure(event: NotificationEvent, order: OrderSnapshot): string | null {
   switch (event) {
     case 'order_received':
       if (order.payment_status !== 'pending') return 'order_not_pending'
@@ -132,22 +150,18 @@ export function preconditionFailure(
     // Mercado Pago acoplaria o aviso interno a um detalhe que ele não menciona.
     case 'owner_order_received':
       if (order.payment_status !== 'pending') return 'order_not_pending'
-      if (blank(ctx.ownerEmail)) return 'no_owner_contact'
       return null
 
     case 'owner_payment_rejected':
       if (order.payment_status !== 'rejected') return 'payment_not_rejected'
-      if (blank(ctx.ownerEmail)) return 'no_owner_contact'
       return null
 
     case 'owner_order_paid':
       if (!order.paid_at) return 'order_not_paid'
-      if (blank(ctx.ownerEmail)) return 'no_owner_contact'
       return null
 
     case 'owner_material_incoming':
       if (order.material_status !== 'material_enviado') return 'material_not_sent'
-      if (blank(ctx.ownerEmail)) return 'no_owner_contact'
       return null
   }
 }

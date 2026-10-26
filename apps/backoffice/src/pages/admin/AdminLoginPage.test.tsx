@@ -124,6 +124,73 @@ describe('AdminLoginPage', () => {
 })
 
 // ---------------------------------------------------------------------------------------------
+// Feature 72, `MAF-23` (fecha a `BL-048`): o papel que NÃO PÔDE SER CONFERIDO não é recusa.
+//
+// Com o Wi-Fi sem saída a consulta do papel falha, e o `AuthProvider` passou a dizer `unknown` em vez
+// de `false`. A página deixa de mostrar "Esta conta não tem acesso ao painel." nesse estado — e a
+// vizinha abaixo prova que a conta sem papel (`not-admin`) AINDA recebe a recusa.
+// ---------------------------------------------------------------------------------------------
+
+describe('AdminLoginPage — papel não conferido (MAF-23)', () => {
+  const retryAdminCheck = vi.fn()
+
+  const resolverComo = (view: ReturnType<typeof montar>, estado: Record<string, unknown>) => {
+    ctx.current = { user: { id: 'u-admin' }, isAdmin: false, loading: false, ...estado } as typeof ctx.current
+    view.rerender(
+      <MemoryRouter>
+        <AdminLoginPage />
+      </MemoryRouter>,
+    )
+  }
+
+  // Como o provider de verdade: refazer a consulta volta `loading` a `true` NO MESMO toque.
+  beforeEach(() =>
+    retryAdminCheck.mockReset().mockImplementation(() => {
+      ctx.current = { ...ctx.current, loading: true }
+      return Promise.resolve()
+    }),
+  )
+
+  it('`unknown` ⇒ "Não consegui conferir seu acesso." com "Tentar de novo", e NUNCA a recusa', async () => {
+    const view = montar()
+    await preencherEEnviar()
+    await waitFor(() => expect(auth.signInWithPassword).toHaveBeenCalled())
+
+    resolverComo(view, { adminStatus: 'unknown', retryAdminCheck })
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Não consegui conferir seu acesso.')
+    expect(screen.queryByText('Esta conta não tem acesso ao painel.')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Tentar de novo' })).toBeInTheDocument()
+    expect(navigate).not.toHaveBeenCalled()
+  })
+
+  it('"Tentar de novo" refaz a consulta; quando ela responde admin, entra no painel', async () => {
+    const view = montar()
+    await preencherEEnviar()
+    await waitFor(() => expect(auth.signInWithPassword).toHaveBeenCalled())
+    resolverComo(view, { adminStatus: 'unknown', retryAdminCheck })
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Tentar de novo' }))
+    expect(retryAdminCheck).toHaveBeenCalledTimes(1)
+
+    resolverComo(view, { adminStatus: 'admin', isAdmin: true, retryAdminCheck })
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith('/admin', { replace: true }))
+  })
+
+  it('VIZINHA — `not-admin` com sessão AINDA recebe a recusa de sempre', async () => {
+    const view = montar()
+    await preencherEEnviar()
+    await waitFor(() => expect(auth.signInWithPassword).toHaveBeenCalled())
+
+    resolverComo(view, { user: { id: 'cliente' }, adminStatus: 'not-admin', retryAdminCheck })
+
+    expect(await screen.findByText('Esta conta não tem acesso ao painel.')).toBeInTheDocument()
+    expect(screen.queryByText('Não consegui conferir seu acesso.')).not.toBeInTheDocument()
+    expect(navigate).not.toHaveBeenCalled()
+  })
+})
+
+// ---------------------------------------------------------------------------------------------
 // Feature 48 — "Esqueci minha senha" no próprio painel (`USR-39`..`USR-43`).
 //
 // **O fluxo NÃO é mockado.** É a página que tem de montá-lo: apagar `<ForgotPasswordFlow />` de
@@ -298,5 +365,27 @@ describe('AdminLoginPage — a recuperação de senha', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Voltar para entrar' }))
 
     expect(await screen.findByRole('button', { name: /^Entrar$/ })).toBeInTheDocument()
+  })
+})
+
+// Feature 79, T15 (A17, R11): o `RequireAdmin` passou a levar a rota de origem no `state` do
+// `Navigate`. O painel não a obedece: com `state.from` presente, entrar continua indo para `/admin`.
+describe('AdminLoginPage — a origem guardada pelo RequireAdmin (feature 79)', () => {
+  it('com state.from presente, o admin resolvido vai para /admin, nunca para a origem', async () => {
+    // Uma função, e não um elemento só: `rerender` com o MESMO elemento não renderiza de novo.
+    const comOrigem = () => (
+      <MemoryRouter initialEntries={[{ pathname: '/admin/login', state: { from: '/admin/pedidos/x' } }]}>
+        <AdminLoginPage />
+      </MemoryRouter>
+    )
+    const view = render(comOrigem())
+    await preencherEEnviar()
+    await waitFor(() => expect(auth.signInWithPassword).toHaveBeenCalled())
+
+    ctx.current = { user: { id: 'u-admin' }, isAdmin: true, loading: false }
+    view.rerender(comOrigem())
+
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith('/admin', { replace: true }))
+    expect(navigate).not.toHaveBeenCalledWith('/admin/pedidos/x', expect.anything())
   })
 })

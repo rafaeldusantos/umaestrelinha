@@ -224,9 +224,9 @@ describe('FIX-02 — rótulo de cada evento no histórico', () => {
     expect(ev.emailSent).toBe(false)
   })
 
-  it('a falha nomeia a mensagem em minúscula, não o slug cru', () => {
+  it('a falha nomeia o evento, não o slug cru, e não diz "enviado"', () => {
     const ev = buildHistory([], [linha('order_paid', { status: 'failed', sent_at: null, error: 'resend_forbidden' }) as never], [])[0]
-    expect(ev.title).toBe('Falha ao enviar aviso de pagamento aprovado enviado (E-mail)')
+    expect(ev.title).toBe('Falha ao enviar o aviso: Pagamento aprovado (E-mail)')
     expect(ev.detail).toBe('resend_forbidden')
   })
 })

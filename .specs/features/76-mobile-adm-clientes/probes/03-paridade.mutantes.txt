@@ -1,0 +1,15 @@
+Feature 76 · T30 — o probe de paridade contra mutantes nos arquivos reais de core, 2026-10-24.
+Editado no lugar, probe rodado inteiro (as duas fases; fixturas semeadas e apagadas por trap),
+restaurado e SHA-256 conferido.
+
+MP1 — packages/core/src/customers/like.ts: `ilikeExact` sem `escapeLike` (o vínculo sem escape): exit 1, 2 FALHA(S)
+  FALHOU — P4 para TODA pessoa (73, …): VROSA_RJ com orders_total 1 e 2 pedidos lidos
+  FALHOU — P4 VROSA_RJ e VROSAXRJ: um pedido cada (o `_` virou curinga e puxou o pedido do vizinho)
+  banco restaurado: 54/9/48 (antes: 54/9/48)
+
+MP2 — packages/core/src/customers/cursor.ts: o ramo `last_activity_at.is.null` do cursor com data removido: exit 1, 1 FALHA(S)
+  FALHOU — P1 [todas] os 48 `id` distintos cobrem customer_list inteira (psql) :: app 44, sql 48
+  (a janela que corta na fronteira entre datados e nulos perde os 4 cadastros sem pedido)
+  banco restaurado: 54/9/48 (antes: 54/9/48)
+
+Os dois mortos por asserção do probe; like.ts e cursor.ts com o SHA-256 de antes depois de cada um.

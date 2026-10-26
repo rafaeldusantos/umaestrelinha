@@ -1,0 +1,22 @@
+# O que o `vercel deploy` pelo CLI NÃO envia. Deploy pelo CLI sobe a árvore local, e não o que
+# está no Git — então o que o .gitignore protege não está protegido aqui.
+#
+# Os .env de qualquer nível: o da raiz tem secrets de servidor (Resend, service role, VAPID de dev),
+# e o de cada app aponta para o banco LOCAL. Um apps/<app>/.env enviado seria lido pelo Vite no
+# build e venceria as envs do projeto na Vercel — o app sairia apontando para 127.0.0.1.
+.env
+.env.*
+**/.env
+**/.env.*
+
+node_modules
+**/node_modules
+.git
+.vercel
+**/.vercel
+.turbo
+**/.turbo
+**/dist
+apps/store/.server
+supabase/.temp
+supabase/.branches

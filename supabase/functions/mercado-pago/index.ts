@@ -13,6 +13,9 @@ import {
   senderFrom,
 } from "../../../packages/core/src/notifications/index.ts"
 import { route, type Deps } from "./handlers.ts"
+// Feature `79`: o aviso no celular da dona sai DAQUI, pelo `fireTrigger` (o webhook do PIX). O
+// adaptador da biblioteca de Web Push é um arquivo só, compartilhado com a `send-notification`.
+import { createWebPushSender } from "../_shared/webPush.ts"
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!
 const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
@@ -47,6 +50,12 @@ const resendFrom =
   senderFrom(envOptional("RESEND_SENDER_NAME"), envOptional("RESEND_SENDER_EMAIL")) ||
   DEFAULT_SENDER_FROM
 
+/** `undefined` sem as VAPID: o canal push não existe e o pagamento segue igual (`MAN-37`). */
+const webPush = await createWebPushSender({
+  keys: Deno.env.get("VAPID_KEYS"),
+  subject: Deno.env.get("VAPID_SUBJECT"),
+})
+
 const deps: Deps = {
   supabase: createClient(supabaseUrl, serviceRoleKey),
   fetch: globalThis.fetch.bind(globalThis),
@@ -62,6 +71,7 @@ const deps: Deps = {
   // Esta function dispara `order_received` (PIX criado) e `order_paid` (aprovação), importando o
   // motor de `send-notification` no mesmo processo (AD-005) — daí precisar do env de e-mail aqui.
   providers: [createResendProvider({ apiKey: Deno.env.get("RESEND_API_KEY")!, from: resendFrom })],
+  push: webPush,
   notifications: {
     resendApiKey: Deno.env.get("RESEND_API_KEY")!,
     resendFrom,

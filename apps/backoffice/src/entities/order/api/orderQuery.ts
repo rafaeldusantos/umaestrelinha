@@ -9,12 +9,43 @@
 // As formas de filtro daqui foram conferidas contra o PostgREST local antes de escritas: `or=` com
 // `and(...)` aninhado, `count` exato com `Range`, e `head=true` para contar sem carregar linha.
 
-import { queueAge, type QueueAge } from '@estrelinha/core/material'
-import { stripOrderNumberPrefix } from '@estrelinha/core/orders'
+import {
+  MATERIAL_NAO_SEGURA_LISTA,
+  MATERIAL_QUEUE_STATES,
+  ORDER_PAGE_SIZE,
+  ORDER_PAYMENT_STATUS_LABELS,
+  QUEUE_BLOCKS,
+  type OrderViewId,
+  type QueueBlockId,
+} from '@estrelinha/core/orders'
 import type { PaymentStatus } from '@estrelinha/supabase/types'
 
 export { pageRange, rangeLabel, escapeSearchTerm } from '@estrelinha/core/paging'
-import { escapeSearchTerm } from '@estrelinha/core/paging'
+
+/**
+ * As seis visões, o predicado de cada uma, os estados que são fila de material e a busca (colunas,
+ * condição e debounce) moram em `@estrelinha/core/orders` desde a feature `74` (`views.ts`,
+ * `search.ts`): o app do ateliê abre a lista no mesmo recorte e busca nas mesmas colunas. Este
+ * arquivo os REEXPORTA por referência (`regrasDoPedidoNoCore.test.ts`, `toBe`), para os chamadores
+ * de antes não mudarem.
+ */
+export {
+  MATERIAL_QUEUE_STATES,
+  ORDER_VIEWS,
+  ORDER_SEARCH_COLUMNS,
+  SEARCH_DEBOUNCE_MS,
+  buildOrderSearchCondition,
+  viewPredicate,
+  type OrderViewId,
+  type ViewPredicate,
+} from '@estrelinha/core/orders'
+
+/**
+ * A idade da linha na fila (`queueSince`, `rowQueueAge`) e a ordinal da compra
+ * (`purchaseOrdinalLabel`) moram em `@estrelinha/core/orders` (`row.ts`) desde a feature `74` — a
+ * linha do app do ateliê diz o mesmo. Reexportadas por referência.
+ */
+export { purchaseOrdinalLabel, queueSince, rowQueueAge } from '@estrelinha/core/orders'
 
 // -------------------------------------------------------------------------------------------
 // Vocabulários
@@ -30,64 +61,29 @@ import { escapeSearchTerm } from '@estrelinha/core/paging'
  *
  * O vocabulário é fechado no banco (`orders_payment_status_check`), então `Record<PaymentStatus,…>`
  * é uma afirmação verificável: um estado novo no CHECK sem rótulo aqui não compila.
+ *
+ * Desde o conserto do QA da feature `73` o dono é `ORDER_PAYMENT_STATUS_LABELS`, em
+ * `@estrelinha/core/orders` — o selo do app do ateliê diz "Estornado" com a mesma palavra. Este é
+ * uma REFERÊNCIA ao de lá (`rotulosDoPainel.test.ts`, `toBe`).
  */
-export const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
-  pending: 'Pendente',
-  approved: 'Aprovado',
-  rejected: 'Recusado',
-  refunded: 'Estornado',
-  expired: 'Expirado',
-  cancelled: 'Cancelado',
-}
+export const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = ORDER_PAYMENT_STATUS_LABELS
 
-/** Os meios de pagamento, para chip e CSV. `payment_method` é texto livre no banco. */
-export const PAYMENT_METHOD_LABELS: Record<string, string> = {
-  pix: 'PIX',
-  credit_card: 'Cartão de crédito',
-  boleto: 'Boleto',
-  manual: 'Manual',
-}
-
-/** Os estados de material que **são fila** — `nao_aplicavel` não é, e é a maioria silenciosa. */
-export const MATERIAL_QUEUE_STATES = [
-  'aguardando_material',
-  'material_enviado',
-  'material_recebido',
-  'em_producao',
-] as const
+/**
+ * Os meios de pagamento, para chip e CSV. `payment_method` é texto livre no banco.
+ *
+ * Desde a feature `74` o dono é `@estrelinha/core/orders` (o detalhe do app do ateliê diz a mesma
+ * palavra); reexportado por referência (`regrasDoPedidoNoCore.test.ts`, `toBe`).
+ */
+export { PAYMENT_METHOD_LABELS } from '@estrelinha/core/orders'
 
 /**
  * Os estados de material que **não seguram** a separação: o pedido pode andar.
  *
- * Exportado porque o contador do tile e o predicado da visão precisam ser a MESMA lista. Quando
- * eram duas, o tile "Pago, a separar" dizia 3 e o clique trazia 4 — dois pedidos que ainda
- * esperavam o envelope contavam como prontos para separar.
+ * Desde a feature `73` o dono é `@estrelinha/core/orders` (`queue.ts`, `AD-057`): o app do ateliê e
+ * a RPC `store_overview` contam a mesma fila, e a lista não pode ter uma escrita por consumidor.
+ * Reexportada daqui para os chamadores de antes não mudarem.
  */
-export const MATERIAL_NAO_SEGURA_LISTA = ['nao_aplicavel', 'material_recebido', 'em_producao']
-const MATERIAL_NAO_SEGURA = MATERIAL_NAO_SEGURA_LISTA
-
-export type OrderViewId =
-  | 'precisa-acao'
-  | 'tudo'
-  | 'fila-material'
-  | 'a-separar'
-  | 'em-transito'
-  | 'concluidos'
-
-/**
- * As visões cobrem **perguntas**, não colunas — `PED-14`.
- *
- * `Precisa de ação` é a padrão porque a tela abre para responder "o que eu devo a alguém hoje?".
- * Abrir em `Tudo` põe 148 linhas na frente de quem tem 12 para resolver.
- */
-export const ORDER_VIEWS: { id: OrderViewId; label: string }[] = [
-  { id: 'precisa-acao', label: 'Precisa de ação' },
-  { id: 'tudo', label: 'Tudo' },
-  { id: 'fila-material', label: 'Fila de material' },
-  { id: 'a-separar', label: 'A separar' },
-  { id: 'em-transito', label: 'Em trânsito' },
-  { id: 'concluidos', label: 'Concluídos' },
-]
+export { MATERIAL_NAO_SEGURA_LISTA }
 
 export type OrderSortKey = 'created' | 'total' | 'queue' | 'customer'
 
@@ -146,7 +142,8 @@ export const emptyOrderFilters = (): OrderFilters => ({
 
 export const defaultOrderQuery = (): OrderQuery => ({
   page: 1,
-  pageSize: 25,
+  // O mesmo número da lista do app do ateliê (feature `74`): o dono é `core/orders/list.ts`.
+  pageSize: ORDER_PAGE_SIZE,
   search: '',
   filters: emptyOrderFilters(),
   sort: { key: 'created', dir: 'desc' },
@@ -181,96 +178,15 @@ export const clearFiltersLabel = (quantos: number): string =>
 // Busca — PED-10
 // -------------------------------------------------------------------------------------------
 
-/**
- * As cinco colunas que a busca alcança.
- *
- * Antes eram duas (`order_number`, `customer_name`). Faltavam justamente as que se tem em mãos
- * quando se está procurando: o e-mail que a cliente mandou no WhatsApp, e **os dois rastreios** —
- * o do envelope que ela postou e o da joia que saiu daqui.
- */
-export const ORDER_SEARCH_COLUMNS = [
-  'order_number',
-  'customer_name',
-  'customer_email',
-  'tracking_code',
-  'material_tracking_code',
-] as const
-
-/**
- * O `or=(…)` da busca, ou `null` quando não há termo.
- *
- * **O `#` cai antes de virar filtro** (`PIX-P4-05`, feature `58`). O número é gravado sem prefixo
- * (`0244`) e exibido com ele (`#0244`), então o que a Adri copia da tela, do WhatsApp ou do e-mail
- * **traz o `#`** — e `order_number.ilike.%#0244%` não acha nada. As três grafias (`244`, `0244` e
- * `#0244`) passam a cair no mesmo `%0244%`/`%244%`.
- *
- * Quem recorta é `stripOrderNumberPrefix`, o mesmo dono que põe o prefixo — um recorte escrito aqui
- * divergiria do formatador no dia em que o prefixo mudasse, e o sintoma seria só a busca deixando
- * de achar, com a tela continuando certa.
- *
- * O recorte é **do termo inteiro**, não por coluna: `#` não aparece em nome, e-mail nem código de
- * rastreio, então tirá-lo não estreita nenhuma das outras quatro buscas.
- */
-export const buildOrderSearchCondition = (search: string): string | null => {
-  const term = stripOrderNumberPrefix(escapeSearchTerm(search))
-  if (term === '') return null
-  return ORDER_SEARCH_COLUMNS.map(coluna => `${coluna}.ilike.%${term}%`).join(',')
-}
-
-/** `PED-10` — o debounce da busca, em ms. Mora aqui para a tela e o teste lerem o mesmo número. */
-export const SEARCH_DEBOUNCE_MS = 300
-
-// -------------------------------------------------------------------------------------------
-// Visões — o predicado de cada uma
-// -------------------------------------------------------------------------------------------
-
-const naoSeguraLista = MATERIAL_NAO_SEGURA.join(',')
-
-/**
- * `Precisa de ação` é a **união dos três tiles acionáveis**, e nada mais:
- *
- *   1. esperando o envelope chegar (ninguém pode fazer nada até lá);
- *   2. pago, com o material resolvido, esperando separação;
- *   3. enviado **sem rastreio** — a cliente não recebeu o aviso, e é falha silenciosa.
- *
- * O Pix aguardando fica **de fora de propósito**: ele expira sozinho e não é fila. Somá-lo faria a
- * Adri olhar 19 pendências e achar que deve algo a alguém.
- */
-const PRECISA_ACAO_OR = [
-  'material_status.eq.aguardando_material',
-  `and(status.eq.paid,or(material_status.is.null,material_status.in.(${naoSeguraLista})))`,
-  'and(status.eq.shipped,tracking_code.is.null)',
-].join(',')
-
-export interface ViewPredicate {
-  /** Um `or=(…)`, quando a visão não é expressável por igualdade simples. */
-  or?: string
-  /** `column -> valores` para um `.in()`. */
-  in?: Record<string, string[]>
-}
-
-export const viewPredicate = (view: OrderViewId): ViewPredicate | null => {
-  switch (view) {
-    case 'tudo':
-      return null
-    case 'precisa-acao':
-      return { or: PRECISA_ACAO_OR }
-    case 'fila-material':
-      return { in: { material_status: [...MATERIAL_QUEUE_STATES] } }
-    case 'a-separar':
-      return { in: { status: ['paid', 'separating'] } }
-    case 'em-transito':
-      return { in: { status: ['shipped'] } }
-    case 'concluidos':
-      return { in: { status: ['delivered', 'cancelled'] } }
-  }
-}
+// As colunas, a condição e o debounce moram em `@estrelinha/core/orders` desde a feature `74`
+// (`search.ts`) — o app do ateliê busca igual. Reexportados no topo deste arquivo.
 
 // -------------------------------------------------------------------------------------------
 // Os quatro contadores do topo — PED-12
 // -------------------------------------------------------------------------------------------
 
-export type QueueTileId = 'aguardando' | 'a-separar' | 'sem-rastreio' | 'pix-aguardando'
+/** Os ids dos blocos — o vocabulário é o de `QUEUE_BLOCKS`, em `core` (feature `73`). */
+export type QueueTileId = QueueBlockId
 
 export interface QueueTile {
   id: QueueTileId
@@ -283,55 +199,39 @@ export interface QueueTile {
   apply: (filters: OrderFilters) => OrderFilters
 }
 
-export const QUEUE_TILES: QueueTile[] = [
-  {
-    id: 'aguardando',
-    label: 'Aguardando material',
-    hint: 'Ninguém pode fazer nada até o envelope chegar',
-    // O único que ACUMULA, e por isso o único com acento. Ele carrega a idade do mais antigo, que
-    // é o que transforma "5 pedidos" em "5 pedidos, e um deles há 9 dias".
-    accent: true,
-    apply: f => ({ ...f, view: 'tudo', materialStatuses: ['aguardando_material'], semRastreio: false }),
-  },
-  {
-    id: 'a-separar',
-    label: 'Pago, a separar',
-    hint: 'Material já recebido ou não exigido',
-    accent: false,
-    // Aplica EXATAMENTE o que conta: pago **e** com o material resolvido. Usar a visão
-    // `a-separar` (que inclui `separating`) faria o clique trazer mais linhas que o número.
-    apply: f => ({
-      ...f,
-      view: 'tudo',
-      statuses: ['paid'],
-      materialStatuses: [...MATERIAL_NAO_SEGURA_LISTA],
-      semRastreio: false,
-    }),
-  },
-  {
-    id: 'sem-rastreio',
-    label: 'Enviado sem rastreio',
-    hint: 'A cliente não foi avisada da postagem',
-    accent: false,
-    apply: f => ({ ...f, view: 'em-transito', materialStatuses: [], semRastreio: true }),
-  },
-  {
-    id: 'pix-aguardando',
-    label: 'Pix aguardando',
-    // A frase existe para dizer que **não é fila**. Sem ela, quatro números lado a lado sugerem
-    // quatro dívidas — e esta expira sozinha.
-    hint: 'Expiram sozinhos — nada a fazer',
-    accent: false,
-    apply: f => ({
-      ...f,
-      view: 'tudo',
-      paymentMethods: ['pix'],
-      paymentStatuses: ['pending'],
-      materialStatuses: [],
-      semRastreio: false,
-    }),
-  },
-]
+/**
+ * O filtro que o clique em cada bloco aplica na tela do painel. É estado DESTA tela, e por isso fica
+ * aqui; o rótulo, a frase, o acento e a regra da contagem vêm de `QUEUE_BLOCKS` (feature `73`).
+ */
+const QUEUE_TILE_APPLY: Record<QueueBlockId, QueueTile['apply']> = {
+  aguardando: f => ({ ...f, view: 'tudo', materialStatuses: ['aguardando_material'], semRastreio: false }),
+  // Aplica EXATAMENTE o que conta: pago **e** com o material resolvido. Usar a visão `a-separar`
+  // (que inclui `separating`) faria o clique trazer mais linhas que o número.
+  'a-separar': f => ({
+    ...f,
+    view: 'tudo',
+    statuses: ['paid'],
+    materialStatuses: [...MATERIAL_NAO_SEGURA_LISTA],
+    semRastreio: false,
+  }),
+  'sem-rastreio': f => ({ ...f, view: 'em-transito', materialStatuses: [], semRastreio: true }),
+  'pix-aguardando': f => ({
+    ...f,
+    view: 'tudo',
+    paymentMethods: ['pix'],
+    paymentStatuses: ['pending'],
+    materialStatuses: [],
+    semRastreio: false,
+  }),
+}
+
+export const QUEUE_TILES: QueueTile[] = QUEUE_BLOCKS.map(b => ({
+  id: b.id,
+  label: b.label,
+  hint: b.hint,
+  accent: b.accent,
+  apply: QUEUE_TILE_APPLY[b.id],
+}))
 
 // -------------------------------------------------------------------------------------------
 // A linha da listagem
@@ -408,25 +308,6 @@ export const ORDER_LIST_SELECT = [
 ].join(', ')
 
 /**
- * Desde quando este pedido espera — a data que alimenta `queueAge`.
- *
- * Enquanto o envelope não chegou, o relógio corre desde a compra: é quando a cliente foi orientada
- * a mandar. Depois que chega, corre desde o recebimento — porque aí a espera é de outra coisa (a
- * bancada), e continuar contando desde a compra faria um pedido recém-recebido nascer vermelho.
- */
-export const queueSince = (row: Pick<AdminOrderRow, 'created_at' | 'material_received_at'>): string =>
-  row.material_received_at ?? row.created_at
-
-/** A idade da linha na fila, ou `null` quando o pedido não espera material nenhum. */
-export const rowQueueAge = (
-  row: Pick<AdminOrderRow, 'created_at' | 'material_received_at' | 'material_status'>,
-  now?: Date,
-): QueueAge | null => {
-  if (!row.material_status || row.material_status === 'nao_aplicavel') return null
-  return queueAge(queueSince(row), now)
-}
-
-/**
  * Na visão `Fila de material`, os quatro contadores do topo trocam para os quatro **estados** —
  * porque ali a pergunta deixou de ser "o que cobra?" e passou a ser "onde está cada envelope?".
  *
@@ -466,12 +347,3 @@ export const MATERIAL_TILES: QueueTile[] = [
 
 /** O `material_status` que cada tile da fila representa, na mesma ordem de `MATERIAL_TILES`. */
 export const MATERIAL_TILE_STATES: string[] = [...MATERIAL_QUEUE_STATES]
-
-/**
- * A ordinal da compra, em texto: `1ª compra`, `3ª compra`.
- *
- * Aparece ao lado do nome porque muda o tom de tudo: alguém na terceira compra já confiou duas
- * vezes, e saber isso antes de escrever a mensagem importa num negócio memorial.
- */
-export const purchaseOrdinalLabel = (n: number | null | undefined): string | null =>
-  !n || n < 1 ? null : `${n}ª compra`

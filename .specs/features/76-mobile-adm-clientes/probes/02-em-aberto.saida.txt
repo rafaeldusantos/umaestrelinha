@@ -1,0 +1,154 @@
+INSERT 0 2
+INSERT 0 9
+CREATE TABLE
+INSERT 0 8
+ resultado |            email             | esperado | lido | lido_stats 
+-----------+------------------------------+----------+------+------------
+ ok        | p76-op-a@exemplo.invalid     |        0 |    0 |          0
+ ok        | p76-op-b@exemplo.invalid     |        1 |    1 |          1
+ ok        | p76-op-c@exemplo.invalid     |        1 |    1 |          1
+ ok        | p76-op-conta@exemplo.invalid |        2 |    2 |          2
+ ok        | p76-op-d@exemplo.invalid     |        0 |    0 |          0
+ ok        | p76-op-e@exemplo.invalid     |        0 |    0 |          0
+ ok        | p76-op-f@exemplo.invalid     |        2 |    2 |          2
+ ok        | p76-op-sem@exemplo.invalid   |        0 |    0 |          0
+(8 rows)
+
+                nulos                 
+--------------------------------------
+ orders_open nulo em customer_list: 0
+(1 row)
+--- desempenho (transação desfeita) ---
+BEGIN
+INSERT 0 3000
+INSERT 0 6000
+ANALYZE
+ANALYZE
+                                                                                            QUERY PLAN                                                                                            
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=553381.99..553382.05 rows=25 width=88) (actual time=7933.755..7933.766 rows=25 loops=1)
+   Buffers: shared hit=617
+   ->  Sort  (cost=553381.99..554174.31 rows=316930 width=88) (actual time=7933.754..7933.764 rows=25 loops=1)
+         Sort Key: s.last_activity_at DESC NULLS LAST, c.id
+         Sort Method: top-N heapsort  Memory: 28kB
+         Buffers: shared hit=617
+         ->  Merge Left Join  (cost=539487.96..544438.45 rows=316930 width=88) (actual time=7932.647..7933.511 rows=3056 loops=1)
+               Merge Cond: (c.id = s.customer_id)
+               Buffers: shared hit=617
+               ->  Merge Append  (cost=607.13..794.02 rows=3865 width=64) (actual time=3.371..3.782 rows=3056 loops=1)
+                     Sort Key: c.id
+                     Buffers: shared hit=239
+                     ->  Index Scan using customers_pkey on customers c  (cost=0.28..146.38 rows=3011 width=60) (actual time=0.008..0.272 rows=3011 loops=1)
+                           Buffers: shared hit=52
+                     ->  Sort  (cost=606.84..608.98 rows=854 width=80) (actual time=3.362..3.367 rows=45 loops=1)
+                           Sort Key: "*SELECT* 2".id
+                           Sort Method: quicksort  Memory: 28kB
+                           Buffers: shared hit=187
+                           ->  Subquery Scan on "*SELECT* 2"  (cost=433.46..565.26 rows=854 width=80) (actual time=2.691..3.340 rows=45 loops=1)
+                                 Buffers: shared hit=187
+                                 ->  Hash Anti Join  (cost=433.46..556.72 rows=854 width=169) (actual time=2.691..3.337 rows=45 loops=1)
+                                       Hash Cond: ((lower(o.customer_email)) = lower(c2.email))
+                                       Buffers: shared hit=187
+                                       ->  GroupAggregate  (cost=327.71..373.88 rows=1709 width=168) (actual time=1.759..2.132 rows=1046 loops=1)
+                                             Group Key: (lower(o.customer_email))
+                                             Buffers: shared hit=149
+                                             ->  Sort  (cost=327.71..332.85 rows=2053 width=80) (actual time=1.750..1.794 rows=2053 loops=1)
+                                                   Sort Key: (lower(o.customer_email)), o.created_at DESC
+                                                   Sort Method: quicksort  Memory: 289kB
+                                                   Buffers: shared hit=149
+                                                   ->  Seq Scan on orders o  (cost=0.00..214.76 rows=2053 width=80) (actual time=0.005..0.657 rows=2053 loops=1)
+                                                         Filter: (customer_id IS NULL)
+                                                         Rows Removed by Filter: 4010
+                                                         Buffers: shared hit=149
+                                       ->  Hash  (cost=68.11..68.11 rows=3011 width=30) (actual time=0.882..0.883 rows=3011 loops=1)
+                                             Buckets: 4096  Batches: 1  Memory Usage: 217kB
+                                             Buffers: shared hit=38
+                                             ->  Seq Scan on customers c2  (cost=0.00..68.11 rows=3011 width=30) (actual time=0.007..0.144 rows=3011 loops=1)
+                                                   Buffers: shared hit=38
+               ->  Sort  (cost=538880.82..538921.82 rows=16400 width=40) (actual time=7929.273..7929.363 rows=3056 loops=1)
+                     Sort Key: s.customer_id
+                     Sort Method: quicksort  Memory: 264kB
+                     Buffers: shared hit=378
+                     ->  Subquery Scan on s  (cost=537404.71..537732.71 rows=16400 width=40) (actual time=7928.131..7928.586 rows=3056 loops=1)
+                           Buffers: shared hit=378
+                           ->  HashAggregate  (cost=537404.71..537568.71 rows=16400 width=184) (actual time=7928.131..7928.447 rows=3056 loops=1)
+                                 Group Key: v.customer_id, m.material_kinds
+                                 Batches: 1  Memory Usage: 1297kB
+                                 Buffers: shared hit=378
+                                 CTE vinculo
+                                   ->  Nested Loop Left Join  (cost=0.00..528003.63 rows=124855 width=75) (actual time=4.314..7922.566 rows=6068 loops=1)
+                                         Join Filter: ((o_1.customer_id = c_1.id) OR (lower(o_1.customer_email) = lower(c_1.email)))
+                                         Rows Removed by Join Filter: 18522465
+                                         Buffers: shared hit=374
+                                         ->  Append  (cost=0.00..525.21 rows=3865 width=46) (actual time=0.002..3.457 rows=3056 loops=1)
+                                               Buffers: shared hit=225
+                                               ->  Seq Scan on customers c_1  (cost=0.00..68.11 rows=3011 width=46) (actual time=0.002..0.602 rows=3011 loops=1)
+                                                     Buffers: shared hit=38
+                                               ->  Subquery Scan on "*SELECT* 2_1"  (cost=330.77..437.77 rows=854 width=48) (actual time=2.132..2.637 rows=45 loops=1)
+                                                     Buffers: shared hit=187
+                                                     ->  Hash Anti Join  (cost=330.77..429.23 rows=854 width=169) (actual time=2.131..2.631 rows=45 loops=1)
+                                                           Hash Cond: ((lower(o_2.customer_email)) = lower(c2_1.email))
+                                                           Buffers: shared hit=187
+                                                           ->  HashAggregate  (cost=225.03..246.39 rows=1709 width=168) (actual time=1.139..1.262 rows=1046 loops=1)
+                                                                 Group Key: lower(o_2.customer_email)
+                                                                 Batches: 1  Memory Usage: 321kB
+                                                                 Buffers: shared hit=149
+                                                                 ->  Seq Scan on orders o_2  (cost=0.00..214.76 rows=2053 width=62) (actual time=0.016..0.809 rows=2053 loops=1)
+                                                                       Filter: (customer_id IS NULL)
+                                                                       Rows Removed by Filter: 4010
+                                                                       Buffers: shared hit=149
+                                                           ->  Hash  (cost=68.11..68.11 rows=3011 width=30) (actual time=0.934..0.934 rows=3011 loops=1)
+                                                                 Buckets: 4096  Batches: 1  Memory Usage: 217kB
+                                                                 Buffers: shared hit=38
+                                                                 ->  Seq Scan on customers c2_1  (cost=0.00..68.11 rows=3011 width=30) (actual time=0.004..0.155 rows=3011 loops=1)
+                                                                       Buffers: shared hit=38
+                                         ->  Materialize  (cost=0.00..239.94 rows=6063 width=105) (actual time=0.000..0.134 rows=6063 loops=3056)
+                                               Buffers: shared hit=149
+                                               ->  Seq Scan on orders o_1  (cost=0.00..209.63 rows=6063 width=105) (actual time=0.006..0.650 rows=6063 loops=1)
+                                                     Buffers: shared hit=149
+                                 ->  Hash Left Join  (cost=3760.05..6591.84 rows=124855 width=136) (actual time=7926.042..7926.832 rows=6068 loops=1)
+                                       Hash Cond: (v.customer_id = m.customer_id)
+                                       Buffers: shared hit=378
+                                       ->  CTE Scan on vinculo v  (cost=0.00..2497.10 rows=124855 width=104) (actual time=4.315..4.642 rows=6068 loops=1)
+                                             Buffers: shared hit=151
+                                       ->  Hash  (cost=3759.02..3759.02 rows=82 width=48) (actual time=7921.725..7921.726 rows=16 loops=1)
+                                             Buckets: 1024  Batches: 1  Memory Usage: 10kB
+                                             Buffers: shared hit=227
+                                             ->  Subquery Scan on m  (cost=3756.56..3759.02 rows=82 width=48) (actual time=7921.692..7921.702 rows=16 loops=1)
+                                                   Buffers: shared hit=227
+                                                   ->  GroupAggregate  (cost=3756.56..3758.20 rows=82 width=48) (actual time=7921.691..7921.701 rows=16 loops=1)
+                                                         Group Key: v_1.customer_id
+                                                         Buffers: shared hit=227
+                                                         ->  Sort  (cost=3756.56..3756.77 rows=82 width=48) (actual time=7921.685..7921.688 rows=43 loops=1)
+                                                               Sort Key: v_1.customer_id, k.k
+                                                               Sort Method: quicksort  Memory: 26kB
+                                                               Buffers: shared hit=227
+                                                               ->  Nested Loop  (cost=5.85..3753.96 rows=82 width=48) (actual time=0.081..7921.647 rows=43 loops=1)
+                                                                     Buffers: shared hit=227
+                                                                     ->  Hash Join  (cost=5.85..3752.31 rows=82 width=39) (actual time=0.074..7921.581 rows=82 loops=1)
+                                                                           Hash Cond: (v_1.order_id = oi.order_id)
+                                                                           Buffers: shared hit=227
+                                                                           ->  CTE Scan on vinculo v_1  (cost=0.00..2497.10 rows=124855 width=32) (actual time=0.000..7920.609 rows=6068 loops=1)
+                                                                                 Buffers: shared hit=223
+                                                                           ->  Hash  (cost=4.82..4.82 rows=82 width=39) (actual time=0.044..0.045 rows=82 loops=1)
+                                                                                 Buckets: 1024  Batches: 1  Memory Usage: 14kB
+                                                                                 Buffers: shared hit=4
+                                                                                 ->  Seq Scan on order_items oi  (cost=0.00..4.82 rows=82 width=39) (actual time=0.011..0.025 rows=82 loops=1)
+                                                                                       Buffers: shared hit=4
+                                                                     ->  Function Scan on unnest k  (cost=0.00..0.01 rows=1 width=32) (actual time=0.000..0.000 rows=1 loops=82)
+ Planning:
+   Buffers: shared hit=624
+ Planning Time: 0.743 ms
+ Execution Time: 7934.144 ms
+(114 rows)
+
+ROLLBACK
+execution time: 7934.144 ms
+ACIMA DE 1 s: abrir entrada no BACKLOG.md
+banco restaurado: 54/9/48 orders/customers/customer_list (antes: 54/9/48)
+
+--- nota (T10) ---
+Mesma consulta sobre a definicao ANTIGA (migration 34), mesma carga: Execution Time ~7838 ms. A lentidao e pre-existente (OR do CTE vinculo), nao da orders_open. Ver BL-053.
+
+--- nota (T10) ---
+Mesma consulta sobre a definicao ANTIGA (migration 34), mesma carga: Execution Time ~7838 ms. A lentidao e pre-existente (OR do CTE vinculo), nao da orders_open. Ver BL-053.

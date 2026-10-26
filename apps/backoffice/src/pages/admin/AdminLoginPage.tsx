@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@estrelinha/supabase/client'
 import { useAuthContext } from '@estrelinha/auth'
+import { ACCESS_UNCHECKED } from '@estrelinha/core/auth'
 import { Button } from '@estrelinha/ui/button'
 import { Input } from '@estrelinha/ui/input'
 import { Label } from '@estrelinha/ui/label'
@@ -20,7 +21,9 @@ const AdminLoginPage = () => {
    */
   const [recuperando, setRecuperando] = useState(false)
   const navigate = useNavigate()
-  const { user, isAdmin, loading: authLoading } = useAuthContext()
+  const { user, isAdmin, adminStatus, retryAdminCheck, loading: authLoading } = useAuthContext()
+  /** O papel não pôde ser conferido (`MAF-23`): a frase honesta e "Tentar de novo", nunca a recusa. */
+  const [naoConferido, setNaoConferido] = useState(false)
 
   /**
    * Quem navega é este efeito, **depois** de o papel resolver — não o `handleLogin`.
@@ -39,17 +42,26 @@ const AdminLoginPage = () => {
       navigate('/admin', { replace: true })
       return
     }
+    // `unknown` é "não sei", não "não": a consulta falhou ou não respondeu (`BL-048`). Dizer
+    // "não tem acesso" aqui era a recusa confiante e falsa para a própria dona.
+    if (adminStatus === 'unknown') {
+      setNaoConferido(true)
+      setEntrando(false)
+      setLoading(false)
+      return
+    }
     if (user) {
       setError('Esta conta não tem acesso ao painel.')
       setEntrando(false)
       setLoading(false)
     }
-  }, [entrando, authLoading, isAdmin, user, navigate])
+  }, [entrando, authLoading, isAdmin, adminStatus, user, navigate])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError('')
+    setNaoConferido(false)
     const { error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) {
       setError('E-mail ou senha inválidos')
@@ -70,7 +82,22 @@ const AdminLoginPage = () => {
           <h1 className="font-heading text-2xl font-extrabold text-estrelinha-admin-text">Admin Uma Estrelinha</h1>
           <p className="text-sm text-estrelinha-admin-muted mt-1">Acesse o painel de gestão</p>
         </div>
-        {recuperando ? (
+        {naoConferido && !recuperando ? (
+          <div className="bg-white rounded-2xl border border-estrelinha-admin-border p-6 space-y-4">
+            <p role="alert" className="text-sm text-estrelinha-admin-text">{ACCESS_UNCHECKED}</p>
+            <Button
+              type="button"
+              onClick={() => {
+                setNaoConferido(false)
+                setEntrando(true)
+                void retryAdminCheck()
+              }}
+              className="w-full rounded-xl gradient-cta text-white border-0"
+            >
+              Tentar de novo
+            </Button>
+          </div>
+        ) : recuperando ? (
           /**
            * `USR-42`: o desfecho é o MESMO do login normal. `onEntrou` liga o `entrando`, e o efeito
            * acima decide — `/admin` para quem é admin, e a frase de conta sem acesso para quem não

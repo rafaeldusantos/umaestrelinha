@@ -66,6 +66,10 @@ const ROOT = resolve(HERE, '../../../../../..')
 const ESCOPO = [
   'apps/store/src',
   'apps/backoffice/src',
+  // Feature 74: o app do ateliê passa a chamar uma RPC própria (`atelie_clock`, em
+  // `shared/api/lerComPapel.ts`). Sem ele no escopo, a régua 4 ("o conjunto chamado em produção
+  // = RPCS") não o enxergava — e a régua 1 não veria um `from()` nas três tabelas vindo dele.
+  'apps/mobile-adm/src',
   'packages/core/src',
   'packages/supabase/src',
   'packages/auth/src',
@@ -154,6 +158,13 @@ const RPCS = [
   'account_exists',
   'anonymize_customer',
   'apply_payment_approval',
+  // Feature 74 — a confirmação de papel que o app do celular faz em paralelo com cada leitura de
+  // pedido (`apps/mobile-adm/src/shared/api/lerComPapel.ts`). Não lê tabela nenhuma: só
+  // `has_role` e o instante do banco (`atelieClockSchema.test.ts`).
+  'atelie_clock',
+  // Feature 79 — o teto do aviso de teste, atômico por conta (`MAN-33`), chamado pela porta
+  // `atelie-avisos`. Só toca `push_subscriptions` (`pushSubscriptionsSchema.test.ts`).
+  'claim_push_test',
   'claim_order_notification',
   'customer_order_events',
   'finish_order_notification',
@@ -171,6 +182,9 @@ const RPCS = [
   // Feature 71, task 22 — a leitura do bloco "Movimento da loja" no Dashboard do painel. Só lê, e é
   // admin: o `has_role` está no corpo dela.
   'store_movement',
+  // Feature 73 — o resumo do ateliê (`core/hooks/useStoreOverview.ts`), lido pela Início do app do
+  // celular. Só lê, e é admin: o `has_role` está no corpo dela (`overviewSchema.test.ts`).
+  'store_overview',
   'track_abandoned_cart',
   'upsert_promotion',
 ]
