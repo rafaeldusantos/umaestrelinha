@@ -171,6 +171,7 @@ assere.
 | `sitemap` | `false` | **removida do repositório na `70`** — `/sitemap.xml` sai da função `api/page` da Vercel (`apps/store/CLAUDE.md`); ainda implantada no hospedado até ser apagada depois do deploy conferido |
 | `admin-users` | `false` | quem entra no painel — a **porta única** da service role (`AD-034`) |
 | `checkout` | `false` | cria **todo** pedido (convidada e logada), responde "este e-mail tem conta?" e devolve o pedido da convidada |
+| `atelie-avisos` | `false` | as inscrições do **aviso no celular** da dona (feature `79`, `AD-062`) — `config · status · subscribe · events · unsubscribe · test`, `requireAdmin` em toda ação; a única escrita em `push_subscriptions`, que não tem policy de cliente |
 | `visit` | `false` | grava uma **visita única** por navegador por dia (feature `71`, `AD-055`). A loja chama com **só** a chave publicável, e o handler **não lê** `Authorization` |
 
 **`verify_jwt = true` seria teatro de segurança** onde está `false`: a anon key publicada no `.env` da
@@ -265,6 +266,15 @@ dos quinze. Ligar um dos onze continua sendo ato explícito da Adri, feito ali �
 - **Falha de e-mail nunca altera o pagamento**: a chamada é `await` limitado por `AbortController`
   (2500ms do `create-payment`, 8000ms do webhook — **nunca trabalho em background**, `AD-008`) e vive
   dentro de `try/catch`. Um throw ali viraria **500 na cobrança**.
+- **O aviso no celular é um ramo do motor** (feature `79`, `AD-062`): `deliverPush`, só para os quatro
+  eventos `owner_*`, só em `dispatchTrigger` (o reenvio do painel nunca manda push), **depois** do e-mail
+  do mesmo evento e dentro do mesmo orçamento de tempo (`budget.ts`). A memória é a mesma tabela:
+  `order_notifications (…, channel = 'push')`, com o mesmo claim/finish — dois disparos do mesmo gatilho
+  dão **um** aviso. Entregue a parte dos aparelhos, a linha fica `sent` com `push:X/Y` em
+  `provider_message_id` (repetir mandaria de novo aos que receberam); a resposta 404/410 de um aparelho
+  apaga a inscrição dele. Sem `VAPID_KEYS`/`VAPID_SUBJECT` o ramo registra `no_provider` e o e-mail segue.
+  A porta `send` recusa `channel: 'push'`. A biblioteca (`jsr:@negrel/webpush@0.5.0`) é importada só por
+  `_shared/webPush.ts` (`pushSoNoMotor.test.ts`). A `mercado-pago` passa `push` ao motor no `fireTrigger`.
 - Secrets: `RESEND_API_KEY`, `RESEND_SENDER_NAME`, `RESEND_SENDER_EMAIL`, `STORE_PUBLIC_URL` (origem **da loja**, não do Supabase),
   `RESEND_DEV_REDIRECT_TO`.
 
@@ -765,4 +775,40 @@ Todos no `.env` da **raiz** (ver `.env.example`), resolvidos no local por `[edge
 
 `SUPABASE_SERVICE_ROLE_KEY` · `MERCADO_PAGO_ACCESS_TOKEN` · `MERCADO_PAGO_WEBHOOK_SECRET` ·
 `RESEND_API_KEY` · `RESEND_SENDER_NAME` · `RESEND_SENDER_EMAIL` · `RESEND_DEV_REDIRECT_TO` · `STORE_PUBLIC_URL` · `NUVEMSHOP_*` ·
-`MELHOR_ENVIO_TOKEN` · `MELHOR_ENVIO_ENV` · `MELHOR_ENVIO_SENDER_JSON`
+`MELHOR_ENVIO_TOKEN` · `MELHOR_ENVIO_ENV` · `MELHOR_ENVIO_SENDER_JSON` · `VAPID_KEYS` · `VAPID_SUBJECT`
+
+### As chaves do aviso no celular — `VAPID_KEYS` e `VAPID_SUBJECT` (feature `79`, `AD-062`)
+
+- **`VAPID_KEYS` é o JSON (JWK) das DUAS metades**, a saída de `exportVapidKeys` da biblioteca que
+  `_shared/webPush.ts` importa (o único arquivo que a importa). **`VAPID_SUBJECT`** é `mailto:` + o
+  e-mail da loja. A chave **pública** não tem env em app nenhum: o app a lê da function
+  `atelie-avisos` (`?action=config`), derivada do mesmo secret que assina — uma env pública no app
+  seria a segunda cópia e divergiria na primeira rotação.
+- **Sem as duas, o canal não existe** (`MAN-37`): o motor registra `no_provider`, a porta responde
+  503 em `config`/`test`, e e-mail e pagamento seguem iguais. Por isso elas ficam **fora** da lista
+  obrigatória do `supabase-deploy.yml`, que só emite um `::warning::`.
+- **Como gerar** (uma vez; não é versionado como arquivo executável). Com o Deno instalado, de um
+  diretório qualquer, e com `--no-lock` para não gravar o `deno.lock` da raiz:
+
+  ```bash
+  deno eval --no-lock "import { generateVapidKeys, exportVapidKeys } from 'jsr:@negrel/webpush@0.5.0'; console.log(JSON.stringify(await exportVapidKeys(await generateVapidKeys({ extractable: true }))))"
+  ```
+
+  A saída (~420 caracteres) é o valor de `VAPID_KEYS`, numa linha, entre aspas simples no `.env`.
+  **É chave privada**: não cole em log, issue, fixture ou spec. Trocar o par desliga todo aparelho
+  inscrito — cada inscrição foi feita com a pública antiga, e o serviço de push recusa a nova; a
+  dona ativa de novo em "Avisos neste celular".
+- **Ordem de publicação: migration → secrets → functions → bundle do app** (`MAN-42`). O bundle
+  chama a porta e o motor grava `channel = 'push'`, que o `check` antigo de `order_notifications`
+  recusa. Em detalhe:
+  1. **migration** num push sozinho (as tabelas `push_subscriptions` e `push_test_claims` — o teto do
+     teste é por conta, fora da inscrição —, `claim_push_test` e o `check` de
+     canal com `push`);
+  2. **secrets**, por `supabase secrets set --env-file` com um arquivo que tenha **só** as duas
+     chaves, rodado de um diretório **sem `.env`** (`BL-044`), conferindo que a resposta diz
+     `{"count":2}` — mais que isso é a mescla do `.env` local;
+  3. **functions**: `atelie-avisos` (nova) e `send-notification` e `mercado-pago` republicadas;
+  4. **bundle do app** do ateliê.
+- ⚠️ **As chaves de DEV estão no `.env` da raiz** (geradas para a prova local da `79`). Um `supabase secrets
+  set` rodado da raiz as mesclaria em produção sem avisar (`BL-044`). As de produção são **geradas à parte**
+  (o comando acima, noutra máquina ou noutro diretório), e nunca são as do `.env`.

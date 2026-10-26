@@ -67,7 +67,7 @@ describe('as cinco leituras (§3.4, §13 M3)', () => {
     ['order_items', 'id, product_name, variant_label, engraving_text, quantity, unit_price'],
     ['order_status_history', 'id, from_status, to_status, note, created_at'],
     ['order_notes', 'id, note, created_by, created_at'],
-    ['order_notifications', 'id, event, channel, status, attempts, delivery_status, error, created_at, sent_at'],
+    ['order_notifications', 'id, event, channel, status, attempts, delivery_status, error, created_at, sent_at, provider_message_id'],
   ])('%s: as colunas nomeadas e o filtro por order_id — nada mais', async (tabela, colunas) => {
     const { result } = montar()
     await waitFor(() => expect(result.current.isSuccess).toBe(true))

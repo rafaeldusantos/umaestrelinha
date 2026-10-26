@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { Eye, EyeOff } from 'lucide-react'
 import { useAuthContext } from '@estrelinha/auth'
 import { Button } from '@estrelinha/ui/button'
@@ -10,6 +10,7 @@ import { PASSOS_DA_RECUPERACAO } from '@/features/recovery'
 import { AcessoNaoConferido } from '@/features/access-check'
 import { AVISO_DE_ERRO, BOTAO_PRIMARIO, BOTAO_SECUNDARIO, CAMPO, ROTULO } from '@/shared/ui/campo'
 import TelaDeEntrada from '@/shared/ui/TelaDeEntrada'
+import { destinoDepoisDoLogin } from '@/shared/lib/destinoDepoisDoLogin'
 
 /** A frase do painel, palavra por palavra: a mesma conta recebe a mesma recusa nos dois apps. */
 export const SEM_ACESSO = 'Esta conta não tem acesso ao painel.'
@@ -26,7 +27,9 @@ export const CAMPOS_VAZIOS = 'Informe o e-mail e a senha.'
  * com o formulário vazio. Aqui a decisão nem passa pelo `signIn`: ela é lida do contexto, e só quando
  * ele já sabe.
  *
- * - admin resolvido ⇒ a aba Início;
+ * - admin resolvido ⇒ a rota de origem que o `RequireAdmin` guardou no `state` (feature `79`,
+ *   `MAN-21`: o aviso de pedido tocado com a sessão vencida volta ao pedido), só se for caminho do
+ *   app (`destinoDepoisDoLogin`); senão a aba Início;
  * - conta com sessão e SEM o papel ⇒ a recusa com "Sair". Nenhuma leitura de dado da loja sai
  *   desta tela: as únicas consultas são as do próprio `AuthProvider` (o papel e o cadastro de quem
  *   entrou).
@@ -39,6 +42,7 @@ export const CAMPOS_VAZIOS = 'Informe o e-mail e a senha.'
 const LoginPage = () => {
   const { user, isAdmin, adminStatus, loading: authLoading, signIn, signOut } = useAuthContext()
   const navigate = useNavigate()
+  const location = useLocation()
   const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
   const [mostrarSenha, setMostrarSenha] = useState(false)
@@ -47,8 +51,8 @@ const LoginPage = () => {
 
   useEffect(() => {
     if (authLoading) return
-    if (isAdmin) navigate('/', { replace: true })
-  }, [authLoading, isAdmin, navigate])
+    if (isAdmin) navigate(destinoDepoisDoLogin(location.state), { replace: true })
+  }, [authLoading, isAdmin, navigate, location.state])
 
   // `!authLoading` aqui é o que decide numa TROCA de conta sem `SIGNED_OUT` no meio (outra aba da
   // mesma origem entrando com outra conta): o provider só grava `user` junto com o papel, então com

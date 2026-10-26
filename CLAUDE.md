@@ -169,9 +169,9 @@ Ao planejar/implementar features, use a Skill **`tlc-spec-driven`** com estas co
     cobertura, a 2 PASS; as lacunas da 3 fechadas sem rodada 4) e QA com quatro bugs achados e
     retestados (C01..C04) — **sem migration**. A `76` (Clientes: a lista, a ficha e o "Ver cliente", `AD-060`/`AD-061`) está IMPLEMENTADA, com
     commit na branch `feat/76-mobile-adm-clientes` (worktree `store-76-mobile-adm-clientes`), pronta para merge em `feature/mobile-adm`, com uma migration
-    (`orders_open`) aplicada só no local, probes de banco e de paridade, prova em navegador, Verificador independente (a última rodada PASS) e QA (dez de doze bugs consertados; B03 e B12 esperam decisão humana) — falta o Android real. Da `77` à `79` são rascunhos, a detalhar ao abrir. Cada feature do programa é mergeada na branch de integração
+    (`orders_open`) aplicada só no local, probes de banco e de paridade, prova em navegador, Verificador independente (a última rodada PASS) e QA (dez de doze bugs consertados; B03 e B12 esperam decisão humana) — falta o Android real. A `79` (o aviso de pedido no celular da dona: Web Push no Android para os quatro avisos `owner_*`, por aparelho, `AD-062`) está IMPLEMENTADA, sem commit, na branch `feat/79-mobile-adm-aviso-de-pedido`, com uma migration (`push_subscriptions`, `push_test_claims`, `claim_push_test` e o canal `push`) aplicada só no local, uma edge function nova (`atelie-avisos`) e prova de layout em navegador — a chegada do aviso num Chrome real e no Android real está pendente do usuário. A `77` e a `78` são rascunhos, a detalhar ao abrir. Cada feature do programa é mergeada na branch de integração
     `feature/mobile-adm` depois de finalizada e testada, nunca direto na `master` (`AD-056`). A
-    próxima livre é a `80`.**
+    próxima livre é a `81` (a `80`, o fornecedor da peça, é de outra sessão, em `origin/master`).**
   - **A `46` e a `47` correram EM PARALELO, em worktrees separados**, e é o segundo caso do projeto
     (o primeiro, a `45`, dividiu uma working tree só). O que mudou: a divisão foi por **árvore**, não
     por arquivo — a `47` nasceu de um `git worktree` sobre o HEAD local e trouxe a `46` por
@@ -548,6 +548,9 @@ migrations, e `vercelRedirects` lê o `vercel.json`.
 | `enderecoDeClientesComDonoUnico.test.ts` · `regraDeClienteSoNoCore.test.ts` · `semDadoSensivelDeClienteNoApp.test.ts` | mobile-adm `entities/customer/__tests__` e `shared/lib/__tests__` | (G1, G3, G4, feature `76`) o endereço de Clientes fora de `clientesHref.ts`; recorte, filtro ou `ilike` escritos à mão no app; `cpf`, endereço completo, nota ou `nuvemshop_*` nas colunas lidas. Detalhe na tabela de `apps/mobile-adm/CLAUDE.md` |
 | `whatsappComDonoUnico.test.ts` · `semDadoDeClienteNoAparelho.test.ts` · `tomMemorialDeClientes.test.ts` · `movimentoDeClientes.test.ts` | mobile-adm `shared/lib/__tests__` | (G5..G8) `wa.me` fora de `core`; dado de cliente em storage, console, título, URL ou `history.state`; emoji, urgência e "ranking" nos literais; movimento sem par `motion-reduce:` |
 | `clientesComClientReal.test.tsx` | mobile-adm `app/__tests__` | (feature `76`, sobre o client REAL) as linhas DA CLIENTE do outro lado e `atelie_clock` em 403 `42501` ⇒ a recusa e nenhum texto dela em ~80 instantes, em `/clientes`, `/clientes/:id` e no "Ver cliente"; a recusa vence a falha da consulta; rede caída é falha, nunca recusa. Cinco mutantes de `lerComPapel`/`useJanelaPaginada` mortos |
+| `pushSubscriptionsSchema.test.ts` | store `shared/lib/__tests__` (lê a migration da `79`) | (feature `79`, `AD-062`) **uma régua por comando** (`L-033`): `push_subscriptions` sem RLS, com **qualquer** `create policy` (nem `authenticated`: a porta é a function), sem `revoke` dos papéis de cliente, com `grant` além da service role, sem a cascata da conta, sem `endpoint` único ou sem as chaves obrigatórias; o teto do teste voltando para a inscrição (ele é **por conta**, em `push_test_claims`, e sobrevive a apagar a linha); `claim_push_test` conferindo o teto **antes** de saber se o aparelho é da conta ou na ordem grava/confere invertida; o `default` e o `check` de `events` divergindo de `PUSH_EVENTS` (**importado** de `core`); o prefixo da migration repetido; escrita de dado. `mutar()` que lança |
+| `pushSoNoMotor.test.ts` | `supabase/functions/_shared/__tests__` (varre as functions e os apps) | (feature `79`) a biblioteca de Web Push importada fora de `_shared/webPush.ts` ou fora da versão `0.5.0` exata; `webPush.ts` importado por outro arquivo que não os três `index.ts` (`send-notification`, `mercado-pago`, `atelie-avisos`), ou importado sem **chamar** `createWebPushSender(`; `push_subscriptions` citada em produção fora dos donos. Sensores com CRLF/LF e o caminho relativo resolvido |
+| `avisosComClientReal.test.tsx` · `swAvisos.test.ts` · `tomMemorialDosAvisos.test.ts` · `movimentoDosAvisos.test.ts` | mobile-adm `app/__tests__` e `shared/lib/__tests__` | (feature `79`) a recusa da porta só pelo `42501` de `conferirPapel` (rede e 403 com o relógio de pé são falha); o worker dos avisos sem rede nem cache e abrindo só caminho interno; tom memorial e movimento sem par. Detalhe em `apps/mobile-adm/CLAUDE.md` |
 
 > **Guarda que recusa uma STRING é quebrado pela prosa que explica o defeito.** Aconteceu duas vezes
 > com formas diferentes: o bundler do `supabase start` morreu por um comentário que escrevia um
@@ -573,7 +576,34 @@ quando mudarem de verdade.
 | --- | --- | --- |
 | **Lint** | **25 erros / 7 warnings** — backoffice 23/5 · store 2/2 · mobile-adm 0/0 | `npx eslint .` em cada app (o `pnpm lint` para no primeiro app que reprova) |
 | **Tipos** | **0 · 0 · 0 · 0 · 0** (store · backoffice · catalog-import · `apps/store/tsconfig.server.json`, desde a `69` · mobile-adm, desde a `72`) — e **`packages/core` em 11**, herdados (medido na `73`: idênticos na base, nenhum em arquivo tocado) | `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` · `npx tsc --noEmit -p packages/core/tsconfig.json` |
-| **Testes** | **17214 em 866 arquivos** — store **5908/322** · backoffice **3707/214** · mobile-adm **1765/111** · core **4365/175** · functions **957/21** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
+| **Testes** | **17778 em 887 arquivos** — store **5985/323** · backoffice **3710/214** · mobile-adm **2014/125** · core **4452/176** · functions **1105/26** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
+
+**A feature `79` (o aviso de pedido no celular) somou +555/+21 em CINCO workspaces** no fecho (mobile-adm
+**2005/125**, functions **1105/26**, core **4452/176**, depois do conserto do Verificador r1 — V01..V05 — e do
+QA); os números por workspace abaixo são da entrega, medidos em
+2026-10-25 um workspace por vez, exit code fora de pipe, contra a entrada medida com a árvore parada
+(`.specs/features/79-mobile-adm-aviso-de-pedido/baseline.md`, 17214/866, que bateu esta tabela):
+**mobile-adm +217/+13** (a tela `/avisos`, a porta, o hook do aparelho, o "Parar" único, o SW dos avisos,
+a volta ao destino depois do login, a tradução da recusa e os guardas), **functions +142/+5** (o ramo
+`deliverPush` do motor, o orçamento de tempo, o desfecho do serviço de push, a function `atelie-avisos` e
+`pushSoNoMotor`), **core +86/+1** (`core/notifications/push.ts`, o canal na pré-condição, nas
+configurações e no histórico do pedido), **store +77/+1** (`pushSubscriptionsSchema` e as réguas novas em
+`orderNotificationsSchema`, `marcacaoSoPorAcao` e `chaveDeServidorForaDoNavegador`) e **backoffice
++3** (o histórico com o canal "Celular" e o `RequireAdmin` com `state.from`; nenhuma asserção antiga
+afrouxada). Catalog-import remedido, idêntico. Tipos 0 nos apps, 11 herdados em core; lint 0/0 · 23/5 ·
+2/2; builds do mobile-adm (`dist/sw.js` com o `importScripts` dos avisos) e do backoffice verdes;
+`payment/**` e `deno.lock` sem diff. **Uma migration** (`20261026120000_79-avisos-no-celular.sql`),
+aplicada só no local. Decisão `AD-062`. **Um defeito achado pelo probe e não pela suíte**: o teto de 30 s do
+aviso de teste morava na linha da inscrição, e apagar a inscrição (o serviço de push responde 410) o
+zerava — mudou para `push_test_claims`, por conta (`probes/05-teto-do-teste`, que reprova a regra antiga).
+**NÃO provado**: o aviso chegando num Chrome real e no Android real — pendente do usuário. O Verificador
+independente reprovou a r1 por cobertura (76 mutantes, 4 sobreviventes, nenhum defeito de produto), e as
+cinco lacunas foram fechadas com o mutante reinjetado (sem r2); a lacuna 4 levou `destinoDepoisDoLogin` a
+recusar `/\` como o worker. O QA (`docs/qa/reports/2026-10-25-mobile-adm-avisos-no-celular.md`) achou dois
+bugs: o foco caindo no `<body>` (consertado, +7 casos) e a tela que segue "ligada" depois de o aviso de
+teste receber 410 — **consertado em 2026-10-26 pela decisão do usuário** (opção 1: volta a "Avisar neste
+celular" com "Este celular deixou de receber avisos. Ative de novo."; mobile-adm **2014/125**, +9, 7 mutantes
+mortos por asserção; reteste em navegador pendente).
 
 **A feature `76` (Clientes no app do ateliê) somou +843/+48 em QUATRO workspaces** no fecho (números do fecho final, depois do QA e do Verificador; os por workspace abaixo são da entrega), medidos em
 2026-10-24 um workspace por vez, exit code fora de pipe, contra a entrada medida com a árvore parada
@@ -2713,6 +2743,14 @@ completo (framework, `installCommand` na raiz do monorepo, headers de cache e de
 
 ## Estado conhecido / dívidas
 
+- **A `79` (avisos no celular) está implementada, sem commit, com pendências declaradas.** Falta a
+  chegada do aviso **num Chrome real** (o usuário mandou seguir sem ela, 2026-10-25) e **no Android
+  real** (permissão, tela de bloqueio, toque abrindo o pedido, "Não perturbe"; TQ6) — o roteiro está em
+  `.specs/features/79-mobile-adm-aviso-de-pedido/prova-navegador.md`. **Ordem de publicação: migration →
+  secrets → functions → bundle** (`supabase/CLAUDE.md`, *As chaves do aviso no celular*). ⚠️ **As chaves
+  VAPID de dev estão no `.env` da raiz**: um `supabase secrets set` rodado de lá as gravaria em produção
+  (`BL-044`); as de produção são geradas à parte e gravadas de um diretório sem `.env`, conferindo
+  `{"count":2}`. Sem as chaves o canal simplesmente não existe e o e-mail segue igual (`MAN-37`).
 - **A `76` (Clientes no app do ateliê) está pronta para merge, com pendências declaradas.** Falta o
   **Android real** (teclado, gesto de voltar com o campo focado, área segura, fonte do aparelho; TQ10) e o
   reteste em navegador com toque de bug-16/18 e a 130 %/200 % de bug-17/B13 — jsdom não mede layout. Dois

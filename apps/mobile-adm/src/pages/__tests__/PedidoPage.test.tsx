@@ -110,6 +110,39 @@ describe('o detalhe com dado (MAP-20..MAP-28)', () => {
   })
 })
 
+describe('o aviso no celular no histórico (feature 79, MAN-09, MAN-34)', () => {
+  /** A linha só traz `provider_message_id` se o `select` o pediu — o dublê enxerga as colunas. */
+  const notificacoesDoPush = (cadeia: Elo[]): RespostaTabela => {
+    const colunas = String(cadeia.find((e) => e.metodo === 'select')?.args[0] ?? '')
+    const linha = (o: Record<string, unknown>) => {
+      const l: Record<string, unknown> = {
+        id: 'p1', event: 'owner_order_paid', channel: 'push', status: 'sent', attempts: 1, delivery_status: null,
+        error: null, created_at: '2026-10-23T10:00:00Z', sent_at: '2026-10-23T10:00:05Z', ...o,
+      }
+      if (!colunas.split(',').map((c) => c.trim()).includes('provider_message_id')) delete l.provider_message_id
+      return l
+    }
+    return {
+      data: [
+        linha({ id: 'p1', provider_message_id: 'push:2/3' }),
+        linha({ id: 'p2', event: 'owner_order_received', status: 'failed', sent_at: null, provider_message_id: null, error: 'fcm.googleapis.com: 500', created_at: '2026-10-23T09:00:00Z' }),
+      ],
+      error: null,
+    }
+  }
+
+  it('a entrega parcial diz quantos aparelhos, e a falha diz que o aviso no celular não chegou', async () => {
+    responder()
+    fake.responderTabela('order_notifications', notificacoesDoPush)
+    await abrir()
+    const historico = bloco('Histórico')!
+    expect(within(historico).getByText('Aviso à dona de pedido pago enviado (Celular)')).toBeInTheDocument()
+    expect(within(historico).getByText('Entregue a 2 de 3 aparelhos')).toBeInTheDocument()
+    expect(within(historico).getByText('O aviso no celular não chegou.')).toBeInTheDocument()
+    expect(within(historico).getByText('fcm.googleapis.com: 500')).toBeInTheDocument()
+  })
+})
+
 describe('lendo (MAP-44, E5, TE2)', () => {
   it('esqueletos POR BLOCO com `aria-busy` e parados com movimento reduzido — e o `h1` existe', async () => {
     responder()

@@ -42,7 +42,11 @@ const ROOT = resolve(HERE, '../../../../../..')
 const ESCOPO = ['apps']
 
 const IGNORADOS = new Set(['node_modules', 'dist', '.turbo', '.temp', 'coverage', '.git'])
-const EXTENSOES = ['.ts', '.tsx']
+/**
+ * `.js` entra desde a feature `79`: o arquivo dos avisos do service worker do ateliê
+ * (`apps/mobile-adm/public/sw-avisos.js`) é JS puro servido ao navegador como está, sem build.
+ */
+const EXTENSOES = ['.ts', '.tsx', '.js']
 
 const arquivos = (dir: string): string[] =>
   readdirSync(dir, { withFileTypes: true }).flatMap(entry => {
@@ -135,6 +139,19 @@ const REGUA_ADMIN_API = /\bauth\s*\.\s*admin\s*\./
  */
 const ESTE_ARQUIVO = 'apps/store/src/shared/lib/__tests__/chaveDeServidorForaDoNavegador.test.ts'
 
+/**
+ * Feature `79` (`MAN-24`, design §6): o secret das chaves VAPID do servidor. Ele carrega as DUAS
+ * metades, a privada inclusive — quem a tem assina avisos como a loja. O app lê só a chave PÚBLICA, e
+ * da porta (`atelie-avisos?action=config`), nunca de uma env própria.
+ */
+const REGUA_VAPID = /VAPID_KEYS/
+
+/**
+ * A metade privada de uma chave JWK (EC): o membro `"d"`. A pública tem só `x` e `y`. Em JSON ela
+ * aparece com aspas duplas na chave — a forma que um `exportVapidKeys` colado no código teria.
+ */
+const REGUA_JWK_PRIVADA = /["']d["']\s*:/
+
 /** Montada por concatenação para que o sensor exerça a régua sem depender do literal inteiro. */
 const ENV_PROIBIDA = `SUPABASE_${'SERVICE'}_ROLE_KEY`
 
@@ -178,6 +195,30 @@ describe('a chave de servidor fora do navegador — as três ausências', () => 
     // Ela só funciona com a chave de serviço — com a publicável, o GoTrue responde 403. A porta é a
     // edge function `admin-users`.
     expect(procurar(REGUA_ADMIN_API)).toEqual([])
+  })
+
+  it('nenhum arquivo de `apps/**` nomeia o secret das chaves VAPID (feature `79`, MAN-24)', () => {
+    expect(procurar(REGUA_VAPID)).toEqual([])
+  })
+
+  it('nenhum arquivo de `apps/**` carrega a metade privada de uma JWK (`"d":`)', () => {
+    expect(procurar(REGUA_JWK_PRIVADA)).toEqual([])
+  })
+
+  it('o secret VAPID e a JWK privada são proibidos em teste também — fora este arquivo', () => {
+    const exceto = (o: Ocorrencia) => o.arquivo !== ESTE_ARQUIVO
+    expect(procurar(REGUA_VAPID, varridos).filter(exceto)).toEqual([])
+    expect(procurar(REGUA_JWK_PRIVADA, varridos).filter(exceto)).toEqual([])
+  })
+
+  it('âncora (feature `79`): a varredura LÊ o service worker dos avisos e a porta que entrega a chave pública', () => {
+    const rels = producao.map(a => a.rel)
+    expect(rels).toContain('apps/mobile-adm/public/sw-avisos.js')
+    expect(rels).toContain('apps/mobile-adm/src/features/push-notifications/api/portaDeAvisos.ts')
+    // E a porta de fato pede a chave pública ao servidor — a forma legítima existe e é lida.
+    expect(procurar(/applicationServerKey/).map(o => o.arquivo)).toContain(
+      'apps/mobile-adm/src/features/push-notifications/api/portaDeAvisos.ts',
+    )
   })
 
   it('a CHAVE e a API de admin são proibidas em teste também — um mock não é desculpa', () => {
@@ -271,6 +312,42 @@ describe('a chave de servidor fora do navegador — os sensores', () => {
     ['numa variável', 'const api = client.auth.admin.listUsers\n'],
   ])('SENSOR — a régua de `auth.admin` ACUSA a forma %s', (_rotulo, fonte) => {
     expect(procurar(REGUA_ADMIN_API, arquivoFalso(fonte))).toHaveLength(1)
+  })
+
+  it.each([
+    ['em código', 'const chaves = Deno.env.get(SEGREDO) ?? process.env.VAPID_KEYS\n'],
+    ['numa string', "const nome = 'VAPID_KEYS'\n"],
+    ['com CRLF', 'const a = 1\r\nconst k = import.meta.env.VITE_VAPID_KEYS\r\n'],
+    ['com LF', 'const a = 1\nconst k = import.meta.env.VITE_VAPID_KEYS\n'],
+  ])('SENSOR — a régua do secret VAPID ACUSA o nome %s (feature `79`)', (_rotulo, fonte) => {
+    expect(procurar(REGUA_VAPID, arquivoFalso(fonte))).toHaveLength(1)
+  })
+
+  it.each([
+    ['num texto JSON', `const jwk = '{"kty":"EC","crv":"P-256","x":"a","y":"b","d":"segredo"}'\n`],
+    ['num objeto', "const jwk = { kty: 'EC', 'd': 'segredo' }\n"],
+    ['com espaço', 'const jwk = { "d" : "segredo" }\n'],
+  ])('SENSOR — a régua da JWK privada ACUSA o membro `d` %s', (_rotulo, fonte) => {
+    expect(procurar(REGUA_JWK_PRIVADA, arquivoFalso(fonte))).toHaveLength(1)
+  })
+
+  it('SENSOR INVERSO — a palavra "chave" na copy, `applicationServerKey` e a JWK PÚBLICA NÃO são acusados', () => {
+    const saudavel = arquivoFalso(
+      [
+        "const t = 'A chave pública vem do servidor.'",
+        'await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: config.dado.applicationServerKey })',
+        `const publica = '{"kty":"EC","crv":"P-256","x":"a","y":"b"}'`,
+        "const dado = { id: 1, ordem: 'desc' }",
+        '',
+      ].join('\n'),
+    )
+    expect(procurar(REGUA_VAPID, saudavel)).toEqual([])
+    expect(procurar(REGUA_JWK_PRIVADA, saudavel)).toEqual([])
+  })
+
+  it('SENSOR — o nome do secret num COMENTÁRIO não é acusado (CRLF e LF)', () => {
+    expect(procurar(REGUA_VAPID, arquivoFalso('// o secret VAPID_KEYS mora no servidor\r\nconst a = 1\r\n'))).toEqual([])
+    expect(procurar(REGUA_VAPID, arquivoFalso('/* VAPID_KEYS */\nconst a = 1\n'))).toEqual([])
   })
 
   it('SENSOR INVERSO — `functions.invoke` NÃO é acusado', () => {

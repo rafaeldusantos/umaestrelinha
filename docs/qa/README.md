@@ -84,3 +84,24 @@ Ordem por risco:
 | 8 | `CH-clientes-com-leitor-de-tela` | Feature | 60 |
 | 9 | `CH-clientes-ficha-ao-vivo-e-troca-de-conta` | Multi-Tab | 30 |
 | canário | `CH-pedidos-achar-o-pedido-da-cliente` (WhatsApp do pedido) e `CH-pedidos-voltar-do-android` (re-run) | — | — |
+
+## Ciclo planejado — feature `79` (avisos no celular), nível *targeted*
+
+Planejado em 2026-10-25 (`qa-report`) e **executado no mesmo dia** (`reports/2026-10-25-mobile-adm-avisos-no-celular.md`: 12 pass, 1 consertado, 1 decisão humana, 2 blocked-verify; canários pass). Jornada nova `J-receber-aviso-de-pedido` (16
+cenários `MAD-avisos-*`; dois `blocked-verify` — a chegada do aviso e o toque — porque só um Chrome com
+FCM ou o Android real os provam). No Playwright o push é dublado (`serviceWorker`, `PushManager` e
+`Notification` por `addInitScript`, como em `.specs/features/79-mobile-adm-aviso-de-pedido/probes/04-layout.mjs`);
+a porta `atelie-avisos` pode ser interceptada ou servida por `supabase functions serve --env-file .env`.
+**Nenhum e-mail real**: a fixtura marca os e-mails do pedido como `sent` antes de disparar. Ordem por risco:
+
+| # | Charter | Tour | Caixa |
+| --- | --- | --- | --- |
+| 1 | `CH-avisos-ligar-e-receber-o-pedido` | Money | 60 |
+| 2 | `CH-avisos-estados-e-falhas` | Network | 60 |
+| 3 | `CH-avisos-sair-e-conta-sem-acesso` | Garbage | 30 |
+| 4 | `CH-avisos-com-fonte-grande-e-leitor-de-tela` | Feature | 45 |
+| canário | `CH-entrar-no-atelie-pelo-celular` (o login agora volta ao destino) e `CH-acoes-registrar-o-dia-no-celular` (`gravarAcao` mudou a tradução da recusa) — re-run | — | — |
+
+Reabertos (`untested`) porque a superfície mudou: nenhum cenário antigo muda de resultado esperado; os
+dois canários cobrem `RequireAdmin`/`LoginPage` e `gravarAcao`. Sem bug aberto da `79` na hora do
+planejamento.

@@ -88,3 +88,66 @@ describe('buildHistory — as três fontes num fio só', () => {
     expect(fio.map((e) => e.id)).toEqual(['email-e', 'note-n', 'status-s'])
   })
 })
+
+/**
+ * Feature `79` (`MAN-09`, `MAN-34`, `MAN-38`): o aviso no celular no histórico. Canal "Celular"; a
+ * entrega parcial mora em `provider_message_id` (`push:X/Y`) e aparece no detalhe só quando X < Y; a
+ * falha tem título próprio e NÃO carrega `emailType`/`emailChannel` — é isso que tira o "Reenviar" do
+ * painel, porque push não se reenvia.
+ */
+describe('buildHistory — o canal push (feature 79)', () => {
+  const push = (o: Partial<HistoryNotificationRow>): HistoryNotificationRow =>
+    em({ event: 'owner_order_paid', channel: 'push', provider_message_id: 'push:1/1', ...o })
+
+  it('push entregue a todos ⇒ "(Celular)" no título e nenhum detalhe de contagem', () => {
+    const [e] = buildHistory([], [push({ provider_message_id: 'push:3/3' })], [])
+    expect(e.title).toBe('Aviso à dona de pedido pago enviado (Celular)')
+    expect(e.detail).toBeNull()
+    expect(e.emailSent).toBe(true)
+  })
+
+  it('push parcial ⇒ "Entregue a 2 de 3 aparelhos" no detalhe', () => {
+    const [e] = buildHistory([], [push({ provider_message_id: 'push:2/3' })], [])
+    expect(e.title).toBe('Aviso à dona de pedido pago enviado (Celular)')
+    expect(e.detail).toBe('Entregue a 2 de 3 aparelhos')
+  })
+
+  it('push falho ⇒ o título próprio, o detalhe é o `error`, e sem emailType nem emailChannel', () => {
+    const [e] = buildHistory(
+      [],
+      [push({ status: 'failed', sent_at: null, provider_message_id: null, error: 'fcm.googleapis.com: 500' })],
+      [],
+    )
+    expect(e.title).toBe('O aviso no celular não chegou.')
+    expect(e.detail).toBe('fcm.googleapis.com: 500')
+    expect(e.emailSent).toBe(false)
+    expect(e.emailType).toBeUndefined()
+    expect(e.emailChannel).toBeUndefined()
+    expect(e.at).toBe('2026-10-01T10:01:00Z')
+  })
+
+  // V03 (Verificador r1, C07): o push que ficou `pending` (o prazo acabou entre o claim e o finish)
+  // também não saiu, e também não se reenvia. Sem este caso, um recorte só por `failed` mandava a
+  // linha para o ramo do e-mail: "A cliente NÃO foi avisada" e `emailType`, ou seja, um "Reenviar"
+  // num push (MAN-38).
+  it('push `pending` ⇒ o mesmo título do falho, sem frase de cliente e sem emailType', () => {
+    const [e] = buildHistory([], [push({ status: 'pending', sent_at: null, provider_message_id: null, error: null })], [])
+    expect(e.title).toBe('O aviso no celular não chegou.')
+    expect(e.detail).toBeNull()
+    expect(e.emailSent).toBe(false)
+    expect(e.emailType).toBeUndefined()
+    expect(e.emailChannel).toBeUndefined()
+  })
+
+  it('e-mail falho continua igual: "A cliente NÃO foi avisada" e com emailType para o reenvio', () => {
+    const [e] = buildHistory([], [em({ status: 'failed', sent_at: null, provider_message_id: null })], [])
+    expect(e.detail).toBe('A cliente NÃO foi avisada')
+    expect(e.emailType).toBe('order_received')
+    expect(e.emailChannel).toBe('email')
+  })
+
+  it('um `provider_message_id` de e-mail nunca vira contagem de aparelhos', () => {
+    const [e] = buildHistory([], [em({ provider_message_id: 'push:1/2' })], [])
+    expect(e.detail).toBeNull()
+  })
+})

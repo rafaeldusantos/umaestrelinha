@@ -26,8 +26,12 @@ export const COLUNAS_DO_DETALHE =
 export const COLUNAS_DOS_ITENS = 'id, product_name, variant_label, engraving_text, quantity, unit_price'
 export const COLUNAS_DO_STATUS = 'id, from_status, to_status, note, created_at'
 export const COLUNAS_DAS_NOTAS = 'id, note, created_by, created_at'
+/**
+ * `provider_message_id` entrou na feature `79` (`MAN-09`): no canal `push` ele carrega `push:X/Y`, e
+ * o histórico diz "Entregue a X de Y aparelhos" quando X < Y.
+ */
 export const COLUNAS_DAS_NOTIFICACOES =
-  'id, event, channel, status, attempts, delivery_status, error, created_at, sent_at'
+  'id, event, channel, status, attempts, delivery_status, error, created_at, sent_at, provider_message_id'
 
 export interface LinhaDaLista {
   id: string

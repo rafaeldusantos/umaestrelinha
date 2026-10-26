@@ -3172,3 +3172,171 @@ describe('GA4 purchase — fiação nos dois pontos de aprovação (CMP-02, CMP-
     expect(recebido).toEqual([{ storePublicUrl: 'https://umaestrelinha.com.br', orderId: ORDER_ID }])
   })
 })
+
+// =================================================================================================
+// Feature 79 (T11) — o aviso no celular passa pelo `fireTrigger` (MAN-01, MAN-05, MAN-19)
+// =================================================================================================
+//
+// A prova da fiação é de COMPORTAMENTO, pelo handler real: com um `PushSender` dublê nas `Deps` e uma
+// inscrição na fixtura, o aviso da dona chega ao dublê. Sem o repasse de `push` em `fireTrigger`, o
+// motor nunca o veria — e todas as outras suítes continuariam verdes.
+
+describe('aviso no celular — a fiação do webhook e do create-payment (feature 79)', () => {
+  const PUSH_SUB = {
+    id: 'sub-1',
+    user_id: 'u-dona',
+    endpoint: 'https://fcm.googleapis.com/fcm/send/abc',
+    p256dh: 'BP' + 'a'.repeat(85),
+    auth: 'segredo-de-16-by',
+    events: ['owner_order_received', 'owner_order_paid', 'owner_payment_rejected', 'owner_material_incoming'],
+  }
+
+  /** A semântica de `claim`/`finish` da migration `42`: `sent` é terminal. */
+  const memoriaDeEnvio = () => {
+    const estado = new Map<string, string>()
+    return {
+      claim_order_notification: (args: Record<string, unknown>) => {
+        const chave = `${args.p_order_id}|${args.p_event}|${args.p_channel}`
+        if (estado.get(chave) === 'sent') return { data: null }
+        estado.set(chave, 'pending')
+        return { data: chave }
+      },
+      finish_order_notification: (args: Record<string, unknown>) => {
+        estado.set(String(args.p_id), args.p_error === null ? 'sent' : 'failed')
+        return { data: null }
+      },
+    }
+  }
+
+  const pushDublê = (lanca = false) => {
+    const chamadas: Array<{ title: string; body: string; url: string; tag: string }> = []
+    return {
+      chamadas,
+      push: {
+        sender: {
+          send: async (_sub: unknown, message: { title: string; body: string; url: string; tag: string }) => {
+            if (lanca) throw new Error('bug no sender')
+            chamadas.push(message)
+            return { kind: 'sent' as const }
+          },
+        },
+      },
+    }
+  }
+
+  const notify = () => signedNotification(MP_ORDER_ID, { type: 'order', data: { id: MP_ORDER_ID } })
+
+  const webhookSupabase = (memoria = memoriaDeEnvio()) =>
+    createFakeSupabase({
+      rows: {
+        orders: ordersBySelect(
+          orderRow(),
+          emailOrderRow({ order_number: '0244', paid_at: '2026-07-30T12:00:00Z', payment_status: 'approved' }),
+        ),
+      },
+      lists: { push_subscriptions: [PUSH_SUB] },
+      rpcByFn: { apply_payment_approval: { data: true }, has_role: { data: true }, ...memoria },
+    })
+
+  it('webhook de pagamento aprovado ⇒ o sender recebe o aviso de `owner_order_paid`', async () => {
+    const { req, url } = await notify()
+    const { chamadas, push } = pushDublê()
+    const fetchDouble = createFakeFetch([{ match: '/v1/orders/', body: mpOrderLookup() }, RESEND_ROUTE])
+
+    const response = await webhook({ ...createDeps(webhookSupabase(), fetchDouble), push }, req, url)
+
+    expect(response.status).toBe(200)
+    expect(chamadas).toEqual([
+      {
+        title: 'Pedido #0244 pago',
+        body: 'R$ 48,00',
+        url: `/pedidos/${ORDER_ID}`,
+        tag: `pedido-${ORDER_ID}-owner_order_paid`,
+      },
+    ])
+  })
+
+  it('o MESMO webhook entregue duas vezes ⇒ UM aviso só (o claim por pedido × evento × push)', async () => {
+    const memoria = memoriaDeEnvio()
+    const { chamadas, push } = pushDublê()
+    for (let i = 0; i < 2; i++) {
+      const { req, url } = await notify()
+      const fetchDouble = createFakeFetch([{ match: '/v1/orders/', body: mpOrderLookup() }, RESEND_ROUTE])
+      await webhook({ ...createDeps(webhookSupabase(memoria), fetchDouble), push }, req, url)
+    }
+    expect(chamadas).toHaveLength(1)
+  })
+
+  it('o par sem `push` nas Deps ⇒ zero leitura de inscrição e o e-mail igual', async () => {
+    const com = pushDublê()
+    const resultados: Array<{ emails: unknown[]; status: number; body: unknown; leituras: number }> = []
+    for (const comPush of [true, false]) {
+      const { req, url } = await notify()
+      const supabase = webhookSupabase()
+      const fetchDouble = createFakeFetch([{ match: '/v1/orders/', body: mpOrderLookup() }, RESEND_ROUTE])
+      const deps = comPush ? { ...createDeps(supabase, fetchDouble), push: com.push } : createDeps(supabase, fetchDouble)
+      const response = await webhook(deps, req, url)
+      resultados.push({
+        emails: resendCalls(fetchDouble).map((c) => c.body),
+        status: response.status,
+        body: await response.json(),
+        leituras: supabase.reads.filter((r) => r.table === 'push_subscriptions').length,
+      })
+    }
+    expect(com.chamadas).toHaveLength(1)
+    expect(resultados[1].leituras).toBe(0)
+    expect(resultados[0].leituras).toBe(1)
+    expect(resultados[1].emails).toEqual(resultados[0].emails)
+    expect(resultados[1].emails.length).toBeGreaterThan(0)
+    expect(resultados[1].status).toBe(resultados[0].status)
+    expect(resultados[1].body).toEqual(resultados[0].body)
+  })
+
+  it('o `push` que LANÇA ⇒ a resposta do webhook é idêntica à sem push (AD-008)', async () => {
+    const respostas: Array<{ status: number; body: unknown }> = []
+    for (const push of [pushDublê(true).push, undefined]) {
+      const { req, url } = await notify()
+      const fetchDouble = createFakeFetch([{ match: '/v1/orders/', body: mpOrderLookup() }, RESEND_ROUTE])
+      const response = await webhook({ ...createDeps(webhookSupabase(), fetchDouble), push }, req, url)
+      respostas.push({ status: response.status, body: await response.json() })
+    }
+    expect(respostas[0]).toEqual(respostas[1])
+    expect(respostas[0]).toEqual({ status: 200, body: { received: true } })
+  })
+
+  it('create-payment (PIX) ⇒ o sender recebe o aviso de `owner_order_received`', async () => {
+    const { chamadas, push } = pushDublê()
+    const base = paymentRows()
+    const supabase = createFakeSupabase({
+      user: { id: USER_ID },
+      rows: { ...base, orders: ordersBySelect(base.orders, emailOrderRow({ order_number: '0244' })) },
+      lists: { ...paymentLists, push_subscriptions: [PUSH_SUB] },
+      rpcByFn: { ...EMAIL_RPCS, has_role: { data: true } },
+    })
+    const fetchDouble = createFakeFetch([{ match: '/v1/orders', body: mpOrderResponse() }, RESEND_ROUTE])
+
+    const response = await createPayment({ ...createDeps(supabase, fetchDouble), push }, paymentRequest(), pixBody)
+
+    expect(response.status).toBe(200)
+    expect(chamadas.map((c) => [c.title, c.body])).toEqual([['Pedido #0244 recebido', 'R$ 48,00 · aguardando o PIX']])
+  })
+
+  it('create-payment com o `push` que LANÇA ⇒ a resposta do caixa é a mesma da sem push', async () => {
+    const respostas: Array<{ status: number; body: unknown }> = []
+    for (const push of [pushDublê(true).push, undefined]) {
+      const base = paymentRows()
+      const supabase = createFakeSupabase({
+        user: { id: USER_ID },
+        rows: { ...base, orders: ordersBySelect(base.orders, emailOrderRow({ order_number: '0244' })) },
+        lists: { ...paymentLists, push_subscriptions: [PUSH_SUB] },
+        rpcByFn: { ...EMAIL_RPCS, has_role: { data: true } },
+      })
+      const fetchDouble = createFakeFetch([{ match: '/v1/orders', body: mpOrderResponse() }, RESEND_ROUTE])
+      const response = await createPayment({ ...createDeps(supabase, fetchDouble), push }, paymentRequest(), pixBody)
+      const body = await response.json()
+      respostas.push({ status: response.status, body: { ...body, expires_at: typeof body.expires_at } })
+    }
+    expect(respostas[0]).toEqual(respostas[1])
+    expect(respostas[0].status).toBe(200)
+  })
+})

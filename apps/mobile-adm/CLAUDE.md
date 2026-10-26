@@ -7,7 +7,7 @@ para o celular da Adri, instalável no Android como app. Leia [`../../CLAUDE.md`
 
 **Só Android.** iOS/Safari não é testado nem otimizado (pedido do usuário).
 
-## O que existe hoje (feature `72`, a fundação, `73`, a Início, `74`, os Pedidos, `75`, as ações, e `76`, os Clientes)
+## O que existe hoje (feature `72`, a fundação, `73`, a Início, `74`, os Pedidos, `75`, as ações, `76`, os Clientes, e `79`, os avisos no celular)
 
 | Rota | O quê |
 | --- | --- |
@@ -18,6 +18,7 @@ para o celular da Adri, instalável no Android como app. Leia [`../../CLAUDE.md`
 | `/pedidos/:id` | o detalhe de um pedido (feature `74`), com o rodapé da ação, a folha do rastreio, "Informar/Alterar" na Entrega e o lembrete no WhatsApp (feature `75`); subrota da aba Pedidos, dentro do guarda |
 | `/clientes` | Clientes — a lista com três recortes e a busca (feature `76`, abaixo) |
 | `/clientes/:id` | a ficha de uma cliente (feature `76`); subrota da aba Clientes, dentro do guarda |
+| `/avisos` | "Avisos neste celular" — ligar o aviso de pedido NESTE aparelho, os quatro interruptores, o aviso de teste e "Parar avisos" (feature `79`, abaixo); aberta pelo menu da conta, sem aba própria |
 | `/descontos` | Descontos — em construção (`77`, `78`) |
 | `*` | caminho desconhecido ⇒ `/` (dentro do guarda) |
 
@@ -318,6 +319,45 @@ material no WhatsApp. **Nada disso tem regra no app.**
   local, com a conta sem papel), `clientesComClientReal.test.tsx` e `prova-navegador.md` (360/390/412/1440 ×
   fonte 100/130/200 %, 60 medidas). **Pendente: o Android real** (teclado, gesto de voltar, área segura).
 
+## Avisos no celular (feature `79`, `AD-062`)
+
+- **O que é**: Web Push no Android para os quatro eventos `owner_*` (pedido pago, pedido recebido
+  aguardando o PIX, pagamento recusado, material a caminho), **por aparelho**, independente do e-mail.
+  A tela é `/avisos` ("Sua conta" → "Avisos neste celular"); tocar o aviso abre `/pedidos/<id>`. Na tela
+  de bloqueio vai só o número e o valor do pedido (`MAN-08`, os textos fixos em `core/notifications/push.ts`).
+  Sem horário de silêncio: o "Não perturbe" do Android cobre (decisão do usuário, 2026-10-25).
+- **Uma porta, um arquivo**: o app só fala com o servidor por `features/push-notifications/api/portaDeAvisos.ts`,
+  que chama a edge function `atelie-avisos` (`?action=config|status|subscribe|events|unsubscribe|test`).
+  A tabela `push_subscriptions` **não tem policy de cliente** — nem leitura. A chave pública VAPID chega
+  pela ação `config`; **não existe env pública dela no app** (uma segunda cópia divergiria na rotação).
+- **O estado do aparelho mora em `usePushNoAparelho`** (`verificando` · `sem-suporte` · `bloqueado` ·
+  `desligado` · `ativando` · `ligado` · `erro`), lido da permissão do navegador, da inscrição do
+  `pushManager` e da porta. O interruptor é otimista e volta na falha; o aviso de teste tem teto de 30 s
+  **por conta** (`push_test_claims`, no servidor — sobrevive a apagar a inscrição e a trocar de aparelho).
+- **O aparelho que o servidor não conhece mais** (decisão do usuário, 2026-10-26): o aviso de teste que volta
+  `gone` (410) ou `not_found` (404), e o interruptor que volta `not_found`, desfazem a inscrição do navegador e
+  devolvem a tela a "Avisar neste celular" com "Este celular deixou de receber avisos. Ative de novo." — nunca
+  um "tente de novo" que não passaria (`BUG-20261025-teste-com-aparelho-descartado-deixa-a-tela-ligada`).
+- **"Parar" tem um dono só**, `pararAvisosDesteAparelho`, usado pela tela e pelo "Sair" do menu: primeiro a
+  porta, depois o `unsubscribe()` do navegador; falhando a porta, o navegador NÃO desinscreve e o menu
+  pergunta antes de sair (`MAN-30`). Sem inscrição, o "Sair" segue igual ao de antes, sem chamada a mais.
+- **Erros**: 401/403 da porta passam por `conferirPapel()`; só o `42501` dele vira recusa
+  (`shared/api/recusa.ts`, a mesma tradução que `gravarAcao` passou a usar), o resto é falha. Rede caída é
+  falha, nunca recusa (`avisosComClientReal.test.tsx`).
+- **O service worker**: `public/sw-avisos.js` (JS puro, sem build), carregado pelo worker do workbox por
+  `importScripts` (`pwa.config.ts`). Ele só mostra o aviso que chega pronto do servidor e, no toque, foca
+  uma janela do app ou abre uma nova no caminho — **só caminho interno**; qualquer outro vira `/`. Nenhuma
+  rede, nenhum cache, nenhuma sessão (`swAvisos.test.ts`, `swSemDadosDaLoja.test.ts`). O SW **não**
+  reinscreve sozinho (`MAN-35`): inscrição trocada pelo navegador é refeita na próxima abertura da tela.
+  `sw-avisos.js` sai com `no-cache` pelo `vercel.json`.
+- **Voltar ao login com destino**: o `RequireAdmin` passa `state.from` e a `LoginPage` volta para ele
+  (`shared/lib/destinoDepoisDoLogin.ts`, só caminho interno) — é o que leva o toque no aviso, com a sessão
+  vencida, ao pedido depois de entrar.
+- **Provas**: probes `.specs/features/79-mobile-adm-aviso-de-pedido/probes/` (a biblioteca contra o FCM,
+  o banco, a porta, o layout e o teto do teste), `avisosComClientReal.test.tsx` e `prova-navegador.md`
+  (144 medidas de layout). **NÃO provado**: o aviso chegando num Chrome real e no Android real
+  (permissão, tela de bloqueio, toque) — pendente do usuário, com o roteiro no `prova-navegador.md`.
+
 ## PWA — só a casca
 
 - `pwa.config.ts` é um arquivo **separado** do `vite.config.ts` para os guardas lerem a configuração
@@ -416,6 +456,10 @@ material no WhatsApp. **Nada disso tem regra no app.**
 | `tomMemorialDeClientes.test.ts` | idem | (G7) emoji, `!`, "VIP", "melhor", "ranking", urgência e os sete materiais nos literais de cliente |
 | `movimentoDeClientes.test.ts` | idem | (G8) `transition-*`/`animate-*` sem par `motion-reduce:` que desligue, nos arquivos de UI da `76` |
 | `trocaDeContaLimpaCache.test.tsx` | `src/app/__tests__` | (G15, ampliado) as chaves de cliente no cache depois de A → B ou de sair |
+| `avisosComClientReal.test.tsx` | `src/app/__tests__` | (feature `79`, sobre o client REAL) a porta em 403 com `atelie_clock` em `42501` ⇒ a recusa da `72` e a frase de falha em instante nenhum; 403 com o relógio de pé ⇒ a falha, nunca a recusa; rede caída ⇒ falha, sem chamar o relógio; o `subscribe` recusado ⇒ a inscrição do navegador desfeita; o corpo exato de cada `invoke` |
+| `swAvisos.test.ts` | idem | (feature `79`) `sw-avisos.js` com os DOIS ouvintes e só eles: o aviso com título, corpo, tag, ícone e caminho exatos; o toque focando a janela do app (ou abrindo uma) só em caminho interno, qualquer outro vira `/`; a promessa inteira no `waitUntil` |
+| `movimentoDosAvisos.test.ts` | `src/shared/lib/__tests__` | (feature `79`) `transition-*`/`animate-*` sem par `motion-reduce:` nos arquivos de UI dos avisos |
+| `tomMemorialDosAvisos.test.ts` | idem | (feature `79`) emoji, `!`, urgência e festa nos literais da tela e das frases dos avisos |
 | `lockupDaSplashPareado.test.ts` | `src/features/splash/__tests__` | a cópia do lockup divergindo do SVG-fonte |
 | `Splash.test.tsx` | idem | `<img>` na splash, a largura de 300/120, o rótulo, animação sem o par `motion-reduce:` |
 

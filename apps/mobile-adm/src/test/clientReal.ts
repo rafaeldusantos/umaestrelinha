@@ -49,11 +49,18 @@ export interface Cenario {
    * a linha). Método sem entrada responde `[]` com 200.
    */
   tabelas?: Record<string, RespostaRpcReal | RespostaPorMetodo>
+  /**
+   * Como cada edge function responde (`/functions/v1/<nome>`), feature `79` (T25): a mesma forma de
+   * `rpc`, ou POR AÇÃO (`{ porAcao: { config, status, … } }`, a `?action=` da query). Function sem
+   * entrada responde `[]` com 200, como antes.
+   */
+  functions?: Record<string, RespostaRpcReal | RespostaPorAcao>
 }
 
 export type RespostaRpcReal = { status: number; corpo: unknown } | 'rede' | 'pendura'
 export type MetodoHttp = 'GET' | 'POST' | 'PATCH' | 'DELETE'
 export type RespostaPorMetodo = { porMetodo: Partial<Record<MetodoHttp, RespostaRpcReal>> }
+export type RespostaPorAcao = { porAcao: Record<string, RespostaRpcReal> }
 
 /** Uma chamada HTTP que saiu, com o método, o caminho, a busca (os filtros do PostgREST) e o corpo. */
 export type ChamadaHttp = { metodo: string; caminho: string; busca: string; corpo: unknown }
@@ -146,6 +153,17 @@ const criarReal = (cenario: Cenario) => {
       if (r === 'rede') throw FALHA()
       if (r === 'pendura') await new Promise<never>(() => {})
       return typeof r === 'object' ? json(r.corpo, r.status) : json(null)
+    }
+    if (url.pathname.startsWith('/functions/v1/')) {
+      const entradaDaFunction = estado.functions?.[url.pathname.slice('/functions/v1/'.length)]
+      const f =
+        typeof entradaDaFunction === 'object' && 'porAcao' in entradaDaFunction
+          ? entradaDaFunction.porAcao[url.searchParams.get('action') ?? '']
+          : entradaDaFunction
+      if (f === 'rede') throw FALHA()
+      if (f === 'pendura') await new Promise<never>(() => {})
+      if (typeof f === 'object') return json(f.corpo, f.status)
+      return json([])
     }
     const entradaDaTabela = estado.tabelas?.[url.pathname.slice('/rest/v1/'.length)]
     const t =

@@ -42,5 +42,8 @@ export const pwaOptions: Partial<VitePWAOptions> = {
     globPatterns: ["**/*.{js,css,html,woff2,png,svg}"],
     navigateFallback: "/index.html",
     navigateFallbackDenylist: [/^\/api\//],
+    // Feature `79` (design §4.5, `MAN-03`, `MAN-22`): o aviso de pedido. `public/sw-avisos.js` é JS
+    // puro, sem rede e sem cache (`swSemDadosDaLoja.test.ts`), e o `vercel.json` o serve sem cache.
+    importScripts: ["sw-avisos.js"],
   },
 };

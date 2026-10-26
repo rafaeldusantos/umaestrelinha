@@ -1516,9 +1516,69 @@
   pela suíte da `74` com o diff de testes vazio (T12). Se a extração não fechar, a saída é cópia + guarda
   de paridade, decisão do validador. Complementa `AD-058` e `AD-060`.
 
+### AD-062
+
+- **Status**: accepted (feature `79`, proposta no Design e aceita na entrega, 2026-10-25)
+- **Decision**: **o aviso no celular (Web Push) é um canal do motor de notificações, só para os quatro
+  eventos `owner_*`, por aparelho inscrito.** (1) Inscrições em `push_subscriptions`, **sem policy de
+  cliente** (nem `authenticated`), lidas e gravadas só pela service role: a edge function
+  `atelie-avisos` (`requireAdmin`) é a porta de escrita, e o app a chama de **um** arquivo
+  (`portaDeAvisos.ts`). (2) O envio é um ramo de `dispatch.ts` (`deliverPush`), fora do
+  `NotificationProvider` (um evento → N aparelhos), rodando **só em `dispatchTrigger`**, depois do
+  e-mail do mesmo evento, com a memória `order_notifications (…, channel = 'push')` — o reenvio nunca
+  manda push. (3) A biblioteca de Web Push (`jsr:@negrel/webpush`) é importada por **um** arquivo
+  (`_shared/webPush.ts`), atrás da interface `PushSender`. (4) A chave pública chega ao app pela porta,
+  derivada do mesmo secret que assina — não existe env pública dela.
+- **Reason**: e-mail e push independentes (`MAN-06`) sem um segundo dono de "já avisei?"; a RLS "só as
+  próprias" não deixava a inscrição trocar de dono (`MAN-27`); uma env pública da chave seria a segunda
+  cópia que diverge na primeira rotação.
+- **Trade-off**: dependência nova não auditada por especialista em cripto (isolada, versão fixa, prova
+  no Android real); duas fiações do motor (`send-notification` e `mercado-pago`) guardadas por teste.
+  Complementa `AD-005`, `AD-008`, `AD-056` e `AD-059`.
+
 ## Handoff
 
-### ATUAL — 2026-10-24 · `76-mobile-adm-clientes` **IMPLEMENTADA E COMMITADA — T01–T33, Verificador (PASS na última rodada) e QA (10 de 12 bugs consertados); pronta para merge em `feature/mobile-adm`; falta o Android real**
+### ATUAL — 2026-10-25 · `79-mobile-adm-aviso-de-pedido` **IMPLEMENTADA, sem commit — T01–T29; falta o Verificador, o QA, o Chrome real e o Android real**
+
+- **Feature**: `.specs/features/79-mobile-adm-aviso-de-pedido/` (`spec.md`, `design.md`, `tasks.md`,
+  `baseline.md`, `reviews/`, `probes/01..05`, `prova-navegador.md`, `prova/`). O orquestrador a chamou
+  `81-79-…`, que é só um link simbólico para a pasta real; **80 e 81 não são features**, a próxima livre é
+  a `80`. Branch `feat/79-mobile-adm-aviso-de-pedido`; o merge vai para `feature/mobile-adm`.
+  Decisão `AD-062` (accepted).
+- **O que entrega**: Web Push no Android para os quatro eventos `owner_*`, por aparelho, independente do
+  e-mail; a tela `/avisos` ("Avisos neste celular": ativar, quatro interruptores, aviso de teste com teto
+  de 30 s por conta, "Parar avisos"); o "Sair" que para os avisos do aparelho; o toque abrindo
+  `/pedidos/<id>` (e o login voltando ao destino); o ramo `deliverPush` do motor; a edge function
+  `atelie-avisos`; `sw-avisos.js` por `importScripts`. **Uma migration**
+  (`20261026120000_79-avisos-no-celular.sql`), aplicada **só no local**.
+- **Decisões do usuário** (2026-10-25): os quatro eventos; o interruptor no app, por aparelho; sem
+  horário de silêncio; na tela de bloqueio só número e valor.
+- **Gates** (T29, um workspace por vez, exit fora de pipe): core **4451/176** · functions **1099/26** ·
+  mobile-adm **1982/124** · store **5985/323** · backoffice **3710/214** · catalog-import 512/23 =
+  **17739/886** (+525/+20 contra 17214/866); depois do Verificador r1 (V01..V05) e do QA: core **4452/176** ·
+  functions **1105/26** · mobile-adm **2005/125** = **17769/887** (+555/+21); `tsc` 0 nos apps, 11 herdados em core; lint 0/0 · 23/5 · 2/2;
+  os dois builds verdes; `payment/**` e `deno.lock` sem diff.
+- **Provas**: probes `01-biblioteca` (FCM real, também dentro do edge-runtime 1.77.4), `02-banco`,
+  `03-porta` (20/20), `04-layout.mjs`, `05-teto-do-teste` (reprova a regra antiga, passa a nova);
+  layout em navegador 144/144 (um defeito achado e consertado). **Não feito**: a chegada do aviso no
+  Chrome real (o usuário mandou seguir sem ela) e o Android real (TQ6).
+- **Pendências de operação**: a ordem **migration → secrets → functions → bundle**; ⚠️ as chaves VAPID de
+  **dev** estão no `.env` da raiz — `supabase secrets set` daí as gravaria em produção (`BL-044`): gerar
+  as de produção à parte e gravá-las de um diretório sem `.env`, conferindo `{"count":2}`.
+- **Verificador r1**: FAIL por cobertura (76 mutantes, 72 mortos, 4 sobreviventes, nenhum defeito);
+  consertado em V01..V05 (`tasks.md`), sem r2. **QA** (`docs/qa/reports/2026-10-25-mobile-adm-avisos-no-celular.md`):
+  14 Pass, foco no `<body>` consertado, e `BUG-20261025-teste-com-aparelho-descartado-deixa-a-tela-ligada`
+  **consertado em 2026-10-26** pela decisão do usuário (opção 1: volta a "Avisar neste celular" com "Este celular
+  deixou de receber avisos. Ative de novo."); mobile-adm 2014/125, store 5985/323, tsc 0, lint 0/0; reteste em navegador pendente.
+- **Ambiente de prova em produção (2026-10-26)**: projeto Vercel `umaestrelinha-atelie` criado (raiz `apps/mobile-adm`,
+  envs `VITE_SUPABASE_URL`/`VITE_BACKOFFICE_URL` em preview e development; a chave publicável o usuário grava) e
+  `.vercelignore` na raiz recusando todo `.env*`. Produção NÃO tem as migrations `73`, `74`, `76`, `79` e tem a
+  `20261022150000_80-fornecedor-da-peca` (de `origin/master`) que esta branch não tem — trazer a `master` antes de
+  qualquer `db push`. **O número `80` foi usado por outra sessão; o próximo livre é `81`.**
+- **Próximo**: o reteste do 410 em navegador; a prova em produção (migrations → secrets → `atelie-avisos` → preview),
+  cada passo com o ok do usuário; o COMMIT só quando o usuário pedir.
+
+### ANTERIOR — 2026-10-24 · `76-mobile-adm-clientes` **IMPLEMENTADA E COMMITADA — T01–T33, Verificador (PASS na última rodada) e QA (10 de 12 bugs consertados); pronta para merge em `feature/mobile-adm`; falta o Android real**
 
 - **Feature**: `.specs/features/76-mobile-adm-clientes/` (`spec.md`, `design.md`, `tasks.md`,
   `baseline.md`, `context.md`, `validation.md`, `probes/01..03`, `prova-navegador.md`, `prova/`).

@@ -19,6 +19,13 @@ import { TABS } from '../model/tabs'
 
 const NAO_SAO_ABAS = ['/login', '/recuperar', '/recuperar/codigo', '/recuperar/senha', '*']
 
+/**
+ * Feature `79` (design §6): as rotas DA CONTA — de primeiro nível, sem aba, alcançadas pelo menu da
+ * conta. Aceitas SÓ por estarem nesta lista literal; qualquer outra rota de primeiro nível sem aba
+ * continua acusada.
+ */
+const ROTAS_DA_CONTA = ['/avisos']
+
 const semComentarios = (t: string) => t.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n\r]*/g, '')
 
 const todasAsRotas = (fonte: string) =>
@@ -29,7 +36,9 @@ const ehSubrota = (p: string) => p.split('/').filter(Boolean).length > 1
 const paiDe = (p: string) => `/${p.split('/').filter(Boolean)[0]}`
 
 /** As rotas de PRIMEIRO nível — as que têm de ser, uma a uma, as abas. */
-const rotasDoApp = (fonte: string) => todasAsRotas(fonte).filter((p) => !ehSubrota(p))
+const rotasDoApp = (fonte: string) => todasAsRotas(fonte).filter((p) => !ehSubrota(p) && !ROTAS_DA_CONTA.includes(p))
+/** As rotas da conta que o `App.tsx` declara. */
+const rotasDaConta = (fonte: string) => todasAsRotas(fonte).filter((p) => ROTAS_DA_CONTA.includes(p))
 const subrotasDoApp = (fonte: string) => todasAsRotas(fonte).filter(ehSubrota)
 
 const divergencias = (abas: string[], rotas: string[], subrotas: string[] = []) => ({
@@ -45,6 +54,22 @@ describe('TABS × rotas do App.tsx', () => {
     expect(TABS).toHaveLength(4)
     expect(rotasDoApp(fonte)).toHaveLength(4)
     expect(subrotasDoApp(fonte)).toEqual(['/pedidos/:id', '/clientes/:id'])
+  })
+
+  it('âncora — a rota da conta (`/avisos`, feature `79`) está declarada, e a lista literal tem só ela', () => {
+    expect(ROTAS_DA_CONTA).toEqual(['/avisos'])
+    expect(rotasDaConta(fonte)).toEqual(['/avisos'])
+  })
+
+  it('SENSOR — uma rota de primeiro nível fora de `ROTAS_DA_CONTA` continua acusada ao lado de `/avisos`', () => {
+    const doente = `${fonte}\n<Route path="/configuracoes" element={<X />} />`
+    const d = divergencias(TABS.map((t) => t.path), rotasDoApp(doente), subrotasDoApp(doente))
+    expect(d.rotaSemAba).toEqual(['/configuracoes'])
+  })
+
+  it('SENSOR — sem a lista, `/avisos` seria acusada como rota sem aba (a lista é o que a aceita)', () => {
+    const semLista = todasAsRotas(fonte).filter((p) => !ehSubrota(p))
+    expect(divergencias(TABS.map((t) => t.path), semLista).rotaSemAba).toEqual(['/avisos'])
   })
 
   it('as duas listas são a mesma, na mesma ordem — e toda subrota mora numa aba', () => {

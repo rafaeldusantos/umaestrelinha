@@ -36,7 +36,7 @@ import { isPriceError, resolveItemPrice } from "../../../packages/core/src/prici
 // O que este arquivo informa é o GATILHO — o que aconteceu com o pedido —, nunca qual mensagem sai
 // (`AD-032`). A bifurcação "pagou, e tem material a esperar?" vive em `core/notifications/triggers`,
 // com um dono e um teste puro; aqui ela nem aparece.
-import { type NotificationEnv, dispatchTrigger } from "../send-notification/dispatch.ts"
+import { type NotificationDeps, type NotificationEnv, dispatchTrigger } from "../send-notification/dispatch.ts"
 import type { NotificationTrigger } from "../../../packages/core/src/notifications/index.ts"
 // Feature 61: a compra no GA4 sai DAQUI, e só daqui — no instante em que a aprovação é aplicada.
 import { type PurchaseDeps, sendPurchase } from "./analytics.ts"
@@ -73,6 +73,12 @@ export interface Deps {
    * para o teste poder fazê-lo LANÇAR e provar que a resposta do pagamento não muda.
    */
   sendPurchase?: (deps: PurchaseDeps, orderId: string) => Promise<void>
+  /**
+   * O aviso no celular da dona (feature `79`, `AD-062`). Montado no `index.ts` só com as VAPID; ausente
+   * ⇒ o canal não existe e o e-mail segue igual (`MAN-37`). Repassado ao motor em `fireTrigger`: é
+   * por AQUI que o aviso de "pedido pago" sai, no webhook do PIX.
+   */
+  push?: NotificationDeps["push"]
 }
 
 /**
@@ -98,7 +104,15 @@ const NOTIFY_BUDGET_WEBHOOK_MS = 8000
 async function fireTrigger(deps: Deps, orderId: string, trigger: NotificationTrigger, budgetMs: number) {
   try {
     await dispatchTrigger(
-      { supabase: deps.supabase, fetch: deps.fetch, env: deps.notifications, providers: deps.providers },
+      {
+        supabase: deps.supabase,
+        fetch: deps.fetch,
+        env: deps.notifications,
+        providers: deps.providers,
+        // Feature `79`: sem este repasse o push morreria no caminho principal da feature (o webhook
+        // do PIX) com o resto verde — a fiação é provada por comportamento em `handlers.test.ts`.
+        push: deps.push,
+      },
       { orderId, trigger, budgetMs },
     )
   } catch (err) {

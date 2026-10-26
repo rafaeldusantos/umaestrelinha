@@ -178,6 +178,13 @@ jobs:
             echo "  supabase secrets set NOME=valor --project-ref <ref>"
             exit 1
           fi
+          # Feature 79 — VAPID_KEYS e VAPID_SUBJECT ficam FORA da lista obrigatória, pelo mesmo
+          # critério de MELHOR_ENVIO_ENV: sem as duas, o aviso no celular da dona degrada para
+          # `no_provider` (MAN-37) e nenhum e-mail ou pagamento muda — o modo de falha barato.
+          # Um `::warning::` diz que o canal está desligado, sem parar o deploy.
+          for nome in VAPID_KEYS VAPID_SUBJECT; do
+            grep -qw "$nome" <<<"$lista" || echo "::warning::secret ausente no projeto hospedado: $nome — o aviso no celular da dona fica desligado (no_provider); e-mail e pagamento seguem iguais."
+          done
           echo "Os 8 secrets obrigatórios estão presentes."
 
       - name: migrations pendentes (dry run)

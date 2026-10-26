@@ -14,6 +14,7 @@ import PedidoPage from '@/pages/PedidoPage'
 import ClientesPage from '@/pages/ClientesPage'
 import ClientePage from '@/pages/ClientePage'
 import DescontosPage from '@/pages/DescontosPage'
+import AvisosPage from '@/pages/AvisosPage'
 import BootGate from './BootGate'
 import OfflineScreen from './OfflineScreen'
 import MobileLayout from './layout/MobileLayout'
@@ -32,6 +33,8 @@ import { esquecerAcoes } from '@/features/order-actions'
  *   duas listas nos dois sentidos. `/pedidos/:id` (feature `74`, `MAP-54`) e `/clientes/:id` (feature
  *   `76`, `MAC-36`) são SUBROTAS de aba — sem aba própria, e a aba pai fica marcada nelas (`MAP-55`). A recuperação (`MAF-24`) fica FORA pela mesma razão do login:
  *   quem recupera ainda não entrou. As três rotas dela são as de `PASSOS_DA_RECUPERACAO`.
+ * - `/avisos` (feature `79`, `MAN-17`) é rota DA CONTA: sem aba, alcançada pelo menu da conta, e dentro
+ *   do guarda como todas (`ROTAS_DA_CONTA` em `abasSaoAsRotas.test.ts`).
  * - O papel NÃO CONFERIDO (`MAF-23`) tem tela própria no guarda (`unknownFallback`): nunca o
  *   `Navigate` ao login, que desenharia a recusa falsa.
  * - O acesso é o MESMO do Backoffice (`AD-056`): mesmas contas, mesmo papel, mesmo `RequireAdmin`.
@@ -108,6 +111,7 @@ const Arvore = () => (
             <Route path="/clientes" element={<ClientesPage />} />
             <Route path="/clientes/:id" element={<ClientePage />} />
             <Route path="/descontos" element={<DescontosPage />} />
+            <Route path="/avisos" element={<AvisosPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>
