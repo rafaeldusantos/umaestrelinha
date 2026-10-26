@@ -12,7 +12,6 @@ import { supabase } from '@estrelinha/supabase/client'
 import { useAdminProducts } from '@/entities/product/api/useAdminProducts'
 import { useAdminCategories } from '@/entities/category/api/useAdminCategories'
 import ImageGallery from '@/features/product-form/ui/ImageGallery'
-import VariantImageCard from '@/features/product-form/ui/VariantImageCard'
 import StorefrontPreview from '@/features/product-form/ui/StorefrontPreview'
 import { clearMissingVariantImages } from '@/features/product-form/lib/variantImages'
 import {
@@ -52,6 +51,16 @@ import { toast } from '@estrelinha/ui/hooks/use-toast'
 import RichTextEditor from '@/shared/ui/RichTextEditor'
 import VariantsTable, { type DeleteCheck } from '@/features/product-form/ui/VariantsTable'
 import OptionsEditor from '@/features/product-form/ui/OptionsEditor'
+import { syncGrid, type OptionsChange } from '@/features/product-form/model/gridSync'
+import {
+  applyOrphanChecks,
+  mergePausedIds,
+  mergePausedLabels,
+  orphanVerdict,
+  stillPausedLabels,
+} from '@/features/product-form/model/orphans'
+import { useOptionLibrary } from '@/entities/product'
+import { cartesian, optionValuesKey, variantLabel } from '@estrelinha/core/pricing'
 import SeoPreview from '@/features/product-form/ui/SeoPreview'
 import { GoogleShoppingCard } from '@/features/product-form/ui/GoogleShoppingCard'
 import RelatedProductsSelect from '@/features/product-form/ui/RelatedProductsSelect'
@@ -60,7 +69,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@estrelinha/ui/alert-dialog'
-import type { DbProduct, ProductVariant } from '@estrelinha/supabase/types'
+import type { DbProduct, ProductOption, ProductVariant } from '@estrelinha/supabase/types'
 import { storeUrlFor } from '@/features/product-form/lib/storeUrl'
 
 /** As 5 abas de PFM-01. `variacoes` não existe mais: a grade mora em `precos`. */
@@ -187,6 +196,83 @@ const AdminProductFormPage = () => {
     // Sem resposta não se sabe: recusar é a falha segura. Chutar "0" excluiria uma linha vendida.
     if (error) return { orders: 0, verified: false }
     return { orders: count ?? 0, verified: true }
+  }
+
+  // Feature 81 (`AD-063`): a grade acompanha as opções, e SÓ quando elas mudam pelo editor — abrir o
+  // produto não sincroniza nada (OPV-08). `reflected` são as opções que a grade atual reflete
+  // (`syncGrid` o devolve a cada chamada); ele recomeça das opções do formulário sempre que elas
+  // chegam por OUTRO caminho (carga, releitura depois do save, rascunho restaurado) — é o que
+  // `lastEmitted` detecta: se `form.options` não é o array que esta página emitiu por último, ele
+  // veio de fora.
+  const { library: optionLibrary } = useOptionLibrary()
+  const reflected = useRef<ProductOption[]>(form.options)
+  const lastEmitted = useRef<ProductOption[]>(form.options)
+  /** As órfãs com id real já levadas à consulta de pedidos — `syncGrid` as devolve a cada chamada. */
+  const checkedOrphans = useRef<Set<string>>(new Set())
+  /** OPV-04: as vendidas (ou de consulta falhada) que ficaram pausadas, pelo nome. */
+  const [pausedOrphans, setPausedOrphans] = useState<string[]>([])
+  /** Os ids por trás de cada rótulo do aviso: ele nomeia só as que a grade de agora ainda tem pausadas. */
+  const [pausedIds, setPausedIds] = useState<ReadonlyMap<string, readonly string[]>>(new Map())
+  // A consulta de pedidos é assíncrona: a resposta é aplicada sobre a grade de AGORA (OPV-25).
+  const formRef = useRef(form)
+  formRef.current = form
+
+  const pausedShown = stillPausedLabels(pausedOrphans, pausedIds, form.variants)
+
+  const handleOptionsChange = (next: ProductOption[], change: OptionsChange) => {
+    if (form.options !== lastEmitted.current) {
+      reflected.current = form.options
+      checkedOrphans.current = new Set()
+      setPausedOrphans([])
+      setPausedIds(new Map())
+    }
+    const result = syncGrid(
+      { options: reflected.current, variants: form.variants },
+      next,
+      change,
+      {
+        price: Number(form.price) || 0,
+        compare_price: Number(form.compare_price) || 0,
+        weight_kg: Number(form.weight_kg) || 0,
+      },
+      id ?? '',
+    )
+    reflected.current = result.options
+    lastEmitted.current = next
+    setFields({ options: next, variants: result.variants })
+
+    const pending = result.orphans.filter(v => !checkedOrphans.current.has(v.id))
+    if (pending.length === 0) return
+    pending.forEach(v => checkedOrphans.current.add(v.id))
+    void Promise.all(
+      pending.map(async variant =>
+        orphanVerdict(
+          variant.id,
+          variantLabel(next, variant.option_values) || variant.name || variant.id,
+          await checkVariantOrders(variant),
+        ),
+      ),
+    ).then(verdicts => {
+      const current = formRef.current
+      // Uma linha que voltou ao cruzamento enquanto a consulta estava no ar não é mais órfã: nem
+      // sai nem pausa, e volta a poder ser conferida se sair de novo.
+      const combos = new Set(cartesian(current.options).map(optionValuesKey))
+      const stillOrphan = verdicts.filter(verdict => {
+        const variant = current.variants.find(v => v.id === verdict.id)
+        const back = !!variant && combos.has(optionValuesKey(variant.option_values ?? {}))
+        if (back) checkedOrphans.current.delete(verdict.id)
+        return !back
+      })
+      const applied = applyOrphanChecks(current.variants, stillOrphan)
+      if (stillOrphan.some(v => current.variants.some(row => row.id === v.id))) {
+        setFields({ variants: applied.variants })
+      }
+      if (applied.paused.length > 0) {
+        setPausedOrphans(prev => mergePausedLabels(prev, applied.paused))
+        const present = new Set(current.variants.map(row => row.id))
+        setPausedIds(prev => mergePausedIds(prev, stillOrphan.filter(v => present.has(v.id))))
+      }
+    })
   }
 
   const handleSubmit = async (e: React.FormEvent, intent: 'draft' | 'publish' = 'publish') => {
@@ -467,7 +553,7 @@ const AdminProductFormPage = () => {
           <Tabs value={activeTab} onValueChange={value => setActiveTab(value as TabId)} className="space-y-4">
             <TabsList className="w-full justify-start flex-wrap h-auto gap-1 bg-muted/60 p-1 rounded-xl">
               {TABS.map(tab => (
-                <TabsTrigger key={tab.id} value={tab.id} className="data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm rounded-lg px-4">
+                <TabsTrigger key={tab.id} value={tab.id} className="max-w-full whitespace-normal data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm rounded-lg px-4">
                   {tab.label}
                   {/* PFM-11 AC 2-3: a contagem de erros da aba, e o clique leva ao primeiro campo
                       inválido dela. Sem isto o admin sabe que há erro e não sabe onde. */}
@@ -685,15 +771,29 @@ const AdminProductFormPage = () => {
 
               {/* PFM-01: eixos e grade moram na MESMA aba do preço agora — era o ponto da spec.
                   A tabela que editava o JSONB legado foi substituída pela grade com preço por linha. */}
-              <FormCard title="Opções" description="Os eixos de escolha do produto. Máximo de 3.">
+              <FormCard title="Opções" description="As escolhas da peça, como tamanho ou acabamento. Até 3 opções.">
                 <OptionsEditor
                   options={form.options}
-                  onChange={next => setField('options', next)}
+                  onChange={handleOptionsChange}
+                  library={optionLibrary}
                 />
               </FormCard>
 
               <FormCard title="Variações" description="Uma linha por combinação, com preço próprio.">
                 <div data-field="variants" tabIndex={-1} className="sr-only" aria-hidden="true" />
+                {pausedShown.length > 0 && (
+                  <p
+                    role="alert"
+                    className="rounded-xl border border-estrelinha-admin-amber/20 bg-estrelinha-admin-amber/10 p-3 text-sm text-estrelinha-admin-amber"
+                  >
+                    {/* BUG-20261026-valor-devolvido-volta-pausado (decidido em 2026-10-26 pela recomendação do QA):
+                        devolver o valor NÃO religa a linha — só OPV-02 e OPV-04 mudam `is_active`
+                        sozinhos —, então o aviso diz que ela continua pausada e onde se reativa. */}
+                    Estas variações já foram vendidas e ficaram pausadas: {pausedShown.join(', ')}.
+                    {' '}Continuam pausadas mesmo que o valor volte às opções; para vender de novo, ligue
+                    “Ativa” na linha da grade.
+                  </p>
+                )}
                 <VariantsTable
                   variants={form.variants}
                   options={form.options}
@@ -703,20 +803,12 @@ const AdminProductFormPage = () => {
                   selectedIds={selectedVariantIds}
                   onSelectionChange={setSelectedVariantIds}
                   slug={form.slug || slugify(form.name)}
-                  productId={id ?? ''}
+                  images={form.images}
+                  onImagesAdded={added => setField('images', [...form.images, ...added])}
+                  onUploadingChange={setUploading}
                 />
               </FormCard>
 
-              {/* PMD-06: liga cada linha da grade a uma imagem que já está na galeria. Fica na aba
-                  Preços porque é onde a grade mora — o vínculo é da variação, não da foto. */}
-              <FormCard title="Imagem por variação" description="Cada linha pode mostrar a própria foto na loja.">
-                <VariantImageCard
-                  variants={form.variants}
-                  options={form.options}
-                  images={form.images}
-                  onChange={next => setField('variants', next)}
-                />
-              </FormCard>
 
             </TabsContent>
 

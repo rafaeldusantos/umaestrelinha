@@ -236,6 +236,31 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: `apps/store/scripts/__tests__/{shell,robots}.test.ts` × `chaveDeServidorForaDoNavegador.test.ts` (1 em 4 execuções)
 - last seen: 2026-10-20T00:00:00Z
 
+### L-045 — Estado que só importa quando os dados chegaram de FORA (carga, releitura, rascunho) precisa de caso que edite um registro CARREGADO: testes que partem do formulário vazio, ou que só exercitam operações que dão o mesmo resultado com o estado errado (remover valor), deixam o reinício desse estado sem régua.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `apps/backoffice/src/pages/admin/**` · harmful: 0
+- features: 81-opcoes-e-variacoes-do-produto
+- evidence: M29 — `AdminProductFormPage.tsx:213` (`if (false)` no reinício do refletido: renomear a opção de um produto salvo orfanaria a grade inteira, com 71/71 verdes)
+- last seen: 2026-10-26T00:00:00Z
+
+### L-046 — "Aplicado por id, nunca por posição" só se prova com a lista MUDANDO DE FORMA (um item anterior saindo) entre a pergunta e a resposta assíncrona; casos que editam campos ou devolvem o mesmo item mantêm as posições e são verdadeiros nos dois mundos.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `apps/backoffice/src/**` · harmful: 0
+- features: 81-opcoes-e-variacoes-do-produto
+- evidence: M07 — `AdminProductFormPage.tsx:255` (veredito pela posição antiga caía na linha vizinha, que continua no cruzamento); M32 — o conjunto de conferidas sem a terceira volta (remover → devolver → remover)
+- last seen: 2026-10-26T00:00:00Z
+
+### L-047 — Guarda em camadas (a sugestão já exclui o repetido, e o acréscimo exclui de novo) precisa de um caso pela entrada que SÓ a camada de baixo protege: todo caso que entra pela sugestão chega ao acréscimo já sem o repetido, e apagar a dobra do acréscimo fica verde.
+- signal: `surviving_mutant` · recurrence: 1 feature(s), 2 ocorrências · scope: `apps/backoffice/src/features/product-form/**` · harmful: 0
+- features: 81-opcoes-e-variacoes-do-produto
+- evidence: N29 (rodada 2) — `OptionsEditor.tsx:303-304` (`addValues` sem `dobrarTexto`: digitar "3,5 cm" com "3,5 CM" na opção cria um segundo valor, com 153/153 verdes)
+- evidence: P02 + I03 (rodada 3) — a página limpa o `image_url` da linha cuja foto sai da galeria (`clearMissingVariantImages`) e o `VariantImagePicker` esconde a URL que não está na galeria; o caso de OPV-27 olha só o botão, então apagar qualquer uma das duas camadas fica verde (82/82 e 73/73) — e sem a da página o banco recebe a URL morta
+- last seen: 2026-10-26T00:00:00Z
+
+### L-048 — Limiar de contagem ("vendida" = pelo menos UM pedido) precisa de caso NO limiar: fixtures com 0 e 2 provam `> 0` tanto quanto `> 1`, e a fronteira que separa "apagar" de "pausar" fica sem régua.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `apps/backoffice/src/features/product-form/**` · harmful: 0
+- features: 81-opcoes-e-variacoes-do-produto
+- evidence: O02 (rodada 4) — `orphans.ts:34` `check.orders > 0` → `> 1`: 57/57 verdes (`orphans.test.ts` usa `orders: 2`, a página usa `'v-vendida': 2`); sonda pela página real com `'v-um': 1` reprova no mutante (a linha some da grade e o aviso não aparece)
+- last seen: 2026-10-26T00:00:00Z
+
 ## Quarantined (failed when applied — ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.

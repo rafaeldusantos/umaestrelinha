@@ -147,7 +147,16 @@ Ao planejar/implementar features, use a Skill **`tlc-spec-driven`** com estas co
     "Movimento da loja" e a régua de dia de Brasília no banco) está IMPLEMENTADA, sem commit,
     verificada em três rodadas (a terceira FAIL por uma lacuna de cobertura, G9, não consertada). A
     `72`..`79` são o programa mobile-adm (`AD-056`), noutra branch. A `80` (o fornecedor da peça no
-    painel) está IMPLEMENTADA, sem commit (`AD-057`). A próxima livre é a `81`.**
+    painel) está IMPLEMENTADA, sem commit (`AD-057`). A `81` (opções e variações do produto: a grade
+    que acompanha as opções sem "Regerar", as sugestões derivadas do catálogo e a imagem escolhida e
+    enviada na própria linha, `AD-063`) está IMPLEMENTADA, sem commit, na branch
+    `feat/81-opcoes-e-variacoes-do-produto`, com prova em navegador, QA e **reteste de QA**
+    (`docs/qa/reports/2026-10-26-opcoes-e-variacoes-reteste.md`: os quatro bugs e as três decisões —
+    conjuntos mais usados, chips que permanecem, frase da pausa — passam em 390, 1440 e fonte 200 %; um
+    bug novo consertado, o aviso de pausa que não saía depois de religar a linha; uma decisão nova
+    aberta, o bloco de sugestões que continua com ~940px no celular depois de escolher um conjunto,
+    mais as duas de antes — o "Close" em inglês e os alvos pequenos do editor). A próxima livre é a
+    `82`.**
   - **A `46` e a `47` correram EM PARALELO, em worktrees separados**, e é o segundo caso do projeto
     (o primeiro, a `45`, dividiu uma working tree só). O que mudou: a divisão foi por **árvore**, não
     por arquivo — a `47` nasceu de um `git worktree` sobre o HEAD local e trouxe a `46` por
@@ -517,7 +526,35 @@ quando mudarem de verdade.
 | --- | --- | --- |
 | **Lint** | **25 erros / 7 warnings** — backoffice 23/5 · store 2/2 | `pnpm lint` |
 | **Tipos** | **0 · 0 · 0 · 0** (store · backoffice · catalog-import · `apps/store/tsconfig.server.json`, desde a `69`) | `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` |
-| **Testes** | **14445 em 708 arquivos** — store **5754/314** · backoffice **3706/211** · core **3516/139** · functions **957/21** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
+| **Testes** | **14592 em 715 arquivos** — store **5754/314** · backoffice **3853/218** · core **3516/139** · functions **957/21** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
+
+**O fecho da rodada 4 do Verificador da `81` somou +1 no backoffice** (3852/218 → **3853/218**, 2026-10-26, exit fora de pipe): o limite de OPV-04 (`orders: 1` ⇒ pausa) em `orphans.test.ts`, que mata G13 (`> 0` → `> 1`) por asserção, SHA-256 conferido na restauração. G17 segue declarado como candidato a equivalente.
+
+**O reteste de QA da `81` somou +4 no backoffice** (3848/218 → **3852/218**, 2026-10-26, um workspace por vez, exit fora de pipe): um bug novo, com teste vermelho antes — ligar "Ativa" na linha vendida, como o aviso de pausa manda, não tirava a linha do aviso (+1 pela página real em `AdminProductFormPage.variacoes.test.tsx`, +3 de unidade em `orphans.test.ts` para `mergePausedIds`/`stillPausedLabels`). Store remedida, idêntica (5754/314); tipos 0 · 0; lint 23/5 · 2/2; build dos dois apps verde. Relatório: `docs/qa/reports/2026-10-26-opcoes-e-variacoes-reteste.md`.
+
+**As três decisões do QA da `81` somaram +13 no backoffice** (3823/218 → **3836/218**, 2026-10-26, um workspace por vez, exit fora de pipe), decididas pela recomendação do QA e a confirmar: os conjuntos de valores no lugar da união (+6 em `optionLibrary.test.ts`), os chips que ficam enquanto sobrar valor (+3 em `optionLibrary.test.ts`; `OptionsEditor.test.tsx` trocou os 8 casos do bloco antigo por 11), e o aviso da vendida devolvida, que continua pausada (+1 na página real, e o literal novo nos três casos que o cravavam). Cada um vermelho antes do código. Store remedida, idêntica (5754/314); tipos 0 · 0; lint 23/5 · 2/2.
+
+**O QA da `81` somou +8 no backoffice** (3815/218 → **3823/218**, 2026-10-26, um workspace por vez, exit fora de pipe): quatro bugs, cada um com teste vermelho antes — o modal de imagem perdendo o topo com as 28 fotos do maior produto (+1, `VariantImagePicker.test.tsx`), a posição repetida da linha nova depois de tirar e devolver um valor do meio (+1, `gridSync.test.ts`; a fixture de um caso antigo, com duas linhas em 0, ganhou as posições 0 e 1, asserção intocada), a rolagem lateral com a fonte a 200 % em 390 (+5, token exato em `OptionsEditor`, `PricingTab` ×2, `GridActions` e na página real) e o resumo "3 × 2 × 1 = 2" com o nome apagado (+1). Store remedida, idêntica (5754/314); tipos 0; lint 23/5; build verde. Cinco achados esperam decisão (ver o relatório).
+
+**O conserto da rodada 3 do Verificador da `81` somou +6 no backoffice** (3842/218 → **3848/218**, 2026-10-26, um workspace por vez, exit fora de pipe): +1 no `VariantImagePicker` (URL fora da galeria, G10), +1 no `OptionsEditor` (chips sem conjunto restante, G11), +4 em `orphans.test.ts` (`mergePausedLabels`, a dedupe do aviso que saiu da página sem mudar de régua, G12), e o caso OPV-27 da página passou a salvar e asserir `image_url: null` no banco (G10). P02, I03, E04 e P06 reinjetados com SHA-256 conferido: mortos por asserção; a fiação da página para `mergePausedLabels` (P06w) sobrevive e está declarada. Store idêntica (5754/314); tipos 0; lint 23/5.
+
+**O conserto da rodada 2 do Verificador da `81` somou +6 no backoffice** (3836/218 → **3842/218**, 2026-10-26, um workspace por vez, exit fora de pipe), só teste: +2 pela página real com a biblioteca semeada (G6, inclusive o Success Criterion 1 na grade), +2 do acréscimo digitado pela dobra (G8), +1 da grafia do primeiro produto no conjunto (G7) e +1 do seletor "Grupo de origem" (G9). Os quatro sobreviventes (N34, N29, N18, N11) reinjetados com SHA-256 conferido: mortos por asserção, só pelos casos novos. Store idêntica (5754/314); tipos 0; lint 23/5. Nenhum código de produto mudou.
+
+**O conserto da rodada 1 do Verificador da `81` somou +7 no backoffice** (3808/218 → **3815/218**, 2026-10-26, um workspace por vez, exit fora de pipe): +4 casos pela página real (G1..G4), +2 em `orphans.test.ts` (o par de G2) e +1 em `VariantsTable.test.tsx` (o contêiner da grade como bloco de contenção, achado na prova em navegador). Store remedida, idêntica (5754/314); tipos 0; lint 23/5. Os três mutantes sobreviventes (M29, M07, M32) reinjetados com SHA-256 conferido: mortos por asserção. Detalhe no `validation.md` da feature.
+
+**A feature `81` (opções e variações do produto) somou +102/+7 em UM workspace**, medidos em
+2026-10-26 um workspace por vez, exit code fora de pipe, contra a entrada medida com a árvore parada
+em `fc2b3b60` (`.specs/features/81-opcoes-e-variacoes-do-produto/baseline.md`: backoffice 3706/211 ·
+store 5754/314): **backoffice 3808/218** (`gridSync` 22, `orphans` 7, `optionLibrary` 16,
+`useOptionLibrary` 9, `OptionsEditor` +29, `VariantImagePicker` 17, `VariantsTable` +7, a página real
+em `AdminProductFormPage.variacoes.test.tsx` 13, a grade rápida +3). **Duas quedas declaradas**: −16
+do "Regerar do cruzamento" (`gridActions.test.ts` −10, `GridActions.test.tsx` −6; o que importava
+deles está em `gridSync.test.ts`) e −5 do card "Imagem por variação" (`VariantImageCard.test.tsx`
+apagado com o card; os 9 casos de `clearMissingVariantImages` e `StorefrontPreview` que moravam no
+mesmo arquivo mudaram de casa sem uma linha alterada). Store remedida, idêntica (os guardas dela
+varrem `apps/**`). Tipos 0 no painel, lint 23/5, `pnpm --filter @estrelinha/backoffice build` verde.
+**Sem migration, sem `core`.** Core, functions e catalog-import não foram tocados e não foram
+remedidos. Decisão `AD-063`.
 
 **A feature `80` (o fornecedor da peça) somou +87/+7 em TRÊS workspaces**, medidos em 2026-10-22 um
 por vez, exit code fora de pipe, contra a entrada medida em `41ea7040` (store 5733/312 · backoffice

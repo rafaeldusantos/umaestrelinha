@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import VariantsTable from './VariantsTable'
-import type { ProductOption, ProductVariant } from '@estrelinha/supabase/types'
+import type { ProductImage, ProductOption, ProductVariant } from '@estrelinha/supabase/types'
 
 // PFM-08 (P1.3 AC 7-13) e PFM-15: colunas do artboard, agrupamento pelo 1º eixo com subtotal, linha
 // ativa sem preço em erro, rodapé com faixa ignorando pausadas, pausar sem apagar, e exclusão
@@ -66,6 +66,8 @@ const renderTable = (over: Partial<React.ComponentProps<typeof VariantsTable>> =
     stockPolicy: 'track' as const,
     onChange,
     onRequestDelete: noOrders,
+    images: [] as ProductImage[],
+    onImagesAdded: vi.fn(),
     ...over,
   }
   render(<VariantsTable {...props} />)
@@ -336,9 +338,105 @@ describe('VariantsTable — grade vazia', () => {
   it('explica o caminho em vez de mostrar tabela vazia', () => {
     renderTable({ variants: [] })
 
-    // A T29 acrescentou um BOTÃO com o mesmo texto na barra da grade; a asserção passa a ser sobre
-    // o parágrafo de estado vazio, não sobre "existe esse texto em algum lugar".
-    expect(screen.getByText(/Nenhuma variação\./)).toBeInTheDocument()
+    // OPV-10: a frase não cita mais o "Regerar" — a grade acompanha as opções sozinha.
+    expect(
+      screen.getByText('Nenhuma variação. Acrescente valores às opções acima e as variações aparecem aqui.'),
+    ).toBeInTheDocument()
     expect(screen.queryByRole('table')).not.toBeInTheDocument()
+  })
+})
+
+// ---------------------------------------------------------------------------------------------
+// Feature 81 — sem "Regerar" (OPV-10) e a imagem escolhida na própria linha (OPV-11, OPV-28).
+// ---------------------------------------------------------------------------------------------
+
+const FOTOS: ProductImage[] = [
+  { url: 'https://cdn/foto-1.webp', alt: null, source: 'upload' },
+  { url: 'https://cdn/foto-2.webp', alt: null, source: 'upload' },
+]
+
+describe('VariantsTable — o "Regerar do cruzamento" saiu (OPV-10)', () => {
+  it.each([
+    ['com linhas', () => fullGrid()],
+    ['vazia', () => [] as ProductVariant[]],
+  ])('grade %s: nenhum texto "Regerar" e nenhum diálogo de confirmação', (_, linhas) => {
+    const { container } = render(
+      <VariantsTable
+        variants={linhas()}
+        options={options}
+        stockPolicy="track"
+        onChange={vi.fn()}
+        onRequestDelete={noOrders}
+        images={[]}
+        onImagesAdded={vi.fn()}
+      />,
+    )
+    expect(container.textContent).not.toMatch(/regerar/i)
+    expect(screen.queryByRole('button', { name: /regerar/i })).toBeNull()
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+})
+
+describe('VariantsTable — a imagem na linha (OPV-11, OPV-28)', () => {
+  it('cada linha tem o botão de imagem de 48px, nomeado pela variação', () => {
+    renderTable({ variants: [variant({ id: 'v-a' })] })
+    const linha = screen.getByTestId('variant-row-v-a')
+    const botao = within(linha).getByRole('button', { name: 'Imagem de 4,5 cm · Fosco' })
+    expect((botao.getAttribute('class') ?? '').split(/\s+/)).toEqual(
+      expect.arrayContaining(['h-12', 'w-12']),
+    )
+  })
+
+  it('a linha com imagem própria mostra a miniatura dela no botão', () => {
+    renderTable({ variants: [variant({ image_url: FOTOS[1].url })], images: FOTOS })
+    const botao = screen.getByRole('button', { name: 'Imagem de 4,5 cm · Fosco' })
+    expect(botao.querySelector('img')).toHaveAttribute('src', FOTOS[1].url)
+  })
+
+  it('escolher uma imagem no modal grava o `image_url` SÓ daquela linha', () => {
+    const { onChange } = renderTable({
+      variants: [
+        variant({ id: 'v-a' }),
+        variant({ id: 'v-b', option_values: { Tamanho: '5,5 cm', Acabamento: 'Fosco' } }),
+      ],
+      images: FOTOS,
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Imagem de 5,5 cm · Fosco' }))
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Imagem 2' }))
+
+    const next = onChange.mock.calls.at(-1)![0] as ProductVariant[]
+    expect(next.map(v => [v.id, v.image_url])).toEqual([
+      ['v-a', null],
+      ['v-b', FOTOS[1].url],
+    ])
+  })
+
+  it('"Usar a principal" volta a linha para `null`', () => {
+    const { onChange } = renderTable({ variants: [variant({ image_url: FOTOS[0].url })], images: FOTOS })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Imagem de 4,5 cm · Fosco' }))
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Usar a principal' }))
+
+    expect((onChange.mock.calls.at(-1)![0] as ProductVariant[])[0].image_url).toBeNull()
+  })
+
+  it('a grade rola dentro do próprio contêiner (`overflow-x-auto`), nunca o body', () => {
+    renderTable({ variants: [variant()] })
+    const caixa = screen.getByRole('table').parentElement!
+    expect((caixa.getAttribute('class') ?? '').split(/\s+/)).toContain('overflow-x-auto')
+  })
+
+  // Achado da prova em navegador (rodada 1, G5): o `Switch` do Radix desenha, dentro de um <form>,
+  // um <input> nativo escondido com `position: absolute`. Sem um ancestral posicionado DENTRO do
+  // contêiner, o bloco de contenção dele fica fora do `overflow-x-auto`, que então não o recorta — e
+  // em 390 o documento media 851px de largura (rolagem horizontal do body). jsdom não mede layout:
+  // a régua é o token exato no contêiner, e a medida está em `prova-navegador.md`.
+  it('o contêiner que rola é também o bloco de contenção (`relative`) — nada absoluto escapa para o body', () => {
+    renderTable({ variants: [variant()] })
+    const caixa = screen.getByRole('table').parentElement!
+    const classes = (caixa.getAttribute('class') ?? '').split(/\s+/)
+    expect(classes).toContain('overflow-x-auto')
+    expect(classes).toContain('relative')
   })
 })

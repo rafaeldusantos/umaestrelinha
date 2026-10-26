@@ -16,6 +16,7 @@ import { toast } from '@estrelinha/ui/hooks/use-toast'
 import { PageHeader, FormCard, MoneyInput, WeightInput } from '@/shared/ui'
 import OptionsEditor from '@/features/product-form/ui/OptionsEditor'
 import { useAdminProductList } from '@/entities/product/api/useAdminProducts'
+import { useOptionLibrary } from '@/entities/product'
 import { defaultQuery } from '@/entities/product/api/productQuery'
 import {
   buildInsertBatch,
@@ -40,6 +41,8 @@ const STARTING_ROWS = 5
 
 const AdminQuickGridPage = () => {
   const navigate = useNavigate()
+  // OPV-21: sem a biblioteca (carregando ou com erro) o editor é texto livre — nada bloqueia.
+  const { library: optionLibrary } = useOptionLibrary()
   const { createProductsBatch } = useAdminProductList(defaultQuery())
   const [defaults, setDefaults] = useState<GridDefaults>(emptyDefaults)
   const [rows, setRows] = useState<GridRow[]>(() => Array.from({ length: STARTING_ROWS }, emptyRow))
@@ -184,10 +187,14 @@ const AdminQuickGridPage = () => {
       <FormCard title="Padrões de todas as linhas" description="O que se repete no lote é preenchido aqui uma vez só.">
         <div className="space-y-3">
           <div className="space-y-1.5">
-            <Label>Eixos de opção</Label>
+            {/* Feature 81 (OPV-17..20): o mesmo editor do formulário do produto — rótulo novo e as
+                sugestões do catálogo. A grade do lote continua montada no salvar, por outro caminho
+                (Out of Scope da 81), então a mudança tipada que o editor entrega não é usada aqui. */}
+            <Label>Opções</Label>
             <OptionsEditor
               options={defaults.options}
               onChange={options => setDefaults(current => ({ ...current, options }))}
+              library={optionLibrary}
             />
           </div>
           <div className="flex flex-wrap items-end gap-4">

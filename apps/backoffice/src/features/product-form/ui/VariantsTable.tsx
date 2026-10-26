@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { AlertCircle, ImageOff, Trash2 } from 'lucide-react'
+import { AlertCircle, Trash2 } from 'lucide-react'
 import { Button } from '@estrelinha/ui/button'
 import { Input } from '@estrelinha/ui/input'
 import { Switch } from '@estrelinha/ui/switch'
@@ -8,9 +8,13 @@ import { formatPrice } from '@estrelinha/core/formatters'
 import { priceRange, variantLabel } from '@estrelinha/core/pricing'
 import { MoneyInput, WeightInput } from '@/shared/ui'
 import GridToolbar from './GridToolbar'
-import RegenerateGridDialog from './RegenerateGridDialog'
-import { applyRegenerate, buildRegeneratePlan } from '../model/gridActions'
-import type { ProductOption, ProductVariant, StockPolicy } from '@estrelinha/supabase/types'
+import VariantImagePicker from './VariantImagePicker'
+import type {
+  ProductImage,
+  ProductOption,
+  ProductVariant,
+  StockPolicy,
+} from '@estrelinha/supabase/types'
 
 // A grade de variações (PFM-08, PFM-15). Reescrita da tabela que editava o JSONB legado
 // `products.variants` — sem coluna de preço, que é exatamente o problema que este programa existe
@@ -45,8 +49,12 @@ interface Props {
   onSelectionChange?: (ids: string[]) => void
   /** Slug do produto — prefixo do SKU automático (AC 14). */
   slug?: string
-  /** Id do produto, para as linhas novas de **Regerar**. */
-  productId?: string
+  /** As imagens do produto, na ordem da galeria — o que o seletor de imagem da linha oferece. */
+  images: ProductImage[]
+  /** Fotos enviadas pelo seletor da linha: entram na galeria do produto (OPV-14). */
+  onImagesAdded: (images: ProductImage[]) => void
+  /** O mesmo sinal da galeria: com envio em curso, o salvar fica desabilitado (OPV-15). */
+  onUploadingChange?: (uploading: boolean) => void
 }
 
 interface Group {
@@ -86,9 +94,10 @@ const VariantsTable = ({
   selectedIds = [],
   onSelectionChange,
   slug = '',
-  productId = '',
+  images,
+  onImagesAdded,
+  onUploadingChange,
 }: Props) => {
-  const [regenerateOpen, setRegenerateOpen] = useState(false)
   const [blockedByOrders, setBlockedByOrders] = useState<string[]>([])
   const [refusal, setRefusal] = useState<{
     variant: ProductVariant
@@ -161,18 +170,7 @@ const VariantsTable = ({
         slug={slug}
         onChange={onChange}
         onClearSelection={() => onSelectionChange?.([])}
-        onRegenerate={() => setRegenerateOpen(true)}
         onRequestBulkDelete={bulkDelete}
-      />
-      <RegenerateGridDialog
-        open={regenerateOpen}
-        onOpenChange={setRegenerateOpen}
-        plan={buildRegeneratePlan(variants, options)}
-        options={options}
-        onConfirm={() => {
-          onChange(applyRegenerate(variants, options, productId))
-          setRegenerateOpen(false)
-        }}
       />
       {blockedByOrders.length > 0 && (
         <div role="alert" className="rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm">
@@ -188,7 +186,7 @@ const VariantsTable = ({
       <div className="space-y-3">
         {toolbar}
         <p className="rounded-xl border border-dashed border-border p-4 text-sm text-muted-foreground">
-          Nenhuma variação. Declare os eixos acima e use <strong>Regerar do cruzamento</strong>.
+          Nenhuma variação. Acrescente valores às opções acima e as variações aparecem aqui.
         </p>
       </div>
     )
@@ -226,12 +224,15 @@ const VariantsTable = ({
         </div>
       )}
 
-      <div className="overflow-x-auto rounded-xl border border-border">
+      {/* `relative`: o <input> escondido que o `Switch` do Radix desenha é `position: absolute`; sem
+          este contêiner como bloco de contenção, o `overflow-x-auto` não o recorta e o body rola na
+          horizontal em 390 (OPV-28, medido em navegador). */}
+      <div className="relative overflow-x-auto rounded-xl border border-border">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/50 text-xs font-semibold uppercase text-muted-foreground">
               <th className="w-8 p-2" />
-              <th className="w-10 p-2" />
+              <th className="w-14 p-2" />
               <th className="p-2 text-left">Variação</th>
               <th className="p-2 text-left">SKU</th>
               <th className="p-2 text-left">Preço</th>
@@ -279,12 +280,16 @@ const VariantsTable = ({
                         onCheckedChange={checked => toggleSelected(variant.id, checked === true)}
                       />
                     </td>
-                    <td className="p-2">
-                      {variant.image_url ? (
-                        <img src={variant.image_url} alt="" className="h-8 w-8 rounded object-cover" />
-                      ) : (
-                        <ImageOff className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-                      )}
+                    <td className="w-14 p-2">
+                      {/* OPV-11: a imagem da variação se escolhe NA LINHA (o card separado saiu). */}
+                      <VariantImagePicker
+                        label={label}
+                        imageUrl={variant.image_url}
+                        images={images}
+                        onSelect={url => update(index, { image_url: url })}
+                        onImagesAdded={onImagesAdded}
+                        onUploadingChange={onUploadingChange}
+                      />
                     </td>
                     <td className="p-2">
                       <span className="font-medium text-foreground">{label}</span>

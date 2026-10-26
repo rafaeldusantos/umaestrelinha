@@ -8,5 +8,8 @@ export * from './api/useProductsByIds'
 // Feature 66: o catálogo com tags e categorias, para a marcação em massa dos filtros.
 export * from './api/useProductMarkingPool'
 export * from './lib/buscarProdutos'
+// Feature 81: a biblioteca de opções (nomes e valores usados no catálogo) e a leitura dela.
+export * from './lib/optionLibrary'
+export * from './api/useOptionLibrary'
 export { default as ProductSearchField } from './ui/ProductSearchField'
 export type { ProductSearchFieldProps } from './ui/ProductSearchField'

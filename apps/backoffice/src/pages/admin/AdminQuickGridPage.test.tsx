@@ -3,8 +3,12 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { OPTION_LIBRARY_KEY } from '@/entities/product'
 
-const { createBatchMock, toastMock, fromMock, selectMock } = vi.hoisted(() => ({
+const { createBatchMock, toastMock, fromMock, selectMock, editorProps } = vi.hoisted(() => ({
+  /** O que a página entregou ao `OptionsEditor` no último render (feature 81). */
+  editorProps: { current: null as Record<string, unknown> | null },
   createBatchMock: vi.fn(),
   toastMock: vi.fn(),
   fromMock: vi.fn(),
@@ -17,7 +21,10 @@ vi.mock('@/entities/product/api/useAdminProducts', () => ({
 vi.mock('@estrelinha/ui/hooks/use-toast', () => ({ toast: toastMock }))
 vi.mock('@estrelinha/supabase/client', () => ({ supabase: { from: fromMock } }))
 vi.mock('@/features/product-form/ui/OptionsEditor', () => ({
-  default: () => <div data-testid="options-editor" />,
+  default: (props: Record<string, unknown>) => {
+    editorProps.current = props
+    return <div data-testid="options-editor" />
+  },
 }))
 
 import AdminQuickGridPage from './AdminQuickGridPage'
@@ -33,12 +40,22 @@ const TSV_8 = [
   'Sem Preço\tanime\t\t5\ttesto\tSEM',
 ].join('\n')
 
-const renderPage = () =>
-  render(
-    <MemoryRouter>
-      <AdminQuickGridPage />
-    </MemoryRouter>,
+/**
+ * Feature 81: a página passou a ler a biblioteca de opções (`useOptionLibrary`), que é React Query —
+ * sem o provedor o render lança "No QueryClient set" (`L-030`). `library` semeia a chave da
+ * biblioteca; com `staleTime: Infinity` nenhuma leitura sai.
+ */
+const renderPage = (library?: unknown) => {
+  const client = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity, retry: false } } })
+  if (library !== undefined) client.setQueryData(OPTION_LIBRARY_KEY, library)
+  return render(
+    <QueryClientProvider client={client}>
+      <MemoryRouter>
+        <AdminQuickGridPage />
+      </MemoryRouter>
+    </QueryClientProvider>,
   )
+}
 
 const colar = (texto: string, linha = 1) =>
   fireEvent.paste(screen.getByLabelText(`Nome da linha ${linha}`), {
@@ -225,5 +242,31 @@ describe('AdminQuickGridPage — padrões do lote (PLS-07 AC 1)', () => {
     expect(cabecalhos.map(h => h.textContent)).toEqual([
       '#', 'Imagem', 'Nome*', 'Categorias', 'Preço*', 'Estoque', 'Tags', 'SKU base', '',
     ])
+  })
+})
+
+describe('AdminQuickGridPage — o editor de opções da feature 81 (OPV-17..20)', () => {
+  it('entrega ao editor a biblioteca do catálogo e chama o card de "Opções", sem "eixo"', () => {
+    const library = [{ name: 'Tamanho', count: 200, values: ['3,5 cm', '4,5 cm', '5,5 cm'] }]
+    renderPage(library)
+
+    expect(editorProps.current?.library).toEqual(library)
+    expect(screen.getByText('Opções')).toBeInTheDocument()
+    expect(screen.queryByText(/eixo/i)).toBeNull()
+  })
+
+  it('a mudança do editor chega aos padrões do lote, com a nova assinatura (opções, mudança)', () => {
+    renderPage([])
+    const onChange = editorProps.current?.onChange as (o: unknown, c: unknown) => void
+    const opcoes = [{ name: 'Tamanho', values: ['3,5 cm'], position: 0 }]
+
+    act(() => onChange(opcoes, { kind: 'values', index: 0 }))
+
+    expect(editorProps.current?.options).toEqual(opcoes)
+  })
+
+  it('sem biblioteca (leitura ainda no ar ou falhada) o editor recebe lista vazia — texto livre (OPV-21)', () => {
+    renderPage()
+    expect(editorProps.current?.library).toEqual([])
   })
 })

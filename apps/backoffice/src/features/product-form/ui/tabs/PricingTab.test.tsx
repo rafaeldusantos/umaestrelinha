@@ -152,6 +152,21 @@ describe('PricingTab — precedência da grade (PFM-15 AC 15-16)', () => {
     expect(onGoToGrid).toHaveBeenCalled()
   })
 
+  it('"Ir para a grade" pode quebrar linha com a fonte grande (QA da 81)', () => {
+    // BUG-20261026-aba-de-precos-rola-com-fonte-grande: a 200 % em 390 o botão sem quebra passava
+    // da largura do aviso e o body rolava na horizontal. Token exato; a medida é do navegador.
+    renderTab({ options: [TAMANHO], variants: [variant()] })
+    const botao = screen.getByRole('button', { name: /Ir para a grade/ }).className.split(/\s+/)
+    expect(botao).toContain('whitespace-normal')
+    expect(botao).not.toContain('whitespace-nowrap')
+    expect(botao).toContain('max-w-full')
+  })
+
+  it('o rótulo "Comprimento" pode partir a palavra numa coluna estreita (QA da 81)', () => {
+    renderTab()
+    expect(screen.getByText('Comprimento').className.split(/\s+/)).toContain('[overflow-wrap:anywhere]')
+  })
+
   it('SEM variações, nenhum aviso — o preço padrão É o cobrado (AC 16)', () => {
     renderTab({ options: [], variants: [] })
 

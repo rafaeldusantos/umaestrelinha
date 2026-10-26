@@ -311,7 +311,7 @@ describe('VFL-01/03/08 — as marcações por opção pela página do produto', 
     montar('/admin/produtos/p1/editar')
     await waitFor(() => expect(screen.getByRole('region', { name: 'Pelas variações' })).toBeInTheDocument())
     abrirPrecos()
-    fireEvent.change(await screen.findByLabelText('Eixo 1'), { target: { value: 'Metal' } })
+    fireEvent.change(await screen.findByLabelText('Nome da opção'), { target: { value: 'Metal' } })
     await salvarRascunho()
 
     const porOpcao = h.diario.filter(e => e.table === 'product_option_filter_values')

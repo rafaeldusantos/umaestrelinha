@@ -1,12 +1,11 @@
-// Ações da grade (PFM-08 AC 6, 9, 10, 14) — transformações puras sobre a lista de variações.
+// Ações da grade (PFM-08 AC 9, 10, 14) — transformações puras sobre a lista de variações.
 //
 // Tudo aqui é função pura de propósito: "aplicar +10% só nas linhas vazias do grupo 4,5 cm" é
 // aritmética com regra de negócio, e aritmética errada numa grade de 60 linhas é dinheiro. A UI
 // só chama e mostra.
 
-import { cartesian, diffGrid, optionValuesKey, skuFromParts } from '@estrelinha/core/pricing'
+import { optionValuesKey, skuFromParts } from '@estrelinha/core/pricing'
 import type { OptionValues, ProductOption, ProductVariant } from '@estrelinha/supabase/types'
-import { tempVariantId } from './persistProduct'
 
 /** Colunas numéricas que **Preencher coluna** sabe preencher. */
 export type NumericField = 'price' | 'compare_price' | 'stock' | 'weight_kg'
@@ -129,66 +128,4 @@ export const fillColumn = ({
     if (mode === 'empty' && !isEmpty(variant[field] as number | null)) return variant
     return { ...variant, [field]: next === null ? null : roundFor(field, next) }
   })
-}
-
-// --- Regerar do cruzamento ---------------------------------------------------------------------
-
-export interface RegeneratePlan {
-  /** Combinações que ainda não têm linha. */
-  toCreate: OptionValues[]
-  /** Linhas órfãs: existem hoje e não estão no cruzamento novo. */
-  toRemove: ProductVariant[]
-  /** Linhas que sobrevivem, com preço/estoque/SKU **intactos**. */
-  toKeep: ProductVariant[]
-}
-
-/**
- * O plano que a UI mostra **antes** de aplicar (AC 6). Nada é alterado aqui.
- *
- * É `diffGrid` da 07/T10, que já garante o contrato que importa: `toKeep` devolve o **objeto
- * original**, não uma cópia reconstruída — regerar não pode zerar o preço de quem já estava lá.
- */
-export const buildRegeneratePlan = (
-  variants: readonly ProductVariant[],
-  options: readonly ProductOption[],
-): RegeneratePlan => {
-  const combos = cartesian(options)
-  const diff = diffGrid(variants, combos)
-  return { toCreate: diff.toCreate, toRemove: diff.toRemove, toKeep: diff.toKeep }
-}
-
-export interface ApplyRegenerateOptions {
-  /** `false` mantém as órfãs na grade (o admin pode preferir pausá-las). Default: remove. */
-  removeOrphans?: boolean
-  /** Herdado pelas linhas novas: `products.stock_policy = 'none'` não controla saldo. */
-  defaultStock?: number
-}
-
-/**
- * Aplica o plano. As linhas novas nascem **sem preço e pausadas** — o mesmo princípio da migração
- * da 07/T2: nenhuma linha entra na loja antes de alguém dizer quanto ela custa.
- */
-export const applyRegenerate = (
-  variants: readonly ProductVariant[],
-  options: readonly ProductOption[],
-  productId: string,
-  { removeOrphans = true, defaultStock = 0 }: ApplyRegenerateOptions = {},
-): ProductVariant[] => {
-  const plan = buildRegeneratePlan(variants, options)
-  const kept = removeOrphans ? plan.toKeep : [...plan.toKeep, ...plan.toRemove]
-  const created: ProductVariant[] = plan.toCreate.map((option_values, index) => ({
-    id: tempVariantId(),
-    product_id: productId,
-    option_values,
-    name: null,
-    sku: null,
-    price: null,
-    compare_price: null,
-    stock: defaultStock,
-    weight_kg: null,
-    image_url: null,
-    is_active: false,
-    position: kept.length + index,
-  }))
-  return [...kept, ...created]
 }

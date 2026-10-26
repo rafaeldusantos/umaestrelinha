@@ -26,7 +26,6 @@ interface Props {
   slug: string
   onChange: (variants: ProductVariant[]) => void
   onClearSelection: () => void
-  onRegenerate: () => void
   /**
    * Exclusão em massa. **Delegada**, não feita aqui: cada linha precisa passar pela consulta a
    * `order_items` (AC 9a), e uma barra de ações não tem como fazer isso sem duplicar a regra.
@@ -55,7 +54,6 @@ const GridToolbar = ({
   slug,
   onChange,
   onClearSelection,
-  onRegenerate,
   onRequestBulkDelete,
 }: Props) => {
   const [bulkPrice, setBulkPrice] = useState<number | null>(null)
@@ -76,13 +74,15 @@ const GridToolbar = ({
     <div className="space-y-2">
       <div className="flex flex-wrap items-end gap-2 rounded-xl border border-border bg-muted/30 p-2">
         {/* Preencher coluna — ação de COLUNA, disponível sempre. */}
-        <div className="space-y-1">
+        {/* `min-w-0 max-w-full` + `max-w-full` nos seletores: as larguras fixas em rem passavam
+            da barra com a fonte do sistema a 200 % em 390 (QA da 81). */}
+        <div className="min-w-0 max-w-full space-y-1">
           <label className="text-xs text-muted-foreground" htmlFor="fill-field">
             Preencher coluna
           </label>
           <div className="flex flex-wrap items-center gap-2">
             <Select value={fillField} onValueChange={value => setFillField(value as NumericField)}>
-              <SelectTrigger className="h-8 w-36" id="fill-field" aria-label="Coluna">
+              <SelectTrigger className="h-8 w-36 max-w-full" id="fill-field" aria-label="Coluna">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -94,7 +94,7 @@ const GridToolbar = ({
             </Select>
 
             <Select value={fillMode} onValueChange={value => setFillMode(value as FillMode)}>
-              <SelectTrigger className="h-8 w-44" aria-label="Modo">
+              <SelectTrigger className="h-8 w-44 max-w-full" aria-label="Modo">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -108,7 +108,7 @@ const GridToolbar = ({
 
             {fillMode === 'copyGroup' ? (
               <Select value={fillGroup} onValueChange={setFillGroup}>
-                <SelectTrigger className="h-8 w-36" aria-label="Grupo de origem">
+                <SelectTrigger className="h-8 w-36 max-w-full" aria-label="Grupo de origem">
                   <SelectValue placeholder="Grupo de origem" />
                 </SelectTrigger>
                 <SelectContent>
@@ -150,12 +150,6 @@ const GridToolbar = ({
               Preencher
             </Button>
           </div>
-        </div>
-
-        <div className="ml-auto">
-          <Button type="button" size="sm" variant="outline" onClick={onRegenerate}>
-            Regerar do cruzamento
-          </Button>
         </div>
       </div>
 

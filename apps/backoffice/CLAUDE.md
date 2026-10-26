@@ -1153,9 +1153,79 @@ pública (a `products` tem, e sem recorte de coluna — é por isso que o fornec
 - **Visões salvas** antigas não têm `supplierIds`: `readSavedViews` completa com `emptyFilters()`. Filtro
   novo em `ProductFilters` precisa do mesmo cuidado.
 
+## Opções e variações do produto (feature `81`, `AD-063`)
+
+Aba *Preços & variações* do formulário do produto. A grade deixou de ter o botão **Regerar do
+cruzamento**, e o card **Imagem por variação** saiu: a imagem se escolhe (e se envia) na própria linha.
+
+- **A grade é derivada das opções no momento da EDIÇÃO, nunca na leitura.** Quem sincroniza é a
+  página: cada `onChange(next, change)` do `OptionsEditor` passa por `syncGrid`
+  (`features/product-form/model/gridSync.ts`, puro) com a **mudança tipada** — o que a tela fez
+  (`values`, `rename`, `addOption`, `removeOption`, `move`), não o array resultante. Abrir o produto
+  **não** chama `syncGrid` (OPV-08): o banco pode guardar uma grade que diverge do cruzamento, e
+  reconciliar na carga sujaria o formulário e apagaria linhas sem ninguém pedir.
+- **O refletido mora num `ref` da página**, e recomeça de `form.options` sempre que as opções chegam
+  por OUTRO caminho (carga, releitura depois do save, rascunho restaurado). Quem detecta é o
+  `lastEmitted`: se `form.options` não é o array que a página emitiu por último, ele veio de fora.
+- **Linha nova nasce ATIVA com os padrões do produto** (preço, preço "de", peso; `null` quando 0),
+  estoque 0. Linha que continua no cruzamento volta como o **mesmo objeto**.
+- **Linha com id real que sai do cruzamento NÃO some na hora.** `syncGrid` a devolve em `orphans` a
+  cada chamada; a página consulta `order_items` (`checkVariantOrders`, a mesma da exclusão) e aplica
+  o veredito com `applyOrphanChecks` **por id sobre a grade de agora** (OPV-25): sem pedido sai;
+  vendida **ou consulta que falhou** fica **pausada**, e o aviso `role="alert"` a nomeia ("Estas
+  variações já foram vendidas e ficaram pausadas: …"). A página guarda o **conjunto de ids já
+  conferidos** (`checkedOrphans`) para não repetir a consulta; a linha que **voltou** ao cruzamento
+  enquanto a consulta estava no ar não é removida nem pausada, e sai do conjunto.
+- **As sugestões do editor são DERIVADAS do catálogo** (`entities/product/lib/optionLibrary.ts` +
+  `api/useOptionLibrary.ts`), sem tabela de modelos. A chave é `[...PRODUCT_POOL_KEY, 'options']`,
+  então quem grava produto já a invalida pelo prefixo do pool. Leitura falhada ou ainda no ar ⇒
+  biblioteca vazia e o editor vira texto livre. A grade rápida usa o mesmo editor e a mesma
+  biblioteca, mas monta a grade dela no salvar (a mudança tipada não é usada lá).
+- **A imagem da linha é `VariantImagePicker`**: botão de 48px na célula, modal com todas as imagens
+  do produto, "Usar a principal" e "Adicionar imagens" pelo **mesmo** motor da aba Mídia
+  (`uploadProductImages`). A foto enviada entra em `form.images` (aparece na Mídia) e fica escolhida
+  para a linha; o envio usa o **mesmo** `setUploading` da galeria, que trava o salvar.
+  `clearMissingVariantImages` continua sendo chamada pela galeria: foto removida faz a linha voltar à
+  principal.
+- **O contêiner que rola a grade é `relative overflow-x-auto`**, e o `relative` não é estilo: o `Switch`
+  do Radix desenha, dentro de um `<form>`, um `<input>` nativo escondido com `position: absolute`. Sem
+  um bloco de contenção dentro do contêiner, o `overflow-x-auto` não o recorta e o documento passava a
+  medir 851px em 390 (rolagem horizontal do body). Achado na prova em navegador da `81`; existia antes
+  dela. `VariantsTable.test.tsx` cobra o token.
+- **O modal da imagem tem altura máxima da viewport e rola por dentro** (`max-h-[calc(100dvh-2rem)]
+  overflow-y-auto`). O `DialogContent` compartilhado não tem teto: com as 28 fotos do maior produto do
+  catálogo, centrado por `translate`, ele perdia o topo em 390 — título e "Usar a principal" fora da
+  tela e sem rolagem. Achado no QA; todo modal cuja lista tem o tamanho do dado precisa do mesmo par.
+- **A linha nova vai depois da MAIOR posição que ficou**, nunca em "quantas ficaram": quando sai uma
+  linha do meio, as que ficam guardam posições acima da contagem e a nova colidia (0, 1, 3, 4, 4, 5 no
+  banco, achado no QA). As que ficam não são renumeradas — seriam outro objeto, e OPV-03 cai.
+- **A aba aguenta a fonte do sistema a 200 % em 390** desde o QA: as abas do formulário,
+  "Adicionar opção" e "Ir para a grade" quebram linha (`whitespace-normal max-w-full`), e os seletores
+  do "Preencher coluna" têm teto (`max-w-full`, coluna `min-w-0`). Cobrado por token exato.
+- **As sugestões de valor são CONJUNTOS, não a união do catálogo** (decidido em 2026-10-26 pela
+  recomendação do QA, confirmar). A união dava 50 valores para "Tamanho" (aro, mm, cm, P/M/G) num
+  botão só. Agora `suggestValueSets` (`entities/product/lib/optionLibrary.ts`, pura) oferece até 3
+  conjuntos — o de cada produto, agrupado pela dobra e sem ordem, ordenado pelo nº de produtos —, e
+  `remainingValues` mantém os chips enquanto sobrar valor não usado. O editor só desenha. O acréscimo
+  compara pela dobra ("3,5 CM" já é "3,5 cm").
+- **Devolver o valor de uma variação vendida não a religa**: só OPV-02 e OPV-04 mudam `is_active`
+  sozinhos. O aviso diz isso e aponta o interruptor "Ativa" da grade (literal no teste da página).
+  **O aviso nomeia só as que AINDA estão pausadas** (reteste de QA): a página guarda os ids de cada
+  rótulo (`mergePausedIds`) e desenha `stillPausedLabels` sobre a grade de agora — ligar "Ativa", o
+  que o próprio aviso manda, tira a linha dele; antes o texto seguia dizendo "ficaram pausadas" ao
+  lado da linha ligada.
+- **A prova é a página real** (`pages/admin/AdminProductFormPage.variacoes.test.tsx`), com um diário
+  de escritas e a contagem de `order_items` por variação controlável (número, falha ou promessa a
+  resolver). Os testes de página que não dublam o client deixam `useOptionLibrary` ler pelo dublê, que
+  devolve contagem zero; a grade rápida ganhou o `QueryClientProvider` no helper (`L-030`).
+
 ## Dívidas conhecidas deste app
 
-- **A baseline de testes do painel é 3648 em 207 arquivos**, todos passando (2026-10-22, depois da
+- **A baseline de testes do painel é 3853 em 218 arquivos** nesta branch (base `master`), todos
+  passando (2026-10-26, depois do reteste de QA da `81`, +4; era 3848/218 depois do conserto da rodada 3 do Verificador da `81`, +6; era 3842/218 depois do conserto da r2; era 3836/218 depois das três decisões do QA da `81`, +13; era 3823/218 depois do QA; era 3815/218 depois do conserto da rodada 1 do
+  Verificador da `81`, e 3808/218 no fecho
+  da implementação; um workspace por vez, exit code fora de pipe). A linha de antes, da branch de integração:
+- **A baseline de testes do painel era 3648 em 207 arquivos**, todos passando (2026-10-22, depois da
   prova de ponta a ponta da `71` — +3/+1 dos dois consertos do ⓘ; era 3645/206 no fecho da
   feature `71` e dos consertos da verificação r1 dela, um workspace por vez e com exit code capturado fora de pipe). *(Dizia `2704/148`,
   do fecho da `51`, e estava velha havia vinte features.)* A linha de antes:

@@ -69,7 +69,13 @@ const PricingTab = ({ form, setField, onGoToGrid, afterPrice }: Props) => {
               quem manda no preço cobrado é a grade abaixo. A vitrine mostra a partir de{' '}
               <strong>{formatPrice(range!.min)}</strong>.
             </span>
-            <Button type="button" size="sm" variant="outline" onClick={onGoToGrid}>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-auto min-h-9 max-w-full whitespace-normal py-1.5"
+              onClick={onGoToGrid}
+            >
               <ArrowDown className="mr-1 h-3.5 w-3.5" /> Ir para a grade
             </Button>
           </div>
@@ -237,7 +243,9 @@ const PricingTab = ({ form, setField, onGoToGrid, afterPrice }: Props) => {
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="length_cm">Comprimento</Label>
+            <Label htmlFor="length_cm" className="[overflow-wrap:anywhere]">
+              Comprimento
+            </Label>
             <DimensionInput
               id="length_cm"
               value={form.length_cm}

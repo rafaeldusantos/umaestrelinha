@@ -1399,9 +1399,53 @@
   RLS — por isso `fornecedorForaDaLoja.test.ts` recusa o nome das tabelas em `apps/store` e em
   `supabase/functions`.
 
+### AD-063
+- **Decision**: **a grade de variações do produto é derivada das opções no momento da EDIÇÃO, por uma
+  função pura (`syncGrid`), e nunca na leitura.** O botão "Regerar do cruzamento" saiu; quem
+  sincroniza é a página, a cada mudança tipada do `OptionsEditor`. Feature `81`.
+- **Reason**: o banco pode guardar uma grade que diverge do cruzamento (órfãs vendidas e pausadas).
+  Sincronizar na abertura sujaria o formulário e apagaria linhas sem ninguém pedir (OPV-08).
+- **Decision**: linha com id real que sai do cruzamento **não** é apagada pela função: ela fica na
+  grade e volta em `orphans`, e a página só a tira depois de consultar `order_items` — vendida ou
+  consulta que falhou ⇒ pausada (a FK `order_items.variant_id` é `NO ACTION`). O veredito é aplicado
+  por id sobre a grade atual.
+- **Decision**: as sugestões de nome e valor do editor são **derivadas** de `products.options` do
+  catálogo inteiro (sem tabela de modelos — uma tabela seria um segundo dono do que o catálogo já diz).
+- **Consequence**: `syncGrid` mora em `features/product-form/model`, não em `core`: hoje há um
+  consumidor só (a grade rápida monta a grade no salvar, por outro caminho). Se um segundo aparecer,
+  sobe para `core/pricing/grid.ts`, ao lado de `diffGrid`. O número `AD-063` vem do `design.md` da `81`;
+  nesta branch o anterior visível é o `AD-057` — conferir a numeração no merge com as outras branches.
+
 ## Handoff
 
-### ATUAL — 2026-10-22 · `80-fornecedor-da-peca` **IMPLEMENTADA, provada no banco local e em navegador, SEM COMMIT**
+### ATUAL — 2026-10-26 · `81-opcoes-e-variacoes-do-produto` **IMPLEMENTADA (T01..T10), verificada, provada em navegador, QA e reteste de QA feitos — SEM COMMIT**
+
+- **Feature**: `.specs/features/81-opcoes-e-variacoes-do-produto/` (`spec.md`, `design.md`,
+  `tasks.md`, `baseline.md`). Decisão `AD-063`. Branch `feat/81-opcoes-e-variacoes-do-produto`, base
+  `master` em `fc2b3b60`. **Sem migration, sem `core`.**
+- **O que entrega**: a grade acompanha as opções sem clique (linha nova ativa com preço, preço "de" e
+  peso padrão); remover valor tira a linha sem pedido e pausa a vendida, com aviso que a nomeia; o
+  editor fala "Nome da opção"/"Valores"/"Adicionar opção" e sugere nomes e valores do catálogo; a
+  imagem de cada variação se escolhe e se envia na própria linha (o card "Imagem por variação" e o
+  "Regerar do cruzamento" saíram).
+- **Gates** (2026-10-26, um workspace por vez, `--testTimeout=20000`, exit fora de pipe): backoffice
+  **3808/218** (entrada 3706/211; quedas declaradas −16 do Regerar e −5 do card de imagem), store
+  **5754/314** idêntica, `tsc` 0, lint 23/5, build do painel verde.
+- **Feito depois do fecho**: Verificador em três rodadas (`validation.md`), prova em navegador
+  (`prova-navegador.md`), QA (`docs/qa/reports/2026-10-26-opcoes-e-variacoes.md`) e as três decisões
+  aplicadas pela recomendação do QA (conjuntos, chips que ficam, frase da pausa — a confirmar).
+- **Reteste de QA** (2026-10-26, `docs/qa/reports/2026-10-26-opcoes-e-variacoes-reteste.md`): os 4
+  bugs e as 3 decisões passam em 390, 1440 e fonte 200 % no 390; grade rápida em 390 e 1440. Um bug
+  novo, consertado com teste vermelho antes: o aviso de pausa continuava depois de ligar "Ativa"
+  (`BUG-20261026-aviso-de-pausa-continua-depois-de-reativar`). Uma decisão nova:
+  `BUG-20261026-chips-ocupam-a-tela-depois-do-conjunto` (o bloco segue com 936px em 390 depois de um
+  conjunto). Gates: backoffice **3852/218**, store **5754/314**, `tsc` 0 · 0, lint 23/5 · 2/2, build
+  dos dois apps verde. Produto de teste e as duas fotos apagados do banco local e do Storage.
+- **Pendente**: as decisões da dona (A1..A9 e as três aplicadas pela recomendação, a dos chips, o
+  "Close" em inglês e os alvos pequenos do editor), Android real e leitor de tela, e o commit (só
+  quando o usuário pedir).
+
+### 2026-10-22 · `80-fornecedor-da-peca` **IMPLEMENTADA, provada no banco local e em navegador, SEM COMMIT**
 
 - **Feature**: `.specs/features/80-fornecedor-da-peca/` (`spec.md`, `tasks.md`, `probes/rls.sh`,
   `prova-navegador.md`, `validation.md`). Decisão `AD-057`. Worktree `../store-80-fornecedor`, branch

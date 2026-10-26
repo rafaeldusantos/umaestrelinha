@@ -1,16 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import {
   applyBulk,
-  applyRegenerate,
-  buildRegeneratePlan,
   fillColumn,
   generateSkus,
 } from './gridActions'
-import { isTempVariantId } from './persistProduct'
 import type { ProductOption, ProductVariant } from '@estrelinha/supabase/types'
 
-// PFM-08 AC 6, 9, 10 e 14: ações em massa só nas selecionadas, Preencher coluna nos 4 modos, e
-// Regerar mostrando o diff antes de aplicar sem destruir o que já existia.
+// PFM-08 AC 9, 10 e 14: ações em massa só nas selecionadas e Preencher coluna nos 4 modos.
+// O "Regerar do cruzamento" (AC 6) saiu na feature 81 (OPV-10): a grade acompanha as opções
+// sozinha, e o que importava daqueles casos — `toKeep` pelo objeto original, órfã nunca apagada às
+// cegas — é provado em `gridSync.test.ts`.
 
 const options: ProductOption[] = [
   { name: 'Tamanho', values: ['3,5 cm', '4,5 cm'], position: 0 },
@@ -202,108 +201,5 @@ describe('fillColumn — modo `copyGroup` (AC 10)', () => {
     expect(
       fillColumn({ variants: before, field: 'price', mode: 'copyGroup', sourceGroup: 'x', options: [] }),
     ).toEqual(before)
-  })
-})
-
-describe('buildRegeneratePlan — o diff ANTES de aplicar (AC 6)', () => {
-  it('conta o que vai ser criado e o que vai ser removido, sem alterar nada', () => {
-    const antes = [
-      variant('v-35-fos', { option_values: { Tamanho: '3,5 cm', Acabamento: 'Fosco' } }),
-      variant('v-orfa', { option_values: { Tamanho: '9,9 cm', Acabamento: 'Fosco' } }),
-    ]
-
-    const plan = buildRegeneratePlan(antes, options)
-
-    expect(plan.toCreate).toHaveLength(3)
-    expect(plan.toRemove.map(v => v.id)).toEqual(['v-orfa'])
-    expect(plan.toKeep.map(v => v.id)).toEqual(['v-35-fos'])
-    // Nada foi mutado.
-    expect(antes).toHaveLength(2)
-  })
-
-  it('`toKeep` devolve o OBJETO ORIGINAL — regerar não zera preço de quem já estava lá', () => {
-    const existente = variant('v-35-fos', {
-      option_values: { Tamanho: '3,5 cm', Acabamento: 'Fosco' },
-      price: 4.9,
-      stock: 7,
-      sku: 'SLR-35-FOS',
-    })
-
-    const plan = buildRegeneratePlan([existente], options)
-
-    expect(plan.toKeep[0]).toBe(existente)
-    expect(plan.toKeep[0].price).toBe(4.9)
-  })
-
-  it('reduzir de 2 eixos para 1: as 4 combinações antigas viram ÓRFÃS (edge case da spec)', () => {
-    // A spec exige que "as variações do cruzamento antigo apareçam no diff como a remover, e
-    // nenhuma suma sem o admin confirmar". Com um eixo só, nenhuma linha de 2 eixos sobrevive —
-    // e as 2 combinações de 1 eixo passam a ser novas. As duas metades são verdade ao mesmo tempo.
-    const plan = buildRegeneratePlan(grid(), [options[0]])
-
-    expect(plan.toRemove).toHaveLength(4)
-    expect(plan.toKeep).toEqual([])
-    expect(plan.toCreate).toEqual([{ Tamanho: '3,5 cm' }, { Tamanho: '4,5 cm' }])
-  })
-
-  it('grade já completa não tem nada a criar nem a remover', () => {
-    const plan = buildRegeneratePlan(grid(), options)
-    expect(plan.toCreate).toEqual([])
-    expect(plan.toRemove).toEqual([])
-  })
-})
-
-describe('applyRegenerate', () => {
-  it('linhas novas nascem SEM PREÇO e PAUSADAS — nenhuma entra na loja por acidente', () => {
-    const next = applyRegenerate([], options, 'p1')
-
-    expect(next).toHaveLength(4)
-    next.forEach(v => {
-      expect(v.price).toBeNull()
-      expect(v.is_active).toBe(false)
-      expect(isTempVariantId(v.id)).toBe(true)
-    })
-  })
-
-  it('preserva as existentes com preço e estoque intactos', () => {
-    const existente = variant('v-35-fos', {
-      option_values: { Tamanho: '3,5 cm', Acabamento: 'Fosco' },
-      price: 4.9,
-      stock: 7,
-    })
-
-    const next = applyRegenerate([existente], options, 'p1')
-
-    const mantida = next.find(v => v.id === 'v-35-fos')!
-    expect(mantida.price).toBe(4.9)
-    expect(mantida.stock).toBe(7)
-  })
-
-  it('remove as órfãs por padrão', () => {
-    const orfa = variant('v-orfa', { option_values: { Tamanho: '9,9 cm', Acabamento: 'Fosco' } })
-    const next = applyRegenerate([orfa], options, 'p1')
-
-    expect(next.some(v => v.id === 'v-orfa')).toBe(false)
-  })
-
-  it('com removeOrphans false, mantém as órfãs na grade', () => {
-    const orfa = variant('v-orfa', { option_values: { Tamanho: '9,9 cm', Acabamento: 'Fosco' } })
-    const next = applyRegenerate([orfa], options, 'p1', { removeOrphans: false })
-
-    expect(next.some(v => v.id === 'v-orfa')).toBe(true)
-  })
-
-  it('a position das novas continua a das mantidas, sem colidir', () => {
-    const existente = variant('v-35-fos', {
-      option_values: { Tamanho: '3,5 cm', Acabamento: 'Fosco' },
-      position: 0,
-    })
-    const next = applyRegenerate([existente], options, 'p1')
-
-    expect(new Set(next.map(v => v.position)).size).toBe(next.length)
-  })
-
-  it('sem eixos, regerar não cria nada — não existe cruzamento de zero eixos', () => {
-    expect(applyRegenerate([], [], 'p1')).toEqual([])
   })
 })

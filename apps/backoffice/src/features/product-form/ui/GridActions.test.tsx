@@ -1,10 +1,11 @@
-import { describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { beforeAll, describe, expect, it, vi } from 'vitest'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import VariantsTable from './VariantsTable'
+import { enableRadixSelectInJsdom, RADIX_POINTER_DOWN } from '@/test/radix'
 import type { ProductOption, ProductVariant } from '@estrelinha/supabase/types'
 
-// PFM-08 AC 6, 9, 10, 14 na SUPERFÍCIE: a barra em massa só age nas selecionadas, Preencher coluna
-// respeita o modo, e Regerar mostra o diff ANTES de aplicar — cancelar não muda nada.
+// PFM-08 AC 9, 10, 14 na SUPERFÍCIE: a barra em massa só age nas selecionadas e Preencher coluna
+// respeita o modo. (O "Regerar do cruzamento" saiu na feature 81, OPV-10.)
 // A aritmética está provada em `model/gridActions.test.ts`; aqui se prova que a tela obedece.
 
 const options: ProductOption[] = [
@@ -45,7 +46,8 @@ const renderTable = (over: Partial<React.ComponentProps<typeof VariantsTable>> =
       selectedIds={[]}
       onSelectionChange={vi.fn()}
       slug="botton-sailor-moon"
-      productId="p1"
+      images={[]}
+      onImagesAdded={vi.fn()}
       {...over}
     />,
   )
@@ -118,7 +120,8 @@ describe('Excluir em massa passa pela checagem de AC 9a', () => {
         selectedIds={['v-35-fos', 'v-45-fos']}
         onSelectionChange={vi.fn()}
         slug="botton-sailor-moon"
-        productId="p1"
+        images={[]}
+      onImagesAdded={vi.fn()}
       />,
     )
 
@@ -142,7 +145,8 @@ describe('Excluir em massa passa pela checagem de AC 9a', () => {
         selectedIds={['v-a']}
         onSelectionChange={vi.fn()}
         slug="s"
-        productId="p1"
+        images={[]}
+      onImagesAdded={vi.fn()}
       />,
     )
 
@@ -174,77 +178,32 @@ describe('Preencher coluna (AC 10)', () => {
   })
 })
 
-describe('Regerar do cruzamento (AC 6)', () => {
-  it('mostra `N a criar · M a remover` ANTES de aplicar', async () => {
+
+// QA da 81 (BUG-20261026-aba-de-precos-rola-com-fonte-grande): as larguras fixas dos seletores do
+// "Preencher coluna" (`w-36`, `w-44`, em rem) passavam da barra com a fonte a 200 % em 390, e o body
+// rolava na horizontal. Token exato; a medida é do navegador.
+describe('Preencher coluna — fonte grande não estoura a largura', () => {
+  it('os seletores e a coluna que os contém encolhem até a largura da barra', () => {
     renderTable()
-
-    fireEvent.click(screen.getByRole('button', { name: 'Regerar do cruzamento' }))
-
-    await waitFor(() => expect(screen.getByTestId('regenerate-summary')).toBeInTheDocument())
-    // A grade tem 2 das 4 combinações; nenhuma órfã.
-    expect(screen.getByTestId('regenerate-summary').textContent).toBe('2 a criar · 0 a remover')
+    for (const nome of ['Coluna', 'Modo']) {
+      const gatilho = screen.getByRole('combobox', { name: nome })
+      expect(gatilho.className.split(/\s+/)).toContain('max-w-full')
+    }
+    const coluna = screen.getByText('Preencher coluna').parentElement!
+    expect(coluna.className.split(/\s+/)).toEqual(expect.arrayContaining(['min-w-0', 'max-w-full']))
   })
+  // Verifier r2, G9 (N11): o terceiro seletor só existe no modo "Copiar de outro grupo", e o conserto
+  // do QA o tocou junto com os outros dois. Sem este caso, tirar o `max-w-full` dele ficava verde.
+  describe('no modo "Copiar de outro grupo"', () => {
+    beforeAll(enableRadixSelectInJsdom)
 
-  it('cancelar NÃO muda nada', async () => {
-    const { onChange } = renderTable()
-    fireEvent.click(screen.getByRole('button', { name: 'Regerar do cruzamento' }))
-    await waitFor(() => expect(screen.getByTestId('regenerate-summary')).toBeInTheDocument())
+    it('o seletor "Grupo de origem" também encolhe até a largura da barra', () => {
+      renderTable()
+      fireEvent.pointerDown(screen.getByRole('combobox', { name: 'Modo' }), RADIX_POINTER_DOWN)
+      fireEvent.click(screen.getByRole('option', { name: 'Copiar de outro grupo' }))
 
-    fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
-
-    expect(onChange).not.toHaveBeenCalled()
-  })
-
-  it('aplicar cria as faltantes pausadas e preserva o preço das existentes', async () => {
-    const { onChange } = renderTable()
-    fireEvent.click(screen.getByRole('button', { name: 'Regerar do cruzamento' }))
-    await waitFor(() => expect(screen.getByTestId('regenerate-summary')).toBeInTheDocument())
-
-    fireEvent.click(screen.getByRole('button', { name: 'Aplicar' }))
-
-    const next = onChange.mock.calls.at(-1)![0] as ProductVariant[]
-    expect(next).toHaveLength(4)
-    expect(next.find(v => v.id === 'v-35-fos')!.price).toBe(4.9)
-    const criadas = next.filter(v => v.id.startsWith('tmp-'))
-    expect(criadas).toHaveLength(2)
-    criadas.forEach(v => {
-      expect(v.is_active).toBe(false)
-      expect(v.price).toBeNull()
+      const gatilho = screen.getByRole('combobox', { name: 'Grupo de origem' })
+      expect(gatilho.className.split(/\s+/)).toContain('max-w-full')
     })
-  })
-
-  it('nomeia as linhas que vão sair, para a remoção não ser surpresa', async () => {
-    renderTable({
-      variants: [variant('v-orfa', { option_values: { Tamanho: '9,9 cm', Acabamento: 'Fosco' } })],
-    })
-
-    fireEvent.click(screen.getByRole('button', { name: 'Regerar do cruzamento' }))
-
-    await waitFor(() => expect(screen.getByTestId('regenerate-summary')).toBeInTheDocument())
-    expect(screen.getByTestId('regenerate-summary').textContent).toBe('4 a criar · 1 a remover')
-    // O rótulo também aparece na LINHA da tabela, então a busca é dentro do diálogo — é lá que a
-    // lista "estas linhas saem" precisa nomear a variação.
-    expect(within(screen.getByRole('dialog')).getByText('9,9 cm · Fosco')).toBeInTheDocument()
-  })
-
-  it('grade já completa: Aplicar fica desabilitado', async () => {
-    renderTable({
-      variants: [
-        variant('a', { option_values: { Tamanho: '3,5 cm', Acabamento: 'Fosco' } }),
-        variant('b', { option_values: { Tamanho: '3,5 cm', Acabamento: 'Brilhante' } }),
-        variant('c', { option_values: { Tamanho: '4,5 cm', Acabamento: 'Fosco' } }),
-        variant('d', { option_values: { Tamanho: '4,5 cm', Acabamento: 'Brilhante' } }),
-      ],
-    })
-
-    fireEvent.click(screen.getByRole('button', { name: 'Regerar do cruzamento' }))
-
-    await waitFor(() => expect(screen.getByTestId('regenerate-summary')).toBeInTheDocument())
-    expect(screen.getByRole('button', { name: 'Aplicar' })).toBeDisabled()
-  })
-
-  it('a barra existe mesmo com a grade vazia — é como se cria a primeira grade', () => {
-    renderTable({ variants: [] })
-    expect(screen.getByRole('button', { name: 'Regerar do cruzamento' })).toBeInTheDocument()
   })
 })
