@@ -8,6 +8,7 @@ import { corsHeaders, json, preflight } from '../http.ts'
 import { corsHeaders as mpCors, json as mpJson } from '../../mercado-pago/handlers.ts'
 import { corsHeaders as notifCors, json as notifJson } from '../../send-notification/handlers.ts'
 import { corsHeaders as adminCors, json as adminJson } from '../../admin-users/handlers.ts'
+import { corsHeaders as avisosCors, json as avisosJson } from '../../atelie-avisos/handlers.ts'
 
 /**
  * O cabeçalho CORS das edge functions tem **um** dono.
@@ -100,6 +101,11 @@ describe('_shared/http.ts é o dono único do CORS das functions', () => {
     expect(mpJson).toBe(json)
     expect(notifJson).toBe(json)
     expect(adminJson).toBe(json)
+  })
+
+  it('a porta das inscrições do aviso no celular (feature 79) reexporta a MESMA referência', () => {
+    expect(avisosCors).toBe(corsHeaders)
+    expect(avisosJson).toBe(json)
   })
 })
 

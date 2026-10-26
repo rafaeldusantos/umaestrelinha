@@ -4,7 +4,7 @@
   "outputDirectory": "dist",
   "installCommand": "cd ../.. && pnpm install --frozen-lockfile",
   "buildCommand": "pnpm build",
-  "rewrites": [{ "source": "/((?!sw\\.js$|manifest\\.webmanifest$|registerSW\\.js$|workbox-).*)", "destination": "/index.html" }],
+  "rewrites": [{ "source": "/((?!sw\\.js$|sw-avisos\\.js$|manifest\\.webmanifest$|registerSW\\.js$|workbox-).*)", "destination": "/index.html" }],
   "headers": [
     {
       "source": "/assets/(.*)",
@@ -14,6 +14,12 @@
     },
     {
       "source": "/sw.js",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache" }
+      ]
+    },
+    {
+      "source": "/sw-avisos.js",
       "headers": [
         { "key": "Cache-Control", "value": "no-cache" }
       ]

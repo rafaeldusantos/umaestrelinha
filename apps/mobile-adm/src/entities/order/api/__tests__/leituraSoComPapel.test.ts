@@ -5,9 +5,9 @@
 //
 // **Pela AST do TypeScript**, não por regex (a lição do guarda da `67`: régua de uso por regex mede a
 // grafia, não a chamada). Três réguas:
-//   1. só oito arquivos de produção importam o client (`@estrelinha/supabase/client`): `lerComPapel.ts`,
-//      os dois hooks de pedido, a porta de escrita (`75`) e, desde a `76`, os quatro de cliente —
-//      allowlist literal;
+//   1. só nove arquivos de produção importam o client (`@estrelinha/supabase/client`): `lerComPapel.ts`,
+//      os dois hooks de pedido, a porta de escrita (`75`), desde a `76` os quatro de cliente e, desde a
+//      `79`, a porta dos avisos — allowlist literal;
 //   2. nos dois hooks, toda referência a `supabase` é o receptor de um `.from(` (nada de passar o client
 //      adiante, nada de `const db = supabase`), e toda chamada `supabase.from(` é ALCANÇÁVEL SÓ por
 //      `lerComPapel`: ou está dentro de uma função passada a `lerComPapel(`, ou dentro de uma função
@@ -39,7 +39,11 @@ const HOOKS_DE_CLIENTE = [
   'entities/customer/api/usePedidosDoCliente.ts',
   'entities/customer/api/buscarClientePorEmail.ts',
 ]
-const IMPORTAM_O_CLIENT = [LER_COM_PAPEL, ...HOOKS, PORTA_DE_ESCRITA, ...HOOKS_DE_CLIENTE]
+// Feature `79` (T17): a porta dos avisos (o único `functions.invoke` do app). Não lê tabela — o vizinho
+// `escritaSoPelaPorta.test.ts` prova que nela o client só é receptor de `.functions.invoke(`; aqui a
+// régua 3 abaixo prova que ela não tem um `supabase.from(` sequer.
+const PORTA_DE_AVISOS = 'features/push-notifications/api/portaDeAvisos.ts'
+const IMPORTAM_O_CLIENT = [LER_COM_PAPEL, ...HOOKS, PORTA_DE_ESCRITA, ...HOOKS_DE_CLIENTE, PORTA_DE_AVISOS]
 
 const arquivos = (dir: string): string[] =>
   readdirSync(dir).flatMap((nome) => {
@@ -182,12 +186,12 @@ const lidos = arquivos(SRC).map((caminho) => {
 })
 
 describe('toda leitura do app passa por lerComPapel (MAP-37)', () => {
-  it('âncora: o app foi lido, com os oito arquivos da allowlist', () => {
+  it('âncora: o app foi lido, com os nove arquivos da allowlist', () => {
     expect(lidos.length).toBeGreaterThan(40)
     for (const rel of IMPORTAM_O_CLIENT) expect(lidos.map((l) => l.rel)).toContain(rel)
   })
 
-  it('régua 1: só lerComPapel, os hooks de pedido e de cliente e a porta de escrita importam o client — por igualdade', () => {
+  it('régua 1: só lerComPapel, os hooks de pedido e de cliente, a porta de escrita e a dos avisos importam o client — por igualdade', () => {
     const importam = lidos.filter((l) => importaOClient(parse(l.rel, l.texto))).map((l) => l.rel).sort()
     expect(importam).toEqual([...IMPORTAM_O_CLIENT].sort())
   })
@@ -218,6 +222,15 @@ describe('toda leitura do app passa por lerComPapel (MAP-37)', () => {
   it('régua 2 (feature 76, MAC-30): os quatro de cliente só LEEM — nenhum insert, update, upsert, delete ou rpc(', () => {
     const achados = HOOKS_DE_CLIENTE.flatMap((rel) => escritasEmArquivoDeCliente(rel, lidos.find((l) => l.rel === rel)!.texto))
     expect(achados).toEqual([])
+  })
+
+  it('régua 3 (feature 79): a porta dos avisos não lê tabela nem chama RPC', () => {
+    const a = medir(PORTA_DE_AVISOS, lidos.find((l) => l.rel === PORTA_DE_AVISOS)!.texto, { podeLer: false })
+    expect(a.froms).toBe(0)
+    // O `supabase.functions.invoke(` aparece aqui como "o client usado de outro jeito"; o vizinho
+    // `escritaSoPelaPorta` é quem o aceita, só com o literal de `atelie-avisos`. Aqui: nenhum `from(`.
+    expect(a.problemas.every((p) => p.includes('supabase.functions'))).toBe(true)
+    expect(a.problemas).toHaveLength(6)
   })
 
   it('régua 3: lerComPapel.ts não lê tabela — só a RPC', () => {
@@ -358,9 +371,9 @@ describe('sensores (feature 76) — os quatro de cliente só leem, e leem por le
     expect(escritasEmArquivoDeCliente(H, `${imp}// update insert rpc(\nexport const h = () => supabase.from('customer_list').select('id').eq('id', 1)\nconst x = 'delete'`)).toEqual([])
   })
 
-  it('a régua 1 acusa um QUINTO arquivo de cliente que importe o client (a igualdade tem oito)', () => {
+  it('a régua 1 acusa um QUINTO arquivo de cliente que importe o client (a igualdade tem nove, desde a 79)', () => {
     const importam = [...IMPORTAM_O_CLIENT, 'entities/customer/api/useOutro.ts'].sort()
     expect(importam).not.toEqual([...IMPORTAM_O_CLIENT].sort())
-    expect(IMPORTAM_O_CLIENT).toHaveLength(8)
+    expect(IMPORTAM_O_CLIENT).toHaveLength(9)
   })
 })

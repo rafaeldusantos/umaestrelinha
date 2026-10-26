@@ -162,6 +162,9 @@ const RPCS = [
   // pedido (`apps/mobile-adm/src/shared/api/lerComPapel.ts`). Não lê tabela nenhuma: só
   // `has_role` e o instante do banco (`atelieClockSchema.test.ts`).
   'atelie_clock',
+  // Feature 79 — o teto do aviso de teste, atômico por conta (`MAN-33`), chamado pela porta
+  // `atelie-avisos`. Só toca `push_subscriptions` (`pushSubscriptionsSchema.test.ts`).
+  'claim_push_test',
   'claim_order_notification',
   'customer_order_events',
   'finish_order_notification',

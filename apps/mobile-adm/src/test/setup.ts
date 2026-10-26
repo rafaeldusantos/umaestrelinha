@@ -2,6 +2,7 @@ import "@testing-library/jest-dom";
 import { beforeEach } from "vitest";
 
 import { instalarIntersectionObserver } from "./intersecao";
+import { push } from "./push";
 
 Object.defineProperty(window, "matchMedia", {
   writable: true,
@@ -39,6 +40,9 @@ instalarIntersectionObserver();
 Object.defineProperty(window, "scrollTo", { writable: true, configurable: true, value: () => {} });
 beforeEach(async () => {
   instalarIntersectionObserver();
+  // Feature `79` (T18): o Web Push falso volta ao jsdom puro (sem os três) e a porta falsa esvazia.
+  // Import ESTÁTICO de propósito: `push.ts` não importa o client do supabase.
+  push.reset();
   // O episódio da recusa é do módulo; cada caso começa sem o do vizinho. O import é DINÂMICO de
   // propósito: um import estático aqui carregaria o client do supabase antes do `vi.mock` do arquivo
   // de teste, e o dublê deixaria de valer.

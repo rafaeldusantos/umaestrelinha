@@ -439,6 +439,27 @@ describe('NTF-08 — validação de `send`', () => {
   })
 })
 
+describe('MAN-38 (feature 79) — o push não se reenvia pela porta `send`', () => {
+  it('`channel: push` → 400 e zero chamadas ao motor (nenhuma leitura de pedido, claim ou envio)', async () => {
+    const { deps, supabase, fetchDouble } = setup()
+    const tabelas: string[] = []
+    const from = deps.supabase.from.bind(deps.supabase)
+    vi.spyOn(deps.supabase, 'from').mockImplementation((t: string) => {
+      tabelas.push(t)
+      return from(t)
+    })
+
+    const response = await route(deps, request('send', { event: 'owner_order_paid', order_id: ORDER_ID, channel: 'push' }))
+    const body = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(body.error).toBe('channel inválido: push — o aviso no celular não se reenvia')
+    expect(supabase.rpcs.filter((r) => r.fn === 'claim_order_notification')).toHaveLength(0)
+    expect(tabelas).toEqual([])
+    expect(fetchDouble.calls).toHaveLength(0)
+  })
+})
+
 describe('NTF-08 — validação de `trigger`', () => {
   it.each([['ausente', undefined], ['desconhecido', 'aconteceu_algo'], ['não-string', 7]])(
     'trigger %s → 400',

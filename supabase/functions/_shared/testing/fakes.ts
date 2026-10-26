@@ -118,6 +118,28 @@ export interface UpdateCall {
    * e "uma vez só" seria uma regra inauditável (a lição da `49`).
    */
   is?: Array<[string, unknown]>
+  /**
+   * Os `.in()` que escopam o update — ou ausente (feature `79`). Só entra quando houve `.in()`, pelo
+   * mesmo motivo de `or`: as asserções antigas comparam o registro inteiro com `toEqual`.
+   */
+  in?: Array<[string, unknown[]]>
+}
+
+/**
+ * Uma LEITURA de lista, com tudo o que a escopou (feature `79`).
+ *
+ * O motor do aviso no celular lê `push_subscriptions` com `events @> {evento}` (`.contains()`). Um
+ * dublê que devolvesse a lista sem enxergar o filtro aprovaria a leitura SEM ele — e "o aparelho com
+ * o evento desligado não recebe" (`MAN-02`) viraria uma regra inauditável (a lição da `49`).
+ */
+export interface ReadCall {
+  table: string
+  select: string
+  eq: Array<[string, unknown]>
+  contains: Array<[string, unknown]>
+  in: Array<[string, unknown[]]>
+  order: Array<[string, { ascending?: boolean } | undefined]>
+  limit: number | null
 }
 
 export interface RpcCall {
@@ -141,6 +163,8 @@ export interface DeleteCall {
   table: string
   /** Os `.eq()` que escopam o delete, na ordem em que foram encadeados. */
   eq: Array<[string, unknown]>
+  /** Os `.in()` que escopam o delete — só presente quando houve `.in()` (feature `79`). */
+  in?: Array<[string, unknown[]]>
 }
 
 /**
@@ -201,7 +225,7 @@ export type RowFixture =
  */
 export type ListFixture =
   | unknown[]
-  | ((eqs: Array<[string, unknown]>, select: string) => unknown[] | null)
+  | ((eqs: Array<[string, unknown]>, select: string, read: ReadCall) => unknown[] | null)
 
 export interface FakeSupabaseOptions {
   /** Usuário devolvido por `auth.getUser`. `null` → 401 nos handlers. */
@@ -220,7 +244,20 @@ export interface FakeSupabaseOptions {
    * `finish_order_email` (fecho) no mesmo caminho. Com um resultado único para todas, é impossível
    * montar "é admin **e** já foi enviado" — o teste não conseguiria distinguir os cenários.
    */
-  rpcByFn?: Record<string, { data?: unknown; error?: unknown }>
+  rpcByFn?: Record<
+    string,
+    | { data?: unknown; error?: unknown }
+    /**
+     * Forma de função (feature `79`): o desfecho depende dos ARGUMENTOS. O motor do aviso chama
+     * `has_role` uma vez por dono de inscrição, e "uma conta é admin, a outra não" não cabe num
+     * resultado único.
+     */
+    | ((args: Record<string, unknown>) => { data?: unknown; error?: unknown })
+  >
+  /**
+   * Erro de leitura de lista **por tabela** (feature `79`). Ausente ⇒ a leitura passa.
+   */
+  listErrorByTable?: Record<string, unknown>
   /** Força erro em todo `.update()`, para exercitar o caminho de falha de persistência. */
   updateError?: unknown
   /** Força erro em todo `.insert()` — é o caminho de `USR-08` (papel não concedido). */
@@ -295,6 +332,8 @@ export interface FakeSupabase {
   rpcs: RpcCall[]
   /** Toda chamada a `auth.admin.*`, na ordem. É o que prova "zero chamadas" num caminho de recusa. */
   adminCalls: AdminCall[]
+  /** Toda leitura de lista, com os filtros que a escoparam (feature `79`). */
+  reads: ReadCall[]
 }
 
 export function createFakeSupabase(options: FakeSupabaseOptions = {}): FakeSupabase {
@@ -304,6 +343,7 @@ export function createFakeSupabase(options: FakeSupabaseOptions = {}): FakeSupab
   const upserts: UpsertCall[] = []
   const rpcs: RpcCall[] = []
   const adminCalls: AdminCall[] = []
+  const reads: ReadCall[] = []
 
   function builder(table: string) {
     let eqPair: [string, unknown] | null = null
@@ -317,6 +357,10 @@ export function createFakeSupabase(options: FakeSupabaseOptions = {}): FakeSupab
     let inseriu = false
     let pendingDelete = false
     let headCount = false
+    const containsTodos: Array<[string, unknown]> = []
+    const inTodos: Array<[string, unknown[]]> = []
+    const orderTodos: Array<[string, { ascending?: boolean } | undefined]> = []
+    let limite: number | null = null
 
     /** Por tabela vence o global, no molde de `rpcByFn` sobre `rpc`. */
     const erroDeInsert = () => options.insertErrorByTable?.[table] ?? options.insertError ?? null
@@ -332,6 +376,7 @@ export function createFakeSupabase(options: FakeSupabaseOptions = {}): FakeSupab
         eq: eqPair,
         ...(orFilter !== null ? { or: orFilter } : {}),
         ...(isTodos.length > 0 ? { is: [...isTodos] } : {}),
+        ...(inTodos.length > 0 ? { in: [...inTodos] } : {}),
       })
     }
 
@@ -361,7 +406,7 @@ export function createFakeSupabase(options: FakeSupabaseOptions = {}): FakeSupab
       // lugares duplicaria toda inserção que termina awaitada.
       if (inseriu) return { data: null, error: erroDeInsert() }
       if (pendingDelete) {
-        deletes.push({ table, eq: [...eqTodos] })
+        deletes.push({ table, eq: [...eqTodos], ...(inTodos.length > 0 ? { in: [...inTodos] } : {}) })
         return { data: null, error: options.deleteError ?? null }
       }
       // `head: true` não traz linha — traz só o total. É como a function conta histórico sem
@@ -369,12 +414,25 @@ export function createFakeSupabase(options: FakeSupabaseOptions = {}): FakeSupab
       if (headCount) {
         return { data: null, count: options.counts?.[table] ?? 0, error: null }
       }
+      const leitura: ReadCall = {
+        table,
+        select: selectColumns,
+        eq: [...eqTodos],
+        contains: [...containsTodos],
+        in: [...inTodos],
+        order: [...orderTodos],
+        limit: limite,
+      }
+      reads.push(leitura)
+      const erroDeLeitura = options.listErrorByTable?.[table]
+      if (erroDeLeitura) return { data: null, error: erroDeLeitura }
       const lista = options.lists?.[table]
       const data =
         typeof lista === 'function'
-          ? (lista as (eqs: Array<[string, unknown]>, select: string) => unknown[] | null)(
+          ? (lista as (eqs: Array<[string, unknown]>, select: string, read: ReadCall) => unknown[] | null)(
               [...eqTodos],
               selectColumns,
+              leitura,
             )
           : lista
       return { data: data ?? null, error: null }
@@ -408,7 +466,24 @@ export function createFakeSupabase(options: FakeSupabaseOptions = {}): FakeSupab
         eqTodos.push([column, value])
         return chain
       },
-      in: () => chain,
+      // `.in()` era um no-op até a feature `79`; passou a ser REGISTRADO (o motor apaga por lista de
+      // ids) sem mudar o desfecho de nenhuma leitura antiga.
+      in: (column: string, values: unknown[]) => {
+        inTodos.push([column, [...(values ?? [])]])
+        return chain
+      },
+      contains: (column: string, value: unknown) => {
+        containsTodos.push([column, value])
+        return chain
+      },
+      order: (column: string, opts?: { ascending?: boolean }) => {
+        orderTodos.push([column, opts])
+        return chain
+      },
+      limit: (n: number) => {
+        limite = n
+        return chain
+      },
       is: (column: string, value: unknown) => {
         isTodos.push([column, value])
         return chain
@@ -537,10 +612,11 @@ export function createFakeSupabase(options: FakeSupabaseOptions = {}): FakeSupab
     from: (table: string) => builder(table),
     rpc: async (fn: string, args: Record<string, unknown>) => {
       rpcs.push({ fn, args })
-      const chosen = options.rpcByFn?.[fn] ?? options.rpc
+      const porNome = options.rpcByFn?.[fn]
+      const chosen = typeof porNome === 'function' ? porNome(args) : (porNome ?? options.rpc)
       return { data: chosen?.data ?? null, error: chosen?.error ?? null }
     },
   }
 
-  return { client, updates, inserts, deletes, upserts, rpcs, adminCalls }
+  return { client, updates, inserts, deletes, upserts, rpcs, adminCalls, reads }
 }

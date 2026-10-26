@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -419,5 +419,59 @@ describe('o PostgREST é avisado do rename', () => {
     const mutado = sql.replace("notify pgrst, 'reload schema';", '')
     expect(mutado).not.toBe(sql)
     expect(recarregaSchema(mutado)).toBe(false)
+  })
+})
+
+/**
+ * Feature 79 (`MAN-34`): o `check` de `channel` VIGENTE é o da migration da `79`, que o recria com
+ * `push`. O da `42` continua no disco (`AD-017`) e continua sendo lido acima pelo que ela criou — mas
+ * deixou de ser quem manda no canal. Molde do bloco da `57` para o `check` de `event`: medir o da
+ * `42` daqui em diante seria peça certa, endereço errado, suíte verde.
+ *
+ * "Vigente" é a ÚLTIMA migration, na ordem do `db push` (o nome), que cria a constraint.
+ */
+describe('o `check` de canal VIGENTE é o da 79 (MAN-34)', () => {
+  const PASTA = resolve(ROOT, 'supabase/migrations')
+  const CRIA = /add\s+constraint\s+order_notifications_channel_check\s+check\s*\(\s*channel\s+in\s*\(([^)]*)\)\s*\)/i
+
+  /** A última migration que cria a constraint, e os canais dela. `null` se nenhuma cria. */
+  const vigente = (arquivos: { nome: string; texto: string }[]): { nome: string; canais: string[] } | null => {
+    const criadoras = arquivos
+      .map((a) => ({ nome: a.nome, m: semComentarios(a.texto).match(CRIA) }))
+      .filter((a) => a.m)
+      .sort((a, b) => a.nome.localeCompare(b.nome))
+    const ultima = criadoras[criadoras.length - 1]
+    return ultima ? { nome: ultima.nome, canais: [...ultima.m![1].matchAll(/'([a-z]+)'/g)].map((x) => x[1]) } : null
+  }
+
+  const disco = readdirSync(PASTA)
+    .filter((f) => f.endsWith('.sql'))
+    .map((nome) => ({ nome, texto: readFileSync(resolve(PASTA, nome), 'utf8') }))
+
+  it('âncora: duas migrations criam a constraint — a da 42 e a da 79', () => {
+    const criadoras = disco.filter((a) => CRIA.test(semComentarios(a.texto))).map((a) => a.nome).sort()
+    expect(criadoras).toEqual(['20260907120000_42-notificacoes.sql', '20261026120000_79-avisos-no-celular.sql'])
+  })
+
+  it('a vigente é a da 79, com email, whatsapp e push — e a da 42 não é mais', () => {
+    expect(vigente(disco)).toEqual({ nome: '20261026120000_79-avisos-no-celular.sql', canais: ['email', 'whatsapp', 'push'] })
+    expect(vigente(disco)?.nome).not.toBe('20260907120000_42-notificacoes.sql')
+  })
+
+  it('a vigente derruba a constraint antes de recriá-la', () => {
+    const texto = semComentarios(disco.find((a) => a.nome.startsWith('20261026120000'))!.texto)
+    const derruba = texto.search(/drop\s+constraint\s+if\s+exists\s+order_notifications_channel_check/i)
+    expect(derruba).toBeGreaterThanOrEqual(0)
+    expect(texto.search(CRIA)).toBeGreaterThan(derruba)
+  })
+
+  it('SENSOR: uma migration posterior que recriasse o check sem `push` viraria a vigente', () => {
+    const depois = [...disco, { nome: '20991231000000_x.sql', texto: "alter table public.order_notifications add constraint order_notifications_channel_check check (channel in ('email'));" }]
+    expect(vigente(depois)).toEqual({ nome: '20991231000000_x.sql', canais: ['email'] })
+  })
+
+  it('SENSOR: sem a da 79, a vigente volta a ser a da 42 — sem `push`', () => {
+    const sem79 = disco.filter((a) => !a.nome.startsWith('20261026120000'))
+    expect(vigente(sem79)).toEqual({ nome: '20260907120000_42-notificacoes.sql', canais: ['email', 'whatsapp'] })
   })
 })

@@ -1,0 +1,6 @@
+export { usePushNoAparelho } from './model/usePushNoAparelho'
+export type { AvisosNoAparelho, EstadoDosAvisos } from './model/usePushNoAparelho'
+export { pararAvisosDesteAparelho } from './model/pararAvisosDesteAparelho'
+export type { DesfechoDoParar } from './model/pararAvisosDesteAparelho'
+export { temSuporteAPush } from './model/navegador'
+export * from './model/frases'

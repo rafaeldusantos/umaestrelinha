@@ -4,6 +4,8 @@
 // depois de pago faria a dona cobrar quem já pagou. A regra é estrutural — o workbox não tem cache
 // em tempo de execução nenhum, e o precache não alcança arquivo de dado. A régua lê a configuração
 // que o `vite.config.ts` entrega ao plugin (`pwa.config.ts`; a fiação é `manifest.test.ts`).
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import type { VitePWAOptions } from 'vite-plugin-pwa'
 import { pwaOptions } from '../../../pwa.config'
@@ -81,5 +83,41 @@ describe('o service worker do ateliê não guarda dado da loja (MAF-20)', () => 
 
   it('sensor: json no precache reprova', () => {
     expect(recusasDoSw({ globPatterns: ['**/*.{js,json}'] })).toEqual(['json no precache'])
+  })
+})
+
+// Feature `79` (design §6, `MAN-03`, `MAN-22`): o aviso de pedido entra no worker por `importScripts`
+// — e SÓ o arquivo dos avisos, que não vai à rede nem guarda nada.
+const AVISOS = readFileSync(resolve(__dirname, '../../../public/sw-avisos.js'), 'utf8')
+
+/** Os motivos de recusa do arquivo dos avisos. Comentário sai antes (linha e bloco na mesma passada). */
+function recusasDoArquivoDeAvisos(fonte: string): string[] {
+  const codigo = fonte.replace(/\r\n?/g, '\n').replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, '')
+  const motivos: string[] = []
+  if (/(?<![\w$])fetch\s*\(/.test(codigo)) motivos.push('fetch(')
+  if (/(?<![\w$])caches(?![\w$])/.test(codigo)) motivos.push('caches')
+  return motivos
+}
+
+describe('o arquivo dos avisos no service worker (feature 79)', () => {
+  it('`importScripts` é EXATAMENTE `[\'sw-avisos.js\']`', () => {
+    expect(pwaOptions.workbox?.importScripts).toEqual(['sw-avisos.js'])
+  })
+
+  it('âncora: o arquivo foi lido e é o dos avisos (os dois ouvintes)', () => {
+    expect(AVISOS).toContain("addEventListener('push'")
+    expect(AVISOS).toContain("addEventListener('notificationclick'")
+  })
+
+  it('`public/sw-avisos.js` não tem `fetch(` nem `caches`', () => {
+    expect(recusasDoArquivoDeAvisos(AVISOS)).toEqual([])
+  })
+
+  it('sensor: `fetch(` reprova, `caches` reprova — e a prosa não', () => {
+    expect(recusasDoArquivoDeAvisos("self.addEventListener('push', () => fetch('/x'))")).toEqual(['fetch('])
+    expect(recusasDoArquivoDeAvisos("caches.open('v1')")).toEqual(['caches'])
+    expect(recusasDoArquivoDeAvisos('// sem fetch( e sem caches\r\nvar a = 1')).toEqual([])
+    expect(recusasDoArquivoDeAvisos('/* fetch( */\nvar a = 1')).toEqual([])
+    expect(recusasDoArquivoDeAvisos('var prefetch = 1; var cachesX = 2')).toEqual([])
   })
 })

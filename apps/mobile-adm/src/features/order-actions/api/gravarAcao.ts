@@ -6,10 +6,11 @@ import {
   type OrderWriteDeps,
   type PedidoDaAcao,
 } from '@estrelinha/core/order-actions'
-import { ACCESS_DENIED_CODE, isAccessDenied } from '@estrelinha/core/hooks/useStoreOverview'
+import { isAccessDenied } from '@estrelinha/core/hooks/useStoreOverview'
 
 import type { LinhaDaLista } from '@/entities/order'
 import { conferirPapel } from '@/shared/api/lerComPapel'
+import { recusa } from '@/shared/api/recusa'
 
 /**
  * A ÚNICA porta de escrita do app do ateliê (feature `75`, design §3.4; `MAA-04`, `MAA-21`,
@@ -36,9 +37,6 @@ import { conferirPapel } from '@/shared/api/lerComPapel'
 export type ResultadoDaAcao =
   | Exclude<AppActionOutcome, { tipo: 'nenhuma-linha' } | { tipo: 'sem-papel' }>
   | { tipo: 'mudou' }
-
-/** A recusa, no formato único do app. */
-const recusa = () => Object.assign(new Error('acesso restrito ao painel'), { code: ACCESS_DENIED_CODE })
 
 /** "Quem é você?": `true` ⇒ papel de pé; a recusa é RELANÇADA; rede/5xx ⇒ o erro, devolvido. */
 const papelDePe = async (): Promise<true | { erro: unknown }> => {

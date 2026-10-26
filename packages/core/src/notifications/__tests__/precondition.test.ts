@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { NOTIFICATION_EVENTS } from '../events.ts'
 import { type OrderSnapshot, preconditionFailure } from '../precondition.ts'
+import { orderStateFailure } from '../precondition.ts'
 
 /**
  * NTF-03 — a pré-condição de cada um dos quinze eventos (spec, tabela "Eventos", coluna
@@ -346,5 +347,55 @@ describe('order_shipped — pedido de retirada no escritório é recusado (RET-1
     expect(
       preconditionFailure('order_delivered', pago({ status: 'delivered', shipping_service_id: 'retirada' })),
     ).toBeNull()
+  })
+})
+
+/**
+ * Feature 79 (`MAN-06`) — `orderStateFailure` é a pré-condição de ESTADO, sem o contato de e-mail da
+ * dona. O push dos eventos `owner_*` sai mesmo com o e-mail da dona vazio: push e e-mail são canais
+ * independentes. `preconditionFailure` continua sendo estado + contato, com a mesma saída de antes.
+ */
+describe('orderStateFailure — o estado sem o contato (MAN-06)', () => {
+  const certo: Record<string, OrderSnapshot> = {
+    owner_order_received: { payment_status: 'pending' },
+    owner_order_paid: pago(),
+    owner_payment_rejected: { payment_status: 'rejected' },
+    owner_material_incoming: { material_status: 'material_enviado' },
+  }
+  const errado: Record<string, [OrderSnapshot, string]> = {
+    owner_order_received: [{ payment_status: 'approved' }, 'order_not_pending'],
+    owner_order_paid: [pago({ paid_at: null }), 'order_not_paid'],
+    owner_payment_rejected: [{ payment_status: 'approved' }, 'payment_not_rejected'],
+    owner_material_incoming: [{ material_status: 'aguardando_material' }, 'material_not_sent'],
+  }
+  const donos = ['owner_order_received', 'owner_order_paid', 'owner_payment_rejected', 'owner_material_incoming'] as const
+
+  it.each(donos)('%s: estado certo ⇒ null, mesmo sem e-mail da dona', (event) => {
+    expect(orderStateFailure(event, certo[event])).toBeNull()
+  })
+
+  it.each(donos)('%s: estado errado ⇒ o slug de estado', (event) => {
+    const [pedido, slug] = errado[event]
+    expect(orderStateFailure(event, pedido)).toBe(slug)
+  })
+
+  it.each(donos)('%s: preconditionFailure segue devolvendo `no_owner_contact` com o estado certo e o e-mail vazio', (event) => {
+    expect(preconditionFailure(event, certo[event], { ownerEmail: '' })).toBe('no_owner_contact')
+    expect(preconditionFailure(event, certo[event])).toBe('no_owner_contact')
+    expect(preconditionFailure(event, certo[event], DONA)).toBeNull()
+  })
+
+  it.each(donos)('%s: com o estado errado, o estado vence o contato nas duas funções', (event) => {
+    const [pedido, slug] = errado[event]
+    expect(preconditionFailure(event, pedido, { ownerEmail: '' })).toBe(slug)
+    expect(orderStateFailure(event, pedido)).toBe(slug)
+  })
+
+  it.each(NOTIFICATION_EVENTS)('%s: preconditionFailure = orderStateFailure ?? contato, para pedido vazio e pago', (event) => {
+    for (const pedido of [{}, pago()]) {
+      const estado = orderStateFailure(event, pedido)
+      const esperado = estado ?? (event.startsWith('owner_') ? 'no_owner_contact' : null)
+      expect(preconditionFailure(event, pedido, {})).toBe(esperado)
+    }
   })
 })

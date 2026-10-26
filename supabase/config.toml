@@ -501,6 +501,14 @@ RESEND_DEV_REDIRECT_TO = "env(RESEND_DEV_REDIRECT_TO)"
 MELHOR_ENVIO_TOKEN = "env(MELHOR_ENVIO_TOKEN)"
 MELHOR_ENVIO_ENV = "env(MELHOR_ENVIO_ENV)"
 MELHOR_ENVIO_SENDER_JSON = "env(MELHOR_ENVIO_SENDER_JSON)"
+# Feature 79 — o aviso no celular da dona (Web Push). VAPID_KEYS é o JSON (JWK) das DUAS metades,
+# saída de `exportVapidKeys` da biblioteca; VAPID_SUBJECT é `mailto:<e-mail da loja>`. Sem elas,
+# `functions serve` local nunca tem provedor de push: o motor responde `no_provider`, a porta
+# `atelie-avisos` responde 503 em `config`/`test`, e e-mail e pagamento seguem iguais (MAN-37).
+# A chave PÚBLICA não tem env própria em app nenhum: o app a lê da porta, derivada deste mesmo secret.
+# Como gerar: `supabase/CLAUDE.md`, seção "Secrets".
+VAPID_KEYS = "env(VAPID_KEYS)"
+VAPID_SUBJECT = "env(VAPID_SUBJECT)"
 
 [analytics]
 enabled = true
@@ -571,4 +579,11 @@ verify_jwt = false
 # desenho, a chamada não leva — e a anon key publicada passaria do mesmo jeito sem provar nada. Quem
 # decide se a visita conta é o handler: teto por IP, corpo, robô e origem, e o teto diário no banco.
 [functions.visit]
+verify_jwt = false
+
+# Feature 79 — as inscrições do aviso no celular da dona. MESMA razão da admin-users: a anon key
+# publicada é um JWT válido e passaria pelo gateway; quem fecha a porta é `requireAdmin`
+# (`_shared/auth.ts`) dentro do handler, em TODA ação — 401 sem JWT, 403 sem papel ou com `has_role`
+# falhando. A tabela `push_subscriptions` não tem policy de cliente: esta function é a única porta.
+[functions.atelie-avisos]
 verify_jwt = false

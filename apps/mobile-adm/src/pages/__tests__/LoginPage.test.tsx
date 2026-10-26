@@ -181,3 +181,34 @@ describe('Entrar com campo vazio (MAF-26)', () => {
     expect(screen.queryByText('Informe o e-mail e a senha.')).not.toBeInTheDocument()
   })
 })
+
+describe('volta ao destino depois de entrar (feature 79, MAN-21)', () => {
+  it('abrir /pedidos/<id> sem sessão leva ao login; entrar leva ao MESMO pedido, com a query', async () => {
+    fake.tornarAdmin('adri@exemplo.invalid')
+    await montarApp('/pedidos/p79-origem?de=aviso')
+    expect(window.location.pathname).toBe('/login')
+    preencher('adri@exemplo.invalid', 'senha-certa')
+    await entrar()
+    await act(() => vi.advanceTimersByTimeAsync(50))
+    expect(window.location.pathname).toBe('/pedidos/p79-origem')
+    expect(window.location.search).toBe('?de=aviso')
+  })
+
+  it('abrir /login direto e entrar continua levando à Início', async () => {
+    fake.tornarAdmin('adri@exemplo.invalid')
+    await montarApp('/login')
+    preencher('adri@exemplo.invalid', 'senha-certa')
+    await entrar()
+    expect(await screen.findByRole('heading', { level: 1, name: 'Início' })).toBeInTheDocument()
+    expect(window.location.pathname).toBe('/')
+  })
+
+  it('uma origem de outro host no state é ignorada: a Início', async () => {
+    fake.tornarAdmin('adri@exemplo.invalid')
+    await montarApp('/login', { estado: { from: '//evil.example/pedidos/x' } })
+    preencher('adri@exemplo.invalid', 'senha-certa')
+    await entrar()
+    expect(await screen.findByRole('heading', { level: 1, name: 'Início' })).toBeInTheDocument()
+    expect(window.location.pathname).toBe('/')
+  })
+})

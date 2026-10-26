@@ -8,7 +8,13 @@
 
 Corroborated across multiple features. Safe to apply as guidance.
 
-_none_
+### L-046 — Quando o design troca o que a AC nomeia (a biblioteca, o componente, a fonte do dado), a spec tem de ser emendada ou ganhar SPEC_DEVIATION no mesmo movimento; senão a AC fica falsa com a suíte verde e o verificador é quem descobre.
+- signal: `spec_deviation` · recurrence: 2 feature(s) · scope: `.specs/features/**` · harmful: 0
+- features: 72-mobile-adm-fundacao, 79-mobile-adm-aviso-de-pedido
+- evidence: `MAF-14` ("ícone de `@estrelinha/ui/icons`") × `design.md:45` e `widgets/tab-bar/model/tabs.ts:1` (`lucide-react`)
+- evidence (79): `MAN-32` ("O aviso de teste não saiu. Tente de novo." para toda falha) × o conserto do QA de 2026-10-26 (`usePushNoAparelho.ts` `testar`: `gone`/`not_found` ⇒ `desligado` + `APARELHO_DESCARTADO`) — desvio registrado só em `tasks.md`, sem marcador `SPEC_DEVIATION` no código e sem emenda na `spec.md`
+- last seen: 2026-10-26T00:00:00Z
+- promovida a confirmed à mão (2026-10-26): o script não roda neste repositório (o `lessons.json` está dessincronizado do MD)
 
 ## Candidates (under observation — do NOT load as guidance yet)
 
@@ -240,12 +246,6 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `apps/mobile-adm/**` · harmful: 0
 - features: 72-mobile-adm-fundacao
 - evidence: M24 — `apps/mobile-adm/src/widgets/tab-bar/ui/TabBar.tsx:38` (o `<Icon>` apagado, 118/118 verdes; `MAF-14`)
-- last seen: 2026-10-22T00:00:00Z
-
-### L-046 — Quando o design troca o que a AC nomeia (a biblioteca, o componente, a fonte do dado), a spec tem de ser emendada ou ganhar SPEC_DEVIATION no mesmo movimento; senão a AC fica falsa com a suíte verde e o verificador é quem descobre.
-- signal: `spec_deviation` · recurrence: 1 feature(s) · scope: `.specs/features/**` · harmful: 0
-- features: 72-mobile-adm-fundacao
-- evidence: `MAF-14` ("ícone de `@estrelinha/ui/icons`") × `design.md:45` e `widgets/tab-bar/model/tabs.ts:1` (`lucide-react`)
 - last seen: 2026-10-22T00:00:00Z
 
 ### L-047 — Leitura de autorização que engole erro de rede e devolve "não autorizado" produz uma recusa confiante e falsa; a spec de um app que depende de rede precisa separar "sem rede" (o navegador sabe) de "rede presente e inútil" (só a falha da leitura sabe), com AC para o segundo.

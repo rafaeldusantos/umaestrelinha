@@ -59,6 +59,8 @@ export interface HistoryNotificationRow {
   error: string | null
   created_at: string
   sent_at: string | null
+  /** Feature `79`: no canal `push`, `push:<entregues>/<total>` — a contagem dos aparelhos. */
+  provider_message_id?: string | null
 }
 
 /** Uma linha de `order_notes`, só com o que o histórico lê. */
@@ -94,7 +96,22 @@ const nomeDoEvento = (event: string): string =>
 
 /** Como o canal aparece na linha. `email` fica implícito; o WhatsApp precisa se identificar. */
 const rotuloDoCanal = (channel: string | undefined): string =>
-  channel === 'whatsapp' ? 'WhatsApp' : 'E-mail'
+  channel === 'whatsapp' ? 'WhatsApp' : channel === 'push' ? 'Celular' : 'E-mail'
+
+/** Feature `79`: a falha do aviso no celular tem frase própria — não é a cliente quem deixou de saber. */
+const PUSH_FALHOU = 'O aviso no celular não chegou.'
+
+/**
+ * Feature `79` (`MAN-09`): a entrega parcial do push. `push:2/3` vira "Entregue a 2 de 3 aparelhos";
+ * entregue a todos (X = Y), ou qualquer outra forma, não diz nada.
+ */
+const entregaParcial = (e: HistoryNotificationRow): string | null => {
+  if (e.channel !== 'push') return null
+  const m = /^push:(\d+)\/(\d+)$/.exec(e.provider_message_id ?? '')
+  if (!m) return null
+  const [x, y] = [Number(m[1]), Number(m[2])]
+  return x < y ? `Entregue a ${x} de ${y} aparelhos` : null
+}
 
 /**
  * Funde os três fios num só, do mais recente para o mais antigo.
@@ -139,6 +156,19 @@ export const buildHistory = <
 
   for (const e of emails) {
     const saiu = e.status === 'sent'
+    // Feature `79` (`MAN-38`): o push que falhou não se reenvia — a linha não carrega `emailType` nem
+    // `emailChannel`, e o painel só desenha "Reenviar" com `emailType`.
+    if (e.channel === 'push' && !saiu) {
+      eventos.push({
+        id: `email-${e.id}`,
+        kind: 'email',
+        at: e.sent_at ?? e.created_at,
+        title: PUSH_FALHOU,
+        detail: e.error ?? null,
+        emailSent: false,
+      })
+      continue
+    }
     eventos.push({
       id: `email-${e.id}`,
       kind: 'email',
@@ -152,6 +182,7 @@ export const buildHistory = <
         ? [
             e.attempts > 1 ? `Enviado na ${e.attempts}ª tentativa` : null,
             e.delivery_status ? ROTULO_ENTREGA[e.delivery_status] : null,
+            entregaParcial(e),
           ]
             .filter(Boolean)
             .join(' · ') || null

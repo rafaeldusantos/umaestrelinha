@@ -10,10 +10,13 @@
 //   1. em `apps/mobile-adm/src` (produção), nenhuma chamada de escrita de tabela — `update`, `insert`,
 //      `upsert` em QUALQUER receptor, e `delete` cuja cadeia passa por uma chamada `from(` ou nasce no
 //      identificador `supabase` —, nenhuma invocação de function (a propriedade `invoke` de
-//      `functions`), e nenhuma `rpc(` fora de `lerComPapel.ts`;
-//   2. quem importa o client são EXATAMENTE oito arquivos (os três da `74`, a porta e, desde a `76`, os quatro de cliente) — a mesma
-//      lista que `leituraSoComPapel` compara por igualdade —, e na porta o identificador `supabase`
-//      só aparece como VALOR passado (nunca receptor de um acesso por ponto);
+//      `functions`) fora da porta dos avisos (feature `79`, T17) — e nela só com o nome LITERAL
+//      `'atelie-avisos?action=<uma das seis ações>'` —, e nenhuma `rpc(` fora de `lerComPapel.ts`;
+//   2. quem importa o client são EXATAMENTE nove arquivos (os três da `74`, a porta de escrita, desde a
+//      `76` os quatro de cliente e, desde a `79`, a porta dos avisos) — a mesma lista que
+//      `leituraSoComPapel` compara por igualdade —, na porta de escrita o identificador `supabase` só
+//      aparece como VALOR passado (nunca receptor de um acesso por ponto), e na porta dos avisos ele só
+//      é receptor de `.functions.invoke(` (nada de `from`, nada de `rpc`);
 //   3. metade positiva: a porta chama `runAppAction(` e `conferirPapel(`.
 //
 // **O `delete` tem escopo declarado**: `Set`/`Map` do app (`travas`, `termos`, `ouvintes`) usam
@@ -22,8 +25,8 @@
 // já é recusada por `leituraSoComPapel` (o client só pode ser receptor de `from(` dentro de
 // `lerComPapel`) e pela régua 2 aqui.
 //
-// Âncoras: os arquivos lidos (com a porta), os oito importadores achados, e as duas chamadas da
-// metade positiva achadas na porta.
+// Âncoras: os arquivos lidos (com as duas portas), os nove importadores achados, as duas chamadas da
+// metade positiva achadas na porta de escrita e as seis invocações achadas na porta dos avisos.
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -34,6 +37,10 @@ import { describe, expect, it } from 'vitest'
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..')
 const LER_COM_PAPEL = 'shared/api/lerComPapel.ts'
 const PORTA = 'features/order-actions/api/gravarAcao.ts'
+/** Feature `79` (T17): o ÚNICO arquivo do app que invoca uma edge function. */
+const PORTA_DE_AVISOS = 'features/push-notifications/api/portaDeAvisos.ts'
+/** O nome aceito no `invoke`, e só na porta dos avisos: literal, a function `atelie-avisos` e uma das seis ações. */
+const INVOCACAO_ACEITA = /^atelie-avisos\?action=(config|status|subscribe|events|unsubscribe|test)$/
 const IMPORTAM_O_CLIENT = [
   LER_COM_PAPEL,
   'entities/order/api/useListaDePedidos.ts',
@@ -44,6 +51,8 @@ const IMPORTAM_O_CLIENT = [
   'entities/customer/api/useCliente.ts',
   'entities/customer/api/usePedidosDoCliente.ts',
   'entities/customer/api/buscarClientePorEmail.ts',
+  // Feature `79` (T17): a porta dos avisos. Não lê tabela nem chama RPC — só invoca `atelie-avisos`.
+  PORTA_DE_AVISOS,
 ]
 const COMANDOS_DE_TABELA = new Set(['update', 'insert', 'upsert'])
 
@@ -95,8 +104,15 @@ const escritasProibidas = (rel: string, texto: string): string[] => {
     const linha = fonte.getLineAndCharacterOfPosition(n.getStart()).line + 1
     if (COMANDOS_DE_TABELA.has(nome)) achados.push(`${rel}:${linha} ${nome}`)
     else if (nome === 'delete' && cadeiaDeTabela(acesso.expression)) achados.push(`${rel}:${linha} delete`)
-    else if (nome === 'invoke' && ts.isPropertyAccessExpression(acesso.expression) && acesso.expression.name.text === 'functions')
-      achados.push(`${rel}:${linha} functions.invoke`)
+    else if (nome === 'invoke' && ts.isPropertyAccessExpression(acesso.expression) && acesso.expression.name.text === 'functions') {
+      const nomeDaFunction = n.arguments[0]
+      const aceita =
+        rel === PORTA_DE_AVISOS &&
+        nomeDaFunction !== undefined &&
+        ts.isStringLiteral(nomeDaFunction) &&
+        INVOCACAO_ACEITA.test(nomeDaFunction.text)
+      if (!aceita) achados.push(`${rel}:${linha} functions.invoke`)
+    }
     else if (nome === 'rpc' && rel !== LER_COM_PAPEL) achados.push(`${rel}:${linha} rpc`)
   })
   return achados
@@ -117,6 +133,30 @@ const clientComoReceptor = (rel: string, texto: string): { referencias: number; 
   return r
 }
 
+/**
+ * Régua 2 (feature `79`) — na porta dos avisos, toda referência a `supabase` é o receptor de
+ * `supabase.functions.invoke(`. Devolve as invocações achadas (a âncora) e os outros usos.
+ */
+const clientNaPortaDeAvisos = (rel: string, texto: string): { invocacoes: number; outros: string[] } => {
+  const fonte = parse(rel, texto)
+  const r = { invocacoes: 0, outros: [] as string[] }
+  visitar(fonte, (n) => {
+    if (!ts.isIdentifier(n) || n.text !== 'supabase' || ts.isImportSpecifier(n.parent)) return
+    const p = n.parent
+    const ehInvoke =
+      ts.isPropertyAccessExpression(p) &&
+      p.expression === n &&
+      p.name.text === 'functions' &&
+      ts.isPropertyAccessExpression(p.parent) &&
+      p.parent.name.text === 'invoke' &&
+      ts.isCallExpression(p.parent.parent) &&
+      p.parent.parent.expression === p.parent
+    if (ehInvoke) r.invocacoes++
+    else r.outros.push(`${rel}:${fonte.getLineAndCharacterOfPosition(n.getStart()).line + 1}`)
+  })
+  return r
+}
+
 /** As funções chamadas pelo nome (`f(`), para a metade positiva. */
 const chamados = (rel: string, texto: string): Set<string> => {
   const fonte = parse(rel, texto)
@@ -131,16 +171,16 @@ const lidos = arquivos(SRC).map((caminho) => ({ rel: relative(SRC, caminho).spli
 const textoDe = (rel: string) => lidos.find((l) => l.rel === rel)!.texto
 
 describe('toda escrita do app passa pela porta (MAA-29, AD-059)', () => {
-  it('âncora: o app foi lido, com a porta e os oito importadores do client', () => {
+  it('âncora: o app foi lido, com as duas portas e os nove importadores do client', () => {
     expect(lidos.length).toBeGreaterThan(80)
     for (const rel of IMPORTAM_O_CLIENT) expect(lidos.map((l) => l.rel)).toContain(rel)
   })
 
-  it('régua 1: nenhuma escrita de tabela, nenhuma function e nenhuma RPC fora de lerComPapel — no app inteiro', () => {
+  it('régua 1: nenhuma escrita de tabela, nenhuma function fora da porta dos avisos e nenhuma RPC fora de lerComPapel — no app inteiro', () => {
     expect(lidos.flatMap((l) => escritasProibidas(l.rel, l.texto))).toEqual([])
   })
 
-  it('régua 2: só oito arquivos importam o client — por igualdade', () => {
+  it('régua 2: só nove arquivos importam o client — por igualdade', () => {
     const importam = lidos.filter((l) => importaOClient(parse(l.rel, l.texto))).map((l) => l.rel).sort()
     expect(importam).toEqual([...IMPORTAM_O_CLIENT].sort())
   })
@@ -150,6 +190,13 @@ describe('toda escrita do app passa pela porta (MAA-29, AD-059)', () => {
     // Âncora: as duas passagens (`client: supabase` e o primeiro argumento da notificadora).
     expect(r.referencias).toBe(2)
     expect(r.receptor).toEqual([])
+  })
+
+  it('régua 2 (feature 79): na porta dos avisos, `supabase` só é receptor de `.functions.invoke(` — as seis invocações', () => {
+    const r = clientNaPortaDeAvisos(PORTA_DE_AVISOS, textoDe(PORTA_DE_AVISOS))
+    // Âncora: as seis ações (config, status, subscribe, events, unsubscribe, test), uma invocação cada.
+    expect(r.invocacoes).toBe(6)
+    expect(r.outros).toEqual([])
   })
 
   it('régua 3 (metade positiva): a porta chama `runAppAction(` e `conferirPapel(`', () => {
@@ -203,6 +250,27 @@ describe('sensores — a régua acusa a escrita à mão e não acusa o que não 
     expect(clientComoReceptor(PORTA, `${imp}const x = supabase.from('orders')`).receptor).toEqual([`${PORTA}:2`])
     expect(clientComoReceptor(PORTA, `${imp}const x = supabase['rpc']`).receptor).toEqual([`${PORTA}:2`])
     expect(clientComoReceptor(PORTA, `${imp}const deps = { client: supabase }\nf(supabase)`)).toEqual({ referencias: 2, receptor: [] })
+  })
+
+  it('feature 79: na porta dos avisos, só o literal `atelie-avisos?action=<ação>` é aceito', () => {
+    const inv = (nome: string) => `${imp}export const f = () => supabase.functions.invoke(${nome}, { body: {} })`
+    // Inverso: as seis ações, na porta.
+    for (const acao of ['config', 'status', 'subscribe', 'events', 'unsubscribe', 'test']) {
+      expect(escritasProibidas(PORTA_DE_AVISOS, inv(`'atelie-avisos?action=${acao}'`))).toEqual([])
+    }
+    // Outra function, ação fora das seis, o nome nu, o nome montado e o nome numa variável: acusados.
+    for (const nome of ["'send-notification?action=trigger'", "'atelie-avisos?action=apagar'", "'atelie-avisos'", '`atelie-avisos?action=${acao}`', 'NOME']) {
+      expect(escritasProibidas(PORTA_DE_AVISOS, inv(nome))).toEqual([`${PORTA_DE_AVISOS}:2 functions.invoke`])
+    }
+    // O mesmo literal aceito, FORA da porta dos avisos: acusado.
+    expect(escritasProibidas(ARQ, inv("'atelie-avisos?action=config'"))).toEqual([`${ARQ}:2 functions.invoke`])
+  })
+
+  it('feature 79: a régua 2 da porta dos avisos enxerga `from`, `rpc` e o client passado adiante', () => {
+    expect(clientNaPortaDeAvisos(PORTA_DE_AVISOS, `${imp}const x = supabase.from('push_subscriptions')`).outros).toEqual([`${PORTA_DE_AVISOS}:2`])
+    expect(clientNaPortaDeAvisos(PORTA_DE_AVISOS, `${imp}const x = supabase.rpc('claim_push_test')`).outros).toEqual([`${PORTA_DE_AVISOS}:2`])
+    expect(clientNaPortaDeAvisos(PORTA_DE_AVISOS, `${imp}f(supabase)`).outros).toEqual([`${PORTA_DE_AVISOS}:2`])
+    expect(clientNaPortaDeAvisos(PORTA_DE_AVISOS, `${imp}const x = supabase.functions.invoke('atelie-avisos?action=config')`)).toEqual({ invocacoes: 1, outros: [] })
   })
 
   it('a metade positiva enxerga a ausência', () => {

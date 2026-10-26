@@ -349,6 +349,40 @@ describe('histórico é UM fluxo (PED-27, PED-28)', () => {
     expect(screen.queryByText('Reenviar')).not.toBeInTheDocument()
   })
 
+  it('feature 79 (MAN-38): o aviso no celular que falhou NÃO oferece reenviar; o e-mail que falhou, ao lado, oferece', () => {
+    detailMock.mockReturnValue(
+      detail({
+        emails: [
+          { id: 'p1', order_id: 'o1', event: 'owner_order_paid', channel: 'push', delivery_status: null, status: 'failed', attempts: 1, provider_message_id: null, error: 'fcm.googleapis.com: 500', created_at: '2026-08-21T09:00:00Z', sent_at: null },
+          { id: 'e1', order_id: 'o1', event: 'order_shipped', channel: 'email', delivery_status: null, status: 'failed', attempts: 1, provider_message_id: null, error: 'SMTP timeout', created_at: '2026-08-21T08:00:00Z', sent_at: null },
+        ],
+      }),
+    )
+    renderPage()
+
+    const linhaPush = screen.getByText('O aviso no celular não chegou.').closest('li')!
+    expect(within(linhaPush).getByText('fcm.googleapis.com: 500')).toBeInTheDocument()
+    expect(within(linhaPush).queryByText('Reenviar')).not.toBeInTheDocument()
+
+    const linhaEmail = screen.getByText('Falha ao enviar o aviso: Pedido postado (E-mail)').closest('li')!
+    expect(within(linhaEmail).getByText('Reenviar')).toBeInTheDocument()
+    expect(screen.getAllByText('Reenviar')).toHaveLength(1)
+  })
+
+  it('feature 79 (MAN-09): o aviso no celular entregue a parte dos aparelhos diz quantos', () => {
+    detailMock.mockReturnValue(
+      detail({
+        emails: [
+          { id: 'p1', order_id: 'o1', event: 'owner_order_paid', channel: 'push', delivery_status: null, status: 'sent', attempts: 1, provider_message_id: 'push:2/3', error: null, created_at: '2026-08-21T09:00:00Z', sent_at: '2026-08-21T09:00:00Z' },
+        ],
+      }),
+    )
+    renderPage()
+
+    expect(screen.getByText('Aviso à dona de pedido pago enviado (Celular)')).toBeInTheDocument()
+    expect(screen.getByText('Entregue a 2 de 3 aparelhos')).toBeInTheDocument()
+  })
+
   it('o reenvio que falha NÃO reverte estado — só informa (AD-008)', async () => {
     sendEmailMock.mockResolvedValue(false)
     detailMock.mockReturnValue(

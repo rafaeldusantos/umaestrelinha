@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Navigate, useLocation } from 'react-router-dom'
 import { useAuthContext } from './AuthContext'
 import { Skeleton } from '@estrelinha/ui/skeleton'
 import { Button } from '@estrelinha/ui/button'
@@ -29,6 +29,17 @@ const AcessoNaoConferidoDoPainel = () => {
       </div>
     </div>
   )
+}
+
+/**
+ * O desvio ao login levando a rota de origem no `state` (feature `79`, `MAN-21`, A17). Componente
+ * próprio para o `useLocation` só rodar onde o `Navigate` já exigia um Router: o carregamento e o
+ * `unknown` continuam desenhando sem Router nenhum, como antes. Mudança ADITIVA: o login do painel
+ * não lê `state` e segue indo para `/admin`; o do ateliê o obedece (`destinoDepoisDoLogin`).
+ */
+const AoLoginComOrigem = ({ loginPath }: { loginPath: string }) => {
+  const { pathname, search } = useLocation()
+  return <Navigate to={loginPath} replace state={{ from: pathname + search }} />
 }
 
 const RequireAdmin = ({
@@ -71,7 +82,7 @@ const RequireAdmin = ({
     return <AcessoNaoConferidoDoPainel />
   }
 
-  if (!isAdmin) return <Navigate to={loginPath} replace />
+  if (!isAdmin) return <AoLoginComOrigem loginPath={loginPath} />
 
   return <>{children}</>
 }

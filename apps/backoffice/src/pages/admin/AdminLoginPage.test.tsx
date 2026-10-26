@@ -367,3 +367,25 @@ describe('AdminLoginPage — a recuperação de senha', () => {
     expect(await screen.findByRole('button', { name: /^Entrar$/ })).toBeInTheDocument()
   })
 })
+
+// Feature 79, T15 (A17, R11): o `RequireAdmin` passou a levar a rota de origem no `state` do
+// `Navigate`. O painel não a obedece: com `state.from` presente, entrar continua indo para `/admin`.
+describe('AdminLoginPage — a origem guardada pelo RequireAdmin (feature 79)', () => {
+  it('com state.from presente, o admin resolvido vai para /admin, nunca para a origem', async () => {
+    // Uma função, e não um elemento só: `rerender` com o MESMO elemento não renderiza de novo.
+    const comOrigem = () => (
+      <MemoryRouter initialEntries={[{ pathname: '/admin/login', state: { from: '/admin/pedidos/x' } }]}>
+        <AdminLoginPage />
+      </MemoryRouter>
+    )
+    const view = render(comOrigem())
+    await preencherEEnviar()
+    await waitFor(() => expect(auth.signInWithPassword).toHaveBeenCalled())
+
+    ctx.current = { user: { id: 'u-admin' }, isAdmin: true, loading: false }
+    view.rerender(comOrigem())
+
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith('/admin', { replace: true }))
+    expect(navigate).not.toHaveBeenCalledWith('/admin/pedidos/x', expect.anything())
+  })
+})

@@ -17,6 +17,9 @@ import {
   senderFrom,
 } from '../../../packages/core/src/notifications/index.ts'
 import { type Deps, route } from './handlers.ts'
+// Feature `79`: o aviso no celular. `webPush.ts` é o único arquivo que importa a biblioteca de Web
+// Push; este `index.ts` só o monta com os dois secrets.
+import { createWebPushSender } from '../_shared/webPush.ts'
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!
 const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -53,10 +56,20 @@ const resendFrom =
   senderFrom(envOptional('RESEND_SENDER_NAME'), envOptional('RESEND_SENDER_EMAIL')) ||
   DEFAULT_SENDER_FROM
 
+/**
+ * `undefined` sem `VAPID_KEYS`/`VAPID_SUBJECT` (ou com chaves inválidas): o canal push não existe
+ * neste deploy e o e-mail segue igual (`MAN-37`).
+ */
+const webPush = await createWebPushSender({
+  keys: Deno.env.get('VAPID_KEYS'),
+  subject: Deno.env.get('VAPID_SUBJECT'),
+})
+
 const deps: Deps = {
   supabase: createClient(supabaseUrl, serviceRoleKey),
   fetch: globalThis.fetch.bind(globalThis),
   providers: [createResendProvider({ apiKey: resendApiKey, from: resendFrom })],
+  push: webPush,
   env: {
     resendApiKey,
     // Já composto acima. O default (`onboarding@resend.dev`) entrega só ao dono da conta Resend —

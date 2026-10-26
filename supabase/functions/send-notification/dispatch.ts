@@ -28,10 +28,13 @@ import {
   type NotificationSettings,
   type NotificationTrigger,
   type ProviderFailure,
+  type PushEvent,
   EVENT_AUDIENCE,
   eventsForTrigger,
   isProviderFailure,
+  isPushEvent,
   notificationCopyRefusal,
+  orderStateFailure,
   preconditionFailure,
   resolveEventSettings,
   resolveOwnerEmail,
@@ -40,18 +43,16 @@ import {
 import { type EmailOrder, isValidFrom } from './render/layout.ts'
 import { renderEmail } from './render/email.ts'
 import { buildVars } from './render/vars.ts'
+// Feature `79`: o ramo do aviso no celular. `push.ts` importa deste arquivo só TIPO (apagado na
+// compilação), então não há ciclo de valor entre os dois módulos.
+import { type PushSender, deliverPush } from './push.ts'
 
-/** Recorte do que guardamos em `order_notifications.error` — diagnóstico, sem virar despejo. */
-const ERROR_MAX_CHARS = 500
+// `ERROR_MAX_CHARS` e `MIN_SEND_MS` moram em `budget.ts` desde a feature `79`: o ramo do aviso no
+// celular (`push.ts`) lê os mesmos dois, e uma segunda declaração seria o "defeito 01".
+import { ERROR_MAX_CHARS, MIN_SEND_MS } from './budget.ts'
 
 /** Budget padrão de quem não tem ninguém esperando (o webhook do MP). */
 const DEFAULT_BUDGET_MS = 8000
-
-/**
- * Abaixo disto não vale começar um envio: o `fetch` sairia só para ser abortado, e o registro diria
- * "falhou no provedor" quando o que faltou foi tempo. Melhor a linha dizer a verdade.
- */
-const MIN_SEND_MS = 500
 
 const SETTINGS_KEYS = ['notifications', 'general', 'material']
 
@@ -85,6 +86,12 @@ export interface NotificationDeps {
    * deste arquivo — é a prova que `NTF-09` cobra.
    */
   providers: NotificationProvider[]
+  /**
+   * O aviso no celular (feature `79`, `AD-062`). Montado no `index.ts` só quando `VAPID_KEYS` e
+   * `VAPID_SUBJECT` existem; ausente ⇒ o canal não existe neste deploy (`MAN-37`) e o e-mail segue.
+   * Não é um `NotificationProvider`: um evento vai a N aparelhos (design §1).
+   */
+  push?: { sender: PushSender }
 }
 
 export type SkipReason =
@@ -95,6 +102,8 @@ export type SkipReason =
   | 'no_opt_in'
   | 'no_phone'
   | 'no_provider'
+  /** Feature `79`: nenhum aparelho quer o aviso — sem claim (`MAN-20`). Só no canal `push`. */
+  | 'no_device'
 
 export type SendResult =
   | { ok: true; event: NotificationEvent; channel: string; id: string }
@@ -376,7 +385,9 @@ export async function dispatchTrigger(
   const { found, results } = await run(deps, options.orderId, budget, async (order, settings, deadline) => {
     const saida: SendResult[] = []
     for (const event of eventsForTrigger(options.trigger, order)) {
-      saida.push(...(await forEvent(deps, event, order, settings, deadline)))
+      // `comPush`: a metade do aviso no celular só existe pelo GATILHO. O reenvio (`dispatchEvent`)
+      // nunca chega a ela — push perdido não volta (`MAN-38`).
+      saida.push(...(await forEvent(deps, event, order, settings, deadline, undefined, true)))
     }
     return saida
   }).catch(() => ({ found: false, results: [] as SendResult[] }))
@@ -415,8 +426,75 @@ async function run(
   }
 }
 
-/** Um evento em todos os canais (ou num só), com a pré-condição conferida uma vez. */
+/**
+ * Um evento: a metade do e-mail e, para os eventos da dona vindos de um gatilho, a metade do aviso
+ * no celular (feature `79`, design §4.2). As duas são INDEPENDENTES: a do push roda qualquer que
+ * tenha sido o desfecho do e-mail — remetente malformado, sem provedor, e-mail desligado ou sem
+ * endereço da dona (`MAN-06`) —, e o e-mail vem antes, para o push ser o último a gastar orçamento.
+ */
 async function forEvent(
+  deps: NotificationDeps,
+  event: NotificationEvent,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  order: any,
+  settings: Settings,
+  deadline: number,
+  channel?: string,
+  comPush = false,
+): Promise<SendResult[]> {
+  const saida = await forEmail(deps, event, order, settings, deadline, channel)
+  if (comPush && isPushEvent(event)) {
+    const push = await forPush(deps, event, order, deadline)
+    if (push) saida.push(push)
+  }
+  return saida
+}
+
+/**
+ * A metade do aviso no celular. A pré-condição é só a de ESTADO (`orderStateFailure`): o contato de
+ * e-mail da dona não vale para o push. O `try/catch` é próprio, e é carga: uma exceção aqui (bug
+ * nosso) cairia no `catch` de `run`, que zera `results` — e o relatório perderia o e-mail que já saiu.
+ */
+async function forPush(
+  deps: NotificationDeps,
+  event: PushEvent,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  order: any,
+  deadline: number,
+): Promise<SendResult | null> {
+  const base = { action: 'send-notification', order_id: order.id, event, channel: 'push' }
+
+  // SPEC_DEVIATION: o design (§4.2, passo 1) põe `skipped: 'no_provider'` no relatório quando o
+  // deploy não tem VAPID. Aqui o canal fica FORA do relatório (só o log diz `no_provider`).
+  // Reason: `dispatch.test.ts` e `handlers.test.ts` asseveram a lista EXATA de eventos de um gatilho
+  // com deps sem `push` (`['order_paid', 'owner_order_paid']`), e o design exige essas suítes sem
+  // asserção tocada. É também a letra de `MAN-37` ("o canal push fica fora da lista de canais").
+  // `deliverPush` continua devolvendo `no_provider` a quem o chama direto (passo 1, testado).
+  if (!deps.push) {
+    log({ ...base, status: 'skipped', skipped: 'no_provider' })
+    return null
+  }
+
+  const falha = orderStateFailure(event, order)
+  if (falha) {
+    log({ ...base, status: 'precondition_failed', precondition: falha })
+    return { ok: false, event, channel: 'push', precondition: falha }
+  }
+
+  try {
+    return await deliverPush(deps, event, order, deadline)
+  } catch (err) {
+    log({ ...base, status: 'unexpected_error', message: err instanceof Error ? err.message : String(err) })
+    return { ok: false, event, channel: 'push', reason: 'unexpected_error' }
+  }
+}
+
+/**
+ * A metade do E-MAIL — o corpo de `forEvent` de antes da feature `79`, na MESMA ordem:
+ * `invalid_from` → pré-condição (estado e contato) → `no_provider` → canais. Cada saída cedo encerra
+ * só esta metade.
+ */
+async function forEmail(
   deps: NotificationDeps,
   event: NotificationEvent,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -62,13 +62,18 @@ describe('vercel.json do ateliê (MAF-04)', () => {
     for (const rota of ['/', '/login', '/pedidos', '/clientes/abc']) expect(reescreve(atelie, rota)).toBe(true)
   })
 
+  it('sw-avisos.js (feature `79`) sai com no-cache', () => {
+    expect(headersDe(atelie, '/sw-avisos.js')['Cache-Control']).toBe('no-cache')
+  })
+
   it('o rewrite NÃO captura o service worker nem o manifest', () => {
-    for (const arquivo of ['/sw.js', '/manifest.webmanifest', '/registerSW.js', '/workbox-9c191d2f.js']) {
+    for (const arquivo of ['/sw.js', '/sw-avisos.js', '/manifest.webmanifest', '/registerSW.js', '/workbox-9c191d2f.js']) {
       expect(reescreve(atelie, arquivo)).toBe(false)
     }
   })
 
   it('sensor: o rewrite do painel (captura tudo) reprovaria na mesma régua', () => {
     expect(reescreve(painel, '/sw.js')).toBe(true)
+    expect(reescreve(painel, '/sw-avisos.js')).toBe(true)
   })
 })
