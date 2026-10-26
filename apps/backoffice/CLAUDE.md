@@ -1257,8 +1257,8 @@ cruzamento**, e o card **Imagem por variação** saiu: a imagem se escolhe (e se
 
 ## Dívidas conhecidas deste app
 
-- **A baseline de testes do painel é 3853 em 218 arquivos** nesta branch (base `master`), todos
-  passando (2026-10-26, depois do reteste de QA da `81`, +4; era 3848/218 depois do conserto da rodada 3 do Verificador da `81`, +6; era 3842/218 depois do conserto da r2; era 3836/218 depois das três decisões do QA da `81`, +13; era 3823/218 depois do QA; era 3815/218 depois do conserto da rodada 1 do
+- **A baseline de testes do painel é 3915 em 225 arquivos** na `master` mesclada com `feature/mobile-adm`, todos
+  passando (2026-10-26; antes do merge, na branch da `81`, era 3853/218, depois do reteste de QA da `81`, +4; era 3848/218 depois do conserto da rodada 3 do Verificador da `81`, +6; era 3842/218 depois do conserto da r2; era 3836/218 depois das três decisões do QA da `81`, +13; era 3823/218 depois do QA; era 3815/218 depois do conserto da rodada 1 do
   Verificador da `81`, e 3808/218 no fecho
   da implementação; um workspace por vez, exit code fora de pipe). A linha de antes, da branch de integração:
 - **A baseline de testes do painel era 3648 em 207 arquivos**, todos passando (2026-10-22, depois da

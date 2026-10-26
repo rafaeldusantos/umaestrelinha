@@ -572,7 +572,9 @@ quando mudarem de verdade.
 | --- | --- | --- |
 | **Lint** | **25 erros / 7 warnings** — backoffice 23/5 · store 2/2 · mobile-adm 0/0 | `npx eslint .` em cada app (o `pnpm lint` para no primeiro app que reprova) |
 | **Tipos** | **0 · 0 · 0 · 0 · 0** (store · backoffice · catalog-import · `apps/store/tsconfig.server.json`, desde a `69` · mobile-adm, desde a `72`) — e **`packages/core` em 11**, herdados (medido na `73`: idênticos na base, nenhum em arquivo tocado) | `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` · `npx tsc --noEmit -p packages/core/tsconfig.json` |
-| **Testes** | **17778 em 887 arquivos** — store **5985/323** · backoffice **3710/214** · mobile-adm **2014/125** · core **4452/176** · functions **1105/26** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
+| **Testes** | **18013 em 901 arquivos** — store **6006/325** · backoffice **3915/225** · mobile-adm **2014/125** · core **4461/177** · functions **1105/26** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
+
+**A árvore mesclada — `feature/mobile-adm` (72..79) encontrando a `master` com a `80` e a `81`** (merge de 2026-10-26), medida depois do merge, um workspace por vez, exit fora de pipe: **core 4461/177 · functions 1105/26 · catalog-import 512/23 · mobile-adm 2014/125 · backoffice 3915/225 · store 6006/325**, os seis exit 0. Tipos 0 nos cinco projetos (`packages/core` segue em 11, herdados); lint backoffice 23/5 · store 2/2 · mobile-adm 0/0; `pnpm build` verde. **A soma não é aritmética**: os guardas da loja e do painel varrem os dois lados, e os números que valem são estes, medidos. No merge, o `AD-057` da `80` passou a `AD-064` (o da `73` veio antes) e as lições L-045..L-048 da `81` passaram a L-068..L-071.
 
 **O fecho da rodada 4 do Verificador da `81` somou +1 no backoffice** (3852/218 → **3853/218**, 2026-10-26, exit fora de pipe): o limite de OPV-04 (`orders: 1` ⇒ pausa) em `orphans.test.ts`, que mata G13 (`> 0` → `> 1`) por asserção, SHA-256 conferido na restauração. G17 segue declarado como candidato a equivalente.
 
