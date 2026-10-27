@@ -20,9 +20,12 @@
 // sem ter perguntado ao banco. A exceção é a RETENTATIVA com `espera` (QA C01): a linha que ela
 // recebe é a relida do banco, então "não oferece mais a ação" é resposta, e o desfecho é `mudou`.
 
+import { canStartProduction, materialTrackingEdit } from '../material/envelope.ts'
+import { toMaterialStatus } from '../material/material.ts'
 import { appPrimaryAction, trackingSheet, type AppActionInput } from '../orders/appAction.ts'
-import { normalizeTrackingCode, trackingCodeRefusal } from '../orders/tracking.ts'
+import { normalizeMaterialTrackingCode, normalizeTrackingCode, trackingCodeRefusal } from '../orders/tracking.ts'
 import { writeMaterialStatus } from './material.ts'
+import { writeMaterialTracking } from './materialTracking.ts'
 import { writeOrderStatus } from './status.ts'
 import { writeTrackingCode } from './tracking.ts'
 import type { AppActionOutcome, MaterialOutcome, OrderWriteDeps, PedidoDaAcao, WriteOutcome } from './types.ts'
@@ -30,6 +33,8 @@ import type { AppActionOutcome, MaterialOutcome, OrderWriteDeps, PedidoDaAcao, W
 /** A linha que a porta do app repassa — a `LinhaDaLista` da `74` satisfaz. */
 export interface LinhaDaAcao extends AppActionInput {
   id: string
+  /** Feature `82`: o código do envelope atual (a linha do detalhe o tem; a da lista, não). */
+  material_tracking_code?: string | null
 }
 
 const semRede = (motivo: string): AppActionOutcome => ({ tipo: 'falhou', erro: new Error(motivo) })
@@ -64,6 +69,44 @@ export async function runAppAction(
   pedido: PedidoDaAcao,
 ): Promise<AppActionOutcome> {
   const id = row.id
+
+  // Feature `82` (`ENV-07`, A8): o código do envelope DA CLIENTE. A linha que não oferece mais a
+  // edição (o envelope chegou, o pedido foi cancelado — a releitura com a folha aberta) é RESPOSTA do
+  // banco: `mudou`, sem rede. O código curto é recusado antes da rede, como o rastreio de saída. O
+  // código igual ao atual VAI à RPC (Edge Cases: ela é idempotente e atualiza a autoria).
+  // `nao-permitido` vira `nenhuma-linha`: a porta do app já transforma isso em conferência de papel.
+  if (pedido.tipo === 'rastreio-do-material') {
+    if (!materialTrackingEdit(row)) return { tipo: 'mudou' }
+    // T19: a recusa do curto é julgada sobre a forma única do envelope (sem hífen e ponto).
+    const codigoDoEnvelope = normalizeMaterialTrackingCode(pedido.codigo)
+    const recusa = trackingCodeRefusal(codigoDoEnvelope)
+    if (recusa) return semRede(recusa)
+    const antes = toMaterialStatus(row.material_status)
+    const r = await writeMaterialTracking(deps, { id, code: codigoDoEnvelope })
+    switch (r.tipo) {
+      case 'ok':
+        return {
+          tipo: 'ok',
+          emailSent: r.emailSent,
+          materialMudou: false,
+          materialPassou: antes === 'aguardando_material' && r.status === 'material_enviado',
+        }
+      case 'recusado':
+        return { tipo: 'material-rastreio-recusado', reason: r.reason }
+      case 'nao-permitido':
+        return { tipo: 'nenhuma-linha' }
+      default:
+        return { tipo: 'falhou', erro: (r as { erro: unknown }).erro }
+    }
+  }
+
+  // Feature `82` (`ENV-25`, A10): "Colocar em produção" grava SÓ o material — o status do pedido
+  // continua com "Iniciar separação" no rodapé. Fora de `material_recebido`, ou cancelado, a linha
+  // relida já não oferece o botão: `mudou`, sem rede.
+  if (pedido.tipo === 'producao') {
+    if (!canStartProduction(row)) return { tipo: 'mudou' }
+    return doMaterial(await writeMaterialStatus(deps, { id, to: 'em_producao' }), 'em_producao')
+  }
 
   if (pedido.tipo === 'rastreio') {
     const folha = trackingSheet(row, pedido.origem)

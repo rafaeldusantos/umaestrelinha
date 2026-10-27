@@ -67,11 +67,15 @@ describe('chargeMaterialText — o texto do painel, byte a byte (MAA-19, A18)', 
     expect(chargeMaterialText(linha({ material_status: 'material_enviado' }), ATRASADO)).toBe(JA_POSTOU)
   })
 
-  it('nome vazio, só espaço ou nulo: "Oi, Oi!" — o texto do painel, sem conserto de passagem', () => {
-    const esperado = AGUARDANDO_FRESCO.replace('Oi, Juliana!', 'Oi, Oi!')
-    expect(chargeMaterialText(linha({ customer_name: '' }), FRESCO)).toBe(esperado)
-    expect(chargeMaterialText(linha({ customer_name: '   ' }), FRESCO)).toBe(esperado)
-    expect(chargeMaterialText(linha({ customer_name: null }), FRESCO)).toBe(esperado)
+  // Feature `82` (QA, 2026-10-27): até aqui o texto sem nome era "Oi, Oi!" — subido byte a byte do
+  // painel (`MAA-28`), sem decisão de redação. Sem primeiro nome, a mensagem abre só com "Oi!".
+  it('nome vazio, só espaço ou nulo: abre com "Oi!", nunca "Oi, Oi!"', () => {
+    const esperado = AGUARDANDO_FRESCO.replace('Oi, Juliana!', 'Oi!')
+    const jaPostou = JA_POSTOU.replace('Oi, Juliana!', 'Oi!')
+    for (const customer_name of ['', '   ', null]) {
+      expect(chargeMaterialText(linha({ customer_name }), FRESCO)).toBe(esperado)
+      expect(chargeMaterialText(linha({ customer_name, material_status: 'material_enviado' }), FRESCO)).toBe(jaPostou)
+    }
   })
 
   it('usa só o primeiro nome, aparado', () => {

@@ -35,10 +35,14 @@ export function parcelTrackingUrl(code: string | null | undefined): string | nul
 /** Abaixo disto o código está pela metade (`A8`). */
 export const TRACKING_CODE_MIN_LENGTH = 8
 
-/** Sem nenhum espaço — inclusive os do meio, tab e quebra de linha — e em maiúsculas. */
+/**
+ * Sem nenhum espaço — inclusive os do meio, tab e quebra de linha —, sem caractere invisível de
+ * formatação (`\p{Cf}`: o espaço de largura zero e as marcas de direção que vêm ao colar do WhatsApp,
+ * QA da `82`) e em maiúsculas.
+ */
 export function normalizeTrackingCode(code: string | null | undefined): string {
   if (typeof code !== 'string') return ''
-  return code.replace(/\s+/g, '').toUpperCase()
+  return code.replace(/[\s\p{Cf}]+/gu, '').toUpperCase()
 }
 
 /**
@@ -49,4 +53,21 @@ export function trackingCodeRefusal(code: string | null | undefined): string | n
   return normalizeTrackingCode(code).length < TRACKING_CODE_MIN_LENGTH
     ? 'Confira o código — ele costuma ter 13 caracteres.'
     : null
+}
+
+// ---------------------------------------------------------------------------------------------
+// Feature `82`, Fase 5 (T19, `BL-054`) — o código do ENVELOPE da cliente (`material_tracking_code`).
+// ---------------------------------------------------------------------------------------------
+// Três escritores gravam o mesmo campo — o app do ateliê, o painel e a loja (a própria cliente) — e
+// cada um gravava numa forma (`BUG-20261026-codigo-com-hifen-ou-espaco-gravado`). A forma única é
+// decidida AQUI e aplicada pelo dono da escrita (`writeMaterialTracking`, `core/order-actions`), que os
+// três chamam. Além do que `normalizeTrackingCode` tira, saem o hífen e o ponto: é como o código
+// circula no WhatsApp ("AN-123.456.789-BR"), e o rastreio dos Correios não os aceita.
+//
+// Sem formato imposto (a forma `AA000000000AA` não é exigida): a cliente pode postar por outra
+// transportadora. `normalizeTrackingCode`, acima, fica intacto — o rastreio de SAÍDA guarda o hífen.
+
+/** Maiúsculas, sem espaço, sem caractere invisível (`\p{Cf}`), sem hífen e sem ponto. */
+export function normalizeMaterialTrackingCode(code: string | null | undefined): string {
+  return normalizeTrackingCode(code).replace(/[-.]+/g, '')
 }

@@ -4,3 +4,4 @@
 export * from './material.ts'
 export * from './aging.ts'
 export * from './steps.ts'
+export * from './envelope.ts'

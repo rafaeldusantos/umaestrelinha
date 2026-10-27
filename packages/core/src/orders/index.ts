@@ -52,6 +52,7 @@ export {
 export {
   PARCEL_TRACKING_BASE_URL,
   TRACKING_CODE_MIN_LENGTH,
+  normalizeMaterialTrackingCode,
   normalizeTrackingCode,
   parcelTrackingUrl,
   trackingCodeRefusal,
@@ -105,6 +106,7 @@ export {
 } from './nextStep.ts'
 export {
   buildHistory,
+  type HistoryEnvelopeInput,
   type HistoryEvent,
   type HistoryKind,
   type HistoryNoteRow,
@@ -125,13 +127,20 @@ export {
 export { chargeMaterialText, chargeMaterialUrl, type ChargeMaterialInput } from './charge.ts'
 export {
   ACTION_FAILED,
+  COPY_FAILED,
+  MATERIAL_IN_PRODUCTION,
+  MATERIAL_TRACKING_SAVED,
   ORDER_CHANGED,
   PARTIAL_MATERIAL,
   PARTIAL_TRACKING,
   SAVING,
+  TRACKING_COPIED,
   actionConfirmation,
   appPrimaryAction,
   canChargeMaterial,
+  customerFirstName,
+  customerFirstNameAfterDe,
+  customerFirstNameMidSentence,
   shippedNoticeSent,
   trackingEdit,
   trackingSheet,
@@ -140,6 +149,7 @@ export {
   type AppActionInput,
   type AppActionPlan,
   type Confirmation,
+  type ConfirmationAction,
   type ConfirmationInput,
   type TrackingSheet,
   type TrackingSheetContext,

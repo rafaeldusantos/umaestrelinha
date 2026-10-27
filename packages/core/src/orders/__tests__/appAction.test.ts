@@ -553,3 +553,84 @@ describe('shippedNoticeSent — o aviso de postagem saiu? (BUG-20261024-folha-af
     expect(shippedNoticeSent([])).toBe(false)
   })
 })
+
+// ---------------------------------------------------------------------------------------------
+// Feature `82` — as confirmações e as frases fixas do bloco Material (`ENV-08`, `ENV-18`, `ENV-25`, A9)
+// ---------------------------------------------------------------------------------------------
+
+describe('feature 82 — confirmações e frases fixas', () => {
+  it('as quatro frases fixas, palavra por palavra', async () => {
+    const m = await import('../appAction.ts')
+    expect(m.TRACKING_COPIED).toBe('Código copiado.')
+    expect(m.COPY_FAILED).toBe('Não consegui copiar. Toque e segure o código para copiar.')
+    expect(m.MATERIAL_TRACKING_SAVED).toBe('Código do envelope registrado.')
+    expect(m.MATERIAL_IN_PRODUCTION).toBe('Pedido em produção.')
+  })
+
+  it('código do envelope que moveu o estado ⇒ "passou para "A caminho"" (ENV-08)', async () => {
+    const { actionConfirmation } = await import('../appAction.ts')
+    expect(
+      actionConfirmation({
+        action: 'rastreio-do-material',
+        emailSent: true,
+        materialPassou: true,
+        customer_name: 'Ana Paula',
+        order_number: '0244',
+      }),
+    ).toEqual({ titulo: 'Código do envelope registrado.', frase: 'O pedido #0244 passou para "A caminho".' })
+  })
+
+  it('código do envelope sem mudança de estado (ou sem a informação) ⇒ "Pedido #NNNN atualizado."', async () => {
+    const { actionConfirmation } = await import('../appAction.ts')
+    const base = { action: 'rastreio-do-material' as const, emailSent: true, customer_name: 'Ana', order_number: '0244' }
+    expect(actionConfirmation({ ...base, materialPassou: false })).toEqual({
+      titulo: 'Código do envelope registrado.',
+      frase: 'Pedido #0244 atualizado.',
+    })
+    expect(actionConfirmation(base).frase).toBe('Pedido #0244 atualizado.')
+  })
+
+  it('"Colocar em produção" ⇒ "O material de {PrimeiroNome} está na bancada." (ENV-25)', async () => {
+    const { actionConfirmation } = await import('../appAction.ts')
+    expect(
+      actionConfirmation({ action: 'producao', emailSent: true, customer_name: 'Mariana Souza', order_number: '0244' }),
+    ).toEqual({ titulo: 'Pedido em produção.', frase: 'O material de Mariana está na bancada.' })
+    expect(
+      actionConfirmation({ action: 'producao', emailSent: false, customer_name: null, order_number: '0244' }).frase,
+    ).toBe('O material da cliente está na bancada.')
+  })
+
+  // Fase 5 (T20, `BUG-20261026-a-cliente-no-meio-da-frase`, decisão de 2026-10-27): ANTES o caso acima
+  // cravava "O material de A cliente está na bancada.". Toda frase da ação SEM nome, uma a uma: no
+  // começo da frase "A cliente" (maiúscula) continua; no meio, "a cliente" / "da cliente".
+  it.each([null, '', '   '])('sem nome (%j): cada frase da ação com a forma certa para a posição', async (nome) => {
+    const { actionConfirmation } = await import('../appAction.ts')
+    const c = (input: Partial<Parameters<typeof actionConfirmation>[0]>) =>
+      actionConfirmation({ action: 'producao', emailSent: true, customer_name: nome, order_number: '0244', ...input } as Parameters<
+        typeof actionConfirmation
+      >[0]).frase
+    expect(c({ action: 'registrar-recebimento' })).toBe('O pedido #0244 foi para a bancada. A cliente recebe a confirmação por e-mail.')
+    expect(c({ action: 'separar', materialMudou: true })).toBe('Pedido #0244 em produção. A cliente recebe o aviso por e-mail.')
+    expect(c({ action: 'marcar-enviado', citaEmailSeEnviado: true })).toBe('A cliente recebe o aviso de postagem por e-mail.')
+    expect(c({ action: 'salvar-rastreio', citaEmailSeEnviado: true })).toBe('A cliente recebe o aviso de postagem por e-mail.')
+    expect(c({ action: 'producao' })).toBe('O material da cliente está na bancada.')
+  })
+
+  it('`customerFirstNameMidSentence` e `customerFirstNameAfterDe`: o nome, ou a forma de meio de frase', async () => {
+    const { customerFirstNameAfterDe, customerFirstNameMidSentence } = await import('../appAction.ts')
+    expect(customerFirstNameMidSentence('  Mariana  Souza ')).toBe('Mariana')
+    expect(customerFirstNameAfterDe('  Mariana  Souza ')).toBe('de Mariana')
+    for (const nome of [null, undefined, '', '   ']) {
+      expect(customerFirstNameMidSentence(nome)).toBe('a cliente')
+      expect(customerFirstNameAfterDe(nome)).toBe('da cliente')
+    }
+  })
+
+  it('`customerFirstName`: primeiro nome aparado, ou "A cliente"', async () => {
+    const { customerFirstName } = await import('../appAction.ts')
+    expect(customerFirstName('  Mariana  Souza ')).toBe('Mariana')
+    expect(customerFirstName(null)).toBe('A cliente')
+    expect(customerFirstName(undefined)).toBe('A cliente')
+    expect(customerFirstName('   ')).toBe('A cliente')
+  })
+})

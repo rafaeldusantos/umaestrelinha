@@ -3,6 +3,7 @@
 export type {
   AppActionOutcome,
   MaterialOutcome,
+  MaterialTrackingOutcome,
   OrderWriteClient,
   OrderWriteDeps,
   PedidoDaAcao,
@@ -12,4 +13,5 @@ export { triggerOrderNotification } from './notify.ts'
 export { writeOrderStatus, type WriteOrderStatusInput } from './status.ts'
 export { writeTrackingCode, type WriteTrackingCodeInput } from './tracking.ts'
 export { writeMaterialStatus, type WriteMaterialStatusInput } from './material.ts'
+export { writeMaterialTracking, type WriteMaterialTrackingInput } from './materialTracking.ts'
 export { runAppAction } from './appAction.ts'

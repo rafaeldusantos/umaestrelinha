@@ -151,3 +151,63 @@ describe('buildHistory — o canal push (feature 79)', () => {
     expect(e.detail).toBeNull()
   })
 })
+
+describe('buildHistory — o envelope da cliente (feature `82`, ENV-21)', () => {
+  const statusAntes = st({ id: 'a', to_status: 'pending', created_at: '2026-10-01T10:00:00Z' })
+  const statusDepois = st({ id: 'b', from_status: 'pending', to_status: 'paid', created_at: '2026-10-05T10:00:00Z' })
+
+  it('cliente ⇒ "Cliente informou o rastreio do envelope · CÓDIGO", na data `set_at`, ordenada com as demais', () => {
+    const h = buildHistory([statusAntes, statusDepois], [], [], {
+      material_tracking_code: 'AN123456789BR',
+      material_tracking_set_at: '2026-10-03T12:00:00Z',
+      material_tracking_set_by: 'customer',
+    })
+    expect(h.map((e) => e.title)).toEqual([
+      'Pendente → Pago',
+      'Cliente informou o rastreio do envelope · AN123456789BR',
+      'Pedido Pendente',
+    ])
+    expect(h[1]).toMatchObject({ kind: 'status', at: '2026-10-03T12:00:00Z', detail: null })
+  })
+
+  it('admin ⇒ "Você registrou o rastreio do envelope · CÓDIGO"', () => {
+    const [e] = buildHistory([], [], [], {
+      material_tracking_code: 'BR987654321XX',
+      material_tracking_set_at: '2026-10-03T12:00:00Z',
+      material_tracking_set_by: 'admin',
+    })
+    expect(e.title).toBe('Você registrou o rastreio do envelope · BR987654321XX')
+  })
+
+  it('sem `set_at` (linha anterior à migration) ⇒ nenhuma linha, mesmo com código', () => {
+    expect(buildHistory([], [], [], { material_tracking_code: 'AN123456789BR', material_tracking_set_at: null, material_tracking_set_by: null })).toEqual([])
+    expect(buildHistory([], [], [], { material_tracking_code: 'AN123456789BR' })).toEqual([])
+  })
+
+  it('sem `set_at`, mesmo com código E autoria conhecida, nenhuma linha — a data não se inventa (M18)', () => {
+    // O caso acima tem `set_by` nulo, e a autoria desconhecida já zerava a linha sozinha: a exigência
+    // de `set_at` ficava sem régua própria (M18 da verificação, rodada 1).
+    expect(
+      buildHistory([], [], [], { material_tracking_code: 'AN123456789BR', material_tracking_set_at: null, material_tracking_set_by: 'admin' }),
+    ).toEqual([])
+    expect(
+      buildHistory([], [], [], { material_tracking_code: 'AN123456789BR', material_tracking_set_at: null, material_tracking_set_by: 'customer' }),
+    ).toEqual([])
+  })
+
+  it('sem código, ou com autoria desconhecida ⇒ nenhuma linha (nunca inventar quem foi)', () => {
+    expect(
+      buildHistory([], [], [], { material_tracking_code: '  ', material_tracking_set_at: '2026-10-03T12:00:00Z', material_tracking_set_by: 'admin' }),
+    ).toEqual([])
+    expect(
+      buildHistory([], [], [], { material_tracking_code: 'AN1', material_tracking_set_at: '2026-10-03T12:00:00Z', material_tracking_set_by: null }),
+    ).toEqual([])
+  })
+
+  it('as chamadas de TRÊS argumentos (o painel) seguem idênticas — e `null` também', () => {
+    const tres = buildHistory([statusAntes, statusDepois], [em({})], [])
+    expect(buildHistory([statusAntes, statusDepois], [em({})], [], null)).toEqual(tres)
+    expect(buildHistory([statusAntes, statusDepois], [em({})], [], undefined)).toEqual(tres)
+    expect(tres).toHaveLength(3)
+  })
+})

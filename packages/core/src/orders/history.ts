@@ -129,6 +129,21 @@ const ROTULO_ENTREGA: Record<string, string> = {
   read: 'Lido',
 }
 
+/**
+ * Feature `82` (`ENV-21`): a última autoria do código do envelope, das colunas de `orders` gravadas por
+ * `set_material_tracking`. Só a ÚLTIMA — trocas anteriores não viram linhas (Out of Scope da `82`).
+ */
+export interface HistoryEnvelopeInput {
+  material_tracking_code: string | null
+  material_tracking_set_at?: string | null
+  material_tracking_set_by?: string | null
+}
+
+const AUTOR_DO_ENVELOPE: Record<string, string> = {
+  customer: 'Cliente informou o rastreio do envelope',
+  admin: 'Você registrou o rastreio do envelope',
+}
+
 // Genérica nas três entradas para o chamador passar as linhas como as tem (com `order_id` e o resto),
 // sem o compilador recusar a coluna a mais: a regra só lê as da interface.
 export const buildHistory = <
@@ -139,8 +154,26 @@ export const buildHistory = <
   status: S[],
   emails: E[],
   notes: N[],
+  /**
+   * Feature `82`, OPCIONAL: o app do ateliê passa a linha do pedido; o painel continua chamando com
+   * três argumentos e não ganha a linha. Sem `set_at`, sem código ou com autoria desconhecida
+   * (linha anterior à migration da `82`), nada — nunca inventar quem informou (A2).
+   */
+  envelope?: HistoryEnvelopeInput | null,
 ): HistoryEvent[] => {
   const eventos: HistoryEvent[] = []
+
+  const codigoDoEnvelope = envelope?.material_tracking_code?.trim()
+  const autor = AUTOR_DO_ENVELOPE[envelope?.material_tracking_set_by ?? '']
+  if (envelope?.material_tracking_set_at && codigoDoEnvelope && autor) {
+    eventos.push({
+      id: `envelope-${envelope.material_tracking_set_at}`,
+      kind: 'status',
+      at: envelope.material_tracking_set_at,
+      title: `${autor} · ${codigoDoEnvelope}`,
+      detail: null,
+    })
+  }
 
   for (const h of status) {
     eventos.push({

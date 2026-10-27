@@ -59,6 +59,36 @@ const caminhar = (entrada: string, ler: Leitor) => {
 const lerDoDisco: Leitor = (c) => readFileSync(c, 'utf8')
 const ENTRADA = join(DIR, 'steps.ts')
 
+// Feature `82`: `envelope.ts` entra no mesmo grafo (o app o lê; `core/order-actions` também), e
+// alcança `orders/appAction.ts` e `orders/row.ts` — o caminho inteiro tem de ser de folhas com `.ts`.
+const ENVELOPE = join(DIR, 'envelope.ts')
+
+describe('core/material/envelope.ts é alcançável pelo Deno', () => {
+  const grafo = caminhar(ENVELOPE, lerDoDisco)
+
+  it('âncora: o grafo foi caminhado (envelope → orders/appAction, orders/row → material/aging, stats/labels)', () => {
+    expect(grafo.visitados).toEqual(
+      expect.arrayContaining([
+        'material/envelope.ts',
+        'orders/appAction.ts',
+        'orders/row.ts',
+        'material/aging.ts',
+        'material/material.ts',
+        'stats/labels.ts',
+        'time/zone.ts',
+      ]),
+    )
+  })
+
+  it('nenhum especificador relativo sem `.ts`', () => {
+    expect(grafo.semExtensao).toEqual([])
+  })
+
+  it('nenhum import de pacote (React, Supabase, alias, URL)', () => {
+    expect(grafo.externos).toEqual([])
+  })
+})
+
 describe('core/material/steps.ts é alcançável pelo Deno', () => {
   const grafo = caminhar(ENTRADA, lerDoDisco)
 

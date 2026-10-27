@@ -45,11 +45,13 @@ export interface ChargeMaterialInput {
 export const chargeMaterialText = (row: ChargeMaterialInput, now?: Date): string => {
   const material = toMaterialStatus(row.material_status)
   const idade = queueAge(queueSince(row), now)
-  const primeiroNome = (row.customer_name ?? '').trim().split(/\s+/)[0] || 'Oi'
+  // Sem primeiro nome, só "Oi!" (feature `82`, QA): o recuo antigo produzia "Oi, Oi!".
+  const primeiroNome = (row.customer_name ?? '').trim().split(/\s+/)[0]
+  const saudacao = primeiroNome ? `Oi, ${primeiroNome}!` : 'Oi!'
 
   if (material === 'material_enviado') {
     return (
-      `Oi, ${primeiroNome}! Aqui é a Adri, da Uma Estrelinha. ` +
+      `${saudacao} Aqui é a Adri, da Uma Estrelinha. ` +
       `Vi que você já postou o material do pedido ${formatOrderNumber(row.order_number)}. ` +
       `Assim que ele chegar aqui eu te aviso e começo a peça. Qualquer dúvida, é só me chamar.`
     )
@@ -61,7 +63,7 @@ export const chargeMaterialText = (row: ChargeMaterialInput, now?: Date): string
       : ''
 
   return (
-    `Oi, ${primeiroNome}! Aqui é a Adri, da Uma Estrelinha. ` +
+    `${saudacao} Aqui é a Adri, da Uma Estrelinha. ` +
     `Estou com o seu pedido ${formatOrderNumber(row.order_number)} guardado, esperando o material chegar para começar.${quando} ` +
     `Se precisar de ajuda para preparar ou postar, me conta que eu te explico com calma. ` +
     `Sem pressa nenhuma.`

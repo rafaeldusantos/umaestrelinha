@@ -46,14 +46,31 @@ export type MaterialOutcome =
   | { tipo: 'material-recusado'; reason: string | null; status: string | null }
   | { tipo: 'falhou'; erro: unknown }
 
+/**
+ * O desfecho da RPC `set_material_tracking` (feature `82`). `recusado` são as recusas com motivo
+ * (`empty_code`, `material_not_applicable`, ou `ok: false` sem motivo ⇒ `reason: null`);
+ * `nao-permitido` é o `not_allowed`, que a RPC dá igual para "sem papel" e "pedido não existe".
+ */
+export type MaterialTrackingOutcome =
+  | { tipo: 'ok'; status: string | null; emailSent: boolean }
+  | { tipo: 'recusado'; reason: string | null }
+  | { tipo: 'nao-permitido' }
+  | { tipo: 'falhou'; erro: unknown }
+
 /** O desfecho da ação do app (`runAppAction`). */
 export type AppActionOutcome =
-  | { tipo: 'ok'; emailSent: boolean; materialMudou: boolean }
+  /**
+   * `materialPassou` (feature `82`, `ENV-08`): o código do envelope moveu o material de
+   * `aguardando_material` para `material_enviado` nesta gravação. Só o `rastreio-do-material` o põe.
+   */
+  | { tipo: 'ok'; emailSent: boolean; materialMudou: boolean; materialPassou?: boolean }
   | { tipo: 'nenhuma-linha' }
   | { tipo: 'falhou'; erro: unknown }
   | { tipo: 'sem-papel' }
   | { tipo: 'material-recusado'; reason: string | null; status: string | null; to: string }
   | { tipo: 'parcial'; etapa: 'material' | 'rastreio'; causa: 'falhou' | 'nenhuma-linha' }
+  /** Feature `82` (`ENV-09`): a RPC do código do envelope recusou com motivo — `materialTrackingRefusal`. */
+  | { tipo: 'material-rastreio-recusado'; reason: string | null }
   /**
    * A retentativa (`PedidoDaAcao` com `espera`) achou a linha relida SEM a ação que ela reenvia: o
    * pedido mudou desde a falha (outra aba, o painel). Nada foi à rede — a linha relida já respondeu.
@@ -71,3 +88,7 @@ export type PedidoDaAcao =
    */
   | { tipo: 'primaria'; espera?: AppActionId }
   | { tipo: 'rastreio'; codigo: string; origem: 'acao' | 'entrega' }
+  /** Feature `82` (`ENV-07`): o código do envelope DA CLIENTE, digitado na folha do bloco Material. */
+  | { tipo: 'rastreio-do-material'; codigo: string }
+  /** Feature `82` (`ENV-25`): "Colocar em produção" — só o material, de `material_recebido` a `em_producao`. */
+  | { tipo: 'producao' }

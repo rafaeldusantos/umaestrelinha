@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest'
 import {
   PARCEL_TRACKING_BASE_URL,
   TRACKING_CODE_MIN_LENGTH,
+  normalizeMaterialTrackingCode,
   normalizeTrackingCode,
   parcelTrackingUrl,
   trackingCodeRefusal,
@@ -58,6 +59,23 @@ describe('normalizeTrackingCode (MAA-12, A8)', () => {
     expect(normalizeTrackingCode('jd-0001 2345')).toBe('JD-00012345')
   })
 
+  // QA da `82` (BUG-20261026-codigo-colado-leva-caractere-invisivel): colar do WhatsApp pode trazer
+  // marcas invisíveis — o espaço de largura zero e as marcas de direção que o WhatsApp põe em volta de
+  // números. `\s` não as pega; elas ficavam no código salvo, no link dos Correios e no que se copia.
+  it.each([
+    ['espaço de largura zero', 'AN123456789BR​', 'AN123456789BR'],
+    ['marcas de direção em volta', '‪an123456789br‬', 'AN123456789BR'],
+    ['marca da esquerda para a direita e BOM', '‎AN123﻿456789BR‏', 'AN123456789BR'],
+    ['junção invisível e hífen suave', 'AN123⁠456­789BR', 'AN123456789BR'],
+  ])('caractere invisível sai: %s', (_nome, colado, esperado) => {
+    expect(normalizeTrackingCode(colado)).toBe(esperado)
+  })
+
+  it('o código só de caracteres invisíveis é vazio — a recusa do curto continua valendo', () => {
+    expect(normalizeTrackingCode('​‪‬')).toBe('')
+    expect(trackingCodeRefusal('AN12​​​​')).not.toBeNull()
+  })
+
   it('vazio continua vazio', () => {
     expect(normalizeTrackingCode('')).toBe('')
     expect(normalizeTrackingCode('   ')).toBe('')
@@ -97,5 +115,36 @@ describe('trackingCodeRefusal (MAA-12, A8)', () => {
     expect(trackingCodeRefusal('    ')).toBe(FRASE)
     expect(trackingCodeRefusal(null)).toBe(FRASE)
     expect(trackingCodeRefusal(undefined)).toBe(FRASE)
+  })
+})
+
+// Feature `82`, Fase 5 (T19, `BUG-20261026-codigo-com-hifen-ou-espaco-gravado`, `BL-054`): o código do
+// ENVELOPE da cliente tem uma forma só no banco, qualquer que seja o escritor (app, painel, loja). Além
+// do que `normalizeTrackingCode` tira, saem o hífen e o ponto — a forma em que o código circula no
+// WhatsApp. Sem formato imposto (a forma `AA000000000AA` não é exigida).
+describe('normalizeMaterialTrackingCode (T19)', () => {
+  it.each([
+    ['hífen e ponto', 'AN-123.456.789-BR', 'AN123456789BR'],
+    ['espaços e minúsculas', 'an 1234 5678 9br', 'AN123456789BR'],
+    ['espaço de largura zero e marcas de direção', '\u202Aan\u200B123-456.789\u200Bbr\u202C', 'AN123456789BR'],
+    ['tab e quebra de linha', '\tAN123\n456789BR ', 'AN123456789BR'],
+    ['a forma do painel, com espaços', 'PN 1234 5678 9BR', 'PN123456789BR'],
+  ])('%s ⇒ a forma única', (_nome, digitado, esperado) => {
+    expect(normalizeMaterialTrackingCode(digitado)).toBe(esperado)
+  })
+
+  it('sem formato imposto: o código de outra transportadora passa, só sem hífen e ponto', () => {
+    expect(normalizeMaterialTrackingCode('jd-0001.2345')).toBe('JD00012345')
+  })
+
+  it('vazio, nulo, ausente ou só separadores ⇒ vazio', () => {
+    expect(normalizeMaterialTrackingCode('')).toBe('')
+    expect(normalizeMaterialTrackingCode(null)).toBe('')
+    expect(normalizeMaterialTrackingCode(undefined)).toBe('')
+    expect(normalizeMaterialTrackingCode(' - . \u200B ')).toBe('')
+  })
+
+  it('`normalizeTrackingCode` (o rastreio de SAÍDA) fica intacto: o hífen continua', () => {
+    expect(normalizeTrackingCode('AN-123.456.789-BR')).toBe('AN-123.456.789-BR')
   })
 })

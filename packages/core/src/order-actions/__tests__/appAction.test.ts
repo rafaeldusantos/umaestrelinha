@@ -360,3 +360,147 @@ describe('Nenhuma chamada quando não há o que gravar', () => {
     expect(d.log).toEqual([])
   })
 })
+
+// ---------------------------------------------------------------------------------------------
+// Feature `82` — o código do envelope DA CLIENTE e "Colocar em produção" (`ENV-07`, `08`, `10`, `11`, `25`)
+// ---------------------------------------------------------------------------------------------
+
+describe('Código do envelope (`rastreio-do-material`)', () => {
+  const aguardando = linha({ status: 'pending', material_status: 'aguardando_material' })
+  const rpcTracking = (data: unknown, error: unknown = null) => () => ({ data, error })
+
+  it('código NORMALIZADO → só `set_material_tracking`, depois UM aviso `material_tracking_set`; nenhuma tabela', async () => {
+    d.responderRpc = rpcTracking({ ok: true, status: 'material_enviado', reason: null })
+    await runAppAction(d.deps, aguardando, { tipo: 'rastreio-do-material', codigo: 'an 123456789 br' })
+
+    expect(d.rpcs).toEqual([{ fn: 'set_material_tracking', args: { p_order_id: ID, p_code: 'AN123456789BR' } }])
+    expect(d.cadeias).toEqual([])
+    expect(d.log).toEqual(['rpc set_material_tracking', 'notify material_tracking_set'])
+  })
+
+  it('`ok` com `aguardando_material` → `material_enviado` ⇒ `materialPassou: true`', async () => {
+    d.responderRpc = rpcTracking({ ok: true, status: 'material_enviado', reason: null })
+    expect(await runAppAction(d.deps, aguardando, { tipo: 'rastreio-do-material', codigo: 'AN123456789BR' })).toEqual({
+      tipo: 'ok',
+      emailSent: true,
+      materialMudou: false,
+      materialPassou: true,
+    })
+  })
+
+  it('`ok` com o envelope JÁ a caminho ⇒ `materialPassou: false`', async () => {
+    d.responderRpc = rpcTracking({ ok: true, status: 'material_enviado', reason: null })
+    const row = linha({ status: 'pending', material_status: 'material_enviado', material_tracking_code: 'AN123456789BR' })
+    expect(await runAppAction(d.deps, row, { tipo: 'rastreio-do-material', codigo: 'BR987654321XX' })).toEqual({
+      tipo: 'ok',
+      emailSent: true,
+      materialMudou: false,
+      materialPassou: false,
+    })
+  })
+
+  it('código IGUAL ao atual vai à RPC mesmo assim (idempotente, atualiza a autoria)', async () => {
+    d.responderRpc = rpcTracking({ ok: true, status: 'material_enviado', reason: null })
+    const row = linha({ status: 'pending', material_status: 'material_enviado', material_tracking_code: 'AN123456789BR' })
+    await runAppAction(d.deps, row, { tipo: 'rastreio-do-material', codigo: 'AN123456789BR' })
+    expect(d.rpcs).toHaveLength(1)
+  })
+
+  it.each(['empty_code', 'material_not_applicable'])('recusa `%s` ⇒ `material-rastreio-recusado` com o motivo, sem aviso', async (reason) => {
+    d.responderRpc = rpcTracking({ ok: false, status: null, reason })
+    expect(await runAppAction(d.deps, aguardando, { tipo: 'rastreio-do-material', codigo: 'AN123456789BR' })).toEqual({
+      tipo: 'material-rastreio-recusado',
+      reason,
+    })
+    expect(d.notify).not.toHaveBeenCalled()
+  })
+
+  it('`not_allowed` ⇒ `nenhuma-linha` (a porta confere o papel, A8), sem aviso', async () => {
+    d.responderRpc = rpcTracking({ ok: false, status: null, reason: 'not_allowed' })
+    expect(await runAppAction(d.deps, aguardando, { tipo: 'rastreio-do-material', codigo: 'AN123456789BR' })).toEqual({
+      tipo: 'nenhuma-linha',
+    })
+    expect(d.notify).not.toHaveBeenCalled()
+  })
+
+  it('erro da RPC ⇒ `falhou`, sem aviso', async () => {
+    const error = { message: 'rede' }
+    d.responderRpc = rpcTracking(null, error)
+    expect(await runAppAction(d.deps, aguardando, { tipo: 'rastreio-do-material', codigo: 'AN123456789BR' })).toEqual({
+      tipo: 'falhou',
+      erro: error,
+    })
+    expect(d.notify).not.toHaveBeenCalled()
+  })
+
+  // Fase 5 (T19): a forma única do envelope — o hífen e o ponto saem, e a recusa do curto é julgada
+  // sobre o código JÁ normalizado (`AN-12.34` tem 8 caracteres crus e 6 normalizados).
+  it('hífen, ponto e invisíveis saem antes da RPC (`normalizeMaterialTrackingCode`)', async () => {
+    d.responderRpc = rpcTracking({ ok: true, status: 'material_enviado', reason: null })
+    await runAppAction(d.deps, aguardando, { tipo: 'rastreio-do-material', codigo: 'an-123.456.789-br\u200B' })
+    expect(d.rpcs).toEqual([{ fn: 'set_material_tracking', args: { p_order_id: ID, p_code: 'AN123456789BR' } }])
+  })
+
+  it('o curto é julgado DEPOIS de tirar hífen e ponto: `AN-12.34` ⇒ recusa, sem rede', async () => {
+    const r = await runAppAction(d.deps, aguardando, { tipo: 'rastreio-do-material', codigo: 'AN-12.34' })
+    expect(r.tipo).toBe('falhou')
+    expect(((r as { erro: Error }).erro).message).toBe('Confira o código — ele costuma ter 13 caracteres.')
+    expect(d.rpcs).toEqual([])
+  })
+
+  it('código curto (`trackingCodeRefusal`) ⇒ `falhou` com a frase, e NENHUMA ida à rede', async () => {
+    const r = await runAppAction(d.deps, aguardando, { tipo: 'rastreio-do-material', codigo: 'an 12' })
+    expect(r.tipo).toBe('falhou')
+    expect(((r as { erro: Error }).erro).message).toBe('Confira o código — ele costuma ter 13 caracteres.')
+    expect(d.rpcs).toEqual([])
+    expect(d.log).toEqual([])
+  })
+
+  it.each([
+    ['o envelope chegou', linha({ status: 'pending', material_status: 'material_recebido' })],
+    ['em produção', linha({ status: 'paid', material_status: 'em_producao' })],
+    ['cancelado', linha({ status: 'cancelled', material_status: 'aguardando_material' })],
+    ['sem material', linha({ status: 'paid', material_status: 'nao_aplicavel' })],
+  ])('linha não editável (%s) ⇒ `mudou`, sem rede', async (_nome, row) => {
+    expect(await runAppAction(d.deps, row, { tipo: 'rastreio-do-material', codigo: 'AN123456789BR' })).toEqual({ tipo: 'mudou' })
+    expect(d.log).toEqual([])
+  })
+})
+
+describe('Colocar em produção (`producao`, ENV-25)', () => {
+  const recebido = linha({ status: 'paid', material_status: 'material_recebido' })
+
+  it('só `set_material_status("em_producao")` e o aviso do material — nenhuma tabela, status do pedido intocado', async () => {
+    d.responderRpc = rpcOk('em_producao')
+    expect(await runAppAction(d.deps, recebido, { tipo: 'producao' })).toEqual({ tipo: 'ok', emailSent: true, materialMudou: false })
+    expect(d.rpcs).toEqual([{ fn: 'set_material_status', args: { p_order_id: ID, p_status: 'em_producao' } }])
+    expect(d.cadeias).toEqual([])
+    expect(d.log).toEqual(['rpc set_material_status', 'notify material_status_changed'])
+  })
+
+  it('`material-recusado` vem com o alvo `em_producao`', async () => {
+    d.responderRpc = () => ({ data: { ok: false, status: 'aguardando_material', reason: 'invalid_transition' }, error: null })
+    expect(await runAppAction(d.deps, recebido, { tipo: 'producao' })).toEqual({
+      tipo: 'material-recusado',
+      reason: 'invalid_transition',
+      status: 'aguardando_material',
+      to: 'em_producao',
+    })
+  })
+
+  it('`not_admin` ⇒ `sem-papel`; erro ⇒ `falhou`', async () => {
+    d.responderRpc = () => ({ data: { ok: false, status: null, reason: 'not_admin' }, error: null })
+    expect(await runAppAction(d.deps, recebido, { tipo: 'producao' })).toEqual({ tipo: 'sem-papel' })
+    d.responderRpc = () => ({ data: null, error: { message: 'x' } })
+    expect((await runAppAction(d.deps, recebido, { tipo: 'producao' })).tipo).toBe('falhou')
+  })
+
+  it.each([
+    ['aguardando', linha({ status: 'paid', material_status: 'aguardando_material' })],
+    ['já em produção', linha({ status: 'paid', material_status: 'em_producao' })],
+    ['cancelado', linha({ status: 'cancelled', material_status: 'material_recebido' })],
+  ])('fora de `material_recebido` (%s) ⇒ `mudou`, sem rede', async (_nome, row) => {
+    expect(await runAppAction(d.deps, row, { tipo: 'producao' })).toEqual({ tipo: 'mudou' })
+    expect(d.log).toEqual([])
+  })
+})

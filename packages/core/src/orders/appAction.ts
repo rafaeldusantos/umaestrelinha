@@ -247,8 +247,15 @@ export const canChargeMaterial = (row: {
 // `citaEmailSeEnviado`. A partir de `delivered`, nunca — o e-mail que saiu, se saiu, não é de
 // postagem. O padrão de cada ausência é NÃO prometer.
 
+/**
+ * As ações que a confirmação conhece: as primárias do estado (`AppActionId`) e as duas do bloco
+ * Material da feature `82` — o código do envelope e "Colocar em produção". Estas duas NÃO entram em
+ * `AppActionId`, que é o vocabulário do rodapé (`appPrimaryAction`): nenhuma delas é ação primária.
+ */
+export type ConfirmationAction = Exclude<AppActionId, 'nenhuma'> | 'rastreio-do-material' | 'producao'
+
 export interface ConfirmationInput {
-  action: Exclude<AppActionId, 'nenhuma'>
+  action: ConfirmationAction
   emailSent: boolean
   /** "Iniciar separação": o material foi a `em_producao` nesta ação. */
   materialMudou?: boolean
@@ -256,6 +263,11 @@ export interface ConfirmationInput {
   materialJaEstava?: boolean
   /** Rastreio: o `citaEmailSeEnviado` da folha em que a ação partiu. */
   citaEmailSeEnviado?: boolean
+  /**
+   * Código do envelope (`ENV-08`): o material passou de `aguardando_material` para `material_enviado`
+   * nesta gravação — o `materialPassou` do desfecho de `runAppAction`.
+   */
+  materialPassou?: boolean
   customer_name: string | null
   order_number: string
 }
@@ -265,7 +277,29 @@ export interface Confirmation {
   frase: string
 }
 
-const quemRecebe = (nome: string | null): string => (nome ?? '').trim().split(/\s+/)[0] || 'A cliente'
+/**
+ * O primeiro nome da cliente, ou "A cliente" sem nome. Um dono para as frases da ação e as do bloco
+ * Material (`core/material/envelope.ts`, feature `82`).
+ */
+export const customerFirstName = (nome: string | null | undefined): string =>
+  (nome ?? '').trim().split(/\s+/)[0] || 'A cliente'
+
+/**
+ * Fase 5 da `82` (T20, `BUG-20261026-a-cliente-no-meio-da-frase`, decisão de 2026-10-27): as formas de
+ * MEIO de frase. `customerFirstName` serve ao começo ("A cliente ainda não informou…"); no meio, sem
+ * nome, "Use quando A cliente mandar…" e "O material de A cliente…" saíam com maiúscula e sem a
+ * contração. Com nome, as três dão o mesmo primeiro nome.
+ */
+export const customerFirstNameMidSentence = (nome: string | null | undefined): string =>
+  (nome ?? '').trim().split(/\s+/)[0] || 'a cliente'
+
+/** Depois de "de": "de Maria", ou "da cliente" sem nome (a contração). */
+export const customerFirstNameAfterDe = (nome: string | null | undefined): string => {
+  const primeiro = (nome ?? '').trim().split(/\s+/)[0]
+  return primeiro ? `de ${primeiro}` : 'da cliente'
+}
+
+const quemRecebe = customerFirstName
 
 export const actionConfirmation = (input: ConfirmationInput): Confirmation => {
   const numero = formatOrderNumber(input.order_number)
@@ -299,6 +333,15 @@ export const actionConfirmation = (input: ConfirmationInput): Confirmation => {
     }
     case 'marcar-retirado':
       return { titulo: 'Retirada registrada.', frase: `Pedido ${numero} entregue.` }
+    case 'rastreio-do-material':
+      // `ENV-08`: "passou para A caminho" só quando ESTA gravação moveu o estado; senão o neutro.
+      return {
+        titulo: MATERIAL_TRACKING_SAVED,
+        frase: input.materialPassou === true ? `O pedido ${numero} passou para "A caminho".` : `Pedido ${numero} atualizado.`,
+      }
+    case 'producao':
+      // `ENV-25`.
+      return { titulo: MATERIAL_IN_PRODUCTION, frase: `O material ${customerFirstNameAfterDe(input.customer_name)} está na bancada.` }
   }
 }
 
@@ -314,3 +357,14 @@ export const PARTIAL_MATERIAL = 'A produção ficou registrada, mas o pedido nã
 export const PARTIAL_TRACKING = 'O código ficou salvo, mas o pedido não foi marcado como enviado.'
 /** `MAA-20`: o controle travado enquanto a ação está no ar. */
 export const SAVING = 'Salvando…'
+
+// Feature `82` — o bloco Material do app do ateliê.
+
+/** `ENV-18`: o código do envelope foi para a área de transferência. */
+export const TRACKING_COPIED = 'Código copiado.'
+/** `ENV-18`, A9: a área de transferência recusou (sem permissão, sem contexto seguro). */
+export const COPY_FAILED = 'Não consegui copiar. Toque e segure o código para copiar.'
+/** `ENV-08`: o título do aviso depois de gravar o código do envelope. */
+export const MATERIAL_TRACKING_SAVED = 'Código do envelope registrado.'
+/** `ENV-25`: o título do aviso depois de "Colocar em produção". */
+export const MATERIAL_IN_PRODUCTION = 'Pedido em produção.'

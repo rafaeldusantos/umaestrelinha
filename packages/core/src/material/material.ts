@@ -110,6 +110,23 @@ export const requiresMaterial = (row: MaterialRequirement | null | undefined): b
 export const materialKindsOf = (row: MaterialRequirement | null | undefined): MaterialKind[] =>
   toMaterialKinds(row?.material_kinds)
 
+/**
+ * Feature `82` (`ENV-23`) — os materiais distintos que um PEDIDO exige, do snapshot dos itens
+ * (`order_items.requires_material`/`material_kinds`), na ordem de `MATERIAL_KINDS`. Item que não exige
+ * não contribui, mesmo com `material_kinds` preenchido (é o snapshot de uma curadoria que mudou).
+ * Sem kind declarado, lista vazia — o bloco não desenha chip, e nunca "nenhum material".
+ */
+export const orderMaterialKinds = (
+  itens: readonly MaterialRequirement[] | null | undefined,
+): MaterialKind[] => {
+  const presentes = new Set<MaterialKind>()
+  for (const item of itens ?? []) {
+    if (!requiresMaterial(item)) continue
+    for (const kind of materialKindsOf(item)) presentes.add(kind)
+  }
+  return MATERIAL_KINDS.filter((k) => presentes.has(k))
+}
+
 /** Lista legível: `''` quando não exige, `'a combinar'` quando exige sem dizer qual. */
 export const MATERIAL_TO_BE_AGREED = 'a combinar'
 
