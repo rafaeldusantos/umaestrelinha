@@ -241,6 +241,37 @@ select pg_temp.confere((:'m'::jsonb #>> '{acessos,comparacao,ontem,vendas}')::in
 select pg_temp.confere((:'m'::jsonb #> '{acessos,comparacao,semana}') = 'null'::jsonb, 'comparacao.semana = null');
 rollback to savepoint anteontem;
 
+-- conserto da rodada 2 (V-S16, V-S11): numa QUARTA, anteontem é o início da semana e
+-- least(v_desde, v_anteontem) = v_desde = anteontem — a janela de anteontem só se distingue da semana
+-- em outros dias. Quinta: anteontem (terça) está DENTRO da semana, depois da segunda. Segunda:
+-- anteontem (sábado) está ANTES da semana (v_desde = hoje).
+savepoint calendario_quinta;
+select pg_temp.contador('2026-10-10T12:00:00Z', null);
+select pg_temp.pedido('PROBE-83-Q1', 10.00, '2026-10-19T15:00:00Z');                     -- seg 12h (semana, não anteontem)
+select pg_temp.pedido('PROBE-83-Q2', 10.00, '2026-10-20T15:00:00Z');                     -- ter 12h (anteontem)
+select pg_temp.movimento('2026-10-22T21:00:00Z', :'admin_id') as m \gset
+select pg_temp.confere((:'m'::jsonb ->> 'hoje') = '2026-10-22' and (:'m'::jsonb ->> 'inicio_semana') = '2026-10-19'
+  and (:'m'::jsonb #>> '{acessos,comparacao,ontem,dia}') = '2026-10-20',
+  'fixtura: quinta 22/10, semana desde 19/10, anteontem = 20/10');
+select pg_temp.confere((:'m'::jsonb #>> '{acessos,comparacao,ontem,vendas}')::int = 1
+  and (:'m'::jsonb #>> '{periodos,semana,vendas}')::int = 2,
+  'quinta: anteontem (ter) = 1 venda; a de segunda é da semana e fica fora (V-S16)');
+rollback to savepoint calendario_quinta;
+
+savepoint calendario_segunda;
+select pg_temp.contador('2026-10-10T12:00:00Z', null);
+select pg_temp.visita('83000000-0000-4000-8000-0000000000f1', '2026-10-24T15:00:00Z');  -- sáb 12h (anteontem)
+select pg_temp.visita('83000000-0000-4000-8000-0000000000f2', '2026-10-25T15:00:00Z');  -- dom 12h (ontem)
+select pg_temp.visita('83000000-0000-4000-8000-0000000000f3', '2026-10-25T16:00:00Z');  -- dom 13h (ontem)
+select pg_temp.movimento('2026-10-26T21:00:00Z', :'admin_id') as m \gset
+select pg_temp.confere((:'m'::jsonb ->> 'hoje') = '2026-10-26' and (:'m'::jsonb ->> 'inicio_semana') = '2026-10-26'
+  and (:'m'::jsonb #>> '{acessos,comparacao,ontem,dia}') = '2026-10-24',
+  'fixtura: segunda 26/10, a semana começa hoje, anteontem = sáb 24/10 (antes da semana)');
+select pg_temp.confere((:'m'::jsonb #>> '{acessos,comparacao,ontem,visitas}')::int = 1
+  and (:'m'::jsonb #>> '{periodos,ontem,visitas}')::int = 2,
+  'segunda: anteontem (sáb) = 1 visita, ontem (dom) = 2 — a janela lida vai além da semana (V-S11)');
+rollback to savepoint calendario_segunda;
+
 savepoint contagem_ontem;
 select pg_temp.contador('2026-10-20T12:00:00Z', null);                                     -- começou ontem 09h
 select pg_temp.visita('83000000-0000-4000-8000-000000000071', '2026-10-21T13:00:00Z');
