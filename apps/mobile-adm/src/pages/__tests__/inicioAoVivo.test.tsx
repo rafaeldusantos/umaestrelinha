@@ -1,6 +1,7 @@
 // Feature `83` · T09 — o cartão "Visitas hoje" na Início e o caminho até a Loja ao vivo, pela árvore
 // REAL (`<App />` com sessão admin sobre o dublê). `LAV-04`, `LAV-05`, `LAV-50`, e o critério 1 do PRD
-// ATRAVESSANDO as duas telas (Visitas e Vendas da faixa == as da seção, nos três períodos).
+// ATRAVESSANDO as duas telas (Visitas e Vendas da faixa == as da seção, nos três períodos), e o foco
+// no título ao entrar e ao voltar (`LAV-62`, conserto da rodada 1 do Verificador).
 process.env.TZ = 'UTC'
 
 import { act, fireEvent, screen, within } from '@testing-library/react'
@@ -116,6 +117,26 @@ describe('o cartão na Início (LAV-04)', () => {
     await andar(50)
     expect(chamadas()).toBe(antes + 1)
     expect(window.location.pathname).toBe('/')
+  })
+})
+
+describe('o foco ao entrar e ao voltar (LAV-62)', () => {
+  it('tocar o cartão leva o foco ao h1 "Loja ao vivo"; o Voltar o devolve ao h1 da Início', async () => {
+    sempre()
+    await abrir()
+    fireEvent.click(cartao())
+    await andar(50)
+    expect(window.location.pathname).toBe('/ao-vivo')
+    const titulo = screen.getByRole('heading', { level: 1, name: 'Loja ao vivo' })
+    expect(document.activeElement).toBe(titulo)
+    expect(titulo).toHaveAttribute('tabindex', '-1')
+    fireEvent.click(screen.getByRole('button', { name: 'Voltar' }))
+    await andar(50)
+    expect(window.location.pathname).toBe('/')
+    // com dado, o h1 da Início é a saudação (`MovementHero`), não a palavra "Início"
+    const inicio = screen.getByRole('heading', { level: 1 })
+    expect(within(faixa()).getByRole('heading', { level: 1 })).toBe(inicio)
+    expect(document.activeElement).toBe(inicio)
   })
 })
 
