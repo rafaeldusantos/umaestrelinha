@@ -42,7 +42,8 @@ export const formatConversion = (c: number | null): string => (c === null ? '—
  */
 export const accessDelta = (atual: number | null, anterior: number | null): number | null => {
   if (atual === null || anterior === null || anterior <= 0) return null
-  const x = ((atual - anterior) / anterior) * 100
+  // multiplica ANTES de dividir: com inteiros, o meio exato (63 × 40 = +57,5) fica exato em binário
+  const x = ((atual - anterior) * 100) / anterior
   return Math.sign(x) * Math.round(Math.abs(x)) || 0
 }
 

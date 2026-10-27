@@ -104,6 +104,11 @@ describe('accessDelta (LAV-51)', () => {
   it('o meio é simétrico, para longe do zero: +12,5 ⇒ +13 e −12,5 ⇒ −13', () => {
     expect(accessDelta(9, 8)).toBe(13)
     expect(accessDelta(7, 8)).toBe(-13)
+    // meio exato que a divisão ANTES da multiplicação levava a 57,4999… (achado do gate do Lote 1)
+    expect(accessDelta(63, 40)).toBe(58)
+    expect(accessDelta(17, 40)).toBe(-58)
+    expect(accessDelta(126, 80)).toBe(58)
+    expect(accessDelta(91, 40)).toBe(128)
   })
 
   it('anterior 0 ou null, ou atual null ⇒ null (nunca +∞% nem +100%)', () => {
