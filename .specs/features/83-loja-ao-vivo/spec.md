@@ -227,7 +227,9 @@ variação e o gráfico por horário ou por dia, para entender o movimento sem f
    - Com a fonte grande, as colunas têm largura mínima em `rem` e o gráfico rola **dentro** do próprio
      cartão (`overflow-x-auto`); o valor nunca se sobrepõe ao vizinho e o `body` nunca rola.
    WHEN o período é Semana THEN o `h3` SHALL ser "Visitas por dia", com uma coluna por dia **de
-   segunda até hoje** (`acessos.semana.por_dia`), rótulo `seg … dom` e, no último, "hoje" em `accent`.
+   segunda até hoje** (`acessos.semana.por_dia`), rótulo `seg … dom` e, no último, a barra em `accent` com o rótulo "hoje" em `ink` (como a faixa
+   atual de Hoje: `accent` é preenchimento, nunca texto — `accentText`). *(Emendado na rodada 1 da
+   verificação: a frase antiga, "hoje" em `accent`, não dizia se era a barra ou o rótulo.)*
    - WHEN todos os valores são `0` THEN todas as barras SHALL ter 4 px e o valor "0".
 4. **LAV-53** WHEN o gráfico renderiza THEN a nota (12 px `ink-soft`) SHALL ser "Faixas de 3 horas,
    pela hora da primeira visita." em Hoje e Ontem, e "Desde segunda-feira." em Semana. WHEN o dia
