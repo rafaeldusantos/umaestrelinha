@@ -6,13 +6,13 @@ persona: Adri no celular
 journey: J-ver-a-loja-ao-vivo
 expected: Atualizado agora abaixo de 2 s; Atualizado há {s} s de 2 a 59 s (truncado); Atualizado há {m} min a partir de 60 s; Não consegui atualizar agora. quando a releitura falhou com dado na tela; nada sem dado
 entry_points: /ao-vivo
-qa_status: untested
+qa_status: pass
 bug_ids:
 fix_status:
 retest_status:
 fix_commits:
 evidence:
-last_report:
+last_report: reports/2026-10-27-mobile-adm-loja-ao-vivo.md
 overlaps: MAD-aovivo-leitura-falha-tentar-de-novo
 ---
 

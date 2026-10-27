@@ -6,13 +6,13 @@ persona: Adri no celular
 journey: J-ver-a-loja-ao-vivo
 expected: Os três cartões e o gráfico trocam no toque, só o período tocado fica aria-pressed, e nenhuma chamada a store_movement sai na troca
 entry_points: /ao-vivo
-qa_status: untested
+qa_status: pass
 bug_ids:
 fix_status:
 retest_status:
 fix_commits:
 evidence:
-last_report:
+last_report: reports/2026-10-27-mobile-adm-loja-ao-vivo.md
 overlaps: MAD-inicio-trocar-periodo
 ---
 

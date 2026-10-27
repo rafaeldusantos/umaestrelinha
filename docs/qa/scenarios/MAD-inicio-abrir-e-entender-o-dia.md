@@ -6,13 +6,13 @@ persona: Adri no celular
 journey: J-acompanhar-a-loja
 expected: Saudação e data de Brasília, os quatro números de Hoje iguais a store_movement e Atualizado às com a hora do servidor
 entry_points: /
-qa_status: untested
+qa_status: pass
 bug_ids: BUG-20261022-situacao-fala-com-a-cliente-no-atelie
 fix_status: fixed
 retest_status: pass
 fix_commits: working tree, sem commit
 evidence: evidence/2026-10-23-mobile-adm-inicio-reteste-2/ultimos-412-100.png; evidence/2026-10-23-mobile-adm-inicio-reteste-2/ultimos-360-enviado-estornado.png
-last_report: reports/2026-10-23-mobile-adm-inicio-reteste-2.md
+last_report: reports/2026-10-27-mobile-adm-loja-ao-vivo.md
 overlaps: 
 ---
 

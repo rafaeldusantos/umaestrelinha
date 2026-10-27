@@ -6,13 +6,13 @@ persona: Adri no celular
 journey: J-acompanhar-a-loja
 expected: Os quatro números trocam para o período tocado sem nova leitura, e só ele fica marcado
 entry_points: /
-qa_status: untested
+qa_status: pass
 bug_ids: 
 fix_status: 
 retest_status:
 fix_commits:
 evidence: evidence/2026-10-22-mobile-adm-inicio/CH-numeros-02-ontem.png
-last_report: reports/2026-10-22-mobile-adm-inicio.md
+last_report: reports/2026-10-27-mobile-adm-loja-ao-vivo.md
 overlaps: 
 ---
 

@@ -6,13 +6,13 @@ persona: Adri no celular
 journey: J-ver-a-loja-ao-vivo
 expected: Tocar o cartão abre /ao-vivo no período escolhido na faixa da Início, sem barra de abas, com o h1 Loja ao vivo focado e o título Loja ao vivo · Ateliê
 entry_points: /; /ao-vivo
-qa_status: untested
+qa_status: pass
 bug_ids:
 fix_status:
 retest_status:
 fix_commits:
 evidence:
-last_report:
+last_report: reports/2026-10-27-mobile-adm-loja-ao-vivo.md
 overlaps: MAD-inicio-cartao-visitas-hoje
 ---
 

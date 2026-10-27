@@ -136,3 +136,5 @@ Ficam `blocked-verify` até o Android real: o Chrome em segundo plano de verdade
 puxar com o dedo e a escala de texto do sistema (a prova T13 escalou pela raiz). Fora do ciclo: a
 aprovação do texto da política pela Adri (pré-condição do deploy, não de QA) e `BL-058` (Descontos na
 barra de abas a 200 %, anterior à `83`). Sem bug aberto da `83` no registro na hora do planejamento.
+
+**Executado em 2026-10-27** (`reports/2026-10-27-mobile-adm-loja-ao-vivo.md`): 5 Pass, 2 `blocked-verify` (Android e TalkBack reais), 3 esperando decisão. Três bugs de atrito: `BUG-20261027-tentar-de-novo-da-loja-ao-vivo-solta-o-foco`, `BUG-20261027-f5-desfaz-o-periodo-escolhido-na-loja-ao-vivo` e `BUG-20261027-rodape-da-loja-rola-de-lado-com-fonte-200` (anterior à `83`).

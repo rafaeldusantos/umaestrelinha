@@ -6,13 +6,13 @@ persona: Adri no celular
 journey: J-ver-a-loja-ao-vivo
 expected: Em 360/390/412 e 1440 a 100/130/200 %: sem rolagem horizontal do body, números sem sobreposição e na largura do cartão, a 200 % no celular uma coluna, o gráfico rola dentro do próprio cartão, alvos ≥ 44 px, cabeçalho sticky de borda a borda
 entry_points: /ao-vivo
-qa_status: untested
+qa_status: pass
 bug_ids:
 fix_status:
 retest_status:
 fix_commits:
 evidence:
-last_report:
+last_report: reports/2026-10-27-mobile-adm-loja-ao-vivo.md
 overlaps: MAD-inicio-numeros-grandes
 ---
 

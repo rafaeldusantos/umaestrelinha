@@ -6,13 +6,13 @@ persona: Adri no celular
 journey: J-ver-a-loja-ao-vivo
 expected: Nenhum emoji, exclamação, urgência, pessoa(s)/usuário(s), nome, e-mail ou cidade na tela e no cartão; alta em done, queda e 0% em ink-soft, nunca vermelho; termina com Conta só quem aceitou cookies de estatística.
 entry_points: /; /ao-vivo
-qa_status: untested
+qa_status: pass
 bug_ids:
 fix_status:
 retest_status:
 fix_commits:
 evidence:
-last_report:
+last_report: reports/2026-10-27-mobile-adm-loja-ao-vivo.md
 overlaps: MAD-avisos-tom-memorial, MAD-clientes-tom-memorial
 ---
 

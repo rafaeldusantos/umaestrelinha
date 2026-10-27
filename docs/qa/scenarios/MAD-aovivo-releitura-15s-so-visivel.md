@@ -6,13 +6,13 @@ persona: Adri no celular
 journey: J-ver-a-loja-ao-vivo
 expected: Com a aba visível, uma leitura a cada 15 s e o frescor volta a Atualizado agora; com a aba oculta, nenhuma leitura (nem a da virada do dia); ao voltar, uma leitura na hora
 entry_points: /ao-vivo
-qa_status: untested
+qa_status: blocked-verify
 bug_ids:
 fix_status:
 retest_status:
 fix_commits:
 evidence:
-last_report:
+last_report: reports/2026-10-27-mobile-adm-loja-ao-vivo.md
 overlaps: MAD-inicio-cartao-visitas-hoje
 ---
 
