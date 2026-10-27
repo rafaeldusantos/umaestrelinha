@@ -26,6 +26,13 @@ const NAO_SAO_ABAS = ['/login', '/recuperar', '/recuperar/codigo', '/recuperar/s
  */
 const ROTAS_DA_CONTA = ['/avisos']
 
+/**
+ * Feature `83` (design §6, `LAV-06`): as rotas DE TELA — de primeiro nível, sem aba, alcançadas por um
+ * cartão de outra tela (a Loja ao vivo, pelo cartão "Visitas hoje" da Início). Aceitas SÓ por estarem
+ * nesta lista literal, como as da conta.
+ */
+const ROTAS_DE_TELA = ['/ao-vivo']
+
 const semComentarios = (t: string) => t.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n\r]*/g, '')
 
 const todasAsRotas = (fonte: string) =>
@@ -36,10 +43,16 @@ const ehSubrota = (p: string) => p.split('/').filter(Boolean).length > 1
 const paiDe = (p: string) => `/${p.split('/').filter(Boolean)[0]}`
 
 /** As rotas de PRIMEIRO nível — as que têm de ser, uma a uma, as abas. */
-const rotasDoApp = (fonte: string) => todasAsRotas(fonte).filter((p) => !ehSubrota(p) && !ROTAS_DA_CONTA.includes(p))
+const rotasDoApp = (fonte: string) =>
+  todasAsRotas(fonte).filter((p) => !ehSubrota(p) && !ROTAS_DA_CONTA.includes(p) && !ROTAS_DE_TELA.includes(p))
 /** As rotas da conta que o `App.tsx` declara. */
 const rotasDaConta = (fonte: string) => todasAsRotas(fonte).filter((p) => ROTAS_DA_CONTA.includes(p))
 const subrotasDoApp = (fonte: string) => todasAsRotas(fonte).filter(ehSubrota)
+/** As rotas de tela que o `App.tsx` declara. */
+const rotasDeTela = (fonte: string) => todasAsRotas(fonte).filter((p) => ROTAS_DE_TELA.includes(p))
+
+/** O `App.tsx` com a rota `/ao-vivo` — injetada se ainda não estiver lá (a T08 a declara de verdade). */
+const comAoVivo = (f: string) => (/path="\/ao-vivo"/.test(semComentarios(f)) ? f : `${f}\n<Route path="/ao-vivo" element={<X />} />`)
 
 const divergencias = (abas: string[], rotas: string[], subrotas: string[] = []) => ({
   abaSemRota: abas.filter((a) => !rotas.includes(a)),
@@ -67,9 +80,27 @@ describe('TABS × rotas do App.tsx', () => {
     expect(d.rotaSemAba).toEqual(['/configuracoes'])
   })
 
+  it('âncora — a lista literal das rotas de tela tem só `/ao-vivo` (feature `83`)', () => {
+    expect(ROTAS_DE_TELA).toEqual(['/ao-vivo'])
+  })
+
+  it('a rota `/ao-vivo` existe no `App.tsx` e está na lista das rotas de tela (feature `83`, T08)', () => {
+    expect(rotasDeTela(fonte)).toEqual(['/ao-vivo'])
+  })
+
+  // Feature `83`: este sensor passou a filtrar `ROTAS_DE_TELA` ANTES — mudança de fixture, não de
+  // régua. Ele mede só a lista da CONTA; sem o filtro, `/ao-vivo` (outra lista) entraria na conta dele.
   it('SENSOR — sem a lista, `/avisos` seria acusada como rota sem aba (a lista é o que a aceita)', () => {
-    const semLista = todasAsRotas(fonte).filter((p) => !ehSubrota(p))
+    const semLista = todasAsRotas(comAoVivo(fonte)).filter((p) => !ehSubrota(p) && !ROTAS_DE_TELA.includes(p))
     expect(divergencias(TABS.map((t) => t.path), semLista).rotaSemAba).toEqual(['/avisos'])
+  })
+
+  it('SENSOR — sem `ROTAS_DE_TELA`, `/ao-vivo` seria acusada como rota sem aba (a lista é o que a aceita)', () => {
+    const semLista = todasAsRotas(comAoVivo(fonte)).filter((p) => !ehSubrota(p) && !ROTAS_DA_CONTA.includes(p))
+    expect(divergencias(TABS.map((t) => t.path), semLista).rotaSemAba).toEqual(['/ao-vivo'])
+    // e, com a lista, ela é aceita (rotas de primeiro nível = as abas)
+    expect(rotasDoApp(comAoVivo(fonte))).toEqual(TABS.map((t) => t.path))
+    expect(rotasDeTela(comAoVivo(fonte))).toEqual(['/ao-vivo'])
   })
 
   it('as duas listas são a mesma, na mesma ordem — e toda subrota mora numa aba', () => {

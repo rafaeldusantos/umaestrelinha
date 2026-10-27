@@ -12,8 +12,10 @@ fix_status:
 retest_status:
 fix_commits:
 evidence: evidence/2026-10-22-mobile-adm-inicio/CH-numeros-02-ontem.png
-last_report: reports/2026-10-22-mobile-adm-inicio.md
+last_report: reports/2026-10-27-mobile-adm-loja-ao-vivo.md
 overlaps: 
 ---
 
 Feature `73` (`MAI-02`, `MAI-03`).
+
+Reaberto em 2026-10-27 pela feature `83`: a Início ganhou o cartão "Visitas hoje" entre a faixa e "Precisa de você", o período da faixa passou a ser controlado pela página (levado a `/ao-vivo` e de volta por `history.state`) e a releitura de 30 s.

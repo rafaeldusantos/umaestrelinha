@@ -19,9 +19,12 @@ const arquivos = readdirSync(DIR)
   .map((nome) => ({ nome, imports: especificadores(readFileSync(join(DIR, nome), 'utf8')) }))
 
 describe('core/stats é puro', () => {
-  it('âncora: os cinco arquivos', () => {
-    expect(arquivos.map((a) => a.nome).sort()).toEqual(['index.ts', 'labels.ts', 'movement.ts', 'overview.ts', 'turn.ts'])
+  // Feature `83`: a âncora sobe de cinco para SEIS com `counterNotes.ts` (as notas do contador
+  // subiram do painel) — âncora de contagem subindo com o fato, não afrouxamento.
+  it('âncora: os seis arquivos', () => {
+    expect(arquivos.map((a) => a.nome).sort()).toEqual(['counterNotes.ts', 'index.ts', 'labels.ts', 'movement.ts', 'overview.ts', 'turn.ts'])
     expect(arquivos.find((a) => a.nome === 'index.ts')!.imports.length).toBeGreaterThanOrEqual(4)
+    expect(arquivos.find((a) => a.nome === 'counterNotes.ts')!.imports).toContain('../time/format.ts')
   })
 
   it('todo especificador relativo leva `.ts`', () => {

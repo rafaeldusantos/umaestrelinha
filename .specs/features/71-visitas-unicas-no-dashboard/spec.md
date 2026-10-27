@@ -1,5 +1,14 @@
 # 71 · Visitas únicas no Dashboard — Specification
 
+> **Emenda (feature `83`, `AD-066`, 2026-10-27)** — a terceira condição de **`VIS-28`** ("as colunas
+> são **exatamente** `visitor_id uuid` e `day date`") deixou de valer na migration
+> `20261029120000_83-loja-ao-vivo.sql`: `store_visits` ganhou `first_hour smallint` (0–23), a hora cheia
+> de Brasília da primeira visita do dia, decidida pelo servidor na inserção. As outras condições
+> (RLS, `revoke`, nenhuma policy, só `service_role` grava) continuam. A AC abaixo **não foi reescrita**
+> — ela descreve o que a `71` entregou; o que vale hoje está em
+> `.specs/features/83-loja-ao-vivo/spec.md` (`LAV-70`) e no guarda `visitasPorHoraSchema.test.ts`. A
+> Política de Privacidade acompanhou (`LAV-66`). A emenda foi **confirmada** pelo usuário em 2026-10-27.
+
 > Origem: o painel da Nuvemshop mostra o bloco **Visitas únicas · Vendas · Faturamento · Ticket
 > médio**, com as abas **Hoje / Ontem / Esta semana**. O Dashboard do painel não tem esse bloco.
 > Decisões do usuário (2026-10-21): contador **próprio**, com id aleatório por navegador gravado uma

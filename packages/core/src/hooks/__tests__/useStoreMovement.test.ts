@@ -12,6 +12,10 @@
 //   Date.now()` dispara 2 h antes, recebe do servidor o MESMO dia, agenda `0` e entra em laço.
 // - `VIS-10 (b)`: foco da janela relê (React Query, `refetchOnWindowFocus` + `staleTime: 0`).
 
+import { readFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
 import { act, renderHook } from '@testing-library/react'
 import { QueryClient, QueryClientProvider, defaultScheduler, focusManager, notifyManager } from '@tanstack/react-query'
 import { createElement, type ReactNode } from 'react'
@@ -24,7 +28,17 @@ vi.mock('@estrelinha/supabase/client', () => ({ supabase: { rpc } }))
 // caso a caso, sem asserção tocada — só os dois caminhos de import abaixo mudaram.
 import { STORE_MOVEMENT_KEY, useStoreMovement } from '../useStoreMovement'
 import { retryUnlessDenied } from '../useStoreOverview'
-import type { MovementPeriod, MovementPeriodKey, StoreMovement } from '../../stats/movement.ts'
+import type {
+  MovementPeriod,
+  MovementPeriodKey,
+  StoreAccess,
+  StoreAccessComparison,
+  StoreAccessDay,
+  StoreAccessTodayComparison,
+  StoreAccessWeekDay,
+  StoreAccessYesterdayComparison,
+  StoreMovement,
+} from '../../stats/movement.ts'
 
 const HORA = 3_600_000
 const DIA = 24 * HORA
@@ -343,8 +357,11 @@ describe('StoreMovement — o tipo bate com a saída REAL da RPC (AD-012)', () =
   // Copiadas da saída de `public.store_movement()` no banco local (2026-10-22, como admin, em
   // `begin … rollback`). O `Record` abaixo é o que torna a comparação de verdade: com uma chave a
   // mais ou a menos no TIPO, o `tsc` recusa este objeto; com a lista da RPC mudando, o teste recusa.
+  //
+  // Feature `83`: `acessos` entrou, copiada de `.specs/features/83-loja-ao-vivo/probes/saida-real.json`
+  // (2026-10-26, como admin, `begin … rollback`).
   const CHAVES_DA_RPC = [
-    'contagem_desde', 'contagem_desde_dia', 'expira_em', 'hoje', 'inicio_semana', 'lido_em',
+    'acessos', 'contagem_desde', 'contagem_desde_dia', 'expira_em', 'hoje', 'inicio_semana', 'lido_em',
     'ontem', 'periodos', 'production_host', 'teto_dia', 'ultima_visita', 'ultima_visita_dia',
   ]
   const PERIODOS_DA_RPC = ['hoje', 'ontem', 'semana']
@@ -353,7 +370,7 @@ describe('StoreMovement — o tipo bate com a saída REAL da RPC (AD-012)', () =
   const DO_TIPO: Record<keyof StoreMovement, true> = {
     hoje: true, ontem: true, inicio_semana: true, expira_em: true, lido_em: true,
     production_host: true, contagem_desde: true, contagem_desde_dia: true, ultima_visita: true,
-    ultima_visita_dia: true, teto_dia: true, periodos: true,
+    ultima_visita_dia: true, teto_dia: true, periodos: true, acessos: true,
   }
   const PERIODOS_DO_TIPO: Record<MovementPeriodKey, true> = { hoje: true, ontem: true, semana: true }
   const MEDIDAS_DO_TIPO: Record<keyof MovementPeriod, true> = {
@@ -364,5 +381,186 @@ describe('StoreMovement — o tipo bate com a saída REAL da RPC (AD-012)', () =
     expect(Object.keys(DO_TIPO).sort()).toEqual(CHAVES_DA_RPC)
     expect(Object.keys(PERIODOS_DO_TIPO).sort()).toEqual(PERIODOS_DA_RPC)
     expect(Object.keys(MEDIDAS_DO_TIPO).sort()).toEqual(MEDIDAS_DA_RPC)
+  })
+})
+
+describe('StoreAccess — o tipo da chave `acessos` bate com a saída REAL da RPC (feature 83, AD-012)', () => {
+  // A saída real, gerada por `probes/saida-real.sql` (como admin, `begin … rollback`). Ler o ARQUIVO
+  // (e não só uma lista escrita aqui) prende o tipo ao que o banco devolveu de fato.
+  const RAIZ = resolve(dirname(fileURLToPath(import.meta.url)), '../../../../..')
+  const real = JSON.parse(
+    readFileSync(resolve(RAIZ, '.specs/features/83-loja-ao-vivo/probes/saida-real.json'), 'utf8'),
+  ) as Record<string, unknown>
+  const acessos = real.acessos as Record<string, Record<string, unknown>>
+  const chaves = (o: unknown) => Object.keys(o as object).sort()
+
+  const ACESSOS_DO_TIPO: Record<keyof StoreAccess, true> = {
+    faixa_atual: true, hoje: true, ontem: true, semana: true, comparacao: true,
+  }
+  const DIA_DO_TIPO: Record<keyof StoreAccessDay, true> = { por_faixa: true, sem_hora: true }
+  const ITEM_DA_SEMANA_DO_TIPO: Record<keyof StoreAccessWeekDay, true> = { dia: true, visitas: true }
+  const COMPARACAO_DO_TIPO: Record<keyof StoreAccess['comparacao'], true> = { hoje: true, ontem: true, semana: true }
+  const CMP_HOJE_DO_TIPO: Record<keyof StoreAccessTodayComparison, true> = {
+    ate_hora: true, visitas: true, vendas: true, base_hoje: true,
+  }
+  const BASE_DO_TIPO: Record<keyof StoreAccessComparison, true> = { visitas: true, vendas: true }
+  const CMP_ONTEM_DO_TIPO: Record<keyof StoreAccessYesterdayComparison, true> = { dia: true, visitas: true, vendas: true }
+
+  it('a saída real tem TODAS as chaves de topo do tipo, `acessos` incluída', () => {
+    expect(chaves(real)).toEqual(Object.keys({
+      acessos: 1, contagem_desde: 1, contagem_desde_dia: 1, expira_em: 1, hoje: 1, inicio_semana: 1,
+      lido_em: 1, ontem: 1, periodos: 1, production_host: 1, teto_dia: 1, ultima_visita: 1, ultima_visita_dia: 1,
+    }).sort())
+  })
+
+  it('`acessos`, os dois dias, o item da semana e a comparação: as chaves são exatamente as do tipo', () => {
+    expect(chaves(acessos)).toEqual(Object.keys(ACESSOS_DO_TIPO).sort())
+    expect(chaves(acessos.hoje)).toEqual(Object.keys(DIA_DO_TIPO).sort())
+    expect(chaves(acessos.ontem)).toEqual(Object.keys(DIA_DO_TIPO).sort())
+    expect(chaves(acessos.semana)).toEqual(['por_dia'])
+    expect(chaves((acessos.semana.por_dia as unknown[])[0])).toEqual(Object.keys(ITEM_DA_SEMANA_DO_TIPO).sort())
+    expect(chaves(acessos.comparacao)).toEqual(Object.keys(COMPARACAO_DO_TIPO).sort())
+    const cmp = acessos.comparacao as Record<string, Record<string, unknown> | null>
+    expect(chaves(cmp.hoje)).toEqual(Object.keys(CMP_HOJE_DO_TIPO).sort())
+    expect(chaves(cmp.hoje?.base_hoje)).toEqual(Object.keys(BASE_DO_TIPO).sort())
+    expect(chaves(cmp.ontem)).toEqual(Object.keys(CMP_ONTEM_DO_TIPO).sort())
+    expect(cmp.semana).toBeNull()
+  })
+
+  it('as listas literais (as do design) são as da saída real', () => {
+    expect(chaves(acessos)).toEqual(['comparacao', 'faixa_atual', 'hoje', 'ontem', 'semana'])
+    expect(chaves((acessos.comparacao as Record<string, unknown>).hoje)).toEqual(['ate_hora', 'base_hoje', 'vendas', 'visitas'])
+    expect((acessos.hoje.por_faixa as unknown[]).length).toBe(8)
+    expect((acessos.ontem.por_faixa as unknown[]).length).toBe(8)
+  })
+})
+
+describe('useStoreMovement — o intervalo da feature 83 (LAV-05, LAV-08)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'] })
+    vi.setSystemTime(new Date('2026-10-21T18:00:00.000Z'))
+  })
+
+  /** O hook com as opções dadas, lido como o consumidor lê. */
+  const comOpcoes = (opcoes: Parameters<typeof useStoreMovement>[0]) => () => {
+    const q = useStoreMovement(opcoes)
+    void q.isLoading
+    void q.isError
+    void q.data
+    return q
+  }
+
+  const opcoesDoObservador = () =>
+    client.getQueryCache().find({ queryKey: STORE_MOVEMENT_KEY })?.observers[0]?.options
+
+  it('com `refetchInterval: 15_000` e a aba visível: nada aos 14,9 s, UMA leitura aos 15 s; `refetchIntervalInBackground` é `false`', async () => {
+    servidor(0)
+    renderHook(comOpcoes({ refetchInterval: 15_000 }), { wrapper })
+    await escoar()
+    expect(rpc).toHaveBeenCalledTimes(1)
+
+    await avancar(14_900)
+    expect(rpc).toHaveBeenCalledTimes(1)
+    await avancar(100)
+    expect(rpc).toHaveBeenCalledTimes(2)
+    await avancar(15_000)
+    expect(rpc).toHaveBeenCalledTimes(3)
+
+    expect(opcoesDoObservador()?.refetchIntervalInBackground).toBe(false)
+  })
+
+  it('SEM a opção (o painel): nenhum intervalo — 90 s, nenhuma leitura nova', async () => {
+    servidor(0)
+    renderHook(useComoOWidget, { wrapper })
+    await escoar()
+    await avancar(90_000)
+    expect(rpc).toHaveBeenCalledTimes(1)
+  })
+
+  it('aba em segundo plano: 90 s sem leitura nenhuma; de volta ao foco, UMA leitura', async () => {
+    servidor(0)
+    renderHook(comOpcoes({ refetchInterval: 15_000 }), { wrapper })
+    await escoar()
+    expect(rpc).toHaveBeenCalledTimes(1)
+
+    act(() => focusManager.setFocused(false))
+    await avancar(90_000)
+    expect(rpc).toHaveBeenCalledTimes(1)
+
+    act(() => focusManager.setFocused(true))
+    await escoar()
+    expect(rpc).toHaveBeenCalledTimes(2)
+  })
+
+  it('leitura recusada (`42501`): o intervalo PARA — 90 s, zero chamadas novas', async () => {
+    rpc.mockResolvedValue({ data: null, error: { message: 'sem acesso', code: '42501' } })
+    const { result } = renderHook(comOpcoes({ refetchInterval: 15_000, retry: retryUnlessDenied }), { wrapper })
+    await escoar()
+    expect(rpc).toHaveBeenCalledTimes(1)
+    expect(result.current.isError).toBe(true)
+
+    await avancar(90_000)
+    expect(rpc).toHaveBeenCalledTimes(1)
+  })
+
+  it('o intervalo segue depois de uma falha de REDE (só a recusa por papel o para)', async () => {
+    rpc.mockResolvedValue({ data: null, error: { message: 'Failed to fetch' } })
+    renderHook(comOpcoes({ refetchInterval: 15_000, retry: false }), { wrapper })
+    await escoar()
+    expect(rpc).toHaveBeenCalledTimes(1)
+    await avancar(15_000)
+    expect(rpc).toHaveBeenCalledTimes(2)
+  })
+
+  it('o timer da VIRADA com a aba oculta não lê; de volta ao foco, UMA leitura', async () => {
+    // A virada cai DENTRO da janela em segundo plano: `expira_em` 10 s depois de `lido_em`.
+    rpc.mockImplementation(async () => {
+      const agora = Date.now()
+      return {
+        data: {
+          hoje: '2026-10-21', ontem: '2026-10-20', inicio_semana: '2026-10-19',
+          expira_em: new Date(agora + 10_000).toISOString(),
+          lido_em: new Date(agora).toISOString(),
+          production_host: '', contagem_desde: null, contagem_desde_dia: null,
+          ultima_visita: null, ultima_visita_dia: null, teto_dia: null,
+          periodos: { hoje: periodo(0), ontem: periodo(0), semana: periodo(0) },
+        } satisfies StoreMovement,
+        error: null,
+      }
+    })
+    renderHook(useComoOWidget, { wrapper })
+    await escoar()
+    expect(rpc).toHaveBeenCalledTimes(1)
+
+    act(() => focusManager.setFocused(false))
+    await avancar(90_000)
+    expect(rpc).toHaveBeenCalledTimes(1)
+
+    act(() => focusManager.setFocused(true))
+    await escoar()
+    expect(rpc).toHaveBeenCalledTimes(2)
+  })
+
+  it('o timer da virada COM a aba visível continua lendo (a checagem é de foco, não um desligamento)', async () => {
+    rpc.mockImplementation(async () => {
+      const agora = Date.now()
+      return {
+        data: {
+          hoje: '2026-10-21', ontem: '2026-10-20', inicio_semana: '2026-10-19',
+          expira_em: new Date(agora + 10_000).toISOString(),
+          lido_em: new Date(agora).toISOString(),
+          production_host: '', contagem_desde: null, contagem_desde_dia: null,
+          ultima_visita: null, ultima_visita_dia: null, teto_dia: null,
+          periodos: { hoje: periodo(0), ontem: periodo(0), semana: periodo(0) },
+        } satisfies StoreMovement,
+        error: null,
+      }
+    })
+    renderHook(useComoOWidget, { wrapper })
+    await escoar()
+    await avancar(9_999)
+    expect(rpc).toHaveBeenCalledTimes(1)
+    await avancar(1)
+    expect(rpc).toHaveBeenCalledTimes(2)
   })
 })

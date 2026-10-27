@@ -1579,16 +1579,95 @@
 - **Decision**: a escrita do código do envelope tem UM dono, `writeMaterialTracking` (`core/order-actions`); o painel delega e o app chama pela porta `gravarAcao` (`PedidoDaAcao` `rastreio-do-material` e `producao`). Regras e frases do envelope em `core/material/envelope.ts`.
 - **Consequence**: só a ÚLTIMA autoria fica registrada (trocas anteriores não viram histórico). Linhas anteriores à migration ficam com as colunas nulas e a tela diz "Código informado há…". `semDadoSensivelDeClienteNoApp` (76) ganhou UMA exceção literal (`COLUNAS_DOS_ITENS`) para os chips de material — **a confirmar pelo usuário**. Ordem de publicação: migration → bundles.
 
+### AD-066
+- **Decision**: a Loja ao vivo, Fase 1 (feature `83`), guarda **só a hora cheia de Brasília (0–23) da
+  primeira visita do dia** em `store_visits.first_hour`, decidida pelo banco na **inserção**
+  (`store_hour(p_agora)`, `on conflict do nothing`) — emenda a `VIS-28` da `71`. Os acessos (faixas de
+  3 h, dias da semana, comparações) saem da **mesma** `store_movement`, numa chave `acessos`, sem RPC
+  nova; a faixa em andamento, o "hoje" e a comparabilidade são decididos no banco.
+- **Decision**: Hoje compara **horas completas dos dois lados** (de 0h até o início da hora atual,
+  hoje × ontem); Semana não tem comparação nenhuma (portão `T00`, opção (a)) enquanto a retenção for de
+  8 dias (`BL-056`).
+- **Decision**: tudo o que a leitura tira de `store_visits` sai de **um** comando SQL (um snapshot), e
+  a faixa em andamento é `greatest(hora do servidor, maior first_hour de hoje) / 3`.
+- **Decision**: as notas do contador ("Contando desde", teto, contador parado) têm **um** dono,
+  `core/stats/counterNotes.ts`, lido pelo painel (reexporta, `toBe`) e pelo app. As regras da tela
+  moram em `@estrelinha/core/live`, a casa das Fases 2–4.
+- **Reason**: a hora cheia é o mínimo que responde "a que horas"; uma leitura só faz a faixa do Início
+  e a Loja ao vivo mostrarem o mesmo número por construção; comparar um dia em curso com um dia
+  inteiro fabrica queda toda manhã, e comparar a hora parcial de hoje com a hora cheia de ontem
+  fabrica queda a cada começo de hora.
+- **Consequence**: a Política de Privacidade passou a declarar a hora (`LAV-66`) — **a aprovação da
+  Adri é pré-condição do deploy**. Probe fora do CI no gate de quem recriar as duas funções (`BL-057`).
+- **Revisit when**: a Fase 2 trouxer presença (a tabela efêmera do PRD §3, Opção A) — ou a Adri pedir
+  "vs semana anterior" (retenção de 14 dias).
+
 ## Handoff
 
-### ATUAL — 2026-10-27 · `82-envelope-da-cliente` **IMPLEMENTADA (T01..T15), verificada (r1 e r2 FAIL por cobertura, lacunas fechadas), provada em navegador, QA com bugs consertados e retestados**
+### ATUAL — 2026-10-27 · `83-loja-ao-vivo` (Fase 1, Acessos) **IMPLEMENTADA (T01..T14), verificada, QA e reteste feitos, commitada na branch, sem push — falta o Android real**
+
+- **Feature**: `.specs/features/83-loja-ao-vivo/` (`prd.md`, `prototipo.md`, `spec.md`, `design.md`,
+  `tasks.md`, `baseline.md`, `probes/`, `prova-navegador.md`, `prova/`). Decisão `AD-066`. Worktree
+  `store-83-loja-ao-vivo`, branch `feature/83-loja-ao-vivo` sobre `744da7ea`, **um commit por task**
+  (decisão do orquestrador desta feature, acima da regra `BL-012` do `CLAUDE.md`). A `82` (outra
+  sessão, na árvore principal) **não** está nesta branch: o merge junta as duas — atenção às âncoras
+  compartilhadas (baselines do `CLAUDE.md`, `AD-065`/`AD-066`, `BL-054`+, prefixos de migration
+  `20261028120000` × `20261029120000`).
+- **O que entrega**: `/ao-vivo` com a seção **Acessos** (Hoje · Ontem · Semana: Visitas, Vendas,
+  Conversão com variação; o gráfico por horário em faixas de 3 h, por dia na Semana), cabeçalho com
+  "Voltar" e "Atualizado há {s} s", releitura a cada 15 s só com a aba visível; o cartão **"Visitas
+  hoje"** na Início (releitura a cada 30 s), que leva o período. **Uma migration**
+  (`20261029120000_83-loja-ao-vivo.sql`: `store_visits.first_hour`, `store_hour`, `record_store_visit`
+  e `store_movement` recriadas com a chave `acessos`), aplicada **só no banco local** (por `psql -f`).
+  `core/live` e `core/stats/counterNotes.ts` novos; o painel reexporta as notas. A política de
+  privacidade declara a hora cheia.
+- **Gates** (fecho final, depois do QA, 2026-10-27, um workspace por vez, `--testTimeout=20000` sem o
+  `--`, exit fora de pipe): core **4563/182** · functions **1105/26** · mobile-adm **2166/137** ·
+  backoffice **3922/226** · store **6117/327**, os cinco exit 0 (entrada: `baseline.md`, 17521/881 ⇒
+  **+352/+17**); `tsc` 0 · 0 · 0 nos apps e core 11 herdados; eslint 0/0 · 23/5 · 2/2; build do app
+  verde; probe `01-acessos.sql` exit 0, 90 `ok —`.
+- **Verificação** (`validation.md`): três rodadas do Verificador independente, as três FAIL **só por
+  cobertura** (nenhum defeito de produto); as lacunas da r3 (F11–F14) fechadas com os mutantes
+  reinjetados, sem rodada 4. Depois do laço, `f299897d` (o meio exato de `LAV-51`), sem verificador.
+- **QA** (`docs/qa/reports/2026-10-27-mobile-adm-loja-ao-vivo.md` e `…-reteste.md`): 5 Pass, 2
+  `blocked-verify` (Android e TalkBack reais). Três bugs de atrito: o foco do "Tentar de novo" no
+  `<body>` (consertado em `5b23601d`, retestado em 390/1440 × 100/200 %), o arroba do rodapé da loja a
+  200 % (anterior à `83`, consertado em `49f8bbb5`; a loja ainda rola a 390/200 % pelo **cabeçalho**,
+  `scrollWidth` 434 — decisão pendente) e o F5 que desfaz o período escolhido em `/ao-vivo`
+  (`BUG-20261027-f5-desfaz-o-periodo-escolhido-na-loja-ao-vivo`, **consertado em 2026-10-27 por
+  decisão do usuário**: cada troca grava o período na entrada com `gravarPeriodoNaEntrada` — o antigo
+  `gravarPeriodoDoInicio`, renomeado por ter dois leitores —, preservando `doApp` e o estado do
+  react-router; +2 casos em `AoVivoPage.test.tsx`, vermelhos antes; reteste em navegador pendente).
+- **Provas**: `probes/01-acessos.sql` e `02-gravacao-real.sh` contra o banco local; `prova-navegador.md`
+  (build servido, login real, 48 telas em 360/390/412/1440 × 100/130/200 %, números iguais a
+  `store_movement`, ciclo de 15/30 s e zero leituras com a aba oculta).
+- **A confirmar** (o portão `T00` valeu a recomendação de cada linha; a confirmação de verdade segue
+  aberta). **Com a Adri** (pré-condição do deploy): o texto novo da Política (Apêndice A da spec). A emenda à
+  `VIS-28` (guardar a hora cheia) foi **confirmada** pelo usuário em 2026-10-27. **Com o usuário** (copy e números): a comparação de Hoje em
+  horas completas e o texto "vs ontem até as {h}h"; quando Hoje fica sem comparação; Semana sem
+  variação (opção (a)); variação sem base ⇒ sem linha; `0%` neutro; o arredondamento simétrico; as
+  visitas da comparação nulas com o teto; as faixas antes de `contagem_desde` sem número; a Conversão
+  acima de 100 % sem teto; `LAV-60` sem `lerComPapel`; o frescor "Atualizado agora / há {s} s" de volta
+  só nesta tela, contado pela duração local; as três notas do contador com o texto do painel; o gráfico
+  sem `acessos` como frase estática; a falha do cartão com "Não consegui carregar."; o desenho do
+  cartão sem o ponto dourado; a releitura de 30 s da Início pela mesma leitura; nenhuma leitura em
+  segundo plano (muda também o painel); a nota das visitas sem hora; a soma das barras da Semana
+  passando do total; o período no `history.state`; o período da Início ao voltar; Conversão em largura
+  inteira.
+- **Pendente**: o **Android real** (fonte do sistema, gesto de voltar, puxar com o dedo, aba em segundo
+  plano de verdade) e o **TalkBack real**; as duas decisões do QA (o F5 e o cabeçalho da loja a 200 %); a observação da prova
+  de que a fonte escalada pela raiz não cresce os números em `px` fixo; `BL-059` (o rótulo "Descontos"
+  da barra de abas a 200 %, anterior à `83`). **Ordem de publicação: migration → bundle**, e os probes
+  no gate de quem recriar as funções.
+
+### ANTERIOR — 2026-10-27 · `82-envelope-da-cliente` **IMPLEMENTADA (T01..T15), verificada (r1 e r2 FAIL por cobertura, lacunas fechadas), provada em navegador, QA com bugs consertados e retestados**
 
 - **Feature**: `.specs/features/82-envelope-da-cliente/` (`spec.md`, `design.md`, `tasks.md`, `baseline.md`, `prova-navegador.md`, `validation.md`, `probes/`, `prova/`). Decisão `AD-065`. QA: `docs/qa/reports/2026-10-26-mobile-adm-envelope-da-cliente.md`.
 - **Migration** `20261028120000_82-envelope-da-cliente.sql` aplicada só no local (via `psql`; no local as migrations da `80` e `20261027120000` estão aplicadas SEM registro em `schema_migrations`).
 - **Números** (um workspace por vez, 2026-10-27): core 4600/180 · mobile-adm 2132/129 · store 6035/327 · backoffice 3926/225. Tipos 0 nos apps, core 11 herdados; lint mobile-adm 0/0, backoffice 23/5.
 - **Decidido pelo usuário (2026-10-27)**: seguir as recomendações do QA — 7 bugs consertados e retestados, "código corrigido não reavisa" mantido (`BL-055`), "Oi, Oi!" do lembrete corrigido. **A confirmar**: a exceção do guarda de dado sensível (`material_kinds` numa linha) e o desvio ENV-17. Falta o Android real.
 
-### ATUAL — 2026-10-26 · `81-opcoes-e-variacoes-do-produto` **IMPLEMENTADA (T01..T10), verificada, provada em navegador, QA e reteste de QA feitos — SEM COMMIT**
+### ANTERIOR — 2026-10-26 · `81-opcoes-e-variacoes-do-produto` **IMPLEMENTADA (T01..T10), verificada, provada em navegador, QA e reteste de QA feitos — SEM COMMIT**
 
 - **Feature**: `.specs/features/81-opcoes-e-variacoes-do-produto/` (`spec.md`, `design.md`,
   `tasks.md`, `baseline.md`). Decisão `AD-063`. Branch `feat/81-opcoes-e-variacoes-do-produto`, base

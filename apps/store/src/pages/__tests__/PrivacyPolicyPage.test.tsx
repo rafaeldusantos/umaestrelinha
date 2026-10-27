@@ -278,9 +278,12 @@ describe('PrivacyPolicyPage — a medição de audiência (PRV-01)', () => {
    * Feature `71`, `VIS-36` — o quarto parágrafo, o do contador de visitas, palavra por palavra do
    * Apêndice A da spec (aprovação da Adri é pré-condição do DEPLOY, não do código). Os três de cima
    * continuam intactos, e a asserção deles fica ao lado, não substituída.
+   *
+   * Feature `83`, `LAV-66` — o texto é o do Apêndice A da spec da `83`: acrescenta a hora cheia da
+   * primeira visita do dia, que o servidor passou a guardar.
    */
   const PARAGRAFO_DO_CONTADOR =
-    'Além disso, conto quantas visitas a loja recebe a cada dia. Para isso, o seu navegador guarda um código aleatório, que não identifica você pelo nome e não tem relação com os seus pedidos. Em cada dia em que você visita a loja, o meu servidor registra esse código e a data — e nada mais: não guardo o seu IP junto dessa contagem, nem as páginas que você viu. Esses registros são apagados depois de 8 dias e não são compartilhados com ninguém, nem com o Google. Desligar “Estatísticas” também desliga essa contagem e apaga o código do seu navegador; limpar os dados do site no navegador tem o mesmo efeito.'
+    'Além disso, conto quantas visitas a loja recebe a cada dia. Para isso, o seu navegador guarda um código aleatório, que não identifica você pelo nome e não tem relação com os seus pedidos. Em cada dia em que você visita a loja, o meu servidor registra esse código, a data e a hora cheia da sua primeira visita naquele dia (por exemplo, 14h) — e nada mais: não guardo o seu IP junto dessa contagem, nem as páginas que você viu. Esses registros são apagados depois de 8 dias e não são compartilhados com ninguém, nem com o Google. Desligar “Estatísticas” também desliga essa contagem e apaga o código do seu navegador; limpar os dados do site no navegador tem o mesmo efeito.'
 
   // A régua do "envia" mora num lugar só: a asserção e o sensor dela usam ESTA constante. Escrita
   // duas vezes, mudar uma deixaria o sensor provando uma régua que a asserção já não usa.
@@ -300,6 +303,16 @@ describe('PrivacyPolicyPage — a medição de audiência (PRV-01)', () => {
     montar()
 
     expect(textoDaSecao().paragrafos).toEqual([...PARAGRAFOS_DA_MEDICAO, PARAGRAFO_DO_CONTADOR])
+  })
+
+  it('LAV-66 — declara a hora cheia da primeira visita, e o texto da `71` sem a hora não está mais lá', () => {
+    montar()
+
+    const { texto } = textoDaSecao()
+    expect(texto).toContain(
+      'o meu servidor registra esse código, a data e a hora cheia da sua primeira visita naquele dia (por exemplo, 14h) — e nada mais',
+    )
+    expect(texto).not.toContain('registra esse código e a data')
   })
 
   it('os três parágrafos da `61` continuam os três primeiros, sem mudança', () => {

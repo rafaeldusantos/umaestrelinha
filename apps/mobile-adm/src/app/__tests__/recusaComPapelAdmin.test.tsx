@@ -77,3 +77,24 @@ describe.each(ROTAS)('%s com `42501` e o papel ainda admin', (rota, consulta) =>
     expect(r.quantos(consulta)).toBeLessThanOrEqual(10)
   })
 })
+
+// Feature `83` · T09 (`LAV-05`): a Início relê o movimento a cada 30 s. Com a recusa e o papel ainda
+// admin, o intervalo PARA (`refetchInterval` devolve `false` com `42501`) — senão cada ciclo reabriria
+// o episódio e reconferiria o papel de novo. Quatro ciclos e mais: UMA reconferência.
+describe('`/` com `42501` e o papel ainda admin, por mais de quatro ciclos de 30 s', () => {
+  it('o papel é reconferido UMA vez (a abertura e a reconferência), e o movimento para de ser lido', async () => {
+    const r = real.criar({
+      sessao: 'valida',
+      papel: 'admin',
+      cadastro: 'ok',
+      rpc: { atelie_clock: RECUSA_403, store_movement: RECUSA_403, store_overview: RECUSA_403 },
+    })
+    window.history.pushState({}, '', '/')
+    render(<App />)
+    for (let feito = 0; feito < 8000; feito += 50) await andar(50)
+    const movimentosDepoisDaRecusa = r.quantos('/rest/v1/rpc/store_movement')
+    for (let ciclo = 0; ciclo < 5; ciclo++) await andar(30_000)
+    expect(r.quantos(ROLES)).toBe(2)
+    expect(r.quantos('/rest/v1/rpc/store_movement')).toBe(movimentosDepoisDaRecusa)
+  })
+})

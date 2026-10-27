@@ -1,0 +1,1526 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="_ds/uma-estrelinha-design-system-29c9e2e5-17d3-486d-ba96-0f7ae6052750/tokens/fonts.css">
+  <link rel="stylesheet" href="_ds/uma-estrelinha-design-system-29c9e2e5-17d3-486d-ba96-0f7ae6052750/tokens/colors.css">
+  <link rel="stylesheet" href="_ds/uma-estrelinha-design-system-29c9e2e5-17d3-486d-ba96-0f7ae6052750/tokens/typography.css">
+  <link rel="stylesheet" href="_ds/uma-estrelinha-design-system-29c9e2e5-17d3-486d-ba96-0f7ae6052750/tokens/shape.css">
+  <link rel="stylesheet" href="_ds/uma-estrelinha-design-system-29c9e2e5-17d3-486d-ba96-0f7ae6052750/styles.css">
+  <script src="_ds/uma-estrelinha-design-system-29c9e2e5-17d3-486d-ba96-0f7ae6052750/_ds_bundle.js"></script>
+  <style>
+    body{margin:0;background:#f1ebe1}
+    a{color:var(--estrelinha-primary)} a:hover{color:var(--estrelinha-primary-strong)}
+    input,button,select{font-family:inherit}
+    .scrl::-webkit-scrollbar{display:none}
+    .scrl{scrollbar-width:none}
+    @keyframes ueUp{from{transform:translateY(20px);opacity:.0}to{transform:none;opacity:1}}
+  </style>
+</helmet>
+<div style="min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px; box-sizing:border-box; background:var(--estrelinha-ground-deep); font-family:var(--font-body); color:var(--estrelinha-ink);">
+  <div style="width:412px; height:892px; flex-shrink:0; border-radius:42px; background:#1d252c; padding:10px; box-sizing:border-box; box-shadow:var(--shadow-lift);">
+    <div style="position:relative; width:100%; height:100%; border-radius:32px; overflow:hidden; background:var(--estrelinha-ground); display:flex; flex-direction:column;">
+
+      <div style="height:34px; flex-shrink:0; display:flex; align-items:center; justify-content:space-between; padding:0 24px; font-size:13px; font-weight:500; background:{{ statusBg }}; color:{{ statusFg }};">
+        <span>9:41</span>
+        <span style="display:flex; gap:6px; align-items:center;"><span>5G</span><span style="width:22px; height:11px; border:1.5px solid currentColor; border-radius:3px; box-sizing:border-box; padding:1px; display:flex;"><span style="width:72%; background:currentColor; border-radius:1px;"></span></span></span>
+      </div>
+
+      <div style="position:relative; flex:1; min-height:0;">
+
+        <!-- ============ INÍCIO ============ -->
+        <sc-if value="{{ isInicio }}" hint-placeholder-val="{{ true }}">
+          <div class="scrl" data-screen-label="Início" style="position:absolute; inset:0 0 64px 0; overflow-y:auto;">
+            <div style="background:var(--estrelinha-primary-strong); color:var(--estrelinha-on-primary); padding:12px 20px 24px;">
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+                <img src="assets/logo-negativo.png" alt="Uma Estrelinha" style="width:156px; height:auto; display:block;">
+                <button onClick="{{ logout }}" aria-label="Sair da conta" title="Sair" style="width:40px; height:40px; border-radius:50%; background:var(--estrelinha-on-ink-surface); border:1px solid var(--estrelinha-on-ink-border); display:flex; align-items:center; justify-content:center; font-family:var(--font-display); font-weight:700; font-size:15px; color:var(--estrelinha-on-primary); cursor:pointer;">A</button>
+              </div>
+              <h1 style="margin:22px 0 4px; font-family:var(--font-display); font-weight:400; font-size:28px; line-height:1.15; letter-spacing:-0.02em; color:var(--estrelinha-on-primary);">Bom dia, Adri.</h1>
+              <p style="margin:0; font-size:14px; font-weight:300; color:var(--estrelinha-on-ink-strong);">{{ todayLine }}</p>
+
+              <div style="margin-top:22px; display:flex; gap:8px;">
+                <sc-for list="{{ periodSeg }}" as="p" hint-placeholder-count="3">
+                  <button onClick="{{ p.pick }}" style="flex:1; height:36px; border-radius:999px; border:1px solid {{ p.bd }}; background:{{ p.bg }}; color:{{ p.fg }}; font-size:13px; font-weight:500; cursor:pointer;">{{ p.label }}</button>
+                </sc-for>
+              </div>
+              <div style="margin-top:18px; display:grid; grid-template-columns:1fr 1fr; gap:18px 16px;">
+                <div><div style="font-size:11px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--estrelinha-on-ink);">Faturamento</div><div style="margin-top:6px; font-family:var(--font-display); font-weight:700; font-size:24px; letter-spacing:-0.02em;">{{ mv.faturamento }}</div></div>
+                <div><div style="font-size:11px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--estrelinha-on-ink);">Vendas</div><div style="margin-top:6px; font-family:var(--font-display); font-weight:700; font-size:24px;">{{ mv.vendas }}</div></div>
+                <div><div style="font-size:11px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--estrelinha-on-ink);">Ticket médio</div><div style="margin-top:6px; font-family:var(--font-display); font-weight:700; font-size:20px;">{{ mv.ticket }}</div></div>
+                <div><div style="font-size:11px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--estrelinha-on-ink);">Visitas</div><div style="margin-top:6px; font-family:var(--font-display); font-weight:700; font-size:20px;">{{ mv.visitas }}</div></div>
+              </div>
+            </div>
+
+            <div style="padding:16px 20px 0;">
+              <button onClick="{{ openLive }}" style="width:100%; text-align:left; cursor:pointer; background:var(--estrelinha-surface); border:1px solid var(--estrelinha-line); border-radius:20px; padding:16px; display:flex; align-items:center; gap:14px; color:var(--estrelinha-ink); box-shadow:var(--shadow-soft);">
+                <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:4px;">
+                  <span style="display:flex; align-items:center; gap:8px; font-size:11px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--estrelinha-ink-soft);"><span style="width:8px; height:8px; border-radius:50%; background:var(--estrelinha-accent);"></span>Agora na loja</span>
+                  <span style="display:flex; align-items:baseline; gap:8px;"><span style="font-family:var(--font-display); font-weight:700; font-size:30px; letter-spacing:-0.02em; color:var(--estrelinha-primary);">{{ live.now }}</span><span style="font-size:14px; color:var(--estrelinha-ink-soft);">{{ live.nowLabel }}</span></span>
+                  <span style="font-size:13px; color:var(--estrelinha-ink-soft);">{{ live.cardLine }}</span>
+                </div>
+                <div style="width:96px; height:40px; display:flex; align-items:flex-end; gap:2px; flex-shrink:0;">
+                  <sc-for list="{{ live.spark }}" as="b" hint-placeholder-count="15">
+                    <span style="flex:1; height:{{ b.h }}px; border-radius:2px; background:{{ b.c }};"></span>
+                  </sc-for>
+                </div>
+                <span style="color:var(--estrelinha-ink-soft); display:flex;"><x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.Icon" name="chevron-right" size="{{ 20 }}" hint-size="20px,20px"></x-import></span>
+              </button>
+            </div>
+
+            <div style="padding:24px 0 8px;">
+              <div style="padding:0 20px; display:flex; align-items:baseline; justify-content:space-between;">
+                <h2 style="margin:0; font-size:20px;">Precisa de você</h2>
+                <button onClick="{{ goPedidos }}" style="border:0; background:none; padding:8px 0; font-size:14px; font-weight:500; color:var(--estrelinha-primary); cursor:pointer;">Ver pedidos</button>
+              </div>
+              <div class="scrl" style="margin-top:12px; display:flex; gap:12px; overflow-x:auto; padding:0 20px 4px;">
+                <sc-for list="{{ tiles }}" as="t" hint-placeholder-count="4">
+                  <button onClick="{{ t.pick }}" style="width:200px; flex-shrink:0; text-align:left; border-radius:20px; padding:16px; border:1px solid {{ t.bd }}; background:{{ t.bg }}; color:{{ t.fg }}; cursor:pointer; display:flex; flex-direction:column; gap:6px;">
+                    <span style="font-size:11px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:{{ t.labelFg }};">{{ t.label }}</span>
+                    <span style="display:flex; align-items:baseline; gap:8px;"><span style="font-family:var(--font-display); font-weight:700; font-size:30px; color:{{ t.numFg }};">{{ t.count }}</span><span style="font-size:12px; font-weight:500; color:{{ t.labelFg }};">{{ t.age }}</span></span>
+                    <span style="font-size:13px; line-height:1.35; font-weight:300; color:{{ t.labelFg }};">{{ t.hint }}</span>
+                  </button>
+                </sc-for>
+              </div>
+            </div>
+
+            <div style="padding:16px 20px; display:flex; flex-direction:column; gap:16px;">
+              <div style="background:var(--estrelinha-surface); border:1px solid var(--estrelinha-line); border-radius:20px; padding:18px;">
+                <div style="display:flex; justify-content:space-between; align-items:baseline;">
+                  <h3 style="margin:0; font-size:17px;">Vendas · 7 dias</h3>
+                  <span style="font-family:var(--font-display); font-weight:700; font-size:16px; color:var(--estrelinha-primary);">{{ weekTotal }}</span>
+                </div>
+                <div style="margin-top:18px; height:120px; display:flex; align-items:flex-end; gap:10px;">
+                  <sc-for list="{{ bars }}" as="b" hint-placeholder-count="7">
+                    <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:6px;">
+                      <span style="font-size:11px; font-weight:500; color:var(--estrelinha-ink-soft);">{{ b.v }}</span>
+                      <div style="width:100%; height:{{ b.h }}px; border-radius:6px; background:{{ b.color }};"></div>
+                      <span style="font-size:11px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:{{ b.lfg }};">{{ b.d }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+                <p style="margin:14px 0 0; font-size:12px; color:var(--estrelinha-ink-soft);">Pedidos pagos, em R$ mil.</p>
+              </div>
+
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                <div style="background:var(--estrelinha-surface); border:1px solid var(--estrelinha-line); border-radius:20px; padding:16px;">
+                  <div style="font-size:11px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--estrelinha-ink-soft);">Fat. de outubro</div>
+                  <div style="margin-top:8px; font-family:var(--font-display); font-weight:700; font-size:20px; color:var(--estrelinha-primary);">R$ 12.480</div>
+                  <div style="margin-top:4px; font-size:12px; color:var(--estrelinha-ink-soft);">38 pedidos pagos</div>
+                </div>
+                <div style="background:var(--estrelinha-surface); border:1px solid var(--estrelinha-line); border-radius:20px; padding:16px;">
+                  <div style="font-size:11px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--estrelinha-ink-soft);">Clientes novas</div>
+                  <div style="margin-top:8px; font-family:var(--font-display); font-weight:700; font-size:20px; color:var(--estrelinha-primary);">14</div>
+                  <div style="margin-top:4px; font-size:12px; color:var(--estrelinha-ink-soft);">primeira compra no mês</div>
+                </div>
+              </div>
+
+              <div style="background:var(--estrelinha-surface); border:1px solid var(--estrelinha-line); border-radius:20px; padding:18px;">
+                <h3 style="margin:0 0 6px; font-size:17px;">Joias mais pedidas no mês</h3>
+                <sc-for list="{{ topJoias }}" as="j" hint-placeholder-count="4">
+                  <div style="display:flex; align-items:center; gap:12px; padding:10px 0; border-top:{{ j.bt }};">
+                    <span style="width:40px; height:40px; border-radius:6px; background:var(--estrelinha-ground-deep); display:flex; align-items:center; justify-content:center; color:var(--estrelinha-primary); flex-shrink:0;"><x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.Icon" name="{{ j.icon }}" size="{{ 22 }}" hint-size="22px,22px"></x-import></span>
+                    <span style="flex:1; min-width:0; font-size:14px;">{{ j.name }}</span>
+                    <span style="font-size:13px; color:var(--estrelinha-ink-soft); white-space:nowrap;">{{ j.qty }}</span>
+                  </div>
+                </sc-for>
+              </div>
+
+              <div>
+                <div style="display:flex; align-items:baseline; justify-content:space-between;">
+                  <h2 style="margin:0; font-size:20px;">Últimos pedidos</h2>
+                  <button onClick="{{ goTudo }}" style="border:0; background:none; padding:8px 0; font-size:14px; font-weight:500; color:var(--estrelinha-primary); cursor:pointer;">Ver todos</button>
+                </div>
+                <div style="margin-top:8px; background:var(--estrelinha-surface); border:1px solid var(--estrelinha-line); border-radius:20px; padding:4px 16px;">
+                  <sc-for list="{{ recent }}" as="o" hint-placeholder-count="4">
+                    <div onClick="{{ o.open }}" style="display:flex; align-items:center; gap:12px; padding:12px 0; border-top:{{ o.bt }}; cursor:pointer;">
+                      <div style="flex:1; min-width:0;">
+                        <div style="font-size:14px; font-weight:500;">{{ o.name }}</div>
+                        <div style="font-size:12px; color:var(--estrelinha-ink-soft); margin-top:2px;">{{ o.num }} · {{ o.when }}</div>
+                      </div>
+                      <div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">
+                        <span style="font-family:var(--font-display); font-weight:700; font-size:14px; color:var(--estrelinha-primary);">{{ o.total }}</span>
+                        <x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.SituationBadge" tone="{{ o.tone }}" hint-size="auto,22px">{{ o.statusLabel }}</x-import>
+                      </div>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+              <p style="margin:4px 0 12px; text-align:center; font-size:12px; color:var(--estrelinha-ink-soft);">Produtos, vitrine e configurações da loja seguem no Backoffice.</p>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- ============ PEDIDOS ============ -->
+        <sc-if value="{{ isPedidos }}" hint-placeholder-val="{{ false }}">
+          <div class="scrl" data-screen-label="Pedidos" style="position:absolute; inset:0 0 64px 0; overflow-y:auto;">
+            <div style="padding:16px 20px 0;">
+              <h1 style="margin:0; font-size:28px; letter-spacing:-0.02em;">Pedidos</h1>
+              <div style="margin-top:14px; height:46px; border-radius:999px; border:1px solid var(--estrelinha-field); background:var(--estrelinha-surface); display:flex; align-items:center; gap:10px; padding:0 16px; color:var(--estrelinha-ink-soft);">
+                <x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.Icon" name="search" size="{{ 18 }}" hint-size="18px,18px"></x-import>
+                <input value="{{ orderSearch }}" onChange="{{ setOrderSearch }}" placeholder="Número, nome, e-mail ou rastreio" style="flex:1; min-width:0; border:0; outline:none; background:transparent; font-size:15px; color:var(--estrelinha-ink);">
+              </div>
+            </div>
+            <div class="scrl" style="margin-top:14px; display:flex; gap:8px; overflow-x:auto; padding:0 20px 2px;">
+              <sc-for list="{{ viewChips }}" as="c" hint-placeholder-count="5">
+                <button onClick="{{ c.pick }}" style="flex-shrink:0; height:38px; padding:0 14px; border-radius:999px; border:2px solid {{ c.bd }}; background:{{ c.bg }}; color:{{ c.fg }}; font-size:14px; font-weight:500; cursor:pointer; white-space:nowrap;">{{ c.label }}</button>
+              </sc-for>
+            </div>
+            <sc-if value="{{ hasTile }}">
+              <div style="margin:12px 20px 0; display:flex; align-items:center; justify-content:space-between; gap:12px; background:var(--estrelinha-ground-deep); border-radius:12px; padding:10px 8px 10px 14px;">
+                <span style="font-size:13px;">Filtro: <strong style="font-weight:600;">{{ tileLabel }}</strong></span>
+                <button onClick="{{ clearTile }}" aria-label="Limpar filtro" style="width:36px; height:36px; border-radius:50%; border:0; background:transparent; display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--estrelinha-ink);"><x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.Icon" name="x" size="{{ 16 }}" hint-size="16px,16px"></x-import></button>
+              </div>
+            </sc-if>
+            <p style="margin:14px 20px 10px; font-size:13px; color:var(--estrelinha-ink-soft);">{{ orderCountLine }}</p>
+            <div style="padding:0 20px 20px; display:flex; flex-direction:column; gap:12px;">
+              <sc-for list="{{ orderList }}" as="o" hint-placeholder-count="4">
+                <div onClick="{{ o.open }}" style="background:var(--estrelinha-surface); border:1px solid var(--estrelinha-line); border-radius:20px; padding:16px; display:flex; flex-direction:column; gap:10px; cursor:pointer;">
+                  <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+                    <span style="font-family:var(--font-display); font-weight:700; font-size:15px;">{{ o.num }}</span>
+                    <x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.SituationBadge" tone="{{ o.tone }}" hint-size="auto,22px">{{ o.statusLabel }}</x-import>
+                  </div>
+                  <div style="display:flex; justify-content:space-between; align-items:flex-end; gap:12px;">
+                    <div style="min-width:0;">
+                      <div style="font-size:16px; font-weight:500;">{{ o.name }}</div>
+                      <div style="font-size:13px; color:var(--estrelinha-ink-soft); margin-top:2px;">{{ o.meta }}</div>
+                    </div>
+                    <span style="font-family:var(--font-display); font-weight:700; font-size:16px; color:var(--estrelinha-primary); white-space:nowrap;">{{ o.total }}</span>
+                  </div>
+                  <sc-if value="{{ o.hasBlocker }}">
+                    <div style="display:flex; align-items:center; gap:8px; font-size:13px; padding-top:10px; border-top:1px solid var(--estrelinha-line);">
+                      <span style="width:7px; height:7px; border-radius:50%; background:{{ o.dot }}; flex-shrink:0;"></span>
+                      <span style="flex:1;">{{ o.blocker }}</span>
+                      <span style="font-size:12px; font-weight:500; color:var(--estrelinha-wait);">{{ o.age }}</span>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ o.hasAction }}">
+                    <x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.Button" variant="primary" size="sm" block="{{ true }}" onClick="{{ o.act }}" hint-size="100%,44px">{{ o.actionLabel }}</x-import>
+                  </sc-if>
+                </div>
+              </sc-for>
+              <sc-if value="{{ ordersEmpty }}">
+                <div style="text-align:center; padding:40px 16px; color:var(--estrelinha-ink-soft);">
+                  <div style="display:flex; justify-content:center; color:var(--estrelinha-primary);"><x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.Icon" name="estrela" size="{{ 32 }}" hint-size="32px,32px"></x-import></div>
+                  <p style="margin:12px 0 0; font-family:var(--font-display); font-size:17px; color:var(--estrelinha-ink);">Nada por aqui.</p>
+                  <p style="margin:6px 0 0; font-size:14px; font-weight:300;">{{ emptyHint }}</p>
+                </div>
+              </sc-if>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- ============ CLIENTES ============ -->
+        <sc-if value="{{ isClientes }}" hint-placeholder-val="{{ false }}">
+          <div class="scrl" data-screen-label="Clientes" style="position:absolute; inset:0 0 64px 0; overflow-y:auto;">
+            <div style="padding:16px 20px 0;">
+              <h1 style="margin:0; font-size:28px; letter-spacing:-0.02em;">Clientes</h1>
+              <div style="margin-top:14px; height:46px; border-radius:999px; border:1px solid var(--estrelinha-field); background:var(--estrelinha-surface); display:flex; align-items:center; gap:10px; padding:0 16px; color:var(--estrelinha-ink-soft);">
+                <x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.Icon" name="search" size="{{ 18 }}" hint-size="18px,18px"></x-import>
+                <input value="{{ clientSearch }}" onChange="{{ setClientSearch }}" placeholder="Nome, e-mail ou telefone" style="flex:1; min-width:0; border:0; outline:none; background:transparent; font-size:15px; color:var(--estrelinha-ink);">
+              </div>
+            </div>
+            <div class="scrl" style="margin-top:14px; display:flex; gap:8px; overflow-x:auto; padding:0 20px 2px;">
+              <sc-for list="{{ clientChips }}" as="c" hint-placeholder-count="3">
+                <button onClick="{{ c.pick }}" style="flex-shrink:0; height:38px; padding:0 14px; border-radius:999px; border:2px solid {{ c.bd }}; background:{{ c.bg }}; color:{{ c.fg }}; font-size:14px; font-weight:500; cursor:pointer; white-space:nowrap;">{{ c.label }}</button>
+              </sc-for>
+            </div>
+            <p style="margin:14px 20px 10px; font-size:13px; color:var(--estrelinha-ink-soft);">{{ clientCountLine }}</p>
+            <div style="margin:0 20px 20px; background:var(--estrelinha-surface); border:1px solid var(--estrelinha-line); border-radius:20px; padding:0 16px;">
+              <sc-for list="{{ clientList }}" as="c" hint-placeholder-count="6">
+                <div onClick="{{ c.open }}" style="display:flex; align-items:center; gap:12px; padding:14px 0; border-top:{{ c.bt }}; cursor:pointer;">
+                  <span style="width:44px; height:44px; border-radius:50%; background:var(--estrelinha-ground-deep); display:flex; align-items:center; justify-content:center; font-family:var(--font-display); font-weight:700; font-size:16px; color:var(--estrelinha-primary); flex-shrink:0;">{{ c.initial }}</span>
+                  <div style="flex:1; min-width:0;">
+                    <div style="font-size:15px; font-weight:500;">{{ c.name }}</div>
+                    <div style="font-size:12px; color:var(--estrelinha-ink-soft); margin-top:2px;">{{ c.meta }}</div>
+                  </div>
+                  <div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">
+                    <span style="font-family:var(--font-display); font-weight:700; font-size:14px; color:var(--estrelinha-primary); white-space:nowrap;">{{ c.total }}</span>
+                    <sc-if value="{{ c.open_ }}"><x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.SituationBadge" tone="progress" hint-size="auto,22px">Em aberto</x-import></sc-if>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- ============ DESCONTOS ============ -->
+        <sc-if value="{{ isDescontos }}" hint-placeholder-val="{{ false }}">
+          <div class="scrl" data-screen-label="Descontos" style="position:absolute; inset:0 0 64px 0; overflow-y:auto;">
+            <div style="padding:16px 20px 0;">
+              <h1 style="margin:0; font-size:28px; letter-spacing:-0.02em;">Descontos</h1>
+              <p style="margin:6px 0 0; font-size:14px; font-weight:300; color:var(--estrelinha-ink-soft);">{{ discSub }}</p>
+              <div style="margin-top:14px; display:grid; grid-template-columns:1fr 1fr; gap:4px; padding:4px; background:var(--estrelinha-ground-deep); border-radius:12px;">
+                <sc-for list="{{ discSeg }}" as="s" hint-placeholder-count="2">
+                  <button onClick="{{ s.pick }}" style="height:40px; border-radius:6px; border:0; background:{{ s.bg }}; color:{{ s.fg }}; font-size:14px; font-weight:600; cursor:pointer; box-shadow:{{ s.sh }};">{{ s.label }}</button>
+                </sc-for>
+              </div>
+            </div>
+
+            <sc-if value="{{ isCupons }}" hint-placeholder-val="{{ true }}">
+              <div style="padding:16px 20px 96px; display:flex; flex-direction:column; gap:12px;">
+                <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:8px;">
+                  <sc-for list="{{ couponStats }}" as="s" hint-placeholder-count="3">
+                    <div style="background:var(--estrelinha-surface); border:1px solid var(--estrelinha-line); border-radius:20px; padding:12px;">
+                      <div style="font-family:var(--font-display); font-weight:700; font-size:22px; color:var(--estrelinha-primary);">{{ s.v }}</div>
+                      <div style="margin-top:2px; font-size:12px; line-height:1.3; color:var(--estrelinha-ink-soft);">{{ s.l }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+                <sc-for list="{{ couponList }}" as="c" hint-placeholder-count="4">
+                  <div style="background:var(--estrelinha-surface); border:1px solid var(--estrelinha-line); border-radius:20px; padding:16px; display:flex; flex-direction:column; gap:10px;">
+                    <div onClick="{{ c.edit }}" style="display:flex; flex-direction:column; gap:8px; cursor:pointer;">
+                      <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+                        <span style="font-weight:600; font-size:17px; letter-spacing:.06em; color:{{ c.codeFg }};">{{ c.code }}</span>
+                        <x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.SituationBadge" tone="{{ c.tone }}" hint-size="auto,22px">{{ c.statusLabel }}</x-import>
+                      </div>
+                      <div style="font-family:var(--font-display); font-size:15px;">{{ c.summary }}</div>
+                      <div style="font-size:13px; color:var(--estrelinha-ink-soft);">{{ c.rules }}</div>
+                      <div style="display:flex; align-items:center; gap:10px; font-size:12px; color:var(--estrelinha-ink-soft);">
+                        <span style="white-space:nowrap; color:{{ c.usesFg }}; font-weight:{{ c.usesW }};">{{ c.uses }}</span>
+                        <sc-if value="{{ c.hasMax }}"><span style="flex:1; height:4px; border-radius:999px; background:var(--estrelinha-ground-deep); overflow:hidden; display:flex;"><span style="width:{{ c.pct }}%; background:var(--estrelinha-accent);"></span></span></sc-if>
+                        <span style="margin-left:auto; white-space:nowrap;">{{ c.validity }}</span>
+                      </div>
+                    </div>
+                    <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding-top:10px; border-top:1px solid var(--estrelinha-line);">
+                      <button onClick="{{ c.toggle }}" style="display:flex; align-items:center; gap:10px; border:0; background:none; padding:6px 0; cursor:pointer; font-size:14px; color:var(--estrelinha-ink);">
+                        <span style="width:44px; height:26px; border-radius:999px; box-sizing:border-box; border:1px solid {{ c.sw.bd }}; background:{{ c.sw.track }}; display:flex; align-items:center; padding:2px;"><span style="width:20px; height:20px; border-radius:50%; background:{{ c.sw.knob }}; transform:translateX({{ c.sw.x }}px); transition:transform 150ms;"></span></span>
+                        <span>{{ c.toggleLabel }}</span>
+                      </button>
+                      <x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.Button" variant="ghost" size="sm" onClick="{{ c.dup }}" hint-size="100px,44px">Duplicar</x-import>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ isPromos }}" hint-placeholder-val="{{ false }}">
+              <div style="padding:16px 20px 96px; display:flex; flex-direction:column; gap:12px;">
+                <p style="margin:0; font-size:13px; line-height:1.45; color:var(--estrelinha-ink-soft);">Promoção desconta sozinha, por quantidade de joias na sacola. Não precisa de código.</p>
+                <sc-for list="{{ promoList }}" as="p" hint-placeholder-count="2">
+                  <div style="background:var(--estrelinha-surface); border:1px solid var(--estrelinha-line); border-radius:20px; padding:16px; display:flex; flex-direction:column; gap:10px;">
+                    <div onClick="{{ p.edit }}" style="display:flex; flex-direction:column; gap:8px; cursor:pointer;">
+                      <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+                        <span style="font-family:var(--font-display); font-weight:700; font-size:17px;">{{ p.name }}</span>
+                        <x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.SituationBadge" tone="{{ p.tone }}" hint-size="auto,22px">{{ p.statusLabel }}</x-import>
+                      </div>
+                      <div style="display:flex; flex-direction:column; gap:4px;">
+                        <sc-for list="{{ p.tiers }}" as="t" hint-placeholder-count="2">
+                          <div style="display:flex; align-items:center; gap:8px; font-size:14px;"><span style="width:6px; height:6px; border-radius:50%; background:var(--estrelinha-accent);"></span>{{ t }}</div>
+                        </sc-for>
+                      </div>
+                      <div style="font-size:13px; color:var(--estrelinha-ink-soft);">{{ p.scope }}</div>
+                      <div style="font-size:12px; color:var(--estrelinha-ink-soft);">{{ p.validity }}</div>
+                    </div>
+                    <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding-top:10px; border-top:1px solid var(--estrelinha-line);">
+                      <button onClick="{{ p.toggle }}" style="display:flex; align-items:center; gap:10px; border:0; background:none; padding:6px 0; cursor:pointer; font-size:14px; color:var(--estrelinha-ink);">
+                        <span style="width:44px; height:26px; border-radius:999px; box-sizing:border-box; border:1px solid {{ p.sw.bd }}; background:{{ p.sw.track }}; display:flex; align-items:center; padding:2px;"><span style="width:20px; height:20px; border-radius:50%; background:{{ p.sw.knob }}; transform:translateX({{ p.sw.x }}px); transition:transform 150ms;"></span></span>
+                        <span>{{ p.toggleLabel }}</span>
+                      </button>
+                      <x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.Button" variant="ghost" size="sm" onClick="{{ p.edit }}" hint-size="90px,44px">Editar</x-import>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+
+            <div style="position:sticky; bottom:16px; display:flex; justify-content:flex-end; padding:0 20px; pointer-events:none; margin-top:-80px;">
+              <div style="pointer-events:auto; box-shadow:var(--shadow-ink); border-radius:6px;">
+                <x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.Button" variant="primary" size="md" iconLeft="plus" onClick="{{ newDisc }}" hint-size="160px,48px">{{ newDiscLabel }}</x-import>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- ============ BOTTOM NAV ============ -->
+        <sc-if value="{{ noScreen }}" hint-placeholder-val="{{ true }}">
+          <nav style="position:absolute; left:0; right:0; bottom:0; height:64px; background:var(--estrelinha-surface); border-top:1px solid var(--estrelinha-line); display:grid; grid-template-columns:repeat(4,1fr);">
+            <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="4">
+              <button onClick="{{ t.pick }}" style="position:relative; border:0; background:none; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; cursor:pointer; color:{{ t.fg }};">
+                <span style="position:relative; display:flex;">
+                  <x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.Icon" name="{{ t.icon }}" size="{{ 24 }}" hint-size="24px,24px"></x-import>
+                  <sc-if value="{{ t.hasBadge }}"><span style="position:absolute; top:-4px; right:-10px; min-width:18px; height:18px; padding:0 5px; box-sizing:border-box; border-radius:999px; background:var(--estrelinha-primary); color:var(--estrelinha-on-primary); font-size:11px; font-weight:600; display:flex; align-items:center; justify-content:center; border:2px solid #fff;">{{ t.badge }}</span></sc-if>
+                </span>
+                <span style="font-size:12px; font-weight:{{ t.w }};">{{ t.label }}</span>
+                <span style="position:absolute; top:0; left:30%; right:30%; height:2px; border-radius:2px; background:{{ t.bar }};"></span>
+              </button>
+            </sc-for>
+          </nav>
+        </sc-if>
+
+        <!-- ============ AO VIVO ============ -->
+        <sc-if value="{{ showLive }}" hint-placeholder-val="{{ false }}">
+          <div data-screen-label="Ao vivo" style="position:absolute; inset:0; z-index:10; background:var(--estrelinha-ground); display:flex; flex-direction:column;">
+            <div style="height:60px; flex-shrink:0; display:flex; align-items:center; gap:6px; padding:0 8px; border-bottom:1px solid var(--estrelinha-line); background:var(--estrelinha-surface);">
+              <button onClick="{{ back }}" aria-label="Voltar" style="width:44px; height:44px; border-radius:50%; border:0; background:transparent; display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--estrelinha-ink);"><x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.Icon" name="chevron-left" size="{{ 22 }}" hint-size="22px,22px"></x-import></button>
+              <div style="flex:1; min-width:0;">
+                <div style="font-family:var(--font-display); font-weight:700; font-size:17px;">Loja ao vivo</div>
+                <div style="font-size:12px; color:var(--estrelinha-ink-soft);">{{ live.updated }}</div>
+              </div>
+            </div>
+            <div class="scrl" style="flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:12px;">
+
+              <div style="background:var(--estrelinha-ink); color:var(--estrelinha-on-primary); border-radius:20px; padding:20px;">
+                <span style="display:flex; align-items:center; gap:8px; font-size:11px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--estrelinha-on-ink-strong);"><span style="width:8px; height:8px; border-radius:50%; background:var(--estrelinha-accent);"></span>Agora na loja</span>
+                <div style="margin-top:10px; display:flex; align-items:baseline; gap:10px;">
+                  <span style="font-family:var(--font-display); font-weight:700; font-size:56px; line-height:1; letter-spacing:-0.03em; color:var(--estrelinha-accent);">{{ live.now }}</span>
+                  <span style="font-size:15px; font-weight:300; color:var(--estrelinha-on-ink-strong);">{{ live.nowLabel }} nos últimos 5 minutos</span>
+                </div>
+                <div style="margin-top:20px; height:56px; display:flex; align-items:flex-end; gap:3px;">
+                  <sc-for list="{{ live.sparkBig }}" as="b" hint-placeholder-count="30">
+                    <span style="flex:1; height:{{ b.h }}px; border-radius:2px; background:{{ b.c }};"></span>
+                  </sc-for>
+                </div>
+                <div style="margin-top:6px; display:flex; justify-content:space-between; font-size:11px; color:var(--estrelinha-on-ink);"><span>30 min atrás</span><span>agora</span></div>
+              </div>
+
+              <div style="background:var(--estrelinha-surface); border:1px solid var(--estrelinha-line); border-radius:20px; padding:16px;">
+                <h3 style="margin:0; font-size:17px;">O que estão fazendo</h3>
+                <div style="margin-top:12px; display:flex; flex-direction:column; gap:12px;">
+                  <sc-for list="{{ live.funnel }}" as="f" hint-placeholder-count="4">
+                    <div style="display:flex; flex-direction:column; gap:6px;">
+                      <div style="display:flex; justify-content:space-between; gap:8px; font-size:14px;"><span>{{ f.label }}</span><span style="font-family:var(--font-display); font-weight:700; color:var(--estrelinha-primary);">{{ f.n }}</span></div>
+                      <span style="height:6px; border-radius:999px; background:var(--estrelinha-ground-deep); display:flex; overflow:hidden;"><span style="width:{{ f.pct }}%; background:{{ f.c }}; border-radius:999px; transition:width 300ms;"></span></span>
+                    </div>
+                  </sc-for>
+                </div>
+                <sc-if value="{{ live.hasCheckout }}">
+                  <p style="margin:14px 0 0; padding-top:12px; border-top:1px solid var(--estrelinha-line); font-size:13px; line-height:1.45; color:var(--estrelinha-ink-soft);">{{ live.checkoutLine }}</p>
+                </sc-if>
+              </div>
+
+              <div style="background:var(--estrelinha-surface); border:1px solid var(--estrelinha-line); border-radius:20px; padding:4px 16px;">
+                <h3 style="margin:12px 0 2px; font-size:17px;">Joias sendo vistas agora</h3>
+                <sc-for list="{{ live.pages }}" as="p" hint-placeholder-count="4">
+                  <div style="display:flex; align-items:center; gap:12px; padding:10px 0; border-top:{{ p.bt }};">
+                    <span style="width:40px; height:40px; border-radius:6px; background:var(--estrelinha-ground-deep); display:flex; align-items:center; justify-content:center; color:var(--estrelinha-primary); flex-shrink:0;"><x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.Icon" name="{{ p.icon }}" size="{{ 22 }}" hint-size="22px,22px"></x-import></span>
+                    <span style="flex:1; min-width:0; font-size:14px;">{{ p.name }}</span>
+                    <span style="font-size:13px; color:var(--estrelinha-ink-soft); white-space:nowrap;">{{ p.n }}</span>
+                  </div>
+                </sc-for>
+              </div>
+
+              <div style="background:var(--estrelinha-surface); border:1px solid var(--estrelinha-line); border-radius:20px; padding:16px;">
+                <h3 style="margin:0; font-size:17px;">De onde vieram</h3>
+                <div style="margin-top:12px; height:10px; border-radius:999px; overflow:hidden; display:flex; gap:2px;">
+                  <sc-for list="{{ live.sources }}" as="s" hint-placeholder-count="4">
+                    <span style="flex:{{ s.n }}; background:{{ s.c }};"></span>
+                  </sc-for>
+                </div>
+                <div style="margin-top:12px; display:grid; grid-template-columns:1fr 1fr; gap:8px 12px;">
+                  <sc-for list="{{ live.sources }}" as="s" hint-placeholder-count="4">
+                    <div style="display:flex; align-items:center; gap:8px; font-size:14px;"><span style="width:10px; height:10px; border-radius:3px; background:{{ s.c }}; flex-shrink:0;"></span><span style="flex:1;">{{ s.label }}</span><span style="font-family:var(--font-display); font-weight:700; color:var(--estrelinha-primary);">{{ s.n }}</span></div>
+                  </sc-for>
+                </div>
+              </div>
+
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                <div style="background:var(--estrelinha-surface); border:1px solid var(--estrelinha-line); border-radius:20px; padding:16px;">
+                  <div style="font-size:11px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--estrelinha-ink-soft);">No celular</div>
+                  <div style="margin-top:8px; font-family:var(--font-display); font-weight:700; font-size:20px; color:var(--estrelinha-primary);">{{ live.mobile }}</div>
+                  <div style="margin-top:4px; font-size:12px; color:var(--estrelinha-ink-soft);">{{ live.mobileSub }}</div>
+                </div>
+                <div style="background:var(--estrelinha-surface); border:1px solid var(--estrelinha-line); border-radius:20px; padding:16px;">
+                  <div style="font-size:11px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--estrelinha-ink-soft);">Cidades</div>
+                  <div style="margin-top:8px; display:flex; flex-direction:column; gap:4px;">
+                    <sc-for list="{{ live.cities }}" as="c" hint-placeholder-count="3">
+                      <div style="display:flex; justify-content:space-between; gap:6px; font-size:13px;"><span style="min-width:0;">{{ c.name }}</span><span style="color:var(--estrelinha-ink-soft);">{{ c.n }}</span></div>
+                    </sc-for>
+                  </div>
+                </div>
+              </div>
+
+              <div style="margin-top:12px; display:flex; flex-direction:column; gap:12px;">
+                <h2 style="margin:0; font-size:20px;">Acessos</h2>
+                <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:4px; padding:4px; background:var(--estrelinha-ground-deep); border-radius:12px;">
+                  <sc-for list="{{ acc.seg }}" as="s" hint-placeholder-count="3">
+                    <button onClick="{{ s.pick }}" style="height:40px; border-radius:6px; border:0; background:{{ s.bg }}; color:{{ s.fg }}; font-size:14px; font-weight:600; cursor:pointer; box-shadow:{{ s.sh }};">{{ s.label }}</button>
+                  </sc-for>
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                  <sc-for list="{{ acc.kpis }}" as="k" hint-placeholder-count="4">
+                    <div style="background:var(--estrelinha-surface); border:1px solid var(--estrelinha-line); border-radius:20px; padding:16px;">
+                      <div style="font-size:11px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--estrelinha-ink-soft);">{{ k.l }}</div>
+                      <div style="margin-top:8px; font-family:var(--font-display); font-weight:700; font-size:22px; color:var(--estrelinha-primary);">{{ k.v }}</div>
+                      <div style="margin-top:4px; font-size:12px; color:{{ k.dfg }};">{{ k.d }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+                <div style="background:var(--estrelinha-surface); border:1px solid var(--estrelinha-line); border-radius:20px; padding:16px;">
+                  <h3 style="margin:0; font-size:17px;">{{ acc.chartTitle }}</h3>
+                  <div style="margin-top:16px; height:120px; display:flex; align-items:flex-end; gap:6px;">
+                    <sc-for list="{{ acc.bars }}" as="b" hint-placeholder-count="8">
+                      <div style="flex:1; min-width:0; display:flex; flex-direction:column; align-items:center; gap:6px;">
+                        <span style="font-size:11px; font-weight:500; color:var(--estrelinha-ink-soft);">{{ b.v }}</span>
+                        <div style="width:100%; height:{{ b.h }}px; border-radius:6px; background:{{ b.c }};"></div>
+                        <span style="font-size:11px; font-weight:600; color:{{ b.lfg }}; white-space:nowrap;">{{ b.d }}</span>
+                      </div>
+                    </sc-for>
+                  </div>
+                  <p style="margin:14px 0 0; font-size:12px; color:var(--estrelinha-ink-soft);">{{ acc.chartNote }}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- ============ PEDIDO (detalhe) ============ -->
+        <sc-if value="{{ showOrder }}" hint-placeholder-val="{{ false }}">
+          <div data-screen-label="Pedido" style="position:absolute; inset:0; z-index:10; background:var(--estrelinha-ground); display:flex; flex-direction:column;">
+            <div style="height:60px; flex-shrink:0; display:flex; align-items:center; gap:6px; padding:0 8px; border-bottom:1px solid var(--estrelinha-line); background:var(--estrelinha-surface);">
+              <button onClick="{{ back }}" aria-label="Voltar" style="width:44px; height:44px; border-radius:50%; border:0; background:transparent; display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--estrelinha-ink);"><x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.Icon" name="chevron-left" size="{{ 22 }}" hint-size="22px,22px"></x-import></button>
+              <div style="flex:1; min-width:0;">
+                <div style="font-family:var(--font-display); font-weight:700; font-size:17px;">Pedido {{ od.num }}</div>
+                <div style="font-size:12px; color:var(--estrelinha-ink-soft);">{{ od.dateLine }}</div>
+              </div>
+              <div style="padding-right:8px;"><x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.SituationBadge" tone="{{ od.tone }}" hint-size="auto,22px">{{ od.statusLabel }}</x-import></div>
+            </div>
+            <div class="scrl" style="flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:12px;">
+              <sc-if value="{{ od.hasBlocker }}">
+                <div style="background:var(--estrelinha-ink); color:var(--estrelinha-on-primary); border-radius:20px; padding:16px; display:flex; gap:12px; align-items:flex-start;">
+                  <span style="color:var(--estrelinha-accent); display:flex; margin-top:1px;"><x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.Icon" name="estrela" size="{{ 20 }}" hint-size="20px,20px"></x-import></span>
+                  <div><div style="font-size:15px; font-weight:500;">{{ od.blocker }}</div><div style="margin-top:2px; font-size:13px; font-weight:300; color:var(--estrelinha-on-ink-strong);">{{ od.blockerHint }}</div></div>
+                </div>
+              </sc-if>
+
+              <div style="background:var(--estrelinha-surface); border:1px solid var(--estrelinha-line); border-radius:20px; padding:16px;">
+                <div style="font-size:11px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--estrelinha-ink-soft);">Cliente</div>
+                <div style="margin-top:8px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                  <span style="font-family:var(--font-display); font-weight:700; font-size:18px;">{{ od.name }}</span>
+                  <x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.Tag" tone="chip" hint-size="auto,20px">{{ od.ordinal }}</x-import>
+                </div>
+                <div style="margin-top:6px; font-size:14px; color:var(--estrelinha-ink-soft); display:flex; flex-direction:column; gap:2px;"><span>{{ od.email }}</span><span>{{ od.phone }}</span></div>
+                <div style="margin-top:14px; display:grid; grid-template-columns:1fr auto; gap:8px;">
+                  <button onClick="{{ od.whats }}" style="min-height:44px; border-radius:6px; border:0; background:var(--estrelinha-whatsapp); color:var(--estrelinha-ink); font-family:var(--font-display); font-weight:700; font-size:14px; display:flex; align-items:center; justify-content:center; gap:8px; cursor:pointer;"><x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.Icon" name="message-circle" size="{{ 18 }}" hint-size="18px,18px"></x-import>WhatsApp</button>
+                  <x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.Button" variant="secondary" size="sm" onClick="{{ od.openClient }}" hint-size="120px,44px">Ver cliente</x-import>
+                </div>
+              </div>
+
+              <sc-if value="{{ od.hasMat }}">
+                <div style="background:var(--estrelinha-surface); border:1px solid var(--estrelinha-line); border-radius:20px; padding:16px;">
+                  <div style="font-size:11px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--estrelinha-ink-soft);">Material afetivo</div>
+                  <div style="margin-top:8px; font-size:15px; font-weight:500;">{{ od.matLabel }}</div>
+                  <div style="margin-top:2px; font-size:13px; color:var(--estrelinha-ink-soft);">{{ od.matSub }}</div>
+                  <div style="margin-top:16px; display:grid; grid-template-columns:repeat(4,1fr); gap:6px;">
+                    <sc-for list="{{ od.steps }}" as="s" hint-placeholder-count="4">
+                      <div style="display:flex; flex-direction:column; gap:8px;">
+                        <span style="height:4px; border-radius:999px; background:{{ s.bar }};"></span>
+                        <span style="font-size:11px; line-height:1.3; color:{{ s.fg }}; font-weight:{{ s.w }};">{{ s.label }}</span>
+                      </div>
+                    </sc-for>
+                  </div>
+                  <div style="margin-top:12px; display:flex; flex-wrap:wrap; gap:6px;">
+                    <sc-for list="{{ od.matKinds }}" as="k" hint-placeholder-count="1">
+                      <x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.Tag" tone="chip" hint-size="auto,22px">{{ k }}</x-import>
+                    </sc-for>
+                    <sc-if value="{{ od.matAge.has }}"><span style="font-size:12px; font-weight:600; padding:3px 0; color:{{ od.matAge.fg }};">{{ od.matAge.text }}</span></sc-if>
+                  </div>
+
+                  <div data-screen-label="Envelope da cliente" style="margin-top:16px; padding-top:14px; border-top:1px solid var(--estrelinha-line); display:flex; flex-direction:column; gap:10px;">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                      <span style="color:var(--estrelinha-primary); display:flex;"><x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.Icon" name="envio" size="{{ 20 }}" hint-size="20px,20px"></x-import></span>
+                      <span style="flex:1; font-family:var(--font-display); font-weight:700; font-size:15px;">Envelope da cliente</span>
+                      <sc-if value="{{ od.env.canEdit }}"><button onClick="{{ od.env.edit }}" style="border:0; background:none; padding:8px 0; font-size:14px; font-weight:500; color:var(--estrelinha-primary); cursor:pointer;">{{ od.env.editLabel }}</button></sc-if>
+                    </div>
+                    <sc-if value="{{ od.env.hasCode }}">
+                      <div style="background:var(--estrelinha-ground-deep); border-radius:12px; padding:12px 14px; display:flex; flex-direction:column; gap:4px;">
+                        <span style="font-size:11px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--estrelinha-ink-soft);">Código dos Correios</span>
+                        <span style="font-size:18px; font-weight:600; letter-spacing:.08em;">{{ od.env.code }}</span>
+                        <span style="font-size:12px; color:var(--estrelinha-ink-soft);">{{ od.env.by }}</span>
+                      </div>
+                      <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                        <x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.Button" variant="secondary" size="sm" block="{{ true }}" onClick="{{ od.env.copy }}" hint-size="100%,44px">Copiar código</x-import>
+                        <x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.Button" variant="secondary" size="sm" block="{{ true }}" onClick="{{ od.env.track }}" hint-size="100%,44px">Ver nos Correios</x-import>
+                      </div>
+                    </sc-if>
+                    <sc-if value="{{ od.env.empty }}">
+                      <p style="margin:0; font-size:13px; line-height:1.45; color:var(--estrelinha-ink-soft);">{{ od.env.emptyText }}</p>
+                      <sc-if value="{{ od.env.canEdit }}">
+                        <x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.Button" variant="secondary" size="sm" block="{{ true }}" iconLeft="plus" onClick="{{ od.env.edit }}" hint-size="100%,44px">Informar código do envelope</x-import>
+                      </sc-if>
+                    </sc-if>
+                  </div>
+
+                  <sc-if value="{{ od.cancelled }}">
+                    <p style="margin:14px 0 0; padding-top:12px; border-top:1px solid var(--estrelinha-line); font-size:13px; line-height:1.45; color:var(--estrelinha-ink-soft);">Pedido cancelado, saiu da fila de material. Se o envelope já tiver chegado, devolva à cliente.</p>
+                  </sc-if>
+                  <sc-if value="{{ od.canProduce }}">
+                    <div style="margin-top:14px;"><x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.Button" variant="secondary" size="sm" block="{{ true }}" onClick="{{ od.produce }}" hint-size="100%,44px">Colocar em produção</x-import></div>
+                  </sc-if>
+                  <sc-if value="{{ od.canCharge }}">
+                    <button onClick="{{ od.charge }}" style="margin-top:16px; width:100%; min-height:44px; border-radius:6px; border:0; background:var(--estrelinha-whatsapp); color:var(--estrelinha-ink); font-family:var(--font-display); font-weight:700; font-size:14px; display:flex; align-items:center; justify-content:center; gap:8px; cursor:pointer;"><x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.Icon" name="message-circle" size="{{ 18 }}" hint-size="18px,18px"></x-import>Lembrar do envio no WhatsApp</button>
+                  </sc-if>
+                </div>
+              </sc-if>
+
+              <div style="background:var(--estrelinha-surface); border:1px solid var(--estrelinha-line); border-radius:20px; padding:16px;">
+                <div style="font-size:11px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--estrelinha-ink-soft);">{{ od.itemsLabel }}</div>
+                <sc-for list="{{ od.items }}" as="it" hint-placeholder-count="1">
+                  <div style="display:flex; gap:12px; padding:12px 0 0;">
+                    <span style="width:56px; height:70px; border-radius:6px; background:var(--estrelinha-ground-deep); display:flex; align-items:center; justify-content:center; color:var(--estrelinha-primary); flex-shrink:0;"><x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.Icon" name="{{ it.icon }}" size="{{ 26 }}" hint-size="26px,26px"></x-import></span>
+                    <div style="flex:1; min-width:0;">
+                      <div style="font-family:var(--font-display); font-weight:700; font-size:14px; line-height:1.35;">{{ it.name }}</div>
+                      <div style="margin-top:3px; font-size:13px; color:var(--estrelinha-ink-soft);">{{ it.variant }}</div>
+                      <sc-if value="{{ it.hasEng }}"><div style="margin-top:3px; font-size:13px;">Gravação: <em style="font-family:var(--font-display);">{{ it.eng }}</em></div></sc-if>
+                      <div style="margin-top:4px; font-size:13px; color:var(--estrelinha-ink-soft);">{{ it.qtyLine }}</div>
+                    </div>
+                  </div>
+                </sc-for>
+                <div style="margin-top:14px; padding-top:12px; border-top:1px solid var(--estrelinha-line); display:flex; flex-direction:column; gap:6px; font-size:14px;">
+                  <div style="display:flex; justify-content:space-between;"><span style="color:var(--estrelinha-ink-soft);">Subtotal</span><span>{{ od.subtotal }}</span></div>
+                  <div style="display:flex; justify-content:space-between;"><span style="color:var(--estrelinha-ink-soft);">Frete · {{ od.ship }}</span><span>{{ od.frete }}</span></div>
+                  <sc-if value="{{ od.hasDesc }}"><div style="display:flex; justify-content:space-between;"><span style="color:var(--estrelinha-ink-soft);">Cupom {{ od.coupon }}</span><span>{{ od.desc }}</span></div></sc-if>
+                  <div style="display:flex; justify-content:space-between; align-items:baseline; margin-top:4px;"><span style="font-weight:500;">Total</span><span style="font-family:var(--font-display); font-weight:700; font-size:18px; color:var(--estrelinha-primary);">{{ od.total }}</span></div>
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px;"><span style="color:var(--estrelinha-ink-soft);">{{ od.payLine }}</span><x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.SituationBadge" tone="{{ od.payTone }}" hint-size="auto,22px">{{ od.payStatus }}</x-import></div>
+                </div>
+              </div>
+
+              <div style="background:var(--estrelinha-surface); border:1px solid var(--estrelinha-line); border-radius:20px; padding:16px;">
+                <div style="font-size:11px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--estrelinha-ink-soft);">Entrega</div>
+                <div style="margin-top:8px; font-size:14px;">{{ od.address }}</div>
+                <div style="margin-top:8px; display:flex; align-items:center; gap:8px; font-size:14px;">
+                  <span style="color:var(--estrelinha-primary); display:flex;"><x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.Icon" name="envio" size="{{ 20 }}" hint-size="20px,20px"></x-import></span>
+                  <span style="flex:1;">{{ od.trackLine }}</span>
+                  <sc-if value="{{ od.canEditTrack }}"><button onClick="{{ od.editTrack }}" style="border:0; background:none; padding:8px 0; font-size:14px; font-weight:500; color:var(--estrelinha-primary); cursor:pointer;">{{ od.trackAction }}</button></sc-if>
+                </div>
+              </div>
+
+              <div style="background:var(--estrelinha-surface); border:1px solid var(--estrelinha-line); border-radius:20px; padding:16px;">
+                <div style="font-size:11px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--estrelinha-ink-soft);">Histórico</div>
+                <div style="margin-top:10px; display:flex; flex-direction:column;">
+                  <sc-for list="{{ od.timeline }}" as="ev" hint-placeholder-count="3">
+                    <div style="display:flex; gap:12px;">
+                      <div style="display:flex; flex-direction:column; align-items:center; width:10px;">
+                        <span style="width:9px; height:9px; border-radius:50%; margin-top:5px; background:{{ ev.dot }}; flex-shrink:0;"></span>
+                        <span style="flex:1; width:1px; background:{{ ev.line }};"></span>
+                      </div>
+                      <div style="padding-bottom:14px;">
+                        <div style="font-size:14px;">{{ ev.text }}</div>
+                        <div style="font-size:12px; color:var(--estrelinha-ink-soft); margin-top:2px;">{{ ev.when }}</div>
+                      </div>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+            <sc-if value="{{ od.hasAction }}">
+              <div style="flex-shrink:0; padding:12px 16px; background:var(--estrelinha-surface); border-top:1px solid var(--estrelinha-line);">
+                <x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.Button" variant="primary" size="md" block="{{ true }}" onClick="{{ od.act }}" hint-size="100%,48px">{{ od.actionLabel }}</x-import>
+              </div>
+            </sc-if>
+          </div>
+        </sc-if>
+
+        <!-- ============ CLIENTE (detalhe) ============ -->
+        <sc-if value="{{ showClient }}" hint-placeholder-val="{{ false }}">
+          <div data-screen-label="Cliente" style="position:absolute; inset:0; z-index:10; background:var(--estrelinha-ground); display:flex; flex-direction:column;">
+            <div style="height:60px; flex-shrink:0; display:flex; align-items:center; gap:6px; padding:0 8px; border-bottom:1px solid var(--estrelinha-line); background:var(--estrelinha-surface);">
+              <button onClick="{{ back }}" aria-label="Voltar" style="width:44px; height:44px; border-radius:50%; border:0; background:transparent; display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--estrelinha-ink);"><x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.Icon" name="chevron-left" size="{{ 22 }}" hint-size="22px,22px"></x-import></button>
+              <div style="font-family:var(--font-display); font-weight:700; font-size:17px;">Cliente</div>
+            </div>
+            <div class="scrl" style="flex:1; overflow-y:auto; padding:20px 16px; display:flex; flex-direction:column; gap:12px;">
+              <div style="display:flex; align-items:center; gap:14px; padding:0 4px;">
+                <span style="width:64px; height:64px; border-radius:50%; background:var(--estrelinha-ground-deep); display:flex; align-items:center; justify-content:center; font-family:var(--font-display); font-weight:700; font-size:24px; color:var(--estrelinha-primary); flex-shrink:0;">{{ cd.initial }}</span>
+                <div>
+                  <div style="font-family:var(--font-display); font-weight:700; font-size:22px; letter-spacing:-0.02em;">{{ cd.name }}</div>
+                  <div style="margin-top:2px; font-size:13px; color:var(--estrelinha-ink-soft);">{{ cd.city }} · {{ cd.since }}</div>
+                </div>
+              </div>
+              <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:8px;">
+                <div style="background:var(--estrelinha-surface); border:1px solid var(--estrelinha-line); border-radius:20px; padding:12px;"><div style="font-family:var(--font-display); font-weight:700; font-size:20px; color:var(--estrelinha-primary);">{{ cd.count }}</div><div style="font-size:12px; color:var(--estrelinha-ink-soft);">{{ cd.countLabel }}</div></div>
+                <div style="background:var(--estrelinha-surface); border:1px solid var(--estrelinha-line); border-radius:20px; padding:12px;"><div style="font-family:var(--font-display); font-weight:700; font-size:16px; line-height:25px; color:var(--estrelinha-primary);">{{ cd.total }}</div><div style="font-size:12px; color:var(--estrelinha-ink-soft);">no total</div></div>
+                <div style="background:var(--estrelinha-surface); border:1px solid var(--estrelinha-line); border-radius:20px; padding:12px;"><div style="font-family:var(--font-display); font-weight:700; font-size:16px; line-height:25px; color:var(--estrelinha-primary);">{{ cd.ticket }}</div><div style="font-size:12px; color:var(--estrelinha-ink-soft);">ticket médio</div></div>
+              </div>
+              <div style="background:var(--estrelinha-surface); border:1px solid var(--estrelinha-line); border-radius:20px; padding:16px;">
+                <div style="font-size:11px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--estrelinha-ink-soft);">Contato</div>
+                <div style="margin-top:8px; font-size:14px; display:flex; flex-direction:column; gap:4px;"><span>{{ cd.email }}</span><span>{{ cd.phone }}</span></div>
+                <button onClick="{{ cd.whats }}" style="margin-top:14px; width:100%; min-height:44px; border-radius:6px; border:0; background:var(--estrelinha-whatsapp); color:var(--estrelinha-ink); font-family:var(--font-display); font-weight:700; font-size:14px; display:flex; align-items:center; justify-content:center; gap:8px; cursor:pointer;"><x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.Icon" name="message-circle" size="{{ 18 }}" hint-size="18px,18px"></x-import>Conversar no WhatsApp</button>
+              </div>
+              <div style="background:var(--estrelinha-surface); border:1px solid var(--estrelinha-line); border-radius:20px; padding:4px 16px;">
+                <div style="padding-top:12px; font-size:11px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--estrelinha-ink-soft);">Pedidos</div>
+                <sc-for list="{{ cd.orders }}" as="o" hint-placeholder-count="2">
+                  <div onClick="{{ o.open }}" style="display:flex; align-items:center; gap:12px; padding:12px 0; border-top:{{ o.bt }}; cursor:pointer;">
+                    <div style="flex:1; min-width:0;">
+                      <div style="font-size:14px; font-weight:500;">{{ o.num }} · {{ o.item }}</div>
+                      <div style="font-size:12px; color:var(--estrelinha-ink-soft); margin-top:2px;">{{ o.when }}</div>
+                    </div>
+                    <div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">
+                      <span style="font-family:var(--font-display); font-weight:700; font-size:14px; color:var(--estrelinha-primary);">{{ o.total }}</span>
+                      <x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.SituationBadge" tone="{{ o.tone }}" hint-size="auto,22px">{{ o.statusLabel }}</x-import>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- ============ CUPOM (form) ============ -->
+        <sc-if value="{{ showCoupon }}" hint-placeholder-val="{{ false }}">
+          <div data-screen-label="Cupom" style="position:absolute; inset:0; z-index:10; background:var(--estrelinha-ground); display:flex; flex-direction:column;">
+            <div style="height:60px; flex-shrink:0; display:flex; align-items:center; gap:6px; padding:0 8px; border-bottom:1px solid var(--estrelinha-line); background:var(--estrelinha-surface);">
+              <button onClick="{{ back }}" aria-label="Fechar" style="width:44px; height:44px; border-radius:50%; border:0; background:transparent; display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--estrelinha-ink);"><x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.Icon" name="x" size="{{ 20 }}" hint-size="20px,20px"></x-import></button>
+              <div style="font-family:var(--font-display); font-weight:700; font-size:17px;">{{ cfTitle }}</div>
+            </div>
+            <div class="scrl" style="flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:18px;">
+              <div style="background:var(--estrelinha-ink); border-radius:20px; padding:20px; color:var(--estrelinha-on-primary);">
+                <div style="font-size:11px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--estrelinha-on-ink);">Como a cliente vê</div>
+                <div style="margin-top:10px; font-weight:600; font-size:24px; letter-spacing:.08em; color:var(--estrelinha-accent);">{{ cfPrev.code }}</div>
+                <div style="margin-top:6px; font-family:var(--font-display); font-size:16px;">{{ cfPrev.summary }}</div>
+                <div style="margin-top:6px; font-size:13px; font-weight:300; color:var(--estrelinha-on-ink-strong);">{{ cfPrev.rules }}</div>
+              </div>
+
+              <div style="display:flex; flex-direction:column; gap:8px;">
+                <div style="display:grid; grid-template-columns:1fr auto; gap:8px; align-items:end;">
+                  <x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.TextField" label="Código" value="{{ cf.code }}" onChange="{{ cfSet.code }}" placeholder="Ex.: AFETO10" error="{{ cfErr.code }}" hint-size="100%,76px"></x-import>
+                  <div style="padding-bottom:{{ cfErr.pad }}px;"><x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.Button" variant="secondary" size="sm" onClick="{{ genCode }}" hint-size="90px,48px">Gerar</x-import></div>
+                </div>
+                <span style="font-size:13px; color:var(--estrelinha-ink-soft);">É o texto que a cliente digita no checkout. Sai sempre em maiúsculas.</span>
+              </div>
+
+              <x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.TextField" label="Descrição interna" value="{{ cf.description }}" onChange="{{ cfSet.description }}" placeholder="Para você lembrar do que é" hint="Opcional. Não aparece para a cliente." hint-size="100%,104px"></x-import>
+
+              <div>
+                <div style="font-family:var(--font-display); font-weight:700; font-size:15px;">Tipo de desconto</div>
+                <div style="margin-top:8px; display:grid; grid-template-columns:repeat(3,1fr); gap:8px;">
+                  <sc-for list="{{ cfTypes }}" as="s" hint-placeholder-count="3">
+                    <button onClick="{{ s.pick }}" style="min-height:44px; border-radius:6px; border:2px solid {{ s.bd }}; background:{{ s.bg }}; color:{{ s.fg }}; font-size:14px; font-weight:500; cursor:pointer;">{{ s.label }}</button>
+                  </sc-for>
+                </div>
+              </div>
+
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                <sc-if value="{{ cfHasValue }}">
+                  <x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.TextField" label="{{ cfValueLabel }}" type="number" value="{{ cf.value }}" onChange="{{ cfSet.value }}" error="{{ cfErr.value }}" hint-size="100%,76px"></x-import>
+                </sc-if>
+                <x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.TextField" label="Pedido mínimo (R$)" type="number" value="{{ cf.min }}" onChange="{{ cfSet.min }}" placeholder="0" hint-size="100%,76px"></x-import>
+                <x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.TextField" label="Limite de usos" type="number" value="{{ cf.max }}" onChange="{{ cfSet.max }}" placeholder="Sem limite" hint-size="100%,76px"></x-import>
+              </div>
+
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                <x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.TextField" label="Começa em" type="date" value="{{ cf.from }}" onChange="{{ cfSet.from }}" hint-size="100%,76px"></x-import>
+                <x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.TextField" label="Termina em" type="date" value="{{ cf.until }}" onChange="{{ cfSet.until }}" hint-size="100%,76px"></x-import>
+              </div>
+              <span style="margin-top:-10px; font-size:13px; color:var(--estrelinha-ink-soft);">Deixe em branco para valer sem prazo.</span>
+
+              <div style="background:var(--estrelinha-surface); border:1px solid var(--estrelinha-line); border-radius:20px; padding:4px 16px;">
+                <sc-for list="{{ cfToggles }}" as="t" hint-placeholder-count="2">
+                  <button onClick="{{ t.toggle }}" style="width:100%; display:flex; align-items:center; gap:12px; padding:14px 0; border:0; border-top:{{ t.bt }}; background:none; text-align:left; cursor:pointer; color:var(--estrelinha-ink);">
+                    <div style="flex:1;"><div style="font-size:15px; font-weight:500;">{{ t.label }}</div><div style="margin-top:2px; font-size:13px; color:var(--estrelinha-ink-soft);">{{ t.hint }}</div></div>
+                    <span style="width:44px; height:26px; flex-shrink:0; border-radius:999px; box-sizing:border-box; border:1px solid {{ t.sw.bd }}; background:{{ t.sw.track }}; display:flex; align-items:center; padding:2px;"><span style="width:20px; height:20px; border-radius:50%; background:{{ t.sw.knob }}; transform:translateX({{ t.sw.x }}px); transition:transform 150ms;"></span></span>
+                  </button>
+                </sc-for>
+              </div>
+
+              <sc-if value="{{ cfEditing }}">
+                <div style="display:flex; justify-content:center;">
+                  <x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.Button" variant="ghost" size="sm" iconLeft="trash" onClick="{{ askDeleteCoupon }}" hint-size="160px,44px">Excluir cupom</x-import>
+                </div>
+              </sc-if>
+            </div>
+            <div style="flex-shrink:0; padding:12px 16px; background:var(--estrelinha-surface); border-top:1px solid var(--estrelinha-line);">
+              <x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.Button" variant="primary" size="md" block="{{ true }}" onClick="{{ saveCoupon }}" hint-size="100%,48px">{{ cfSaveLabel }}</x-import>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- ============ PROMOÇÃO (form) ============ -->
+        <sc-if value="{{ showPromo }}" hint-placeholder-val="{{ false }}">
+          <div data-screen-label="Promoção" style="position:absolute; inset:0; z-index:10; background:var(--estrelinha-ground); display:flex; flex-direction:column;">
+            <div style="height:60px; flex-shrink:0; display:flex; align-items:center; gap:6px; padding:0 8px; border-bottom:1px solid var(--estrelinha-line); background:var(--estrelinha-surface);">
+              <button onClick="{{ back }}" aria-label="Fechar" style="width:44px; height:44px; border-radius:50%; border:0; background:transparent; display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--estrelinha-ink);"><x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.Icon" name="x" size="{{ 20 }}" hint-size="20px,20px"></x-import></button>
+              <div style="font-family:var(--font-display); font-weight:700; font-size:17px;">{{ pfTitle }}</div>
+            </div>
+            <div class="scrl" style="flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:18px;">
+              <div style="background:var(--estrelinha-ink); border-radius:20px; padding:20px; color:var(--estrelinha-on-primary);">
+                <div style="font-size:11px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--estrelinha-on-ink);">Na sacola da cliente</div>
+                <div style="margin-top:10px; display:flex; flex-direction:column; gap:6px;">
+                  <sc-for list="{{ pfPreview }}" as="t" hint-placeholder-count="2">
+                    <div style="display:flex; align-items:center; gap:10px; font-family:var(--font-display); font-size:16px;"><span style="width:6px; height:6px; border-radius:50%; background:var(--estrelinha-accent);"></span>{{ t }}</div>
+                  </sc-for>
+                </div>
+                <div style="margin-top:8px; font-size:13px; font-weight:300; color:var(--estrelinha-on-ink-strong);">{{ pfScopeLine }}</div>
+              </div>
+
+              <x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.TextField" label="Nome da promoção" value="{{ pf.name }}" onChange="{{ pfSet.name }}" placeholder="Ex.: Kit família" error="{{ pfErr.name }}" hint-size="100%,76px"></x-import>
+
+              <div>
+                <div style="font-family:var(--font-display); font-weight:700; font-size:15px;">Vale para</div>
+                <div style="margin-top:8px; display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                  <sc-for list="{{ pfScopes }}" as="s" hint-placeholder-count="2">
+                    <button onClick="{{ s.pick }}" style="min-height:44px; border-radius:6px; border:2px solid {{ s.bd }}; background:{{ s.bg }}; color:{{ s.fg }}; font-size:14px; font-weight:500; cursor:pointer;">{{ s.label }}</button>
+                  </sc-for>
+                </div>
+                <sc-if value="{{ pfIsCats }}">
+                  <div style="margin-top:10px; display:flex; flex-wrap:wrap; gap:8px;">
+                    <sc-for list="{{ pfCats }}" as="c" hint-placeholder-count="5">
+                      <button onClick="{{ c.toggle }}" style="height:38px; padding:0 14px; border-radius:999px; border:2px solid {{ c.bd }}; background:{{ c.bg }}; color:{{ c.fg }}; font-size:14px; font-weight:500; cursor:pointer;">{{ c.label }}</button>
+                    </sc-for>
+                  </div>
+                  <sc-if value="{{ pfErr.hasCats }}"><p style="margin:8px 0 0; font-size:13px; color:var(--estrelinha-alert);">{{ pfErr.cats }}</p></sc-if>
+                </sc-if>
+              </div>
+
+              <div>
+                <div style="font-family:var(--font-display); font-weight:700; font-size:15px;">Como desconta</div>
+                <div style="margin-top:8px; display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                  <sc-for list="{{ pfKinds }}" as="s" hint-placeholder-count="2">
+                    <button onClick="{{ s.pick }}" style="min-height:44px; border-radius:6px; border:2px solid {{ s.bd }}; background:{{ s.bg }}; color:{{ s.fg }}; font-size:14px; font-weight:500; cursor:pointer;">{{ s.label }}</button>
+                  </sc-for>
+                </div>
+              </div>
+
+              <div>
+                <div style="font-family:var(--font-display); font-weight:700; font-size:15px;">Faixas</div>
+                <div style="margin-top:8px; display:flex; flex-direction:column; gap:10px;">
+                  <sc-for list="{{ pfTiers }}" as="t" hint-placeholder-count="1">
+                    <div style="background:var(--estrelinha-surface); border:1px solid var(--estrelinha-line); border-radius:12px; padding:12px; display:grid; grid-template-columns:1fr 1fr 44px; gap:8px; align-items:start;">
+                      <x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.TextField" label="A partir de" type="number" value="{{ t.q }}" onChange="{{ t.onQ }}" placeholder="2" error="{{ t.errQ }}" hint-size="100%,76px"></x-import>
+                      <x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.TextField" label="{{ t.vLabel }}" type="number" value="{{ t.v }}" onChange="{{ t.onV }}" error="{{ t.errV }}" hint-size="100%,76px"></x-import>
+                      <button onClick="{{ t.remove }}" aria-label="Remover faixa" style="margin-top:29px; width:44px; height:48px; border-radius:6px; border:0; background:transparent; display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--estrelinha-ink-soft); opacity:{{ t.op }};"><x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.Icon" name="trash" size="{{ 18 }}" hint-size="18px,18px"></x-import></button>
+                    </div>
+                  </sc-for>
+                  <div><x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.Button" variant="secondary" size="sm" iconLeft="plus" onClick="{{ addTier }}" hint-size="170px,44px">Adicionar faixa</x-import></div>
+                </div>
+              </div>
+
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                <x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.TextField" label="Começa em" type="date" value="{{ pf.from }}" onChange="{{ pfSet.from }}" hint-size="100%,76px"></x-import>
+                <x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.TextField" label="Termina em" type="date" value="{{ pf.until }}" onChange="{{ pfSet.until }}" hint-size="100%,76px"></x-import>
+              </div>
+
+              <div style="background:var(--estrelinha-surface); border:1px solid var(--estrelinha-line); border-radius:20px; padding:4px 16px;">
+                <sc-for list="{{ pfToggles }}" as="t" hint-placeholder-count="2">
+                  <button onClick="{{ t.toggle }}" style="width:100%; display:flex; align-items:center; gap:12px; padding:14px 0; border:0; border-top:{{ t.bt }}; background:none; text-align:left; cursor:pointer; color:var(--estrelinha-ink);">
+                    <div style="flex:1;"><div style="font-size:15px; font-weight:500;">{{ t.label }}</div><div style="margin-top:2px; font-size:13px; color:var(--estrelinha-ink-soft);">{{ t.hint }}</div></div>
+                    <span style="width:44px; height:26px; flex-shrink:0; border-radius:999px; box-sizing:border-box; border:1px solid {{ t.sw.bd }}; background:{{ t.sw.track }}; display:flex; align-items:center; padding:2px;"><span style="width:20px; height:20px; border-radius:50%; background:{{ t.sw.knob }}; transform:translateX({{ t.sw.x }}px); transition:transform 150ms;"></span></span>
+                  </button>
+                </sc-for>
+              </div>
+            </div>
+            <div style="flex-shrink:0; padding:12px 16px; background:var(--estrelinha-surface); border-top:1px solid var(--estrelinha-line);">
+              <x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.Button" variant="primary" size="md" block="{{ true }}" onClick="{{ savePromo }}" hint-size="100%,48px">{{ pfSaveLabel }}</x-import>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- ============ SHEETS ============ -->
+        <sc-if value="{{ sheetTrack }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute; inset:0; z-index:20; display:flex; flex-direction:column; justify-content:flex-end;">
+            <div onClick="{{ closeSheet }}" style="position:absolute; inset:0; background:rgba(35,48,58,.5);"></div>
+            <div style="position:relative; background:var(--estrelinha-surface); border-radius:20px 20px 0 0; padding:12px 20px 20px; display:flex; flex-direction:column; gap:14px; animation:ueUp 300ms cubic-bezier(0,0,.2,1);">
+              <span style="align-self:center; width:40px; height:4px; border-radius:999px; background:var(--estrelinha-line);"></span>
+              <h3 style="margin:0; font-size:20px;">{{ sheet.title }}</h3>
+              <p style="margin:-6px 0 0; font-size:14px; font-weight:300; line-height:1.45; color:var(--estrelinha-ink-soft);">{{ sheet.hint }}</p>
+              <x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.TextField" label="{{ sheet.label }}" value="{{ sheet.code }}" onChange="{{ setSheetCode }}" placeholder="Ex.: AN123456789BR" error="{{ sheet.err }}" hint-size="100%,76px"></x-import>
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                <x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.Button" variant="secondary" size="md" block="{{ true }}" onClick="{{ closeSheet }}" hint-size="100%,48px">Agora não</x-import>
+                <x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.Button" variant="primary" size="md" block="{{ true }}" onClick="{{ saveTrack }}" hint-size="100%,48px">Salvar</x-import>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ sheetDelete }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute; inset:0; z-index:20; display:flex; flex-direction:column; justify-content:flex-end;">
+            <div onClick="{{ closeSheet }}" style="position:absolute; inset:0; background:rgba(35,48,58,.5);"></div>
+            <div style="position:relative; background:var(--estrelinha-surface); border-radius:20px 20px 0 0; padding:12px 20px 20px; display:flex; flex-direction:column; gap:14px; animation:ueUp 300ms cubic-bezier(0,0,.2,1);">
+              <span style="align-self:center; width:40px; height:4px; border-radius:999px; background:var(--estrelinha-line);"></span>
+              <h3 style="margin:0; font-size:20px;">Excluir {{ cf.code }}?</h3>
+              <p style="margin:-6px 0 0; font-size:14px; font-weight:300; color:var(--estrelinha-ink-soft);">O código deixa de existir. Pedidos que já usaram o cupom mantêm o desconto que praticaram. Se for só uma pausa, prefira desativar.</p>
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                <x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.Button" variant="secondary" size="md" block="{{ true }}" onClick="{{ closeSheet }}" hint-size="100%,48px">Manter</x-import>
+                <x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.Button" variant="inkSolid" size="md" block="{{ true }}" onClick="{{ deleteCoupon }}" hint-size="100%,48px">Excluir</x-import>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- ============ LOGIN ============ -->
+        <sc-if value="{{ showLogin }}" hint-placeholder-val="{{ false }}">
+          <div class="scrl" data-screen-label="Login" style="position:absolute; inset:0; z-index:40; background:var(--estrelinha-ground); overflow-y:auto; display:flex; flex-direction:column;">
+            <div style="flex-shrink:0; background:var(--estrelinha-primary-strong); padding:56px 24px 44px; display:flex; flex-direction:column; align-items:center; gap:18px;">
+              <img src="assets/logo-negativo.png" alt="Uma Estrelinha — eternizando suas lembranças" style="width:260px; height:auto; display:block;">
+              <span style="font-size:11px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--estrelinha-on-ink);">Ateliê · painel</span>
+            </div>
+            <div style="flex:1; padding:28px 24px 24px; display:flex; flex-direction:column; gap:18px;">
+              <sc-if value="{{ lg.isLogin }}" hint-placeholder-val="{{ true }}">
+                <div>
+                  <h1 style="margin:0; font-size:26px; letter-spacing:-0.02em;">Entrar no ateliê</h1>
+                  <p style="margin:6px 0 0; font-size:15px; font-weight:300; line-height:1.45; color:var(--estrelinha-ink-soft);">Pedidos, clientes e descontos da loja, no seu celular.</p>
+                </div>
+                <sc-if value="{{ lg.hasError }}">
+                  <p style="margin:0; font-size:14px; line-height:1.4; background:var(--estrelinha-alert-soft); color:var(--estrelinha-alert); border-radius:12px; padding:12px 14px;">{{ lg.error }}</p>
+                </sc-if>
+                <x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.TextField" label="E-mail" type="email" value="{{ lg.email }}" onChange="{{ lgSet.email }}" placeholder="seu@email.com.br" hint-size="100%,76px"></x-import>
+                <div style="display:flex; flex-direction:column; gap:6px;">
+                  <x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.TextField" label="Senha" type="{{ lg.pwType }}" value="{{ lg.password }}" onChange="{{ lgSet.password }}" hint-size="100%,76px"></x-import>
+                  <button onClick="{{ lgTogglePw }}" style="align-self:flex-start; border:0; background:none; padding:8px 0; font-size:14px; font-weight:500; color:var(--estrelinha-primary); cursor:pointer;">{{ lg.pwToggleLabel }}</button>
+                </div>
+                <x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.Button" variant="primary" size="lg" block="{{ true }}" disabled="{{ lg.loading }}" onClick="{{ doLogin }}" hint-size="100%,52px">{{ lg.submitLabel }}</x-import>
+                <x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.Button" variant="ghost" size="md" block="{{ true }}" onClick="{{ lgForgot }}" hint-size="100%,48px">Esqueci minha senha</x-import>
+              </sc-if>
+              <sc-if value="{{ lg.isForgot }}" hint-placeholder-val="{{ false }}">
+                <div>
+                  <h1 style="margin:0; font-size:26px; letter-spacing:-0.02em;">Recuperar acesso</h1>
+                  <p style="margin:6px 0 0; font-size:15px; font-weight:300; line-height:1.45; color:var(--estrelinha-ink-soft);">Informe o e-mail da conta. Mando um link para você criar uma senha nova.</p>
+                </div>
+                <x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.TextField" label="E-mail" type="email" value="{{ lg.email }}" onChange="{{ lgSet.email }}" placeholder="seu@email.com.br" hint-size="100%,76px"></x-import>
+                <x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.Button" variant="primary" size="lg" block="{{ true }}" onClick="{{ lgSendLink }}" hint-size="100%,52px">Enviar link</x-import>
+                <x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.Button" variant="ghost" size="md" block="{{ true }}" onClick="{{ lgBack }}" hint-size="100%,48px">Voltar para o login</x-import>
+              </sc-if>
+              <sc-if value="{{ lg.isSent }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex; flex-direction:column; gap:10px;">
+                  <span style="color:var(--estrelinha-primary); display:flex;"><x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.Icon" name="check" size="{{ 28 }}" hint-size="28px,28px"></x-import></span>
+                  <h1 style="margin:0; font-size:26px; letter-spacing:-0.02em;">Confira seu e-mail</h1>
+                  <p style="margin:0; font-size:15px; font-weight:300; line-height:1.45; color:var(--estrelinha-ink-soft);">Se <strong style="font-weight:600; color:var(--estrelinha-ink);">{{ lg.email }}</strong> for o e-mail da conta, o link chega em instantes. Ele vale por uma hora.</p>
+                </div>
+                <x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.Button" variant="secondary" size="md" block="{{ true }}" onClick="{{ lgBack }}" hint-size="100%,48px">Voltar para o login</x-import>
+              </sc-if>
+              <p style="margin:auto 0 0; padding-top:12px; text-align:center; font-size:12px; color:var(--estrelinha-ink-soft);">Acesso restrito a quem cuida da loja.</p>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute; left:16px; right:16px; bottom:{{ toastBottom }}px; z-index:30; background:var(--estrelinha-ink); color:var(--estrelinha-on-primary); border-radius:12px; padding:14px 16px; box-shadow:var(--shadow-ink); display:flex; gap:12px; align-items:flex-start; animation:ueUp 300ms cubic-bezier(0,0,.2,1);">
+            <span style="color:var(--estrelinha-accent); display:flex; margin-top:1px;"><x-import component-from-global-scope="UmaEstrelinhaDesignSystem_29c9e2.Icon" name="check" size="{{ 18 }}" hint-size="18px,18px"></x-import></span>
+            <div><div style="font-size:14px; font-weight:500;">{{ toast.title }}</div><div style="margin-top:2px; font-size:13px; font-weight:300; color:var(--estrelinha-on-ink-strong);">{{ toast.text }}</div></div>
+          </div>
+        </sc-if>
+      </div>
+
+      <div style="height:22px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:var(--estrelinha-surface);">
+        <span style="width:108px; height:4px; border-radius:2px; background:var(--estrelinha-ink); opacity:.4;"></span>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;startLoggedIn&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Protótipo&quot;},&quot;startTab&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;inicio&quot;,&quot;pedidos&quot;,&quot;clientes&quot;,&quot;descontos&quot;],&quot;default&quot;:&quot;inicio&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Protótipo&quot;},&quot;periodDefault&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;hoje&quot;,&quot;ontem&quot;,&quot;semana&quot;],&quot;default&quot;:&quot;hoje&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Protótipo&quot;},&quot;pixInQueue&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Protótipo&quot;}}">
+const TODAY = new Date(2026, 9, 22);
+const TODAY_ISO = '2026-10-22';
+const MESES = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+const DIAS = ['dom','seg','ter','qua','qui','sex','sáb'];
+const DIAS_LONG = ['domingo','segunda-feira','terça-feira','quarta-feira','quinta-feira','sexta-feira','sábado'];
+const C = {
+  ink:'var(--estrelinha-ink)', soft:'var(--estrelinha-ink-soft)', primary:'var(--estrelinha-primary)', onP:'var(--estrelinha-on-primary)',
+  line:'var(--estrelinha-line)', field:'var(--estrelinha-field)', surface:'var(--estrelinha-surface)', accent:'var(--estrelinha-accent)',
+  deep:'var(--estrelinha-ground-deep)', wait:'var(--estrelinha-wait)', alertDot:'var(--estrelinha-alert-dot)', doneDot:'var(--estrelinha-done-dot)',
+};
+const fmt = v => 'R$ ' + Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmt0 = v => 'R$ ' + Number(v || 0).toLocaleString('pt-BR', { maximumFractionDigits: 0 });
+const dayDate = d => { const x = new Date(TODAY); x.setDate(x.getDate() - d); return x; };
+const dLabel = d => { const x = dayDate(d); return x.getDate() + ' ' + MESES[x.getMonth()]; };
+const ago = d => d === 0 ? 'hoje' : d === 1 ? 'ontem' : 'há ' + d + ' dias';
+const isoLabel = s => { const [y, m, dd] = s.split('-').map(Number); return dd + ' ' + MESES[m - 1]; };
+const plural = (n, a, b) => n + ' ' + (n === 1 ? a : b);
+
+const STATUS = { pending:['Aguardando pagamento','wait'], paid:['Pago','done'], separating:['Em separação','progress'], shipped:['Enviado','progress'], delivered:['Entregue','neutral'], cancelled:['Cancelado','alert'] };
+const PAY = { pix:'Pix', credit_card:'Cartão de crédito', boleto:'Boleto' };
+const PAYST = { pending:['Pendente','wait'], approved:['Aprovado','done'], rejected:['Recusado','alert'], refunded:['Estornado','neutral'], expired:['Expirado','neutral'], cancelled:['Cancelado','alert'] };
+const MAT_STEPS = [['aguardando_material','Aguardando'],['material_enviado','A caminho'],['material_recebido','Recebido'],['em_producao','Em produção']];
+const MAT_LABEL = { aguardando_material:'Aguardando o envelope da cliente', material_enviado:'Material a caminho', material_recebido:'Material recebido no ateliê', em_producao:'Em produção na bancada' };
+const matKindOf = n => /leite/i.test(n) ? 'Leite materno' : /cinza/i.test(n) ? 'Cinzas' : /cabelo/i.test(n) ? 'Mecha de cabelo' : /pet/i.test(n) ? 'Pelos de pet' : /dent/i.test(n) ? 'Dentinho de leite' : null;
+const NAO_SEGURA = ['nao_aplicavel','material_recebido','em_producao'];
+const iconFor = n => /leite/i.test(n) ? 'frasco-leite' : /cinza/i.test(n) ? 'pote-cinzas' : /cabelo/i.test(n) ? 'mecha-cabelo' : /dent/i.test(n) ? 'dente-leite' : 'pingente';
+
+const CUSTOMERS = [
+  { id:'c1', name:'Juliana Prado', email:'juliana.prado@gmail.com', phone:'(51) 99812-4471', city:'Porto Alegre/RS' },
+  { id:'c2', name:'Mariana Lopes', email:'mari.lopes@hotmail.com', phone:'(11) 98455-2310', city:'São Paulo/SP' },
+  { id:'c3', name:'Carla Mendes', email:'carla.mendes@gmail.com', phone:'(48) 99107-3389', city:'Florianópolis/SC' },
+  { id:'c4', name:'Fernanda Ribeiro', email:'fe.ribeiro@gmail.com', phone:'(51) 98123-0954', city:'Canoas/RS' },
+  { id:'c5', name:'Patrícia Souza', email:'patricia.souza@outlook.com', phone:'(21) 99640-7712', city:'Niterói/RJ' },
+  { id:'c6', name:'Renata Alves', email:'renata.alves@gmail.com', phone:'(31) 98877-1204', city:'Belo Horizonte/MG' },
+  { id:'c7', name:'Beatriz Costa', email:'bia.costa@gmail.com', phone:'(41) 99233-5810', city:'Curitiba/PR' },
+  { id:'c8', name:'Luana Martins', email:'luana.m@gmail.com', phone:'(51) 99604-2287', city:'Porto Alegre/RS' },
+  { id:'c9', name:'Camila Rocha', email:'camila.rocha@gmail.com', phone:'(19) 99712-6643', city:'Campinas/SP' },
+  { id:'c10', name:'Aline Ferreira', email:'aline.ferreira@yahoo.com.br', phone:'(62) 98140-3376', city:'Goiânia/GO' },
+  { id:'c11', name:'Sofia Nunes', email:'sofia.nunes@gmail.com', phone:'(85) 99811-0429', city:'Fortaleza/CE' },
+];
+const it = (name, variant, price, eng, qty) => ({ name, variant, price, eng: eng || '', qty: qty || 1 });
+const ORDERS = [
+  { id:'o251', n:'0251', c:'c1', items:[it('Pingente gota com leite materno','Prata 925 · corrente 45 cm',389,'Helena')], frete:0, ship:'PAC grátis', status:'paid', pay:'credit_card', inst:3, ps:'approved', mat:'aguardando_material', d:9 },
+  { id:'o250', n:'0250', c:'c2', items:[it('Anel solitário com cinzas','Aço inoxidável · aro 16',459)], frete:24.9, ship:'SEDEX', status:'paid', pay:'pix', ps:'approved', mat:'aguardando_material', d:3 },
+  { id:'o249', n:'0249', c:'c3', items:[it('Colar coração com mecha de cabelo','Prata 925 · 40 cm',329,'Theo')], frete:19.9, ship:'PAC', status:'paid', pay:'pix', ps:'approved', mat:'material_enviado', matTrack:'OY482915603BR', matD:1, d:2 },
+  { id:'o248', n:'0248', c:'c4', items:[it('Brincos com pelos de pet','Prata 925 · par',279)], frete:0, ship:'PAC grátis', status:'paid', pay:'credit_card', inst:2, ps:'approved', mat:'material_recebido', recvD:1, d:6 },
+  { id:'o247', n:'0247', c:'c5', items:[it('Pingente estrelinha','Prata 925',189),it('Corrente veneziana','Prata 925 · 45 cm',89)], frete:21.5, ship:'PAC', status:'paid', pay:'pix', ps:'approved', mat:'nao_aplicavel', d:1 },
+  { id:'o246', n:'0246', c:'c6', items:[it('Pulseira com dentinho de leite','Prata 925',349,'Lis')], frete:0, ship:'PAC grátis', status:'separating', pay:'credit_card', inst:4, ps:'approved', mat:'em_producao', recvD:8, sepD:2, d:14 },
+  { id:'o245', n:'0245', c:'c7', items:[it('Anel com leite materno','Prata 925 · aro 14',299,'',2)], frete:0, ship:'PAC grátis', coupon:'BEMVINDA10', desc:59.8, status:'shipped', pay:'credit_card', inst:2, ps:'approved', mat:'em_producao', recvD:10, sepD:3, shipD:0, d:16 },
+  { id:'o244', n:'0244', c:'c8', items:[it('Pingente gota com leite materno','Prata 925 · corrente 45 cm',389)], frete:0, ship:'PAC grátis', status:'pending', pay:'pix', ps:'pending', mat:'nao_aplicavel', d:0 },
+  { id:'o243', n:'0243', c:'c9', items:[it('Colar memória com cinzas','Aço inoxidável · 50 cm',399)], frete:26.4, ship:'SEDEX', status:'shipped', pay:'pix', ps:'approved', mat:'em_producao', recvD:9, sepD:4, shipD:2, track:'AN731204558BR', d:12 },
+  { id:'o241', n:'0241', c:'c10', items:[it('Brincos com leite materno','Prata 925 · par',319)], frete:0, ship:'PAC grátis', status:'delivered', pay:'credit_card', inst:3, ps:'approved', mat:'em_producao', recvD:16, sepD:10, shipD:7, delD:2, track:'AN722019344BR', d:20 },
+  { id:'o240', n:'0240', c:'c11', items:[it('Pingente coração com cabelo','Prata 925',289)], frete:18.9, ship:'PAC', status:'cancelled', pay:'pix', ps:'expired', mat:'nao_aplicavel', d:4 },
+  { id:'o209', n:'0209', c:'c4', items:[it('Pingente com pelos de pet','Prata 925',259)], frete:0, ship:'PAC grátis', status:'delivered', pay:'pix', ps:'approved', mat:'em_producao', recvD:88, sepD:80, shipD:76, delD:70, track:'AN611028873BR', d:95 },
+  { id:'o172', n:'0172', c:'c4', items:[it('Anel com cinzas','Prata 925 · aro 15',429)], frete:0, ship:'PAC grátis', status:'delivered', pay:'credit_card', inst:5, ps:'approved', mat:'em_producao', recvD:200, sepD:192, shipD:188, delD:182, track:'AN509123376BR', d:210 },
+  { id:'o188', n:'0188', c:'c9', items:[it('Pingente gota com leite materno','Prata 925',389,'Bento')], frete:0, ship:'PAC grátis', status:'delivered', pay:'pix', ps:'approved', mat:'em_producao', recvD:132, sepD:126, shipD:122, delD:117, track:'AN577410290BR', d:140 },
+];
+const COUPONS = [
+  { id:'k1', code:'BEMVINDA10', description:'Boas-vindas do site', type:'percent', value:10, min:0, max:'', used:38, firstOnly:true, active:true, from:'', until:'' },
+  { id:'k2', code:'FRETEPOA', description:'Entregas em Porto Alegre', type:'free_shipping', value:0, min:200, max:'', used:12, firstOnly:false, active:true, from:'', until:'2026-11-30' },
+  { id:'k3', code:'MAES15', description:'Dia das Mães', type:'percent', value:15, min:250, max:40, used:40, firstOnly:false, active:true, from:'2026-04-20', until:'2026-12-31' },
+  { id:'k4', code:'NATAL50', description:'Campanha de Natal', type:'fixed', value:50, min:400, max:100, used:0, firstOnly:false, active:true, from:'2026-12-01', until:'2026-12-24' },
+  { id:'k5', code:'PRIMAVERA20', description:'', type:'percent', value:20, min:300, max:'', used:21, firstOnly:false, active:true, from:'2026-09-01', until:'2026-09-30' },
+  { id:'k6', code:'VOLTEI12', description:'Clientes que já compraram', type:'percent', value:12, min:0, max:'', used:7, firstOnly:false, active:false, from:'', until:'' },
+];
+const CATS = ['Leite materno','Cinzas','Cabelo','Pelos de pet','Dentinhos'];
+const PROMOS = [
+  { id:'p1', name:'Kit família', scope:'categories', kind:'percent', cats:['Leite materno','Cabelo'], tiers:[{q:2,v:10},{q:3,v:15}], from:'', until:'2026-12-31', stacks:false, active:true },
+  { id:'p2', name:'Brincos em par', scope:'all', kind:'unit_price', cats:[], tiers:[{q:2,v:229}], from:'', until:'', stacks:true, active:false },
+];
+
+const validityLabel = (from, until) => {
+  if (!from && !until) return 'Sem prazo';
+  if (from && until) return isoLabel(from) + ' – ' + isoLabel(until);
+  if (until) return 'até ' + isoLabel(until);
+  return 'a partir de ' + isoLabel(from);
+};
+const couponStatus = k => {
+  if (!k.active) return ['Pausado','neutral'];
+  if (k.until && k.until < TODAY_ISO) return ['Expirado','alert'];
+  if (k.max && k.used >= Number(k.max)) return ['Esgotado','wait'];
+  if (k.from && k.from > TODAY_ISO) return ['Agendado','progress'];
+  return ['Ativo','done'];
+};
+const couponSummary = k => k.type === 'percent' ? (k.value || 0) + '% de desconto' : k.type === 'fixed' ? fmt0(k.value) + ' de desconto' : 'Frete grátis';
+const couponRules = k => {
+  const r = [];
+  if (Number(k.min) > 0) r.push('pedidos a partir de ' + fmt0(k.min));
+  if (k.firstOnly) r.push('só na primeira compra');
+  if (!r.length) r.push('qualquer pedido');
+  const s = r.join(' · ');
+  return s.charAt(0).toUpperCase() + s.slice(1);
+};
+const promoStatus = p => {
+  if (!p.active) return ['Pausada','neutral'];
+  if (p.until && p.until < TODAY_ISO) return ['Encerrada','alert'];
+  if (p.from && p.from > TODAY_ISO) return ['Agendada','progress'];
+  return ['Valendo','done'];
+};
+const tierText = (p, t) => {
+  const q = t.q || '?';
+  return p.kind === 'percent' ? q + ' joias ou mais: ' + (t.v || '?') + '% em cada' : q + ' joias ou mais: ' + (t.v ? fmt0(t.v) : 'R$ ?') + ' cada';
+};
+const sw = on => ({ track: on ? C.primary : C.surface, bd: on ? C.primary : C.field, knob: on ? C.onP : C.field, x: on ? 18 : 0 });
+const chip = (on) => ({ bg: on ? C.primary : C.surface, fg: on ? C.onP : C.ink, bd: on ? C.primary : C.field });
+
+const MOVE = {
+  hoje: { visitas:184, vendas:3, faturamento:1077, ticket:359 },
+  ontem: { visitas:212, vendas:2, faturamento:738, ticket:369 },
+  semana: { visitas:1240, vendas:11, faturamento:3967, ticket:360.64 },
+};
+const WEEK = [612, 0, 289, 1298, 389, 738, 1077];
+const ACCESS = {
+  hoje: { visitas:184, unicos:142, sacolas:9, vendas:3, prev:{ visitas:212, unicos:168, sacolas:7, conv:2/168 }, bars:[12,4,18,46,52,52], cur:5, labels:['0h','3h','6h','9h','12h','15h','18h','21h'], prevName:'ontem' },
+  ontem: { visitas:212, unicos:168, sacolas:7, vendas:2, prev:{ visitas:193, unicos:151, sacolas:8, conv:1/151 }, bars:[10,5,20,38,44,41,36,18], cur:-1, labels:['0h','3h','6h','9h','12h','15h','18h','21h'], prevName:'anteontem' },
+  semana: { visitas:1240, unicos:936, sacolas:41, vendas:11, prev:{ visitas:1104, unicos:851, sacolas:36, conv:9/851 }, bars:[168,142,151,190,193,212,184], cur:6, labels:null, prevName:'semana anterior' },
+};
+const LIVE_PAGES = [['Pingente gota com leite materno',3],['Anel solitário com cinzas',2],['Guia de envio do material',1],['Colar coração com mecha de cabelo',1]];
+const LIVE_SPARK = [3,4,4,5,3,2,3,4,6,5,5,4,6,7,8,6,5,6,7,6,5,7,8,9,8,7,6,7,8,7];
+const VIEWS = [['precisa','Precisa de ação'],['tudo','Tudo'],['fila','Fila de material'],['separar','A separar'],['transito','Em trânsito'],['concluidos','Concluídos']];
+const TILES = [
+  ['aguardando','Aguardando material','Ninguém pode fazer nada até o envelope chegar'],
+  ['separar','Pago, a separar','Material já recebido ou não exigido'],
+  ['semrastreio','Enviado sem rastreio','A cliente não foi avisada da postagem'],
+  ['pix','Pix aguardando','Expiram sozinhos — nada a fazer'],
+];
+const tileMatch = (id, o) => id === 'aguardando' ? o.mat === 'aguardando_material'
+  : id === 'separar' ? o.status === 'paid' && NAO_SEGURA.includes(o.mat)
+  : id === 'semrastreio' ? o.status === 'shipped' && !o.track
+  : id === 'pix' ? o.pay === 'pix' && o.ps === 'pending' && o.status === 'pending' : true;
+const viewMatch = (v, o) => v === 'tudo' ? true
+  : v === 'precisa' ? tileMatch('aguardando', o) || tileMatch('separar', o) || tileMatch('semrastreio', o)
+  : v === 'fila' ? ['aguardando_material','material_enviado','material_recebido'].includes(o.mat) || (o.mat === 'em_producao' && ['paid','separating'].includes(o.status))
+  : v === 'separar' ? ['paid','separating'].includes(o.status)
+  : v === 'transito' ? o.status === 'shipped'
+  : v === 'concluidos' ? ['delivered','cancelled'].includes(o.status) : true;
+
+const rowSummary = o => {
+  if (o.mat === 'aguardando_material') return { blocker:'Esperando o envelope da cliente', hint:'Assim que ele chegar, registre aqui — o pedido segue para a bancada.', action:'receber', label:'Recebi o material' };
+  if (o.mat === 'material_enviado') return { blocker:'Material a caminho', hint:'A cliente já postou o envelope.', action:'receber', label:'Recebi o material' };
+  if (o.status === 'shipped' && !o.track) return { blocker:'Sem código — a cliente não foi avisada', hint:'O e-mail de postagem só sai quando o rastreio é salvo.', action:'rastreio', label:'Salvar rastreio' };
+  if (o.status === 'paid') return { blocker: o.mat === 'material_recebido' ? 'Material na bancada' : 'Pago, a separar', hint:'Tudo pronto para começar.', action:'separar', label:'Iniciar separação' };
+  if (o.status === 'separating') return { blocker:'Em separação', hint:'Quando postar, informe o rastreio.', action:'enviar', label:'Marcar como enviado' };
+  if (o.status === 'pending') return { blocker: o.pay === 'pix' ? 'Pix aguardando — expira sozinho' : 'Pagamento pendente', hint:'Nada a fazer por enquanto.', action:'', label:'' };
+  return { blocker:'', hint:'', action:'', label:'' };
+};
+
+class Component extends DCLogic {
+  state = {
+    tab: this.props.startTab ?? 'inicio',
+    period: this.props.periodDefault ?? 'hoje',
+    screen: null, prev: null,
+    orders: ORDERS, coupons: COUPONS, promos: PROMOS,
+    view: 'precisa', tile: null, orderSearch: '',
+    clientSearch: '', clientFilter: 'todas',
+    disc: 'cupons',
+    cf: null, cfErr: {}, pf: null, pfErr: {},
+    sheet: null, toast: null,
+    live: { now: 7, cart: 2, checkout: 1, spark: LIVE_SPARK.slice(0, 29).concat(7), secs: 0 },
+    accPeriod: 'hoje',
+    authed: this.props.startLoggedIn ?? false,
+    login: { step: 'login', email: 'adri@umaestrelinha.com.br', password: '', showPw: false, error: '', loading: false },
+  };
+
+  doLogin() {
+    const l = this.state.login;
+    if (!l.email.includes('@') || l.password.length < 4) return this.setState({ login: { ...l, error: 'E-mail ou senha inválidos.' } });
+    this.setState({ login: { ...l, loading: true, error: '' } });
+    clearTimeout(this._lt);
+    this._lt = setTimeout(() => this.setState(s => ({ authed: true, tab: 'inicio', screen: null, login: { ...s.login, loading: false, password: '' } })), 700);
+  }
+
+  showToast(title, text) {
+    clearTimeout(this._t);
+    this.setState({ toast: { title, text: text || '' } });
+    this._t = setTimeout(() => this.setState({ toast: null }), 3200);
+  }
+  componentDidMount() {
+    this._live = setInterval(() => this.setState(s => {
+      const n = Math.max(3, Math.min(12, s.live.now + [-1, 0, 0, 1][Math.floor(Math.random() * 4)]));
+      const cart = Math.min(n - 1, Math.max(1, s.live.cart + [-1, 0, 1][Math.floor(Math.random() * 3)]));
+      const checkout = Math.min(cart, Math.random() < 0.3 ? 0 : 1);
+      return { live: { now: n, cart, checkout, spark: [...s.live.spark.slice(1), n], secs: 0 } };
+    }), 5000);
+    this._sec = setInterval(() => this.setState(s => ({ live: { ...s.live, secs: s.live.secs + 1 } })), 1000);
+  }
+  componentWillUnmount() { clearTimeout(this._t); clearTimeout(this._lt); clearInterval(this._live); clearInterval(this._sec); }
+
+  cust(id) { return CUSTOMERS.find(c => c.id === id); }
+  ordinal(o) {
+    const list = this.state.orders.filter(x => x.c === o.c).sort((a, b) => b.d - a.d);
+    return list.findIndex(x => x.id === o.id) + 1;
+  }
+  patchOrder(id, patch) { this.setState(s => ({ orders: s.orders.map(o => o.id === id ? { ...o, ...patch } : o) })); }
+
+  doAction(o, action) {
+    const name = this.cust(o.c).name.split(' ')[0];
+    if (action === 'receber') {
+      this.patchOrder(o.id, { mat: 'material_recebido', recvD: 0 });
+      this.showToast('Material registrado.', 'O pedido ' + '#' + o.n + ' foi para a bancada. ' + name + ' recebe a confirmação por e-mail.');
+    } else if (action === 'separar') {
+      this.patchOrder(o.id, { status: 'separating', sepD: 0, mat: o.mat === 'material_recebido' ? 'em_producao' : o.mat });
+      this.showToast('Separação iniciada.', 'Pedido #' + o.n + ' em produção.');
+    } else if (action === 'rastreio' || action === 'enviar') {
+      this.setState({ sheet: { type: 'track', id: o.id, mode: action, code: o.track || '', err: '', title: action === 'enviar' ? 'Marcar como enviado' : 'Salvar rastreio', label: 'Código de rastreio da joia', hint: 'A cliente recebe o e-mail de postagem assim que você salvar o código.' } });
+    }
+  }
+
+  openCouponForm(k, copy) {
+    const base = k ? { ...k, max: k.max === '' || k.max == null ? '' : String(k.max), value: String(k.value), min: String(k.min) } : { id:null, code:'', description:'', type:'percent', value:'10', min:'', max:'', used:0, firstOnly:false, active:true, from:'', until:'' };
+    const cf = copy ? { ...base, id: null, code: '', used: 0, active: false } : base;
+    this.setState({ screen: { type: 'cupom' }, cf, cfErr: {} });
+  }
+  openPromoForm(p) {
+    const pf = p ? { ...p, tiers: p.tiers.map(t => ({ q: String(t.q), v: String(t.v) })), cats: [...p.cats] } : { id:null, name:'', scope:'categories', kind:'unit_price', cats:[], tiers:[{ q:'', v:'' }], from:'', until:'', stacks:false, active:true };
+    this.setState({ screen: { type: 'promo' }, pf, pfErr: {} });
+  }
+
+  saveCoupon() {
+    const cf = this.state.cf; const err = {};
+    const code = (cf.code || '').trim().toUpperCase();
+    if (code.length < 2) err.code = 'O código precisa de ao menos 2 caracteres';
+    else if (this.state.coupons.some(k => k.code === code && k.id !== cf.id)) err.code = 'Já existe um cupom com esse código';
+    const v = Number(cf.value);
+    if (cf.type === 'percent' && !(v >= 1 && v <= 100)) err.value = 'Entre 1 e 100';
+    if (cf.type === 'fixed' && !(v > 0)) err.value = 'Maior que zero';
+    if (Object.keys(err).length) return this.setState({ cfErr: err });
+    const rec = { ...cf, code, value: cf.type === 'free_shipping' ? 0 : v, min: Number(cf.min || 0), max: cf.max ? Number(cf.max) : '' };
+    const isNew = !cf.id;
+    if (isNew) rec.id = 'k' + Date.now();
+    this.setState(s => ({ coupons: isNew ? [rec, ...s.coupons] : s.coupons.map(k => k.id === rec.id ? rec : k), screen: null, cf: null }));
+    this.showToast(isNew ? 'Cupom criado.' : 'Cupom salvo.', rec.active ? 'O checkout já aceita ' + code + '.' : code + ' está pausado — ative quando quiser.');
+  }
+  savePromo() {
+    const pf = this.state.pf; const err = { tiers: {} };
+    if ((pf.name || '').trim().length < 2) err.name = 'Dê um nome à promoção';
+    if (pf.scope === 'categories' && pf.cats.length === 0) err.cats = 'Escolha ao menos uma categoria — sem vínculo a promoção não desconta de ninguém.';
+    const seen = {};
+    pf.tiers.forEach((t, i) => {
+      const q = Number(t.q), v = Number(t.v); const e = {};
+      if (!(q >= 2)) e.q = 'A partir de 2';
+      else if (seen[q]) e.q = 'Faixa repetida'; seen[q] = true;
+      if (pf.kind === 'percent' && !(v >= 1 && v <= 90)) e.v = 'Entre 1 e 90';
+      if (pf.kind === 'unit_price' && !(v > 0)) e.v = 'Maior que zero';
+      if (e.q || e.v) err.tiers[i] = e;
+    });
+    if (err.name || err.cats || Object.keys(err.tiers).length) return this.setState({ pfErr: err });
+    const rec = { ...pf, name: pf.name.trim(), cats: pf.scope === 'all' ? [] : pf.cats, tiers: pf.tiers.map(t => ({ q: Number(t.q), v: Number(t.v) })).sort((a, b) => a.q - b.q) };
+    const isNew = !pf.id; if (isNew) rec.id = 'p' + Date.now();
+    this.setState(s => ({ promos: isNew ? [rec, ...s.promos] : s.promos.map(p => p.id === rec.id ? rec : p), screen: null, pf: null }));
+    this.showToast(isNew ? 'Promoção criada.' : 'Promoção salva.', rec.active ? 'O desconto já aparece na sacola.' : 'Ela fica pausada até você ativar.');
+  }
+
+  renderVals() {
+    const s = this.state;
+    const pixInQueue = this.props.pixInQueue ?? true;
+    const sc = s.screen;
+    const go = (tab, extra) => () => this.setState({ tab, screen: null, ...(extra || {}) });
+    const openOrder = id => () => this.setState({ screen: { type: 'pedido', id }, prev: s.screen });
+    const openClient = id => () => this.setState({ screen: { type: 'cliente', id }, prev: s.screen });
+
+    const decorate = o => {
+      const cu = this.cust(o.c); const rs = rowSummary(o); const st = STATUS[o.status];
+      const total = o.items.reduce((a, i) => a + i.price * i.qty, 0) + o.frete - (o.desc || 0);
+      const ord = this.ordinal(o);
+      const waitD = o.mat === 'aguardando_material' ? o.d : null;
+      return { o, cu, rs, st, total, ord, waitD };
+    };
+    const all = s.orders.map(decorate);
+    const active = all.filter(x => x.o.d < 60);
+
+    // ---- tiles
+    const tileDefs = TILES.filter(t => pixInQueue || t[0] !== 'pix');
+    const oldest = Math.max(0, ...active.filter(x => x.o.mat === 'aguardando_material').map(x => x.o.d));
+    const tiles = tileDefs.map(([id, label, hint], i) => {
+      const count = active.filter(x => tileMatch(id, x.o)).length;
+      const acc = i === 0;
+      return { label, hint, count, age: acc && count ? 'o mais antigo há ' + oldest + ' dias' : '',
+        bg: acc ? C.ink : C.surface, fg: acc ? C.onP : C.ink, bd: acc ? C.ink : C.line,
+        labelFg: acc ? 'var(--estrelinha-on-ink-strong)' : C.soft, numFg: acc ? C.accent : C.primary,
+        pick: go('pedidos', { tile: id, view: 'tudo', orderSearch: '' }) };
+    });
+    const actionCount = active.filter(x => viewMatch('precisa', x.o)).length;
+
+    // ---- order list
+    const q = s.orderSearch.trim().toLowerCase().replace(/^#/, '');
+    let filtered = all.filter(x => s.tile ? tileMatch(s.tile, x.o) : viewMatch(s.view, x.o));
+    if (q) filtered = filtered.filter(x => [x.o.n, x.cu.name, x.cu.email, x.o.track || '', x.o.matTrack || ''].some(f => f.toLowerCase().includes(q)));
+    filtered.sort((a, b) => a.o.d - b.o.d);
+    if (s.view === 'precisa' && !s.tile) filtered.sort((a, b) => (b.waitD ?? -1) - (a.waitD ?? -1));
+    const card = x => ({
+      num: '#' + x.o.n, name: x.cu.name, total: fmt(x.total), tone: x.st[1], statusLabel: x.st[0],
+      meta: (x.ord + 'ª compra') + ' · ' + ago(x.o.d),
+      hasBlocker: !!x.rs.blocker && !['delivered','cancelled'].includes(x.o.status), blocker: x.rs.blocker,
+      dot: x.o.mat === 'aguardando_material' ? C.accent : x.rs.action === 'rastreio' ? C.alertDot : x.rs.action ? C.primary : C.soft,
+      age: x.waitD != null ? 'há ' + x.waitD + (x.waitD === 1 ? ' dia' : ' dias') : '',
+      hasAction: !!x.rs.action, actionLabel: x.rs.label,
+      act: e => { e && e.stopPropagation && e.stopPropagation(); this.doAction(x.o, x.rs.action); },
+      open: openOrder(x.o.id),
+    });
+    const orderList = filtered.map(card);
+    const tileLabel = s.tile ? (TILES.find(t => t[0] === s.tile) || [])[1] : '';
+    const orderCountLine = s.view === 'precisa' && !s.tile && !q
+      ? (orderList.length ? plural(orderList.length, 'pedido precisa', 'pedidos precisam') + ' de você, do mais antigo para o mais novo.' : '')
+      : plural(orderList.length, 'pedido', 'pedidos');
+
+    // ---- recent
+    const recent = [...all].sort((a, b) => a.o.d - b.o.d).slice(0, 4).map((x, i) => ({
+      name: x.cu.name, num: '#' + x.o.n, when: ago(x.o.d), total: fmt(x.total), tone: x.st[1], statusLabel: x.st[0],
+      bt: i ? '1px solid var(--estrelinha-line)' : '0', open: openOrder(x.o.id) }));
+
+    // ---- chart
+    const maxW = Math.max(...WEEK);
+    const bars = WEEK.map((v, i) => {
+      const d = dayDate(6 - i); const today = i === 6;
+      return { v: v ? (v / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) : '—', h: Math.max(4, Math.round((v / maxW) * 84)),
+        color: today ? C.accent : v ? C.primary : C.line, d: today ? 'hoje' : DIAS[d.getDay()], lfg: today ? C.ink : C.soft };
+    });
+    const mvRaw = MOVE[s.period];
+    const mv = { faturamento: fmt0(mvRaw.faturamento), vendas: String(mvRaw.vendas), ticket: fmt(mvRaw.ticket), visitas: mvRaw.visitas.toLocaleString('pt-BR') };
+    const periodSeg = [['hoje','Hoje'],['ontem','Ontem'],['semana','Semana']].map(([id, label]) => {
+      const on = s.period === id;
+      return { label, pick: () => this.setState({ period: id }), bg: on ? C.onP : 'transparent', fg: on ? 'var(--estrelinha-primary-strong)' : 'var(--estrelinha-on-ink-strong)', bd: on ? C.onP : 'var(--estrelinha-on-ink-border)' };
+    });
+    const topJoias = [['Pingente gota com leite materno',9],['Anel solitário com cinzas',6],['Colar coração com mecha de cabelo',5],['Brincos com pelos de pet',4]]
+      .map(([name, n], i) => ({ name, qty: plural(n, 'peça', 'peças'), icon: iconFor(name), bt: i ? '1px solid var(--estrelinha-line)' : '0' }));
+
+    // ---- clients
+    const cq = s.clientSearch.trim().toLowerCase();
+    const clientsAll = CUSTOMERS.map(cu => {
+      const os = all.filter(x => x.o.c === cu.id);
+      const valid = os.filter(x => x.o.status !== 'cancelled' && x.o.ps === 'approved');
+      const total = valid.reduce((a, x) => a + x.total, 0);
+      const last = Math.min(...os.map(x => x.o.d));
+      const open = os.some(x => ['pending','paid','separating','shipped'].includes(x.o.status));
+      return { cu, os, valid, total, last, open };
+    });
+    let clients = clientsAll.filter(c => s.clientFilter === 'recorrentes' ? c.valid.length >= 2 : s.clientFilter === 'aberto' ? c.open : true);
+    if (cq) clients = clients.filter(c => [c.cu.name, c.cu.email, c.cu.phone].some(f => f.toLowerCase().includes(cq)));
+    clients.sort((a, b) => a.last - b.last);
+    const clientList = clients.map((c, i) => ({
+      name: c.cu.name, initial: c.cu.name[0], total: fmt0(c.total), open_: c.open,
+      meta: plural(c.valid.length, 'compra', 'compras') + ' · última ' + ago(c.last),
+      bt: i ? '1px solid var(--estrelinha-line)' : '0', open: openClient(c.cu.id) }));
+    const clientChips = [['todas','Todas'],['recorrentes','Compraram mais de uma vez'],['aberto','Com pedido em aberto']].map(([id, label]) => ({ label, ...chip(s.clientFilter === id), pick: () => this.setState({ clientFilter: id }) }));
+
+    // ---- coupons
+    const couponList = s.coupons.map(k => {
+      const [statusLabel, tone] = couponStatus(k);
+      const hasMax = !!k.max; const exhausted = hasMax && k.used >= Number(k.max);
+      return { code: k.code, statusLabel, tone, summary: couponSummary(k), rules: couponRules(k),
+        uses: hasMax ? k.used + ' de ' + k.max + ' usos' : plural(k.used, 'uso', 'usos'), hasMax, pct: hasMax ? Math.min(100, Math.round(k.used / Number(k.max) * 100)) : 0,
+        usesFg: exhausted ? C.wait : C.soft, usesW: exhausted ? 600 : 400, codeFg: tone === 'done' ? C.ink : C.soft,
+        validity: validityLabel(k.from, k.until), sw: sw(k.active), toggleLabel: k.active ? 'Ativo' : 'Pausado',
+        toggle: () => { this.setState(st => ({ coupons: st.coupons.map(x => x.id === k.id ? { ...x, active: !x.active } : x) })); this.showToast(k.active ? 'Cupom pausado.' : 'Cupom reativado.', k.active ? 'O checkout deixa de aceitar ' + k.code + '. Pedidos já feitos ficam como estão.' : k.code + ' volta a ser aceito no checkout.'); },
+        dup: () => this.openCouponForm(k, true), edit: () => this.openCouponForm(k) };
+    });
+    const cStat = s.coupons.map(couponStatus);
+    const couponStats = [
+      { v: String(cStat.filter(x => x[0] === 'Ativo').length), l: 'ativos de ' + s.coupons.length },
+      { v: String(s.coupons.reduce((a, k) => a + k.used, 0)), l: 'usos no total' },
+      { v: String(cStat.filter(x => x[0] === 'Expirado' || x[0] === 'Esgotado').length), l: 'pedem decisão' },
+    ];
+    const promoList = s.promos.map(p => {
+      const [statusLabel, tone] = promoStatus(p);
+      return { name: p.name, statusLabel, tone, tiers: p.tiers.map(t => tierText(p, t)),
+        scope: p.scope === 'all' ? 'Todas as joias' : p.cats.join(', ') + (p.stacks ? ' · acumula com cupom' : ''),
+        validity: validityLabel(p.from, p.until), sw: sw(p.active), toggleLabel: p.active ? 'Ativa' : 'Pausada',
+        toggle: () => { this.setState(st => ({ promos: st.promos.map(x => x.id === p.id ? { ...x, active: !x.active } : x) })); this.showToast(p.active ? 'Promoção pausada.' : 'Promoção reativada.', p.active ? 'A sacola deixa de aplicar o desconto.' : 'O desconto volta a aparecer na sacola.'); },
+        edit: () => this.openPromoForm(p) };
+    });
+
+    // ---- order detail
+    let od = {};
+    if (sc && sc.type === 'pedido') {
+      const x = decorate(s.orders.find(o => o.id === sc.id)); const o = x.o;
+      const matIdx = MAT_STEPS.findIndex(m => m[0] === o.mat);
+      const finished = ['shipped','delivered'].includes(o.status);
+      const steps = MAT_STEPS.map((m, i) => {
+        const done = finished || i < matIdx; const cur = !finished && i === matIdx;
+        return { label: m[1], bar: done ? C.primary : cur ? C.accent : C.line, fg: cur || done ? C.ink : C.soft, w: cur ? 600 : 400 };
+      });
+      const tl = [];
+      tl.push({ d: o.d, text: 'Pedido feito' });
+      if (o.ps === 'approved') tl.push({ d: o.d, text: 'Pagamento aprovado · ' + PAY[o.pay] });
+      if (o.ps === 'expired') tl.push({ d: Math.max(0, o.d - 1), text: 'Pix expirou · pedido cancelado' });
+      if (o.mat !== 'nao_aplicavel') tl.push({ d: o.d, text: 'Orientação de envio do material enviada' });
+      if (o.matTrack) tl.push({ d: o.matD ?? o.d, text: (o.matBy === 'adri' ? 'Você registrou o rastreio do envelope · ' : 'Cliente informou o rastreio do envelope · ') + o.matTrack });
+      if (o.recvD != null) tl.push({ d: o.recvD, text: 'Material recebido no ateliê' });
+      if (o.sepD != null) tl.push({ d: o.sepD, text: 'Separação iniciada' });
+      if (o.shipD != null) tl.push({ d: o.shipD, text: o.track ? 'Joia postada · ' + o.track : 'Marcado como enviado, sem rastreio' });
+      if (o.delD != null) tl.push({ d: o.delD, text: 'Entregue' });
+      const tlR = tl.reverse();
+      const sub = o.items.reduce((a, i) => a + i.price * i.qty, 0);
+      const first = x.cu.name.split(' ')[0];
+      const nItems = o.items.reduce((a, i) => a + i.qty, 0);
+      od = {
+        num: '#' + o.n, dateLine: dLabel(o.d) + ' · ' + ago(o.d), tone: x.st[1], statusLabel: x.st[0],
+        hasBlocker: !!x.rs.blocker && !['delivered','cancelled'].includes(o.status), blocker: x.rs.blocker,
+        blockerHint: x.waitD != null ? 'Há ' + x.waitD + ' dias. ' + x.rs.hint : x.rs.hint,
+        name: x.cu.name, ordinal: x.ord + 'ª compra', email: x.cu.email, phone: x.cu.phone,
+        whats: () => this.showToast('Abrindo o WhatsApp…', 'Conversa com ' + first + ', pedido #' + o.n + '.'),
+        openClient: openClient(o.c),
+        hasMat: o.mat !== 'nao_aplicavel', matLabel: finished ? 'Material usado na joia' : MAT_LABEL[o.mat] || '',
+        matSub: o.matTrack ? 'Rastreio do envelope: ' + o.matTrack : o.recvD != null ? 'Recebido ' + ago(o.recvD) : 'Pedido feito ' + ago(o.d),
+        steps, canCharge: o.mat === 'aguardando_material' && o.status !== 'cancelled',
+        matKinds: [...new Set(o.items.map(i => matKindOf(i.name)).filter(Boolean))],
+        matAge: (() => {
+          if (!['aguardando_material','material_enviado'].includes(o.mat) || o.status === 'cancelled') return { has: false };
+          const days = o.d; const stale = days >= 8;
+          return { has: true, text: stale ? 'parado há ' + days + ' dias' : 'há ' + days + (days === 1 ? ' dia' : ' dias'), fg: stale ? 'var(--estrelinha-wait)' : C.soft };
+        })(),
+        cancelled: o.status === 'cancelled',
+        canProduce: o.mat === 'material_recebido' && o.status !== 'cancelled',
+        produce: () => { this.patchOrder(o.id, { mat: 'em_producao' }); this.showToast('Pedido em produção.', 'O material de ' + first + ' está na bancada.'); },
+        env: (() => {
+          const editable = ['aguardando_material','material_enviado'].includes(o.mat) && o.status !== 'cancelled';
+          const received = o.recvD != null;
+          return {
+            hasCode: !!o.matTrack, code: o.matTrack || '',
+            by: (o.matBy === 'adri' ? 'Registrado por você ' : 'Informado pela cliente ') + ago(o.matD ?? o.d) + (received ? ' · chegou ' + ago(o.recvD) : ''),
+            empty: !o.matTrack,
+            emptyText: received ? 'Chegou sem código registrado. Recebido ' + ago(o.recvD) + '.'
+              : o.status === 'cancelled' ? 'Nenhum código registrado.'
+              : first + ' ainda não informou o rastreio. É opcional: se ela mandar pelo WhatsApp, registre aqui. Também dá para marcar o recebimento direto.',
+            canEdit: editable, editLabel: o.matTrack ? 'Alterar' : '',
+            edit: () => this.setState({ sheet: { type: 'track', id: o.id, mode: 'material', code: o.matTrack || '', err: '', title: o.matTrack ? 'Alterar código do envelope' : 'Código do envelope', label: 'Código de rastreio do envio da cliente', hint: 'Use quando ' + first + ' mandar o código pelo WhatsApp. O pedido passa para "A caminho" e ela recebe a confirmação por e-mail.' } }),
+            copy: () => this.showToast('Código copiado.', o.matTrack),
+            track: () => this.showToast('Abrindo o rastreio dos Correios…', o.matTrack),
+          };
+        })(),
+        charge: () => this.showToast('Abrindo o WhatsApp…', 'Mensagem pronta para lembrar ' + first + ' do envio do material.'),
+        itemsLabel: plural(nItems, 'joia', 'joias'),
+        items: o.items.map(i => ({ name: i.name, variant: i.variant, hasEng: !!i.eng, eng: i.eng, icon: iconFor(i.name), qtyLine: i.qty + ' × ' + fmt(i.price) })),
+        subtotal: fmt(sub), frete: o.frete ? fmt(o.frete) : 'grátis', ship: o.ship.replace(' grátis', ''), hasDesc: !!o.desc, coupon: o.coupon, desc: '− ' + fmt(o.desc),
+        total: fmt(x.total), payLine: PAY[o.pay] + (o.inst ? ' · ' + o.inst + 'x' : ''), payStatus: PAYST[o.ps][0], payTone: PAYST[o.ps][1],
+        address: x.cu.city + ' · ' + o.ship,
+        trackLine: o.track ? 'Rastreio ' + o.track : o.status === 'shipped' ? 'Enviado sem código de rastreio' : ['pending','paid','separating'].includes(o.status) ? 'Ainda não postado' : 'Sem rastreio',
+        canEditTrack: ['shipped','delivered'].includes(o.status), trackAction: o.track ? 'Alterar' : 'Informar',
+        editTrack: () => this.setState({ sheet: { type: 'track', id: o.id, mode: 'rastreio', code: o.track || '', err: '', title: o.track ? 'Alterar rastreio' : 'Salvar rastreio', label: 'Código de rastreio da joia', hint: 'A cliente recebe o e-mail de postagem assim que você salvar o código.' } }),
+        timeline: tlR.map((e, i) => ({ text: e.text, when: dLabel(e.d) + ' · ' + ago(e.d), dot: i === 0 ? C.accent : C.primary, line: i === tlR.length - 1 ? 'transparent' : C.line })),
+        hasAction: !!x.rs.action, actionLabel: x.rs.label, act: () => this.doAction(o, x.rs.action),
+      };
+    }
+
+    // ---- client detail
+    let cd = {};
+    if (sc && sc.type === 'cliente') {
+      const c = clientsAll.find(c => c.cu.id === sc.id);
+      const first = Math.max(...c.os.map(x => x.o.d));
+      const d0 = dayDate(first);
+      cd = { name: c.cu.name, initial: c.cu.name[0], city: c.cu.city, since: 'cliente desde ' + MESES[d0.getMonth()] + ' ' + d0.getFullYear(),
+        count: String(c.valid.length), countLabel: c.valid.length === 1 ? 'compra' : 'compras', total: fmt0(c.total), ticket: c.valid.length ? fmt0(c.total / c.valid.length) : '—',
+        email: c.cu.email, phone: c.cu.phone,
+        whats: () => this.showToast('Abrindo o WhatsApp…', 'Conversa com ' + c.cu.name.split(' ')[0] + '.'),
+        orders: [...c.os].sort((a, b) => a.o.d - b.o.d).map((x, i) => ({ num: '#' + x.o.n, item: x.o.items[0].name, when: dLabel(x.o.d) + ' · ' + ago(x.o.d), total: fmt(x.total), tone: x.st[1], statusLabel: x.st[0], bt: '1px solid var(--estrelinha-line)', open: openOrder(x.o.id) })) };
+    }
+
+    // ---- coupon form
+    const cf = s.cf || {};
+    const setCf = k => e => { const v = e && e.target ? e.target.value : e; this.setState(st => ({ cf: { ...st.cf, [k]: k === 'code' ? String(v).toUpperCase().replace(/\s/g, '') : v }, cfErr: { ...st.cfErr, [k]: undefined } })); };
+    const cfSet = { code: setCf('code'), description: setCf('description'), value: setCf('value'), min: setCf('min'), max: setCf('max'), from: setCf('from'), until: setCf('until') };
+    const cfTypes = [['percent','Percentual'],['fixed','Valor fixo'],['free_shipping','Frete grátis']].map(([id, label]) => {
+      const on = cf.type === id; return { label, bg: on ? C.primary : 'transparent', fg: on ? C.onP : C.ink, bd: on ? C.primary : C.field, pick: () => this.setState(st => ({ cf: { ...st.cf, type: id } })) };
+    });
+    const cfPrevSrc = { ...cf, value: Number(cf.value || 0) };
+    const cfPrev = { code: cf.code || 'SEUCODIGO', summary: s.cf ? couponSummary(cfPrevSrc) : '', rules: s.cf ? couponRules(cfPrevSrc) + ' · ' + validityLabel(cf.from, cf.until).toLowerCase() : '' };
+    const cfToggles = [
+      { k: 'firstOnly', label: 'Só na primeira compra', hint: 'Para quem nunca comprou na loja.' },
+      { k: 'active', label: 'Cupom ativo', hint: 'Desligado, o checkout recusa o código.' },
+    ].map((t, i) => ({ ...t, bt: i ? '1px solid var(--estrelinha-line)' : '0', sw: sw(!!cf[t.k]), toggle: () => this.setState(st => ({ cf: { ...st.cf, [t.k]: !st.cf[t.k] } })) }));
+
+    // ---- promo form
+    const pf = s.pf || { tiers: [], cats: [] };
+    const pfE = s.pfErr || {};
+    const setPf = k => e => { const v = e && e.target ? e.target.value : e; this.setState(st => ({ pf: { ...st.pf, [k]: v }, pfErr: { ...st.pfErr, [k]: undefined } })); };
+    const pfSeg = (key, opts) => opts.map(([id, label]) => { const on = pf[key] === id; return { label, bg: on ? C.primary : 'transparent', fg: on ? C.onP : C.ink, bd: on ? C.primary : C.field, pick: () => this.setState(st => ({ pf: { ...st.pf, [key]: id } })) }; });
+    const setTier = (i, k) => e => { const v = e.target.value; this.setState(st => ({ pf: { ...st.pf, tiers: st.pf.tiers.map((t, j) => j === i ? { ...t, [k]: v } : t) } })); };
+    const pfTiers = pf.tiers.map((t, i) => ({ q: t.q, v: t.v, vLabel: pf.kind === 'percent' ? 'Desconto (%)' : 'Preço cada (R$)',
+      onQ: setTier(i, 'q'), onV: setTier(i, 'v'), errQ: pfE.tiers && pfE.tiers[i] ? pfE.tiers[i].q : undefined, errV: pfE.tiers && pfE.tiers[i] ? pfE.tiers[i].v : undefined,
+      op: pf.tiers.length > 1 ? 1 : 0.35, remove: () => pf.tiers.length > 1 && this.setState(st => ({ pf: { ...st.pf, tiers: st.pf.tiers.filter((_, j) => j !== i) } })) }));
+    const pfToggles = [
+      { k: 'stacks', label: 'Acumula com cupom', hint: 'Desligado, vale o maior desconto entre os dois.' },
+      { k: 'active', label: 'Promoção ativa', hint: 'Desligada, a sacola não aplica o desconto.' },
+    ].map((t, i) => ({ ...t, bt: i ? '1px solid var(--estrelinha-line)' : '0', sw: sw(!!pf[t.k]), toggle: () => this.setState(st => ({ pf: { ...st.pf, [t.k]: !st.pf[t.k] } })) }));
+    const pfCats = CATS.map(label => { const on = pf.cats.includes(label); return { label, ...chip(on), toggle: () => this.setState(st => ({ pf: { ...st.pf, cats: on ? st.pf.cats.filter(c => c !== label) : [...st.pf.cats, label] }, pfErr: { ...st.pfErr, cats: undefined } })) }; });
+
+    const sheet = s.sheet || {};
+    const isDetail = !!sc;
+    const tabs = [['inicio','Início','home'],['pedidos','Pedidos','sacola'],['clientes','Clientes','user'],['descontos','Descontos','estrela']].map(([id, label, icon]) => {
+      const on = s.tab === id;
+      return { label, icon, fg: on ? C.primary : C.soft, w: on ? 600 : 400, bar: on ? C.primary : 'transparent', hasBadge: id === 'pedidos' && actionCount > 0, badge: String(actionCount),
+        pick: () => this.setState({ tab: id, screen: null }) };
+    });
+
+    const lv = s.live;
+    const spMax = Math.max(...lv.spark, 1);
+    const sparkOf = (arr, hMax, onInk) => arr.map((v, i) => ({ h: Math.max(3, Math.round(v / spMax * hMax)), c: i === arr.length - 1 ? C.accent : onInk ? 'var(--estrelinha-on-ink-border)' : 'var(--estrelinha-line)' }));
+    const browse = Math.max(0, lv.now - lv.cart);
+    const sources = [['Instagram', 0.43, C.primary], ['Google', 0.29, 'var(--estrelinha-primary-strong)'], ['WhatsApp', 0.14, C.accent], ['Direto', 0.14, C.field]];
+    let left = lv.now;
+    const srcN = sources.map(([label, p, c], i) => { const n = i === sources.length - 1 ? left : Math.min(left, Math.round(lv.now * p)); left -= n; return { label, n, c }; }).filter(x => x.n > 0);
+    const mob = Math.max(1, lv.now - 1);
+    const pagesScaled = LIVE_PAGES.map(([name, n], i) => ({ name, n: plural(Math.max(1, Math.round(n * lv.now / 7)), 'pessoa', 'pessoas'), icon: /guia/i.test(name) ? 'envio' : iconFor(name), bt: i ? '1px solid var(--estrelinha-line)' : '0' }));
+    const live = {
+      now: String(lv.now), nowLabel: lv.now === 1 ? 'pessoa' : 'pessoas',
+      cardLine: plural(lv.cart, 'com joia na sacola', 'com joias na sacola') + (lv.checkout ? ' · ' + lv.checkout + ' no checkout' : ''),
+      spark: sparkOf(lv.spark.slice(-15), 40, false), sparkBig: sparkOf(lv.spark, 56, true),
+      updated: lv.secs < 2 ? 'Atualizado agora' : 'Atualizado há ' + lv.secs + ' s',
+      funnel: [['Olhando joias', browse, C.field], ['Com joia na sacola', lv.cart, C.primary], ['No checkout', lv.checkout, C.accent], ['Compraram (últimos 30 min)', 0, C.primary]]
+        .map(([label, n, c]) => ({ label, n: String(n), pct: Math.round(n / Math.max(1, lv.now) * 100), c })),
+      hasCheckout: lv.checkout > 0, checkoutLine: 'Alguém está no checkout agora. Se a compra não fechar em 4 horas, a sacola aparece como abandonada no Backoffice.',
+      pages: pagesScaled, sources: srcN,
+      mobile: mob + ' de ' + lv.now, mobileSub: 'o resto pelo computador',
+      cities: [['Porto Alegre', Math.ceil(lv.now * 0.4)], ['São Paulo', Math.max(1, Math.round(lv.now * 0.3))], ['Outras', Math.max(0, lv.now - Math.ceil(lv.now * 0.4) - Math.max(1, Math.round(lv.now * 0.3)))]].filter(c => c[1] > 0).map(([name, n]) => ({ name, n: String(n) })),
+    };
+    const A = ACCESS[s.accPeriod];
+    const conv = A.vendas / A.unicos;
+    const delta = (cur, prev, isPct) => {
+      const d = prev ? (cur - prev) / prev : 0;
+      const t = (d >= 0 ? '+' : '−') + Math.abs(Math.round(d * 100)) + '% vs ' + A.prevName;
+      return { d: t, dfg: d >= 0 ? 'var(--estrelinha-done)' : C.soft };
+    };
+    const pct = v => (v * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + '%';
+    const bMax = Math.max(...A.bars);
+    const nBars = A.labels ? 8 : 7;
+    const acc = {
+      seg: [['hoje','Hoje'],['ontem','Ontem'],['semana','Semana']].map(([id, label]) => { const on = s.accPeriod === id; return { label, bg: on ? C.surface : 'transparent', fg: on ? C.ink : C.soft, sh: on ? '0 1px 2px rgba(35,48,58,.12)' : 'none', pick: () => this.setState({ accPeriod: id }) }; }),
+      kpis: [
+        { l: 'Visitas', v: A.visitas.toLocaleString('pt-BR'), ...delta(A.visitas, A.prev.visitas) },
+        { l: 'Visitantes únicos', v: A.unicos.toLocaleString('pt-BR'), ...delta(A.unicos, A.prev.unicos) },
+        { l: 'Sacolas criadas', v: String(A.sacolas), ...delta(A.sacolas, A.prev.sacolas) },
+        { l: 'Conversão', v: pct(conv), ...delta(conv, A.prev.conv) },
+      ],
+      chartTitle: A.labels ? 'Visitas por horário' : 'Visitas por dia',
+      chartNote: s.accPeriod === 'hoje' ? 'Faixas de 3 horas. A atual em dourado, ainda em andamento.' : s.accPeriod === 'ontem' ? 'Faixas de 3 horas.' : 'Últimos 7 dias. Hoje em dourado.',
+      bars: Array.from({ length: nBars }, (_, i) => {
+        const v = A.bars[i]; const has = v != null; const cur = i === A.cur;
+        const label = A.labels ? A.labels[i] : (i === 6 ? 'hoje' : DIAS[dayDate(6 - i).getDay()]);
+        return { v: has ? String(v) : '', h: has ? Math.max(4, Math.round(v / bMax * 84)) : 4, c: !has ? C.line : cur ? C.accent : C.primary, d: label, lfg: cur ? C.ink : C.soft };
+      }),
+    };
+    const L = s.login;
+    const setL = k => e => { const v = e.target.value; this.setState(st => ({ login: { ...st.login, [k]: v, error: '' } })); };
+    const loginVals = {
+      showLogin: !s.authed,
+      lg: { ...L, isLogin: L.step === 'login', isForgot: L.step === 'forgot', isSent: L.step === 'sent', hasError: !!L.error,
+        pwType: L.showPw ? 'text' : 'password', pwToggleLabel: L.showPw ? 'Ocultar senha' : 'Mostrar senha', submitLabel: L.loading ? 'Entrando…' : 'Entrar' },
+      lgSet: { email: setL('email'), password: setL('password') },
+      lgTogglePw: () => this.setState(st => ({ login: { ...st.login, showPw: !st.login.showPw } })),
+      doLogin: () => this.doLogin(),
+      lgForgot: () => this.setState(st => ({ login: { ...st.login, step: 'forgot', error: '' } })),
+      lgBack: () => this.setState(st => ({ login: { ...st.login, step: 'login', error: '' } })),
+      lgSendLink: () => this.setState(st => ({ login: { ...st.login, step: st.login.email.includes('@') ? 'sent' : 'forgot' } })),
+      logout: () => this.setState(st => ({ authed: false, screen: null, sheet: null, login: { ...st.login, step: 'login', password: '', error: '' } })),
+    };
+    if (!s.authed) Object.assign(loginVals, { statusBgOverride: 'var(--estrelinha-primary-strong)' });
+
+    return {
+      ...loginVals,
+      statusBg: !s.authed || (s.tab === 'inicio' && !isDetail) ? 'var(--estrelinha-primary-strong)' : isDetail ? C.surface : 'var(--estrelinha-ground)',
+      statusFg: !s.authed || (s.tab === 'inicio' && !isDetail) ? C.onP : C.ink,
+      isInicio: s.tab === 'inicio', isPedidos: s.tab === 'pedidos', isClientes: s.tab === 'clientes', isDescontos: s.tab === 'descontos',
+      noScreen: !isDetail, tabs,
+      todayLine: DIAS_LONG[TODAY.getDay()] + ', ' + TODAY.getDate() + ' de outubro',
+      periodSeg, mv, tiles, bars, weekTotal: fmt0(WEEK.reduce((a, b) => a + b, 0)), topJoias, recent,
+      goPedidos: go('pedidos', { view: 'precisa', tile: null }), goTudo: go('pedidos', { view: 'tudo', tile: null }),
+      orderSearch: s.orderSearch, setOrderSearch: e => this.setState({ orderSearch: e.target.value }),
+      viewChips: VIEWS.map(([id, label]) => ({ label, ...chip(!s.tile && s.view === id), pick: () => this.setState({ view: id, tile: null }) })),
+      hasTile: !!s.tile, tileLabel, clearTile: () => this.setState({ tile: null, view: 'precisa' }),
+      orderList, orderCountLine, ordersEmpty: orderList.length === 0,
+      emptyHint: q ? 'Nenhum pedido com “' + s.orderSearch + '”.' : s.view === 'precisa' ? 'Nenhum pedido esperando você agora.' : 'Nenhum pedido nesta visão.',
+      clientSearch: s.clientSearch, setClientSearch: e => this.setState({ clientSearch: e.target.value }), clientChips, clientList,
+      clientCountLine: plural(clientList.length, 'cliente', 'clientes') + ' · das compras mais recentes para as mais antigas',
+      discSub: s.disc === 'cupons' ? 'Códigos que a cliente digita no checkout.' : 'Descontos por quantidade, aplicados na sacola.',
+      discSeg: [['cupons','Cupons'],['promocoes','Promoções']].map(([id, label]) => { const on = s.disc === id; return { label, bg: on ? C.surface : 'transparent', fg: on ? C.ink : C.soft, sh: on ? '0 1px 2px rgba(35,48,58,.12)' : 'none', pick: () => this.setState({ disc: id }) }; }),
+      isCupons: s.disc === 'cupons', isPromos: s.disc === 'promocoes', couponList, couponStats, promoList,
+      newDiscLabel: s.disc === 'cupons' ? 'Novo cupom' : 'Nova promoção',
+      newDisc: () => s.disc === 'cupons' ? this.openCouponForm(null) : this.openPromoForm(null),
+      back: () => this.setState(st => ({ screen: st.prev && st.screen && st.prev.type !== st.screen.type && st.screen.type !== 'cupom' && st.screen.type !== 'promo' ? st.prev : null, prev: null, sheet: null })),
+      live, acc, showLive: !!sc && sc.type === 'aovivo',
+      openLive: () => this.setState({ screen: { type: 'aovivo' }, prev: null }),
+      showOrder: !!sc && sc.type === 'pedido', od,
+      showClient: !!sc && sc.type === 'cliente', cd,
+      showCoupon: !!sc && sc.type === 'cupom' && !!s.cf, cf, cfSet, cfErr: { code: s.cfErr.code, value: s.cfErr.value, pad: s.cfErr.code ? 28 : 0 }, cfTypes, cfPrev, cfToggles,
+      cfTitle: cf.id ? 'Editar cupom' : 'Novo cupom', cfEditing: !!cf.id, cfSaveLabel: cf.id ? 'Salvar alterações' : 'Criar cupom',
+      cfHasValue: cf.type !== 'free_shipping', cfValueLabel: cf.type === 'percent' ? 'Desconto (%)' : 'Desconto (R$)',
+      genCode: () => { const w = ['AFETO','ESTRELA','MEMORIA','ETERNO','CARINHO'][Math.floor(Math.random() * 5)]; const v = cf.type === 'free_shipping' ? 'FRETE' : String(Math.round(Number(cf.value) || 10)); this.setState(st => ({ cf: { ...st.cf, code: w + v }, cfErr: {} })); },
+      saveCoupon: () => this.saveCoupon(),
+      askDeleteCoupon: () => this.setState({ sheet: { type: 'delete' } }),
+      deleteCoupon: () => { const code = cf.code; this.setState(st => ({ coupons: st.coupons.filter(k => k.id !== st.cf.id), sheet: null, screen: null, cf: null })); this.showToast('Cupom excluído.', code + ' não é mais aceito.'); },
+      showPromo: !!sc && sc.type === 'promo' && !!s.pf, pf, pfSet: { name: setPf('name'), from: setPf('from'), until: setPf('until') },
+      pfErr: { name: pfE.name, cats: pfE.cats, hasCats: !!pfE.cats }, pfScopes: pfSeg('scope', [['all','Todas as joias'],['categories','Por categoria']]),
+      pfKinds: pfSeg('kind', [['unit_price','Preço por unidade'],['percent','Percentual']]), pfIsCats: pf.scope === 'categories', pfCats, pfTiers, pfToggles,
+      pfPreview: s.pf ? pf.tiers.map(t => tierText(pf, t)) : [], pfScopeLine: pf.scope === 'all' ? 'Em todas as joias da loja' : pf.cats.length ? 'Em ' + pf.cats.join(', ').toLowerCase() : 'Escolha as categorias',
+      addTier: () => this.setState(st => ({ pf: { ...st.pf, tiers: [...st.pf.tiers, { q: '', v: '' }] } })),
+      pfTitle: pf.id ? 'Editar promoção' : 'Nova promoção', pfSaveLabel: pf.id ? 'Salvar alterações' : 'Criar promoção', savePromo: () => this.savePromo(),
+      sheetTrack: sheet.type === 'track', sheetDelete: sheet.type === 'delete', sheet,
+      setSheetCode: e => { const v = e.target.value.toUpperCase().replace(/\s/g, ''); this.setState(st => ({ sheet: { ...st.sheet, code: v, err: '' } })); },
+      closeSheet: () => this.setState({ sheet: null }),
+      saveTrack: () => {
+        const sh = s.sheet; const code = (sh.code || '').trim();
+        if (code.length < 8) return this.setState({ sheet: { ...sh, err: 'Confira o código — ele costuma ter 13 caracteres.' } });
+        const o = s.orders.find(x => x.id === sh.id);
+        if (sh.mode === 'material') {
+          this.patchOrder(sh.id, { matTrack: code, matBy: 'adri', matD: 0, mat: o.mat === 'aguardando_material' ? 'material_enviado' : o.mat });
+          this.setState({ sheet: null });
+          return this.showToast('Código do envelope registrado.', o.mat === 'aguardando_material' ? 'O pedido #' + o.n + ' passou para "A caminho".' : 'Pedido #' + o.n + ' atualizado.');
+        }
+        this.patchOrder(sh.id, { status: o.status === 'delivered' ? 'delivered' : 'shipped', track: code, shipD: o.shipD ?? 0 });
+        this.setState({ sheet: null });
+        this.showToast('Rastreio salvo.', this.cust(o.c).name.split(' ')[0] + ' recebe o aviso de postagem por e-mail.');
+      },
+      hasToast: !!s.toast, toast: s.toast || {}, toastBottom: isDetail ? 84 : 80,
+    };
+  }
+}
+</script>
+</body>
+</html>

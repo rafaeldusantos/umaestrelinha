@@ -40,7 +40,8 @@
     "./visits": "./src/visits/index.ts",
     "./suppliers": "./src/suppliers/index.ts",
     "./stats": "./src/stats/index.ts",
-    "./customers": "./src/customers/index.ts"
+    "./customers": "./src/customers/index.ts",
+    "./live": "./src/live/index.ts"
   },
   "scripts": {
     "test": "vitest run"

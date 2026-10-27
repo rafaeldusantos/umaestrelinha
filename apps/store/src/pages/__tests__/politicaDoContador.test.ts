@@ -14,6 +14,11 @@ import { describe, expect, it } from 'vitest'
  *
  * O texto é o do Apêndice A da spec, palavra por palavra. A aprovação da Adri é pré-condição do
  * DEPLOY (fica no handoff); a do código é esta.
+ *
+ * Feature `83` (`LAV-66`): o servidor passou a guardar também a hora cheia da primeira visita do
+ * dia (`store_visits.first_hour`), e o parágrafo passou a ser o do Apêndice A da spec da `83`. O
+ * texto da `71` ("esse código e a data") deixou de ser verdadeiro — o sensor da hora prova que ele
+ * reprova.
  */
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -24,7 +29,7 @@ const CONTADOR = resolve(SRC, 'shared/lib/visits/visitor.ts')
 const POLITICA = resolve(SRC, 'pages/PrivacyPolicyPage.tsx')
 
 const PARAGRAFO =
-  'Além disso, conto quantas visitas a loja recebe a cada dia. Para isso, o seu navegador guarda um código aleatório, que não identifica você pelo nome e não tem relação com os seus pedidos. Em cada dia em que você visita a loja, o meu servidor registra esse código e a data — e nada mais: não guardo o seu IP junto dessa contagem, nem as páginas que você viu. Esses registros são apagados depois de 8 dias e não são compartilhados com ninguém, nem com o Google. Desligar “Estatísticas” também desliga essa contagem e apaga o código do seu navegador; limpar os dados do site no navegador tem o mesmo efeito.'
+  'Além disso, conto quantas visitas a loja recebe a cada dia. Para isso, o seu navegador guarda um código aleatório, que não identifica você pelo nome e não tem relação com os seus pedidos. Em cada dia em que você visita a loja, o meu servidor registra esse código, a data e a hora cheia da sua primeira visita naquele dia (por exemplo, 14h) — e nada mais: não guardo o seu IP junto dessa contagem, nem as páginas que você viu. Esses registros são apagados depois de 8 dias e não são compartilhados com ninguém, nem com o Google. Desligar “Estatísticas” também desliga essa contagem e apaga o código do seu navegador; limpar os dados do site no navegador tem o mesmo efeito.'
 
 /** O JSX quebra o texto em linhas: o React junta com UM espaço. A régua faz o mesmo. */
 const normalizar = (fonte: string): string => fonte.replace(/\s+/g, ' ')
@@ -68,6 +73,21 @@ describe('VIS-37 — o contador só existe com o parágrafo da política', () =>
       const trocada = normalizar(politica).replace('um código aleatório', 'um código anônimo')
       expect(trocada).not.toBe(normalizar(politica))
       expect(violada(true, trocada)).toBe(true)
+    })
+
+    it('LAV-66 — sem a hora cheia (o texto da `71`) reprova', () => {
+      const semAHora = normalizar(politica).replace(
+        'registra esse código, a data e a hora cheia da sua primeira visita naquele dia (por exemplo, 14h) — e nada mais',
+        'registra esse código e a data — e nada mais',
+      )
+      expect(semAHora).not.toBe(normalizar(politica))
+      expect(violada(true, semAHora)).toBe(true)
+    })
+
+    it('LAV-66 — a hora sem o exemplo reprova (palavra por palavra)', () => {
+      const semExemplo = normalizar(politica).replace(' (por exemplo, 14h)', '')
+      expect(semExemplo).not.toBe(normalizar(politica))
+      expect(violada(true, semExemplo)).toBe(true)
     })
 
     it('sem o contador, a invariante não cobra nada (o guarda não vale antes do módulo)', () => {

@@ -127,3 +127,38 @@ o apaga.
 | 4 | `CH-envelope-conta-sem-acesso` | Garbage | 30 |
 | 5 | `CH-envelope-com-leitor-de-tela` | Feature | 45 |
 | canário | folha do rastreio de saída (`J-registrar-material-e-envio`) — `normalizeTrackingCode` mudou | — | — |
+
+## Ciclo planejado — feature `83` (Loja ao vivo, Fase 1: Acessos), nível *targeted*
+
+Planejado em 2026-10-27 (`qa-report`), não executado. Duas jornadas novas, `J-ver-a-loja-ao-vivo` (14
+cenários `MAD-aovivo-*`) e `J-ler-a-politica-de-privacidade` (`LOJA-politica-hora-cheia`), mais
+`MAD-inicio-cartao-visitas-hoje` em `J-acompanhar-a-loja`; os 16 nascem `untested`. Subir o build servido
+do mobile-adm (`vite preview` numa porta livre — 8082–8084 são de outras sessões) contra o banco local
+com a migration `20261029120000_83-loja-ao-vivo.sql`, login com o admin do seed. Fixturas em
+`.specs/features/83-loja-ao-vivo/prova/` (`fixtura.sql` → sessão → `limpa.sql`; conferir contra
+`le-movimento.sql`); o banco local é **compartilhado**: nada de `db reset`/`migration up`, e o que não
+couber na fixtura (teto do dia, visitas sem hora, resposta sem `acessos`, `42501`) é interceptado no
+Playwright. Fonte por `html { font-size }` a 100/130/200 %, em 360/390/412 e 1440. Ordem por risco:
+
+| # | Charter | Tour | Caixa |
+| --- | --- | --- | --- |
+| 1 | `CH-aovivo-numeros-certos-do-dia` | Money | 90 |
+| 2 | `CH-aovivo-conta-sem-acesso` | Garbage | 30 |
+| 3 | `CH-aovivo-com-rede-ruim` | Network | 45 |
+| 4 | `CH-aovivo-ligada-enquanto-trabalho` | Interrupt | 60 |
+| 5 | `CH-aovivo-do-inicio-e-voltar` | Back-Button | 30 |
+| 6 | `CH-aovivo-com-fonte-grande` | Feature | 45 |
+| 7 | `CH-aovivo-com-leitor-de-tela` | Feature | 45 |
+| 8 | `CH-loja-politica-hora-cheia` | Feature | 15 |
+| canário | `CH-inicio-numeros-certos-do-dia` e `CH-inicio-ao-vivo-e-atualizado` (re-run: a Início ganhou o cartão, o período controlado e a releitura de 30 s) | — | — |
+
+Reabertos (`untested`) porque a superfície mudou: `MAD-inicio-abrir-e-entender-o-dia`,
+`MAD-inicio-trocar-periodo`, `MAD-inicio-numeros-grandes`, `MAD-inicio-com-leitor-de-tela`.
+Ficam `blocked-verify` até o Android real: o Chrome em segundo plano de verdade, o gesto de voltar, o
+puxar com o dedo e a escala de texto do sistema (a prova T13 escalou pela raiz). Fora do ciclo: a
+aprovação do texto da política pela Adri (pré-condição do deploy, não de QA) e `BL-059` (Descontos na
+barra de abas a 200 %, anterior à `83`). Sem bug aberto da `83` no registro na hora do planejamento.
+
+**Executado em 2026-10-27** (`reports/2026-10-27-mobile-adm-loja-ao-vivo.md`): 5 Pass, 2 `blocked-verify` (Android e TalkBack reais), 3 esperando decisão. Três bugs de atrito: `BUG-20261027-tentar-de-novo-da-loja-ao-vivo-solta-o-foco`, `BUG-20261027-f5-desfaz-o-periodo-escolhido-na-loja-ao-vivo` e `BUG-20261027-rodape-da-loja-rola-de-lado-com-fonte-200` (anterior à `83`).
+
+**Reteste em 2026-10-27** (`reports/2026-10-27-mobile-adm-loja-ao-vivo-reteste.md`): o foco do "Tentar de novo" consertado (`5b23601d`) passa em 390 e 1440 a 100 e 200 %; o arroba do rodapé (`49f8bbb5`) não passa mais da borda, mas a loja ainda rola de lado a 390/200 % pelo **cabeçalho** (`scrollWidth` 434, decisão pendente). O F5 que desfaz o período segue aberto, esperando decisão.

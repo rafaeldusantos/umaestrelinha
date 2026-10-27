@@ -8,13 +8,20 @@
 // Quando ler de novo (`VIS-10`):
 // - (a) ao montar e (b) quando a janela volta a ter foco — React Query, com `staleTime: 0`;
 // - (c) na virada do dia de Brasília — o timer abaixo, por `turnDelayMs` (duração do SERVIDOR);
-// - (d) no aviso de tempo real de `orders` — quem invalida é a página, pela `STORE_MOVEMENT_KEY`.
+// - (d) no aviso de tempo real de `orders` — quem invalida é a página, pela `STORE_MOVEMENT_KEY`;
+// - (e) feature `83`: a cada `refetchInterval` ms, SÓ com a aba visível (`refetchIntervalInBackground:
+//   false`) e nunca depois de uma recusa por papel (`LAV-05`, `LAV-08`).
+//
+// Nenhuma leitura com a aba oculta (critério 5 do PRD da `83`): o timer da virada também só relê com
+// foco; sem ele, não faz nada — o dado já é velho (`staleTime: 0`) e a volta ao primeiro plano relê
+// (`refetchOnWindowFocus`). Vale para o painel também: a aba oculta deixa de reler na virada.
 
 import { useEffect } from 'react'
-import { useQuery, type UseQueryOptions } from '@tanstack/react-query'
+import { focusManager, useQuery, type UseQueryOptions } from '@tanstack/react-query'
 import { supabase } from '@estrelinha/supabase/client'
 import { turnDelayMs } from '../stats/turn.ts'
 import type { StoreMovement } from '../stats/movement.ts'
+import { isAccessDenied } from './useStoreOverview.ts'
 
 /** A chave do cache. Uma só, para quem lê e quem invalida não divergirem. */
 export const STORE_MOVEMENT_KEY = ['store-movement'] as const
@@ -34,15 +41,25 @@ const lerMovimento = async (): Promise<StoreMovement> => {
  */
 export interface StoreMovementOptions {
   retry?: UseQueryOptions<StoreMovement>['retry']
+  /**
+   * Feature `83`: relê a cada N ms com a aba visível — a Início a 30 s, a Loja ao vivo a 15 s. Sem a
+   * opção (o painel), nada de intervalo. Para depois de uma recusa (`42501`): com o papel ainda
+   * admin a tela não desmonta, e um intervalo fixo martelaria a RPC recusada.
+   */
+  refetchInterval?: number
 }
 
-export const useStoreMovement = ({ retry = 1 }: StoreMovementOptions = {}) => {
+export const useStoreMovement = ({ retry = 1, refetchInterval }: StoreMovementOptions = {}) => {
   const query = useQuery({
     queryKey: STORE_MOVEMENT_KEY,
     queryFn: lerMovimento,
     staleTime: 0,
     refetchOnWindowFocus: true,
     retry,
+    refetchInterval: refetchInterval
+      ? (q) => (isAccessDenied(q.state.error) ? false : refetchInterval)
+      : false,
+    refetchIntervalInBackground: false,
   })
 
   const { data, dataUpdatedAt, refetch } = query
@@ -52,7 +69,8 @@ export const useStoreMovement = ({ retry = 1 }: StoreMovementOptions = {}) => {
     const atraso = turnDelayMs(data, dataUpdatedAt, Date.now())
     if (atraso === null) return
     const timer = setTimeout(() => {
-      void refetch()
+      // Com a aba oculta, nada: a volta ao primeiro plano relê (`refetchOnWindowFocus`).
+      if (focusManager.isFocused()) void refetch()
     }, atraso)
     return () => clearTimeout(timer)
   }, [data, dataUpdatedAt, refetch])

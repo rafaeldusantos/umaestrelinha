@@ -1,0 +1,82 @@
+{
+    "acessos": {
+        "hoje": {
+            "sem_hora": 0,
+            "por_faixa": [
+                46,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+            ]
+        },
+        "ontem": {
+            "sem_hora": 0,
+            "por_faixa": [
+                12,
+                3,
+                1450,
+                2380,
+                3105,
+                2876,
+                1999,
+                1024
+            ]
+        },
+        "semana": {
+            "por_dia": [
+                {
+                    "dia": "2026-10-26",
+                    "visitas": 12849
+                },
+                {
+                    "dia": "2026-10-27",
+                    "visitas": 46
+                }
+            ]
+        },
+        "comparacao": {
+            "hoje": {
+                "vendas": 0,
+                "visitas": 0,
+                "ate_hora": 1,
+                "base_hoje": {
+                    "vendas": 1,
+                    "visitas": 37
+                }
+            },
+            "ontem": {
+                "dia": "2026-10-25",
+                "vendas": 1,
+                "visitas": 6200
+            },
+            "semana": null
+        },
+        "faixa_atual": 0
+    },
+    "lido_em": "2026-10-27T04:04:33.145526+00:00",
+    "periodos": {
+        "hoje": {
+            "ticket": 189.9,
+            "vendas": 1,
+            "visitas": 46,
+            "faturamento": 189.9
+        },
+        "ontem": {
+            "ticket": 242.83,
+            "vendas": 3,
+            "visitas": 12849,
+            "faturamento": 728.5
+        },
+        "semana": {
+            "ticket": 229.6,
+            "vendas": 4,
+            "visitas": 12895,
+            "faturamento": 918.4
+        }
+    },
+    "contagem_desde": "2026-10-19T04:04:25.001127+00:00"
+}

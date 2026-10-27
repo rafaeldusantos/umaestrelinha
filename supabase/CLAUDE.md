@@ -51,7 +51,7 @@ ausente seria indistinguível de run quebrado na aba Actions.
 
 ## Migrations
 
-64 arquivos em `migrations/` (contados em 2026-10-22, no fecho da `71`). **Nenhuma credencial no código.**
+71 arquivos `.sql` em `migrations/` (contados em 2026-10-27, no fecho da `83`, numa árvore sem a `82`). **Nenhuma credencial no código.**
 
 > **A migration do banner principal (`41`) é o caso de "trocar um guarda sem ficar sem nenhum"**, e o
 > molde é o dos dois sentidos. `guard_hero_home_section` (`HOME-08`) tornava o hero indelével; ele foi
@@ -446,6 +446,29 @@ Grava `(dia de Brasília, id do navegador)` no máximo uma vez por dia. O desenh
   `grant` apagado do arquivo sobreviveria). `function-visit.sh` prova a function **servida**
   (`supabase functions serve`), semeando `production_host = 'localhost'` só no banco local e
   restaurando por `trap`.
+
+### A hora da primeira visita e a chave `acessos` (feature `83`, `AD-066`)
+
+- **Migration `20261029120000_83-loja-ao-vivo.sql`** — emenda à `VIS-28` da `71`: `store_visits` ganha
+  `first_hour smallint` (0–23, `check`), a hora cheia de **Brasília** do instante do **servidor** na
+  inserção (`store_hour(p_agora)`, `stable`, sem `execute` a ninguém). `record_store_visit` é
+  recriada com o mesmo contrato (`on conflict do nothing`: a repetição do dia não muda a hora; o
+  `grant execute … to service_role` explícito, o teto de 5.000 e a poda continuam). Linhas gravadas
+  antes do deploy ficam com `first_hour` nulo e aparecem como `sem_hora`.
+- **`store_movement` recriada com a chave `acessos`** ao lado de `periodos` (que fica byte a byte o da
+  `71`, guardado por fragmento em `visitasPorHoraSchema.test.ts`): `por_faixa` de hoje e ontem (8
+  faixas de 3 h; faixa futura e faixa antes de `contagem_desde` ⇒ `null`), `sem_hora`, `semana.por_dia`
+  (de segunda a hoje), `faixa_atual` e as comparações (`hoje` em horas completas dos dois lados; `ontem`
+  contra anteontem; `semana` nula). Tudo o que sai de `store_visits` vem de **um** comando (um
+  snapshot): sem isso, uma visita entre dois comandos faria a soma das faixas discordar do total.
+- **Gate de quem recriar `store_movement` ou `record_store_visit`**: rodar
+  `.specs/features/83-loja-ao-vivo/probes/01-acessos.sql` (`begin … rollback`, aplica a `71` e a `83` do
+  disco) e os probes da `71` **por nome** contra a 54442, exit 0 e só `ok —`; e
+  `probes/02-gravacao-real.sh` (comprometido, limpa o que grava). Fora do CI (`BL-057`). Os guardas de
+  forma (`visitasSchema` com as réguas compartilhadas de `visitasRegras.ts`, e `visitasPorHoraSchema`)
+  medem a migration **vigente** — a última que cria a função —, não só a da `71`.
+- **Ordem de publicação**: migration → bundle do app do ateliê. O painel lê o mesmo hook e ignora a
+  chave nova.
 
 ### `store_overview` — o resumo do ateliê (feature `73`, `AD-057`)
 

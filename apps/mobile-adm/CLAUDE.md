@@ -7,7 +7,7 @@ para o celular da Adri, instalável no Android como app. Leia [`../../CLAUDE.md`
 
 **Só Android.** iOS/Safari não é testado nem otimizado (pedido do usuário).
 
-## O que existe hoje (feature `72`, a fundação, `73`, a Início, `74`, os Pedidos, `75`, as ações, `76`, os Clientes, e `79`, os avisos no celular)
+## O que existe hoje (feature `72`, a fundação, `73`, a Início, `74`, os Pedidos, `75`, as ações, `76`, os Clientes, `79`, os avisos no celular, e `83`, a Loja ao vivo)
 
 | Rota | O quê |
 | --- | --- |
@@ -19,6 +19,7 @@ para o celular da Adri, instalável no Android como app. Leia [`../../CLAUDE.md`
 | `/clientes` | Clientes — a lista com três recortes e a busca (feature `76`, abaixo) |
 | `/clientes/:id` | a ficha de uma cliente (feature `76`); subrota da aba Clientes, dentro do guarda |
 | `/avisos` | "Avisos neste celular" — ligar o aviso de pedido NESTE aparelho, os quatro interruptores, o aviso de teste e "Parar avisos" (feature `79`, abaixo); aberta pelo menu da conta, sem aba própria |
+| `/ao-vivo` | **Loja ao vivo**, Fase 1 — a seção **Acessos** (Hoje · Ontem · Semana: visitas, vendas, conversão e o gráfico por horário), aberta pelo cartão "Visitas hoje" da Início (feature `83`, abaixo); sem aba própria e sem a barra de abas, com o próprio "Voltar"; dentro do guarda |
 | `/descontos` | Descontos — em construção (`77`, `78`) |
 | `*` | caminho desconhecido ⇒ `/` (dentro do guarda) |
 
@@ -434,6 +435,39 @@ dias", Fase 5, T21; `queueAgeLabel` continua no painel e na Início —, cor `wa
   cliente fica com o PRIMEIRO código. A folha de "Alterar" não promete e-mail (A6), e o aviso diz só
   "Pedido #NNNN atualizado." — não mude isso sem decidir o evento de "código corrigido".
 
+## A Loja ao vivo (feature `83`, `AD-066`) — Fase 1, Acessos
+
+- **Uma leitura só**: a tela e a Início leem a MESMA `store_movement` (`useMovimento`, `entities/stats`),
+  agora com a chave `acessos` ao lado de `periodos` (faixas de 3 h de hoje e ontem, os dias da semana, as
+  comparações e `faixa_atual`). Nenhuma RPC nova e nenhuma tabela lida; o cartão da Início, a faixa e a
+  seção mostram o mesmo número por construção. **Sem `lerComPapel`**: a RPC recusa a conta sem papel no
+  primeiro comando (`42501`), como na Início (`MAI-23`) — `SPEC_DEVIATION` do texto do PRD em `LAV-60`.
+- **A hora vem do banco**: `store_visits.first_hour` (hora cheia de Brasília da primeira visita do dia,
+  gravada por `record_store_visit` na inserção — emenda à `VIS-28`), a faixa em andamento, o "hoje" e a
+  comparabilidade (`visitas: null`) são decididos no servidor. O app nunca lê o relógio do aparelho para
+  dizer "que hora é"; o único `Date.now()` permitido é `shared/lib/useSegundosDesde.ts`, que mede a
+  DURAÇÃO desde a chegada da resposta para o "Atualizado há {s} s" (`aoVivoSemRelogioDoAparelho.test.ts`).
+- **As regras moram em `core`**: `@estrelinha/core/live` (conversão, variação com arredondamento
+  simétrico, as colunas do gráfico, as frases do cartão e da seção) e `core/stats/counterNotes.ts` (as
+  três notas do contador, que o painel reexporta por referência). O app só desenha.
+- **Releitura**: `/ao-vivo` a cada **15 s**, a Início a cada **30 s**, as duas só com a aba visível
+  (`refetchIntervalInBackground: false`; o timer da virada e o aviso do Realtime também não leem em
+  segundo plano, e a volta relê). O intervalo para na recusa (`refetchInterval` função com
+  `isAccessDenied`). Provado na rede, em navegador (`prova-navegador.md` da `83`).
+- **O período** (`entities/stats/model/periodos.ts`, dono único do vocabulário no app,
+  `periodosComDonoUnico.test.ts`) viaja no `history.state` da entrada (`{ doApp: true, periodo }`), nunca
+  na URL: sobrevive ao F5, e a Início grava o seu na própria entrada para o voltar reabrir no mesmo.
+- **Layout**: Visitas e Vendas lado a lado e Conversão em largura inteira; a 130–200 % de fonte, uma
+  coluna. O gráfico rola **dentro** do cartão quando não cabe (colunas com piso em `rem`); o `body`
+  nunca rola. O cabeçalho sangra o recuo do `<main>` (`-mx-4 -mt-4`). Nenhuma transição nas barras.
+- **Tom** (`tomDaLojaAoVivo.test.ts`): sem emoji, `!`, urgência, nem "pessoa(s)"/"usuário(s)" — Visitas
+  conta **navegadores** (`VIS-41`). A Fase 2 (presença) vai contar pessoas: o conflito é `BL-058`.
+- **Ordem de publicação**: migration → bundle. Com o banco antigo (sem `acessos`), a seção desenha os
+  números e a frase estática "O gráfico por horário ainda não está disponível.", nunca quebra.
+- **Probe no gate**: toda migration que recrie `store_movement` ou `record_store_visit` roda
+  `.specs/features/83-loja-ao-vivo/probes/01-acessos.sql` e os da `71` antes do deploy (fora do CI,
+  `BL-057`).
+
 ## PWA — só a casca
 
 - `pwa.config.ts` é um arquivo **separado** do `vite.config.ts` para os guardas lerem a configuração
@@ -548,6 +582,11 @@ dias", Fase 5, T21; `queueAgeLabel` continua no painel e na Início —, cor `wa
 | `swAvisos.test.ts` | idem | (feature `79`) `sw-avisos.js` com os DOIS ouvintes e só eles: o aviso com título, corpo, tag, ícone e caminho exatos; o toque focando a janela do app (ou abrindo uma) só em caminho interno, qualquer outro vira `/`; a promessa inteira no `waitUntil` |
 | `movimentoDosAvisos.test.ts` | `src/shared/lib/__tests__` | (feature `79`) `transition-*`/`animate-*` sem par `motion-reduce:` nos arquivos de UI dos avisos |
 | `tomMemorialDosAvisos.test.ts` | idem | (feature `79`) emoji, `!`, urgência e festa nos literais da tela e das frases dos avisos |
+| `aoVivoComClientReal.test.tsx` | `src/app/__tests__` | (feature `83`, sobre o client REAL) `store_movement` 403 `42501` em `/ao-vivo` e na Início ⇒ o Login e nenhum número em instante nenhum; 200 → 403 na releitura de 15 s, com a conta perdendo o papel **e** com o papel ainda admin ⇒ nenhum número nem "Atualizado há"; 500 e rede caída ⇒ "Não consegui carregar.", nunca a recusa |
+| `periodosComDonoUnico.test.ts` | idem | (feature `83`) a lista de períodos declarada fora de `entities/stats/model/periodos.ts`; `movement-hero/model/numeros.ts` deixando de reexportar `PERIODOS` por referência |
+| `aoVivoSemRelogioDoAparelho.test.ts` | `src/shared/lib/__tests__` | (feature `83`, `LAV-61`) `new Date(`, `Date.now(`, `getHours`, `getDay` ou `toLocaleDateString` nos arquivos da `83` e em `core/live`; allowlist de UM (`useSegundosDesde.ts`) |
+| `tomDaLojaAoVivo.test.ts` | idem | (feature `83`, pela AST, arquivos nomeados) emoji, `!`, urgência, "pessoa(s)"/"usuário(s)"; `transition-*`/`animate-*` sem par `motion-reduce:` |
+| `barraNoCaminho.test.ts` | `src/widgets/tab-bar/__tests__` | (feature `83`) a barra de abas aparecendo em `/ao-vivo` ou sumindo de uma aba |
 | `lockupDaSplashPareado.test.ts` | `src/features/splash/__tests__` | a cópia do lockup divergindo do SVG-fonte |
 | `Splash.test.tsx` | idem | `<img>` na splash, a largura de 300/120, o rótulo, animação sem o par `motion-reduce:` |
 

@@ -288,7 +288,10 @@ describe('recusa por papel (MAI-22, MAI-24)', () => {
     expect(window.location.pathname).toBe('/')
     expect(screen.queryByText(SEM_ACESSO)).toBeNull()
     expect(fake.estado.tabelas.filter((t) => t === 'user_roles')).toHaveLength(1)
-    expect(screen.getAllByText(FALHA_DE_LEITURA)).toHaveLength(6)
+    // Feature `83`: SETE blocos em falha — os seis de antes e o cartão "Visitas hoje", que lê o mesmo
+    // movimento (`LAV-04`). Âncora de contagem subindo com o fato; a régua (`toHaveLength`) fica.
+    expect(screen.getAllByText(FALHA_DE_LEITURA)).toHaveLength(7)
+    expect(screen.getByTestId('cartao-visitas-hoje')).toHaveTextContent(FALHA_DE_LEITURA)
   })
 })
 
@@ -388,15 +391,19 @@ describe('outras releituras (MAI-19, MAI-21, MAI-25)', () => {
   })
 
   it('a virada do dia relê pela DURAÇÃO do servidor (`expira_em − lido_em`), não pelo relógio do aparelho', async () => {
-    // 02:59:00Z ⇒ a próxima 00:00 de Brasília está a 60 s. O relógio do processo diz outra coisa.
+    // Feature `83` (design §6): a virada passou a cair a 10 s — DENTRO do ciclo de 30 s da Início —,
+    // para que só o timer da virada explique a segunda leitura. Com a de antes (60 s), o ciclo
+    // também releria, e a régua passaria com o timer apagado. Mudança de fixture; a régua fica.
+    // 02:59:50Z ⇒ a próxima 00:00 de Brasília está a 10 s. O relógio do processo diz outra coisa.
     vi.setSystemTime(new Date('2026-05-01T12:00:00Z'))
-    fake.responderRpc('store_movement', movimento({ lido_em: '2026-10-23T02:59:00.000Z', expira_em: '2026-10-23T03:00:00.000Z' }))
-    fake.responderRpc('store_overview', resumo({ lido_em: '2026-10-23T02:59:00.000Z', expira_em: '2026-10-23T03:00:00.000Z' }))
+    fake.responderRpc('store_movement', movimento({ lido_em: '2026-10-23T02:59:50.000Z', expira_em: '2026-10-23T03:00:00.000Z' }))
+    fake.responderRpc('store_overview', resumo({ lido_em: '2026-10-23T02:59:50.000Z', expira_em: '2026-10-23T03:00:00.000Z' }))
     await abrir()
     expect(fake.chamadasDe('store_movement')).toHaveLength(1)
-    await andar(50_000)
+    await andar(9_000)
     expect(fake.chamadasDe('store_movement')).toHaveLength(1)
-    await andar(15_000)
+    await andar(2_000)
+    expect(fake.chamadasDe('store_movement')).toHaveLength(2)
     expect(fake.chamadasDe('store_movement').length).toBeGreaterThanOrEqual(2)
     expect(fake.chamadasDe('store_overview').length).toBeGreaterThanOrEqual(2)
   })
