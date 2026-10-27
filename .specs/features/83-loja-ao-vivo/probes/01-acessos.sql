@@ -261,6 +261,25 @@ select pg_temp.confere((:'m'::jsonb #>> '{acessos,comparacao,hoje,visitas}')::in
   'contagem começando anteontem ⇒ a comparação de Hoje existe (ontem 10h, hoje 10h)');
 rollback to savepoint contagem_anteontem;
 
+-- conserto da rodada 1 (S09): a contagem que NUNCA começou (sem a linha do contador; `started_at`
+-- é `not null`, então "nunca começou" é a ausência da linha). As visitas entram direto na tabela,
+-- porque `record_store_visit` criaria o contador.
+savepoint nunca_comecou;
+delete from public.store_visit_counter;
+insert into public.store_visits (day, visitor_id, first_hour) values
+  ('2026-10-19', '83000000-0000-4000-8000-000000000083', 10),
+  ('2026-10-20', '83000000-0000-4000-8000-000000000084', 10),
+  ('2026-10-21', '83000000-0000-4000-8000-000000000085', 10);
+select pg_temp.movimento('2026-10-21T21:00:00Z', :'admin_id') as m \gset
+select pg_temp.confere((:'m'::jsonb -> 'contagem_desde') = 'null'::jsonb, 'fixtura: sem contador ⇒ contagem_desde null');
+select pg_temp.confere((:'m'::jsonb #> '{acessos,comparacao,hoje,visitas}') = 'null'::jsonb
+  and (:'m'::jsonb #> '{acessos,comparacao,hoje,base_hoje,visitas}') = 'null'::jsonb
+  and (:'m'::jsonb #> '{acessos,comparacao,hoje,vendas}') <> 'null'::jsonb,
+  'contagem que nunca começou ⇒ visitas da comparação de Hoje null, vendas não (S09)');
+select pg_temp.confere((:'m'::jsonb #> '{acessos,comparacao,ontem,visitas}') = 'null'::jsonb,
+  'contagem que nunca começou ⇒ visitas da comparação de Ontem null');
+rollback to savepoint nunca_comecou;
+
 -- =============================================================================================
 -- LAV-71 — a linha "do futuro" puxa a faixa atual
 -- =============================================================================================
