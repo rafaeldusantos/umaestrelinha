@@ -105,3 +105,25 @@ a porta `atelie-avisos` pode ser interceptada ou servida por `supabase functions
 Reabertos (`untested`) porque a superfície mudou: nenhum cenário antigo muda de resultado esperado; os
 dois canários cobrem `RequireAdmin`/`LoginPage` e `gravarAcao`. Sem bug aberto da `79` na hora do
 planejamento.
+
+## Ciclo — feature `82` (Envelope da cliente), nível *targeted*
+
+Planejado e **executado** em 2026-10-26 (`reports/2026-10-26-mobile-adm-envelope-da-cliente.md`: 6 pass, 1
+consertado, 9 decisão humana; canário pass). Jornada nova `J-registrar-envelope-da-cliente` (16 cenários
+`MAD-envelope-*`). Fixturas: `.specs/features/82-envelope-da-cliente/prova/fixturas.sql` (P82-A..E) mais P82-F
+(nome vazio, material sem tipo) e P82-G (três itens), com os mesmos prefixos de id, apagadas por `limpa.sql`. A
+perda da resposta de rede se reproduz com `route.fetch()` + `context.setOffline(true)` antes de responder.
+
+**Reteste em 2026-10-27** (mesmo relatório, seção *Reteste*): os seis bugs consertados na Fase 5 passam no
+build servido; um achado novo (o foco no `<body>` depois do "Tentar de novo" do bloco do envelope) foi
+consertado e retestado. Erro guardado em módulo só se reteste navegando DENTRO do app — `page.goto` recarrega e
+o apaga.
+
+| # | Charter | Tour | Caixa |
+| --- | --- | --- | --- |
+| 1 | `CH-envelope-registrar-o-codigo-da-cliente` | Paste | 60 |
+| 2 | `CH-envelope-com-rede-ruim` | Network | 60 |
+| 3 | `CH-envelope-voltar-e-outra-aba` | Back-Button | 30 |
+| 4 | `CH-envelope-conta-sem-acesso` | Garbage | 30 |
+| 5 | `CH-envelope-com-leitor-de-tela` | Feature | 45 |
+| canário | folha do rastreio de saída (`J-registrar-material-e-envio`) — `normalizeTrackingCode` mudou | — | — |
