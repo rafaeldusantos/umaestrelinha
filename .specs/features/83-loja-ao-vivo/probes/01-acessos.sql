@@ -225,13 +225,19 @@ select pg_temp.visita('83000000-0000-4000-8000-000000000062', '2026-10-20T02:00:
 select pg_temp.visita('83000000-0000-4000-8000-000000000063', '2026-10-20T15:00:00Z');  -- ter 12h
 select pg_temp.pedido('PROBE-83-A1', 15.00, '2026-10-19T23:00:00Z');                     -- seg 20h
 select pg_temp.pedido('PROBE-83-A2', 27.00, '2026-10-20T03:00:00Z');                     -- ter 00:00:00 exato (fronteira)
+-- conserto da rodada 2 (V-S07): uma 2ª venda em ontem, para que Ontem (2) ≠ anteontem (1) e o campo
+-- de anteontem não possa ser trocado pelo de ontem com o probe verde (L-013)
+select pg_temp.pedido('PROBE-83-A3', 31.00, '2026-10-20T15:00:00Z');                     -- ter 12h
 select pg_temp.movimento('2026-10-21T21:00:00Z', :'admin_id') as m \gset
 select pg_temp.confere((:'m'::jsonb #> '{acessos,comparacao,ontem}') = '{"dia":"2026-10-19","visitas":2,"vendas":1}'::jsonb,
   'comparacao.ontem = anteontem inteiro: 19/10, 2 visitas, 1 venda');
 select pg_temp.confere(public.store_day_start(date '2026-10-20') = timestamptz '2026-10-20T03:00:00Z'
   and (:'m'::jsonb #>> '{acessos,comparacao,ontem,vendas}')::int = 1
-  and (:'m'::jsonb #>> '{periodos,ontem,vendas}')::int = 1,
-  'venda paga às 00:00:00 de ontem conta em Ontem e NÃO em anteontem (fronteira meio-aberta, S05)');
+  and (:'m'::jsonb #>> '{periodos,ontem,vendas}')::int = 2,
+  'venda paga às 00:00:00 de ontem conta em Ontem (2 com a das 12h) e NÃO em anteontem (1) (fronteira meio-aberta, S05)');
+select pg_temp.confere((:'m'::jsonb #>> '{acessos,comparacao,ontem,vendas}')::int
+    <> (:'m'::jsonb #>> '{periodos,ontem,vendas}')::int,
+  'fixtura: as vendas de anteontem (1) e as de ontem (2) discordam (V-S07)');
 select pg_temp.confere((:'m'::jsonb #> '{acessos,comparacao,semana}') = 'null'::jsonb, 'comparacao.semana = null');
 rollback to savepoint anteontem;
 
