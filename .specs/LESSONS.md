@@ -399,6 +399,27 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: O02 (rodada 4) — `orphans.ts:34` `check.orders > 0` → `> 1`: 57/57 verdes (`orphans.test.ts` usa `orders: 2`, a página usa `'v-vendida': 2`); sonda pela página real com `'v-um': 1` reprova no mutante (a linha some da grade e o aviso não aparece)
 - last seen: 2026-10-26T00:00:00Z
 
+> Numeração: L-072 e L-073 estão reservadas pela feature `82`, em outra árvore (sem commit); as da `83` começam em L-074.
+
+### L-074 — Regra de nulidade escrita como DISJUNÇÃO (`a or b or c ⇒ null`) precisa de um caso em que CADA disjunto é o ÚNICO verdadeiro: a fixtura que liga dois ao mesmo tempo ("sem hora em hoje E ontem") prova o `or` inteiro e deixa apagar qualquer um deles com o probe verde — e o `is null` explícito de uma coluna anulável é o primeiro a sumir num refator, porque `NULL >= x` não reprova nada.
+- signal: `surviving_mutant` · recurrence: 1 feature(s), 2 ocorrências · scope: `supabase/migrations/**`, `.specs/features/**/probes/**` · harmful: 0
+- features: 83-loja-ao-vivo
+- evidence: S06 (rodada 1) — `v_sem_cmp_hoje` sem `v_sem_hora_hoje > 0` sobrevive ao probe (70 `ok`) e aos guardas: os casos são "sem hora em hoje e ontem" e "só em ontem"
+- evidence: S09 (rodada 1) — `v_sem_cmp_hoje` sem `v_inicio_dia is null` sobrevive: nenhum caso com a contagem que nunca começou, e `case when NULL` cai no ramo do valor
+- last seen: 2026-10-27T00:00:00Z
+
+### L-075 — Janela de tempo NOVA (anteontem, "ontem até as {h}h") precisa de fixtura NO instante da fronteira; a régua "meio-aberta" herdada só alcança as janelas que já existiam, e pedidos no meio do dia provam `<` e `<=` igualmente — a venda das 00:00:00 contaria nos dois dias.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `supabase/migrations/**`, `apps/store/src/shared/lib/__tests__/**` · harmful: 0
+- features: 83-loja-ao-vivo
+- evidence: S05 (rodada 1) — `paid_at < v_ini_ontem` → `<=` na contagem de anteontem (`comparacao.ontem.vendas`) sobrevive ao probe `01-acessos.sql` e a `visitasPorHoraSchema`/`visitasSchema` (as réguas de `visitasRegras.ts` medem só os fragmentos de `periodos`)
+- last seen: 2026-10-27T00:00:00Z
+
+### L-076 — No banco local, função criada pelo `postgres` só ganha `execute` de `PUBLIC` (o `pg_default_acl` de funções do `postgres` não concede a `anon`/`authenticated`), então o probe "authenticated sem execute" é verdadeiro com o `revoke` de `authenticated` apagado; o hospedado pode conceder explícito. A prova do `revoke … from public, anon, authenticated` é o guarda de FONTE, e o probe de privilégio sozinho não discrimina.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `supabase/migrations/**`, `.specs/features/**/probes/**` · harmful: 0
+- features: 83-loja-ao-vivo
+- evidence: S14 (rodada 1) — `revoke execute on function store_hour … from public, anon` (sem `authenticated`) passa os 70 `ok` do probe; morre só em `visitasPorHoraSchema.test.ts` (3). `pg_default_acl` local: `postgres|f|{postgres=X/postgres}`; uma função de teste revogada de `public, anon` perde o `execute` de `authenticated` junto
+- last seen: 2026-10-27T00:00:00Z
+
 ## Quarantined (failed when applied — ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.
