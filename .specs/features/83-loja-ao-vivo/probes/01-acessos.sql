@@ -134,6 +134,22 @@ select pg_temp.confere((:'m'::jsonb #> '{acessos,comparacao,hoje,visitas}') = 'n
   'linha sem hora SÓ em ontem ⇒ visitas null, vendas não');
 rollback to savepoint sem_hora_so_ontem;
 
+-- conserto da rodada 1 (S06): o motivo "linha sem hora" vale também quando ela está SÓ em hoje
+savepoint sem_hora_so_hoje;
+select pg_temp.contador('2026-10-10T12:00:00Z', null);
+insert into public.store_visits (day, visitor_id) values ('2026-10-21', '83000000-0000-4000-8000-000000000033');
+select pg_temp.visita('83000000-0000-4000-8000-000000000034', '2026-10-20T13:00:00Z');  -- ontem 10h
+select pg_temp.visita('83000000-0000-4000-8000-000000000035', '2026-10-21T13:00:00Z');  -- hoje 10h
+select pg_temp.movimento('2026-10-21T21:00:00Z', :'admin_id') as m \gset
+select pg_temp.confere((:'m'::jsonb #>> '{acessos,hoje,sem_hora}')::int = 1
+  and (:'m'::jsonb #>> '{acessos,ontem,sem_hora}')::int = 0,
+  'fixtura: sem_hora hoje 1, ontem 0');
+select pg_temp.confere((:'m'::jsonb #> '{acessos,comparacao,hoje,visitas}') = 'null'::jsonb
+  and (:'m'::jsonb #> '{acessos,comparacao,hoje,base_hoje,visitas}') = 'null'::jsonb
+  and (:'m'::jsonb #> '{acessos,comparacao,hoje,vendas}') <> 'null'::jsonb,
+  'linha sem hora SÓ em hoje ⇒ visitas e base_hoje.visitas null, vendas não (S06)');
+rollback to savepoint sem_hora_so_hoje;
+
 -- =============================================================================================
 -- LAV-72 — por_dia de segunda a hoje
 -- =============================================================================================
