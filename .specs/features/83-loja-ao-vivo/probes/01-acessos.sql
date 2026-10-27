@@ -194,11 +194,13 @@ select pg_temp.visita('83000000-0000-4000-8000-000000000054', '2026-10-20T21:00:
 select pg_temp.visita('83000000-0000-4000-8000-000000000055', '2026-10-21T13:00:00Z');
 select pg_temp.visita('83000000-0000-4000-8000-000000000056', '2026-10-21T17:59:00Z');
 select pg_temp.visita('83000000-0000-4000-8000-000000000057', '2026-10-21T18:00:00Z');
--- vendas: ontem às 14h59 (entra) e às 15h00 (não); hoje às 14h59 (entra) e às 15h01 (não)
+-- vendas: ontem às 14h59 (entra) e às 15h00 (não); hoje às 14h59 (entra), às 15h00 e às 15h01 (não)
 select pg_temp.pedido('PROBE-83-S1', 10.00, '2026-10-20T17:59:00Z');
 select pg_temp.pedido('PROBE-83-S2', 20.00, '2026-10-20T18:00:00Z');
 select pg_temp.pedido('PROBE-83-S3', 30.00, '2026-10-21T17:59:00Z');
 select pg_temp.pedido('PROBE-83-S4', 40.00, '2026-10-21T18:01:00Z');
+-- conserto da rodada 2 (V-S04): a fronteira do lado de HOJE — 15:00:00 exatas não entra em base_hoje
+select pg_temp.pedido('PROBE-83-S5', 50.00, '2026-10-21T18:00:00Z');
 
 select pg_temp.movimento('2026-10-21T18:02:00Z', :'admin_id') as m \gset
 select :'m'::jsonb #> '{acessos,comparacao}' as comparacao_15h02;
@@ -208,10 +210,10 @@ select pg_temp.confere((:'m'::jsonb #>> '{acessos,comparacao,hoje,visitas}')::in
   'visitas: ontem até as 15h = 2 = hoje até as 15h (variação 0, nunca uma queda)');
 select pg_temp.confere((:'m'::jsonb #>> '{acessos,comparacao,hoje,vendas}')::int = 1
   and (:'m'::jsonb #>> '{acessos,comparacao,hoje,base_hoje,vendas}')::int = 1,
-  'vendas: a das 14h59 de ontem entra e a das 15h00 não; o mesmo corte em hoje');
+  'vendas: a das 14h59 de ontem entra e a das 15h00 não; o mesmo corte em hoje (a das 15:00:00 e a das 15h01 fora)');
 select pg_temp.confere((:'m'::jsonb #>> '{periodos,hoje,visitas}')::int = 3 and (:'m'::jsonb #>> '{periodos,ontem,visitas}')::int = 4
-  and (:'m'::jsonb #>> '{periodos,hoje,vendas}')::int = 2 and (:'m'::jsonb #>> '{periodos,ontem,vendas}')::int = 2,
-  'os totais de periodos não mudam com o corte (hoje 3/2, ontem 4/2)');
+  and (:'m'::jsonb #>> '{periodos,hoje,vendas}')::int = 3 and (:'m'::jsonb #>> '{periodos,ontem,vendas}')::int = 2,
+  'os totais de periodos não mudam com o corte (hoje 3/3, ontem 4/2)');
 select pg_temp.confere((:'m'::jsonb #>> '{acessos,faixa_atual}')::int = 5, '15h02 ⇒ faixa_atual 5');
 rollback to savepoint simetrica;
 
