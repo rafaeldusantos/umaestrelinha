@@ -105,3 +105,34 @@ a porta `atelie-avisos` pode ser interceptada ou servida por `supabase functions
 Reabertos (`untested`) porque a superfície mudou: nenhum cenário antigo muda de resultado esperado; os
 dois canários cobrem `RequireAdmin`/`LoginPage` e `gravarAcao`. Sem bug aberto da `79` na hora do
 planejamento.
+
+## Ciclo planejado — feature `83` (Loja ao vivo, Fase 1: Acessos), nível *targeted*
+
+Planejado em 2026-10-27 (`qa-report`), não executado. Duas jornadas novas, `J-ver-a-loja-ao-vivo` (14
+cenários `MAD-aovivo-*`) e `J-ler-a-politica-de-privacidade` (`LOJA-politica-hora-cheia`), mais
+`MAD-inicio-cartao-visitas-hoje` em `J-acompanhar-a-loja`; os 16 nascem `untested`. Subir o build servido
+do mobile-adm (`vite preview` numa porta livre — 8082–8084 são de outras sessões) contra o banco local
+com a migration `20261029120000_83-loja-ao-vivo.sql`, login com o admin do seed. Fixturas em
+`.specs/features/83-loja-ao-vivo/prova/` (`fixtura.sql` → sessão → `limpa.sql`; conferir contra
+`le-movimento.sql`); o banco local é **compartilhado**: nada de `db reset`/`migration up`, e o que não
+couber na fixtura (teto do dia, visitas sem hora, resposta sem `acessos`, `42501`) é interceptado no
+Playwright. Fonte por `html { font-size }` a 100/130/200 %, em 360/390/412 e 1440. Ordem por risco:
+
+| # | Charter | Tour | Caixa |
+| --- | --- | --- | --- |
+| 1 | `CH-aovivo-numeros-certos-do-dia` | Money | 90 |
+| 2 | `CH-aovivo-conta-sem-acesso` | Garbage | 30 |
+| 3 | `CH-aovivo-com-rede-ruim` | Network | 45 |
+| 4 | `CH-aovivo-ligada-enquanto-trabalho` | Interrupt | 60 |
+| 5 | `CH-aovivo-do-inicio-e-voltar` | Back-Button | 30 |
+| 6 | `CH-aovivo-com-fonte-grande` | Feature | 45 |
+| 7 | `CH-aovivo-com-leitor-de-tela` | Feature | 45 |
+| 8 | `CH-loja-politica-hora-cheia` | Feature | 15 |
+| canário | `CH-inicio-numeros-certos-do-dia` e `CH-inicio-ao-vivo-e-atualizado` (re-run: a Início ganhou o cartão, o período controlado e a releitura de 30 s) | — | — |
+
+Reabertos (`untested`) porque a superfície mudou: `MAD-inicio-abrir-e-entender-o-dia`,
+`MAD-inicio-trocar-periodo`, `MAD-inicio-numeros-grandes`, `MAD-inicio-com-leitor-de-tela`.
+Ficam `blocked-verify` até o Android real: o Chrome em segundo plano de verdade, o gesto de voltar, o
+puxar com o dedo e a escala de texto do sistema (a prova T13 escalou pela raiz). Fora do ciclo: a
+aprovação do texto da política pela Adri (pré-condição do deploy, não de QA) e `BL-058` (Descontos na
+barra de abas a 200 %, anterior à `83`). Sem bug aberto da `83` no registro na hora do planejamento.

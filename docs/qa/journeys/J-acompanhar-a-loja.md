@@ -8,6 +8,7 @@ flowchart TD
     A[Entrada: ícone do app, sessão salva de admin] --> S[Splash] --> I0[Início com esqueletos aria-busy]
     I0 -->|as duas leituras respondem| I[Saudação e data de Brasília + Hoje: Faturamento, Vendas, Ticket, Visitas + Atualizado às]
     I0 -->|uma leitura falha sem dado| F1[Aquele bloco: não carregou + Tentar de novo, sem número] -->|Tentar de novo| I
+    I --> K[Cartão Visitas hoje, desde a 83: relê a cada 30 s só visível] -->|toca| K2[/ao-vivo no período da faixa: J-ver-a-loja-ao-vivo/]
     I --> P[Toca Ontem / Semana] --> P2[Os quatro números trocam sem nova leitura; período marcado]
     I --> Q[Precisa de você: 4 blocos com contagem e idade do mais antigo]
     Q -->|toca um bloco| Q2[/pedidos?bloco=.../]
@@ -69,7 +70,7 @@ journey:
 | Dimensão | Onde |
 | --- | --- |
 | Jornada | `MAD-inicio-abrir-e-entender-o-dia`, `MAD-inicio-precisa-de-voce-leva-a-pedidos`; a chegada a Pedidos continua em `J-achar-um-pedido` e `J-ver-um-pedido` (feature `74`) |
-| Funcional | `MAD-inicio-trocar-periodo`, `MAD-inicio-puxar-para-atualizar`, `MAD-inicio-pedido-novo-ao-vivo` |
+| Funcional | `MAD-inicio-cartao-visitas-hoje` (feature `83`), `MAD-inicio-trocar-periodo`, `MAD-inicio-puxar-para-atualizar`, `MAD-inicio-pedido-novo-ao-vivo` |
 | Experiencial | `MAD-inicio-com-leitor-de-tela`; tom memorial (nada festivo nos zeros) dentro de `MAD-inicio-loja-sem-venda` |
 | Borda/erro/vazio | `MAD-inicio-loja-sem-venda`, `MAD-inicio-numeros-grandes`, `MAD-inicio-leitura-falha-sem-numero`, `MAD-inicio-virada-do-dia` |
 | Transversal | `MAD-inicio-rede-cai-e-volta` (sobrepõe `MAD-rede-cai-com-app-aberto`), `MAD-inicio-perder-acesso-com-app-aberto` (a recusa da `72`) |
