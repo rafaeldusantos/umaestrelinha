@@ -381,16 +381,17 @@ Fases 3–4 (T06–T11) · **Lote 3** = Fase 5 (T12–T14).
 - **Where**: `apps/mobile-adm/src/app/__tests__/`.
 - **Depends on**: T10 · **Reuses**: `inicioComClientReal.test.tsx` (molde).
 - **Done when**:
-  - [ ] `store_movement` 403 `{ code: '42501' }` ⇒ Login com a frase da `72`; nenhum número (lido a cada
+  - [x] `store_movement` 403 `{ code: '42501' }` ⇒ Login com a frase da `72`; nenhum número (lido a cada
         passo do relógio) em `/ao-vivo` e no cartão do Início.
-  - [ ] **200, depois 403 na releitura de 15 s** (a conta perde o papel com a tela aberta) ⇒ nenhum
+  - [x] **200, depois 403 na releitura de 15 s** (a conta perde o papel com a tela aberta) ⇒ nenhum
         número e nenhuma linha "Atualizado há" em instante nenhum depois da recusa — nem o do cache.
-  - [ ] 500 e rede caída ⇒ "Não consegui carregar.", nunca a recusa.
-  - [ ] dois mutantes em `AoVivoPage.tsx` (sem `useRecusaDePapel`; rede tratada como recusa) mortos
+  - [x] 500 e rede caída ⇒ "Não consegui carregar.", nunca a recusa.
+  - [x] dois mutantes em `AoVivoPage.tsx` (sem `useRecusaDePapel`; rede tratada como recusa) mortos
         por asserção, SHA-256 conferido na restauração.
-  - [ ] Full gate e Build (fim da Fase 4).
+  - [x] Full gate e Build (fim da Fase 4).
 - **Tests**: integração · **Gate**: Build
 - **Reqs**: `LAV-60`.
+- **Status**: ✅ 2026-10-27 — `app/__tests__/aoVivoComClientReal.test.tsx` (9) sobre o supabase-js REAL: o par 200 (a régua enxerga o número); 403 `42501` na primeira leitura de `/ao-vivo` e da Início ⇒ o Login com `SEM_ACESSO` e nenhum número (nem no cartão) em instante nenhum, lido a cada passo de 50 ms E num `MutationObserver`; 200 → 403 na releitura de 15 s com a conta perdendo o papel ⇒ o Login, nada depois; **e o mesmo com o papel AINDA admin** (a página fica montada e o cache existe): nenhum número nem linha de frescor, a falha do bloco, uma reconferência e o ciclo parado; 500 e rede caída em `/ao-vivo` e na Início ⇒ "Não consegui carregar.", nunca a recusa, papel não reconferido. **Achado de método**: "entregue" é o INSTANTE (relógio falso) em que o `fetch` falso devolve a resposta, e a régua vale dos instantes POSTERIORES — no mesmo instante a cadeia do PostgREST e do React Query ainda corre em microtarefas, e conferir ali acusava o dado de ANTES de a resposta chegar. Com essa fronteira, a variante "conta perde o papel" não discrimina "nem o do cache" (a página desmonta no mesmo instante), e foi por isso que entrou a variante com o papel ainda admin. 5 mutantes em `AoVivoPage.tsx` (sem `useRecusaDePapel`; rede tratada como recusa; `leituraDe` ignorando a recusa; o frescor pelo dado do cache; `NAO_ATUALIZOU` na recusa): 5/5 mortos por asserção, SHA-256 conferido. Build: mobile-adm 2161/137 · core 4555 · store 6113 · backoffice 3922 · functions 1105, exit 0; `tsc` 0 · 0 · 0 e core 11 herdados; eslint 0/0 · 23/5 · 2/2; build do app verde.
 
 ### T12 — `12-politica-com-a-hora`
 - **What**: o parágrafo do Apêndice A da spec em `PrivacyPolicyPage.tsx`; `politicaDoContador.test.ts`
