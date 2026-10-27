@@ -144,21 +144,22 @@ Fases 3–4 (T06–T11) · **Lote 3** = Fase 5 (T12–T14).
 - **Where**: `.specs/features/83-loja-ao-vivo/probes/`.
 - **Depends on**: T01 · **Reuses**: `.specs/features/71-visitas-unicas-no-dashboard/probes/_comum.sql`.
 - **Done when**:
-  - [ ] `01-acessos.sql` exit 0 com só `ok —`, contra o banco local — incluindo os casos da revisão
+  - [x] `01-acessos.sql` exit 0 com só `ok —`, contra o banco local — incluindo os casos da revisão
         adversarial (design §6 *Probes*): comparação simétrica às 15h02 e às 00h30; a linha "do futuro"
         puxando a faixa atual; o teto em ontem anulando as comparações; faixas antes da contagem `null`;
         `service_role` executa `record_store_visit`; `information_schema.columns` = `{day, visitor_id,
         first_hour}`.
-  - [ ] Três mutantes na migration (o `first_hour` trocado por `extract(hour from p_agora)` — hora
+  - [x] Três mutantes na migration (o `first_hour` trocado por `extract(hour from p_agora)` — hora
         UTC —, `x.faixa > a.faixa_atual` por `>=`, e `first_hour < v_hora` por `<=` na base de ontem)
         reinjetados no arquivo, cada um derrubando o probe; o arquivo restaurado conferido por SHA-256.
-  - [ ] Os probes da `71` **por nome** exit 0; `concorrencia.sh` e `ponta-a-ponta.sh` da `71` rodados
+  - [x] Os probes da `71` **por nome** exit 0; `concorrencia.sh` e `ponta-a-ponta.sh` da `71` rodados
         depois de `migration up --local`, com `first_hour` não nulo e igual à hora de Brasília da
         chamada (o caminho real da gravação, pela function `visit`).
-  - [ ] As chaves REAIS de `store_movement` (como admin, `begin … rollback`) salvas em
+  - [x] As chaves REAIS de `store_movement` (como admin, `begin … rollback`) salvas em
         `probes/saida-real.json` para a T03.
 - **Tests**: integração (probe) · **Gate**: Probe
 - **Reqs**: `LAV-61`, `LAV-70`..`LAV-74`.
+- **Status**: ✅ 2026-10-26 — `01-acessos.sql` exit 0, 66 `ok —` (bordas 02:59/03:00/23:59, gravação e repetição, faixas e futuras, 00h30, invariante com `sem_hora`, `por_dia` em seg/qua/dom, comparação simétrica às 15h02, anteontem, contagem começando ontem e anteontem, linha do futuro, teto em ontem e anteontem, faixas antes da contagem, `periodos` = números da `71`, papéis, `service_role`, `information_schema`). Mutantes reais na migration (hora UTC, `>=` na faixa futura, `<=` na base de ontem): 3/3 derrubam o probe, SHA-256 conferido. Probes da `71` por nome: dia 9 · papeis 32 · relogio 6 · teto 10 · vendas 19 · visitas 31, todos exit 0. `concorrencia.sh` e `ponta-a-ponta.sh` (semear/ler/papeis/limpar) da `71` exit 0 — a leitura B da `ponta-a-ponta` só tem números para 22/10 e avisa (fixtura datada da `71`, não regressão). `02-gravacao-real.sh` (novo): a corrida comprometida com `now()` deixa 1 linha, `first_hour` = hora de Brasília da chamada (23, com o dia 26/10 de Brasília já 27/10 em UTC). **Não exercitado**: o caminho pela function `visit` (`function-visit.sh`) — o edge runtime local não está de pé e subir `functions serve` mexeria no ambiente compartilhado. `saida-real.json` gerado por `saida-real.sql`.
 
 ### T03 — `03-tipo-dos-acessos-e-intervalo-do-hook`
 - **What**: `StoreAccess`/`StoreAccessDay`/`StoreAccessComparison` e `acessos?` em
