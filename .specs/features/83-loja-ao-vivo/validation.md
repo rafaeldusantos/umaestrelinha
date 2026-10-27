@@ -1,6 +1,6 @@
 # 83 — Loja ao vivo (Fase 1) · Validação
 
-**Rodada**: 1
+**Rodada**: 1 (abaixo) e **2** (no fim do arquivo — veredito vigente: ❌ FAIL por cobertura, 5 lacunas de prova no SQL e 2 de precisão de spec; nenhum defeito de produto)
 **Data**: 2026-10-27
 **Spec**: `.specs/features/83-loja-ao-vivo/spec.md`
 **Diff range**: `744da7ea..3f1360fe` (19 commits, `f4d0bd40` … `3f1360fe`, branch `feature/83-loja-ao-vivo`)
@@ -298,3 +298,224 @@ Core, backoffice, functions e catalog-import não foram tocados e não foram rem
 morre pelo guarda de fonte.
 
 **Próximo passo**: rodada 2 do Verificador.
+
+---
+
+# Rodada 2
+
+**Data**: 2026-10-27
+**Diff range**: `744da7ea..4777374f` (a feature inteira, com os 6 commits do conserto da rodada 1:
+`7aca7c74`, `67ab635c`, `26a5b4b9`, `ae4e2b57`, `e008e666`, `4777374f`)
+**Verificador**: sub-agente independente, novo (não é o autor da feature, nem o da rodada 1, nem o do
+conserto). Releu a spec, o diff e os testes do zero; os mutantes desta rodada são novos, mais a
+reinjeção dos cinco que a rodada 1 deixou vivos.
+
+## Veredito: ❌ FAIL — por COBERTURA, nenhum defeito de produto
+
+As cinco lacunas da rodada 1 estão **fechadas** (os cinco mutantes reinjetados morrem por asserção).
+Mas o sensor desta rodada, com mutantes novos, achou **cinco sobreviventes não equivalentes no SQL**
+— todos na comparação (`LAV-73`) e nas faixas (`LAV-71`) — e **dois de precisão de spec** no frescor
+(`LAV-07`). Os cinco do SQL foram provados **não equivalentes** por uma sonda à parte que o código de
+hoje passa e o mutante reprova: o código faz o certo, falta a régua.
+
+## Gate (medido nesta rodada, um workspace por vez, exit fora de pipe)
+
+`pnpm --filter @estrelinha/<ws> test --testTimeout=20000` (sem o `--`), logs em
+`/private/tmp/claude-503/f83/v2/gate-*.log`. Medido ANTES do sensor, com a árvore limpa.
+
+| Workspace | Arquivos | Testes | Exit | Rodada 1 | Delta |
+| --- | --- | --- | --- | --- | --- |
+| core | 182 | 4556 | 0 | 182 / 4556 | 0 |
+| mobile-adm | 137 | 2163 | 0 | 137 / 2162 | +1 (o caso do foco, `LAV-62`) |
+| store | 327 | 6116 | 0 | 327 / 6116 | 0 |
+| backoffice | 226 | 3922 | 0 | 226 / 3922 | 0 |
+| functions | 26 | 1105 | 0 | 26 / 1105 | 0 |
+| **Total** | **898** | **17862** | | 898 / 17861 | +1 |
+
+Contra a entrada (`baseline.md`, 881 / 17521): **+17 arquivos / +341 testes**, nenhuma queda.
+Probe `probes/01-acessos.sql` contra o banco local: **exit 0, 76 `ok —`** (`v2/probe-base.log`).
+`git status` limpo antes do gate, depois do gate e depois de cada mutante.
+
+## As cinco lacunas da rodada 1 — conferidas
+
+| Lacuna | Evidência | Mutante reinjetado nesta rodada | Resultado |
+| --- | --- | --- | --- |
+| S05 (`LAV-73`) | `probes/01-acessos.sql:226,231-234` (pedido `PROBE-83-A2` em `store_day_start(20/10)` exato) | `R1-S05` | ✅ morto por asserção |
+| S06 (`LAV-73`) | `probes/01-acessos.sql:137-151` (savepoint `sem_hora_so_hoje`) | `R1-S06` | ✅ morto por asserção |
+| S09 (`LAV-73`) | `probes/01-acessos.sql:264-281` (savepoint `nunca_comecou`) | `R1-S09a` (Hoje) e `R1-S09b` (Ontem) | ✅ os dois mortos por asserção |
+| `LAV-62` foco | `apps/mobile-adm/src/pages/__tests__/inicioAoVivo.test.tsx:123-140` — `expect(document.activeElement).toBe(titulo)` e, ao voltar, `toBe(inicio)` | não reinjetado nesta rodada (o `h1` → `<p role="heading">` do conserto morreu por asserção, registrado acima) | ✅ caso existe, lido e conferido |
+| `LAV-52` texto | `spec.md:211-213` emendado: barra em `accent`, rótulo "hoje" em `ink` | — | ✅ coerente com `SecaoAcessos.test.tsx` e `GraficoDosAcessos.tsx:51-63` |
+
+## Checagem ancorada na spec
+
+A tabela da rodada 1 (25 ACs, com `arquivo:linha`) continua valendo: nenhum arquivo de teste mudou
+fora do conserto, e o conserto só acrescentou casos. Status por AC depois desta rodada:
+
+| AC | Status | Por quê |
+| --- | --- | --- |
+| LAV-04..08, 50..55, 60..67, 70, 72, 74, 75 | ✅ | evidência da rodada 1; os mutantes novos desta rodada nessas ACs morreram todos (tabela abaixo) |
+| LAV-07 | ⚠️ precisão de spec | "há {s} s" e "há {m} min" não dizem se o número é TRUNCADO ou ARREDONDADO; o código trunca (`Math.floor`) e os casos de `access.test.ts` (1,9 / 2 / 59 / 60 s) não distinguem — V-C03 e V-C04 sobrevivem |
+| LAV-71 | ❌ lacuna | "as faixas que terminam antes de `contagem_desde` são `null`" — com a contagem que nunca começou, nenhuma termina antes de nada, e as faixas são `0`. O probe não confere as faixas no savepoint `nunca_comecou`: V-S18 sobrevive |
+| LAV-73 | ❌ lacunas | V-S07 (o campo inteiro de anteontem trocado pelo de ontem), V-S04 (fronteira das vendas de `base_hoje`), V-S11 e V-S16 (a janela de anteontem lida só numa QUARTA-feira) sobrevivem |
+
+## Sensor de discriminação — rodada 2
+
+Arnês: `/private/tmp/claude-503/f83/v2/mutar.py` (o da rodada 1, com logs em `v2/`): alvo existindo
+exatamente uma vez, um comando, restauração byte a byte e SHA-256 conferido (`sha=ok` em todas as
+linhas de `v2/resultados.tsv`). `ASSERÇÃO` = falha de teste/probe; `COMPILAÇÃO` = erro de
+transformação ou de sintaxe SQL. Mutante SQL que sobrevive ao probe roda também os guardas de fonte
+da loja (`visitasPorHoraSchema`, `visitasSchema`); mutante de `core` que sobrevive à suíte de `core`
+roda a suíte do app inteira.
+
+### SQL — `supabase/migrations/20261029120000_83-loja-ao-vivo.sql`
+
+| # | Mutação | Medido por | Resultado |
+| --- | --- | --- | --- |
+| R1-S05 | vendas de anteontem `paid_at < v_ini_ontem` → `<=` | probe | ✅ asserção |
+| R1-S06 | `v_sem_cmp_hoje` sem `v_sem_hora_hoje > 0` | probe | ✅ asserção |
+| R1-S09a | `v_sem_cmp_hoje` sem `v_inicio_dia is null` | probe | ✅ asserção |
+| R1-S09b | `v_sem_cmp_ontem` sem `v_inicio_dia is null` | probe | ✅ asserção |
+| V-S01 | `ontem_base` `first_hour < v_hora` → `<=` | probe | ✅ asserção |
+| V-S02 | faixa `v.first_hour / 3` → `(v.first_hour + 1) / 3` | probe | ✅ asserção |
+| V-S03 | "antes da contagem" pelo INÍCIO da faixa (`faixa * 3`) em vez do fim | probe | ✅ asserção |
+| **V-S04** | vendas de `base_hoje` `paid_at < v_ini_hoje + h` → `<=` | probe **e** guardas | ❌ **SOBREVIVEU** |
+| V-S04b | vendas de ontem na comparação `paid_at < least(…)` → `<=` (o par de V-S04) | probe | ✅ asserção (`PROBE-83-S2` às 15:00:00 de ontem) |
+| V-S05 | `comparacao.hoje.vendas` sem o `null` com `h = 0` | probe | ✅ asserção |
+| V-S06 | `por_dia` sem o último dia (`v_hoje - v_semana - 1`) | probe | ✅ asserção |
+| **V-S07** | `comparacao.ontem.vendas` = `v_n_ontem` (o de ONTEM no lugar do de anteontem) | probe **e** guardas | ❌ **SOBREVIVEU** |
+| V-S08 | `sem_hora_ontem` sempre 0 | probe | ✅ asserção |
+| V-S09 | `v_sem_cmp_hoje` sem `v_sem_hora_ontem > 0` | probe | ✅ asserção |
+| V-S10 | teto de `comparacao.ontem` só em ontem (sem anteontem) | probe | ✅ asserção |
+| **V-S11** | CTE `v` de `v_desde` em vez de `least(v_desde, v_anteontem)` | probe **e** guardas | ❌ **SOBREVIVEU** |
+| V-S12 | piso de `orders` de `v_desde` em vez de `least(…)` | probe: sobrevive; guarda (8) de `visitasPorHoraSchema`: ✅ asserção | ✅ morto pelo guarda |
+| V-S13 | `first_hour` gravado de `now()` em vez de `p_agora` | probe | ✅ asserção |
+| V-S14 | `faixa_atual` puxada pelo `max(first_hour)` de ONTEM | probe | ✅ asserção |
+| V-S15 | Hoje sem o `null` antes da contagem | probe | ✅ asserção |
+| **V-S16** | vendas de anteontem sem o piso `paid_at >= v_ini_anteontem` | probe **e** guardas | ❌ **SOBREVIVEU** |
+| V-S17 | `ate_hora` = `v_hora + 1` | probe | ✅ asserção |
+| **V-S18** | `antes` verdadeiro quando `v_inicio is null` (contagem que nunca começou ⇒ toda faixa `null`) | probe **e** guardas | ❌ **SOBREVIVEU** |
+| V-G04 | `add column if not exists referrer text` junto da `first_hour` | guarda (1) | ✅ asserção |
+
+### `packages/core` (live, stats, hook)
+
+| # | Arquivo | Mutação | Resultado |
+| --- | --- | --- | --- |
+| V-C01 | `live/access.ts` | par de Hoje invertido (atual ↔ anterior) | ✅ asserção |
+| V-C02 | `live/access.ts` | "hoje" da Semana = `m.ontem` | ✅ asserção |
+| **V-C03** | `live/access.ts` | `Math.floor(s / 60)` → `Math.round` | ⚠️ **SOBREVIVEU** (core e app) — precisão de spec |
+| **V-C04** | `live/access.ts` | `Math.floor(s)` → `Math.round` | ⚠️ **SOBREVIVEU** (core e app) — precisão de spec |
+| V-C05 | `live/access.ts` | `noHourNote` sem `formatCount` | ✅ asserção |
+| V-C06 | `live/access.ts` | `conversion` com `visitas >= 0` | ✅ asserção |
+| V-C07 | `live/access.ts` | queda em tom `alta` (verde) | ✅ asserção |
+| V-C08 | `stats/counterNotes.ts` | `countingSinceLine` `>` → `>=` | ✅ asserção |
+| V-C09 | `stats/counterNotes.ts` | `cappedLine` `>` → `>=` | ✅ asserção |
+| V-C10 | `live/access.ts` | faixa ausente vira `0` em vez de `null` | ✅ asserção |
+| V-H01 | `hooks/useStoreMovement.ts` | `refetchOnWindowFocus: false` | ✅ asserção |
+
+### App (`apps/mobile-adm/src`) e guardas
+
+| # | Arquivo | Mutação | Resultado |
+| --- | --- | --- | --- |
+| V-A01 | `SecaoAcessos.tsx` | seletor habilitado ao carregar | ✅ asserção |
+| V-A02 | `SecaoAcessos.tsx` | variação sempre `ink-soft` (alta sem `done`) | ✅ asserção |
+| V-A03 | `AoVivoPage.tsx` | `NAO_ATUALIZOU` sem exigir dado | ✅ asserção |
+| V-A04 | `CabecalhoAoVivo.tsx` | Voltar sem `doApp` sem `replace` | ✅ asserção |
+| V-A05 | `GraficoDosAcessos.tsx` | futura/sem contagem com número "0" | ✅ asserção |
+| V-A06 | `model/barras.ts` | `max <= 0` → `max < 0` (NaN com tudo zero) | ✅ asserção |
+| V-A07 | `CartaoVisitasHoje.tsx` | sem `gravarPeriodoDoInicio` | ✅ asserção |
+| V-A08 | `InicioPage.tsx` | período da Início sempre Hoje | ✅ asserção |
+| V-A09 | `tab-bar/model/tabs.ts` | barra de abas em `/ao-vivo` | ✅ asserção |
+| V-A10 | `SecaoAcessos.tsx` | período falado = rótulo ("Semana") | ✅ asserção (34 falhas) |
+| V-A11 | `AoVivoPage.tsx` | período inicial sempre Hoje | ✅ asserção |
+| V-A12 | `CartaoVisitasHoje.tsx` | navega sempre com Hoje | ✅ asserção |
+| V-A13 | `SecaoAcessos.tsx` | sem a nota de consentimento | ✅ asserção |
+| V-A14 | `GraficoDosAcessos.tsx` | sem a nota "sem hora" | ✅ asserção |
+| V-A15 | `MovementHero.tsx` | ignora o período controlado | ✅ asserção |
+| V-A16 | `CartaoVisitasHoje.tsx` | em falha navega em vez de reler | ✅ asserção |
+| V-G01 | `live/access.ts` | `!` em `CHART_UNAVAILABLE` | ✅ asserção (o caso de `LAV-55` cobra a frase inteira) |
+| V-G02 | `GraficoDosAcessos.tsx` | `new Date().getHours()` | ✅ asserção (`aoVivoSemRelogioDoAparelho`) |
+| V-G03 | `CartaoVisitasHoje.tsx` | segunda lista de períodos | ✅ asserção (`periodosComDonoUnico`) |
+| V-G05 | `store/src/pages/PrivacyPolicyPage.tsx` | sem "(por exemplo, 14h)" | ✅ asserção (14 falhas) |
+| V-G06 | `backoffice/.../labels.ts` | `cappedLine` como embrulho, não referência | ✅ asserção (`toBe`) |
+| V-G07 | `SecaoAcessos.tsx` | `transition-opacity` sem par `motion-reduce:` | ✅ asserção (`tomDaLojaAoVivo`) |
+
+**Resultado**: **58 mutantes** (4 reinjeções + 54 novos) · **51 mortos, todos por asserção** (0 por
+compilação; V-S12 pelo guarda) · **7 sobreviventes**: 5 no SQL (lacunas de prova) e 2 de precisão de
+spec (V-C03, V-C04).
+
+### Os sobreviventes do SQL NÃO são equivalentes — sonda
+
+`/private/tmp/claude-503/f83/v2/sonda-calendario.sql` (`begin … rollback`, aplica a migration do disco
+pelo `_comum.sql`): passa no código de hoje (3 `ok —`, exit 0) e reprova cada mutante por asserção:
+
+| Mutante | Asserção da sonda que o derruba |
+| --- | --- |
+| Z-S16 (= V-S16) | leitura numa **quinta** (22/10): anteontem = terça, com uma venda na segunda (início da semana) ⇒ `comparacao.ontem.vendas` = 1; o mutante conta 2 |
+| Z-S07 (= V-S07) | a mesma: o mutante devolve as vendas de ONTEM (0) |
+| Z-S11 (= V-S11) | leitura numa **segunda** (26/10): `v_desde` = domingo, anteontem = sábado com uma visita ⇒ `comparacao.ontem.visitas` = 1; o mutante devolve 0 (a variação de Ontem sumiria toda segunda e terça) |
+| Z-S18 (= V-S18) | sem contador e sem visita ⇒ `ontem.por_faixa` = `[0,…,0]`; o mutante devolve 8 `null` (a loja recém-ligada desenharia "antes da contagem" no lugar de "0") |
+
+V-S04 é de fronteira e dispensa sonda: o par do lado de ontem (V-S04b) morre por `PROBE-83-S2` às
+15:00:00 exatas, e o lado de hoje só tem `PROBE-83-S4` às **15:01** — 15:00:00 de hoje não existe na
+fixtura.
+
+## Lacunas, ranqueadas
+
+1. **V-S07 — `comparacao.ontem.vendas` pode trazer as vendas de ONTEM com o probe verde** (`LAV-73`).
+   O conserto de S05 pôs a venda da fronteira em Ontem, e com isso Ontem e anteontem ficaram com **1
+   venda cada** no savepoint `anteontem` (`01-acessos.sql:229-234`): trocar o campo inteiro passa. A
+   variação de Vendas em Ontem seria sempre 0% (ou some), sem nada acusar. **Fix**: no savepoint
+   `anteontem`, um segundo pedido em ontem (ex.: ter 12h) para Ontem = 2 vendas ≠ anteontem = 1, e a
+   asserção nos dois valores (`L-013`).
+2. **V-S16 e V-S11 — a janela de anteontem só é medida numa QUARTA-feira** (`LAV-73`). Na quarta,
+   `least(v_desde, v_anteontem)` = anteontem = início da semana, e as duas reescritas que esquecem
+   `least` ou o piso de anteontem dão o mesmo número. Na quinta a domingo as vendas de anteontem
+   inflariam com as de segunda em diante (V-S16); na segunda e na terça as visitas de anteontem
+   sumiriam e a variação de Ontem desapareceria (V-S11). **Fix**: levar ao probe as três leituras da
+   sonda (quinta com venda na segunda; segunda com visita no sábado) — a sonda já está escrita.
+3. **V-S04 — a fronteira das vendas de `base_hoje` não tem fixtura** (`LAV-73`). Ontem tem pedido às
+   15:00:00 exatas; hoje, às 15:01. **Fix**: no savepoint `simetrica`, trocar (ou acrescentar) o pedido
+   de hoje para `2026-10-21T18:00:00Z` (15:00:00 de Brasília) e manter `base_hoje.vendas` = 1.
+4. **V-S18 — as faixas da contagem que nunca começou não são conferidas** (`LAV-71`). **Fix**: no
+   savepoint `nunca_comecou` (ou num sem visita nenhuma), asserir `ontem.por_faixa` sem `null` e
+   `soma + sem_hora = visitas` também ali.
+5. **V-C03 / V-C04 — precisão de spec em `LAV-07`**: "há {s} s" e "há {m} min" não dizem truncar ou
+   arredondar. **Fix**: emendar a spec ("segundos e minutos inteiros COMPLETOS: 2,9 s ⇒ 2 s; 119 s ⇒
+   1 min") e um caso em `access.test.ts` com 2,9 s e 119 s (ou 90 s).
+
+### Fix tasks propostas
+
+| Fix | Onde | Done when |
+| --- | --- | --- |
+| F6 (V-S07) | `probes/01-acessos.sql`, savepoint `anteontem` | V-S07 reinjetado derruba o probe por asserção |
+| F7 (V-S16, V-S11) | `probes/01-acessos.sql`, leituras de quinta e de segunda (molde: `v2/sonda-calendario.sql`) | V-S16 e V-S11 derrubam o probe |
+| F8 (V-S04) | `probes/01-acessos.sql`, savepoint `simetrica` | V-S04 derruba o probe |
+| F9 (V-S18) | `probes/01-acessos.sql`, savepoint `nunca_comecou` | V-S18 derruba o probe |
+| F10 (V-C03/V-C04) | `spec.md` `LAV-07` + `packages/core/src/live/__tests__/access.test.ts` | V-C03 e V-C04 derrubam `access.test.ts` |
+
+Nenhuma fix toca código de produto. Esta é a rodada 2 de 3 do laço de conserto.
+
+## Qualidade de código (rodada 2)
+
+O conserto da rodada 1 tocou só probe, um arquivo de teste, a spec e este relatório
+(`git diff --stat a54fe79f..4777374f`) — cirúrgico, sem código de produto, sem asserção afrouxada.
+Os 6 commits seguem o estilo do repositório. O resto da tabela de qualidade da rodada 1 continua.
+
+## Rastreabilidade (proposta — a `spec.md` não foi editada por este verificador)
+
+| Req | Status |
+| --- | --- |
+| LAV-04..06, 08, 50..55, 60..67, 70, 72, 74, 75 | ✅ Verified |
+| LAV-62 | ✅ Verified (o foco tem caso desde o conserto) |
+| LAV-07 | ⚠️ Verified com lacuna de precisão (truncar × arredondar) |
+| LAV-71 | ❌ Needs Fix (prova: V-S18) |
+| LAV-73 | ❌ Needs Fix (prova: V-S07, V-S16, V-S11, V-S04) |
+
+## Resumo da rodada 2
+
+**Geral**: ❌ não pronto — por cobertura. Nenhum defeito de produto.
+**Rodada 1**: as 5 lacunas fechadas, os 5 mutantes reinjetados mortos por asserção.
+**Sensor**: 58 mutantes, 51 mortos (todos por asserção), 5 sobreviventes de SQL provados não
+equivalentes pela sonda, 2 de precisão de spec.
+**Gate**: 17862 testes em 898 arquivos, 5 workspaces exit 0; probe 76 `ok —`.
+**Próximo passo**: F6–F10 (probe, um caso em `access.test.ts` e uma emenda de texto); depois rodada 3.

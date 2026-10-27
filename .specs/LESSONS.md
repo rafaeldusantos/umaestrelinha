@@ -409,15 +409,29 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - last seen: 2026-10-27T00:00:00Z
 
 ### L-075 — Janela de tempo NOVA (anteontem, "ontem até as {h}h") precisa de fixtura NO instante da fronteira; a régua "meio-aberta" herdada só alcança as janelas que já existiam, e pedidos no meio do dia provam `<` e `<=` igualmente — a venda das 00:00:00 contaria nos dois dias.
-- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `supabase/migrations/**`, `apps/store/src/shared/lib/__tests__/**` · harmful: 0
+- signal: `surviving_mutant` · recurrence: 1 feature(s), 2 ocorrências · scope: `supabase/migrations/**`, `apps/store/src/shared/lib/__tests__/**`, `.specs/features/**/probes/**` · harmful: 0
 - features: 83-loja-ao-vivo
 - evidence: S05 (rodada 1) — `paid_at < v_ini_ontem` → `<=` na contagem de anteontem (`comparacao.ontem.vendas`) sobrevive ao probe `01-acessos.sql` e a `visitasPorHoraSchema`/`visitasSchema` (as réguas de `visitasRegras.ts` medem só os fragmentos de `periodos`)
+- evidence: V-S04 (rodada 2) — o conserto pôs a fronteira só de UM lado do par: ontem tem pedido às 15:00:00 exatas (`PROBE-83-S2`, o `<=` de ontem morre), hoje só às 15:01 (`PROBE-83-S4`), e `base_hoje.vendas` com `paid_at <= v_ini_hoje + h` fica verde. Janela comparada em PAR precisa da fixtura de fronteira nos dois lados
 - last seen: 2026-10-27T00:00:00Z
 
 ### L-076 — No banco local, função criada pelo `postgres` só ganha `execute` de `PUBLIC` (o `pg_default_acl` de funções do `postgres` não concede a `anon`/`authenticated`), então o probe "authenticated sem execute" é verdadeiro com o `revoke` de `authenticated` apagado; o hospedado pode conceder explícito. A prova do `revoke … from public, anon, authenticated` é o guarda de FONTE, e o probe de privilégio sozinho não discrimina.
 - signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `supabase/migrations/**`, `.specs/features/**/probes/**` · harmful: 0
 - features: 83-loja-ao-vivo
 - evidence: S14 (rodada 1) — `revoke execute on function store_hour … from public, anon` (sem `authenticated`) passa os 70 `ok` do probe; morre só em `visitasPorHoraSchema.test.ts` (3). `pg_default_acl` local: `postgres|f|{postgres=X/postgres}`; uma função de teste revogada de `public, anon` perde o `execute` de `authenticated` junto
+- last seen: 2026-10-27T00:00:00Z
+
+### L-077 — Fixtura que prova um campo de um período VIZINHO (anteontem, a semana anterior) precisa de números DIFERENTES dos do período ao lado: com Ontem e anteontem valendo 1 venda cada, trocar o campo inteiro (`v_n_anteontem` → `v_n_ontem`) passa no probe. Ao acrescentar uma fixtura de fronteira, confira que ela não igualou dois períodos que antes eram distintos (`L-013`, no banco).
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `.specs/features/**/probes/**`, `supabase/migrations/**` · harmful: 0
+- features: 83-loja-ao-vivo
+- evidence: V-S07 (rodada 2) — `'vendas', v_n_anteontem` → `'vendas', v_n_ontem` em `comparacao.ontem` sobrevive aos 76 `ok` de `01-acessos.sql` e aos guardas: o pedido da fronteira (`PROBE-83-A2`, conserto de S05) conta 1 em Ontem, e anteontem também tem 1. A sonda `v2/sonda-calendario.sql` (anteontem 1, ontem 0) o derruba
+- last seen: 2026-10-27T00:00:00Z
+
+### L-078 — Janela de dias escrita com `least`/`greatest` entre referências do calendário (`least(início da semana, anteontem)`) precisa de leitura em CADA dia da semana em que um lado ganha: o probe que lê sempre numa quarta-feira (onde semana = anteontem) deixa apagar o `least` ou o piso da janela com tudo verde, e o defeito só aparece de segunda, terça ou de quinta a domingo.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `.specs/features/**/probes/**`, `supabase/migrations/**` · harmful: 0
+- features: 83-loja-ao-vivo
+- evidence: V-S11 (rodada 2) — a CTE de visitas de `v_desde` em vez de `least(v_desde, v_anteontem)`: probe e guardas verdes; numa segunda (`v_desde` = domingo) as visitas de sábado somem e a variação de Ontem desaparece
+- evidence: V-S16 (rodada 2) — as vendas de anteontem sem o piso `paid_at >= v_ini_anteontem`: verdes; numa quinta as vendas de segunda entram em anteontem. A sonda com leituras de quinta e de segunda derruba os dois
 - last seen: 2026-10-27T00:00:00Z
 
 ## Quarantined (failed when applied — ignore)
