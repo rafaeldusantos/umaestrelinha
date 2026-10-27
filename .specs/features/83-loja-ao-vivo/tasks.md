@@ -413,19 +413,20 @@ Fases 3–4 (T06–T11) · **Lote 3** = Fase 5 (T12–T14).
 - **Where**: `.specs/features/83-loja-ao-vivo/prova-navegador.md` (+ capturas em `prova/`).
 - **Depends on**: T12.
 - **Done when**:
-  - [ ] 360 · 390 · 412 × 100 · 130 · 200 %: `scrollWidth` igual à tela no Início e em `/ao-vivo`;
+  - [x] 360 · 390 · 412 × 100 · 130 · 200 %: `scrollWidth` igual à tela no Início e em `/ao-vivo`;
         nada sobreposto; números em uma coluna a 200 %; a Conversão em largura inteira na largura
         padrão (sem célula vazia ao lado); alvos ≥ 44 px (cartão, voltar, seletor).
-  - [ ] o gráfico nos dois extremos (360 a 200 %, com valores de **4 dígitos** na fixtura): nenhum valor
+  - [x] o gráfico nos dois extremos (360 a 200 %, com valores de **4 dígitos** na fixtura): nenhum valor
         sobre o vizinho, a rolagem acontece **dentro** do cartão do gráfico e o `body` não rola.
-  - [ ] o cabeçalho de borda a borda, sem vão no topo (o `-mx-4 -mt-4`).
-  - [ ] o número do cartão, o da faixa e o "Visitas" da seção iguais ao do banco (`store_movement`
+  - [x] o cabeçalho de borda a borda, sem vão no topo (o `-mx-4 -mt-4`).
+  - [x] o número do cartão, o da faixa e o "Visitas" da seção iguais ao do banco (`store_movement`
         lido por `psql` como admin) nos três períodos; as faixas iguais ao `por_faixa`.
-  - [ ] o ciclo de 15 s na rede (nenhuma chamada com a aba oculta por `visibilitychange`).
-  - [ ] puxar no topo; voltar do Android (`history.back()`); `prefers-reduced-motion` sem nada animando.
-  - [ ] o que **não** foi provado (Android real) escrito no fim.
+  - [x] o ciclo de 15 s na rede (nenhuma chamada com a aba oculta por `visibilitychange`).
+  - [x] puxar no topo; voltar do Android (`history.back()`); `prefers-reduced-motion` sem nada animando.
+  - [x] o que **não** foi provado (Android real) escrito no fim.
 - **Tests**: navegador · **Gate**: Build
 - **Reqs**: `LAV-63` e o resto em revisão visual.
+- **Status**: ✅ 2026-10-27 — `prova-navegador.md` + `prova/` (fixtura, limpeza, medição, 6 capturas). Build servido em :8093, banco local com a migration, login real do admin do seed (nada interceptado). 48 telas medidas (360/390/412/1440 × 100/130/200 %): `scrollWidth` igual à tela em todas, alvos ≥ 44, gráfico de 4 dígitos sem sobreposição e rolando dentro do cartão, cabeçalho de borda a borda, números iguais a `store_movement` nos três períodos. Ciclo de 15 s e de 30 s na rede, 0 leituras com a aba oculta, leitura na volta. Puxar, voltar e F5 com o período, movimento reduzido. Achado fora da `83`: o rótulo "Descontos" da barra de abas sai da tela a 200 % (`BL-058`). Gate Build: `tsc` 0 · 0 · 0 e core 11; eslint 0/0 · 23/5 · 2/2; build do app verde; suítes as da T12 (nenhum código mudou).
 
 ### T14 — `14-documentacao-e-fecho`
 - **What**: `AD-066` no `STATE.md` (texto do design §9) e o handoff; `BL-055` (comparação semanal ×
