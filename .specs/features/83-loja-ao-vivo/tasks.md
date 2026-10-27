@@ -440,13 +440,14 @@ Fases 3–4 (T06–T11) · **Lote 3** = Fase 5 (T12–T14).
 - **Where**: `.specs/`, `CLAUDE.md`, `apps/mobile-adm/CLAUDE.md`, `packages/core/CLAUDE.md`, `supabase/CLAUDE.md`.
 - **Depends on**: T13.
 - **Done when**:
-  - [ ] cada número escrito foi medido nesta task (não somado).
-  - [ ] a lista "a confirmar" da spec repetida no handoff, com quem decide (Adri × usuário).
-  - [ ] Build gate final.
+  - [x] cada número escrito foi medido nesta task (não somado).
+  - [x] a lista "a confirmar" da spec repetida no handoff, com quem decide (Adri × usuário).
+  - [x] Build gate final.
 - **Tests**: none (documentação) · **Gate**: Build
 - **Reqs**: rastreabilidade de todos.
 
 ---
+- **Status**: ✅ 2026-10-27 — `AD-066` e o handoff (com a lista "a confirmar": Adri × usuário) no `STATE.md`; `BL-055`..`BL-058` no `BACKLOG.md` (`BL-058`: o rótulo "Descontos" a 200 %, achado da T13); nota de emenda à `VIS-28` no topo da spec da `71`; seções novas em `apps/mobile-adm/CLAUDE.md`, `packages/core/CLAUDE.md` (`./live`, `counterNotes`) e `supabase/CLAUDE.md` (a coluna, a chave `acessos`, o probe no gate); `CLAUDE.md` raiz com a linha *Testes* medida nesta task (core 4556/182 · functions 1105/26 · catalog-import 512/23 · mobile-adm 2162/137 · backoffice 3922/226 · store 6116/327 = 18373/921, todos exit 0), o parágrafo da `83`, os guardas novos e o estado conhecido. Build gate final remedido depois da documentação: as mesmas contagens, exit 0 nos seis; `tsc` 0 · 0 · 0 e core 11; eslint 0/0 · 23/5 · 2/2; build do app verde.
 
 ## Phase Execution Map
 

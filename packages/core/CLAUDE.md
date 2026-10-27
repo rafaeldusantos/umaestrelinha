@@ -52,7 +52,8 @@ sem ela a varredura passa com zero arquivo lido, que é a pior falha possível n
 | `./orders` | `orderSituation` (com o público `'cliente' \| 'atelie'`), `SITUATION_LABELS_BY_AUDIENCE`, `ORDER_STATUS_LABELS`/`ORDER_PAYMENT_STATUS_LABELS` (`labels.ts`, subidos do painel), `formatOrderNumber`, **`queue.ts`** (`QUEUE_BLOCKS`, `NEEDS_ACTION_BLOCKS`, `toPostgrestFilter`, `needsActionOrFilter`, `toSqlPredicate` — feature `73`, `AD-057`) e, desde a `74` (`AD-058`), **`views.ts`** (`ORDER_VIEWS`, `viewPredicate`, `OrderSlice`, `applyOrderSlice`), **`search.ts`** (`buildOrderSearchCondition`, `SEARCH_DEBOUNCE_MS`), **`row.ts`**, **`rowSummary.ts`**, **`nextStep.ts`**, **`history.ts`** (`buildHistory`), **`delivery.ts`** (`shippingLine`), **`list.ts`** (página, cursor, `listCountLine`, `emptyHint`, `isOrderId`) e `PAYMENT_METHOD_LABELS`/`PAYMENT_STATUS_TONES` em `labels.ts` | loja, painel, app do ateliê, migration (cópia SQL guardada) |
 | `./customers` | **os recortes e o "em aberto"** (`CUSTOMER_SLICES`, `RETURNING_CUSTOMER_RULE`, `OPEN_CUSTOMER_RULE`, `openOrdersSqlFilter`), `customerCursorFilter`, `customerOrdersCondition`/`directoryEmailCondition` (vínculo exato) e `escapeLike`/`ilikeContains`/`ilikeExact` (feature `76`, `AD-060`/`AD-061`) | app do ateliê, painel (reexporta `voltaram`) |
 | `./order-actions` | **a escrita do pedido** (feature `75`, `AD-059`): `writeOrderStatus`, `writeTrackingCode`, `writeMaterialStatus`, `triggerOrderNotification` e a ação composta do app `runAppAction` — client e notificador INJETADOS, efeito conferido por `.select('id')` | painel (`useAdminOrders`, `notifyOrder`), app do ateliê (`gravarAcao`) |
-| `./stats` | **`StoreMovement`** (movido da `71`), **`StoreOverview`** e `OVERVIEW_KEYS`, `turnDelayMs`, os rótulos da Início (`greetingFor`, `longDateLine`, `monthName`, `weekdayShort`, `piecesLabel`, `paidOrdersLabel`, `relativeAge`, `storeHour`) — feature `73` | painel (reexporta o tipo), app do ateliê |
+| `./stats` | **`StoreMovement`** (movido da `71`; desde a `83` com a chave `acessos`: `StoreAccess`), **`counterNotes.ts`** (as três notas do contador — "Contando desde", o teto, o contador parado — e `formatCount`, subidas do painel na `83`, que as reexporta por referência), **`StoreOverview`** e `OVERVIEW_KEYS`, `turnDelayMs`, os rótulos da Início (`greetingFor`, `longDateLine`, `monthName`, `weekdayShort`, `piecesLabel`, `paidOrdersLabel`, `relativeAge`, `storeHour`) — feature `73` | painel (reexporta o tipo), app do ateliê |
+| `./live` | **a Loja ao vivo** (feature `83`, `AD-066`): `access.ts` (`ACCESS_BAND_LABELS`, `conversion`/`formatConversion`, `accessDelta` com arredondamento simétrico, `comparisonLabel`, `deltaLine`, `accessCards`, `accessChart`, `noHourNote`, `freshnessLine` e as frases fixas) e `card.ts` (o cartão "Visitas hoje" e os três `aria-label`). A casa das Fases 2–4 do PRD | app do ateliê; o guarda da migration (`visitasPorHoraSchema`, suíte da loja) importa `ACCESS_BAND_LABELS` |
 | `./time` | **`STORE_TIME_ZONE`** (o nome do fuso da loja, a cópia TypeScript de `store_time_zone()` do banco) e `formatDayMonth`/`formatStoreHour` (`21/10`, `15h32`) — feature `71`, `AD-055` | `core/orders/situation.ts`, painel (GA e o bloco "Movimento da loja"), loja (`orderMeta`) |
 | `./visits` | `isBotUserAgent` (as 20 assinaturas de robô), `visitBody`/`visitBodyRefusal`/`isVisitorId` (o corpo da visita) e `OPT_OUT_PARAM`/`optOutHref`/`readOptOutParam` (o parâmetro de "não contar") — feature `71` | loja (`VisitCounter`), edge function `visit`, painel (menu da conta) |
 | `./validators` · `./product` · `./auth` | utilitários de domínio | vários |
@@ -364,6 +365,23 @@ sem build, `tsc` ou teste de componente acusarem — desta vez com o CTA de dinh
   (o supabase-js não rejeita), e a releitura da virada pela DURAÇÃO do servidor (`turnDelayMs`). O
   `retry` de `useStoreOverview` é `retryUnlessDenied` (`42501` não repete); o de `useStoreMovement` é
   parâmetro, com padrão `1` pelo painel.
+
+## `live` — a Loja ao vivo (feature `83`, `AD-066`)
+
+- **O banco decide, `live` escreve.** A faixa em andamento (`faixa_atual`), o "hoje", a hora de corte da
+  comparação (`ate_hora`) e se há comparação (`visitas: null`) chegam prontos de `store_movement`;
+  `live` só transforma em colunas e frases. Nenhum `new Date`/`Date.now` aqui — o guarda do app
+  `aoVivoSemRelogioDoAparelho` varre `core/live/**`.
+- **A variação arredonda metade para longe do zero** (`Math.sign(x) * Math.round(Math.abs(x))`): com
+  `Math.round` puro, `+12,5` vira `13` e `−12,5` vira `−12`. Base zero ou ausente ⇒ sem linha (nunca
+  "+∞%"); `0%` em tom neutro.
+- **`ACCESS_BAND_LABELS` é a cópia TypeScript da largura da faixa**: o guarda da migration a importa e
+  confere contra o divisor de `first_hour` e o `generate_series` do SQL.
+- **`useStoreMovement({ refetchInterval })`** (aditivo): o intervalo é uma função que para na recusa
+  (`isAccessDenied`), com `refetchIntervalInBackground: false`; o timer da virada também não lê com a
+  aba oculta. Vale para o painel (mesmo hook).
+- **A Fase 2 vai escrever "pessoas"** (presença) neste módulo, contra o `VIS-41` da Fase 1 — o guarda de
+  tom da `83` nomeia arquivos, não varre `live/**` inteiro. `BL-057`.
 
 ## `orders/views` … `list` — a lista de pedidos com dois leitores (feature `74`, `AD-058`)
 

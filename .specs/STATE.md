@@ -1573,9 +1573,74 @@
   RLS — por isso `fornecedorForaDaLoja.test.ts` recusa o nome das tabelas em `apps/store` e em
   `supabase/functions`.
 
+### AD-066
+- **Decision**: a Loja ao vivo, Fase 1 (feature `83`), guarda **só a hora cheia de Brasília (0–23) da
+  primeira visita do dia** em `store_visits.first_hour`, decidida pelo banco na **inserção**
+  (`store_hour(p_agora)`, `on conflict do nothing`) — emenda a `VIS-28` da `71`. Os acessos (faixas de
+  3 h, dias da semana, comparações) saem da **mesma** `store_movement`, numa chave `acessos`, sem RPC
+  nova; a faixa em andamento, o "hoje" e a comparabilidade são decididos no banco.
+- **Decision**: Hoje compara **horas completas dos dois lados** (de 0h até o início da hora atual,
+  hoje × ontem); Semana não tem comparação nenhuma (portão `T00`, opção (a)) enquanto a retenção for de
+  8 dias (`BL-055`).
+- **Decision**: tudo o que a leitura tira de `store_visits` sai de **um** comando SQL (um snapshot), e
+  a faixa em andamento é `greatest(hora do servidor, maior first_hour de hoje) / 3`.
+- **Decision**: as notas do contador ("Contando desde", teto, contador parado) têm **um** dono,
+  `core/stats/counterNotes.ts`, lido pelo painel (reexporta, `toBe`) e pelo app. As regras da tela
+  moram em `@estrelinha/core/live`, a casa das Fases 2–4.
+- **Reason**: a hora cheia é o mínimo que responde "a que horas"; uma leitura só faz a faixa do Início
+  e a Loja ao vivo mostrarem o mesmo número por construção; comparar um dia em curso com um dia
+  inteiro fabrica queda toda manhã, e comparar a hora parcial de hoje com a hora cheia de ontem
+  fabrica queda a cada começo de hora.
+- **Consequence**: a Política de Privacidade passou a declarar a hora (`LAV-66`) — **a aprovação da
+  Adri é pré-condição do deploy**. Probe fora do CI no gate de quem recriar as duas funções (`BL-056`).
+- **Revisit when**: a Fase 2 trouxer presença (a tabela efêmera do PRD §3, Opção A) — ou a Adri pedir
+  "vs semana anterior" (retenção de 14 dias).
+
 ## Handoff
 
-### ATUAL — 2026-10-26 · `81-opcoes-e-variacoes-do-produto` **IMPLEMENTADA (T01..T10), verificada, provada em navegador, QA e reteste de QA feitos — SEM COMMIT**
+### ATUAL — 2026-10-27 · `83-loja-ao-vivo` (Fase 1, Acessos) **IMPLEMENTADA (T01..T14), commitada na branch, sem push — falta o Verificador independente, o QA e o Android real**
+
+- **Feature**: `.specs/features/83-loja-ao-vivo/` (`prd.md`, `prototipo.md`, `spec.md`, `design.md`,
+  `tasks.md`, `baseline.md`, `probes/`, `prova-navegador.md`, `prova/`). Decisão `AD-066`. Worktree
+  `store-83-loja-ao-vivo`, branch `feature/83-loja-ao-vivo` sobre `744da7ea`, **um commit por task**
+  (decisão do orquestrador desta feature, acima da regra `BL-012` do `CLAUDE.md`). A `82` (outra
+  sessão, na árvore principal) **não** está nesta branch: o merge junta as duas — atenção às âncoras
+  compartilhadas (baselines do `CLAUDE.md`, `AD-065`/`AD-066`, `BL-054`+, prefixos de migration
+  `20261028120000` × `20261029120000`).
+- **O que entrega**: `/ao-vivo` com a seção **Acessos** (Hoje · Ontem · Semana: Visitas, Vendas,
+  Conversão com variação; o gráfico por horário em faixas de 3 h, por dia na Semana), cabeçalho com
+  "Voltar" e "Atualizado há {s} s", releitura a cada 15 s só com a aba visível; o cartão **"Visitas
+  hoje"** na Início (releitura a cada 30 s), que leva o período. **Uma migration**
+  (`20261029120000_83-loja-ao-vivo.sql`: `store_visits.first_hour`, `store_hour`, `record_store_visit`
+  e `store_movement` recriadas com a chave `acessos`), aplicada **só no banco local** (por `psql -f`).
+  `core/live` e `core/stats/counterNotes.ts` novos; o painel reexporta as notas. A política de
+  privacidade declara a hora cheia.
+- **Gates** (fecho, 2026-10-27, um workspace por vez, `--testTimeout=20000` sem o `--`, exit fora de
+  pipe): ver a linha *Testes* das baselines no `CLAUDE.md` raiz (entrada: `baseline.md`, 17521/881);
+  `tsc` 0 · 0 · 0 e core 11 herdados; eslint 0/0 · 23/5 · 2/2; build do app verde.
+- **Provas**: `probes/01-acessos.sql` e `02-gravacao-real.sh` contra o banco local; `prova-navegador.md`
+  (build servido, login real, 48 telas em 360/390/412/1440 × 100/130/200 %, números iguais a
+  `store_movement`, ciclo de 15/30 s e zero leituras com a aba oculta).
+- **A confirmar** (o portão `T00` valeu a recomendação de cada linha; a confirmação de verdade segue
+  aberta). **Com a Adri** (pré-condição do deploy): a emenda à `VIS-28` (guardar a hora cheia) e o texto
+  novo da Política (Apêndice A da spec). **Com o usuário** (copy e números): a comparação de Hoje em
+  horas completas e o texto "vs ontem até as {h}h"; quando Hoje fica sem comparação; Semana sem
+  variação (opção (a)); variação sem base ⇒ sem linha; `0%` neutro; o arredondamento simétrico; as
+  visitas da comparação nulas com o teto; as faixas antes de `contagem_desde` sem número; a Conversão
+  acima de 100 % sem teto; `LAV-60` sem `lerComPapel`; o frescor "Atualizado agora / há {s} s" de volta
+  só nesta tela, contado pela duração local; as três notas do contador com o texto do painel; o gráfico
+  sem `acessos` como frase estática; a falha do cartão com "Não consegui carregar."; o desenho do
+  cartão sem o ponto dourado; a releitura de 30 s da Início pela mesma leitura; nenhuma leitura em
+  segundo plano (muda também o painel); a nota das visitas sem hora; a soma das barras da Semana
+  passando do total; o período no `history.state`; o período da Início ao voltar; Conversão em largura
+  inteira.
+- **Pendente**: o Verificador independente (autor ≠ verificador) e o QA; o **Android real** (fonte do
+  sistema, gesto de voltar, puxar com o dedo, aba em segundo plano de verdade); a observação da prova
+  de que a fonte escalada pela raiz não cresce os números em `px` fixo; `BL-058` (o rótulo "Descontos"
+  da barra de abas a 200 %, anterior à `83`). **Ordem de publicação: migration → bundle**, e os probes
+  no gate de quem recriar as funções.
+
+### ANTERIOR — 2026-10-26 · `81-opcoes-e-variacoes-do-produto` **IMPLEMENTADA (T01..T10), verificada, provada em navegador, QA e reteste de QA feitos — SEM COMMIT**
 
 - **Feature**: `.specs/features/81-opcoes-e-variacoes-do-produto/` (`spec.md`, `design.md`,
   `tasks.md`, `baseline.md`). Decisão `AD-063`. Branch `feat/81-opcoes-e-variacoes-do-produto`, base

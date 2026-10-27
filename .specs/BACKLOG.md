@@ -2060,3 +2060,60 @@ decisão do usuário e leva testes do painel reescritos.
 pedido de `VROSAXRJ` (`BUG-20261024-painel-ficha-puxa-pedido-de-outra-pessoa-por-underscore`, teste novo
 `useAdminCustomer.vinculo.test.ts`, nenhum teste antigo tocado). **Fica aberta a BUSCA do painel** (a lista
 ainda usa `escapeSearchTerm`, e `%`/`_` digitados valem como curinga).
+
+## BL-055 — "vs semana anterior" na Loja ao vivo esbarra na retenção de 8 dias
+
+- **Status**: aberto · **Registrado em**: 2026-10-27 · **Origem**: feature `83` (portão `T00`, opção
+  (a)), `AD-066`.
+
+A Semana da Loja ao vivo aparece **sem** linha de variação. As **visitas** da semana anterior não estão
+no banco: a poda da `71` guarda hoje e os 7 dias anteriores (`VIS-30`). Vendas seriam calculáveis
+(`orders` não é podado), mas uma tela em que um cartão compara e dois não foi recusada no portão.
+
+**A saída**: ampliar a retenção de `store_visits` para 14 dias (`prune_store_visits` e o texto da
+Política, que hoje diz "apagados depois de 8 dias" — nova aprovação da Adri) e calcular a semana
+anterior até o mesmo dia e hora no SQL. **Custo**: migration, a política, e o guarda
+`politicaDoContador` acompanhando.
+
+## BL-056 — A semântica dos acessos (`store_movement` da `83`) é provada só por probe, fora do CI
+
+- **Status**: aberto · **Registrado em**: 2026-10-27 · **Origem**: feature `83`; mesma família de
+  `BL-050`.
+
+`probes/01-acessos.sql` (bordas de 02:59/03:00/23:59, segunda-feira, dia vazio, linha sem hora, a
+repetição que não muda a hora, o corte da comparação de Hoje, o teto, antes da contagem, as recusas de
+papel) e `02-gravacao-real.sh` precisam do Postgres local e não rodam em suíte nenhuma. Os guardas de
+forma (`visitasPorHoraSchema`, `visitasSchema` sobre a migration vigente) medem o `.sql`, não o
+resultado; os testes do app dublam a RPC. Hoje a proteção é regra escrita (`supabase/CLAUDE.md`): quem
+recriar `store_movement` ou `record_store_visit` roda os probes antes do deploy.
+
+**A saída** é a mesma de `BL-050`: um job de CI com o Postgres e as migrations aplicadas, rodando os
+probes `.sql` da `71`, da `73` e da `83`.
+
+## BL-057 — "Pessoas" na Fase 2 da Loja ao vivo contra o `VIS-41`
+
+- **Status**: aberto · **Registrado em**: 2026-10-27 · **Origem**: revisão adversarial do plano da
+  feature `83` (item 9).
+
+A `71` proíbe "pessoas"/"usuários" no bloco de visitas (`VIS-41`, `semPessoas.test.ts`): o número conta
+**navegadores**. A Fase 1 da Loja ao vivo segue a régua (`tomDaLojaAoVivo.test.ts`, escopo literal nos
+arquivos da Fase 1). A Fase 2 do PRD (presença: "pessoas na loja agora") escreve "pessoas" em
+`core/live` — e presença conta pessoas de fato? Também conta navegadores (uma aba aberta).
+
+**A decidir antes da Fase 2**: se a presença diz "pessoas" (e o guarda de tom ganha uma régua própria
+para ela) ou se o vocabulário de navegador vale para o módulo inteiro. Quem decide: o usuário, com a
+Adri na copy.
+
+## BL-058 — O rótulo "Descontos" da barra de abas sai da tela com a fonte a 200 %
+
+- **Status**: aberto · **Registrado em**: 2026-10-27 · **Origem**: prova em navegador da feature `83`
+  (`prova-navegador.md`, §2).
+
+Com `html { font-size: 200% }` em 360, 390 e 412, o rótulo da quarta aba passa da borda direita
+(`right` 403,7 numa tela de 390); o `scrollWidth` do documento não muda (a barra é `fixed`), então
+nenhuma régua de rolagem acusa. **Anterior à `83`**: a barra não mudou de desenho nesta feature. As
+provas da `73`/`76` não o pegaram porque mediam só o conteúdo da tela.
+
+**A saída**: rótulos com `truncate`/`min-w-0` por célula, ou rótulo menor (ou só ícone com nome
+acessível) a partir de um tamanho de fonte. Decisão de desenho (protótipo da `72`).
+
