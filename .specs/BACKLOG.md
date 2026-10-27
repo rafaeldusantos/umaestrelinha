@@ -2060,3 +2060,33 @@ decisão do usuário e leva testes do painel reescritos.
 pedido de `VROSAXRJ` (`BUG-20261024-painel-ficha-puxa-pedido-de-outra-pessoa-por-underscore`, teste novo
 `useAdminCustomer.vinculo.test.ts`, nenhum teste antigo tocado). **Fica aberta a BUSCA do painel** (a lista
 ainda usa `escapeSearchTerm`, e `%`/`_` digitados valem como curinga).
+
+## BL-054 — o código do envelope gravado em formatos diferentes pelas três telas
+
+- **Status**: **FECHADO** (2026-10-27, Fase 5 da `82`, T19) · **Registrado em**: 2026-10-27 · **Origem**: QA da feature `82` (`BUG-20261026-codigo-com-hifen-ou-espaco-gravado`).
+
+O app normaliza (`normalizeTrackingCode`) mas aceita hífen e ponto; o painel grava com espaços; a loja grava o que a cliente digitou. O link dos Correios sai com `%20`. A normalização deveria morar no dono da escrita (`writeMaterialTracking`) ou na própria RPC, para as três telas gravarem igual. Depende de decidir se o envelope é sempre Correios.
+
+**Como fechou**: a forma única mora em `normalizeMaterialTrackingCode` (`core/orders/tracking.ts`, ao
+lado de `normalizeTrackingCode`, que fica intacto para o rastreio de saída): maiúsculas, sem espaço, sem
+invisível (`\p{Cf}`), sem hífen e sem ponto. `writeMaterialTracking` a aplica ANTES da RPC (vazio ⇒
+`recusado` `empty_code`, sem rede), e os três escritores gravam por ele: o app (que também a usa ao
+digitar e ao julgar o curto), o painel (que já delegava) e a loja (`useSetMaterialTracking` passou a
+delegar, com o client da loja e a notificadora `?action=notify` injetados). **Formato dos Correios NÃO é
+exigido** — a cliente pode postar por outra transportadora. Códigos gravados ANTES continuam como estão
+no banco (sem migration de dado); a próxima gravação os normaliza.
+
+## BL-055 — Corrigir o código do envelope não reenvia o aviso
+
+- **Status**: **mantido por decisão** (2026-10-27) · **Registrado em**: 2026-10-27 · **Origem**: QA da
+  feature `82` (`BUG-20261026-codigo-corrigido-nao-reavisa`), Fase 5, T22.
+
+Cada gravação do código do envelope (app, painel ou loja) dispara o gatilho `material_tracking_set`, mas
+o motor de notificação **deduplica por pedido + evento**: só a primeira gravação cria a linha em
+`order_notifications`. Três gravações seguidas (código com erro, o mesmo corrigido, outro) geraram **uma**
+linha. **O risco**: com o e-mail `material_tracking_registered` ligado, a cliente recebe o PRIMEIRO
+código — o errado — e nunca o corrigido. A tela não promete o contrário: a folha de "Alterar" (o
+envelope já a caminho) não fala em e-mail (A6), e o aviso diz só "Pedido #NNNN atualizado.".
+
+**Decisão (2026-10-27, recomendação do QA)**: manter um aviso por pedido. Reavisar exigiria um evento
+próprio ("código corrigido"), com e-mail novo e copy da Adri — só se a dona pedir.

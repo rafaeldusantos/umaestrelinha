@@ -126,6 +126,11 @@ como um app.
 
 1. WHEN o app abre offline THEN o shell SHALL carregar do service worker e mostrar "Sem conexão. Os
    dados da loja aparecem quando a internet voltar.", com "Tentar de novo". (`MAF-19`)
+   - **SPEC_DEVIATION (2026-10-27, feature `82`, T18 — `docs/qa/bugs/BUG-20261026-queda-curta-de-rede-apaga-o-codigo.md`)**:
+     com o app JÁ aberto, a tela só troca para "Sem conexão" depois de **5 s offline contínuos**
+     (`CARENCIA_SEM_CONEXAO_MS`, `apps/mobile-adm/src/shared/lib/useOnline.ts`). Uma queda mais curta
+     não desmonta a árvore (a folha aberta e o texto digitado ficam); a escrita que sai sem rede cai em
+     "Não consegui salvar". Abrir já offline continua imediato, e passados os 5 s tudo é como acima.
 2. WHEN qualquer requisição a `*.supabase.co` é feita THEN o service worker SHALL **não** interceptá-la
    nem cacheá-la. Um guarda lê a configuração do workbox e recusa qualquer `runtimeCaching` para esse
    host. (`MAF-20`)

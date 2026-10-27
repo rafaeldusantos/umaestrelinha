@@ -399,6 +399,24 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: O02 (rodada 4) — `orphans.ts:34` `check.orders > 0` → `> 1`: 57/57 verdes (`orphans.test.ts` usa `orders: 2`, a página usa `'v-vendida': 2`); sonda pela página real com `'v-um': 1` reprova no mutante (a linha some da grade e o aviso não aparece)
 - last seen: 2026-10-26T00:00:00Z
 
+### L-072 — Quando a spec diz que regravar o MESMO valor "atualiza" algo (autoria, data), o guarda que lê o SQL e o probe que só grava valores diferentes não provam isso: um `where … is distinct from` no `update` passa nos dois. O probe precisa de um caso que regrave o valor atual com outra conta e confira a coluna derivada.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `supabase/migrations/**` · harmful: 0
+- features: 82-envelope-da-cliente
+- evidence: M37 — `20261028120000_82-envelope-da-cliente.sql:72` (`where id = p_order_id and material_tracking_code is distinct from v_code`): store 6030/6030 verde e `probes/01-rpc.sql` 8 `ok —` contra a função mutada (transação desfeita); a Adri confirmando o código que a cliente informou continuaria "Informado pela cliente"
+- last seen: 2026-10-26T00:00:00Z
+
+### L-073 — Mapeamento de três degraus (fresh/warm/stale) testado só nas pontas não prova o do meio: com "fresh" e "stale" nas fixtures, `tier === 'stale'` e `tier !== 'fresh'` dão a mesma tela. Escreva um caso por degrau, inclusive o intermediário.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `apps/mobile-adm/src/widgets/**` · harmful: 0
+- features: 82-envelope-da-cliente
+- evidence: M27 — `MaterialChips.tsx:39` (`idade.tier !== 'fresh'`): 2090/2090 verdes; o pedido de 5 dias (`warm`) sairia na cor de espera parada, contra ENV-24/A3
+- last seen: 2026-10-26T00:00:00Z
+
+### L-074 — Erro guardado em MÓDULO (sobrevive à navegação) é lido por superfícies de OUTRAS rotas: a matriz "cada superfície mostra só o seu" precisa incluir a da outra página (o cartão da lista), não só as da tela onde a ação aconteceu.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `apps/mobile-adm/src/features/order-actions/**` · harmful: 0
+- features: 82-envelope-da-cliente
+- evidence: V02 (rodada 2) — `BotaoDaAcao.tsx:39` `acao.erroDe(ERROS_DO_RODAPE)` → `acao.erro`: mobile-adm 2126/2126 verdes; o erro do envelope apareceria no cartão de `/pedidos` ao lado de "Recebi o material", o defeito de `BUG-20261026-erro-de-uma-acao-aparece-em-outra` em outra rota
+- last seen: 2026-10-27T00:00:00Z
+
 ## Quarantined (failed when applied — ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.

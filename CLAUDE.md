@@ -164,8 +164,9 @@ Ao planejar/implementar features, use a Skill **`tlc-spec-driven`** com estas co
     conjuntos mais usados, chips que permanecem, frase da pausa — passam em 390, 1440 e fonte 200 %; um
     bug novo consertado, o aviso de pausa que não saía depois de religar a linha; uma decisão nova
     aberta, o bloco de sugestões que continua com ~940px no celular depois de escolher um conjunto,
-    mais as duas de antes — o "Close" em inglês e os alvos pequenos do editor). A próxima livre é a
-    `82`.**
+    mais as duas de antes — o "Close" em inglês e os alvos pequenos do editor). A `82` (o envelope da cliente no app do ateliê: registrar,
+    ler e copiar o código de entrada do material, `AD-065`) está IMPLEMENTADA, sem commit, verificada,
+    provada em navegador e com QA (bugs consertados e retestados). A próxima livre é a `83`.**
   - **A `46` e a `47` correram EM PARALELO, em worktrees separados**, e é o segundo caso do projeto
     (o primeiro, a `45`, dividiu uma working tree só). O que mudou: a divisão foi por **árvore**, não
     por arquivo — a `47` nasceu de um `git worktree` sobre o HEAD local e trouxe a `46` por
@@ -572,7 +573,9 @@ quando mudarem de verdade.
 | --- | --- | --- |
 | **Lint** | **25 erros / 7 warnings** — backoffice 23/5 · store 2/2 · mobile-adm 0/0 | `npx eslint .` em cada app (o `pnpm lint` para no primeiro app que reprova) |
 | **Tipos** | **0 · 0 · 0 · 0 · 0** (store · backoffice · catalog-import · `apps/store/tsconfig.server.json`, desde a `69` · mobile-adm, desde a `72`) — e **`packages/core` em 11**, herdados (medido na `73`: idênticos na base, nenhum em arquivo tocado) | `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` · `npx tsc --noEmit -p packages/core/tsconfig.json` |
-| **Testes** | **18013 em 901 arquivos** — store **6006/325** · backoffice **3915/225** · mobile-adm **2014/125** · core **4461/177** · functions **1105/26** · catalog-import 512/23 | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
+| **Testes** | **18310 em 910 arquivos** — store **6035/327** · backoffice **3926/225** · mobile-adm **2132/129** · core **4600/180** · functions **1105/26** · catalog-import 512/23 (functions e catalog-import não remedidos na `82`) | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
+
+**A feature `82` (o envelope da cliente) somou +297/+6 em QUATRO workspaces**, medidos em 2026-10-27 um por vez, exit fora de pipe, contra a entrada medida com a árvore parada (`.specs/features/82-envelope-da-cliente/baseline.md`: core 4466/178 · mobile-adm 2021/126 · store 6013/326 · backoffice 3916/225 — a linha anterior desta tabela estava velha pelo commit `744da7ea`): **core +134/+2**, **mobile-adm +111/+3**, **store +22/+1** (`envelopeSchema`, `materialTransitions` lendo a RPC vigente, e a loja gravando o código pelo dono de `core`) e **backoffice +10** (o painel delega `setMaterialTracking` a `core`). Tipos 0 nos apps, core 11 herdados; lint 0/0 · 23/5. Uma migration (`20261028120000_82-envelope-da-cliente.sql`), aplicada só no local. Verificador r1 FAIL por cobertura (4 de 42 mutantes), lacunas fechadas com os mutantes reinjetados; prova em navegador achou 3 defeitos de layout/foco, consertados; QA achou 8 bugs: 7 consertados com teste e retestados em navegador (inclusive o erro com dono, o "Tentar de novo" do envelope, a carência de 5 s do "Sem conexão" e o código normalizado no dono da escrita) e 1 mantido por decisão (`BL-055`); a verificação r2 (consertos) fechou com as lacunas cobertas. O lembrete do WhatsApp deixou de dizer "Oi, Oi!" sem nome.
 
 **A árvore mesclada — `feature/mobile-adm` (72..79) encontrando a `master` com a `80` e a `81`** (merge de 2026-10-26), medida depois do merge, um workspace por vez, exit fora de pipe: **core 4461/177 · functions 1105/26 · catalog-import 512/23 · mobile-adm 2014/125 · backoffice 3915/225 · store 6006/325**, os seis exit 0. Tipos 0 nos cinco projetos (`packages/core` segue em 11, herdados); lint backoffice 23/5 · store 2/2 · mobile-adm 0/0; `pnpm build` verde. **A soma não é aritmética**: os guardas da loja e do painel varrem os dois lados, e os números que valem são estes, medidos. No merge, o `AD-057` da `80` passou a `AD-064` (o da `73` veio antes) e as lições L-045..L-048 da `81` passaram a L-068..L-071.
 

@@ -1,0 +1,45 @@
+# Sensor do autor — lote B (T08..T13), 2026-10-26. 12 mutantes nos arquivos reais, SHA-256 conferido na restauração.
+# Rodada final (com ColocarEmProducao.test.tsx):
+M1 Alterar visível sem edição: exit=1 MORTO compilacao=False assercao=True [1 failed | 106 passed (107)]
+    × com código (ENV-04, ENV-15..ENV-17) > recebido COM código: a origem diz quando chegou; sem "Alterar", mas Copiar e Correios seguem (ENV-17) 20ms
+    restaurado, SHA ok c345361b1a89
+M3 folha manda rastreio de saída: exit=1 MORTO compilacao=False assercao=True [8 failed | 99 passed (107)]
+    × o código do envelope sobre o client real: `not_allowed` é PERGUNTA (ENV-10) > par: a RPC responde `ok` ⇒ "Código do envelope registrado." (a régua tem
+    × o código do envelope sobre o client real: `not_allowed` é PERGUNTA (ENV-10) > `not_allowed` + `atelie_clock` 403 `42501` ⇒ a recusa da `72`, e NENHUM 
+    × o código do envelope sobre o client real: `not_allowed` é PERGUNTA (ENV-10) > `not_allowed` com `atelie_clock` 200 (papel de pé) ⇒ "Este pedido mudou…
+    × salvar (ENV-07, ENV-08) > manda à porta `rastreio-do-material` com o código digitado — nunca o `rastreio` de saída 50ms
+    restaurado, SHA ok 474aac12d118
+M5 idade sem a cor stale: exit=1 MORTO compilacao=False assercao=True [1 failed | 106 passed (107)]
+    × os materiais do pedido e a idade da espera (ENV-23, ENV-24) > a caminho há 13 dias (`stale`): "há 13 dias" em `wait` — a frase é a mesma, só a cor mud
+    restaurado, SHA ok 793c511d158c
+M7 not_allowed como recusa direta: exit=1 MORTO compilacao=False assercao=True [1 failed | 106 passed (107)]
+    × o código do envelope sobre o client real: `not_allowed` é PERGUNTA (ENV-10) > `not_allowed` com `atelie_clock` 200 (papel de pé) ⇒ "Este pedido mudou…
+    restaurado, SHA ok dba07e1bb471
+M8 not_allowed como sucesso: exit=1 MORTO compilacao=False assercao=True [2 failed | 105 passed (107)]
+    × o código do envelope sobre o client real: `not_allowed` é PERGUNTA (ENV-10) > `not_allowed` + `atelie_clock` 403 `42501` ⇒ a recusa da `72`, e NENHUM 
+    × o código do envelope sobre o client real: `not_allowed` é PERGUNTA (ENV-10) > `not_allowed` com `atelie_clock` 200 (papel de pé) ⇒ "Este pedido mudou…
+    restaurado, SHA ok dba07e1bb471
+M9 releitura apaga o digitado: exit=1 MORTO compilacao=False assercao=True [1 failed | 106 passed (107)]
+    × o foco e o fechar (ENV-12, ENV-13) > a linha relida SEGUE editável (a cliente informou um código pela loja) ⇒ a folha fica com o que ela digitou 41ms
+    restaurado, SHA ok 474aac12d118
+M11 frase do cancelado some: exit=1 MORTO compilacao=False assercao=True [1 failed | 106 passed (107)]
+    × o pedido cancelado e a ordem do bloco (ENV-26, ENV-27) > cancelado com material: a frase única, abaixo de um fio, no lugar das ações 12ms
+    restaurado, SHA ok 8c6cd122dc66
+M12 histórico sem o envelope: exit=1 MORTO compilacao=False assercao=True [2 failed | 105 passed (107)]
+    × registrar o código pela página (ENV-07, ENV-08, ENV-21) > "Informar" → digitar → Salvar: UMA RPC `set_material_tracking`, o gatilho `material_tracking
+    × registrar o código pela página (ENV-07, ENV-08, ENV-21) > o histórico com a autoria da CLIENTE, na posição da data dela 13ms
+    restaurado, SHA ok 6fb1c46d8898
+M2 Correios sem encodeURIComponent: exit=1 MORTO compilacao=False assercao=True [1 failed | 106 passed (107)]
+    × com código (ENV-04, ENV-15..ENV-17) > "Ver nos Correios": aba nova, `noopener noreferrer`, o link oficial com o código por `encodeURIComponent` (ENV-1
+    restaurado, SHA ok 998bec06d485
+M4 aviso de ok com a frase errada: exit=1 MORTO compilacao=False assercao=True [2 failed | 105 passed (107)]
+    × salvar (ENV-07, ENV-08) > ok que moveu o material: a folha FECHA e o aviso diz "passou para A caminho" 46ms
+    × registrar o código pela página (ENV-07, ENV-08, ENV-21) > "Informar" → digitar → Salvar: UMA RPC `set_material_tracking`, o gatilho `material_tracking
+    restaurado, SHA ok 73cd3e9917ee
+M6 produção visível em cancelado: exit=1 MORTO compilacao=False assercao=True [1 failed | 106 passed (107)]
+    × ColocarEmProducao (ENV-25) > recebido e cancelado ⇒ nada 89ms
+    restaurado, SHA ok 0c84728723d0
+M10 recusa da RPC vira falha genérica: exit=1 MORTO compilacao=False assercao=True [2 failed | 105 passed (107)]
+    × os desfechos que NÃO salvaram: a folha fica, com a frase em `role="alert"` (ENV-09..ENV-11) > a RPC recusou o código vazio 47ms
+    × os desfechos que NÃO salvaram: a folha fica, com a frase em `role="alert"` (ENV-09..ENV-11) > a RPC disse que o pedido não espera material 46ms
+    restaurado, SHA ok 73cd3e9917ee

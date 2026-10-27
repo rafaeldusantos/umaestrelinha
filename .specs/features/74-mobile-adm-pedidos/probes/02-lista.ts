@@ -14,6 +14,9 @@
 //   6. R1: pedidos no mesmo instante (µs) paginados de 1 em 1 sem pular nem repetir — e o SENSOR: o
 //      cursor passado por `Date` (ms) pula ou repete;
 //   7. as chaves da resposta = `COLUNAS_DA_LISTA` e as do detalhe (`AD-012`).
+//      Feature `82`: o detalhe ganhou `material_tracking_set_at`/`_by` e os itens `requires_material`/
+//      `material_kinds` — as listas são importadas de `linha.ts`, então a régua 7 as confere sem edição
+//      (saída em `.specs/features/82-envelope-da-cliente/probes/02-colunas-da-74.saida.txt`).
 //
 // Rodar: `npx tsx --tsconfig tsconfig.base.json .specs/features/74-mobile-adm-pedidos/probes/02-lista.ts`
 // da raiz do worktree (o `.sh` faz isso).

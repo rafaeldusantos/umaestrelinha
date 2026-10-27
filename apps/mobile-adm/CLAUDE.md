@@ -107,6 +107,11 @@ Não existe papel, tabela nem convite próprio do app.
 1. **`useOnline`** — sem rede, `OfflineScreen` e mais nada: o `AuthProvider` nem monta, então
    nenhuma chamada ao Supabase sai (`MAF-19`). Quando a rede volta, tudo monta de novo e a sessão é
    relida.
+   - **Carência de 5 s** (feature `82`, T18, `SPEC_DEVIATION` de `MAF-19`,
+     `BUG-20261026-queda-curta-de-rede-apaga-o-codigo`): com o app aberto, o `offline` só vira
+     "Sem conexão" depois de `CARENCIA_SEM_CONEXAO_MS` (5 s, em `shared/lib/useOnline.ts`, único) offline
+     contínuos — uma piscada no 4G não fecha a folha nem apaga o código digitado. Abrir já offline e a
+     volta da rede continuam imediatos. Teste que derruba a rede anda o relógio até os 5 s.
    - ⚠️ **O `QueryClientProvider` fica ACIMA deste ramo** (achado da prova em navegador da `73`). O
      `onlineManager` do React Query só ouve `online`/`offline` enquanto há um `QueryClient` montado;
      com o provider dentro do ramo, o `offline` chegava, o provider desmontava e o `online` da volta
@@ -379,6 +384,55 @@ material no WhatsApp. **Nada disso tem regra no app.**
   o banco, a porta, o layout e o teto do teste), `avisosComClientReal.test.tsx` e `prova-navegador.md`
   (144 medidas de layout). **NÃO provado**: o aviso chegando num Chrome real e no Android real
   (permissão, tela de bloqueio, toque) — pendente do usuário, com o roteiro no `prova-navegador.md`.
+
+## O envelope da cliente (feature `82`, `AD-065`)
+
+No bloco Material do detalhe: chips dos materiais (snapshot `order_items.material_kinds`, por
+`orderMaterialKinds`), a idade da espera (`materialWaitAge` + `materialWaitLabel` — "Esperando há N
+dias", Fase 5, T21; `queueAgeLabel` continua no painel e na Início —, cor `wait` só no degrau `stale`), a subseção **"Envelope da cliente"** (`features/order-actions/ui/EnvelopeDaCliente.tsx`),
+"Colocar em produção" (`ColocarEmProducao.tsx`) e a frase única do cancelado (`MATERIAL_CANCELLED_NOTE`).
+
+- **Nenhuma regra no app**: "pode editar", título/frase da folha, quem informou e quando, a frase do
+  vazio, a recusa e "pode produzir" são de `core/material/envelope.ts`.
+- **A folha é a MESMA `FolhaDoRastreio`**, com `origem: 'material'` (cópia de `materialTrackingSheet`,
+  pedido `{ tipo: 'rastreio-do-material' }`). A gravação é `set_material_tracking` pelo dono
+  `writeMaterialTracking`; o `not_allowed` da RPC vira conferência de papel na porta.
+- **"Ver nos Correios"** vem de `shared/config/correios.ts` (`?objetos=` preenche o campo; a página
+  dos Correios ainda pede captcha). "Copiar código" usa `navigator.clipboard`, e a falha tem frase.
+- **A grade Copiar/Correios reflui com a fonte grande** (`auto-fit` com piso em rem), desvio declarado
+  de `ENV-17`.
+- **`material_kinds` entra no app por UMA linha** (`COLUNAS_DOS_ITENS`), exceção literal em
+  `semDadoSensivelDeClienteNoApp` — o termo segue proibido no resto do app e em toda a aba Clientes.
+- **O erro tem dono** (Fase 5, T17, `BUG-20261026-erro-de-uma-acao-aparece-em-outra`): o erro continua UM
+  por pedido (`model/erros.ts`), mas guarda ao lado a ação que o gerou (`definirErro(id, erro, de)`), e
+  cada superfície desenha só o seu por `acao.erroDe(origens)`: rodapé e cartão `ERROS_DO_RODAPE`
+  (primária e rastreio de saída), a folha do envelope e o bloco dele `rastreio-do-material`, a folha de
+  saída `rastreio`, e "Colocar em produção" `producao`, junto do botão (`ui/AlertaDaAcao.tsx`). A forma
+  `{ frase, retentativa }` que a `75` assere por igualdade não mudou.
+- **A falha de rede do envelope tem "Tentar de novo"** (T16, `BUG-20261026-rede-cai-ao-salvar-…`): a
+  RPC pode ter gravado com a resposta perdida, e o aviso `material_tracking_set` só sai no sucesso visto
+  pelo app. A retentativa regrava o MESMO código (a RPC é idempotente); com a linha relida não mais
+  editável, o dono devolve `mudou` sem ir à rede. Com a folha fechada, o erro e o botão ficam no bloco
+  do envelope. A recusa com motivo continua sem retentativa O "Tentar de novo" do BLOCO sai da tela com o desfecho
+  (sucesso e `mudou`), e o foco vai ao título da página (`devolverFoco`), nunca ao `<body>` — achado no reteste
+  em navegador de 2026-10-27. Teste de foco depois de um toque FOCA o botão antes: o `fireEvent.click` do jsdom
+  não move o foco, e sem isso a régua aprova o defeito.
+- **O campo da folha só volta ao valor do banco ao ABRIR**: uma releitura com a folha aberta não apaga
+  o que a Adri digitou (vale também para a folha do rastreio de saída).
+- **O código do envelope tem UMA forma no banco** (Fase 5, T19, `BL-054` fechada): maiúsculas, sem
+  espaço, sem invisível, sem hífen e sem ponto (`normalizeMaterialTrackingCode`, `core/orders/tracking.ts`).
+  Quem a aplica é o dono da escrita (`writeMaterialTracking`), e os três escritores gravam por ele — o
+  app, o painel e a loja. O app a usa também ao digitar e para julgar o curto (`trackingCodeRefusal`
+  sobre o normalizado). Formato dos Correios NÃO é exigido. `normalizeTrackingCode` (o rastreio de
+  SAÍDA) segue intacto, com o hífen.
+- **Sem o nome da cliente, a frase de meio de frase é minúscula** (T20): "Use quando a cliente mandar…"
+  (`customerFirstNameMidSentence`) e "O material da cliente está na bancada." (`customerFirstNameAfterDe`).
+  No começo da frase continua "A cliente" (`customerFirstName`).
+- **Corrigir o código do envelope NÃO reenvia o aviso** (T22, `BL-055`, decisão de 2026-10-27: manter).
+  Cada Salvar dispara `material_tracking_set`, mas o motor deduplica por pedido + evento: só a PRIMEIRA
+  gravação gera linha em `order_notifications`. Com o e-mail `material_tracking_registered` ligado, a
+  cliente fica com o PRIMEIRO código. A folha de "Alterar" não promete e-mail (A6), e o aviso diz só
+  "Pedido #NNNN atualizado." — não mude isso sem decidir o evento de "código corrigido".
 
 ## PWA — só a casca
 

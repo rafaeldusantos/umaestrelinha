@@ -1573,7 +1573,20 @@
   RLS — por isso `fornecedorForaDaLoja.test.ts` recusa o nome das tabelas em `apps/store` e em
   `supabase/functions`.
 
+### AD-065
+- **Decision**: **quem informou o código do envelope, e quando, mora em `orders`** (`material_tracking_set_at`, `material_tracking_set_by in ('customer','admin')`), gravado DENTRO de `set_material_tracking` — `set_by` decidido por `has_role`, nunca por parâmetro. Feature `82`.
+- **Reason**: a RPC da `22` só gravava código e estado; nenhuma tela podia dizer "Informado pela cliente" × "Registrado por você" sem inventar. Uma RPC só para cliente e admin continua valendo (a da `22` foi substituída, não duplicada).
+- **Decision**: a escrita do código do envelope tem UM dono, `writeMaterialTracking` (`core/order-actions`); o painel delega e o app chama pela porta `gravarAcao` (`PedidoDaAcao` `rastreio-do-material` e `producao`). Regras e frases do envelope em `core/material/envelope.ts`.
+- **Consequence**: só a ÚLTIMA autoria fica registrada (trocas anteriores não viram histórico). Linhas anteriores à migration ficam com as colunas nulas e a tela diz "Código informado há…". `semDadoSensivelDeClienteNoApp` (76) ganhou UMA exceção literal (`COLUNAS_DOS_ITENS`) para os chips de material — **a confirmar pelo usuário**. Ordem de publicação: migration → bundles.
+
 ## Handoff
+
+### ATUAL — 2026-10-27 · `82-envelope-da-cliente` **IMPLEMENTADA (T01..T15), verificada (r1 e r2 FAIL por cobertura, lacunas fechadas), provada em navegador, QA com bugs consertados e retestados**
+
+- **Feature**: `.specs/features/82-envelope-da-cliente/` (`spec.md`, `design.md`, `tasks.md`, `baseline.md`, `prova-navegador.md`, `validation.md`, `probes/`, `prova/`). Decisão `AD-065`. QA: `docs/qa/reports/2026-10-26-mobile-adm-envelope-da-cliente.md`.
+- **Migration** `20261028120000_82-envelope-da-cliente.sql` aplicada só no local (via `psql`; no local as migrations da `80` e `20261027120000` estão aplicadas SEM registro em `schema_migrations`).
+- **Números** (um workspace por vez, 2026-10-27): core 4600/180 · mobile-adm 2132/129 · store 6035/327 · backoffice 3926/225. Tipos 0 nos apps, core 11 herdados; lint mobile-adm 0/0, backoffice 23/5.
+- **Decidido pelo usuário (2026-10-27)**: seguir as recomendações do QA — 7 bugs consertados e retestados, "código corrigido não reavisa" mantido (`BL-055`), "Oi, Oi!" do lembrete corrigido. **A confirmar**: a exceção do guarda de dado sensível (`material_kinds` numa linha) e o desvio ENV-17. Falta o Android real.
 
 ### ATUAL — 2026-10-26 · `81-opcoes-e-variacoes-do-produto` **IMPLEMENTADA (T01..T10), verificada, provada em navegador, QA e reteste de QA feitos — SEM COMMIT**
 
