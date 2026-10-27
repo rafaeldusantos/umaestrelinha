@@ -108,7 +108,10 @@ export const DETALHE_DE_RETIRADA = detalhe({
 
 export const item = (extra: Partial<ItemDoPedido> = {}): ItemDoPedido => ({
   id: 'i-1',
+  // Não é uuid de propósito: sem snapshot e sem id procurável, o detalhe não lê `products`.
+  product_id: 'nuvemshop:Pingente gota com leite materno',
   product_name: 'Pingente gota com leite materno',
+  product_image: null,
   variant_label: 'Prata 925',
   engraving_text: null,
   quantity: 1,

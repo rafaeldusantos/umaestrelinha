@@ -1,21 +1,22 @@
 import { useEffect, useRef } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
-import { abaDoCaminho, TabBar, tituloDaAba } from '@/widgets/tab-bar'
-import { AccountMenu } from '@/widgets/account-menu'
+import { abaDoCaminho, barraNoCaminho, TabBar, tituloDaAba } from '@/widgets/tab-bar'
 import { useResumo } from '@/entities/stats'
-import { backofficeUrl } from '@/shared/config/backoffice'
 import { useBuscaEmFoco } from '@/shared/lib/useBuscaEmFoco'
 import { RESERVA_DA_BARRA } from '@/shared/ui/alturas'
 import { AvisoDaAcao } from '@/features/order-actions'
 
 /**
- * A moldura das abas (feature 72): cabeçalho com o menu da conta, o conteúdo da aba, o rodapé que
- * aponta para o Backoffice e a barra inferior fixa.
+ * A moldura das abas (feature 72): o conteúdo da aba e a barra inferior fixa. O rodapé "Produtos,
+ * vitrine e configurações da loja seguem no Backoffice." com o link para o painel SAIU em 2026-10-26
+ * (decisão do usuário), e com ele a `VITE_BACKOFFICE_URL`, que só existia para esse link.
  *
- * Mora em `app/` e não em `widgets/` porque compõe dois widgets — um widget importando outro seria
- * import lateral (FSD).
+ * **Sem cabeçalho global**, como no protótipo do Claude Design: a marca e o menu da conta moram no topo da faixa da Início (`InicioPage`), e as outras abas abrem direto no título.
  *
- * **A reserva da barra vem DEPOIS do rodapé** (a lição do `BOTTOM_BAR_H` da loja): reservar antes
+ * Mora em `app/` e não em `widgets/` porque compõe widgets — um widget importando outro seria import
+ * lateral (FSD).
+ *
+ * **A reserva da barra vem DEPOIS do conteúdo** (a lição do `BOTTOM_BAR_H` da loja): reservar antes
  * esconderia a última linha do conteúdo atrás da barra fixa. A altura reservada é a da barra mais o
  * inset do sistema, a mesma soma que a barra ocupa.
  *
@@ -36,12 +37,13 @@ import { AvisoDaAcao } from '@/features/order-actions'
  * a tela, uma vez por episódio.
  */
 const MobileLayout = () => {
-  const url = backofficeUrl()
   const { pathname } = useLocation()
   const conteudo = useRef<HTMLElement>(null)
   const anterior = useRef<string | null>(null)
   const resumo = useResumo()
   const buscando = useBuscaEmFoco()
+  // O detalhe do pedido e o da cliente cobrem a barra (protótipo): voltar próprio, ação no fim da tela.
+  const comBarra = barraNoCaminho(pathname)
   const precisaDeVoce = resumo.isError || !resumo.data ? null : resumo.data.fila.precisa_acao
 
   useEffect(() => {
@@ -59,28 +61,14 @@ const MobileLayout = () => {
 
   return (
     <div className="flex min-h-screen flex-col bg-estrelinha-ground text-estrelinha-ink">
-      <header className="flex min-h-14 items-center justify-between gap-4 border-b border-estrelinha-line bg-estrelinha-surface px-4">
-        <p className="text-[11px] font-semibold uppercase tracking-[.1em] text-estrelinha-ink-soft">Ateliê · painel</p>
-        <AccountMenu />
-      </header>
-
-      <main ref={conteudo} className="flex-1 px-4 py-6">
+      <main ref={conteudo} className="flex-1 px-4 pb-6 pt-4">
         <Outlet />
       </main>
 
-      <footer data-testid="rodape-backoffice" className="px-4 pb-6 text-sm text-estrelinha-ink-soft">
-        <p>Produtos, vitrine e configurações da loja seguem no Backoffice.</p>
-        {/* O link em linha própria: alvo de 48 px dentro da frase abria um vão no meio do texto. */}
-        {url && (
-          <a href={url} className="inline-flex min-h-12 items-center font-medium text-estrelinha-primary underline underline-offset-4">
-            Abrir o Backoffice
-          </a>
-        )}
-      </footer>
 
-      <div data-testid="reserva-da-barra" aria-hidden="true" className={`${RESERVA_DA_BARRA} shrink-0`} />
-      <AvisoDaAcao />
-      {!buscando && <TabBar selos={{ '/pedidos': precisaDeVoce }} />}
+      {comBarra && <div data-testid="reserva-da-barra" aria-hidden="true" className={`${RESERVA_DA_BARRA} shrink-0`} />}
+      <AvisoDaAcao comBarra={comBarra} />
+      {comBarra && !buscando && <TabBar selos={{ '/pedidos': precisaDeVoce }} />}
     </div>
   )
 }

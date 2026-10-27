@@ -23,7 +23,7 @@ export const COLUNAS_DO_DETALHE =
   'address_city, address_state, address_zip, customer_phone'
 
 /** As quatro relações do detalhe — colunas conferidas no `information_schema` local (M3 do Design). */
-export const COLUNAS_DOS_ITENS = 'id, product_name, variant_label, engraving_text, quantity, unit_price'
+export const COLUNAS_DOS_ITENS = 'id, product_id, product_name, product_image, variant_label, engraving_text, quantity, unit_price'
 export const COLUNAS_DO_STATUS = 'id, from_status, to_status, note, created_at'
 export const COLUNAS_DAS_NOTAS = 'id, note, created_by, created_at'
 /**
@@ -80,11 +80,23 @@ export interface PedidoDoDetalhe extends LinhaDaLista {
 
 export interface ItemDoPedido {
   id: string
+  /** `text`, e nem sempre um uuid: o import da Nuvemshop grava `nuvemshop:<nome>` (`catalogProductIds`). */
+  product_id: string
   product_name: string
+  /** A foto do momento da compra (snapshot); vazia nos itens vindos da Nuvemshop. */
+  product_image: string | null
   variant_label: string | null
   engraving_text: string | null
   quantity: number
   unit_price: number
+}
+
+/**
+ * O item como o detalhe o desenha: a linha de `order_items` mais a FOTO já decidida por `itemPhoto`
+ * (`@estrelinha/core/orders`) — o snapshot vence, e a capa de hoje do catálogo só entra onde ele falta.
+ */
+export interface ItemComFoto extends ItemDoPedido {
+  foto: string | null
 }
 
 /** Um bloco do detalhe que pode falhar sozinho (`MAP-30`). Discriminado por STRING (`strictNullChecks: false`). */
@@ -93,7 +105,7 @@ export type Bloco<T> = { estado: 'ok'; dado: T } | { estado: 'falhou' }
 export interface DetalheDoPedido {
   /** `null` ⇒ "Não encontrei este pedido." (`MAP-29`). */
   pedido: PedidoDoDetalhe | null
-  itens: Bloco<ItemDoPedido[]>
+  itens: Bloco<ItemComFoto[]>
   /** `buildHistory` já aplicado; em falha se QUALQUER das três fontes falhou (Q6). */
   historico: Bloco<HistoryEvent[]>
   /**

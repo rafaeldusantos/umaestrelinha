@@ -64,7 +64,7 @@ describe('as cinco leituras (§3.4, §13 M3)', () => {
   })
 
   it.each([
-    ['order_items', 'id, product_name, variant_label, engraving_text, quantity, unit_price'],
+    ['order_items', 'id, product_id, product_name, product_image, variant_label, engraving_text, quantity, unit_price'],
     ['order_status_history', 'id, from_status, to_status, note, created_at'],
     ['order_notes', 'id, note, created_by, created_at'],
     ['order_notifications', 'id, event, channel, status, attempts, delivery_status, error, created_at, sent_at, provider_message_id'],
@@ -90,7 +90,7 @@ describe('as cinco leituras (§3.4, §13 M3)', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
     expect(result.current.data).toEqual({
       pedido: detalhe(),
-      itens: { estado: 'ok', dado: [item(), ITEM_COM_GRAVACAO] },
+      itens: { estado: 'ok', dado: [{ ...item(), foto: null }, { ...ITEM_COM_GRAVACAO, foto: null }] },
       historico: { estado: 'ok', dado: buildHistory([statusRow()], [EMAIL_FALHO], [NOTA]) },
       avisoDePostagemSaiu: false,
       lido_em: LIDO_EM,
@@ -169,7 +169,7 @@ describe('os estados (MAP-29, MAP-30, MAP-34)', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
     expect(result.current.data?.itens.estado).toBe('falhou')
     await act(() => result.current.refetch())
-    await waitFor(() => expect(result.current.data?.itens).toEqual({ estado: 'ok', dado: [item()] }))
+    await waitFor(() => expect(result.current.data?.itens).toEqual({ estado: 'ok', dado: [{ ...item(), foto: null }] }))
     expect(fake.chamadasDe('atelie_clock')).toHaveLength(2)
     for (const t of RELACOES) expect(fake.cadeiasDe(t)).toHaveLength(2)
   })
@@ -251,5 +251,46 @@ describe('frescor (MAP-39, TE3)', () => {
     montar()
     for (let i = 0; i < 10; i++) await act(() => vi.advanceTimersByTimeAsync(1000))
     expect(fake.cadeiasDe('order_list')).toHaveLength(2)
+  })
+})
+
+// 2026-10-26 — a foto dos itens. O snapshot do pedido vence (`itemPhoto`, de `core`); a capa de hoje do
+// catálogo só entra onde ele falta, e só para `product_id` procurável (uuid). A leitura de `products`
+// sai DENTRO de `lerComPapel`, e o erro dela vira foto nenhuma — nunca o bloco em falha.
+describe('a foto dos itens', () => {
+  const PRODUTO = '3f1c2a10-0000-4000-8000-000000000001'
+  const SNAPSHOT = 'https://x/pedido.webp'
+  const CAPA = 'https://x/catalogo.webp'
+
+  it('com snapshot: a foto é o snapshot, e `products` NÃO é lido', async () => {
+    fake.responderTabela('order_items', { data: [item({ product_id: PRODUTO, product_image: SNAPSHOT })], error: null })
+    const { result } = montar()
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(result.current.data?.itens).toEqual({ estado: 'ok', dado: [{ ...item({ product_id: PRODUTO, product_image: SNAPSHOT }), foto: SNAPSHOT }] })
+    expect(fake.cadeiasDe('products')).toEqual([])
+  })
+
+  it('sem snapshot: a capa do catálogo (`primaryImage(images)`), lida por id, com as duas colunas', async () => {
+    fake.responderTabela('order_items', { data: [item({ product_id: PRODUTO }), item({ id: 'i-2' })], error: null })
+    fake.responderTabela('products', { data: [{ id: PRODUTO, images: [{ url: CAPA }, { url: 'https://x/segunda.webp' }] }], error: null })
+    const { result } = montar()
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    const dado = (result.current.data?.itens as { estado: 'ok'; dado: { foto: string | null }[] }).dado
+    expect(dado.map((i) => i.foto)).toEqual([CAPA, null])
+    // Só o uuid vai ao `in(id)`: o `nuvemshop:…` do outro item derrubaria a consulta com `22P02`.
+    expect(fake.cadeiasDe('products')).toEqual([
+      [
+        { metodo: 'select', args: ['id, images'] },
+        { metodo: 'in', args: ['id', [PRODUTO]] },
+      ],
+    ])
+  })
+
+  it('a leitura de `products` que falha deixa o item sem foto, e o bloco dos itens NÃO falha', async () => {
+    fake.responderTabela('order_items', { data: [item({ product_id: PRODUTO })], error: null })
+    fake.responderTabela('products', { data: null, error: REDE })
+    const { result } = montar()
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(result.current.data?.itens).toEqual({ estado: 'ok', dado: [{ ...item({ product_id: PRODUTO }), foto: null }] })
   })
 })

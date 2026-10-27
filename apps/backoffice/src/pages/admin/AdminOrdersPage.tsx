@@ -336,7 +336,7 @@ const AdminOrdersPage = () => {
         return (
           <span className="block">
             <MaterialStatusBadge status={o.material_status} />
-            {/* "parado há N dias" mora aqui, sob o selo do material: é a fila do MATERIAL que está
+            {/* "há N dias" mora aqui, sob o selo do material: é a fila do MATERIAL que está
                 parada, não o pedido. Só o terceiro degrau escreve isso. */}
             {naFila?.tier === 'stale' && (
               <span className="mt-0.5 block text-[11px] font-medium text-estrelinha-admin-amber">

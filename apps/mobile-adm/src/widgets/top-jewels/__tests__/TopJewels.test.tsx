@@ -20,14 +20,14 @@ describe('TopJewels — com dado', () => {
   })
 
   it('nunca mais de 4, mesmo que cheguem 5', () => {
-    const r = resumo({ joias: [...resumo().joias, { chave: 'p5', nome: 'Quinta', pecas: 1 }] })
+    const r = resumo({ joias: [...resumo().joias, { chave: 'p5', nome: 'Quinta', pecas: 1, imagens: null, foto_do_pedido: null }] })
     render(<TopJewels leitura={comDado(r)} />)
     expect(linhas()).toHaveLength(4)
     expect(screen.queryByText('Quinta')).toBeNull()
   })
 
   it('menos de 4 no mês: só os que existem', () => {
-    render(<TopJewels leitura={comDado(resumo({ joias: [{ chave: 'p1', nome: 'Só uma', pecas: 2 }] }))} />)
+    render(<TopJewels leitura={comDado(resumo({ joias: [{ chave: 'p1', nome: 'Só uma', pecas: 2, imagens: null, foto_do_pedido: null }] }))} />)
     expect(linhas().map((l) => l.textContent)).toEqual(['Só uma2 peças'])
   })
 
@@ -56,5 +56,37 @@ describe('TopJewels — sem dado', () => {
     expect(screen.queryByText(SEM_VENDA_NO_MES)).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: TENTAR_DE_NOVO }))
     expect(tentarDeNovo).toHaveBeenCalledTimes(1)
+  })
+})
+
+// 2026-10-26 — a foto de cada joia, pela MESMA regra do detalhe do pedido (`itemPhoto`, de `core`):
+// o snapshot do pedido, senão a capa do catálogo (`primaryImage(imagens)`), senão a estrela.
+describe('TopJewels — a foto', () => {
+  const fotoDa = (i: number) => linhas()[i].querySelector('img')?.getAttribute('src') ?? null
+  const joia = (extra: object) => ({ chave: 'p1', nome: 'Pingente', pecas: 2, imagens: null, foto_do_pedido: null, ...extra })
+
+  it('o snapshot vence a capa; sem snapshot, a primeira imagem do catálogo; sem nenhuma, a estrela', () => {
+    render(
+      <TopJewels
+        leitura={comDado(
+          resumo({
+            joias: [
+              joia({ chave: 'a', foto_do_pedido: 'https://x/pedido.webp', imagens: [{ url: 'https://x/capa-a.webp' }] }),
+              joia({ chave: 'b', imagens: [{ url: 'https://x/capa-b.webp' }, { url: 'https://x/outra.webp' }] }),
+              joia({ chave: 'c' }),
+            ],
+          }),
+        )}
+      />,
+    )
+    expect(fotoDa(0)).toBe('https://x/pedido.webp')
+    expect(fotoDa(1)).toBe('https://x/capa-b.webp')
+    expect(fotoDa(2)).toBeNull()
+    expect(linhas()[2].querySelector('svg')).not.toBeNull()
+  })
+
+  it('a moldura tem 40 px, como a da estrela de antes', () => {
+    render(<TopJewels leitura={comDado(resumo({ joias: [joia({ foto_do_pedido: 'https://x/a.webp' })] }))} />)
+    expect(screen.getByTestId('foto-da-peca')).toHaveStyle({ width: '40px', height: '40px' })
   })
 })

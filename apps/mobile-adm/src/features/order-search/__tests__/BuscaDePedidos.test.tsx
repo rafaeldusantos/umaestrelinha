@@ -31,11 +31,11 @@ const montar = () => {
 }
 
 describe('o campo (MAP-10, MAP-42)', () => {
-  it('rótulo acessível, o placeholder do protótipo e 48 px', () => {
+  it('rótulo acessível, o placeholder do protótipo e a pílula de 46 px do protótipo', () => {
     const { campo } = montar()
     expect(campo).toHaveAttribute('placeholder', 'Número, nome, e-mail ou rastreio')
     expect(PLACEHOLDER_DA_BUSCA).toBe('Número, nome, e-mail ou rastreio')
-    expect(tokens(campo)).toContain('h-12')
+    expect(tokens(campo)).toEqual(expect.arrayContaining(['h-[46px]', 'rounded-pill']))
     expect(tokens(campo)).toContain('w-full')
   })
 

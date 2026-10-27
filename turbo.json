@@ -27,8 +27,6 @@
         "VITE_SUPABASE_PUBLISHABLE_KEY",
         "VITE_MP_PUBLIC_KEY",
         "VITE_STORE_URL",
-        // Feature 72: o rodapé das abas do app do ateliê linka para o Backoffice por esta env.
-        "VITE_BACKOFFICE_URL",
         // Feature 70: o `build-robots.mjs` escreve a linha `Sitemap:` do `robots.txt` a partir de
         // `STORE_PUBLIC_URL`, e falha quando `VERCEL` está definido sem ela. Filtradas pelo Turbo,
         // as duas nunca chegariam ao script — e o cache devolveria o `robots.txt` de outra origem.

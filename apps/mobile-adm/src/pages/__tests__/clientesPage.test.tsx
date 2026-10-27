@@ -415,7 +415,7 @@ describe('frescor, puxar e volta ao primeiro plano (MAC-13)', () => {
     responderRelogio()
     fake.responderTabela('customer_list', resposta())
     await abrir()
-    expect(screen.getByTestId('frescor')).toHaveTextContent(/^Atualizado às 11h30\.$/)
+    expect(screen.queryByTestId('frescor')).toBeNull() // 2026-10-26: sem "Atualizado às"
   })
 
   it('a releitura que falha mantém as linhas, sem esqueleto, com a hora e "Não consegui atualizar agora."', async () => {
@@ -430,7 +430,7 @@ describe('frescor, puxar e volta ao primeiro plano (MAC-13)', () => {
     expect(linhasNaTela()).toHaveLength(3)
     expect(screen.getByRole('region', { name: 'Clientes' })).not.toHaveAttribute('aria-busy')
     expect(screen.getByTestId('frescor')).toHaveTextContent(NAO_ATUALIZOU)
-    expect(screen.getByTestId('frescor')).toHaveTextContent(/Atualizado às 11h30\.$/)
+    expect(screen.getByTestId('frescor')).not.toHaveTextContent(/Atualizado/)
   })
 
   it('puxar no topo relê a janela, sem esqueleto', async () => {
@@ -551,19 +551,18 @@ describe('a barra de abas sai do caminho enquanto se digita a busca (BUG-2026102
     expect(barra()).not.toBeNull()
   })
 
-  it('com o foco no campo o título e a linha de frescor saem da frente, e voltam ao sair (BUG-20261024-teclado-aberto-esconde-os-resultados-da-busca)', async () => {
+  it('com o foco no campo o título sai da frente, e volta ao sair (BUG-20261024-teclado-aberto-esconde-os-resultados-da-busca)', async () => {
+    // Desde 2026-10-26 a leitura boa não desenha a linha de frescor ("Atualizado às" saiu); o caso
+    // dela com a releitura falhada, logo abaixo, continua.
     responderRelogio()
     fake.responderTabela('customer_list', resposta())
     await abrir()
     const titulo = () => screen.getByRole('heading', { level: 1, name: 'Clientes' })
     expect(titulo().className).not.toContain('sr-only')
-    expect(screen.queryByTestId('frescor')).not.toBeNull()
     act(() => caixa().focus())
     expect(titulo().className).toContain('sr-only')
-    expect(screen.queryByTestId('frescor')).toBeNull()
     act(() => caixa().blur())
     expect(titulo().className).not.toContain('sr-only')
-    expect(screen.queryByTestId('frescor')).not.toBeNull()
   })
 
   it('o primeiro toque num chip com a busca em foco chega ao chip: o layout só muda depois do clique (BUG-20261024-primeiro-toque-em-chip-ou-limpar-se-perde-com-a-busca-em-foco)', async () => {

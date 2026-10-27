@@ -1,3 +1,4 @@
+import { EstrelinhaStarIcon } from '@estrelinha/ui/icons'
 import { nextStep, rowSummary } from '@estrelinha/core/orders'
 import type { PedidoDoDetalhe } from '@/entities/order'
 
@@ -13,9 +14,14 @@ const ProximoPasso = ({ pedido }: { pedido: PedidoDoDetalhe }) => {
   const { label } = nextStep(pedido)
   const { blocker } = rowSummary(pedido)
   return (
-    <div data-testid="proximo-passo" className="rounded-lg border-l-4 border-estrelinha-primary bg-estrelinha-surface px-4 py-3 text-estrelinha-ink">
-      <p className="text-sm font-semibold [overflow-wrap:anywhere]">{label}</p>
-      {blocker && <p className="mt-1 text-sm [overflow-wrap:anywhere]">{blocker}</p>}
+    // O cartão escuro do protótipo: `ink` com o texto em `on-primary` (12:1) e a estrela em `accent`,
+    // o único par em que o ouro pode ficar sobre o fundo (4,78:1, o token diz isso).
+    <div data-testid="proximo-passo" className="flex items-start gap-3 rounded-lg bg-estrelinha-ink p-4 text-estrelinha-on-primary">
+      <EstrelinhaStarIcon aria-hidden className="mt-px h-5 w-5 shrink-0 text-estrelinha-accent" />
+      <div className="min-w-0">
+        <p className="text-[15px] font-medium [overflow-wrap:anywhere]">{label}</p>
+        {blocker && <p className="mt-0.5 text-[13px] font-light text-estrelinha-on-primary/85 [overflow-wrap:anywhere]">{blocker}</p>}
+      </div>
     </div>
   )
 }

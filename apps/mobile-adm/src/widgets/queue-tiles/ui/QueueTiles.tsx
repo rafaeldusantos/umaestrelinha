@@ -24,14 +24,14 @@ const QueueTiles = ({ leitura }: { leitura: Leitura<StoreOverview> }) => {
   const carregando = !r && !leitura.falhou
 
   return (
-    <section aria-labelledby="precisa-de-voce" aria-busy={carregando ? 'true' : undefined} className="pt-6">
+    <section aria-labelledby="precisa-de-voce" aria-busy={carregando ? 'true' : undefined}>
       <div className="flex items-baseline justify-between gap-4">
         <h2 id="precisa-de-voce" className="text-xl">
           Precisa de você
         </h2>
         <Link
           to={pedidosHref({ visao: 'precisa-acao' })}
-          className="inline-flex min-h-11 items-center text-sm font-medium text-estrelinha-primary"
+          className="-my-2 inline-flex min-h-11 items-center text-sm font-medium text-estrelinha-primary"
         >
           Ver pedidos
         </Link>

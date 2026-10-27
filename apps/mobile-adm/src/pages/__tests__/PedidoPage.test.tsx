@@ -75,10 +75,12 @@ describe('o detalhe com dado (MAP-20..MAP-28)', () => {
     await abrir()
     expect(h1().textContent).toBe('Pedido #0244')
     expect(screen.getByTestId('proximo-passo')).toBeInTheDocument()
-    for (const nome of ['Cliente', '1 joia', 'Valores', 'Entrega', 'Histórico']) expect(bloco(nome)).toBeInTheDocument()
+    for (const nome of ['Cliente', '1 joia', 'Entrega', 'Histórico']) expect(bloco(nome)).toBeInTheDocument()
+    // Desde 2026-10-26 (protótipo) os valores fecham o cartão das joias: um grupo DENTRO dele.
+    expect(within(bloco('1 joia')!).getByRole('group', { name: 'Valores' })).toBeInTheDocument()
     expect(fake.chamadasDe('atelie_clock')).toHaveLength(1)
     expect(fake.cadeiasDe('order_list').filter(ehDetalhe)).toHaveLength(1)
-    expect(screen.getByTestId('frescor')).toHaveTextContent(/^Atualizado às 11h30\.$/)
+    expect(screen.queryByTestId('frescor')).toBeNull() // 2026-10-26: sem "Atualizado às"
   })
 
   it('o título do documento é "Pedido · Ateliê" lendo e "Pedido #0244 · Ateliê" com o dado (MAP-46, TE2)', async () => {
@@ -95,11 +97,14 @@ describe('o detalhe com dado (MAP-20..MAP-28)', () => {
     expect(document.title).toBe('Pedido #0244 · Ateliê')
   })
 
-  it('a aba Pedidos fica marcada no detalhe, e nenhuma outra (MAP-55)', async () => {
+  // Era a MAP-55 ("a aba Pedidos fica marcada no detalhe"). Desde 2026-10-26 o detalhe segue o
+  // protótipo do Claude Design: ele cobre a barra de abas e tem o próprio "Voltar".
+  it('no detalhe a barra de abas não é desenhada (protótipo)', async () => {
     responder()
     await abrir()
-    const links = within(screen.getByRole('navigation', { name: 'Áreas do ateliê' })).getAllByRole('link')
-    expect(links.map((l) => l.getAttribute('aria-current'))).toEqual([null, 'page', null, null])
+    expect(screen.queryByRole('navigation', { name: 'Áreas do ateliê' })).toBeNull()
+    expect(screen.queryByTestId('reserva-da-barra')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Voltar' })).toBeInTheDocument()
   })
 
   it('abre no topo: `scrollTo(0, 0)` ao montar', async () => {
@@ -246,7 +251,8 @@ describe('falha por bloco (MAP-30, TE4)', () => {
     await abrir()
     const itens = bloco('Joias')!
     expect(within(itens).getByText(FALHA_DE_LEITURA)).toBeInTheDocument()
-    expect(bloco('Valores')).toBeInTheDocument()
+    // Os valores vêm do PEDIDO: ficam no cartão das joias mesmo com a leitura dos itens em falha.
+    expect(within(itens).getByRole('group', { name: 'Valores' })).toBeInTheDocument()
     expect(bloco('Histórico')).toBeInTheDocument()
     const cliente = bloco('Cliente')!
 
@@ -347,10 +353,14 @@ describe('o Realtime e o puxar (MAP-39)', () => {
     responder()
     await abrir()
     expect(fake.canaisAbertos().map((c) => c.nome)).toEqual([CANAL_DO_DETALHE])
-    fake.responderRpc('store_movement', movimento())
     fake.responderRpc('store_overview', resumo())
-    fireEvent.click(abaDe('Início'))
+    // Sem barra no detalhe (protótipo): a saída é pelo histórico, para uma aba que não lê pedidos.
+    act(() => {
+      window.history.pushState({}, '', '/descontos')
+      window.dispatchEvent(new PopStateEvent('popstate'))
+    })
     await andar(50)
+    expect(window.location.pathname).toBe('/descontos')
     expect(fake.canaisAbertos().map((c) => c.nome)).not.toContain(CANAL_DO_DETALHE)
   })
 
@@ -385,13 +395,15 @@ describe('o Realtime e o puxar (MAP-39)', () => {
     expect(fake.cadeiasDe('order_list')).toHaveLength(leituras)
   })
 
-  it('o aviso relê o detalhe — o estado novo na tela — e o resumo: o SELO da aba muda (A25)', async () => {
+  it('o aviso relê o detalhe — o estado novo na tela — e o resumo do selo (A25)', async () => {
     fake.aoChamarRpc('store_overview', (n) => ({ data: n === 1 ? resumo() : resumo({ fila: { ...resumo().fila, precisa_acao: 1 } }), error: null }))
     let atual = detalhe({ status: 'paid' })
     responder({ pedido: () => atual })
     await abrir()
     expect(document.querySelector('main [data-situation]')?.textContent).toBe('Em produção')
-    expect(abaDe('Pedidos')).toHaveAccessibleName('Pedidos, 5 precisam de você')
+    // O selo não está na tela (o detalhe cobre a barra, protótipo); a releitura do resumo que o
+    // alimenta é contada pelas chamadas.
+    const resumosAntes = fake.chamadasDe('store_overview').length
     atual = detalhe({ status: 'shipped', tracking_code: 'BR123456789BR' })
     act(() => {
       expect(fake.emitir('orders')).toBe(1)
@@ -399,7 +411,7 @@ describe('o Realtime e o puxar (MAP-39)', () => {
     await andar(50)
     expect(document.querySelector('main [data-situation]')?.textContent).toBe('Enviado')
     expect(screen.getByText('Rastreio BR123456789BR')).toBeInTheDocument()
-    expect(abaDe('Pedidos')).toHaveAccessibleName('Pedidos, 1 precisa de você')
+    expect(fake.chamadasDe('store_overview').length).toBeGreaterThan(resumosAntes)
   })
 
   it('puxar no topo relê o detalhe, sem esqueleto', async () => {

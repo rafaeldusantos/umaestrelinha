@@ -10,7 +10,7 @@ import { createRoot } from 'react-dom/client'
 import { describe, expect, it } from 'vitest'
 import { ESTRELINHA_COLORS } from '@estrelinha/ui/tokens/estrelinha'
 import { Splash } from '@/features/splash'
-import lockupImportadoPelaSplash from '@/features/splash/assets/uma-estrelinha-lockup-negativo.svg?raw'
+import lockupImportadoPelaSplash from '@/shared/assets/uma-estrelinha-lockup-negativo.svg?raw'
 import { injetarSplash, LOCKUP_DA_SPLASH, NOME_DA_SPLASH, ROTULO_DA_SPLASH, splashEstaticaHtml } from '../../../splashEstatica'
 
 const APP = resolve(__dirname, '../../..')

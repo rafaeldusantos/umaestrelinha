@@ -9,6 +9,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { primaryImage } from '@estrelinha/core/media'
+import { catalogProductIds } from '@estrelinha/core/orders'
 import { supabase } from '@estrelinha/supabase/client'
 import type {
   DbOrder, DbOrderItem, DbOrderNote, DbOrderStatusHistory,
@@ -73,22 +74,11 @@ export interface OrderProductRef {
 }
 
 /**
- * `order_items.product_id` é `text`, e **nem sempre é um uuid**: o import da Nuvemshop grava
- * `nuvemshop:<nome>` no item que não casou com o catálogo (35 dos 59 de hoje). Mandar esse valor
- * num `in('id', ...)` contra uma coluna `uuid` derruba a consulta inteira com `22P02` — e levaria
- * junto a foto e o link dos itens que CASARAM. Por isso o recorte é por forma, antes da rede.
+ * Os `product_id` que **podem** ser procurados em `products` — a regra subiu para
+ * `@estrelinha/core/orders` (`itemPhoto.ts`), porque o app do ateliê também desenha a foto do item.
+ * Reexportada por referência: o teste que já existia continua medindo a mesma função.
  */
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
-/**
- * Os `product_id` que **podem** ser procurados em `products`, sem repetição.
- *
- * Exportado só para ter teste: é a linha cuja remoção não quebra nada visível — a consulta passa a
- * falhar, o mapa volta vazio, e **todo** item do pedido perde foto e link em silêncio, inclusive os
- * que casaram. Sem uma asserção sobre ela, o próximo a mexer aqui não tem como saber.
- */
-export const catalogProductIds = (itens: readonly { product_id: string }[]): string[] =>
-  [...new Set(itens.map(i => i.product_id).filter(id => UUID.test(id ?? '')))]
+export { catalogProductIds }
 
 export interface AdminOrderDetail {
   order: DbOrder | null

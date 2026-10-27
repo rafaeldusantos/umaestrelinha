@@ -51,7 +51,7 @@ const BotaoDaAcao = ({ linha, aoRecusa }: BotaoDaAcaoProps) => {
   const texto = acao.travado ? SAVING : primaria.label
 
   return (
-    <div data-testid="acao-do-cartao" className="space-y-2 pb-3">
+    <div data-testid="acao-do-cartao" className="space-y-2">
       {erro && (
         <div role="alert" className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-estrelinha-alert [overflow-wrap:anywhere]">
           <p className="min-w-0 flex-1">{erro.frase}</p>
@@ -75,7 +75,7 @@ const BotaoDaAcao = ({ linha, aoRecusa }: BotaoDaAcaoProps) => {
           aria-disabled={acao.travado ? 'true' : undefined}
           aria-label={`${texto}, ${nomeDaLinha(linha)}`}
           data-acao={primaria.action}
-          className="min-h-11 w-full rounded-sm border border-estrelinha-primary px-4 py-2 text-sm font-medium text-estrelinha-primary hover:bg-estrelinha-ground-deep aria-disabled:opacity-70 [overflow-wrap:anywhere]"
+          className="min-h-11 w-full rounded-sm bg-estrelinha-primary px-4 py-2 text-sm font-medium text-estrelinha-on-primary hover:bg-estrelinha-primary-strong aria-disabled:opacity-70 [overflow-wrap:anywhere]"
         >
           {texto}
         </button>

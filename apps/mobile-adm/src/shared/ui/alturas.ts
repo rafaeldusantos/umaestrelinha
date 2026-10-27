@@ -28,12 +28,18 @@ export const VAR_ALTURA_DO_RODAPE = '--altura-do-rodape'
 /** O piso do rodapé enquanto ele não se mediu: o botão de 48 px mais 8 px em cima e embaixo. */
 export const ALTURA_MINIMA_DO_RODAPE = '4rem'
 
-/** O rodapé da ação fica logo acima da barra. */
-export const RODAPE_ACIMA_DA_BARRA = 'bottom-[calc(4rem+env(safe-area-inset-bottom))]'
+/**
+ * O rodapé da ação fica no FIM da tela (protótipo do Claude Design, 2026-10-26): ele só existe no
+ * detalhe do pedido, e lá a barra de abas não é desenhada. O inset do sistema entra no respiro de baixo,
+ * então a altura medida do rodapé (`--altura-do-rodape`) já o inclui.
+ */
+export const RODAPE_NO_FIM = 'bottom-0 pb-[calc(0.75rem+env(safe-area-inset-bottom))]'
 /** A reserva no fim do detalhe: a altura do rodapé, medida (ou o piso). */
 export const RESERVA_DO_RODAPE = 'h-[var(--altura-do-rodape,4rem)]'
 
 /** A confirmação, sem rodapé: acima da barra, com 8 px de folga. */
 export const AVISO_ACIMA_DA_BARRA = 'bottom-[calc(4rem+env(safe-area-inset-bottom)+0.5rem)]'
-/** A confirmação, com rodapé: acima da barra E do rodapé, com 8 px de folga. */
-export const AVISO_ACIMA_DO_RODAPE = 'bottom-[calc(4rem+var(--altura-do-rodape,4rem)+env(safe-area-inset-bottom)+0.5rem)]'
+/** A confirmação, com rodapé (no detalhe, sem barra): acima do rodapé — cuja altura já inclui o inset —, com 8 px de folga. */
+export const AVISO_ACIMA_DO_RODAPE = 'bottom-[calc(var(--altura-do-rodape,4rem)+0.5rem)]'
+/** A confirmação numa tela sem barra e sem rodapé (o detalhe sem ação): no fim, acima do inset, com 8 px de folga. */
+export const AVISO_NO_FIM = 'bottom-[calc(env(safe-area-inset-bottom)+0.5rem)]'

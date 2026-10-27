@@ -3,7 +3,7 @@ import { cn } from '@estrelinha/ui/lib/utils'
 import { SAVING, appPrimaryAction } from '@estrelinha/core/orders'
 
 import type { PedidoDoDetalhe } from '@/entities/order'
-import { RESERVA_DO_RODAPE, RODAPE_ACIMA_DA_BARRA } from '@/shared/ui/alturas'
+import { RESERVA_DO_RODAPE, RODAPE_NO_FIM } from '@/shared/ui/alturas'
 import { AVISO_DE_ERRO } from '@/shared/ui/campo'
 import { TENTAR_DE_NOVO } from '@/shared/ui/leitura'
 
@@ -75,8 +75,8 @@ const RodapeDaAcao = ({ pedido, acao }: RodapeDaAcaoProps) => {
         ref={caixa}
         data-testid="rodape-da-acao"
         className={cn(
-          'fixed inset-x-0 z-30 bg-estrelinha-surface px-4 py-2 shadow-[0_-1px_0_0_theme(colors.estrelinha.line)]',
-          RODAPE_ACIMA_DA_BARRA,
+          'fixed inset-x-0 z-30 bg-estrelinha-surface px-4 pt-3 shadow-[0_-1px_0_0_theme(colors.estrelinha.line)]',
+          RODAPE_NO_FIM,
         )}
       >
         <div className="mx-auto max-w-lg space-y-2">

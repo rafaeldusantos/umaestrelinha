@@ -18,10 +18,10 @@ const BotaoVoltar = () => {
     <button
       type="button"
       onClick={() => (doApp ? navigate(-1) : navigate(PEDIDOS_PATH, { replace: true }))}
-      className="-ml-2 inline-flex min-h-11 min-w-11 items-center gap-1 rounded-sm px-2 text-sm font-medium text-estrelinha-primary"
+      aria-label="Voltar"
+      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-estrelinha-ink"
     >
-      <ChevronLeft aria-hidden="true" className="h-5 w-5" strokeWidth={1.5} />
-      Voltar
+      <ChevronLeft aria-hidden="true" className="h-[22px] w-[22px]" strokeWidth={1.5} />
     </button>
   )
 }
@@ -38,15 +38,24 @@ const CabecalhoDoPedido = ({ pedido, lidoEm }: { pedido?: PedidoDoDetalhe | null
   const data = pedido ? formatShortDate(pedido.created_at) : null
   const tempo = pedido && lidoEm ? relativeAge(pedido.created_at, lidoEm) : null
   return (
-    <header className="space-y-2">
+    // A barra do protótipo (60 px, `surface`, fio embaixo): voltar, título com a data, e o selo à
+    // direita. Ela sangra até as bordas da tela (`-mx-4 -mt-4`, o recuo do `main`) e fica presa no
+    // topo enquanto o pedido rola — o número e a situação continuam à vista.
+    <header className="sticky top-0 z-10 -mx-4 -mt-4 flex min-h-[60px] flex-wrap items-center gap-x-1.5 gap-y-1 border-b border-estrelinha-line bg-estrelinha-surface py-2 pl-2 pr-4">
       <BotaoVoltar />
-      <h1 className="font-display text-2xl [overflow-wrap:anywhere]">{tituloDoPedido(pedido)}</h1>
-      {pedido && (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <SituacaoDoPedido pedido={pedido} />
-          <span data-parte="data" className="text-sm text-estrelinha-ink-soft">
+      {/* Com a fonte grande o selo desce para a linha de baixo, em vez de espremer o título numa coluna
+          ou empurrar a tela para o lado: o título tem piso de largura e o selo cede (`max-w-full`). */}
+      <div className="min-w-0 flex-[1_1_9rem]">
+        <h1 className="font-display text-[17px] font-bold leading-tight [overflow-wrap:anywhere]">{tituloDoPedido(pedido)}</h1>
+        {pedido && (
+          <p data-parte="data" className="text-xs text-estrelinha-ink-soft">
             {[data, tempo].filter(Boolean).join(' · ')}
-          </span>
+          </p>
+        )}
+      </div>
+      {pedido && (
+        <div className="ml-auto min-w-0 max-w-full">
+          <SituacaoDoPedido pedido={pedido} />
         </div>
       )}
     </header>

@@ -43,24 +43,33 @@ const TabBar = ({ selos = {} }: { selos?: SelosDasAbas }) => (
             aria-label={selo ? nomeDaAbaComSelo(label, selos[path]) : undefined}
             className={({ isActive }) =>
               cn(
-                'flex min-h-12 flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium',
-                isActive ? 'text-estrelinha-primary' : 'text-estrelinha-ink-soft',
+                // O protótipo: ícone de 24, rótulo de 12 (600 na ativa), e um traço de 2 px no topo da aba
+                // ativa — o traço é o que diz "você está aqui" além da cor.
+                'relative flex min-h-12 flex-1 flex-col items-center justify-center gap-1 text-xs',
+                isActive ? 'font-semibold text-estrelinha-primary' : 'font-normal text-estrelinha-ink-soft',
               )
             }
           >
-            <span className="relative">
-              <Icon aria-hidden="true" className="h-5 w-5" strokeWidth={1.5} />
-              {selo && (
-                <span
-                  aria-hidden="true"
-                  data-testid="selo-da-aba"
-                  className="absolute -right-2.5 -top-1.5 min-w-4 rounded-pill bg-estrelinha-alert px-1 text-center text-[10px] font-semibold leading-4 text-estrelinha-on-primary"
-                >
-                  {selo}
+            {({ isActive }) => (
+              <>
+                {isActive && (
+                  <span aria-hidden="true" data-testid="traco-da-aba" className="absolute inset-x-[30%] top-0 h-0.5 rounded-pill bg-estrelinha-primary" />
+                )}
+                <span className="relative flex">
+                  <Icon aria-hidden="true" className="h-6 w-6" strokeWidth={1.5} />
+                  {selo && (
+                    <span
+                      aria-hidden="true"
+                      data-testid="selo-da-aba"
+                      className="absolute -right-2.5 -top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-pill border-2 border-estrelinha-surface bg-estrelinha-primary px-[5px] text-[11px] font-semibold leading-none text-estrelinha-on-primary"
+                    >
+                      {selo}
+                    </span>
+                  )}
                 </span>
-              )}
-            </span>
-            <span>{label}</span>
+                <span>{label}</span>
+              </>
+            )}
           </NavLink>
         </li>
         )

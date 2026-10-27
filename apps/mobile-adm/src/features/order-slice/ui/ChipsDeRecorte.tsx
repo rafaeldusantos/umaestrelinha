@@ -28,7 +28,7 @@ const ChipsDeRecorte = ({ recorte, aoTrocar }: { recorte: OrderSlice; aoTrocar: 
             data-visao={v.id}
             onClick={() => aoTrocar({ visao: v.id })}
             className={cn(
-              'min-h-11 shrink-0 whitespace-nowrap rounded-pill border px-4 text-sm font-medium transition-colors motion-reduce:transition-none',
+              'min-h-11 shrink-0 whitespace-nowrap rounded-pill border-2 px-3.5 text-sm font-medium transition-colors motion-reduce:transition-none',
               pressionado
                 ? 'border-estrelinha-primary bg-estrelinha-primary text-estrelinha-on-primary'
                 : 'border-estrelinha-field bg-estrelinha-surface text-estrelinha-ink',

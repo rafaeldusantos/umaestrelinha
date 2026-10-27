@@ -69,10 +69,10 @@ const ClientesPage = () => {
   return (
     <PullToRefresh onRefresh={() => lista.refetch()}>
       <div className="space-y-4">
-        <h1 className={buscando ? 'sr-only' : 'text-2xl'}>{tabFor('/clientes').label}</h1>
+        <h1 className={buscando ? 'sr-only' : 'text-[28px] tracking-[-0.02em]'}>{tabFor('/clientes').label}</h1>
         <BuscaDeClientes key={geracaoDoCampo} inicial={termo} aoBuscar={setTermo} />
         <ChipsDeClientes recorte={recorte} aoTrocar={trocarRecorte} />
-        {janela && !(buscando && !naoAtualizou) && <LinhaDeFrescor lidoEm={janela.lido_em} naoAtualizou={naoAtualizou} />}
+        {janela && !(buscando && !naoAtualizou) && <LinhaDeFrescor naoAtualizou={naoAtualizou} />}
         <ListaDeClientes
           recorte={recorte}
           termo={termo}

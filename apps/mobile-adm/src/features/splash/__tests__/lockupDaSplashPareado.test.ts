@@ -8,7 +8,7 @@ import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const FONTE = resolve(__dirname, '../../../../../../.specs/brand/uma-estrelinha/uma-estrelinha-lockup-negativo.svg')
-const COPIA = resolve(__dirname, '../assets/uma-estrelinha-lockup-negativo.svg')
+const COPIA = resolve(__dirname, '../../../shared/assets/uma-estrelinha-lockup-negativo.svg')
 
 const iguais = (a: Buffer, b: Buffer) => a.equals(b)
 

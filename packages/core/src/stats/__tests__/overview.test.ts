@@ -20,7 +20,7 @@ describe('OVERVIEW_KEYS — as chaves do tipo, por nível', () => {
   it('semana, mês, joias', () => {
     expect(OVERVIEW_KEYS.semana).toEqual(['dia', 'dow', 'faturamento', 'vendas'])
     expect(OVERVIEW_KEYS.mes_resumo).toEqual(['faturamento', 'vendas'])
-    expect(OVERVIEW_KEYS.joias).toEqual(['chave', 'nome', 'pecas'])
+    expect(OVERVIEW_KEYS.joias).toEqual(['chave', 'foto_do_pedido', 'imagens', 'nome', 'pecas'])
   })
   it('fila — os quatro blocos, a união e a idade', () => {
     expect(OVERVIEW_KEYS.fila).toEqual([

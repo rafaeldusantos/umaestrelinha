@@ -19,7 +19,7 @@
  */
 
 /**
- * O corte de "parado", em dias.
+ * O corte do terceiro degrau (o âmbar), em dias.
  *
  * **8, e o número tem origem**: o PAC nacional dos Correios entrega em 4 a 7 dias úteis. Abaixo
  * disso a espera é o próprio prazo do envelope, e alarmar seria ruído — a Adri olharia âmbar num
@@ -80,12 +80,14 @@ export const tierFor = (days: number): QueueTier => {
 }
 
 /**
- * O texto do degrau, em português.
+ * O texto do degrau, em português: **"há N dias" nos três degraus** (decisão do usuário, 2026-10-26).
  *
- * O terceiro diz **"parado há"**, e os outros dois dizem "há". A diferença é deliberada: "parado"
- * é a palavra que transforma um número em cobrança, e ela só aparece quando há o que cobrar.
+ * Até aqui o terceiro dizia "parado há". A palavra saiu: quem distingue o degrau é a cor (só o
+ * terceiro ganha âmbar), e "parado" lia como acusação num pedido que espera o envelope da cliente.
+ * O texto é um só para o painel e para o app do ateliê — o card da Início, a linha da lista de
+ * pedidos e a ficha da cliente leem daqui.
  */
 export const queueAgeLabel = (age: QueueAge): string => {
   const unidade = age.days === 1 ? 'dia' : 'dias'
-  return age.tier === 'stale' ? `parado há ${age.days} ${unidade}` : `há ${age.days} ${unidade}`
+  return `há ${age.days} ${unidade}`
 }

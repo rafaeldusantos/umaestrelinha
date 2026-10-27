@@ -75,12 +75,12 @@ describe('a faixa do bloco (MAP-05)', () => {
     expect(screen.getByTestId('faixa-do-bloco')).toHaveTextContent(frase)
   })
 
-  it('"Limpar filtro" tem 44 px e emite { visao: "tudo" }', () => {
+  it('"Limpar filtro" é o X redondo de 44 px (nome no aria-label) e emite { visao: "tudo" }', () => {
     const aoTrocar = vi.fn()
     render(<FaixaDoBloco bloco="aguardando" aoTrocar={aoTrocar} />)
     const limpar = screen.getByRole('button', { name: LIMPAR_FILTRO })
     expect(LIMPAR_FILTRO).toBe('Limpar filtro')
-    expect(tokens(limpar)).toContain('min-h-11')
+    expect(tokens(limpar)).toEqual(expect.arrayContaining(['h-11', 'w-11', 'rounded-full']))
     fireEvent.click(limpar)
     expect(aoTrocar).toHaveBeenCalledTimes(1)
     expect(aoTrocar).toHaveBeenCalledWith({ visao: 'tudo' })

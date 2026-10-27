@@ -108,7 +108,7 @@ describe('a ficha com dado (MAC-15..MAC-19)', () => {
     expect(bloco('contato')).not.toBeNull()
     expect(screen.getByRole('heading', { level: 2, name: 'Pedidos · 2' })).toBeInTheDocument()
     expect(screen.getAllByTestId('pedido-da-cliente')).toHaveLength(2)
-    expect(screen.getByTestId('frescor')).toHaveTextContent(/^Atualizado às 11h30\.$/)
+    expect(screen.queryByTestId('frescor')).toBeNull() // 2026-10-26: sem "Atualizado às"
   })
 
   it('o item do primeiro pedido vem de UMA leitura `in(order_id)` para a janela', async () => {
@@ -219,12 +219,13 @@ describe('o título do documento é uma constante, em todo estado (MAC-28)', () 
 })
 
 describe('a aba Clientes fica marcada na ficha, e `*` continua levando à Início (MAC-36)', () => {
-  it('só a aba Clientes é a atual', async () => {
+  // Era "só a aba Clientes é a atual". Desde 2026-10-26 a ficha segue o protótipo: cobre a barra e
+  // tem o próprio "Voltar".
+  it('na ficha a barra de abas não é desenhada (protótipo)', async () => {
     responder()
     await abrir()
-    const links = within(screen.getByRole('navigation', { name: 'Áreas do ateliê' })).getAllByRole('link')
-    expect(links.map((l) => l.getAttribute('aria-current'))).toEqual([null, null, 'page', null])
-    expect(abaDe('Clientes')).toHaveAttribute('aria-current', 'page')
+    expect(screen.queryByRole('navigation', { name: 'Áreas do ateliê' })).toBeNull()
+    expect(screen.queryByTestId('reserva-da-barra')).toBeNull()
   })
 
   it('um caminho desconhecido ainda leva a `/`', async () => {
@@ -446,6 +447,6 @@ describe('recusa e rede (MAC-11, MAC-37)', () => {
     await puxar()
     expect(bloco('contato')).not.toBeNull()
     expect(screen.getByTestId('frescor')).toHaveTextContent(NAO_ATUALIZOU)
-    expect(screen.getByTestId('frescor')).toHaveTextContent(/Atualizado às 11h30\.$/)
+    expect(screen.getByTestId('frescor')).not.toHaveTextContent(/Atualizado/)
   })
 })

@@ -427,7 +427,8 @@ describe('recusa e rede (MAP-36..MAP-38)', () => {
     expect(window.location.pathname).toBe('/pedidos')
     expect(fake.chamadasDe('atelie_clock')).toHaveLength(3)
     expect(linhasNaTela()).toHaveLength(25)
-    expect(screen.getByTestId('frescor')).toBeInTheDocument()
+    // Desde 2026-10-26 a leitura boa não desenha linha de frescor: as 25 linhas são a prova da volta.
+    expect(screen.queryByTestId('frescor')).toBeNull()
     expect(screen.queryByText(FALHA_DE_LEITURA)).toBeNull()
     expect(papeisPerguntados()).toBe(2)
   })
@@ -468,7 +469,7 @@ describe('frescor (MAP-35)', () => {
     responderRelogio()
     fake.responderTabela('order_list', resposta())
     await abrir()
-    expect(screen.getByTestId('frescor')).toHaveTextContent(/^Atualizado às 11h30\.$/)
+    expect(screen.queryByTestId('frescor')).toBeNull() // 2026-10-26: sem "Atualizado às"
   })
 
   it('a releitura que falha mantém as linhas, sem esqueleto, com a hora e "Não consegui atualizar agora."', async () => {
@@ -482,7 +483,7 @@ describe('frescor (MAP-35)', () => {
     expect(linhasNaTela()).toHaveLength(3)
     expect(screen.getByRole('region', { name: 'Pedidos' })).not.toHaveAttribute('aria-busy')
     expect(screen.getByTestId('frescor')).toHaveTextContent(NAO_ATUALIZOU)
-    expect(screen.getByTestId('frescor')).toHaveTextContent(/Atualizado às 11h30\.$/)
+    expect(screen.getByTestId('frescor')).not.toHaveTextContent(/Atualizado/)
   })
 })
 

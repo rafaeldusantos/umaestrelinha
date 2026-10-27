@@ -137,12 +137,11 @@ const PedidoPage = () => {
           </div>
         ) : (
           <>
-            <LinhaDeFrescor lidoEm={lidoEm} naoAtualizou={naoAtualizou} />
+            <LinhaDeFrescor naoAtualizou={naoAtualizou} />
             <ProximoPasso pedido={p} />
             <BlocoCliente pedido={p} verCliente={<VerCliente email={p.customer_email} aoRecusa={recusaDoBotao} />} />
             <BlocoMaterial pedido={p} lidoEm={lidoEm} lembrete={<LembreteDoEnvio pedido={p} lidoEm={lidoEm} />} />
-            <BlocoItens itens={detalhe.itens} tentarDeNovo={tentarDeNovo} />
-            <BlocoValores pedido={p} />
+            <BlocoItens itens={detalhe.itens} tentarDeNovo={tentarDeNovo} valores={<BlocoValores pedido={p} />} />
             <BlocoEntrega pedido={p} editar={<EditarRastreio pedido={p} acao={acao} avisoDePostagemSaiu={detalhe.avisoDePostagemSaiu} />} />
             <Historico historico={detalhe.historico} lidoEm={lidoEm} tentarDeNovo={tentarDeNovo} />
             <RodapeDaAcao pedido={p} acao={acao} />

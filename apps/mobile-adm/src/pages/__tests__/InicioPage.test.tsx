@@ -80,10 +80,11 @@ describe('a Início abre lendo as duas RPCs admin (MAI-01, MAI-09, MAI-23)', () 
     }
   })
 
-  it('o rodapé do Backoffice continua (MAI-29)', async () => {
+  it('sem o rodapé do Backoffice (saiu em 2026-10-26; era a MAI-29)', async () => {
     responderTudo()
     await abrir()
-    expect(screen.getByTestId('rodape-backoffice')).toHaveTextContent('Produtos, vitrine e configurações da loja seguem no Backoffice.')
+    expect(screen.queryByTestId('rodape-backoffice')).toBeNull()
+    expect(screen.queryByText(/seguem no Backoffice/)).toBeNull()
   })
 })
 
@@ -161,14 +162,14 @@ describe('frescor (MAI-18)', () => {
   it('"Atualizado às" diz a hora de BRASÍLIA do `lido_em` do servidor (14:30Z ⇒ 11h30), não do aparelho', async () => {
     responderTudo()
     await abrir()
-    expect(screen.getByTestId('frescor')).toHaveTextContent(/^Atualizado às 11h30\.$/)
+    expect(screen.queryByTestId('frescor')).toBeNull() // 2026-10-26: sem "Atualizado às"
   })
 
   it('com duas leituras, vale a mais ANTIGA', async () => {
     fake.responderRpc('store_movement', movimento({ lido_em: '2026-10-22T14:30:00.000Z' }))
     fake.responderRpc('store_overview', resumo({ lido_em: '2026-10-22T14:12:00.000Z' }))
     await abrir()
-    expect(screen.getByTestId('frescor')).toHaveTextContent(/^Atualizado às 11h12\.$/)
+    expect(screen.queryByTestId('frescor')).toBeNull() // 2026-10-26: sem "Atualizado às"
   })
 
   it('a releitura que FALHA mantém os números, sem esqueleto, com a hora e o aviso', async () => {
@@ -185,7 +186,7 @@ describe('frescor (MAI-18)', () => {
     expect(screen.getByRole('region', { name: 'Movimento da loja' })).not.toHaveAttribute('aria-busy')
     expect(screen.getByTestId('frescor')).toHaveTextContent(NAO_ATUALIZOU)
     // A hora é a do dado que ficou (o movimento, 11h30), não a do resumo que acabou de chegar.
-    expect(screen.getByTestId('frescor')).toHaveTextContent(/Atualizado às 11h30\.$/)
+    expect(screen.getByTestId('frescor')).not.toHaveTextContent(/Atualizado/)
   })
 
   it('a releitura do RESUMO que falha também mantém os números, com o aviso e a hora da leitura boa (N15 da r2)', async () => {
@@ -207,7 +208,7 @@ describe('frescor (MAI-18)', () => {
     expect(screen.getAllByTestId('pedido-recente')).toHaveLength(4)
     expect(screen.queryByText(FALHA_DE_LEITURA)).toBeNull()
     expect(screen.getByTestId('frescor')).toHaveTextContent(NAO_ATUALIZOU)
-    expect(screen.getByTestId('frescor')).toHaveTextContent(/Atualizado às 11h20\.$/)
+    expect(screen.getByTestId('frescor')).not.toHaveTextContent(/Atualizado/)
   })
 
   it('a releitura que dá certo depois tira o aviso', async () => {
@@ -225,8 +226,8 @@ describe('frescor (MAI-18)', () => {
       fake.emitir('orders')
     })
     await andar(50)
-    expect(screen.getByTestId('frescor')).not.toHaveTextContent(NAO_ATUALIZOU)
-    expect(screen.getByTestId('frescor')).toHaveTextContent(/^Atualizado às 12h00\.$/)
+    expect(screen.queryByTestId('frescor')).toBeNull()
+    expect(screen.queryByTestId('frescor')).toBeNull() // 2026-10-26: sem "Atualizado às"
   })
 })
 
@@ -452,7 +453,7 @@ describe('a rede cai e volta (MAI-18, MAI-26; achado da prova em navegador da T2
     expect(faturamentoHoje()).toHaveAccessibleName(/^Faturamento, hoje, R\$\s1\.077$/)
     expect(blocoAguardando()?.textContent).toContain('3')
     expect(topo()).not.toHaveAttribute('aria-busy')
-    expect(screen.getByTestId('frescor')).toHaveTextContent(/^Atualizado às 11h30\.$/)
+    expect(screen.queryByTestId('frescor')).toBeNull() // 2026-10-26: sem "Atualizado às"
     // A releitura responde: a hora passa a ser a da leitura NOVA.
     await act(async () => {
       releituraMov.soltar({ data: movimento({ lido_em: comHora(2) }), error: null })
@@ -462,7 +463,7 @@ describe('a rede cai e volta (MAI-18, MAI-26; achado da prova em navegador da T2
     expect(faturamentoHoje()).toBeInTheDocument()
     expect(fake.chamadasDe('store_movement')).toHaveLength(2)
     expect(fake.chamadasDe('store_overview')).toHaveLength(2)
-    expect(screen.getByTestId('frescor')).toHaveTextContent(/^Atualizado às 11h50\.$/)
+    expect(screen.queryByTestId('frescor')).toBeNull() // 2026-10-26: sem "Atualizado às"
     // E não ficou "pausado": o aviso do Realtime continua relendo.
     act(() => {
       fake.emitir('orders')

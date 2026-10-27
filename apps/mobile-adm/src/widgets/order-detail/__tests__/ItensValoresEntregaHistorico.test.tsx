@@ -7,7 +7,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { formatPrice } from '@estrelinha/core/formatters'
 import { buildHistory, type HistoryEvent } from '@estrelinha/core/orders'
 
-import type { Bloco, ItemDoPedido } from '@/entities/order'
+import type { Bloco, ItemComFoto, ItemDoPedido } from '@/entities/order'
 import { FALHA_DE_LEITURA, TENTAR_DE_NOVO } from '@/shared/ui/leitura'
 import { COM_CUPOM_E_PIX, DETALHE_DE_RETIRADA, EMAIL_FALHO, ITEM_COM_GRAVACAO, NOTA, detalhe, item, statusRow } from '@/test/pedidos'
 import BlocoEntrega from '../ui/BlocoEntrega'
@@ -18,45 +18,71 @@ import Historico from '../ui/Historico'
 const LIDO_EM = '2026-10-23T14:30:00.123456+00:00'
 const ok = <T,>(dado: T): Bloco<T> => ({ estado: 'ok', dado })
 const FALHOU = { estado: 'falhou' } as const
+/** Os itens como o detalhe os entrega: a linha mais a foto já decidida (`itemPhoto`). */
+const itens = (lista: ItemDoPedido[], foto: string | null = null): Bloco<ItemComFoto[]> =>
+  ok(lista.map((i) => ({ ...i, foto })))
 const parte = (nome: string) => document.querySelector(`[data-parte="${nome}"]`)
 const sem = (s: string | null | undefined) => (s ?? '').replace(/\s/g, ' ')
 
 describe('os itens (MAP-24)', () => {
   it('"1 joia" com um item de quantidade 1', () => {
-    render(<BlocoItens itens={ok([item()])} tentarDeNovo={vi.fn()} />)
+    render(<BlocoItens itens={itens([item()])} tentarDeNovo={vi.fn()} />)
     expect(screen.getByRole('heading', { level: 2 }).textContent).toBe('1 joia')
   })
 
   it('"N joias" pela SOMA das quantidades, não pelo número de linhas', () => {
-    render(<BlocoItens itens={ok([item({ quantity: 2 }), item({ id: 'i-9', quantity: 3 })])} tentarDeNovo={vi.fn()} />)
+    render(<BlocoItens itens={itens([item({ quantity: 2 }), item({ id: 'i-9', quantity: 3 })])} tentarDeNovo={vi.fn()} />)
     expect(screen.getByRole('heading', { level: 2 }).textContent).toBe('5 joias')
     expect(screen.getAllByTestId('item-do-pedido')).toHaveLength(2)
   })
 
   it('cada item: o nome congelado, a variação, "Gravação: …" e "quantidade × preço unitário"', () => {
-    render(<BlocoItens itens={ok([{ ...ITEM_COM_GRAVACAO, quantity: 2, unit_price: 150 }])} tentarDeNovo={vi.fn()} />)
+    render(<BlocoItens itens={itens([{ ...ITEM_COM_GRAVACAO, quantity: 2, unit_price: 150 }])} tentarDeNovo={vi.fn()} />)
     const linha = screen.getByTestId('item-do-pedido')
     expect(within(linha).getByText('Pingente gota com leite materno')).toBeInTheDocument()
     expect(within(linha).getByText('Prata 925')).toBeInTheDocument()
-    expect(within(linha).getByText('Gravação: Helena')).toBeInTheDocument()
+    // O texto gravado vem em `<em>` (protótipo): a frase se lê pelo parágrafo inteiro.
+    expect(linha.textContent).toContain('Gravação: Helena')
+    expect(within(linha).getByText('Helena').tagName).toBe('EM')
     expect(sem(linha.querySelector('[data-parte="quantidade"]')?.textContent)).toBe(sem(`2 × ${formatPrice(150)}`))
   })
 
   it('sem variação e com gravação só de espaços: nenhuma das duas linhas', () => {
-    render(<BlocoItens itens={ok([item({ variant_label: null, engraving_text: '   ' })])} tentarDeNovo={vi.fn()} />)
+    render(<BlocoItens itens={itens([item({ variant_label: null, engraving_text: '   ' })])} tentarDeNovo={vi.fn()} />)
     const linha = screen.getByTestId('item-do-pedido')
     expect(linha.textContent).not.toMatch(/Gravação/)
     expect(within(linha).queryByText('Prata 925')).toBeNull()
   })
 
   it('um item importado da Nuvemshop (sem produto no catálogo) sai pelo nome congelado', () => {
-    render(<BlocoItens itens={ok([item({ id: 'nuvemshop:778', product_name: 'Colar coração (Nuvemshop)', variant_label: null })])} tentarDeNovo={vi.fn()} />)
+    render(<BlocoItens itens={itens([item({ id: 'nuvemshop:778', product_name: 'Colar coração (Nuvemshop)', variant_label: null })])} tentarDeNovo={vi.fn()} />)
     expect(screen.getByText('Colar coração (Nuvemshop)')).toBeInTheDocument()
+  })
+
+  it('a foto do item, em retrato 56 × 70 (protótipo), pedida na rendição de 140 px do Storage', () => {
+    const FOTO = 'https://x.supabase.co/storage/v1/object/public/product-images/a.webp'
+    render(<BlocoItens itens={itens([item()], FOTO)} tentarDeNovo={vi.fn()} />)
+    const linha = screen.getByTestId('item-do-pedido')
+    const img = linha.querySelector('img')!
+    expect(img.getAttribute('src')).toContain('/render/image/public/product-images/a.webp?width=140')
+    expect(img).toHaveAttribute('alt', '')
+    expect(within(linha).getByTestId('foto-da-peca')).toHaveStyle({ width: '56px', height: '70px' })
+  })
+
+  it('sem foto, a moldura fica com a estrela; foto que não carrega volta à estrela', () => {
+    const { unmount } = render(<BlocoItens itens={itens([item()])} tentarDeNovo={vi.fn()} />)
+    expect(screen.getByTestId('foto-da-peca').querySelector('img')).toBeNull()
+    expect(screen.getByTestId('foto-da-peca').querySelector('svg')).not.toBeNull()
+    unmount()
+    render(<BlocoItens itens={itens([item()], 'https://x/quebrada.webp')} tentarDeNovo={vi.fn()} />)
+    fireEvent.error(screen.getByTestId('foto-da-peca').querySelector('img')!)
+    expect(screen.getByTestId('foto-da-peca').querySelector('img')).toBeNull()
+    expect(screen.getByTestId('foto-da-peca').querySelector('svg')).not.toBeNull()
   })
 
   it('a leitura dos itens falhou: "Não consegui carregar." e "Tentar de novo" no bloco (MAP-30)', () => {
     const tentar = vi.fn()
-    render(<BlocoItens itens={FALHOU as Bloco<ItemDoPedido[]>} tentarDeNovo={tentar} />)
+    render(<BlocoItens itens={FALHOU as Bloco<ItemComFoto[]>} tentarDeNovo={tentar} />)
     const bloco = screen.getByRole('region', { name: 'Joias' })
     expect(within(bloco).getByText(FALHA_DE_LEITURA)).toBeInTheDocument()
     fireEvent.click(within(bloco).getByRole('button', { name: TENTAR_DE_NOVO }))

@@ -88,11 +88,11 @@ const PedidosPage = () => {
     <PullToRefresh onRefresh={() => lista.refetch()}>
       <div className="space-y-4">
         {confirmada && <AvisoDePedidos aoMudar={reler} />}
-        <h1 className="text-2xl">{tabFor('/pedidos').label}</h1>
+        <h1 className="text-[28px] tracking-[-0.02em]">{tabFor('/pedidos').label}</h1>
         <BuscaDePedidos inicial={termo} aoBuscar={setTermo} />
         <ChipsDeRecorte recorte={recorte} aoTrocar={trocarRecorte} />
         {isBlockSlice(recorte) && <FaixaDoBloco bloco={recorte.bloco} aoTrocar={trocarRecorte} />}
-        {janela && <LinhaDeFrescor lidoEm={janela.lido_em} naoAtualizou={naoAtualizou} />}
+        {janela && <LinhaDeFrescor naoAtualizou={naoAtualizou} />}
         <ListaDePedidos
           recorte={recorte}
           termo={termo}

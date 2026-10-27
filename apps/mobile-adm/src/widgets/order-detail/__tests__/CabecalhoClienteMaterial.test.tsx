@@ -50,9 +50,9 @@ describe('o cabeçalho (MAP-20, MAP-46)', () => {
     expect(document.querySelector('[data-parte="data"]')).toBeNull()
   })
 
-  it('"Voltar" com 44 px (token exato)', () => {
+  it('"Voltar" com 44 px (token exato) — o botão redondo da barra, só o ícone, com o nome no aria-label', () => {
     montar(<CabecalhoDoPedido />)
-    expect(tokens(screen.getByRole('button', { name: 'Voltar' }))).toEqual(expect.arrayContaining(['min-h-11', 'min-w-11']))
+    expect(tokens(screen.getByRole('button', { name: 'Voltar' }))).toEqual(expect.arrayContaining(['h-11', 'w-11', 'rounded-full']))
   })
 
   it('vindo de dentro do app (`state.doApp`): "Voltar" volta UMA entrada — ao recorte de onde veio (E7)', () => {

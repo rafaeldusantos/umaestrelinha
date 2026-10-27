@@ -14,6 +14,7 @@ export { PEDIDO_KEY, chaveDoPedido, usePedido } from './api/usePedido'
 export type {
   Bloco,
   DetalheDoPedido,
+  ItemComFoto,
   ItemDoPedido,
   JanelaDaLista,
   LinhaDaLista,

@@ -1,5 +1,4 @@
 import { cn } from '@estrelinha/ui/lib/utils'
-import { formatStoreHour } from '@estrelinha/core/time'
 
 /**
  * O que um bloco da Início sabe de uma leitura (feature `73`, `MAI-17`, `MAI-30`). Três estados, e só
@@ -24,16 +23,19 @@ export const TENTAR_DE_NOVO = 'Tentar de novo'
 export const NAO_ATUALIZOU = 'Não consegui atualizar agora.'
 
 /**
- * "Atualizado às 14h32." — a hora de Brasília do `lido_em` que o SERVIDOR devolveu (`formatStoreHour`),
- * nunca o relógio do aparelho; com a releitura falhada, "Não consegui atualizar agora." na mesma
- * linha (`MAI-18`, `MAP-35`). A Início e a lista de pedidos desenham esta MESMA linha.
+ * "Não consegui atualizar agora." — a releitura falhou com dado na tela (`MAI-18`, `MAP-35`). A Início,
+ * a lista de pedidos, a de clientes e os dois detalhes desenham esta MESMA linha.
+ *
+ * **Sem "Atualizado às 14h32." desde 2026-10-26** (decisão do usuário): a hora da leitura saiu de
+ * todas as telas. Com a releitura boa não se desenha nada; o aviso de falha fica, porque ele é o que
+ * impede o número velho de passar por atual.
  */
-export const LinhaDeFrescor = ({ lidoEm, naoAtualizou }: { lidoEm: string; naoAtualizou: boolean }) => (
-  <p data-testid="frescor" aria-live="polite" className="text-xs text-estrelinha-ink-soft">
-    {naoAtualizou && <span className="block font-medium text-estrelinha-ink">{NAO_ATUALIZOU}</span>}
-    {`Atualizado às ${formatStoreHour(lidoEm)}.`}
-  </p>
-)
+export const LinhaDeFrescor = ({ naoAtualizou }: { naoAtualizou: boolean }) =>
+  naoAtualizou ? (
+    <p data-testid="frescor" role="status" className="text-xs font-medium text-estrelinha-ink">
+      {NAO_ATUALIZOU}
+    </p>
+  ) : null
 
 /** A falha de um bloco sem dado: a frase e a ação. Nenhum número. */
 export const FalhaDoBloco = ({ tentarDeNovo, escuro = false }: { tentarDeNovo: () => void; escuro?: boolean }) => (

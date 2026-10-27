@@ -31,11 +31,11 @@ const montar = () => {
 }
 
 describe('o campo (MAC-06, MAC-31)', () => {
-  it('rótulo acessível, o placeholder de MAC-06 e 48 px', () => {
+  it('rótulo acessível, o placeholder de MAC-06 e a pílula de 46 px do protótipo', () => {
     const { campo } = montar()
     expect(campo).toHaveAttribute('placeholder', 'Nome, e-mail ou telefone')
     expect(PLACEHOLDER_DA_BUSCA_DE_CLIENTES).toBe('Nome, e-mail ou telefone')
-    expect(tokens(campo)).toContain('h-12')
+    expect(tokens(campo)).toEqual(expect.arrayContaining(['h-[46px]', 'rounded-pill']))
     expect(tokens(campo)).toContain('w-full')
   })
 
@@ -101,12 +101,12 @@ describe('o termo não vai ao endereço (MAC-28)', () => {
 })
 
 describe('o campo é o de `CampoDeBusca`, com o id e a cara de clientes (MAC-06, MAC-34)', () => {
-  it('id `busca-de-clientes`, tipo de busca e 48 px', () => {
+  it('id `busca-de-clientes`, tipo de busca e a pílula de 46 px do protótipo', () => {
     const { campo } = montar()
     expect(campo.id).toBe('busca-de-clientes')
     expect(campo).toHaveAttribute('type', 'search')
     expect(campo).toHaveAttribute('inputmode', 'search')
-    expect(tokens(campo)).toContain('h-12')
+    expect(tokens(campo)).toEqual(expect.arrayContaining(['h-[46px]', 'rounded-pill']))
   })
 
   it('o `inicial` aparece no campo e não é reemitido', () => {

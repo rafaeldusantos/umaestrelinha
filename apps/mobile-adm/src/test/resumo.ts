@@ -22,10 +22,10 @@ export const resumo = (extra: Partial<StoreOverview> = {}): StoreOverview => ({
   mes_resumo: { vendas: 38, faturamento: 12480 },
   clientes_novas: 14,
   joias: [
-    { chave: 'p1', nome: 'Pingente gota com leite materno', pecas: 9 },
-    { chave: 'p2', nome: 'Anel solitário com cinzas', pecas: 6 },
-    { chave: 'nome:Colar coração', nome: 'Colar coração com mecha de cabelo', pecas: 5 },
-    { chave: 'p4', nome: 'Brincos com pelos de pet', pecas: 1 },
+    { chave: 'p1', nome: 'Pingente gota com leite materno', pecas: 9, imagens: null, foto_do_pedido: null },
+    { chave: 'p2', nome: 'Anel solitário com cinzas', pecas: 6, imagens: null, foto_do_pedido: null },
+    { chave: 'nome:Colar coração', nome: 'Colar coração com mecha de cabelo', pecas: 5, imagens: null, foto_do_pedido: null },
+    { chave: 'p4', nome: 'Brincos com pelos de pet', pecas: 1, imagens: null, foto_do_pedido: null },
   ],
   fila: {
     aguardando: 3,

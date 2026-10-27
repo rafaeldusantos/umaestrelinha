@@ -55,46 +55,55 @@ const LinhaDoPedido = ({ linha, lidoEm }: { linha: LinhaDaLista; lidoEm: string 
   const idade = esperaEnvelope ? rowQueueAge(linha, new Date(lidoEm)) : null
 
   return (
+    // O cartão do protótipo: o número e o selo na primeira linha; o nome com "1ª compra · há N dias" à
+    // esquerda e o total à direita; e, se houver bloqueio, a frase abaixo de um fio, com a idade da
+    // espera à direita (cor `wait`). O cartão em si é o `<li>` da lista; aqui é o link.
     <Link
       to={pedidoHref(linha.id)}
       state={{ doApp: true }}
       aria-label={nomeDaLinha(linha)}
       data-testid="linha-do-pedido"
-      className="flex min-h-11 flex-wrap items-start gap-x-3 gap-y-1 py-3 text-estrelinha-ink"
+      className="flex min-h-11 flex-col gap-2.5 text-estrelinha-ink"
     >
-      <div data-parte="esquerda" className="min-w-[min(100%,8rem)] flex-1">
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <span data-parte="numero" className="font-display text-sm font-bold [overflow-wrap:anywhere]">
-            {formatOrderNumber(linha.order_number)}
-          </span>
+      <div data-parte="topo" className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+        <span data-parte="numero" className="font-display text-[15px] font-bold [overflow-wrap:anywhere]">
+          {formatOrderNumber(linha.order_number)}
+        </span>
+        <span className="ml-auto min-w-0 max-w-full">
           <SituacaoDoPedido pedido={linha} />
-        </div>
-        <div data-parte="cliente" className="mt-1 text-sm font-medium [overflow-wrap:anywhere]">
-          {linha.customer_name || linha.customer_email}
-        </div>
-        <div data-parte="compra" className="mt-0.5 text-xs text-estrelinha-ink-soft">
-          {ordinal ? `${ordinal} · ${tempo}` : tempo}
-        </div>
-        {resumo.blocker && (
-          <div data-parte="frase" className="mt-1 flex items-center gap-1.5 text-xs text-estrelinha-ink">
-            <span
-              aria-hidden="true"
-              data-ponto={acao}
-              className={cn('h-1.5 w-1.5 shrink-0 rounded-full', PONTO_DA_ACAO[acao] ?? 'bg-estrelinha-primary')}
-            />
-            <span className="min-w-0">
-              {resumo.blocker}
-              {idade && <span data-parte="idade">{` · ${queueAgeLabel(idade)}`}</span>}
-            </span>
-          </div>
-        )}
+        </span>
       </div>
-      <span
-        data-parte="total"
-        className="ml-auto min-w-0 max-w-full text-right font-display text-sm font-bold text-estrelinha-primary [overflow-wrap:anywhere]"
-      >
-        {formatPrice(linha.total)}
-      </span>
+      <div data-parte="meio" className="flex flex-wrap items-end justify-between gap-x-3 gap-y-1">
+        <div data-parte="esquerda" className="min-w-[min(100%,8rem)] flex-1">
+          <div data-parte="cliente" className="text-base font-medium [overflow-wrap:anywhere]">
+            {linha.customer_name || linha.customer_email}
+          </div>
+          <div data-parte="compra" className="mt-0.5 text-[13px] text-estrelinha-ink-soft">
+            {ordinal ? `${ordinal} · ${tempo}` : tempo}
+          </div>
+        </div>
+        <span
+          data-parte="total"
+          className="ml-auto min-w-0 max-w-full text-right font-display text-base font-bold text-estrelinha-primary [overflow-wrap:anywhere]"
+        >
+          {formatPrice(linha.total)}
+        </span>
+      </div>
+      {resumo.blocker && (
+        <div data-parte="frase" className="flex flex-wrap items-center gap-x-2 gap-y-0.5 border-t border-estrelinha-line pt-2.5 text-[13px] text-estrelinha-ink">
+          <span
+            aria-hidden="true"
+            data-ponto={acao}
+            className={cn('h-[7px] w-[7px] shrink-0 rounded-full', PONTO_DA_ACAO[acao] ?? 'bg-estrelinha-primary')}
+          />
+          <span data-parte="motivo" className="min-w-0 flex-1 [overflow-wrap:anywhere]">{resumo.blocker}</span>
+          {idade && (
+            <span data-parte="idade" className="ml-auto whitespace-nowrap text-xs font-medium text-estrelinha-wait">
+              {queueAgeLabel(idade)}
+            </span>
+          )}
+        </div>
+      )}
     </Link>
   )
 }

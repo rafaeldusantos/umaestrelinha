@@ -18,7 +18,7 @@ import { ESTRELINHA_COLORS, ESTRELINHA_FONTS, ESTRELINHA_RADIUS } from "../../pa
  * byte a byte. As cores vêm do dono da paleta; nenhuma é digitada aqui.
  */
 
-export const LOCKUP_DA_SPLASH = resolve(__dirname, "src/features/splash/assets/uma-estrelinha-lockup-negativo.svg");
+export const LOCKUP_DA_SPLASH = resolve(__dirname, "src/shared/assets/uma-estrelinha-lockup-negativo.svg");
 
 /** O rótulo e o nome acessível — os mesmos da `Splash` do React (o teste compara os dois). */
 export const ROTULO_DA_SPLASH = "Ateliê · painel";

@@ -1,4 +1,4 @@
-import lockup from '../assets/uma-estrelinha-lockup-negativo.svg?raw'
+import lockup from '@/shared/assets/uma-estrelinha-lockup-negativo.svg?raw'
 
 /**
  * A splash desenhada do app do ateliê (feature 72, `MAF-05`..`MAF-07`).
@@ -13,7 +13,7 @@ import lockup from '../assets/uma-estrelinha-lockup-negativo.svg?raw'
  * pixels físicos: o mesmo raciocínio da exceção do header do checkout a 180 px.
  *
  * **O SVG é INLINE, nunca `<img>`**: a splash não pode ter estado de carregamento — ela É o estado
- * de carregamento. A cópia em `../assets` é comparada byte a byte com o SVG-fonte de
+ * de carregamento. A cópia em `@/shared/assets` (lida também pela `TelaDeEntrada`) é comparada byte a byte com o SVG-fonte de
  * `.specs/brand/uma-estrelinha` por `lockupDaSplashPareado.test.ts`.
  *
  * Contraste: o rótulo é `on-primary` sobre `primary-strong`. `accent` só preenche a barra; nunca é

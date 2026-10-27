@@ -1,4 +1,6 @@
-import { House, ShoppingBag, Tag, Users, type LucideIcon } from 'lucide-react'
+import type { ComponentType } from 'react'
+import { House, Tag, User } from 'lucide-react'
+import { SacolaIcon } from '@estrelinha/ui/icons'
 
 /**
  * As quatro áreas do app do ateliê (feature 72, `MAF-14`) — o ÚNICO dono da lista de abas.
@@ -13,13 +15,17 @@ import { House, ShoppingBag, Tag, Users, type LucideIcon } from 'lucide-react'
 export interface Tab {
   path: '/' | '/pedidos' | '/clientes' | '/descontos'
   label: string
-  icon: LucideIcon
+  /**
+   * O ícone da aba (24 px, traço 1,5). Pedidos e Clientes são os do protótipo do Claude Design
+   * (2026-10-26): a `sacola` da marca (`SacolaIcon`, alça em `accent`) e o `user` (uma pessoa).
+   */
+  icon: ComponentType<{ className?: string; 'aria-hidden'?: boolean | 'true' | 'false'; strokeWidth?: string | number }>
 }
 
 export const TABS: readonly Tab[] = [
   { path: '/', label: 'Início', icon: House },
-  { path: '/pedidos', label: 'Pedidos', icon: ShoppingBag },
-  { path: '/clientes', label: 'Clientes', icon: Users },
+  { path: '/pedidos', label: 'Pedidos', icon: SacolaIcon },
+  { path: '/clientes', label: 'Clientes', icon: User },
   { path: '/descontos', label: 'Descontos', icon: Tag },
 ]
 
@@ -35,3 +41,10 @@ export const tituloDaAba = (tab: Tab): string => `${tab.label} · Ateliê`
 
 /** A aba de um caminho qualquer, ou `null` — o layout não lança para o caminho em trânsito. */
 export const abaDoCaminho = (caminho: string): Tab | null => TABS.find((t) => t.path === caminho) ?? null
+
+/**
+ * A barra de abas aparece nesta rota? NÃO no detalhe do pedido nem no da cliente: no protótipo do
+ * Claude Design (2026-10-26) as telas de detalhe cobrem a barra e têm o próprio "Voltar". Nas abas e
+ * em `/avisos` (que não tem voltar próprio) ela fica.
+ */
+export const barraNoCaminho = (caminho: string): boolean => !/^\/(pedidos|clientes)\/[^/]+\/?$/.test(caminho)

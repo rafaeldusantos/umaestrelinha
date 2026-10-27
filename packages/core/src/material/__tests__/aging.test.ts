@@ -93,11 +93,11 @@ describe('tierFor — o degrau sem a data', () => {
   })
 })
 
-describe('queueAgeLabel — "parado" é a palavra do terceiro degrau', () => {
-  it('só o degrau `stale` diz "parado"', () => {
+describe('queueAgeLabel — "há N dias" nos três degraus (2026-10-26)', () => {
+  it('nenhum degrau diz "parado": a cor distingue o terceiro, não a palavra', () => {
     expect(queueAgeLabel({ days: 2, tier: 'fresh' })).toBe('há 2 dias')
     expect(queueAgeLabel({ days: 6, tier: 'warm' })).toBe('há 6 dias')
-    expect(queueAgeLabel({ days: 9, tier: 'stale' })).toBe('parado há 9 dias')
+    expect(queueAgeLabel({ days: 9, tier: 'stale' })).toBe('há 9 dias')
   })
 
   it('um dia é singular', () => {

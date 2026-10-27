@@ -14,7 +14,8 @@ import {
 const LINHA = 'flex min-h-12 w-full items-center rounded-sm px-3 text-left text-sm font-medium text-estrelinha-ink disabled:opacity-50'
 
 /**
- * O menu da conta no cabeçalho das abas (feature 72, `MAF-13`): o e-mail de quem está no ateliê,
+ * O menu da conta, no topo da faixa da Início (feature 72, `MAF-13`; o cabeçalho global das abas saiu
+ * para seguir o protótipo do Claude Design): o e-mail de quem está no ateliê,
  * "Avisos neste celular" (feature `79`, `MAN-17`) e "Sair". Sair encerra a sessão; quem leva ao Login
  * é o `RequireAdmin`.
  *
@@ -38,6 +39,7 @@ const AccountMenu = () => {
   const botao = useRef<HTMLButtonElement>(null)
   const primeiroDaPergunta = useRef<HTMLButtonElement>(null)
   const { key: rota } = useLocation()
+  const inicial = (user?.email?.trim()[0] ?? '').toUpperCase()
 
   // O painel fecha quando ela sai dele (BUG-20261022-menu-da-conta-nao-fecha): ao trocar de rota
   // (toque numa aba OU o voltar do Android — o voltar continua sendo do navegador, nada é
@@ -105,9 +107,16 @@ const AccountMenu = () => {
         aria-expanded={aberto}
         aria-controls="menu-da-conta"
         onClick={() => setAberto((v) => !v)}
-        className="flex min-h-12 min-w-12 items-center justify-center rounded-full text-estrelinha-ink"
+        className="flex min-h-12 min-w-12 items-center justify-center rounded-full text-estrelinha-on-primary"
       >
-        <CircleUser aria-hidden="true" className="h-6 w-6" strokeWidth={1.5} />
+        {/* O círculo de 40 px do protótipo, com a inicial de quem entrou, dentro do alvo de 48 px. Ele
+            mora na faixa escura da Início, por isso o par `on-primary`. */}
+        <span
+          aria-hidden="true"
+          className="flex h-10 w-10 items-center justify-center rounded-full border border-estrelinha-on-primary/25 bg-estrelinha-on-primary/10 font-display text-[15px] font-bold"
+        >
+          {inicial || <CircleUser className="h-5 w-5" strokeWidth={1.5} />}
+        </span>
         <span className="sr-only">Sua conta</span>
       </button>
       {aberto && (

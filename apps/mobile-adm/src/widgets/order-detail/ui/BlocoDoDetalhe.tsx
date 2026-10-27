@@ -10,9 +10,13 @@ export const BlocoDoDetalhe = ({ id, titulo, children }: { id: string; titulo: R
   <section
     aria-labelledby={`bloco-${id}`}
     data-bloco={id}
-    className="rounded-lg border border-estrelinha-line bg-estrelinha-surface px-4 py-3"
+    className="rounded-lg border border-estrelinha-line bg-estrelinha-surface p-4"
   >
-    <h2 id={`bloco-${id}`} className="text-base font-semibold [overflow-wrap:anywhere]">
+    {/* O rótulo do protótipo: 11 px, caixa alta por CSS (o texto do `h2` continua "Cliente", "3 joias"). */}
+    <h2
+      id={`bloco-${id}`}
+      className="font-body text-[11px] font-semibold uppercase tracking-[.1em] text-estrelinha-ink-soft [overflow-wrap:anywhere]"
+    >
       {titulo}
     </h2>
     <div className="mt-2">{children}</div>
@@ -34,7 +38,7 @@ export const EsqueletoDoBloco = ({ linhas = 2 }: { linhas?: number }) => (
   <div
     aria-busy="true"
     data-testid="esqueleto-do-bloco"
-    className="space-y-2 rounded-lg border border-estrelinha-line bg-estrelinha-surface px-4 py-3"
+    className="space-y-2 rounded-lg border border-estrelinha-line bg-estrelinha-surface p-4"
   >
     <Traco className="h-5 w-1/3" />
     {Array.from({ length: linhas }, (_, i) => (

@@ -89,7 +89,7 @@ const ClientePage = () => {
           </p>
         ) : (
           <>
-            {dado.lido_em && <LinhaDeFrescor lidoEm={dado.lido_em} naoAtualizou={naoAtualizou} />}
+            {dado.lido_em && <LinhaDeFrescor naoAtualizou={naoAtualizou} />}
             <CabecalhoDaCliente cliente={dado.cliente} cidade={dado.cidade} />
             <NumerosDaCliente cliente={dado.cliente} />
             <ContatoDaCliente cliente={dado.cliente} />

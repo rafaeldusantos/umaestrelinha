@@ -14,6 +14,7 @@ import { describe, expect, it } from 'vitest'
 import * as core from '@estrelinha/core/orders'
 
 import * as orderQuery from '@/entities/order/api/orderQuery'
+import * as adminOrder from '@/entities/order/api/useAdminOrder'
 import * as listaModel from '@/features/order-list/model/rowSummary'
 import * as listaFeature from '@/features/order-list'
 import * as nextStepModel from '@/features/order-detail/model/nextStep'
@@ -32,6 +33,8 @@ const PARES: [string, unknown, unknown][] = [
   ['orderQuery.purchaseOrdinalLabel', orderQuery.purchaseOrdinalLabel, core.purchaseOrdinalLabel],
   ['orderQuery.queueSince', orderQuery.queueSince, core.queueSince],
   ['orderQuery.rowQueueAge', orderQuery.rowQueueAge, core.rowQueueAge],
+  // `entities/order/api/useAdminOrder.ts` — o app do ateliê também desenha a foto do item (2026-10-26)
+  ['useAdminOrder.catalogProductIds', adminOrder.catalogProductIds, core.catalogProductIds],
   // `features/order-list`
   ['order-list/model/rowSummary.rowSummary', listaModel.rowSummary, core.rowSummary],
   ['order-list.rowSummary', listaFeature.rowSummary, core.rowSummary],
@@ -44,8 +47,8 @@ const PARES: [string, unknown, unknown][] = [
 ]
 
 describe('o painel reexporta as regras do pedido de core — identidade, não cópia (MAP-47)', () => {
-  it('âncora: a lista tem os 17 caminhos e nenhum valor ausente', () => {
-    expect(PARES).toHaveLength(17)
+  it('âncora: a lista tem os 18 caminhos e nenhum valor ausente', () => {
+    expect(PARES).toHaveLength(18)
     for (const [nome, painel, dono] of PARES) {
       expect(painel, `${nome} existe no painel`).toBeDefined()
       expect(dono, `${nome} existe em core`).toBeDefined()

@@ -2,7 +2,8 @@
 // `MAF-15`, `MAF-17`, `MAF-18` e o rodapé do Backoffice.
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { House, ShoppingBag, Tag, Users } from 'lucide-react'
+import { House, Tag, User } from 'lucide-react'
+import { SacolaIcon } from '@estrelinha/ui/icons'
 import { act, fireEvent, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fake } from '@/test/fakeSupabase'
@@ -50,10 +51,10 @@ describe('a barra das abas (MAF-14)', () => {
     expect(links.map((l) => l.getAttribute('aria-current'))).toEqual([null, null, 'page', null])
   })
 
-  it('cada aba desenha O SEU ícone — casa, sacola, pessoas, etiqueta —, decorativo (aria-hidden)', async () => {
+  it('cada aba desenha O SEU ícone — casa, a sacola da marca, uma pessoa, etiqueta (protótipo, 2026-10-26) —, decorativo (aria-hidden)', async () => {
     // O par aba → ícone vem do design (`design.md`, linha "Ícones"), escrito por extenso: derivar a
     // expectativa de TABS deixaria passar a troca de dois ícones DENTRO de TABS.
-    const esperado: Record<string, (typeof TABS)[number]['icon']> = { Início: House, Pedidos: ShoppingBag, Clientes: Users, Descontos: Tag }
+    const esperado: Record<string, (typeof TABS)[number]['icon']> = { Início: House, Pedidos: SacolaIcon, Clientes: User, Descontos: Tag }
     expect(TABS.map((t) => t.label)).toEqual(Object.keys(esperado))
     const declarados = TABS.map((t) => desenhoDe(esperado[t.label]))
     // Âncora: os quatro desenhos são distintos; sem isso, trocar dois ícones iguais seria invisível.
@@ -95,11 +96,11 @@ describe('a barra e a área do sistema (MAF-15)', () => {
     for (const t of ['fixed', 'bottom-0', 'pb-[env(safe-area-inset-bottom)]']) expect(temToken(nav, t)).toBe(true)
   })
 
-  it('a reserva da barra vem DEPOIS do rodapé do Backoffice, com a altura da barra mais o inset', async () => {
+  it('a reserva da barra vem DEPOIS do conteúdo, com a altura da barra mais o inset', async () => {
     await montarApp('/')
-    const rodape = screen.getByTestId('rodape-backoffice')
+    const conteudo = screen.getByRole('main')
     const reserva = screen.getByTestId('reserva-da-barra')
-    expect(rodape.compareDocumentPosition(reserva) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(conteudo.compareDocumentPosition(reserva) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     // A barra mede h-16 (4rem); a reserva é 4rem + o inset, a mesma soma.
     expect(temToken(screen.getByRole('navigation', { name: 'Áreas do ateliê' }).querySelector('ul')!, 'h-16')).toBe(true)
     expect(temToken(reserva, 'h-[calc(4rem+env(safe-area-inset-bottom))]')).toBe(true)
@@ -160,43 +161,19 @@ describe('as abas nesta feature (MAF-18)', () => {
   })
 })
 
-describe('o rodapé do Backoffice', () => {
-  it('com VITE_BACKOFFICE_URL, a frase e o link para o painel', async () => {
+// O rodapé "Produtos, vitrine e configurações da loja seguem no Backoffice." com o link para o painel
+// SAIU em 2026-10-26 (decisão do usuário), e com ele a `VITE_BACKOFFICE_URL`. A régua é a ausência,
+// com a env presente — que era o caso em que o link aparecia.
+describe('sem o rodapé do Backoffice', () => {
+  it('nenhuma aba desenha a frase nem o link para o painel, mesmo com a env', async () => {
     vi.stubEnv('VITE_BACKOFFICE_URL', 'https://painel.exemplo.invalid')
-    await montarApp('/')
-    const rodape = screen.getByTestId('rodape-backoffice')
-    expect(rodape).toHaveTextContent('Produtos, vitrine e configurações da loja seguem no Backoffice.')
-    expect(within(rodape).getByRole('link', { name: 'Abrir o Backoffice' })).toHaveAttribute('href', 'https://painel.exemplo.invalid')
-  })
-
-  it('SEM a env, a frase fica e o link não é desenhado', async () => {
-    vi.stubEnv('VITE_BACKOFFICE_URL', '')
-    await montarApp('/')
-    const rodape = screen.getByTestId('rodape-backoffice')
-    expect(rodape).toHaveTextContent('Produtos, vitrine e configurações da loja seguem no Backoffice.')
-    expect(within(rodape).queryByRole('link')).toBeNull()
-    // Pelo TEXTO e pela tag, não só pelo papel: um `<a>` sem `href` não tem papel de link e passaria
-    // pela linha acima desenhando "Abrir o Backoffice" sem destino (mutante N9 da verificação r2).
-    expect(within(rodape).queryByText('Abrir o Backoffice')).toBeNull()
-    expect(rodape.querySelector('a')).toBeNull()
-  })
-
-  it('SEM a env, o rodapé é só a frase: nenhum controle, com qualquer texto', async () => {
-    // H1 da verificação r3: a régua pelo texto "Abrir o Backoffice" deixaria passar um controle com
-    // OUTRO texto. Sem a env não há destino, então não há o que tocar.
-    vi.stubEnv('VITE_BACKOFFICE_URL', '')
-    await montarApp('/')
-    const rodape = screen.getByTestId('rodape-backoffice')
-    expect(rodape.querySelectorAll('a, button, [role="link"], [role="button"], [tabindex]')).toHaveLength(0)
-    expect(rodape.textContent?.trim()).toBe('Produtos, vitrine e configurações da loja seguem no Backoffice.')
-  })
-
-  it('a env só com espaços conta como ausente', async () => {
-    vi.stubEnv('VITE_BACKOFFICE_URL', '   ')
-    await montarApp('/')
-    const rodape = screen.getByTestId('rodape-backoffice')
-    expect(rodape).toHaveTextContent('Produtos, vitrine e configurações da loja seguem no Backoffice.')
-    expect(within(rodape).queryByText('Abrir o Backoffice')).toBeNull()
-    expect(rodape.querySelector('a')).toBeNull()
+    for (const caminho of ['/', '/pedidos', '/clientes', '/descontos']) {
+      const { unmount } = await montarApp(caminho)
+      expect(screen.queryByTestId('rodape-backoffice')).toBeNull()
+      expect(screen.queryByText(/seguem no Backoffice/)).toBeNull()
+      expect(screen.queryByText('Abrir o Backoffice')).toBeNull()
+      expect(document.querySelector('a[href="https://painel.exemplo.invalid"]')).toBeNull()
+      unmount()
+    }
   })
 })

@@ -34,7 +34,7 @@ const sair = async () => {
 
 describe('"Avisos neste celular" no menu (MAN-17)', () => {
   it('é um link para `/avisos`, com alvo de 48 px; tocar leva à tela e o menu FECHA', async () => {
-    await montarApp('/pedidos')
+    await montarApp('/')
     abrirMenu()
     const link = screen.getByRole('link', { name: 'Avisos neste celular' })
     expect(link).toHaveAttribute('href', '/avisos')
@@ -43,7 +43,8 @@ describe('"Avisos neste celular" no menu (MAN-17)', () => {
     await andar()
     expect(window.location.pathname).toBe('/avisos')
     expect(screen.getByRole('heading', { level: 1, name: 'Avisos neste celular' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Sua conta' })).toHaveAttribute('aria-expanded', 'false')
+    // O menu mora só na Início: em `/avisos` ele não existe, e o painel não fica pendurado.
+    expect(screen.queryByRole('button', { name: 'Sua conta' })).toBeNull()
     expect(screen.queryByRole('link', { name: 'Avisos neste celular' })).toBeNull()
   })
 })

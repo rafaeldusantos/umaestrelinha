@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react'
-import { cn } from '@estrelinha/ui/lib/utils'
 import { EMPTY_TITLE, emptyHint, listCountLine, type OrderSlice } from '@estrelinha/core/orders'
 import { LinhaDoPedido, type JanelaDaLista, type LinhaDaLista } from '@/entities/order'
 import { FalhaDoBloco, Traco } from '@/shared/ui/leitura'
@@ -91,13 +90,14 @@ const ListaDePedidos = ({
   return (
     <section aria-label="Pedidos" data-estado="dado">
       {contagem && (
-        <p data-testid="contagem" aria-live="polite" className="text-sm text-estrelinha-ink-soft">
+        <p data-testid="contagem" aria-live="polite" className="text-[13px] text-estrelinha-ink-soft">
           {contagem}
         </p>
       )}
-      <ul className="mt-2 rounded-lg border border-estrelinha-line bg-estrelinha-surface px-4">
-        {janela.linhas.map((l, i) => (
-          <li key={l.id} className={cn(i > 0 && 'border-t border-estrelinha-line')}>
+      {/* Um cartão por pedido (protótipo), com 12 px entre eles; a ação é irmã do link, no mesmo cartão. */}
+      <ul className="mt-2.5 space-y-3">
+        {janela.linhas.map((l) => (
+          <li key={l.id} className="space-y-2.5 rounded-lg border border-estrelinha-line bg-estrelinha-surface p-4">
             <LinhaDoPedido linha={l} lidoEm={janela.lido_em} />
             {acaoDaLinha?.(l)}
           </li>

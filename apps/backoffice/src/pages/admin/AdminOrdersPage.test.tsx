@@ -127,7 +127,7 @@ describe('o topo diz o que COBRA, não o que existe (PED-12)', () => {
     renderPage()
     // Escopado ao tile: o subtítulo do cabeçalho carrega a mesma frase, de propósito — os dois
     // respondem "há quanto tempo?", um para a fila inteira e outro para o contador.
-    expect(tiles().getByText(/o mais antigo parado há 9 dias/)).toBeInTheDocument()
+    expect(tiles().getByText(/o mais antigo há 9 dias/)).toBeInTheDocument()
   })
 
   it('o subtítulo usa a UNIÃO do servidor, e não a soma dos tiles', () => {
@@ -309,10 +309,11 @@ describe('seleção em massa (PED-16, PED-17)', () => {
 })
 
 describe('a linha diz a idade e liga ao cliente (PED-13, PED-21, PED-22)', () => {
-  it('parado há 9 dias aparece com o prefixo "parado"', () => {
+  it('o terceiro degrau diz "há 9 dias", sem "parado" (2026-10-26)', () => {
     renderPage()
     // Duas vezes: a idade do pedido (coluna Pedido) e o marcador da fila (coluna Material).
-    expect(tabela().getAllByText('parado há 9 dias').length).toBeGreaterThan(0)
+    expect(tabela().getAllByText('há 9 dias').length).toBeGreaterThan(0)
+    expect(tabela().queryByText(/parado/)).not.toBeInTheDocument()
   })
 
   it('pedido sem material ainda mostra a idade — travessão sem explicação não serve', () => {
@@ -329,7 +330,7 @@ describe('a linha diz a idade e liga ao cliente (PED-13, PED-21, PED-22)', () =>
     expect(tabela().getByText('há 6 dias')).toBeInTheDocument()
   })
 
-  it('só o terceiro degrau diz "parado" — 2 dias não', () => {
+  it('2 dias também é "há 2 dias" — nenhum degrau diz "parado"', () => {
     listMock.mockReturnValue(
       listResult({ rows: [row({ created_at: new Date(Date.now() - 2 * 86400000).toISOString() })] }),
     )

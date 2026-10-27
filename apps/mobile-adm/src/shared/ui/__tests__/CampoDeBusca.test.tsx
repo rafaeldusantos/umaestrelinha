@@ -19,13 +19,13 @@ const montar = (extra: { inicial?: string } = {}) => {
 }
 
 describe('as props viram o campo', () => {
-  it('id, rótulo acessível (sr-only), placeholder, role search e 48 px', () => {
+  it('id, rótulo acessível (sr-only), placeholder, role search e a pílula de 46 px do protótipo', () => {
     const { campo } = montar()
     expect(campo).toHaveAttribute('id', 'busca-x')
     expect(campo).toHaveAttribute('placeholder', 'Nome ou e-mail')
     expect(screen.getByRole('search')).toBeInTheDocument()
     expect(screen.getByText('Buscar x')).toHaveClass('sr-only')
-    expect((campo.getAttribute('class') ?? '').split(/\s+/)).toContain('h-12')
+    expect((campo.getAttribute('class') ?? '').split(/\s+/)).toEqual(expect.arrayContaining(['h-[46px]', 'rounded-pill']))
   })
 })
 

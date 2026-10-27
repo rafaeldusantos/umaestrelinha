@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { cn } from '@estrelinha/ui/lib/utils'
 import { greetingFor, longDateLine, storeHour, type MovementPeriodKey, type StoreMovement } from '@estrelinha/core/stats'
 import { FalhaDoBloco, Traco, type Leitura } from '@/shared/ui/leitura'
@@ -20,7 +20,7 @@ const ROTULO = 'text-[11px] font-semibold uppercase tracking-[.1em] text-estreli
  *   uma com a fonte do sistema grande. `grid-cols-2` fixo deixava `R$ 99.999` pintar por cima das
  *   vendas a 130 % (`BUG-20261022-numeros-se-sobrepoem-com-fonte-grande`, QA da `73`).
  */
-const MovementHero = ({ leitura }: { leitura: Leitura<StoreMovement> }) => {
+const MovementHero = ({ leitura, topo }: { leitura: Leitura<StoreMovement>; topo?: ReactNode }) => {
   const [periodo, setPeriodo] = useState<MovementPeriodKey>('hoje')
   const m = leitura.dado
   const carregando = !m && !leitura.falhou
@@ -30,8 +30,9 @@ const MovementHero = ({ leitura }: { leitura: Leitura<StoreMovement> }) => {
     <section
       aria-busy={carregando ? 'true' : undefined}
       aria-label="Movimento da loja"
-      className="-mx-4 -mt-6 bg-estrelinha-primary-strong px-5 pb-6 pt-5 text-estrelinha-on-primary"
+      className="-mx-4 -mt-4 bg-estrelinha-primary-strong px-5 pb-6 pt-3 text-estrelinha-on-primary"
     >
+      {topo && <div className="mb-[22px]">{topo}</div>}
       {m ? (
         <>
           <h1 className="text-[28px] font-normal leading-tight tracking-[-0.02em]">
@@ -97,7 +98,6 @@ const MovementHero = ({ leitura }: { leitura: Leitura<StoreMovement> }) => {
                   </div>
                 ))}
           </div>
-          {m && <p className="mt-4 text-xs text-estrelinha-on-primary/80">Visitas contam navegadores, não pessoas.</p>}
         </>
       )}
     </section>

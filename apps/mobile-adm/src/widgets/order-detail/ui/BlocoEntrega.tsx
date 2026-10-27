@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { Truck } from 'lucide-react'
 import { shippingLine } from '@estrelinha/core/orders'
 import { PICKUP_METHOD_NAME, isPickupOrder } from '@estrelinha/core/shipping'
 import { maskCep } from '@estrelinha/core/validators'
@@ -46,9 +47,12 @@ const BlocoEntrega = ({ pedido, editar }: { pedido: PedidoDoDetalhe; editar?: Re
         <p data-parte="servico" className="mt-2 text-sm [overflow-wrap:anywhere]">{pedido.shipping_method}</p>
       )}
       {(rastreio || editar) && (
-        <div className="mt-1 flex flex-wrap items-center justify-between gap-x-3">
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-x-2">
           {rastreio && (
-            <p data-parte="rastreio" className="min-w-0 flex-1 text-sm text-estrelinha-ink-soft [overflow-wrap:anywhere]">{rastreio}</p>
+            <p data-parte="rastreio" className="flex min-w-0 flex-1 items-center gap-2 text-sm [overflow-wrap:anywhere]">
+              <Truck aria-hidden="true" className="h-5 w-5 shrink-0 text-estrelinha-primary" strokeWidth={1.5} />
+              <span className="min-w-0">{rastreio}</span>
+            </p>
           )}
           {editar}
         </div>

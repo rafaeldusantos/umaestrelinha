@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 
 import { useDebounce } from '@/shared/lib/useDebounce'
 
-import { CAMPO } from './campo'
+import { Search } from 'lucide-react'
 
 /**
  * O campo de busca das listas do ateliê (feature `74`, `MAP-10`, `MAP-11`, `MAP-42`; extraído na `76`
@@ -14,7 +14,7 @@ import { CAMPO } from './campo'
  * - **O termo é estado da página, nunca do endereço** (A13): um nome de cliente no histórico do
  *   navegador é dado pessoal guardado onde ninguém pediu.
  * - `inicial`: o termo que a página já tem ao montar (o voltar do detalhe) — lido só na montagem.
- * - Rótulo acessível (`sr-only`), `role="search"` e 48 px de altura (`CAMPO`).
+ * - Rótulo acessível (`sr-only`), `role="search"` e 46 px de altura — a pílula do protótipo (acima do piso de 44).
  * - **O foco sobe o campo ao topo da tela** (conserto do QA da `76`): com o teclado aberto e a fonte grande,
  *   a primeira linha de resultado ficava fora da tela.
  * - **Enter tira o foco do campo** (`MAC-34`): fecha o teclado do celular e deixa a lista inteira à
@@ -55,10 +55,13 @@ const CampoDeBusca = ({
   }, [termo])
 
   return (
-    <div role="search" className="min-w-0">
+    // A pílula do protótipo: 46 px, a lupa dentro à esquerda, `surface` com a borda de campo (`field`,
+    // 3,63:1). A lupa é decoração: o nome do campo é o `<label>` (sr-only).
+    <div role="search" className="relative min-w-0">
       <label htmlFor={id} className="sr-only">
         {rotulo}
       </label>
+      <Search aria-hidden="true" className="pointer-events-none absolute left-4 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-estrelinha-ink-soft" strokeWidth={1.5} />
       <input
         id={id}
         type="search"
@@ -78,7 +81,7 @@ const CampoDeBusca = ({
           if (e.key === 'Enter') e.currentTarget.blur()
         }}
         placeholder={placeholder}
-        className={`${CAMPO} w-full min-w-0`}
+        className="h-[46px] w-full min-w-0 rounded-pill border border-estrelinha-field bg-estrelinha-surface pl-11 pr-4 text-[15px] text-estrelinha-ink placeholder:text-estrelinha-ink-soft"
       />
     </div>
   )

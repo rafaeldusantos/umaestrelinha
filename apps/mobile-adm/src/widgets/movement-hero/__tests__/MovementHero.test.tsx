@@ -73,6 +73,11 @@ describe('MovementHero — com dado', () => {
     expect(numero(/^Visitas, hoje, /)).toHaveAccessibleName('Visitas, hoje, 41')
   })
 
+  it('sem a nota "Visitas contam navegadores, não pessoas." (removida em 2026-10-26)', () => {
+    render(<MovementHero leitura={comDado(movimento())} />)
+    expect(screen.queryByText(/contam navegadores/)).toBeNull()
+  })
+
   it('trocar para Ontem e Semana troca os números SEM ler nada, e marca o escolhido (MAI-02)', () => {
     const tentarDeNovo = vi.fn()
     render(<MovementHero leitura={comDado(movimento(), tentarDeNovo)} />)

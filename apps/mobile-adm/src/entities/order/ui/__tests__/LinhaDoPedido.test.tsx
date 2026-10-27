@@ -69,18 +69,20 @@ describe('o que a linha mostra (MAP-16)', () => {
 
 describe('a frase do que segura o pedido (MAP-17)', () => {
   it('esperando o envelope: a frase, o ponto de ACENTO e a idade pelo rótulo do bloco', () => {
-    // 10/10 09:00 → 23/10 14:30: 13 dias, o terceiro degrau ("parado há").
+    // 10/10 09:00 → 23/10 14:30: 13 dias, o terceiro degrau (âmbar).
     desenhar(AGUARDANDO_MATERIAL)
-    expect(parte('frase')?.textContent).toBe('Esperando o envelope da cliente · parado há 13 dias')
+    // Desde 2026-10-26 (protótipo) a idade fica à direita da frase, na cor de espera, sem o "·".
+    expect(parte('motivo')?.textContent).toBe('Esperando o envelope da cliente')
     expect(tokens(parte('frase')?.querySelector('[data-ponto]') ?? null)).toContain('bg-estrelinha-accent')
-    expect(parte('idade')?.textContent).toBe(' · parado há 13 dias')
+    expect(parte('idade')?.textContent).toBe('há 13 dias')
+    expect(tokens(parte('idade'))).toEqual(expect.arrayContaining(['ml-auto', 'text-estrelinha-wait']))
   })
 
   it('a idade é contra o `lido_em`, não o relógio do aparelho', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2031-03-01T00:00:00Z'))
     desenhar(linha({ material_status: 'aguardando_material', created_at: '2026-10-21T09:00:00.000001+00:00' }))
-    expect(parte('idade')?.textContent).toBe(' · há 2 dias')
+    expect(parte('idade')?.textContent).toBe('há 2 dias')
   })
 
   it('material a caminho: acento, SEM idade (a idade é só do envelope que não saiu)', () => {
@@ -158,7 +160,9 @@ describe('número e total quebram em vez de estourar (MAP-43)', () => {
 
   it('a linha embrulha, o nome tem piso em rem e o total cede (sem `shrink-0`)', () => {
     desenhar(linha())
-    expect(tokens(alvo())).toContain('flex-wrap')
+    // O cartão é uma coluna (protótipo); quem embrulha é cada linha dele.
+    expect(tokens(parte('topo'))).toContain('flex-wrap')
+    expect(tokens(parte('meio'))).toContain('flex-wrap')
     expect(tokens(parte('esquerda'))).toContain('min-w-[min(100%,8rem)]')
     const total = tokens(parte('total'))
     expect(total).toEqual(expect.arrayContaining(['ml-auto', 'min-w-0', 'max-w-full']))

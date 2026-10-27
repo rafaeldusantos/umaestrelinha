@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { cn } from '@estrelinha/ui/lib/utils'
 
-import { AVISO_ACIMA_DA_BARRA, AVISO_ACIMA_DO_RODAPE } from '@/shared/ui/alturas'
+import { AVISO_ACIMA_DA_BARRA, AVISO_ACIMA_DO_RODAPE, AVISO_NO_FIM } from '@/shared/ui/alturas'
 
 import { limparAviso, useAviso } from '../model/avisos'
 import { useHaRodape } from '../model/rodape'
@@ -28,7 +28,11 @@ export const PRAZO_DO_AVISO_MS = 5000
  * - O texto quebra (nada de `truncate`), e o aviso não se move: sem animação, não há o que reduzir.
  * - `pointer-events-none`: nada aqui se toca, e o aviso não pode roubar o toque do botão de baixo.
  */
-const AvisoDaAcao = () => {
+/**
+ * `comBarra`: a tela atual desenha a barra de abas? No detalhe do pedido e da cliente ela some
+ * (protótipo, 2026-10-26), e o aviso desce: acima do rodapé quando há um, senão no fim da tela.
+ */
+const AvisoDaAcao = ({ comBarra = true }: { comBarra?: boolean }) => {
   const aviso = useAviso()
   const haRodape = useHaRodape()
   const chave = aviso?.chave ?? null
@@ -47,7 +51,7 @@ const AvisoDaAcao = () => {
       aria-live="polite"
       aria-atomic="true"
       data-testid="aviso-da-acao"
-      className={cn('pointer-events-none fixed inset-x-0 z-40 px-4', haRodape ? AVISO_ACIMA_DO_RODAPE : AVISO_ACIMA_DA_BARRA)}
+      className={cn('pointer-events-none fixed inset-x-0 z-40 px-4', haRodape ? AVISO_ACIMA_DO_RODAPE : comBarra ? AVISO_ACIMA_DA_BARRA : AVISO_NO_FIM)}
     >
       <div
         data-parte="cartao"

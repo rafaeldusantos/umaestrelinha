@@ -23,8 +23,8 @@ para o celular da Adri, instalável no Android como app. Leia [`../../CLAUDE.md`
 | `*` | caminho desconhecido ⇒ `/` (dentro do guarda) |
 
 Sem prefixo `/admin`: o app inteiro é o painel. Produtos, vitrine, configurações, Home, menu, filtros,
-perguntas e usuários **ficam só no Backoffice**, e o rodapé das abas aponta para lá
-(`VITE_BACKOFFICE_URL`; sem a env a frase fica e o link não é desenhado).
+perguntas e usuários **ficam só no Backoffice**. O rodapé que dizia isso e linkava para o painel
+(`VITE_BACKOFFICE_URL`) saiu em 2026-10-26, por decisão do usuário, junto com a env.
 
 ## O acesso é o MESMO do Backoffice (`AD-056`)
 
@@ -112,15 +112,19 @@ Não existe papel, tabela nem convite próprio do app.
      com o provider dentro do ramo, o `offline` chegava, o provider desmontava e o `online` da volta
      não era ouvido — toda leitura ficava **pausada** e a Início nunca mais relia. O cliente é criado
      por `useState` no `<App />` (`criarQueryClient`), então o cache sobrevive à queda: ao voltar, a
-     tela mostra o dado anterior com "Atualizado às" e relê (`MAI-18`).
+     tela mostra o dado anterior e relê (`MAI-18`).
 2. **`AuthProvider`** e **`BootGate`** — a splash da abertura, até o piso de 600 ms passar **e** a
    sessão resolver pela primeira vez (no máximo 8 s: o teto do provider; no `unknown` a tela é da
    rota, não do portão, para a recuperação continuar alcançável). Ela trava na primeira resolução: o provider volta a `loading`
    a cada login, e reagir a isso desmontaria o formulário no meio da entrada.
 3. **O router**, com o `RequireAdmin` usando a mesma `Splash` como `fallback` (o prop opcional que a
    `72` acrescentou; sem ele o painel continua vendo o esqueleto dele).
-4. **`app/layout/MobileLayout`** — cabeçalho com o menu da conta, a aba, o rodapé do Backoffice e a
-   barra inferior. Mora em `app/` porque compõe dois widgets (`tab-bar` e `account-menu`).
+4. **`app/layout/MobileLayout`** — a aba, o rodapé do Backoffice e a barra inferior. **Sem cabeçalho
+   global** (2026-10-26, fiel ao protótipo do Claude Design, `Ateliê Admin.dc.html`): a marca (lockup
+   negativo a 156 px) e o menu da conta (o círculo com a inicial) moram no topo da faixa escura da
+   Início, compostos pela `InicioPage` no slot `topo` do `MovementHero`; as outras abas abrem direto no
+   título de 28 px. O menu da conta, e com ele "Avisos neste celular" e "Sair", só existe na Início.
+   As telas de entrada (`TelaDeEntrada`) têm a faixa `primary-strong` com o lockup a 260 px.
 
 ## A Início (feature `73`, `AD-057`)
 
@@ -140,9 +144,18 @@ número mora no app.**
 - **Três estados por bloco** (`shared/ui/leitura.tsx`): esqueleto (`aria-busy`), falha sem dado (frase
   e "Tentar de novo", nunca um zero), e dado — inclusive com a releitura falhada (`MAI-18`). Cada
   leitura falha e pendura sozinha.
-- **"Atualizado às 14h32"** é `formatStoreHour` do `lido_em` do SERVIDOR (o mais antigo dos dois na
-  tela), nunca o relógio do aparelho; "Não consegui atualizar agora." entra na mesma linha quando uma
-  releitura falhou com dado na tela.
+- **Sem "Atualizado às"** (2026-10-26, decisão do usuário): a hora da leitura saiu de todas as telas.
+  `LinhaDeFrescor` (`shared/ui/leitura.tsx`) só desenha "Não consegui atualizar agora." quando uma
+  releitura falhou com dado na tela (`MAI-18`); com a leitura boa, nada. Saiu também a nota "Visitas
+  contam navegadores, não pessoas." do `MovementHero`.
+- **As fotos das peças** (2026-10-26): "Joias mais pedidas no mês" e os itens do detalhe do pedido
+  desenham `shared/ui/FotoDaPeca` (rendição no dobro do tamanho; sem foto, a estrela). QUAL foto é
+  `itemPhoto` de `core/orders` — o snapshot do pedido vence, e a capa do catálogo
+  (`primaryImage(images)`) só entra onde ele falta —, a MESMA regra da tela do pedido no painel. As joias
+  recebem `imagens` e `foto_do_pedido` de `store_overview` (migration `20261027120000`, que recria a da
+  `73` com só essas duas chaves; `fotoDasJoiasSchema.test.ts` prova o resto byte a byte); o detalhe
+  lê `products(id, images)` dentro do `lerComPapel` do `usePedido`, só para itens sem snapshot e com
+  `product_id` uuid, e o erro dessa leitura vira foto nenhuma.
 - **Releem**: o aviso do Realtime (canal `atelie-orders-realtime`, **um** por montagem, fechado ao
   trocar de aba e ao sair), o puxar, a volta ao primeiro plano (`refetchOnWindowFocus`) e a virada do
   dia (o timer por duração do servidor, nos hooks). Resposta antiga que chega depois da nova é
@@ -172,7 +185,7 @@ número mora no app.**
   dela. Medido de 100 a 200 % em 360 e 412: `scrollWidth` igual à tela, nada sobreposto, nada cortado.
 - **Limitação declarada — o Realtime fica mudo quando o papel cai** (observação do QA, aceita em
   2026-10-23). Sem o papel de admin, a RLS de `orders` não entrega o aviso, e a Início mostra os números
-  da última leitura boa, com o "Atualizado às" daquela hora, até o próximo foco, puxar ou virada do dia
+  da última leitura boa até o próximo foco, puxar ou virada do dia
   — quando a leitura é recusada (`42501`) e a recusa da `72` assume. É o mesmo limite do painel (`A-06`
   da `48`: revogar o acesso não derruba a sessão ativa). Reconferir o papel num intervalo foi
   recusado: a revogação é rara, e os números na tela são de quando a conta era admin.
@@ -229,6 +242,15 @@ recorte, frase, rótulo ou número mora no app**. Tudo o que o painel também re
   de E6, medida: logout (`id` → `null`) ⇒ `queryClient.clear()`; troca A → B ⇒ `resetQueries()`.
   `clear()` não avisa quem observa (a página de A seguia montada com o selo de A), e `resetQueries()`
   no logout relia as consultas montadas e reenchia o cache.
+- **O desenho do detalhe segue o protótipo do Claude Design** (2026-10-26): a barra de 60 px presa no
+  topo (voltar redondo, "Pedido #…" com a data, o selo à direita; com a fonte grande ou em 360 px o
+  selo desce para a linha de baixo, nunca empurra a tela), o próximo passo num cartão `ink` com a
+  estrela em `accent`, os cartões com o rótulo pequeno em caixa alta (o `h2` continua com o texto de
+  sempre), o Cliente com o nome em destaque e WhatsApp + "Ver cliente" lado a lado, as joias com a
+  foto em retrato (56 × 70) e os **valores dentro do mesmo cartão** (`BlocoValores` virou o grupo
+  "Valores", passado a `BlocoItens` por `valores` — fica mesmo com os itens em falha), o rastreio com
+  o ícone de envio e o histórico em linha do tempo. O WhatsApp segue `WHATSAPP_FUNDO`/`WHATSAPP_TEXTO`
+  do app, e não o `#25D366` do protótipo.
 - **O `h1` existe em todo estado** (E5) — o foco da troca de aba vai a ele mesmo com a leitura
   pendente; o detalhe intitula o documento "Pedido · Ateliê" → "Pedido #0244 · Ateliê".
 
@@ -394,7 +416,7 @@ material no WhatsApp. **Nada disso tem regra no app.**
   mesmo `preload`. `fontesDoAteliePareadas.test.ts` (suíte da loja) compara o SHA-256 dos dois lados.
 - **A splash usa o LOCKUP completo negativo a 300 px** — exceção declarada à escada da marca (piso de
   600 px), decisão do usuário em 2026-10-22, no molde do header do checkout a 180 px. É SVG **inline**
-  (`?raw`), nunca `<img>`. A cópia em `features/splash/assets/` é comparada byte a byte com o
+  (`?raw`), nunca `<img>`. A cópia em `shared/assets/` (lida pela splash, pela `TelaDeEntrada` e pela Início) é comparada byte a byte com o
   SVG-fonte de `.specs/brand` por `lockupDaSplashPareado.test.ts`.
 - **A splash não tem tempo próprio**: piso de 600 ms (`useMinimumDuration`), nunca os 2,4 s do
   protótipo. Toda animação tem `motion-reduce:animate-none` na mesma linha; com movimento reduzido o
@@ -402,6 +424,18 @@ material no WhatsApp. **Nada disso tem regra no app.**
 
 ## Navegação
 
+- **A barra segue o protótipo do Claude Design** (2026-10-26): ícone de 24 px, rótulo de 12 px (600 na
+  ativa), um traço de 2 px no topo da aba ativa, e o selo em `primary` com contorno `surface`. Os
+  ícones de Pedidos e Clientes são os do protótipo: a `SacolaIcon` da marca (`@estrelinha/ui/icons`,
+  a mesma `sacola` do design system) e o `User` do lucide (uma pessoa).
+- **A barra SOME no detalhe do pedido e no da cliente** (`barraNoCaminho`, `widgets/tab-bar/model/tabs.ts`):
+  no protótipo as telas de detalhe a cobrem e têm o próprio "Voltar". Em `/avisos`, que não tem voltar
+  próprio, ela fica. Sem a barra, o rodapé da ação fica no fim da tela (`RODAPE_NO_FIM`, o inset no
+  respiro de baixo) e o aviso de confirmação desce: acima do rodapé, ou no fim (`AVISO_NO_FIM`).
+- **A lista de Pedidos segue o protótipo** (2026-10-26): a busca em pílula de 46 px com a lupa (o
+  `CampoDeBusca`, que Clientes também usa), chips com borda de 2 px, a faixa do bloco em `ground-deep`
+  com o X de 44 px, e um CARTÃO por pedido — número e selo, nome com "1ª compra · há N dias" e o total,
+  o bloqueio abaixo de um fio com a idade à direita em `wait`, e o botão da ação preenchido.
 - `TABS` (`widgets/tab-bar/model/tabs.ts`) é o dono da lista de abas: a barra desenha dali, as
   páginas tiram o título dali, e `abasSaoAsRotas.test.ts` compara com as rotas do `App.tsx` nos dois
   sentidos.
@@ -433,7 +467,7 @@ material no WhatsApp. **Nada disso tem regra no app.**
 | `swSemDadosDaLoja.test.ts` | `src/app/__tests__` | `runtimeCaching`, padrão casando o host do banco, `json` no precache |
 | `manifest.test.ts` | idem | um campo de `MAF-01`, cor digitada em vez de importada, ícone com tamanho diferente do declarado, a fiação com o `VitePWA` |
 | `vercelConfig.test.ts` | idem | os headers de `MAF-04`, `sw.js`/manifest em cache, o rewrite da SPA capturando os dois |
-| `scaffold.test.ts` | idem | o script `dev:mobile-adm` da raiz filtrando outro workspace, a porta 8084 (dev e preview), a `VITE_BACKOFFICE_URL` fora do `env` do build do `turbo.json`. Que o build gera `manifest.webmanifest`/`sw.js` é provado executando o build, não por este guarda |
+| `scaffold.test.ts` | idem | o script `dev:mobile-adm` da raiz filtrando outro workspace, a porta 8084 (dev e preview). Que o build gera `manifest.webmanifest`/`sw.js` é provado executando o build, não por este guarda |
 | `TabBar.test.tsx` | `src/widgets/tab-bar/__tests__` | (além do comportamento) a aba sem ícone, ou com o ícone de outra: o par aba → ícone (casa, sacola, pessoas, etiqueta) é escrito por extenso no teste, nunca derivado de `TABS` |
 | `InicioPage.test.tsx` | `src/pages/__tests__` | (feature `73`, pelo `<App />` real) uma chamada de cada RPC, sem argumento, e nenhuma tabela lida; erro **e** pendura de cada leitura sozinha; a recusa (`42501`) de cada RPC ⇒ uma chamada e o Login, sem número; o laço da vigia; rede nunca vira recusa; um canal, fechado ao trocar de aba e ao sair; o aviso, o puxar, o foco, a virada e a volta da rede relendo as duas; resposta antiga descartada |
 | `inicioComClientReal.test.tsx` | `src/app/__tests__` | (feature `73`, sobre o supabase-js REAL) o 403 `42501` do PostgREST levando à recusa; o 500 e a falha de rede levando à falha do bloco, nunca à recusa |

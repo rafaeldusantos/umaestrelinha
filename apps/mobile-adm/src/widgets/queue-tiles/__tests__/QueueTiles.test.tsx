@@ -40,8 +40,8 @@ describe('QueueTiles — com dado', () => {
     expect(lista.map((b) => b.getAttribute('data-acento'))).toEqual(['true', null, null, null])
     expect(classes(lista[0])).toContain('bg-estrelinha-ink')
     for (const b of lista.slice(1)) expect(classes(b)).toContain('bg-estrelinha-surface')
-    // 13/10 10:00Z → 22/10 14:30Z (o `lido_em`) = 9 dias inteiros: "parado há 9 dias" no painel.
-    expect(lista[0]).toHaveTextContent('o mais antigo parado há 9 dias')
+    // 13/10 10:00Z → 22/10 14:30Z (o `lido_em`) = 9 dias inteiros: "há 9 dias" no painel.
+    expect(lista[0]).toHaveTextContent('o mais antigo há 9 dias')
     for (const b of lista.slice(1)) expect(b).not.toHaveTextContent('o mais antigo')
   })
 

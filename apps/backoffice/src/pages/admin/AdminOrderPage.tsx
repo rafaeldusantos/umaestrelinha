@@ -4,7 +4,7 @@ import { Copy, ExternalLink, ImageOff, MessageSquare, Printer, Truck } from 'luc
 import { toast } from 'sonner'
 
 import { formatPrice } from '@estrelinha/core/formatters'
-import { formatOrderNumber } from '@estrelinha/core/orders'
+import { formatOrderNumber, itemPhoto } from '@estrelinha/core/orders'
 import { queueAgeLabel } from '@estrelinha/core/material'
 import { isPickupOrder, PICKUP_METHOD_NAME } from '@estrelinha/core/shipping'
 import { Button } from '@estrelinha/ui/button'
@@ -286,7 +286,7 @@ const AdminOrderPage = () => {
                 // A capa de hoje só entra onde o snapshot está AUSENTE — que é o caso dos 59 itens
                 // vindos da Nuvemshop, cujo CSV não traz imagem nenhuma. Foto aproximada é melhor
                 // que moldura vazia; foto trocada por cima do snapshot seria pior que as duas.
-                const foto = item.product_image ?? produto?.image ?? null
+                const foto = itemPhoto(item.product_image, produto?.image)
                 // O destino é o CADASTRO, não a vitrine: quem abre isto está separando um pedido e
                 // precisa de estoque, variação, material exigido e limite de gravação — coisas que
                 // a página da loja não mostra. E não depende de `VITE_STORE_URL`: o painel sempre

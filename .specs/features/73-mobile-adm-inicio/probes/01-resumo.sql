@@ -22,6 +22,8 @@ begin;
 -- replace`), então um mutante injetado no `.sql` é o que roda aqui — mesmo com a versão boa já
 -- aplicada no banco local. O rollback desfaz.
 \ir ../../../../supabase/migrations/20261023120000_73-resumo-do-atelie.sql
+-- 2026-10-26: a recriação com a foto das joias (as duas chaves a mais em cada joia).
+\ir ../../../../supabase/migrations/20261027120000_inicio-fotos-das-joias.sql
 
 create function pg_temp.ok(cond boolean, oque text) returns text language plpgsql as $f$
 begin
@@ -167,8 +169,13 @@ select pg_temp.ok(j->'joias'->0->>'chave' = 'nome:Peça Órfã Probe' and j->'jo
   'a chave: uuid do produto, ou nome: da órfã') from (select :'depois'::jsonb j) x;
 
 select pg_temp.ok(
-  (select array_agg(k order by k) from jsonb_object_keys(j->'joias'->0) k)::text = '{chave,nome,pecas}',
+  (select array_agg(k order by k) from jsonb_object_keys(j->'joias'->0) k)::text = '{chave,foto_do_pedido,imagens,nome,pecas}',
   'chaves da joia') from (select :'depois'::jsonb j) x;
+
+select pg_temp.ok(
+  j->'joias'->1->'imagens' = (select p.images from public.products p where p.id = '63069a13-917e-4f39-9393-3b9d5058087d')
+  and jsonb_typeof(j->'joias'->0->'imagens') = 'null',
+  'imagens: o products.images cru do produto do catálogo, e null na órfã (quem escolhe a capa é o app)') from (select :'depois'::jsonb j) x;
 
 \echo '— a fila (por diferença: ela não tem recorte de data)'
 select pg_temp.ok(

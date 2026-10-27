@@ -3,7 +3,9 @@ import { normalizeBrPhone, whatsappChatUrl } from '@estrelinha/core/notification
 import { purchaseOrdinalLabel } from '@estrelinha/core/orders'
 import { maskPhone } from '@estrelinha/core/validators'
 import type { PedidoDoDetalhe } from '@/entities/order'
+import { MessageCircle } from 'lucide-react'
 import { nomeDoLinkExterno } from '@/shared/config/novaAba'
+import { WHATSAPP_FUNDO, WHATSAPP_TEXTO } from '@/shared/config/whatsapp'
 import { BlocoDoDetalhe } from './BlocoDoDetalhe'
 
 /**
@@ -21,29 +23,41 @@ const BlocoCliente = ({ pedido, verCliente }: { pedido: PedidoDoDetalhe; verClie
   const ordinal = purchaseOrdinalLabel(pedido.purchase_ordinal)
   return (
     <BlocoDoDetalhe id="cliente" titulo="Cliente">
-      <div className="space-y-1 text-sm">
-        <p data-parte="nome" className="font-medium [overflow-wrap:anywhere]">
+      {/* O protótipo: o nome em destaque com o selo da compra ao lado, o contato embaixo, e as duas
+          ações lado a lado — o WhatsApp ocupa o que sobra, "Ver cliente" o próprio tamanho. */}
+      <div className="flex flex-wrap items-center gap-2">
+        <p data-parte="nome" className="min-w-0 font-display text-lg font-bold [overflow-wrap:anywhere]">
           {pedido.customer_name || pedido.customer_email}
         </p>
-        {ordinal && <p data-parte="ordinal" className="text-xs text-estrelinha-ink-soft">{ordinal}</p>}
+        {ordinal && (
+          <span data-parte="ordinal" className="rounded-pill bg-estrelinha-ground-deep px-2 py-0.5 text-xs text-estrelinha-ink">
+            {ordinal}
+          </span>
+        )}
+      </div>
+      <div className="mt-1.5 space-y-0.5 text-sm text-estrelinha-ink-soft">
         <p data-parte="email" className="[overflow-wrap:anywhere]">{pedido.customer_email}</p>
-        {numero && (
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            {/* Desenhado a partir do número JÁ normalizado, sem o `55`: um `+55 51 …` gravado não sai torto. */}
-            <span data-parte="telefone">{maskPhone(numero.slice(2))}</span>
+        {/* Desenhado a partir do número JÁ normalizado, sem o `55`: um `+55 51 …` gravado não sai torto. */}
+        {numero && <p data-parte="telefone">{maskPhone(numero.slice(2))}</p>}
+      </div>
+      {(numero || verCliente) && (
+        <div className="mt-3.5 flex flex-wrap items-start gap-2">
+          {numero && (
             <a
               href={whatsappChatUrl(pedido.customer_phone)}
               target="_blank"
               aria-label={nomeDoLinkExterno('WhatsApp')}
               rel="noopener noreferrer"
-              className="inline-flex min-h-11 items-center rounded-sm px-1 font-medium text-estrelinha-primary underline underline-offset-4"
+              style={{ backgroundColor: WHATSAPP_FUNDO, color: WHATSAPP_TEXTO }}
+              className="flex min-h-11 min-w-[min(100%,8rem)] flex-1 items-center justify-center gap-2 rounded-sm px-4 py-2 font-display text-sm font-bold"
             >
+              <MessageCircle aria-hidden="true" className="h-[18px] w-[18px]" strokeWidth={1.5} />
               WhatsApp
             </a>
-          </div>
-        )}
-        {verCliente && <div className="pt-2">{verCliente}</div>}
-      </div>
+          )}
+          {verCliente && <div className="min-w-0 max-w-full">{verCliente}</div>}
+        </div>
+      )}
     </BlocoDoDetalhe>
   )
 }

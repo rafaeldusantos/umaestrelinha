@@ -3,7 +3,7 @@
 import { act, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { ALTURA_DA_BARRA, AVISO_ACIMA_DA_BARRA, AVISO_ACIMA_DO_RODAPE } from '@/shared/ui/alturas'
+import { ALTURA_DA_BARRA, AVISO_ACIMA_DA_BARRA, AVISO_ACIMA_DO_RODAPE, AVISO_NO_FIM } from '@/shared/ui/alturas'
 
 import { esquecerAcoes } from '../../model/esquecerAcoes'
 import { mostrarAviso } from '../../model/avisos'
@@ -107,7 +107,7 @@ describe('a posição (MAA-31, design §3.6)', () => {
     expect(AVISO_ACIMA_DA_BARRA).toContain('env(safe-area-inset-bottom)')
   })
 
-  it('com o rodapé montado: acima da barra E do rodapé — e volta quando o rodapé sai', () => {
+  it('com o rodapé montado (o detalhe, sem barra): acima do rodapé — e volta quando o rodapé sai', () => {
     render(<AvisoDaAcao />)
     act(() => mostrarAviso({ titulo: 'Rastreio salvo.', frase: 'O código ficou no pedido.' }))
     let sair = () => {}
@@ -116,10 +116,17 @@ describe('a posição (MAA-31, design §3.6)', () => {
     })
     expect(tokens(host())).toContain(AVISO_ACIMA_DO_RODAPE)
     expect(tokens(host())).not.toContain(AVISO_ACIMA_DA_BARRA)
-    expect(AVISO_ACIMA_DO_RODAPE).toContain(ALTURA_DA_BARRA)
+    // A altura medida do rodapé já inclui o inset; a barra não está na tela.
+    expect(AVISO_ACIMA_DO_RODAPE).not.toContain(`calc(${ALTURA_DA_BARRA}+`)
     expect(AVISO_ACIMA_DO_RODAPE).toContain('var(--altura-do-rodape')
-    expect(AVISO_ACIMA_DO_RODAPE).toContain('env(safe-area-inset-bottom)')
     act(() => sair())
     expect(tokens(host())).toContain(AVISO_ACIMA_DA_BARRA)
+  })
+
+  it('numa tela sem barra e sem rodapé (o detalhe sem ação): no fim, acima do inset', () => {
+    render(<AvisoDaAcao comBarra={false} />)
+    act(() => mostrarAviso({ titulo: 'Rastreio salvo.', frase: 'O código ficou no pedido.' }))
+    expect(tokens(host())).toContain(AVISO_NO_FIM)
+    expect(tokens(host())).not.toContain(AVISO_ACIMA_DA_BARRA)
   })
 })

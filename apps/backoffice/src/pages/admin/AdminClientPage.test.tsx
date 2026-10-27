@@ -125,7 +125,7 @@ describe('a ficha liga aos pedidos (CLI-11)', () => {
     renderPage()
 
     expect(screen.getByText('Pingente Gota · Cinzas + Caixinha de guarda')).toBeInTheDocument()
-    expect(screen.getByText(/Aguardando material · parado há \d+ dias/)).toBeInTheDocument()
+    expect(screen.getByText(/Aguardando material · há \d+ dias/)).toBeInTheDocument()
   })
 
   it('pedido concluído diz quando saiu e por qual código, sem alarme', () => {

@@ -23,6 +23,13 @@ export interface OverviewJewel {
   chave: string
   nome: string
   pecas: number
+  /**
+   * `products.images` CRU (2026-10-26), `null` quando o item não casou com o catálogo. A capa sai de
+   * `primaryImage(imagens)` no app — a escolha não é refeita em SQL.
+   */
+  imagens: unknown
+  /** Um `order_items.product_image` não vazio do mês (o snapshot), ou `null`. */
+  foto_do_pedido: string | null
 }
 
 export interface OverviewQueue {
@@ -74,7 +81,7 @@ const TOPO: Record<keyof StoreOverview, true> = {
   clientes_novas: true, joias: true, fila: true, recentes: true,
 }
 const DIA: Record<keyof OverviewDay, true> = { dia: true, dow: true, vendas: true, faturamento: true }
-const JOIA: Record<keyof OverviewJewel, true> = { chave: true, nome: true, pecas: true }
+const JOIA: Record<keyof OverviewJewel, true> = { chave: true, nome: true, pecas: true, imagens: true, foto_do_pedido: true }
 const FILA: Record<keyof OverviewQueue, true> = {
   aguardando: true, a_separar: true, sem_rastreio: true, pix_aguardando: true, precisa_acao: true,
   aguardando_desde: true,

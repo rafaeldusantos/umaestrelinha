@@ -20,14 +20,24 @@ const temToken = (el: Element, token: string) => el.getAttribute('class')!.split
 const botaoDaConta = () => screen.getByRole('button', { name: 'Sua conta' })
 
 describe('o menu da conta (MAF-13)', () => {
-  it('fica no cabeçalho de toda aba, com alvo de 48 px', async () => {
-    for (const caminho of ['/', '/pedidos', '/clientes', '/descontos']) {
-      const { unmount } = await montarApp(caminho)
-      const botao = botaoDaConta()
-      expect(botao.closest('header')).not.toBeNull()
-      expect(temToken(botao, 'min-h-12')).toBe(true)
-      expect(temToken(botao, 'min-w-12')).toBe(true)
-      unmount()
+  it('fica no topo da faixa da Início, com alvo de 48 px — e só lá (o cabeçalho global saiu)', async () => {
+    // O protótipo do Claude Design: a marca e a conta no topo da faixa escura da Início; as outras
+    // abas abrem direto no título, sem cabeçalho.
+    const { unmount } = await montarApp('/')
+    const botao = botaoDaConta()
+    expect(screen.getByRole('region', { name: 'Movimento da loja' })).toContainElement(botao)
+    expect(screen.getByTestId('inicio-lockup')).toHaveAttribute('aria-label', 'Uma Estrelinha')
+    expect(temToken(botao, 'min-h-12')).toBe(true)
+    expect(temToken(botao, 'min-w-12')).toBe(true)
+    expect(botao).toHaveTextContent('A')
+    expect(screen.queryByRole('banner')).toBeNull()
+    unmount()
+    for (const caminho of ['/pedidos', '/clientes', '/descontos']) {
+      const outra = await montarApp(caminho)
+      expect(screen.queryByRole('button', { name: 'Sua conta' })).toBeNull()
+      expect(screen.queryByText('Ateliê · painel')).toBeNull()
+      expect(screen.queryByRole('banner')).toBeNull()
+      outra.unmount()
     }
   })
 
@@ -41,7 +51,7 @@ describe('o menu da conta (MAF-13)', () => {
   })
 
   it('"Sair" encerra a sessão e volta ao Login', async () => {
-    await montarApp('/pedidos')
+    await montarApp('/')
     fireEvent.click(botaoDaConta())
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Sair' }))
@@ -55,7 +65,7 @@ describe('o menu da conta (MAF-13)', () => {
 
   it('o toque duplo em "Sair" encerra a sessão UMA vez', async () => {
     // S11 da verificação r3: o botão trava enquanto sai.
-    await montarApp('/pedidos')
+    await montarApp('/')
     fireEvent.click(botaoDaConta())
     const sair = screen.getByRole('button', { name: 'Sair' })
     // Dois toques como o aparelho os entrega: eventos separados, cada um com o seu render. Os dois
@@ -90,7 +100,7 @@ describe('fecha quando ela sai dele (BUG-20261022-menu-da-conta-nao-fecha)', () 
   const aberto = () => screen.queryByRole('button', { name: 'Sair' })
 
   it('trocar de aba fecha o menu', async () => {
-    await montarApp('/pedidos')
+    await montarApp('/')
     fireEvent.click(botaoDaConta())
     expect(aberto()).not.toBeNull()
     await act(async () => {
@@ -99,13 +109,19 @@ describe('fecha quando ela sai dele (BUG-20261022-menu-da-conta-nao-fecha)', () 
     })
     expect(window.location.pathname).toBe('/descontos')
     expect(aberto()).toBeNull()
+    // De volta à Início, o menu nasce fechado.
+    await act(async () => {
+      fireEvent.click(screen.getByRole('link', { name: 'Início' }))
+      await vi.advanceTimersByTimeAsync(50)
+    })
     expect(botaoDaConta()).toHaveAttribute('aria-expanded', 'false')
+    expect(aberto()).toBeNull()
   })
 
   it('o voltar do Android (popstate) fecha o menu', async () => {
-    await montarApp('/')
+    await montarApp('/pedidos')
     await act(async () => {
-      fireEvent.click(screen.getByRole('link', { name: 'Pedidos' }))
+      fireEvent.click(screen.getByRole('link', { name: 'Início' }))
       await vi.advanceTimersByTimeAsync(50)
     })
     fireEvent.click(botaoDaConta())
@@ -114,7 +130,7 @@ describe('fecha quando ela sai dele (BUG-20261022-menu-da-conta-nao-fecha)', () 
       window.history.back()
       await vi.advanceTimersByTimeAsync(50)
     })
-    expect(window.location.pathname).toBe('/')
+    expect(window.location.pathname).toBe('/pedidos')
     expect(aberto()).toBeNull()
   })
 

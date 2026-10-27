@@ -14,7 +14,8 @@ import {
   CLASSE_DA_BARRA,
   RESERVA_DA_BARRA,
   RESERVA_DO_RODAPE,
-  RODAPE_ACIMA_DA_BARRA,
+  RODAPE_NO_FIM,
+  AVISO_NO_FIM,
   VAR_ALTURA_DO_RODAPE,
 } from '../alturas'
 
@@ -29,12 +30,24 @@ describe('as alturas do pé da tela (MAA-31)', () => {
 
   it.each([
     ['RESERVA_DA_BARRA', RESERVA_DA_BARRA],
-    ['RODAPE_ACIMA_DA_BARRA', RODAPE_ACIMA_DA_BARRA],
     ['AVISO_ACIMA_DA_BARRA', AVISO_ACIMA_DA_BARRA],
-    ['AVISO_ACIMA_DO_RODAPE', AVISO_ACIMA_DO_RODAPE],
   ])('%s soma a barra com o inset do sistema', (_n, classe) => {
     expect(classe).toContain(`calc(${ALTURA_DA_BARRA}+`)
     expect(classe).toContain('env(safe-area-inset-bottom)')
+  })
+
+  // 2026-10-26 (protótipo): no detalhe a barra some. O rodapé fica no fim com o inset no próprio
+  // respiro (a altura medida o inclui), e o aviso não conta mais a barra.
+  it('o rodapé fica no fim, com o inset no respiro de baixo', () => {
+    expect(RODAPE_NO_FIM).toContain('bottom-0')
+    expect(RODAPE_NO_FIM).toContain('env(safe-area-inset-bottom)')
+    expect(RODAPE_NO_FIM).not.toContain(`calc(${ALTURA_DA_BARRA}+`)
+  })
+
+  it('o aviso acima do rodapé e o do fim não contam a barra', () => {
+    expect(AVISO_ACIMA_DO_RODAPE).not.toContain(`calc(${ALTURA_DA_BARRA}+`)
+    expect(AVISO_NO_FIM).not.toContain(`calc(${ALTURA_DA_BARRA}+`)
+    expect(AVISO_NO_FIM).toContain('env(safe-area-inset-bottom)')
   })
 
   it('a reserva do detalhe e o aviso leem a MESMA variável do rodapé, com o MESMO piso', () => {

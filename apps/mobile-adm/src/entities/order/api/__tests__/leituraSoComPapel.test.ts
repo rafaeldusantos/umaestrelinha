@@ -198,8 +198,8 @@ describe('toda leitura do app passa por lerComPapel (MAP-37)', () => {
 
   it('régua 2: nos dois hooks, toda supabase.from( só é alcançável por lerComPapel', () => {
     const porArquivo = HOOKS.map((rel) => medir(rel, lidos.find((l) => l.rel === rel)!.texto, { podeLer: true }))
-    // Âncora: as 7 chamadas (2 na lista — com e sem contagem —, 5 no detalhe) — e cada hook chama lerComPapel.
-    expect(porArquivo.map((a) => a.froms)).toEqual([2, 5])
+    // Âncora: as 8 chamadas (2 na lista — com e sem contagem —, 6 no detalhe: as cinco do pedido e a capa do catálogo dos itens sem foto) — e cada hook chama lerComPapel.
+    expect(porArquivo.map((a) => a.froms)).toEqual([2, 6])
     expect(porArquivo.every((a) => a.chamadasLerComPapel > 0)).toBe(true)
     expect(porArquivo.flatMap((a) => a.problemas)).toEqual([])
   })

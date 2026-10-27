@@ -1,8 +1,11 @@
 import { useQuery } from '@tanstack/react-query'
 import { retryUnlessDenied } from '@estrelinha/core/hooks/useStoreOverview'
+import { primaryImage } from '@estrelinha/core/media'
 import {
   buildHistory,
+  catalogProductIds,
   isOrderId,
+  itemPhoto,
   shippedNoticeSent,
   type HistoryNoteRow,
   type HistoryNotificationRow,
@@ -18,11 +21,12 @@ import {
   COLUNAS_DOS_ITENS,
   type Bloco,
   type DetalheDoPedido,
+  type ItemComFoto,
   type ItemDoPedido,
   type PedidoDoDetalhe,
 } from '../model/linha'
 import { lerComPapel } from '@/shared/api/lerComPapel'
-import { ler, type Lida } from '@/shared/api/lerSemLancar'
+import { ler } from '@/shared/api/lerSemLancar'
 
 /**
  * O detalhe de um pedido (feature `74`, Design §3.4, emenda E2; `MAP-29`, `MAP-30`, `MAP-36`,
@@ -46,7 +50,22 @@ import { ler, type Lida } from '@/shared/api/lerSemLancar'
 export const PEDIDO_KEY = 'atelie-pedido'
 export const chaveDoPedido = (id: string) => [PEDIDO_KEY, id] as const
 
-const bloco = <T>(lida: Lida<T>): Bloco<T> => (lida.error ? { estado: 'falhou' } : { estado: 'ok', dado: lida.data as T })
+/**
+ * A capa de hoje do catálogo, para os itens SEM snapshot (os vindos da Nuvemshop). Leitura de
+ * conveniência, no molde de `useAdminOrder` do painel: o erro vira mapa vazio — sem a foto o item
+ * continua com nome, variação e preço, e uma faixa de erro por causa de uma miniatura assustaria.
+ * Só os `product_id` procuráveis vão ao `in(id)` (um `nuvemshop:…` derrubaria a consulta com `22P02`).
+ */
+const lerCapas = async (itens: readonly ItemDoPedido[]): Promise<Record<string, string | null>> => {
+  const ids = catalogProductIds(itens.filter((i) => !i.product_image?.trim()))
+  if (ids.length === 0) return {}
+  const lida = await ler<{ id: string; images: unknown }[]>(supabase.from('products').select('id, images').in('id', ids))
+  if (lida.error || !lida.data) return {}
+  return Object.fromEntries(lida.data.map((p) => [p.id, primaryImage(p.images)?.url ?? null]))
+}
+
+const comFoto = (itens: readonly ItemDoPedido[], capas: Record<string, string | null>): ItemComFoto[] =>
+  itens.map((i) => ({ ...i, foto: itemPhoto(i.product_image, capas[i.product_id]) }))
 
 const lerDetalhe = async (id: string): Promise<DetalheDoPedido> => {
   if (!isOrderId(id)) {
@@ -67,7 +86,9 @@ const lerDetalhe = async (id: string): Promise<DetalheDoPedido> => {
         ? { estado: 'falhou' }
         : { estado: 'ok', dado: buildHistory(status.data ?? [], notificacoes.data ?? [], notas.data ?? []) }
     const avisoDePostagemSaiu = !notificacoes.error && shippedNoticeSent(notificacoes.data ?? [])
-    return { pedido: pedido.data, itens: bloco(itens), historico, avisoDePostagemSaiu }
+    const capas = itens.error ? {} : await lerCapas(itens.data ?? [])
+    const blocoDosItens: Bloco<ItemComFoto[]> = itens.error ? { estado: 'falhou' } : { estado: 'ok', dado: comFoto(itens.data ?? [], capas) }
+    return { pedido: pedido.data, itens: blocoDosItens, historico, avisoDePostagemSaiu }
   })
 
   return { ...resultado, lido_em }

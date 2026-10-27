@@ -18,7 +18,7 @@ import { pedidoHref, type PedidoDoDetalhe } from '@/entities/order'
 import { esquecerAcoes } from '@/features/order-actions'
 import { SEM_ACESSO } from '@/pages/LoginPage'
 import { esquecerRolagens } from '@/shared/lib/useRolagemRestaurada'
-import { RESERVA_DO_RODAPE, RODAPE_ACIMA_DA_BARRA } from '@/shared/ui/alturas'
+import { RESERVA_DO_RODAPE, RODAPE_NO_FIM } from '@/shared/ui/alturas'
 import { fake, type Elo, type RespostaTabela } from '@/test/fakeSupabase'
 import { montarApp } from '@/test/montarApp'
 import { DETALHE_DE_RETIRADA, NOTA, detalhe, item, statusRow } from '@/test/pedidos'
@@ -129,7 +129,9 @@ describe('a forma do rodapé (MAA-31, prova de forma; a medida é da T31)', () =
   it('fixo, largura inteira, acima da barra; botão de `min-h-12`; a reserva no fim do conteúdo', async () => {
     responder(detalhe({ status: 'paid' }))
     await abrir()
-    expect(tokens(rodape())).toEqual(expect.arrayContaining(['fixed', 'inset-x-0', RODAPE_ACIMA_DA_BARRA]))
+    expect(tokens(rodape())).toEqual(expect.arrayContaining(['fixed', 'inset-x-0', ...RODAPE_NO_FIM.split(' ')]))
+    // No detalhe a barra de abas não é desenhada (protótipo, 2026-10-26).
+    expect(screen.queryByRole('navigation', { name: 'Áreas do ateliê' })).toBeNull()
     expect(tokens(botaoDoRodape())).toEqual(expect.arrayContaining(['min-h-12', 'w-full']))
     const reserva = screen.getByTestId('reserva-do-rodape')
     expect(tokens(reserva)).toContain(RESERVA_DO_RODAPE)

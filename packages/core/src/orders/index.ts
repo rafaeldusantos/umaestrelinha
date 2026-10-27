@@ -145,3 +145,4 @@ export {
   type TrackingSheetContext,
   type TrackingSheetOrigin,
 } from './appAction.ts'
+export { catalogProductIds, itemPhoto } from './itemPhoto.ts'
