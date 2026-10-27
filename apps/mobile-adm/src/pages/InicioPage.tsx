@@ -1,9 +1,11 @@
-import { useCallback } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
+import { useCallback, useState } from 'react'
+import { useLocation } from 'react-router-dom'
+import { focusManager, useQueryClient } from '@tanstack/react-query'
 import { useOrdersRealtime } from '@estrelinha/core/hooks/useOrdersRealtime'
-import { STORE_MOVEMENT_KEY, STORE_OVERVIEW_KEY, useMovimento, useResumo } from '@/entities/stats'
+import { STORE_MOVEMENT_KEY, STORE_OVERVIEW_KEY, periodoDoInicio, useMovimento, useResumo } from '@/entities/stats'
 import { useRecusaDePapel } from '@/features/access-check'
 import { MovementHero } from '@/widgets/movement-hero'
+import { CartaoVisitasHoje } from '@/widgets/visits-card'
 import { QueueTiles } from '@/widgets/queue-tiles'
 import { WeekChart } from '@/widgets/week-chart'
 import { MonthCards } from '@/widgets/month-cards'
@@ -41,13 +43,22 @@ const maisAntigo = (instantes: (string | undefined)[]): string | null => {
  *   outra (`MAI-17`), e a releitura que falha mantém o dado anterior (`MAI-18`).
  * - **Sem "Atualizado às"** desde 2026-10-26: a linha de frescor só aparece com a releitura falhada
  *   ("Não consegui atualizar agora.", `MAI-18`).
+ * - **Feature `83`**: o cartão "Visitas hoje" logo abaixo da faixa (`LAV-04`), e o movimento relido a
+ *   cada 30 s com a aba visível (`LAV-05`); com ela oculta, nada — nem o aviso do Realtime relê.
  * - **Releem**: o aviso do Realtime (um canal por montagem, `MAI-20`), o puxar (`MAI-19`), a volta ao
  *   primeiro plano (`refetchOnWindowFocus` dos hooks) e a virada do dia (o timer por duração dos
  *   hooks, `MAI-21`).
  * - **`42501`** chama a vigia (`useRecusaDePapel`), que reconfere o papel e leva à recusa da `72`.
  */
+/** A Início relê o movimento a cada 30 s com a aba visível (feature `83`, `LAV-05`). */
+export const CICLO_DA_INICIO_MS = 30_000
+
 const InicioPage = () => {
-  const movimento = useMovimento()
+  const { state } = useLocation()
+  // Feature `83` (`LAV-50`): o período é da PÁGINA — o cartão "Visitas hoje" o leva à Loja ao vivo, e
+  // a volta reabre a faixa nele (gravado na entrada pelo cartão).
+  const [periodo, setPeriodo] = useState(() => periodoDoInicio(state))
+  const movimento = useMovimento({ refetchInterval: CICLO_DA_INICIO_MS })
   const resumo = useResumo()
   const queryClient = useQueryClient()
   const recusada = useRecusaDePapel(
@@ -64,8 +75,12 @@ const InicioPage = () => {
     [queryClient],
   )
 
+  // Feature `83` (`LAV-05`): com a aba oculta o aviso só INVALIDA (`refetchType: 'none'`) — nenhuma
+  // leitura em segundo plano; a volta ao primeiro plano relê (`refetchOnWindowFocus`, `staleTime: 0`).
   useOrdersRealtime(CANAL_DA_INICIO, () => {
-    void reler()
+    const refetchType = focusManager.isFocused() ? 'active' : 'none'
+    void queryClient.invalidateQueries({ queryKey: STORE_MOVEMENT_KEY, refetchType })
+    void queryClient.invalidateQueries({ queryKey: STORE_OVERVIEW_KEY, refetchType })
   })
 
   const doMovimento = leituraDe(movimento, recusada)
@@ -78,6 +93,8 @@ const InicioPage = () => {
       <div className="space-y-6">
         <MovementHero
           leitura={doMovimento}
+          periodo={periodo}
+          aoTrocarPeriodo={setPeriodo}
           topo={
             // O topo da faixa, como no protótipo: a marca à esquerda (o lockup negativo a 156 px, a mesma
             // exceção à escada da marca que a splash declara) e o menu da conta à direita. O cabeçalho
@@ -94,6 +111,7 @@ const InicioPage = () => {
             </div>
           }
         />
+        <CartaoVisitasHoje leitura={doMovimento} periodo={periodo} />
         {lidoEm && <LinhaDeFrescor naoAtualizou={naoAtualizou} />}
         <QueueTiles leitura={doResumo} />
         <section aria-labelledby="o-mes-e-a-semana" className="space-y-3">

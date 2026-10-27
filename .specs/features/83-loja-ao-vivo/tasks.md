@@ -324,23 +324,23 @@ Fases 3–4 (T06–T11) · **Lote 3** = Fase 5 (T12–T14).
 - **Where**: `apps/mobile-adm/src/{widgets/visits-card,widgets/movement-hero,pages}/`.
 - **Depends on**: T08.
 - **Done when**:
-  - [ ] o cartão: eyebrow, número (`41`), linha de apoio, **sem** "pessoa", sem ponto, sem "Ao vivo em
+  - [x] o cartão: eyebrow, número (`41`), linha de apoio, **sem** "pessoa", sem ponto, sem "Ao vivo em
         breve"; o nome acessível exato **nos três estados** (com dado, "carregando", "não consegui
         carregar. Tentar de novo"); ordem no DOM hero → cartão → `LinhaDeFrescor` (com a releitura
         falhada) → "Precisa de você".
-  - [ ] trocar a faixa para Ontem e tocar o cartão ⇒ `/ao-vivo` com Ontem pressionado (pelo `<App />`);
+  - [x] trocar a faixa para Ontem e tocar o cartão ⇒ `/ao-vivo` com Ontem pressionado (pelo `<App />`);
         voltar ⇒ a faixa da Início reabre em Ontem.
-  - [ ] **o critério 1 do PRD entre as duas telas**: pelo `<App />`, ler Visitas e Vendas da faixa nos
+  - [x] **o critério 1 do PRD entre as duas telas**: pelo `<App />`, ler Visitas e Vendas da faixa nos
         três períodos em `/`, tocar o cartão e conferir os mesmos valores na seção em cada período, com
         a fixtura **distinta** por período e por campo (`L-013`); mutante: `accessCards` lendo o
         período errado (ou `vendas` no lugar de `visitas`) morre.
-  - [ ] carregando ⇒ `Traco` e toque navega; falha ⇒ "Não consegui carregar." e toque relê (+1
+  - [x] carregando ⇒ `Traco` e toque navega; falha ⇒ "Não consegui carregar." e toque relê (+1
         chamada, nenhuma navegação); `0` ⇒ "0".
-  - [ ] ciclo de 30 s com a aba visível; em segundo plano, nada — nem o intervalo, nem o aviso do
+  - [x] ciclo de 30 s com a aba visível; em segundo plano, nada — nem o intervalo, nem o aviso do
         Realtime (`fake.emitir('orders')` com o foco desligado ⇒ zero chamadas; de volta ao foco, uma).
-  - [ ] `recusaComPapelAdmin`: com a Início montada por ≥ 4 ciclos de 30 s, `retryAdminCheck` chamado
+  - [x] `recusaComPapelAdmin`: com a Início montada por ≥ 4 ciclos de 30 s, `retryAdminCheck` chamado
         **uma** vez (contar `user_roles`) — prova de que o intervalo não reabre o episódio a cada ciclo.
-  - [ ] **todo teste do app que monta `/`** — lista gerada por grep (`montarApp('/'`, `pushState(… '/')`):
+  - [x] **todo teste do app que monta `/`** — lista gerada por grep (`montarApp('/'`, `pushState(… '/')`):
         `pages/__tests__/{InicioPage,PedidoPage}.test.tsx`,
         `app/__tests__/{anuncios,App.smoke,inicioComClientReal,semConexao}.test.tsx`,
         `widgets/account-menu/__tests__/AccountMenu{,.avisos}.test.tsx`,
@@ -351,10 +351,11 @@ Fases 3–4 (T06–T11) · **Lote 3** = Fase 5 (T12–T14).
         **intacto** (prova que o intervalo para na recusa); "a virada do dia relê pela DURAÇÃO" passa a
         medir a virada a 10 s (fixtura, design §6), com o mutante "timer apagado" morto. A lista dos
         casos tocados e o porquê vão no "Status" desta task.
-  - [ ] os testes da `73` do `MovementHero` **sem asserção tocada** (o modo não controlado segue).
-  - [ ] Full gate e Build (fim da Fase 3).
+  - [x] os testes da `73` do `MovementHero` **sem asserção tocada** (o modo não controlado segue).
+  - [x] Full gate e Build (fim da Fase 3).
 - **Tests**: componente (`<App />` real) · **Gate**: Build
 - **Reqs**: `LAV-04`, `LAV-05`, `LAV-50`.
+- **Status**: ✅ 2026-10-27 — `widgets/visits-card/ui/CartaoVisitasHoje.tsx` (os três nomes acessíveis de `core/live`; com dado ou carregando grava o período na entrada da Início e abre `/ao-vivo`; em falha relê, com "Tentar de novo" na linha de apoio), `MovementHero` com `periodo`/`aoTrocarPeriodo` opcionais, e a `InicioPage` com o período na página (`periodoDoInicio`), o ciclo de 30 s e o Realtime invalidando com `refetchType: 'none'` sem foco. Testes: `CartaoVisitasHoje.test.tsx` 6, `inicioAoVivo.test.tsx` 9 (pelo `<App />`: a ordem hero → cartão → frescor → "Precisa de você"; o critério 1 do PRD atravessando as duas telas nos três períodos, com valores distintos por período e campo; ir e voltar em Ontem; o ciclo; segundo plano com o aviso e 90 s atravessando a virada), e +1 em `recusaComPapelAdmin` (cinco ciclos de 30 s com `42501` e o papel admin ⇒ `user_roles` lido 2 vezes e o movimento parado). **Testes que montam `/` (grep regerado)**: `InicioPage`, `PedidoPage`, `anuncios`, `App.smoke`, `inicioComClientReal`, `semConexao`, `AccountMenu`, `AccountMenu.avisos`, `TabBar`, `seloDaAba`; os `vi.mock` totais são só o client (o dublê) e, em `AccountMenu.avisos`, a porta de avisos — nenhum toca o cartão (`L-030`). Os casos que andam ≥ 30 s: `InicioPage` "`42501` com o papel ainda admin" (intacto, e passa: o intervalo para na recusa) e `PedidoPage:335` (não está em `/`). **Dois casos de `InicioPage.test.tsx` mudaram de fixture, régua intacta**: "erro de REDE" conta SETE blocos em falha (o cartão é o sétimo; âncora subindo com o fato, mais a asserção de que o cartão diz a frase) e "a virada do dia" com a virada a 10 s (`andar(9_000)` ⇒ 1, `andar(2_000)` ⇒ 2), com o mutante "timer apagado" morto. 12 mutantes (intervalo sem a recusa, Realtime sempre `active`, cartão sem gravar o período, `accessCards` no período errado, hero sem avisar a troca, Início sem ler o período da entrada, sem ciclo, falha navegando, timer sem a checagem de foco, cartão com o período fixo, frescor fora da ordem, timer apagado): 12/12 mortos por asserção, SHA-256 conferido. Build: mobile-adm 2121/134 · core 4555 · store 6113 · backoffice 3922 · functions 1105, exit 0; `tsc` 0 · 0 · 0 e core 11 herdados; eslint mobile-adm 0/0 · backoffice 23/5 · store 2/2; build do app verde.
 
 ### T10 — `10-guardas-de-relogio-e-tom`
 - **What**: `apps/mobile-adm/src/shared/lib/__tests__/aoVivoSemRelogioDoAparelho.test.ts` e

@@ -20,8 +20,27 @@ const ROTULO = 'text-[11px] font-semibold uppercase tracking-[.1em] text-estreli
  *   uma com a fonte do sistema grande. `grid-cols-2` fixo deixava `R$ 99.999` pintar por cima das
  *   vendas a 130 % (`BUG-20261022-numeros-se-sobrepoem-com-fonte-grande`, QA da `73`).
  */
-const MovementHero = ({ leitura, topo }: { leitura: Leitura<StoreMovement>; topo?: ReactNode }) => {
-  const [periodo, setPeriodo] = useState<MovementPeriodKey>('hoje')
+const MovementHero = ({
+  leitura,
+  topo,
+  periodo: controlado,
+  aoTrocarPeriodo,
+}: {
+  leitura: Leitura<StoreMovement>
+  topo?: ReactNode
+  /**
+   * Feature `83` (`LAV-50`): o período, quando a PÁGINA o controla (o cartão "Visitas hoje" leva o
+   * período escolhido aqui). Sem as duas props, o estado interno de sempre (testes da `73` intactos).
+   */
+  periodo?: MovementPeriodKey
+  aoTrocarPeriodo?: (p: MovementPeriodKey) => void
+}) => {
+  const [interno, setInterno] = useState<MovementPeriodKey>('hoje')
+  const periodo = controlado ?? interno
+  const setPeriodo = (p: MovementPeriodKey) => {
+    setInterno(p)
+    aoTrocarPeriodo?.(p)
+  }
   const m = leitura.dado
   const carregando = !m && !leitura.falhou
   const falado = PERIODOS.find((p) => p.id === periodo)?.falado ?? periodo
