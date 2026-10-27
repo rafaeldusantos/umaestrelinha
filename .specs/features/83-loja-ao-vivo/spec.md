@@ -165,7 +165,9 @@ indicação de que os números estão atualizados, que se atualiza sozinha enqua
    `surface`, fio `line` embaixo, preso no topo (`sticky`), com o voltar, o `h1` "Loja ao vivo"
    (display 17/700) e a linha de frescor (12 px `ink-soft`):
    - "Atualizado agora" quando a última leitura boa chegou há **menos de 2 s**;
-   - "Atualizado há {s} s" de 2 a 59 s; "Atualizado há {m} min" a partir de 60 s;
+   - "Atualizado há {s} s" de 2 a 59 s; "Atualizado há {m} min" a partir de 60 s — {s} e {m} são
+     segundos e minutos inteiros COMPLETOS, truncados, nunca arredondados (2,9 s ⇒ "2 s"; 90 s e
+     119 s ⇒ "1 min");
    - "Não consegui atualizar agora." quando a última releitura falhou com dado na tela;
    - nada enquanto não há dado. A duração é contada desde a chegada da resposta, nunca contra o
      relógio de parede do aparelho.

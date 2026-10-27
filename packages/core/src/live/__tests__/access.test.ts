@@ -303,6 +303,11 @@ describe('freshnessLine (LAV-07)', () => {
     [59, 'Atualizado há 59 s'],
     [60, 'Atualizado há 1 min'],
     [125, 'Atualizado há 2 min'],
+    // truncado, nunca arredondado (V-C03, V-C04)
+    [2.9, 'Atualizado há 2 s'],
+    [59.9, 'Atualizado há 59 s'],
+    [90, 'Atualizado há 1 min'],
+    [119, 'Atualizado há 1 min'],
   ])('%s s ⇒ "%s"', (s, frase) => {
     expect(freshnessLine(s)).toBe(frase)
   })
