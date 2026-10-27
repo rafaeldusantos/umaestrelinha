@@ -12,6 +12,10 @@ import { INSTAGRAM_HANDLE, INSTAGRAM_URL } from '@/shared/config/instagram'
  * O contraste é o que decide as duas cores: `on-primary` sobre `ink` mede
  * 11,89:1, e o ponto do ícone é `accent` — objeto gráfico de 2,4px, onde a
  * regra é 3:1 e não 4,5:1. **Nenhum texto desta faixa é ouro.**
+ *
+ * O arroba é uma palavra só: com a fonte do celular a 200 % em 390 ele passava da borda e o body
+ * rolava de lado (`BUG-20261027-rodape-da-loja-rola-de-lado-com-fonte-200`). `max-w-full` com
+ * `overflow-wrap: anywhere` o deixa quebrar dentro da faixa.
  */
 const InstagramStrip = () => (
   <a
@@ -23,7 +27,7 @@ const InstagramStrip = () => (
   >
     <Instagram className="h-[34px] w-[34px] text-estrelinha-on-primary" strokeWidth={1.4} />
     <span className="text-sm font-light text-estrelinha-on-primary/85">Siga-nos no Instagram</span>
-    <span className="font-display text-2xl font-bold text-estrelinha-on-primary">
+    <span className="max-w-full font-display text-2xl font-bold text-estrelinha-on-primary [overflow-wrap:anywhere]">
       {INSTAGRAM_HANDLE}
     </span>
   </a>

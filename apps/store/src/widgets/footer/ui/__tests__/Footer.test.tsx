@@ -94,6 +94,19 @@ describe('Footer — a faixa do Instagram (COP-07)', () => {
     expect(faixa).toHaveTextContent('@umaestrelinha.adri')
   })
 
+  it('o arroba quebra dentro da largura com a fonte grande (BUG-20261027-rodape-da-loja-rola-de-lado-com-fonte-200)', () => {
+    // Medido em navegador: a 200 % de fonte em 390, o arroba (uma palavra só, sem ponto de quebra) ia até
+    // x = 461 e o body rolava de lado. jsdom não mede layout, então a régua é de token exato: o arroba é
+    // limitado à largura da faixa E ganha ponto de quebra em qualquer caractere (o `overflow-wrap:
+    // anywhere` reduz o min-content; o `break-words` não reduz, e o item flex continuaria largo).
+    renderFooter()
+    const arroba = screen.getByText('@umaestrelinha.adri')
+    const tokens = arroba.className.split(/\s+/)
+    expect(tokens).toContain('max-w-full')
+    expect(tokens).toContain('[overflow-wrap:anywhere]')
+    expect(tokens).not.toContain('whitespace-nowrap')
+  })
+
   it('a faixa é `ink` — a banda escura que fecha a página antes do rodapé claro', () => {
     renderFooter()
     expect(screen.getByTestId('instagram-strip')).toHaveClass('bg-estrelinha-ink')

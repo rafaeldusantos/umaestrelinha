@@ -1,6 +1,6 @@
 # BUG-20261027-rodape-da-loja-rola-de-lado-com-fonte-200: o @ do Instagram no rodapé da loja faz a página rolar de lado a 200 %
 
-- **Status:** open
+- **Status:** fixed parcialmente — o rodapé (o cabeçalho segue, ver Fix)
 - **Impact (user-side):** Friction
 - **Severity:** Low · **Priority:** P3
 - **Persona Affected:** Cliente com conta da loja (fonte do celular aumentada)
@@ -30,3 +30,14 @@ encosta em 403. A 100 % não acontece (390/390).
 
 - Playwright: `"461 @umaestrelinha.adri <- SPAN.font-display.text-2xl.font-bold < A.flex.flex-col.items-center < FOOTER.mt-16"`; captura do topo em `/private/tmp/claude-503/f83/qa-politica-390-200.png`.
 - Arquivo provável: `apps/store/src/widgets/footer/ui/InstagramStrip.tsx` (ou `Footer.tsx`).
+
+## Fix (2026-10-27)
+
+`InstagramStrip.tsx`: o arroba ganhou `max-w-full` e `[overflow-wrap:anywhere]`, e quebra dentro da faixa. Medido em
+Chromium 390×844 no `vite` da loja: a 200 % o arroba vai de x = 48 a 342 (antes, até 461); a 100 % nada muda. Um caso
+de token exato em `Footer.test.tsx` (vermelho antes) e três mutantes mortos por asserção.
+
+**O `scrollWidth` a 200 % NÃO volta a 390**: depois do conserto ele mede 434, e quem passa da borda é o
+**cabeçalho** — o grupo de ícones à direita vai até 426 (o botão do menu, 354–426, mais o alvo de 44 px). O logo
+(202 px, `shrink-0`) e o recuo do `container` (2rem) crescem com a fonte. Consertar pede decidir o que encolhe
+(logo, recuo ou ícones) e mexe no chrome de toda página; ficou como achado à parte.
