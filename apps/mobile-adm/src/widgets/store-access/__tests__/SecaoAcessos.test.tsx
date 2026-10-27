@@ -180,7 +180,29 @@ describe('o gráfico (LAV-52)', () => {
   it('com a fonte grande o gráfico rola DENTRO do cartão: `overflow-x-auto` e piso de coluna em rem (tokens exatos)', () => {
     montar(comDado(movimentoComAcessos()))
     expect(temClasse(screen.getByTestId('colunas'), 'overflow-x-auto')).toBe(true)
-    for (const c of colunas()) expect(temClasse(c, 'min-w-[2.75rem]')).toBe(true)
+    for (const c of colunas()) expect(temClasse(c, 'min-w-[1.875rem]')).toBe(true)
+  })
+
+  // Achado do gate adversarial do Lote 2: com piso de 2.75rem (44 px) as 8 faixas somavam
+  // 8×44 + 7×6 = 394 px, e o cartão tem 324 px úteis em 390 — a faixa 21h (onde o dourado aparece à
+  // noite) ficava atrás da rolagem com a fonte NORMAL. jsdom não mede layout, então a régua é a conta
+  // com as classes do próprio fonte: piso e vão lidos do DOM, a 16 px por rem (fonte a 100 %).
+  // Largura útil no menor celular medido (360): 360 − 32 (`px-4` do `<main>`) − 2 (borda) − 32 (`p-4`).
+  it('com a fonte normal as 8 faixas cabem no cartão de 360 px, sem rolagem (LAV-52)', () => {
+    montar(comDado(movimentoComAcessos()))
+    const util360 = 360 - 32 - 2 - 32
+    const lista = screen.getByTestId('colunas')
+    expect(temClasse(lista, 'gap-1.5')).toBe(true)
+    const vao = 6
+    const cols = colunas()
+    expect(cols).toHaveLength(8)
+    const pisos = cols.map((c) => {
+      const m = c.className.match(/(?:^|\s)min-w-\[([\d.]+)rem\](?=\s|$)/)
+      expect(m).not.toBeNull()
+      return Number(m![1]) * 16
+    })
+    const total = pisos.reduce((a, b) => a + b, 0) + vao * (cols.length - 1)
+    expect(total).toBeLessThanOrEqual(util360)
   })
 
   it('nenhuma transição nem animação no gráfico (LAV-64)', () => {

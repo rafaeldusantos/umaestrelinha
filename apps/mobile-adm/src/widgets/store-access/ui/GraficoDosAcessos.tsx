@@ -22,6 +22,8 @@ const nomeDaColuna = (c: AccessColumn): string => {
  * - **Sem transição nenhuma nas barras** (`LAV-64`, por construção).
  * - Com a fonte grande, cada coluna tem piso em `rem` e o gráfico rola DENTRO do cartão
  *   (`overflow-x-auto`): o valor nunca pinta sobre o vizinho, e o `body` não rola (`LAV-52`, `LAV-63`).
+ *   O piso é 1.875rem (30 px a 100 %): 8×30 + 7×6 = 282 px cabem nos 294 úteis do cartão em 360, então
+ *   com a fonte NORMAL as 8 faixas aparecem sem rolagem. O de 2.75rem do design somava 394 px.
  */
 const GraficoDosAcessos = ({ grafico }: { grafico: AccessChart }) => {
   const max = Math.max(0, ...grafico.colunas.map((c) => c.valor ?? 0))
@@ -35,7 +37,7 @@ const GraficoDosAcessos = ({ grafico }: { grafico: AccessChart }) => {
             data-testid="coluna"
             data-destaque={c.destaque}
             aria-label={nomeDaColuna(c)}
-            className="flex min-w-[2.75rem] flex-1 flex-col items-center gap-1.5"
+            className="flex min-w-[1.875rem] flex-1 flex-col items-center gap-1.5"
           >
             <span aria-hidden="true" data-testid="valor" className="text-[11px] font-medium text-estrelinha-ink-soft">
               {semNumero(c) ? '' : formatCount(c.valor as number)}
