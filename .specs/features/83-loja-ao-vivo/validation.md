@@ -519,3 +519,24 @@ Os 6 commits seguem o estilo do repositório. O resto da tabela de qualidade da 
 equivalentes pela sonda, 2 de precisão de spec.
 **Gate**: 17862 testes em 898 arquivos, 5 workspaces exit 0; probe 76 `ok —`.
 **Próximo passo**: F6–F10 (probe, um caso em `access.test.ts` e uma emenda de texto); depois rodada 3.
+
+## Conserto da rodada 2
+
+As cinco lacunas da rodada 2 foram fechadas **só com prova** — nenhum código de produto mudou. Cada
+mutante foi reinjetado no arquivo real pelo arnês (`/private/tmp/claude-503/f83/v3/mutar.py`, cópia do
+da rodada 2: o alvo tem de existir uma vez, SHA-256 conferido na restauração) e morreu por asserção.
+
+| Fix | Lacuna | O que entrou | Mutante reinjetado | Resultado | Commit |
+| --- | --- | --- | --- | --- | --- |
+| F6 | V-S07 | savepoint `anteontem`: 2ª venda em ontem (`PROBE-83-A3`, ter 12h) ⇒ Ontem 2 ≠ anteontem 1, e a asserção de que os dois discordam | `'vendas', v_n_anteontem` → `v_n_ontem` | ✅ asserção | `05f4b038` |
+| F7 | V-S16, V-S11 | savepoints `calendario_quinta` (venda na segunda e na terça, lida na quinta 22/10) e `calendario_segunda` (visita no sábado e duas no domingo, lida na segunda 26/10), molde da sonda | piso `paid_at >= v_ini_anteontem` removido · CTE `v` de `v_desde` sem `least` | ✅ asserção (os dois) | `729aacc4` |
+| F8 | V-S04 | savepoint `simetrica`: pedido de hoje às 15:00:00 exatas (`PROBE-83-S5`); `base_hoje.vendas` segue 1 e `periodos.hoje.vendas` passa a 3 (a fixtura ganhou um pedido; não é régua afrouxada) | `paid_at < v_ini_hoje + h` → `<=` | ✅ asserção | `3ec9a714` |
+| F9 | V-S18 | savepoint `nunca_comecou`: `ontem.por_faixa = [0,0,0,1,0,0,0,0]`, `hoje.por_faixa` só com a futura `null`, e a invariante de ontem | `antes` verdadeiro com `v_inicio is null` | ✅ asserção | `98b36198` |
+| F10 | V-C03, V-C04 | `LAV-07` emendada (segundos e minutos inteiros completos, truncados: 2,9 s ⇒ "2 s"; 90 s e 119 s ⇒ "1 min") e 4 casos em `access.test.ts` (2,9 · 59,9 · 90 · 119) | `Math.floor` → `Math.round` (segundos e minutos) | ✅ asserção (os dois) | `13165064` |
+
+**Probe**: `01-acessos.sql` 76 → **84** `ok —`, exit 0 (`/private/tmp/claude-503/f83/v3/probe-F9.log`).
+
+**Gate** (2026-10-27, um workspace por vez, exit fora de pipe, `--testTimeout=20000` sem `--`):
+core **4560/182** (+4, os casos de F10), exit 0; store **6116/327** (idêntico), exit 0. Mobile-adm,
+backoffice e functions não foram tocados e não foram remedidos (2163 · 3922 · 1105 na rodada 2).
+`tsc` de `packages/core`: 11, os herdados.
