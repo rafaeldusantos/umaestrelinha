@@ -262,24 +262,25 @@ Fases 3–4 (T06–T11) · **Lote 3** = Fase 5 (T12–T14).
 - **Depends on**: T06 · **Reuses**: `Traco`, `FalhaDoBloco` (`shared/ui/leitura.tsx`); a grade do
   `MovementHero`; `week-chart/model/barras.ts` (molde).
 - **Done when**:
-  - [ ] o seletor: inicial por prop, `aria-pressed`, 44 px (token `min-h-11`, `L-034`), rótulos de
+  - [x] o seletor: inicial por prop, `aria-pressed`, 44 px (token `min-h-11`, `L-034`), rótulos de
         `PERIODOS`. (A asserção "trocar não chama a RPC" **não** mora aqui: a seção recebe a leitura por
         prop e nunca chama RPC, então seria verdadeira nos dois mundos — ela vai para a T08.)
-  - [ ] os três cartões em cada período, cada um encontrado por `getByRole('group', { name })`, cada
+  - [x] os três cartões em cada período, cada um encontrado por `getByRole('group', { name })`, cada
         texto **inteiro** (`L-009`), o tom por classe exata, e **nenhum** "Com sacola"; a grade com
         `[&>*:last-child]:col-span-full` por token exato.
-  - [ ] o gráfico: 8 colunas com rótulos; a atual em `bg-estrelinha-accent` e rótulo `ink`; as futuras
+  - [x] o gráfico: 8 colunas com rótulos; a atual em `bg-estrelinha-accent` e rótulo `ink`; as futuras
         e as `sem_contagem` sem número e com 4 px `line`; Ontem sem `accent`; Semana com "hoje"; todos
         zero ⇒ 4 px e "0"; `alturaDaBarra` com `max = 0`, `v = max`, `v = 1` de 1000; o contêiner com
         `overflow-x-auto` e cada coluna com `min-w-[2.75rem]` por token exato (`L-029`).
-  - [ ] as notas (`BAND_NOTE`/`WEEK_NOTE`, `noHourNote`, as três do contador, `CONSENT_NOTE`) — cada
+  - [x] as notas (`BAND_NOTE`/`WEEK_NOTE`, `noHourNote`, as três do contador, `CONSENT_NOTE`) — cada
         uma presente **e** ausente no caso que a exclui.
-  - [ ] os estados de `LAV-55`, cada um com asserção de **exclusividade** (`L-063`), mais o "sem
+  - [x] os estados de `LAV-55`, cada um com asserção de **exclusividade** (`L-063`), mais o "sem
         `acessos`": a frase `CHART_UNAVAILABLE` e **nenhum** botão no bloco do gráfico.
-  - [ ] a grade `auto-fit` por token exato (`L-029`); nenhuma `transition-` nas barras.
-  - [ ] Full gate.
+  - [x] a grade `auto-fit` por token exato (`L-029`); nenhuma `transition-` nas barras.
+  - [x] Full gate.
 - **Tests**: componente · **Gate**: Full
 - **Reqs**: `LAV-50`..`LAV-55`, `LAV-63`, `LAV-67`.
+- **Status**: ✅ 2026-10-27 — `widgets/store-access/{ui/SecaoAcessos,ui/GraficoDosAcessos,model/barras,index}`; fixtura `acessos()`/`movimentoComAcessos()` em `test/movimento.ts` (coerente com `movimento()`, campos candidatos divergentes, `L-013`). `SecaoAcessos.test.tsx` 27 + `barras.test.ts` 5. A área do gráfico é `min-h-[120px]` (não `h-`): com `overflow-x-auto` o eixo vertical vira `auto`, e valor + barra de 84 + rótulo passam de 120 — uma altura fixa abriria rolagem vertical no cartão (medir na T13). 7 mutantes nos dois componentes (tom trocado, `col-span-full` apagado, nota de consentimento apagada, "Contando desde" apagado, destaque `atual` trocado, número nas faixas futuras, seletor sem trava): 7/7 mortos por asserção, SHA-256 conferido. Full: mobile-adm 2084/131 · core 4555 · store 6113 · backoffice 3922 · functions 1105, exit 0; `tsc` 0; eslint 0/0.
 
 ### T08 — `08-pagina-loja-ao-vivo`
 - **What**: `widgets/store-access/ui/CabecalhoAoVivo.tsx`, `shared/lib/useSegundosDesde.ts`,
