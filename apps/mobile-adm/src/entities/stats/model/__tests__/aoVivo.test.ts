@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import {
   AO_VIVO_PATH,
   estadoDaEntrada,
-  gravarPeriodoDoInicio,
+  gravarPeriodoNaEntrada,
   periodoDaEntrada,
   periodoDoInicio,
 } from '../aoVivo'
@@ -45,14 +45,14 @@ describe('ehPeriodo', () => {
   })
 })
 
-describe('periodoDoInicio / gravarPeriodoDoInicio (o período da Início ao voltar)', () => {
+describe('periodoDoInicio / gravarPeriodoNaEntrada (o período da Início ao voltar)', () => {
   afterEach(() => window.history.replaceState(null, '', '/'))
 
   it('grava o período NA ENTRADA ATUAL, preservando `key`/`idx` e o estado, sem tocar a URL', () => {
     window.history.replaceState({ usr: { outro: 1 }, key: 'k1', idx: 4 }, '', '/?x=1#y')
     const tamanho = window.history.length
 
-    gravarPeriodoDoInicio('ontem')
+    gravarPeriodoNaEntrada('ontem')
 
     expect(window.history.state).toEqual({ usr: { outro: 1, periodo: 'ontem' }, key: 'k1', idx: 4 })
     expect(window.location.pathname + window.location.search + window.location.hash).toBe('/?x=1#y')
@@ -62,7 +62,7 @@ describe('periodoDoInicio / gravarPeriodoDoInicio (o período da Início ao volt
 
   it('sem estado na entrada, cria o `usr` com o período', () => {
     window.history.replaceState(null, '', '/')
-    gravarPeriodoDoInicio('semana')
+    gravarPeriodoNaEntrada('semana')
     expect(window.history.state).toEqual({ usr: { periodo: 'semana' } })
     expect(periodoDoInicio(window.history.state.usr)).toBe('semana')
   })

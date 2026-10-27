@@ -1628,9 +1628,10 @@
   `<body>` (consertado em `5b23601d`, retestado em 390/1440 × 100/200 %), o arroba do rodapé da loja a
   200 % (anterior à `83`, consertado em `49f8bbb5`; a loja ainda rola a 390/200 % pelo **cabeçalho**,
   `scrollWidth` 434 — decisão pendente) e o F5 que desfaz o período escolhido em `/ao-vivo`
-  (`BUG-20261027-f5-desfaz-o-periodo-escolhido-na-loja-ao-vivo`, esperando decisão; se for manter, o
-  conserto é `history.replaceState` na troca, guardando `doApp` e o estado do react-router, molde de
-  `gravarPeriodoDoInicio`).
+  (`BUG-20261027-f5-desfaz-o-periodo-escolhido-na-loja-ao-vivo`, **consertado em 2026-10-27 por
+  decisão do usuário**: cada troca grava o período na entrada com `gravarPeriodoNaEntrada` — o antigo
+  `gravarPeriodoDoInicio`, renomeado por ter dois leitores —, preservando `doApp` e o estado do
+  react-router; +2 casos em `AoVivoPage.test.tsx`, vermelhos antes; reteste em navegador pendente).
 - **Provas**: `probes/01-acessos.sql` e `02-gravacao-real.sh` contra o banco local; `prova-navegador.md`
   (build servido, login real, 48 telas em 360/390/412/1440 × 100/130/200 %, números iguais a
   `store_movement`, ciclo de 15/30 s e zero leituras com a aba oculta).

@@ -14,7 +14,7 @@ import {
   type MovementPeriodKey,
   type StoreMovement,
 } from '@estrelinha/core/stats'
-import { PERIODOS } from '@/entities/stats'
+import { PERIODOS, gravarPeriodoNaEntrada } from '@/entities/stats'
 import { FalhaDoBloco, Traco, type Leitura } from '@/shared/ui/leitura'
 import GraficoDosAcessos from './GraficoDosAcessos'
 
@@ -30,7 +30,8 @@ const ROTULOS = ['Visitas', 'Vendas', 'Conversão'] as const
  *
  * - Recebe a leitura do movimento por prop (a MESMA da faixa do Início, `['store-movement']`) e nunca
  *   chama RPC: trocar de período não lê nada, os três vêm da mesma resposta.
- * - O período inicial vem da entrada (`periodoDaEntrada`, na página); depois, é estado da seção.
+ * - O período inicial vem da entrada (`periodoDaEntrada`, na página); depois, é estado da seção, e
+ *   cada troca é gravada na entrada (`gravarPeriodoNaEntrada`) para o F5 reabrir nele.
  * - Toda regra — números, variação, gráfico, notas — é de `core/live` e `core/stats/counterNotes`.
  * - Três estados exclusivos (`L-063`): carregando (`aria-busy`, traços, seletor travado, nenhum
  *   número), falha sem dado (a frase e "Tentar de novo", nenhum número), e dado. Sem a chave `acessos`
@@ -88,7 +89,10 @@ const SecaoAcessos = ({ leitura, periodoInicial }: { leitura: Leitura<StoreMovem
             type="button"
             aria-pressed={periodo === p.id}
             disabled={!m}
-            onClick={() => setPeriodo(p.id)}
+            onClick={() => {
+              setPeriodo(p.id)
+              gravarPeriodoNaEntrada(p.id)
+            }}
             className={cn(
               'min-h-11 rounded-[6px] text-sm font-semibold',
               periodo === p.id

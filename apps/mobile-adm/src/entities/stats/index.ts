@@ -3,7 +3,7 @@ export { PERIODOS, ehPeriodo } from './model/periodos'
 export {
   AO_VIVO_PATH,
   estadoDaEntrada,
-  gravarPeriodoDoInicio,
+  gravarPeriodoNaEntrada,
   periodoDaEntrada,
   periodoDoInicio,
 } from './model/aoVivo'

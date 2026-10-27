@@ -26,12 +26,13 @@ export const periodoDaEntrada = (state: unknown): MovementPeriodKey => lerPeriod
 export const periodoDoInicio = (state: unknown): MovementPeriodKey => lerPeriodo(state)
 
 /**
- * Grava o período na entrada ATUAL do histórico (a da Início), sem tocar a URL — molde de
- * `useTermoDaEntrada`, mas no `history.state`, porque a Início desmonta ao abrir `/ao-vivo` e o voltar
- * tem de reabrir a faixa no período em que a Adri saiu. O React Router lê o estado da entrada em
- * `history.state.usr`; o resto (`key`, `idx`) é preservado.
+ * Grava o período na entrada ATUAL do histórico, sem tocar a URL — molde de `useTermoDaEntrada`, mas
+ * no `history.state`. Dois leitores: a Início (ela desmonta ao abrir `/ao-vivo`, e o voltar tem de
+ * reabrir a faixa no período em que a Adri saiu) e a própria Loja ao vivo (o F5 — e o Chrome do
+ * Android recarregando a aba em segundo plano — reabre no período escolhido depois de chegar). O React
+ * Router lê o estado da entrada em `history.state.usr`; o resto (`key`, `idx`, `doApp`) é preservado.
  */
-export const gravarPeriodoDoInicio = (periodo: MovementPeriodKey): void => {
+export const gravarPeriodoNaEntrada = (periodo: MovementPeriodKey): void => {
   const atual = (window.history.state ?? {}) as { usr?: unknown }
   const usr = atual.usr && typeof atual.usr === 'object' ? atual.usr : {}
   window.history.replaceState({ ...atual, usr: { ...usr, periodo } }, '')

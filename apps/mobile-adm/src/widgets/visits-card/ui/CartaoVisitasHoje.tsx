@@ -8,7 +8,7 @@ import {
   visitsTodayLoadingLabel,
 } from '@estrelinha/core/live'
 import { formatCount, type MovementPeriodKey, type StoreMovement } from '@estrelinha/core/stats'
-import { AO_VIVO_PATH, estadoDaEntrada, gravarPeriodoDoInicio } from '@/entities/stats'
+import { AO_VIVO_PATH, estadoDaEntrada, gravarPeriodoNaEntrada } from '@/entities/stats'
 import { FALHA_DE_LEITURA, TENTAR_DE_NOVO, Traco, type Leitura } from '@/shared/ui/leitura'
 
 /**
@@ -32,7 +32,7 @@ const CartaoVisitasHoje = ({ leitura, periodo }: { leitura: Leitura<StoreMovemen
       leitura.tentarDeNovo()
       return
     }
-    gravarPeriodoDoInicio(periodo)
+    gravarPeriodoNaEntrada(periodo)
     navigate(AO_VIVO_PATH, { state: estadoDaEntrada(periodo) })
   }
 

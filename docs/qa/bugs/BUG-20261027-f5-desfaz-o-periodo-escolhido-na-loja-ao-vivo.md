@@ -1,6 +1,6 @@
 # BUG-20261027-f5-desfaz-o-periodo-escolhido-na-loja-ao-vivo: recarregar a Loja ao vivo volta ao período que veio da Início
 
-- **Status:** open
+- **Status:** fixed (2026-10-27, reteste em navegador pendente)
 - **Impact (user-side):** Friction
 - **Severity:** Low · **Priority:** P4
 - **Persona Affected:** Adri no celular
@@ -31,3 +31,11 @@ trocado na própria tela, ele não mantém.
 - Playwright: `{"trocou_f5":"Semana","trocou_volta":"Semana"}`.
 - Arquivo provável: `apps/mobile-adm/src/pages/AoVivoPage.tsx` (`useState(() => periodoDaEntrada(state))`, só na montagem) e `apps/mobile-adm/src/widgets/store-access/ui/SecaoAcessos.tsx` (a troca de período não grava na entrada, ao contrário da Início, que usa `history.replaceState`).
 - Pode ser decisão de produto (a spec só garante o período "ao chegar do Início"); ver *Decisions for a Human* no relatório.
+
+## Fix
+
+Decisão do usuário (2026-10-27): manter o período escolhido. `SecaoAcessos` chama
+`gravarPeriodoNaEntrada` (o antigo `gravarPeriodoDoInicio`, renomeado por ter dois leitores) a cada troca,
+gravando o período em `history.state.usr` da entrada de `/ao-vivo` sem tocar a URL nem o `doApp`. Prova:
+dois casos em `apps/mobile-adm/src/pages/__tests__/AoVivoPage.test.tsx` (a troca grava e o F5 reabre nela;
+aberta sem estado, não inventa o `doApp`), os dois vermelhos antes do conserto.

@@ -149,6 +149,33 @@ describe('o período (LAV-50)', () => {
     expect(screen.getByRole('group', { name: 'Visitas, ontem, 12' })).toBeInTheDocument()
   })
 
+  it('a troca grava o período NA ENTRADA de /ao-vivo, sem tocar a URL nem o `doApp` — o F5 reabre nele (BUG-20261027-f5-desfaz-o-periodo-escolhido-na-loja-ao-vivo)', async () => {
+    sempre()
+    await abrir({ doApp: true, periodo: 'hoje' })
+    const tamanho = window.history.length
+    fireEvent.click(screen.getByRole('button', { name: 'Ontem' }))
+    await andar(20)
+    expect(window.history.state.usr).toEqual({ doApp: true, periodo: 'ontem' })
+    fireEvent.click(screen.getByRole('button', { name: 'Semana' }))
+    await andar(20)
+    expect(window.history.state.usr).toEqual({ doApp: true, periodo: 'semana' })
+    expect(window.location.pathname + window.location.search).toBe('/ao-vivo')
+    expect(window.history.length).toBe(tamanho)
+
+    // o F5: a mesma entrada, montada de novo com o estado que ela guarda
+    await montarApp('/ao-vivo', { estado: window.history.state.usr })
+    await andar(50)
+    expect(screen.getAllByRole('button', { name: 'Semana' }).at(-1)).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('aberta sem estado (link colado), a troca cria o período na entrada e não inventa o `doApp`', async () => {
+    sempre()
+    await abrir()
+    fireEvent.click(screen.getByRole('button', { name: 'Ontem' }))
+    await andar(20)
+    expect(window.history.state.usr).toEqual({ periodo: 'ontem' })
+  })
+
   it('trocar Hoje → Ontem → Semana não chama a RPC (os três vêm da mesma resposta)', async () => {
     sempre()
     await abrir()
