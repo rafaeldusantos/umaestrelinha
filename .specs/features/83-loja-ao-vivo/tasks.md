@@ -364,16 +364,17 @@ Fases 3–4 (T06–T11) · **Lote 3** = Fase 5 (T12–T14).
 - **Depends on**: T09 · **Reuses**: `movimentoDeClientes.test.ts`, `tomMemorialDeClientes.test.ts`
   (molde); `semPessoas.test.ts` do painel (a régua de "pessoas").
 - **Done when**:
-  - [ ] escopo **literal** (os arquivos da `83` no app, `core/live/**`, `core/stats/counterNotes.ts`),
+  - [x] escopo **literal** (os arquivos da `83` no app, `core/live/**`, `core/stats/counterNotes.ts`),
         âncora que **nomeia** um arquivo do app e um de `core` (`L-035`), contagem ≥ N.
-  - [ ] relógio: cada forma (`new Date(`, `Date.now(`, `getHours`, `getDay`, `toLocaleDateString`)
+  - [x] relógio: cada forma (`new Date(`, `Date.now(`, `getHours`, `getDay`, `toLocaleDateString`)
         acusada por sensor; allowlist de UM (`useSegundosDesde.ts`), com o caso que prova que outro
         arquivo **seria** acusado.
-  - [ ] tom: emoji, `!`, urgência, "pessoa(s)"/"usuário(s)" acusados; movimento sem par acusado;
+  - [x] tom: emoji, `!`, urgência, "pessoa(s)"/"usuário(s)" acusados; movimento sem par acusado;
         CRLF/LF; o inverso (comentário que cita a forma não é acusado).
-  - [ ] Full gate.
+  - [x] Full gate.
 - **Tests**: guarda · **Gate**: Full
 - **Reqs**: `LAV-61`, `LAV-64`, `LAV-65`.
+- **Status**: ✅ 2026-10-27 — `aoVivoSemRelogioDoAparelho.test.ts` (10: escopo literal de 12 arquivos do app + `core/live/*.ts` + `counterNotes.ts`, 16 lidos; as cinco formas; allowlist de UM com a âncora de que ela está viva e o caso do mesmo texto em outro arquivo acusado; inverso com CRLF/LF e o glob) e `tomDaLojaAoVivo.test.ts` (21: pela AST, 11 arquivos nomeados — `core/live/access.ts`, `card.ts`, `counterNotes.ts` e 8 do app —, piso de 40 literais e as frases-chave; emoji, `!`, urgência, "pessoa(s)"/"usuário(s)"; o movimento nos 5 `.tsx` da `83` + `leitura.tsx` e `PullToRefresh.tsx`, com a âncora do `Traco` e o gráfico sem token de movimento nenhum). 5 mutantes reais ("pessoas" no cartão, transição nas barras, `new Date().getHours()` na seção, `Date.now()` em `core/live`, "Corra!" em `counterNotes`): 5/5 mortos por asserção, SHA-256 conferido. Full: mobile-adm 2152/136 · core 4555 · store 6113 · backoffice 3922 · functions 1105, exit 0; `tsc` 0; eslint 0/0.
 
 ### T11 — `11-recusa-sobre-o-client-real`
 - **What**: `apps/mobile-adm/src/app/__tests__/aoVivoComClientReal.test.tsx` sobre `src/test/clientReal.ts`.
