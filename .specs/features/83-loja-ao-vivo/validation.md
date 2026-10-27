@@ -269,3 +269,32 @@ ambiguidade de texto (`LAV-52`).
 **Sensor**: 59/63 mortos por asserção; 1 equivalente; 3 sobreviventes.
 **Gate**: 17861 testes em 898 arquivos, 5 workspaces exit 0; probe 70 `ok —`.
 **Próximo passo**: F1–F4 (probe e um caso de foco) e F5 (emenda de texto); depois rodada 2.
+
+---
+
+## Conserto da rodada 1
+
+2026-10-27, na worktree `feature/83-loja-ao-vivo`. Autor do conserto ≠ autor da rodada 1 do
+Verificador; os mutantes são os dele, reinjetados nos arquivos reais com o SHA-256 conferido na
+restauração. Nenhum código de produto mudou: as cinco lacunas eram de prova e de texto.
+
+| Lacuna | Conserto | Mutante reinjetado | Resultado | Commit |
+| --- | --- | --- | --- | --- |
+| 1 · S05 (`LAV-73`) | probe: pedido `PROBE-83-A2` pago em `store_day_start(20/10)` exato (`2026-10-20T03:00:00Z`) no savepoint `anteontem`; asserção nova: `comparacao.ontem.vendas` = 1 **e** `periodos.ontem.vendas` = 1 | `paid_at < v_ini_ontem` → `<=` na janela de anteontem | ✅ morto por asserção (`comparacao.ontem = anteontem inteiro…`, 44 `ok` antes da queda) | `67ab635c` |
+| 2 · S06 (`LAV-73`) | probe: savepoint `sem_hora_so_hoje` — linha sem hora só em hoje, ontem com visita com hora ⇒ `visitas` e `base_hoje.visitas` null, `vendas` não | `or v_sem_hora_hoje > 0` apagado de `v_sem_cmp_hoje` | ✅ morto por asserção (a do S06) | `26a5b4b9` |
+| 3 · S09 (`LAV-73`) | probe: savepoint `nunca_comecou` — sem a linha do contador (`started_at` é `not null`, então "nunca começou" é a ausência da linha), visitas com hora inseridas direto em anteontem, ontem e hoje ⇒ as visitas das comparações de Hoje e de Ontem null | (a) `v_inicio_dia is null` apagado de `v_sem_cmp_hoje`; (b) o mesmo em `v_sem_cmp_ontem` | ✅ os dois mortos por asserção | `ae4e2b57` |
+| 4 · `LAV-62` | `inicioAoVivo.test.tsx`: tocar o cartão ⇒ `document.activeElement` é o `h1` "Loja ao vivo" (com `tabindex=-1`); Voltar ⇒ o foco no `h1` da Início (a saudação do `MovementHero`, dentro da faixa) | `h1` do `CabecalhoAoVivo` trocado por `<p role="heading" aria-level={1}>` | ✅ morto por asserção (`expected <body> to be <p role="heading">`) | `7aca7c74` |
+| 5 · `LAV-52` | `spec.md` emendada: "a barra em `accent` com o rótulo 'hoje' em `ink`" | — | — | `e008e666` |
+
+**Probe**: 76 `ok —` (eram 70), exit 0, `begin … rollback` contra o Postgres local (a migration da 83
+aplicada pelo `\ir` do disco dentro da transação; nada fica no banco compartilhado).
+
+**Gate** (um workspace por vez, exit fora de pipe, `--testTimeout=20000`): mobile-adm **2163/137**
+exit 0 (+1 caso), store **6116/327** exit 0 (idêntico). Tipos do mobile-adm 0; lint do mobile-adm 0/0.
+Core, backoffice, functions e catalog-import não foram tocados e não foram remedidos.
+
+**A nota do S14** (o `revoke` de `authenticated` em `store_hour` cego no probe local, porque o
+`pg_default_acl` local só concede `execute` a `PUBLIC`) fica como lição, não como lacuna: o mutante
+morre pelo guarda de fonte.
+
+**Próximo passo**: rodada 2 do Verificador.
