@@ -101,12 +101,13 @@ Fases 3–4 (T06–T11) · **Lote 3** = Fase 5 (T12–T14).
 - **Where**: `spec.md` (a coluna "Confirmado?" de cada linha passa a `s` ou à escolha nova).
 - **Depends on**: —.
 - **Done when**:
-  - [ ] cada linha de copy/número visível com a resposta do usuário escrita na spec;
-  - [ ] se Semana for (b): T01 ganha as vendas da semana anterior até o mesmo ponto e T02/T04/T07 os
+  - [x] cada linha de copy/número visível com a resposta do usuário escrita na spec;
+  - [x] se Semana for (b): T01 ganha as vendas da semana anterior até o mesmo ponto e T02/T04/T07 os
         casos; se (c): a feature para e o escopo volta ao usuário;
-  - [ ] toda resposta que muda a spec propagada ao design e às tasks antes da T01.
+  - [x] toda resposta que muda a spec propagada ao design e às tasks antes da T01.
 - **Tests**: none (decisão) · **Gate**: —
 - **Reqs**: as assunções `n — confirmar`.
+- **Status**: ✅ resolvido pelo orquestrador em 2026-10-26 — vale a recomendação de cada linha `n — confirmar`; Semana = (a). Nada propagado (nenhuma escolha mudou). Registrado no topo da `spec.md`.
 
 ### T01 — `01-migration-da-hora-e-dos-acessos`
 - **What**: `supabase/migrations/20261029120000_83-loja-ao-vivo.sql` com o SQL do `design.md` §2
@@ -118,22 +119,23 @@ Fases 3–4 (T06–T11) · **Lote 3** = Fase 5 (T12–T14).
 - **Depends on**: T00 · **Reuses**: o SQL da `71`; `mutar()`, `semComentario`, `blocoDaFuncao` de
   `visitasSchema.test.ts`.
 - **Done when**:
-  - [ ] `supabase migration up --local` aplica sem erro; rodar de novo é no-op.
-  - [ ] o guarda tem uma régua por comando, cada uma com sensor por `mutar()` que lança; âncora
+  - [x] `supabase migration up --local` aplica sem erro; rodar de novo é no-op.
+  - [x] o guarda tem uma régua por comando, cada uma com sensor por `mutar()` que lança; âncora
         (arquivo + `store_hour` + `record_store_visit` + `store_movement` + o `alter table`).
-  - [ ] régua (1) com as formas de `alter table` (com/sem `column`, `only`, vírgula, `rename`);
+  - [x] régua (1) com as formas de `alter table` (com/sem `column`, `only`, vírgula, `rename`);
         régua (7) por fragmento (a–d), cada um com sensor; régua (11) — `/ 3` e `generate_series(0, 7)`
         contra `ACCESS_BAND_LABELS` **importado** (o arquivo de `core/live` nasce na T04: esta régua
         entra marcada `it.todo` na T01 e vira asserção na T04, sem ser esquecida — o Done when da T04
         a cobra); régua (12) — um `from public.store_visits` no corpo de `store_movement`.
-  - [ ] `visitasSchema.test.ts`: as funções de asserção mudam de endereço para `visitasRegras.ts`,
+  - [x] `visitasSchema.test.ts`: as funções de asserção mudam de endereço para `visitasRegras.ts`,
         **nenhuma régua afrouxada**, e passam a rodar também contra a migration vigente (escolhida
         pela última, por prefixo, que cria a função, `L-035`); mutantes de venda (tirar
         `and o.status <> 'cancelled'`, `>=` → `>` numa fronteira, tirar o `coalesce`) reinjetados no
         arquivo da `83` e mortos por asserção, SHA-256 conferido na restauração.
-  - [ ] Full gate sem regressão (store +N casos; o resto idêntico à baseline).
+  - [x] Full gate sem regressão (store +N casos; o resto idêntico à baseline).
 - **Tests**: guarda de fonte · **Gate**: Full
 - **Reqs**: `LAV-70`, `LAV-71`, `LAV-72`, `LAV-73`, `LAV-74`.
+- **Status**: ✅ 2026-10-26 — migration aplicada no banco local por `psql -1 -f` (2ª execução no-op; `information_schema` = day, visitor_id, first_hour). Guarda novo 65 casos + 1 `it.todo` (régua 11); `visitasSchema` +25 (bloco 8, a vigente), réguas movidas para `visitasRegras.ts` sem uma `expect` alterada. Mutantes reais no arquivo da `83` (cancelado, `>=`→`>`, `coalesce`): 3/3 mortos por asserção, SHA-256 conferido. Full: core 4466 · mobile-adm 2021 · store 6103 (+90, +1 todo) · backoffice 3916 · functions 1105, todos exit 0. Desvio de forma do SQL do design: `contagem_desde_dia` segue `public.store_day(v_inicio)::text` (como na `71`, mesmo valor de `v_inicio_dia`) para a régua `diaDe` da `71` alcançar a vigente.
 
 ### T02 — `02-probe-dos-acessos`
 - **What**: `probes/_comum.sql` (derruba os objetos, aplica a `71` **e** a `83` do disco, auxiliares

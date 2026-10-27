@@ -15,6 +15,12 @@
 > **Portão antes de executar** (task `T00`, revisão adversarial do plano): cada linha `n — confirmar`
 > que muda **copy ou número visível** é confirmada ou recusada pelo usuário antes da `T01`. A
 > comparação de Hoje e a de Semana mudam o SQL, por isso o portão vem antes do banco.
+>
+> **Portão `T00` resolvido pelo orquestrador em 2026-10-26**, sem consulta ao usuário: em cada linha
+> `n — confirmar` vale a **escolha escrita nela** (a recomendação), e **Semana = opção (a)** (sem
+> variação nenhuma). Nenhuma linha muda de escolha, então nada se propaga ao design nem às tasks. As
+> linhas **seguem `n — confirmar`** na tabela: a confirmação de verdade continua com o usuário (copy e
+> números) e com a Adri (emenda à `VIS-28` e texto da política, pré-condição do deploy).
 
 ## Problem Statement
 

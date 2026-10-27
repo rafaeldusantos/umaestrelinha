@@ -1,10 +1,44 @@
-import { readFileSync } from 'node:fs'
-import { dirname, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
-
 import { describe, expect, it } from 'vitest'
 
 import { STORE_TIME_ZONE } from '@estrelinha/core/time'
+
+import {
+  blocoDaFuncao,
+  blocoDaTabela,
+  colunas,
+  consultaDePedidos,
+  corpoDaFuncao,
+  diaDe,
+  diaEPrazo,
+  FILTROS_DA_83,
+  fronteiras,
+  foraDasFuncoes,
+  lerMigration,
+  listaPositiva,
+  migrationVigenteDe,
+  mutar,
+  mutarNoBloco as mutarNoBlocoDe,
+  papeis,
+  pelaRegua,
+  periodoCasado,
+  PISO_DA_83,
+  podaAntesDeGravar,
+  podaSegura,
+  portaoDeAdmin as portao,
+  revogadaDosTres,
+  semComentario,
+  semQualificacao,
+  SET_CERTO,
+  setDoUpsert,
+  somasComPiso,
+  temSearchPathVazio,
+  temSecurityDefiner,
+  tetoDe5000 as teto,
+  tetoNoPeriodo,
+  tickets as ticket,
+  upsertDentroDoFound,
+  visitasDistintas as distintas,
+} from './visitasRegras'
 
 /**
  * O guarda da migration da feature `71` — Visitas únicas no Dashboard (`VIS-03`, `VIS-14`,
@@ -22,167 +56,21 @@ import { STORE_TIME_ZONE } from '@estrelinha/core/time'
  * mutado — e `mutar()` **lança** quando a mutação não muda nada (lição do `mutar()` da `52`).
  * As mutações partem do SQL **sem comentário**: a prosa explica os comandos citando-os, e mutar o
  * arquivo cru consumiria a menção em vez do uso.
+ *
+ * **Desde a `83`** as funções de asserção MORAM em `visitasRegras.ts` (mudança de endereço, nenhuma
+ * régua afrouxada) e são aplicadas também à migration VIGENTE — a última, por prefixo, que recria
+ * `store_movement` e `record_store_visit` (bloco no fim deste arquivo, `L-035`).
  */
 
-const HERE = dirname(fileURLToPath(import.meta.url))
-const ROOT = resolve(HERE, '../../../../../..')
-const CAMINHO = resolve(ROOT, 'supabase/migrations/20261021120000_71-visitas-unicas.sql')
+const ARQUIVO_DA_71 = '20261021120000_71-visitas-unicas.sql'
 
 // CRLF normalizado ANTES de qualquer régua: um checkout no Windows não pode mudar o veredito.
-const sql = readFileSync(CAMINHO, 'utf8').replace(/\r\n/g, '\n')
-
-// -------------------------------------------------------------------------------------------
-// Utilidades
-// -------------------------------------------------------------------------------------------
-
-/** Linha e bloco na MESMA varredura, com `[^\n\r]` fechando antes do `\r` (`L-031`, `BL-027`). */
-const semComentario = (texto: string): string =>
-  texto.replace(/\/\*[\s\S]*?\*\/|--[^\n\r]*/g, '')
-
-/** Mutação que não encontra o alvo **lança** — no-op silencioso não prova régua nenhuma. */
-const mutar = (texto: string, de: string | RegExp, para: string): string => {
-  // Substituição por FUNÇÃO: o texto de troca é literal, e `$$` não vira `$` (corpos SQL têm `$$`).
-  const mutante = texto.replace(de as string, () => para)
-  if (mutante === texto) throw new Error(`mutação não encontrou o alvo: ${String(de).slice(0, 70)}…`)
-  return mutante
-}
+const sql = lerMigration(ARQUIVO_DA_71)
 
 const comandos = semComentario(sql)
 
-/** Troca DENTRO do bloco de uma função (e só nele). Lança se o bloco ou a troca não acontecem. */
-const mutarNoBloco = (nome: string, de: string | RegExp, para: string): string => {
-  const b = blocoDaFuncao(comandos, nome)
-  if (!b) throw new Error(`bloco não encontrado: ${nome}`)
-  return mutar(comandos, b, mutar(b, de, para))
-}
-
-/**
- * O bloco de uma função, do `create or replace function public.<nome>` até o `$$;` que a fecha.
- * Recorte que falha devolve `null` e **reprova** — nunca vira string vazia que aprova tudo.
- */
-const blocoDaFuncao = (texto: string, nome: string): string | null => {
-  const codigo = semComentario(texto)
-  const inicio = codigo.search(new RegExp(`create\\s+or\\s+replace\\s+function\\s+public\\.${nome}\\s*\\(`, 'i'))
-  if (inicio < 0) return null
-  const fim = codigo.indexOf('$$;', inicio)
-  if (fim < 0) return null
-  return codigo.slice(inicio, fim + 3)
-}
-
-/** O `create table` de uma tabela, até o `);` que o fecha. `null` reprova. */
-const blocoDaTabela = (texto: string, nome: string): string | null => {
-  const codigo = semComentario(texto)
-  const inicio = codigo.search(new RegExp(`create\\s+table\\s+if\\s+not\\s+exists\\s+public\\.${nome}\\s*\\(`, 'i'))
-  if (inicio < 0) return null
-  const fim = codigo.indexOf(');', inicio)
-  if (fim < 0) return null
-  return codigo.slice(inicio, fim + 2)
-}
-
-/** As definições de um `create table`, separadas por vírgula de NÍVEL ZERO (o `check (id)` fica inteiro). */
-const definicoes = (bloco: string): string[] => {
-  const corpo = bloco.slice(bloco.indexOf('(') + 1, bloco.lastIndexOf(')'))
-  const partes: string[] = []
-  let nivel = 0
-  let atual = ''
-  for (const c of corpo) {
-    if (c === '(') nivel++
-    if (c === ')') nivel--
-    if (c === ',' && nivel === 0) {
-      partes.push(atual.trim())
-      atual = ''
-    } else atual += c
-  }
-  if (atual.trim()) partes.push(atual.trim())
-  return partes
-}
-
-/** `[nome, tipo]` de cada coluna (o que não começa por `primary key`/`constraint`/`unique`/`check`). */
-const colunas = (texto: string, tabela: string): string[][] | null => {
-  const b = blocoDaTabela(texto, tabela)
-  if (!b) return null
-  return definicoes(b)
-    .filter((d) => !/^(primary\s+key|constraint|unique|check)\b/i.test(d))
-    .map((d) => {
-      const [nome, tipo] = d.split(/\s+/)
-      return [nome.toLowerCase(), tipo.toLowerCase()]
-    })
-}
-
-/** Os papéis de todos os `grant`/`revoke` sobre um objeto (função ou tabela). */
-const papeis = (texto: string, verbo: 'grant' | 'revoke', tipo: 'function' | 'table', nome: string): string[] => {
-  const prep = verbo === 'grant' ? 'to' : 'from'
-  const re = new RegExp(
-    `\\b${verbo}\\s+[\\w\\s,]+?\\s+on\\s+${tipo}\\s+public\\.${nome}(?:\\s*\\([^)]*\\))?\\s+${prep}\\s+([^;]+);`,
-    'gi',
-  )
-  const saida: string[] = []
-  let m: RegExpExecArray | null
-  const codigo = semComentario(texto)
-  while ((m = re.exec(codigo)) !== null) {
-    for (const p of m[1].split(',')) saida.push(p.trim().toLowerCase())
-  }
-  return saida
-}
-
-const revogadaDosTres = (texto: string, tipo: 'function' | 'table', nome: string): boolean => {
-  const r = papeis(texto, 'revoke', tipo, nome)
-  return ['public', 'anon', 'authenticated'].every((p) => r.includes(p))
-}
-
-const temSecurityDefiner = (texto: string, nome: string): boolean => {
-  const b = blocoDaFuncao(texto, nome)
-  return !!b && /\bsecurity\s+definer\b/i.test(b)
-}
-
-const temSearchPathVazio = (texto: string, nome: string): boolean => {
-  const b = blocoDaFuncao(texto, nome)
-  return !!b && /set\s+search_path\s*=\s*''/i.test(b)
-}
-
-/** Nomes que, dentro de um corpo, só podem aparecer qualificados por `public.`. */
-const QUALIFICAVEIS = [
-  'store_time_zone',
-  'store_day',
-  'store_day_start',
-  'store_week_start',
-  'store_production_host',
-  'prune_store_visits',
-  'has_role',
-  'store_visits',
-  'store_visit_counter',
-  'store_settings',
-  'orders',
-]
-
-/** O corpo (`as $$ … $$`) de uma função, sem o cabeçalho. `null` reprova. */
-const corpoDaFuncao = (texto: string, nome: string): string | null => {
-  const b = blocoDaFuncao(texto, nome)
-  if (!b) return null
-  const abre = b.search(/\bas\s+\$\$/i)
-  if (abre < 0) return null
-  return b.slice(abre)
-}
-
-/** As chamadas/referências sem `public.` dentro do corpo de uma função. */
-const semQualificacao = (texto: string, nome: string): string[] | null => {
-  const corpo = corpoDaFuncao(texto, nome)
-  if (corpo === null) return null
-  const re = new RegExp(`(?<![\\w.])(${QUALIFICAVEIS.join('|')})\\b`, 'gi')
-  return corpo.match(re) ?? []
-}
-
-/** O código fora dos corpos de `create function` (o `do $$` do agendamento continua visível). */
-const foraDasFuncoes = (texto: string): string => {
-  let codigo = semComentario(texto)
-  for (;;) {
-    const inicio = codigo.search(/create\s+or\s+replace\s+function\s/i)
-    if (inicio < 0) return codigo
-    const fim = codigo.indexOf('$$;', inicio)
-    if (fim < 0) return codigo
-    codigo = codigo.slice(0, inicio) + codigo.slice(fim + 3)
-  }
-}
+/** Troca DENTRO do bloco de uma função da `71` (e só nele). Lança se o bloco ou a troca não acontecem. */
+const mutarNoBloco = (nome: string, de: string | RegExp, para: string): string => mutarNoBlocoDe(sql, nome, de, para)
 
 const NOVE_FUNCOES = [
   'store_time_zone',
@@ -525,13 +413,6 @@ describe('4. record_store_visit — a ordem do corpo', () => {
 
   // G9 (verificação r3): `store_clock` produz o MESMO `ate` das respostas robô/interno/429, e a
   // régua cobria só a gravação. Os dois produtores do campo têm de derivá-lo igual.
-  const diaEPrazo = (texto: string, nome: string) => {
-    const b = blocoDaFuncao(texto, nome) ?? ''
-    return (
-      /v_dia\s+date\s*:=\s*public\.store_day\(\s*p_agora\s*\)/i.test(b) &&
-      /v_ate\s+timestamptz\s*:=\s*public\.store_day_start\(\s*v_dia\s*\+\s*1\s*\)/i.test(b)
-    )
-  }
 
   it.each(['record_store_visit', 'store_clock'])(
     '%s: o dia vem de `store_day(p_agora)` e o prazo de `store_day_start(v_dia + 1)`',
@@ -553,9 +434,6 @@ describe('4. record_store_visit — a ordem do corpo', () => {
     expect(c.search(/perform\s+public\.prune_store_visits\(\s*v_dia\s*\)/i)).toBeGreaterThan(-1)
     expect(c.search(/perform\s+public\.prune_store_visits/i)).toBeLessThan(c.search(/insert\s+into\s+public\.store_visits/i))
   })
-
-  const teto = (texto: string) =>
-    /\(\s*select\s+count\(\*\)\s+from\s+public\.store_visits\s+where\s+day\s*=\s*v_dia\s*\)\s*>=\s*5000\b/i.test(blocoDaFuncao(texto, 'record_store_visit') ?? '')
 
   it('o teto é 5.000 linhas no dia (VIS-27)', () => {
     expect(teto(sql)).toBe(true)
@@ -583,14 +461,6 @@ describe('4. record_store_visit — a ordem do corpo', () => {
   // (`probes/visitas.sql`, fixtura dos instantes); esta régua prende a FORMA do upsert, que é o que
   // a suíte enxerga sem banco.
   /** A cláusula `do update set …` do upsert do contador, espaços normalizados; `null` reprova. */
-  const setDoUpsert = (texto: string): string | null => {
-    const c = blocoDaFuncao(texto, 'record_store_visit') ?? ''
-    const m = c.match(
-      /insert\s+into\s+public\.store_visit_counter\s*\(\s*id\s*,\s*started_at\s*,\s*last_recorded_at\s*\)\s*values\s*\(\s*true\s*,\s*p_agora\s*,\s*p_agora\s*\)\s*on\s+conflict\s*\(\s*id\s*\)\s*do\s+update\s+set\s+([^;]*);/i,
-    )
-    return m ? m[1].replace(/\s+/g, ' ').trim().toLowerCase() : null
-  }
-  const SET_CERTO = 'last_recorded_at = greatest(public.store_visit_counter.last_recorded_at, excluded.last_recorded_at)'
 
   it('o contador nasce com `started_at = last_recorded_at = p_agora`, e o `do update` só faz `greatest` em `last_recorded_at`', () => {
     expect(setDoUpsert(sql)).toBe(SET_CERTO)
@@ -642,10 +512,6 @@ describe('4. store_clock — o relógio e o host, sem gravar', () => {
 // -------------------------------------------------------------------------------------------
 
 describe('5. store_movement — só admin, pela RPC', () => {
-  const portao = (texto: string) =>
-    /if\s+not\s+public\.has_role\s*\(\s*auth\.uid\(\)\s*,\s*'admin'\s*\)\s+then\s+raise\s+exception\s+'[^']*'\s+using\s+errcode\s*=\s*'42501'/i.test(
-      corpoDaFuncao(texto, 'store_movement') ?? '',
-    )
 
   it('`security definer`, `search_path` vazio', () => {
     expect(temSecurityDefiner(sql, 'store_movement')).toBe(true)
@@ -692,14 +558,6 @@ describe('5. store_movement — só admin, pela RPC', () => {
 })
 
 describe('5. store_movement — visitas por `count(distinct)` em cada período (VIS-15)', () => {
-  const distintas = (texto: string) => {
-    const c = corpoDaFuncao(texto, 'store_movement') ?? ''
-    return (
-      /count\s*\(\s*distinct\s+visitor_id\s*\)\s+filter\s*\(\s*where\s+day\s*=\s*v_hoje\s*\)/i.test(c) &&
-      /count\s*\(\s*distinct\s+visitor_id\s*\)\s+filter\s*\(\s*where\s+day\s*=\s*v_ontem\s*\)/i.test(c) &&
-      /count\s*\(\s*distinct\s+visitor_id\s*\)\s+filter\s*\(\s*where\s+day\s+between\s+v_semana\s+and\s+v_hoje\s*\)/i.test(c)
-    )
-  }
 
   it('os três períodos contam ids DISTINTOS — nunca a soma dos dias', () => {
     expect(distintas(sql)).toBe(true)
@@ -716,20 +574,6 @@ describe('5. store_movement — visitas por `count(distinct)` em cada período (
 
 describe('5. store_movement — vendas, faturamento e ticket (VIS-31, VIS-32)', () => {
   /** O `select … from public.orders …;` do corpo — o predicado de venda. `null` reprova. */
-  const consultaDePedidos = (texto: string): string | null => {
-    const c = corpoDaFuncao(texto, 'store_movement')
-    if (!c) return null
-    const fim = c.search(/from\s+public\.orders\b/i)
-    if (fim < 0) return null
-    const inicio = c.lastIndexOf('select', fim)
-    const ponto = c.indexOf(';', fim)
-    return c.slice(inicio, ponto + 1)
-  }
-
-  const listaPositiva = (texto: string) => {
-    const q = consultaDePedidos(texto) ?? ''
-    return /payment_status\s*=\s*'approved'/i.test(q) && /status\s*<>\s*'cancelled'/i.test(q)
-  }
 
   it('venda é lista positiva: `approved` E não `cancelled`', () => {
     expect(listaPositiva(sql)).toBe(true)
@@ -741,7 +585,6 @@ describe('5. store_movement — vendas, faturamento e ticket (VIS-31, VIS-32)', 
 
   // SPEC_DEVIATION (D5): o predicado compara `paid_at` contra `store_day_start(…)` — a inversa da
   // mesma régua —, e não `store_day(paid_at)`: é o mesmo dia, e o predicado fica indexável.
-  const pelaRegua = (texto: string) => /o\.paid_at\s*>=\s*public\.store_day_start\(\s*v_desde\s*\)/i.test(consultaDePedidos(texto) ?? '')
 
   it('o predicado de `orders` usa `store_day_start` (D5)', () => {
     expect(pelaRegua(sql)).toBe(true)
@@ -757,13 +600,6 @@ describe('5. store_movement — vendas, faturamento e ticket (VIS-31, VIS-32)', 
     expect(corpoDaFuncao(sql, 'store_movement')).not.toMatch(/nuvemshop_id/i)
   })
 
-  const somasComPiso = (texto: string) => {
-    const c = corpoDaFuncao(texto, 'store_movement') ?? ''
-    const somas = (c.match(/\bsum\s*\(/gi) ?? []).length
-    const comCoalesce = (c.match(/coalesce\s*\(\s*sum\s*\(/gi) ?? []).length
-    return somas > 0 && somas === comCoalesce
-  }
-
   it('todo `sum(` do faturamento está dentro de `coalesce(…, 0)` — sem venda é 0, nunca NULL', () => {
     expect(somasComPiso(sql)).toBe(true)
   })
@@ -775,8 +611,6 @@ describe('5. store_movement — vendas, faturamento e ticket (VIS-31, VIS-32)', 
   // Conserto H1 da verificação r1: o MESMO sufixo nos três lugares (backreference). A régua antiga
   // (`v_f_\w+ / v_n_\w+`) aceitava o ticket de Hoje dividindo a soma da semana (mutante S08b), que
   // só morria por probe.
-  const ticket = (texto: string) =>
-    (corpoDaFuncao(texto, 'store_movement')?.match(/case\s+when\s+v_n_(\w+)\s*>\s*0\s+then\s+round\s*\(\s*v_f_\1\s*\/\s*v_n_\1\s*,\s*2\s*\)\s+end/gi) ?? []).length
 
   it('o ticket é `round(faturamento / vendas, 2)` no banco, NULL sem venda — nos três períodos', () => {
     expect(ticket(sql)).toBe(3)
@@ -793,24 +627,6 @@ describe('5. store_movement — vendas, faturamento e ticket (VIS-31, VIS-32)', 
   it('sensor S08c — o ticket de Hoje com o divisor de Ontem reprova', () => {
     expect(ticket(mutarNoBloco('store_movement', 'then round(v_f_hoje / v_n_hoje, 2) end', 'then round(v_f_hoje / v_n_ontem, 2) end'))).toBe(2)
   })
-
-  /**
-   * Cada período devolve AS SUAS variáveis: o objeto `'<p>', jsonb_build_object(…)` tem visitas,
-   * vendas, faturamento e ticket com o sufixo `<p>`. Sem isto, trocar o bloco inteiro de Hoje pelo de
-   * Ontem passaria na régua do ticket (as três expressões continuariam bem formadas).
-   */
-  const periodoCasado = (texto: string, p: 'hoje' | 'ontem' | 'semana'): boolean => {
-    const c = corpoDaFuncao(texto, 'store_movement') ?? ''
-    const m = c.match(new RegExp(`'${p}'\\s*,\\s*jsonb_build_object\\(([\\s\\S]*?)\\n\\s*\\)`, 'i'))
-    if (!m) return false
-    const b = m[1]
-    return (
-      new RegExp(`'visitas'\\s*,\\s*v_v_${p}\\s*,`, 'i').test(b) &&
-      new RegExp(`'vendas'\\s*,\\s*v_n_${p}\\s*,`, 'i').test(b) &&
-      new RegExp(`'faturamento'\\s*,\\s*v_f_${p}\\s*,`, 'i').test(b) &&
-      new RegExp(`'ticket'\\s*,\\s*case\\s+when\\s+v_n_${p}\\s*>\\s*0\\s+then\\s+round\\s*\\(\\s*v_f_${p}\\s*/\\s*v_n_${p}\\s*,\\s*2\\s*\\)\\s+end`, 'i').test(b)
-    )
-  }
 
   it('cada período devolve as variáveis DELE — hoje, ontem e semana', () => {
     for (const p of ['hoje', 'ontem', 'semana'] as const) expect(periodoCasado(sql, p)).toBe(true)
@@ -832,16 +648,6 @@ describe('5. store_movement — vendas, faturamento e ticket (VIS-31, VIS-32)', 
   // intervalo só é "o mesmo dia" com `>=` no começo e `<` (aberto) no fim. A metade semântica é o
   // probe `probes/vendas.sql` (o pedido pago EXATAMENTE às 00:00); esta régua prende as seis
   // expressões de período da consulta de pedidos.
-  const fronteiras = (texto: string): boolean => {
-    const q = consultaDePedidos(texto) ?? ''
-    const conta = (re: RegExp) => (q.match(re) ?? []).length
-    return (
-      conta(/filter\s*\(\s*where\s+o\.paid_at\s*>=\s*v_ini_hoje\s*\)/gi) === 2 &&
-      conta(/filter\s*\(\s*where\s+o\.paid_at\s*>=\s*v_ini_ontem\s+and\s+o\.paid_at\s*<\s*v_ini_hoje\s*\)/gi) === 2 &&
-      conta(/filter\s*\(\s*where\s+o\.paid_at\s*>=\s*v_ini_semana\s*\)/gi) === 2 &&
-      conta(/\bfilter\s*\(/gi) === 6
-    )
-  }
 
   it('Hoje é `paid_at >= v_ini_hoje`; Ontem é `[v_ini_ontem, v_ini_hoje)`, aberto à direita; Semana é `>= v_ini_semana` — nas contagens e nas somas', () => {
     expect(fronteiras(sql)).toBe(true)
@@ -860,8 +666,6 @@ describe('5. store_movement — vendas, faturamento e ticket (VIS-31, VIS-32)', 
 })
 
 describe('5. store_movement — a poda e o teto na leitura (VIS-30, VIS-44)', () => {
-  const podaSegura = (texto: string) =>
-    /perform\s+public\.prune_store_visits\s*\(\s*least\s*\(\s*v_hoje\s*,\s*public\.store_day\(\s*now\(\)\s*\)\s*\)\s*\)/i.test(corpoDaFuncao(texto, 'store_movement') ?? '')
 
   it('poda com `least(v_hoje, store_day(now()))` — um `p_agora` futuro não apaga o presente', () => {
     expect(podaSegura(sql)).toBe(true)
@@ -890,10 +694,6 @@ describe('5. store_movement — os dois DIAS do contador são o dia de Brasília
   // ela escreve o dia SEGUINTE: "Última visita registrada: hoje às 22h30" na manhã de 22/10 para
   // uma visita de 21/10. O comportamento é provado por `probes/visitas.sql`
   // (`fixtura_dias_do_contador`); aqui fica a forma.
-  const diaDe = (texto: string, campo: string, variavel: string): boolean =>
-    new RegExp(`'${campo}'\\s*,\\s*public\\.store_day\\(\\s*${variavel}\\s*\\)\\s*::\\s*text\\s*,`, 'i').test(
-      corpoDaFuncao(texto, 'store_movement') ?? '',
-    )
 
   /** Todo `::date` do código FORA do bloco de `store_day` — o único lugar onde o dia é decidido. */
   const dateForaDoDono = (texto: string): number => {
@@ -1029,5 +829,160 @@ describe('6. a migration não escreve dado', () => {
 describe('o arnês de mutação', () => {
   it('`mutar()` LANÇA quando o alvo não existe', () => {
     expect(() => mutar(comandos, 'texto que não está no arquivo', 'x')).toThrow(/não encontrou o alvo/)
+  })
+})
+
+// -------------------------------------------------------------------------------------------
+// 8. A migration VIGENTE (feature 83, `L-035`) — as mesmas réguas, no arquivo que o banco executa
+// -------------------------------------------------------------------------------------------
+
+/**
+ * A `83` recriou `store_movement` e `record_store_visit` numa migration nova. Sem este bloco, as
+ * réguas acima mediriam só a `71`, que o banco já não executa: tirar o recorte de cancelado na `83`
+ * deixaria este arquivo inteiro verde. A vigente é a ÚLTIMA migration, por prefixo, que cria a função
+ * no CÓDIGO (`migrationVigenteDe`).
+ *
+ * O piso do predicado de `orders` e o total de `filter (` são da migration (a `83` lê anteontem e soma
+ * as três expressões da comparação). Quem recriar a função de novo revisa os dois aqui — a âncora do
+ * nome do arquivo reprova até isso acontecer.
+ */
+const VIGENTE_ESPERADA = '20261029120000_83-loja-ao-vivo.sql'
+const vigenteDoMovimento = migrationVigenteDe('store_movement')
+const vigenteDaGravacao = migrationVigenteDe('record_store_visit')
+const mov = vigenteDoMovimento ? lerMigration(vigenteDoMovimento) : ''
+const grav = vigenteDaGravacao ? lerMigration(vigenteDaGravacao) : ''
+const comandosMov = semComentario(mov)
+
+describe('8. a migration vigente — âncora', () => {
+  it('as duas funções têm uma migration vigente, e é a da 83 (as réguas abaixo foram calibradas nela)', () => {
+    expect(vigenteDoMovimento).toBe(VIGENTE_ESPERADA)
+    expect(vigenteDaGravacao).toBe(VIGENTE_ESPERADA)
+    expect(mov.length).toBeGreaterThan(1000)
+  })
+
+  it('sensor — a escolha é por CÓDIGO: uma migration posterior que só CITA a função em comentário não vira a vigente', () => {
+    // A lista é passada à mão: o arquivo fictício não precisa existir para provar o critério,
+    // mas `lerMigration` o leria — então o sensor usa só arquivos reais, em ordem invertida.
+    expect(migrationVigenteDe('store_movement', ['20261021120000_71-visitas-unicas.sql'])).toBe('20261021120000_71-visitas-unicas.sql')
+    expect(migrationVigenteDe('store_movement', ['20261023120000_73-resumo-do-atelie.sql'])).toBeNull()
+  })
+})
+
+describe('8. store_movement vigente — portão, privilégio e qualificação', () => {
+  it('`has_role` ⇒ 42501, `security definer`, `search_path` vazio', () => {
+    expect(portao(mov)).toBe(true)
+    expect(temSecurityDefiner(mov, 'store_movement')).toBe(true)
+    expect(temSearchPathVazio(mov, 'store_movement')).toBe(true)
+  })
+
+  it('`execute` revogado de public e anon, concedido SÓ a `authenticated`', () => {
+    const r = papeis(mov, 'revoke', 'function', 'store_movement')
+    expect(r).toContain('public')
+    expect(r).toContain('anon')
+    expect(papeis(mov, 'grant', 'function', 'store_movement')).toEqual(['authenticated'])
+  })
+
+  it('toda referência é qualificada por `public.`', () => {
+    expect(semQualificacao(mov, 'store_movement')).toEqual([])
+  })
+
+  it('sensor — sem o portão de admin, reprova', () => {
+    expect(portao(mutarNoBlocoDe(mov, 'store_movement', /if not public\.has_role[\s\S]*?end if;/, ''))).toBe(false)
+  })
+})
+
+describe('8. store_movement vigente — a régua de visita e de venda da 71', () => {
+  it('visitas por `count(distinct)` nos três períodos', () => {
+    expect(distintas(mov)).toBe(true)
+  })
+
+  it('venda é lista positiva: `approved` E não `cancelled`', () => {
+    expect(listaPositiva(mov)).toBe(true)
+  })
+
+  it('o piso do predicado de `orders` usa `store_day_start` (D5)', () => {
+    expect(pelaRegua(mov, PISO_DA_83)).toBe(true)
+  })
+
+  it('as seis fronteiras de período, meio-abertas, e o total de filtros da 83', () => {
+    expect(fronteiras(mov, FILTROS_DA_83)).toBe(true)
+  })
+
+  it('todo `sum(` dentro de `coalesce(…, 0)`, e o ticket `round(…, 2)` com o mesmo sufixo nos três', () => {
+    expect(somasComPiso(mov)).toBe(true)
+    expect(ticket(mov)).toBe(3)
+  })
+
+  it('cada período devolve as variáveis DELE', () => {
+    for (const p of ['hoje', 'ontem', 'semana'] as const) expect(periodoCasado(mov, p)).toBe(true)
+  })
+
+  it('poda com `least(…)`, `teto_dia` recortado por `v_desde`, e os dois dias do contador por `store_day`', () => {
+    expect(podaSegura(mov)).toBe(true)
+    expect(tetoNoPeriodo(mov)).toBe(true)
+    expect(diaDe(mov, 'contagem_desde_dia', 'v_inicio')).toBe(true)
+    expect(diaDe(mov, 'ultima_visita_dia', 'v_ultima')).toBe(true)
+  })
+
+  it('nenhum `::date` no arquivo vigente (o dia só por `store_day`)', () => {
+    expect(comandosMov.match(/::\s*date\b/gi) ?? []).toEqual([])
+  })
+
+  it('a consulta de pedidos foi encontrada (a âncora das réguas de venda)', () => {
+    expect(consultaDePedidos(mov)).toMatch(/from\s+public\.orders\s+o\b/i)
+  })
+
+  it('sensor — tirar `and o.status <> \'cancelled\'` da vigente reprova', () => {
+    expect(listaPositiva(mutarNoBlocoDe(mov, 'store_movement', /\s+and o\.status <> 'cancelled'/, ''))).toBe(false)
+  })
+
+  it('sensor — `>=` → `>` na fronteira de Hoje da vigente reprova', () => {
+    const m = mutarNoBlocoDe(mov, 'store_movement', 'count(*) filter (where o.paid_at >= v_ini_hoje),', 'count(*) filter (where o.paid_at > v_ini_hoje),')
+    expect(fronteiras(m, FILTROS_DA_83)).toBe(false)
+  })
+
+  it('sensor — tirar um `coalesce` da vigente reprova', () => {
+    const m = mutarNoBlocoDe(mov, 'store_movement', /coalesce\(sum\(o\.total\) filter \(where o\.paid_at >= v_ini_semana\), 0\)/, 'sum(o.total) filter (where o.paid_at >= v_ini_semana)')
+    expect(somasComPiso(m)).toBe(false)
+  })
+
+  it('sensor — um filtro a mais na consulta de pedidos da vigente reprova o total', () => {
+    const m = mutarNoBlocoDe(mov, 'store_movement', 'count(*) filter (where o.paid_at >= v_ini_semana),', 'count(*) filter (where o.paid_at >= v_ini_semana), count(*) filter (where o.paid_at >= v_ini_semana - 1),')
+    expect(fronteiras(m, FILTROS_DA_83)).toBe(false)
+  })
+})
+
+describe('8. record_store_visit vigente — a gravação da 71, intacta', () => {
+  it('`security definer`, `search_path` vazio, revogada dos três e `grant` SÓ a `service_role`', () => {
+    expect(temSecurityDefiner(grav, 'record_store_visit')).toBe(true)
+    expect(temSearchPathVazio(grav, 'record_store_visit')).toBe(true)
+    expect(revogadaDosTres(grav, 'function', 'record_store_visit')).toBe(true)
+    expect(papeis(grav, 'grant', 'function', 'record_store_visit')).toEqual(['service_role'])
+  })
+
+  it('qualificada, dia e prazo, teto de 5.000, poda antes de gravar', () => {
+    expect(semQualificacao(grav, 'record_store_visit')).toEqual([])
+    expect(diaEPrazo(grav, 'record_store_visit')).toBe(true)
+    expect(teto(grav)).toBe(true)
+    expect(podaAntesDeGravar(grav)).toBe(true)
+  })
+
+  it('o upsert do contador é o da 71, dentro do `if found`', () => {
+    expect(setDoUpsert(grav)).toBe(SET_CERTO)
+    expect(upsertDentroDoFound(grav)).toBe(true)
+  })
+
+  it('os três desfechos', () => {
+    const b = blocoDaFuncao(grav, 'record_store_visit') ?? ''
+    for (const d of ['gravada', 'repetida', 'teto']) expect(b).toContain(`'${d}'`)
+  })
+
+  it('sensor — sem o `grant … to service_role` na vigente, reprova (toda visita daria 500)', () => {
+    const m = mutar(semComentario(grav), 'grant execute on function public.record_store_visit(uuid, timestamptz) to service_role;', '')
+    expect(papeis(m, 'grant', 'function', 'record_store_visit')).toEqual([])
+  })
+
+  it('sensor — o teto de 50.000 na vigente reprova', () => {
+    expect(teto(mutarNoBlocoDe(grav, 'record_store_visit', '>= 5000', '>= 50000'))).toBe(false)
   })
 })
