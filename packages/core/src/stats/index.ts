@@ -12,6 +12,7 @@ export type {
   StoreMovement,
 } from './movement.ts'
 export { turnDelayMs, type ServerClock } from './turn.ts'
+export { cappedLine, countingSinceLine, emptyCounterLine } from './counterNotes.ts'
 export {
   OVERVIEW_KEYS,
   type OverviewDay,

@@ -349,7 +349,7 @@ describe('(6) store_movement — portão antes de ler, definer, só authenticate
 
   it('sensor — o portão DEPOIS da poda reprova', () => {
     const c = semComentario(sql)
-    const portao = c.match(/  if not public\.has_role\(auth\.uid\(\), 'admin'\) then\n[\s\S]*?end if;\n/)?.[0]
+    const portao = c.match(/ {2}if not public\.has_role\(auth\.uid\(\), 'admin'\) then\n[\s\S]*?end if;\n/)?.[0]
     if (!portao) throw new Error('portão não encontrado')
     const semPortao = mutarNoBloco(sql, 'store_movement', portao, '')
     const m = mutar(semPortao, '  perform public.prune_store_visits(least(v_hoje, public.store_day(now())));\n', `  perform public.prune_store_visits(least(v_hoje, public.store_day(now())));\n${portao}`)

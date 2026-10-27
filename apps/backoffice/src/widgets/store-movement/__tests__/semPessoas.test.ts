@@ -15,8 +15,19 @@ import { describe, expect, it } from 'vitest'
 
 const RAIZ = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
-/** Os arquivos de PRODUÇÃO do widget, escritos um a um: a lista é a decisão de escopo. */
-const ARQUIVOS = ['model/labels.ts', 'ui/StoreMovement.tsx', 'index.ts'] as const
+/**
+ * Os arquivos de PRODUÇÃO do widget, escritos um a um: a lista é a decisão de escopo.
+ *
+ * Feature `83` (`L-035`): as três notas do contador saíram de `model/labels.ts` para
+ * `packages/core/src/stats/counterNotes.ts` e são desenhadas por este bloco (reexportadas). Sem o
+ * quarto arquivo o escopo encolheria em silêncio — "pessoas" entraria numa nota sem acusar.
+ */
+const ARQUIVOS = [
+  'model/labels.ts',
+  'ui/StoreMovement.tsx',
+  'index.ts',
+  '../../../../../packages/core/src/stats/counterNotes.ts',
+] as const
 
 const semComentarios = (texto: string): string =>
   texto.replace(/\r\n/g, '\n').replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, '')
@@ -31,13 +42,20 @@ const proibidas = (fonte: string): string[] =>
 const FONTES = ARQUIVOS.map(caminho => ({ caminho, fonte: readFileSync(resolve(RAIZ, caminho), 'utf8') }))
 
 describe('VIS-41 — sem "pessoas" e sem "usuários" no bloco', () => {
-  it('ÂNCORA: os três arquivos foram lidos, e o texto do ⓘ e o rótulo estão neles', () => {
-    expect(FONTES).toHaveLength(3)
+  it('ÂNCORA: os quatro arquivos foram lidos, e o texto do ⓘ, o rótulo e as notas estão neles', () => {
+    expect(FONTES).toHaveLength(4)
     expect(FONTES.every(f => f.fonte.length > 0)).toBe(true)
     const labels = semComentarios(FONTES[0].fonte)
     expect(labels).toContain('export const VISIT_INFO_TEXT')
     expect(labels).toContain('Cada navegador conta uma vez no período')
     expect(semComentarios(FONTES[1].fonte)).toContain('Visitas únicas')
+    // O dono das notas do contador (feature 83), NOMEADO: um caminho errado lançaria na leitura, e
+    // um arquivo trocado não teria as três declarações.
+    const notas = semComentarios(FONTES[3].fonte)
+    expect(FONTES[3].caminho.endsWith('packages/core/src/stats/counterNotes.ts')).toBe(true)
+    for (const nome of ['countingSinceLine', 'emptyCounterLine', 'cappedLine']) {
+      expect(notas).toContain(`export const ${nome}`)
+    }
   })
 
   it('nenhum literal do widget fala em pessoas ou usuários', () => {

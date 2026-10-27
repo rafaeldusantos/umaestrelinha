@@ -214,18 +214,19 @@ Fases 3–4 (T06–T11) · **Lote 3** = Fase 5 (T12–T14).
   `apps/backoffice/src/app/__tests__/`.
 - **Depends on**: T04 · **Reuses**: `regrasDoPedidoNoCore.test.ts` (molde do `toBe`).
 - **Done when**:
-  - [ ] a suíte do painel com **a mesma contagem de antes + o guarda novo** (+ os casos da âncora nova
+  - [x] a suíte do painel com **a mesma contagem de antes + o guarda novo** (+ os casos da âncora nova
         de `semPessoas`), nenhuma asserção antiga tocada.
-  - [ ] o guarda: as três notas e `formatCount` `toBe`; sensor — uma cópia com o mesmo texto reprova.
-  - [ ] `stats/__tests__/purity.test.ts`: a âncora passa a **seis** arquivos, com `counterNotes.ts`
+  - [x] o guarda: as três notas e `formatCount` `toBe`; sensor — uma cópia com o mesmo texto reprova.
+  - [x] `stats/__tests__/purity.test.ts`: a âncora passa a **seis** arquivos, com `counterNotes.ts`
         (âncora de contagem subindo com o fato); `counterNotes.ts` importa `../time/format.ts` com
         extensão.
-  - [ ] `inicioDo`/`fimDo` apagados do painel; `npx eslint .` em `apps/backoffice` = 23/5.
-  - [ ] mutante: trocar `>` por `>=` em `countingSinceLine` de `core` derruba os casos de `core` **e**
+  - [x] `inicioDo`/`fimDo` apagados do painel; `npx eslint .` em `apps/backoffice` = 23/5.
+  - [x] mutante: trocar `>` por `>=` em `countingSinceLine` de `core` derruba os casos de `core` **e**
         os do painel (prova de que o painel mede o dono).
-  - [ ] Full gate e Build (fim da Fase 2).
+  - [x] Full gate e Build (fim da Fase 2).
 - **Tests**: unit + guarda · **Gate**: Build
 - **Reqs**: `LAV-54`, `LAV-75`.
+- **Status**: ✅ 2026-10-26 — `core/stats/counterNotes.ts` com as três notas e `inicioDo`/`fimDo` byte a byte do painel (conferido por script), barril com `.ts`; `formatCount` já estava em `core/stats/labels.ts` (T04). `counterNotes.test.ts`: cópia dos casos do painel no mesmo arnês de três fusos, mais o caso no limiar (`L-071`) e `formatCount` (+38 em core, 4517 → 4555, com a âncora de pureza em seis e o import `../time/format.ts` cobrado). Painel: as quatro reexportadas, `inicioDo`/`fimDo`/`INTEIRO` apagados, `labels.test.ts` sem uma linha alterada; `notasDoContadorNoCore.test.ts` (6 casos, sensor de cópia) e `semPessoas` lendo `counterNotes.ts` com âncora que o nomeia → backoffice 3916/225 → 3922/226. Mutantes: `>`→`>=` em `countingSinceLine` de core derruba 6 casos de core **e** 3 do painel; "pessoa" numa nota de core derruba `semPessoas`; SHA-256 conferido. Build: Full verde (core 4555 · mobile-adm 2021 · store 6108 · backoffice 3922 · functions 1105); `tsc` 0 · 0 · 0 e core 11 herdados; eslint mobile-adm 0/0, backoffice 23/5, store 2/2 (um `no-regex-spaces` que a T01 tinha posto em `visitasPorHoraSchema.test.ts` consertado aqui); `pnpm --filter @estrelinha/mobile-adm build` verde.
 
 ### T06 — `06-endereco-da-loja-ao-vivo`
 - **What**: `entities/stats/model/periodos.ts` (`PERIODOS` e `ehPeriodo` **sobem** de
