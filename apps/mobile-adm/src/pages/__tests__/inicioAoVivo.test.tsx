@@ -173,20 +173,30 @@ describe('as releituras da Início (LAV-05)', () => {
   })
 
   it('em segundo plano: nem o aviso do Realtime, nem 90 s ATRAVESSANDO a virada leem; de volta ao foco, uma', async () => {
-    sempre(movimentoComAcessos({ lido_em: '2026-10-23T02:59:50.000Z', expira_em: '2026-10-23T03:00:00.000Z' }))
+    // As DUAS leituras da Início atravessam a virada em segundo plano: o movimento e o resumo. O
+    // critério 5 do PRD é "nenhuma leitura em segundo plano", e contar só o movimento deixaria o timer
+    // da virada do resumo ler com a aba oculta sem nada acusar (gate adversarial do Lote 2).
+    const virada = { lido_em: '2026-10-23T02:59:50.000Z', expira_em: '2026-10-23T03:00:00.000Z' }
+    fake.responderRpc('store_overview', resumo(virada))
+    sempre(movimentoComAcessos(virada))
     await abrir()
+    const resumos = () => fake.chamadasDe('store_overview').length
     expect(chamadas()).toBe(1)
+    expect(resumos()).toBe(1)
     act(() => focusManager.setFocused(false))
     act(() => {
       expect(fake.emitir('orders')).toBe(1)
     })
     await andar(50)
     expect(chamadas()).toBe(1)
+    expect(resumos()).toBe(1)
     await andar(90_000)
     expect(chamadas()).toBe(1)
+    expect(resumos()).toBe(1)
     act(() => focusManager.setFocused(true))
     await andar(50)
     expect(chamadas()).toBe(2)
+    expect(resumos()).toBe(2)
   })
 
   it('com a aba visível, o aviso do Realtime continua relendo', async () => {

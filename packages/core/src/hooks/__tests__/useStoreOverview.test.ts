@@ -10,7 +10,7 @@
 //   `expira_em − Date.now()` chamaria 2 h antes, receberia o mesmo dia e entraria em laço.
 
 import { act, renderHook } from '@testing-library/react'
-import { QueryClient, QueryClientProvider, defaultScheduler, notifyManager } from '@tanstack/react-query'
+import { QueryClient, QueryClientProvider, defaultScheduler, focusManager, notifyManager } from '@tanstack/react-query'
 import { createElement, type ReactNode } from 'react'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -198,6 +198,25 @@ describe('useStoreOverview — a virada mede DURAÇÃO do servidor (MAI-21)', ()
     expect(rpc).toHaveBeenCalledTimes(2)
     await avancar(10_000)
     expect(rpc).toHaveBeenCalledTimes(2)
+  })
+
+  it('aba OCULTA na virada (feature `83`, LAV-05): nenhuma leitura; de volta ao foco, uma', async () => {
+    // O critério 5 do PRD da `83`: nenhuma leitura em segundo plano. O mesmo gate de
+    // `useStoreMovement` — sem ele o timer relê com a aba oculta.
+    try {
+      servidor(0)
+      renderHook(useComoOWidget, { wrapper })
+      await escoar()
+      expect(rpc).toHaveBeenCalledTimes(1)
+      act(() => focusManager.setFocused(false))
+      await avancar(DIA + HORA)
+      expect(rpc).toHaveBeenCalledTimes(1)
+      act(() => focusManager.setFocused(true))
+      await escoar()
+      expect(rpc).toHaveBeenCalledTimes(2)
+    } finally {
+      focusManager.setFocused(undefined)
+    }
   })
 
   it('desmontar cancela o timer da virada', async () => {

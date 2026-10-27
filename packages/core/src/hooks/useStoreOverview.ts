@@ -9,7 +9,7 @@
 // repete — repetir só atrasa a ida à tela de recusa (`MAI-22`).
 
 import { useEffect } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { focusManager, useQuery } from '@tanstack/react-query'
 import { supabase } from '@estrelinha/supabase/client'
 import { turnDelayMs } from '../stats/turn.ts'
 import type { StoreOverview } from '../stats/overview.ts'
@@ -51,7 +51,9 @@ export const useStoreOverview = () => {
     const atraso = turnDelayMs(data, dataUpdatedAt, Date.now())
     if (atraso === null) return
     const timer = setTimeout(() => {
-      void refetch()
+      // Com a aba oculta, nada: a volta ao primeiro plano relê (`refetchOnWindowFocus`). Feature `83`,
+      // LAV-05 / critério 5 do PRD: nenhuma leitura em segundo plano — o mesmo gate de `useStoreMovement`.
+      if (focusManager.isFocused()) void refetch()
     }, atraso)
     return () => clearTimeout(timer)
   }, [data, dataUpdatedAt, refetch])
