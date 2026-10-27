@@ -342,6 +342,12 @@ export interface UseProductFormResult {
    */
   replaceForm: (next: ProductFormState) => void
   /**
+   * Adota campos que acabaram de ser gravados FORA do save do formulário (ligar/desligar a peça na
+   * coluna lateral). Muda o estado sem sujar: o valor já é o do banco, e o badge "Alterações não
+   * salvas" mentiria. Uma edição que já estava pendente continua pendente.
+   */
+  adoptSaved: (patch: Partial<ProductFormState>) => void
+  /**
    * Relê o produto em edição do banco, sem passar por `loading` (que trocaria a página por
    * "Carregando…"). Chamado depois do save, para a página continuar aberta: as variações novas
    * nascem com id provisório, e só a releitura troca pelo id real — sem ela o próximo save
@@ -447,6 +453,10 @@ export const useProductForm = (
     [],
   )
 
+  const adoptSaved = useCallback((patch: Partial<ProductFormState>) => {
+    setForm(current => ({ ...current, ...patch }))
+  }, [])
+
   const replaceForm = useCallback((next: ProductFormState) => {
     setForm(next)
     setIsDirty(true)
@@ -460,6 +470,7 @@ export const useProductForm = (
     savedSnapshot,
     markSaved,
     replaceForm,
+    adoptSaved,
     reload,
     loading,
     isEdit: !!productId,

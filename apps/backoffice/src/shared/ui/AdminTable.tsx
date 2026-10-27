@@ -1,6 +1,7 @@
 import { ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { cn } from '@estrelinha/ui/lib/utils'
+import { ContextMenu, ContextMenuContent, ContextMenuTrigger } from '@estrelinha/ui/context-menu'
 import EmptyState from './EmptyState'
 
 export interface AdminColumn<T> {
@@ -22,6 +23,13 @@ interface Props<T> {
   empty?: { icon?: LucideIcon; message: string; hint?: string }
   footer?: React.ReactNode
   zebra?: boolean
+  /**
+   * Itens do menu do botão direito da linha (toque longo no celular). Sem ele, a linha é um `<tr>`
+   * comum e o botão direito abre o menu do navegador, como sempre.
+   */
+  rowMenu?: (row: T) => React.ReactNode
+  /** Dica nativa ao passar o mouse sobre a linha (ex.: o nome inteiro que a célula corta). */
+  rowTitle?: (row: T) => string
 }
 
 const alignClass = (align?: 'left' | 'center' | 'right') =>
@@ -37,6 +45,8 @@ function AdminTable<T>({
   empty,
   footer,
   zebra = true,
+  rowMenu,
+  rowTitle,
 }: Props<T>) {
   if (data.length === 0 && empty) {
     return <EmptyState icon={empty.icon} message={empty.message} hint={empty.hint} />
@@ -85,21 +95,34 @@ function AdminTable<T>({
                 </td>
               </tr>
             ) : (
-              data.map((row, i) => (
-                <tr
-                  key={rowKey(row)}
-                  className={cn(
-                    'border-b border-border last:border-0',
-                    zebra && (i % 2 === 0 ? 'bg-card' : 'bg-muted/30'),
-                  )}
-                >
-                  {columns.map(col => (
-                    <td key={col.key} className={cn('p-4', alignClass(col.align), col.className)}>
-                      {col.cell(row, i)}
-                    </td>
-                  ))}
-                </tr>
-              ))
+              data.map((row, i) => {
+                const tr = (
+                  <tr
+                    key={rowKey(row)}
+                    title={rowTitle?.(row)}
+                    className={cn(
+                      'border-b border-border last:border-0',
+                      zebra && (i % 2 === 0 ? 'bg-card' : 'bg-muted/30'),
+                      rowMenu && 'data-[state=open]:bg-muted',
+                    )}
+                  >
+                    {columns.map(col => (
+                      <td key={col.key} className={cn('p-4', alignClass(col.align), col.className)}>
+                        {col.cell(row, i)}
+                      </td>
+                    ))}
+                  </tr>
+                )
+                if (!rowMenu) return tr
+                // O `Root` não desenha nó e o `Content` vai para um portal: dentro do `<tbody>` só
+                // fica o `<tr>`, que recebe o gatilho por `asChild`.
+                return (
+                  <ContextMenu key={rowKey(row)}>
+                    <ContextMenuTrigger asChild>{tr}</ContextMenuTrigger>
+                    <ContextMenuContent className="w-56">{rowMenu(row)}</ContextMenuContent>
+                  </ContextMenu>
+                )
+              })
             )}
           </tbody>
         </table>

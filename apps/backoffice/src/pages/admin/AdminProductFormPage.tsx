@@ -34,6 +34,7 @@ import DescriptionFaqNotice from '@/features/product-form/ui/DescriptionFaqNotic
 import { useAdminFaqs } from '@/features/faq-library/api/useAdminFaqs'
 import CategoryMultiSelect from '@/features/product-form/ui/CategoryMultiSelect'
 import MaterialCard from '@/features/product-form/ui/MaterialCard'
+import ProductActiveControl from '@/features/product-form/ui/ProductActiveControl'
 import FilterValuesCard from '@/features/product-form/ui/FilterValuesCard'
 import TagInput from '@/features/product-form/ui/TagInput'
 import { hasEngravingAxis } from '@estrelinha/core/material'
@@ -113,7 +114,7 @@ const AdminProductFormPage = () => {
   // 11/T21: o estado saiu da página. Eram ~30 campos num `useState` só, e é por isso que PFM-11
   // (validar campo de aba FECHADA) não tinha onde morar — o `Tabs` do Radix desmonta o conteúdo
   // inativo e leva o `required` do input com ele.
-  const { form, setField, setFields, isDirty, savedSnapshot, markSaved, replaceForm, reload, loading, isEdit } =
+  const { form, setField, setFields, isDirty, savedSnapshot, markSaved, replaceForm, adoptSaved, reload, loading, isEdit } =
     useProductForm(id, fromId)
   // Feature 67: a projeção das marcações por opção — renomear eixo leva junto (`VFL-05`), remover
   // texto apaga (`VFL-06`). O bloco e o save leem ESTA lista, nunca o campo cru, então o que a tela
@@ -862,10 +863,16 @@ const AdminProductFormPage = () => {
             passaria por baixo do cabeçalho de salvar, que é quem gruda nesta tela. */}
         <aside className="lg:col-span-1 space-y-6 self-start">
           <FormCard title="Publicação">
+            {/* O switch "Ativo" saiu na T25 (era um segundo dono de `is_active` dentro do save). O que
+                volta aqui é uma AÇÃO que grava na hora, só aquela coluna — ver `ProductActiveControl`. */}
+            <ProductActiveControl
+              productId={isEdit ? id ?? null : null}
+              active={form.is_active}
+              canActivate={canPublish}
+              isDirty={isDirty}
+              onChanged={active => adoptSaved({ is_active: active })}
+            />
             <div className="flex flex-col gap-4">
-              {/* O switch "Ativo" saiu na T25: quem decide se o produto vai à loja são as ações
-                  *Salvar rascunho* / *Salvar e publicar* do cabeçalho. Dois donos do mesmo dado é o
-                  defeito 01 da spec. */}
               <label className="flex items-center gap-3 text-sm">
                 <Switch checked={form.is_featured} onCheckedChange={v => setField('is_featured', v)} /> Destaque na home
               </label>

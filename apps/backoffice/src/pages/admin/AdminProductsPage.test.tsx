@@ -2,12 +2,12 @@
 // explicação, `sempre disponível`, o badge de grade incompleta e a edição inline com teclado.
 
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
 import type { AdminListRow } from '@/entities/product/api/productQuery'
 
 const {
-  listMock, countsMock, toastMock, updateMock, eqMock, fromMock, refetchMock, navigateMock,
+  listMock, countsMock, toastMock, updateMock, eqMock, fromMock, refetchMock, navigateMock, lojaOrigem,
   fetchAllMock, updateBatchMock, createBatchMock, deleteBatchMock, applyCategoryMock, categorias, fornecedores,
 } = vi.hoisted(() => ({
   listMock: vi.fn(),
@@ -25,6 +25,7 @@ const {
   applyCategoryMock: vi.fn(),
   categorias: { atual: [{ id: 'cat-anime', name: 'Anime' }] },
   fornecedores: { atual: [] as { id: string; name: string }[] },
+  lojaOrigem: { atual: 'https://loja.exemplo' as string | null },
 }))
 
 vi.mock('@/entities/product/api/useAdminProducts', () => ({
@@ -40,6 +41,8 @@ vi.mock('@/entities/supplier', async importOriginal => ({
   ...(await importOriginal<typeof import('@/entities/supplier')>()),
   useSuppliers: () => ({ suppliers: fornecedores.atual, loading: false, error: null }),
 }))
+// `VITE_STORE_URL` é lido no carregamento do módulo: com a env, o teste mediria o `.env` da máquina.
+vi.mock('@/shared/lib/storeOrigin', () => ({ storeOrigin: () => lojaOrigem.atual }))
 vi.mock('@/features/csv-import/ui/CsvImportDialog', () => ({ default: () => null }))
 vi.mock('@estrelinha/ui/hooks/use-toast', () => ({ toast: toastMock }))
 vi.mock('@estrelinha/supabase/client', () => ({ supabase: { from: fromMock } }))
@@ -655,5 +658,128 @@ describe('feature 80 — o fornecedor na listagem', () => {
       ),
     )
     expect(screen.getByRole('button', { name: 'Remover filtro Fornecedor: Ateliê Prata' })).toBeInTheDocument()
+  })
+})
+
+describe('AdminProductsPage — abrir fora da aba e ativar pela linha', () => {
+  const dois = [row(), row({ id: 'p2', name: 'Botton Guardado', is_active: false })]
+  const linhaDe = (nome: string) => screen.getByRole('link', { name: nome }).closest('tr') as HTMLElement
+
+  // O menu do botão direito se posiciona no ponteiro por `DOMRect.fromRect`; o jsdom não tem
+  // `DOMRect` nenhum.
+  beforeEach(() => {
+    const g = globalThis as unknown as { DOMRect?: { fromRect?: unknown } }
+    if (!g.DOMRect?.fromRect) {
+      vi.stubGlobal('DOMRect', {
+        fromRect: ({ x = 0, y = 0, width = 0, height = 0 } = {}) => ({
+          x, y, width, height, top: y, left: x, right: x + width, bottom: y + height, toJSON: () => ({}),
+        }),
+      })
+    }
+  })
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    lojaOrigem.atual = 'https://loja.exemplo'
+  })
+
+  it('o nome é link de verdade para o cadastro (Ctrl/⌘-clique abre noutra aba)', () => {
+    setup(dois, 2)
+    const link = screen.getByRole('link', { name: 'Botton Sailor Moon' })
+    expect(link.getAttribute('href')).toBe('/admin/produtos/p1/editar')
+  })
+
+  it('a linha leva o nome inteiro na dica, e a célula do nome tem largura fixa', () => {
+    const longo = 'Pingente Coração com Cinzas e Mecha de Cabelo em Prata 925 Banhado'
+    setup([row({ name: longo })], 1)
+    const link = screen.getByRole('link', { name: longo })
+    expect(link.closest('tr')?.getAttribute('title')).toBe(longo)
+    expect(link.className.split(/\s+/)).toContain('truncate')
+    expect((link.parentElement?.parentElement?.className ?? '').split(/\s+/)).toContain('w-[200px]')
+  })
+
+  it('a coluna Ações é um só botão "⋯", sem ícones soltos', () => {
+    setup(dois, 2)
+    expect(screen.getByRole('button', { name: 'Ações de Botton Sailor Moon' })).toBeInTheDocument()
+    expect(screen.queryByTitle('Editar')).toBeNull()
+    expect(screen.queryByTitle('Duplicar')).toBeNull()
+  })
+
+  it('o "⋯" e o botão direito oferecem a MESMA lista', async () => {
+    setup(dois, 2)
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Ações de Botton Sailor Moon' }), { key: 'Enter' })
+    await screen.findByRole('menuitem', { name: 'Editar' })
+    const doPontinho = screen.getAllByRole('menuitem').map(i => i.textContent?.trim())
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' })
+
+    fireEvent.contextMenu(linhaDe('Botton Sailor Moon'))
+    await screen.findByRole('menuitem', { name: 'Editar' })
+    const doBotaoDireito = screen.getAllByRole('menuitem').map(i => i.textContent?.trim())
+
+    expect(doPontinho).toEqual([
+      'Editar', 'Editar em nova aba', 'Editar em nova janela', 'Ver na loja', 'Desativar', 'Duplicar', 'Excluir',
+    ])
+    expect(doBotaoDireito).toEqual(doPontinho)
+  })
+
+  it('"Ver na loja" abre a página da peça na loja, em nova aba', async () => {
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue(null)
+    setup(dois, 2)
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Ações de Botton Sailor Moon' }), { key: 'Enter' })
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Ver na loja' }))
+    expect(openSpy).toHaveBeenCalledWith(
+      'https://loja.exemplo/produtos/botton-sailor-moon', '_blank', 'noopener,noreferrer',
+    )
+    openSpy.mockRestore()
+  })
+
+  it('peça desativada: "Ver na loja" fica indisponível (a loja daria 404)', async () => {
+    setup(dois, 2)
+    fireEvent.contextMenu(linhaDe('Botton Guardado'))
+    const item = await screen.findByRole('menuitem', { name: 'Ver na loja (desativado)' })
+    expect(item.getAttribute('aria-disabled')).toBe('true')
+  })
+
+  it('sem VITE_STORE_URL a opção da loja não aparece', async () => {
+    lojaOrigem.atual = null
+    setup(dois, 2)
+    fireEvent.contextMenu(linhaDe('Botton Sailor Moon'))
+    await screen.findByRole('menuitem', { name: 'Editar' })
+    expect(screen.queryByRole('menuitem', { name: /Ver na loja/ })).toBeNull()
+  })
+
+  it('"Editar em nova aba" e "Editar em nova janela" abrem o cadastro fora desta aba', async () => {
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue(null)
+    setup(dois, 2)
+
+    fireEvent.contextMenu(linhaDe('Botton Sailor Moon'))
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Editar em nova aba' }))
+    expect(openSpy).toHaveBeenLastCalledWith(
+      `${window.location.origin}/admin/produtos/p1/editar`, '_blank', 'noopener,noreferrer',
+    )
+
+    fireEvent.contextMenu(linhaDe('Botton Sailor Moon'))
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Editar em nova janela' }))
+    const [url, alvo, recursos] = openSpy.mock.lastCall as [string, string, string]
+    expect([url, alvo]).toEqual([`${window.location.origin}/admin/produtos/p1/editar`, '_blank'])
+    // Sem medida o navegador abre aba, e as duas opções fariam a mesma coisa.
+    expect(recursos).toMatch(/width=\d+/)
+    openSpy.mockRestore()
+  })
+
+  it('Ativar/Desativar pela linha usa o mesmo patch da barra, só naquela linha', async () => {
+    setup(dois, 2)
+    updateBatchMock.mockResolvedValue({ changed: 1, failed: [] })
+
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Ações de Botton Sailor Moon' }), { key: 'Enter' })
+    await act(async () => {
+      fireEvent.click(await screen.findByRole('menuitem', { name: 'Desativar' }))
+    })
+    expect(updateBatchMock).toHaveBeenLastCalledWith([{ id: 'p1', values: { is_active: false } }])
+
+    fireEvent.contextMenu(linhaDe('Botton Guardado'))
+    await act(async () => {
+      fireEvent.click(await screen.findByRole('menuitem', { name: 'Ativar' }))
+    })
+    expect(updateBatchMock).toHaveBeenLastCalledWith([{ id: 'p2', values: { is_active: true } }])
   })
 })

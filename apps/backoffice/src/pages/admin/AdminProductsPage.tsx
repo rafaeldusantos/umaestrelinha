@@ -5,9 +5,10 @@
 // por isso o rodapé pode dizer `1–25 de 160` sem ter 160 linhas na memória.
 
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import {
   Plus, Pencil, Trash2, Search, Copy, Upload, Package, Table2, ChevronDown, Grid3x3, SlidersHorizontal,
+  ExternalLink, AppWindow, Eye, EyeOff, Store,
 } from 'lucide-react'
 import { useAdminProductList, useProductViewCounts } from '@/entities/product/api/useAdminProducts'
 import BulkEditPanel from '@/features/bulk-edit/ui/BulkEditPanel'
@@ -48,6 +49,9 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@estrelinha/ui/dropdown-menu'
+import { RowActionsContextItems, RowActionsDropdown, type RowAction } from '@/features/product-list/ui/RowActions'
+import { storeOrigin } from '@/shared/lib/storeOrigin'
+import { productPath } from '@estrelinha/core/routes'
 import { formatPrice } from '@estrelinha/core/formatters'
 import { primaryImage } from '@estrelinha/core/media'
 import { toast } from '@estrelinha/ui/hooks/use-toast'
@@ -60,6 +64,24 @@ import {
 import { supabase } from '@estrelinha/supabase/client'
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50]
+
+const editPath = (id: string) => `/admin/produtos/${id}/editar`
+
+/**
+ * Abre o cadastro fora desta aba. A janela é pedida com medida — sem `width`/`height` o navegador
+ * trata `_blank` como aba, e as duas opções do menu fariam a mesma coisa.
+ */
+const openOutside = (id: string, as: 'tab' | 'window') => {
+  const url = new URL(editPath(id), window.location.origin).toString()
+  if (as === 'tab') window.open(url, '_blank', 'noopener,noreferrer')
+  else window.open(url, '_blank', 'noopener,noreferrer,width=1280,height=900')
+}
+
+/** A página da peça na loja. `null` sem `VITE_STORE_URL` — a opção some, como "Abrir a loja". */
+const storeProductUrl = (slug: string): string | null => {
+  const origin = storeOrigin()
+  return origin ? `${origin}${productPath(slug)}` : null
+}
 
 const AdminProductsPage = () => {
   const navigate = useNavigate()
@@ -169,6 +191,42 @@ const AdminProductsPage = () => {
   /** RFN-01: `Ativar` / `Pausar` são o mesmo patch do painel, sem abrir o painel. */
   const applyStatus = (mode: 'activate' | 'pause') =>
     applyPatches(buildBulkPatch(selectedRows, { status: { mode } }), selectedRows)
+
+  /**
+   * Ativar/Desativar UMA linha (coluna Ações e botão direito). É o mesmo patch do `BulkBar`, com o
+   * mesmo desfazer: duas escritas de "ligar na loja" divergiriam no que fazem com `scheduled_at`.
+   */
+  const applyRowStatus = (row: AdminListRow) =>
+    applyPatches(buildBulkPatch([row], { status: { mode: row.is_active ? 'pause' : 'activate' } }), [row])
+
+  /**
+   * As ações de uma linha — a MESMA lista no "⋯" e no botão direito (`RowActions`).
+   * "Ver na loja" fica indisponível com a peça desativada: a loja responde 404 para ela.
+   */
+  const rowActions = (row: AdminListRow): RowAction[] => {
+    const lojaUrl = storeProductUrl(row.slug)
+    const actions: RowAction[] = [
+      { label: 'Editar', icon: Pencil, onSelect: () => navigate(editPath(row.id)) },
+      { label: 'Editar em nova aba', icon: ExternalLink, onSelect: () => openOutside(row.id, 'tab') },
+      { label: 'Editar em nova janela', icon: AppWindow, onSelect: () => openOutside(row.id, 'window') },
+    ]
+    if (lojaUrl) {
+      actions.push({
+        label: row.is_active ? 'Ver na loja' : 'Ver na loja (desativado)',
+        icon: Store,
+        disabled: !row.is_active,
+        onSelect: () => window.open(lojaUrl, '_blank', 'noopener,noreferrer'),
+      })
+    }
+    actions.push(
+      row.is_active
+        ? { label: 'Desativar', icon: EyeOff, onSelect: () => applyRowStatus(row), disabled: applying, separatorBefore: true }
+        : { label: 'Ativar', icon: Eye, onSelect: () => applyRowStatus(row), disabled: applying, separatorBefore: true },
+      { label: 'Duplicar', icon: Copy, onSelect: () => navigate(`/admin/produtos/novo?from=${row.id}`) },
+      { label: 'Excluir', icon: Trash2, onSelect: () => setDeleting(row.id), destructive: true, separatorBefore: true },
+    )
+    return actions
+  }
 
   /** RFN-01: cópias como rascunho, num insert só. */
   const handleDuplicate = async () => {
@@ -328,9 +386,11 @@ const AdminProductsPage = () => {
                 <Package className="h-4 w-4 text-muted-foreground" />
               </span>
             )}
-            <div className="min-w-0">
+            {/* Largura fixa: o nome longo não empurra as outras colunas. O nome inteiro aparece na dica
+                da linha (`rowTitle`), e o nome é link de verdade — Ctrl/⌘-clique abre noutra aba. */}
+            <div className="w-[200px] min-w-0 lg:w-[240px]">
               <div className="flex items-center gap-2">
-                <span className="truncate font-medium">{row.name}</span>
+                <Link to={editPath(row.id)} className="truncate font-medium hover:underline">{row.name}</Link>
                 {row.variants.length > 0 && (
                   <span className="shrink-0 text-xs text-muted-foreground">
                     {row.variants.length} variaç{row.variants.length === 1 ? 'ão' : 'ões'}
@@ -460,16 +520,8 @@ const AdminProductsPage = () => {
     {
       key: 'actions', header: 'Ações', align: 'center',
       cell: row => (
-        <div className="flex justify-center gap-1">
-          <Button size="icon" variant="ghost" onClick={() => navigate(`/admin/produtos/${row.id}/editar`)} title="Editar">
-            <Pencil className="h-4 w-4" />
-          </Button>
-          <Button size="icon" variant="ghost" onClick={() => navigate(`/admin/produtos/novo?from=${row.id}`)} title="Duplicar">
-            <Copy className="h-4 w-4" />
-          </Button>
-          <Button size="icon" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => setDeleting(row.id)} title="Excluir">
-            <Trash2 className="h-4 w-4" />
-          </Button>
+        <div className="flex justify-center">
+          <RowActionsDropdown actions={rowActions(row)} rowName={row.name} />
         </div>
       ),
     },
@@ -682,6 +734,8 @@ const AdminProductsPage = () => {
             onSort={toggleSort}
             empty={{ icon: Package, message: 'Nenhum produto encontrado' }}
             footer={footer}
+            rowTitle={row => row.name}
+            rowMenu={row => <RowActionsContextItems actions={rowActions(row)} />}
           />
         </div>
       )}
