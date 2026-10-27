@@ -87,6 +87,14 @@ export const piecesLabel = (n: number): string => plural(n, 'peça', 'peças')
 /** `1 pedido pago` · `38 pedidos pagos`. */
 export const paidOrdersLabel = (n: number): string => plural(n, 'pedido pago', 'pedidos pagos')
 
+const INTEIRO = new Intl.NumberFormat('pt-BR')
+
+/**
+ * Feature `83` — o inteiro pt-BR com separador de milhar (`1.240`). UM dono para o mesmo número: a
+ * faixa do Início, o cartão, a Loja ao vivo e o painel (`VIS-07`, que o reexporta) o escrevem igual.
+ */
+export const formatCount = (n: number): string => INTEIRO.format(n)
+
 /** O valor de uma barra do gráfico, em R$ mil com ATÉ uma casa (`1,3`, `1`, `0,3`); `—` sem venda. */
 export const thousandsLabel = (valor: number): string =>
   valor > 0 ? (valor / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) : '—'

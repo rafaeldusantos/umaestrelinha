@@ -187,22 +187,23 @@ Fases 3–4 (T06–T11) · **Lote 3** = Fase 5 (T12–T14).
 - **Where**: `packages/core/src/live/`, `packages/core/package.json`.
 - **Depends on**: T03 · **Reuses**: `weekdayShort`, `isoWeekday` (`core/stats/labels.ts`).
 - **Done when**:
-  - [ ] `conversion`/`formatConversion`: `3/142 ⇒ '2,1%'`, `0/10 ⇒ '0,0%'`, `5/0 ⇒ '—'`, `3/2 ⇒ '150,0%'`.
-  - [ ] `accessDelta`: alta, queda, **exatamente 0**, anterior 0 ⇒ `null`, anterior `null` ⇒ `null`,
+  - [x] `conversion`/`formatConversion`: `3/142 ⇒ '2,1%'`, `0/10 ⇒ '0,0%'`, `5/0 ⇒ '—'`, `3/2 ⇒ '150,0%'`.
+  - [x] `accessDelta`: alta, queda, **exatamente 0**, anterior 0 ⇒ `null`, anterior `null` ⇒ `null`,
         e o meio simétrico: `+12,5 ⇒ +13` **e** `−12,5 ⇒ −13`; `deltaLine` com U+2212 e os dois tons.
-  - [ ] `accessCards` nos três períodos, com a fixtura em que **Visitas da comparação e Vendas da
+  - [x] `accessCards` nos três períodos, com a fixtura em que **Visitas da comparação e Vendas da
         comparação discordam** (`L-013`), sem `acessos` (variação nula), visitas 0 (Conversão "—");
         em Hoje o par é `base_hoje` × `comparacao.hoje` (não o total), e o rótulo "vs ontem até as
         15h" vem de `ate_hora`.
-  - [ ] a régua (11) de `visitasPorHoraSchema` sai de `it.todo` e passa a asserção, com sensor.
-  - [ ] `accessChart`: Hoje com `faixa_atual` 5 e duas futuras; Hoje com `null` **antes** da atual ⇒
+  - [x] a régua (11) de `visitasPorHoraSchema` sai de `it.todo` e passa a asserção, com sensor.
+  - [x] `accessChart`: Hoje com `faixa_atual` 5 e duas futuras; Hoje com `null` **antes** da atual ⇒
         `sem_contagem` (não `futura`); Ontem sem dourada; Semana numa segunda
         (1 coluna) e num domingo (7), "hoje" no dia igual a `m.hoje` — com o relógio do processo num
         **outro** dia (`L-058`); `noHourNote` 0/1/2; `freshnessLine` 0, 1.9, 2, 59, 60, 125 s.
-  - [ ] `purity.test.ts` com âncora (≥ 3 arquivos) e sensor do relativo sem `.ts`.
-  - [ ] Quick gate; Full no fim da fase.
+  - [x] `purity.test.ts` com âncora (≥ 3 arquivos) e sensor do relativo sem `.ts`.
+  - [x] Quick gate; Full no fim da fase.
 - **Tests**: unit · **Gate**: Quick (Full no fim da Fase 2)
 - **Reqs**: `LAV-07`, `LAV-51`, `LAV-52`, `LAV-53`, `LAV-67`, `LAV-04` (frases).
+- **Status**: ✅ 2026-10-26 — `core/live/{access,card,index}.ts` e `./live` no `package.json`; 41 casos (`access` 33, `card` 3, `purity` 5). `formatCount` nasceu em `core/stats/labels.ts` (o design aceita `counterNotes.ts` ou `labels.ts`): `core/live` precisa dele já aqui, e a T05 só faz o painel reexportá-lo. Régua (11) de `visitasPorHoraSchema` saiu do `it.todo`: 5 casos (âncora dos dois divisores e do `generate_series`, a igualdade com `ACCESS_BAND_LABELS` importado, 3 sensores). Mutantes reais em `access.ts` (rótulo `21h`→`22h`, `Math.round` simples, total no lugar de `base_hoje`, `sem_contagem` virando `futura`): 4/4 mortos por asserção, SHA-256 conferido. Full: core 4517/181 · mobile-adm 2021 · store 6108 (todo zerado) · backoffice 3916 · functions 1105, exit 0.
 
 ### T05 — `05-notas-do-contador-com-dono-unico`
 - **What**: `core/stats/counterNotes.ts` (as três, byte a byte do painel) + `counterNotes.test.ts`

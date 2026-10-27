@@ -21,6 +21,7 @@ export {
   type StoreOverview,
 } from './overview.ts'
 export {
+  formatCount,
   greetingFor,
   isoWeekday,
   longDateLine,

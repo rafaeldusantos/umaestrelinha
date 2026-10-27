@@ -1,0 +1,31 @@
+// `@estrelinha/core/live` — a Loja ao vivo (feature `83`). Especificadores com `.ts` explícito,
+// como o resto de `core` alcançável fora do Vite. Só o que a Fase 1 usa (PRD §6.3).
+export {
+  ACCESS_BAND_LABELS,
+  ACCESS_TITLE,
+  BAND_NOTE,
+  CHART_UNAVAILABLE,
+  CONSENT_NOTE,
+  WEEK_NOTE,
+  accessCards,
+  accessChart,
+  accessDelta,
+  comparisonLabel,
+  conversion,
+  deltaLine,
+  formatConversion,
+  freshnessLine,
+  noHourNote,
+  type AccessCard,
+  type AccessChart,
+  type AccessColumn,
+  type AccessHighlight,
+  type DeltaTone,
+} from './access.ts'
+export {
+  VISITS_TODAY_HINT,
+  VISITS_TODAY_TITLE,
+  visitsTodayFailedLabel,
+  visitsTodayLabel,
+  visitsTodayLoadingLabel,
+} from './card.ts'

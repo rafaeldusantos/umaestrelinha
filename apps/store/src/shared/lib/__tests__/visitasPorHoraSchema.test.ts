@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
+import { ACCESS_BAND_LABELS } from '@estrelinha/core/live'
 import { STORE_TIME_ZONE } from '@estrelinha/core/time'
 
 import {
@@ -539,8 +540,51 @@ describe('(10) a migration vigente das duas funções recriadas é esta', () => 
 // -------------------------------------------------------------------------------------------
 
 describe('(11) a faixa do SQL e os rótulos de `core/live`', () => {
-  // `core/live` nasce na task 04: a régua entra marcada aqui e vira asserção lá (Done when da T04).
-  it.todo('o divisor de `first_hour / N` e o fim de `generate_series(0, M)` batem com `ACCESS_BAND_LABELS`')
+  // Cópia deliberada com guarda: a largura (`first_hour / N`) e o número de faixas
+  // (`generate_series(0, M)`) moram no SQL; os rótulos, em `ACCESS_BAND_LABELS` (importado).
+  /** Os dois divisores (o agrupamento `first_hour / N = f.faixa` e `… / N)::smallint as faixa_atual`) e o `M`. */
+  const largura = (texto: string): { divisores: number[]; fim: number | null } => {
+    const c = corpoDaFuncao(texto, 'store_movement') ?? ''
+    const agrupa = c.match(/first_hour\s*\/\s*(\d+)\s*=\s*f\.faixa/i)
+    const atual = c.match(/\/\s*(\d+)\s*\)\s*::\s*smallint\s+as\s+faixa_atual/i)
+    const divisores = [agrupa, atual].filter((m) => m !== null).map((m) => Number(m![1]))
+    const g = c.match(/generate_series\s*\(\s*0\s*,\s*(\d+)\s*\)\s+as\s+f\s*\(\s*faixa\s*\)/i)
+    return { divisores, fim: g ? Number(g[1]) : null }
+  }
+  const bate = (texto: string): boolean => {
+    const { divisores, fim } = largura(texto)
+    if (fim === null || divisores.length !== 2) return false
+    const n = divisores[0]
+    return (
+      divisores.every((d) => d === n) &&
+      ACCESS_BAND_LABELS.length === fim + 1 &&
+      ACCESS_BAND_LABELS.every((rotulo, i) => rotulo === `${i * n}h`) &&
+      n * (fim + 1) === 24
+    )
+  }
+  const vigente = () => lerMigration(migrationVigenteDe('store_movement') ?? ARQUIVO)
+
+  it('âncora — a vigente tem os dois divisores (a faixa atual e o agrupamento) e o `generate_series`', () => {
+    const { divisores, fim } = largura(vigente())
+    expect(divisores).toEqual([3, 3])
+    expect(fim).toBe(7)
+  })
+
+  it('o divisor `N` e o fim `M` batem com `ACCESS_BAND_LABELS`: M + 1 rótulos, o `i` é `${i × N}h`, cobrindo 24 h', () => {
+    expect(bate(vigente())).toBe(true)
+  })
+
+  it('sensor — faixas de 4 horas no agrupamento (e só nele) reprovam', () => {
+    expect(bate(mutarNoBloco(sql, 'store_movement', 'v.first_hour / 3 = f.faixa', 'v.first_hour / 4 = f.faixa'))).toBe(false)
+  })
+
+  it('sensor — seis faixas no `generate_series` reprovam', () => {
+    expect(bate(mutarNoBloco(sql, 'store_movement', 'generate_series(0, 7) as f(faixa)', 'generate_series(0, 5) as f(faixa)'))).toBe(false)
+  })
+
+  it('sensor — a faixa atual com outro divisor reprova', () => {
+    expect(bate(mutarNoBloco(sql, 'store_movement', 'filter (where day = v_hoje), 0)) / 3)', 'filter (where day = v_hoje), 0)) / 4)'))).toBe(false)
+  })
 })
 
 // -------------------------------------------------------------------------------------------
