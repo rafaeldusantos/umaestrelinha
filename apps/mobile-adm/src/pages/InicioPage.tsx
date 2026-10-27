@@ -1,5 +1,5 @@
 import { useCallback } from 'react'
-import { useQueryClient, type UseQueryResult } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 import { useOrdersRealtime } from '@estrelinha/core/hooks/useOrdersRealtime'
 import { STORE_MOVEMENT_KEY, STORE_OVERVIEW_KEY, useMovimento, useResumo } from '@/entities/stats'
 import { useRecusaDePapel } from '@/features/access-check'
@@ -12,7 +12,8 @@ import { RecentOrders } from '@/widgets/recent-orders'
 import { AccountMenu } from '@/widgets/account-menu'
 import lockup from '@/shared/assets/uma-estrelinha-lockup-negativo.svg?raw'
 import PullToRefresh from '@/shared/ui/PullToRefresh'
-import { LinhaDeFrescor, type Leitura } from '@/shared/ui/leitura'
+import { LinhaDeFrescor } from '@/shared/ui/leitura'
+import { leituraDe } from '@/shared/ui/leituraDe'
 
 /**
  * O canal de pedidos da Início. Outro nome que o do Dashboard do painel (`admin-orders-realtime`): os
@@ -24,17 +25,7 @@ export const CANAL_DA_INICIO = 'atelie-orders-realtime'
 // aqui para o teste da `73` não mudar.
 export { NAO_ATUALIZOU } from '@/shared/ui/leitura'
 
-/**
- * O que um bloco sabe de uma query. Com recusa por papel (`42501`), nenhum número — nem o dado de
- * antes: o bloco diz que não carregou enquanto o papel é reconferido (`MAI-22`).
- */
-const leituraDe = <T, E>(q: UseQueryResult<T, E>, recusada: boolean): Leitura<T> => ({
-  dado: recusada ? undefined : (q.data ?? undefined),
-  falhou: recusada || (q.isError && !q.data),
-  tentarDeNovo: () => {
-    void q.refetch()
-  },
-})
+// `leituraDe` subiu para `shared/ui/leituraDe.ts` na `83`: a Loja ao vivo monta a mesma leitura.
 
 /** O instante mais ANTIGO entre os dados na tela: é a hora do número mais velho que a Adri lê. */
 const maisAntigo = (instantes: (string | undefined)[]): string | null => {

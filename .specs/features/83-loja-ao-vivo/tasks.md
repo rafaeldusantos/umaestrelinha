@@ -240,19 +240,20 @@ Fases 3–4 (T06–T11) · **Lote 3** = Fase 5 (T12–T14).
   `shared/ui/leitura.tsx`, `shared/lib/__tests__/`, `pages/InicioPage.tsx` (só o import de `leituraDe`).
 - **Depends on**: T05.
 - **Done when**:
-  - [ ] `periodoDaEntrada`: os três valores; `null`, `{}`, `'mes'`, `{ periodo: 3 }` ⇒ `'hoje'`.
-  - [ ] `barraNoCaminho('/ao-vivo') === false`; `/`, `/pedidos`, `/avisos` seguem `true`.
-  - [ ] `abasSaoAsRotas`: lista nova com âncora `toEqual(['/ao-vivo'])`; `rotasDoApp` passa a excluir
+  - [x] `periodoDaEntrada`: os três valores; `null`, `{}`, `'mes'`, `{ periodo: 3 }` ⇒ `'hoje'`.
+  - [x] `barraNoCaminho('/ao-vivo') === false`; `/`, `/pedidos`, `/avisos` seguem `true`.
+  - [x] `abasSaoAsRotas`: lista nova com âncora `toEqual(['/ao-vivo'])`; `rotasDoApp` passa a excluir
         `ROTAS_DA_CONTA ∪ ROTAS_DE_TELA`; o sensor "sem a lista, `/avisos` seria acusada" passa a
         filtrar `ROTAS_DE_TELA` antes, com o comentário dizendo por quê (mudança de fixture, não de
         régua); o sensor-irmão "sem `ROTAS_DE_TELA`, `/ao-vivo` seria acusada" sobre uma fonte com a
         rota injetada (a rota real entra na T08, que escreve o caso "a rota existe e está na lista").
-  - [ ] `periodosComDonoUnico`: âncora + sensor (uma segunda lista no app reprova); os testes da `73`
+  - [x] `periodosComDonoUnico`: âncora + sensor (uma segunda lista no app reprova); os testes da `73`
         do hero **sem asserção tocada**.
-  - [ ] `periodoDoInicio`/`gravarPeriodoDoInicio`: grava e lê da entrada atual sem tocar a URL.
-  - [ ] Full gate e `npx eslint .` em `apps/mobile-adm` = **0/0** (nenhum import lateral ou para cima).
+  - [x] `periodoDoInicio`/`gravarPeriodoDoInicio`: grava e lê da entrada atual sem tocar a URL.
+  - [x] Full gate e `npx eslint .` em `apps/mobile-adm` = **0/0** (nenhum import lateral ou para cima).
 - **Tests**: unit · **Gate**: Full
 - **Reqs**: `LAV-06`, `LAV-50`.
+- **Status**: ✅ 2026-10-27 — `entities/stats/model/{periodos,aoVivo}.ts` e o barril; `numeros.ts` reexporta `PERIODOS` por referência e escreve Vendas/Visitas com `formatCount` de `core`; `barraNoCaminho('/ao-vivo')` falso; `useMovimento({ refetchInterval })`. **Dois desvios de endereço, os dois pelo lint 0/0**: `leituraDe` foi para `shared/ui/leituraDe.ts` (o `leitura.tsx` só exporta componentes e constantes — `react-refresh/only-export-components`), e `periodosComDonoUnico.test.ts` mora em `app/__tests__` (a metade positiva importa de `entities/` e `widgets/`, fronteira FSD ao contrário a partir de `shared/`). `abasSaoAsRotas`: `ROTAS_DE_TELA` com âncora, `rotasDoApp` excluindo as duas listas, o sensor de `/avisos` filtrando `ROTAS_DE_TELA` (fixture, com o porquê no comentário) e o irmão de `/ao-vivo` sobre uma fonte com a rota injetada. mobile-adm 2021/126 → 2052/129 (+31: `aoVivo` 15, `barraNoCaminho` 7, `periodosComDonoUnico` 7, `abasSaoAsRotas` +2); core 4555 · store 6113 · backoffice 3922 · functions 1105, todos exit 0; `tsc` do app 0; eslint do app 0/0.
 
 ### T07 — `07-secao-acessos`
 - **What**: `widgets/store-access/` — `SecaoAcessos.tsx`, `GraficoDosAcessos.tsx`, `model/barras.ts`,
