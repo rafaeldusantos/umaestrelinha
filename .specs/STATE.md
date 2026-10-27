@@ -1635,8 +1635,8 @@
   (build servido, login real, 48 telas em 360/390/412/1440 × 100/130/200 %, números iguais a
   `store_movement`, ciclo de 15/30 s e zero leituras com a aba oculta).
 - **A confirmar** (o portão `T00` valeu a recomendação de cada linha; a confirmação de verdade segue
-  aberta). **Com a Adri** (pré-condição do deploy): a emenda à `VIS-28` (guardar a hora cheia) e o texto
-  novo da Política (Apêndice A da spec). **Com o usuário** (copy e números): a comparação de Hoje em
+  aberta). **Com a Adri** (pré-condição do deploy): o texto novo da Política (Apêndice A da spec). A emenda à
+  `VIS-28` (guardar a hora cheia) foi **confirmada** pelo usuário em 2026-10-27. **Com o usuário** (copy e números): a comparação de Hoje em
   horas completas e o texto "vs ontem até as {h}h"; quando Hoje fica sem comparação; Semana sem
   variação (opção (a)); variação sem base ⇒ sem linha; `0%` neutro; o arredondamento simétrico; as
   visitas da comparação nulas com o teto; as faixas antes de `contagem_desde` sem número; a Conversão

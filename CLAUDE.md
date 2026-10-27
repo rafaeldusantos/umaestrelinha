@@ -2809,8 +2809,8 @@ completo (framework, `installCommand` na raiz do monorepo, headers de cache e de
   `history.replaceState` na troca) e o cabeçalho da loja rolando de lado a 390/200 %
   (`scrollWidth` 434; qual parte cede, logo, recuo ou ícones). **Ordem de publicação:
   migration → bundle** (o app lê a chave `acessos`; com o banco antigo, a seção desenha os números e a
-  frase estática do gráfico). **A aprovação da Adri é pré-condição do deploy** (a emenda à `VIS-28` e o
-  parágrafo novo da Política). Os probes da `83` entram no gate de quem recriar `store_movement` ou
+  frase estática do gráfico). **A aprovação da Adri é pré-condição do deploy** (o parágrafo novo da
+  Política; a emenda à `VIS-28` foi confirmada pelo usuário em 2026-10-27). Os probes da `83` entram no gate de quem recriar `store_movement` ou
   `record_store_visit` (`BL-056`). Achados da prova em navegador, fora do escopo: `BL-058` (o rótulo
   "Descontos" da barra de abas a 200 %) e a fonte escalada pela raiz não crescendo o que é `px` fixo.
 - **A `80` (o fornecedor da peça) está IMPLEMENTADA, sem commit.** Ordem de publicação: a migration

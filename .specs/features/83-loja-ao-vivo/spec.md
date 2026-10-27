@@ -20,7 +20,8 @@
 > `n — confirmar` vale a **escolha escrita nela** (a recomendação), e **Semana = opção (a)** (sem
 > variação nenhuma). Nenhuma linha muda de escolha, então nada se propaga ao design nem às tasks. As
 > linhas **seguem `n — confirmar`** na tabela: a confirmação de verdade continua com o usuário (copy e
-> números) e com a Adri (emenda à `VIS-28` e texto da política, pré-condição do deploy).
+> números) e com a Adri (texto da política, pré-condição do deploy). A emenda à `VIS-28` foi **confirmada** pelo
+> usuário em 2026-10-27.
 
 ## Problem Statement
 
@@ -60,7 +61,7 @@ resposta com o menor dado possível: **a hora cheia de Brasília da primeira vis
 
 | Assunção / decisão | Escolha | Razão | Confirmado? |
 | --- | --- | --- | --- |
-| **Emenda à `VIS-28`** (feature `71`): guardar a hora da primeira visita | `store_visits.first_hour smallint` (0–23), hora de **Brasília** do instante do **servidor** na inserção; a repetição do mesmo dia não altera. Sem minuto, sem instante, sem IP, user agent, página ou referrer | PRD §6.1 e §12 (pergunta 1, "seguimos com sim"). A hora cheia é o mínimo que responde "a que horas" | **n — confirmar** (Adri) |
+| **Emenda à `VIS-28`** (feature `71`): guardar a hora da primeira visita | `store_visits.first_hour smallint` (0–23), hora de **Brasília** do instante do **servidor** na inserção; a repetição do mesmo dia não altera. Sem minuto, sem instante, sem IP, user agent, página ou referrer | PRD §6.1 e §12 (pergunta 1, "seguimos com sim"). A hora cheia é o mínimo que responde "a que horas" | **Confirmada** pelo usuário em 2026-10-27 |
 | Texto novo da Política de Privacidade | o parágrafo do Apêndice A **desta** spec, que troca "esse código e a data" por "esse código, a data e a hora cheia da sua primeira visita naquele dia" e mantém o resto palavra por palavra | PRD §7. Declarar o que passa a ser guardado. **A aprovação da Adri é pré-condição do DEPLOY**, como na `71` | **n — aguarda a Adri** |
 | Com quem **Hoje** se compara | **horas completas dos dois lados**: hoje de 0h até o início da hora atual (`first_hour < h`; vendas pagas antes de `início de hoje + h`) contra ontem no mesmo corte (`first_hour < h`; vendas antes de `início de ontem + h`). O número grande continua o **total** de hoje; só a variação usa o par. Texto: "vs ontem até as {h}h" (`h` = `comparacao.hoje.ate_hora`, do servidor) | comparar um dia em curso com um dia inteiro dá "−80% vs ontem" toda manhã. A primeira versão do plano ("ontem até o **fim** da hora atual") somava a hora corrente inteira de ontem contra minutos de hoje — às 15h02, 60 min contra 2: a mesma queda fabricada, em escala de hora (revisão adversarial). O protótipo e o PRD dizem "vs ontem" (dia inteiro) | **n — confirmar** |
 | Hoje sem comparação possível | sem linha de variação quando: a hora atual é 0 (nenhuma hora completa); hoje **ou** ontem têm visita sem hora (as gravadas antes do deploy); a contagem começou em ontem ou depois; ou o teto (`capped_day`) caiu em hoje ou ontem | o corte por hora não existe para essas linhas, e um número parcial ou um piso seria falso | n — confirmar |

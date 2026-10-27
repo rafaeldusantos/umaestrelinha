@@ -7,7 +7,7 @@
 > (RLS, `revoke`, nenhuma policy, só `service_role` grava) continuam. A AC abaixo **não foi reescrita**
 > — ela descreve o que a `71` entregou; o que vale hoje está em
 > `.specs/features/83-loja-ao-vivo/spec.md` (`LAV-70`) e no guarda `visitasPorHoraSchema.test.ts`. A
-> Política de Privacidade acompanhou (`LAV-66`).
+> Política de Privacidade acompanhou (`LAV-66`). A emenda foi **confirmada** pelo usuário em 2026-10-27.
 
 > Origem: o painel da Nuvemshop mostra o bloco **Visitas únicas · Vendas · Faturamento · Ticket
 > médio**, com as abas **Hoje / Ontem / Esta semana**. O Dashboard do painel não tem esse bloco.

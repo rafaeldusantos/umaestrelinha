@@ -180,7 +180,7 @@ Cabeçalho com voltar, título "Loja ao vivo" e a linha de frescor "Atualizado a
 - **Toda a Fase 2, 3 e 4** nesta feature.
 
 ## 12. Perguntas abertas para a Adri
-1. Guardar a **hora** da primeira visita (emenda à VIS-28) está ok? — **seguimos com "sim" como assunção `n — confirmar`**.
+1. Guardar a **hora** da primeira visita (emenda à VIS-28) está ok? — **sim, confirmado pelo usuário em 2026-10-27**.
 2. Cidades: vale a conta de serviço do GA4? (Fase 4)
 3. O "Guia de envio do material" entra em "Joias sendo vistas agora"? (Fase 2)
 4. A nota de checkout cita o Backoffice? (Fase 2)
