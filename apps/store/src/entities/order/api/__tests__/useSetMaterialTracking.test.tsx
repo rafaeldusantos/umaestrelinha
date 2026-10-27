@@ -120,6 +120,38 @@ describe('NTF-13 — o aviso do rastreio registrado', () => {
   })
 })
 
+// Feature `82`, Fase 5 (T19, `BUG-20261026-codigo-com-hifen-ou-espaco-gravado`, `BL-054`): a loja
+// gravava o código só aparado (`normalizeEngraving`), com hífen, ponto, espaços do meio e caixa
+// baixa. Agora grava pelo dono da escrita (`writeMaterialTracking`, `core/order-actions`), e a RPC
+// recebe a mesma forma que o app e o painel mandam.
+describe('T19 — o código chega à RPC na forma única do envelope', () => {
+  it.each([
+    ['hífen e ponto (colado do WhatsApp)', 'AN-123.456.789-BR', 'AN123456789BR'],
+    ['espaços do meio e minúsculas', 'an 1234 5678 9br', 'AN123456789BR'],
+    ['caracteres invisíveis', '\u202AAN123\u200B456789BR\u202C', 'AN123456789BR'],
+  ])('%s ⇒ `p_code` normalizado', async (_nome, digitado, gravado) => {
+    rpcMock.mockResolvedValue({ data: { ok: true, status: 'material_enviado', reason: null }, error: null })
+    const { result } = render()
+
+    result.current.mutate(digitado)
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(rpcMock).toHaveBeenCalledTimes(1)
+    expect(rpcMock).toHaveBeenCalledWith('set_material_tracking', { p_order_id: ORDER_ID, p_code: gravado })
+  })
+
+  it('só separadores (`" - . "`) é vazio: não chega à RPC nem ao aviso', async () => {
+    const { result } = render()
+
+    result.current.mutate(' - . ')
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(result.current.data).toEqual({ ok: false, status: 'nao_aplicavel', reason: 'empty_code' })
+    expect(rpcMock).not.toHaveBeenCalled()
+    expect(invokeMock).not.toHaveBeenCalled()
+  })
+})
+
 // Feature 59 — `MAT-05`: gravado o código, o detalhe E a lista da conta releem. A régua é o estado
 // do cache (`isInvalidated`), nunca "invalidateQueries foi chamado": invalidar a chave errada
 // chamaria o método do mesmo jeito.

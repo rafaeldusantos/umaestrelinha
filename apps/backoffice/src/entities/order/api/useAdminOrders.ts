@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@estrelinha/supabase/client'
 import type { DbOrder, DbOrderItem, DbOrderStatusHistory, DbOrderNote } from '@estrelinha/supabase/types'
 import { ORDER_STATUS_LABELS } from '@estrelinha/core/orders'
-import { writeMaterialStatus, writeOrderStatus, writeTrackingCode, type WriteOutcome } from '@estrelinha/core/order-actions'
+import { writeMaterialStatus, writeMaterialTracking, writeOrderStatus, writeTrackingCode, type WriteOutcome } from '@estrelinha/core/order-actions'
 import { notifyOrder } from './notifyOrder'
 
 export const ORDER_STATUSES = ['pending', 'paid', 'separating', 'shipped', 'delivered', 'cancelled'] as const
@@ -209,25 +209,24 @@ export const useAdminOrders = () => {
    * duas máquinas de estado que divergem no primeiro ajuste.
    */
   const setMaterialTracking = async (id: string, code: string) => {
-    const { data, error } = await supabase.rpc('set_material_tracking', {
-      p_order_id: id,
-      p_code: code,
-    })
-    if (error) return { ok: false, reason: 'rpc_failed' }
-
-    const resultado = (data ?? {}) as { ok?: boolean; reason?: string | null }
-    if (resultado.ok !== true) {
-      return { ok: false, reason: resultado.reason ?? 'not_allowed' }
+    // Feature `82` (`ENV-14`): a RPC e o aviso moram no dono (`writeMaterialTracking`), o mesmo que o
+    // app do ateliê chama. O gatilho é o MESMO que a loja dispara quando a própria cliente registra
+    // (`NTF-13`): dois gatilhos para o mesmo fato seriam duas mensagens para a mesma cliente. A
+    // tradução devolve a forma de sempre: `ok: false` sem motivo continua `not_allowed`, e a falha
+    // continua `rpc_failed` (a exceção síncrona do client também, como em `setMaterialStatus`).
+    const r = await writeMaterialTracking({ client: supabase, notify: notifyOrder }, { id, code })
+    switch (r.tipo) {
+      case 'ok':
+        await fetchOrders()
+        await fetchStatusCounts()
+        return { ok: true, reason: null }
+      case 'recusado':
+        return { ok: false, reason: r.reason ?? 'not_allowed' }
+      case 'nao-permitido':
+        return { ok: false, reason: 'not_allowed' }
+      default:
+        return { ok: false, reason: 'rpc_failed' }
     }
-
-    // O MESMO gatilho que a loja dispara quando a própria cliente registra (`NTF-13`): a Adri
-    // registrando pelo painel é o caso do WhatsApp, e o fato é idêntico. Dois gatilhos diferentes
-    // para o mesmo fato seriam duas mensagens diferentes para a mesma cliente.
-    await notifyOrder(id, 'material_tracking_set')
-
-    await fetchOrders()
-    await fetchStatusCounts()
-    return { ok: true, reason: null }
   }
 
   const addNote = async (orderId: string, note: string) => {

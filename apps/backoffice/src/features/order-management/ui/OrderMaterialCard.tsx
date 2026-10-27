@@ -5,6 +5,7 @@ import { Button } from '@estrelinha/ui/button'
 import { Input } from '@estrelinha/ui/input'
 import { Label } from '@estrelinha/ui/label'
 import {
+  MATERIAL_CANCELLED_NOTE,
   MATERIAL_STATUS_LABELS,
   materialSummary,
   materialTransitionRefusal,
@@ -133,8 +134,7 @@ const OrderMaterialCard = ({ order, items, onSetStatus, onSetTracking }: Props) 
 
       {cancelado ? (
         <p className="border-t border-border pt-3 text-sm text-muted-foreground">
-          Pedido cancelado — saiu da fila de material. Se o material já tiver chegado, devolva à
-          cliente.
+          {MATERIAL_CANCELLED_NOTE}
         </p>
       ) : (
         <div className="space-y-3 border-t border-border pt-3">

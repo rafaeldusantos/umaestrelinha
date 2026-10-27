@@ -199,4 +199,14 @@ describe('OrderMaterialCard — pedido cancelado sai da fila (edge case)', () =>
     expect(screen.getByText(/saiu da fila de material/i)).toBeInTheDocument()
     expect(screen.getByText(/devolva à cliente/i)).toBeInTheDocument()
   })
+
+  it('a frase é a do app do ateliê, palavra por palavra (feature 82, ENV-26 — `MATERIAL_CANCELLED_NOTE`)', () => {
+    montar(order({ status: 'cancelled' }))
+    // Escrita por extenso: ler a constante aqui provaria que ela é igual a si mesma.
+    expect(
+      screen.getByText(
+        'Pedido cancelado, saiu da fila de material. Se o envelope já tiver chegado, devolva à cliente.',
+      ),
+    ).toBeInTheDocument()
+  })
 })

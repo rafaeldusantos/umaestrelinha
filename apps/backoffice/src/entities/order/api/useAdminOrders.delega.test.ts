@@ -11,6 +11,7 @@ const dono = vi.hoisted(() => ({
   writeOrderStatus: vi.fn(),
   writeTrackingCode: vi.fn(),
   writeMaterialStatus: vi.fn(),
+  writeMaterialTracking: vi.fn(),
 }))
 vi.mock('@estrelinha/core/order-actions', () => dono)
 
@@ -18,6 +19,8 @@ vi.mock('@estrelinha/core/order-actions', () => dono)
 const selects: unknown[][] = []
 let pedidosDaLista: Array<{ id: string; status: string }> = []
 let rpcLancaSincrono = false
+/** As RPCs que chegaram ao client — só o caso com o dono de VERDADE as lê (T19 da `82`). */
+const rpcsChamadas: Array<{ fn: string; args: unknown }> = []
 
 vi.mock('@estrelinha/supabase/client', () => {
   type Cadeia = Record<string, (...args: never[]) => unknown>
@@ -41,7 +44,8 @@ vi.mock('@estrelinha/supabase/client', () => {
   return {
     supabase: {
       from: () => makeChain(),
-      rpc: () => {
+      rpc: (fn: string, args: unknown) => {
+        rpcsChamadas.push({ fn, args })
         if (rpcLancaSincrono) throw new Error('rpc lançou')
         return Promise.resolve({ data: { ok: true, status: 'material_recebido' }, error: null })
       },
@@ -76,9 +80,11 @@ beforeEach(() => {
   selects.length = 0
   pedidosDaLista = [{ id: ID, status: 'paid' }]
   rpcLancaSincrono = false
+  rpcsChamadas.length = 0
   dono.writeOrderStatus.mockReset()
   dono.writeTrackingCode.mockReset()
   dono.writeMaterialStatus.mockReset()
+  dono.writeMaterialTracking.mockReset()
 })
 
 describe('updateStatus → writeOrderStatus', () => {
@@ -278,6 +284,80 @@ describe('setMaterialStatus → writeMaterialStatus', () => {
 
     expect(saida).toEqual({ ok: false, reason, emailSent: false })
     expect(releituras()).toEqual(antes)
+  })
+})
+
+// Feature `82` (`ENV-14`): o código do envelope também delega, e a tradução é a de antes da `82`,
+// byte a byte (`ok: false` sem motivo ⇒ `not_allowed`; falha da RPC ⇒ `rpc_failed`).
+describe('setMaterialTracking → writeMaterialTracking', () => {
+  it('passa o client e a notificadora por identidade, e `{ id, code }` — o código como veio, sem normalizar', async () => {
+    dono.writeMaterialTracking.mockResolvedValue({ tipo: 'ok', status: 'material_enviado', emailSent: true })
+    const { result } = await montar()
+
+    await act(async () => {
+      await result.current.setMaterialTracking(ID, ' aa1br ')
+    })
+
+    expect(dono.writeMaterialTracking).toHaveBeenCalledTimes(1)
+    const [deps, entrada] = dono.writeMaterialTracking.mock.calls[0]
+    expect(deps.client).toBe(supabase)
+    expect(deps.notify).toBe(notifyOrder)
+    expect(entrada).toEqual({ id: ID, code: ' aa1br ' })
+  })
+
+  it('`ok` ⇒ `{ ok: true, reason: null }` e relê lista e contagens', async () => {
+    dono.writeMaterialTracking.mockResolvedValue({ tipo: 'ok', status: 'material_enviado', emailSent: false })
+    const { result } = await montar()
+    const antes = releituras()
+
+    let saida: unknown
+    await act(async () => {
+      saida = await result.current.setMaterialTracking(ID, 'AA123456789BR')
+    })
+
+    expect(saida).toEqual({ ok: true, reason: null })
+    expect(releituras()).toEqual({ lista: antes.lista + 1, contagens: antes.contagens + 1 })
+  })
+
+  it.each([
+    ['`recusado` com o motivo', { tipo: 'recusado', reason: 'empty_code' }, 'empty_code'],
+    ['`recusado` com `reason: null`', { tipo: 'recusado', reason: null }, 'not_allowed'],
+    ['`nao-permitido`', { tipo: 'nao-permitido' }, 'not_allowed'],
+    ['`falhou`', { tipo: 'falhou', erro: { message: 'rede' } }, 'rpc_failed'],
+  ])('%s ⇒ `{ ok: false, reason: "%s" }`, sem releitura', async (_r, desfecho, reason) => {
+    dono.writeMaterialTracking.mockResolvedValue(desfecho)
+    const { result } = await montar()
+    const antes = releituras()
+
+    let saida: unknown
+    await act(async () => {
+      saida = await result.current.setMaterialTracking(ID, 'AA123456789BR')
+    })
+
+    expect(saida).toEqual({ ok: false, reason })
+    expect(releituras()).toEqual(antes)
+  })
+})
+
+// Feature `82`, Fase 5 (T19, `BUG-20261026-codigo-com-hifen-ou-espaco-gravado`, `BL-054`): o painel
+// gravava o código como foi digitado (`PN 1234 5678 9BR`). Com o dono de VERDADE, a RPC recebe a forma
+// única — a mesma do app e da loja. O painel continua sem normalizar nada (o caso acima): quem
+// normaliza é o dono.
+describe('T19 — o código do envelope chega à RPC na forma única, pelo dono de verdade', () => {
+  it.each([
+    ['com espaços e minúsculas', 'pn 1234 5678 9br', 'PN123456789BR'],
+    ['com hífen e ponto', 'AN-123.456.789-BR', 'AN123456789BR'],
+    ['com invisíveis', '\u202AAN123\u200B456789BR\u202C', 'AN123456789BR'],
+  ])('%s ⇒ `p_code` normalizado', async (_nome, digitado, gravado) => {
+    const real = await vi.importActual<typeof import('@estrelinha/core/order-actions')>('@estrelinha/core/order-actions')
+    dono.writeMaterialTracking.mockImplementation(real.writeMaterialTracking)
+    const { result } = await montar()
+
+    await act(async () => {
+      await result.current.setMaterialTracking(ID, digitado)
+    })
+
+    expect(rpcsChamadas).toEqual([{ fn: 'set_material_tracking', args: { p_order_id: ID, p_code: gravado } }])
   })
 })
 
