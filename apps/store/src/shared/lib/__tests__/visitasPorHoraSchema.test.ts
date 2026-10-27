@@ -604,6 +604,46 @@ describe('(12) um snapshot — exatamente UM `from public.store_visits` em store
   })
 })
 
+// -------------------------------------------------------------------------------------------
+// (13) LAV-73 — o teto anula as visitas da comparação: Hoje por (hoje, ontem), Ontem por
+//      (ontem, anteontem). A semântica é provada pelo probe `01-acessos.sql` (savepoints
+//      `teto_hoje`, `teto_ontem`, `teto_anteontem`); esta régua é a metade que roda no CI.
+// -------------------------------------------------------------------------------------------
+
+describe('(13) LAV-73 — os dias do teto em cada comparação', () => {
+  /** A expressão atribuída a `nome` no corpo de store_movement, com espaço normalizado; `null` se não houver. */
+  const atribuicao = (texto: string, nome: string): string | null => {
+    const corpo = corpoDaFuncao(texto, 'store_movement')
+    const m = corpo?.match(new RegExp(`\\b${nome}\\s*:=([\\s\\S]*?);`))
+    return m ? norma(m[1]) : null
+  }
+  const tetoDe = (texto: string, nome: string): string | null =>
+    atribuicao(texto, nome)?.match(/coalesce\(v_teto in \(([^)]*)\), false\)/)?.[1] ?? null
+
+  it('âncora — as duas atribuições são encontradas', () => {
+    expect(atribuicao(sql, 'v_sem_cmp_hoje')).not.toBeNull()
+    expect(atribuicao(sql, 'v_sem_cmp_ontem')).not.toBeNull()
+  })
+
+  it('Hoje perde as visitas com teto em hoje OU ontem', () => {
+    expect(tetoDe(sql, 'v_sem_cmp_hoje')).toBe('v_hoje, v_ontem')
+  })
+
+  it('Ontem perde as visitas com teto em ontem OU anteontem', () => {
+    expect(tetoDe(sql, 'v_sem_cmp_ontem')).toBe('v_ontem, v_anteontem')
+  })
+
+  it('sensor — o teto de HOJE fora da comparação de Hoje reprova (mutante M1 do gate)', () => {
+    const m = mutarNoBloco(sql, 'store_movement', 'coalesce(v_teto in (v_hoje, v_ontem), false)', 'coalesce(v_teto in (v_ontem), false)')
+    expect(tetoDe(m, 'v_sem_cmp_hoje')).not.toBe('v_hoje, v_ontem')
+  })
+
+  it('sensor — o teto de ANTEONTEM fora da comparação de Ontem reprova', () => {
+    const m = mutarNoBloco(sql, 'store_movement', 'coalesce(v_teto in (v_ontem, v_anteontem), false)', 'coalesce(v_teto in (v_ontem), false)')
+    expect(tetoDe(m, 'v_sem_cmp_ontem')).not.toBe('v_ontem, v_anteontem')
+  })
+})
+
 describe('o arnês de mutação', () => {
   it('`mutar()` LANÇA quando o alvo não existe', () => {
     expect(() => mutar(comandos, 'texto que não está no arquivo', 'x')).toThrow(/não encontrou o alvo/)

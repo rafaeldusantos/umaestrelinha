@@ -272,6 +272,29 @@ select pg_temp.confere((:'m'::jsonb #> '{acessos,comparacao,hoje,visitas}') = 'n
 select pg_temp.confere((:'m'::jsonb ->> 'teto_dia') = '2026-10-20', 'teto_dia = 20/10 (como na 71)');
 rollback to savepoint teto_ontem;
 
+-- Teto em HOJE (achado do gate do Lote 1): a contagem de hoje parou em 5.000, então a base de Hoje é
+-- um piso e a variação fabricaria uma queda. As visitas são gravadas ANTES de o teto entrar no
+-- contador (record_store_visit recusaria a de hoje), e há visita nas três datas e antes das 18h, para
+-- que SEM o teto as duas comparações existissem: o null de Hoje só pode vir do teto em hoje.
+savepoint teto_hoje;
+select pg_temp.contador('2026-10-10T12:00:00Z', null);
+select pg_temp.visita('83000000-0000-4000-8000-0000000000c1', '2026-10-19T13:00:00Z');
+select pg_temp.visita('83000000-0000-4000-8000-0000000000c2', '2026-10-20T13:00:00Z');
+select pg_temp.visita('83000000-0000-4000-8000-0000000000c3', '2026-10-21T13:00:00Z');
+select pg_temp.movimento('2026-10-21T21:00:00Z', :'admin_id') as m \gset
+select pg_temp.confere((:'m'::jsonb #>> '{acessos,comparacao,hoje,visitas}')::int = 1
+  and (:'m'::jsonb #>> '{acessos,comparacao,hoje,base_hoje,visitas}')::int = 1,
+  'controle: sem teto, a comparação de Hoje tem visitas (ontem 10h, hoje 10h)');
+select pg_temp.contador('2026-10-10T12:00:00Z', date '2026-10-21');
+select pg_temp.movimento('2026-10-21T21:00:00Z', :'admin_id') as m \gset
+select pg_temp.confere((:'m'::jsonb #> '{acessos,comparacao,hoje,visitas}') = 'null'::jsonb
+  and (:'m'::jsonb #> '{acessos,comparacao,hoje,base_hoje,visitas}') = 'null'::jsonb,
+  'teto em hoje ⇒ visitas da comparação de Hoje (e a base de hoje) null');
+select pg_temp.confere((:'m'::jsonb #>> '{acessos,comparacao,ontem,visitas}')::int = 1,
+  'teto em hoje ⇒ a comparação de Ontem (anteontem inteiro) segue com as visitas');
+select pg_temp.confere((:'m'::jsonb ->> 'teto_dia') = '2026-10-21', 'teto_dia = 21/10 (hoje)');
+rollback to savepoint teto_hoje;
+
 savepoint teto_anteontem;
 select pg_temp.contador('2026-10-10T12:00:00Z', date '2026-10-19');
 select pg_temp.visita('83000000-0000-4000-8000-0000000000b1', '2026-10-20T13:00:00Z');
