@@ -36,6 +36,15 @@ const MIGRATION = join(ROOT, 'supabase/migrations/20260811120000_22-material-afe
 
 const SQL = readFileSync(MIGRATION, 'utf8')
 
+/**
+ * Feature 82 (`ENV-22`): `set_material_tracking` foi RECRIADA pela migration da `82`, que grava também
+ * quem informou o código e quando. A definição VIGENTE é a dela, e é a que esta régua mede — medir a
+ * da `22` seria peça certa, endereço errado, suíte verde. As asserções de `set_material_status`
+ * continuam na da `22`, que segue sendo a vigente dela.
+ */
+const MIGRATION_82 = join(ROOT, 'supabase/migrations/20261028120000_82-envelope-da-cliente.sql')
+const SQL_82 = readFileSync(MIGRATION_82, 'utf8')
+
 /** Comentário não é código. Sem tirá-los, o texto que EXPLICA a regra entraria na medição dela. */
 const semComentarios = (fonte: string): string => fonte.replace(/--[^\n]*/g, '')
 
@@ -63,7 +72,16 @@ const origensDoSql = (corpo: string): Map<string, string[]> => {
 }
 
 const CORPO_STATUS = semComentarios(corpoDaFuncao(SQL, 'set_material_status'))
-const CORPO_TRACKING = semComentarios(corpoDaFuncao(SQL, 'set_material_tracking'))
+const CORPO_TRACKING = semComentarios(corpoDaFuncao(SQL_82, 'set_material_tracking'))
+const CORPO_TRACKING_22 = semComentarios(corpoDaFuncao(SQL, 'set_material_tracking'))
+
+/** As colunas do `set` do `update` da RPC, sem repetição e ordenadas. */
+const colunasDoUpdate = (corpo: string): string[] => {
+  const set = corpo.slice(corpo.indexOf('update public.orders'), corpo.indexOf('where id = p_order_id'))
+  // Só o lado ESQUERDO de cada atribuição do `set` — o `case when … then` do lado direito não conta.
+  const colunas = [...set.matchAll(/(?:\bset\s+|,\s*)(\w+)\s*=/g)].map(m => m[1])
+  return [...new Set(colunas)].sort()
+}
 const ORIGENS = origensDoSql(CORPO_STATUS)
 
 describe('máquina de estado do material — âncora da leitura', () => {
@@ -138,14 +156,28 @@ describe('set_material_tracking escreve o campo de rastreio e NADA MAIS (MAT-11 
     },
   )
 
-  it('o `update` da RPC toca só `material_tracking_code` e `material_status`', () => {
-    const set = CORPO_TRACKING.slice(
-      CORPO_TRACKING.indexOf('update public.orders'),
-      CORPO_TRACKING.indexOf('where id = p_order_id'),
-    )
-    const colunas = [...set.matchAll(/(\w+)\s*=/g)].map(m => m[1])
+  it('âncora: a RPC vigente é a da `82`, e a da `22` NÃO é mais a vigente', () => {
+    // Sem esta asserção, apagar a recriação da `82` faria a régua cair na da `22` (se alguém trocasse
+    // o caminho de volta) e aprovar as duas colunas a menos.
+    expect(SQL_82).toContain('create or replace function public.set_material_tracking')
+    expect(CORPO_TRACKING.length).toBeGreaterThan(200)
+    expect(CORPO_TRACKING).not.toEqual(CORPO_TRACKING_22)
+    expect(colunasDoUpdate(CORPO_TRACKING_22)).toEqual(['material_status', 'material_tracking_code'])
+  })
 
-    expect([...new Set(colunas)].sort()).toEqual(['material_status', 'material_tracking_code'])
+  it('o `update` da RPC toca EXATAMENTE código, estado e a autoria (`set_at`, `set_by`)', () => {
+    expect(colunasDoUpdate(CORPO_TRACKING)).toEqual([
+      'material_status',
+      'material_tracking_code',
+      'material_tracking_set_at',
+      'material_tracking_set_by',
+    ])
+  })
+
+  it('sensor: uma quinta coluna no `update` é acusada', () => {
+    const mutante = CORPO_TRACKING.replace('material_tracking_set_at = now(),', 'material_tracking_set_at = now(), total = 0,')
+    expect(mutante).not.toEqual(CORPO_TRACKING)
+    expect(colunasDoUpdate(mutante)).toContain('total')
   })
 
   it('a autorização exige identidade — admin OU dona do pedido', () => {

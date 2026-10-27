@@ -1,0 +1,16 @@
+BEGIN
+CREATE FUNCTION
+CREATE FUNCTION
+psql:.specs/features/82-envelope-da-cliente/probes/01-rpc.sql:136: NOTICE:  ok — cliente grava: set_by = customer, set_at = now(), aguardando_material → material_enviado, código aparado
+psql:.specs/features/82-envelope-da-cliente/probes/01-rpc.sql:136: NOTICE:  ok — admin regrava o MESMO código da cliente: set_by = admin, set_at = now() (era 1 hora antes)
+psql:.specs/features/82-envelope-da-cliente/probes/01-rpc.sql:136: NOTICE:  ok — admin grava: set_by = admin; material_enviado continua material_enviado
+psql:.specs/features/82-envelope-da-cliente/probes/01-rpc.sql:136: NOTICE:  ok — empty_code: nenhuma coluna tocada
+psql:.specs/features/82-envelope-da-cliente/probes/01-rpc.sql:136: NOTICE:  ok — not_allowed (pedido de outra dona): nenhuma coluna tocada
+psql:.specs/features/82-envelope-da-cliente/probes/01-rpc.sql:136: NOTICE:  ok — material_not_applicable: nenhuma coluna tocada
+psql:.specs/features/82-envelope-da-cliente/probes/01-rpc.sql:136: NOTICE:  ok — material_recebido fica recebido; o código e a autoria (customer) gravam
+psql:.specs/features/82-envelope-da-cliente/probes/01-rpc.sql:136: NOTICE:  ok — o check recusa set_by fora de customer/admin
+DO
+psql:.specs/features/82-envelope-da-cliente/probes/01-rpc.sql:148: NOTICE:  ok — order_list termina em material_tracking_set_at, material_tracking_set_by
+DO
+ROLLBACK
+exit=0

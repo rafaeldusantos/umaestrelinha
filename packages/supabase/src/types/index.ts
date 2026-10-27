@@ -375,6 +375,12 @@ export interface DbOrder {
    */
   material_tracking_code?: string | null
   material_received_at?: string | null
+  /**
+   * Feature 82 — quem informou o código do envelope, e quando. Gravadas SÓ por
+   * `set_material_tracking` (o papel de quem chama decide `set_by`); nulas nas linhas anteriores a ela.
+   */
+  material_tracking_set_at?: string | null
+  material_tracking_set_by?: 'customer' | 'admin' | null
 }
 
 export interface DbOrderStatusHistory {
