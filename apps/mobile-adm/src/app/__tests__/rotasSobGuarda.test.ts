@@ -63,7 +63,8 @@ describe('as rotas do ateliê — âncora tripla', () => {
     expect(bloco!.fim).toBeGreaterThan(bloco!.inicio)
   })
 
-  it('a varredura encontra as doze rotas — o login, os três passos da recuperação, as quatro abas, o detalhe do pedido (`74`), a ficha da cliente (`76`), os avisos (`79`) e o desconhecido', () => {
+  // Feature `83`: a âncora sobe de doze para TREZE com a Loja ao vivo — âncora de contagem subindo com o fato.
+  it('a varredura encontra as treze rotas — o login, os três passos da recuperação, as quatro abas, o detalhe do pedido (`74`), a ficha da cliente (`76`), os avisos (`79`), a Loja ao vivo (`83`) e o desconhecido', () => {
     expect(rotas(codigo).map((r) => r.path)).toEqual([
       '/login',
       '/recuperar',
@@ -76,6 +77,7 @@ describe('as rotas do ateliê — âncora tripla', () => {
       '/clientes/:id',
       '/descontos',
       '/avisos',
+      '/ao-vivo',
       '*',
     ])
   })
@@ -108,6 +110,16 @@ describe('toda rota fora do login está sob `RequireAdmin` (MAF-16)', () => {
     expect(fonte).toContain(linha)
     const doente = fonte.replace(linha, '').replace('</Routes>', `  <Route path="/avisos" element={<AvisosPage />} />\n        </Routes>`)
     expect(foraDoBloco(doente)).toEqual(['/avisos'])
+  })
+
+  it('a Loja ao vivo (`/ao-vivo`, LAV-06) está DENTRO do bloco — e movê-la para fora é acusado', () => {
+    const rota = rotas(codigo).find((r) => r.path === '/ao-vivo')!
+    expect(rota.at).toBeGreaterThan(bloco!.inicio)
+    expect(rota.at).toBeLessThan(bloco!.fim)
+    const linha = '            <Route path="/ao-vivo" element={<AoVivoPage />} />\n'
+    expect(fonte).toContain(linha)
+    const doente = fonte.replace(linha, '').replace('</Routes>', `  <Route path="/ao-vivo" element={<AoVivoPage />} />\n        </Routes>`)
+    expect(foraDoBloco(doente)).toEqual(['/ao-vivo'])
   })
 
   it.each(FORA_POR_DESENHO)('`%s` está FORA, antes do bloco — quem não entrou precisa alcançá-lo', (caminho) => {

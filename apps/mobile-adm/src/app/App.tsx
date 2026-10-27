@@ -15,6 +15,7 @@ import ClientesPage from '@/pages/ClientesPage'
 import ClientePage from '@/pages/ClientePage'
 import DescontosPage from '@/pages/DescontosPage'
 import AvisosPage from '@/pages/AvisosPage'
+import AoVivoPage from '@/pages/AoVivoPage'
 import BootGate from './BootGate'
 import OfflineScreen from './OfflineScreen'
 import MobileLayout from './layout/MobileLayout'
@@ -35,6 +36,8 @@ import { esquecerAcoes } from '@/features/order-actions'
  *   quem recupera ainda não entrou. As três rotas dela são as de `PASSOS_DA_RECUPERACAO`.
  * - `/avisos` (feature `79`, `MAN-17`) é rota DA CONTA: sem aba, alcançada pelo menu da conta, e dentro
  *   do guarda como todas (`ROTAS_DA_CONTA` em `abasSaoAsRotas.test.ts`).
+ * - `/ao-vivo` (feature `83`, `LAV-06`) é rota DE TELA: sem aba e sem a barra, alcançada pelo cartão
+ *   "Visitas hoje" da Início, dentro do guarda (`ROTAS_DE_TELA` em `abasSaoAsRotas.test.ts`).
  * - O papel NÃO CONFERIDO (`MAF-23`) tem tela própria no guarda (`unknownFallback`): nunca o
  *   `Navigate` ao login, que desenharia a recusa falsa.
  * - O acesso é o MESMO do Backoffice (`AD-056`): mesmas contas, mesmo papel, mesmo `RequireAdmin`.
@@ -112,6 +115,7 @@ const Arvore = () => (
             <Route path="/clientes/:id" element={<ClientePage />} />
             <Route path="/descontos" element={<DescontosPage />} />
             <Route path="/avisos" element={<AvisosPage />} />
+            <Route path="/ao-vivo" element={<AoVivoPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>

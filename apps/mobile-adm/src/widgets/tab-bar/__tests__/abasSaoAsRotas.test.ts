@@ -84,6 +84,10 @@ describe('TABS × rotas do App.tsx', () => {
     expect(ROTAS_DE_TELA).toEqual(['/ao-vivo'])
   })
 
+  it('a rota `/ao-vivo` existe no `App.tsx` e está na lista das rotas de tela (feature `83`, T08)', () => {
+    expect(rotasDeTela(fonte)).toEqual(['/ao-vivo'])
+  })
+
   // Feature `83`: este sensor passou a filtrar `ROTAS_DE_TELA` ANTES — mudança de fixture, não de
   // régua. Ele mede só a lista da CONTA; sem o filtro, `/ao-vivo` (outra lista) entraria na conta dele.
   it('SENSOR — sem a lista, `/avisos` seria acusada como rota sem aba (a lista é o que a aceita)', () => {

@@ -289,31 +289,32 @@ Fases 3–4 (T06–T11) · **Lote 3** = Fase 5 (T12–T14).
 - **Depends on**: T07 · **Reuses**: `CabecalhoDoPedido`/`BotaoVoltar` (molde), `PullToRefresh`,
   `useRecusaDePapel`, `leituraDe`.
 - **Done when**:
-  - [ ] `h1` e `document.title` nos três estados (carregando, falha, dado); a barra de abas ausente;
+  - [x] `h1` e `document.title` nos três estados (carregando, falha, dado); a barra de abas ausente;
         o cabeçalho com `-mx-4 -mt-4 sticky top-0 min-h-[60px]` por token exato.
-  - [ ] `rotasSobGuarda`: a âncora "a varredura encontra as treze rotas", com `'/ao-vivo'` na posição
+  - [x] `rotasSobGuarda`: a âncora "a varredura encontra as treze rotas", com `'/ao-vivo'` na posição
         real e o título reescrito (âncora de contagem subindo com o fato); caso novo "`/ao-vivo` está
         DENTRO do bloco — e movê-la para fora é acusado", no molde do de `/pedidos/:id`.
-  - [ ] `abasSaoAsRotas` com o caso "a rota `/ao-vivo` existe e está na lista", e as asserções antigas
+  - [x] `abasSaoAsRotas` com o caso "a rota `/ao-vivo` existe e está na lista", e as asserções antigas
         verdes com a rota no `App.tsx` (as três que a T06 ajustou).
-  - [ ] trocar Hoje → Ontem → Semana pelo `<App />` em `/ao-vivo` ⇒ **zero** chamadas novas a
+  - [x] trocar Hoje → Ontem → Semana pelo `<App />` em `/ao-vivo` ⇒ **zero** chamadas novas a
         `store_movement` entre os toques; mutante: o período na `queryKey` (ou `p_periodo` na RPC)
         morre por asserção.
-  - [ ] voltar com `doApp` ⇒ a entrada anterior (histórico montado pelo próprio teste, `L-053`); sem ⇒
+  - [x] voltar com `doApp` ⇒ a entrada anterior (histórico montado pelo próprio teste, `L-053`); sem ⇒
         `/` por substituição.
-  - [ ] ciclo: andar 15 s visível ⇒ +1 chamada; 14,9 s ⇒ nenhuma; `focusManager.setFocused(false)` e
+  - [x] ciclo: andar 15 s visível ⇒ +1 chamada; 14,9 s ⇒ nenhuma; `focusManager.setFocused(false)` e
         90 s **atravessando a virada do dia** (fixtura com `expira_em` dentro da janela) ⇒ nenhuma; de
         volta ao foco ⇒ uma; recusa `42501` com o papel admin e 90 s ⇒ zero chamadas novas.
-  - [ ] frescor: "Atualizado agora" na chegada, "há 5 s" depois de 5 s, `NAO_ATUALIZOU` com a
+  - [x] frescor: "Atualizado agora" na chegada, "há 5 s" depois de 5 s, `NAO_ATUALIZOU` com a
         releitura em 500 (e os números mantidos); com o relógio do processo **adiantado 1 h** em relação
         ao `lido_em`, a linha continua "agora" (`LAV-61`).
-  - [ ] puxar só no topo: 1 px de rolagem ⇒ nada; dedo subindo ⇒ nada (`L-061`); no topo, acima do
+  - [x] puxar só no topo: 1 px de rolagem ⇒ nada; dedo subindo ⇒ nada (`L-061`); no topo, acima do
         limiar ⇒ uma chamada.
-  - [ ] `42501` ⇒ Login com a frase da `72`, nenhum número em instante nenhum lido; 500 ⇒ falha.
-  - [ ] o período do `history.state` chega à seção (`{ periodo: 'ontem' }` ⇒ Ontem pressionado).
-  - [ ] Full gate e Build.
+  - [x] `42501` ⇒ Login com a frase da `72`, nenhum número em instante nenhum lido; 500 ⇒ falha.
+  - [x] o período do `history.state` chega à seção (`{ periodo: 'ontem' }` ⇒ Ontem pressionado).
+  - [x] Full gate e Build.
 - **Tests**: componente (`<App />` real) · **Gate**: Build
 - **Reqs**: `LAV-06`, `LAV-07`, `LAV-08`, `LAV-55`, `LAV-60`, `LAV-62`.
+- **Status**: ✅ 2026-10-27 — `pages/AoVivoPage.tsx` (`useMovimento({ refetchInterval: 15_000 })`, `useRecusaDePapel`, `leituraDe`, `PullToRefresh`, o título), `widgets/store-access/ui/CabecalhoAoVivo.tsx` (voltar, `h1`, frescor por `freshnessLine(useSegundosDesde(dataUpdatedAt))` ou `NAO_ATUALIZOU` com `role="status"`), `shared/lib/useSegundosDesde.ts` e a rota no `App.tsx`. `AoVivoPage.test.tsx` 19 casos pelo `<App />` real; o ciclo é medido a partir do instante da ÚLTIMA chamada (o React Query recomeça o intervalo a cada atualização da query): 14,8 s ⇒ nada, 15,3 s ⇒ +1, duas voltas. `rotasSobGuarda` com a âncora em treze e o caso de `/ao-vivo` dentro do bloco; `abasSaoAsRotas` com "a rota existe e está na lista". 9 mutantes (trocar de período relendo, voltar sempre à Início, voltar sem `replace`, ciclo de 30 s, sem `useRecusaDePapel`, sem título, `NAO_ATUALIZOU` desligado, período da entrada ignorado, sem intervalo): 9/9 mortos por asserção, SHA-256 conferido. Build: mobile-adm 2105/132 · core 4555 · store 6113 · backoffice 3922 · functions 1105, exit 0; `tsc` 0; eslint 0/0; `pnpm --filter @estrelinha/mobile-adm build` verde.
 
 ### T09 — `09-cartao-visitas-hoje-na-inicio`
 - **What**: `widgets/visits-card/` (`CartaoVisitasHoje.tsx`, `index.ts`); `MovementHero` com
