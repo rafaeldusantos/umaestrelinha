@@ -767,3 +767,31 @@ provados não equivalentes pela sonda, 1 de precisão de spec, 1 herdado da `71`
 **Gate**: 17866 testes em 898 arquivos, 5 workspaces exit 0; probe 84 `ok —`.
 **Próximo passo**: decisão do usuário — F11–F13 (e F14, opcional) são só prova; o laço de 3 rodadas
 terminou.
+
+## Fecho das lacunas da rodada 3
+
+**Data**: 2026-10-27 · **Commit**: `4c8a0022` · **Sem rodada 4** (precedente da `72`, `73` e `75`): as
+lacunas eram só de prova, e cada uma foi fechada com o mutante da rodada 3 reinjetado. Autor do
+conserto ≠ verificador da rodada 3; o fecho em si não passou por verificador independente.
+
+| Fix | Onde | Mutante reinjetado | Resultado |
+| --- | --- | --- | --- |
+| F11 | `probes/01-acessos.sql`, savepoint novo `assimetrica` (14h30; ontem 3 visitas / 2 vendas até as 14h, hoje 1 / 1; os quatro valores conferidos em asserções separadas, `ate_hora` = 14 e `faixa_atual` = 4) | W-S06 · W-S07 · W-S09 | ✅ os três por asserção do probe |
+| F12 | `probes/01-acessos.sql`, savepoint `invariante`: `por_dia[-1]` é hoje e vale `periodos.hoje.visitas` = 4, com as 2 linhas sem hora de hoje | W-S17 | ✅ asserção do probe |
+| F13 | `CartaoVisitasHoje.test.tsx`: em falha, `TENTAR_DE_NOVO` visível e `VISITS_TODAY_HINT` ausente; o inverso com dado e carregando | W-A22 | ✅ asserção (2 casos) |
+| F14 | `counterNotes.test.ts`: `production_host: '   '` ⇒ "O contador está parado…" | W-C09 | ✅ asserção (6 falhas, os 3 fusos) |
+
+Arnês: `/private/tmp/claude-503/f83/v5/` (`mutar.py` da rodada 3, logs e `resultados.tsv` em `v5/`):
+alvo exatamente uma vez, restauração byte a byte, **SHA-256 conferido nos 6** (`sha=ok`), nenhum morto
+por compilação.
+
+**Medido depois do conserto** (um workspace por vez, exit fora de pipe, `--testTimeout=20000` sem o
+`--`): probe `01-acessos.sql` **exit 0, 90 `ok —`** (84 + 6); **core 4563 / 182** (+3, o caso de F14
+nos três fusos), exit 0; **mobile-adm 2163 / 137** (asserções novas em casos existentes), exit 0.
+Store, backoffice e functions não foram tocados e não foram remedidos.
+
+**Também depois da rodada 3, fora do laço do Verificador** — `f299897d`: `accessDelta` (`LAV-51`)
+dividia antes de multiplicar, e o meio exato `63 × 40` (+57,5 %) virava 57,4999… e saía **+57 %**. A
+fórmula passou a multiplicar antes de dividir. Achado do gate adversarial do Lote 1 e sem conserto até
+então; teste vermelho antes (`access.test.ts`, quatro asserções no caso do meio simétrico, sem caso
+novo). Não passou por verificador independente.
