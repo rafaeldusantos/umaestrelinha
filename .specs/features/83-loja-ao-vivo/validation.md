@@ -1,6 +1,6 @@
 # 83 — Loja ao vivo (Fase 1) · Validação
 
-**Rodada**: 1 (abaixo) e **2** (no fim do arquivo — veredito vigente: ❌ FAIL por cobertura, 5 lacunas de prova no SQL e 2 de precisão de spec; nenhum defeito de produto)
+**Rodada**: 1, 2 e **3** (no fim do arquivo — veredito vigente: ❌ FAIL por cobertura, 4 lacunas de prova no SQL, 1 de precisão de spec e 1 herdada da `71`; nenhum defeito de produto; laço de 3 rodadas encerrado)
 **Data**: 2026-10-27
 **Spec**: `.specs/features/83-loja-ao-vivo/spec.md`
 **Diff range**: `744da7ea..3f1360fe` (19 commits, `f4d0bd40` … `3f1360fe`, branch `feature/83-loja-ao-vivo`)
@@ -540,3 +540,230 @@ da rodada 2: o alvo tem de existir uma vez, SHA-256 conferido na restauração) 
 core **4560/182** (+4, os casos de F10), exit 0; store **6116/327** (idêntico), exit 0. Mobile-adm,
 backoffice e functions não foram tocados e não foram remedidos (2163 · 3922 · 1105 na rodada 2).
 `tsc` de `packages/core`: 11, os herdados.
+
+---
+
+# Rodada 3
+
+**Data**: 2026-10-27
+**Diff range**: `744da7ea..8fea69ed` (a feature inteira, com os 6 commits do conserto da rodada 2:
+`05f4b038`, `729aacc4`, `3ec9a714`, `98b36198`, `13165064`, `8fea69ed`)
+**Verificador**: sub-agente independente, novo (não é o autor da feature, nem os das rodadas 1 e 2,
+nem os dos consertos). Releu spec, diff e testes do zero; os mutantes desta rodada são novos, mais a
+reinjeção dos sete que a rodada 2 deixou vivos. **É a rodada 3 de 3 do laço de conserto**: as lacunas
+abaixo vão ao usuário, não a uma rodada 4.
+
+## Veredito: ❌ FAIL — por COBERTURA, nenhum defeito de produto
+
+As sete lacunas da rodada 2 estão **fechadas** (os sete mutantes reinjetados morrem por asserção).
+O sensor desta rodada, com 57 mutantes novos, achou **quatro sobreviventes não equivalentes no SQL**
+— os quatro em `LAV-72`/`LAV-73`, provados não equivalentes por uma sonda que o código de hoje passa e
+cada mutante reprova —, **um de precisão de spec** no cartão (`LAV-04`, a linha visível da falha) e
+**um herdado da `71`** (o `trim` do host em `emptyCounterLine`, fora das ACs da `83`). O código faz o
+certo em todos; falta a régua. A causa dos quatro do SQL é a mesma da rodada 2 (`L-077`), agora
+**dentro do mesmo par**: em toda fixtura da comparação de Hoje os dois lados valem o mesmo número.
+
+## Gate (medido nesta rodada, um workspace por vez, exit fora de pipe, ANTES do sensor)
+
+`pnpm --filter @estrelinha/<ws> test --testTimeout=20000` (sem o `--`), logs em
+`/private/tmp/claude-503/f83/v4/gate-*.log`.
+
+| Workspace | Arquivos | Testes | Exit | Rodada 2 | Delta |
+| --- | --- | --- | --- | --- | --- |
+| core | 182 | 4560 | 0 | 182 / 4556 | +4 (F10, `LAV-07`) |
+| mobile-adm | 137 | 2163 | 0 | 137 / 2163 | 0 |
+| store | 327 | 6116 | 0 | 327 / 6116 | 0 |
+| backoffice | 226 | 3922 | 0 | 226 / 3922 | 0 |
+| functions | 26 | 1105 | 0 | 26 / 1105 | 0 |
+| **Total** | **898** | **17866** | | 898 / 17862 | +4 |
+
+Contra a entrada (`baseline.md`, 881 / 17521): **+17 arquivos / +345 testes**, nenhuma queda.
+Probe `probes/01-acessos.sql` contra o banco local: **exit 0, 84 `ok —`** (`v4/probe-base.log`).
+`git status` limpo antes do gate, depois do gate e depois do sensor.
+
+## As sete lacunas da rodada 2 — reinjetadas
+
+| Lacuna | Fixtura do conserto | Mutante reinjetado | Resultado |
+| --- | --- | --- | --- |
+| V-S04 (`LAV-73`) | `PROBE-83-S5` às 15:00:00 de hoje (`01-acessos.sql:203`) | `R2-S04` | ✅ asserção (`:211-213`) |
+| V-S07 (`LAV-73`) | 2ª venda em ontem no savepoint `anteontem` | `R2-S07` | ✅ asserção |
+| V-S11 (`LAV-73`) | savepoint `calendario_segunda` | `R2-S11` | ✅ asserção |
+| V-S16 (`LAV-73`) | savepoint `calendario_quinta` | `R2-S16` | ✅ asserção |
+| V-S18 (`LAV-71`) | `nunca_comecou` com `ontem.por_faixa` sem `null` | `R2-S18` | ✅ asserção |
+| V-C03, V-C04 (`LAV-07`) | `spec.md:168-170` emendada; `access.test.ts` (2,9 · 90 · 119 s) | `R2-C03`, `R2-C04` | ✅ asserção (4 falhas cada) |
+
+## Checagem ancorada na spec
+
+A tabela da rodada 1 (25 ACs com `arquivo:linha`) continua valendo; os consertos só acrescentaram
+casos. Status por AC depois desta rodada:
+
+| AC | Status | Por quê |
+| --- | --- | --- |
+| LAV-05..08, 50..55, 60..67, 70, 71, 74, 75 | ✅ | evidência das rodadas 1 e 2; todo mutante novo nessas ACs morreu (tabela abaixo). `LAV-07` agora com o valor da spec emendada (truncar) |
+| LAV-04 | ⚠️ precisão | a falha do cartão é provada pelo NOME acessível (`CartaoVisitasHoje.test.tsx:85`) e pela frase "Não consegui carregar."; a linha visível "Tentar de novo" (a decisão `n — confirmar` da spec, `spec.md:80`: "Não consegui carregar." + "Tentar de novo") não tem régua — W-A22 (a linha de apoio "Hoje, ontem e a semana, por horário" no lugar de "Tentar de novo") sobrevive. O `aria-label` esconde a linha do leitor de tela, então só quem VÊ o cartão perde a instrução |
+| LAV-72 | ❌ lacuna | "o último item SHALL ter `visitas = periodos.hoje.visitas`" é conferido só no savepoint `semana`, que não tem linha sem hora em hoje; `por_dia` que pula as linhas sem hora (W-S17) passa. Com uma linha antiga em hoje, a coluna "hoje" da Semana mostraria menos que o cartão Visitas |
+| LAV-73 | ❌ lacunas | W-S06, W-S07 (os dois lados da comparação de Hoje trocados entre si) e W-S09 (`ate_hora` = início da faixa) sobrevivem: ver abaixo |
+
+## Sensor de discriminação — rodada 3
+
+Arnês: `/private/tmp/claude-503/f83/v4/mutar.py` (o das rodadas 1 e 2, logs em `v4/`): o alvo existe
+exatamente uma vez, um comando, restauração byte a byte e SHA-256 conferido (`sha=ok` nas 78 linhas
+de `v4/resultados.tsv`). Driver `v4/rodar.py` com a lista em `v4/muts.json`. Mutante SQL roda o
+probe (que aplica a migration DO DISCO em `begin … rollback`) e, se sobrevive, os guardas de fonte da
+loja (`visitasPorHoraSchema`, `visitasSchema`); mutante de `core` roda `src/live src/stats src/hooks`
+e, se sobrevive, a suíte inteira do app; mutante do app roda a suíte inteira do `mobile-adm`.
+`ASSERÇÃO` = falha de teste/probe; `COMPILAÇÃO` = transformação ou sintaxe SQL.
+
+### SQL — `supabase/migrations/20261029120000_83-loja-ao-vivo.sql`
+
+| # | Mutação | Medido por | Resultado |
+| --- | --- | --- | --- |
+| W-S01 | `count(*) … day = v_anteontem` → `day = v_ontem` | probe | ✅ asserção |
+| W-S02 | teto de `comparacao.ontem` sem `v_ontem` (`in (v_anteontem)`) | probe | ✅ asserção |
+| W-S03 | `dias` de `generate_series(1, …)` (sem a segunda) | probe | ✅ asserção |
+| W-S04 | `sem_hora_hoje` contado em ontem | probe | ✅ asserção |
+| W-S05 | `hoje_base` = todas as linhas com hora (sem `< v_hora`) | probe | ✅ asserção |
+| **W-S06** | `comparacao.hoje.visitas` = `v_v_hoje_base` (a base de HOJE no lugar da de ontem) | probe **e** guardas | ❌ **SOBREVIVEU** |
+| **W-S07** | `comparacao.hoje.vendas` = `v_n_hoje_base` | probe **e** guardas | ❌ **SOBREVIVEU** |
+| W-S08 | `comparacao.ontem.dia` = ontem | probe | ✅ asserção |
+| **W-S09** | `ate_hora` = `v_faixa * 3` (o início da faixa, não a hora) | probe **e** guardas | ❌ **SOBREVIVEU** |
+| W-S10 | vendas sem `paid_at <= p_agora` | probe: sobrevive; guarda (7) de `visitasPorHoraSchema`: ✅ asserção | ✅ morto pelo guarda |
+| W-S11 | `v_sem_cmp_hoje` sem `v_hora = 0` | probe | ✅ asserção |
+| W-S12 | futuras `faixa > atual + 1` | probe | ✅ asserção |
+| W-S13 | `comparacao.ontem.visitas` = visitas de ontem | probe | ✅ asserção |
+| W-S14 | `base_hoje.visitas` = total de hoje | probe | ✅ asserção |
+| W-S15 | teto `>= 5000` → `> 5000` | probe: sobrevive; guarda (8) de `visitasSchema`: ✅ asserção | ✅ morto pelo guarda |
+| W-S16 | `hoje.sem_hora` = `v_sem_hora_ontem` | probe | ✅ asserção |
+| **W-S17** | `por_dia` sem as linhas sem hora (`and v.first_hour is not null` no join) | probe **e** guardas | ❌ **SOBREVIVEU** |
+| W-S18 | `revoke … store_movement from public` (sem `anon`) | probe: sobrevive (`L-076`); guarda (8): ✅ asserção | ✅ morto pelo guarda |
+
+### `packages/core` (live, stats, hook)
+
+| # | Arquivo | Mutação | Resultado |
+| --- | --- | --- | --- |
+| W-C01 | `live/access.ts` | `Math.ceil` no lugar de `Math.round` da variação | ✅ asserção |
+| W-C02 | `live/access.ts` | Ontem comparado com "ontem" | ✅ asserção |
+| W-C03 | `live/access.ts` | `noHourNote(0)` escreve a frase | ✅ asserção |
+| W-C04 | `live/access.ts` | "hoje" da Semana = `m.ontem` | ✅ asserção |
+| W-C05 | `live/access.ts` | `null` antes da atual vira `futura` | ✅ asserção |
+| W-C06 | `live/access.ts` | "agora" só abaixo de 1 s | ✅ asserção |
+| W-C07 | `live/access.ts` | segundos até 119 | ✅ asserção |
+| W-C08 | `stats/counterNotes.ts` | teto `<` → `<=` no início do período | ✅ asserção (12) |
+| **W-C09** | `stats/counterNotes.ts` | `production_host` sem `.trim()` | ⚠️ **SOBREVIVEU** (core, app e backoffice) — herdado da `71` |
+| W-C10 | `live/access.ts` | `'—'` → `'-'` | ✅ asserção |
+| W-C11 | `live/card.ts` | "Abrir a loja ao vivo" | ✅ asserção |
+| W-C12 | `live/access.ts` | `conversaoDe` sem `par.vendas === null` | ⚪ sobreviveu — **equivalente**: pelo contrato do servidor, `vendas` é `null` só com `h = 0`, e aí `visitas` também é `null` (`LAV-73`); `comparacao.ontem.vendas` nunca é `null` |
+| W-C13 | `live/card.ts` | "pessoas" na linha do cartão | ✅ asserção (o guarda de tom e o caso do cartão) |
+| W-H01 | `hooks/useStoreMovement.ts` | intervalo de 60 s sem a opção (o painel) | ✅ asserção |
+
+### App (`apps/mobile-adm/src`) e guardas
+
+| # | Arquivo | Mutação | Resultado |
+| --- | --- | --- | --- |
+| W-A01 | `model/barras.ts` | altura máxima 80 | ✅ asserção |
+| W-A02 | `model/barras.ts` | sem o piso de 4 px | ✅ asserção |
+| W-A03 | `GraficoDosAcessos.tsx` | futura falada "antes da contagem" | ✅ asserção |
+| W-A04 | `GraficoDosAcessos.tsx` | sem `overflow-x-auto` | ✅ asserção |
+| W-A05 | `GraficoDosAcessos.tsx` | coluna sem piso em rem | ✅ asserção |
+| W-A06 | `SecaoAcessos.tsx` | Conversão sem `col-span-full` | ✅ asserção |
+| W-A07 | `SecaoAcessos.tsx` | teto sempre medido em Hoje | ✅ asserção |
+| W-A08 | `CabecalhoAoVivo.tsx` | sem `sticky` | ✅ asserção |
+| W-A09 | `CabecalhoAoVivo.tsx` | sem `min-h-[60px]` | ✅ asserção |
+| W-A10 | `AoVivoPage.tsx` | ciclo de 20 s | ✅ asserção |
+| W-A11 | `CartaoVisitasHoje.tsx` | sem `min-h-11` | ✅ asserção |
+| W-A12 | `tab-bar/model/tabs.ts` | `/ao-vivo/` (barra final) com a barra | ✅ asserção |
+| W-A13 | `InicioPage.tsx` | Realtime sempre `active` | ✅ asserção |
+| W-A14 | `InicioPage.tsx` | frescor antes do cartão | ✅ asserção |
+| W-A15 | `useSegundosDesde.ts` | sem o piso em 0 | ⚪ sobreviveu — **equivalente**: um negativo cai em `segundos < 2` ⇒ "Atualizado agora", o mesmo texto do piso |
+| W-A16 | `shared/ui/leituraDe.ts` | o dado do cache durante a recusa | ✅ asserção |
+| W-A17 | `entities/stats/model/aoVivo.ts` | período padrão Ontem | ✅ asserção (52) |
+| W-A18 | `entities/stats/model/aoVivo.ts` | `replaceState` sem `...atual` | ✅ asserção |
+| W-A19 | `MovementHero.tsx` | não avisa a troca de período | ✅ asserção |
+| W-A20 | `AoVivoPage.tsx` | `NAO_ATUALIZOU` na recusa | ✅ asserção |
+| W-A21 | `AoVivoPage.tsx` | frescor sem dado | ✅ asserção |
+| **W-A22** | `CartaoVisitasHoje.tsx` | falha com a linha de apoio no lugar de "Tentar de novo" | ⚠️ **SOBREVIVEU** — precisão de spec (`LAV-04`) |
+| W-G01 | `GraficoDosAcessos.tsx` | `transition-[height] motion-reduce:transition-none` nas barras | ✅ asserção (`LAV-64`: nenhuma transição, nem com par) |
+| W-G02 | `SecaoAcessos.tsx` | `Date.now()` | ✅ asserção (`aoVivoSemRelogioDoAparelho`) |
+| W-G03 | `store/src/pages/PrivacyPolicyPage.tsx` | "8 dias" → "7 dias" | ✅ asserção (10) |
+
+**Resultado**: **64 mutantes** (7 reinjeções + 57 novos) · **56 mortos, todos por asserção** (0 por
+compilação; W-S10, W-S15, W-S18 pelos guardas de fonte) · **2 equivalentes** (W-C12, W-A15) ·
+**6 sobreviventes não equivalentes**: 4 no SQL (lacunas de prova), 1 de precisão de spec (W-A22) e
+1 herdado da `71` (W-C09).
+
+### Os sobreviventes do SQL NÃO são equivalentes — sonda
+
+`/private/tmp/claude-503/f83/v4/sonda.sql` (`begin … rollback`, aplica as migrations do disco pelo
+`_comum.sql`): passa no código de hoje (4 `ok —`, exit 0, `v4/sonda-base.log`) e reprova cada mutante
+por asserção (`Z-*` em `v4/resultados.tsv`):
+
+| Mutante | Asserção da sonda que o derruba |
+| --- | --- |
+| Z-S06 (= W-S06) | leitura às **14h30**; ontem com 3 visitas antes das 14h, hoje com 1 ⇒ `comparacao.hoje.visitas` = 3 e `base_hoje.visitas` = 1; o mutante devolve 1 nos dois (a variação de Visitas em Hoje seria sempre 0%) |
+| Z-S07 (= W-S07) | a mesma: ontem 2 vendas antes das 14h, hoje 1; o mutante devolve 1 nos dois (a de Vendas também sempre 0%) |
+| Z-S09 (= W-S09) | a mesma leitura: `ate_hora` = 14; o mutante devolve 12 ("vs ontem até as 12h" com a base contada até as 14h) |
+| Z-S17 (= W-S17) | uma linha sem hora em hoje + uma com hora ⇒ `por_dia[-1].visitas` = `periodos.hoje.visitas` = 2; o mutante devolve 1 |
+
+Por que o probe é cego: no savepoint `simetrica` (`01-acessos.sql:186-218`) os dois lados valem
+**2 = 2** visitas e **1 = 1** venda, e em `contagem_anteontem` e `teto_hoje` **1 = 1** — trocar um lado
+pelo outro dá o mesmo número em todas as fixturas. `ate_hora` é conferido só às 15h02 e às 00h30,
+as duas leituras em que `faixa × 3` = hora. A invariante do último dia de `por_dia` é conferida só no
+savepoint `semana`, sem linha sem hora.
+
+## Lacunas, ranqueadas
+
+1. **W-S06 / W-S07 — os dois lados da comparação de Hoje podem ser trocados com o probe verde**
+   (`LAV-73`). A variação de Visitas e Vendas em Hoje é o que a Adri lê como "melhor ou pior que
+   ontem", e com o mutante ela seria sempre 0%. **Fix**: no probe, uma leitura em que ontem e hoje
+   discordam (molde: o savepoint `a` da sonda — 14h30, ontem 3 visitas / 2 vendas, hoje 1 / 1), com
+   a asserção nos quatro valores.
+2. **W-S09 — `ate_hora` só é lido em hora múltipla de 3** (`LAV-73`, e o rótulo "ontem até as {h}h"
+   de `LAV-51`). **Fix**: na mesma leitura das 14h30, `ate_hora` = 14.
+3. **W-S17 — o último dia de `por_dia` contra `periodos.hoje.visitas` sem linha sem hora**
+   (`LAV-72`). **Fix**: no savepoint `invariante` (que já tem 2 linhas sem hora em hoje), conferir
+   `por_dia[-1].visitas` = `periodos.hoje.visitas` = 4.
+4. **W-A22 — a linha visível "Tentar de novo" do cartão em falha** (`LAV-04`, decisão da `spec.md:80`).
+   **Fix**: em `CartaoVisitasHoje.test.tsx` (`em falha`), `toHaveTextContent(TENTAR_DE_NOVO)` e a
+   ausência de `VISITS_TODAY_HINT`; e o inverso nos estados com dado e carregando.
+5. **W-C09 — `emptyCounterLine` com o host só de espaços** (herdado da `71`, `VIS-39`; não é AC da
+   `83`). O `trim` subiu byte a byte do painel e nunca teve caso, nem lá. **Fix (opcional)**: um caso
+   em `counterNotes.test.ts` com `production_host: '   '` ⇒ "O contador está parado…".
+
+### Fix tasks propostas
+
+| Fix | Onde | Done when |
+| --- | --- | --- |
+| F11 (W-S06, W-S07, W-S09) | `probes/01-acessos.sql`, savepoint novo (molde `v4/sonda.sql`, parte `a`) | os três reinjetados derrubam o probe por asserção |
+| F12 (W-S17) | `probes/01-acessos.sql`, savepoint `invariante` | W-S17 derruba o probe |
+| F13 (W-A22) | `apps/mobile-adm/src/widgets/visits-card/__tests__/CartaoVisitasHoje.test.tsx` | W-A22 derruba a suíte do app |
+| F14 (W-C09, opcional) | `packages/core/src/stats/__tests__/counterNotes.test.ts` | W-C09 derruba `core` |
+
+Nenhuma fix toca código de produto. **Esta foi a rodada 3 de 3**: o laço para aqui e a decisão vai ao
+usuário (aplicar F11–F14 e fechar sem rodada 4, como no precedente da `72`/`73`/`75`, ou abrir outra).
+
+## Qualidade de código (rodada 3)
+
+O conserto da rodada 2 tocou só `probes/01-acessos.sql`, `access.test.ts`, a `spec.md` (`LAV-07`) e
+este relatório (`git diff --stat 0137f3c0..8fea69ed`) — cirúrgico, sem código de produto, sem
+asserção afrouxada (o `periodos.hoje.vendas` 2 → 3 do savepoint `simetrica` acompanha o pedido
+acrescentado, e a régua do corte ficou mais forte). Seis commits no estilo do repositório. O resto da
+tabela de qualidade da rodada 1 continua.
+
+## Rastreabilidade (proposta — a `spec.md` não foi editada por este verificador)
+
+| Req | Status |
+| --- | --- |
+| LAV-05..08, 50..55, 60..67, 70, 71, 74, 75 | ✅ Verified |
+| LAV-04 | ⚠️ Verified com lacuna de precisão (a linha visível da falha) |
+| LAV-72 | ❌ Needs Fix (prova: W-S17) |
+| LAV-73 | ❌ Needs Fix (prova: W-S06, W-S07, W-S09) |
+
+## Resumo da rodada 3
+
+**Geral**: ❌ não pronto — por cobertura. Nenhum defeito de produto.
+**Rodada 2**: as 7 lacunas fechadas, os 7 mutantes reinjetados mortos por asserção.
+**Sensor**: 64 mutantes, 56 mortos (todos por asserção), 2 equivalentes, 4 sobreviventes de SQL
+provados não equivalentes pela sonda, 1 de precisão de spec, 1 herdado da `71`.
+**Gate**: 17866 testes em 898 arquivos, 5 workspaces exit 0; probe 84 `ok —`.
+**Próximo passo**: decisão do usuário — F11–F13 (e F14, opcional) são só prova; o laço de 3 rodadas
+terminou.

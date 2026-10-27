@@ -422,9 +422,10 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - last seen: 2026-10-27T00:00:00Z
 
 ### L-077 — Fixtura que prova um campo de um período VIZINHO (anteontem, a semana anterior) precisa de números DIFERENTES dos do período ao lado: com Ontem e anteontem valendo 1 venda cada, trocar o campo inteiro (`v_n_anteontem` → `v_n_ontem`) passa no probe. Ao acrescentar uma fixtura de fronteira, confira que ela não igualou dois períodos que antes eram distintos (`L-013`, no banco).
-- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `.specs/features/**/probes/**`, `supabase/migrations/**` · harmful: 0
+- signal: `surviving_mutant` · recurrence: 1 feature(s), 2 ocorrências · scope: `.specs/features/**/probes/**`, `supabase/migrations/**` · harmful: 0
 - features: 83-loja-ao-vivo
 - evidence: V-S07 (rodada 2) — `'vendas', v_n_anteontem` → `'vendas', v_n_ontem` em `comparacao.ontem` sobrevive aos 76 `ok` de `01-acessos.sql` e aos guardas: o pedido da fronteira (`PROBE-83-A2`, conserto de S05) conta 1 em Ontem, e anteontem também tem 1. A sonda `v2/sonda-calendario.sql` (anteontem 1, ontem 0) o derruba
+- evidence: W-S06, W-S07 (rodada 3) — dentro do MESMO par: `comparacao.hoje.visitas`/`vendas` trocados por `base_hoje` (o lado de hoje) passam os 84 `ok`, porque toda fixtura da comparação de Hoje é simétrica (2 = 2 visitas e 1 = 1 venda às 15h02; 1 = 1 em `contagem_anteontem` e `teto_hoje`). Uma fixtura "simétrica" escrita para provar "variação 0, nunca uma queda" torna o par intercambiável; a sonda `v4/sonda.sql` (ontem 3/2, hoje 1/1) derruba os dois
 - last seen: 2026-10-27T00:00:00Z
 
 ### L-078 — Janela de dias escrita com `least`/`greatest` entre referências do calendário (`least(início da semana, anteontem)`) precisa de leitura em CADA dia da semana em que um lado ganha: o probe que lê sempre numa quarta-feira (onde semana = anteontem) deixa apagar o `least` ou o piso da janela com tudo verde, e o defeito só aparece de segunda, terça ou de quinta a domingo.
@@ -432,6 +433,24 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - features: 83-loja-ao-vivo
 - evidence: V-S11 (rodada 2) — a CTE de visitas de `v_desde` em vez de `least(v_desde, v_anteontem)`: probe e guardas verdes; numa segunda (`v_desde` = domingo) as visitas de sábado somem e a variação de Ontem desaparece
 - evidence: V-S16 (rodada 2) — as vendas de anteontem sem o piso `paid_at >= v_ini_anteontem`: verdes; numa quinta as vendas de segunda entram em anteontem. A sonda com leituras de quinta e de segunda derruba os dois
+- last seen: 2026-10-27T00:00:00Z
+
+### L-079 — Campo derivado que coincide com outra fórmula nos instantes da fixtura precisa de leitura num instante em que as duas DIVERGEM: `ate_hora` (a hora) lido só às 15h02 e às 00h30 é igual a `faixa_atual × 3`, e trocar um pelo outro passa — a frase "vs ontem até as {h}h" mentiria em duas de cada três horas.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `.specs/features/**/probes/**`, `supabase/migrations/**` · harmful: 0
+- features: 83-loja-ao-vivo
+- evidence: W-S09 (rodada 3) — `'ate_hora', v_hora` → `'ate_hora', v_faixa * 3` sobrevive aos 84 `ok` de `01-acessos.sql` e aos guardas; a sonda `v4/sonda.sql` às 14h30 (14 ≠ 12) o derruba
+- last seen: 2026-10-27T00:00:00Z
+
+### L-080 — Invariante entre dois campos ("o último dia de `por_dia` = `periodos.hoje.visitas`") precisa ser conferida na fixtura que tem as linhas ESPECIAIS (sem hora, antes da contagem, no teto), não só na fixtura limpa: é nelas que as duas consultas podem filtrar diferente, e na limpa qualquer filtro extra dá o mesmo número.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `.specs/features/**/probes/**`, `supabase/migrations/**` · harmful: 0
+- features: 83-loja-ao-vivo
+- evidence: W-S17 (rodada 3) — `por_dia` com `and v.first_hour is not null` no join passa os 84 `ok`: a invariante do último dia é conferida só no savepoint `semana`, sem linha sem hora; o savepoint `invariante` tem 2 linhas sem hora em hoje e não confere `por_dia`. A sonda `v4/sonda.sql` (uma linha sem hora + uma com hora ⇒ 2) o derruba
+- last seen: 2026-10-27T00:00:00Z
+
+### L-081 — Controle com `aria-label` tem DOIS textos: `toHaveAccessibleName` prova o falado e é cego ao visível, que o `aria-label` substitui. Quando a spec nomeia o texto que se VÊ (a instrução "Tentar de novo" na falha), ele precisa de asserção própria sobre o conteúdo, e do inverso nos outros estados.
+- signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `apps/mobile-adm/src/**/__tests__/**` · harmful: 0
+- features: 83-loja-ao-vivo
+- evidence: W-A22 (rodada 3) — `CartaoVisitasHoje.tsx` com a linha de apoio "Hoje, ontem e a semana, por horário" no lugar de "Tentar de novo" na falha passa a suíte inteira do app: o caso `em falha` confere o nome acessível (que traz "Tentar de novo") e a frase "Não consegui carregar.", nunca a linha visível
 - last seen: 2026-10-27T00:00:00Z
 
 ## Quarantined (failed when applied — ignore)
