@@ -317,6 +317,17 @@ select pg_temp.confere((:'m'::jsonb #> '{acessos,comparacao,hoje,visitas}') = 'n
   'contagem que nunca começou ⇒ visitas da comparação de Hoje null, vendas não (S09)');
 select pg_temp.confere((:'m'::jsonb #> '{acessos,comparacao,ontem,visitas}') = 'null'::jsonb,
   'contagem que nunca começou ⇒ visitas da comparação de Ontem null');
+-- conserto da rodada 2 (V-S18): sem contador não há "antes da contagem" — as faixas são contagens
+-- (0 onde não houve visita), nunca null; a loja recém-ligada desenha "0", não "antes da contagem"
+select pg_temp.confere((:'m'::jsonb #> '{acessos,ontem,por_faixa}') = '[0,0,0,1,0,0,0,0]'::jsonb,
+  'contagem que nunca começou: ontem.por_faixa = [0,0,0,1,0,0,0,0], nenhum null (V-S18)');
+select pg_temp.confere((:'m'::jsonb #> '{acessos,hoje,por_faixa}') = '[0,0,0,1,0,0,0,null]'::jsonb,
+  'contagem que nunca começou: hoje.por_faixa só com a faixa futura (21h) null');
+select pg_temp.confere(
+  (select coalesce(sum(x::int), 0) from jsonb_array_elements_text(:'m'::jsonb #> '{acessos,ontem,por_faixa}') x where x <> 'null')
+    + (:'m'::jsonb #>> '{acessos,ontem,sem_hora}')::int = (:'m'::jsonb #>> '{periodos,ontem,visitas}')::int
+  and (:'m'::jsonb #>> '{periodos,ontem,visitas}')::int = 1,
+  'contagem que nunca começou: ontem soma(por_faixa) + sem_hora = visitas (1 + 0 = 1)');
 rollback to savepoint nunca_comecou;
 
 -- =============================================================================================
