@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { cn } from '@estrelinha/ui/lib/utils'
 import {
   ACCESS_TITLE,
@@ -35,6 +35,11 @@ const ROTULOS = ['Visitas', 'Vendas', 'Conversão'] as const
  * - Três estados exclusivos (`L-063`): carregando (`aria-busy`, traços, seletor travado, nenhum
  *   número), falha sem dado (a frase e "Tentar de novo", nenhum número), e dado. Sem a chave `acessos`
  *   (banco antigo), os números sem variação e a frase estática do gráfico, SEM botão.
+ * - **O foco acompanha o "Tentar de novo"** (`BUG-20261027-tentar-de-novo-da-loja-ao-vivo-solta-o-foco`,
+ *   molde do conserto da ficha da `76`): a nova tentativa põe a seção em "carregando" e o botão sai do
+ *   DOM, levando o foco ao `<body>`. Depois do toque, o foco vai ao título da seção enquanto ela lê, volta
+ *   ao "Tentar de novo" se a falha volta, e fica no título quando os números chegam. Sem toque, uma
+ *   releitura não mexe no foco.
  */
 const SecaoAcessos = ({ leitura, periodoInicial }: { leitura: Leitura<StoreMovement>; periodoInicial: MovementPeriodKey }) => {
   const [periodo, setPeriodo] = useState<MovementPeriodKey>(periodoInicial)
@@ -42,11 +47,37 @@ const SecaoAcessos = ({ leitura, periodoInicial }: { leitura: Leitura<StoreMovem
   const carregando = !m && !leitura.falhou
   const falado = PERIODOS.find((p) => p.id === periodo)?.falado ?? periodo
   const grafico = m ? accessChart(m, periodo) : null
+  const estado = m ? 'dado' : leitura.falhou ? 'falha' : 'carregando'
+  const titulo = useRef<HTMLHeadingElement>(null)
+  const falha = useRef<HTMLDivElement>(null)
+  // `true` entre o toque no "Tentar de novo" e o desfecho da nova tentativa.
+  const tentando = useRef(false)
+
+  useEffect(() => {
+    if (!tentando.current) return
+    if (estado === 'carregando') {
+      titulo.current?.focus()
+    } else if (estado === 'falha') {
+      // A falha ainda na tela no instante do toque não é desfecho: o foco já está no botão.
+      if (!falha.current?.contains(document.activeElement)) {
+        falha.current?.querySelector<HTMLElement>('button')?.focus()
+        tentando.current = false
+      }
+    } else {
+      if (!titulo.current?.contains(document.activeElement)) titulo.current?.focus()
+      tentando.current = false
+    }
+  }, [estado])
+
+  const tentarDeNovo = () => {
+    tentando.current = true
+    leitura.tentarDeNovo()
+  }
   const notas = m ? [countingSinceLine(periodo, m), cappedLine(periodo, m), emptyCounterLine(m)].filter((n): n is string => !!n) : []
 
   return (
     <section aria-labelledby="acessos" aria-busy={carregando ? 'true' : undefined} className="space-y-3">
-      <h2 id="acessos" className="text-xl">
+      <h2 id="acessos" ref={titulo} tabIndex={-1} className="text-xl focus:outline-none">
         {ACCESS_TITLE}
       </h2>
 
@@ -71,8 +102,8 @@ const SecaoAcessos = ({ leitura, periodoInicial }: { leitura: Leitura<StoreMovem
       </div>
 
       {leitura.falhou && !m ? (
-        <div className={CARTAO}>
-          <FalhaDoBloco tentarDeNovo={leitura.tentarDeNovo} />
+        <div ref={falha} className={CARTAO}>
+          <FalhaDoBloco tentarDeNovo={tentarDeNovo} />
         </div>
       ) : m ? (
         <>

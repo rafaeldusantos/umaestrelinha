@@ -300,3 +300,54 @@ describe('recusa e falha (LAV-60)', () => {
     expect(fake.estado.tabelas.filter((t) => t === 'user_roles')).toHaveLength(1)
   })
 })
+
+describe('o foco do "Tentar de novo" (BUG-20261027-tentar-de-novo-da-loja-ao-vivo-solta-o-foco)', () => {
+  /** Falha até `boa` virar verdadeiro; depois, o dado. */
+  let boa = false
+  const falhaAteFicarBoa = () => responder(() => (boa ? { data: movimentoComAcessos(), error: null } : { data: null, error: QUINHENTOS }))
+  const tentar = () => within(screen.getByRole('region', { name: 'Acessos' })).getByRole('button', { name: 'Tentar de novo' })
+  const acessos = () => screen.getByRole('heading', { level: 2, name: 'Acessos' })
+
+  beforeEach(() => {
+    boa = false
+  })
+
+  it('a nova tentativa que falha de novo devolve o foco ao "Tentar de novo"; nunca ao `<body>`, nem no meio', async () => {
+    falhaAteFicarBoa()
+    await abrir()
+    await andar(3000)
+    tentar().focus()
+    const antes = chamadas()
+    fireEvent.click(tentar())
+    // no meio (a seção carregando, o botão fora do DOM): o foco tem dono dentro da seção
+    await andar(1)
+    expect(document.activeElement).not.toBe(document.body)
+    await andar(3000)
+    expect(chamadas()).toBeGreaterThan(antes)
+    expect(within(screen.getByRole('region', { name: 'Acessos' })).getByText(FALHA_DE_LEITURA)).toBeInTheDocument()
+    expect(document.activeElement).toBe(tentar())
+  })
+
+  it('a nova tentativa que dá certo leva o foco ao título "Acessos" da seção, com os números na tela', async () => {
+    falhaAteFicarBoa()
+    await abrir()
+    await andar(3000)
+    tentar().focus()
+    boa = true
+    fireEvent.click(tentar())
+    await andar(3000)
+    expect(visitasHoje()).toHaveAccessibleName('Visitas, hoje, 41')
+    expect(document.activeElement).toBe(acessos())
+  })
+
+  it('sem toque, uma releitura que traz o dado não mexe no foco', async () => {
+    falhaAteFicarBoa()
+    await abrir()
+    await andar(3000)
+    boa = true
+    // o ciclo de 15 s relê sozinho
+    await andar(16000)
+    expect(visitasHoje()).toHaveAccessibleName('Visitas, hoje, 41')
+    expect(document.activeElement).toBe(document.body)
+  })
+})

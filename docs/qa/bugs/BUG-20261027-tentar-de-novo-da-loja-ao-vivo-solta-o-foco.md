@@ -1,6 +1,6 @@
 # BUG-20261027-tentar-de-novo-da-loja-ao-vivo-solta-o-foco: o "Tentar de novo" da Loja ao vivo deixa o foco no <body>
 
-- **Status:** open
+- **Status:** fixed (aguarda reteste em navegador)
 - **Impact (user-side):** Friction
 - **Severity:** Low · **Priority:** P3
 - **Persona Affected:** Equipe com TalkBack (e a Adri no 3G instável)
@@ -34,3 +34,10 @@ volta e o foco segue `BODY`; depois do sucesso: números na tela, foco `BODY`.
 
 - Saída do Playwright: `{"durante":{"btn":0,"busy":1,"focus":"BODY"},"depois":{"btn":1,"focus":"BODY"}}` e, com a rede boa, `"retry_ok":{"focus":"BODY: Loja ao vivo…"}`.
 - Arquivo provável: `apps/mobile-adm/src/widgets/store-access/ui/SecaoAcessos.tsx` (o estado de falha troca pelo de carregando no refetch, desmontando o botão); talvez `apps/mobile-adm/src/pages/AoVivoPage.tsx` (`leituraDe`).
+
+## Fix (2026-10-27)
+
+`SecaoAcessos.tsx`: depois do toque em "Tentar de novo", o foco vai ao título "Acessos" (`tabIndex=-1`) enquanto a
+seção lê, volta ao "Tentar de novo" se a falha volta e fica no título quando os números chegam; sem toque, a
+releitura não mexe no foco. Três casos em `pages/__tests__/AoVivoPage.test.tsx` (vermelhos antes do conserto) e
+cinco mutantes reinjetados, mortos por asserção.
