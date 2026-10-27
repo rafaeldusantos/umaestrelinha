@@ -399,11 +399,12 @@ Fases 3–4 (T06–T11) · **Lote 3** = Fase 5 (T12–T14).
 - **Where**: `apps/store/src/pages/`.
 - **Depends on**: T11.
 - **Done when**:
-  - [ ] o parágrafo novo, palavra por palavra; os quatro sensores de antes seguem (as frases que eles
+  - [x] o parágrafo novo, palavra por palavra; os quatro sensores de antes seguem (as frases que eles
         trocam existem no texto novo) e o sensor novo reprova sem o trecho da hora.
-  - [ ] Full gate.
+  - [x] Full gate.
 - **Tests**: guarda + componente · **Gate**: Full
 - **Reqs**: `LAV-66`.
+- **Status**: ✅ 2026-10-27 — o parágrafo do Apêndice A em `PrivacyPolicyPage.tsx`; `politicaDoContador.test.ts` com o literal novo e dois sensores (o texto da `71`, sem a hora, reprova; a hora sem "(por exemplo, 14h)" reprova); `PrivacyPolicyPage.test.tsx` com o literal novo e um caso de `LAV-66` pelo DOM (a frase da hora presente, a da `71` ausente). Mutante real (o texto da `71` devolvido à página): 7 casos reprovam, SHA-256 conferido na restauração. Full: core 4556/182 · mobile-adm 2162/137 · store 6116/327 · backoffice 3922/226 · functions 1105/26, exit 0.
 
 ### T13 — `13-prova-em-navegador`
 - **What**: `prova-navegador.md` com `vite preview` do build numa porta livre, banco local com a

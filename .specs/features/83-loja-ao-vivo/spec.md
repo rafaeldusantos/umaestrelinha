@@ -422,7 +422,7 @@ domingo, dia sem visita, linha sem hora, repetição), e as recusas de `anon` e 
 | LAV-63 | P1 gerais | Tasks (07, 13) | Pending |
 | LAV-64 | P1 gerais | Tasks (10) | Pending |
 | LAV-65 | P1 gerais | Tasks (10) | Pending |
-| LAV-66 | P2 privacidade | Tasks (12) | Pending |
+| LAV-66 | P2 privacidade | Tasks (12) | Implemented |
 | LAV-67 | P2 privacidade | Tasks (07) | Pending |
 | LAV-70 | P1 dados | Tasks (01, 02) | Pending |
 | LAV-71 | P1 dados | Tasks (01, 02) | Pending |

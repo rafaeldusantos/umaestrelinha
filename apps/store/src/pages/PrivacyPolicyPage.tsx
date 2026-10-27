@@ -187,16 +187,18 @@ const PrivacyPolicyPage = () => {
           cookies” — no aviso da loja ou no rodapé — e desligue “Estatísticas”. A partir daí, nada
           mais é enviado do seu navegador.
         </p>
-        {/* Feature 71 (VIS-36) — o contador de visitas próprio da loja. Texto do Apêndice A da spec,
-            palavra por palavra; a aprovação da Adri é pré-condição do deploy. */}
+        {/* Feature 71 (VIS-36) — o contador de visitas próprio da loja. Feature 83 (LAV-66) — o
+            texto passou a ser o do Apêndice A da spec da 83, que acrescenta a hora cheia da primeira
+            visita do dia. Palavra por palavra; a aprovação da Adri é pré-condição do deploy. */}
         <p>
           Além disso, conto quantas visitas a loja recebe a cada dia. Para isso, o seu navegador
           guarda um código aleatório, que não identifica você pelo nome e não tem relação com os
-          seus pedidos. Em cada dia em que você visita a loja, o meu servidor registra esse código e
-          a data — e nada mais: não guardo o seu IP junto dessa contagem, nem as páginas que você
-          viu. Esses registros são apagados depois de 8 dias e não são compartilhados com ninguém,
-          nem com o Google. Desligar “Estatísticas” também desliga essa contagem e apaga o código do
-          seu navegador; limpar os dados do site no navegador tem o mesmo efeito.
+          seus pedidos. Em cada dia em que você visita a loja, o meu servidor registra esse código,
+          a data e a hora cheia da sua primeira visita naquele dia (por exemplo, 14h) — e nada mais:
+          não guardo o seu IP junto dessa contagem, nem as páginas que você viu. Esses registros são
+          apagados depois de 8 dias e não são compartilhados com ninguém, nem com o Google. Desligar
+          “Estatísticas” também desliga essa contagem e apaga o código do seu navegador; limpar os
+          dados do site no navegador tem o mesmo efeito.
         </p>
       </PolicySection>
 
