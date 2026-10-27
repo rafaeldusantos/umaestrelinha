@@ -169,16 +169,17 @@ Fases 3–4 (T06–T11) · **Lote 3** = Fase 5 (T12–T14).
   `hooks/__tests__/useStoreMovement.test.ts`.
 - **Depends on**: T02 · **Reuses**: o `Record<keyof …, true>` de `useStoreMovement.test.ts`.
 - **Done when**:
-  - [ ] `CHAVES_DA_RPC` com `acessos`, e as listas de `StoreAccess` iguais a `probes/saida-real.json`.
-  - [ ] casos: a opção chega ao `useQuery` com `refetchIntervalInBackground: false`; sem a opção, nada
+  - [x] `CHAVES_DA_RPC` com `acessos`, e as listas de `StoreAccess` iguais a `probes/saida-real.json`.
+  - [x] casos: a opção chega ao `useQuery` com `refetchIntervalInBackground: false`; sem a opção, nada
         de intervalo; com o `focusManager` desligado e o relógio andando, zero chamadas; com a leitura
         recusada (`42501`) e 90 s andados, **zero** chamadas novas (`refetchInterval` função com
         `isAccessDenied`); **o timer da virada sem foco não lê** (fixtura com a virada dentro da janela
         em segundo plano) e, de volta ao foco, uma leitura; mutantes: intervalo fixo (morre no caso da
         recusa) e o timer sem a checagem de foco (morre no caso da virada).
-  - [ ] Full gate (o tipo é lido pelo painel e pelo app) e `tsc` 0 · 0 · 0.
+  - [x] Full gate (o tipo é lido pelo painel e pelo app) e `tsc` 0 · 0 · 0.
 - **Tests**: unit · **Gate**: Full
 - **Reqs**: `LAV-08`, `LAV-71`, `LAV-72`, `LAV-73`.
+- **Status**: ✅ 2026-10-26 — `StoreAccess`, `StoreAccessDay`, `StoreAccessComparison`, `StoreAccessTodayComparison`, `StoreAccessYesterdayComparison`, `StoreAccessWeekDay` e `acessos?` em `stats/movement.ts` (barril); o teste lê `probes/saida-real.json` do disco e compara as chaves com `Record<keyof …, true>`. Hook: `refetchInterval?` como função com `isAccessDenied`, `refetchIntervalInBackground: false`, e o timer da virada só relê com `focusManager.isFocused()`. +10 casos (core 4466 → 4476). Mutantes no hook real (intervalo fixo, timer sem foco, `InBackground: true`): 3/3 mortos por asserção, SHA-256 conferido. Full verde (mobile-adm 2021 · store 6103 · backoffice 3916 · functions 1105, exit 0); `tsc` 0 · 0 · 0, core 11 herdados.
 
 ### T04 — `04-regras-dos-acessos-em-core-live`
 - **What**: `packages/core/src/live/access.ts`, `live/card.ts`, `live/index.ts`; subpath `./live` no
