@@ -37,7 +37,8 @@ const acessos = (extra: Partial<StoreAccess> = {}): StoreAccess => ({
   },
   comparacao: {
     hoje: { ate_hora: 15, visitas: 80, vendas: 2, base_hoje: { visitas: 90, vendas: 1 } },
-    ontem: { dia: '2026-10-19', visitas: 100, vendas: 4 },
+    // anteontem com 5 vendas e ontem (periodos.ontem) com 4: as vendas também discordam (L-013)
+    ontem: { dia: '2026-10-19', visitas: 100, vendas: 5 },
     semana: null,
   },
   ...extra,
@@ -149,9 +150,10 @@ describe('accessCards (LAV-51)', () => {
   it('Ontem: o dia inteiro contra anteontem inteiro — visitas e vendas DISCORDAM (L-013)', () => {
     expect(accessCards(movimento(), 'ontem')).toEqual([
       { rotulo: 'Visitas', valor: '120', variacao: { texto: '+20% vs anteontem', tom: 'alta' } },
-      { rotulo: 'Vendas', valor: '4', variacao: { texto: '0% vs anteontem', tom: 'neutra' } },
-      // 4/120 = 3,33% contra 4/100 = 4% ⇒ −16,7 ⇒ −17
-      { rotulo: 'Conversão', valor: '3,3%', variacao: { texto: '−17% vs anteontem', tom: 'neutra' } },
+      // 4 × 5 = −20 (com as vendas de anteontem no lugar das de ontem seria 0%)
+      { rotulo: 'Vendas', valor: '4', variacao: { texto: '−20% vs anteontem', tom: 'neutra' } },
+      // 4/120 = 3,33% contra 5/100 = 5% ⇒ −33,3 ⇒ −33
+      { rotulo: 'Conversão', valor: '3,3%', variacao: { texto: '−33% vs anteontem', tom: 'neutra' } },
     ])
   })
 
