@@ -91,6 +91,11 @@ describe.each(FUSOS)('no fuso de processo %s', (fuso) => {
       expect(L.emptyCounterLine(m)).toBe('O contador está parado: falta configurar o endereço de produção da loja.')
     })
 
+    it('com o host só de espaços: o mesmo que vazio (o `trim`, herdado da 71 — W-C09)', () => {
+      const m = base({ contagem_desde: null, contagem_desde_dia: null, production_host: '   ' })
+      expect(L.emptyCounterLine(m)).toBe('O contador está parado: falta configurar o endereço de produção da loja.')
+    })
+
     it('o host é o que o BANCO devolveu (outro host, outro texto)', () => {
       const m = base({ contagem_desde: null, contagem_desde_dia: null, production_host: 'loja.exemplo.invalid' })
       expect(L.emptyCounterLine(m)).toBe(

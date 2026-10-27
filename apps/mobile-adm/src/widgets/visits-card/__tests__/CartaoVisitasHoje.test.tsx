@@ -5,8 +5,9 @@ process.env.TZ = 'UTC'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
+import { VISITS_TODAY_HINT } from '@estrelinha/core/live'
 import type { StoreMovement } from '@estrelinha/core/stats'
-import { FALHA_DE_LEITURA, type Leitura } from '@/shared/ui/leitura'
+import { FALHA_DE_LEITURA, TENTAR_DE_NOVO, type Leitura } from '@/shared/ui/leitura'
 import { movimento } from '@/test/movimento'
 import CartaoVisitasHoje from '../ui/CartaoVisitasHoje'
 
@@ -39,6 +40,9 @@ describe('com dado', () => {
     expect(numero.textContent).toBe('41')
     for (const t of ['font-display', 'text-[30px]', 'font-bold', 'text-estrelinha-primary']) expect(temClasse(numero, t)).toBe(true)
     expect(cartao().hasAttribute('aria-busy')).toBe(false)
+    // fecho da rodada 3 (F13, W-A22): a linha visível é a de apoio, nunca a instrução da falha
+    expect(cartao()).toHaveTextContent(VISITS_TODAY_HINT)
+    expect(cartao()).not.toHaveTextContent(TENTAR_DE_NOVO)
   })
 
   it('largura inteira e alvo de 44 px; sem ponto dourado, sem "pessoa", sem sacola, sem "Ao vivo em breve"', () => {
@@ -73,6 +77,8 @@ describe('carregando', () => {
     expect(cartao().querySelectorAll('.animate-pulse')).toHaveLength(1)
     expect(cartao().textContent).not.toMatch(/\d/)
     expect(cartao().textContent).not.toContain(FALHA_DE_LEITURA)
+    expect(cartao()).toHaveTextContent(VISITS_TODAY_HINT)
+    expect(cartao()).not.toHaveTextContent(TENTAR_DE_NOVO)
     fireEvent.click(cartao())
     expect(screen.getByTestId('destino').textContent).toBe('/ao-vivo {"doApp":true,"periodo":"ontem"}')
   })
@@ -84,6 +90,9 @@ describe('em falha', () => {
     montar({ dado: undefined, falhou: true, tentarDeNovo })
     expect(cartao()).toHaveAccessibleName('Visitas hoje: não consegui carregar. Tentar de novo')
     expect(cartao()).toHaveTextContent(FALHA_DE_LEITURA)
+    // fecho da rodada 3 (F13, W-A22): quem VÊ o cartão lê a instrução, não só o leitor de tela
+    expect(cartao()).toHaveTextContent(TENTAR_DE_NOVO)
+    expect(cartao()).not.toHaveTextContent(VISITS_TODAY_HINT)
     expect(cartao().textContent).not.toMatch(/\d/)
     expect(cartao().hasAttribute('aria-busy')).toBe(false)
     expect(cartao().querySelectorAll('.animate-pulse')).toHaveLength(0)

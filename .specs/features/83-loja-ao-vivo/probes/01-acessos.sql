@@ -122,6 +122,11 @@ select pg_temp.confere((:'m'::jsonb #> '{acessos,ontem,por_faixa}') = '[1,0,0,0,
 select pg_temp.confere((:'m'::jsonb #> '{acessos,comparacao,hoje,visitas}') = 'null'::jsonb
   and (:'m'::jsonb #> '{acessos,comparacao,hoje,base_hoje,visitas}') = 'null'::jsonb,
   'com linha sem hora em hoje e ontem ⇒ visitas da comparação de Hoje null');
+-- fecho da rodada 3 (F12, W-S17): o último dia de por_dia conta também as linhas sem hora de hoje
+select pg_temp.confere((:'m'::jsonb #> '{acessos,semana,por_dia}' -> -1 ->> 'dia') = (:'m'::jsonb ->> 'hoje')
+  and (:'m'::jsonb #> '{acessos,semana,por_dia}' -> -1 ->> 'visitas')::int = (:'m'::jsonb #>> '{periodos,hoje,visitas}')::int
+  and (:'m'::jsonb #>> '{periodos,hoje,visitas}')::int = 4,
+  'por_dia: o último item = periodos.hoje.visitas (4), com as 2 linhas sem hora de hoje (F12)');
 rollback to savepoint invariante;
 
 savepoint sem_hora_so_ontem;
@@ -216,6 +221,32 @@ select pg_temp.confere((:'m'::jsonb #>> '{periodos,hoje,visitas}')::int = 3 and 
   'os totais de periodos não mudam com o corte (hoje 3/3, ontem 4/2)');
 select pg_temp.confere((:'m'::jsonb #>> '{acessos,faixa_atual}')::int = 5, '15h02 ⇒ faixa_atual 5');
 rollback to savepoint simetrica;
+
+-- fecho da rodada 3 (F11, W-S06, W-S07, W-S09): uma leitura ASSIMÉTRICA fora de hora múltipla de 3.
+-- No savepoint simetrica os dois lados valem o mesmo número, e às 15h02 a faixa × 3 = a hora: trocar
+-- um lado pelo outro, ou ate_hora pelo início da faixa, passava com o probe verde (L-077).
+savepoint assimetrica;
+select pg_temp.contador('2026-10-10T12:00:00Z', null);
+select pg_temp.visita('83000000-0000-4000-8000-0000000005a1', '2026-10-20T13:00:00Z');  -- ontem 10h
+select pg_temp.visita('83000000-0000-4000-8000-0000000005a2', '2026-10-20T14:00:00Z');  -- ontem 11h
+select pg_temp.visita('83000000-0000-4000-8000-0000000005a3', '2026-10-20T16:00:00Z');  -- ontem 13h
+select pg_temp.visita('83000000-0000-4000-8000-0000000005a4', '2026-10-21T13:00:00Z');  -- hoje 10h
+select pg_temp.pedido('PROBE-83-Z1', 10.00, '2026-10-20T13:00:00Z');                     -- ontem 10h
+select pg_temp.pedido('PROBE-83-Z2', 10.00, '2026-10-20T14:00:00Z');                     -- ontem 11h
+select pg_temp.pedido('PROBE-83-Z3', 10.00, '2026-10-21T13:00:00Z');                     -- hoje 10h
+select pg_temp.movimento('2026-10-21T17:30:00Z', :'admin_id') as m \gset
+select pg_temp.confere((:'m'::jsonb #>> '{acessos,comparacao,hoje,ate_hora}')::int = 14
+  and (:'m'::jsonb #>> '{acessos,faixa_atual}')::int = 4,
+  '14h30 ⇒ ate_hora 14, não o início da faixa (12) (W-S09)');
+select pg_temp.confere((:'m'::jsonb #>> '{acessos,comparacao,hoje,visitas}')::int = 3,
+  'visitas: o lado de ONTEM até as 14h = 3 (W-S06)');
+select pg_temp.confere((:'m'::jsonb #>> '{acessos,comparacao,hoje,base_hoje,visitas}')::int = 1,
+  'visitas: o lado de HOJE até as 14h = 1 (W-S06)');
+select pg_temp.confere((:'m'::jsonb #>> '{acessos,comparacao,hoje,vendas}')::int = 2,
+  'vendas: o lado de ONTEM até as 14h = 2 (W-S07)');
+select pg_temp.confere((:'m'::jsonb #>> '{acessos,comparacao,hoje,base_hoje,vendas}')::int = 1,
+  'vendas: o lado de HOJE até as 14h = 1 (W-S07)');
+rollback to savepoint assimetrica;
 
 -- =============================================================================================
 -- LAV-73 — comparação de Ontem (anteontem inteiro) e os casos sem comparação
