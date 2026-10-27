@@ -138,3 +138,5 @@ aprovação do texto da política pela Adri (pré-condição do deploy, não de 
 barra de abas a 200 %, anterior à `83`). Sem bug aberto da `83` no registro na hora do planejamento.
 
 **Executado em 2026-10-27** (`reports/2026-10-27-mobile-adm-loja-ao-vivo.md`): 5 Pass, 2 `blocked-verify` (Android e TalkBack reais), 3 esperando decisão. Três bugs de atrito: `BUG-20261027-tentar-de-novo-da-loja-ao-vivo-solta-o-foco`, `BUG-20261027-f5-desfaz-o-periodo-escolhido-na-loja-ao-vivo` e `BUG-20261027-rodape-da-loja-rola-de-lado-com-fonte-200` (anterior à `83`).
+
+**Reteste em 2026-10-27** (`reports/2026-10-27-mobile-adm-loja-ao-vivo-reteste.md`): o foco do "Tentar de novo" consertado (`5b23601d`) passa em 390 e 1440 a 100 e 200 %; o arroba do rodapé (`49f8bbb5`) não passa mais da borda, mas a loja ainda rola de lado a 390/200 % pelo **cabeçalho** (`scrollWidth` 434, decisão pendente). O F5 que desfaz o período segue aberto, esperando decisão.

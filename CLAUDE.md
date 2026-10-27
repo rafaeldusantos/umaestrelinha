@@ -168,8 +168,9 @@ Ao planejar/implementar features, use a Skill **`tlc-spec-driven`** com estas co
     cliente no app do ateliê) é de **outra sessão**, na árvore principal. A `83` (Loja ao vivo, Fase 1:
     a seção Acessos em `/ao-vivo` e o cartão "Visitas hoje" da Início, a hora cheia da primeira visita
     em `store_visits.first_hour`, `AD-066`) está IMPLEMENTADA e commitada na branch
-    `feature/83-loja-ao-vivo`, com prova em navegador; falta o Verificador independente, o QA e o
-    Android real. A próxima livre é a `84`.**
+    `feature/83-loja-ao-vivo`, verificada em três rodadas (as três FAIL só por cobertura, lacunas
+    fechadas sem rodada 4), provada em navegador e com QA e reteste de QA (dois bugs consertados, um
+    esperando decisão); falta o Android real. A próxima livre é a `84`.**
   - **A `46` e a `47` correram EM PARALELO, em worktrees separados**, e é o segundo caso do projeto
     (o primeiro, a `45`, dividiu uma working tree só). O que mudou: a divisão foi por **árvore**, não
     por arquivo — a `47` nasceu de um `git worktree` sobre o HEAD local e trouxe a `46` por
@@ -579,9 +580,9 @@ quando mudarem de verdade.
 | --- | --- | --- |
 | **Lint** | **25 erros / 7 warnings** — backoffice 23/5 · store 2/2 · mobile-adm 0/0 | `npx eslint .` em cada app (o `pnpm lint` para no primeiro app que reprova) |
 | **Tipos** | **0 · 0 · 0 · 0 · 0** (store · backoffice · catalog-import · `apps/store/tsconfig.server.json`, desde a `69` · mobile-adm, desde a `72`) — e **`packages/core` em 11**, herdados (medido na `73`: idênticos na base, nenhum em arquivo tocado) | `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` · `npx tsc --noEmit -p packages/core/tsconfig.json` |
-| **Testes** | **18373 em 921 arquivos** — store **6116/327** · backoffice **3922/226** · mobile-adm **2162/137** · core **4556/182** · functions **1105/26** · catalog-import **512/23** (medidos no fecho da `83`, numa árvore sem a `82`) | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
+| **Testes** | **18385 em 921 arquivos** — store **6117/327** · backoffice **3922/226** · mobile-adm **2166/137** · core **4563/182** · functions **1105/26** · catalog-import **512/23** (medidos no fecho da `83`, depois do QA, numa árvore sem a `82`; catalog-import não remedido) | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
 
-**A feature `83` (Loja ao vivo, Fase 1) somou +340/+17 em QUATRO workspaces**, medidos em 2026-10-27 um por vez, exit fora de pipe, `--testTimeout=20000` sem o `--`, contra a entrada medida com a árvore parada (`.specs/features/83-loja-ao-vivo/baseline.md`, 17521/881, sobre `744da7ea` — a linha anterior desta tabela estava velha por esse commit): **mobile-adm +141/+11** (a tela, o cartão, o período com dono único, os guardas de relógio e de tom, e `aoVivoComClientReal`), **store +103/+1** (`visitasPorHoraSchema` e as réguas de `visitasSchema` aplicadas também à migration vigente por `visitasRegras.ts`; a política com a hora), **core +90/+4** (`core/live`, `counterNotes`, o tipo e o intervalo do hook) e **backoffice +6/+1** (`notasDoContadorNoCore`; nenhuma asserção antiga tocada). Functions e catalog-import remedidos, idênticos. Tipos 0 · 0 · 0 nos apps, core 11 herdados; lint 0/0 · 23/5 · 2/2; build do app verde. Uma migration (`20261029120000_83-loja-ao-vivo.sql`), aplicada só no local. **Esta árvore não tem a `82`**: no merge, a linha *Testes* é remedida — a soma não é aritmética.
+**A feature `83` (Loja ao vivo, Fase 1) somou +352/+17 em QUATRO workspaces** no fecho, depois das três rodadas do Verificador e do QA (2026-10-27, um workspace por vez, exit fora de pipe, `--testTimeout=20000` sem o `--`), contra a entrada medida com a árvore parada (`.specs/features/83-loja-ao-vivo/baseline.md`, 17521/881 em cinco workspaces, sobre `744da7ea` — a linha anterior desta tabela estava velha por esse commit): **mobile-adm +145/+11** (a tela, o cartão, o período com dono único, os guardas de relógio e de tom, `aoVivoComClientReal`, o foco no `h1` e o do "Tentar de novo"), **store +104/+1** (`visitasPorHoraSchema` e as réguas de `visitasSchema` aplicadas também à migration vigente por `visitasRegras.ts`; a política com a hora; o arroba do rodapé), **core +97/+4** (`core/live`, `counterNotes`, o tipo e o intervalo do hook) e **backoffice +6/+1** (`notasDoContadorNoCore`; nenhuma asserção antiga tocada). Functions remedido, idêntico; catalog-import não tocado. Tipos 0 · 0 · 0 nos apps, core 11 herdados; lint 0/0 · 23/5 · 2/2; build do app verde; probe `01-acessos.sql` exit 0, **90** `ok —`. Uma migration (`20261029120000_83-loja-ao-vivo.sql`), aplicada só no local. **O Verificador independente reprovou três rodadas, sempre por cobertura e nunca por defeito de produto** (63, 58 e 64 mutantes; os sobreviventes eram régua faltando no SQL de `LAV-71`..`LAV-73`, com os dois lados da comparação valendo o mesmo número na fixtura), e as lacunas da r3 foram fechadas com os mutantes reinjetados, sem rodada 4. **O QA** (`docs/qa/reports/2026-10-27-mobile-adm-loja-ao-vivo.md` e o reteste) achou três bugs de atrito: o foco do "Tentar de novo" caindo no `<body>` (consertado, `5b23601d`), o arroba do rodapé da loja rolando de lado a 200 % (anterior à `83`, consertado, `49f8bbb5` — a página ainda rola a 390/200 % pelo **cabeçalho** da loja, decisão pendente) e o F5 que desfaz o período escolhido na própria tela (esperando decisão). **Esta árvore não tem a `82`**: no merge, a linha *Testes* é remedida — a soma não é aritmética.
 
 **A árvore mesclada — `feature/mobile-adm` (72..79) encontrando a `master` com a `80` e a `81`** (merge de 2026-10-26), medida depois do merge, um workspace por vez, exit fora de pipe: **core 4461/177 · functions 1105/26 · catalog-import 512/23 · mobile-adm 2014/125 · backoffice 3915/225 · store 6006/325**, os seis exit 0. Tipos 0 nos cinco projetos (`packages/core` segue em 11, herdados); lint backoffice 23/5 · store 2/2 · mobile-adm 0/0; `pnpm build` verde. **A soma não é aritmética**: os guardas da loja e do painel varrem os dois lados, e os números que valem são estes, medidos. No merge, o `AD-057` da `80` passou a `AD-064` (o da `73` veio antes) e as lições L-045..L-048 da `81` passaram a L-068..L-071.
 
@@ -2800,9 +2801,13 @@ completo (framework, `installCommand` na raiz do monorepo, headers de cache e de
 
 ## Estado conhecido / dívidas
 
-- **A `83` (Loja ao vivo, Fase 1) está implementada e commitada na branch `feature/83-loja-ao-vivo`,
-  sem push e sem merge.** Falta o Verificador independente, o QA e o **Android real** (fonte do
-  sistema, gesto de voltar, puxar com o dedo, aba em segundo plano de verdade). **Ordem de publicação:
+- **A `83` (Loja ao vivo, Fase 1) está IMPLEMENTADA e commitada na branch `feature/83-loja-ao-vivo`,
+  sem push e sem merge**, verificada (três rodadas, lacunas fechadas), com QA e reteste. Falta o
+  **Android real** (fonte do sistema, gesto de voltar, puxar com o dedo, aba em segundo plano de
+  verdade) e o TalkBack real. Esperam decisão: o F5 que desfaz o período escolhido em `/ao-vivo`
+  (`BUG-20261027-f5-desfaz-o-periodo-escolhido-na-loja-ao-vivo`; o conserto seria
+  `history.replaceState` na troca) e o cabeçalho da loja rolando de lado a 390/200 %
+  (`scrollWidth` 434; qual parte cede, logo, recuo ou ícones). **Ordem de publicação:
   migration → bundle** (o app lê a chave `acessos`; com o banco antigo, a seção desenha os números e a
   frase estática do gráfico). **A aprovação da Adri é pré-condição do deploy** (a emenda à `VIS-28` e o
   parágrafo novo da Política). Os probes da `83` entram no gate de quem recriar `store_movement` ou

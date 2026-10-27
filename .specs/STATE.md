@@ -1598,7 +1598,7 @@
 
 ## Handoff
 
-### ATUAL — 2026-10-27 · `83-loja-ao-vivo` (Fase 1, Acessos) **IMPLEMENTADA (T01..T14), commitada na branch, sem push — falta o Verificador independente, o QA e o Android real**
+### ATUAL — 2026-10-27 · `83-loja-ao-vivo` (Fase 1, Acessos) **IMPLEMENTADA (T01..T14), verificada, QA e reteste feitos, commitada na branch, sem push — falta o Android real**
 
 - **Feature**: `.specs/features/83-loja-ao-vivo/` (`prd.md`, `prototipo.md`, `spec.md`, `design.md`,
   `tasks.md`, `baseline.md`, `probes/`, `prova-navegador.md`, `prova/`). Decisão `AD-066`. Worktree
@@ -1615,9 +1615,22 @@
   e `store_movement` recriadas com a chave `acessos`), aplicada **só no banco local** (por `psql -f`).
   `core/live` e `core/stats/counterNotes.ts` novos; o painel reexporta as notas. A política de
   privacidade declara a hora cheia.
-- **Gates** (fecho, 2026-10-27, um workspace por vez, `--testTimeout=20000` sem o `--`, exit fora de
-  pipe): ver a linha *Testes* das baselines no `CLAUDE.md` raiz (entrada: `baseline.md`, 17521/881);
-  `tsc` 0 · 0 · 0 e core 11 herdados; eslint 0/0 · 23/5 · 2/2; build do app verde.
+- **Gates** (fecho final, depois do QA, 2026-10-27, um workspace por vez, `--testTimeout=20000` sem o
+  `--`, exit fora de pipe): core **4563/182** · functions **1105/26** · mobile-adm **2166/137** ·
+  backoffice **3922/226** · store **6117/327**, os cinco exit 0 (entrada: `baseline.md`, 17521/881 ⇒
+  **+352/+17**); `tsc` 0 · 0 · 0 nos apps e core 11 herdados; eslint 0/0 · 23/5 · 2/2; build do app
+  verde; probe `01-acessos.sql` exit 0, 90 `ok —`.
+- **Verificação** (`validation.md`): três rodadas do Verificador independente, as três FAIL **só por
+  cobertura** (nenhum defeito de produto); as lacunas da r3 (F11–F14) fechadas com os mutantes
+  reinjetados, sem rodada 4. Depois do laço, `f299897d` (o meio exato de `LAV-51`), sem verificador.
+- **QA** (`docs/qa/reports/2026-10-27-mobile-adm-loja-ao-vivo.md` e `…-reteste.md`): 5 Pass, 2
+  `blocked-verify` (Android e TalkBack reais). Três bugs de atrito: o foco do "Tentar de novo" no
+  `<body>` (consertado em `5b23601d`, retestado em 390/1440 × 100/200 %), o arroba do rodapé da loja a
+  200 % (anterior à `83`, consertado em `49f8bbb5`; a loja ainda rola a 390/200 % pelo **cabeçalho**,
+  `scrollWidth` 434 — decisão pendente) e o F5 que desfaz o período escolhido em `/ao-vivo`
+  (`BUG-20261027-f5-desfaz-o-periodo-escolhido-na-loja-ao-vivo`, esperando decisão; se for manter, o
+  conserto é `history.replaceState` na troca, guardando `doApp` e o estado do react-router, molde de
+  `gravarPeriodoDoInicio`).
 - **Provas**: `probes/01-acessos.sql` e `02-gravacao-real.sh` contra o banco local; `prova-navegador.md`
   (build servido, login real, 48 telas em 360/390/412/1440 × 100/130/200 %, números iguais a
   `store_movement`, ciclo de 15/30 s e zero leituras com a aba oculta).
@@ -1634,8 +1647,8 @@
   segundo plano (muda também o painel); a nota das visitas sem hora; a soma das barras da Semana
   passando do total; o período no `history.state`; o período da Início ao voltar; Conversão em largura
   inteira.
-- **Pendente**: o Verificador independente (autor ≠ verificador) e o QA; o **Android real** (fonte do
-  sistema, gesto de voltar, puxar com o dedo, aba em segundo plano de verdade); a observação da prova
+- **Pendente**: o **Android real** (fonte do sistema, gesto de voltar, puxar com o dedo, aba em segundo
+  plano de verdade) e o **TalkBack real**; as duas decisões do QA (o F5 e o cabeçalho da loja a 200 %); a observação da prova
   de que a fonte escalada pela raiz não cresce os números em `px` fixo; `BL-058` (o rótulo "Descontos"
   da barra de abas a 200 %, anterior à `83`). **Ordem de publicação: migration → bundle**, e os probes
   no gate de quem recriar as funções.

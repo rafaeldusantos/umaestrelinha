@@ -1,6 +1,6 @@
 # BUG-20261027-tentar-de-novo-da-loja-ao-vivo-solta-o-foco: o "Tentar de novo" da Loja ao vivo deixa o foco no <body>
 
-- **Status:** fixed (aguarda reteste em navegador)
+- **Status:** fixed — retestado em navegador (reports/2026-10-27-mobile-adm-loja-ao-vivo-reteste.md)
 - **Impact (user-side):** Friction
 - **Severity:** Low · **Priority:** P3
 - **Persona Affected:** Equipe com TalkBack (e a Adri no 3G instável)
@@ -41,3 +41,11 @@ volta e o foco segue `BODY`; depois do sucesso: números na tela, foco `BODY`.
 seção lê, volta ao "Tentar de novo" se a falha volta e fica no título quando os números chegam; sem toque, a
 releitura não mexe no foco. Três casos em `pages/__tests__/AoVivoPage.test.tsx` (vermelhos antes do conserto) e
 cinco mutantes reinjetados, mortos por asserção.
+
+## Reteste (2026-10-27)
+
+Build servido do worktree (`49f8bbb5`), 390×844 e 1440×900 a 100 e 200 %, `store_movement` interceptada (500, depois
+500 com 1,5 s de atraso, depois a resposta real). Nas quatro combinações: durante a nova tentativa o foco está no
+`H2` "Acessos"; depois da nova falha, no "Tentar de novo"; depois do sucesso, no `H2`, com os números na tela.
+Nunca `BODY`. Par: a releitura de 15 s com o foco em "Ontem" não move o foco. Relatório:
+`reports/2026-10-27-mobile-adm-loja-ao-vivo-reteste.md`.
