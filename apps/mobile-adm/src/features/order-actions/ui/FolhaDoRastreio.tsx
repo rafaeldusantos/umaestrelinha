@@ -1,19 +1,23 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react'
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@estrelinha/ui/sheet'
 import { cn } from '@estrelinha/ui/lib/utils'
-import { SAVING, normalizeTrackingCode, trackingCodeRefusal, type TrackingSheetOrigin } from '@estrelinha/core/orders'
+import { SAVING, normalizeMaterialTrackingCode, normalizeTrackingCode, trackingCodeRefusal } from '@estrelinha/core/orders'
+import type { PedidoDaAcao } from '@estrelinha/core/order-actions'
 
 import type { LinhaDaLista } from '@/entities/order'
 import { useTecladoVirtual } from '@/shared/lib/useTecladoVirtual'
-import { AVISO_DE_ERRO, CAMPO, ROTULO } from '@/shared/ui/campo'
+import { CAMPO, ROTULO } from '@/shared/ui/campo'
 
-import { lerErro } from '../model/erros'
+import { lerErro, type OrigemDoErro } from '../model/erros'
+import { devolverFoco } from '../model/foco'
 import type { AcaoDoPedido } from '../model/useAcaoDoPedido'
-import type { FolhaNoHistorico } from '../model/useFolhaNoHistorico'
+import type { CopiaDaFolha, FolhaNoHistorico, OrigemDaFolha } from '../model/useFolhaNoHistorico'
+import AlertaDaAcao from './AlertaDaAcao'
 
 export const ROTULO_DO_CAMPO = 'Código de rastreio'
 export const AGORA_NAO = 'Agora não'
 export const SALVAR = 'Salvar'
+const PLACEHOLDER = 'Ex.: AN123456789BR'
 
 /**
  * A folha do rastreio (feature `75`, `MAA-10`..`MAA-13`, `MAA-20`, `MAA-32`, `MAA-34`, A23; design
@@ -24,7 +28,9 @@ export const SALVAR = 'Salvar'
  * diz para aquele estado: título, frase e valor inicial. Nenhuma frase de regra mora aqui.
  *
  * - O campo normaliza ENQUANTO ela digita (`normalizeTrackingCode`: maiúsculas, sem espaços), e o
- *   código curto é recusado NO campo, sem ir à rede (`trackingCodeRefusal`, `MAA-12`).
+ *   código curto é recusado NO campo, sem ir à rede (`trackingCodeRefusal`, `MAA-12`). O do ENVELOPE
+ *   usa a forma única do envelope (`normalizeMaterialTrackingCode`: também sem hífen e ponto — Fase 5
+ *   da `82`, T19), ao digitar e ao salvar; a recusa do curto é julgada sobre ela.
  * - "Salvar" vai à porta pela ação do pedido (`acao.executar`, a MESMA trava do rodapé e do cartão);
  *   no ar, "Salvando…" com `aria-disabled` (o botão continua focável).
  * - **Fecha só depois do sucesso** (`MAA-13`) — e fecha no `aoConcluir`, ANTES de a releitura chegar:
@@ -48,25 +54,27 @@ export const SALVAR = 'Salvar'
  *   `preventScroll`: devolver o foco não rola a página.
  * - Menos movimento: o `SheetContent` anima por `data-[state=…]:animate-…`, e só o par NO MESMO
  *   seletor desliga — `motion-reduce:animate-none` puro perde em especificidade (R2).
+ * - **Feature `82` (`ENV-05`, `ENV-07`, `ENV-12`)**: com `origem="material"` a mesma folha grava o
+ *   código do envelope da CLIENTE. O rótulo e o placeholder vêm da cópia de `materialTrackingSheet`
+ *   (`core`), e o pedido à porta é `{ tipo: 'rastreio-do-material' }` — a RPC `set_material_tracking`,
+ *   nunca o `tracking_code` de saída. Todo o resto (foco, teclado, histórico, trava, fecha só no
+ *   sucesso, menos movimento) é o mesmo — parametrizar, não duplicar.
+ * - **Feature `82`, Fase 5 (T17)**: a folha desenha só o erro da ação DELA — a do envelope, o de
+ *   `rastreio-do-material`; a do rastreio de saída, o de `rastreio`. Abrir a folha não mostra a falha
+ *   de outra ação do mesmo pedido (`BUG-20261026-erro-de-uma-acao-aparece-em-outra`).
+ * - **T16**: com retentativa no erro (a falha de rede do envelope), "Tentar de novo" reenvia o MESMO
+ *   código pela ação do pedido e, no sucesso, fecha a folha (`BUG-20261026-rede-cai-ao-salvar-…`).
  */
+/** De quem é o erro que cada folha desenha. */
+const ERROS_DA_FOLHA: Record<'material' | 'saida', readonly OrigemDoErro[]> = {
+  material: ['rastreio-do-material'],
+  saida: ['rastreio'],
+}
 export interface FolhaDoRastreioProps {
   row: LinhaDaLista
-  origem: TrackingSheetOrigin
-  controle: FolhaNoHistorico
+  origem: OrigemDaFolha
+  controle: FolhaNoHistorico<CopiaDaFolha>
   acao: AcaoDoPedido
-}
-
-/** O título da página (`main h1`), focável por script sem entrar na ordem do Tab. */
-const tituloDaPagina = (): HTMLElement | null => {
-  const h1 = document.querySelector<HTMLElement>('main h1')
-  if (h1 && !h1.hasAttribute('tabindex')) h1.setAttribute('tabindex', '-1')
-  return h1
-}
-
-/** Devolve o foco a quem abriu a folha; se ele saiu da tela, ao título da página. */
-const devolverFoco = (origem: HTMLElement | null) => {
-  const alvo = origem && origem.isConnected ? origem : tituloDaPagina()
-  alvo?.focus({ preventScroll: true })
 }
 
 const FolhaDoRastreio = ({ row, origem, controle, acao }: FolhaDoRastreioProps) => {
@@ -81,26 +89,40 @@ const FolhaDoRastreio = ({ row, origem, controle, acao }: FolhaDoRastreioProps) 
   const idDaRecusa = useId()
   const valorInicial = folha?.valorInicial ?? ''
 
-  // Cada abertura começa do valor que `trackingSheet` dá para o estado de AGORA.
+  // Cada ABERTURA começa do valor que a cópia de `core` dá para o estado de agora — só na abertura.
+  // Feature `82` (Edge Cases): a releitura (realtime) com a folha aberta e a linha ainda editável não
+  // apaga o que ela digitou, mesmo que o código salvo tenha mudado no banco (a cliente o informou pela
+  // loja). Achado pelo teste da `82`: com `valorInicial` na dependência, o campo voltava ao do banco.
+  const valorDaAbertura = useRef(valorInicial)
+  valorDaAbertura.current = valorInicial
   useEffect(() => {
     if (!aberta) return
-    setValor(valorInicial)
+    setValor(valorDaAbertura.current)
     setRecusa(null)
-  }, [aberta, valorInicial])
+  }, [aberta])
 
   if (!folha) return null
+  const normalizar = origem === 'material' ? normalizeMaterialTrackingCode : normalizeTrackingCode
+  const erro = acao.erroDe(ERROS_DA_FOLHA[origem === 'material' ? 'material' : 'saida'])
+  const rotulo = 'rotulo' in folha ? folha.rotulo : ROTULO_DO_CAMPO
+  const placeholder = 'placeholder' in folha ? folha.placeholder : PLACEHOLDER
 
   const salvar = async (e: FormEvent) => {
     e.preventDefault()
     if (acao.travado) return
-    const motivo = trackingCodeRefusal(valor)
+    // T19: o código do envelope é julgado e enviado na forma única — o valor inicial vem do banco e
+    // pode ter sido gravado com hífen antes do conserto.
+    const codigoDoEnvelope = origem === 'material' ? normalizar(valor) : valor
+    const motivo = trackingCodeRefusal(codigoDoEnvelope)
     if (motivo) {
       setRecusa(motivo)
       campo.current?.focus()
       return
     }
     setRecusa(null)
-    const ok = await acao.executar(row, { tipo: 'rastreio', codigo: valor, origem }, { aoConcluir: fechar })
+    const pedido: PedidoDaAcao =
+      origem === 'material' ? { tipo: 'rastreio-do-material', codigo: codigoDoEnvelope } : { tipo: 'rastreio', codigo: valor, origem }
+    const ok = await acao.executar(row, pedido, { aoConcluir: fechar })
     if (!ok && lerErro(row.id)?.retentativa?.tipo === 'rastreio') fechar()
   }
 
@@ -137,17 +159,17 @@ const FolhaDoRastreio = ({ row, origem, controle, acao }: FolhaDoRastreioProps) 
 
           <div className="space-y-1.5">
             <label htmlFor={idDoCampo} className={ROTULO}>
-              {ROTULO_DO_CAMPO}
+              {rotulo}
             </label>
             <input
               ref={campo}
               id={idDoCampo}
               value={valor}
               onChange={(ev) => {
-                setValor(normalizeTrackingCode(ev.target.value))
+                setValor(normalizar(ev.target.value))
                 if (recusa) setRecusa(null)
               }}
-              placeholder="Ex.: AN123456789BR"
+              placeholder={placeholder}
               autoCapitalize="characters"
               inputMode="text"
               autoComplete="off"
@@ -163,10 +185,13 @@ const FolhaDoRastreio = ({ row, origem, controle, acao }: FolhaDoRastreioProps) 
             )}
           </div>
 
-          {acao.erro && !acao.travado && (
-            <p role="alert" className={cn(AVISO_DE_ERRO, '[overflow-wrap:anywhere]')}>
-              {acao.erro.frase}
-            </p>
+          {erro && !acao.travado && (
+            <AlertaDaAcao
+              erro={erro}
+              aoTentarDeNovo={(retentativa) => {
+                if (!acao.travado) void acao.executar(row, retentativa, { aoConcluir: fechar })
+              }}
+            />
           )}
 
           <div className="flex flex-col-reverse gap-2 min-[360px]:flex-row">

@@ -439,7 +439,8 @@ describe('a rede cai e volta (MAI-18, MAI-26; achado da prova em navegador da T2
       online = evento === 'online'
       await act(async () => {
         window.dispatchEvent(new Event(evento))
-        await vi.advanceTimersByTimeAsync(700)
+        // Feature `82`, T18: a queda só vira "Sem conexão" depois de 5 s offline contínuos.
+        await vi.advanceTimersByTimeAsync(evento === 'offline' ? 5700 : 700)
       })
     }
     await cair('offline')

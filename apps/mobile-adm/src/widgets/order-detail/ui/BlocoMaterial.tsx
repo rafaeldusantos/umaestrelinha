@@ -1,8 +1,9 @@
 import type { ReactNode } from 'react'
 import { cn } from '@estrelinha/ui/lib/utils'
-import { materialProgress, materialSubline } from '@estrelinha/core/material'
-import type { PedidoDoDetalhe } from '@/entities/order'
+import { materialCancelledNote, materialProgress, materialSubline } from '@estrelinha/core/material'
+import type { Bloco, ItemComFoto, PedidoDoDetalhe } from '@/entities/order'
 import { BlocoDoDetalhe } from './BlocoDoDetalhe'
+import MaterialChips from './MaterialChips'
 
 /**
  * O bloco "Material afetivo" do detalhe (feature `74`, `MAP-23`, A22, A23). Não decide nada: o
@@ -15,10 +16,27 @@ import { BlocoDoDetalhe } from './BlocoDoDetalhe'
  * **`lembrete`** (feature `75`, `MAA-17`): o "Lembrar do envio no WhatsApp" no fim do bloco. O bloco
  * não decide quando ele aparece — quem compõe é a página (`LembreteDoEnvio`, que lê
  * `canChargeMaterial` de `core`).
+ *
+ * **Feature `82`** (`ENV-23`..`ENV-27`), na ordem do protótipo: título, linha, passos, os chips do
+ * material com a idade da espera (`MaterialChips`, dos `itens` do detalhe), o `envelope` ("Envelope da
+ * cliente"), e então OU a frase do cancelado (`materialCancelledNote`, `core` — a mesma constante do
+ * painel) OU o nó `producao` ("Colocar em produção"), e o `lembrete` por último. Os nós vêm da página
+ * (`features/order-actions`); o bloco só os posiciona, e nunca compara `status`.
  */
-const BlocoMaterial = ({ pedido, lidoEm, lembrete }: { pedido: PedidoDoDetalhe; lidoEm: string; lembrete?: ReactNode }) => {
+export interface BlocoMaterialProps {
+  pedido: PedidoDoDetalhe
+  lidoEm: string
+  /** Os itens do detalhe, para os chips (`ENV-23`). Ausente ou em falha ⇒ nenhum chip. */
+  itens?: Bloco<ItemComFoto[]>
+  envelope?: ReactNode
+  producao?: ReactNode
+  lembrete?: ReactNode
+}
+
+const BlocoMaterial = ({ pedido, lidoEm, itens, envelope, producao, lembrete }: BlocoMaterialProps) => {
   const progresso = materialProgress(pedido.material_status, pedido.status)
   if (!progresso) return null
+  const cancelado = materialCancelledNote(pedido)
   return (
     <BlocoDoDetalhe id="material" titulo="Material afetivo">
       <p data-parte="titulo-do-material" className="text-sm font-medium [overflow-wrap:anywhere]">
@@ -54,6 +72,15 @@ const BlocoMaterial = ({ pedido, lidoEm, lembrete }: { pedido: PedidoDoDetalhe; 
           </li>
         ))}
       </ol>
+      <MaterialChips pedido={pedido} itens={itens ?? { estado: 'falhou' }} lidoEm={lidoEm} />
+      {envelope}
+      {cancelado ? (
+        <p data-parte="material-cancelado" className="mt-3.5 border-t border-estrelinha-line pt-3 text-[13px] text-estrelinha-ink-soft [overflow-wrap:anywhere]">
+          {cancelado}
+        </p>
+      ) : (
+        producao
+      )}
       {lembrete}
     </BlocoDoDetalhe>
   )

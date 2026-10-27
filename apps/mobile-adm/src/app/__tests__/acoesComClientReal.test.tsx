@@ -246,3 +246,75 @@ describe('"Marcar como enviado" sobre o client real: o que vai no PATCH', () => 
     expect(aviso()).toHaveTextContent('Rastreio salvo.')
   })
 })
+
+// Feature `82` · T13 — `ENV-10`, A8: `set_material_tracking` responde `not_allowed` IGUAL para "sem papel"
+// e "pedido não existe" (de propósito, na RPC) — não existe `not_admin` nela. A porta não o trata como
+// recusa direta nem como sucesso: pergunta a `atelie_clock`. `42501` ⇒ a recusa da `72`; papel de pé ⇒
+// "Este pedido mudou enquanto você olhava.", com a folha aberta. Sobre o supabase-js REAL.
+describe('o código do envelope sobre o client real: `not_allowed` é PERGUNTA (ENV-10)', () => {
+  const ENVELOPE = '/rest/v1/rpc/set_material_tracking'
+  const NAO_PERMITIDO: RespostaRpcReal = { status: 200, corpo: { ok: false, status: null, reason: 'not_allowed' } }
+  const AGUARDANDO = () => detalhe({ status: 'paid', material_status: 'aguardando_material' })
+  const CONFIRMOU = /Código do envelope registrado\./
+
+  const cenarioDoEnvelope = (corpo: RespostaRpcReal) => {
+    const r = cenario(AGUARDANDO())
+    r.estado.rpc = { ...r.estado.rpc, set_material_tracking: corpo }
+    return r
+  }
+
+  /** Abre a folha do envelope pelo bloco Material e digita um código válido. Devolve o "Salvar". */
+  const abrirAFolha = async () => {
+    await abrir('detalhe', 'Recebi o material')
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Informar código do envelope' }))
+    })
+    await andar(100)
+    const dialogo = screen.getByRole('dialog', { name: 'Código do envelope' })
+    fireEvent.change(within(dialogo).getByLabelText('Código de rastreio do envio da cliente'), { target: { value: 'an 123456789 br' } })
+    return within(dialogo).getByRole('button', { name: 'Salvar' })
+  }
+
+  it('par: a RPC responde `ok` ⇒ "Código do envelope registrado." (a régua tem alvo)', async () => {
+    const r = cenarioDoEnvelope({ status: 200, corpo: { ok: true, status: 'material_enviado', reason: null } })
+    const salvar = await abrirAFolha()
+    await tocarEObservar(salvar, 500)
+    expect(r.chamadasDe('POST', ENVELOPE).map((c) => c.corpo)).toEqual([{ p_order_id: ID, p_code: 'AN123456789BR' }])
+    expect(aviso()).toHaveTextContent('Código do envelope registrado.')
+    expect(r.chamadasDe('PATCH', ORDERS)).toHaveLength(0)
+  })
+
+  it('`not_allowed` + `atelie_clock` 403 `42501` ⇒ a recusa da `72`, e NENHUM aviso de sucesso em instante nenhum', async () => {
+    const r = cenarioDoEnvelope(NAO_PERMITIDO)
+    const salvar = await abrirAFolha()
+    const relogioAntes = r.quantos(RELOGIO)
+    perderOPapel(r)
+    const instantes = await tocarEObservar(salvar, 4000)
+    expect(r.chamadasDe('POST', ENVELOPE)).toHaveLength(1)
+    // A resposta virou PERGUNTA: a conferência foi feita.
+    expect(r.quantos(RELOGIO)).toBeGreaterThan(relogioAntes)
+    expect(instantes.length).toBeGreaterThan(80)
+    expect(instantes.findIndex((t) => CONFIRMOU.test(t))).toBe(-1)
+    expect(instantes.findIndex((t) => /Este pedido mudou enquanto você olhava\./.test(t))).toBe(-1)
+    expect(window.location.pathname).toBe('/login')
+    expect(screen.getByText(SEM_ACESSO)).toBeInTheDocument()
+    // Nada depois da recusa: nenhum aviso à cliente nem à dona.
+    expect(r.pedidos.filter((p) => p.startsWith('/functions/v1/'))).toHaveLength(0)
+  })
+
+  it('`not_allowed` com `atelie_clock` 200 (papel de pé) ⇒ "Este pedido mudou…" NA folha, aberta — nunca a recusa nem o sucesso', async () => {
+    const r = cenarioDoEnvelope(NAO_PERMITIDO)
+    const salvar = await abrirAFolha()
+    const relogioAntes = r.quantos(RELOGIO)
+    const instantes = await tocarEObservar(salvar, 1500)
+    expect(r.chamadasDe('POST', ENVELOPE)).toHaveLength(1)
+    expect(r.quantos(RELOGIO)).toBeGreaterThan(relogioAntes)
+    const dialogo = screen.getByRole('dialog', { name: 'Código do envelope' })
+    expect(within(dialogo).getByRole('alert')).toHaveTextContent('Este pedido mudou enquanto você olhava.')
+    expect(instantes.findIndex((t) => CONFIRMOU.test(t))).toBe(-1)
+    expect(window.location.pathname).toBe(pedidoHref(ID))
+    expect(screen.queryByText(SEM_ACESSO)).toBeNull()
+    expect(r.estado.papel).toBe('admin')
+    expect(r.pedidos.filter((p) => p.startsWith('/functions/v1/'))).toHaveLength(0)
+  })
+})

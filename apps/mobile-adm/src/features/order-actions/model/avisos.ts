@@ -28,9 +28,13 @@ const assinar = (f: () => void) => {
   }
 }
 
-export const mostrarAviso = (aviso: { titulo: string; frase: string }): void => {
+/**
+ * `frase` é opcional (feature `82`, `ENV-18`): "Código copiado." e a falha da cópia são um título só —
+ * o host não desenha a segunda linha vazia. As duas também vêm de `core` (`TRACKING_COPIED`, `COPY_FAILED`).
+ */
+export const mostrarAviso = (aviso: { titulo: string; frase?: string }): void => {
   contador += 1
-  atual = { titulo: aviso.titulo, frase: aviso.frase, chave: contador }
+  atual = { titulo: aviso.titulo, frase: aviso.frase ?? '', chave: contador }
   avisar()
 }
 

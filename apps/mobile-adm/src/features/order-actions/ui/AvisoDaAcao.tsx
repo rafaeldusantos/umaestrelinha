@@ -58,7 +58,8 @@ const AvisoDaAcao = ({ comBarra = true }: { comBarra?: boolean }) => {
         className="mx-auto max-w-lg rounded-md bg-estrelinha-primary px-4 py-3 text-sm text-estrelinha-on-primary shadow-lg [overflow-wrap:anywhere]"
       >
         <p className="font-semibold">{aviso.titulo}</p>
-        <p className="mt-0.5">{aviso.frase}</p>
+        {/* Aviso só de título ("Código copiado.", feature `82`): sem a segunda linha vazia. */}
+        {aviso.frase && <p className="mt-0.5">{aviso.frase}</p>}
       </div>
     </div>
   )

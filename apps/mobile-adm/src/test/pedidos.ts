@@ -87,6 +87,8 @@ export const detalhe = (extra: Partial<PedidoDoDetalhe> = {}): PedidoDoDetalhe =
   address_state: 'RS',
   address_zip: '90010000',
   customer_phone: '51999990000',
+  material_tracking_set_at: null,
+  material_tracking_set_by: null,
   ...extra,
 })
 
@@ -116,6 +118,8 @@ export const item = (extra: Partial<ItemDoPedido> = {}): ItemDoPedido => ({
   engraving_text: null,
   quantity: 1,
   unit_price: 400,
+  requires_material: false,
+  material_kinds: null,
   ...extra,
 })
 

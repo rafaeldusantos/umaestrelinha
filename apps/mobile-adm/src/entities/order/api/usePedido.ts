@@ -84,7 +84,8 @@ const lerDetalhe = async (id: string): Promise<DetalheDoPedido> => {
     const historico: Bloco<ReturnType<typeof buildHistory>> =
       status.error || notas.error || notificacoes.error
         ? { estado: 'falhou' }
-        : { estado: 'ok', dado: buildHistory(status.data ?? [], notificacoes.data ?? [], notas.data ?? []) }
+        : // Feature `82` (`ENV-21`): o pedido é o 4º argumento — a última autoria do código do envelope.
+          { estado: 'ok', dado: buildHistory(status.data ?? [], notificacoes.data ?? [], notas.data ?? [], pedido.data) }
     const avisoDePostagemSaiu = !notificacoes.error && shippedNoticeSent(notificacoes.data ?? [])
     const capas = itens.error ? {} : await lerCapas(itens.data ?? [])
     const blocoDosItens: Bloco<ItemComFoto[]> = itens.error ? { estado: 'falhou' } : { estado: 'ok', dado: comFoto(itens.data ?? [], capas) }

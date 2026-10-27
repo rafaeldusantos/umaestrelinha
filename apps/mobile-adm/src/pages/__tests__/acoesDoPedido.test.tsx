@@ -612,7 +612,8 @@ describe('sem conexão e Realtime (MAA-25, MAA-26)', () => {
     await act(async () => {
       online = false
       window.dispatchEvent(new Event('offline'))
-      await vi.advanceTimersByTimeAsync(700)
+      // Feature `82`, T18: "Sem conexão" só depois de 5 s offline contínuos.
+      await vi.advanceTimersByTimeAsync(5700)
     })
     expect(screen.getByText('Sem conexão. Os dados da loja aparecem quando a internet voltar.')).toBeInTheDocument()
     expect(rodape()).toBeNull()

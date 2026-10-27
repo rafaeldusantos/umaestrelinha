@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { ORDER_CHANGED, trackingSheet, type TrackingSheet, type TrackingSheetOrigin } from '@estrelinha/core/orders'
+import { materialTrackingSheet, type MaterialTrackingSheetCopy } from '@estrelinha/core/material'
 
 import type { LinhaDaLista } from '@/entities/order'
 
@@ -29,15 +30,27 @@ import { definirErro } from './erros'
  * - **o pedido muda com a folha aberta** (`MAA-26`): se `trackingSheet(row, origem)` passa a devolver
  *   outro `modo` ou `null`, a folha fecha (`navigate(-1)`) e o erro do pedido vira `ORDER_CHANGED`.
  *
+ * **Feature `82` (`ENV-12`, `ENV-13`)**: a MESMA folha serve ao código do envelope da cliente, com
+ *   `origem: 'material'` — a cópia vem de `materialTrackingSheet` (`core`), e o "modo" é um só
+ *   (`editar`): a chave não muda quando o código passa a existir (a realtime que relê o pedido com a
+ *   folha aberta, ainda editável, não a fecha — Edge Cases da `82`); ela fecha só quando
+ *   `materialTrackingSheet` vira `null` (o envelope chegou, o pedido foi cancelado).
+ *
  * A chave é `<id>:<origem>:<modo>`.
  * SPEC_DEVIATION (forma — §3.8 diz `<id>:<modo>`): a ORIGEM entra na chave, porque o rodapé (`acao`)
  * e "Informar" da Entrega (`entrega`) podem oferecer o MESMO modo no mesmo pedido montado; com a chave
  * de §3.8 os dois leriam o mesmo marcador. A referência já impedia a folha de abrir nos dois; a origem
  * deixa a chave dizer o que ela é.
  */
-export interface FolhaNoHistorico {
+/** De onde a folha abre: as duas do rastreio de SAÍDA (`75`) e a do envelope da cliente (`82`). */
+export type OrigemDaFolha = TrackingSheetOrigin | 'material'
+
+/** O que a folha desenha — a cópia do rastreio de saída ou a do envelope, as duas de `core`. */
+export type CopiaDaFolha = TrackingSheet | MaterialTrackingSheetCopy
+
+export interface FolhaNoHistorico<F extends CopiaDaFolha = TrackingSheet> {
   /** A folha que esta origem oferece para a linha de agora, ou `null`. */
-  folha: TrackingSheet | null
+  folha: F | null
   aberta: boolean
   abrir: () => void
   fechar: () => void
@@ -51,16 +64,29 @@ const marcadorDe = (state: unknown): string | undefined => {
   return typeof v === 'string' ? v : undefined
 }
 
-export const useFolhaNoHistorico = (
+/** A cópia da folha e o "modo" que entra na chave. O envelope tem um modo só (ver o cabeçalho). */
+const folhaDe = (row: LinhaDaLista, origem: OrigemDaFolha, avisoDePostagemSaiu?: boolean): { folha: CopiaDaFolha; modo: string } | null => {
+  if (origem === 'material') {
+    const folha = materialTrackingSheet(row)
+    return folha ? { folha, modo: 'editar' } : null
+  }
+  const folha = trackingSheet(row, origem, { avisoDePostagemSaiu })
+  return folha ? { folha, modo: folha.modo } : null
+}
+
+export function useFolhaNoHistorico(row: LinhaDaLista, origem: 'material'): FolhaNoHistorico<MaterialTrackingSheetCopy>
+export function useFolhaNoHistorico(
   row: LinhaDaLista,
   origem: TrackingSheetOrigin,
   /** O aviso de postagem saiu? Só o detalhe sabe (lê `order_notifications`); ausente ⇒ a folha não afirma. */
   avisoDePostagemSaiu?: boolean,
-): FolhaNoHistorico => {
+): FolhaNoHistorico<TrackingSheet>
+export function useFolhaNoHistorico(row: LinhaDaLista, origem: OrigemDaFolha, avisoDePostagemSaiu?: boolean): FolhaNoHistorico<CopiaDaFolha> {
   const location = useLocation()
   const navigate = useNavigate()
-  const folha = trackingSheet(row, origem, { avisoDePostagemSaiu })
-  const chave = folha ? `${row.id}:${origem}:${folha.modo}` : null
+  const daOrigem = folhaDe(row, origem, avisoDePostagemSaiu)
+  const folha = daOrigem?.folha ?? null
+  const chave = daOrigem ? `${row.id}:${origem}:${daOrigem.modo}` : null
   /** A chave da folha que ESTA montagem abriu (e ainda não viu fechar). */
   const abertaAqui = useRef<string | null>(null)
 
@@ -106,10 +132,11 @@ export const useFolhaNoHistorico = (
     // `MAA-26`: a linha relida não oferece mais ESTA folha.
     if (chave !== abriu) {
       abertaAqui.current = null
-      definirErro(row.id, { frase: ORDER_CHANGED, retentativa: null })
+      // O erro é da ação desta folha (feature `82`, T17): o do envelope aparece no envelope, o do rastreio no rodapé.
+      definirErro(row.id, { frase: ORDER_CHANGED, retentativa: null }, origem === 'material' ? 'rastreio-do-material' : 'rastreio')
       navigate(-1)
     }
-  }, [chave, location.state, navigate, row.id])
+  }, [chave, location.state, navigate, row.id, origem])
 
   return { folha, aberta, abrir, fechar }
 }

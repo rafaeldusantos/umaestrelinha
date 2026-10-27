@@ -8,18 +8,19 @@ import {
   PARTIAL_TRACKING,
   actionConfirmation,
   appPrimaryAction,
+  normalizeMaterialTrackingCode,
   normalizeTrackingCode,
   trackingSheet,
   type ConfirmationInput,
 } from '@estrelinha/core/orders'
-import { materialTransitionRefusal, type MaterialStatus } from '@estrelinha/core/material'
+import { materialTrackingRefusal, materialTransitionRefusal, type MaterialStatus } from '@estrelinha/core/material'
 import type { PedidoDaAcao } from '@estrelinha/core/order-actions'
 
 import { LISTA_DE_PEDIDOS_KEY, chaveDoPedido, type LinhaDaLista } from '@/entities/order'
 
 import { gravarAcao, type ResultadoDaAcao } from '../api/gravarAcao'
 import { mostrarAviso } from './avisos'
-import { definirErro, useErroDoPedido, type ErroDaAcao } from './erros'
+import { definirErro, useEntradaDoErro, type ErroDaAcao, type OrigemDoErro } from './erros'
 import { geracaoDasAcoes } from './esquecerAcoes'
 import { soltar, travar, useTravado } from './travas'
 
@@ -55,7 +56,14 @@ export interface AcaoDoPedido {
   /** `true` só no sucesso desenhado; `false` no toque travado, na falha, na recusa e na troca de conta. */
   executar: (row: LinhaDaLista, pedido: PedidoDaAcao, opcoes?: OpcoesDaExecucao) => Promise<boolean>
   travado: boolean
+  /** O erro do pedido, de QUALQUER ação (a forma da `75`). As superfícies desenham `erroDe(...)`. */
   erro: ErroDaAcao | null
+  /**
+   * O erro do pedido só se a ação que o gerou é uma das `origens` (feature `82`, Fase 5, T17): o
+   * rodapé e o cartão pedem `ERROS_DO_RODAPE`, a folha do envelope e o bloco dele `rastreio-do-material`,
+   * a folha do rastreio de saída `rastreio`, e "Colocar em produção" `producao`.
+   */
+  erroDe: (origens: readonly OrigemDoErro[]) => ErroDaAcao | null
   /** A recusa lançada pela porta — a página a passa a `useRecusaDePapel`. */
   erroBruto: unknown
 }
@@ -67,12 +75,15 @@ const entradaDaConfirmacao = (row: LinhaDaLista, pedido: PedidoDaAcao): Pick<Con
     if (!folha) return null
     return { action: folha.modo === 'enviar' ? 'marcar-enviado' : 'salvar-rastreio', citaEmailSeEnviado: folha.citaEmailSeEnviado }
   }
+  // Feature `82` (`ENV-08`, `ENV-25`): as duas ações do bloco Material não são a primária do estado.
+  if (pedido.tipo === 'rastreio-do-material') return { action: 'rastreio-do-material' }
+  if (pedido.tipo === 'producao') return { action: 'producao' }
   const { action } = appPrimaryAction(row)
   return action === 'nenhuma' ? null : { action }
 }
 
 /** O erro do pedido para cada desfecho que não é sucesso; `null` ⇒ nenhuma frase (a releitura fala). */
-const erroDe = (r: Exclude<ResultadoDaAcao, { tipo: 'ok' }>, pedido: PedidoDaAcao): ErroDaAcao | null => {
+const erroDoDesfecho = (r: Exclude<ResultadoDaAcao, { tipo: 'ok' }>, pedido: PedidoDaAcao): ErroDaAcao | null => {
   switch (r.tipo) {
     case 'mudou':
       return { frase: ORDER_CHANGED, retentativa: null }
@@ -82,6 +93,9 @@ const erroDe = (r: Exclude<ResultadoDaAcao, { tipo: 'ok' }>, pedido: PedidoDaAca
       const motivo = r.status ? materialTransitionRefusal(r.status as MaterialStatus, r.to as MaterialStatus) : null
       return { frase: motivo ?? ORDER_CHANGED, retentativa: null }
     }
+    case 'material-rastreio-recusado':
+      // Feature `82` (`ENV-09`): a recusa da RPC do código do envelope — a folha fica aberta com ela.
+      return { frase: materialTrackingRefusal(r.reason), retentativa: null }
     case 'parcial':
       // A retentativa diz o que reenvia: com a linha relida já sem "Iniciar separação" (outra aba, o
       // painel), o dono devolve `mudou` sem ir à rede — nunca "Não consegui salvar" (QA C01).
@@ -94,14 +108,32 @@ const erroDe = (r: Exclude<ResultadoDaAcao, { tipo: 'ok' }>, pedido: PedidoDaAca
             : null,
       }
     default:
-      return { frase: ACTION_FAILED, retentativa: null }
+      return falhaDe(pedido)
   }
 }
+
+/**
+ * A falha de rede ou de servidor (`falhou`, ou a exceção que não é recusa). Só o código do envelope
+ * ganha retentativa (feature `82`, Fase 5, T16 — `BUG-20261026-rede-cai-ao-salvar-diz-que-nao-salvou`):
+ * a RPC pode ter gravado com a resposta perdida, e o aviso `material_tracking_set` só sai num sucesso
+ * visto pelo app. "Tentar de novo" regrava o MESMO código (a RPC é idempotente) e o aviso sai; se a
+ * linha relida deixou de ser editável, o dono responde `mudou` sem ir à rede.
+ */
+const falhaDe = (pedido: PedidoDaAcao): ErroDaAcao => ({
+  frase: ACTION_FAILED,
+  retentativa:
+    pedido.tipo === 'rastreio-do-material' ? { tipo: 'rastreio-do-material', codigo: normalizeMaterialTrackingCode(pedido.codigo) } : null,
+})
 
 export const useAcaoDoPedido = (id: string): AcaoDoPedido => {
   const queryClient = useQueryClient()
   const travado = useTravado(id)
-  const erro = useErroDoPedido(id)
+  const entrada = useEntradaDoErro(id)
+  const erro = entrada?.erro ?? null
+  const erroDe = useCallback(
+    (origens: readonly OrigemDoErro[]) => (entrada && origens.includes(entrada.de) ? entrada.erro : null),
+    [entrada],
+  )
   const [erroBruto, setErroBruto] = useState<unknown>(null)
 
   const executar = useCallback(
@@ -122,6 +154,7 @@ export const useAcaoDoPedido = (id: string): AcaoDoPedido => {
                 ...confirmacao,
                 emailSent: r.emailSent,
                 materialMudou: r.materialMudou,
+                materialPassou: r.materialPassou,
                 customer_name: row.customer_name,
                 order_number: row.order_number,
               }),
@@ -130,12 +163,12 @@ export const useAcaoDoPedido = (id: string): AcaoDoPedido => {
           opcoes?.aoConcluir?.()
           return true
         }
-        definirErro(id, erroDe(r, pedido))
+        definirErro(id, erroDoDesfecho(r, pedido), pedido.tipo)
         return false
       } catch (e) {
         if (!mesmaConta()) return false
         if (isAccessDenied(e)) setErroBruto(e)
-        else definirErro(id, { frase: ACTION_FAILED, retentativa: null })
+        else definirErro(id, falhaDe(pedido), pedido.tipo)
         return false
       } finally {
         void queryClient.invalidateQueries({ queryKey: chaveDoPedido(id) })
@@ -147,5 +180,5 @@ export const useAcaoDoPedido = (id: string): AcaoDoPedido => {
     [id, queryClient],
   )
 
-  return { executar, travado, erro, erroBruto }
+  return { executar, travado, erro, erroDe, erroBruto }
 }

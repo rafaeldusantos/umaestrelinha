@@ -365,3 +365,66 @@ describe('o retorno de `executar` e o `aoConcluir` (T22, MAA-13)', () => {
     expect(aoConcluir).not.toHaveBeenCalled()
   })
 })
+
+// Feature `82` · Fase 5 (T16, T17) — `BUG-20261026-rede-cai-ao-salvar-diz-que-nao-salvou` e
+// `BUG-20261026-erro-de-uma-acao-aparece-em-outra`. A falha de rede do código do envelope guarda a
+// retentativa (o MESMO código, normalizado), e todo erro carrega a ação que o gerou (`erroDe`).
+describe('o erro com dono e a retentativa do envelope (82, T16, T17)', () => {
+  const ENVELOPE = { tipo: 'rastreio-do-material', codigo: ' gg 111222333 br ' } as const
+
+  it('`falhou` do envelope ⇒ ACTION_FAILED com a retentativa `rastreio-do-material` e o código NORMALIZADO', async () => {
+    porta.gravarAcao.mockResolvedValueOnce({ tipo: 'falhou', erro: new TypeError('Failed to fetch') })
+    const { result } = montar()
+    await act(() => result.current.executar(AGUARDANDO, ENVELOPE))
+    expect(result.current.erro).toEqual({
+      frase: 'Não consegui salvar. Tente de novo.',
+      retentativa: { tipo: 'rastreio-do-material', codigo: 'GG111222333BR' },
+    })
+  })
+
+  it('a exceção que não é recusa, no envelope ⇒ a mesma retentativa', async () => {
+    porta.gravarAcao.mockRejectedValueOnce(new TypeError('Failed to fetch'))
+    const { result } = montar()
+    await act(() => result.current.executar(AGUARDANDO, ENVELOPE))
+    expect(result.current.erro?.retentativa).toEqual({ tipo: 'rastreio-do-material', codigo: 'GG111222333BR' })
+  })
+
+  it('a recusa COM MOTIVO do envelope não tem retentativa (reenviar o mesmo seria recusado de novo)', async () => {
+    porta.gravarAcao.mockResolvedValueOnce({ tipo: 'material-rastreio-recusado', reason: null })
+    const { result } = montar()
+    await act(() => result.current.executar(AGUARDANDO, ENVELOPE))
+    expect(result.current.erro?.retentativa).toBeNull()
+  })
+
+  it('`falhou` das outras ações continua SEM retentativa (o rastreio de saída e a produção)', async () => {
+    porta.gravarAcao.mockResolvedValueOnce({ tipo: 'falhou', erro: new TypeError('x') })
+    porta.gravarAcao.mockResolvedValueOnce({ tipo: 'falhou', erro: new TypeError('x') })
+    const { result } = montar()
+    await act(() => result.current.executar(SEPARANDO, RASTREIO))
+    expect(result.current.erro?.retentativa).toBeNull()
+    await act(() => result.current.executar(PAGO_COM_MATERIAL, { tipo: 'producao' }))
+    expect(result.current.erro?.retentativa).toBeNull()
+  })
+
+  it.each([
+    ['primaria', PRIMARIA, AGUARDANDO],
+    ['rastreio', RASTREIO, SEPARANDO],
+    ['rastreio-do-material', ENVELOPE, AGUARDANDO],
+    ['producao', { tipo: 'producao' } as const, PAGO_COM_MATERIAL],
+  ] as const)('o erro de `%s` só aparece para quem pede essa origem', async (origem, pedido, row) => {
+    porta.gravarAcao.mockResolvedValueOnce({ tipo: 'falhou', erro: new TypeError('x') })
+    const { result } = montar()
+    await act(() => result.current.executar(row, pedido))
+    expect(result.current.erroDe([origem])?.frase).toBe('Não consegui salvar. Tente de novo.')
+    const outras = (['primaria', 'rastreio', 'rastreio-do-material', 'producao'] as const).filter((o) => o !== origem)
+    expect(result.current.erroDe(outras)).toBeNull()
+  })
+
+  it('a exceção também carrega a origem', async () => {
+    porta.gravarAcao.mockRejectedValueOnce(new TypeError('x'))
+    const { result } = montar()
+    await act(() => result.current.executar(PAGO_COM_MATERIAL, { tipo: 'producao' }))
+    expect(result.current.erroDe(['producao'])).not.toBeNull()
+    expect(result.current.erroDe(['primaria', 'rastreio', 'rastreio-do-material'])).toBeNull()
+  })
+})

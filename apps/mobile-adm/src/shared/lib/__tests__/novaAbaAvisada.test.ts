@@ -8,8 +8,8 @@
 // `aria-label={nomeDoLinkExterno(` na MESMA tag. Um terceiro link de aba nova que esquecesse o aviso
 // reprovaria aqui, e nenhuma outra ferramenta o veria.
 //
-// Âncora dupla: os arquivos de produção lidos e os TRÊS links de aba nova conhecidos encontrados
-// (o contato da ficha, o bloco Cliente do pedido e o lembrete do envio). Sensores: a tag sem aviso
+// Âncora dupla: os arquivos de produção lidos e os QUATRO links de aba nova conhecidos encontrados
+// (o contato da ficha, o bloco Cliente do pedido, o lembrete do envio e, desde a `82`, "Ver nos Correios"). Sensores: a tag sem aviso
 // reprova, a com aviso passa, e o comentário que cita a forma proibida não é acusado.
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { dirname, join, relative, resolve } from 'node:path'
@@ -39,9 +39,11 @@ const ARQUIVOS = todos(SRC).map((c) => ({ rel: relative(SRC, c).split('\\').join
 const ACHADOS = ARQUIVOS.flatMap((a) => linksDeAbaNova(a.fonte).map((l) => ({ ...l, rel: a.rel })))
 
 describe('todo link de aba nova avisa no nome acessível', () => {
-  it('âncora: leu os arquivos de produção e achou os três links conhecidos', () => {
+  it('âncora: leu os arquivos de produção e achou os quatro links conhecidos', () => {
     expect(ARQUIVOS.length).toBeGreaterThan(40)
     expect(ACHADOS.map((a) => a.rel).sort()).toEqual([
+      // Feature `82` (`ENV-19`): "Ver nos Correios".
+      'features/order-actions/ui/EnvelopeDaCliente.tsx',
       'features/order-actions/ui/LembreteDoEnvio.tsx',
       'widgets/customer-detail/ui/ContatoDaCliente.tsx',
       'widgets/order-detail/ui/BlocoCliente.tsx',

@@ -15,6 +15,12 @@
 // 4. **Âncora**: o dono das listas foi lido, as seis constantes foram achadas, e os arquivos de cliente
 //    são ao menos oito (os quatro hooks, `linha`, `clientesHref`, `identidade`, `frases`…).
 //
+// **Feature `82` (`ENV-23`) — UMA exceção, por arquivo e texto exatos**: os chips "Leite materno",
+// "Cinzas"… do bloco Material do DETALHE DO PEDIDO leem o snapshot de `order_items`, e a spec aprovada
+// manda pedir a coluna de materiais no `select` dos itens (`COLUNAS_DOS_ITENS`, `entities/order`). Só essa
+// linha passa; o termo segue recusado em qualquer outro lugar do app — inclusive em toda a aba Clientes
+// (régua 1b), que é o que `MAC-29` protege. Sensor: a mesma linha noutro arquivo é acusada.
+//
 // Escopo: `apps/mobile-adm/src`, só produção. Os arquivos de fixtura (`src/test/`) ficam de fora: são
 // dado sintético de teste.
 import { readFileSync, readdirSync, statSync } from 'node:fs'
@@ -52,9 +58,15 @@ const TERMOS = /(?<![a-z])(?:cpf|material_kinds|customer_notes|addresses|custome
 /** Régua 3 — pedir tudo. */
 const SELECT_DE_TUDO = /\.select\(\s*(?:\)|['"`]\s*\*)/
 
+/** Feature `82`: a única linha permitida, por arquivo e texto exatos (ver o cabeçalho). */
+const PERMITIDAS = [{ rel: 'entities/order/model/linha.ts', texto: "'requires_material, material_kinds'" }]
+const permitida = (rel: string, linha: string) => PERMITIDAS.some((p) => p.rel === rel && p.texto === linha.trim())
+
 const termosEm = (alvo: Arquivo[]): string[] =>
   alvo.flatMap((a) =>
-    a.codigo.split('\n').flatMap((l, i) => (TERMOS.test(l) ? [`${a.rel}:${i + 1} ${l.trim()}`] : [])),
+    a.codigo
+      .split('\n')
+      .flatMap((l, i) => (TERMOS.test(l) && !permitida(a.rel, l) ? [`${a.rel}:${i + 1} ${l.trim()}`] : [])),
   )
 const selectsDeTudoEm = (alvo: Arquivo[]): string[] =>
   alvo.flatMap((a) =>
@@ -116,6 +128,22 @@ describe('âncoras', () => {
 describe('régua 1 — os termos sensíveis não aparecem no app', () => {
   it('nenhum arquivo de produção do app cita CPF, material, notas, endereços completos, documento, Nuvemshop ou duplicadas', () => {
     expect(termosEm(PRODUCAO)).toEqual([])
+  })
+
+  it('1b — a exceção da `82` existe UMA vez, no dono das colunas do pedido, e nenhum arquivo de cliente cita o termo', () => {
+    const naLinha = PRODUCAO.find((a) => a.rel === 'entities/order/model/linha.ts')!
+    expect(naLinha.codigo.split('\n').filter((l) => TERMOS.test(l)).map((l) => l.trim())).toEqual([PERMITIDAS[0].texto])
+    const deCliente = DE_CLIENTE.flatMap((a) => a.codigo.split('\n').filter((l) => TERMOS.test(l)))
+    expect(deCliente).toEqual([])
+  })
+
+  it('sensor da exceção: a mesma linha noutro arquivo é acusada', () => {
+    const fora = [{ rel: 'entities/customer/model/linha.ts', codigo: "  'requires_material, material_kinds'" }]
+    expect(termosEm(fora)).toHaveLength(1)
+    const noDono = [{ rel: 'entities/order/model/linha.ts', codigo: "  'requires_material, material_kinds'" }]
+    expect(termosEm(noDono)).toEqual([])
+    const outraForma = [{ rel: 'entities/order/model/linha.ts', codigo: '  material_kinds: string[]' }]
+    expect(termosEm(outraForma)).toHaveLength(1)
   })
 })
 

@@ -6,7 +6,15 @@ import { PEDIDOS_PATH, chaveDoPedido, usePedido } from '@/entities/order'
 import { STORE_OVERVIEW_KEY } from '@/entities/stats'
 import { useRecusaDePapel } from '@/features/access-check'
 import { VerCliente } from '@/features/open-customer'
-import { EditarRastreio, LembreteDoEnvio, RodapeDaAcao, useAcaoDoPedido, useRecusaDaAcao } from '@/features/order-actions'
+import {
+  ColocarEmProducao,
+  EditarRastreio,
+  EnvelopeDaCliente,
+  LembreteDoEnvio,
+  RodapeDaAcao,
+  useAcaoDoPedido,
+  useRecusaDaAcao,
+} from '@/features/order-actions'
 import {
   BlocoCliente,
   BlocoEntrega,
@@ -62,6 +70,8 @@ const Esqueletos = () => (
  *   lembrete no Material — os três de `features/order-actions`, compostos aqui (os blocos só recebem o
  *   nó). A ação do pedido é UMA instância (`useAcaoDoPedido`), e a recusa que a porta lança
  *   (`erroBruto`) entra na MESMA vigia da leitura: um episódio só (R11).
+ * - **O bloco Material** (feature `82`): "Envelope da cliente" e "Colocar em produção", de
+ *   `features/order-actions`, com a MESMA ação do pedido — e os itens, para os chips do material.
  * - **"Ver cliente"** (feature `76`, `MAC-21`): o botão do bloco Cliente é composto aqui, e a recusa que a
  *   leitura da ficha lança entra na mesma vigia.
  */
@@ -140,7 +150,14 @@ const PedidoPage = () => {
             <LinhaDeFrescor naoAtualizou={naoAtualizou} />
             <ProximoPasso pedido={p} />
             <BlocoCliente pedido={p} verCliente={<VerCliente email={p.customer_email} aoRecusa={recusaDoBotao} />} />
-            <BlocoMaterial pedido={p} lidoEm={lidoEm} lembrete={<LembreteDoEnvio pedido={p} lidoEm={lidoEm} />} />
+            <BlocoMaterial
+              pedido={p}
+              lidoEm={lidoEm}
+              itens={detalhe.itens}
+              envelope={<EnvelopeDaCliente pedido={p} lidoEm={lidoEm} acao={acao} />}
+              producao={<ColocarEmProducao pedido={p} acao={acao} />}
+              lembrete={<LembreteDoEnvio pedido={p} lidoEm={lidoEm} />}
+            />
             <BlocoItens itens={detalhe.itens} tentarDeNovo={tentarDeNovo} valores={<BlocoValores pedido={p} />} />
             <BlocoEntrega pedido={p} editar={<EditarRastreio pedido={p} acao={acao} avisoDePostagemSaiu={detalhe.avisoDePostagemSaiu} />} />
             <Historico historico={detalhe.historico} lidoEm={lidoEm} tentarDeNovo={tentarDeNovo} />

@@ -97,7 +97,8 @@ describe('a queda da rede é anunciada (MAF-30)', () => {
     await act(async () => {
       online = false
       window.dispatchEvent(new Event('offline'))
-      await vi.advanceTimersByTimeAsync(50)
+      // Feature `82`, T18: "Sem conexão" só depois de 5 s offline contínuos.
+      await vi.advanceTimersByTimeAsync(5050)
     })
     const alerta = screen.getByRole('alert')
     expect(alerta).toHaveAttribute('aria-live', 'assertive')

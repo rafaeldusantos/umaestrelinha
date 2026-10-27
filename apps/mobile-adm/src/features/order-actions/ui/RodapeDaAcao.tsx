@@ -7,6 +7,7 @@ import { RESERVA_DO_RODAPE, RODAPE_NO_FIM } from '@/shared/ui/alturas'
 import { AVISO_DE_ERRO } from '@/shared/ui/campo'
 import { TENTAR_DE_NOVO } from '@/shared/ui/leitura'
 
+import { ERROS_DO_RODAPE } from '../model/erros'
 import { publicarAlturaDoRodape, registrarRodape } from '../model/rodape'
 import type { AcaoDoPedido } from '../model/useAcaoDoPedido'
 import { useFolhaNoHistorico } from '../model/useFolhaNoHistorico'
@@ -40,7 +41,9 @@ const RodapeDaAcao = ({ pedido, acao }: RodapeDaAcaoProps) => {
   const primaria = appPrimaryAction(pedido)
   const controle = useFolhaNoHistorico(pedido, 'acao')
   const temBotao = primaria.action !== 'nenhuma'
-  const erro = acao.travado ? null : acao.erro
+  // Só o erro da primária e do rastreio de saída (feature `82`, T17): o do envelope fica no envelope, o
+  // de "Colocar em produção" junto do botão dele.
+  const erro = acao.travado ? null : acao.erroDe(ERROS_DO_RODAPE)
   const montado = temBotao || !!erro
   const caixa = useRef<HTMLDivElement>(null)
 

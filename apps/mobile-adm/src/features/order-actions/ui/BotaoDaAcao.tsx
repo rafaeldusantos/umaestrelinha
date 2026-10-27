@@ -4,6 +4,7 @@ import { SAVING, appPrimaryAction } from '@estrelinha/core/orders'
 import { nomeDaLinha, type LinhaDaLista } from '@/entities/order'
 import { TENTAR_DE_NOVO } from '@/shared/ui/leitura'
 
+import { ERROS_DO_RODAPE } from '../model/erros'
 import { useAcaoDoPedido } from '../model/useAcaoDoPedido'
 import { useFolhaNoHistorico } from '../model/useFolhaNoHistorico'
 import FolhaDoRastreio from './FolhaDoRastreio'
@@ -34,7 +35,8 @@ const BotaoDaAcao = ({ linha, aoRecusa }: BotaoDaAcaoProps) => {
   const primaria = appPrimaryAction(linha)
   const acao = useAcaoDoPedido(linha.id)
   const controle = useFolhaNoHistorico(linha, 'acao')
-  const erro = acao.travado ? null : acao.erro
+  // O cartão oferece as mesmas ações do rodapé: só o erro delas (feature `82`, T17).
+  const erro = acao.travado ? null : acao.erroDe(ERROS_DO_RODAPE)
 
   useEffect(() => {
     if (acao.erroBruto) aoRecusa?.(acao.erroBruto)

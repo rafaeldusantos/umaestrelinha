@@ -9,6 +9,7 @@
 // a proveniência do import não responde "este pedido foi pago?".
 
 import type { AdminPaymentStatus, HistoryEvent } from '@estrelinha/core/orders'
+import type { MaterialRequirement } from '@estrelinha/core/material'
 
 /** As colunas da linha da lista (`MAP-16`..`MAP-19`), na view `order_list` (traz `purchase_ordinal`). */
 export const COLUNAS_DA_LISTA =
@@ -20,10 +21,15 @@ export const COLUNAS_DA_LISTA =
 export const COLUNAS_DO_DETALHE =
   `${COLUNAS_DA_LISTA}, subtotal, shipping_cost, discount, pix_discount, promotion_discount, coupon_code, ` +
   'shipping_method, address_street, address_number, address_complement, address_neighborhood, ' +
-  'address_city, address_state, address_zip, customer_phone'
+  'address_city, address_state, address_zip, customer_phone, ' +
+  // Feature `82` (`ENV-16`, `ENV-21`): quem informou o código do envelope, e quando (`order_list`, no fim).
+  'material_tracking_set_at, material_tracking_set_by'
 
 /** As quatro relações do detalhe — colunas conferidas no `information_schema` local (M3 do Design). */
-export const COLUNAS_DOS_ITENS = 'id, product_id, product_name, product_image, variant_label, engraving_text, quantity, unit_price'
+export const COLUNAS_DOS_ITENS =
+  'id, product_id, product_name, product_image, variant_label, engraving_text, quantity, unit_price, ' +
+  // Feature `82` (`ENV-23`): o snapshot do material que o item exige — os chips do bloco Material.
+  'requires_material, material_kinds'
 export const COLUNAS_DO_STATUS = 'id, from_status, to_status, note, created_at'
 export const COLUNAS_DAS_NOTAS = 'id, note, created_by, created_at'
 /**
@@ -76,9 +82,17 @@ export interface PedidoDoDetalhe extends LinhaDaLista {
   address_state: string | null
   address_zip: string | null
   customer_phone: string | null
+  /** Feature `82`: nulas antes da migration `20261028120000` e nas linhas gravadas antes dela (A2). */
+  material_tracking_set_at: string | null
+  material_tracking_set_by: 'customer' | 'admin' | null
 }
 
-export interface ItemDoPedido {
+/**
+ * Feature `82` (`ENV-23`): o item traz o snapshot do material que exige (`requires_material` e a lista
+ * de materiais, a forma de `MaterialRequirement` de `core`) — o momento da compra, nunca o catálogo de
+ * hoje. Lido só por `orderMaterialKinds`, para os chips do bloco Material.
+ */
+export interface ItemDoPedido extends MaterialRequirement {
   id: string
   /** `text`, e nem sempre um uuid: o import da Nuvemshop grava `nuvemshop:<nome>` (`catalogProductIds`). */
   product_id: string

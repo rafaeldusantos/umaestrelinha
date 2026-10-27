@@ -25,7 +25,8 @@ const cair = (evento: 'online' | 'offline') =>
   act(async () => {
     online = evento === 'online'
     window.dispatchEvent(new Event(evento))
-    await vi.advanceTimersByTimeAsync(700)
+    // Feature `82`, T18: a queda só vira "Sem conexão" depois de 5 s offline contínuos; a volta é na hora.
+    await vi.advanceTimersByTimeAsync(evento === 'offline' ? 5700 : 700)
   })
 
 const chamadasAoSupabase = () =>

@@ -56,6 +56,10 @@ const ARQUIVOS = [
   'features/order-actions/ui/FolhaDoRastreio.tsx',
   'features/order-actions/ui/LembreteDoEnvio.tsx',
   'features/order-actions/ui/RodapeDaAcao.tsx',
+  // Feature `82`: o envelope da cliente, "Colocar em produção" e os chips do material.
+  'features/order-actions/ui/EnvelopeDaCliente.tsx',
+  'features/order-actions/ui/ColocarEmProducao.tsx',
+  'widgets/order-detail/ui/MaterialChips.tsx',
 ] as const
 
 /** Comentário sai antes da varredura; CRLF primeiro (`L-031`), linha e bloco na MESMA passada (`BL-027`). */
@@ -110,14 +114,15 @@ const movimentoSemPar = (fonte: string): string[] => {
 const FONTES = ARQUIVOS.map((caminho) => ({ caminho, fonte: readFileSync(resolve(SRC, caminho), 'utf8') }))
 
 describe('o movimento da aba Pedidos respeita `prefers-reduced-motion` (MAP-45)', () => {
-  it('ÂNCORA: os 28 arquivos foram lidos, e a varredura achou o movimento do esqueleto e da troca de recorte com os pares', () => {
-    expect(FONTES).toHaveLength(28)
+  it('ÂNCORA: os 31 arquivos foram lidos, e a varredura achou o movimento do esqueleto e da troca de recorte com os pares', () => {
+    expect(FONTES).toHaveLength(31)
     expect(FONTES.every((f) => f.fonte.length > 0)).toBe(true)
     const tokens = FONTES.flatMap((f) => movimentoDe(semComentarios(f.fonte)))
     // Medido com ESTA régua no fecho da T28: 4 tokens, 2 deles o próprio par — o `animate-pulse` do
     // `Traco` (o esqueleto) e o `transition-colors` dos chips (a troca de recorte). Na T27 da `75`:
     // 6 tokens, 4 pares — os dois pares de estado da folha (o movimento dela mora em `packages/ui`).
     // No B02 (T31): 8 tokens, 6 pares — os dois pares de estado do FUNDO da folha (`overlayClassName`).
+    // Na `82`: os três arquivos novos não movem nada — 8 tokens, 6 pares, medidos com esta régua.
     expect(tokens.length).toBeGreaterThanOrEqual(8)
     expect(tokens.filter((t) => t.ehOPar).length).toBeGreaterThanOrEqual(6)
     const de = (rel: string) => movimentoDe(semComentarios(FONTES.find((f) => f.caminho === rel)!.fonte)).map((t) => t.classe)
