@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useLocation, useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { Package, Image as ImageIcon, Layers, Weight } from 'lucide-react'
@@ -69,6 +69,8 @@ import {
 import { useOptionLibrary } from '@/entities/product'
 import { cartesian, optionValuesKey, variantLabel } from '@estrelinha/core/pricing'
 import SeoPreview from '@/features/product-form/ui/SeoPreview'
+import { SuggestSeoButton, useSeoSuggestion } from '@/features/seo-suggestion'
+import { useSeoSettings } from '@estrelinha/core/hooks/useStoreSettings'
 import { GoogleShoppingCard } from '@/features/product-form/ui/GoogleShoppingCard'
 import RelatedProductsSelect from '@/features/product-form/ui/RelatedProductsSelect'
 import { PageHeader, FormCard } from '@/shared/ui'
@@ -141,6 +143,21 @@ const AdminProductFormPage = () => {
   // Controlado (era `defaultValue`) porque o atalho do checklist precisa ABRIR a aba do campo
   // pendente — sem isso o clique focaria um elemento que o Radix ainda não montou.
   const [activeTab, setActiveTab] = useState<TabId>('geral')
+  // Feature 84 (`SIA-10`..`SIA-12`, `SIA-24`, `SIA-25`): a sugestão de SEO mora AQUI, não no botão —
+  // a aba inativa é desmontada pelo Radix, e os `onChange` do SEO e o save precisam falar com ela.
+  // A sugestão entra nos campos sem gravar; só o save grava.
+  const seoSuggestion = useSeoSuggestion({
+    current: { title: form.seo_title, description: form.seo_description },
+    apply: par => setFields({ seo_title: par.title, seo_description: par.description }),
+  })
+  const { cancel: cancelSeoSuggestion } = seoSuggestion
+  // Feature 84 (`SIA-07`, conserto r1): o piso da prévia é a descrição da loja — a MESMA leitura que a
+  // página do produto da loja faz (`apps/store/src/pages/ProductPage.tsx`), para a prévia ser o servido.
+  const { description: storeDescription } = useSeoSettings()
+  // `SIA-24`: sair da aba SEO com a sugestão no ar descarta a resposta que chegar depois.
+  useEffect(() => {
+    if (activeTab !== 'seo') cancelSeoSuggestion()
+  }, [activeTab, cancelSeoSuggestion])
   // A biblioteca inteira: a aba precisa dela para resolver o texto de cada vínculo e para a busca.
   // São 67 entradas no catálogo real — leitura pequena, e a mesma que /admin/perguntas faz.
   const { faqs: faqLibrary, create: createFaq } = useAdminFaqs()
@@ -331,8 +348,9 @@ const AdminProductFormPage = () => {
       width_cm: form.width_cm || null,
       height_cm: form.height_cm || null,
       length_cm: form.length_cm || null,
-      seo_title: form.seo_title || null,
-      seo_description: form.seo_description || null,
+      // Feature 84 (SIA-01): vazio OU só espaço grava `null` — a loja deriva do nome e da descrição.
+      seo_title: form.seo_title.trim() ? form.seo_title : null,
+      seo_description: form.seo_description.trim() ? form.seo_description : null,
       // Feature 30 (`GSH-20`): vazio grava `null`, nunca string vazia. O feed omite a tag do campo
       // nulo; com string vazia ele emitiria `<g:brand></g:brand>`, que reprova a oferta.
       brand: form.brand || null,
@@ -442,6 +460,8 @@ const AdminProductFormPage = () => {
     // P1.7 AC 8: o rascunho existe para sobreviver a um F5, não a um save. Mantê-lo depois do
     // save faria a próxima abertura oferecer de volta um estado que já é o do banco.
     draft.discard()
+    // Feature 84 (`SIA-12`): o desfazer da sugestão some no save.
+    seoSuggestion.reset()
     savedSlugRef.current = nextSlug
     markSaved({
       categoryIds: form.category_ids,
@@ -837,12 +857,38 @@ const AdminProductFormPage = () => {
                   redirectEnabled={redirectEnabled}
                   onRedirectToggle={setRedirectEnabled}
                 />
+                <SuggestSeoButton
+                  name={form.name}
+                  status={seoSuggestion.status}
+                  message={seoSuggestion.message}
+                  canUndo={seoSuggestion.canUndo}
+                  onUndo={seoSuggestion.undo}
+                  onSuggest={() =>
+                    seoSuggestion.suggest({
+                      productId: id ?? null,
+                      name: form.name,
+                      description: form.description,
+                      categoryIds: form.category_ids,
+                      relatedIds: form.related_product_ids,
+                      requiresMaterial: form.requires_material === true,
+                    })
+                  }
+                />
                 <SeoPreview
                   title={form.seo_title}
                   description={form.seo_description}
                   slug={form.slug || slugify(form.name)}
-                  onTitleChange={v => setField('seo_title', v)}
-                  onDescriptionChange={v => setField('seo_description', v)}
+                  name={form.name}
+                  productDescription={form.description}
+                  storeDescription={storeDescription}
+                  onTitleChange={v => {
+                    seoSuggestion.noteManualEdit()
+                    setField('seo_title', v)
+                  }}
+                  onDescriptionChange={v => {
+                    seoSuggestion.noteManualEdit()
+                    setField('seo_description', v)
+                  }}
                 />
               </FormCard>
 

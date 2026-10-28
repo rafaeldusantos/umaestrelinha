@@ -173,7 +173,11 @@ Ao planejar/implementar features, use a Skill **`tlc-spec-driven`** com estas co
     reteste de QA (dois bugs consertados, um esperando decisão); falta o Android real. A `82` e a `83`
     correram em paralelo (a `83` num worktree) e foram mescladas na `master` em 2026-10-27; no merge,
     o backlog e as lições da `83` foram renumerados (+1) por colidirem com os da `82`
-    (`BL-056`..`BL-059`, `L-075`..`L-082`). A próxima livre é a `84`.**
+    (`BL-056`..`BL-059`, `L-075`..`L-082`). A `84` (SEO do produto: não bloqueia, prévia servida e
+    sugestão por IA com `claude-haiku-5-5`, `AD-067`) está IMPLEMENTADA, sem commit, verificada em três
+    rodadas (lacunas da r3 fechadas sem rodada 4), provada em navegador e contra a Claude API real no
+    ambiente local, com QA e reteste (5 bugs consertados e retestados). A `85` (resumo com imagens do
+    produto) é de outra sessão, num worktree próprio. A próxima livre é a `86`.**
   - **A `46` e a `47` correram EM PARALELO, em worktrees separados**, e é o segundo caso do projeto
     (o primeiro, a `45`, dividiu uma working tree só). O que mudou: a divisão foi por **árvore**, não
     por arquivo — a `47` nasceu de um `git worktree` sobre o HEAD local e trouxe a `46` por
@@ -584,6 +588,19 @@ quando mudarem de verdade.
 | **Lint** | **25 erros / 7 warnings** — backoffice 23/5 · store 2/2 · mobile-adm 0/0 | `npx eslint .` em cada app (o `pnpm lint` para no primeiro app que reprova) |
 | **Tipos** | **0 · 0 · 0 · 0 · 0** (store · backoffice · catalog-import · `apps/store/tsconfig.server.json`, desde a `69` · mobile-adm, desde a `72`) — e **`packages/core` em 11**, herdados (medido na `73`: idênticos na base, nenhum em arquivo tocado) | `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` · `npx tsc --noEmit -p packages/core/tsconfig.json` |
 | **Testes** | **18776 em 932 arquivos** — store **6150/329** · backoffice **4033/230** · mobile-adm **2279/140** · core **4697/184** · functions **1105/26** · catalog-import 512/23 (medidos na árvore mesclada da `82` com a `83`, 2026-10-27, um workspace por vez, exit fora de pipe; catalog-import não remedido; backoffice remedido no mesmo dia depois das ações da linha de produto, +13/+1, e de novo com o recorte das listas de pedidos e de produtos na URL, +71/+3; store +7/+1 com `pagamentoMarcaPagoSchema`; e de novo com vários fornecedores por produto, store 6150/329, backoffice 4033/230, core 4697/184, medidos) | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
+
+**A feature `84` (SEO do produto com IA) somou +399/+19 em QUATRO workspaces**, medidos no fecho
+(2026-10-28, um workspace por vez, exit fora de pipe, `--testTimeout=20000` sem o `--`) contra a entrada
+medida com a árvore parada (`.specs/features/84-seo-do-produto-com-ia/baseline.md`: core 4697/184 ·
+functions 1105/26 · backoffice 4016/230 · store 6146/329, com trabalho não commitado de outra frente
+dentro): **core 4767/186 (+70/+2)** (`seo/suggestion.ts`), **functions 1230/33 (+125/+7)** (a porta
+`_shared/claude*.ts` e a function `seo-suggest`), **backoffice 4142/235 (+126/+5)** (checklist sem
+bloqueio de SEO, `SeoPreview` com o servido, `features/seo-suggestion` e a página real) e **store
+6168/330 (+22/+1)** (`claudeSoNoServidor`). Tipos 0 no painel, core 11 herdados; lint do painel 23/5;
+build do painel verde. **Sem migration.** Decisão `AD-067`. Verificador independente em três rodadas
+(as três FAIL só por cobertura; lacunas da r3 fechadas com os mutantes reinjetados, sem rodada 4);
+prova em navegador e QA com reteste (5 bugs consertados e retestados) e probe contra a Claude API real,
+**tudo no ambiente local** (decisão do usuário): 5/5 sugestões na régua, p95 9,1 s, ≈ US$ 0,001 cada.
 
 **A feature `82` (o envelope da cliente) somou +297/+6 em QUATRO workspaces**, medidos em 2026-10-27 um por vez, exit fora de pipe, contra a entrada medida com a árvore parada (`.specs/features/82-envelope-da-cliente/baseline.md`: core 4466/178 · mobile-adm 2021/126 · store 6013/326 · backoffice 3916/225 — a linha anterior desta tabela estava velha pelo commit `744da7ea`): **core +134/+2**, **mobile-adm +111/+3**, **store +22/+1** (`envelopeSchema`, `materialTransitions` lendo a RPC vigente, e a loja gravando o código pelo dono de `core`) e **backoffice +10** (o painel delega `setMaterialTracking` a `core`). Tipos 0 nos apps, core 11 herdados; lint 0/0 · 23/5. Uma migration (`20261028120000_82-envelope-da-cliente.sql`), aplicada só no local. Verificador r1 FAIL por cobertura (4 de 42 mutantes), lacunas fechadas com os mutantes reinjetados; prova em navegador achou 3 defeitos de layout/foco, consertados; QA achou 8 bugs: 7 consertados com teste e retestados em navegador (inclusive o erro com dono, o "Tentar de novo" do envelope, a carência de 5 s do "Sem conexão" e o código normalizado no dono da escrita) e 1 mantido por decisão (`BL-055`); a verificação r2 (consertos) fechou com as lacunas cobertas. O lembrete do WhatsApp deixou de dizer "Oi, Oi!" sem nome.
 
