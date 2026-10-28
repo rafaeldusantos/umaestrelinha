@@ -1178,9 +1178,11 @@ moram) recusa qualquer arquivo de `apps/**` que nomeie a chave de serviço ou aq
 Só do painel, e **por construção**: as tabelas `suppliers` e `product_suppliers` não têm leitura
 pública (a `products` tem, e sem recorte de coluna — é por isso que o fornecedor não é coluna dela).
 
-- **Vários fornecedores por produto** (2026-10-27, migration `20261031120000`): a chave de
-  `product_suppliers` é o par `(product_id, supplier_id)` e `position` guarda a ordem da dona. Cada
-  linha do card é um fornecedor com o link da peça nele; **"Adicionar fornecedor"** abre uma linha nova
+- **Vários fornecedores por produto** (2026-10-27, migration `20261031120000`): `position` guarda a
+  ordem da dona. **Desde a `20261101120000` a chave de `product_suppliers` é `(product_id, position)`,
+  e o MESMO fornecedor pode repetir no produto** — a mesma peça comprada dele por mais de um anúncio,
+  cada linha com o seu link (a `20261031120000` tinha posto a chave no par produto × fornecedor, e
+  isso recusava a repetição). Cada linha do card é uma vaga com um fornecedor e o link da peça nele; **"Adicionar fornecedor"** abre uma linha nova
   e "Remover o fornecedor N" tira uma (com uma linha só não há remover: esvaziá-la é "sem
   fornecedor"). O embed agora vem como **array**; quem o lê, na ordem, é `supplierLinksOfRow`
   (`entities/supplier/model/links.ts`), para o formulário e a listagem.
@@ -1197,11 +1199,12 @@ pública (a `products` tem, e sem recorte de coluna — é por isso que o fornec
   nasce no save do produto.
 - **A gravação** é `persistSuppliers` (`features/product-form/model/persistSupplier.ts`), depois de o
   produto existir; sem mudança desde a carga (a ordem conta) ela não escreve (FOR-13). Ela faz o
-  `upsert` das linhas **antes** de apagar as que saíram (`not supplier_id in (…)`): sem transação,
+  `upsert` das linhas por `(product_id, position)` **antes** de apagar as posições que sobraram
+  (`position >= n`): sem transação,
   uma falha no meio deixa um fornecedor a mais, nunca o produto sem nenhum. As recusas (link sem
-  nome, link sem `http(s)://`) vêm de `@estrelinha/core/suppliers`, linha a linha, mais o mesmo
-  fornecedor em duas linhas (`supplierRowsRefusal`), e valem **nos dois botões**, antes de qualquer
-  gravação.
+  nome, link sem `http(s)://`) vêm de `@estrelinha/core/suppliers`, linha a linha
+  (`supplierRowsRefusal`), e valem **nos dois botões**, antes de qualquer gravação. O mesmo
+  fornecedor em duas linhas **não** é recusado: as duas reaproveitam o mesmo cadastro.
 - **O recorte da lista de produtos mora na URL** (2026-10-27), no molde da de pedidos:
   `features/product-list/model/queryUrl.ts`, com as listas (categoria, fornecedor, tag) como
   parâmetro **repetido**, porque tag pode ter vírgula. O cadastro recebe `state.voltarPara` da lista

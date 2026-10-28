@@ -1,8 +1,8 @@
 // Os fornecedores de um produto, como o embed `product_suppliers(url, position, suppliers(name))`
 // os devolve. Um dono só, lido pelo formulário e pela listagem: os dois precisam da mesma ordem.
 //
-// Desde a migration `20261031120000` a chave do vínculo é o par (produto, fornecedor), então o
-// PostgREST devolve ARRAY. O objeto (a forma de antes, um-para-um) continua aceito.
+// Desde a migration `20261031120000` o produto tem vários fornecedores (chave (produto, posição)
+// desde a `20261101120000`), então o PostgREST devolve ARRAY. O objeto (a forma de antes, um-para-um) continua aceito.
 
 export interface SupplierLink {
   name: string

@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
   persistSuppliers,
-  SUPPLIER_DUPLICATED,
   supplierFieldId,
   supplierRowsChanged,
   supplierRowsRefusal,
@@ -14,7 +13,7 @@ import { productRowToForm } from './useProductForm'
 // chamada com tabela, operação, filtros e corpo: sem ele, "reaproveita o fornecedor" e "cria outro"
 // produziriam a mesma tela no fim.
 
-type Chamada = { table: string; op: string; payload?: unknown; filters?: string[][]; onConflict?: string }
+type Chamada = { table: string; op: string; payload?: unknown; filters?: unknown[][]; onConflict?: string }
 
 const dublê = (opts: { insertErro?: { message: string; code?: string }; upsertErro?: string; deleteErro?: string } = {}) => {
   const chamadas: Chamada[] = []
@@ -41,8 +40,8 @@ const dublê = (opts: { insertErro?: { message: string; code?: string }; upsertE
           chamadas.push(chamada)
           const resultado = { error: opts.deleteErro ? { message: opts.deleteErro } : null }
           return Object.assign(Promise.resolve(resultado), {
-            not: (c: string, op: string, v: string) => {
-              chamada.filters!.push(['not', c, op, v])
+            gte: (c: string, v: number) => {
+              chamada.filters!.push(['gte', c, v])
               return Promise.resolve(resultado)
             },
           })
@@ -73,12 +72,12 @@ describe('persistSuppliers', () => {
         table: 'product_suppliers',
         op: 'upsert',
         payload: [{ product_id: 'p1', supplier_id: 'atelie', url: 'https://x.com/peca', position: 0, updated_at: undefined }],
-        onConflict: 'product_id,supplier_id',
+        onConflict: 'product_id,position',
       },
       {
         table: 'product_suppliers',
         op: 'delete',
-        filters: [['eq', 'product_id', 'p1'], ['not', 'supplier_id', 'in', '(atelie)']],
+        filters: [['eq', 'product_id', 'p1'], ['gte', 'position', 1]],
       },
     ])
   })
@@ -102,7 +101,7 @@ describe('persistSuppliers', () => {
       { product_id: 'p1', supplier_id: 'resinas', url: 'https://r.com/1', position: 0, updated_at: undefined },
       { product_id: 'p1', supplier_id: 'atelie', url: null, position: 1, updated_at: undefined },
     ])
-    expect(chamadas[1].filters).toEqual([['eq', 'product_id', 'p1'], ['not', 'supplier_id', 'in', '(resinas,atelie)']])
+    expect(chamadas[1].filters).toEqual([['eq', 'product_id', 'p1'], ['gte', 'position', 2]])
   })
 
   it('FOR-11 — nome novo CRIA o fornecedor (aparado) e vincula com o id que o banco devolveu', async () => {
@@ -158,11 +157,36 @@ describe('persistSuppliers', () => {
     expect(chamadas.map(c => c.table)).toEqual(['suppliers'])
   })
 
-  it('duas linhas que caem no MESMO fornecedor são recusadas, sem gravar o vínculo', async () => {
+  it('duas linhas no MESMO fornecedor viram dois vínculos, um por posição, cada um com o seu link', async () => {
     const { client, chamadas } = dublê()
-    const erro = await persistSuppliers(client, 'p1', [{ name: 'Ateliê Prata', url: '' }, { name: 'atelie prata', url: '' }], [], LISTA, semReleitura)
-    expect(erro).toBe(SUPPLIER_DUPLICATED)
-    expect(chamadas).toEqual([])
+    const erro = await persistSuppliers(
+      client,
+      'p1',
+      [{ name: 'Ateliê Prata', url: 'https://a.com/1' }, { name: 'atelie prata', url: 'https://a.com/2' }],
+      [],
+      LISTA,
+      semReleitura,
+    )
+    expect(erro).toBeNull()
+    expect(chamadas.map(semData)).toEqual([
+      {
+        table: 'product_suppliers',
+        op: 'upsert',
+        payload: [
+          { product_id: 'p1', supplier_id: 'atelie', url: 'https://a.com/1', position: 0, updated_at: undefined },
+          { product_id: 'p1', supplier_id: 'atelie', url: 'https://a.com/2', position: 1, updated_at: undefined },
+        ],
+        onConflict: 'product_id,position',
+      },
+      { table: 'product_suppliers', op: 'delete', filters: [['eq', 'product_id', 'p1'], ['gte', 'position', 2]] },
+    ])
+  })
+
+  it('encurtar a lista apaga só as posições que sobraram', async () => {
+    const { client, chamadas } = dublê()
+    const salvo = [{ name: 'Ateliê Prata', url: '' }, { name: 'Resinas do Sul', url: '' }, { name: 'Ateliê Prata', url: 'https://a.com/2' }]
+    expect(await persistSuppliers(client, 'p1', [salvo[0]], salvo, LISTA, semReleitura)).toBeNull()
+    expect(chamadas[1].filters).toEqual([['eq', 'product_id', 'p1'], ['gte', 'position', 1]])
   })
 
   it('FOR-12 — sem linha nenhuma, apaga os vínculos do produto, e só eles', async () => {
@@ -214,10 +238,9 @@ describe('supplierRowsRefusal', () => {
     })
   })
 
-  it('o mesmo fornecedor duas vezes (sem acento e sem maiúsculas) aponta a segunda linha', () => {
-    expect(supplierRowsRefusal([{ name: 'Ateliê Prata', url: '' }, { name: 'B', url: '' }, { name: ' ATELIE prata', url: '' }])).toEqual({
-      index: 2, field: 'name', message: SUPPLIER_DUPLICATED,
-    })
+  it('o mesmo fornecedor duas vezes (com ou sem acento) não é recusado', () => {
+    expect(supplierRowsRefusal([{ name: 'Ateliê Prata', url: '' }, { name: 'B', url: '' }, { name: ' ATELIE prata', url: '' }])).toBeNull()
+    expect(supplierRowsRefusal([{ name: 'Ateliê Prata', url: 'https://a.com/1' }, { name: 'Ateliê Prata', url: 'https://a.com/1' }])).toBeNull()
   })
 
   it('o id do campo da linha: a primeira com os ids de sempre', () => {

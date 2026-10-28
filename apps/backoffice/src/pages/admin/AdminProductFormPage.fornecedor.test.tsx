@@ -34,7 +34,7 @@ vi.mock('@estrelinha/supabase/client', () => {
       return { data: null, error: null, count: 0 }
     }
     const b: Record<string, unknown> = {}
-    for (const m of ['eq', 'in', 'neq', 'not', 'ilike', 'order', 'limit', 'range']) {
+    for (const m of ['eq', 'in', 'neq', 'not', 'gte', 'ilike', 'order', 'limit', 'range']) {
       b[m] = (...args: unknown[]) => {
         filtros.push([m, ...args])
         return b
@@ -486,7 +486,7 @@ describe('vários fornecedores no mesmo produto', () => {
       expect.objectContaining({
         op: 'delete',
         table: 'product_suppliers',
-        filters: [['eq', 'product_id', 'p1'], ['not', 'supplier_id', 'in', '(atelie,resinas)']],
+        filters: [['eq', 'product_id', 'p1'], ['gte', 'position', 2]],
       }),
     ])
   })
@@ -524,19 +524,35 @@ describe('vários fornecedores no mesmo produto', () => {
     await waitFor(() => expect(toast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Rascunho salvo' })))
     expect(escritasDoFornecedor()).toEqual([
       expect.objectContaining({ op: 'upsert', payload: [expect.objectContaining({ supplier_id: 'atelie', position: 0 })] }),
-      expect.objectContaining({ op: 'delete', filters: [['eq', 'product_id', 'p1'], ['not', 'supplier_id', 'in', '(atelie)']] }),
+      expect.objectContaining({ op: 'delete', filters: [['eq', 'product_id', 'p1'], ['gte', 'position', 1]] }),
     ])
   })
 
-  it('o mesmo fornecedor em duas linhas é recusado antes de qualquer gravação', async () => {
+  it('o mesmo fornecedor em duas linhas é gravado nas duas, cada uma com o seu link', async () => {
     montar()
     await abrirPrecos()
     fireEvent.change(nome(), { target: { value: 'Ateliê Prata' } })
+    fireEvent.change(link(), { target: { value: 'https://a.com/anuncio-1' } })
     adicionar()
     fireEvent.change(nome2(), { target: { value: 'atelie prata' } })
+    fireEvent.change(link2(), { target: { value: 'https://a.com/anuncio-2' } })
     await salvarRascunho()
-    expect(toast).toHaveBeenCalledWith({ title: 'O mesmo fornecedor aparece em duas linhas', variant: 'destructive' })
-    expect(h.diario).toEqual([])
+    await waitFor(() => expect(toast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Rascunho salvo' })))
+    expect(toast).not.toHaveBeenCalledWith(expect.objectContaining({ variant: 'destructive' }))
+
+    expect(escritasDoFornecedor()).toEqual([
+      expect.objectContaining({
+        op: 'upsert',
+        table: 'product_suppliers',
+        payload: [
+          expect.objectContaining({ product_id: 'p1', supplier_id: 'atelie', url: 'https://a.com/anuncio-1', position: 0 }),
+          expect.objectContaining({ product_id: 'p1', supplier_id: 'atelie', url: 'https://a.com/anuncio-2', position: 1 }),
+        ],
+      }),
+      expect.objectContaining({ op: 'delete', filters: [['eq', 'product_id', 'p1'], ['gte', 'position', 2]] }),
+    ])
+    // O nome digitado sem acento reaproveita o cadastrado: nenhum fornecedor novo nasce.
+    expect(h.diario.filter(e => e.table === 'suppliers')).toEqual([])
   })
 
   it('link errado na segunda linha é recusado e nada é gravado', async () => {

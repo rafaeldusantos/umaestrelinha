@@ -1,6 +1,8 @@
 // Feature 80 (FOR-11..14) — a gravação dos fornecedores da peça, depois de o produto existir.
 // Desde a migration `20261031120000`, o produto pode ter VÁRIOS: cada linha é um fornecedor com o
-// link da peça nele, na ordem em que a dona os listou.
+// link da peça nele, na ordem em que a dona os listou. Desde a `20261101120000` a chave é
+// (produto, posição), e o MESMO fornecedor pode repetir em linhas diferentes — a mesma peça
+// comprada dele por mais de um anúncio, cada um com o seu link.
 //
 // Fora de `persistProductRelations` de propósito: aquela função é o diff das tabelas N:N do
 // produto, e esta precisa RESOLVER cada fornecedor (reaproveitar o de mesmo nome ou criar) antes de
@@ -23,7 +25,7 @@ export interface SupplierClient {
     upsert: (row: unknown, options?: { onConflict?: string }) => Resultado
     delete: () => {
       eq: (column: string, value: string) => Resultado & {
-        not: (column: string, operator: string, value: string) => Resultado
+        gte: (column: string, value: number) => Resultado
       }
     }
   }
@@ -54,13 +56,10 @@ export const supplierRowsChanged = (next: SupplierDraft[], saved: SupplierDraft[
   return a.length !== b.length || a.some((r, i) => r.name !== b[i].name || r.url !== b[i].url)
 }
 
-export const SUPPLIER_DUPLICATED = 'O mesmo fornecedor aparece em duas linhas'
-
 /**
- * A recusa das linhas, antes de qualquer gravação: a régua de `core` em cada linha, e o mesmo
- * fornecedor duas vezes (pela régua da sugestão — sem acento e sem maiúsculas —, que é a que o save
- * usa para reaproveitar). `index` é a linha nas `rows` como a tela as mostra, para o foco ir nela.
- * `null` = pode gravar.
+ * A recusa das linhas, antes de qualquer gravação: a régua de `core` em cada linha. O mesmo
+ * fornecedor em duas linhas NÃO é recusado — cada linha é uma vaga própria (`20261101120000`).
+ * `index` é a linha nas `rows` como a tela as mostra, para o foco ir nela. `null` = pode gravar.
  */
 export const supplierRowsRefusal = (
   rows: SupplierDraft[],
@@ -70,10 +69,6 @@ export const supplierRowsRefusal = (
     if (message) {
       const doNome = message === SUPPLIER_REFUSALS.nameMissing || message === SUPPLIER_REFUSALS.nameTooLong
       return { index: i, field: doNome ? 'name' : 'url', message }
-    }
-    const nome = rows[i].name
-    if (nome.trim() !== '' && rows.slice(0, i).some(r => findSupplierByName([{ id: '', name: r.name }], nome))) {
-      return { index: i, field: 'name', message: SUPPLIER_DUPLICATED }
     }
   }
   return null
@@ -143,7 +138,6 @@ export const persistSuppliers = async (
         return error?.message ?? 'O fornecedor não foi criado'
       }
     }
-    if (ids.includes(supplierId)) return SUPPLIER_DUPLICATED
     ids.push(supplierId)
   }
 
@@ -156,15 +150,16 @@ export const persistSuppliers = async (
       position: i,
       updated_at: agora,
     })),
-    { onConflict: 'product_id,supplier_id' },
+    { onConflict: 'product_id,position' },
   )
   if (error) return error.message
 
-  // Os que saíram da lista. Depois do `upsert`: falhar aqui deixa um fornecedor a mais, nunca a menos.
+  // As vagas que sobraram de uma lista mais longa. Depois do `upsert`: falhar aqui deixa um
+  // fornecedor a mais, nunca a menos.
   const { error: erroApagar } = await client
     .from('product_suppliers')
     .delete()
     .eq('product_id', productId)
-    .not('supplier_id', 'in', `(${ids.join(',')})`)
+    .gte('position', rows.length)
   return erroApagar ? erroApagar.message : null
 }
