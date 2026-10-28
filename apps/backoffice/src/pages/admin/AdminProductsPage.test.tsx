@@ -567,7 +567,7 @@ describe('AdminProductsPage — as seis ações da barra (RFN-01…RFN-04)', () 
   })
 })
 
-describe('a coluna Categorias', () => {
+describe('a coluna Produto: foto, nome e categorias', () => {
   const muitas = [
     { id: 'c1', name: 'Cinzas' },
     { id: 'c2', name: 'Pingentes' },
@@ -575,13 +575,28 @@ describe('a coluna Categorias', () => {
     { id: 'c4', name: 'Leite materno' },
   ]
 
-  it('mostra só as duas primeiras, termina em reticências e abre todas ao tocar', async () => {
+  it('não há mais coluna Categorias nem a URL da peça abaixo do nome', () => {
+    setup([row()])
+    expect(screen.queryByRole('columnheader', { name: 'Categorias' })).toBeNull()
+    expect(screen.queryByText('/botton-sailor-moon')).toBeNull()
+  })
+
+  it('as categorias ficam em chips na mesma célula do nome', () => {
+    categorias.atual = muitas
+    setup([row({ category_ids: ['c1', 'c2'] })])
+
+    const nome = screen.getByRole('link', { name: 'Botton Sailor Moon' })
+    const celula = nome.closest('td')!
+    expect(within(celula).getAllByRole('listitem').map(li => li.textContent)).toEqual(['Cinzas', 'Pingentes'])
+    expect(screen.queryByRole('button', { name: /categorias de/ })).toBeNull()
+  })
+
+  it('com mais de duas mostra as duas primeiras e um chip +N que abre todas', async () => {
     categorias.atual = muitas
     setup([row({ category_ids: ['c1', 'c2', 'c3', 'c4'] })])
 
     const gatilho = screen.getByRole('button', { name: 'Ver as 4 categorias de Botton Sailor Moon' })
-    expect(gatilho).toHaveTextContent('Cinzas, Pingentes…')
-    expect(gatilho).not.toHaveTextContent('Colares')
+    expect(gatilho).toHaveTextContent('+2')
     expect(screen.queryByText('Leite materno')).toBeNull()
 
     fireEvent.click(gatilho)
@@ -590,18 +605,22 @@ describe('a coluna Categorias', () => {
       .toEqual(['Cinzas', 'Pingentes', 'Colares', 'Leite materno'])
   })
 
-  it('com até duas categorias não há botão nem reticências', () => {
-    categorias.atual = muitas
-    setup([row({ category_ids: ['c1', 'c2'] })])
-
-    expect(screen.getByText('Cinzas, Pingentes')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /categorias de/ })).toBeNull()
+  it('sem categoria não desenha chip nenhum', () => {
+    setup([row({ category_ids: [] })])
+    const celula = screen.getByRole('link', { name: 'Botton Sailor Moon' }).closest('td')!
+    expect(within(celula).queryAllByRole('listitem')).toHaveLength(0)
   })
 
-  it('sem categoria mostra o travessão', () => {
-    setup([row({ category_ids: [] })])
-    expect(screen.queryByRole('button', { name: /categorias de/ })).toBeNull()
-    expect(screen.getAllByText('—').length).toBeGreaterThan(0)
+  it('a miniatura tem 72px e o foco abre a foto ampliada', async () => {
+    setup([row()])
+
+    const gatilho = screen.getByLabelText('Ampliar a foto de Botton Sailor Moon')
+    const mini = within(gatilho).getByRole('img')
+    expect(mini).toHaveAttribute('width', '72')
+    expect(mini.className.split(/\s+/)).toEqual(expect.arrayContaining(['h-[72px]', 'w-[72px]']))
+
+    fireEvent.focus(gatilho)
+    await waitFor(() => expect(document.querySelectorAll('img[width="320"]')).toHaveLength(1))
   })
 })
 
@@ -642,7 +661,7 @@ describe('feature 80 — o fornecedor na listagem', () => {
 
     expect(screen.queryByRole('columnheader', { name: 'Fornecedor' })).toBeNull()
     expect(screen.queryByText('Ateliê Prata')).toBeNull()
-    expect(screen.getByRole('columnheader', { name: 'Categorias' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Preço' })).toBeInTheDocument()
   })
 
   it('FOR-18 — escolher o fornecedor no filtro pede a lista filtrada, e o chip mostra o nome', async () => {
@@ -688,13 +707,14 @@ describe('AdminProductsPage — abrir fora da aba e ativar pela linha', () => {
     expect(link.getAttribute('href')).toBe('/admin/produtos/p1/editar')
   })
 
-  it('a linha leva o nome inteiro na dica, e a célula do nome tem largura fixa', () => {
+  it('o nome inteiro quebra linha (não trunca), dentro de uma largura fixa', () => {
     const longo = 'Pingente Coração com Cinzas e Mecha de Cabelo em Prata 925 Banhado'
     setup([row({ name: longo })], 1)
     const link = screen.getByRole('link', { name: longo })
     expect(link.closest('tr')?.getAttribute('title')).toBe(longo)
-    expect(link.className.split(/\s+/)).toContain('truncate')
-    expect((link.parentElement?.parentElement?.className ?? '').split(/\s+/)).toContain('w-[200px]')
+    expect(link.className.split(/\s+/)).not.toContain('truncate')
+    expect(link).toHaveTextContent(longo)
+    expect((link.parentElement?.className ?? '').split(/\s+/)).toEqual(expect.arrayContaining(['w-[220px]', 'lg:w-[320px]']))
   })
 
   it('a coluna Ações é um só botão "⋯", sem ícones soltos', () => {
