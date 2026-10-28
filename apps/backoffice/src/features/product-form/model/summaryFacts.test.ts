@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { stockFact, type SummaryInput } from './summaryFacts'
+import { stockFact, videoFact, type SummaryInput } from './summaryFacts'
 import type { ProductVariant } from '@estrelinha/supabase/types'
 
 // O estoque do card Resumo. `Não controla` vem de BUG-20260802: com a política *Não controlar*
@@ -84,5 +84,15 @@ describe('stockFact — o estoque do Resumo', () => {
     })
 
     expect(stockFact(noSellable)).toEqual({ label: 'Estoque', value: '12 un.' })
+  })
+})
+
+describe('videoFact (MOD-05)', () => {
+  it.each([
+    ['', 'não'],
+    ['   ', 'não'],
+    ['https://www.youtube.com/watch?v=abc', 'sim'],
+  ] as const)('video_url %j ⇒ "Vídeo · %s"', (video_url, expected) => {
+    expect(videoFact({ video_url })).toBe(expected)
   })
 })

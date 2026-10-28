@@ -5,7 +5,8 @@ import { MemoryRouter } from 'react-router-dom'
 import { PRODUCT_POOL_KEY } from '@/entities/product'
 
 // PFM-01 (P1.3 AC 1): "SHALL exibir 5 abas — Geral · Mídia · Preços & variações · SEO ·
-// Relacionados — e a aba `Variações` SHALL não existir mais".
+// Relacionados — e a aba `Variações` SHALL não existir mais". Desde a feature 85 (MOD-01) a aba Mídia
+// também saiu: imagens e vídeo moram no modal aberto pelo Resumo.
 // PFM-11 AC 2-3: badge de pendência por aba, e o clique leva ao primeiro campo inválido.
 
 vi.mock('@estrelinha/supabase/client', () => ({
@@ -94,16 +95,16 @@ beforeEach(() => {
 })
 
 describe('AdminProductFormPage — as abas (PFM-01, FAQ-16)', () => {
-  it('exibe exatamente 6 abas, com os rótulos da spec', async () => {
+  // Reescrito na feature 85 (MOD-01): eram 6 abas com "Mídia" entre Perguntas e Preços.
+  it('exibe exatamente 5 abas, com os rótulos da spec', async () => {
     renderPage()
     await waitFor(() => expect(screen.getByRole('tab', { name: /Geral/ })).toBeInTheDocument())
 
     const tabs = screen.getAllByRole('tab')
-    expect(tabs).toHaveLength(6)
+    expect(tabs).toHaveLength(5)
     expect(tabs.map(t => t.textContent?.replace(/\d+$/, '').trim())).toEqual([
       'Geral',
       'Perguntas',
-      'Mídia',
       'Preços & variações',
       'SEO',
       'Relacionados',
@@ -127,11 +128,14 @@ describe('AdminProductFormPage — as abas (PFM-01, FAQ-16)', () => {
     expect(screen.queryByRole('tab', { name: /^Variações/ })).not.toBeInTheDocument()
   })
 
-  it('a aba Mídia existe como slot — o conteúdo atual segue lá até a feature 12', async () => {
+  // Era "a aba Mídia existe como slot". A feature 85 (MOD-01) a trocou pelo modal: a ausência é a
+  // nova verdade, e a vizinha prova que o caminho até a mídia existe (o "Editar mídia" do Resumo).
+  it('a aba Mídia NÃO existe mais — a mídia abre pelo Resumo (MOD-01)', async () => {
     renderPage()
-    await waitFor(() => expect(screen.getByRole('tab', { name: /Mídia/ })).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole('tab', { name: /Geral/ })).toBeInTheDocument())
 
-    expect(screen.getByRole('tab', { name: /Mídia/ })).toBeInTheDocument()
+    expect(screen.queryByRole('tab', { name: /Mídia/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Editar mídia/ })).toBeInTheDocument()
   })
 })
 
@@ -177,12 +181,16 @@ describe('AdminProductFormPage — a aba Geral em três cards (artboard `aba Ger
   })
 })
 
-describe('AdminProductFormPage — a ordem do inspetor (artboard `Aside`)', () => {
-  it('vai de Publicação a Prévia na loja, com o checklist antes do Resumo', async () => {
+// Reescrito na feature 85 (RES-01, RES-02, RES-06). Era Publicação → Pronto para publicar → Resumo
+// → Prévia na loja. O Resumo subiu para logo depois de Publicação, a Prévia saiu, e no DOM o Resumo
+// vem PRIMEIRO (a ordem do celular); a ordem da coluna a partir de `lg` vem das áreas da grade, que
+// `AdminProductFormPage.midia.test.tsx` prova por token exato, junto com o Fornecedor.
+describe('AdminProductFormPage — a ordem do inspetor (feature 85)', () => {
+  it('no DOM: Resumo, depois Publicação, depois Pronto para publicar — e a Prévia na loja não existe', async () => {
     renderPage()
     await waitFor(() => expect(screen.getByText('Pronto para publicar')).toBeInTheDocument())
 
-    const titles = ['Publicação', 'Pronto para publicar', 'Resumo', 'Prévia na loja']
+    const titles = ['Resumo', 'Publicação', 'Pronto para publicar']
     const positions = titles.map(title => {
       const node = screen.getByText(title)
       // `compareDocumentPosition` responde a pergunta certa — quem vem antes no documento — sem
@@ -193,6 +201,7 @@ describe('AdminProductFormPage — a ordem do inspetor (artboard `Aside`)', () =
       const relation = positions[i].node.compareDocumentPosition(positions[i + 1].node)
       expect(relation & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     }
+    expect(screen.queryByText('Prévia na loja')).not.toBeInTheDocument()
   })
 })
 

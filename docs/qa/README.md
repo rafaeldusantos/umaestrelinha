@@ -189,3 +189,39 @@ longo passando de 60.
 passa em parte (selo consertado, título da prévia ainda truncado a 200 %). Cinco bugs: um Trust-Damage (a segunda
 sugestão perde o texto escrito à mão) e quatro Friction (foco no body, sucesso não anunciado, prévia a 200 %, frase
 velha de falha).
+
+## Ciclo planejado — feature `85` (o Resumo com as imagens do produto), nível *targeted*
+
+Planejado em 2026-10-28 (`qa-report`), não executado. Jornada nova `J-ver-e-cuidar-das-fotos-da-peca` (12 cenários
+`PNL-midia-*`, todos `untested`), personas Adri cadastrando peças e Equipe com TalkBack. Reaberto (`untested`)
+`PNL-variacoes-imagem-na-linha-e-envio` (o envio da variação entra agora no Resumo e no modal Mídia). Só ambiente
+local: painel do worktree num Vite em porta livre (a T12 usou :8093) contra o Supabase local :54441;
+`*.supabase.co` e `**/g/collect*` bloqueados; peças `TESTE-85-QA-` e os objetos que elas enviarem ao bucket
+`product-images` apagados no fim. Produtos de leitura: `fdc81401-…` (28 fotos), `ff520070-…` (9), `eb0d919d-…` (6) —
+**não salvar**. A re-medida de MOD-07 em 390 (consertado depois da prova, só provado por token) está em
+`CH-midia-celular-e-fonte-grande`. Ordem por risco:
+
+| # | Charter | Tour | Caixa |
+| --- | --- | --- | --- |
+| 1 | `CH-midia-ver-e-cuidar-da-peca-no-celular` | Money | 60 |
+| 2 | `CH-midia-regressoes-da-pagina` | Back-Button | 45 |
+| 3 | `CH-midia-falhas-de-envio` | Network | 45 |
+| 4 | `CH-midia-muitas-fotos` | Feature | 45 |
+| 5 | `CH-midia-celular-e-fonte-grande` | Feature | 45 |
+| 6 | `CH-midia-teclado-e-leitor` | Feature | 45 |
+| 7 | `CH-midia-produto-sem-imagem` | Feature | 30 |
+| 8 | `CH-midia-arrastar-arquivo` | Feature | 30 |
+| canário | `CH-variacoes-cadastrar-pecas-repetidas` — só o modal de imagem da variação (envio e 28 fotos) | — | — |
+
+Bug conhecido, anterior à `85` e já com evidência: `BUG-20261028-produto-abre-com-alteracoes-nao-salvas` (abrir a
+peça sem editar já diz "Alterações não salvas" e grava rascunho; reproduzido na `master`; na `85` o aviso de rascunho
+empurra a foto principal 10px abaixo da dobra em 390). Ficam `blocked-verify` (só humano): o arrasto nativo de
+arquivo do sistema operacional, o gesto com dedo real no Android e o TalkBack real. Fora do ciclo: a dobra de
+1024/1440 é Goal e não AC (medir e relatar, não reprovar).
+
+**Executado em 2026-10-28** (`reports/2026-10-28-backoffice-resumo-com-imagens.md`): 8 charters + canário; 9 cenários
+pass, 3 fail, 1 blocked-verify. MOD-07 re-medido em 390: remover 44×44, Gerar 81×44, alt 328×44 — passa. Sete
+bugs Friction novos (três anteriores à 85: ordem só por arrasto, foco do modal da variação, e o lote de falhas
+provavelmente) e dois re-found (abrir sujo; "Close"). Da própria 85: o Resumo corta texto a 200 %, o foco cai no
+body ao resolver a pendência de imagem, o envio não é anunciado ao leitor e as linhas "enviada" ficam na tela.
+Peças `TESTE-85-QA-` e os 14 objetos enviados foram apagados.

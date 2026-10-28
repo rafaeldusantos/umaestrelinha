@@ -71,7 +71,7 @@ const PublishChecklist = ({ items, onFocusField }: Props) => {
                     rótulo `Gerar`, mas `AD-011` mantém geração de texto de SEO FORA de escopo — não há
                     provedor no projeto nem AC descrevendo o texto. Entre um rótulo que mente e um que
                     descreve o que o clique faz, fica o segundo.
-                    Não confundir com o `Gerar` do alt-text (aba Mídia, PMD-01 AC 2): esse existe, é
+                    Não confundir com o `Gerar` do alt-text (modal Mídia, PMD-01 AC 2): esse existe, é
                     template determinístico, e continua como está. */}
                 <span className="shrink-0 self-center text-xs font-medium text-primary">Ir →</span>
               </button>

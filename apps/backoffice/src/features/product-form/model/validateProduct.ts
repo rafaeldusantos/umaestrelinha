@@ -10,10 +10,13 @@
 import { MATERIAL_KINDS } from '@estrelinha/core/material'
 import type { ProductFormState } from './useProductForm'
 
-/** As 5 abas do formulário depois da T25. `variacoes` deixou de existir. */
-export type TabId = 'geral' | 'perguntas' | 'midia' | 'precos' | 'seo' | 'relacionados'
+/**
+ * As abas do formulário. `variacoes` deixou de existir na T25, e `midia` na feature 85 (MOD-01): a
+ * mídia virou o modal aberto pelo card Resumo.
+ */
+export type TabId = 'geral' | 'perguntas' | 'precos' | 'seo' | 'relacionados'
 
-export const TAB_IDS: readonly TabId[] = ['geral', 'perguntas', 'midia', 'precos', 'seo', 'relacionados']
+export const TAB_IDS: readonly TabId[] = ['geral', 'perguntas', 'precos', 'seo', 'relacionados']
 
 /**
  * `error` bloqueia *Salvar e publicar*. `warning` é informação — a vitrine fica estranha, mas o

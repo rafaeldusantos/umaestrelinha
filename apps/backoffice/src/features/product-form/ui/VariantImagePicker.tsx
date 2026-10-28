@@ -1,7 +1,7 @@
 // A imagem da variação, escolhida na própria linha da grade — feature 81 (OPV-11..15, 26, 28).
 //
 // Substitui o card "Imagem por variação" (PMD-06), que ficava longe da linha, numa fileira de
-// miniaturas de 40px, e só conhecia foto já enviada na aba Mídia. Aqui a escolha mora na linha, e o
+// miniaturas de 40px, e só conhecia foto já enviada pela galeria. Aqui a escolha mora na linha, e o
 // envio de foto nova acontece no próprio modal — pelo MESMO motor da galeria (`uploadProductImages`,
 // A8): um segundo caminho de upload teria validação própria e divergiria.
 //
@@ -31,7 +31,7 @@ export interface VariantImagePickerProps {
   /** Todas as imagens do produto, na ordem da galeria. */
   images: readonly ProductImage[]
   onSelect: (url: string | null) => void
-  /** As fotos enviadas pelo modal — entram na galeria do produto (aba Mídia). */
+  /** As fotos enviadas pelo modal — entram na galeria do produto (modal Mídia). */
   onImagesAdded: (images: ProductImage[]) => void
   /** O mesmo sinal da galeria: enquanto `true`, o salvar do produto fica desabilitado (OPV-15). */
   onUploadingChange?: (uploading: boolean) => void

@@ -229,6 +229,64 @@ describe('useProductForm — carga e isDirty', () => {
     expect(result.current.form.weight_kg).toBe(0.1)
   })
 
+  // Feature 85, conserto r1 (ADI-04): a forma funcional lê o estado VIGENTE. Duas chamadas no mesmo
+  // `act` acumulam — com a forma de objeto montada sobre o `form` do render, a segunda apagaria a 1ª.
+  it('setFields com função acumula sobre o estado vigente, e marca alterado', async () => {
+    const { result } = renderHook(() => useProductForm())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    const foto = (url: string) => ({ url, alt: null, source: 'upload' as const })
+
+    act(() => {
+      result.current.setFields(c => ({ images: [...c.images, foto('https://cdn/a.webp')] }))
+      result.current.setFields(c => ({ images: [...c.images, foto('https://cdn/b.webp')] }))
+    })
+
+    expect(result.current.form.images.map(i => i.url)).toEqual(['https://cdn/a.webp', 'https://cdn/b.webp'])
+    expect(result.current.form.weight_kg).toBe(0.1)
+    expect(result.current.isDirty).toBe(true)
+  })
+
+  // Conserto r2 (R06): a régua de cima confere `weight_kg === 0.1`, que É o default — verdadeira
+  // com a forma funcional mesclando sobre `emptyProductForm()`. Aqui o estado vigente difere do
+  // default em cada campo conferido, então só a base certa preserva o produto.
+  it('setFields com função preserva o resto do estado VIGENTE, e não o default', async () => {
+    const { result } = renderHook(() => useProductForm())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    const vazio = emptyProductForm()
+    act(() => result.current.setFields({ name: 'Pingente Estrela', weight_kg: 0.3, price: 89.9 }))
+    expect(vazio.name).not.toBe('Pingente Estrela')
+    expect(vazio.weight_kg).not.toBe(0.3)
+    expect(vazio.price).not.toBe(89.9)
+
+    act(() =>
+      result.current.setFields(c => ({ images: [...c.images, { url: 'https://cdn/a.webp', alt: null, source: 'upload' as const }] })),
+    )
+
+    expect(result.current.form.name).toBe('Pingente Estrela')
+    expect(result.current.form.weight_kg).toBe(0.3)
+    expect(result.current.form.price).toBe(89.9)
+    expect(result.current.form.images.map(i => i.url)).toEqual(['https://cdn/a.webp'])
+  })
+
+  it('setFields com função sobre um produto CARREGADO mantém os campos dele, e marca alterado', async () => {
+    respondWith(dbRow())
+    const { result } = renderHook(() => useProductForm('p1'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    const antes = { ...result.current.form }
+    expect(antes.name).toBe('Botton Sailor Moon')
+    expect(antes.price).toBe(5.9)
+    expect(result.current.isDirty).toBe(false)
+
+    act(() => result.current.setFields(c => ({ images: [...c.images, { url: 'https://cdn/z.webp', alt: null, source: 'upload' as const }] })))
+
+    expect(result.current.form.name).toBe('Botton Sailor Moon')
+    expect(result.current.form.slug).toBe('botton-sailor-moon')
+    expect(result.current.form.price).toBe(5.9)
+    expect(result.current.form.weight_kg).toBe(antes.weight_kg)
+    expect(result.current.form.images).toEqual([...antes.images, { url: 'https://cdn/z.webp', alt: null, source: 'upload' }])
+    expect(result.current.isDirty).toBe(true)
+  })
+
   it('markSaved zera o isDirty sem tocar no conteúdo', async () => {
     const { result } = renderHook(() => useProductForm())
     await waitFor(() => expect(result.current.loading).toBe(false))

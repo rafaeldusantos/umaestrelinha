@@ -266,7 +266,7 @@ export const buildInsertBatch = (
       stock_policy: 'track',
       // AC 8: criado como RASCUNHO. Publicar 20 produtos sem revisar é o oposto do que a tela pede.
       is_active: !defaults.asDraft ? true : false,
-      // RFN-05 AC 4: a foto da linha entra no mesmo formato da aba Mídia. Alt vem do nome, pelo
+      // RFN-05 AC 4: a foto da linha entra no mesmo formato da galeria de mídia. Alt vem do nome, pelo
       // mesmo template puro de PMD-01 — sem inventar um segundo gerador.
       images: row.imageUrl
         ? [{ url: row.imageUrl, alt: row.name.trim() || null, source: 'upload' as const }]
