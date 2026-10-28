@@ -134,9 +134,20 @@ describe('buildChecklist — os 6 itens de P1.7 AC 12', () => {
     expect(pendentes.map(i => i.id)).toEqual(['name', 'category', 'image', 'weight'])
     pendentes.forEach(i => {
       expect(i.focusField).toBeTruthy()
-      expect(i.tab).toBeTruthy()
+      // Feature 85 (MOD-06): o item de imagens deixou de ter aba — ele abre o modal Mídia. Os
+      // outros continuam apontando uma aba.
+      if (i.id === 'image') expect(i.tab).toBeNull()
+      else expect(i.tab).toBeTruthy()
       expect(i.hint).toBeTruthy()
     })
+  })
+
+  it('MOD-06: o item de imagens tem tab null, e nenhum item aponta a aba Mídia', () => {
+    const itens = buildChecklist(form({ images: [] }))
+    const imagem = itens.find(i => i.id === 'image')
+    expect(imagem?.tab).toBeNull()
+    expect(imagem?.focusField).toBe('images')
+    expect(itens.map(i => i.tab)).not.toContain('midia')
   })
 
   it('item aprovado não tem hint', () => {

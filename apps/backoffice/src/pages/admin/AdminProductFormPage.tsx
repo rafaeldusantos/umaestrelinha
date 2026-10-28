@@ -1,7 +1,7 @@
-import { useEffect, useState, useRef } from 'react'
+import { useCallback, useEffect, useState, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useLocation, useParams, useNavigate, useSearchParams } from 'react-router-dom'
-import { Package, Image as ImageIcon, Layers, Weight } from 'lucide-react'
+import { Package, Image as ImageIcon, Layers, Video, Weight } from 'lucide-react'
 import { Button } from '@estrelinha/ui/button'
 import { Input } from '@estrelinha/ui/input'
 import { Label } from '@estrelinha/ui/label'
@@ -12,11 +12,13 @@ import { supabase } from '@estrelinha/supabase/client'
 import { useAdminProducts } from '@/entities/product/api/useAdminProducts'
 import { useAdminCategories } from '@/entities/category/api/useAdminCategories'
 import { productListReturn } from '@/features/product-list/model/queryUrl'
-import ImageGallery from '@/features/product-form/ui/ImageGallery'
-import StorefrontPreview from '@/features/product-form/ui/StorefrontPreview'
+import { useProductImageUpload } from '@/features/product-form/model/useProductImageUpload'
+import ProductMediaSummary from '@/features/product-form/ui/ProductMediaSummary'
+import ProductMediaDialog from '@/features/product-form/ui/ProductMediaDialog'
+import ImageLightbox from '@/features/product-form/ui/ImageLightbox'
 import { clearMissingVariantImages } from '@/features/product-form/lib/variantImages'
 import {
-  imagesFact, priceSummary, stockFact, variantsFact, weightFact,
+  imagesFact, priceSummary, stockFact, variantsFact, videoFact, weightFact,
 } from '@/features/product-form/model/summaryFacts'
 import { useProductForm } from '@/features/product-form/model/useProductForm'
 import { buildChecklist, computeMargin } from '@/features/product-form/model/checklist'
@@ -81,14 +83,16 @@ import {
 import type { DbProduct, ProductOption, ProductVariant } from '@estrelinha/supabase/types'
 import { storeUrlFor } from '@/features/product-form/lib/storeUrl'
 
-/** As 5 abas de PFM-01. `variacoes` não existe mais: a grade mora em `precos`. */
+/**
+ * As 5 abas de PFM-01. `variacoes` não existe mais: a grade mora em `precos`. `midia` também não
+ * (feature 85, MOD-01): imagens e vídeo moram no modal Mídia, aberto pelo card Resumo.
+ */
 const TABS: { id: TabId; label: string }[] = [
   { id: 'geral', label: 'Geral' },
   // Feature 28: logo depois de `Geral` porque a pergunta é a continuação da descrição, que mora
-  // lá. Separá-las por três abas de preço e mídia esconderia justamente a relação que o aviso da
-  // `FAQ-27` precisa tornar visível.
+  // lá. Separá-las por abas de preço esconderia justamente a relação que o aviso da `FAQ-27`
+  // precisa tornar visível.
   { id: 'perguntas', label: 'Perguntas' },
-  { id: 'midia', label: 'Mídia' },
   { id: 'precos', label: 'Preços & variações' },
   { id: 'seo', label: 'SEO' },
   { id: 'relacionados', label: 'Relacionados' },
@@ -135,9 +139,27 @@ const AdminProductFormPage = () => {
   // PFM-13: rascunho por produto em `sessionStorage`, com guarda de saída.
   const draft = useFormDraft({ productId: id, form, isDirty })
   const [saving, setSaving] = useState(false)
-  // Só para travar o cabeçalho enquanto há envio em curso — o resto do estado de mídia é da
-  // `ImageGallery` desde a T34.
-  const [uploading, setUploading] = useState(false)
+  // Feature 85 (ADI-06): o dono único do envio de imagens da página — o Resumo e o modal Mídia
+  // enviam pelo MESMO hook, e por isso mostram o mesmo progresso. As URLs entram no FIM (ADI-04).
+  const imageUpload = useProductImageUpload({
+    // ADI-04: anexa sobre a lista VIGENTE (atualização funcional), não sobre o `form` do último
+    // render — dois lotes que terminam no mesmo tique (Resumo e modal) perderiam uma foto.
+    onUploaded: urls =>
+      setFields(current => ({
+        images: [...current.images, ...urls.map(url => ({ url, alt: null, source: 'upload' as const }))],
+      })),
+  })
+  // O envio da foto pela linha da grade (`VariantImagePicker`) tem estado próprio. São DOIS booleanos
+  // com nome, e não um compartilhado: com um só, o primeiro envio a terminar destravaria o salvar
+  // com o outro ainda no ar (design, Risks). O cabeçalho trava enquanto qualquer um corre (ADI-03).
+  const [variantUploading, setVariantUploading] = useState(false)
+  const uploading = imageUpload.uploading || variantUploading
+  /** O modal Mídia (MOD-02), aberto pelo Resumo e pela pendência de imagens do checklist (MOD-06). */
+  const [mediaOpen, setMediaOpen] = useState(false)
+  /** O visualizador (ZOM-01): o índice da imagem aberta, ou `null` fechado. */
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
+  // Estável: o visualizador fecha sozinho num efeito quando a imagem aberta some (edge case).
+  const closeLightbox = useCallback(() => setLightboxIndex(null), [])
   /** RFN-08 AC 1: `Descartar` era a única ação destrutiva do formulário sem confirmação. */
   const [discardOpen, setDiscardOpen] = useState(false)
   // Controlado (era `defaultValue`) porque o atalho do checklist precisa ABRIR a aba do campo
@@ -200,8 +222,17 @@ const AdminProductFormPage = () => {
   // Publicar exige o checklist completo E nenhum erro de validação. Rascunho não exige nada.
   const canPublish = checklistCanPublish(checklist) && !hasBlockingErrors(issues)
 
-  /** Abre a aba e foca o campo — nesta ordem, porque o Radix desmonta a aba inativa. */
-  const focusField = (tab: TabId, field: string) => {
+  /**
+   * Abre a aba e foca o campo — nesta ordem, porque o Radix desmonta a aba inativa. `tab: null` é o
+   * campo que não mora em aba nenhuma: as imagens, que abrem o modal Mídia (MOD-06). Sem este caso a
+   * pendência "Ao menos uma imagem" procuraria um `[data-field="images"]` que só existe com o modal
+   * aberto, e o clique não faria nada.
+   */
+  const focusField = (tab: TabId | null, field: string) => {
+    if (tab === null) {
+      if (field === 'images') setMediaOpen(true)
+      return
+    }
     setActiveTab(tab)
     requestAnimationFrame(() => {
       const el = document.querySelector<HTMLElement>(`[data-field="${field}"]`)
@@ -578,9 +609,118 @@ const AdminProductFormPage = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+      {/* RES-06: a página é UMA grade de áreas, e não "coluna principal + <aside>". Abaixo de `lg` é
+          uma coluna só, na ordem do DOM: Resumo, abas, Publicação, Pronto para publicar, Fornecedor.
+          A partir de `lg`, as abas ocupam a esquerda em todas as linhas e a direita empilha
+          Publicação → Resumo → Pronto para publicar → Fornecedor (RES-01).
+
+          A última linha é `1fr` e só a coluna principal passa por ela: um item que atravessa trilhas
+          `auto` reparte a altura que sobra entre elas, e a coluna das abas, mais alta que a lateral,
+          afastaria os cards da direita uns dos outros. Com a trilha flexível no fim, o excesso cai
+          nela e os cards da lateral ficam juntos no topo. */}
+      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:grid-rows-[auto_auto_auto_auto_1fr] lg:[grid-template-areas:'main_pub'_'main_res'_'main_chk'_'main_sup'_'main_.']">
+        {/* RES-01, RES-06: o Resumo existe UMA vez no DOM, e é o PRIMEIRO item da grade — a ordem do
+            celular, que é o caso principal: abaixo de `lg` a Adri abre o produto e vê a peça antes das
+            abas. A partir de `lg` a grade o leva para a coluna da direita, logo depois de Publicação.
+            Ordem do DOM = ordem de leitura e de Tab nos dois tamanhos (design, Tech Decisions). */}
+        <div className="min-w-0 lg:[grid-area:res]">
+          <FormCard
+            title="Resumo"
+            action={
+              // RES-07: o atalho para a página pública, que morava no card "Prévia na loja" (RES-02).
+              previewUrl && (
+                <a
+                  href={previewUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs font-medium text-primary hover:underline"
+                >
+                  Abrir na loja ↗
+                </a>
+              )
+            }
+          >
+            {/* RES-03..05, RES-09, ADI-01..03: as imagens no topo do card; os fatos (RES-08) embaixo. */}
+            <ProductMediaSummary
+              images={form.images}
+              upload={imageUpload.upload}
+              progress={imageUpload.progress}
+              onOpenImage={setLightboxIndex}
+              onOpenMedia={() => setMediaOpen(true)}
+              // Com o modal aberto quem anuncia o envio é a galeria dele, não o Resumo (sem dobro).
+              announce={!mediaOpen}
+            >
+              <div className="space-y-3 text-sm">
+                <div>
+                  <span className="text-xs text-muted-foreground">{summary.label}</span>
+                  <div className="flex items-center justify-between gap-2">
+                    {/* RFN-07 AC 6: FAIXA quando há grade. Mostrar o `base_price` de um produto que a
+                        loja cobra por variação é anunciar um preço que o caixa não pratica. */}
+                    <span className="font-heading text-xl font-bold text-foreground" data-testid="summary-price">
+                      {summary.kind === 'range'
+                        ? `${formatPrice(summary.min)} – ${formatPrice(summary.max)}`
+                        : formatPrice(summary.min)}
+                    </span>
+                    {margin !== null && (
+                      <span
+                        className={`shrink-0 rounded-pill px-2 py-0.5 text-xs font-semibold ${
+                          margin.percent > 0 ? 'bg-green-50 text-green-700' : 'bg-destructive/10 text-destructive'
+                        }`}
+                      >
+                        margem {margin.percent.toFixed(0)}%
+                      </span>
+                    )}
+                  </div>
+                </div>
+                {/* A 200 % de fonte o valor passava da borda do card ("Não contro"): cada linha embrulha, o
+                    valor desce alinhado à direita e quebra palavra se precisar, e o ícone não encolhe
+                    (BUG-20261028-resumo-corta-fatos-e-adicionar-com-fonte-200). */}
+                <dl className="space-y-2 border-t border-border pt-3">
+                  {variacoes && (
+                    <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5">
+                      <dt className="flex min-w-0 items-center gap-2 text-muted-foreground">
+                        <Layers className="h-4 w-4 shrink-0" /> Variações
+                      </dt>
+                      <dd className="ml-auto min-w-0 break-words text-right font-medium text-foreground">{variacoes}</dd>
+                    </div>
+                  )}
+                  {/* Rótulo e valor vêm do MESMO fato: com `Não controlar` a linha diz
+                      `Estoque · Não controla`, e "somado" só aparece quando há grade para somar. */}
+                  <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5">
+                    <dt className="flex min-w-0 items-center gap-2 text-muted-foreground">
+                      <Package className="h-4 w-4 shrink-0" /> {estoque.label}
+                    </dt>
+                    <dd className="ml-auto min-w-0 break-words text-right font-medium text-foreground" data-testid="summary-stock">
+                      {estoque.value}
+                    </dd>
+                  </div>
+                  <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5">
+                    <dt className="flex min-w-0 items-center gap-2 text-muted-foreground">
+                      <ImageIcon className="h-4 w-4 shrink-0" /> Imagens
+                    </dt>
+                    <dd className="ml-auto min-w-0 break-words text-right font-medium text-foreground">{imagesFact(form)}</dd>
+                  </div>
+                  {/* MOD-05: o campo de vídeo mora no modal; a linha diz se há um, sem abrir o modal. */}
+                  <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5">
+                    <dt className="flex min-w-0 items-center gap-2 text-muted-foreground">
+                      <Video className="h-4 w-4 shrink-0" /> Vídeo
+                    </dt>
+                    <dd className="ml-auto min-w-0 break-words text-right font-medium text-foreground" data-testid="summary-video">{videoFact(form)}</dd>
+                  </div>
+                  <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5">
+                    <dt className="flex min-w-0 items-center gap-2 text-muted-foreground">
+                      <Weight className="h-4 w-4 shrink-0" /> Peso de envio
+                    </dt>
+                    <dd className="ml-auto min-w-0 break-words text-right font-medium text-foreground">{weightFact(form)}</dd>
+                  </div>
+                </dl>
+              </div>
+            </ProductMediaSummary>
+          </FormCard>
+        </div>
+
         {/* Coluna principal */}
-        <div className="lg:col-span-2 min-w-0">
+        <div className="min-w-0 lg:[grid-area:main]">
           <Tabs value={activeTab} onValueChange={value => setActiveTab(value as TabId)} className="space-y-4">
             <TabsList className="w-full justify-start flex-wrap h-auto gap-1 bg-muted/60 p-1 rounded-xl">
               {TABS.map(tab => (
@@ -744,7 +884,7 @@ const AdminProductFormPage = () => {
               />
             </TabsContent>
 
-            {/* MÍDIA */}
+            {/* PERGUNTAS */}
             <TabsContent value="perguntas">
               <FaqTab
                 value={form.faqs}
@@ -753,31 +893,6 @@ const AdminProductFormPage = () => {
                 categoryIds={form.category_ids}
                 onCreate={createFaq}
               />
-            </TabsContent>
-
-            <TabsContent value="midia">
-              <FormCard title="Mídia" description="Imagens e vídeo do produto.">
-                {/* PMD-01/03/04: a galeria virou componente próprio na T34 — alt-text com estado,
-                    selo de origem, progresso por arquivo e colar da área de transferência. */}
-                <ImageGallery
-                  images={form.images}
-                  onChange={next =>
-                    // PMD-06: remover a foto que uma variação apontava não pode deixar a linha com
-                    // uma URL morta — ela volta a usar a principal no mesmo gesto.
-                    setFields({
-                      images: next,
-                      variants: clearMissingVariantImages(form.variants, next),
-                    })
-                  }
-                  productName={form.name}
-                  onUploadingChange={setUploading}
-                />
-
-                <div className="space-y-1.5">
-                  <Label>Vídeo (URL YouTube/Vimeo)</Label>
-                  <Input value={form.video_url} onChange={e => setField('video_url', e.target.value)} placeholder="https://youtube.com/watch?v=..." />
-                </div>
-              </FormCard>
             </TabsContent>
 
             {/* PREÇOS */}
@@ -834,7 +949,7 @@ const AdminProductFormPage = () => {
                   slug={form.slug || slugify(form.name)}
                   images={form.images}
                   onImagesAdded={added => setField('images', [...form.images, ...added])}
-                  onUploadingChange={setUploading}
+                  onUploadingChange={setVariantUploading}
                 />
               </FormCard>
 
@@ -910,132 +1025,86 @@ const AdminProductFormPage = () => {
           </Tabs>
         </div>
 
-        {/* Coluna lateral. NÃO é `sticky` (feature 67): o `lg:sticky lg:top-6` daqui nunca grudou — o
-            `main` do painel era `overflow-auto` e prendia todo `sticky` de dentro. Com o `main`
-            consertado ele passaria a grudar, e a coluna mede ~1.300px numa janela de 900: grudada no
-            topo, o fim dela (gravação, SEO) ficaria fora de alcance até o fim do formulário, e o topo
-            passaria por baixo do cabeçalho de salvar, que é quem gruda nesta tela. */}
-        <aside className="lg:col-span-1 space-y-6 self-start">
-          <FormCard title="Publicação">
-            {/* O switch "Ativo" saiu na T25 (era um segundo dono de `is_active` dentro do save). O que
-                volta aqui é uma AÇÃO que grava na hora, só aquela coluna — ver `ProductActiveControl`. */}
-            <ProductActiveControl
-              productId={isEdit ? id ?? null : null}
-              active={form.is_active}
-              canActivate={canPublish}
-              isDirty={isDirty}
-              onChanged={active => adoptSaved({ is_active: active })}
-            />
-            <div className="flex flex-col gap-4">
-              <label className="flex items-center gap-3 text-sm">
-                <Switch checked={form.is_featured} onCheckedChange={v => setField('is_featured', v)} /> Destaque na home
-              </label>
-              <label className="flex items-center gap-3 text-sm">
-                <Switch checked={form.is_new} onCheckedChange={v => setField('is_new', v)} /> Selo &quot;Novo&quot;
-              </label>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Drop programado</Label>
-              <Input type="datetime-local" value={form.scheduled_at} onChange={e => setField('scheduled_at', e.target.value)} />
-              <p className="text-xs text-muted-foreground">Deixe vazio para publicar imediatamente</p>
-            </div>
-          </FormCard>
+        {/* A coluna lateral (agora: as áreas da direita da grade). NÃO é `sticky` (feature 67): o
+            `lg:sticky lg:top-6` dela nunca grudou — o `main` do painel era `overflow-auto` e prendia
+            todo `sticky` de dentro. Com o `main` consertado ele passaria a grudar, e a coluna mede
+            ~1.300px numa janela de 900: grudada no topo, o fim dela ficaria fora de alcance até o fim
+            do formulário, e o topo passaria por baixo do cabeçalho de salvar, que é quem gruda nesta
+            tela. Desde a feature 85 cada card é um item da grade, e nenhum deles gruda. */}
+        <div className="min-w-0 lg:[grid-area:pub]">
+            <FormCard title="Publicação">
+              {/* O switch "Ativo" saiu na T25 (era um segundo dono de `is_active` dentro do save). O que
+                  volta aqui é uma AÇÃO que grava na hora, só aquela coluna — ver `ProductActiveControl`. */}
+              <ProductActiveControl
+                productId={isEdit ? id ?? null : null}
+                active={form.is_active}
+                canActivate={canPublish}
+                isDirty={isDirty}
+                onChanged={active => adoptSaved({ is_active: active })}
+              />
+              <div className="flex flex-col gap-4">
+                <label className="flex items-center gap-3 text-sm">
+                  <Switch checked={form.is_featured} onCheckedChange={v => setField('is_featured', v)} /> Destaque na home
+                </label>
+                <label className="flex items-center gap-3 text-sm">
+                  <Switch checked={form.is_new} onCheckedChange={v => setField('is_new', v)} /> Selo &quot;Novo&quot;
+                </label>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Drop programado</Label>
+                <Input type="datetime-local" value={form.scheduled_at} onChange={e => setField('scheduled_at', e.target.value)} />
+                <p className="text-xs text-muted-foreground">Deixe vazio para publicar imediatamente</p>
+              </div>
+            </FormCard>
+        </div>
 
-          {/* A ordem é a do artboard `Aside`: Publicação → Pronto para publicar → Resumo → Prévia.
-              Ela segue a pergunta que o admin faz descendo a coluna — *o que falta?*, *como está?*,
-              *como vai aparecer?*. A prévia estava em segundo lugar, empurrando o checklist (o único
-              card acionável) para baixo da dobra em telas de 1366px. */}
+        {/* A ordem da coluna (RES-01): Publicação → Resumo → Pronto para publicar → Fornecedor. O
+            Resumo subiu para logo depois de Publicação porque agora carrega as fotos, o que mais
+            identifica a peça; e a "Prévia na loja" saiu (RES-02) — era uma segunda cópia do card da
+            vitrine, e o atalho dela foi para o cabeçalho do Resumo (RES-07). */}
+        <div className="min-w-0 lg:[grid-area:chk]">
           <PublishChecklist
             items={checklist}
+            // `tab: null` é o item de imagens: ele abre o modal Mídia (MOD-06), via `focusField`.
             onFocusField={item => focusField(item.tab, item.focusField)}
           />
+        </div>
 
-          <FormCard title="Resumo">
-            <div className="space-y-3 text-sm">
-              <div>
-                <span className="text-xs text-muted-foreground">{summary.label}</span>
-                <div className="flex items-center justify-between gap-2">
-                  {/* RFN-07 AC 6: FAIXA quando há grade. Mostrar o `base_price` de um produto que a
-                      loja cobra por variação é anunciar um preço que o caixa não pratica. */}
-                  <span className="font-heading text-xl font-bold text-foreground" data-testid="summary-price">
-                    {summary.kind === 'range'
-                      ? `${formatPrice(summary.min)} – ${formatPrice(summary.max)}`
-                      : formatPrice(summary.min)}
-                  </span>
-                  {margin !== null && (
-                    <span
-                      className={`shrink-0 rounded-pill px-2 py-0.5 text-xs font-semibold ${
-                        margin.percent > 0 ? 'bg-green-50 text-green-700' : 'bg-destructive/10 text-destructive'
-                      }`}
-                    >
-                      margem {margin.percent.toFixed(0)}%
-                    </span>
-                  )}
-                </div>
-              </div>
-              <dl className="space-y-2 border-t border-border pt-3">
-                {variacoes && (
-                  <div className="flex items-center justify-between gap-2">
-                    <dt className="flex items-center gap-2 text-muted-foreground">
-                      <Layers className="h-4 w-4" /> Variações
-                    </dt>
-                    <dd className="font-medium text-foreground">{variacoes}</dd>
-                  </div>
-                )}
-                {/* Rótulo e valor vêm do MESMO fato: com `Não controlar` a linha diz
-                    `Estoque · Não controla`, e "somado" só aparece quando há grade para somar. */}
-                <div className="flex items-center justify-between gap-2">
-                  <dt className="flex items-center gap-2 text-muted-foreground">
-                    <Package className="h-4 w-4" /> {estoque.label}
-                  </dt>
-                  <dd className="font-medium text-foreground" data-testid="summary-stock">
-                    {estoque.value}
-                  </dd>
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                  <dt className="flex items-center gap-2 text-muted-foreground">
-                    <ImageIcon className="h-4 w-4" /> Imagens
-                  </dt>
-                  <dd className="font-medium text-foreground">{imagesFact(form)}</dd>
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                  <dt className="flex items-center gap-2 text-muted-foreground">
-                    <Weight className="h-4 w-4" /> Peso de envio
-                  </dt>
-                  <dd className="font-medium text-foreground">{weightFact(form)}</dd>
-                </div>
-              </dl>
-            </div>
-          </FormCard>
-
-          {/* Feature 80 (FOR-16): o fornecedor SALVO, com o link da peça em nova aba. */}
+        {/* Feature 80 (FOR-16): o fornecedor SALVO, com o link da peça em nova aba. */}
+        <div className="min-w-0 lg:[grid-area:sup]">
           <SupplierSummaryCard suppliers={savedSnapshot.suppliers ?? []} />
-
-          {/* PFM-17 / RFN-07 AC 8: como o card vai aparecer na loja, com o estado atual. */}
-          <FormCard
-            title="Prévia na loja"
-            action={
-              previewUrl && (
-                <a
-                  href={previewUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs font-medium text-primary hover:underline"
-                >
-                  Abrir ↗
-                </a>
-              )
-            }
-          >
-            <StorefrontPreview
-              name={form.name}
-              images={form.images}
-              price={form.price}
-              variants={form.variants}
-            />
-          </FormCard>
-        </aside>
+        </div>
       </div>
+
+      {/* MOD-02..04: o conteúdo da aba Mídia de antes, num modal. Tudo o que muda aqui já é o
+          formulário — sem cópia e sem "Cancelar"; a gravação é o Salvar do topo. */}
+      <ProductMediaDialog
+        open={mediaOpen}
+        onOpenChange={setMediaOpen}
+        images={form.images}
+        onImagesChange={next =>
+          // PMD-06 / MOD-03: remover a foto que uma variação apontava não pode deixar a linha com uma
+          // URL morta — ela volta a usar a principal no mesmo gesto.
+          setFields({
+            images: next,
+            variants: clearMissingVariantImages(form.variants, next),
+          })
+        }
+        productName={form.name}
+        videoUrl={form.video_url}
+        onVideoUrlChange={value => setField('video_url', value)}
+        upload={imageUpload.upload}
+        progress={imageUpload.progress}
+        uploading={imageUpload.uploading}
+      />
+
+      {/* ZOM-01..06: o visualizador, aberto pelas imagens do Resumo. */}
+      <ImageLightbox
+        images={form.images}
+        index={lightboxIndex}
+        onIndexChange={setLightboxIndex}
+        onClose={closeLightbox}
+      />
     </form>
   )
 }

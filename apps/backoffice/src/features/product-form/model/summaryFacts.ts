@@ -89,6 +89,13 @@ export const imagesFact = (form: SummaryInput): string => {
   return `${form.images.length} · ${mockups} de mockup`
 }
 
+/**
+ * MOD-05 — a linha "Vídeo · sim/não" do Resumo. O campo de vídeo saiu da página para o modal Mídia,
+ * e esta linha é o que diz, sem abrir o modal, se ele está preenchido. Só espaço não é vídeo.
+ */
+export const videoFact = (form: { video_url: string | null }): 'sim' | 'não' =>
+  (form.video_url ?? '').trim() ? 'sim' : 'não'
+
 /** `18 g`. O banco guarda kg; o artboard mostra grama, que é como o botton se pesa. */
 export const weightFact = (form: SummaryInput): string =>
   `${Math.round((form.weight_kg ?? 0) * 1000)} g`

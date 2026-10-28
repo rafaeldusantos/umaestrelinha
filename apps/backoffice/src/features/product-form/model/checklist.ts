@@ -14,7 +14,11 @@ export interface ChecklistItem {
   ok: boolean
   /** Para onde o atalho leva quando o item está pendente (PFM-14: "cada um com atalho"). */
   focusField: string
-  tab: TabId
+  /**
+   * A aba do campo, ou `null` quando o campo não mora em aba nenhuma (feature 85, MOD-06): as
+   * imagens saíram da aba Mídia para o modal Mídia, e quem decide como chegar lá é a página.
+   */
+  tab: TabId | null
   /** Por que está pendente. `null` quando `ok`. */
   hint: string | null
   /**
@@ -94,7 +98,8 @@ export const buildChecklist = (form: ProductFormState): ChecklistItem[] => {
       label: 'Ao menos uma imagem',
       ok: form.images.length > 0,
       focusField: 'images',
-      tab: 'midia',
+      // MOD-06: as imagens não moram mais numa aba. A página abre o modal Mídia.
+      tab: null,
       hint: form.images.length === 0 ? 'Envie ao menos uma imagem.' : null,
     },
     {

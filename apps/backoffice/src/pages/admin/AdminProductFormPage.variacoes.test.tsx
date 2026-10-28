@@ -168,6 +168,17 @@ const abrirAba = async (nome: RegExp) => {
   fireEvent.mouseDown(screen.getByRole('tab', { name: nome }), { button: 0 })
 }
 
+/** Feature 85: a galeria mora no modal Mídia, aberto pelo "Editar mídia" do Resumo. */
+const abrirMidia = async () => {
+  fireEvent.click(screen.getByRole('button', { name: /^Editar mídia/ }))
+  return screen.findByRole('dialog', { name: 'Mídia' })
+}
+
+const fecharMidia = async () => {
+  fireEvent.click(within(screen.getByRole('dialog', { name: 'Mídia' })).getByRole('button', { name: 'Concluir' }))
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+}
+
 const abrirPrecos = async () => {
   await waitFor(() => expect(screen.getByDisplayValue('Pingente Estrela')).toBeInTheDocument())
   await abrirAba(/Preços & variações/)
@@ -458,11 +469,14 @@ describe('OPV-11..16 — a imagem na linha, com envio pelo modal', () => {
     const botao = screen.getByRole('button', { name: 'Imagem de 3,5 cm' })
     expect(botao.querySelector('img')).toHaveAttribute('src', 'https://cdn/nova.webp')
 
-    // OPV-14: a foto está na galeria do produto (aba Mídia).
-    await abrirAba(/Mídia/)
+    // OPV-14: a foto está na galeria do produto. Desde a feature 85 a galeria mora no modal Mídia,
+    // aberto pelo "Editar mídia" do Resumo (era a aba Mídia). A busca fica DENTRO do modal: o
+    // Resumo também desenha as fotos, e procurar na página inteira acharia a miniatura dele.
+    const midia = await abrirMidia()
     await waitFor(() =>
-      expect(screen.getAllByRole('img').some(img => img.getAttribute('src') === 'https://cdn/nova.webp')).toBe(true),
+      expect(within(midia).getAllByRole('img').some(img => img.getAttribute('src') === 'https://cdn/nova.webp')).toBe(true),
     )
+    await fecharMidia()
 
     // E vai ao banco: na coluna `images` do produto e no `image_url` da linha.
     await act(async () => {
@@ -493,9 +507,11 @@ describe('OPV-11..16 — a imagem na linha, com envio pelo modal', () => {
     const antes = screen.getByRole('button', { name: 'Imagem de 3,5 cm' })
     expect(antes.querySelector('img')).toHaveAttribute('src', 'https://cdn/fosco.webp')
 
-    await abrirAba(/Mídia/)
-    const remover = await screen.findAllByRole('button', { name: /Remover/ })
+    // Feature 85: a remoção é pelo caminho do modal Mídia (MOD-03), que era a aba Mídia.
+    const midia = await abrirMidia()
+    const remover = await within(midia).findAllByRole('button', { name: /Remover/ })
     fireEvent.click(remover[1])
+    await fecharMidia()
     await abrirAba(/Preços & variações/)
 
     const depois = await screen.findByRole('button', { name: 'Imagem de 3,5 cm' })

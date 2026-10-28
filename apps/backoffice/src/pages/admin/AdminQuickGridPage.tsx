@@ -69,7 +69,7 @@ const AdminQuickGridPage = () => {
     setRows(current => [...current.slice(0, index + 1), { ...current[index] }, ...current.slice(index + 1)])
 
   /**
-   * RFN-05 AC 2: o MESMO caminho da aba Mídia — validação de tipo/tamanho e WebP de 1600 px.
+   * RFN-05 AC 2: o MESMO caminho da galeria de mídia — validação de tipo/tamanho e WebP de 1600 px.
    *
    * Um segundo uploader aqui teria a própria validação e divergiria no primeiro ajuste; foi o
    * argumento que manteve a coluna fora da `13`, e ele cai reusando a lib.

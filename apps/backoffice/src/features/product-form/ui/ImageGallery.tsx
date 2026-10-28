@@ -1,4 +1,4 @@
-// A aba Mídia (PMD-01, PMD-03, PMD-04).
+// A galeria de mídia (PMD-01, PMD-03, PMD-04). Desde a feature 85 é o corpo do modal Mídia (MOD-02).
 //
 // Saiu da `AdminProductFormPage` para cá porque o bloco de imagens deixou de ser "uma lista de URLs
 // que se arrasta": cada imagem agora carrega `alt` e `source`, tem estado de alt-text, selo de
@@ -15,12 +15,8 @@ import { ImagePlus, GripVertical, X, Wand2, Loader2 } from 'lucide-react'
 import { Button } from '@estrelinha/ui/button'
 import { Input } from '@estrelinha/ui/input'
 import { Label } from '@estrelinha/ui/label'
-import { toast } from '@estrelinha/ui/hooks/use-toast'
 import type { ProductImage } from '@estrelinha/supabase/types'
-import { uploadProductImages, type UploadProgress } from '../lib/uploadProductImage'
-// A mensagem de falha mora com o motor, em `shared/lib`: os tres chamadores de upload dizem a mesma
-// coisa sobre o mesmo PDF de 40 MB (feature 39, T19).
-import { uploadFailureMessage } from '@/shared/lib/uploadImage'
+import type { UploadProgress } from '../lib/uploadProductImage'
 import { buildAltText } from '../lib/buildAltText'
 
 interface Props {
@@ -28,8 +24,15 @@ interface Props {
   onChange: (next: ProductImage[]) => void
   /** Alimenta o `Gerar` do alt-text. Vazio ⇒ a ação fica desabilitada (PMD-01, edge case). */
   productName: string
-  /** Avisa a página que há envio em curso — o cabeçalho desabilita o salvar enquanto isso. */
-  onUploadingChange?: (uploading: boolean) => void
+  /**
+   * O envio vem de fora (feature 85, ADI-06): o dono é `useProductImageUpload`, instanciado UMA vez
+   * pela página. O Resumo e este modal enviam pelo mesmo hook, então os dois mostram o mesmo
+   * progresso e o `uploading` da página não tem dois donos brigando. A galeria só chama `upload`;
+   * quem anexa as URLs no fim da lista é o `onUploaded` do hook.
+   */
+  upload: (files: FileList | File[]) => Promise<void> | void
+  progress: UploadProgress[]
+  uploading: boolean
 }
 
 const KB = 1024
@@ -39,12 +42,10 @@ const MB = 1024 * KB
 const formatFileSize = (bytes: number): string =>
   bytes >= MB ? `${(bytes / MB).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / KB))} KB`
 
-const ImageGallery = ({ images, onChange, productName, onUploadingChange }: Props) => {
+const ImageGallery = ({ images, onChange, productName, upload, progress, uploading }: Props) => {
   const [dragOver, setDragOver] = useState(false)
   const [dragIdx, setDragIdx] = useState<number | null>(null)
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null)
-  const [progress, setProgress] = useState<UploadProgress[]>([])
-  const [uploading, setUploading] = useState(false)
   /**
    * As URLs cujo alt saiu do botão `Gerar` **nesta sessão de edição** (PMD-01 AC 2).
    *
@@ -55,36 +56,14 @@ const ImageGallery = ({ images, onChange, productName, onUploadingChange }: Prop
   const [generated, setGenerated] = useState<Set<string>>(new Set())
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const setUploadingState = (value: boolean) => {
-    setUploading(value)
-    onUploadingChange?.(value)
+  const handleFiles = (files: FileList | File[]) => {
+    if (!Array.from(files).length) return
+    void upload(files)
   }
 
-  const handleFiles = async (files: FileList | File[]) => {
-    const list = Array.from(files)
-    if (!list.length) return
-
-    setUploadingState(true)
-    setProgress([])
-    const { uploaded, failed } = await uploadProductImages(list, event =>
-      // Uma linha por arquivo: o evento seguinte do mesmo arquivo substitui o anterior.
-      setProgress(current => [...current.filter(p => p.file !== event.file), event]),
-    )
-
-    if (uploaded.length) {
-      onChange([...images, ...uploaded.map(url => ({ url, alt: null, source: 'upload' as const }))])
-    }
-    setUploadingState(false)
-    // Falha parcial não cancela o lote: cada rejeitado é nomeado com o motivo (PMD-02 AC 4).
-    for (const failure of failed) {
-      toast({ title: uploadFailureMessage(failure), variant: 'destructive' })
-    }
-    if (uploaded.length) toast({ title: `${uploaded.length} imagem(ns) enviada(s)!` })
-  }
-
-  // PMD-04 AC 8: colar sobre a aba Mídia entra pelo mesmo caminho do arraste. O ouvinte é de
+  // PMD-04 AC 8: colar com o modal Mídia aberto entra pelo mesmo caminho do arraste. O ouvinte é de
   // `window` porque o `paste` nasce no elemento focado — preso a este `div`, só funcionaria com o
-  // foco dentro dele. A aba inativa é desmontada pelo Radix, então "montado" == "aba aberta".
+  // foco dentro dele. O modal fechado é desmontado pelo Radix, então "montado" == "modal aberto".
   useEffect(() => {
     const onPaste = (event: ClipboardEvent) => {
       const files = Array.from(event.clipboardData?.files ?? [])
@@ -94,8 +73,8 @@ const ImageGallery = ({ images, onChange, productName, onUploadingChange }: Prop
     }
     window.addEventListener('paste', onPaste)
     return () => window.removeEventListener('paste', onPaste)
-    // Sem lista de dependências de propósito: `handleFiles` fecha sobre `images`, e um ouvinte
-    // registrado uma vez só anexaria o novo arquivo a uma lista velha.
+    // Sem lista de dependências de propósito: `handleFiles` fecha sobre o `upload` da prop, e um ouvinte
+    // registrado uma vez só chamaria um `upload` velho.
   })
 
   const removeImage = (index: number) => onChange(images.filter((_, i) => i !== index))
@@ -197,31 +176,34 @@ const ImageGallery = ({ images, onChange, productName, onUploadingChange }: Prop
         />
       </div>
 
-      {/* PMD-04 AC 7: nome, tamanho e estado de cada arquivo do lote. */}
-      {progress.length > 0 && (
-        <ul className="space-y-1" aria-label="Progresso do envio">
-          {progress.map(item => (
-            <li
-              key={item.file}
-              className="flex items-center justify-between gap-2 rounded-lg border border-border px-3 py-1.5 text-xs"
-            >
-              <span className="min-w-0 flex-1 truncate text-foreground">{item.file}</span>
-              <span className="shrink-0 text-muted-foreground">{formatFileSize(item.size)}</span>
-              <span
-                className={`shrink-0 font-medium ${
-                  item.status === 'error'
-                    ? 'text-destructive'
-                    : item.status === 'done'
-                      ? 'text-green-600'
-                      : 'text-muted-foreground'
-                }`}
+      {/* PMD-04 AC 7: nome, tamanho e estado de cada arquivo do lote, numa região viva que existe
+          antes do envio (BUG-20261028-envio-de-fotos-nao-e-anunciado-ao-leitor). */}
+      <div aria-live="polite" data-upload-live-region="">
+        {progress.length > 0 && (
+          <ul className="space-y-1" aria-label="Progresso do envio">
+            {progress.map(item => (
+              <li
+                key={item.file}
+                className="flex items-center justify-between gap-2 rounded-lg border border-border px-3 py-1.5 text-xs"
               >
-                {item.status === 'uploading' ? 'enviando' : item.status === 'done' ? 'enviada' : 'falhou'}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
+                <span className="min-w-0 flex-1 truncate text-foreground">{item.file}</span>
+                <span className="shrink-0 text-muted-foreground">{formatFileSize(item.size)}</span>
+                <span
+                  className={`shrink-0 font-medium ${
+                    item.status === 'error'
+                      ? 'text-destructive'
+                      : item.status === 'done'
+                        ? 'text-green-600'
+                        : 'text-muted-foreground'
+                  }`}
+                >
+                  {item.status === 'uploading' ? 'enviando' : item.status === 'done' ? 'enviada' : 'falhou'}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
 
       {images.length > 0 && (
         <div className="space-y-2">
@@ -265,13 +247,18 @@ const ImageGallery = ({ images, onChange, productName, onUploadingChange }: Prop
                     <div className="absolute left-1 top-1 rounded bg-background/80 p-0.5 opacity-0 transition-opacity group-hover:opacity-100">
                       <GripVertical className="h-3.5 w-3.5 text-muted-foreground" />
                     </div>
+                    {/* MOD-07: no modal o uso é de toque, onde hover não existe. O botão é sempre
+                        visível e mede 44×44; o círculo vermelho continua pequeno dentro dele. Fica no
+                        canto de cima, longe dos selos "Principal"/"Mockup" (embaixo). */}
                     <button
                       type="button"
                       aria-label={`Remover imagem ${index + 1}`}
                       onClick={() => removeImage(index)}
-                      className="absolute right-1 top-1 rounded-full bg-destructive p-0.5 text-destructive-foreground opacity-0 transition-opacity group-hover:opacity-100"
+                      className="absolute right-0 top-0 flex h-11 w-11 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     >
-                      <X className="h-3.5 w-3.5" />
+                      <span className="rounded-full bg-destructive p-1 text-destructive-foreground shadow">
+                        <X className="h-3.5 w-3.5" />
+                      </span>
                     </button>
                     <div className="absolute bottom-1 left-1 flex gap-1">
                       {index === 0 && (
@@ -294,7 +281,8 @@ const ImageGallery = ({ images, onChange, productName, onUploadingChange }: Prop
                       value={image.alt ?? ''}
                       placeholder="Descreva a imagem"
                       onChange={event => handleAltChange(index, event.target.value)}
-                      className="h-8 text-xs"
+                      // MOD-07: 44px de altura, o campo é tocado no celular.
+                      className="h-11 text-xs"
                     />
                     <div className="flex items-center justify-between gap-2">
                       {missingAlt ? (
@@ -308,7 +296,7 @@ const ImageGallery = ({ images, onChange, productName, onUploadingChange }: Prop
                         type="button"
                         variant="ghost"
                         size="sm"
-                        className="h-6 px-2 text-[11px]"
+                        className="h-11 px-3 text-[11px]"
                         // Edge case da spec: produto sem nome nunca produz alt vazio — a ação some
                         // do alcance em vez de gravar string em branco.
                         disabled={!canGenerateAlt}

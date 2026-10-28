@@ -30,9 +30,11 @@ describe('PublishChecklist', () => {
     expect(screen.getByText('Ao menos uma imagem')).toBeInTheDocument()
   })
 
+  // Feature 85 (MOD-06): o item de imagens chega com `tab: null` — quem decide abrir o modal é a
+  // página; o checklist só devolve o item inteiro.
   it('item pendente é botão e leva ao campo ao clicar', () => {
     const onFocusField = vi.fn()
-    const pendente = item({ id: 'image', label: 'Ao menos uma imagem', ok: false, focusField: 'images', tab: 'midia', hint: 'Envie uma imagem.' })
+    const pendente = item({ id: 'image', label: 'Ao menos uma imagem', ok: false, focusField: 'images', tab: null, hint: 'Envie uma imagem.' })
     render(<PublishChecklist items={[pendente]} onFocusField={onFocusField} />)
 
     fireEvent.click(screen.getByRole('button', { name: /Ao menos uma imagem/ }))

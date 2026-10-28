@@ -316,8 +316,12 @@ export interface UseProductFormResult {
   form: ProductFormState
   /** Um campo por vez, tipado pela chave — é o que as abas chamam. */
   setField: <K extends keyof ProductFormState>(key: K, value: ProductFormState[K]) => void
-  /** Vários campos numa transição só (ex.: nome + slug derivado). */
-  setFields: (patch: Partial<ProductFormState>) => void
+  /**
+   * Vários campos numa transição só (ex.: nome + slug derivado). Aceita também uma função do estado
+   * VIGENTE: quem acumula sobre um campo a partir de um evento assíncrono (o envio de imagens, ADI-04)
+   * não pode ler o `form` do último render — dois eventos no mesmo tique escreveriam um sobre o outro.
+   */
+  setFields: (patch: Partial<ProductFormState> | ((current: ProductFormState) => Partial<ProductFormState>)) => void
   /** `true` só depois de uma edição real — carga não conta (PFM-16, badge de não salvo). */
   isDirty: boolean
   /**
@@ -428,10 +432,13 @@ export const useProductForm = (
     return true
   }, [productId, adopt])
 
-  const setFields = useCallback((patch: Partial<ProductFormState>) => {
-    setForm(current => ({ ...current, ...patch }))
-    if (!loadingRef.current) setIsDirty(true)
-  }, [])
+  const setFields = useCallback(
+    (patch: Partial<ProductFormState> | ((current: ProductFormState) => Partial<ProductFormState>)) => {
+      setForm(current => ({ ...current, ...(typeof patch === 'function' ? patch(current) : patch) }))
+      if (!loadingRef.current) setIsDirty(true)
+    },
+    [],
+  )
 
   const setField = useCallback(
     <K extends keyof ProductFormState>(key: K, value: ProductFormState[K]) => {

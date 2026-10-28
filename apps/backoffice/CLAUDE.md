@@ -1243,11 +1243,11 @@ cruzamento**, e o card **Imagem por variação** saiu: a imagem se escolhe (e se
   biblioteca vazia e o editor vira texto livre. A grade rápida usa o mesmo editor e a mesma
   biblioteca, mas monta a grade dela no salvar (a mudança tipada não é usada lá).
 - **A imagem da linha é `VariantImagePicker`**: botão de 48px na célula, modal com todas as imagens
-  do produto, "Usar a principal" e "Adicionar imagens" pelo **mesmo** motor da aba Mídia
+  do produto, "Usar a principal" e "Adicionar imagens" pelo **mesmo** motor da galeria
   (`uploadProductImages`). A foto enviada entra em `form.images` (aparece na Mídia) e fica escolhida
-  para a linha; o envio usa o **mesmo** `setUploading` da galeria, que trava o salvar.
-  `clearMissingVariantImages` continua sendo chamada pela galeria: foto removida faz a linha voltar à
-  principal.
+  para a linha. Desde a `85` o envio dela tem estado próprio na página (`variantUploading`), somado
+  ao da galeria para travar o salvar. `clearMissingVariantImages` continua sendo chamada pela galeria
+  (no modal Mídia): foto removida faz a linha voltar à principal.
 - **O contêiner que rola a grade é `relative overflow-x-auto`**, e o `relative` não é estilo: o `Switch`
   do Radix desenha, dentro de um `<form>`, um `<input>` nativo escondido com `position: absolute`. Sem
   um bloco de contenção dentro do contêiner, o `overflow-x-auto` não o recorta e o documento passava a
@@ -1279,6 +1279,32 @@ cruzamento**, e o card **Imagem por variação** saiu: a imagem se escolhe (e se
   de escritas e a contagem de `order_items` por variação controlável (número, falha ou promessa a
   resolver). Os testes de página que não dublam o client deixam `useOptionLibrary` ler pelo dublê, que
   devolve contagem zero; a grade rápida ganhou o `QueryClientProvider` no helper (`L-030`).
+
+## O Resumo com as imagens do produto (feature `85`)
+
+A página do produto (`/admin/produtos/:id`) não tem mais a aba **Mídia** nem o card **Prévia na
+loja** (`StorefrontPreview` foi apagado, sem consumidor).
+
+- **A coluna lateral virou áreas de grade**, e o Resumo existe **uma vez** no DOM, como o **primeiro**
+  item: abaixo de `lg` ele vem antes das abas (o celular é o caso principal); a partir de `lg` as
+  áreas o põem na direita entre Publicação e Pronto para publicar (Publicação → Resumo → Pronto para
+  publicar → Fornecedor). A última linha da grade é `1fr`, só da coluna principal — sem ela a altura
+  das abas se repartiria entre as linhas da lateral e afastaria os cards. A coluna **não** é `sticky`
+  (o motivo da `67` segue escrito no componente).
+- **O Resumo mostra a peça** (`ProductMediaSummary`): a principal 1:1, até 7 miniaturas de 72px, o
+  ladrilho "+N" da 9ª em diante, "Adicionar" (seletor e soltar arquivo no card), o progresso, e
+  "Editar mídia". Os fatos de antes ficam embaixo, mais a linha "Vídeo · sim/não". O link
+  "Abrir na loja ↗" mora no cabeçalho do Resumo.
+- **O modal Mídia** (`ProductMediaDialog`) é o conteúdo da aba de antes, sem perder controle: a
+  galeria e o vídeo. Não tem "Cancelar" — muda o formulário ao vivo, e grava no Salvar. A pendência
+  "Ao menos uma imagem" do checklist abre o modal (`tab: null` ⇒ `focusField` abre o modal).
+- **O visualizador** (`ImageLightbox`) abre pelas imagens do Resumo: setas, teclado, gesto de 48px,
+  `Esc`, e o foco volta à imagem que o abriu.
+- **O envio tem UM dono**, `useProductImageUpload` na página: o Resumo e o modal enviam pelo mesmo
+  hook e mostram o mesmo progresso. O "envio no ar" é um contador de lotes. O cabeçalho trava com
+  `uploading = galeria ‖ variação` — dois booleanos com nome, nunca um compartilhado.
+- A prova é a página real: `AdminProductFormPage.midia.test.tsx`. Os três arquivos de UI novos estão
+  no escopo de `animacaoRespeitaMovimento.test.ts`.
 
 ## Dívidas conhecidas deste app
 

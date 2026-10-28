@@ -1,4 +1,4 @@
-// PMD-01, PMD-03, PMD-04 — a aba Mídia.
+// PMD-01, PMD-03, PMD-04 — a galeria, corpo do modal Mídia (era a aba Mídia até a feature 85).
 //
 // A prova é de comportamento observável: estados do alt-text, selo de origem, progresso por
 // arquivo, colar, reordenar. A validação de tipo/tamanho tem teste próprio em
@@ -22,6 +22,7 @@ vi.mock('../lib/uploadProductImage', async importOriginal => ({
 }))
 
 import ImageGallery from './ImageGallery'
+import { useProductImageUpload } from '../model/useProductImageUpload'
 
 const image = (over: Partial<ProductImage> = {}): ProductImage => ({
   url: 'https://cdn/foto-1.webp',
@@ -36,7 +37,24 @@ const fileOf = (name: string, type = 'image/png', size = 2 * 1024 * 1024): File 
   return file
 }
 
-const setup = (over: Partial<React.ComponentProps<typeof ImageGallery>> = {}) => {
+type GalleryProps = React.ComponentProps<typeof ImageGallery>
+type HarnessProps = Omit<GalleryProps, 'upload' | 'progress' | 'uploading'>
+
+/**
+ * Feature 85 (T05): a galeria deixou de ter estado de envio — quem envia é `useProductImageUpload`,
+ * instanciado pela página. A montagem compõe o HOOK REAL com a galeria, como a página faz, e anexa
+ * as URLs no fim da lista (ADI-04). Assim os casos de envio de antes continuam asserindo o mesmo
+ * `onChange`, o mesmo progresso e os mesmos toasts, sem afrouxar nada: só o motor é dublado.
+ */
+const ComHookReal = (props: HarnessProps) => {
+  const { upload, progress, uploading } = useProductImageUpload({
+    onUploaded: urls =>
+      props.onChange([...props.images, ...urls.map(url => ({ url, alt: null, source: 'upload' as const }))]),
+  })
+  return <ImageGallery {...props} upload={upload} progress={progress} uploading={uploading} />
+}
+
+const setup = (over: Partial<HarnessProps> = {}) => {
   const onChange = vi.fn()
   const props = {
     images: [] as ProductImage[],
@@ -44,7 +62,7 @@ const setup = (over: Partial<React.ComponentProps<typeof ImageGallery>> = {}) =>
     productName: 'Botton Sailor Moon',
     ...over,
   }
-  render(<ImageGallery {...props} />)
+  render(<ComHookReal {...props} />)
   return { onChange }
 }
 
@@ -293,6 +311,94 @@ describe('ImageGallery — envio (PMD-04)', () => {
   })
 })
 
+describe('ImageGallery — o envio é de fora (feature 85, MOD-02, ADI-06)', () => {
+  // Um espião no lugar do hook: prova que as TRÊS entradas (soltar, colar, escolher) chamam o
+  // `upload` recebido, e que a galeria não envia nada por conta própria (o motor nunca é chamado).
+  const setupSpy = (over: Partial<GalleryProps> = {}) => {
+    const upload = vi.fn()
+    render(
+      <ImageGallery
+        images={[]}
+        onChange={vi.fn()}
+        productName="Botton Sailor Moon"
+        upload={upload}
+        progress={[]}
+        uploading={false}
+        {...over}
+      />,
+    )
+    return { upload }
+  }
+
+  it('soltar arquivos chama o `upload` recebido', () => {
+    const { upload } = setupSpy()
+    const file = fileOf('nova.png')
+
+    fireEvent.drop(screen.getByLabelText('Enviar imagens'), { dataTransfer: { files: [file] } })
+
+    expect(upload).toHaveBeenCalledTimes(1)
+    expect(Array.from(upload.mock.calls[0][0] as File[]).map(f => f.name)).toEqual(['nova.png'])
+    expect(uploadMock).not.toHaveBeenCalled()
+  })
+
+  it('colar chama o `upload` recebido', async () => {
+    const { upload } = setupSpy()
+
+    await pasteFiles([fileOf('print.png')])
+
+    expect(upload).toHaveBeenCalledTimes(1)
+    expect(Array.from(upload.mock.calls[0][0] as File[]).map(f => f.name)).toEqual(['print.png'])
+    expect(uploadMock).not.toHaveBeenCalled()
+  })
+
+  it('escolher arquivo no seletor chama o `upload` recebido', () => {
+    const { upload } = setupSpy()
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement
+
+    fireEvent.change(input, { target: { files: [fileOf('escolhida.png')] } })
+
+    expect(upload).toHaveBeenCalledTimes(1)
+    expect(Array.from(upload.mock.calls[0][0] as File[]).map(f => f.name)).toEqual(['escolhida.png'])
+  })
+
+  it('`uploading` e `progress` vêm da prop: a galeria desenha o que recebe', () => {
+    setupSpy({
+      uploading: true,
+      progress: [{ file: 'um.png', size: 2 * 1024 * 1024, status: 'uploading' }],
+    })
+
+    expect(screen.getByText('Enviando...')).toBeInTheDocument()
+    const linhas = screen.getByLabelText('Progresso do envio')
+    expect(within(linhas).getByText('um.png')).toBeInTheDocument()
+    expect(within(linhas).getByText('enviando')).toBeInTheDocument()
+  })
+
+  // BUG-20261028-envio-de-fotos-nao-e-anunciado-ao-leitor: no modal, a mesma região viva do Resumo.
+  // Com o modal aberto o Radix esconde o resto da página do leitor, então só esta é anunciada.
+  it('o progresso mora numa região viva polite, que existe antes de o envio começar', () => {
+    const { rerender, container } = render(
+      <ImageGallery images={[]} onChange={vi.fn()} productName="P" upload={vi.fn()} progress={[]} uploading={false} />,
+    )
+    const regiao = container.querySelector<HTMLElement>('[data-upload-live-region]')!
+    expect(regiao).toHaveAttribute('aria-live', 'polite')
+    expect(regiao).toBeEmptyDOMElement()
+    rerender(
+      <ImageGallery
+        images={[]}
+        onChange={vi.fn()}
+        productName="P"
+        upload={vi.fn()}
+        progress={[{ file: 'um.png', size: 1, status: 'done' }]}
+        uploading={false}
+      />,
+    )
+    const mesma = container.querySelector<HTMLElement>('[data-upload-live-region]')!
+    expect(mesma).toBe(regiao)
+    expect(mesma).toHaveTextContent('um.png')
+    expect(mesma).toHaveTextContent('enviada')
+  })
+})
+
 /**
  * Renderiza a galeria como a página faz: o `onChange` volta como `images`. Sem isso, testar o
  * estado "alt preenchido pela ação" exigiria acreditar no componente em vez de observá-lo.
@@ -303,7 +409,7 @@ function renderControlled(initial: ProductImage[], productName: string) {
     current = next
   })
   const view = render(
-    <ImageGallery
+    <ComHookReal
       images={current}
       onChange={onChange}
       productName={productName}
@@ -313,7 +419,7 @@ function renderControlled(initial: ProductImage[], productName: string) {
     onChange,
     rerender: () =>
       view.rerender(
-        <ImageGallery
+        <ComHookReal
           images={current}
           onChange={onChange}
           productName={productName}
@@ -321,3 +427,28 @@ function renderControlled(initial: ProductImage[], productName: string) {
       ),
   }
 }
+
+// MOD-07 (prova em navegador da 85, defeito 1): no modal Mídia a galeria é usada no toque, em 390.
+// Medido: remover 18×18 e só no hover, "Gerar" 73×24, alt 32 de altura. Token exato, porque jsdom
+// mede 0 (`min-h-11` contém `h-11` como substring).
+describe('ImageGallery — alvos de toque de 44px no modal (MOD-07)', () => {
+  const tokens = (el: Element) => el.className.split(/\s+/)
+
+  it('"Remover imagem n" é 44×44 e visível sem hover', () => {
+    setup({ images: [image(), image({ url: 'https://cdn/foto-2.webp' })] })
+    const remover = screen.getByRole('button', { name: 'Remover imagem 2' })
+    expect(tokens(remover)).toEqual(expect.arrayContaining(['h-11', 'w-11']))
+    expect(tokens(remover)).not.toContain('opacity-0')
+    expect(remover.className).not.toMatch(/group-hover:opacity/)
+  })
+
+  it('"Gerar" e o campo do alt têm 44px de altura', () => {
+    setup({ images: [image()] })
+    const gerar = screen.getByRole('button', { name: /Gerar/ })
+    expect(tokens(gerar)).toContain('h-11')
+    expect(tokens(gerar)).not.toContain('h-6')
+    const alt = screen.getByRole('textbox', { name: 'Alt-text da imagem 1' })
+    expect(tokens(alt)).toContain('h-11')
+    expect(tokens(alt)).not.toContain('h-8')
+  })
+})

@@ -1,7 +1,7 @@
 // PMD-06 (edge case) — referência de imagem que morreu.
 //
 // Feature 81: estes casos moravam em `VariantImageCard.test.tsx`, apagado com o card (OPV-16). A
-// regra continua viva — a aba Mídia a chama ao remover uma foto (OPV-27) — e os casos vieram para
+// regra continua viva — o modal Mídia a chama ao remover uma foto (OPV-27) — e os casos vieram para
 // cá sem uma linha alterada.
 
 import { describe, expect, it } from 'vitest'

@@ -213,7 +213,8 @@ describe('validateProduct — SKU duplicado (edge case da spec)', () => {
 describe('errorsByTab — badge de pendência (PFM-11 AC 2)', () => {
   it('conta erros por aba e deixa as abas sem erro em 0', () => {
     const counts = errorsByTab(validateProduct(form({ name: '', price: 0 })))
-    expect(counts).toEqual({ geral: 1, perguntas: 0, midia: 0, precos: 1, seo: 0, relacionados: 0 })
+    // Feature 85 (MOD-01): a aba `midia` saiu da lista, e com ela a chave do mapa de contagens.
+    expect(counts).toEqual({ geral: 1, perguntas: 0, precos: 1, seo: 0, relacionados: 0 })
   })
 
   it('formulário válido deixa todas as abas em 0', () => {
@@ -221,7 +222,6 @@ describe('errorsByTab — badge de pendência (PFM-11 AC 2)', () => {
       geral: 0,
       // A aba de perguntas não valida nada: vincular ou não é escolha, nunca pendência.
       perguntas: 0,
-      midia: 0,
       precos: 0,
       seo: 0,
       relacionados: 0,
