@@ -68,6 +68,8 @@ export const SEO_SYSTEM = [
   '- Comece pela palavra-chave principal, logo no início: o tipo de joia mais o material afetivo, quando a peça tiver um (por exemplo: "Pingente de Leite Materno …", "Anel com Cinzas de Cremação …").',
   '- Se couber, inclua o material base da peça (por exemplo: Prata 925, Aço Inoxidável), sem inventar o que a descrição não traz.',
   '- Nunca escreva um título igual ao nome do produto: reescreva com a palavra-chave no início, sem repetir o nome palavra por palavra.',
+  // Probe 01 (API real): "Joia Afetiva Árvore da Vida…" virou "Pingente…" — o tipo foi inventado.
+  "- Use o tipo de joia que o nome ou a descrição dizem (pingente, anel, colar, pulseira, brinco, berloque…); se não disserem, use 'Joia'. Nunca invente um tipo que a peça não tem.",
   '',
   'Descrição (description):',
   `- Entre ${SUGGESTION_DESCRIPTION_ASK_MIN} e ${DESCRIPTION_MAX} caracteres, uma frase completa, sem cortar palavra no fim.`,

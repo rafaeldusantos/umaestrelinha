@@ -46,3 +46,20 @@ Script: `probes/01-api-real.mjs` (as credenciais entram por variável de ambient
 
 O Supabase hospedado (fora por decisão do usuário: testes só no local) e o volume — 5 chamadas não medem
 a taxa real de `off_rules` no catálogo inteiro.
+
+## Rodada 2 — com a linha do tipo de joia no prompt (2026-10-28 03:20 UTC)
+
+Mesmo ambiente local, mesmos 5 produtos, depois de acrescentar ao `SEO_SYSTEM`: "Use o tipo de joia que
+o nome ou a descrição dizem …; se não disserem, use 'Joia'. Nunca invente um tipo que a peça não tem."
+(confirmado pelo usuário). **5/5 em 200, 5/5 na régua, p95 9,1 s.**
+
+| Produto | Título sugerido |
+| --- | --- |
+| Joia Afetiva Cachorro Pit Bull … com nome | Joia Pit Bull com Cinzas de Cremação |
+| Pingente Afetivo coração Iluminar … | Pingente Coração Leite Materno Prata 925 |
+| Joia Afetiva Cachorro Pinscher … | Joia Afetiva Pet com Pelo de Pinscher |
+| Pirâmide Memorial Afetivo … | Pirâmide Memorial com Cinzas de Cremação |
+| Joia Afetiva Árvore da Vida com Leite Materno | Pingente Árvore da Vida com Leite Materno |
+
+O "Pingente" do último **não é inventado**: a descrição do produto diz "Tipo: Pingente afetivo" (conferido
+no banco local). A observação 1 da rodada 1 fica resolvida; o design voltou ao título no 2º produto.

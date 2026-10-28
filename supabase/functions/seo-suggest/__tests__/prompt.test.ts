@@ -84,6 +84,9 @@ describe('o system', () => {
   it('as regras de SEO da loja: palavra-chave no início, nunca igual ao nome, benefício e fecho sem urgência', () => {
     const { system } = buildSeoPrompt(base())
     expect(system).toMatch(/palavra-chave principal, logo no início/)
+    // Probe 01: o tipo da peça não é inventado — vem do nome ou da descrição, senão "Joia".
+    expect(system).toMatch(/Use o tipo de joia que o nome ou a descrição dizem/)
+    expect(system).toMatch(/se não disserem, use 'Joia'/)
     expect(system).toContain('Nunca escreva um título igual ao nome do produto')
     expect(system).toContain('Prata 925')
     expect(system).toMatch(/benefício emocional/)
