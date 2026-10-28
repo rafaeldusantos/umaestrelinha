@@ -11,7 +11,7 @@
 // explícita — declarada aqui em vez de silenciada.
 
 import { useEffect, useRef, useState } from 'react'
-import { ImagePlus, GripVertical, X, Wand2, Loader2 } from 'lucide-react'
+import { ImagePlus, GripVertical, X, Wand2, Loader2, ChevronLeft, ChevronRight, Star } from 'lucide-react'
 import { Button } from '@estrelinha/ui/button'
 import { Input } from '@estrelinha/ui/input'
 import { Label } from '@estrelinha/ui/label'
@@ -42,6 +42,35 @@ const MB = 1024 * KB
 const formatFileSize = (bytes: number): string =>
   bytes >= MB ? `${(bytes / MB).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / KB))} KB`
 
+/** Os três botões de ordem de cada foto (MOD-08). O nome é o que o foco procura depois de mover. */
+type OrderButton = 'prev' | 'principal' | 'next'
+
+/**
+ * Chave estável por foto, não por posição: com `${url}-${index}` mover uma foto fazia o React
+ * reaproveitar o ladrilho para OUTRA foto, e o foco e o campo de alt ficavam na posição em vez de
+ * seguir a foto (MOD-09). A mesma URL pode aparecer duas vezes (colar duas vezes o mesmo arquivo
+ * já enviado), então a ocorrência entra na chave para ela não repetir.
+ */
+const tileKeys = (images: ProductImage[]): string[] => {
+  const seen = new Map<string, number>()
+  return images.map(img => {
+    const n = seen.get(img.url) ?? 0
+    seen.set(img.url, n + 1)
+    return `${img.url}#${n}`
+  })
+}
+
+/**
+ * O botão que recebe o foco quando o mesmo ficou desabilitado na posição nova (MOD-09): chegou à
+ * 1ª ⇒ "←" e "Tornar principal" param, então o vizinho habilitado é "→"; chegou à última ⇒ "←".
+ */
+const focusTarget = (kind: OrderButton, index: number, total: number): OrderButton | null => {
+  const enabled = (k: OrderButton) => (k === 'next' ? index < total - 1 : index > 0)
+  if (enabled(kind)) return kind
+  const fallback: OrderButton = index === 0 ? 'next' : 'prev'
+  return enabled(fallback) ? fallback : null
+}
+
 const ImageGallery = ({ images, onChange, productName, upload, progress, uploading }: Props) => {
   const [dragOver, setDragOver] = useState(false)
   const [dragIdx, setDragIdx] = useState<number | null>(null)
@@ -55,6 +84,31 @@ const ImageGallery = ({ images, onChange, productName, upload, progress, uploadi
    */
   const [generated, setGenerated] = useState<Set<string>>(new Set())
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const gridRef = useRef<HTMLDivElement>(null)
+  /** O botão a focar quando a lista nova chegar (MOD-09): posição nova e qual dos três. */
+  const pendingFocus = useRef<{ index: number; kind: OrderButton } | null>(null)
+  /**
+   * O anúncio da ordem (MOD-09). `seq` troca a chave do nó a cada movimento, para o leitor anunciar
+   * de novo uma frase igual à anterior ("posição 2 de 4" duas vezes seguidas).
+   */
+  const [orderMessage, setOrderMessage] = useState<{ text: string; seq: number } | null>(null)
+
+  // Depois que a página devolve a lista nova, o foco vai ao mesmo botão da foto na posição nova.
+  useEffect(() => {
+    const pending = pendingFocus.current
+    if (!pending) return
+    pendingFocus.current = null
+    const kind = focusTarget(pending.kind, pending.index, images.length)
+    if (!kind) return
+    const tile = gridRef.current?.querySelectorAll<HTMLElement>('[data-testid="image-tile"]')[pending.index]
+    const button = tile?.querySelector<HTMLButtonElement>(`[data-order-button="${kind}"]`)
+    if (!button) return
+    button.focus()
+    // O foco programático não rola o corpo do modal: em 390, mover para a linha de baixo deixava o
+    // botão focado sob o rodapé "Concluir" (prova T14). `nearest` só rola quando ele está fora da vista;
+    // o `scroll-my-2` dos botões deixa a folga para o anel de foco não ser cortado na borda.
+    button.scrollIntoView?.({ block: 'nearest' })
+  }, [images])
 
   const handleFiles = (files: FileList | File[]) => {
     if (!Array.from(files).length) return
@@ -76,6 +130,27 @@ const ImageGallery = ({ images, onChange, productName, upload, progress, uploadi
     // Sem lista de dependências de propósito: `handleFiles` fecha sobre o `upload` da prop, e um ouvinte
     // registrado uma vez só chamaria um `upload` velho.
   })
+
+  /**
+   * MOD-08: mover por botão. A ordem É o dado, como no arrasto: vai pelo mesmo `onChange`, e
+   * `alt`/`source` viajam junto porque o objeto inteiro muda de lugar.
+   */
+  const moveImage = (from: number, kind: OrderButton) => {
+    const to = kind === 'prev' ? from - 1 : kind === 'next' ? from + 1 : 0
+    if (to < 0 || to >= images.length || to === from) return
+    const next = [...images]
+    const [moved] = next.splice(from, 1)
+    next.splice(to, 0, moved)
+    pendingFocus.current = { index: to, kind }
+    setOrderMessage(current => ({
+      text:
+        kind === 'principal'
+          ? `Imagem ${from + 1} agora é a principal`
+          : `Imagem movida para a posição ${to + 1} de ${images.length}`,
+      seq: (current?.seq ?? 0) + 1,
+    }))
+    onChange(next)
+  }
 
   const removeImage = (index: number) => onChange(images.filter((_, i) => i !== index))
 
@@ -123,6 +198,7 @@ const ImageGallery = ({ images, onChange, productName, upload, progress, uploadi
   }
 
   const canGenerateAlt = buildAltText(productName) !== null
+  const keys = tileKeys(images)
 
   return (
     <div className="space-y-3" data-field="images" tabIndex={-1}>
@@ -205,19 +281,32 @@ const ImageGallery = ({ images, onChange, productName, upload, progress, uploadi
         )}
       </div>
 
+      {/* MOD-09: o anúncio da ordem tem região própria, irmã da do envio — dividir a mesma apagaria a
+          lista de arquivos a cada movimento. As duas só falam juntas se a pessoa mover durante um envio. */}
+      <div aria-live="polite" data-order-live-region="" className="sr-only">
+        {orderMessage && <span key={orderMessage.seq}>{orderMessage.text}</span>}
+      </div>
+
       {images.length > 0 && (
         <div className="space-y-2">
           <p className="text-xs text-muted-foreground">
-            Arraste para reordenar. A primeira imagem será a principal.
+            Arraste ou use as setas para reordenar. A primeira imagem será a principal.
           </p>
-          <div className="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(196px,1fr))]">
+          {/* MOD-10: em 390 o auto-fill de 196 dá UMA coluna (28 fotos ⇒ ~13.000 px de lista); abaixo
+              de `sm` são 2 colunas, e dali para cima volta o tile do artboard. */}
+          <div
+            ref={gridRef}
+            className="grid grid-cols-2 gap-3 sm:[grid-template-columns:repeat(auto-fill,minmax(196px,1fr))]"
+          >
             {images.map((image, index) => {
               const missingAlt = !image.alt
+              const isFirst = index === 0
+              const isLast = index === images.length - 1
               return (
                 <div
-                  key={`${image.url}-${index}`}
+                  key={keys[index]}
                   data-testid="image-tile"
-                  className={`rounded-xl border-2 p-2 transition-all ${
+                  className={`min-w-0 rounded-xl border-2 p-2 transition-all motion-reduce:transition-none ${
                     dragOverIdx === index
                       ? 'border-primary shadow-lg'
                       : dragIdx === index
@@ -273,6 +362,53 @@ const ImageGallery = ({ images, onChange, productName, upload, progress, uploadi
                         </span>
                       )}
                     </div>
+                  </div>
+
+                  {/* MOD-08: a ordem sem arrastar, em duas linhas: "←" e "→" lado a lado (metade do ladrilho
+                      cada) e "Tornar principal" com a largura inteira embaixo. Nenhuma largura em rem:
+                      com as setas `w-11` numa linha só, o ladrilho de 168 px em 390 deixava o do meio com
+                      23 px a 130 % de fonte e jogava botões para fora a 200 % (prova T14). A ordem do DOM
+                      é a visual, para o Tab seguir o olho. */}
+                  <div className="mt-2 grid grid-cols-2 gap-1">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      data-order-button="prev"
+                      aria-label={`Mover a imagem ${index + 1} para antes`}
+                      disabled={isFirst}
+                      onClick={() => moveImage(index, 'prev')}
+                      className="h-11 w-full scroll-my-2"
+                    >
+                      <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      data-order-button="next"
+                      aria-label={`Mover a imagem ${index + 1} para depois`}
+                      disabled={isLast}
+                      onClick={() => moveImage(index, 'next')}
+                      className="h-11 w-full scroll-my-2"
+                    >
+                      <ChevronRight className="h-4 w-4" aria-hidden="true" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      data-order-button="principal"
+                      aria-label={`Tornar a imagem ${index + 1} principal`}
+                      disabled={isFirst}
+                      onClick={() => moveImage(index, 'principal')}
+                      // O rótulo QUEBRA em duas linhas em vez de cortar: com fonte grande o ícone, o
+                      // `gap` e o `padding` (rem) crescem e o texto (11 px) ficava "Torn…" a 130 %+.
+                      // Altura mínima 44, nunca fixa, para a segunda linha caber.
+                      className="col-span-2 h-auto min-h-11 w-full scroll-my-2 min-w-0 gap-1 whitespace-normal px-1 py-1 text-center text-[11px] leading-tight [&_svg]:size-3"
+                    >
+                      <Star className="shrink-0" aria-hidden="true" />
+                      <span className="min-w-0 break-words">{isFirst ? 'É a principal' : 'Tornar principal'}</span>
+                    </Button>
                   </div>
 
                   <div className="mt-2 space-y-1">

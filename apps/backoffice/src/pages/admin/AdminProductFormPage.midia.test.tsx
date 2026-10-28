@@ -254,6 +254,25 @@ describe('MOD-02, MOD-03 — o modal Mídia', () => {
     expect(screen.getByText('Alterações não salvas')).toBeInTheDocument()
   })
 
+  it('"Tornar a imagem 4 principal" no modal ⇒ o Resumo mostra a foto 4 como principal e marca alterado (MOD-08)', async () => {
+    await montar()
+    expect(screen.queryByText('Alterações não salvas')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /^Editar mídia/ }))
+    const dialog = await screen.findByRole('dialog', { name: 'Mídia' })
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Tornar a imagem 4 principal' }))
+
+    // A contagem não muda (5), a principal do Resumo é a antiga 4ª, e a antiga 1ª desceu para a 2ª.
+    const principal = screen.getByRole('button', { name: 'Ampliar imagem 1 de 5', hidden: true })
+    expect(principal.querySelector('img')).toHaveAttribute('src', 'https://cdn/foto-4.webp')
+    expect(principal.querySelector('img')).toHaveAttribute('alt', 'Foto 4')
+    const segunda = screen.getByRole('button', { name: 'Ampliar imagem 2 de 5', hidden: true })
+    expect(segunda.querySelector('img')).toHaveAttribute('src', 'https://cdn/foto-1.webp')
+    expect(screen.getByText('Alterações não salvas')).toBeInTheDocument()
+    // E no próprio modal o foco ficou com a foto movida (MOD-09).
+    expect(within(dialog).getByRole('button', { name: 'Mover a imagem 1 para depois' })).toHaveFocus()
+  })
+
   it('fechar o modal não desfaz a remoção (MOD-04)', async () => {
     await montar()
     fireEvent.click(screen.getByRole('button', { name: /^Editar mídia/ }))
