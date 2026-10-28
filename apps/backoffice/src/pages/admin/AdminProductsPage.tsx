@@ -36,6 +36,7 @@ import CsvImportDialog from '@/features/csv-import/ui/CsvImportDialog'
 import FilterChips from '@/features/product-list/ui/FilterChips'
 import InlineEditCell from '@/features/product-list/ui/InlineEditCell'
 import CategoriesCell from '@/features/product-list/ui/CategoriesCell'
+import ProductThumb from '@/features/product-list/ui/ProductThumb'
 import SupplierCell from '@/features/product-list/ui/SupplierCell'
 import { useSuppliers } from '@/entities/supplier'
 import { priceCell, rowBadges, statusCell, stockCell } from '@/features/product-list/model/rowSummary'
@@ -378,46 +379,37 @@ const AdminProductsPage = () => {
         const thumb = primaryImage(row.images)
         const badges = rowBadges(row)
         return (
-          <div className="flex items-center gap-3">
-            {thumb ? (
-              <img src={thumb.url} alt={thumb.alt ?? row.name} className="h-10 w-10 rounded-lg bg-muted object-cover" />
-            ) : (
-              <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-                <Package className="h-4 w-4 text-muted-foreground" />
-              </span>
-            )}
-            {/* Largura fixa: o nome longo não empurra as outras colunas. O nome inteiro aparece na dica
-                da linha (`rowTitle`), e o nome é link de verdade — Ctrl/⌘-clique abre noutra aba. */}
-            <div className="w-[200px] min-w-0 lg:w-[240px]">
-              <div className="flex items-center gap-2">
-                <Link to={editPath(row.id)} className="truncate font-medium hover:underline">{row.name}</Link>
-                {row.variants.length > 0 && (
-                  <span className="shrink-0 text-xs text-muted-foreground">
-                    {row.variants.length} variaç{row.variants.length === 1 ? 'ão' : 'ões'}
-                  </span>
-                )}
-              </div>
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span className="truncate text-xs text-muted-foreground">/{row.slug}</span>
-                {badges.map(badge => (
-                  <span key={badge} className="rounded-full border border-amber-200 bg-amber-50 px-1.5 text-[10px] font-medium text-amber-800">
-                    {badge}
-                  </span>
-                ))}
-              </div>
+          <div className="flex items-start gap-3">
+            <ProductThumb url={thumb?.url ?? null} alt={thumb?.alt ?? row.name} />
+            {/* O nome quebra linha em vez de truncar, até um teto de largura: as outras colunas não
+                são empurradas, e as categorias ficam logo abaixo dele, em chips. O nome é link de
+                verdade — Ctrl/⌘-clique abre noutra aba. */}
+            <div className="flex w-[220px] min-w-0 flex-col gap-1.5 lg:w-[320px]">
+              <Link to={editPath(row.id)} className="font-semibold leading-snug text-primary hover:underline">
+                {row.name}
+              </Link>
+              {(row.variants.length > 0 || badges.length > 0) && (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {row.variants.length > 0 && (
+                    <span className="text-xs text-muted-foreground">
+                      {row.variants.length} variaç{row.variants.length === 1 ? 'ão' : 'ões'}
+                    </span>
+                  )}
+                  {badges.map(badge => (
+                    <span key={badge} className="rounded-full border border-amber-200 bg-amber-50 px-1.5 text-[10px] font-medium text-amber-800">
+                      {badge}
+                    </span>
+                  ))}
+                </div>
+              )}
+              <CategoriesCell
+                names={row.category_ids.map(id => categoryNames[id]).filter(Boolean)}
+                productName={row.name}
+              />
             </div>
           </div>
         )
       },
-    },
-    {
-      key: 'categorias', header: 'Categorias',
-      cell: row => (
-        <CategoriesCell
-          names={row.category_ids.map(id => categoryNames[id]).filter(Boolean)}
-          productName={row.name}
-        />
-      ),
     },
     {
       key: 'fornecedor', header: 'Fornecedor',
@@ -528,7 +520,7 @@ const AdminProductsPage = () => {
   ]
 
   const columnIdFor: Record<string, string> = {
-    name: 'produto', categorias: 'categorias', fornecedor: 'fornecedor', price: 'preco',
+    name: 'produto', fornecedor: 'fornecedor', price: 'preco',
     stock: 'estoque', status: 'status', atualizado: 'atualizado',
   }
   const visibleColumns = columns.filter(c => {
