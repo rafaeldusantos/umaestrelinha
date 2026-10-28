@@ -18,7 +18,7 @@
 
 /**
  * Duas famílias, e é tudo — `--font-display` e `--font-body` do arquivo do Paper. A marca não usa
- * fonte nenhuma: ela é traço vetorial em `shared/ui/brand`, então não existe "fonte do logotipo"
+ * fonte nenhuma: ela é traço vetorial em `@estrelinha/ui/brand`, então não existe "fonte do logotipo"
  * para carregar.
  *
  * O fallback é serif no display e sans no corpo, e não `system-ui` nos dois: enquanto a webfont não

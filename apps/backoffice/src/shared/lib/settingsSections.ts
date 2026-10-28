@@ -31,11 +31,11 @@
 // inversão de camada mais grave que a FSD deste repositório admite. O par entre os dois é
 // **bidirecional e testado**: nem seção sem painel, nem painel sem seção.
 
-import { CreditCard, House, Mail, Truck } from 'lucide-react'
+import { CreditCard, House, Mail, ShieldCheck, Truck } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 /**
- * O endereço da tela. É ele que vive em `footerNavItems`, e é por isso que a rota-mãe continua
+ * O endereço da tela. É ele que vive em `navGroups`, e é por isso que a rota-mãe continua
  * renderizando conteúdo em vez de redirecionar para a primeira seção (`CFG-17`): um `<Navigate>`
  * daqui trocaria o endereço do rodapé por um que a sidebar não conhece.
  */
@@ -46,6 +46,7 @@ export type SettingsSectionSlug =
   | 'vendas'
   | 'frete-e-material'
   | 'notificacoes'
+  | 'usuarios-do-painel'
 
 export interface SettingsSection {
   slug: SettingsSectionSlug
@@ -95,6 +96,14 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     label: 'Notificações',
     description: '15 eventos de e-mail, agrupados',
     icon: Mail,
+  },
+  // 2026-10-28: era a página `/admin/usuarios`, no rodapé da sidebar. Por último porque é a que se
+  // visita menos — quem tem acesso muda raramente — e porque é administração do painel, não da loja.
+  {
+    slug: 'usuarios-do-painel',
+    label: 'Usuários do painel',
+    description: 'Quem entra no painel',
+    icon: ShieldCheck,
   },
 ]
 

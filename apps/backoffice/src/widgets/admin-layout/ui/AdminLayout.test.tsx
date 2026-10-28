@@ -134,11 +134,18 @@ describe('AdminLayout — os grupos colapsam', () => {
 })
 
 describe('AdminLayout — o rodapé', () => {
-  it('Configurações, Usuários do painel e o cartão da conta estão na coluna', () => {
+  it('o rodapé tem só o cartão da conta — Configurações e Usuários saíram dele (2026-10-28)', () => {
     renderEm('/admin/produtos')
-    expect(within(coluna()).getByRole('link', { name: 'Configurações' })).toBeInTheDocument()
-    expect(within(coluna()).getByRole('link', { name: 'Usuários do painel' })).toBeInTheDocument()
     expect(within(coluna()).getByRole('button', { name: /sua conta/i })).toBeInTheDocument()
+    // Usuários do painel virou seção de Configurações: não é mais link da sidebar em lugar nenhum.
+    expect(screen.queryByRole('link', { name: 'Usuários do painel' })).not.toBeInTheDocument()
+  })
+
+  it('Configurações mora no `<nav>`, logo abaixo do último item do grupo Loja', () => {
+    renderEm('/admin/produtos')
+    const links = within(sidebar()).getAllByRole('link').map(l => l.textContent?.trim())
+    expect(links.indexOf('Configurações')).toBe(links.indexOf('Google') + 1)
+    expect(links[links.length - 1]).toBe('Configurações')
   })
 
   it('"Ver Loja", "Minha conta" e "Sair" NÃO são mais linhas da coluna — moram no menu da conta', () => {
@@ -165,14 +172,6 @@ describe('AdminLayout — o rodapé', () => {
     expect(within(sidebar()).queryByRole('button', { name: /sua conta/i })).not.toBeInTheDocument()
   })
 
-  it('o rodapé fica FORA do `<nav>` que rola', () => {
-    // É a forma estrutural do conserto: o que rola é a lista de grupos, e o rodapé é irmão dela.
-    // Se `Configurações` estivesse dentro do `<nav>`, colapsar grupos deixaria de garantir que ele
-    // está à vista — voltaria a depender do quanto a lista cresceu.
-    renderEm('/admin')
-    expect(within(sidebar()).queryByRole('link', { name: 'Configurações' })).not.toBeInTheDocument()
-    expect(within(coluna()).getByRole('link', { name: 'Configurações' })).toBeInTheDocument()
-  })
 })
 
 /**
@@ -195,7 +194,7 @@ describe('AdminLayout — FOCO-01/04/05/07: a navegação recolhe nas duas telas
     // de destinos — o trilho tem os mesmos, com o rótulo no `aria-label` — e sim os cabeçalhos de
     // grupo, que só a larga desenha.
     expect(within(coluna()).queryByRole('button', { name: /Catálogo/i })).not.toBeInTheDocument()
-    expect(within(coluna()).queryByText('Uma Estrelinha')).not.toBeInTheDocument()
+    expect(within(coluna()).queryByRole('link', { name: /Uma Estrelinha/ })).not.toBeInTheDocument()
   })
 
   it('`/admin/menu` também', () => {
@@ -208,13 +207,26 @@ describe('AdminLayout — FOCO-01/04/05/07: a navegação recolhe nas duas telas
     expect(trilho()).toBeInTheDocument()
   })
 
-  it('FOCO-07: fora das duas rotas a sidebar é a de hoje, e NÃO há controle de recolher', () => {
+  it('fora das rotas de foco a sidebar abre expandida, e o controle de recolher EXISTE (2026-10-28)', () => {
+    // Era `FOCO-07` ao contrário: a 47 não oferecia o controle fora das rotas de foco.
     renderEm('/admin/produtos')
 
     expect(trilho()).not.toBeInTheDocument()
-    expect(botaoRecolher()).not.toBeInTheDocument()
-    expect(botaoExpandir()).not.toBeInTheDocument()
     expect(within(coluna()).getByRole('link', { name: 'Produtos' })).toBeInTheDocument()
+    expect(within(coluna()).getByRole('button', { name: 'Recolher a navegação' })).toBeInTheDocument()
+    expect(botaoExpandir()).not.toBeInTheDocument()
+  })
+
+  it('recolher fora das rotas de foco vira o trilho, e a escolha é lembrada', () => {
+    const { unmount } = renderEm('/admin/produtos')
+    fireEvent.click(within(coluna()).getByRole('button', { name: 'Recolher a navegação' }))
+
+    expect(trilho()).toBeInTheDocument()
+    expect(window.localStorage.getItem('estrelinha.admin.nav-rail')).toBe('recolhido')
+    unmount()
+
+    renderEm('/admin/pedidos')
+    expect(trilho()).toBeInTheDocument()
   })
 
   it('FOCO-04: o controle expande, e o mesmo par de controles recolhe de volta', () => {
@@ -230,7 +242,7 @@ describe('AdminLayout — FOCO-01/04/05/07: a navegação recolhe nas duas telas
     expect(trilho()).toBeInTheDocument()
   })
 
-  it('FOCO-05: expandido sobrevive à remontagem, e recolher APAGA a chave', () => {
+  it('FOCO-05: expandido sobrevive à remontagem, e recolher GRAVA `recolhido`', () => {
     const { unmount } = renderEm('/admin/home')
     fireEvent.click(screen.getByRole('button', { name: 'Expandir a navegação' }))
     expect(window.localStorage.getItem('estrelinha.admin.nav-rail')).toBe('expandido')
@@ -241,7 +253,7 @@ describe('AdminLayout — FOCO-01/04/05/07: a navegação recolhe nas duas telas
     expect(screen.queryByTestId('trilho-de-navegacao')).not.toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Recolher a navegação' }))
-    expect(window.localStorage.getItem('estrelinha.admin.nav-rail')).toBeNull()
+    expect(window.localStorage.getItem('estrelinha.admin.nav-rail')).toBe('recolhido')
     segunda.unmount()
 
     expect(renderEm('/admin/home').container.querySelector('[data-testid="trilho-de-navegacao"]')).not.toBeNull()
@@ -250,8 +262,9 @@ describe('AdminLayout — FOCO-01/04/05/07: a navegação recolhe nas duas telas
   it('a preferência expandida atravessa a navegação para fora e de volta', () => {
     window.localStorage.setItem('estrelinha.admin.nav-rail', 'expandido')
 
-    renderEm('/admin/produtos')
-    expect(botaoRecolher()).not.toBeInTheDocument()
+    const fora = renderEm('/admin/produtos')
+    expect(trilho()).not.toBeInTheDocument()
+    fora.unmount()
 
     renderEm('/admin/home')
     expect(screen.queryByTestId('trilho-de-navegacao')).not.toBeInTheDocument()
@@ -367,10 +380,12 @@ describe('AdminLayout — a sidebar fixa, lida do fonte', () => {
     const aside = classesDe('aside')
 
     // Os dois estados declarados, e os invariantes fora do ternário — que é o que garante que eles
-    // valem nos dois. Se `w-14`/`w-60` migrassem para dentro de `style`, a régua devolveria só os
+    // valem nos dois. Se `w-14`/`w-64` migrassem para dentro de `style`, a régua devolveria só os
     // invariantes e o par abaixo reprovaria.
     expect(aside).toContain('w-14')
-    expect(aside).toContain('w-60')
+    // 256px desde 2026-10-28: a assinatura da marca (piso de 190px) e o botão de recolher (44px)
+    // dividem o topo da coluna.
+    expect(aside).toContain('w-64')
     expect(aside).toContain('hidden')
     expect(aside).toContain('md:block')
   })

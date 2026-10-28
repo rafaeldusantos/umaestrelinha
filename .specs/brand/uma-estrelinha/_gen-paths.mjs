@@ -1,4 +1,4 @@
-// Gera `apps/store/src/shared/ui/brand/paths.ts` a partir dos SVGs canônicos
+// Gera `packages/ui/src/brand/paths.ts` a partir dos SVGs canônicos
 // deste diretório. Rode da RAIZ do repositório:
 //
 //     node .specs/brand/uma-estrelinha/_gen-paths.mjs
@@ -129,5 +129,5 @@ const body = [
 ].join('\n\n')
 
 const out = `${header}\n${body}\n`
-writeFileSync('apps/store/src/shared/ui/brand/paths.ts', out)
+writeFileSync('packages/ui/src/brand/paths.ts', out)
 console.log('paths.ts:', out.length, 'bytes ·', [lockup, signature, symbol, symbolTiny].map((a) => `${a.file.replace('uma-estrelinha-', '').replace('.svg', '')}=${a.strokes.length}`).join(' '))

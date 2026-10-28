@@ -25,7 +25,6 @@ import AdminGooglePage from "@/pages/admin/AdminGooglePage";
 import AdminClientsPage from "@/pages/admin/AdminClientsPage";
 import AdminClientPage from "@/pages/admin/AdminClientPage";
 import AdminSettingsPage from "@/pages/admin/AdminSettingsPage";
-import AdminUsersPage from "@/pages/admin/AdminUsersPage";
 import AdminAccountPage from "@/pages/admin/AdminAccountPage";
 import AdminCouponsPage from "@/pages/admin/AdminCouponsPage";
 import AdminCouponFormPage from "@/pages/admin/AdminCouponFormPage";
@@ -113,12 +112,11 @@ const App = () => (
             <Route path="/admin/google/:secao" element={<AdminGooglePage />} />
             <Route path="/admin/google-shopping" element={<Navigate to="/admin/google/shopping" replace />} />
 
-            {/* Rodapé da sidebar — administração do sistema, não um dos quatro eixos da loja.
-                A ordem segue `footerNavItems`: a loja → o sistema → eu (feature 48). */}
+            {/* Configurações vem logo depois de `Loja` na sidebar, e a ordem das rotas acompanha. */}
             {/* Feature 55 — as oito abas viraram quatro seções, e cada uma ganhou endereço.
                 A rota-mãe continua existindo por si (sem redirect): é ELA que está em
-                `footerNavItems`, e um `<Navigate>` daqui trocaria o endereço do rodapé da sidebar
-                por um que ela não conhece.
+                `navGroups`, e um `<Navigate>` daqui trocaria o endereço da sidebar por um que ela
+                não conhece.
 
                 ⚠️ **As duas são IRMÃS AUTO-FECHADAS, e não um `<Route>` aninhado com filhos** — que
                 é justamente a forma idiomática do react-router para este caso. `rotasSobGuarda.test.ts`
@@ -130,7 +128,9 @@ const App = () => (
                 `/admin/home` e `/admin/home/:sectionId`. */}
             <Route path="/admin/configuracoes" element={<AdminSettingsPage />} />
             <Route path="/admin/configuracoes/:secao" element={<AdminSettingsPage />} />
-            <Route path="/admin/usuarios" element={<AdminUsersPage />} />
+            {/* Usuários do painel virou seção de Configurações (2026-10-28); o endereço antigo
+                continua valendo para link salvo e para o e-mail de redefinição. */}
+            <Route path="/admin/usuarios" element={<Navigate to="/admin/configuracoes/usuarios-do-painel" replace />} />
             <Route path="/admin/conta" element={<AdminAccountPage />} />
           </Route>
 

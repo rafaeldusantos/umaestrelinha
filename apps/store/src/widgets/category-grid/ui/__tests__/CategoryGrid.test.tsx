@@ -105,7 +105,7 @@ describe('card de coleção — o texto acompanha o fundo', () => {
 
   it('a inicial marca-d’água sai na família de display, não em fonte de logo', () => {
     // Não existe fonte de logotipo nesta loja: a marca é traço vetorial em
-    // `shared/ui/brand`. A inicial usa a mesma família dos títulos.
+    // `@estrelinha/ui/brand`. A inicial usa a mesma família dos títulos.
     renderGrid()
     const initial = cardOf('Anime').querySelector('[aria-hidden]')
     expect(initial).toHaveClass('font-display', 'font-bold')

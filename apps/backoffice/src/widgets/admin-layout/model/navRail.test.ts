@@ -1,13 +1,12 @@
-// Feature 47 — a preferência do trilho.
+// Feature 47 — a preferência do trilho. Revista em 2026-10-28: o botão existe em toda tela.
 //
-// O que este arquivo trava é a **direção do default** e o que a ausência da chave significa. As duas
-// erram sem quebrar nada: guardar `'recolhido'` em vez de `'expandido'` faria o dia em que o padrão
-// mudasse não alcançar quem nunca mexeu, e ler a chave do `navCollapse` faria um botão apagar o que
-// o outro guarda.
+// O que este arquivo trava é o que a ausência da chave significa (o padrão da rota) e que a escolha
+// feita em qualquer tela é lembrada nos dois sentidos. Ler a chave do `navCollapse` faria um botão
+// apagar o que o outro guarda.
 
 import { act, renderHook } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import { STORAGE_KEY, readExpanded, useNavRail } from './navRail'
+import { STORAGE_KEY, isRailCollapsed, readChoice, useNavRail } from './navRail'
 import { STORAGE_KEY as CHAVE_DOS_GRUPOS } from './navCollapse'
 
 /** Um `Storage` de mentira, para não depender do `localStorage` do jsdom entre arquivos. */
@@ -48,46 +47,60 @@ const storageQueLanca = (): Storage =>
     },
   }) as Storage
 
-describe('readExpanded — FOCO-06: só o valor exato conta', () => {
-  it('chave ausente lê como NÃO expandido — a ausência é o padrão', () => {
-    expect(readExpanded(fakeStorage())).toBe(false)
+describe('readChoice — só os dois valores exatos contam', () => {
+  it('chave ausente lê como `null` — siga o padrão da rota', () => {
+    expect(readChoice(fakeStorage())).toBeNull()
   })
 
-  it('o valor `expandido` liga', () => {
-    expect(readExpanded(fakeStorage({ [STORAGE_KEY]: 'expandido' }))).toBe(true)
+  it('os dois valores gravados são lidos', () => {
+    expect(readChoice(fakeStorage({ [STORAGE_KEY]: 'expandido' }))).toBe('expandido')
+    expect(readChoice(fakeStorage({ [STORAGE_KEY]: 'recolhido' }))).toBe('recolhido')
   })
 
   it('valor de lixo lê como ausente, em vez de virar um terceiro estado', () => {
-    expect(readExpanded(fakeStorage({ [STORAGE_KEY]: 'true' }))).toBe(false)
-    expect(readExpanded(fakeStorage({ [STORAGE_KEY]: '{}' }))).toBe(false)
-    expect(readExpanded(fakeStorage({ [STORAGE_KEY]: '' }))).toBe(false)
-    expect(readExpanded(fakeStorage({ [STORAGE_KEY]: 'EXPANDIDO' }))).toBe(false)
+    expect(readChoice(fakeStorage({ [STORAGE_KEY]: 'true' }))).toBeNull()
+    expect(readChoice(fakeStorage({ [STORAGE_KEY]: 'Expandido' }))).toBeNull()
   })
 
-  it('storage que LANÇA ao ler devolve o padrão, sem subir exceção', () => {
-    expect(() => readExpanded(storageQueLanca())).not.toThrow()
-    expect(readExpanded(storageQueLanca())).toBe(false)
+  it('storage que LANÇA ao ler devolve `null`, sem subir exceção', () => {
+    expect(readChoice(storageQueLanca())).toBeNull()
   })
 })
 
-describe('useNavRail — FOCO-05: o padrão da rota, e o override gravado', () => {
+describe('isRailCollapsed — a escolha vence o padrão da rota', () => {
+  it('sem escolha: rota de foco recolhe, as demais não', () => {
+    expect(isRailCollapsed(null, true)).toBe(true)
+    expect(isRailCollapsed(null, false)).toBe(false)
+  })
+
+  it('com escolha, a rota não importa', () => {
+    expect(isRailCollapsed('recolhido', false)).toBe(true)
+    expect(isRailCollapsed('expandido', true)).toBe(false)
+  })
+})
+
+describe('useNavRail — o botão em toda tela, e a escolha lembrada', () => {
   it('em rota de foco, sem chave, nasce RECOLHIDO', () => {
     const { result } = renderHook(() => useNavRail(true, fakeStorage()))
     expect(result.current.recolhido).toBe(true)
   })
 
-  it('FOCO-07: fora de rota de foco nunca recolhe, mesmo com a preferência gravada', () => {
-    const storage = fakeStorage({ [STORAGE_KEY]: 'expandido' })
-    expect(renderHook(() => useNavRail(false, storage)).result.current.recolhido).toBe(false)
-    expect(renderHook(() => useNavRail(false, fakeStorage())).result.current.recolhido).toBe(false)
+  it('fora de rota de foco, sem chave, nasce EXPANDIDO', () => {
+    const { result } = renderHook(() => useNavRail(false, fakeStorage()))
+    expect(result.current.recolhido).toBe(false)
   })
 
-  it('com `expandido` gravado, a rota de foco abre expandida', () => {
-    const storage = fakeStorage({ [STORAGE_KEY]: 'expandido' })
-    expect(renderHook(() => useNavRail(true, storage)).result.current.recolhido).toBe(false)
+  it('recolher fora de rota de foco GRAVA `recolhido` — apagar a chave devolveria a sidebar aberta', () => {
+    const storage = fakeStorage()
+    const { result } = renderHook(() => useNavRail(false, storage))
+
+    act(() => result.current.alternar())
+
+    expect(result.current.recolhido).toBe(true)
+    expect(storage.getItem(STORAGE_KEY)).toBe('recolhido')
   })
 
-  it('expandir GRAVA `expandido`', () => {
+  it('expandir numa rota de foco GRAVA `expandido`', () => {
     const storage = fakeStorage()
     const { result } = renderHook(() => useNavRail(true, storage))
 
@@ -97,28 +110,38 @@ describe('useNavRail — FOCO-05: o padrão da rota, e o override gravado', () =
     expect(storage.getItem(STORAGE_KEY)).toBe('expandido')
   })
 
-  it('FOCO-05: recolher de volta REMOVE a chave — não grava `recolhido`', () => {
-    const storage = fakeStorage({ [STORAGE_KEY]: 'expandido' })
-    const remover = vi.spyOn(storage, 'removeItem')
-    const { result } = renderHook(() => useNavRail(true, storage))
+  it('alternar duas vezes volta ao estado de partida, e a chave guarda a última escolha', () => {
+    const storage = fakeStorage()
+    const { result } = renderHook(() => useNavRail(false, storage))
 
     act(() => result.current.alternar())
+    act(() => result.current.alternar())
 
-    expect(result.current.recolhido).toBe(true)
-    expect(remover).toHaveBeenCalledWith(STORAGE_KEY)
-    expect(storage.getItem(STORAGE_KEY)).toBeNull()
+    expect(result.current.recolhido).toBe(false)
+    expect(storage.getItem(STORAGE_KEY)).toBe('expandido')
   })
 
-  it('a preferência sobrevive à remontagem — é de pessoa, não de visita', () => {
+  it('a escolha atravessa as rotas: recolhida em Produtos, continua recolhida em outra tela', () => {
     const storage = fakeStorage()
-    const primeira = renderHook(() => useNavRail(true, storage))
+    const primeira = renderHook(() => useNavRail(false, storage))
     act(() => primeira.result.current.alternar())
     primeira.unmount()
 
-    expect(renderHook(() => useNavRail(true, storage)).result.current.recolhido).toBe(false)
+    expect(renderHook(() => useNavRail(false, storage)).result.current.recolhido).toBe(true)
+    expect(renderHook(() => useNavRail(true, storage)).result.current.recolhido).toBe(true)
   })
 
-  it('FOCO-06: storage que LANÇA ao gravar não impede o estado em memória de alternar', () => {
+  it('a rota muda sem remontar: sem escolha, o estado acompanha o padrão da rota nova', () => {
+    const storage = fakeStorage()
+    const { result, rerender } = renderHook(({ foco }) => useNavRail(foco, storage), {
+      initialProps: { foco: false },
+    })
+    expect(result.current.recolhido).toBe(false)
+    rerender({ foco: true })
+    expect(result.current.recolhido).toBe(true)
+  })
+
+  it('storage que LANÇA ao gravar não impede o estado em memória de alternar', () => {
     const { result } = renderHook(() => useNavRail(true, storageQueLanca()))
 
     expect(result.current.recolhido).toBe(true)

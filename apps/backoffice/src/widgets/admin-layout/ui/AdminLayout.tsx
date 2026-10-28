@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
-import { ChevronDown, PanelLeftClose, Pin, Menu } from 'lucide-react'
+import { ChevronDown, PanelLeftClose, Menu } from 'lucide-react'
 import { supabase } from '@estrelinha/supabase/client'
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@estrelinha/ui/sheet'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@estrelinha/ui/collapsible'
 import { cn } from '@estrelinha/ui/lib/utils'
+import { EstrelinhaSignature } from '@estrelinha/ui/brand'
 import { isNavActive } from '@/widgets/admin-layout/lib/isNavActive'
-import { navGroups, footerNavItems, type NavItem } from '@/widgets/admin-layout/model/navItems'
+import { navGroups, type NavItem } from '@/widgets/admin-layout/model/navItems'
 import { groupHasActive, isCollapsed, useNavCollapse } from '@/widgets/admin-layout/model/navCollapse'
 import { isFocusRoute } from '@/widgets/admin-layout/model/focusRoutes'
 import { useNavRail } from '@/widgets/admin-layout/model/navRail'
@@ -22,7 +23,7 @@ interface NavLinkProps {
   onNavigate?: () => void
 }
 
-/** Um item do menu. Vive aqui porque os grupos e o rodapé compartilham as mesmas classes. */
+/** Um item do menu. Vive aqui porque todos os grupos compartilham as mesmas classes. */
 const NavLink = ({ item, pathname, onNavigate }: NavLinkProps) => {
   const active = isNavActive(pathname, item.to)
   return (
@@ -48,9 +49,8 @@ interface NavProps {
   /**
    * Recolhe a navegação para o trilho.
    *
-   * **Só chega preenchido nas rotas de foco** (`/admin/home` e `/admin/menu`): nas demais telas não
-   * há duas colunas disputando largura, e um controle que não resolve problema nenhum é ruído
-   * (`FOCO-07`). Ausente também na gaveta do celular, onde a navegação já sai da frente sozinha.
+   * Chega preenchido em **toda** tela do computador (2026-10-28; até ali só nas rotas de foco,
+   * `FOCO-07`). Ausente na gaveta do celular, onde a navegação já sai da frente sozinha.
    */
   onCollapse?: () => void
   /**
@@ -61,17 +61,26 @@ interface NavProps {
   comConta?: boolean
 }
 
+/** A largura da assinatura no topo da coluna — o piso dela (`SIGNATURE_FLOOR`). */
+const SIDEBAR_SIGNATURE_WIDTH = 190
+
 const NavContent = ({ pathname, onNavigate, onLogout, onCollapse, comConta = true }: NavProps) => {
   const { collapsed, toggle } = useNavCollapse()
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center gap-2 p-4 border-b border-estrelinha-admin-border shrink-0">
-        <Link to="/admin" onClick={onNavigate} className="flex min-w-0 flex-1 items-center gap-2">
-          <div className="w-8 h-8 rounded-full gradient-cta flex items-center justify-center shrink-0">
-            <Pin className="w-4 h-4 text-white" />
-          </div>
-          <span className="font-heading text-lg font-semibold text-estrelinha-admin-text truncate">Uma Estrelinha</span>
+      {/* A marca é a ASSINATURA da loja — o mesmo traço do header dela, sem a linha "Eternizando suas
+          lembranças" (essa é do lockup, e a 190px viraria cinza de antialias). 190px é o piso da
+          assinatura: abaixo dele ela cai para o símbolo, e é por isso que a coluna tem 256px — logo,
+          botão de 44px e os recuos cabem sem a marca encolher. */}
+      <div className="flex h-16 items-center gap-1 border-b border-estrelinha-admin-border pl-3 pr-1.5 shrink-0">
+        <Link
+          to="/admin"
+          onClick={onNavigate}
+          aria-label="Uma Estrelinha — Dashboard"
+          className="flex min-w-0 flex-1 items-center rounded-lg"
+        >
+          <EstrelinhaSignature width={SIDEBAR_SIGNATURE_WIDTH} />
         </Link>
         {onCollapse && (
           <button
@@ -88,10 +97,12 @@ const NavContent = ({ pathname, onNavigate, onLogout, onCollapse, comConta = tru
           abaixo do próprio conteúdo, e a lista empurraria o rodapé para fora da coluna em vez de
           rolar dentro dela. */}
       <nav className="flex-1 min-h-0 p-3 overflow-y-auto">
-        {navGroups.map((group) => {
+        {navGroups.map((group, indice) => {
+          // Grupo sem cabeçalho: o Dashboard no topo e Configurações abaixo de `Loja`. O segundo
+          // ganha o mesmo respiro (`mt-3`) que um cabeçalho de grupo daria.
           if (group.label === null) {
             return (
-              <div key="principal" className="space-y-1">
+              <div key={`sem-rotulo-${indice}`} className={cn('space-y-1', indice > 0 && 'mt-3')}>
                 {group.items.map((item) => (
                   <NavLink key={item.to} item={item} pathname={pathname} onNavigate={onNavigate} />
                 ))}
@@ -141,16 +152,11 @@ const NavContent = ({ pathname, onNavigate, onLogout, onCollapse, comConta = tru
           )
         })}
       </nav>
-      <div className="p-3 border-t border-estrelinha-admin-border space-y-1 shrink-0">
-        {footerNavItems.map((item) => (
-          <NavLink key={item.to} item={item} pathname={pathname} onNavigate={onNavigate} />
-        ))}
-        {comConta && (
-          <div className="mt-2 pt-2 border-t border-estrelinha-admin-border">
-            <AccountMenu variant="sidebar" pathname={pathname} onLogout={onLogout} onNavigate={onNavigate} />
-          </div>
-        )}
-      </div>
+      {comConta && (
+        <div className="p-3 border-t border-estrelinha-admin-border shrink-0">
+          <AccountMenu variant="sidebar" pathname={pathname} onLogout={onLogout} onNavigate={onNavigate} />
+        </div>
+      )}
     </div>
   )
 }
@@ -160,8 +166,8 @@ const AdminLayout = () => {
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
 
-  // As duas telas que mostram a loja ao lado do editor abrem com a navegação recolhida. A
-  // preferência é de pessoa e sobrevive ao F5; fora dessas rotas ela existe mas não tem efeito.
+  // As rotas de foco abrem com a navegação recolhida; as demais, aberta. O botão de recolher existe
+  // em toda tela, e a escolha feita nele vale para todas e sobrevive ao F5.
   const foco = isFocusRoute(location.pathname)
   const { recolhido, alternar } = useNavRail(foco)
 
@@ -174,7 +180,7 @@ const AdminLayout = () => {
     <div className="min-h-screen flex bg-estrelinha-admin-bg">
       {/* A sidebar é FIXA na viewport, e isso conserta um defeito: como o `aside` era só um filho de
           flex sem altura, ele esticava até a altura do DOCUMENTO — numa listagem de 680 produtos o
-          rodapé (Configurações · Sair) ia para o fim da página, a dezenas de telas de
+          rodapé (a conta e o Sair) ia para o fim da página, a dezenas de telas de
           distância, e "desaparecia".
           `sticky` em vez de `fixed`: mantém a largura reservada no fluxo (com `fixed` o conteúdo
           principal passaria por baixo) e preserva a rolagem do BODY, que é a que se comporta bem no
@@ -182,14 +188,14 @@ const AdminLayout = () => {
           navegador. `self-start` impede o `stretch` do flex de desfazer a altura de uma tela. */}
       {/* A largura é a única coisa que muda com o trilho — os invariantes de posição valem nos DOIS
           estados, e `AdminLayout.test.tsx` os lê do disco enxergando esta forma dinâmica. */}
-      <aside className={cn('hidden md:block shrink-0 sticky top-0 self-start h-screen bg-white border-r border-estrelinha-admin-border', recolhido ? 'w-14' : 'w-60')}>
+      <aside className={cn('hidden md:block shrink-0 sticky top-0 self-start h-screen bg-white border-r border-estrelinha-admin-border', recolhido ? 'w-14' : 'w-64')}>
         {recolhido ? (
           <NavRail pathname={location.pathname} onExpand={alternar} onLogout={handleLogout} />
         ) : (
           <NavContent
             pathname={location.pathname}
             onLogout={handleLogout}
-            onCollapse={foco ? alternar : undefined}
+            onCollapse={alternar}
           />
         )}
       </aside>

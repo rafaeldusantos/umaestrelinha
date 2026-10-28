@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { accountNavItem, navGroups, footerNavItems } from './navItems'
+import { accountNavItem, navGroups } from './navItems'
 
 // A estrutura da sidebar não tinha teste nenhum, e ela é um contrato com duas coisas: as rotas de
 // `app/App.tsx` e o hábito de quem usa o admin todo dia. Mover um item de grupo é fácil; mover sem
@@ -36,6 +36,8 @@ describe('navGroups — os quatro eixos', () => {
       'Descontos',
       'Catálogo',
       'Loja',
+      // 2026-10-28: Configurações, sem cabeçalho, logo abaixo de Loja.
+      null,
     ])
   })
 
@@ -66,10 +68,16 @@ describe('navGroups — os quatro eixos', () => {
     expect(allItems.map(i => i.to).slice(0, 2)).toEqual(['/admin', '/admin/pedidos'])
   })
 
-  it('só o Dashboard fica sem cabeçalho de grupo', () => {
+  it('só o Dashboard (no topo) e Configurações (no fim) ficam sem cabeçalho de grupo', () => {
     const semLabel = navGroups.filter(g => g.label === null)
-    expect(semLabel).toHaveLength(1)
-    expect(semLabel[0].items.map(i => i.to)).toEqual(['/admin'])
+    expect(semLabel.map(g => g.items.map(i => i.to))).toEqual([['/admin'], ['/admin/configuracoes']])
+    expect(navGroups[0].label).toBeNull()
+    expect(navGroups[navGroups.length - 1].label).toBeNull()
+  })
+
+  it('Configurações vem logo abaixo do grupo Loja (2026-10-28)', () => {
+    const indiceLoja = navGroups.findIndex(g => g.label === 'Loja')
+    expect(navGroups[indiceLoja + 1].items.map(i => i.label)).toEqual(['Configurações'])
   })
 
   it('"Loja" é o grupo do que a cliente vê, e o Menu mora nele — não em Catálogo', () => {
@@ -222,7 +230,7 @@ describe('navGroups — os quatro eixos', () => {
   })
 
   it('todo item tem rota sob /admin, rótulo e ícone renderizável', () => {
-    for (const item of [...allItems, ...footerNavItems]) {
+    for (const item of allItems) {
       expect(item.to.startsWith('/admin')).toBe(true)
       expect(item.label.trim()).not.toBe('')
       // Ícone do lucide é um `forwardRef` — objeto, não função. O que importa é ser um tipo de
@@ -236,55 +244,18 @@ describe('navGroups — os quatro eixos', () => {
     expect(allItems.map(i => i.to)).not.toContain('/admin/produtos/grade-rapida')
   })
 
-  it('o rodapé tem DOIS destinos, na ordem "a loja → quem entra nela" (2026-10-21)', () => {
-    // REESCRITA, não afrouxada: `Minha conta` saiu do rodapé para o menu da conta, junto de "Abrir a
-    // loja" e "Sair". A vizinha abaixo prova para onde ela foi — sem ela, apagar a tela da navegação
-    // inteira passaria por aqui.
-    expect(footerNavItems.map(i => i.to)).toEqual(['/admin/configuracoes', '/admin/usuarios'])
-    expect(footerNavItems.map(i => i.label)).toEqual(['Configurações', 'Usuários do painel'])
+  it('Usuários do painel NÃO é destino da sidebar — virou seção de Configurações (2026-10-28)', () => {
+    expect(allItems.map(i => i.to)).not.toContain('/admin/usuarios')
+    expect(allItems.map(i => i.label)).not.toContain('Usuários do painel')
+    // O endereço antigo continua declarado, como redirect para a seção.
+    expect(appRoutePaths()).toContain('/admin/usuarios')
   })
 
-  it('`Minha conta` continua declarada — como `accountNavItem`, fora do rodapé e dos grupos', () => {
+  it('`Minha conta` continua declarada — como `accountNavItem`, fora dos grupos', () => {
     expect(accountNavItem.to).toBe('/admin/conta')
     expect(accountNavItem.label).toBe('Minha conta')
-    expect(footerNavItems.map(i => i.to)).not.toContain('/admin/conta')
-  })
-
-  it('nenhum destino do rodapé aparece também nos grupos', () => {
-    for (const item of footerNavItems) {
-      expect(allItems.map(i => i.to)).not.toContain(item.to)
-    }
-  })
-
-  it('USR-36: os dois destinos novos NÃO entram em `navGroups`', () => {
-    // Não são um dos quatro eixos por fila: ninguém abre o painel de manhã para conferir quem tem
-    // acesso. Pô-los num grupo daria a eles a mesma frequência visual de Pedidos.
-    expect(allItems.map(i => i.to)).not.toContain('/admin/usuarios')
     expect(allItems.map(i => i.to)).not.toContain('/admin/conta')
-  })
-
-  it('USR-37: as duas rotas novas estão declaradas em `App.tsx`', () => {
-    const rotas = appRoutePaths()
-    expect(rotas).toContain('/admin/usuarios')
-    expect(rotas).toContain('/admin/conta')
-  })
-
-  it('USR-37: a ordem das rotas do rodapé em `App.tsx` casa com `footerNavItems`', () => {
-    // Mesma régua de PRM-20, agora valendo para o rodapé: a sequência textual é o contrato, e nada
-    // acusaria se ela divergisse.
-    const rotas = appRoutePaths()
-    const rodape = [...footerNavItems, accountNavItem]
-    const declaradas = rotas.filter(p => rodape.some(i => i.to === p))
-    expect(declaradas).toEqual(rodape.map(i => i.to))
-  })
-
-  it('bidirecional: TODA entrada do rodapé é uma rota de `App.tsx`', () => {
-    // Sem o segundo sentido, um item que apontasse para uma rota removida cairia na 404 do painel e
-    // continuaria na sidebar — o mesmo acúmulo que `routeSplitting` evita na loja.
-    const rotas = appRoutePaths()
-    for (const item of footerNavItems) {
-      expect(rotas).toContain(item.to)
-    }
+    expect(appRoutePaths()).toContain('/admin/conta')
   })
 
   it('Coleções não voltou (AD-014)', () => {

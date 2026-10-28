@@ -26,6 +26,7 @@
 import type { ComponentType } from 'react'
 import { SalesSection, ShippingMaterialSection, StoreDataSection } from '@/features/settings'
 import { NotificationsTab } from '@/features/notification-settings'
+import { AdminUsersPanel } from '@/features/admin-users'
 import type { SettingsSectionSlug } from '@/shared/lib/settingsSections'
 
 /**
@@ -40,4 +41,5 @@ export const SETTINGS_PANELS: Record<SettingsSectionSlug, ComponentType> = {
   vendas: SalesSection,
   'frete-e-material': ShippingMaterialSection,
   notificacoes: NotificationsTab,
+  'usuarios-do-painel': AdminUsersPanel,
 }

@@ -15,7 +15,7 @@ import { applyOrderBump } from '@estrelinha/core/payment/pricing'
 import { useCheckoutSettings } from '@estrelinha/core/hooks/useStoreSettings'
 import { useCartStore } from '@/entities/cart'
 import { useProductById } from '@/entities/product'
-import { EstrelinhaSymbol } from '@/shared/ui/brand'
+import { EstrelinhaSymbol } from '@estrelinha/ui/brand'
 import { useCheckoutStore } from '../model/checkoutStore'
 
 const OrderBump = () => {

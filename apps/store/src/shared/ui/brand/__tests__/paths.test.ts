@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { LOCKUP, SIGNATURE, SYMBOL, SYMBOL_TINY, type BrandArt } from '../paths'
+import { LOCKUP, SIGNATURE, SYMBOL, SYMBOL_TINY, type BrandArt } from '@estrelinha/ui/brand/paths'
 
 /**
  * `paths.ts` é **gerado** de `.specs/brand/uma-estrelinha/*.svg` — `IDN-06`.

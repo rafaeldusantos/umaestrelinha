@@ -3,7 +3,7 @@ import { motion, type Variants } from 'framer-motion'
 import { ArrowRight } from 'lucide-react'
 import type { HomeSectionConfig } from '@estrelinha/core/home'
 import { renditionSrcSet, renditionUrl } from '@estrelinha/core/media'
-import { EstrelinhaSymbol } from '@/shared/ui/brand'
+import { EstrelinhaSymbol } from '@estrelinha/ui/brand'
 
 const container: Variants = {
   hidden: {},

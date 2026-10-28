@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { SYMBOL, SYMBOL_TINY } from '@/shared/ui/brand/paths'
+import { SYMBOL, SYMBOL_TINY } from '@estrelinha/ui/brand/paths'
 
 /**
  * Os ativos de marca e a cabeça do documento — `IDN-07`.

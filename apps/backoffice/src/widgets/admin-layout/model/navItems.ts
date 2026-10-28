@@ -1,4 +1,4 @@
-import { HelpCircle, SlidersHorizontal, House, LayoutDashboard, MessageCircleQuestion, Package, Percent, Tags, Menu, ShieldCheck, ShoppingCart, ShoppingBag, Store, Ticket, UserCog, Users, Settings } from 'lucide-react'
+import { HelpCircle, SlidersHorizontal, House, LayoutDashboard, MessageCircleQuestion, Package, Percent, Tags, Menu, ShoppingCart, ShoppingBag, Store, Ticket, UserCog, Users, Settings } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 export interface NavItem {
@@ -104,29 +104,21 @@ export const navGroups: NavGroup[] = [
       { to: '/admin/google', icon: Store, label: 'Google' },
     ],
   },
-]
-
-/**
- * Vai no bloco de rodapé da sidebar, logo acima do cartão da conta.
- *
- * **Os dois itens são administração do SISTEMA**, e por isso não entram em `navGroups`: não são um
- * dos quatro eixos por fila da loja — ninguém abre o painel de manhã para conferir quem tem acesso.
- * A ordem vai do mais amplo ao mais restrito: **a loja → quem entra nela**.
- *
- * `Minha conta` morava aqui até 2026-10-21 e saiu para o menu da conta (`accountNavItem`), junto de
- * "Abrir a loja" e "Sair": o rodapé tinha cinco linhas (~250px) e cortava o grupo `Catálogo` numa
- * viewport de 900. O que é da própria pessoa passou a morar atrás de um botão só.
- */
-export const footerNavItems: NavItem[] = [
-  { to: '/admin/configuracoes', icon: Settings, label: 'Configurações' },
-  { to: '/admin/usuarios', icon: ShieldCheck, label: 'Usuários do painel' },
+  // 2026-10-28: Configurações saiu do rodapé e veio para logo abaixo de `Loja`, sem cabeçalho de
+  // grupo — é um destino só, e um grupo "Configurações" contendo "Configurações" seria a mesma
+  // palavra duas vezes. `Usuários do painel` deixou de ser destino da sidebar: virou uma seção
+  // dentro de Configurações (`SETTINGS_SECTIONS`), e `/admin/usuarios` redireciona para ela.
+  {
+    label: null,
+    items: [{ to: '/admin/configuracoes', icon: Settings, label: 'Configurações' }],
+  },
 ]
 
 /**
  * A tela pessoal — alcançada pelo menu da conta (`ui/AccountMenu`), não por uma linha da sidebar.
  *
  * Continua declarada AQUI, e não escrita dentro do menu, porque este arquivo é o dono de "quais telas
- * a navegação conhece": a rota em `App.tsx` segue logo depois das do rodapé, e o botão da conta se
+ * a navegação conhece": a rota em `App.tsx` segue logo depois da de Configurações, e o botão da conta se
  * marca como ativo com a mesma `isNavActive` dos outros itens.
  */
 export const accountNavItem: NavItem = { to: '/admin/conta', icon: UserCog, label: 'Minha conta' }

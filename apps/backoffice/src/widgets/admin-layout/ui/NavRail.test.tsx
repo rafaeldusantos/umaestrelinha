@@ -1,7 +1,7 @@
 // Feature 47 — o trilho de ícones.
 //
 // O que se prova aqui é que o trilho **não tem lista própria**: os destinos, a ordem e o nome de
-// cada um saem de `navGroups`/`footerNavItems`. A âncora de contagem é derivada dessa mesma fonte —
+// cada um saem de `navGroups`. A âncora de contagem é derivada dessa mesma fonte —
 // escrever `14` à mão faria um grupo novo passar despercebido, que é a forma silenciosa deste
 // defeito.
 
@@ -14,9 +14,9 @@ import { describe, expect, it, vi } from 'vitest'
 import NavRail from './NavRail'
 
 vi.mock('@estrelinha/auth', () => ({ useAuthContext: () => ({ user: { email: 'adri@exemplo.invalid' } }) }))
-import { footerNavItems, navGroups } from '../model/navItems'
+import { navGroups } from '../model/navItems'
 
-const destinos = [...navGroups.flatMap(grupo => grupo.items), ...footerNavItems]
+const destinos = navGroups.flatMap(grupo => grupo.items)
 
 const renderTrilho = (pathname = '/admin/home', onExpand = vi.fn()) =>
   render(
@@ -30,7 +30,7 @@ describe('NavRail — FOCO-02: os mesmos destinos da sidebar, na mesma ordem', (
     expect(destinos.length).toBeGreaterThan(5)
   })
 
-  it('renderiza EXATAMENTE os destinos de `navGroups` + `footerNavItems`', () => {
+  it('renderiza EXATAMENTE os destinos de `navGroups`', () => {
     renderTrilho()
 
     const links = screen.getAllByRole('link')

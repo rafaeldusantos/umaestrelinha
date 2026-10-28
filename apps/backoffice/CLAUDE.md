@@ -20,12 +20,16 @@ Não pelo ciclo de vida do produto:
 | **Vendas** | Pedidos · Carrinhos abandonados · Clientes |
 | **Descontos** | Cupons · Promoções |
 | **Catálogo** | Produtos · Categorias · Filtros da loja · Perguntas frequentes |
-| **Loja** | Home · Menu da loja · Google Shopping |
-| *(rodapé)* | Configurações · Usuários do painel |
+| **Loja** | Home · Menu da loja · Página de perguntas · Google |
+| *(sem cabeçalho)* | Configurações |
 | *(menu da conta, no pé)* | Minha conta · Abrir a loja · Abrir a loja sem contar · Sair |
 
-**O rodapé é o lugar da administração do SISTEMA**, e por isso os dois itens da feature `48` entram
-ali e não num dos quatro eixos: ninguém abre o painel de manhã para conferir quem tem acesso.
+**Desde 2026-10-28 não há mais destinos no rodapé.** Configurações saiu dele e virou um grupo sem
+cabeçalho logo abaixo de `Loja` (`footerNavItems` foi apagado), e **Usuários do painel virou a quinta
+seção de Configurações** (`usuarios-do-painel`, corpo em `features/admin-users/ui/AdminUsersPanel`).
+`/admin/usuarios` continua declarada, como `<Navigate>` para a seção — link salvo e o e-mail de
+redefinição seguem valendo; é a segunda entrada de `REDIRECTS_PERMITIDOS` em
+`rotasDeConfiguracoes.test.ts`. O pé da coluna ficou só com o cartão da conta.
 
 **O que é da própria pessoa mora atrás de UM botão** (`ui/AccountMenu.tsx`, 2026-10-21): o cartão da
 conta no pé da coluna abre *Minha conta · Abrir a loja · Sair*. O rodapé tinha cinco linhas (~266px)
@@ -121,6 +125,14 @@ dobra interna. Em 390×844 sobram 206px de corte. Colapsar dois grupos zera a di
     string, `style`) devolve vazio e derruba a âncora.
 
 ### O modo de foco: `/admin/home` e `/admin/menu` recolhem a navegação (feature 47)
+
+> **Revisto em 2026-10-28: o botão de recolher existe em TODA tela do computador**, e o topo da
+> sidebar é a `EstrelinhaSignature` da loja (`@estrelinha/ui/brand`, 190px, sem o "Eternizando suas
+> lembranças"); o trilho de 56px usa o `EstrelinhaSymbol`. A coluna passou de 240 para **256px**.
+> `estrelinha.admin.nav-rail` agora guarda a escolha nos DOIS sentidos (`expandido` | `recolhido`):
+> a ausência continua sendo "siga o padrão da rota" (rota de foco recolhe, as demais abrem), mas a
+> escolha feita vale para todas as telas. O parágrafo da 47 abaixo que diz "guarda só o override
+> `expandido`" e "fora dessas duas rotas não existe nem o controle" está superado por este.
 
 São as duas telas que mostram **a loja ao lado do que se edita**, e nelas a sidebar de 240px é a
 coisa menos usada: quem entra em `/admin/home` veio compor a Home, não navegar. Em 1440 elas passam

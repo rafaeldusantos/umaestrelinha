@@ -6,7 +6,7 @@
  * quatro pesos de traço, um vinco tracejado, a fita em ouro sólido e uma etiqueta de papel por cima.
  * Forçá-la na grade de 24 apagaria o vinco e a fita; deixá-la na biblioteca obrigaria o guarda dos
  * ícones a abrir exceção para o único arquivo que não é ícone. Mesma separação que a marca já pratica
- * em `shared/ui/brand`.
+ * em `@estrelinha/ui/brand`.
  *
  * Decorativa de ponta a ponta: `aria-hidden`, e o que ela ilustra está escrito ao lado.
  */

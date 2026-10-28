@@ -1,5 +1,5 @@
 import { useId, type CSSProperties } from 'react'
-import { EstrelinhaSymbol } from '@/shared/ui/brand'
+import { EstrelinhaSymbol } from '@estrelinha/ui/brand'
 import {
   INSTAGRAM_GLYPH_STOPS,
   INSTAGRAM_RING_GRADIENT,

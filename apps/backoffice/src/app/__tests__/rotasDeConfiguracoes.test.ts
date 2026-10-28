@@ -81,7 +81,9 @@ const ROTA_DA_SECAO = `${SETTINGS_ROOT}/:secao`
  * Os únicos caminhos que podem ser redirect no painel, escritos LITERALMENTE (feature 61, `ANL-02`):
  * o endereço antigo da tela do Google Shopping, que passou a ser a seção Shopping de `/admin/google`.
  */
-const REDIRECTS_PERMITIDOS = ['/admin/google-shopping']
+// 2026-10-28: `/admin/usuarios` virou a seção "Usuários do painel" de Configurações, e o endereço
+// antigo redireciona para ela — link salvo e o e-mail de redefinição continuam valendo.
+const REDIRECTS_PERMITIDOS = ['/admin/google-shopping', '/admin/usuarios']
 
 /** Caminhos de rota cujo `element` é um `<Navigate>` fora da allowlist — e todo `<Navigate>` solto. */
 const redirectsIndevidos = (texto: string): string[] => {

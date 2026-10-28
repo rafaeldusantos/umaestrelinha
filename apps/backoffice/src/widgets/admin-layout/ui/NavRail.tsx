@@ -1,6 +1,6 @@
 // O trilho de ícones — feature 47.
 //
-// **Não declara destino nenhum.** A lista é `navGroups` + `footerNavItems`, na ordem delas: é a
+// **Não declara destino nenhum.** A lista é `navGroups`, na ordem dele: é a
 // mesma fonte que a sidebar larga consome, e é o que impede o trilho de virar um segundo dono de
 // "quais telas o painel tem". Um item novo em `navItems.ts` aparece aqui sem ninguém lembrar.
 //
@@ -14,11 +14,12 @@
 // exatamente o defeito que aquele guarda existe para impedir.
 
 import { Link } from 'react-router-dom'
-import { PanelLeftOpen, Pin } from 'lucide-react'
+import { PanelLeftOpen } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@estrelinha/ui/tooltip'
 import { cn } from '@estrelinha/ui/lib/utils'
+import { EstrelinhaSymbol } from '@estrelinha/ui/brand'
 import { isNavActive } from '@/widgets/admin-layout/lib/isNavActive'
-import { footerNavItems, navGroups, type NavItem } from '@/widgets/admin-layout/model/navItems'
+import { navGroups, type NavItem } from '@/widgets/admin-layout/model/navItems'
 import AccountMenu from '@/widgets/admin-layout/ui/AccountMenu'
 
 interface Props {
@@ -73,11 +74,10 @@ const NavRail = ({ pathname, onExpand, onLogout }: Props) => (
         {/* A marca é decorativa aqui: um segundo link para `/admin` faria o trilho ter dois
             destinos para a mesma tela, e a régua de "só o item da rota atual está marcado" passaria
             a medir dois nós. */}
-        <span
-          aria-hidden
-          className="flex h-8 w-8 items-center justify-center rounded-full gradient-cta"
-        >
-          <Pin className="h-4 w-4 text-white" />
+        {/* No trilho de 56px a assinatura não cabe: vai o símbolo da marca, que abaixo de 48px troca
+            para a arte reduzida (`SYMBOL_TINY`) em vez de encolher. */}
+        <span aria-hidden className="flex">
+          <EstrelinhaSymbol size={32} />
         </span>
       </div>
 
@@ -101,7 +101,7 @@ const NavRail = ({ pathname, onExpand, onLogout }: Props) => (
           para fora da coluna em vez de rolar dentro dela. */}
       <nav className="flex min-h-0 w-full flex-1 flex-col items-center gap-1 overflow-y-auto py-1">
         {navGroups.map((group, indice) => (
-          <div key={group.label ?? 'principal'} className="flex flex-col items-center gap-1">
+          <div key={group.label ?? `sem-rotulo-${indice}`} className="flex flex-col items-center gap-1">
             {indice > 0 && (
               <span
                 aria-hidden
@@ -116,10 +116,6 @@ const NavRail = ({ pathname, onExpand, onLogout }: Props) => (
       </nav>
 
       <div className="flex w-full shrink-0 flex-col items-center gap-1 border-t border-estrelinha-admin-border py-2">
-        {footerNavItems.map(item => (
-          <ItemDoTrilho key={item.to} item={item} pathname={pathname} />
-        ))}
-        <span aria-hidden className="my-1 h-px w-7 shrink-0 bg-estrelinha-admin-border" />
         <AccountMenu variant="rail" pathname={pathname} onLogout={onLogout} />
       </div>
     </div>

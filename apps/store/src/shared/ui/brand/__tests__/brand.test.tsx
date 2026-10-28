@@ -7,8 +7,8 @@ import {
   LOCKUP_FLOOR,
   SIGNATURE_FLOOR,
   SYMBOL_FLOOR,
-} from '..'
-import { LOCKUP, SIGNATURE, SYMBOL, SYMBOL_TINY } from '../paths'
+} from '@estrelinha/ui/brand'
+import { LOCKUP, SIGNATURE, SYMBOL, SYMBOL_TINY } from '@estrelinha/ui/brand/paths'
 
 /**
  * A marca em vetor, contra `IDN-05`.

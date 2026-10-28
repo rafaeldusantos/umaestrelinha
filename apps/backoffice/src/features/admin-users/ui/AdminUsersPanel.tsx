@@ -2,21 +2,18 @@ import { useState } from 'react'
 import { KeyRound, Pencil, Plus, ShieldOff, Trash2, Users } from 'lucide-react'
 import { Badge } from '@estrelinha/ui/badge'
 import { Button } from '@estrelinha/ui/button'
-import { AdminTable, EmptyState, PageHeader, TableSkeleton, type AdminColumn } from '@/shared/ui'
-import {
-  type AdminUser,
-  useAdminUsers,
-} from '@/features/admin-users/api/useAdminUsers'
-import AdminUserEditorDialog, {
-  type AcessoDraft,
-} from '@/features/admin-users/ui/AdminUserEditorDialog'
-import DeleteAccountDialog from '@/features/admin-users/ui/DeleteAccountDialog'
+import { AdminTable, EmptyState, TableSkeleton, type AdminColumn } from '@/shared/ui'
+import { type AdminUser, useAdminUsers } from '../api/useAdminUsers'
+import AdminUserEditorDialog, { type AcessoDraft } from './AdminUserEditorDialog'
+import DeleteAccountDialog from './DeleteAccountDialog'
 
 /**
- * `/admin/usuarios` — quem entra no painel (feature 48).
+ * Quem entra no painel (feature 48) — a seção **Usuários do painel** de Configurações.
  *
- * Mora no **rodapé** da sidebar, junto de Configurações: é administração do sistema, e não um dos
- * quatro eixos por fila da loja (Vendas / Descontos / Catálogo / Loja).
+ * Até 2026-10-28 era a página `/admin/usuarios`, no rodapé da sidebar. Virou seção de Configurações
+ * (é administração do sistema, não um dos eixos por fila da loja), e o endereço antigo redireciona
+ * para `/admin/configuracoes/usuarios-do-painel`. O título vem do cabeçalho de Configurações; aqui
+ * fica só a frase do que a seção resolve e a ação de criar.
  *
  * A distinção que dá sentido à tela são as **duas ações destrutivas lado a lado, com consequências
  * opostas**: `Remover do painel` tira o acesso e preserva conta e histórico; `Apagar conta` destrói
@@ -30,7 +27,7 @@ const dataCurta = (iso: string | null): string => {
   return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString('pt-BR')
 }
 
-const AdminUsersPage = () => {
+const AdminUsersPanel = () => {
   const { users, loading, error, refetch, create, update, revoke, remove, resetPassword } =
     useAdminUsers()
 
@@ -152,17 +149,16 @@ const AdminUsersPage = () => {
 
   return (
     <div>
-      <PageHeader
-        title="Usuários do painel"
-        subtitle="Quem pode entrar no painel e gerenciar a loja. Remover o acesso preserva a conta e o histórico; apagar a conta não."
-        icon={Users}
-        actions={
-          <Button onClick={abrirNovo}>
-            <Plus className="w-4 h-4 mr-2" />
-            Novo acesso
-          </Button>
-        }
-      />
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <p className="text-sm text-muted-foreground">
+          Quem pode entrar no painel e gerenciar a loja. Remover o acesso preserva a conta e o
+          histórico; apagar a conta não.
+        </p>
+        <Button onClick={abrirNovo} className="h-11 shrink-0">
+          <Plus className="w-4 h-4 mr-2" />
+          Novo acesso
+        </Button>
+      </div>
 
       {aviso && (
         <p role="alert" className="mb-4 text-sm text-destructive">
@@ -230,4 +226,4 @@ const AdminUsersPage = () => {
   )
 }
 
-export default AdminUsersPage
+export default AdminUsersPanel

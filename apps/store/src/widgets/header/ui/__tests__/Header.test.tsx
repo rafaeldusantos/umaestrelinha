@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { act, render, screen, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import Header from '../Header'
-import { EstrelinhaSignature, SIGNATURE_FLOOR } from '@/shared/ui/brand'
+import { EstrelinhaSignature, SIGNATURE_FLOOR } from '@estrelinha/ui/brand'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 

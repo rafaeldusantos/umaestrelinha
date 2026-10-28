@@ -3,12 +3,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AdminUser } from '@/features/admin-users/api/useAdminUsers'
 
 /**
- * `/admin/usuarios` — `USR-20`, `USR-22`, `USR-26`, `USR-31`, `USR-32`, `USR-35`.
+ * A seção Usuários do painel (era `/admin/usuarios`) — `USR-20`, `USR-22`, `USR-26`, `USR-31`, `USR-32`, `USR-35`.
  *
  * **Os diálogos NÃO são mockados de propósito.** O defeito que a feature 44 quase entregou foi um
  * teste que montava a própria árvore: `<ProductInfo />` e `<MaterialDrawer />` escritos lado a lado
  * dentro do arquivo de teste. Apagar a gaveta da página fazia ela sumir da loja com 2828 testes
- * verdes. Aqui quem monta é `AdminUsersPage` — apagar `<DeleteAccountDialog />` dela reprova.
+ * verdes. Aqui quem monta é `AdminUsersPanel` — apagar `<DeleteAccountDialog />` dela reprova.
  */
 
 const { useAdminUsersMock } = vi.hoisted(() => ({ useAdminUsersMock: vi.fn() }))
@@ -16,7 +16,7 @@ vi.mock('@/features/admin-users/api/useAdminUsers', () => ({
   useAdminUsers: useAdminUsersMock,
 }))
 
-import AdminUsersPage from './AdminUsersPage'
+import AdminUsersPanel from '../ui/AdminUsersPanel'
 
 const ADRI = '11111111-1111-1111-1111-111111111111'
 const ANA = '22222222-2222-2222-2222-222222222222'
@@ -64,7 +64,7 @@ const montar = (over: Record<string, unknown> = {}) => {
     resetPassword,
     ...over,
   })
-  return render(<AdminUsersPage />)
+  return render(<AdminUsersPanel />)
 }
 
 beforeEach(() => {
@@ -72,7 +72,7 @@ beforeEach(() => {
   for (const m of [create, update, revoke, remove, resetPassword]) m.mockResolvedValue(null)
 })
 
-describe('AdminUsersPage — a listagem', () => {
+describe('AdminUsersPanel — a listagem', () => {
   it('USR-20: mostra nome, e-mail e último acesso de cada pessoa', () => {
     montar()
     expect(screen.getByText('Ana Helena')).toBeInTheDocument()
@@ -110,7 +110,7 @@ describe('AdminUsersPage — a listagem', () => {
   })
 })
 
-describe('AdminUsersPage — as duas ações destrutivas', () => {
+describe('AdminUsersPanel — as duas ações destrutivas', () => {
   it('USR-13: "Remover do painel" chama `revoke`, e NÃO `remove`', () => {
     montar()
     fireEvent.click(screen.getByRole('button', { name: 'Remover Ana Helena do painel' }))
@@ -139,7 +139,7 @@ describe('AdminUsersPage — as duas ações destrutivas', () => {
   })
 
   it('USR-35: "Apagar conta" abre o diálogo de confirmação — e a PÁGINA é quem o monta', async () => {
-    // O caso que reprova se `<DeleteAccountDialog />` sair de `AdminUsersPage.tsx`.
+    // O caso que reprova se `<DeleteAccountDialog />` sair de `AdminUsersPanel.tsx`.
     montar()
     fireEvent.click(screen.getByRole('button', { name: 'Apagar a conta de Ana Helena' }))
 
@@ -195,7 +195,7 @@ describe('AdminUsersPage — as duas ações destrutivas', () => {
   })
 })
 
-describe('AdminUsersPage — criar, editar e reenviar', () => {
+describe('AdminUsersPanel — criar, editar e reenviar', () => {
   it('USR-22: "Novo acesso" abre o editor — e a PÁGINA é quem o monta', async () => {
     montar()
     fireEvent.click(screen.getByRole('button', { name: /Novo acesso/ }))

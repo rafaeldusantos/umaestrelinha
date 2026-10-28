@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 
-import { SIGNATURE } from '@/shared/ui/brand/paths'
+import { SIGNATURE } from '@estrelinha/ui/brand/paths'
 import CheckoutHeader from '../CheckoutHeader'
 
 /**

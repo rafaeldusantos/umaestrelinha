@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto'
 import { inflateSync, deflateSync, crc32 } from 'node:zlib'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { SIGNATURE_FLOOR } from '@/shared/ui/brand'
+import { SIGNATURE_FLOOR } from '@estrelinha/ui/brand'
 
 /**
  * O arquivo da marca nos e-mails (feature 60, `LOGO-10`…`LOGO-14`, `AD-045`).

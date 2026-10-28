@@ -6,7 +6,7 @@
 
 import { describe, expect, it } from 'vitest'
 import { FOCUS_ROUTES, isFocusRoute } from './focusRoutes'
-import { footerNavItems, navGroups } from './navItems'
+import { navGroups } from './navItems'
 
 describe('isFocusRoute — FOCO-01: as telas em que a navegação sai da frente', () => {
   it('a Home e o Menu da loja pedem foco', () => {
@@ -53,10 +53,10 @@ describe('isFocusRoute — FOCO-07: fora dessas três, a sidebar é a de sempre'
     expect(isFocusRoute('/admin/pedidos')).toBe(false)
   })
 
-  it('os outros dois destinos do rodapé continuam FORA', () => {
-    // O par da inversão acima: a feature 55 trouxe Configurações para o foco, e não o rodapé
-    // inteiro. Sem este caso, alguém poderia pôr `footerNavItems` todo em `FOCUS_ROUTES` e a suíte
-    // seguiria verde — as duas telas são formulário simples, e 240px de rótulo lido valem mais ali.
+  it('Minha conta e o endereço antigo de Usuários continuam FORA', () => {
+    // O par da inversão acima: a feature 55 trouxe Configurações para o foco, e não toda tela de
+    // administração. `/admin/usuarios` hoje só redireciona para a seção de Configurações (que herda
+    // o foco pelo segmento); a rota antiga em si não pede foco.
     expect(isFocusRoute('/admin/usuarios')).toBe(false)
     expect(isFocusRoute('/admin/conta')).toBe(false)
   })
@@ -75,20 +75,14 @@ describe('isFocusRoute — FOCO-07: fora dessas três, a sidebar é a de sempre'
   })
 })
 
-/** Tudo o que o trilho renderiza — os grupos e o rodapé. É o que `NavRail.test.tsx` desenha. */
-const destinosDoTrilho = (): string[] => [
-  ...navGroups.flatMap(grupo => grupo.items.map(item => item.to)),
-  ...footerNavItems.map(item => item.to),
-]
+/** Tudo o que o trilho renderiza. É o que `NavRail.test.tsx` desenha. */
+const destinosDoTrilho = (): string[] =>
+  navGroups.flatMap(grupo => grupo.items.map(item => item.to))
 
 describe('FOCUS_ROUTES — âncora: toda rota de foco é um destino da navegação', () => {
-  it('cada entrada é um destino do trilho — `navGroups` OU `footerNavItems`', () => {
-    // ⚠️ A âncora varria só `navGroups` até a feature 55, e reprovou aquela feature por um motivo
-    // que não era o dela: Configurações mora em `footerNavItems`.
-    //
-    // O alcance dela AUMENTOU, e a régua não afrouxou. O que ela sempre quis dizer é "o trilho sabe
-    // marcar esta rota", e o trilho renderiza os dois — é `NavRail.test.tsx` que prova isso. Varrer
-    // só metade do que o trilho desenha era a régua medindo menos que a regra.
+  it('cada entrada é um destino do trilho', () => {
+    // O que a âncora diz é "o trilho sabe marcar esta rota". Desde 2026-10-28 o rodapé de
+    // destinos não existe mais e Configurações mora em `navGroups`, que é tudo o que o trilho desenha.
     const destinos = destinosDoTrilho()
 
     // Sem esta âncora, uma rota de foco escrita errada (ou renomeada em `navItems` e esquecida
@@ -100,7 +94,7 @@ describe('FOCUS_ROUTES — âncora: toda rota de foco é um destino da navegaç�
     }
   })
 
-  it('SENSOR: a âncora continua reprovando rota que não é destino de nenhum dos dois', () => {
+  it('SENSOR: a âncora continua reprovando rota que não é destino do trilho', () => {
     // Ampliar o escopo de uma âncora fica a um passo de afrouxá-la. Este caso prova que ela não
     // virou "qualquer coisa serve".
     expect(destinosDoTrilho()).not.toContain('/admin/inventada')

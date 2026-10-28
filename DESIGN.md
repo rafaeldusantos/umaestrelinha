@@ -132,7 +132,7 @@ título serifado caindo em sans muda de família **e** de largura, e a página i
 a fonte carrega. É a mesma razão pela qual os cinco templates de e-mail usam Georgia: caixa de entrada
 não carrega webfont, então a pilha de fallback **é** a decisão de design.
 
-**Nenhuma fonte é a marca.** O logotipo é traço vetorial (`shared/ui/brand`), então não existe "fonte
+**Nenhuma fonte é a marca.** O logotipo é traço vetorial (`@estrelinha/ui/brand`, `packages/ui/src/brand`), então não existe "fonte
 do logotipo" para carregar — uma requisição a menos no 4G de quem abre a loja no celular.
 
 Piso: **nada abaixo de 11px**, e 11–12px só em caixa alta com tracking aberto.
@@ -182,7 +182,7 @@ backoffice é outra paleta e outro escopo.)
 
 ## 5. A marca
 
-`shared/ui/brand` — SVG **inline**, nunca `<img src>`: o header não pode ter estado de carregamento.
+`@estrelinha/ui/brand` (`packages/ui/src/brand`) — SVG **inline**, nunca `<img src>`: o header não pode ter estado de carregamento.
 
 ### A escada, medida
 

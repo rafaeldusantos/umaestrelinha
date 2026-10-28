@@ -22,7 +22,7 @@
 import { Link } from 'react-router-dom'
 import { Lock, MessageCircle } from 'lucide-react'
 
-import { EstrelinhaSignature } from '@/shared/ui/brand'
+import { EstrelinhaSignature } from '@estrelinha/ui/brand'
 
 const CheckoutHeader = () => (
   <header className="border-b border-estrelinha-line bg-white">

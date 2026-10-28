@@ -44,6 +44,13 @@ desenho na tela e a loja mostraria outro.
   e `vercelRedirects` já usam para ler migrations e o `vercel.json`. Ao acrescentar um ícone, rode
   `pnpm --filter @estrelinha/store test`.
 
+## `@estrelinha/ui/brand` — a marca em vetor (movida de `apps/store/src/shared/ui/brand`, 2026-10-28)
+
+Lockup, assinatura e símbolo, com o `paths.ts` gerado de `.specs/brand/uma-estrelinha` (o gerador
+escreve aqui). Mudou de casa pelo mesmo motivo dos ícones: o painel desenha o **mesmo** logo da loja
+no topo da sidebar, e copiá-lo seria o "defeito 01". Os testes (`brand.test.tsx`, `paths.test.ts`)
+ficaram na suíte da loja, porque este pacote não tem runner.
+
 ## Os tokens daqui são os do PAINEL, não os da loja
 
 `src/styles.css` + `tailwind.preset.ts` declaram **`--estrelinha-admin-*`** — o roxo/rosa/navy herdado

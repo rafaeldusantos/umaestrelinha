@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom'
 import { User, Menu, Heart, ChevronLeft, ChevronRight } from 'lucide-react'
-import { EstrelinhaSignature } from '@/shared/ui/brand'
+import { EstrelinhaSignature } from '@estrelinha/ui/brand'
 import { useWishlistStore } from '@/entities/wishlist/model/wishlistStore'
 import { useMenu, useMenuUiStore } from '@/entities/category'
 import SearchDropdown from '@/features/search/ui/SearchDropdown'

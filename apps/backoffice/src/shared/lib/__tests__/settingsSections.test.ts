@@ -12,8 +12,8 @@ import {
   settingsSectionPath,
 } from '../settingsSections'
 
-describe('SETTINGS_SECTIONS — as quatro seções (CFG-01)', () => {
-  it('são quatro, nesta ordem', () => {
+describe('SETTINGS_SECTIONS — as seções (CFG-01)', () => {
+  it('são cinco, nesta ordem — Usuários do painel entrou por último (2026-10-28)', () => {
     // A lista é escrita por extenso, e não derivada, porque **é a asserção**: a ordem do registro é
     // a ordem do rail, da lista do celular e do painel na rota-mãe. Derivá-la daqui provaria que a
     // constante é igual a si mesma.
@@ -22,6 +22,7 @@ describe('SETTINGS_SECTIONS — as quatro seções (CFG-01)', () => {
       'vendas',
       'frete-e-material',
       'notificacoes',
+      'usuarios-do-painel',
     ])
   })
 
@@ -31,6 +32,7 @@ describe('SETTINGS_SECTIONS — as quatro seções (CFG-01)', () => {
       'Vendas',
       'Frete e Material',
       'Notificações',
+      'Usuários do painel',
     ])
   })
 
@@ -78,8 +80,8 @@ describe('settingsSectionPath — o endereço de cada seção (CFG-15)', () => {
     }
   })
 
-  it('a rota-mãe é a que vive em `footerNavItems`', () => {
-    // Se este endereço mudasse, o item do rodapé da sidebar apontaria para lugar nenhum — e a
+  it('a rota-mãe é a que vive em `navGroups`', () => {
+    // Se este endereço mudasse, o item da sidebar apontaria para lugar nenhum — e a
     // tela continuaria funcionando por link direto, o que esconderia o defeito.
     expect(SETTINGS_ROOT).toBe('/admin/configuracoes')
   })

@@ -5,7 +5,7 @@
 aplicações"**.
 **Exportado em**: 2026-08-08 · feature `20-rebrand-uma-estrelinha`, task **T24**.
 
-Este diretório é a **fonte** da marca no repositório. `apps/store/src/shared/ui/brand/paths.ts` é
+Este diretório é a **fonte** da marca no repositório. `packages/ui/src/brand/paths.ts` é
 **gerado** daqui por `_gen-paths.mjs` (T25) e um teste compara os dois caractere a caractere — são
 ~10KB de coordenada, e transcrever à mão deforma a letra sem quebrar nada visível.
 

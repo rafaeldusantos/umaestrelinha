@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { HomeSectionConfig } from '@estrelinha/core/home'
-import { EstrelinhaSymbol } from '@/shared/ui/brand'
+import { EstrelinhaSymbol } from '@estrelinha/ui/brand'
 
 /**
  * A faixa da newsletter — board `67W-0`.

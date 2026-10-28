@@ -12,7 +12,7 @@ import { ICON_STROKE, ICON_VIEW_BOX, type IconProps } from './types'
  * consumidores de propósito: a estrela da loja passa a ser a da marca, em vez de um desenho
  * parecido. Um segundo ícone quase igual seria o "defeito 01" do projeto em miniatura.
  *
- * **Não é a marca em si.** A marca é `shared/ui/brand` (SVG gerado dos arquivos-fonte, guardado
+ * **Não é a marca em si.** A marca é `@estrelinha/ui/brand` (SVG gerado dos arquivos-fonte, guardado
  * caractere a caractere por `paths.test.ts`). Este é o ornamento *solto*, usado como selo de
  * assinatura, realce de card e marcador de linha memorial.
  */

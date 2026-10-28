@@ -10,7 +10,7 @@ import {
   RETURNS_POLICY_PATH,
 } from '@estrelinha/core/routes'
 import { useCookieConsentStore } from '@/entities/cookie-consent'
-import { EstrelinhaSignature } from '@/shared/ui/brand'
+import { EstrelinhaSignature } from '@estrelinha/ui/brand'
 import { TAP_ROW } from '@/shared/lib/touchTarget'
 import { INSTAGRAM_URL } from '@/shared/config/instagram'
 import InstagramStrip from './InstagramStrip'
