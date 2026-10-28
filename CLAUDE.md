@@ -2711,6 +2711,22 @@ admin (`entities/*/api/useAdmin*`). **Zero é a baseline de tipos: qualquer erro
 
 ## CI e deploy
 
+> **Migration se aplica SÓ no banco local durante o desenvolvimento. Em produção, APENAS quando o
+> usuário pedir explicitamente — e "faça push", "envie para a master" ou "faça o merge" NÃO é esse
+> pedido.** O `Supabase Deploy` roda `supabase db push --linked` em **todo push em `master`**, então
+> levar à `master` remota um commit com migration nova **é** aplicá-la em produção. Por isso:
+>
+> - **Desenvolvimento**: aplique no local (`supabase migration up` ou `psql` na porta 54442) e prove
+>   ali — de preferência numa transação desfeita. Nunca `supabase db push --linked`, nunca
+>   `supabase db query --linked` com escrita.
+> - **Antes de qualquer push para a `master` remota**, confira se o que sobe traz arquivo novo em
+>   `supabase/migrations/` (`git diff --name-only origin/master..HEAD -- supabase/migrations`). Se
+>   trouxer e o usuário não pediu a aplicação em produção **com essas palavras**, **pare e pergunte**
+>   antes do push — dizendo que o push aplica a migration no banco hospedado.
+> - Medido em 2026-10-27: a `20261101120000` (fornecedor repetido no produto) foi aplicada em
+>   produção por um push pedido como "envie para master remoto", sem pergunta. Foi o que motivou esta
+>   regra.
+
 Três workflows em `.github/workflows/`:
 
 | Workflow | Quando | O que faz |
