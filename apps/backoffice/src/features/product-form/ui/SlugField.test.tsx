@@ -324,6 +324,8 @@ describe('a URL da loja no painel (URL-01)', () => {
         title="Joia de leite"
         description=""
         slug="joia-de-leite"
+        name="Joia de leite"
+        productDescription=""
         onTitleChange={vi.fn()}
         onDescriptionChange={vi.fn()}
       />,

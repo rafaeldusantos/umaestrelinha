@@ -78,16 +78,60 @@ describe('buildChecklist — os 6 itens de P1.7 AC 12', () => {
     expect(item(form({ weight_kg: 0 }), 'weight').ok).toBe(false)
   })
 
-  it('SEO exige título E descrição', () => {
-    expect(item(form({ seo_title: '' }), 'seo').ok).toBe(false)
-    expect(item(form({ seo_description: '' }), 'seo').ok).toBe(false)
+  // Feature 84 (`SIA-03`): este caso exigia título E descrição de SEO para publicar. A régua foi
+  // INVERTIDA, não apagada — SEO vazio não impede nada, porque a loja deriva do nome e da descrição.
+  it('SEO vazio NÃO impede publicar: com os 5 bloqueantes ok, canPublish e pendingCount zerados', () => {
+    const items = buildChecklist(form({ seo_title: '', seo_description: '' }))
+    expect(item(form({ seo_title: '', seo_description: '' }), 'seo').ok).toBe(true)
+    expect(item(form({ seo_title: '', seo_description: '' }), 'seo').blocking).toBe(false)
+    expect(canPublish(items)).toBe(true)
+    expect(pendingCount(items)).toBe(0)
+  })
+
+  it('os 5 outros itens são bloqueantes', () => {
+    expect(
+      buildChecklist(form())
+        .filter(i => i.blocking)
+        .map(i => i.id),
+    ).toEqual(['name', 'category', 'image', 'weight', 'grid'])
+  })
+
+  it('sensor: nome vazio continua impedindo publicar, com SEO vazio ou não', () => {
+    expect(canPublish(buildChecklist(form({ name: '', seo_title: '', seo_description: '' })))).toBe(false)
+    expect(canPublish(buildChecklist(form({ name: '' })))).toBe(false)
+  })
+
+  it('SEO vazio: "SEO automático (nome e descrição)"', () => {
+    expect(item(form({ seo_title: '', seo_description: '' }), 'seo').label).toBe(
+      'SEO automático (nome e descrição)',
+    )
+  })
+
+  it('espaço só conta como vazio', () => {
+    expect(item(form({ seo_title: '   ', seo_description: '  ' }), 'seo').label).toBe(
+      'SEO automático (nome e descrição)',
+    )
+  })
+
+  it('os dois preenchidos: "SEO curado"', () => {
+    expect(item(form(), 'seo').label).toBe('SEO curado')
+  })
+
+  it('só um preenchido: "SEO parcial — o resto vem do nome e da descrição"', () => {
+    expect(item(form({ seo_description: '' }), 'seo').label).toBe(
+      'SEO parcial — o resto vem do nome e da descrição',
+    )
+    expect(item(form({ seo_title: ' ' }), 'seo').label).toBe(
+      'SEO parcial — o resto vem do nome e da descrição',
+    )
   })
 
   it('cada item pendente traz atalho (focusField) e aba', () => {
     const pendentes = buildChecklist(
       form({ name: '', category_ids: [], category_id: '', images: [], weight_kg: 0, seo_title: '' }),
     ).filter(i => !i.ok)
-    expect(pendentes).toHaveLength(5)
+    // `seo_title: ''` na entrada de propósito: desde a feature 84 o SEO não fica pendente (SIA-03).
+    expect(pendentes.map(i => i.id)).toEqual(['name', 'category', 'image', 'weight'])
     pendentes.forEach(i => {
       expect(i.focusField).toBeTruthy()
       expect(i.tab).toBeTruthy()

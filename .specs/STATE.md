@@ -1602,6 +1602,32 @@
 - **Revisit when**: a Fase 2 trouxer presença (a tabela efêmera do PRD §3, Opção A) — ou a Adri pedir
   "vs semana anterior" (retenção de 14 dias).
 
+
+### AD-067
+- **Decision**: **chamada a modelo de linguagem tem UMA porta, `supabase/functions/_shared/claude.ts`**,
+  com o SDK oficial (`npm:@anthropic-ai/sdk@1.3.0`, versão exata) importado só ali; a montagem da chamada
+  (`claudeRequest.ts`), a leitura da resposta por `stop_reason` (`claudeResult.ts`) e a tradução de erro
+  (`claudeError.ts`) são puras e testadas sob vitest; o handler conhece só a porta neutra
+  (`claudePort.ts`). Modelo e esforço são escolhidos por QUEM CHAMA (a `seo-suggest` usa
+  `claude-haiku-5-5` com `effort: 'medium'` explícito). `ANTHROPIC_API_KEY` é secret de servidor;
+  nenhum arquivo de `apps/**` ou `packages/**` nomeia a chave, o pacote ou o host da API
+  (`claudeSoNoServidor.test.ts`, loja; `claudeSoNaPorta.test.ts`, functions).
+- **Decision**: **o SEO curado do produto é opcional**: vazio grava `null` e a loja deriva na hora por
+  `productPageMeta` (nome + descrição); o painel mostra o servido pela MESMA função e nunca grava a
+  cópia derivada (segundo dono). A sugestão por IA é rascunho: entra nos campos, só o save grava.
+- **Reason**: a `BL-001` deixava seis perguntas abertas (provedor, onde roda, custo, latência, queda,
+  rascunho × definitivo), e a `84` respondeu todas; uma segunda integração (a `BL-001` da descrição, a
+  `BL-014` das perguntas) reaproveita a porta em vez de abrir outra.
+- **Supersedes**: em parte o `AD-011` — só o botão "Gerar com IA" da aba SEO. A descrição por IA e a
+  `BL-014` continuam adiadas.
+- **Consequence**: a chave **não** está na lista obrigatória do `supabase-deploy.yml` — sem ela a
+  function responde `503 not_configured` e o botão fica indisponível. Ordem de publicação:
+  secret (de um diretório SEM `.env`, `{"count":1}`, `BL-044`) → function → bundle.
+- **Scope**: `supabase/functions/_shared/claude*.ts`, `supabase/functions/seo-suggest/**`,
+  `packages/core/src/seo/suggestion.ts`, `apps/backoffice/src/features/{seo-suggestion,product-form}/**`
+- **Date**: 2026-10-27
+- **Status**: active
+
 ## Handoff
 
 ### ATUAL — 2026-10-27 · `83-loja-ao-vivo` (Fase 1, Acessos) **IMPLEMENTADA (T01..T14), verificada, QA e reteste feitos, commitada na branch, sem push — falta o Android real**

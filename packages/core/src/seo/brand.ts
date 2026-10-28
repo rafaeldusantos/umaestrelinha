@@ -5,14 +5,15 @@
  */
 export const STORE_BRAND = 'Uma Estrelinha'
 
-const JA_TEM_MARCA = /uma\s+estrelinha/i
+/** A marca escrita por extenso, em qualquer posição. Exportada para `suggestion.ts` (feature 84). */
+export const JA_TEM_MARCA = /uma\s+estrelinha/i
 
 /**
  * A abreviação que a curadoria da Nuvemshop usa no fim do título (`… | UE`). Medido em 2026-10-06:
  * 166 dos 686 `seo_title` terminam assim — é a marca, escrita curta, e sufixar de novo produziria
  * `… | UE | Uma Estrelinha`.
  */
-const ABREVIACAO_DA_MARCA = /\|\s*UE\s*$/
+export const ABREVIACAO_DA_MARCA = /\|\s*UE\s*$/
 
 /**
  * O título com a marca — **só quando ele ainda não a traz** (A2).

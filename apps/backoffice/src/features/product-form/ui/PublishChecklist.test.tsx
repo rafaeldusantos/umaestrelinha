@@ -13,6 +13,7 @@ const item = (over: Partial<ChecklistItem> = {}): ChecklistItem => ({
   focusField: 'name',
   tab: 'geral',
   hint: null,
+  blocking: true,
   ...over,
 })
 

@@ -70,3 +70,21 @@ persona:
 Hoje a equipe é a Adri sozinha; a persona existe porque o acesso é o mesmo do Backoffice e outra
 pessoa pode ganhar papel admin em `/admin/usuarios`. Em navegador ela é aproximada pela árvore de
 acessibilidade; o TalkBack de verdade só no aparelho.
+
+## Adri cadastrando peças (painel, celular e notebook)
+
+```yaml
+persona:
+  name: Adri cadastrando peças
+  base: Power User
+  goal: cadastrar e publicar peças seguidas, e curar o que aparece no Google, sem travar em texto de marketing
+  device: desktop (1440) e phone-large (390), com a fonte do sistema às vezes em 130 % ou 200 %
+  network: wifi-fast
+  modality: mouse + teclado no notebook; toque no celular
+  locale: pt-BR
+  patience_seconds: 20
+```
+
+Faz a peça, fotografa e cadastra na mesma tarde. Escreve no registro memorial da loja: nada festivo, nada
+de urgência. O que mais assusta é perder o texto que ela já escreveu, ou a loja mostrar no Google algo que
+ela não viu. Estava em `journeys/J-cadastrar-peca-com-variacoes.md` (`81`); entrou aqui no ciclo da `84`.

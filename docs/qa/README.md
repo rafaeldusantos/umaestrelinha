@@ -162,3 +162,30 @@ barra de abas a 200 %, anterior à `83`). Sem bug aberto da `83` no registro na 
 **Executado em 2026-10-27** (`reports/2026-10-27-mobile-adm-loja-ao-vivo.md`): 5 Pass, 2 `blocked-verify` (Android e TalkBack reais), 3 esperando decisão. Três bugs de atrito: `BUG-20261027-tentar-de-novo-da-loja-ao-vivo-solta-o-foco`, `BUG-20261027-f5-desfaz-o-periodo-escolhido-na-loja-ao-vivo` e `BUG-20261027-rodape-da-loja-rola-de-lado-com-fonte-200` (anterior à `83`).
 
 **Reteste em 2026-10-27** (`reports/2026-10-27-mobile-adm-loja-ao-vivo-reteste.md`): o foco do "Tentar de novo" consertado (`5b23601d`) passa em 390 e 1440 a 100 e 200 %; o arroba do rodapé (`49f8bbb5`) não passa mais da borda, mas a loja ainda rola de lado a 390/200 % pelo **cabeçalho** (`scrollWidth` 434, decisão pendente). O F5 que desfaz o período segue aberto, esperando decisão.
+
+## Ciclo — feature `84` (SEO do produto com IA), nível *targeted*
+
+Planejado em 2026-10-27 (`qa-report`). Duas jornadas novas, `J-publicar-peca-sem-escrever-seo` e
+`J-curar-seo-com-ia` (9 cenários `PNL-seo-*`), e a persona `Adri cadastrando peças` entrou em
+`personas.md`. Só ambiente local: painel em :8083 contra o banco local; o 503 é real
+(`supabase functions serve seo-suggest` sem a chave), 200/429/502/422 interceptados; `*.supabase.co` e
+`**/g/collect*` bloqueados. Produtos de teste `TESTE-84-QA-`, apagados no fim. Reteste de D1/D2 da
+`prova-navegador.md` dentro de `CH-seo-fonte-grande-teclado-e-leitor`.
+
+| # | Charter | Tour | Caixa |
+| --- | --- | --- | --- |
+| 1 | `CH-seo-publicar-peca-sem-escrever-seo` | Money | 45 |
+| 2 | `CH-seo-falhas-sem-perder-trabalho` | Network | 30 |
+| 3 | `CH-seo-sugerir-revisar-desfazer` | Feature | 45 |
+| 4 | `CH-seo-sugestao-no-ar` | Interrupt | 30 |
+| 5 | `CH-seo-fonte-grande-teclado-e-leitor` | Feature | 45 |
+
+Fora do ciclo: o probe contra a Claude API real (sem chave), Android e leitor de tela reais. Anteriores à
+`84`, não registrados como bug dela: rolagem lateral pelo `SlugField` a 200 %, preço 0 travando o
+publicar com a frase do checklist, parágrafos sem pontuação na descrição derivada, título derivado de nome
+longo passando de 60.
+
+**Executado em 2026-10-27** (`reports/2026-10-27-backoffice-seo-com-ia.md`): 3 Pass, 2 esperando decisão. D2 passa; D1
+passa em parte (selo consertado, título da prévia ainda truncado a 200 %). Cinco bugs: um Trust-Damage (a segunda
+sugestão perde o texto escrito à mão) e quatro Friction (foco no body, sucesso não anunciado, prévia a 200 %, frase
+velha de falha).

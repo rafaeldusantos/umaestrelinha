@@ -509,6 +509,10 @@ MELHOR_ENVIO_SENDER_JSON = "env(MELHOR_ENVIO_SENDER_JSON)"
 # Como gerar: `supabase/CLAUDE.md`, seção "Secrets".
 VAPID_KEYS = "env(VAPID_KEYS)"
 VAPID_SUBJECT = "env(VAPID_SUBJECT)"
+# Feature 84 — a chave da Claude API, lida SÓ pela function seo-suggest (o adaptador do SDK mora em
+# `_shared/claude.ts`). Vazia: a function responde 503 `not_configured` e o painel desabilita o botão
+# "Sugerir com IA"; nada mais muda. Servidor apenas — nenhum app a recebe.
+ANTHROPIC_API_KEY = "env(ANTHROPIC_API_KEY)"
 
 [analytics]
 enabled = true
@@ -586,4 +590,11 @@ verify_jwt = false
 # (`_shared/auth.ts`) dentro do handler, em TODA ação — 401 sem JWT, 403 sem papel ou com `has_role`
 # falhando. A tabela `push_subscriptions` não tem policy de cliente: esta function é a única porta.
 [functions.atelie-avisos]
+verify_jwt = false
+
+# Feature 84 — a sugestão de SEO por IA. MESMA razão da admin-users: a anon key publicada é um JWT
+# válido do projeto e passaria pelo gateway; quem fecha a porta é `requireAdmin` (`_shared/auth.ts`)
+# dentro do handler — 401 sem JWT, 403 sem papel ou com `has_role` falhando —, ANTES de qualquer
+# chamada ao modelo. Com `verify_jwt = true` o gateway também recusaria o preflight OPTIONS do painel.
+[functions.seo-suggest]
 verify_jwt = false

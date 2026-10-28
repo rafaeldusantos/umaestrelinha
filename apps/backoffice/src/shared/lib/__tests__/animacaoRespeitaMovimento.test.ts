@@ -61,6 +61,9 @@ const ARQUIVOS = [
   // Feature 71, task 25 — o bloco "Movimento da loja". O único movimento dele é a entrada do
   // Popover do ⓘ (vem de `@estrelinha/ui`), desarmada no próprio `PopoverContent`.
   'widgets/store-movement/ui/StoreMovement.tsx',
+  // Feature 84, T12 — o botão "Sugerir com IA". O giro do indicador (`animate-spin`, dispensado)
+  // vem com o par `motion-reduce:animate-none` na mesma linha. Entrou na task em que nasceu.
+  'features/seo-suggestion/ui/SuggestSeoButton.tsx',
 ] as const
 
 /**
@@ -158,14 +161,14 @@ describe('o movimento do painel respeita `prefers-reduced-motion` (ANI-05)', () 
     expect(FONTES.every(f => f.fonte.length > 0)).toBe(true)
 
     const tokens = FONTES.flatMap(f => movimentoDe(semComentarios(f.fonte)))
-    // 8/4 na 50, 14/7 na 51, 38/18 na 56, 44/20 na 71 (task 24, com o `StatCard`), 45/21 com o bloco (task 25) — o número sobe
+    // 8/4 na 50, 14/7 na 51, 38/18 na 56, 44/20 na 71 (task 24, com o `StatCard`), 45/21 com o bloco (task 25), 47/22 com o botão da 84 — o número sobe
     // com o escopo, sempre medido, nunca arredondado para baixo "por segurança": uma âncora folgada
     // é uma âncora que para de acusar.
-    expect(tokens.length).toBeGreaterThanOrEqual(45)
+    expect(tokens.length).toBeGreaterThanOrEqual(47)
 
     // E a terceira: os pares existem mesmo. Uma régua que nunca visse `motion-reduce:` também
     // passaria na segunda âncora, acusando tudo — ou, com o filtro invertido, nada.
-    expect(tokens.filter(t => t.ehOPar).length).toBeGreaterThanOrEqual(21)
+    expect(tokens.filter(t => t.ehOPar).length).toBeGreaterThanOrEqual(22)
   })
 
   it('nenhum arquivo em escopo declara movimento sem o par `motion-reduce:`', () => {
