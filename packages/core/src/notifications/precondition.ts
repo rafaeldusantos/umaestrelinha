@@ -6,9 +6,10 @@
 // ANTES de reivindicar linha nenhuma: falhar aqui deixa a tentativa retentável quando o estado
 // completar, que é o que faz o par "marcar enviado" + "salvar rastreio" funcionar em qualquer ordem.
 //
-// `order_paid` olha `paid_at`, NÃO `status = 'paid'`: a RPC `apply_payment_approval` escreve
-// `payment_status`/`paid_at` e nunca toca `orders.status`, então um pedido aprovado segue com
-// `status = 'pending'` e a pré-condição óbvia faria o e-mail nunca sair.
+// `order_paid` olha `paid_at`, NÃO `status = 'paid'`. Desde a migration `20261030120000` a RPC
+// `apply_payment_approval` também passa `pending` para `paid`, mas só `pending`: um pedido que a
+// Adri já avançou à mão continua no status dela, e `paid_at` é a única coluna que diz "foi pago"
+// em todos os casos.
 
 import type { NotificationEvent } from './events.ts'
 import { EVENT_AUDIENCE } from './events.ts'
