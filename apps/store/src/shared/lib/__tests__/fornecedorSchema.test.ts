@@ -228,3 +228,41 @@ describe('vários fornecedores por produto', () => {
     expect(/create policy|grant\b/i.test(`${LIMPO_VARIOS}\ngrant select on public.product_suppliers to anon;`)).toBe(true)
   })
 })
+
+// -------------------------------------------------------------------------------------------
+// O mesmo fornecedor repetido no produto — a chave do vínculo vira (produto, posição)
+// -------------------------------------------------------------------------------------------
+
+const MIGRATION_REPETIDO = join(ROOT, 'supabase/migrations/20261101120000_fornecedor-repetido-no-produto.sql')
+const LIMPO_REPETIDO = semComentario(readFileSync(MIGRATION_REPETIDO, 'utf8'))
+
+/** A chave nova é exatamente (product_id, position), criada DEPOIS de derrubar a do par. */
+const chaveDaPosicao = (texto: string): boolean => {
+  const derruba = texto.search(/alter table public\.product_suppliers drop constraint if exists product_suppliers_pkey;/i)
+  const cria = texto.search(
+    /alter table public\.product_suppliers add constraint product_suppliers_pkey primary key \(\s*product_id\s*,\s*position\s*\);/i,
+  )
+  return derruba >= 0 && cria > derruba
+}
+
+describe('o mesmo fornecedor repetido no produto', () => {
+  it('a migration foi lida', () => {
+    expect(LIMPO_REPETIDO.length).toBeGreaterThan(100)
+  })
+
+  it('a chave do vínculo é (produto, posição), e a do par cai antes', () => {
+    expect(chaveDaPosicao(LIMPO_REPETIDO)).toBe(true)
+    expect(chaveDaPosicao(mutar(LIMPO_REPETIDO, '(product_id, position)', '(product_id, supplier_id)'))).toBe(false)
+    expect(chaveDaPosicao(mutar(LIMPO_REPETIDO, /alter table public\.product_suppliers drop constraint[^;]*;/i, ''))).toBe(false)
+  })
+
+  it('nenhuma chave ou índice único volta a recusar o fornecedor repetido', () => {
+    expect(/unique[^;]*supplier_id/i.test(LIMPO_REPETIDO)).toBe(false)
+    expect(/unique[^;]*supplier_id/i.test(`${LIMPO_REPETIDO}\ncreate unique index x on public.product_suppliers (product_id, supplier_id);`)).toBe(true)
+  })
+
+  it('não abre leitura, não concede nada e não escreve dado — a tabela segue só do admin', () => {
+    expect(/create policy|grant\b|disable row level security/i.test(LIMPO_REPETIDO)).toBe(false)
+    expect(escreveDado(LIMPO_REPETIDO)).toBe(false)
+  })
+})
