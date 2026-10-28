@@ -1178,19 +1178,30 @@ moram) recusa qualquer arquivo de `apps/**` que nomeie a chave de serviço ou aq
 Só do painel, e **por construção**: as tabelas `suppliers` e `product_suppliers` não têm leitura
 pública (a `products` tem, e sem recorte de coluna — é por isso que o fornecedor não é coluna dela).
 
+- **Vários fornecedores por produto** (2026-10-27, migration `20261031120000`): a chave de
+  `product_suppliers` é o par `(product_id, supplier_id)` e `position` guarda a ordem da dona. Cada
+  linha do card é um fornecedor com o link da peça nele; **"Adicionar fornecedor"** abre uma linha nova
+  e "Remover o fornecedor N" tira uma (com uma linha só não há remover: esvaziá-la é "sem
+  fornecedor"). O embed agora vem como **array**; quem o lê, na ordem, é `supplierLinksOfRow`
+  (`entities/supplier/model/links.ts`), para o formulário e a listagem.
 - **Onde edita**: aba *Preços & variações*, card **Fornecedor** logo abaixo de *Preço padrão*
   (`features/product-form/ui/SupplierCard.tsx`, pelo slot `afterPrice` do `PricingTab`). O **Custo**
-  é o valor da peça no fornecedor.
-- **Onde lê**: a coluna lateral mostra o fornecedor **salvo** (`SupplierSummaryCard`, lendo
-  `savedSnapshot.supplier`, nunca o rascunho) com o link em nova aba; a listagem tem coluna
-  (`SupplierCell`) e filtro no servidor (`supplierIds`, interseção com a categoria).
+  é o valor da peça no fornecedor. A primeira linha mantém os ids `supplier_name`/`supplier_url`; as
+  outras são `supplier_name_2`… (`supplierFieldId`), que é o alvo do foco da recusa.
+- **Onde lê**: a coluna lateral mostra os fornecedores **salvos** (`SupplierSummaryCard`, lendo
+  `savedSnapshot.suppliers`, nunca o rascunho) com os links em nova aba; a listagem tem coluna
+  (`SupplierCell`, o primeiro e "+N") e filtro no servidor (`supplierIds`, interseção com a categoria).
 - **A sugestão do nome** (`entities/supplier/ui/SupplierNameField.tsx`) é um combobox com `listbox`,
   não `<datalist>`. Quem decide "já existe" é `findSupplierByName`, pela dobra de busca do painel — a
   mesma régua que o save usa para reaproveitar o fornecedor. Não há tela de cadastro: o fornecedor
   nasce no save do produto.
-- **A gravação** é `features/product-form/model/persistSupplier.ts`, depois de o produto existir; sem
-  mudança desde a carga ela não escreve (FOR-13). As recusas (link sem nome, link sem `http(s)://`)
-  vêm de `@estrelinha/core/suppliers` e valem **nos dois botões**, antes de qualquer gravação.
+- **A gravação** é `persistSuppliers` (`features/product-form/model/persistSupplier.ts`), depois de o
+  produto existir; sem mudança desde a carga (a ordem conta) ela não escreve (FOR-13). Ela faz o
+  `upsert` das linhas **antes** de apagar as que saíram (`not supplier_id in (…)`): sem transação,
+  uma falha no meio deixa um fornecedor a mais, nunca o produto sem nenhum. As recusas (link sem
+  nome, link sem `http(s)://`) vêm de `@estrelinha/core/suppliers`, linha a linha, mais o mesmo
+  fornecedor em duas linhas (`supplierRowsRefusal`), e valem **nos dois botões**, antes de qualquer
+  gravação.
 - **O recorte da lista de produtos mora na URL** (2026-10-27), no molde da de pedidos:
   `features/product-list/model/queryUrl.ts`, com as listas (categoria, fornecedor, tag) como
   parâmetro **repetido**, porque tag pode ter vírgula. O cadastro recebe `state.voltarPara` da lista

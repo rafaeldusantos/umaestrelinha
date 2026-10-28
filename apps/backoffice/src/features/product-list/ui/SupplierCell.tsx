@@ -6,13 +6,20 @@ import { supplierLinkLabel } from '@estrelinha/core/suppliers'
 
 interface Props {
   supplier: { name: string; url: string } | null | undefined
+  /** Quantos fornecedores além deste; a coluna mostra "+N" ao lado do nome. */
+  more?: number
 }
 
-const SupplierCell = ({ supplier }: Props) => {
+const SupplierCell = ({ supplier, more = 0 }: Props) => {
   if (!supplier) return <span className="text-muted-foreground">—</span>
   return (
     <span className="flex items-center gap-1 text-muted-foreground">
       <span className="truncate">{supplier.name}</span>
+      {more > 0 && (
+        <span className="shrink-0 text-xs" aria-label={`e mais ${more} ${more === 1 ? 'fornecedor' : 'fornecedores'}`}>
+          +{more}
+        </span>
+      )}
       {supplier.url !== '' && (
         <a
           href={supplier.url}

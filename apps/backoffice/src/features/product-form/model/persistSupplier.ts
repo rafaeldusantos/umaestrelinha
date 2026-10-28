@@ -1,13 +1,18 @@
-// Feature 80 (FOR-11..14) — a gravação do fornecedor da peça, depois de o produto existir.
+// Feature 80 (FOR-11..14) — a gravação dos fornecedores da peça, depois de o produto existir.
+// Desde a migration `20261031120000`, o produto pode ter VÁRIOS: cada linha é um fornecedor com o
+// link da peça nele, na ordem em que a dona os listou.
 //
 // Fora de `persistProductRelations` de propósito: aquela função é o diff das tabelas N:N do
-// produto, e esta precisa RESOLVER um fornecedor (reaproveitar o de mesmo nome ou criar) antes de
+// produto, e esta precisa RESOLVER cada fornecedor (reaproveitar o de mesmo nome ou criar) antes de
 // gravar o vínculo. Para no primeiro erro, como o resto do save: `supabase-js` não abre transação
-// entre chamadas.
+// entre chamadas — por isso grava os vínculos ANTES de apagar os que saíram, e uma falha no meio
+// nunca deixa o produto sem fornecedor nenhum.
 
+import { SUPPLIER_REFUSALS, supplierRefusal } from '@estrelinha/core/suppliers'
 import { findSupplierByName, type Supplier } from '@/entities/supplier'
 
 type Erro = { message: string; code?: string } | null
+type Resultado = PromiseLike<{ error: Erro }>
 
 /** A fatia de `supabase-js` que esta função usa. Dublê pequeno = teste que prova o que importa. */
 export interface SupplierClient {
@@ -15,29 +20,68 @@ export interface SupplierClient {
     insert: (row: unknown) => {
       select: (columns: string) => { maybeSingle: () => Promise<{ data: { id: string } | null; error: Erro }> }
     }
-    upsert: (row: unknown, options?: { onConflict?: string }) => Promise<{ error: Erro }>
-    delete: () => { eq: (column: string, value: string) => Promise<{ error: Erro }> }
+    upsert: (row: unknown, options?: { onConflict?: string }) => Resultado
+    delete: () => {
+      eq: (column: string, value: string) => Resultado & {
+        not: (column: string, operator: string, value: string) => Resultado
+      }
+    }
   }
 }
 
-/** O fornecedor como o formulário o tem: nome e link, já aparados na comparação. */
+/** Uma linha de fornecedor como o formulário a tem: nome e link. */
 export interface SupplierDraft {
   name: string
   url: string
 }
 
+export const EMPTY_SUPPLIER_ROW: SupplierDraft = { name: '', url: '' }
+
+/** O id do campo da linha `index` — o mesmo que o `data-field`, para o foco da recusa achá-lo. */
+export const supplierFieldId = (field: 'name' | 'url', index: number): string =>
+  `supplier_${field}${index === 0 ? '' : `_${index + 1}`}`
+
 const aparar = (d: SupplierDraft): SupplierDraft => ({ name: d.name.trim().replace(/\s+/g, ' '), url: d.url.trim() })
 
-/** O que mudou desde a carga? Sem mudança, o save não escreve (FOR-13). */
-export const supplierChanged = (next: SupplierDraft, saved: SupplierDraft): boolean => {
-  const a = aparar(next)
-  const b = aparar(saved)
-  return a.name !== b.name || a.url !== b.url
+/** As linhas que valem: aparadas, sem as vazias (nome e link em branco é linha que não existe). */
+export const supplierRowsToSave = (rows: SupplierDraft[]): SupplierDraft[] =>
+  rows.map(aparar).filter(r => r.name !== '' || r.url !== '')
+
+/** O que mudou desde a carga? Sem mudança, o save não escreve (FOR-13). A ordem conta. */
+export const supplierRowsChanged = (next: SupplierDraft[], saved: SupplierDraft[]): boolean => {
+  const a = supplierRowsToSave(next)
+  const b = supplierRowsToSave(saved)
+  return a.length !== b.length || a.some((r, i) => r.name !== b[i].name || r.url !== b[i].url)
+}
+
+export const SUPPLIER_DUPLICATED = 'O mesmo fornecedor aparece em duas linhas'
+
+/**
+ * A recusa das linhas, antes de qualquer gravação: a régua de `core` em cada linha, e o mesmo
+ * fornecedor duas vezes (pela régua da sugestão — sem acento e sem maiúsculas —, que é a que o save
+ * usa para reaproveitar). `index` é a linha nas `rows` como a tela as mostra, para o foco ir nela.
+ * `null` = pode gravar.
+ */
+export const supplierRowsRefusal = (
+  rows: SupplierDraft[],
+): { index: number; field: 'name' | 'url'; message: string } | null => {
+  for (let i = 0; i < rows.length; i++) {
+    const message = supplierRefusal(rows[i].name, rows[i].url)
+    if (message) {
+      const doNome = message === SUPPLIER_REFUSALS.nameMissing || message === SUPPLIER_REFUSALS.nameTooLong
+      return { index: i, field: doNome ? 'name' : 'url', message }
+    }
+    const nome = rows[i].name
+    if (nome.trim() !== '' && rows.slice(0, i).some(r => findSupplierByName([{ id: '', name: r.name }], nome))) {
+      return { index: i, field: 'name', message: SUPPLIER_DUPLICATED }
+    }
+  }
+  return null
 }
 
 /**
- * Grava o fornecedor do produto. Devolve `null` quando deu certo (ou não havia o que gravar), e a
- * mensagem do erro quando não deu — `string | null`, e não união por booleano, porque
+ * Grava os fornecedores do produto. Devolve `null` quando deu certo (ou não havia o que gravar), e
+ * a mensagem do erro quando não deu — `string | null`, e não união por booleano, porque
  * `strictNullChecks` está desligado.
  *
  * `suppliers` é a lista que a sugestão mostrou: o fornecedor de mesmo nome (sem acento e sem
@@ -48,57 +92,79 @@ export const supplierChanged = (next: SupplierDraft, saved: SupplierDraft): bool
  * ao lado de "Ateliê Prata" — o índice único só segura a duplicata exata, não a de acento. E de novo
  * na corrida (23505), quando outro save criou o mesmo nome entre a releitura e o `insert`.
  */
-export const persistSupplier = async (
+export const persistSuppliers = async (
   client: SupplierClient,
   productId: string,
-  next: SupplierDraft,
-  saved: SupplierDraft,
+  next: SupplierDraft[],
+  saved: SupplierDraft[],
   suppliers: Supplier[],
   reread: () => Promise<Supplier[]>,
 ): Promise<string | null> => {
-  if (!supplierChanged(next, saved)) return null
-  const { name, url } = aparar(next)
+  if (!supplierRowsChanged(next, saved)) return null
+  const rows = supplierRowsToSave(next)
 
-  // FOR-12: nome vazio apaga o vínculo. O fornecedor continua cadastrado para outros produtos.
-  if (name === '') {
+  // FOR-12: sem linha nenhuma, apaga os vínculos. Os fornecedores continuam cadastrados.
+  if (rows.length === 0) {
     const { error } = await client.from('product_suppliers').delete().eq('product_id', productId)
     return error ? error.message : null
   }
 
-  let supplierId = findSupplierByName(suppliers, name)?.id ?? null
-  if (!supplierId) {
-    let atual: Supplier[]
-    try {
-      atual = await reread()
-    } catch (e) {
-      return e instanceof Error ? e.message : 'Não foi possível conferir os fornecedores cadastrados'
-    }
-    supplierId = findSupplierByName(atual, name)?.id ?? null
-  }
-  if (!supplierId) {
-    const { data, error } = await client.from('suppliers').insert({ name }).select('id').maybeSingle()
-    if (data?.id) {
-      supplierId = data.id
-    } else if (error?.code === '23505') {
-      // Corrida: outro save criou o mesmo nome depois de a lista ter sido lida. Relê a lista e
-      // procura pela MESMA régua da sugestão — um `ilike` aqui seria uma segunda comparação de nome.
-      let lista: Supplier[]
+  let conhecidos = suppliers
+  let relido = false
+  const ids: string[] = []
+  for (const { name } of rows) {
+    let supplierId = findSupplierByName(conhecidos, name)?.id ?? null
+    if (!supplierId && !relido) {
       try {
-        lista = await reread()
+        conhecidos = await reread()
+        relido = true
       } catch (e) {
-        return e instanceof Error ? e.message : error.message
+        return e instanceof Error ? e.message : 'Não foi possível conferir os fornecedores cadastrados'
       }
-      const existente = findSupplierByName(lista, name)
-      if (!existente) return error.message
-      supplierId = existente.id
-    } else {
-      return error?.message ?? 'O fornecedor não foi criado'
+      supplierId = findSupplierByName(conhecidos, name)?.id ?? null
     }
+    if (!supplierId) {
+      const { data, error } = await client.from('suppliers').insert({ name }).select('id').maybeSingle()
+      if (data?.id) {
+        supplierId = data.id
+        conhecidos = [...conhecidos, { id: data.id, name }]
+      } else if (error?.code === '23505') {
+        // Corrida: outro save criou o mesmo nome depois de a lista ter sido lida. Relê a lista e
+        // procura pela MESMA régua da sugestão — um `ilike` aqui seria uma segunda comparação de nome.
+        try {
+          conhecidos = await reread()
+        } catch (e) {
+          return e instanceof Error ? e.message : error.message
+        }
+        const existente = findSupplierByName(conhecidos, name)
+        if (!existente) return error.message
+        supplierId = existente.id
+      } else {
+        return error?.message ?? 'O fornecedor não foi criado'
+      }
+    }
+    if (ids.includes(supplierId)) return SUPPLIER_DUPLICATED
+    ids.push(supplierId)
   }
 
+  const agora = new Date().toISOString()
   const { error } = await client.from('product_suppliers').upsert(
-    { product_id: productId, supplier_id: supplierId, url: url === '' ? null : url, updated_at: new Date().toISOString() },
-    { onConflict: 'product_id' },
+    rows.map((r, i) => ({
+      product_id: productId,
+      supplier_id: ids[i],
+      url: r.url === '' ? null : r.url,
+      position: i,
+      updated_at: agora,
+    })),
+    { onConflict: 'product_id,supplier_id' },
   )
-  return error ? error.message : null
+  if (error) return error.message
+
+  // Os que saíram da lista. Depois do `upsert`: falhar aqui deixa um fornecedor a mais, nunca a menos.
+  const { error: erroApagar } = await client
+    .from('product_suppliers')
+    .delete()
+    .eq('product_id', productId)
+    .not('supplier_id', 'in', `(${ids.join(',')})`)
+  return erroApagar ? erroApagar.message : null
 }

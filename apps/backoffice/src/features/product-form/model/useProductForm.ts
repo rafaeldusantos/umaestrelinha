@@ -26,6 +26,8 @@ import type {
 } from '@estrelinha/supabase/types'
 import type { OptionMark } from '@estrelinha/core/filters'
 import type { ProductFaqSelection } from './planFaqLinks'
+import { EMPTY_SUPPLIER_ROW, supplierRowsToSave, type SupplierDraft } from './persistSupplier'
+import { supplierLinksOfRow } from '@/entities/supplier'
 
 /**
  * O estado editável do formulário.
@@ -70,12 +72,12 @@ export interface ProductFormState {
   seo_title: string
   seo_description: string
   /**
-   * Feature 80 — o fornecedor da peça, só do painel. Moram em `suppliers`/`product_suppliers`, e
-   * não em `products`, porque `products` é legível pela chave pública coluna a coluna.
+   * Feature 80 — os fornecedores da peça, só do painel: cada linha é um fornecedor e o link da peça
+   * nele, na ordem da dona. Moram em `suppliers`/`product_suppliers`, e não em `products`, porque
+   * `products` é legível pela chave pública coluna a coluna. Sempre ao menos uma linha (a vazia é
+   * "sem fornecedor"), para a tela ter onde digitar.
    */
-  supplier_name: string
-  /** O link da peça na loja do fornecedor. */
-  supplier_url: string
+  supplier_rows: SupplierDraft[]
   // Feature 30 — o que o feed do Google Shopping emite por produto (`GSH-19`). Vazio grava `null`:
   // uma tag `<g:brand></g:brand>` reprova a oferta, e string vazia no banco é indistinguível de
   // "preenchi com nada".
@@ -139,7 +141,7 @@ export interface ProductFormSnapshot {
   /** Feature 67: os eixos como estavam, para detectar a renomeação por posição (`VFL-05`). */
   options: ProductOption[]
   /** Feature 80: o fornecedor como está no banco — o que a coluna lateral mostra (FOR-16) e a base do FOR-13. */
-  supplier?: { name: string; url: string }
+  suppliers?: SupplierDraft[]
 }
 
 const SNAPSHOT_VAZIO: ProductFormSnapshot = {
@@ -150,7 +152,7 @@ const SNAPSHOT_VAZIO: ProductFormSnapshot = {
   filterValueIds: [],
   optionMarks: [],
   options: [],
-  supplier: { name: '', url: '' },
+  suppliers: [],
 }
 
 /**
@@ -189,8 +191,7 @@ export const emptyProductForm = (): ProductFormState => ({
   age_group: '',
   gender: '',
   google_product_category: '',
-  supplier_name: '',
-  supplier_url: '',
+  supplier_rows: [{ ...EMPTY_SUPPLIER_ROW }],
   identifier_exists: null,
   scheduled_at: '',
   related_product_ids: [],
@@ -207,19 +208,13 @@ export const emptyProductForm = (): ProductFormState => ({
 
 /** O `select` da carga do formulário. Traz a grade da TABELA e os vínculos N:N. */
 export const PRODUCT_FORM_SELECT =
-  '*, product_variants(*), product_categories(category_id, position), product_faqs(faq_id, position, answer_override), product_filter_values(value_id), product_option_filter_values(option_name, option_value, value_id), product_suppliers(url, suppliers(name))'
+  '*, product_variants(*), product_categories(category_id, position), product_faqs(faq_id, position, answer_override), product_filter_values(value_id), product_option_filter_values(option_name, option_value, value_id), product_suppliers(url, position, suppliers(name))'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-/**
- * O fornecedor do embed. A chave de `product_suppliers` é o `product_id`, então o PostgREST devolve
- * OBJETO (um-para-um); o array fica aceito para não depender disso.
- */
-const supplierFromRow = (row: any): { supplier_name: string; supplier_url: string } => {
-  const link = Array.isArray(row?.product_suppliers) ? row.product_suppliers[0] : row?.product_suppliers
-  return {
-    supplier_name: typeof link?.suppliers?.name === 'string' ? link.suppliers.name : '',
-    supplier_url: typeof link?.url === 'string' ? link.url : '',
-  }
+/** Os fornecedores do embed, na ordem; sem nenhum, a linha vazia onde a dona digita. */
+const supplierFromRow = (row: any): { supplier_rows: SupplierDraft[] } => {
+  const links = supplierLinksOfRow(row)
+  return { supplier_rows: links.length > 0 ? links : [{ ...EMPTY_SUPPLIER_ROW }] }
 }
 
 /**
@@ -391,7 +386,7 @@ export const useProductForm = (
           filterValueIds: loaded.filter_value_ids,
           optionMarks: loaded.option_marks,
           options: loaded.options,
-          supplier: { name: loaded.supplier_name, url: loaded.supplier_url },
+          suppliers: supplierRowsToSave(loaded.supplier_rows),
         })
       }
     },

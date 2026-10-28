@@ -431,7 +431,7 @@ const AdminProductsPage = () => {
     },
     {
       key: 'fornecedor', header: 'Fornecedor',
-      cell: row => <SupplierCell supplier={row.supplier} />,
+      cell: row => <SupplierCell supplier={row.supplier} more={row.moreSuppliers} />,
     },
     {
       key: 'price', header: 'Preço', align: 'right', sortable: true,

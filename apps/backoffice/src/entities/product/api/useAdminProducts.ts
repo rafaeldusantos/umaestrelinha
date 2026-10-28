@@ -14,6 +14,7 @@ import {
   type ProductViewId,
 } from './productQuery'
 import { invalidarPoolDeProdutos } from './useProductPool'
+import { supplierLinksOfRow } from '@/entities/supplier'
 
 export interface AdminProduct extends DbProduct {
   category_name?: string
@@ -99,15 +100,15 @@ export const LIST_SELECT = [
   'seo_title', 'seo_description', 'scheduled_at', 'created_at', 'updated_at',
   'product_variants(id, product_id, sku, name, price, compare_price, stock, weight_kg, image_url, is_active, position, option_values)',
   'product_categories(category_id, position)',
-  // Feature 80: só o admin lê (RLS). A chave é o `product_id`, então o embed vem como OBJETO.
-  'product_suppliers(url, suppliers(name))',
+  // Feature 80: só o admin lê (RLS). Um produto pode ter vários fornecedores, na ordem da dona.
+  'product_suppliers(url, position, suppliers(name))',
 ].join(', ')
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-const supplierOfRow = (row: any): AdminListRow['supplier'] => {
-  const link = Array.isArray(row.product_suppliers) ? row.product_suppliers[0] : row.product_suppliers
-  const name = link?.suppliers?.name
-  return typeof name === 'string' && name !== '' ? { name, url: typeof link.url === 'string' ? link.url : '' } : null
+/** O primeiro fornecedor (a coluna mostra ele) e quantos há além dele. */
+const supplierOfRow = (row: any): Pick<AdminListRow, 'supplier' | 'moreSuppliers'> => {
+  const links = supplierLinksOfRow(row)
+  return { supplier: links[0] ?? null, moreSuppliers: Math.max(0, links.length - 1) }
 }
 
 export const toListRow = (row: any): AdminListRow => ({
@@ -125,7 +126,7 @@ export const toListRow = (row: any): AdminListRow => ({
   options: normalizeOptions(row.options),
   variants: normalizeVariants(row.product_variants, row.id),
   category_ids: categoryIdsFromLinks(row.product_categories),
-  supplier: supplierOfRow(row),
+  ...supplierOfRow(row),
   seo_title: row.seo_title ?? null,
   seo_description: row.seo_description ?? null,
   scheduled_at: row.scheduled_at ?? null,
