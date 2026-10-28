@@ -32,3 +32,9 @@ O texto mora no primitivo compartilhado `packages/ui/src/dialog.tsx` (e `sheet.t
 apps; `AuthOverlay.test.tsx` e `MobileMenu.test.tsx` da loja citam "Close". O conserto é uma linha em cada
 primitivo e duas asserções da loja — fora do escopo da 81, e mexe na loja. Recomendação: fazer numa
 tarefa própria, junto com o alvo de 44 px do X.
+
+## Re-found (2026-10-28)
+
+Ciclo de QA da 85 (`reports/2026-10-28-backoffice-resumo-com-imagens.md`). O X do modal **Mídia** se anuncia
+"Close" (agora com 44 × 44); o visualizador de zoom tem o "Fechar" certo, mas carrega também um botão "Close" de
+0 × 0 do primitivo. O modal "Imagem de <variação>" segue com "Close".
