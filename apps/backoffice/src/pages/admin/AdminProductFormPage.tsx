@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
+import { useLocation, useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { Package, Image as ImageIcon, Layers, Weight } from 'lucide-react'
 import { Button } from '@estrelinha/ui/button'
 import { Input } from '@estrelinha/ui/input'
@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@estrelinha/ui/tabs'
 import { supabase } from '@estrelinha/supabase/client'
 import { useAdminProducts } from '@/entities/product/api/useAdminProducts'
 import { useAdminCategories } from '@/entities/category/api/useAdminCategories'
+import { productListReturn } from '@/features/product-list/model/queryUrl'
 import ImageGallery from '@/features/product-form/ui/ImageGallery'
 import StorefrontPreview from '@/features/product-form/ui/StorefrontPreview'
 import { clearMissingVariantImages } from '@/features/product-form/lib/variantImages'
@@ -105,6 +106,10 @@ const AdminProductFormPage = () => {
   const [searchParams] = useSearchParams()
   const fromId = searchParams.get('from')
   const navigate = useNavigate()
+  // A lista entrega o próprio endereço ao abrir o cadastro (`productListHref`), e toda volta à lista
+  // daqui reabre no mesmo filtro e na mesma página. Chegando de outro lugar, volta sem recorte.
+  const location = useLocation()
+  const voltarPara = productListReturn(location.state)
   const { createProduct, updateProduct } = useAdminProducts()
   const { categories, createCategory } = useAdminCategories()
   // Feature 80: os fornecedores cadastrados — a sugestão do nome e o "reaproveitar ou criar" do save.
@@ -450,16 +455,16 @@ const AdminProductFormPage = () => {
     // —, e a troca de `id` já relê pelo efeito do `useProductForm`.
     if (!savedId) {
       toast(savedToast(isEdit, intent))
-      navigate('/admin/produtos')
+      navigate(voltarPara)
     } else if (!isEdit) {
       toast(savedToast(false, intent))
-      navigate(`/admin/produtos/${savedId}/editar`, { replace: true })
+      navigate(`/admin/produtos/${savedId}/editar`, { replace: true, state: location.state })
     } else if (await reload()) {
       toast(savedToast(true, intent))
     } else {
       // Gravou, mas não deu para reler: continuar na página arriscaria a grade duplicada.
       toast(savedToast(true, intent))
-      navigate('/admin/produtos')
+      navigate(voltarPara)
     }
     setSaving(false)
   }
@@ -478,7 +483,7 @@ const AdminProductFormPage = () => {
         draftSavedAt={draft.savedAt}
         saving={saving || uploading}
         canPublish={canPublish}
-        onBack={() => { if (draft.confirmLeave()) navigate('/admin/produtos') }}
+        onBack={() => { if (draft.confirmLeave()) navigate(voltarPara) }}
         onDiscard={() => setDiscardOpen(true)}
         onSaveDraft={() => handleSubmit(new Event('submit') as unknown as React.FormEvent, 'draft')}
         onPublish={() => handleSubmit(new Event('submit') as unknown as React.FormEvent, 'publish')}
@@ -500,7 +505,7 @@ const AdminProductFormPage = () => {
               onClick={() => {
                 draft.discard()
                 setDiscardOpen(false)
-                navigate('/admin/produtos')
+                navigate(voltarPara)
               }}
             >
               Descartar

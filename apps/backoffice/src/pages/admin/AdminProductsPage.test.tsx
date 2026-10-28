@@ -3,7 +3,7 @@
 
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import type { AdminListRow } from '@/entities/product/api/productQuery'
 
 const {
@@ -781,5 +781,111 @@ describe('AdminProductsPage — abrir fora da aba e ativar pela linha', () => {
       fireEvent.click(await screen.findByRole('menuitem', { name: 'Ativar' }))
     })
     expect(updateBatchMock).toHaveBeenLastCalledWith([{ id: 'p2', values: { is_active: true } }])
+  })
+})
+
+// O recorte da lista mora na URL. Antes ele vivia num `useState`: o F5, ou abrir um produto e
+// voltar, devolvia a lista à primeira página de "Todos", e a Adri refazia o filtro a cada peça.
+describe('AdminProductsPage — o filtro e a página sobrevivem ao F5 e à ida ao produto', () => {
+  const Onde = () => {
+    const loc = useLocation()
+    return <output data-testid="onde">{loc.pathname + loc.search}</output>
+  }
+  // O cadastro aberto, dublado: mostra o endereço de volta que a lista entregou.
+  const Cadastro = () => {
+    const state = useLocation().state as { voltarPara?: string } | null
+    return <output data-testid="volta">{state?.voltarPara ?? '(nenhum)'}</output>
+  }
+  const renderEm = (url: string, rows: AdminListRow[] = [row()], total = 160) => {
+    listMock.mockReturnValue({
+      rows, total, loading: false, error: null, refetch: refetchMock, fetchAllFiltered: fetchAllMock,
+      createProductsBatch: createBatchMock, updateProductsBatch: updateBatchMock,
+      deleteProductsBatch: deleteBatchMock, applyCategoryWrites: applyCategoryMock,
+    })
+    render(
+      <MemoryRouter initialEntries={[url]}>
+        <Routes>
+          <Route path="/admin/produtos" element={<><AdminProductsPage /><Onde /></>} />
+          <Route path="/admin/produtos/:id/editar" element={<Cadastro />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+  }
+  const ultimaConsulta = () => listMock.mock.calls[listMock.mock.calls.length - 1][0]
+  const onde = () => screen.getByTestId('onde').textContent
+
+  it('abrir a lista com o recorte na URL consulta esse recorte — é o F5', () => {
+    renderEm('/admin/produtos?visao=rascunhos&categoria=cat-anime&tag=prata&preco-min=10&busca=sailor&pagina=3&por-pagina=50&ordem=price-asc')
+
+    expect(ultimaConsulta()).toMatchObject({
+      page: 3,
+      pageSize: 50,
+      search: 'sailor',
+      sort: { key: 'price', dir: 'asc' },
+      filters: { view: 'rascunhos', categoryIds: ['cat-anime'], tags: ['prata'], priceMin: 10 },
+    })
+    expect(screen.getByPlaceholderText(/Buscar por nome, SKU ou tag/)).toHaveValue('sailor')
+    expect(screen.getByRole('tab', { name: /Rascunhos/ })).toHaveAttribute('aria-selected', 'true')
+  })
+
+  it('a lista sem parâmetro é a de sempre, e o endereço continua limpo', () => {
+    renderEm('/admin/produtos')
+
+    expect(ultimaConsulta()).toMatchObject({ page: 1, pageSize: 25, search: '', filters: { view: 'todos' } })
+    expect(onde()).toBe('/admin/produtos')
+  })
+
+  it('mudar de página escreve a página na URL', () => {
+    renderEm('/admin/produtos?visao=ativos')
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Próxima página' })[0])
+
+    expect(onde()).toBe('/admin/produtos?visao=ativos&pagina=2')
+    expect(ultimaConsulta().page).toBe(2)
+  })
+
+  it('escolher uma visão escreve a visão e volta à primeira página', () => {
+    renderEm('/admin/produtos?pagina=4')
+
+    fireEvent.click(screen.getByRole('tab', { name: /Rascunhos/ }))
+
+    expect(onde()).toBe('/admin/produtos?visao=rascunhos')
+  })
+
+  it('a busca digitada vai para a URL', () => {
+    renderEm('/admin/produtos?visao=ativos')
+
+    fireEvent.change(screen.getByPlaceholderText(/Buscar por nome, SKU ou tag/), { target: { value: 'anel coração' } })
+
+    expect(onde()).toBe('/admin/produtos?visao=ativos&busca=anel+cora%C3%A7%C3%A3o')
+  })
+
+  it('o nome do produto leva ao cadastro com o endereço da lista NESTE recorte', () => {
+    const url = '/admin/produtos?visao=ativos&categoria=cat-anime&pagina=3'
+    renderEm(url)
+
+    fireEvent.click(screen.getAllByRole('link', { name: 'Botton Sailor Moon' })[0])
+
+    expect(screen.getByTestId('volta')).toHaveTextContent(url)
+  })
+
+  it('"Editar" do menu da linha também entrega o endereço de volta', async () => {
+    const url = '/admin/produtos?visao=ativos&pagina=2'
+    renderEm(url)
+
+    fireEvent.keyDown(screen.getAllByRole('button', { name: 'Ações de Botton Sailor Moon' })[0], { key: 'Enter' })
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Editar' }))
+
+    expect(navigateMock).toHaveBeenCalledWith('/admin/produtos/p1/editar', { state: { voltarPara: url } })
+  })
+
+  it('"Novo produto" também entrega o endereço de volta', async () => {
+    const url = '/admin/produtos?visao=rascunhos'
+    renderEm(url)
+
+    fireEvent.keyDown(screen.getByRole('button', { name: /Novo produto/ }), { key: 'Enter' })
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Novo produto' }))
+
+    expect(navigateMock).toHaveBeenCalledWith('/admin/produtos/novo', { state: { voltarPara: url } })
   })
 })

@@ -4,8 +4,8 @@
 // `useMemo`. Página, busca, filtro, ordenação e `count` são do servidor (`useAdminProductList`), e
 // por isso o rodapé pode dizer `1–25 de 160` sem ter 160 linhas na memória.
 
-import { useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useCallback, useMemo, useState } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Plus, Pencil, Trash2, Search, Copy, Upload, Package, Table2, ChevronDown, Grid3x3, SlidersHorizontal,
   ExternalLink, AppWindow, Eye, EyeOff, Store,
@@ -22,7 +22,6 @@ import { useUndoBuffer } from '@/features/bulk-edit/model/useUndoBuffer'
 import { Checkbox } from '@estrelinha/ui/checkbox'
 import {
   activeFilterCount,
-  defaultQuery,
   emptyFilters,
   PRODUCT_VIEWS,
   rangeLabel,
@@ -33,6 +32,9 @@ import {
 } from '@/entities/product/api/productQuery'
 import { useAdminCategories } from '@/entities/category/api/useAdminCategories'
 import CsvImportDialog from '@/features/csv-import/ui/CsvImportDialog'
+import {
+  PRODUCT_PAGE_SIZES, productListHref, productQueryFromParams, productQueryToParams,
+} from '@/features/product-list/model/queryUrl'
 import FilterChips from '@/features/product-list/ui/FilterChips'
 import InlineEditCell from '@/features/product-list/ui/InlineEditCell'
 import CategoriesCell from '@/features/product-list/ui/CategoriesCell'
@@ -63,8 +65,6 @@ import {
 } from '@estrelinha/ui/alert-dialog'
 import { supabase } from '@estrelinha/supabase/client'
 
-const PAGE_SIZE_OPTIONS = [10, 25, 50]
-
 const editPath = (id: string) => `/admin/produtos/${id}/editar`
 
 /**
@@ -85,7 +85,17 @@ const storeProductUrl = (slug: string): string | null => {
 
 const AdminProductsPage = () => {
   const navigate = useNavigate()
-  const [query, setQuery] = useState<ProductQuery>(defaultQuery)
+  // O recorte mora na URL (`queryUrl.ts`): sobrevive ao F5 e a abrir um produto e voltar. `replace`
+  // porque mudar o filtro não é navegar — o voltar do navegador sai da lista, não desfaz um filtro.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const query = useMemo(() => productQueryFromParams(searchParams), [searchParams])
+  const setQuery = useCallback(
+    (next: (q: ProductQuery) => ProductQuery) =>
+      setSearchParams(prev => productQueryToParams(next(productQueryFromParams(prev))), { replace: true }),
+    [setSearchParams],
+  )
+  // O endereço de volta que o cadastro recebe: o "voltar" dele reabre a lista neste recorte.
+  const voltarPara = { voltarPara: productListHref(query) }
   const {
     rows, total, loading, error, refetch, fetchAllFiltered,
     createProductsBatch, updateProductsBatch, deleteProductsBatch, applyCategoryWrites,
@@ -206,7 +216,7 @@ const AdminProductsPage = () => {
   const rowActions = (row: AdminListRow): RowAction[] => {
     const lojaUrl = storeProductUrl(row.slug)
     const actions: RowAction[] = [
-      { label: 'Editar', icon: Pencil, onSelect: () => navigate(editPath(row.id)) },
+      { label: 'Editar', icon: Pencil, onSelect: () => navigate(editPath(row.id), { state: voltarPara }) },
       { label: 'Editar em nova aba', icon: ExternalLink, onSelect: () => openOutside(row.id, 'tab') },
       { label: 'Editar em nova janela', icon: AppWindow, onSelect: () => openOutside(row.id, 'window') },
     ]
@@ -222,7 +232,7 @@ const AdminProductsPage = () => {
       row.is_active
         ? { label: 'Desativar', icon: EyeOff, onSelect: () => applyRowStatus(row), disabled: applying, separatorBefore: true }
         : { label: 'Ativar', icon: Eye, onSelect: () => applyRowStatus(row), disabled: applying, separatorBefore: true },
-      { label: 'Duplicar', icon: Copy, onSelect: () => navigate(`/admin/produtos/novo?from=${row.id}`) },
+      { label: 'Duplicar', icon: Copy, onSelect: () => navigate(`/admin/produtos/novo?from=${row.id}`, { state: voltarPara }) },
       { label: 'Excluir', icon: Trash2, onSelect: () => setDeleting(row.id), destructive: true, separatorBefore: true },
     )
     return actions
@@ -390,7 +400,7 @@ const AdminProductsPage = () => {
                 da linha (`rowTitle`), e o nome é link de verdade — Ctrl/⌘-clique abre noutra aba. */}
             <div className="w-[200px] min-w-0 lg:w-[240px]">
               <div className="flex items-center gap-2">
-                <Link to={editPath(row.id)} className="truncate font-medium hover:underline">{row.name}</Link>
+                <Link to={editPath(row.id)} state={voltarPara} className="truncate font-medium hover:underline">{row.name}</Link>
                 {row.variants.length > 0 && (
                   <span className="shrink-0 text-xs text-muted-foreground">
                     {row.variants.length} variaç{row.variants.length === 1 ? 'ão' : 'ões'}
@@ -547,7 +557,7 @@ const AdminProductsPage = () => {
         <Select value={String(query.pageSize)} onValueChange={v => patchQuery({ pageSize: Number(v) })}>
           <SelectTrigger className="h-8 w-[70px] text-xs"><SelectValue /></SelectTrigger>
           <SelectContent>
-            {PAGE_SIZE_OPTIONS.map(n => <SelectItem key={n} value={String(n)}>{n}/pág</SelectItem>)}
+            {PRODUCT_PAGE_SIZES.map(n => <SelectItem key={n} value={String(n)}>{n}/pág</SelectItem>)}
           </SelectContent>
         </Select>
       </div>
@@ -568,7 +578,7 @@ const AdminProductsPage = () => {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => navigate('/admin/produtos/novo')}>
+              <DropdownMenuItem onClick={() => navigate('/admin/produtos/novo', { state: voltarPara })}>
                 <Plus className="mr-2 h-4 w-4" /> Novo produto
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => navigate('/admin/produtos/grade-rapida')}>

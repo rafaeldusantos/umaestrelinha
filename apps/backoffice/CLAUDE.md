@@ -1058,6 +1058,11 @@ conta — fazer isso seria o "defeito 01" nascendo dentro da tela que existe par
     (faixa de erro, e o cabeçalho para de prometer contagem) e **zero sem erro** (aviso de anomalia).
 - **`fetchAllFiltered` passa por `readAllPages`**, que **falha** se a leitura truncar. Um CSV
   silenciosamente menor é indistinguível de um filtro mais estreito para quem o abre depois.
+- **O recorte da lista de pedidos mora na URL** (2026-10-27): filtro, busca, ordem, página e
+  tamanho de página, escritos com `replace` por `features/order-list/model/queryUrl.ts` (só o que
+  difere do padrão; valor que não se entende cai no padrão daquele eixo). Sobrevive ao F5, e o pedido
+  recebe o endereço da lista por `state.voltarPara` — o "voltar" dele aceita só caminho de
+  `/admin/pedidos`. Antes era `useState`, e cada pedido conferido devolvia a lista à página 1.
 - **A seleção guarda a LINHA, não o id** (`Map<string, AdminOrderRow>`): sem os valores atuais não há
   como nomear no resumo quais pedidos não passaram.
 - **O lote de material é um laço de `set_material_status`, e não aborta.** Não existe RPC de lote, e
@@ -1186,6 +1191,12 @@ pública (a `products` tem, e sem recorte de coluna — é por isso que o fornec
 - **A gravação** é `features/product-form/model/persistSupplier.ts`, depois de o produto existir; sem
   mudança desde a carga ela não escreve (FOR-13). As recusas (link sem nome, link sem `http(s)://`)
   vêm de `@estrelinha/core/suppliers` e valem **nos dois botões**, antes de qualquer gravação.
+- **O recorte da lista de produtos mora na URL** (2026-10-27), no molde da de pedidos:
+  `features/product-list/model/queryUrl.ts`, com as listas (categoria, fornecedor, tag) como
+  parâmetro **repetido**, porque tag pode ter vírgula. O cadastro recebe `state.voltarPara` da lista
+  (nome, "Editar", "Duplicar", "Novo produto") e todo caminho de volta dele usa `productListReturn`;
+  o produto novo leva o `state` junto quando troca `/novo` por `/editar`. Filtro novo em
+  `ProductFilters` precisa entrar nos dois sentidos de `queryUrl.ts`, ou some no F5.
 - **Visões salvas** antigas não têm `supplierIds`: `readSavedViews` completa com `emptyFilters()`. Filtro
   novo em `ProductFilters` precisa do mesmo cuidado.
 
