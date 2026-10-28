@@ -117,6 +117,11 @@ logo ao abrir a página, para reconhecer a peça sem procurar.
 5. WHEN há vídeo informado THEN o Resumo SHALL mostrar a linha "Vídeo · sim"; sem vídeo, "Vídeo · não". (MOD-05)
 6. WHEN a pendência de imagens do "Pronto para publicar" é clicada THEN SHALL abrir o modal de mídia. (MOD-06)
 7. WHEN 390px THEN o modal SHALL ocupar a tela sem rolagem horizontal, com alvo ≥ 44px nos controles. (MOD-07)
+8. WHEN uma foto do modal tem os botões de ordem THEN cada foto SHALL ter "Mover para antes" (←), "Tornar principal" e "Mover para depois" (→), com nome acessível que cita a posição ("Mover a imagem 3 para antes"), alvo ≥ 44px e operáveis por teclado; "←" e "Tornar principal" desabilitados na 1ª, "→" desabilitado na última; mover leva `alt` e `source` junto e marca o formulário como alterado. (MOD-08)
+9. WHEN uma foto é movida por esses botões THEN o foco SHALL ficar no mesmo botão da mesma foto na posição nova (ou no botão vizinho habilitado, se o mesmo ficou desabilitado), e uma região viva SHALL anunciar "Imagem movida para a posição n de N" (ou "Imagem n agora é a principal"). (MOD-09)
+10. WHEN o modal está em 390px THEN as fotos SHALL ficar em 2 colunas (não 1), para que 28 fotos não virem uma lista de ~13.000px. (MOD-10)
+
+> MOD-08..10 entram em 2026-10-28, a pedido do usuário, depois do QA (`BUG-20261028-ordenar-fotos-so-arrastando`). O protótipo já desenhava as três ações.
 
 ---
 
@@ -137,8 +142,9 @@ logo ao abrir a página, para reconhecer a peça sem procurar.
 | ZOM-01..06 | P1 Zoom | Design | Verified |
 | ADI-01..06 | P2 Adicionar | Design | Verified |
 | MOD-01..07 | P2 Modal | Design | Verified |
+| MOD-08..10 | P2 Modal (ordem pelo teclado) | Execute | Verified (navegador, 390/1440, fonte 100–200 %) |
 
-**Coverage:** 28 total, 28 mapped to tasks.
+**Coverage:** 31 total, 31 mapped to tasks.
 
 ---
 

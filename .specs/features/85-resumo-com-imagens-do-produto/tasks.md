@@ -14,7 +14,7 @@ flow and Critical Rules.** Do not search for skill files by filesystem path.
 ---
 
 **Design**: `.specs/features/85-resumo-com-imagens-do-produto/design.md`
-**Status**: Done (2026-10-28) — Verifier r2 PASS, QA e reteste feitos; ver `validation.md` e `docs/qa/reports/`
+**Status**: Done (2026-10-28) — T01–T14, Verifier r2 PASS, QA, reteste e prova do adendo — Verifier r2 PASS, QA e reteste feitos; ver `validation.md` e `docs/qa/reports/`
 
 ---
 
@@ -217,3 +217,21 @@ T09 → T10 → T11 → T12
 | T12 | layout | navegador | navegador | ✅ |
 
 **Depois de T12**: Verifier independente (automático), depois QA (`qa-report` → `qa-execution`), consertos e reteste.
+
+---
+
+## Adendo (2026-10-28): ordem pelo teclado
+
+### T13: botões de ordem no modal Mídia
+**What**: em `ui/ImageGallery.tsx`, por foto: "←", "Tornar principal", "→" (MOD-08), foco que segue a foto e anúncio em região viva (MOD-09), e 2 colunas em 390 (MOD-10). Arrastar continua igual.
+**Where**: `ui/ImageGallery.tsx`, `ui/ImageGallery.test.tsx`, `pages/admin/AdminProductFormPage.midia.test.tsx`
+**Depends on**: T12 · **Requirement**: MOD-08, MOD-09, MOD-10
+**Done when**:
+- [x] testes 1:1 com as ACs, inclusive limites (1ª e última), `alt`/`source` viajando, foco na posição nova, texto do anúncio, e token exato da grade em 2 colunas
+- [x] pela página real: "Tornar principal" na 4ª foto ⇒ o Resumo mostra a nova principal e "Alterações não salvas"
+- [x] mutantes nos três botões e no foco mortos por asserção
+- [x] Gate Full + tsc + eslint
+**Tests**: component · **Gate**: full
+
+### T14: prova em navegador do adendo
+**Depends on**: T13 · 390 e 1440, produto de 28 fotos: altura da lista do modal (antes 13.208px), alvos ≥ 44, só teclado (Tab, Enter) movendo uma foto até a principal, foco e anúncio. Não salvar produtos reais.
