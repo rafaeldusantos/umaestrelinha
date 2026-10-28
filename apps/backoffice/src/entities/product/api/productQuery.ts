@@ -109,6 +109,8 @@ export interface AdminListRow {
   category_ids: string[]
   /** Feature 80 (FOR-17): o fornecedor da peça, só do painel. `null` = sem fornecedor. */
   supplier?: { name: string; url: string } | null
+  /** Quantos fornecedores o produto tem além do primeiro (o da coluna). */
+  moreSuppliers?: number
   seo_title: string | null
   seo_description: string | null
   scheduled_at: string | null

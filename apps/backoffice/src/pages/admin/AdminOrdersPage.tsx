@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { CalendarIcon, Columns3, Download, Eye, MessageCircle, Printer, Search, ShoppingCart } from 'lucide-react'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
@@ -28,7 +28,6 @@ import {
   SEARCH_DEBOUNCE_MS,
   activeOrderFilterCount,
   clearFiltersLabel,
-  defaultOrderQuery,
   emptyOrderFilters,
   rangeLabel,
   rowQueueAge,
@@ -53,6 +52,9 @@ import {
 } from '@/features/order-list/model/columns'
 import { exportLabel, exportOrdersCsv } from '@/features/export-orders/lib/exportCsv'
 import { chargeMaterialUrl } from '@/features/order-list/model/chargeMaterial'
+import {
+  ORDER_PAGE_SIZES, orderListHref, orderQueryFromParams, orderQueryToParams,
+} from '@/features/order-list/model/queryUrl'
 import { openPickSlips } from '@/features/pick-slip'
 import { PageHeader, AdminTable, Pagination, type AdminColumn } from '@/shared/ui'
 
@@ -83,8 +85,19 @@ import { PageHeader, AdminTable, Pagination, type AdminColumn } from '@/shared/u
  * quem não pode encolher é a trilha, não o item, e o body nunca rola na horizontal.
  */
 const AdminOrdersPage = () => {
-  const [query, setQuery] = useState<OrderQuery>(defaultOrderQuery)
-  const [searchInput, setSearchInput] = useState('')
+  // O recorte mora na URL (`queryUrl.ts`): sobrevive ao F5 e a abrir um pedido e voltar. `replace`
+  // porque mudar o filtro não é navegar — o voltar do navegador sai da lista, não desfaz um filtro.
+  const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const query = useMemo(() => orderQueryFromParams(searchParams), [searchParams])
+  const setQuery = useCallback(
+    (next: (q: OrderQuery) => OrderQuery) =>
+      setSearchParams(prev => orderQueryToParams(next(orderQueryFromParams(prev))), { replace: true }),
+    [setSearchParams],
+  )
+  // O endereço de volta que o pedido recebe: o "voltar" dele reabre a lista neste recorte.
+  const voltarPara = { voltarPara: orderListHref(query) }
+  const [searchInput, setSearchInput] = useState(() => query.search)
   // A seleção guarda a **LINHA**, não o id (`PLS-06`/`D5`): sem os valores atuais não há como
   // nomear no resumo quais pedidos não passaram, nem gerar folha de separação sem reler o banco.
   const [selection, setSelection] = useState<Map<string, AdminOrderRow>>(new Map())
@@ -98,18 +111,29 @@ const AdminOrdersPage = () => {
 
   // `PED-10` — debounce de 300 ms. Sem ele, cada tecla dispara uma consulta paginada mais seis
   // contagens; com a busca alcançando cinco colunas, isso é sete `ilike` por caractere.
+  //
+  // `buscaEnviada` é a última busca que ESTE campo escreveu na URL. Quando a URL muda por fora (o
+  // item "Pedidos" da sidebar, o voltar do navegador), o campo acompanha; quando a mudança é o eco
+  // do próprio debounce, não — senão a tecla digitada durante a ida e volta seria apagada.
+  const buscaEnviada = useRef(query.search)
   useEffect(() => {
-    const id = setTimeout(
-      () => setQuery(q => (q.search === searchInput ? q : { ...q, search: searchInput, page: 1 })),
-      SEARCH_DEBOUNCE_MS,
-    )
+    const id = setTimeout(() => {
+      buscaEnviada.current = searchInput
+      setQuery(q => (q.search === searchInput ? q : { ...q, search: searchInput, page: 1 }))
+    }, SEARCH_DEBOUNCE_MS)
     return () => clearTimeout(id)
-  }, [searchInput])
+  }, [searchInput, setQuery])
+
+  useEffect(() => {
+    if (query.search === buscaEnviada.current) return
+    buscaEnviada.current = query.search
+    setSearchInput(query.search)
+  }, [query.search])
 
   const setFilters = useCallback((next: OrderFilters) => {
     setQuery(q => ({ ...q, filters: next, page: 1 }))
     setSelection(new Map())
-  }, [])
+  }, [setQuery])
 
   const filtrosAtivos = activeOrderFilterCount(query.filters, query.search)
 
@@ -117,9 +141,10 @@ const AdminOrdersPage = () => {
     // `PED-04` — limpa **tudo**, inclusive status, material e a visão. O botão antigo zerava quatro
     // dos sete eixos e nem aparecia quando os três que faltavam eram os únicos ligados.
     setSearchInput('')
+    buscaEnviada.current = ''
     setQuery(q => ({ ...q, filters: { ...emptyOrderFilters(), view: 'tudo' }, search: '', page: 1 }))
     setSelection(new Map())
-  }, [])
+  }, [setQuery])
 
   const naFilaDeMaterial = query.filters.view === 'fila-material'
   const tiles = naFilaDeMaterial ? MATERIAL_TILES : QUEUE_TILES
@@ -258,7 +283,7 @@ const AdminOrdersPage = () => {
       sortable: true,
       cell: o => (
         <span className="block">
-          <Link to={`/admin/pedidos/${o.id}`} className="font-medium hover:underline">
+          <Link to={`/admin/pedidos/${o.id}`} state={voltarPara} className="font-medium hover:underline">
             {formatOrderNumber(o.order_number)}
           </Link>
           {/* A idade DO PEDIDO, sempre presente — todo pedido tem uma. O degrau vem da fila de
@@ -377,7 +402,7 @@ const AdminOrdersPage = () => {
     cell: o => (
       <span className="inline-flex gap-1">
         <Button asChild size="icon" variant="ghost" className="h-9 w-9">
-          <Link to={`/admin/pedidos/${o.id}`} aria-label={`Abrir pedido ${o.order_number}`}>
+          <Link to={`/admin/pedidos/${o.id}`} state={voltarPara} aria-label={`Abrir pedido ${o.order_number}`}>
             <Eye className="h-4 w-4" />
           </Link>
         </Button>
@@ -647,7 +672,7 @@ const AdminOrdersPage = () => {
                   >
                     <SelectTrigger className="h-9 w-[100px]"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {[10, 25, 50].map(n => (
+                      {ORDER_PAGE_SIZES.map(n => (
                         <SelectItem key={n} value={String(n)}>{n}/pág</SelectItem>
                       ))}
                     </SelectContent>
@@ -671,7 +696,7 @@ const AdminOrdersPage = () => {
                           caminho para o pedido, e um alvo de 24px na bancada com o envelope na mao
                           erra. `flex items-center` mantem a linha onde estava (PED-23). */}
                       <Link
-                        to={`/admin/pedidos/${o.id}`}
+                        to={`/admin/pedidos/${o.id}`} state={voltarPara}
                         className="flex min-h-[44px] items-center truncate font-medium hover:underline"
                       >
                         {o.customer_name}
@@ -707,7 +732,7 @@ const AdminOrdersPage = () => {
                             await setMaterialStatus(o.id, 'material_recebido')
                             await refetch()
                           } else {
-                            window.location.assign(`/admin/pedidos/${o.id}`)
+                            navigate(`/admin/pedidos/${o.id}`, { state: voltarPara })
                           }
                         }}
                       >
@@ -715,7 +740,7 @@ const AdminOrdersPage = () => {
                       </Button>
                     ) : (
                       <Button asChild variant="outline" className="min-h-[44px] flex-1">
-                        <Link to={`/admin/pedidos/${o.id}`}>Abrir pedido</Link>
+                        <Link to={`/admin/pedidos/${o.id}`} state={voltarPara}>Abrir pedido</Link>
                       </Button>
                     )}
                     <Button

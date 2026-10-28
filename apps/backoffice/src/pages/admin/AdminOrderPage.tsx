@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { Copy, ExternalLink, ImageOff, MessageSquare, Printer, Truck } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -59,9 +59,18 @@ import { RecordPageHeader } from '@/shared/ui'
  * com o código do envelope que a cliente mandou — e o `CLAUDE.md` do backoffice já avisa que esse
  * erro é caro. Desenho ambíguo é o caminho mais curto para cometê-lo.
  */
+const listaDeVolta = (state: unknown): string => {
+  const alvo = (state as { voltarPara?: unknown } | null)?.voltarPara
+  return typeof alvo === 'string' && /^\/admin\/pedidos(\?|$)/.test(alvo) ? alvo : '/admin/pedidos'
+}
+
 const AdminOrderPage = () => {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  // A lista entrega o próprio endereço ao abrir o pedido (`orderListHref`), e o voltar reabre a lista
+  // no mesmo filtro e na mesma página. Só caminho da própria lista é aceito; chegando de outro lugar
+  // (link colado, ficha da cliente), volta para a lista sem filtro, como antes.
+  const voltarPara = listaDeVolta(useLocation().state)
   const {
     order, customer, items, itemsError, productRefs, history, notes, emails, loading, error, reload,
   } = useAdminOrder(id)
@@ -89,7 +98,7 @@ const AdminOrderPage = () => {
       <div className="p-12 text-center">
         <p className="text-muted-foreground">Este pedido não existe (ou foi removido).</p>
         <Button asChild variant="outline" className="mt-4">
-          <Link to="/admin/pedidos">Voltar para Pedidos</Link>
+          <Link to={voltarPara}>Voltar para Pedidos</Link>
         </Button>
       </div>
     )
@@ -160,7 +169,7 @@ const AdminOrderPage = () => {
             {idade && ` · ${queueAgeLabel(idade)}`}
           </>
         }
-        onBack={() => navigate('/admin/pedidos')}
+        onBack={() => navigate(voltarPara)}
         actions={
           <>
             <Button

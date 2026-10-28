@@ -3,7 +3,7 @@
 
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import type { AdminListRow } from '@/entities/product/api/productQuery'
 
 const {
@@ -567,7 +567,7 @@ describe('AdminProductsPage — as seis ações da barra (RFN-01…RFN-04)', () 
   })
 })
 
-describe('a coluna Categorias', () => {
+describe('a coluna Produto: foto, nome e categorias', () => {
   const muitas = [
     { id: 'c1', name: 'Cinzas' },
     { id: 'c2', name: 'Pingentes' },
@@ -575,13 +575,28 @@ describe('a coluna Categorias', () => {
     { id: 'c4', name: 'Leite materno' },
   ]
 
-  it('mostra só as duas primeiras, termina em reticências e abre todas ao tocar', async () => {
+  it('não há mais coluna Categorias nem a URL da peça abaixo do nome', () => {
+    setup([row()])
+    expect(screen.queryByRole('columnheader', { name: 'Categorias' })).toBeNull()
+    expect(screen.queryByText('/botton-sailor-moon')).toBeNull()
+  })
+
+  it('as categorias ficam em chips na mesma célula do nome', () => {
+    categorias.atual = muitas
+    setup([row({ category_ids: ['c1', 'c2'] })])
+
+    const nome = screen.getByRole('link', { name: 'Botton Sailor Moon' })
+    const celula = nome.closest('td')!
+    expect(within(celula).getAllByRole('listitem').map(li => li.textContent)).toEqual(['Cinzas', 'Pingentes'])
+    expect(screen.queryByRole('button', { name: /categorias de/ })).toBeNull()
+  })
+
+  it('com mais de duas mostra as duas primeiras e um chip +N que abre todas', async () => {
     categorias.atual = muitas
     setup([row({ category_ids: ['c1', 'c2', 'c3', 'c4'] })])
 
     const gatilho = screen.getByRole('button', { name: 'Ver as 4 categorias de Botton Sailor Moon' })
-    expect(gatilho).toHaveTextContent('Cinzas, Pingentes…')
-    expect(gatilho).not.toHaveTextContent('Colares')
+    expect(gatilho).toHaveTextContent('+2')
     expect(screen.queryByText('Leite materno')).toBeNull()
 
     fireEvent.click(gatilho)
@@ -590,18 +605,22 @@ describe('a coluna Categorias', () => {
       .toEqual(['Cinzas', 'Pingentes', 'Colares', 'Leite materno'])
   })
 
-  it('com até duas categorias não há botão nem reticências', () => {
-    categorias.atual = muitas
-    setup([row({ category_ids: ['c1', 'c2'] })])
-
-    expect(screen.getByText('Cinzas, Pingentes')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /categorias de/ })).toBeNull()
+  it('sem categoria não desenha chip nenhum', () => {
+    setup([row({ category_ids: [] })])
+    const celula = screen.getByRole('link', { name: 'Botton Sailor Moon' }).closest('td')!
+    expect(within(celula).queryAllByRole('listitem')).toHaveLength(0)
   })
 
-  it('sem categoria mostra o travessão', () => {
-    setup([row({ category_ids: [] })])
-    expect(screen.queryByRole('button', { name: /categorias de/ })).toBeNull()
-    expect(screen.getAllByText('—').length).toBeGreaterThan(0)
+  it('a miniatura tem 72px e o foco abre a foto ampliada', async () => {
+    setup([row()])
+
+    const gatilho = screen.getByLabelText('Ampliar a foto de Botton Sailor Moon')
+    const mini = within(gatilho).getByRole('img')
+    expect(mini).toHaveAttribute('width', '72')
+    expect(mini.className.split(/\s+/)).toEqual(expect.arrayContaining(['h-[72px]', 'w-[72px]']))
+
+    fireEvent.focus(gatilho)
+    await waitFor(() => expect(document.querySelectorAll('img[width="320"]')).toHaveLength(1))
   })
 })
 
@@ -642,7 +661,7 @@ describe('feature 80 — o fornecedor na listagem', () => {
 
     expect(screen.queryByRole('columnheader', { name: 'Fornecedor' })).toBeNull()
     expect(screen.queryByText('Ateliê Prata')).toBeNull()
-    expect(screen.getByRole('columnheader', { name: 'Categorias' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Preço' })).toBeInTheDocument()
   })
 
   it('FOR-18 — escolher o fornecedor no filtro pede a lista filtrada, e o chip mostra o nome', async () => {
@@ -688,13 +707,14 @@ describe('AdminProductsPage — abrir fora da aba e ativar pela linha', () => {
     expect(link.getAttribute('href')).toBe('/admin/produtos/p1/editar')
   })
 
-  it('a linha leva o nome inteiro na dica, e a célula do nome tem largura fixa', () => {
+  it('o nome inteiro quebra linha (não trunca), dentro de uma largura fixa', () => {
     const longo = 'Pingente Coração com Cinzas e Mecha de Cabelo em Prata 925 Banhado'
     setup([row({ name: longo })], 1)
     const link = screen.getByRole('link', { name: longo })
     expect(link.closest('tr')?.getAttribute('title')).toBe(longo)
-    expect(link.className.split(/\s+/)).toContain('truncate')
-    expect((link.parentElement?.parentElement?.className ?? '').split(/\s+/)).toContain('w-[200px]')
+    expect(link.className.split(/\s+/)).not.toContain('truncate')
+    expect(link).toHaveTextContent(longo)
+    expect((link.parentElement?.className ?? '').split(/\s+/)).toEqual(expect.arrayContaining(['w-[220px]', 'lg:w-[320px]']))
   })
 
   it('a coluna Ações é um só botão "⋯", sem ícones soltos', () => {
@@ -781,5 +801,111 @@ describe('AdminProductsPage — abrir fora da aba e ativar pela linha', () => {
       fireEvent.click(await screen.findByRole('menuitem', { name: 'Ativar' }))
     })
     expect(updateBatchMock).toHaveBeenLastCalledWith([{ id: 'p2', values: { is_active: true } }])
+  })
+})
+
+// O recorte da lista mora na URL. Antes ele vivia num `useState`: o F5, ou abrir um produto e
+// voltar, devolvia a lista à primeira página de "Todos", e a Adri refazia o filtro a cada peça.
+describe('AdminProductsPage — o filtro e a página sobrevivem ao F5 e à ida ao produto', () => {
+  const Onde = () => {
+    const loc = useLocation()
+    return <output data-testid="onde">{loc.pathname + loc.search}</output>
+  }
+  // O cadastro aberto, dublado: mostra o endereço de volta que a lista entregou.
+  const Cadastro = () => {
+    const state = useLocation().state as { voltarPara?: string } | null
+    return <output data-testid="volta">{state?.voltarPara ?? '(nenhum)'}</output>
+  }
+  const renderEm = (url: string, rows: AdminListRow[] = [row()], total = 160) => {
+    listMock.mockReturnValue({
+      rows, total, loading: false, error: null, refetch: refetchMock, fetchAllFiltered: fetchAllMock,
+      createProductsBatch: createBatchMock, updateProductsBatch: updateBatchMock,
+      deleteProductsBatch: deleteBatchMock, applyCategoryWrites: applyCategoryMock,
+    })
+    render(
+      <MemoryRouter initialEntries={[url]}>
+        <Routes>
+          <Route path="/admin/produtos" element={<><AdminProductsPage /><Onde /></>} />
+          <Route path="/admin/produtos/:id/editar" element={<Cadastro />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+  }
+  const ultimaConsulta = () => listMock.mock.calls[listMock.mock.calls.length - 1][0]
+  const onde = () => screen.getByTestId('onde').textContent
+
+  it('abrir a lista com o recorte na URL consulta esse recorte — é o F5', () => {
+    renderEm('/admin/produtos?visao=rascunhos&categoria=cat-anime&tag=prata&preco-min=10&busca=sailor&pagina=3&por-pagina=50&ordem=price-asc')
+
+    expect(ultimaConsulta()).toMatchObject({
+      page: 3,
+      pageSize: 50,
+      search: 'sailor',
+      sort: { key: 'price', dir: 'asc' },
+      filters: { view: 'rascunhos', categoryIds: ['cat-anime'], tags: ['prata'], priceMin: 10 },
+    })
+    expect(screen.getByPlaceholderText(/Buscar por nome, SKU ou tag/)).toHaveValue('sailor')
+    expect(screen.getByRole('tab', { name: /Rascunhos/ })).toHaveAttribute('aria-selected', 'true')
+  })
+
+  it('a lista sem parâmetro é a de sempre, e o endereço continua limpo', () => {
+    renderEm('/admin/produtos')
+
+    expect(ultimaConsulta()).toMatchObject({ page: 1, pageSize: 25, search: '', filters: { view: 'todos' } })
+    expect(onde()).toBe('/admin/produtos')
+  })
+
+  it('mudar de página escreve a página na URL', () => {
+    renderEm('/admin/produtos?visao=ativos')
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Próxima página' })[0])
+
+    expect(onde()).toBe('/admin/produtos?visao=ativos&pagina=2')
+    expect(ultimaConsulta().page).toBe(2)
+  })
+
+  it('escolher uma visão escreve a visão e volta à primeira página', () => {
+    renderEm('/admin/produtos?pagina=4')
+
+    fireEvent.click(screen.getByRole('tab', { name: /Rascunhos/ }))
+
+    expect(onde()).toBe('/admin/produtos?visao=rascunhos')
+  })
+
+  it('a busca digitada vai para a URL', () => {
+    renderEm('/admin/produtos?visao=ativos')
+
+    fireEvent.change(screen.getByPlaceholderText(/Buscar por nome, SKU ou tag/), { target: { value: 'anel coração' } })
+
+    expect(onde()).toBe('/admin/produtos?visao=ativos&busca=anel+cora%C3%A7%C3%A3o')
+  })
+
+  it('o nome do produto leva ao cadastro com o endereço da lista NESTE recorte', () => {
+    const url = '/admin/produtos?visao=ativos&categoria=cat-anime&pagina=3'
+    renderEm(url)
+
+    fireEvent.click(screen.getAllByRole('link', { name: 'Botton Sailor Moon' })[0])
+
+    expect(screen.getByTestId('volta')).toHaveTextContent(url)
+  })
+
+  it('"Editar" do menu da linha também entrega o endereço de volta', async () => {
+    const url = '/admin/produtos?visao=ativos&pagina=2'
+    renderEm(url)
+
+    fireEvent.keyDown(screen.getAllByRole('button', { name: 'Ações de Botton Sailor Moon' })[0], { key: 'Enter' })
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Editar' }))
+
+    expect(navigateMock).toHaveBeenCalledWith('/admin/produtos/p1/editar', { state: { voltarPara: url } })
+  })
+
+  it('"Novo produto" também entrega o endereço de volta', async () => {
+    const url = '/admin/produtos?visao=rascunhos'
+    renderEm(url)
+
+    fireEvent.keyDown(screen.getByRole('button', { name: /Novo produto/ }), { key: 'Enter' })
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Novo produto' }))
+
+    expect(navigateMock).toHaveBeenCalledWith('/admin/produtos/novo', { state: { voltarPara: url } })
   })
 })

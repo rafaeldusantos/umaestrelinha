@@ -4,8 +4,8 @@
 // `useMemo`. Página, busca, filtro, ordenação e `count` são do servidor (`useAdminProductList`), e
 // por isso o rodapé pode dizer `1–25 de 160` sem ter 160 linhas na memória.
 
-import { useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useCallback, useMemo, useState } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Plus, Pencil, Trash2, Search, Copy, Upload, Package, Table2, ChevronDown, Grid3x3, SlidersHorizontal,
   ExternalLink, AppWindow, Eye, EyeOff, Store,
@@ -22,7 +22,6 @@ import { useUndoBuffer } from '@/features/bulk-edit/model/useUndoBuffer'
 import { Checkbox } from '@estrelinha/ui/checkbox'
 import {
   activeFilterCount,
-  defaultQuery,
   emptyFilters,
   PRODUCT_VIEWS,
   rangeLabel,
@@ -33,9 +32,13 @@ import {
 } from '@/entities/product/api/productQuery'
 import { useAdminCategories } from '@/entities/category/api/useAdminCategories'
 import CsvImportDialog from '@/features/csv-import/ui/CsvImportDialog'
+import {
+  PRODUCT_PAGE_SIZES, productListHref, productQueryFromParams, productQueryToParams,
+} from '@/features/product-list/model/queryUrl'
 import FilterChips from '@/features/product-list/ui/FilterChips'
 import InlineEditCell from '@/features/product-list/ui/InlineEditCell'
 import CategoriesCell from '@/features/product-list/ui/CategoriesCell'
+import ProductThumb from '@/features/product-list/ui/ProductThumb'
 import SupplierCell from '@/features/product-list/ui/SupplierCell'
 import { useSuppliers } from '@/entities/supplier'
 import { priceCell, rowBadges, statusCell, stockCell } from '@/features/product-list/model/rowSummary'
@@ -63,8 +66,6 @@ import {
 } from '@estrelinha/ui/alert-dialog'
 import { supabase } from '@estrelinha/supabase/client'
 
-const PAGE_SIZE_OPTIONS = [10, 25, 50]
-
 const editPath = (id: string) => `/admin/produtos/${id}/editar`
 
 /**
@@ -85,7 +86,17 @@ const storeProductUrl = (slug: string): string | null => {
 
 const AdminProductsPage = () => {
   const navigate = useNavigate()
-  const [query, setQuery] = useState<ProductQuery>(defaultQuery)
+  // O recorte mora na URL (`queryUrl.ts`): sobrevive ao F5 e a abrir um produto e voltar. `replace`
+  // porque mudar o filtro não é navegar — o voltar do navegador sai da lista, não desfaz um filtro.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const query = useMemo(() => productQueryFromParams(searchParams), [searchParams])
+  const setQuery = useCallback(
+    (next: (q: ProductQuery) => ProductQuery) =>
+      setSearchParams(prev => productQueryToParams(next(productQueryFromParams(prev))), { replace: true }),
+    [setSearchParams],
+  )
+  // O endereço de volta que o cadastro recebe: o "voltar" dele reabre a lista neste recorte.
+  const voltarPara = { voltarPara: productListHref(query) }
   const {
     rows, total, loading, error, refetch, fetchAllFiltered,
     createProductsBatch, updateProductsBatch, deleteProductsBatch, applyCategoryWrites,
@@ -206,7 +217,7 @@ const AdminProductsPage = () => {
   const rowActions = (row: AdminListRow): RowAction[] => {
     const lojaUrl = storeProductUrl(row.slug)
     const actions: RowAction[] = [
-      { label: 'Editar', icon: Pencil, onSelect: () => navigate(editPath(row.id)) },
+      { label: 'Editar', icon: Pencil, onSelect: () => navigate(editPath(row.id), { state: voltarPara }) },
       { label: 'Editar em nova aba', icon: ExternalLink, onSelect: () => openOutside(row.id, 'tab') },
       { label: 'Editar em nova janela', icon: AppWindow, onSelect: () => openOutside(row.id, 'window') },
     ]
@@ -222,7 +233,7 @@ const AdminProductsPage = () => {
       row.is_active
         ? { label: 'Desativar', icon: EyeOff, onSelect: () => applyRowStatus(row), disabled: applying, separatorBefore: true }
         : { label: 'Ativar', icon: Eye, onSelect: () => applyRowStatus(row), disabled: applying, separatorBefore: true },
-      { label: 'Duplicar', icon: Copy, onSelect: () => navigate(`/admin/produtos/novo?from=${row.id}`) },
+      { label: 'Duplicar', icon: Copy, onSelect: () => navigate(`/admin/produtos/novo?from=${row.id}`, { state: voltarPara }) },
       { label: 'Excluir', icon: Trash2, onSelect: () => setDeleting(row.id), destructive: true, separatorBefore: true },
     )
     return actions
@@ -378,50 +389,41 @@ const AdminProductsPage = () => {
         const thumb = primaryImage(row.images)
         const badges = rowBadges(row)
         return (
-          <div className="flex items-center gap-3">
-            {thumb ? (
-              <img src={thumb.url} alt={thumb.alt ?? row.name} className="h-10 w-10 rounded-lg bg-muted object-cover" />
-            ) : (
-              <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-                <Package className="h-4 w-4 text-muted-foreground" />
-              </span>
-            )}
-            {/* Largura fixa: o nome longo não empurra as outras colunas. O nome inteiro aparece na dica
-                da linha (`rowTitle`), e o nome é link de verdade — Ctrl/⌘-clique abre noutra aba. */}
-            <div className="w-[200px] min-w-0 lg:w-[240px]">
-              <div className="flex items-center gap-2">
-                <Link to={editPath(row.id)} className="truncate font-medium hover:underline">{row.name}</Link>
-                {row.variants.length > 0 && (
-                  <span className="shrink-0 text-xs text-muted-foreground">
-                    {row.variants.length} variaç{row.variants.length === 1 ? 'ão' : 'ões'}
-                  </span>
-                )}
-              </div>
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span className="truncate text-xs text-muted-foreground">/{row.slug}</span>
-                {badges.map(badge => (
-                  <span key={badge} className="rounded-full border border-amber-200 bg-amber-50 px-1.5 text-[10px] font-medium text-amber-800">
-                    {badge}
-                  </span>
-                ))}
-              </div>
+          <div className="flex items-start gap-3">
+            <ProductThumb url={thumb?.url ?? null} alt={thumb?.alt ?? row.name} />
+            {/* O nome quebra linha em vez de truncar, até um teto de largura: as outras colunas não
+                são empurradas, e as categorias ficam logo abaixo dele, em chips. O nome é link de
+                verdade — Ctrl/⌘-clique abre noutra aba. */}
+            <div className="flex w-[220px] min-w-0 flex-col gap-1.5 lg:w-[320px]">
+              <Link to={editPath(row.id)} state={voltarPara} className="font-semibold leading-snug text-primary hover:underline">
+                {row.name}
+              </Link>
+              {(row.variants.length > 0 || badges.length > 0) && (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {row.variants.length > 0 && (
+                    <span className="text-xs text-muted-foreground">
+                      {row.variants.length} variaç{row.variants.length === 1 ? 'ão' : 'ões'}
+                    </span>
+                  )}
+                  {badges.map(badge => (
+                    <span key={badge} className="rounded-full border border-amber-200 bg-amber-50 px-1.5 text-[10px] font-medium text-amber-800">
+                      {badge}
+                    </span>
+                  ))}
+                </div>
+              )}
+              <CategoriesCell
+                names={row.category_ids.map(id => categoryNames[id]).filter(Boolean)}
+                productName={row.name}
+              />
             </div>
           </div>
         )
       },
     },
     {
-      key: 'categorias', header: 'Categorias',
-      cell: row => (
-        <CategoriesCell
-          names={row.category_ids.map(id => categoryNames[id]).filter(Boolean)}
-          productName={row.name}
-        />
-      ),
-    },
-    {
       key: 'fornecedor', header: 'Fornecedor',
-      cell: row => <SupplierCell supplier={row.supplier} />,
+      cell: row => <SupplierCell supplier={row.supplier} more={row.moreSuppliers} />,
     },
     {
       key: 'price', header: 'Preço', align: 'right', sortable: true,
@@ -528,7 +530,7 @@ const AdminProductsPage = () => {
   ]
 
   const columnIdFor: Record<string, string> = {
-    name: 'produto', categorias: 'categorias', fornecedor: 'fornecedor', price: 'preco',
+    name: 'produto', fornecedor: 'fornecedor', price: 'preco',
     stock: 'estoque', status: 'status', atualizado: 'atualizado',
   }
   const visibleColumns = columns.filter(c => {
@@ -547,7 +549,7 @@ const AdminProductsPage = () => {
         <Select value={String(query.pageSize)} onValueChange={v => patchQuery({ pageSize: Number(v) })}>
           <SelectTrigger className="h-8 w-[70px] text-xs"><SelectValue /></SelectTrigger>
           <SelectContent>
-            {PAGE_SIZE_OPTIONS.map(n => <SelectItem key={n} value={String(n)}>{n}/pág</SelectItem>)}
+            {PRODUCT_PAGE_SIZES.map(n => <SelectItem key={n} value={String(n)}>{n}/pág</SelectItem>)}
           </SelectContent>
         </Select>
       </div>
@@ -568,7 +570,7 @@ const AdminProductsPage = () => {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => navigate('/admin/produtos/novo')}>
+              <DropdownMenuItem onClick={() => navigate('/admin/produtos/novo', { state: voltarPara })}>
                 <Plus className="mr-2 h-4 w-4" /> Novo produto
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => navigate('/admin/produtos/grade-rapida')}>

@@ -23,7 +23,7 @@ import { fileURLToPath } from 'node:url'
 
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import type { DbOrder } from '@estrelinha/supabase/types'
 
 const {
@@ -571,4 +571,57 @@ describe('a peça do pedido tem cara e tem endereço', () => {
   })
 
 
+})
+
+// O "voltar" do pedido reabre a lista no recorte de onde a Adri veio. Antes ele navegava para
+// `/admin/pedidos` puro, e o filtro e a página se perdiam a cada pedido conferido.
+describe('voltar reabre a lista no mesmo filtro e na mesma página', () => {
+  const Lista = () => {
+    const loc = useLocation()
+    return <output data-testid="lista">{loc.pathname + loc.search}</output>
+  }
+  const renderVindoDe = (state: unknown) =>
+    render(
+      <MemoryRouter initialEntries={[{ pathname: '/admin/pedidos/o1', state }]}>
+        <Routes>
+          <Route path="/admin/pedidos/:id" element={<AdminOrderPage />} />
+          <Route path="/admin/pedidos" element={<Lista />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+  it('com o endereço que a lista entregou, o voltar o usa', () => {
+    renderVindoDe({ voltarPara: '/admin/pedidos?visao=tudo&pagina=3' })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Voltar para Pedidos' }))
+
+    expect(screen.getByTestId('lista')).toHaveTextContent('/admin/pedidos?visao=tudo&pagina=3')
+  })
+
+  it('sem endereço (link colado, ficha da cliente), volta para a lista sem filtro', () => {
+    renderVindoDe(null)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Voltar para Pedidos' }))
+
+    expect(screen.getByTestId('lista').textContent).toBe('/admin/pedidos')
+  })
+
+  it.each(['/admin/produtos', 'https://exemplo.invalid/admin/pedidos', '/admin/pedidosx', 42])(
+    'endereço que não é da lista (%s) é ignorado',
+    voltarPara => {
+      renderVindoDe({ voltarPara })
+
+      fireEvent.click(screen.getByRole('button', { name: 'Voltar para Pedidos' }))
+
+      expect(screen.getByTestId('lista').textContent).toBe('/admin/pedidos')
+    },
+  )
+
+  it('o "voltar" do pedido inexistente também usa o endereço da lista', () => {
+    detailMock.mockReturnValue(detail({ order: null }))
+    renderVindoDe({ voltarPara: '/admin/pedidos?visao=tudo&pagina=3' })
+
+    expect(screen.getByRole('link', { name: 'Voltar para Pedidos' }))
+      .toHaveAttribute('href', '/admin/pedidos?visao=tudo&pagina=3')
+  })
 })

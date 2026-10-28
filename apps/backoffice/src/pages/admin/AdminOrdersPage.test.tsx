@@ -6,7 +6,7 @@
 
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { MemoryRouter } from 'react-router-dom'
+import { Link, MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import type { AdminOrderRow } from '@/entities/order/api/orderQuery'
 
 const {
@@ -374,5 +374,112 @@ describe('rodapé e tamanho de página (PED-20)', () => {
     // (mobile). Se uma das superfícies passasse a exibir `rows.length`, ela mostraria "1" aqui.
     const rodapes = screen.getAllByText('1–25 de 148')
     expect(rodapes).toHaveLength(2)
+  })
+})
+
+// O recorte da lista mora na URL. Antes ele vivia num `useState`: o F5, ou abrir um pedido e
+// voltar, devolvia a lista à primeira página de "Precisa de ação", e a Adri refazia o filtro a cada
+// pedido conferido.
+describe('o filtro e a página sobrevivem ao F5 e à ida ao pedido', () => {
+  // Mostra onde o roteador está — é o que um F5 relê.
+  const Onde = () => {
+    const loc = useLocation()
+    return (
+      <>
+        <output data-testid="onde">{loc.pathname + loc.search}</output>
+        {/* O item "Pedidos" da sidebar: leva à lista sem parâmetro nenhum. */}
+        <Link to="/admin/pedidos">Pedidos na sidebar</Link>
+      </>
+    )
+  }
+  // O pedido aberto, dublado: mostra o endereço de volta que a lista entregou.
+  const PedidoAberto = () => {
+    const state = useLocation().state as { voltarPara?: string } | null
+    return <output data-testid="volta">{state?.voltarPara ?? '(nenhum)'}</output>
+  }
+  const renderEm = (url: string) =>
+    render(
+      <MemoryRouter initialEntries={[url]}>
+        <Routes>
+          <Route path="/admin/pedidos" element={<><AdminOrdersPage /><Onde /></>} />
+          <Route path="/admin/pedidos/:id" element={<PedidoAberto />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+  const ultimaConsulta = () => listMock.mock.calls.at(-1)![0]
+  const onde = () => screen.getByTestId('onde').textContent
+
+  it('abrir a lista com o recorte na URL consulta esse recorte — é o F5', () => {
+    renderEm('/admin/pedidos?visao=tudo&material=aguardando_material&busca=thais&pagina=3&por-pagina=50')
+
+    expect(ultimaConsulta()).toMatchObject({
+      page: 3,
+      pageSize: 50,
+      search: 'thais',
+      filters: { view: 'tudo', materialStatuses: ['aguardando_material'] },
+    })
+    expect(screen.getByRole('textbox', { name: 'Buscar pedidos' })).toHaveValue('thais')
+  })
+
+  it('a lista sem parâmetro é a de sempre, e o endereço continua limpo', () => {
+    renderEm('/admin/pedidos')
+
+    expect(ultimaConsulta()).toMatchObject({ page: 1, pageSize: 25, search: '', filters: { view: 'precisa-acao' } })
+    expect(onde()).toBe('/admin/pedidos')
+  })
+
+  it('mudar de página escreve a página na URL', () => {
+    renderEm('/admin/pedidos?visao=tudo')
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Próxima página' })[0])
+
+    expect(onde()).toBe('/admin/pedidos?visao=tudo&pagina=2')
+    expect(ultimaConsulta().page).toBe(2)
+  })
+
+  it('aplicar um filtro escreve o filtro e volta à primeira página', () => {
+    renderEm('/admin/pedidos?visao=tudo&pagina=4')
+
+    fireEvent.click(tiles().getByRole('button', { name: /Aguardando material/ }))
+
+    expect(onde()).toContain('material=aguardando_material')
+    expect(onde()).not.toContain('pagina=')
+  })
+
+  it('a busca digitada vai para a URL depois do debounce', async () => {
+    renderEm('/admin/pedidos?visao=tudo')
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'Buscar pedidos' }), { target: { value: 'akemi' } })
+
+    await waitFor(() => expect(onde()).toBe('/admin/pedidos?visao=tudo&busca=akemi'))
+  })
+
+  it('"Limpar" esvazia o campo de busca e a URL juntos', () => {
+    renderEm('/admin/pedidos?visao=tudo&busca=thais')
+
+    fireEvent.click(screen.getByRole('button', { name: /Limpar 1 filtro/ }))
+
+    expect(screen.getByRole('textbox', { name: 'Buscar pedidos' })).toHaveValue('')
+    expect(onde()).toBe('/admin/pedidos?visao=tudo')
+  })
+
+  it('a URL que muda POR FORA (a sidebar) esvazia o campo, e o debounce não grava a busca velha de volta', async () => {
+    renderEm('/admin/pedidos?visao=tudo&busca=thais')
+
+    fireEvent.click(screen.getByRole('link', { name: 'Pedidos na sidebar' }))
+
+    expect(screen.getByRole('textbox', { name: 'Buscar pedidos' })).toHaveValue('')
+    // Passa o debounce inteiro: sem o campo acompanhar a URL, ele reescreveria `busca=thais`.
+    await new Promise(r => setTimeout(r, 400))
+    expect(onde()).toBe('/admin/pedidos')
+  })
+
+  it('abrir o pedido entrega à página dele o endereço da lista NESTE recorte', () => {
+    const url = '/admin/pedidos?visao=tudo&material=aguardando_material&pagina=3'
+    renderEm(url)
+
+    fireEvent.click(tabela().getAllByRole('link', { name: /#1001/ })[0])
+
+    expect(screen.getByTestId('volta')).toHaveTextContent(url)
   })
 })

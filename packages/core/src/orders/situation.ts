@@ -1,7 +1,8 @@
 // "Em que pé está este pedido?" — o selo da situação, com UM dono (feature `59`, `SIT-01..13`).
 //
-// Nenhuma coluna sozinha responde a pergunta. Pagar **não** muda `orders.status` (só
-// `payment_status`), o material tem a própria máquina (`material_status`), e o envio é `status`.
+// Nenhuma coluna sozinha responde a pergunta. Pagar só muda `orders.status` de `pending` para `paid`
+// (desde a migration `20261030120000`; antes nem isso), o material tem a própria máquina
+// (`material_status`), e o envio é `status`.
 // A conta antiga lia só `status`, conhecia 5 dos 6 valores e mandava o resto para o padrão — um
 // pedido pago aparecia "Pendente". A régua abaixo junta as três colunas, e **a primeira regra que
 // casar vence**, na ordem escrita na spec.

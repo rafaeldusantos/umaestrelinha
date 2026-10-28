@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
+import { useLocation, useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { Package, Image as ImageIcon, Layers, Weight } from 'lucide-react'
 import { Button } from '@estrelinha/ui/button'
 import { Input } from '@estrelinha/ui/input'
@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@estrelinha/ui/tabs'
 import { supabase } from '@estrelinha/supabase/client'
 import { useAdminProducts } from '@/entities/product/api/useAdminProducts'
 import { useAdminCategories } from '@/entities/category/api/useAdminCategories'
+import { productListReturn } from '@/features/product-list/model/queryUrl'
 import ImageGallery from '@/features/product-form/ui/ImageGallery'
 import StorefrontPreview from '@/features/product-form/ui/StorefrontPreview'
 import { clearMissingVariantImages } from '@/features/product-form/lib/variantImages'
@@ -26,9 +27,14 @@ import PublishChecklist from '@/features/product-form/ui/PublishChecklist'
 import PricingTab from '@/features/product-form/ui/tabs/PricingTab'
 import SupplierCard from '@/features/product-form/ui/SupplierCard'
 import SupplierSummaryCard from '@/features/product-form/ui/SupplierSummaryCard'
-import { persistSupplier, type SupplierClient } from '@/features/product-form/model/persistSupplier'
+import {
+  persistSuppliers,
+  supplierFieldId,
+  supplierRowsRefusal,
+  supplierRowsToSave,
+  type SupplierClient,
+} from '@/features/product-form/model/persistSupplier'
 import { fetchSuppliers, invalidateSuppliers, useSuppliers } from '@/entities/supplier'
-import { supplierRefusal } from '@estrelinha/core/suppliers'
 import FaqTab from '@/features/product-form/ui/tabs/FaqTab'
 import DescriptionFaqNotice from '@/features/product-form/ui/DescriptionFaqNotice'
 import { useAdminFaqs } from '@/features/faq-library/api/useAdminFaqs'
@@ -105,6 +111,10 @@ const AdminProductFormPage = () => {
   const [searchParams] = useSearchParams()
   const fromId = searchParams.get('from')
   const navigate = useNavigate()
+  // A lista entrega o próprio endereço ao abrir o cadastro (`productListHref`), e toda volta à lista
+  // daqui reabre no mesmo filtro e na mesma página. Chegando de outro lugar, volta sem recorte.
+  const location = useLocation()
+  const voltarPara = productListReturn(location.state)
   const { createProduct, updateProduct } = useAdminProducts()
   const { categories, createCategory } = useAdminCategories()
   // Feature 80: os fornecedores cadastrados — a sugestão do nome e o "reaproveitar ou criar" do save.
@@ -281,10 +291,10 @@ const AdminProductFormPage = () => {
     // FOR-09/FOR-10: nos DOIS botões, antes de qualquer gravação — e antes do checklist de
     // publicação, senão no "publicar" esta recusa nunca seria alcançada. Rascunho também: o `check`
     // do banco recusaria o link depois de o produto já gravado, e o aviso viraria "salvo, mas…".
-    const fornecedorRecusado = supplierRefusal(form.supplier_name, form.supplier_url)
+    const fornecedorRecusado = supplierRowsRefusal(form.supplier_rows)
     if (fornecedorRecusado) {
-      toast({ title: fornecedorRecusado, variant: 'destructive' })
-      focusField('precos', form.supplier_name.trim() === '' ? 'supplier_name' : 'supplier_url')
+      toast({ title: fornecedorRecusado.message, variant: 'destructive' })
+      focusField('precos', supplierFieldId(fornecedorRecusado.field, fornecedorRecusado.index))
       return
     }
     // PFM-11 AC 1: o bloqueio vem daqui, não do `required` do input — que o Radix desmonta junto com
@@ -410,14 +420,14 @@ const AdminProductFormPage = () => {
     }
 
     // Feature 80 (FOR-11..14): o fornecedor, depois de o produto existir.
-    const fornecedor = { name: form.supplier_name, url: form.supplier_url }
-    const fornecedorSalvo = savedSnapshot.supplier ?? { name: '', url: '' }
+    const fornecedores = form.supplier_rows
+    const fornecedoresSalvos = savedSnapshot.suppliers ?? []
     if (savedId) {
-      const supplierError = await persistSupplier(
+      const supplierError = await persistSuppliers(
         supabase as unknown as SupplierClient,
         savedId,
-        fornecedor,
-        fornecedorSalvo,
+        fornecedores,
+        fornecedoresSalvos,
         suppliers,
         fetchSuppliers,
       )
@@ -441,7 +451,7 @@ const AdminProductFormPage = () => {
       filterValueIds: form.filter_value_ids ?? [],
       optionMarks: optionMarksVigentes,
       options: form.options,
-      supplier: { name: fornecedor.name.trim().replace(/\s+/g, ' '), url: fornecedor.url.trim() },
+      suppliers: supplierRowsToSave(fornecedores),
     })
 
     // Salvar mantém a página aberta. A releitura não é enfeite: as variações novas nasceram com id
@@ -450,16 +460,16 @@ const AdminProductFormPage = () => {
     // —, e a troca de `id` já relê pelo efeito do `useProductForm`.
     if (!savedId) {
       toast(savedToast(isEdit, intent))
-      navigate('/admin/produtos')
+      navigate(voltarPara)
     } else if (!isEdit) {
       toast(savedToast(false, intent))
-      navigate(`/admin/produtos/${savedId}/editar`, { replace: true })
+      navigate(`/admin/produtos/${savedId}/editar`, { replace: true, state: location.state })
     } else if (await reload()) {
       toast(savedToast(true, intent))
     } else {
       // Gravou, mas não deu para reler: continuar na página arriscaria a grade duplicada.
       toast(savedToast(true, intent))
-      navigate('/admin/produtos')
+      navigate(voltarPara)
     }
     setSaving(false)
   }
@@ -478,7 +488,7 @@ const AdminProductFormPage = () => {
         draftSavedAt={draft.savedAt}
         saving={saving || uploading}
         canPublish={canPublish}
-        onBack={() => { if (draft.confirmLeave()) navigate('/admin/produtos') }}
+        onBack={() => { if (draft.confirmLeave()) navigate(voltarPara) }}
         onDiscard={() => setDiscardOpen(true)}
         onSaveDraft={() => handleSubmit(new Event('submit') as unknown as React.FormEvent, 'draft')}
         onPublish={() => handleSubmit(new Event('submit') as unknown as React.FormEvent, 'publish')}
@@ -500,7 +510,7 @@ const AdminProductFormPage = () => {
               onClick={() => {
                 draft.discard()
                 setDiscardOpen(false)
-                navigate('/admin/produtos')
+                navigate(voltarPara)
               }}
             >
               Descartar
@@ -761,11 +771,9 @@ const AdminProductFormPage = () => {
                 onGoToGrid={() => focusField('precos', 'variants')}
                 afterPrice={
                   <SupplierCard
-                    name={form.supplier_name}
-                    url={form.supplier_url}
+                    rows={form.supplier_rows}
                     suppliers={suppliers}
-                    onNameChange={v => setField('supplier_name', v)}
-                    onUrlChange={v => setField('supplier_url', v)}
+                    onChange={rows => setField('supplier_rows', rows)}
                   />
                 }
               />
@@ -955,7 +963,7 @@ const AdminProductFormPage = () => {
           </FormCard>
 
           {/* Feature 80 (FOR-16): o fornecedor SALVO, com o link da peça em nova aba. */}
-          <SupplierSummaryCard name={savedSnapshot.supplier?.name ?? ''} url={savedSnapshot.supplier?.url ?? ''} />
+          <SupplierSummaryCard suppliers={savedSnapshot.suppliers ?? []} />
 
           {/* PFM-17 / RFN-07 AC 8: como o card vai aparecer na loja, com o estado atual. */}
           <FormCard

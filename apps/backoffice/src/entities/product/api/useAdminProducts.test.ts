@@ -328,13 +328,28 @@ describe('useAdminProductList — busca e filtros (PLS-02 AC 5-6)', () => {
   })
 
   it('FOR-17 — a linha traz o fornecedor do embed, e `null` sem ele', () => {
-    expect(LIST_SELECT).toContain('product_suppliers(url, suppliers(name))')
+    expect(LIST_SELECT).toContain('product_suppliers(url, position, suppliers(name))')
     const base = { id: 'p1', name: 'Anel' }
     expect(toListRow({ ...base, product_suppliers: { url: 'https://x.com/p', suppliers: { name: 'Ateliê' } } }).supplier)
       .toEqual({ name: 'Ateliê', url: 'https://x.com/p' })
     expect(toListRow({ ...base, product_suppliers: { url: null, suppliers: { name: 'Ateliê' } } }).supplier)
       .toEqual({ name: 'Ateliê', url: '' })
     expect(toListRow({ ...base, product_suppliers: null }).supplier).toBeNull()
+  })
+
+  it('vários fornecedores: a coluna mostra o primeiro pela ordem da dona, e conta os outros', () => {
+    const row = toListRow({
+      id: 'p1',
+      name: 'Anel',
+      product_suppliers: [
+        { url: null, position: 2, suppliers: { name: 'C' } },
+        { url: 'https://a.com', position: 0, suppliers: { name: 'A' } },
+        { url: null, position: 1, suppliers: { name: 'B' } },
+      ],
+    })
+    expect(row.supplier).toEqual({ name: 'A', url: 'https://a.com' })
+    expect(row.moreSuppliers).toBe(2)
+    expect(toListRow({ id: 'p1', name: 'Anel', product_suppliers: [] }).moreSuppliers).toBe(0)
   })
 
   it('categoria sem nenhum produto devolve lista vazia sem consultar o catálogo', async () => {

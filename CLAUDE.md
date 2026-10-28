@@ -583,7 +583,7 @@ quando mudarem de verdade.
 | --- | --- | --- |
 | **Lint** | **25 erros / 7 warnings** — backoffice 23/5 · store 2/2 · mobile-adm 0/0 | `npx eslint .` em cada app (o `pnpm lint` para no primeiro app que reprova) |
 | **Tipos** | **0 · 0 · 0 · 0 · 0** (store · backoffice · catalog-import · `apps/store/tsconfig.server.json`, desde a `69` · mobile-adm, desde a `72`) — e **`packages/core` em 11**, herdados (medido na `73`: idênticos na base, nenhum em arquivo tocado) | `npx tsc --noEmit -p apps/<app>/tsconfig.app.json` · `npx tsc --noEmit -p packages/core/tsconfig.json` |
-| **Testes** | **18677 em 928 arquivos** — store **6139/328** · backoffice **3945/227** · mobile-adm **2279/140** · core **4697/184** · functions **1105/26** · catalog-import 512/23 (medidos na árvore mesclada da `82` com a `83`, 2026-10-27, um workspace por vez, exit fora de pipe; catalog-import não remedido; backoffice remedido no mesmo dia depois das ações da linha de produto, +13/+1) | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
+| **Testes** | **18776 em 932 arquivos** — store **6150/329** · backoffice **4033/230** · mobile-adm **2279/140** · core **4697/184** · functions **1105/26** · catalog-import 512/23 (medidos na árvore mesclada da `82` com a `83`, 2026-10-27, um workspace por vez, exit fora de pipe; catalog-import não remedido; backoffice remedido no mesmo dia depois das ações da linha de produto, +13/+1, e de novo com o recorte das listas de pedidos e de produtos na URL, +71/+3; store +7/+1 com `pagamentoMarcaPagoSchema`; e de novo com vários fornecedores por produto, store 6150/329, backoffice 4033/230, core 4697/184, medidos) | `pnpm --filter @estrelinha/<w> test --testTimeout=20000` (store e backoffice) |
 
 **A feature `82` (o envelope da cliente) somou +297/+6 em QUATRO workspaces**, medidos em 2026-10-27 um por vez, exit fora de pipe, contra a entrada medida com a árvore parada (`.specs/features/82-envelope-da-cliente/baseline.md`: core 4466/178 · mobile-adm 2021/126 · store 6013/326 · backoffice 3916/225 — a linha anterior desta tabela estava velha pelo commit `744da7ea`): **core +134/+2**, **mobile-adm +111/+3**, **store +22/+1** (`envelopeSchema`, `materialTransitions` lendo a RPC vigente, e a loja gravando o código pelo dono de `core`) e **backoffice +10** (o painel delega `setMaterialTracking` a `core`). Tipos 0 nos apps, core 11 herdados; lint 0/0 · 23/5. Uma migration (`20261028120000_82-envelope-da-cliente.sql`), aplicada só no local. Verificador r1 FAIL por cobertura (4 de 42 mutantes), lacunas fechadas com os mutantes reinjetados; prova em navegador achou 3 defeitos de layout/foco, consertados; QA achou 8 bugs: 7 consertados com teste e retestados em navegador (inclusive o erro com dono, o "Tentar de novo" do envelope, a carência de 5 s do "Sem conexão" e o código normalizado no dono da escrita) e 1 mantido por decisão (`BL-055`); a verificação r2 (consertos) fechou com as lacunas cobertas. O lembrete do WhatsApp deixou de dizer "Oi, Oi!" sem nome.
 
@@ -2710,6 +2710,22 @@ admin (`entities/*/api/useAdmin*`). **Zero é a baseline de tipos: qualquer erro
     coincidência mantida a dedo, não propriedade do app.
 
 ## CI e deploy
+
+> **Migration se aplica SÓ no banco local durante o desenvolvimento. Em produção, APENAS quando o
+> usuário pedir explicitamente — e "faça push", "envie para a master" ou "faça o merge" NÃO é esse
+> pedido.** O `Supabase Deploy` roda `supabase db push --linked` em **todo push em `master`**, então
+> levar à `master` remota um commit com migration nova **é** aplicá-la em produção. Por isso:
+>
+> - **Desenvolvimento**: aplique no local (`supabase migration up` ou `psql` na porta 54442) e prove
+>   ali — de preferência numa transação desfeita. Nunca `supabase db push --linked`, nunca
+>   `supabase db query --linked` com escrita.
+> - **Antes de qualquer push para a `master` remota**, confira se o que sobe traz arquivo novo em
+>   `supabase/migrations/` (`git diff --name-only origin/master..HEAD -- supabase/migrations`). Se
+>   trouxer e o usuário não pediu a aplicação em produção **com essas palavras**, **pare e pergunte**
+>   antes do push — dizendo que o push aplica a migration no banco hospedado.
+> - Medido em 2026-10-27: a `20261101120000` (fornecedor repetido no produto) foi aplicada em
+>   produção por um push pedido como "envie para master remoto", sem pergunta. Foi o que motivou esta
+>   regra.
 
 Três workflows em `.github/workflows/`:
 

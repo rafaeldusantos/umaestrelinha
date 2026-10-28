@@ -215,6 +215,15 @@ Pagamentos `/v1/payments` **não é usada em código novo** (`AD-001`).
 
 - Actions: `create-payment` (auth manual + **recálculo server-side**) e `webhook` (`type: "order"`,
   assinatura HMAC, transições idempotentes via RPC `apply_payment_approval`).
+- **Pagamento aprovado passa o pedido de `pending` para `paid`** (migration `20261030120000`,
+  2026-10-27). Até ela, `apply_payment_approval` nunca tocava `orders.status`: o #0183, primeiro
+  pedido pago pela loja nova, ficou "Aprovado" e "Pendente", e sairia de "Pago, a separar" e de
+  "Precisa de ação" ao receber o material. Os `paid` de antes vinham todos do importador. Só
+  `pending` anda (status avançado à mão ou cancelado fica onde está), a mudança grava uma linha em
+  `order_status_history` (`created_by` nulo), e a idempotência continua sendo `paid_at is null`. Os
+  e-mails não mudam: decidem por `paid_at`. Guarda: `pagamentoMarcaPagoSchema.test.ts` (suíte da
+  loja), que lê a migration **vigente** da função. Gate de quem recriar a função: o probe
+  `supabase/operacoes/pagamento-aprovado-marca-pago.probe.sql` contra a 54442, exit 0 e só `ok —`.
 - **A URL de notificação fica só no painel do MP** — a Orders API valida o corpo por schema fechado e
   **recusa** `notification_url`.
 - **O recálculo descarta o `unit_price` do cliente** e refaz a conta a partir de

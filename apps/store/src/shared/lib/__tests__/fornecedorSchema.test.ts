@@ -186,3 +186,83 @@ describe('FOR-04 — a migration não escreve dado', () => {
     expect(escreveDado(`${LIMPO}\ninsert into public.suppliers (name) values ('x');`)).toBe(true)
   })
 })
+
+// -------------------------------------------------------------------------------------------
+// Vários fornecedores por produto — a chave do vínculo vira o PAR (produto, fornecedor)
+// -------------------------------------------------------------------------------------------
+
+const MIGRATION_VARIOS = join(ROOT, 'supabase/migrations/20261031120000_varios-fornecedores-por-produto.sql')
+const LIMPO_VARIOS = semComentario(readFileSync(MIGRATION_VARIOS, 'utf8'))
+
+/** A chave nova é exatamente (product_id, supplier_id), criada DEPOIS de derrubar a antiga. */
+const chaveDoPar = (texto: string): boolean => {
+  const derruba = texto.search(/alter table public\.product_suppliers drop constraint if exists product_suppliers_pkey;/i)
+  const cria = texto.search(
+    /alter table public\.product_suppliers add constraint product_suppliers_pkey primary key \(\s*product_id\s*,\s*supplier_id\s*\);/i,
+  )
+  return derruba >= 0 && cria > derruba
+}
+
+const posicaoAditiva = (texto: string): boolean =>
+  /alter table public\.product_suppliers\s+add column if not exists position integer not null default 0 check \(position >= 0\);/i.test(texto)
+
+describe('vários fornecedores por produto', () => {
+  it('a migration foi lida', () => {
+    expect(LIMPO_VARIOS.length).toBeGreaterThan(100)
+  })
+
+  it('a chave do vínculo é o par (produto, fornecedor), e a antiga cai antes', () => {
+    expect(chaveDoPar(LIMPO_VARIOS)).toBe(true)
+    expect(chaveDoPar(mutar(LIMPO_VARIOS, '(product_id, supplier_id)', '(product_id)'))).toBe(false)
+    expect(chaveDoPar(mutar(LIMPO_VARIOS, /alter table public\.product_suppliers drop constraint[^;]*;/i, ''))).toBe(false)
+  })
+
+  it('a ordem da dona mora em `position`, coluna aditiva com default', () => {
+    expect(posicaoAditiva(LIMPO_VARIOS)).toBe(true)
+    expect(posicaoAditiva(mutar(LIMPO_VARIOS, 'add column if not exists', 'add column'))).toBe(false)
+  })
+
+  it('não abre leitura, não concede nada e não escreve dado — a tabela segue só do admin', () => {
+    expect(/create policy|grant\b|disable row level security/i.test(LIMPO_VARIOS)).toBe(false)
+    expect(escreveDado(LIMPO_VARIOS)).toBe(false)
+    expect(/create policy|grant\b/i.test(`${LIMPO_VARIOS}\ngrant select on public.product_suppliers to anon;`)).toBe(true)
+  })
+})
+
+// -------------------------------------------------------------------------------------------
+// O mesmo fornecedor repetido no produto — a chave do vínculo vira (produto, posição)
+// -------------------------------------------------------------------------------------------
+
+const MIGRATION_REPETIDO = join(ROOT, 'supabase/migrations/20261101120000_fornecedor-repetido-no-produto.sql')
+const LIMPO_REPETIDO = semComentario(readFileSync(MIGRATION_REPETIDO, 'utf8'))
+
+/** A chave nova é exatamente (product_id, position), criada DEPOIS de derrubar a do par. */
+const chaveDaPosicao = (texto: string): boolean => {
+  const derruba = texto.search(/alter table public\.product_suppliers drop constraint if exists product_suppliers_pkey;/i)
+  const cria = texto.search(
+    /alter table public\.product_suppliers add constraint product_suppliers_pkey primary key \(\s*product_id\s*,\s*position\s*\);/i,
+  )
+  return derruba >= 0 && cria > derruba
+}
+
+describe('o mesmo fornecedor repetido no produto', () => {
+  it('a migration foi lida', () => {
+    expect(LIMPO_REPETIDO.length).toBeGreaterThan(100)
+  })
+
+  it('a chave do vínculo é (produto, posição), e a do par cai antes', () => {
+    expect(chaveDaPosicao(LIMPO_REPETIDO)).toBe(true)
+    expect(chaveDaPosicao(mutar(LIMPO_REPETIDO, '(product_id, position)', '(product_id, supplier_id)'))).toBe(false)
+    expect(chaveDaPosicao(mutar(LIMPO_REPETIDO, /alter table public\.product_suppliers drop constraint[^;]*;/i, ''))).toBe(false)
+  })
+
+  it('nenhuma chave ou índice único volta a recusar o fornecedor repetido', () => {
+    expect(/unique[^;]*supplier_id/i.test(LIMPO_REPETIDO)).toBe(false)
+    expect(/unique[^;]*supplier_id/i.test(`${LIMPO_REPETIDO}\ncreate unique index x on public.product_suppliers (product_id, supplier_id);`)).toBe(true)
+  })
+
+  it('não abre leitura, não concede nada e não escreve dado — a tabela segue só do admin', () => {
+    expect(/create policy|grant\b|disable row level security/i.test(LIMPO_REPETIDO)).toBe(false)
+    expect(escreveDado(LIMPO_REPETIDO)).toBe(false)
+  })
+})

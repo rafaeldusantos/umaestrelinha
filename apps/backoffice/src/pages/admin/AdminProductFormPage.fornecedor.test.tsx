@@ -34,7 +34,7 @@ vi.mock('@estrelinha/supabase/client', () => {
       return { data: null, error: null, count: 0 }
     }
     const b: Record<string, unknown> = {}
-    for (const m of ['eq', 'in', 'neq', 'ilike', 'order', 'limit', 'range']) {
+    for (const m of ['eq', 'in', 'neq', 'not', 'gte', 'ilike', 'order', 'limit', 'range']) {
       b[m] = (...args: unknown[]) => {
         filtros.push([m, ...args])
         return b
@@ -301,8 +301,9 @@ describe('FOR-11..14 — a gravação', () => {
       expect.objectContaining({
         op: 'upsert',
         table: 'product_suppliers',
-        payload: expect.objectContaining({ product_id: 'p1', supplier_id: 'atelie', url: 'https://exemplo.com/peca' }),
+        payload: [expect.objectContaining({ product_id: 'p1', supplier_id: 'atelie', url: 'https://exemplo.com/peca' })],
       }),
+      expect.objectContaining({ op: 'delete', table: 'product_suppliers' }),
     ])
     const ordem = h.diario.map(e => `${e.table}:${e.op}`)
     expect(ordem.indexOf('products:update')).toBeLessThan(ordem.indexOf('product_suppliers:upsert'))
@@ -317,7 +318,8 @@ describe('FOR-11..14 — a gravação', () => {
 
     expect(escritasDoFornecedor().map(e => [e.table, e.op, e.payload])).toEqual([
       ['suppliers', 'insert', { name: 'Prata Fina' }],
-      ['product_suppliers', 'upsert', expect.objectContaining({ product_id: 'p1', supplier_id: 'forn-novo', url: null })],
+      ['product_suppliers', 'upsert', [expect.objectContaining({ product_id: 'p1', supplier_id: 'forn-novo', url: null })]],
+      ['product_suppliers', 'delete', undefined],
     ])
   })
 
@@ -335,8 +337,9 @@ describe('FOR-11..14 — a gravação', () => {
       expect.objectContaining({
         op: 'upsert',
         table: 'product_suppliers',
-        payload: expect.objectContaining({ product_id: 'novo', supplier_id: 'atelie', url: 'https://www.exemplo.com/item/123' }),
+        payload: [expect.objectContaining({ product_id: 'novo', supplier_id: 'atelie', url: 'https://www.exemplo.com/item/123' })],
       }),
+      expect.objectContaining({ op: 'delete', table: 'product_suppliers' }),
     ])
   })
 
@@ -353,8 +356,9 @@ describe('FOR-11..14 — a gravação', () => {
       expect.objectContaining({
         op: 'upsert',
         table: 'product_suppliers',
-        payload: expect.objectContaining({ product_id: 'novo', supplier_id: 'resinas', url: null }),
+        payload: [expect.objectContaining({ product_id: 'novo', supplier_id: 'resinas', url: null })],
       }),
+      expect.objectContaining({ op: 'delete', table: 'product_suppliers' }),
     ])
   })
 
@@ -435,8 +439,134 @@ describe('FOR-16 — o fornecedor salvo na coluna lateral', () => {
     expect(within(card).queryByText('Resinas do Sul')).toBeNull()
 
     // A releitura depois do save devolve o que o banco tem agora.
-    h.produto = { ...h.produto, product_suppliers: { url: 'https://outra.com/peca', suppliers: { name: 'Ateliê Prata' } } }
+    h.produto = { ...h.produto, product_suppliers: [{ url: 'https://outra.com/peca', suppliers: { name: 'Ateliê Prata' } }] }
     await salvarRascunho()
     await waitFor(() => expect(cardLateral()).toHaveAttribute('href', 'https://outra.com/peca'))
+  })
+})
+
+describe('vários fornecedores no mesmo produto', () => {
+  const adicionar = () => fireEvent.click(screen.getByRole('button', { name: 'Adicionar fornecedor' }))
+  const nome2 = () => screen.getByRole('combobox', { name: 'Nome do fornecedor 2' })
+  const link2 = () => screen.getByLabelText('Link da peça 2')
+
+  it('"Adicionar fornecedor" abre uma linha nova com nome e link; a linha some no "Remover"', async () => {
+    montar()
+    await abrirPrecos()
+    expect(screen.queryByRole('combobox', { name: 'Nome do fornecedor 2' })).toBeNull()
+    // Uma linha só não tem "Remover": esvaziá-la é o "sem fornecedor".
+    expect(screen.queryByRole('button', { name: /Remover o fornecedor/ })).toBeNull()
+    adicionar()
+    expect(nome2()).toHaveValue('')
+    expect(link2()).toHaveValue('')
+    fireEvent.click(screen.getByRole('button', { name: 'Remover o fornecedor 2' }))
+    expect(screen.queryByRole('combobox', { name: 'Nome do fornecedor 2' })).toBeNull()
+  })
+
+  it('salvar grava um vínculo por linha, cada um com o seu link, na ordem', async () => {
+    montar()
+    await abrirPrecos()
+    fireEvent.change(nome(), { target: { value: 'Ateliê Prata' } })
+    fireEvent.change(link(), { target: { value: 'https://a.com/peca' } })
+    adicionar()
+    fireEvent.change(nome2(), { target: { value: 'Resinas do Sul' } })
+    fireEvent.change(link2(), { target: { value: 'https://r.com/peca' } })
+    await salvarRascunho()
+    await waitFor(() => expect(toast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Rascunho salvo' })))
+
+    expect(escritasDoFornecedor()).toEqual([
+      expect.objectContaining({
+        op: 'upsert',
+        table: 'product_suppliers',
+        payload: [
+          expect.objectContaining({ product_id: 'p1', supplier_id: 'atelie', url: 'https://a.com/peca', position: 0 }),
+          expect.objectContaining({ product_id: 'p1', supplier_id: 'resinas', url: 'https://r.com/peca', position: 1 }),
+        ],
+      }),
+      expect.objectContaining({
+        op: 'delete',
+        table: 'product_suppliers',
+        filters: [['eq', 'product_id', 'p1'], ['gte', 'position', 2]],
+      }),
+    ])
+  })
+
+  it('dois fornecedores salvos: as duas linhas abrem preenchidas, e o card lateral lista os dois', async () => {
+    h.produto = {
+      ...h.produto,
+      product_suppliers: [
+        { url: 'https://r.com/peca', position: 1, suppliers: { name: 'Resinas do Sul' } },
+        { ...COM_FORNECEDOR, position: 0 },
+      ],
+    }
+    montar()
+    await abrirPrecos()
+    expect(nome()).toHaveValue('Ateliê Prata')
+    expect(nome2()).toHaveValue('Resinas do Sul')
+    expect(link2()).toHaveValue('https://r.com/peca')
+    expect(screen.getByRole('heading', { name: 'Fornecedores' })).toBeInTheDocument()
+    const links = screen.getAllByRole('link', { name: /Abrir a peça no fornecedor/ })
+    expect(links.map(a => a.getAttribute('href'))).toEqual(['https://www.exemplo.com/item/123', 'https://r.com/peca'])
+  })
+
+  it('remover a segunda linha salva apaga só aquele vínculo', async () => {
+    h.produto = {
+      ...h.produto,
+      product_suppliers: [
+        { ...COM_FORNECEDOR, position: 0 },
+        { url: null, position: 1, suppliers: { name: 'Resinas do Sul' } },
+      ],
+    }
+    montar()
+    await abrirPrecos()
+    fireEvent.click(screen.getByRole('button', { name: 'Remover o fornecedor 2' }))
+    await salvarRascunho()
+    await waitFor(() => expect(toast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Rascunho salvo' })))
+    expect(escritasDoFornecedor()).toEqual([
+      expect.objectContaining({ op: 'upsert', payload: [expect.objectContaining({ supplier_id: 'atelie', position: 0 })] }),
+      expect.objectContaining({ op: 'delete', filters: [['eq', 'product_id', 'p1'], ['gte', 'position', 1]] }),
+    ])
+  })
+
+  it('o mesmo fornecedor em duas linhas é gravado nas duas, cada uma com o seu link', async () => {
+    montar()
+    await abrirPrecos()
+    fireEvent.change(nome(), { target: { value: 'Ateliê Prata' } })
+    fireEvent.change(link(), { target: { value: 'https://a.com/anuncio-1' } })
+    adicionar()
+    fireEvent.change(nome2(), { target: { value: 'atelie prata' } })
+    fireEvent.change(link2(), { target: { value: 'https://a.com/anuncio-2' } })
+    await salvarRascunho()
+    await waitFor(() => expect(toast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Rascunho salvo' })))
+    expect(toast).not.toHaveBeenCalledWith(expect.objectContaining({ variant: 'destructive' }))
+
+    expect(escritasDoFornecedor()).toEqual([
+      expect.objectContaining({
+        op: 'upsert',
+        table: 'product_suppliers',
+        payload: [
+          expect.objectContaining({ product_id: 'p1', supplier_id: 'atelie', url: 'https://a.com/anuncio-1', position: 0 }),
+          expect.objectContaining({ product_id: 'p1', supplier_id: 'atelie', url: 'https://a.com/anuncio-2', position: 1 }),
+        ],
+      }),
+      expect.objectContaining({ op: 'delete', filters: [['eq', 'product_id', 'p1'], ['gte', 'position', 2]] }),
+    ])
+    // O nome digitado sem acento reaproveita o cadastrado: nenhum fornecedor novo nasce.
+    expect(h.diario.filter(e => e.table === 'suppliers')).toEqual([])
+  })
+
+  it('link errado na segunda linha é recusado e nada é gravado', async () => {
+    montar()
+    await abrirPrecos()
+    fireEvent.change(nome(), { target: { value: 'Ateliê Prata' } })
+    adicionar()
+    fireEvent.change(nome2(), { target: { value: 'Resinas do Sul' } })
+    fireEvent.change(link2(), { target: { value: 'r.com/peca' } })
+    await salvarRascunho()
+    expect(toast).toHaveBeenCalledWith({
+      title: 'O link da peça precisa começar com http:// ou https://',
+      variant: 'destructive',
+    })
+    expect(h.diario).toEqual([])
   })
 })
