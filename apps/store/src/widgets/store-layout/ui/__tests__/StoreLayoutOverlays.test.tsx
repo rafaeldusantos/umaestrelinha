@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { MENU_PREVIEW_SOURCE } from '@estrelinha/core/menu'
+import { PREVIEW_SOURCE } from '@estrelinha/core/home'
 
 /**
  * `PRF-11` — **os overlays de gesto não entram no chunk inicial**.
@@ -122,5 +124,147 @@ describe('StoreLayout — os overlays nascem fechados e desmontados (PRF-11)', (
     act(() => useCartUiStore.getState().closeCart())
 
     expect(screen.getByTestId('gaveta')).toBeInTheDocument()
+  })
+})
+
+/**
+ * `NAV-43` × `PRF-11` — **na prévia do celular, a folha do menu precisa existir sem toque**.
+ *
+ * Achado na prova em navegador da feature `86` (T23): a folha abre sozinha na prévia por um efeito
+ * que mora DENTRO do `MobileMenu`; com o latch da `38` o `MobileMenu` só monta depois da primeira
+ * abertura, então o efeito nunca rodava e a prévia do celular mostrava a home e um hambúrguer. Quem
+ * decide agora é o layout: dentro da prévia, a folha acompanha o tamanho do quadro — aberta no de
+ * 390, fechada no de 1024 (no computador ela cobriria a barra que a prévia existe para mostrar).
+ */
+describe('StoreLayout — a folha do menu na prévia do painel (NAV-43)', () => {
+  const parentOriginal = Object.getOwnPropertyDescriptor(window, 'parent')
+  const matchMediaOriginal = window.matchMedia
+  let compacto = true
+  const ouvintes = new Set<() => void>()
+
+  const pai = { postMessage: vi.fn() }
+  const entrarNaPrevia = () => {
+    window.history.replaceState({}, '', '/?preview=1')
+    Object.defineProperty(window, 'parent', { value: pai, configurable: true })
+  }
+
+  /** Uma mensagem vinda do pai — `event.source` só se define no evento já criado (jsdom). */
+  const receber = (data: unknown) => {
+    const evento = new MessageEvent('message', { data })
+    Object.defineProperty(evento, 'source', { value: pai })
+    act(() => {
+      window.dispatchEvent(evento)
+    })
+  }
+
+  /** O rascunho que SÓ a prévia do menu manda — é o que distingue o palco do menu do da Home. */
+  const rascunhoDoMenu = () =>
+    receber({
+      source: MENU_PREVIEW_SOURCE,
+      type: 'draft',
+      draft: { categories: [], document: { version: 2, items: [] } },
+    })
+
+  beforeEach(() => {
+    compacto = true
+    ouvintes.clear()
+    window.matchMedia = ((q: string) => ({
+      get matches() {
+        return q.includes('max-width: 767px') ? compacto : false
+      },
+      media: q,
+      addEventListener: (_: string, f: () => void) => ouvintes.add(f),
+      removeEventListener: (_: string, f: () => void) => ouvintes.delete(f),
+    })) as unknown as typeof window.matchMedia
+  })
+
+  const sair = () => {
+    if (parentOriginal) Object.defineProperty(window, 'parent', parentOriginal)
+    window.history.replaceState({}, '', '/')
+    window.matchMedia = matchMediaOriginal
+  }
+
+  it('no quadro do celular da prévia do MENU a folha monta e abre sem ninguém tocar', async () => {
+    entrarNaPrevia()
+    try {
+      renderLayout()
+      rascunhoDoMenu()
+      expect(await screen.findByTestId('menu')).toBeInTheDocument()
+      expect(useMenuUiStore.getState().open).toBe(true)
+    } finally {
+      sair()
+    }
+  })
+
+  it('no quadro do computador ela não abre; trocar para o celular abre, e voltar fecha', async () => {
+    compacto = false
+    entrarNaPrevia()
+    try {
+      renderLayout()
+      rascunhoDoMenu()
+      expect(screen.queryByTestId('menu')).not.toBeInTheDocument()
+      expect(useMenuUiStore.getState().open).toBe(false)
+
+      compacto = true
+      act(() => ouvintes.forEach(f => f()))
+      expect(await screen.findByTestId('menu')).toBeInTheDocument()
+      expect(useMenuUiStore.getState().open).toBe(true)
+
+      compacto = false
+      act(() => ouvintes.forEach(f => f()))
+      expect(useMenuUiStore.getState().open).toBe(false)
+    } finally {
+      sair()
+    }
+  })
+
+  /**
+   * Q01 (`BUG-20261028-previa-da-home-no-celular-abre-o-menu`) — a prévia da HOME usa o mesmo
+   * `?preview=1` dentro de iframe, e o lote 4 abria a folha nela também: a dona conferia a Home no
+   * celular e via o menu por cima. Quem distingue os dois palcos é o canal: só o do menu manda
+   * rascunho com o carimbo `MENU_PREVIEW_SOURCE`.
+   */
+  it('na prévia da HOME em 390 a folha NÃO abre — nem com as mensagens do canal da Home', async () => {
+    entrarNaPrevia()
+    try {
+      renderLayout()
+      receber({ source: PREVIEW_SOURCE, type: 'draft', sections: [] })
+      receber({ source: PREVIEW_SOURCE, type: 'select', sectionId: 'x' })
+      await act(async () => {})
+      expect(screen.queryByTestId('menu')).not.toBeInTheDocument()
+      expect(useMenuUiStore.getState().open).toBe(false)
+
+      // E trocar de quadro na prévia da Home também não a abre.
+      compacto = false
+      act(() => ouvintes.forEach(f => f()))
+      compacto = true
+      act(() => ouvintes.forEach(f => f()))
+      expect(useMenuUiStore.getState().open).toBe(false)
+    } finally {
+      sair()
+    }
+  })
+
+  it('na prévia da Home, abrir pelo hambúrguer continua funcionando (a folha é da cliente)', async () => {
+    entrarNaPrevia()
+    try {
+      renderLayout()
+      act(() => useMenuUiStore.getState().openMenu())
+      expect(await screen.findByTestId('menu')).toBeInTheDocument()
+      expect(useMenuUiStore.getState().open).toBe(true)
+    } finally {
+      sair()
+    }
+  })
+
+  it('fora da prévia (`?preview=1` sem iframe) nada abre sozinho, nem no celular', () => {
+    window.history.replaceState({}, '', '/?preview=1')
+    try {
+      renderLayout()
+      expect(screen.queryByTestId('menu')).not.toBeInTheDocument()
+      expect(useMenuUiStore.getState().open).toBe(false)
+    } finally {
+      sair()
+    }
   })
 })

@@ -1,736 +1,1123 @@
-// Feature 39 / T26 — a tela onde o menu da loja é decidido, reescrita.
+// Feature 86, T19 — a tela onde a dona MONTA o menu, pela `AdminMenuPage` REAL.
 //
-// As ACs provadas aqui: `NAV-01` (a gravação é da coluna da superfície corrente, e só dela),
-// `NAV-02` (o aviso cruzado nomeia o dispositivo), `NAV-03` (o 6º, o 10º e o 20º entram — não existe
-// recusa por contagem), `NAV-05` (a contagem é informação, não cota), `NAV-07` (inativa é marcada),
-// `NAV-37` (o alternador troca lista, contagem e editores juntos), `NAV-38`/`NAV-39` (arraste e a
-// recusa entre ramos), `NAV-40` (a tela mostra o que a loja renderiza, e **nada** declarado nela) e
-// `NAV-41`/`NAV-42` (falha de leitura e de gravação são ditas).
+// **Reescrita da suíte da 39/47/48/50.** A tela antiga listava a árvore inteira de categorias com
+// uma chave por dispositivo e gravava em `categories` (`updateCategory`/`updateSortOrders`); a
+// spec 86 remove exatamente isso. Os casos que mediam aquele comportamento (`NAV-01/02/03/05/06/07`,
+// `NAV-37/38/39`, o painel dentro da linha da `48`, o editor em abas da `47`) saíram, e cada um tem
+// o substituto declarado no `tasks.md` (T19). O bloco `FOCO-13` (altura de tela, lido do disco) ficou
+// **verbatim**, e os de vista do celular, `Salvando…/Salvo` e identidade do `<iframe>` foram
+// reescritos com a mesma régua sobre o hook novo.
 //
-// **Os dois casos de `FIXED_ENTRIES` foram SUBSTITUÍDOS, não removidos.** Eles congelavam duas
-// entradas escritas no painel — `"Crie o Seu" → /crie-seu-botton` e `"Sobre" → /sobre` — e a
-// primeira nunca foi rota declarada: caía na 404 da loja. Onde eles estavam, agora se prova que a
-// tela **não declara item nenhum** e que o "Sobre" chega do banco, como item de link.
-//
-// O dublê dos dois hooks é o que permite provar **o que foi para o banco** sem subir Supabase.
+// **Fiação, não composição.** Só o client do Supabase é dublado — `useStoreMenu`,
+// `useAdminCategories`, `MenuTree`, os diálogos e o palco são os de verdade. O dublê REGISTRA tabela,
+// método e argumentos e devolve só o que o `select` pediu: é o que torna auditáveis o filtro de
+// `updated_at` (`MNM-37`) e a ausência de escrita em `categories` (`MNM-18`).
 
 import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { AdminCategory } from '@/entities/category/api/useAdminCategories'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { MenuDocument, MenuRootNode } from '@estrelinha/core/menu'
+import { RADIX_POINTER_DOWN, enableRadixSelectInJsdom } from '@/test/radix'
 
-const cat = (over: Partial<AdminCategory> & { id: string; name: string }): AdminCategory =>
-  ({
-    slug: over.slug ?? over.id,
-    description: null, image_url: null, banner_url: null, color_accent: null, icon: null,
-    active: true, sort_order: 0, parent_id: null, product_count: 0,
-    menu_desktop: false, menu_mobile: false, menu_banners: null,
-    ...over,
-  }) as AdminCategory
-
-/**
- * A árvore no formato do catálogo real: um guarda-chuva com as coleções dentro.
- *
- * "Materiais" está marcado nos dois dispositivos **e** tem duas filhas marcadas — é o caso que prova
- * o papel derivado da árvore (`NAV-06`): as filhas não viram entrada da barra, elas abrem no painel
- * do pai, e por isso não têm linha própria na lista.
- */
-const CATALOGO = [
-  cat({ id: 'joias', name: 'Joias afetivas', sort_order: 0 }),
-  cat({
-    id: 'materiais', name: 'Materiais', parent_id: 'joias', sort_order: 1,
-    menu_desktop: true, menu_mobile: true, icon: 'gota-afetiva',
-  }),
-  cat({ id: 'correntes', name: 'Correntes', parent_id: 'joias', sort_order: 2, menu_desktop: true, menu_mobile: true }),
-  cat({ id: 'pingentes', name: 'Pingentes', parent_id: 'joias', sort_order: 3, menu_desktop: true, menu_mobile: true }),
-  // Ligada só no computador: é a linha que carrega o aviso cruzado (`NAV-02`).
-  cat({ id: 'personalizados', name: 'Personalizados', parent_id: 'joias', sort_order: 4, menu_desktop: true }),
-  cat({ id: 'datas', name: 'Datas especiais', parent_id: 'joias', sort_order: 5 }),
-  cat({
-    id: 'cinzas', name: 'Cinzas de cremação', parent_id: 'materiais', sort_order: 1,
-    menu_desktop: true, menu_mobile: true, product_count: 84,
-  }),
-  cat({
-    id: 'coto', name: 'Coto umbilical', parent_id: 'materiais', sort_order: 2,
-    menu_desktop: true, product_count: 31,
-  }),
-  cat({ id: 'sangue', name: 'Sangue', parent_id: 'materiais', sort_order: 3, product_count: 2 }),
-]
-
-const SOBRE = {
-  id: 'sobre', label: 'Sobre', href: '/sobre', icon: null,
-  desktop: true, mobile: true, sort_order: 100,
-}
-
-const hook = vi.hoisted(() => ({
-  updateCategory: vi.fn().mockResolvedValue(null),
-  updateSortOrders: vi.fn().mockResolvedValue(null),
-  fetchCategories: vi.fn(),
-}))
-
-const state = vi.hoisted(() => ({
-  categories: [] as unknown[],
-  error: null as string | null,
-  loading: false,
-}))
+type Chamada = { tabela: string; metodo: string; args: unknown[] }
 
 const db = vi.hoisted(() => ({
-  links: [] as unknown[],
-  readError: null as { message: string } | null,
-  writeError: null as { message: string } | null,
-  upsert: vi.fn(),
-}))
-
-vi.mock('@/entities/category/api/useAdminCategories', () => ({
-  useAdminCategories: () => ({
-    categories: state.categories,
-    tree: [],
-    loading: state.loading,
-    error: state.error,
-    ...hook,
-  }),
+  chamadas: [] as Chamada[],
+  categorias: [] as Record<string, unknown>[],
+  linha: null as { value: unknown; updated_at: string } | null,
+  erroLeitura: null as { message: string } | null,
+  /** G04 — a leitura de `categories` falha. */
+  erroCategorias: null as { message: string } | null,
+  escrita: { data: null as unknown, error: null as { message: string; code?: string } | null },
+  segurar: null as Promise<void> | null,
+  /** Q03 — os slugs das peças à venda (o seletor confere `/produtos/<slug>` numa leitura). */
+  produtos: [] as string[],
 }))
 
 vi.mock('@estrelinha/supabase/client', () => {
-  const chain = (resultado: () => { data: unknown; error: unknown }) => {
-    const alvo: Record<string, unknown> = {}
-    for (const metodo of ['select', 'eq', 'ilike', 'order', 'limit', 'in', 'maybeSingle']) {
-      alvo[metodo] = () => alvo
+  const from = (tabela: string) => {
+    const registro = (metodo: string, args: unknown[]) => db.chamadas.push({ tabela, metodo, args })
+    let escreve = false
+    let colunas = ''
+    const resposta = async () => {
+      if (tabela === 'categories') return db.erroCategorias ? { data: null, error: db.erroCategorias } : { data: db.categorias, error: null }
+      if (tabela === 'category_product_counts') return { data: [], error: null }
+      if (tabela === 'products') {
+        const slug = db.chamadas.filter(c => c.tabela === 'products' && c.metodo === 'eq' && c.args[0] === 'slug').at(-1)?.args[1]
+        return { data: db.produtos.includes(String(slug)) ? { slug } : null, error: null }
+      }
+      if (tabela === 'store_settings') {
+        if (escreve) {
+          if (db.segurar) await db.segurar
+          return db.escrita
+        }
+        if (db.erroLeitura) return { data: null, error: db.erroLeitura }
+        if (!db.linha) return { data: null, error: null }
+        const row: Record<string, unknown> = {}
+        for (const c of colunas.split(',').map(s => s.trim())) {
+          row[c] = (db.linha as Record<string, unknown>)[c]
+        }
+        return { data: row, error: null }
+      }
+      return { data: [], error: null }
     }
-    alvo.upsert = (...args: unknown[]) => {
-      db.upsert(...args)
-      return Promise.resolve({ error: db.writeError })
+    const builder: Record<string, unknown> = {}
+    for (const metodo of ['eq', 'in', 'order', 'ilike', 'limit', 'range', 'or'] as const) {
+      builder[metodo] = (...args: unknown[]) => {
+        registro(metodo, args)
+        return builder
+      }
     }
-    alvo.then = (resolve: (v: unknown) => unknown) => Promise.resolve(resultado()).then(resolve)
-    return alvo
+    builder.select = (...args: unknown[]) => {
+      registro('select', args)
+      if (!escreve) colunas = String(args[0] ?? '')
+      return builder
+    }
+    for (const metodo of ['update', 'insert', 'upsert', 'delete'] as const) {
+      builder[metodo] = (...args: unknown[]) => {
+        registro(metodo, args)
+        escreve = true
+        return builder
+      }
+    }
+    builder.maybeSingle = () => {
+      registro('maybeSingle', [])
+      return resposta()
+    }
+    builder.then = (ok: (v: unknown) => unknown, erro: (e: unknown) => unknown) =>
+      resposta().then(ok, erro)
+    registro('from', [])
+    return builder
   }
-
-  return {
-    supabase: {
-      from: (tabela: string) =>
-        chain(() =>
-          tabela === 'store_settings'
-            ? { data: db.readError ? null : { value: { links: db.links } }, error: db.readError }
-            : { data: [], error: null },
-        ),
-    },
-  }
+  return { supabase: { from, storage: { from: () => ({ upload: vi.fn() }) } } }
 })
 
 vi.mock('@estrelinha/ui/hooks/use-toast', () => ({ toast: vi.fn() }))
 
-/**
- * `VITE_STORE_URL` é fixada aqui, e **não** lida do ambiente.
- *
- * É a lição do `storeOrigin.test.ts` (feature 27): teste que lê `import.meta.env` mede a MÁQUINA, não
- * o código — passa em quem já rodou a loja e falha no CI, onde o `.env` é gitignored. `vitest.config`
- * fixa só as duas do Supabase; esta é da prévia, e só esta tela precisa dela.
- */
+/** `VITE_STORE_URL` fixada aqui, e não lida do ambiente (a lição do `storeOrigin.test.ts`). */
 vi.mock('@/shared/lib/storeOrigin', () => ({
   STORE_URL: 'http://localhost:8082',
   storeOrigin: () => 'http://localhost:8082',
 }))
 
 import AdminMenuPage from './AdminMenuPage'
+import { STORE_MENU_SAVE_UNKNOWN } from '@/features/store-menu'
 import { toast } from '@estrelinha/ui/hooks/use-toast'
 
-const renderPage = async (
-  categories: AdminCategory[] = CATALOGO,
-  over: Partial<typeof state> = {},
-) => {
-  state.categories = categories
-  state.error = over.error ?? null
-  state.loading = over.loading ?? false
+const cat = (id: string, name: string, over: Record<string, unknown> = {}) => ({
+  id,
+  name,
+  slug: id,
+  description: null,
+  image_url: null,
+  banner_url: null,
+  color_accent: null,
+  icon: null,
+  active: true,
+  sort_order: 0,
+  parent_id: null,
+  menu_desktop: false,
+  menu_mobile: false,
+  menu_banners: null,
+  ...over,
+})
+
+/** O catálogo: muitas categorias, só três no menu. */
+const CATALOGO = [
+  cat('joias', 'Joias', { sort_order: 0 }),
+  cat('aneis', 'Anéis', { parent_id: 'joias', sort_order: 1 }),
+  cat('colares', 'Colares', { parent_id: 'joias', sort_order: 2 }),
+  cat('pulseiras', 'Pulseiras', { parent_id: 'joias', sort_order: 3 }),
+  cat('antiga', 'Antiga', { parent_id: 'joias', sort_order: 4, active: false }),
+  cat('chaveiros', 'Chaveiros', { sort_order: 1 }),
+  cat('presentes', 'Presentes', { sort_order: 2 }),
+  ...Array.from({ length: 30 }, (_, i) => cat(`extra-${i}`, `Coleção extra ${i}`, { sort_order: 10 + i })),
+]
+
+const raiz = (id: string, target: MenuRootNode['target'], over: Partial<MenuRootNode> = {}): MenuRootNode => ({
+  id,
+  target,
+  label: null,
+  desktop: true,
+  mobile: true,
+  icon: null,
+  banners: null,
+  children: [],
+  ...over,
+})
+
+const V2: MenuDocument = {
+  version: 2,
+  items: [
+    raiz('n-chaveiros', { kind: 'category', category_id: 'chaveiros' }, { icon: 'corrente' }),
+    raiz('n-presentes', { kind: 'category', category_id: 'presentes' }, {
+      children: [
+        { id: 'c-aneis', target: { kind: 'category', category_id: 'aneis' }, label: null, desktop: true, mobile: true },
+        { id: 'c-colares', target: { kind: 'category', category_id: 'colares' }, label: null, desktop: true, mobile: true },
+      ],
+    }),
+    raiz('n-sobre', { kind: 'link', href: '/sobre' }, { label: 'Sobre', mobile: false }),
+  ],
+}
+
+const VISTO = '2026-10-28T12:00:00.000000+00:00'
+const NOVO = '2026-10-28T12:00:05.000000+00:00'
+
+const montar = async (opcoes: { esperar?: boolean } = {}) => {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   const utils = render(
-    <MemoryRouter>
-      <AdminMenuPage />
-    </MemoryRouter>,
+    <QueryClientProvider client={client}>
+      <MemoryRouter>
+        <AdminMenuPage />
+      </MemoryRouter>
+    </QueryClientProvider>,
   )
-  // Os itens de link chegam por consulta própria: sem esta espera a lista ainda é só categorias.
-  if (!db.readError) await screen.findByTestId('item-sobre')
+  if (opcoes.esperar !== false) await screen.findByTestId('coluna-entradas')
   return utils
 }
 
+/** O `value` da última gravação em `store_settings`. */
+const ultimoGravado = (): { version: number; items: MenuRootNode[] } => {
+  const escrita = [...db.chamadas].reverse().find(c => c.tabela === 'store_settings' && c.metodo === 'update')
+  expect(escrita, 'nenhuma gravação em store_settings').toBeTruthy()
+  return (escrita!.args[0] as { value: { version: number; items: MenuRootNode[] } }).value
+}
+
+const escritasEm = (tabela: string) =>
+  db.chamadas.filter(c => c.tabela === tabela && ['update', 'insert', 'upsert', 'delete'].includes(c.metodo))
+
+const abrirAcoes = (id: string) => fireEvent.pointerDown(screen.getByTestId(`acoes-${id}`), RADIX_POINTER_DOWN)
+
+const quadro = () => document.querySelector('iframe') as HTMLIFrameElement | null
+
+/** A janela do iframe, dublada — o mesmo recurso de `MenuLivePreview.test.tsx`. */
+const janelaDoQuadro = () => {
+  const postMessage = vi.fn()
+  Object.defineProperty(quadro()!, 'contentWindow', { value: { postMessage }, configurable: true })
+  return postMessage
+}
+
+/** O último rascunho que a prévia recebeu. */
+const ultimoRascunho = (postMessage: ReturnType<typeof vi.fn>) =>
+  [...postMessage.mock.calls].reverse().find(([m]) => m.type === 'draft')?.[0].draft as
+    | { document: MenuDocument }
+    | undefined
+
+beforeAll(() => enableRadixSelectInJsdom())
+
 beforeEach(() => {
-  for (const fn of Object.values(hook)) fn.mockClear()
+  db.chamadas = []
+  db.categorias = CATALOGO
+  db.linha = { value: V2, updated_at: VISTO }
+  db.erroLeitura = null
+  db.erroCategorias = null
+  db.escrita = { data: [{ updated_at: NOVO }], error: null }
+  db.segurar = null
+  db.produtos = []
   vi.mocked(toast).mockClear()
-  db.links = [SOBRE]
-  db.readError = null
-  db.writeError = null
-  db.upsert.mockClear()
 })
 
-const switchOf = (id: string) => within(screen.getByTestId(`item-${id}`)).getByRole('switch')
+afterEach(() => {
+  // A promessa central da feature, cobrada em TODO caso desta suíte: a tela do menu não escreve na
+  // árvore de categorias (`MNM-18`).
+  expect(escritasEm('categories')).toEqual([])
+})
 
 // ---------------------------------------------------------------------------
-describe('NAV-40 — a tela mostra o que a LOJA renderiza, e nada declarado nela', () => {
-  it('lista as entradas da barra e o item de link, na ordem da loja', async () => {
-    await renderPage()
+describe('MNM-01..03 — a tela mostra só o que está no menu', () => {
+  it('37 categorias, 3 itens no documento ⇒ 3 linhas, na ordem gravada', async () => {
+    await montar()
+    const linhas = screen.getAllByTestId(/^item-/).map(l => l.getAttribute('data-testid'))
+    expect(linhas).toEqual(['item-n-chaveiros', 'item-n-presentes', 'item-n-sobre'])
+    expect(screen.queryByText('Coleção extra 3')).toBeNull()
+    expect(screen.queryByText('Joias')).toBeNull()
+  })
 
-    // A ordem é a de `menuItems`: `sort_order` e, no empate, o nome — e o "Sobre" (100) por último.
-    const nomes = screen
-      .getAllByTestId(/^item-/)
-      .map(no => no.getAttribute('data-testid'))
-    expect(nomes).toEqual([
-      'item-joias',
-      'item-materiais',
-      'item-correntes',
-      'item-pingentes',
-      'item-personalizados',
-      'item-datas',
-      'item-sobre',
+  it('a contagem do card é a da porta da loja (`menuItems`), por dispositivo', async () => {
+    await montar()
+    expect(screen.getByTestId('contador-itens')).toHaveTextContent('3 no computador · 2 no celular')
+  })
+
+  it('a tela lê o documento por `key = menu`, com o `updated_at`', async () => {
+    await montar()
+    const leitura = db.chamadas.filter(c => c.tabela === 'store_settings')
+    expect(leitura.find(c => c.metodo === 'select')?.args[0]).toBe('value, updated_at')
+    expect(leitura.find(c => c.metodo === 'eq')?.args).toEqual(['key', 'menu'])
+  })
+
+  it('sem v2 gravado, a tela mostra o menu de hoje (o legado convertido)', async () => {
+    db.categorias = CATALOGO.map(c =>
+      c.id === 'joias' || c.id === 'aneis' ? { ...c, menu_desktop: true, menu_mobile: true } : c,
+    )
+    db.linha = { value: { links: [] }, updated_at: VISTO }
+    await montar()
+    expect(screen.getAllByTestId(/^item-/).map(l => l.getAttribute('data-testid'))).toEqual(['item-cat:joias'])
+    expect(screen.getByTestId('meta-cat:joias')).toHaveTextContent('1 no submenu')
+  })
+})
+
+describe('MNM-04 / MNM-05 — vazio e falha de leitura', () => {
+  it('documento vazio: o vazio com "Adicionar item ao menu"', async () => {
+    db.linha = { value: { version: 2, items: [] }, updated_at: VISTO }
+    await montar()
+    expect(screen.getByTestId('menu-vazio')).toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('adicionar-primeiro'))
+    expect(await screen.findByTestId('seletor-do-menu')).toBeInTheDocument()
+  })
+
+  it('leitura falhou: faixa com "Tentar de novo" — NUNCA o vazio', async () => {
+    db.erroLeitura = { message: 'permission denied for table store_settings' }
+    await montar({ esperar: false })
+    const faixa = await screen.findByTestId('menu-erro')
+    // Q08: a frase da loja, em português — nunca o erro cru do banco ou do fetch.
+    expect(faixa).toHaveTextContent('Não foi possível carregar o menu')
+    expect(faixa).toHaveTextContent('Confira a internet e tente de novo.')
+    expect(faixa).not.toHaveTextContent('permission denied')
+    expect(screen.queryByTestId('menu-vazio')).toBeNull()
+    expect(screen.queryByTestId('coluna-entradas')).toBeNull()
+
+    db.erroLeitura = null
+    fireEvent.click(within(faixa).getByRole('button', { name: /Tentar de novo/ }))
+    expect(await screen.findByTestId('item-n-chaveiros')).toBeInTheDocument()
+    expect(screen.queryByTestId('menu-erro')).toBeNull()
+  })
+
+  it('Q08 — sem internet, a faixa NÃO mostra "TypeError: Failed to fetch"', async () => {
+    db.erroLeitura = { message: 'TypeError: Failed to fetch' }
+    await montar({ esperar: false })
+    const faixa = await screen.findByTestId('menu-erro')
+    expect(faixa.textContent).not.toMatch(/TypeError|Failed to fetch/)
+    expect(faixa).toHaveTextContent('Confira a internet e tente de novo.')
+  })
+
+  // G04 da verificação r2 (N38): a falha da ÁRVORE também é "não sei qual é o menu" (MNM-05).
+  it('leitura das CATEGORIAS falhou: a mesma faixa com "Tentar de novo", sem erro cru e NUNCA o vazio', async () => {
+    db.erroCategorias = { message: 'TypeError: Failed to fetch' }
+    await montar({ esperar: false })
+    const faixa = await screen.findByTestId('menu-erro')
+    expect(faixa).toHaveTextContent('Não foi possível carregar o menu')
+    expect(faixa).toHaveTextContent('Confira a internet e tente de novo.')
+    expect(faixa.textContent).not.toMatch(/TypeError|Failed to fetch/)
+    expect(screen.queryByTestId('menu-vazio')).toBeNull()
+    expect(screen.queryByTestId('coluna-entradas')).toBeNull()
+
+    db.erroCategorias = null
+    fireEvent.click(within(faixa).getByRole('button', { name: /Tentar de novo/ }))
+    expect(await screen.findByTestId('item-n-chaveiros')).toBeInTheDocument()
+    expect(screen.queryByTestId('menu-erro')).toBeNull()
+  })
+
+  it('na primeira carga, o esqueleto', async () => {
+    db.segurar = null
+    await montar({ esperar: false })
+    expect(screen.getAllByTestId('skeleton-row').length).toBeGreaterThan(0)
+    await screen.findByTestId('coluna-entradas')
+  })
+})
+
+describe('MNM-07..09 / MNM-13 — adicionar uma categoria com filhas', () => {
+  it('entra no FIM, com as filhas ATIVAS no submenu, e a prévia recebe o documento novo', async () => {
+    await montar()
+    const postMessage = janelaDoQuadro()
+
+    fireEvent.click(screen.getByTestId('adicionar-item'))
+    fireEvent.click(await screen.findByTestId('opcao-categoria-joias'))
+    expect(screen.getByTestId('opcao-categoria-joias')).toHaveTextContent('3 subcategorias entram no submenu')
+    fireEvent.click(screen.getByTestId('seletor-adicionar'))
+
+    await waitFor(() => expect(screen.getAllByTestId(/^item-/)).toHaveLength(4))
+    const gravado = ultimoGravado()
+    expect(gravado.version).toBe(2)
+    const novo = gravado.items.at(-1)!
+    expect(novo).toMatchObject({ target: { kind: 'category', category_id: 'joias' }, label: null, icon: null, desktop: true, mobile: true })
+    expect(novo.children.map(c => (c.target as { category_id: string }).category_id)).toEqual([
+      'aneis',
+      'colares',
+      'pulseiras',
     ])
-  })
 
-  it('SUBSTITUI o caso das entradas fixas: nada é declarado no painel', async () => {
-    await renderPage()
-    // O par do `menuSemItemFixo`, medido pelo DOM: a rota que não existe não aparece em lugar
-    // nenhum, e "Sobre" só está aqui porque veio do banco como item de link.
-    expect(screen.queryByText(/crie-seu-botton/)).toBeNull()
-    expect(screen.queryByText(/fixo/i)).toBeNull()
-    expect(screen.getByTestId('item-sobre')).toHaveTextContent('leva para /sobre')
-    expect(within(screen.getByTestId('item-sobre')).getByText('Link')).toBeInTheDocument()
-  })
-
-  it('SUBSTITUI o caso da prévia desenhada à mão: quem desenha o menu é a LOJA', async () => {
-    await renderPage()
-    // `MenuBarPreview` era o segundo desenho da barra, com a paleta do admin. O lugar dele agora é
-    // um iframe da loja — e `previaUnica.test.ts` recusa a volta do arquivo.
-    expect(screen.getByTestId('palco-previa-menu')).toBeInTheDocument()
-    expect(document.querySelector('iframe')).toHaveAttribute(
-      'src',
-      'http://localhost:8082/?preview=1',
+    // O aviso diz onde entrou e quantos vieram junto.
+    expect(vi.mocked(toast).mock.calls.at(-1)![0].description).toBe(
+      '“Joias” entrou no fim do menu com 3 itens no submenu.',
     )
+
+    // `MNM-13`: a prévia recebe o rascunho com o item novo, sem recarregar o iframe.
+    await waitFor(() => expect(ultimoRascunho(postMessage)?.document.items).toHaveLength(4))
+    // E o `open` aponta para o item novo.
+    const aberto = [...postMessage.mock.calls].reverse().find(([m]) => m.type === 'open')?.[0].itemId
+    expect(aberto).toBe(novo.id)
   })
 
-  it('filha marcada de pai marcado NÃO tem linha na barra — ela é item do painel (NAV-06)', async () => {
-    await renderPage()
-    expect(screen.queryByTestId('item-cinzas')).toBeNull()
-    // E aparece no editor de painel da entrada selecionada.
-    expect(screen.getByTestId('filha-cinzas')).toBeInTheDocument()
-  })
-})
-
-describe('NAV-05 — a contagem é informação, nunca cota', () => {
-  it('diz quantos itens o dispositivo tem, sem "de N vagas"', async () => {
-    await renderPage()
-    // 4 entradas de categoria + o item de link.
-    expect(screen.getByTestId('contador-itens')).toHaveTextContent('5 itens')
-    expect(screen.getByTestId('contador-itens')).not.toHaveTextContent('vaga')
-  })
-
-  it('um item só diz "1 item", e não "1 itens"', async () => {
-    await renderPage(CATALOGO.map(c => ({ ...c, menu_desktop: false })))
-    expect(screen.getByTestId('contador-itens')).toHaveTextContent('1 item')
-  })
-})
-
-describe('NAV-03 — não existe teto: o 6º, o 10º e o 20º entram', () => {
-  it('ligar mais uma categoria grava, sem recusa nenhuma', async () => {
-    await renderPage()
-    fireEvent.click(switchOf('datas'))
-
-    await waitFor(() =>
-      expect(hook.updateCategory).toHaveBeenCalledWith('datas', { menu_desktop: true }),
-    )
-    expect(toast).not.toHaveBeenCalled()
-  })
-
-  it('com VINTE ligadas, a vigésima primeira também entra', async () => {
-    const muitas = [
+  it('categoria com 30 filhas ativas: entram as 24 primeiras, e o aviso diz quantas ficaram de fora (MNM-09 × MNM-24)', async () => {
+    db.categorias = [
       ...CATALOGO,
-      ...Array.from({ length: 16 }, (_, i) =>
-        cat({ id: `extra-${i}`, name: `Coleção ${i}`, parent_id: 'joias', sort_order: 10 + i, menu_desktop: true }),
+      cat('grande', 'Grande', { sort_order: 90 }),
+      ...Array.from({ length: 30 }, (_, i) =>
+        cat(`g${String(i).padStart(2, '0')}`, `Filha ${i}`, { parent_id: 'grande', sort_order: i }),
       ),
     ]
-    await renderPage(muitas)
-    expect(screen.getByTestId('contador-itens')).toHaveTextContent('21 itens')
+    await montar()
+    fireEvent.click(screen.getByTestId('adicionar-item'))
+    fireEvent.click(await screen.findByTestId('opcao-categoria-grande'))
+    expect(screen.getByTestId('opcao-categoria-grande')).toHaveTextContent('24 das 30 subcategorias entram no submenu')
+    fireEvent.click(screen.getByTestId('seletor-adicionar'))
 
-    fireEvent.click(switchOf('datas'))
-    await waitFor(() =>
-      expect(hook.updateCategory).toHaveBeenCalledWith('datas', { menu_desktop: true }),
+    await waitFor(() => expect(escritasEm('store_settings')).toHaveLength(1))
+    const novo = ultimoGravado().items.at(-1)!
+    expect(novo.children.map(c => (c.target as { category_id: string }).category_id)).toEqual(
+      Array.from({ length: 24 }, (_, i) => `g${String(i).padStart(2, '0')}`),
     )
-    // A prova que importa: nenhuma recusa por contagem existe no caminho.
-    expect(toast).not.toHaveBeenCalled()
-  })
-})
-
-describe('NAV-01 / NAV-02 — duas curadorias, e a linha diz onde a outra está desligada', () => {
-  it('ligar no computador grava SÓ `menu_desktop`', async () => {
-    await renderPage()
-    fireEvent.click(switchOf('datas'))
-    await waitFor(() => expect(hook.updateCategory).toHaveBeenCalledWith('datas', { menu_desktop: true }))
-    // A prova do "só": o payload fica em igualdade exata, e `menu_mobile` não aparece nele.
-    expect(hook.updateCategory.mock.calls[0][1]).toEqual({ menu_desktop: true })
-  })
-
-  it('o aviso cruzado NOMEIA o dispositivo em que ela está desligada', async () => {
-    await renderPage()
-    expect(screen.getByTestId('aviso-personalizados')).toHaveTextContent('desligada no celular')
-  })
-
-  it('categoria ligada nos dois NÃO carrega aviso', async () => {
-    await renderPage()
-    expect(screen.queryByTestId('aviso-correntes')).toBeNull()
-  })
-})
-
-describe('NAV-37 — o alternador troca lista, contagem e editores juntos', () => {
-  it('no celular a lista perde a entrada que só existe no computador', async () => {
-    await renderPage()
-    expect(switchOf('personalizados')).toBeChecked()
-
-    fireEvent.click(screen.getByTestId('superficie-mobile'))
-
-    expect(screen.getByTestId('contador-itens')).toHaveTextContent('4 itens')
-    expect(switchOf('personalizados')).not.toBeChecked()
-    // O aviso nomeia o dispositivo onde ela está DESLIGADA, e por isso diz a mesma coisa nas duas
-    // abas: é uma propriedade da categoria, não do que está sendo olhado. Fazê-lo mudar de texto com
-    // a aba obrigaria a dona a ler duas frases diferentes sobre o mesmo fato.
-    expect(screen.getByTestId('aviso-personalizados')).toHaveTextContent('desligada no celular')
-  })
-
-  it('o editor de painel acompanha: "Coto umbilical" está no painel do computador e não no do celular', async () => {
-    await renderPage()
-    expect(screen.getByTestId('contador-painel')).toHaveTextContent('2 de 3')
-
-    fireEvent.click(screen.getByTestId('superficie-mobile'))
-    expect(screen.getByTestId('contador-painel')).toHaveTextContent('1 de 3')
-  })
-
-  it('ligar no celular grava a coluna do celular', async () => {
-    await renderPage()
-    fireEvent.click(screen.getByTestId('superficie-mobile'))
-    fireEvent.click(switchOf('personalizados'))
-
-    await waitFor(() =>
-      expect(hook.updateCategory).toHaveBeenCalledWith('personalizados', { menu_mobile: true }),
+    expect(vi.mocked(toast).mock.calls.at(-1)![0].description).toBe(
+      '“Grande” entrou no fim do menu com 24 itens no submenu. ' +
+        'As outras 6 subcategorias não entraram: o submenu tem o máximo de 24 itens.',
     )
   })
 
-  it('e a PRÉVIA acompanha: o quadro passa de 1024 para 390 (NAV-45)', async () => {
-    // O alternador é UM só, e ele governa a prévia junto (`NAV-37`). Um segundo alternador dentro do
-    // palco deixaria a Adri editar a curadoria do celular olhando a barra do computador.
-    await renderPage()
-    expect(document.querySelector('iframe')).toHaveAttribute('width', '1024')
-
-    fireEvent.click(screen.getByTestId('superficie-mobile'))
-
-    expect(document.querySelector('iframe')).toHaveAttribute('width', '390')
-    expect(document.querySelector('iframe')).toHaveAttribute('data-device', 'mobile')
-    expect(screen.getByTestId('dispositivo-previa')).toHaveTextContent('Celular')
-  })
-})
-
-describe('NAV-07 — categoria marcada e inativa', () => {
-  it('é sinalizada como fora da loja', async () => {
-    await renderPage(CATALOGO.map(c => (c.id === 'correntes' ? { ...c, active: false } : c)))
-    expect(screen.getByTestId('item-correntes')).toHaveTextContent('não aparece na loja')
-  })
-
-  it('a contagem mostra o que a loja RENDERIZA — a inativa não entra nela', async () => {
-    await renderPage(CATALOGO.map(c => (c.id === 'correntes' ? { ...c, active: false } : c)))
-    // Ela continua na lista, com o selo, porque esta é a única tela onde pode ser desligada.
-    expect(screen.getByTestId('contador-itens')).toHaveTextContent('4 itens')
-    expect(switchOf('correntes')).toBeChecked()
-  })
-})
-
-describe('NAV-38 / NAV-39 — o arraste', () => {
-  const drop = (targetId: string, draggedId: string) =>
-    fireEvent.drop(screen.getByTestId(`item-${targetId}`), {
-      dataTransfer: { getData: () => draggedId, setData: vi.fn() },
-    })
-
-  it('soltar entre irmãs grava apenas as linhas que mudaram de posição', async () => {
-    await renderPage()
-    drop('correntes', 'pingentes')
-
-    await waitFor(() => expect(hook.updateSortOrders).toHaveBeenCalled())
-    const [moves] = hook.updateSortOrders.mock.calls[0] as [{ id: string; sort_order: number }[]]
-    expect(moves.length).toBeLessThan(5)
+  it('submenu de 30 (já acima do teto): tirar um grava, e "Adicionar ao submenu" fica desabilitado (MNM-24)', async () => {
+    const trinta = Array.from({ length: 30 }, (_, i) => ({
+      id: `x${i}`,
+      target: { kind: 'category' as const, category_id: `extra-${i}` },
+      label: null,
+      desktop: true,
+      mobile: true,
+    }))
+    db.linha = {
+      value: { version: 2, items: V2.items.map(i => (i.id === 'n-presentes' ? { ...i, children: trinta } : i)) },
+      updated_at: VISTO,
+    }
+    await montar()
+    fireEvent.click(screen.getByTestId('expandir-n-presentes'))
+    expect(screen.getByTestId('adicionar-ao-submenu-n-presentes')).toBeDisabled()
+    fireEvent.click(screen.getByTestId('tirar-x0'))
+    await waitFor(() => expect(escritasEm('store_settings')).toHaveLength(1))
+    expect(ultimoGravado().items[1].children).toHaveLength(29)
+    expect(vi.mocked(toast)).not.toHaveBeenCalledWith(expect.objectContaining({ variant: 'destructive' }))
   })
 
-  it('avisa que a ordem vale também para a grade da home e o rodapé', async () => {
-    await renderPage()
-    drop('correntes', 'pingentes')
+  it('a gravação filtra por `key` E pelo `updated_at` visto (`MNM-37`)', async () => {
+    await montar()
+    fireEvent.click(screen.getByTestId('adicionar-item'))
+    fireEvent.click(await screen.findByTestId('opcao-categoria-joias'))
+    fireEvent.click(screen.getByTestId('seletor-adicionar'))
+    await waitFor(() => expect(escritasEm('store_settings')).toHaveLength(1))
 
-    await waitFor(() => expect(toast).toHaveBeenCalled())
-    expect(vi.mocked(toast).mock.calls[0][0].description).toContain('grade da home')
-  })
-
-  it('soltar em outro ramo NÃO grava — mudar de pai é a tela de Categorias', async () => {
-    await renderPage()
-    // "cinzas" pende de "Materiais"; "correntes" pende de "Joias afetivas".
-    drop('correntes', 'cinzas')
-
-    await waitFor(() => expect(toast).toHaveBeenCalled())
-    expect(vi.mocked(toast).mock.calls[0][0]).toMatchObject({ variant: 'destructive' })
-    expect(hook.updateSortOrders).not.toHaveBeenCalled()
-  })
-
-  it('não há alça de arraste em categoria fora do menu', async () => {
-    await renderPage()
-    expect(screen.getByTestId('item-correntes')).toHaveAttribute('draggable', 'true')
-    expect(screen.getByTestId('item-datas')).toHaveAttribute('draggable', 'false')
-  })
-})
-
-describe('NAV-41 — falha de leitura é superfície explícita, por FONTE', () => {
-  it('categorias: mostra o erro e um botão de tentar de novo', async () => {
-    render(
-      <MemoryRouter>
-        <AdminMenuPage />
-      </MemoryRouter>,
-    )
-    state.categories = []
-    state.error = 'Could not find the table'
-    render(
-      <MemoryRouter>
-        <AdminMenuPage />
-      </MemoryRouter>,
-    )
-
-    const faixa = (await screen.findAllByTestId('menu-erro'))[0]
-    expect(faixa).toHaveTextContent('Could not find the table')
-    state.error = null
-  })
-
-  it('itens de link: a falha da OUTRA fonte tem faixa própria', async () => {
-    // Duas leituras, duas faixas: dizer só "não carregou" deixaria a dona sem saber se o problema é
-    // a árvore de categorias ou a chave de configuração.
-    db.readError = { message: 'permission denied for table store_settings' }
-    state.categories = CATALOGO
-    state.error = null
-    render(
-      <MemoryRouter>
-        <AdminMenuPage />
-      </MemoryRouter>,
-    )
-
-    expect(await screen.findByTestId('menu-erro-links')).toHaveTextContent('permission denied')
-    // E a lista de categorias continua utilizável — uma fonte quebrada não derruba a outra.
-    expect(screen.getByTestId('item-correntes')).toBeInTheDocument()
-  })
-})
-
-describe('NAV-42 — falha de gravação diz o que não salvou', () => {
-  it('o toast nomeia o que falhou', async () => {
-    hook.updateCategory.mockResolvedValueOnce({ message: 'PGRST204' })
-    await renderPage()
-
-    fireEvent.click(switchOf('datas'))
-    await waitFor(() => expect(toast).toHaveBeenCalled())
-    expect(vi.mocked(toast).mock.calls[0][0]).toMatchObject({
-      title: 'Não foi possível salvar a entrada do menu',
-      variant: 'destructive',
-    })
-  })
-})
-
-describe('o painel e o ícone da entrada selecionada', () => {
-  /**
-   * Vai para a aba do seletor de ícone.
-   *
-   * Desde a feature 47 os três editores da entrada moram num card com abas (`FOCO-28`): o seletor
-   * continua alcançável, um clique atrás. `mouseDown` porque o `Tabs` do Radix ativa no mousedown.
-   */
-  const abaDoIcone = () => {
-    const aba = screen.getByRole('tab', { name: 'Ícone' })
-    fireEvent.mouseDown(aba)
-    fireEvent.click(aba)
-  }
-
-  it('abre na primeira entrada da barra, com o painel e o seletor de ícone dela', async () => {
-    await renderPage()
-    // A aba inicial é Painel (`FOCO-30`), e o painel é o da entrada selecionada.
-    expect(screen.getByText('Painel de “Materiais”')).toBeInTheDocument()
-
-    abaDoIcone()
-    expect(screen.getByText('Ícone de “Materiais”')).toBeInTheDocument()
-  })
-
-  it('escolher o ícone grava a chave na categoria selecionada', async () => {
-    await renderPage()
-    abaDoIcone()
-    fireEvent.click(screen.getByTestId('icone-opcao-corrente'))
-
-    await waitFor(() =>
-      expect(hook.updateCategory).toHaveBeenCalledWith('materiais', { icon: 'corrente' }),
-    )
-  })
-
-  it('"sem ícone" grava `null` — não string vazia', async () => {
-    await renderPage()
-    abaDoIcone()
-    fireEvent.click(screen.getByTestId('icone-nenhum'))
-
-    await waitFor(() => expect(hook.updateCategory).toHaveBeenCalledWith('materiais', { icon: null }))
-  })
-
-  it('marcar uma subcategoria grava a coluna da superfície corrente', async () => {
-    await renderPage()
-    fireEvent.click(within(screen.getByTestId('filha-sangue')).getByRole('checkbox'))
-
-    await waitFor(() =>
-      expect(hook.updateCategory).toHaveBeenCalledWith('sangue', { menu_desktop: true }),
-    )
-  })
-
-  it('sem nenhuma entrada ligada, a coluna direita explica em vez de ficar vazia', async () => {
-    await renderPage(CATALOGO.map(c => ({ ...c, menu_desktop: false, menu_mobile: false })))
-    expect(screen.getByTestId('sem-entrada-selecionada')).toHaveTextContent('Ligue uma categoria')
-  })
-})
-
-describe('o item de link', () => {
-  it('ligar/desligar o link grava só a superfície corrente, e a chave `menu` inteira volta', async () => {
-    await renderPage()
-    fireEvent.click(switchOf('sobre'))
-
-    await waitFor(() => expect(db.upsert).toHaveBeenCalled())
-    const [payload] = db.upsert.mock.calls[0] as [{ key: string; value: { links: unknown[] } }]
-    expect(payload.key).toBe('menu')
-    expect(payload.value.links[0]).toMatchObject({ id: 'sobre', desktop: false, mobile: true })
-  })
-
-  it('"Adicionar um link" abre o cadastro', async () => {
-    await renderPage()
-    fireEvent.click(screen.getByTestId('adicionar-link'))
-    expect(await screen.findByText('Adicionar um link ao menu')).toBeInTheDocument()
-  })
-
-  it('clicar no nome de um link abre a edição dele', async () => {
-    await renderPage()
-    fireEvent.click(within(screen.getByTestId('item-sobre')).getByText('Sobre'))
-    expect(await screen.findByText('Editar item de link')).toBeInTheDocument()
-  })
-})
-
-/**
- * O card da entrada e o aviso de gravação — FOCO-29, 31, 33, 34 (feature 47).
- *
- * Os casos renderizam a PÁGINA real: o fio que costuma faltar é o entre o componente e quem o monta
- * — apagar `<MenuEntryEditor/>` daqui tem de reprovar, e é isso que estes casos travam.
- */
-describe('AdminMenuPage — o editor da entrada num lugar só', () => {
-  it('FOCO-28: com uma entrada selecionada, as três abas aparecem na tela', async () => {
-    await renderPage()
-
-    const card = screen.getByTestId('editor-da-entrada')
-    expect(within(card).getAllByRole('tab').map(t => t.textContent?.replace(/\d+$/, '').trim())).toEqual([
-      'Painel',
-      'Banners',
-      'Ícone',
+    const i = db.chamadas.findIndex(c => c.tabela === 'store_settings' && c.metodo === 'update')
+    const filtros = db.chamadas.slice(i + 1).filter(c => c.metodo === 'eq').map(c => c.args)
+    expect(filtros).toEqual([
+      ['key', 'menu'],
+      ['updated_at', VISTO],
     ])
   })
 
-  it('FOCO-29: a coluna da DIREITA tem só o palco — o seletor de ícone saiu de lá', async () => {
-    await renderPage()
-
-    const direita = screen.getByTestId('coluna-previa-menu')
-    expect(within(direita).getByTestId('palco-previa-menu')).toBeInTheDocument()
-    // O seletor de ícone agora mora dentro do card, na coluna da esquerda.
-    expect(within(direita).queryByTestId('editor-da-entrada')).toBeNull()
-    expect(within(direita).queryByRole('tab')).toBeNull()
+  it('categoria que já está no menu aparece como "Já está no menu" (`MNM-10`)', async () => {
+    await montar()
+    fireEvent.click(screen.getByTestId('adicionar-item'))
+    expect(await screen.findByTestId('motivo-chaveiros')).toHaveTextContent('Já está no menu')
+    expect(screen.getByTestId('opcao-categoria-chaveiros')).toBeDisabled()
   })
 
-  it('FOCO-29: o card fica na coluna da ESQUERDA, junto da lista', async () => {
-    await renderPage()
-
-    const esquerda = screen.getByTestId('coluna-entradas')
-    expect(within(esquerda).getByTestId('editor-da-entrada')).toBeInTheDocument()
+  it('uma página da loja entra com o nome sugerido', async () => {
+    await montar()
+    fireEvent.click(screen.getByTestId('adicionar-item'))
+    fireEvent.click(await screen.findByTestId('aba-pagina'))
+    fireEvent.click(screen.getByTestId('opcao-pagina-/perguntas-frequentes'))
+    fireEvent.click(screen.getByTestId('seletor-adicionar'))
+    await waitFor(() => expect(escritasEm('store_settings')).toHaveLength(1))
+    expect(ultimoGravado().items.at(-1)).toMatchObject({
+      target: { kind: 'link', href: '/perguntas-frequentes' },
+      label: 'Perguntas frequentes',
+    })
   })
 
-  /**
-   * O texto da linha tem TETO.
-   *
-   * jsdom devolve 0 para toda medida de layout, então o que dá para provar aqui é a **declaração**;
-   * a medida veio de navegador, em 390px: a linha do nome saía com 384px dentro de uma coluna de
-   * 342, e o `<main>` do painel — que é `overflow-auto` — ganhava rolagem horizontal.
-   *
-   * A causa é sutil e vale escrita: o botão da linha é um flex COLUNA com `items-start`, e nesse
-   * arranjo cada filho é dimensionado pelo próprio conteúdo em vez de esticado. `truncate` não tem
-   * de quem cortar, e o `min-w-0` do botão não ajuda — ele dá piso zero ao BOTÃO, e quem estava sem
-   * TETO era o filho.
-   */
-  it('os dois textos da linha têm `max-w-full` — `items-start` não estica ninguém', async () => {
-    await renderPage()
-
-    const linha = screen.getByTestId('item-sobre')
-    // O botão que abre a entrada: o flex coluna com `items-start`.
-    const botao = within(linha)
-      .getAllByRole('button')
-      .find(b => b.className.includes('flex-col') && b.className.includes('items-start'))
-
-    expect(botao).toBeDefined()
-
-    const filhos = Array.from(botao!.children) as HTMLElement[]
-    expect(filhos.length).toBeGreaterThan(0)
-    // Token exato: `max-w-full` é substring de nada aqui, mas a régua por partição não tem borda.
-    for (const filho of filhos) {
-      expect(filho.className.split(/\s+/)).toContain('max-w-full')
-    }
-
-    // SENSOR: a régua é de token, não de substring — um `max-w-fu` qualquer não passaria.
-    const falso = document.createElement('span')
-    falso.className = 'max-w-full-bobagem truncate'
-    expect(falso.className.split(/\s+/)).not.toContain('max-w-full')
+  it('endereço externo é recusado no seletor e nada vai à rede (`MNM-12`)', async () => {
+    await montar()
+    fireEvent.click(screen.getByTestId('adicionar-item'))
+    fireEvent.click(await screen.findByTestId('aba-pagina'))
+    fireEvent.click(screen.getByTestId('opcao-pagina-outro'))
+    fireEvent.change(screen.getByTestId('outro-endereco'), { target: { value: 'https://exemplo.com' } })
+    fireEvent.change(screen.getByTestId('nome-do-link'), { target: { value: 'Fora' } })
+    fireEvent.click(screen.getByTestId('seletor-adicionar'))
+    expect(screen.getByTestId('seletor-recusa')).toHaveTextContent('O menu leva só a páginas da loja')
+    expect(escritasEm('store_settings')).toEqual([])
   })
 
-  it('FOCO-33: "Salvando…" aparece no CABEÇALHO, ao lado do alternador de dispositivo', async () => {
-    // Uma gravação que não resolve enquanto o teste olha: é o único jeito de observar o estado
-    // intermediário sem cravar tempo.
-    let concluir: (v: unknown) => void = () => {}
-    hook.updateCategory.mockReturnValueOnce(new Promise(r => { concluir = r }))
-    await renderPage()
+  /** Q03 — pela página real: o que vai ao documento é só endereço que existe, e uma vez só. */
+  const outroEndereco = async (href: string) => {
+    fireEvent.click(screen.getByTestId('adicionar-item'))
+    fireEvent.click(await screen.findByTestId('aba-pagina'))
+    fireEvent.click(screen.getByTestId('opcao-pagina-outro'))
+    fireEvent.change(screen.getByTestId('outro-endereco'), { target: { value: href } })
+    fireEvent.change(screen.getByTestId('nome-do-link'), { target: { value: 'TESTE' } })
+    fireEvent.click(screen.getByTestId('seletor-adicionar'))
+  }
 
-    fireEvent.click(within(screen.getByTestId('filha-sangue')).getByRole('checkbox'))
-
-    const aviso = await screen.findByTestId('salvando')
-    expect(aviso).toHaveTextContent('Salvando…')
-    // No cabeçalho: o mesmo contêiner de ações onde vive o alternador de dispositivo.
-    expect(aviso.closest('[data-testid="superficie-desktop"]')).toBeNull()
-    expect(
-      aviso.parentElement?.querySelector('[data-testid="superficie-desktop"]'),
-    ).not.toBeNull()
-
-    concluir({ error: null })
+  it('Q03 — /produtos/<peça que não existe> é recusado e nada é gravado', async () => {
+    await montar()
+    await outroEndereco('/produtos/inexistente')
+    expect(await screen.findByTestId('seletor-recusa')).toHaveTextContent('Não há peça à venda')
+    expect(db.chamadas.some(c => c.tabela === 'products' && c.metodo === 'eq' && c.args[1] === 'inexistente')).toBe(true)
+    expect(escritasEm('store_settings')).toEqual([])
   })
 
-  it('FOCO-34: terminado, o aviso SOME do DOM — não fica um espaço reservado', async () => {
-    let concluir: (v: unknown) => void = () => {}
-    hook.updateCategory.mockReturnValueOnce(new Promise(r => { concluir = r }))
-    await renderPage()
-
-    fireEvent.click(within(screen.getByTestId('filha-sangue')).getByRole('checkbox'))
-    await screen.findByTestId('salvando')
-
-    concluir({ error: null })
-
-    // Ausência do nó, e não classe de invisibilidade: um `opacity-0` deixaria os vizinhos
-    // deslocados para sempre.
-    await waitFor(() => expect(screen.queryByTestId('salvando')).toBeNull())
+  it('Q03 — /produtos/<peça à venda> entra no menu', async () => {
+    db.produtos = ['colar-leite']
+    await montar()
+    await outroEndereco('/produtos/colar-leite')
+    await waitFor(() => expect(escritasEm('store_settings')).toHaveLength(1))
+    expect(ultimoGravado().items.at(-1)).toMatchObject({ target: { kind: 'link', href: '/produtos/colar-leite' } })
   })
 
-  it('FOCO-33: não sobrou aviso de gravação no FIM do documento', async () => {
-    let concluir: (v: unknown) => void = () => {}
-    hook.updateCategory.mockReturnValueOnce(new Promise(r => { concluir = r }))
-    const { container } = await renderPage()
-
-    fireEvent.click(within(screen.getByTestId('filha-sangue')).getByRole('checkbox'))
-    await screen.findByTestId('salvando')
-
-    // Era um `<p>` solto depois de três editores: com o corpo rolando, ele nascia fora da vista.
-    const paragrafos = Array.from(container.querySelectorAll('p')).filter(p =>
-      p.textContent?.includes('Salvando'),
-    )
-    expect(paragrafos).toEqual([])
-
-    concluir({ error: null })
+  // R01 (QA r2) — o caminho de uma coleção ATIVA passava no seletor e a gravação o recusava, com a
+  // lista de 19 endereços, sem PATCH. Pela página real: colar o endereço da coleção GRAVA.
+  it.each([
+    ['coleção raiz', '/presentes', '/presentes'],
+    ['coleção filha', '/joias/aneis', '/joias/aneis'],
+    ['coleção filha, grafia da barra do navegador', '/Joias/Aneis/', '/joias/aneis'],
+  ])('R01 — %s (%s) colada em "Outro endereço" é gravada', async (_n, digitado, gravado) => {
+    await montar()
+    await outroEndereco(digitado)
+    await waitFor(() => expect(escritasEm('store_settings')).toHaveLength(1))
+    expect(ultimoGravado().items.at(-1)).toMatchObject({ target: { kind: 'link', href: gravado }, label: 'TESTE' })
+    expect(screen.queryByTestId('seletor-recusa')).toBeNull()
+    const avisos = vi.mocked(toast).mock.calls.map(c => JSON.stringify(c[0]))
+    expect(avisos.some(a => /Endereços aceitos|Não foi possível salvar/.test(a))).toBe(false)
   })
 
-  it('FOCO-31: sem entrada selecionada, a mensagem de hoje continua no lugar do card', async () => {
-    await renderPage(CATALOGO.map(c => ({ ...c, menu_desktop: false, menu_mobile: false })))
+  // S01 (QA r3) — a forma de UM segmento de uma subcategoria ativa (a loja a abre, `AD-018`) era
+  // recusada com "Não há página da loja". Pela página real: grava a canônica, de dois segmentos.
+  it.each(['/aneis', '/ANEIS/'])('S01 — %s (filha num segmento) grava /joias/aneis', async digitado => {
+    await montar()
+    await outroEndereco(digitado)
+    await waitFor(() => expect(escritasEm('store_settings')).toHaveLength(1))
+    expect(ultimoGravado().items.at(-1)).toMatchObject({ target: { kind: 'link', href: '/joias/aneis' }, label: 'TESTE' })
+    expect(screen.queryByTestId('seletor-recusa')).toBeNull()
+  })
 
-    expect(screen.getByTestId('sem-entrada-selecionada')).toBeInTheDocument()
-    expect(screen.queryByTestId('editor-da-entrada')).toBeNull()
+  it('S01 — a filha INATIVA num segmento continua recusada, dizendo que está fora do ar', async () => {
+    await montar()
+    await outroEndereco('/antiga')
+    const recusa = await screen.findByTestId('seletor-recusa')
+    expect(recusa).toHaveTextContent('fora do ar')
+    expect(recusa).not.toHaveTextContent('Não há página')
+    expect(escritasEm('store_settings')).toEqual([])
+  })
+
+  it('Q03 — "/SOBRE/" quando "/sobre" já está no menu é recusado como repetido', async () => {
+    await montar()
+    await outroEndereco('/SOBRE/')
+    expect(await screen.findByTestId('seletor-recusa')).toHaveTextContent('Já está no menu')
+    expect(escritasEm('store_settings')).toEqual([])
+  })
+})
+
+describe('MNM-14..17 — editar nome e ícone', () => {
+  it('nome próprio pelo editor grava o `label` no nó', async () => {
+    await montar()
+    abrirAcoes('n-chaveiros')
+    fireEvent.click(screen.getByTestId('editar-n-chaveiros'))
+    fireEvent.click(await screen.findByTestId('usar-nome-da-categoria'))
+    fireEvent.change(screen.getByTestId('nome-do-item'), { target: { value: 'Chaveiros afetivos' } })
+    fireEvent.click(screen.getByTestId('editor-salvar'))
+
+    await waitFor(() => expect(escritasEm('store_settings')).toHaveLength(1))
+    expect(ultimoGravado().items[0]).toMatchObject({ id: 'n-chaveiros', label: 'Chaveiros afetivos', icon: 'corrente' })
+    await waitFor(() => expect(screen.queryByTestId('editor-do-item')).toBeNull())
+    expect(within(screen.getByTestId('item-n-chaveiros')).getByText('Chaveiros afetivos')).toBeInTheDocument()
+  })
+
+  it('trocar o ícone grava a chave no nó', async () => {
+    await montar()
+    abrirAcoes('n-presentes')
+    fireEvent.click(screen.getByTestId('editar-n-presentes'))
+    fireEvent.click(await screen.findByTestId('icone-opcao-gota-afetiva'))
+    fireEvent.click(screen.getByTestId('editor-salvar'))
+    await waitFor(() => expect(escritasEm('store_settings')).toHaveLength(1))
+    expect(ultimoGravado().items[1]).toMatchObject({ id: 'n-presentes', icon: 'gota-afetiva', label: null })
+  })
+
+  it('nome vazio é recusado no editor, sem rede (`MNM-16`)', async () => {
+    await montar()
+    abrirAcoes('n-sobre')
+    fireEvent.click(screen.getByTestId('editar-n-sobre'))
+    fireEvent.change(await screen.findByTestId('nome-do-item'), { target: { value: '  ' } })
+    fireEvent.click(screen.getByTestId('editor-salvar'))
+    expect(await screen.findByTestId('editor-recusa')).toHaveTextContent('Digite o nome do item no menu.')
+    expect(escritasEm('store_settings')).toEqual([])
+  })
+
+  it('banners salvos pelo editor vão para o NÓ (`MNM-33`)', async () => {
+    await montar()
+    abrirAcoes('n-sobre')
+    fireEvent.click(screen.getByTestId('editar-n-sobre'))
+    fireEvent.click(await screen.findByTestId('editar-banners'))
+    fireEvent.click(screen.getByTestId('adicionar-banner'))
+    fireEvent.click(screen.getByText('Salvar banners'))
+    await waitFor(() => expect(escritasEm('store_settings')).toHaveLength(1))
+    const sobre = ultimoGravado().items.find(i => i.id === 'n-sobre')!
+    expect(sobre.banners?.desktop).toHaveLength(1)
+  })
+})
+
+describe('MNM-18 / MNM-19 — reordenar muda só o documento', () => {
+  it('"Mover para baixo" troca a ordem no documento', async () => {
+    await montar()
+    abrirAcoes('n-chaveiros')
+    fireEvent.click(screen.getByTestId('descer-n-chaveiros'))
+    await waitFor(() => expect(escritasEm('store_settings')).toHaveLength(1))
+    expect(ultimoGravado().items.map(i => i.id)).toEqual(['n-presentes', 'n-chaveiros', 'n-sobre'])
+    expect(screen.getAllByTestId(/^item-/).map(l => l.getAttribute('data-testid'))).toEqual([
+      'item-n-presentes',
+      'item-n-chaveiros',
+      'item-n-sobre',
+    ])
+  })
+
+  it('arrastar também — e reordenar não remonta a prévia (VIV-03)', async () => {
+    await montar()
+    const antes = quadro()
+    fireEvent.drop(screen.getByTestId('item-n-chaveiros'), {
+      dataTransfer: { getData: () => 'raiz|2', setData: vi.fn() },
+    })
+    await waitFor(() => expect(escritasEm('store_settings')).toHaveLength(1))
+    expect(ultimoGravado().items.map(i => i.id)).toEqual(['n-sobre', 'n-chaveiros', 'n-presentes'])
+    expect(quadro()).toBe(antes)
+  })
+
+  it('o submenu se reordena pelos botões ↑ ↓', async () => {
+    await montar()
+    fireEvent.click(screen.getByTestId('expandir-n-presentes'))
+    fireEvent.click(screen.getByTestId('descer-c-aneis'))
+    await waitFor(() => expect(escritasEm('store_settings')).toHaveLength(1))
+    expect(ultimoGravado().items[1].children.map(c => c.id)).toEqual(['c-colares', 'c-aneis'])
   })
 })
 
 /**
- * As abas de vista no celular — FOCO-35, 36, 37 (feature 47).
- *
- * jsdom não mede layout, então "apenas a coluna escolhida aparece" se prova pelas **classes
- * declaradas**: `hidden lg:flex` é a forma que esconde abaixo de `lg` e devolve as duas colunas
- * acima dele.
+ * Q04 do QA da `86` (`BUG-20261028-toque-duplo-em-mover-anda-duas-posicoes`) — no celular a dona
+ * reordena pelo ⋯ ou pelas setas, e um toque duplo (o celular demorando a responder) andava o item
+ * DUAS casas, com as duas gravações indo ao banco. Enquanto um "Mover" grava, os controles de mover
+ * ficam desabilitados, e o segundo toque não faz nada.
  */
-describe('AdminMenuPage — Entradas | Prévia abaixo de `lg`', () => {
-  const vistaAba = (qual: 'entradas' | 'previa') => screen.getByTestId(`vista-${qual}`)
+describe('Q04 — toque duplo em Mover anda uma casa só', () => {
+  const comTresNoSubmenu = () => {
+    const f = (id: string, cat: string) => ({
+      id,
+      target: { kind: 'category' as const, category_id: cat },
+      label: null,
+      desktop: true,
+      mobile: true,
+    })
+    db.linha = {
+      value: {
+        version: 2,
+        items: [
+          V2.items[0],
+          { ...V2.items[1], children: [f('c-aneis', 'aneis'), f('c-colares', 'colares'), f('c-pulseiras', 'pulseiras')] },
+          V2.items[2],
+        ],
+      },
+      updated_at: VISTO,
+    }
+  }
 
-  it('FOCO-35: o alternador existe, com as duas vistas', async () => {
-    await renderPage()
-
-    const abas = within(screen.getByTestId('abas-vista')).getAllByRole('tab')
-    expect(abas.map(a => a.textContent)).toEqual(['Entradas', 'Prévia'])
+  it('setas do submenu: dois toques com a gravação no ar ⇒ UMA gravação, uma casa', async () => {
+    comTresNoSubmenu()
+    let soltar: () => void = () => {}
+    db.segurar = new Promise<void>(r => (soltar = r))
+    await montar()
+    fireEvent.click(screen.getByTestId('expandir-n-presentes'))
+    fireEvent.click(screen.getByTestId('descer-c-aneis'))
+    fireEvent.click(screen.getByTestId('descer-c-aneis'))
+    await waitFor(() => expect(screen.getByTestId('salvando')).toBeInTheDocument())
+    // Enquanto grava, as setas do submenu estão desabilitadas.
+    expect(screen.getByTestId('descer-c-aneis')).toBeDisabled()
+    expect(screen.getByTestId('subir-c-pulseiras')).toBeDisabled()
+    await act(async () => {
+      soltar()
+    })
+    await screen.findByTestId('salvo')
+    expect(escritasEm('store_settings')).toHaveLength(1)
+    expect(ultimoGravado().items[1].children.map(c => c.id)).toEqual(['c-colares', 'c-aneis', 'c-pulseiras'])
+    // Gravou: as setas voltam.
+    expect(screen.getByTestId('descer-c-aneis')).not.toBeDisabled()
   })
 
-  it('FOCO-36: ele NÃO existe a partir de `lg` — escolher entre duas coisas à vista', async () => {
-    await renderPage()
-    // `lg:hidden` é o que faz o alternador sumir onde as duas colunas cabem.
+  it('pelo ⋯: com a gravação do Mover no ar, "Mover para cima/baixo" ficam desabilitados', async () => {
+    let soltar: () => void = () => {}
+    db.segurar = new Promise<void>(r => (soltar = r))
+    await montar()
+    abrirAcoes('n-chaveiros')
+    fireEvent.click(screen.getByTestId('descer-n-chaveiros'))
+    await waitFor(() => expect(screen.getByTestId('salvando')).toBeInTheDocument())
+    abrirAcoes('n-chaveiros')
+    expect(await screen.findByTestId('descer-n-chaveiros')).toHaveAttribute('data-disabled')
+    expect(screen.getByTestId('subir-n-chaveiros')).toHaveAttribute('data-disabled')
+    fireEvent.click(screen.getByTestId('descer-n-chaveiros'))
+    await act(async () => {
+      soltar()
+    })
+    await screen.findByTestId('salvo')
+    expect(escritasEm('store_settings')).toHaveLength(1)
+    expect(ultimoGravado().items.map(i => i.id)).toEqual(['n-presentes', 'n-chaveiros', 'n-sobre'])
+  })
+})
+
+/**
+ * Q07 do QA da `86` (`BUG-20261028-foco-cai-no-body-ao-fechar-dialogos-do-menu`) — só pelo teclado
+ * (ou com o TalkBack), em cinco momentos o foco caía no `<body>` e o leitor voltava ao início da
+ * página. O foco volta a quem abriu, ou ao vizinho do que saiu.
+ */
+describe('Q07 — o foco volta ao lugar ao fechar e ao remover', () => {
+  const focado = () => (window.document.activeElement as HTMLElement | null)?.getAttribute('data-testid')
+  const esc = () => fireEvent.keyDown(window.document.activeElement ?? window.document.body, { key: 'Escape' })
+
+  it('Esc no seletor "Adicionar item ao menu" devolve o foco a "Adicionar item"', async () => {
+    await montar()
+    screen.getByTestId('adicionar-item').focus()
+    fireEvent.click(screen.getByTestId('adicionar-item'))
+    await screen.findByTestId('seletor-do-menu')
+    esc()
+    await waitFor(() => expect(screen.queryByTestId('seletor-do-menu')).toBeNull())
+    await waitFor(() => expect(focado()).toBe('adicionar-item'))
+  })
+
+  it('"Cancelar" no seletor do submenu devolve o foco a "Adicionar ao submenu"', async () => {
+    await montar()
+    fireEvent.click(screen.getByTestId('expandir-n-presentes'))
+    fireEvent.click(screen.getByTestId('adicionar-ao-submenu-n-presentes'))
+    const seletor = await screen.findByTestId('seletor-do-menu')
+    fireEvent.click(within(seletor).getByRole('button', { name: 'Cancelar' }))
+    await waitFor(() => expect(focado()).toBe('adicionar-ao-submenu-n-presentes'))
+  })
+
+  it('Esc no editor do item devolve o foco ao ⋯ do item', async () => {
+    await montar()
+    abrirAcoes('n-sobre')
+    fireEvent.click(screen.getByTestId('editar-n-sobre'))
+    await screen.findByTestId('editor-do-item')
+    esc()
+    await waitFor(() => expect(screen.queryByTestId('editor-do-item')).toBeNull())
+    await waitFor(() => expect(focado()).toBe('acoes-n-sobre'))
+  })
+
+  it('o editor de um FILHO devolve o foco ao lápis dele', async () => {
+    await montar()
+    fireEvent.click(screen.getByTestId('expandir-n-presentes'))
+    fireEvent.click(screen.getByTestId('editar-c-colares'))
+    await screen.findByTestId('editor-do-item')
+    esc()
+    await waitFor(() => expect(focado()).toBe('editar-c-colares'))
+  })
+
+  it('Cancelar na confirmação de remover devolve o foco ao ⋯', async () => {
+    await montar()
+    abrirAcoes('n-presentes')
+    fireEvent.click(screen.getByTestId('remover-n-presentes'))
+    fireEvent.click(await screen.findByRole('button', { name: 'Cancelar' }))
+    await waitFor(() => expect(screen.queryByTestId('confirmar-remocao')).toBeNull())
+    await waitFor(() => expect(focado()).toBe('acoes-n-presentes'))
+  })
+
+  it('confirmar a remoção leva o foco ao ⋯ do item SEGUINTE', async () => {
+    await montar()
+    abrirAcoes('n-chaveiros')
+    fireEvent.click(screen.getByTestId('remover-n-chaveiros'))
+    fireEvent.click(await screen.findByTestId('confirmar-remover'))
+    await waitFor(() => expect(screen.queryByTestId('item-n-chaveiros')).toBeNull())
+    await waitFor(() => expect(focado()).toBe('acoes-n-presentes'))
+  })
+
+  // G03 da verificação r2 (N35): no primeiro item "seguinte ?? anterior" e "anterior ?? seguinte"
+  // dão a mesma resposta. Só o do MEIO separa as duas.
+  it('remover o item do MEIO leva o foco ao ⋯ do SEGUINTE, nunca ao do anterior', async () => {
+    await montar()
+    abrirAcoes('n-presentes')
+    fireEvent.click(screen.getByTestId('remover-n-presentes'))
+    fireEvent.click(await screen.findByTestId('confirmar-remover'))
+    await waitFor(() => expect(screen.queryByTestId('item-n-presentes')).toBeNull())
+    await waitFor(() => expect(focado()).toBe('acoes-n-sobre'))
+  })
+
+  it('tirar o filho do MEIO do submenu leva o foco ao "Tirar" do filho SEGUINTE', async () => {
+    const tres = [
+      ...(V2.items[1].children ?? []),
+      { id: 'c-pulseiras', target: { kind: 'category' as const, category_id: 'pulseiras' }, label: null, desktop: true, mobile: true },
+    ]
+    db.linha = {
+      value: { version: 2, items: V2.items.map(i => (i.id === 'n-presentes' ? { ...i, children: tres } : i)) },
+      updated_at: VISTO,
+    }
+    await montar()
+    fireEvent.click(screen.getByTestId('expandir-n-presentes'))
+    expect(tres.map(c => c.id)).toEqual(['c-aneis', 'c-colares', 'c-pulseiras'])
+    screen.getByTestId('tirar-c-colares').focus()
+    fireEvent.click(screen.getByTestId('tirar-c-colares'))
+    await waitFor(() => expect(screen.queryByTestId('filho-c-colares')).toBeNull())
+    await waitFor(() => expect(focado()).toBe('tirar-c-pulseiras'))
+  })
+
+  it('remover o ÚLTIMO leva o foco ao ⋯ do anterior', async () => {
+    await montar()
+    abrirAcoes('n-sobre')
+    fireEvent.click(screen.getByTestId('remover-n-sobre'))
+    fireEvent.click(await screen.findByTestId('confirmar-remover'))
+    await waitFor(() => expect(screen.queryByTestId('item-n-sobre')).toBeNull())
+    await waitFor(() => expect(focado()).toBe('acoes-n-presentes'))
+  })
+
+  it('remover o ÚNICO leva o foco ao "Adicionar item ao menu" do vazio', async () => {
+    db.linha = { value: { version: 2, items: [V2.items[0]] }, updated_at: VISTO }
+    await montar()
+    abrirAcoes('n-chaveiros')
+    fireEvent.click(screen.getByTestId('remover-n-chaveiros'))
+    fireEvent.click(await screen.findByTestId('confirmar-remover'))
+    await screen.findByTestId('menu-vazio')
+    await waitFor(() => expect(focado()).toBe('adicionar-primeiro'))
+  })
+
+  it('tirar um filho do submenu leva o foco ao "Tirar" do filho seguinte; o último, ao anterior; sem filhos, a "Adicionar ao submenu"', async () => {
+    await montar()
+    fireEvent.click(screen.getByTestId('expandir-n-presentes'))
+    screen.getByTestId('tirar-c-aneis').focus()
+    fireEvent.click(screen.getByTestId('tirar-c-aneis'))
+    await waitFor(() => expect(screen.queryByTestId('filho-c-aneis')).toBeNull())
+    await waitFor(() => expect(focado()).toBe('tirar-c-colares'))
+
+    fireEvent.click(screen.getByTestId('tirar-c-colares'))
+    await waitFor(() => expect(screen.queryByTestId('filho-c-colares')).toBeNull())
+    await waitFor(() => expect(focado()).toBe('adicionar-ao-submenu-n-presentes'))
+  })
+})
+
+describe('MNM-20..23 — remover', () => {
+  it('item principal: confirmação com o nome e o submenu, e só então remove', async () => {
+    await montar()
+    abrirAcoes('n-presentes')
+    fireEvent.click(screen.getByTestId('remover-n-presentes'))
+    const dialogo = await screen.findByTestId('confirmar-remocao')
+    expect(dialogo).toHaveTextContent('Remover “Presentes” do menu?')
+    expect(dialogo).toHaveTextContent('Os 2 itens do submenu saem junto.')
+    expect(dialogo).toHaveTextContent('A categoria continua existindo na loja')
+    expect(escritasEm('store_settings')).toEqual([])
+
+    fireEvent.click(screen.getByTestId('confirmar-remover'))
+    await waitFor(() => expect(escritasEm('store_settings')).toHaveLength(1))
+    expect(ultimoGravado().items.map(i => i.id)).toEqual(['n-chaveiros', 'n-sobre'])
+  })
+
+  it('"Cancelar" na confirmação não grava nada', async () => {
+    await montar()
+    abrirAcoes('n-presentes')
+    fireEvent.click(screen.getByTestId('remover-n-presentes'))
+    fireEvent.click(await screen.findByRole('button', { name: 'Cancelar' }))
+    await waitFor(() => expect(screen.queryByTestId('confirmar-remocao')).toBeNull())
+    expect(escritasEm('store_settings')).toEqual([])
+  })
+
+  it('removido, a categoria volta a ser escolhível no seletor (`MNM-21`)', async () => {
+    await montar()
+    abrirAcoes('n-chaveiros')
+    fireEvent.click(screen.getByTestId('remover-n-chaveiros'))
+    fireEvent.click(await screen.findByTestId('confirmar-remover'))
+    await waitFor(() => expect(screen.queryByTestId('item-n-chaveiros')).toBeNull())
+    fireEvent.click(screen.getByTestId('adicionar-item'))
+    expect(await screen.findByTestId('opcao-categoria-chaveiros')).toBeEnabled()
+  })
+
+  it('item de submenu sai direto, sem confirmação', async () => {
+    await montar()
+    fireEvent.click(screen.getByTestId('expandir-n-presentes'))
+    fireEvent.click(screen.getByTestId('tirar-c-aneis'))
+    await waitFor(() => expect(escritasEm('store_settings')).toHaveLength(1))
+    expect(screen.queryByTestId('confirmar-remocao')).toBeNull()
+    expect(ultimoGravado().items[1].children.map(c => c.id)).toEqual(['c-colares'])
+  })
+
+  it('"Adicionar ao submenu" usa o mesmo seletor, com "Já está neste submenu" (`MNM-22`, `MNM-25`)', async () => {
+    await montar()
+    fireEvent.click(screen.getByTestId('expandir-n-presentes'))
+    fireEvent.click(screen.getByTestId('adicionar-ao-submenu-n-presentes'))
+    expect(await screen.findByText('Adicionar ao submenu de “Presentes”')).toBeInTheDocument()
+    expect(screen.getByTestId('motivo-aneis')).toHaveTextContent('Já está neste submenu')
+    // Chaveiros está no menu principal, mas não NESTE submenu: pode entrar.
+    fireEvent.click(screen.getByTestId('opcao-categoria-chaveiros'))
+    fireEvent.click(screen.getByTestId('seletor-adicionar'))
+    await waitFor(() => expect(escritasEm('store_settings')).toHaveLength(1))
+    expect(ultimoGravado().items[1].children.map(c => (c.target as { category_id: string }).category_id)).toEqual([
+      'aneis',
+      'colares',
+      'chaveiros',
+    ])
+  })
+})
+
+describe('MNM-31 — o link externo já gravado: editável, não criável', () => {
+  const COM_EXTERNO: MenuDocument = {
+    version: 2,
+    items: [
+      ...V2.items,
+      raiz('n-insta', { kind: 'link', href: 'https://instagram.com/umaestrelinha' }, { label: 'Instagram' }),
+    ],
+  }
+
+  it('editar o nome do externo legado grava, com o endereço intacto', async () => {
+    db.linha = { value: COM_EXTERNO, updated_at: VISTO }
+    await montar()
+    abrirAcoes('n-insta')
+    fireEvent.click(screen.getByTestId('editar-n-insta'))
+    fireEvent.change(await screen.findByTestId('nome-do-item'), { target: { value: 'Nosso Instagram' } })
+    fireEvent.click(screen.getByTestId('editor-salvar'))
+    await waitFor(() => expect(escritasEm('store_settings')).toHaveLength(1))
+    expect(ultimoGravado().items.find(i => i.id === 'n-insta')).toMatchObject({
+      label: 'Nosso Instagram',
+      target: { kind: 'link', href: 'https://instagram.com/umaestrelinha' },
+    })
+  })
+
+  it('reordenar com o externo legado no documento grava', async () => {
+    db.linha = { value: COM_EXTERNO, updated_at: VISTO }
+    await montar()
+    abrirAcoes('n-insta')
+    fireEvent.click(screen.getByTestId('subir-n-insta'))
+    await waitFor(() => expect(escritasEm('store_settings')).toHaveLength(1))
+    expect(ultimoGravado().items.map(i => i.id)).toEqual(['n-chaveiros', 'n-presentes', 'n-insta', 'n-sobre'])
+  })
+
+  it('o seletor não cria outro externo: "Outro endereço" recusa `https://`, sem rede', async () => {
+    db.linha = { value: COM_EXTERNO, updated_at: VISTO }
+    await montar()
+    fireEvent.click(screen.getByTestId('adicionar-item'))
+    fireEvent.click(await screen.findByTestId('aba-pagina'))
+    // A lista de páginas só tem caminhos da loja.
+    const paginas = screen.getAllByTestId(/^opcao-pagina-/).map(b => b.getAttribute('data-testid'))
+    expect(paginas.some(t => /https?:|\/\//.test(t!.replace('opcao-pagina-', '')))).toBe(false)
+    fireEvent.click(screen.getByTestId('opcao-pagina-outro'))
+    fireEvent.change(screen.getByTestId('outro-endereco'), { target: { value: 'https://instagram.com/outro' } })
+    fireEvent.change(screen.getByTestId('nome-do-link'), { target: { value: 'Outro' } })
+    fireEvent.click(screen.getByTestId('seletor-adicionar'))
+    expect(screen.getByTestId('seletor-recusa')).toHaveTextContent('O menu leva só a páginas da loja')
+    expect(escritasEm('store_settings')).toEqual([])
+  })
+})
+
+describe('MNM-28 / MNM-32 — dispositivos', () => {
+  it('desligar "Celular" grava só `mobile: false` no nó', async () => {
+    await montar()
+    fireEvent.click(screen.getByTestId('chave-mobile-n-chaveiros'))
+    await waitFor(() => expect(escritasEm('store_settings')).toHaveLength(1))
+    expect(ultimoGravado().items[0]).toMatchObject({ id: 'n-chaveiros', desktop: true, mobile: false })
+  })
+
+  it('o alternador troca SÓ a prévia: a lista e a contagem continuam as mesmas', async () => {
+    await montar()
+    expect(quadro()).toHaveAttribute('width', '1024')
+    const linhas = screen.getAllByTestId(/^item-/).length
+    fireEvent.click(screen.getByTestId('superficie-mobile'))
+    expect(quadro()).toHaveAttribute('width', '390')
+    expect(screen.getAllByTestId(/^item-/)).toHaveLength(linhas)
+    expect(screen.getByTestId('contador-itens')).toHaveTextContent('3 no computador · 2 no celular')
+    // O alternador mora ao lado da prévia, na coluna dela.
+    expect(within(screen.getByTestId('coluna-previa-menu')).getByTestId('superficie-mobile')).toBeInTheDocument()
+  })
+})
+
+describe('MNM-37 / MNM-38 — conflito e falha', () => {
+  it('conflito (zero linhas): toast com a frase, faixa de recarregar, o documento volta, sem "Salvo"', async () => {
+    db.escrita = { data: [], error: null }
+    await montar()
+    abrirAcoes('n-chaveiros')
+    fireEvent.click(screen.getByTestId('descer-n-chaveiros'))
+
+    await waitFor(() => expect(toast).toHaveBeenCalled())
+    expect(vi.mocked(toast).mock.calls.at(-1)![0]).toMatchObject({
+      description: 'O menu mudou em outra janela — recarregue.',
+      variant: 'destructive',
+    })
+    expect(await screen.findByTestId('menu-conflito')).toBeInTheDocument()
+    expect(screen.getAllByTestId(/^item-/)[0]).toHaveAttribute('data-testid', 'item-n-chaveiros')
+    expect(screen.queryByTestId('salvo')).toBeNull()
+  })
+
+  it('"Recarregar" na faixa sai do conflito: a faixa some e a próxima ação grava com o `updated_at` relido', async () => {
+    db.escrita = { data: [], error: null }
+    await montar()
+    abrirAcoes('n-chaveiros')
+    fireEvent.click(screen.getByTestId('descer-n-chaveiros'))
+    const faixa = await screen.findByTestId('menu-conflito')
+
+    // A outra janela gravou: o banco tem outra versão. Daqui em diante a escrita dá certo.
+    const OUTRA = '2026-10-28T12:00:03.000000+00:00'
+    db.linha = { value: V2, updated_at: OUTRA }
+    db.escrita = { data: [{ updated_at: NOVO }], error: null }
+    fireEvent.click(within(faixa).getByRole('button', { name: 'Recarregar' }))
+    await waitFor(() => expect(screen.queryByTestId('menu-conflito')).toBeNull())
+
+    const antes = db.chamadas.length
+    fireEvent.click(screen.getByTestId('chave-mobile-n-chaveiros'))
+    await waitFor(() => expect(screen.getByTestId('salvo')).toBeInTheDocument())
+    const depois = db.chamadas.slice(antes)
+    const i = depois.findIndex(c => c.tabela === 'store_settings' && c.metodo === 'update')
+    expect(i).toBeGreaterThanOrEqual(0)
+    expect(depois.slice(i + 1).filter(c => c.metodo === 'eq').map(c => c.args)).toEqual([
+      ['key', 'menu'],
+      ['updated_at', OUTRA],
+    ])
+    expect(screen.queryByTestId('menu-conflito')).toBeNull()
+  })
+
+  it('falha de rede: "Não salvou", o documento volta, sem "Salvo"', async () => {
+    db.escrita = { data: null, error: { message: 'fetch failed' } }
+    await montar()
+    fireEvent.click(screen.getByTestId('chave-mobile-n-chaveiros'))
+    await waitFor(() => expect(toast).toHaveBeenCalled())
+    expect(vi.mocked(toast).mock.calls.at(-1)![0]).toMatchObject({ title: 'Não salvou', variant: 'destructive' })
+    expect(screen.getByTestId('chave-mobile-n-chaveiros')).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.queryByTestId('salvo')).toBeNull()
+  })
+
+  // R02 (QA r2) — a resposta se perdeu E a releitura também: a tela não sabe se gravou. O título não
+  // pode dizer "Não salvou" (no QA o banco TINHA gravado), e o aviso não é de erro.
+  it('R02 — sem saber se gravou: título neutro, nunca "Não salvou", e o texto da incerteza', async () => {
+    await montar()
+    db.escrita = { data: null, error: { message: 'TypeError: Failed to fetch' } }
+    db.erroLeitura = { message: 'TypeError: Failed to fetch' }
+    fireEvent.click(screen.getByTestId('chave-mobile-n-chaveiros'))
+    await waitFor(() => expect(toast).toHaveBeenCalled())
+    const aviso = vi.mocked(toast).mock.calls.at(-1)![0] as { title: string; description: string; variant?: string }
+    expect(aviso.description).toBe(STORE_MENU_SAVE_UNKNOWN)
+    expect(aviso.title).toBe('Não deu para confirmar')
+    expect(aviso.title).not.toMatch(/Não salvou/)
+    expect(aviso.variant).not.toBe('destructive')
+  })
+
+  // S03 (QA r3) — o resíduo do R02: depois da incerteza, a chave seguia mostrando o valor de ANTES
+  // do envio até a próxima ação, com o banco já gravado. Agora a tela relê sozinha quando a rede
+  // responde e mostra o que o banco tem (e o selo `Salvo`), sem toque nenhum e sem conflito.
+  it('S03 — a rede volta: sem tocar em nada, a chave mostra o gravado e aparece Salvo', async () => {
+    await montar()
+    const chave = () => screen.getByTestId('chave-mobile-n-chaveiros')
+    expect(chave()).toHaveAttribute('aria-pressed', 'true')
+    db.escrita = { data: null, error: { message: 'TypeError: Failed to fetch' } }
+    db.erroLeitura = { message: 'TypeError: Failed to fetch' }
+    fireEvent.click(chave())
+    await waitFor(() => expect(toast).toHaveBeenCalled())
+    expect(chave()).toHaveAttribute('aria-pressed', 'true') // ainda não sabe; mostra o confirmado
+
+    // O PATCH tinha chegado ao banco: ele tem exatamente o que foi enviado, com versão nova.
+    const enviado = (escritasEm('store_settings')[0].args[0] as { value: unknown }).value
+    db.linha = { value: enviado, updated_at: '2026-10-29T10:00:00.000001+00:00' }
+    db.erroLeitura = null
+    const escritasAntes = escritasEm('store_settings').length
+
+    await waitFor(() => expect(chave()).toHaveAttribute('aria-pressed', 'false'), { timeout: 4000 })
+    expect(await screen.findByTestId('salvo')).toBeInTheDocument()
+    expect(screen.queryByTestId('menu-conflito')).toBeNull()
+    expect(escritasEm('store_settings')).toHaveLength(escritasAntes)
+  })
+})
+
+describe('VIV-03 / VIV-04 — gravar não remonta a prévia, e `Salvando…` vira `Salvo`', () => {
+  it('a gravação mantém o MESMO nó `<iframe>` e não volta ao esqueleto', async () => {
+    await montar()
+    const antes = quadro()
+    fireEvent.click(screen.getByTestId('chave-mobile-n-chaveiros'))
+    await waitFor(() => expect(escritasEm('store_settings')).toHaveLength(1))
+    expect(quadro()).toBe(antes)
+    expect(screen.queryByTestId('skeleton-row')).toBeNull()
+  })
+
+  it('`Salvando…` no cabeçalho durante a gravação, `Salvo` depois, com o par `motion-reduce:`', async () => {
+    let soltar: () => void = () => {}
+    db.segurar = new Promise<void>(r => {
+      soltar = r
+    })
+    await montar()
+    fireEvent.click(screen.getByTestId('chave-mobile-n-chaveiros'))
+
+    const emCurso = await screen.findByTestId('salvando')
+    expect(emCurso).toHaveTextContent('Salvando…')
+    expect(emCurso.className.split(/\s+/)).toEqual(
+      expect.arrayContaining(['transition-opacity', 'motion-reduce:transition-none']),
+    )
+    expect(screen.queryByTestId('salvo')).toBeNull()
+    // Otimista: a chave já mostra o novo estado enquanto grava.
+    expect(screen.getByTestId('chave-mobile-n-chaveiros')).toHaveAttribute('aria-pressed', 'false')
+
+    await act(async () => {
+      soltar()
+    })
+    const pronto = await screen.findByTestId('salvo')
+    expect(pronto.parentElement).toBe(emCurso.parentElement ?? pronto.parentElement)
+    expect(screen.queryByTestId('salvando')).toBeNull()
+    expect(pronto.className.split(/\s+/)).toContain('motion-reduce:transition-none')
+  })
+})
+
+describe('Itens | Prévia abaixo de `lg` (FOCO-35..37)', () => {
+  const vistaAba = (qual: 'entradas' | 'previa') => screen.getByTestId(`vista-${qual}`)
+
+  it('o alternador existe, com as duas vistas, e some a partir de `lg`', async () => {
+    await montar()
+    const abas = within(screen.getByTestId('abas-vista')).getAllByRole('tab')
+    expect(abas.map(a => a.textContent)).toEqual(['Itens do menu', 'Prévia'])
     expect(screen.getByTestId('abas-vista').className).toContain('lg:hidden')
   })
 
-  it('abre em Entradas — é onde se edita', async () => {
-    await renderPage()
-
+  it('abre nos itens; escolher Prévia troca a coluna, e voltar desfaz', async () => {
+    await montar()
     expect(vistaAba('entradas')).toHaveAttribute('aria-selected', 'true')
-    expect(vistaAba('previa')).toHaveAttribute('aria-selected', 'false')
-    expect(screen.getByTestId('coluna-entradas').className).not.toContain('hidden')
     expect(screen.getByTestId('coluna-previa-menu').className).toContain('hidden lg:flex')
-  })
-
-  it('escolher Prévia troca a coluna exibida, e voltar desfaz', async () => {
-    await renderPage()
-
     fireEvent.click(vistaAba('previa'))
-
-    expect(vistaAba('previa')).toHaveAttribute('aria-selected', 'true')
     expect(screen.getByTestId('coluna-previa-menu').className).not.toContain('hidden')
     expect(screen.getByTestId('coluna-entradas').className).toContain('hidden lg:flex')
-
     fireEvent.click(vistaAba('entradas'))
-
     expect(screen.getByTestId('coluna-entradas').className).not.toContain('hidden')
-    expect(screen.getByTestId('coluna-previa-menu').className).toContain('hidden lg:flex')
   })
 
-  it('os alvos do alternador medem ≥ 44px', async () => {
-    await renderPage()
-
-    for (const aba of within(screen.getByTestId('abas-vista')).getAllByRole('tab')) {
-      expect(aba.className).toMatch(/(?:^|\s)min-h-11(?![-\w])/)
-    }
+  it('os alvos das abas e do alternador da prévia medem ≥ 44px (token exato)', async () => {
+    await montar()
+    const alvos = [
+      ...within(screen.getByTestId('abas-vista')).getAllByRole('tab'),
+      screen.getByTestId('superficie-desktop'),
+      screen.getByTestId('superficie-mobile'),
+    ]
+    for (const alvo of alvos) expect(alvo.className).toMatch(/(?:^|\s)min-h-11(?![-\w])/)
   })
 
-  /**
-   * `FOCO-37` — os dois alternadores desta tela têm formas DIFERENTES.
-   *
-   * A régua é escrita como **predicado** e chamada duas vezes: pela asserção e pelo sensor. Sem
-   * isso, o sensor mediria uma régua parecida com a da asserção em vez da mesma.
-   */
   const ehPilulaSegmentada = (classe: string): boolean =>
     /(?:^|\s)bg-muted(?![-\w])/.test(classe) && /rounded/.test(classe)
-
   const ehBarraSublinhada = (classe: string): boolean =>
     /border-b/.test(classe) && !/(?:^|\s)bg-muted(?![-\w])/.test(classe)
 
-  it('FOCO-37: o de DISPOSITIVO é pílula; o de VISTA é barra sublinhada', async () => {
-    await renderPage()
+  it('o de DISPOSITIVO é pílula; o de VISTA é barra sublinhada — e o sensor', async () => {
+    await montar()
+    const dispositivo = screen.getByRole('group', { name: 'Dispositivo da prévia' }).className
+    const vista = screen.getByTestId('abas-vista').className
+    expect(ehPilulaSegmentada(dispositivo)).toBe(true)
+    expect(ehBarraSublinhada(vista)).toBe(true)
+    expect(ehPilulaSegmentada(vista)).toBe(false)
+    // SENSOR: a forma que FOCO-37 recusa (duas pílulas) reprova na mesma régua.
+    expect(ehBarraSublinhada('mb-4 flex gap-1 rounded-xl bg-muted p-1 lg:hidden')).toBe(false)
+  })
+})
 
-    const dispositivo = screen.getByRole('group', { name: 'Dispositivo do menu' })
-    const vista = screen.getByTestId('abas-vista')
-
-    expect(ehPilulaSegmentada(dispositivo.className)).toBe(true)
-    expect(ehBarraSublinhada(vista.className)).toBe(true)
-    // E não são a mesma forma: um diz o que estou editando, o outro o que estou vendo.
-    expect(ehPilulaSegmentada(vista.className)).toBe(false)
+describe('a prévia é a LOJA (previaUnica)', () => {
+  it('o palco é um iframe da loja em modo prévia', async () => {
+    await montar()
+    expect(screen.getByTestId('palco-previa-menu')).toBeInTheDocument()
+    expect(quadro()).toHaveAttribute('src', 'http://localhost:8082/?preview=1')
   })
 
-  it('SENSOR: dois controles com a MESMA forma reprovam na mesma régua', async () => {
-    await renderPage()
-
-    const dispositivo = screen.getByRole('group', { name: 'Dispositivo do menu' }).className
-    // O que a tela teria se o alternador de vista tivesse copiado o molde da Home (pílula):
-    const vistaComoPilula = 'mb-4 flex gap-1 rounded-xl bg-muted p-1 lg:hidden'
-
-    expect(ehPilulaSegmentada(dispositivo)).toBe(true)
-    expect(ehPilulaSegmentada(vistaComoPilula)).toBe(true)
-    // As duas pílulas: é exatamente o par que `FOCO-37` recusa.
-    expect(ehBarraSublinhada(vistaComoPilula)).toBe(false)
+  it('SENSOR do `afterEach`: o registro do dublê enxerga escrita em `categories`', async () => {
+    const { supabase } = await import('@estrelinha/supabase/client')
+    ;(supabase.from('categories') as unknown as { update: (v: unknown) => unknown }).update({ x: 1 })
+    expect(escritasEm('categories')).toHaveLength(1)
+    // Desfaz para o `afterEach` medir só a tela.
+    db.chamadas = []
   })
 })
 
@@ -854,240 +1241,14 @@ describe('AdminMenuPage — o corpo tem altura de tela (FOCO-13)', () => {
   })
 })
 
-/**
- * Feature 48 — o editor abre DENTRO da linha clicada (`FOCO-48`, `FOCO-49`).
- *
- * O defeito: o editor da entrada morava ABAIXO da lista. Com 38 categorias no catálogo real isso o
- * punha a ~1.400px de rolagem do clique — escolher outra categoria trocava o conteúdo de um card
- * fora da vista, em silêncio, e a dona não tinha como saber que algo havia mudado.
- *
- * **Estes casos renderizam a PÁGINA, e é o ponto.** Montar `<MenuSlotList editor={<algo/>} />` aqui
- * provaria que a lista sabe hospedar um editor e passaria com `editor={…}` apagado de
- * `AdminMenuPage` — a Adri ficaria sem editor nenhum, com a suíte verde. Quem monta a árvore tem de
- * ser a página.
- */
-describe('AdminMenuPage — o painel abre na linha (feature 48)', () => {
-  const liDe = (id: string) => screen.getByTestId(`item-${id}`).closest('li')
-
-  it('FOCO-48: o painel é filho do MESMO <li> da entrada selecionada', async () => {
-    await renderPage()
-
-    // `materiais` é a primeira entrada de categoria da barra — a seleção padrão da tela.
-    const painel = screen.getByTestId('painel-da-entrada')
-    expect(liDe('materiais')).toContainElement(painel)
-    expect(within(painel).getByTestId('editor-da-entrada')).toBeInTheDocument()
-  })
-
-  it('FOCO-48: o editor está DENTRO da lista — não é mais um card irmão abaixo dela', async () => {
-    await renderPage()
-
-    // A régua que mata a forma antiga: fora da `<ul>`, o editor volta a ser o card de baixo.
-    const lista = screen.getByTestId('item-materiais').closest('ul')
-    expect(lista).toContainElement(screen.getByTestId('editor-da-entrada'))
-  })
-
-  it('FOCO-48: clicar em outra entrada MOVE o painel para o <li> dela', async () => {
-    await renderPage()
-    fireEvent.click(within(screen.getByTestId('item-joias')).getByText('Joias afetivas'))
-
-    const painel = screen.getByTestId('painel-da-entrada')
-    expect(liDe('joias')).toContainElement(painel)
-    expect(liDe('materiais')).not.toContainElement(painel)
-  })
-
-  it('FOCO-48: há UM painel aberto, nunca dois', async () => {
-    await renderPage()
-    fireEvent.click(within(screen.getByTestId('item-joias')).getByText('Joias afetivas'))
-
-    expect(screen.getAllByTestId('painel-da-entrada')).toHaveLength(1)
-    expect(screen.getAllByTestId('editor-da-entrada')).toHaveLength(1)
-  })
-
-  it('FOCO-48: trocar de entrada leva o painel à vista, com `block: nearest`', async () => {
-    // **jsdom não implementa `scrollIntoView`** — sem este dublê o método é `undefined`, o `?.` do
-    // código engole a chamada e o caso mediria a ausência de layout em vez da regra.
-    const scrollIntoView = vi.fn()
-    Object.defineProperty(Element.prototype, 'scrollIntoView', {
-      value: scrollIntoView,
-      writable: true,
-      configurable: true,
-    })
-
-    await renderPage()
-    scrollIntoView.mockClear()
-    fireEvent.click(within(screen.getByTestId('item-joias')).getByText('Joias afetivas'))
-
-    // `nearest` e não `start`: com a linha já visível não há pulo nenhum — rolar sempre faria a
-    // lista dar um salto a cada clique, que é trocar um defeito por outro.
-    expect(scrollIntoView).toHaveBeenCalledWith({ block: 'nearest', behavior: 'smooth' })
-  })
-
-  it('FOCO-49: o aviso de vazio é da CURADORIA, e some assim que UMA categoria está na barra', async () => {
-    await renderPage()
-
-    // Com entrada na barra não há aviso — e o painel existe no lugar dele.
-    expect(screen.queryByTestId('sem-entrada-selecionada')).toBeNull()
-    expect(screen.getByTestId('painel-da-entrada')).toBeInTheDocument()
-  })
-
-  it('FOCO-49: sem nenhuma categoria na barra, o aviso aparece e não há painel', async () => {
-    await renderPage(CATALOGO.map(c => ({ ...c, menu_desktop: false, menu_mobile: false })))
-
-    expect(screen.getByTestId('sem-entrada-selecionada')).toHaveTextContent('Ligue uma categoria')
-    expect(screen.queryByTestId('painel-da-entrada')).toBeNull()
-    expect(screen.queryByTestId('editor-da-entrada')).toBeNull()
-  })
-})
-
-// ───────────────────────────────────────────────────────────────────────────
-// VIV-02, VIV-03, VIV-04 — `/admin/menu` para de recarregar (feature 50)
-// ───────────────────────────────────────────────────────────────────────────
-//
-// **A AC central é `VIV-03`, e só uma asserção a prova: IDENTIDADE DE NÓ.** `toBeInTheDocument`
-// passa nos dois mundos — o iframe remontado também está presente, e é ele que recarrega a loja e
-// perde a posição de rolagem. O que separa é `expect(depois).toBe(antes)`.
-//
-// Aqui o `<iframe>` é o de verdade: `MenuLivePreview` não é dublado nesta suíte.
-
-describe('AdminMenuPage — gravar não desmonta a tela (VIV-02, VIV-03)', () => {
-  it('ligar uma categoria mantém o MESMO nó `<iframe>` — não remonta, não recarrega', async () => {
-    await renderPage()
-    const antes = document.querySelector('iframe')
-    expect(antes).not.toBeNull()
-
-    fireEvent.click(switchOf('personalizados'))
-
-    await waitFor(() => expect(hook.updateCategory).toHaveBeenCalled())
-    expect(document.querySelector('iframe')).toBe(antes)
-  })
-
-  it('e o esqueleto NÃO volta: as duas colunas continuam de pé depois da gravação', async () => {
-    await renderPage()
-
-    fireEvent.click(switchOf('personalizados'))
-    await waitFor(() => expect(hook.updateCategory).toHaveBeenCalled())
-
-    expect(screen.queryByTestId('skeleton-row')).toBeNull()
-    expect(screen.getByTestId('coluna-entradas')).toBeInTheDocument()
-    expect(screen.getByTestId('coluna-previa-menu')).toBeInTheDocument()
-  })
-
-  it('o par: na PRIMEIRA carga o esqueleto continua aparecendo (VIV-11)', async () => {
-    // Sem ele, "não mostra esqueleto" seria verdade num mundo em que o esqueleto deixou de existir.
-    state.categories = CATALOGO
-    state.error = null
-    state.loading = true
-    render(
-      <MemoryRouter>
-        <AdminMenuPage />
-      </MemoryRouter>,
-    )
-
-    expect(screen.getAllByTestId('skeleton-row').length).toBeGreaterThan(0)
-    expect(screen.queryByTestId('coluna-entradas')).toBeNull()
-  })
-
-  it('reordenar também não remonta a prévia', async () => {
-    await renderPage()
-    const antes = document.querySelector('iframe')
-
-    fireEvent.drop(screen.getByTestId('item-correntes'), {
-      dataTransfer: { getData: () => 'pingentes', setData: vi.fn() },
-    })
-
-    await waitFor(() => expect(hook.updateSortOrders).toHaveBeenCalled())
-    expect(document.querySelector('iframe')).toBe(antes)
-  })
-})
-
-describe('AdminMenuPage — `Salvando…` dá lugar a `Salvo` (VIV-04)', () => {
-  it('terminado, o aviso vira `Salvo` e some sozinho em ~2 s', async () => {
-    vi.useFakeTimers()
-    try {
-      let concluir: (v: unknown) => void = () => {}
-      hook.updateCategory.mockReturnValueOnce(new Promise(r => { concluir = r }))
-
-      state.categories = CATALOGO
-      state.error = null
-      state.loading = false
-      render(
-        <MemoryRouter>
-          <AdminMenuPage />
-        </MemoryRouter>,
-      )
-      await act(async () => {})
-
-      fireEvent.click(switchOf('personalizados'))
-      expect(screen.getByTestId('salvando')).toHaveTextContent('Salvando…')
-      // Nunca os dois ao mesmo tempo: a vaga é uma só.
-      expect(screen.queryByTestId('salvo')).toBeNull()
-
-      await act(async () => {
-        concluir(null)
-      })
-
-      expect(screen.queryByTestId('salvando')).toBeNull()
-      expect(screen.getByTestId('salvo')).toHaveTextContent('Salvo')
-
-      // Um instante antes ele ainda está lá — senão "some em 2 s" valeria para qualquer duração.
-      act(() => {
-        vi.advanceTimersByTime(1900)
-      })
-      expect(screen.getByTestId('salvo')).toBeInTheDocument()
-
-      act(() => {
-        vi.advanceTimersByTime(200)
-      })
-      expect(screen.queryByTestId('salvo')).toBeNull()
-    } finally {
-      vi.useRealTimers()
-    }
-  })
-
-  it('gravação RECUSADA não mostra `Salvo` — o selo é recibo, não otimismo', async () => {
-    hook.updateCategory.mockResolvedValueOnce({ message: 'permission denied' })
-    await renderPage()
-
-    fireEvent.click(switchOf('personalizados'))
-
-    await waitFor(() => expect(hook.updateCategory).toHaveBeenCalled())
-    await waitFor(() => expect(screen.queryByTestId('salvando')).toBeNull())
-    expect(screen.queryByTestId('salvo')).toBeNull()
-  })
-
-  it('os dois selos declaram a transição COM o par `motion-reduce:` (ANI-05, L-036)', async () => {
-    let concluir: (v: unknown) => void = () => {}
-    hook.updateCategory.mockReturnValueOnce(new Promise(r => { concluir = r }))
-    await renderPage()
-
-    fireEvent.click(switchOf('personalizados'))
-    const emCurso = (await screen.findByTestId('salvando')).className.split(/\s+/)
-    expect(emCurso).toContain('transition-opacity')
-    expect(emCurso).toContain('motion-reduce:transition-none')
-
-    await act(async () => {
-      concluir(null)
-    })
-
-    const pronto = screen.getByTestId('salvo').className.split(/\s+/)
-    expect(pronto).toContain('transition-opacity')
-    expect(pronto).toContain('motion-reduce:transition-none')
-  })
-
-  it('o `Salvo` fica no CABEÇALHO, na vaga do `Salvando…` — ao lado do alternador (FOCO-33)', async () => {
-    let concluir: (v: unknown) => void = () => {}
-    hook.updateCategory.mockReturnValueOnce(new Promise(r => { concluir = r }))
-    await renderPage()
-
-    fireEvent.click(switchOf('personalizados'))
-    const vagaDoSalvando = (await screen.findByTestId('salvando')).parentElement
-
-    await act(async () => {
-      concluir(null)
-    })
-
-    const selo = screen.getByTestId('salvo')
-    expect(selo.parentElement).toBe(vagaDoSalvando)
-    expect(selo.parentElement?.querySelector('[data-testid="superficie-desktop"]')).not.toBeNull()
+// Achado na prova em navegador da 86 (T23): "Ver na loja" era `<a href="/">`, e no painel `/` é a
+// raiz do PAINEL — o botão abria uma aba nova do próprio backoffice. Mesmo defeito que o "Ver Loja"
+// da sidebar já teve (`AccountMenu`). O destino é a origem da loja, de `storeOrigin()`.
+describe('"Ver na loja" leva à loja, não à raiz do painel', () => {
+  it('o link aponta para a origem da loja, em nova aba', async () => {
+    await montar()
+    const link = screen.getByRole('link', { name: /ver na loja/i })
+    expect(link.getAttribute('href')).toBe('http://localhost:8082/')
+    expect(link.getAttribute('target')).toBe('_blank')
   })
 })

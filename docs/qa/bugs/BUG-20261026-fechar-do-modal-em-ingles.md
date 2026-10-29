@@ -5,7 +5,7 @@
 - **Severity:** Low · **Priority:** P3
 - **Persona Affected:** Adri cadastrando peças
 - **Journey Step:** J-cadastrar-peca-com-variacoes, modal de imagem
-- **Scenarios:** PNL-variacoes-imagem-na-linha-e-envio
+- **Scenarios:** PNL-variacoes-imagem-na-linha-e-envio; PNL-menu-teclado-foco-e-nomes
 - **Found:** 2026-10-26 · **Report:** docs/qa/reports/2026-10-26-opcoes-e-variacoes.md
 
 ## Summary
@@ -38,3 +38,8 @@ tarefa própria, junto com o alvo de 44 px do X.
 Ciclo de QA da 85 (`reports/2026-10-28-backoffice-resumo-com-imagens.md`). O X do modal **Mídia** se anuncia
 "Close" (agora com 44 × 44); o visualizador de zoom tem o "Fechar" certo, mas carrega também um botão "Close" de
 0 × 0 do primitivo. O modal "Imagem de <variação>" segue com "Close".
+
+## Re-found (2026-10-28, feature 86)
+
+Ciclo de QA da 86 (`reports/2026-10-28-backoffice-menu-montado-pela-dona.md`). O X do seletor "Adicionar item ao menu" e do editor "Editar “…”" em `/admin/menu`
+se anuncia "Close" e mede 16 × 16 (1440 e 390). Cenário acrescentado: PNL-menu-teclado-foco-e-nomes.

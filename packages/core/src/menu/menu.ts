@@ -257,7 +257,7 @@ export interface MenuLink {
   sort_order: number
 }
 
-interface MenuItemBase {
+interface LegacyMenuItemBase {
   id: string
   /** O rótulo que a loja mostra. Da categoria é o `name`; do link é o `label`. */
   name: string
@@ -267,7 +267,7 @@ interface MenuItemBase {
 }
 
 /** Uma entrada de categoria: pode abrir painel. */
-export interface MenuCategoryItem extends MenuItemBase {
+export interface LegacyMenuCategoryItem extends LegacyMenuItemBase {
   kind: 'category'
   slug: string
   /** `Joias › Correntes` — o admin precisa saber o que está pondo no menu. A loja mostra só `name`. */
@@ -285,7 +285,7 @@ export interface MenuCategoryItem extends MenuItemBase {
 }
 
 /** Um item de link: link direto, sempre. Sem painel, sem seta, sem filha, sem banner (`NAV-12`). */
-export interface MenuLinkItem extends MenuItemBase {
+export interface LegacyMenuLinkItem extends LegacyMenuItemBase {
   kind: 'link'
   external: boolean
 }
@@ -297,7 +297,7 @@ export interface MenuLinkItem extends MenuItemBase {
  * `tsconfig.base.json` tem `strictNullChecks: false`, e nesse modo união por literal **booleano** não
  * estreita. `kind` estreita.
  */
-export type MenuItem = MenuCategoryItem | MenuLinkItem
+export type LegacyMenuItem = LegacyMenuCategoryItem | LegacyMenuLinkItem
 
 /** As duas fontes do menu. `links` ausente é o mesmo que loja sem item de link (`NAV-15`). */
 export interface MenuInput {
@@ -344,6 +344,22 @@ export const normalizeMenuHref = (href: unknown): string => {
 }
 
 /**
+ * A grafia que IDENTIFICA uma página do menu — para comparar, nunca para desenhar.
+ *
+ * `normalizeMenuHref` e mais a caixa do **caminho**: `/SOBRE` e `/sobre/` abrem a mesma página
+ * (`trailingSlash: false`, slug sempre em minúsculas), e eram itens separados no menu (Q03 do QA da
+ * `86`). A query fica como está — `?q=Anel` é dado da busca, não endereço. Externo passa intacto.
+ */
+export const menuHrefKey = (href: unknown): string => {
+  const normal = normalizeMenuHref(href)
+  if (normal === '' || menuHrefIsExternal(normal)) return normal
+  const corte = normal.search(/[?#]/)
+  return corte === -1
+    ? normal.toLowerCase()
+    : `${normal.slice(0, corte).toLowerCase()}${normal.slice(corte)}`
+}
+
+/**
  * Os banners crus de uma superfície — a **forma** do jsonb, lida num lugar só.
  *
  * Mora aqui, e não em `banners.ts`, por causa da direção dos imports: `banners.ts` importa
@@ -366,13 +382,21 @@ export const menuBannerSlots = (raw: unknown, surface: MenuSurface): unknown[] =
  * feature 16. Duas escritas dele divergiriam no primeiro empate — e empate é o caso comum, porque
  * `sort_order` nasce 0 para todo mundo.
  */
-export const byMenuOrder = (a: MenuItem, b: MenuItem): number =>
+export const byMenuOrder = (a: LegacyMenuItem, b: LegacyMenuItem): number =>
   bySortOrder(
     { sort_order: a.sortOrder, name: a.name },
     { sort_order: b.sortOrder, name: b.name },
   )
 
 /**
+ * **LEGADO — feature 86.** O menu de uma superfície **deduzido das colunas da categoria**
+ * (`menu_desktop`/`menu_mobile`) e dos `links` de `store_settings.menu`. Era a porta única até a
+ * `86`; hoje é só o MOTOR de `legacyMenuDocument` (`structure.ts`), que converte esta saída no
+ * documento v2 enquanto a loja ainda não tem um gravado. A porta é `menuItems`, em `structure.ts`.
+ * Sai junto com o legado, depois que a produção tiver o v2.
+ *
+ * O texto abaixo é o da feature 39, e continua descrevendo a dedução:
+ *
  * O menu de uma superfície. **A única porta** — nenhuma tela filtra, ordena ou trunca por conta.
  *
  * Três regras moram aqui, e cada uma existia solta numa tela antes:
@@ -396,7 +420,7 @@ export const byMenuOrder = (a: MenuItem, b: MenuItem): number =>
  * o header travar. `parent_id` não tem constraint que impeça o ciclo, e o formulário de categoria do
  * backoffice sempre deixou escolher descendente como pai.
  */
-export const menuItems = (input: MenuInput, surface: MenuSurface): MenuItem[] => {
+export const legacyMenuItems = (input: MenuInput, surface: MenuSurface): LegacyMenuItem[] => {
   // Linha nula não é categoria: ela chega quando um mapper devolve `undefined` para uma linha que
   // não reconheceu, e `pathLabel` varre a lista INTEIRA — a inativa incluída. Sem este recorte, uma
   // linha ruim derruba o header todo em vez de sumir sozinha.
@@ -408,9 +432,9 @@ export const menuItems = (input: MenuInput, surface: MenuSurface): MenuItem[] =>
   const visiveis = categories.filter(c => c.active)
   const marcadas = new Set(visiveis.filter(c => naSuperficie(c, surface)).map(c => c.id))
 
-  const entradas: MenuItem[] = visiveis
+  const entradas: LegacyMenuItem[] = visiveis
     .filter(c => marcadas.has(c.id) && !(c.parent_id && marcadas.has(c.parent_id)))
-    .map((c): MenuCategoryItem => {
+    .map((c): LegacyMenuCategoryItem => {
       const children = visiveis
         .filter(filha => filha.parent_id === c.id && marcadas.has(filha.id))
         .sort(bySortOrder)
@@ -429,7 +453,7 @@ export const menuItems = (input: MenuInput, surface: MenuSurface): MenuItem[] =>
       }
     })
 
-  const atalhos: MenuItem[] = links
+  const atalhos: LegacyMenuItem[] = links
     .filter(l => linkNaSuperficie(l, surface))
     // Rótulo ou destino vazio não é item: é linha pela metade no jsonb. O que **não** se recusa aqui
     // é destino que deixou de ser rota — a loja não tem como saber, e sumir com ele em silêncio é
@@ -437,7 +461,7 @@ export const menuItems = (input: MenuInput, surface: MenuSurface): MenuItem[] =>
     .filter(
       l => typeof l.label === 'string' && l.label.trim() !== '' && normalizeMenuHref(l.href) !== '',
     )
-    .map((l): MenuLinkItem => ({
+    .map((l): LegacyMenuLinkItem => ({
       kind: 'link',
       id: l.id,
       name: l.label.trim(),
@@ -467,14 +491,14 @@ export const MENU_PANEL_COLUMN_SIZE = 8
  * `max` inválido (zero, negativo, fracionário) cai no padrão em vez de laçar para sempre: a
  * alternativa de um laço sem progresso é o header não renderizar nunca.
  */
-export const menuPanelColumns = (
-  children: readonly MenuCategory[],
+export const menuPanelColumns = <T,>(
+  children: readonly T[],
   max: number = MENU_PANEL_COLUMN_SIZE,
-): MenuCategory[][] => {
+): T[][] => {
   const lista = children ?? []
   const porColuna = Number.isInteger(max) && max > 0 ? max : MENU_PANEL_COLUMN_SIZE
 
-  const colunas: MenuCategory[][] = []
+  const colunas: T[][] = []
   for (let i = 0; i < lista.length; i += porColuna) colunas.push(lista.slice(i, i + porColuna))
   return colunas
 }

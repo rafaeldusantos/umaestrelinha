@@ -5,7 +5,7 @@
 - **Severity:** Low · **Priority:** P3
 - **Persona Affected:** Cliente com conta da loja (fonte do celular aumentada)
 - **Journey Step:** J-ler-a-politica-de-privacidade (e toda página da loja: o rodapé é comum)
-- **Scenarios:** LOJA-politica-hora-cheia
+- **Scenarios:** LOJA-politica-hora-cheia; LOJA-menu-teclado-e-fonte-grande
 - **Found:** 2026-10-27 · **Report:** reports/2026-10-27-mobile-adm-loja-ao-vivo.md
 
 ## Summary
@@ -49,3 +49,11 @@ de token exato em `Footer.test.tsx` (vermelho antes) e três mutantes mortos por
 fica entre x = 48 e 342. O `scrollWidth` a 390/200 % segue **434**, pelo grupo de ícones do cabeçalho (até 426).
 O status continua "fixed parcialmente" até a decisão sobre o cabeçalho. Relatório:
 `reports/2026-10-27-mobile-adm-loja-ao-vivo-reteste.md`.
+
+## Re-found (2026-10-28, feature 86)
+
+Ciclo de QA da 86 (`reports/2026-10-28-backoffice-menu-montado-pela-dona.md`), cenário LOJA-menu-teclado-e-fonte-grande. Loja em 390 a 200 %: `scrollWidth` 434,
+pelo botão "Abrir menu" do **cabeçalho** (borda direita em 426) — o mesmo sintoma do cabeçalho já anotado. Com a
+folha aberta e o acordeão de "Joias afetivas" aberto, a folha rola de lado por dentro (494/390) pelo atalho "Pedidos";
+o placeholder da busca vaza da pílula e os subitens da folha (`text-[15px]`) não crescem com a fonte. Evidência:
+`evidence/2026-10-28-backoffice-menu-montado-pela-dona/86-qa-20-loja-folha-390-fonte200.png`.

@@ -3,10 +3,14 @@ import {
   byMenuOrder,
   menuBannerSlots,
   menuHrefIsExternal,
-  menuItems,
+  // Feature 86: o motor de antes virou `legacyMenuItems` (a porta nova mora em `structure.ts`). Os
+  // casos abaixo continuam medindo exatamente a mesma dedução, com a mesma régua — só o nome mudou,
+  // e o alias mantém cada linha intacta. A equivalência da porta nova com este motor é provada em
+  // `structureMenuItems.test.ts`.
+  legacyMenuItems as menuItems,
   normalizeMenuHref,
   type MenuCategory,
-  type MenuCategoryItem,
+  type LegacyMenuCategoryItem as MenuCategoryItem,
   type MenuLink,
 } from '../menu'
 

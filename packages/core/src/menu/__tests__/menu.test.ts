@@ -7,7 +7,9 @@ import {
   bySortOrder,
   categoryHref,
   descendantIds,
-  menuItems,
+  // Feature 86: o motor de antes é `legacyMenuItems`; os casos de URL-03 continuam contra ele, e a
+  // porta nova é comparada a ele em `structureMenuItems.test.ts`.
+  legacyMenuItems as menuItems,
   pathLabel,
   type MenuCategory,
 } from '../menu'

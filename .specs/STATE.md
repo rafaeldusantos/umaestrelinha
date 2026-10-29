@@ -1628,6 +1628,32 @@
 - **Date**: 2026-10-27
 - **Status**: active
 
+### AD-068
+- **Decision**: **o menu da loja é MONTADO pela dona, num documento próprio, e deixa de ser deduzido
+  da árvore de categorias.** `store_settings.menu` passa a guardar `{ version: 2, items: [...] }`: os
+  itens do menu principal, na ordem, cada um com destino (categoria por `id`, ou link interno), nome
+  (`null` = o nome da categoria, nunca cópia), ícone, banners, as chaves Computador/Celular e o submenu
+  (até 24 nós). A porta das quatro superfícies continua sendo `menuItems`, agora em
+  `core/menu/structure.ts`, lendo o documento. Enquanto não houver v2, a mesma porta converte o legado
+  (`legacyMenuDocument`), e a primeira gravação da dona o substitui. Implementação: feature `86`.
+- **Reason**: a dedução da `AD-028` (filha ligada de pai ligado vira item de painel) obrigava a tela a
+  listar o catálogo inteiro com chaves cujo efeito dependia de outras chaves, e a ordem do menu era a
+  `sort_order` da árvore, que também ordena a Home e o rodapé. Medido na spec da `86`.
+- **Supersedes**: as partes (1) e (2) da `AD-028` (curadoria e papel nas colunas `menu_desktop`/
+  `menu_mobile` de `categories`) e o "menu é um recorte de `categories`, não uma entidade própria" da
+  `AD-014`. A objeção da `AD-014` (uma segunda árvore divergiria no primeiro rename) é respondida por
+  referência por `id` com nome `null`. As partes (3) e (4) da `AD-028` (links e banners) continuam,
+  agora dentro do nó.
+- **Trade-off**: sem FK no jsonb: categoria apagada continua referenciada até a dona tirar o item
+  (a loja não a mostra; o painel diz "Categoria apagada"). Sem `check` de forma no banco: a leitura
+  tolera tudo. Convivência temporária com o legado, sequencial e não paralela; o `BL` da `86` apaga
+  `legacyMenuDocument` e as colunas depois que a produção tiver v2.
+- **Scope**: `packages/core/src/menu/{structure,refusals,preview}.ts`,
+  `apps/backoffice/src/{pages/admin/AdminMenuPage.tsx,features/store-menu/**}`,
+  `apps/store/src/{entities/category/api/useMenu.ts,entities/menu/**,widgets/header/**,widgets/mobile-menu/**}`
+- **Date**: 2026-10-28
+- **Status**: active (abordagem A confirmada pelo usuário em 2026-10-28)
+
 ## Handoff
 
 ### ATUAL — 2026-10-27 · `83-loja-ao-vivo` (Fase 1, Acessos) **IMPLEMENTADA (T01..T14), verificada, QA e reteste feitos, commitada na branch, sem push — falta o Android real**

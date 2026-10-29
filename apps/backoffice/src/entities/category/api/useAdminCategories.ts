@@ -37,6 +37,17 @@ export const CATEGORY_SELECT = [
   'created_at', 'updated_at',
 ].join(', ')
 
+/**
+ * O que uma escrita em `categories` pode levar — tudo, MENOS a curadoria antiga do menu.
+ *
+ * Desde a feature 86 (`AD-068`) o menu mora no documento de `store_settings.menu`, gravado por
+ * `useStoreMenu`. As três colunas da `39` continuam no `CATEGORY_SELECT` porque ainda são LIDAS (é
+ * delas que `legacyMenuDocument` monta o menu de antes da primeira gravação), mas nenhuma tela as
+ * escreve mais: gravá-las mudaria uma fonte que a loja deixou de ler assim que há documento, sem
+ * erro nenhum. O tipo recusa o literal; `menuDocumentoComDonoUnico.test.ts` recusa o resto.
+ */
+export type CategoryUpdate = Partial<Omit<DbCategory, 'menu_desktop' | 'menu_mobile' | 'menu_banners'>>
+
 /** Uma linha de `category_product_counts` (a view da `T52`). */
 interface CategoryCountRow {
   category_id: string
@@ -150,7 +161,7 @@ export const useAdminCategories = () => {
     return { error, id: (data as { id?: string } | null)?.id ?? null }
   }
 
-  const updateCategory = async (id: string, updates: Partial<DbCategory>) => {
+  const updateCategory = async (id: string, updates: CategoryUpdate) => {
     const { error } = await supabase.from('categories').update(updates).eq('id', id)
     if (!error) await fetchCategories('revalidar')
     return error
@@ -163,7 +174,7 @@ export const useAdminCategories = () => {
   }
 
   /** `Mostrar` / `Ocultar` da barra de massa: UM update para N ids. */
-  const updateCategoriesBatch = async (ids: string[], updates: Partial<DbCategory>) => {
+  const updateCategoriesBatch = async (ids: string[], updates: CategoryUpdate) => {
     if (ids.length === 0) return null
     const { error } = await supabase.from('categories').update(updates).in('id', ids)
     if (!error) await fetchCategories('revalidar')

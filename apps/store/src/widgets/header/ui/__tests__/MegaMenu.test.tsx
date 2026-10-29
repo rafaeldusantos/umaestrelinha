@@ -34,29 +34,41 @@ vi.mock('@/entities/menu', () => ({
   useMenuPreview: () => previewState,
 }))
 
-const filha = (id: string, name: string) => ({ id, name, slug: id }) as never
+// Feature 86: o filho é um `MenuChild` — `{ id, name, href, external }` —, e o `href` é o que a porta
+// `menuItems` monta. Sem `href` explícito, a fixture monta o da filha da árvore (`/<pai>/<filha>`),
+// que é exatamente o endereço que este painel montava antes por `categoryPath(filha.slug, item.slug)`.
+const filha = (id: string, name: string, href?: string) =>
+  ({ id, name, href, external: false }) as MenuItem['children'][number]
 
-const categoria = (over: Partial<MenuItem> & { id: string; name: string }): MenuItem =>
-  ({
+const categoria = (over: Partial<MenuItem> & { id: string; name: string }): MenuItem => {
+  const item = {
     kind: 'category',
-    slug: over.id,
+    categoryId: over.id,
     // `AD-018`: o href da entrada é a canônica que `menuItems` monta — raiz, um segmento.
     href: `/${over.id}`,
-    path: over.name,
+    external: false,
     icon: null,
-    sortOrder: 0,
     children: [],
+    banners: null,
     hasPanel: false,
     ...over,
-  }) as MenuItem
+  } as MenuItem
+  return {
+    ...item,
+    children: item.children.map(f => ({ ...f, href: f.href ?? `/${over.id}/${f.id}` })),
+  }
+}
 
 const link = (over: Partial<MenuItem> & { id: string; name: string }): MenuItem =>
   ({
     kind: 'link',
+    categoryId: null,
     href: `/${over.id}`,
     icon: null,
-    sortOrder: 0,
     external: false,
+    children: [],
+    banners: null,
+    hasPanel: false,
     ...over,
   }) as MenuItem
 

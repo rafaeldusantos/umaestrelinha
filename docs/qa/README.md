@@ -225,3 +225,59 @@ bugs Friction novos (três anteriores à 85: ordem só por arrasto, foco do moda
 provavelmente) e dois re-found (abrir sujo; "Close"). Da própria 85: o Resumo corta texto a 200 %, o foco cai no
 body ao resolver a pendência de imagem, o envio não é anunciado ao leitor e as linhas "enviada" ficam na tela.
 Peças `TESTE-85-QA-` e os 14 objetos enviados foram apagados.
+
+## Ciclo planejado — feature `86` (o menu montado pela dona), nível *targeted*
+
+Planejado em 2026-10-28 (`qa-report`) e **executado no mesmo dia** (`qa-execution`): `reports/2026-10-28-backoffice-menu-montado-pela-dona.md` — 19 pass, 8 fail, 11 bugs novos (8 da 86, 3 anteriores) e 2 re-found. **Reteste (rodada 2) em 2026-10-29**: `reports/2026-10-29-backoffice-menu-montado-pela-dona-reteste.md` — as 10 correções verified, 3 bugs novos das correções (1 Medium, 2 Low), not ready. **Reteste (rodada 3) em 2026-10-29**: `reports/2026-10-29-backoffice-menu-montado-pela-dona-reteste-r3.md` — os 3 bugs do r2 verified, R05 verified, 2 bugs novos Low (filha num segmento recusada; foco na reabertura do seletor), not ready. Duas jornadas novas, `J-montar-o-menu-da-loja` (22
+cenários `PNL-menu-*`) e `J-navegar-pelo-menu-da-loja` (5 cenários `LOJA-menu-*`); os 27 nascem `untested`.
+Duas personas novas em `personas.md`: **Adri montando o menu** (pouco técnica, 390 e toque) e **Cliente
+navegando pelo menu** (contexto memorial, celular); a terceira é a Equipe com TalkBack.
+
+**Ambiente — só local.** Supabase local (API `127.0.0.1:54441`), loja dev em :8082 e painel dev em :8083
+(os dois com `VITE_SUPABASE_URL` local), admin do `supabase/seed.sql`. No contexto do Playwright: abortar
+`*.supabase.co` e o GA **por host** (`google-analytics.com`, `googletagmanager.com`, `analytics.google.com`)
+mais `**/g/collect*` — nunca por substring da URL (o regex casou `src/features/google-analytics` do painel
+e o deixou em branco, `prova-navegador.md`). **Antes da sessão** guardar `store_settings.menu` (hoje
+legado, sem `version`) e o retrato de `categories` (`id, name, slug, parent_id, sort_order, active, icon,
+menu_desktop, menu_mobile, menu_banners`); **no fim** restaurar e conferir com `diff`/`cmp`. Categorias de
+teste com prefixo `TESTE-86-QA-` (inativa, apagada, renomeada, com > 24 filhas), apagadas no fim; arte de
+banner só no Storage local (`home-images/menu`), objetos de teste apagados. Fixturas de documento (v2
+vazio, 20 itens, link externo legado) por `update` no banco local, restauradas. Falhas de gravação e
+leitura por interceptação de `**/rest/v1/store_settings*`; a resposta perdida por `route.fetch()` +
+`context.setOffline(true)`. Fonte por `html { font-size }` a 100/130/200 % em 360/390/1024/1440;
+movimento por `emulateMedia({ reducedMotion: 'reduce' })`. Nada de produção.
+
+Ordem por risco:
+
+| # | Charter | Persona | Tour | Caixa |
+| --- | --- | --- | --- | --- |
+| 1 | `CH-menu-montar-do-zero-no-celular` | Adri montando o menu (390) | Money | 90 |
+| 2 | `CH-menu-primeiro-acesso-loja-igual` | Adri montando o menu (1440) | Feature | 45 |
+| 3 | `CH-menu-gravacao-com-rede-ruim` | Adri montando o menu (390, 4g) | Network | 45 |
+| 4 | `CH-menu-duas-janelas-e-toque-duplo` | Adri montando o menu (1440) | Multi-Tab | 45 |
+| 5 | `CH-menu-loja-depois-de-gravar` | Cliente navegando pelo menu (390 e 1440) | Back-Button | 45 |
+| 6 | `CH-menu-limites-e-enderecos-invalidos` | Adri montando o menu (390) | Garbage | 60 |
+| 7 | `CH-menu-editar-nome-icone-banners` | Adri montando o menu (1440) | Interrupt | 45 |
+| 8 | `CH-menu-celular-fonte-grande-e-movimento` | Adri montando o menu / Cliente | Feature | 45 |
+| 9 | `CH-menu-teclado-e-leitor` | Equipe com TalkBack | Feature | 45 |
+| canário | `/admin/home`: a prévia ainda abre e acompanha (o `StoreLayout` mudou para a folha da prévia abrir no quadro de 390, e `previaUnica` foi tocado); loja: a folha do celular abre e fecha fora da prévia | — | — | 15 |
+
+O que a `prova-navegador.md` deixou sem medir e este ciclo cobre: o conflito entre janelas em navegador
+(#4), os banners do nó em navegador (#7), a fonte grande e o movimento reduzido (#8), o teclado/leitor
+(#9). Ficam `blocked-verify` (só humano): o arraste com o dedo no Android/iOS real (o caminho de toque é
+"Mover…"), o TalkBack real e a escala de texto do sistema.
+
+**Registro de bugs para este ciclo.** Nenhum bug da `86` aberto na hora do planejamento. Antes de abrir
+um bug novo, procurar em `bugs/` — candidatos a **re-found** (atualizar o arquivo existente e acrescentar
+o cenário em `Scenarios`, não duplicar): `BUG-20261026-fechar-do-modal-em-ingles` (o X do `Dialog`
+anuncia "Close", 16 × 16, no seletor e no editor do menu) e
+`BUG-20261027-rodape-da-loja-rola-de-lado-com-fonte-200` (o cabeçalho da loja ainda rola a 390/200 %).
+Achados da prova, anteriores à `86` e **ainda não registrados** (registrar só se um persona os encontrar
+na sessão, com cenário ligado): "Ver na loja" de `/admin/home` abre a raiz do painel
+(`AdminHomePage.tsx:254`, o mesmo defeito consertado no menu); campo de busca do `MenuIconPicker` (36 px)
+e a barra do palco da prévia (36 px, compartilhada com `/admin/home`). Bug de cenário `PNL-menu-*`/`LOJA-menu-*`
+leva o id no `bug_ids` do cenário; impacto pela régua de `bug-registry.md` — gravar o que não salvou ou
+sobrescrever a outra janela é Data-Loss; item que leva a cliente a 404 é Trust-Damage.
+
+Taxonomia por jornada: as cinco dimensões estão no rodapé de cada `J-*.md`. Em `J-navegar-pelo-menu-da-loja`
+a concorrência é N/A declarada (só leitura).

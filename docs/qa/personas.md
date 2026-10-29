@@ -88,3 +88,41 @@ persona:
 Faz a peça, fotografa e cadastra na mesma tarde. Escreve no registro memorial da loja: nada festivo, nada
 de urgência. O que mais assusta é perder o texto que ela já escreveu, ou a loja mostrar no Google algo que
 ela não viu. Estava em `journeys/J-cadastrar-peca-com-variacoes.md` (`81`); entrou aqui no ciclo da `84`.
+
+## Adri montando o menu da loja (painel, quase sempre no celular)
+
+```yaml
+persona:
+  name: Adri montando o menu
+  base: Mobile User
+  goal: deixar o menu da loja com os itens, a ordem, os nomes e os submenus que ela quer, sem adivinhar o que cada chave faz
+  device: phone-large (390), às vezes o notebook (1440); fonte do sistema às vezes em 130 % ou 200 %
+  network: 4g
+  modality: touch no celular (sem arraste confiável); mouse + teclado no notebook
+  locale: pt-BR
+  patience_seconds: 15
+```
+
+Pouco técnica: pensa em "o que a cliente vê", não em categoria, slug ou `sort_order`. Abre `/admin/menu`
+entre uma peça e outra, faz uma mudança e confere na prévia. O que mais a assusta é mexer no menu e
+bagunçar outra tela da loja (a Home, o rodapé), ou achar que salvou quando não salvou. Entrou no ciclo da
+`86`; a persona "Adri cadastrando peças" continua sendo a do cadastro de produto.
+
+## Cliente navegando a loja pelo menu (celular, contexto memorial)
+
+```yaml
+persona:
+  name: Cliente navegando pelo menu
+  base: Casual User
+  goal: achar a joia certa para o material que ela tem (cinzas, leite, mecha) pelo menu, sem se perder
+  device: phone-small (360) e phone-large (390); às vezes o notebook (1440)
+  network: 4g
+  modality: touch; no notebook mouse e às vezes só teclado
+  locale: pt-BR
+  patience_seconds: 10
+```
+
+Muitas vezes acabou de perder alguém. Abre a folha do menu no celular, toca num item, abre o submenu,
+escolhe. Qualquer item que leva a uma página vazia, a uma categoria que não existe mais ou a "Página não
+encontrada" pesa mais aqui do que numa loja comum. Não tem conta nem papel no painel. Entrou no ciclo da
+`86`.

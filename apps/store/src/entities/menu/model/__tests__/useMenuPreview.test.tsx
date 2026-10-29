@@ -61,7 +61,8 @@ const rascunho = (nome = 'Joias afetivas'): MenuPreviewDraft => ({
       menu_mobile: true,
     },
   ],
-  links: [],
+  // Feature 86: o rascunho leva o documento do menu (a forma `{ categories, links }` é recusada).
+  document: { version: 2, items: [] },
 })
 
 beforeEach(() => {

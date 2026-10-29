@@ -1,8 +1,8 @@
 // Os banners gravados de uma superfície — o dono único da leitura.
 //
 // Mora num módulo próprio desde a feature 47, e não dentro do `MenuBannerEditor`, porque dois
-// componentes a consomem: o editor, que os desenha, e a aba "Banners" do `MenuEntryEditor`, que
-// mostra **quantos são**. Contagem e dado contado têm de sair do mesmo predicado (`AD-025`,
+// componentes a consomem: o editor, que os desenha, e a caixa "Banners do painel" do `MenuItemEditor`
+// (feature 86), que mostra **quantos são**. Contagem e dado contado têm de sair do mesmo predicado (`AD-025`,
 // `FOCO-32`) — uma segunda leitura na aba diria "2" com o editor mostrando 3, e nada quebraria.
 
 import { menuBannerSlots, type MenuBanner, type MenuSurface } from '@estrelinha/core/menu'

@@ -20,7 +20,7 @@ import { ExternalLink, Maximize2, Minimize2, Monitor, RefreshCw, Smartphone } fr
 import {
   menuPreviewDevice,
   type MenuCategory,
-  type MenuLink,
+  type MenuDocument,
   type MenuSurface,
 } from '@estrelinha/core/menu'
 import { PREVIEW_DEVICES, previewFrame, previewMetrics, previewSrc } from '@estrelinha/core/home'
@@ -35,12 +35,13 @@ interface Props {
   surface: MenuSurface
   /** A árvore inteira, como a tela a tem. Quem filtra por superfície é a loja, com `menuItems`. */
   categories: MenuCategory[]
-  links: MenuLink[]
-  /** A entrada selecionada na lista: é o painel que a prévia abre. */
+  /** Feature 86 — o documento da dona, inteiro (o otimista, durante a gravação). */
+  document: MenuDocument
+  /** O id do NÓ selecionado na lista: é o painel que a prévia abre. */
   openId: string | null
 }
 
-const MenuLivePreview = ({ surface, categories, links, openId }: Props) => {
+const MenuLivePreview = ({ surface, categories, document, openId }: Props) => {
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const palcoRef = useRef<HTMLDivElement>(null)
 
@@ -54,8 +55,22 @@ const MenuLivePreview = ({ surface, categories, links, openId }: Props) => {
 
   // O rascunho é montado **uma vez por mudança de fonte**: um objeto novo a cada render viraria um
   // `postMessage` por quadro, e o debounce do rascunho não teria o que segurar.
-  const draft = useMemo(() => ({ categories, links }), [categories, links])
-  const { aoCarregar } = useMenuPreviewBridge({ iframeRef, origin: origem, draft, openId })
+  // Feature 86 (T19): o rascunho leva o DOCUMENTO que a tela edita — o mesmo que `useStoreMenu`
+  // grava —, e a loja o desenha com a porta `menuItems`. Nada de conversão aqui: a conversão do
+  // legado é do hook, e uma segunda conversão no palco seria um segundo dono do documento.
+  const draft = useMemo(() => ({ categories, document }), [categories, document])
+  // O `open` é o id do NÓ, direto. Um id que saiu do documento (o item foi removido) fecha o painel
+  // em vez de pedir à loja um item que ela não tem.
+  const openNodeId = useMemo(
+    () => (openId && document.items.some(i => i.id === openId) ? openId : null),
+    [document, openId],
+  )
+  const { aoCarregar } = useMenuPreviewBridge({
+    iframeRef,
+    origin: origem,
+    draft,
+    openId: openNodeId,
+  })
 
   useEffect(() => {
     const alvo = palcoRef.current

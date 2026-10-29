@@ -85,10 +85,12 @@ describe('âncora — a varredura alcançou a feature de verdade', () => {
     // varrerem uma lista vazia e aprovarem por vacuidade — a pior falha possível num guarda destes.
     expect(FONTES_MENU.length).toBeGreaterThan(4)
     for (const alvo of [
-      'ui/MenuSlotList.tsx',
-      'ui/MenuPanelEditor.tsx',
+      // Feature 86: a lista e o painel de filhas da 39 (que gravavam em `categories`) foram apagados
+      // na T20; a âncora passou às superfícies que os substituíram, sem perder entrada.
+      'ui/MenuTree.tsx',
+      'ui/MenuTargetPicker.tsx',
       'ui/MenuBannerEditor.tsx',
-      'model/useMenuLinks.ts',
+      'model/useStoreMenu.ts',
     ]) {
       expect(FONTES_MENU.some(f => f.replace(/\\/g, '/').endsWith(alvo))).toBe(true)
     }
@@ -283,7 +285,9 @@ describe('NAV-43 — o segundo desenho do menu não existe mais', () => {
     const barrel = ler(join(MENU, 'index.ts'))
     expect(barrel).not.toMatch(/export .*\bMenuBarPreview\b.*from/)
     expect(barrel).not.toMatch(/FIXED_(MENU_)?ENTRIES/)
-    expect(barrel).toContain('MenuSlotList')
+    // O barril existe e exporta a lista de verdade (`MenuTree`, desde a 86) — sem isto, um barril
+    // vazio passaria nas duas ausências acima.
+    expect(barrel).toMatch(/export \{ default as MenuTree \} from '\.\/ui\/MenuTree'/)
   })
 
   it('nenhum arquivo importa um `MenuBarPreview`', () => {
@@ -426,7 +430,7 @@ describe('FOCO-22 — a tela cheia não criou uma segunda prévia', () => {
       // 1. A régua de NOME acusa o arquivo…
       expect(previasEm(pasta)).toEqual(['FullscreenPreview.tsx'])
       // …e um arquivo sem "Preview" no nome não é acusado, senão a régua estaria pegando qualquer um.
-      writeFileSync(join(pasta, 'MenuEntryEditor.tsx'), 'const x = 1\n', 'utf8')
+      writeFileSync(join(pasta, 'MenuItemEditor.tsx'), 'const x = 1\n', 'utf8')
       expect(previasEm(pasta)).toEqual(['FullscreenPreview.tsx'])
 
       // 2. E a régua de CONTEÚDO acusa o iframe dentro dele.

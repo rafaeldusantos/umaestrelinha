@@ -123,3 +123,46 @@ describe('NAV-48 — a busca acha sem acento e sem caixa', () => {
     expect(oferecidos()).toEqual(['icone-opcao-unha'])
   })
 })
+
+/**
+ * Q06b do QA da `86` (`BUG-20261028-controles-do-menu-saem-da-tela-com-fonte-grande`) — com a letra
+ * do celular a 200 % o contador "N no conjunto" ia até x = 438 numa janela de 390 e o diálogo do
+ * editor rolava de lado; a busca media 36 px a 100 %. jsdom não mede: a régua é de token exato, e a
+ * medida de verdade está no bug.
+ */
+describe('Q06b — com a fonte grande, o seletor de ícone cabe na largura', () => {
+  const tem = (el: Element, t: string) => el.className.split(/\s+/).includes(t)
+
+  it('o cabeçalho embrulha: o título quebra linha e o contador desce em vez de passar da borda', () => {
+    montar()
+    const linha = screen.getByTestId('contador-icones').parentElement!
+    expect(tem(linha, 'flex-wrap')).toBe(true)
+    const titulo = screen.getByRole('heading', { name: /Ícone de/ })
+    expect(tem(titulo, 'min-w-0')).toBe(true)
+    expect(tem(titulo, 'break-words')).toBe(true)
+  })
+
+  it('a busca tem 44 px (h-11), não 36 (h-9)', () => {
+    montar()
+    const busca = screen.getByTestId('busca-icone')
+    expect(tem(busca, 'h-11')).toBe(true)
+    expect(tem(busca, 'h-9')).toBe(false)
+  })
+
+  it('a cela cresce com o rótulo (altura mínima), em vez de cortar o texto numa altura fixa', () => {
+    montar()
+    for (const cela of [screen.getByTestId('icone-nenhum'), ...screen.getAllByTestId(/^icone-opcao-/)]) {
+      expect(tem(cela, 'min-h-[76px]')).toBe(true)
+      expect(tem(cela, 'h-[76px]')).toBe(false)
+    }
+  })
+
+  it('SENSOR: a régua acusa a forma antiga', () => {
+    const antiga = document.createElement('input')
+    antiga.className = 'h-9 w-full rounded-lg'
+    expect(tem(antiga, 'h-11')).toBe(false)
+    const cela = document.createElement('button')
+    cela.className = 'flex h-[76px] w-[100px]'
+    expect(tem(cela, 'min-h-[76px]')).toBe(false)
+  })
+})

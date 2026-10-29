@@ -36,7 +36,7 @@ interface Props {
 }
 
 const CELA =
-  'flex h-[76px] w-[100px] shrink-0 flex-col items-center justify-center gap-1.5 rounded-xl border text-center'
+  'flex min-h-[76px] w-[100px] shrink-0 flex-col items-center justify-center gap-1.5 rounded-xl border text-center'
 
 const MenuIconPicker = ({ itemName, value, onChange }: Props) => {
   // A leitura passa por `menuIconKey`: um valor que veio por SQL na mão, ou de uma importação,
@@ -67,8 +67,8 @@ const MenuIconPicker = ({ itemName, value, onChange }: Props) => {
   return (
     <div className="rounded-2xl border border-border bg-card">
       <header className="flex flex-col gap-2 border-b border-border px-4 py-3">
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="font-heading text-sm font-bold text-foreground">Ícone de “{itemName}”</h2>
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+          <h2 className="min-w-0 break-words font-heading text-sm font-bold text-foreground">Ícone de “{itemName}”</h2>
           <span
             data-testid="contador-icones"
             className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground"
@@ -99,7 +99,7 @@ const MenuIconPicker = ({ itemName, value, onChange }: Props) => {
             placeholder="Buscar pelo nome — “gravacao” acha “Gravação”"
             /* `border-input` e não `border-border`: `fieldBorder.test.ts` cobra o token de contorno
                de controle de todo `<input>` do repositório, e `border` reprova os 3:1 da WCAG. */
-            className="h-9 w-full rounded-lg border border-input bg-background pl-8 pr-3 text-xs text-foreground placeholder:text-muted-foreground"
+            className="h-11 w-full rounded-lg border border-input bg-background pl-8 pr-3 text-xs text-foreground placeholder:text-muted-foreground"
           />
         </label>
       </header>

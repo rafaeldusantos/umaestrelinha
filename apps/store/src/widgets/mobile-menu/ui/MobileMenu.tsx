@@ -8,7 +8,6 @@ import { EstrelinhaSignature } from '@estrelinha/ui/brand'
 import { useAuthContext } from '@estrelinha/auth'
 import type { MenuItem, ResolvedMenuBanner } from '@estrelinha/core/menu'
 import { renditionSrcSet, renditionUrl } from '@estrelinha/core/media'
-import { categoryPath } from '@estrelinha/core/routes'
 import { useMenu, useMenuUiStore } from '@/entities/category'
 import { useMenuBanners, useMenuPreview } from '@/entities/menu'
 import { useSearchUiStore } from '@/features/search'
@@ -68,7 +67,8 @@ const MobileMenu = () => {
    * Chamar o hook por linha faria a folha resolver o destino de todos os banners de todas as
    * entradas só para desenhar a lista. Como há um acordeão aberto por vez, um id basta.
    */
-  const banners = useMenuBanners(expandedId, 'mobile')
+  // Feature 86: os banners são os do NÓ aberto (`item.banners`) — categoria ou link.
+  const banners = useMenuBanners(items.find(item => item.id === expandedId) ?? null, 'mobile')
 
   /**
    * `NAV-43` — na prévia, a folha abre sozinha, e no acordeão que o palco pediu.
@@ -312,21 +312,15 @@ const MobileMenuEntry = ({
     </>
   )
 
-  if (item.kind === 'link') {
-    // Item de link é link direto — sem painel, sem seta, sem subcategoria, sem banner (`NAV-12`).
+  // Sem painel é link direto, seja categoria ou link (`NAV-25`, `MNM-27`). Feature 86: um item de
+  // LINK pode ter submenu e banner, e aí abre o acordeão como qualquer outro — não é mais o tipo do
+  // item que decide, é `hasPanel`.
+  if (!item.hasPanel) {
     return item.external ? (
       <a href={item.href} target="_blank" rel="noopener noreferrer" className={ROW}>
         {rotulo}
       </a>
     ) : (
-      <Link to={item.href} onClick={onNavigate} className={ROW}>
-        {rotulo}
-      </Link>
-    )
-  }
-
-  if (!item.hasPanel) {
-    return (
       <Link to={item.href} onClick={onNavigate} className={ROW}>
         {rotulo}
       </Link>
@@ -356,28 +350,51 @@ const MobileMenuEntry = ({
            mais os 12px de respiro do board. Sem ícone não há vaga, então o recuo cai para o mínimo —
            é a contrapartida de `NAV-18` no arranjo. */
         <div className={`flex flex-col pb-3.5 ${item.icon ? 'pl-[34px]' : 'pl-3'}`}>
-          {item.children.map((filha) => (
-            <Link
-              key={filha.id}
-              to={categoryPath(filha.slug, item.slug)}
-              onClick={onNavigate}
-              className="min-h-11 py-1.5 text-[15px] leading-[32px] text-estrelinha-ink"
-            >
-              {filha.name}
-            </Link>
-          ))}
+          {/* Feature 86: o filho leva ao endereço DELE (outra categoria, ou um link). */}
+          {item.children.map((filho) =>
+            filho.external ? (
+              <a
+                key={filho.id}
+                href={filho.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="min-h-11 py-1.5 text-[15px] leading-[32px] text-estrelinha-ink"
+              >
+                {filho.name}
+              </a>
+            ) : (
+              <Link
+                key={filho.id}
+                to={filho.href}
+                onClick={onNavigate}
+                className="min-h-11 py-1.5 text-[15px] leading-[32px] text-estrelinha-ink"
+              >
+                {filho.name}
+              </Link>
+            ),
+          )}
 
           {/* `NAV-26` — a canônica da entrada. Só quando há filha: numa entrada que abriu o acordeão
               só por causa do banner, "ver tudo em X" duplicaria o toque na própria linha. */}
-          {item.children.length > 0 && (
-            <Link
-              to={item.href}
-              onClick={onNavigate}
-              className="min-h-11 py-1.5 text-[15px] font-semibold leading-[32px] text-estrelinha-primary"
-            >
-              ver tudo em {item.name} →
-            </Link>
-          )}
+          {item.children.length > 0 &&
+            (item.external ? (
+              <a
+                href={item.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="min-h-11 py-1.5 text-[15px] font-semibold leading-[32px] text-estrelinha-primary"
+              >
+                ver tudo em {item.name} →
+              </a>
+            ) : (
+              <Link
+                to={item.href}
+                onClick={onNavigate}
+                className="min-h-11 py-1.5 text-[15px] font-semibold leading-[32px] text-estrelinha-primary"
+              >
+                ver tudo em {item.name} →
+              </Link>
+            ))}
 
           {/* O banner mora AQUI, dentro do acordeão da entrada a que pertence (`NAV-36`) — e não uma
               vez só no fim da folha, como o promo antigo fazia. */}

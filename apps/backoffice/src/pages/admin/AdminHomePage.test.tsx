@@ -104,6 +104,13 @@ vi.mock('@/entities/product', async importOriginal => ({
 
 vi.mock('@estrelinha/ui/hooks/use-toast', () => ({ toast: toastMock }))
 
+/** Q09 do QA da `86` — `VITE_STORE_URL` fixada aqui, e não lida do ambiente. */
+const loja = vi.hoisted(() => ({ origem: 'http://localhost:8082' as string | null }))
+vi.mock('@/shared/lib/storeOrigin', () => ({
+  STORE_URL: 'http://localhost:8082',
+  storeOrigin: () => loja.origem,
+}))
+
 /**
  * O palco, dublado — e é o dublê que torna as ACs da prévia **mais** verificáveis do que eram.
  *
@@ -194,6 +201,7 @@ const renderPage = (initial = '/admin/home') => {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  loja.origem = 'http://localhost:8082'
   state.sections = DEFAULT_HOME_COMPOSITION.map(s => ({ ...s }))
   state.loading = false
   state.error = null
@@ -228,6 +236,27 @@ describe('AdminHomePage — a tela junta lista, bandeja e prévia', () => {
     const coluna = screen.getByTestId('coluna-secoes')
     expect(within(coluna).getByText('Blocos que você pode acrescentar')).toBeInTheDocument()
     expect(within(coluna).getByTestId('bloco-collection_feature')).toBeInTheDocument()
+  })
+})
+
+/**
+ * Q09 (`BUG-20261028-ver-na-loja-da-home-abre-o-painel`, anterior à `86`) — "Ver na loja" era
+ * `href="/"`: no painel, `/` é a raiz do próprio painel, e o botão abria o backoffice numa aba nova.
+ * O mesmo conserto que a `86` fez em `/admin/menu`: a origem da loja, por `storeOrigin`.
+ */
+describe('AdminHomePage — "Ver na loja" abre a LOJA (Q09)', () => {
+  it('o link aponta para a origem de `VITE_STORE_URL`, em aba nova', () => {
+    renderPage()
+    const link = screen.getByRole('link', { name: /Ver na loja/ })
+    expect(link).toHaveAttribute('href', 'http://localhost:8082/')
+    expect(link).toHaveAttribute('target', '_blank')
+  })
+
+  it('sem `VITE_STORE_URL` o botão não existe (nunca `href="/"`)', () => {
+    loja.origem = null
+    renderPage()
+    expect(screen.queryByRole('link', { name: /Ver na loja/ })).toBeNull()
+    expect(document.querySelector('a[href="/"]')).toBeNull()
   })
 })
 

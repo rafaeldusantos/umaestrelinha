@@ -38,7 +38,7 @@ sem ela a varredura passa com zero arquivo lido, que é a pior falha possível n
 | `./payment/*` | preço, parcelas, Pix, status, assinatura de webhook | loja, `mercado-pago` |
 | `./pricing` · `./formatters` | formatação e conta de exibição | os dois apps |
 | `./routes` | `ROUTE_SLUGS`, `RESERVED_SLUGS`, `LEGACY_REDIRECTS`, `productPath`, `MATERIAL_GUIDE_PATH` | router da loja, `vercel.json`, cadastro do painel |
-| `./menu` | `menuItems`, `menuPanelColumns`, `resolveMenuTarget`/`menuTargetRefusal`, `resolveMenuBanners`, `MENU_ICON_KEYS`, `descendantIds`, `bySortOrder`, `categoryHref`, o canal `preview.ts` | 4 superfícies nos 2 apps |
+| `./menu` | `menuItems` (lê o documento v2 desde a `86`), `parseMenuDocument`, `legacyMenuDocument`, `menuDocumentRefusal`/`menuNodeLabelRefusal`/`internalMenuHrefRefusal`, `menuPanelColumns`, `resolveMenuTarget`/`menuTargetRefusal`, `resolveMenuBanners`, `MENU_ICON_KEYS`, `descendantIds`, `bySortOrder`, `categoryHref`, o canal `preview.ts` | 4 superfícies nos 2 apps |
 | `./home` | catálogo de blocos, `DEFAULT_HOME_COMPOSITION`, `derive.ts`, `preview.ts`, `carousel.ts`, `featured.ts`, **`categoryList.ts`** | loja, painel |
 | `./faq` | `resolveProductFaqs`, `faqOverrideOf`, `rankFaqSuggestions`, `block.ts` | loja, painel, importador |
 | `./material` | máquina de estado, `requiresMaterial()`, `materialSummary`, **`steps.ts`** (`MATERIAL_STEPS`, `materialProgress`, `materialSubline`, `MATERIAL_USED_TITLE` — feature `74`) | loja, painel, app do ateliê, RPC (cópia em SQL) |
@@ -178,6 +178,28 @@ Consumida pelas **quatro** superfícies nos dois apps (barra do desktop, folha d
 `/admin/menu` e a prévia). Foi ter a regra em cada tela que produziu o bug original: o `Header` fazia
 `.slice(0, 4)` de uma lista chapada e a barra do topo mostrava o contêiner de tudo mais uma filha que
 empatou em `sort_order = 0`.
+
+### O documento da dona (feature `86`, `AD-068`) — `structure.ts` e `refusals.ts`
+
+- **`structure.ts`** é a forma do documento de `store_settings.menu` (`MenuDocument`, `MenuRootNode`,
+  `MenuNode`, alvo `category` | `link`), a leitura tolerante (`parseMenuDocument`: sem `version: 2` ⇒
+  `null`; nó sem `id`, alvo inválido ou não-objeto é descartado; categoria **inexistente fica**, para
+  o painel mostrar "apagada"), `menuNodeState`/`menuNodeName`, a conversão `legacyMenuDocument`
+  (as duas superfícies do legado unidas, ids estáveis `cat:<id>`/`link:<id>`, determinística) e a
+  **porta** `menuItems({ categories, document, links }, surface)`, que devolve `MenuItem`/`MenuChild`
+  (`href` pronto, `hasPanel` para categoria **e** link). `document` ausente ⇒ legado.
+- **`menu.ts` NÃO importa `structure.ts`**, e isso é guardado: `menu.ts` é alcançado pelo Deno
+  (`core/page`, sitemap) com âncoras cravadas de contagem; o arquivo novo importa `menu.ts`/`icons.ts`/
+  `banners.ts` com `.ts` explícito, nunca o contrário. A `menuItems` antiga virou **`legacyMenuItems`**
+  (motor de `legacyMenuDocument`), e sai com o legado (`BL-060`).
+- **`refusals.ts`**: `MENU_LABEL_MAX` (40), `MENU_SUBMENU_LIMIT` (24), `menuNodeLabelRefusal` (`null` =
+  usar o nome da categoria), `internalMenuHrefRefusal` (`menuTargetRefusal` + recusa de `http(s)://` e
+  `//` — só na **criação**) e `menuDocumentRefusal` (rótulos, teto do submenu, categoria repetida na
+  raiz ou no mesmo submenu, banners; link externo **já gravado** passa). Todas `string | null`.
+- **`preview.ts`**: o rascunho é `{ categories, document }` e o `open` leva o id do nó; a forma
+  `{ categories, links }` da `39` ⇒ `null`.
+
+O que segue é a regra da `39`, que hoje vive em `legacyMenuItems` (o menu antes da primeira gravação).
 
 - **A porta é `menuItems(input, surface)`, e é UMA.** Nenhuma tela filtra, ordena ou trunca por conta.
   Ela funde **duas fontes** — `categories` e `store_settings.menu.links` — numa lista só, ordenada

@@ -22,12 +22,25 @@ import { PRODUCT_POOL_KEY } from '@/entities/product'
 // O editor lê o nome e a `description` das peças que os banners já apontam; sem client dublado o
 // módulo do Supabase lança no carregamento. A consulta por id devolve lista vazia — o que a tela
 // precisa nomear vem do POOL, semeado no palco abaixo.
+// Feature 86 (T16): o dublê passou a REGISTRAR tabela e escrita, para "nenhuma escrita em
+// `categories` sai deste editor" ser auditável — sem o registro, a ausência seria verdadeira nos dois
+// mundos.
+const rede = vi.hoisted(() => ({ chamadas: [] as { tabela: string; metodo: string }[] }))
+
 vi.mock('@estrelinha/supabase/client', () => {
-  const alvo: Record<string, unknown> = {}
-  for (const metodo of ['select', 'eq', 'ilike', 'order', 'limit', 'in']) alvo[metodo] = () => alvo
-  alvo.then = (resolve: (v: unknown) => unknown) =>
-    Promise.resolve({ data: [], error: null }).then(resolve)
-  return { supabase: { from: () => alvo, storage: { from: () => ({ upload: vi.fn() }) } } }
+  const from = (tabela: string) => {
+    const alvo: Record<string, unknown> = {}
+    for (const metodo of ['select', 'eq', 'ilike', 'order', 'limit', 'in', 'update', 'insert', 'upsert', 'delete']) {
+      alvo[metodo] = () => {
+        rede.chamadas.push({ tabela, metodo })
+        return alvo
+      }
+    }
+    alvo.then = (resolve: (v: unknown) => unknown) =>
+      Promise.resolve({ data: [], error: null }).then(resolve)
+    return alvo
+  }
+  return { supabase: { from, storage: { from: () => ({ upload: vi.fn() }) } } }
 })
 
 import MenuBannerEditor from './MenuBannerEditor'
@@ -77,7 +90,9 @@ const montar = (menu_banners: unknown, surface: 'desktop' | 'mobile' = 'desktop'
     <Palco>
       <MenuBannerEditor
         surface={surface}
-        host={{ ...CATEGORIAS[0], menu_banners } as AdminCategory}
+        // Feature 86 (T16): o dono dos banners é o ITEM do menu. A fixture passa o mesmo jsonb que
+        // antes morava em `categories.menu_banners`, agora no nó — as réguas abaixo não mudaram.
+        item={{ id: CATEGORIAS[0].id, name: CATEGORIAS[0].name, banners: menu_banners }}
         categories={CATEGORIAS}
         onSave={onSave}
       />
@@ -86,6 +101,48 @@ const montar = (menu_banners: unknown, surface: 'desktop' | 'mobile' = 'desktop'
 
 beforeEach(() => {
   onSave.mockReset().mockResolvedValue(null)
+  rede.chamadas = []
+})
+
+// ---------------------------------------------------------------------------
+describe('MNM-33 — o editor grava no ITEM, nunca na categoria (feature 86, T16)', () => {
+  const montarLink = () =>
+    render(
+      <Palco>
+        <MenuBannerEditor
+          surface="desktop"
+          item={{ id: 'presentes', name: 'Presentes', banners: { desktop: [banner()], mobile: [] } }}
+          categories={CATEGORIAS}
+          onSave={onSave}
+        />
+      </Palco>,
+    )
+
+  it('um item de LINK tem banners editáveis, com o nome dele no texto', () => {
+    montarLink()
+    expect(screen.getByText(/Aparecem no painel de “Presentes”/)).toBeInTheDocument()
+    expect(screen.getByTestId('banner-0')).toBeInTheDocument()
+  })
+
+  it('salvar entrega o jsonb inteiro a quem abriu — e nenhuma escrita vai à rede daqui', async () => {
+    montarLink()
+    fireEvent.click(screen.getByTestId('adicionar-banner'))
+    fireEvent.click(screen.getByText('Salvar banners'))
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1))
+    const [gravado] = onSave.mock.calls[0]
+    expect(gravado.desktop).toHaveLength(2)
+    expect(gravado.mobile).toEqual([])
+    const escritas = rede.chamadas.filter(c => ['update', 'insert', 'upsert', 'delete'].includes(c.metodo))
+    expect(escritas).toEqual([])
+    expect(rede.chamadas.some(c => c.tabela === 'categories')).toBe(false)
+  })
+
+  it('SENSOR: o dublê enxerga uma escrita, se ela existisse', async () => {
+    const { supabase } = await import('@estrelinha/supabase/client')
+    ;(supabase.from('categories') as unknown as { update: () => unknown }).update()
+    expect(rede.chamadas).toContainEqual({ tabela: 'categories', metodo: 'update' })
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -359,5 +416,60 @@ describe('a peça de destino é a MESMA busca das outras quatro telas (BUS-07)',
 
     expect(screen.getByTestId('fora-do-ar-p3')).toBeInTheDocument()
     expect(screen.getByTestId('peca-p3')).not.toBeDisabled()
+  })
+})
+
+/**
+ * Q06b do QA da `86` — o editor de banners aberto dentro do editor do item, a 200 % em 390: o
+ * "Adicionar um banner" (`whitespace-nowrap` do `Button`) ia até x = 467 e o diálogo rolava de lado;
+ * a 100 % ele, a lixeira, as três opções de destino, o enviar arte e os campos tinham menos de 44 px.
+ * Régua de token exato; a medida em navegador está no bug.
+ */
+describe('Q06b — com a fonte grande, o editor de banners cabe na largura e tem alvos de 44', () => {
+  const tem = (el: Element, t: string) => el.className.split(/\s+/).includes(t)
+  const quebra = (el: Element, rotulo: string) => {
+    for (const t of ['whitespace-normal', 'h-auto', 'max-w-full', 'min-h-11']) expect(tem(el, t), `${rotulo}: ${t}`).toBe(true)
+  }
+
+  it('o cabeçalho e a linha de ações embrulham; "Adicionar" quebra linha', () => {
+    montar(null)
+    expect(tem(screen.getByTestId('contador-banners').parentElement!, 'flex-wrap')).toBe(true)
+    const adicionar = screen.getByTestId('adicionar-banner')
+    quebra(adicionar, 'adicionar-banner')
+    expect(tem(adicionar.parentElement!, 'flex-wrap')).toBe(true)
+  })
+
+  it('com um banner: lixeira, destino, campos, arte e salvar com 44 px', () => {
+    montar({ desktop: [banner()], mobile: [] })
+    const lixeira = screen.getByRole('button', { name: 'Remover o banner 1' })
+    expect(tem(lixeira, 'min-h-11')).toBe(true)
+    expect(tem(lixeira, 'min-w-11')).toBe(true)
+    // A 200 % em 360 a miniatura (64 px, em rem) + o nome + a lixeira passavam de x = 371: a linha
+    // embrulha e o nome tem base própria.
+    expect(tem(screen.getByTestId('cabeca-do-banner-0'), 'flex-wrap')).toBe(true)
+    expect(tem(lixeira.previousElementSibling!, 'basis-24')).toBe(true)
+    const colecao = screen.getByRole('button', { name: 'Coleção' })
+    expect(tem(colecao.parentElement!, 'flex-wrap')).toBe(true)
+    for (const nome of ['Coleção', 'Peça', 'Endereço']) {
+      expect(tem(screen.getByRole('button', { name: nome }), 'min-h-11'), nome).toBe(true)
+    }
+    expect(tem(screen.getByRole('combobox', { name: /Coleção de destino/ }), 'h-11')).toBe(true)
+    for (const campo of screen.getByTestId('banner-0').querySelectorAll('input:not([type=file])')) {
+      expect(tem(campo, 'h-11'), (campo as HTMLInputElement).id).toBe(true)
+    }
+    for (const id of ['arte-image_desktop-0', 'arte-image_mobile-0']) {
+      const enviar = screen.getByTestId(id).parentElement!.querySelector('label')!
+      expect(tem(enviar, 'min-h-11'), id).toBe(true)
+    }
+    fireEvent.change(screen.getByLabelText('Selo'), { target: { value: 'Novo' } })
+    quebra(screen.getByRole('button', { name: 'Salvar banners' }), 'salvar')
+    quebra(screen.getByRole('button', { name: 'Descartar' }), 'descartar')
+  })
+
+  it('SENSOR: a régua acusa o botão `size="sm"` de antes', () => {
+    const antigo = document.createElement('button')
+    antigo.className = 'h-9 rounded-md px-3 whitespace-nowrap'
+    expect(tem(antigo, 'min-h-11')).toBe(false)
+    expect(tem(antigo, 'whitespace-normal')).toBe(false)
   })
 })

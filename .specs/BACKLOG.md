@@ -2147,3 +2147,30 @@ provas da `73`/`76` não o pegaram porque mediam só o conteúdo da tela.
 **A saída**: rótulos com `truncate`/`min-w-0` por célula, ou rótulo menor (ou só ícone com nome
 acessível) a partir de um tamanho de fonte. Decisão de desenho (protótipo da `72`).
 
+
+## BL-060 — Apagar o menu legado depois que a produção tiver o documento v2
+
+- **Status**: aberto · **Registrado em**: 2026-10-28 · **Origem**: feature `86` (`AD-068`), T22.
+
+A `86` passou o menu para o documento de `store_settings.menu` (`{ version: 2, items }`) **sem
+migration**: enquanto o banco não tem `version: 2`, a loja e o painel convertem o menu de antes
+(`legacyMenuDocument`) a partir das colunas de `categories` e dos `links` legados. A convivência é
+**sequencial** (com v2 gravado ninguém lê o legado), mas continua sendo uma segunda regra no repositório.
+
+**Quando a produção tiver o v2 gravado** (a primeira ação da dona em `/admin/menu` grava o documento
+inteiro — conferir por `select value->>'version' from store_settings where key = 'menu'`), apagar:
+
+- `legacyMenuDocument` e `legacyMenuItems` (com os tipos `Legacy*`) de `packages/core/src/menu`, e os
+  testes que os medem (`legacy.test.ts`, `menuItems.test.ts`, a equivalência de
+  `structureMenuItems.test.ts`);
+- o ramo "sem documento" de `menuItems` (`structure.ts`), de `useMenu` (loja) e de `useStoreMenu`
+  (painel), e a leitura dos `links` legados;
+- as colunas `menu_desktop`, `menu_mobile`, `menu_banners` e `show_in_menu` (gerada) de `categories` —
+  migration própria, **depois** do deploy do código que deixou de lê-las (`CLAUDE.md` › CI e deploy:
+  remoção se ordena pelo que está publicado), e a saída delas do `CATEGORY_SELECT`, do `select` da
+  loja, de `DbCategory`/`MenuCategory` e dos guardas `menuSchema`/`menuSurfaceSingleOwner`;
+- a chave `links` dentro do `value` do menu (o `useStoreMenu` a preserva hoje, inerte, como rede para
+  reverter à mão).
+
+`menuDocumentoComDonoUnico.test.ts` muda de régua junto: a exceção do mapeador de leitura da loja deixa
+de existir e a régua 1 vira zero exceção.

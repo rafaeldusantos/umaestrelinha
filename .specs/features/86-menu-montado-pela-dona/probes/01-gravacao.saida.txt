@@ -1,0 +1,15 @@
+ok — login do admin do seed no GoTrue local
+ok — retrato das categorias tirado (37 linhas)
+ok — o documento do probe passa em menuDocumentRefusal (o painel o gravaria)
+ok — admin grava v2 filtrando por key e updated_at visto (1 linha)
+ok — o gatilho devolve um updated_at novo (2026-10-29T01:05:10.214264+00:00 → 2026-10-29T01:05:18.113322+00:00)
+ok — a releitura traz o mesmo updated_at que a gravação devolveu
+ok — parseMenuDocument(relido) é exatamente o documento gravado
+ok — as chaves antigas do value (links legados) foram preservadas
+ok — com o updated_at VELHO a escrita afeta 0 linhas (conflito)
+ok — e o documento gravado continua intacto depois do conflito
+ok — anon não grava (status 200, 0 linhas)
+ok — e o menu segue o do admin depois da tentativa anônima
+ok — sensor: o retrato muda quando uma sort_order muda (dentro de transação desfeita)
+ok — store_settings.menu restaurado ao valor original
+ok — categories.sort_order/menu_desktop/menu_mobile/menu_banners byte a byte iguais antes e depois

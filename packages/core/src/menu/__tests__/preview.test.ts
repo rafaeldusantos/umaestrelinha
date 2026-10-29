@@ -28,9 +28,21 @@ const rascunho = (): MenuPreviewDraft => ({
       menu_desktop: true,
     },
   ],
-  links: [
-    { id: 'sobre', label: 'Sobre', href: '/sobre', desktop: true, mobile: true, sort_order: 100 },
-  ],
+  document: {
+    version: 2,
+    items: [
+      {
+        id: 'link:sobre',
+        target: { kind: 'link', href: '/sobre' },
+        label: 'Sobre',
+        desktop: true,
+        mobile: true,
+        icon: null,
+        banners: null,
+        children: [],
+      },
+    ],
+  },
 })
 
 describe('NAV-47 — sem o carimbo, não é comando', () => {
@@ -81,8 +93,11 @@ describe('`ready` — o aperto de mão', () => {
   })
 })
 
-describe('`draft` — as duas fontes do menu, cruas', () => {
-  it('passa com categorias e links', () => {
+// Feature 86 — o rascunho passou de `{ categories, links }` a `{ categories, document }`. Os três
+// casos que mediam `links` foram REESCRITOS para o documento, com a régua apertada: a forma antiga,
+// que antes passava com `links` vazio, agora é recusada (`MNM-13`, `MNM-32`).
+describe('`draft` — as categorias e a montagem da dona', () => {
+  it('passa com categorias e documento v2', () => {
     const mensagem = parseMenuPreviewMessage({
       source: MENU_PREVIEW_SOURCE,
       type: 'draft',
@@ -91,34 +106,54 @@ describe('`draft` — as duas fontes do menu, cruas', () => {
 
     expect(mensagem?.type).toBe('draft')
     expect(mensagem?.type === 'draft' && mensagem.draft.categories).toHaveLength(1)
-    expect(mensagem?.type === 'draft' && mensagem.draft.links[0].label).toBe('Sobre')
+    expect(mensagem?.type === 'draft' && mensagem.draft.document).toEqual(rascunho().document)
   })
 
-  it('links ausente vira `[]` — loja sem item de link é estado normal (NAV-15)', () => {
+  it('a forma da 39 (`{ categories, links }`, sem documento) é RECUSADA — painel e loja em versões diferentes', () => {
+    expect(
+      parseMenuPreviewMessage({
+        source: MENU_PREVIEW_SOURCE,
+        type: 'draft',
+        draft: {
+          categories: [],
+          links: [{ id: 'sobre', label: 'Sobre', href: '/sobre', desktop: true, mobile: true, sort_order: 0 }],
+        },
+      }),
+    ).toBeNull()
+    expect(
+      parseMenuPreviewMessage({ source: MENU_PREVIEW_SOURCE, type: 'draft', draft: { categories: [] } }),
+    ).toBeNull()
+  })
+
+  it.each([
+    ['versão 1', { version: 1, items: [] }],
+    ['texto', 'v2'],
+    ['array', []],
+    ['nulo', null],
+  ])('documento inválido (%s) é recusado', (_r, document) => {
+    expect(
+      parseMenuPreviewMessage({ source: MENU_PREVIEW_SOURCE, type: 'draft', draft: { categories: [], document } }),
+    ).toBeNull()
+  })
+
+  it('o documento passa pela leitura tolerante: nó inválido sai, menu vazio é legítimo', () => {
     const mensagem = parseMenuPreviewMessage({
       source: MENU_PREVIEW_SOURCE,
       type: 'draft',
-      draft: { categories: [] },
+      draft: { categories: [], document: { version: 2, items: [{ id: '' }, 'x'] } },
     })
-
-    expect(mensagem?.type === 'draft' && mensagem.draft.links).toEqual([])
-    expect(mensagem?.type === 'draft' && mensagem.draft.categories).toEqual([])
-  })
-
-  it('links de forma errada vira `[]` em vez de derrubar o rascunho inteiro', () => {
-    const mensagem = parseMenuPreviewMessage({
-      source: MENU_PREVIEW_SOURCE,
-      type: 'draft',
-      draft: { categories: [], links: 'sobre' },
-    })
-    expect(mensagem?.type === 'draft' && mensagem.draft.links).toEqual([])
+    expect(mensagem?.type === 'draft' && mensagem.draft.document).toEqual({ version: 2, items: [] })
   })
 
   it('sem `categories`, ou com `draft` que não é objeto, é recusado', () => {
     // Rascunho sem categorias não é "loja vazia": é forma errada. Aceitá-lo apagaria a barra da
     // prévia toda vez que uma mensagem chegasse pela metade.
     expect(
-      parseMenuPreviewMessage({ source: MENU_PREVIEW_SOURCE, type: 'draft', draft: { links: [] } }),
+      parseMenuPreviewMessage({
+        source: MENU_PREVIEW_SOURCE,
+        type: 'draft',
+        draft: { document: rascunho().document },
+      }),
     ).toBeNull()
     expect(
       parseMenuPreviewMessage({ source: MENU_PREVIEW_SOURCE, type: 'draft', draft: [] }),

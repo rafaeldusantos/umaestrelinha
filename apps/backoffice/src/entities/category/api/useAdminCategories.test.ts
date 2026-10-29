@@ -307,7 +307,7 @@ describe('useAdminCategories — releitura que falha não apaga a tela (VIV-07)'
   it('grava o `error` e MANTÉM as linhas que já estavam lá', async () => {
     const { result } = await renderCategories()
     const { responder } = await enquantoRele(result, () =>
-      result.current.updateCategory('anime', { menu_desktop: true }),
+      result.current.updateCategory('anime', { active: true }),
     )
 
     await responder({ data: null, error: { message: 'network' } })
@@ -333,9 +333,9 @@ describe('useAdminCategories — duas releituras em voo (VIV-08, A-11)', () => {
 
     segurarLeituras = true
     await act(async () => {
-      const a = result.current.updateCategory('anime', { menu_desktop: true })
+      const a = result.current.updateCategory('anime', { active: true })
       await waitFor(() => expect(pendentes).toHaveLength(1))
-      const b = result.current.updateCategory('anime', { menu_desktop: false })
+      const b = result.current.updateCategory('anime', { active: false })
       await waitFor(() => expect(pendentes).toHaveLength(2))
 
       // A SEGUNDA responde primeiro…

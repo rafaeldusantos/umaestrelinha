@@ -1,10 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ChevronDown } from 'lucide-react'
-import { categoryPath } from '@estrelinha/core/routes'
 import {
   menuPanelColumns,
-  type MenuCategoryItem,
   type MenuItem,
   type ResolvedMenuBanner,
 } from '@estrelinha/core/menu'
@@ -138,13 +136,14 @@ const MegaMenuPanel = ({
   onNavigate,
   onKeepOpen,
 }: {
-  item: MenuCategoryItem
+  item: MenuItem
   onNavigate: () => void
   /** O ponteiro entrou no painel: o fechamento agendado tem de ser cancelado, ou o salto de 1px
       entre a entrada e o painel fecharia justamente o que a cliente foi alcançar. */
   onKeepOpen: () => void
 }) => {
-  const banners = useMenuBanners(item.id, 'desktop')
+  // Feature 86: os banners são os do NÓ (`item.banners`), de categoria ou de link.
+  const banners = useMenuBanners(item, 'desktop')
   const colunas = menuPanelColumns(item.children)
 
   return (
@@ -182,16 +181,30 @@ const MegaMenuPanel = ({
             <div className="flex items-start gap-10">
               {colunas.map((coluna, indice) => (
                 <div key={indice} className="flex w-[220px] shrink-0 flex-col gap-3.5">
-                  {coluna.map(filha => (
-                    <Link
-                      key={filha.id}
-                      to={categoryPath(filha.slug, item.slug)}
-                      onClick={onNavigate}
-                      className="text-sm leading-[18px] text-estrelinha-ink transition-colors hover:text-estrelinha-primary"
-                    >
-                      {filha.name}
-                    </Link>
-                  ))}
+                  {/* Feature 86: o filho leva ao endereço DELE, que `menuItems` montou — pode ser outra
+                      categoria qualquer, ou um link, e não só uma filha da árvore. */}
+                  {coluna.map(filho =>
+                    filho.external ? (
+                      <a
+                        key={filho.id}
+                        href={filho.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm leading-[18px] text-estrelinha-ink transition-colors hover:text-estrelinha-primary"
+                      >
+                        {filho.name}
+                      </a>
+                    ) : (
+                      <Link
+                        key={filho.id}
+                        to={filho.href}
+                        onClick={onNavigate}
+                        className="text-sm leading-[18px] text-estrelinha-ink transition-colors hover:text-estrelinha-primary"
+                      >
+                        {filho.name}
+                      </Link>
+                    ),
+                  )}
                 </div>
               ))}
             </div>
@@ -253,13 +266,15 @@ const MegaMenu = ({ items }: { items: MenuItem[] }) => {
     timer.current = setTimeout(() => setOpenId(id), delay)
   }
 
+  // Só desenha painel para quem tem: o palco da prévia pode pedir `open` de um item sem painel.
   const achado = items.find(item => item.id === openId) ?? null
-  // O estreitamento tem de acontecer FORA do JSX: `achado?.kind === 'category'` no `&&` não estreita
-  // o tipo para `MenuCategoryItem` dentro do bloco, e com `strictNullChecks: false` o erro só
-  // apareceria no acesso a `children`.
-  const aberto = achado && achado.kind === 'category' ? achado : null
-  /** Item de link nunca abre painel (`NAV-12`), e categoria sem filha e sem banner também não. */
-  const abrePainel = (item: MenuItem): boolean => item.kind === 'category' && item.hasPanel
+  const aberto = achado && achado.hasPanel ? achado : null
+  /**
+   * Abre painel quem tem painel — `hasPanel`, calculado por `menuItems`: filho visível **ou** banner
+   * nesta superfície, para categoria **e** link (feature 86, `MNM-27`). Sem nenhum dos dois, o item é
+   * link direto e não leva seta.
+   */
+  const abrePainel = (item: MenuItem): boolean => item.hasPanel
 
   const close = (returnFocus: boolean) => {
     clearTimeout(timer.current)
@@ -296,16 +311,56 @@ const MegaMenu = ({ items }: { items: MenuItem[] }) => {
           </>
         )
 
+        const registra = (node: HTMLAnchorElement | null) => {
+          if (node) triggers.current.set(item.id, node)
+          else triggers.current.delete(item.id)
+        }
+        const comPainel = abrePainel(item)
+        const gatilho = {
+          onPointerEnter: () => schedule(comPainel ? item.id : null, OPEN_DELAY),
+          onFocus: () => {
+            if (ignoreNextFocus.current) {
+              ignoreNextFocus.current = false
+              return
+            }
+            if (comPainel) setOpenId(item.id)
+          },
+          onClick: () => close(false),
+          'aria-expanded': comPainel ? openId === item.id : undefined,
+          'aria-controls': comPainel ? 'mega-menu-painel' : undefined,
+          /* A régua de 2px em `accent` marca o item aberto, e o rótulo vai a branco: duas pistas,
+             e nenhuma delas só de cor. Ouro como TEXTO aqui mediria 3,26:1 e reprovaria. */
+          className: `${NAV_ITEM} ${
+            openId === item.id ? 'border-estrelinha-accent text-white' : 'border-transparent'
+          }`,
+        }
+
         // Item de link para fora da loja: `<a>` de verdade, com nova aba e `noopener noreferrer`.
-        // Um `<Link to="https://…">` faria o React Router procurar uma rota com esse nome.
-        if (item.kind === 'link' && item.external) {
+        // Um `<Link to="https://…">` faria o React Router procurar uma rota com esse nome. Sem painel,
+        // ele é só um link; com painel (feature 86: link pode ter submenu e banner), ganha os mesmos
+        // gatilhos de hover e foco das entradas internas.
+        if (item.external) {
+          if (!comPainel) {
+            return (
+              <a
+                key={item.id}
+                href={item.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`${NAV_ITEM} border-transparent`}
+              >
+                {conteudo}
+              </a>
+            )
+          }
           return (
             <a
               key={item.id}
               href={item.href}
               target="_blank"
               rel="noopener noreferrer"
-              className={`${NAV_ITEM} border-transparent`}
+              ref={registra}
+              {...gatilho}
             >
               {conteudo}
             </a>
@@ -313,30 +368,7 @@ const MegaMenu = ({ items }: { items: MenuItem[] }) => {
         }
 
         return (
-          <Link
-            key={item.id}
-            to={item.href}
-            ref={node => {
-              if (node) triggers.current.set(item.id, node)
-              else triggers.current.delete(item.id)
-            }}
-            onPointerEnter={() => schedule(abrePainel(item) ? item.id : null, OPEN_DELAY)}
-            onFocus={() => {
-              if (ignoreNextFocus.current) {
-                ignoreNextFocus.current = false
-                return
-              }
-              if (abrePainel(item)) setOpenId(item.id)
-            }}
-            onClick={() => close(false)}
-            aria-expanded={abrePainel(item) ? openId === item.id : undefined}
-            aria-controls={abrePainel(item) ? 'mega-menu-painel' : undefined}
-            /* A régua de 2px em `accent` marca o item aberto, e o rótulo vai a branco: duas pistas,
-               e nenhuma delas só de cor. Ouro como TEXTO aqui mediria 3,26:1 e reprovaria. */
-            className={`${NAV_ITEM} ${
-              openId === item.id ? 'border-estrelinha-accent text-white' : 'border-transparent'
-            }`}
-          >
+          <Link key={item.id} to={item.href} ref={registra} {...gatilho}>
             {conteudo}
           </Link>
         )

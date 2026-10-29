@@ -7,7 +7,12 @@
 
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { MENU_PREVIEW_SOURCE, type MenuCategory, type MenuLink } from '@estrelinha/core/menu'
+import {
+  MENU_PREVIEW_SOURCE,
+  legacyMenuDocument,
+  type MenuCategory,
+  type MenuLink,
+} from '@estrelinha/core/menu'
 import { PREVIEW_SOURCE } from '@estrelinha/core/home'
 
 const { storeUrl } = vi.hoisted(() => ({ storeUrl: { valor: 'http://localhost:8082' } }))
@@ -38,13 +43,18 @@ const LINKS: MenuLink[] = [
   { id: 'sobre', label: 'Sobre', href: '/sobre', desktop: true, mobile: true, sort_order: 100 },
 ]
 
+// Feature 86 (T19): o palco recebe o DOCUMENTO e o id do nó direto. A fixture é a conversão do
+// legado — os ids (`cat:joias`, `link:sobre`) são os que a prévia recebia antes pela tradução que o
+// palco fazia; agora quem tem o id é a tela, e o palco só o repassa.
+const DOC = legacyMenuDocument(CATEGORIAS, LINKS)
+
 const montar = (over: Partial<Parameters<typeof MenuLivePreview>[0]> = {}) =>
   render(
     <MenuLivePreview
       surface="desktop"
       categories={CATEGORIAS}
-      links={LINKS}
-      openId="joias"
+      document={DOC}
+      openId="cat:joias"
       {...over}
     />,
   )
@@ -146,7 +156,7 @@ describe('NAV-43 — a barra do palco', () => {
     expect(quadro()).toHaveAttribute('src', 'http://localhost:8082/?preview=1')
 
     rerender(
-      <MenuLivePreview surface="mobile" categories={CATEGORIAS} links={LINKS} openId="joias" />,
+      <MenuLivePreview surface="mobile" categories={CATEGORIAS} document={DOC} openId="cat:joias" />,
     )
     // O `src` não carrega o dispositivo de propósito: se carregasse, cada clique no alternador
     // remontaria o documento e a prévia perderia o rascunho já entregue.
@@ -200,14 +210,20 @@ describe('NAV-44 / NAV-47 — o que sai, para onde, e de quem o painel aceita or
     const rascunho = postMessage.mock.calls.find(([m]) => m.type === 'draft')
     expect(rascunho).toBeTruthy()
     expect(rascunho![0].draft.categories).toEqual(CATEGORIAS)
-    expect(rascunho![0].draft.links).toEqual(LINKS)
+    // Feature 86: o rascunho leva o DOCUMENTO que a tela tem — por referência, sem conversão no palco.
+    expect(rascunho![0].draft.document).toBe(DOC)
+    expect(rascunho![0].draft.document.items.map((i: { id: string }) => i.id)).toEqual([
+      'cat:joias',
+      'link:sobre',
+    ])
+    expect(rascunho![0].draft).not.toHaveProperty('links')
     expect(rascunho![1]).toBe('http://localhost:8082')
     // A prova de que o alvo curinga não existe em chamada nenhuma deste componente.
     expect(postMessage.mock.calls.every(([, alvo]) => alvo !== '*')).toBe(true)
   })
 
   it('o `open` sai SEM debounce — a seleção acompanha o clique', () => {
-    const { rerender } = montar({ openId: 'joias' })
+    const { rerender } = montar({ openId: 'cat:joias' })
     const postMessage = janelaDoQuadro()
     postMessage.mockClear()
 
@@ -215,16 +231,29 @@ describe('NAV-44 / NAV-47 — o que sai, para onde, e de quem o painel aceita or
       <MenuLivePreview
         surface="desktop"
         categories={CATEGORIAS}
-        links={LINKS}
-        openId="correntes"
+        document={DOC}
+        openId="link:sobre"
       />,
     )
 
     // Sem avançar timer nenhum: 200ms aqui seriam lidos como travamento — o painel da prévia
     // abriria depois de a Adri já ter clicado na entrada seguinte.
     expect(postMessage.mock.calls.map(([m]) => m.type)).toEqual(['open'])
-    expect(postMessage.mock.calls[0][0].itemId).toBe('correntes')
+    // Feature 86: o `open` carrega o id do NÓ do documento, repassado como a tela o tem.
+    expect(postMessage.mock.calls[0][0].itemId).toBe('link:sobre')
     expect(postMessage.mock.calls[0][1]).toBe('http://localhost:8082')
+  })
+
+  it('o `open` repassa o id do nó, e id que não está no documento fecha (`null`)', () => {
+    const { rerender } = montar({ openId: 'link:sobre' })
+    const postMessage = janelaDoQuadro()
+    postMessage.mockClear()
+
+    rerender(<MenuLivePreview surface="desktop" categories={CATEGORIAS} document={DOC} openId="cat:joias" />)
+    expect(postMessage.mock.calls.at(-1)![0].itemId).toBe('cat:joias')
+
+    rerender(<MenuLivePreview surface="desktop" categories={CATEGORIAS} document={DOC} openId="sumiu" />)
+    expect(postMessage.mock.calls.at(-1)![0].itemId).toBeNull()
   })
 
   it('respondido o `ready`, o painel entrega rascunho E seleção na hora', () => {

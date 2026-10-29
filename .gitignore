@@ -31,6 +31,7 @@ dist-ssr
 
 # Artefatos locais do playwright-cli (sessões de QA/sandbox)
 .playwright-cli/
+.playwright-mcp/
 
 # QA living docs — views geradas e evidência volumosa (fonte: docs/qa/scenarios/ etc.)
 docs/qa/state.csv

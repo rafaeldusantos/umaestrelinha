@@ -470,6 +470,18 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: W-A22 (rodada 3) — `CartaoVisitasHoje.tsx` com a linha de apoio "Hoje, ontem e a semana, por horário" no lugar de "Tentar de novo" na falha passa a suíte inteira do app: o caso `em falha` confere o nome acessível (que traz "Tentar de novo") e a frase "Não consegui carregar.", nunca a linha visível
 - last seen: 2026-10-27T00:00:00Z
 
+### L-083 — Teste cujo nome afirma uma propriedade precisa asserir essa propriedade: o caso "desligado nos dois: esmaecido e com “Fora do menu”" cobrava só o selo, e o esmaecimento (a classe `opacity-60`) podia sair com a suíte verde. Ao ler um nome de teste com duas propriedades, procure uma asserção para cada; a que falta é um mutante sobrevivente esperando, e o nome do caso faz o leitor achar que ela existe.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `apps/**/*.test.tsx`, `apps/**/__tests__/**` · harmful: 0
+- features: 86-menu-montado-pela-dona
+- evidence: M36 (verificação r1) — `MenuTree.tsx` sem `fora && 'opacity-60'` passa 246/246 no painel: `MenuTree.test.tsx` "desligado nos dois: esmaecido e com “Fora do menu”" confere `selo-n-sobre` e nada da linha. Consertado (F02) com `data-testid="linha-<id>"` no contêiner e o token exato `opacity-60` presente fora do menu e ausente nos itens ligados (o filho também); o mutante e o inverso (`opacity-60` sempre) morrem por asserção
+- last seen: 2026-10-28T00:00:00Z
+
+### L-084 — Comportamento declarado no `tasks.md` ou no design (o ramo "outra versão ⇒ conflito", o gatilho `focus`) precisa de asserção própria: o inverso provado ("sem conflito falso", "sem incerteza, `online` não lê") não prova o ramo positivo, e um gatilho provado (`online`) não prova o irmão declarado na mesma frase (`focus`). Ao ler um comentário ou um "Done when" que enumera ramos ou gatilhos, conte as asserções contra a enumeração.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `apps/**/*.test.ts`, `apps/**/*.test.tsx` · harmful: 0
+- features: 86-menu-montado-pela-dona
+- evidence: F17 e F16 (verificação r3) — `useStoreMenu.ts` sem o `else if (vista && relida.updatedAt !== vista.updatedAt) setConflict(true)` da reconciliação, e sem `window.addEventListener('focus', agora)`, passavam a suíte inteira: o S03 provava só o inverso (N06) e o G01 só o `online`. Fechados (H01, H02) com o caso "a releitura acha OUTRA versão ⇒ conflito, sem Salvo, sem ação" e o "focus relê na hora" (mais o inverso "sem incerteza, focus não lê"); os dois mutantes reinjetados morrem por asserção
+- last seen: 2026-10-29T00:00:00Z
+
 ## Quarantined (failed when applied — ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.

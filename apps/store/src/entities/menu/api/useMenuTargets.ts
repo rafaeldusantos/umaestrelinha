@@ -5,6 +5,7 @@ import {
   menuBannerSlots,
   resolveMenuBanners,
   type MenuCategory,
+  type MenuItem,
   type MenuProduct,
   type MenuSurface,
   type ResolvedMenuBanner,
@@ -79,35 +80,35 @@ export const useMenuTargets = (raw: unknown, surface: MenuSurface): MenuProduct[
 /**
  * Os banners de um painel, prontos para desenhar — a porta única das duas superfícies.
  *
- * Recebe o **id da categoria** e não o jsonb: quem tem a linha crua é `useCategories`, e passá-la
- * pela mão de cada widget faria o `menu_banners` viajar pelas props do header. Com o id, o widget só
- * diz *qual painel está aberto*, que é a única coisa que ele sabe.
+ * **Feature 86 (`AD-068`): recebe o ITEM, e o jsonb vem de `item.banners`.** Os banners passaram a
+ * morar no nó do documento da dona — que pode ser uma categoria **ou um link** —, e não mais na
+ * coluna `categories.menu_banners`. A porta `menuItems` já entrega o cru em `item.banners` (no menu
+ * legado convertido, é a cópia da coluna da categoria), então o widget só diz *qual painel está
+ * aberto* passando o item que ele já tem. Ninguém aqui volta a procurar a categoria do item.
  *
- * `null` (nenhum painel aberto, ou item de link) devolve lista vazia sem consultar nada — item de
- * link não tem banner por definição (`NAV-12`), e um painel fechado não é motivo para requisição.
+ * `null` (nenhum painel aberto) devolve lista vazia sem consultar nada — um painel fechado não é
+ * motivo para requisição.
  *
  * A resolução em si é `resolveMenuBanners`: destino apagado ou inativo **não renderiza** e o painel
  * encolhe, título e texto ausentes são herdados do destino, e a arte cai na do outro dispositivo
  * quando falta a desta. Nada disso é decidido aqui.
  */
 export const useMenuBanners = (
-  categoryId: string | null,
+  item: Pick<MenuItem, 'banners'> | null | undefined,
   surface: MenuSurface,
 ): ResolvedMenuBanner[] => {
   const { data: categories } = useCategories()
-  // Em modo prévia a árvore vem do painel (`NAV-44`), e ela precisa chegar até aqui: o banner é
-  // configurado na mesma tela, e uma prévia que mostrasse a barra do rascunho com o banner do banco
-  // seria meia prévia — a dona trocaria a arte e o quadro não mudaria, sem nada quebrar.
+  // Em modo prévia a árvore vem do painel (`NAV-44`): o destino de CATEGORIA de um banner é
+  // resolvido contra a árvore do rascunho, a mesma que desenha a barra.
   const { draft } = useMenuPreview()
   // `useMemo` e não uma expressão solta: `categories ?? []` produz um array novo a cada render, e ele
-  // é dependência do `useMemo` de baixo — sem isto, a resolução dos banners refaria a cada quadro
-  // enquanto a consulta não voltasse.
+  // é dependência do `useMemo` de baixo.
   const arvore = useMemo<MenuCategory[]>(
     () => (draft ? draft.categories : ((categories ?? []) as MenuCategory[])),
     [draft, categories],
   )
 
-  const raw = categoryId ? (arvore.find(c => c.id === categoryId)?.menu_banners ?? null) : null
+  const raw = item ? (item.banners ?? null) : null
   // O destino de PRODUTO continua saindo do banco: o painel manda a curadoria, não o catálogo, e
   // resolver o produto pela consulta é o que garante que a prévia recuse o mesmo destino que a loja
   // recusaria (apagado, inativo).

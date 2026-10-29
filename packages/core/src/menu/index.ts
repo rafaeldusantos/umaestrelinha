@@ -14,3 +14,7 @@ export * from './icons.ts'
 export * from './target.ts'
 export * from './banners.ts'
 export * from './preview.ts'
+// Feature 86 — o documento do menu e a porta `menuItems`. `structure.ts` importa `menu.ts`, nunca o
+// contrário: `menu.ts` é alcançado pelo Deno por caminho, sem passar por este barril.
+export * from './structure.ts'
+export * from './refusals.ts'

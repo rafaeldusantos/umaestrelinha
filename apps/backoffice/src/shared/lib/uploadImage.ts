@@ -191,3 +191,21 @@ export const uploadImageBlob = async (
     return null
   }
 }
+
+/**
+ * Apaga um objeto que `uploadImageBlob` gravou — o inverso da conta dele, pelo mesmo
+ * `storagePublicPrefix`. Só apaga dentro de `bucket/folder/`: uma URL de fora passa sem tocar em
+ * nada. **Nunca lança**: quem chama já descartou na tela, e uma falha aqui é só um órfão a mais.
+ */
+export const deleteStorageImage = async (
+  url: string,
+  { bucket, folder }: { bucket: string; folder: string },
+): Promise<void> => {
+  const prefixo = storagePublicPrefix(bucket)
+  if (typeof url !== 'string' || !url.startsWith(`${prefixo}${folder}/`)) return
+  try {
+    await supabase.storage.from(bucket).remove([url.slice(prefixo.length)])
+  } catch {
+    // órfão a mais — não derruba a tela
+  }
+}

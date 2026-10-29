@@ -13,11 +13,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // `from` é espionado, e não uma seta anônima: desde a feature 24 `uploadImageBlob` aceita bucket, e
 // o argumento passou a ser um comportamento a provar — não mais uma constante do módulo.
-const { uploadMock, fromMock } = vi.hoisted(() => {
+const { uploadMock, removeMock, fromMock } = vi.hoisted(() => {
   const uploadMock = vi.fn()
+  const removeMock = vi.fn()
   return {
     uploadMock,
-    fromMock: vi.fn(() => ({ upload: uploadMock, remove: vi.fn() })),
+    removeMock,
+    fromMock: vi.fn(() => ({ upload: uploadMock, remove: removeMock })),
   }
 })
 vi.mock('@estrelinha/supabase/client', () => ({
@@ -32,6 +34,7 @@ import { STORAGE_CACHE_CONTROL } from '@estrelinha/core/media'
 import {
   ACCEPTED_TYPES,
   MAX_FILE_BYTES,
+  deleteStorageImage,
   storagePublicPrefix,
   uploadFailureMessage,
   uploadImageBlob,
@@ -294,5 +297,34 @@ describe('uploadImageBlob — o cacheControl (PRF-05)', () => {
     )
 
     expect(antigo).not.toMatch(/cacheControl:/)
+  })
+})
+
+/** Q05 do QA da `86` — apagar a arte enviada e não gravada (o órfão de `home-images/menu/`). */
+describe('deleteStorageImage', () => {
+  beforeEach(() => {
+    removeMock.mockReset()
+    fromMock.mockClear()
+  })
+
+  it('apaga pelo caminho dentro do bucket — o inverso da conta de `uploadImageBlob`', async () => {
+    const url = `${storagePublicPrefix('home-images')}menu/abc.webp`
+    await deleteStorageImage(url, { bucket: 'home-images', folder: 'menu' })
+    expect(fromMock).toHaveBeenCalledWith('home-images')
+    expect(removeMock).toHaveBeenCalledWith(['menu/abc.webp'])
+  })
+
+  it('URL de fora da pasta (ou de outro bucket) NÃO apaga nada', async () => {
+    await deleteStorageImage(`${storagePublicPrefix('home-images')}home/abc.webp`, { bucket: 'home-images', folder: 'menu' })
+    await deleteStorageImage(`${storagePublicPrefix('product-images')}menu/abc.webp`, { bucket: 'home-images', folder: 'menu' })
+    await deleteStorageImage('https://cdn.exemplo/menu/abc.webp', { bucket: 'home-images', folder: 'menu' })
+    expect(removeMock).not.toHaveBeenCalled()
+  })
+
+  it('falha do Storage não lança', async () => {
+    removeMock.mockRejectedValue(new Error('rede'))
+    await expect(
+      deleteStorageImage(`${storagePublicPrefix('home-images')}menu/x.webp`, { bucket: 'home-images', folder: 'menu' }),
+    ).resolves.toBeUndefined()
   })
 })

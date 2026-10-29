@@ -1380,6 +1380,32 @@ exatamente como eram — a retirada simplesmente não está na lista que eles le
 
 ## Menu (consumo)
 
+**Desde a feature `86` (`AD-068`) o header desenha o DOCUMENTO da dona** — `store_settings.menu`
+como `{ version: 2, items }`, que já chega no `select` de `useStoreSettings`, sem requisição nova.
+`useMenu(surface)` passa `parseMenuDocument(settings.menu)` à porta; **sem v2 gravado** a porta cai em
+`legacyMenuDocument(categories, links)`, que é a regra de antes convertida — a loja fica idêntica até
+a primeira gravação no painel. Com o documento:
+
+- **Cada item aponta para uma categoria ou uma página**, com nome próprio ou o nome **atual** da
+  categoria (`label: null`); filho é `MenuChild` (`id`, `name`, `href`, `external`) e leva ao `href`
+  dele — não precisa ser filha da categoria do pai. Item sem filho visível e sem banner é link direto.
+- **Visibilidade por item e por dispositivo** (`desktop`/`mobile`); categoria inativa ou apagada não
+  sai, e a inativa leva o submenu junto. **Sem teto na raiz.**
+- **`hasPanel` vale para link também**: item de página com filhos ou banner abre o painel no
+  computador e o acordeão no celular (`MobileMenuEntry` decide por `hasPanel`, não por `kind`).
+- **Os banners são do nó**: `useMenuBanners(item, surface)` lê `item.banners` — nenhuma leitura de
+  `categories.menu_banners`.
+- **Settings ainda carregando ⇒ menu VAZIO** (`L-037`), não o legado: sem a linha não se sabe se há
+  v2, e desenhar o legado nesse meio-tempo faria a barra trocar de montagem diante da cliente.
+- **A prévia recebe `{ categories, document }`**; a forma antiga `{ categories, links }` é ignorada
+  (`parseMenuPreviewMessage` ⇒ `null`) e a prévia cai no publicado.
+- `menuDocumentoComDonoUnico.test.ts` recusa um terceiro leitor da linha crua do menu e qualquer
+  escrita das três colunas antigas. **As colunas e os `links` legados só saem depois que a produção
+  tiver o v2 gravado** (`BL` aberto pela `86`).
+
+O que segue descreve a regra da `39`, que continua sendo a do **legado** (o menu antes da primeira
+gravação) e, onde diz respeito ao desenho (rolagem, afordância, prévia), a de hoje.
+
 - **A porta é UMA: `menuItems(input, surface)`** (`@estrelinha/core/menu`), alcançada pela loja por
   `useMenu('desktop')` e `useMenu('mobile')`. Nenhuma tela filtra, ordena ou trunca por conta.
   Foi ter a regra em cada tela que produziu o bug original: o `Header` fazia `.slice(0, 4)` de uma
@@ -1438,7 +1464,7 @@ exatamente como eram — a retirada simplesmente não está na lista que eles le
     `scroll-smooth` + `motion-reduce:scroll-auto`, em CSS — por isso `rolar` escreve `scrollLeft`
     direto em vez de `scrollBy({ behavior })`.
   - **O `MobileMenu` não tem nada disso**: no celular a lista é vertical.
-- **Os banners do painel chegam por `useMenuBanners(categoryId, surface)`** (`entities/menu`), que
+- **Os banners do painel chegam por `useMenuBanners(item, surface)`** (`entities/menu`; até a `86`, por id de categoria), que
   resolve **tarde**: sem banner de produto não há consulta nenhuma, e enquanto a lista de produtos
   não chega o banner **não renderiza** — "ainda não sei" não é "existe". Destino apagado ou
   inativo some e o painel encolhe; no celular o banner mora **dentro do acordeão** da entrada.
@@ -1470,6 +1496,10 @@ exatamente como eram — a retirada simplesmente não está na lista que eles le
     `'*'`.** Sem referrer ele não sai, e o palco entrega pelo `load` do iframe — a segunda entrega é
     feita pelo lado que **conhece** a origem certa. A régua de recepção continua sendo a da `25`: a
     loja exige só ser o pai, porque a loja só desenha.
+  - **Quem abre a folha na prévia é o `StoreLayout`** (desde a `86`): o latch da `38` só monta o
+    `MobileMenu` depois da primeira abertura, então o efeito de dentro dele nunca rodava e a prévia do
+    celular mostrava a home e um hambúrguer. Dentro da prévia, a folha acompanha o QUADRO
+    (`useCompactViewport`): aberta no de 390, fechada no de 1024, onde cobriria a barra.
   - No celular a folha **abre sozinha** em modo prévia, no acordeão que o palco pediu: a barra de
     departamentos é `hidden md:block` e não existe em 390, então sem isso a prévia da superfície que
     responde por ~90% dos acessos mostraria a home e um hambúrguer.

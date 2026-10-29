@@ -11,7 +11,12 @@
 // artes de campanha seria pagar uma migration por uma pasta — que é o que a pasta `menu/` já
 // resolve, sem dividir a policy em duas que precisariam ser mantidas iguais.
 
-import { uploadFailureMessage, uploadImageBlob, validateImageFile } from '@/shared/lib/uploadImage'
+import {
+  deleteStorageImage,
+  uploadFailureMessage,
+  uploadImageBlob,
+  validateImageFile,
+} from '@/shared/lib/uploadImage'
 
 export const BANNER_BUCKET = 'home-images'
 export const BANNER_FOLDER = 'menu'
@@ -46,3 +51,13 @@ export const uploadBannerImage = async (file: File): Promise<BannerUpload> => {
     ? { url, error: null }
     : { url: null, error: uploadFailureMessage({ file: file.name, reason: 'upload' }) }
 }
+
+/**
+ * Apaga do Storage uma arte enviada e NÃO gravada (Q05 do QA da `86`): descartar o banner deixava o
+ * objeto órfão em `home-images/menu/`. Só apaga o que está DENTRO da pasta do menu deste bucket — uma
+ * URL de fora (arte antiga, outro bucket) passa sem tocar em nada. Quem fala com o Storage é o motor
+ * de `shared/lib/uploadImage` — este arquivo não fala com o client (o guarda da tela do menu,
+ * `menuDocumentoComDonoUnico`, recusa consulta a tabela que não seja literal).
+ */
+export const deleteBannerImage = (url: string): Promise<void> =>
+  deleteStorageImage(url, { bucket: BANNER_BUCKET, folder: BANNER_FOLDER })

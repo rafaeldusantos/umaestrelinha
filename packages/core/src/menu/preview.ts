@@ -19,7 +19,8 @@
 // painel **age** — ele abre editor e muda a seleção; a loja exige só ser o pai, porque a loja só
 // **desenha**. Quem valida remetente é cada ponta; o que mora aqui é a validação da **forma**.
 
-import type { MenuCategory, MenuLink, MenuSurface } from './menu.ts'
+import type { MenuCategory, MenuSurface } from './menu.ts'
+import { parseMenuDocument, type MenuDocument } from './structure.ts'
 import { PREVIEW_DEVICES, type PreviewDevice } from '../home/preview.ts'
 
 /**
@@ -44,7 +45,13 @@ export const MENU_PREVIEW_SOURCE = 'estrelinha-menu-preview'
  */
 export interface MenuPreviewDraft {
   categories: MenuCategory[]
-  links: MenuLink[]
+  /**
+   * Feature 86 — a montagem da dona, inteira. Até a `86` o rascunho era `{ categories, links }`, as
+   * duas fontes do menu deduzido; essa forma agora é **recusada** (`parseMenuPreviewMessage` devolve
+   * `null`), para um painel e uma loja em versões diferentes não desenharem um menu pela metade — a
+   * prévia cai no menu publicado.
+   */
+  document: MenuDocument
 }
 
 /** Painel → loja: o menu a desenhar, já com o que a dona acabou de mexer. */
@@ -56,6 +63,8 @@ export interface MenuPreviewDraftMessage {
 
 /**
  * Painel → loja: abra o painel desta entrada. `null` fecha.
+ *
+ * Desde a feature 86, `itemId` é o id do **nó** do documento (`MenuItem.id`), não o da categoria.
  *
  * É o que cumpre `NAV-43` ("a prévia abre com o menu já aberto na entrada selecionada"): sem ela, a
  * dona teria de passar o mouse dentro do iframe para conferir o painel que está editando fora dele.
@@ -109,18 +118,17 @@ export const parseMenuPreviewMessage = (data: unknown): MenuPreviewMessage | nul
 
     case 'draft': {
       if (!ehObjeto(data.draft)) return null
-      const { categories, links } = data.draft as Record<string, unknown>
-      // `categories` é obrigatório e `links` não: loja sem item de link é estado normal (`NAV-15`),
-      // e recusar o rascunho inteiro por causa da lista ausente deixaria o quadro em branco no caso
-      // mais comum de todos. Já um rascunho sem categorias não é rascunho: é forma errada.
+      const { categories, document } = data.draft as Record<string, unknown>
+      // As duas são obrigatórias. Sem categorias não há nome nem endereço para resolver; sem um
+      // documento v2 válido o rascunho é de outra versão do painel (a forma `{ categories, links }`
+      // da `39` inclusive), e desenhá-lo como "menu vazio" mentiria — melhor cair no publicado.
       if (!Array.isArray(categories)) return null
+      const documento = parseMenuDocument(document)
+      if (!documento) return null
       return {
         source: MENU_PREVIEW_SOURCE,
         type: 'draft',
-        draft: {
-          categories: categories as MenuCategory[],
-          links: Array.isArray(links) ? (links as MenuLink[]) : [],
-        },
+        draft: { categories: categories as MenuCategory[], document: documento },
       }
     }
 

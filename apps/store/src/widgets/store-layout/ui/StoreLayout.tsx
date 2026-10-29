@@ -1,10 +1,13 @@
-import { lazy, Suspense, useRef } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef } from 'react'
+import { isPreviewWindow } from '@estrelinha/core/home'
 import { Outlet, useLocation } from 'react-router-dom'
 import { useCartUiStore } from '@/entities/cart/model/cartUiStore'
 import { useMenuUiStore } from '@/entities/category/model/menuUiStore'
+import { useMenuPreview } from '@/entities/menu/model/useMenuPreview'
 import { useAuthUiStore } from '@/features/auth/model/authUiStore'
 import { useSearchUiStore } from '@/features/search/model/searchUiStore'
 import { bottomBarReserve, ownsBottomBar } from '@/shared/lib/storeChrome'
+import { useCompactViewport } from '@/shared/lib/useCompactViewport'
 import RouteFallback from '@/shared/ui/RouteFallback'
 import Header from '@/widgets/header/ui/Header'
 import Footer from '@/widgets/footer/ui/Footer'
@@ -51,7 +54,33 @@ const StoreLayout = () => {
 
   const mostrarCarrinho = useAbertoAlgumaVez(useCartUiStore(s => s.open))
   const mostrarBusca = useAbertoAlgumaVez(useSearchUiStore(s => s.open))
-  const mostrarMenu = useAbertoAlgumaVez(useMenuUiStore(s => s.open))
+  /**
+   * `NAV-43` — na prévia do painel, a folha do menu acompanha o QUADRO: aberta no de 390, fechada no
+   * de 1024 (lá ela cobriria a barra que a prévia existe para mostrar). Mora aqui, e não só no efeito
+   * de dentro do `MobileMenu`, por causa do latch da `38`: o `MobileMenu` só monta depois da primeira
+   * abertura, e o efeito dele nunca rodava — a prévia do celular mostrava a home e um hambúrguer
+   * (achado na prova em navegador da `86`). O detector é o mesmo genérico do `App.tsx`.
+   *
+   * **Só na prévia do MENU** (Q01 do QA da `86`): a prévia da Home usa o mesmo `?preview=1` dentro
+   * de iframe, e abrir a folha ali cobria a Home que a dona foi conferir. O que distingue os dois
+   * palcos é o canal — só o do menu manda rascunho (`MENU_PREVIEW_SOURCE`), e `draft` é `null` até
+   * ele chegar. Um parâmetro novo seria um segundo dono de "esta janela é uma prévia" (`core/menu`).
+   */
+  const previa = useMemo(
+    () =>
+      typeof window !== 'undefined' &&
+      isPreviewWindow(window.location.search, window.parent !== window),
+    [],
+  )
+  const { draft: rascunhoDoMenu } = useMenuPreview()
+  const previaDoMenu = previa && rascunhoDoMenu !== null
+  const compacto = useCompactViewport()
+  const setMenuOpen = useMenuUiStore(s => s.setMenuOpen)
+  useEffect(() => {
+    if (previaDoMenu) setMenuOpen(compacto)
+  }, [previaDoMenu, compacto, setMenuOpen])
+
+  const mostrarMenu = useAbertoAlgumaVez(useMenuUiStore(s => s.open) || (previaDoMenu && compacto))
   const mostrarAuth = useAbertoAlgumaVez(useAuthUiStore(s => s.isOpen))
 
   return (

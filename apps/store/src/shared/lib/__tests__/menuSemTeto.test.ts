@@ -115,7 +115,9 @@ const SUPERFICIES_DO_MENU = [
   'apps/store/src/widgets/header/ui/MegaMenu.tsx',
   'apps/store/src/widgets/mobile-menu/ui/MobileMenu.tsx',
   'apps/backoffice/src/pages/admin/AdminMenuPage.tsx',
-  'apps/backoffice/src/features/store-menu/ui/MenuSlotList.tsx',
+  // A lista do painel. Era `MenuSlotList.tsx` até a feature 86, que a apagou (T20) e pôs no lugar a
+  // árvore do documento — a superfície onde a recusa por contagem voltaria primeiro.
+  'apps/backoffice/src/features/store-menu/ui/MenuTree.tsx',
 ]
 
 const doMenu = producao.filter(a => SUPERFICIES_DO_MENU.includes(a.rel))

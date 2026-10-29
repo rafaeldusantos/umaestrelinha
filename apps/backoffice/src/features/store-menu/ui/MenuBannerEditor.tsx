@@ -16,11 +16,14 @@
 //   MESMA que o item de link usa (`NAV-31`). Duas réguas divergiriam, e uma aceitaria o que a outra
 //   recusa.
 //
+// **Desde a feature 86 o dono é o ITEM do menu** (`MNM-33`): o editor recebe `item.banners` e
+// entrega o jsonb a quem o abriu, que grava no nó do documento. Item de link também tem banners.
+//
 // **Gravar é explícito.** O editor antigo mandava um `update` a cada tecla digitada no título; aqui
 // o rascunho fica na tela e a dona salva quando terminou — o que também é o que permite recusar o
 // terceiro banner **antes** de qualquer escrita.
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { AlertTriangle, ImagePlus, Plus, Trash2 } from 'lucide-react'
 import { Button } from '@estrelinha/ui/button'
 import { Input } from '@estrelinha/ui/input'
@@ -44,40 +47,127 @@ import {
   type MenuSurface,
   type MenuTarget,
 } from '@estrelinha/core/menu'
-import type { AdminCategory } from '@/entities/category'
 import { ProductSearchField, useProductsByIds } from '@/entities/product'
-import { uploadBannerImage } from '../lib/uploadBannerImage'
+import { deleteBannerImage, uploadBannerImage } from '../lib/uploadBannerImage'
 import { bannersGravados } from '../model/bannersGravados'
 import { NOME_DA_SUPERFICIE } from '../model/superficie'
 
 const idDoAlvo = (target: MenuTarget | undefined): string =>
   target && (target.kind === 'category' || target.kind === 'product') ? target.id : ''
 
-interface Props {
-  surface: MenuSurface
-  host: AdminCategory
-  categories: AdminCategory[]
-  /** Grava o jsonb inteiro. Devolve o motivo da falha, ou `null` quando salvou (`NAV-42`). */
-  onSave: (banners: MenuBanners) => Promise<string | null>
+/**
+ * O dono dos banners — desde a feature 86, o ITEM do menu (`MNM-33`), e não mais a categoria.
+ *
+ * O editor só precisa de três coisas dele: um id para descartar o rascunho ao trocar de item, o nome
+ * para o texto, e o jsonb cru. Quem decide onde isso se grava é quem abriu o editor (a tela grava no
+ * nó do documento, por `updateNode`); nenhuma escrita em `categories` sai daqui.
+ */
+export interface MenuBannerHost {
+  id: string
+  name: string
+  banners: unknown
 }
 
-const MenuBannerEditor = ({ surface, host, categories, onSave }: Props) => {
-  const gravados = bannersGravados(host.menu_banners, surface)
-  /** `null` = mostrando o que está no banco. Qualquer edição materializa o rascunho. */
-  const [rascunho, setRascunho] = useState<MenuBanner[] | null>(null)
+/** Q05 — o que o editor tem e não gravou: quem o abriu pergunta antes de descartar. */
+export interface MenuBannerDraftState {
+  sujo: boolean
+  /** As artes enviadas ao Storage nesta edição e que não estão no que está gravado. */
+  artesNaoGravadas: string[]
+}
+
+interface Props {
+  surface: MenuSurface
+  item: MenuBannerHost
+  categories: readonly MenuCategory[]
+  /** Grava o jsonb inteiro. Devolve o motivo da falha, ou `null` quando salvou (`NAV-42`). */
+  onSave: (banners: MenuBanners) => Promise<string | null>
+  /** Q05 — avisado a cada mudança do rascunho. */
+  onDraftChange?: (estado: MenuBannerDraftState) => void
+}
+
+type Rascunhos = Record<MenuSurface, MenuBanner[] | null>
+/**
+ * Q06b do QA da `86` — o `Button` do design system é `whitespace-nowrap` e, em `size="sm"`, `h-9`:
+ * a 200 % de fonte em 390 o "Adicionar um banner" ia até x = 467 e o diálogo rolava de lado.
+ */
+const QUEBRA = 'h-auto min-h-11 max-w-full whitespace-normal'
+
+const SEM_RASCUNHO: Rascunhos = { desktop: null, mobile: null }
+
+/** Toda arte citada num jsonb de banners (as duas superfícies, os dois campos). */
+const artesDe = (banners: MenuBanners): Set<string> => {
+  const artes = new Set<string>()
+  for (const lista of [banners.desktop, banners.mobile]) {
+    for (const b of lista ?? []) {
+      if (b?.image_desktop) artes.add(b.image_desktop)
+      if (b?.image_mobile) artes.add(b.image_mobile)
+    }
+  }
+  return artes
+}
+
+const MenuBannerEditor = ({ surface, item, categories, onSave, onDraftChange }: Props) => {
+  const gravados = bannersGravados(item.banners, surface)
+  /**
+   * O rascunho de CADA dispositivo — `null` = mostrando o que está no banco. Q05 do QA da `86`: era
+   * um só, descartado ao trocar Computador/Celular, e o banner que a dona montava sumia sem aviso.
+   * Agora a troca só muda qual dos dois está na tela; "Salvar banners" grava os dois.
+   */
+  const [rascunhos, setRascunhos] = useState<Rascunhos>(SEM_RASCUNHO)
   const [recusa, setRecusa] = useState<string | null>(null)
   const [ocupado, setOcupado] = useState(false)
+  /** As artes enviadas ao Storage nesta edição (para apagar a que não chegar a ser gravada). */
+  const enviadas = useRef<string[]>([])
 
-  // Trocar de entrada ou de dispositivo **descarta** o rascunho: mantê-lo faria a dona salvar num
-  // banner o que ela digitou em outro, e nada em tela diria que isso aconteceu.
+  // Trocar de ENTRADA descarta o rascunho: mantê-lo faria a dona salvar num banner o que ela digitou
+  // em outro. Trocar de dispositivo, não (Q05).
   useEffect(() => {
-    setRascunho(null)
+    setRascunhos(SEM_RASCUNHO)
     setRecusa(null)
-  }, [host.id, surface])
+    enviadas.current = []
+  }, [item.id])
+
+  const rascunho = rascunhos[surface]
+  const setRascunho = (lista: MenuBanner[] | null) =>
+    setRascunhos(atual => ({ ...atual, [surface]: lista }))
 
   const lista = rascunho ?? gravados
-  const sujo = rascunho !== null
-  const pool = categories as unknown as MenuCategory[]
+  const sujo = rascunhos.desktop !== null || rascunhos.mobile !== null
+
+  /** O jsonb que "Salvar banners" grava: o rascunho de cada dispositivo, ou o gravado. */
+  const aGravar = (): MenuBanners => ({
+    desktop: rascunhos.desktop ?? bannersGravados(item.banners, 'desktop'),
+    mobile: rascunhos.mobile ?? bannersGravados(item.banners, 'mobile'),
+  })
+
+  const gravadosNoBanco = (): MenuBanners => ({
+    desktop: bannersGravados(item.banners, 'desktop'),
+    mobile: bannersGravados(item.banners, 'mobile'),
+  })
+
+  /** As enviadas que não estão em `banners` — as que viram órfãs se `banners` for o que fica. */
+  const orfasContra = (banners: MenuBanners): string[] => {
+    const ficam = artesDe(banners)
+    return enviadas.current.filter(url => !ficam.has(url))
+  }
+
+  const avisar = useRef(onDraftChange)
+  avisar.current = onDraftChange
+  useEffect(() => {
+    avisar.current?.({ sujo, artesNaoGravadas: sujo ? orfasContra(gravadosNoBanco()) : [] })
+    // `orfasContra`/`gravadosNoBanco` leem do render corrente; a chave é o rascunho.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rascunhos, sujo, item.banners])
+
+  /** "Descartar": volta ao gravado nos dois dispositivos e apaga a arte enviada e não gravada. */
+  const descartar = () => {
+    const orfas = orfasContra(gravadosNoBanco())
+    enviadas.current = []
+    setRascunhos(SEM_RASCUNHO)
+    setRecusa(null)
+    for (const url of orfas) void deleteBannerImage(url)
+  }
+  const pool = categories
   const destinos = categories.filter(c => c.active)
 
   /**
@@ -143,47 +233,55 @@ const MenuBannerEditor = ({ surface, host, categories, onSave }: Props) => {
       setRecusa(error)
       return
     }
+    if (url) enviadas.current = [...enviadas.current, url]
     editar(indice, { [campo]: url })
   }
 
   const salvar = async () => {
-    const motivoDeContagem = menuBannerRefusal(lista)
-    if (motivoDeContagem) {
-      setRecusa(motivoDeContagem)
-      return
-    }
-    for (const [i, banner] of lista.entries()) {
-      const motivo = menuTargetRefusal(banner.target)
-      if (motivo) {
-        setRecusa(`Banner ${i + 1}: ${motivo}`)
+    const jsonb = aGravar()
+    // As duas superfícies passam pela régua: o rascunho do outro dispositivo também vai junto (Q05).
+    for (const onde of [surface, surface === 'desktop' ? 'mobile' : 'desktop'] as const) {
+      const daqui = jsonb[onde]
+      const prefixo = onde === surface ? '' : `No ${NOME_DA_SUPERFICIE[onde]}: `
+      const motivoDeContagem = menuBannerRefusal(daqui)
+      if (motivoDeContagem) {
+        setRecusa(`${prefixo}${motivoDeContagem}`)
         return
+      }
+      for (const [i, banner] of daqui.entries()) {
+        const motivo = menuTargetRefusal(banner.target)
+        if (motivo) {
+          setRecusa(`${prefixo}Banner ${i + 1}: ${motivo}`)
+          return
+        }
       }
     }
 
     setOcupado(true)
-    // A superfície que não está sendo editada passa intacta: gravar só a lista corrente apagaria os
-    // banners do outro dispositivo — e a dona só descobriria abrindo a loja no celular.
-    const falha = await onSave({
-      desktop: surface === 'desktop' ? lista : bannersGravados(host.menu_banners, 'desktop'),
-      mobile: surface === 'mobile' ? lista : bannersGravados(host.menu_banners, 'mobile'),
-    })
+    // A superfície sem rascunho passa intacta: gravar só a lista corrente apagaria os banners do
+    // outro dispositivo — e a dona só descobriria abrindo a loja no celular.
+    const falha = await onSave(jsonb)
     setOcupado(false)
     if (falha) {
       setRecusa(falha)
       return
     }
-    setRascunho(null)
+    // A arte enviada e trocada antes de salvar não está no gravado: sai do Storage.
+    const orfas = orfasContra(jsonb)
+    enviadas.current = []
+    setRascunhos(SEM_RASCUNHO)
+    for (const url of orfas) void deleteBannerImage(url)
   }
 
   const excedentes = lista.length - MENU_BANNER_LIMIT
 
   return (
     <div className="rounded-2xl border border-border bg-card">
-      <header className="flex items-center justify-between border-b border-border px-4 py-3">
-        <div>
+      <header className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-border px-4 py-3">
+        <div className="min-w-0">
           <h2 className="font-heading text-sm font-bold text-foreground">Banners do painel</h2>
           <p className="text-[11px] text-muted-foreground">
-            Aparecem no painel de “{host.name}” no {NOME_DA_SUPERFICIE[surface]}.
+            Aparecem no painel de “{item.name}” no {NOME_DA_SUPERFICIE[surface]}.
           </p>
         </div>
         <span
@@ -215,7 +313,7 @@ const MenuBannerEditor = ({ surface, host, categories, onSave }: Props) => {
           <p className="text-sm text-muted-foreground">
             {/* `NAV-35` escrito em tela: sem banner o painel não fica com buraco, fica só com a
                 lista. É o que permite dizer "nenhum" sem parecer configuração pela metade. */}
-            Nenhum banner. O painel de “{host.name}” fica só com a lista de subcategorias — sem espaço
+            Nenhum banner. O painel de “{item.name}” fica só com a lista de subcategorias — sem espaço
             reservado e sem quadro vazio.
           </p>
         )}
@@ -240,7 +338,7 @@ const MenuBannerEditor = ({ surface, host, categories, onSave }: Props) => {
                 excedente ? 'border-estrelinha-admin-amber/40 bg-estrelinha-admin-amber/5' : 'border-border',
               )}
             >
-              <div className="flex items-start gap-3">
+              <div data-testid={`cabeca-do-banner-${indice}`} className="flex flex-wrap items-start gap-3">
                 <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-[10px] border border-border bg-muted/40">
                   {arteMostrada ? (
                     /* A miniatura tem 64px (`h-16 w-16`), e pede a foto nesse tamanho — 128 cobre
@@ -260,11 +358,11 @@ const MenuBannerEditor = ({ surface, host, categories, onSave }: Props) => {
                     <span className="text-[9px] font-semibold text-muted-foreground">FOTO</span>
                   )}
                 </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-bold text-foreground">
+                <div className="min-w-0 flex-1 basis-24">
+                  <p className="break-words text-sm font-bold text-foreground">
                     {banner.title ?? resolvido?.name ?? `Banner ${indice + 1}`}
                   </p>
-                  <p className="truncate text-[11px] text-muted-foreground">
+                  <p className="break-words text-[11px] text-muted-foreground">
                     {resolvido
                       ? `leva para ${resolvido.href}`
                       : 'destino não resolve — o banner não vai aparecer na loja'}
@@ -274,6 +372,7 @@ const MenuBannerEditor = ({ surface, host, categories, onSave }: Props) => {
                   type="button"
                   variant="ghost"
                   size="sm"
+                  className="ml-auto min-h-11 min-w-11"
                   aria-label={`Remover o banner ${indice + 1}`}
                   onClick={() => remover(indice)}
                 >
@@ -283,7 +382,7 @@ const MenuBannerEditor = ({ surface, host, categories, onSave }: Props) => {
 
               <div className="flex flex-col gap-1.5">
                 <Label>Aponta para</Label>
-                <div className="flex gap-1.5">
+                <div className="flex flex-wrap gap-1.5">
                   {(
                     [
                       ['category', 'Coleção'],
@@ -304,7 +403,7 @@ const MenuBannerEditor = ({ surface, host, categories, onSave }: Props) => {
                         })
                       }
                       className={cn(
-                        'rounded-lg border px-2.5 py-1 text-xs font-semibold',
+                        'min-h-11 rounded-lg border px-3 py-1 text-xs font-semibold',
                         kind === valor
                           ? 'border-primary bg-primary/10 text-primary'
                           : 'border-border text-muted-foreground hover:bg-muted/40',
@@ -320,7 +419,7 @@ const MenuBannerEditor = ({ surface, host, categories, onSave }: Props) => {
                     value={idDoAlvo(alvo) || undefined}
                     onValueChange={value => editar(indice, { target: { kind: 'category', id: value } })}
                   >
-                    <SelectTrigger aria-label={`Coleção de destino do banner ${indice + 1}`}>
+                    <SelectTrigger className="h-11" aria-label={`Coleção de destino do banner ${indice + 1}`}>
                       <SelectValue placeholder="Escolha a coleção de destino" />
                     </SelectTrigger>
                     <SelectContent>
@@ -352,6 +451,7 @@ const MenuBannerEditor = ({ surface, host, categories, onSave }: Props) => {
 
                 {kind === 'url' && (
                   <Input
+                    className="h-11"
                     value={alvo && alvo.kind === 'url' ? alvo.href : ''}
                     placeholder="/sobre"
                     aria-label={`Endereço de destino do banner ${indice + 1}`}
@@ -364,6 +464,7 @@ const MenuBannerEditor = ({ surface, host, categories, onSave }: Props) => {
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor={`banner-selo-${indice}`}>Selo</Label>
                   <Input
+                    className="h-11"
                     id={`banner-selo-${indice}`}
                     value={banner.badge ?? ''}
                     placeholder="sem selo"
@@ -373,6 +474,7 @@ const MenuBannerEditor = ({ surface, host, categories, onSave }: Props) => {
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor={`banner-titulo-${indice}`}>Título</Label>
                   <Input
+                    className="h-11"
                     id={`banner-titulo-${indice}`}
                     value={banner.title ?? ''}
                     // O placeholder mostra o valor HERDADO: a dona vê o que a loja vai escrever se
@@ -418,7 +520,7 @@ const MenuBannerEditor = ({ surface, host, categories, onSave }: Props) => {
                       >
                         arte do {dispositivo} · {arte ? medida : 'falta'}
                       </span>
-                      <label className="flex cursor-pointer items-center gap-1.5 text-xs font-medium text-primary">
+                      <label className="flex min-h-11 cursor-pointer items-center gap-1.5 text-xs font-medium text-primary">
                         <ImagePlus className="h-3.5 w-3.5" aria-hidden />
                         {arte ? 'Trocar' : 'Enviar'}
                         <input
@@ -436,7 +538,7 @@ const MenuBannerEditor = ({ surface, host, categories, onSave }: Props) => {
                         <button
                           type="button"
                           onClick={() => editar(indice, { [campo]: '' })}
-                          className="text-left text-[11px] text-muted-foreground hover:underline"
+                          className="min-h-11 text-left text-[11px] text-muted-foreground hover:underline"
                         >
                           remover a arte
                         </button>
@@ -471,17 +573,17 @@ const MenuBannerEditor = ({ surface, host, categories, onSave }: Props) => {
           </p>
         )}
 
-        <div className="flex items-center justify-between gap-3">
-          <Button type="button" variant="outline" size="sm" data-testid="adicionar-banner" onClick={adicionar}>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <Button type="button" variant="outline" size="sm" className={QUEBRA} data-testid="adicionar-banner" onClick={adicionar}>
             <Plus className="mr-1.5 h-3.5 w-3.5" />
             {lista.length === 0 ? 'Adicionar um banner' : 'Adicionar um segundo banner'}
           </Button>
           {sujo && (
-            <div className="flex items-center gap-2">
-              <Button type="button" variant="ghost" size="sm" onClick={() => setRascunho(null)}>
+            <div className="flex max-w-full flex-wrap items-center gap-2">
+              <Button type="button" variant="ghost" size="sm" className={QUEBRA} onClick={descartar}>
                 Descartar
               </Button>
-              <Button type="button" size="sm" disabled={ocupado} onClick={salvar}>
+              <Button type="button" size="sm" className={QUEBRA} disabled={ocupado} onClick={salvar}>
                 {ocupado ? 'Salvando…' : 'Salvar banners'}
               </Button>
             </div>

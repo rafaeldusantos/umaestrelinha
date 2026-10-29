@@ -851,39 +851,49 @@ editar.
   achado em navegador, e a duplicação era anterior à `56`. Ela não aparecia nas outras três seções
   porque lá os títulos vêm do `FormCard` e diferem do nome da seção.
 
-## `/admin/menu` — a curadoria do menu, por dispositivo (feature `39`)
+## `/admin/menu` — o menu montado pela dona (feature `86`, `AD-068`)
 
-**A tela mostra o que a loja renderiza**: ela chama `menuItems(input, surface)`, a **mesma** função
-que desenha a barra do computador e a folha do celular. Não filtra, não ordena e não trunca por
-conta — fazer isso seria o "defeito 01" nascendo dentro da tela que existe para acabar com ele.
+**O menu é um DOCUMENTO, não um recorte de `categories`.** Até a `86` a tela ligava colunas da
+categoria (`menu_desktop`, `menu_mobile`, `menu_banners`) e reordenava a `sort_order` da **árvore** —
+que também ordena a grade da Home e o rodapé. Agora a dona monta `store_settings.menu` como
+`{ version: 2, items }`: cada item aponta para uma **categoria** ou uma **página da loja**, tem nome
+próprio ou "Usar o nome da categoria" (`label: null`, nunca cópia), ícone, banners do painel, as
+chaves **Computador | Celular** e um submenu de até 24 filhos. Nada desta tela escreve em
+`categories`.
 
-- **Duas curadorias, não um responsivo.** O alternador Computador/Celular troca ao mesmo tempo o que
-  se edita, o que se conta e o que a prévia mostra. O switch grava **só** a coluna da superfície
-  corrente (`menu_desktop` / `menu_mobile`), e a linha AVISA quando a outra está diferente
-  ("desligada no celular") — o aviso nomeia sempre o dispositivo onde ela está DESLIGADA, então diz a
-  mesma coisa nas duas abas: é propriedade da categoria, não da aba.
-- **Não existe teto, e nenhuma recusa por contagem existe no código.** O contador diz "5 itens", e
-  nunca "4 de 5 vagas": contagem é **informação**, não cota. Quem mostra o que acontece quando não
-  cabe é a prévia (a barra da loja rola), não um erro no clique.
-- **Nenhuma entrada é declarada no painel.** `FIXED_ENTRIES` foi APAGADA — ela anunciava "Crie o Seu"
-  → `/crie-seu-botton`, que **nunca foi rota declarada** e caía na 404. O "Sobre" é um **item de
-  link** de `store_settings.menu`, semeado pela migration, e a Adri pode movê-lo, trocá-lo ou tirá-lo.
-- **O papel é derivado da árvore, nunca gravado** (`NAV-06`): filha marcada de pai marcado na mesma
-  superfície é item do **painel** do pai, e por isso ela **não tem linha na lista da barra** — o
-  lugar dela é o `MenuPanelEditor`. Uma coluna "é item de painel" dessincronizaria no primeiro
-  "mover categoria".
-- **Arrastar reordena a `sort_order` da ÁRVORE**, e a tela diz isso depois de gravar: a mesma ordem
-  vale para a grade da home e o rodapé. Arraste entre ramos é recusado com motivo (mudar de pai é a
-  tela de Categorias). Item de link **não** arrasta — a `sort_order` dele mora no jsonb, e um arraste
-  atravessando a fronteira gravaria em duas fontes com significados diferentes.
-- **Duas leituras, duas faixas de erro.** Categorias e itens de link falham em separado, e cada uma
-  tem a própria superfície com "tentar de novo". `useMenuLinks` **não** usa `useStoreSettings`: aquele
-  hook é o da loja e engole erro de propósito (devolve defaults), o que aqui faria a tela dizer
-  "nenhum link" com o banco fora do ar.
-- **Os banners são até dois por superfície, e o terceiro é recusado com motivo.** Gravar é explícito
-  (rascunho + "Salvar banners"), e não um `update` por tecla digitada como no card antigo.
-  **Excedente gravado à mão é ACUSADO**: `resolveMenuBanners` trunca em dois na leitura, então sem o
-  aviso ("3 gravados, 2 cabem") o terceiro ficaria invisível **e indeletável**.
+- **Peças**: `model/useStoreMenu.ts` (lê e grava), `model/documentOps.ts` (as operações, puras),
+  `ui/MenuTree.tsx` (a lista e o submenu), `ui/MenuTargetPicker.tsx` (o seletor Categoria | Página
+  da loja), `ui/MenuItemEditor.tsx` (nome, ícone, banners), `ui/MenuRemoveConfirm.tsx` e a página.
+  Os editores da `39` (`MenuSlotList`, `MenuPanelEditor`, `MenuEntryEditor`, `MenuLinkDialog`,
+  `useMenuLinks`) foram **apagados** na T20.
+- **Antes da primeira gravação, a tela mostra o menu de hoje.** Sem `version: 2` no banco,
+  `useStoreMenu` converte o legado (`legacyMenuDocument`, `core/menu`) — o mesmo documento que a loja
+  desenha —, e **a primeira ação grava o v2 inteiro**. Sem migration: montar em SQL seria reescrever
+  `menuItems` numa segunda linguagem.
+- **Gravação com conflito por `updated_at`**: `update … eq('key','menu').eq('updated_at', visto)
+  .select('updated_at')`; zero linhas é **conflito** ("o menu mudou em outra janela — recarregue") e o
+  documento local volta. Erro é rollback, nunca `Salvo`. A recusa (`menuDocumentRefusal`) vem **antes**
+  da rede. As `apply` são serializadas numa fila (a segunda grava com o `updated_at` da primeira). As
+  outras chaves do `value` (os `links` legados) são preservadas, inertes.
+- **A lista mostra SÓ o documento.** Categoria fora do menu não tem linha (37 categorias, 3 itens ⇒ 3
+  linhas). Categoria **inativa** ou **apagada** aparece com selo; apagada só oferece "Remover do
+  menu". Reordenar é arraste **ou** "Mover para cima/baixo" — e reordena o MENU, não a árvore.
+- **Adicionar categoria com filhas ativas leva as filhas ao submenu**, na ordem da árvore, e o item
+  entra no **fim**. O seletor busca sem acento (`dobrarTexto`) e desabilita o que já está ("Já está no
+  menu" na raiz, "Já está neste submenu" no submenu — o mesmo item pode estar em dois submenus).
+  "Outro endereço da loja" passa por `internalMenuHrefRefusal`: endereço externo **não é criado**
+  (o legado já gravado continua passando).
+- **O alternador Computador/Celular mora na coluna da PRÉVIA e troca só a prévia** (`MNM-32`): a
+  visibilidade por dispositivo é uma chave **por item**, na própria linha. Abaixo de `lg`, abas
+  "Itens do menu" | "Prévia".
+- **A prévia é a LOJA, num iframe** (`MenuLivePreview`, `previaUnica.test.ts`), e o rascunho é o
+  documento inteiro `{ categories, document }`; o `open` leva o **id do nó**. `postMessage` com origem
+  exata, recepção estrita (origem **e** `event.source`), rascunho com debounce e `open` sem — o
+  desenho da `25`/`39`, intacto.
+- **Os banners são do NÓ**, não da categoria: item de link também tem painel. `MenuBannerEditor` lê
+  `item.banners` e entrega o jsonb por `onSave`; a página grava com `updateNode`. A contagem
+  "N no computador · M no celular" do `MenuItemEditor` sai de `bannersGravados`, a mesma leitura do
+  editor (`FOCO-32`, portado).
 - **A arte do banner vai para `home-images/menu`** — bucket reusado, não criado: mesma policy e mesmo
   ciclo de vida (campanha sobrevive à coleção que aponta), e criar `menu-images` exigiria migration
   nova sobre uma já aplicada (`AD-017`).
@@ -892,64 +902,25 @@ conta — fazer isso seria o "defeito 01" nascendo dentro da tela que existe par
   string crua e `core` apara espaço: um `image_mobile: "   "` (chegado por SQL ou por importação)
   fazia a loja reaproveitar a arte do computador e a tela **não avisar**. `MenuBannerEditor.test.tsx`
   carrega o par — a tela renderizada e `resolveMenuBanners` respondendo ao mesmo jsonb.
-- **O painel NÃO desenha o menu — a prévia é a LOJA, num iframe** (`MenuLivePreview`, `NAV-43`).
-  `MenuBarPreview.tsx` foi apagado: era o segundo desenho da barra, com os tokens do admin, mostrando
-  a entrada fixa que não existia. `previaUnica.test.ts` cobre as duas features agora: recusa a volta
-  do arquivo, um segundo `…Preview`, o import de `apps/store` e qualquer arquivo do painel que
-  **calcule** o desenho da loja (`menuPanelColumns`, `resolveMenuBanners`).
-  - **Não há alternador de dispositivo dentro do palco, e a ausência é a decisão** (`NAV-37`): o
-    alternador Computador/Celular da própria tela governa a edição **e** a prévia, e o quadro é 390
-    ou 1024 conforme a superfície em edição. Um segundo alternador deixaria a Adri editar a curadoria
-    do celular olhando a barra do computador — dois donos de "que dispositivo estou conferindo".
-  - **A medida vai no atributo `width`/`height` e a redução é `transform: scale()`.** Encolher o
-    iframe por CSS o deixaria medindo 1024 nas media queries, e a superfície "celular" mostraria a
-    barra do computador — que é `hidden md:block`, ou seja, o erro apareceria como um menu que some.
-  - **`postMessage` com a origem exata, nunca `'*'`** (`useMenuPreviewBridge`), e a régua de recepção
-    é a estrita: **origem exata E `event.source` sendo a janela do próprio iframe**. O painel **age**
-    (muda a seleção da tela de quem está trabalhando); a loja só desenha, e por isso lá basta ser o
-    pai. A assimetria é o desenho da `25`.
-  - **O rascunho sai com debounce e o `open` sai sem**: o primeiro acompanha gravação e aguenta
-    200ms; o segundo acompanha o clique na lista, e 200ms ali seriam lidos como travamento.
-  - **Sem `VITE_STORE_URL` a tela DIZ isso e continua editável** (`NAV-46`) — a ponte fica desligada
-    inteira (`origin: null`), em vez de tocar num `contentWindow` que não existe.
-- **A entrada se edita num lugar só** (feature 47, `FOCO-28`..`FOCO-32`): `MenuEntryEditor` é um card
-  com abas **Painel · Banners · Ícone**, na coluna da esquerda. O `MenuIconPicker` morava na coluna da
-  **direita**, debaixo da prévia — configurar uma categoria pedia olhar para as duas colunas ao mesmo
-  tempo, e o seletor ficava a uma rolagem do nome do item que ele iconiza. Os três editores **não
-  mudaram por dentro**: o card é invólucro.
-  - **Trocar a entrada OU o dispositivo volta para Painel**, por `key={superfície:entrada}` no
-    `<Tabs>`. Remontar zera a aba **e** o estado interno dos editores (o `mostrarTodas` do painel, o
-    rascunho dos banners), que é o comportamento certo ao passar a editar outra coisa — e sai de
-    graça.
-  - **A contagem da aba "Banners" sai da MESMA leitura que o editor usa** (`model/bannersGravados.ts`,
-    `AD-025`). Uma segunda contagem ali diria "2" com o editor mostrando 3, e nada quebraria. A função
-    mora em `model/` e não dentro do editor justamente porque dois componentes a consomem.
 - **O corpo tem altura de tela, no molde literal de `/admin/home`** (`FOCO-13`): a coluna da esquerda
   rola dentro de si e o palco fica parado. Antes a prévia rolava junto com os três editores e saía da
   vista enquanto se edita olhando para ela. O `11rem` é **suposição de altura de cabeçalho** copiada
   da Home, e o teste lê as **duas páginas do disco e as compara** — se uma mudar e a outra não,
   reprova. **Pende prova em navegador** (1024 e 1440): os dois `PageHeader` têm subtítulos de
   comprimentos diferentes, e um que embrulhe em duas linhas estoura a viewport.
-- **"Salvando…" vive no CABEÇALHO** (`FOCO-33`/`FOCO-34`), ao lado do alternador de dispositivo. Era
-  um `<p>` solto no fim do documento, depois de três editores: com o corpo rolando, ligar uma
-  categoria no topo da lista dava um segundo de silêncio e nenhuma confirmação à vista. Ele **some do
-  DOM** ao terminar — o teste prova por ausência do nó, não por classe de invisibilidade.
-- **Abaixo de `lg` a tela alterna Entradas | Prévia** (`FOCO-35`..`FOCO-37`), como `/admin/home` faz
-  desde a 24. **A forma é diferente de propósito**: aqui o alternador de vista nasce logo abaixo de
-  uma pílula segmentada (Computador/Celular), e dois controles de forma idêntica empilhados leem como
-  o mesmo controle duplicado. O de **dispositivo** continua pílula ("o que estou editando"); o de
-  **vista** é barra sublinhada ("o que estou vendo"). A régua é escrita como **predicado** e chamada
-  pela asserção **e** pelo sensor.
 - **Ninguém lê `show_in_menu` nem `menu_promo`** (`menuSurfaceSingleOwner.test.ts`, **sem allowlist**
   desde a fase 5): a primeira é coluna gerada e a segunda é legado. As duas continuam no banco para a
   loja publicada não quebrar entre o `db push` e o deploy da Vercel.
-- **Nada aqui conta vaga.** O teto de 4 e os símbolos que o encarnavam foram apagados de `core/menu`;
-  `menuSemTeto.test.ts` recusa a volta deles e do vocabulário de "vaga" nesta tela. A contagem que a
-  lista mostra é **informação** ("7 itens no computador"), nunca cota.
 - **O seletor de ícone tem busca por nome** (`NAV-48`), sem acento e sem caixa — "gravacao" acha
   "Gravação" —, e ela casa o **rótulo e a chave**: quem confere um valor gravado procura por
   `gota-afetiva`, não por "Gota afetiva". A cela "Sem ícone" **não é filtrada**: é a saída, não um
   resultado, e escondê-la tiraria o único jeito de limpar a escolha.
+- **Guardas**: `menuDocumentoComDonoUnico.test.ts` (loja) recusa escrita das três colunas antigas em
+  `apps/**`, nas functions e nos pacotes, exige que a linha crua do menu só seja interpretada por
+  `parseMenuDocument` (dois leitores: esta porta e o `useMenu` da loja) e que a tela do menu só fale
+  com `store_settings`. `useAdminCategories` tipa a escrita como `CategoryUpdate`, que exclui as três
+  colunas. `menuSemTeto` nomeia `MenuTree.tsx` como superfície; `previaUnica` ancora em
+  `MenuTree`/`MenuTargetPicker`/`useStoreMenu`.
 
 ## `/admin/filtros` — os filtros da loja (feature `66`, `AD-050`)
 

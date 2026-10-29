@@ -348,7 +348,19 @@ export const DEFAULT_ANALYTICS: AnalyticsSettings = {
  * browser; este arquivo só descreve o que está gravado na linha.
  */
 export interface MenuSettings {
+  /** LEGADO desde a feature 86: lido só pela conversão (`legacyMenuDocument`) enquanto não há v2. */
   links: MenuLink[]
+  /**
+   * Feature 86 (`AD-068`) — a montagem da dona. Presente ⇒ o documento v2 é o menu, e `links` e as
+   * colunas `menu_*` deixam de ser lidos.
+   *
+   * `items` é descrito como `unknown[]`, e não como `MenuRootNode[]`, de propósito: o jsonb pode ter
+   * sido escrito por qualquer mão, e quem diz o que dele vale é `parseMenuDocument`
+   * (`@estrelinha/core/menu`). Tipar como a forma boa seria afirmar uma verificação que não houve
+   * (`AD-012`) — e importar `structure.ts` daqui aumentaria o grafo que o Deno resolve.
+   */
+  version?: 2
+  items?: unknown[]
 }
 
 /**

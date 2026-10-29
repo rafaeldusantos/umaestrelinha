@@ -37,6 +37,7 @@ import {
   type SectionSaveDraft,
 } from '@/features/home-composition'
 import { PageHeader, TableSkeleton } from '@/shared/ui'
+import { storeOrigin } from '@/shared/lib/storeOrigin'
 
 type Aba = 'secoes' | 'previa'
 
@@ -49,6 +50,7 @@ type Aba = 'secoes' | 'previa'
 const SALVO_MS = 2000
 
 const AdminHomePage = () => {
+  const lojaOrigem = useMemo(() => storeOrigin(), [])
   const {
     sections,
     loading,
@@ -250,11 +252,16 @@ const AdminHomePage = () => {
         icon={House}
         actions={
           <>
-            <Button variant="outline" asChild>
-              <a href="/" target="_blank" rel="noreferrer">
-                Ver na loja <ExternalLink className="ml-1.5 h-4 w-4" />
-              </a>
-            </Button>
+            {/* A origem da LOJA (`storeOrigin`), nunca `href="/"`: no painel `/` é a raiz do próprio
+                painel (Q09 do QA da `86`, o mesmo conserto de `/admin/menu`). Sem `VITE_STORE_URL`
+                o botão não existe. */}
+            {lojaOrigem && (
+              <Button variant="outline" asChild>
+                <a href={`${lojaOrigem}/`} target="_blank" rel="noreferrer">
+                  Ver na loja <ExternalLink className="ml-1.5 h-4 w-4" />
+                </a>
+              </Button>
+            )}
             {/* Leva à bandeja, que é onde se acrescenta — em vez de abrir um modal com a mesma
                 lista. A bandeja fica na tela porque é lá que se lê quais tipos já estão na Home,
                 antes do clique. */}

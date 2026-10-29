@@ -58,36 +58,49 @@ vi.mock('@/entities/category', () => ({
 // O que o hook RESOLVE tem teste próprio (`entities/menu/api/__tests__`). Aqui interessa o desenho
 // — e, sobretudo, POR QUAL id ele é chamado: é o que prova que o banner é do acordeão aberto.
 vi.mock('@/entities/menu', () => ({
-  useMenuBanners: (id: string | null, surface: string) => {
-    bannersState.pedidos.push([id, surface])
+  // Feature 86 (T08): o hook recebe o ITEM aberto (os banners são do nó); o registro guarda o id dele,
+  // para as réguas de "qual acordeão" continuarem as mesmas.
+  useMenuBanners: (item: { id: string } | null, surface: string) => {
+    bannersState.pedidos.push([item ? item.id : null, surface])
     return bannersState.lista
   },
   useMenuPreview: () => previewState,
 }))
 
-const filha = (id: string, name: string) => ({ id, name, slug: id })
+// Feature 86: o filho é um `MenuChild` — `{ id, name, href, external }` —, e o `href` é o que a porta
+// `menuItems` monta. Sem `href` explícito, a fixture monta o da filha da árvore (`/<pai>/<filha>`),
+// que é exatamente o endereço que este menu montava antes por `categoryPath(filha.slug, item.slug)`.
+const filha = (id: string, name: string, href?: string) => ({ id, name, href, external: false })
 
-const categoria = (over: Record<string, unknown> & { id: string; name: string }): MenuItem =>
-  ({
+const categoria = (over: Record<string, unknown> & { id: string; name: string }): MenuItem => {
+  const item = {
     kind: 'category',
-    slug: over.id,
+    categoryId: over.id,
     // `AD-018`: o href da entrada é a canônica de `menuItems` — raiz, um segmento.
     href: `/${over.id}`,
-    path: over.name,
+    external: false,
     icon: null,
-    sortOrder: 0,
     children: [],
+    banners: null,
     hasPanel: false,
     ...over,
-  }) as MenuItem
+  } as MenuItem
+  return {
+    ...item,
+    children: item.children.map(f => ({ ...f, href: f.href ?? `/${over.id}/${f.id}` })),
+  }
+}
 
 const link = (over: Record<string, unknown> & { id: string; name: string }): MenuItem =>
   ({
     kind: 'link',
+    categoryId: null,
     href: `/${over.id}`,
     icon: null,
-    sortOrder: 0,
     external: false,
+    children: [],
+    banners: null,
+    hasPanel: false,
     ...over,
   }) as MenuItem
 
@@ -247,6 +260,34 @@ describe('NAV-12 — item de link é link direto', () => {
 
     expect(item).toHaveAttribute('target', '_blank')
     expect(item).toHaveAttribute('rel', 'noopener noreferrer')
+  })
+
+  // H03 da verificação r3 da 86 (F25): o FILHO externo no acordeão também abre em nova aba, sem
+  // passar pelo React Router — o mesmo que `MegaMenu.test.tsx` prova no computador. O par interno
+  // ao lado prova que a régua distingue os dois ramos.
+  it('filho externo do acordeão é <a> com target _blank e noopener noreferrer; o interno não', () => {
+    renderSheet([
+      categoria({
+        id: 'afetivas',
+        name: 'Coleção Afetivas',
+        children: [
+          { id: 'blog', name: 'Blog', href: 'https://exemplo.com/blog', external: true },
+          filha('cinzas', 'Cinzas de cremação'),
+        ],
+        hasPanel: true,
+      }),
+    ])
+    fireEvent.click(screen.getByRole('button', { name: 'Coleção Afetivas' }))
+
+    const externo = screen.getByRole('link', { name: 'Blog' })
+    expect(externo.tagName).toBe('A')
+    expect(externo).toHaveAttribute('href', 'https://exemplo.com/blog')
+    expect(externo).toHaveAttribute('target', '_blank')
+    expect(externo).toHaveAttribute('rel', 'noopener noreferrer')
+
+    const interno = screen.getByRole('link', { name: 'Cinzas de cremação' })
+    expect(interno).toHaveAttribute('href', '/afetivas/cinzas')
+    expect(interno).not.toHaveAttribute('target')
   })
 })
 

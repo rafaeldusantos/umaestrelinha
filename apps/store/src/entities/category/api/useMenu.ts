@@ -1,5 +1,10 @@
 import { useMemo } from 'react'
-import { menuItems, type MenuItem, type MenuSurface } from '@estrelinha/core/menu'
+import {
+  menuItems,
+  parseMenuDocument,
+  type MenuItem,
+  type MenuSurface,
+} from '@estrelinha/core/menu'
 import { useStoreSettings } from '@estrelinha/core/hooks/useStoreSettings'
 // Import PROFUNDO de propósito, e é a única forma sem ciclo: `entities/menu/index.ts` reexporta
 // `useMenuTargets`, que importa `@/entities/category` — passar pelo barrel fecharia
@@ -42,14 +47,34 @@ export const useMenu = (surface: MenuSurface): { items: MenuItem[] } => {
    */
   const { draft } = useMenuPreview()
 
-  const links = settings?.menu?.links
-  const items = useMemo(
-    () =>
-      draft
-        ? menuItems({ categories: draft.categories, links: draft.links }, surface)
-        : menuItems({ categories: categories ?? [], links: links ?? [] }, surface),
-    [draft, categories, links, surface],
-  )
+  /**
+   * Feature 86 (`AD-068`): a montagem da dona mora em `store_settings.menu` como documento v2.
+   *
+   * - **Com v2**, a porta desenha o documento; as colunas `menu_*` da categoria deixam de ser lidas.
+   * - **Sem v2** (`parseMenuDocument` ⇒ `null`), a porta cai no menu deduzido de hoje
+   *   (`legacyMenuDocument`), com os `links` legados — a loja fica idêntica à de antes.
+   * - **Settings ainda carregando ⇒ nenhum item** (`L-037`). Sem a linha não se sabe se há v2, e
+   *   desenhar o legado nesse meio-tempo seria afirmar um menu que o banco pode já ter trocado — a
+   *   barra mostraria as colunas antigas e depois pularia para a montagem nova. `DEFAULT_MENU` não
+   *   é estado de carga: só a resposta (ou a falha, que `fetchAllSettings` já converte nos
+   *   defaults) decide.
+   */
+  const raw = settings?.menu
+  const carregou = settings !== undefined && settings !== null
+  const document = useMemo(() => parseMenuDocument(raw), [raw])
+  const links = (raw as { links?: unknown } | undefined)?.links
+  const items = useMemo(() => {
+    if (draft) return menuItems({ categories: draft.categories, document: draft.document }, surface)
+    if (!carregou) return []
+    return menuItems(
+      {
+        categories: categories ?? [],
+        document,
+        links: Array.isArray(links) ? links : [],
+      },
+      surface,
+    )
+  }, [draft, carregou, categories, document, links, surface])
 
   return { items }
 }

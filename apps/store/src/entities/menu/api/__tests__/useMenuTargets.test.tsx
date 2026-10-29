@@ -142,11 +142,16 @@ describe('useMenuTargets — a consulta que acontece', () => {
 })
 
 describe('useMenuBanners — o que não resolve não renderiza (NAV-30)', () => {
-  const comBanners = (banners: unknown) =>
-    (categoriesState.data = [
-      categoria({ id: 'joias', name: 'Joias', menu_banners: banners }),
+  // Feature 86 (T08): os banners são do NÓ, e chegam no item (`item.banners`). A árvore continua sendo
+  // a fonte dos destinos de categoria. As réguas abaixo são as mesmas de antes.
+  let painel: { banners: unknown } = { banners: null }
+  const comBanners = (banners: unknown) => {
+    painel = { banners }
+    categoriesState.data = [
+      categoria({ id: 'joias', name: 'Joias' }),
       categoria({ id: 'correntes', name: 'Correntes' }),
-    ])
+    ]
+  }
 
   it('painel fechado (`null`) devolve lista vazia sem consultar nada', () => {
     comBanners({ desktop: [bannerDeProduto('p1')], mobile: [] })
@@ -161,7 +166,7 @@ describe('useMenuBanners — o que não resolve não renderiza (NAV-30)', () => 
       desktop: [{ target: { kind: 'category', id: 'correntes' }, badge: 'NOVIDADE' }],
       mobile: [],
     })
-    const { result } = renderHook(() => useMenuBanners('joias', 'desktop'), { wrapper })
+    const { result } = renderHook(() => useMenuBanners(painel, 'desktop'), { wrapper })
 
     expect(result.current).toHaveLength(1)
     expect(result.current[0].href).toBe('/correntes')
@@ -172,7 +177,7 @@ describe('useMenuBanners — o que não resolve não renderiza (NAV-30)', () => 
 
   it('destino de categoria APAGADA não renderiza — o painel encolhe', () => {
     comBanners({ desktop: [{ target: { kind: 'category', id: 'nao-existe' } }], mobile: [] })
-    const { result } = renderHook(() => useMenuBanners('joias', 'desktop'), { wrapper })
+    const { result } = renderHook(() => useMenuBanners(painel, 'desktop'), { wrapper })
 
     expect(result.current).toEqual([])
   })
@@ -180,7 +185,7 @@ describe('useMenuBanners — o que não resolve não renderiza (NAV-30)', () => 
   it('destino de produto INATIVO não renderiza', async () => {
     respondeCom([produto('p1', { is_active: false })])
     comBanners({ desktop: [bannerDeProduto('p1')], mobile: [] })
-    const { result } = renderHook(() => useMenuBanners('joias', 'desktop'), { wrapper })
+    const { result } = renderHook(() => useMenuBanners(painel, 'desktop'), { wrapper })
 
     await waitFor(() => expect(inMock).toHaveBeenCalled())
     await waitFor(() => expect(result.current).toEqual([]))
@@ -189,7 +194,7 @@ describe('useMenuBanners — o que não resolve não renderiza (NAV-30)', () => 
   it('destino de produto ativo renderiza na canônica `/produtos/:slug`', async () => {
     respondeCom([produto('p1')])
     comBanners({ desktop: [bannerDeProduto('p1')], mobile: [] })
-    const { result } = renderHook(() => useMenuBanners('joias', 'desktop'), { wrapper })
+    const { result } = renderHook(() => useMenuBanners(painel, 'desktop'), { wrapper })
 
     await waitFor(() => expect(result.current).toHaveLength(1))
     expect(result.current[0].href).toBe('/produtos/peca-p1')
@@ -201,11 +206,11 @@ describe('useMenuBanners — o que não resolve não renderiza (NAV-30)', () => 
       mobile: [{ target: { kind: 'category', id: 'correntes' } }],
     })
 
-    expect(renderHook(() => useMenuBanners('joias', 'desktop'), { wrapper }).result.current).toEqual(
+    expect(renderHook(() => useMenuBanners(painel, 'desktop'), { wrapper }).result.current).toEqual(
       [],
     )
     expect(
-      renderHook(() => useMenuBanners('joias', 'mobile'), { wrapper }).result.current,
+      renderHook(() => useMenuBanners(painel, 'mobile'), { wrapper }).result.current,
     ).toHaveLength(1)
   })
 
@@ -215,8 +220,36 @@ describe('useMenuBanners — o que não resolve não renderiza (NAV-30)', () => 
     for (const bruto of [null, [], { desktop: 'nao-e-lista' }, { desktop: [null, 7, 'x'] }]) {
       comBanners(bruto)
       expect(
-        renderHook(() => useMenuBanners('joias', 'desktop'), { wrapper }).result.current,
+        renderHook(() => useMenuBanners(painel, 'desktop'), { wrapper }).result.current,
       ).toEqual([])
     }
+  })
+})
+
+describe('useMenuBanners — feature 86 (T08): os banners são do nó, não da categoria', () => {
+  it('banner de um item de LINK resolve (o link não tem categoria nenhuma)', () => {
+    categoriesState.data = [categoria({ id: 'correntes', name: 'Correntes' })]
+    const itemDeLink = {
+      banners: { desktop: [{ target: { kind: 'category', id: 'correntes' } }], mobile: [] },
+    }
+    const { result } = renderHook(() => useMenuBanners(itemDeLink, 'desktop'), { wrapper })
+
+    expect(result.current.map(b => b.href)).toEqual(['/correntes'])
+  })
+
+  it('a coluna `menu_banners` da categoria NÃO é lida: sem banner no nó, nada aparece', () => {
+    categoriesState.data = [
+      categoria({
+        id: 'joias',
+        name: 'Joias',
+        menu_banners: { desktop: [{ target: { kind: 'category', id: 'joias' } }], mobile: [] },
+      }),
+    ]
+    const { result } = renderHook(() => useMenuBanners({ banners: null }, 'desktop'), { wrapper })
+
+    expect(result.current).toEqual([])
+    // sensor: o mesmo jsonb, posto no nó, resolve — o vazio acima é a fonte, não o destino.
+    const cheio = { banners: { desktop: [{ target: { kind: 'category', id: 'joias' } }], mobile: [] } }
+    expect(renderHook(() => useMenuBanners(cheio, 'desktop'), { wrapper }).result.current).toHaveLength(1)
   })
 })

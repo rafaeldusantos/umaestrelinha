@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { renderHook } from '@testing-library/react'
+import { legacyMenuDocument } from '@estrelinha/core/menu'
 
 /**
  * `useMenu(surface)` — a porta da loja para o menu, feature 39.
@@ -133,9 +134,14 @@ describe('useMenu — as duas fontes numa lista só (NAV-14)', () => {
 describe('NAV-44 — em modo prévia o rascunho SUBSTITUI o banco', () => {
   it('a barra passa a ser a do painel, e a leitura do banco é ignorada', () => {
     categoriesState.data = [categoria({ id: 'salva', name: 'Salva no banco', menu_desktop: true })]
+    // Feature 86: o rascunho é `{ categories, document }`. O documento aqui é a conversão do legado
+    // — o que o painel manda enquanto edita as colunas da categoria —, e a régua é a mesma de antes.
+    const categories = [categoria({ id: 'rascunho', name: 'Do rascunho', menu_desktop: true })]
     previewState.draft = {
-      categories: [categoria({ id: 'rascunho', name: 'Do rascunho', menu_desktop: true })],
-      links: [link({ id: 'sobre', label: 'Sobre', desktop: true, sort_order: 100 })],
+      categories,
+      document: legacyMenuDocument(categories, [
+        link({ id: 'sobre', label: 'Sobre', desktop: true, sort_order: 100 }),
+      ]),
     }
 
     expect(menu('desktop').items.map(i => i.name)).toEqual(['Do rascunho', 'Sobre'])
@@ -144,13 +150,11 @@ describe('NAV-44 — em modo prévia o rascunho SUBSTITUI o banco', () => {
   it('a substituição vale para as DUAS superfícies, com a mesma função', () => {
     // O quadro do celular mede 390 e a folha pede `'mobile'`: se o rascunho só chegasse ao desktop, a
     // prévia da superfície que responde por ~90% dos acessos mostraria o banco.
-    previewState.draft = {
-      categories: [
-        categoria({ id: 'so-celular', name: 'Só no celular', menu_mobile: true }),
-        categoria({ id: 'so-pc', name: 'Só no computador', menu_desktop: true }),
-      ],
-      links: [],
-    }
+    const categories = [
+      categoria({ id: 'so-celular', name: 'Só no celular', menu_mobile: true }),
+      categoria({ id: 'so-pc', name: 'Só no computador', menu_desktop: true }),
+    ]
+    previewState.draft = { categories, document: legacyMenuDocument(categories, []) }
 
     expect(menu('mobile').items.map(i => i.name)).toEqual(['Só no celular'])
     expect(menu('desktop').items.map(i => i.name)).toEqual(['Só no computador'])
@@ -160,7 +164,7 @@ describe('NAV-44 — em modo prévia o rascunho SUBSTITUI o banco', () => {
     // A diferença que o hook da ponte guarda: `null` é "ainda não chegou" e cai no banco; `[]` é
     // "a dona desligou tudo". Confundir os dois faria a prévia nunca ficar vazia.
     categoriesState.data = [categoria({ id: 'salva', name: 'Salva no banco', menu_desktop: true })]
-    previewState.draft = { categories: [], links: [] }
+    previewState.draft = { categories: [], document: { version: 2, items: [] } }
 
     expect(menu('desktop').items).toEqual([])
   })
@@ -188,5 +192,80 @@ describe('useMenu — falha de leitura não quebra a loja', () => {
     settingsState.data = {}
 
     expect(menu('desktop').items.map(i => i.name)).toEqual(['Correntes'])
+  })
+})
+
+describe('feature 86 (T07) — a loja lê o documento da dona', () => {
+  const docV2 = (over: Record<string, unknown> = {}) => ({
+    version: 2,
+    items: [
+      {
+        id: 'n-sobre',
+        target: { kind: 'link', href: '/sobre' },
+        label: 'Quem somos',
+        desktop: true,
+        mobile: true,
+        icon: null,
+        banners: null,
+        children: [],
+      },
+      {
+        id: 'n-correntes',
+        target: { kind: 'category', category_id: 'correntes' },
+        label: null,
+        desktop: true,
+        mobile: false,
+        icon: null,
+        banners: null,
+        children: [],
+      },
+    ],
+    ...over,
+  })
+
+  it('com v2 gravado, o menu é o documento — e as colunas da categoria deixam de ser lidas', () => {
+    categoriesState.data = [
+      // `menu_mobile: true` na coluna, mas o documento diz só computador: vence o documento.
+      categoria({ id: 'correntes', name: 'Correntes', menu_desktop: false, menu_mobile: true }),
+      // ligada na coluna e ausente do documento: não aparece.
+      categoria({ id: 'pingentes', name: 'Pingentes', menu_desktop: true, menu_mobile: true }),
+    ]
+    settingsState.data = {
+      menu: {
+        ...docV2(),
+        // o legado ainda no value: não é lido com v2
+        links: [link({ id: 'velho', label: 'Link velho', desktop: true, mobile: true })],
+      },
+    }
+
+    expect(menu('desktop').items.map(i => i.name)).toEqual(['Quem somos', 'Correntes'])
+    expect(menu('mobile').items.map(i => i.name)).toEqual(['Quem somos'])
+    expect(menu('desktop').items.map(i => i.id)).toEqual(['n-sobre', 'n-correntes'])
+  })
+
+  it('sem `version: 2`, o menu é o legado de hoje (Success Criterion 3)', () => {
+    categoriesState.data = [categoria({ id: 'correntes', name: 'Correntes', menu_desktop: true })]
+    settingsState.data = { menu: { ...docV2({ version: 1 }), links: [] } }
+
+    expect(menu('desktop').items.map(i => i.id)).toEqual(['cat:correntes'])
+  })
+
+  it('settings ainda carregando ⇒ nenhum item, mesmo com as categorias na mão (L-037)', () => {
+    categoriesState.data = [categoria({ id: 'correntes', name: 'Correntes', menu_desktop: true })]
+    settingsState.data = undefined
+
+    expect(menu('desktop').items).toEqual([])
+    expect(menu('mobile').items).toEqual([])
+
+    // sensor: com a leitura resolvida (sem v2), as mesmas categorias produzem o menu de hoje — o
+    // vazio de cima é o portão da carga, não a fonte.
+    settingsState.data = { menu: { links: [] } }
+    expect(menu('desktop').items.map(i => i.name)).toEqual(['Correntes'])
+  })
+
+  it('em prévia, o rascunho vence mesmo com settings carregando', () => {
+    settingsState.data = undefined
+    previewState.draft = { categories: [], document: docV2() }
+    expect(menu('desktop').items.map(i => i.name)).toEqual(['Quem somos'])
   })
 })
