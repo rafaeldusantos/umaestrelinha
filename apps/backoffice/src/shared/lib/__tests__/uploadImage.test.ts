@@ -55,6 +55,13 @@ let toBlobSpy: ReturnType<typeof vi.spyOn>
 let lastCanvas: HTMLCanvasElement | null = null
 /** Dimensões que o `Image` stub reporta — cada teste ajusta antes de chamar. */
 let sourceSize = { width: 800, height: 600 }
+/** Liga a falha de decodificação do `Image` stub — o arquivo corrompido com tipo válido. */
+let falharCarga = false
+/**
+ * O que o contexto 2d recebeu, NA ORDEM: atribuições de suavização e a chamada de `drawImage`.
+ * É a ordem que `IMG-10` exige — a suavização ligada depois do desenho não vale para ele.
+ */
+let eventosDoContexto: string[] = []
 
 class ImageStub {
   onload: (() => void) | null = null
@@ -64,7 +71,7 @@ class ImageStub {
   set src(_value: string) {
     this.width = sourceSize.width
     this.height = sourceSize.height
-    queueMicrotask(() => this.onload?.())
+    queueMicrotask(() => (falharCarga ? this.onerror?.() : this.onload?.()))
   }
 }
 
@@ -72,6 +79,8 @@ beforeEach(() => {
   uploadMock.mockReset().mockResolvedValue({ error: null })
   fromMock.mockClear()
   sourceSize = { width: 800, height: 600 }
+  falharCarga = false
+  eventosDoContexto = []
   lastCanvas = null
 
   createObjectURL = vi.fn(() => 'blob:fake')
@@ -91,7 +100,13 @@ beforeEach(() => {
   // jsdom não tem canvas 2d: sem estes dois stubs, `getContext` devolve null e `drawImage` estoura
   // antes de qualquer asserção sobre dimensão.
   vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
-    drawImage: vi.fn(),
+    set imageSmoothingEnabled(v: boolean) {
+      eventosDoContexto.push(`imageSmoothingEnabled=${v}`)
+    },
+    set imageSmoothingQuality(v: string) {
+      eventosDoContexto.push(`imageSmoothingQuality=${v}`)
+    },
+    drawImage: vi.fn(() => eventosDoContexto.push('drawImage')),
   } as unknown as CanvasRenderingContext2D)
   toBlobSpy = vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation(function (
     this: HTMLCanvasElement,
@@ -106,14 +121,23 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-describe('compressão — PMD-02 AC 5: WebP de 1600 px', () => {
-  it('reduz o maior lado para 1600 px preservando a proporção', async () => {
-    sourceSize = { width: 3000, height: 2000 }
+describe('compressão — WebP de até 2400 px (feature 87)', () => {
+  it('IMG-11: reduz o maior lado para 2400 px preservando a proporção', async () => {
+    sourceSize = { width: 4000, height: 3000 }
 
     await uploadImageBlob(new Blob(['raw'], { type: 'image/png' }))
 
-    expect(lastCanvas?.width).toBe(1600)
-    expect(lastCanvas?.height).toBe(1067)
+    expect(lastCanvas?.width).toBe(2400)
+    expect(lastCanvas?.height).toBe(1800)
+  })
+
+  it('IMG-11: a régua é o maior lado também quando ele é a altura', async () => {
+    sourceSize = { width: 1500, height: 3000 }
+
+    await uploadImageBlob(new Blob(['raw'], { type: 'image/jpeg' }))
+
+    expect(lastCanvas?.width).toBe(1200)
+    expect(lastCanvas?.height).toBe(2400)
   })
 
   it('não amplia imagem menor que o teto', async () => {
@@ -326,5 +350,128 @@ describe('deleteStorageImage', () => {
     await expect(
       deleteStorageImage(`${storagePublicPrefix('home-images')}menu/x.webp`, { bucket: 'home-images', folder: 'menu' }),
     ).resolves.toBeUndefined()
+  })
+})
+
+describe('feature 87 — o original não é estragado', () => {
+  it('IMG-09: o WebP recomprimido sai com qualidade 0.92', async () => {
+    await uploadImageBlob(new Blob(['raw'], { type: 'image/jpeg' }))
+
+    expect(toBlobSpy).toHaveBeenCalledTimes(1)
+    expect(toBlobSpy.mock.calls[0][1]).toBe('image/webp')
+    expect(toBlobSpy.mock.calls[0][2]).toBe(0.92)
+  })
+
+  it('IMG-10: a suavização `high` é ligada ANTES do desenho', async () => {
+    sourceSize = { width: 4000, height: 3000 }
+
+    await uploadImageBlob(new Blob(['raw'], { type: 'image/jpeg' }))
+
+    expect(eventosDoContexto).toEqual([
+      'imageSmoothingEnabled=true',
+      'imageSmoothingQuality=high',
+      'drawImage',
+    ])
+  })
+
+  it('IMG-12: WebP dentro do teto é gravado como chegou — o MESMO Blob, sem canvas', async () => {
+    sourceSize = { width: 1024, height: 1280 }
+    const original = new Blob(['webp-da-dona'], { type: 'image/webp' })
+
+    const url = await uploadImageBlob(original)
+
+    expect(toBlobSpy).not.toHaveBeenCalled()
+    expect(eventosDoContexto).toEqual([])
+    expect(uploadMock.mock.calls[0][1]).toBe(original)
+    expect(url).toMatch(/\/product-images\/products\/[0-9a-f-]+\.webp$/)
+  })
+
+  it('IMG-12: exatamente no teto (2400) também não passa pelo canvas', async () => {
+    sourceSize = { width: 2400, height: 1600 }
+    const original = new Blob(['webp'], { type: 'image/webp' })
+
+    await uploadImageBlob(original)
+
+    expect(uploadMock.mock.calls[0][1]).toBe(original)
+    expect(toBlobSpy).not.toHaveBeenCalled()
+  })
+
+  it('IMG-12: PNG dentro do teto com saída PNG é gravado como chegou (o alfa não passa pelo canvas)', async () => {
+    sourceSize = { width: 800, height: 800 }
+    const original = new Blob(['png-transparente'], { type: 'image/png' })
+
+    await uploadImageBlob(original, { format: 'image/png' })
+
+    expect(uploadMock.mock.calls[0][1]).toBe(original)
+    expect(uploadMock.mock.calls[0][2]).toMatchObject({ contentType: 'image/png' })
+    expect(toBlobSpy).not.toHaveBeenCalled()
+  })
+
+  it('IMG-13: JPEG pequeno com saída WebP passa pelo canvas — uma recompressão', async () => {
+    sourceSize = { width: 800, height: 600 }
+    const original = new Blob(['jpeg'], { type: 'image/jpeg' })
+
+    await uploadImageBlob(original)
+
+    expect(toBlobSpy).toHaveBeenCalledTimes(1)
+    expect(uploadMock.mock.calls[0][1]).not.toBe(original)
+    expect(lastCanvas?.width).toBe(800)
+  })
+
+  it('IMG-13: PNG pequeno com saída WebP passa pelo canvas', async () => {
+    const original = new Blob(['png'], { type: 'image/png' })
+
+    await uploadImageBlob(original)
+
+    expect(toBlobSpy).toHaveBeenCalledTimes(1)
+    expect(uploadMock.mock.calls[0][1]).not.toBe(original)
+  })
+
+  it('IMG-13: WebP acima do teto passa pelo canvas e sai reduzido', async () => {
+    sourceSize = { width: 2401, height: 1000 }
+    const original = new Blob(['webp'], { type: 'image/webp' })
+
+    await uploadImageBlob(original)
+
+    expect(toBlobSpy).toHaveBeenCalledTimes(1)
+    expect(lastCanvas?.width).toBe(2400)
+    expect(uploadMock.mock.calls[0][1]).not.toBe(original)
+  })
+
+  it('IMG-13: Blob sem tipo (o render do estúdio) passa pelo canvas', async () => {
+    const original = new Blob(['render'])
+
+    await uploadImageBlob(original)
+
+    expect(toBlobSpy).toHaveBeenCalledTimes(1)
+    expect(uploadMock.mock.calls[0][1]).not.toBe(original)
+  })
+
+  it('IMG-14: o caminho sem canvas grava com o `contentType` do formato e o cache de um ano', async () => {
+    await uploadImageBlob(new Blob(['webp'], { type: 'image/webp' }))
+
+    expect(uploadMock.mock.calls[0][2]).toMatchObject({
+      contentType: 'image/webp',
+      cacheControl: '31536000',
+      upsert: false,
+    })
+  })
+
+  it('IMG-14: arquivo que não decodifica devolve `null` também quando seria gravado sem canvas', async () => {
+    falharCarga = true
+
+    const url = await uploadImageBlob(new Blob(['corrompido'], { type: 'image/webp' }))
+
+    expect(url).toBeNull()
+    expect(uploadMock).not.toHaveBeenCalled()
+  })
+
+  it('IMG-14: arquivo que não decodifica devolve `null` no caminho com canvas', async () => {
+    falharCarga = true
+
+    const url = await uploadImageBlob(new Blob(['corrompido'], { type: 'image/jpeg' }))
+
+    expect(url).toBeNull()
+    expect(uploadMock).not.toHaveBeenCalled()
   })
 })

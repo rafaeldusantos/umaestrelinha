@@ -96,7 +96,7 @@ describe('ColorPreview — a amostra de cor pede 120, nunca o original (PRF-02 A
     for (const img of fotos) {
       expect(img.getAttribute('src')).toContain('/render/image/public/')
       expect(img.getAttribute('src')).toContain('width=120')
-      expect(img.getAttribute('src')).toContain('quality=75')
+      expect(img.getAttribute('src')).toContain('quality=80')
     }
   })
 

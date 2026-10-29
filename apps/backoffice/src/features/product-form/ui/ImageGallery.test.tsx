@@ -99,10 +99,13 @@ describe('ImageGallery — copy da dropzone (PMD-02 AC 6)', () => {
     const dropzone = screen.getByLabelText('Enviar imagens')
     // A AC 6 fixa a frase inteira, não só os números — é o texto que a spec cita.
     expect(dropzone).toHaveTextContent(
-      'PNG, JPG ou WebP até 8 MB · convertidas para WebP 1600 px',
+      'PNG, JPG ou WebP até 8 MB · até 2400 px no maior lado',
     )
     // A copy antiga mentia: dizia 5 MB e o código não validava tamanho nenhum.
     expect(dropzone).not.toHaveTextContent('5MB')
+    // IMG-18: nem o teto antigo, nem a promessa de conversão que o caminho sem canvas não cumpre.
+    expect(dropzone).not.toHaveTextContent('1600')
+    expect(dropzone).not.toHaveTextContent('convertidas')
   })
 })
 

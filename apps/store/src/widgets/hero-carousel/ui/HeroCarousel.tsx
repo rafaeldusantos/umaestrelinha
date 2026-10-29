@@ -7,7 +7,7 @@ import {
   type HomeSection,
   type ResolvedItem,
 } from '@estrelinha/core/home'
-import { renditionSrcSet, renditionUrl } from '@estrelinha/core/media'
+import { RENDITION_WIDE_MAX, renditionSrcSet, renditionUrl } from '@estrelinha/core/media'
 import { cn } from '@estrelinha/ui/lib/utils'
 import { TAP_44 } from '@/shared/lib/touchTarget'
 import { useHeroCarousel } from '../model/useHeroCarousel'
@@ -65,8 +65,16 @@ const VAGAS = {
   '--vaga-computador': `${HERO_CAROUSEL_SLOTS.desktop.width} / ${HERO_CAROUSEL_SLOTS.desktop.height}`,
 } as React.CSSProperties
 
-/** As larguras que cada vaga pede ao `render/image`. A de 2× cobre tela retina. */
-const LARGURAS_CELULAR = [HERO_CAROUSEL_SLOTS.mobile.width / 2, HERO_CAROUSEL_SLOTS.mobile.width]
+/**
+ * As larguras que cada vaga pede ao `render/image`. A de 2× cobre tela retina; no celular entra
+ * também a das vagas largas (feature 87, `IMG-05`): a arte ocupa `100vw`, e em DPR 3 a vaga de 390
+ * pede ~1170 — com 720 como teto ela saía ampliada 1,6×.
+ */
+const LARGURAS_CELULAR = [
+  HERO_CAROUSEL_SLOTS.mobile.width / 2,
+  HERO_CAROUSEL_SLOTS.mobile.width,
+  RENDITION_WIDE_MAX,
+]
 const LARGURAS_COMPUTADOR = [
   HERO_CAROUSEL_SLOTS.desktop.width / 2,
   HERO_CAROUSEL_SLOTS.desktop.width,

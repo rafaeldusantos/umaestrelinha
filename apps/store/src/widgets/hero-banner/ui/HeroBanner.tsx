@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import { motion, type Variants } from 'framer-motion'
 import { ArrowRight } from 'lucide-react'
 import type { HomeSectionConfig } from '@estrelinha/core/home'
-import { renditionSrcSet, renditionUrl } from '@estrelinha/core/media'
+import { RENDITION_WIDTHS_WIDE, renditionSrcSet, renditionUrl } from '@estrelinha/core/media'
 import { EstrelinhaSymbol } from '@estrelinha/ui/brand'
 
 const container: Variants = {
@@ -107,7 +107,7 @@ const HeroPhoto = ({ src, alt }: { src: string; alt: string }) => (
         A grafia minúscula sai por spread porque o React 18.3 não conhece `fetchPriority`. */}
     <img
       src={renditionUrl(src, 480)}
-      srcSet={renditionSrcSet(src) || undefined}
+      srcSet={renditionSrcSet(src, RENDITION_WIDTHS_WIDE) || undefined}
       sizes="(min-width: 768px) 440px, 100vw"
       loading="eager"
       {...({ fetchpriority: 'high' } as Record<string, string>)}

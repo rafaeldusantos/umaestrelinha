@@ -7,8 +7,32 @@ import type { ProductImage } from '@estrelinha/supabase/types'
 // faz o browser requisitar o HTML da própria página como imagem.
 
 // `ImageZoom` só existe no caminho desktop e depende de medida de layout, que jsdom não tem.
+// O dublê registra as props novas (feature 87) em atributos `data-*` — e não em `srcset`/`sizes` de
+// verdade, para `img[sizes]` continuar achando só o palco do celular.
 vi.mock('../ImageZoom', () => ({
-  default: ({ src, alt }: { src: string; alt: string }) => <img src={src} alt={alt} />,
+  default: ({
+    src,
+    alt,
+    srcSet,
+    sizes,
+    zoomSrc,
+  }: {
+    src: string
+    alt: string
+    srcSet?: string
+    sizes?: string
+    zoomSrc: string
+  }) => (
+    <img
+      src={src}
+      alt={alt}
+      data-zoom-palco=""
+      // `undefined` é um estado próprio: `?? ''` fundiria "sem atributo" com "atributo vazio".
+      data-srcset={srcSet === undefined ? '<ausente>' : srcSet}
+      data-sizes={sizes === undefined ? '<ausente>' : sizes}
+      data-zoom-src={zoomSrc}
+    />
+  ),
 }))
 
 import ProductGallery from '../ProductGallery'
@@ -85,15 +109,53 @@ const galeria = (urls: string[] = [STORAGE]) =>
   render(<ProductGallery images={urls.map(url => image({ url }))} name="Pingente com cinzas" />)
 
 describe('ProductGallery — a foto do tamanho do palco (PRF-02 AC 5-6)', () => {
-  it('o palco declara `srcset` com as três larguras', () => {
+  it('IMG-02: o palco declara `srcset` com as quatro larguras das vagas largas', () => {
     const { container } = galeria()
     const palco = container.querySelector('img[sizes]')!
 
     expect(palco.getAttribute('srcset')).toBe(
-      `${RENDER}?width=360&resize=contain&quality=75 360w, ` +
-        `${RENDER}?width=480&resize=contain&quality=75 480w, ` +
-        `${RENDER}?width=720&resize=contain&quality=75 720w`,
+      `${RENDER}?width=360&resize=contain&quality=80 360w, ` +
+        `${RENDER}?width=480&resize=contain&quality=80 480w, ` +
+        `${RENDER}?width=720&resize=contain&quality=80 720w, ` +
+        `${RENDER}?width=1080&resize=contain&quality=80 1080w`,
     )
+  })
+
+  it('IMG-02: o palco do computador recebe o MESMO `srcset` e o MESMO `sizes` do celular', () => {
+    const { container } = galeria()
+    const celular = container.querySelector('img[sizes]')!
+    const computador = container.querySelector('img[data-zoom-palco]')!
+
+    expect(computador.getAttribute('data-srcset')).toBe(celular.getAttribute('srcset'))
+    expect(computador.getAttribute('data-sizes')).toBe(celular.getAttribute('sizes'))
+    expect(computador.getAttribute('data-srcset')).toContain('1080w')
+  })
+
+  it('IMG-15: o zoom recebe a rendição de 1600 da foto ativa', () => {
+    const { container } = galeria()
+
+    expect(container.querySelector('img[data-zoom-palco]')!.getAttribute('data-zoom-src')).toBe(
+      `${RENDER}?width=1600&resize=contain&quality=80`,
+    )
+  })
+
+  it('IMG-16: trocar de foto troca a rendição do zoom', () => {
+    const { container } = galeria([STORAGE, SEGUNDA])
+    fireEvent.click(screen.getByLabelText('Ver imagem 2 de 2'))
+
+    expect(container.querySelector('img[data-zoom-palco]')!.getAttribute('data-zoom-src')).toBe(
+      SEGUNDA.replace('/object/public/', '/render/image/public/') +
+        '?width=1600&resize=contain&quality=80',
+    )
+  })
+
+  it('IMG-17: foto externa vai ao zoom inalterada, e o palco do computador sem `srcset`', () => {
+    const externa = 'https://cdn.parceiro.example/terceira.jpg'
+    const { container } = galeria([externa])
+    const computador = container.querySelector('img[data-zoom-palco]')!
+
+    expect(computador.getAttribute('data-zoom-src')).toBe(externa)
+    expect(computador.getAttribute('data-srcset')).toBe('<ausente>')
   })
 
   it('o `sizes` do palco descreve metade da tela no desktop e a tela toda no celular', () => {
@@ -112,11 +174,11 @@ describe('ProductGallery — a foto do tamanho do palco (PRF-02 AC 5-6)', () => 
     expect(palco.getAttribute('fetchpriority')).toBe('high')
   })
 
-  it('o `src` do palco pede a rendição de 720, e não o original', () => {
+  it('o `src` do palco pede a rendição de 1080 (IMG-02), e não o original', () => {
     const { container } = galeria()
 
     expect(container.querySelector('img[sizes]')!.getAttribute('src')).toBe(
-      `${RENDER}?width=720&resize=contain&quality=75`,
+      `${RENDER}?width=1080&resize=contain&quality=80`,
     )
   })
 
@@ -127,7 +189,7 @@ describe('ProductGallery — a foto do tamanho do palco (PRF-02 AC 5-6)', () => 
     const { container } = galeria()
     const palcos = [...container.querySelectorAll('img')]
       .map(img => img.getAttribute('src'))
-      .filter(src => src!.includes('width=720'))
+      .filter(src => src!.includes('width=1080'))
 
     expect(palcos).toHaveLength(2)
     expect(new Set(palcos).size).toBe(1)
@@ -142,7 +204,7 @@ describe('ProductGallery — a foto do tamanho do palco (PRF-02 AC 5-6)', () => 
     expect(fita).toHaveLength(2)
     fita.forEach(img => {
       expect(img.getAttribute('src')).toContain('/render/image/public/')
-      expect(img.getAttribute('src')).toContain('width=160&resize=contain&quality=75')
+      expect(img.getAttribute('src')).toContain('width=160&resize=contain&quality=80')
     })
     expect(fita.map(img => img.getAttribute('src'))).not.toContain(STORAGE)
   })
@@ -180,10 +242,10 @@ describe('ProductGallery — a foto do tamanho do palco (PRF-02 AC 5-6)', () => 
     // "a foto ativa mudou, e mudou por rendição?" é o primeiro, e é nele que se mede.
     const ativas = [...container.querySelectorAll('img')]
       .map(img => img.getAttribute('src'))
-      .filter(src => src!.includes('width=720'))
+      .filter(src => src!.includes('width=1080'))
 
     expect(ativas).toContain(
-      SEGUNDA.replace('/object/public/', '/render/image/public/') + '?width=720&resize=contain&quality=75',
+      SEGUNDA.replace('/object/public/', '/render/image/public/') + '?width=1080&resize=contain&quality=80',
     )
     expect(ativas.every(src => src!.includes('/render/image/public/'))).toBe(true)
   })

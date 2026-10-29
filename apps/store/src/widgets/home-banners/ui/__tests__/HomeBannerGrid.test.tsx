@@ -224,14 +224,15 @@ const RENDER_BANNER =
   'https://hgkrsfpupypxtygjgthf.supabase.co/storage/v1/render/image/public/home/campanha.webp'
 
 describe('HomeBannerGrid — a arte no tamanho da vaga (PRF-02 AC 4)', () => {
-  it('declara `srcset` com as três larguras e um `sizes` que descreve a vaga', () => {
+  it('IMG-04: declara `srcset` com as quatro larguras das vagas largas e um `sizes` que descreve a vaga', () => {
     renderGrade([banner(1, { imageUrl: STORAGE_BANNER })], 'single')
     const arte = screen.getAllByRole('img')[0]
 
     expect(arte.getAttribute('srcset')).toBe(
-      `${RENDER_BANNER}?width=360&resize=contain&quality=75 360w, ` +
-        `${RENDER_BANNER}?width=480&resize=contain&quality=75 480w, ` +
-        `${RENDER_BANNER}?width=720&resize=contain&quality=75 720w`,
+      `${RENDER_BANNER}?width=360&resize=contain&quality=80 360w, ` +
+        `${RENDER_BANNER}?width=480&resize=contain&quality=80 480w, ` +
+        `${RENDER_BANNER}?width=720&resize=contain&quality=80 720w, ` +
+        `${RENDER_BANNER}?width=1080&resize=contain&quality=80 1080w`,
     )
     // Largura cheia em 390px, metade da linha a partir do `md` — é o que os quatro arranjos fazem.
     expect(arte.getAttribute('sizes')).toBe('(min-width: 768px) 50vw, 100vw')
@@ -244,7 +245,7 @@ describe('HomeBannerGrid — a arte no tamanho da vaga (PRF-02 AC 4)', () => {
 
     expect(screen.getAllByRole('img')[0]).toHaveAttribute(
       'src',
-      `${RENDER_BANNER}?width=480&resize=contain&quality=75`,
+      `${RENDER_BANNER}?width=480&resize=contain&quality=80`,
     )
   })
 

@@ -136,7 +136,7 @@ describe('ProductCard sem `matchedVariant` — o card de hoje (VFL-13)', () => {
 
   it('a foto é a capa, e o preço é o da primeira linha disponível — como sempre foi', () => {
     const { container } = render(<Card />)
-    expect(foto(container)).toBe(`${RENDER}/capa.webp?width=480&resize=contain&quality=75`)
+    expect(foto(container)).toBe(`${RENDER}/capa.webp?width=480&resize=contain&quality=80`)
     expect(precos(container)).toEqual(['R$ 60,00'])
     expect(selo(container)).toBeNull()
   })
@@ -161,12 +161,12 @@ describe('ProductCard com `matchedVariant` — abre na variação que casou (VFL
 
   it('a foto é a da variação, por rendição', () => {
     const { container } = render(<Card v={PRATA_B} />)
-    expect(foto(container)).toBe(`${RENDER}/prata-b.webp?width=480&resize=contain&quality=75`)
+    expect(foto(container)).toBe(`${RENDER}/prata-b.webp?width=480&resize=contain&quality=80`)
   })
 
   it('variação sem foto cai na capa da peça', () => {
     const { container } = render(<Card v={PRATA_COM} />)
-    expect(foto(container)).toBe(`${RENDER}/capa.webp?width=480&resize=contain&quality=75`)
+    expect(foto(container)).toBe(`${RENDER}/capa.webp?width=480&resize=contain&quality=80`)
   })
 
   it('variação sem preço cai no preço da peça', () => {
@@ -184,7 +184,7 @@ describe('ProductCard com `matchedVariant` — abre na variação que casou (VFL
     const { container } = render(<Card v={PRATA_COM} />)
     fireEvent.click(screen.getByRole('button', { name: 'Ver na cor Folheado a Ouro' }))
     expect(precos(container)).toEqual(['R$ 60,00'])
-    expect(foto(container)).toBe(`${RENDER}/ouro.webp?width=480&resize=contain&quality=75`)
+    expect(foto(container)).toBe(`${RENDER}/ouro.webp?width=480&resize=contain&quality=80`)
   })
 })
 
@@ -194,7 +194,7 @@ describe('ProductCard — a variação muda com o filtro, sem remontar (VFL-16)'
     rerender(<Card v={PRATA_B} />)
     expect(href(container)).toBe(`/produtos/colar-coracao-com-letra?variant=${PRATA_B.id}`)
     expect(precos(container)).toEqual(['R$ 99,00'])
-    expect(foto(container)).toBe(`${RENDER}/prata-b.webp?width=480&resize=contain&quality=75`)
+    expect(foto(container)).toBe(`${RENDER}/prata-b.webp?width=480&resize=contain&quality=80`)
   })
 
   it('tirar o último filtro (a prop vira `null`) devolve o card de hoje, inclusive depois de tocar numa cor', () => {
@@ -205,7 +205,7 @@ describe('ProductCard — a variação muda com o filtro, sem remontar (VFL-16)'
     rerender(<Card v={null} p={p} />)
     expect(href(container)).toBe('/produtos/colar-coracao-com-letra')
     expect(precos(container)).toEqual(['R$ 60,00'])
-    expect(foto(container)).toBe(`${RENDER}/capa.webp?width=480&resize=contain&quality=75`)
+    expect(foto(container)).toBe(`${RENDER}/capa.webp?width=480&resize=contain&quality=80`)
     expect(screen.getByRole('button', { name: 'Ver na cor Folheado a Ouro' })).toHaveAttribute('aria-pressed', 'true')
   })
 

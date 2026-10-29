@@ -410,7 +410,7 @@ describe('feature 69 — as fotos dos produtos', () => {
   const NS_IMAGEM = 'http://www.google.com/schemas/sitemap-image/1.1'
   const STORAGE = 'https://hgk.supabase.co/storage/v1/object/public/products'
   const RENDER = 'https://hgk.supabase.co/storage/v1/render/image/public/products'
-  const rendida = (nome: string) => `${RENDER}/${nome}.webp?width=1200&resize=contain&quality=75`
+  const rendida = (nome: string) => `${RENDER}/${nome}.webp?width=1200&resize=contain&quality=80`
 
   const PATA: SitemapProduct = {
     id: 'p-pata',
@@ -493,7 +493,7 @@ describe('feature 69 — as fotos dos produtos', () => {
   it('SSV-29: o `&` da URL de rendição sai escapado no corpo servido', async () => {
     const xml = (await serveSitemap(comFotos())).body
     expect(xml).toContain(
-      `<image:loc>${RENDER}/a.webp?width=1200&amp;resize=contain&amp;quality=75</image:loc>`,
+      `<image:loc>${RENDER}/a.webp?width=1200&amp;resize=contain&amp;quality=80</image:loc>`,
     )
     expect(xml).not.toMatch(/<image:loc>[^<]*&(?!amp;|lt;|gt;|quot;|apos;)/)
   })

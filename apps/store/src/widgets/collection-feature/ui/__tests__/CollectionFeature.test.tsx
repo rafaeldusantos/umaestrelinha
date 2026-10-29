@@ -215,9 +215,12 @@ describe('CollectionFeature — a foto no tamanho da vaga (PRF-02 AC 4)', () => 
     renderFaixa({ image_url: STORAGE_ARTE, image_alt: 'A coleção de leite materno' })
     const arte = screen.getByRole('img', { name: 'A coleção de leite materno' })
 
-    expect(arte.getAttribute('srcset')).toContain(`${RENDER_ARTE}?width=720&resize=contain&quality=75 720w`)
+    // IMG-04 (feature 87): as quatro larguras das vagas largas, na ordem.
+    expect(arte.getAttribute('srcset')).toBe(
+      [360, 480, 720, 1080].map((w) => `${RENDER_ARTE}?width=${w}&resize=contain&quality=80 ${w}w`).join(', '),
+    )
     expect(arte.getAttribute('sizes')).toBe('(min-width: 768px) 46vw, 100vw')
-    expect(arte).toHaveAttribute('src', `${RENDER_ARTE}?width=480&resize=contain&quality=75`)
+    expect(arte).toHaveAttribute('src', `${RENDER_ARTE}?width=480&resize=contain&quality=80`)
   })
 
   it('foto de host externo passa inalterada e SEM `srcset`', () => {

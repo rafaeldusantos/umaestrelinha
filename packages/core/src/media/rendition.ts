@@ -30,12 +30,42 @@
 export const RENDITION_WIDTHS = [360, 480, 720] as const
 
 /**
+ * As larguras das vagas de LARGURA CHEIA no celular — feature 87 (`IMG-01`).
+ *
+ * Em celular de densidade 3 uma vaga de `100vw` em 390px pede ~1170px. Com 720 como maior
+ * candidato o navegador ampliava 1,6× e a foto saía borrada justamente onde a cliente olha (o palco
+ * do produto e os banners). 1080 entra **sem** 1440: o navegador escolhe o menor candidato que
+ * cobre a necessidade, e com 1440 na lista o celular @3x baixaria 1440 — o maior custo sem ganho
+ * visível. Com 1080 ele amplia 1,08×.
+ *
+ * É opt-in por superfície, e não a troca de `RENDITION_WIDTHS`: o card, a miniatura e o menu
+ * continuam com o conjunto de sempre. As três primeiras são DERIVADAS, para os dois conjuntos não
+ * divergirem.
+ */
+export const RENDITION_WIDE_MAX = 1080
+export const RENDITION_WIDTHS_WIDE = [...RENDITION_WIDTHS, RENDITION_WIDE_MAX] as const
+
+/**
+ * A largura da camada do zoom do palco no computador — feature 87 (`IMG-08`).
+ *
+ * O palco mede 588px e o zoom amplia 250%: ~1470px. Ela só é pedida quando o ponteiro entra no
+ * palco (`ImageZoom`), então não custa um byte a quem não passa o mouse — nem ao celular.
+ */
+export const RENDITION_ZOOM_WIDTH = 1600
+
+/**
  * Qualidade da rendição. O padrão do Supabase é 80.
  *
- * Medido em 2026-09-05 numa foto do catálogo: 75 entrega 12,7 KB a 360px contra 113,9 KB do
- * original, sem diferença perceptível em joia sobre fundo claro.
+ * Era 75 (medido em 2026-09-05: 12,7 KB a 360px contra 113,9 KB do original). Subiu para 80 em
+ * 2026-10-29, depois da feature 87, por decisão do usuário: medido contra o original da Nuvemshop em
+ * três fotos do catálogo, a 1080 a fidelidade sobe +1,3 a +1,5 dB de PSNR (38,1 → 39,7; 40,8 → 42,1;
+ * 35,4 → 37,0) por ~25% a mais de peso (57 → 74 KB, 29 → 37 KB, 185 → 225 KB) — ainda bem abaixo
+ * do arquivo que a Nuvemshop serve (197, 115 e 535 KB).
+ *
+ * ⚠️ A qualidade faz parte da URL, que é a chave de cache do CDN: mudar este número invalida TODA
+ * rendição já transformada, e a primeira visita de cada foto paga a transformação de novo.
  */
-export const RENDITION_QUALITY = 75
+export const RENDITION_QUALITY = 80
 
 /**
  * **`resize=contain` NÃO é opcional, e omiti-lo desfigura o catálogo inteiro.**

@@ -228,9 +228,12 @@ describe('HeroBanner — a foto do hero é o LCP da home (PRF-03 AC 1)', () => {
     renderHero(heroComFoto(STORAGE_HERO))
     const foto = screen.getByRole('img', { name: 'Pingente de resina com mecha de cabelo' })
 
-    expect(foto.getAttribute('srcset')).toContain(`${RENDER_HERO}?width=720&resize=contain&quality=75 720w`)
+    // IMG-04 (feature 87): as quatro larguras das vagas largas, na ordem.
+    expect(foto.getAttribute('srcset')).toBe(
+      [360, 480, 720, 1080].map((w) => `${RENDER_HERO}?width=${w}&resize=contain&quality=80 ${w}w`).join(', '),
+    )
     expect(foto.getAttribute('sizes')).toBe('(min-width: 768px) 440px, 100vw')
-    expect(foto).toHaveAttribute('src', `${RENDER_HERO}?width=480&resize=contain&quality=75`)
+    expect(foto).toHaveAttribute('src', `${RENDER_HERO}?width=480&resize=contain&quality=80`)
   })
 
   it('foto de host externo passa inalterada e SEM `srcset`', () => {

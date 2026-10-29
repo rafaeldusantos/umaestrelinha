@@ -757,7 +757,7 @@ describe('OrderSummary — a miniatura pede o tamanho da vaga (PRF-02 AC 5)', ()
     const foto = container.querySelector('img')
     expect(foto?.getAttribute('src')).toContain('/render/image/public/')
     expect(foto?.getAttribute('src')).toContain('width=160')
-    expect(foto?.getAttribute('src')).toContain('quality=75')
+    expect(foto?.getAttribute('src')).toContain('quality=80')
     expect(foto?.getAttribute('src')).not.toContain('/object/public/')
   })
 

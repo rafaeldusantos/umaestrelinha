@@ -1,6 +1,6 @@
 // O envio da arte da Home (feature 24, `HOME-27` e `HOME-28`).
 //
-// Reusa o motor do produto (`validateImageFile` → `compressImage` → Storage) e acrescenta as duas
+// Reusa o motor do produto (`validateImageFile` → `prepareImage` → Storage) e acrescenta as duas
 // coisas que só a Home tem: **bucket próprio** e **aviso de proporção**.
 
 import { aspectRatioWarning, type SlotSpec } from '@estrelinha/core/home'
@@ -49,7 +49,7 @@ export interface HomeImageUpload {
  * As dimensões do arquivo **como ele veio**, antes de qualquer canvas.
  *
  * Devolve `null` quando o arquivo não decodifica; nesse caso não há aviso a dar, e o envio segue —
- * o `compressImage` logo adiante falha por conta própria e vira `error`.
+ * o `prepareImage` logo adiante falha por conta própria e vira `error`.
  */
 const naturalSize = (blob: Blob): Promise<{ width: number; height: number } | null> =>
   new Promise(resolve => {
@@ -69,8 +69,8 @@ const naturalSize = (blob: Blob): Promise<{ width: number; height: number } | nu
 /**
  * Envia uma arte da Home e devolve a URL, o motivo da recusa e o aviso de proporção.
  *
- * **A medida sai do arquivo ORIGINAL, e a ordem é a regra** (`HOME-27`): `compressImage` reduz o
- * maior lado para 1600 px, então medir depois dele leria a arte já reescrita — e o número que a
+ * **A medida sai do arquivo ORIGINAL, e a ordem é a regra** (`HOME-27`): `prepareImage` reduz o
+ * maior lado para 2400 px, então medir depois dele leria a arte já reescrita — e o número que a
  * mensagem devolve é justamente o que a dona usa para reexportar. Medir depois responderia sobre um
  * arquivo que ela nunca viu.
  *

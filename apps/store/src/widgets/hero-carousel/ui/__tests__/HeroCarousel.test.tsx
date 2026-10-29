@@ -133,11 +133,21 @@ describe('a rendição vem do dono único (BNR-23)', () => {
     )
   })
 
-  it('cada vaga tem `srcset` de duas larguras — a de 2× cobre tela retina', () => {
+  it('IMG-05: a vaga do celular pede 360, 720 e 1080; a do computador continua 840 e 1680', () => {
     const { container } = montar([item('a')])
+    const descritores = (srcset: string | null) =>
+      srcset!.split(',').map((c) => c.trim().split(' ')[1])
 
-    expect(screen.getByRole('img').getAttribute('srcset')!.split(',')).toHaveLength(2)
-    expect(container.querySelector('source')!.getAttribute('srcset')!.split(',')).toHaveLength(2)
+    expect(descritores(screen.getByRole('img').getAttribute('srcset'))).toEqual([
+      '360w',
+      '720w',
+      '1080w',
+    ])
+    expect(screen.getByRole('img').getAttribute('srcset')).toContain('a-m.jpg?width=1080&')
+    expect(descritores(container.querySelector('source')!.getAttribute('srcset'))).toEqual([
+      '840w',
+      '1680w',
+    ])
   })
 
   it('arte de fora do Storage sai INALTERADA, sem `srcset` inventado', () => {

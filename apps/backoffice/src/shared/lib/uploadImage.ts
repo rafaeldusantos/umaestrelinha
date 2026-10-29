@@ -34,11 +34,16 @@ const BUCKET = 'product-images'
 const FOLDER = 'products'
 
 /**
- * PMD-02 AC 5: era 1200 px — pequeno demais para o zoom de uma vitrine que vende detalhe. O teto
- * vale para o maior lado; imagem menor nunca é ampliada.
+ * O teto do maior lado do ORIGINAL — imagem menor nunca é ampliada.
+ *
+ * Era 1200 (PMD-02 AC 5), depois 1600; a feature 87 (`IMG-11`) o levou a 2400. O original **não é
+ * servido à cliente**: a loja só pede rendições (`@estrelinha/core/media`), então o tamanho daqui não
+ * custa um byte no celular. Ele é a fonte do zoom (1600) e da tela cheia da galeria, e fica abaixo
+ * do limite de 2500 do `render/image`.
  */
-const MAX_DIMENSION = 1600
-const WEBP_QUALITY = 0.82
+const MAX_DIMENSION = 2400
+/** `IMG-09`: era 0.82. O original recomprimido a 0.82 e depois servido a 75 perdia duas vezes. */
+const WEBP_QUALITY = 0.92
 
 /** PMD-02 AC 4 (A21): o teto do artboard, medido no arquivo ORIGINAL. */
 export const MAX_FILE_BYTES = 8 * 1024 * 1024
@@ -55,7 +60,7 @@ export interface UploadFailure {
 
 /**
  * Tipo e tamanho, **sem tocar no arquivo**. É pura de propósito: é o que permite recusar antes de
- * `compressImage`, e é a ordem que importa — validar depois da compressão é validar tarde demais,
+ * `prepareImage`, e é a ordem que importa — validar depois da compressão é validar tarde demais,
  * porque o arquivo já entrou no canvas (que é onde a aba travava).
  */
 export const validateImageFile = (file: File): UploadRejectReason | null => {
@@ -77,7 +82,7 @@ export const uploadFailureMessage = ({ file, reason }: UploadFailure): string =>
 export type ImageFormat = 'image/webp' | 'image/png'
 
 export interface UploadOptions {
-  /** Maior lado do arquivo gravado. Default 1600 px. */
+  /** Maior lado do arquivo gravado. Default 2400 px. */
   maxDimension?: number
   /** Default WebP. O estúdio pode pedir PNG. */
   format?: ImageFormat
@@ -103,42 +108,66 @@ export interface UploadOptions {
 export const storagePublicPrefix = (bucket: string): string =>
   `${SUPABASE_URL}/storage/v1/object/public/${bucket}/`
 
-/**
- * Comprime e redimensiona: no máximo `maxDimension` px no maior lado.
- *
- * Aceita qualquer `Blob` (um `File` é um `Blob`), e é isso que faz o render do estúdio de mockup —
- * que não tem nome de arquivo — passar pelo mesmo caminho da foto escolhida no disco.
- */
-const compressImage = (
-  file: Blob,
-  maxDimension: number,
-  format: ImageFormat,
-): Promise<Blob> =>
+/** Lê as dimensões do arquivo. Rejeita se o navegador não consegue decodificá-lo. */
+const loadImage = (file: Blob): Promise<HTMLImageElement> =>
   new Promise((resolve, reject) => {
     const img = new Image()
     const url = URL.createObjectURL(file)
     img.onload = () => {
       URL.revokeObjectURL(url)
-      let { width, height } = img
-      if (width > maxDimension || height > maxDimension) {
-        const ratio = Math.min(maxDimension / width, maxDimension / height)
-        width = Math.round(width * ratio)
-        height = Math.round(height * ratio)
-      }
-      const canvas = document.createElement('canvas')
-      canvas.width = width
-      canvas.height = height
-      const ctx = canvas.getContext('2d')!
-      ctx.drawImage(img, 0, 0, width, height)
-      canvas.toBlob(
-        blob => (blob ? resolve(blob) : reject(new Error('Compression failed'))),
-        format,
-        WEBP_QUALITY,
-      )
+      resolve(img)
     }
-    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Failed to load image')) }
+    img.onerror = () => {
+      URL.revokeObjectURL(url)
+      reject(new Error('Failed to load image'))
+    }
     img.src = url
   })
+
+/**
+ * Prepara o arquivo a gravar: no máximo `maxDimension` px no maior lado, no `format` pedido.
+ *
+ * **Arquivo que já está no formato e no tamanho certos é gravado como chegou** (feature 87,
+ * `IMG-12`): passá-lo pelo canvas seria uma recompressão a mais sem nada a ganhar. O caminho sem
+ * canvas também lê as dimensões — é o que mede o teto, e o que faz um arquivo corrompido com tipo
+ * válido falhar aqui, e não depois.
+ *
+ * Aceita qualquer `Blob` (um `File` é um `Blob`), e é isso que faz o render do estúdio de mockup —
+ * que não tem nome de arquivo — passar pelo mesmo caminho da foto escolhida no disco. `Blob` sem
+ * tipo nunca é igual ao formato pedido, e por isso sempre passa pelo canvas (`IMG-13`).
+ */
+const prepareImage = async (
+  file: Blob,
+  maxDimension: number,
+  format: ImageFormat,
+): Promise<Blob> => {
+  const img = await loadImage(file)
+  const cabe = img.width <= maxDimension && img.height <= maxDimension
+  if (cabe && file.type === format) return file
+
+  let { width, height } = img
+  if (!cabe) {
+    const ratio = Math.min(maxDimension / width, maxDimension / height)
+    width = Math.round(width * ratio)
+    height = Math.round(height * ratio)
+  }
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+  const ctx = canvas.getContext('2d')!
+  // `IMG-10`: o padrão do canvas é `low`, que serrilha uma foto de celular reduzida a menos da
+  // metade. Ligado ANTES do `drawImage` — depois não vale para o desenho já feito.
+  ctx.imageSmoothingEnabled = true
+  ctx.imageSmoothingQuality = 'high'
+  ctx.drawImage(img, 0, 0, width, height)
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      blob => (blob ? resolve(blob) : reject(new Error('Compression failed'))),
+      format,
+      WEBP_QUALITY,
+    )
+  })
+}
 
 /**
  * Comprime um `Blob` e o grava no Storage. Devolve a URL pública, ou `null` se algo falhou.
@@ -161,7 +190,7 @@ export const uploadImageBlob = async (
   }: UploadOptions = {},
 ): Promise<string | null> => {
   try {
-    const compressed = await compressImage(blob, maxDimension, format)
+    const compressed = await prepareImage(blob, maxDimension, format)
     const fileName = `${crypto.randomUUID()}.${format === 'image/png' ? 'png' : 'webp'}`
     const filePath = `${folder}/${fileName}`
 

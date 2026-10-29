@@ -217,6 +217,16 @@ describe('imagePreloadLink', () => {
     expect(imagePreloadLink(STORAGE)).toContain('imagesizes="' + escapeXml(GALLERY_STAGE_SIZES) + '"')
   })
 
+  it('IMG-03: o `imagesrcset` tem as quatro larguras do palco largo, e o `href` é a de 1080', () => {
+    const link = imagePreloadLink(STORAGE)
+    const render = STORAGE.replace('/object/public/', '/render/image/public/')
+    const esperado = [360, 480, 720, 1080]
+      .map((w) => `${render}?width=${w}&resize=contain&quality=80 ${w}w`)
+      .join(', ')
+    expect(link).toContain(`imagesrcset="${escapeXml(esperado)}"`)
+    expect(link).toContain(`href="${escapeXml(`${render}?width=1080&resize=contain&quality=80`)}"`)
+  })
+
   it('URL vazia devolve string vazia, e não um `<link>` sem destino', () => {
     expect(imagePreloadLink('')).toBe('')
     expect(imagePreloadLink('   ')).toBe('')

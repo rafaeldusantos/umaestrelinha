@@ -13,7 +13,7 @@ import { OG_IMAGE_WIDTH, productPageImages } from '../images.ts'
 
 const STORAGE = 'https://hgk.supabase.co/storage/v1/object/public/products'
 const RENDER = 'https://hgk.supabase.co/storage/v1/render/image/public/products'
-const CAUDA = 'width=1200&resize=contain&quality=75'
+const CAUDA = 'width=1200&resize=contain&quality=80'
 
 const foto = (nome: string) => `${STORAGE}/${nome}.webp`
 const rendida = (nome: string) => `${RENDER}/${nome}.webp?${CAUDA}`

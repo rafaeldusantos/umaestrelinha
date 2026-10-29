@@ -236,9 +236,10 @@ const ImageGallery = ({ images, onChange, productName, upload, progress, uploadi
               Arraste, cole (⌘V) ou <span className="font-medium text-primary">clique para selecionar</span>
             </p>
             {/* PMD-02 AC 6: a copy diz exatamente o que o código faz. Antes dizia "máx. 5MB" e o
-                código não validava tamanho nenhum. */}
+                código não validava tamanho nenhum. Feature 87 (`IMG-18`): o teto subiu para 2400,
+                e a copy deixou de dizer "convertidas" — WebP no tamanho certo é gravado como chegou. */}
             <p className="text-xs text-muted-foreground">
-              PNG, JPG ou WebP até 8 MB · convertidas para WebP 1600 px
+              PNG, JPG ou WebP até 8 MB · até 2400 px no maior lado
             </p>
           </div>
         )}

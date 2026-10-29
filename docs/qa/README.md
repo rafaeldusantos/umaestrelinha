@@ -281,3 +281,19 @@ sobrescrever a outra janela é Data-Loss; item que leva a cliente a 404 é Trust
 
 Taxonomia por jornada: as cinco dimensões estão no rodapé de cada `J-*.md`. Em `J-navegar-pelo-menu-da-loja`
 a concorrência é N/A declarada (só leitura).
+
+## Ciclo planejado — feature `87` (qualidade das imagens), nível *targeted*
+
+Planejado em 2026-10-29 (`qa-report`). Jornadas novas `J-ver-a-joia-nitida` (8 cenários `LOJA-imagem-*`)
+e `J-enviar-foto-pelo-painel` (5 cenários `PNL-imagem-*`), todos `untested`. Ordem por risco:
+
+| # | Charter | Tour | Caixa |
+| --- | --- | --- | --- |
+| 1 | `CH-imagem-joia-nitida-no-celular` | Money | 60 |
+| 2 | `CH-imagem-enviar-pelo-painel` | Garbage | 60 |
+| 3 | `CH-imagem-banners-da-home` | Feature | 30 |
+| 4 | `CH-imagem-zoom-no-computador` | Feature | 30 |
+| 5 | `CH-imagem-rede-lenta` | Network | 30 |
+
+Ambiente: só local. As artes de `home_sections` do banco local apontam para o hospedado (bloqueado):
+o charter 3 intercepta a leitura e troca as URLs por imagens do Storage local.

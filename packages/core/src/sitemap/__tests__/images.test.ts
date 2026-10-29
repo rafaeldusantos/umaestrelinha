@@ -23,7 +23,7 @@ import type { SitemapCategory, SitemapProduct, SitemapVariant } from '../types.t
 const ORIGIN = 'https://umaestrelinha.com.br'
 const STORAGE = 'https://hgk.supabase.co/storage/v1/object/public/products'
 const RENDER = 'https://hgk.supabase.co/storage/v1/render/image/public/products'
-const CAUDA = 'width=1200&resize=contain&quality=75'
+const CAUDA = 'width=1200&resize=contain&quality=80'
 const foto = (nome: string) => `${STORAGE}/${nome}.webp`
 const rendida = (nome: string) => `${RENDER}/${nome}.webp?${CAUDA}`
 

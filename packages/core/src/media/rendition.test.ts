@@ -10,7 +10,10 @@ import {
   RENDITION_MIN_WIDTH,
   RENDITION_QUALITY,
   RENDITION_RESIZE,
+  RENDITION_WIDE_MAX,
   RENDITION_WIDTHS,
+  RENDITION_WIDTHS_WIDE,
+  RENDITION_ZOOM_WIDTH,
   STORAGE_CACHE_CONTROL,
   imagePriority,
   renditionSrcSet,
@@ -62,7 +65,11 @@ describe('rendition.ts não importa nada — a condição de a edge function con
 
 describe('renditionUrl — objeto público do Storage vira rendição (PRF-01 AC 1)', () => {
   it('troca o segmento `object` por `render/image` e acrescenta largura e qualidade', () => {
-    expect(renditionUrl(OBJETO, 360)).toBe(`${RENDER}?width=360&resize=contain&quality=75`)
+    expect(renditionUrl(OBJETO, 360)).toBe(`${RENDER}?width=360&resize=contain&quality=80`)
+  })
+
+  it('a qualidade é 80 (subiu de 75 em 2026-10-29)', () => {
+    expect(RENDITION_QUALITY).toBe(80)
   })
 
   it('a qualidade vem da constante, não de um literal solto', () => {
@@ -71,14 +78,14 @@ describe('renditionUrl — objeto público do Storage vira rendição (PRF-01 AC
 
   it('cada largura pedida sai na query, e o caminho do objeto não muda', () => {
     for (const w of RENDITION_WIDTHS) {
-      expect(renditionUrl(OBJETO, w)).toBe(`${RENDER}?width=${w}&resize=contain&quality=75`)
+      expect(renditionUrl(OBJETO, w)).toBe(`${RENDER}?width=${w}&resize=contain&quality=80`)
     }
   })
 
   it('query existente é preservada, e a rendição entra depois dela', () => {
     // Token de cache-busting do painel (`?t=...`) não pode ser descartado: descartá-lo faria a
     // imagem trocada continuar a mostrar a versão antiga.
-    expect(renditionUrl(`${OBJETO}?t=1234`, 720)).toBe(`${RENDER}?t=1234&width=720&resize=contain&quality=75`)
+    expect(renditionUrl(`${OBJETO}?t=1234`, 720)).toBe(`${RENDER}?t=1234&width=720&resize=contain&quality=80`)
   })
 
   it('só a PRIMEIRA ocorrência do segmento é trocada', () => {
@@ -125,12 +132,12 @@ describe('renditionUrl — o que NÃO é objeto do Storage volta inalterado (PRF
 describe('renditionUrl — largura fora da faixa é grampeada (PRF-01 AC 3)', () => {
   it('abaixo do mínimo vira o mínimo', () => {
     // O Supabase RECUSA fora de 1..2500, e a resposta seria erro em vez de foto.
-    expect(renditionUrl(OBJETO, 0)).toBe(`${RENDER}?width=${RENDITION_MIN_WIDTH}&resize=contain&quality=75`)
-    expect(renditionUrl(OBJETO, -800)).toBe(`${RENDER}?width=${RENDITION_MIN_WIDTH}&resize=contain&quality=75`)
+    expect(renditionUrl(OBJETO, 0)).toBe(`${RENDER}?width=${RENDITION_MIN_WIDTH}&resize=contain&quality=80`)
+    expect(renditionUrl(OBJETO, -800)).toBe(`${RENDER}?width=${RENDITION_MIN_WIDTH}&resize=contain&quality=80`)
   })
 
   it('acima do máximo vira o máximo', () => {
-    expect(renditionUrl(OBJETO, 9000)).toBe(`${RENDER}?width=${RENDITION_MAX_WIDTH}&resize=contain&quality=75`)
+    expect(renditionUrl(OBJETO, 9000)).toBe(`${RENDER}?width=${RENDITION_MAX_WIDTH}&resize=contain&quality=80`)
   })
 
   it('os limites em si passam intactos', () => {
@@ -143,18 +150,18 @@ describe('renditionUrl — largura fora da faixa é grampeada (PRF-01 AC 3)', ()
   })
 
   it('largura que não é número nunca produz `width=NaN` — grampeia ao limite mais próximo', () => {
-    expect(renditionUrl(OBJETO, NaN)).toBe(`${RENDER}?width=1&resize=contain&quality=75`)
-    expect(renditionUrl(OBJETO, Infinity)).toBe(`${RENDER}?width=2500&resize=contain&quality=75`)
-    expect(renditionUrl(OBJETO, -Infinity)).toBe(`${RENDER}?width=1&resize=contain&quality=75`)
+    expect(renditionUrl(OBJETO, NaN)).toBe(`${RENDER}?width=1&resize=contain&quality=80`)
+    expect(renditionUrl(OBJETO, Infinity)).toBe(`${RENDER}?width=2500&resize=contain&quality=80`)
+    expect(renditionUrl(OBJETO, -Infinity)).toBe(`${RENDER}?width=1&resize=contain&quality=80`)
   })
 })
 
 describe('renditionSrcSet — as três larguras numa string só', () => {
   it('devolve `url 360w, url 480w, url 720w`', () => {
     expect(renditionSrcSet(OBJETO)).toBe(
-      `${RENDER}?width=360&resize=contain&quality=75 360w, ` +
-        `${RENDER}?width=480&resize=contain&quality=75 480w, ` +
-        `${RENDER}?width=720&resize=contain&quality=75 720w`,
+      `${RENDER}?width=360&resize=contain&quality=80 360w, ` +
+        `${RENDER}?width=480&resize=contain&quality=80 480w, ` +
+        `${RENDER}?width=720&resize=contain&quality=80 720w`,
     )
   })
 
@@ -169,7 +176,7 @@ describe('renditionSrcSet — as três larguras numa string só', () => {
 
   it('aceita larguras próprias — a vaga pequena pede a dela', () => {
     expect(renditionSrcSet(OBJETO, [120, 240])).toBe(
-      `${RENDER}?width=120&resize=contain&quality=75 120w, ${RENDER}?width=240&resize=contain&quality=75 240w`,
+      `${RENDER}?width=120&resize=contain&quality=80 120w, ${RENDER}?width=240&resize=contain&quality=80 240w`,
     )
   })
 
@@ -183,7 +190,7 @@ describe('renditionSrcSet — as três larguras numa string só', () => {
 
   it('o descritor acompanha o grampeamento — nunca promete largura que a URL não pede', () => {
     // `"…width=2500… 9000w"` faria o navegador escolher errado para sempre.
-    expect(renditionSrcSet(OBJETO, [9000])).toBe(`${RENDER}?width=2500&resize=contain&quality=75 2500w`)
+    expect(renditionSrcSet(OBJETO, [9000])).toBe(`${RENDER}?width=2500&resize=contain&quality=80 2500w`)
   })
 })
 
@@ -278,11 +285,39 @@ describe('a rendição preserva a proporção da origem', () => {
 
   it('a ordem dos parâmetros mantém `width` primeiro, `quality` por último', () => {
     // Não é cosmético: a URL é chave de cache no CDN, e reordenar invalida tudo que já está quente.
-    expect(renditionUrl(STORAGE, 480)).toMatch(/\?width=480&resize=contain&quality=75$/)
+    expect(renditionUrl(STORAGE, 480)).toMatch(/\?width=480&resize=contain&quality=80$/)
   })
 
   it('com query preexistente, os três parâmetros entram DEPOIS dela', () => {
     const comQuery = STORAGE + '?t=1'
-    expect(renditionUrl(comQuery, 360)).toMatch(/\?t=1&width=360&resize=contain&quality=75$/)
+    expect(renditionUrl(comQuery, 360)).toMatch(/\?t=1&width=360&resize=contain&quality=80$/)
+  })
+})
+
+describe('feature 87 — as larguras das vagas largas e do zoom', () => {
+  it('IMG-01: as vagas largas pedem 360, 480, 720 e 1080 — e nunca 1440', () => {
+    expect([...RENDITION_WIDTHS_WIDE]).toEqual([360, 480, 720, 1080])
+    expect(RENDITION_WIDE_MAX).toBe(1080)
+  })
+
+  it('IMG-01: as três primeiras são exatamente `RENDITION_WIDTHS`, que continua com três', () => {
+    expect([...RENDITION_WIDTHS]).toEqual([360, 480, 720])
+    expect(RENDITION_WIDTHS_WIDE.slice(0, RENDITION_WIDTHS.length)).toEqual([...RENDITION_WIDTHS])
+  })
+
+  it('IMG-01: o `srcset` largo declara os quatro descritores, na ordem', () => {
+    const srcset = renditionSrcSet(OBJETO, RENDITION_WIDTHS_WIDE)
+    expect(srcset).toBe(
+      [360, 480, 720, 1080]
+        .map((w) => `${RENDER}?width=${w}&resize=contain&quality=80 ${w}w`)
+        .join(', '),
+    )
+  })
+
+  it('IMG-08: o zoom pede 1600, dentro do limite do `render/image`', () => {
+    expect(RENDITION_ZOOM_WIDTH).toBe(1600)
+    expect(renditionUrl(OBJETO, RENDITION_ZOOM_WIDTH)).toBe(
+      `${RENDER}?width=1600&resize=contain&quality=80`,
+    )
   })
 })

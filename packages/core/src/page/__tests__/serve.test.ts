@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { GALLERY_STAGE_SIZES, RENDITION_WIDTHS, renditionUrl } from '../../media/rendition.ts'
+import { GALLERY_STAGE_SIZES, renditionSrcSet, renditionUrl } from '../../media/rendition.ts'
 import { escapeXml } from '../../xml/escape.ts'
 import { productPageMeta } from '../../seo/pages.ts'
 import { productHead, publicOptionMarks, type OptionMarkRow } from '../../seo/variant.ts'
@@ -284,14 +284,14 @@ describe('servePage, produto — o preload da foto principal (PRF-06)', () => {
   /** O `href` isolado — a asserção mira o campo, nunca o elemento (o `imagesrcset` satisfaria tudo). */
   const hrefDe = (link: string) => link.match(/\shref="([^"]*)"/)?.[1] ?? ''
 
-  it('produto com foto do Storage: o `href` do preload É a rendição de 720', async () => {
+  it('produto com foto do Storage: o `href` do preload É a rendição de 1080 (feature 87, IMG-03)', async () => {
     const link = linkDe(await corpoDe(comFoto(STORAGE)))
     const href = hrefDe(link)
     expect(link).toContain('as="image"')
-    expect(href).toBe(renditionUrl(STORAGE, 720).replace(/&/g, '&amp;'))
+    expect(href).toBe(renditionUrl(STORAGE, 1080).replace(/&/g, '&amp;'))
     expect(href).toContain('/storage/v1/render/image/public/product-images/pulseira.webp')
-    expect(href).toContain('width=720')
-    expect(href).toContain('quality=75')
+    expect(href).toContain('width=1080')
+    expect(href).toContain('quality=80')
   })
 
   it('o `href` NÃO é a URL original', async () => {
@@ -305,12 +305,14 @@ describe('servePage, produto — o preload da foto principal (PRF-06)', () => {
     const href = hrefDe(linkDe(await corpoDe(comFoto(STORAGE))))
     expect(href).not.toContain('width=360')
     expect(href).not.toContain('width=480')
+    expect(href).not.toContain('width=720')
   })
 
-  it('o `imagesrcset` traz as três larguras que a galeria pede', async () => {
+  it('o `imagesrcset` é o `srcset` largo do palco, byte a byte (feature 87, IMG-03)', async () => {
     const link = linkDe(await corpoDe(comFoto(STORAGE)))
-    expect(link).toContain('imagesrcset="')
-    for (const w of RENDITION_WIDTHS) expect(link).toContain(String(w) + 'w')
+    const srcset = link.match(/\simagesrcset="([^"]*)"/)?.[1] ?? ''
+    expect(srcset).toBe(escapeXml(renditionSrcSet(STORAGE, [360, 480, 720, 1080])))
+    expect(srcset).not.toContain('1440w')
   })
 
   it('o `imagesizes` é o MESMO `sizes` que a galeria declara', async () => {
@@ -325,8 +327,8 @@ describe('servePage, produto — o preload da foto principal (PRF-06)', () => {
 
   it('o `&` da query sai ESCAPADO', async () => {
     const link = linkDe(await corpoDe(comFoto(STORAGE)))
-    expect(link).toContain('&amp;quality=75')
-    expect(link).not.toMatch(/[^;]&quality=75/)
+    expect(link).toContain('&amp;quality=80')
+    expect(link).not.toMatch(/[^;]&quality=80/)
   })
 
   it('foto em host de terceiro sai sem `imagesrcset`, com a URL intacta', async () => {

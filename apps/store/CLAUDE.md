@@ -767,6 +767,15 @@ que a dona enviou** com um rótulo embaixo e um link para a coleção. Desenho n
 
 ## Página do produto
 
+- **O palco e os banners de largura cheia pedem até 1080** (feature `87`): `RENDITION_WIDTHS_WIDE`
+  (`[360, 480, 720, 1080]`, `core/media`), opt-in por superfície — palco da galeria (as DUAS leituras,
+  com o MESMO par `srcset`/`sizes`, senão o navegador baixa duas fotos), o `preload` do `<head>`,
+  `HeroBanner`, `HomeBannerGrid`, `CollectionFeature` e a arte de celular do `HeroCarousel`. **Sem
+  1440**: com ele o celular @3x (que pede ~1170) baixaria 1440. Card, miniatura, menu e carrinho
+  seguem em `RENDITION_WIDTHS`. O zoom do computador pede `RENDITION_ZOOM_WIDTH` (1600) e a camada só
+  existe com o ponteiro em cima — nada nomeia a URL antes. ⚠️ Desde a `87` o palco do computador também
+  tem `sizes`: `img[sizes]` deixou de achar só o do celular (o do celular é o `fetchpriority="high"`).
+
 - **Quem compra no celular é a barra fixa.** O CTA da coluna de informação é `hidden md:flex` e o
   `widgets/product-buy-bar` é `md:hidden`: **nunca os dois**. O estado de compra é um só,
   `entities/product/model/useProductPurchase`, montado pela `ProductPage` e passado às duas.

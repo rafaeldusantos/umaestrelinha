@@ -12,7 +12,8 @@
 
 import {
   GALLERY_STAGE_SIZES,
-  RENDITION_WIDTHS,
+  RENDITION_WIDE_MAX,
+  RENDITION_WIDTHS_WIDE,
   renditionSrcSet,
   renditionUrl,
 } from '../media/rendition.ts'
@@ -36,7 +37,14 @@ export const jsonLdScript = (dados: Record<string, unknown>): string =>
  * é o par `srcset`/`sizes`, porque é dele que o navegador escolhe o candidato; o `href` é o recuo de
  * quem não entende `imagesrcset`.
  */
-const PALCO_PX = RENDITION_WIDTHS[RENDITION_WIDTHS.length - 1]
+const PALCO_PX = RENDITION_WIDE_MAX
+
+/**
+ * O conjunto do palco — feature 87 (`IMG-03`). É o das vagas LARGAS, o mesmo que `ProductGallery`
+ * passa às duas leituras do palco: com o conjunto curto aqui e o largo lá, o navegador escolheria
+ * 720 no preload e 1080 na galeria, e baixaria as duas fotos.
+ */
+const PALCO_LARGURAS = RENDITION_WIDTHS_WIDE
 
 /**
  * O `<link rel="preload" as="image">` da foto principal — `PRF-06`.
@@ -56,7 +64,7 @@ export const imagePreloadLink = (imageUrl: string): string => {
   const url = (imageUrl ?? '').trim()
   if (url === '') return ''
 
-  const srcset = renditionSrcSet(url)
+  const srcset = renditionSrcSet(url, PALCO_LARGURAS)
   const atributos = [
     'rel="preload"',
     'as="image"',

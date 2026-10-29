@@ -2,7 +2,14 @@ import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronLeft, ChevronRight, ImageOff, ZoomIn } from 'lucide-react'
 import type { ProductImage } from '@estrelinha/supabase/types'
-import { GALLERY_STAGE_SIZES, renditionSrcSet, renditionUrl } from '@estrelinha/core/media'
+import {
+  GALLERY_STAGE_SIZES,
+  RENDITION_WIDE_MAX,
+  RENDITION_WIDTHS_WIDE,
+  RENDITION_ZOOM_WIDTH,
+  renditionSrcSet,
+  renditionUrl,
+} from '@estrelinha/core/media'
 import ImageZoom from './ImageZoom'
 import { TAP_44 } from '@/shared/lib/touchTarget'
 import { useSwipe } from '@/shared/lib/useSwipe'
@@ -46,8 +53,9 @@ const altOf = (image: ProductImage, name: string, index: number) =>
 /**
  * As duas larguras da galeria (`PRF-02` AC 5-6).
  *
- * `PALCO_PX` — 720 cobre o palco no celular (390 de viewport em DPR 2 pede 780, e o `srcset` escolhe
- * a maior das três) e o palco de 588px do desktop. As DUAS leituras do palco pedem a mesma largura
+ * `PALCO_PX` — o `src` de recuo do palco, a maior das vagas largas (feature 87: era 720, e no
+ * celular de DPR 3 — 390 de viewport pede ~1170 — a foto saía ampliada 1,6×). O `srcset` das duas
+ * leituras é `RENDITION_WIDTHS_WIDE`, o mesmo do preload do `<head>`. As DUAS leituras pedem a mesma largura
  * de propósito: elas coexistem no DOM (uma escondida por `md:hidden`, a outra por `hidden md:block`)
  * e **imagem escondida por CSS continua sendo baixada**. Larguras diferentes fariam o celular baixar
  * duas fotos em vez de uma, e a economia viraria prejuízo.
@@ -57,7 +65,7 @@ const altOf = (image: ProductImage, name: string, index: number) =>
  * **A tela cheia fica com o ORIGINAL** (`PRF-02` AC 6): é lá que a lupa existe, e é o único lugar da
  * loja onde a resolução gravada no Storage é o conteúdo, e não o custo.
  */
-const PALCO_PX = 720
+const PALCO_PX = RENDITION_WIDE_MAX
 const FITA_PX = 160
 
 /**
@@ -124,7 +132,15 @@ const ProductGallery = ({ images, name, focusUrl = null, badges, action }: Props
           className="hidden h-full w-full cursor-zoom-in md:block"
           onClick={() => setFullscreen(true)}
         >
-          <ImageZoom src={renditionUrl(active.url, PALCO_PX)} alt={altOf(active, name, index)} />
+          {/* O MESMO par `srcset`/`sizes` do palco do celular (`IMG-02`): as duas `<img>` coexistem
+              no DOM, e com o mesmo par o navegador escolhe o mesmo candidato e baixa UMA foto. */}
+          <ImageZoom
+            src={renditionUrl(active.url, PALCO_PX)}
+            srcSet={renditionSrcSet(active.url, RENDITION_WIDTHS_WIDE) || undefined}
+            sizes={GALLERY_STAGE_SIZES}
+            zoomSrc={renditionUrl(active.url, RENDITION_ZOOM_WIDTH)}
+            alt={altOf(active, name, index)}
+          />
         </div>
 
         {/* Mobile: toque abre a tela cheia; arrastar na horizontal troca de foto. `touch-pan-y`
@@ -147,7 +163,7 @@ const ProductGallery = ({ images, name, focusUrl = null, badges, action }: Props
               <motion.img
                 key={index}
                 src={renditionUrl(active.url, PALCO_PX)}
-                srcSet={renditionSrcSet(active.url) || undefined}
+                srcSet={renditionSrcSet(active.url, RENDITION_WIDTHS_WIDE) || undefined}
                 sizes={GALLERY_STAGE_SIZES}
                 loading="eager"
                 {...({ fetchpriority: 'high' } as Record<string, string>)}
