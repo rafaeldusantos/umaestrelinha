@@ -307,6 +307,50 @@ describe('useProductForm — carga e isDirty', () => {
     expect(result.current.form.name).toBe('')
   })
 
+  it('produto carregado tem loadStatus ok', async () => {
+    respondWith(dbRow())
+    const { result } = renderHook(() => useProductForm('p1'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.loadStatus).toBe('ok')
+  })
+
+  it('id sem linha no banco é "nao-encontrado", não "ok" com o formulário vazio', async () => {
+    respondWith(null)
+    const { result } = renderHook(() => useProductForm('sumiu'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.loadStatus).toBe('nao-encontrado')
+  })
+
+  it('id que nem é uuid (22P02) é "nao-encontrado"', async () => {
+    respondWith(null, { code: '22P02', message: 'invalid input syntax for type uuid' })
+    const { result } = renderHook(() => useProductForm('abc'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.loadStatus).toBe('nao-encontrado')
+  })
+
+  it('erro de leitura é "falhou", e retryLoad lê de novo', async () => {
+    respondWith(null, { message: 'permission denied' })
+    const { result } = renderHook(() => useProductForm('p1'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.loadStatus).toBe('falhou')
+
+    respondWith(dbRow())
+    act(() => result.current.retryLoad())
+    await waitFor(() => expect(result.current.loadStatus).toBe('ok'))
+    expect(result.current.form.name).toBe('Botton Sailor Moon')
+  })
+
+  it('produto novo e duplicação de origem que sumiu seguem "ok" — só a edição recusa', async () => {
+    const novo = renderHook(() => useProductForm())
+    await waitFor(() => expect(novo.result.current.loading).toBe(false))
+    expect(novo.result.current.loadStatus).toBe('ok')
+
+    respondWith(null)
+    const copia = renderHook(() => useProductForm(undefined, 'sumiu'))
+    await waitFor(() => expect(copia.result.current.loading).toBe(false))
+    expect(copia.result.current.loadStatus).toBe('ok')
+  })
+
   it('duplicar carrega da origem sem virar edição — isEdit false e productId null', async () => {
     respondWith(dbRow())
 

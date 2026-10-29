@@ -312,6 +312,16 @@ export const productRowToForm = (row: any, opts: { asCopy?: boolean } = {}): Pro
 const fetchRow = (id: string) =>
   supabase.from('products').select(PRODUCT_FORM_SELECT).eq('id', id).maybeSingle()
 
+/**
+ * Como terminou a carga do produto em EDIÇÃO. `nao-encontrado`: o banco respondeu e a peça não
+ * existe (link antigo, peça apagada, id colado errado — `22P02` é o id que nem é uuid). `falhou`:
+ * o banco não respondeu. Nos dois a página não pode mostrar o formulário: vazio, ele diria
+ * "Publicado" sobre nada, aceitaria fotos sem dono e, salvo, gravaria o vazio por cima da peça.
+ */
+export type ProductLoadStatus = 'ok' | 'nao-encontrado' | 'falhou'
+
+const ID_INVALIDO = '22P02'
+
 export interface UseProductFormResult {
   form: ProductFormState
   /** Um campo por vez, tipado pela chave — é o que as abas chamam. */
@@ -354,6 +364,10 @@ export interface UseProductFormResult {
    */
   reload: () => Promise<boolean>
   loading: boolean
+  /** Só diz algo na EDIÇÃO; produto novo e duplicação são sempre `ok`. */
+  loadStatus: ProductLoadStatus
+  /** Lê de novo depois de `falhou`, passando por `loading`. */
+  retryLoad: () => void
   isEdit: boolean
   /** Editando um produto existente: o id dele. Duplicando ou criando: `null`. */
   productId: string | null
@@ -370,6 +384,8 @@ export const useProductForm = (
   const [form, setForm] = useState<ProductFormState>(emptyProductForm)
   const [loading, setLoading] = useState(!!productId || !!copyFromId)
   const [isDirty, setIsDirty] = useState(false)
+  const [loadStatus, setLoadStatus] = useState<ProductLoadStatus>('ok')
+  const [loadAttempt, setLoadAttempt] = useState(0)
   const [savedSnapshot, setSavedSnapshot] = useState<ProductFormSnapshot>(SNAPSHOT_VAZIO)
   // A carga escreve no estado sem sujar o formulário. Sem esta distinção, abrir um produto e sair
   // sem tocar em nada dispararia a guarda de saída da T24 e o badge "Alterações não salvas".
@@ -400,6 +416,7 @@ export const useProductForm = (
   useEffect(() => {
     const loadId = productId || copyFromId
     if (!loadId) {
+      setLoadStatus('ok')
       setLoading(false)
       return
     }
@@ -411,8 +428,18 @@ export const useProductForm = (
 
       if (!cancelled) {
         // Falha de leitura deixa o formulário nos defaults em vez de travar em "Carregando…" —
-        // o admin ainda consegue sair da tela.
+        // o admin ainda consegue sair da tela. Na EDIÇÃO, o desfecho vai para `loadStatus` e a
+        // página troca o formulário por um aviso.
         if (!error && data) adopt(data, { asCopy: !!copyFromId && !productId })
+        if (productId) {
+          setLoadStatus(
+            !error && data
+              ? 'ok'
+              : (!error && !data) || (error as { code?: string }).code === ID_INVALIDO
+                ? 'nao-encontrado'
+                : 'falhou',
+          )
+        }
         setLoading(false)
       }
       loadingRef.current = false
@@ -421,7 +448,12 @@ export const useProductForm = (
     return () => {
       cancelled = true
     }
-  }, [productId, copyFromId, adopt])
+  }, [productId, copyFromId, adopt, loadAttempt])
+
+  const retryLoad = useCallback(() => {
+    setLoading(true)
+    setLoadAttempt(n => n + 1)
+  }, [])
 
   const reload = useCallback(async () => {
     if (!productId) return false
@@ -475,6 +507,8 @@ export const useProductForm = (
     adoptSaved,
     reload,
     loading,
+    loadStatus,
+    retryLoad,
     isEdit: !!productId,
     productId: productId ?? null,
   }

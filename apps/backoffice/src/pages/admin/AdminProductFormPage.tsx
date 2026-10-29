@@ -130,7 +130,7 @@ const AdminProductFormPage = () => {
   // 11/T21: o estado saiu da página. Eram ~30 campos num `useState` só, e é por isso que PFM-11
   // (validar campo de aba FECHADA) não tinha onde morar — o `Tabs` do Radix desmonta o conteúdo
   // inativo e leva o `required` do input com ele.
-  const { form, setField, setFields, isDirty, savedSnapshot, markSaved, replaceForm, adoptSaved, reload, loading, isEdit } =
+  const { form, setField, setFields, isDirty, savedSnapshot, markSaved, replaceForm, adoptSaved, reload, loading, loadStatus, retryLoad, isEdit } =
     useProductForm(id, fromId)
   // Feature 67: a projeção das marcações por opção — renomear eixo leva junto (`VFL-05`), remover
   // texto apaga (`VFL-06`). O bloco e o save leem ESTA lista, nunca o campo cru, então o que a tela
@@ -526,6 +526,34 @@ const AdminProductFormPage = () => {
   }
 
   if (loading) return <div className="p-12 text-center text-muted-foreground">Carregando...</div>
+
+  // Peça que não existe, ou que não deu para ler: nada de formulário. Vazio, ele diria "Publicado"
+  // sobre nada, aceitaria fotos sem dono e, na leitura que falhou, gravaria o vazio por cima da peça.
+  if (loadStatus !== 'ok') {
+    const naoExiste = loadStatus === 'nao-encontrado'
+    return (
+      <div className="p-12 text-center" role={naoExiste ? undefined : 'alert'}>
+        <p className="font-heading text-lg font-bold text-foreground">
+          {naoExiste ? 'Produto não encontrado' : 'Não foi possível abrir o produto'}
+        </p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {naoExiste
+            ? 'Ele pode ter sido excluído, ou o endereço está incompleto. A listagem mostra o que existe agora.'
+            : 'Confira a conexão e tente de novo.'}
+        </p>
+        <div className="mt-4 flex flex-wrap justify-center gap-2">
+          {!naoExiste && (
+            <Button type="button" className="h-11 rounded-xl" onClick={retryLoad}>
+              Tentar de novo
+            </Button>
+          )}
+          <Button type="button" className="h-11 rounded-xl" variant="outline" onClick={() => navigate(voltarPara)}>
+            Voltar para Produtos
+          </Button>
+        </div>
+      </div>
+    )
+  }
 
   // RFN-08 AC 2: a tela usa a largura que tem. `max-w-6xl` vinha de quando o formulário era uma
   // coluna só — hoje são três faixas, e o inspetor já tem largura própria.
