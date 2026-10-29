@@ -8,6 +8,7 @@ export { default as MenuTree } from './ui/MenuTree'
 export { default as MenuTargetPicker } from './ui/MenuTargetPicker'
 export { default as MenuItemEditor, type MenuItemEdit } from './ui/MenuItemEditor'
 export { default as MenuRemoveConfirm } from './ui/MenuRemoveConfirm'
+export { BOTAO_FANTASMA } from './ui/estilos'
 export {
   MOTIVO_USADA,
   fraseDasFilhasQueEntram,

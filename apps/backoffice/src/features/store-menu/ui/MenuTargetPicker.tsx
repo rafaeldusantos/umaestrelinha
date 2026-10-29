@@ -48,6 +48,7 @@ import {
   conferirEnderecoDaLoja,
 } from '../model/enderecoDaLoja'
 import { MOTIVO_USADA, fraseDasFilhasQueEntram, type MenuPickerMode } from '../model/textosDoMenu'
+import { BOTAO_CONTORNO, BOTAO_CTA } from './estilos'
 
 interface Props {
   open: boolean
@@ -71,8 +72,14 @@ interface Props {
 
 const OUTRO = '__outro__'
 
+/** As abas do seletor são a pílula segmentada do protótipo (`.tabs`), não a barra sublinhada. */
 const ABA =
-  'min-h-11 border-b-2 px-1 text-sm font-semibold transition-colors motion-reduce:transition-none'
+  'min-h-11 flex-1 rounded-[9px] px-3 text-sm transition-colors motion-reduce:transition-none'
+
+/** A linha escolhível (`.pick button`): hover com borda violeta, escolhida com anel violeta claro. */
+const OPCAO_ESCOLHIDA = 'border-estrelinha-admin-violet bg-estrelinha-admin-card ring-2 ring-estrelinha-admin-violet/15'
+const OPCAO_LIVRE =
+  'border-estrelinha-admin-border bg-estrelinha-admin-card hover:border-estrelinha-admin-violet hover:bg-estrelinha-admin-bg'
 
 const NENHUM: ReadonlySet<string> = new Set()
 
@@ -221,7 +228,7 @@ const MenuTargetPicker = ({
           </DialogDescription>
         </DialogHeader>
 
-        <div role="tablist" aria-label="O que adicionar" className="flex gap-4 border-b border-border">
+        <div role="tablist" aria-label="O que adicionar" className="flex gap-1 rounded-xl bg-estrelinha-admin-elevated p-1">
           {(
             [
               ['categoria', 'Categoria'],
@@ -241,8 +248,8 @@ const MenuTargetPicker = ({
               className={cn(
                 ABA,
                 aba === valor
-                  ? 'border-primary text-foreground'
-                  : 'border-transparent text-muted-foreground hover:text-foreground',
+                  ? 'bg-estrelinha-admin-card font-semibold text-estrelinha-admin-text shadow-sm'
+                  : 'text-estrelinha-admin-text-secondary hover:text-estrelinha-admin-text',
               )}
             >
               {rotulo}
@@ -287,14 +294,14 @@ const MenuTargetPicker = ({
                           onClick={() => setCategoria(c.id)}
                           className={cn(
                             'flex min-h-11 w-full min-w-0 flex-col items-start rounded-xl border px-3 py-2 text-left',
-                            escolhida ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted',
-                            usada && 'cursor-not-allowed opacity-60 hover:bg-transparent',
+                            escolhida ? OPCAO_ESCOLHIDA : OPCAO_LIVRE,
+                            usada && 'cursor-not-allowed opacity-60 hover:border-estrelinha-admin-border hover:bg-estrelinha-admin-card',
                           )}
                         >
                           <span className="flex w-full min-w-0 items-center gap-2">
                             <span className="min-w-0 break-words text-sm font-semibold text-foreground">{c.name}</span>
                             {!c.active && (
-                              <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
+                              <span className="shrink-0 rounded-full bg-estrelinha-admin-amber/10 px-2 py-0.5 text-[11px] font-semibold text-estrelinha-admin-amber">
                                 Inativa
                               </span>
                             )}
@@ -334,8 +341,8 @@ const MenuTargetPicker = ({
                         onClick={() => escolherPagina(p.path)}
                         className={cn(
                           'flex min-h-11 w-full min-w-0 flex-col items-start rounded-xl border px-3 py-2 text-left',
-                          pagina === p.path ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted',
-                          usada && 'cursor-not-allowed opacity-60 hover:bg-transparent',
+                          pagina === p.path ? OPCAO_ESCOLHIDA : OPCAO_LIVRE,
+                          usada && 'cursor-not-allowed opacity-60 hover:border-estrelinha-admin-border hover:bg-estrelinha-admin-card',
                         )}
                       >
                         <span className="w-full min-w-0 break-words text-sm font-semibold text-foreground">{p.titulo}</span>
@@ -360,7 +367,7 @@ const MenuTargetPicker = ({
                     }}
                     className={cn(
                       'flex min-h-11 w-full items-center rounded-xl border px-3 py-2 text-left text-sm font-semibold',
-                      pagina === OUTRO ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted',
+                      pagina === OUTRO ? OPCAO_ESCOLHIDA : OPCAO_LIVRE,
                     )}
                   >
                     Outro endereço da loja
@@ -417,13 +424,18 @@ const MenuTargetPicker = ({
             lista), e embrulhando quando não cabem: lado a lado a 200 % em 360–412 o "Adicionar" ia até
             x = 423. O texto quebra linha (o `Button` é `whitespace-nowrap`). */}
         <DialogFooter className="flex-row flex-wrap gap-2">
-          <Button type="button" variant="outline" className={BOTAO_DO_RODAPE} onClick={() => onOpenChange(false)}>
+          <Button
+            type="button"
+            variant="outline"
+            className={cn(BOTAO_DO_RODAPE, BOTAO_CONTORNO)}
+            onClick={() => onOpenChange(false)}
+          >
             Cancelar
           </Button>
           <Button
             type="button"
             data-testid="seletor-adicionar"
-            className={BOTAO_DO_RODAPE}
+            className={cn(BOTAO_DO_RODAPE, BOTAO_CTA)}
             disabled={!podeAdicionar}
             onClick={adicionar}
           >

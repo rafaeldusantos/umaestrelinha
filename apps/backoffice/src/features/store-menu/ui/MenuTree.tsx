@@ -19,7 +19,7 @@ import { useState, type DragEvent } from 'react'
 import {
   ArrowDown,
   ArrowUp,
-  ChevronDown,
+  ChevronRight,
   GripVertical,
   MoreHorizontal,
   Pencil,
@@ -32,6 +32,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@estrelinha/ui/dropdown-menu'
 import { MENU_ICON_COMPONENTS } from '@estrelinha/ui/icons'
@@ -48,6 +49,7 @@ import {
   type MenuRootNode,
   type MenuSurface,
 } from '@estrelinha/core/menu'
+import { BOTAO_CONTORNO, BOTAO_CTA, BOTAO_FANTASMA, ITEM_DE_ACAO, ITEM_DE_ACAO_PERIGO } from './estilos'
 
 interface Props {
   document: MenuDocument
@@ -86,14 +88,30 @@ const destinoDe = (node: MenuNode, categories: readonly MenuCategory[]): string 
 const nomeDe = (node: MenuNode, categories: readonly MenuCategory[]): string =>
   menuNodeName(node, categories) || 'Categoria apagada'
 
-const Selo = ({ texto, testId }: { texto: string; testId: string }) => (
+/** Os três tons de selo do protótipo: `.tag.warn` (inativa), `.tag.err` (apagada), `.tag.mute` (fora). */
+const TOM_DO_SELO = {
+  aviso: 'bg-estrelinha-admin-amber/10 text-estrelinha-admin-amber',
+  erro: 'bg-destructive/10 text-destructive',
+  neutro: 'bg-estrelinha-admin-elevated text-estrelinha-admin-text-secondary',
+} as const
+
+const TOM_POR_ESTADO: Record<Exclude<MenuNodeState, 'ok'>, keyof typeof TOM_DO_SELO> = {
+  inactive: 'aviso',
+  deleted: 'erro',
+}
+
+const Selo = ({ texto, testId, tom }: { texto: string; testId: string; tom: keyof typeof TOM_DO_SELO }) => (
   <span
     data-testid={testId}
-    className="shrink-0 rounded-full bg-estrelinha-admin-amber/10 px-2 py-0.5 text-[11px] font-semibold text-estrelinha-admin-amber"
+    className={cn('shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold', TOM_DO_SELO[tom])}
   >
     {texto}
   </span>
 )
+
+/** O botão de ícone das linhas (`.ib` do protótipo): 44 × 44, hover em lilás claro. */
+const BOTAO_ICONE =
+  'flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px] text-estrelinha-admin-text-secondary hover:bg-estrelinha-admin-elevated'
 
 /** As duas chaves de dispositivo de um nó. */
 const Chaves = ({
@@ -105,7 +123,12 @@ const Chaves = ({
   nome: string
   onToggle: Props['onToggle']
 }) => (
-  <div role="group" aria-label={`Onde “${nome}” aparece`} className="flex shrink-0 gap-1">
+  // `.dev` do protótipo: as duas chaves emendadas num grupo de borda única.
+  <div
+    role="group"
+    aria-label={`Onde “${nome}” aparece`}
+    className="flex shrink-0 divide-x divide-estrelinha-admin-border overflow-hidden rounded-[10px] border border-estrelinha-admin-border"
+  >
     {(
       [
         ['desktop', 'PC', 'no computador'],
@@ -120,10 +143,10 @@ const Chaves = ({
         aria-label={`Mostrar “${nome}” ${onde}`}
         onClick={() => onToggle(node.id, surface, !node[surface])}
         className={cn(
-          'min-h-11 min-w-11 rounded-lg border px-2 text-xs font-semibold transition-colors motion-reduce:transition-none',
+          'min-h-11 min-w-11 px-2.5 text-xs font-semibold transition-colors motion-reduce:transition-none',
           node[surface]
-            ? 'border-primary bg-primary/10 text-foreground'
-            : 'border-border text-muted-foreground line-through hover:bg-muted',
+            ? 'bg-estrelinha-admin-violet/10 text-estrelinha-admin-violet'
+            : 'bg-estrelinha-admin-card text-estrelinha-admin-muted hover:bg-estrelinha-admin-elevated',
         )}
       >
         {rotulo}
@@ -187,14 +210,19 @@ const MenuTree = ({
     return (
       <section
         data-testid="menu-vazio"
-        className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-border bg-card p-8 text-center"
+        className="flex flex-col items-center gap-3 rounded-2xl border border-estrelinha-admin-border bg-estrelinha-admin-card px-5 py-10 text-center"
       >
-        <h2 className="font-heading text-base font-bold text-foreground">O menu está vazio</h2>
-        <p className="max-w-sm text-sm text-muted-foreground">
+        <h2 className="font-heading text-base font-bold text-estrelinha-admin-text">O menu está vazio</h2>
+        <p className="max-w-sm text-xs text-estrelinha-admin-muted">
           Acrescente as categorias e as páginas que a cliente vê na barra do topo. Cada item pode ter
           um submenu.
         </p>
-        <Button type="button" className="min-h-11" data-testid="adicionar-primeiro" onClick={onAdd}>
+        <Button
+          type="button"
+          className={cn('h-auto min-h-11 max-w-full whitespace-normal', BOTAO_CTA)}
+          data-testid="adicionar-primeiro"
+          onClick={onAdd}
+        >
           <Plus className="mr-1.5 h-4 w-4" aria-hidden /> Adicionar item ao menu
         </Button>
       </section>
@@ -204,20 +232,22 @@ const MenuTree = ({
   const ultimo = document.items.length - 1
 
   return (
-    <section data-testid="arvore-do-menu" className="rounded-2xl border border-border bg-card">
-      <header className="flex flex-wrap items-start justify-between gap-3 border-b border-border px-4 py-3">
+    <section
+      data-testid="arvore-do-menu"
+      className="rounded-2xl border border-estrelinha-admin-border bg-estrelinha-admin-card"
+    >
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-estrelinha-admin-border px-4 py-4 sm:px-5">
         <div className="min-w-0">
-          <h2 className="font-heading text-sm font-bold text-foreground">Itens do menu principal</h2>
-          <p data-testid="contador-itens" className="text-xs text-muted-foreground">
+          <h2 className="font-heading text-base font-bold text-estrelinha-admin-text">Itens do menu principal</h2>
+          <p data-testid="contador-itens" className="mt-0.5 text-xs text-estrelinha-admin-muted">
             {contagem.desktop} no computador · {contagem.mobile} no celular · arraste pela alça para
             reordenar
           </p>
         </div>
         <Button
           type="button"
-          variant="outline"
           // Q06: o `Button` é `whitespace-nowrap`; com a fonte a 200 % o rótulo passava da tela.
-          className="h-auto min-h-11 max-w-full whitespace-normal"
+          className={cn('h-auto min-h-11 max-w-full whitespace-normal', BOTAO_CTA)}
           data-testid="adicionar-item"
           onClick={onAdd}
         >
@@ -225,7 +255,8 @@ const MenuTree = ({
         </Button>
       </header>
 
-      <ul className="flex flex-col divide-y divide-border">
+      {/* Cada item é um cartão próprio (`.item` do protótipo), não uma linha de tabela. */}
+      <ul className="flex flex-col gap-1.5 p-2">
         {document.items.map((item: MenuRootNode, indice) => {
           const estado = menuNodeState(item, categories)
           const apagado = estado === 'deleted'
@@ -238,7 +269,12 @@ const MenuTree = ({
           const filhos = item.children
 
           return (
-            <li key={item.id} data-testid={`item-${item.id}`} {...arrastavel('raiz', indice)}>
+            <li
+              key={item.id}
+              data-testid={`item-${item.id}`}
+              className="rounded-[14px] border border-estrelinha-admin-border bg-estrelinha-admin-card"
+              {...arrastavel('raiz', indice)}
+            >
               {/* `flex-wrap` + a base de 10rem do nome: em 390 os controles descem para uma segunda linha
                   em vez de espremer o nome a 29px ("Joi…"), medido na prova da 86. */}
               <div
@@ -248,13 +284,19 @@ const MenuTree = ({
                 <span
                   aria-hidden
                   title="Arrastar para reordenar"
-                  className="flex h-11 w-6 shrink-0 cursor-grab items-center justify-center text-muted-foreground"
+                  className="flex h-11 w-6 shrink-0 cursor-grab items-center justify-center text-estrelinha-admin-muted"
                 >
                   <GripVertical className="h-4 w-4" />
                 </span>
+                {/* `.ico` do protótipo: violeta claro com o desenho; sem ícone, o tracejado "sem". */}
                 <span
                   data-testid={`icone-${item.id}`}
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-[10px] font-semibold text-muted-foreground"
+                  className={cn(
+                    'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl',
+                    Icone
+                      ? 'bg-estrelinha-admin-violet/10 text-estrelinha-admin-violet'
+                      : 'border border-dashed border-input bg-estrelinha-admin-bg text-[10.5px] font-medium text-estrelinha-admin-muted',
+                  )}
                 >
                   {Icone ? <Icone className="h-5 w-5" aria-hidden /> : 'sem'}
                 </span>
@@ -265,12 +307,23 @@ const MenuTree = ({
                   onClick={() => onSelect?.(item.id)}
                 >
                   <span className="flex max-w-full flex-wrap items-center gap-1.5">
-                    <span className="min-w-0 break-words text-sm font-semibold text-foreground">{nome}</span>
-                    {estado !== 'ok' && <Selo testId={`selo-${item.id}`} texto={SELO[estado]} />}
-                    {fora && estado === 'ok' && <Selo testId={`selo-${item.id}`} texto="Fora do menu" />}
+                    <span className="min-w-0 break-words text-sm font-semibold text-estrelinha-admin-text">{nome}</span>
+                    {estado !== 'ok' && (
+                      <Selo testId={`selo-${item.id}`} texto={SELO[estado]} tom={TOM_POR_ESTADO[estado]} />
+                    )}
+                    {fora && estado === 'ok' && <Selo testId={`selo-${item.id}`} texto="Fora do menu" tom="neutro" />}
                   </span>
-                  <span data-testid={`meta-${item.id}`} className="max-w-full break-words text-xs text-muted-foreground">
-                    {item.target.kind === 'category' ? 'Categoria' : 'Link'} · {destinoDe(item, categories)} ·{' '}
+                  <span
+                    data-testid={`meta-${item.id}`}
+                    className="mt-0.5 max-w-full break-words text-xs text-estrelinha-admin-muted"
+                  >
+                    {/* O tipo é um selo (`.kind`); o " · " invisível mantém a frase inteira para o
+                        leitor de tela e para quem copia o texto. */}
+                    <span className="mr-1.5 rounded-md bg-estrelinha-admin-elevated px-1.5 py-px text-[11px] font-semibold text-estrelinha-admin-text-secondary">
+                      {item.target.kind === 'category' ? 'Categoria' : 'Link'}
+                    </span>
+                    <span className="sr-only"> · </span>
+                    {destinoDe(item, categories)} ·{' '}
                     {filhos.length > 0 ? `${filhos.length} no submenu` : 'sem submenu'}
                     {proprio ? ' · nome próprio' : ''}
                   </span>
@@ -292,11 +345,11 @@ const MenuTree = ({
                     aria-expanded={aberto}
                     aria-label={aberto ? `Fechar o submenu de “${nome}”` : `Abrir o submenu de “${nome}”`}
                     onClick={() => alternar(item.id)}
-                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted"
+                    className={BOTAO_ICONE}
                   >
-                    <ChevronDown
+                    <ChevronRight
                       aria-hidden
-                      className={cn('h-4 w-4 transition-transform motion-reduce:transition-none', aberto && 'rotate-180')}
+                      className={cn('h-4 w-4 transition-transform motion-reduce:transition-none', aberto && 'rotate-90')}
                     />
                   </button>
                 )}
@@ -305,19 +358,22 @@ const MenuTree = ({
                   <DropdownMenuTrigger
                     data-testid={`acoes-${item.id}`}
                     aria-label={`Ações de “${nome}”`}
-                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted"
+                    className={BOTAO_ICONE}
                   >
                     <MoreHorizontal className="h-4 w-4" aria-hidden />
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
+                  <DropdownMenuContent
+                    align="end"
+                    className="min-w-[220px] rounded-xl border-estrelinha-admin-border p-1.5 shadow-lg"
+                  >
                     {!apagado && (
                       <>
-                        <DropdownMenuItem data-testid={`editar-${item.id}`} className="min-h-11" onSelect={() => onEdit(item.id)}>
+                        <DropdownMenuItem data-testid={`editar-${item.id}`} className={ITEM_DE_ACAO} onSelect={() => onEdit(item.id)}>
                           Editar nome, ícone e banners
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           data-testid={`subir-${item.id}`}
-                          className="min-h-11"
+                          className={ITEM_DE_ACAO}
                           disabled={indice === 0 || moverDesabilitado}
                           onSelect={() => onMove(null, indice, indice - 1)}
                         >
@@ -325,17 +381,18 @@ const MenuTree = ({
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           data-testid={`descer-${item.id}`}
-                          className="min-h-11"
+                          className={ITEM_DE_ACAO}
                           disabled={indice === ultimo || moverDesabilitado}
                           onSelect={() => onMove(null, indice, indice + 1)}
                         >
                           Mover para baixo
                         </DropdownMenuItem>
+                        <DropdownMenuSeparator className="bg-estrelinha-admin-border" />
                       </>
                     )}
                     <DropdownMenuItem
                       data-testid={`remover-${item.id}`}
-                      className="min-h-11 text-destructive focus:text-destructive"
+                      className={ITEM_DE_ACAO_PERIGO}
                       onSelect={() => onRemoveRoot(item.id)}
                     >
                       Remover do menu
@@ -346,21 +403,27 @@ const MenuTree = ({
               </div>
 
               {aberto && (
-                <div data-testid={`submenu-${item.id}`} className="border-t border-border bg-muted/30 px-3 py-3 sm:pl-12">
-                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-xs font-semibold text-muted-foreground">
+                <div
+                  data-testid={`submenu-${item.id}`}
+                  className="rounded-b-[14px] border-t border-estrelinha-admin-border bg-estrelinha-admin-bg px-2 py-3 sm:pl-11 sm:pr-2.5"
+                >
+                  <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2 px-1">
+                    <p className="text-xs text-estrelinha-admin-muted">
                       Submenu — abre no mega menu do computador e na lista do celular
                     </p>
                     <span
                       data-testid={`contador-submenu-${item.id}`}
-                      className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold tabular-nums text-muted-foreground"
+                      className="text-xs tabular-nums text-estrelinha-admin-muted"
                     >
                       {filhos.length}/{MENU_SUBMENU_LIMIT}
                     </span>
                   </div>
 
                   {filhos.length === 0 ? (
-                    <p data-testid={`submenu-vazio-${item.id}`} className="py-2 text-sm text-muted-foreground">
+                    <p
+                      data-testid={`submenu-vazio-${item.id}`}
+                      className="rounded-[10px] border-[1.5px] border-dashed border-input bg-estrelinha-admin-card p-3 text-center text-xs text-estrelinha-admin-muted"
+                    >
                       Sem submenu: na loja, “{nome}” é um link direto.
                     </p>
                   ) : (
@@ -376,21 +439,26 @@ const MenuTree = ({
                             data-testid={`filho-${filho.id}`}
                             {...arrastavel(item.id, k)}
                             className={cn(
-                              'flex min-w-0 flex-wrap items-center gap-1.5 rounded-xl bg-card px-2 py-1.5',
+                              'flex min-w-0 flex-wrap items-center gap-1.5 rounded-[10px] border border-estrelinha-admin-border bg-estrelinha-admin-card py-0.5 pl-0.5 pr-1',
                               foraFilho && 'opacity-60',
                             )}
                           >
-                            <span aria-hidden className="flex h-11 w-5 shrink-0 cursor-grab items-center justify-center text-muted-foreground">
+                            <span aria-hidden className="flex h-11 w-6 shrink-0 cursor-grab items-center justify-center text-estrelinha-admin-muted">
                               <GripVertical className="h-4 w-4" />
                             </span>
                             <span data-testid={`nome-${filho.id}`} className="flex min-w-0 flex-1 basis-28 flex-col">
                               <span className="flex max-w-full flex-wrap items-center gap-1.5">
-                                <span className="min-w-0 break-words text-sm font-medium text-foreground">{nomeFilho}</span>
+                                <span className="min-w-0 break-words text-[13.5px] font-medium text-estrelinha-admin-text">{nomeFilho}</span>
                                 {estadoFilho !== 'ok' && (
-                                  <Selo testId={`selo-${filho.id}`} texto={SELO[estadoFilho]} />
+                                  <Selo
+                                    testId={`selo-${filho.id}`}
+                                    texto={SELO[estadoFilho]}
+                                    tom={TOM_POR_ESTADO[estadoFilho]}
+                                  />
                                 )}
                               </span>
-                              <span className="max-w-full break-words text-xs text-muted-foreground">
+                              <span className="max-w-full break-words text-[11.5px] text-estrelinha-admin-muted">
+                                {filho.target.kind === 'link' ? 'Link · ' : ''}
                                 {destinoDe(filho, categories)}
                               </span>
                             </span>
@@ -407,7 +475,7 @@ const MenuTree = ({
                                   aria-label={`Mover “${nomeFilho}” para cima`}
                                   disabled={k === 0 || moverDesabilitado}
                                   onClick={() => onMove(item.id, k, k - 1)}
-                                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted disabled:opacity-40"
+                                  className={cn(BOTAO_ICONE, 'disabled:opacity-30 disabled:hover:bg-transparent')}
                                 >
                                   <ArrowUp className="h-4 w-4" aria-hidden />
                                 </button>
@@ -417,7 +485,7 @@ const MenuTree = ({
                                   aria-label={`Mover “${nomeFilho}” para baixo`}
                                   disabled={k === filhos.length - 1 || moverDesabilitado}
                                   onClick={() => onMove(item.id, k, k + 1)}
-                                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted disabled:opacity-40"
+                                  className={cn(BOTAO_ICONE, 'disabled:opacity-30 disabled:hover:bg-transparent')}
                                 >
                                   <ArrowDown className="h-4 w-4" aria-hidden />
                                 </button>
@@ -426,7 +494,7 @@ const MenuTree = ({
                                   data-testid={`editar-${filho.id}`}
                                   aria-label={`Editar “${nomeFilho}”`}
                                   onClick={() => onEdit(filho.id)}
-                                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted"
+                                  className={BOTAO_ICONE}
                                 >
                                   <Pencil className="h-4 w-4" aria-hidden />
                                 </button>
@@ -437,7 +505,7 @@ const MenuTree = ({
                               data-testid={`tirar-${filho.id}`}
                               aria-label={`Tirar “${nomeFilho}” do submenu`}
                               onClick={() => onRemoveChild(filho.id)}
-                              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted"
+                              className={BOTAO_ICONE}
                             >
                               <X className="h-4 w-4" aria-hidden />
                             </button>
@@ -452,7 +520,7 @@ const MenuTree = ({
                     <Button
                       type="button"
                       variant="ghost"
-                      className="h-auto min-h-11 max-w-full whitespace-normal text-left"
+                      className={cn('h-auto min-h-11 max-w-full whitespace-normal text-left', BOTAO_FANTASMA)}
                       data-testid={`adicionar-ao-submenu-${item.id}`}
                       disabled={filhos.length >= MENU_SUBMENU_LIMIT}
                       onClick={() => onAddChild(item.id)}
@@ -460,7 +528,7 @@ const MenuTree = ({
                       <Plus className="mr-1.5 h-4 w-4" aria-hidden /> Adicionar ao submenu
                     </Button>
                     {filhos.length >= MENU_SUBMENU_LIMIT && (
-                      <p data-testid={`submenu-cheio-${item.id}`} className="text-xs text-muted-foreground">
+                      <p data-testid={`submenu-cheio-${item.id}`} className="text-xs text-estrelinha-admin-muted">
                         O submenu tem o máximo de {MENU_SUBMENU_LIMIT} itens.
                       </p>
                     )}
@@ -471,6 +539,19 @@ const MenuTree = ({
           )
         })}
       </ul>
+
+      {/* `.foot` do protótipo: o mesmo "Adicionar" no fim da lista, onde o olho termina. */}
+      <div className="px-2 pb-3 sm:px-4 sm:pb-4">
+        <Button
+          type="button"
+          variant="outline"
+          className={cn('h-auto min-h-11 w-full max-w-full whitespace-normal', BOTAO_CONTORNO)}
+          data-testid="adicionar-item-rodape"
+          onClick={onAdd}
+        >
+          <Plus className="mr-1.5 h-4 w-4" aria-hidden /> Adicionar item ao menu
+        </Button>
+      </div>
     </section>
   )
 }

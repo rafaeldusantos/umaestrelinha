@@ -483,3 +483,45 @@ describe('Q06b — com a fonte grande, o editor do item cabe na largura', () => 
     expect(tem(antigo, 'flex-wrap')).toBe(false)
   })
 })
+
+/**
+ * Defeito relatado em 2026-10-29: "Remover do menu" era `variant="ghost"` com texto vermelho, e o
+ * hover do ghost pinta `bg-accent` (o ROSA do painel) — fundo rosa com texto vermelho. O pedido é o
+ * `.btn.danger` do protótipo (borda e texto vermelhos) com hover de FUNDO vermelho e texto BRANCO.
+ * O mesmo vale para os botões de contorno (Cancelar, Editar banners), que herdavam o hover rosa.
+ */
+describe('o rodapé do editor não pinta de rosa no hover', () => {
+  const tem = (el: Element, t: string) => el.className.split(/\s+/).includes(t)
+
+  it('"Remover do menu": borda e texto vermelhos; hover com fundo vermelho e texto branco', () => {
+    montar(raizDeCategoria())
+    const b = screen.getByTestId('editor-remover')
+    expect(tem(b, 'hover:bg-accent')).toBe(false)
+    expect(tem(b, 'hover:text-accent-foreground')).toBe(false)
+    expect(tem(b, 'text-destructive')).toBe(true)
+    expect(tem(b, 'border-destructive')).toBe(true)
+    expect(tem(b, 'hover:bg-red-700')).toBe(true)
+    expect(tem(b, 'hover:text-white')).toBe(true)
+    expect(tem(b, 'hover:bg-destructive')).toBe(false)
+    // A forma antiga — texto vermelho também no hover — não pode ficar ao lado.
+    expect(tem(b, 'hover:text-destructive')).toBe(false)
+  })
+
+  it('Cancelar e Editar banners: hover rosado claro com o texto mantido; Salvar é o CTA', () => {
+    montar(raizDeCategoria())
+    for (const b of [screen.getByRole('button', { name: 'Cancelar' }), screen.getByTestId('editar-banners')]) {
+      expect(tem(b, 'hover:bg-accent')).toBe(false)
+      expect(tem(b, 'hover:bg-estrelinha-admin-card-hover')).toBe(true)
+      expect(tem(b, 'hover:text-estrelinha-admin-text')).toBe(true)
+    }
+    expect(tem(screen.getByTestId('editor-salvar'), 'gradient-cta')).toBe(true)
+  })
+
+  it('SENSOR: a forma do defeito reprova na mesma régua', () => {
+    const antigo = document.createElement('button')
+    antigo.className =
+      'hover:bg-accent hover:text-accent-foreground h-auto min-h-11 max-w-full whitespace-normal text-destructive hover:text-destructive'
+    expect(tem(antigo, 'hover:bg-accent')).toBe(true)
+    expect(tem(antigo, 'hover:bg-destructive')).toBe(false)
+  })
+})

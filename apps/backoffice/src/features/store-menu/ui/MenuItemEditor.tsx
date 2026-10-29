@@ -55,6 +55,7 @@ import { bannersGravados } from '../model/bannersGravados'
 import { deleteBannerImage } from '../lib/uploadBannerImage'
 import MenuBannerEditor, { type MenuBannerDraftState } from './MenuBannerEditor'
 import MenuIconPicker from './MenuIconPicker'
+import { BOTAO_CONTORNO, BOTAO_CTA, BOTAO_FANTASMA, BOTAO_PERIGO } from './estilos'
 
 /** O que "Salvar" entrega. `icon` só vem do item principal. */
 export interface MenuItemEdit {
@@ -252,7 +253,7 @@ const MenuItemEditor = ({
               <Button
                 type="button"
                 variant="ghost"
-                className={QUEBRA}
+                className={cn(QUEBRA, BOTAO_FANTASMA)}
                 data-testid="voltar-ao-item"
                 onClick={voltarAoItem}
               >
@@ -367,7 +368,7 @@ const MenuItemEditor = ({
                 <Button
                   type="button"
                   variant="outline"
-                  className={QUEBRA}
+                  className={cn(QUEBRA, BOTAO_CONTORNO)}
                   data-testid="editar-banners"
                   onClick={() => setVista('banners')}
                 >
@@ -388,20 +389,27 @@ const MenuItemEditor = ({
           <DialogFooter className="gap-2 sm:justify-between">
             <Button
               type="button"
-              variant="ghost"
-              className={cn(QUEBRA, 'text-destructive hover:text-destructive')}
+              variant="outline"
+              // `.btn.danger` do protótipo: no hover, fundo vermelho e texto branco — o `ghost` pintava
+              // o fundo de `accent` (o rosa do painel) por baixo do texto vermelho.
+              className={cn(QUEBRA, BOTAO_PERIGO)}
               data-testid="editor-remover"
               onClick={onRemove}
             >
               Remover do menu
             </Button>
             <div className="flex flex-col-reverse gap-2 sm:flex-row">
-              <Button type="button" variant="outline" className={QUEBRA} onClick={() => onOpenChange(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                className={cn(QUEBRA, BOTAO_CONTORNO)}
+                onClick={() => onOpenChange(false)}
+              >
                 Cancelar
               </Button>
               <Button
                 type="button"
-                className={QUEBRA}
+                className={cn(QUEBRA, BOTAO_CTA)}
                 data-testid="editor-salvar"
                 disabled={ocupado}
                 onClick={salvar}
@@ -428,12 +436,12 @@ const MenuItemEditor = ({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="gap-2">
-            <AlertDialogCancel data-testid="continuar-editando-banners" className="min-h-11">
+            <AlertDialogCancel data-testid="continuar-editando-banners" className={cn('min-h-11', BOTAO_CONTORNO)}>
               Continuar editando
             </AlertDialogCancel>
             <AlertDialogAction
               data-testid="confirmar-descartar-banners"
-              className="min-h-11 bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="min-h-11 bg-red-700 text-white hover:bg-red-800"
               onClick={confirmarDescarte}
             >
               Descartar

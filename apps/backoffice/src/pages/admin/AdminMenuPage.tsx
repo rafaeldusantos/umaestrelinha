@@ -52,6 +52,7 @@ import {
   addRootNode,
   fraseDasSubcategoriasDeFora,
   moveNode,
+  BOTAO_FANTASMA,
   removeNode,
   toggleSurface,
   updateNode,
@@ -367,7 +368,7 @@ const AdminMenuPage = () => {
               <span
                 data-testid="salvando"
                 role="status"
-                className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground transition-opacity motion-reduce:transition-none"
+                className="flex min-h-10 items-center gap-1.5 text-xs text-estrelinha-admin-muted transition-opacity motion-reduce:transition-none"
               >
                 <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
                 Salvando…
@@ -377,8 +378,10 @@ const AdminMenuPage = () => {
                 <span
                   data-testid="salvo"
                   role="status"
-                  className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground transition-opacity motion-reduce:transition-none"
+                  // `.saved.ok` do protótipo: verde, com o ponto — é recibo do banco (`MNM-38`).
+                  className="flex min-h-10 items-center gap-1.5 text-xs font-semibold text-estrelinha-admin-emerald transition-opacity motion-reduce:transition-none"
                 >
+                  <span aria-hidden className="h-[7px] w-[7px] rounded-full bg-current" />
                   Salvo
                 </span>
               )
@@ -387,9 +390,9 @@ const AdminMenuPage = () => {
                 painel, e o botão abria o backoffice em outra aba (achado na prova da 86). Sem
                 `VITE_STORE_URL` o botão não existe. */}
             {lojaOrigem && (
-              <Button variant="outline" asChild className="min-h-11">
-                <a href={`${lojaOrigem}/`} target="_blank" rel="noreferrer">
-                  Ver na loja <ExternalLink className="ml-1.5 h-4 w-4" />
+              <Button variant="ghost" asChild className={cn('min-h-11', BOTAO_FANTASMA)}>
+                <a href={`${lojaOrigem}/`} target="_blank" rel="noreferrer" data-testid="ver-na-loja">
+                  Ver na loja <ExternalLink className="ml-1.5 h-4 w-4" aria-hidden />
                 </a>
               </Button>
             )}

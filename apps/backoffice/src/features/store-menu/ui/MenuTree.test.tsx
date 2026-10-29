@@ -460,3 +460,107 @@ describe('Q06 — com a fonte grande, controles e nomes embrulham dentro da larg
     expect(token(antigo, 'min-w-0')).toBe(false)
   })
 })
+
+/**
+ * Defeito relatado em 2026-10-29 (fidelidade ao protótipo): o `DropdownMenuItem` de `@estrelinha/ui`
+ * pinta o foco/hover com `focus:bg-accent`, e o `--accent` do painel é o ROSA da marca — todo item do
+ * menu ⋯ ficava rosa ao passar o mouse. O protótipo pede lilás claro (`--elev`) com o texto mantido, e
+ * "Remover do menu" vermelho também no hover. Régua por token exato sobre a classe que chega ao DOM.
+ */
+describe('o menu ⋯ não pinta de rosa no hover', () => {
+  const ROSA = ['focus:bg-accent', 'focus:text-accent-foreground']
+
+  it('os itens comuns: foco em lilás claro, texto mantido', () => {
+    montar()
+    abrirAcoes('n-chaveiros')
+    for (const id of ['editar-n-chaveiros', 'subir-n-chaveiros', 'descer-n-chaveiros']) {
+      const el = screen.getByTestId(id)
+      for (const t of ROSA) expect(token(el, t), `${id}: ${t}`).toBe(false)
+      expect(token(el, 'focus:bg-estrelinha-admin-elevated'), id).toBe(true)
+      expect(token(el, 'focus:text-estrelinha-admin-text'), id).toBe(true)
+    }
+  })
+
+  it('"Remover do menu": vermelho, também no foco, sobre o mesmo lilás', () => {
+    montar()
+    abrirAcoes('n-chaveiros')
+    const el = screen.getByTestId('remover-n-chaveiros')
+    for (const t of ROSA) expect(token(el, t), t).toBe(false)
+    expect(token(el, 'text-destructive')).toBe(true)
+    expect(token(el, 'focus:text-destructive')).toBe(true)
+    expect(token(el, 'focus:bg-estrelinha-admin-elevated')).toBe(true)
+  })
+
+  it('um separador antes de "Remover do menu", como no protótipo', () => {
+    montar()
+    abrirAcoes('n-chaveiros')
+    const menu = screen.getByRole('menu')
+    const filhos = [...menu.children]
+    const k = filhos.indexOf(screen.getByTestId('remover-n-chaveiros'))
+    expect(filhos[k - 1].getAttribute('role')).toBe('separator')
+  })
+
+  it('SENSOR: a classe crua do componente compartilhado reprova na mesma régua', () => {
+    const cru = window.document.createElement('div')
+    cru.className =
+      'relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none focus:bg-accent focus:text-accent-foreground min-h-11'
+    expect(token(cru, 'focus:bg-accent')).toBe(true)
+    expect(token(cru, 'focus:bg-estrelinha-admin-elevated')).toBe(false)
+  })
+})
+
+/** Fidelidade ao protótipo: os botões da lista não herdam o hover rosa do `Button`. */
+describe('botões da lista no desenho do protótipo', () => {
+  it('"+ Adicionar item" é o CTA em gradiente; "+ Adicionar ao submenu" é violeta, sem rosa', () => {
+    montar()
+    fireEvent.click(screen.getByTestId('expandir-n-joias'))
+    const cta = screen.getByTestId('adicionar-item')
+    expect(token(cta, 'gradient-cta')).toBe(true)
+    expect(token(cta, 'text-white')).toBe(true)
+    const sub = screen.getByTestId('adicionar-ao-submenu-n-joias')
+    expect(token(sub, 'hover:bg-accent')).toBe(false)
+    expect(token(sub, 'text-estrelinha-admin-violet')).toBe(true)
+    expect(token(sub, 'hover:bg-estrelinha-admin-violet/10')).toBe(true)
+  })
+
+  it('o rodapé da lista tem "+ Adicionar item ao menu", que chama quem monta', () => {
+    montar()
+    const rodape = screen.getByTestId('adicionar-item-rodape')
+    expect(rodape).toHaveTextContent('Adicionar item ao menu')
+    expect(token(rodape, 'min-h-11')).toBe(true)
+    expect(token(rodape, 'hover:bg-accent')).toBe(false)
+    fireEvent.click(rodape)
+    expect(props.onAdd).toHaveBeenCalledTimes(1)
+  })
+
+  it('as chaves PC | Celular: ligada em violeta claro, desligada em branco', () => {
+    montar()
+    const ligada = screen.getByTestId('chave-desktop-n-joias')
+    const desligada = screen.getByTestId('chave-desktop-n-sobre')
+    expect(token(ligada, 'bg-estrelinha-admin-violet/10')).toBe(true)
+    expect(token(ligada, 'text-estrelinha-admin-violet')).toBe(true)
+    expect(token(desligada, 'bg-estrelinha-admin-card')).toBe(true)
+    expect(token(desligada, 'text-estrelinha-admin-muted')).toBe(true)
+    expect(token(desligada, 'bg-estrelinha-admin-violet/10')).toBe(false)
+    // As duas ficam num grupo emendado (`.dev` do protótipo), não em dois botões soltos.
+    const grupo = screen.getByRole('group', { name: 'Onde “Joias” aparece' })
+    expect(token(grupo, 'overflow-hidden')).toBe(true)
+    expect(token(grupo, 'border')).toBe(true)
+  })
+
+  it('selos: apagada em vermelho, "Fora do menu" neutro, inativa em âmbar', () => {
+    montar({
+      version: 2,
+      items: [
+        raiz('n-velha', { kind: 'category', category_id: 'velha' }),
+        raiz('n-sumiu', { kind: 'category', category_id: 'nao-existe' }),
+        raiz('n-fora', { kind: 'link', href: '/sobre' }, { label: 'Sobre', desktop: false, mobile: false }),
+      ],
+    })
+    expect(token(screen.getByTestId('selo-n-velha'), 'text-estrelinha-admin-amber')).toBe(true)
+    expect(token(screen.getByTestId('selo-n-sumiu'), 'text-destructive')).toBe(true)
+    expect(token(screen.getByTestId('selo-n-sumiu'), 'text-estrelinha-admin-amber')).toBe(false)
+    expect(token(screen.getByTestId('selo-n-fora'), 'bg-estrelinha-admin-elevated')).toBe(true)
+    expect(token(screen.getByTestId('selo-n-fora'), 'text-estrelinha-admin-amber')).toBe(false)
+  })
+})

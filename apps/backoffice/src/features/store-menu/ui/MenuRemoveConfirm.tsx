@@ -19,7 +19,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@estrelinha/ui/alert-dialog'
+import { cn } from '@estrelinha/ui/lib/utils'
 import { fraseDoSubmenu } from '../model/textosDoMenu'
+import { BOTAO_CONTORNO } from './estilos'
 
 interface Props {
   open: boolean
@@ -62,12 +64,12 @@ const MenuRemoveConfirm = ({ open, onOpenChange, nome, kind, filhos, onConfirm, 
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter className="gap-2">
-          <AlertDialogCancel ref={cancelar} className="min-h-11">
+          <AlertDialogCancel ref={cancelar} className={cn('min-h-11', BOTAO_CONTORNO)}>
             Cancelar
           </AlertDialogCancel>
           <AlertDialogAction
             data-testid="confirmar-remover"
-            className="min-h-11 bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            className="min-h-11 bg-red-700 text-white hover:bg-red-800"
             onClick={onConfirm}
           >
             Remover do menu

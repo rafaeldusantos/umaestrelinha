@@ -915,6 +915,14 @@ chaves **Computador | Celular** e um submenu de até 24 filhos. Nada desta tela 
   "Gravação" —, e ela casa o **rótulo e a chave**: quem confere um valor gravado procura por
   `gota-afetiva`, não por "Gota afetiva". A cela "Sem ícone" **não é filtrada**: é a saída, não um
   resultado, e escondê-la tiraria o único jeito de limpar a escolha.
+- **O hover/foco do `Button` e do `DropdownMenuItem` de `@estrelinha/ui` é `accent`, e o `--accent`
+  do painel é o ROSA da marca** (achado em 2026-10-29: "Remover do menu" com fundo rosa e texto
+  vermelho, e todo item do menu ⋯ rosa no hover). A tela não muda `packages/ui`: as classes dela
+  moram em `features/store-menu/ui/estilos.ts` (`BOTAO_CONTORNO`, `BOTAO_FANTASMA`, `BOTAO_CTA`,
+  `BOTAO_PERIGO`, `ITEM_DE_ACAO`, `ITEM_DE_ACAO_PERIGO`) e sobrescrevem pelo `twMerge`, com teste por
+  token exato. A fidelidade ao protótipo aprovado está em
+  `.specs/features/86-menu-montado-pela-dona/fidelidade-prototipo.md` (o que foi corrigido e o que
+  ficou diferente de propósito). **Outras telas do painel têm o mesmo hover rosa em `outline`/`ghost`**.
 - **Guardas**: `menuDocumentoComDonoUnico.test.ts` (loja) recusa escrita das três colunas antigas em
   `apps/**`, nas functions e nos pacotes, exige que a linha crua do menu só seja interpretada por
   `parseMenuDocument` (dois leitores: esta porta e o `useMenu` da loja) e que a tela do menu só fale

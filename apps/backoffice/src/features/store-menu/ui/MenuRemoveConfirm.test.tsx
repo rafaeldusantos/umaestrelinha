@@ -75,3 +75,20 @@ describe('MNM-21 — o que continua existindo', () => {
     )
   })
 })
+
+describe('fidelidade ao protótipo — sem o hover rosa', () => {
+  it('Cancelar: contorno com hover rosado claro; Remover: vermelho cheio', () => {
+    render(
+      <MenuRemoveConfirm open onOpenChange={() => {}} nome="Joias" kind="category" filhos={2} onConfirm={() => {}} />,
+    )
+    const tem = (el: Element, t: string) => el.className.split(/\s+/).includes(t)
+    const cancelar = screen.getByRole('button', { name: 'Cancelar' })
+    expect(tem(cancelar, 'hover:bg-accent')).toBe(false)
+    expect(tem(cancelar, 'hover:bg-estrelinha-admin-card-hover')).toBe(true)
+    const remover = screen.getByTestId('confirmar-remover')
+    // Branco sobre red-700 dá ~6,5:1; sobre o `destructive` do painel, ~3,8:1 (abaixo de 4,5).
+    expect(tem(remover, 'bg-red-700')).toBe(true)
+    expect(tem(remover, 'text-white')).toBe(true)
+    expect(tem(remover, 'bg-destructive')).toBe(false)
+  })
+})

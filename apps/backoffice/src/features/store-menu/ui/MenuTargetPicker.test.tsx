@@ -484,3 +484,33 @@ describe('R05 — as linhas do seletor embrulham em vez de cortar', () => {
     expect(temToken(spans.find(s => s.textContent === p.path)!, 'break-words')).toBe(true)
   })
 })
+
+/** Fidelidade ao protótipo (2026-10-29): abas em pílula, CTA em gradiente, sem o hover rosa. */
+describe('o seletor no desenho do protótipo', () => {
+  it('as abas são pílula segmentada; a escolhida é o cartão branco', () => {
+    montar()
+    const lista = screen.getByRole('tablist', { name: 'O que adicionar' })
+    expect(temToken(lista, 'bg-estrelinha-admin-elevated')).toBe(true)
+    expect(temToken(lista, 'rounded-xl')).toBe(true)
+    expect(temToken(screen.getByTestId('aba-categoria'), 'bg-estrelinha-admin-card')).toBe(true)
+    expect(temToken(screen.getByTestId('aba-categoria'), 'border-b-2')).toBe(false)
+    expect(temToken(screen.getByTestId('aba-pagina'), 'bg-estrelinha-admin-card')).toBe(false)
+  })
+
+  it('Adicionar é o CTA; Cancelar é contorno sem o rosa no hover', () => {
+    montar()
+    expect(temToken(screen.getByTestId('seletor-adicionar'), 'gradient-cta')).toBe(true)
+    const cancelar = screen.getByRole('button', { name: 'Cancelar' })
+    expect(temToken(cancelar, 'hover:bg-accent')).toBe(false)
+    expect(temToken(cancelar, 'hover:bg-estrelinha-admin-card-hover')).toBe(true)
+  })
+
+  it('a opção escolhida ganha borda violeta e anel; a livre, hover de borda violeta', () => {
+    montar()
+    const [primeira] = screen.getAllByTestId(/^opcao-categoria-/).filter(b => !(b as HTMLButtonElement).disabled)
+    expect(temToken(primeira, 'hover:border-estrelinha-admin-violet')).toBe(true)
+    fireEvent.click(primeira)
+    expect(temToken(primeira, 'border-estrelinha-admin-violet')).toBe(true)
+    expect(temToken(primeira, 'ring-2')).toBe(true)
+  })
+})

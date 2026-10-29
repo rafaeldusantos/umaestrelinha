@@ -1252,3 +1252,23 @@ describe('"Ver na loja" leva à loja, não à raiz do painel', () => {
     expect(link.getAttribute('target')).toBe('_blank')
   })
 })
+
+/** Fidelidade ao protótipo (2026-10-29): o cabeçalho e o selo `Salvo`. */
+describe('cabeçalho no desenho do protótipo', () => {
+  it('"Salvo" é verde, com o ponto', async () => {
+    await montar()
+    fireEvent.click(screen.getByTestId('chave-mobile-n-chaveiros'))
+    const pronto = await screen.findByTestId('salvo')
+    expect(pronto.className.split(/\s+/)).toContain('text-estrelinha-admin-emerald')
+    expect(pronto.querySelector('[aria-hidden].rounded-full')).not.toBeNull()
+  })
+
+  it('"Ver na loja" é o botão violeta sem contorno, sem o hover rosa', async () => {
+    await montar()
+    const ver = screen.getByRole('link', { name: /Ver na loja/ })
+    const t = ver.className.split(/\s+/)
+    expect(t).toContain('text-estrelinha-admin-violet')
+    expect(t).not.toContain('hover:bg-accent')
+    expect(t).not.toContain('border-input')
+  })
+})
