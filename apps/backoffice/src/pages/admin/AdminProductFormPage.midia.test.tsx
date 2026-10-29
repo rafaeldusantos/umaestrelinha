@@ -139,25 +139,25 @@ const resumo = () => screen.getByTestId('product-media-summary')
 const salvarRascunho = () => screen.getByRole('button', { name: 'Salvar rascunho', hidden: true })
 
 describe('RES-01, RES-02, RES-06 — onde o Resumo mora', () => {
-  it('a coluna lateral vai de Publicação a Fornecedor, com o Resumo logo depois de Publicação (RES-01)', async () => {
+  it('a coluna lateral vai do Resumo a Fornecedor, com o Resumo no topo, acima de Publicação (RES-01)', async () => {
     h.produto = produtoBase({
       product_suppliers: [{ url: 'https://exemplo.com/peca', position: 0, suppliers: { name: 'Ateliê Prata' } }],
     })
     await montar()
 
-    const titulos = ['Publicação', 'Resumo', 'Pronto para publicar', 'Fornecedor']
+    const titulos = ['Resumo', 'Publicação', 'Pronto para publicar', 'Fornecedor']
     // A régua é dupla, porque a coluna tem duas ordens: no DOM o Resumo vem PRIMEIRO (RES-06, o
-    // celular), e a partir de `lg` as áreas da grade o põem depois de Publicação (RES-01).
+    // celular), e a partir de `lg` as áreas da grade o mantêm no topo da coluna direita, acima de Publicação (RES-01).
     // 1) DOM: Resumo → Publicação → Pronto para publicar → Fornecedor.
     const antes = (a: string, b: string) =>
       expect(tituloDoCard(a).compareDocumentPosition(tituloDoCard(b)) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     antes('Resumo', 'Publicação')
     antes('Publicação', 'Pronto para publicar')
     antes('Pronto para publicar', 'Fornecedor')
-    // 2) `lg`: Publicação → Resumo → Pronto → Fornecedor nas linhas da coluna direita (token exato).
+    // 2) `lg`: Resumo → Publicação → Pronto → Fornecedor nas linhas da coluna direita (token exato).
     const grade = resumo().closest('[class*="grid-template-areas"]')!
     expect(grade.className.split(/\s+/)).toContain(
-      "lg:[grid-template-areas:'main_pub'_'main_res'_'main_chk'_'main_sup'_'main_.']",
+      "lg:[grid-template-areas:'main_res'_'main_pub'_'main_chk'_'main_sup'_'main_.']",
     )
     const area = (titulo: string) => {
       let el: HTMLElement | null = tituloDoCard(titulo)
@@ -165,8 +165,8 @@ describe('RES-01, RES-02, RES-06 — onde o Resumo mora', () => {
       return el!.className.split(/\s+/).find(c => c.startsWith('lg:[grid-area:'))
     }
     expect(titulos.map(area)).toEqual([
-      'lg:[grid-area:pub]',
       'lg:[grid-area:res]',
+      'lg:[grid-area:pub]',
       'lg:[grid-area:chk]',
       'lg:[grid-area:sup]',
     ])

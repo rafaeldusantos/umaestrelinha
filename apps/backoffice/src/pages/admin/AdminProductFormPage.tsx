@@ -612,16 +612,17 @@ const AdminProductFormPage = () => {
       {/* RES-06: a página é UMA grade de áreas, e não "coluna principal + <aside>". Abaixo de `lg` é
           uma coluna só, na ordem do DOM: Resumo, abas, Publicação, Pronto para publicar, Fornecedor.
           A partir de `lg`, as abas ocupam a esquerda em todas as linhas e a direita empilha
-          Publicação → Resumo → Pronto para publicar → Fornecedor (RES-01).
+          Resumo → Publicação → Pronto para publicar → Fornecedor (RES-01, revisto em 2026-10-28:
+          o Resumo foi para o topo).
 
           A última linha é `1fr` e só a coluna principal passa por ela: um item que atravessa trilhas
           `auto` reparte a altura que sobra entre elas, e a coluna das abas, mais alta que a lateral,
           afastaria os cards da direita uns dos outros. Com a trilha flexível no fim, o excesso cai
           nela e os cards da lateral ficam juntos no topo. */}
-      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:grid-rows-[auto_auto_auto_auto_1fr] lg:[grid-template-areas:'main_pub'_'main_res'_'main_chk'_'main_sup'_'main_.']">
+      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:grid-rows-[auto_auto_auto_auto_1fr] lg:[grid-template-areas:'main_res'_'main_pub'_'main_chk'_'main_sup'_'main_.']">
         {/* RES-01, RES-06: o Resumo existe UMA vez no DOM, e é o PRIMEIRO item da grade — a ordem do
             celular, que é o caso principal: abaixo de `lg` a Adri abre o produto e vê a peça antes das
-            abas. A partir de `lg` a grade o leva para a coluna da direita, logo depois de Publicação.
+            abas. A partir de `lg` a grade o leva para o topo da coluna da direita, acima de Publicação.
             Ordem do DOM = ordem de leitura e de Tab nos dois tamanhos (design, Tech Decisions). */}
         <div className="min-w-0 lg:[grid-area:res]">
           <FormCard
@@ -1058,9 +1059,9 @@ const AdminProductFormPage = () => {
             </FormCard>
         </div>
 
-        {/* A ordem da coluna (RES-01): Publicação → Resumo → Pronto para publicar → Fornecedor. O
-            Resumo subiu para logo depois de Publicação porque agora carrega as fotos, o que mais
-            identifica a peça; e a "Prévia na loja" saiu (RES-02) — era uma segunda cópia do card da
+        {/* A ordem da coluna (RES-01): Resumo → Publicação → Pronto para publicar → Fornecedor. O
+            Resumo é o primeiro porque carrega as fotos, o que mais identifica a peça (e, desde
+            2026-10-28, vem acima de Publicação); e a "Prévia na loja" saiu (RES-02) — era uma segunda cópia do card da
             vitrine, e o atalho dela foi para o cabeçalho do Resumo (RES-07). */}
         <div className="min-w-0 lg:[grid-area:chk]">
           <PublishChecklist

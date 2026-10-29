@@ -182,7 +182,7 @@ describe('AdminProductFormPage — a aba Geral em três cards (artboard `aba Ger
 })
 
 // Reescrito na feature 85 (RES-01, RES-02, RES-06). Era Publicação → Pronto para publicar → Resumo
-// → Prévia na loja. O Resumo subiu para logo depois de Publicação, a Prévia saiu, e no DOM o Resumo
+// → Prévia na loja. O Resumo subiu para o topo da coluna (acima de Publicação, desde 2026-10-28), a Prévia saiu, e no DOM o Resumo
 // vem PRIMEIRO (a ordem do celular); a ordem da coluna a partir de `lg` vem das áreas da grade, que
 // `AdminProductFormPage.midia.test.tsx` prova por token exato, junto com o Fornecedor.
 describe('AdminProductFormPage — a ordem do inspetor (feature 85)', () => {
