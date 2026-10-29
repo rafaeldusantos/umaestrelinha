@@ -289,38 +289,42 @@ describe('useAdminProductList — busca e filtros (PLS-02 AC 5-6)', () => {
     expect(productsCall()).toHaveLength(1)
   })
 
-  it('filtro de categoria resolve o N:N no servidor e restringe por id', async () => {
-    categoryLinksResponse = { data: [{ product_id: 'p1' }, { product_id: 'p2' }] }
+  it('filtro de categoria vira embed `!inner` filtrado no servidor, sem levar ids na URL', async () => {
+    await renderList({ filters: { ...emptyFilters(), categoryIds: ['cat-anime', 'cat-b'] } })
 
-    await renderList({ filters: { ...emptyFilters(), categoryIds: ['cat-anime'] } })
-
-    expect(filterArgs(lastProductsCall(), 'in')).toContainEqual(['id', ['p1', 'p2']])
+    const call = lastProductsCall()
+    expect(call.select?.[0]).toContain('filtro_categoria:product_categories!inner(category_id)')
+    expect(filterArgs(call, 'in')).toEqual([['filtro_categoria.category_id', ['cat-anime', 'cat-b']]])
+    // Nenhuma consulta prévia de vínculo: era ela que devolvia ~670 ids para o `id=in.(…)`, e a
+    // URL de "Joias e acessórios" passava de 26 KB (400 em produção, 2026-10-29).
+    expect(calls.filter(c => c.table === 'product_categories')).toHaveLength(0)
+    // O embed de EXIBIÇÃO segue intacto: filtrar nele cortaria as outras categorias da linha.
+    expect(call.select?.[0]).toContain('product_categories(category_id, position)')
   })
 
-  it('FOR-18 — filtro de fornecedor resolve o vínculo no servidor e restringe por id', async () => {
-    supplierLinksResponse = { data: [{ product_id: 'p1' }, { product_id: 'p3' }] }
+  it('sem filtro de categoria nem de fornecedor, o select não ganha embed `!inner`', async () => {
+    await renderList()
+    expect(lastProductsCall().select?.[0]).toBe(LIST_SELECT)
+  })
 
+  it('FOR-18 — filtro de fornecedor vira embed `!inner` filtrado no servidor', async () => {
     await renderList({ filters: { ...emptyFilters(), supplierIds: ['atelie'] } })
 
-    const vinculo = calls.find(c => c.table === 'product_suppliers')!
-    expect(vinculo.select?.[0]).toBe('product_id')
-    expect(filterArgs(vinculo, 'in')).toEqual([['supplier_id', ['atelie']]])
-    expect(filterArgs(lastProductsCall(), 'in')).toContainEqual(['id', ['p1', 'p3']])
+    const call = lastProductsCall()
+    expect(call.select?.[0]).toContain('filtro_fornecedor:product_suppliers!inner(supplier_id)')
+    expect(call.select?.[0]).not.toContain('!inner(category_id)')
+    expect(filterArgs(call, 'in')).toEqual([['filtro_fornecedor.supplier_id', ['atelie']]])
+    expect(calls.filter(c => c.table === 'product_suppliers')).toHaveLength(0)
   })
 
-  it('FOR-18 — com categoria E fornecedor vale a interseção', async () => {
-    categoryLinksResponse = { data: [{ product_id: 'p1' }, { product_id: 'p2' }] }
-    supplierLinksResponse = { data: [{ product_id: 'p2' }, { product_id: 'p3' }] }
-
+  it('FOR-18 — com categoria E fornecedor, os dois `!inner` na mesma consulta dão a interseção', async () => {
     await renderList({ filters: { ...emptyFilters(), categoryIds: ['c1'], supplierIds: ['atelie'] } })
 
-    expect(filterArgs(lastProductsCall(), 'in')).toEqual([['id', ['p2']]])
-  })
-
-  it('FOR-18 — fornecedor sem produto devolve vazio sem consultar o catálogo', async () => {
-    const { result } = await renderList({ filters: { ...emptyFilters(), supplierIds: ['ninguem'] } })
-    expect(result.current.total).toBe(0)
-    expect(productsCall()).toHaveLength(0)
+    expect(productsCall()).toHaveLength(1)
+    expect(filterArgs(lastProductsCall(), 'in')).toEqual([
+      ['filtro_categoria.category_id', ['c1']],
+      ['filtro_fornecedor.supplier_id', ['atelie']],
+    ])
   })
 
   it('FOR-18 — o filtro de fornecedor conta como filtro ativo', () => {
@@ -352,14 +356,13 @@ describe('useAdminProductList — busca e filtros (PLS-02 AC 5-6)', () => {
     expect(toListRow({ id: 'p1', name: 'Anel', product_suppliers: [] }).moreSuppliers).toBe(0)
   })
 
-  it('categoria sem nenhum produto devolve lista vazia sem consultar o catálogo', async () => {
-    categoryLinksResponse = { data: [] }
+  it('categoria sem nenhum produto devolve lista vazia', async () => {
+    productsResponse = { data: [], error: null, count: 0 }
 
     const { result } = await renderList({ filters: { ...emptyFilters(), categoryIds: ['cat-vazia'] } })
 
     expect(result.current.rows).toEqual([])
     expect(result.current.total).toBe(0)
-    expect(productsCall()).toHaveLength(0)
   })
 
   it('faixa de preço e tags viram filtro de coluna', async () => {

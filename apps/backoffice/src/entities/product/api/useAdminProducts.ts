@@ -104,6 +104,10 @@ export const LIST_SELECT = [
   'product_suppliers(url, position, suppliers(name))',
 ].join(', ')
 
+/** Apelidos dos embeds que só filtram — nunca lidos por `toListRow`. */
+const CATEGORY_FILTER = 'filtro_categoria'
+const SUPPLIER_FILTER = 'filtro_fornecedor'
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /** O primeiro fornecedor (a coluna mostra ele) e quantos há além dele. */
 const supplierOfRow = (row: any): Pick<AdminListRow, 'supplier' | 'moreSuppliers'> => {
@@ -241,38 +245,22 @@ export const useAdminProductList = (query: ProductQuery): ProductListResult => {
   const queryKey = useMemo(() => JSON.stringify(query), [query])
 
   /**
-   * Monta a consulta filtrada (sem paginar). Devolve `null` quando o filtro já exclui tudo — aí
-   * nem chega a pedir a página.
+   * Monta a consulta filtrada (sem paginar).
    */
-  const buildFilteredQuery = useCallback(async (current: ProductQuery): Promise<{ builder: any } | null> => {
-    // As consultas auxiliares vêm ANTES de montar a do catálogo: categoria sem nenhum produto
-    // encerra aqui, sem chegar a pedir a página.
-    let categoryProductIds: string[] | null = null
-    if (current.filters.categoryIds.length > 0) {
-      // Categoria é N:N (`product_categories`), então não há coluna do produto para filtrar. Duas
-      // consultas resolvem no servidor; filtrar em memória traria o catálogo inteiro de volta.
-      const { data: links } = await supabase
-        .from('product_categories')
-        .select('product_id')
-        .in('category_id', current.filters.categoryIds)
-      categoryProductIds = [...new Set((links ?? []).map((l: any) => l.product_id as string))]
-      if (categoryProductIds.length === 0) return null
-    }
-
-    // Feature 80 (FOR-18): o mesmo caminho da categoria — o vínculo é tabela própria. Com os dois
-    // filtros, vale a INTERSEÇÃO (produto da categoria E do fornecedor).
+  const buildFilteredQuery = useCallback(async (current: ProductQuery): Promise<{ builder: any }> => {
+    // Categoria e fornecedor são N:N (`product_categories`, `product_suppliers`): o filtro é um
+    // embed `!inner` com apelido próprio, e o recorte acontece no Postgres. A forma anterior lia os
+    // ids dos vínculos e os devolvia em `id=in.(…)` — com ~670 produtos em "Joias e acessórios" a
+    // URL passava de 26 KB e o gateway respondia 400. O apelido é o que deixa o embed de exibição
+    // (`product_categories(category_id, position)`) inteiro: filtrar nele cortaria as outras
+    // categorias da linha. Com os dois filtros, os dois `!inner` dão a INTERSEÇÃO (FOR-18).
+    const categoryIds = current.filters.categoryIds
     const supplierIds = current.filters.supplierIds ?? []
-    if (supplierIds.length > 0) {
-      const { data: links } = await supabase
-        .from('product_suppliers')
-        .select('product_id')
-        .in('supplier_id', supplierIds)
-      const supplierProductIds = new Set((links ?? []).map((l: any) => l.product_id as string))
-      categoryProductIds = categoryProductIds
-        ? categoryProductIds.filter(id => supplierProductIds.has(id))
-        : [...supplierProductIds]
-      if (categoryProductIds.length === 0) return null
-    }
+    const select = [
+      LIST_SELECT,
+      ...(categoryIds.length > 0 ? [`${CATEGORY_FILTER}:product_categories!inner(category_id)`] : []),
+      ...(supplierIds.length > 0 ? [`${SUPPLIER_FILTER}:product_suppliers!inner(supplier_id)`] : []),
+    ].join(', ')
 
     const term = escapeSearchTerm(current.search)
     let searchCondition: string | null = null
@@ -290,9 +278,10 @@ export const useAdminProductList = (query: ProductQuery): ProductListResult => {
       searchCondition = conditions.join(',')
     }
 
-    let builder: any = supabase.from('products').select(LIST_SELECT, { count: 'exact' })
+    let builder: any = supabase.from('products').select(select, { count: 'exact' })
     builder = applyView(builder, current.filters.view)
-    if (categoryProductIds) builder = builder.in('id', categoryProductIds)
+    if (categoryIds.length > 0) builder = builder.in(`${CATEGORY_FILTER}.category_id`, categoryIds)
+    if (supplierIds.length > 0) builder = builder.in(`${SUPPLIER_FILTER}.supplier_id`, supplierIds)
     if (current.filters.tags.length > 0) builder = builder.contains('tags', current.filters.tags)
     if (current.filters.priceMin !== null) builder = builder.gte('base_price', current.filters.priceMin)
     if (current.filters.priceMax !== null) builder = builder.lte('base_price', current.filters.priceMax)
@@ -310,10 +299,6 @@ export const useAdminProductList = (query: ProductQuery): ProductListResult => {
     setError(null)
 
     const query = await buildFilteredQuery(current)
-    if (!query) {
-      setRows([]); setTotal(0); setLoading(false)
-      return
-    }
 
     const [from, to] = pageRange(current.page, current.pageSize)
     const { data, error: queryError, count } = await query.builder.range(from, to)
@@ -341,7 +326,6 @@ export const useAdminProductList = (query: ProductQuery): ProductListResult => {
   const fetchAllFiltered = useCallback(async (): Promise<AdminListRow[]> => {
     const current: ProductQuery = JSON.parse(queryKey)
     const query = await buildFilteredQuery(current)
-    if (!query) return []
     const { data, error: queryError } = await query.builder
     return queryError ? [] : (data ?? []).map(toListRow)
   }, [queryKey, buildFilteredQuery])
